@@ -2,6 +2,7 @@
 /* ===FileName: ===
    Copyright (c) 1998 Takuya SHIOZAKI, All Rights reserved.
    Copyright (c) 1998 X-TrueType Server Project, All rights reserved. 
+   Copyright (c) 1999 Pablo Saratxaga <pablo@mandrakesoft.com>
    
 ===Notice
    Redistribution and use in source and binary forms, with or without
@@ -29,11 +30,14 @@
 
 Notice===
  */
+/* $XFree86: xc/extras/X-TrueType/ISO8859.5/main.c,v 1.3 2003/10/22 16:25:41 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"
@@ -43,17 +47,20 @@ static char const * const releaseID =
 
 typedef enum
 {
-    ISO8859_5
+    ISO8859_5,
+    CP1251
 } CharSetMagic;
 
 static CharSetRelation const charSetRelations[] = {
-    { "iso8859",  NULL, "5",  ISO8859_5, { 0x20, 0xff, 0,    0,    0x20 } },
+    { "iso8859",   NULL,      "5", ISO8859_5, { 0x20, 0xff,  0,  0, 0x20 } },
+    { "microsoft", NULL, "cp1251",    CP1251, { 0x20, 0xff,  0,  0, 0x20 } },
     { NULL, NULL, NULL, 0, { 0, 0, 0, 0, 0 } }
 };
 
 
 CODECONV_TEMPLATE(cc_iso8859_5_to_apple_cyrillic);
 CODECONV_TEMPLATE(cc_iso8859_5_to_ucs2);
+CODECONV_TEMPLATE(cc_cp1251_to_ucs2);
 static MapIDRelation const mapIDRelations[] = {
     { ISO8859_5,    EPlfmISO,     EEncISO10646,
                                   cc_iso8859_5_to_ucs2,                NULL },
@@ -63,6 +70,12 @@ static MapIDRelation const mapIDRelations[] = {
                                   cc_iso8859_5_to_ucs2,                NULL },
     { ISO8859_5,    EPlfmApple,   EEncAppleCenteuro,
                                   cc_iso8859_5_to_apple_cyrillic,      NULL },
+    { CP1251,       EPlfmISO,     EEncISO10646,
+                                  cc_cp1251_to_ucs2,                   NULL },
+    { CP1251,       EPlfmUnicode, EEncAny,
+                                  cc_cp1251_to_ucs2,                   NULL },
+    { CP1251,       EPlfmMS,      EEncMSUnicode,
+                                  cc_cp1251_to_ucs2,                   NULL },
     { -1, 0, 0, NULL, NULL }
 };
 

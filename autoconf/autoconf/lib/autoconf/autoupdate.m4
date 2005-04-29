@@ -1,6 +1,6 @@
 # This file is part of Autoconf.                       -*- Autoconf -*-
 # Interface with autoupdate.
-# Copyright 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001
+# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2003
 # Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -78,10 +78,10 @@ m4_define([AU_DEFINE],
 # See `acobsolete.m4' for a longer description.
 m4_define([AU_DEFUN],
 [AU_DEFINE([$1],
-           [AC_DIAGNOSE([obsolete], [The macro `$1' is obsolete.
+	   [AC_DIAGNOSE([obsolete], [The macro `$1' is obsolete.
 You should run autoupdate.])dnl
 $2],
-           [$3])dnl
+	   [$3])dnl
 ])
 
 

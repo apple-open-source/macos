@@ -1208,12 +1208,26 @@ typedef VDDetailedTimingRec *           VDDetailedTimingPtr;
 enum {
     kScaleStretchOnlyMask	  = (1<<0),			/* True means the driver cannot add borders to avoid non-square pixels */
     kScaleCanUpSamplePixelsMask	  = (1<<1),			/* True means timings with more active clocks than pixels (ie 640x480 pixels on a 1600x1200 timing) */
-    kScaleCanDownSamplePixelsMask = (1<<2)			/* True means timings with fewer active clocks than pixels (ie 1600x1200  pixels on a 640x480 timing) */
+    kScaleCanDownSamplePixelsMask = (1<<2),			/* True means timings with fewer active clocks than pixels (ie 1600x1200  pixels on a 640x480 timing) */
+    kScaleCanScaleInterlacedMask  = (1<<3),			/* True means can scale an interlaced timing */
+    kScaleCanSupportInsetMask     = (1<<4),			/* True means can scale a timing with insets */
+    kScaleCanRotateMask           = (1<<5)			/* True means can rotate image */
 };
 
 /* csScalerFlags */
 enum {
-    kScaleStretchToFitMask	  = (1<<0)			/* True means the driver should avoid borders and allow non-square pixels */
+    kScaleStretchToFitMask	= 0x00000001,			/* True means the driver should avoid borders and allow non-square pixels */
+
+    kScaleRotateFlagsMask	= 0x000000f0,
+
+    kScaleSwapAxesMask		= 0x00000010,
+    kScaleInvertXMask		= 0x00000020,
+    kScaleInvertYMask		= 0x00000040,
+
+    kScaleRotate0Mask		= 0x00000000,
+    kScaleRotate90Mask		= kScaleSwapAxesMask | kScaleInvertXMask,
+    kScaleRotate180Mask		= kScaleInvertXMask  | kScaleInvertYMask,
+    kScaleRotate270Mask		= kScaleSwapAxesMask | kScaleInvertYMask
 };
 
 typedef UInt32			VDClutBehavior;
@@ -1284,9 +1298,8 @@ struct VDScalerRec {
     UInt32                          csScalerFlags;		/* Init to 0 */
     UInt32                          csHorizontalPixels;		/* Graphics system addressable pixels */
     UInt32                          csVerticalPixels;		/* Graphics system addressable lines */
-    UInt32                          csReserved4;		/* Init to 0 */
-
-    UInt32                          csReserved5;		/* Init to 0 */
+    UInt32                          csHorizontalInset;          /* Border pixels for underscan */
+    UInt32                          csVerticalInset;            /* Border lines for underscan */
     UInt32                          csReserved6;		/* Init to 0 */
     UInt32                          csReserved7;		/* Init to 0 */
     UInt32                          csReserved8;		/* Init to 0 */

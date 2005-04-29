@@ -171,7 +171,9 @@ main (void)
 
   struct crass { char * const ptr; } crass;
   struct crisp { char * const *ptr; } crisp;
-
+  char * a = crass.ptr;     // These two linse are needed when compilation is done with option -gused ,
+  crisp.ptr = 0;            // otherwise crass and criss would be eliminated from debug info.
+  
   /* misc. references */
   /*
   const char           & radiation = laconic;

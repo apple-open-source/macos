@@ -1,6 +1,6 @@
 .TH LDAP_OPEN 3 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_open.3,v 1.7.2.3 2003/03/03 17:10:02 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_open.3,v 1.11.2.2 2004/01/01 18:16:27 kurt Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_init, ldap_open \- Initialize the LDAP library and open a connection to an LDAP server
@@ -70,7 +70,7 @@ for more details.
 		char		*ld_matched;
 		int		ld_refhoplimit;
 		unsigned long	ld_options;
-	#define LDAP_OPT_REFERRALS      0x00000002	/* set by default */
+	#define LDAP_OPT_REFERRALS      0x00000002 /* set by default */
 	#define LDAP_OPT_RESTART	0x00000004
 		/* ... other stuff you should not mess with ... */
 	} LDAP;
@@ -116,7 +116,7 @@ in the LDAP structure.
 .BR ldap_bind (3),
 .BR errno (3)
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

@@ -2,8 +2,6 @@ MAN3DIR=/usr/share/man/man3
 MAN5DIR=/usr/share/man/man5
 
 install-netinfo-man:
-	install -m 755 -o root -g wheel -d $(DSTROOT)$(MAN3DIR)
-	install -m 644 -o root -g wheel -c netinfo.3 "$(DSTROOT)$(MAN3DIR)"
 	install -m 755 -o root -g wheel -d $(DSTROOT)$(MAN5DIR)
 	install -m 644 -o root -g wheel -c netinfo.5 "$(DSTROOT)$(MAN5DIR)"
 

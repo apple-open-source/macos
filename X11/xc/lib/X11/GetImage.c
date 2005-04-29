@@ -24,20 +24,17 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/GetImage.c,v 1.4 2001/12/14 19:54:00 dawes Exp $ */
+/* $XFree86: xc/lib/X11/GetImage.c,v 1.5 2003/04/13 19:22:16 dawes Exp $ */
 
 #define NEED_REPLIES
 #include "Xlibint.h"
 #include <X11/Xutil.h>		/* for XDestroyImage */
-
-/* ImUtil.c */
-extern int _XGetScanlinePad();
-extern int _XSetImage();
+#include "ImUtil.h"
 
 #define ROUNDUP(nbytes, pad) (((((nbytes) - 1) + (pad)) / (pad)) * (pad))
 
-static unsigned int Ones(mask)                /* HACKMEM 169 */
-    unsigned long mask;
+static unsigned int Ones(                /* HACKMEM 169 */
+    unsigned long mask)
 {
     register unsigned long y;
 

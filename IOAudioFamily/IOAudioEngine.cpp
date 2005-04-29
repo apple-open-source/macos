@@ -42,8 +42,6 @@
 
 #define super IOService
 
-//UInt32 IOAudioEngine::sInstanceCount = 0;
-
 OSDefineMetaClassAndAbstractStructors(IOAudioEngine, IOService)
 
 OSMetaClassDefineReservedUsed(IOAudioEngine, 0);
@@ -55,10 +53,10 @@ OSMetaClassDefineReservedUsed(IOAudioEngine, 5);
 OSMetaClassDefineReservedUsed(IOAudioEngine, 6);
 OSMetaClassDefineReservedUsed(IOAudioEngine, 7);
 OSMetaClassDefineReservedUsed(IOAudioEngine, 8);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 9);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 10);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 11);
 
-OSMetaClassDefineReservedUnused(IOAudioEngine, 9);
-OSMetaClassDefineReservedUnused(IOAudioEngine, 10);
-OSMetaClassDefineReservedUnused(IOAudioEngine, 11);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 12);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 13);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 14);
@@ -97,6 +95,31 @@ OSMetaClassDefineReservedUnused(IOAudioEngine, 46);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 47);
 
 // New Code:
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 11);
+void IOAudioEngine::setInputSampleOffset(UInt32 numSamples) {
+    audioDebugIOLog(3, "IOAudioEngine[%p]::setInputSampleOffset(0x%lx)", this, numSamples);
+	assert(reserved);
+	reserved->inputSampleOffset = numSamples;
+    setProperty(kIOAudioEngineInputSampleOffsetKey, numSamples, sizeof(UInt32)*8);
+}
+
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 10);
+void IOAudioEngine::setOutputSampleOffset(UInt32 numSamples) {
+    audioDebugIOLog(3, "IOAudioEngine[%p]::setOutputSampleOffset(0x%lx)", this, numSamples);
+	setSampleOffset(numSamples);
+}
+
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 9);
+IOReturn IOAudioEngine::convertInputSamplesVBR(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 &numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
+{
+	IOReturn result;
+
+    result = convertInputSamples(sampleBuf, destBuf, firstSampleFrame, numSampleFrames, streamFormat, audioStream);
+		
+	return result;
+}
+
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 8);
 void IOAudioEngine::setClockDomain(UInt32 inClockDomain) {
 	UInt32		clockDomain;
 
@@ -109,10 +132,12 @@ void IOAudioEngine::setClockDomain(UInt32 inClockDomain) {
 	setProperty(kIOAudioEngineClockDomainKey, clockDomain, sizeof(UInt32)*8);
 }
 
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 7);
 void IOAudioEngine::setClockIsStable(bool clockIsStable) {
 	setProperty(kIOAudioEngineClockIsStableKey, clockIsStable);
 }
 
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 6);
 IOAudioStream * IOAudioEngine::getStreamForID(UInt32 streamID) {
 	IOAudioStream *			stream = NULL;
 
@@ -124,6 +149,7 @@ IOAudioStream * IOAudioEngine::getStreamForID(UInt32 streamID) {
 	return stream;
 }
 
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 5);
 UInt32 IOAudioEngine::getNextStreamID(IOAudioStream * newStream) {
 	bool			inserted;
 
@@ -137,14 +163,17 @@ UInt32 IOAudioEngine::getNextStreamID(IOAudioStream * newStream) {
 	return reserved->streams->getCount() - 1;
 }
 
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 4);
 void IOAudioEngine::lockStreamForIO(IOAudioStream *stream) {
 	stream->lockStreamForIO();
 }
 
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 3);
 void IOAudioEngine::unlockStreamForIO(IOAudioStream *stream) {
 	stream->unlockStreamForIO();
 }
 
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 2);
 IOReturn IOAudioEngine::performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *newSampleRate)
 {
     audioDebugIOLog(3, "IOAudioEngine[%p]::performFormatChange(%p, %p, %p, %p)", this, audioStream, newFormat, formatExtension, newSampleRate);
@@ -152,6 +181,7 @@ IOReturn IOAudioEngine::performFormatChange(IOAudioStream *audioStream, const IO
     return kIOReturnUnsupported;
 }
 
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 1);
 IOBufferMemoryDescriptor *IOAudioEngine::getStatusDescriptor()
 {
     audioDebugIOLog(3, "IOAudioEngine[%p]::getStatusDescriptor()", this);
@@ -1599,7 +1629,7 @@ void IOAudioEngine::setRunEraseHead(bool erase)
 
 bool IOAudioEngine::getRunEraseHead()
 {
-    audioDebugIOLog(5, "IOAudioEngine[%p]::getRunEraseHead()", this);
+    audioDebugIOLog(7, "IOAudioEngine[%p]::getRunEraseHead()", this);
 
     return runEraseHead;
 }
@@ -1647,7 +1677,7 @@ void IOAudioEngine::timerCallback(OSObject *target, IOAudioDevice *device)
 {
     IOAudioEngine *audioEngine;
 
-    audioDebugIOLog(5, "IOAudioEngine::timerCallback(%p, %p)", target, device);
+    audioDebugIOLog(7, "IOAudioEngine::timerCallback(%p, %p)", target, device);
 
     audioEngine = OSDynamicCast(IOAudioEngine, target);
     if (audioEngine) {
@@ -1657,7 +1687,7 @@ void IOAudioEngine::timerCallback(OSObject *target, IOAudioDevice *device)
 
 void IOAudioEngine::timerFired()
 {
-    audioDebugIOLog(5, "IOAudioEngine[%p]::timerFired()", this);
+    audioDebugIOLog(7, "IOAudioEngine[%p]::timerFired()", this);
 
     performErase();
     performFlush();
@@ -1665,7 +1695,7 @@ void IOAudioEngine::timerFired()
 
 void IOAudioEngine::performErase()
 {
-    audioDebugIOLog(5, "IOAudioEngine[%p]::performErase()", this);
+    audioDebugIOLog(7, "IOAudioEngine[%p]::performErase()", this);
 
     assert(status);
     
@@ -1695,8 +1725,8 @@ void IOAudioEngine::performErase()
                 mixBufferFrameSize = outputStream->format.fNumChannels * kIOAudioEngineDefaultMixBufferSampleSize;
                 
                 if (currentSampleFrame < eraseHeadSampleFrame) {
-                    audioDebugIOLog(5, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx", this, eraseHeadSampleFrame, numSampleFramesPerBuffer);
-                    audioDebugIOLog(5, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%x to 0x%lx", this, 0, currentSampleFrame);
+                    audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx", this, eraseHeadSampleFrame, numSampleFramesPerBuffer);
+                    audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%x to 0x%lx", this, 0, currentSampleFrame);
 					eraseOutputSamples(mixBuf, sampleBuf, 0, currentSampleFrame, &outputStream->format, outputStream);
 					eraseOutputSamples(mixBuf, sampleBuf, eraseHeadSampleFrame, numSampleFramesPerBuffer - eraseHeadSampleFrame, &outputStream->format, outputStream);
 /*					if ((currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize()) &&
@@ -1714,7 +1744,7 @@ void IOAudioEngine::performErase()
 						}
 					} */
                 } else {
-                    audioDebugIOLog(5, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx", this, eraseHeadSampleFrame, currentSampleFrame);
+                    audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx", this, eraseHeadSampleFrame, currentSampleFrame);
 
 					eraseOutputSamples(mixBuf, sampleBuf, eraseHeadSampleFrame, currentSampleFrame - eraseHeadSampleFrame, &outputStream->format, outputStream);
 /*					if ((eraseHeadSampleFrame * sampleBufferFrameSize + (currentSampleFrame - eraseHeadSampleFrame) * sampleBufferFrameSize) <= outputStream->getSampleBufferSize()) {
@@ -1753,7 +1783,7 @@ void IOAudioEngine::stopEngineAtPosition(IOAudioEnginePosition *endingPosition)
 
 void IOAudioEngine::performFlush()
 {
-    audioDebugIOLog(5, "IOAudioEngine[%p]::performFlush()", this);
+    audioDebugIOLog(6, "IOAudioEngine[%p]::performFlush()", this);
 
     if ((numActiveUserClients == 0) && (getState() == kIOAudioEngineRunning)) {
         IOAudioEnginePosition currentPosition;

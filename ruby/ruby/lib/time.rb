@@ -1,44 +1,51 @@
-# $Id: time.rb,v 1.1.1.2 2003/05/14 13:58:49 melville Exp $
+
+#
+# == Introduction
+# 
+# This library extends the Time class:
+# * conversion between date string and time object.
+#   * date-time defined by RFC 2822
+#   * HTTP-date defined by RFC 2616
+#   * dateTime defined by XML Schema Part 2: Datatypes (ISO 8601)
+#   * various formats handled by ParseDate (string to time only)
+# 
+# == Design Issues
+# 
+# === Specialized interface
+# 
+# This library provides methods dedicated to special purposes:
+# * RFC 2822, RFC 2616 and XML Schema.
+# * They makes usual life easier.
+# 
+# === Doesn't depend on strftime
+# 
+# This library doesn't use +strftime+.  Especially #rfc2822 doesn't depend
+# on +strftime+ because:
+# 
+# * %a and %b are locale sensitive
+# 
+#   Since they are locale sensitive, they may be replaced to
+#   invalid weekday/month name in some locales.
+#   Since ruby-1.6 doesn't invoke setlocale by default,
+#   the problem doesn't arise until some external library invokes setlocale.
+#   Ruby/GTK is the example of such library.
+# 
+# * %z is not portable
+# 
+#   %z is required to generate zone in date-time of RFC 2822
+#   but it is not portable.
+#
+# == Revision Information
+#
+# $Id$
+#
 
 require 'parsedate'
 
-=begin
-= time
-
-This library extends Time class:
-* conversion between date string and time object.
-  * date-time defined by RFC 2822
-  * HTTP-date defined by RFC 2616
-  * dateTime defined by XML Schema Part 2: Datatypes (ISO 8601)
-  * various format handled by ParseDate (string to time only)
-
-== Design Issue
-
-* specialized interface
-
-  This library provides methods dedicated to special puposes:
-  RFC 2822, RFC 2616 and XML Schema.
-  They makes usual life easier.
-
-* doesn't depend on strftime
-
-  This library doesn't use strftime.
-  Especially Time#rfc2822 doesn't depend on strftime because:
-
-  * %a and %b are locale sensitive
-
-    Since they are locale sensitive, they may be replaced to
-    invalid weekday/month name in some locales.
-    Since ruby-1.6 doesn't invoke setlocale by default,
-    the problem doesn't arise until some external library invokes setlocale.
-    Ruby/GTK is the example of such library.
-
-  * %z is not portable
-
-    %z is required to generate zone in date-time of RFC 2822
-    but it is not portable.
-=end
-
+#
+# Implements the extensions to the Time class that are described in the
+# documentation for the time.rb library.
+#
 class Time
   class << Time
 
@@ -62,9 +69,9 @@ class Time
     def zone_offset(zone, year=Time.now.year)
       off = nil
       zone = zone.upcase
-      if /\A([-+])(\d\d):?(\d\d)\z/ =~ zone
+      if /\A([+-])(\d\d):?(\d\d)\z/ =~ zone
         off = ($1 == '-' ? -1 : 1) * ($2.to_i * 60 + $3.to_i) * 60
-      elsif /\A[-+]\d\d\z/ =~ zone
+      elsif /\A[+-]\d\d\z/ =~ zone
         off = zone.to_i * 3600
       elsif ZoneOffset.include?(zone)
         off = ZoneOffset[zone] * 3600
@@ -76,66 +83,59 @@ class Time
       off
     end
 
-=begin
-== class methods
-
---- Time.parse(date, now=Time.now)
---- Time.parse(date, now=Time.now) {|year| year}
-    parses ((|date|)) using ParseDate.parsedate and converts it to a
-    Time object.
-
-    If a block is given, the year described in ((|date|)) is converted
-    by the block.  For example:
-
-        Time.parse(...) {|y| y < 100 ? (y >= 69 ? y + 1900 : y + 2000) : y}
-
-    If the upper components of the given time are broken or missing,
-    they are supplied with those of ((|now|)).  For the lower
-    components, the minimum values (1 or 0) are assumed if broken or
-    missing.  For example:
-
-        # Suppose it is "Thu Nov 29 14:33:20 GMT 2001" now and
-        # your timezone is GMT:
-        Time.parse("16:30")     #=> Thu Nov 29 16:30:00 GMT 2001
-        Time.parse("7/23")      #=> Mon Jul 23 00:00:00 GMT 2001
-        Time.parse("2002/1")    #=> Tue Jan 01 00:00:00 GMT 2002
-
-    Since there are numerous conflicts among locally defined timezone
-    abbreviations all over the world, this method is not made to
-    understand all of them.  For example, the abbreviation "CST" is
-    used variously as:
-
-        -06:00 in America/Chicago,
-        -05:00 in America/Havana,
-        +08:00 in Asia/Harbin,
-        +09:30 in Australia/Darwin,
-        +10:30 in Australia/Adelaide,
-        etc.
-
-    Based on the fact, this method only understands the timezone
-    abbreviations described in RFC 822 and the system timezone, in the
-    order named. (i.e. a definition in RFC 822 overrides the system
-    timezone definition)  The system timezone is taken from
-    (({Time.local(year, 1, 1).zone})) and
-    (({Time.local(year, 7, 1).zone})).
-    If the extracted timezone abbreviation does not match any of them,
-    it is ignored and the given time is regarded as a local time.
-
-    ArgumentError is raised if ParseDate cannot extract
-    information from ((|date|))
-    or Time class cannot represent specified date.
-
-    This method can be used as fail-safe for other parsing methods as:
-
-      Time.rfc2822(date) rescue Time.parse(date)
-      Time.httpdate(date) rescue Time.parse(date)
-      Time.xmlschema(date) rescue Time.parse(date)
-
-    A failure for Time.parse should be checked, though.
-=end
+    #
+    # Parses +date+ using ParseDate.parsedate and converts it to a Time object.
+    #
+    # If a block is given, the year described in +date+ is converted by the
+    # block.  For example:
+    #
+    #     Time.parse(...) {|y| y < 100 ? (y >= 69 ? y + 1900 : y + 2000) : y}
+    #
+    # If the upper components of the given time are broken or missing, they are
+    # supplied with those of +now+.  For the lower components, the minimum
+    # values (1 or 0) are assumed if broken or missing.  For example:
+    #
+    #     # Suppose it is "Thu Nov 29 14:33:20 GMT 2001" now and
+    #     # your timezone is GMT:
+    #     Time.parse("16:30")     #=> Thu Nov 29 16:30:00 GMT 2001
+    #     Time.parse("7/23")      #=> Mon Jul 23 00:00:00 GMT 2001
+    #     Time.parse("Aug 31")    #=> Fri Aug 31 00:00:00 GMT 2001
+    #
+    # Since there are numerous conflicts among locally defined timezone
+    # abbreviations all over the world, this method is not made to
+    # understand all of them.  For example, the abbreviation "CST" is
+    # used variously as:
+    #
+    #     -06:00 in America/Chicago,
+    #     -05:00 in America/Havana,
+    #     +08:00 in Asia/Harbin,
+    #     +09:30 in Australia/Darwin,
+    #     +10:30 in Australia/Adelaide,
+    #     etc.
+    #
+    # Based on the fact, this method only understands the timezone
+    # abbreviations described in RFC 822 and the system timezone, in the
+    # order named. (i.e. a definition in RFC 822 overrides the system
+    # timezone definition.)  The system timezone is taken from
+    # <tt>Time.local(year, 1, 1).zone</tt> and
+    # <tt>Time.local(year, 7, 1).zone</tt>.
+    # If the extracted timezone abbreviation does not match any of them,
+    # it is ignored and the given time is regarded as a local time.
+    #
+    # ArgumentError is raised if ParseDate cannot extract information from
+    # +date+ or Time class cannot represent specified date.
+    #
+    # This method can be used as fail-safe for other parsing methods as:
+    #
+    #   Time.rfc2822(date) rescue Time.parse(date)
+    #   Time.httpdate(date) rescue Time.parse(date)
+    #   Time.xmlschema(date) rescue Time.parse(date)
+    #
+    # A failure for Time.parse should be checked, though.
+    #
     def parse(date, now=Time.now)
       year, mon, day, hour, min, sec, zone, _ = ParseDate.parsedate(date)
-      year = yield year if year && block_given?
+      year = yield(year) if year && block_given?
 
       if now
         begin
@@ -172,17 +172,16 @@ class Time
       'JUL' => 7, 'AUG' => 8, 'SEP' => 9, 'OCT' =>10, 'NOV' =>11, 'DEC' =>12
     }
 
-=begin
---- Time.rfc2822(date)
---- Time.rfc822(date)
-    parses ((|date|)) as date-time defined by RFC 2822 and converts it to a
-    Time object.
-    The format is identical to the date format defined by RFC 822 and
-    updated by RFC 1123.
-
-    ArgumentError is raised if ((|date|)) is not compliant with RFC 2822
-    or Time class cannot represent specified date.
-=end
+    #
+    # Parses +date+ as date-time defined by RFC 2822 and converts it to a Time
+    # object.  The format is identical to the date format defined by RFC 822 and
+    # updated by RFC 1123.
+    #
+    # ArgumentError is raised if +date+ is not compliant with RFC 2822
+    # or Time class cannot represent specified date.
+    #
+    # See #rfc2822 for more information on this format.
+    #
     def rfc2822(date)
       if /\A\s*
           (?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*,\s*)?
@@ -192,7 +191,7 @@ class Time
           (\d{2})\s*
           :\s*(\d{2})\s*
           (?::\s*(\d{2}))?\s+
-          ([+\-]\d{4}|
+          ([+-]\d{4}|
            UT|GMT|EST|EDT|CST|CDT|MST|MDT|PST|PDT|[A-IK-Z])/ix =~ date
         # Since RFC 2822 permit comments, the regexp has no right anchor.
         day = $1.to_i
@@ -222,14 +221,15 @@ class Time
     end
     alias rfc822 rfc2822
 
-=begin
---- Time.httpdate(date)
-    parses ((|date|)) as HTTP-date defined by RFC 2616 and converts it to a
-    Time object.
-
-    ArgumentError is raised if ((|date|)) is not compliant with RFC 2616
-    or Time class cannot represent specified date.
-=end
+    #
+    # Parses +date+ as HTTP-date defined by RFC 2616 and converts it to a Time
+    # object.
+    #
+    # ArgumentError is raised if +date+ is not compliant with RFC 2616 or Time
+    # class cannot represent specified date.
+    #
+    # See #httpdate for more information on this format.
+    #
     def httpdate(date)
       if /\A\s*
           (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),\x20
@@ -261,23 +261,23 @@ class Time
       end
     end
 
-=begin
---- Time.xmlschema(date)
---- Time.iso8601(date)
-    parses ((|date|)) as dateTime defined by XML Schema and
-    converts it to a Time object.
-    The format is restricted version of the format defined by ISO 8601.
-
-    ArgumentError is raised if ((|date|)) is not compliant with the format
-    or Time class cannot represent specified date.
-=end
+    #
+    # Parses +date+ as dateTime defined by XML Schema and converts it to a Time
+    # object.  The format is restricted version of the format defined by ISO
+    # 8601.
+    #
+    # ArgumentError is raised if +date+ is not compliant with the format or Time
+    # class cannot represent specified date.
+    #
+    # See #xmlschema for more information on this format.
+    #
     def xmlschema(date)
       if /\A\s*
           (-?\d+)-(\d\d)-(\d\d)
           T
           (\d\d):(\d\d):(\d\d)
           (\.\d*)?
-          (Z|[+\-]\d\d:\d\d)?
+          (Z|[+-]\d\d:\d\d)?
           \s*\z/ix =~ date
 	datetime = [$1.to_i, $2.to_i, $3.to_i, $4.to_i, $5.to_i, $6.to_i] 
 	datetime << $7.to_f * 1000000 if $7
@@ -291,31 +291,17 @@ class Time
       end
     end
     alias iso8601 xmlschema
-  end
+  end # class << self
 
-=begin
-== methods
-=end
-
-=begin
---- Time#rfc2822
---- Time#rfc822
-    returns a string which represents the time as date-time defined by RFC 2822:
-
-      day-of-week, DD month-name CCYY hh:mm:ss zone
-
-    where zone is [+-]hhmm.
-
-    If self is a UTC time, -0000 is used as zone.
-=end
-
-  RFC2822_DAY_NAME = [
-    'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'
-  ]
-  RFC2822_MONTH_NAME = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ]
+  #
+  # Returns a string which represents the time as date-time defined by RFC 2822:
+  #
+  #   day-of-week, DD month-name CCYY hh:mm:ss zone
+  #
+  # where zone is [+-]hhmm.
+  #
+  # If +self+ is a UTC time, -0000 is used as zone.
+  #
   def rfc2822
     sprintf('%s, %02d %s %d %02d:%02d:%02d ',
       RFC2822_DAY_NAME[wday],
@@ -331,15 +317,22 @@ class Time
   end
   alias rfc822 rfc2822
 
-=begin
---- Time#httpdate
-    returns a string which represents the time as rfc1123-date of HTTP-date
-    defined by RFC 2616: 
+  RFC2822_DAY_NAME = [
+    'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'
+  ]
+  RFC2822_MONTH_NAME = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ]
 
-      day-of-week, DD month-name CCYY hh:mm:ss GMT
-
-    Note that the result is always UTC (GMT).
-=end
+  #
+  # Returns a string which represents the time as rfc1123-date of HTTP-date
+  # defined by RFC 2616: 
+  # 
+  #   day-of-week, DD month-name CCYY hh:mm:ss GMT
+  #
+  # Note that the result is always UTC (GMT).
+  #
   def httpdate
     t = dup.utc
     sprintf('%s, %02d %s %d %02d:%02d:%02d GMT',
@@ -348,24 +341,20 @@ class Time
       t.hour, t.min, t.sec)
   end
 
-=begin
---- Time#xmlschema([fractional_seconds])
---- Time#iso8601([fractional_seconds])
-    returns a string which represents the time as dateTime
-    defined by XML Schema:
-
-      CCYY-MM-DDThh:mm:ssTZD
-      CCYY-MM-DDThh:mm:ss.sssTZD
-
-    where TZD is Z or [+-]hh:mm.
-
-    If self is a UTC time, Z is used as TZD.
-    [+-]hh:mm is used otherwise.
-
-    ((|fractional_seconds|)) specify a number of digits of
-    fractional seconds.
-    The default value of ((|fractional_seconds|)) is 0.
-=end
+  #
+  # Returns a string which represents the time as dateTime defined by XML
+  # Schema:
+  #
+  #   CCYY-MM-DDThh:mm:ssTZD
+  #   CCYY-MM-DDThh:mm:ss.sssTZD
+  #
+  # where TZD is Z or [+-]hh:mm.
+  #
+  # If self is a UTC time, Z is used as TZD.  [+-]hh:mm is used otherwise.
+  #
+  # +fractional_seconds+ specifies a number of digits of fractional seconds.
+  # Its default value is 0.
+  #
   def xmlschema(fraction_digits=0)
     sprintf('%d-%02d-%02dT%02d:%02d:%02d',
       year, mon, day, hour, min, sec) +
@@ -388,10 +377,9 @@ class Time
 end
 
 if __FILE__ == $0
-  require 'runit/testcase'
-  require 'runit/cui/testrunner'
+  require 'test/unit'
 
-  class TimeExtentionTest < RUNIT::TestCase
+  class TimeExtentionTest < Test::Unit::TestCase # :nodoc:
     def test_rfc822
       assert_equal(Time.utc(1976, 8, 26, 14, 30) + 4 * 3600,
                    Time.rfc2822("26 Aug 76 14:30 EDT"))
@@ -404,26 +392,32 @@ if __FILE__ == $0
                    Time.rfc2822("Fri, 21 Nov 1997 09:55:06 -0600"))
       assert_equal(Time.utc(2003, 7, 1, 10, 52, 37) - 2 * 3600,
                    Time.rfc2822("Tue, 1 Jul 2003 10:52:37 +0200"))
-      assert_exception(ArgumentError) { Time.rfc2822("Thu, 13 Feb 1969 23:32:54 -0330") }
       assert_equal(Time.utc(1997, 11, 21, 10, 1, 10) + 6 * 3600,
                    Time.rfc2822("Fri, 21 Nov 1997 10:01:10 -0600"))
       assert_equal(Time.utc(1997, 11, 21, 11, 0, 0) + 6 * 3600,
                    Time.rfc2822("Fri, 21 Nov 1997 11:00:00 -0600"))
       assert_equal(Time.utc(1997, 11, 24, 14, 22, 1) + 8 * 3600,
                    Time.rfc2822("Mon, 24 Nov 1997 14:22:01 -0800"))
-      assert_exception(ArgumentError) {
-                   Time.rfc2822(" Thu,
-      13
-        Feb
-          1969
-      23:32
-               -0330 (Newfoundland Time)")
-      }
+      begin
+        Time.at(-1)
+      rescue ArgumentError
+        # ignore
+      else
+        assert_equal(Time.utc(1969, 2, 13, 23, 32, 54) + 3 * 3600 + 30 * 60,
+                     Time.rfc2822("Thu, 13 Feb 1969 23:32:54 -0330"))
+        assert_equal(Time.utc(1969, 2, 13, 23, 32, 0) + 3 * 3600 + 30 * 60,
+                     Time.rfc2822(" Thu,
+        13
+          Feb
+            1969
+        23:32
+                 -0330 (Newfoundland Time)"))
+      end
       assert_equal(Time.utc(1997, 11, 21, 9, 55, 6),
                    Time.rfc2822("21 Nov 97 09:55:06 GMT"))
       assert_equal(Time.utc(1997, 11, 21, 9, 55, 6) + 6 * 3600,
                    Time.rfc2822("Fri, 21 Nov 1997 09 :   55  :  06 -0600"))
-      assert_exception(ArgumentError) {
+      assert_raise(ArgumentError) {
         # inner comment is not supported.
         Time.rfc2822("Fri, 21 Nov 1997 09(comment):   55  :  06 -0600")
       }
@@ -471,9 +465,15 @@ if __FILE__ == $0
       s = "1990-12-31T15:59:60-08:00"
       assert_equal(t, Time.iso8601(s))
 
-      #t = Time.utc(1937, 1, 1, 11, 40, 27, 870000)
-      #s = "1937-01-01T12:00:27.87+00:20"
-      #assert_equal(t, Time.iso8601(s))
+      begin
+        Time.at(-1)
+      rescue ArgumentError
+        # ignore
+      else
+        t = Time.utc(1937, 1, 1, 11, 40, 27, 870000)
+        s = "1937-01-01T12:00:27.87+00:20"
+        assert_equal(t, Time.iso8601(s))
+      end
     end
 
     # http://www.w3.org/TR/xmlschema-2/
@@ -526,6 +526,15 @@ if __FILE__ == $0
       assert_equal("2001-04-17T19:23:17.123456Z", t.xmlschema(6))
       assert_equal("2001-04-17T19:23:17.12345Z", t.xmlschema(5))
       assert_equal("2001-04-17T19:23:17.1Z", t.xmlschema(1))
+
+      begin
+        Time.at(-1)
+      rescue ArgumentError
+        # ignore
+      else
+        t = Time.utc(1960, 12, 31, 23, 0, 0, 123456)
+        assert_equal("1960-12-31T23:00:00.123456Z", t.xmlschema(6))
+      end
     end
 
     def test_completion
@@ -534,8 +543,6 @@ if __FILE__ == $0
                    Time.parse("2001/11/29 21:12", now))
       assert_equal(Time.local( 2001,11,29),
                    Time.parse("2001/11/29", now))
-      assert_equal(Time.local( 2001,11),
-                   Time.parse("2001/11", now))
       assert_equal(Time.local( 2001,11,29),
                    Time.parse(     "11/29", now))
       #assert_equal(Time.local(2001,11,1), Time.parse("Nov", now))
@@ -545,67 +552,66 @@ if __FILE__ == $0
 
     def test_invalid
       # They were actually used in some web sites.
-      assert_exception(ArgumentError) { Time.httpdate("1 Dec 2001 10:23:57 GMT") }
-      assert_exception(ArgumentError) { Time.httpdate("Sat, 1 Dec 2001 10:25:42 GMT") }
-      assert_exception(ArgumentError) { Time.httpdate("Sat,  1-Dec-2001 10:53:55 GMT") }
-      assert_exception(ArgumentError) { Time.httpdate("Saturday, 01-Dec-2001 10:15:34 GMT") }
-      assert_exception(ArgumentError) { Time.httpdate("Saturday, 01-Dec-101 11:10:07 GMT") }
-      assert_exception(ArgumentError) { Time.httpdate("Fri, 30 Nov 2001 21:30:00 JST") }
+      assert_raise(ArgumentError) { Time.httpdate("1 Dec 2001 10:23:57 GMT") }
+      assert_raise(ArgumentError) { Time.httpdate("Sat, 1 Dec 2001 10:25:42 GMT") }
+      assert_raise(ArgumentError) { Time.httpdate("Sat,  1-Dec-2001 10:53:55 GMT") }
+      assert_raise(ArgumentError) { Time.httpdate("Saturday, 01-Dec-2001 10:15:34 GMT") }
+      assert_raise(ArgumentError) { Time.httpdate("Saturday, 01-Dec-101 11:10:07 GMT") }
+      assert_raise(ArgumentError) { Time.httpdate("Fri, 30 Nov 2001 21:30:00 JST") }
 
       # They were actually used in some mails.
-      assert_exception(ArgumentError) { Time.rfc2822("01-5-20") }
-      assert_exception(ArgumentError) { Time.rfc2822("7/21/00") }
-      assert_exception(ArgumentError) { Time.rfc2822("2001-8-28") }
-      assert_exception(ArgumentError) { Time.rfc2822("00-5-6 1:13:06") }
-      assert_exception(ArgumentError) { Time.rfc2822("2001-9-27 9:36:49") }
-      assert_exception(ArgumentError) { Time.rfc2822("2000-12-13 11:01:11") }
-      assert_exception(ArgumentError) { Time.rfc2822("2001/10/17 04:29:55") }
-      assert_exception(ArgumentError) { Time.rfc2822("9/4/2001 9:23:19 PM") }
-      assert_exception(ArgumentError) { Time.rfc2822("01 Nov 2001 09:04:31") }
-      assert_exception(ArgumentError) { Time.rfc2822("13 Feb 2001 16:4 GMT") }
-      assert_exception(ArgumentError) { Time.rfc2822("01 Oct 00 5:41:19 PM") }
-      assert_exception(ArgumentError) { Time.rfc2822("2 Jul 00 00:51:37 JST") }
-      assert_exception(ArgumentError) { Time.rfc2822("01 11 2001 06:55:57 -0500") }
-      assert_exception(ArgumentError) { Time.rfc2822("18 \343\366\356\341\370 2000") }
-      assert_exception(ArgumentError) { Time.rfc2822("Fri, Oct 2001  18:53:32") }
-      assert_exception(ArgumentError) { Time.rfc2822("Fri, 2 Nov 2001 03:47:54") }
-      assert_exception(ArgumentError) { Time.rfc2822("Fri, 27 Jul 2001 11.14.14 +0200") }
-      assert_exception(ArgumentError) { Time.rfc2822("Thu, 2 Nov 2000 04:13:53 -600") }
-      assert_exception(ArgumentError) { Time.rfc2822("Wed, 5 Apr 2000 22:57:09 JST") }
-      assert_exception(ArgumentError) { Time.rfc2822("Mon, 11 Sep 2000 19:47:33 00000") }
-      assert_exception(ArgumentError) { Time.rfc2822("Fri, 28 Apr 2000 20:40:47 +-900") }
-      assert_exception(ArgumentError) { Time.rfc2822("Fri, 19 Jan 2001 8:15:36 AM -0500") }
-      assert_exception(ArgumentError) { Time.rfc2822("Thursday, Sep 27 2001 7:42:35 AM EST") }
-      assert_exception(ArgumentError) { Time.rfc2822("3/11/2001 1:31:57 PM Pacific Daylight Time") }
-      assert_exception(ArgumentError) { Time.rfc2822("Mi, 28 Mrz 2001 11:51:36") }
-      assert_exception(ArgumentError) { Time.rfc2822("P, 30 sept 2001 23:03:14") }
-      assert_exception(ArgumentError) { Time.rfc2822("fr, 11 aug 2000 18:39:22") }
-      assert_exception(ArgumentError) { Time.rfc2822("Fr, 21 Sep 2001 17:44:03 -1000") }
-      assert_exception(ArgumentError) { Time.rfc2822("Mo, 18 Jun 2001 19:21:40 -1000") }
-      assert_exception(ArgumentError) { Time.rfc2822("l\366, 12 aug 2000 18:53:20") }
-      assert_exception(ArgumentError) { Time.rfc2822("l\366, 26 maj 2001 00:15:58") }
-      assert_exception(ArgumentError) { Time.rfc2822("Dom, 30 Sep 2001 17:36:30") }
-      assert_exception(ArgumentError) { Time.rfc2822("%&, 31 %2/ 2000 15:44:47 -0500") }
-      assert_exception(ArgumentError) { Time.rfc2822("dom, 26 ago 2001 03:57:07 -0300") }
-      assert_exception(ArgumentError) { Time.rfc2822("ter, 04 set 2001 16:27:58 -0300") }
-      assert_exception(ArgumentError) { Time.rfc2822("Wen, 3 oct 2001 23:17:49 -0400") }
-      assert_exception(ArgumentError) { Time.rfc2822("Wen, 3 oct 2001 23:17:49 -0400") }
-      assert_exception(ArgumentError) { Time.rfc2822("ele, 11 h: 2000 12:42:15 -0500") }
-      assert_exception(ArgumentError) { Time.rfc2822("Tue, 14 Aug 2001 3:55:3 +0200") }
-      assert_exception(ArgumentError) { Time.rfc2822("Fri, 25 Aug 2000 9:3:48 +0800") }
-      assert_exception(ArgumentError) { Time.rfc2822("Fri, 1 Dec 2000 0:57:50 EST") }
-      assert_exception(ArgumentError) { Time.rfc2822("Mon, 7 May 2001 9:39:51 +0200") }
-      assert_exception(ArgumentError) { Time.rfc2822("Wed, 1 Aug 2001 16:9:15 +0200") }
-      assert_exception(ArgumentError) { Time.rfc2822("Wed, 23 Aug 2000 9:17:36 +0800") }
-      assert_exception(ArgumentError) { Time.rfc2822("Fri, 11 Aug 2000 10:4:42 +0800") }
-      assert_exception(ArgumentError) { Time.rfc2822("Sat, 15 Sep 2001 13:22:2 +0300") }
-      assert_exception(ArgumentError) { Time.rfc2822("Wed,16 \276\305\324\302 2001 20:06:25 +0800") }
-      assert_exception(ArgumentError) { Time.rfc2822("Wed,7 \312\256\322\273\324\302 2001 23:47:22 +0800") }
-      assert_exception(ArgumentError) { Time.rfc2822("=?iso-8859-1?Q?(=C5=DA),?= 10   2 2001 23:32:26 +0900 (JST)") }
-      assert_exception(ArgumentError) { Time.rfc2822("\307\341\314\343\332\311, 30 \344\346\335\343\310\321 2001 10:01:06") }
-      assert_exception(ArgumentError) { Time.rfc2822("=?iso-8859-1?Q?(=BF=E5),?= 12  =?iso-8859-1?Q?9=B7=EE?= 2001 14:52:41\n+0900 (JST)") }
+      assert_raise(ArgumentError) { Time.rfc2822("01-5-20") }
+      assert_raise(ArgumentError) { Time.rfc2822("7/21/00") }
+      assert_raise(ArgumentError) { Time.rfc2822("2001-8-28") }
+      assert_raise(ArgumentError) { Time.rfc2822("00-5-6 1:13:06") }
+      assert_raise(ArgumentError) { Time.rfc2822("2001-9-27 9:36:49") }
+      assert_raise(ArgumentError) { Time.rfc2822("2000-12-13 11:01:11") }
+      assert_raise(ArgumentError) { Time.rfc2822("2001/10/17 04:29:55") }
+      assert_raise(ArgumentError) { Time.rfc2822("9/4/2001 9:23:19 PM") }
+      assert_raise(ArgumentError) { Time.rfc2822("01 Nov 2001 09:04:31") }
+      assert_raise(ArgumentError) { Time.rfc2822("13 Feb 2001 16:4 GMT") }
+      assert_raise(ArgumentError) { Time.rfc2822("01 Oct 00 5:41:19 PM") }
+      assert_raise(ArgumentError) { Time.rfc2822("2 Jul 00 00:51:37 JST") }
+      assert_raise(ArgumentError) { Time.rfc2822("01 11 2001 06:55:57 -0500") }
+      assert_raise(ArgumentError) { Time.rfc2822("18 \343\366\356\341\370 2000") }
+      assert_raise(ArgumentError) { Time.rfc2822("Fri, Oct 2001  18:53:32") }
+      assert_raise(ArgumentError) { Time.rfc2822("Fri, 2 Nov 2001 03:47:54") }
+      assert_raise(ArgumentError) { Time.rfc2822("Fri, 27 Jul 2001 11.14.14 +0200") }
+      assert_raise(ArgumentError) { Time.rfc2822("Thu, 2 Nov 2000 04:13:53 -600") }
+      assert_raise(ArgumentError) { Time.rfc2822("Wed, 5 Apr 2000 22:57:09 JST") }
+      assert_raise(ArgumentError) { Time.rfc2822("Mon, 11 Sep 2000 19:47:33 00000") }
+      assert_raise(ArgumentError) { Time.rfc2822("Fri, 28 Apr 2000 20:40:47 +-900") }
+      assert_raise(ArgumentError) { Time.rfc2822("Fri, 19 Jan 2001 8:15:36 AM -0500") }
+      assert_raise(ArgumentError) { Time.rfc2822("Thursday, Sep 27 2001 7:42:35 AM EST") }
+      assert_raise(ArgumentError) { Time.rfc2822("3/11/2001 1:31:57 PM Pacific Daylight Time") }
+      assert_raise(ArgumentError) { Time.rfc2822("Mi, 28 Mrz 2001 11:51:36") }
+      assert_raise(ArgumentError) { Time.rfc2822("P, 30 sept 2001 23:03:14") }
+      assert_raise(ArgumentError) { Time.rfc2822("fr, 11 aug 2000 18:39:22") }
+      assert_raise(ArgumentError) { Time.rfc2822("Fr, 21 Sep 2001 17:44:03 -1000") }
+      assert_raise(ArgumentError) { Time.rfc2822("Mo, 18 Jun 2001 19:21:40 -1000") }
+      assert_raise(ArgumentError) { Time.rfc2822("l\366, 12 aug 2000 18:53:20") }
+      assert_raise(ArgumentError) { Time.rfc2822("l\366, 26 maj 2001 00:15:58") }
+      assert_raise(ArgumentError) { Time.rfc2822("Dom, 30 Sep 2001 17:36:30") }
+      assert_raise(ArgumentError) { Time.rfc2822("%&, 31 %2/ 2000 15:44:47 -0500") }
+      assert_raise(ArgumentError) { Time.rfc2822("dom, 26 ago 2001 03:57:07 -0300") }
+      assert_raise(ArgumentError) { Time.rfc2822("ter, 04 set 2001 16:27:58 -0300") }
+      assert_raise(ArgumentError) { Time.rfc2822("Wen, 3 oct 2001 23:17:49 -0400") }
+      assert_raise(ArgumentError) { Time.rfc2822("Wen, 3 oct 2001 23:17:49 -0400") }
+      assert_raise(ArgumentError) { Time.rfc2822("ele, 11 h: 2000 12:42:15 -0500") }
+      assert_raise(ArgumentError) { Time.rfc2822("Tue, 14 Aug 2001 3:55:3 +0200") }
+      assert_raise(ArgumentError) { Time.rfc2822("Fri, 25 Aug 2000 9:3:48 +0800") }
+      assert_raise(ArgumentError) { Time.rfc2822("Fri, 1 Dec 2000 0:57:50 EST") }
+      assert_raise(ArgumentError) { Time.rfc2822("Mon, 7 May 2001 9:39:51 +0200") }
+      assert_raise(ArgumentError) { Time.rfc2822("Wed, 1 Aug 2001 16:9:15 +0200") }
+      assert_raise(ArgumentError) { Time.rfc2822("Wed, 23 Aug 2000 9:17:36 +0800") }
+      assert_raise(ArgumentError) { Time.rfc2822("Fri, 11 Aug 2000 10:4:42 +0800") }
+      assert_raise(ArgumentError) { Time.rfc2822("Sat, 15 Sep 2001 13:22:2 +0300") }
+      assert_raise(ArgumentError) { Time.rfc2822("Wed,16 \276\305\324\302 2001 20:06:25 +0800") }
+      assert_raise(ArgumentError) { Time.rfc2822("Wed,7 \312\256\322\273\324\302 2001 23:47:22 +0800") }
+      assert_raise(ArgumentError) { Time.rfc2822("=?iso-8859-1?Q?(=C5=DA),?= 10   2 2001 23:32:26 +0900 (JST)") }
+      assert_raise(ArgumentError) { Time.rfc2822("\307\341\314\343\332\311, 30 \344\346\335\343\310\321 2001 10:01:06") }
+      assert_raise(ArgumentError) { Time.rfc2822("=?iso-8859-1?Q?(=BF=E5),?= 12  =?iso-8859-1?Q?9=B7=EE?= 2001 14:52:41\n+0900 (JST)") }
     end
   end
 
-  RUNIT::CUI::TestRunner.run(TimeExtentionTest.suite)
 end

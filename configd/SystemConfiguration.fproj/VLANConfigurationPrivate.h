@@ -29,6 +29,14 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 
+#include <SystemConfiguration/VLANConfiguration.h>
+
+
+/*!
+	@header VLANConfigurationPrivate
+ */
+
+
 #define VLAN_PREFERENCES_ID	CFSTR("VirtualNetworkInterfaces.plist")
 
 

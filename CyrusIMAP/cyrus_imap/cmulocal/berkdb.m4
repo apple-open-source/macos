@@ -1,4 +1,4 @@
-dnl $Id: berkdb.m4,v 1.19 2005/01/06 20:24:52 shadow Exp $
+dnl $Id: berkdb.m4,v 1.5 2005/03/05 00:36:06 dasenbro Exp $
 
 AC_DEFUN([CMU_DB_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS

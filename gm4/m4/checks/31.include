@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:2098: Origin of test
+dnl ../doc/m4.texinfo:2099: Origin of test
 define(`foo', `FOO')
 dnl @result{}
 include(`incl.m4')

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -29,6 +29,7 @@
 #include "unicode/msgfmt.h"
 #include "unicode/unistr.h"
 #include "cpputils.h"
+#include "uassert.h"
 
 U_NAMESPACE_USE
 
@@ -227,7 +228,7 @@ umsg_open(  const UChar     *pattern,
     
     UnicodeString patString((patternLength == -1 ? TRUE:FALSE), pattern,len);
 
-    retVal = (UMessageFormat*) new MessageFormat(pattern,Locale(locale),*parseError,*status);
+    retVal = (UMessageFormat*) new MessageFormat(patString,Locale(locale),*parseError,*status);
     
     if(retVal == 0) {
         *status = U_MEMORY_ALLOCATION_ERROR;
@@ -277,13 +278,13 @@ umsg_setLocale(UMessageFormat *fmt, const char* locale)
 }
 
 U_CAPI const char*  U_EXPORT2
-umsg_getLocale(UMessageFormat *fmt)
+umsg_getLocale(const UMessageFormat *fmt)
 {
     //check arguments
     if(fmt==NULL){
         return "";
     }
-    return ((MessageFormat*)fmt)->getLocale().getName();
+    return ((const MessageFormat*)fmt)->getLocale().getName();
 }
 
 U_CAPI void  U_EXPORT2
@@ -314,7 +315,7 @@ umsg_applyPattern(UMessageFormat *fmt,
 }
 
 U_CAPI int32_t  U_EXPORT2
-umsg_toPattern(UMessageFormat *fmt,
+umsg_toPattern(const UMessageFormat *fmt,
                UChar* result, 
                int32_t resultLength,
                UErrorCode* status)
@@ -335,12 +336,12 @@ umsg_toPattern(UMessageFormat *fmt,
         // otherwise, alias the destination buffer
         res.setTo(result, 0, resultLength);
     }
-    ((MessageFormat*)fmt)->toPattern(res);
+    ((const MessageFormat*)fmt)->toPattern(res);
     return res.extract(result, resultLength, *status);
 }
 
 U_CAPI int32_t
-umsg_format(    UMessageFormat *fmt,
+umsg_format(    const UMessageFormat *fmt,
                 UChar          *result,
                 int32_t        resultLength,
                 UErrorCode     *status,
@@ -383,7 +384,7 @@ MessageFormatAdapter::getArgTypeList(const MessageFormat& m,
 U_NAMESPACE_END
 
 U_CAPI int32_t U_EXPORT2
-umsg_vformat(   UMessageFormat *fmt,
+umsg_vformat(   const UMessageFormat *fmt,
                 UChar          *result,
                 int32_t        resultLength,
                 va_list        ap,
@@ -401,7 +402,7 @@ umsg_vformat(   UMessageFormat *fmt,
 
     int32_t count =0;
     const Formattable::Type* argTypes =
-        MessageFormatAdapter::getArgTypeList(*(MessageFormat*)fmt, count);
+        MessageFormatAdapter::getArgTypeList(*(const MessageFormat*)fmt, count);
     // Allocate at least one element.  Allocating an array of length
     // zero causes problems on some platforms (e.g. Win32).
     Formattable* args = new Formattable[count ? count : 1];
@@ -412,6 +413,7 @@ umsg_vformat(   UMessageFormat *fmt,
         UChar *stringVal;
         double tDouble=0;
         int32_t tInt =0;
+        int64_t tInt64 = 0;
         UDate tempDate = 0;
         switch(argTypes[i]) {
         case Formattable::kDate:
@@ -427,6 +429,11 @@ umsg_vformat(   UMessageFormat *fmt,
         case Formattable::kLong:
             tInt = va_arg(ap, int32_t);
             args[i].setLong(tInt);
+            break;
+
+        case Formattable::kInt64:
+            tInt64 = va_arg(ap, int64_t);
+            args[i].setInt64(tInt64);
             break;
             
         case Formattable::kString:
@@ -447,13 +454,20 @@ umsg_vformat(   UMessageFormat *fmt,
             va_arg(ap, int);
             break;
 
+        case Formattable::kObject:
+            // This will never happen because MessageFormat doesn't
+            // support kObject.  When MessageFormat is changed to
+            // understand MeasureFormats, modify this code to do the
+            // right thing. [alan]
+            U_ASSERT(FALSE);
+            break;
         }
     }
     UnicodeString resultStr;
     FieldPosition fieldPosition(0);
     
     /* format the message */
-    ((MessageFormat*)fmt)->format(args,count,resultStr,fieldPosition,*status);
+    ((const MessageFormat*)fmt)->format(args,count,resultStr,fieldPosition,*status);
 
     delete[] args;
 
@@ -465,7 +479,7 @@ umsg_vformat(   UMessageFormat *fmt,
 }
 
 U_CAPI void
-umsg_parse( UMessageFormat *fmt,
+umsg_parse( const UMessageFormat *fmt,
             const UChar    *source,
             int32_t        sourceLength,
             int32_t        *count,
@@ -487,7 +501,7 @@ umsg_parse( UMessageFormat *fmt,
 }
 
 U_CAPI void U_EXPORT2
-umsg_vparse(UMessageFormat *fmt,
+umsg_vparse(const UMessageFormat *fmt,
             const UChar    *source,
             int32_t        sourceLength,
             int32_t        *count,
@@ -508,11 +522,12 @@ umsg_vparse(UMessageFormat *fmt,
     }
 
     UnicodeString srcString(source,sourceLength);
-    Formattable *args = ((MessageFormat*)fmt)->parse(source,*count,*status);
+    Formattable *args = ((const MessageFormat*)fmt)->parse(source,*count,*status);
     UDate *aDate;
     double *aDouble;
     UChar *aString;
     int32_t* aInt;
+    int64_t* aInt64;
     UnicodeString temp;
     int len =0;
     // assign formattables to varargs
@@ -538,10 +553,18 @@ umsg_vparse(UMessageFormat *fmt,
             break;
 
         case Formattable::kLong:
-            
             aInt = va_arg(ap, int32_t*);
             if(aInt){
                 *aInt = (int32_t) args[i].getLong();
+            }else{
+                *status=U_ILLEGAL_ARGUMENT_ERROR;
+            }
+            break;
+
+        case Formattable::kInt64:
+            aInt64 = va_arg(ap, int64_t*);
+            if(aInt64){
+                *aInt64 = args[i].getInt64();
             }else{
                 *status=U_ILLEGAL_ARGUMENT_ERROR;
             }
@@ -559,15 +582,37 @@ umsg_vparse(UMessageFormat *fmt,
             }
             break;
 
+        case Formattable::kObject:
+            // This will never happen because MessageFormat doesn't
+            // support kObject.  When MessageFormat is changed to
+            // understand MeasureFormats, modify this code to do the
+            // right thing. [alan]
+            U_ASSERT(FALSE);
+            break;
+
         // better not happen!
         case Formattable::kArray:
-            // DIE
+            U_ASSERT(FALSE);
             break;
         }
     }
 
     // clean up
     delete [] args;
+}
+
+U_CAPI const char* U_EXPORT2
+umsg_getLocaleByType(const UMessageFormat *fmt,
+                     ULocDataLocaleType type,
+                     UErrorCode* status)
+{
+    if (fmt == NULL) {
+        if (U_SUCCESS(*status)) {
+            *status = U_ILLEGAL_ARGUMENT_ERROR;
+        }
+        return NULL;
+    }
+    return ((Format*)fmt)->getLocaleID(type, *status);
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

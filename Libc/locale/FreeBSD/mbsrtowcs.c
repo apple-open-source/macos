@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,50 +25,21 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/mbsrtowcs.c,v 1.2 2002/09/06 11:23:45 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/mbsrtowcs.c,v 1.6 2004/07/21 10:54:57 tjr Exp $");
 
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <wchar.h>
+#include "mblocal.h"
 
 size_t
 mbsrtowcs(wchar_t * __restrict dst, const char ** __restrict src, size_t len,
-    mbstate_t * __restrict ps __unused)
+    mbstate_t * __restrict ps)
 {
-	const char *s;
-	size_t nchr;
-	wchar_t wc;
-	int nb;
+	static mbstate_t mbs;
 
-	s = *src;
-	nchr = 0;
-
-	if (dst == NULL) {
-		for (;;) {
-			if ((nb = (int)mbrtowc(&wc, s, MB_CUR_MAX, NULL)) < 0)
-				/* Invalid sequence - mbrtowc() sets errno. */
-				return ((size_t)-1);
-			else if (nb == 0)
-				return (nchr);
-			s += nb;
-			nchr++;
-		}
-		/*NOTREACHED*/
-	}
-
-	while (len-- > 0) {
-		if ((nb = (int)mbrtowc(dst, s, MB_CUR_MAX, NULL)) < 0) {
-			*src = s;
-			return ((size_t)-1);
-		} else if (nb == 0) {
-			*src = NULL;
-			return (nchr);
-		}
-		s += nb;
-		nchr++;
-		dst++;
-	}
-	*src = s;
-	return (nchr);
+	if (ps == NULL)
+		ps = &mbs;
+	return (__mbsnrtowcs(dst, src, SIZE_T_MAX, len, ps));
 }

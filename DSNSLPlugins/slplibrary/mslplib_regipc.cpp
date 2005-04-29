@@ -100,12 +100,14 @@ SLPInternalError mslplib_Reg(	UA_State *puas,
     SDLock(puas->pvMutex);
     if ((fpSrc = fopen(SLPGetProperty("com.sun.slp.regfile"),"rb")) == NULL) 
     {
+#ifdef ENABLE_SLP_LOGGING
         char buf[160];
         
         sprintf(buf,
             "mslplib_Reg: [WARNING] regfile \"%s\" could not be opened: %s\n\tAssume we should start a new regfile.",
             SLPGetProperty("com.sun.slp.regfile"),strerror(errno));
         SLP_LOG( SLP_LOG_DEBUG,buf);
+#endif
     }
     
     if ((fpDest = fopen(SLPGetProperty("com.sun.slp.tempfile"),"wb")) == NULL) 
@@ -114,7 +116,7 @@ SLPInternalError mslplib_Reg(	UA_State *puas,
         
         sprintf(buf,"mslplib_Reg: regfile could not be opened: %s", strerror(errno));
         err = SLP_INTERNAL_SYSTEM_ERROR;
-        LOG(SLP_LOG_ERR,buf);
+        SLPLOG(SLP_LOG_ERR,buf);
         goto mslplib_Reg_done;
     }
     
@@ -135,13 +137,13 @@ SLPInternalError mslplib_Reg(	UA_State *puas,
         if (((err = add_entry(fpDest,pcURL,pcPropertyLang,usLifetime,pcSt)) != SLP_OK) 
             || ((err = serialize_attributes(fpDest,NULL,pcAtt)) != SLP_OK)) 
         {
-            LOG(SLP_LOG_ERR,"mslplib_Reg: entry or attributes had problems");
+            SLPLOG(SLP_LOG_ERR,"mslplib_Reg: entry or attributes had problems");
             goto mslplib_Reg_done;
         }     
     } 
     else if (copy_till_entry(fpSrc, fpDest, pcURL, pcPropertyLang, pcSt) < 0 != SLP_OK) 
     {
-        LOG(SLP_LOG_ERR,"mslplib_Reg: could not copy regfile to destfile");
+        SLPLOG(SLP_LOG_ERR,"mslplib_Reg: could not copy regfile to destfile");
         err = SLP_INVALID_REGISTRATION;
         goto mslplib_Reg_done;
     } 
@@ -157,7 +159,7 @@ SLPInternalError mslplib_Reg(	UA_State *puas,
         
         if ((more=scan_till_next_entry(phash,fpSrc)) < 0) 
         {
-            LOG(SLP_LOG_ERR,"mslplib_Reg: could not scan till next entry");
+            SLPLOG(SLP_LOG_ERR,"mslplib_Reg: could not scan till next entry");
             err = (SLPInternalError) more;
             goto mslplib_Reg_done;
         } 
@@ -167,7 +169,7 @@ SLPInternalError mslplib_Reg(	UA_State *puas,
             if ( ((err = add_entry(fpDest,pcURL,pcPropertyLang,usLifetime,pcSt)) != SLP_OK)
                 || ((err = serialize_attributes(fpDest,phash,pcAtt)) != SLP_OK) ) 
             {
-                LOG(SLP_LOG_ERR,"mslplib_Reg: entry or attributes had problems");
+                SLPLOG(SLP_LOG_ERR,"mslplib_Reg: entry or attributes had problems");
                 goto mslplib_Reg_done;
             }
         } 
@@ -185,7 +187,7 @@ SLPInternalError mslplib_Reg(	UA_State *puas,
         
             if ((err = serialize_attributes(fpDest,phash,pcAtt)) != SLP_OK) 
             {
-                LOG(SLP_LOG_ERR,"mslplib_Reg: could not serialize attributes");
+                SLPLOG(SLP_LOG_ERR,"mslplib_Reg: could not serialize attributes");
                 goto mslplib_Reg_done;
             }
         }
@@ -220,7 +222,7 @@ SLPInternalError mslplib_Dereg(UA_State *puas, const char *pcURL, const char *pc
     {
         char buf[160];
         sprintf(buf,"mslplib_Reg: regfile could not be opened: %s", strerror(errno));
-        LOG(SLP_LOG_ERR,buf);
+        SLPLOG(SLP_LOG_ERR,buf);
         err = SLP_INTERNAL_SYSTEM_ERROR;
         goto mslplib_Dereg_done;
     }
@@ -229,7 +231,7 @@ SLPInternalError mslplib_Dereg(UA_State *puas, const char *pcURL, const char *pc
         char buf[160];
         sprintf(buf,"mslplib_Dereg: temp could not be opened: %s",
             strerror(errno));
-        LOG(SLP_LOG_ERR,buf);
+        SLPLOG(SLP_LOG_ERR,buf);
         err = SLP_INTERNAL_SYSTEM_ERROR;
         goto mslplib_Dereg_done;
     }
@@ -240,7 +242,7 @@ SLPInternalError mslplib_Dereg(UA_State *puas, const char *pcURL, const char *pc
     */
     if (copy_till_entry(fpSrc,fpDest,pcURL,NULL,NULL) < 0) 
     {
-        LOG(SLP_LOG_ERR,"mslplib_Dereg: could not scan to find entry to deregister");
+        SLPLOG(SLP_LOG_ERR,"mslplib_Dereg: could not scan to find entry to deregister");
         err = SLP_INTERNAL_SYSTEM_ERROR;
         goto mslplib_Dereg_done;
     } 
@@ -248,7 +250,7 @@ SLPInternalError mslplib_Dereg(UA_State *puas, const char *pcURL, const char *pc
     {
         if (feof(fpSrc)) 
         {
-            LOG(SLP_LOG_ERR,"mslplib_Dereg: requested URL not in reg file");
+            SLPLOG(SLP_LOG_ERR,"mslplib_Dereg: requested URL not in reg file");
             err = SLP_INVALID_REGISTRATION;
             goto mslplib_Dereg_done;
         } 
@@ -256,7 +258,7 @@ SLPInternalError mslplib_Dereg(UA_State *puas, const char *pcURL, const char *pc
         {
             if (scan_till_next_entry(NULL,fpSrc) < 0) 
             {
-                LOG(SLP_LOG_ERR,"mslplib_Dereg: could not scan past the dereg'ed entry");
+                SLPLOG(SLP_LOG_ERR,"mslplib_Dereg: could not scan past the dereg'ed entry");
                 err = SLP_INTERNAL_SYSTEM_ERROR;
                 goto mslplib_Dereg_done;
             }
@@ -350,14 +352,14 @@ static int copy_till_entry(FILE *fpSrc,FILE *fpDest, const char *pcURL,
 	!(pcLang_ = get_next_string(",",pcLine,&index,&c))) {
       if ( pcLang )
       {
-        LOG(SLP_LOG_ERR,"mslplib_Reg: bad lang, use default.");
+        SLPLOG(SLP_LOG_ERR,"mslplib_Reg: bad lang, use default.");
         pcLang_ = safe_malloc(strlen(pcLang)+1,pcLang,strlen(pcLang));
       }
     }
       
     if (c == '\0' || c == '\n' || c == EOF ||
 	!(pcTemp_ = get_next_string(",",pcLine,&index,&c))) {
-      LOG(SLP_LOG_ERR,"mslplib_Reg: bad lifetime - ignore");
+      SLPLOG(SLP_LOG_ERR,"mslplib_Reg: bad lifetime - ignore");
     }
     SLPFree(pcTemp_); /* we don't use the lifetime */
     pcTemp_ = NULL;
@@ -368,7 +370,7 @@ static int copy_till_entry(FILE *fpSrc,FILE *fpDest, const char *pcURL,
       int i = 0;
       while (pcURL_[i] != '\0' && pcURL_[i] != '/') i++;
       if (pcURL_[i] == '\0') {
-	LOG(SLP_LOG_ERR,"mslplib_Reg: bad service type in URL in file");
+	SLPLOG(SLP_LOG_ERR,"mslplib_Reg: bad service type in URL in file");
 	err = SLP_INVALID_REGISTRATION;
 	break;
       }
@@ -521,7 +523,7 @@ static SLPInternalError serialize_attributes(FILE *fpDest, MslpHashtable *phash,
   
     if (!fpDest || !pcAtt) 
     {
-        LOG(SLP_LOG_ERR,"serialize_attributes: missing param");
+        SLPLOG(SLP_LOG_ERR,"serialize_attributes: missing param");
         err = SLP_PARAMETER_BAD;
         goto serialize_attributes_done;
     }
@@ -542,7 +544,7 @@ static SLPInternalError serialize_attributes(FILE *fpDest, MslpHashtable *phash,
         {
             SLPFree(pcTemp);
             pcTemp = NULL;
-            LOG(SLP_LOG_ERR,"serialize_attributes: empty term!");
+            SLPLOG(SLP_LOG_ERR,"serialize_attributes: empty term!");
             err = SLP_INVALID_REGISTRATION;
             goto serialize_attributes_done;      
         }
@@ -559,7 +561,7 @@ static SLPInternalError serialize_attributes(FILE *fpDest, MslpHashtable *phash,
                 {
                     SLPFree(pcTemp);
                     pcTemp = NULL;
-                    LOG(SLP_LOG_ERR,"serialize_attributes: bad keyword char");
+                    SLPLOG(SLP_LOG_ERR,"serialize_attributes: bad keyword char");
                     err = SLP_INVALID_REGISTRATION;
                     goto serialize_attributes_done;
                 }
@@ -568,7 +570,9 @@ static SLPInternalError serialize_attributes(FILE *fpDest, MslpHashtable *phash,
             }
             if ( pcTemp[0] == ',') 
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DEBUG,"serialize_attributes: empty attr ending with ','");
+#endif
             } 
             else 
             {
@@ -608,7 +612,7 @@ static SLPInternalError serialize_attributes(FILE *fpDest, MslpHashtable *phash,
             {
                 SLPFree(pcTemp);
                 pcTemp = NULL;
-                LOG(SLP_LOG_ERR,"serialize_attributes: unexpected EOL in tag");
+                SLPLOG(SLP_LOG_ERR,"serialize_attributes: unexpected EOL in tag");
                 err = SLP_INVALID_REGISTRATION;
                 goto serialize_attributes_done;
             }
@@ -617,7 +621,7 @@ static SLPInternalError serialize_attributes(FILE *fpDest, MslpHashtable *phash,
             {
                 SLPFree(pcTemp);
                 pcTemp = NULL;
-                LOG(SLP_LOG_ERR,"serialize_attributes: unexpected empty tag");
+                SLPLOG(SLP_LOG_ERR,"serialize_attributes: unexpected empty tag");
                 err = SLP_INVALID_REGISTRATION;
                 goto serialize_attributes_done;
             }
@@ -648,7 +652,7 @@ static SLPInternalError serialize_attributes(FILE *fpDest, MslpHashtable *phash,
             {
 				SLPFree(pcKey);
 				pcKey = NULL;
-                LOG(SLP_LOG_ERR,"serialize_attributes: unexpected omitted val");
+                SLPLOG(SLP_LOG_ERR,"serialize_attributes: unexpected omitted val");
                 err = SLP_INVALID_REGISTRATION;
                 goto serialize_attributes_done;
             }
@@ -659,7 +663,7 @@ static SLPInternalError serialize_attributes(FILE *fpDest, MslpHashtable *phash,
                 pcTemp = NULL;			
 				SLPFree(pcKey);
 				pcKey = NULL;
-                LOG(SLP_LOG_ERR,"serialize_attributes: unexpected EOL in value");
+                SLPLOG(SLP_LOG_ERR,"serialize_attributes: unexpected EOL in value");
                 err = SLP_INVALID_REGISTRATION;
                 goto serialize_attributes_done;	
             }

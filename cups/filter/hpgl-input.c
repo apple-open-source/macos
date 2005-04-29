@@ -1,9 +1,9 @@
 /*
- * "$Id: hpgl-input.c,v 1.1.1.7 2002/12/24 00:06:55 jlovell Exp $"
+ * "$Id: hpgl-input.c,v 1.1.1.12 2005/01/04 19:15:56 jlovell Exp $"
  *
  *   HP-GL/2 input processing for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2003 by Easy Software Products.
+ *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -54,7 +54,8 @@ ParseCommand(FILE    *fp,	/* I - File to read from */
 		ch,		/* Current char */
 		done,		/* Non-zero when the current command is read */
 		i;		/* Looping var */
-  char		buf[262144];	/* String buffer */
+  char		buf[262144],	/* String buffer */
+		*bufptr;	/* Pointer into buffer */
   static param_t p[MAX_PARAMS];	/* Parameter buffer */
 
 
@@ -68,7 +69,9 @@ ParseCommand(FILE    *fp,	/* I - File to read from */
         break;
 
     if (ch == EOF)
+    {
       return (-1);
+    }
 
     if (ch == 0x1b)
       switch (getc(fp))
@@ -103,11 +106,28 @@ ParseCommand(FILE    *fp,	/* I - File to read from */
             }
             break;
 
+        case '%' : /* PJL command? */
+            if ((i = getc(fp)) == '-')
+	      if ((i = getc(fp)) == '1')
+	        if ((i = getc(fp)) == '2')
+		{
+		 /*
+		  * Yes, dump everything up to the "ENTER LANGUAGE" line...
+		  */
+
+        	  while (fgets(buf, sizeof(buf), fp) != NULL)
+	            if (strstr(buf, "ENTER") && strstr(buf, "LANGUAGE"))
+		      break;
+		  break;
+		}
+
+            ungetc(i, fp);
+
         default : /* HP RTL/PCL control */
-            while ((i = getc(fp)) != EOF && !isupper(i));
+            while ((i = getc(fp)) != EOF && !isupper(i & 255));
             break;
       }
-  } while (ch == 0x1b);
+  } while (ch < ' ');
 
   name[0] = ch;
   name[1] = getc(fp);
@@ -115,9 +135,12 @@ ParseCommand(FILE    *fp,	/* I - File to read from */
 
   if (strcasecmp(name, "LB") == 0)
   {
-    for (i = 0; (ch = getc(fp)) != StringTerminator; i ++)
-      buf[i] = ch;
-    buf[i] = '\0';
+    bufptr = buf;
+    while ((ch = getc(fp)) != StringTerminator)
+      if (bufptr < (buf + sizeof(buf) - 1))
+        *bufptr++ = ch;
+    *bufptr = '\0';
+
     p[num_params].type         = PARAM_STRING;
     p[num_params].value.string = strdup(buf);
     num_params ++;
@@ -142,11 +165,12 @@ ParseCommand(FILE    *fp,	/* I - File to read from */
   }
   else if (strcasecmp(name, "PE") == 0)
   {
-    for (i = 0; i < (sizeof(buf) - 1); i ++)
-      if ((buf[i] = getc(fp)) == ';')
-        break;
+    bufptr = buf;
+    while ((ch = getc(fp)) != ';')
+      if (bufptr < (buf + sizeof(buf) - 1))
+        *bufptr++ = ch;
+    *bufptr = '\0';
 
-    buf[i] = '\0';
     p[num_params].type         = PARAM_STRING;
     p[num_params].value.string = strdup(buf);
     num_params ++;
@@ -230,5 +254,5 @@ FreeParameters(int     num_params,	/* I - Number of parameters */
 
 
 /*
- * End of "$Id: hpgl-input.c,v 1.1.1.7 2002/12/24 00:06:55 jlovell Exp $".
+ * End of "$Id: hpgl-input.c,v 1.1.1.12 2005/01/04 19:15:56 jlovell Exp $".
  */

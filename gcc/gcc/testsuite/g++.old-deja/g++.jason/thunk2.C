@@ -1,7 +1,7 @@
+// { dg-do run }
+// { dg-options "-fPIC" }
+// { dg-bogus "\[Uu\]nresolved symbol .(_GLOBAL_OFFSET_TABLE_|\[_.A-Za-z\]\[_.0-9A-Za-z\]*@(PLT|GOT|GOTOFF))" "PIC unsupported" { xfail *-*-netware* } 0 }
 // Test that non-variadic function calls using thunks and PIC work right.
-// Skip if not native
-// Special g++ Options: -fPIC
-// excess errors test - XFAIL m68k-motorola-sysv m88k-motorola-sysv3
 
 struct A {
   void* p;

@@ -27,11 +27,11 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/format.c,v 1.28 2002/11/30 23:13:11 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/format.c,v 1.30 2003/05/27 22:27:02 tsi Exp $ */
 
-#include "io.h"
-#include "write.h"
-#include "format.h"
+#include "lisp/io.h"
+#include "lisp/write.h"
+#include "lisp/format.h"
 #include <ctype.h>
 
 #define MAXFMT			8
@@ -596,9 +596,9 @@ static void
 format_in_radix(LispObj *stream, LispObj *object, int radix, FmtArgs *args)
 {
     if (INTEGERP(object)) {
-	int i, check, atsign, collon, mincol, padchar, commachar, commainterval;
+	int i, atsign, collon, mincol, padchar, commachar, commainterval;
 
-	i = check = (radix == 0);
+	i = (radix == 0);
 	atsign = args->atsign;
 	collon = args->collon;
 	if (radix == 0) {

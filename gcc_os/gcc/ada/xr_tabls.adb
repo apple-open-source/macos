@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1998-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1998-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -21,27 +20,24 @@
 -- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
--- GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).   --
+-- Extensive contributions were provided by Ada Core Technologies Inc.   --
 --                                                                          --
 ------------------------------------------------------------------------------
+
+with Osint;
+with Unchecked_Deallocation;
 
 with Ada.IO_Exceptions;
 with Ada.Strings.Fixed;
 with Ada.Strings;
 with Ada.Text_IO;
-with Hostparm;
-with GNAT.IO_Aux;
-with Unchecked_Deallocation;
-with GNAT.OS_Lib;               use GNAT.OS_Lib;
-with GNAT.Directory_Operations; use GNAT.Directory_Operations;
-with Osint;
-
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
-package body Xr_Tabls is
+with GNAT.IO_Aux;
+with GNAT.OS_Lib;               use GNAT.OS_Lib;
+with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
-   subtype Line_String      is String (1 .. Hostparm.Max_Line_Length);
-   subtype File_Name_String is String (1 .. Hostparm.Max_Name_Length);
+package body Xr_Tabls is
 
    function Base_File_Name (File : String) return String;
    --  Return the base file name for File (ie not including the directory)
@@ -94,28 +90,30 @@ package body Xr_Tabls is
 
       --  Insert the Declaration in the table
 
-      New_Decl := new Declaration_Record'
-        (Symbol_Length => Symbol'Length,
-         Symbol        => Symbol,
-         Decl          => (File          => File_Ref,
-                           Line          => Line,
-                           Column        => Column,
-                           Source_Line   => Null_Unbounded_String,
-                           Next          => null),
-         Decl_Type     => Decl_Type,
-         Body_Ref      => null,
-         Ref_Ref       => null,
-         Modif_Ref     => null,
-         Match         => Default_Match or else Match (File_Ref, Line, Column),
-         Par_Symbol    => null,
-         Next          => null);
+      New_Decl :=
+        new Declaration_Record'
+          (Symbol_Length => Symbol'Length,
+           Symbol        => Symbol,
+           Decl          => (File          => File_Ref,
+                             Line          => Line,
+                             Column        => Column,
+                             Source_Line   => Null_Unbounded_String,
+                             Next          => null),
+           Decl_Type     => Decl_Type,
+           Body_Ref      => null,
+           Ref_Ref       => null,
+           Modif_Ref     => null,
+           Match         => Default_Match
+                              or else Match (File_Ref, Line, Column),
+           Par_Symbol    => null,
+           Next          => null);
 
       if Prev = null then
-         New_Decl.Next := Entities.Table;
+         New_Decl.Next  := Entities.Table;
          Entities.Table := New_Decl;
       else
-         New_Decl.Next := Prev.Next;
-         Prev.Next := New_Decl;
+         New_Decl.Next  := Prev.Next;
+         Prev.Next      := New_Decl;
       end if;
 
       if New_Decl.Match then
@@ -126,26 +124,27 @@ package body Xr_Tabls is
       return New_Decl;
    end Add_Declaration;
 
-   --------------
-   -- Add_File --
-   --------------
+   ----------------------
+   -- Add_To_Xref_File --
+   ----------------------
 
-   procedure Add_File
-     (File_Name    : String;
-      File_Existed : out Boolean;
-      Ref          : out File_Reference;
-      Visited      : Boolean := True;
-      Emit_Warning : Boolean := False;
-      Gnatchop_File : String := "";
+   procedure Add_To_Xref_File
+     (File_Name       : String;
+      File_Existed    : out Boolean;
+      Ref             : out File_Reference;
+      Visited         : Boolean := True;
+      Emit_Warning    : Boolean := False;
+      Gnatchop_File   : String  := "";
       Gnatchop_Offset : Integer := 0)
    is
-      The_Files : File_Reference := Files.Table;
+      The_Files : File_Reference  := Files.Table;
       Base      : constant String := Base_File_Name (File_Name);
       Dir       : constant String := Xr_Tabls.Dir_Name (File_Name);
-      Dir_Acc   : String_Access := null;
+      Dir_Acc   : String_Access   := null;
 
    begin
-      --  Do we have a directory name as well ?
+      --  Do we have a directory name as well?
+
       if Dir /= "" then
          Dir_Acc := new String' (Dir);
       end if;
@@ -175,7 +174,7 @@ package body Xr_Tabls is
          Next            => Files.Table);
       Files.Table := Ref;
       File_Existed := False;
-   end Add_File;
+   end Add_To_Xref_File;
 
    --------------
    -- Add_Line --
@@ -247,10 +246,21 @@ package body Xr_Tabls is
 
    begin
       case Ref_Type is
-         when 'b' | 'c' => Ref := Declaration.Body_Ref;
-         when 'r' | 'i' => Ref := Declaration.Ref_Ref;
-         when 'm'       => Ref := Declaration.Modif_Ref;
-         when others => return;
+         when 'b' | 'c' =>
+            Ref := Declaration.Body_Ref;
+
+         when 'r' | 'i' | 'l' | ' ' | 'x' =>
+            Ref := Declaration.Ref_Ref;
+
+         when 'm'       =>
+            Ref := Declaration.Modif_Ref;
+
+         when 'e' | 't' | 'p' =>
+            return;
+
+         when others    =>
+            Ada.Text_IO.Put_Line ("Unknown reference type: " & Ref_Type);
+            return;
       end case;
 
       --  Check if the reference already exists
@@ -277,15 +287,19 @@ package body Xr_Tabls is
       else
          case Ref_Type is
             when 'b' | 'c' =>
-               New_Ref.Next := Declaration.Body_Ref;
-               Declaration.Body_Ref := New_Ref;
-            when 'r' | 'i' =>
-               New_Ref.Next := Declaration.Ref_Ref;
-               Declaration.Ref_Ref := New_Ref;
+               New_Ref.Next          := Declaration.Body_Ref;
+               Declaration.Body_Ref  := New_Ref;
+
+            when 'r' | 'i' | 'l' | ' ' | 'x' =>
+               New_Ref.Next          := Declaration.Ref_Ref;
+               Declaration.Ref_Ref   := New_Ref;
+
             when 'm' =>
-               New_Ref.Next := Declaration.Modif_Ref;
+               New_Ref.Next          := Declaration.Modif_Ref;
                Declaration.Modif_Ref := New_Ref;
-            when others => null;
+
+            when others =>
+               null;
          end case;
       end if;
 
@@ -327,6 +341,7 @@ package body Xr_Tabls is
             return File (J + 1 .. File'Last);
          end if;
       end loop;
+
       return File;
    end Base_File_Name;
 
@@ -614,7 +629,7 @@ package body Xr_Tabls is
             else
                declare
                   Max_Path : Integer;
-                  pragma Import (C, Max_Path, "max_path_len");
+                  pragma Import (C, Max_Path, "__gnat_max_path_len");
 
                   Base2 : Dir_Name_Str (1 .. Max_Path);
                   Last  : Natural;
@@ -973,16 +988,15 @@ package body Xr_Tabls is
 
       type Simple_Ref;
       type Simple_Ref_Access is access Simple_Ref;
-      type Simple_Ref is
-         record
-            Ref  : Reference;
-            Next : Simple_Ref_Access;
-         end record;
+      type Simple_Ref is record
+         Ref  : Reference;
+         Next : Simple_Ref_Access;
+      end record;
       List : Simple_Ref_Access := null;
       --  This structure is used to speed up the parsing of Ada sources:
       --  Every reference found by parsing the .ali files is inserted in this
-      --  list, sorted by filename and line numbers.
-      --  This allows use not to parse a same ada file multiple times
+      --  list, sorted by filename and line numbers. This allows avoiding
+      --  parsing a same ada file multiple times
 
       procedure Free is new Unchecked_Deallocation
         (Simple_Ref, Simple_Ref_Access);
@@ -1121,6 +1135,7 @@ package body Xr_Tabls is
                else
                   Prev.Next := new Simple_Ref'(Ref, Iter);
                end if;
+
                return;
             end if;
 

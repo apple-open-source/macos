@@ -1,5 +1,6 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1988, 1994, 1995, 1996, 1997, 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1994, 1995, 1996, 1997, 1999, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -34,17 +35,23 @@ Boston, MA 02111-1307, USA.  */
 #define VMS_TARGET 1
 
 #undef LIB_SPEC
-#undef CPP_PREDEFINES
 #undef TARGET_NAME
 #undef TARGET_DEFAULT
 #undef CALL_USED_REGISTERS
 #undef STARTING_FRAME_OFFSET
 
-/* Predefine this in CPP because VMS limits the size of command options
-   and GNU CPP is not used on VMS except with GNU C.  */
-#define CPP_PREDEFINES \
-"-Dvax -Dvms -DVMS -D__vax__ -D__vms__ -D__VMS__\
- -D__GNUC__=2 -D__GNUC_MINOR__=7 -Asystem=vms -Acpu=vax -Amachine=vax"
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("vms");		\
+      builtin_define_std ("VMS");		\
+      builtin_assert ("system=vms");		\
+						\
+      builtin_define_std ("vax");		\
+      if (TARGET_G_FLOAT)			\
+	builtin_define_std ("GFLOAT");		\
+    }						\
+  while (0)
 
 /* These match the definitions used in VAXCRTL, the VMS C run-time library */
 
@@ -83,25 +90,8 @@ Boston, MA 02111-1307, USA.  */
 /* This macro definition sets up a default value for `main' to return.  */
 #define DEFAULT_MAIN_RETURN  c_expand_return (integer_one_node)
 
-/* This makes use of a hook in varasm.c to mark all external variables
-   for us.  We use this to make sure that external variables are correctly
-   addressed.  Under VMS there is some brain damage in the linker that requires
-   us to do this.  */
-
-#define ENCODE_SECTION_INFO(decl)  				\
-  if (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl)) 		\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1; 
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#undef ASM_GLOBALIZE_LABEL
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)		\
-  do { fputs (".globl ", FILE);			\
-       assemble_name (FILE, NAME);		\
-       fputs ("\n", FILE);			\
-       vms_check_external (NULL_TREE, NAME, 0); \
-     } while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".globl "
 
 /* Under VMS we write the actual size of the storage to be allocated even
    though the symbol is external.  Although it is possible to give external
@@ -208,40 +198,6 @@ const_section ()					\
     fprintf(asm_out_file,".const\n");			\
     in_section = in_const;				\
   }							\
-}
-
-/* This macro contains the logic to decide which section a variable
-   should be stored in.  Static constant variables go in the text_section,
-   non-const variables go in the data_section, and non-static const
-   variables go in the const_section.
-
-   Since this macro is used in a number of places, we must also be able
-   to decide where to place string constants.  */
-
-#define SELECT_SECTION(T,RELOC,ALIGN)					\
-{									\
-  if (TREE_CODE (T) == VAR_DECL)					\
-    {									\
-      if (TREE_READONLY (T) && ! TREE_THIS_VOLATILE (T)			\
-	  && DECL_INITIAL (T)						\
-	  && (DECL_INITIAL (T) == error_mark_node			\
-	      || TREE_CONSTANT (DECL_INITIAL (T))))			\
-	{								\
-	  if (TREE_PUBLIC (T))						\
-	    const_section ();						\
-	  else								\
-	    text_section ();						\
-	}								\
-      else								\
-	data_section ();						\
-    }									\
-  if (TREE_CODE_CLASS (TREE_CODE (T)) == 'c')				\
-    {									\
-      if ((TREE_CODE (T) == STRING_CST && flag_writable_strings))	\
-	data_section ();						\
-      else								\
-	text_section ();						\
-    }									\
 }
 
 /* This is used by a hook in varasm.c to write the assembler directives

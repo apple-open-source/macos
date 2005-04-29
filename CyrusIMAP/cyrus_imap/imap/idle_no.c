@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: idle_no.c,v 1.5 2003/10/22 20:05:11 ken3 Exp $ */
+/* $Id: idle_no.c,v 1.5 2005/03/05 00:36:54 dasenbro Exp $ */
 
 #include "idle.h"
 

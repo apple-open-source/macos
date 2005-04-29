@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  5.0.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,17 +23,13 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Author:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
 #include "enums.h"
-#include "mem.h"
-#endif
+#include "imports.h"
 
 
 typedef struct {
@@ -775,10 +771,21 @@ enum_elt all_enums[] =
    { "GL_OCCLUSION_TEST_RESULT_HP", 0x8166 },
 
    { "GL_TEXTURE_FILTER_CONTROL_EXT", 0x8500 },
-   { "GL_TEXTUER_LOD_BIAS_EXT", 0x8501 },
+   { "GL_TEXTURE_LOD_BIAS_EXT", 0x8501 },
 
-   { "GL_NORMAL_MAP_NV", 0x8511 },
-   { "GL_REFLECTION_MAP_NV", 0x8512 },
+   /* GL_ARB_texture_cube_map */
+   { "GL_NORMAL_MAP_ARB", 0x8511 },
+   { "GL_REFLECTION_MAP_ARB", 0x8512 },
+   { "GL_TEXTURE_CUBE_MAP_ARB", 0x8513 },
+   { "GL_TEXTURE_BINDING_CUBE_MAP_ARB", 0x8514 },
+   { "GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB", 0x8515 },
+   { "GL_TEXTURE_CUBE_MAP_NEGATIVE_X_ARB", 0x8516 },
+   { "GL_TEXTURE_CUBE_MAP_POSITIVE_Y_ARB", 0x8517 },
+   { "GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_ARB", 0x8518 },
+   { "GL_TEXTURE_CUBE_MAP_POSITIVE_Z_ARB", 0x8519 },
+   { "GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_ARB", 0x851a },
+   { "GL_PROXY_TEXTURE_CUBE_MAP_ARB", 0x851b },
+   { "GL_MAX_CUBE_MAP_TEXTURE_SIZE_ARB", 0x851c },
 
    { "GL_PREFER_DOUBLEBUFFER_HINT_PGI", 107000 },
    { "GL_STRICT_DEPTHFUNC_HINT_PGI", 107030 },
@@ -840,11 +847,44 @@ enum_elt all_enums[] =
    { "GL_DOT3_RGBA_EXT", 0x8741 },
 
    /* GL_ARB_texture_env_dot3 */
-   { "GL_DOT3_RGB_EXT", 0x86ae },
-   { "GL_DOT3_RGBA_EXT", 0x86af },
+   { "GL_DOT3_RGB_ARB", 0x86ae },
+   { "GL_DOT3_RGBA_ARB", 0x86af },
 
    /* GL_ARB_texture_border_clamp */
    { "GL_CLAMP_TO_BORDER_ARB", 0x812D },
+
+   /* GL_ATI_texture_env_combine3 */
+   { "GL_MODULATE_ADD_ATI", 0x8744 },
+   { "GL_MODULATE_SIGNED_ADD_ATI", 0x8745 },
+   { "GL_MODULATE_SUBTRACT_ATI", 0x8746 },
+
+   /* GL_ARB_texture_compression */
+   { "GL_COMPRESSED_ALPHA_ARB", 0x84E9 },
+   { "GL_COMPRESSED_LUMINANCE_ARB", 0x84EA },
+   { "GL_COMPRESSED_LUMINANCE_ALPHA_ARB", 0x84EB },
+   { "GL_COMPRESSED_INTENSITY_ARB", 0x84EC },
+   { "GL_COMPRESSED_RGB_ARB", 0x84ED },
+   { "GL_COMPRESSED_RGBA_ARB", 0x84EE },
+   { "GL_TEXTURE_COMPRESSED_IMAGE_SIZE_ARB", 0x86A0 },
+   { "GL_TEXTURE_COMPRESSED_ARB", 0x86A1 },
+   { "GL_NUM_COMPRESSED_TEXTURE_FORMATS_ARB", 0x86A2 },
+   { "GL_COMPRESSED_TEXTURE_FORMATS_ARB", 0x86A3 },
+
+   /* GL_EXT_texture_compression_s3tc */
+   { "GL_COMPRESSED_RGB_S3TC_DXT1_EXT", 0x83F0 },
+   { "GL_COMPRESSED_RGBA_S3TC_DXT1_EXT", 0x83F1 },
+   { "GL_COMPRESSED_RGBA_S3TC_DXT3_EXT", 0x83F2 },
+   { "GL_COMPRESSED_RGBA_S3TC_DXT5_EXT", 0x83F3 },
+
+   /* GL_S3_s3tc */
+   { "GL_RGB_S3TC", 0x83A0 },
+   { "GL_RGB4_S3TC", 0x83A1 },
+   { "GL_RGBA_S3TC", 0x83A2 },
+   { "GL_RGBA4_S3TC", 0x83A3 },
+
+   /* GL_3DFX_texture_compression_FXT1 */
+   { "GL_COMPRESSED_RGB_FXT1_3DFX", 0x86B0 },
+   { "GL_COMPRESSED_RGBA_FXT1_3DFX", 0x86B1 },
 };
 
 #define Elements(x) sizeof(x)/sizeof(*x)
@@ -856,7 +896,7 @@ static int sorted = 0;
 
 static int compar_name( const enum_elt *a, const enum_elt *b )
 {
-   return strcmp(a->c, b->c);
+   return _mesa_strcmp(a->c, b->c);
 }
 
 
@@ -927,7 +967,7 @@ const char *_mesa_lookup_enum_by_nr( int nr )
    }
    else {
       /* this isn't re-entrant safe, no big deal here */
-      sprintf(token_tmp, "0x%x", nr);
+      _mesa_sprintf(token_tmp, "0x%x", nr);
       return token_tmp;
    }
 }

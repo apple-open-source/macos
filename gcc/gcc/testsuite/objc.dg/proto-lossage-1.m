@@ -35,9 +35,10 @@ typedef struct objc_object { struct objc_class *class_pointer; } *id;
   return (id <NSObject>)plate1; /* { dg-bogus "does not conform" } */
 }
 - (int) getValue {
-  int i = [plate1 someValue];   /* { dg-warning "not implemented by protocol" } */
-  int j = [(id <NSObject>)plate1 someValue];  /* { dg-bogus "not implemented by protocol" } */
-  int k = [(id)plate1 someValue]; /* { dg-bogus "not implemented by protocol" } */
+  int i = [plate1 someValue];   /* { dg-warning ".\\-someValue. not found in protocol\\(s\\)" } */
+
+  int j = [(id <NSObject>)plate1 someValue];  /* { dg-bogus "not found in protocol" } */
+  int k = [(id)plate1 someValue]; /* { dg-bogus "not found in protocol" } */
   return i + j + k;
 }
 @end

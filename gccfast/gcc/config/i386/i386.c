@@ -15752,10 +15752,18 @@ x86_emit_floatuns (operands)
      rtx operands[2];
 {
   rtx neglab, donelab, i0, i1, f0, in, out;
-  enum machine_mode mode;
+  /* APPLE LOCAL backported from FSF 3.4 */
+  enum machine_mode mode, inmode;
+
+  /* APPLE LOCAL begin backported from FSF 3.4 */
+  inmode = GET_MODE (operands[1]);
+  if (inmode != SImode
+      && inmode != DImode)
+    abort ();
 
   out = operands[0];
-  in = force_reg (DImode, operands[1]);
+  in = force_reg (inmode, operands[1]);
+  /* APPLE LOCAL end backported from FSF 3.4 */
   mode = GET_MODE (out);
   neglab = gen_label_rtx ();
   donelab = gen_label_rtx ();

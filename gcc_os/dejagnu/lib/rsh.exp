@@ -1,4 +1,4 @@
-# Copyright (C) 97, 98, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1997 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
 # Please email any bugs, comments, and/or additions to this file to:
-# DejaGnu@cygnus.com
+# bug-dejagnu@gnu.org
 
 #
 # Connect to hostname using rlogin
@@ -25,6 +25,22 @@ proc rsh_open { hostname } {
 
     set tries 0
     set result -1
+
+    if ![board_info $hostname exists rsh_prog] {
+	if { [which remsh] != 0 } {
+	    set RSH remsh
+	} else {
+	    set RSH rsh
+	}
+    } else {
+	set RSH [board_info $hostname rsh_prog];
+    }
+
+    if [board_info $hostname exists username] {
+	set rsh_useropts "-l [board_info $hostname username]"
+    } else {
+	set rsh_useropts ""
+    }
 
     # get the hostname and port number from the config array
     if [board_info $hostname exists name] {
@@ -41,19 +57,9 @@ proc rsh_open { hostname } {
 	unset board_info($hostname,fileid);
     }
  
-    if ![board_info $hostname exists rsh_prog] {
-	if { [which remsh] != 0 } {
-	    set RSH remsh
-	} else {
-	    set RSH rsh
-	}
-    } else {
-	set RSH [board_info $hostname rsh_prog];
-    }
-
-    spawn $RSH $hostname
+    spawn $RSH $rsh_useropts $hostname
     if { $spawn_id < 0 } {
-	perror "invalid spawn id from rsh"
+	perror "invalid spawn id from $RSH"
 	return -1
     }
 
@@ -80,48 +86,48 @@ proc rsh_open { hostname } {
 		exp_continue
 	    }
 	    -re "isn't registered for Kerberos.*service.*$" {
-		warning "rsh: isn't registered for Kerberos, please kinit"
+		warning "$RSH: isn't registered for Kerberos, please kinit"
 		catch close
 		catch wait
 		break
 	    }
 	    -re "Kerberos rcmd failed.*$" {
-		warning "rsh: Kerberos rcmd failed, please kinit"
+		warning "$RSH: Kerberos rcmd failed, please kinit"
 		catch close
 		catch wait
 		break
 	    }
 	    -re "You have no Kerberos tickets.*$" {
-		warning "rsh: No kerberos Tickets, please kinit"
+		warning "$RSH: No kerberos Tickets, please kinit"
 		catch close
 		catch wait
 		break
 	    }
 	    "Terminal type is" {
-		verbose "rsh: connected, got terminal prompt" 2
+		verbose "$RSH: connected, got terminal prompt" 2
 		set result 0
 		break
 	    }
 	    -re "trying normal rlogin.*$" {
-		warning "rsh: trying normal rlogin."
+		warning "$RSH: trying normal rlogin."
 		catch close
 		catch wait
 		break
 	    }
 	    -re "unencrypted connection.*$" {
-		warning "rsh: unencrypted connection, please kinit"
+		warning "$RSH: unencrypted connection, please kinit"
 		catch close
 		catch wait
 		break
 	    }
 	    -re "Sorry, shell is locked.*Connection closed.*$" {
-		warning "rsh: already connected."
+		warning "$RSH: already connected."
 	    }
 	    timeout {
-	       warning "rsh: timed out trying to connect."
+	       warning "$RSH: timed out trying to connect."
 	    }
 	    eof {
-		perror "rsh: got EOF while trying to connect."
+		perror "$RSH: got EOF while trying to connect."
 		break
 	    }
 	}
@@ -129,7 +135,7 @@ proc rsh_open { hostname } {
     }
     
     if { $result < 0 } {
-#	perror "rsh: couldn't connect after $tries tries."
+#	perror "$RSH: couldn't connect after $tries tries."
 	close -i $spawn_id
 	set spawn_id -1
     } else {
@@ -144,6 +150,31 @@ proc rsh_open { hostname } {
 #
 
 proc rsh_download {desthost srcfile destfile} {
+    # must be done before desthost is rewritten
+    if [board_info $desthost exists rcp_prog] {
+	set RCP [board_info $desthost rcp_prog];
+    } else {
+        set RCP rcp
+    }
+
+    if [board_info $desthost exists rsh_prog] {
+	set RSH [board_info $desthost rsh_prog];
+    } else {
+	if { [which remsh] != 0 } {
+	    set RSH remsh
+	} else {
+	    set RSH rsh
+	}
+    }
+
+    if [board_info $desthost exists username] {
+	set rsh_useropts "-l [board_info $desthost username]"
+	set rcp_user "[board_info $desthost username]@"
+    } else {
+	set rsh_useropts ""
+	set rcp_user ""
+    }
+
     if [board_info $desthost exists name] {
 	set desthost [board_info $desthost name];
     }
@@ -152,13 +183,8 @@ proc rsh_download {desthost srcfile destfile} {
 	set desthost [board_info $desthost hostname];
     }
 
-    if ![board_info $desthost exists rcp_prog] {
-        set RCP rcp
-    } else {
-	set RCP [board_info $desthost rcp_prog];
-    }
-
-    set status [catch "exec $RCP $srcfile $desthost:$destfile |& cat" output]
+    set status [catch "exec $RSH $rsh_useropts $desthost rm -f $destfile |& cat" output]
+    set status [catch "exec $RCP $srcfile $rcp_user$desthost:$destfile |& cat" output]
     if { $status == 0 } {
 	verbose "Copied $srcfile to $desthost:$destfile" 2
 	return $destfile;
@@ -169,6 +195,18 @@ proc rsh_download {desthost srcfile destfile} {
 }
 
 proc rsh_upload {desthost srcfile destfile} {
+    if [board_info $desthost exists rcp_prog] {
+	set RCP [board_info $desthost rcp_prog];
+    } else {
+        set RCP rcp
+    }
+
+    if [board_info $desthost exists username] {
+	set rcp_user "[board_info $desthost username]@"
+    } else {
+	set rcp_user ""
+    }
+
     if [board_info $desthost exists name] {
 	set desthost [board_info $desthost name];
     }
@@ -177,13 +215,7 @@ proc rsh_upload {desthost srcfile destfile} {
 	set desthost [board_info $desthost hostname];
     }
 
-    if ![board_info $desthost exists rcp_prog] {
-        set RCP rcp
-    } else {
-	set RCP [board_info $desthost rcp_prog];
-    }
-
-    set status [catch "exec $RCP $desthost:$srcfile $destfile" output];
+    set status [catch "exec $RCP $rcp_user$desthost:$srcfile $destfile" output];
     if { $status == 0 } {
 	verbose "Copied $desthost:$srcfile to $destfile" 2
 	return $destfile;
@@ -211,6 +243,22 @@ proc rsh_exec { boardname cmd args } {
 
     verbose "Executing $boardname:$cmd $pargs < $inp"
 
+    if ![board_info $boardname exists rsh_prog] {
+	if { [which remsh] != 0 } {
+	    set RSH remsh
+	} else {
+	    set RSH rsh
+	}
+    } else {
+	set RSH [board_info $boardname rsh_prog];
+    }
+ 
+    if [board_info $boardname exists username] {
+	set rsh_useropts "-l [board_info $boardname username]"
+    } else {
+	set rsh_useropts ""
+    }
+
     if [board_info $boardname exists name] {
 	set boardname [board_info $boardname name];
     }
@@ -221,34 +269,26 @@ proc rsh_exec { boardname cmd args } {
 	set hostname $boardname;
     }
 
-    if ![board_info $hostname exists rsh_prog] {
-	if { [which remsh] != 0 } {
-	    set RSH remsh
-	} else {
-	    set RSH rsh
-	}
-    } else {
-	set RSH [board_info $hostname rsh_prog];
-    }
- 
+
     # If CMD sends any output to stderr, exec will think it failed.  More often
     # than not that will be true, but it doesn't catch the case where there is
     # no output but the exit code is non-zero.
     if { $inp == "" } {
 	set inp "/dev/null"
     }
-    set status [catch "exec cat $inp | $RSH $boardname sh -c '$cmd $pargs \\; echo XYZ\\\${?}ZYX' |& cat" output]
-    verbose "rsh output is $output"
+
+    set status [catch "exec cat $inp | $RSH $rsh_useropts $hostname sh -c '$cmd $pargs \\; echo XYZ\\\${?}ZYX' |& cat" output]
+    verbose "$RSH output is $output"
     # `status' doesn't mean much here other than rsh worked ok.
     # What we want is whether $cmd ran ok.
     if { $status != 0 } {
 	regsub "XYZ(\[0-9\]*)ZYX\n?" $output "" output
-	return [list -1 "rsh to $boardname failed for $cmd, $output"]
+	return [list -1 "$RSH to $boardname failed for $cmd, $output"]
     }
     regexp "XYZ(\[0-9\]*)ZYX" $output junk status
     verbose "rsh_exec: status:$status text:$output" 4
     if { $status == "" } {
-	return [list -1 "Couldn't parse rsh output, $output."]
+	return [list -1 "Couldn't parse $RSH output, $output."]
     }
     regsub "XYZ(\[0-9\]*)ZYX\n?" $output "" output
     # Delete one trailing \n because that is what `exec' will do and we want

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2001, International Business Machines Corporation and
+ * Copyright (c) 2001-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /************************************************************************
@@ -37,11 +37,11 @@ public:
     
     void TestUnicodeSetErrors(void);
 
-    void TestUniToHexErrors(void);
+    //void TestUniToHexErrors(void);
 
     void TestRBTErrors(void);
 
-    void TestHexToUniErrors(void);
+    //void TestHexToUniErrors(void);
 
 };
 

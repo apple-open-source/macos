@@ -1,5 +1,5 @@
 /*
- * Copyright 1992-2000 by Alan Hourihane <alanh@fairlite.demon.co.uk>
+ * Copyright 1992-2003 by Alan Hourihane, North Wales, UK.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -21,7 +21,7 @@
  *
  * Authors:  Alan Hourihane, <alanh@fairlite.demon.co.uk>
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/trident.h,v 1.56 2002/09/16 18:06:02 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/trident.h,v 1.60 2003/10/30 13:38:01 alanh Exp $ */
 /*#define VBE_INFO*/
 
 #ifndef _TRIDENT_H_
@@ -49,6 +49,7 @@ typedef struct {
 	unsigned char DacRegs[0x300];
 } TRIDENTRegRec, *TRIDENTRegPtr;
 
+#define VGA_REGNUM_ABOUT_TV 19
 #define TRIDENTPTR(p)	((TRIDENTPtr)((p)->driverPrivate))
 
 typedef struct {
@@ -125,6 +126,7 @@ typedef struct {
     CARD32		DrawFlag;
     CARD16		LinePattern;
     RamDacRecPtr	RamDacRec;
+    int			CursorOffset;
     xf86CursorInfoPtr	CursorInfoRec;
     xf86Int10InfoPtr	Int10;
     vbeInfoPtr		pVbe;
@@ -140,7 +142,6 @@ typedef struct {
     CARD8*		XAAScanlineColorExpandBuffers[2];
     CARD8*		XAAImageScanlineBuffer[1];
     void                (*InitializeAccelerator)(ScrnInfoPtr);
-#ifdef XvExtension
     void		(*VideoTimerCallback)(ScrnInfoPtr, Time);
     XF86VideoAdaptorPtr adaptor;
     int                 videoKey;
@@ -150,7 +151,6 @@ typedef struct {
     int			vsync_bskew;
     CARD32              videoFlags;
     int			keyOffset;
-#endif
     int                 OverrideHsync;
     int                 OverrideVsync;
     int                 OverrideBskew;
@@ -163,6 +163,11 @@ typedef struct {
     int			brightness;
     double		gamma;
     int			FPDelay;	/* just for debugging - will go away */
+    int                 TVChipset;    /* 0: None 1: VT1621 2: CH7005C*/
+    int                 TVSignalMode; /* 0: NTSC 1: PAL */
+    Bool                TVRegSet;     /* 0: User not customer TV Reg, 1: User customer TV Reg */
+    unsigned char       TVRegUserSet[2][128]; /*[0][128] for Reg Index, [1][128] for Reg Value */
+    unsigned char       DefaultTVDependVGASetting[VGA_REGNUM_ABOUT_TV+0x62]; /* VGA_REGNUM_ABOUT_TV: VGA Reg, 0x62: TV Reg */
 } TRIDENTRec, *TRIDENTPtr;
 
 typedef struct {
@@ -250,6 +255,11 @@ void TRIDENTRefreshArea16(ScrnInfoPtr pScrn, int num, BoxPtr pbox);
 void TRIDENTRefreshArea24(ScrnInfoPtr pScrn, int num, BoxPtr pbox);
 void TRIDENTRefreshArea32(ScrnInfoPtr pScrn, int num, BoxPtr pbox);
 
+void VIA_TVInit(ScrnInfoPtr pScrn);
+void VIA_SaveTVDepentVGAReg(ScrnInfoPtr pScrn);
+void VIA_RestoreTVDependVGAReg(ScrnInfoPtr pScrn);
+void VIA_DumpReg(ScrnInfoPtr pScrn);
+
 /*
  * Trident Chipset Definitions
  */
@@ -294,7 +304,8 @@ typedef enum {
     CYBERBLADEAI1D,
     CYBERBLADEE4,
     BLADEXP,
-    CYBERBLADEXPAI1
+    CYBERBLADEXPAI1,
+    CYBERBLADEXP4
 } TRIDENTType;
 
 #define UseMMIO		(pTrident->NoMMIO == FALSE)
@@ -324,6 +335,7 @@ typedef enum {
 			 (pTrident->Chipset == CYBERBLADEAI1D)  || \
 			 (pTrident->Chipset == BLADE3D) || \
 			 (pTrident->Chipset == CYBERBLADEXPAI1) || \
+			 (pTrident->Chipset == CYBERBLADEXP4) || \
 			 (pTrident->Chipset == BLADEXP))
 
 /*

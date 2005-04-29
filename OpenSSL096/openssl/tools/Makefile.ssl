@@ -10,9 +10,6 @@ CFLAG=-g
 INSTALL_PREFIX=
 OPENSSLDIR=     /usr/local/ssl
 INSTALLTOP=/usr/local/ssl
-BINDIR=$(INSTALLTOP)/bin
-LIBDIR=$(INSTALLTOP)/lib
-INCLUDEDIR=$(INSTALLTOP)/include/openssl
 MAKE=		make -f Makefile.ssl
 MAKEDEPEND=	$(TOP)/util/domd $(TOP)
 MAKEFILE=	Makefile.ssl
@@ -29,8 +26,8 @@ all:
 install:
 	@for i in $(APPS) ; \
 	do  \
-	(cp $$i $(INSTALL_PREFIX)$(BINDIR)/$$i; \
-	chmod 755 $(INSTALL_PREFIX)$(BINDIR)/$$i ); \
+	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/bin/$$i; \
+	chmod 755 $(INSTALL_PREFIX)$(INSTALLTOP)/bin/$$i ); \
 	done;
 	@for i in $(MISC_APPS) ; \
 	do  \

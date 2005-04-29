@@ -49,10 +49,17 @@ main (argc, argv)
       if (buflen == 0)
         break;
 
-      if (in_word_set (buf, buflen) && verbose)
-        printf ("in word set:");
-      else if (verbose)
-        printf ("NOT in word set:");
+      if (in_word_set (buf, buflen))
+        {
+          if (verbose)
+            printf ("in word set:");
+        }
+      else
+        {
+          if (verbose)
+            printf ("NOT in word set:");
+        }
+
       for (p = buf; p < buf + buflen; p += 2)
         printf (" %02X%02X", (unsigned char) p[0], (unsigned char) p[1]);
       printf("\n");

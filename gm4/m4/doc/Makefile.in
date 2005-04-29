@@ -1,5 +1,5 @@
 # Makefile for GNU m4 documentation.
-# Copyright (C) 1994 Free Software Foundation, Inc.
+# Copyright (C) 1994, 2004 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,35 +24,27 @@ VPATH = @srcdir@
 
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
-MAKEINFO  = makeinfo
-TEXI2DVI  = texi2dvi
-TEXI2HTML = texi2html
+MAKEINFO = makeinfo
+TEXI2DVI = texi2dvi
 
 prefix = @prefix@
 infodir = $(prefix)/info
-htmldir = $(prefix)/share/html/m4
 
 .SUFFIXES:
 
 DISTFILES = Makefile.in m4.texinfo texinfo.tex \
-stamp-vti version.texi m4.info m4.info-1 m4.info-2 m4.info-3
+stamp-vti version.texi m4.info
 
-all: html #info
+all: m4.info
 
 info: m4.info
 
-html: m4_1.html
-
 m4.info: m4.texinfo version.texi
-	cd $(srcdir) && $(MAKEINFO) m4.texinfo
 
 dvi: m4.dvi
 
 m4.dvi: m4.texinfo version.texi
 	$(TEXI2DVI) $(srcdir)/m4.texinfo
-
-m4_1.html: m4.texinfo
-	$(TEXI2HTML) -split_chapter $(srcdir)/m4.texinfo
 
 version.texi: stamp-vti
 stamp-vti: m4.texinfo ../configure.in
@@ -64,13 +56,6 @@ stamp-vti: m4.texinfo ../configure.in
 	date > $(srcdir)/stamp-vti
 
 install: all
-	$(srcdir)/../mkinstalldirs $(htmldir) #$(infodir)
-	#cd $(srcdir) && for file in m4.info*; do \
-	#  $(INSTALL_DATA) $$file $(infodir)/$$file; \
-	#done
-	for file in *.html; do \
-	  $(INSTALL_DATA) $$file $(htmldir)/$$file; \
-	done
 
 uninstall:
 	rm -f $(infodir)/m4.info*

@@ -28,7 +28,7 @@
 #ifndef __COSUtils_h__
 #define __COSUtils_h__	1
 
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
 
 
 enum eAppResourceIDs {

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -51,7 +48,9 @@ extern "C" {
 
 #include <netinet/in.h>
 #include <netinet/in_var.h>
-//#include <netinet/if_ether.h>
+#include <netinet/in_arp.h>
+#include <netinet/if_ether.h>
+
 #include <sys/sockio.h>
 #include <sys/malloc.h>
 }
@@ -61,6 +60,7 @@ extern "C" {
 #ifndef DLT_APPLE_IP_OVER_IEEE1394
 #define DLT_APPLE_IP_OVER_IEEE1394 138
 #endif
+
 //---------------------------------------------------------------------------
 
 #define super IONetworkInterface
@@ -87,8 +87,6 @@ OSMetaClassDefineReservedUnused( IOFWInterface, 15);
 // 
 #define kIOFWInterfaceNamePrefix      "fw"
 
-#define IFP2AC(IFP)		((struct arpcom *)IFP)
-
 // Options used for enableFilter(), disableFilter().
 enum {
     kFilterOptionDeferIO          = 0x0001,
@@ -98,7 +96,6 @@ enum {
     kFilterOptionSyncPendingIO    = 0x0010
 };
 static u_long ivedonethis = 0;
-extern void	firewire_arp_ifinit __P((struct arpcom *, struct ifaddr *));
 
 //---------------------------------------------------------------------------
 // Macros
@@ -159,60 +156,23 @@ bool IOFWInterface::setFilters(OSDictionary		*dict,
 
 //---------------------------------------------------------------------------
 // Initialize an IOFWInterface instance. Instance variables are
-// initialized, and an arpcom structure is allocated.
+// initialized
 bool IOFWInterface::init(IONetworkController *controller)
 {
-    OSData * macAddr;
-
-    // IONetworkInterface will call getIfnet() in its init() method,
-    // so arpcom must be available before calling super::init().
-    // First, fetch the controller's MAC/FireWire address.
-
-    macAddr = OSDynamicCast(OSData, controller->getProperty(kIOMACAddress));
-    if ( (macAddr == 0) || (macAddr->getLength() != FIREWIRE_ADDR_LEN) )
-    {
-        DLOG("%s: kIOMACAddress property access error (len %d)\n",
-             getName(), macAddr ? macAddr->getLength() : 0);
-        return false;
-    }
-
-    // Fetch an ifnet from DLIL. Depending on the 'uniqueid' provided,
-    // an existing ifnet may be returned, or a new ifnet may be allocated.
-    // For FireWire interface, the MAC address of the controller is used
-    // as the unique ID. The size of the ifnet structure returned will be
-    // large enough to hold the expanded arpcom structure.
-
-    for ( int attempts = 0;
-              attempts < 3 &&
-                dlil_if_acquire(
-                /* DLIL family  */ APPLE_IF_FAM_FIREWIRE,
-                /* uniqueid     */ (void *) macAddr->getBytesNoCopy(),
-                /* uniqueid_len */ macAddr->getLength(),
-                /* ifp          */ (struct ifnet **) &_arpcom ) != 0;
-              attempts++ )
-	{
-        // Perhaps the hardware was removed and then quickly re-inserted
-        // into the system, and the stale interface object has not yet
-        // released the ifnet back to DLIL. Since the new interface will
-        // provide the same MAC address, DLIL will return an error and
-        // refuse to allow multiple interfaces to share the same ifnet.
-        // Wait a bit and hope the old driver stack terminates quickly.
-        
-        DLOG("dlil_if_acquire() failed, sleeping...\n");
-        IOSleep( 50 );
-    }
-
-    if ( _arpcom == 0 )
-    {
-        DLOG("IOFWInterface: arpcom allocation failed\n");
-        return false;
-    }
-
     // Pass the init() call to our superclass.
-
     if ( super::init(controller) == false )
         return false;
 
+
+	// initialize firewire specific fields.
+    setInterfaceType( IFT_IEEE1394 ); 
+	setMaxTransferUnit( FIREWIREMTU );
+    setMediaAddressLength( FIREWIRE_ADDR_LEN );
+    setMediaHeaderLength( FIREWIRE_HDR_LEN );
+    setFlags( IFF_BROADCAST | IFF_SIMPLEX | IFF_NOTRAILERS,
+              IFF_RUNNING   | IFF_MULTICAST );
+
+			  
     // Add an IONetworkData with room to hold an IOFWStats structure.
     // This class does not reference the data object created, and no harm
     // is done if the data object is released or replaced.
@@ -257,6 +217,8 @@ bool IOFWInterface::init(IONetworkController *controller)
     setProperty( kIORequiredPacketFilters, _requiredFilters );
     setProperty( kIOActivePacketFilters,   _activeFilters );
 
+	_controller = controller;
+
     return true;
 }
 
@@ -270,37 +232,52 @@ bool IOFWInterface::init(IONetworkController *controller)
 // ifp: Pointer to the ifnet structure to be initialized.
 //
 // Returns true on success, false otherwise.
+int firewire_frameout(ifnet_t   ifp, mbuf_t *m,
+					const struct sockaddr *ndest, const char *edst, const char *fw_type);
+int firewire_demux(ifnet_t ifp, mbuf_t m,char *frame_header,protocol_family_t *protocol_family);
+int firewire_add_proto(ifnet_t   ifp, protocol_family_t protocol, const struct ifnet_demux_desc *demux_list, u_int32_t demux_count);
+int firewire_del_proto(ifnet_t   ifp, protocol_family_t protocol_family);
+int firewire_add_if(ifnet_t ifp);
 
-bool IOFWInterface::initIfnet(struct ifnet * ifp)
+bool IOFWInterface::initIfnetParams(struct ifnet_init_params *params)
 {
-    super::initIfnet( ifp );
+	//get the default values
+	super::initIfnetParams( params );
+	
+    _uniqueID = OSDynamicCast(OSData, getProvider()->getProperty(kIOMACAddress));
+    if ( (_uniqueID == 0) || (_uniqueID->getLength() != FIREWIRE_ADDR_LEN) )
+    {
+        DLOG("%s: kIOMACAddress property access error (len %d)\n",
+             getName(), _uniqueID ? _uniqueID->getLength() : 0);
+        return false;
+    }
 
-    // Set defaults suitable for FireWire interfaces.
-
-    ifp->if_baudrate = 10000000;
-    ifp->if_family   = APPLE_IF_FAM_FIREWIRE;
-
-    setInterfaceType( IFT_IEEE1394 ); 
-//  setMaxTransferUnit( FIREWIREMTU );
-    setMediaAddressLength( FIREWIRE_ADDR_LEN );
-    setMediaHeaderLength( FIREWIRE_HDR_LEN );
-    setFlags( IFF_BROADCAST | IFF_SIMPLEX | IFF_NOTRAILERS,
-              IFF_RUNNING   | IFF_MULTICAST );
-
+	// fill in firewire specific values
+	params->uniqueid = _uniqueID->getBytesNoCopy();
+	params->uniqueid_len = _uniqueID->getLength();
+	params->family = APPLE_IF_FAM_FIREWIRE;
+	params->demux = firewire_demux;
+	params->add_proto = firewire_add_proto;
+	params->del_proto = firewire_del_proto;
+	params->framer = firewire_frameout;
+	params->broadcast_addr	= fwbroadcastaddr;
+	params->broadcast_len	= sizeof(fwbroadcastaddr);
+	 
     return true;
 }
 
 //---------------------------------------------------------------------------
-// Free the IOFWInterface instance. The memory allocated
-// for the arpcom structure is released.
+// Free the IOFWInterface instance. 
+int  firewire_del_if(IOFWInterface	*fwIf);
 
 void IOFWInterface::free()
 {
-    if ( _arpcom )
+	struct ifnet *interface = (struct ifnet*)getIfnet();
+    if ( interface )
     {
-        DLOG("%s%d: release ifnet %p\n", getNamePrefix(), getUnitNumber(), _arpcom);
-        dlil_if_release( (struct ifnet *) _arpcom );
-        _arpcom = 0;
+        DLOG("%s%d: release ifnet %p\n", getNamePrefix(), getUnitNumber(), interface);
+		firewire_del_if( this );
+        dlil_if_release(interface );
     }
 
     if ( _requiredFilters )
@@ -322,19 +299,6 @@ void IOFWInterface::free()
     }
 
     super::free();
-}
-
-//---------------------------------------------------------------------------
-// This method returns a pointer to an ifnet structure maintained
-// by the family specific interface object. IOFWInterface
-// allocates an arpcom structure in init(), and returns a pointer
-// to that structure when this method is called.
-//
-// Returns a pointer to an ifnet structure.
-
-struct ifnet * IOFWInterface::getIfnet() const
-{
-    return (&(_arpcom->ac_if));
 }
 
 //---------------------------------------------------------------------------
@@ -366,7 +330,6 @@ bool IOFWInterface::controllerDidOpen(IONetworkController * ctr)
 {
     bool                 ret = false;
     OSData *             addrData;
-    IOFWAddress *  addr;
 
     do {
         // Call the controllerDidOpen() in superclass first.
@@ -402,27 +365,6 @@ bool IOFWInterface::controllerDidOpen(IONetworkController * ctr)
             break;
         }
 
-        addr = (IOFWAddress *) addrData->getBytesNoCopy();
-
-#if 1   // Print the address
-        IOLog("%s: FireWire address %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
-              ctr->getName(),
-              addr->bytes[0],
-              addr->bytes[1],
-              addr->bytes[2],
-              addr->bytes[3],
-              addr->bytes[4],
-              addr->bytes[5],
-              addr->bytes[6],
-              addr->bytes[7]
-			  );
-#endif
-
-        // Copy the hardware address we obtained from the controller
-        // to the arpcom structure.
-
-        bcopy(addr, _arpcom->ac_enaddr, FIREWIRE_ADDR_LEN);
-       
         ret = true;
     }
     while (0);
@@ -451,7 +393,7 @@ void IOFWInterface::controllerWillClose(IONetworkController * ctr)
 //
 // Argument convention is:
 //
-//    arg0 - (struct ifnet *)
+//    arg0 - (ifnet_t  )
 //    arg1 - (void *)
 //
 // The commands handled by IOFWInterface are:
@@ -462,7 +404,6 @@ void IOFWInterface::controllerWillClose(IONetworkController * ctr)
 //    SIOCDELMULTI
 //
 // Returns an error code defined in errno.h (BSD).
-
 SInt32 IOFWInterface::performCommand( IONetworkController * ctr,
                                             UInt32                cmd,
                                             void *                arg0,
@@ -470,35 +411,33 @@ SInt32 IOFWInterface::performCommand( IONetworkController * ctr,
 {
     SInt32  ret;
 
-    assert( arg0 == _arpcom );
-
     if ( ctr == 0 ) return EINVAL;
+	
+	switch ( cmd )
+	{
+		case SIOCSIFFLAGS:
+		case SIOCADDMULTI:
+		case SIOCDELMULTI:
+		case SIOCSIFADDR:
+		case SIOCSIFMTU:
+		case SIOCSIFLLADDR:
+			ret = (int) ctr->executeCommand(
+							this,            /* client */
+							(IONetworkController::Action)
+								&IOFWInterface::performGatedCommand,
+							this,            /* target */
+							ctr,             /* param0 */
+							(void *) cmd,    /* param1 */
+							arg0,            /* param2 */
+							arg1 );          /* param3 */
+			break;
 
-    switch ( cmd )
-    {
-        case SIOCSIFFLAGS:
-        case SIOCADDMULTI:
-        case SIOCDELMULTI:
-        case SIOCSIFADDR:
-        case SIOCSIFMTU:
-        case SIOCSIFLLADDR:
-            ret = (int) ctr->executeCommand(
-                             this,            /* client */
-                             (IONetworkController::Action)
-                                &IOFWInterface::performGatedCommand,
-                             this,            /* target */
-                             ctr,             /* param0 */
-                             (void *) cmd,    /* param1 */
-                             arg0,            /* param2 */
-                             arg1 );          /* param3 */
-            break;
-
-        default:
-            // Unknown command, let our superclass deal with it.
-            ret = super::performCommand(ctr, cmd, arg0, arg1);
-            break;
-    }
-
+		default:
+			// Unknown command, let our superclass deal with it.
+			ret = super::performCommand(ctr, cmd, arg0, arg1);
+			break;
+	}
+	
     return ret;
 }
 
@@ -697,29 +636,19 @@ int IOFWInterface::syncSIOCSIFFLAGS(IONetworkController * ctr)
 
 SInt IOFWInterface::syncSIOCSIFADDR(IONetworkController * ctr)
 {
-    struct ifnet *       ifp = getIfnet();
-    IOReturn ret = kIOReturnSuccess;
-    struct ifaddr 		*ifa;
-    struct sockaddr_dl * sdl;
+	ifnet_t ifp	= getIfnet();
+    IOReturn ret		= kIOReturnSuccess;
 	char	lladdr[8];
 	
-	ifa = ifnet_addrs[ifp->if_index - 1];
-	if (ifa == NULL)
+	if(ifp == NULL)
 		return (EINVAL);
 
-	//
-	// Set the sdl LLADDR to 64 bit address - 3208790
-	//
-    sdl = (struct sockaddr_dl *)ifa->ifa_addr;
-    if (sdl == NULL)
-        return (EINVAL);
+	IOFWAddress *addr = (IOFWAddress *) _uniqueID->getBytesNoCopy();
 
-	bcopy(LLADDR(sdl), lladdr, FIREWIRE_ADDR_LEN);
+	bcopy(addr->bytes, lladdr, kIOFWAddressSize);
 
-	sdl->sdl_alen = FIREWIRE_ADDR_LEN;
-	
-    bcopy(_arpcom->ac_enaddr, LLADDR(sdl), FIREWIRE_ADDR_LEN);
-	// end 
+	if(ifnet_set_lladdr(ifp, lladdr, kIOFWAddressSize) != 0)
+		DLOG("ifnet_set_lladdr failure in %s:%d", __FILE__, __LINE__);
 
     // Interface is implicitly brought up by an SIOCSIFADDR ioctl.
     setFlags(IFF_UP);
@@ -729,20 +658,22 @@ SInt IOFWInterface::syncSIOCSIFADDR(IONetworkController * ctr)
         if ( (ret = enableController(ctr)) == kIOReturnSuccess )
 		{
             setFlags(IFF_RUNNING);
-
-			/*
+			
+			ifaddr_t *addresses;
+			
+		   /*
 			* Also send gratuitous ARPs to notify other nodes about
 			* the address change.
 			*/
-			TAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link)
+			if (ifnet_get_address_list_family(ifp, &addresses, AF_INET) == 0) 
 			{
-				if (ifa->ifa_addr != NULL &&
-					ifa->ifa_addr->sa_family == AF_INET)
-				{
-					firewire_arp_ifinit(_arpcom, ifa);
-				}
-			}
-			
+				int i;
+				
+				for (i = 0; addresses[i] != NULL; i++) 
+					inet_arp_init_ifaddr(ifp, addresses[i]);
+				
+				ifnet_free_address_list(addresses);
+			}			
 		}
     }
 	
@@ -840,70 +771,42 @@ int IOFWInterface::syncSIOCSIFMTU( IONetworkController * ctr,
 int IOFWInterface::syncSIOCSIFLLADDR( IONetworkController * ctr,
                                             const char * lladdr, int len )
 {
-    struct ifnet *       ifp = getIfnet();
-    struct sockaddr_dl * sdl;
-    struct ifaddr *      ifa;
-    IOReturn             ret;
-
-	IOLog("IOFWInterface: syncSIOCSIFLLADDR+\n");
-
-    ifa = ifnet_addrs[ifp->if_index - 1];
-    if (ifa == NULL)
-        return (EINVAL);
-
-	IOLog("IOFWInterface: syncSIOCSIFLLADDR %d\n", __LINE__);
-
-    sdl = (struct sockaddr_dl *)ifa->ifa_addr;
-    if (sdl == NULL)
-        return (EINVAL);
-
-	IOLog("IOFWInterface: syncSIOCSIFLLADDR %d\n", __LINE__);
-
-    if (len != sdl->sdl_alen)   /* don't allow length to change */
-        return (EINVAL);
-
-	IOLog("IOFWInterface: syncSIOCSIFLLADDR %d\n", __LINE__);
-
+	unsigned char tempaddr[kIOFWAddressSize];
+	OSData *hardAddr;
+	
+	if(len != kIOFWAddressSize)
+		return EINVAL;
+	
     if (_ctrEnabled != true)    /* reject if interface is down */
         return (ENETDOWN);
-
-	IOLog("IOFWInterface: syncSIOCSIFLLADDR %d\n", __LINE__);
-
-    //
-    // Inform the FireWire driver about the address change.
-    //
-    ret = ctr->setHardwareAddress( lladdr, len );
-
-    if ( ret == kIOReturnSuccess )
+		
+	// keep a backup in case stack refuses our change
+	hardAddr = OSDynamicCast(OSData, getProperty(kIOMACAddress));
+	if(hardAddr && hardAddr->getLength() == kIOFWAddressSize)
+		bcopy(hardAddr->getBytesNoCopy(), tempaddr, kIOFWAddressSize);
+	
+	// change the hardware- we do it before the stack, in case the stack
+	// needs to generate traffic as a result.
+	
+    if ( ctr->setHardwareAddress( lladdr, len ) == kIOReturnSuccess )
     {
-        bcopy(lladdr, _arpcom->ac_enaddr, len);
-        bcopy(lladdr, LLADDR(sdl), len);
+		if( ifnet_set_lladdr(getIfnet(), lladdr, len) ) //uh-oh, stack didn't like this
+		{
+			// restore previous address
+			if(hardAddr)
+			   ctr->setHardwareAddress(tempaddr, sizeof(tempaddr));
+			return EINVAL;
+		}
+
         setProperty(kIOMACAddress, (void *)lladdr, len);
 
-        DLOG("%s: SIOCSIFLLADDR %02x:%02x:%02x:%02x:%02x:%02x:%02x::%02x\n",
+        DLOG("%s: SIOCSIFLLADDR %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
               ctr->getName(),
-              lladdr[0], lladdr[1], lladdr[2], lladdr[3]
-              lladdr[4], lladdr[5], lladdr[6], lladdr[7]);
-
-        /*
-         * Also send gratuitous ARPs to notify other nodes about
-         * the address change.
-         */
-        TAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link)
-		{
-            if (ifa->ifa_addr != NULL &&
-                ifa->ifa_addr->sa_family == AF_INET)
-			{
-				firewire_arp_ifinit(_arpcom, ifa);
-			}
-        }
+              lladdr[0], lladdr[1], lladdr[2], lladdr[3], 
+			  lladdr[4], lladdr[5], lladdr[6], lladdr[7]);
     }
-	else
-	{
-		IOLog("IOFWInterface: Implement this method to set ifa address\n");
-	}
 
-    return errnoFromReturn( ret );
+    return 0;
 }
 
 //---------------------------------------------------------------------------
@@ -993,23 +896,6 @@ IOFWInterface::disableFilter(IONetworkController * ctr,
 {
     IOReturn ret = kIOReturnSuccess;
 
-#if 0
-    if ( options & kFilterOptionNotInsideGate )
-    {
-        options &= ~kFilterOptionNotInsideGate;
-    
-    	return ctr->executeCommand(
-                           this,               /* client */
-                           (IONetworkController::Action)
-                               &IOFWInterface::disableFilter,
-                           this,               /* target */
-                           (void *) ctr,       /* param0 */
-                           (void *) group,     /* param1 */
-                           (void *) filters,   /* param2 */
-                           (void *) options ); /* param3 */
-    }
-#endif
-
     do {
         // Remove specified filter from the set of required filters.
 
@@ -1050,26 +936,33 @@ IOFWInterface::setupMulticastFilter(IONetworkController * ctr)
     void *               multiAddrs = 0;
     UInt                 mcount;
     OSData *             mcData = 0;
-    struct ifnet *       ifp = (struct ifnet *) _arpcom;
-    struct ifmultiaddr * ifma;
-    IOReturn             ret = kIOReturnSuccess;
+    ifnet_t  			 interface;
+    struct sockaddr		 dlAddress;
+	IOReturn             ret = kIOReturnSuccess;
     bool                 ok;
 
-    assert(ifp);
+	ifmultiaddr_t		*addressList;
+	
+    interface = getIfnet();
+	
+	assert(interface);
 
-    // Update the multicast addresses count ivar.
+    // get the list and count how many mcast link addresses there are
+	if(ifnet_get_multicast_list(interface, &addressList))
+		return kIOReturnNoMemory;
+		
+	mcount = 0;
+	for(int i=0; addressList[i]; i++)
+	{
+		ifmaddr_address(addressList[i], &dlAddress, sizeof(dlAddress));
 
-    mcount = 0;
-    for (ifma = ifp->if_multiaddrs.lh_first;
-         ifma != NULL;
-         ifma = ifma->ifma_link.le_next)
-    {
-        if ((ifma->ifma_addr->sa_family == AF_UNSPEC) ||
-            (ifma->ifma_addr->sa_family == AF_LINK))
-            mcount++;
-    }
-    _mcAddrCount = mcount;
+		if (dlAddress.sa_family == AF_UNSPEC || dlAddress.sa_family == AF_LINK)
+			mcount++;
+	}
+	
+	_mcAddrCount = mcount;
 
+	// now rewalk the list and copy the addresses to a format suitable to give to the controller
     if ( mcount )
     {
         char * addrp;
@@ -1080,20 +973,20 @@ IOFWInterface::setupMulticastFilter(IONetworkController * ctr)
             DLOG("%s: no memory for multicast address list\n", getName());
             return kIOReturnNoMemory;
         }
-        
-        // Loop through the linked multicast structures and write the
+
+        // Loop through the list and copy the link multicast
         // address to the OSData.
 
-        for (ifma = ifp->if_multiaddrs.lh_first;
-             ifma != NULL;
-             ifma = ifma->ifma_link.le_next)
-        {
-            if (ifma->ifma_addr->sa_family == AF_UNSPEC) 
-                addrp = &ifma->ifma_addr->sa_data[0];
+		for(int i = 0; addressList[i]; i++)
+		{
+			//retrieve the datalink mcast address
+			ifmaddr_address(addressList[i], &dlAddress, sizeof(dlAddress));
+			
+			if (dlAddress.sa_family == AF_UNSPEC)
+                addrp = &dlAddress.sa_data[0];
+            else if (dlAddress.sa_family == AF_LINK)
+                addrp = LLADDR((struct sockaddr_dl *)&dlAddress);
             else
-                if (ifma->ifma_addr->sa_family == AF_LINK)
-                addrp = LLADDR((struct sockaddr_dl *) ifma->ifma_addr);
-                else
                 continue;
 
             ok = mcData->appendBytes((const void *) addrp, FIREWIRE_ADDR_LEN);
@@ -1105,10 +998,8 @@ IOFWInterface::setupMulticastFilter(IONetworkController * ctr)
     }
 
     // Issue a controller command to setup the multicast filter.
-
-    ret = ((IOFWController *)ctr)->setMulticastList(
-                                            (IOFWAddress *) multiAddrs,
-                                            mcount);
+	ret = ((IOFWController *)ctr)->setMulticastList((IOFWAddress *) multiAddrs,
+													mcount);
     if (mcData)
     {
         if (ret == kIOReturnSuccess)
@@ -1116,9 +1007,12 @@ IOFWInterface::setupMulticastFilter(IONetworkController * ctr)
 
         mcData->release();
     }
-    else {
+    else 
+	{
         removeProperty(kIOMulticastAddressList);
     }
+	
+	ifnet_free_multicast_list(addressList);
 
     return ret;
 }
@@ -1285,54 +1179,52 @@ bool IOFWInterface::willTerminate( IOService *  provider,
 }
 
 //---------------------------------------------------------------------------
+int firewire_init_if(ifnet_t ifp);
 
 IOReturn IOFWInterface::attachToDataLinkLayer(	IOOptionBits options,
 												void *       parameter )
 {
-	struct dlil_protomod_reg_str protomod_reg;
 	IOReturn	ret = 0;
-
-	firewire_family_init();
+	unsigned char lladdr[kIOFWAddressSize];
 
 	ret = super::attachToDataLinkLayer( options, parameter );
     if (ret == kIOReturnSuccess)
     {
-        bpfattach( getIfnet(), DLT_APPLE_IP_OVER_IEEE1394, sizeof(struct firewire_header) );
+		ifnet_set_baudrate(getIfnet(), 10000000); 
+		
+        bpfattach(getIfnet(), DLT_APPLE_IP_OVER_IEEE1394, sizeof(struct firewire_header) );
+
+		IOFWAddress *addr = (IOFWAddress *) _uniqueID->getBytesNoCopy();
+		bcopy(addr->bytes, lladdr, kIOFWAddressSize);
+
+		if(ifnet_set_lladdr(getIfnet(), lladdr, kIOFWAddressSize) != 0)
+			DLOG("ifnet_set_lladdr failure in %s:%d", __FILE__, __LINE__);
 
 		if (ivedonethis)
 		{	
 			ivedonethis++;
-//			IOLog("attachToDataLinkLayer %d", ivedonethis);
 			return kIOReturnSuccess;
 		}
 
 		ivedonethis++;
 					
 		// IPv4 proto register
-		bzero(&protomod_reg, sizeof(struct dlil_protomod_reg_str));
-		protomod_reg.attach_proto = firewire_attach_inet;
-		protomod_reg.detach_proto = firewire_detach_inet;
-		ret = dlil_reg_proto_module(PF_INET, APPLE_IF_FAM_FIREWIRE, &protomod_reg);
+		ret = dlil_reg_proto_module(PF_INET, APPLE_IF_FAM_FIREWIRE,
+									firewire_attach_inet, dlil_detach_protocol);
 		if(ret == EEXIST || ret == 0)
 			ret = kIOReturnSuccess;
 		else
-			IOLog("ERROR: dlil_reg_proto_module for IPv4 over FIREWIRE %d", ret);
+			DLOG("ERROR: dlil_reg_proto_module for IPv4 over FIREWIRE %x", ret);
 
 		// IPv6 proto register
-		bzero(&protomod_reg, sizeof(struct dlil_protomod_reg_str));
-		protomod_reg.attach_proto = firewire_attach_inet6;
-		protomod_reg.detach_proto = firewire_detach_inet6;
-		ret = dlil_reg_proto_module(PF_INET6, APPLE_IF_FAM_FIREWIRE, &protomod_reg);
+		ret = dlil_reg_proto_module(PF_INET6, APPLE_IF_FAM_FIREWIRE,
+									firewire_attach_inet6, dlil_detach_protocol);
 		if(ret == EEXIST || ret == 0)
 			ret = kIOReturnSuccess;
 		else
-			IOLog("ERROR: dlil_reg_proto_module for IPv6 over FIREWIRE %d", ret);
+			DLOG("ERROR: dlil_reg_proto_module for IPv6 over FIREWIRE %x", ret);
 	}
-	else
-	{
-		IOLog("ERROR: attachToDataLinkLayer %d", ret);
-	}
-	
+
     return ret;
 }
 
@@ -1347,21 +1239,19 @@ void IOFWInterface::detachFromDataLinkLayer( IOOptionBits options,
 		ret = dlil_dereg_proto_module(PF_INET, APPLE_IF_FAM_FIREWIRE);
 	
 		if(ret == ENOENT)
-			IOLog("no protocol module for IPv4 to deregister for APPLE_IF_FAM_FIREWIRE");
+			DLOG("no protocol module for IPv4 to deregister for APPLE_IF_FAM_FIREWIRE");
 	
 		ret = dlil_dereg_proto_module(PF_INET6, APPLE_IF_FAM_FIREWIRE);
 	
 		if(ret == ENOENT)
-			IOLog("no protocol module for IPv6 to deregister for APPLE_IF_FAM_FIREWIRE");
+			DLOG("no protocol module for IPv6 to deregister for APPLE_IF_FAM_FIREWIRE");
 	
 		dlil_dereg_if_modules(APPLE_IF_FAM_FIREWIRE);
 	}
 
 	ivedonethis--;
-//	IOLog("detachFromDataLinkLayer %d", ivedonethis);
-	
-//  super::detachFromDataLinkLayer( options, parameter );
-	ret = dlil_if_detach(getIfnet());
+
+	ret = dlil_if_detach((struct ifnet*)getIfnet());
 	
 	if(detach_ret) 
 		*detach_ret = ret;
@@ -1373,10 +1263,7 @@ void IOFWInterface::setIfnetMTU(UInt32 mtu)
     setMaxTransferUnit(mtu-FIREWIRE_HDR_LEN);
 }
 
-void IOFWInterface::setIfnetSoftc(void* parameter)
+void IOFWInterface::setFamilyCookie(void *data)
 {
-	struct ifnet *ifp = getIfnet();
-	
-	ifp->if_softc = parameter;
+	_familyCookie = data;
 }
-

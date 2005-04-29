@@ -1,4 +1,18 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/memcmp.c,v 1.3 1999/09/08 17:06:31 kdz Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/memcmp.c,v 1.4.2.2 2004/01/01 18:16:31 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+
 #include "portable.h"
 
 #include <ac/string.h>

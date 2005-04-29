@@ -34,8 +34,14 @@
  *		Created. Derived from _setjmp.s, setjmp.c and setjmp.s
  */
 
+/* We use mode-independent "g" opcodes such as "stg", and/or
+ * mode-independent macros such as MI_GET_ADDRESS.  These expand
+ * into word operations when targeting __ppc__, and into doubleword
+ * operations when targeting __ppc64__.
+ */
+#include <architecture/ppc/mode_independent_asm.h>
+
 #include "SYS.h"
-#include <architecture/ppc/asm_help.h>
 #include "_setjmp.h"
 
 /*
@@ -44,21 +50,24 @@
 
 /*	void siglongjmp(sigjmp_buf env, int val); */
 
-LEAF(_siglongjmp)
-	lwz r0, JMP_SIGFLAG(r3)	; load sigflag saved by siglongjmp()
-	cmpwi cr1,r0,0			; this changes cr1[EQ] which is volatile
-	beq- cr1, L__longjmp	; if r0 == 0 do _longjmp()
+MI_ENTRY_POINT(_siglongjmp)
+	lg      r0, JMP_SIGFLAG(r3)	; load sigflag saved by siglongjmp()
+	cmpgi   cr1,r0,0			; this changes cr1 which is volatile
+	beq--   cr1, L__exit        ; if r0 == 0 do _longjmp()
 	; else *** fall through *** to longjmp()
 
 /*	void longjmp(jmp_buf env, int val); */
 
-LEAF(_longjmp)
-L_longjmp:
-	mr r30, r3
-	mr r31, r4
-	lwz r3, JMP_sig(r3)		; restore the signal mask
-	CALL_EXTERN(_sigsetmask)
-	mr r4, r31
-	mr r3, r30
-L__longjmp:
-	BRANCH_EXTERN(__longjmp)
+MI_ENTRY_POINT(_longjmp)
+	mr      r30, r3             ; preserve args across _sigsetmask
+	mr      r31, r4
+    
+    /* NB: this code assumes the signal mask is an int.  Change the "lwz" below
+     * if not. The JMP_sig field is already 8 bytes in the jmpbuf.
+     */
+	lwz     r3, JMP_sig(r3)		; restore the signal mask
+	MI_CALL_EXTERNAL(_sigsetmask)   // make a (deprecated!) syscall to set the mask
+	mr      r4, r31
+	mr      r3, r30
+L__exit:
+	MI_BRANCH_EXTERNAL(__longjmp)

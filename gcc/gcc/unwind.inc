@@ -1,5 +1,5 @@
 /* Exception handling and frame unwind runtime interface routines. -*- C -*-
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -7,6 +7,15 @@
    under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
+
+   In addition to the permissions in the GNU General Public License, the
+   Free Software Foundation gives you unlimited permission to link the
+   compiled version of this file into combinations with other programs,
+   and to distribute those combinations without any restriction coming
+   from the use of this file.  (The General Public License restrictions
+   do apply in other respects; for example, they cover modification of
+   the file, and distribution when not linked into a combined
+   executable.)
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
@@ -232,10 +241,73 @@ _Unwind_Resume (struct _Unwind_Exception *exc)
   uw_install_context (&this_context, &cur_context);
 }
 
+
+/* Resume propagation of an FORCE_UNWIND exception, or to rethrow
+   a normal exception that was handled.  */
+
+_Unwind_Reason_Code
+_Unwind_Resume_or_Rethrow (struct _Unwind_Exception *exc)
+{
+  struct _Unwind_Context this_context, cur_context;
+  _Unwind_Reason_Code code;
+
+  /* Choose between continuing to process _Unwind_RaiseException
+     or _Unwind_ForcedUnwind.  */
+  if (exc->private_1 == 0)
+    return _Unwind_RaiseException (exc);
+
+  uw_init_context (&this_context);
+  cur_context = this_context;
+
+  code = _Unwind_ForcedUnwind_Phase2 (exc, &cur_context);
+
+  if (code != _URC_INSTALL_CONTEXT)
+    abort ();
+
+  uw_install_context (&this_context, &cur_context);
+}
+
+
 /* A convenience function that calls the exception_cleanup field.  */
 
 void
 _Unwind_DeleteException (struct _Unwind_Exception *exc)
 {
-  (*exc->exception_cleanup) (_URC_FOREIGN_EXCEPTION_CAUGHT, exc);
+  if (exc->exception_cleanup)
+    (*exc->exception_cleanup) (_URC_FOREIGN_EXCEPTION_CAUGHT, exc);
+}
+
+
+/* Perform stack backtrace through unwind data.  */
+
+_Unwind_Reason_Code
+_Unwind_Backtrace(_Unwind_Trace_Fn trace, void * trace_argument)
+{
+  struct _Unwind_Context context;
+  _Unwind_Reason_Code code;
+
+  uw_init_context (&context);
+
+  while (1)
+    {
+      _Unwind_FrameState fs;
+
+      /* Set up fs to describe the FDE for the caller of context.  */
+      code = uw_frame_state_for (&context, &fs);
+      if (code != _URC_NO_REASON && code != _URC_END_OF_STACK)
+	return _URC_FATAL_PHASE1_ERROR;
+
+      /* Call trace function.  */
+      if ((*trace) (&context, trace_argument) != _URC_NO_REASON)
+	return _URC_FATAL_PHASE1_ERROR;
+
+      /* We're done at end of stack.  */	
+      if (code == _URC_END_OF_STACK)
+	break;
+
+      /* Update context to describe the same frame as fs.  */
+      uw_update_context (&context, &fs);
+    }
+
+  return code;
 }

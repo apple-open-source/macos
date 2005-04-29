@@ -1,3 +1,4 @@
+// { dg-do run  }
 // 980945 bkoz
 // test for correct operators at link time
 
@@ -13,11 +14,13 @@ public:
   friend void x (const T &) { }
 };
 
+void x(const int &);
+
 template<class T>
 void blah (const T &) {
   T y;
   x (4);
-};
+}
 
 int main () {
   const foo<int> v;

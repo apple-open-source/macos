@@ -44,6 +44,10 @@
 
 #include <bits/atomicity.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/debug.h>
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
   /**
@@ -434,11 +438,19 @@ namespace std
       // Element access:
       const_reference
       operator[] (size_type __pos) const
-      { return _M_data()[__pos]; }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return _M_data()[__pos]; 
+      }
 
       reference
       operator[](size_type __pos)
       {
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	_GLIBCXX_DEBUG_ASSERT(__pos < size());
+	/* APPLE LOCAL end libstdc++ debug mode */
 	_M_leak();
 	return _M_data()[__pos];
       }
@@ -481,7 +493,12 @@ namespace std
 
       basic_string&
       append(const _CharT* __s)
-      { return this->append(__s, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->append(__s, traits_type::length(__s)); 
+      }
 
       basic_string&
       append(size_type __n, _CharT __c);
@@ -512,6 +529,9 @@ namespace std
       basic_string&
       assign(const _CharT* __s, size_type __n)
       {
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string_len(__s, __n);
+	/* APPLE LOCAL end libstdc++ debug mode */
 	if (__n > this->max_size())
 	  __throw_length_error("basic_string::assign");
 	if (_M_rep()->_M_is_shared() || less<const _CharT*>()(__s, _M_data())
@@ -533,7 +553,12 @@ namespace std
 
       basic_string&
       assign(const _CharT* __s)
-      { return this->assign(__s, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->assign(__s, traits_type::length(__s)); 
+      }
 
       basic_string&
       assign(size_type __n, _CharT __c)
@@ -571,6 +596,9 @@ namespace std
       basic_string&
       insert(size_type __pos, const _CharT* __s, size_type __n)
       {
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string_len(__s, __n);
+	/* APPLE LOCAL end libstdc++ debug mode */
 	const size_type __size = this->size();
  	if (__pos > __size)
 	  __throw_out_of_range("basic_string::insert");
@@ -604,7 +632,12 @@ namespace std
 
       basic_string&
       insert(size_type __pos, const _CharT* __s)
-      { return this->insert(__pos, __s, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->insert(__pos, __s, traits_type::length(__s)); 
+      }
 
       basic_string&
       insert(size_type __pos, size_type __n, _CharT __c)
@@ -616,6 +649,9 @@ namespace std
       iterator
       insert(iterator __p, _CharT __c = _CharT())
       {
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	_GLIBCXX_DEBUG_PEDASSERT(__p >= _M_ibegin() && __p <= _M_iend());
+	/* APPLE LOCAL end libstdc++ debug mode */
 	size_type __pos = __p - _M_ibegin();
 	this->insert(_M_check(__pos), size_type(1), __c);
 	_M_rep()->_M_set_leaked();
@@ -632,6 +668,10 @@ namespace std
       iterator
       erase(iterator __position)
       {
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	_GLIBCXX_DEBUG_PEDASSERT(__position >= _M_ibegin() 
+				 && __position < _M_iend());
+	/* APPLE LOCAL end libstdc++ debug mode */
 	size_type __i = __position - _M_ibegin();
         this->replace(__position, __position + 1, _M_data(), _M_data());
 	_M_rep()->_M_set_leaked();
@@ -641,6 +681,10 @@ namespace std
       iterator
       erase(iterator __first, iterator __last)
       {
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	_GLIBCXX_DEBUG_PEDASSERT(__first >= _M_ibegin() && __first <= __last
+				 && __last <= _M_iend());
+	/* APPLE LOCAL end libstdc++ debug mode */
         size_type __i = __first - _M_ibegin();
 	this->replace(__first, __last, _M_data(), _M_data());
 	_M_rep()->_M_set_leaked();
@@ -659,6 +703,9 @@ namespace std
       replace(size_type __pos, size_type __n1, const _CharT* __s,
 	      size_type __n2)
       {
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string_len(__s, __n2);
+	/* APPLE LOCAL end libstdc++ debug mode */
 	const size_type __size = this->size();
  	if (__pos > __size)
 	  __throw_out_of_range("basic_string::replace");
@@ -679,7 +726,12 @@ namespace std
 
       basic_string&
       replace(size_type __pos, size_type __n1, const _CharT* __s)
-      { return this->replace(__pos, __n1, __s, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->replace(__pos, __n1, __s, traits_type::length(__s)); 
+      }
 
       basic_string&
       replace(size_type __pos, size_type __n1, size_type __n2, _CharT __c)
@@ -687,16 +739,29 @@ namespace std
 
       basic_string&
       replace(iterator __i1, iterator __i2, const basic_string& __str)
-      { return this->replace(__i1, __i2, __str._M_data(), __str.size()); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->replace(__i1, __i2, __str._M_data(), __str.size()); 
+      }
 
       basic_string&
       replace(iterator __i1, iterator __i2,
-                           const _CharT* __s, size_type __n)
+	      const _CharT* __s, size_type __n)
       { return this->replace(__i1 - _M_ibegin(), __i2 - __i1, __s, __n); }
 
       basic_string&
       replace(iterator __i1, iterator __i2, const _CharT* __s)
-      { return this->replace(__i1, __i2, __s, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());       
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->replace(__i1, __i2, __s, traits_type::length(__s)); 
+      }
 
       basic_string&
       replace(iterator __i1, iterator __i2, size_type __n, _CharT __c);
@@ -705,30 +770,65 @@ namespace std
         basic_string&
         replace(iterator __i1, iterator __i2,
 		_InputIterator __k1, _InputIterator __k2)
-        { return _M_replace(__i1, __i2, __k1, __k2,
-	     typename iterator_traits<_InputIterator>::iterator_category()); }
+        { 
+	  /* APPLE LOCAL begin libstdc++ debug mode */
+	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				   && __i2 <= _M_iend());
+	  __glibcxx_requires_valid_range(__k1, __k2);
+	  /* APPLE LOCAL end libstdc++ debug mode */
+	  return _M_replace(__i1, __i2, __k1, __k2,
+	    typename iterator_traits<_InputIterator>::iterator_category());
+	}
 
       // Specializations for the common case of pointer and iterator:
       // useful to avoid the overhead of temporary buffering in _M_replace.
       basic_string&
-      replace(iterator __i1, iterator __i2, _CharT* __k1, _CharT* __k2)
-        { return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1, __k2 - __k1); }
+        replace(iterator __i1, iterator __i2, _CharT* __k1, _CharT* __k2)
+        { 
+	  /* APPLE LOCAL begin libstdc++ debug mode */
+	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				   && __i2 <= _M_iend());
+	  __glibcxx_requires_valid_range(__k1, __k2);
+	  /* APPLE LOCAL end libstdc++ debug mode */
+	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+			       __k1, __k2 - __k1); 
+	}
 
       basic_string&
-      replace(iterator __i1, iterator __i2, const _CharT* __k1, const _CharT* __k2)
-        { return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1, __k2 - __k1); }
+        replace(iterator __i1, iterator __i2, 
+		const _CharT* __k1, const _CharT* __k2)
+        { 
+	  /* APPLE LOCAL begin libstdc++ debug mode */
+	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				   && __i2 <= _M_iend());
+	  __glibcxx_requires_valid_range(__k1, __k2);
+	  /* APPLE LOCAL end libstdc++ debug mode */
+	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+			       __k1, __k2 - __k1); 
+	}
 
       basic_string&
-      replace(iterator __i1, iterator __i2, iterator __k1, iterator __k2)
-        { return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+        replace(iterator __i1, iterator __i2, iterator __k1, iterator __k2)
+        { 
+	  /* APPLE LOCAL begin libstdc++ debug mode */
+	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				   && __i2 <= _M_iend());
+	  __glibcxx_requires_valid_range(__k1, __k2);
+	  /* APPLE LOCAL end libstdc++ debug mode */
+	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
 			       __k1.base(), __k2 - __k1);
 	}
 
       basic_string&
-      replace(iterator __i1, iterator __i2, const_iterator __k1, const_iterator __k2)
-        { return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+        replace(iterator __i1, iterator __i2, 
+		const_iterator __k1, const_iterator __k2)
+        { 
+	  /* APPLE LOCAL begin libstdc++ debug mode */
+	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				   && __i2 <= _M_iend());
+	  __glibcxx_requires_valid_range(__k1, __k2);
+	  /* APPLE LOCAL end libstdc++ debug mode */
+	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
 			       __k1.base(), __k2 - __k1);
 	}
 
@@ -820,7 +920,12 @@ namespace std
 
       size_type
       find(const _CharT* __s, size_type __pos = 0) const
-      { return this->find(__s, __pos, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->find(__s, __pos, traits_type::length(__s)); 
+      }
 
       size_type
       find(_CharT __c, size_type __pos = 0) const;
@@ -834,7 +939,12 @@ namespace std
 
       size_type
       rfind(const _CharT* __s, size_type __pos = npos) const
-      { return this->rfind(__s, __pos, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->rfind(__s, __pos, traits_type::length(__s)); 
+      }
 
       size_type
       rfind(_CharT __c, size_type __pos = npos) const;
@@ -848,7 +958,12 @@ namespace std
 
       size_type
       find_first_of(const _CharT* __s, size_type __pos = 0) const
-      { return this->find_first_of(__s, __pos, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->find_first_of(__s, __pos, traits_type::length(__s)); 
+      }
 
       size_type
       find_first_of(_CharT __c, size_type __pos = 0) const
@@ -863,7 +978,12 @@ namespace std
 
       size_type
       find_last_of(const _CharT* __s, size_type __pos = npos) const
-      { return this->find_last_of(__s, __pos, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->find_last_of(__s, __pos, traits_type::length(__s)); 
+      }
 
       size_type
       find_last_of(_CharT __c, size_type __pos = npos) const
@@ -879,7 +999,12 @@ namespace std
 
       size_type
       find_first_not_of(const _CharT* __s, size_type __pos = 0) const
-      { return this->find_first_not_of(__s, __pos, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->find_first_not_of(__s, __pos, traits_type::length(__s)); 
+      }
 
       size_type
       find_first_not_of(_CharT __c, size_type __pos = 0) const;
@@ -893,7 +1018,12 @@ namespace std
 		       size_type __n) const;
       size_type
       find_last_not_of(const _CharT* __s, size_type __pos = npos) const
-      { return this->find_last_not_of(__s, __pos, traits_type::length(__s)); }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_string(__s);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return this->find_last_not_of(__s, __pos, traits_type::length(__s)); 
+      }
 
       size_type
       find_last_not_of(_CharT __c, size_type __pos = npos) const;

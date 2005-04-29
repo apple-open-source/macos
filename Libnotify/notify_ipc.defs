@@ -159,6 +159,24 @@ routine _notify_server_set_state
 	SecToken token : security_token_t
 );
 
+routine _notify_server_get_val
+(
+	server : mach_port_t;
+	client_id : int;
+	out val : int;
+	out status : int;
+	SecToken token : security_token_t
+);
+
+routine _notify_server_set_val
+(
+	server : mach_port_t;
+	client_id : int;
+	val : int;
+	out status : int;
+	SecToken token : security_token_t
+);
+
 routine _notify_server_monitor_file
 (
 	server : mach_port_t;

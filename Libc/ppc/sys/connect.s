@@ -22,5 +22,12 @@
  */
 #include "SYS.h"
 
+#ifdef __LP64__
 SYSCALL(connect, 3)
+#else /* !__LP64__ */
+PSEUDO(connect$UNIX2003, connect, 3)
+	blr
+
+SYSCALL_ERR(connect, 3, cerror_cvt)
+#endif /* __LP64__ */
 

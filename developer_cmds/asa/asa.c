@@ -35,37 +35,45 @@
 __RCSID("$NetBSD: asa.c,v 1.11 1997/09/20 14:55:00 lukem Exp $");
 #endif
 
+#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <err.h>
+#include <string.h>
 
 static void asa __P((FILE *));
 int main __P((int, char *[]));
 
-int
-main (argc, argv)
-	int argc;
-	char **argv;
+int main(int argc, char **argv)
 {
 	FILE *fp;
-
+	int exit_val = 0;
 	/* skip progname */
 	argv++;
 
-        fp = stdin;
+	if (*argv && !strcmp(*argv, "--")) {
+		argv++;
+		argc--;
+	}
+
+	if (argc == 1) {
+		asa(stdin);
+		exit(exit_val);
+	}
+
         do {
                 if (*argv) {
                         if (!(fp = fopen(*argv, "r"))) {
 				warn ("%s", *argv);
+				exit_val = 1;
 				continue;
-                        }
+                        } else {
+				asa(fp);
+				(void)fclose(fp);
+			}
                 }
-                asa (fp);
-                if (fp != stdin)
-                        (void)fclose(fp);
         } while (*argv++);
 
-	exit (0);
+	exit (exit_val);
 }
 
 static void
@@ -105,6 +113,7 @@ asa(f)
 				putchar ('\n');
 				break;
 			case '1':
+				putchar ('\n');
 				putchar ('\f');
 				break;
 			case '+':

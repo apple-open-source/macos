@@ -1,6 +1,6 @@
 /* Native-dependent code for GNU/Linux x86.
 
-   Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,6 +23,7 @@
 #include "inferior.h"
 #include "gdbcore.h"
 #include "regcache.h"
+#include "linux-nat.h"
 
 #include "gdb_assert.h"
 #include "gdb_string.h"
@@ -70,9 +71,11 @@
 /* Defines I386_LINUX_ORIG_EAX_REGNUM.  */
 #include "i386-linux-tdep.h"
 
+/* Defines ps_err_e, struct ps_prochandle.  */
+#include "gdb_proc_service.h"
+
 /* Prototypes for local functions.  */
 static void dummy_sse_values (void);
-
 
 
 /* The register sets used in GNU/Linux ELF core-dumps are identical to
@@ -107,10 +110,13 @@ static int regmap[] =
 
 /* Which ptrace request retrieves which registers?
    These apply to the corresponding SET requests as well.  */
+
 #define GETREGS_SUPPLIES(regno) \
   ((0 <= (regno) && (regno) <= 15) || (regno) == I386_LINUX_ORIG_EAX_REGNUM)
+
 #define GETFPREGS_SUPPLIES(regno) \
   (FP0_REGNUM <= (regno) && (regno) <= LAST_FPU_CTRL_REGNUM)
+
 #define GETFPXREGS_SUPPLIES(regno) \
   (FP0_REGNUM <= (regno) && (regno) <= MXCSR_REGNUM)
 
@@ -178,8 +184,9 @@ fetch_register (int regno)
     }
 
   /* GNU/Linux LWP ID's are process ID's.  */
-  if ((tid = TIDGET (inferior_ptid)) == 0)
-    tid = PIDGET (inferior_ptid);	/* Not a threaded program.  */
+  tid = TIDGET (inferior_ptid);
+  if (tid == 0)
+    tid = PIDGET (inferior_ptid); /* Not a threaded program.  */
 
   errno = 0;
   val = ptrace (PTRACE_PEEKUSER, tid, register_addr (regno, 0), 0);
@@ -203,14 +210,15 @@ store_register (int regno)
     return;
 
   /* GNU/Linux LWP ID's are process ID's.  */
-  if ((tid = TIDGET (inferior_ptid)) == 0)
-    tid = PIDGET (inferior_ptid);	/* Not a threaded program.  */
+  tid = TIDGET (inferior_ptid);
+  if (tid == 0)
+    tid = PIDGET (inferior_ptid); /* Not a threaded program.  */
 
   errno = 0;
   regcache_collect (regno, &val);
   ptrace (PTRACE_POKEUSER, tid, register_addr (regno, 0), val);
   if (errno != 0)
-    error ("Couldn't read register %s (#%d): %s.", REGISTER_NAME (regno),
+    error ("Couldn't write register %s (#%d): %s.", REGISTER_NAME (regno),
 	   regno, safe_strerror (errno));
 }
 
@@ -228,10 +236,10 @@ supply_gregset (elf_gregset_t *gregsetp)
   int i;
 
   for (i = 0; i < I386_NUM_GREGS; i++)
-    supply_register (i, (char *) (regp + regmap[i]));
+    supply_register (i, regp + regmap[i]);
 
   if (I386_LINUX_ORIG_EAX_REGNUM < NUM_REGS)
-    supply_register (I386_LINUX_ORIG_EAX_REGNUM, (char *) (regp + ORIG_EAX));
+    supply_register (I386_LINUX_ORIG_EAX_REGNUM, regp + ORIG_EAX);
 }
 
 /* Fill register REGNO (if it is a general-purpose register) in
@@ -312,7 +320,7 @@ static void store_regs (int tid, int regno) {}
 void 
 supply_fpregset (elf_fpregset_t *fpregsetp)
 {
-  i387_supply_fsave ((char *) fpregsetp);
+  i387_supply_fsave (current_regcache, -1, fpregsetp);
   dummy_sse_values ();
 }
 
@@ -377,7 +385,7 @@ static void store_fpregs (int tid, int regno) {}
 void
 supply_fpxregset (elf_fpxregset_t *fpxregsetp)
 {
-  i387_supply_fxsave ((char *) fpxregsetp);
+  i387_supply_fxsave (current_regcache, -1, fpxregsetp);
 }
 
 /* Fill register REGNO (if it is a floating-point or SSE register) in
@@ -522,8 +530,9 @@ fetch_inferior_registers (int regno)
     }
 
   /* GNU/Linux LWP ID's are process ID's.  */
-  if ((tid = TIDGET (inferior_ptid)) == 0)
-    tid = PIDGET (inferior_ptid);		/* Not a threaded program.  */
+  tid = TIDGET (inferior_ptid);
+  if (tid == 0)
+    tid = PIDGET (inferior_ptid); /* Not a threaded program.  */
 
   /* Use the PTRACE_GETFPXREGS request whenever possible, since it
      transfers more registers in one system call, and we'll cache the
@@ -593,8 +602,9 @@ store_inferior_registers (int regno)
     }
 
   /* GNU/Linux LWP ID's are process ID's.  */
-  if ((tid = TIDGET (inferior_ptid)) == 0)
-    tid = PIDGET (inferior_ptid);	/* Not a threaded program.  */
+  tid = TIDGET (inferior_ptid);
+  if (tid == 0)
+    tid = PIDGET (inferior_ptid); /* Not a threaded program.  */
 
   /* Use the PTRACE_SETFPXREGS requests whenever possible, since it
      transfers more registers in one system call.  But remember that
@@ -630,6 +640,8 @@ store_inferior_registers (int regno)
 		  "Got request to store bad register number %d.", regno);
 }
 
+
+/* Support for debug registers.  */
 
 static unsigned long
 i386_linux_dr_get (int regnum)
@@ -706,77 +718,43 @@ i386_linux_dr_get_status (void)
 }
 
 
-/* Interpreting register set info found in core files.  */
+/* Called by libthread_db.  Returns a pointer to the thread local
+   storage (or its descriptor).  */
 
-/* Provide registers to GDB from a core file.
-
-   (We can't use the generic version of this function in
-   core-regset.c, because GNU/Linux has *three* different kinds of
-   register set notes.  core-regset.c would have to call
-   supply_fpxregset, which most platforms don't have.)
-
-   CORE_REG_SECT points to an array of bytes, which are the contents
-   of a `note' from a core file which BFD thinks might contain
-   register contents.  CORE_REG_SIZE is its size.
-
-   WHICH says which register set corelow suspects this is:
-     0 --- the general-purpose register set, in elf_gregset_t format
-     2 --- the floating-point register set, in elf_fpregset_t format
-     3 --- the extended floating-point register set, in elf_fpxregset_t format
-
-   REG_ADDR isn't used on GNU/Linux.  */
-
-static void
-fetch_core_registers (char *core_reg_sect, unsigned core_reg_size,
-		      int which, CORE_ADDR reg_addr)
+ps_err_e
+ps_get_thread_area (const struct ps_prochandle *ph, 
+		    lwpid_t lwpid, int idx, void **base)
 {
-  elf_gregset_t gregset;
-  elf_fpregset_t fpregset;
+  /* NOTE: cagney/2003-08-26: The definition of this buffer is found
+     in the kernel header <asm-i386/ldt.h>.  It, after padding, is 4 x
+     4 byte integers in size: `entry_number', `base_addr', `limit',
+     and a bunch of status bits.
 
-  switch (which)
-    {
-    case 0:
-      if (core_reg_size != sizeof (gregset))
-	warning ("Wrong size gregset in core file.");
-      else
-	{
-	  memcpy (&gregset, core_reg_sect, sizeof (gregset));
-	  supply_gregset (&gregset);
-	}
-      break;
+     The values returned by this ptrace call should be part of the
+     regcache buffer, and ps_get_thread_area should channel its
+     request through the regcache.  That way remote targets could
+     provide the value using the remote protocol and not this direct
+     call.
 
-    case 2:
-      if (core_reg_size != sizeof (fpregset))
-	warning ("Wrong size fpregset in core file.");
-      else
-	{
-	  memcpy (&fpregset, core_reg_sect, sizeof (fpregset));
-	  supply_fpregset (&fpregset);
-	}
-      break;
+     Is this function needed?  I'm guessing that the `base' is the
+     address of a a descriptor that libthread_db uses to find the
+     thread local address base that GDB needs.  Perhaphs that
+     descriptor is defined by the ABI.  Anyway, given that
+     libthread_db calls this function without prompting (gdb
+     requesting tls base) I guess it needs info in there anyway.  */
+  unsigned int desc[4];
+  gdb_assert (sizeof (int) == 4);
 
-#ifdef HAVE_PTRACE_GETFPXREGS
-      {
-	elf_fpxregset_t fpxregset;
-
-      case 3:
-	if (core_reg_size != sizeof (fpxregset))
-	  warning ("Wrong size fpxregset in core file.");
-	else
-	  {
-	    memcpy (&fpxregset, core_reg_sect, sizeof (fpxregset));
-	    supply_fpxregset (&fpxregset);
-	  }
-	break;
-      }
+#ifndef PTRACE_GET_THREAD_AREA
+#define PTRACE_GET_THREAD_AREA 25
 #endif
 
-    default:
-      /* We've covered all the kinds of registers we know about here,
-         so this must be something we wouldn't know what to do with
-         anyway.  Just ignore it.  */
-      break;
-    }
+  if (ptrace (PTRACE_GET_THREAD_AREA, lwpid,
+	      (void *) idx, (unsigned long) &desc) < 0)
+    return PS_ERR;
+
+  *(int *)base = desc[1];
+  return PS_OK;
 }
 
 
@@ -846,7 +824,7 @@ child_resume (ptid_t ptid, int step, enum target_signal signal)
 	  /* Then check the system call number.  */
 	  if (syscall == SYS_sigreturn || syscall == SYS_rt_sigreturn)
 	    {
-	      CORE_ADDR sp = read_register (SP_REGNUM);
+	      CORE_ADDR sp = read_register (I386_ESP_REGNUM);
 	      CORE_ADDR addr = sp;
 	      unsigned long int eflags;
 
@@ -866,22 +844,10 @@ child_resume (ptid_t ptid, int step, enum target_signal signal)
   if (ptrace (request, pid, 0, target_signal_to_host (signal)) == -1)
     perror_with_name ("ptrace");
 }
-
-
-/* Register that we are able to handle GNU/Linux ELF core file
-   formats.  */
-
-static struct core_fns linux_elf_core_fns =
-{
-  bfd_target_elf_flavour,		/* core_flavour */
-  default_check_format,			/* check_format */
-  default_core_sniffer,			/* core_sniffer */
-  fetch_core_registers,			/* core_read_registers */
-  NULL					/* next */
-};
 
 void
-_initialize_i386_linux_nat (void)
+child_post_startup_inferior (ptid_t ptid)
 {
-  add_core_fns (&linux_elf_core_fns);
+  i386_cleanup_dregs ();
+  linux_child_post_startup_inferior (ptid);
 }

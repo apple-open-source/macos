@@ -1,10 +1,10 @@
 /*
- * "$Id: cert.c,v 1.1.1.10 2003/04/11 21:07:48 jlovell Exp $"
+ * "$Id: cert.c,v 1.1.1.15 2005/01/04 19:16:18 jlovell Exp $"
  *
  *   Authentication certificate routines for the Common UNIX
  *   Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -16,9 +16,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -101,9 +101,9 @@ AddCert(int        pid,			/* I - Process ID */
     fchmod(fd, 0440);
 
     if ((grp = getgrnam(SystemGroups[0])) == NULL)
-      fchown(fd, getuid(), 0);
+      fchown(fd, RunUser, 0);
     else
-      fchown(fd, getuid(), grp->gr_gid);
+      fchown(fd, RunUser, grp->gr_gid);
 
     endgrent();
 
@@ -293,5 +293,5 @@ InitCerts(void)
 
 
 /*
- * End of "$Id: cert.c,v 1.1.1.10 2003/04/11 21:07:48 jlovell Exp $".
+ * End of "$Id: cert.c,v 1.1.1.15 2005/01/04 19:16:18 jlovell Exp $".
  */

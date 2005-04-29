@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: gssapi_generic.c,v 1.14 2001/10/05 21:42:19 raeburn Exp $
+ * $Id: gssapi_generic.c,v 1.15 2003/12/20 03:51:00 raeburn Exp $
  */
 
 #include "gssapiP_generic.h"
@@ -33,7 +33,8 @@
 
 /* Reserved static storage for GSS_oids.  Comments are quotes from RFC 2744. */
 
-static gss_OID_desc oids[] = {
+#define oids ((gss_OID_desc *)const_oids)
+static const gss_OID_desc const_oids[] = {
     /*
      * The implementation must reserve static storage for a
 	 * gss_OID_desc object containing the value */

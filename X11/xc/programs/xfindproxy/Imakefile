@@ -3,10 +3,10 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:19 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/xfindproxy/Imakefile,v 1.4 2002/05/31 18:46:12 dawes Exp $
+XCOMM $XFree86: xc/programs/xfindproxy/Imakefile,v 1.5 2003/05/27 17:58:24 tsi Exp $
 
-         DEPLIBS = $(DEPXTOOLLIB) $(DEPXLIB)
- LOCAL_LIBRARIES = $(XTOOLLIB) $(XLIB)
+         DEPLIBS = $(DEPXTOOLLIB) $(DEPXONLYLIB)
+ LOCAL_LIBRARIES = $(XTOOLLIB) $(XONLYLIB)
 
            SRCS1 = xfindproxy.c
                    

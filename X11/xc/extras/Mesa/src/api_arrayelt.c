@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -24,14 +24,14 @@
  */
 
 /* Author:
- *    Keith Whitwell <keith_whitwell@yahoo.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 #include "glheader.h"
 #include "api_arrayelt.h"
 #include "context.h"
 #include "glapi.h"
-#include "mem.h"
+#include "imports.h"
 #include "macros.h"
 #include "mtypes.h"
 
@@ -252,7 +252,7 @@ static void (*fogcoordfuncs[8])( const void * ) = {
 GLboolean _ae_create_context( GLcontext *ctx )
 {
    ctx->aelt_context = MALLOC( sizeof(AEcontext) );
-   if (!ctx->aelt_context) 
+   if (!ctx->aelt_context)
       return GL_FALSE;
 
    AE_CONTEXT(ctx)->NewState = ~0;
@@ -306,7 +306,7 @@ static void _ae_update_state( GLcontext *ctx )
 
    if (ctx->Array.EdgeFlag.Enabled) {
       aa->array = &ctx->Array.EdgeFlag;
-      aa->func = (array_func) glEdgeFlagv;
+      aa->func = (array_func)glEdgeFlagv;
       aa++;
    }
 

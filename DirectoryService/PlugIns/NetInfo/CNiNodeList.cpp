@@ -29,6 +29,10 @@
 #include "CNetInfoPlugin.h"
 #include "DSUtils.h"
 #include "ServerModuleLib.h"
+#include "CSharedData.h"
+#include "CLog.h"
+#include "CNiUtilities.h"
+#include "netinfo_open.h"
 
 
 // ---------------------------------------------------------------------------
@@ -122,57 +126,44 @@ sInt32 CNiNodeList::AddNode ( const char *inStr, tDataList *inListPtr, bool inRe
 		aNode->bRegistered	= inRegistered;
 		aNode->localOrParent= inLocalOrParent;
 		
-//TRM	string aString;
-//	sNode	   *ourNode		= nil;
-//	for (aNiNodeMapI = fNiNodeMap.begin(); aNiNodeMapI != fNiNodeMap.end(); ++aNiNodeMapI)
-//	{
-//		ourNode = aNiNodeMapI->second;
-//		aString = aNiNodeMapI->first;
-//		cout << "Before insert " << aString << " " << ourNode->refCount << " " << ourNode->bRegistered << endl;
-//	}
-	
 		fNiNodeMap[aNodeName] = aNode;
 		
-//	for (aNiNodeMapI = fNiNodeMap.begin(); aNiNodeMapI != fNiNodeMap.end(); ++aNiNodeMapI)
-//	{
-//		ourNode = aNiNodeMapI->second;
-//		aString = aNiNodeMapI->first;
-//		cout << "After insert " << aString << " " << ourNode->refCount << " " << ourNode->bRegistered << endl;
-//	}
+		DBGLOG1( kLogPlugin, "CNiNodeList::AddNode - added the nodename %s", inStr);
 
 	}
 	else //we have a duplicate
 	{
+		DBGLOG1( kLogPlugin, "CNiNodeList::AddNode - duplicate nodename %s", inStr);
 		aNode = aNiNodeMapI->second;
-		if (aNode->bisDirty)
+		if (inRegistered)
 		{
-			//first call in to duplicate resets the flag and the listPtr
-			//while maintaining the ref count
-			//here we also clean the isDirty flag
-			aNode->bisDirty		= false;
-			if (inRegistered)
+			//need to check if the local hierarchy changed at all for us to actually tear down and create new connections
+			//other connections should not get here in the duplicate path since they are actually removed in CleanAllDirty
+			if (aNode->localOrParent != inLocalOrParent)
 			{
-				//need to check if the local hierarchy changed at all for us to actually tear down and create new connections
-				if (aNode->localOrParent != inLocalOrParent)
+				DBGLOG1( kLogPlugin, "CNiNodeList::AddNode - hierarchy changed for nodename %s", inStr);
+				aNode->bRegistered = true;
+				aNode->localOrParent= inLocalOrParent;
+				if (aNode->fDomainName != nil)
 				{
-					aNode->bRegistered = true;
-					aNode->localOrParent= inLocalOrParent;
-					if (aNode->fDomainName != nil)
-					{
-						free(aNode->fDomainName);
-						aNode->fDomainName = nil;
-					}
-					if (aNode->fDomain != nil)
-					{
-						//free(aNode->fDomainName); //TODO KW need to have true re-connection strategy
-													//but for now we leak if there is truly a change in the netinfo bindings
-													//which should be the minority case
-						aNode->fDomain = nil;
-					}
+					free(aNode->fDomainName);
+					aNode->fDomainName = nil;
+				}
+				if (aNode->fDomain != nil)
+				{
+					gNetInfoMutex->Wait();
+					DBGLOG( kLogPlugin, "CNiNodeList::AddNode - free the NI domain since it is being replaced");
+					//ni_free(aNode->fDomain); //management of domains left to netinfo_open package
+					gNetInfoMutex->Signal();
+					aNode->fDomain = nil;
 				}
 			}
+			if (aNode->bisDirty)
+			{
+				aNode->bisDirty = false;
+			}
 		}
-		else
+		else if ( !(aNode->bisDirty) ) //need else condition so that setting bisDirty to false above does not drop into this logic
 		{
 			if (inRegistered)
 			{
@@ -181,7 +172,6 @@ sInt32 CNiNodeList::AddNode ( const char *inStr, tDataList *inListPtr, bool inRe
 					aNode->bRegistered = true;	//always note if a node is registered at any point in time
 					aNode->refCount++;			//up refcount if first registered call
 				}
-				
 			}
 			else //duplicate unregistered nodes need to up the ref count
 			{
@@ -243,6 +233,7 @@ void* CNiNodeList::DeleteNode ( const char *inStr )
 			}
 			if (aNode->fDomainName != nil)
 			{
+				DBGLOG1( kLogPlugin, "CNiNodeList::DeleteNode - deleting the nodename %s", aNode->fDomainName);
 				free(aNode->fDomainName);
 				aNode->fDomainName = nil;
 			}
@@ -275,7 +266,7 @@ bool CNiNodeList::IsPresent ( const char *inStr )
 	if (aNiNodeMapI != fNiNodeMap.end()) //found the entry
 	{
 		aNode = aNiNodeMapI->second;
-		if (!(aNode->bisDirty))
+		//if (!(aNode->bisDirty))
 		{
 			found = true;
 		}
@@ -305,7 +296,7 @@ bool CNiNodeList::IsPresent ( const char *inStr, tDataList **inListPtr )
 	if (aNiNodeMapI != fNiNodeMap.end()) //found the entry
 	{
 		aNode = aNiNodeMapI->second;
-		if (!(aNode->bisDirty))
+		//if (!(aNode->bisDirty))
 		{
 			found = true;
 			if ( inListPtr != nil )
@@ -327,9 +318,7 @@ bool CNiNodeList::IsPresent ( const char *inStr, tDataList **inListPtr )
 // ---------------------------------------------------------------------------
 
 bool CNiNodeList::IsOpen (	const char	   *inStr,
-							void		  **outDomain,
-							char		  **outDomName,
-							ni_id		   *outDirID )
+							char		  **outDomName )
 {
 	bool		isOpen	= false;
 	string		aNodeName(inStr);
@@ -342,11 +331,21 @@ bool CNiNodeList::IsOpen (	const char	   *inStr,
 	if (aNiNodeMapI != fNiNodeMap.end()) //found the entry
 	{
 		aNode = aNiNodeMapI->second;
+		//save for fine grain logging
+		//DBGLOG1( kLogPlugin, "CNiNodeList::IsOpen - <a> found the nodename %s", inStr);
+		//DBGLOG1( kLogPlugin, "CNiNodeList::IsOpen - <b> domain name %s ", inStr);
+		//if (aNode->bisDirty)
+		//{
+		//	DBGLOG( kLogPlugin, "CNiNodeList::IsOpen - <c> is set to dirty");
+		//}
+		//if (aNode->fDomain != nil)
+		//{
+		//	DBGLOG( kLogPlugin, "CNiNodeList::IsOpen - <d> has domain set");
+		//}
 		if ( !(aNode->bisDirty) && (aNode->fDomain != nil) && (aNode->fDomainName != nil) )
 		{
-			*outDomain	= aNode->fDomain;
+			//DBGLOG( kLogPlugin, "CNiNodeList::IsOpen - able to retrieve node already open");
 			*outDomName	= strdup(aNode->fDomainName);
-			::memcpy( outDirID, &aNode->fDirID, sizeof( ni_id ) );
 			isOpen = true;
 			aNode->refCount++;
 		}
@@ -365,8 +364,7 @@ bool CNiNodeList::IsOpen (	const char	   *inStr,
 
 bool CNiNodeList::SetDomainInfo ( const char	*inStr,
 									void		*inDomain,
-									char		*inDomainName,
-									ni_id		*inDirID )
+									char		*inDomainName )
 {
 	bool		found		= false;
 	string		aNodeName(inStr);
@@ -378,7 +376,8 @@ bool CNiNodeList::SetDomainInfo ( const char	*inStr,
 	aNiNodeMapI	= fNiNodeMap.find(aNodeName);
 	if (aNiNodeMapI == fNiNodeMap.end()) //no entry so add it
 	{
-		this->AddNode(inStr, nil, false); //node not registered
+		tDataListPtr pDataList = ::dsBuildFromPathPriv( inDomainName, "/" );
+		this->AddNode(inStr, pDataList, true); //node will be registered and pDataList consumed by AddNode
 		aNiNodeMapI	= fNiNodeMap.find(aNodeName);
 	}
 
@@ -387,10 +386,13 @@ bool CNiNodeList::SetDomainInfo ( const char	*inStr,
 		aNode = aNiNodeMapI->second;
 		if ( ( inDomain != nil ) && ( inDomainName != nil ) )
 		{
-			//KW TODO what if this already exists - unlikely?
 			aNode->fDomain = inDomain;
-			aNode->fDomainName = inDomainName;
-			::memcpy( &aNode->fDirID, inDirID, sizeof( ni_id ) );
+			
+			if ( aNode->fDomainName )
+				free(aNode->fDomainName);
+				
+			aNode->fDomainName = strdup(inDomainName);
+			aNode->bisDirty = false;
 			aNode->refCount++;
 			found = true;
 		}
@@ -404,10 +406,10 @@ bool CNiNodeList::SetDomainInfo ( const char	*inStr,
 
 
 // ---------------------------------------------------------------------------
-//	SetAllDirty ()
+//	CleanUpUnknownConnections ()
 // ---------------------------------------------------------------------------
 
-void CNiNodeList::SetAllDirty ( void )
+void CNiNodeList::CleanUpUnknownConnections ( const uInt32 inSignature )
 {
 	sNode	   *aNode		= nil;
 	NiNodeMapI	aNiNodeMapI;
@@ -417,73 +419,54 @@ void CNiNodeList::SetAllDirty ( void )
 	for (aNiNodeMapI = fNiNodeMap.begin(); aNiNodeMapI != fNiNodeMap.end(); ++aNiNodeMapI)
 	{
 		aNode = aNiNodeMapI->second;
-		if (aNode->bRegistered) //if not registered then no cleanup performed
+		if (( aNode->bRegistered ) && (aNode->localOrParent != 1)) //if registered and NOT local default node then cleanup is performed
 		{
-			aNode->bisDirty = true;
-		}
-	}
-
-	fMutex.Signal();
-
-} // SetAllDirty
-
-// ---------------------------------------------------------------------------
-//	CleanAllDirty ()
-// ---------------------------------------------------------------------------
-
-void CNiNodeList::CleanAllDirty ( const uInt32 inSignature )
-{
-	sNode	   *aNode		= nil;
-	NiNodeMapI	aNiNodeMapI;
-	NiNodeMapI	delNiNodeMapI;
-	string		aString;
-
-	fMutex.Wait();
-
-	//set the flags of the entries to delete
-	for (aNiNodeMapI = fNiNodeMap.begin(); aNiNodeMapI != fNiNodeMap.end();)
-	{
-		aNode = aNiNodeMapI->second;
-		delNiNodeMapI = aNiNodeMapI;
-		++aNiNodeMapI;
-//TRM	aString = aNiNodeMapI->first;
-//		cout << aString << " " << aNode->refCount << " " << aNode->bRegistered << endl;
-		
-		if ( (aNode->bisDirty) && (aNode->bRegistered) && (aNode->listPtr != nil) )
-		{
-			if (CNetInfoPlugin::UnregisterNode( inSignature, aNode->listPtr ) == eDSNoErr)
+			if (aNode->fDomainName != NULL)
 			{
-				aNode->refCount--;
-				if (aNode->refCount == 0)
+				char *aNodeName = BuildDomainPathFromName(aNode->fDomainName);
+				if (aNodeName != NULL)
 				{
-					if (aNode->listPtr != nil)
-					{
-						::dsDataListDeallocatePriv( aNode->listPtr );
-						//need to free the header as well
-						free( aNode->listPtr );
-						aNode->listPtr = nil;
-					}
-					if (aNode->fDomain != nil)
-					{
-						//TODO KW what to do with this since it was dirty?
-						aNode->fDomain = nil;
-					}
-					if (aNode->fDomainName != nil)
-					{
-						free(aNode->fDomainName);
-						aNode->fDomainName = nil;
-					}
-					fNiNodeMap.erase(delNiNodeMapI);
-					free(aNode);
+					DBGLOG1( kLogPlugin, "CNiNodeList::CleanUpUnknownConnections - about to clean the nodename %s", aNodeName);
+					free(aNodeName);
+					aNodeName = NULL;
 				}
+				CNetInfoPlugin::UnregisterNode( inSignature, aNode->listPtr ); //do not check return code
+				//ignore the ref count
+				if (aNode->listPtr != nil)
+				{
+					::dsDataListDeallocatePriv( aNode->listPtr );
+					//need to free the header as well
+					free( aNode->listPtr );
+					aNode->listPtr = nil;
+				}
+				if (aNode->fDomain != nil)
+				{
+					//gNetInfoMutex->Wait();
+					//DBGLOG( kLogPlugin, "CNiNodeList::CleanUpUnknownConnections - free the ni domain");
+					//ni_free(aNode->fDomain); // management of domains left to netinfo_open package netinfo clear is called below
+					//gNetInfoMutex->Signal();
+					aNode->fDomain = nil;
+				}
+				if (aNode->fDomainName != nil)
+				{
+					free(aNode->fDomainName);
+					DBGLOG1( kLogPlugin, "CNiNodeList::CleanUpUnknownConnections - cleaning the nodename %s", aNode->fDomainName);
+					aNode->fDomainName = nil;
+				}
+				fNiNodeMap.erase(aNiNodeMapI);
+				free(aNode);
+				aNiNodeMapI = fNiNodeMap.begin();
 			}
 		}
 	}
+	//cleanup all the netinfo connections
+	gNetInfoMutex->Wait();
+	netinfo_clear(NETINFO_CLEAR_PRESERVE_LOCAL);
+	gNetInfoMutex->Signal();
 
 	fMutex.Signal();
 
-} // CleanAllDirty
-
+} // CleanUpUnknownConnections
 
 // ---------------------------------------------------------------------------
 //	CheckForLocalOrParent ()
@@ -510,4 +493,124 @@ uInt32 CNiNodeList::CheckForLocalOrParent ( const char *inName )
 	return (localOrParent);
 	
 } // CheckForLocalOrParent
+
+
+// ---------------------------------------------------------------------------
+//	RetrieveNode ()
+// ---------------------------------------------------------------------------
+
+void* CNiNodeList::RetrieveNode ( const char *inName )
+{
+	string		aNodeName(inName);
+	void	   *aDomain			= NULL;
+	NiNodeMapI	aNiNodeMapI;
+	sNode	   *aNode			= nil;
+	
+	fMutex.Wait();
+
+	//DBGLOG1( kLogPlugin, "CNiNodeList::RetrieveNode - asking for the nodename %s", inName);
+	if (strcmp(inName, kstrDefaultLocalNodeName) == 0 )
+	{
+		aNiNodeMapI	= fNiNodeMap.find(kstrLocalDot);
+	}
+	else
+	{
+		aNiNodeMapI	= fNiNodeMap.find(aNodeName);
+	}
+	if (aNiNodeMapI != fNiNodeMap.end()) //found the entry
+	{
+		aNode		= aNiNodeMapI->second;
+		aDomain		= aNode->fDomain;
+	}
+	else
+	{
+		DBGLOG1( kLogPlugin, "CNiNodeList::RetrieveNode - did not find the nodename %s", inName);
+	}
+	
+	fMutex.Signal();
+
+	return (aDomain);
+	
+} // RetrieveNode
+
+
+// ---------------------------------------------------------------------------
+//	AdjustForParent ()
+// ---------------------------------------------------------------------------
+
+void CNiNodeList::AdjustForParent ( void )
+{
+	string		aNodeName("/");
+	sNode	   *aNode	= nil;
+	NiNodeMapI	aNiNodeMapI;
+
+	fMutex.Wait();
+
+	aNiNodeMapI	= fNiNodeMap.find(aNodeName);
+	if (aNiNodeMapI != fNiNodeMap.end()) //found the entry
+	{
+		aNode = aNiNodeMapI->second;
+		if (aNode != nil)
+		{
+			if (aNode->listPtr != nil)
+			{
+				::dsDataListDeallocatePriv( aNode->listPtr );
+				//need to free the header as well
+				free( aNode->listPtr );
+				aNode->listPtr = nil;
+			}
+			if (aNode->fDomain != nil)
+			{
+				//if domain outstanding then we rely on netinfo to fail for us
+				//if (aNode->refCount < 1)
+				//{
+					//ni_free(aNode->fDomain); //management of domains left to netinfo_open package
+				//}
+				aNode->fDomain = nil;
+				aNode->bisDirty = true;
+				aNode->localOrParent = 0;
+			}
+			if (aNode->fDomainName != nil)
+			{
+				free(aNode->fDomainName);
+				aNode->fDomainName = nil;
+			}
+		}
+	}
+	
+	fMutex.Signal();
+
+	return;
+	
+} // AdjustForParent
+
+// ---------------------------------------------------------------------------
+//	RetrieveLocalDomain ()
+// ---------------------------------------------------------------------------
+
+void* CNiNodeList::RetrieveLocalDomain ( const char *inStr )
+{
+	string		aNodeName(inStr);
+	sNode	   *aNode		= nil;
+	NiNodeMapI	aNiNodeMapI;
+	void	   *domain		= nil;
+
+	fMutex.Wait();
+
+	aNiNodeMapI	= fNiNodeMap.find(aNodeName);
+	if (aNiNodeMapI != fNiNodeMap.end()) //found the entry
+	{
+		aNode = aNiNodeMapI->second;
+		if (aNode->fDomain != nil)
+		{
+			domain = aNode->fDomain;
+		}
+	}
+
+	fMutex.Signal();
+
+	return( domain );
+
+} // RetrieveLocalDomain
+
 

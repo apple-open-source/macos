@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>BuiltIn</key>
+	<true/>
+	<key>CDSAVersion</key>
+	<string>2.0</string>
+	<key>Desc</key>
+	<string>Apple built-in X509TP</string>
+	<key>DynamicFlag</key>
+	<false/>
+	<key>MdsFileDescription</key>
+	<string>Built-in X509TP Common info</string>
+	<key>MdsFileType</key>
+	<string>PluginCommon</string>
+	<key>ModuleID</key>
+	<string>{87191ca5-0fc9-11d4-849a-000502b52122}</string>
+	<key>ModuleName</key>
+	<string>AppleX509TP</string>
+	<key>MultiThreadFlag</key>
+	<true/>
+	<key>ProductVersion</key>
+	<string>1.0</string>
+	<key>ServiceMask</key>
+	<string>CSSM_SERVICE_TP</string>
+    <key>Path</key>
+    <string>*AppleX509TP</string>
+</dict>
+</plist>

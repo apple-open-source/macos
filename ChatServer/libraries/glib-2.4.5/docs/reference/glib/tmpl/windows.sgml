@@ -1,0 +1,108 @@
+<!-- ##### SECTION Title ##### -->
+Windows Compatibility Functions
+
+<!-- ##### SECTION Short_Description ##### -->
+UNIX emulation on Windows.
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### MACRO MAXPATHLEN ##### -->
+<para>
+Provided for UNIX emulation on Windows; equivalent to UNIX 
+macro %MAXPATHLEN, which is the maximum length of a filename
+(including full path).
+</para>
+
+
+
+<!-- ##### TYPEDEF pid_t ##### -->
+<para>
+Provided for UNIX emulation on Windows; process ID type.
+</para>
+
+
+<!-- ##### MACRO pipe ##### -->
+<para>
+Provided for UNIX emulation on Windows; see documentation for <function>pipe()</function>
+in any UNIX manual.
+</para>
+
+@phandles: 
+
+
+<!-- ##### MACRO ftruncate ##### -->
+<para>
+Provided for UNIX emulation on Windows; see documentation for <function>ftruncate()</function>
+in any UNIX manual.
+</para>
+
+@fd: 
+@size: 
+
+
+<!-- ##### FUNCTION g_win32_error_message ##### -->
+<para>
+
+</para>
+
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_win32_getlocale ##### -->
+<para>
+
+</para>
+
+@Returns: 
+
+
+<!-- ##### FUNCTION g_win32_get_package_installation_directory ##### -->
+<para>
+
+</para>
+
+@package: 
+@dll_name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_win32_get_package_installation_subdirectory ##### -->
+<para>
+
+</para>
+
+@package: 
+@dll_name: 
+@subdir: 
+@Returns: 
+
+
+<!-- ##### MACRO G_WIN32_DLLMAIN_FOR_DLL_NAME ##### -->
+<para>
+On Windows, this macro defines a <function>DllMain()</function> function 
+that stores the actual DLL name that the code being compiled will be 
+included in.
+</para>
+<para>
+On non-Windows platforms, expands to nothing.
+</para>
+
+@static: empty or "static".
+@dll_name: the name of the (pointer to the) char array where the DLL name 
+   will be stored. If this is used, you must also include 
+   <filename>windows.h</filename>. If you need a more complex DLL entry 
+   point function, you cannot use this.
+<!-- # Unused Parameters # -->
+@static: 
+@dll_name: 
+
+

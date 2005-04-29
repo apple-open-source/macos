@@ -1,7 +1,7 @@
 /*
  * KLConfiguration.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLConfiguration.h,v 1.4 2003/08/08 21:34:47 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLConfiguration.h,v 1.5 2004/10/04 17:46:51 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -28,7 +28,8 @@
 
 void __KLCallIdleCallback (void);
 
-void __KLSetApplicationPrompter (KLPrompterProcPtr inPrompter);
+KLStatus __KLSetApplicationPrompter (KLPrompterProcPtr inPrompter);
+KLStatus __KLGetApplicationPrompter (KLPrompterProcPtr *outPrompter);
 KLBoolean __KLApplicationProvidedPrompter (void);
 krb5_error_code __KLCallApplicationPrompter (krb5_context   context,
                                              void          *data,
@@ -37,10 +38,13 @@ krb5_error_code __KLCallApplicationPrompter (krb5_context   context,
                                              int            num_prompts,
                                              krb5_prompt    prompts[]);
 
-KLStatus  __KLSetHomeDirectoryAccess (KLBoolean inAllowHomeDirectoryAccess);
+KLStatus __KLSetHomeDirectoryAccess (KLBoolean inAllowHomeDirectoryAccess);
+KLStatus __KLGetHomeDirectoryAccess (KLBoolean *outAllowHomeDirectoryAccess);
 KLBoolean __KLAllowHomeDirectoryAccess (void);
 
-void __KLBeginPlugin (void);
-void __KLEndPlugin (void);
-KLStatus  __KLSetAutomaticPrompting (KLBoolean inAllowAutomaticPrompting);
+KLStatus __KLBeginPlugin (void);
+KLStatus __KLEndPlugin (void);
+
+KLStatus __KLSetAutomaticPrompting (KLBoolean inAllowAutomaticPrompting);
+KLStatus __KLGetAutomaticPrompting (KLBoolean *outAllowAutomaticPrompting);
 KLBoolean __KLAllowAutomaticPrompting (void);

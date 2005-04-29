@@ -103,6 +103,9 @@
 #ifndef NO_CAST
 #include <openssl/cast.h>
 #endif
+#ifndef NO_IDEA
+#include <openssl/idea.h>
+#endif
 #ifndef NO_MDC2
 #include <openssl/mdc2.h>
 #endif
@@ -418,6 +421,9 @@ struct evp_cipher_ctx_st
 			des_key_schedule ks3;/* key schedule (for ede3) */
 			} des_ede;
 #endif
+#ifndef NO_IDEA
+		IDEA_KEY_SCHEDULE idea_ks;/* key schedule */
+#endif
 #ifndef NO_RC2
 		struct {
 			int key_bits;	/* effective key bits */
@@ -652,6 +658,12 @@ EVP_CIPHER *EVP_desx_cbc(void);
 #ifndef NO_RC4
 EVP_CIPHER *EVP_rc4(void);
 EVP_CIPHER *EVP_rc4_40(void);
+#endif
+#ifndef NO_IDEA
+EVP_CIPHER *EVP_idea_ecb(void);
+EVP_CIPHER *EVP_idea_cfb(void);
+EVP_CIPHER *EVP_idea_ofb(void);
+EVP_CIPHER *EVP_idea_cbc(void);
 #endif
 #ifndef NO_RC2
 EVP_CIPHER *EVP_rc2_ecb(void);

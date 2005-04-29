@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --             Copyright (C) 2001 Free Software Foundation, Inc.            --
 --                                                                          --
@@ -33,7 +32,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -214,7 +213,7 @@ package body System.Memory is
       Result := c_realloc (Ptr, Actual_Size);
 
       if Result /= System.Null_Address then
-         Available_Memory := Available_Memory + Old_Size - msize (Ptr);
+         Available_Memory := Available_Memory + Old_Size - msize (Result);
       end if;
 
       Unlock_Task.all;

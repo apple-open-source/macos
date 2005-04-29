@@ -1,7 +1,6 @@
 /*
- * @(#)GlyphPositioningTables.h	1.7 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -17,20 +16,17 @@
 #include "LEFontInstance.h"
 #include "OpenTypeTables.h"
 #include "Lookups.h"
+#include "GlyphLookupTables.h"
 #include "GlyphDefinitionTables.h"
 #include "GlyphPositionAdjustments.h"
 
 U_NAMESPACE_BEGIN
 
-struct GlyphPositioningTableHeader
-{
-    fixed32 version;
-    Offset  scriptListOffset;
-    Offset  featureListOffset;
-    Offset  lookupListOffset;
+class LEGlyphStorage;
 
-    void    process(LEGlyphID *glyphs, GlyphPositionAdjustment *glyphPositionAdjustments,
-                const LETag **glyphTags, le_int32 glyphCount,
+struct GlyphPositioningTableHeader : public GlyphLookupTableHeader
+{
+    void    process(LEGlyphStorage &glyphStorage, GlyphPositionAdjustment *glyphPositionAdjustments,
                 le_bool rightToLeft, LETag scriptTag, LETag languageTag,
                 const GlyphDefinitionTableHeader *glyphDefinitionTableHeader,
                 const LEFontInstance *fontInstance, const LETag *featureOrder) const;

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_dd.h,v 1.3 2001/01/08 01:07:20 martin Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_dd.h,v 1.4 2003/09/28 20:15:20 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -38,7 +38,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef GLX_DIRECT_RENDERING
 
-extern void r128DDInitExtensions( GLcontext *ctx );
 extern void r128DDInitDriverFuncs( GLcontext *ctx );
 
 #endif

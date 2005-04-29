@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/palmax/xf86Palmax.c,v 1.1 2002/11/22 03:40:22 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/palmax/xf86Palmax.c,v 1.2 2003/06/23 17:35:49 eich Exp $ */
 
 #include "misc.h"
 #include "xf86.h"
@@ -39,6 +39,7 @@
 #define PMX_BUFFER_SIZE		256	/* Size of input buffer.			*/
 #define PMX_PACKET_SIZE		5	/* Maximum size of a command/reply *including*	*/
 
+#ifdef XFree86LOADER
 static const char *reqSymbols[] = {
 	"AddEnabledDevice",
 	"ErrorF",
@@ -81,6 +82,7 @@ static const char *reqSymbols[] = {
 	"xf86XInputSetSendCoreEvents",
 	NULL
 };
+#endif
 
 					/* the leading and trailing bytes.		*/
 

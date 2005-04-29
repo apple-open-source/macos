@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>Kerberos</string>
 	<key>CFBundleName</key>
 	<string>Kerberos</string>
-	<key>CFBundleExecutable</key>
-	<string>Kerberos.MO</string>
 	<key>CFBundleIconFile</key>
 	<string>KerberosApp.icns</string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,22 @@
 	<key>CFBundleSignature</key>
 	<string>KrbM</string>
 	<key>CFBundleVersion</key>
-	<string>1.8a4</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.8a4</string>
-	<key>CFBundleGetInfoString</key>
-	<string>1.8a4, Copyright MIT 1998-2003, Kerberos for Macintosh 5.0</string>
-
+	<string>2.0</string>
+        <key>CFBundleShortVersionString</key>
+        <string>5.5</string>
+        <key>CFBundleGetInfoString</key>
+        <string>5.5 Copyright MIT</string>
+        <key>KfMDisplayVersion</key>
+        <string>5.5</string>
+        <key>KfMDisplayCopyright</key>
+        <string>Copyright MIT</string>
+        <key>NSHumanReadableCopyright</key>
+        <string>5.5 Copyright MIT</string>
+	<key>NSAppleScriptEnabled</key>
+	<string>YES</string>
+	<key>NSMainNibFile</key>
+	<string>MainMenu</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
 </dict>
 </plist>

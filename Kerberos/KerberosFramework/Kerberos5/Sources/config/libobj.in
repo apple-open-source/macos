@@ -9,19 +9,19 @@
 
 .SUFFIXES: .c .so .po
 .c.so:
-	$(CC) $(PICFLAGS) $(ALL_CFLAGS) -c $< -o $*.so.o && $(MV) $*.so.o $*.so
+	$(CC) $(PICFLAGS) -DSHARED $(ALL_CFLAGS) -c $< -o $*.so.o && $(MV) $*.so.o $*.so
 .c.po:
 	$(CC) $(PROFFLAGS) $(ALL_CFLAGS) -c $< -o $*.po.o && $(MV) $*.po.o $*.po
 
 # rules to generate object file lists
 
-OBJS.ST: $(STLIBOBJS)
+OBJS.ST: $(STLIBOBJS) Makefile
 	@echo $(STLIBOBJS) > $@
 
-OBJS.SH: $(SHLIBOBJS)
+OBJS.SH: $(SHLIBOBJS) Makefile
 	@echo $(SHLIBOBJS) > $@
 
-OBJS.PF: $(PFLIBOBJS)
+OBJS.PF: $(PFLIBOBJS) Makefile
 	@echo $(PFLIBOBJS) > $@
 
 all-libobjs: $(OBJLISTS)

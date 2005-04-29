@@ -1,7 +1,7 @@
 /* Program to write C++-suitable header files from a Java(TM) .class
    file.  This is similar to SUN's javah.
 
-Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -33,6 +33,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "javaop.h"
 #include "java-tree.h"
 #include "java-opcodes.h"
+#include "ggc.h"
+#include "hashtab.h"
 
 #include <getopt.h>
 
@@ -47,7 +49,7 @@ static int found_error = 0;
 /* Nonzero if we're generating JNI output.  */
 static int flag_jni = 0;
 
-/* When non zero, warn when source file is newer than matching class
+/* When nonzero, warn when source file is newer than matching class
    file.  */
 int flag_newer = 1;
 
@@ -142,6 +144,8 @@ static char *get_field_name PARAMS ((JCF *, int, JCF_u2));
 static void print_field_name PARAMS ((FILE *, JCF *, int, JCF_u2));
 static const unsigned char *super_class_name PARAMS ((JCF *, int *));
 static void print_include PARAMS ((FILE *, const unsigned char *, int));
+static int gcjh_streq PARAMS ((const void *p1, const void *p2));
+static int throwable_p PARAMS ((const unsigned char *signature));
 static const unsigned char *decode_signature_piece
   PARAMS ((FILE *, const unsigned char *, const unsigned char *, int *));
 static void print_class_decls PARAMS ((FILE *, JCF *, int));
@@ -831,13 +835,13 @@ DEFUN(print_method_info, (stream, jcf, name_index, sig_index, flags),
     {
       struct method_name *nn;
 
-      nn = (struct method_name *) xmalloc (sizeof (struct method_name));
-      nn->name = (char *) xmalloc (length);
+      nn = xmalloc (sizeof (struct method_name));
+      nn->name = xmalloc (length);
       memcpy (nn->name, str, length);
       nn->length = length;
       nn->next = method_name_list;
       nn->sig_length = JPOOL_UTF_LENGTH (jcf, sig_index);
-      nn->signature = (char *) xmalloc (nn->sig_length);
+      nn->signature = xmalloc (nn->sig_length);
       memcpy (nn->signature, JPOOL_UTF_DATA (jcf, sig_index),
 	      nn->sig_length);
       method_name_list = nn;
@@ -1091,6 +1095,117 @@ decompile_method (out, jcf, code_len)
     }
 }
 
+/* Like strcmp, but invert the return result for the hash table.  This
+   should probably be in hashtab.c to complement the existing string
+   hash function.  */
+static int
+gcjh_streq (p1, p2)
+     const void *p1, *p2;
+{
+  return ! strcmp ((char *) p1, (char *) p2);
+}
+
+/* Return 1 if the initial part of CLNAME names a subclass of throwable, 
+   or 0 if not.  CLNAME may be extracted from a signature, and can be 
+   terminated with either `;' or NULL.  */
+static int
+throwable_p (clname)
+     const unsigned char *clname;
+{
+  int length;
+  unsigned char *current;
+  int i;
+  int result = 0;
+
+  /* We keep two hash tables of class names.  In one we list all the
+     classes which are subclasses of Throwable.  In the other we will
+     all other classes.  We keep two tables to make the code a bit
+     simpler; we don't have to have a structure mapping class name to
+     a `throwable?' bit.  */
+  static htab_t throw_hash;
+  static htab_t non_throw_hash;
+  static int init_done = 0;
+
+  if (! init_done)
+    {
+      PTR *slot;
+      const unsigned char *str;
+
+      /* Self-initializing.  The cost of this really doesn't matter.
+	 We also don't care about freeing these, either.  */
+      throw_hash = htab_create (10, htab_hash_string, gcjh_streq,
+				(htab_del) free);
+      non_throw_hash = htab_create (10, htab_hash_string, gcjh_streq,
+				    (htab_del) free);
+
+      /* Make sure the root classes show up in the tables.  */
+      str = xstrdup ("java.lang.Throwable");
+      slot = htab_find_slot (throw_hash, str, INSERT);
+      *slot = (PTR) str;
+
+      str = xstrdup ("java.lang.Object");
+      slot = htab_find_slot (non_throw_hash, str, INSERT);
+      *slot = (PTR) str;
+
+      init_done = 1;
+    }
+
+  for (length = 0; clname[length] != ';' && clname[length] != '\0'; ++length)
+    ;
+  current = ALLOC (length + 1);
+  for (i = 0; i < length; ++i)
+    current[i] = clname[i] == '/' ? '.' : clname[i];
+  current[length] = '\0';
+
+  /* We don't compute the hash slot here because the table might be
+     modified by the recursion.  In that case the slot could be
+     invalidated.  */
+  if (htab_find (throw_hash, current))
+    result = 1;
+  else if (htab_find (non_throw_hash, current))
+    result = 0;
+  else
+    {
+      JCF jcf;
+      PTR *slot;
+      unsigned char *super, *tmp;
+      int super_length = -1;
+      const char *classfile_name = find_class (current, strlen (current),
+					       &jcf, 0);
+
+      if (! classfile_name)
+	{
+	  fprintf (stderr, "couldn't find class %s\n", current);
+	  found_error = 1;
+	  return 0;
+	}
+      if (jcf_parse_preamble (&jcf) != 0
+	  || jcf_parse_constant_pool (&jcf) != 0
+	  || verify_constant_pool (&jcf) > 0)
+	{
+	  fprintf (stderr, "parse error while reading %s\n", classfile_name);
+	  found_error = 1;
+	  return 0;
+	}
+      jcf_parse_class (&jcf);
+
+      tmp = (unsigned char *) super_class_name (&jcf, &super_length);
+      super = ALLOC (super_length + 1);
+      memcpy (super, tmp, super_length);      
+      super[super_length] = '\0';
+
+      result = throwable_p (super);
+      slot = htab_find_slot (result ? throw_hash : non_throw_hash,
+			     current, INSERT);
+      *slot = current;
+      current = NULL;
+
+      JCF_FINISH (&jcf);
+    }
+
+  return result;
+}
+
 /* Print one piece of a signature.  Returns pointer to next parseable
    character on success, NULL on error.  */
 static const unsigned char *
@@ -1175,7 +1290,7 @@ decode_signature_piece (stream, signature, limit, need_space)
       /* If the previous iterations left us with something to print,
 	 print it.  For JNI, we always print `jobjectArray' in the
 	 nested cases.  */
-      if (flag_jni && ctype == NULL)
+      if (flag_jni && (ctype == NULL || array_depth > 0))
 	{
 	  ctype = "jobjectArray";
 	  *need_space = 1;
@@ -1204,24 +1319,16 @@ decode_signature_piece (stream, signature, limit, need_space)
     case 'L':
       if (flag_jni)
 	{
-	  /* We know about certain types and special-case their
-	     names.
-	     FIXME: something like java.lang.Exception should be
-	     printed as `jthrowable', because it is a subclass.  This
-	     means that gcjh must read the entire hierarchy and
-	     comprehend it.  */
+	  /* We know about certain types and special-case their names.  */
 	  if (! strncmp (signature, "Ljava/lang/String;",
 			 sizeof ("Ljava/lang/String;") -1))
 	    ctype = "jstring";
 	  else if (! strncmp (signature, "Ljava/lang/Class;",
 			      sizeof ("Ljava/lang/Class;") - 1))
 	    ctype = "jclass";
-	  else if (! strncmp (signature, "Ljava/lang/Throwable;",
-			      sizeof ("Ljava/lang/Throwable;") - 1))
+	  /* Skip leading 'L' for throwable_p call.  */
+	  else if (throwable_p (signature + 1))
 	    ctype = "jthrowable";
-	  else if (! strncmp (signature, "Ljava/lang/ref/WeakReference;",
-			      sizeof ("Ljava/lang/ref/WeakReference;") - 1))
-	    ctype = "jweak";
 	  else
 	    ctype = "jobject";
 
@@ -1459,7 +1566,7 @@ DEFUN(print_stub_or_jni, (stream, jcf, name_index, signature_index, is_init,
 	return;
 
       if (flag_jni && ! stubs)
-	fputs ("extern ", stream);
+	fputs ("extern JNIEXPORT ", stream);
 
       /* If printing a method, skip to the return signature and print
 	 that first.  However, there is no return value if this is a
@@ -1491,6 +1598,9 @@ DEFUN(print_stub_or_jni, (stream, jcf, name_index, signature_index, is_init,
       /* When printing a JNI header we need to respect the space.  In
 	 other cases we're just going to insert a newline anyway.  */
       fputs (need_space && ! stubs ? " " : "\n", stream);
+
+      if (flag_jni && ! stubs)
+	fputs ("JNICALL ", stream);
       
       /* Now print the name of the thing.  */
       print_name_for_stub_or_jni (stream, jcf, name_index,
@@ -1624,7 +1734,7 @@ print_include (out, utf8, len)
 	return;
     }
 
-  incl = (struct include *) xmalloc (sizeof (struct include));
+  incl = xmalloc (sizeof (struct include));
   incl->name = xmalloc (len + 1);
   strncpy (incl->name, utf8, len);
   incl->name[len] = '\0';
@@ -1711,7 +1821,7 @@ add_namelet (name, name_limit, parent)
 
   if (n == NULL)
     {
-      n = (struct namelet *) xmalloc (sizeof (struct namelet));
+      n = xmalloc (sizeof (struct namelet));
       n->name = xmalloc (p - name + 1);
       strncpy (n->name, name, p - name);
       n->name[p - name] = '\0';
@@ -2183,7 +2293,7 @@ help ()
   /* We omit -MG until it is implemented.  */
   printf ("\n");
   printf ("For bug reporting instructions, please see:\n");
-  printf ("%s.\n", GCCBUGURL);
+  printf ("%s.\n", bug_report_url);
   exit (0);
 }
 
@@ -2267,25 +2377,25 @@ DEFUN(main, (argc, argv),
 
 	case OPT_PREPEND:
 	  if (prepend_count == 0)
-	    prepend_specs = (char**) ALLOC (argc * sizeof (char*));
+	    prepend_specs = ALLOC (argc * sizeof (char*));
 	  prepend_specs[prepend_count++] = optarg;
 	  break;
 
 	case OPT_FRIEND:
 	  if (friend_count == 0)
-	    friend_specs = (char**) ALLOC (argc * sizeof (char*));
+	    friend_specs = ALLOC (argc * sizeof (char*));
 	  friend_specs[friend_count++] = optarg;
 	  break;
 
 	case OPT_ADD:
 	  if (add_count == 0)
-	    add_specs = (char**) ALLOC (argc * sizeof (char*));
+	    add_specs = ALLOC (argc * sizeof (char*));
 	  add_specs[add_count++] = optarg;
 	  break;
 
 	case OPT_APPEND:
 	  if (append_count == 0)
-	    append_specs = (char**) ALLOC (argc * sizeof (char*));
+	    append_specs = ALLOC (argc * sizeof (char*));
 	  append_specs[append_count++] = optarg;
 	  break;
 
@@ -2372,7 +2482,7 @@ DEFUN(main, (argc, argv),
 	{
 	  int dir_len = strlen (output_directory);
 	  int i, classname_length = strlen (classname);
-	  current_output_file = (char*) ALLOC (dir_len + classname_length + 5);
+	  current_output_file = ALLOC (dir_len + classname_length + 5);
 	  strcpy (current_output_file, output_directory);
 	  if (dir_len > 0 && output_directory[dir_len-1] != '/')
 	    current_output_file[dir_len++] = '/';

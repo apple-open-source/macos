@@ -194,7 +194,7 @@
     sprintf((char *)buf, 	"0x%x", desc->bDescriptorSubType );
     [thisDevice addProperty:"bDescriptorSubType:" withValue:buf atDepth:INTERFACE_LEVEL+1];
     
-
+    
     
     if( SC_VIDEOCONTROL == [[thisDevice lastInterfaceClassInfo] subclassNum] ) // Video Control Subclass
     {
@@ -791,7 +791,7 @@
                                 
                             }
                         }
-                        break;
+                            break;
                     case VS_OUTPUT_HEADER:
                         pVSOutputHeaderDesc = (IOUSBVSOutputHeaderDescriptor *)desc;
 
@@ -1146,7 +1146,7 @@
                         
                         
                     // default:
-	}
+                }
      }       
 }
 

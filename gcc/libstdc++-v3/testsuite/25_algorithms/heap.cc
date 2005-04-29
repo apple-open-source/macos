@@ -22,7 +22,7 @@
 //#include <cmath>
 #include <testsuite_hooks.h>
 
-bool test = true;
+bool test __attribute__((unused)) = true;
 
 const int A[] = {1, 11, 12, 3, 10, 6, 17, 4, 8, 2, 5, 13, 9, 15, 14, 16, 7};
 const int B[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17};
@@ -95,21 +95,17 @@ test02()
 
     for (int i = 2; i <= N; ++i) {
         std::push_heap(s1, s1 + i, gt);
-/* APPLE LOCAL begin libstdc++ debug mode */
 #ifndef _GLIBCXX_DEBUG
         VERIFY(gt.count() <= logN);
 #endif
-/* APPLE LOCAL end libstdc++ debug mode */
         gt.reset();
     }
 
     for (int i = N; i >= 2; --i) {
         std::pop_heap(s1, s1 + i, gt);
-/* APPLE LOCAL begin libstdc++ debug mode */
 #ifndef _GLIBCXX_DEBUG
         VERIFY(gt.count() <= 2 * logN);
 #endif
-/* APPLE LOCAL end libstdc++ debug mode */
         gt.reset();
     }
 
@@ -121,21 +117,24 @@ test02()
     VERIFY(std::equal(s2, s2 + N, A));
 
     std::make_heap(s2, s2 + N, gt);
+#ifndef _GLIBCXX_DEBUG
     VERIFY(gt.count() <= 3 * N);
+#endif
     gt.reset();
 
     std::sort_heap(s2, s2 + N, gt);
 #ifndef _GLIBCXX_DEBUG
     VERIFY(gt.count() <= N * logN);
 #endif
+
     VERIFY(std::equal(s2, s2 + N, C));
 }
 
 int
-main(int argc, char* argv[])
+main()
 {
-    test01();
-    test02();
+  test01();
+  test02();
 
-    return !test;
+  return 0;
 }

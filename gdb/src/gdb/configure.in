@@ -1,5 +1,5 @@
 dnl Autoconf configure script for GDB, the GNU debugger.
-dnl Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+dnl Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 dnl Free Software Foundation, Inc.
 dnl
 dnl This file is part of GDB.
@@ -38,7 +38,7 @@ AC_CANONICAL_SYSTEM
 # doesn't support cross-compilation, but the one from Autoconf 2.5x
 # does.  Override RANLIB here (i.e. before running AC_PROG_RANLIB) to
 # deal with the lossage.  Note that CY_GNU_GETTEXT currently calls
-# AC_PROG_RANLIB.  This can be removed when we switch to # Autoconf
+# AC_PROG_RANLIB.  This can be removed when we switch to Autoconf
 # 2.5x.
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 
@@ -60,10 +60,8 @@ AC_DEFINE_DIR(DEBUGDIR, debugdir,
 dnl List of object files added by configure.
 
 CONFIG_OBS=
-CONFIG_LIB_OBS=
 CONFIG_DEPS=
 CONFIG_SRCS=
-CONFIG_INITS=
 ENABLE_CFLAGS=
 CONFIG_ALL=
 CONFIG_CLEAN=
@@ -114,12 +112,7 @@ if test x"$enable_gdbcli" = xyes; then
     CONFIG_OBS="$CONFIG_OBS \$(SUBDIR_CLI_OBS)"
     CONFIG_DEPS="$CONFIG_DEPS \$(SUBDIR_CLI_DEPS)"
     CONFIG_SRCS="$CONFIG_SRCS \$(SUBDIR_CLI_SRCS)"
-    CONFIG_INITS="$CONFIG_INITS \$(SUBDIR_CLI_INITS)"
     ENABLE_CFLAGS="$ENABLE_CFLAGS \$(SUBDIR_CLI_CFLAGS)"
-    CONFIG_ALL="$CONFIG_ALL \$(SUBDIR_CLI_ALL)"
-    CONFIG_CLEAN="$CONFIG_CLEAN \$(SUBDIR_CLI_CLEAN)"
-    CONFIG_INSTALL="$CONFIG_INSTALL \$(SUBDIR_CLI_INSTALL)"
-    CONFIG_UNINSTALL="$CONFIG_UNINSTALL \$(SUBDIR_CLI_UNINSTALL)"
   fi
 fi
 
@@ -138,14 +131,29 @@ if test x"$enable_gdbmi" = xyes; then
     CONFIG_OBS="$CONFIG_OBS \$(SUBDIR_MI_OBS)"
     CONFIG_DEPS="$CONFIG_DEPS \$(SUBDIR_MI_DEPS)"
     CONFIG_SRCS="$CONFIG_SRCS \$(SUBDIR_MI_SRCS)"
-    CONFIG_INITS="$CONFIG_INITS \$(SUBDIR_MI_INITS)"
     ENABLE_CFLAGS="$ENABLE_CFLAGS \$(SUBDIR_MI_CFLAGS)"
-    CONFIG_ALL="$CONFIG_ALL \$(SUBDIR_MI_ALL)"
-    CONFIG_CLEAN="$CONFIG_CLEAN \$(SUBDIR_MI_CLEAN)"
-    CONFIG_INSTALL="$CONFIG_INSTALL \$(SUBDIR_MI_INSTALL)"
-    CONFIG_UNINSTALL="$CONFIG_UNINSTALL \$(SUBDIR_MI_UNINSTALL)"
   fi
 fi
+
+# FIXME: kettenis/20030102: We seem to prefer HP curses (Hcurses) over
+# Xcurses on HP-UX; see the `-D__HP_CURSES' in the relevant host
+# Makefile fragments.  That's why we need to have `Hcurses' before
+# `curses'.  I don't see why we should use HP curses if a more
+# standard curses is available, except that according to HP's
+# documentation one needs to compile `-D_XOPEN_SOURCE_EXTENDED' on
+# HP-UX 10.10 and 10.20.
+
+AC_SEARCH_LIBS(initscr, [ncurses Hcurses curses pdcurses], [],
+    [AC_MSG_WARN([no curses library found])])
+
+# Check whether the wborder function is provided by the curses
+# library detected above.  In certain implementations such as
+# the HP/UX Hcurses for instance, this function is provided by an
+# additional library.  So if we did not find this function inside
+# the curses library, try some alternate libraries we know might
+# provide it.
+AC_SEARCH_LIBS(wborder, [cur_colr], [],
+    [AC_MSG_WARN([wborder function not found, tui will be disabled])])
 
 # Enable TUI.
 AC_ARG_ENABLE(tui,
@@ -155,19 +163,20 @@ AC_ARG_ENABLE(tui,
       ;;
     *)
       AC_MSG_ERROR([bad value $enableval for --enable-tui]) ;;
-  esac])
+  esac],enable_tui=yes)
 if test x"$enable_tui" = xyes; then
   if test -d $srcdir/tui; then
-    CONFIG_OBS="$CONFIG_OBS \$(SUBDIR_TUI_OBS)"
-    CONFIG_DEPS="$CONFIG_DEPS \$(SUBDIR_TUI_DEPS)"
-    CONFIG_SRCS="$CONFIG_SRCS \$(SUBDIR_TUI_SRCS)"
-    CONFIG_INITS="$CONFIG_INITS \$(SUBDIR_TUI_INITS)"
-    ENABLE_CFLAGS="$ENABLE_CFLAGS \$(SUBDIR_TUI_CFLAGS)"
-    CONFIG_ALL="$CONFIG_ALL \$(SUBDIR_TUI_ALL)"
-    CONFIG_CLEAN="$CONFIG_CLEAN \$(SUBDIR_TUI_CLEAN)"
-    CONFIG_INSTALL="$CONFIG_INSTALL \$(SUBDIR_TUI_INSTALL)"
-    CONFIG_UNINSTALL="$CONFIG_UNINSTALL \$(SUBDIR_TUI_UNINSTALL)"
-    need_curses=yes
+    if test "$ac_cv_search_initscr" != no -a "$ac_cv_search_wborder" != no; then
+      CONFIG_OBS="$CONFIG_OBS \$(SUBDIR_TUI_OBS)"
+      CONFIG_DEPS="$CONFIG_DEPS \$(SUBDIR_TUI_DEPS)"
+      CONFIG_SRCS="$CONFIG_SRCS \$(SUBDIR_TUI_SRCS)"
+      CONFIG_INITS="$CONFIG_INITS \$(SUBDIR_TUI_INITS)"
+      ENABLE_CFLAGS="$ENABLE_CFLAGS \$(SUBDIR_TUI_CFLAGS)"
+      CONFIG_ALL="${CONFIG_ALL} all-tui"
+      CONFIG_CLEAN="${CONFIG_CLEAN} clean-tui"
+      CONFIG_INSTALL="${CONFIG_INSTALL} install-tui"
+      CONFIG_UNINSTALL="${CONFIG_UNINSTALL} uninstall-tui"
+    fi
   fi
 fi
 
@@ -192,6 +201,30 @@ case $host_os in
     enable_gdbtk=no ;;
 esac
 
+# Libunwind support.
+AC_ARG_WITH(libunwind,
+[  --with-libunwind            Use libunwind frame unwinding support],
+[case "${withval}" in
+  yes)  enable_libunwind=yes ;;
+  no)   enable_libunwind=no ;;
+  *)    AC_MSG_ERROR(bad value ${withval} for GDB with-libunwind option) ;;
+esac],[
+  AC_CHECK_HEADERS(libunwind.h)
+  AC_CHECK_HEADERS(libunwind-ia64.h)
+  if test x"$ac_cv_header_libunwind_h" = xyes -a x"$ac_cv_header_libunwind_ia64_h" = xyes; then
+    enable_libunwind=yes;
+  fi
+])
+   
+if test x"$enable_libunwind" = xyes; then
+  AC_CHECK_HEADERS(libunwind.h)
+  AC_CHECK_HEADERS(libunwind-ia64.h)
+  AC_DEFINE(HAVE_LIBUNWIND, 1)
+  CONFIG_OBS="$CONFIG_OBS libunwind-frame.o"
+  CONFIG_DEPS="$CONFIG_DEPS libunwind-frame.o"
+  CONFIG_SRCS="$CONFIG_SRCS libunwind-frame.c"
+fi
+
 # Profiling support.
 AC_ARG_ENABLE(profiling,
 [  --enable-profiling      enable profiling of GDB],
@@ -204,6 +237,16 @@ AC_ARG_ENABLE(profiling,
  [enable_profiling=no])
 
 AC_CHECK_FUNCS(monstartup _mcleanup)
+AC_CACHE_CHECK([for _etext], ac_cv_var__etext,
+[AC_TRY_LINK(
+[#include <stdlib.h>
+extern char _etext;
+],
+[free (&_etext);], ac_cv_var__etext=yes, ac_cv_var__etext=no)])
+if test $ac_cv_var__etext = yes; then
+  AC_DEFINE(HAVE__ETEXT, 1,
+            [Define to 1 if your system has the _etext variable. ])
+fi
 if test "$enable_profiling" = yes ; then
   if test $ac_cv_func_monstartup = no || test $ac_cv_func__mcleanup = no; then
     AC_MSG_ERROR(--enable-profiling requires monstartup and _mcleanup)
@@ -255,6 +298,30 @@ case "$host" in
 	;;
 esac
 
+# APPLE LOCAL begin: Get the libxml2 headers and libraries
+AC_PATH_PROG(LIBXML2_CONFIG, xml2-config, no)
+if test "x$LIBXML2_CONFIG" != "xno"
+then
+  AC_MSG_CHECKING([for libxml2 includes])
+  LIBXML2_INCLUDES=`$LIBXML2_CONFIG --cflags`
+  AC_MSG_RESULT($LIBXML2_INCLUDES)
+  AC_MSG_CHECKING([for libxml2 libraries])
+  LIBXML2_LIBS=`$LIBXML2_CONFIG --libs`
+  AC_MSG_RESULT($LIBXML2_LIBS)
+  CPPFLAGS="$CPPFLAGS $LIBXML2_INCLUDES"
+  AC_CHECK_HEADERS(libxml/parser.h libxml/tree.h)
+  AC_CHECK_LIB(xml2, xmlParseFile)
+fi
+if test "x$ac_cv_header_libxml_tree_h" = "xyes" -a \
+     "x$ac_cv_header_libxml_parser_h" = "xyes" -a \
+     "x$ac_cv_lib_xml2_xmlParseFile" = "xyes"
+then
+  AC_DEFINE(LIBXML2_IS_USABLE, 1, [libxml2 on this system is usable])
+fi
+AC_SUBST(LIBXML2_INCLUDES)
+AC_SUBST(LIBXML2_LIBS)
+# APPLE LOCAL end: Get the libxml2 headers and libraries
+
 # We need to link with -lw to get `wctype' on Solaris before Solaris
 # 2.6.  Solaris 2.6 and beyond have this function in libc, and have a
 # libw that some versions of the GNU linker cannot hanle (GNU ld 2.9.1
@@ -262,25 +329,15 @@ esac
 AC_CHECK_FUNC(wctype, [],
   [AC_CHECK_LIB(w, wctype)])
 
+# Some systems (e.g. Solaris) have `gethostbyname' in libnsl.
+AC_SEARCH_LIBS(gethostbyname, nsl)
+
 # Some systems (e.g. Solaris) have `socketpair' in libsocket.
 AC_SEARCH_LIBS(socketpair, socket)
 
 # Since GDB uses Readline, we need termcap functionality, so we need
 # to find a library that provides that.  When GDB is configured with
-# --enable-tui, we need full curses functionality.
-#
-# FIXME: kettenis/20030102: We seem to prefer HP curses (Hcurses) over
-# Xcurses on HP-UX; see the `-D__HP_CURSES' in the relevant host
-# Makefile fragments.  That's why we need to have `Hcurses' before
-# `curses'.  I don't see why we should use HP curses if a more
-# standard curses is available, except that according to HP's
-# documentation one needs to compile `-D_XOPEN_SOURCE_EXTENDED' on
-# HP-UX 10.10 and 10.20.
-
-if test "$need_curses" = yes; then
-  AC_SEARCH_LIBS(initscr, [ncurses Hcurses curses], [],
-    [AC_MSG_ERROR([no curses library found])])
-fi
+# the TUI, we need full curses functionality.
 
 case $host_os in
   cygwin*)
@@ -288,8 +345,7 @@ case $host_os in
       LIBS="../libtermcap/libtermcap.a $LIBS"
       ac_cv_search_tgetent="../libtermcap/libtermcap.a"
     fi ;;
-  go32*)
-    # ??? Is this really true?
+  go32* | *djgpp*)
     ac_cv_search_tgetent="none required"
     ;;
   aix*)
@@ -315,6 +371,7 @@ AC_HEADER_DIRENT
 AC_HEADER_STAT
 AC_HEADER_STDC
 AC_CHECK_HEADERS(link.h)
+AC_CHECK_HEADERS(machine/reg.h)
 AC_CHECK_HEADERS(nlist.h)
 AC_CHECK_HEADERS(poll.h sys/poll.h)
 AC_CHECK_HEADERS(proc_service.h thread_db.h)
@@ -355,6 +412,24 @@ AC_CHECK_HEADERS(curses.h ncurses.h term.h)
 # unconditionally, so what's the point in checking these?
 AC_CHECK_HEADERS(ctype.h time.h)
 
+dnl Check for struct stat with an st_blocks member
+AC_MSG_CHECKING(for member st_blocks in struct stat)
+AC_CACHE_VAL(gdb_cv_have_struct_stat_with_st_blocks_member,
+  [AC_TRY_COMPILE([#include <sys/types.h>
+#include <sys/stat.h>],
+                  [struct stat st; (void) st.st_blocks;],
+                  gdb_cv_have_struct_stat_with_st_blocks_member=yes,
+                  gdb_cv_have_struct_stat_with_st_blocks_member=no)])
+AC_MSG_RESULT($gdb_cv_have_struct_stat_with_st_blocks_member)
+if test $gdb_cv_have_struct_stat_with_st_blocks_member = yes; then
+  AC_DEFINE(HAVE_STRUCT_STAT_ST_BLOCKS)
+fi
+# ------------------------- #
+# Checks for declarations.  #
+# ------------------------- #
+
+gcc_AC_CHECK_DECLS(getopt)
+
 # ------------------ #
 # Checks for types.  #
 # ------------------ #
@@ -382,6 +457,7 @@ AC_CHECK_FUNCS(sbrk)
 AC_CHECK_FUNCS(setpgid setpgrp)
 AC_CHECK_FUNCS(sigaction sigprocmask sigsetmask)
 AC_CHECK_FUNCS(socketpair)
+AC_CHECK_FUNCS(syscall)
 
 dnl AC_FUNC_SETPGRP does not work when cross compiling
 dnl Instead, assume we will have a prototype for setpgrp if cross compiling.
@@ -442,6 +518,16 @@ AC_ARG_WITH(included-regex,
 if test "$gdb_with_regex" = yes; then
   AC_DEFINE(USE_INCLUDED_REGEX, 1,
     [Define to 1 if the regex included in libiberty should be used.])
+fi
+
+# See if <machine/reg.h> degines `struct reg'.
+AC_CACHE_CHECK([for struct reg in machine/reg.h], gdb_cv_struct_reg,
+[AC_TRY_COMPILE([#include <sys/types.h>
+#include <machine/reg.h>], [struct reg r;],
+gdb_cv_struct_reg=yes, gdb_cv_struct_reg=no)])
+if test $gdb_cv_struct_reg = yes; then
+  AC_DEFINE(HAVE_STRUCT_REG, 1,
+            [Define to 1 if your system has struct reg in <machine/reg.h>.])
 fi
 
 # See if <machine/reg.h> supports the %fs and %gs i386 segment registers.
@@ -509,6 +595,17 @@ if test $gdb_cv_have_pt_getxmmregs = yes; then
   AC_DEFINE(HAVE_PT_GETXMMREGS)
 fi
 
+# See if stdint.h provides the uintptr_t type.
+# Autoconf 2.5X has an improved AC_CHECK_TYPE which will simplify this.
+AC_CACHE_CHECK([for uintptr_t in stdint.h], gdb_cv_have_uintptr_t,
+  [AC_TRY_COMPILE(
+    [#include <stdint.h>],
+    [uintptr_t foo = 0;],
+    gdb_cv_have_uintptr_t=yes,
+    gdb_cv_have_uintptr_t=no)])
+if test $gdb_cv_have_uintptr_t = yes; then
+  AC_DEFINE(HAVE_UINTPTR_T, 1, [Define if <stdint.h> provides the uintptr_t type.])
+fi
 
 BFD_NEED_DECLARATION(malloc)
 BFD_NEED_DECLARATION(realloc)
@@ -554,7 +651,7 @@ if test "${target}" = "${host}"; then
   *-*-unixware* | *-*-sysv4.2* | *-*-sysv5* | *-*-interix* )
       AC_DEFINE(NEW_PROC_API)
       ;;
-  *-*-solaris2.[[678]])
+  *-*-solaris2.[[6789]])
       AC_DEFINE(NEW_PROC_API)
       ;;
   esac
@@ -813,7 +910,7 @@ if test ${build} = ${host} -a ${host} = ${target} ; then
          if test "$GCC" = "yes" ; then
             AC_MSG_RESULT(yes)
             AC_DEFINE(HAVE_HPUX_THREAD_SUPPORT)
-            CONFIG_LIB_OBS="${CONFIG_LIB_OBS} hpux-thread.o"
+            CONFIG_OBS="${CONFIG_OBS} hpux-thread.o"
             CONFIG_SRCS="${CONFIG_SRCS} hpux-thread.c"
          else
             AC_MSG_RESULT(no (suppressed because you are not using GCC))
@@ -831,7 +928,7 @@ if test ${build} = ${host} -a ${host} = ${target} ; then
       if test -f /usr/lib/libthread_db.so.1 ; then
          AC_MSG_RESULT(yes)
          AC_DEFINE(HAVE_THREAD_DB_LIB)
-         CONFIG_LIB_OBS="${CONFIG_LIB_OBS} sol-thread.o"
+         CONFIG_OBS="${CONFIG_OBS} sol-thread.o"
          CONFIG_SRCS="${CONFIG_SRCS} sol-thread.c"
          AC_CHECK_LIB(dl, dlopen)
          if test "$GCC" = "yes" ; then
@@ -878,7 +975,7 @@ if test ${build} = ${host} -a ${host} = ${target} ; then
       AC_MSG_RESULT($gdb_cv_have_aix_thread_debug)
       if test $gdb_cv_have_aix_thread_debug = yes; then
          CONFIG_SRCS="${CONFIG_SRCS} aix-thread.c"
-         CONFIG_LIB_OBS="${CONFIG_LIB_OBS} aix-thread.o"
+         CONFIG_OBS="${CONFIG_OBS} aix-thread.o"
          CONFIG_LDFLAGS="${CONFIG_LDFLAGS} -lpthdebug"
       fi
       ;;
@@ -903,13 +1000,31 @@ if test "x$gdb_cv_thread_db_h_has_td_notalloc" = "xyes"; then
             [Define if <thread_db.h> has the TD_NOTALLOC error code.])
 fi
 
+dnl See if we have a sys/syscall header file that has __NR_tkill.
+if test "x$ac_cv_header_sys_syscall_h" = "xyes"; then
+   AC_CACHE_CHECK([whether <sys/syscall.h> has __NR_tkill],
+                  gdb_cv_sys_syscall_h_has_tkill,
+     AC_TRY_COMPILE(
+       [#include <sys/syscall.h>],
+       [int i = __NR_tkill;],
+       gdb_cv_sys_syscall_h_has_tkill=yes,
+       gdb_cv_sys_syscall_h_has_tkill=no
+     )
+   )
+fi
+dnl See if we can issue tkill syscall.
+if test "x$gdb_cv_sys_syscall_h_has_tkill" = "xyes" && test "x$ac_cv_func_syscall" = "xyes"; then
+  AC_DEFINE(HAVE_TKILL_SYSCALL, 1,
+            [Define if we can use the tkill syscall.])
+fi
+
 dnl Handle optional features that can be enabled.
 
 AC_ARG_WITH(sysroot,
 [  --with-sysroot[=DIR] Search for usr/lib et al within DIR.],
 [
  case ${with_sysroot} in
- yes) AC_ERROR(with-sysroot must specify path) ;;
+ yes) TARGET_SYSTEM_ROOT='${exec_prefix}/${target_alias}/sys-root' ;;
  *) TARGET_SYSTEM_ROOT=$with_sysroot ;;
  esac
 
@@ -925,7 +1040,8 @@ AC_ARG_WITH(sysroot,
   test_prefix=$exec_prefix
  fi
  case ${TARGET_SYSTEM_ROOT} in
- ${test_prefix}*)
+ "${test_prefix}"|"${test_prefix}/"*|\
+ '${exec_prefix}'|'${exec_prefix}/'*)
    t="$TARGET_SYSTEM_ROOT_DEFINE -DTARGET_SYSTEM_ROOT_RELOCATABLE"
    TARGET_SYSTEM_ROOT_DEFINE="$t"
    ;;
@@ -942,9 +1058,10 @@ AC_SUBST(TARGET_SYSTEM_ROOT_DEFINE)
 # NOTE: If you add to this list, remember to update
 # gdb/doc/gdbint.texinfo.
 build_warnings="-Wimplicit -Wreturn-type -Wcomment -Wtrigraphs \
--Wformat -Wparentheses -Wpointer-arith -Wuninitialized"
+-Wformat -Wparentheses -Wpointer-arith -Wuninitialized -Wformat-nonliteral \
+-Wunused-label -Wunused-function"
 # Up for debate: -Wswitch -Wcomment -trigraphs -Wtrigraphs
-# -Wunused-function -Wunused-label -Wunused-variable -Wunused-value
+# -Wunused-function -Wunused-variable -Wunused-value
 # -Wchar-subscripts -Wtraditional -Wshadow -Wcast-qual
 # -Wcast-align -Wwrite-strings -Wconversion -Wstrict-prototypes
 # -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls
@@ -1022,8 +1139,8 @@ AC_ARG_WITH(mmalloc,
 esac],[want_mmalloc=${mmalloc_default_value}])dnl
 
 if test x$want_mmalloc = xtrue; then
-   AC_DEFINE(USE_MMALLOC)
-   AC_DEFINE(MMCHECK_FORCE)
+   AC_DEFINE(USE_MMALLOC, 1, [Use mmalloc])
+   AC_DEFINE(MMCHECK_FORCE, 1, [Force mmcheck])
    MMALLOC_CFLAGS="-I$srcdir/../mmalloc"
    MMALLOC='../mmalloc/libmmalloc.a'
 fi
@@ -1160,11 +1277,10 @@ if test "${enable_gdbtk}" = "yes"; then
            CONFIG_OBS="${CONFIG_OBS} \$(SUBDIR_GDBTK_OBS)"
            CONFIG_DEPS="${CONFIG_DEPS} \$(SUBDIR_GDBTK_DEPS)"
            CONFIG_SRCS="${CONFIG_SRCS} \$(SUBDIR_GDBTK_SRCS)"
-           CONFIG_INITS="${CONFIG_INITS} \$(SUBDIR_GDBTK_INITS)"
-	   CONFIG_ALL="${CONFIG_ALL} \$(SUBDIR_GDBTK_ALL)"
-	   CONFIG_CLEAN="${CONFIG_CLEAN} \$(SUBDIR_GDBTK_CLEAN)"
-	   CONFIG_INSTALL="${CONFIG_INSTALL} \$(SUBDIR_GDBTK_INSTALL)"
-	   CONFIG_UNINSTALL="${CONFIG_UNINSTALL} \$(SUBDIR_GDBTK_UNINSTALL)"
+	   CONFIG_ALL="${CONFIG_ALL} all-gdbtk"
+	   CONFIG_CLEAN="${CONFIG_CLEAN} clean-gdbtk"
+	   CONFIG_INSTALL="${CONFIG_INSTALL} install-gdbtk"
+	   CONFIG_UNINSTALL="${CONFIG_UNINSTALL} uninstall-gdbtk"
 
 	   if test x$gdb_cv_os_cygwin = xyes; then
 	      WIN32LIBS="${WIN32LIBS} -lshell32 -lgdi32 -lcomdlg32 -ladvapi32"
@@ -1230,10 +1346,8 @@ AC_SUBST(ENABLE_CFLAGS)
 AC_SUBST(PROFILE_CFLAGS)
 
 AC_SUBST(CONFIG_OBS)
-AC_SUBST(CONFIG_LIB_OBS)
 AC_SUBST(CONFIG_DEPS)
 AC_SUBST(CONFIG_SRCS)
-AC_SUBST(CONFIG_INITS)
 AC_SUBST(CONFIG_ALL)
 AC_SUBST(CONFIG_CLEAN)
 AC_SUBST(CONFIG_INSTALL)
@@ -1279,10 +1393,6 @@ targetfile=`sed -n '
 s/TM_FILE[ 	]*=[ 	]*\([^ 	]*\)/\1/p
 ' ${target_makefile_frag}`
 
-GDB_MULTI_ARCH=`sed -n '
-s/GDB_MULTI_ARCH[ 	]*=[ 	]*\([^ 	]*\)[ 	]*/\1/p
-' ${target_makefile_frag}`
-
 if test "${target}" = "${host}"; then
 # We pick this up from the host configuration file (.mh) because we
 # do not have a native configuration Makefile fragment.
@@ -1304,33 +1414,6 @@ if test "${nativefile}" != ""; then
 else
    AC_MSG_CHECKING([using native configuration header]); AC_MSG_RESULT(no)
 fi
-
-# New targets should just set gdb_multi_arch=yes in configure.tgt.
-# Old targets being converted can either do that or set GDB_MULTI_ARCH
-# in the target specific makefile frag.  Eventually gdb_multi_arch=yes
-# will be the default.
-if test x"${GDB_MULTI_ARCH}" = x ; then
-    case "${gdb_multi_arch}" in
-    yes ) GDB_MULTI_ARCH=GDB_MULTI_ARCH_PURE ;;
-    no ) GDB_MULTI_ARCH=0 ;;
-    0|1|2 ) GDB_MULTI_ARCH=${gdb_multi_arch} ;;
-    esac
-fi
-if test x"${GDB_MULTI_ARCH}" != x ; then
-    AC_DEFINE_UNQUOTED(GDB_MULTI_ARCH, ${GDB_MULTI_ARCH})
-fi
-# Warn the user when they use an old practice
-case "${GDB_MULTI_ARCH}" in
-    "" ) ;;
-    0 | GDB_MULTI_ARCH_PARTIAL | 1 | GDB_MULTI_ARCH_TM | 2 )
-	AC_MSG_WARN("GDB: Target is not pure multi-arch") ;;
-    GDB_MULTI_ARCH_PURE )
-	if test x"${targetfile}" != x ; then
-	    AC_MSG_WARN("GDB: Ignoring TM_FILE in ${target_makefile_frag}")
-	    targetfile=""
-	fi ;;
-    *)  AC_MSG_ERROR("GDB: Unknown GDB_MULTI_ARCH value ${GDB_MULTI_ARCH}");;
-esac
 
 if test x"${gdb_osabi}" != x ; then
     AC_DEFINE_UNQUOTED(GDB_OSABI_DEFAULT, $gdb_osabi,

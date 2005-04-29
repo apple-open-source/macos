@@ -7,7 +7,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --              Copyright (C) 2001, Ada Core Technologies, Inc.             --
 --                                                                          --

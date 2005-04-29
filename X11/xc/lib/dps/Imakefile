@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/dps/Imakefile,v 1.16 2002/12/31 13:15:41 alanh Exp $
+XCOMM $XFree86: xc/lib/dps/Imakefile,v 1.17 2003/10/21 17:41:45 tsi Exp $
 
 #define DoNormalLib NormalLibDps
 #define DoSharedLib SharedLibDps
@@ -192,7 +192,7 @@ PSOPSCFILES = \
     psl2ops.c
 
 /*
- * hv: HEADERS must be here, otherwise IncSubdir-triggered BuildIncludes 
+ * hv: HEADERS must be here, otherwise IncSubdir-triggered BuildIncludes
  * will fail on systems without ln cmd
  */
 HEADERS = psops.h dpsops.h
@@ -232,7 +232,7 @@ DERIVED_FILES = $(DPSOPSHEADERFILES) $(PSOPSHEADERFILES) \
 
 HostProgramTargetName($(PSWRAP)):
 	@echo "checking $@ over in $(PSWRAPSRC) first..."; \
-	cd $(PSWRAPSRC) && $(MAKE); \
+	cd $(PSWRAPSRC) && $(MAKE) pswraponly; \
 	echo "okay, continuing in $(CURRENT_DIR)"
 
 includes :: $(HEADERS)
@@ -242,7 +242,7 @@ psops.h : $(PSOPSHEADERFILES)
 	RemoveFile($@)
 	${CAT} $(PSOPSHEADERFILES) |\
 	    ${SED} -e '/^$$/D' -e '/#/D' -e '/^\//D'\
-	        -e '/^   gener/D' -e '/^.\//D' |\
+		-e '/^   gener/D' -e '/^.\//D' |\
 	    ${SORT} > .sort
 	${AWK} '/;/ {print; printf("\n");}' .sort > .ttt
 	${CAT} psname.txt header.txt psifdef.txt .ttt psendif.txt > psops.h
@@ -252,7 +252,7 @@ dpsops.h : psops.h $(DPSOPSHEADERFILES)
 	RemoveFile($@)
 	${CAT} $(DPSOPSHEADERFILES) |\
 	    ${SED} -e '/^$$/D' -e '/#/D' -e '/^\//D'\
-	        -e '/^   gener/D' -e '/^.\//D' |\
+		-e '/^   gener/D' -e '/^.\//D' |\
 	    ${SORT} > .sort
 	${AWK} '/;/ {print; printf("\n");}' .sort > .ttt
 	${CAT} dpsname.txt header.txt dpsifdef.txt .ttt dpsendif.txt > dpsops.h

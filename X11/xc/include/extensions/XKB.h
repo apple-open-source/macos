@@ -24,7 +24,7 @@ OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
-/* $XFree86: xc/include/extensions/XKB.h,v 1.5 2002/11/20 04:49:01 dawes Exp $ */
+/* $XFree86: xc/include/extensions/XKB.h,v 1.6 2003/12/22 17:48:02 tsi Exp $ */
 
 #ifndef _XKB_H_
 #define	_XKB_H_
@@ -549,7 +549,8 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define	XkbMaxLegalKeyCode	255
 #define	XkbMaxKeyCount		(XkbMaxLegalKeyCode-XkbMinLegalKeyCode+1)
 #define	XkbPerKeyBitArraySize	((XkbMaxLegalKeyCode+1)/8)
-#define	XkbIsLegalKeycode(k)	(((k)>=XkbMinLegalKeyCode)&&((k)<=XkbMaxLegalKeyCode))
+/* Seems kinda silly to check that an unsigned char is <= 255... */
+#define	XkbIsLegalKeycode(k)	((k)>=XkbMinLegalKeyCode)
 
     /*
      * Assorted constants and limits.

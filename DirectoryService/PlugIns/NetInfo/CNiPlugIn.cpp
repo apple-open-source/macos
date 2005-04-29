@@ -34,10 +34,12 @@
 #include <pwd.h>
 #include <ctype.h>
 #include <regex.h>
-#include <syslog.h>		// for syslog() to log calls
+#include <syslog.h>			// for syslog() to log calls
 #include <openssl/md5.h>
 #include <openssl/sha.h>
+#include <openssl/evp.h>
 #include <mach/mach_time.h>
+#include <sasl.h>
 
 #include <Security/Authorization.h>
 #include <PasswordServer/AuthFile.h>
@@ -58,6 +60,7 @@
 #include "DirServicesConst.h"
 #include "DirServices.h"
 #include "DirServicesUtils.h"
+#include "DirServicesPriv.h"
 #include "ServerModuleLib.h"
 #include "CRecTypeList.h"
 #include "CRecNameList.h"
@@ -69,213 +72,19 @@
 #include "CDataBuff.h"
 #include "CLog.h"
 #include "TimConditional.h"
-#include "my_ni_pwdomain.h"
+#include "netinfo_open.h"
+#include "buffer_unpackers.h"
+#include "CNiMaps.h"
+#include "CNiUtilities.h"
+#include "CDSPluginUtils.h"
+#include "ServerControl.h"
 
 // Auth server
 #ifdef TIM_CLIENT_PRESENT
 #include <TimClient/TimClient.h>
 #endif
 
-#define		CRAM_MD5_SHADOWHASH				0
-
 // -- Typedef's -------------------------------------
-
-#define		kShadowHashDirPath				"/var/db/shadow/hash/"
-#define		kShadowHashOldDirPath			"/var/db/samba/hash/"
-#define		kShadowHashStateFileSuffix		".state"
-#define		kShadowHashRecordName			"shadowhash"
-
-#define		kAttrConsts						130
-
-//re-ordered more closely in terms of frequency of use
-//TODO KW put this in a CFDictionary or STL map class for keyed access
-//NOTE: Updating this list likely requires a corressponding update in DSAgent
-static const char *sAttrMap[ kAttrConsts ][ 2 ] =
-{
-				{ kDSNAttrRecordName,			"name" },
-				{ kDS1AttrDistinguishedName,	"realname" },
-				{ kDS1AttrPassword,				"passwd" },
-				{ kDS1AttrPasswordPlus,			"passwd" },  //forward mapping only as reverse mapping uses entry above
-				{ kDS1AttrUniqueID,				"uid" },
-				{ kDS1AttrPrimaryGroupID,		"gid" },
-				{ kDS1AttrUserShell,			"shell" },
-				{ kDS1AttrNFSHomeDirectory,		"home" },
-				{ kDSNAttrAuthenticationAuthority, "authentication_authority" },
-				{ kDSNAttrHomeDirectory,		"home_loc" }, // or HomeLocation
-				{ kDS1AttrHomeLocOwner,			"home_loc_owner" },
-				{ kDS1AttrHomeDirectoryQuota,	"homedirectoryquota" },
-				{ kDS1AttrHomeDirectorySoftQuota, "homedirectorysoftquota" },
-				{ kDS1AttrPicture,				"picture" },
-				{ kDS1AttrAuthenticationHint,	"hint" },
-				{ kDS1AttrRARA,					"RARA" },
-				{ kDS1AttrGeneratedUID,			"generateduid" },
-				{ kDS1AttrRealUserID,			"ruid" },
-				{ kDSNAttrGroupMembership,		"users" },
-				{ kDSNAttrEMailAddress,			"mail" },
-				{ kDS1AttrAlternateDatastoreLocation, "alternatedatastorelocation" },
-				{ kDSNAttrURL,					"URL" },
-				{ kDSNAttrURLForNSL,			"URL" },
-				{ kDSNAttrMIME,					"mime" },
-				{ kDSNAttrHTML,					"htmldata" },
-				{ kDSNAttrIPAddress,			"IP_Address" },
-				{ kDS1AttrENetAddress,			"en_address" },
-				{ kDSNAttrKeywords,				"keywords" },
-				{ kDSNAttrComputers,			"computers" },
-				{ kDS1AttrMCXFlags,				"mcx_flags" },
-				{ kDS1AttrMCXSettings,			"mcx_settings" },
-				{ kDSNAttrMCXSettings,			"mcx_settings" },
-				{ kDS1AttrCopyTimestamp,		"copy_timestamp" },
-				{ kDS1AttrOriginalNodeName,		"original_node_name" },
-				{ kDS1AttrOriginalNFSHomeDirectory,	"original_home" },
-				{ kDSNAttrOriginalHomeDirectory,"original_home_loc" },
-				{ kDS1AttrPasswordPolicyOptions,"passwordpolicyoptions" },
-				{ kDS1AttrPasswordServerList,	"passwordserverlist" },
-				{ kDS1AttrXMLPlist,				"XMLPlist" },
-				{ kDS1AttrDataStamp,			"data_stamp" },
-				{ kDS1AttrPrintServiceInfoText,	"PrintServiceInfoText" },
-				{ kDS1AttrPrintServiceInfoXML,	"PrintServiceInfoXML" },
-				{ kDS1AttrPrintServiceUserData,	"appleprintservice" },
-				{ kDS1AttrNote,					"note" },
-				{ kDS1AttrPrinterLPRHost,		"rm" },
-				{ kDS1AttrPrinterLPRQueue,		"rp" },
-				{ kDS1AttrPrinterType,			"ty" },
-				{ kDS1AttrPrinter1284DeviceID,  "1284deviceid" },
-				{ kDS1AttrPrinterMakeAndModel,  "makeandmodel" },
-				{ kDS1AttrPrinterURI,			"uri" },
-				{ kDSNAttrPrinterXRISupported,  "xrisupported" },
-				{ kDS1AttrVFSType,				"vfstype" },
-				{ kDS1AttrVFSPassNo,			"passno" },
-				{ kDS1AttrVFSDumpFreq,			"dump_freq" },
-				{ kDS1AttrVFSLinkDir,			"dir" },
-				{ kDSNAttrVFSOpts,				"opts" },
-				{ kDS1AttrAliasData,			"alias_data" },
-				{ kDSNAttrPhoneNumber,			"phonenumber" },
-				{ kDSNAttrMember,				"users" },
-				{ kDSNAttrAllNames,				"dsAttrTypeStandard:AllNames" },
-				{ kStandardTargetAlias,			"dsAttrTypeStandard:AppleMetaAliasTarget" },
-				{ kStandardSourceAlias,			"dsAttrTypeStandard:AppleMetaAliasSource" },
-				{ kDSNAttrMetaNodeLocation,		"dsAttrTypeStandard:AppleMetaNodeLocation" },
-				{ kDS1AttrComment,				"comment" },
-				{ kDS1AttrChange,				"change" },
-				{ kDS1AttrExpire,				"expire" },
-				{ kDSNAttrGroup,				"groups" },
-				{ kDS1AttrFirstName,			"firstname" },
-				{ kDS1AttrMiddleName,			"middlename" },
-				{ kDS1AttrLastName,				"lastname" },
-				{ kDSNAttrAreaCode ,			"areacode" },
-				{ kDSNAttrAddressLine1,			"address1" },
-				{ kDSNAttrAddressLine2,			"address2" },
-				{ kDSNAttrAddressLine3,			"address3" },
-				{ kDSNAttrCity,					"city" },
-				{ kDSNAttrState,				"state" },
-				{ kDSNAttrPostalCode,			"zip" },
-				{ kDSNAttrOrganizationName,		"orgname" },
-				{ kDS1AttrSetupOccupation,		"occupation" },
-				{ kDSNAttrFaxNumber,			"faxnumber" },
-				{ kDSNAttrMobileNumber,			"mobilenumber" },
-				{ kDSNAttrPagerNumber,			"pagernumber" },
-				{ kDSNAttrPostalAddress,		"postaladdress" },
-				{ kDSNAttrStreet,				"street" },
-				{ kDSNAttrDepartment,			"department" },
-				{ kDSNAttrNickName,				"nickname" },
-				{ kDSNAttrJobTitle,				"jobtitle" },
-				{ kDSNAttrIMHandle,				"imhandle" },
-				{ kDSNAttrBuilding,				"building" },
-				{ kDSNAttrCountry,				"country" },
-				{ kDSNAttrNamePrefix,			"nameprefix" },
-				{ kDSNAttrNameSuffix,			"namesuffix" },
-				{ kDS1AttrSetupLocation,		"location" },
-				{ kDS1AttrSetupAdvertising,		"spam" },
-				{ kDS1AttrSetupAutoRegister,	"autoregister" },
-				{ kDSNAttrKDCAuthKey,			"kdcauthkey" },
-				{ kDS1AttrKDCConfigData,		"kdcconfigdata" },
-				{ kDS1AttrPresetUserIsAdmin,	"preset_user_is_admin" },
-				{ kDS1AttrPasswordServerLocation, "passwordserverlocation" },
-				{ kDSNAttrBootParams,			"bootparams" },
-				{ kDSNAttrNetGroups,			"netgroups" },
-				{ kDS1AttrSMBRID,				"smb_rid" },
-				{ kDS1AttrSMBGroupRID,			"smb_group_rid" },
-				{ kDS1AttrSMBHomeDrive,			"smb_home_drive" },
-				{ kDS1AttrSMBHome,				"smb_home" },
-				{ kDS1AttrSMBScriptPath,		"smb_script_path" },
-				{ kDS1AttrSMBProfilePath,		"smb_profile_path" },
-				{ kDS1AttrSMBUserWorkstations,	"smb_user_workstations" },
-				{ kDS1AttrSMBAcctFlags,			"smb_acctFlags" },
-				{ kDS1AttrSMBPWDLastSet,		"smb_pwd_last_set" },
-				{ kDS1AttrSMBLogonTime,			"smb_logon_time" },
-				{ kDS1AttrSMBLogoffTime,		"smb_logoff_time" },
-				{ kDS1AttrSMBKickoffTime,		"smb_kickoff_time" },
-				{ kDS1AttrDNSDomain,			"domain" },
-				{ kDS1AttrDNSNameServer,		"nameserver" },
-				{ "dsAttrTypeStandard:NIAutoSwitchToLDAP",	"niautoswitchtoldap" },
-				{ kDS1AttrLocation,				"location" },
-				{ kDS1AttrPort,					"port" },
-				{ kDS1AttrServiceType,			"servicetype" },
-				{ kDSNAttrPGPPublicKey,			"pgppublickey" },
-				{ kDS1AttrInternetAlias,		"InetAlias" },
-				{ kDS1AttrMailAttribute,		"applemail" },
-				{ kDSNAttrNBPEntry,				"NBPEntry" },
-				{ kDSNAttrDNSName,				"dnsname" },
-				{ kDS1AttrAdminStatus,			"AdminStatus" },
-				{ kDS1AttrAdminLimits,			"admin_limits" },
-				{ kDS1AttrCapabilities,			"capabilities" },
-				{ kDSNAttrProtocols,			"protocols" },
-				{ kDS1AttrPwdAgingPolicy,		"PwdAgingPolicy" },
-				{ kDSNAttrRecordAlias,			"RecordAlias" }	// <- go away?
-};
-
-
-#define		kRecConsts		44
-
-static const char *sRecMap[ kRecConsts ][ 2 ] =
-{
-				{ kDSStdRecordTypeUsers,			"users" },
-				{ kDSStdRecordTypeUserAliases,		"user_aliases" },
-				{ kDSStdRecordTypeGroups,			"groups" },
-				{ kDSStdRecordTypeGroupAliases,		"group_aliases" },
-				{ kDSStdRecordTypeMachines,			"machines" },
-				{ kDSStdRecordTypeComputers,		"computers" },	
-				{ kDSStdRecordTypeComputerLists,	"computer_lists" },
-				{ kDSStdRecordTypePrinters,			"printers" },
-				{ kDSStdRecordTypeHosts,			"machines" },
-				{ kDSStdRecordTypeAliases,			"aliases" },
-				{ kDSStdRecordTypeNetworks,			"networks" },
-				{ kDSStdRecordTypeServer,			"servers" },
-				{ kDSStdRecordTypePasswordServer,	"passwordservers" },
-				{ kDSStdRecordTypeWebServer,   		"httpservers" },
-				{ kDSStdRecordTypeFTPServer,		"ftpservers" },
-				{ kDSStdRecordTypeAFPServer,		"afpservers" },
-				{ kDSStdRecordTypeLDAPServer,		"ldapservers" },
-				{ kDSStdRecordTypeSMBServer,		"smbservers" },
-				{ kDSStdRecordTypeQTSServer,		"qtsservers" },
-				{ kDSStdRecordTypeNFS,				"mounts" },
-				{ kDSStdRecordTypeServices,			"services" },
-				{ kDSStdRecordTypePrintService,		"PrintService" },
-				{ kDSStdRecordTypeConfig,			"config" },
-				{ kDSStdUserNamesMeta,				"dsRecTypeStandard:MetaUserNames" }, //?
-				{ kDSStdRecordTypeMeta,				"dsRecTypeStandard:AppleMetaRecord" },
-				{ "dsRecTypeStandard:UsreNames",	"users" }, //?
-				{ kDSStdRecordTypeAFPUserAliases,	"afpuser_aliases" },
-				{ kDSStdRecordTypeMounts,			"mounts" },
-				{ kDSStdRecordTypePrintServiceUser,	"printserviceusers" },
-				{ kDSStdRecordTypePresetUsers,		"presets_users" },
-				{ kDSStdRecordTypePresetGroups,		"presets_groups" },
-				{ kDSStdRecordTypePresetComputerLists,	"presets_computer_lists" },
-				{ kDSStdRecordTypeHosts,			"hosts" },
-				{ kDSStdRecordTypeProtocols,		"protocols" },
-				{ kDSStdRecordTypeRPC,				"rpcs" },
-				{ kDSStdRecordTypeBootp,			"bootp" },
-				{ kDSStdRecordTypeNetDomains,		"netdomains" },
-				{ kDSStdRecordTypeEthernets,		"ethernets" },
-				{ kDSStdRecordTypeNetGroups,		"netgroups" },
-				{ kDSStdRecordTypeHostServices,		"hostservices" },
-				{ kDSStdRecordTypeAutoServerSetup,	"autoserversetup" },
-				{ kDSStdRecordTypeLocations,		"locations" },
-				{ kDSStdRecordTypeSharePoints,		"config/SharePoints" },
-				{ kDSStdRecordTypePeople,			"people" }
-};
-
-
 
 typedef struct NetInfoAuthAuthorityHandler {
 	char* fTag;
@@ -297,12 +106,21 @@ static NetInfoAuthAuthorityHandler sNetInfoAuthAuthorityHandlerProcs[ kNetInfoAu
 // --------------------------------------------------------------------------------
 //	Globals
 
-CPlugInRef		   *gNINodeRef			= nil;
-CContinue		   *gNIContinue			= nil;
-time_t				gCheckTimAgainTime	= 0;
-bool				gTimIsRunning		= false;
-
+CPlugInRef			   *gNINodeRef			= nil;
+CContinue			   *gNIContinue			= nil;
+time_t					gCheckTimAgainTime	= 0;
+double					gAllowNetInfoParentOpenTime = 0;
+bool					gTimIsRunning		= false;
 static const uInt32		kNodeInfoBuffTag	= 'NInf';
+static unsigned int		sHashList;
+
+HashAuthFailedMap			gHashAuthFailedMap;
+
+extern  DSMutexSemaphore   *gNetInfoMutex;
+extern  DSMutexSemaphore   *gHashAuthFailedMapLock;
+extern  uInt32				gDelayFailedLocalAuthReturnsDeltaInSeconds;
+extern	bool				gServerOS;
+extern sInt32				gProcessPID;
 
 
 // Enums -----------------------------------------------------------------------------
@@ -322,24 +140,45 @@ typedef	enum
 
 CNiPlugIn::CNiPlugIn ( void )
 {
+	struct stat sb;
+	
 	if ( gNINodeRef == nil )
 	{
-		gNINodeRef = new CPlugInRef( CNiPlugIn::ContextDeallocProc );
+		if (gServerOS)
+		{
+			gNINodeRef = new CPlugInRef( CNiPlugIn::ContextDeallocProc, 1024 );
+		}
+		else
+		{
+			gNINodeRef = new CPlugInRef( CNiPlugIn::ContextDeallocProc, 256 );
+		}
 	}
 
 	if ( gNIContinue == nil )
 	{
-		gNIContinue = new CContinue( CNiPlugIn::ContinueDeallocProc );
+		if (gServerOS)
+		{
+			gNIContinue = new CContinue( CNiPlugIn::ContinueDeallocProc, 256 );
+		}
+		else
+		{
+			gNIContinue = new CContinue( CNiPlugIn::ContinueDeallocProc, 64 );
+		}
 	}
-
-	fRecData			= new CDataBuff();
-	fAttrData			= new CDataBuff();
-	fTmpData			= new CDataBuff();
+	
+	fRecData	= new CDataBuff();
+	fAttrData	= new CDataBuff();
+	fTmpData	= new CDataBuff();
+	fHashList	= kNiPluginHashDefaultSet;
+	if ( gServerOS && gProcessPID < 100 && stat("/var/db/netinfo/network.nidb",&sb) == 0 )
+	{
+		gAllowNetInfoParentOpenTime = dsTimestamp() + USEC_PER_SEC * 45;
+	}
 } // CNiPlugIn
 
 
 //------------------------------------------------------------------------------------
-//	* InitService
+//	* ~CNiPlugIn
 //------------------------------------------------------------------------------------
 
 CNiPlugIn::~CNiPlugIn ( void )
@@ -361,7 +200,6 @@ CNiPlugIn::~CNiPlugIn ( void )
 		delete( fTmpData );
 		fTmpData = nil;
 	}
-
 } // ~CNiPlugIn
 
 
@@ -443,6 +281,10 @@ sInt32 CNiPlugIn::HandleRequest ( void *inData )
 			siResult = GetRecAttrValueByIndex( (sGetRecordAttributeValueByIndex *)inData );
 			break;
 
+		case kGetRecordAttributeValueByValue:
+			siResult = GetRecAttrValueByValue( (sGetRecordAttributeValueByValue *)inData );
+			break;
+
 		case kCloseRecord:
 			siResult = CloseRecord( (sCloseRecord *)inData );
 			break;
@@ -484,6 +326,10 @@ sInt32 CNiPlugIn::HandleRequest ( void *inData )
 			siResult = SetAttributeValue( (sSetAttributeValue *)inData );
 			break;
 
+		case kSetAttributeValues:
+			siResult = SetAttributeValues( (sSetAttributeValues *)inData );
+			break;
+
 		case kDoDirNodeAuth:
 			siResult = DoAuthentication( (sDoDirNodeAuth *)inData );
 			break;
@@ -495,6 +341,11 @@ sInt32 CNiPlugIn::HandleRequest ( void *inData )
 		case kDoAttributeValueSearch:
 		case kDoAttributeValueSearchWithData:
 			siResult = DoAttributeValueSearch( (sDoAttrValueSearchWithData *)inData );
+			break;
+
+		case kDoMultipleAttributeValueSearch:
+		case kDoMultipleAttributeValueSearchWithData:
+			siResult = DoMultipleAttributeValueSearch( (sDoMultiAttrValueSearchWithData *)inData );
 			break;
 
 		case kDoPlugInCustomCall:
@@ -540,6 +391,10 @@ sInt32 CNiPlugIn::ReleaseContinueData ( sReleaseContinueData *inData )
 } // ReleaseContinueData
 
 
+#pragma mark -
+#pragma mark DS API Service Routines
+#pragma mark -
+
 //------------------------------------------------------------------------------------
 //	* OpenDirNode
 //------------------------------------------------------------------------------------
@@ -550,20 +405,33 @@ sInt32 CNiPlugIn::OpenDirNode ( sOpenDirNode *inData )
 	char		   *nameStr			= nil;
 	char		   *pathStr			= nil;
 	char		   *domName			= nil;
-	void		   *domain			= nil;
 	sInt32			timeOutSecs		= 3;
 	sNIContextData   *pContext		= nil;
-	ni_id			niRootDir;
-	
+
 	try
 	{
 		nameStr = ::dsGetPathFromListPriv( inData->fInDirNodeName, kstrDelimiter );
 		if ( nameStr == nil ) throw( (sInt32)eDSNullNodeName );
 
-		pathStr = BuildDomainPathFromName( nameStr );
+		pathStr = BuildDomainPathFromName( nameStr ); //what we actually want to use in the netinfo API
 		if ( pathStr == nil ) throw( (sInt32)eDSUnknownNodeName );
-
-		siResult = CNetInfoPlugin::SafeOpen( pathStr, timeOutSecs, &niRootDir, &domain, &domName );
+		
+		if ( gAllowNetInfoParentOpenTime != 0 && strcmp( pathStr, kstrParentDotDot ) == 0 )
+		{
+			if ( dsTimestamp() > gAllowNetInfoParentOpenTime )
+			{
+				// ok to open
+				gAllowNetInfoParentOpenTime = 0;
+			}
+			else
+			{
+				throw( (sInt32)eDSOpenNodeFailed );
+			}
+		}
+		
+		gNetInfoMutex->Wait();
+		siResult = CNetInfoPlugin::SafeOpen( pathStr, timeOutSecs, &domName );
+		gNetInfoMutex->Signal();
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		if (::strcmp(domName,"") == 0)
@@ -575,33 +443,28 @@ sInt32 CNiPlugIn::OpenDirNode ( sOpenDirNode *inData )
 		pContext = MakeContextData();
 		if ( pContext == nil ) throw( (sInt32)eMemoryAllocError );
 
-		pContext->fDomain = domain;
-		pContext->fDomainName = domName; //we own this char* now
+		pContext->fDomain = nil;				//init to nil since not authenticated connection
+		pContext->fDomainName = domName;		//we own this char* now
+		pContext->fDomainPath = pathStr;		//we own this char* now
+		pathStr = nil;
+		//DBGLOG1( kLogPlugin, "CNiPlugIn::OpenDirNode: node name is %s", domName );
 		pContext->fUID = inData->fInUID;
 		pContext->fEffectiveUID = inData->fInEffectiveUID;
-		if (strcmp(pathStr,".") == 0)
+		if (strcmp(pContext->fDomainPath,".") == 0 )
 		{
 			pContext->bIsLocal = true;
 		}
 
 		gNINodeRef->AddItem( inData->fOutNodeRef, pContext );
 	}
-	
+
 	catch( sInt32 err )
 	{
 		siResult = err;
 	}
 
-	if ( pathStr != nil )
-	{
-		free( pathStr );
-		pathStr = nil;
-	}
-	if ( nameStr != nil )
-	{
-		free( nameStr );
-		nameStr = nil;
-	}
+	DSFreeString( pathStr );
+	DSFreeString( nameStr );
 
 	return( siResult );
 
@@ -673,6 +536,11 @@ sInt32 CNiPlugIn::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 	tDataNode		   *pDataNode		= nil;
 	CBuff				outBuff;
 	time_t				delayedNI		= 0;
+	ni_id				niDirID;
+	ni_entrylist		niEntryList;
+	ni_proplist			niPropList;
+	ni_index			niIndex			= 0;
+
 
 	gNetInfoMutex->Wait();
 
@@ -726,63 +594,66 @@ sInt32 CNiPlugIn::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 						// call tim to ask what auth methods are available
 						//and compare to the ones we might actually use since we determine what are available and
 						//we can call whatever tim methods we want to support those methods
-
-						timHndl = ::timServerForDomain( pContext->fDomain );
-						if ( timHndl != nil )
+						void * aNIDomain = RetrieveNIDomain(pContext);
+						if (aNIDomain != NULL)
 						{
-							siTimStatus = ::timGetOperations( timHndl, TimOpAuthentication, &pTimInfo );
-							if ( siTimStatus == eDSNoErr )
+							timHndl = ::timServerForDomain( aNIDomain );
+							if ( timHndl != nil )
 							{
-								timAuthCount = ::bufferArrayCount( pTimInfo );
-								if ( timAuthCount != 0 )
+								siTimStatus = ::timGetOperations( timHndl, TimOpAuthentication, &pTimInfo );
+								if ( siTimStatus == eDSNoErr )
 								{
-									for ( i = 0; i < timAuthCount; i++ )
+									timAuthCount = ::bufferArrayCount( pTimInfo );
+									if ( timAuthCount != 0 )
 									{
-										pTmp = ::bufferArrayBufferAtIndex( pTimInfo, i );
-										if ( pTmp != nil )
+										for ( i = 0; i < timAuthCount; i++ )
 										{
-											pBuffStr = ::bufferToString( pTmp );
-											pAuthStr = GetAuthTypeStr( pBuffStr );
-											if ( pAuthStr != nil )
+											pTmp = ::bufferArrayBufferAtIndex( pTimInfo, i );
+											if ( pTmp != nil )
 											{
-												if (strcmp(kDSStdAuth2WayRandom,pAuthStr->GetData()) == 0)
+												pBuffStr = ::bufferToString( pTmp );
+												pAuthStr = GetAuthTypeStr( pBuffStr );
+												if ( pAuthStr != nil )
 												{
-													authCount++;
-													timAuthAvail |= 1;
+													if (strcmp(kDSStdAuth2WayRandom,pAuthStr->GetData()) == 0)
+													{
+														authCount++;
+														timAuthAvail |= 1;
+													}
+													if (strcmp(kDSStdAuthSMB_NT_Key,pAuthStr->GetData()) == 0)
+													{
+														authCount++;
+														timAuthAvail |= 2;
+													}
+													if (strcmp(kDSStdAuthSMB_LM_Key,pAuthStr->GetData()) == 0)
+													{
+														authCount++;
+														timAuthAvail |= 4;
+													}
+													delete( pAuthStr );
+													pAuthStr = nil;
 												}
-												if (strcmp(kDSStdAuthSMB_NT_Key,pAuthStr->GetData()) == 0)
-												{
-													authCount++;
-													timAuthAvail |= 2;
-												}
-												if (strcmp(kDSStdAuthSMB_LM_Key,pAuthStr->GetData()) == 0)
-												{
-													authCount++;
-													timAuthAvail |= 4;
-												}
-												delete( pAuthStr );
-												pAuthStr = nil;
-											}
 
-											::bufferRelease( pTmp );
-											pTmp = nil;
+												::bufferRelease( pTmp );
+												pTmp = nil;
 
-											if ( pBuffStr != nil )
-											{
-												free( pBuffStr );
-												pBuffStr = nil;
+												if ( pBuffStr != nil )
+												{
+													free( pBuffStr );
+													pBuffStr = nil;
+												}
 											}
 										}
 									}
 								}
+								if ( pTimInfo != nil )
+								{
+									::bufferRelease( pTimInfo );
+									pTimInfo = nil;
+								}
+								::timHandleFree( timHndl );
+								timHndl = nil;
 							}
-							if ( pTimInfo != nil )
-							{
-								::bufferRelease( pTimInfo );
-								pTimInfo = nil;
-							}
-							::timHandleFree( timHndl );
-							timHndl = nil;
 						}
 						
 						fTmpData->AppendShort( authCount );
@@ -878,72 +749,102 @@ sInt32 CNiPlugIn::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
 				 (::strcmp( pAttrName, kDSNAttrNodePath ) == 0) )
 			{
-				delayedNI = time(nil) + 2; //normally my_ni_pwdomain will complete in under 2 secs
-				siResult = ::my_ni_pwdomain( pContext->fDomain, &niDomNameStr );
-				if ( delayedNI < time(nil) )
+				DBGLOG( kLogPlugin, "CNiPlugIn::GetDirNodeInfo: Try to retrieve a netinfo domain path from netinfo_domainname" );
+				// don't call RetrieveNIDomain since we can't pass the authenticated domain pointer to netinfo_domainname
+				// since the netinfo_open pkg code does not maintain authenticated connections
+				void *aNIDomain = RetrieveSharedNIDomain(pContext);
+				if (aNIDomain != NULL)
+				{
+					delayedNI = time(nil) + 2; //normally netinfo_domainname will complete in under 2 secs
+					niDomNameStr = netinfo_domainname( aNIDomain );
+					if ( delayedNI < time(nil) )
+					{
+						if (pContext->fDomainName != nil)
+						{
+							syslog(LOG_ALERT,"GetDirNodeInfo::Call to netinfo_domainname was with argument domain name: %s and lasted %d seconds.", pContext->fDomainName, (uInt32)(2 + time(nil) - delayedNI));
+							DBGLOG2( kLogPlugin, "CNiPlugIn::GetDirNodeInfo: Call to netinfo_domainname was with argument domain name: %s and lasted %d seconds.", pContext->fDomainName, (uInt32)(2 + time(nil) - delayedNI) );
+						}
+						else
+						{
+							syslog(LOG_ALERT,"GetDirNodeInfo::Call to netinfo_domainname lasted %d seconds.", (uInt32)(2 + time(nil) - delayedNI));
+							DBGLOG1( kLogPlugin, "CNiPlugIn::GetDirNodeInfo: Call to netinfo_domainname lasted %d seconds.", (uInt32)(2 + time(nil) - delayedNI) );
+						}
+						if (niDomNameStr != nil)
+						{
+							syslog(LOG_ALERT,"GetDirNodeInfo::Call to netinfo_domainname returned domain name: %s.", niDomNameStr);
+							DBGLOG1( kLogPlugin, "CNiPlugIn::GetDirNodeInfo: Call to netinfo_domainname returned domain name: %s.", niDomNameStr );
+						}
+					}
+					if ( niDomNameStr == nil )
+					{
+						syslog(LOG_ALERT,"GetDirNodeInfo::Call to netinfo_domainname failed or returned nil name.");
+						DBGLOG( kLogPlugin, "CNiPlugIn::GetDirNodeInfo: Call to netinfo_domainname failed or returned nil name." );
+						//here we force success from the netinfo_domainname call
+						niDomNameStr = (char *) calloc(1,2);
+						strcpy(niDomNameStr,"/");
+					}
+				}
+				else
 				{
 					if (pContext->fDomainName != nil)
 					{
-						syslog(LOG_INFO,"GetDirNodeInfo::Call to my_ni_pwdomain was with argument domain name: %s and lasted %d seconds.", pContext->fDomainName, (uInt32)(2 + time(nil) - delayedNI));
+						syslog(LOG_ALERT,"GetDirNodeInfo::Call to netinfo_domainname was with argument domain name: %s but failed to connect to domain.", pContext->fDomainName );
+						DBGLOG1( kLogPlugin, "CNiPlugIn::GetDirNodeInfo: Call to netinfo_domainname was with argument domain name: %s but failed to connect to domain.", pContext->fDomainName );
 					}
-					else
-					{
-						syslog(LOG_INFO,"GetDirNodeInfo::Call to my_ni_pwdomain lasted %d seconds.", (uInt32)(2 + time(nil) - delayedNI));
-					}
-					if (niDomNameStr != nil)
-					{
-						syslog(LOG_INFO,"GetDirNodeInfo::Call to my_ni_pwdomain returned domain name: %s.", niDomNameStr);
-					}
+					throw( (sInt32)eDSInvalidSession );
 				}
-				//assume that if siResult is an error then niDomNameStr is invalid
-				if ( ( siResult != eDSNoErr ) || (niDomNameStr == nil) )
-				{
-					syslog(LOG_INFO,"GetDirNodeInfo::Call to my_ni_pwdomain failed or returned nil name.");
-					//here we force success from the my_ni_pwdomain call
-					niDomNameStr = (char *) calloc(1,2);
-					strcpy(niDomNameStr,"/");
-				}
+
 				if (niDomNameStr != nil)
 				{
+					DBGLOG1( kLogPlugin, "CNiPlugIn::GetDirNodeInfo: Used netinfo domain path value of <%s>", niDomNameStr );
 					fTmpData->Clear();
 
 					uiAttrCnt++;
 
 					// Append the attribute name
-					fTmpData->AppendShort( ::strlen( kDSNAttrNodePath ) );
+					fTmpData->AppendShort( sizeof( kDSNAttrNodePath ) - 1 );
 					fTmpData->AppendString( kDSNAttrNodePath );
 
 					if ( inData->fInAttrInfoOnly == false )
 					{
-						// Is this is the root node
+						// If this is the root node
 						if ( ::strcmp( niDomNameStr, "/" ) == 0 )
 						{
 							// Attribute count of 1
 							fTmpData->AppendShort( 2 );
 
 							// Add the kstrNetInfoName as an attribute value
-							fTmpData->AppendLong( ::strlen( kstrNetInfoName ) );
+							fTmpData->AppendLong( sizeof( kstrNetInfoName ) - 1 );
 							fTmpData->AppendString( kstrNetInfoName );
 
-							// Add the kstrRootOnly as an attribute value
-							fTmpData->AppendLong( ::strlen( kstrRootOnly ) );
-							fTmpData->AppendString( kstrRootOnly );
+							if ( ::strcmp( pContext->fDomainName, kstrDefaultLocalNodeName ) == 0 )
+							{
+								// stay consistent with the default local node NodeName
+								// Add "DefaultLocalNode" as an attribute value
+								fTmpData->AppendLong( sizeof( kstrDefaultLocalNode ) - 1 );
+								fTmpData->AppendString( kstrDefaultLocalNode );
+							}
+							else
+							{
+								// Add the kstrRootOnly as an attribute value
+								fTmpData->AppendLong( sizeof( kstrRootOnly ) - 1 );
+								fTmpData->AppendString( kstrRootOnly );
+							}
 						}
 						else
 						{
 							// Attribute count of (list count) + 2
-
 							pNodePath = ::dsBuildFromPathPriv( niDomNameStr, "/" );
 							if ( pNodePath == nil ) throw( (sInt32)eMemoryAllocError );
 
 							fTmpData->AppendShort( ::dsDataListGetNodeCountPriv( pNodePath ) + 2 );
 
 							// Add the kstrNetInfoName as an attribute value
-							fTmpData->AppendLong( ::strlen( kstrNetInfoName ) );
+							fTmpData->AppendLong( sizeof( kstrNetInfoName ) - 1 );
 							fTmpData->AppendString( kstrNetInfoName );
 
 							// Add the kstrRootOnly as an attribute value
-							fTmpData->AppendLong( ::strlen( kstrRootOnly ) );
+							fTmpData->AppendLong( sizeof( kstrRootOnly ) - 1 );
 							fTmpData->AppendString( kstrRootOnly );
 
 							i = 1;
@@ -973,10 +874,230 @@ sInt32 CNiPlugIn::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 
 					// Clear the temp block
 					fTmpData->Clear();
-					
-					free(niDomNameStr);
-					niDomNameStr = nil;
+					DSFreeString(niDomNameStr);
 				}
+			}
+			
+			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+				 (::strcmp( pAttrName, kDSNAttrRecordType ) == 0) )
+			{
+				fTmpData->Clear();
+
+				uiAttrCnt++;
+
+				// Append the attribute name
+				fTmpData->AppendShort( ::strlen( kDSNAttrRecordType ) );
+				fTmpData->AppendString( kDSNAttrRecordType );
+
+				if ( inData->fInAttrInfoOnly == false )
+				{
+					void * aNIDomain = RetrieveNIDomain(pContext);
+					if (aNIDomain != NULL)
+					{
+						int valueCount = 0;
+						NI_INIT( &niDirID );
+						NI_INIT( &niEntryList );
+						siResult = ::ni_pathsearch( aNIDomain, &niDirID, "/" );
+						if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+						siResult = ::ni_list( aNIDomain, &niDirID, "name", &niEntryList );
+						if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+						
+						if ( niEntryList.ni_entrylist_val == NULL )
+						{
+							niEntryList.ni_entrylist_len = 0;
+						}
+						for ( i = 0; i < niEntryList.ni_entrylist_len; i++ )
+						{
+							char* dsType = MapNetInfoRecToDSType(niEntryList.ni_entrylist_val[i].names->ni_namelist_val[0]);
+							
+							if (dsType != NULL) 
+							{
+								if (strncmp(dsType,kDSStdRecordTypePrefix,strlen(kDSStdRecordTypePrefix)) == 0)
+								{
+									valueCount++;
+								}
+								delete( dsType );
+								dsType = NULL;
+							}
+						}
+						
+						fTmpData->AppendShort( valueCount );
+
+						for ( i = 0; i < niEntryList.ni_entrylist_len; i++ )
+						{
+							char* dsType = MapNetInfoRecToDSType(niEntryList.ni_entrylist_val[i].names->ni_namelist_val[0]);
+							
+							if (dsType != NULL)
+							{
+								if (strncmp(dsType,kDSStdRecordTypePrefix,strlen(kDSStdRecordTypePrefix)) == 0)
+								{
+									fTmpData->AppendLong( ::strlen( dsType ) );
+									fTmpData->AppendString( dsType );
+								}
+								delete( dsType );
+								dsType = NULL;
+							}
+						}
+						
+						if ( niEntryList.ni_entrylist_len > 0 )
+						{
+							ni_entrylist_free(&niEntryList);
+						}
+					}
+					else
+					{
+						throw( (sInt32)eDSInvalidSession );
+					}
+				}
+				else
+				{
+					fTmpData->AppendShort( 0 );
+				}
+
+				// Add the attribute length and data
+				fAttrData->AppendLong( fTmpData->GetLength() );
+				fAttrData->AppendBlock( fTmpData->GetData(), fTmpData->GetLength() );
+
+				// Clear the temp block
+				fTmpData->Clear();
+			}
+			
+			
+
+			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+				 (::strcmp( pAttrName, kDSNAttrSubNodes ) == 0) )
+			{
+				fTmpData->Clear();
+
+				uiAttrCnt++;
+
+				// Append the attribute name
+				fTmpData->AppendShort( ::strlen( kDSNAttrSubNodes ) );
+				fTmpData->AppendString( kDSNAttrSubNodes );
+
+				if ( inData->fInAttrInfoOnly == false )
+				{
+					int valueCount = 0;
+					set<string> nodeNames;
+					set<string>::const_iterator iter;
+					
+					siResult = this->GetSubNodes( pContext, nodeNames );
+				
+					valueCount = nodeNames.size();
+					fTmpData->AppendShort( valueCount );
+
+					for (iter = nodeNames.begin(); iter != nodeNames.end(); ++iter) 
+					{
+						const char* subnode = (*iter).c_str();
+						fTmpData->AppendLong( ::strlen( subnode ) );
+						fTmpData->AppendString( subnode );
+					}
+				}
+				else
+				{
+					fTmpData->AppendShort( 0 );
+				}
+
+				// Add the attribute length and data
+				fAttrData->AppendLong( fTmpData->GetLength() );
+				fAttrData->AppendBlock( fTmpData->GetData(), fTmpData->GetLength() );
+
+				// Clear the temp block
+				fTmpData->Clear();
+			}
+			
+			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+				 (::strcmp( pAttrName, kDS1AttrDataStamp ) == 0) )
+			{
+				fTmpData->Clear();
+
+				uiAttrCnt++;
+
+				// Append the attribute name
+				fTmpData->AppendShort( ::strlen( kDS1AttrDataStamp ) );
+				fTmpData->AppendString( kDS1AttrDataStamp );
+
+				if ( inData->fInAttrInfoOnly == false )
+				{
+					void * aNIDomain = RetrieveNIDomain(pContext);
+					if (aNIDomain != NULL)
+					{
+						// Attribute value count
+						fTmpData->AppendShort( 1 );
+
+						NI_INIT( &niPropList );
+						ni_statistics(aNIDomain, &niPropList);
+						niIndex = ::ni_proplist_match( niPropList, "checksum", NULL );
+						if ( niIndex == NI_INDEX_NULL || niPropList.nipl_val[ niIndex ].nip_val.ninl_len == 0 )
+						{
+							fTmpData->AppendLong( ::strlen( "0" ) );
+							fTmpData->AppendString( "0" );
+						}
+						else
+						{
+							fTmpData->AppendLong( ::strlen( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] ) );
+							fTmpData->AppendString( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] );
+						}
+						::ni_proplist_free( &niPropList );
+					}
+					else
+					{
+						throw( (sInt32)eDSInvalidSession );
+					}
+				}
+				else
+				{
+					fTmpData->AppendShort( 0 );
+				}
+
+				// Add the attribute length and data
+				fAttrData->AppendLong( fTmpData->GetLength() );
+				fAttrData->AppendBlock( fTmpData->GetData(), fTmpData->GetLength() );
+
+				// Clear the temp block
+				fTmpData->Clear();
+			}
+				 
+			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+				 (::strcmp( pAttrName, "dsAttrTypeStandard:TrustInformation" ) == 0) )
+			{
+				fTmpData->Clear();
+				
+				uiAttrCnt++;
+				
+				// Append the attribute name
+				fTmpData->AppendShort( ::strlen( "dsAttrTypeStandard:TrustInformation" ) );
+				fTmpData->AppendString( "dsAttrTypeStandard:TrustInformation" );
+				
+				if ( inData->fInAttrInfoOnly == false )
+				{
+					if( pContext != NULL && pContext->bIsLocal )
+					{
+						// Attribute value count
+						fTmpData->AppendShort( 1 );
+						
+						fTmpData->AppendLong( ::strlen( "FullTrust" ) );
+						fTmpData->AppendString( "FullTrust" );
+					}
+					else
+					{
+						// Attribute value count
+						fTmpData->AppendShort( 1 );
+						fTmpData->AppendLong( ::strlen( "Anonymous" ) );
+						fTmpData->AppendString( "Anonymous" );
+					}
+				}
+				else
+				{
+					fTmpData->AppendShort( 0 );
+				}
+				
+				// Add the attribute length and data
+				fAttrData->AppendLong( fTmpData->GetLength() );
+				fAttrData->AppendBlock( fTmpData->GetData(), fTmpData->GetLength() );
+				
+				// Clear the temp block
+				fTmpData->Clear();
 			}
 		}
 
@@ -1440,11 +1561,11 @@ sInt32 CNiPlugIn::GetRecordList ( sGetRecordList *inData )
 					bBuffFull = false;
 					if ( ::strcmp( pRecName, kDSRecordsAll ) == 0 )
 					{
-						siResult = GetAllRecords( pNIRecType,
+						siResult = GetAllRecords(	(const char *)pRecType,
+													pNIRecType,
 													cpAttrTypeList,
 													pContinue,
-													pContext->fDomain,
-													pContext->fDomainName,
+													pContext,
 													bAttribOnly,
 													outBuff,
 													uiCount );
@@ -1452,12 +1573,11 @@ sInt32 CNiPlugIn::GetRecordList ( sGetRecordList *inData )
 					else
 					{
 						siResult = GetTheseRecords ( pRecName,
-													pRecType,
+													(const char *)pRecType,
 													pNIRecType,
 													pattMatch,
 													cpAttrTypeList,
-													pContext->fDomain,
-													pContext->fDomainName,
+													pContext,
 													bAttribOnly,
 													outBuff,
 													pContinue,
@@ -1611,11 +1731,11 @@ sInt32 CNiPlugIn::GetRecordList ( sGetRecordList *inData )
 //	* GetAllRecords
 //------------------------------------------------------------------------------------
 
-sInt32 CNiPlugIn::GetAllRecords (	char			*inNI_RecType,
+sInt32 CNiPlugIn::GetAllRecords (	const char		*inRecType,
+									char			*inNI_RecType,
 									CAttributeList	*inAttrTypeList,
 									sNIContinueData	*inContinue,
-									void			*inDomain,
-									char			*inDomainName,
+									sNIContextData  *inContext,
 									bool			inAttrOnly,
 									CBuff			*inBuff,
 									uInt32			&outRecCount )
@@ -1629,6 +1749,7 @@ sInt32 CNiPlugIn::GetAllRecords (	char			*inNI_RecType,
 	ni_entry		niEntry;
 	ni_proplist		niPropList;
 	ni_entrylist	niEntryList;
+	void		   *aNIDomain		= NULL;
 
 	gNetInfoMutex->Wait();
 
@@ -1641,28 +1762,35 @@ sInt32 CNiPlugIn::GetAllRecords (	char			*inNI_RecType,
 
 		outRecCount = 0; //need to track how many records were found by this call to GetAllRecords
 
-		//assuming that record types have no embedded "/"s in them
-		siResult = ::ni_pathsearch( inDomain, &niDirID, inNI_RecType );
-		if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-		if ( inContinue->fNIEntryList.ni_entrylist_len == 0 )
+		aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
 		{
-			siResult = ::ni_list( inDomain, &niDirID, "name", &(inContinue->fNIEntryList) );
+			//assuming that record types have no embedded "/"s in them
+			siResult = ::ni_pathsearch( aNIDomain, &niDirID, inNI_RecType );
 			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-		}
-		niEntryList = inContinue->fNIEntryList;
 
-		for ( en = inContinue->fAllRecIndex; (en < niEntryList.ni_entrylist_len) &&
-					(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
-					 (inContinue->fLimitRecSearch == 0)); en++ )
-		{
-			niEntry = niEntryList.ni_entrylist_val[ en ];
-			niDirID.nii_object = niEntry.id;
-
-			siResult = ::ni_read( inDomain, &niDirID, &niPropList );
-			if ( siResult == NI_OK )
+			if ( inContinue->fNIEntryList.ni_entrylist_len == 0 )
 			{
-				siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, inDomain, inDomainName, siValCnt );
+				siResult = ::ni_list( aNIDomain, &niDirID, "name", &(inContinue->fNIEntryList) );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			}
+			niEntryList = inContinue->fNIEntryList;
+
+			if (niEntryList.ni_entrylist_val == NULL)
+			{
+				niEntryList.ni_entrylist_len = 0;
+			}
+			for ( en = inContinue->fAllRecIndex; (en < niEntryList.ni_entrylist_len) &&
+						(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
+						 (inContinue->fLimitRecSearch == 0)); en++ )
+			{
+				niEntry = niEntryList.ni_entrylist_val[ en ];
+				niDirID.nii_object = niEntry.id;
+
+				siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+				if ( siResult == NI_OK )
+				{
+				siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, aNIDomain, inContext->fDomainName, inRecType, siValCnt );
 				if ( siResult == eDSNoErr )
 				{
 					fRecData->Clear();
@@ -1713,20 +1841,25 @@ sInt32 CNiPlugIn::GetAllRecords (	char			*inNI_RecType,
 						outRecCount++;
 						inContinue->fTotalRecCount++;
 					}
-            		else
-            		{
+						else
+						{
 						inContinue->fAllRecIndex = 0;
 						::ni_proplist_free( &niPropList );
-               			siResult = eDSInvalidBuffFormat;
+							siResult = eDSInvalidBuffFormat;
 						break;
-		            }
+					}
 				}
-				::ni_proplist_free( &niPropList );
+					::ni_proplist_free( &niPropList );
+				}
+			}
+			if ( siResult == eDSNoErr )
+			{
+				inContinue->fAllRecIndex = 0;
 			}
 		}
-		if ( siResult == eDSNoErr )
+		else
 		{
-			inContinue->fAllRecIndex = 0;
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -1746,13 +1879,12 @@ sInt32 CNiPlugIn::GetAllRecords (	char			*inNI_RecType,
 //	* GetTheseRecords
 //------------------------------------------------------------------------------------
 
-sInt32 CNiPlugIn:: GetTheseRecords (	char				*inConstRecName,
-									char				*inConstRecType,
+sInt32 CNiPlugIn:: GetTheseRecords (char				*inConstRecName,
+									const char			*inConstRecType,
 									char				*inNativeRecType,
 									tDirPatternMatch	 inPattMatch,
 									CAttributeList		*inAttrTypeList,
-									void				*inDomain,
-									char				*inDomainName,
+									sNIContextData		*inContext,
 									bool				 inAttrOnly,
 									CBuff				*inBuff,
 									sNIContinueData		*inContinue,
@@ -1771,8 +1903,10 @@ sInt32 CNiPlugIn:: GetTheseRecords (	char				*inConstRecName,
 	ni_entry		niEntry;
 	ni_entrylist	niEntryList;
 	bool			bGetThisOne	= true;
+	char		   *normalizedRecName		= nil;
 	char		   *inConstRegExpRecName	= nil;
 	bool			bGotAMatch	= false;
+	void		   *aNIDomain	= NULL;
 
 	gNetInfoMutex->Wait();
 
@@ -1789,211 +1923,387 @@ sInt32 CNiPlugIn:: GetTheseRecords (	char				*inConstRecName,
 		//will not get added to each other
 		fRecData->Clear();
 
-		//need to handle continue data now with the fMultiMapIndex field so that we know
-		//where we left off on the last time in here
-		//KW need to get rid of this index and consolidate the code together
-		
-		if ( (::strcmp( inNativeRecType, "users" ) == 0 ) &&
-			((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 2) || (inContinue->fMultiMapIndex == 3)) )
-
+		aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
 		{
-			niStatus = ::ni_pathsearch( inDomain, &niDirID, "/users" );
-			if ( niStatus == NI_OK )
+			//need to handle continue data now with the fMultiMapIndex field so that we know
+			//where we left off on the last time in here
+			//KW need to get rid of this index and consolidate the code together
+			
+			if ( (::strcmp( inNativeRecType, "users" ) == 0 ) &&
+				((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 2) || (inContinue->fMultiMapIndex == 3)) )
+
 			{
-//no definitive mapping of record names yet ie. only hardcoded here
-//KW how can we ensure that a search that "hits" both the name and realname will not return two found records when indeed
-//there is only one record in NetInfo
-//KW can this command handle a search on two separate attributes??? - not likely
-				//make the reg exp that ni_search needs
-				inConstRegExpRecName = BuildRegExp(inConstRecName);
-				niStatus = ::ni_search( inDomain, &niDirID, (char *)"name", inConstRegExpRecName, REG_ICASE, &niEntryList );
-				free(inConstRegExpRecName);
-				if ( (niStatus == NI_OK) &&
-					((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 2)) )
+				niStatus = ::ni_pathsearch( aNIDomain, &niDirID, "/users" );
+				if ( niStatus == NI_OK )
 				{
-					for ( en = inContinue->fAllRecIndex; (en < niEntryList.ni_entrylist_len) &&
-							(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
-					 		(inContinue->fLimitRecSearch == 0)); en++ )
-//					for ( en = inContinue->fAllRecIndex; en < niEntryList.ni_entrylist_len; en++ )
+	//no definitive mapping of record names yet ie. only hardcoded here
+	//KW how can we ensure that a search that "hits" both the name and realname will not return two found records when indeed
+	//there is only one record in NetInfo
+	//KW can this command handle a search on two separate attributes??? - not likely
+					//make the reg exp that ni_search needs
+					inConstRegExpRecName = BuildRegExp(inConstRecName);
+					niStatus = ::ni_search( aNIDomain, &niDirID, (char *)"name", inConstRegExpRecName, REG_ICASE, &niEntryList );
+					DSFreeString(inConstRegExpRecName);
+					if ( (niStatus == NI_OK) && (niEntryList.ni_entrylist_val != NULL) &&
+						((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 2)) )
 					{
-						niEntry = niEntryList.ni_entrylist_val[ en ];
-						niDirID.nii_object = niEntry.id;
-
-						niStatus = ::ni_read( inDomain, &niDirID, &niPropList );
-						if ( niStatus == NI_OK )
+						for ( en = inContinue->fAllRecIndex; (en < niEntryList.ni_entrylist_len) &&
+								(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
+								(inContinue->fLimitRecSearch == 0)); en++ )
+	//					for ( en = inContinue->fAllRecIndex; en < niEntryList.ni_entrylist_len; en++ )
 						{
-							niIndex = ::ni_proplist_match( niPropList, "name", NULL );
-							if ( niIndex != NI_INDEX_NULL )
+							niEntry = niEntryList.ni_entrylist_val[ en ];
+							niDirID.nii_object = niEntry.id;
+
+							niStatus = ::ni_read( aNIDomain, &niDirID, &niPropList );
+							if ( niStatus == NI_OK )
 							{
-								//code is here to determine if the regcomp operation on inConstRecName for NetInfo actually
-								//returned what was requested ie. it will always return at least it but probably much more
-								//so filter out the much more
-								
-								bGotAMatch = false;
-								// For each value in the namelist for this property
-								for ( uInt32 pv = 0; pv < niPropList.nipl_val[ niIndex ].nip_val.ninl_len; pv++ )
+								niIndex = ::ni_proplist_match( niPropList, "name", NULL );
+								if ( niIndex != NI_INDEX_NULL )
 								{
-									// check if we find a match
-									if ( DoesThisMatch(	(const char*)(niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ pv ]),
-														(const char*)inConstRecName,
-														inPattMatch ) )
+									//code is here to determine if the regcomp operation on inConstRecName for NetInfo actually
+									//returned what was requested ie. it will always return at least it but probably much more
+									//so filter out the much more
+									
+									bGotAMatch = false;
+									// For each value in the namelist for this property
+									for ( uInt32 pv = 0; pv < niPropList.nipl_val[ niIndex ].nip_val.ninl_len; pv++ )
 									{
-										bGotAMatch = true;
-										break;
-									}
-								}
-
-								if (bGotAMatch)
-								{
-									//need to flush buffer so that if we retrieve multiple entries with one call to this routine they
-									//will not get added to each other
-									//fRecData->Clear(); // not anymore since two loops now
-		
-									fRecData->AppendShort( ::strlen( inConstRecType ) );
-									fRecData->AppendString( inConstRecType );
-
-									niIndex = ::ni_proplist_match( niPropList, "name", NULL );
-									if ( niIndex == NI_INDEX_NULL || niPropList.nipl_val[ niIndex ].nip_val.ninl_len == 0 )
-									{
-										fRecData->AppendShort( ::strlen( "*** No Name ***" ) );
-										fRecData->AppendString( "*** No Name ***" );
-									}
-									else
-									{
-										fRecData->AppendShort( ::strlen( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] ) );
-										fRecData->AppendString( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] );
-									}
-
-									siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, inDomain, inDomainName, siCount );
-									if ( siResult == eDSNoErr )
-									{
-										if ( siCount == 0 )
+										// check if we find a match
+										if ( DoesThisMatch(	(const char*)(niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ pv ]),
+															(const char*)inConstRecName,
+															inPattMatch ) )
 										{
-											// Attribute count
-											fRecData->AppendShort( 0 );
+											bGotAMatch = true;
+											break;
+										}
+									}
+
+									if (bGotAMatch)
+									{
+										//need to flush buffer so that if we retrieve multiple entries with one call to this routine they
+										//will not get added to each other
+										//fRecData->Clear(); // not anymore since two loops now
+			
+										fRecData->AppendShort( ::strlen( inConstRecType ) );
+										fRecData->AppendString( inConstRecType );
+
+										niIndex = ::ni_proplist_match( niPropList, "name", NULL );
+										if ( niIndex == NI_INDEX_NULL || niPropList.nipl_val[ niIndex ].nip_val.ninl_len == 0 )
+										{
+											fRecData->AppendShort( ::strlen( "*** No Name ***" ) );
+											fRecData->AppendString( "*** No Name ***" );
 										}
 										else
 										{
-											// Attribute count
-											fRecData->AppendShort( siCount );
-											fRecData->AppendBlock( fAttrData->GetData(), fAttrData->GetLength() );
+											fRecData->AppendShort( ::strlen( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] ) );
+											fRecData->AppendString( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] );
 										}
-										siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
-										fRecData->Clear();
 
-										if ( siResult == CBuff::kBuffFull )
+										siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, aNIDomain, inContext->fDomainName, inConstRecType, siCount );
+										if ( siResult == eDSNoErr )
 										{
-											inContinue->fMultiMapIndex = 2;
-											inContinue->fAllRecIndex = en;
-											::ni_proplist_free( &niPropList );
-											throw( siResult );
-										}
-										else if ( siResult == eDSNoErr )
-										{
-											inContinue->fMultiMapIndex = 0;
-											outRecCount++;
-											inContinue->fTotalRecCount++;
-										}
-            							else
-            							{
-											inContinue->fMultiMapIndex = 0;
-											::ni_proplist_free( &niPropList );
-               								throw( (sInt32)eDSInvalidBuffFormat );
-		            					}
-									} // GetTheseAttributes(...)
-								} // bGotAMatch
-							}
-							::ni_proplist_free( &niPropList );
-						} // if ( ::ni_read( inDomain, &niDirID, &niPropList == NI_OK ))
-							
-					} // for loop over niEntryList.ni_entrylist_len
-				} // if ( ::ni_search( inDomain, &niDirID, (char *)"name", inConstRecName, REG_ICASE, &niEntryList ) == NI_OK )
+											if ( siCount == 0 )
+											{
+												// Attribute count
+												fRecData->AppendShort( 0 );
+											}
+											else
+											{
+												// Attribute count
+												fRecData->AppendShort( siCount );
+												fRecData->AppendBlock( fAttrData->GetData(), fAttrData->GetLength() );
+											}
+											siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
+											fRecData->Clear();
+
+											if ( siResult == CBuff::kBuffFull )
+											{
+												inContinue->fMultiMapIndex = 2;
+												inContinue->fAllRecIndex = en;
+												::ni_proplist_free( &niPropList );
+												throw( siResult );
+											}
+											else if ( siResult == eDSNoErr )
+											{
+												inContinue->fMultiMapIndex = 0;
+												outRecCount++;
+												inContinue->fTotalRecCount++;
+											}
+											else
+											{
+												inContinue->fMultiMapIndex = 0;
+												::ni_proplist_free( &niPropList );
+												throw( (sInt32)eDSInvalidBuffFormat );
+											}
+										} // GetTheseAttributes(...)
+									} // bGotAMatch
+								}
+								::ni_proplist_free( &niPropList );
+							} // if ( ::ni_read( aNIDomain, &niDirID, &niPropList == NI_OK ))
+								
+						} // for loop over niEntryList.ni_entrylist_len
+					} // if ( ::ni_search( aNIDomain, &niDirID, (char *)"name", inConstRecName, REG_ICASE, &niEntryList ) == NI_OK )
 
 
-				if (niEntryList.ni_entrylist_len > 0)
-				{
-					::ni_entrylist_free( &niEntryList );
-					niEntryList.ni_entrylist_len = 0;
-				}
-				NI_INIT( &niEntryList );
-
-				//ensure that if a client only asks for n records that we stop searching if
-				//we have already found n records ie. critical for performance when asking for one record
-				if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
-				{
-					NI_INIT( &niDirID );
-					niStatus = ::ni_pathsearch( inDomain, &niDirID, "/users" );
-					if ( niStatus == NI_OK )
+					if (niEntryList.ni_entrylist_len > 0)
 					{
-						//make the reg exp that ni_search needs
-						inConstRegExpRecName = BuildRegExp(inConstRecName);
-						niStatus = ::ni_search( inDomain, &niDirID, (char *)"realname", inConstRegExpRecName, REG_ICASE, &niEntryList );
-						free(inConstRegExpRecName);
-						if ( (niStatus == NI_OK) &&
-							((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 3)) )
+						::ni_entrylist_free( &niEntryList );
+						niEntryList.ni_entrylist_len = 0;
+					}
+					NI_INIT( &niEntryList );
+
+					//ensure that if a client only asks for n records that we stop searching if
+					//we have already found n records ie. critical for performance when asking for one record
+					if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
+					{
+						NI_INIT( &niDirID );
+						niStatus = ::ni_pathsearch( aNIDomain, &niDirID, "/users" );
+						if ( niStatus == NI_OK )
+						{
+							//make the reg exp that ni_search needs
+							normalizedRecName = NormalizeNIString( inConstRecName, "realname" );
+							inConstRegExpRecName = BuildRegExp(normalizedRecName);
+							niStatus = ::ni_search( aNIDomain, &niDirID, (char *)"realname", inConstRegExpRecName, REG_ICASE, &niEntryList );
+							DSFreeString(inConstRegExpRecName);
+							if ( (niStatus == NI_OK) && (niEntryList.ni_entrylist_val != NULL) &&
+								((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 3)) )
+							{
+								for ( en = inContinue->fAllRecIndex; (en < niEntryList.ni_entrylist_len) &&
+										(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
+										(inContinue->fLimitRecSearch == 0)); en++ )
+		//						for ( en = inContinue->fAllRecIndex; en < niEntryList.ni_entrylist_len; en++ )
+								{
+									niEntry = niEntryList.ni_entrylist_val[ en ];
+									niDirID.nii_object = niEntry.id;
+		
+									niStatus = ::ni_read( aNIDomain, &niDirID, &niPropList );
+									if ( niStatus == NI_OK )
+									{
+										niIndex = ::ni_proplist_match( niPropList, "realname", NULL );
+										if ( niIndex != NI_INDEX_NULL )
+										{
+											//code is here to determine if the regcomp operation on normalizedRecName for NetInfo actually
+											//returned what was requested ie. it will always return at least it but probably much more
+											//so filter out the much more
+											bGotAMatch = false;
+											// For each value in the namelist for this property
+											for ( uInt32 pv = 0; pv < niPropList.nipl_val[ niIndex ].nip_val.ninl_len; pv++ )
+											{
+												// check if we find a match
+												if ( DoesThisMatch(	(const char*)(niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ pv ]),
+																	(const char*)normalizedRecName,
+																	inPattMatch ) )
+												{
+													bGotAMatch = true;
+													break;
+												}
+											}
+
+											if (bGotAMatch)
+											{
+												bGetThisOne = true;
+												//check here if we have already grabbed this record
+												//read the name and see if there is a match then ignore if true
+												niIndexComp = ::ni_proplist_match( niPropList, "name", NULL );
+												if ( niIndexComp != NI_INDEX_NULL )
+												{
+													for ( uInt32 pv = 0; pv < niPropList.nipl_val[ niIndexComp ].nip_val.ninl_len; pv++ )
+													{
+														// check if we find a match
+														if ( DoesThisMatch(	(const char*)(niPropList.nipl_val[ niIndexComp ].nip_val.ninl_val[ pv ]),
+																			(const char*)normalizedRecName,
+																			inPattMatch ) )
+														{
+															//should have already gotten this one above in search on name
+															bGetThisOne = false;
+															break;
+														}
+													}
+												}
+		
+												if (bGetThisOne)
+												{
+													//need to flush buffer so that if we retrieve multiple entries with one call to this routine they
+													//will not get added to each other
+													//fRecData->Clear(); // not anymore since two loops now
+				
+													fRecData->AppendShort( ::strlen( inConstRecType ) );
+													fRecData->AppendString( inConstRecType );
+		
+													niIndex = ::ni_proplist_match( niPropList, "name", NULL );
+													if ( niIndex == NI_INDEX_NULL || niPropList.nipl_val[ niIndex ].nip_val.ninl_len == 0 )
+													{
+														fRecData->AppendShort( ::strlen( "*** No Name ***" ) );
+														fRecData->AppendString( "*** No Name ***" );
+													}
+													else
+													{
+														fRecData->AppendShort( ::strlen( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] ) );
+														fRecData->AppendString( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] );
+													}
+		
+													siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, aNIDomain, inContext->fDomainName, inConstRecType, siCount );
+													if ( siResult == eDSNoErr )
+													{
+														if ( siCount == 0 )
+														{
+															// Attribute count
+															fRecData->AppendShort( 0 );
+														}
+														else
+														{
+															// Attribute count
+															fRecData->AppendShort( siCount );
+															fRecData->AppendBlock( fAttrData->GetData(), fAttrData->GetLength() );
+														}
+														siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
+														fRecData->Clear();
+		
+														if ( siResult == CBuff::kBuffFull )
+														{
+															inContinue->fMultiMapIndex = 3;
+															inContinue->fAllRecIndex = en;
+															::ni_proplist_free( &niPropList );
+															if ( siResult != eDSNoErr ) throw( siResult );
+														}
+														else if ( siResult == eDSNoErr )
+														{
+															inContinue->fMultiMapIndex = 0;
+															outRecCount++;
+															inContinue->fTotalRecCount++;
+														}
+														else
+														{
+															inContinue->fMultiMapIndex = 0;
+															::ni_proplist_free( &niPropList );
+															throw( (sInt32)eDSInvalidBuffFormat );
+														}
+													} // GetTheseAttributes(...)
+													
+												}// bGetThisOne
+											} // bGotAMatch
+										}
+										::ni_proplist_free( &niPropList );
+									} // if ( ::ni_read( aNIDomain, &niDirID, &niPropList == NI_OK ))
+								} // for loop over niEntryList.ni_entrylist_len
+							} // if ( ::ni_search( aNIDomain, &niDirID, (char *)"realname", normalizedRecName, REG_ICASE, &niEntryList ) == NI_OK )
+							if ( niEntryList.ni_entrylist_len > 0 )
+							{
+								::ni_entrylist_free(&niEntryList);
+								niEntryList.ni_entrylist_len = 0;
+							}
+						} // if (::ni_pathsearch( aNIDomain, &niDirID, "/users" ) == NI_OK)
+					} //if the client limit on records to return wasn't reached check realname as well
+				} // if ( ::ni_pathsearch( aNIDomain, &niDirID, "/users" ) == NI_OK )
+			} // if ( ::strcmp( inNativeRecType, "users" ) == 0 )
+
+
+			else if ( (inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 1) )
+			{
+				//check to see if this type exists
+				niStatus = ::ni_pathsearch( aNIDomain, &niDirID, inNativeRecType );
+				if ( niStatus == NI_OK )
+				{
+					//check to see if this record exists
+					//make the reg exp that ni_search needs
+					inConstRegExpRecName = BuildRegExp(inConstRecName);
+					if ( (strcmp(inConstRecName,"/") == 0) &&
+						((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 1)) )
+					{
+						//want to get the attributes from the root directory
+						niStatus = ::ni_read( aNIDomain, &niDirID, &niPropList );
+						if ( niStatus == NI_OK )
+						{
+							fRecData->AppendShort( ::strlen( inConstRecType ) );
+							fRecData->AppendString( inConstRecType );
+
+							fRecData->AppendShort( 1 );
+							fRecData->AppendString( "/" );
+
+							siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, aNIDomain, inContext->fDomainName, inConstRecType, siCount );
+							if ( siResult == eDSNoErr )
+							{
+								if ( siCount == 0 )
+								{
+									// Attribute count
+									fRecData->AppendShort( 0 );
+								}
+								else
+								{
+									// Attribute count
+									fRecData->AppendShort( siCount );
+									fRecData->AppendBlock( fAttrData->GetData(), fAttrData->GetLength() );
+								}
+								siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
+								fRecData->Clear();
+
+								if ( siResult == CBuff::kBuffFull )
+								{
+									inContinue->fMultiMapIndex = 1;
+									inContinue->fAllRecIndex = en;
+									::ni_proplist_free( &niPropList );
+									if ( siResult != eDSNoErr ) throw( siResult );
+								}
+								else if ( siResult == eDSNoErr )
+								{
+									inContinue->fMultiMapIndex = 0;
+									outRecCount++;
+									inContinue->fTotalRecCount++;
+								}
+								else
+								{
+									inContinue->fMultiMapIndex = 0;
+									::ni_proplist_free( &niPropList );
+									throw( (sInt32)eDSInvalidBuffFormat );
+								}
+							} // GetTheseAttributes(...)
+							::ni_proplist_free( &niPropList );
+						} // if ( ::ni_read( aNIDomain, &niDirID, &niPropList == NI_OK ))
+					}
+					else
+					{
+						niStatus = ::ni_search( aNIDomain, &niDirID, (char *)"name", inConstRegExpRecName, REG_ICASE, &niEntryList );
+						if ( (niStatus == NI_OK) && (niEntryList.ni_entrylist_val != NULL) &&
+							((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 1)) )
 						{
 							for ( en = inContinue->fAllRecIndex; (en < niEntryList.ni_entrylist_len) &&
 									(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
 									(inContinue->fLimitRecSearch == 0)); en++ )
-	//						for ( en = inContinue->fAllRecIndex; en < niEntryList.ni_entrylist_len; en++ )
-							{
-								niEntry = niEntryList.ni_entrylist_val[ en ];
-								niDirID.nii_object = niEntry.id;
-	
-								niStatus = ::ni_read( inDomain, &niDirID, &niPropList );
-								if ( niStatus == NI_OK )
+		
 								{
-									niIndex = ::ni_proplist_match( niPropList, "realname", NULL );
-									if ( niIndex != NI_INDEX_NULL )
+									niEntry = niEntryList.ni_entrylist_val[ en ];
+									niDirID.nii_object = niEntry.id;
+		
+									niStatus = ::ni_read( aNIDomain, &niDirID, &niPropList );
+									if ( niStatus == NI_OK )
 									{
-										//code is here to determine if the regcomp operation on inConstRecName for NetInfo actually
-										//returned what was requested ie. it will always return at least it but probably much more
-										//so filter out the much more
-										bGotAMatch = false;
-										// For each value in the namelist for this property
-										for ( uInt32 pv = 0; pv < niPropList.nipl_val[ niIndex ].nip_val.ninl_len; pv++ )
+										niIndex = ::ni_proplist_match( niPropList, "name", NULL );
+										if ( niIndex != NI_INDEX_NULL )
 										{
-											// check if we find a match
-											if ( DoesThisMatch(	(const char*)(niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ pv ]),
-																(const char*)inConstRecName,
-																inPattMatch ) )
+											//code is here to determine if the regcomp operation on inConstRecName for NetInfo actually
+											//returned what was requested ie. it will always return at least it but probably much more
+											//so filter out the much more
+											bGotAMatch = false;
+											// For each value in the namelist for this property
+											for ( uInt32 pv = 0; pv < niPropList.nipl_val[ niIndex ].nip_val.ninl_len; pv++ )
 											{
-												bGotAMatch = true;
-												break;
-											}
-										}
-
-										if (bGotAMatch)
-										{
-											bGetThisOne = true;
-											//check here if we have already grabbed this record
-											//read the name and see if there is a match then ignore if true
-											niIndexComp = ::ni_proplist_match( niPropList, "name", NULL );
-											if ( niIndexComp != NI_INDEX_NULL )
-											{
-												for ( uInt32 pv = 0; pv < niPropList.nipl_val[ niIndexComp ].nip_val.ninl_len; pv++ )
+												// check if we find a match
+												if ( DoesThisMatch(	(const char*)(niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ pv ]),
+																	(const char*)inConstRecName,
+																	inPattMatch ) )
 												{
-													// check if we find a match
-													if ( DoesThisMatch(	(const char*)(niPropList.nipl_val[ niIndexComp ].nip_val.ninl_val[ pv ]),
-																		(const char*)inConstRecName,
-																		inPattMatch ) )
-													{
-														//should have already gotten this one above in search on name
-														bGetThisOne = false;
-														break;
-													}
+													bGotAMatch = true;
+													break;
 												}
 											}
-	
-											if (bGetThisOne)
-											{
-												//need to flush buffer so that if we retrieve multiple entries with one call to this routine they
-												//will not get added to each other
-												//fRecData->Clear(); // not anymore since two loops now
-			
+		
+											if (bGotAMatch)
+											{		
 												fRecData->AppendShort( ::strlen( inConstRecType ) );
 												fRecData->AppendString( inConstRecType );
-	
+		
 												niIndex = ::ni_proplist_match( niPropList, "name", NULL );
 												if ( niIndex == NI_INDEX_NULL || niPropList.nipl_val[ niIndex ].nip_val.ninl_len == 0 )
 												{
@@ -2002,11 +2312,12 @@ sInt32 CNiPlugIn:: GetTheseRecords (	char				*inConstRecName,
 												}
 												else
 												{
+													//no longer assuming perfect match on the record name
 													fRecData->AppendShort( ::strlen( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] ) );
 													fRecData->AppendString( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] );
 												}
-	
-												siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, inDomain, inDomainName, siCount );
+		
+												siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, aNIDomain, inContext->fDomainName, inConstRecType, siCount );
 												if ( siResult == eDSNoErr )
 												{
 													if ( siCount == 0 )
@@ -2022,10 +2333,10 @@ sInt32 CNiPlugIn:: GetTheseRecords (	char				*inConstRecName,
 													}
 													siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
 													fRecData->Clear();
-	
+		
 													if ( siResult == CBuff::kBuffFull )
 													{
-														inContinue->fMultiMapIndex = 3;
+														inContinue->fMultiMapIndex = 1;
 														inContinue->fAllRecIndex = en;
 														::ni_proplist_free( &niPropList );
 														if ( siResult != eDSNoErr ) throw( siResult );
@@ -2043,198 +2354,30 @@ sInt32 CNiPlugIn:: GetTheseRecords (	char				*inConstRecName,
 														throw( (sInt32)eDSInvalidBuffFormat );
 													}
 												} // GetTheseAttributes(...)
-												
-											}// bGetThisOne
-										} // bGotAMatch
-									}
-									::ni_proplist_free( &niPropList );
-								} // if ( ::ni_read( inDomain, &niDirID, &niPropList == NI_OK ))
-							} // for loop over niEntryList.ni_entrylist_len
-						} // if ( ::ni_search( inDomain, &niDirID, (char *)"realname", inConstRecName, REG_ICASE, &niEntryList ) == NI_OK )
+											} // bGotAMatch
+										}
+										::ni_proplist_free( &niPropList );
+									} // if ( ::ni_read( aNIDomain, &niDirID, &niPropList == NI_OK ))
+								} // for loop over niEntryList.ni_entrylist_len
+		
+						} // if ( (niStatus == NI_OK) && ((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 1)) )
 						if ( niEntryList.ni_entrylist_len > 0 )
 						{
 							::ni_entrylist_free(&niEntryList);
 							niEntryList.ni_entrylist_len = 0;
 						}
-					} // if (::ni_pathsearch( inDomain, &niDirID, "/users" ) == NI_OK)
-				} //if the client limit on records to return wasn't reached check realname as well
-			} // if ( ::ni_pathsearch( inDomain, &niDirID, "/users" ) == NI_OK )
-		} // if ( ::strcmp( inNativeRecType, "users" ) == 0 )
-
-
-		else if ( (inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 1) )
-		{
-			//check to see if this type exists
-			niStatus = ::ni_pathsearch( inDomain, &niDirID, inNativeRecType );
-			if ( niStatus == NI_OK )
-			{
-				//check to see if this record exists
-				//make the reg exp that ni_search needs
-				inConstRegExpRecName = BuildRegExp(inConstRecName);
-				if ( (strcmp(inConstRecName,"/") == 0) &&
-					((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 1)) )
-				{
-					//want to get the attributes from the root directory
-					niStatus = ::ni_read( inDomain, &niDirID, &niPropList );
-					if ( niStatus == NI_OK )
-					{
-						fRecData->AppendShort( ::strlen( inConstRecType ) );
-						fRecData->AppendString( inConstRecType );
-
-						fRecData->AppendShort( 1 );
-						fRecData->AppendString( "/" );
-
-						siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, inDomain, inDomainName, siCount );
-						if ( siResult == eDSNoErr )
-						{
-							if ( siCount == 0 )
-							{
-								// Attribute count
-								fRecData->AppendShort( 0 );
-							}
-							else
-							{
-								// Attribute count
-								fRecData->AppendShort( siCount );
-								fRecData->AppendBlock( fAttrData->GetData(), fAttrData->GetLength() );
-							}
-							siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
-							fRecData->Clear();
-
-							if ( siResult == CBuff::kBuffFull )
-							{
-								inContinue->fMultiMapIndex = 1;
-								inContinue->fAllRecIndex = en;
-								::ni_proplist_free( &niPropList );
-								if ( siResult != eDSNoErr ) throw( siResult );
-							}
-							else if ( siResult == eDSNoErr )
-							{
-								inContinue->fMultiMapIndex = 0;
-								outRecCount++;
-								inContinue->fTotalRecCount++;
-							}
-							else
-							{
-								inContinue->fMultiMapIndex = 0;
-								::ni_proplist_free( &niPropList );
-								throw( (sInt32)eDSInvalidBuffFormat );
-							}
-						} // GetTheseAttributes(...)
-						::ni_proplist_free( &niPropList );
-					} // if ( ::ni_read( inDomain, &niDirID, &niPropList == NI_OK ))
-				}
-				else
-				{
-					niStatus = ::ni_search( inDomain, &niDirID, (char *)"name", inConstRegExpRecName, REG_ICASE, &niEntryList );
-					if ( (niStatus == NI_OK) &&
-						((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 1)) )
-					{
-						for ( en = inContinue->fAllRecIndex; (en < niEntryList.ni_entrylist_len) &&
-								(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
-								(inContinue->fLimitRecSearch == 0)); en++ )
-	
-							{
-								niEntry = niEntryList.ni_entrylist_val[ en ];
-								niDirID.nii_object = niEntry.id;
-	
-								niStatus = ::ni_read( inDomain, &niDirID, &niPropList );
-								if ( niStatus == NI_OK )
-								{
-									niIndex = ::ni_proplist_match( niPropList, "name", NULL );
-									if ( niIndex != NI_INDEX_NULL )
-									{
-										//code is here to determine if the regcomp operation on inConstRecName for NetInfo actually
-										//returned what was requested ie. it will always return at least it but probably much more
-										//so filter out the much more
-										bGotAMatch = false;
-										// For each value in the namelist for this property
-										for ( uInt32 pv = 0; pv < niPropList.nipl_val[ niIndex ].nip_val.ninl_len; pv++ )
-										{
-											// check if we find a match
-											if ( DoesThisMatch(	(const char*)(niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ pv ]),
-																(const char*)inConstRecName,
-																inPattMatch ) )
-											{
-												bGotAMatch = true;
-												break;
-											}
-										}
-	
-										if (bGotAMatch)
-										{		
-											fRecData->AppendShort( ::strlen( inConstRecType ) );
-											fRecData->AppendString( inConstRecType );
-	
-											niIndex = ::ni_proplist_match( niPropList, "name", NULL );
-											if ( niIndex == NI_INDEX_NULL || niPropList.nipl_val[ niIndex ].nip_val.ninl_len == 0 )
-											{
-												fRecData->AppendShort( ::strlen( "*** No Name ***" ) );
-												fRecData->AppendString( "*** No Name ***" );
-											}
-											else
-											{
-												//no longer assuming perfect match on the record name
-												fRecData->AppendShort( ::strlen( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] ) );
-												fRecData->AppendString( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] );
-											}
-	
-											siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, inDomain, inDomainName, siCount );
-											if ( siResult == eDSNoErr )
-											{
-												if ( siCount == 0 )
-												{
-													// Attribute count
-													fRecData->AppendShort( 0 );
-												}
-												else
-												{
-													// Attribute count
-													fRecData->AppendShort( siCount );
-													fRecData->AppendBlock( fAttrData->GetData(), fAttrData->GetLength() );
-												}
-												siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
-												fRecData->Clear();
-	
-												if ( siResult == CBuff::kBuffFull )
-												{
-													inContinue->fMultiMapIndex = 1;
-													inContinue->fAllRecIndex = en;
-													::ni_proplist_free( &niPropList );
-													if ( siResult != eDSNoErr ) throw( siResult );
-												}
-												else if ( siResult == eDSNoErr )
-												{
-													inContinue->fMultiMapIndex = 0;
-													outRecCount++;
-													inContinue->fTotalRecCount++;
-												}
-												else
-												{
-													inContinue->fMultiMapIndex = 0;
-													::ni_proplist_free( &niPropList );
-													throw( (sInt32)eDSInvalidBuffFormat );
-												}
-											} // GetTheseAttributes(...)
-										} // bGotAMatch
-									}
-									::ni_proplist_free( &niPropList );
-								} // if ( ::ni_read( inDomain, &niDirID, &niPropList == NI_OK ))
-							} // for loop over niEntryList.ni_entrylist_len
-	
-					} // if ( (niStatus == NI_OK) && ((inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 1)) )
-					if ( niEntryList.ni_entrylist_len > 0 )
-					{
-						::ni_entrylist_free(&niEntryList);
-						niEntryList.ni_entrylist_len = 0;
 					}
-				}
-				free(inConstRegExpRecName);
-			} // if ( niStatus == NI_OK )
-		}// else if ( (inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 1) )
+					DSFreeString(inConstRegExpRecName);
+				} // if ( niStatus == NI_OK )
+			}// else if ( (inContinue->fMultiMapIndex == 0) || (inContinue->fMultiMapIndex == 1) )
 
-		inContinue->fMultiMapIndex = 0;
-		inContinue->fAllRecIndex = 0;
+			inContinue->fMultiMapIndex = 0;
+			inContinue->fAllRecIndex = 0;
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
+		}
 
 	} // try
 
@@ -2246,6 +2389,11 @@ sInt32 CNiPlugIn:: GetTheseRecords (	char				*inConstRecName,
 			niEntryList.ni_entrylist_len = 0;
 		}
 		siResult = err;
+	}
+	
+	if ( normalizedRecName != inConstRecName )
+	{
+		DSFreeString( normalizedRecName );
 	}
 
 	gNetInfoMutex->Signal();
@@ -2264,6 +2412,7 @@ sInt32 CNiPlugIn::GetTheseAttributes (	CAttributeList	*inAttrTypeList,
 										bool			 inAttrOnly,
 										void			*inDomain,
 										char			*inDomainName,
+										const char		*inRecType,
 										sInt32			&outCount )
 {
 	sInt32			siResult		= eDSNoErr;
@@ -2322,6 +2471,39 @@ sInt32 CNiPlugIn::GetTheseAttributes (	CAttributeList	*inAttrTypeList,
 					// Clear the temp block
 					fTmpData->Clear();
 				}
+				else if ( ::strcmp( kDSNAttrRecordType, pNI_AttrType ) == 0 )
+				{
+					// we simply use the input argument inRecType
+					fTmpData->Clear();
+					
+					// Append the attribute name
+					fTmpData->AppendShort( ::strlen( pNI_AttrType ) );
+					fTmpData->AppendString( pNI_AttrType );
+
+					if ( inAttrOnly == false )
+					{
+						// Append the attribute value count
+						fTmpData->AppendShort( 1 );
+
+						// Append attribute value
+						fTmpData->AppendLong( ::strlen( inRecType ) );
+						fTmpData->AppendString( inRecType );
+
+					}// if ( inAttrOnly == false )
+					else
+					{
+						fTmpData->AppendShort( 0 );
+					}
+
+					// Add the attribute length
+					outCount++;
+					fAttrData->AppendLong( fTmpData->GetLength() );
+					fAttrData->AppendBlock( fTmpData->GetData(), fTmpData->GetLength() );
+
+					// Clear the temp block
+					fTmpData->Clear();
+
+				} // if ( ::strcmp( kDSNAttrRecordType, pAttrType ) == 0 )
 				else
 				{
 					// Get all attributes
@@ -2331,8 +2513,6 @@ sInt32 CNiPlugIn::GetTheseAttributes (	CAttributeList	*inAttrTypeList,
 						//code here is to add the attribute kDSNAttrMetaNodeLocation to
 						// kDSAttributesAll and kDSAttributesStandardAll
 						fTmpData->Clear();
-
-						outCount++;
 
 						// Append the attribute name
 						fTmpData->AppendShort( ::strlen( kDSNAttrMetaNodeLocation ) );
@@ -2352,7 +2532,35 @@ sInt32 CNiPlugIn::GetTheseAttributes (	CAttributeList	*inAttrTypeList,
 						}
 
 						// Add the attribute length
+						outCount++;
 						fAttrData->AppendLong( 	fTmpData->GetLength() );
+						fAttrData->AppendBlock( fTmpData->GetData(), fTmpData->GetLength() );
+
+						// we simply use the input argument inRecType
+						fTmpData->Clear();
+						
+						// Append the attribute name
+						fTmpData->AppendShort( ::strlen( kDSNAttrRecordType ) );
+						fTmpData->AppendString( kDSNAttrRecordType );
+
+						if ( inAttrOnly == false )
+						{
+							// Append the attribute value count
+							fTmpData->AppendShort( 1 );
+
+							// Append attribute value
+							fTmpData->AppendLong( ::strlen( inRecType ) );
+							fTmpData->AppendString( inRecType );
+
+						}// if ( inAttrOnly == false )
+						else
+						{
+							fTmpData->AppendShort( 0 );
+						}
+
+						// Add the attribute length
+						outCount++;
+						fAttrData->AppendLong( fTmpData->GetLength() );
 						fAttrData->AppendBlock( fTmpData->GetData(), fTmpData->GetLength() );
 
 						// Clear the temp block
@@ -2491,7 +2699,7 @@ sInt32 CNiPlugIn::AddAttribute ( sAddAttribute *inData )
 	char				   *pValue			= nil;
 	ni_namelist				niValues;
 	char				   *authUser		= nil;
-	
+
 	gNetInfoMutex->Wait();
 
 	try
@@ -2516,32 +2724,43 @@ sInt32 CNiPlugIn::AddAttribute ( sAddAttribute *inData )
 			pValue = pAttrValue->fBufferData;
 		}
 
-		// check access for non-admin users
-		if ( ( pContext->fEffectiveUID != 0 )
-			 && ( (pContext->fAuthenticatedUserName == NULL) 
-				  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			authUser = pContext->fAuthenticatedUserName;
-			if ( ( authUser == NULL ) && (strcmp(pAttrKey,"picture") == 0) )
+			// check access for non-admin users
+			if ( ( pContext->fEffectiveUID != 0 )
+				 && ( (pContext->fAuthenticatedUserName == NULL) 
+					  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
 			{
-				authUser = GetUserNameForUID( pContext->fEffectiveUID, pContext->fDomain );
+				authUser = pContext->fAuthenticatedUserName;
+				if ( ( authUser == NULL ) && (strcmp(pAttrKey,"picture") == 0) )
+				{
+					authUser = GetUserNameForUID( pContext->fEffectiveUID, aNIDomain );
+				}
+				ni_proplist niPropList;
+				siResult = ::ni_read( aNIDomain, &pContext->dirID, &niPropList );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+
+				siResult = NiLib2::ValidateDir( authUser, &niPropList );
+				::ni_proplist_free( &niPropList );
+
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
 			}
-			ni_proplist niPropList;
-			siResult = ::ni_read( pContext->fDomain, &pContext->dirID, &niPropList );
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
 
-			siResult = NiLib2::ValidateDir( authUser, &niPropList );
-			::ni_proplist_free( &niPropList );
-
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			NI_INIT( &niValues );
+			::ni_namelist_insert( &niValues, pValue, NI_INDEX_NULL );
+			NormalizeNINameList(&niValues, pAttrKey);
+			siResult = DoAddAttribute( aNIDomain, &pContext->dirID, pAttrKey, niValues );
+			::ni_namelist_free( &niValues );
+			if (siResult == eDSNoErr)
+			{
+				pContext->bDidWriteOperation = true;
+			}
 		}
-
-		NI_INIT( &niValues );
-//		::ni_namelist_insert( &niValues, pAttrValue->fBufferData, NI_INDEX_NULL );
-		::ni_namelist_insert( &niValues, pValue, NI_INDEX_NULL );
-		siResult = DoAddAttribute( pContext->fDomain, &pContext->dirID, pAttrKey, niValues );
-				
-		::ni_namelist_free( &niValues );
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
+		}
 	}
 
 	catch( sInt32 err )
@@ -2797,59 +3016,67 @@ sInt32 CNiPlugIn::GetRecAttribInfo ( sGetRecAttribInfo *inData )
 		pNI_AttrType = MapAttrToNetInfoType( pAttrType->fBufferData );
 		if ( pNI_AttrType == nil ) throw( (sInt32)eDSInvalidAttributeType );
 
-		::memcpy( &niDirID, &pContext->dirID, sizeof( ni_id ) );
-
-		NI_INIT( &niNameList );
-		niStatus = ::ni_listprops( pContext->fDomain, &niDirID, &niNameList );
-		if ( niStatus == NI_OK )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			niIndex = ::ni_namelist_match( niNameList, pNI_AttrType );
-			::ni_namelist_free( &niNameList );
+			::memcpy( &niDirID, &pContext->dirID, sizeof( ni_id ) );
 
-			if ( niIndex != NI_INDEX_NULL )
+			NI_INIT( &niNameList );
+			niStatus = ::ni_listprops( aNIDomain, &niDirID, &niNameList );
+			if ( niStatus == NI_OK )
 			{
-				NI_INIT( &niNameList );
-				niStatus = ::ni_readprop( pContext->fDomain, &niDirID, niIndex, &niNameList );
-				if ( niStatus == NI_OK )
+				niIndex = ::ni_namelist_match( niNameList, pNI_AttrType );
+				::ni_namelist_free( &niNameList );
+
+				if ( niIndex != NI_INDEX_NULL )
 				{
-					uiTypeLen = ::strlen( pAttrType->fBufferData );
-					pOutAttrEntry = (tAttributeEntry *)::calloc( (sizeof( tAttributeEntry ) + uiTypeLen + kBuffPad), sizeof( char ) );
-
-//					pOutAttrEntry = (tAttributeEntry *)::malloc( sizeof( tAttributeEntry ) + uiTypeLen + kBuffPad );
-//					::memset( pOutAttrEntry, 0, sizeof( tAttributeEntry ) + uiTypeLen + kBuffPad );
-
-					pOutAttrEntry->fAttributeSignature.fBufferSize		= uiTypeLen;
-					pOutAttrEntry->fAttributeSignature.fBufferLength	= uiTypeLen;
-					::memcpy( pOutAttrEntry->fAttributeSignature.fBufferData, pAttrType->fBufferData, uiTypeLen ); 
-
-					pOutAttrEntry->fAttributeValueCount = niNameList.ni_namelist_len;
-					pOutAttrEntry->fAttributeValueMaxSize = 255;
-
-					for ( uiPv = 0; uiPv < niNameList.ni_namelist_len; uiPv++ )
+					NI_INIT( &niNameList );
+					niStatus = ::ni_readprop( aNIDomain, &niDirID, niIndex, &niNameList );
+					if ( niStatus == NI_OK )
 					{
-						uiDataLen += ::strlen( niNameList.ni_namelist_val[ uiPv ] );
+						uiTypeLen = ::strlen( pAttrType->fBufferData );
+						pOutAttrEntry = (tAttributeEntry *)::calloc( (sizeof( tAttributeEntry ) + uiTypeLen + kBuffPad), sizeof( char ) );
+
+	//					pOutAttrEntry = (tAttributeEntry *)::malloc( sizeof( tAttributeEntry ) + uiTypeLen + kBuffPad );
+	//					::memset( pOutAttrEntry, 0, sizeof( tAttributeEntry ) + uiTypeLen + kBuffPad );
+
+						pOutAttrEntry->fAttributeSignature.fBufferSize		= uiTypeLen;
+						pOutAttrEntry->fAttributeSignature.fBufferLength	= uiTypeLen;
+						::memcpy( pOutAttrEntry->fAttributeSignature.fBufferData, pAttrType->fBufferData, uiTypeLen ); 
+
+						pOutAttrEntry->fAttributeValueCount = niNameList.ni_namelist_len;
+						pOutAttrEntry->fAttributeValueMaxSize = 255;
+
+						for ( uiPv = 0; uiPv < niNameList.ni_namelist_len; uiPv++ )
+						{
+							uiDataLen += ::strlen( niNameList.ni_namelist_val[ uiPv ] );
+						}
+
+						pOutAttrEntry->fAttributeDataSize = uiDataLen;
+
+						inData->fOutAttrInfoPtr = pOutAttrEntry;
+
+						bFound = true;
+
+						::ni_namelist_free( &niNameList );
 					}
-
-					pOutAttrEntry->fAttributeDataSize = uiDataLen;
-
-					inData->fOutAttrInfoPtr = pOutAttrEntry;
-
-					bFound = true;
-
-					::ni_namelist_free( &niNameList );
+				}
+				else
+				{
+					siResult = eDSAttributeNotFound;
 				}
 			}
 			else
 			{
-				siResult = eDSAttributeNotFound;
+				siResult = MapNetInfoErrors( niStatus );
 			}
+			delete( pNI_AttrType );
+			pNI_AttrType = nil;
 		}
 		else
 		{
-			siResult = MapNetInfoErrors( niStatus );
+			throw( (sInt32)eDSInvalidSession );
 		}
-		delete( pNI_AttrType );
-		pNI_AttrType = nil;
 	}
 
 	catch( sInt32 err )
@@ -2871,7 +3098,7 @@ sInt32 CNiPlugIn::GetRecAttribInfo ( sGetRecAttribInfo *inData )
 sInt32 CNiPlugIn::GetRecordAttributeValueByID ( sGetRecordAttributeValueByID *inData )
 {
 	bool						done			= false;
-	sInt32						siResult		= eDSNoErr;
+	sInt32						siResult		= eDSAttributeNotFound;
 	ni_status					niStatus		= NI_OK;
 	uInt32						crcVal			= 0;
 	uInt32						uiDataLen		= 0;
@@ -2893,66 +3120,72 @@ sInt32 CNiPlugIn::GetRecordAttributeValueByID ( sGetRecordAttributeValueByID *in
 		pNI_AttrType = MapAttrToNetInfoType( inData->fInAttrType->fBufferData );
 		if ( pNI_AttrType == nil ) throw( (sInt32)eDSInvalidAttributeType );
 
-		NI_INIT( &niNameList );
-		niStatus = ::ni_listprops( pContext->fDomain, &pContext->dirID, &niNameList );
-		if ( niStatus == NI_OK )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			niIndex = ::ni_namelist_match( niNameList, pNI_AttrType );
-			::ni_namelist_free( &niNameList );
-
-			if ( niIndex != NI_INDEX_NULL )
+			NI_INIT( &niNameList );
+			niStatus = ::ni_listprops( aNIDomain, &pContext->dirID, &niNameList );
+			if ( niStatus == NI_OK )
 			{
-				NI_INIT( &niNameList );
-				niStatus = ::ni_readprop( pContext->fDomain, &pContext->dirID, niIndex, &niNameList );
-				if ( niStatus == NI_OK )
+				niIndex = ::ni_namelist_match( niNameList, pNI_AttrType );
+				::ni_namelist_free( &niNameList );
+
+				if ( niIndex != NI_INDEX_NULL )
 				{
-					// For each value in the namelist for this property
-					for ( pv = 0; (pv < niNameList.ni_namelist_len) && (done == false); pv++ )
+					NI_INIT( &niNameList );
+					niStatus = ::ni_readprop( aNIDomain, &pContext->dirID, niIndex, &niNameList );
+					if ( niStatus == NI_OK )
 					{
-						crcVal = CalcCRC( niNameList.ni_namelist_val[ pv ] );
-
-						if ( crcVal == inData->fInValueID )
+						siResult = eDSAttributeValueNotFound;
+						// For each value in the namelist for this property
+						for ( pv = 0; (pv < niNameList.ni_namelist_len) && (done == false); pv++ )
 						{
-							if ( niNameList.ni_namelist_val[ pv ] != nil )
+							crcVal = CalcCRC( niNameList.ni_namelist_val[ pv ] );
+
+							if ( crcVal == inData->fInValueID )
 							{
-								uiDataLen = ::strlen( niNameList.ni_namelist_val[ pv ] );
+								if ( niNameList.ni_namelist_val[ pv ] != nil )
+								{
+									uiDataLen = ::strlen( niNameList.ni_namelist_val[ pv ] );
+								}
+								else
+								{
+									uiDataLen = 0;
+								}
+
+								pOutAttrValue = (tAttributeValueEntry *)::calloc( (sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad), sizeof( char ) );
+
+	//							pOutAttrValue = (tAttributeValueEntry *)::malloc( sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
+	//							::memset( pOutAttrValue, 0, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
+
+								pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen;
+								pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
+								if ( niNameList.ni_namelist_val[ pv ] != nil )
+								{
+									pOutAttrValue->fAttributeValueID = crcVal;
+									::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, niNameList.ni_namelist_val[ pv ], uiDataLen ); 
+								}
+
+								inData->fOutEntryPtr = pOutAttrValue;
+
+								done = true;
+								siResult = eDSNoErr;
+
+								break;
 							}
-							else
-							{
-								uiDataLen = 0;
-							}
-
-							pOutAttrValue = (tAttributeValueEntry *)::calloc( (sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad), sizeof( char ) );
-
-//							pOutAttrValue = (tAttributeValueEntry *)::malloc( sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
-//							::memset( pOutAttrValue, 0, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
-
-							pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen;
-							pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
-							if ( niNameList.ni_namelist_val[ pv ] != nil )
-							{
-								pOutAttrValue->fAttributeValueID = crcVal;
-								::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, niNameList.ni_namelist_val[ pv ], uiDataLen ); 
-							}
-
-							inData->fOutEntryPtr = pOutAttrValue;
-
-							done = true;
-
-							break;
 						}
+						::ni_namelist_free( &niNameList );
 					}
-					::ni_namelist_free( &niNameList );
 				}
 			}
-			else
-			{
-				siResult = eDSAttributeNotFound;
-			}
-		}
 
-		delete( pNI_AttrType );
-		pNI_AttrType = nil;
+			delete( pNI_AttrType );
+			pNI_AttrType = nil;
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
+		}
 	}
 
 	catch( sInt32 err )
@@ -2998,62 +3231,70 @@ sInt32 CNiPlugIn::GetRecAttrValueByIndex ( sGetRecordAttributeValueByIndex *inDa
 		// Get the index value
 		uiIndex = inData->fInAttrValueIndex;
 
-		// Get the domain and dir ID
-		::memcpy( &niDirID, &pContext->dirID, sizeof( ni_id ) );
-
-		NI_INIT( &niNameList );
-		niStatus = ::ni_listprops( pContext->fDomain, &niDirID, &niNameList );
-		if ( niStatus == NI_OK )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			niIndex = ::ni_namelist_match( niNameList, pNI_AttrType );
-			::ni_namelist_free( &niNameList );
+			// Get the domain and dir ID
+			::memcpy( &niDirID, &pContext->dirID, sizeof( ni_id ) );
 
-			if ( niIndex != NI_INDEX_NULL )
+			NI_INIT( &niNameList );
+			niStatus = ::ni_listprops( aNIDomain, &niDirID, &niNameList );
+			if ( niStatus == NI_OK )
 			{
-				NI_INIT( &niNameList );
-				niStatus = ::ni_readprop( pContext->fDomain, &niDirID, niIndex, &niNameList );
-				if ( niStatus == NI_OK )
+				niIndex = ::ni_namelist_match( niNameList, pNI_AttrType );
+				::ni_namelist_free( &niNameList );
+
+				if ( niIndex != NI_INDEX_NULL )
 				{
-					if ( niNameList.ni_namelist_len >= uiIndex )
+					NI_INIT( &niNameList );
+					niStatus = ::ni_readprop( aNIDomain, &niDirID, niIndex, &niNameList );
+					if ( niStatus == NI_OK )
 					{
-						if ( niNameList.ni_namelist_val[ uiIndex - 1 ] != nil )
+						if ( ( niNameList.ni_namelist_len >= uiIndex ) && (uiIndex > 0) )
 						{
-							uiDataLen = ::strlen( niNameList.ni_namelist_val[ uiIndex - 1 ] );
+							if ( niNameList.ni_namelist_val[ uiIndex - 1 ] != nil )
+							{
+								uiDataLen = ::strlen( niNameList.ni_namelist_val[ uiIndex - 1 ] );
+							}
+							else
+							{
+								uiDataLen = 0;
+							}
+
+							pOutAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
+	//						::memset( pOutAttrValue, 0, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
+
+							pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen;
+							pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
+							if ( niNameList.ni_namelist_val[ uiIndex - 1 ] != nil )
+							{
+								pOutAttrValue->fAttributeValueID = CalcCRC( niNameList.ni_namelist_val[ uiIndex - 1 ] );
+								::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, niNameList.ni_namelist_val[ uiIndex - 1 ], uiDataLen ); 
+							}
+
+							inData->fOutEntryPtr = pOutAttrValue;
 						}
 						else
 						{
-							uiDataLen = 0;
+							siResult = eDSIndexOutOfRange;
 						}
 
-						pOutAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
-//						::memset( pOutAttrValue, 0, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
-
-						pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen;
-						pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
-						if ( niNameList.ni_namelist_val[ uiIndex - 1 ] != nil )
-						{
-							pOutAttrValue->fAttributeValueID = CalcCRC( niNameList.ni_namelist_val[ uiIndex - 1 ] );
-							::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, niNameList.ni_namelist_val[ uiIndex - 1 ], uiDataLen ); 
-						}
-
-						inData->fOutEntryPtr = pOutAttrValue;
+						::ni_namelist_free( &niNameList );
 					}
-					else
-					{
-						siResult = eDSIndexOutOfRange;
-					}
-
-					::ni_namelist_free( &niNameList );
+				}
+				else
+				{
+					siResult = eDSAttributeNotFound;
 				}
 			}
-			else
-			{
-				siResult = eDSAttributeNotFound;
-			}
-		}
 
-		delete( pNI_AttrType );
-		pNI_AttrType = nil;
+			delete( pNI_AttrType );
+			pNI_AttrType = nil;
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
+		}
 	}
 
 	catch( sInt32 err )
@@ -3069,6 +3310,122 @@ sInt32 CNiPlugIn::GetRecAttrValueByIndex ( sGetRecordAttributeValueByIndex *inDa
 
 
 //------------------------------------------------------------------------------------
+//	* GetRecAttrValueByValue
+//------------------------------------------------------------------------------------
+
+sInt32 CNiPlugIn::GetRecAttrValueByValue ( sGetRecordAttributeValueByValue *inData )
+{
+	sInt32						siResult		= eDSNoErr;
+	uInt32						uiDataLen		= 0;
+	char					   *pNIRecType		= nil;
+	char					   *pNI_AttrType	= nil;
+	char					   *pAttrValue		= nil;
+	char					   *pRecValuePath   = nil;
+	tAttributeValueEntryPtr		pOutAttrValue	= nil;
+	sNIContextData			   *pContext		= nil;
+	ni_namelist					niNameList;
+
+	gNetInfoMutex->Wait();
+
+	try
+	{
+		pContext = (sNIContextData *)gNINodeRef->GetItemData( inData->fInRecRef );
+		if ( pContext == nil ) throw( (sInt32)eDSInvalidRecordRef );
+		if ( pContext->fRecType == nil ) throw( (sInt32)eDSEmptyRecordType );
+		if ( pContext->fRecName == nil ) throw( (sInt32)eDSEmptyRecordName );
+		if ( inData->fInAttrType == nil ) throw( (sInt32)eDSEmptyAttributeType );
+		if ( inData->fInAttrValue == nil ) throw( (sInt32)eDSEmptyAttributeValue );
+
+		pNIRecType = MapRecToNetInfoType( pContext->fRecType );
+		if ( pNIRecType == nil ) throw( (sInt32)eDSInvalidRecordType );
+
+		pNI_AttrType = MapAttrToNetInfoType( inData->fInAttrType->fBufferData );
+		if ( pNI_AttrType == nil ) throw( (sInt32)eDSInvalidAttributeType );
+
+		pAttrValue = NormalizeNIString( inData->fInAttrValue->fBufferData, pNI_AttrType );
+		if ( pAttrValue == nil ) throw( (sInt32)eDSNullAttributeValue );
+
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
+		{
+			ni_id		recordDirID;
+			pRecValuePath = (char*)calloc( 1 + strlen( pNIRecType ) + 1 + strlen(pContext->fRecName) + 1, 1 );
+			pRecValuePath[0] = '/';
+			strcat( pRecValuePath, pNIRecType );
+			strcat( pRecValuePath, "/" );
+			strcat( pRecValuePath, pContext->fRecName );
+			
+			siResult = ::ni_pathsearch( aNIDomain, &recordDirID, pRecValuePath);
+			
+			if (siResult == eDSNoErr)
+			{
+				siResult = ni_lookupprop( aNIDomain, &recordDirID, pNI_AttrType, &niNameList );
+
+				// if property exists
+				if ( siResult == eDSNoErr )
+				{
+					siResult = eDSAttributeValueNotFound;
+					sInt32 valIndex = 0;
+					valIndex = niNameList.ni_namelist_len - 1;
+					while (valIndex >= 0)
+					{
+						if (niNameList.ni_namelist_val[valIndex] != nil)
+						{
+							if (strcmp(niNameList.ni_namelist_val[valIndex], pAttrValue) == 0)
+							{
+								uiDataLen = strlen(pAttrValue);
+								pOutAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad );
+
+								pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen;
+								pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
+								pOutAttrValue->fAttributeValueID = CalcCRC( pAttrValue );
+								::memcpy( pOutAttrValue->fAttributeValueData.fBufferData, pAttrValue, uiDataLen ); 
+
+								inData->fOutEntryPtr = pOutAttrValue;
+								siResult = eDSNoErr;
+								valIndex = 0; //exit while
+							}
+						}
+						valIndex--;
+					}
+					ni_namelist_free(&niNameList);
+				}
+				else
+				{
+					siResult = eDSAttributeNotFound;
+				}
+			}
+			else
+			{
+				siResult = eDSAttributeNotFound;
+			}
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
+		}
+	}
+
+	catch( sInt32 err )
+	{
+		siResult = err;
+	}
+
+	gNetInfoMutex->Signal();
+
+	DSFreeString( pNI_AttrType );
+	DSFreeString( pRecValuePath );
+	if ( ( pAttrValue != nil) && ( pAttrValue != inData->fInAttrValue->fBufferData ) )
+	{
+		DSFreeString( pAttrValue );
+	}
+	
+	return( siResult );
+
+} // GetRecAttrValueByValue
+
+
+//------------------------------------------------------------------------------------
 //	* CreateRecord
 //------------------------------------------------------------------------------------
 
@@ -3078,6 +3435,7 @@ sInt32 CNiPlugIn::CreateRecord ( sCreateRecord *inData )
 	tDataNodePtr		pRecName		= nil;
 	tDataNodePtr		pRecType		= nil;
 	char			   *pNIRecType		= nil;
+	char			   *pNIRecName		= nil;
 	sNIContextData	   *pContext		= nil;
 	sNIContextData	   *pRecContext		= nil;
 	ni_id				niDirID;
@@ -3085,7 +3443,7 @@ sInt32 CNiPlugIn::CreateRecord ( sCreateRecord *inData )
 	char			   *pRecTypePath	= nil;
 	ni_namelist	 		niValues;
 	char			   *authUser		= nil;
-	
+
 	gNetInfoMutex->Wait();
 
 	try
@@ -3102,95 +3460,119 @@ sInt32 CNiPlugIn::CreateRecord ( sCreateRecord *inData )
 		pNIRecType = MapRecToNetInfoType( pRecType->fBufferData );
 		if ( pNIRecType == nil ) throw( (sInt32)eDSInvalidRecordType );
 
-		pPath = BuildRecordNamePath( pRecName->fBufferData, pNIRecType );
+		pNIRecName =  pRecName->fBufferData;
+		if ( pNIRecName == nil ) throw( (sInt32)eDSInvalidRecordName );
+
+		pPath = BuildRecordNamePath( pNIRecName, pNIRecType );
 		if ( pPath == nil ) throw( (sInt32)eDSInvalidRecordName );
 		
-		NI_INIT( &niDirID );
-		(void)::ni_root( pContext->fDomain, &niDirID );
-
-		// check access for non-admin users
-		if ( ( pContext->fEffectiveUID != 0 )
-			 && ( (pContext->fAuthenticatedUserName == NULL) 
-				  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			authUser = pContext->fAuthenticatedUserName;
-			ni_proplist niPropList;
-			ni_id		typeDirID;
-			
-			pRecTypePath = (char*)calloc( strlen( pNIRecType ) + 2, 1 );
-			pRecTypePath[0] = '/';
-			strcpy( pRecTypePath + 1, pNIRecType );
-			
-			siResult = ::ni_pathsearch( pContext->fDomain, &typeDirID, pRecTypePath);
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			NI_INIT( &niDirID );
+			(void)::ni_root( aNIDomain, &niDirID );
 
-			siResult = ::ni_read( pContext->fDomain, &typeDirID, &niPropList );
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-			siResult = NiLib2::ValidateDir( authUser, &niPropList );
-			::ni_proplist_free( &niPropList );
-			
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-		}
-		
-		//ValidateCreateRecord
-		siResult = DoCreateRecord( pContext->fDomain, &niDirID, pPath );
-		if ( siResult != eDSNoErr ) throw( siResult );
-
-		//make sure that the type is users only here when we add these attributes
-		if ( (siResult == eDSNoErr) && (strcmp(pNIRecType,"users") == 0) )
-		{
-			NI_INIT( &niValues );
-			::ni_namelist_insert( &niValues, pRecName->fBufferData, NI_INDEX_NULL );
-
-			siResult = DoAddAttribute( pContext->fDomain, &niDirID, (const ni_name)"_writers_passwd", niValues );
-			
-#ifdef TIM_CLIENT_PRESENT
-			siResult = DoAddAttribute( pContext->fDomain, &niDirID, (const ni_name)"_writers_tim_password", niValues );
-#endif
-			
-			siResult = DoAddAttribute( pContext->fDomain, &niDirID, (const ni_name)"_writers_picture", niValues );
-			
-			::ni_namelist_free( &niValues );
-		}
-
-		free(pPath);
-		pPath = nil;
-
-		if ( inData->fInOpen == true )
-		{
-			pRecContext = MakeContextData();
-			if ( pRecContext == nil ) throw( (sInt32)eMemoryAllocError );
-
-			pRecContext->fDomain = pContext->fDomain;
-			::memcpy( &pRecContext->dirID, &niDirID, sizeof( ni_id ) );
-			pRecContext->fUID = pContext->fUID;
-			pRecContext->fEffectiveUID = pContext->fEffectiveUID;
-			if (pContext->fAuthenticatedUserName != NULL)
+			// check access for non-admin users
+			if ( ( pContext->fEffectiveUID != 0 )
+				 && ( (pContext->fAuthenticatedUserName == NULL) 
+					  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
 			{
-				pRecContext->fAuthenticatedUserName = strdup( pContext->fAuthenticatedUserName );
+				authUser = pContext->fAuthenticatedUserName;
+				ni_proplist niPropList;
+				ni_id		typeDirID;
+				
+				pRecTypePath = (char*)calloc( strlen( pNIRecType ) + 2, 1 );
+				pRecTypePath[0] = '/';
+				strcpy( pRecTypePath + 1, pNIRecType );
+				
+				siResult = ::ni_pathsearch( aNIDomain, &typeDirID, pRecTypePath);
+				while ((siResult != eDSNoErr) && (pRecTypePath[0] != '\0'))
+				{
+					//case where record type container is not yet present
+					//so let's search upwards to a directory that does exist
+					char *lastSlashPtr = nil;
+					lastSlashPtr = strrchr(pRecTypePath, '/');
+					lastSlashPtr[0] = '\0';
+					siResult = ::ni_pathsearch( aNIDomain, &typeDirID, pRecTypePath);
+				}
+				if ( siResult == eDSNoErr )
+				{
+					siResult = ::ni_read( aNIDomain, &typeDirID, &niPropList );
+					if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+		
+					siResult = NiLib2::ValidateDir( authUser, &niPropList );
+					::ni_proplist_free( &niPropList );
+				}
+				
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			}
+			
+			//ValidateCreateRecord
+			siResult = DoCreateRecord( aNIDomain, &niDirID, pPath );
+			if ( siResult != eDSNoErr ) throw( siResult );
+
+			//make sure that the type is users only here when we add these attributes
+			if ( (siResult == eDSNoErr) && (strcmp(pNIRecType,"users") == 0) )
+			{
+				NI_INIT( &niValues );
+				::ni_namelist_insert( &niValues, pRecName->fBufferData, NI_INDEX_NULL );
+
+				siResult = DoAddAttribute( aNIDomain, &niDirID, (const ni_name)"_writers_passwd", niValues );
+				
+	#ifdef TIM_CLIENT_PRESENT
+				siResult = DoAddAttribute( aNIDomain, &niDirID, (const ni_name)"_writers_tim_password", niValues );
+	#endif
+				
+				siResult = DoAddAttribute( aNIDomain, &niDirID, (const ni_name)"_writers_picture", niValues );
+				
+				::ni_namelist_free( &niValues );
 			}
 
-			pRecContext->fRecType = (char *)::malloc( ::strlen( pRecType->fBufferData ) + 2 );
-			pRecContext->fRecType[0] = '\0';
-			::strcpy( pRecContext->fRecType, pRecType->fBufferData );
+			free(pPath);
+			pPath = nil;
 
-			pRecContext->fRecName = (char *)::malloc( pRecName->fBufferLength + 2 );
-			pRecContext->fRecName[0] = '\0';
-			::strcpy( pRecContext->fRecName, pRecName->fBufferData );
+			if ( inData->fInOpen == true )
+			{
+				pRecContext = MakeContextData();
+				if ( pRecContext == nil ) throw( (sInt32)eMemoryAllocError );
+				if (pContext->fDomainName != nil)
+				{
+					pRecContext->fDomainName = strdup(pContext->fDomainName);
+				}
+				if ( pContext->fDomainPath != nil)
+				{
+					pRecContext->fDomainPath = strdup(pContext->fDomainPath);
+				}
+				pRecContext->bIsLocal = pContext->bIsLocal;
+				::memcpy( &pRecContext->dirID, &niDirID, sizeof( ni_id ) );
+				pRecContext->fUID = pContext->fUID;
+				pRecContext->fEffectiveUID = pContext->fEffectiveUID;
+				if (pContext->fAuthenticatedUserName != NULL)
+				{
+					pRecContext->fAuthenticatedUserName = strdup( pContext->fAuthenticatedUserName );
+				}
 
-			gNINodeRef->AddItem( inData->fOutRecRef, pRecContext );
+				pRecContext->fRecType = (char *)::malloc( ::strlen( pRecType->fBufferData ) + 2 );
+				pRecContext->fRecType[0] = '\0';
+				::strcpy( pRecContext->fRecType, pRecType->fBufferData );
+
+				pRecContext->fRecName = (char *)::malloc( pRecName->fBufferLength + 2 );
+				pRecContext->fRecName[0] = '\0';
+				::strcpy( pRecContext->fRecName, pRecName->fBufferData );
+
+				gNINodeRef->AddItem( inData->fOutRecRef, pRecContext );
+			}
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
 	catch( sInt32 err )
 	{
 		siResult = err;
-		if (pPath != nil)
-		{
-			free(pPath);
-			pPath = nil;
-		}
+		DSFreeString(pPath);
 	}
 	
 	if (authUser != nil)
@@ -3205,18 +3587,9 @@ sInt32 CNiPlugIn::CreateRecord ( sCreateRecord *inData )
 		}
 	}
 
-	if ( pRecTypePath != nil )
-	{
-		free( pRecTypePath );
-		pRecTypePath = nil;
-	}
-
-	if ( pNIRecType != nil )
-	{
-		delete( pNIRecType );
-		pNIRecType = nil;
-	}
-
+	DSFreeString( pRecTypePath );
+	DSDelete( pNIRecType );
+	
 	gNetInfoMutex->Signal();
 
 	return( siResult );
@@ -3458,6 +3831,7 @@ sInt32 CNiPlugIn::OpenRecord ( sOpenRecord *inData )
 	sInt32				siResult		= eDSNoErr;
 	tDataNodePtr		pRecName		= nil;
 	tDataNodePtr		pRecType		= nil;
+	char			   *pNIRecName		= nil;
 	char			   *pNIRecType		= nil;
 	sNIContextData	   *pContext		= nil;
 	sNIContextData	   *pRecContext		= nil;
@@ -3477,6 +3851,7 @@ sInt32 CNiPlugIn::OpenRecord ( sOpenRecord *inData )
 
 		pRecName = inData->fInRecName;
 		if ( pRecName == nil ) throw( (sInt32)eDSNullRecName );
+		pNIRecName = pRecName->fBufferData;
 
 		pNIRecType = MapRecToNetInfoType( pRecType->fBufferData );
 		if ( pNIRecType == nil ) throw( (sInt32)eDSInvalidRecordType );
@@ -3484,54 +3859,68 @@ sInt32 CNiPlugIn::OpenRecord ( sOpenRecord *inData )
 		if (pRecName->fBufferLength == 0) throw( (sInt32)eDSEmptyRecordNameList );
 		if (pRecType->fBufferLength == 0) throw( (sInt32)eDSEmptyRecordTypeList );
 
-		NI_INIT( &niDirID );
-		siResult = IsValidRecordName( pRecName->fBufferData, pNIRecType, pContext->fDomain, niDirID );
-		if (siResult != eDSNoErr)
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			//here we can check if the record type is /users so that we will search now on "realname" as well
-			if (::strcmp(pNIRecType,"users") == 0)
+			NI_INIT( &niDirID );
+			siResult = IsValidRecordName( pNIRecName, pNIRecType, aNIDomain, niDirID );
+			if (siResult != eDSNoErr)
 			{
-				siResult = IsValidRealname( pRecName->fBufferData, pContext->fDomain, &aRealname );
-				//need to get the correct niDirID and set the true record name "aRealname" for the context data
-				if (siResult == eDSNoErr)
+				//here we can check if the record type is /users so that we will search now on "realname" as well
+				if (::strcmp(pNIRecType,"users") == 0)
 				{
-					bFoundRealname = true;
-					siResult = IsValidRecordName( aRealname, pNIRecType, pContext->fDomain, niDirID );
+					siResult = IsValidRealname( pNIRecName, aNIDomain, &aRealname );
+					//need to get the correct niDirID and set the true record name "aRealname" for the context data
+					if (siResult == eDSNoErr)
+					{
+						bFoundRealname = true;
+						siResult = IsValidRecordName( aRealname, pNIRecType, aNIDomain, niDirID );
+					}
+				}
+				if ( siResult != eDSNoErr ) throw( siResult );
+			}
+
+			pRecContext = MakeContextData();
+			if ( pRecContext == nil ) throw( (sInt32)eMemoryAllocError );
+
+			if (pContext->fDomainName != nil)
+			{
+				pRecContext->fDomainName = strdup(pContext->fDomainName);
+			}
+			if ( pContext->fDomainPath != nil)
+			{
+				pRecContext->fDomainPath = strdup(pContext->fDomainPath);
+			}
+			pRecContext->bIsLocal = pContext->bIsLocal;
+			pRecContext->fUID = pContext->fUID;
+			pRecContext->fEffectiveUID = pContext->fEffectiveUID;
+			if (pContext->fAuthenticatedUserName != NULL)
+			{
+				pRecContext->fAuthenticatedUserName = strdup( pContext->fAuthenticatedUserName );
+			}
+			
+			pRecContext->fRecType = strdup( pRecType->fBufferData );
+
+			if (bFoundRealname)
+			{
+				if (aRealname != nil)
+				{
+					pRecContext->fRecName = aRealname;
 				}
 			}
-			if ( siResult != eDSNoErr ) throw( siResult );
-		}
-
-		pRecContext = MakeContextData();
-		if ( pRecContext == nil ) throw( (sInt32)eMemoryAllocError );
-
-		pRecContext->fDomain = pContext->fDomain;
-		pRecContext->fUID = pContext->fUID;
-		pRecContext->fEffectiveUID = pContext->fEffectiveUID;
-		if (pContext->fAuthenticatedUserName != NULL)
-		{
-			pRecContext->fAuthenticatedUserName = strdup( pContext->fAuthenticatedUserName );
-		}
-		
-		pRecContext->fRecType = (char *)::calloc( 1, ::strlen( pRecType->fBufferData ) + 1 );
-		::strcpy( pRecContext->fRecType, pRecType->fBufferData );
-
-		if (bFoundRealname)
-		{
-			if (aRealname != nil)
+			else
 			{
-				pRecContext->fRecName = aRealname;
+				pRecContext->fRecName = strdup( pNIRecName );
 			}
+
+			::memcpy( &pRecContext->dirID, &niDirID, sizeof( ni_id ) );
+
+			gNINodeRef->AddItem( inData->fOutRecRef, pRecContext );
 		}
 		else
 		{
-			pRecContext->fRecName = (char *)::calloc( 1, ::strlen( pRecName->fBufferData ) + 1 );
-			::strcpy( pRecContext->fRecName, pRecName->fBufferData );
+			throw( (sInt32)eDSInvalidSession );
 		}
-
-		::memcpy( &pRecContext->dirID, &niDirID, sizeof( ni_id ) );
-
-		gNINodeRef->AddItem( inData->fOutRecRef, pRecContext );
 	}
 
 	catch( sInt32 err )
@@ -3546,11 +3935,7 @@ sInt32 CNiPlugIn::OpenRecord ( sOpenRecord *inData )
 		}
 	}
 
-	if ( pNIRecType != nil )
-	{
-		delete( pNIRecType );
-		pNIRecType = nil;
-	}
+	DSDelete( pNIRecType );
 
 	gNetInfoMutex->Signal();
 
@@ -3632,12 +4017,27 @@ sInt32 CNiPlugIn::CloseRecord ( sCloseRecord *inData )
 {
 	sInt32				siResult		= eDSNoErr;
 	sNIContextData	   *pContext		= nil;
+	bool				bResetCache		= false;
 
 	gNetInfoMutex->Wait();
 
 	pContext = (sNIContextData *)gNINodeRef->GetItemData( inData->fInRecRef );
 	if ( pContext != nil )
 	{
+		if ( (pContext->bIsLocal) && (pContext->bDidWriteOperation) )
+		{
+			char* pNIRecType = MapRecToNetInfoType( pContext->fRecType );
+			if (pNIRecType != nil)
+			{
+				if ( (strcmp(pNIRecType,"users") == 0) || (strcmp(pNIRecType,"groups") == 0) )
+				{
+					//flush memberd cache since we edited a user or group record
+					bResetCache = true;
+				}
+				DSFreeString(pNIRecType);
+			}
+		}
+
 		gNINodeRef->RemoveItem( inData->fInRecRef );
 	}
 	else
@@ -3646,6 +4046,12 @@ sInt32 CNiPlugIn::CloseRecord ( sCloseRecord *inData )
 	}
 
 	gNetInfoMutex->Signal();
+	
+	if ( bResetCache )
+	{
+		// be sure not to hold the NetInfo mutex while calling this
+		gSrvrCntl->HandleMemberDaemonFlushCache();
+	}
 
 	return( siResult );
 
@@ -3686,72 +4092,71 @@ sInt32 CNiPlugIn::SetRecordType ( sSetRecordType *inData )
 		pPath = BuildRecordNamePath( pContext->fRecName, pNIRecType );
 		if ( pPath == nil ) throw( (sInt32)eDSInvalidRecordName );
 
-		// check access for non-admin users
-		if ( ( pContext->fEffectiveUID != 0 )
-			 && ( (pContext->fAuthenticatedUserName == NULL) 
-				  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			authUser = pContext->fAuthenticatedUserName;
-			ni_proplist niPropList;
-			ni_id		niDirID;
-			ni_index	tempIndex = NI_INDEX_NULL;
+			// check access for non-admin users
+			if ( ( pContext->fEffectiveUID != 0 )
+				 && ( (pContext->fAuthenticatedUserName == NULL) 
+					  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+			{
+				authUser = pContext->fAuthenticatedUserName;
+				ni_proplist niPropList;
+				ni_id		niDirID;
+				ni_index	tempIndex = NI_INDEX_NULL;
 
-			::memcpy( &niDirID, &pContext->dirID, sizeof( ni_id ) );
-			siResult = ::ni_parent( pContext->fDomain, &niDirID, &tempIndex );
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-			niDirID.nii_object = tempIndex;
-			siResult = ::ni_self( pContext->fDomain, &niDirID );
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-			siResult = ::ni_read( pContext->fDomain, &niDirID, &niPropList );
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+				::memcpy( &niDirID, &pContext->dirID, sizeof( ni_id ) );
+				siResult = ::ni_parent( aNIDomain, &niDirID, &tempIndex );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+				niDirID.nii_object = tempIndex;
+				siResult = ::ni_self( aNIDomain, &niDirID );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+				siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
 
-			// must have write to the parent type of existing record...
-			siResult = NiLib2::ValidateDir( authUser, &niPropList );
-			::ni_proplist_free( &niPropList );
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+				// must have write to the parent type of existing record...
+				siResult = NiLib2::ValidateDir( authUser, &niPropList );
+				::ni_proplist_free( &niPropList );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
 
-			pRecTypePath = (char*)calloc( strlen( pNIRecType ) + 2, 1 );
-			pRecTypePath[0] = '/';
-			strcpy( pRecTypePath + 1, pNIRecType );
+				pRecTypePath = (char*)calloc( strlen( pNIRecType ) + 2, 1 );
+				pRecTypePath[0] = '/';
+				strcpy( pRecTypePath + 1, pNIRecType );
+				
+				siResult = ::ni_pathsearch( aNIDomain, &niDirID, pRecTypePath );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+				siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+
+				// and the destination type (parent of new record)
+				siResult = NiLib2::ValidateDir( authUser, &niPropList );
+				::ni_proplist_free( &niPropList );			
+
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			}
 			
-			siResult = ::ni_pathsearch( pContext->fDomain, &niDirID, pRecTypePath );
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-			siResult = ::ni_read( pContext->fDomain, &niDirID, &niPropList );
+			siResult = NiLib2::Copy( aNIDomain, &pContext->dirID, pPath, aNIDomain, true );
 			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
 
-			// and the destination type (parent of new record)
-			siResult = NiLib2::ValidateDir( authUser, &niPropList );
-			::ni_proplist_free( &niPropList );			
-
+			siResult = NiLib2::Destroy( aNIDomain, &pContext->dirID );
 			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+
+			//could have called IsValidRecordName here but since pPath already built above no need to
+			siResult = ::ni_pathsearch( aNIDomain, &pContext->dirID, pPath );
+			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			DSFreeString(pPath);
+			pContext->bDidWriteOperation = true;
 		}
-		
-//		::strcat( pTypePath, pNIRecType );
-//		::strcat( pTypePath, "/" );
-//		::strcat( pTypePath, pContext->fRecName );
-
-//		siResult = NiLib2::Copy( pContext->fDomain, &pContext->dirID, pTypePath, pContext->fDomain, true );
-		siResult = NiLib2::Copy( pContext->fDomain, &pContext->dirID, pPath, pContext->fDomain, true );
-		if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-		siResult = NiLib2::Destroy( pContext->fDomain, &pContext->dirID );
-		if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-		//could have called IsValidRecordName here but since pPath already built above no need to
-		siResult = ::ni_pathsearch( pContext->fDomain, &pContext->dirID, pPath );
-		if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-		free(pPath);
-		pPath = nil;
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
+		}
 	}
 
 	catch( sInt32 err )
 	{
 		siResult = err;
-		if (pPath != nil)
-		{
-			free(pPath);
-			pPath = nil;
-		}
+		DSFreeString(pPath);
 	}
 	
 	if (authUser != nil)
@@ -3790,6 +4195,7 @@ sInt32 CNiPlugIn::DeleteRecord ( sDeleteRecord *inData )
 	sNIContextData		   *pContext		= nil;
 	char				   *authUser		= nil;
 	ni_namelist				niValuesGUID;
+	bool					bResetCache		= false;
 
 	gNetInfoMutex->Wait();
 
@@ -3798,70 +4204,91 @@ sInt32 CNiPlugIn::DeleteRecord ( sDeleteRecord *inData )
 		pContext = (sNIContextData *)gNINodeRef->GetItemData( inData->fInRecRef );
 		if ( pContext != nil )
 		{
-			// check access for non-admin users
-			if ( ( pContext->fEffectiveUID != 0 )
-				&& ( (pContext->fAuthenticatedUserName == NULL) 
-					|| (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+			void * aNIDomain = RetrieveNIDomain(pContext);
+			if (aNIDomain != NULL)
 			{
-				authUser = pContext->fAuthenticatedUserName;
-				ni_proplist niPropList;
-				ni_id		parentDir;
-				ni_index	tempIndex = NI_INDEX_NULL;
-
-				::memcpy( &parentDir, &pContext->dirID, sizeof( ni_id ) );
-				siResult = ::ni_parent( pContext->fDomain, &parentDir, &tempIndex );
-				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-				parentDir.nii_object = tempIndex;
-				siResult = ::ni_self( pContext->fDomain, &parentDir );
-				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-				siResult = ::ni_read( pContext->fDomain, &parentDir, &niPropList );
-				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-				siResult = NiLib2::ValidateDir( authUser, &niPropList );
-				::ni_proplist_free( &niPropList );
-
-				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-			}
-			
-			{
-				//need the recordname and GUID
-				//lookup GUID for ShadowHash but don't worry if not found
-				ni_status niResultGUID = ni_lookupprop( pContext->fDomain, &pContext->dirID, 
-											"generateduid", &niValuesGUID );
-				char* GUIDString = nil;
-				if (niResultGUID == NI_OK)
+				// check access for non-admin users
+				if ( ( pContext->fEffectiveUID != 0 )
+					&& ( (pContext->fAuthenticatedUserName == NULL) 
+						|| (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
 				{
-					if (niValuesGUID.ni_namelist_len > 0)
+					authUser = pContext->fAuthenticatedUserName;
+					ni_proplist niPropList;
+					ni_id		parentDir;
+					ni_index	tempIndex = NI_INDEX_NULL;
+
+					::memcpy( &parentDir, &pContext->dirID, sizeof( ni_id ) );
+					siResult = ::ni_parent( aNIDomain, &parentDir, &tempIndex );
+					if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+					parentDir.nii_object = tempIndex;
+					siResult = ::ni_self( aNIDomain, &parentDir );
+					if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+					siResult = ::ni_read( aNIDomain, &parentDir, &niPropList );
+					if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+
+					siResult = NiLib2::ValidateDir( authUser, &niPropList );
+					::ni_proplist_free( &niPropList );
+
+					if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+				}
+				
+				{
+					//need the recordname and GUID
+					//lookup GUID for ShadowHash but don't worry if not found
+					ni_status niResultGUID = ni_lookupprop( aNIDomain, &pContext->dirID, 
+												"generateduid", &niValuesGUID );
+					char* GUIDString = nil;
+					if (niResultGUID == NI_OK)
 					{
-						if (niValuesGUID.ni_namelist_val[0] != nil)
+						if (niValuesGUID.ni_namelist_len > 0)
 						{
-							GUIDString = strdup(niValuesGUID.ni_namelist_val[0]);
+							if (niValuesGUID.ni_namelist_val[0] != nil)
+							{
+								GUIDString = strdup(niValuesGUID.ni_namelist_val[0]);
+							}
+							ni_namelist_free(&niValuesGUID);
 						}
-						ni_namelist_free(&niValuesGUID);
+					}
+					//check to remove all corresponding hash files
+					RemoveShadowHash( pContext->fRecName, GUIDString, true );
+					if (GUIDString != nil)
+					{
+						free(GUIDString);
+						GUIDString = nil;
 					}
 				}
-				//check to remove all corresponding hash files
-				RemoveShadowHash( pContext->fRecName, GUIDString, true );
-				if (GUIDString != nil)
+				
+				niStatus = NiLib2::Destroy( aNIDomain, &pContext->dirID );
+				if ( niStatus == NI_NODIR )
 				{
-					free(GUIDString);
-					GUIDString = nil;
+					// Record was not found...
+					siResult = eDSRecordNotFound;
 				}
-			}
-			
-			niStatus = NiLib2::Destroy( pContext->fDomain, &pContext->dirID );
-			if ( niStatus == NI_NODIR )
-			{
-				// Record was not found...
-				siResult = eDSRecordNotFound;
-			}
-			else if ( niStatus != NI_OK )
-			{
-				siResult = MapNetInfoErrors( niStatus );
+				else if ( niStatus != NI_OK )
+				{
+					siResult = MapNetInfoErrors( niStatus );
+				}
+				else
+				{
+					if (pContext->bIsLocal)
+					{
+						char* pNIRecType = MapRecToNetInfoType( pContext->fRecType );
+						if (pNIRecType != nil)
+						{
+							if ( (strcmp(pNIRecType,"users") == 0) || (strcmp(pNIRecType,"groups") == 0) )
+							{
+								//flush memberd cache since we deleted a user or group record
+								bResetCache = true;
+							}
+							DSFreeString(pNIRecType);
+						}
+					}
+					gNINodeRef->RemoveItem( inData->fInRecRef );
+				}
 			}
 			else
 			{
-				gNINodeRef->RemoveItem( inData->fInRecRef );
+				throw( (sInt32)eDSInvalidSession );
 			}
 		}
 		else
@@ -3888,7 +4315,13 @@ sInt32 CNiPlugIn::DeleteRecord ( sDeleteRecord *inData )
 	}
 
 	gNetInfoMutex->Signal();
-
+	
+	if ( bResetCache )
+	{
+		// be sure not to hold the NetInfo mutex while calling this
+		gSrvrCntl->HandleMemberDaemonFlushCache();
+	}
+	
 	return( siResult );
 
 } // DeleteRecord
@@ -3926,201 +4359,212 @@ sInt32 CNiPlugIn::SetRecordName ( sSetRecordName *inData )
 		pContext = (sNIContextData *)gNINodeRef->GetItemData( inData->fInRecRef );
 		if ( pContext == nil ) throw( (sInt32)eDSInvalidRecordRef );
 
-		// need to be talking to the master
-		::ni_needwrite( pContext->fDomain, 1 );
-
-		siResult = ::ni_read( pContext->fDomain, &pContext->dirID, &niPropList );
-		if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-		bFreePropList = true;
-
-		niWhere = ::ni_proplist_match( niPropList, "name", nil );
-		if (niWhere == NI_INDEX_NULL) throw( (sInt32)ePlugInError );
-
-		// check access for non-admin users
-		if ( ( pContext->fEffectiveUID != 0 )
-			 && ( (pContext->fAuthenticatedUserName == NULL) 
-				  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			authUser = pContext->fAuthenticatedUserName;
-			siResult = NiLib2::ValidateDir( authUser, &niPropList );
-			if ( siResult != NI_OK )
-			{
-				siResult = NiLib2::ValidateName( authUser, &niPropList, niWhere );
-			}
+			// need to be talking to the master
+			::ni_needwrite( aNIDomain, 1 );
 
+			siResult = ::ni_read( aNIDomain, &pContext->dirID, &niPropList );
 			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+
+			bFreePropList = true;
+
+			niWhere = ::ni_proplist_match( niPropList, "name", nil );
+			if (niWhere == NI_INDEX_NULL) throw( (sInt32)ePlugInError );
+
+			// check access for non-admin users
+			if ( ( pContext->fEffectiveUID != 0 )
+				 && ( (pContext->fAuthenticatedUserName == NULL) 
+					  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+			{
+				authUser = pContext->fAuthenticatedUserName;
+				siResult = NiLib2::ValidateDir( authUser, &niPropList );
+				if ( siResult != NI_OK )
+				{
+					siResult = NiLib2::ValidateName( authUser, &niPropList, niWhere );
+				}
+
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			}
+
+			//read the current name
+			NI_INIT(&niCurrentName);
+			siResult = ::ni_readprop(aNIDomain, &pContext->dirID, niWhere, &niCurrentName);
+			//name replaced below is first one so only get that one
+			pOldName = strdup( niCurrentName.ni_namelist_val[ 0 ] );
+			::ni_namelist_free( &niCurrentName );		
+
+			// Get the new name
+			pNewName = inData->fInNewRecName->fBufferData;
+			if ( pNewName == nil ) throw( (sInt32)eMemoryAllocError );
+
+			uiNameLen = ::strlen( pNewName );
+			if (uiNameLen == 0) throw( (sInt32)eDSNullRecName );
+
+			// Remove any unexpected characters in the record name
+			this->MakeGood( pNewName, pNewName );
+
+			// Now set it
+			siResult = ::ni_writename( aNIDomain, &pContext->dirID, niWhere, 0, pNewName );
+			siResult = MapNetInfoErrors( siResult );
+
+			//make sure that the type is users only here for setting additional attributes
+			if (pContext->fRecType != nil)
+			{
+				pNIRecType = MapRecToNetInfoType( pContext->fRecType );
+			}
+
+			if ( (siResult == eDSNoErr) && (pNIRecType != nil) && (::strcmp(pNIRecType,"users") == 0) )
+			{
+				//create and set the attribute _writers_passwd
+
+				//check if it exists if so replace otherwise create
+				niWhere = ::ni_proplist_match( niPropList, "_writers_passwd", nil );
+				if (niWhere != NI_INDEX_NULL)
+				{
+					//now replace the old with the new
+					niProp = niPropList.ni_proplist_val[ niWhere ];
+					niValue = niProp.nip_val;
+
+					// For each value in the namelist for this property
+					for ( pv = 0; pv < niValue.ni_namelist_len; pv++ )
+					{
+						if ( strcmp( niValue.ni_namelist_val[ pv ], pOldName ) == 0 )
+						{
+							NI_INIT( &niNameList );
+							::ni_namelist_insert( &niNameList, niValue.ni_namelist_val[ pv ], NI_INDEX_NULL );
+
+							siResult = NiLib2::DestroyDirVal( aNIDomain, &pContext->dirID, (const ni_name)"_writers_passwd", niNameList );
+
+							siResult = NiLib2::InsertDirVal( aNIDomain, &pContext->dirID, (const ni_name)"_writers_passwd", pNewName, pv );
+							siResult = MapNetInfoErrors( siResult );
+
+							::ni_namelist_free( &niNameList );
+
+							bDidNotFindValue = false;
+
+							break;
+						}
+					}
+					if (bDidNotFindValue)
+					{
+						siResult = NiLib2::InsertDirVal( aNIDomain, &pContext->dirID, (const ni_name)"_writers_passwd", pNewName, niValue.ni_namelist_len );
+						siResult = MapNetInfoErrors( siResult );
+					}
+				}
+				else
+				{
+					NI_INIT( &niValues );
+					::ni_namelist_insert( &niValues, pNewName, NI_INDEX_NULL );
+
+					siResult = DoAddAttribute( aNIDomain, &pContext->dirID, (const ni_name)"_writers_passwd", niValues );
+				
+					::ni_namelist_free( &niValues );
+				}
+				
+				//create and set the attribute _writers_picture
+
+				//check if it exists if so replace otherwise create
+				niWhere = ::ni_proplist_match( niPropList, "_writers_picture", nil );
+				if (niWhere != NI_INDEX_NULL)
+				{
+					//now replace the old with the new
+					niProp = niPropList.ni_proplist_val[ niWhere ];
+					niValue = niProp.nip_val;
+
+					// For each value in the namelist for this property
+					for ( pv = 0; pv < niValue.ni_namelist_len; pv++ )
+					{
+						if ( strcmp( niValue.ni_namelist_val[ pv ], pOldName ) == 0 )
+						{
+							NI_INIT( &niNameList );
+							::ni_namelist_insert( &niNameList, niValue.ni_namelist_val[ pv ], NI_INDEX_NULL );
+
+							siResult = NiLib2::DestroyDirVal( aNIDomain, &pContext->dirID, (const ni_name)"_writers_picture", niNameList );
+
+							siResult = NiLib2::InsertDirVal( aNIDomain, &pContext->dirID, (const ni_name)"_writers_picture", pNewName, pv );
+							siResult = MapNetInfoErrors( siResult );
+
+							::ni_namelist_free( &niNameList );
+
+							bDidNotFindValue = false;
+
+							break;
+						}
+					}
+					if (bDidNotFindValue)
+					{
+						siResult = NiLib2::InsertDirVal( aNIDomain, &pContext->dirID, (const ni_name)"_writers_picture", pNewName, niValue.ni_namelist_len );
+						siResult = MapNetInfoErrors( siResult );
+					}
+				}
+				else
+				{
+					NI_INIT( &niValues );
+					::ni_namelist_insert( &niValues, pNewName, NI_INDEX_NULL );
+
+					siResult = DoAddAttribute( aNIDomain, &pContext->dirID, (const ni_name)"_writers_picture", niValues );
+				
+					::ni_namelist_free( &niValues );
+				}
+				if (siResult == eDSNoErr)
+				{
+					pContext->bDidWriteOperation = true;
+				}
+
+	#ifdef TIM_CLIENT_PRESENT
+				bDidNotFindValue = true;
+				
+				//check if it exists if so replace otherwise create
+				niWhere = ::ni_proplist_match( niPropList, "_writers_tim_password", nil );
+				if (niWhere != NI_INDEX_NULL)
+				{
+					//now replace the old with the new
+					niProp = niPropList.ni_proplist_val[ niWhere ];
+					niValue = niProp.nip_val;
+
+					// For each value in the namelist for this property
+					for ( pv = 0; pv < niValue.ni_namelist_len; pv++ )
+					{
+						if ( strcmp( niValue.ni_namelist_val[ pv ], pOldName ) == 0 )
+						{
+							NI_INIT( &niNameList );
+							::ni_namelist_insert( &niNameList, niValue.ni_namelist_val[ pv ], NI_INDEX_NULL );
+
+							siResult = NiLib2::DestroyDirVal( aNIDomain, &pContext->dirID, (const ni_name)"_writers_tim_password", niNameList );
+
+							siResult = NiLib2::InsertDirVal( aNIDomain, &pContext->dirID, (const ni_name)"_writers_tim_password", pNewName, pv );
+							siResult = MapNetInfoErrors( siResult );
+
+							::ni_namelist_free( &niNameList );
+
+							bDidNotFindValue = false;
+
+							break;
+						}
+					}
+					if (bDidNotFindValue)
+					{
+						siResult = NiLib2::InsertDirVal( aNIDomain, &pContext->dirID, (const ni_name)"_writers_tim_password", pNewName, niValue.ni_namelist_len );
+						siResult = MapNetInfoErrors( siResult );
+					}
+				}
+				else
+				{
+					NI_INIT( &niValues );
+					::ni_namelist_insert( &niValues, pNewName, NI_INDEX_NULL );
+
+					siResult = DoAddAttribute( aNIDomain, &pContext->dirID, (const ni_name)"_writers_tim_password", niValues );
+				
+					::ni_namelist_free( &niValues );
+				}
+	#endif
+			}
 		}
-
-		//read the current name
-		NI_INIT(&niCurrentName);
-		siResult = ::ni_readprop(pContext->fDomain, &pContext->dirID, niWhere, &niCurrentName);
-		//name replaced below is first one so only get that one
-		pOldName = (char *)::calloc(1, strlen( niCurrentName.ni_namelist_val[ 0 ] ));
-		strcpy(pOldName, niCurrentName.ni_namelist_val[ 0 ]);
-		::ni_namelist_free( &niCurrentName );		
-
-		// Get the new name
-		uiNameLen = ::strlen( inData->fInNewRecName->fBufferData );
-		if (uiNameLen == 0) throw( (sInt32)eDSNullRecName );
-
-		pNewName = (char *)::malloc( uiNameLen );
-		if ( pNewName == nil ) throw( (sInt32)eMemoryAllocError );
-
-		// Remove any unexpected characters in the record name
-		this->MakeGood( inData->fInNewRecName->fBufferData, pNewName );
-
-		// Now set it
-		siResult = ::ni_writename( pContext->fDomain, &pContext->dirID, niWhere, 0, pNewName );
-		siResult = MapNetInfoErrors( siResult );
-
-		//make sure that the type is users only here for setting additional attributes
-		if (pContext->fRecType != nil)
+		else
 		{
-			pNIRecType = MapRecToNetInfoType( pContext->fRecType );
-		}
-
-		if ( (siResult == eDSNoErr) && (pNIRecType != nil) && (::strcmp(pNIRecType,"users") == 0) )
-		{
-			//create and set the attribute _writers_passwd
-
-			//check if it exists if so replace otherwise create
-			niWhere = ::ni_proplist_match( niPropList, "_writers_passwd", nil );
-			if (niWhere != NI_INDEX_NULL)
-			{
-				//now replace the old with the new
-				niProp = niPropList.ni_proplist_val[ niWhere ];
-				niValue = niProp.nip_val;
-
-				// For each value in the namelist for this property
-				for ( pv = 0; pv < niValue.ni_namelist_len; pv++ )
-				{
-					if ( strcmp( niValue.ni_namelist_val[ pv ], pOldName ) == 0 )
-					{
-						NI_INIT( &niNameList );
-						::ni_namelist_insert( &niNameList, niValue.ni_namelist_val[ pv ], NI_INDEX_NULL );
-
-						siResult = NiLib2::DestroyDirVal( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_passwd", niNameList );
-
-						siResult = NiLib2::InsertDirVal( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_passwd", pNewName, pv );
-						siResult = MapNetInfoErrors( siResult );
-
-						::ni_namelist_free( &niNameList );
-
-						bDidNotFindValue = false;
-
-						break;
-					}
-				}
-				if (bDidNotFindValue)
-				{
-					siResult = NiLib2::InsertDirVal( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_passwd", pNewName, niValue.ni_namelist_len );
-					siResult = MapNetInfoErrors( siResult );
-				}
-			}
-			else
-			{
-				NI_INIT( &niValues );
-				::ni_namelist_insert( &niValues, pNewName, NI_INDEX_NULL );
-
-				siResult = DoAddAttribute( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_passwd", niValues );
-			
-				::ni_namelist_free( &niValues );
-			}
-			
-			//create and set the attribute _writers_picture
-
-			//check if it exists if so replace otherwise create
-			niWhere = ::ni_proplist_match( niPropList, "_writers_picture", nil );
-			if (niWhere != NI_INDEX_NULL)
-			{
-				//now replace the old with the new
-				niProp = niPropList.ni_proplist_val[ niWhere ];
-				niValue = niProp.nip_val;
-
-				// For each value in the namelist for this property
-				for ( pv = 0; pv < niValue.ni_namelist_len; pv++ )
-				{
-					if ( strcmp( niValue.ni_namelist_val[ pv ], pOldName ) == 0 )
-					{
-						NI_INIT( &niNameList );
-						::ni_namelist_insert( &niNameList, niValue.ni_namelist_val[ pv ], NI_INDEX_NULL );
-
-						siResult = NiLib2::DestroyDirVal( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_picture", niNameList );
-
-						siResult = NiLib2::InsertDirVal( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_picture", pNewName, pv );
-						siResult = MapNetInfoErrors( siResult );
-
-						::ni_namelist_free( &niNameList );
-
-						bDidNotFindValue = false;
-
-						break;
-					}
-				}
-				if (bDidNotFindValue)
-				{
-					siResult = NiLib2::InsertDirVal( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_picture", pNewName, niValue.ni_namelist_len );
-					siResult = MapNetInfoErrors( siResult );
-				}
-			}
-			else
-			{
-				NI_INIT( &niValues );
-				::ni_namelist_insert( &niValues, pNewName, NI_INDEX_NULL );
-
-				siResult = DoAddAttribute( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_picture", niValues );
-			
-				::ni_namelist_free( &niValues );
-			}
-			
-#ifdef TIM_CLIENT_PRESENT
-			bDidNotFindValue = true;
-			
-			//check if it exists if so replace otherwise create
-			niWhere = ::ni_proplist_match( niPropList, "_writers_tim_password", nil );
-			if (niWhere != NI_INDEX_NULL)
-			{
-				//now replace the old with the new
-				niProp = niPropList.ni_proplist_val[ niWhere ];
-				niValue = niProp.nip_val;
-
-				// For each value in the namelist for this property
-				for ( pv = 0; pv < niValue.ni_namelist_len; pv++ )
-				{
-					if ( strcmp( niValue.ni_namelist_val[ pv ], pOldName ) == 0 )
-					{
-						NI_INIT( &niNameList );
-						::ni_namelist_insert( &niNameList, niValue.ni_namelist_val[ pv ], NI_INDEX_NULL );
-
-						siResult = NiLib2::DestroyDirVal( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_tim_password", niNameList );
-
-						siResult = NiLib2::InsertDirVal( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_tim_password", pNewName, pv );
-						siResult = MapNetInfoErrors( siResult );
-
-						::ni_namelist_free( &niNameList );
-
-						bDidNotFindValue = false;
-
-						break;
-					}
-				}
-				if (bDidNotFindValue)
-				{
-					siResult = NiLib2::InsertDirVal( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_tim_password", pNewName, niValue.ni_namelist_len );
-					siResult = MapNetInfoErrors( siResult );
-				}
-			}
-			else
-			{
-				NI_INIT( &niValues );
-				::ni_namelist_insert( &niValues, pNewName, NI_INDEX_NULL );
-
-				siResult = DoAddAttribute( pContext->fDomain, &pContext->dirID, (const ni_name)"_writers_tim_password", niValues );
-			
-				::ni_namelist_free( &niValues );
-			}
-#endif
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -4148,23 +4592,8 @@ sInt32 CNiPlugIn::SetRecordName ( sSetRecordName *inData )
 
 	gNetInfoMutex->Signal();
 	
-	if ( pNIRecType != nil )
-	{
-		free( pNIRecType );
-		pNIRecType = nil;
-	}
-
-	if ( pNewName != nil )
-	{
-		free( pNewName );
-		pNewName = nil;
-	}
-
-	if ( pOldName != nil )
-	{
-		free( pOldName );
-		pOldName = nil;
-	}
+	DSFreeString( pNIRecType );
+	DSFreeString( pOldName );
 
 	return( siResult );
 
@@ -4194,71 +4623,84 @@ sInt32 CNiPlugIn::RemoveAttribute ( sRemoveAttribute *inData )
 		pAttrType = MapAttrToNetInfoType( inData->fInAttribute->fBufferData );
 		if ( pAttrType == nil ) throw( (sInt32)eDSInvalidAttributeType );
 
-		// check access for non-admin users
-		if ( ( pContext->fEffectiveUID != 0 )
-			 && ( (pContext->fAuthenticatedUserName == NULL) 
-				  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			authUser = pContext->fAuthenticatedUserName;
-			if ( ( authUser == NULL ) && (strcmp(pAttrType,"picture") == 0) )
+			// check access for non-admin users
+			if ( ( pContext->fEffectiveUID != 0 )
+				 && ( (pContext->fAuthenticatedUserName == NULL) 
+					  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
 			{
-				authUser = GetUserNameForUID( pContext->fEffectiveUID, pContext->fDomain );
-			}
-			ni_proplist niPropList;
-
-			siResult = ::ni_read( pContext->fDomain, &pContext->dirID, &niPropList );
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-			siResult = NiLib2::ValidateDir( authUser, &niPropList );
-			::ni_proplist_free( &niPropList );
-
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-		}
-
-		// check if the auth authority of a shadow hash user is being removed
-		// if so we should also remove the hash file for that user
-		if ( (pAttrType != nil) && (strcmp(pAttrType,"authentication_authority") == 0) )
-		{
-			ni_namelist niValues;
-			ni_namelist niValuesGUID;
-			NI_INIT( &niValues );
-			NI_INIT( &niValuesGUID );
-			//lookup authauthority attribute
-			siResult = ni_lookupprop( pContext->fDomain, &pContext->dirID, "authentication_authority", &niValues );
-			if ( (siResult == eDSNoErr) && (niValues.ni_namelist_len > 0) && (niValues.ni_namelist_val[0] != nil))
-			{
-				if ( strstr(niValues.ni_namelist_val[0], kDSValueAuthAuthorityShadowHash) != nil )
+				authUser = pContext->fAuthenticatedUserName;
+				if ( ( authUser == NULL ) && (strcmp(pAttrType,"picture") == 0) )
 				{
-					siResult = ni_lookupprop( pContext->fDomain, &pContext->dirID, "generateduid", &niValuesGUID );
-					if ( (siResult == eDSNoErr) && (niValuesGUID.ni_namelist_len > 0) && (niValuesGUID.ni_namelist_val[0] != nil))
+					authUser = GetUserNameForUID( pContext->fEffectiveUID, aNIDomain );
+				}
+				ni_proplist niPropList;
+
+				siResult = ::ni_read( aNIDomain, &pContext->dirID, &niPropList );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+
+				siResult = NiLib2::ValidateDir( authUser, &niPropList );
+				::ni_proplist_free( &niPropList );
+
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			}
+
+			// check if the auth authority of a shadow hash user is being removed
+			// if so we should also remove the hash file for that user
+			if ( (pAttrType != nil) && (strcmp(pAttrType,"authentication_authority") == 0) )
+			{
+				ni_namelist niValues;
+				ni_namelist niValuesGUID;
+				NI_INIT( &niValues );
+				NI_INIT( &niValuesGUID );
+				//lookup authauthority attribute
+				siResult = ni_lookupprop( aNIDomain, &pContext->dirID, "authentication_authority", &niValues );
+				if ( (siResult == eDSNoErr) && (niValues.ni_namelist_len > 0) && (niValues.ni_namelist_val[0] != nil))
+				{
+					if ( strcasestr(niValues.ni_namelist_val[0], kDSValueAuthAuthorityShadowHash) != nil )
 					{
-						//check to remove all corresponding hash files
-						RemoveShadowHash( pContext->fRecName, niValuesGUID.ni_namelist_val[0], true );
-					}
-					if (niValuesGUID.ni_namelist_len > 0)
-					{
-						ni_namelist_free(&niValuesGUID);
+						siResult = ni_lookupprop( aNIDomain, &pContext->dirID, "generateduid", &niValuesGUID );
+						if ( (siResult == eDSNoErr) && (niValuesGUID.ni_namelist_len > 0) && (niValuesGUID.ni_namelist_val[0] != nil))
+						{
+							//check to remove all corresponding hash files
+							RemoveShadowHash( pContext->fRecName, niValuesGUID.ni_namelist_val[0], true );
+						}
+						if (niValuesGUID.ni_namelist_len > 0)
+						{
+							ni_namelist_free(&niValuesGUID);
+						}
 					}
 				}
+				if (niValues.ni_namelist_len > 0)
+				{
+					ni_namelist_free(&niValues);
+				}
 			}
-			if (niValues.ni_namelist_len > 0)
+			
+			NI_INIT( &niAttribute );
+			::ni_namelist_insert( &niAttribute, pAttrType, NI_INDEX_NULL );
+
+			siResult = NiLib2::DestroyDirProp( aNIDomain, &pContext->dirID, niAttribute );
+			siResult = MapNetInfoErrors( siResult );
+			
+			::ni_namelist_free( &niAttribute );
+
+			if (siResult == eDSNoErr)
 			{
-				ni_namelist_free(&niValues);
+				pContext->bDidWriteOperation = true;
+			}
+
+			if ( pAttrType != nil )
+			{
+				delete( pAttrType );
+				pAttrType = nil;
 			}
 		}
-		
-		NI_INIT( &niAttribute );
-		::ni_namelist_insert( &niAttribute, pAttrType, NI_INDEX_NULL );
-
-		siResult = NiLib2::DestroyDirProp( pContext->fDomain, &pContext->dirID, niAttribute );
-		siResult = MapNetInfoErrors( siResult );
-		
-		::ni_namelist_free( &niAttribute );
-
-		if ( pAttrType != nil )
+		else
 		{
-			delete( pAttrType );
-			pAttrType = nil;
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -4307,50 +4749,59 @@ sInt32 CNiPlugIn::AddAttributeValue ( sAddAttributeValue *inData )
 		pContext = (sNIContextData *)gNINodeRef->GetItemData( inData->fInRecRef );
 		if ( pContext == nil ) throw( (sInt32)eDSInvalidRecordRef );
 
-		pAttrValue = inData->fInAttrValue->fBufferData;
 		pAttrType = MapAttrToNetInfoType( inData->fInAttrType->fBufferData );
+		pAttrValue = NormalizeNIString( inData->fInAttrValue->fBufferData, pAttrType );
 		if ( pAttrType == nil ) throw( (sInt32)eDSInvalidAttributeType );
 
-		// check access for non-admin users
-		if ( ( pContext->fEffectiveUID != 0 )
-			 && ( (pContext->fAuthenticatedUserName == NULL) 
-				  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			authUser = pContext->fAuthenticatedUserName;
-			if ( ( authUser == NULL ) && (strcmp(pAttrType,"picture") == 0) )
+			// check access for non-admin users
+			if ( ( pContext->fEffectiveUID != 0 )
+				 && ( (pContext->fAuthenticatedUserName == NULL) 
+					  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
 			{
-				authUser = GetUserNameForUID( pContext->fEffectiveUID, pContext->fDomain );
+				authUser = pContext->fAuthenticatedUserName;
+				if ( ( authUser == NULL ) && (strcmp(pAttrType,"picture") == 0) )
+				{
+					authUser = GetUserNameForUID( pContext->fEffectiveUID, aNIDomain );
+				}
+				ni_proplist niPropList;
+				ni_index	niIndex;
+
+				siResult = ::ni_read( aNIDomain, &pContext->dirID, &niPropList );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+
+				siResult = NiLib2::ValidateDir( authUser, &niPropList );
+				if ( siResult != NI_OK )
+				{
+					niIndex = ::ni_proplist_match( niPropList, pAttrType, NULL );
+					if ( niIndex != NI_INDEX_NULL )
+						siResult = NiLib2::ValidateName( authUser, &niPropList, niIndex );
+				}
+				::ni_proplist_free( &niPropList );
+
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
 			}
-			ni_proplist niPropList;
-			ni_index	niIndex;
 
-			siResult = ::ni_read( pContext->fDomain, &pContext->dirID, &niPropList );
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			NI_INIT( &niNameList );
+			::ni_namelist_insert( &niNameList, pAttrValue, NI_INDEX_NULL );
 
-			siResult = NiLib2::ValidateDir( authUser, &niPropList );
-			if ( siResult != NI_OK )
+			siResult = NiLib2::AppendDirProp( aNIDomain, &pContext->dirID, pAttrType, niNameList );
+			siResult = MapNetInfoErrors( siResult );
+
+			::ni_namelist_free( &niNameList );
+
+			if (siResult == eDSNoErr)
 			{
-				niIndex = ::ni_proplist_match( niPropList, pAttrType, NULL );
-				if ( niIndex != NI_INDEX_NULL )
-					siResult = NiLib2::ValidateName( authUser, &niPropList, niIndex );
+				pContext->bDidWriteOperation = true;
 			}
-			::ni_proplist_free( &niPropList );
-			
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+
+			DSDelete( pAttrType );
 		}
-		
-		NI_INIT( &niNameList );
-		::ni_namelist_insert( &niNameList, pAttrValue, NI_INDEX_NULL );
-
-		siResult = NiLib2::AppendDirProp( pContext->fDomain, &pContext->dirID, pAttrType, niNameList );
-		siResult = MapNetInfoErrors( siResult );
-				
-		::ni_namelist_free( &niNameList );
-
-		if ( pAttrType != nil )
+		else
 		{
-			delete( pAttrType );
-			pAttrType = nil;
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -4371,11 +4822,11 @@ sInt32 CNiPlugIn::AddAttributeValue ( sAddAttributeValue *inData )
 		}
 	}
 
-	if ( pAttrType != nil )
+	if ( pAttrValue != inData->fInAttrValue->fBufferData )
 	{
-		delete( pAttrType );
-		pAttrType = nil;
+		DSFreeString( pAttrValue );
 	}
+	DSDelete( pAttrType );
 	
 	gNetInfoMutex->Signal();
 
@@ -4411,109 +4862,119 @@ sInt32 CNiPlugIn::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 		pContext = (sNIContextData *)gNINodeRef->GetItemData( inData->fInRecRef );
 		if ( pContext == nil ) throw( (sInt32)eDSInvalidRecordRef );
 
-		// Get the native net info attribute
-		pAttrType = MapAttrToNetInfoType( inData->fInAttrType->fBufferData );
-
-		// read the attribute list
-		siResult = ::ni_read( pContext->fDomain, &pContext->dirID, &niPropList );
-		if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-		bFreePropList = true;
-
-		// check access for non-admin users
-		if ( ( pContext->fEffectiveUID != 0 )
-			 && ( (pContext->fAuthenticatedUserName == NULL) 
-				  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			authUser = pContext->fAuthenticatedUserName;
-			if ( ( authUser == NULL ) && (strcmp(pAttrType,"picture") == 0) )
-			{
-				authUser = GetUserNameForUID( pContext->fEffectiveUID, pContext->fDomain );
-			}
-			ni_index	niIndex;
+			// Get the native net info attribute
+			pAttrType = MapAttrToNetInfoType( inData->fInAttrType->fBufferData );
 
-			siResult = NiLib2::ValidateDir( authUser, &niPropList );
-			if ( siResult != NI_OK )
-			{
-				niIndex = ::ni_proplist_match( niPropList, pAttrType, NULL );
-				siResult = NiLib2::ValidateName( authUser, &niPropList, niIndex );
-			}
-
+			// read the attribute list
+			siResult = ::ni_read( aNIDomain, &pContext->dirID, &niPropList );
 			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-		}		
-		
-		siResult = eDSAttributeNotFound;
 
-// xxx use ni_namelist_match for better performance
+			bFreePropList = true;
 
-		for ( pn = 0; (pn < niPropList.ni_proplist_len) && (done == false); pn++ )
-		{
-			niProp = niPropList.ni_proplist_val[ pn ];
-
-			if ( (pAttrType != nil) && (::strcmp( niProp.nip_name, pAttrType ) == 0) )
+			// check access for non-admin users
+			if ( ( pContext->fEffectiveUID != 0 )
+				 && ( (pContext->fAuthenticatedUserName == NULL) 
+					  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
 			{
-				niValue = niProp.nip_val;
-
-				// For each value in the namelist for this property
-				for ( pv = 0; (pv < niValue.ni_namelist_len) && (done == false); pv++ )
+				authUser = pContext->fAuthenticatedUserName;
+				if ( ( authUser == NULL ) && (strcmp(pAttrType,"picture") == 0) )
 				{
-					uInt32 crcVal = CalcCRC( niValue.ni_namelist_val[ pv ] );
+					authUser = GetUserNameForUID( pContext->fEffectiveUID, aNIDomain );
+				}
+				ni_index	niIndex;
 
-					if ( crcVal == inData->fInAttrValueID )
+				siResult = NiLib2::ValidateDir( authUser, &niPropList );
+				if ( siResult != NI_OK )
+				{
+					niIndex = ::ni_proplist_match( niPropList, pAttrType, NULL );
+					siResult = NiLib2::ValidateName( authUser, &niPropList, niIndex );
+				}
+
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			}		
+			
+			siResult = eDSAttributeNotFound;
+
+	// xxx use ni_namelist_match for better performance
+
+			for ( pn = 0; (pn < niPropList.ni_proplist_len) && (done == false); pn++ )
+			{
+				niProp = niPropList.ni_proplist_val[ pn ];
+
+				if ( (pAttrType != nil) && (::strcmp( niProp.nip_name, pAttrType ) == 0) )
+				{
+					niValue = niProp.nip_val;
+
+					// For each value in the namelist for this property
+					for ( pv = 0; (pv < niValue.ni_namelist_len) && (done == false); pv++ )
 					{
-						// check if the auth authority value of shadow hash for a user is being removed
-						// if so we should also remove the hash file for that user
-						if ( (pAttrType != nil) && (strcmp(pAttrType,"authentication_authority") == 0) )
+						uInt32 crcVal = CalcCRC( niValue.ni_namelist_val[ pv ] );
+
+						if ( crcVal == inData->fInAttrValueID )
 						{
-							ni_namelist niValues;
-							ni_namelist niValuesGUID;
-							NI_INIT( &niValues );
-							NI_INIT( &niValuesGUID );
-							//lookup authauthority attribute
-							siResult = ni_lookupprop( pContext->fDomain, &pContext->dirID, "authentication_authority", &niValues );
-							if ( (siResult == eDSNoErr) && (niValues.ni_namelist_len > 0) && (niValues.ni_namelist_val[0] != nil))
+							// check if the auth authority value of shadow hash for a user is being removed
+							// if so we should also remove the hash file for that user
+							if ( (pAttrType != nil) && (strcmp(pAttrType,"authentication_authority") == 0) )
 							{
-								if ( strstr(niValues.ni_namelist_val[0], kDSValueAuthAuthorityShadowHash) != nil )
+								ni_namelist niValues;
+								ni_namelist niValuesGUID;
+								NI_INIT( &niValues );
+								NI_INIT( &niValuesGUID );
+								//lookup authauthority attribute
+								siResult = ni_lookupprop( aNIDomain, &pContext->dirID, "authentication_authority", &niValues );
+								if ( (siResult == eDSNoErr) && (niValues.ni_namelist_len > 0) && (niValues.ni_namelist_val[0] != nil))
 								{
-									siResult = ni_lookupprop( pContext->fDomain, &pContext->dirID, "generateduid", &niValuesGUID );
-									if ( (siResult == eDSNoErr) && (niValuesGUID.ni_namelist_len > 0) && (niValuesGUID.ni_namelist_val[0] != nil))
+									if ( strcasestr(niValues.ni_namelist_val[0], kDSValueAuthAuthorityShadowHash) != nil )
 									{
-										//check to remove all corresponding hash files
-										RemoveShadowHash( pContext->fRecName, niValuesGUID.ni_namelist_val[0], true );
-									}
-									if (niValuesGUID.ni_namelist_len > 0)
-									{
-										ni_namelist_free(&niValuesGUID);
+										siResult = ni_lookupprop( aNIDomain, &pContext->dirID, "generateduid", &niValuesGUID );
+										if ( (siResult == eDSNoErr) && (niValuesGUID.ni_namelist_len > 0) && (niValuesGUID.ni_namelist_val[0] != nil))
+										{
+											//check to remove all corresponding hash files
+											RemoveShadowHash( pContext->fRecName, niValuesGUID.ni_namelist_val[0], true );
+										}
+										if (niValuesGUID.ni_namelist_len > 0)
+										{
+											ni_namelist_free(&niValuesGUID);
+										}
 									}
 								}
+								if (niValues.ni_namelist_len > 0)
+								{
+									ni_namelist_free(&niValues);
+								}
 							}
-							if (niValues.ni_namelist_len > 0)
-							{
-								ni_namelist_free(&niValues);
-							}
+
+							NI_INIT( &niNameList );
+							::ni_namelist_insert( &niNameList, niValue.ni_namelist_val[ pv ], NI_INDEX_NULL );
+
+							siResult = NiLib2::DestroyDirVal( aNIDomain, &pContext->dirID, pAttrType, niNameList );
+							siResult = MapNetInfoErrors( siResult );
+							if ( siResult != eDSNoErr ) throw( siResult );
+							
+							::ni_namelist_free( &niNameList );
+
+							pContext->bDidWriteOperation = true;
+
+							done = true;
+
+							break;
 						}
-
-						NI_INIT( &niNameList );
-						::ni_namelist_insert( &niNameList, niValue.ni_namelist_val[ pv ], NI_INDEX_NULL );
-
-						siResult = NiLib2::DestroyDirVal( pContext->fDomain, &pContext->dirID, pAttrType, niNameList );
-						siResult = MapNetInfoErrors( siResult );
-						if ( siResult != eDSNoErr ) throw( siResult );
-						
-						::ni_namelist_free( &niNameList );
-
-						done = true;
-
-						break;
 					}
 				}
 			}
+			
+			if ( pAttrType != nil )
+			{
+				delete( pAttrType );
+				pAttrType = nil;
+			}
 		}
-		
-		if ( pAttrType != nil )
+		else
 		{
-			delete( pAttrType );
-			pAttrType = nil;
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -4575,109 +5036,115 @@ sInt32 CNiPlugIn::SetAttributeValue ( sSetAttributeValue *inData )
 		pContext = (sNIContextData *)gNINodeRef->GetItemData( inData->fInRecRef );
 		if ( pContext == nil ) throw( (sInt32)eDSInvalidRecordRef );
 
-		pAttrType = MapAttrToNetInfoType( inData->fInAttrType->fBufferData );
-
-		siResult = ::ni_read( pContext->fDomain, &pContext->dirID, &niPropList );
-		if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-		bFreePropList = true;
-
-		// check access for non-admin users
-		if ( ( pContext->fEffectiveUID != 0 )
-			 && ( (pContext->fAuthenticatedUserName == NULL) 
-				  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
 		{
-			authUser = pContext->fAuthenticatedUserName;
-			if ( ( authUser == NULL ) && (strcmp(pAttrType,"picture") == 0) )
-			{
-				authUser = GetUserNameForUID( pContext->fEffectiveUID, pContext->fDomain );
-			}
-			ni_index	niIndex;
+			pAttrType = MapAttrToNetInfoType( inData->fInAttrType->fBufferData );
 
-			siResult = NiLib2::ValidateDir( authUser, &niPropList );
-			if ( siResult != NI_OK )
-			{
-				niIndex = ::ni_proplist_match( niPropList, pAttrType, NULL );
-				siResult = NiLib2::ValidateName( authUser, &niPropList, niIndex );
-			}
-
+			siResult = ::ni_read( aNIDomain, &pContext->dirID, &niPropList );
 			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-		}
 
-		siResult = eDSAttributeNotFound;
-		for ( pn = 0; pn < (niPropList.ni_proplist_len) && (done == false); pn++ )
-		{
-			niProp = niPropList.ni_proplist_val[ pn ];
+			bFreePropList = true;
 
-			if ( (pAttrType != nil) && (::strcmp( niProp.nip_name, pAttrType ) == 0) )
+			// check access for non-admin users
+			if ( ( pContext->fEffectiveUID != 0 )
+				 && ( (pContext->fAuthenticatedUserName == NULL) 
+					  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
 			{
-				niValue = niProp.nip_val;
-
-				// For each value in the namelist for this property
-				for ( pv = 0; (pv < niValue.ni_namelist_len) && (done == false); pv++ )
+				authUser = pContext->fAuthenticatedUserName;
+				if ( ( authUser == NULL ) && (strcmp(pAttrType,"picture") == 0) )
 				{
-					uInt32 crcVal = CalcCRC( niValue.ni_namelist_val[ pv ] );
-					if ( crcVal == inData->fInAttrValueEntry->fAttributeValueID )
-					{
-						pAttrValue = inData->fInAttrValueEntry->fAttributeValueData.fBufferData;
+					authUser = GetUserNameForUID( pContext->fEffectiveUID, aNIDomain );
+				}
+				ni_index	niIndex;
 
-						// check if the auth authority value of shadow hash for a user is being replaced
-						// if so we should also remove the hash file for that user
-						if ( (pAttrType != nil) && (strcmp(pAttrType,"authentication_authority") == 0) )
+				siResult = NiLib2::ValidateDir( authUser, &niPropList );
+				if ( siResult != NI_OK )
+				{
+					niIndex = ::ni_proplist_match( niPropList, pAttrType, NULL );
+					siResult = NiLib2::ValidateName( authUser, &niPropList, niIndex );
+				}
+
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			}
+
+			siResult = eDSAttributeNotFound;
+			pAttrValue = NormalizeNIString( inData->fInAttrValueEntry->fAttributeValueData.fBufferData, pAttrType );
+			for ( pn = 0; pn < (niPropList.ni_proplist_len) && (done == false); pn++ )
+			{
+				niProp = niPropList.ni_proplist_val[ pn ];
+
+				if ( (pAttrType != nil) && (::strcmp( niProp.nip_name, pAttrType ) == 0) )
+				{
+					niValue = niProp.nip_val;
+
+					// For each value in the namelist for this property
+					for ( pv = 0; (pv < niValue.ni_namelist_len) && (done == false); pv++ )
+					{
+						uInt32 crcVal = CalcCRC( niValue.ni_namelist_val[ pv ] );
+						if ( crcVal == inData->fInAttrValueEntry->fAttributeValueID )
 						{
-							ni_namelist niValues;
-							ni_namelist niValuesGUID;
-							NI_INIT( &niValues );
-							NI_INIT( &niValuesGUID );
-							//lookup authauthority attribute
-							siResult = ni_lookupprop( pContext->fDomain, &pContext->dirID, "authentication_authority", &niValues );
-							if ( (siResult == eDSNoErr) && (niValues.ni_namelist_len > 0) && (niValues.ni_namelist_val[0] != nil))
+							// check if the auth authority value of shadow hash for a user is being replaced
+							// if so we should also remove the hash file for that user
+							if ( (pAttrType != nil) && (strcmp(pAttrType,"authentication_authority") == 0) )
 							{
-								if ( strstr(niValues.ni_namelist_val[0], kDSValueAuthAuthorityShadowHash) != nil ) 
+								ni_namelist niValues;
+								ni_namelist niValuesGUID;
+								NI_INIT( &niValues );
+								NI_INIT( &niValuesGUID );
+								//lookup authauthority attribute
+								siResult = ni_lookupprop( aNIDomain, &pContext->dirID, "authentication_authority", &niValues );
+								if ( (siResult == eDSNoErr) && (niValues.ni_namelist_len > 0) && (niValues.ni_namelist_val[0] != nil))
 								{
-									if (	( strstr(pAttrValue, kDSValueAuthAuthorityShadowHash) == nil ) &&
-											( strstr(pAttrValue, kDSTagAuthAuthorityDisabledUser) == nil ) )
+									if ( strcasestr(niValues.ni_namelist_val[0], kDSValueAuthAuthorityShadowHash) != nil ) 
 									{
-										siResult = ni_lookupprop( pContext->fDomain, &pContext->dirID, "generateduid", &niValuesGUID );
-										if ( (siResult == eDSNoErr) && (niValuesGUID.ni_namelist_len > 0) && (niValuesGUID.ni_namelist_val[0] != nil))
+										if (	( strcasestr(pAttrValue, kDSValueAuthAuthorityShadowHash) == nil ) &&
+												( strcasestr(pAttrValue, kDSTagAuthAuthorityDisabledUser) == nil ) )
 										{
-											//check to remove all corresponding hash files
-											RemoveShadowHash( pContext->fRecName, niValuesGUID.ni_namelist_val[0], true );
-										}
-										if (niValuesGUID.ni_namelist_len > 0)
-										{
-											ni_namelist_free(&niValuesGUID);
+											siResult = ni_lookupprop( aNIDomain, &pContext->dirID, "generateduid", &niValuesGUID );
+											if ( (siResult == eDSNoErr) && (niValuesGUID.ni_namelist_len > 0) && (niValuesGUID.ni_namelist_val[0] != nil))
+											{
+												//check to remove all corresponding hash files
+												RemoveShadowHash( pContext->fRecName, niValuesGUID.ni_namelist_val[0], true );
+											}
+											if (niValuesGUID.ni_namelist_len > 0)
+											{
+												ni_namelist_free(&niValuesGUID);
+											}
 										}
 									}
 								}
+								if (niValues.ni_namelist_len > 0)
+								{
+									ni_namelist_free(&niValues);
+								}
 							}
-							if (niValues.ni_namelist_len > 0)
+
+							NI_INIT( &niNameList );
+							::ni_namelist_insert( &niNameList, niValue.ni_namelist_val[ pv ], NI_INDEX_NULL );
+
+							siResult = NiLib2::DestroyDirVal( aNIDomain, &pContext->dirID, pAttrType, niNameList );
+							siResult = NiLib2::InsertDirVal( aNIDomain, &pContext->dirID, pAttrType, pAttrValue, pv );
+							siResult = MapNetInfoErrors( siResult );
+
+							if (siResult == eDSNoErr)
 							{
-								ni_namelist_free(&niValues);
+								pContext->bDidWriteOperation = true;
 							}
+
+							::ni_namelist_free( &niNameList );
+
+							done = true;
+
+							break;
 						}
-
-						NI_INIT( &niNameList );
-						::ni_namelist_insert( &niNameList, niValue.ni_namelist_val[ pv ], NI_INDEX_NULL );
-
-						siResult = NiLib2::DestroyDirVal( pContext->fDomain, &pContext->dirID, pAttrType, niNameList );
-						siResult = NiLib2::InsertDirVal( pContext->fDomain, &pContext->dirID, pAttrType, pAttrValue, pv );
-						siResult = MapNetInfoErrors( siResult );
-
-						::ni_namelist_free( &niNameList );
-
-						done = true;
-
-						break;
 					}
 				}
 			}
 		}
-
-		if ( pAttrType != nil )
+		else
 		{
-			delete( pAttrType );
-			pAttrType = nil;
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -4698,6 +5165,12 @@ sInt32 CNiPlugIn::SetAttributeValue ( sSetAttributeValue *inData )
 		}
 	}
 
+	DSDelete( pAttrType );
+	if ( pAttrValue != inData->fInAttrValueEntry->fAttributeValueData.fBufferData )
+	{
+		DSFreeString( pAttrValue );
+	}
+	
 	if (bFreePropList)
 	{
 		::ni_proplist_free( &niPropList );
@@ -4708,6 +5181,191 @@ sInt32 CNiPlugIn::SetAttributeValue ( sSetAttributeValue *inData )
 	return( siResult );
 
 } // SetAttributeValue
+
+
+//------------------------------------------------------------------------------------
+//	* SetAttributeValues
+//------------------------------------------------------------------------------------
+
+sInt32 CNiPlugIn::SetAttributeValues ( sSetAttributeValues *inData )
+{
+	bool					bWasShadowHash	= false;
+	bool					bIsShadowHash	= false;
+	sInt32					siResult		= eDSNoErr;
+	bool					bFreePropList	= false;
+	uInt32					pn				= 0;
+	uInt32					pv				= 0;
+	char				   *pAttrType		= nil;
+	uInt32					valCount		= 0;
+	char				   *attrValue		= nil;
+	uInt32					attrLength		= 0;
+	tDataNodePtr			valuePtr		= nil;
+	sNIContextData		   *pContext		= nil;
+	ni_namelist				niNameList;
+	ni_namelist				niValue;
+	ni_property				niProp;
+	ni_proplist				niPropList;
+	char				   *authUser		= nil;
+
+	gNetInfoMutex->Wait();
+
+	try
+	{
+		// Record context data
+		pContext = (sNIContextData *)gNINodeRef->GetItemData( inData->fInRecRef );
+		if ( pContext == nil ) throw( (sInt32)eDSInvalidRecordRef );
+
+		if ( inData->fInAttrType == nil ) throw( (sInt32)eDSNullAttributeType );
+		//if ( inData->fInAttrValueList == nil ) throw( (sInt32)eDSNullAttributeValue ); //would like a plural constant for this
+
+		void * aNIDomain = RetrieveNIDomain(pContext);
+		if (aNIDomain != NULL)
+		{
+			pAttrType = MapAttrToNetInfoType( inData->fInAttrType->fBufferData );
+
+			siResult = ::ni_read( aNIDomain, &pContext->dirID, &niPropList );
+			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+
+			bFreePropList = true;
+
+			// check access for non-admin users
+			if ( ( pContext->fEffectiveUID != 0 )
+				 && ( (pContext->fAuthenticatedUserName == NULL) 
+					  || (strcmp(pContext->fAuthenticatedUserName,"root") != 0) ) )
+			{
+				authUser = pContext->fAuthenticatedUserName;
+				if ( ( authUser == NULL ) && (strcmp(pAttrType,"picture") == 0) )
+				{
+					authUser = GetUserNameForUID( pContext->fEffectiveUID, aNIDomain );
+				}
+				ni_index	niIndex;
+
+				siResult = NiLib2::ValidateDir( authUser, &niPropList );
+				if ( siResult != NI_OK )
+				{
+					niIndex = ::ni_proplist_match( niPropList, pAttrType, NULL );
+					siResult = NiLib2::ValidateName( authUser, &niPropList, niIndex );
+				}
+
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			}
+			valCount	= inData->fInAttrValueList->fDataNodeCount;
+			niNameList.ni_namelist_len = valCount;
+			niNameList.ni_namelist_val = (ni_name*) calloc(valCount + 1, sizeof(ni_name*) );
+			
+			for (uInt32 i = 0; i < valCount; i++ ) //extract the values out of the tDataList
+			{
+				dsDataListGetNodeAlloc( 0, inData->fInAttrValueList, i+1, &valuePtr );
+				if ( (valuePtr != nil) && (valuePtr->fBufferLength > 0) )
+				{
+					attrLength = valuePtr->fBufferLength;
+					attrValue = (char *) calloc(1, 1 + attrLength);
+					memcpy(attrValue, valuePtr->fBufferData, attrLength);
+					niNameList.ni_namelist_val[i] = attrValue;
+					attrValue = nil;
+				}
+				if (valuePtr != NULL)
+				{
+					dsDataBufferDeallocatePriv(valuePtr);
+					valuePtr = NULL;
+				}
+			} // for each value provided
+			NormalizeNINameList(&niNameList, pAttrType);
+			
+			if ( strcmp(pAttrType,"authentication_authority") == 0 )
+			{
+				// check if we are going from ShadowHash to something else
+				pn = ni_proplist_match(niPropList, pAttrType, NULL);
+				if (pn != NI_INDEX_NULL) {
+					niProp = niPropList.ni_proplist_val[ pn ];
+					niValue = niProp.nip_val;
+					for ( pv = 0; pv < niValue.ni_namelist_len && niValue.ni_namelist_val[pv]; pv++ )
+					{
+						if (strcasestr(niValue.ni_namelist_val[pv], kDSValueAuthAuthorityShadowHash) != nil)
+						{
+							bWasShadowHash = true;
+							break;
+						}
+					}
+				}
+				if (bWasShadowHash)
+				{
+					niValue = niNameList;
+					for ( pv = 0; pv < niValue.ni_namelist_len; pv++ )
+					{
+						if ( strcasestr(niValue.ni_namelist_val[pv], kDSValueAuthAuthorityShadowHash) != nil )
+						{
+							bIsShadowHash = true;
+							break;
+						}
+					}
+				}
+			}
+			
+			if (bWasShadowHash && !bIsShadowHash)
+			{
+				// check if the auth authority value of shadow hash for a user is being replaced
+				// if so we should also remove the hash file for that user
+				ni_namelist niValuesGUID;
+				NI_INIT( &niValuesGUID );
+				//lookup authauthority attribute
+				siResult = ni_lookupprop( aNIDomain, &pContext->dirID, "generateduid", &niValuesGUID );
+				if ( (siResult == eDSNoErr) && (niValuesGUID.ni_namelist_len > 0) && (niValuesGUID.ni_namelist_val[0] != nil))
+				{
+					//check to remove all corresponding hash files
+					RemoveShadowHash( pContext->fRecName, niValuesGUID.ni_namelist_val[0], true );
+				}
+				if (niValuesGUID.ni_namelist_len > 0)
+				{
+					ni_namelist_free(&niValuesGUID);
+				}
+			}
+
+			siResult = NiLib2::CreateDirProp( aNIDomain, &pContext->dirID, pAttrType, niNameList );
+			siResult = MapNetInfoErrors( siResult );
+
+			if (siResult == eDSNoErr)
+			{
+				pContext->bDidWriteOperation = true;
+			}
+
+			::ni_namelist_free( &niNameList );
+
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
+		}
+	}
+	catch( sInt32 err )
+	{
+		siResult = err;
+	}
+
+	if (authUser != nil)
+	{
+		if (pContext != nil)
+		{
+			if (pContext->fAuthenticatedUserName == nil)
+			{
+				free(authUser);
+				authUser = nil;
+			}
+		}
+	}
+
+	DSDelete( pAttrType );
+
+	if (bFreePropList)
+	{
+		::ni_proplist_free( &niPropList );
+	}
+
+	gNetInfoMutex->Signal();
+
+	return( siResult );
+
+} // SetAttributeValues
 
 
 //------------------------------------------------------------------------------------
@@ -4744,8 +5402,6 @@ sInt32 CNiPlugIn::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 	gNetInfoMutex->Signal();
 
 	return( siResult );
-
-
 } // DoPlugInCustomCall
 
 
@@ -4761,7 +5417,7 @@ sInt32 CNiPlugIn::DoAttributeValueSearch ( sDoAttrValueSearchWithData *inData )
 	uInt32					uiTotal				= 0;
 	CRecTypeList		   *cpRecTypeList		= nil;
 	CAttributeList		   *cpAttrTypeList		= nil;
-	char				   *pSearchStr			= nil;
+	CAttributeList		   *cpPattMatchList		= nil;
 	char				   *pDS_AttrType		= nil;
 	char				   *pNI_RecType			= nil;
 	char				   *pDS_RecType			= nil;
@@ -4773,6 +5429,8 @@ sInt32 CNiPlugIn::DoAttributeValueSearch ( sDoAttrValueSearchWithData *inData )
 	bool					bBuffFull			= false;
 	bool					separateRecTypes	= false;
 	uInt32					countDownRecTypes	= 0;
+	ni_id					niDirID;
+	ni_entrylist			niEntryList;
 
 	gNetInfoMutex->Wait();
 
@@ -4828,15 +5486,77 @@ sInt32 CNiPlugIn::DoAttributeValueSearch ( sDoAttrValueSearchWithData *inData )
 		cpRecTypeList = new CRecTypeList( inData->fInRecTypeList );
 		if ( cpRecTypeList == nil ) throw( (sInt32)eDSEmptyRecordTypeList );
 		if (cpRecTypeList->GetCount() == 0) throw( (sInt32)eDSEmptyRecordTypeList );
+		//now we check to see if kDSStdRecordTypeAll is present by itself only
+		//if it is present we rebuild this list to include all existing record types in the directory
+		char *aStringValue = nil;
+		if (eDSNoErr == cpRecTypeList->GetAttribute(1, &aStringValue))
+		{
+			if (strcmp(aStringValue, kDSStdRecordTypeAll) == 0)
+			{
+				delete( cpRecTypeList );
+				cpRecTypeList = nil;
+				//now need to build the real list
+				//make sure that users, groups and computers are first always
+				tDataListPtr newNodeList = dsBuildListFromStrings( 0, kDSStdRecordTypeUsers, kDSStdRecordTypeGroups, kDSStdRecordTypeComputers, nil );
+				void * aNIDomain = RetrieveNIDomain(pContext);
+				if (aNIDomain != NULL)
+				{
+					NI_INIT( &niDirID );
+					NI_INIT( &niEntryList );
+					siResult = ::ni_pathsearch( aNIDomain, &niDirID, "/" );
+					if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+					siResult = ::ni_list( aNIDomain, &niDirID, "name", &niEntryList );
+					if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+					
+					if (niEntryList.ni_entrylist_val == NULL)
+					{
+						niEntryList.ni_entrylist_len = 0;
+					}
+					for ( uInt32 i = 0; i < niEntryList.ni_entrylist_len; i++ )
+					{
+						char* dsType = MapNetInfoRecToDSType(niEntryList.ni_entrylist_val[i].names->ni_namelist_val[0]);
+						
+						if (dsType != NULL)
+						{
+							//need to filter out all the duplicates for users, groups, computers as well as non-std types
+							if (	(strncmp(dsType,kDSStdRecordTypePrefix,strlen(kDSStdRecordTypePrefix)) == 0) &&
+									(strcmp(dsType,kDSStdRecordTypeUsers) != 0) &&
+									(strcmp(dsType,kDSStdRecordTypeGroups) != 0) &&
+									(strcmp(dsType,kDSStdRecordTypeComputers) != 0) )
+									
+							{
+								dsAppendStringToListAlloc(0, newNodeList, dsType);
+							}
+							delete( dsType );
+							dsType = nil;
+						}
+					}
+					if ( niEntryList.ni_entrylist_len > 0 )
+					{
+						ni_entrylist_free(&niEntryList);
+					}
+					cpRecTypeList = new CRecTypeList( newNodeList );
+					if ( cpRecTypeList == nil ) throw( (sInt32)eDSEmptyRecordTypeList );
+					if (cpRecTypeList->GetCount() == 0) throw( (sInt32)eDSEmptyRecordTypeList );
+				}
+				else
+				{
+					throw( (sInt32)eDSInvalidSession );
+				}
+			}//if (strcmp(aStringValue, kDSStdRecordTypeAll) == 0)
+		}//if (eDSNoErr == cpRecTypeList->GetAttribute(1, &aStringValue))
+		
 		//save the number of rec types here to use in separating the buffer data
 		countDownRecTypes = cpRecTypeList->GetCount() - pContinue->fRecTypeIndex + 1;
 
 		pDS_AttrType = inData->fInAttrType->fBufferData;
 		if ( pDS_AttrType == nil ) throw( (sInt32)eDSEmptyAttributeType );
 
-		pSearchStr = inData->fInPatt2Match->fBufferData;
-		if ( pSearchStr == nil ) throw( (sInt32)eDSEmptyPattern2Match );
-
+		// Get the attribute value matching list
+		cpPattMatchList = new CAttributeList( (char *)(inData->fInPatt2Match->fBufferData) );
+		if ( cpPattMatchList == nil ) throw( (sInt32)eDSEmptyDataList );
+		if (cpPattMatchList->GetCount() == 0) throw( (sInt32)eDSEmptyDataList );
+		
 		if ( inData->fType == kDoAttributeValueSearchWithData )
 		{
 			// Get the attribute list
@@ -4877,13 +5597,12 @@ sInt32 CNiPlugIn::DoAttributeValueSearch ( sDoAttrValueSearchWithData *inData )
 				{
 					siResult = FindAllRecords ( pNI_RecType,
 												pDS_RecType,
-												pSearchStr,
+												cpPattMatchList,
 												pattMatch,
 												cpAttrTypeList,
 												bAttrInfoOnly,
 												pContinue,
-												pContext->fDomain,
-												pContext->fDomainName,
+												pContext,
 												outBuff,
 												uiCount );
 				}
@@ -4892,13 +5611,359 @@ sInt32 CNiPlugIn::DoAttributeValueSearch ( sDoAttrValueSearchWithData *inData )
 					siResult = FindTheseRecords ( pNI_RecType,
 												pDS_RecType,
 												pDS_AttrType,
-												pSearchStr,
+												cpPattMatchList,
 												pattMatch,
 												cpAttrTypeList,
 												bAttrInfoOnly,
 												pContinue,
-												pContext->fDomain,
-												pContext->fDomainName,
+												pContext,
+												outBuff,
+												uiCount );
+
+				}
+				
+				//outBuff->GetDataBlockCount( &uiCount );
+				//cannot use this as there may be records added from different record names
+				//at which point the first name will fill the buffer with n records and
+				//uiCount is reported as n but as the second name fills the buffer with m MORE records
+				//the statement above will return the total of n+m and add it to the previous n
+				//so that the total erroneously becomes 2n+m and not what it should be as n+m
+				//therefore uiCount is extracted directly out of the GetxxxRecord(s) calls
+
+				if ( siResult == CBuff::kBuffFull )
+				{
+					bBuffFull = true;
+					inData->fIOContinueData = pContinue;
+
+					// check to see if buffer is empty and no entries added
+					// which implies that the buffer is too small
+					if ( ( uiCount == 0 ) && ( uiTotal == 0 ) )
+					{
+						siResult = eDSBufferTooSmall;
+						break;
+					}
+					uiTotal += uiCount;
+		
+					inData->fOutMatchRecordCount = uiTotal;
+					outBuff->SetLengthToSize();
+
+					siResult = eDSNoErr;
+				}
+				else if ( siResult == eDSNoErr )
+				{
+					uiTotal += uiCount;
+					pContinue->fRecNameIndex++;
+				}
+				delete( pNI_RecType );
+				pNI_RecType = nil;
+			}
+
+			if ( !bBuffFull )
+			{
+				pDS_RecType = nil;
+				pContinue->fRecTypeIndex++;
+				pContinue->fRecNameIndex = 1;
+				//KW? here we decide to exit with data full of the current type of records
+				// and force a good exit with the data we have so we can come back for the next rec type
+				separateRecTypes = true;
+				//set continue since there may be more data available
+				inData->fIOContinueData = pContinue;
+				//make sure that the ni_entry_list is cleared for the previous record type
+				if ( pContinue->fNIEntryList.ni_entrylist_len > 0 )
+				{
+					::ni_entrylist_free(&(pContinue->fNIEntryList));
+					pContinue->fNIEntryList.ni_entrylist_len = 0;
+				}
+				siResult = eDSNoErr;
+
+				//however if this was the last rec type then there will be no more data
+				// check the number of rec types left
+				countDownRecTypes--;
+				if ( countDownRecTypes == 0 )
+				{
+					inData->fIOContinueData = nil;
+				}
+			}
+		}
+
+		if ( (siResult == eDSNoErr) && (!bBuffFull) )
+		{
+			if ( uiTotal == 0 )
+			{
+				//KW to remove "siResult = eDSRecordNotFound" altogether
+				// see 2531386  dsGetRecordList should not return an error if record not found
+				//siResult = eDSRecordNotFound;
+				outBuff->ClearBuff();
+			}
+			else
+			{
+				outBuff->SetLengthToSize();
+			}
+
+			inData->fOutMatchRecordCount = uiTotal;
+		}
+	}
+
+	catch( sInt32 err )
+	{
+		siResult = err;
+	}
+
+	if ( (inData->fIOContinueData == nil) && (pContinue != nil) )
+	{
+		// we've decided not to return continue data, so we should clean up
+		gNIContinue->RemoveItem( pContinue );
+		pContinue = nil;
+	}
+
+	gNetInfoMutex->Signal();
+
+	if ( cpAttrTypeList != nil )
+	{
+		delete( cpAttrTypeList );
+		cpAttrTypeList = nil;
+	}
+	if ( cpPattMatchList != nil )
+	{
+		delete( cpPattMatchList );
+		cpPattMatchList = nil;
+	}
+	if ( cpRecTypeList != nil )
+	{
+		delete( cpRecTypeList );
+		cpRecTypeList = nil;
+	}
+	if ( outBuff != nil )
+	{
+		delete( outBuff );
+		outBuff = nil;
+	}
+	if ( pNI_RecType != nil )
+	{
+		delete( pNI_RecType );
+		pNI_RecType = nil;
+	}
+
+	if ( pTmpDataList != nil )
+	{
+		(void)::dsDataListDeallocatePriv( pTmpDataList );
+		//need to free the header as well
+		free( pTmpDataList );
+		pTmpDataList = nil;
+	}
+
+	return( siResult );
+} // DoAttributeValueSearch
+
+
+//------------------------------------------------------------------------------------
+//	* DoMultipleAttributeValueSearch
+//------------------------------------------------------------------------------------
+
+sInt32 CNiPlugIn::DoMultipleAttributeValueSearch ( sDoMultiAttrValueSearchWithData *inData )
+{
+	sInt32					siResult			= eDSNoErr;
+	bool					bAttrInfoOnly		= false;
+	uInt32					uiCount				= 0;
+	uInt32					uiTotal				= 0;
+	CRecTypeList		   *cpRecTypeList		= nil;
+	CAttributeList		   *cpAttrTypeList		= nil;
+	CAttributeList		   *cpPattMatchList		= nil;
+	char				   *pDS_AttrType		= nil;
+	char				   *pNI_RecType			= nil;
+	char				   *pDS_RecType			= nil;
+	sNIContextData		   *pContext			= nil;
+	sNIContinueData		   *pContinue			= nil;
+	tDirPatternMatch		pattMatch			= eDSExact;
+	tDataList			   *pTmpDataList		= nil;
+	CBuff				   *outBuff				= nil;
+	bool					bBuffFull			= false;
+	bool					separateRecTypes	= false;
+	uInt32					countDownRecTypes	= 0;
+	ni_id					niDirID;
+	ni_entrylist			niEntryList;
+
+	gNetInfoMutex->Wait();
+
+	try
+	{
+		if ( inData == nil ) throw( (sInt32)eMemoryError );
+
+		pContext = (sNIContextData *)gNINodeRef->GetItemData( inData->fInNodeRef );
+		if ( pContext == nil ) throw( (sInt32)eDSInvalidNodeRef );
+
+		if ( inData->fIOContinueData == nil )
+		{
+			pContinue = (sNIContinueData *)::calloc( 1, sizeof( sNIContinueData ) );
+			gNIContinue->AddItem( pContinue, inData->fInNodeRef );
+
+			pContinue->fRecNameIndex = 1;
+			pContinue->fRecTypeIndex = 1;
+			pContinue->fAttrIndex = 1;
+			pContinue->fAllRecIndex		= 0;
+			pContinue->fTotalRecCount	= 0;
+			pContinue->fLimitRecSearch	= 0;
+			
+			//check if the client has requested a limit on the number of records to return
+			//we only do this the first call into this context for pContinue
+			if (inData->fOutMatchRecordCount >= 0)
+			{
+				pContinue->fLimitRecSearch = inData->fOutMatchRecordCount;
+			}
+		}
+		else
+		{
+			pContinue = (sNIContinueData *)inData->fIOContinueData;
+			if ( gNIContinue->VerifyItem( pContinue ) == false )
+			{
+				throw( (sInt32)eDSInvalidContinueData );
+			}
+		}
+
+		inData->fIOContinueData			= nil;
+		//return zero if we don't find anything
+		inData->fOutMatchRecordCount	= 0;
+
+		outBuff = new CBuff;
+		if ( outBuff == nil ) throw( (sInt32)eMemoryAllocError );
+
+		siResult = outBuff->Initialize( inData->fOutDataBuff, true );
+		if ( siResult != eDSNoErr ) throw( siResult );
+
+		siResult = outBuff->SetBuffType( 'StdA' );
+		if ( siResult != eDSNoErr ) throw( siResult );
+
+		// Get the record type list
+		cpRecTypeList = new CRecTypeList( inData->fInRecTypeList );
+		if ( cpRecTypeList == nil ) throw( (sInt32)eDSEmptyRecordTypeList );
+		if (cpRecTypeList->GetCount() == 0) throw( (sInt32)eDSEmptyRecordTypeList );
+		//now we check to see if kDSStdRecordTypeAll is present by itself only
+		//if it is present we rebuild this list to include all existing record types in the directory
+		char *aStringValue = nil;
+		if (eDSNoErr == cpRecTypeList->GetAttribute(1, &aStringValue))
+		{
+			if (strcmp(aStringValue, kDSStdRecordTypeAll) == 0)
+			{
+				delete( cpRecTypeList );
+				cpRecTypeList = nil;
+				//now need to build the real list
+				//make sure that users, groups and computers are first always
+				tDataListPtr newNodeList = dsBuildListFromStrings( 0, kDSStdRecordTypeUsers, kDSStdRecordTypeGroups, kDSStdRecordTypeComputers, nil );
+				void * aNIDomain = RetrieveNIDomain(pContext);
+				if (aNIDomain != NULL)
+				{
+					NI_INIT( &niDirID );
+					NI_INIT( &niEntryList );
+					siResult = ::ni_pathsearch( aNIDomain, &niDirID, "/" );
+					if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+					siResult = ::ni_list( aNIDomain, &niDirID, "name", &niEntryList );
+					if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+					
+					for ( uInt32 i = 0; i < niEntryList.ni_entrylist_len; i++ )
+					{
+						char* dsType = MapNetInfoRecToDSType(niEntryList.ni_entrylist_val[i].names->ni_namelist_val[0]);
+						
+						if (dsType != NULL)
+						{
+							//need to filter out all the duplicates for users, groups, computers as well as non-std types
+							if (	(strncmp(dsType,kDSStdRecordTypePrefix,strlen(kDSStdRecordTypePrefix)) == 0) &&
+									(strcmp(dsType,kDSStdRecordTypeUsers) != 0) &&
+									(strcmp(dsType,kDSStdRecordTypeGroups) != 0) &&
+									(strcmp(dsType,kDSStdRecordTypeComputers) != 0) )
+									
+							{
+								dsAppendStringToListAlloc(0, newNodeList, dsType);
+							}
+							delete( dsType );
+							dsType = nil;
+						}
+					}
+					if ( niEntryList.ni_entrylist_len > 0 )
+					{
+						ni_entrylist_free(&niEntryList);
+					}
+					cpRecTypeList = new CRecTypeList( newNodeList );
+					if ( cpRecTypeList == nil ) throw( (sInt32)eDSEmptyRecordTypeList );
+					if (cpRecTypeList->GetCount() == 0) throw( (sInt32)eDSEmptyRecordTypeList );
+				}
+				else
+				{
+					throw( (sInt32)eDSInvalidSession );
+				}
+			}//if (strcmp(aStringValue, kDSStdRecordTypeAll) == 0)
+		}//if (eDSNoErr == cpRecTypeList->GetAttribute(1, &aStringValue))
+		
+		//save the number of rec types here to use in separating the buffer data
+		countDownRecTypes = cpRecTypeList->GetCount() - pContinue->fRecTypeIndex + 1;
+
+		pDS_AttrType = inData->fInAttrType->fBufferData;
+		if ( pDS_AttrType == nil ) throw( (sInt32)eDSEmptyAttributeType );
+
+		// Get the attribute value matching list
+		cpPattMatchList = new CAttributeList( inData->fInPatterns2MatchList );
+		if ( cpPattMatchList == nil ) throw( (sInt32)eDSEmptyDataList );
+		if (cpPattMatchList->GetCount() == 0) throw( (sInt32)eDSEmptyDataList );
+		
+		if ( inData->fType == kDoMultipleAttributeValueSearchWithData )
+		{
+			// Get the attribute list
+			cpAttrTypeList = new CAttributeList( inData->fInAttrTypeRequestList );
+			if ( cpAttrTypeList == nil ) throw( (sInt32)eDSEmptyAttributeTypeList );
+			if (cpAttrTypeList->GetCount() == 0) throw( (sInt32)eDSEmptyAttributeTypeList );
+
+			bAttrInfoOnly = inData->fInAttrInfoOnly;
+		}
+		else
+		{
+			pTmpDataList = ::dsBuildListFromStringsPriv( kDSAttributesAll, nil );
+			if ( pTmpDataList != nil )
+			{
+				cpAttrTypeList = new CAttributeList( pTmpDataList );
+				if ( cpAttrTypeList == nil ) throw( (sInt32)eDSEmptyAttributeTypeList );
+				if (cpAttrTypeList->GetCount() == 0) throw( (sInt32)eDSEmptyAttributeTypeList );
+			}
+		}
+
+		pattMatch = inData->fInPattMatchType;
+		siResult = VerifyPatternMatch( pattMatch );
+		if ( siResult != eDSNoErr ) throw( (sInt32)eDSInvalidPatternMatchType );
+
+//KW need to be smarter on exiting from the limit search condition ie. stop calling into more record types and names
+// if the limit has already been reached ie. check in this routine as well before continuing the search
+
+		while ( (cpRecTypeList->GetAttribute( pContinue->fRecTypeIndex, &pDS_RecType ) == eDSNoErr) &&
+				(!bBuffFull) && (!separateRecTypes)  )
+		{
+			// Do we support this record type?
+			//	- There could be a whole list so don't quit if we encounter a bad one.
+
+			pNI_RecType = MapRecToNetInfoType( pDS_RecType );
+			if ( pNI_RecType != nil )
+			{
+				if ( ::strcmp( pDS_AttrType, kDSAttributesAll ) == 0 )
+				{
+					siResult = FindAllRecords ( pNI_RecType,
+												pDS_RecType,
+												cpPattMatchList,
+												pattMatch,
+												cpAttrTypeList,
+												bAttrInfoOnly,
+												pContinue,
+												pContext,
+												outBuff,
+												uiCount );
+				}
+				else
+				{
+					siResult = FindTheseRecords ( pNI_RecType,
+												pDS_RecType,
+												pDS_AttrType,
+												cpPattMatchList,
+												pattMatch,
+												cpAttrTypeList,
+												bAttrInfoOnly,
+												pContinue,
+												pContext,
 												outBuff,
 												uiCount );
 
@@ -5010,6 +6075,11 @@ sInt32 CNiPlugIn::DoAttributeValueSearch ( sDoAttrValueSearchWithData *inData )
 		delete( cpRecTypeList );
 		cpRecTypeList = nil;
 	}
+	if ( cpPattMatchList != nil )
+	{
+		delete(cpPattMatchList);
+		cpPattMatchList = nil;
+	}
 	if ( outBuff != nil )
 	{
 		delete( outBuff );
@@ -5031,7 +6101,7 @@ sInt32 CNiPlugIn::DoAttributeValueSearch ( sDoAttrValueSearchWithData *inData )
 
 	return( siResult );
 
-} // DoAttributeValueSearch
+} // DoMultipleAttributeValueSearch
 
 
 //------------------------------------------------------------------------------------
@@ -5040,24 +6110,21 @@ sInt32 CNiPlugIn::DoAttributeValueSearch ( sDoAttrValueSearchWithData *inData )
 
 sInt32 CNiPlugIn:: FindAllRecords (	const char			*inNI_RecType,
 									const char			*inDS_RecType,
-									const char			*inPatt2Match,
+									CAttributeList		*inPattMatchList,
 									tDirPatternMatch	 inHow,
 									CAttributeList		*inAttrTypeList,
 									bool				 inAttrOnly,
 									sNIContinueData		*inContinue,
-									void				*inDomain,
-									char				*inDomainName,
+									sNIContextData	    *inContext,
 									CBuff				*inBuff,
 									uInt32				&outRecCount )
 {
 	uInt32			pn				= 0;
 	uInt32			pv				= 0;
 	sInt32			siResult		= eDSNoErr;
-//	ni_status		niStatus		= NI_OK;
 	sInt32			siCount			= 0;
 	uInt32			uiSearchFlag	= REG_BASIC;
 	bool			bMatches		= false;
-//	u_int			en				= 0;
 	u_int			en2				= 0;
 	ni_index		niIndex			= 0;
 	ni_id			niDirID;
@@ -5068,6 +6135,7 @@ sInt32 CNiPlugIn:: FindAllRecords (	const char			*inNI_RecType,
 	CString			csNI_RecName( 128 );
 	CString			csNI_AttrType( 128 );
 	ni_property		niProp;
+	void		   *aNIDomain		= NULL;
 
 	gNetInfoMutex->Wait();
 
@@ -5087,107 +6155,115 @@ sInt32 CNiPlugIn:: FindAllRecords (	const char			*inNI_RecType,
 			uiSearchFlag = REG_ICASE;
 		}
 
-		// Get the dir ID for the record type
-		siResult = ::ni_pathsearch( inDomain, &niDirID, inNI_RecType );
-		if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-		// Do the search
-		if ( inContinue->fNIEntryList.ni_entrylist_len == 0 )
+		aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
 		{
-			siResult = ::ni_list( inDomain, &niDirID, "name", &(inContinue->fNIEntryList) );
+			// Get the dir ID for the record type
+			siResult = ::ni_pathsearch( aNIDomain, &niDirID, inNI_RecType );
 			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-		}
-		niEntryList = inContinue->fNIEntryList;
 
-		for ( en2 = inContinue->fAllRecIndex; (en2 < niEntryList.ni_entrylist_len) &&
-								(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
-					 			(inContinue->fLimitRecSearch == 0)); en2++ )
-		{
-			niEntry = niEntryList.ni_entrylist_val[ en2 ];
-			niDirID.nii_object = niEntry.id;
-
-			if ( niEntry.names != NULL )
+			// Do the search
+			if ( inContinue->fNIEntryList.ni_entrylist_len == 0 )
 			{
-				siResult = ::ni_read( inDomain, &niDirID, &niPropList );
-				if ( siResult == NI_OK )
+				siResult = ::ni_list( aNIDomain, &niDirID, "name", &(inContinue->fNIEntryList) );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+			}
+			niEntryList = inContinue->fNIEntryList;
+
+			for ( en2 = inContinue->fAllRecIndex; (en2 < niEntryList.ni_entrylist_len) &&
+									(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
+									(inContinue->fLimitRecSearch == 0)); en2++ )
+			{
+				niEntry = niEntryList.ni_entrylist_val[ en2 ];
+				niDirID.nii_object = niEntry.id;
+
+				if ( niEntry.names != NULL )
 				{
-					bMatches = false;
-					
-					for ( pn = 0; ((pn < niPropList.ni_proplist_len) && (bMatches == false)); pn++ )
+					siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+					if ( siResult == NI_OK )
 					{
-						niProp = niPropList.ni_proplist_val[ pn ];
-						niNameList = niProp.nip_val;
-						for ( pv = 0; ((pv < niNameList.ni_namelist_len) && (bMatches == false)); pv++ )
+						bMatches = false;
+						
+						for ( pn = 0; ((pn < niPropList.ni_proplist_len) && (bMatches == false)); pn++ )
 						{
-							bMatches = DoesThisMatch( niNameList.ni_namelist_val[ pv ], inPatt2Match, inHow );
-						}
-					}
-					if ( bMatches == true )
-					{
-						fAttrData->Clear();
-						fRecData->Clear();
-									
-						fRecData->AppendShort( ::strlen( inDS_RecType ) );
-						fRecData->AppendString( inDS_RecType );
-
-						niIndex = ::ni_proplist_match( niPropList, "name", NULL );
-						if ( niIndex == NI_INDEX_NULL || niPropList.nipl_val[ niIndex ].nip_val.ninl_len == 0 )
-						{
-							fRecData->AppendShort( ::strlen( "*** No Name ***" ) );
-							fRecData->AppendString( "*** No Name ***" );
-						}
-						else
-						{
-							fRecData->AppendShort( ::strlen( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] ) );
-							fRecData->AppendString( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] );
-						}
-
-						siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, inDomain, inDomainName, siCount );
-						if ( siResult == eDSNoErr )
-						{
-							if ( siCount == 0 )
+							niProp = niPropList.ni_proplist_val[ pn ];
+							niNameList = niProp.nip_val;
+							for ( pv = 0; ((pv < niNameList.ni_namelist_len) && (bMatches == false)); pv++ )
 							{
-								// Attribute count
-								fRecData->AppendShort( 0 );
+								bMatches = DoAnyMatch( niNameList.ni_namelist_val[ pv ], inPattMatchList, inHow );
+							}
+						}
+						if ( bMatches == true )
+						{
+							fAttrData->Clear();
+							fRecData->Clear();
+										
+							fRecData->AppendShort( ::strlen( inDS_RecType ) );
+							fRecData->AppendString( inDS_RecType );
+
+							niIndex = ::ni_proplist_match( niPropList, "name", NULL );
+							if ( niIndex == NI_INDEX_NULL || niPropList.nipl_val[ niIndex ].nip_val.ninl_len == 0 )
+							{
+								fRecData->AppendShort( ::strlen( "*** No Name ***" ) );
+								fRecData->AppendString( "*** No Name ***" );
 							}
 							else
 							{
-								// Attribute count
-								fRecData->AppendShort( siCount );
-								fRecData->AppendBlock( fAttrData->GetData(), fAttrData->GetLength() );
+								fRecData->AppendShort( ::strlen( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] ) );
+								fRecData->AppendString( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] );
 							}
 
-							siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
-										
-							//specifically check for buffer full here and segregate true errors
-							if ( siResult == CBuff::kBuffFull )
+							siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, aNIDomain, inContext->fDomainName, inDS_RecType, siCount );
+							if ( siResult == eDSNoErr )
 							{
-								inContinue->fAllRecIndex = en2;
-								::ni_proplist_free( &niPropList );
-								break;
+								if ( siCount == 0 )
+								{
+									// Attribute count
+									fRecData->AppendShort( 0 );
+								}
+								else
+								{
+									// Attribute count
+									fRecData->AppendShort( siCount );
+									fRecData->AppendBlock( fAttrData->GetData(), fAttrData->GetLength() );
+								}
+
+								siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
+											
+								//specifically check for buffer full here and segregate true errors
+								if ( siResult == CBuff::kBuffFull )
+								{
+									inContinue->fAllRecIndex = en2;
+									::ni_proplist_free( &niPropList );
+									break;
+								}
+								else if ( siResult == eDSNoErr )
+								{
+									outRecCount++;
+									inContinue->fTotalRecCount++;
+								}
+								else
+								{
+									inContinue->fAllRecIndex = 0;
+									::ni_proplist_free( &niPropList );
+									siResult = eDSInvalidBuffFormat;
+									break;
+								}
 							}
-							else if ( siResult == eDSNoErr )
-							{
-								outRecCount++;
-								inContinue->fTotalRecCount++;
-							}
-            				else
-            				{
-								inContinue->fAllRecIndex = 0;
-								::ni_proplist_free( &niPropList );
-								siResult = eDSInvalidBuffFormat;
-								break;
-		            		}
-						}
-					} // if ( bMatches == true )
-					//need to free this regardless if there were matches or not
-					::ni_proplist_free( &niPropList );
-				} // if ( siResult == NI_OK )
-			} // if ( niEntry.names != NULL )
-		} // main for loop on en2
-		if ( siResult == eDSNoErr )
+						} // if ( bMatches == true )
+						//need to free this regardless if there were matches or not
+						::ni_proplist_free( &niPropList );
+					} // if ( siResult == NI_OK )
+				} // if ( niEntry.names != NULL )
+			} // main for loop on en2
+			if ( siResult == eDSNoErr )
+			{
+				inContinue->fAllRecIndex	= 0;
+			}
+		}
+		else
 		{
-			inContinue->fAllRecIndex	= 0;
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -5210,13 +6286,12 @@ sInt32 CNiPlugIn:: FindAllRecords (	const char			*inNI_RecType,
 sInt32 CNiPlugIn::FindTheseRecords (	const char		 *inNI_RecType,
 										const char		 *inDS_RecType,
 										const char		 *inDS_AttrType,
-										const char		 *inPatt2Match,
-										tDirPatternMatch inHow,
+										CAttributeList   *inPattMatchList,
+										tDirPatternMatch  inHow,
 										CAttributeList	 *inAttrTypeList,
-										bool			 inAttrOnly,
+										bool			  inAttrOnly,
 										sNIContinueData	 *inContinue,
-										void			 *inDomain,
-										char			 *inDomainName,
+										sNIContextData   *inContext,
 										CBuff			 *inBuff,
 										uInt32			 &outRecCount )
 
@@ -5236,8 +6311,7 @@ sInt32 CNiPlugIn::FindTheseRecords (	const char		 *inNI_RecType,
 	ni_proplist		niPropList;
 	ni_namelist		niNameList;
 	CString			csNI_AttrType( 128 );
-	char		   * inConstRegExpPatt2Match	= nil;
-
+	void		   *aNIDomain		= NULL;
 
 	gNetInfoMutex->Wait();
 
@@ -5245,146 +6319,155 @@ sInt32 CNiPlugIn::FindTheseRecords (	const char		 *inNI_RecType,
 
 	try
 	{
+		NI_INIT( &niDirID );
+		NI_INIT( &niEntryList );
+
 		// Case sensitive check
 		if ( (inHow >= eDSiExact) && (inHow <= eDSiRegularExpression) )
 		{
 			uiSearchFlag = REG_ICASE;
 		}
 
-		while ( !done )
+		aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
 		{
-			NI_INIT( &niDirID );
-			NI_INIT( &niEntryList );
-
-			// Get the dir ID for the record
-			siResult = ::ni_pathsearch( inDomain, &niDirID, inNI_RecType );
-			if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
-
-			if ( ::strcmp( inDS_AttrType, kDSNAttrRecordName ) == 0 )
+			while ( !done )
 			{
-				if ( csNI_AttrType.GetLength() == 0 )
+				NI_INIT( &niDirID );
+				NI_INIT( &niEntryList );
+
+				// Get the dir ID for the record
+				siResult = ::ni_pathsearch( aNIDomain, &niDirID, inNI_RecType );
+				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );
+
+				if ( ::strcmp( inDS_AttrType, kDSNAttrRecordName ) == 0 )
 				{
-					csNI_AttrType.Set( "name" );
+					if ( csNI_AttrType.GetLength() == 0 )
+					{
+						csNI_AttrType.Set( "name" );
+					}
+					else
+					{
+						csNI_AttrType.Set( "realname" );
+						done = true;
+					}
 				}
 				else
 				{
-					csNI_AttrType.Set( "realname" );
+					char *netInfoType = MapAttrToNetInfoType( inDS_AttrType );
+					if ( netInfoType != nil )
+					{
+						csNI_AttrType.Set( netInfoType );
+						free( netInfoType );
+						netInfoType = nil;
+					}
 					done = true;
 				}
-			}
-			else
-			{
-				char *netInfoType = MapAttrToNetInfoType( inDS_AttrType );
-				if ( netInfoType != nil )
-				{
-					csNI_AttrType.Set( netInfoType );
-					free( netInfoType );
-					netInfoType = nil;
-				}
-				done = true;
-			}
 
-			//ensure that if a client only asks for n records that we stop searching if
-			//we have already found n records ie. critical for performance when asking for one record
-			if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
-			{
-				// Do the search
-				//make the reg exp that ni_search needs
-				inConstRegExpPatt2Match = BuildRegExp(inPatt2Match);
-				niStatus = ::ni_search( inDomain, &niDirID, csNI_AttrType.GetData(), inConstRegExpPatt2Match, uiSearchFlag, &niEntryList );
-				free(inConstRegExpPatt2Match);
-				if ( niStatus == NI_OK )
+				//ensure that if a client only asks for n records that we stop searching if
+				//we have already found n records ie. critical for performance when asking for one record
+				if ( (inContinue->fTotalRecCount < inContinue->fLimitRecSearch) || (inContinue->fLimitRecSearch == 0) )
 				{
-					for ( en = inContinue->fAllRecIndex; (en < niEntryList.ni_entrylist_len) &&
-						(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
-						(inContinue->fLimitRecSearch == 0)); en++ )
-	//				for ( en = inContinue->fAllRecIndex; en < niEntryList.ni_entrylist_len; en++ )
+					// Do the search
+					//make the reg exp that ni_search needs
+					//inConstRegExpPatt2Match = BuildMultiRegExp(inPattMatchList);
+					niStatus = ::ni_list( aNIDomain, &niDirID, csNI_AttrType.GetData(), &niEntryList );
+					if ( niStatus == NI_OK )
 					{
-						niEntry = niEntryList.ni_entrylist_val[ en ];
-						niDirID.nii_object = niEntry.id;
-	
-						if ( niEntry.names != NULL )
+						for ( en = inContinue->fAllRecIndex; (en < niEntryList.ni_entrylist_len) &&
+							(((inContinue->fTotalRecCount) < inContinue->fLimitRecSearch) ||
+							(inContinue->fLimitRecSearch == 0)); en++ )
 						{
-							niNameList = *niEntry.names;
-							bMatches = false;
-							for ( i = 0; ((i < niNameList.ni_namelist_len) && (bMatches == false)); i++ )
+							niEntry = niEntryList.ni_entrylist_val[ en ];
+							niDirID.nii_object = niEntry.id;
+		
+							if ( niEntry.names != NULL )
 							{
-								bMatches = DoesThisMatch( niNameList.ni_namelist_val[ i ], inPatt2Match, inHow );
-							}
-							if ( bMatches == true )
-							{
-								siResult = ::ni_read( inDomain, &niDirID, &niPropList );
-								if ( siResult == NI_OK )
+								niNameList = *niEntry.names;
+								bMatches = false;
+								for ( i = 0; ((i < niNameList.ni_namelist_len) && (bMatches == false)); i++ )
 								{
-									
-									fAttrData->Clear();
-									fRecData->Clear();
-	
-									fRecData->AppendShort( ::strlen( inDS_RecType ) );
-									fRecData->AppendString( inDS_RecType );
-	
-									niIndex = ::ni_proplist_match( niPropList, "name", NULL );
-									if ( niIndex == NI_INDEX_NULL || niPropList.nipl_val[ niIndex ].nip_val.ninl_len == 0 )
+									bMatches = DoAnyMatch( niNameList.ni_namelist_val[ i ], inPattMatchList, inHow );
+								}
+								if ( bMatches == true )
+								{
+									siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+									if ( siResult == NI_OK )
 									{
-										fRecData->AppendShort( ::strlen( "*** No Name ***" ) );
-										fRecData->AppendString( "*** No Name ***" );
-									}
-									else
-									{
-										fRecData->AppendShort( ::strlen( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] ) );
-										fRecData->AppendString( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] );
-									}
-	
-									siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, inDomain, inDomainName, siCount );
-									if ( siResult == eDSNoErr )
-									{
-										if ( siCount == 0 )
+										
+										fAttrData->Clear();
+										fRecData->Clear();
+		
+										fRecData->AppendShort( ::strlen( inDS_RecType ) );
+										fRecData->AppendString( inDS_RecType );
+		
+										niIndex = ::ni_proplist_match( niPropList, "name", NULL );
+										if ( niIndex == NI_INDEX_NULL || niPropList.nipl_val[ niIndex ].nip_val.ninl_len == 0 )
 										{
-											// Attribute count
-											fRecData->AppendShort( 0 );
+											fRecData->AppendShort( ::strlen( "*** No Name ***" ) );
+											fRecData->AppendString( "*** No Name ***" );
 										}
 										else
 										{
-											// Attribute count
-											fRecData->AppendShort( siCount );
-											fRecData->AppendBlock( fAttrData->GetData(), fAttrData->GetLength() );
+											fRecData->AppendShort( ::strlen( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] ) );
+											fRecData->AppendString( niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ] );
 										}
-	
-										siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
-										//again need to segregate true errors away from buffer full
-										if ( siResult == CBuff::kBuffFull )
+		
+										siResult = GetTheseAttributes( inAttrTypeList, &niPropList, inAttrOnly, aNIDomain, inContext->fDomainName, inDS_RecType, siCount );
+										if ( siResult == eDSNoErr )
 										{
-											inContinue->fAllRecIndex = en;
-											::ni_proplist_free( &niPropList );
-											if ( siResult != eDSNoErr ) throw( siResult );
+											if ( siCount == 0 )
+											{
+												// Attribute count
+												fRecData->AppendShort( 0 );
+											}
+											else
+											{
+												// Attribute count
+												fRecData->AppendShort( siCount );
+												fRecData->AppendBlock( fAttrData->GetData(), fAttrData->GetLength() );
+											}
+		
+											siResult = inBuff->AddData( fRecData->GetData(), fRecData->GetLength() );
+											//again need to segregate true errors away from buffer full
+											if ( siResult == CBuff::kBuffFull )
+											{
+												inContinue->fAllRecIndex = en;
+												::ni_proplist_free( &niPropList );
+												if ( siResult != eDSNoErr ) throw( siResult );
+											}
+											else if ( siResult == eDSNoErr )
+											{
+												outRecCount++;
+												inContinue->fTotalRecCount++;
+											}
+											else
+											{
+												inContinue->fAllRecIndex = 0;
+												::ni_proplist_free( &niPropList );
+												throw( (sInt32)eDSInvalidBuffFormat );
+											}
 										}
-										else if ( siResult == eDSNoErr )
-										{
-											outRecCount++;
-											inContinue->fTotalRecCount++;
-										}
-										else
-										{
-											inContinue->fAllRecIndex = 0;
-											::ni_proplist_free( &niPropList );
-											throw( (sInt32)eDSInvalidBuffFormat );
-										}
+										::ni_proplist_free( &niPropList );
+										siResult = eDSNoErr;
 									}
-									::ni_proplist_free( &niPropList );
-									siResult = eDSNoErr;
 								}
 							}
 						}
+					} //ni_list successful
+					if ( niEntryList.ni_entrylist_len > 0 )
+					{
+						::ni_entrylist_free(&niEntryList);
+						niEntryList.ni_entrylist_len = 0;
 					}
-				} //ni_search successful
-				if ( niEntryList.ni_entrylist_len > 0 )
-				{
-					::ni_entrylist_free(&niEntryList);
-					niEntryList.ni_entrylist_len = 0;
-				}
-			} // need to get more records ie. did not hit the limit yet
-		} // while
-		inContinue->fAllRecIndex = 0;
+				} // need to get more records ie. did not hit the limit yet
+			} // while
+			inContinue->fAllRecIndex = 0;
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
+		}
 	}
 
 	catch( sInt32 err )
@@ -5403,6 +6486,10 @@ sInt32 CNiPlugIn::FindTheseRecords (	const char		 *inNI_RecType,
 
 } // FindTheseRecords
 
+
+#pragma mark -
+#pragma mark Authentication
+#pragma mark -
 
 //------------------------------------------------------------------------------------
 //	* DoAuthentication
@@ -5460,6 +6547,7 @@ sInt32 CNiPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inData )
 {
 	sInt32				siResult				= eDSAuthFailed;
+	sInt32				siResult2				= eDSAuthFailed;
 	ni_status			niResult				= NI_OK;
 	ni_status			niResultGUID			= NI_OK;
 	uInt32				uiAuthMethod			= 0;
@@ -5473,6 +6561,9 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 	char			   *pNIRecType				= NULL;
 	uInt32				settingPolicy			= 0;
 	tDataNodePtr		origAuthMethod			= NULL;
+	char			   *GUIDString				= NULL;
+	char			   *UserGUIDString			= NULL;
+	void			   *aNIDomain				= NULL;
 	
 	try
 	{
@@ -5483,6 +6574,25 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 		if ( inData->fInRecordType->fBufferData == nil ) throw( (sInt32)eDSNullRecType );
 		pNIRecType = MapRecToNetInfoType( inData->fInRecordType->fBufferData );
 		if (pNIRecType == nil) throw( (sInt32)eDSAuthFailed );
+		
+		if ( !(fHashList & kNiPluginHashHasReadConfig) )
+		{
+			//need netinfo mutex here since using domain
+			gNetInfoMutex->Wait();
+			aNIDomain = RetrieveNIDomain(pContext);
+			if (aNIDomain != NULL)
+			{
+				GetHashSecurityLevelConfig( aNIDomain, &fHashList );
+				fHashList |= kNiPluginHashHasReadConfig;
+			}
+			else
+			{
+				gNetInfoMutex->Signal();
+				throw( (sInt32)eDSInvalidSession );
+			}
+			gNetInfoMutex->Signal();
+		}
+		sHashList = fHashList;
 		
 		if ( inData->fIOContinueData != NULL )
 		{
@@ -5506,12 +6616,43 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 			// first call
 			// we do not want to fail if the method is unknown at this point.
 			// For password server users, the PSPlugin may know the method.
-			siResult = GetAuthMethod( inData->fInAuthMethod, &uiAuthMethod );
+			if (inData->fInAuthMethod != nil)
+			{
+				DBGLOG1( kLogPlugin, "NetInfo PlugIn: Attempting use of authentication method %s", inData->fInAuthMethod->fBufferData );
+			}
+			siResult = dsGetAuthMethodEnumValue( inData->fInAuthMethod, &uiAuthMethod );
 			
 			// unsupported auth methods are allowed if the user is on password server
 			// otherwise, unsupported auth methods are rejected in their handlers
 			if ( siResult == eDSNoErr || siResult == eDSAuthMethodNotSupported )
 			{
+					// For user policy, we need the GUID
+				if ( uiAuthMethod == kAuthGetPolicy || uiAuthMethod == kAuthSetPolicy )
+					{
+						siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 3, &userName );
+						if ( siResult != eDSNoErr ) throw( siResult );
+						
+						if ( RecordHasAuthAuthority( userName, (const char *)pNIRecType, pContext, kDSTagAuthAuthorityShadowHash, &niDirID ) == eDSNoErr )
+						{
+						UserGUIDString = GetGUIDForRecord( pContext, &niDirID );
+							
+						if ( uiAuthMethod == kAuthGetPolicy )
+							{
+							// no permissions required, just do it.
+							siResult = DoShadowHashAuth(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
+														&pContinueData, 
+														inData->fInAuthStepData, 
+														inData->fOutAuthStepDataResponse,
+														inData->fInDirNodeAuthOnlyFlag,
+														false, NULL, UserGUIDString, (const char *)pNIRecType);
+						
+							// we're done
+							throw( siResult );
+						}
+								}
+							}
+							
+				// For SetPolicy operations, check the permissions
 				if ( uiAuthMethod == kAuthSetGlobalPolicy || uiAuthMethod == kAuthSetPolicy )
 				{
 					char *user = NULL;
@@ -5552,164 +6693,342 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 														inData->fInAuthStepData, 
 														inData->fOutAuthStepDataResponse,
 														inData->fInDirNodeAuthOnlyFlag,
-														false, NULL, NULL, (const char *)pNIRecType);
+														false, NULL, UserGUIDString, (const char *)pNIRecType);
 						
 						// we're done here
 						throw( siResult );
 					}
 				}
-				
-				if ( uiAuthMethod == kAuthWithAuthorizationRef )
-				{
-					AuthorizationRef authRef = 0;
-					AuthorizationItemSet* resultRightSet = NULL;
-					if ( inData->fInAuthStepData->fBufferLength < sizeof( AuthorizationExternalForm ) ) throw( (sInt32)eDSInvalidBuffFormat );
-					siResult = AuthorizationCreateFromExternalForm((AuthorizationExternalForm *)inData->fInAuthStepData->fBufferData,
-													&authRef);
-					if (siResult != errAuthorizationSuccess)
-					{
-						throw( (sInt32)eDSPermissionError );
-					}
-
-					AuthorizationItem rights[] = { {"system.preferences", 0, 0, 0} };
-					AuthorizationItemSet rightSet = { sizeof(rights)/ sizeof(*rights), rights };
-
-					siResult = AuthorizationCopyRights(authRef, &rightSet, NULL,
-										kAuthorizationFlagExtendRights, &resultRightSet);
-					if (resultRightSet != NULL)
-					{
-						AuthorizationFreeItemSet(resultRightSet);
-						resultRightSet = NULL;
-					}
-					if (siResult != errAuthorizationSuccess)
-					{
-						throw( (sInt32)eDSPermissionError );
-					}
-					if (inData->fInDirNodeAuthOnlyFlag == false)
-					{
-						if (pContext->fAuthenticatedUserName != NULL)
-						{
-							free(pContext->fAuthenticatedUserName);
-						}
-						pContext->fAuthenticatedUserName = strdup("root");
-					}
-					AuthorizationFree( authRef, 0 ); // really should hang onto this instead
-					siResult = eDSNoErr;
-				}
 				else
-				if ( uiAuthMethod == kAuthGetGlobalPolicy )
+				if ( uiAuthMethod == kAuthSetPasswd )
 				{
-					// kAuthXetGlobalPolicy is not associated with a user record and does not
-					// have access to an authentication_authority attribute. If kAuthGetGlobalPolicy
-					// is requested of a NetInfo node, then always return the shadowhash global
-					// policies.
+					// verify the administrator
+					siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 3, &userName );
+					if ( siResult != eDSNoErr ) throw( siResult );
 					
-					siResult = DoShadowHashAuth(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
-														&pContinueData, 
-														inData->fInAuthStepData, 
-														inData->fOutAuthStepDataResponse,
-														inData->fInDirNodeAuthOnlyFlag,
-														false, NULL, NULL, (const char *)pNIRecType);
-				}
-				else //everything but AuthRef method, GetGlobalPolicy and kAuthSetGlobalPolicy
-				{
-					if ( uiAuthMethod != kAuth2WayRandom )
+					if ( RecordHasAuthAuthority( userName, (const char *)pNIRecType, pContext, kDSTagAuthAuthorityShadowHash, &niDirID ) == eDSNoErr )
 					{
-						siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 1, &userName );
-						if ( siResult != eDSNoErr ) throw( siResult );
-					}
-					else
-					{
-						// for 2way random the first buffer is the username
-						if ( inData->fInAuthStepData->fBufferLength > inData->fInAuthStepData->fBufferSize ) throw( (sInt32)eDSInvalidBuffFormat );
-						userName = (char*)calloc( inData->fInAuthStepData->fBufferLength + 1, 1 );
-						strncpy( userName, inData->fInAuthStepData->fBufferData, inData->fInAuthStepData->fBufferLength );
-					}
-					
-					// get the auth authority
-					siResult = IsValidRecordName( userName, (const char *)pNIRecType, pContext->fDomain, niDirID );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed ); // unknown user really
-					
-					gNetInfoMutex->Wait();
-					//lookup GUID for ShadowHash verification but don't worry if not found
-					niResultGUID = ni_lookupprop( pContext->fDomain, &niDirID, 
-											"generateduid", &niValuesGUID );
-					//lookup authauthority attribute
-					niResult = ni_lookupprop( pContext->fDomain, &niDirID, 
-											"authentication_authority", &niValues );
-					gNetInfoMutex->Signal();
-					if ( (niResult == NI_OK) && (niValues.ni_namelist_len > 0) )
-					{
-						// loop through all possibilities for set
-						// do first auth authority that supports the method for check password
-						unsigned int i = 0;
-						bool bLoopAll = IsWriteAuthRequest(uiAuthMethod);
-						bool bIsSecondary = false;
-						char* aaVersion = NULL;
-						char* aaTag = NULL;
-						char* aaData = NULL;
-						char* GUIDString = NULL;
+						// get the GUID
+						GUIDString = GetGUIDForRecord( pContext, &niDirID );
 						
-						if ( (niResultGUID == NI_OK) && (niValuesGUID.ni_namelist_len > 0) )
-						{
-							if (niValuesGUID.ni_namelist_val[0] != nil)
-							{
-								GUIDString = strdup(niValuesGUID.ni_namelist_val[0]);
-							}
-							gNetInfoMutex->Wait();
-							ni_namelist_free(&niValuesGUID);
-							gNetInfoMutex->Signal();
-						}
-						siResult = eDSAuthMethodNotSupported;
-						while ( i < niValues.ni_namelist_len 
-								&& (siResult == eDSAuthMethodNotSupported ||
-									(bLoopAll && siResult == eDSNoErr)))
-						{
-							//parse this value of auth authority
-							
-							//siResult = ParseAuthAuthority( niValues.ni_namelist_val[i], &aaVersion, &aaTag, &aaData );
-							siResult = dsParseAuthAuthority( niValues.ni_namelist_val[i], &aaVersion, &aaTag, &aaData );
-							
-							// JT need to check version
-							if (siResult != eDSNoErr)
-							{
-								siResult = eDSAuthFailed;
-								//KW do we want to bail if one of the writes failed?
-								//could end up with mismatched passwords/hashes regardless of how we handle this
-								//note "continue" here instead of "break" would have same effect because of check for siResult in "while" above
-								break;
-							}
-							handlerProc = GetNetInfoAuthAuthorityHandler( aaTag );
-							if (handlerProc != NULL)
-							{
-								siResult = (handlerProc)(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
+						origAuthMethod = inData->fInAuthMethod;
+						inData->fInAuthMethod = dsDataNodeAllocateString( 0, "dsAuthMethodSetPasswd:dsAuthNodeNativeCanUseClearText" );
+						if ( inData->fInAuthMethod == NULL )
+							throw( (sInt32)eMemoryError );
+						
+						siResult = DoShadowHashAuth(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
 														&pContinueData, 
 														inData->fInAuthStepData, 
 														inData->fOutAuthStepDataResponse,
-														inData->fInDirNodeAuthOnlyFlag,
-														bIsSecondary, aaData, GUIDString, (const char *)pNIRecType);
-								if (siResult == eDSNoErr)
+														true,
+														false, NULL, GUIDString, (const char *)pNIRecType);
+						
+						if ( siResult != eDSNoErr && siResult != eDSAuthNewPasswordRequired )
+							throw( siResult );
+						
+						// transfer ownership of the auth method constant
+						dsDataBufferDeallocatePriv( inData->fInAuthMethod );
+						//switch to set passwd as root
+						inData->fInAuthMethod = dsDataNodeAllocateString( 0, kDSStdAuthSetPasswdAsRoot );
+					}
+					DSFreeString(userName);
+				}
+				
+				switch( uiAuthMethod )
+				{
+					case kAuthWithAuthorizationRef:
+					{
+						AuthorizationRef authRef = 0;
+						AuthorizationItemSet* resultRightSet = NULL;
+						if ( inData->fInAuthStepData->fBufferLength < sizeof( AuthorizationExternalForm ) ) throw( (sInt32)eDSInvalidBuffFormat );
+						siResult = AuthorizationCreateFromExternalForm((AuthorizationExternalForm *)inData->fInAuthStepData->fBufferData,
+														&authRef);
+						if (siResult != errAuthorizationSuccess)
+						{
+							DBGLOG1( kLogPlugin, "CNiPlugIn: AuthorizationCreateFromExternalForm returned error %d", siResult );
+							syslog( LOG_ALERT, "AuthorizationCreateFromExternalForm returned error %d", siResult );
+							throw( (sInt32)eDSPermissionError );
+						}
+
+						AuthorizationItem rights[] = { {"system.preferences", 0, 0, 0} };
+						AuthorizationItemSet rightSet = { sizeof(rights)/ sizeof(*rights), rights };
+
+						siResult = AuthorizationCopyRights(authRef, &rightSet, NULL,
+											kAuthorizationFlagExtendRights, &resultRightSet);
+						if (resultRightSet != NULL)
+						{
+							AuthorizationFreeItemSet(resultRightSet);
+							resultRightSet = NULL;
+						}
+						if (siResult != errAuthorizationSuccess)
+						{
+							DBGLOG1( kLogPlugin, "CNiPlugIn: AuthorizationCopyRights returned error %d", siResult );
+							syslog( LOG_ALERT, "AuthorizationCopyRights returned error %d", siResult );
+							throw( (sInt32)eDSPermissionError );
+						}
+						if (inData->fInDirNodeAuthOnlyFlag == false)
+						{
+							if (pContext->fAuthenticatedUserName != NULL)
+							{
+								free(pContext->fAuthenticatedUserName);
+							}
+							pContext->fAuthenticatedUserName = strdup("root");
+						}
+						AuthorizationFree( authRef, 0 ); // really should hang onto this instead
+						siResult = eDSNoErr;
+					}
+					break;
+					
+					case kAuthGetGlobalPolicy:
+					{
+						// kAuthXetGlobalPolicy is not associated with a user record and does not
+						// have access to an authentication_authority attribute. If kAuthGetGlobalPolicy
+						// is requested of a NetInfo node, then always return the shadowhash global
+						// policies.
+						
+						siResult = DoShadowHashAuth(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
+															&pContinueData, 
+															inData->fInAuthStepData, 
+															inData->fOutAuthStepDataResponse,
+															inData->fInDirNodeAuthOnlyFlag,
+															false, NULL, NULL, (const char *)pNIRecType);
+					}
+					break;
+					
+					default: //everything but AuthRef method, GetGlobalPolicy and kAuthSetGlobalPolicy
+					{
+						if ( uiAuthMethod != kAuth2WayRandom )
+						{
+							siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 1, &userName );
+							if ( siResult != eDSNoErr ) throw( siResult );
+						}
+						else
+						{
+							// for 2way random the first buffer is the username
+							if ( inData->fInAuthStepData->fBufferLength > inData->fInAuthStepData->fBufferSize ) throw( (sInt32)eDSInvalidBuffFormat );
+							userName = (char*)calloc( inData->fInAuthStepData->fBufferLength + 1, 1 );
+							strncpy( userName, inData->fInAuthStepData->fBufferData, inData->fInAuthStepData->fBufferLength );
+						}
+						
+						gNetInfoMutex->Wait();
+						aNIDomain = RetrieveNIDomain(pContext);
+						if (aNIDomain != NULL)
+						{
+							// get the auth authority
+							siResult = IsValidRecordName( userName, (const char *)pNIRecType, aNIDomain, niDirID );
+						}
+						else
+						{
+							gNetInfoMutex->Signal();
+							throw( (sInt32)eDSInvalidSession );
+						}
+						gNetInfoMutex->Signal();
+						if ( siResult != eDSNoErr )
+						{
+							bool bAdminUserAuthUsed = false;
+							//here we check if this is AuthOnly == false AND that siResult is not eDSNoErr AND local node only
+							if ( (pContext->bIsLocal) && !(inData->fInDirNodeAuthOnlyFlag) && (siResult != eDSNoErr) )
+							{
+								//check if user is in the admin group
+								if (UserIsAdmin(userName, pContext))
 								{
-									if (pContinueData != NULL)
+									tDataList *usersNode = nil;
+									usersNode = FindNodeForSearchPolicyAuthUser(userName);
+									if (usersNode != nil)
 									{
-										// we are supposed to return continue data
-										// remember the proc we used
-										pContinueData->fAuthHandlerProc = (void*)handlerProc;
-										pContinueData->fAuthAuthorityData = aaData;
-										aaData = NULL;
-										break;
-									}
-									else
-									{
-										bIsSecondary = true;
-									}
+										tDirReference		aDirRef		= 0;
+										sInt32				aResult		= eDSNoErr;
+										tDirNodeReference	aNodeRef	= 0;
+										tContextData		tContinue	= nil;
+
+										aResult = dsOpenDirService(&aDirRef);
+										if (aResult == eDSNoErr)
+										{
+											aResult = dsOpenDirNode(aDirRef, usersNode, &aNodeRef);
+											dsDataListDeallocatePriv(usersNode);
+											free(usersNode);
+											usersNode = NULL;
+											if ( aResult == eDSNoErr)
+											{
+												aResult = dsDoDirNodeAuth( aNodeRef, inData->fInAuthMethod, true, inData->fInAuthStepData, inData->fOutAuthStepDataResponse, &tContinue );
+												//no checking of continue data
+												if (aResult == eDSNoErr)
+												{
+													//user auth has succeeded on the authentication search policy
+													//need to get password out of inData->fInAuthStepData
+													tDataList *dataList = nil;
+													// parse input first
+													dataList = dsAuthBufferGetDataListAllocPriv(inData->fInAuthStepData);
+													if ( dataList != nil )
+													{
+														if ( dsDataListGetNodeCountPriv(dataList) >= 2 )
+														{
+															char *pwd = nil;
+															// this allocates a copy of the password string
+															pwd = dsDataListGetNodeStringPriv(dataList, 2);
+															if ( pwd != nil )
+															{
+																siResult = AuthOpen( pContext, userName, pwd, true );
+																bAdminUserAuthUsed = true;
+																bzero(pwd, strlen(pwd));
+																free(pwd);
+																pwd = nil;
+															}
+														}
+														dsDataListDeallocatePriv(dataList);
+														free(dataList);
+														dataList = NULL;
+													}
+												}
+												dsCloseDirNode(aNodeRef);
+												aNodeRef = 0;
+											}// if ( aResult == eDSNoErr) from aResult = dsOpenDirNode(aDirRef, usersNode, &aNodeRef);
+											dsCloseDirService(aDirRef);
+										}// if (aResult == eDSNoErr) from aResult = dsOpenDirService(&aDirRef);
+									}// if (usersNode != nil)
+								}// if (UserIsAdmin)
+							}// if ( (pContext->bIsLocal) && !(inData->fInDirNodeAuthOnlyFlag) && (siResult != eDSNoErr) )
+							if (bAdminUserAuthUsed)
+							{
+								// If <UserGUIDString> is non-NULL, then the target user is ShadowHash
+								if ( settingPolicy && siResult == eDSNoErr && UserGUIDString != NULL )
+								{
+									// now that the admin is authorized, set the policy
+									uiAuthMethod = settingPolicy;
+									
+									// transfer ownership of the auth method constant
+									dsDataBufferDeallocatePriv( inData->fInAuthMethod );
+									inData->fInAuthMethod = origAuthMethod;
+									origAuthMethod = NULL;
+									siResult = DoShadowHashAuth(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
+																	&pContinueData, 
+																	inData->fInAuthStepData, 
+																	inData->fOutAuthStepDataResponse,
+																	inData->fInDirNodeAuthOnlyFlag,
+																	false, NULL, UserGUIDString, (const char *)pNIRecType);
 								}
 								
-							} // if (handlerProc != NULL)
+								throw(siResult);
+							}
 							else
 							{
-								siResult = eDSAuthMethodNotSupported;
+								throw( (sInt32)eDSAuthFailed ); // unknown user really
 							}
+						}
+
+						NI_INIT( &niValuesGUID );
+						NI_INIT( &niValues );
+						gNetInfoMutex->Wait();
+						aNIDomain = RetrieveNIDomain(pContext);
+						if (aNIDomain != NULL)
+						{
+							//lookup GUID for ShadowHash verification but don't worry if not found
+							niResultGUID = ni_lookupprop( aNIDomain, &niDirID, 
+													"generateduid", &niValuesGUID );
+							//lookup authauthority attribute
+							niResult = ni_lookupprop( aNIDomain, &niDirID, 
+													"authentication_authority", &niValues );
+						}
+						else
+						{
+							gNetInfoMutex->Signal();
+							throw( (sInt32)eDSInvalidSession );
+						}
+						gNetInfoMutex->Signal();
+						if ( (niResult == NI_OK) && (niValues.ni_namelist_len > 0) )
+						{
+							// loop through all possibilities for set
+							// do first auth authority that supports the method for check password
+							unsigned int i = 0;
+							bool bLoopAll = IsWriteAuthRequest(uiAuthMethod);
+							bool bIsSecondary = false;
+							char* aaVersion = NULL;
+							char* aaTag = NULL;
+							char* aaData = NULL;
+							
+							if ( (niResultGUID == NI_OK) && (niValuesGUID.ni_namelist_len > 0) )
+							{
+								if (niValuesGUID.ni_namelist_val[0] != nil)
+								{
+									GUIDString = strdup(niValuesGUID.ni_namelist_val[0]);
+								}
+								gNetInfoMutex->Wait();
+								ni_namelist_free(&niValuesGUID);
+								gNetInfoMutex->Signal();
+							}
+							siResult = eDSAuthMethodNotSupported;
+							while ( i < niValues.ni_namelist_len 
+									&& (siResult == eDSAuthMethodNotSupported ||
+										(bLoopAll && siResult == eDSNoErr)))
+							{
+								//parse this value of auth authority
+								siResult2 = dsParseAuthAuthority( niValues.ni_namelist_val[i], &aaVersion, 
+															&aaTag, &aaData );
+								// JT need to check version
+								if (siResult2 != eDSNoErr)
+								{
+									siResult = eDSAuthFailed;
+									//KW do we want to bail if one of the writes failed?
+									//could end up with mismatched passwords/hashes regardless of how we handle this
+									//note "continue" here instead of "break" would have same effect because of check for siResult in "while" above
+									break;
+								}
+								
+								// if the tag is ;DisabledUser; then we need all of the data section
+								if ( aaTag != NULL && strcasecmp(aaTag, kDSTagAuthAuthorityDisabledUser) == 0 )
+								{
+									if ( aaData != NULL )
+										DSFreeString( aaData );
+									aaData = strdup( niValues.ni_namelist_val[i] + strlen(aaVersion) + strlen(aaTag) + 2 );
+								}
+								
+								handlerProc = GetNetInfoAuthAuthorityHandler( aaTag );
+								if (handlerProc != NULL)
+								{
+									siResult = (handlerProc)(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
+															&pContinueData, 
+															inData->fInAuthStepData, 
+															inData->fOutAuthStepDataResponse,
+															inData->fInDirNodeAuthOnlyFlag,
+															bIsSecondary, aaData, GUIDString, (const char *)pNIRecType);
+									
+									if (siResult == eDSNoErr)
+									{
+										if (pContinueData != NULL)
+										{
+											// we are supposed to return continue data
+											// remember the proc we used
+											pContinueData->fAuthHandlerProc = (void*)handlerProc;
+											pContinueData->fAuthAuthorityData = aaData;
+											aaData = NULL;
+											break;
+										}
+										else
+										{
+											bIsSecondary = true;
+										}
+									}
+									
+								} // if (handlerProc != NULL)
+								else if ( !bIsSecondary )
+								{
+									siResult = eDSAuthMethodNotSupported;
+								}
+								if (aaVersion != NULL) {
+									free(aaVersion);
+									aaVersion = NULL;
+								}
+								if (aaTag != NULL) {
+									free(aaTag);
+									aaTag = NULL;
+								}
+								if (aaData != NULL) {
+									free(aaData);
+									aaData = NULL;
+								}
+								++i;
+							} //while
+							
 							if (aaVersion != NULL) {
 								free(aaVersion);
 								aaVersion = NULL;
@@ -5722,63 +7041,44 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 								free(aaData);
 								aaData = NULL;
 							}
-							++i;
-						} //while
-						
-						if (aaVersion != NULL) {
-							free(aaVersion);
-							aaVersion = NULL;
+							
+							gNetInfoMutex->Wait();
+							ni_namelist_free(&niValues);
+							gNetInfoMutex->Signal();
 						}
-						if (aaTag != NULL) {
-							free(aaTag);
-							aaTag = NULL;
-						}
-						if (aaData != NULL) {
-							free(aaData);
-							aaData = NULL;
-						}
-						if (GUIDString != NULL) {
-							free(GUIDString);
-							GUIDString = NULL;
-						}
-						gNetInfoMutex->Wait();
-						ni_namelist_free(&niValues);
-						gNetInfoMutex->Signal();
-					}
-					else
-					{
-						//revert to basic
-						siResult = DoBasicAuth(inData->fInNodeRef,inData->fInAuthMethod, pContext, 
-											&pContinueData, inData->fInAuthStepData,
-											inData->fOutAuthStepDataResponse,
-											inData->fInDirNodeAuthOnlyFlag, false, NULL, NULL, (const char *)pNIRecType);
-						if (pContinueData != NULL && siResult == eDSNoErr)
+						else
 						{
-							// we are supposed to return continue data
-							// remember the proc we used
-							pContinueData->fAuthHandlerProc = (void*)CNiPlugIn::DoBasicAuth;
+							//revert to basic
+							siResult = DoBasicAuth(inData->fInNodeRef,inData->fInAuthMethod, pContext, 
+												&pContinueData, inData->fInAuthStepData,
+												inData->fOutAuthStepDataResponse,
+												inData->fInDirNodeAuthOnlyFlag, false, NULL, NULL, (const char *)pNIRecType);
+							if (pContinueData != NULL && siResult == eDSNoErr)
+							{
+								// we are supposed to return continue data
+								// remember the proc we used
+								pContinueData->fAuthHandlerProc = (void*)CNiPlugIn::DoBasicAuth;
+							}
 						}
-					}
-					
-					if ( settingPolicy && siResult == eDSNoErr )
-					{
-						// now that the admin is authorized, set the global policy
-						uiAuthMethod = settingPolicy;
 						
-						// transfer ownership of the auth method constant
-						dsDataBufferDeallocatePriv( inData->fInAuthMethod );
-						inData->fInAuthMethod = origAuthMethod;
-						origAuthMethod = NULL;
-						
-						siResult = DoShadowHashAuth(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
-														&pContinueData, 
-														inData->fInAuthStepData, 
-														inData->fOutAuthStepDataResponse,
-														inData->fInDirNodeAuthOnlyFlag,
-														false, NULL, NULL, (const char *)pNIRecType);
-					}
-					
-				} // //everything but AuthRef method
+						if ( settingPolicy && siResult == eDSNoErr )
+						{
+							// now that the admin is authorized, set the global policy
+							uiAuthMethod = settingPolicy;
+							
+							// transfer ownership of the auth method constant
+							dsDataBufferDeallocatePriv( inData->fInAuthMethod );
+							inData->fInAuthMethod = origAuthMethod;
+							origAuthMethod = NULL;
+							siResult = DoShadowHashAuth(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
+															&pContinueData, 
+															inData->fInAuthStepData, 
+															inData->fOutAuthStepDataResponse,
+															inData->fInDirNodeAuthOnlyFlag,
+															false, NULL, UserGUIDString, (const char *)pNIRecType);
+						}
+					} // //everything but AuthRef method
+				}
 			}
 		} //( inData->fIOContinueData == NULL )
 	}
@@ -5787,7 +7087,10 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 	{
 		siResult = err;
 	}
-
+	
+	DSFreeString( GUIDString );
+	DSFreeString( UserGUIDString );
+		
 	if ( origAuthMethod != NULL )
 	{
 		dsDataBufferDeallocatePriv( origAuthMethod );
@@ -5799,12 +7102,8 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 		free(pNIRecType);
 		pNIRecType = nil;
 	}
-
-	if (userName != NULL)
-	{
-		free(userName);
-		userName = NULL;
-	}
+	
+	DSFreeString( userName );
 
 	inData->fResult = siResult;
 	inData->fIOContinueData = pContinueData;
@@ -5812,6 +7111,137 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 	return( siResult );
 
 } // DoAuthenticationOnRecordType
+
+
+//------------------------------------------------------------------------------------
+//	* RecordHasAuthAuthority
+//------------------------------------------------------------------------------------
+
+sInt32 CNiPlugIn::RecordHasAuthAuthority( const char *inRecordName, const char *inRecType, sNIContextData *inContext, const char *inTag, ni_id *outDirID )
+{
+	sInt32				siResult			= eDSAuthFailed;
+	ni_status			niResult			= NI_OK;
+	ni_id				niDirID;
+	ni_namelist			niValues;
+	
+	try
+	{
+		if ( inContext == nil ) throw( (sInt32)eDSInvalidNodeRef );
+		if ( inRecType == nil ) throw( (sInt32)eDSNullRecType );
+	
+	 
+		gNetInfoMutex->Wait();
+		void *aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
+		{
+			// get the auth authority
+			siResult = IsValidRecordName( inRecordName, inRecType, aNIDomain, niDirID );
+			gNetInfoMutex->Signal();
+			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed ); // unknown user really
+		}
+		else
+		{
+			gNetInfoMutex->Signal();
+			throw( (sInt32)eDSInvalidSession );
+		}
+		
+		//lookup authauthority attribute
+		gNetInfoMutex->Wait();
+		aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
+		{
+			niResult = ni_lookupprop( aNIDomain, &niDirID, "authentication_authority", &niValues );
+		}
+		else
+		{
+			gNetInfoMutex->Signal();
+			throw( (sInt32)eDSInvalidSession );
+		}
+		gNetInfoMutex->Signal();
+			
+		if ( (niResult == NI_OK) && (niValues.ni_namelist_len > 0) )
+		{
+			// loop through all possibilities for set
+			// do first auth authority that supports the method for check password
+			unsigned int i = 0;
+			char* aaVersion = NULL;
+			char* aaTag = NULL;
+			char* aaData = NULL;
+			sInt32 siResult2;
+			
+			siResult = eDSAuthMethodNotSupported;
+			while ( i < niValues.ni_namelist_len && siResult == eDSAuthMethodNotSupported )
+			{
+				//parse this value of auth authority
+				siResult2 = dsParseAuthAuthority( niValues.ni_namelist_val[i], &aaVersion, &aaTag, &aaData );
+				// JT need to check version
+				if (siResult2 != eDSNoErr)
+				{
+					siResult = eDSAuthFailed;
+					//KW do we want to bail if one of the writes failed?
+					//could end up with mismatched passwords/hashes regardless of how we handle this
+					//note "continue" here instead of "break" would have same effect because of check for siResult in "while" above
+					break;
+				}
+				
+				// If the user is disabled, the entire attribute value must be searched.
+				// aaData will be empty because of the double semicolon.
+				if ( strcasecmp(inTag, aaTag) == 0 )
+				{
+					siResult = eDSNoErr;
+					break;
+				}
+				else if ( strcasecmp(kDSTagAuthAuthorityDisabledUser, aaTag) == 0 &&
+						  strcasestr(niValues.ni_namelist_val[i], inTag) != NULL )
+				{
+					siResult = eDSNoErr;
+					break;
+				}
+				
+				if (aaVersion != NULL) {
+					free(aaVersion);
+					aaVersion = NULL;
+				}
+				if (aaTag != NULL) {
+					free(aaTag);
+					aaTag = NULL;
+				}
+				if (aaData != NULL) {
+					free(aaData);
+					aaData = NULL;
+				}
+				++i;
+			} //while
+			
+			if (aaVersion != NULL) {
+				free(aaVersion);
+				aaVersion = NULL;
+			}
+			if (aaTag != NULL) {
+				free(aaTag);
+				aaTag = NULL;
+			}
+			if (aaData != NULL) {
+				free(aaData);
+				aaData = NULL;
+			}
+			
+			gNetInfoMutex->Wait();
+			ni_namelist_free(&niValues);
+			gNetInfoMutex->Signal();
+		}
+	}
+	
+	catch( sInt32 err )
+	{
+		siResult = err;
+	}
+
+	if ( outDirID != NULL )
+		*outDirID = niDirID;
+	
+	return( siResult );
+}
 
 
 //------------------------------------------------------------------------------------
@@ -5835,6 +7265,10 @@ bool CNiPlugIn::IsWriteAuthRequest ( uInt32 uiAuthMethod )
 } // IsWriteAuthRequest
 
 
+#pragma mark -
+#pragma mark LocalCachedUser
+#pragma mark -
+
 //------------------------------------------------------------------------------------
 //	* DoLocalCachedUserAuth
 //------------------------------------------------------------------------------------
@@ -5844,26 +7278,62 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 											sNIContinueData** inOutContinueData, 
 											tDataBufferPtr inAuthData, tDataBufferPtr outAuthData, 
 											bool inAuthOnly, bool isSecondary,
-											char* inAuthAuthorityData, char* inGUIDString,
+											const char* inAuthAuthorityData, const char* inGUIDString,
 											const char* inNativeRecType )
+{
+	sInt32					siResult				= eDSAuthFailed;
+	bool					bNetworkNodeReachable	= false;
+	
+	// are we online or offline?
+	siResult = LocalCachedUserReachable( inNodeRef, inAuthMethod, inContext, inOutContinueData, 
+										 inAuthData, outAuthData, inAuthAuthorityData, inGUIDString, inNativeRecType, &bNetworkNodeReachable );
+	if ( siResult == eDSNoErr )
+	{
+		siResult = DoLocalCachedUserAuthPhase2( inNodeRef, inAuthMethod, inContext, inOutContinueData,
+												inAuthData, outAuthData, inAuthOnly, isSecondary,
+												inAuthAuthorityData, inGUIDString, inNativeRecType, bNetworkNodeReachable );
+	}
+	
+	if (inContext->fLocalCacheNetNode != NULL)
+	{
+		dsDataListDeallocatePriv(inContext->fLocalCacheNetNode);
+		free(inContext->fLocalCacheNetNode);
+		inContext->fLocalCacheNetNode = NULL;
+	}
+	if (inContext->fLocalCacheRef != 0)
+	{
+		dsCloseDirService(inContext->fLocalCacheRef);
+		inContext->fLocalCacheRef = 0;
+	}
+	
+	return( siResult );
+} // DoLocalCachedUserAuth
+
+
+//------------------------------------------------------------------------------------
+//	* LocalCachedUserReachable
+//------------------------------------------------------------------------------------
+
+sInt32 CNiPlugIn::LocalCachedUserReachable(	tDirNodeReference inNodeRef,
+											tDataNodePtr inAuthMethod, 
+											sNIContextData* inContext, 
+											sNIContinueData** inOutContinueData, 
+											tDataBufferPtr inAuthData, 
+											tDataBufferPtr outAuthData,
+											const char* inAuthAuthorityData,
+											const char* inGUIDString,
+											const char* inNativeRecType,
+											bool *inOutNodeReachable )
 {
 	sInt32					siResult				= eDSAuthFailed;
 	uInt32					uiAuthMethod			= 0;
 	char				   *networkNodename			= nil;
 	char				   *userRecordName			= nil;
 	char				   *userGUID				= nil;
-	tDirReference			aDirRef					= 0;
 	sInt32					result					= eDSNoErr;
-	tDataList			   *netNode					= nil;
 	tDataBuffer			   *dataBuffer				= nil;
 	uInt32					nodeCount				= 0;
-	tContextData			tContinue				= nil;
-	bool					bNetworkNodeReachable	= false;
-	tDirNodeReference		aNodeRef				= 0;
 	tDirNodeReference		aSearchNodeRef			= 0;
-	tDataNode			   *authMethodPtr			= nil;
-	bool					bAuthLocally			= false;
-	sNIContextData		   *tmpContext				= nil;
 	tDataList			   *pSearchNode				= nil;
 	tDataList			   *pSearchNodeList			= nil;
 	tAttributeListRef		attrListRef				= 0;
@@ -5871,40 +7341,45 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 	tAttributeValueEntry   *pAttrValueEntry			= nil;
 	tAttributeEntry		   *pAttrEntry				= nil;
 	uInt32					aIndex					= 0;
-
+		
+	if ( inAuthData == nil ) return( (sInt32)eDSNullAuthStepData );
+	if ( inContext == nil ) return( (sInt32)eDSInvalidNodeRef );
+	if ( inOutNodeReachable == nil ) return( (sInt32)eParameterError );
+	
+	*inOutNodeReachable = false;
+	
+	DBGLOG( kLogPlugin, "LocalCachedUserReachable::" );
+	if (inAuthMethod != nil)
+		DBGLOG1( kLogPlugin, "NetInfo PlugIn: Attempting use of authentication method %s", inAuthMethod->fBufferData );
+	
 	try
 	{
-		if ( inAuthData == nil ) throw( (sInt32)eDSNullAuthStepData );
-		if ( inContext == nil ) throw( (sInt32)eDSInvalidNodeRef );
-
-		DBGLOG( kLogPlugin, "DoLocalCachedUserAuth::" );
-		siResult = GetAuthMethod( inAuthMethod, &uiAuthMethod );
-		
+		siResult = dsGetAuthMethodEnumValue( inAuthMethod, &uiAuthMethod );
 		if ( siResult == eDSNoErr )
 		{
 			siResult = ParseLocalCacheUserData(inAuthAuthorityData, &networkNodename, &userRecordName, &userGUID);
 			
-			result = dsOpenDirService(&aDirRef);
+			result = dsOpenDirService(&inContext->fLocalCacheRef);
 			if (result == eDSNoErr)
 			{
-				netNode = dsBuildFromPathPriv( networkNodename, "/" );
-				if ( netNode == nil ) throw( (sInt32)eMemoryError );
-				dataBuffer = ::dsDataBufferAllocate( aDirRef, 1024 );
+				inContext->fLocalCacheNetNode = dsBuildFromPathPriv( networkNodename, "/" );
+				if ( inContext->fLocalCacheNetNode == nil ) throw( (sInt32)eMemoryError );
+				dataBuffer = ::dsDataBufferAllocate( inContext->fLocalCacheRef, 1024 );
 				if ( dataBuffer == nil ) throw( (sInt32)eMemoryError );
 	
-				result = dsFindDirNodes( aDirRef, dataBuffer, netNode, eDSiExact, &nodeCount, &tContinue );
+				result = dsFindDirNodes( inContext->fLocalCacheRef, dataBuffer, inContext->fLocalCacheNetNode, eDSiExact, &nodeCount, nil );
 				if ( (result == eDSNoErr) && (nodeCount == 1) )
 				{
 					//now check if the node is actually on the search policy
 					//get thesearch node. open it and call dsgetdirnodeinfo for kDS1AttrSearchPath
 					//extract the node list
-					result = dsFindDirNodes( aDirRef, dataBuffer, nil, eDSAuthenticationSearchNodeName, &nodeCount, &tContinue );
+					result = dsFindDirNodes( inContext->fLocalCacheRef, dataBuffer, nil, eDSAuthenticationSearchNodeName, &nodeCount, nil );
 					if ( ( result == eDSNoErr ) && ( nodeCount == 1 ) )
 					{
-						result = dsGetDirNodeName( aDirRef, dataBuffer, 1, &pSearchNode );
+						result = dsGetDirNodeName( inContext->fLocalCacheRef, dataBuffer, 1, &pSearchNode );
 						if ( result == eDSNoErr )
 						{
-							result = dsOpenDirNode( aDirRef, pSearchNode, &aSearchNodeRef );
+							result = dsOpenDirNode( inContext->fLocalCacheRef, pSearchNode, &aSearchNodeRef );
 							if ( pSearchNode != NULL )
 							{
 								dsDataListDeallocatePriv( pSearchNode );
@@ -5918,13 +7393,13 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 								do
 								{
 									nodeCount = 0;
-									result = dsGetDirNodeInfo( aSearchNodeRef, pSearchNodeList, dataBuffer, false, &nodeCount, &attrListRef, nil  );
+									result = dsGetDirNodeInfo( aSearchNodeRef, pSearchNodeList, dataBuffer, false, &nodeCount, &attrListRef, nil );
 									if (result == eDSBufferTooSmall)
 									{
 										uInt32 bufSize = dataBuffer->fBufferSize;
 										dsDataBufferDeallocatePriv( dataBuffer );
 										dataBuffer = nil;
-										dataBuffer = ::dsDataBufferAllocate( aDirRef, bufSize * 2 );
+										dataBuffer = ::dsDataBufferAllocate( inContext->fLocalCacheRef, bufSize * 2 );
 									}
 								} while (result == eDSBufferTooSmall);
 								
@@ -5943,69 +7418,161 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 										
 										if (strcmp( networkNodename, pAttrValueEntry->fAttributeValueData.fBufferData ) == 0 )
 										{
-											bNetworkNodeReachable = true; //node is registered in DS
-											dsDeallocAttributeValueEntry(aDirRef, pAttrValueEntry);
+											char *chPtr = strstr( networkNodename, kstrNetInfoName);
+											if ( chPtr != nil )
+											{
+												//we found the user on some netinfo node
+												//so now check if there are any parent nodes or we are local only
+												tDataList *pNodeNameDL = nil;
+												//call to check if there exists a NetInfo parent node
+												pNodeNameDL = ::dsBuildListFromStringsPriv( "NetInfo", "..", nil );
+												if (pNodeNameDL != nil)
+												{
+													//try to open the parent NetInfo node
+													sInt32				openResult	= eDSNoErr;
+													tDirNodeReference	aNodeRef	= 0;
+													openResult = dsOpenDirNode( inContext->fLocalCacheRef, pNodeNameDL, &aNodeRef );
+													if ( openResult == eDSNoErr )
+													{
+														*inOutNodeReachable = true; //at least a netinfo hierarchy is present
+														dsCloseDirNode(aNodeRef);
+														aNodeRef = 0;
+													}
+													dsDataListDeAllocate( inContext->fLocalCacheRef, pNodeNameDL, false );
+													free(pNodeNameDL);
+													pNodeNameDL = nil;
+												}
+											}
+											else
+											{
+												*inOutNodeReachable = true; //node is registered in DS
+											}
+											dsDeallocAttributeValueEntry(inContext->fLocalCacheRef, pAttrValueEntry);
 											pAttrValueEntry = nil;
 											break;
 										}
-										dsDeallocAttributeValueEntry(aDirRef, pAttrValueEntry);
+										dsDeallocAttributeValueEntry(inContext->fLocalCacheRef, pAttrValueEntry);
 										pAttrValueEntry = nil;
 									}
 									
 									dsCloseAttributeList(attrListRef);
 									dsCloseAttributeValueList(attrValueListRef);
-									dsDeallocAttributeEntry(aDirRef, pAttrEntry);
+									dsDeallocAttributeEntry(inContext->fLocalCacheRef, pAttrEntry);
 									pAttrEntry = nil;
 									
 									//close dir node after releasing attr references
 									result = ::dsCloseDirNode(aSearchNodeRef);
+									aSearchNodeRef = 0;
 									if ( result != eDSNoErr ) throw( result );
 								}
 							}
 						}
 					}
 					//formerly no check for network node on the search policy
-					//bNetworkNodeReachable = true; //node is registered in DS
+					//*inOutNodeReachable = true; //node is registered in DS
 				}
 			}
-			
-			if ( siResult == eDSNoErr )
-			{
-				siResult = eDSAuthFailed;
-				// look at auth method request and decide what to do
-				switch( uiAuthMethod )
-				{
-					case kAuthSetPasswdAsRoot:
-						//do local only with no network sync as root is local
-						//note here that password may become unsynced
-					case kAuthWriteSecureHash:
-					case kAuthReadSecureHash:
-						//supported since local cached users are completely copied upon cache updates
-					case kAuthSecureHash:
-						//local only since cannot sync this hash ie. no password
-						siResult = CNiPlugIn::DoShadowHashAuth(	inNodeRef,
-																inAuthMethod,
-																inContext,
-																inOutContinueData,
-																inAuthData,
-																outAuthData,
-																inAuthOnly,
-																isSecondary,
-																NULL,		//no need to pass in the network data
-																inGUIDString,
-																inNativeRecType,
-																false );
-						break;
+		}
+	}
+	catch( sInt32 err )
+	{
+		siResult = err;
+	}
 	
-					case kAuthChangePasswd:
-						//network and if success then local otherwise fails immediately
-						if (bNetworkNodeReachable)
+	//cleanup
+	DSFreeString( networkNodename );
+	DSFreeString( userRecordName );
+	DSFreeString( userGUID );
+	
+    if ( dataBuffer != nil )
+	{
+        dsDataBufferDeallocatePriv( dataBuffer );
+		dataBuffer = nil;
+	}
+
+	return( siResult );	
+}
+
+
+//------------------------------------------------------------------------------------
+//	* DoLocalCachedUserAuthPhase2
+//------------------------------------------------------------------------------------
+
+sInt32 CNiPlugIn::DoLocalCachedUserAuthPhase2	( tDirNodeReference inNodeRef,
+												  tDataNodePtr inAuthMethod, 
+												  sNIContextData* inContext, 
+												  sNIContinueData** inOutContinueData, 
+												  tDataBufferPtr inAuthData, 
+												  tDataBufferPtr outAuthData, 
+												  bool inAuthOnly,
+												  bool isSecondary,
+												  const char* inAuthAuthorityData,
+												  const char* inGUIDString,
+												  const char* inNativeRecType,
+												  bool inNetNodeReachable )
+{
+	sInt32					siResult				= eDSAuthFailed;
+	uInt32					uiAuthMethod			= 0;
+	sInt32					result					= eDSNoErr;
+	tDirNodeReference		aNodeRef				= 0;
+	tDataNode			   *authMethodPtr			= nil;
+	bool					bAuthLocally			= false;
+	sNIContextData		   *tmpContext				= nil;
+	tDataListPtr			dataList				= NULL;
+	char				   *pUserName				= nil;
+	char				   *pNewPassword			= nil;
+	unsigned int			itemCount				= 0;
+	char				   *policyStr				= NULL;
+	unsigned long			policyStrLen			= 0;
+	
+	try
+	{
+		if ( inAuthData == nil ) throw( (sInt32)eDSNullAuthStepData );
+		if ( inContext == nil ) throw( (sInt32)eDSInvalidNodeRef );
+		
+		siResult = dsGetAuthMethodEnumValue( inAuthMethod, &uiAuthMethod );
+		if ( siResult == eDSNoErr )
+		{
+			siResult = eDSAuthFailed;
+			// look at auth method request and decide what to do
+			switch( uiAuthMethod )
+			{
+				case kAuthSetPasswdAsRoot:
+					//do local only with no network sync as root is local
+					//note here that password may become unsynced
+				case kAuthWriteSecureHash:
+				case kAuthReadSecureHash:
+					//supported since local cached users are completely copied upon cache updates
+				case kAuthSecureHash:
+					//local only since cannot sync this hash ie. no password
+					siResult = CNiPlugIn::DoShadowHashAuth(	inNodeRef,
+															inAuthMethod,
+															inContext,
+															inOutContinueData,
+															inAuthData,
+															outAuthData,
+															inAuthOnly,
+															isSecondary,
+															kLocalCachedUserHashList,
+															inGUIDString,
+															inNativeRecType );
+					break;
+
+				case kAuthChangePasswd:
+					//network and if success then local otherwise fails immediately
+					if (inNetNodeReachable && inContext->fLocalCacheNetNode != NULL)
+					{
+						if ( inContext->fLocalCacheRef != 0 )
+							result = eDSNoErr;
+						else
+							result = dsOpenDirService(&inContext->fLocalCacheRef);
+						if (result == eDSNoErr)
 						{
-							result = dsOpenDirNode(aDirRef, netNode, &aNodeRef);
+							result = dsOpenDirNode(inContext->fLocalCacheRef, inContext->fLocalCacheNetNode, &aNodeRef);
 							if ( result == eDSNoErr)
 							{
 								//user records only here
-								siResult = dsDoDirNodeAuth( aNodeRef, inAuthMethod, inAuthOnly, inAuthData, outAuthData, &tContinue );
+								siResult = dsDoDirNodeAuth( aNodeRef, inAuthMethod, inAuthOnly, inAuthData, outAuthData, nil );
 								//no checking of continue data
 								if (siResult == eDSNoErr)
 								{
@@ -6017,29 +7584,36 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 																			outAuthData,
 																			inAuthOnly,
 																			isSecondary,
-																			NULL,		//no need to pass in the network data
+																			kLocalCachedUserHashList,
 																			inGUIDString,
-																			inNativeRecType,
-																			false );
+																			inNativeRecType );
 								}
 							}
 						}
-						break;
-	
-					case kAuthNativeClearTextOK:
-					case kAuthNativeNoClearText:
-					case kAuthNativeMethod:
-						//network if available and if success then switch to kAuthSetPasswdAsRoot
-						//otherwise local auth only
-						bAuthLocally = false;
-						if (bNetworkNodeReachable)
+					}
+					break;
+
+				case kAuthNativeClearTextOK:
+				case kAuthNativeNoClearText:
+				case kAuthNativeMethod:
+					//network if available and if success then switch to kAuthSetPasswdAsRoot
+					//otherwise local auth only
+					bAuthLocally = false;
+					if (inNetNodeReachable && inContext->fLocalCacheNetNode != NULL)
+					{
+						if ( inContext->fLocalCacheRef != 0 )
+							result = eDSNoErr;
+						else
+							result = dsOpenDirService(&inContext->fLocalCacheRef);
+						if (result == eDSNoErr)
 						{
-							result = dsOpenDirNode(aDirRef, netNode, &aNodeRef);
+							result = dsOpenDirNode(inContext->fLocalCacheRef, inContext->fLocalCacheNetNode, &aNodeRef);
 							if ( result == eDSNoErr)
 							{
 								//user records only here
 								//network auth should not have session changed so inAuthOnly fixed at true
-								siResult = dsDoDirNodeAuth( aNodeRef, inAuthMethod, true, inAuthData, outAuthData, &tContinue );
+								
+								siResult = dsDoDirNodeAuth( aNodeRef, inAuthMethod, true, inAuthData, outAuthData, nil );
 								//no checking of continue data
 								if (siResult == eDSNoErr)
 								{
@@ -6052,15 +7626,14 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 																			outAuthData,
 																			inAuthOnly,
 																			isSecondary,
-																			NULL,		//no need to pass in the network data
+																			kLocalCachedUserHashList,
 																			inGUIDString,
-																			inNativeRecType,
-																			false );
+																			inNativeRecType );
 									if (siResult != eDSNoErr)
 									{
 										DBGLOG( kLogPlugin, "DoLocalCachedUserAuth::Local auth not sync'ed so try to set local password" );
 										//set the auth method to SetPasswdAsRoot for local password sync
-										authMethodPtr = dsDataNodeAllocateString( aDirRef, kDSStdAuthSetPasswdAsRoot );
+										authMethodPtr = dsDataNodeAllocateString( inContext->fLocalCacheRef, kDSStdAuthSetPasswdAsRoot );
 										if (authMethodPtr == nil ) throw( (sInt32)eMemoryError );
 										
 										//repackage the context data to ensure uid == 0 for writing shadow hash
@@ -6069,12 +7642,13 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 										//not all these are actually needed but assigned for completeness
 										tmpContext->fDomain					= inContext->fDomain;
 										tmpContext->fDomainName				= inContext->fDomainName;
+										tmpContext->fDomainPath			= inContext->fDomainPath;
 										tmpContext->fRecType				= inContext->fRecType;
 										tmpContext->fRecName				= inContext->fRecName;
 										tmpContext->dirID					= inContext->dirID;
 										tmpContext->offset					= inContext->offset;
-										tmpContext->index					= inContext->index;
 										tmpContext->fDontUseSafeClose		= inContext->fDontUseSafeClose;
+										tmpContext->bDidWriteOperation		= inContext->bDidWriteOperation;
 										tmpContext->fUID					= getuid();
 										tmpContext->fEffectiveUID			= geteuid();
 										tmpContext->fAuthenticatedUserName	= inContext->fAuthenticatedUserName;
@@ -6092,10 +7666,9 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 																				outAuthData,
 																				inAuthOnly,
 																				isSecondary,
-																				NULL,		//no need to pass in the network data
+																				kLocalCachedUserHashList,
 																				inGUIDString,
-																				inNativeRecType,
-																				false );
+																				inNativeRecType );
 										free(tmpContext);
 										tmpContext = nil;
 									}
@@ -6107,40 +7680,99 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 								bAuthLocally = true;
 							}
 						}
-						else
-						{
-							bAuthLocally = true;
-						}
-						if (bAuthLocally)
-						{
-							siResult = CNiPlugIn::DoShadowHashAuth(	inNodeRef,
-																	inAuthMethod,
-																	inContext,
-																	inOutContinueData,
-																	inAuthData,
-																	outAuthData,
-																	inAuthOnly,
-																	isSecondary,
-																	NULL,		//no need to pass in the network data
-																	inGUIDString,
-																	inNativeRecType,
-																	false );
-						}
-						break;
-	
-					case kAuthSetPolicy:
-						//only password server support at this time 05-16-03
-					case kAuthSetPasswd:
-						//could allow call to network and if success then switch to kAuthSetPasswdAsRoot for local
-					case kAuthSMB_NT_Key:
-					case kAuthSMB_LM_Key:
-						//not supported at this time 05-16-03
-						//not discussed in any design conversations
-					default:
-						siResult = eDSAuthMethodNotSupported;
-						break;
-				}
-	
+					}
+					else
+					{
+						bAuthLocally = true;
+					}
+					if (bAuthLocally)
+					{
+						siResult = CNiPlugIn::DoShadowHashAuth(	inNodeRef,
+																inAuthMethod,
+																inContext,
+																inOutContinueData,
+																inAuthData,
+																outAuthData,
+																inAuthOnly,
+																isSecondary,
+																kLocalCachedUserHashList,
+																inGUIDString,
+																inNativeRecType );
+					}
+					break;
+
+				case kAuthSetPolicyAsRoot:
+					// parse input first, using <pNewPassword> to hold the policy string
+					siResult = Get2FromBuffer(inAuthData, &dataList, &pUserName, &pNewPassword, &itemCount );
+					if ( siResult != eDSNoErr )
+						throw( siResult );
+					if ( itemCount != 2 || pNewPassword == NULL || pNewPassword[0] == '\0' )
+						throw( (sInt32)eDSInvalidBuffFormat );
+					
+					siResult = SetUserPolicies( inContext, inNativeRecType, pUserName, pNewPassword, NULL );
+					break;
+				
+				case kAuthGetPolicy:
+					// possible to return data
+					if ( outAuthData == nil ) throw( (sInt32)eDSNullAuthStepData );
+					outAuthData->fBufferLength = 0;
+					
+					// parse input
+					dataList = dsAuthBufferGetDataListAllocPriv(inAuthData);
+					if ( dataList == nil ) throw( (sInt32)eDSInvalidBuffFormat );
+					itemCount = dsDataListGetNodeCountPriv(dataList);
+					if ( itemCount != 3 ) throw( (sInt32)eDSInvalidBuffFormat );
+					
+					// this allocates a copy of the string
+					pUserName = dsDataListGetNodeStringPriv(dataList, 3);
+					if ( pUserName == nil ) throw( (sInt32)eDSInvalidBuffFormat );
+					if ( strlen(pUserName) < 1 ) throw( (sInt32)eDSInvalidBuffFormat );
+					
+					// get policy attribute
+					siResult = GetUserPolicies( inContext, inNativeRecType, pUserName, NULL, &policyStr );
+					if ( siResult != 0 ) throw( siResult );
+					
+					if ( policyStr != NULL )
+						policyStrLen = strlen( policyStr );
+					if ( outAuthData->fBufferSize < 4 + policyStrLen )
+						throw( (sInt32)eDSBufferTooSmall );
+							
+					outAuthData->fBufferLength = 4 + policyStrLen;
+					memcpy( outAuthData->fBufferData, &policyStrLen, 4 );
+					if ( policyStrLen > 0 )
+						memcpy( outAuthData->fBufferData + 4, policyStr, policyStrLen );
+					break;
+				
+				case kAuthSetPolicy:
+					// parse input
+					dataList = dsAuthBufferGetDataListAllocPriv(inAuthData);
+					if ( dataList == nil ) throw( (sInt32)eDSInvalidBuffFormat );
+					itemCount = dsDataListGetNodeCountPriv(dataList);
+					if ( itemCount != 4 ) throw( (sInt32)eDSInvalidBuffFormat );
+					
+					// this allocates a copy of the string
+					pUserName = dsDataListGetNodeStringPriv(dataList, 3);
+					if ( pUserName == nil ) throw( (sInt32)eDSInvalidBuffFormat );
+					if ( pUserName[0] == '\0' ) throw( (sInt32)eDSInvalidBuffFormat );
+					
+					pNewPassword = dsDataListGetNodeStringPriv(dataList, 4);
+					if ( pNewPassword == nil )
+						throw( (sInt32)eDSInvalidBuffFormat );
+					if ( pNewPassword[0] == '\0' )
+						throw( (sInt32)eDSInvalidBuffFormat );
+						
+					siResult = SetUserPolicies( inContext, inNativeRecType, pUserName, pNewPassword, NULL );
+					break;
+
+				case kAuthSetPasswd:
+					//could allow call to network and if success then switch to kAuthSetPasswdAsRoot for local
+				case kAuthSMB_NT_Key:
+				case kAuthSMB_LM_Key:
+					//not supported at this time 05-16-03
+					//not discussed in any design conversations
+				default:
+					siResult = eDSAuthMethodNotSupported;
+					break;
 			}
 		}
 	}
@@ -6148,34 +7780,8 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 	{
 		siResult = err;
 	}
-
+	
 	//cleanup
-	if (networkNodename != nil)
-	{
-		free(networkNodename);
-		networkNodename = nil;
-	}
-	if (userRecordName != nil)
-	{
-		free(userRecordName);
-		userRecordName = nil;
-	}
-	if (userGUID != nil)
-	{
-		free(userGUID);
-		userGUID = nil;
-	}
-    if ( dataBuffer != nil )
-	{
-        dsDataBufferDeallocatePriv( dataBuffer );
-		dataBuffer = nil;
-	}
-	if (netNode != nil)
-	{
-		dsDataListDeallocatePriv(netNode);
-		free(netNode);
-		netNode = NULL;
-	}
 	if (authMethodPtr != nil)
 	{
 		dsDataBufferDeallocatePriv( authMethodPtr );
@@ -6186,16 +7792,35 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuth ( 	tDirNodeReference inNodeRef, tDataNod
 		dsCloseDirNode(aNodeRef);
 		aNodeRef = 0;
 	}
-	if (aDirRef != 0)
+	if (inContext->fLocalCacheNetNode != NULL)
 	{
-		dsCloseDirService(aDirRef);
-		aDirRef = 0;
+		dsDataListDeallocatePriv(inContext->fLocalCacheNetNode);
+		free(inContext->fLocalCacheNetNode);
+		inContext->fLocalCacheNetNode = NULL;
+	}
+	if (inContext->fLocalCacheRef != 0)
+	{
+		dsCloseDirService(inContext->fLocalCacheRef);
+		inContext->fLocalCacheRef = 0;
+	}
+	if (dataList != NULL)
+	{
+		dsDataListDeallocatePriv(dataList);
+		free(dataList);
+		dataList = NULL;
 	}
 	
+	DSFreeString( pUserName );
+	DSFreePassword( pNewPassword );
+	DSFreeString( policyStr );
+	
 	return( siResult );
+}
 
-} // DoLocalCachedUserAuth
 
+#pragma mark -
+#pragma mark DisabledUser
+#pragma mark -
 
 //------------------------------------------------------------------------------------
 //	* DoDisabledAuth
@@ -6206,10 +7831,101 @@ sInt32 CNiPlugIn::DoDisabledAuth ( 		tDirNodeReference inNodeRef, tDataNodePtr i
 										sNIContinueData** inOutContinueData, 
 										tDataBufferPtr inAuthData, tDataBufferPtr outAuthData, 
 										bool inAuthOnly, bool isSecondary,
-										char* inAuthAuthorityData, char* inGUIDString,
+										const char* inAuthAuthorityData, const char* inGUIDString,
 										const char* inNativeRecType )
 {
-	return (sInt32)eDSAuthFailed;
+	sInt32				siResult						= eDSAuthFailed;
+	uInt32				uiAuthMethod					= 0;
+	bool				bNetworkNodeReachable			= false;
+	const char			*startOfOrigAuthAuthorityTag	= NULL;
+	char				*pUserName						= NULL;
+	tDataListPtr		dataList						= NULL;
+	
+	siResult = dsGetAuthMethodEnumValue( inAuthMethod, &uiAuthMethod );
+	if ( siResult != eDSNoErr )
+		return siResult;
+	
+	// The disabled auth authority keeps the enabled version in the data section.
+	// Example: ;DisabledUser;;ShadowHash;
+	// Double-check that the original auth-authority is ShadowHash and allow get policy methods.
+	// We can check for a non-NULL auth-authority data, but the data is not included because of the extra
+	// semicolon. 
+	if ( inAuthAuthorityData != NULL )
+	{
+		startOfOrigAuthAuthorityTag = strcasestr( inAuthAuthorityData, kDSValueAuthAuthorityLocalCachedUser );
+		if ( startOfOrigAuthAuthorityTag != NULL )
+		{
+			siResult = LocalCachedUserReachable( inNodeRef, inAuthMethod, inContext, inOutContinueData, 
+												 inAuthData, outAuthData,
+												 startOfOrigAuthAuthorityTag + sizeof(kDSValueAuthAuthorityLocalCachedUser) - 1,
+												 inGUIDString, inNativeRecType, &bNetworkNodeReachable );
+
+			if ( siResult != eDSNoErr )
+				return( siResult );
+			if ( bNetworkNodeReachable )
+			{
+				siResult = DoLocalCachedUserAuthPhase2( inNodeRef, inAuthMethod, inContext, inOutContinueData,
+														inAuthData, outAuthData, inAuthOnly, isSecondary,
+														startOfOrigAuthAuthorityTag + sizeof(kDSValueAuthAuthorityLocalCachedUser) - 1,
+														inNativeRecType, inGUIDString, bNetworkNodeReachable );
+				
+				if ( siResult == eDSNoErr )
+				{
+					switch( uiAuthMethod )
+					{
+						// re-enable the user for these methods
+						case kAuthNativeClearTextOK:
+						case kAuthNativeNoClearText:
+						case kAuthNativeMethod:
+							dataList = dsAuthBufferGetDataListAllocPriv( inAuthData );
+							if ( dataList != NULL )
+							{
+								if ( dsDataListGetNodeCountPriv(dataList) >= 1 ) 
+								{
+									pUserName = dsDataListGetNodeStringPriv(dataList, 1);
+									if ( pUserName != NULL )
+									{
+										if ( strlen(pUserName) > 0 )
+											SetUserAuthAuthorityAsRoot( inContext, inNativeRecType, pUserName, startOfOrigAuthAuthorityTag );
+										DSFreeString( pUserName );
+									}
+								}
+								dsDataListDeallocatePriv( dataList );
+								free( dataList );
+								dataList = NULL;
+							}
+							break;
+						
+						default:
+							break;
+					}
+				}
+				
+				return siResult;
+			}
+			else
+			{
+				return( eDSAuthAccountDisabled );
+			}
+		}
+		
+		switch ( uiAuthMethod )
+		{
+			case kAuthGetPolicy:
+			case kAuthGetEffectivePolicy:
+			case kAuthSetPolicyAsRoot:
+			case kAuthSetPasswdAsRoot:
+				siResult = CNiPlugIn::DoShadowHashAuth( inNodeRef, inAuthMethod, inContext, inOutContinueData, 
+										inAuthData, outAuthData, inAuthOnly, isSecondary, inAuthAuthorityData,
+										inGUIDString, inNativeRecType );
+				break;
+			
+			default: 
+				siResult = eDSAuthFailed;
+		}
+	}
+	
+	return siResult;
 } // DoDisabledAuth
 
 
@@ -6225,8 +7941,8 @@ sInt32 CNiPlugIn::DoBasicAuth ( tDirNodeReference inNodeRef, tDataNodePtr inAuth
 								sNIContextData* inContext, 
 								sNIContinueData** inOutContinueData, 
 								tDataBufferPtr inAuthData, tDataBufferPtr outAuthData, 
-								bool inAuthOnly, bool isSecondary, char* inAuthAuthorityData,
-								char* inGUIDString, const char* inNativeRecType )
+								bool inAuthOnly, bool isSecondary, const char* inAuthAuthorityData,
+								const char* inGUIDString, const char* inNativeRecType )
 {
 	sInt32				siResult		= eDSNoErr;
 	uInt32				uiAuthMethod	= 0;
@@ -6236,7 +7952,11 @@ sInt32 CNiPlugIn::DoBasicAuth ( tDirNodeReference inNodeRef, tDataNodePtr inAuth
 		if ( inContext == nil ) throw( (sInt32)eDSInvalidNodeRef );
 
 		DBGLOG( kLogPlugin, "DoBasicAuth::" );
-		siResult = GetAuthMethod( inAuthMethod, &uiAuthMethod );
+		if (inAuthMethod != nil)
+		{
+			DBGLOG1( kLogPlugin, "NetInfo PlugIn: Attempting use of authentication method %s", inAuthMethod->fBufferData );
+		}
+		siResult = dsGetAuthMethodEnumValue( inAuthMethod, &uiAuthMethod );
 		if ( siResult == eDSNoErr )
 		{
 			switch( uiAuthMethod )
@@ -6333,6 +8053,7 @@ sInt32 CNiPlugIn::DoSetPassword ( sNIContextData *inContext, tDataBuffer *inAuth
 {
 	sInt32				siResult		= eDSAuthFailed;
 	bool				bFreePropList	= false;
+	bool				bResetCache		= false;
 	char			   *pData			= nil;
 	char			   *userName		= nil;
 	uInt32				userNameLen		= 0;
@@ -6349,7 +8070,8 @@ sInt32 CNiPlugIn::DoSetPassword ( sNIContextData *inContext, tDataBuffer *inAuth
 #ifdef TIM_CLIENT_PRESENT
 	TIMHandle		   *pTimHndl		= nil;
 #endif
-	void			   *domain			= nil;
+	void			   *aNIDomain		= NULL;
+
 
 	gNetInfoMutex->Wait();
 
@@ -6419,179 +8141,187 @@ sInt32 CNiPlugIn::DoSetPassword ( sNIContextData *inContext, tDataBuffer *inAuth
 		pData += rootPwdLen;
 		offset += rootPwdLen;
 
+		aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
+		{
+
 #ifdef TIM_CLIENT_PRESENT
-		//opt out early if we know tim is not there **** check on local first
-		if ( IsTimRunning() )
-		{
-			pTimHndl = ::timServerForDomain( inContext->fDomain );
-			if ( pTimHndl != nil )
+			//opt out early if we know tim is not there **** check on local first
+			if ( !inContext->bIsLocal && IsTimRunning() )
 			{
-				// Set the password for the user
-				siResult = ::timSetPasswordWithTIMHandle( pTimHndl, rootName, rootPwd, userName, userPwd );
-				timHandleFree( pTimHndl );
-
-				if ( siResult != eDSNoErr )
+				pTimHndl = ::timServerForDomain( aNIDomain );
+				if ( pTimHndl != nil )
 				{
-				
+					// Set the password for the user
+					siResult = ::timSetPasswordWithTIMHandle( pTimHndl, rootName, rootPwd, userName, userPwd );
+					timHandleFree( pTimHndl );
+
+					if ( siResult != eDSNoErr )
+					{
+					
+					}
 				}
-			}
 
 #ifdef DEBUG
-			if ( siResult != TimStatusOK )
-			{
-				DBGLOG1( kLogPlugin, "-- timSetPasswordForUser -- failed with %l.", siResult );
-			}
+				if ( siResult != TimStatusOK )
+				{
+					DBGLOG1( kLogPlugin, "-- timSetPasswordForUser -- failed with %l.", siResult );
+				}
 #endif
-			siResult = MapAuthResult( siResult );
-		}
-		else
-#endif
-		{
-			//need some code here to directly set the NI Crypt password
-			//also first check to see if the password already exists
-
-			char			salt[3];
-			char			hashPwd[ 32 ];
-			ni_id			niDirID;
-			ni_index   		niWhere			= 0;
-			ni_namelist		niValue;
-			char		   *niPwd			= nil;
-
-			domain = inContext->fDomain;
-			//need some code here to directly change the NI Crypt password
-			//first check to see that the old password is valid
-			DBGLOG( kLogPlugin, "Attempting UNIX Crypt password change" );
-			siResult = IsValidRecordName ( rootName, inNativeRecType, domain, niDirID );
-
-#ifdef DEBUG
-			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
-#else
-			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-#endif
-
-			siResult = ::ni_read( domain, &niDirID, &niPropList );
-#ifdef DEBUG
-			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
-			if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthUnknownUser );
-#else
-			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-			if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthFailed );
-#endif
-			bFreePropList = true;
-			niWhere = ::ni_proplist_match( niPropList, "uid", nil );
-
-			if (niWhere == NI_INDEX_NULL) throw( (sInt32)eDSAuthFailed );
-			siResult = eDSAuthFailed;
-			niValue = niPropList.ni_proplist_val[ niWhere ].nip_val;
-
-			// make sure the user we are going to verify actually is root OR an admin user
-			if ( !( ( (niValue.ni_namelist_val[ 0 ] != NULL) && (strcmp( "0", niValue.ni_namelist_val[ 0 ]) == 0) ) || 
-					(UserIsAdmin(rootName, domain)) ) )
-			{
-				throw( (sInt32)eDSAuthFailed );
-			}
-
-			niWhere = ::ni_proplist_match( niPropList, "passwd", nil );
-#ifdef DEBUG
-			if (niWhere == NI_INDEX_NULL) throw( (sInt32)eDSAuthBadPassword );
-			siResult = eDSAuthBadPassword;
-#else
-			if (niWhere == NI_INDEX_NULL) throw( (sInt32)eDSAuthFailed );
-			siResult = eDSAuthFailed;
-#endif
-			niValue = niPropList.ni_proplist_val[ niWhere ].nip_val;
-			// be careful not to dereference nil here.
-			// We assume it is an empty password if there are no values for passwd.
-			if ((niValue.ni_namelist_len > 0) && (niValue.ni_namelist_val != nil))
-			{
-				niPwd = niPropList.ni_proplist_val[ niWhere ].nip_val.ni_namelist_val[ 0 ];
+				siResult = MapAuthResult( siResult );
 			}
 			else
+#endif
 			{
-				niPwd = (char*)""; // empty string, we are not freeing it so direct assignment is OK
-			}
+				//need some code here to directly set the NI Crypt password
+				//also first check to see if the password already exists
 
-			//account for the case where niPwd == "" such that we will auth if pwdLen is 0
-			if (::strcmp(niPwd,"") != 0)
-			{
-				salt[ 0 ] = niPwd[0];
-				salt[ 1 ] = niPwd[1];
-				salt[ 2 ] = '\0';
+				char			salt[3];
+				char			hashPwd[ 32 ];
+				ni_id			niDirID;
+				ni_index   		niWhere			= 0;
+				ni_namelist		niValue;
+				char		   *niPwd			= nil;
 
-				bzero(hashPwd, 32);
-				::strcpy( hashPwd, ::crypt( rootPwd, salt ) );
+				//need some code here to directly change the NI Crypt password
+				//first check to see that the old password is valid
+				DBGLOG( kLogPlugin, "Attempting UNIX Crypt password change" );
+				siResult = IsValidRecordName ( rootName, inNativeRecType, aNIDomain, niDirID );
 
+#ifdef DEBUG
+				if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
+#else
+				if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+#endif
+
+				siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+#ifdef DEBUG
+				if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
+				if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthUnknownUser );
+#else
+				if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+				if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthFailed );
+#endif
+				bFreePropList = true;
+				niWhere = ::ni_proplist_match( niPropList, "uid", nil );
+
+				if (niWhere == NI_INDEX_NULL) throw( (sInt32)eDSAuthFailed );
 				siResult = eDSAuthFailed;
-				if ( ::strcmp( hashPwd, niPwd ) == 0 )
-				{
-					siResult = eDSNoErr;
-				}
-				bzero(hashPwd, 32);
-			}
-			else // niPwd is == ""
-			{
-				if (::strcmp(rootPwd,"") != 0)
-				{
-					siResult = eDSNoErr;
-				}
-			}
+				niValue = niPropList.ni_proplist_val[ niWhere ].nip_val;
 
-			if (siResult == eDSNoErr)
-			{
-				if ( inContext->bIsLocal ) //local node and assume crypt password length is correct
+				// make sure the user we are going to verify actually is root OR an admin user
+				if ( !( ( (niValue.ni_namelist_val[ 0 ] != NULL) && (strcmp( "0", niValue.ni_namelist_val[ 0 ]) == 0) ) || 
+						(UserIsAdmin(rootName, inContext)) ) )
 				{
-					MigrateToShadowHash(domain, &niDirID, &niPropList, userName, userPwd);
+					throw( (sInt32)eDSAuthFailed );
+				}
+
+				niWhere = ::ni_proplist_match( niPropList, "passwd", nil );
+#ifdef DEBUG
+				if (niWhere == NI_INDEX_NULL) throw( (sInt32)eDSAuthBadPassword );
+				siResult = eDSAuthBadPassword;
+#else
+				if (niWhere == NI_INDEX_NULL) throw( (sInt32)eDSAuthFailed );
+				siResult = eDSAuthFailed;
+#endif
+				niValue = niPropList.ni_proplist_val[ niWhere ].nip_val;
+				// be careful not to dereference nil here.
+				// We assume it is an empty password if there are no values for passwd.
+				if ((niValue.ni_namelist_len > 0) && (niValue.ni_namelist_val != nil))
+				{
+					niPwd = niPropList.ni_proplist_val[ niWhere ].nip_val.ni_namelist_val[ 0 ];
 				}
 				else
 				{
-					// we successfully authenticated with root password, now set new user password.
-					//set with the new password
-					const char *saltchars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./";
-	
+					niPwd = (char*)""; // empty string, we are not freeing it so direct assignment is OK
+				}
+
+				//account for the case where niPwd == "" such that we will auth if pwdLen is 0
+				if (::strcmp(niPwd,"") != 0)
+				{
+					salt[ 0 ] = niPwd[0];
+					salt[ 1 ] = niPwd[1];
+					salt[ 2 ] = '\0';
+
 					bzero(hashPwd, 32);
-	
-					if ( ::strlen(userPwd) > 0 )
+					::strcpy( hashPwd, ::crypt( rootPwd, salt ) );
+
+					siResult = eDSAuthFailed;
+					if ( ::strcmp( hashPwd, niPwd ) == 0 )
 					{
-						// only need crypt if password is not empty
-						::srandom(getpid() + time(0));
-						salt[0] = saltchars[random() % 64];
-						salt[1] = saltchars[random() % 64];
-						salt[2] = '\0';
-	
-						::strcpy( hashPwd, ::crypt( userPwd, salt ) );
+						siResult = eDSNoErr;
 					}
-	
-					siResult = IsValidRecordName ( userName, inNativeRecType, domain, niDirID );
-	
-	#ifdef DEBUG
-					if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
-	#else
-					if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-	#endif
-					::ni_proplist_free( &niPropList );
-					bFreePropList = false;
-					siResult = ::ni_read( domain, &niDirID, &niPropList );
-	#ifdef DEBUG
-					if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
-	#else
-					if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-	#endif
-					bFreePropList = true;
-					
-					niWhere = ::ni_proplist_match( niPropList, "passwd", nil );
-					if ( niWhere != NI_INDEX_NULL )
-					{
-						// password already exists, delete it
-						niValue = niPropList.ni_proplist_val[ niWhere ].nip_val;
-	
-						siResult = NiLib2::DestroyDirVal( domain, &niDirID, (char*)"passwd", niValue );
-					}
-	
-					siResult = NiLib2::InsertDirVal( domain, &niDirID, (char*)"passwd", hashPwd, 0 );
-					siResult = MapNetInfoErrors( siResult );
 					bzero(hashPwd, 32);
 				}
+				else // niPwd is == ""
+				{
+					if (::strcmp(rootPwd,"") != 0)
+					{
+						siResult = eDSNoErr;
+					}
+				}
+
+				if (siResult == eDSNoErr)
+				{
+					if ( inContext->bIsLocal ) //local node and assume crypt password length is correct
+					{
+						MigrateToShadowHash(aNIDomain, &niDirID, &niPropList, userName, userPwd, bResetCache);
+					}
+					else
+					{
+						// we successfully authenticated with root password, now set new user password.
+						//set with the new password
+						const char *saltchars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./";
+		
+						bzero(hashPwd, 32);
+		
+						if ( ::strlen(userPwd) > 0 )
+						{
+							// only need crypt if password is not empty
+							::srandom(getpid() + time(0));
+							salt[0] = saltchars[random() % 64];
+							salt[1] = saltchars[random() % 64];
+							salt[2] = '\0';
+		
+							::strcpy( hashPwd, ::crypt( userPwd, salt ) );
+						}
+		
+						siResult = IsValidRecordName ( userName, inNativeRecType, aNIDomain, niDirID );
+		
+#ifdef DEBUG
+						if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
+#else
+						if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+#endif
+						::ni_proplist_free( &niPropList );
+						bFreePropList = false;
+						siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+#ifdef DEBUG
+						if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
+#else
+						if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+#endif
+						bFreePropList = true;
+						
+						niWhere = ::ni_proplist_match( niPropList, "passwd", nil );
+						if ( niWhere != NI_INDEX_NULL )
+						{
+							// password already exists, delete it
+							niValue = niPropList.ni_proplist_val[ niWhere ].nip_val;
+		
+							siResult = NiLib2::DestroyDirVal( aNIDomain, &niDirID, (char*)"passwd", niValue );
+						}
+		
+						siResult = NiLib2::InsertDirVal( aNIDomain, &niDirID, (char*)"passwd", hashPwd, 0 );
+						siResult = MapNetInfoErrors( siResult );
+						bzero(hashPwd, 32);
+					}
+				}
 			}
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -6606,32 +8336,17 @@ sInt32 CNiPlugIn::DoSetPassword ( sNIContextData *inContext, tDataBuffer *inAuth
 	}
 
 	gNetInfoMutex->Signal();
-
-	if ( userName != nil )
+	
+	if ( bResetCache )
 	{
-		free( userName );
-		userName = nil;
+		// be sure not to hold the NetInfo mutex while calling this
+		gSrvrCntl->HandleMemberDaemonFlushCache();
 	}
 
-	if ( userPwd != nil )
-	{
-		bzero(userPwd, strlen(userPwd));
-		free( userPwd );
-		userPwd = nil;
-	}
-
-	if ( rootName != nil )
-	{
-		free( rootName );
-		rootName = nil;
-	}
-
-	if ( rootPwd != nil )
-	{
-		bzero(rootPwd, strlen(rootPwd));
-		free( rootPwd );
-		rootPwd = nil;
-	}
+	DSFreeString( userName );
+	DSFreePassword( userPwd );
+	DSFreeString( rootName );
+	DSFreePassword( rootPwd );
 
 	return( siResult );
 
@@ -6646,6 +8361,7 @@ sInt32 CNiPlugIn::DoSetPasswordAsRoot ( sNIContextData *inContext, tDataBuffer *
 {
 	sInt32				siResult		= eDSAuthFailed;
 	bool				bFreePropList	= false;
+	bool				bResetCache		= false;
 	char			   *pData			= nil;
 	char			   *userName		= nil;
 	uInt32				userNameLen		= 0;
@@ -6666,7 +8382,7 @@ sInt32 CNiPlugIn::DoSetPasswordAsRoot ( sNIContextData *inContext, tDataBuffer *
 	Buffer			   *pBuffArray		= nil;
 	Buffer			   *pTmpBuff		= nil;
 #endif
-  	void			   *domain			= nil;
+  	void			   *aNIDomain		= nil;
 
 	gNetInfoMutex->Wait();
 
@@ -6678,8 +8394,6 @@ sInt32 CNiPlugIn::DoSetPasswordAsRoot ( sNIContextData *inContext, tDataBuffer *
 		pData = inAuthData->fBufferData;
 		buffSize = inAuthData->fBufferSize;
 		buffLen = inAuthData->fBufferLength;
-
-		domain = inContext->fDomain;
 
    		if ( buffLen > buffSize ) throw( (sInt32)eDSInvalidBuffFormat );
 
@@ -6723,132 +8437,141 @@ sInt32 CNiPlugIn::DoSetPasswordAsRoot ( sNIContextData *inContext, tDataBuffer *
 				throw( (sInt32)eDSPermissionError );
 			}
 		}
-#ifdef TIM_CLIENT_PRESENT
-		//opt out early if we know tim is not there **** check on local first
-		if ( IsTimRunning() )
-		{
-			// Get a tim handle
-			pTimHndl = ::timServerForDomain( inContext->fDomain );
-			if ( pTimHndl != nil )
-			{
-				pUserBuff = ::bufferFromString( userName );
-				if ( pUserBuff != nil )
-				{
-					// Get the user tags from the auth server
-					timResult = ::timGetTagsForUser( pTimHndl, pUserBuff, &pBuffArray );
-					if ( timResult == TimStatusOK )
-					{
-						uiCount = bufferArrayCount( pBuffArray );
-						while ( (i < uiCount) && !done )
-						{
-							pTmpBuff = bufferArrayBufferAtIndex( pBuffArray, i++ );
-							if ( pTmpBuff != nil )
-							{
-								pTag = bufferToString( pTmpBuff );
-								if ( pTag != nil )
-								{
-									// Set the password for the user
-									timResult = ::timSetPasswordForUserAsRoot( userName, newPasswd, pTag );
-#ifdef DEBUG
-									if ( timResult != TimStatusOK )
-									{
-										DBGLOG1( kLogPlugin, "-- timSetPasswordForUserAsRoot -- failed with %l.", timResult );
-									}
-#endif
-									if ( timResult == TimStatusOK )
-									{
-										siResult = eDSNoErr;
-										done = true;
-									}
 
-									free( pTag );
-									pTag = nil;
+		aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
+		{
+#ifdef TIM_CLIENT_PRESENT
+			//opt out early if we know tim is not there **** check on local first
+			if ( !inContext->bIsLocal && IsTimRunning() )
+			{
+				// Get a tim handle
+				pTimHndl = ::timServerForDomain( aNIDomain );
+				if ( pTimHndl != nil )
+				{
+					pUserBuff = ::bufferFromString( userName );
+					if ( pUserBuff != nil )
+					{
+						// Get the user tags from the auth server
+						timResult = ::timGetTagsForUser( pTimHndl, pUserBuff, &pBuffArray );
+						if ( timResult == TimStatusOK )
+						{
+							uiCount = bufferArrayCount( pBuffArray );
+							while ( (i < uiCount) && !done )
+							{
+								pTmpBuff = bufferArrayBufferAtIndex( pBuffArray, i++ );
+								if ( pTmpBuff != nil )
+								{
+									pTag = bufferToString( pTmpBuff );
+									if ( pTag != nil )
+									{
+										// Set the password for the user
+										timResult = ::timSetPasswordForUserAsRoot( userName, newPasswd, pTag );
+#ifdef DEBUG
+										if ( timResult != TimStatusOK )
+										{
+											DBGLOG1( kLogPlugin, "-- timSetPasswordForUserAsRoot -- failed with %l.", timResult );
+										}
+#endif
+										if ( timResult == TimStatusOK )
+										{
+											siResult = eDSNoErr;
+											done = true;
+										}
+
+										free( pTag );
+										pTag = nil;
+									}
+									::bufferRelease( pTmpBuff );
+									pTmpBuff = nil;
 								}
-								::bufferRelease( pTmpBuff );
-								pTmpBuff = nil;
 							}
 						}
+						if ( pBuffArray != nil ) {
+							::bufferRelease( pBuffArray );
+							pBuffArray = nil;
+						}
+						::bufferRelease( pUserBuff );
+						pUserBuff = nil;
 					}
-					if ( pBuffArray != nil ) {
-						::bufferRelease( pBuffArray );
-						pBuffArray = nil;
-					}
-					::bufferRelease( pUserBuff );
-					pUserBuff = nil;
-				}
-				::timHandleFree( pTimHndl );
-				pTimHndl = nil;
-			} // pTimHndl != nil
-		}
-		else
+					::timHandleFree( pTimHndl );
+					pTimHndl = nil;
+				} // pTimHndl != nil
+			}
+			else
 #endif
-		{
-			//need some code here to directly set the NI Crypt password
-			//also first check to see if the password already exists
-			char			salt[3];
-			char			hashPwd[ 32 ];
-			ni_id			niDirID;
-			ni_index   		niWhere			= 0;
-			ni_namelist		niValue;
-
-			//need some code here to directly change the NI Crypt password
-			//first check to see that the old password is valid
-			DBGLOG( kLogPlugin, "Attempting UNIX Crypt password change" );
-			siResult = IsValidRecordName ( userName, inNativeRecType, domain, niDirID );
-
-#ifdef DEBUG
-			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
-#else
-			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-#endif
-
-			siResult = ::ni_read( domain, &niDirID, &niPropList );
-#ifdef DEBUG
-			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
-#else
-			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-#endif
-			bFreePropList = true;
-
-			niWhere = ::ni_proplist_match( niPropList, "passwd", nil );
-
-			if (siResult == eDSNoErr)
 			{
-				if ( inContext->bIsLocal ) //local node and assume crypt password length is correct
+				//need some code here to directly set the NI Crypt password
+				//also first check to see if the password already exists
+				char			salt[3];
+				char			hashPwd[ 32 ];
+				ni_id			niDirID;
+				ni_index   		niWhere			= 0;
+				ni_namelist		niValue;
+
+				//need some code here to directly change the NI Crypt password
+				//first check to see that the old password is valid
+				DBGLOG( kLogPlugin, "Attempting UNIX Crypt password change" );
+				siResult = IsValidRecordName ( userName, inNativeRecType, aNIDomain, niDirID );
+
+#ifdef DEBUG
+				if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
+#else
+				if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+#endif
+
+				siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+#ifdef DEBUG
+				if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
+#else
+				if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+#endif
+				bFreePropList = true;
+
+				niWhere = ::ni_proplist_match( niPropList, "passwd", nil );
+
+				if (siResult == eDSNoErr)
 				{
-					MigrateToShadowHash(domain, &niDirID, &niPropList, userName, newPasswd);
-				}
-				else
-				{
-					// we successfully authenticated with old password, now change to new password.
-					//set with the new password
-					const char *saltchars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./";
-	
-					bzero(hashPwd, 32);
-	
-					if ( ::strlen(newPasswd) > 0 )
+					if ( inContext->bIsLocal ) //local node and assume crypt password length is correct
 					{
-						// only need crypt if password is not empty
-						::srandom(getpid() + time(0));
-						salt[0] = saltchars[random() % 64];
-						salt[1] = saltchars[random() % 64];
-						salt[2] = '\0';
-	
-						::strcpy( hashPwd, ::crypt( newPasswd, salt ) );
+						MigrateToShadowHash(aNIDomain, &niDirID, &niPropList, userName, newPasswd, bResetCache);
 					}
-	
-					if ( niWhere != NI_INDEX_NULL )
+					else
 					{
-						niValue = niPropList.ni_proplist_val[ niWhere ].nip_val;
-	
-						siResult = NiLib2::DestroyDirVal( domain, &niDirID, (char*)"passwd", niValue );
+						// we successfully authenticated with old password, now change to new password.
+						//set with the new password
+						const char *saltchars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./";
+		
+						bzero(hashPwd, 32);
+		
+						if ( ::strlen(newPasswd) > 0 )
+						{
+							// only need crypt if password is not empty
+							::srandom(getpid() + time(0));
+							salt[0] = saltchars[random() % 64];
+							salt[1] = saltchars[random() % 64];
+							salt[2] = '\0';
+		
+							::strcpy( hashPwd, ::crypt( newPasswd, salt ) );
+						}
+		
+						if ( niWhere != NI_INDEX_NULL )
+						{
+							niValue = niPropList.ni_proplist_val[ niWhere ].nip_val;
+		
+							siResult = NiLib2::DestroyDirVal( aNIDomain, &niDirID, (char*)"passwd", niValue );
+						}
+		
+						siResult = NiLib2::InsertDirVal( aNIDomain, &niDirID, (char*)"passwd", hashPwd, 0 );
+						siResult = MapNetInfoErrors( siResult );
+						bzero(hashPwd, 32);
 					}
-	
-					siResult = NiLib2::InsertDirVal( domain, &niDirID, (char*)"passwd", hashPwd, 0 );
-					siResult = MapNetInfoErrors( siResult );
-					bzero(hashPwd, 32);
 				}
 			}
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -6863,6 +8586,12 @@ sInt32 CNiPlugIn::DoSetPasswordAsRoot ( sNIContextData *inContext, tDataBuffer *
 	}
 
 	gNetInfoMutex->Signal();
+
+	if ( bResetCache )
+	{
+		// be sure not to hold the NetInfo mutex while calling this
+		gSrvrCntl->HandleMemberDaemonFlushCache();
+	}
 
 	if ( userName != nil )
 	{
@@ -6894,6 +8623,7 @@ sInt32 CNiPlugIn::DoChangePassword ( sNIContextData *inContext, tDataBuffer *inA
 	TIMHandle	   *timHandle		= nil;
 #endif
 	bool			bFreePropList	= false;
+	bool			bResetCache		= false;
 	char		   *pData			= nil;
 	char		   *name			= nil;
 	uInt32			nameLen			= 0;
@@ -6904,7 +8634,6 @@ sInt32 CNiPlugIn::DoChangePassword ( sNIContextData *inContext, tDataBuffer *inA
 	uInt32			offset			= 0;
 	uInt32			buffSize		= 0;
 	uInt32			buffLen			= 0;
-	char		   *pathStr			= nil;
 	void		   *domain			= nil;
 	ni_proplist		niPropList;
 
@@ -6963,22 +8692,30 @@ sInt32 CNiPlugIn::DoChangePassword ( sNIContextData *inContext, tDataBuffer *inA
 
 #ifdef TIM_CLIENT_PRESENT
 		//opt out early if we know tim is not there **** check on local first
-		if ( IsTimRunning() )
+		if ( !inContext->bIsLocal && IsTimRunning() )
 		{
-			timHandle = ::timServerForDomain( inContext->fDomain );
-			if ( timHandle == nil ) throw( (sInt32)eDSAuthFailed );
-
-			// Set the password
-			siResult = ::timSetPasswordWithTIMHandle( timHandle, name, oldPwd, name, newPwd );
-#ifdef DEBUG
-			if ( siResult != TimStatusOK )
+			void* aNIDomain = RetrieveNIDomain(inContext);
+			if (aNIDomain != NULL)
 			{
-				DBGLOG1( kLogPlugin, "-- timSetPassword -- failed with %l.", siResult );
+				timHandle = ::timServerForDomain( aNIDomain );
+				if ( timHandle == nil ) throw( (sInt32)eDSAuthFailed );
+
+				// Set the password
+				siResult = ::timSetPasswordWithTIMHandle( timHandle, name, oldPwd, name, newPwd );
+	#ifdef DEBUG
+				if ( siResult != TimStatusOK )
+				{
+					DBGLOG1( kLogPlugin, "-- timSetPassword -- failed with %l.", siResult );
+				}
+	#endif
+				siResult = MapAuthResult( siResult );
+				::timHandleFree( timHandle );
+				timHandle = nil;
 			}
-#endif
-			siResult = MapAuthResult( siResult );
-			::timHandleFree( timHandle );
-			timHandle = nil;
+			else
+			{
+				siResult = eDSInvalidSession;
+			}
 		}
 		else
 #endif
@@ -6993,11 +8730,11 @@ sInt32 CNiPlugIn::DoChangePassword ( sNIContextData *inContext, tDataBuffer *inA
 			
 			//first check to see that the old password is valid
 			DBGLOG( kLogPlugin, "Attempting UNIX Crypt password change" );
-			pathStr = BuildDomainPathFromName( inContext->fDomainName );
-			if ( pathStr == nil ) throw( (sInt32)eDSAuthFailed );
+			if ( inContext->fDomainPath == nil ) throw( (sInt32)eDSAuthFailed );
 			
-			niStatus = ::ni_open( nil, pathStr, &domain );
+			niStatus = ::ni_open( nil, inContext->fDomainPath, &domain );
 			if ( niStatus != 0) throw( (sInt32)eDSAuthFailed );
+			DBGLOG1( kLogPlugin, "CNiPlugIn::DoChangePassword: <ni_open> opened on the netinfo node %s for changing password", inContext->fDomainPath );
 
 			niStatus = ::ni_setuser( domain, name );
 			niStatus = ::ni_setpassword( domain, oldPwd );
@@ -7084,7 +8821,7 @@ sInt32 CNiPlugIn::DoChangePassword ( sNIContextData *inContext, tDataBuffer *inA
 			{
 				if ( inContext->bIsLocal ) //local node and assume crypt password length is correct
 				{
-					MigrateToShadowHash(domain, &niDirID, &niPropList, name, newPwd);
+					MigrateToShadowHash(domain, &niDirID, &niPropList, name, newPwd, bResetCache);
 				}
 				else
 				{
@@ -7133,10 +8870,10 @@ sInt32 CNiPlugIn::DoChangePassword ( sNIContextData *inContext, tDataBuffer *inA
 
 	gNetInfoMutex->Signal();
 
-	if ( pathStr != nil )
+	if ( bResetCache )
 	{
-		free( pathStr );
-		pathStr = nil;
+		// be sure not to hold the NetInfo mutex while calling this
+		gSrvrCntl->HandleMemberDaemonFlushCache();
 	}
 
 	if ( name != nil )
@@ -7177,43 +8914,55 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 										sNIContinueData** inOutContinueData, 
 										tDataBufferPtr inAuthData, tDataBufferPtr outAuthData, 
 										bool inAuthOnly, bool isSecondary,
-										char* inAuthAuthorityData, char* inGUIDString,
-										const char* inNativeRecType, bool inEnforcePolicy )
+										const char* inAuthAuthorityData, const char* inGUIDString,
+										const char* inNativeRecType )
 {
 	sInt32				siResult								= eDSAuthFailed;
 	uInt32				uiAuthMethod							= 0;
 	char			   *pUserName								= nil;
 	char			   *pNewPassword							= nil;
 	char			   *pOldPassword							= nil;
+	unsigned char	   *pNTLMDigest								= nil;
+	unsigned long		ntlmDigestLen							= 0;
+	unsigned char	   *pCramResponse							= NULL;
+	unsigned long		cramResponseLen							= 0;
+	char			   *pSambaName								= nil;
+	char			   *pDomain									= nil;
 	char			   *pAdminUser								= nil;
 	char			   *pAdminPassword							= nil;
 	unsigned char		P21[kHashShadowKeyLength]				= {0};
-	tDataNodePtr		pC8Node									= NULL;
 	unsigned char 		C8[kHashShadowChallengeLength] 			= {0};
+	unsigned char 		C16[16]									= {0};
+	unsigned char 		*PeerC16								= NULL;
 	unsigned char		P24[kHashShadowResponseLength] 			= {0};
 	unsigned char		P24Input[kHashShadowResponseLength]		= {0};
-	tDataNodePtr		pP24InputNode							= NULL;
+	unsigned char		GeneratedNTLM[EVP_MAX_MD_SIZE]			= {0};
+	char				MSCHAP2Response[MS_AUTH_RESPONSE_LENGTH+1]	= {0};
 	tDataListPtr		dataList								= NULL;
 	char			   *path									= NULL;
 	unsigned char		hashes[kHashTotalLength]				= {0};
 	unsigned char		generatedHashes[kHashTotalLength]		= {0};
-	bool				bUseBothHashes							= true; //default to use both hashes
 	uInt32				hashLength								= kHashTotalLength;
+	sInt32				hashesLengthFromFile					= 0;
 	tDataNodePtr		secureHashNode							= NULL;
-	unsigned char 		secureHash[kHashSecureLength] 			= {0};
-	unsigned char 		secureNULLHash[kHashSecureLength] 		= {0};
-	unsigned char 		shadowNULLHash[kHashShadowBothLength] 	= {0};
+	unsigned char 		secureHash[kHashSaltedSHA1Length] 		= {0};
 	unsigned int		itemCount								= 0;
 	char				*nativeAttrType							= NULL;
 	char				*policyStr								= NULL;
 	struct timespec		modDateOfPassword;
+	struct timeval		modDateAssist;
 	sHashState			state;
 	char				*stateFilePath							= NULL;
 	PWGlobalAccessFeatures globalAccess;
 	unsigned long		policyStrLen							= 0;
-						
-	// kHashShadowBothLength bytes for NT hash and kHashShadowBothLength for LAN Manager hash, both hex encoded
-	// 40 bytes for secure hash, hex encoded
+	sHashAuthFailed    *pHashAuthFailed							= nil;
+	time_t				now;
+	digest_context_t	digestContext							= {0};
+	bool				bFetchHashFiles							= false;
+	int					keySize									= 0;
+	unsigned int		userLevelHashList						= sHashList;
+	char				*challenge								= NULL;
+	char				*apopResponse							= NULL;
 	
 	try
 	{
@@ -7221,57 +8970,100 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 		if ( inContext == nil ) throw( (sInt32)eDSInvalidNodeRef );
 
 		bzero( &state, sizeof(state) );
-				
+		
 		DBGLOG( kLogPlugin, "DoShadowHashAuth::" );
-		siResult = GetAuthMethod( inAuthMethod, &uiAuthMethod );
+		if (inAuthMethod != nil)
+		{
+			DBGLOG1( kLogPlugin, "NetInfo PlugIn: Attempting use of authentication method %s", inAuthMethod->fBufferData );
+		}
+		siResult = dsGetAuthMethodEnumValue( inAuthMethod, &uiAuthMethod );
 		if ( siResult == eDSNoErr )
 		{
-			//set up flag if we want only better hash kDSTagAuthAuthorityBetterHashOnly
-			if (inAuthAuthorityData != nil)
+			// If a user hash-list is specified, then it takes precedence over the global list
+			if ( inAuthAuthorityData != nil && inAuthAuthorityData[0] != '\0' )
 			{
-				if (strcasecmp(inAuthAuthorityData,kDSTagAuthAuthorityBetterHashOnly) == 0)
+				siResult = GetHashSecurityLevelForUser( inAuthAuthorityData, &userLevelHashList );
+				if ( siResult != eDSNoErr )
 				{
-					bUseBothHashes = false;
+					DBGLOG1( kLogPlugin, "DoShadowHashAuth - encountered invalid record hash list: %s", inAuthAuthorityData );
+					userLevelHashList = sHashList;
+					siResult = eDSNoErr;
 				}
 			}
 			
 			// Parse input buffer, read hash(es)
 			switch( uiAuthMethod )
 			{
-				case kAuthSMB_NT_Key:
-				case kAuthSMB_LM_Key:
-					// parse input first
-					dataList = dsAuthBufferGetDataListAllocPriv(inAuthData);
-					if ( dataList == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-					if ( dsDataListGetNodeCountPriv(dataList) != 3 ) throw( (sInt32)eDSInvalidBuffFormat );
-						
-					// this allocates a copy of the string
-					pUserName = dsDataListGetNodeStringPriv(dataList, 1);
-					if ( pUserName == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-					if ( strlen(pUserName) < 1 ) throw( (sInt32)eDSInvalidBuffFormat );
-					// these are not copies
-					siResult = dsDataListGetNodePriv(dataList, 2, &pC8Node);
-					if ( pC8Node == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-					if ( pC8Node->fBufferLength != kHashShadowChallengeLength ) throw( (sInt32)eDSInvalidBuffFormat);
-					if ( siResult != eDSNoErr ) throw( (sInt32)eDSInvalidBuffFormat );
-					memmove(C8, ((tDataBufferPriv*)pC8Node)->fBufferData, kHashShadowChallengeLength);
-					
-					siResult = dsDataListGetNodePriv(dataList, 3, &pP24InputNode);
-					if ( pP24InputNode == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-					if ( pP24InputNode->fBufferLength != kHashShadowResponseLength ) throw( (sInt32)eDSInvalidBuffFormat);
-					if ( siResult != eDSNoErr ) throw( (sInt32)eDSInvalidBuffFormat );
-					memmove(P24Input, ((tDataBufferPriv*)pP24InputNode)->fBufferData, kHashShadowResponseLength);
-					
-					//read file
-					siResult = ReadShadowHashAndStateFiles(pUserName, inGUIDString, hashes, &modDateOfPassword, &path, &stateFilePath, &state);
+				case kAuthDIGEST_MD5:
+					siResult = UnpackDigestBuffer( inAuthData, &pUserName, &digestContext );
+					bFetchHashFiles = (siResult == eDSNoErr);
 					break;
-
+					
+				case kAuthCRAM_MD5:
+					if ( (userLevelHashList & kNiPluginHashCRAM_MD5) == 0 )
+						throw( (sInt32)eDSAuthFailed );
+					siResult = UnpackCramBuffer( inAuthData, &pUserName, &challenge, &pCramResponse, &cramResponseLen );
+					bFetchHashFiles = (siResult == eDSNoErr);
+					break;
+					
+				case kAuthAPOP:
+					if ( (userLevelHashList & kNiPluginHashRecoverable) == 0 )
+						throw( (sInt32)eDSAuthFailed );
+					siResult = UnpackAPOPBuffer( inAuthData, &pUserName, &challenge, &apopResponse );
+					bFetchHashFiles = (siResult == eDSNoErr);
+					break;
+					
+				case kAuthSMB_NT_Key:
+					if ( (userLevelHashList & kNiPluginHashNT) == 0 )
+						throw( (sInt32)eDSAuthFailed );
+					siResult = UnpackSambaBuffer( inAuthData, &pUserName, C8, P24Input );
+					bFetchHashFiles = (siResult == eDSNoErr);
+					break;
+					
+				case kAuthSMB_LM_Key:
+					if ( (userLevelHashList & kNiPluginHashLM) == 0 )
+						throw( (sInt32)eDSAuthFailed );
+					siResult = UnpackSambaBuffer( inAuthData, &pUserName, C8, P24Input );
+					bFetchHashFiles = (siResult == eDSNoErr);
+					break;
+					
+				case kAuthNTLMv2:
+					if ( (userLevelHashList & kNiPluginHashNT) == 0 )
+						throw( (sInt32)eDSAuthFailed );
+					siResult = UnpackNTLMv2Buffer( inAuthData, &pUserName, C8, &pNTLMDigest, &ntlmDigestLen, &pSambaName, &pDomain );
+					bFetchHashFiles = (siResult == eDSNoErr);
+					break;
+				
+				case kAuthMSCHAP2:
+					if ( (userLevelHashList & kNiPluginHashNT) == 0 )
+						throw( (sInt32)eDSAuthFailed );
+					if ( outAuthData == NULL )
+						throw( (sInt32)eDSNullAuthStepData );
+					if ( outAuthData->fBufferSize < 4 + MS_AUTH_RESPONSE_LENGTH )
+						throw( (sInt32)eDSBufferTooSmall );
+					
+					siResult = UnpackMSCHAPv2Buffer( inAuthData, &pUserName, C16, &PeerC16, &pNTLMDigest, &ntlmDigestLen, &pSambaName );
+					bFetchHashFiles = (siResult == eDSNoErr);
+					break;
+				
+				case kAuthVPN_PPTPMasterKeys:
+					if ( outAuthData == NULL )
+						throw( (sInt32)eDSNullAuthStepData );
+					siResult = UnpackMPPEKeyBuffer( inAuthData, &pUserName, P24Input, &keySize );
+					if ( outAuthData->fBufferSize < (unsigned long)(8 + keySize*2) )
+						throw( (sInt32)eDSBufferTooSmall );
+					bFetchHashFiles = (siResult == eDSNoErr);
+					break;
+				
 				case kAuthSecureHash:
+					if ( (userLevelHashList & kNiPluginHashSaltedSHA1) == 0 )
+						throw( (sInt32)eDSAuthFailed );
+					
 					// parse input first
 					dataList = dsAuthBufferGetDataListAllocPriv(inAuthData);
 					if ( dataList == nil ) throw( (sInt32)eDSInvalidBuffFormat );
 					if ( dsDataListGetNodeCountPriv(dataList) != 2 ) throw( (sInt32)eDSInvalidBuffFormat );
-						
+					
 					// this allocates a copy of the string
 					pUserName = dsDataListGetNodeStringPriv(dataList, 1);
 					if ( pUserName == nil ) throw( (sInt32)eDSInvalidBuffFormat );
@@ -7279,12 +9071,12 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					// these are not copies
 					siResult = dsDataListGetNodePriv(dataList, 2, &secureHashNode);
 					if ( secureHashNode == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-					if ( secureHashNode->fBufferLength != kHashSecureLength ) throw( (sInt32)eDSInvalidBuffFormat);
+					if ( secureHashNode->fBufferLength != kHashSaltedSHA1Length ) throw( (sInt32)eDSInvalidBuffFormat);
 					if ( siResult != eDSNoErr ) throw( (sInt32)eDSInvalidBuffFormat );
-					memmove(secureHash, ((tDataBufferPriv*)secureHashNode)->fBufferData, kHashSecureLength);
+					memmove(secureHash, ((tDataBufferPriv*)secureHashNode)->fBufferData, secureHashNode->fBufferLength);
 					
 					//read file
-					siResult = ReadShadowHashAndStateFiles(pUserName, inGUIDString, hashes, &modDateOfPassword, &path, &stateFilePath, &state);
+					bFetchHashFiles = true;
 					break;
 
 				case kAuthWriteSecureHash:
@@ -7300,11 +9092,11 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					// these are not copies
 					siResult = dsDataListGetNodePriv(dataList, 2, &secureHashNode);
 					if ( secureHashNode == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-					if ( secureHashNode->fBufferLength != kHashSecureLength ) throw( (sInt32)eDSInvalidBuffFormat);
+					if ( secureHashNode->fBufferLength != kHashSaltedSHA1Length ) throw( (sInt32)eDSInvalidBuffFormat);
 					if ( siResult != eDSNoErr ) throw( (sInt32)eDSInvalidBuffFormat );
-					memmove(secureHash, ((tDataBufferPriv*)secureHashNode)->fBufferData, kHashSecureLength);
+					memmove(secureHash, ((tDataBufferPriv*)secureHashNode)->fBufferData, secureHashNode->fBufferLength);
 					break;
-
+					
 				case kAuthReadSecureHash:
 					if ( outAuthData == nil ) throw( (sInt32)eDSNullAuthStepData );
 					// parse input first
@@ -7321,35 +9113,38 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 				// set password operations
 				case kAuthSetPasswd:
 					// parse input first
-					siResult = Get2FromBuffer(inAuthData, &dataList, &pUserName, &pNewPassword, &itemCount );
-					if ( siResult != eDSNoErr )
-						throw( siResult );
-					if ( itemCount != 4 )
-						throw( (sInt32)eDSInvalidBuffFormat );					
-					
-					// this allocates a copy of the string
-					pAdminUser = dsDataListGetNodeStringPriv(dataList, 3);
-					if ( pAdminUser == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-					
-					// this allocates a copy of the string
-					pAdminPassword = dsDataListGetNodeStringPriv(dataList, 4);
-					if ( pAdminPassword == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-					
-					//read files
-					siResult = ReadShadowHashAndStateFiles(pAdminUser, inGUIDString, hashes, &modDateOfPassword, &path, &stateFilePath, &state);
+					siResult = Get2FromBuffer( inAuthData, &dataList, &pUserName, &pNewPassword, &itemCount );
 					if ( siResult == eDSNoErr )
-						siResult = GetUserPolicies( inContext, inNativeRecType, pUserName, &policyStr );
+					{
+						if ( itemCount != 4 )
+							throw( (sInt32)eDSInvalidBuffFormat );					
+						
+						//read files
+						bFetchHashFiles = true;
+						siResult = GetUserPolicies( inContext, inNativeRecType, pUserName, NULL, &policyStr );
+					}
 					break;
-
+				
 				case kAuthSetPasswdAsRoot:
 					// parse input first
 					siResult = Get2FromBuffer(inAuthData, &dataList, &pUserName, &pNewPassword, &itemCount );
+					if ( siResult == eDSNoErr )
+					{
+						if ( itemCount != 2 && itemCount != 4)
+							throw( (sInt32)eDSInvalidBuffFormat );	
+					}
+					break;
+				
+				case kAuthSetPolicyAsRoot:
+					// parse input first, using <pNewPassword> to hold the policy string
+					siResult = Get2FromBuffer(inAuthData, &dataList, &pUserName, &pNewPassword, &itemCount );
 					if ( siResult != eDSNoErr )
 						throw( siResult );
-					if ( itemCount != 2 )
-						throw( (sInt32)eDSInvalidBuffFormat );					
+					if ( itemCount != 2 || pNewPassword == NULL || pNewPassword[0] == '\0' )
+						throw( (sInt32)eDSInvalidBuffFormat );
+					siResult = ReadStateFile(pUserName, inGUIDString, &modDateOfPassword, &path, &stateFilePath, &state, &hashesLengthFromFile);
 					break;
-
+					
 				case kAuthChangePasswd:
 					// parse input first
 					siResult = Get2FromBuffer(inAuthData, &dataList, &pUserName, &pOldPassword, &itemCount );
@@ -7363,24 +9158,61 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					if ( pNewPassword == nil ) throw( (sInt32)eDSInvalidBuffFormat );
 					
 					//read file
-					siResult = ReadShadowHashAndStateFiles(pUserName, inGUIDString, hashes, &modDateOfPassword, &path, &stateFilePath, &state);
+					bFetchHashFiles = true;
 					if ( siResult == eDSNoErr )
-						siResult = GetUserPolicies( inContext, inNativeRecType, pUserName, &policyStr );
+						siResult = GetUserPolicies( inContext, inNativeRecType, pUserName, NULL, &policyStr );
 					break;
-					
+				
+				case kAuthSetShadowHashWindows:
+				case kAuthSetShadowHashSecure:
 				case kAuthNativeClearTextOK:
 				case kAuthNativeNoClearText:
 					siResult = Get2FromBuffer(inAuthData, &dataList, &pUserName, &pOldPassword, &itemCount );
-					if ( siResult != eDSNoErr )
-						throw( siResult );
-					
-					//read file
-					siResult = ReadShadowHashAndStateFiles(pUserName, inGUIDString, hashes, &modDateOfPassword, &path, &stateFilePath, &state);
-					// read user policies
 					if ( siResult == eDSNoErr )
-						siResult = GetUserPolicies( inContext, inNativeRecType, pUserName, &policyStr );
+					{
+						//read file
+						bFetchHashFiles = true;
+						// read user policies
+						siResult = GetUserPolicies( inContext, inNativeRecType, pUserName, NULL, &policyStr );
+					}
 					break;
 				
+				case kAuthSetPasswdCheckAdmin:
+					{
+						char *pUserToChangeName = NULL;
+						bool modifyingSelf;
+						
+						dataList = dsAuthBufferGetDataListAllocPriv(inAuthData);
+						if ( dataList == nil ) throw( (sInt32)eDSInvalidBuffFormat );
+						itemCount = dsDataListGetNodeCountPriv(dataList);
+						if ( itemCount != 4 ) throw( (sInt32)eDSInvalidBuffFormat );
+						
+						// this allocates a copy of the string
+						pUserName = dsDataListGetNodeStringPriv(dataList, 3);
+						if ( pUserName == nil ) throw( (sInt32)eDSInvalidBuffFormat );
+						if ( strlen(pUserName) < 1 ) throw( (sInt32)eDSInvalidBuffFormat );
+						
+						pOldPassword = dsDataListGetNodeStringPriv(dataList, 4);
+						if ( pOldPassword == nil )
+							throw( (sInt32)eDSInvalidBuffFormat );
+						if ( strlen(pOldPassword) < 1 )
+							throw( (sInt32)eDSInvalidBuffFormat );
+						
+						pUserToChangeName = dsDataListGetNodeStringPriv(dataList, 1);
+						if ( pUserToChangeName == nil ) throw( (sInt32)eDSInvalidBuffFormat );
+						if ( strlen(pUserToChangeName) < 1 ) throw( (sInt32)eDSInvalidBuffFormat );
+						
+						modifyingSelf = (pUserToChangeName != NULL) && (pUserName != NULL) && (strcmp(pUserToChangeName, pUserName) == 0);
+						if ( !modifyingSelf && !UserIsAdmin(pUserName,inContext) )
+							throw( (sInt32)eDSPermissionError );
+						
+						//read file
+						bFetchHashFiles = true;
+						// read user policies
+						siResult = GetUserPolicies( inContext, inNativeRecType, pUserName, NULL, &policyStr );
+					}
+					break;
+					
 				case kAuthGetPolicy:
 					// possible to return data
 					if ( outAuthData == nil ) throw( (sInt32)eDSNullAuthStepData );
@@ -7396,22 +9228,10 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					pUserName = dsDataListGetNodeStringPriv(dataList, 3);
 					if ( pUserName == nil ) throw( (sInt32)eDSInvalidBuffFormat );
 					if ( strlen(pUserName) < 1 ) throw( (sInt32)eDSInvalidBuffFormat );
-					
-					// get policy attribute
-					siResult = GetUserPolicies( inContext, inNativeRecType, pUserName, &policyStr );
-					if ( siResult != 0 ) throw( siResult );
-					
-					if ( policyStr != NULL )
-						policyStrLen = strlen( policyStr );
-					if ( outAuthData->fBufferSize < 4 + policyStrLen )
-						throw( (sInt32)eDSBufferTooSmall );
-							
-					outAuthData->fBufferLength = 4 + policyStrLen;
-					memcpy( outAuthData->fBufferData, &policyStrLen, 4 );
-					if ( policyStrLen > 0 )
-						memcpy( outAuthData->fBufferData + 4, policyStr, policyStrLen );
+					siResult = ReadStateFile(pUserName, inGUIDString, &modDateOfPassword, &path, &stateFilePath, &state, &hashesLengthFromFile);
+					DSFreeString( stateFilePath );	// macro sets to NULL (required)
 					break;
-				
+					
 				case kAuthSetPolicy:
 					// parse input
 					dataList = dsAuthBufferGetDataListAllocPriv(inAuthData);
@@ -7422,15 +9242,14 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					// this allocates a copy of the string
 					pUserName = dsDataListGetNodeStringPriv(dataList, 3);
 					if ( pUserName == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-					if ( strlen(pUserName) < 1 ) throw( (sInt32)eDSInvalidBuffFormat );
+					if ( pUserName[0] == '\0' ) throw( (sInt32)eDSInvalidBuffFormat );
 					
 					pNewPassword = dsDataListGetNodeStringPriv(dataList, 4);
 					if ( pNewPassword == nil )
 						throw( (sInt32)eDSInvalidBuffFormat );
-					if ( strlen(pNewPassword) < 1 )
+					if ( pNewPassword[0] == '\0' )
 						throw( (sInt32)eDSInvalidBuffFormat );
-						
-					siResult = SetUserPolicies( inContext, inNativeRecType, pUserName, pNewPassword );
+					siResult = ReadStateFile(pUserName, inGUIDString, &modDateOfPassword, &path, &stateFilePath, &state, &hashesLengthFromFile);
 					break;
 					
 				case kAuthGetGlobalPolicy:
@@ -7481,6 +9300,11 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					break;
 			}
 			
+			if ( bFetchHashFiles )
+			{
+				siResult = ReadShadowHashAndStateFiles(pUserName, inGUIDString, hashes, &modDateOfPassword, &path, &stateFilePath, &state, &hashesLengthFromFile);
+			}
+			
 			if ((siResult != eDSNoErr) && !(isSecondary && (uiAuthMethod == kAuthChangePasswd)))
 			{
 				throw( siResult );
@@ -7489,10 +9313,73 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 			// complete the operation
 			switch( uiAuthMethod )
 			{
-				case kAuthGetPolicy:
 				case kAuthGetGlobalPolicy:
-				case kAuthSetPolicy:
 				case kAuthSetGlobalPolicy:
+					break;
+				
+				case kAuthSetPolicy:
+				case kAuthSetPolicyAsRoot:
+					siResult = SetUserPolicies( inContext, inNativeRecType, pUserName, pNewPassword, &state );
+					break;
+				
+				case kAuthGetPolicy:
+					// get policy attribute
+					siResult = GetUserPolicies( inContext, inNativeRecType, pUserName, &state, &policyStr );
+					if ( siResult != 0 ) throw( siResult );
+					
+					if ( policyStr != NULL )
+					{
+						policyStrLen = strlen( policyStr );
+						if ( outAuthData->fBufferSize < 4 + policyStrLen )
+							throw( (sInt32)eDSBufferTooSmall );
+						
+						outAuthData->fBufferLength = 4 + policyStrLen;
+						memcpy( outAuthData->fBufferData, &policyStrLen, 4 );
+						if ( policyStrLen > 0 )
+							strcpy( outAuthData->fBufferData + 4, policyStr );
+					}
+					break;
+				
+				case kAuthDIGEST_MD5:
+					{
+						char *mutualDigest;
+						unsigned int mutualDigestLen;
+						unsigned long passwordLength;
+
+						siResult = UnobfuscateRecoverablePassword( hashes + kHashOffsetToRecoverable, (unsigned char **)&pOldPassword, &passwordLength );
+						if ( siResult == eDSNoErr )
+						{
+							siResult = digest_verify( &digestContext, pOldPassword, passwordLength, &mutualDigest, &mutualDigestLen );
+							switch( siResult )
+							{
+								case SASL_OK:		siResult = eDSNoErr;		break;
+								case SASL_NOMEM:	siResult = eMemoryError;	break;
+								default:			siResult = eDSAuthFailed;
+							}
+						}
+						if ( siResult == eDSNoErr )
+						{
+							// pack the return digest
+							outAuthData->fBufferLength = 4 + digestContext.out_buf_len;
+							memcpy( outAuthData->fBufferData, &digestContext.out_buf_len, 4 );
+							if ( digestContext.out_buf_len > 0 )
+								memcpy( outAuthData->fBufferData + 4, digestContext.out_buf, digestContext.out_buf_len );
+						}
+					}
+					break;
+				
+				case kAuthCRAM_MD5:
+					siResult = CRAM_MD5( hashes + kHashOffsetToCramMD5, challenge, pCramResponse );
+					break;
+				
+				case kAuthAPOP:
+					{
+						unsigned long passwordLength;
+
+						siResult = UnobfuscateRecoverablePassword( hashes + kHashOffsetToRecoverable, (unsigned char **)&pOldPassword, &passwordLength );
+						if ( siResult == eDSNoErr )
+							siResult = Verify_APOP( pUserName, (unsigned char *)pOldPassword, passwordLength, challenge, apopResponse );
+					}
 					break;
 				
 				case kAuthSMB_NT_Key:
@@ -7509,7 +9396,7 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					break;
 
 				case kAuthSMB_LM_Key:
-					memmove(P21, hashes+kHashShadowOneLength, kHashShadowOneLength);
+					memmove(P21, hashes + kHashOffsetToLM, kHashShadowOneLength);
 					CalculateP24(P21, C8, P24);
 					if (memcmp(P24,P24Input,kHashShadowResponseLength) == 0)
 					{
@@ -7520,18 +9407,71 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 						siResult = eDSAuthFailed;
 					}
 					break;
-
-				case kAuthSecureHash:
-					if (memcmp(secureHash,hashes+kHashShadowBothLength,kHashSecureLength) == 0)
+				
+				case kAuthNTLMv2:
+					if ( NTLMv2(GeneratedNTLM, hashes, pSambaName, pDomain, C8, pNTLMDigest + kShadowHashNTLMv2Length, ntlmDigestLen - kShadowHashNTLMv2Length) == 0 )
 					{
-						siResult = eDSNoErr;
+						if ( memcmp(GeneratedNTLM, pNTLMDigest, kShadowHashNTLMv2Length) == 0 )
+						{
+							siResult = eDSNoErr;
+						}
+						else
+						{
+							siResult = eDSAuthFailed;
+						}
+					}
+					break;
+				
+				case kAuthMSCHAP2:
+					siResult = MSCHAPv2( C16, PeerC16, pNTLMDigest, pSambaName, hashes, MSCHAP2Response );
+					if ( siResult == eDSNoErr )
+					{
+						// put the response in the out buffer
+						outAuthData->fBufferLength = 4 + MS_AUTH_RESPONSE_LENGTH;
+						ntlmDigestLen = MS_AUTH_RESPONSE_LENGTH;
+						memcpy( outAuthData->fBufferData, &ntlmDigestLen, 4 );
+						memcpy( outAuthData->fBufferData + 4, MSCHAP2Response, MS_AUTH_RESPONSE_LENGTH );
+					}
+					break;
+				
+				case kAuthVPN_PPTPMasterKeys:
+					if ( inContext->fEffectiveUID == 0 )
+					{
+						unsigned char sendKey[SHA_DIGEST_LENGTH];
+						unsigned char receiveKey[SHA_DIGEST_LENGTH];
+						
+						CalculatePPTPSessionKeys( hashes, P24Input, keySize, sendKey, receiveKey );
+						ntlmDigestLen = keySize;
+						memcpy( outAuthData->fBufferData, &ntlmDigestLen, 4 );
+						memcpy( outAuthData->fBufferData + 4, sendKey, ntlmDigestLen );
+						memcpy( outAuthData->fBufferData + 4 + ntlmDigestLen, &ntlmDigestLen, 4 );
+						memcpy( outAuthData->fBufferData + 4 + ntlmDigestLen + 4, receiveKey, ntlmDigestLen );
+						outAuthData->fBufferLength = 8 + keySize*2;
+					}
+					else
+					{
+						siResult = eDSPermissionError;
+					}
+					break;
+				
+				case kAuthSecureHash:
+					if ( secureHashNode->fBufferLength == kHashSaltedSHA1Length )
+					{
+						if (memcmp(secureHash, hashes + kHashOffsetToSaltedSHA1, kHashSaltedSHA1Length) == 0)
+						{
+							siResult = eDSNoErr;
+						}
+						else
+						{
+							siResult = eDSAuthFailed;
+						}
 					}
 					else
 					{
 						siResult = eDSAuthFailed;
 					}
 					break;
-
+				
 				case kAuthWriteSecureHash:
 					// allow root to directly overwrite the secure hash
 					if ( inContext->fEffectiveUID != 0 )
@@ -7540,8 +9480,7 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					}
 					//write this secure hash with the other hashes as empty
 					//we will reconstruct the other hashes upon first successful auth
-					memmove(generatedHashes+kHashShadowBothLength, secureHash, kHashSecureLength);
-
+					memmove(generatedHashes + kHashOffsetToSaltedSHA1, secureHash, kHashSaltedSHA1Length);
 					siResult = WriteShadowHash(pUserName, inGUIDString, generatedHashes);
 					break;
 
@@ -7552,13 +9491,13 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 						throw( (sInt32)eDSPermissionError );
 					}
 					//read file
-					siResult = ReadShadowHashAndStateFiles(pUserName, inGUIDString, hashes, &modDateOfPassword, &path, &stateFilePath, &state);
+					siResult = ReadShadowHashAndStateFiles(pUserName, inGUIDString, hashes, &modDateOfPassword, &path, &stateFilePath, &state, &hashesLengthFromFile);
 					if (siResult == eDSNoErr)
 					{
-						if ( outAuthData->fBufferSize >= kHashSecureLength )
+						if ( outAuthData->fBufferSize >= kHashSaltedSHA1Length )
 						{
-							memmove( outAuthData->fBufferData, hashes+kHashShadowBothLength, kHashSecureLength );
-							outAuthData->fBufferLength = kHashSecureLength;
+							memmove( outAuthData->fBufferData, hashes + kHashOffsetToSaltedSHA1, kHashSaltedSHA1Length );
+							outAuthData->fBufferLength = kHashSaltedSHA1Length;
 						}
 						else
 						{
@@ -7567,47 +9506,281 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					}
 					break;
 
+				case kAuthSetShadowHashWindows:
+				case kAuthSetShadowHashSecure:
 				case kAuthNativeClearTextOK:
 				case kAuthNativeNoClearText:
-					GenerateShadowHashes(pOldPassword, strlen(pOldPassword), bUseBothHashes, generatedHashes, &hashLength );
-					
-					#if CRAM_MD5_SHADOWHASH
-					if (	(memcmp(hashes,generatedHashes,hashLength - kHashCramLength) == 0) ||
-							( (memcmp(hashes,generatedHashes,kHashShadowBothLength) == 0) &&
-							(memcmp(hashes+kHashShadowBothLength,secureNULLHash,kHashSecureLength) == 0) ) ||
-							( (memcmp(hashes+kHashShadowBothLength,generatedHashes+kHashShadowBothLength,kHashSecureLength) == 0) &&
-							(memcmp(hashes,shadowNULLHash,kHashShadowBothLength) == 0) ) )
-					#else
-					if (	(memcmp(hashes,generatedHashes,hashLength) == 0) ||
-							( (memcmp(hashes,generatedHashes,kHashShadowBothLength) == 0) &&
-							(memcmp(hashes+kHashShadowBothLength,secureNULLHash,kHashSecureLength) == 0) ) ||
-							( (memcmp(hashes+kHashShadowBothLength,generatedHashes+kHashShadowBothLength,kHashSecureLength) == 0) &&
-							(memcmp(hashes,shadowNULLHash,kHashShadowBothLength) == 0) ) )
-					#endif
-					//if all hashes present use them
-					//if secure hash missing then for backward compatibility use only the shadow hashes
-					//if shadow hashes missing ie. PUA then only use secure hash
+				case kAuthSetPasswdCheckAdmin:
+					if (hashesLengthFromFile == (kHashShadowBothLength + kHashSecureLength))
 					{
-						if ( ( (memcmp(hashes,generatedHashes,kHashShadowBothLength) == 0) &&
-							(memcmp(hashes+kHashShadowBothLength,secureNULLHash,kHashSecureLength) == 0) ) ||
-							( (memcmp(hashes+kHashShadowBothLength,generatedHashes+kHashShadowBothLength,kHashSecureLength) == 0) &&
-							(memcmp(hashes,shadowNULLHash,kHashShadowBothLength) == 0) ) )
+						//legacy length so compare legacy hashes
+						//will rewrite upgraded hashes below
+						GenerateShadowHashes(	pOldPassword,
+												strlen(pOldPassword),
+												kNiPluginHashSHA1 | kNiPluginHashNT | kNiPluginHashLM,
+												hashes + kHashOffsetToSaltedSHA1,
+												generatedHashes,
+												&hashLength );
+					}
+					else
+					{
+						//generate proper hashes according to policy
+						GenerateShadowHashes(	pOldPassword,
+												strlen(pOldPassword),
+												userLevelHashList,
+												hashes + kHashOffsetToSaltedSHA1,
+												generatedHashes,
+												&hashLength );
+					}
+					
+					if ( NIHashesEqual( hashes, generatedHashes ) )
+					{
+						siResult = eDSNoErr;
+						// update old hash file formats
+						// 1. If the shadowhash file is short, save all the proper hashes.
+						// 2. If the hash list is out-of-date, update.
+						if ( hashesLengthFromFile < kHashTotalLength)
 						{
-							//sync up the hashes ie. shadow and secure
-							//go ahead and write the shadow hashes since we have a secure hash already 
-							//and we know the secure hash was correct OR
-							//write the secure hash since we know we already have the shadow hashes
-							siResult = eDSNoErr;
-							siResult = WriteShadowHash(pUserName, inGUIDString, generatedHashes);
+							//generate proper hashes according to policy
+							GenerateShadowHashes(	pOldPassword,
+													strlen(pOldPassword),
+													userLevelHashList,
+													hashes + kHashOffsetToSaltedSHA1,
+													generatedHashes,
+													&hashLength );
+							// sync up the hashes
+							siResult = WriteShadowHash( pUserName, inGUIDString, generatedHashes );
 						}
-
-						if (inAuthOnly == false)
+						else if ( memcmp(hashes, generatedHashes, kHashTotalLength) != 0 )
 						{
-							siResult = AuthOpen( inContext, pUserName, pOldPassword );
+							// sync up the hashes
+							siResult = WriteShadowHash( pUserName, inGUIDString, generatedHashes );
+						}
+						
+						//see if we need to set the shadowhash tags
+						if (uiAuthMethod == kAuthSetShadowHashWindows)
+						{
+							//set the auth authority
+							CFMutableArrayRef myHashTypeArray = NULL;
+							bool needToChange = false;
+							long convertResult = pwsf_ShadowHashDataToArray( inAuthAuthorityData, &myHashTypeArray );
+							
+							if (myHashTypeArray == NULL)
+							{
+								myHashTypeArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+							}
+
+							if (userLevelHashList & kNiPluginHashCRAM_MD5)
+							{
+								CFStringRef cram_md5_cfString = CFStringCreateWithCString( NULL, kNIHashNameCRAM_MD5, kCFStringEncodingUTF8 );
+								CFIndex locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), cram_md5_cfString);
+								if (locTag == kCFNotFound)
+								{
+									CFArrayAppendValue(myHashTypeArray, cram_md5_cfString);
+									needToChange = true;
+								}
+								CFRelease(cram_md5_cfString);
+							}
+							if (userLevelHashList & kNiPluginHashRecoverable)
+							{
+								CFStringRef recoverable_cfString = CFStringCreateWithCString( NULL, kNIHashNameRecoverable, kCFStringEncodingUTF8 );
+								CFIndex locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), recoverable_cfString);
+								if (locTag == kCFNotFound)
+								{
+									CFArrayAppendValue(myHashTypeArray, recoverable_cfString);
+									needToChange = true;
+								}
+								CFRelease(recoverable_cfString);
+							}
+							if (userLevelHashList & kNiPluginHashSecurityTeamFavorite)
+							{
+								CFStringRef team_fav_cfString = CFStringCreateWithCString( NULL, kNIHashNameSecure, kCFStringEncodingUTF8 );
+								CFIndex locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), team_fav_cfString);
+								if (locTag == kCFNotFound)
+								{
+									CFArrayAppendValue(myHashTypeArray, team_fav_cfString);
+									needToChange = true;
+								}
+								CFRelease(team_fav_cfString);
+							}
+							CFStringRef salted_sha1_cfString = CFStringCreateWithCString( NULL, kNIHashNameSHA1, kCFStringEncodingUTF8 );
+							CFIndex locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), salted_sha1_cfString);
+							if (locTag == kCFNotFound)
+							{
+								CFArrayAppendValue(myHashTypeArray, salted_sha1_cfString);
+								needToChange = true;
+							}
+							CFStringRef smb_nt_cfString = CFStringCreateWithCString( NULL, kNIHashNameNT, kCFStringEncodingUTF8 );
+							locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), smb_nt_cfString);
+							if (locTag == kCFNotFound)
+							{
+								CFArrayAppendValue(myHashTypeArray, smb_nt_cfString);
+								needToChange = true;
+							}
+							CFStringRef smb_lm_cfString = CFStringCreateWithCString( NULL, kNIHashNameLM, kCFStringEncodingUTF8 );;
+							locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), smb_lm_cfString);
+							if (locTag == kCFNotFound)
+							{
+								CFArrayAppendValue(myHashTypeArray, smb_lm_cfString);
+								needToChange = true;
+							}
+							if (needToChange)
+							{
+								char *newAuthAuthority = nil;
+								newAuthAuthority = pwsf_ShadowHashArrayToData( myHashTypeArray, &convertResult );
+								if (newAuthAuthority != nil)
+								{
+									char * fullAuthAuthority = (char *) calloc(1, 1 + strlen(kDSValueAuthAuthorityShadowHash) + strlen(newAuthAuthority));
+									strcpy(fullAuthAuthority, kDSValueAuthAuthorityShadowHash);
+									strcat(fullAuthAuthority, newAuthAuthority);
+									siResult = SetUserAuthAuthorityAsRoot(inContext, "users", pUserName, fullAuthAuthority);
+									
+									//get the hashlist anew since we have written a new auth authority
+									// If a user hash-list is specified, then it takes precedence over the global list
+									if ( siResult == eDSNoErr )
+									{
+										siResult = GetHashSecurityLevelForUser( newAuthAuthority, &userLevelHashList );
+										if ( siResult != eDSNoErr )
+										{
+											DBGLOG1( kLogPlugin, "DoShadowHashAuth - encountered invalid record hash list: %s", fullAuthAuthority );
+											userLevelHashList = sHashList;
+											siResult = eDSNoErr;
+										}
+										
+										GenerateShadowHashes(	pOldPassword,
+																strlen(pOldPassword),
+																userLevelHashList,
+																hashes + kHashOffsetToSaltedSHA1,
+																generatedHashes,
+																&hashLength );
+										// sync up the hashes
+										siResult = WriteShadowHash( pUserName, inGUIDString, generatedHashes );
+									}
+			
+									DSFreeString(newAuthAuthority);
+									DSFreeString(fullAuthAuthority);
+								}
+							}
+							CFRelease(myHashTypeArray);
+							CFRelease(smb_nt_cfString);
+							CFRelease(smb_lm_cfString);
+							CFRelease(salted_sha1_cfString);
+
+						}
+						else if (uiAuthMethod == kAuthSetShadowHashSecure)
+						{
+							//set the auth authority
+							CFMutableArrayRef myHashTypeArray = NULL;
+							bool needToChange = false;
+							long convertResult = pwsf_ShadowHashDataToArray( inAuthAuthorityData, &myHashTypeArray );
+
+							if (myHashTypeArray == NULL)
+							{
+								myHashTypeArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+							}
+
+							if (userLevelHashList & kNiPluginHashCRAM_MD5)
+							{
+								CFStringRef cram_md5_cfString = CFStringCreateWithCString( NULL, kNIHashNameCRAM_MD5, kCFStringEncodingUTF8 );
+								CFIndex locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), cram_md5_cfString);
+								if (locTag == kCFNotFound)
+								{
+									CFArrayAppendValue(myHashTypeArray, cram_md5_cfString);
+									needToChange = true;
+								}
+								CFRelease(cram_md5_cfString);
+							}
+							if (userLevelHashList & kNiPluginHashRecoverable)
+							{
+								CFStringRef recoverable_cfString = CFStringCreateWithCString( NULL, kNIHashNameRecoverable, kCFStringEncodingUTF8 );
+								CFIndex locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), recoverable_cfString);
+								if (locTag == kCFNotFound)
+								{
+									CFArrayAppendValue(myHashTypeArray, recoverable_cfString);
+									needToChange = true;
+								}
+								CFRelease(recoverable_cfString);
+							}
+							if (userLevelHashList & kNiPluginHashSecurityTeamFavorite)
+							{
+								CFStringRef team_fav_cfString = CFStringCreateWithCString( NULL, kNIHashNameSecure, kCFStringEncodingUTF8 );
+								CFIndex locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), team_fav_cfString);
+								if (locTag == kCFNotFound)
+								{
+									CFArrayAppendValue(myHashTypeArray, team_fav_cfString);
+									needToChange = true;
+								}
+								CFRelease(team_fav_cfString);
+							}
+							CFStringRef salted_sha1_cfString = CFStringCreateWithCString( NULL, kNIHashNameSHA1, kCFStringEncodingUTF8 );
+							CFIndex locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), salted_sha1_cfString);
+							if (locTag == kCFNotFound)
+							{
+								CFArrayAppendValue(myHashTypeArray, salted_sha1_cfString);
+								needToChange = true;
+							}
+							CFStringRef smb_nt_cfString = CFStringCreateWithCString( NULL, kNIHashNameNT, kCFStringEncodingUTF8 );
+							locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), smb_nt_cfString);
+							if (locTag != kCFNotFound)
+							{
+								CFArrayRemoveValueAtIndex(myHashTypeArray, locTag);
+								needToChange = true;
+							}
+							CFStringRef smb_lm_cfString = CFStringCreateWithCString( NULL, kNIHashNameLM, kCFStringEncodingUTF8 );;
+							locTag = CFArrayGetFirstIndexOfValue(myHashTypeArray, CFRangeMake(0,CFArrayGetCount(myHashTypeArray)), smb_lm_cfString);
+							if (locTag != kCFNotFound)
+							{
+								CFArrayRemoveValueAtIndex(myHashTypeArray, locTag);
+								needToChange = true;
+							}
+							if (needToChange)
+							{
+								char *newAuthAuthority = nil;
+								newAuthAuthority = pwsf_ShadowHashArrayToData( myHashTypeArray, &convertResult );
+								if (newAuthAuthority != nil)
+								{
+									char * fullAuthAuthority = (char *) calloc(1, 1 + strlen(kDSValueAuthAuthorityShadowHash) + strlen(newAuthAuthority));
+									strcpy(fullAuthAuthority, kDSValueAuthAuthorityShadowHash);
+									strcat(fullAuthAuthority, newAuthAuthority);
+									siResult = SetUserAuthAuthorityAsRoot(inContext, "users", pUserName, fullAuthAuthority);
+									
+									//get the hashlist anew since we have written a new auth authority
+									// If a user hash-list is specified, then it takes precedence over the global list
+									if ( siResult == eDSNoErr )
+									{
+										siResult = GetHashSecurityLevelForUser( newAuthAuthority, &userLevelHashList );
+										if ( siResult != eDSNoErr )
+										{
+											DBGLOG1( kLogPlugin, "DoShadowHashAuth - encountered invalid record hash list: %s", fullAuthAuthority );
+											userLevelHashList = sHashList;
+											siResult = eDSNoErr;
+										}
+										
+										GenerateShadowHashes(	pOldPassword,
+																strlen(pOldPassword),
+																userLevelHashList,
+																hashes + kHashOffsetToSaltedSHA1,
+																generatedHashes,
+																&hashLength );
+										// sync up the hashes
+										siResult = WriteShadowHash( pUserName, inGUIDString, generatedHashes );
+									}
+			
+									DSFreeString(newAuthAuthority);
+									DSFreeString(fullAuthAuthority);
+								}
+							}
+							CFRelease(myHashTypeArray);
+							CFRelease(smb_nt_cfString);
+							CFRelease(smb_lm_cfString);
+							CFRelease(salted_sha1_cfString);
 						}
 						else
 						{
-							siResult = eDSNoErr;
+							if (inAuthOnly == false)
+							{
+								siResult = AuthOpen( inContext, pUserName, pOldPassword );
+							}
 						}
 					}
 					else
@@ -7618,53 +9791,57 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 
 				// set password operations
 				case kAuthSetPasswd:
-					GenerateShadowHashes(pAdminPassword, strlen(pAdminPassword), bUseBothHashes, generatedHashes, &hashLength );
-					
-					if (	(memcmp(hashes,generatedHashes,hashLength) == 0) ||
-							( (memcmp(hashes,generatedHashes,kHashShadowBothLength) == 0) &&
-							(memcmp(hashes+kHashShadowBothLength,secureNULLHash,kHashSecureLength) == 0) ) ||
-							( (memcmp(hashes+kHashShadowBothLength,generatedHashes+kHashShadowBothLength,kHashSecureLength) == 0) &&
-							(memcmp(hashes,shadowNULLHash,kHashShadowBothLength) == 0) ) )
-					//if all hashes present use them
-					//if secure hash missing then for backward compatibility use only the shadow hashes
-					//if shadow hashes missing ie. PUA then only use secure hash
+					GetShadowHashGlobalPolicies( inContext, &globalAccess );
+					siResult = eDSNoErr;
+					if ( ! UserIsAdmin(pUserName, inContext) )
 					{
-						bool modifyingSelf = (pAdminUser != NULL) && (pUserName != NULL) && (strcmp(pAdminUser, pUserName) == 0);
-						bool userIsAdmin = UserIsAdmin(pAdminUser,inContext->fDomain);
-						
-						if ( !modifyingSelf && !userIsAdmin )
-							throw( (sInt32)eDSPermissionError );
-							
-						GetShadowHashGlobalPolicies( inContext, &globalAccess );
-						siResult = eDSNoErr;
-						if ( modifyingSelf )
-							siResult = PasswordOkForPolicies( policyStr, &globalAccess, pUserName, pNewPassword );
-						if ( siResult == eDSNoErr )
+						if (! (inContext->fAuthenticatedUserName && pUserName && (::strcmp(inContext->fAuthenticatedUserName, pUserName) == 0)) )
 						{
-							bzero(generatedHashes,kHashTotalLength);
-							GenerateShadowHashes(pNewPassword, strlen(pNewPassword), bUseBothHashes, generatedHashes, &hashLength );
-							
-							siResult = WriteShadowHash(pUserName, inGUIDString, generatedHashes);
-							if ( siResult == eDSNoErr )
-								state.newPasswordRequired = 0;
+							// non-admins can only change their own passwords
+							siResult = eDSPermissionError;
+						}
+						else
+						{
+							siResult = NIPasswordOkForPolicies( policyStr, &globalAccess, pUserName, pNewPassword );
+							if ( siResult == eDSAuthPasswordTooShort &&
+								 globalAccess.minChars == 0 &&
+								 pNewPassword != NULL &&
+								 *pNewPassword == '\0' &&
+								 ((policyStr == NULL) || strstr(policyStr, "minChars=0") != NULL) )
+							{
+								// special-case for ShadowHash and blank password.
+								siResult = eDSNoErr;
+							}
 						}
 					}
-					else
+					if ( siResult == eDSNoErr )
 					{
-						siResult = eDSAuthFailed;
+						bzero(generatedHashes, kHashTotalLength);
+						GenerateShadowHashes(pNewPassword, strlen(pNewPassword), userLevelHashList, NULL, generatedHashes, &hashLength );
+						
+						siResult = WriteShadowHash(pUserName, inGUIDString, generatedHashes);
+						if ( siResult == eDSNoErr )
+						{
+							state.newPasswordRequired = 0;
+							time( &now );
+							gmtime_r( &now, &state.modDateOfPassword );
+							gettimeofday( &modDateAssist, NULL );
+							TIMEVAL_TO_TIMESPEC( &modDateAssist, &modDateOfPassword );
+						}
 					}
 					break;
-
+				
 				case kAuthSetPasswdAsRoot:
 					{
 						bool modifyingSelf = inContext->fAuthenticatedUserName && pUserName && (::strcmp(inContext->fAuthenticatedUserName, pUserName) == 0);
+						bool notAdmin = ( (inContext->fAuthenticatedUserName != NULL) && (! UserIsAdmin(inContext->fAuthenticatedUserName, inContext)) );
 						
 						// allow root to change anyone's password and
 						// others to change their own password
 						if ( inContext->fEffectiveUID != 0 )
 						{
 							if ( (inContext->fAuthenticatedUserName == NULL) ||
-								((::strcmp(inContext->fAuthenticatedUserName, "root") != 0) && !modifyingSelf) )
+								(notAdmin && (!modifyingSelf)) )
 							{
 								throw( (sInt32)eDSPermissionError );
 							}
@@ -7672,45 +9849,75 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 						
 						GetShadowHashGlobalPolicies( inContext, &globalAccess );
 						siResult = eDSNoErr;
-						if ( modifyingSelf )
-							siResult = PasswordOkForPolicies( policyStr, &globalAccess, pUserName, pNewPassword );
+						if ( modifyingSelf && notAdmin )
+						{
+							siResult = NIPasswordOkForPolicies( policyStr, &globalAccess, pUserName, pNewPassword );
+							if ( siResult == eDSAuthPasswordTooShort &&
+								 globalAccess.minChars == 0 &&
+								 pNewPassword != NULL &&
+								 *pNewPassword == '\0' &&
+								 ((policyStr == NULL) || strstr(policyStr, "minChars=0") != NULL) )
+							{
+								// special-case for ShadowHash and blank password.
+								siResult = eDSNoErr;
+							}
+						}
 						if ( siResult == eDSNoErr )
 						{
-							GenerateShadowHashes(pNewPassword, strlen(pNewPassword), bUseBothHashes, generatedHashes, &hashLength );
-							
+							GenerateShadowHashes(pNewPassword, strlen(pNewPassword), userLevelHashList, NULL, generatedHashes, &hashLength );
+					
 							siResult = WriteShadowHash(pUserName, inGUIDString, generatedHashes);
 							if ( siResult == eDSNoErr )
+							{
 								state.newPasswordRequired = 0;
+								time( &now );
+								gmtime_r( &now, &state.modDateOfPassword );
+								gettimeofday( &modDateAssist, NULL );
+								TIMEVAL_TO_TIMESPEC( &modDateAssist, &modDateOfPassword );
+							}
 						}
 					}
 					break;
 
 				case kAuthChangePasswd:
-					GenerateShadowHashes(pOldPassword, strlen(pOldPassword), bUseBothHashes, generatedHashes, &hashLength );
+					GenerateShadowHashes( pOldPassword,
+										  strlen(pOldPassword),
+										  userLevelHashList,
+										  hashes + kHashOffsetToSaltedSHA1,
+										  generatedHashes,
+										  &hashLength );
 					
-					if (	(memcmp(hashes,generatedHashes,hashLength) == 0) ||
-							( (memcmp(hashes,generatedHashes,kHashShadowBothLength) == 0) &&
-							(memcmp(hashes+kHashShadowBothLength,secureNULLHash,kHashSecureLength) == 0) ) ||
-							( (memcmp(hashes+kHashShadowBothLength,generatedHashes+kHashShadowBothLength,kHashSecureLength) == 0) &&
-							(memcmp(hashes,shadowNULLHash,kHashShadowBothLength) == 0) ) ||
-							isSecondary )
-					//if all hashes present use them
-					//if secure hash missing then for backward compatibility use only the shadow hashes
-					//if shadow hashes missing ie. PUA then only use secure hash
-					// normally require the old password to match
-					// but if another auth authority already successfully changed
-					// assume we have an out of sync crypt vs. SMB password
-					// and allow the change
+					if ( NIHashesEqual( hashes, generatedHashes ) || isSecondary )
 					{
+						bool notAdmin = ( (pUserName != NULL) && (! UserIsAdmin(pUserName, inContext)) );
+						
 						GetShadowHashGlobalPolicies( inContext, &globalAccess );
-						siResult = PasswordOkForPolicies( policyStr, &globalAccess, pUserName, pNewPassword );
+						if ( notAdmin )
+						{
+							siResult = NIPasswordOkForPolicies( policyStr, &globalAccess, pUserName, pNewPassword );
+							if ( siResult == eDSAuthPasswordTooShort &&
+								 globalAccess.minChars == 0 &&
+								 pNewPassword != NULL &&
+								 *pNewPassword == '\0' &&
+								 ((policyStr == NULL) || strstr(policyStr, "minChars=0") != NULL) )
+							{
+								// special-case for ShadowHash and blank password.
+								siResult = eDSNoErr;
+							}
+						}
 						if ( siResult == eDSNoErr )
 						{
-							bzero(generatedHashes,kHashTotalLength);
-							GenerateShadowHashes(pNewPassword, strlen(pNewPassword), bUseBothHashes, generatedHashes, &hashLength );
+							bzero(generatedHashes, kHashTotalLength);
+							GenerateShadowHashes(pNewPassword, strlen(pNewPassword), userLevelHashList, NULL, generatedHashes, &hashLength );
 							
 							siResult = WriteShadowHash(pUserName, inGUIDString, generatedHashes);
 							state.newPasswordRequired = 0;
+							
+							// password changed
+							time( &now );
+							gmtime_r( &now, &state.modDateOfPassword );
+							gettimeofday( &modDateAssist, NULL );
+							TIMEVAL_TO_TIMESPEC( &modDateAssist, &modDateOfPassword );
 						}
 					}
 					else
@@ -7723,9 +9930,9 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					siResult = eDSAuthMethodNotSupported;
 					break;
 			}
-			
+
 			// do not enforce login-time policies for administrators
-			if ( inEnforcePolicy && (pUserName != NULL) && (! UserIsAdmin(pUserName,inContext->fDomain)) )
+			if ( (pUserName != NULL) && (! UserIsAdmin(pUserName, inContext)) )
 			{
 				// test policies and update the current user's state
 				if ( siResult == eDSNoErr &&
@@ -7733,14 +9940,10 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					uiAuthMethod != kAuthSetPolicy && uiAuthMethod != kAuthSetGlobalPolicy )
 				{
 					GetShadowHashGlobalPolicies( inContext, &globalAccess );
-					siResult = TestPolicies( policyStr, &globalAccess, &state, &modDateOfPassword, path );
+					siResult = NITestPolicies( policyStr, &globalAccess, &state, &modDateOfPassword, path );
 					if ( siResult == eDSNoErr )
 					{
-						time_t now;
-						
 						state.failedLoginAttempts = 0;
-						time(&now);
-						gmtime_r( &now, &(state.lastLoginDate) );
 					}
 					else
 					if ( state.disabled == 1 )
@@ -7754,12 +9957,92 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 					state.failedLoginAttempts++;
 					
 					GetShadowHashGlobalPolicies( inContext, &globalAccess );
-					TestPolicies( policyStr, &globalAccess, &state, &modDateOfPassword, path );
+					NITestPolicies( policyStr, &globalAccess, &state, &modDateOfPassword, path );
 					if ( state.disabled == 1 )
 					{
 						SetUserAAtoDisabled( inContext, inNativeRecType, pUserName );
 					}
 				}
+			}
+			if ( siResult == eDSNoErr || siResult == eDSAuthNewPasswordRequired )
+			{
+				time( &now );
+				gmtime_r( &now, &(state.lastLoginDate) );
+			}
+			
+			// check for failure in the operation and delay response based on heuristic of number of attempts
+			switch( uiAuthMethod )
+			{
+				case kAuthSMB_NT_Key:
+				case kAuthSMB_LM_Key:
+				case kAuthSecureHash:
+				case kAuthNativeClearTextOK:
+				case kAuthNativeNoClearText:
+				case kAuthSetPasswd:
+				case kAuthSetPasswdAsRoot:
+				case kAuthChangePasswd:
+					if ( (siResult == eDSAuthFailed) && (gDelayFailedLocalAuthReturnsDeltaInSeconds != 0) )
+					{
+						//save time of last failure
+						//save the current failure time
+						//save the pUserName and total count of failures
+						//if > 5th failure AND (current failure time - last failure time) > 10*(# failures -5) then remove entry
+						//if (> 5th failure) then delay return
+						//delay return time = (# failures - 5) seconds
+						gHashAuthFailedMapLock->Wait();
+						string aUserName(pUserName);
+						HashAuthFailedMapI  aHashAuthFailedMapI	= gHashAuthFailedMap.find(aUserName);
+						if (aHashAuthFailedMapI == gHashAuthFailedMap.end())
+						{
+							//create an entry in the map
+							pHashAuthFailed = (sHashAuthFailed *)calloc(1, sizeof(sHashAuthFailed));
+							pHashAuthFailed->nowTime = dsTimestamp();
+							pHashAuthFailed->lastTime = pHashAuthFailed->nowTime;
+							pHashAuthFailed->failCount = 1;
+							gHashAuthFailedMap[aUserName] = pHashAuthFailed;
+							gHashAuthFailedMapLock->Signal();
+						}
+						else
+						{
+							//use the current entry
+							pHashAuthFailed = aHashAuthFailedMapI->second;
+							pHashAuthFailed->lastTime = pHashAuthFailed->nowTime;
+							pHashAuthFailed->nowTime = dsTimestamp();
+							pHashAuthFailed->failCount++;
+							if ( pHashAuthFailed->failCount > 5 )
+							{
+								if (pHashAuthFailed->failCount == 6)
+								{
+									syslog(LOG_ALERT,"Failed Authentication return is being delayed due to over five recent auth failures for username: %s.", pUserName);
+								}
+								if ( (pHashAuthFailed->nowTime - pHashAuthFailed->lastTime)/USEC_PER_SEC > 10*gDelayFailedLocalAuthReturnsDeltaInSeconds*(pHashAuthFailed->failCount - 5) )
+								{
+									//it has been a long time since the last failure so let's remove this and not track first new failure
+									gHashAuthFailedMap.erase(aUserName);
+									free(pHashAuthFailed);
+									pHashAuthFailed = nil;
+									gHashAuthFailedMapLock->Signal();
+								}
+								else
+								{
+									//let's delay the return for the failed auth since too many failures have occurred too rapidly
+									struct mach_timebase_info timeBaseInfo;
+									mach_timebase_info( &timeBaseInfo );
+									uint64_t delay = gDelayFailedLocalAuthReturnsDeltaInSeconds * (pHashAuthFailed->failCount - 5) * (((uint64_t)NSEC_PER_SEC * (uint64_t)timeBaseInfo.denom) / (uint64_t)timeBaseInfo.numer);
+
+									gHashAuthFailedMapLock->Signal(); //don't hold the lock when delaying
+									mach_wait_until( mach_absolute_time() + delay );
+								}
+							}
+							else
+							{
+								gHashAuthFailedMapLock->Signal();
+							}
+						}
+					}
+					break;
+				default:
+					break;
 			}
 		}
 	}
@@ -7771,21 +10054,12 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 	if ( stateFilePath != NULL )
 	{
 		WriteHashStateFile( stateFilePath, &state );
-		free( stateFilePath );
-		stateFilePath = NULL;
+		DSFreeString( stateFilePath );
 	}
 	
-	if ( path != NULL )
-	{
-		free( path );
-		path = NULL;
-	}
+	DSFreeString( path );
+	DSFreeString( policyStr );
 	
-	if ( policyStr != NULL )
-	{
-		free( policyStr );
-		policyStr = NULL;
-	}
 	if ( nativeAttrType != NULL )
 	{
 		delete nativeAttrType;
@@ -7798,12 +10072,8 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 		dataList = NULL;
 	}
 	
-	if ( pUserName != nil )
-	{
-		free( pUserName );
-		pUserName = nil;
-	}
-	
+	DSFreeString( pUserName );
+
 	if ( pNewPassword != nil )
 	{
 		bzero(pNewPassword, strlen(pNewPassword));
@@ -7818,18 +10088,23 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 		pOldPassword = nil;
 	}
 	
-	if ( pAdminUser != nil )
-	{
-		free( pAdminUser );
-		pAdminUser = nil;
-	}
-	
+	DSFree( pNTLMDigest );
+	DSFreeString( pSambaName );
+	DSFreeString( pDomain );
+	DSFreeString( pAdminUser );
+		
 	if ( pAdminPassword != nil )
 	{
 		bzero(pAdminPassword, strlen(pAdminPassword));
 		free( pAdminPassword );
 		pAdminPassword = nil;
 	}
+	
+	digest_dispose( &digestContext );
+	
+	DSFreeString( challenge );
+	DSFreeString( apopResponse );
+	DSFree( pCramResponse );
 	
 	//zero out all the hashes used above
 	bzero(P21, kHashShadowKeyLength);
@@ -7845,578 +10120,6 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 } // DoShadowHashAuth
 
 
-//------------------------------------------------------------------------------------
-//	GetStateFilePath
-//
-//	Returns: ds err code
-//
-//  <outStateFilePath> is malloc'd and must be freed by the caller.
-//------------------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::GetStateFilePath( const char *inHashPath, char **outStateFilePath )
-{
-	sInt32 siResult = eDSNoErr;
-	
-	if ( inHashPath == NULL || outStateFilePath == NULL )
-		return eParameterError;
-	
-	*outStateFilePath = NULL;
-	
-	char *stateFilePath = (char *) calloc( strlen(inHashPath) + sizeof(kShadowHashStateFileSuffix) + 1, 1 );
-	if ( stateFilePath != NULL )
-	{
-		strcpy( stateFilePath, inHashPath );
-		strcat( stateFilePath, kShadowHashStateFileSuffix );
-		*outStateFilePath = stateFilePath;
-	}
-	else
-	{
-		siResult = eMemoryError;
-	}
-	
-	return siResult;
-}
-
-
-//------------------------------------------------------------------------------------
-//	PasswordOkForPolicies
-//
-//	Returns: ds err code
-//------------------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::PasswordOkForPolicies( const char *inSpaceDelimitedPolicies, PWGlobalAccessFeatures *inGAccess, const char *inUsername, const char *inPassword )
-{
-	PWAccessFeatures access;
-	sInt32 siResult = eDSNoErr;
-	int result;
-	
-	if ( inPassword == NULL )
-	{
-		DBGLOG( kLogPlugin,  "PasswordOkForPolicies: no password" );
-		return eDSNoErr;
-	}
-	
-	// setup user policy default
-	GetDefaultUserPolicies( &access );
-	
-	// apply user policies
-	if ( inSpaceDelimitedPolicies != NULL )
-		StringToPWAccessFeatures( inSpaceDelimitedPolicies, &access );
-	
-	try
-	{
-		if ( !access.canModifyPasswordforSelf )
-			throw( (sInt32)eDSAuthFailed );
-		
-		result = pwsf_RequiredCharacterStatus( &access, inGAccess, inUsername, inPassword );
-		switch( result )
-		{
-			case kAuthOK:						siResult = eDSNoErr;							break;
-			case kAuthUserDisabled:				siResult = eDSAuthAccountDisabled;				break;
-			case kAuthPasswordExpired:			siResult = eDSAuthPasswordExpired;				break;
-			case kAuthPasswordNeedsChange:		siResult = eDSAuthPasswordQualityCheckFailed;   break;
-			case kAuthPasswordTooShort:			siResult = eDSAuthPasswordTooShort;				break;
-			case kAuthPasswordTooLong:			siResult = eDSAuthPasswordTooLong;				break;
-			case kAuthPasswordNeedsAlpha:		siResult = eDSAuthPasswordNeedsLetter;			break;
-			case kAuthPasswordNeedsDecimal:		siResult = eDSAuthPasswordNeedsDigit;			break;
-			
-			default:
-				siResult = eDSAuthFailed;
-				break;
-		}
-		/*
-		int usingHistory:1;						// TRUE == user has a password history file
-		int usingExpirationDate:1;				// TRUE == look at expirationDateGMT
-		int usingHardExpirationDate:1;			// TRUE == look at hardExpirationDateGMT
-		unsigned int historyCount:4;
-		
-		BSDTimeStructCopy expirationDateGMT;	// if exceeded, user is required to change the password at next login
-		BSDTimeStructCopy hardExpireDateGMT;	// if exceeded, user is disabled
-			
-		*/
-	}
-	catch(sInt32 catchErr)
-	{
-		siResult = catchErr;
-	}
-	
-    return siResult;	
-}
-
-
-//------------------------------------------------------------------------------------
-//	TestPolicies
-//
-//	Returns: ds err code
-//------------------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::TestPolicies( const char *inSpaceDelimitedPolicies, PWGlobalAccessFeatures *inGAccess, sHashState *inOutHashState, struct timespec *inModDateOfPassword, const char *inHashPath )
-{
-	PWAccessFeatures access;
-	int result;
-	sInt32 siResult = eDSNoErr;
-	
-	if ( inHashPath == NULL )
-	{
-		DBGLOG( kLogPlugin,  "TestPolicies: no path" );
-		return eDSNoErr;
-	}
-	
-	GetDefaultUserPolicies( &access );
-	
-	if ( inSpaceDelimitedPolicies != NULL )
-		StringToPWAccessFeatures( inSpaceDelimitedPolicies, &access );
-		
-	try
-	{
-		result = pwsf_TestDisabledStatus( &access, inGAccess, &(inOutHashState->creationDate), &(inOutHashState->lastLoginDate), &(inOutHashState->failedLoginAttempts) );
-		if ( result == kAuthUserDisabled )
-		{
-			inOutHashState->disabled = 1;
-			throw( (sInt32)eDSAuthAccountDisabled );
-		}
-		
-		if ( inOutHashState->newPasswordRequired )
-			throw( (sInt32)eDSAuthNewPasswordRequired );
-		
-		gmtime_r( (const time_t *)&inModDateOfPassword->tv_sec, &(inOutHashState->modDateOfPassword) );
-		result = pwsf_ChangePasswordStatus( &access, inGAccess, &(inOutHashState->modDateOfPassword) );
-		switch( result )
-		{
-			case kAuthPasswordNeedsChange:
-				siResult = eDSAuthNewPasswordRequired;
-				break;
-				
-			case kAuthPasswordExpired:
-				siResult = eDSAuthPasswordExpired;
-				break;
-			
-			default:
-				break;
-		}
-	}
-	catch(sInt32 catchErr)
-	{
-		siResult = catchErr;
-	}
-			
-    return siResult;
-}
-
-
-//--------------------------------------------------------------------------------------------------
-// * GetShadowHashGlobalPolicies ()
-//--------------------------------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::GetShadowHashGlobalPolicies( sNIContextData *inContext, PWGlobalAccessFeatures *inOutGAccess )
-{
-	sInt32				error					= eDSNoErr;
-	ni_status			niResult				= NI_OK;
-	char				*nativeRecType			= NULL;
-	char				*nativeAttrType			= NULL;
-	char				*policyStr				= NULL;
-    ni_id				niDirID;
-	ni_namelist			niValues;
-	
-	if ( inContext == NULL || inOutGAccess == NULL )
-		return eParameterError;
-	
-	bzero( inOutGAccess, sizeof(PWGlobalAccessFeatures) );
-	
-	nativeRecType = MapRecToNetInfoType( kDSStdRecordTypeConfig );
-	if ( nativeRecType == NULL )
-		return eDSInvalidRecordType;
-	
-	try
-	{
-		nativeAttrType = MapAttrToNetInfoType( kDS1AttrPasswordPolicyOptions );
-		if ( nativeAttrType == NULL )
-			throw( (sInt32)eDSInvalidAttributeType );
-		
-		error = IsValidRecordName( kShadowHashRecordName, nativeRecType, inContext->fDomain, niDirID );
-		if ( error != eDSNoErr ) 
-			throw( error );
-		
-		gNetInfoMutex->Wait();
-		//lookup global policies attribute
-		niResult = ni_lookupprop( inContext->fDomain, &niDirID, nativeAttrType, &niValues );
-		gNetInfoMutex->Signal();
-		if ( niResult != NI_OK ) throw( (sInt32)eDSAuthFailed );
-		
-		if ( niValues.ni_namelist_len >= 1 )
-		{
-			if ( ConvertGlobalXMLPolicyToSpaceDelimited( niValues.ni_namelist_val[0], &policyStr ) == 0 )
-			{
-				StringToPWGlobalAccessFeatures( policyStr, inOutGAccess );
-			}
-		}
-		
-		gNetInfoMutex->Wait();
-		if (niValues.ni_namelist_len > 0)
-		{
-			ni_namelist_free( &niValues );
-		}
-		gNetInfoMutex->Signal();
-	}
-	catch( sInt32 catchErr )
-	{
-		error = catchErr;
-	}
-	
-	if ( nativeRecType != NULL )
-		delete nativeRecType;
-	if ( nativeAttrType != NULL )
-		delete nativeAttrType;
-	if ( policyStr != NULL )
-		free( policyStr );
-	
-	return error;
-}
-
-
-//--------------------------------------------------------------------------------------------------
-// * SetShadowHashGlobalPolicies
-//--------------------------------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::SetShadowHashGlobalPolicies( sNIContextData *inContext, PWGlobalAccessFeatures *inGAccess )
-{
-	sInt32				siResult			= eDSAuthFailed;
-	bool				bFreePropList		= false;
-	ni_proplist			niPropList;
-	ni_id				niDirID;
-	ni_index			niWhere				= 0;
-	ni_namelist			niValue;
-	char				*nativeRecType		= NULL;
-	char				*nativeAttrType		= NULL;
-	
-	gNetInfoMutex->Wait();
-
-	try
-	{
-		if ( inContext == nil || inGAccess == nil )
-			throw( (sInt32)eDSAuthFailed );
-		
-		if ( (inContext->fEffectiveUID != 0) && (! UserIsAdmin(inContext->fAuthenticatedUserName, inContext->fDomain)) )
-			throw( (sInt32)eDSPermissionError );
-		
-		nativeRecType = MapRecToNetInfoType( kDSStdRecordTypeConfig );
-		if ( nativeRecType == NULL )
-			throw( (sInt32)eDSInvalidRecordType );
-		
-		nativeAttrType = MapAttrToNetInfoType( kDS1AttrPasswordPolicyOptions );
-		if ( nativeAttrType == NULL )
-			throw( (sInt32)eDSInvalidAttributeType );
-
-		siResult = IsValidRecordName( kShadowHashRecordName, nativeRecType, inContext->fDomain, niDirID );
-		if ( siResult != eDSNoErr )
-		{
-			NiLib2::Create( inContext->fDomain, "/config/"kShadowHashRecordName );
-			siResult = IsValidRecordName( kShadowHashRecordName, nativeRecType, inContext->fDomain, niDirID );
-		}
-		if ( siResult != eDSNoErr )
-			throw( (sInt32)eDSAuthFailed );
-		
-		siResult = ::ni_read( inContext->fDomain, &niDirID, &niPropList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-		if ( niPropList.ni_proplist_val != NULL )
-			bFreePropList = true;
-		
-		niWhere = ::ni_proplist_match( niPropList, nativeAttrType, nil );
-		if (niWhere != NI_INDEX_NULL)
-		{		
-			niValue = niPropList.ni_proplist_val[niWhere].nip_val;
-			
-			if ( ( inContext->fEffectiveUID != 0 )
-			 && ( (inContext->fAuthenticatedUserName == NULL) 
-				  || (strcmp(inContext->fAuthenticatedUserName,"root") != 0) ) )
-			{
-				siResult = NiLib2::ValidateDir( inContext->fAuthenticatedUserName, &niPropList );
-				if ( siResult != NI_OK )
-					siResult = NiLib2::ValidateName( "root", &niPropList, niWhere );
-			}
-		}
-		
-		if ( siResult != eDSNoErr )
-			siResult = MapNetInfoErrors( siResult );
-		
-		if (siResult == eDSNoErr)
-		{
-			char *xmlDataStr;
-			char policyStr[2048];
-			
-			PWGlobalAccessFeaturesToString( inGAccess, policyStr );
-			if ( ConvertGlobalSpaceDelimitedPolicyToXML( policyStr, &xmlDataStr ) == 0 )
-			{
-				NiLib2::DestroyDirVal( inContext->fDomain, &niDirID, (char*)nativeAttrType, niValue );
-				siResult = NiLib2::InsertDirVal( inContext->fDomain, &niDirID, (char*)nativeAttrType, xmlDataStr, 0 );
-				siResult = MapNetInfoErrors( siResult );
-				free( xmlDataStr );
-			}
-		}
-	}
-
-	catch( sInt32 err )
-	{
-		siResult = err;
-	}
-
-	if ( bFreePropList )
-	{
-		ni_proplist_free( &niPropList );
-	}
-	
-	gNetInfoMutex->Signal();
-	
-	if ( nativeRecType != NULL )
-		delete nativeRecType;
-	if ( nativeAttrType != NULL )
-		delete nativeAttrType;
-
-	return( siResult );
-
-} // SetShadowHashGlobalPolicies
-
-
-//----------------------------------------------------------------------------------------------------
-//  ReadHashStateFile
-//
-//  Returns: -1 = error, 0 = ok.
-//----------------------------------------------------------------------------------------------------
-
-int
-CNiPlugIn::ReadHashStateFile( const char *inFilePath, sHashState *inOutHashState )
-{
-	CFStringRef myReplicaDataFilePathRef;
-	CFURLRef myReplicaDataFileRef;
-	CFReadStreamRef myReadStreamRef;
-	CFPropertyListRef myPropertyListRef;
-	CFStringRef errorString;
-	CFPropertyListFormat myPLFormat;
-	struct stat sb;
-	CFMutableDictionaryRef stateDict = NULL;
-	CFStringRef keyString = NULL;
-	CFDateRef dateValue = NULL;
-	CFNumberRef numberValue = NULL;
-	long aLongValue;
-	short aShortValue;
-	
-	if ( inFilePath == NULL || inOutHashState == NULL )
-		return -1;
-	
-	if ( stat( inFilePath, &sb ) != 0 )
-		return -1;
-	
-	myReplicaDataFilePathRef = CFStringCreateWithCString( kCFAllocatorDefault, inFilePath, kCFStringEncodingUTF8 );
-	if ( myReplicaDataFilePathRef == NULL )
-		return -1;
-	
-	myReplicaDataFileRef = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, myReplicaDataFilePathRef, kCFURLPOSIXPathStyle, false );
-	
-	CFRelease( myReplicaDataFilePathRef );
-	
-	if ( myReplicaDataFileRef == NULL )
-		return -1;
-	
-	myReadStreamRef = CFReadStreamCreateWithFile( kCFAllocatorDefault, myReplicaDataFileRef );
-	
-	CFRelease( myReplicaDataFileRef );
-	
-	if ( myReadStreamRef == NULL )
-		return -1;
-	
-	CFReadStreamOpen( myReadStreamRef );
-	
-	errorString = NULL;
-	myPLFormat = kCFPropertyListXMLFormat_v1_0;
-	myPropertyListRef = CFPropertyListCreateFromStream( kCFAllocatorDefault, myReadStreamRef, 0, kCFPropertyListMutableContainersAndLeaves, &myPLFormat, &errorString );
-	
-	CFReadStreamClose( myReadStreamRef );
-	CFRelease( myReadStreamRef );
-	
-	if ( errorString != NULL )
-	{
-		//char errMsg[256];
-		
-		//if ( CFStringGetCString( errorString, errMsg, sizeof(errMsg), kCFStringEncodingUTF8 ) )
-			//errmsg( "could not load the replica file, error = %s", errMsg );
-		CFRelease( errorString );
-	}
-	
-	if ( myPropertyListRef == NULL )
-	{
-		//errmsg( "could not load the replica file because the property list is empty." );
-		return -1;
-	}
-	
-	if ( CFGetTypeID(myPropertyListRef) != CFDictionaryGetTypeID() )
-	{
-		CFRelease( myPropertyListRef );
-		//errmsg( "could not load the replica file because the property list is not a dictionary." );
-		return -1;
-	}
-	
-	stateDict = (CFMutableDictionaryRef)myPropertyListRef;
-				
-	keyString = CFStringCreateWithCString( kCFAllocatorDefault, "CreationDate", kCFStringEncodingUTF8 );
-	if ( keyString != NULL )
-	{
-		if ( CFDictionaryGetValueIfPresent( stateDict, keyString, (const void **)&dateValue ) )
-		{
-			CPolicyBase::ConvertCFDateToBSDTime( dateValue, &inOutHashState->creationDate );
-		}
-		CFRelease( keyString );
-	}
-	keyString = CFStringCreateWithCString( kCFAllocatorDefault, "LastLoginDate", kCFStringEncodingUTF8 );
-	if ( keyString != NULL )
-	{
-		if ( CFDictionaryGetValueIfPresent( stateDict, keyString, (const void **)&dateValue ) )
-		{
-			CPolicyBase::ConvertCFDateToBSDTime( dateValue, &inOutHashState->lastLoginDate );
-		}
-		CFRelease( keyString );
-	}
-	keyString = CFStringCreateWithCString( kCFAllocatorDefault, "FailedLoginCount", kCFStringEncodingUTF8 );
-	if ( keyString != NULL )
-	{
-		if ( CFDictionaryGetValueIfPresent( stateDict, keyString, (const void **)&numberValue ) &&
-				CFGetTypeID(numberValue) == CFNumberGetTypeID() &&
-				CFNumberGetValue( (CFNumberRef)numberValue, kCFNumberLongType, &aLongValue) )
-		{
-			inOutHashState->failedLoginAttempts = (UInt16)aLongValue;
-		}
-		CFRelease( keyString );
-	}
-	keyString = CFStringCreateWithCString( kCFAllocatorDefault, "NewPasswordRequired", kCFStringEncodingUTF8 );
-	if ( keyString != NULL )
-	{
-		if ( CFDictionaryGetValueIfPresent( stateDict, keyString, (const void **)&numberValue ) &&
-				CFGetTypeID(numberValue) == CFNumberGetTypeID() &&
-				CFNumberGetValue( (CFNumberRef)numberValue, kCFNumberSInt16Type, &aShortValue) )
-		{
-			inOutHashState->newPasswordRequired = (UInt16)aShortValue;
-		}
-		CFRelease( keyString );
-	}
-	
-	CFRelease( stateDict );
-	
-	return 0;
-}
-
-
-//----------------------------------------------------------------------------------------------------
-//  WriteHashStateFile
-//
-//  Returns: -1 = error, 0 = ok.
-//----------------------------------------------------------------------------------------------------
-
-int
-CNiPlugIn::WriteHashStateFile( const char *inFilePath, sHashState *inHashState )
-{
-	CFStringRef myReplicaDataFilePathRef;
-	CFURLRef myReplicaDataFileRef;
-	CFWriteStreamRef myWriteStreamRef;
-	CFStringRef errorString;
-	int err = 0;
-    //struct stat sb;
-	CFMutableDictionaryRef prefsDict;
-	CFDateRef aDateRef;
-	
-	if ( inFilePath == NULL || inHashState == NULL )
-		return -1;
-	
-	// make the dict
-	prefsDict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-	if ( prefsDict == NULL )
-		return -1;
-	
-	try
-	{
-		if ( CPolicyBase::ConvertBSDTimeToCFDate( &inHashState->creationDate, &aDateRef ) )
-		{
-			CFDictionaryAddValue( prefsDict, CFSTR("CreationDate"), aDateRef );
-			CFRelease( aDateRef );
-		}
-		if ( CPolicyBase::ConvertBSDTimeToCFDate( &inHashState->lastLoginDate, &aDateRef ) )
-		{
-			CFDictionaryAddValue( prefsDict, CFSTR("LastLoginDate"), aDateRef );
-			CFRelease( aDateRef );
-		}
-			
-		CFNumberRef failedAttemptCountRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt16Type, &(inHashState->failedLoginAttempts) );
-		if ( failedAttemptCountRef != NULL )
-		{
-			CFDictionaryAddValue( prefsDict, CFSTR("FailedLoginCount"), failedAttemptCountRef );
-			CFRelease( failedAttemptCountRef );
-		}
-		
-		CFNumberRef newPasswordRequiredRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt16Type, &(inHashState->newPasswordRequired) );
-		if ( newPasswordRequiredRef != NULL )
-		{
-			CFDictionaryAddValue( prefsDict, CFSTR("NewPasswordRequired"), newPasswordRequiredRef );
-			CFRelease( newPasswordRequiredRef );
-		}
-		
-		// WARNING: make sure the path to the file exists or CFStream code is unhappy
-		/*
-			err = stat( kPWReplicaDir, &sb );
-			if ( err != 0 )
-			{
-				// make sure the directory exists
-				err = mkdir( kPWReplicaDir, S_IRWXU );
-				if ( err != 0 )
-					return -1;
-			}
-		*/
-		
-		myReplicaDataFilePathRef = CFStringCreateWithCString( kCFAllocatorDefault, inFilePath, kCFStringEncodingUTF8 );
-		if ( myReplicaDataFilePathRef == NULL )
-			throw(-1);
-		
-		myReplicaDataFileRef = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, myReplicaDataFilePathRef, kCFURLPOSIXPathStyle, false );
-		
-		CFRelease( myReplicaDataFilePathRef );
-		
-		if ( myReplicaDataFileRef == NULL )
-			throw(-1);
-		
-		myWriteStreamRef = CFWriteStreamCreateWithFile( kCFAllocatorDefault, myReplicaDataFileRef );
-		
-		CFRelease( myReplicaDataFileRef );
-		
-		if ( myWriteStreamRef == NULL )
-			throw(-1);
-		
-		CFWriteStreamOpen( myWriteStreamRef );
-		chmod( inFilePath, 0600 );
-		
-		errorString = NULL;
-		CFPropertyListWriteToStream( prefsDict, myWriteStreamRef, kCFPropertyListXMLFormat_v1_0, &errorString );
-		
-		CFWriteStreamClose( myWriteStreamRef );
-		CFRelease( myWriteStreamRef );
-		
-		if ( errorString != NULL )
-		{
-			//char errMsg[256];
-			
-			//if ( CFStringGetCString( errorString, errMsg, sizeof(errMsg), kCFStringEncodingUTF8 ) )
-				//errmsg( "could not save the replica file, error = %s", errMsg );
-			CFRelease( errorString );
-		}
-	}
-	catch(...)
-	{
-		err = -1;
-	}
-	
-	if ( prefsDict != NULL )
-		CFRelease( prefsDict );
-	
-	return err;
-}
-
-
 //--------------------------------------------------------------------------------------------------
 // * GetUserPolicies
 //
@@ -8425,36 +10128,82 @@ CNiPlugIn::WriteHashStateFile( const char *inFilePath, sHashState *inHashState )
 //  Note: can return eDSNoErr and *outPolicyStr == NULL; an empty attribute is not an error.
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CNiPlugIn::GetUserPolicies( sNIContextData *inContext, const char *inNativeRecType, const char *inUsername, char **outPolicyStr )
+sInt32 CNiPlugIn::GetUserPolicies( sNIContextData *inContext, const char *inNativeRecType, const char *inUsername, sHashState *inState, char **outPolicyStr )
 {
 	sInt32				error					= eDSNoErr;
 	ni_status			niResult				= NI_OK;
 	char				*nativeAttrType			= NULL;
+	char				*internalPolicyStr		= NULL;
     ni_id				niDirID;
 	ni_namelist			niValues;
-
+	long				length					= 0;
+	
 	try
 	{
-		// read user policies
-		error = IsValidRecordName( inUsername, inNativeRecType, inContext->fDomain, niDirID );
-		if ( error != 0 ) throw( (sInt32)eDSAuthUnknownUser );
+		// init vars
+		if ( outPolicyStr == NULL )
+			return eParameterError;
+		*outPolicyStr = NULL;
 		
-		nativeAttrType = MapAttrToNetInfoType( kDS1AttrPasswordPolicyOptions );
-		if ( nativeAttrType == NULL )
-			throw( (sInt32)eDSInvalidAttributeType );
-		
-		// lookup kDS1AttrPasswordPolicyOptions attribute
 		gNetInfoMutex->Wait();
-		niResult = ni_lookupprop( inContext->fDomain, &niDirID, nativeAttrType, &niValues );
+		void *aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
+		{
+			// read user policies
+			error = IsValidRecordName( inUsername, inNativeRecType, aNIDomain, niDirID );
+			if ( error != eDSNoErr )
+			{
+				gNetInfoMutex->Signal();
+				throw( (sInt32)eDSAuthUnknownUser );
+			}
+			
+			nativeAttrType = MapAttrToNetInfoType( kDS1AttrPasswordPolicyOptions );
+			if ( nativeAttrType == NULL )
+			{
+				gNetInfoMutex->Signal();
+				throw( (sInt32)eDSInvalidAttributeType );
+			}
+			
+			// lookup kDS1AttrPasswordPolicyOptions attribute
+			niResult = ni_lookupprop( aNIDomain, &niDirID, nativeAttrType, &niValues );
+		}
+		else
+		{
+			gNetInfoMutex->Signal();
+			throw( (sInt32)eDSInvalidSession );
+		}
 		gNetInfoMutex->Signal();
 		
 		if ( niResult == NI_OK && niValues.ni_namelist_len > 0 )
 		{
-			ConvertXMLPolicyToSpaceDelimited( niValues.ni_namelist_val[0], outPolicyStr );
+			ConvertXMLPolicyToSpaceDelimited( niValues.ni_namelist_val[0], &internalPolicyStr );
 			
 			gNetInfoMutex->Wait();
 			ni_namelist_free( &niValues );
 			gNetInfoMutex->Signal();
+		}
+		
+		// prefix state information if requested
+		if ( inState != NULL )
+		{
+			if ( internalPolicyStr != NULL )
+				length = strlen( internalPolicyStr );
+			*outPolicyStr = (char *) malloc( sizeof(kPWPolicyStr_newPasswordRequired) + 3 + length );
+			if ( (*outPolicyStr) != NULL )
+			{
+				strcpy( (*outPolicyStr), kPWPolicyStr_newPasswordRequired );
+				strcpy( (*outPolicyStr) + sizeof(kPWPolicyStr_newPasswordRequired) - 1, inState->newPasswordRequired ? "=1" : "=0" );
+				if ( internalPolicyStr != NULL && length > 0 )
+				{
+					*((*outPolicyStr) + sizeof(kPWPolicyStr_newPasswordRequired) + 1) = ' ';
+					strcpy( (*outPolicyStr) + sizeof(kPWPolicyStr_newPasswordRequired) + 2, internalPolicyStr );
+					free( internalPolicyStr );
+				}
+			}
+		}
+		else
+		{
+			*outPolicyStr = internalPolicyStr;
 		}
 	}
 	catch( sInt32 catchErr )
@@ -8473,7 +10222,12 @@ sInt32 CNiPlugIn::GetUserPolicies( sNIContextData *inContext, const char *inNati
 // * SetUserPolicies
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CNiPlugIn::SetUserPolicies( sNIContextData *inContext, const char *inNativeRecType, const char *inUsername, const char *inPolicyStr )
+sInt32 CNiPlugIn::SetUserPolicies(
+	sNIContextData *inContext,
+	const char *inNativeRecType,
+	const char *inUsername,
+	const char *inPolicyStr,
+	sHashState *inOutHashState )
 {
 	sInt32				siResult			= eDSAuthFailed;
 	ni_id				niDirID;
@@ -8483,6 +10237,7 @@ sInt32 CNiPlugIn::SetUserPolicies( sNIContextData *inContext, const char *inNati
 	bool				bFreePropList		= false;
 	char				*nativeAttrType		= NULL;
 	char				*currentPolicyStr   = NULL;
+	char				*newPassRequiredStr	= NULL;
 	PWAccessFeatures	access;
 	
 	gNetInfoMutex->Wait();
@@ -8492,61 +10247,81 @@ sInt32 CNiPlugIn::SetUserPolicies( sNIContextData *inContext, const char *inNati
 		if ( inContext == nil || inPolicyStr == nil || inUsername == nil )
 			throw( (sInt32)eDSAuthFailed );
 		
-		if ( (inContext->fEffectiveUID != 0) && (!UserIsAdmin(inContext->fAuthenticatedUserName, inContext->fDomain)) )
+		if ( (inContext->fEffectiveUID != 0) && (!UserIsAdmin(inContext->fAuthenticatedUserName, inContext)) )
 			throw( (sInt32)eDSPermissionError );
 		
-		GetUserPolicies( inContext, inNativeRecType, inUsername, &currentPolicyStr );
-		
-		niDirID = inContext->dirID;
-		nativeAttrType = MapAttrToNetInfoType( kDS1AttrPasswordPolicyOptions );
-		if ( nativeAttrType == NULL )
-			throw( (sInt32)eDSInvalidAttributeType );
-		
-		siResult = IsValidRecordName( inUsername, inNativeRecType, inContext->fDomain, niDirID );
-		if ( siResult != eDSNoErr )
-			throw( (sInt32)eDSAuthFailed );
-		
-		siResult = ::ni_read( inContext->fDomain, &niDirID, &niPropList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-		if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthFailed );
-		bFreePropList = true;
-		
-		niWhere = ::ni_proplist_match( niPropList, nativeAttrType, nil );
-		if (niWhere != NI_INDEX_NULL)
+		// special case for newPasswordRequired because it is stored in the state file
+		if ( inOutHashState != NULL && (newPassRequiredStr = strstr(inPolicyStr, kPWPolicyStr_newPasswordRequired)) != NULL )
 		{
-			niValue = niPropList.ni_proplist_val[niWhere].nip_val;
-			
-			if ( ( inContext->fEffectiveUID != 0 )
-			 && ( (inContext->fAuthenticatedUserName == NULL) 
-				  || (strcmp(inContext->fAuthenticatedUserName,"root") != 0) ) )
+			newPassRequiredStr += sizeof(kPWPolicyStr_newPasswordRequired) - 1;
+			if ( (*newPassRequiredStr == '=') &&
+				 (*(newPassRequiredStr + 1) == '0' || *(newPassRequiredStr + 1) == '1') )
 			{
-				siResult = NiLib2::ValidateDir( inContext->fAuthenticatedUserName, &niPropList );
-				if ( siResult != NI_OK )
-					siResult = NiLib2::ValidateName( "root", &niPropList, niWhere );
+				inOutHashState->newPasswordRequired = *(newPassRequiredStr + 1) - '0';
 			}
 		}
 		
-		if ( siResult != eDSNoErr )
-			siResult = MapNetInfoErrors( siResult );
+		// policies that go in the user record
+		GetUserPolicies( inContext, inNativeRecType, inUsername, NULL, &currentPolicyStr );
 		
-		if ( siResult == eDSNoErr )
+		void *aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
 		{
-			char *xmlDataStr;
-			char policyStr[2048];
+			niDirID = inContext->dirID;
+			nativeAttrType = MapAttrToNetInfoType( kDS1AttrPasswordPolicyOptions );
+			if ( nativeAttrType == NULL )
+				throw( (sInt32)eDSInvalidAttributeType );
+		
+			siResult = IsValidRecordName( inUsername, inNativeRecType, aNIDomain, niDirID );
+			if ( siResult != eDSNoErr )
+				throw( (sInt32)eDSAuthFailed );
 			
-			GetDefaultUserPolicies( &access );
-			if ( currentPolicyStr != NULL )
-				StringToPWAccessFeatures( currentPolicyStr, &access );
-			StringToPWAccessFeatures( inPolicyStr, &access );
-			PWAccessFeaturesToStringWithoutStateInfo( &access, policyStr );
+			siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+			if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthFailed );
+			bFreePropList = true;
 			
-			if ( ConvertSpaceDelimitedPolicyToXML( policyStr, &xmlDataStr ) == 0 )
-			{		
-				siResult = NiLib2::DestroyDirVal( inContext->fDomain, &niDirID, (char*)nativeAttrType, niValue );
-				siResult = NiLib2::InsertDirVal( inContext->fDomain, &niDirID, (char*)nativeAttrType, xmlDataStr, 0 );
-				siResult = MapNetInfoErrors( siResult );
-				free( xmlDataStr );
+			niWhere = ::ni_proplist_match( niPropList, nativeAttrType, nil );
+			if (niWhere != NI_INDEX_NULL)
+			{
+				niValue = niPropList.ni_proplist_val[niWhere].nip_val;
+				
+				if ( ( inContext->fEffectiveUID != 0 )
+				 && ( (inContext->fAuthenticatedUserName == NULL) 
+					  || (strcmp(inContext->fAuthenticatedUserName,"root") != 0) ) )
+				{
+					siResult = NiLib2::ValidateDir( inContext->fAuthenticatedUserName, &niPropList );
+					if ( siResult != NI_OK )
+						siResult = NiLib2::ValidateName( "root", &niPropList, niWhere );
+				}
 			}
+			
+			if ( siResult != eDSNoErr )
+				siResult = MapNetInfoErrors( siResult );
+			
+			if ( siResult == eDSNoErr )
+			{
+				char *xmlDataStr;
+				char policyStr[2048];
+				
+				GetDefaultUserPolicies( &access );
+				if ( currentPolicyStr != NULL )
+					StringToPWAccessFeatures( currentPolicyStr, &access );
+				StringToPWAccessFeatures( inPolicyStr, &access );
+				PWAccessFeaturesToStringWithoutStateInfo( &access, policyStr );
+				
+				if ( ConvertSpaceDelimitedPolicyToXML( policyStr, &xmlDataStr ) == 0 )
+				{		
+					siResult = NiLib2::DestroyDirVal( aNIDomain, &niDirID, (char*)nativeAttrType, niValue );
+					siResult = NiLib2::InsertDirVal( aNIDomain, &niDirID, (char*)nativeAttrType, xmlDataStr, 0 );
+					siResult = MapNetInfoErrors( siResult );
+					free( xmlDataStr );
+				}
+			}
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -8556,6 +10331,9 @@ sInt32 CNiPlugIn::SetUserPolicies( sNIContextData *inContext, const char *inNati
 	}
 
 	gNetInfoMutex->Signal();
+	
+	if ( bFreePropList )
+		::ni_proplist_free( &niPropList );
 	
 	if ( nativeAttrType != NULL )
 		delete nativeAttrType;
@@ -8581,46 +10359,154 @@ sInt32 CNiPlugIn::SetUserAAtoDisabled( sNIContextData *inContext, const char *in
 	bool				bFreePropList		= false;
 	char				*nativeAttrType		= NULL;
 	char				*currentPolicyStr   = NULL;
+	char				*curAAString		= NULL;
+	char				*aaString			= NULL;
 	
 	gNetInfoMutex->Wait();
-
+	
 	try
 	{
 		if ( inContext == nil )
 			throw( (sInt32)eDSAuthFailed );
 		
-		niDirID = inContext->dirID;
-		nativeAttrType = MapAttrToNetInfoType( kDSNAttrAuthenticationAuthority );
-		if ( nativeAttrType == NULL )
-			throw( (sInt32)eDSInvalidAttributeType );
-		
-		siResult = IsValidRecordName( inUsername, inNativeRecType, inContext->fDomain, niDirID );
-		if ( siResult != eDSNoErr )
+		void *aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
+		{
+			niDirID = inContext->dirID;
+			nativeAttrType = MapAttrToNetInfoType( kDSNAttrAuthenticationAuthority );
+			if ( nativeAttrType == NULL )
+				throw( (sInt32)eDSInvalidAttributeType );
+			
+			siResult = IsValidRecordName( inUsername, inNativeRecType, aNIDomain, niDirID );
+			if ( siResult != eDSNoErr )
+				throw( (sInt32)eDSAuthFailed );
+			
+			siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+			if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthFailed );
+			bFreePropList = true;
+			
+			niWhere = ::ni_proplist_match( niPropList, nativeAttrType, nil );
+			if (niWhere != NI_INDEX_NULL)
+			{
+				niValue = niPropList.ni_proplist_val[niWhere].nip_val;
+				
+				if ((niValue.ni_namelist_len > 0) && (niValue.ni_namelist_val != nil))
+					curAAString = niValue.ni_namelist_val[0];
+				
+				siResult = NiLib2::ValidateDir( inContext->fAuthenticatedUserName, &niPropList );
+				if ( siResult != NI_OK )
+					siResult = NiLib2::ValidateName( "root", &niPropList, niWhere );
+			}
+			
+			if ( siResult != eDSNoErr )
+				siResult = MapNetInfoErrors( siResult );
+			
+			if ( siResult == eDSNoErr )
+			{
+				siResult = NiLib2::DestroyDirVal( aNIDomain, &niDirID, (char*)nativeAttrType, niValue );
+				if ( curAAString != NULL )
+				{
+					aaString = (char *) malloc( strlen(curAAString) + sizeof(kDSValueAuthAuthorityDisabledUser) );
+					strcpy( aaString, kDSValueAuthAuthorityDisabledUser );
+					strcat( aaString, curAAString );
+				}
+				else
+				{
+					aaString = strdup( kDSValueAuthAuthorityDisabledUser";ShadowHash;" );
+				}
+				
+				siResult = NiLib2::InsertDirVal( aNIDomain, &niDirID, (char*)nativeAttrType, aaString, 0 );
+				siResult = MapNetInfoErrors( siResult );
+			}
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
+		}
+	}
+	
+	catch( sInt32 err )
+	{
+		siResult = err;
+	}
+
+	gNetInfoMutex->Signal();
+	
+	if ( bFreePropList )
+		::ni_proplist_free( &niPropList );
+	
+	DSFreeString( aaString );
+	
+	if ( nativeAttrType != NULL )
+		delete nativeAttrType;
+	if ( currentPolicyStr != NULL )
+		free( currentPolicyStr );
+	
+	return( siResult );
+
+} // SetUserAAtoDisabled
+
+
+//--------------------------------------------------------------------------------------------------
+// * SetUserAuthAuthorityAsRoot
+//--------------------------------------------------------------------------------------------------
+
+sInt32 CNiPlugIn::SetUserAuthAuthorityAsRoot( sNIContextData *inContext, const char *inNativeRecType, const char *inUsername, const char *inAuthAuthority )
+{
+	sInt32				siResult			= eDSAuthFailed;
+	ni_id				niDirID;
+	ni_index			niWhere				= 0;
+	ni_namelist			niValue;
+	ni_proplist			niPropList;
+	char				*nativeAttrType		= NULL;
+	
+	gNetInfoMutex->Wait();
+
+	try
+	{
+		if ( ( inContext == nil ) || (inAuthAuthority == nil) )
 			throw( (sInt32)eDSAuthFailed );
 		
-		siResult = ::ni_read( inContext->fDomain, &niDirID, &niPropList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-		if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthFailed );
-		bFreePropList = true;
-		
-		niWhere = ::ni_proplist_match( niPropList, nativeAttrType, nil );
-		if (niWhere != NI_INDEX_NULL)
+		void *aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
 		{
-			niValue = niPropList.ni_proplist_val[niWhere].nip_val;
+			niDirID = inContext->dirID;
+			nativeAttrType = MapAttrToNetInfoType( kDSNAttrAuthenticationAuthority );
+			if ( nativeAttrType == NULL )
+				throw( (sInt32)eDSInvalidAttributeType );
 			
-			siResult = NiLib2::ValidateDir( inContext->fAuthenticatedUserName, &niPropList );
-			if ( siResult != NI_OK )
-				siResult = NiLib2::ValidateName( "root", &niPropList, niWhere );
+			siResult = IsValidRecordName( inUsername, inNativeRecType, aNIDomain, niDirID );
+			if ( siResult != eDSNoErr )
+				throw( (sInt32)eDSAuthFailed );
+			
+			siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+			if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthFailed );
+			
+			if (siResult == eDSNoErr)
+			{
+				niWhere = ::ni_proplist_match( niPropList, nativeAttrType, nil );
+				if (niWhere != NI_INDEX_NULL)
+				{
+					niValue = niPropList.ni_proplist_val[niWhere].nip_val;
+				}
+			}
+			else
+			{
+				siResult = MapNetInfoErrors( siResult );
+			}
+			
+			if ( siResult == eDSNoErr )
+			{
+				siResult = NiLib2::DestroyDirVal( aNIDomain, &niDirID, (char*)nativeAttrType, niValue );
+				siResult = NiLib2::InsertDirVal( aNIDomain, &niDirID, (char*)nativeAttrType, (char *)inAuthAuthority, 0 );
+				siResult = MapNetInfoErrors( siResult );
+			}
 		}
-		
-		if ( siResult != eDSNoErr )
-			siResult = MapNetInfoErrors( siResult );
-		
-		if ( siResult == eDSNoErr )
+		else
 		{
-			siResult = NiLib2::DestroyDirVal( inContext->fDomain, &niDirID, (char*)nativeAttrType, niValue );
-			siResult = NiLib2::InsertDirVal( inContext->fDomain, &niDirID, (char*)nativeAttrType, ";DisabledUser;;ShadowHash;", 0 );
-			siResult = MapNetInfoErrors( siResult );
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 	
@@ -8633,49 +10519,10 @@ sInt32 CNiPlugIn::SetUserAAtoDisabled( sNIContextData *inContext, const char *in
 	
 	if ( nativeAttrType != NULL )
 		delete nativeAttrType;
-	if ( currentPolicyStr != NULL )
-		free( currentPolicyStr );
 	
 	return( siResult );
 
-} // SetUserAAtoDisabled
-
-	
-//--------------------------------------------------------------------------------------------------
-// * GenerateShadowHashes
-//--------------------------------------------------------------------------------------------------
-
-void CNiPlugIn::GenerateShadowHashes( const char *inPassword, long inPasswordLen, bool inUseBothHashes, unsigned char *outHashes, unsigned long *outHashTotalLength )
-{
-	uInt32				hashLength							= 0;
-	SHA_CTX				sha_context							= {};
-	unsigned char		digestData[kHashSecureLength]		= {0};
-	
-	CalculateSMBNTHash( inPassword, outHashes );
-	hashLength = kHashShadowOneLength;
-	if ( inUseBothHashes )
-	{
-		CalculateSMBLANManagerHash( inPassword, outHashes + kHashShadowOneLength );
-		hashLength = kHashShadowBothLength;
-	}
-	
-	/* calculate digest */
-	SHA1_Init( &sha_context );
-	SHA1_Update( &sha_context, (unsigned char *)inPassword, inPasswordLen );
-	SHA1_Final( digestData, &sha_context );
-	memmove( outHashes + kHashShadowBothLength, digestData, kHashSecureLength );
-	
-#if CRAM_MD5_SHADOWHASH
-	/* calculate cram-md5 */
-	unsigned long cramHashLen = 0;
-	CAuthFileBase::getHashCramMD5( (const unsigned char *)inPassword, inPasswordLen, outHashes + kHashShadowBothLength + kHashSecureLength, &cramHashLen );
-	hashLength = kHashTotalLength;
-#else
-	hashLength = kHashTotalLength - kHashCramLength;
-#endif
-
-	*outHashTotalLength = hashLength;
-}
+} // SetUserAuthAuthorityAsRoot
 
 
 //--------------------------------------------------------------------------------------------------
@@ -8684,7 +10531,14 @@ void CNiPlugIn::GenerateShadowHashes( const char *inPassword, long inPasswordLen
 //  <outUserHashPath> can be NULL, if non-null and a value is returned, caller must free.
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CNiPlugIn::ReadShadowHash ( const char *inUserName, char *inGUIDString, unsigned char outHashes[kHashTotalLength], struct timespec *outModTime, char **outUserHashPath )
+sInt32 CNiPlugIn::ReadShadowHash (
+	const char *inUserName,
+	const char *inGUIDString,
+	unsigned char outHashes[kHashTotalLength],
+	struct timespec *outModTime,
+	char **outUserHashPath,
+	sInt32 *outHashDataLen,
+	bool readHashes )
 {
 	sInt32	siResult						= eDSAuthFailed;
 	char   *path							= NULL;
@@ -8703,6 +10557,8 @@ sInt32 CNiPlugIn::ReadShadowHash ( const char *inUserName, char *inGUIDString, u
 		}
 		if ( outUserHashPath != NULL )
 			*outUserHashPath = NULL;
+		if ( outHashDataLen != NULL )
+			*outHashDataLen = 0;
 		
 		if (inGUIDString != nil)
 		{
@@ -8718,11 +10574,13 @@ sInt32 CNiPlugIn::ReadShadowHash ( const char *inUserName, char *inGUIDString, u
 		{
 			if (inGUIDString != nil)
 			{
-				sprintf(path, "%s%s", kShadowHashDirPath, inGUIDString);
+				strcpy( path, kShadowHashDirPath );
+				strcat( path, inGUIDString );
 			}
 			else
 			{
-				sprintf(path, "%s%s", kShadowHashDirPath, inUserName);
+				strcpy( path, kShadowHashDirPath );
+				strcat( path, inUserName );
 			}
 			
 			// CFile throws, so let's catch, otherwise our logic won't work, could use stat,
@@ -8738,14 +10596,21 @@ sInt32 CNiPlugIn::ReadShadowHash ( const char *inUserName, char *inGUIDString, u
 				if ( outModTime != NULL )
 					hashFile->ModDate( outModTime );
 				
-				bzero( hexHashes, sizeof(hexHashes) );
-				readBytes = hashFile->ReadBlock( hexHashes, kHashTotalHexLength );
-				delete(hashFile);
-				hashFile = nil;
-				
-				// should check the right number of bytes is there
-				if ( readBytes < kHashShadowBothHexLength ) throw( (sInt32)eDSAuthFailed );
-				HexToBinaryConversion( hexHashes, &outBytes, outHashes );
+				if ( readHashes )
+				{
+					bzero( hexHashes, sizeof(hexHashes) );
+					readBytes = hashFile->ReadBlock( hexHashes, kHashTotalHexLength );
+					delete(hashFile);
+					hashFile = nil;
+					
+					// should check the right number of bytes is there
+					if ( readBytes < kHashShadowBothHexLength ) throw( (sInt32)eDSAuthFailed );
+					HexToBinaryConversion( hexHashes, &outBytes, outHashes );
+					if ( readBytes == (kHashTotalLength - 16)*2 ) {
+						memmove( outHashes + kHashOffsetToSaltedSHA1, outHashes + kHashOffsetToSaltedSHA1 - 16, readBytes - kHashOffsetToSaltedSHA1 );
+						bzero( outHashes + kHashOffsetToCramMD5, kHashCramLength );
+					}
+				}
 				siResult = eDSNoErr;
 			}
 			else //support older hash files
@@ -8772,19 +10637,21 @@ sInt32 CNiPlugIn::ReadShadowHash ( const char *inUserName, char *inGUIDString, u
 							if ( outModTime != NULL )
 								hashFile->ModDate( outModTime );
 							
-							//old hash file format has only kHashShadowBothHexLength bytes
-							readBytes = hashFile->ReadBlock( hexHashes, kHashShadowBothHexLength );
-							delete(hashFile);
-							hashFile = nil;
-							// should check the right number of bytes is there
-							if ( readBytes != kHashShadowBothHexLength ) throw( (sInt32)eDSAuthFailed );
-							HexToBinaryConversion( hexHashes, &outBytes, outHashes );
+							if ( readHashes )
+							{
+								//old hash file format has only kHashShadowBothHexLength bytes
+								readBytes = hashFile->ReadBlock( hexHashes, kHashShadowBothHexLength );
+								delete(hashFile);
+								hashFile = nil;
+								// should check the right number of bytes is there
+								if ( readBytes != kHashShadowBothHexLength ) throw( (sInt32)eDSAuthFailed );
+								HexToBinaryConversion( hexHashes, &outBytes, outHashes );
+							}
 							siResult = eDSNoErr;
 						}
 					}
 					catch( ... )
 					{
-						
 					}
 				}
 			}
@@ -8815,6 +10682,9 @@ sInt32 CNiPlugIn::ReadShadowHash ( const char *inUserName, char *inGUIDString, u
 	
 	bzero(hexHashes, kHashTotalHexLength);
 	
+	if ( outHashDataLen != NULL )
+		*outHashDataLen = outBytes;
+	
 	return( siResult );
 } // ReadShadowHash
 
@@ -8823,7 +10693,7 @@ sInt32 CNiPlugIn::ReadShadowHash ( const char *inUserName, char *inGUIDString, u
 // * WriteShadowHash ()
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CNiPlugIn::WriteShadowHash ( const char *inUserName, char *inGUIDString, unsigned char inHashes[kHashTotalLength] )
+sInt32 CNiPlugIn::WriteShadowHash ( const char *inUserName, const char *inGUIDString, unsigned char inHashes[kHashTotalLength] )
 {
 	sInt32		result			= eDSAuthFailed;
 	char	   *path			= NULL;
@@ -8881,11 +10751,7 @@ sInt32 CNiPlugIn::WriteShadowHash ( const char *inUserName, char *inGUIDString, 
 			{
 				BinaryToHexConversion( inHashes, kHashTotalLength, hexHashes );
 				hashFile->seekp( 0 ); // start at beginning
-				#if CRAM_MD5_SHADOWHASH
-					hashFile->write( hexHashes, kHashTotalHexLength );
-				#else
-					hashFile->write( hexHashes, kHashOldHexLength );
-				#endif
+				hashFile->write( hexHashes, kHashTotalHexLength );
 				chmod( path, 0600 ); //set root as rw only
 				delete(hashFile);
 				hashFile = nil;
@@ -8918,7 +10784,7 @@ sInt32 CNiPlugIn::WriteShadowHash ( const char *inUserName, char *inGUIDString, 
 // * RemoveShadowHash ()
 //--------------------------------------------------------------------------------------------------
 
-void CNiPlugIn::RemoveShadowHash ( const char *inUserName, char *inGUIDString, bool bShadowToo )
+void CNiPlugIn::RemoveShadowHash ( const char *inUserName, const char *inGUIDString, bool bShadowToo )
 {
 	char   *path							= NULL;
 	char	hexHashes[kHashTotalHexLength]	= { 0 };
@@ -9041,23 +10907,31 @@ void CNiPlugIn::RemoveShadowHash ( const char *inUserName, char *inGUIDString, b
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CNiPlugIn::ReadShadowHashAndStateFiles( const char *inUserName, char *inGUIDString, unsigned char outHashes[kHashTotalLength], struct timespec *outModTime, char **outUserHashPath, char **outStateFilePath, sHashState *inOutHashState )
+sInt32 CNiPlugIn::ReadShadowHashAndStateFiles(
+	const char *inUserName,
+	const char *inGUIDString,
+	unsigned char outHashes[kHashTotalLength],
+	struct timespec *outModTime,
+	char **outUserHashPath,
+	char **outStateFilePath,
+	sHashState *inOutHashState,
+	sInt32 *outHashDataLen )
 {
 	if ( outStateFilePath == NULL || outUserHashPath == NULL )
 		return eParameterError;
 	
 	*outStateFilePath = NULL;
 	
-	sInt32 siResult = ReadShadowHash( inUserName, inGUIDString, outHashes, outModTime, outUserHashPath );
+	sInt32 siResult = ReadShadowHash( inUserName, inGUIDString, outHashes, outModTime, outUserHashPath, outHashDataLen );
 	if ( siResult == eDSNoErr )
-		siResult = GetStateFilePath( *outUserHashPath, outStateFilePath );
+		siResult = NIGetStateFilePath( *outUserHashPath, outStateFilePath );
 	if ( siResult == eDSNoErr && inOutHashState != NULL )
 	{
 		siResult = ReadHashStateFile( *outStateFilePath, inOutHashState );
 		if (siResult != eDSNoErr)
 		{
 			//We have a state file path but nothing is there right now.
-			//At the end of the shadow hash auth it will be coorrectly written
+			//At the end of the shadow hash auth it will be correctly written
 			//so don't fail this call.
 			siResult = eDSNoErr;
 		}
@@ -9067,12 +10941,52 @@ sInt32 CNiPlugIn::ReadShadowHashAndStateFiles( const char *inUserName, char *inG
 } // ReadShadowHashAndStateFiles
 
 
+//--------------------------------------------------------------------------------------------------
+// * ReadStateFile
+//
+//--------------------------------------------------------------------------------------------------
+
+sInt32 CNiPlugIn::ReadStateFile(
+	const char *inUserName,
+	const char *inGUIDString,
+	struct timespec *outModTime,
+	char **outUserHashPath,
+	char **outStateFilePath,
+	sHashState *inOutHashState,
+	sInt32 *outHashDataLen )
+{
+	unsigned char hashes[kHashTotalLength];
+	
+	if ( outStateFilePath == NULL || outUserHashPath == NULL )
+		return eParameterError;
+	
+	*outStateFilePath = NULL;
+	
+	sInt32 siResult = ReadShadowHash( inUserName, inGUIDString, hashes, outModTime, outUserHashPath, outHashDataLen, false );
+	if ( siResult == eDSNoErr )
+		siResult = NIGetStateFilePath( *outUserHashPath, outStateFilePath );
+	if ( siResult == eDSNoErr && inOutHashState != NULL )
+	{
+		siResult = ReadHashStateFile( *outStateFilePath, inOutHashState );
+		if (siResult != eDSNoErr)
+		{
+			//We have a state file path but nothing is there right now.
+			//At the end of the shadow hash auth it will be correctly written
+			//so don't fail this call.
+			siResult = eDSNoErr;
+		}
+	}
+	
+	return siResult;
+} // ReadStateFile
+
+
 //------------------------------------------------------------------------------------
 //	* MigrateToShadowHash ()
 //
 //------------------------------------------------------------------------------------
 
-sInt32 CNiPlugIn::MigrateToShadowHash( void *inDomain, ni_id *inNIDirID, ni_proplist *inNIPropList, const char *inUserName, const char *inPassword )
+sInt32 CNiPlugIn::MigrateToShadowHash( void *inDomain, ni_id *inNIDirID, ni_proplist *inNIPropList, const char *inUserName, const char *inPassword, bool &outResetCache )
 {
 	sInt32			siResult							= eDSAuthFailed;
 	unsigned char   generatedHashes[kHashTotalLength]   = {0};
@@ -9110,10 +11024,11 @@ sInt32 CNiPlugIn::MigrateToShadowHash( void *inDomain, ni_id *inNIDirID, ni_prop
 		NI_INIT( &niValues );
 		::ni_namelist_insert( &niValues, GUIDString, NI_INDEX_NULL );
 		siResult = DoAddAttribute( inDomain, inNIDirID, "generateduid", niValues );
+		outResetCache = true;
 		::ni_namelist_free( &niValues );
 	}
 
-	GenerateShadowHashes(inPassword, strlen(inPassword), true, generatedHashes, &hashTotalLength );
+	GenerateShadowHashes(inPassword, strlen(inPassword), sHashList, NULL, generatedHashes, &hashTotalLength );
 	
 	siResult = WriteShadowHash(inUserName, GUIDString, generatedHashes);
 	if (siResult == eDSNoErr)
@@ -9149,30 +11064,6 @@ sInt32 CNiPlugIn::MigrateToShadowHash( void *inDomain, ni_id *inNIDirID, ni_prop
 #pragma mark -
 
 //--------------------------------------------------------------------------------------------------
-// * PWOpenDirNode ()
-//
-//--------------------------------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::PWOpenDirNode ( tDirNodeReference fDSRef, char *inNodeName, tDirNodeReference *outNodeRef )
-{
-	sInt32			error		= eDSNoErr;
-	sInt32			error2		= eDSNoErr;
-	tDataList	   *pDataList	= nil;
-
-	pDataList = ::dsBuildFromPathPriv( inNodeName, "/" );
-    if ( pDataList != nil )
-    {
-        error = ::dsOpenDirNode( fDSRef, pDataList, outNodeRef );
-        error2 = ::dsDataListDeallocatePriv( pDataList );
-        free( pDataList );
-    }
-
-    return( error );
-
-} // PWOpenDirNode
-
-
-//--------------------------------------------------------------------------------------------------
 // * PWSetReplicaData ()
 //
 //	Note:	inAuthorityData is the UserID + RSA_key, but the IP address should be pre-stripped by
@@ -9205,36 +11096,45 @@ sInt32 CNiPlugIn::PWSetReplicaData( sNIContextData *inContext, const char *inAut
 		if ( nativeAttrType == NULL )
 			throw( (sInt32)eDSInvalidAttributeType );
 		
-		// get /config/passwordserver_HEXHASH
-		rsaKeyPtr = strchr( inAuthorityData, ',' );
-		if ( rsaKeyPtr != NULL )
-		{
-			MD5_CTX ctx;
-			unsigned char pubKeyHash[MD5_DIGEST_LENGTH];
-			
-			MD5_Init( &ctx );
-			rsaKeyPtr++;
-			MD5_Update( &ctx, rsaKeyPtr, strlen(rsaKeyPtr) );
-			MD5_Final( pubKeyHash, &ctx );
-			
-			BinaryToHexConversion( pubKeyHash, MD5_DIGEST_LENGTH, hashStr );
-			sprintf( recordName, "passwordserver_%s", hashStr );
-			
-			error = IsValidRecordName( recordName, nativeRecType, inContext->fDomain, niDirID );
-			if ( error == eDSNoErr )
-				bFoundWithHash = true;
-		}
-		
-		if ( ! bFoundWithHash )
-		{
-			error = IsValidRecordName( "passwordserver", nativeRecType, inContext->fDomain, niDirID );
-			if ( error != eDSNoErr ) 
-				throw( error );
-		}
-		
 		gNetInfoMutex->Wait();
-		//lookup authauthority attribute
-		niResult = ni_lookupprop( inContext->fDomain, &niDirID, nativeAttrType, &niValues );
+		void *aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
+		{
+			// get /config/passwordserver_HEXHASH
+			rsaKeyPtr = strchr( inAuthorityData, ',' );
+			if ( rsaKeyPtr != NULL )
+			{
+				MD5_CTX ctx;
+				unsigned char pubKeyHash[MD5_DIGEST_LENGTH];
+				
+				MD5_Init( &ctx );
+				rsaKeyPtr++;
+				MD5_Update( &ctx, rsaKeyPtr, strlen(rsaKeyPtr) );
+				MD5_Final( pubKeyHash, &ctx );
+				
+				BinaryToHexConversion( pubKeyHash, MD5_DIGEST_LENGTH, hashStr );
+				sprintf( recordName, "passwordserver_%s", hashStr );
+				
+				error = IsValidRecordName( recordName, nativeRecType, aNIDomain, niDirID );
+				if ( error == eDSNoErr )
+					bFoundWithHash = true;
+			}
+			
+			if ( ! bFoundWithHash )
+			{
+				error = IsValidRecordName( "passwordserver", nativeRecType, aNIDomain, niDirID );
+				if ( error != eDSNoErr ) 
+					throw( error );
+			}
+			
+			//lookup authauthority attribute
+			niResult = ni_lookupprop( aNIDomain, &niDirID, nativeAttrType, &niValues );
+		}
+		else
+		{
+			gNetInfoMutex->Signal();
+			throw( (sInt32)eDSInvalidSession );
+		}
 		gNetInfoMutex->Signal();
 		if ( niResult != NI_OK ) throw( (sInt32)eDSAuthFailed );
 		
@@ -9278,81 +11178,6 @@ sInt32 CNiPlugIn::PWSetReplicaData( sNIContextData *inContext, const char *inAut
 }
 
 
-//--------------------------------------------------------------------------------------------------
-//	RepackBufferForPWServer
-//
-//	Replace the user name with the uesr id.
-//--------------------------------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::RepackBufferForPWServer ( tDataBufferPtr inBuff, const char *inUserID, unsigned long inUserIDNodeNum, tDataBufferPtr *outBuff )
-{
-	sInt32 result = eDSNoErr;
-    tDataListPtr dataList = NULL;
-    tDataNodePtr dataNode = NULL;
-	unsigned long index, nodeCount;
-	unsigned long uidLen;
-                
-    if ( !inBuff || !inUserID || !outBuff )
-        return eDSAuthParameterError;
-    
-    try
-    {	
-        uidLen = strlen(inUserID);
-        *outBuff = ::dsDataBufferAllocatePriv( inBuff->fBufferLength + uidLen + 1 );
-        if ( *outBuff == nil ) throw( (sInt32)eMemoryError );
-        
-        (*outBuff)->fBufferLength = 0;
-        
-        dataList = dsAuthBufferGetDataListAllocPriv(inBuff);
-        if ( dataList == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-        
-        nodeCount = dsDataListGetNodeCountPriv(dataList);
-        if ( nodeCount < 1 ) throw( (sInt32)eDSInvalidBuffFormat );
-        
-        for ( index = 1; index <= nodeCount; index++ )
-        {
-            if ( index == inUserIDNodeNum )
-            {
-                // write 4 byte length
-                memcpy( (*outBuff)->fBufferData + (*outBuff)->fBufferLength, &uidLen, sizeof(unsigned long) );
-                (*outBuff)->fBufferLength += sizeof(unsigned long);
-                
-                // write uid
-                memcpy( (*outBuff)->fBufferData + (*outBuff)->fBufferLength, inUserID, uidLen );
-                (*outBuff)->fBufferLength += uidLen;
-            }
-            else
-            {
-                // get a node
-                result = dsDataListGetNodeAllocPriv(dataList, index, &dataNode);
-                if ( result != eDSNoErr ) throw( (sInt32)eDSInvalidBuffFormat );
-            
-                // copy it
-                memcpy((*outBuff)->fBufferData + (*outBuff)->fBufferLength, &dataNode->fBufferLength, sizeof(unsigned long));
-                (*outBuff)->fBufferLength += sizeof(unsigned long);
-                
-                memcpy( (*outBuff)->fBufferData + (*outBuff)->fBufferLength, dataNode->fBufferData, dataNode->fBufferLength );
-                (*outBuff)->fBufferLength += dataNode->fBufferLength;
-                
-                // clean up
-                dsDataBufferDeallocatePriv(dataNode);
-            }
-            
-        }
-        
-        (void)dsDataListDeallocatePriv(dataList);
-        free(dataList);
-    }
-    
-    catch( sInt32 error )
-    {
-        result = error;
-    }
-    
-    return result;
-} // RepackBufferForPWServer
-
-
 //------------------------------------------------------------------------------------
 //	* DoPasswordServerAuth
 //------------------------------------------------------------------------------------
@@ -9361,8 +11186,8 @@ sInt32 CNiPlugIn::DoPasswordServerAuth ( tDirNodeReference inNodeRef, tDataNodeP
 										 sNIContextData* inContext, 
 										 sNIContinueData** inOutContinueData, 
 										 tDataBufferPtr inAuthData, tDataBufferPtr outAuthData, 
-										 bool inAuthOnly, bool isSecondary, char* inAuthAuthorityData,
-										 char* inGUIDString, const char* inNativeRecType )
+										 bool inAuthOnly, bool isSecondary, const char* inAuthAuthorityData,
+										 const char* inGUIDString, const char* inNativeRecType )
 {
     sInt32 result = eDSAuthFailed;
     sInt32 error;
@@ -9398,7 +11223,11 @@ sInt32 CNiPlugIn::DoPasswordServerAuth ( tDirNodeReference inNodeRef, tDataNodeP
             
 			// try any method to the password server, even if unknown
 			DBGLOG( kLogPlugin, "DoPasswordServerAuth::" );
-			error = GetAuthMethod( inAuthMethod, &authMethod );
+			if (inAuthMethod != nil)
+			{
+				DBGLOG1( kLogPlugin, "NetInfo PlugIn: Attempting use of authentication method %s", inAuthMethod->fBufferData );
+			}
+			error = dsGetAuthMethodEnumValue( inAuthMethod, &authMethod );
 			if ( error != eDSNoErr && error != eDSAuthMethodNotSupported )
 				throw( error );
 			
@@ -9452,14 +11281,27 @@ sInt32 CNiPlugIn::DoPasswordServerAuth ( tDirNodeReference inNodeRef, tDataNodeP
                        	error = GetUserNameFromAuthBuffer( inAuthData, 3, &userName );
                         if ( error != eDSNoErr ) throw( error );
                         
-                        // get the auth authority
-                        error = IsValidRecordName ( userName, inNativeRecType, inContext->fDomain, niDirID );
-                        if ( error != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-                        
 						gNetInfoMutex->Wait();
-                        //lookup authauthority attribute
-                        niResult = ni_lookupprop( inContext->fDomain, &niDirID, 
-                                                "authentication_authority", &niValues );
+						void * aNIDomain = RetrieveNIDomain(inContext);
+						if (aNIDomain != NULL)
+						{
+							// get the auth authority
+							error = IsValidRecordName ( userName, inNativeRecType, aNIDomain, niDirID );
+							if ( error != eDSNoErr )
+							{
+								gNetInfoMutex->Signal();
+								throw( (sInt32)eDSAuthFailed );
+							}
+							
+							//lookup authauthority attribute
+							niResult = ni_lookupprop( aNIDomain, &niDirID, 
+													"authentication_authority", &niValues );
+						}
+						else
+						{
+							gNetInfoMutex->Signal();
+							throw( (sInt32)eDSInvalidSession );
+						}
 						gNetInfoMutex->Signal();
                         if (niResult != NI_OK) throw( (sInt32)eDSAuthFailed );
                      	
@@ -9468,9 +11310,7 @@ sInt32 CNiPlugIn::DoPasswordServerAuth ( tDirNodeReference inNodeRef, tDataNodeP
                         for ( idx = 0; idx < niValues.ni_namelist_len && lookupResult == eDSAuthFailed; idx++ )
                         {
                             // parse this value of auth authority
-                            //error = ParseAuthAuthority( niValues.ni_namelist_val[idx], &aaVersion, &aaTag, &aaData );
-							error = dsParseAuthAuthority( niValues.ni_namelist_val[idx], &aaVersion, &aaTag, &aaData );
-							
+                            error = dsParseAuthAuthority( niValues.ni_namelist_val[idx], &aaVersion, &aaTag, &aaData );
                             // need to check version
                             if (error != eDSNoErr)
                                 lookupResult = eParameterError;
@@ -9717,22 +11557,30 @@ sInt32 CNiPlugIn::DoTimSMBAuth ( sNIContextData *inContext, tDataBuffer *inAuthD
 		pData += p24Len;
 		offset += p24Len;
 
-		timHandle = timServerForDomain( inContext->fDomain );
-		if ( timHandle == nil ) throw( (sInt32)eDSAuthFailed );
-
-		switch ( inWhichOne )
+		void * aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
 		{
-			case kAuthSMB_NT_Key:
-				siResult = ::timAuthenticateSMBNTKeyWithTIMHandle( timHandle, pUserName, pC8, pP24 );
-				break;
+			timHandle = timServerForDomain( aNIDomain );
+			if ( timHandle == nil ) throw( (sInt32)eDSAuthFailed );
 
-			case kAuthSMB_LM_Key:
-				siResult = ::timAuthenticateSMBLMKeyWithTIMHandle( timHandle, pUserName, pC8, pP24 );
-				break;
+			switch ( inWhichOne )
+			{
+				case kAuthSMB_NT_Key:
+					siResult = ::timAuthenticateSMBNTKeyWithTIMHandle( timHandle, pUserName, pC8, pP24 );
+					break;
+
+				case kAuthSMB_LM_Key:
+					siResult = ::timAuthenticateSMBLMKeyWithTIMHandle( timHandle, pUserName, pC8, pP24 );
+					break;
+			}
+
+			timHandleFree( timHandle );
+			timHandle = nil;
 		}
-
-		timHandleFree( timHandle );
-		timHandle = nil;
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
+		}
 
 #ifdef DEBUG
 		if ( siResult != TimStatusOK )
@@ -9823,91 +11671,99 @@ sInt32 CNiPlugIn::DoTimMultiPassAuth ( tDirNodeReference inNodeRef, tDataNodePtr
 			}
 		}
 
-		// First pass setup
-		if ( pContinue->fAuthPass == 0 )
+		void * aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
 		{
-			pAuthStr = GetAuthString( inAuthMethod );
-			if ( pAuthStr == nil ) throw( (sInt32)eDSAuthMethodNotSupported );
+			// First pass setup
+			if ( pContinue->fAuthPass == 0 )
+			{
+				pAuthStr = GetAuthString( inAuthMethod );
+				if ( pAuthStr == nil ) throw( (sInt32)eDSAuthMethodNotSupported );
 
-			// Is there an auth server running?
-			authHndl = ::timServerForDomain( inContext->fDomain );
-			if ( authHndl == nil ) throw( (sInt32)eDSAuthNoAuthServerFound );
+				// Is there an auth server running?
+				authHndl = ::timServerForDomain( aNIDomain );
+				if ( authHndl == nil ) throw( (sInt32)eDSAuthNoAuthServerFound );
 
-			// Start a session with the auth server
-			pAuthBuff = ::bufferFromString( pAuthStr->GetData() );
-			siResult = ::timSessionStart( authHndl, 0, pAuthBuff);
+				// Start a session with the auth server
+				pAuthBuff = ::bufferFromString( pAuthStr->GetData() );
+				siResult = ::timSessionStart( authHndl, 0, pAuthBuff);
+				::bufferRelease( pAuthBuff );
+				pAuthBuff = nil;
+				if ( siResult != eDSNoErr ) throw( siResult );
+
+				pContinue->fAuthHndl = authHndl;
+
+				delete( pAuthStr );
+				pAuthStr = nil;
+			}
+			else
+			{
+				//if ( *inOutContinueData == authHndl ) // JT why are we doing this?
+				// authHndl is nil at this point anyway
+				if ( *inOutContinueData == NULL )
+				{
+					throw( (sInt32)eDSInvalidContext );
+				}
+			}
+
+			pContinue->fAuthPass++;
+
+			authData = inAuthData;
+			outData	 = outAuthData;
+			authHndl = (TIMHandle *)pContinue->fAuthHndl;
+
+			pAuthBuff = ::bufferFromData( authData->fBufferData, authData->fBufferLength );
+			siResult = ::timSessionStep( authHndl, pAuthBuff, &pAuthOutBuff );
 			::bufferRelease( pAuthBuff );
 			pAuthBuff = nil;
-			if ( siResult != eDSNoErr ) throw( siResult );
 
-			pContinue->fAuthHndl = authHndl;
-
-			delete( pAuthStr );
-			pAuthStr = nil;
-		}
-		else
-		{
-			//if ( *inOutContinueData == authHndl ) // JT why are we doing this?
-			// authHndl is nil at this point anyway
-			if ( *inOutContinueData == NULL )
+			if ( (siResult != TimStatusOK) && (siResult != TimStatusContinue) )
 			{
-				throw( (sInt32)eDSInvalidContext );
-			}
-		}
+				// Things didn't go well, clean up and get out.
+				::bufferRelease( pAuthOutBuff );
+				pAuthOutBuff = nil;
 
-		pContinue->fAuthPass++;
-
-		authData = inAuthData;
-		outData	 = outAuthData;
-		authHndl = (TIMHandle *)pContinue->fAuthHndl;
-
-		pAuthBuff = ::bufferFromData( authData->fBufferData, authData->fBufferLength );
-		siResult = ::timSessionStep( authHndl, pAuthBuff, &pAuthOutBuff );
-		::bufferRelease( pAuthBuff );
-		pAuthBuff = nil;
-
-		if ( (siResult != TimStatusOK) && (siResult != TimStatusContinue) )
-		{
-			// Things didn't go well, clean up and get out.
-			::bufferRelease( pAuthOutBuff );
-			pAuthOutBuff = nil;
-
-			::timSessionEnd( authHndl );
-			authHndl = nil;
-
-			gNIContinue->RemoveItem( pContinue );
-			*inOutContinueData = nil;
-			
-			if ( siResult != eDSNoErr ) throw( siResult );
-		}
-
-		if ( ::bufferLength( pAuthOutBuff ) <= outData->fBufferSize )
-		{
-			::memcpy( outData->fBufferData, pAuthOutBuff->data, pAuthOutBuff->length );
-			outData->fBufferLength = pAuthOutBuff->length;
-			::bufferRelease( pAuthOutBuff );
-
-			if ( siResult == TimStatusOK )
-			{
-				// This is a good thing.
-				// Release the auth handle
 				::timSessionEnd( authHndl );
 				authHndl = nil;
 
-				// Clean up the continue data
 				gNIContinue->RemoveItem( pContinue );
-
-				// No continue data sent back.
 				*inOutContinueData = nil;
+				
+				if ( siResult != eDSNoErr ) throw( siResult );
 			}
-			else if ( siResult == TimStatusContinue )
-			{
-				// Save the session handle
-				pContinue->fAuthHndl = authHndl;
 
-				*inOutContinueData = pContinue;
-				siResult = eDSNoErr;
+			if ( ::bufferLength( pAuthOutBuff ) <= outData->fBufferSize )
+			{
+				::memcpy( outData->fBufferData, pAuthOutBuff->data, pAuthOutBuff->length );
+				outData->fBufferLength = pAuthOutBuff->length;
+				::bufferRelease( pAuthOutBuff );
+
+				if ( siResult == TimStatusOK )
+				{
+					// This is a good thing.
+					// Release the auth handle
+					::timSessionEnd( authHndl );
+					authHndl = nil;
+
+					// Clean up the continue data
+					gNIContinue->RemoveItem( pContinue );
+
+					// No continue data sent back.
+					*inOutContinueData = nil;
+				}
+				else if ( siResult == TimStatusContinue )
+				{
+					// Save the session handle
+					pContinue->fAuthHndl = authHndl;
+
+					*inOutContinueData = pContinue;
+					siResult = eDSNoErr;
+				}
 			}
+		}
+		else
+		{
+			throw( (sInt32)eDSInvalidSession );
 		}
 	}
 
@@ -9985,7 +11841,7 @@ bool CNiPlugIn::IsTimRunning()
 	gTimIsRunning		= false;
 	gCheckTimAgainTime	= time( nil) + 60;
 
-	niStatus = ::ni_open( NULL, ".", &domain );
+	niStatus = netinfo_open( NULL, ".", &domain, 10 );
 	if (niStatus == NI_OK)
 	{
 		timHandle = ::timServerForDomain( domain );
@@ -10013,8 +11869,6 @@ bool CNiPlugIn::IsTimRunning()
 			::timHandleFree( timHandle );
 			timHandle = NULL;
 		}
-		ni_free(domain);
-		domain = NULL;
 	}
 
 	gNetInfoMutex->Signal();
@@ -10024,59 +11878,8 @@ bool CNiPlugIn::IsTimRunning()
 
 
 #pragma mark -
-
-
-//------------------------------------------------------------------------------------
-//	* Get2FromBuffer
-//------------------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::Get2FromBuffer( tDataBufferPtr inAuthData, tDataList **inOutDataList, char **inOutItemOne, char **inOutItemTwo, unsigned int *outItemCount )
-{
-	sInt32			siResult		= eDSNoErr;
-	tDataList		*dataList		= NULL;
-	unsigned int	itemCount		= 0;
-	
-	try
-	{
-		// parse input first
-		dataList = dsAuthBufferGetDataListAllocPriv(inAuthData);
-		if ( dataList == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-		itemCount = dsDataListGetNodeCountPriv(dataList);
-		if ( outItemCount != NULL )
-			*outItemCount = itemCount;
-		if ( itemCount < 2 ) throw( (sInt32)eDSInvalidBuffFormat );
-		
-		// this allocates a copy of the string
-		*inOutItemOne = dsDataListGetNodeStringPriv(dataList, 1);
-		if ( *inOutItemOne == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-		if ( strlen(*inOutItemOne) < 1 )
-			siResult = eDSInvalidBuffFormat;
-		
-		// this allocates a copy of the string
-		*inOutItemTwo = dsDataListGetNodeStringPriv(dataList, 2);
-		if ( *inOutItemTwo == nil ) throw( (sInt32)eDSInvalidBuffFormat );
-	}
-	catch( sInt32 catchErr )
-	{
-		siResult = catchErr;
-	}
-	
-	if ( inOutDataList != NULL )
-	{
-		*inOutDataList = dataList;
-	}
-	else
-	{
-		if ( dataList != NULL )
-		{
-			dsDataListDeallocatePriv(dataList);
-			free(dataList);
-			dataList = NULL;
-		}
-	}
-	
-	return siResult;
-}
+#pragma mark Other Auth Routines
+#pragma mark -
 
 
 //------------------------------------------------------------------------------------
@@ -10141,13 +11944,21 @@ sInt32 CNiPlugIn::DoNodeNativeAuth ( sNIContextData *inContext, tDataBuffer *inA
 
 							DBGLOG( kLogPlugin, "Attempting Auth Server Node Native Authentication." );
 
-							timHandle = timServerForDomain( inContext->fDomain );
-							if ( timHandle == nil ) throw( (sInt32)eDSAuthFailed );
-							
-							siResult = ::timAuthenticate2WayRandomWithTIMHandle( timHandle, userName, pwd );
+							void * aNIDomain = RetrieveNIDomain(inContext);
+							if (aNIDomain != NULL)
+							{
+								timHandle = timServerForDomain( aNIDomain );
+								if ( timHandle == nil ) throw( (sInt32)eDSAuthFailed );
+								
+								siResult = ::timAuthenticate2WayRandomWithTIMHandle( timHandle, userName, pwd );
 
-							timHandleFree( timHandle );
-							timHandle = nil;
+								timHandleFree( timHandle );
+								timHandle = nil;
+							}
+							else
+							{
+								throw( (sInt32)eDSInvalidSession );
+							}
 #ifdef DEBUG
 							if ( siResult != TimStatusOK )
 							{
@@ -10223,6 +12034,7 @@ sInt32 CNiPlugIn::DoUnixCryptAuth ( sNIContextData *inContext, tDataBuffer *inAu
 {
 	sInt32			siResult		= eDSAuthFailed;
 	bool			bFreePropList	= false;
+	bool			bResetCache		= false;
 	ni_index   		niWhere			= 0;
 	char		   *pData			= nil;
 	char		   *niPwd			= nil;
@@ -10233,7 +12045,6 @@ sInt32 CNiPlugIn::DoUnixCryptAuth ( sNIContextData *inContext, tDataBuffer *inAu
 	uInt32			offset			= 0;
 	uInt32			buffSize		= 0;
 	uInt32			buffLen			= 0;
-	void		   *domain			= nil;
 	char			salt[ 9 ];
 	char			hashPwd[ 32 ];
 	ni_id			niDirID;
@@ -10243,8 +12054,6 @@ sInt32 CNiPlugIn::DoUnixCryptAuth ( sNIContextData *inContext, tDataBuffer *inAu
 
 	try
 	{
-		domain = inContext->fDomain;
-
 #ifdef DEBUG
 		if ( inAuthData == nil ) throw( (sInt32)eDSAuthParameterError );
 #else
@@ -10280,102 +12089,114 @@ sInt32 CNiPlugIn::DoUnixCryptAuth ( sNIContextData *inContext, tDataBuffer *inAu
 
 		DBGLOG( kLogPlugin, "Attempting UNIX Crypt authentication" );
 
-//		::strcat( userPath, name );
-		siResult = IsValidRecordName ( name, inNativeRecType, domain, niDirID );
-//		siResult = ::ni_pathsearch( domain, &niDirID, userPath );
-
-#ifdef DEBUG
-		if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
-#else
-		if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-#endif
-
-		siResult = ::ni_read( domain, &niDirID, &niPropList );
-#ifdef DEBUG
-		if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
-		if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthUnknownUser );
-#else
-		if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-		if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthFailed );
-#endif
-		bFreePropList = true;
-
-		niWhere = ::ni_proplist_match( niPropList, "passwd", nil );
-#ifdef DEBUG
-		if (niWhere == NI_INDEX_NULL) throw( (sInt32)eDSAuthBadPassword );
-		siResult = eDSAuthBadPassword;
-#else
-		if (niWhere == NI_INDEX_NULL) throw( (sInt32)eDSAuthFailed );
-		siResult = eDSAuthFailed;
-#endif
-
-		// be careful not to dereference nil here.
-		// We assume it is an empty password if there are no values for passwd.
-		if ((niPropList.ni_proplist_val[ niWhere ].nip_val.ni_namelist_len > 0)
-			&& (niPropList.ni_proplist_val[ niWhere ].nip_val.ni_namelist_val != nil))
+		void * aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
 		{
-			niPwd = niPropList.ni_proplist_val[ niWhere ].nip_val.ni_namelist_val[ 0 ];
+	//		::strcat( userPath, name );
+			siResult = IsValidRecordName ( name, inNativeRecType, aNIDomain, niDirID );
+	//		siResult = ::ni_pathsearch( aNIDomain, &niDirID, userPath );
+
+	#ifdef DEBUG
+			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
+	#else
+			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+	#endif
+
+			siResult = ::ni_read( aNIDomain, &niDirID, &niPropList );
+	#ifdef DEBUG
+			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthUnknownUser );
+			if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthUnknownUser );
+	#else
+			if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+			if ( niPropList.ni_proplist_val == nil ) throw( (sInt32)eDSAuthFailed );
+	#endif
+			bFreePropList = true;
+
+			niWhere = ::ni_proplist_match( niPropList, "passwd", nil );
+	#ifdef DEBUG
+			if (niWhere == NI_INDEX_NULL) throw( (sInt32)eDSAuthBadPassword );
+			siResult = eDSAuthBadPassword;
+	#else
+			if (niWhere == NI_INDEX_NULL) throw( (sInt32)eDSAuthFailed );
+			siResult = eDSAuthFailed;
+	#endif
+
+			// be careful not to dereference nil here.
+			// We assume it is an empty password if there are no values for passwd.
+			if ((niPropList.ni_proplist_val[ niWhere ].nip_val.ni_namelist_len > 0)
+				&& (niPropList.ni_proplist_val[ niWhere ].nip_val.ni_namelist_val != nil))
+			{
+				niPwd = niPropList.ni_proplist_val[ niWhere ].nip_val.ni_namelist_val[ 0 ];
+			}
+			else
+			{
+				niPwd = (char*)""; // empty string, we are not freeing it so direct assignment is OK
+			}
+
+	#ifdef DEBUG
+			if (offset + sizeof( unsigned long ) > buffLen) throw( (sInt32)eDSInvalidBuffFormat );
+	#else
+			if (offset + sizeof( unsigned long ) > buffLen) throw( (sInt32)eDSAuthFailed );
+	#endif
+			::memcpy( &pwdLen, pData, sizeof( unsigned long ) );
+			pData += sizeof( unsigned long );
+			offset += sizeof( unsigned long );
+			
+	#ifdef DEBUG
+			if (offset + pwdLen > buffLen) throw( (sInt32)eDSInvalidBuffFormat );
+			if (pwdLen > 256) throw( (sInt32)eDSAuthFailed );
+	#else
+			if (offset + pwdLen > buffLen) throw( (sInt32)eDSAuthFailed );
+			if (pwdLen > 256) throw( (sInt32)eDSAuthFailed );
+	#endif
+			pwd = (char *)::calloc( pwdLen + 1, sizeof( char ) );
+			::memcpy( pwd, pData, pwdLen );
+
+			//account for the case where niPwd == "" such that we will auth if pwdLen is 0
+			if (::strcmp(niPwd,"") != 0)
+			{
+				salt[ 0 ] = niPwd[0];
+				salt[ 1 ] = niPwd[1];
+				salt[ 2 ] = '\0';
+
+				::memset( hashPwd, 0, 32 );
+				::strcpy( hashPwd, ::crypt( pwd, salt ) );
+
+				siResult = eDSAuthFailed;
+				if ( ::strcmp( hashPwd, niPwd ) == 0 )
+				{
+					siResult = eDSNoErr;
+				}
+				bzero(hashPwd, 32);
+			}
+			else // niPwd is == ""
+			{
+				if ( ::strcmp(pwd,"") == 0 )
+				{
+					siResult = eDSNoErr;
+				}
+			}
+
+			if (siResult == eDSNoErr)
+			{
+				if ( inContext->bIsLocal && (strlen(pwd) < 8) ) //local node and true crypt password since length is 7 or less
+				{
+					MigrateToShadowHash(aNIDomain, &niDirID, &niPropList, name, pwd, bResetCache);
+				}
+
+				if (inAuthOnly == false)
+				{
+					siResult = AuthOpen( inContext, name, pwd );
+				}
+			}
 		}
 		else
 		{
-			niPwd = (char*)""; // empty string, we are not freeing it so direct assignment is OK
-		}
-
 #ifdef DEBUG
-		if (offset + sizeof( unsigned long ) > buffLen) throw( (sInt32)eDSInvalidBuffFormat );
+			siResult = eDSInvalidSession;
 #else
-		if (offset + sizeof( unsigned long ) > buffLen) throw( (sInt32)eDSAuthFailed );
-#endif
-		::memcpy( &pwdLen, pData, sizeof( unsigned long ) );
-		pData += sizeof( unsigned long );
-		offset += sizeof( unsigned long );
-		
-#ifdef DEBUG
-		if (offset + pwdLen > buffLen) throw( (sInt32)eDSInvalidBuffFormat );
-		if (pwdLen > 256) throw( (sInt32)eDSAuthFailed );
-#else
-		if (offset + pwdLen > buffLen) throw( (sInt32)eDSAuthFailed );
-		if (pwdLen > 256) throw( (sInt32)eDSAuthFailed );
-#endif
-		pwd = (char *)::calloc( pwdLen + 1, sizeof( char ) );
-		::memcpy( pwd, pData, pwdLen );
-
-		//account for the case where niPwd == "" such that we will auth if pwdLen is 0
-		if (::strcmp(niPwd,"") != 0)
-		{
-			salt[ 0 ] = niPwd[0];
-			salt[ 1 ] = niPwd[1];
-			salt[ 2 ] = '\0';
-
-			::memset( hashPwd, 0, 32 );
-			::strcpy( hashPwd, ::crypt( pwd, salt ) );
-
 			siResult = eDSAuthFailed;
-			if ( ::strcmp( hashPwd, niPwd ) == 0 )
-			{
-				siResult = eDSNoErr;
-			}
-			bzero(hashPwd, 32);
-		}
-		else // niPwd is == ""
-		{
-			if ( ::strcmp(pwd,"") == 0 )
-			{
-				siResult = eDSNoErr;
-			}
-		}
-
-		if (siResult == eDSNoErr)
-		{
-			if ( inContext->bIsLocal && (strlen(pwd) < 8) ) //local node and true crypt password since length is 7 or less
-			{
-				MigrateToShadowHash(domain, &niDirID, &niPropList, name, pwd);
-			}
-
-			if (inAuthOnly == false)
-			{
-				siResult = AuthOpen( inContext, name, pwd );
-			}
+#endif
 		}
 	}
 
@@ -10392,6 +12213,12 @@ sInt32 CNiPlugIn::DoUnixCryptAuth ( sNIContextData *inContext, tDataBuffer *inAu
 
 	gNetInfoMutex->Signal();
 	
+	if ( bResetCache )
+	{
+		// be sure not to hold the NetInfo mutex while calling this
+		gSrvrCntl->HandleMemberDaemonFlushCache();
+	}
+
 	if ( name != nil )
 	{
 		free( name );
@@ -10404,7 +12231,7 @@ sInt32 CNiPlugIn::DoUnixCryptAuth ( sNIContextData *inContext, tDataBuffer *inAu
 		free( pwd );
 		pwd = nil;
 	}
-
+	
 	return( siResult );
 
 } // DoUnixCryptAuth
@@ -10484,24 +12311,32 @@ sInt32 CNiPlugIn::ValidateDigest ( sNIContextData *inContext, tDataBuffer *inAut
 
 							DBGLOG( kLogPlugin, "Attempting Auth ValidateDigest." );
 
-							pTimHndl = ::timServerForDomain( inContext->fDomain );
-							if ( pTimHndl == nil ) throw( (sInt32)eDSAuthFailed );
+							void * aNIDomain = RetrieveNIDomain(inContext);
+							if (aNIDomain != NULL)
+							{
+								pTimHndl = ::timServerForDomain( aNIDomain );
+								if ( pTimHndl == nil ) throw( (sInt32)eDSAuthFailed );
 
-							if ( inAuthMethod == kAuthAPOP )
-							{
-								siResult = ::timAuthenticateAPOPWithTIMHandle( pTimHndl, pUserName, pChallenge, pResponse );
-							}
-							else if ( inAuthMethod == kAuthCRAM_MD5 )
-							{
-								siResult = ::timAuthenticateCRAM_MD5WithTIMHandle( pTimHndl, pUserName, pChallenge, pResponse );
+								if ( inAuthMethod == kAuthAPOP )
+								{
+									siResult = ::timAuthenticateAPOPWithTIMHandle( pTimHndl, pUserName, pChallenge, pResponse );
+								}
+								else if ( inAuthMethod == kAuthCRAM_MD5 )
+								{
+									siResult = ::timAuthenticateCRAM_MD5WithTIMHandle( pTimHndl, pUserName, pChallenge, pResponse );
+								}
+								else
+								{
+									siResult = TimStatusServiceUnavailable;
+								}
+
+								timHandleFree( pTimHndl );
+								pTimHndl = nil;
 							}
 							else
 							{
-								siResult = TimStatusServiceUnavailable;
+								throw( (sInt32)eDSInvalidSession );
 							}
-
-							timHandleFree( pTimHndl );
-							pTimHndl = nil;
 #ifdef DEBUG
 							if ( siResult != TimStatusOK )
 							{
@@ -10574,7 +12409,6 @@ sInt32 CNiPlugIn::AuthOpen ( sNIContextData *inContext, const char * inUserName,
 {
 	sInt32			siResult		= eDSAuthFailed;
 	void		   *domain			= nil;
-	char		   *pathStr			= nil;
 	
 	gNetInfoMutex->Wait();
 	
@@ -10583,12 +12417,11 @@ sInt32 CNiPlugIn::AuthOpen ( sNIContextData *inContext, const char * inUserName,
 		if ( inContext == nil ) throw( (sInt32)eDSAuthFailed );
 		if ( inUserName == nil ) throw( (sInt32)eDSAuthFailed );
 		if ( inPassword == nil ) throw( (sInt32)eDSAuthFailed );		
-		pathStr = BuildDomainPathFromName( inContext->fDomainName );
-		if ( pathStr == nil ) throw( (sInt32)eDSAuthFailed ); //shouldn't happen since we opened the node OK
+		if ( inContext->fDomainPath == nil ) throw( (sInt32)eDSAuthFailed ); //shouldn't happen since we opened the node OK
 		
-		siResult = ::ni_open( nil, pathStr, &domain );
+		siResult = ::ni_open( nil, inContext->fDomainPath, &domain );
 		if ( siResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
-		
+		DBGLOG1( kLogPlugin, "CNiPlugIn::AuthOpen: <ni_open> opened for auth the netinfo node %s", inContext->fDomainPath );
 		if (!bIsEffectiveRoot)
 		{
 			// we need to establish authentication against this domain
@@ -10616,12 +12449,14 @@ sInt32 CNiPlugIn::AuthOpen ( sNIContextData *inContext, const char * inUserName,
 				free( inContext->fAuthenticatedUserName );
 			}
 			// check for admin group, and treat admin users as root
-			if (UserIsAdmin(inUserName, domain)) {
+			if (UserIsAdminInDomain(inUserName, domain))
+			{
 				inContext->fAuthenticatedUserName = strdup( "root" );
-			} else {
+			}
+			else
+			{
 				inContext->fAuthenticatedUserName = strdup( inUserName );
 			}
-			// save it in the context
 		}
 	}
 	
@@ -10636,17 +12471,15 @@ sInt32 CNiPlugIn::AuthOpen ( sNIContextData *inContext, const char * inUserName,
 		siResult = err;
 	}
 	
-	if ( pathStr != nil )
-	{
-		free( pathStr );
-		pathStr = nil;
-	}
-	
 	gNetInfoMutex->Signal();
 
 	return siResult;
 } // AuthOpen
 
+
+#pragma mark -
+#pragma mark Support Routines
+#pragma mark -
 
 // ---------------------------------------------------------------------------
 //	* VerifyPatternMatch
@@ -10691,183 +12524,6 @@ sInt32 CNiPlugIn::VerifyPatternMatch ( const tDirPatternMatch inPatternMatch )
 	return( siResult );
 
 } // VerifyPatternMatch
-
-
-// ---------------------------------------------------------------------------
-//	* MapAttrToNetInfoType
-// ---------------------------------------------------------------------------
-
-char* CNiPlugIn::MapAttrToNetInfoType ( const char *inAttrType )
-{
-	char	   *outResult	= nil;
-	uInt32		uiStrLen	= 0;
-	uInt32		uiNativeLen	= ::strlen( kDSNativeAttrTypePrefix );
-	uInt32		uiStdLen	= ::strlen( kDSStdAttrTypePrefix );
-
-	if ( inAttrType != nil )
-	{
-		uiStrLen = ::strlen( inAttrType );
-
-		// First look for native attribute type
-		if ( ::strncmp( inAttrType, kDSNativeAttrTypePrefix, uiNativeLen ) == 0 )
-		{
-			// Make sure we have data past the prefix
-			if ( uiStrLen > uiNativeLen )
-			{
-				uiStrLen = uiStrLen - uiNativeLen;
-				outResult = new char[ uiStrLen + 1 ];
-				::strcpy( outResult, inAttrType + uiNativeLen );
-			}
-		}
-		else if ( ::strncmp( inAttrType, kDSStdAttrTypePrefix, uiStdLen ) == 0 )
-		{
-			for ( int i = 0; i < kAttrConsts; i++ )
-			{
-				if ( ::strcmp( inAttrType, sAttrMap[ i ][ 0 ] ) == 0 )
-				{
-					outResult = new char[ ::strlen( sAttrMap[ i ][ 1 ] ) + 1 ];
-					::strcpy( outResult, sAttrMap[ i ][ 1 ] );
-					break;
-				}
-			}
-		}
-		else if ( ::strcmp( inAttrType, kDSAttributesAll ) == 0 )
-		{
-			outResult = new char[ ::strlen( kDSAttributesAll ) + 1 ];
-			::strcpy( outResult, kDSAttributesAll );
-		}
-		else if ( ::strcmp( inAttrType, kDSAttributesStandardAll ) == 0 )
-		{
-			outResult = new char[ ::strlen( kDSAttributesStandardAll ) + 1 ];
-			::strcpy( outResult, kDSAttributesStandardAll );
-		}
-	}
-
-	return( outResult );
-
-} // MapAttrToNetInfoType
-
-
-// ---------------------------------------------------------------------------
-//	* MapNetInfoAttrToDSType
-// ---------------------------------------------------------------------------
-
-char* CNiPlugIn::MapNetInfoAttrToDSType ( const char *inAttrType )
-{
-	char	   *outResult	= nil;
-
-	if ( inAttrType != nil )
-	{
-		// Look for a standard type
-		for ( int i = 0; i < kAttrConsts; i++ )
-		{
-			if ( ::strcmp( inAttrType, sAttrMap[ i ][ 1 ] ) == 0 )
-			{
-				outResult = new char[ ::strlen( sAttrMap[ i ][ 0 ] ) + 1 ];
-				::strcpy( outResult, sAttrMap[ i ][ 0 ] );
-				break;
-			}
-		}
-
-		if ( outResult == nil )
-		{
-			outResult = new char[ ::strlen( kDSNativeAttrTypePrefix ) + ::strlen( inAttrType ) + 1 ];
-			::strcpy( outResult, kDSNativeAttrTypePrefix );
-			::strcat( outResult, inAttrType );
-		}
-	}
-
-	return( outResult );
-
-} // MapNetInfoAttrToDSType
-
-
-// ---------------------------------------------------------------------------
-//	* MapRecToNetInfoType
-// ---------------------------------------------------------------------------
-
-char* CNiPlugIn::MapRecToNetInfoType ( const char *inRecType )
-{
-	char	   *outResult	= nil;
-	uInt32		uiStrLen	= 0;
-	uInt32		uiNativeLen	= ::strlen( kDSNativeRecordTypePrefix );
-	uInt32		uiStdLen	= ::strlen( kDSStdRecordTypePrefix );
-
-
-	// xxxx check for imbedded '/'
-
-	if ( inRecType != nil )
-	{
-		uiStrLen = ::strlen( inRecType );
-
-		// First look for native record type
-		if ( ::strncmp( inRecType, kDSNativeRecordTypePrefix, uiNativeLen ) == 0 )
-		{
-			// Make sure we have data past the prefix
-			if ( uiStrLen > uiNativeLen )
-			{
-				uiStrLen = uiStrLen - uiNativeLen;
-				outResult = new char[ uiStrLen + 2 ];
-				::strcpy( outResult, inRecType + uiNativeLen );
-			}
-		}
-		else if ( ::strncmp( inRecType, kDSStdRecordTypePrefix, uiStdLen ) == 0 )
-		{
-			for ( int i = 0; i < kRecConsts; i++ )
-			{
-				if ( ::strcmp( inRecType, sRecMap[ i ][ 0 ] ) == 0 )
-				{
-					outResult = new char[ ::strlen( sRecMap[ i ][ 1 ] ) + 1 ];
-					::strcpy( outResult, sRecMap[ i ][ 1 ] );
-					break;
-				}
-			}
-		}
-		//this is not possible ie. ni_pathsearch needs a NI record type
-		//else if ( ::strcmp( inRecType, kDSRecordsAll ) == 0 )
-		//{
-			//outResult = new char[ ::strlen( kDSRecordsAll ) + 1 ];
-			//::strcpy( outResult, kDSRecordsAll );
-		//}
-	}
-
-	return( outResult );
-
-} // MapRecToNetInfoType
-
-
-// ---------------------------------------------------------------------------
-//	* MapNetInfoRecToDSType
-// ---------------------------------------------------------------------------
-
-char* CNiPlugIn::MapNetInfoRecToDSType ( const char *inRecType )
-{
-	char	   *outResult	= nil;
-
-	if ( inRecType != nil )
-	{
-		// Look for a standard type
-		for ( int i = 0; i < kRecConsts; i++ )
-		{
-			if ( ::strcmp( inRecType, sRecMap[ i ][ 1 ] ) == 0 )
-			{
-				outResult = new char[ ::strlen( sRecMap[ i ][ 0 ] ) + 1 ];
-				::strcpy( outResult, sRecMap[ i ][ 0 ] );
-				break;
-			}
-		}
-
-		if ( outResult == nil )
-		{
-			outResult = new char[ ::strlen( kDSNativeRecordTypePrefix ) + ::strlen( inRecType ) + 1 ];
-			::strcpy( outResult, kDSNativeRecordTypePrefix );
-			::strcat( outResult, inRecType );
-		}
-	}
-
-	return( outResult );
-
-} // MapNetInfoRecToDSType
 
 
 // ---------------------------------------------------------------------------
@@ -10987,7 +12643,7 @@ CString* CNiPlugIn::GetAuthString ( tDataNode *inData )
 	else
 	{
 		uiStrLen = ::strlen( p );
-		uiNativeLen	= ::strlen( kDSNativeAuthMethodPrefix );
+		uiNativeLen	= sizeof( kDSNativeAuthMethodPrefix ) - 1;
 
 		if ( ::strncmp( p, kDSNativeAuthMethodPrefix, uiNativeLen ) == 0 )
 		{
@@ -11008,306 +12664,6 @@ CString* CNiPlugIn::GetAuthString ( tDataNode *inData )
 	return( pOutString );
 
 } // GetAuthString
-
-
-// ---------------------------------------------------------------------------
-//	* GetAuthMethod
-// ---------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::GetAuthMethod ( tDataNode *inData, uInt32 *outAuthMethod )
-{
-	sInt32			siResult		= eDSNoErr;
-	uInt32			uiNativeLen		= 0;
-	char		   *p				= nil;
-
-	if ( inData == nil )
-	{
-		*outAuthMethod = kAuthUnknownMethod;
-#ifdef DEBUG
-		return( eDSAuthParameterError );
-#else
-		return( eDSAuthFailed );
-#endif
-	}
-
-	p = (char *)inData->fBufferData;
-
-	DBGLOG1( kLogPlugin, "Using authentication method %s.", p );
-
-	if ( ::strcmp( p, kDSStdAuthClearText ) == 0 )
-	{
-		// Clear text auth method
-		*outAuthMethod = kAuthClearText;
-	}
-	else if ( ::strcmp( p, kDSStdAuthNodeNativeClearTextOK ) == 0 )
-	{
-		// Node native auth method
-		*outAuthMethod = kAuthNativeClearTextOK;
-	}
-	else if ( ::strcmp( p, kDSStdAuthNodeNativeNoClearText ) == 0 )
-	{
-		// Node native auth method
-		*outAuthMethod = kAuthNativeNoClearText;
-	}
-	else if ( ::strcmp( p, kDSStdAuthCrypt ) == 0 )
-	{
-		// Unix Crypt auth method
-		*outAuthMethod = kAuthCrypt;
-	}
-	else if ( ::strcmp( p, kDSStdAuth2WayRandom ) == 0 )
-	{
-		// Two way random auth method
-		*outAuthMethod = kAuth2WayRandom;
-	}
-	else if ( ::strcmp( p, kDSStdAuth2WayRandomChangePasswd ) == 0 )
-	{
-		// Two way random auth method
-		*outAuthMethod = kAuth2WayRandomChangePass;
-	}
-	else if ( ::strcmp( p, kDSStdAuthSMB_NT_Key ) == 0 )
-	{
-		// Two way random auth method
-		*outAuthMethod = kAuthSMB_NT_Key;
-	}
-	else if ( ::strcmp( p, kDSStdAuthSMB_LM_Key ) == 0 )
-	{
-		// Two way random auth method
-		*outAuthMethod = kAuthSMB_LM_Key;
-	}
-	else if ( ::strcmp( p, kDSStdAuthSecureHash ) == 0 )
-	{
-		// secure hash method
-		*outAuthMethod = kAuthSecureHash;
-	}
-	else if ( ::strcmp( p, kDSStdAuthReadSecureHash ) == 0 )
-	{
-		// secure hash method
-		*outAuthMethod = kAuthReadSecureHash;
-	}
-	else if ( ::strcmp( p, kDSStdAuthWriteSecureHash ) == 0 )
-	{
-		// secure hash method
-		*outAuthMethod = kAuthWriteSecureHash;
-	}
-	else if ( ::strcmp( p, kDSStdAuthSetPasswd ) == 0 )
-	{
-		// Admin set password
-		*outAuthMethod = kAuthSetPasswd;
-	}
-	else if ( ::strcmp( p, kDSStdAuthSetPasswdAsRoot ) == 0 )
-	{
-		// Admin set password
-		*outAuthMethod = kAuthSetPasswdAsRoot;
-	}
-	else if ( ::strcmp( p, kDSStdAuthChangePasswd ) == 0 )
-	{
-		// User change password
-		*outAuthMethod = kAuthChangePasswd;
-	}
-	else if ( ::strcmp( p, kDSStdAuthAPOP ) == 0 )
-	{
-		// APOP auth method
-		*outAuthMethod = kAuthAPOP;
-	}
-	else if ( ::strcmp( p, kDSStdAuthCRAM_MD5 ) == 0 )
-	{
-		// CRAM-MD5 auth method
-		*outAuthMethod = kAuthCRAM_MD5;
-	}
-	else if ( ::strcmp( p, kDSStdAuthSetPolicy ) == 0 )
-	{
-		*outAuthMethod = kAuthSetPolicy;
-	}
-	else if ( ::strcmp( p, kDSStdAuthWithAuthorizationRef ) == 0 )
-	{
-		*outAuthMethod = kAuthWithAuthorizationRef;
-	}
-	else if ( ::strcmp( p, kDSStdAuthGetPolicy ) == 0 )
-	{
-		*outAuthMethod = kAuthGetPolicy;
-	}
-	else if ( ::strcmp( p, kDSStdAuthGetGlobalPolicy ) == 0 )
-	{
-		*outAuthMethod = kAuthGetGlobalPolicy;
-	}
-	else if ( ::strcmp( p, kDSStdAuthSetGlobalPolicy ) == 0 )
-	{
-		*outAuthMethod = kAuthSetGlobalPolicy;
-	}
-	else
-	{
-		uiNativeLen	= ::strlen( kDSNativeAuthMethodPrefix );
-
-		if ( ::strncmp( p, kDSNativeAuthMethodPrefix, uiNativeLen ) == 0 )
-		{
-			// User change password
-			*outAuthMethod = kAuthNativeMethod;
-		}
-		else
-		{
-			*outAuthMethod = kAuthUnknownMethod;
-			siResult = eDSAuthMethodNotSupported;
-		}
-	}
-	
-	return( siResult );
-
-} // GetAuthMethod
-
-
-// ---------------------------------------------------------------------------
-//	* IsValidRecordName
-// ---------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::IsValidRecordName ( const char	*inRecName,
-									  const char	*inRecType,
-									  void			*inDomain,
-									  ni_id			&outDirID )
-{
-	sInt32			siResult	= eDSInvalidRecordName;
-	char		   *pData		= nil;
-	ni_status		niStatus	= NI_OK;
-
-	gNetInfoMutex->Wait();
-
-	try
-	{
-		if ( inDomain == nil ) throw( (sInt32)eDSInvalidDomain );
-		if ( inRecName == nil ) throw( (sInt32)eDSInvalidRecordName );
-		if ( inRecType == nil ) throw( (sInt32)eDSInvalidRecordType );
-
-		pData = BuildRecordNamePath( inRecName, inRecType );
-		if ( pData != nil )
-		{
-			niStatus = ::ni_pathsearch( inDomain, &outDirID, pData );
-			if ( niStatus == NI_OK )
-			{
-				siResult = eDSNoErr;
-			}
-			free( pData );
-		}
-	}
-
-	catch( sInt32 err )
-	{
-		siResult = err;
-	}
-
-	gNetInfoMutex->Signal();
-
-	return( siResult );
-
-} // IsValidRecordName
-
-
-// ---------------------------------------------------------------------------
-//	* BuildRecordNamePath
-// ---------------------------------------------------------------------------
-
-char *CNiPlugIn:: BuildRecordNamePath (	const char	*inRecName,
-										const char	*inRecType )
-{
-	const char	   *pData		= nil;
-	CString			csPath( 128 );
-	char		   *outPath		= nil;
-	uInt32			recNameLen	= 0;
-	uInt32			nativeLen	= 0;
-	uInt32			stdLen		= 0;
-
-	try
-	{
-		if ( inRecName == nil ) throw( (sInt32)eDSInvalidRecordName );
-		if ( inRecType == nil ) throw( (sInt32)eDSInvalidRecordType );
-		
-		recNameLen	= ::strlen( inRecName );
-		nativeLen	= ::strlen( kDSNativeAttrTypePrefix );
-		stdLen		= ::strlen( kDSStdAttrTypePrefix );
-
-		if ( ::strncmp( inRecName, kDSNativeAttrTypePrefix, nativeLen ) == 0  )
-		{
-			if ( recNameLen > nativeLen )
-			{
-				pData = inRecName + nativeLen;
-			}
-		}
-		else if ( ::strncmp( inRecName, kDSStdAttrTypePrefix, stdLen ) == 0  )
-		{
-			if ( recNameLen > stdLen )
-			{
-				pData = inRecName + stdLen;
-			}
-		}
-		else
-		{
-			pData = inRecName;
-		}
-
-		if ( pData != nil )
-		{
-			//KW check if the recordname has "/" or "\\" in it
-			//if so then replace the "/" with "\\/" so that NetInfo can handle the forward slashes
-			//separate of the subdirectory delimiters
-			//also replace the "\\" with "\\\\" so that NetInfo can handle the backslashes if
-			//the intent is for them to be inside the name itself
-			if ( (::strstr( pData, "/" ) != nil) || (::strstr( pData, "\\" ) != nil) )
-			{
-				csPath.Set( "/" );
-				csPath.Append( inRecType );
-				csPath.Append( "/" );
-				while(pData[0] != '\0')
-				{
-					if (pData[0] == '/')
-					{
-						csPath.Append( "\\/" );
-					}
-					else if (pData[0] == '\\')
-					{
-						csPath.Append( "\\\\" );
-					}
-					else
-					{
-						csPath.Append( pData[0] );
-					}
-					pData++;
-				}
-			}
-			else
-			{
-				csPath.Set( "/" );
-				csPath.Append( inRecType );
-				csPath.Append( "/" );
-				csPath.Append( pData );
-
-			}
-			//check for the case of trying to access the root of netinfo above all the records
-			//ie. record type was "/" and record name was also "/" which led to csPath of "///\\/"
-			if (strcmp(csPath.GetData(),"///\\/") == 0)
-			{
-				outPath = (char *)::calloc( 2, sizeof(char));
-				if ( outPath == nil ) throw( (sInt32)eMemoryError );
-				strcpy(outPath,"/");
-			}
-			else
-			{
-				outPath = (char *)::calloc( csPath.GetLength() + 1, sizeof(char));
-				if ( outPath == nil ) throw( (sInt32)eMemoryError );
-				strcpy(outPath,csPath.GetData());
-			}
-		}
-	}
-
-	catch( sInt32 err )
-	{
-		if (outPath != nil)
-		{
-			free(outPath);
-			outPath = nil;
-		}
-	}
-
-	return( outPath );
-
-} // BuildRecordNamePath
 
 
 // ---------------------------------------------------------------------------
@@ -11408,159 +12764,6 @@ sInt32 CNiPlugIn::MapAuthResult ( sInt32 inAuthErr )
 
 } // MapAuthResult
 
-// ---------------------------------------------------------------------------
-//	* MapNetInfoErrors
-//
-//		- xxxx make sure i do the right thing with the errors
-// ---------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::MapNetInfoErrors ( sInt32 inNiError )
-{
-	sInt32		siOutError	= 0;
-
-	switch ( inNiError )
-	{
-		case NI_OK:
-			siOutError = eDSNoErr;
-			break;
-
-		case NI_BADID:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_STALE:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_NOSPACE:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_PERM:
-			siOutError = eDSPermissionError;
-			break;
-
-		case NI_NODIR:
-			siOutError = eDSInvalidRecordName;
-			break;
-
-		case NI_NOPROP:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_NONAME:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_NOTEMPTY:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_UNRELATED:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_SERIAL:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_NETROOT:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_NORESPONSE:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_RDONLY:
-			siOutError = eDSReadOnly;
-			break;
-
-		case NI_SYSTEMERR:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_ALIVE:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_NOTMASTER:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_CANTFINDADDRESS:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_DUPTAG:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_NOTAG:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_AUTHERROR:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_NOUSER:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_MASTERBUSY:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_INVALIDDOMAIN:
-			siOutError = eDSInvalidDomain;
-			break;
-
-		case NI_BADOP:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		case NI_FAILED:
-			siOutError = eUnknownPlugIn;
-			break;
-
-		default:
-			siOutError = eUnknownPlugIn;
-			break;
-	}
-
-	return( siOutError );
-
-} // MapNetInfoErrors
-
-
-// ---------------------------------------------------------------------------
-//	* CalcCRC
-// ---------------------------------------------------------------------------
-
-uInt32 CNiPlugIn::CalcCRC ( const char *inStr )
-{
-	const char 	   *p			= inStr;
-	sInt32			siI			= 0;
-	sInt32			siStrLen	= 0;
-	uInt32			uiCRC		= 0xFFFFFFFF;
-	CRCCalc			aCRCCalc;
-
-	if ( inStr != nil )
-	{
-		siStrLen = ::strlen( inStr );
-
-		for ( siI = 0; siI < siStrLen; ++siI )
-		{
-			uiCRC = aCRCCalc.UPDC32( *p, uiCRC );
-			p++;
-		}
-	}
-
-	return( uiCRC );
-
-} // CalcCRC
-
 
 // ---------------------------------------------------------------------------
 //	* MakeGood
@@ -11630,43 +12833,42 @@ sInt32 CNiPlugIn::CleanContextData ( sNIContextData *inContext )
 				gNetInfoMutex->Signal();
 				inContext->fDomain = nil;
 			}
-			else if (inContext->fDomainName != nil)
-			{
-				CNetInfoPlugin::SafeClose( inContext->fDomainName );
-				inContext->fDomain = nil;
-			}
+		}
+		else if (inContext->fDomainName != nil)
+		{
+			CNetInfoPlugin::SafeClose( inContext->fDomainName );
 		}
 		//now we do own this pointer
-		if (inContext->fDomainName != nil)
-		{
-			free(inContext->fDomainName);
-			inContext->fDomainName = nil;
-		}
-		if (inContext->fRecType != nil)
-		{
-			free(inContext->fRecType);
-			inContext->fRecType = nil;
-		}
-		if (inContext->fRecName != nil)
-		{
-			free(inContext->fRecName);
-			inContext->fRecName = nil;
-		}
-		if (inContext->fAuthenticatedUserName != NULL)
-		{
-			free(inContext->fAuthenticatedUserName);
-			inContext->fAuthenticatedUserName = NULL;
-		}
+		DSFreeString(inContext->fDomainName);
+		DSFreeString(inContext->fDomainPath);
+		DSFreeString(inContext->fRecType);
+		DSFreeString(inContext->fRecName);
+		DSFreeString(inContext->fAuthenticatedUserName);
 		//dirID is a struct of two ulongs
 		inContext->offset				= 0;
-		inContext->index				= 0;
 		inContext->fDontUseSafeClose	= false;
 		inContext->bIsLocal				= false;
+		inContext->bDidWriteOperation	= false;
         
-        if ( inContext->fPWSNodeRef != 0 )
+        if ( inContext->fPWSNodeRef != 0 ) {
             dsCloseDirNode(inContext->fPWSNodeRef);
-        if ( inContext->fPWSRef != 0 )
+			inContext->fPWSNodeRef = 0;
+		}
+        if ( inContext->fPWSRef != 0 ) {
             dsCloseDirService(inContext->fPWSRef);
+			inContext->fPWSRef = 0;
+		}
+		if (inContext->fLocalCacheNetNode != NULL)
+		{
+			dsDataListDeallocatePriv(inContext->fLocalCacheNetNode);
+			free(inContext->fLocalCacheNetNode);
+			inContext->fLocalCacheNetNode = NULL;
+		}
+		if (inContext->fLocalCacheRef != 0)
+		{
+			dsCloseDirService(inContext->fLocalCacheRef);
+			inContext->fLocalCacheRef = 0;
+		}
 	}
     
 	return( siResult );
@@ -11675,126 +12877,145 @@ sInt32 CNiPlugIn::CleanContextData ( sNIContextData *inContext )
 
 
 // ---------------------------------------------------------------------------
-//	* DoesThisMatch
+//	* DoAnyMatch
 // ---------------------------------------------------------------------------
 
-bool CNiPlugIn::DoesThisMatch ( const char		   *inString,
-								const char		   *inPatt,
+bool CNiPlugIn::DoAnyMatch (	const char		   *inString,
+								CAttributeList     *inPattMatchList,
 								tDirPatternMatch	inHow )
 {
-	bool		bOutResult	= false;
-	CFMutableStringRef	strRef	= CFStringCreateMutable(NULL, 0);
-	CFMutableStringRef	patRef	= CFStringCreateMutable(NULL, 0);
-	CFRange		range;
+	bool				bOutResult  = false;
+	CFMutableStringRef	strRef		= CFStringCreateMutable(NULL, 0);
+	CFMutableStringRef	patRef		= NULL;
+	CFRange				range;
 
-	if ( (inString == nil) || (inPatt == nil) || (strRef == nil) || (patRef == nil) )
+	if ( (inString == nil) || (inPattMatchList == nil) || (strRef == nil) )
+	{
+		return( false );
+	}
+	if (inPattMatchList->GetCount() < 1)
 	{
 		return( false );
 	}
 
 	CFStringAppendCString( strRef, inString, kCFStringEncodingUTF8 );
-	CFStringAppendCString( patRef, inPatt, kCFStringEncodingUTF8 );	
-	if ( (inHow >= eDSiExact) && (inHow <= eDSiRegularExpression) )
+	
+	for (uInt32 idx = 1; idx <= inPattMatchList->GetCount(); idx++)
 	{
-		CFStringUppercase( strRef, NULL );
-		CFStringUppercase( patRef, NULL );
+		char *aStringValue = nil;
+		if ( eDSNoErr == inPattMatchList->GetAttribute(idx, &aStringValue) )
+		{
+			patRef = CFStringCreateMutable(NULL, 0);
+			CFStringAppendCString( patRef, aStringValue, kCFStringEncodingUTF8 );	
+			if ( (inHow >= eDSiExact) && (inHow <= eDSiRegularExpression) )
+			{
+				CFStringUppercase( strRef, NULL );
+				CFStringUppercase( patRef, NULL );
+			}
+
+			switch ( inHow )
+			{
+				case eDSExact:
+				case eDSiExact:
+				{
+					if ( CFStringCompare( strRef, patRef, 0 ) == kCFCompareEqualTo )
+					{
+						bOutResult = true;
+					}
+				}
+				break;
+
+				case eDSStartsWith:
+				case eDSiStartsWith:
+				{
+					if ( CFStringHasPrefix( strRef, patRef ) )
+					{
+						bOutResult = true;
+					}
+				}
+				break;
+
+				case eDSEndsWith:
+				case eDSiEndsWith:
+				{
+					if ( CFStringHasSuffix( strRef, patRef ) )
+					{
+						bOutResult = true;
+					}
+				}
+				break;
+
+				case eDSContains:
+				case eDSiContains:
+				{
+					range = CFStringFind( strRef, patRef, 0 );
+					if ( range.location != kCFNotFound )
+					{
+						bOutResult = true;
+					}
+				}
+				break;
+
+				case eDSLessThan:
+				case eDSiLessThan:
+				{
+					if ( CFStringCompare( strRef, patRef, 0 ) == kCFCompareLessThan )
+					{
+						bOutResult = true;
+					}
+				}
+				break;
+
+				case eDSGreaterThan:
+				case eDSiGreaterThan:
+				{
+					if ( CFStringCompare( strRef, patRef, 0 ) == kCFCompareGreaterThan )
+					{
+						bOutResult = true;
+					}
+				}
+				break;
+
+				case eDSLessEqual:
+				case eDSiLessEqual:
+				{
+					if ( CFStringCompare( strRef, patRef, 0 ) != kCFCompareGreaterThan )
+					{
+						bOutResult = true;
+					}
+				}
+				break;
+
+				case eDSGreaterEqual:
+				case eDSiGreaterEqual:
+				{
+					if ( CFStringCompare( strRef, patRef, 0 ) != kCFCompareLessThan )
+					{
+						bOutResult = true;
+					}
+				}
+				break;
+
+				default:
+					break;
+			}
+
+			CFRelease( patRef );
+			patRef = nil;
+			
+			if (bOutResult)
+			{
+				break;
+			}
+		}
 	}
-
-	switch ( inHow )
-	{
-		case eDSExact:
-		case eDSiExact:
-		{
-			if ( CFStringCompare( strRef, patRef, 0 ) == kCFCompareEqualTo )
-			{
-				bOutResult = true;
-			}
-		}
-		break;
-
-		case eDSStartsWith:
-		case eDSiStartsWith:
-		{
-			if ( CFStringHasPrefix( strRef, patRef ) )
-			{
-				bOutResult = true;
-			}
-		}
-		break;
-
-		case eDSEndsWith:
-		case eDSiEndsWith:
-		{
-			if ( CFStringHasSuffix( strRef, patRef ) )
-			{
-				bOutResult = true;
-			}
-		}
-		break;
-
-		case eDSContains:
-		case eDSiContains:
-		{
-			range = CFStringFind( strRef, patRef, 0 );
-			if ( range.location != kCFNotFound )
-			{
-				bOutResult = true;
-			}
-		}
-		break;
-
-		case eDSLessThan:
-		case eDSiLessThan:
-		{
-			if ( CFStringCompare( strRef, patRef, 0 ) == kCFCompareLessThan )
-			{
-				bOutResult = true;
-			}
-		}
-		break;
-
-		case eDSGreaterThan:
-		case eDSiGreaterThan:
-		{
-			if ( CFStringCompare( strRef, patRef, 0 ) == kCFCompareGreaterThan )
-			{
-				bOutResult = true;
-			}
-		}
-		break;
-
-		case eDSLessEqual:
-		case eDSiLessEqual:
-		{
-			if ( CFStringCompare( strRef, patRef, 0 ) != kCFCompareGreaterThan )
-			{
-				bOutResult = true;
-			}
-		}
-		break;
-
-		case eDSGreaterEqual:
-		case eDSiGreaterEqual:
-		{
-			if ( CFStringCompare( strRef, patRef, 0 ) != kCFCompareLessThan )
-			{
-				bOutResult = true;
-			}
-		}
-		break;
-
-		default:
-			break;
-	}
-
+	
 	CFRelease( strRef );
 	strRef = nil;
-	CFRelease( patRef );
-	patRef = nil;
 
 	return( bOutResult );
 
-} // DoesThisMatch
+} // DoAnyMatch
 
 
 // ---------------------------------------------------------------------------
@@ -11814,7 +13035,7 @@ char* CNiPlugIn:: BuildRegExp ( const char *inString )
 		return( outRegExp );
 	}
 
-	// JT we need to first make sure the string is composed UTF8
+	//we need to first make sure the string is composed UTF8
 	//allocate at most twice the length plus one ie. assume worst case to escape every character
 	outRegExp = (char *) calloc( 1, 1 + 2*strlen(inString) );
 
@@ -11852,6 +13073,100 @@ char* CNiPlugIn:: BuildRegExp ( const char *inString )
 
 
 // ---------------------------------------------------------------------------
+//	* BuildMultiRegExp
+// ---------------------------------------------------------------------------
+
+char* CNiPlugIn:: BuildMultiRegExp ( CAttributeList *inPattMatchList )
+
+{
+	char		   *outRegExp	= nil;
+	char		  **regExpStrs  = nil;
+	unsigned long  	i			= 0;
+	unsigned long	j			= 0;
+	unsigned long	inLength	= 0;
+	uInt32			lenOfStrs   = 0;
+	char		   *loopString  = nil;
+	uInt32			partCount   = 0;
+	uInt32			idx			= 0;
+
+	if ( (inPattMatchList == nil) || (inPattMatchList->GetCount() < 1) )
+	{
+		return( outRegExp );
+	}
+	
+	if (inPattMatchList->GetCount() == 1)
+	{
+		char *aStringValue = nil;
+		if (inPattMatchList->GetAttribute(1, &aStringValue) == eDSNoErr)
+		{
+			return(BuildRegExp(aStringValue));
+		}
+		else
+		{
+			return(nil);
+		}
+	}
+	
+	partCount = inPattMatchList->GetCount();
+	regExpStrs = (char **)calloc( partCount + 1, sizeof(char *) );
+
+	for (idx = 0; idx < partCount; idx++)
+	{
+		if ( eDSNoErr == inPattMatchList->GetAttribute(idx+1, &loopString) )
+		{
+			inLength = strlen(loopString);
+			//we need to first make sure the string is composed UTF8
+			//allocate at most twice the length plus one ie. assume worst case to escape every character
+			regExpStrs[idx] = (char *) calloc( 1, 1 + 2*inLength );
+
+			j = 0;
+			for (i=0; i< inLength; i++)
+			{
+				//workaround since ni_search cannot handle UTF-8 characters
+				//regex used by ni_search also has problems with ')' and '('
+				if ( (isascii(loopString[i])) && ( (loopString[i]) != '(' ) && ( (loopString[i]) != ')' ) && ( (loopString[i]) != '{' ) && ( (loopString[i]) != '}' ) )
+				{
+					if (isalnum(loopString[i]) || isspace(loopString[i]) || (loopString[i]) == '_' || (loopString[i]) == '-')
+					{
+						memcpy(regExpStrs[idx]+j,&loopString[i],1);
+						j++;
+					}
+					else
+					{
+						memcpy(regExpStrs[idx]+j,"\\",1);
+						j++;
+						memcpy(regExpStrs[idx]+j,& loopString[i],1);
+						j++;
+					}
+				}
+				else
+				{
+					memcpy(regExpStrs[idx]+j,".",1);
+					j++;
+				}
+			}
+			lenOfStrs += strlen(regExpStrs[idx]);
+		}
+	}
+
+	//build the output with the parts
+	outRegExp = (char *)calloc(1, lenOfStrs + partCount);
+	strcpy(outRegExp,regExpStrs[0]);
+	free(regExpStrs[0]);
+	for (idx = 1; idx < partCount; idx++)
+	{
+		strcat(outRegExp,"|");
+		strcat(outRegExp,regExpStrs[idx]);
+		free(regExpStrs[idx]);
+	}
+	free(regExpStrs);
+
+	return( outRegExp );
+
+} // BuildMultiRegExp
+
+
+// ---------------------------------------------------------------------------
 //	* ContinueDeallocProc
 // ---------------------------------------------------------------------------
 
@@ -11863,22 +13178,6 @@ void CNiPlugIn::ContinueDeallocProc ( void* inContinueData )
 	{
 	// fAuthHndl is only used in DoMultiPassAuth
 	// and it is freed? there by timSessionEnd
-		if ( pContinue->fAliasList != nil )
-		{
-			::dsDataListDeallocatePriv( pContinue->fAliasList );
-			//need to free the header as well
-			free( pContinue->fAliasList );
-			pContinue->fAliasList = nil;
-		}
-
-		if ( pContinue->fAliasAttribute != nil )
-		{
-			::dsDataListDeallocatePriv( pContinue->fAliasAttribute );
-			//need to free the header as well
-			free( pContinue->fAliasAttribute );
-			pContinue->fAliasAttribute = nil;
-		}
-
 		if ( pContinue->fDataBuff != nil )
 		{
 			::dsDataBufferDeallocatePriv( pContinue->fDataBuff );
@@ -11916,53 +13215,6 @@ void CNiPlugIn::ContextDeallocProc ( void* inContextData )
 
 
 // ---------------------------------------------------------------------------
-//	* BuildDomainPathFromName
-// ---------------------------------------------------------------------------
-
-char* CNiPlugIn::BuildDomainPathFromName( char* inDomainName )
-{
-	CString		csPathStr( 128 );
-	char	   *pathStr = nil;	
-
-	if ( inDomainName == NULL )
-		return NULL;
-	
-	if (::strncmp( inDomainName, kstrRootName, ::strlen( kstrRootName ) ) != 0)
-	{
-		return nil;
-	}
-	
-	// Check for local domain
-	if ( (::strcmp( inDomainName, kstrLocalDomain ) == 0) ||
-		 (::strcmp( inDomainName + ::strlen( kstrRootNodeName ), kstrLocalDot ) == 0) ||
-		 (::strcmp( inDomainName, kstrDefaultLocalNodeName ) == 0 ) )
-	{
-		csPathStr.Set( "." );
-	}
-	else if ( (::strcmp( inDomainName, kstrRootName ) == 0) ||
-			  (::strcmp( inDomainName, kstrPrefixName ) == 0) ||
-			  (::strcmp( inDomainName, kstrRootNodeName ) == 0) )
-	{
-		// Fully qualified root
-		csPathStr.Set( kstrDelimiter );
-	}
-	else if ( ::strcmp( inDomainName, kstrParentDomain ) == 0 )
-	{
-		csPathStr.Set( ".." );
-	}
-	else
-	{
-		csPathStr.Set( inDomainName + 13 ); //this strips off the first "/NetInfo/root" prefix
-	}
-
-	pathStr = (char *)::calloc( csPathStr.GetLength() + 1, sizeof( char ) );
-	strcpy( pathStr, csPathStr.GetData());
-	
-	return pathStr;
-} // BuildDomainPathFromName
-
-
-// ---------------------------------------------------------------------------
 //	* IsValidRealname
 // ---------------------------------------------------------------------------
 
@@ -11973,6 +13225,7 @@ sInt32 CNiPlugIn::IsValidRealname ( char   *inRealname,
 	sInt32			siResult	= eDSInvalidRecordName;
 	ni_id			niDirID;
 	ni_status		niStatus	= NI_OK;
+	char		   *normalizedRealname		= nil;
 	char		   *inConstRegExpRecName	= nil;
 	ni_entrylist	niEntryList;
 	u_int			en			= 0;
@@ -11992,9 +13245,10 @@ sInt32 CNiPlugIn::IsValidRealname ( char   *inRealname,
 	if ( niStatus == NI_OK )
 	{
 		//make the reg exp that ni_search needs
-		inConstRegExpRecName = BuildRegExp(inRealname);
+		normalizedRealname = NormalizeNIString(inRealname, "realname");
+		inConstRegExpRecName = BuildRegExp(normalizedRealname);
 		niStatus = ::ni_search( inDomain, &niDirID, (char *)"realname", inConstRegExpRecName, REG_ICASE, &niEntryList );
-		free(inConstRegExpRecName);
+		DSFreeString(inConstRegExpRecName);
 		if ( niStatus == NI_OK )
 		{
 			for ( en = 0; en < niEntryList.ni_entrylist_len; en++ )
@@ -12012,7 +13266,7 @@ sInt32 CNiPlugIn::IsValidRealname ( char   *inRealname,
 						//returned what was requested ie. it will always return at least it but probably much more
 						//so filter out the much more
 						if (DoesThisMatch( (const char*)(niPropList.nipl_val[ niIndex ].nip_val.ninl_val[ 0 ]),
-											(const char*)inRealname, eDSExact ))
+											(const char*)normalizedRealname, eDSExact ))
 						{
 							//get the record name now that we found a match
 							niIndexComp = ::ni_proplist_match( niPropList, "name", NULL );
@@ -12038,7 +13292,10 @@ sInt32 CNiPlugIn::IsValidRealname ( char   *inRealname,
 			}
 		
 		} // found some realname matches using ni_search
-								
+		if ( normalizedRealname != inRealname )
+		{
+			DSFreeString( normalizedRealname );
+		}
 	} //if ( niStatus == NI_OK ) for ::ni_pathsearch( inDomain, &niDirID, "/users" );
 
 	gNetInfoMutex->Signal();
@@ -12046,46 +13303,6 @@ sInt32 CNiPlugIn::IsValidRealname ( char   *inRealname,
 	return( siResult );
 
 } // IsValidRealname
-
-
-// ---------------------------------------------------------------------------
-//	* UserIsAdmin
-// ---------------------------------------------------------------------------
-
-bool CNiPlugIn::UserIsAdmin ( const char   *inUserName,
-							  void   *inDomain )
-{
-	ni_id			niDirID;
-	ni_status		niStatus	= NI_OK;
-	ni_proplist		niPropList;
-	ni_index		niIndex		= 0;
-	bool			isAdmin = false;
-
-	if ( inUserName == NULL || inDomain == NULL ) {
-		return false;
-	}
-	
-	gNetInfoMutex->Wait();
-
-	niStatus = ::ni_pathsearch( inDomain, &niDirID, "/groups/admin" );
-
-	if (niStatus == NI_OK) {
-		niStatus = ::ni_read( inDomain, &niDirID, &niPropList );
-
-		if (niStatus == NI_OK) {
-			niIndex = ::ni_proplist_match( niPropList, "users", nil );
-			if (niIndex != NI_INDEX_NULL) {
-				niIndex = ni_namelist_match(niPropList.nipl_val[niIndex].nip_val,inUserName);
-				isAdmin = (niIndex != NI_INDEX_NULL);
-			}
-			::ni_proplist_free( &niPropList );
-		}
-	}
-	
-	gNetInfoMutex->Signal();
-
-	return isAdmin;
-}
 
 
 // ---------------------------------------------------------------------------
@@ -12162,31 +13379,6 @@ char* CNiPlugIn::GetUserNameForUID ( uid_t   inUserID,
 
 
 // ---------------------------------------------------------------------------
-//	* GetUserNameFromAuthBuffer
-//    retrieve the username from a standard auth buffer
-//    buffer format should be 4 byte length followed by username, then optional
-//    additional data after. Buffer length must be at least 5 (length + 1 character name)
-// ---------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::GetUserNameFromAuthBuffer ( tDataBufferPtr inAuthData, unsigned long inUserNameIndex, 
-											  char  **outUserName )
-{
-	tDataListPtr dataList = dsAuthBufferGetDataListAllocPriv(inAuthData);
-	if (dataList != NULL)
-	{
-		*outUserName = dsDataListGetNodeStringPriv(dataList, inUserNameIndex);
-		// this allocates a copy of the string
-		
-		dsDataListDeallocatePriv(dataList);
-		free(dataList);
-		dataList = NULL;
-		return eDSNoErr;
-	}
-	return eDSInvalidBuffFormat;
-}
-
-
-// ---------------------------------------------------------------------------
 //	* GetNetInfoAuthAuthorityHandler
 // ---------------------------------------------------------------------------
 
@@ -12207,97 +13399,6 @@ NetInfoAuthAuthorityHandlerProc CNiPlugIn::GetNetInfoAuthAuthorityHandler ( cons
 	return NULL;
 }
 
-
-// ---------------------------------------------------------------------------
-//	* ParseLocalCacheUserData
-//    retrieve network nodename, user recordname, and user generated UID from authdata
-//    format is version;tag;data
-// ---------------------------------------------------------------------------
-
-sInt32 CNiPlugIn::ParseLocalCacheUserData ( const char	   *inAuthData,
-											char		  **outNodeName,
-											char		  **outRecordName,
-											char		  **outGUID )
-{
-	char* authData = NULL;
-	char* current = NULL;
-	char* tempPtr = NULL;
-	sInt32 result = eDSAuthFailed;
-
-	if ( inAuthData == NULL )
-	{
-		return (sInt32)eDSEmptyBuffer;
-	}
-	if ( outNodeName == NULL )
-	{
-		return (sInt32)eDSEmptyNodeName;
-	}
-	if ( outRecordName == NULL )
-	{
-		return (sInt32)eDSEmptyRecordName;
-	}
-	if ( outGUID == NULL )
-	{
-		return (sInt32)eDSEmptyParameter;
-	}
-
-	authData = strdup(inAuthData);
-	if (authData == NULL)
-	{
-		return eDSAuthFailed;
-	}
-	current = authData;
-	do {
-		tempPtr = strsep(&current, ":");
-		if (tempPtr == NULL)
-		{
-			result = eDSEmptyNodeName;
-			break;
-		}
-		*outNodeName = strdup(tempPtr);
-		
-		tempPtr = strsep(&current, ":");
-		if (tempPtr == NULL)
-		{
-			result = eDSEmptyRecordName;
-			break;
-		}
-		*outRecordName = strdup(tempPtr);
-		
-		tempPtr = strsep(&current, ":");
-		if (tempPtr == NULL)
-		{
-			result = eDSEmptyParameter;
-			break;
-		}
-		*outGUID = strdup(tempPtr);
-		
-		result = eDSNoErr;
-	} while (false);
-	
-	free(authData);
-	authData = NULL;
-	
-	if (result != eDSNoErr)
-	{
-		if (*outNodeName != NULL)
-		{
-			free(*outNodeName);
-			*outNodeName = NULL;
-		}
-		if (*outRecordName != NULL)
-		{
-			free(*outRecordName);
-			*outRecordName = NULL;
-		}
-		if (*outGUID != NULL)
-		{
-			free(*outGUID);
-			*outGUID = NULL;
-		}
-	}
-	return result;
-} // ParseLocalCacheUserData
 
 //------------------------------------------------------------------------------------
 //	* FindNodeForSearchPolicyAuthUser
@@ -12451,9 +13552,156 @@ tDataList* CNiPlugIn::FindNodeForSearchPolicyAuthUser ( const char *userName )
 } // FindNodeForSearchPolicyAuthUser
 
 
+sInt32 CNiPlugIn::GetSubNodes ( sNIContextData *inContext, set<string> & nodeNames )
+{
+	sInt32			siResult		= 0;
+	sInt32			entryListCnt	= 0;
+	sInt32			entryListLen	= 0;
+	sInt32			nameListCnt		= 0;
+	sInt32			nameListlen		= 0;
+	ni_status		niStatus		= NI_OK;
+	bool			isLocal			= false;
+	char		   *name			= nil;
+	char		   *p				= nil;
+	ni_namelist	   *nameList		= nil;
+	ni_id			machines;
+	ni_id			niDirID;
+	ni_entrylist	niEntryList;
+	char		   *domName			= nil;
+	char		   *tempName		= nil;
+	bool			bNodeServes		= false;
+	uInt32			pv				= 0;
+	char		   *aNIDomainName	= nil;
 
+	do
+	{		
+		NI_INIT( &niDirID );
 
+		gNetInfoMutex->Wait();
 
+		void *aNIDomain = RetrieveNIDomain(inContext);
+		if (aNIDomain != NULL)
+		{
+			if (inContext->fDomainName != nil)
+			{
+				aNIDomainName = strdup(inContext->fDomainName);
+			}
+			do
+			{
+				NI_INIT( &machines );
+				siResult = ni_pathsearch( aNIDomain, &machines, "/machines" );
+				if ( siResult != eDSNoErr )
+				{
+					break;
+				}
 
+				NI_INIT( &niEntryList );
+				niStatus = ni_list( aNIDomain, &machines, "serves", &niEntryList );
+				if ( niStatus != NI_OK )
+				{
+					break;
+				}
+			}
+			while (false);
+		}
+		else
+		{
+			niStatus = (ni_status)eDSInvalidSession;
+		}
+		gNetInfoMutex->Signal();
+
+		if ( niStatus != 0 ) break;
+
+		entryListLen = niEntryList.ni_entrylist_len;
+
+		for ( entryListCnt = 0; entryListCnt < entryListLen; entryListCnt++ )
+		{
+			//check here for machines that serve themselves
+			bNodeServes = false;
+			nameList = niEntryList.ni_entrylist_val[ entryListCnt ].names;
+
+			//eliminate nodes that ONLY serve themselves
+			if (nameList != NULL)
+			{
+				// For each value in the namelist for this property
+				for ( pv = 0; pv < nameList->ni_namelist_len; pv++ )
+				{
+					if (nil == strstr(nameList->ni_namelist_val[ pv ],"/local"))
+					{
+						bNodeServes = true;
+						break;
+					}
+				}
+			}
+			
+			if (!bNodeServes)
+			{
+				continue;
+			}
+
+			if ( nameList == nil || nameList->ni_namelist_len == 0 )
+			{
+				continue;
+			}
+
+			nameListlen = nameList->ni_namelist_len;
+			for ( nameListCnt = 0; nameListCnt < nameListlen; nameListCnt++ )
+			{
+				name = nameList->ni_namelist_val[ nameListCnt ];
+				if ( ::strncmp( name, "./", 2 ) == 0 
+					 || ::strncmp( name, "../", 3 ) == 0 )
+				{
+					continue;
+				}
+
+				isLocal = ::strstr( name, "/local" ) != nil;
+
+				p = strchr( name, '/' );
+				if ( p == nil )
+				{
+					continue;
+				}
+				*p = '\0';
+				
+				if (domName != nil)
+				{
+					free(domName);
+					domName = nil;
+				}
+				if (aNIDomainName != nil)
+				{
+					domName = (char *)calloc(1, strlen(aNIDomainName) + 1 + strlen(name) + 1);
+					strcpy(domName, aNIDomainName);
+					if (strlen(domName) > 1)
+					{
+						strcat(domName,"/");
+					}
+					strcat(domName,name);
+
+					if (isLocal == false)
+					{
+						string aString(domName);
+						nodeNames.insert(aString);
+					}
+				}
+			}
+			if (tempName != nil)
+			{
+				free(tempName);
+				tempName = nil;
+			}
+			if (domName != nil)
+			{
+				free(domName);
+				domName = nil;
+			}
+		}
+		
+		ni_entrylist_free(&niEntryList);
+	}
+	while (false);
 	
-	
+	return( siResult );
+
+} // GetSubNodes
+

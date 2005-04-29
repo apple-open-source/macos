@@ -1,5 +1,5 @@
 /*
- * Copyright 1997,1998 by Alan Hourihane, Wigan, England.
+ * Copyright 1997-2003 by Alan Hourihane, North Wales, UK.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -23,7 +23,7 @@
  * 
  * Trident 3DImage' accelerated options.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/image_accel.c,v 1.24 2001/10/28 03:33:51 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/image_accel.c,v 1.28 2004/02/20 23:34:11 alanh Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -134,16 +134,6 @@ ImageAccelInit(ScreenPtr pScreen)
     XAAInfoRecPtr infoPtr;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     TRIDENTPtr pTrident = TRIDENTPTR(pScrn);
-    BoxRec AvailFBArea;
-
-    AvailFBArea.x1 = 0;
-    AvailFBArea.y1 = 0;
-    AvailFBArea.x2 = pScrn->displayWidth;
-    AvailFBArea.y2 = (pTrident->FbMapSize - 4096) / (pScrn->displayWidth *
-					    pScrn->bitsPerPixel / 8);
-    if (AvailFBArea.y2 > 2047) AvailFBArea.y2 = 2047;
-
-    xf86InitFBManager(pScreen, &AvailFBArea);
 
     if (pTrident->NoAccel)
 	return FALSE;

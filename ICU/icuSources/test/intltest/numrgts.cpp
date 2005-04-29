@@ -1,8 +1,8 @@
-/********************************************************************
+/***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
+ * Copyright (c) 1997-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
+ ***********************************************************************/
  
 #include "unicode/utypes.h"
 
@@ -11,6 +11,7 @@
 #include "numrgts.h"
 
 #include <float.h> // DBL_MIN, DBL_MAX
+#include <stdio.h>
 
 #include "unicode/dcfmtsym.h"
 #include "unicode/decimfmt.h"
@@ -18,10 +19,12 @@
 #include "unicode/resbund.h"
 #include "unicode/calendar.h"
 #include "unicode/datefmt.h"
+#include "putilimp.h"
+
 int32_t gMyNumberFormatTestClassID;
 UClassID MyNumberFormatTest::getDynamicClassID()  const
 {
-	return (UClassID)&gMyNumberFormatTestClassID;
+    return (UClassID)&gMyNumberFormatTestClassID;
 }
 
 
@@ -103,11 +106,35 @@ NumberFormatRegressionTest::runIndexedTest( int32_t index, UBool exec, const cha
 }
 
 UBool 
+NumberFormatRegressionTest::failure(UErrorCode status, const UnicodeString& msg, const Locale& l)
+{
+    if(U_FAILURE(status)) {
+        errln(UnicodeString("FAIL: ", "") + msg
+              + UnicodeString(" failed, error ", "") + UnicodeString(u_errorName(status), "") + UnicodeString(l.getName(),""));
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+UBool 
+NumberFormatRegressionTest::failure(UErrorCode status, const UnicodeString& msg, const char *l)
+{
+    if(U_FAILURE(status)) {
+        errln(UnicodeString("FAIL: ", "") + msg
+              + UnicodeString(" failed, error ", "") + UnicodeString(u_errorName(status), "") + UnicodeString(l, ""));
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+UBool 
 NumberFormatRegressionTest::failure(UErrorCode status, const UnicodeString& msg)
 {
     if(U_FAILURE(status)) {
         errln(UnicodeString("FAIL: ", "") + msg
-            + UnicodeString(" failed, error ", "") + UnicodeString(u_errorName(status), ""));
+              + UnicodeString(" failed, error ", "") + UnicodeString(u_errorName(status), ""));
         return TRUE;
     }
 
@@ -170,7 +197,7 @@ void NumberFormatRegressionTest::Test4088161 (void)
 {
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormat *df = new DecimalFormat(status);
-    failure(status, "new DecimalFormat");
+    failure(status, "new DecimalFormat", "");
     double d = 100;
     df->setMinimumFractionDigits(0);
     df->setMaximumFractionDigits(16);
@@ -199,13 +226,13 @@ void NumberFormatRegressionTest::Test4087245 (void)
 {
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormatSymbols *symbols = new DecimalFormatSymbols(status);
-    failure(status, "new DecimalFormatSymbols");
+    failure(status, "new DecimalFormatSymbols", "");
     // {sfb} One note about this test: if you pass in a pointer
     // to the symbols, they are adopted and this test will fail,
     // even though that is the correct behavior.  To test the cloning
     // of the symbols, it is necessary to pass in a reference to the symbols
     DecimalFormat *df = new DecimalFormat("#,##0.0", *symbols, status);
-    failure(status, "new DecimalFormat with symbols");
+    failure(status, "new DecimalFormat with symbols", "");
     int32_t n = 123;
     UnicodeString buf1;
     UnicodeString buf2;
@@ -229,7 +256,7 @@ void NumberFormatRegressionTest::Test4087535 (void)
 {
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormat *df = new DecimalFormat(status);
-    failure(status, "new DecimalFormat");
+    failure(status, "new DecimalFormat", "");
     df->setMinimumIntegerDigits(0);
 
     double n = 0;
@@ -254,7 +281,7 @@ void NumberFormatRegressionTest::Test4088503 (void)
 {
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormat *df = new DecimalFormat(status);
-    failure(status, "new DecimalFormat");
+    failure(status, "new DecimalFormat", "");
     df->setGroupingSize(0);
     UnicodeString sBuf;
     FieldPosition fp(FieldPosition::DONT_CARE);
@@ -285,7 +312,7 @@ NumberFormatRegressionTest::assignFloatValue(float returnfloat)
     logln(UnicodeString(" VALUE ") + returnfloat);
     UErrorCode status = U_ZERO_ERROR;
     NumberFormat *nfcommon =  NumberFormat::createCurrencyInstance(Locale::getUS(), status);
-    failure(status, "NumberFormat::createCurrencyInstance");
+    failure(status, "NumberFormat::createCurrencyInstance", Locale::getUS());
     nfcommon->setGroupingUsed(FALSE);
 
     UnicodeString stringValue;
@@ -293,7 +320,7 @@ NumberFormatRegressionTest::assignFloatValue(float returnfloat)
     logln(" DISPLAYVALUE " + stringValue);
     Formattable result;
     nfcommon->parse(stringValue, result, status);
-    failure(status, "nfcommon->parse");
+    failure(status, "nfcommon->parse", Locale::getUS());
     float floatResult = (float) (result.getType() == Formattable::kDouble 
                                         ? result.getDouble() : result.getLong());
     if( uprv_fabs(floatResult - returnfloat) > 0.0001)
@@ -312,12 +339,12 @@ void NumberFormatRegressionTest::Test4059870(void)
 {
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormat *format = new DecimalFormat("00", status);
-    failure(status, "new Decimalformat");
+    failure(status, "new Decimalformat", Locale::getUS());
     //try {
         Formattable result;
         UnicodeString str;
         format->parse(UnicodeString("0"), result, status);
-        failure(status, "format->parse");
+        failure(status, "format->parse", Locale::getUS());
         
     /*} 
     catch (Exception e) { 
@@ -335,7 +362,7 @@ void NumberFormatRegressionTest::Test4083018 (void)
 {
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormatSymbols *dfs = new DecimalFormatSymbols(status);
-    failure(status, "new DecimalFormatSymbols");
+    failure(status, "new DecimalFormatSymbols", Locale::getUS());
     //try {
         if (dfs != NULL)
             logln("Test Passed!");
@@ -356,7 +383,7 @@ void NumberFormatRegressionTest::Test4071492 (void)
     double x = 0.00159999;
     UErrorCode status = U_ZERO_ERROR;
     NumberFormat *nf = NumberFormat::createInstance(status);
-    failure(status, "NumberFormat::createInstance");
+    failure(status, "NumberFormat::createInstance", Locale::getUS());
     nf->setMaximumFractionDigits(4);
     UnicodeString out;
     FieldPosition pos(FieldPosition::DONT_CARE);
@@ -385,7 +412,7 @@ void NumberFormatRegressionTest::Test4086575(void)
       delete nf1;
       return;
     }
-    failure(status, "NumberFormat::createInstance");
+    failure(status, "NumberFormat::createInstance", Locale::getFrance());
     
     // C++ workaround to make sure cast works
     // Wouldn't dynamic_cast<DecimalFormat*> be great?
@@ -402,7 +429,7 @@ void NumberFormatRegressionTest::Test4086575(void)
     // No group separator
     logln("...applyLocalizedPattern ###,00;(###,00) ");
     nf->applyLocalizedPattern(UnicodeString("###,00;(###,00)"), status);
-    failure(status, "nf->applyLocalizedPattern");
+    failure(status, "nf->applyLocalizedPattern", Locale::getFrance());
     logln("nf toPattern2: " + nf->toPattern(temp));
     logln("nf toLocPattern2: " + nf->toLocalizedPattern(temp));
 
@@ -421,7 +448,7 @@ void NumberFormatRegressionTest::Test4086575(void)
     };
     UnicodeString pat(patChars, 19, 19);
     nf->applyLocalizedPattern(pat, status);
-    failure(status, "nf->applyLocalizedPattern");
+    failure(status, "nf->applyLocalizedPattern", Locale::getFrance());
     logln("nf toPattern2: " + nf->toPattern(temp));
     logln("nf toLocPattern2: " + nf->toLocalizedPattern(temp));
     UnicodeString buffer;
@@ -616,7 +643,7 @@ void NumberFormatRegressionTest::Test4095713 (void)
       delete df;
       return;
     }
-    failure(status, "new DecimalFOrmat");
+    failure(status, "new DecimalFormat");
     UnicodeString str("0.1234");
     double d1 = 0.1234;
     //Double d1 = new Double(str);
@@ -715,8 +742,10 @@ void NumberFormatRegressionTest::Test4092480 (void)
  * interpreted as monetary separator if currency symbol is seen!
  */
 void NumberFormatRegressionTest::Test4087244 (void) {
-    Locale *de = new Locale("pt","PT_PREEURO");
     UErrorCode status = U_ZERO_ERROR;
+    char loc[256] = {0};
+    uloc_canonicalize("pt_PT_PREEURO", loc, 256, &status);
+    Locale *de = new Locale(loc);
     NumberFormat *nf = NumberFormat::createCurrencyInstance(*de, status);
     if(U_FAILURE(status)) {
       errln("Error creating DecimalFormat: %s", u_errorName(status));
@@ -782,13 +811,15 @@ void NumberFormatRegressionTest::Test4070798 (void)
     UnicodeString expectedPercent(chars3, 9, 9);
 
     UErrorCode status = U_ZERO_ERROR;
-    formatter = NumberFormat::createInstance(Locale("fr_FR_PREEURO"), status);
+    char loc[256]={0};
+    int len = uloc_canonicalize("fr_FR_PREEURO", loc, 256, &status);
+    formatter = NumberFormat::createInstance(Locale(loc), status);
     if(U_FAILURE(status)) {
       errln("Error creating DecimalFormat: %s", u_errorName(status));
       delete formatter;
       return;
     }
-    failure(status, "NumberFormat::createNumberInstance");
+    failure(status, "NumberFormat::createNumberInstance", loc);
     tempString = formatter->format (-5789.9876, tempString);
 
     if (tempString == expectedDefault) {
@@ -799,9 +830,9 @@ void NumberFormatRegressionTest::Test4070798 (void)
         " Received " + tempString );
     }
     delete formatter;
-
-    formatter = NumberFormat::createCurrencyInstance(Locale("fr_FR_PREEURO"), status);
-    failure(status, "NumberFormat::createCurrencyInstance");
+    len = uloc_canonicalize("fr_FR_PREEURO", loc, 256, &status);
+    formatter = NumberFormat::createCurrencyInstance(loc, status);
+    failure(status, "NumberFormat::createCurrencyInstance", loc);
     tempString.remove();
     tempString = formatter->format( 5789.9876, tempString );
 
@@ -813,9 +844,10 @@ void NumberFormatRegressionTest::Test4070798 (void)
         " Received " + tempString );
     }
     delete formatter;
-
-    formatter = NumberFormat::createPercentInstance(Locale("fr_FR_PREEURO"), status);
-    failure(status, "NumberFormat::createPercentInstance");
+   
+    uloc_canonicalize("fr_FR_PREEURO", loc, 256, &status);
+    formatter = NumberFormat::createPercentInstance(Locale(loc), status);
+    failure(status, "NumberFormat::createPercentInstance", loc);
     tempString.remove();
     tempString = formatter->format (-5789.9876, tempString);
 
@@ -856,7 +888,7 @@ void NumberFormatRegressionTest::Test4071005 (void)
 
     UErrorCode status = U_ZERO_ERROR;
     formatter = NumberFormat::createInstance(Locale::getCanadaFrench(), status);
-    failure(status, "NumberFormat::createNumberInstance");
+    failure(status, "NumberFormat::createNumberInstance", Locale::getCanadaFrench());
     tempString = formatter->format (-5789.9876, tempString);
 
     if (tempString == expectedDefault) {
@@ -869,7 +901,7 @@ void NumberFormatRegressionTest::Test4071005 (void)
     delete formatter;
 
     formatter = NumberFormat::createCurrencyInstance(Locale::getCanadaFrench(), status);
-    failure(status, "NumberFormat::createCurrencyInstance");
+    failure(status, "NumberFormat::createCurrencyInstance", Locale::getCanadaFrench());
     tempString.remove();
     tempString = formatter->format( 5789.9876, tempString );
 
@@ -883,7 +915,7 @@ void NumberFormatRegressionTest::Test4071005 (void)
     delete formatter;
 
     formatter = NumberFormat::createPercentInstance(Locale::getCanadaFrench(), status);
-    failure(status, "NumberFormat::createPercentInstance");
+    failure(status, "NumberFormat::createPercentInstance", Locale::getCanadaFrench());
     tempString.remove();
     tempString = formatter->format (-5789.9876, tempString);
 
@@ -915,8 +947,10 @@ void NumberFormatRegressionTest::Test4071014 (void)
     UnicodeString expectedPercent("-578.999%");
 
     UErrorCode status = U_ZERO_ERROR;
-    formatter = NumberFormat::createInstance(Locale("de_DE_PREEURO"), status);
-    failure(status, "NumberFormat::createNumberInstance");
+    char loc[256]={0};
+    uloc_canonicalize("de_DE_PREEURO", loc, 256, &status);
+    formatter = NumberFormat::createInstance(Locale(loc), status);
+    failure(status, "NumberFormat::createNumberInstance", loc);
     tempString.remove();
     tempString = formatter->format (-5789.9876, tempString);
 
@@ -928,9 +962,9 @@ void NumberFormatRegressionTest::Test4071014 (void)
         " Received " + tempString );
     }
     delete formatter;
-
-    formatter = NumberFormat::createCurrencyInstance(Locale("de_DE_PREEURO"), status);
-    failure(status, "NumberFormat::createCurrencyInstance");
+    uloc_canonicalize("de_DE_PREEURO", loc, 256, &status);
+    formatter = NumberFormat::createCurrencyInstance(Locale(loc), status);
+    failure(status, "NumberFormat::createCurrencyInstance", loc);
     tempString.remove();
     tempString = formatter->format( 5789.9876, tempString );
 
@@ -944,7 +978,7 @@ void NumberFormatRegressionTest::Test4071014 (void)
     delete formatter;
 
     formatter = NumberFormat::createPercentInstance(Locale::getGermany(), status);
-    failure(status, "NumberFormat::createPercentInstance");
+    failure(status, "NumberFormat::createPercentInstance", Locale::getGermany());
     tempString.remove();
     tempString = formatter->format (-5789.9876, tempString);
 
@@ -976,7 +1010,9 @@ void NumberFormatRegressionTest::Test4071859 (void)
     expectedCurrency = expectedCurrency.unescape();
 
     UErrorCode status = U_ZERO_ERROR;
-    formatter = NumberFormat::createInstance(Locale("it_IT_PREEURO"), status);
+    char loc[256]={0};
+    uloc_canonicalize("it_IT_PREEURO", loc, 256, &status);
+    formatter = NumberFormat::createInstance(Locale(loc), status);
     failure(status, "NumberFormat::createNumberInstance");
     tempString = formatter->format (-5789.9876, tempString);
 
@@ -988,8 +1024,8 @@ void NumberFormatRegressionTest::Test4071859 (void)
         " Received " + tempString );
     }
     delete formatter;
-
-    formatter = NumberFormat::createCurrencyInstance(Locale("it_IT_PREEURO"), status);
+    uloc_canonicalize("it_IT_PREEURO", loc, 256, &status);
+    formatter = NumberFormat::createCurrencyInstance(Locale(loc), status);
     failure(status, "NumberFormat::createCurrencyInstance");
     tempString.remove();
     tempString = formatter->format( -5789.9876, tempString );
@@ -1002,8 +1038,8 @@ void NumberFormatRegressionTest::Test4071859 (void)
         " Received " + tempString );
     }
     delete formatter;
-
-    formatter = NumberFormat::createPercentInstance(Locale("it_IT_PREEURO"), status);
+    uloc_canonicalize("it_IT_PREEURO", loc, 256, &status);
+    formatter = NumberFormat::createPercentInstance(Locale(loc), status);
     failure(status, "NumberFormat::createPercentInstance");
     tempString.remove();
     tempString = formatter->format (-5789.9876, tempString);
@@ -1306,7 +1342,7 @@ void NumberFormatRegressionTest::Test4106658(void)
     UnicodeString temp;
     FieldPosition pos(FieldPosition::DONT_CARE);
 
-#if defined(HPUX)
+#if defined(U_HPUX)
     d1 = 0.0 * -1.0;    // old HPUX compiler ignores volatile keyword
 #else
     d1 *= -1.0; // Some compilers have a problem with defining -0.0
@@ -1437,7 +1473,7 @@ void NumberFormatRegressionTest::Test4106667(void)
     FieldPosition pos(FieldPosition::DONT_CARE);
 
     logln("pattern: \"" + df->toPattern(temp) + "\"");
-#if defined(HPUX)
+#if defined(U_HPUX)
     d = 0.0 * -1.0;    // old HPUX compiler ignores volatile keyword
 #else
     d *= -1.0; // Some compilers have a problem with defining -0.0
@@ -1493,7 +1529,7 @@ void NumberFormatRegressionTest::Test4122840(void)
     for (int i = 0; i < count; i++) {
         UErrorCode status = U_ZERO_ERROR;
         ResourceBundle *rb = new ResourceBundle(
-            u_getDataDirectory()/*"java.text.resources.LocaleElements"*/, 
+            NULL/*"java.text.resources.LocaleElements"*/, 
             locales[i], status);
         failure(status, "new ResourceBundle");
         ResourceBundle numPat = rb->get("NumberPatterns", status);
@@ -1850,7 +1886,7 @@ void NumberFormatRegressionTest::Test4147706(void)
     volatile double d1 = 0.0;   // volatile to prevent code optimization
     double d2 = -0.0001;
 
-#if defined(HPUX)
+#if defined(U_HPUX)
     d1 = 0.0 * -1.0;    // old HPUX compiler ignores volatile keyword
 #else
     d1 *= -1.0; // Some compilers have a problem with defining -0.0
@@ -1915,10 +1951,16 @@ NumberFormatRegressionTest::Test4162198(void)
     //}
     
     //logln("The string " + s + " parsed as " + n);
-    
-    if(n.getDouble() != dbl) {
+
+    // {dlf} The old code assumes n is a double, but it isn't any more...
+    // Formattable apparently does not and never did interconvert... too bad.
+    //if(n.getDouble() != dbl) {
+    //    errln("Round trip failure");
+    //}
+    if (n.getInt64() != dbl) {
         errln("Round trip failure");
     }
+
     delete f;
 }
 
@@ -2103,9 +2145,9 @@ void NumberFormatRegressionTest::Test4212072(void) {
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormatSymbols sym(Locale::getUS(), status);
 
-    failure(status, "DecimalFormatSymbols ct");
+    failure(status, "DecimalFormatSymbols ct", Locale::getUS());
     DecimalFormat fmt(UnicodeString("#"), sym, status);
-    failure(status, "DecimalFormat ct");
+    failure(status, "DecimalFormat ct", Locale::getUS());
 
     UnicodeString s;
     FieldPosition pos;
@@ -2204,15 +2246,15 @@ void NumberFormatRegressionTest::Test4212072(void) {
             switch (j) {
             case 0:
                 nf = NumberFormat::createInstance(avail[i], status);
-                failure(status, "createInstance");
+                failure(status, "createInstance", avail[i]);
                 break;
             case 1:
                 nf = NumberFormat::createCurrencyInstance(avail[i], status);
-                failure(status, "createCurrencyInstance");
+                failure(status, "createCurrencyInstance", avail[i]);
                 break;
             default:
                 nf = NumberFormat::createPercentInstance(avail[i], status);
-                failure(status, "createPercentInstance");
+                failure(status, "createPercentInstance", avail[i]);
                 break;
             }
             if (U_FAILURE(status)) {
@@ -2224,7 +2266,7 @@ void NumberFormatRegressionTest::Test4212072(void) {
             UnicodeString pat;
             df->toPattern(pat);
             DecimalFormatSymbols symb(avail[i], status);
-            failure(status, "Construct DecimalFormatSymbols");
+            failure(status, "Construct DecimalFormatSymbols", avail[i]);
             DecimalFormat f2(pat, symb, status);
             if (failure(status,
                         UnicodeString("Construct DecimalFormat(") + pat + ")")) {
@@ -2241,7 +2283,7 @@ void NumberFormatRegressionTest::Test4212072(void) {
             df->toLocalizedPattern(pat);
             f2.applyLocalizedPattern(pat, status);
             failure(status,
-                    UnicodeString("applyLocalizedPattern(") + pat + ")");
+                    UnicodeString("applyLocalizedPattern(") + pat + ")", avail[i]);
             if (U_FAILURE(status)) {
                 continue;
             }
@@ -2267,7 +2309,7 @@ void NumberFormatRegressionTest::Test4212072(void) {
 void NumberFormatRegressionTest::Test4216742(void) {
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormat *fmt = (DecimalFormat*) NumberFormat::createInstance(Locale::getUS(), status);
-    failure(status, "createInstance");
+    failure(status, "createInstance", Locale::getUS());
     int32_t DATA[] = { INT32_MIN, INT32_MAX, -100000000, 100000000 };
     int DATA_length = (int)(sizeof(DATA) / sizeof(DATA[0]));
     for (int i=0; i<DATA_length; ++i) {
@@ -2276,7 +2318,7 @@ void NumberFormatRegressionTest::Test4216742(void) {
             fmt->setMultiplier(m);
             Formattable num;
             fmt->parse(str, num, status);
-            failure(status, "parse");
+            failure(status, "parse", Locale::getUS());
             if (num.getType() != Formattable::kLong &&
                 num.getType() != Formattable::kDouble) {
                 errln(UnicodeString("FAIL: Wanted number, got ") +
@@ -2306,7 +2348,7 @@ void NumberFormatRegressionTest::Test4217661(void) {
     int D_length = (int)(sizeof(D) / sizeof(D[0]));
     UErrorCode status = U_ZERO_ERROR;
     NumberFormat *fmt = NumberFormat::createInstance(Locale::getUS(), status);
-    failure(status, "createInstance");
+    failure(status, "createInstance", Locale::getUS());
     fmt->setMaximumFractionDigits(2);
     for (int i=0; i<D_length; i++) {
         UnicodeString s;
@@ -2324,7 +2366,7 @@ void NumberFormatRegressionTest::Test4217661(void) {
 void NumberFormatRegressionTest::Test4161100(void) {
     UErrorCode status = U_ZERO_ERROR;
     NumberFormat *nf = NumberFormat::createInstance(Locale::getUS(), status);
-    failure(status, "createInstance");
+    failure(status, "createInstance", Locale::getUS());
     nf->setMinimumFractionDigits(1);
     nf->setMaximumFractionDigits(1);
     double a = -0.09;
@@ -2346,9 +2388,9 @@ void NumberFormatRegressionTest::Test4161100(void) {
 void NumberFormatRegressionTest::Test4243011(void) {
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormatSymbols sym(Locale::getUS(), status);
-    failure(status, "DecimalFormatSymbols ct");
+    failure(status, "DecimalFormatSymbols ct", Locale::getUS());
     DecimalFormat fmt(UnicodeString("0."), sym, status);
-    failure(status, "DecimalFormat ct");
+    failure(status, "DecimalFormat ct", Locale::getUS());
 
     const double NUM[] = {  -2.5,  -1.5,  -0.5,  0.5,  1.5,  2.5,  3.5,  4.5 };
     const char*  STR[] = { "-2.", "-2.", "-0.", "0.", "2.", "2.", "4.", "4." };
@@ -2376,9 +2418,9 @@ void NumberFormatRegressionTest::Test4243011(void) {
 void NumberFormatRegressionTest::Test4243108(void) {
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormatSymbols sym(Locale::getUS(), status);
-    failure(status, "DecimalFormatSymbols ct");
+    failure(status, "DecimalFormatSymbols ct", Locale::getUS());
     DecimalFormat fmt(UnicodeString("#.#"), sym, status);
-    failure(status, "DecimalFormat ct");
+    failure(status, "DecimalFormat ct", Locale::getUS());
 
     UnicodeString str;
     FieldPosition pos;
@@ -2395,7 +2437,7 @@ void NumberFormatRegressionTest::Test4243108(void) {
     str = "99.99";
     Formattable val;
     fmt.parse(str, val, status);
-    failure(status, "DecimalFormat.parse(99.99)");
+    failure(status, "DecimalFormat.parse(99.99)", Locale::getUS());
     if (val.getType() == Formattable::kDouble &&
         val.getDouble() == 99.99) {
         logln(UnicodeString("Ok   99.99 / #.# = ") + toString(val));

@@ -63,31 +63,52 @@
 #ifndef _GRP_H_
 #define	_GRP_H_
 
-#ifndef _POSIX_SOURCE
+#include <_types.h>
+
+#ifndef _GID_T
+typedef __darwin_gid_t	gid_t;		/* [XBD] */
+#define _GID_T
+#endif
+
+/*
+ * Although the definition of size_t is not mandated by [TSF], the function
+ * prototypes defined by [TSF] for the thread reentrant functions include
+ * it as a type for their 4th arguments, so we define it here.
+ */
+#ifndef _SIZE_T
+#define _SIZE_T
+typedef __darwin_size_t	size_t;		/* [???] */
+#endif
+
+#ifndef _POSIX_C_SOURCE
 #define	_PATH_GROUP		"/etc/group"
 #endif
 
 struct group {
-	char	*gr_name;		/* group name */
-	char	*gr_passwd;		/* group password */
-	gid_t	gr_gid;			/* group id */
-	char	**gr_mem;		/* group members */
+	char	*gr_name;		/* [XBD] group name */
+	char	*gr_passwd;		/* [???] group password */
+	gid_t	gr_gid;			/* [XBD] group id */
+	char	**gr_mem;		/* [XBD] group members */
 };
 
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
+/* [XBD] */
 struct group *getgrgid(gid_t);
 struct group *getgrnam(const char *);
+/* [TSF] */
 int getgrgid_r(gid_t, struct group *, char *, size_t, struct group **);
 int getgrnam_r(const char *, struct group *, char *, size_t, struct group **);
-#ifndef _POSIX_SOURCE
+/* [XSI] */
 struct group *getgrent(void);
+int setgrent(void);
+void endgrent(void);
+
+#ifndef _POSIX_C_SOURCE
 #ifndef _XOPEN_SOURCE
 char *group_from_gid(gid_t, int);
 #endif
-int setgrent(void);
-void endgrent(void);
 void setgrfile(const char *);
 int setgroupent(int);
 #endif

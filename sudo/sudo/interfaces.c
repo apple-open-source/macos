@@ -1,35 +1,21 @@
 /*
- * Copyright (c) 1996, 1998-2001 Todd C. Miller <Todd.Miller@courtesan.com>
- * All rights reserved.
+ * Copyright (c) 1996, 1998-2003 Todd C. Miller <Todd.Miller@courtesan.com>
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
- *
- * 4. Products derived from this software may not be called "Sudo" nor
- *    may "Sudo" appear in their names without specific prior written
- *    permission from the author.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL
- * THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Sponsored in part by the Defense Advanced Research Projects
+ * Agency (DARPA) and Air Force Research Laboratory, Air Force
+ * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
 /*
@@ -73,13 +59,16 @@ struct rtentry;
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
+#ifdef HAVE_ERR_H
+# include <err.h>
+#else
+# include "emul/err.h"
+#endif /* HAVE_ERR_H */
 #include <netdb.h>
-#include <errno.h>
 #ifdef _ISC
 # include <sys/stream.h>
 # include <sys/sioctl.h>
 # include <sys/stropts.h>
-# include <net/errno.h>
 # define STRSET(cmd, param, len) {strioctl.ic_cmd=(cmd);\
 				 strioctl.ic_dp=(param);\
 				 strioctl.ic_timout=0;\
@@ -99,7 +88,7 @@ struct rtentry;
 #include "interfaces.h"
 
 #ifndef lint
-static const char rcsid[] = "$Sudo: interfaces.c,v 1.63 2002/01/18 19:17:07 millert Exp $";
+static const char rcsid[] = "$Sudo: interfaces.c,v 1.72 2004/02/13 21:36:43 millert Exp $";
 #endif /* lint */
 
 
@@ -121,10 +110,10 @@ load_interfaces()
 	return;
 
     /* Allocate space for the interfaces list. */
-    for (ifa = ifaddrs; ifa -> ifa_next; ifa = ifa -> ifa_next) {
+    for (ifa = ifaddrs; ifa != NULL; ifa = ifa -> ifa_next) {
 	/* Skip interfaces marked "down" and "loopback". */
-	if (ifa->ifa_addr == NULL || !(ifa->ifa_flags & IFF_UP) ||
-	    (ifa->ifa_flags & IFF_LOOPBACK))
+	if (ifa->ifa_addr == NULL || !ISSET(ifa->ifa_flags, IFF_UP) ||
+	    ISSET(ifa->ifa_flags, IFF_LOOPBACK))
 	    continue;
 
 	switch(ifa->ifa_addr->sa_family) {
@@ -134,14 +123,16 @@ load_interfaces()
 		break;
 	}
     }
+    if (num_interfaces == 0)
+	return;
     interfaces =
-	(struct interface *) emalloc(sizeof(struct interface) * num_interfaces);
+	(struct interface *) emalloc2(num_interfaces, sizeof(struct interface));
 
     /* Store the ip addr / netmask pairs. */
-    for (ifa = ifaddrs, i = 0; ifa -> ifa_next; ifa = ifa -> ifa_next) {
+    for (ifa = ifaddrs, i = 0; ifa != NULL; ifa = ifa -> ifa_next) {
 	/* Skip interfaces marked "down" and "loopback". */
-	if (ifa->ifa_addr == NULL || !(ifa->ifa_flags & IFF_UP) ||
-	    (ifa->ifa_flags & IFF_LOOPBACK))
+	if (ifa->ifa_addr == NULL || !ISSET(ifa->ifa_flags, IFF_UP) ||
+	    ISSET(ifa->ifa_flags, IFF_LOOPBACK))
 		continue;
 
 	switch(ifa->ifa_addr->sa_family) {
@@ -184,14 +175,11 @@ load_interfaces()
 #endif /* _ISC */
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-	(void) fprintf(stderr, "%s: cannot open socket: %s\n",
-	    Argv[0], strerror(errno));
-	exit(1);
-    }
+    if (sock < 0)
+	err(1, "cannot open socket");
 
     /*
-     * Get interface configuration or return (leaving num_interfaces 0)
+     * Get interface configuration or return (leaving num_interfaces == 0)
      */
     for (;;) {
 	ifconf_buf = erealloc(ifconf_buf, len);
@@ -218,8 +206,9 @@ load_interfaces()
     }
 
     /* Allocate space for the maximum number of interfaces that could exist. */
-    n = ifconf->ifc_len / sizeof(struct ifreq);
-    interfaces = (struct interface *) emalloc(sizeof(struct interface) * n);
+    if ((n = ifconf->ifc_len / sizeof(struct ifreq)) == 0)
+	return;
+    interfaces = (struct interface *) emalloc2(n, sizeof(struct interface));
 
     /* For each interface, store the ip address and netmask. */
     for (i = 0; i < ifconf->ifc_len; ) {
@@ -250,7 +239,8 @@ load_interfaces()
 	    ifr_tmp = *ifr;
 	
 	/* Skip interfaces marked "down" and "loopback". */
-	if (!(ifr_tmp.ifr_flags & IFF_UP) || (ifr_tmp.ifr_flags & IFF_LOOPBACK))
+	if (!ISSET(ifr_tmp.ifr_flags, IFF_UP) ||
+	    ISSET(ifr_tmp.ifr_flags, IFF_LOOPBACK))
 		continue;
 
 	sin = (struct sockaddr_in *) &ifr->ifr_addr;
@@ -291,8 +281,8 @@ load_interfaces()
     /* If the expected size < real size, realloc the array. */
     if (n != num_interfaces) {
 	if (num_interfaces != 0)
-	    interfaces = (struct interface *) erealloc(interfaces,
-		sizeof(struct interface) * num_interfaces);
+	    interfaces = (struct interface *) erealloc3(interfaces,
+		num_interfaces, sizeof(struct interface));
 	else
 	    free(interfaces);
     }
@@ -321,5 +311,5 @@ dump_interfaces()
     puts("Local IP address and netmask pairs:");
     for (i = 0; i < num_interfaces; i++)
 	printf("\t%s / 0x%x\n", inet_ntoa(interfaces[i].addr),
-	    ntohl(interfaces[i].netmask.s_addr));
+	    (unsigned int)ntohl(interfaces[i].netmask.s_addr));
 }

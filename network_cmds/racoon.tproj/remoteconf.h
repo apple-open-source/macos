@@ -29,9 +29,14 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __REMOTECONF_H__
+#define __REMOTECONF_H__
+
 /* remote configuration */
 
 #include <sys/queue.h>
+#include <CoreFoundation/CFData.h>
+
 
 struct etypes {
 	int type;
@@ -43,45 +48,51 @@ struct remoteconf {
 					/* if family is AF_UNSPEC, that is
 					 * for anonymous configuration. */
 
-	struct etypes *etypes;		/* exchange type list. the head
-					 * is a type to be sent first. */
+	struct etypes *etypes;	/* exchange type list. the head
+					 		 * is a type to be sent first. */
 	int doitype;			/* doi type */
 	int sittype;			/* situation type */
 
 	int idvtype;			/* my identifier type */
-	vchar_t *idv;			/* my identifier */
+	vchar_t *idv;			/* my identifier */	
 	int idvtype_p;			/* peer's identifier type */
 	vchar_t *idv_p;			/* peer's identifier */
 
 	int secrettype;			/* type of secret [use, key, keychain] */
-	vchar_t *shared_secret;		/* shared secret */
-
+	vchar_t *shared_secret;	/* shared secret */
+	vchar_t *open_dir_auth_group;	/* group to be used to authorize user */
+	
 	int certtype;			/* certificate type if need */
+	int	identity_in_keychain;	/* cert and private key is in the keychain */
+	CFDataRef keychainCertRef;	/* peristant keychain ref for cert */
 	char *mycertfile;		/* file name of my certificate */
 	char *myprivfile;		/* file name of my private key file */
-	char *peerscertfile;		/* file name of peer's certifcate */
+	char *peerscertfile;	/* file name of peer's certifcate */
+
 	int getcert_method;		/* the way to get peer's certificate */
 	int send_cert;			/* send to CERT or not */
 	int send_cr;			/* send to CR or not */
 	int verify_cert;		/* verify a CERT strictly */
-	int verify_identifier;		/* vefify the peer's identifier */
+	int cert_verification;	/* openssl or security framework */
+	int cert_verification_option;	/* nothing, peers identifier, or open_dir */
+	int verify_identifier;	/* vefify the peer's identifier */
 	int nonce_size;			/* the number of bytes of nonce */
 	int keepalive;			/* XXX may not use */
 	int passive;			/* never initiate */
 	int support_mip6;		/* support mip6 */
 	int gen_policy;			/* generate policy if no policy found */
 	int ini_contact;		/* initial contact */
-	int pcheck_level;		/* level of propocl checking */
+	int pcheck_level;		/* level of protocol checking */
 
 	int dh_group;			/* use it when only aggressive mode */
-	struct dhgroup *dhgrp;		/* use it when only aggressive mode */
-					/* avobe two cann't be defined by user*/
+	struct dhgroup *dhgrp;	/* use it when only aggressive mode */
+							/* above two can't be defined by user*/
 
 	int retry_counter;		/* times to retry. */
 	int retry_interval;		/* interval each retry. */
-				/* above 2 values are copied from localconf. */
+							/* above 2 values are copied from localconf. */
 
-	struct isakmpsa *proposal;	/* proposal list */
+	struct isakmpsa *proposal;		/* proposal list */
 	LIST_ENTRY(remoteconf) chain;	/* next remote conf */
 };
 
@@ -123,3 +134,6 @@ extern struct etypes *check_etypeok
 extern struct isakmpsa *newisakmpsa __P((void));
 extern void insisakmpsa __P((struct isakmpsa *, struct remoteconf *));
 extern const char *rm2str __P((const struct remoteconf *));
+
+#endif /* __REMOTECONF_H__ */
+

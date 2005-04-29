@@ -8,6 +8,7 @@ HeaderDoc comes pre-installed in Mac OS X.  If you are installing on a
 non-Mac OS X computer, or if you are installing an updated version of
 HeaderDoc on a Mac OS X computer, you can quickly install by simply typing:
 
+	make
 	sudo make realinstall
 
 For additional documentation on headerdoc, look at the HTML files in the

@@ -186,14 +186,20 @@ int krb5int_encode_v4tkt(v4tkt, buf, encoded_len)
      unsigned int *encoded_len;
 {
      int buflen, ret;
+     krb5_int32 temp;
 
      buflen = *encoded_len;
 
-     if ((ret = encode_int32(&buf, &buflen, &v4tkt->length)))
+     if (v4tkt->length < MAX_KTXT_LEN)
+	  memset(v4tkt->dat + v4tkt->length, 0, 
+		 (unsigned int) (MAX_KTXT_LEN - v4tkt->length));
+     temp = v4tkt->length;
+     if ((ret = encode_int32(&buf, &buflen, &temp)))
 	  return ret;
      if ((ret = encode_bytes(&buf, &buflen, (char *)v4tkt->dat, MAX_KTXT_LEN)))
 	  return ret;
-     if ((ret = encode_int32(&buf, &buflen, (krb5_int32 *) &v4tkt->mbz)))
+     temp = v4tkt->mbz;
+     if ((ret = encode_int32(&buf, &buflen, &temp)))
 	  return ret;
 
      *encoded_len -= buflen;
@@ -236,14 +242,17 @@ static int decode_v4tkt(v4tkt, buf, encoded_len)
      unsigned int *encoded_len;
 {
      int buflen, ret;
+     krb5_int32 temp;
 
      buflen = *encoded_len;
-     if ((ret = decode_int32(&buf, &buflen, &v4tkt->length)))
+     if ((ret = decode_int32(&buf, &buflen, &temp)))
 	  return ret;
+     v4tkt->length = temp;
      if ((ret = decode_bytes(&buf, &buflen, (char *)v4tkt->dat, MAX_KTXT_LEN)))
 	  return ret;
-     if ((ret = decode_int32(&buf, &buflen, (krb5_int32 *) &v4tkt->mbz)))
+     if ((ret = decode_int32(&buf, &buflen, &temp)))
 	  return ret;
+     v4tkt->mbz = temp;
      *encoded_len -= buflen;
      return 0;
 }
@@ -263,6 +272,15 @@ krb5_524_convert_creds(krb5_context context, krb5_creds *v5creds,
    OS and UNIX, but Windows should be okay.  */
 #ifndef _WIN32
 #undef krb524_convert_creds_kdc
+#undef krb524_init_ets
+
+/* Declarations ahead of the definitions will suppress some gcc
+   warnings.  */
+void KRB5_CALLCONV krb524_init_ets (void);
+krb5_error_code KRB5_CALLCONV
+krb524_convert_creds_kdc(krb5_context context, krb5_creds *v5creds,
+			 struct credentials *v4creds);
+
 krb5_error_code KRB5_CALLCONV
 krb524_convert_creds_kdc(krb5_context context, krb5_creds *v5creds,
 			 struct credentials *v4creds)
@@ -270,7 +288,6 @@ krb524_convert_creds_kdc(krb5_context context, krb5_creds *v5creds,
     return krb5_524_convert_creds(context, v5creds, v4creds);
 }
 
-#undef krb524_init_ets
 void KRB5_CALLCONV krb524_init_ets ()
 {
 }

@@ -24,24 +24,18 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/SetPntMap.c,v 1.4 2001/12/14 19:54:06 dawes Exp $ */
+/* $XFree86: xc/lib/X11/SetPntMap.c,v 1.5 2003/11/17 22:20:08 dawes Exp $ */
 
 #define NEED_REPLIES
 
 #include "Xlibint.h"
 /* returns either  DeviceMappingSuccess or DeviceMappingBusy  */
 
-#if NeedFunctionPrototypes
-int XSetPointerMapping (
+int
+XSetPointerMapping (
     register Display *dpy,
     _Xconst unsigned char *map,
     int nmaps)
-#else
-int XSetPointerMapping (dpy, map, nmaps)
-    register Display *dpy;
-    unsigned char *map;
-    int nmaps;
-#endif
     {
     register xSetPointerMappingReq *req;
     xSetPointerMappingReply rep;

@@ -41,9 +41,9 @@
 
 /**/
 static int
-bin_clone(char *nam, char **args, Options ops, int func)
+bin_clone(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
-    int ttyfd, pid;
+    int ttyfd, pid, cttyfd;
 
     unmetafy(*args, NULL);
     ttyfd = open(*args, O_RDWR|O_NOCTTY);
@@ -57,29 +57,42 @@ bin_clone(char *nam, char **args, Options ops, int func)
 	ppid = getppid();
 	mypid = getpid();
 #ifdef HAVE_SETSID
-	if (setsid() != mypid) {
+	if (setsid() != mypid)
 	    zwarnnam(nam, "failed to create new session: %e", NULL, errno);
-#endif
-#ifdef TIOCNOTTY
+#elif defined(TIOCNOTTY)
 	    if (ioctl(SHTTY, TIOCNOTTY, 0))
-		zwarnnam(nam, "%e", NULL, errno);
+	    zwarnnam(*args, "%e", NULL, errno);
 	    setpgrp(0L, mypid);
 #endif
-#ifdef HAVE_SETSID
-	}
-#endif
-	if (ttyfd) {
-	    close(0);
-	    dup(ttyfd);
-	} else
-	    ttyfd = -1;
-	close(1);
-	close(2);
-	dup(0);
-	dup(0);
+	dup2(ttyfd,0);
+	dup2(ttyfd,1);
+	dup2(ttyfd,2);
+	if (ttyfd > 2)
+	    close(ttyfd);
 	closem(0);
 	close(coprocin);
 	close(coprocout);
+	/* Acquire a controlling terminal */
+	cttyfd = open(*args, O_RDWR);
+	if (cttyfd == -1)
+	    zwarnnam(nam, "%e", NULL, errno);
+	else {
+#ifdef TIOCSCTTY
+	    ioctl(cttyfd, TIOCSCTTY, 0);
+#endif
+	    close(cttyfd);
+	}
+	/* check if we acquired the tty successfully */
+	cttyfd = open("/dev/tty", O_RDWR);
+	if (cttyfd == -1)
+	    zwarnnam(nam, "could not make %s my controlling tty, job control "
+		     "disabled", *args, 0);
+	else
+	    close(cttyfd);
+
+	/* Clear mygrp so that acquire_pgrp() gets the new process group.
+	 * (acquire_pgrp() is called from init_io()) */
+	mypgrp = 0;
 	init_io();
 	setsparam("TTY", ztrdup(ttystrname));
     }
@@ -98,7 +111,7 @@ static struct builtin bintab[] = {
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
@@ -120,7 +133,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

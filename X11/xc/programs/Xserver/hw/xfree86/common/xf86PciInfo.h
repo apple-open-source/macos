@@ -1,7 +1,53 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86PciInfo.h,v 1.144 2003/02/07 20:41:11 martin Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86PciInfo.h,v 1.158 2004/02/14 17:00:05 dawes Exp $ */
+
 /*
- * Copyright 1995-2002 by The XFree86 Project, Inc.
+ * Copyright (c) 1995-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
  *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
  * This file contains macros for the PCI Vendor and Device IDs for video
  * cards plus a few other things that are needed in drivers or elsewhere.
  * This information is used in several ways:
@@ -57,12 +103,10 @@
 #define PCI_VENDOR_SUN			0x108E
 #define PCI_VENDOR_DIAMOND		0x1092
 #define PCI_VENDOR_BROOKTREE		0x109E
-#define PCI_VENDOR_ALI_2		0x10B9
 #define PCI_VENDOR_NEOMAGIC		0x10C8
 #define PCI_VENDOR_NVIDIA		0x10DE
 #define PCI_VENDOR_IMS			0x10E0
 #define PCI_VENDOR_INTEGRAPHICS 	0x10EA
-#define PCI_VENDOR_VIA			0x1106
 #define PCI_VENDOR_ALLIANCE		0x1142
 #define PCI_VENDOR_RENDITION		0x1163
 #define PCI_VENDOR_3DFX			0x121A
@@ -89,14 +133,31 @@
 #define PCI_CHIP_QV1280			0x3033
 
 /* ATI */
+#define PCI_CHIP_RS100_4136		0x4136
+#define PCI_CHIP_RS200_4137		0x4137
 #define PCI_CHIP_R300_AD		0x4144
 #define PCI_CHIP_R300_AE		0x4145
 #define PCI_CHIP_R300_AF		0x4146
 #define PCI_CHIP_R300_AG		0x4147
+#define PCI_CHIP_R350_AH                0x4148
+#define PCI_CHIP_R350_AI                0x4149
+#define PCI_CHIP_R350_AJ                0x414A
+#define PCI_CHIP_R350_AK                0x414B
+#define PCI_CHIP_RV350_AP               0x4150
+#define PCI_CHIP_RV350_AQ               0x4151
+#define PCI_CHIP_RV360_AR               0x4152
+#define PCI_CHIP_RV350_AS               0x4153
+#define PCI_CHIP_RV350_AT               0x4154
+#define PCI_CHIP_RV350_AV               0x4156
 #define PCI_CHIP_MACH32			0x4158
+#define PCI_CHIP_RS250_4237		0x4237
 #define PCI_CHIP_R200_BB		0x4242
+#define PCI_CHIP_R200_BC		0x4243
+#define PCI_CHIP_RS100_4336		0x4336
+#define PCI_CHIP_RS200_4337		0x4337
 #define PCI_CHIP_MACH64CT		0x4354
 #define PCI_CHIP_MACH64CX		0x4358
+#define PCI_CHIP_RS250_4437		0x4437
 #define PCI_CHIP_MACH64ET		0x4554
 #define PCI_CHIP_MACH64GB		0x4742
 #define PCI_CHIP_MACH64GD		0x4744
@@ -140,12 +201,23 @@
 #define PCI_CHIP_RV250_Le		0x4C65
 #define PCI_CHIP_RV250_Lf		0x4C66
 #define PCI_CHIP_RV250_Lg		0x4C67
+#define PCI_CHIP_RV250_Ln		0x4C6E
 #define PCI_CHIP_RAGE128MF		0x4D46
 #define PCI_CHIP_RAGE128ML		0x4D4C
 #define PCI_CHIP_R300_ND		0x4E44
 #define PCI_CHIP_R300_NE		0x4E45
 #define PCI_CHIP_R300_NF		0x4E46
 #define PCI_CHIP_R300_NG		0x4E47
+#define PCI_CHIP_R350_NH                0x4E48  
+#define PCI_CHIP_R350_NI                0x4E49  
+#define PCI_CHIP_R360_NJ                0x4E4A  
+#define PCI_CHIP_R350_NK                0x4E4B  
+#define PCI_CHIP_RV350_NP               0x4E50
+#define PCI_CHIP_RV350_NQ               0x4E51
+#define PCI_CHIP_RV350_NR               0x4E52
+#define PCI_CHIP_RV350_NS               0x4E53
+#define PCI_CHIP_RV350_NT               0x4E54
+#define PCI_CHIP_RV350_NV               0x4E56
 #define PCI_CHIP_RAGE128PA		0x5041
 #define PCI_CHIP_RAGE128PB		0x5042
 #define PCI_CHIP_RAGE128PC		0x5043
@@ -186,11 +258,6 @@
 #define PCI_CHIP_RV200_QX		0x5158
 #define PCI_CHIP_RV100_QY		0x5159
 #define PCI_CHIP_RV100_QZ		0x515A
-#define PCI_CHIP_R200_Qh		0x5168
-#define PCI_CHIP_R200_Qi		0x5169
-#define PCI_CHIP_R200_Qj		0x516A
-#define PCI_CHIP_R200_Qk		0x516B
-#define PCI_CHIP_R200_Ql		0x516C /* Undocumented in all ATI manuals */
 #define PCI_CHIP_RAGE128RE		0x5245
 #define PCI_CHIP_RAGE128RF		0x5246
 #define PCI_CHIP_RAGE128RG		0x5247
@@ -213,6 +280,16 @@
 #define PCI_CHIP_MACH64VT		0x5654
 #define PCI_CHIP_MACH64VU		0x5655
 #define PCI_CHIP_MACH64VV		0x5656
+#define PCI_CHIP_RS300_5834		0x5834
+#define PCI_CHIP_RS300_5835		0x5835
+#define PCI_CHIP_RS300_5836		0x5836
+#define PCI_CHIP_RS300_5837		0x5837
+#define PCI_CHIP_RV280_5960		0x5960
+#define PCI_CHIP_RV280_5961		0x5961
+#define PCI_CHIP_RV280_5962		0x5962
+#define PCI_CHIP_RV280_5964		0x5964
+#define PCI_CHIP_RV280_5C61		0x5C61
+#define PCI_CHIP_RV280_5C63		0x5C63
 
 /* Avance Logic */
 #define PCI_CHIP_ALG2064		0x2064
@@ -259,6 +336,7 @@
 #define PCI_CHIP_AMD761			0x700E
 
 /* Trident */
+#define PCI_CHIP_2100			0x2100
 #define PCI_CHIP_8400			0x8400
 #define PCI_CHIP_8420			0x8420
 #define PCI_CHIP_8500			0x8500
@@ -343,20 +421,21 @@
 #define PCI_CHIP_SIS6326		0x6326
 #define PCI_CHIP_SIS7001		0x7001
 #define PCI_CHIP_SIS300			0x0300
-#define PCI_CHIP_SIS315H                0x0310
-#define PCI_CHIP_SIS315PRO              0x0325
-#define PCI_CHIP_SIS330                 0x0330
+#define PCI_CHIP_SIS315H		0x0310
+#define PCI_CHIP_SIS315PRO		0x0325
+#define PCI_CHIP_SIS330			0x0330
 #define PCI_CHIP_SIS630			0x6300
 #define PCI_CHIP_SIS540			0x5300
-#define PCI_CHIP_SIS550                 0x5315 
-#define PCI_CHIP_SIS650                 0x6325 
-#define PCI_CHIP_SIS730                 0x7300
+#define PCI_CHIP_SIS550			0x5315 
+#define PCI_CHIP_SIS650			0x6325 
+#define PCI_CHIP_SIS730			0x7300
 
 /* Hewlett-Packard */
 #define PCI_CHIP_ELROY			0x1054
 #define PCI_CHIP_ZX1_SBA		0x1229
 #define PCI_CHIP_ZX1_IOC		0x122A
 #define PCI_CHIP_ZX1_LBA		0x122E	/* a.k.a. Mercury */
+#define PCI_CHIP_ZX1_AGP8		0x12B4	/* a.k.a. QuickSilver */
 
 /* SGS */
 #define PCI_CHIP_STG2000		0x0008
@@ -388,9 +467,6 @@
 /* BrookTree */
 #define PCI_CHIP_BT848			0x0350
 #define PCI_CHIP_BT849			0x0351
-
-/* Acer Laboratories Inc (ALI_2) */
-#define PCI_CHIP_M1541			0x1541
 
 /* NVIDIA */
 #define PCI_CHIP_NV1			0x0008
@@ -441,10 +517,6 @@
 /* IMS */
 #define PCI_CHIP_IMSTT128		0x9128
 #define PCI_CHIP_IMSTT3D		0x9135
-
-/* VIA Technologies */
-#define PCI_CHIP_APOLLOVP1		0x0585
-#define PCI_CHIP_APOLLOPRO133X		0x0691
 
 /* Alliance Semiconductor */
 #define PCI_CHIP_AP6410			0x3210
@@ -538,7 +610,6 @@
 /* Intel */
 #define PCI_CHIP_I815_BRIDGE		0x1130
 #define PCI_CHIP_I815			0x1132
-#define PCI_CHIP_430HX_BRIDGE		0x1250
 #define PCI_CHIP_82801_P2P		0x244E
 #define PCI_CHIP_845_G_BRIDGE		0x2560
 #define PCI_CHIP_845_G			0x2562
@@ -550,7 +621,6 @@
 #define PCI_CHIP_I810_DC100		0x7123
 #define PCI_CHIP_I810_E_BRIDGE		0x7124
 #define PCI_CHIP_I810_E			0x7125
-#define PCI_CHIP_440BX_BRIDGE		0x7190
 #define PCI_CHIP_I740_AGP		0x7800
 #define PCI_CHIP_460GX_PXB		0x84CB
 #define PCI_CHIP_460GX_SAC		0x84E0
@@ -565,6 +635,7 @@
 #define PCI_CHIP_SMI710			0x0710
 #define PCI_CHIP_SMI712			0x0712
 #define PCI_CHIP_SMI720			0x0720
+#define PCI_CHIP_SMI731			0x0730
 
 /* VMware */
 #define PCI_CHIP_VMWARE0405		0x0405

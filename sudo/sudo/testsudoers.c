@@ -1,38 +1,26 @@
 /*
- * Copyright (c) 1996, 1998-2001 Todd C. Miller <Todd.Miller@courtesan.com>
- * All rights reserved.
+ * Copyright (c) 1996, 1998-2004 Todd C. Miller <Todd.Miller@courtesan.com>
  *
- * This code is derived from software contributed by Chris Jepeway.
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
- *
- * 4. Products derived from this software may not be called "Sudo" nor
- *    may "Sudo" appear in their names without specific prior written
- *    permission from the author.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL
- * THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Sponsored in part by the Defense Advanced Research Projects
+ * Agency (DARPA) and Air Force Research Laboratory, Air Force
+ * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
+
+#define _SUDO_MAIN
 
 #include "config.h"
 
@@ -61,10 +49,15 @@
 #endif /* HAVE_UNISTD_H */
 #ifdef HAVE_FNMATCH
 # include <fnmatch.h>
-#endif /* HAVE_FNMATCH_H */
+#endif /* HAVE_FNMATCH */
 #ifdef HAVE_NETGROUP_H
 # include <netgroup.h>
 #endif /* HAVE_NETGROUP_H */
+#ifdef HAVE_ERR_H
+# include <err.h>
+#else
+# include "emul/err.h"
+#endif /* HAVE_ERR_H */
 #include <ctype.h>
 #include <pwd.h>
 #include <grp.h>
@@ -82,7 +75,7 @@
 #endif /* HAVE_FNMATCH */
 
 #ifndef lint
-static const char rcsid[] = "$Sudo: testsudoers.c,v 1.76 2002/03/16 00:44:48 millert Exp $";
+static const char rcsid[] = "$Sudo: testsudoers.c,v 1.88 2004/08/02 18:44:58 millert Exp $";
 #endif /* lint */
 
 
@@ -91,20 +84,20 @@ static const char rcsid[] = "$Sudo: testsudoers.c,v 1.76 2002/03/16 00:44:48 mil
  */
 void init_parser	__P((void));
 void dumpaliases	__P((void));
-void set_perms_dummy	__P((int, int));
+void set_perms_dummy	__P((int));
 
 /*
  * Globals
  */
-char **Argv, **NewArgv;
 int  Argc, NewArgc;
+char **Argv, **NewArgv;
 int parse_error = FALSE;
 int num_interfaces;
 struct interface *interfaces;
 struct sudo_user sudo_user;
-void (*set_perms) __P((int, int)) = set_perms_dummy;
 extern int clearaliases;
 extern int pedantic;
+void (*set_perms) __P((int)) = set_perms_dummy;
 
 /*
  * Returns TRUE if "s" has shell meta characters in it,
@@ -115,7 +108,7 @@ has_meta(s)
     char *s;
 {
     char *t;
-    
+
     for (t = s; *t; t++) {
 	if (*t == '\\' || *t == '?' || *t == '*' || *t == '[' || *t == ']')
 	    return(TRUE);
@@ -124,63 +117,61 @@ has_meta(s)
 }
 
 /*
- * Returns TRUE if cmnd matches, in the sudo sense,
+ * Returns TRUE if user_cmnd matches, in the sudo sense,
  * the pathname in path; otherwise, return FALSE
  */
 int
-command_matches(cmnd, cmnd_args, path, sudoers_args)
-    char *cmnd;
-    char *cmnd_args;
+command_matches(path, sudoers_args)
     char *path;
     char *sudoers_args;
 {
     int clen, plen;
     char *args;
 
-    if (cmnd == NULL)
+    if (user_cmnd == NULL)
 	return(FALSE);
 
-    if ((args = strchr(path, ' ')))  
+    if ((args = strchr(path, ' ')))
 	*args++ = '\0';
 
     if (has_meta(path)) {
-	if (fnmatch(path, cmnd, FNM_PATHNAME))
+	if (fnmatch(path, user_cmnd, FNM_PATHNAME))
 	    return(FALSE);
 	if (!sudoers_args)
 	    return(TRUE);
-	else if (!cmnd_args && sudoers_args && !strcmp("\"\"", sudoers_args))
+	else if (!user_args && sudoers_args && !strcmp("\"\"", sudoers_args))
 	    return(TRUE);
 	else if (sudoers_args)
-	    return((fnmatch(sudoers_args, cmnd_args ? cmnd_args : "", 0) == 0));
+	    return((fnmatch(sudoers_args, user_args ? user_args : "", 0) == 0));
 	else
 	    return(FALSE);
     } else {
 	plen = strlen(path);
 	if (path[plen - 1] != '/') {
-	    if (strcmp(cmnd, path))
+	    if (strcmp(user_cmnd, path))
 		return(FALSE);
 	    if (!sudoers_args)
 		return(TRUE);
-	    else if (!cmnd_args && sudoers_args && !strcmp("\"\"", sudoers_args))
+	    else if (!user_args && sudoers_args && !strcmp("\"\"", sudoers_args))
 		return(TRUE);
 	    else if (sudoers_args)
-		return((fnmatch(sudoers_args, cmnd_args ? cmnd_args : "", 0) == 0));
+		return((fnmatch(sudoers_args, user_args ? user_args : "", 0) == 0));
 	    else
 		return(FALSE);
 	}
 
-	clen = strlen(cmnd);
+	clen = strlen(user_cmnd);
 	if (clen < plen + 1)
-	    /* path cannot be the parent dir of cmnd */
+	    /* path cannot be the parent dir of user_cmnd */
 	    return(FALSE);
 
-	if (strchr(cmnd + plen + 1, '/') != NULL)
-	    /* path could only be an anscestor of cmnd -- */
+	if (strchr(user_cmnd + plen + 1, '/') != NULL)
+	    /* path could only be an anscestor of user_cmnd -- */
 	    /* ignoring, of course, things like // & /./  */
 	    return(FALSE);
 
-	/* see whether path is the prefix of cmnd */
-	return((strncmp(cmnd, path, plen) == 0));
+	/* see whether path is the prefix of user_cmnd */
+	return((strncmp(user_cmnd, path, plen) == 0));
     }
 }
 
@@ -205,7 +196,7 @@ addr_matches(n)
 	    mask.s_addr <<= i;
 	    mask.s_addr = htonl(mask.s_addr);
 	}
-	*(m - 1) = '/';               
+	*(m - 1) = '/';
 
 	for (i = 0; i < num_interfaces; i++)
 	    if ((interfaces[i].addr.s_addr & mask.s_addr) == addr.s_addr)
@@ -229,8 +220,8 @@ hostname_matches(shost, lhost, pattern)
     char *lhost;
     char *pattern;
 {
-    if (has_meta(pattern)) {  
-        if (strchr(pattern, '.'))   
+    if (has_meta(pattern)) {
+        if (strchr(pattern, '.'))
             return(fnmatch(pattern, lhost, FNM_CASEFOLD));
         else
             return(fnmatch(pattern, shost, FNM_CASEFOLD));
@@ -243,9 +234,24 @@ hostname_matches(shost, lhost, pattern)
 }
 
 int
-usergr_matches(group, user)
+userpw_matches(sudoers_user, user, pw)
+    char *sudoers_user;
+    char *user;
+    struct passwd *pw;
+{
+    if (pw != NULL && *sudoers_user == '#') {
+	uid_t uid = atoi(sudoers_user + 1);
+	if (uid == pw->pw_uid)
+	    return(1);
+    }
+    return(strcmp(sudoers_user, user) == 0);
+}
+
+int
+usergr_matches(group, user, pw)
     char *group;
     char *user;
+    struct passwd *pw;
 {
     struct group *grp;
     char **cur;
@@ -254,7 +260,7 @@ usergr_matches(group, user)
     if (*group++ != '%')
 	return(FALSE);
 
-    if ((grp = getgrnam(group)) == NULL) 
+    if ((grp = getgrnam(group)) == NULL)
 	return(FALSE);
 
     /*
@@ -311,8 +317,8 @@ netgr_matches(netgr, host, shost, user)
 }
 
 void
-set_perms_dummy(i, j)
-    int i, j;
+set_perms_dummy(i)
+    int i;
 {
     return;
 }
@@ -321,6 +327,13 @@ void
 set_fqdn()
 {
     return;
+}
+
+int
+set_runaspw(user)
+    char *user;
+{
+    return(TRUE);
 }
 
 void
@@ -361,7 +374,7 @@ main(argc, argv)
 	NewArgc = Argc - 3;
     } else {
 	(void) fprintf(stderr,
-	    "usage: %s [-u user] <user> <host> <command> [args]\n", Argv[0]);
+	    "usage: sudo [-u user] <user> <host> <command> [args]\n");
 	exit(1);
     }
 
@@ -375,19 +388,22 @@ main(argc, argv)
 	user_shost = user_host;
     }
 
-    /* Fill in cmnd_args from NewArgv. */
+    /* Fill in user_args from NewArgv. */
     if (NewArgc > 1) {
-	size_t size;
 	char *to, **from;
+	size_t size, n;
 
-	size = (size_t) NewArgv[NewArgc-1] + strlen(NewArgv[NewArgc-1]) -
-	       (size_t) NewArgv[1] + 1;
+	size = (size_t) (NewArgv[NewArgc-1] - NewArgv[1]) +
+		strlen(NewArgv[NewArgc-1]) + 1;
 	user_args = (char *) emalloc(size);
-	for (to = user_args, from = &NewArgv[1]; *from; from++) {
+	for (to = user_args, from = NewArgv + 1; *from; from++) {
+	    n = strlcpy(to, *from, size - (to - user_args));
+	    if (n >= size - (to - user_args))
+		    errx(1, "internal error, init_vars() overflow");
+	    to += n;
 	    *to++ = ' ';
-	    (void) strcpy(to, *from);
-	    to += strlen(*from);
 	}
+	*--to = '\0';
     }
 
     /* Initialize default values. */

@@ -10,30 +10,14 @@
 			dstPath = /private/etc;
 			dstSubfolderSpec = 0;
 			files = (
-				770B6C3101EF836E05DD284B,
+				FEE2F9F40565990800D63CB7,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		770B6C3101EF836E05DD284B = {
-			fileRef = A46FCD6D01EF615C03DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		773C789F01D146CD05DD284B = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
-			lastKnownFileType = wrapper.framework;
-			name = DirectoryService.framework;
-			path = /System/Library/Frameworks/DirectoryService.framework;
-			refType = 0;
-			sourceTree = "<absolute>";
-		};
 		773C78A101D14E4B05DD284B = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = SLP.dsplug;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -47,13 +31,15 @@
 				773C78A701D14E4B05DD284B,
 			);
 			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\"  $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
 				LIBRARY_SEARCH_PATHS = "\"$(SYMROOT)/\" \"$(SRCROOT)/build\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins\" /usr/local/lib \"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -DUSE_DEFAULT_NET_NODE_TYPE";
-				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -lslplib -lstdc++";
+				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -DUSE_DEFAULT_NET_NODE_TYPE -gfull -fconstant-cfstrings";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -lslplib -dead_strip -bundle_loader /usr/sbin/DirectoryService";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = SLP;
 				SECTORDER_FLAGS = "";
@@ -95,11 +81,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2</string>
+	<string>1.2</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -175,9 +161,10 @@
 				A45343B301D3AB0C03DD2834,
 				A45343B401D3AB0C03DD2834,
 				A45343B501D3AB0C03DD2834,
-				A45343B601D3AB0C03DD2834,
 				A41D9DB1022DBA5503DD2834,
 				FEE62E5B04E18E1C0088D97B,
+				FE8B8D7206E4FB21007D97E5,
+				FE438C9F0736E85200110EE6,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -230,6 +217,7 @@
 				A47AFA6B0253A2FE03DD2833,
 				A402EF740282192D03DD2834,
 				A402EF750282193203DD2834,
+				FE650264071C98E100E7AD3E,
 			);
 			isa = PBXAggregateTarget;
 			name = ALL;
@@ -238,11 +226,10 @@
 		7740372B01D166C105DD284B = {
 			isa = PBXTargetDependency;
 			target = 773C78A201D14E4B05DD284B;
-			targetProxy = FE8292CC064816CD00CC5839;
+			targetProxy = FEE5655805D860C700942AB8;
 		};
 		7743A29D01D155D805DD284B = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
@@ -257,8 +244,7 @@
 		};
 		7743A29F01D1562505DD284B = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = SMB.dsplug;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -272,13 +258,15 @@
 				7743A2A501D1562505DD284B,
 			);
 			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\"  $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
 				LIBRARY_SEARCH_PATHS = "/usr/local/lib \"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder";
-				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -lstdc++";
+				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -gfull -fconstant-cfstrings";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -dead_strip -bundle_loader /usr/sbin/DirectoryService";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = SMB;
 				SECTORDER_FLAGS = "";
@@ -319,11 +307,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.4</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.4</string>
+	<string>1.2</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -389,9 +377,10 @@
 				A45343CB01D3AB0C03DD2834,
 				A45343CC01D3AB0C03DD2834,
 				A45343CD01D3AB0C03DD2834,
-				A45343CE01D3AB0C03DD2834,
 				FE9CFA11047EC753004431D2,
 				FEE62E5D04E18E1C0088D97B,
+				FE8B8D7306E4FB21007D97E5,
+				FE438CA00736E85200110EE6,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -433,22 +422,26 @@
 				774A942B01D12DDF05DD284B,
 				773C78A201D14E4B05DD284B,
 				7743A2A001D1562505DD284B,
-				FE9CFA09047EC667004431D2,
 				77CDAAE501D162E305DD284B,
 				A49A0A5801EF59CD03DD2834,
 				A46FCD6401EF60DF03DD2834,
 				A46FCDC301EF631903DD2834,
 				FEB174AE044F4DAC008EFFDA,
+				FE83F78F05445EDA00EB6035,
+				FE55CFE405CECCC200B32F78,
+				FE55CFEF05CECCEA00B32F78,
 			);
 		};
 		774A93FE01D12BAB05DD284B = {
 			children = (
+				FE438C9C0736E85200110EE6,
 				A453436B01D3AB0C03DD2834,
 				A453435701D3AB0C03DD2834,
 				A453432401D3AB0C03DD2834,
 				A453434601D3AB0C03DD2834,
 				A453433A01D3AB0C03DD2834,
 				A46FCDCE01EF644B03DD2834,
+				FE55CFF505CECD7C00B32F78,
 				A414E3A7022DA65003DD2834,
 				774A949401D131F105DD284B,
 				774A942901D12DDF05DD284B,
@@ -458,8 +451,6 @@
 			sourceTree = "<group>";
 		};
 		774A93FF01D12BAB05DD284B = {
-			buildRules = (
-			);
 			buildSettings = {
 				BUILD_SETTING = "";
 				COPY_PHASE_STRIP = NO;
@@ -468,17 +459,19 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O -gfull";
-				ZERO_LINK = YES;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		774A940001D12BAB05DD284B = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = NO;
+				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				OTHER_CFLAGS = "-DBUILDING_NSLDEBUG=0 -DLOG_ALWAYS=0 -DMAC_OS_X -DEXTRA_MSGS -DSLPTCP -DIGNORE_XID_FROM_REPLY";
 				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
@@ -493,7 +486,9 @@
 				A49A0A5701EF59CD03DD2834,
 				A46FCD6301EF60DE03DD2834,
 				A46FCDC201EF631903DD2834,
-				FE9CFA0A047EC667004431D2,
+				FE83F79005445EDA00EB6035,
+				FE55CFE505CECCC200B32F78,
+				FE55CFF005CECCEA00B32F78,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -502,8 +497,7 @@
 		};
 		774A942A01D12DDF05DD284B = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = AppleTalk.dsplug;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -518,13 +512,15 @@
 				774A944001D12DDF05DD284B,
 			);
 			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\"  $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
 				LIBRARY_SEARCH_PATHS = "/usr/local/lib \"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -DUSE_DEFAULT_NET_NODE_TYPE";
-				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -lstdc++";
+				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -DUSE_DEFAULT_NET_NODE_TYPE -gfull  -fconstant-cfstrings";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -dead_strip -bundle_loader /usr/sbin/DirectoryService";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleTalk;
 				SECTORDER_FLAGS = "";
@@ -565,11 +561,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2</string>
+	<string>1.2</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -639,9 +635,10 @@
 				A453439401D3AB0C03DD2834,
 				A453439501D3AB0C03DD2834,
 				A453439601D3AB0C03DD2834,
-				A453439801D3AB0C03DD2834,
 				A453439901D3AB0C03DD2834,
 				FEE62E5904E18E1C0088D97B,
+				FE8B8D7106E4FB21007D97E5,
+				FE438C9E0736E85200110EE6,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -666,8 +663,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		774A948501D12F4505DD284B = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = AppleTalk.framework;
 			path = /System/Library/Frameworks/AppleTalk.framework;
@@ -675,8 +671,7 @@
 			sourceTree = "<absolute>";
 		};
 		774A948601D12F4505DD284B = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
@@ -684,8 +679,7 @@
 			sourceTree = "<absolute>";
 		};
 		774A948701D12F4505DD284B = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = CoreServices.framework;
 			path = /System/Library/Frameworks/CoreServices.framework;
@@ -693,8 +687,7 @@
 			sourceTree = "<absolute>";
 		};
 		774A948901D12F4505DD284B = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = System.framework;
 			path = /System/Library/Frameworks/System.framework;
@@ -712,7 +705,7 @@
 		};
 		774A949401D131F105DD284B = {
 			children = (
-				773C789F01D146CD05DD284B,
+				FEA0915F0751238F001B1B2D,
 				774A948901D12F4505DD284B,
 				774A948501D12F4505DD284B,
 				774A948601D12F4505DD284B,
@@ -730,9 +723,8 @@
 		};
 		77CDAAE401D162E305DD284B = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
-			path = Rendezvous.dsplug;
+			isa = PBXFileReference;
+			path = Bonjour.dsplug;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
@@ -745,15 +737,17 @@
 				77CDAAF801D162E305DD284B,
 			);
 			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\"  $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
 				LIBRARY_SEARCH_PATHS = "/usr/local/lib \"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -DUSE_DEFAULT_NET_NODE_TYPE";
-				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -lstdc++";
+				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -DUSE_DEFAULT_NET_NODE_TYPE -gfull -fconstant-cfstrings";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -dead_strip -bundle_loader /usr/sbin/DirectoryService";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = Rendezvous;
+				PRODUCT_NAME = Bonjour;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = dsplug;
@@ -761,7 +755,7 @@
 			dependencies = (
 			);
 			isa = PBXBundleTarget;
-			name = Rendezvous;
+			name = Bonjour;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
 			productName = DSmDNSPlugin;
 			productReference = 77CDAAE401D162E305DD284B;
@@ -776,27 +770,27 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>Rendezvous</string>
+	<string>Bonjour</string>
 	<key>CFBundleGetInfoString</key>
 	<string></string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.DirectoryService.Rendezvous</string>
+	<string>com.apple.DirectoryService.Bonjour</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Rendezvous</string>
+	<string>Bonjour</string>
 	<key>CFBundlePackageSignature</key>
 	<string>adss</string>
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2</string>
+	<string>1.2</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -812,11 +806,11 @@
 		</array>
 	</dict>
 	<key>CFPluginNameString</key>
-	<string>Rendezvous</string>
+	<string>Bonjour</string>
 	<key>DSPluginPrefix</key>
-	<string>Rendezvous</string>
+	<string>Bonjour</string>
 	<key>DSServerSignature</key>
-	<string>Rendezvous</string>
+	<string>Bonjour</string>
 </dict>
 </plist>
 ";
@@ -857,12 +851,13 @@
 				A45343E501D3AB0C03DD2834,
 				A45343E601D3AB0C03DD2834,
 				A45343EA01D3AB0C03DD2834,
-				A45343EC01D3AB0C03DD2834,
 				A4D5B1330230256903DD2834,
 				A4D6797D0247B44703DD2834,
 				A4C07A2E02496E9803DD2834,
 				A469BA4002529F8F031E9CD3,
 				FEE62E5F04E18E1C0088D97B,
+				FE8B8D7006E4FB21007D97E5,
+				FE438C9D0736E85200110EE6,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -905,17 +900,17 @@
 		A40155FF028B540703DD2834 = {
 			isa = PBXTargetDependency;
 			target = 7743A2A001D1562505DD284B;
-			targetProxy = FE8292D0064816CD00CC5839;
+			targetProxy = FEE5655905D860C700942AB8;
 		};
 		A402EF740282192D03DD2834 = {
 			isa = PBXTargetDependency;
 			target = A46FCD6401EF60DF03DD2834;
-			targetProxy = FE8292CB064816CD00CC5839;
+			targetProxy = FEE5655605D860C700942AB8;
 		};
 		A402EF750282193203DD2834 = {
 			isa = PBXTargetDependency;
 			target = A46FCDC301EF631903DD2834;
-			targetProxy = FE8292CE064816CD00CC5839;
+			targetProxy = FEE5655705D860C700942AB8;
 		};
 		A414E3A7022DA65003DD2834 = {
 			children = (
@@ -990,8 +985,7 @@
 			sourceTree = "<group>";
 		};
 		A4533E2E02A4583D03DD2834 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
@@ -1008,14 +1002,13 @@
 				A4D6797A0247B44703DD2834,
 				A453432C01D3AB0C03DD2834,
 				A453432D01D3AB0C03DD2834,
-				A453432E01D3AB0C03DD2834,
 				A45343F701D3AC2103DD2834,
 				A4B964D30237EA2603DD2834,
 				A469BA3C02529F8F031E9CD3,
 				A469BA3D02529F8F031E9CD3,
 			);
 			isa = PBXGroup;
-			name = Rendezvous;
+			name = Bonjour;
 			refType = 4;
 			sourceTree = "<group>";
 		};
@@ -1055,15 +1048,6 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		A453432E01D3AB0C03DD2834 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.exports;
-			name = ServerModule.exp;
-			path = DNS/ServerModule.exp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		A453433A01D3AB0C03DD2834 = {
 			children = (
 				A453433D01D3AB0C03DD2834,
@@ -1074,8 +1058,6 @@
 				A453434201D3AB0C03DD2834,
 				FE9CFA0C047EC753004431D2,
 				FE9CFA0D047EC753004431D2,
-				FE9C075E047EDA7E004431D2,
-				A453434301D3AB0C03DD2834,
 			);
 			isa = PBXGroup;
 			name = SMB;
@@ -1154,15 +1136,6 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		A453434301D3AB0C03DD2834 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.exports;
-			name = ServerModule.exp;
-			path = SMB/ServerModule.exp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		A453434601D3AB0C03DD2834 = {
 			children = (
 				A453434701D3AB0C03DD2834,
@@ -1171,7 +1144,6 @@
 				A453434A01D3AB0C03DD2834,
 				A453434B01D3AB0C03DD2834,
 				A453434C01D3AB0C03DD2834,
-				A453435101D3AB0C03DD2834,
 			);
 			isa = PBXGroup;
 			name = SLP;
@@ -1232,15 +1204,6 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		A453435101D3AB0C03DD2834 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.exports;
-			name = ServerModule.exp;
-			path = SLP/ServerModule.exp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		A453435501D3AB0C03DD2834 = {
 			children = (
 				A453435601D3AB0C03DD2834,
@@ -1275,7 +1238,6 @@
 				A453436201D3AB0C03DD2834,
 				A453436301D3AB0C03DD2834,
 				A453436501D3AB0C03DD2834,
-				A453436601D3AB0C03DD2834,
 				A453436701D3AB0C03DD2834,
 				A453436801D3AB0C03DD2834,
 				A453436901D3AB0C03DD2834,
@@ -1402,15 +1364,6 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		A453436601D3AB0C03DD2834 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.exports;
-			name = ServerModule.exp;
-			path = AppleTalk/ServerModule.exp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		A453436701D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -1440,7 +1393,7 @@
 			sourceTree = "<group>";
 		};
 		A453436A01D3AB0C03DD2834 = {
-			fileEncoding = 30;
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.strings;
 			name = English;
@@ -1451,6 +1404,7 @@
 		A453436B01D3AB0C03DD2834 = {
 			children = (
 				A453437701D3AB0C03DD2834,
+				FE8B8D6F06E4FB21007D97E5,
 				A453436C01D3AB0C03DD2834,
 				A453436D01D3AB0C03DD2834,
 				A453436E01D3AB0C03DD2834,
@@ -1730,12 +1684,6 @@
 			settings = {
 			};
 		};
-		A453439801D3AB0C03DD2834 = {
-			fileRef = A453436601D3AB0C03DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		A453439901D3AB0C03DD2834 = {
 			fileRef = A453436701D3AB0C03DD2834;
 			isa = PBXBuildFile;
@@ -1846,12 +1794,6 @@
 		};
 		A45343B501D3AB0C03DD2834 = {
 			fileRef = A453434B01D3AB0C03DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		A45343B601D3AB0C03DD2834 = {
-			fileRef = A453435101D3AB0C03DD2834;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -1976,12 +1918,6 @@
 			settings = {
 			};
 		};
-		A45343CE01D3AB0C03DD2834 = {
-			fileRef = A453434301D3AB0C03DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		A45343CF01D3AB0C03DD2834 = {
 			fileRef = A453436D01D3AB0C03DD2834;
 			isa = PBXBuildFile;
@@ -2066,12 +2002,6 @@
 			settings = {
 			};
 		};
-		A45343EC01D3AB0C03DD2834 = {
-			fileRef = A453432E01D3AB0C03DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		A45343F701D3AC2103DD2834 = {
 			children = (
 				A45343F801D3AC2103DD2834,
@@ -2083,7 +2013,7 @@
 			sourceTree = "<group>";
 		};
 		A45343F801D3AC2103DD2834 = {
-			fileEncoding = 30;
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.strings;
 			name = English;
@@ -2128,8 +2058,7 @@
 			sourceTree = "<group>";
 		};
 		A466358801FF490903DD2834 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
@@ -2168,8 +2097,7 @@
 		};
 		A46FCD6301EF60DE03DD2834 = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = slpd;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -2184,14 +2112,15 @@
 				A46FCD6801EF60DF03DD2834,
 			);
 			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
 				DESTINATION = "$(DSTROOT)";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/slplibrary";
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = "\"$(SYMROOT)/\" \"$(SRCROOT)/build\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins\"";
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "-DMAC_OS_X -DEXTRA_MSGS -DSLPTCP -DLOG_IDENTITY=\"slpd\" -fno-exceptions";
-				OTHER_LDFLAGS = "-lstdc++ -lslplib";
+				OTHER_CFLAGS = "-DMAC_OS_X -DEXTRA_MSGS -DSLPTCP -DLOG_IDENTITY=\"slpd\" -fno-exceptions -gfull";
+				OTHER_LDFLAGS = "-lslplib -deadstrip";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = slpd;
 				REZ_EXECUTABLE = YES;
@@ -2277,10 +2206,10 @@
 		};
 		A46FCD6A01EF611003DD2834 = {
 			children = (
-				A46FCD6D01EF615C03DD2834,
 				A46FCD6B01EF611003DD2834,
 				A46FCD6C01EF611003DD2834,
 				A4B6994103E895D003DD2834,
+				FEE2F9F30565990600D63CB7,
 			);
 			isa = PBXGroup;
 			name = slpd;
@@ -2336,15 +2265,6 @@
 			);
 			isa = PBXGroup;
 			name = Sources;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		A46FCD6D01EF615C03DD2834 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = text;
-			name = slpsa.conf;
-			path = slpd/slpsa.conf;
 			refType = 4;
 			sourceTree = "<group>";
 		};
@@ -2868,8 +2788,7 @@
 		};
 		A46FCDC201EF631903DD2834 = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = slp_reg;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -2883,12 +2802,13 @@
 				A46FCDC701EF631903DD2834,
 			);
 			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/slplibrary";
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = "\"$(SYMROOT)/\" \"$(SRCROOT)/build\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins\"";
-				OTHER_CFLAGS = "-DMAC_OS_X -DLOG_IDENTITY=\"slp_reg\"";
-				OTHER_LDFLAGS = "-lstdc++ -lslplib";
+				OTHER_CFLAGS = "-DMAC_OS_X -DLOG_IDENTITY=\"slp_reg\" -gfull";
+				OTHER_LDFLAGS = "-lslplib -deadstrip";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = slp_reg;
 				REZ_EXECUTABLE = YES;
@@ -2896,6 +2816,7 @@
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
+				FE83F79205445EE800EB6035,
 			);
 			isa = PBXToolTarget;
 			name = slpreg;
@@ -2967,6 +2888,7 @@
 				A49A0A6101EF5B5D03DD2834,
 				A46FCD6A01EF611003DD2834,
 				A46FCDC101EF631903DD2834,
+				FE83F79405445F6C00EB6035,
 			);
 			isa = PBXGroup;
 			name = "SLP Framework";
@@ -2976,12 +2898,12 @@
 		A46FCDCF01EF644B03DD2834 = {
 			isa = PBXTargetDependency;
 			target = A49A0A5801EF59CD03DD2834;
-			targetProxy = FE8292C9064816CD00CC5839;
+			targetProxy = FEE5655305D860C700942AB8;
 		};
 		A47AFA6B0253A2FE03DD2833 = {
 			isa = PBXTargetDependency;
 			target = 77CDAAE501D162E305DD284B;
-			targetProxy = FE8292CF064816CD00CC5839;
+			targetProxy = FEE5655205D860C700942AB8;
 		};
 		A484866F029D543103DD2834 = {
 			fileRef = A4C5892B02217F5D03DD2834;
@@ -3003,8 +2925,7 @@
 		};
 		A49A0A5701EF59CD03DD2834 = {
 			explicitFileType = "compiled.mach-o.dylib";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
+			isa = PBXFileReference;
 			path = libslplib.a;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -3017,13 +2938,14 @@
 				A49A0A5C01EF59CD03DD2834,
 			);
 			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "-DMAC_OS_X -DEXTRA_MSGS -DSLPTCP -DIGNORE_XID_FROM_REPLY -fno-exceptions";
-				OTHER_LDFLAGS = "-lstdc++";
+				OTHER_CFLAGS = "-DMAC_OS_X -DEXTRA_MSGS -DSLPTCP -DIGNORE_XID_FROM_REPLY -fno-exceptions -gfull";
+				OTHER_LDFLAGS = "-dead_strip";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = libslplib.a;
@@ -3041,7 +2963,6 @@
 		A49A0A5901EF59CD03DD2834 = {
 			buildActionMask = 2147483647;
 			files = (
-				A49A0A8501EF5B5D03DD2834,
 				A49A0A8601EF5B5D03DD2834,
 				A49A0A8701EF5B5D03DD2834,
 				A49A0A8801EF5B5D03DD2834,
@@ -3312,7 +3233,6 @@
 		};
 		A49A0A7701EF5B5D03DD2834 = {
 			children = (
-				A49A0A7801EF5B5D03DD2834,
 				A49A0A7901EF5B5D03DD2834,
 				A49A0A7A01EF5B5D03DD2834,
 				A49A0A7B01EF5B5D03DD2834,
@@ -3328,15 +3248,6 @@
 			);
 			isa = PBXGroup;
 			name = Headers;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		A49A0A7801EF5B5D03DD2834 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = file;
-			name = LThread.h;
-			path = slplibrary/LThread.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
@@ -3447,12 +3358,6 @@
 			path = slplibrary/SLPSystemConfiguration.h;
 			refType = 4;
 			sourceTree = "<group>";
-		};
-		A49A0A8501EF5B5D03DD2834 = {
-			fileRef = A49A0A7801EF5B5D03DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		A49A0A8601EF5B5D03DD2834 = {
 			fileRef = A49A0A7901EF5B5D03DD2834;
@@ -3663,7 +3568,7 @@
 		A4A7189E020B0D1E03DD2834 = {
 			isa = PBXTargetDependency;
 			target = A49A0A5801EF59CD03DD2834;
-			targetProxy = FE8292CD064816CD00CC5839;
+			targetProxy = FEE5655405D860C700942AB8;
 		};
 		A4B6993803E8953303DD2834 = {
 			buildActionMask = 8;
@@ -3746,8 +3651,7 @@
 			};
 		};
 		A4C5892B02217F5D03DD2834 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = DirectoryServiceCore.framework;
 			path = /System/Library/PrivateFrameworks/DirectoryServiceCore.framework;
@@ -3842,80 +3746,603 @@
 //FE2
 //FE3
 //FE4
-		FE46F8430483E049003D4EC9 = {
-			fileRef = A453433B01D3AB0C03DD2834;
+		FE438C9C0736E85200110EE6 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.exports;
+			path = ServerModule.exp;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		FE438C9D0736E85200110EE6 = {
+			fileRef = FE438C9C0736E85200110EE6;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		FE46F8440483E049003D4EC9 = {
-			fileRef = A453433C01D3AB0C03DD2834;
+		FE438C9E0736E85200110EE6 = {
+			fileRef = FE438C9C0736E85200110EE6;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		FE8292C9064816CD00CC5839 = {
-			containerPortal = 774A93FD01D12BAB05DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = A49A0A5801EF59CD03DD2834;
-			remoteInfo = libslplib;
+		FE438C9F0736E85200110EE6 = {
+			fileRef = FE438C9C0736E85200110EE6;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
-		FE8292CA064816CD00CC5839 = {
-			containerPortal = 774A93FD01D12BAB05DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 774A942B01D12DDF05DD284B;
-			remoteInfo = AppleTalk;
+		FE438CA00736E85200110EE6 = {
+			fileRef = FE438C9C0736E85200110EE6;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
-		FE8292CB064816CD00CC5839 = {
-			containerPortal = 774A93FD01D12BAB05DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = A46FCD6401EF60DF03DD2834;
-			remoteInfo = slpd;
+		FE438CA10736E85200110EE6 = {
+			fileRef = FE438C9C0736E85200110EE6;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
-		FE8292CC064816CD00CC5839 = {
-			containerPortal = 774A93FD01D12BAB05DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 773C78A201D14E4B05DD284B;
-			remoteInfo = SLP;
+		FE4E586F0751283700CBD3AA = {
+			fileRef = FEA0915F0751238F001B1B2D;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
-		FE8292CD064816CD00CC5839 = {
-			containerPortal = 774A93FD01D12BAB05DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = A49A0A5801EF59CD03DD2834;
-			remoteInfo = libslplib;
+		FE55CFDF05CECCC200B32F78 = {
+			buildActionMask = 2147483647;
+			files = (
+				FE55D00005CECE0800B32F78,
+				FE55D00605CED0B300B32F78,
+				FE55D00705CED0CD00B32F78,
+				FE55D00905CED0CE00B32F78,
+				FE55D00A05CED0CF00B32F78,
+				FE55D00C05CED0D000B32F78,
+				FE55D00E05CED0D100B32F78,
+				FE55D01005CED0D200B32F78,
+				FE55D01205CED0D400B32F78,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		FE8292CE064816CD00CC5839 = {
-			containerPortal = 774A93FD01D12BAB05DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = A46FCDC301EF631903DD2834;
-			remoteInfo = slpreg;
+		FE55CFE005CECCC200B32F78 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		FE8292CF064816CD00CC5839 = {
-			containerPortal = 774A93FD01D12BAB05DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 77CDAAE501D162E305DD284B;
-			remoteInfo = Rendezvous;
+		FE55CFE105CECCC200B32F78 = {
+			buildActionMask = 2147483647;
+			files = (
+				FE55D00105CECE0800B32F78,
+				FE55D00505CED0B300B32F78,
+				FE55D00805CED0CD00B32F78,
+				FE55D00B05CED0CF00B32F78,
+				FE55D00D05CED0D100B32F78,
+				FE55D00F05CED0D200B32F78,
+				FE55D01105CED0D400B32F78,
+				FE8B8D7406E4FB21007D97E5,
+				FE438CA10736E85200110EE6,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		FE8292D0064816CD00CC5839 = {
-			containerPortal = 774A93FD01D12BAB05DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 7743A2A001D1562505DD284B;
-			remoteInfo = SMB;
+		FE55CFE205CECCC200B32F78 = {
+			buildActionMask = 2147483647;
+			files = (
+				FE55D00205CECE9300B32F78,
+				FE55D00305CECE9300B32F78,
+				FE55D00405CECE9500B32F78,
+				FE4E586F0751283700CBD3AA,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		FE8292D1064816CD00CC5839 = {
+		FE55CFE305CECCC200B32F78 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE55CFE405CECCC200B32F78 = {
+			buildPhases = (
+				FE55CFDF05CECCC200B32F78,
+				FE55CFE005CECCC200B32F78,
+				FE55CFE105CECCC200B32F78,
+				FE55CFE205CECCC200B32F78,
+				FE55CFE305CECCC200B32F78,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers\"";
+				INSTALL_PATH = "$(APPLE_INTERNAL_DIR)/DirectoryService/Plugins";
+				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -gfull -fconstant-cfstrings";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -lstdc++ -dead_strip -bundle_loader /usr/sbin/DirectoryService";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DSTestData;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = dsplug;
+			};
+			dependencies = (
+				FE55CFF205CECCEF00B32F78,
+			);
+			isa = PBXBundleTarget;
+			name = DSTestData;
+			productInstallPath = "$(APPLE_INTERNAL_DIR)/DirectoryService/Plugins";
+			productName = DSTestData;
+			productReference = FE55CFE505CECCC200B32F78;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>DSTestData</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DirectoryService.DSTestData</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DSTestData</string>
+	<key>CFBundlePackageType</key>
+	<string>dspi</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>BB49B11D-9B3B-11D5-8DF5-0030653D61E3</key>
+		<string>ModuleFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>697B5D6C-87A1-1226-89CA-000502C1C736</key>
+		<array>
+			<string>BB49B11D-9B3B-11D5-8DF5-0030653D61E3</string>
+		</array>
+	</dict>
+	<key>CFPluginNameString</key>
+	<string>DSTestData</string>
+	<key>DSPluginPrefix</key>
+	<string>DSTestData</string>
+	<key>DSServerSignature</key>
+	<string>DSTestData</string>
+</dict>
+</plist>
+";
+		};
+		FE55CFE505CECCC200B32F78 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = DSTestData.dsplug;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		FE55CFEB05CECCEA00B32F78 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE55CFEC05CECCEA00B32F78 = {
+			buildActionMask = 2147483647;
+			files = (
+				FE55CFF905CECDA300B32F78,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE55CFED05CECCEA00B32F78 = {
+			buildActionMask = 2147483647;
+			files = (
+				FE55CFF305CECD4700B32F78,
+				FEA0916E0751238F001B1B2D,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE55CFEE05CECCEA00B32F78 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE55CFEF05CECCEA00B32F78 = {
+			buildPhases = (
+				FE55CFEB05CECCEA00B32F78,
+				FE55CFEC05CECCEA00B32F78,
+				FE55CFED05CECCEA00B32F78,
+				FE55CFEE05CECCEA00B32F78,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = dsTestDataConfig;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = dsTestDataConfig;
+			productInstallPath = /usr/local/bin;
+			productName = dsTestDataConfig;
+			productReference = FE55CFF005CECCEA00B32F78;
+		};
+		FE55CFF005CECCEA00B32F78 = {
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
+			path = dsTestDataConfig;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		FE55CFF205CECCEF00B32F78 = {
+			isa = PBXTargetDependency;
+			target = FE55CFEF05CECCEA00B32F78;
+			targetProxy = FEE5654E05D860C700942AB8;
+		};
+		FE55CFF305CECD4700B32F78 = {
+			fileRef = 774A948601D12F4505DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55CFF505CECD7C00B32F78 = {
+			children = (
+				FE55CFF705CECD9200B32F78,
+				FE55CFF605CECD8900B32F78,
+			);
+			isa = PBXGroup;
+			name = DSTestData;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FE55CFF605CECD8900B32F78 = {
+			children = (
+				FE55CFFE05CECE0800B32F78,
+				FE55CFFF05CECE0800B32F78,
+			);
+			isa = PBXGroup;
+			name = Plugin;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FE55CFF705CECD9200B32F78 = {
+			children = (
+				FE55CFF805CECDA300B32F78,
+			);
+			isa = PBXGroup;
+			name = "dsTestDataConfig Tool";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FE55CFF805CECDA300B32F78 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = main.cpp;
+			path = DSTestData/main.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FE55CFF905CECDA300B32F78 = {
+			fileRef = FE55CFF805CECDA300B32F78;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55CFFE05CECE0800B32F78 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = DSTestData.h;
+			path = DSTestData/DSTestData.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FE55CFFF05CECE0800B32F78 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = DSTestData.cpp;
+			path = DSTestData/DSTestData.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FE55D00005CECE0800B32F78 = {
+			fileRef = FE55CFFE05CECE0800B32F78;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00105CECE0800B32F78 = {
+			fileRef = FE55CFFF05CECE0800B32F78;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00205CECE9300B32F78 = {
+			fileRef = A4C5892B02217F5D03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00305CECE9300B32F78 = {
+			fileRef = A4A09E7E021C680303DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00405CECE9500B32F78 = {
+			fileRef = 774A948601D12F4505DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00505CED0B300B32F78 = {
+			fileRef = A453437101D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00605CED0B300B32F78 = {
+			fileRef = A453437201D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00705CED0CD00B32F78 = {
+			fileRef = A453437701D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00805CED0CD00B32F78 = {
+			fileRef = A453436C01D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00905CED0CE00B32F78 = {
+			fileRef = A453436D01D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00A05CED0CF00B32F78 = {
+			fileRef = A453436E01D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00B05CED0CF00B32F78 = {
+			fileRef = A453436F01D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00C05CED0D000B32F78 = {
+			fileRef = A453437001D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00D05CED0D100B32F78 = {
+			fileRef = A453437301D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00E05CED0D100B32F78 = {
+			fileRef = A453437401D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D00F05CED0D200B32F78 = {
+			fileRef = A453437501D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D01005CED0D200B32F78 = {
+			fileRef = A453437601D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D01105CED0D400B32F78 = {
+			fileRef = FEE62E5704E18E1C0088D97B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE55D01205CED0D400B32F78 = {
+			fileRef = FEE62E5804E18E1C0088D97B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE650263071C98E100E7AD3E = {
 			containerPortal = 774A93FD01D12BAB05DD284B;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
-			remoteGlobalIDString = 7740372901D166C105DD284B;
-			remoteInfo = ALL;
+			remoteGlobalIDString = FE55CFE405CECCC200B32F78;
+			remoteInfo = DSTestData;
+		};
+		FE650264071C98E100E7AD3E = {
+			isa = PBXTargetDependency;
+			target = FE55CFE405CECCC200B32F78;
+			targetProxy = FE650263071C98E100E7AD3E;
+		};
+		FE8303F0054460C000EB6035 = {
+			fileRef = 774A948601D12F4505DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE8303F10544611400EB6035 = {
+			fileRef = 7743A29D01D155D805DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE83F78B05445EDA00EB6035 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE83F78C05445EDA00EB6035 = {
+			buildActionMask = 2147483647;
+			files = (
+				FE83F79705445FBF00EB6035,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE83F78D05445EDA00EB6035 = {
+			buildActionMask = 2147483647;
+			files = (
+				FE8303F0054460C000EB6035,
+				FE8303F10544611400EB6035,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE83F78E05445EDA00EB6035 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE83F78F05445EDA00EB6035 = {
+			buildPhases = (
+				FE83F78B05445EDA00EB6035,
+				FE83F78C05445EDA00EB6035,
+				FE83F78D05445EDA00EB6035,
+				FE83F78E05445EDA00EB6035,
+			);
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = "-DMAC_OS_X -DLOG_IDENTITY=\"slp_info\"";
+				OTHER_LDFLAGS = "-lstdc++ -lslplib";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = slpd_info;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				FE83F79305445EEB00EB6035,
+			);
+			isa = PBXToolTarget;
+			name = slpd_info;
+			productInstallPath = /usr/sbin;
+			productName = slpd_info;
+			productReference = FE83F79005445EDA00EB6035;
+		};
+		FE83F79005445EDA00EB6035 = {
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
+			path = slpd_info;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		FE83F79205445EE800EB6035 = {
+			isa = PBXTargetDependency;
+			target = A49A0A5801EF59CD03DD2834;
+			targetProxy = FEE5654F05D860C700942AB8;
+		};
+		FE83F79305445EEB00EB6035 = {
+			isa = PBXTargetDependency;
+			target = A49A0A5801EF59CD03DD2834;
+			targetProxy = FEE5655505D860C700942AB8;
+		};
+		FE83F79405445F6C00EB6035 = {
+			children = (
+				FE83F79605445FBF00EB6035,
+			);
+			isa = PBXGroup;
+			name = slpd_info;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FE83F79605445FBF00EB6035 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = slpd_info.cpp;
+			path = slpd_info/slpd_info.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FE83F79705445FBF00EB6035 = {
+			fileRef = FE83F79605445FBF00EB6035;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE8B8D6F06E4FB21007D97E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = NSLDebugLog.cpp;
+			path = NSLCommon/NSLDebugLog.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FE8B8D7006E4FB21007D97E5 = {
+			fileRef = FE8B8D6F06E4FB21007D97E5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE8B8D7106E4FB21007D97E5 = {
+			fileRef = FE8B8D6F06E4FB21007D97E5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE8B8D7206E4FB21007D97E5 = {
+			fileRef = FE8B8D6F06E4FB21007D97E5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE8B8D7306E4FB21007D97E5 = {
+			fileRef = FE8B8D6F06E4FB21007D97E5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE8B8D7406E4FB21007D97E5 = {
+			fileRef = FE8B8D6F06E4FB21007D97E5;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		FE99019C04055DF600DD2834 = {
 			fileRef = 7743A29D01D155D805DD284B;
@@ -3977,127 +4404,6 @@
 			settings = {
 			};
 		};
-		FE9C075E047EDA7E004431D2 = {
-			fileEncoding = 4;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			name = LMBDiscovererMain.cpp;
-			path = SMB/LMBDiscovererMain.cpp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		FE9C0760047EDA7E004431D2 = {
-			fileRef = FE9C075E047EDA7E004431D2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		FE9C0763047EDCCA004431D2 = {
-			fileRef = 774A948601D12F4505DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		FE9C0764047EDCD5004431D2 = {
-			fileRef = A4C5892B02217F5D03DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		FE9C0765047EDCFA004431D2 = {
-			fileRef = A4533E2E02A4583D03DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		FE9C0766047EDCFA004431D2 = {
-			fileRef = A4A09E7E021C680303DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		FE9C0767047EDCFB004431D2 = {
-			fileRef = 7743A29D01D155D805DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		FE9CFA05047EC667004431D2 = {
-			buildActionMask = 2147483647;
-			files = (
-				FE9CFA0E047EC753004431D2,
-				FE46F8440483E049003D4EC9,
-				FEE62E6404E18E1C0088D97B,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE9CFA06047EC667004431D2 = {
-			buildActionMask = 2147483647;
-			files = (
-				FE9CFA0F047EC753004431D2,
-				FE9C0760047EDA7E004431D2,
-				FE46F8430483E049003D4EC9,
-				FEE62E6304E18E1C0088D97B,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE9CFA07047EC667004431D2 = {
-			buildActionMask = 2147483647;
-			files = (
-				FE9C0763047EDCCA004431D2,
-				FE9C0764047EDCD5004431D2,
-				FE9C0765047EDCFA004431D2,
-				FE9C0766047EDCFA004431D2,
-				FE9C0767047EDCFB004431D2,
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE9CFA08047EC667004431D2 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE9CFA09047EC667004431D2 = {
-			buildPhases = (
-				FE9CFA05047EC667004431D2,
-				FE9CFA06047EC667004431D2,
-				FE9CFA07047EC667004431D2,
-				FE9CFA08047EC667004431D2,
-			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers\"";
-				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = LMBDiscoveryTest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			comments = "This will fire off LMB discovery searches using the SMB code and time the outcome";
-			dependencies = (
-			);
-			isa = PBXToolTarget;
-			name = LMBDiscoveryTest;
-			productInstallPath = /usr/local/bin;
-			productName = LMBDiscoveryTest;
-			productReference = FE9CFA0A047EC667004431D2;
-		};
-		FE9CFA0A047EC667004431D2 = {
-			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
-			path = LMBDiscoveryTest;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
 		FE9CFA0C047EC753004431D2 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
@@ -4116,18 +4422,6 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		FE9CFA0E047EC753004431D2 = {
-			fileRef = FE9CFA0C047EC753004431D2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		FE9CFA0F047EC753004431D2 = {
-			fileRef = FE9CFA0D047EC753004431D2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		FE9CFA10047EC753004431D2 = {
 			fileRef = FE9CFA0C047EC753004431D2;
 			isa = PBXBuildFile;
@@ -4136,6 +4430,20 @@
 		};
 		FE9CFA11047EC753004431D2 = {
 			fileRef = FE9CFA0D047EC753004431D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FEA0915F0751238F001B1B2D = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = DirectoryService.framework;
+			path = /System/Library/Frameworks/DirectoryService.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		FEA0916E0751238F001B1B2D = {
+			fileRef = FEA0915F0751238F001B1B2D;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -4162,12 +4470,110 @@
 		FEB174AF044F4DB2008EFFDA = {
 			isa = PBXTargetDependency;
 			target = 7740372901D166C105DD284B;
-			targetProxy = FE8292D1064816CD00CC5839;
+			targetProxy = FEE5655105D860C700942AB8;
 		};
 		FEB174B0044F4DB5008EFFDA = {
 			isa = PBXTargetDependency;
 			target = 774A942B01D12DDF05DD284B;
-			targetProxy = FE8292CA064816CD00CC5839;
+			targetProxy = FEE5655005D860C700942AB8;
+		};
+		FEE2F9F30565990600D63CB7 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			name = slpsa.conf;
+			path = slpd/slpsa.conf;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FEE2F9F40565990800D63CB7 = {
+			fileRef = FEE2F9F30565990600D63CB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FEE5654E05D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = FE55CFEF05CECCEA00B32F78;
+			remoteInfo = dsTestDataConfig;
+		};
+		FEE5654F05D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A49A0A5801EF59CD03DD2834;
+			remoteInfo = libslplib;
+		};
+		FEE5655005D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 774A942B01D12DDF05DD284B;
+			remoteInfo = AppleTalk;
+		};
+		FEE5655105D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 7740372901D166C105DD284B;
+			remoteInfo = ALL;
+		};
+		FEE5655205D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 77CDAAE501D162E305DD284B;
+			remoteInfo = Rendezvous;
+		};
+		FEE5655305D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A49A0A5801EF59CD03DD2834;
+			remoteInfo = libslplib;
+		};
+		FEE5655405D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A49A0A5801EF59CD03DD2834;
+			remoteInfo = libslplib;
+		};
+		FEE5655505D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A49A0A5801EF59CD03DD2834;
+			remoteInfo = libslplib;
+		};
+		FEE5655605D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A46FCD6401EF60DF03DD2834;
+			remoteInfo = slpd;
+		};
+		FEE5655705D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A46FCDC301EF631903DD2834;
+			remoteInfo = slpreg;
+		};
+		FEE5655805D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 773C78A201D14E4B05DD284B;
+			remoteInfo = SLP;
+		};
+		FEE5655905D860C700942AB8 = {
+			containerPortal = 774A93FD01D12BAB05DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 7743A2A001D1562505DD284B;
+			remoteInfo = SMB;
 		};
 		FEE62E5704E18E1C0088D97B = {
 			fileEncoding = 30;
@@ -4247,18 +4653,6 @@
 			settings = {
 			};
 		};
-		FEE62E6304E18E1C0088D97B = {
-			fileRef = FEE62E5704E18E1C0088D97B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		FEE62E6404E18E1C0088D97B = {
-			fileRef = FEE62E5804E18E1C0088D97B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		FEE62E6504E18E1C0088D97B = {
 			fileRef = FEE62E5704E18E1C0088D97B;
 			isa = PBXBuildFile;
@@ -4272,10 +4666,10 @@
 			};
 		};
 		FEEEA4DC04E9982000127A44 = {
-			buildRules = (
-			);
 			buildSettings = {
-				OTHER_CFLAGS = "-DBUILDING_NSLDEBUG";
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "-DBUILDING_NSLDEBUG=1 -DLOG_ALWAYS=1 -DMAC_OS_X -DEXTRA_MSGS -DSLPTCP -DIGNORE_XID_FROM_REPLY -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -gfull -fconstant-cfstrings";
 			};
 			isa = PBXBuildStyle;
 			name = "Debug Logging On";

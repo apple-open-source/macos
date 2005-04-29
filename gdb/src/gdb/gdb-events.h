@@ -55,6 +55,7 @@
 typedef void (gdb_events_breakpoint_create_ftype) (int b);
 typedef void (gdb_events_breakpoint_delete_ftype) (int b);
 typedef void (gdb_events_breakpoint_modify_ftype) (int b);
+typedef void (gdb_events_breakpoint_resolve_ftype) (int b, int new_b);
 typedef void (gdb_events_tracepoint_create_ftype) (int number);
 typedef void (gdb_events_tracepoint_delete_ftype) (int number);
 typedef void (gdb_events_tracepoint_modify_ftype) (int number);
@@ -71,6 +72,7 @@ struct gdb_events
     gdb_events_breakpoint_create_ftype *breakpoint_create;
     gdb_events_breakpoint_delete_ftype *breakpoint_delete;
     gdb_events_breakpoint_modify_ftype *breakpoint_modify;
+    gdb_events_breakpoint_resolve_ftype *breakpoint_resolve;
     gdb_events_tracepoint_create_ftype *tracepoint_create;
     gdb_events_tracepoint_delete_ftype *tracepoint_delete;
     gdb_events_tracepoint_modify_ftype *tracepoint_modify;
@@ -87,6 +89,7 @@ struct gdb_events
 extern void breakpoint_create_event (int b);
 extern void breakpoint_delete_event (int b);
 extern void breakpoint_modify_event (int b);
+extern void breakpoint_resolve_event (int b, int new_b);
 extern void tracepoint_create_event (int number);
 extern void tracepoint_delete_event (int number);
 extern void tracepoint_modify_event (int number);
@@ -96,12 +99,13 @@ extern void selected_frame_level_changed_event (int level);
 extern void selected_thread_changed_event (int thread_num);
 
 
-/* When GDB_EVENTS are not being used, completly disable them. */
+/* When GDB_EVENTS are not being used, completely disable them. */
 
 #if !WITH_GDB_EVENTS
 #define breakpoint_create_event(b) 0
 #define breakpoint_delete_event(b) 0
 #define breakpoint_modify_event(b) 0
+#define breakpoint_resolve_event(b, new_b) 0
 #define tracepoint_create_event(number) 0
 #define tracepoint_delete_event(number) 0
 #define tracepoint_modify_event(number) 0

@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: compat.c,v 1.66 2003/04/01 10:31:26 markus Exp $");
+RCSID("$OpenBSD: compat.c,v 1.70 2003/11/02 11:01:03 markus Exp $");
 
 #include "buffer.h"
 #include "packet.h"
@@ -71,17 +71,15 @@ compat_datafellows(const char *version)
 		{ "OpenSSH_2.5.0p1*,"
 		  "OpenSSH_2.5.1p1*",
 					SSH_BUG_BIGENDIANAES|SSH_OLD_DHGEX|
-					SSH_BUG_NOREKEY|SSH_BUG_EXTEOF|
-					SSH_OLD_GSSAPI},
+					SSH_BUG_NOREKEY|SSH_BUG_EXTEOF},
 		{ "OpenSSH_2.5.0*,"
 		  "OpenSSH_2.5.1*,"
 		  "OpenSSH_2.5.2*",	SSH_OLD_DHGEX|SSH_BUG_NOREKEY|
 					SSH_BUG_EXTEOF},
 		{ "OpenSSH_2.5.3*",	SSH_BUG_NOREKEY|SSH_BUG_EXTEOF},
-		{ "OpenSSH_2.9p*",	SSH_BUG_EXTEOF|SSH_OLD_GSSAPI},
 		{ "OpenSSH_2.*,"
 		  "OpenSSH_3.0*,"
-		  "OpenSSH_3.1*",	SSH_BUG_EXTEOF|SSH_BUG_GSSAPI_BER},
+		  "OpenSSH_3.1*",	SSH_BUG_EXTEOF | SSH_BUG_GSSAPI_BER},
 		{ "OpenSSH_3.2*,"
 		  "OpenSSH_3.3*,"
 		  "OpenSSH_3.4*,"
@@ -137,12 +135,9 @@ compat_datafellows(const char *version)
 		  "1.2.19*,"
 		  "1.2.20*,"
 		  "1.2.21*,"
-		  "1.2.22*",		SSH_BUG_IGNOREMSG|SSH_BUG_K5USER },
+		  "1.2.22*",		SSH_BUG_IGNOREMSG },
 		{ "1.3.2*",		/* F-Secure */
-					SSH_BUG_IGNOREMSG|SSH_BUG_K5USER },
-		{ "1.2.1*,"
-		  "1.2.2*,"
-		  "1.2.3*",		SSH_BUG_K5USER },
+					SSH_BUG_IGNOREMSG },
 		{ "*SSH Compatible Server*",			/* Netscreen */
 					SSH_BUG_PASSWORDPAD },
 		{ "*OSU_0*,"
@@ -194,7 +189,7 @@ proto_spec(const char *spec)
 			ret |= SSH_PROTO_2;
 			break;
 		default:
-			log("ignoring bad proto spec: '%s'.", p);
+			logit("ignoring bad proto spec: '%s'.", p);
 			break;
 		}
 	}

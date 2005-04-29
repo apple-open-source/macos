@@ -492,27 +492,27 @@ OSStatus PoolDeallocate( LogicalAddress address );
 
 UInt32	CurrentExecutionLevel(void);
 
-AbsoluteTime UpTime( void );
+UnsignedWide UpTime( void );
 
-AbsoluteTime AddAbsoluteToAbsolute(AbsoluteTime left, AbsoluteTime right);
+UnsignedWide AddAbsoluteToAbsolute(UnsignedWide left, UnsignedWide right);
 
-AbsoluteTime SubAbsoluteFromAbsolute(AbsoluteTime left, AbsoluteTime right);
+UnsignedWide SubAbsoluteFromAbsolute(UnsignedWide left, UnsignedWide right);
 
-AbsoluteTime DurationToAbsolute( Duration theDuration);
+UnsignedWide DurationToAbsolute( Duration theDuration);
 
-AbsoluteTime AddDurationToAbsolute( Duration duration, AbsoluteTime absolute );
+UnsignedWide AddDurationToAbsolute( Duration duration, UnsignedWide absolute );
 
-AbsoluteTime NanosecondsToAbsolute ( UnsignedWide theNanoseconds);
+UnsignedWide NanosecondsToAbsolute ( UnsignedWide theNanoseconds);
 
-UnsignedWide AbsoluteToNanoseconds( AbsoluteTime absolute );
+UnsignedWide AbsoluteToNanoseconds( UnsignedWide absolute );
 
-Duration AbsoluteDeltaToDuration( AbsoluteTime left, AbsoluteTime right );
+Duration AbsoluteDeltaToDuration( UnsignedWide left, UnsignedWide right );
 
-Duration AbsoluteToDuration( AbsoluteTime result );
+Duration AbsoluteToDuration( UnsignedWide result );
 
-OSStatus DelayForHardware( AbsoluteTime time );
+OSStatus DelayForHardware( UnsignedWide time );
 
-OSStatus DelayUntil( AbsoluteTime time );
+OSStatus DelayUntil( UnsignedWide time );
 
 OSStatus DelayFor( Duration theDuration );
 

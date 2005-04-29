@@ -40,29 +40,29 @@
  ************************************************************************
  */
 
+#include <stddef.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
 
 #include <mach/mach.h>
 
 vm_statistics_data_t	vm_stat, last;
-int	percent;
+natural_t percent;
 int	delay;
 char	*pgmname;
 mach_port_t myHost;
 int pageSize = 4096; 	/* set to 4k default */
 
-void usage();
-void banner();
-void snapshot();
-void pstat(char *str, int n);
-void print_stats();
+void usage(void);
+void banner(void);
+void snapshot(void);
+void pstat(char *str, natural_t n);
+void print_stats(void);
 void get_stats(struct vm_statistics *stat);
 
 int
-main(argc, argv)
-	int	argc;
-	char	*argv[];
+main(int argc, char *argv[])
 {
 
 	pgmname = argv[0];
@@ -94,22 +94,22 @@ main(argc, argv)
 			sleep(delay);
 		}
 	}
-	exit(0);
+	exit(EXIT_SUCCESS);
 }
 
 void
-usage()
+usage(void)
 {
 	fprintf(stderr, "usage: %s [ repeat-interval ]\n", pgmname);
-	exit(1);
+	exit(EXIT_FAILURE);
 }
 
 void
-banner()
+banner(void)
 {
 	get_stats(&vm_stat);
 	printf("Mach Virtual Memory Statistics: ");
-	printf("(page size of %d bytes, cache hits %d%%)\n",
+	printf("(page size of %d bytes, cache hits %u%%)\n",
 				pageSize, percent);
 	printf("%6s %6s %4s %4s %8s %8s %8s %8s %8s %8s\n",
 		"free",
@@ -126,7 +126,7 @@ banner()
 }
 
 void
-snapshot()
+snapshot(void)
 {
 
 	get_stats(&vm_stat);
@@ -143,22 +143,20 @@ snapshot()
 	pstat("Pages reactivated:", vm_stat.reactivations);
 	pstat("Pageins:", vm_stat.pageins);
 	pstat("Pageouts:", vm_stat.pageouts);
-	printf("Object cache: %d hits of %d lookups (%d%% hit rate)\n",
+	printf("Object cache: %u hits of %u lookups (%u%% hit rate)\n",
 			vm_stat.hits, vm_stat.lookups, percent);
 }
 
 void
-pstat(str, n)
-	char	*str;
-	int	n;
+pstat(char *str, natural_t n)
 {
-	printf("%-25s %10d.\n", str, n);
+	printf("%-25s %10u.\n", str, n);
 }
 
 void
-print_stats()
+print_stats(void)
 {
-	static count = 0;
+	static int count = 0;
 
 	if (count++ == 0)
 		banner();
@@ -167,7 +165,7 @@ print_stats()
 		count = 0;
 
 	get_stats(&vm_stat);
-	printf("%6d %6d %4d %4d %8d %8d %8d %8d %8d %8d\n",
+	printf("%6u %6u %4u %4u %8u %8u %8u %8u %8u %8u\n",
 		vm_stat.free_count,
 		vm_stat.active_count,
 		vm_stat.inactive_count,
@@ -182,16 +180,23 @@ print_stats()
 }
 
 void
-get_stats(stat)
-	struct vm_statistics	*stat;
+get_stats(struct vm_statistics *stat)
 {
 	int count = HOST_VM_INFO_COUNT;
-	if (host_statistics(myHost, HOST_VM_INFO, stat,&count) != KERN_SUCCESS) {
+	if (host_statistics(myHost, HOST_VM_INFO, (host_info_t)stat, &count) != KERN_SUCCESS) {
 		fprintf(stderr, "%s: failed to get statistics.\n", pgmname);
-		exit(2);
+		exit(EXIT_FAILURE);
 	}
 	if (stat->lookups == 0)
 		percent = 0;
-	else
-		percent = (stat->hits*100)/stat->lookups;
+	else {
+		/*
+		 * We have limited precision with the 32-bit natural_t fields
+		 * in the vm_statistics structure.  There's nothing we can do
+		 * about counter overflows, but we can avoid percentage
+		 * calculation overflows by doing the computation in floating
+		 * point arithmetic ...
+		 */
+		percent = (natural_t)(((double)stat->hits*100)/stat->lookups);
+	}
 }

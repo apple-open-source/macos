@@ -1,46 +1,80 @@
 /*
 	File:		MBCBoardViewMouse.mm
 	Contains:	Handle mouse coordinate transformations
-	Copyright:	© 2002-2003 Apple Computer, Inc. All rights reserved.
+	Version:	1.0
+	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
 
-	IMPORTANT: This Apple software is supplied to you by Apple Computer,
-	Inc.  ("Apple") in consideration of your agreement to the following
-	terms, and your use, installation, modification or redistribution of
-	this Apple software constitutes acceptance of these terms.  If you do
-	not agree with these terms, please do not use, install, modify or
-	redistribute this Apple software.
-	
-	In consideration of your agreement to abide by the following terms,
-	and subject to these terms, Apple grants you a personal, non-exclusive
-	license, under Apple's copyrights in this original Apple software (the
-	"Apple Software"), to use, reproduce, modify and redistribute the
-	Apple Software, with or without modifications, in source and/or binary
-	forms; provided that if you redistribute the Apple Software in its
-	entirety and without modifications, you must retain this notice and
-	the following text and disclaimers in all such redistributions of the
-	Apple Software.  Neither the name, trademarks, service marks or logos
-	of Apple Computer, Inc. may be used to endorse or promote products
-	derived from the Apple Software without specific prior written
-	permission from Apple.  Except as expressly stated in this notice, no
-	other rights or licenses, express or implied, are granted by Apple
-	herein, including but not limited to any patent rights that may be
-	infringed by your derivative works or by other works in which the
-	Apple Software may be incorporated.
-	
-	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
-	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
-	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
-	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
-	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
-	
-	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
-	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
-	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
-	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
-	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
-	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+	File Ownership:
+
+		DRI:				Matthias Neeracher    x43683
+
+	Writers:
+
+		(MN)	Matthias Neeracher
+
+	Change History (most recent first):
+
+		$Log: MBCBoardViewMouse.mm,v $
+		Revision 1.20  2004/09/08 00:35:24  neerache
+		Reduce square sizes to avoid navigation ambiguities
+		
+		Revision 1.19  2004/08/16 07:50:55  neerache
+		Support accessibility
+		
+		Revision 1.18  2003/07/18 22:14:26  neerache
+		Disable pondering during drag to improve interactive performance (RADAR 2736549)
+		
+		Revision 1.17  2003/07/14 23:21:49  neerache
+		Move promotion defaults into MBCBoard
+		
+		Revision 1.16  2003/07/07 08:47:54  neerache
+		Switch to textured main window
+		
+		Revision 1.15  2003/06/18 21:55:17  neerache
+		More (mostly unsuccessful) tweaking of floating windows
+		
+		Revision 1.14  2003/06/05 08:31:26  neerache
+		Added Tuner
+		
+		Revision 1.13  2003/06/05 00:14:37  neerache
+		Reduce excessive threshold
+		
+		Revision 1.12  2003/06/04 23:14:05  neerache
+		Neater manipulation widget; remove obsolete graphics options
+		
+		Revision 1.11  2003/06/04 09:25:47  neerache
+		New and improved board manipulation metaphor
+		
+		Revision 1.10  2003/06/02 05:44:48  neerache
+		Implement direct board manipulation
+		
+		Revision 1.9  2003/05/24 20:28:27  neerache
+		Address race conditions between ploayer and engine
+		
+		Revision 1.8  2003/05/02 01:16:33  neerache
+		Simplify drawing methods
+		
+		Revision 1.7  2003/04/28 22:11:45  neerache
+		Handle black promotion square
+		
+		Revision 1.6  2003/04/25 22:26:23  neerache
+		Simplify mouse model, fix startup bug
+		
+		Revision 1.5  2003/04/25 16:37:00  neerache
+		Clean automake build
+		
+		Revision 1.4  2003/04/24 23:20:35  neeri
+		Support pawn promotions
+		
+		Revision 1.3  2003/04/02 19:01:36  neeri
+		Explore strategies to speed up dragging
+		
+		Revision 1.2  2002/12/04 02:30:50  neeri
+		Experiment (unsuccessfully so far) with ways to speed up piece movement
+		
+		Revision 1.1  2002/08/22 23:47:06  neeri
+		Initial Checkin
+		
 */
 
 #import "MBCBoardViewMouse.h"
@@ -55,10 +89,21 @@ using std::min;
 using std::max;
 
 //
-// We're doing a lot of UnProjects. This class encapsulates them.
+// We're doing a lot of Projects and UnProjects. 
+// These classes encapsulate them.
 //
-class MBCUnProjector 
-{
+class MBCProjector {
+public:
+	MBCProjector();
+
+	NSPoint Project(MBCPosition pos);
+protected:
+    GLint		fViewport[4];
+    GLdouble	fMVMatrix[16];
+	GLdouble	fProjMatrix[16];
+};
+
+class MBCUnProjector : private MBCProjector {
 public:
 	MBCUnProjector(GLdouble winX, GLdouble winY);
 	
@@ -67,17 +112,30 @@ public:
 private:
 	GLdouble	fWinX;
 	GLdouble	fWinY;	
-    GLint		fViewport[4];
-    GLdouble	fMVMatrix[16];
-	GLdouble	fProjMatrix[16];
 };
 
-MBCUnProjector::MBCUnProjector(GLdouble winX, GLdouble winY)
-	: fWinX(winX), fWinY(winY)
+MBCProjector::MBCProjector()
 {
     glGetIntegerv(GL_VIEWPORT, fViewport);
     glGetDoublev(GL_MODELVIEW_MATRIX, fMVMatrix);
     glGetDoublev(GL_PROJECTION_MATRIX, fProjMatrix);
+}
+
+NSPoint MBCProjector::Project(MBCPosition pos)
+{
+	GLdouble 	w[3];
+
+	gluProject(pos[0], pos[1], pos[2], fMVMatrix, fProjMatrix, fViewport,
+			   w+0, w+1, w+2);
+
+	NSPoint pt = {w[0], w[1]};
+
+	return pt;
+}
+
+MBCUnProjector::MBCUnProjector(GLdouble winX, GLdouble winY)
+	: MBCProjector(), fWinX(winX), fWinY(winY)
+{
 }
 
 MBCPosition MBCUnProjector::UnProject()
@@ -128,13 +186,63 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 
 @implementation MBCBoardView ( Mouse )
 
-- (void) mouseMoved:(NSEvent *)event
+- (NSRect) approximateBoundsOfSquare:(MBCSquare)square
+{
+	const float kSquare = 4.5f;
+
+	MBCProjector proj;
+	MBCPosition  pos = [self squareToPosition:square];
+
+	pos[0] -= kSquare;
+	pos[2] -= kSquare;
+	NSPoint p0	= proj.Project(pos);
+	
+	pos[0] += 2.0f*kSquare;
+	NSPoint p1 	= proj.Project(pos);
+	
+	pos[2] += 2.0f*kSquare;
+	NSPoint p2 	= proj.Project(pos);
+
+	pos[0] -= 2.0f*kSquare;
+	NSPoint p3 	= proj.Project(pos);
+
+	NSRect r;
+	if (p1.x > p0.x) {
+		r.origin.x 		= max(p0.x, p3.x);
+		r.size.width	= min(p1.x, p2.x)-r.origin.x;
+	} else {
+		r.origin.x 		= max(p1.x, p2.x);
+		r.size.width	= min(p0.x, p3.x)-r.origin.x;
+	}
+	if (p2.y > p1.y) {
+		r.origin.y 		= max(p0.y, p1.y);
+		r.size.height	= min(p2.y, p3.y)-r.origin.y;
+	} else {
+		r.origin.y 		= max(p2.y, p3.y);
+		r.size.height	= min(p0.y, p1.y)-r.origin.y;
+	}
+
+	return r;
+}
+
+- (MBCPosition) mouseToPosition:(NSPoint)mouse
+{
+	MBCUnProjector	unproj(mouse.x, mouse.y);
+	
+	return unproj.UnProject();
+}
+
+- (MBCPosition) eventToPosition:(NSEvent *)event
 {
     NSPoint p = [event locationInWindow];
     NSPoint l = [self convertPoint:p fromView:nil];
 
-	MBCUnProjector	unproj(l.x, l.y);
-	MBCPosition 	pos 	= unproj.UnProject();
+	return [self mouseToPosition:l];
+}
+
+- (void) mouseMoved:(NSEvent *)event
+{
+	MBCPosition 	pos 	= [self eventToPosition:event];
 	float 			pxa		= fabs(pos[0]);
 	float			pza		= fabs(pos[2]);
 	NSCursor *		cursor	= fArrowCursor;
@@ -148,10 +256,10 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 
 - (void) mouseDown:(NSEvent *)event
 {
-    NSPoint p 	= [event locationInWindow];
-    NSPoint l 	= [self convertPoint:p fromView:nil];
+	MBCSquare previouslyPicked = fPickedSquare;
 
-	MBCUnProjector	unproj(l.x, l.y);
+    NSPoint p = [event locationInWindow];
+    NSPoint l = [self convertPoint:p fromView:nil];
 
 	//	
 	// On mousedown, we determine the point on the board surface that 
@@ -159,7 +267,7 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 	// then pretend that the click happened at board surface level. Weirdly
 	// enough, this seems to give the most natural feeling mouse behavior.
 	//
-	MBCPosition pos = unproj.UnProject();
+	MBCPosition pos = [self mouseToPosition:l];
 
 	MBCSquare selectedStart = fSelectedDest = 
 		[self positionToSquareOrRegion:&pos];
@@ -213,7 +321,9 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 			break;
 		case NSLeftMouseUp: {
 			[self dragAndRedraw:event forceRedraw:YES];
-			[fInteractive endSelection:fSelectedDest];
+			[fInteractive endSelection:fSelectedDest animate:NO];
+			if (fPickedSquare == previouslyPicked)
+				fPickedSquare = kInvalidSquare; // Toggle pick
 			goOn = false;
 			if (fInBoardManipulation) {
 				fInBoardManipulation = false;
@@ -235,11 +345,16 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 		return;
 
 	MBCPiece promo;
-	if (fSelectedDest == kWhitePromoSquare)
+	if (fSelectedDest == kWhitePromoSquare) {
 		promo = [fBoard defaultPromotion:YES];
-	else if (fSelectedDest == kBlackPromoSquare)
+	} else if (fSelectedDest == kBlackPromoSquare) {
 		promo = [fBoard defaultPromotion:NO];
-	else
+	} else if (fPickedSquare != kInvalidSquare) {
+		[fInteractive startSelection:fPickedSquare];
+		[fInteractive endSelection:fSelectedDest animate:YES];
+
+		return;
+	} else
 		return;
 	
 	switch (promo) {

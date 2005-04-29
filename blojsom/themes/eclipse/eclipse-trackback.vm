@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html
+     PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+
+<head>
+<title>$BLOJSOM_BLOG.getBlogName()</title>
+<link rel="stylesheet" href="$BLOJSOM_SITE_URL/blojsom-eclipse.css" />
+<link rel="SHORTCUT ICON" href="$BLOJSOM_SITE_URL/favicon.ico" />
+<link rel="alternate" type="application/rss+xml" title="RSS" href="$BLOJSOM_BLOG.getBlogURL()?flavor=rss" />
+<link rel="EditURL" type="application/rsd+xml" title="RSD" href="$BLOJSOM_BLOG.getBlogURL()?flavor=rsd" />
+
+</head>
+
+<h1><a href="$BLOJSOM_BLOG.getBlogURL()">$BLOJSOM_BLOG.getBlogName()</a></h1>
+<h3>$BLOJSOM_BLOG.getBlogDescription()</h3>
+
+<p>
+Available categories:
+#foreach ($blogCategory in $BLOJSOM_CATEGORIES)
+    [<i><a href="$blogCategory.getCategoryURL()">#if ($blogCategory.getName())$blogCategory.getName()#else$blogCategory.getCategory()#end</a></i>]
+#end
+</p>
+
+<body>
+
+#set( $totalEntries = 0)
+#foreach ($entry in $BLOJSOM_ENTRIES)
+    <div class="entrystyle">
+    <p class="weblogtitle">$entry.getTitle() <span class="smalltext">[<a href="$entry.getLink()">Permalink</a>]</span> </p>
+    <p class="weblogdateline">$entry.getDate()</p>
+    <p>$entry.getDescription()</p>
+    </div>
+
+    <p class="weblogtitle">Trackback for this entry</p>
+    <p class="weblogdateline"><a href="$entry.getLink()&amp;tb=y"><img src="$BLOJSOM_SITE_URL/trackback.gif" border="0"/></a>&nbsp;$entry.getLink()&amp;tb=y</p>
+
+    <div class="entrystyle">
+    #foreach ($entryTrackback in $entry.getTrackbacks())
+        <div class="commentstyle">
+            Trackback from: <a href="$entryTrackback.getUrl()">#if ($entryTrackback.getBlogName())$entryTrackback.getBlogName()#else$entryTrackback.getUrl()#end</a>
+            <div class="weblogdateline">Left on: $entryTrackback.getTrackbackDate()</div><br/>
+            Title: #if ($entryTrackback.getTitle()) $entryTrackback.getTitle() #end<br />
+            #if ($entryTrackback.getExcerpt()) $entryTrackback.getExcerpt() #end<br />
+        </div>
+    #end
+    </div>
+    #set( $totalEntries = $totalEntries + 1)
+
+    <!-- Trackback Auto Discovery -->
+    #set( $blogDescription = $entry.getEscapedDescription() )
+    #if ($blogDescription.length() > 255 )
+        #set( $ellipses = "..." )
+        #set( $blogDescription = "$blogDescription.substring(0,252)$ellipses" )
+    #end
+<!--
+    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+             xmlns:dc="http://purl.org/dc/elements/1.1/"
+             xmlns:trackback="http://madskills.com/public/xml/rss/module/trackback/">
+        <rdf:Description
+             rdf:about="$entry.getLink()"
+             dc:identifier="$entry.getLink()"
+             dc:title="$entry.getTitle()"
+             dc:subject="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()"
+             dc:description="$blogDescription"
+             dc:creator="$BLOJSOM_BLOG.getBlogOwner()"
+             dc:date="$entry.getISO8601Date()"
+             trackback:ping="$entry.getLink()&tb=y" />
+     </rdf:RDF>
+-->
+
+    <p />
+#end
+
+<p>
+#if ($totalEntries > 0)
+    Available categories:
+    #foreach ($blogCategory in $BLOJSOM_CATEGORIES)
+        [<i><a href="$blogCategory.getCategoryURL()">#if ($blogCategory.getName())$blogCategory.getName()#else$blogCategory.getCategory()#end</a></i>]
+    #end
+#end
+</p>
+
+<p />
+<a href="http://blojsom.sf.net"><img src="$BLOJSOM_SITE_URL/powered-by-blojsom.gif"  alt="Powered By blojsom" border="0"/></a>&nbsp;&nbsp;
+<a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rss"><img src="$BLOJSOM_SITE_URL/xml.gif" border="0" alt="RSS Feed"/></a>&nbsp;
+<a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rss2"><img src="$BLOJSOM_SITE_URL/rss.gif" border="0" alt="RSS2 Feed"/></a>&nbsp;
+<a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rdf"><img src="$BLOJSOM_SITE_URL/rdf.gif" border="0" alt="RDF Feed"/></a>
+
+</body>
+
+</html>

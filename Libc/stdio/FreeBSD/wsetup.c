@@ -38,8 +38,9 @@
 static char sccsid[] = "@(#)wsetup.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/wsetup.c,v 1.8 2002/03/22 21:53:04 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/wsetup.c,v 1.9 2004/06/08 05:44:52 das Exp $");
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "local.h"
@@ -47,7 +48,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/wsetup.c,v 1.8 2002/03/22 21:53:04 obrien
 /*
  * Various output routines call wsetup to be sure it is safe to write,
  * because either _flags does not include __SWR, or _buf is NULL.
- * _wsetup returns 0 if OK to write, nonzero otherwise.
+ * _wsetup returns 0 if OK to write; otherwise, it returns EOF and sets errno.
  */
 int
 __swsetup(fp)
@@ -61,8 +62,10 @@ __swsetup(fp)
 	 * If we are not writing, we had better be reading and writing.
 	 */
 	if ((fp->_flags & __SWR) == 0) {
-		if ((fp->_flags & __SRW) == 0)
+		if ((fp->_flags & __SRW) == 0) {
+			errno = EBADF;
 			return (EOF);
+		}
 		if (fp->_flags & __SRD) {
 			/* clobber any ungetc data */
 			if (HASUB(fp))

@@ -1,3 +1,74 @@
+2003-05-21  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerate with Automake version 1.7.5.
+
+2003-04-10  Larry Jones  <lawrence.jones@eds.com>
+
+	* Makefile.in: Regenerated.
+
+2003-03-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Update copyright notice.
+
+	* Makefile.in: Regenerated.
+
+2003-02-25  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated using Automake 1.6.3.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2002-04-30  Derek Price  <oberon@umich.edu>
+
+	* Makefile.in: Regenerated with automake 1.6.
+
+2001-09-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with automake 1.5.
+
+2001-08-06  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated.
+
+2001-07-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with new Automake release candidate 1.4h.
+
+2001-06-28  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with new version of Automake.
+
+2001-04-25  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated using AM 1.4e as of today at 18:10 -0400.
+
+2001-03-14  Derek Price  <derek.price@openavenue.com>
+
+        * Makefile.in: Regenerated
+
+2000-12-22  Derek Price  <derek.price@openavenue.com>
+
+        * Makefile.in: Regenerated
+
+2000-12-21  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.am: New file needed by Automake
+	* Makefile.in: Regenerated
+
+1999-04-09  Jim Kingdon  <http://www.cyclic.com>
+
+	* Makefile.in (DISTFILES): Add SCC.dsp.
+
+1998-09-21  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* README.txt: Also mention HAHTsite.
+
 1998-03-22  Jim Kingdon  <kingdon@harvey.cyclic.com>
 
 	* pubscc.h: Describe how SccGetCommandOptions works.

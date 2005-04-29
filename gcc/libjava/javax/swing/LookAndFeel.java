@@ -1,5 +1,5 @@
-/* LookAndFeel.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* LookAndFeel.java --
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,89 +37,160 @@ exception statement from your version. */
 
 package javax.swing;
 
-import javax.swing.text.*;
+import java.awt.Component;
+import java.awt.Toolkit;
+import javax.swing.text.JTextComponent;
+
 
 public abstract class LookAndFeel
 {
-    public UIDefaults getDefaults()
-    {
-	//This method is called once by UIManager.setLookAndFeel to create the look and feel specific defaults table.
-	return null;
-    }
+  /**
+   * This method is called once by UIManager.setLookAndFeel to create
+   * the look and feel specific defaults table.
+   *
+   * @return the UI defaults
+   */
+  public UIDefaults getDefaults()
+  {
+    return null;
+  }
 
-    public abstract  String getDescription();  
-    public abstract  String getID();
-    public abstract  String getName();
+  public abstract String getDescription();
 
-    public void initialize()
-    {
-	//UIManager.setLookAndFeel calls this method before the first call (and typically the only call) to getDefaults(). 
-    }
+  public abstract String getID();
 
-    static void installBorder(JComponent c, String defaultBorderName)
-    {
-	//Convenience method for installing a component's default Border object on the specified component if either the border is currently null or already an instance of UIResource. 
-    }
+  public abstract String getName();
 
-    public static void installColors(JComponent c, String defaultBgName, String defaultFgName)
-    {
-	//Convenience method for initializing a component's foreground and background color properties with values from the current defaults table. 
-    }
-
-    public static void installColorsAndFont(JComponent c, String defaultBgName, String defaultFgName, String defaultFontName)
-    {
-	//Convenience method for initializing a components foreground background and font properties with values from the current defaults table. 
-    }
+  /**
+   * Returns true when the Look and Feel supports window decorations,
+   * false others. This method returns always false and needs to be overwritten
+   * when the derived Look and Feel supports this.
+   *
+   * @return false
+   *
+   * @since 1.4
+   */
+  public boolean getSupportsWindowDecorations()
+  {
+    return false;
+  }
   
-    public abstract  boolean isNativeLookAndFeel();
-    public abstract  boolean isSupportedLookAndFeel();
+  /**
+   * UIManager.setLookAndFeel calls this method before the first call
+   * (and typically the only call) to getDefaults(). 
+   */
+  public void initialize()
+  {
+  }
 
-    public static void loadKeyBindings(InputMap retMap, Object[] keys)
-    {
-	//Loads the bindings in keys into retMap. 
-    }
+  /**
+   * Convenience method for installing a component's default Border object
+   * on the specified component if either the border is currently null
+   * or already an instance of UIResource. 
+   */
+  public static void installBorder(JComponent c, String defaultBorderName)
+  {
+  }
 
-    public static ComponentInputMap makeComponentInputMap(JComponent c, Object[] keys)
-    {
-	//    Creates a ComponentInputMap from keys. 
-	return null;
-    }  
+  /**
+   * Convenience method for initializing a component's foreground and
+   * background color properties with values from the current defaults table.
+   */
+  public static void installColors(JComponent c, String defaultBgName, String defaultFgName)
+  {
+  }
 
-    public static Object makeIcon(Class baseClass, String gifFile)
-    {
-	//Utility method that creates a UIDefaults.LazyValue that creates an ImageIcon UIResource for the specified gifFile filename. 
-	return null;
-    }
-  
-    public static InputMap makeInputMap(Object[] keys)
-    {
-	//Creates a InputMap from keys. 
-	return null;
-    }
+  /**
+   * Convenience method for initializing a components foreground background
+   * and font properties with values from the current defaults table. 
+   */
+  public static void installColorsAndFont(JComponent component,
+					  String defaultBgName,
+					  String defaultFgName,
+					  String defaultFontName)
+  {
+  }
 
-    public static JTextComponent.KeyBinding[] makeKeyBindings(Object[] keyBindingList)
-    {
-	//        Convenience method for building lists of KeyBindings.  
-	return null;
-    }
+  public abstract boolean isNativeLookAndFeel();
 
-  
-    public String toString()
-    {
-	//Returns a string that displays and identifies this object's properties. 
-	return "LookAndFeel";
-    }
-  
-    public void uninitialize()
-    {
-	//UIManager.setLookAndFeel calls this method just before we're replaced by a new default look and feel. 
-    }
+  public abstract boolean isSupportedLookAndFeel();
 
-  
-    public static void uninstallBorder(JComponent c)
-    {
-	//Convenience method for un-installing a component's default border on the specified component if the border is currently an instance of UIResource.
-    }
+  /**
+   * Loads the bindings in keys into retMap. 
+   */
+  public static void loadKeyBindings(InputMap retMap, Object[] keys)
+  {
+  }
 
+  /**
+   * Creates a ComponentInputMap from keys. 
+   */
+  public static ComponentInputMap makeComponentInputMap(JComponent c,
+							Object[] keys)
+  {
+    return null;
+  }
+
+  /**
+   * Utility method that creates a UIDefaults.LazyValue that creates an
+   * ImageIcon UIResource for the specified gifFile filename. 
+   */
+  public static Object makeIcon(Class baseClass, String gifFile)
+  {
+    return null;
+  }
+
+  /**
+   * Creates a InputMap from keys. 
+   */
+  public static InputMap makeInputMap(Object[] keys)
+  {
+    return null;
+  }
+
+  /**
+   * Convenience method for building lists of KeyBindings.  
+   */
+  public static JTextComponent.KeyBinding[] makeKeyBindings(Object[] keyBindingList)
+  {
+    return null;
+  }
+
+  /**
+   * Invoked when the user attempts an invalid operation. The default implement
+   * just beeps. Subclasses that wish to change this need to override this
+   * method.
+   *
+   * @param component the component the error occured in
+   */
+  public void provideErrorFeedback(Component component)
+  {
+    Toolkit.getDefaultToolkit().beep();
+  }
+
+  /**
+   * Returns a string that displays and identifies this object's properties.
+   *
+   * @return the string "LookAndFeel"
+   */
+  public String toString()
+  {
+    return "LookAndFeel";
+  }
+
+  /**
+   * UIManager.setLookAndFeel calls this method just before we're replaced by
+   * a new default look and feel. 
+   */
+  public void uninitialize()
+  {
+  }
+
+  /**
+   * Convenience method for un-installing a component's default border on the
+   * specified component if the border is currently an instance of UIResource.
+   */
+  public static void uninstallBorder(JComponent c)
+  {
+  }
 }
-

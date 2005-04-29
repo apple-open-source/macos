@@ -1,0 +1,206 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+Cursor objects can be used to point to specific entries in a view.
+A cursor acts very much like a pointer to a row in a view, and is 
+returned when taking the address of a <A HREF="c4_RowRef.html" >c4_RowRef</A>.  Dereferencing
+a cursor leads to the original row reference again.  You can construct a
+cursor for a <A HREF="c4_Row.html" >c4_Row</A>, but since such rows are not part of a collection,
+incrementing or decrementing these cursors is meaningless (and wrong). 
+<P>
+
+The usual range of pointer operations can be applied to these objects:
+pre/post-increment and decrement, adding or subtracting integer offsets,
+as well as the full range of comparison operators.  If two cursors
+point to entries in the same view, their difference can be calculated.
+<P>
+
+As with regular pointers, care must be taken to avoid running off of
+either end of a view (the debug build includes assertions to check this).
+
+<P>
+
+
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_Cursor__index"><dt>
+	  <nobr>
+	  int 
+	  <b>_index</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor__seq"><dt>
+	  <nobr>
+	  <A HREF="c4_Sequence.html" >c4_Sequence</A>* 
+	  <b>_seq</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_c4_Cursor_c4_Sequence_int_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Cursor</b> (<A HREF="c4_Sequence.html" >c4_Sequence</A>&#38; implementation_, int index_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a new cursor</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_operator_____const"><dt>
+	  <nobr>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+	  <b>operator* </b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Dereference this cursor to "almost" a row</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_operator_____"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A>&#38; 
+	  <b>operator++</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Pre-increment the cursor</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_operator___int__"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+	  <b>operator++</b> (int);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Post-increment the cursor</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_operator___int__"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A>&#38; 
+	  <b>operator+=</b> (int offset_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Advance by a given offset</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_operator___c4_Cursor__const"><dt>
+	  <nobr>
+	  int 
+	  <b>operator- </b> (<A HREF="c4_Cursor.html" >c4_Cursor</A> cursor_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the distance between two cursors</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_operator___int__const"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+	  <b>operator- </b> (int) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Subtract a specified offset</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_operator_____"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A>&#38; 
+	  <b>operator--</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Pre-decrement the cursor</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_operator___int__"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+	  <b>operator--</b> (int);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Post-decrement the cursor</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_operator___int__"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A>&#38; 
+	  <b>operator-=</b> (int offset_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Back up by a given offset</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Cursor_operator___int__const"><dt>
+	  <nobr>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+	  <b>operator[]</b> (int index_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>This is the same as *(cursor + offset)</font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_Cursor</b>
+</font>
+
+</body></html>

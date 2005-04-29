@@ -28,18 +28,17 @@
 #include "dk.h"
 
 krb5_error_code
-krb5_derive_key(enc, inkey, outkey, in_constant)
-     const struct krb5_enc_provider *enc;
-     const krb5_keyblock *inkey;
-     krb5_keyblock *outkey;
-     const krb5_data *in_constant;
+krb5_derive_key(const struct krb5_enc_provider *enc,
+		const krb5_keyblock *inkey, krb5_keyblock *outkey,
+		const krb5_data *in_constant)
 {
     size_t blocksize, keybytes, keylength, n;
     unsigned char *inblockdata, *outblockdata, *rawkey;
     krb5_data inblock, outblock;
 
-    (*(enc->block_size))(&blocksize);
-    (*(enc->keysize))(&keybytes, &keylength);
+    blocksize = enc->block_size;
+    keybytes = enc->keybytes;
+    keylength = enc->keylength;
 
     if ((inkey->length != keylength) ||
 	(outkey->length != keylength))
@@ -114,18 +113,17 @@ krb5_derive_key(enc, inkey, outkey, in_constant)
 
 
 krb5_error_code
-krb5_derive_random(enc, inkey, outrnd, in_constant)
-     const struct krb5_enc_provider *enc;
-     const krb5_keyblock *inkey;
-     krb5_data *outrnd;
-     const krb5_data *in_constant;
+krb5_derive_random(const struct krb5_enc_provider *enc,
+		   const krb5_keyblock *inkey, krb5_data *outrnd,
+		   const krb5_data *in_constant)
 {
     size_t blocksize, keybytes, keylength, n;
     unsigned char *inblockdata, *outblockdata, *rawkey;
     krb5_data inblock, outblock;
 
-    (*(enc->block_size))(&blocksize);
-    (*(enc->keysize))(&keybytes, &keylength);
+    blocksize = enc->block_size;
+    keybytes = enc->keybytes;
+    keylength = enc->keylength;
 
     if ((inkey->length != keylength) ||
 	(outrnd->length != keybytes))
@@ -195,6 +193,7 @@ krb5_derive_random(enc, inkey, outrnd, in_constant)
     return(0);
 }
 
+#if 0
 #include "etypes.h"
 void
 krb5_random2key (krb5_enctype enctype, krb5_data *inblock,
@@ -215,3 +214,4 @@ krb5_random2key (krb5_enctype enctype, krb5_data *inblock,
 
     enc->make_key (inblock, outkey);
 }
+#endif

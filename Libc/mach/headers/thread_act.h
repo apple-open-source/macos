@@ -24,6 +24,8 @@
 #include <mach/i386/thread_act.h>
 #elif defined(__ppc__)
 #include <mach/ppc/thread_act.h>
+#elif defined(__ppc64__)
+#include <mach/ppc64/thread_act.h>
 #else
 #error unknown architecture
 #endif 

@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -18,24 +18,21 @@
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
-/* Structure to hold information about the blocks during reordering.  */
-typedef struct reorder_block_def
-{
-  rtx header;
-  rtx footer;
-  basic_block next;
-  basic_block original;
+#ifndef GCC_CFGLAYOUT_H
+#define GCC_CFGLAYOUT_H
 
-  /* These fields are used by bb-reorder pass.  */
-  int visited;
-} *reorder_block_def;
+#include "basic-block.h"
 
-#define RBI(BB)	((reorder_block_def) (BB)->aux)
+extern rtx cfg_layout_function_footer;
 
-extern void cfg_layout_initialize	PARAMS ((void));
-extern void cfg_layout_finalize		PARAMS ((void));
-extern bool cfg_layout_can_duplicate_bb_p PARAMS ((basic_block));
-extern basic_block cfg_layout_duplicate_bb PARAMS ((basic_block, edge));
-extern void scope_to_insns_initialize	PARAMS ((void));
-extern void scope_to_insns_finalize	PARAMS ((void));
-extern void cfg_layout_redirect_edge	PARAMS ((edge, basic_block));
+extern void cfg_layout_initialize (unsigned int);
+extern void cfg_layout_finalize (void);
+extern void insn_locators_initialize (void);
+extern void reemit_insn_block_notes (void);
+extern bool can_copy_bbs_p (basic_block *, unsigned);
+extern void copy_bbs (basic_block *, unsigned, basic_block *,
+		      edge *, unsigned, edge *, struct loop *);
+extern bool scan_ahead_for_unlikely_executed_note (rtx);
+extern rtx duplicate_insn_chain (rtx, rtx);
+
+#endif /* GCC_CFGLAYOUT_H */

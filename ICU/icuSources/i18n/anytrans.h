@@ -1,10 +1,7 @@
 /*
 *****************************************************************
-* Copyright (c) 2002, International Business Machines Corporation
+* Copyright (c) 2002-2004, International Business Machines Corporation
 * and others.  All Rights Reserved.
-*****************************************************************
-* $Source: /cvs/root/ICU/icuSources/i18n/anytrans.h,v $ 
-* $Revision: 1.1.1.1 $
 *****************************************************************
 * Date        Name        Description
 * 06/06/2002  aliu        Creation.
@@ -52,14 +49,8 @@ class U_I18N_API AnyTransliterator : public Transliterator {
      */
     UScriptCode targetScript;
 
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
-
 public:
-    
+
     /**
      * Destructor.
      */
@@ -73,27 +64,27 @@ public:
     /**
      * Transliterator API.
      */
-    Transliterator* clone() const;
+    virtual Transliterator* clone() const;
 
     /**
      * Implements {@link Transliterator#handleTransliterate}.
      */
     virtual void handleTransliterate(Replaceable& text, UTransPosition& index,
                                      UBool incremental) const;
-    
+
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
      * @draft ICU 2.2
      */
-    virtual inline UClassID getDynamicClassID() const { return getStaticClassID(); }
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
      * @draft ICU 2.2
      */
-    static inline UClassID getStaticClassID() { return (UClassID)&fgClassID; }
+    static UClassID U_EXPORT2 getStaticClassID();
 
 private:
 
@@ -133,7 +124,7 @@ private:
     static void registerIDs();
 
     friend class Transliterator; // for registerIDs()
-    
+
     /**
      * Return the script code for a given name, or
      * USCRIPT_INVALID_CODE if not found.

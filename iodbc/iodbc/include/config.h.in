@@ -1,6 +1,12 @@
 /* include/config.h.in.  Generated from configure.in by autoheader.  */
 
-/* x */
+/* Define if we detected a GUI library we can use */
+#undef GUI
+
+/* Define to 1 if you have the `asprintf' function. */
+#undef HAVE_ASPRINTF
+
+/* Define to 1 if you have the `dladdr' function */
 #undef HAVE_DLADDR
 
 /* Define if you have the -ldld library */
@@ -17,6 +23,9 @@
 
 /* Define to 1 if you have the <dl.h> header file. */
 #undef HAVE_DL_H
+
+/* Define to 1 if you have the Dl_info structure */
+#undef HAVE_DL_INFO
 
 /* Define if you have the DYLD library */
 #undef HAVE_DYLD
@@ -35,6 +44,9 @@
 
 /* Define if you have the shl_load function */
 #undef HAVE_SHL_LOAD
+
+/* Define to 1 if you have the `snprintf' function. */
+#undef HAVE_SNPRINTF
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -59,6 +71,18 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the <wchar.h> header file. */
+#undef HAVE_WCHAR_H
+
+/* Define to 1 if you have the `wcscpy' function. */
+#undef HAVE_WCSCPY
+
+/* Define to 1 if you have the `wcslen' function. */
+#undef HAVE_WCSLEN
+
+/* Define to 1 if you have the `wcsncpy' function. */
+#undef HAVE_WCSNCPY
 
 /* Define to 1 if you have the `_dlopen' function. */
 #undef HAVE__DLOPEN
@@ -91,10 +115,13 @@
 #undef STDC_HEADERS
 
 /* Define path to systemwide odbcinst.ini file */
-#undef SYS_ODBCINST_INI
+/*#undef SYS_ODBCINST_INI*/
 
 /* Define path to systemwide odbc.ini file */
-#undef SYS_ODBC_INI
+/*#undef SYS_ODBC_INI*/
 
 /* Version number of package */
 #undef VERSION
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const

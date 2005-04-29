@@ -1,4 +1,4 @@
-## $Id: Makefile.am,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+## $Id: Makefile.am,v 1.1.1.2 2004/07/23 06:26:28 jlovell Exp $
 ## Copyright (C) 2000 Roger Leigh
 ##
 ## This program is free software; you can redistribute it and/or modify
@@ -23,16 +23,31 @@ AUTOMAKE_OPTIONS = 1.4 gnu
 
 MAINT_CHARSET = latin1
 
+include $(top_srcdir)/scripts/global.mk
+
 
 ## Data
 
-# Conditional installation of manpages is currently broken in automake 1.4
+# Conditional installation of manpages is currently broken in automake...
 
-man_MANS = \
+if BUILD_CUPS
+CUPS_MAN = \
 	cups-calibrate.8 \
-	escputil.1 \
+	cups-genppd.8 \
+	cups-genppdconfig.8 \
+	cups-genppdupdate.8
+endif
+
+if BUILD_ESCPUTIL
+ESCPUTIL_MAN = escputil.1
+endif
+
+if BUILD_GHOSTSCRIPT
+GHOSTSCRIPT_MAN = ijsgimpprint.1
+endif
+
+MAIN_MAN = \
 	gimpprint.3 \
-	gimpprint-config.1 \
 	gimpprint-color.7 \
 	gimpprint-dithers.7 \
 	gimpprint-imagetypes.7 \
@@ -41,13 +56,21 @@ man_MANS = \
 	gimpprint-mediasources.7 \
 	gimpprint-mediatypes.7 \
 	gimpprint-models.7 \
-	gimpprint-resolutions.7 \
+	gimpprint-resolutions.7
+
+man_MANS = $(CUPS_MAN) $(ESCPUTIL_MAN) $(GHOSTSCRIPT_MAN) $(MAIN_MAN)
+
+EXTRA_man_MANS = \
+	cups-calibrate.8 \
+	cups-genppd.8 \
+	cups-genppdconfig.8 \
+	cups-genppdupdate.8 \
+	escputil.1 \
 	ijsgimpprint.1
 
 
 ## Clean
 
-DISTCLEANFILES = $(man_MANS)
+DISTCLEANFILES = $(MAIN_MAN) $(EXTRA_man_MANS)
 MAINTAINERCLEANFILES = Makefile.in
 
-# EXTRA_DIST = $(man_MANS)

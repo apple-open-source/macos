@@ -1,0 +1,62 @@
+--------------------------
+Appendix A - Minimum Terms
+--------------------------
+
+LICENSOR: ______________
+
+LICENSE AGREEMENT
+
+This License Agreement (the "Agreement") provides the terms and conditions pursuant to which you ("LICENSEE") are granted by LICENSOR a non-exclusive license to exploit the Build Materials (as defined below).  PLEASE READ THIS AGREEMENT CAREFULLY. 
+
+ARTICLE 1.0 -  REPRESENTATIONS
+
+1.1. LICENSEE represents and warrants that:
+(a) If LICENSEE is an entity, or an individual other than the person accepting this Agreement, the person accepting this Agreement on LICENSEE's behalf is a legally authorized representative, duly authorized to accept agreements of this type on LICENSEE's behalf and obligate LICENSEE to comply with its provisions;
+(b) LICENSEE has read and fully understand this Agreement in its entirety; and,
+(c) LICENSEE's Build Materials are either original or do not include any Software obtained under a license that conflicts with the obligations contained in this Agreement;  
+
+ARTICLE 2.0 -  DEFINITIONS
+
+2.1. "AT&T Source Code Agreement" means the agreement available at the Internet website having the URL http://www.research.att.com/sw/tools/graphviz/license/source.html, or accessed by opening the computer file having the name LICENSE.txt, if such file is furnished to LICENSEE.
+
+2.2. "AT&T Source Code Release" means the computer files owned by AT&T which can be obtained under license at the Internet website having the URL http://www.research.att.com/sw/tools/graphviz, or by opening the computer file having the name graphviz-*.* or gviz*.*, if such file is furnished to LICENSEE.
+
+2.3. "Build Materials" means the compilation script, Patch files and other source code files, if any, furnished by LICENSOR to LICENSEE pursuant to this Agreement.  THE BUILD MATERIALS INCLUDE SOFTWARE OR OTHER INFORMATION PROPRIETARY TO AT&T.  LICENSEE'S EXERCISE OF ONE OR MORE OF THE RIGHTS GRANTED IN SECTION 3.1 OF THIS AGREEMENT WITHOUT
+(a) FIRST ENTERING INTO THE AT&T SOURCE CODE AGREEMENT, AND
+(b) ABIDING BY THE TERMS AND CONDITIONS OF SUCH AGREEMENT MAY (AND IF LICENSEE HAS USED ANY PATCH, LICENSEE WILL) INFRINGE OR MISAPPROPRIATE IPR OWNED OR CONTROLLED BY AT&T.
+
+2.4. "IPR" means all rights protectable under intellectual property law anywhere throughout the world, including rights protectable under patent, copyright and trade secret laws, but not trademark rights.
+
+2.5. "Patch" means Software for changing all or any portions of any Software contained in the AT&T Source Code Release.
+
+2.6. "Software" means any source or object code instructions for controlling the operation of a central processing unit or computer, or computer files containing data or text. 
+
+ARTICLE 3.0 -  GRANT OF RIGHTS TO LICENSEE
+
+3.1. Subject to the terms and conditions of this Agreement, LICENSOR grants to LICENSEE under any IPR owned or licensable by LICENSOR which relates to the Build Materials, a non-exclusive license, with the right to sublicense others, to 
+(a) make, have made, use, sell and import, any products or services; and
+(b) reproduce, distribute, perform and display all or any portion of the Build Materials, and prepare derivative works based on the Build Materials and reproduce, distribute, perform and display such derivative works.
+
+ARTICLE 4.0 -  LICENSEE'S DISTRIBUTION OBLIGATIONS
+
+4.1. If LICENSEE distributes any products licensed pursuant to this Agreement or source code required pursuant to Section 4.2(b), LICENSEE shall ensure that the recipient enters into and duly accepts a written agreement with LICENSEE which includes the minimum terms set forth in this Agreement and no other provisions which conflict with the obligations under, or the intent of, this Agreement.
+
+ARTICLE 5.0 -  AS IS CLAUSE / LIMITATION OF LIABILITY
+
+5.1. The Build Materials contain certain software or other information ("AT&T Software") proprietary to AT&T.  The AT&T Software is provided to LICENSEE "AS IS".  LICENSEE ASSUMES TOTAL RESPONSIBILITY AND RISK FOR USE OF THE AT&T SOFTWARE.  AT&T DOES NOT MAKE, AND EXPRESSLY DISCLAIMS, ANY EXPRESS OR IMPLIED WARRANTIES OF ANY KIND WHATSOEVER, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, WARRANTIES OF TITLE OR NON-INFRINGEMENT OF ANY IPR or TRADEMARK RIGHTS, ANY WARRANTIES ARISING BY USAGE OF TRADE, COURSE OF DEALING OR COURSE OF PERFORMANCE, OR ANY WARRANTY THAT THE AT&T SOFTWARE IS "ERROR FREE" OR WILL MEET LICENSEE'S REQUIREMENTS.
+
+5.2. IN NO EVENT SHALL AT&T BE LIABLE FOR (a) ANY INCIDENTAL, CONSEQUENTIAL, OR INDIRECT DAMAGES (INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF PROFITS, BUSINESS INTERRUPTION, LOSS OF PROGRAMS OR INFORMATION, AND THE LIKE) ARISING OUT OF THE USE OF OR INABILITY TO USE THE AT&T SOFTWARE, EVEN IF AT&T OR ANY OF ITS AUTHORIZED REPRESENTATIVES HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES, (a) ANY CLAIM ATTRIBUTABLE TO ERRORS, OMISSIONS, OR OTHER INACCURACIES IN THE AT&T SOFTWARE, OR (c) ANY CLAIM BY ANY THIRD PARTY.
+
+5.3. BECAUSE SOME STATES DO NOT ALLOW THE EXCLUSION OR LIMITATION OF LIABILITY FOR CONSEQUENTIAL OR INCIDENTAL DAMAGES, THE ABOVE LIMITATIONS MAY NOT APPLY TO YOU.  IN THE EVENT THAT APPLICABLE LAW DOES NOT ALLOW THE COMPLETE EXCLUSION OR LIMITATION OF LIABILITY OF CLAIMS AND DAMAGES AS SET FORTH IN THIS AGREEMENT, AT&T'S LIABILITY IS LIMITED TO THE GREATEST EXTENT PERMITTED BY LAW.
+
+ARTICLE 6.0 -  GENERAL
+
+6.1. LICENSEE shall not assert against AT&T or any of its affiliated companies any claim for infringement or misappropriation of any IPR or trademark rights in any way relating to the AT&T Source Code Release. 
+
+6.2. LICENSEE'S rights and license (but not any of LICENSEE'S obligations) under this Agreement shall terminate automatically in the event that (a) any of LICENSEE'S representations or warranties in Article 1.0 are false or inaccurate, (b) LICENSEE exceed the rights and license granted to LICENSEE or (c) LICENSEE fails to fully comply with any provision of this Agreement. 
+
+6.3. AT&T shall be entitled, in its own name and without joining LICENSOR as a party, to enforce against LICENSEE in an action for breach of contract, any provision of this Agreement which protects, limits the liability of, or otherwise benefits AT&T.  In addition to all other relief available to AT&T in any such action, AT&T shall be entitled to an injunction requiring LICENSEE to comply with any such provision.
+
+6.4. This Agreement shall be governed by and construed in accordance with the laws of the State of New York, USA, without regard to its conflicts of law rules. This Agreement shall be fairly interpreted in accordance with its terms and without any strict construction in favor of or against either party.  Any suit or proceeding relating to this Agreement shall be brought and prosecuted only in New York, New York, USA.
+
+END OF MINIMUM TERMS

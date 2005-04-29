@@ -42,7 +42,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: installscript.c,v 1.29 2003/02/13 20:15:37 rjs3 Exp $ */
+/* $Id: installscript.c,v 1.5 2005/03/05 00:37:09 dasenbro Exp $ */
 
 #include <sys/stat.h>
 #include <sys/types.h>

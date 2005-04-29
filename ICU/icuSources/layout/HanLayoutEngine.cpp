@@ -1,9 +1,7 @@
 /*
  * HanLayoutEngine.cpp: OpenType processing for Han fonts.
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved.
- *
- * $Source: /cvs/root/ICU/icuSources/layout/HanLayoutEngine.cpp,v $ $Date: 2003/07/03 18:13:45 $ $Revision: 1.1.1.1 $
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved.
  */
 
 #include "LETypes.h"
@@ -14,8 +12,11 @@
 #include "OpenTypeLayoutEngine.h"
 #include "HanLayoutEngine.h"
 #include "ScriptAndLanguageTags.h"
+#include "LEGlyphStorage.h"
 
-const char HanOpenTypeLayoutEngine::fgClassID=0;
+U_NAMESPACE_BEGIN
+
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(HanOpenTypeLayoutEngine)
 
 HanOpenTypeLayoutEngine::HanOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode,
                         const GlyphSubstitutionTableHeader *gsubTable)
@@ -29,16 +30,16 @@ HanOpenTypeLayoutEngine::~HanOpenTypeLayoutEngine()
     // nothing to do
 }
 
-const LETag emptyTag = 0x00000000;
+static const LETag emptyTag = 0x00000000;
 
-const LETag loclFeatureTag = LE_LOCL_FEATURE_TAG;
-const LETag smplFeatureTag = LE_SMPL_FEATURE_TAG;
-const LETag tradFeatureTag = LE_TRAD_FEATURE_TAG;
+static const LETag loclFeatureTag = LE_LOCL_FEATURE_TAG;
+static const LETag smplFeatureTag = LE_SMPL_FEATURE_TAG;
+static const LETag tradFeatureTag = LE_TRAD_FEATURE_TAG;
 
-const LETag features[] = {loclFeatureTag, emptyTag};
+static const LETag features[] = {loclFeatureTag, emptyTag};
 
 le_int32 HanOpenTypeLayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 offset, le_int32 count, le_int32 max, le_bool /*rightToLeft*/,
-        LEUnicode *&/*outChars*/, le_int32 *&/*charIndices*/, const LETag **&featureTags, LEErrorCode &success)
+        LEUnicode *&/*outChars*/, LEGlyphStorage &glyphStorage, LEErrorCode &success)
 {
     if (LE_FAILURE(success)) {
         return 0;
@@ -49,10 +50,10 @@ le_int32 HanOpenTypeLayoutEngine::characterProcessing(const LEUnicode chars[], l
         return 0;
     }
 
-    featureTags = LE_NEW_ARRAY(const LETag *, count);
+    glyphStorage.allocateGlyphArray(count, FALSE, success);
+    glyphStorage.allocateAuxData(success);
 
-    if (featureTags == NULL) {
-        success = LE_MEMORY_ALLOCATION_ERROR;
+    if (LE_FAILURE(success)) {
         return 0;
     }
 
@@ -61,8 +62,10 @@ le_int32 HanOpenTypeLayoutEngine::characterProcessing(const LEUnicode chars[], l
     // flag from the language tag lookups, so we can use these features
     // with the default LangSys...
     for (le_int32 i = 0; i < count; i += 1) {
-        featureTags[i] = features;
+        glyphStorage.setAuxData(i, (void *) features, success);
     }
 
     return count;
 }
+
+U_NAMESPACE_END

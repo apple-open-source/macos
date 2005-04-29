@@ -5,7 +5,7 @@
 //
 // would cause original_types to go into an infinite loop.  At other
 // times, the attributes applied to an explicit typedef would be lost
-// (check_b2 would have a negative size).
+// (check_b3 would have a negative size).
 
 // First check that the declaration is accepted and has an effect.
 typedef struct A { int i; } A __attribute__ ((aligned (16)));

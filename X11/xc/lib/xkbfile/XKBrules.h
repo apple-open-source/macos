@@ -27,7 +27,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/lib/xkbfile/XKBrules.h,v 3.5 2002/11/26 01:43:25 dawes Exp $ */
+/* $XFree86: xc/lib/xkbfile/XKBrules.h,v 3.6 2003/11/17 22:20:23 dawes Exp $ */
 
 /***====================================================================***/
 
@@ -106,96 +106,72 @@ typedef struct _XkbRF_Rules {
 _XFUNCPROTOBEGIN
 
 extern Bool	XkbRF_GetComponents(
-#if NeedFunctionPrototypes
     XkbRF_RulesPtr		/* rules */,
     XkbRF_VarDefsPtr		/* var_defs */,
     XkbComponentNamesPtr	/* names */
-#endif
 );
 
 extern XkbRF_RulePtr	XkbRF_AddRule(
-#if NeedFunctionPrototypes
     XkbRF_RulesPtr	/* rules */
-#endif
 );
 
 extern XkbRF_GroupPtr XkbRF_AddGroup(XkbRF_RulesPtr  rules);
 
 extern Bool	XkbRF_LoadRules(
-#if NeedFunctionPrototypes
     FILE *		/* file */,
     XkbRF_RulesPtr	/* rules */
-#endif
 );
 
 extern Bool XkbRF_LoadRulesByName(
-#if NeedFunctionPrototypes
     char *		/* base */,
     char *		/* locale */,
     XkbRF_RulesPtr	/* rules */
-#endif
 );
 
 /***====================================================================***/
 
 extern XkbRF_VarDescPtr	XkbRF_AddVarDesc(
-#if NeedFunctionPrototypes
     XkbRF_DescribeVarsPtr	/* vars */
-#endif
 );
 
 extern XkbRF_VarDescPtr	XkbRF_AddVarDescCopy(
-#if NeedFunctionPrototypes
     XkbRF_DescribeVarsPtr	/* vars */,
     XkbRF_VarDescPtr		/* copy_from */
-#endif
 );
 
 extern XkbRF_DescribeVarsPtr XkbRF_AddVarToDescribe(
-#if NeedFunctionPrototypes
     XkbRF_RulesPtr		/* rules */,
     char *			/* name */
-#endif
 );
 
 extern Bool	XkbRF_LoadDescriptions(
-#if NeedFunctionPrototypes
     FILE *		/* file */,
     XkbRF_RulesPtr	/* rules */
-#endif
 );
 
 extern Bool XkbRF_LoadDescriptionsByName(
-#if NeedFunctionPrototypes
     char *		/* base */,
     char *		/* locale */,
     XkbRF_RulesPtr	/* rules */
-#endif
 );
 
 extern XkbRF_RulesPtr XkbRF_Load(
-#if NeedFunctionPrototypes
     char *		/* base */,
     char *		/* locale */,
     Bool		/* wantDesc */,
     Bool		/* wantRules */
-#endif
 );
 
 extern XkbRF_RulesPtr XkbRF_Create(
-#if NeedFunctionPrototypes
     int			/* sz_rules */,
     int			/* sz_extra */
-#endif
 );
 
 /***====================================================================***/
 
 extern void XkbRF_Free(
-#if NeedFunctionPrototypes
     XkbRF_RulesPtr	/* rules */,
     Bool		/* freeRules */
-#endif
 );
 
 
@@ -207,19 +183,15 @@ extern void XkbRF_Free(
 #ifndef XKB_IN_SERVER
 
 extern Bool XkbRF_GetNamesProp(
-#if NeedFunctionPrototypes
    Display *		/* dpy */,
    char **		/* rules_file_rtrn */,
    XkbRF_VarDefsPtr	/* var_defs_rtrn */
-#endif
 );
 
 extern Bool XkbRF_SetNamesProp(
-#if NeedFunctionPrototypes
    Display *		/* dpy */,
    char *		/* rules_file */,
    XkbRF_VarDefsPtr	/* var_defs */
-#endif
 );
 
 #endif

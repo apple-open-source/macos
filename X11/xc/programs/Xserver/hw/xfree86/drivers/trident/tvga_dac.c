@@ -1,5 +1,5 @@
 /*
- * Copyright 1992-1999 by Alan Hourihane, Wigan, England.
+ * Copyright 1992-2003 by Alan Hourihane, North Wales, UK.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -21,7 +21,7 @@
  *
  * Author:  Alan Hourihane, alanh@fairlite.demon.co.uk
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/tvga_dac.c,v 1.6 2002/03/29 18:33:29 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/tvga_dac.c,v 1.8 2003/11/03 05:11:43 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -137,7 +137,6 @@ void
 TVGARestore(ScrnInfoPtr pScrn, TRIDENTRegPtr tridentReg)
 {
     TRIDENTPtr pTrident = TRIDENTPTR(pScrn);
-    CARD8 temp;
     int vgaIOBase;
     vgaIOBase = VGAHWPTR(pScrn)->IOBase;
 
@@ -149,18 +148,18 @@ TVGARestore(ScrnInfoPtr pScrn, TRIDENTRegPtr tridentReg)
 
     /* Goto New Mode */
     OUTB(0x3C4, 0x0B);
-    temp = INB(0x3C5);
+    (void) INB(0x3C5);
 
     /* Unprotect registers */
     OUTW(0x3C4, (0x80 << 8) | NewMode1);
 
-    temp = INB(0x3C8);
-    temp = INB(0x3C6);
-    temp = INB(0x3C6);
-    temp = INB(0x3C6);
-    temp = INB(0x3C6);
+    (void) INB(0x3C8);
+    (void) INB(0x3C6);
+    (void) INB(0x3C6);
+    (void) INB(0x3C6);
+    (void) INB(0x3C6);
     OUTB(0x3C6, tridentReg->tridentRegsDAC[0x00]);
-    temp = INB(0x3C8);
+    (void) INB(0x3C8);
 
     OUTW_3x4(CRTCModuleTest);
     OUTW_3x4(LinearAddReg);
@@ -184,17 +183,16 @@ void
 TVGASave(ScrnInfoPtr pScrn, TRIDENTRegPtr tridentReg)
 {
     TRIDENTPtr pTrident = TRIDENTPTR(pScrn);
-    CARD8 temp;
     int vgaIOBase;
     vgaIOBase = VGAHWPTR(pScrn)->IOBase;
 
-    temp = INB(0x3C8);
-    temp = INB(0x3C6);
-    temp = INB(0x3C6);
-    temp = INB(0x3C6);
-    temp = INB(0x3C6);
+    (void) INB(0x3C8);
+    (void) INB(0x3C6);
+    (void) INB(0x3C6);
+    (void) INB(0x3C6);
+    (void) INB(0x3C6);
     tridentReg->tridentRegsDAC[0x00] = INB(0x3C6);
-    temp = INB(0x3C8);
+    (void) INB(0x3C8);
 
     /* Goto Old Mode */
     OUTB(0x3C4, 0x0B);
@@ -204,7 +202,7 @@ TVGASave(ScrnInfoPtr pScrn, TRIDENTRegPtr tridentReg)
 
     /* Goto New Mode */
     OUTB(0x3C4, 0x0B);
-    temp = INB(0x3C5);
+    (void) INB(0x3C5);
 
     INB_3C4(NewMode1);
 

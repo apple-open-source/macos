@@ -7,7 +7,7 @@
 	objects = {
 		020A611800D0331911CA28DF = {
 			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/network";
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/network";
 			dstSubfolderSpec = 0;
 			files = (
 				020B424A00D037AA11CA28DF,
@@ -114,7 +114,7 @@
 		};
 		023F93A200D0399D11CA28DF = {
 			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/network";
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/network";
 			dstSubfolderSpec = 0;
 			files = (
 				B90BDE9A00D03C2B08CA29FD,
@@ -150,8 +150,6 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		06AA1265FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -165,8 +163,6 @@
 			name = Development;
 		};
 		06AA1266FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -239,7 +235,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.4.0;
+				MODULE_VERSION = 1.5.0;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IONetworkingFamily;
@@ -264,7 +261,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IONetworkingFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Version 1.4.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>Version 1.5.0, Copyright 2000-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -276,11 +273,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0</string>
+	<string>1.5.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IONetworkStack</key>
@@ -312,14 +309,16 @@
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel.bsd</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>8.0.0b2</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Network-Root</string>
@@ -355,7 +354,6 @@
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -395,36 +393,11 @@
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
-				089C167DFE841241C02AAC07,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
 			sourceTree = "<group>";
-		};
-		089C167DFE841241C02AAC07 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		089C167EFE841241C02AAC07 = {
-			expectedFileType = text.plist.strings;
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		089C1680FE841241C02AAC07 = {
-			fileRef = 089C167DFE841241C02AAC07;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //080
 //081
@@ -437,9 +410,8 @@
 //0B3
 //0B4
 		0B81C263FFB7832611CA28AA = {
-			expectedFileType = "wrapper.kernel-extension";
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IONetworkingFamily.kext;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -583,105 +555,105 @@
 			targetProxy = DAF10DAC055BFF9300BFDCBF;
 		};
 		B91BF3E000CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOEthernetController.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3E100CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOEthernetInterface.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3E200CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOKernelDebugger.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3E300CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOMbufMemoryCursor.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3E400CFE9D308CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOMbufQueue.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3E500CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IONetworkController.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3E600CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IONetworkData.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3E700CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IONetworkInterface.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3E800CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IONetworkMedium.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3E900CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IONetworkStack.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3EA00CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IONetworkUserClient.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3EB00CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOOutputQueue.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3EC00CFE9D308CA29FD = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOPacketQueue.cpp;
 			refType = 4;
 			sourceTree = "<group>";
@@ -765,129 +737,129 @@
 			};
 		};
 		B91BF3FA00CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOEthernetController.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3FB00CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOEthernetInterface.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3FC00CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOKernelDebugger.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3FD00CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOMbufMemoryCursor.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3FE00CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IONetworkController.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF3FF00CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IONetworkData.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF40000CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IONetworkInterface.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF40100CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IONetworkMedium.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF40200CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IONetworkStack.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF40300CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IONetworkUserClient.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF40400CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOOutputQueue.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF40500CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOPacketQueue.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF40600CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOBasicOutputQueue.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF40700CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOEthernetStats.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF40800CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOGatedOutputQueue.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		B91BF40A00CFEA6808CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IONetworkStats.h;
 			refType = 4;
 			sourceTree = "<group>";
@@ -989,9 +961,9 @@
 			};
 		};
 		B93FC6B0023527E308CA29FD = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IONetworkControllerPrivate.h;
 			refType = 4;
 			sourceTree = "<group>";
@@ -1003,9 +975,8 @@
 			};
 		};
 		B9B7C75000CFEC3008CA29FD = {
-			expectedFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = "IONetworkingFamily Headers";
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -1018,6 +989,7 @@
 				B9B7C75500CFEC3008CA29FD,
 				020A611800D0331911CA28DF,
 				023F93A200D0399D11CA28DF,
+				DA624E6D079F0F4800F4D1AC,
 			);
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -1076,6 +1048,19 @@
 //DA2
 //DA3
 //DA4
+		DA624E6D079F0F4800F4D1AC = {
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# not all Apple drivers completed the transition to mbuf_t per radar 3940931 in time for tiger.\n# To accomodate them, I left in the transition goo, and use this script to strip it all out\n# for the public headers.  When ready, all this voodoo can be undone by:\n# - manually perform the edit that occurs in the \"unifdef\" lines below\n# - remove this script phase\n# - change the destination in the copy files phase of InstallHeaders, back to \"Headers\" instead of \"PrivateHeaders\"\n# - remove __MBUF_TRANSITION from the project\n\n# first the kernel framework stuff\nTARGET_DIR=$DSTROOT/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/network\nmkdir -m 755 -p $TARGET_DIR\nfor file in \\\n IOEthernetController.h \\\n IOEthernetInterface.h \\\n IOKernelDebugger.h \\\n IOMbufMemoryCursor.h \\\n IONetworkController.h \\\n IONetworkData.h \\\n IONetworkInterface.h \\\n IONetworkMedium.h \\\n IOPacketQueue.h \\\n IOOutputQueue.h \\\n IOBasicOutputQueue.h \\\n IOGatedOutputQueue.h \\\n IONetworkStats.h \\\n IOEthernetStats.h \ndo\n unifdef -D__MBUF_TRANSITION_STRIP $file | sed \"s/__MBUF_PROTO/mbuf_t/g\" >$TARGET_DIR/$file\n touch -r $file $TARGET_DIR/$file\ndone\n\nTARGET_DIR=$DSTROOT/System/Library/Frameworks/IOKit.framework/Versions/A/Headers/network\nmkdir -m 755 -p $TARGET_DIR\nfor file in \\\n IOEthernetController.h \\\n IOEthernetInterface.h \\\n IONetworkController.h \\\n IONetworkData.h \\\n IONetworkInterface.h \\\n IONetworkMedium.h \\\n IONetworkUserClient.h \\\n IONetworkStats.h \\\n IOEthernetStats.h \ndo\n unifdef -D__MBUF_TRANSITION_STRIP $file | sed \"s/__MBUF_PROTO/mbuf_t/g\" >$TARGET_DIR/$file\n touch -r $file $TARGET_DIR/$file\ndone\n";
+		};
 		DAF10DAC055BFF9300BFDCBF = {
 			containerPortal = 089C1669FE841209C02AAC07;
 			isa = PBXContainerItemProxy;

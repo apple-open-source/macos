@@ -244,10 +244,10 @@
 #define STR	vstring_str
 
 const tls_info_t tls_info_zero = {
-    0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0
+    0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0
 };
 
-#ifdef HAS_SSL
+#ifdef USE_SSL
 
 /* OpenSSL library. */
 
@@ -256,8 +256,22 @@ const tls_info_t tls_info_zero = {
 #include <openssl/err.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
+#include <openssl/x509v3.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
+
+#ifdef __APPLE__
+#include <Security/SecKeychain.h>
+
+typedef struct
+{
+	int		len;
+	char	key[ FILENAME_MAX ];
+	int		reserved;
+} CallbackUserData;
+
+static CallbackUserData *sUserData = NULL;
+#endif /* __APPLE__ */
 
 /* We must keep some of the info available */
 static const char hexcodes[] = "0123456789ABCDEF";
@@ -318,6 +332,7 @@ typedef struct {
   char peername_save[129];
   int enforce_verify_errors;
   int enforce_CN;
+  int hostname_matched;
 } TLScontext_t;
 
 typedef struct {
@@ -405,7 +420,7 @@ static unsigned char dh1024_g[] = {
  * buffer size in the BIO-pair.
  */
 
-const ssize_t BIO_bufsiz = 8192;
+const size_t BIO_bufsiz = 8192;
 
 /*
  * The interface layer between network and BIO-pair. The BIO-pair buffers
@@ -443,9 +458,17 @@ static int network_biopair_interop(int fd, int timeout, BIO *network_bio)
 	    if (timeout > 0 && write_wait(fd, timeout) < 0)
 		return (-1);
 	    num_write = write(fd, buffer + write_pos, from_bio - write_pos);
-	    if (num_write <= 0)
-		return (-1);	/* something happened to the socket */
-	    write_pos += num_write;
+	    if (num_write <= 0) {
+		if ((num_write < 0) && (timeout > 0) && (errno == EAGAIN)) {
+		    msg_warn("write() returns EAGAIN on a writable file descriptor!");
+		    msg_warn("pausing to avoid going into a tight select/write loop!");
+		    sleep(1);
+		} else {
+		    msg_warn("Write failed in network_biopair_interop with errno=%d: num_write=%d, provided=%d", errno, num_write, from_bio - write_pos);
+		    return (-1);	/* something happened to the socket */
+		}
+	    } else
+	    	write_pos += num_write;
 	} while (write_pos < from_bio);
    }
 
@@ -455,11 +478,20 @@ static int network_biopair_interop(int fd, int timeout, BIO *network_bio)
 	if (timeout > 0 && read_wait(fd, timeout) < 0)
 	    return (-1);
 	num_read = read(fd, buffer, want_read);
-	if (num_read <= 0)
-	    return (-1);	/* something happened to the socket */
-	to_bio = BIO_write(network_bio, buffer, num_read);
-	if (to_bio != num_read)
+	if (num_read <= 0) {
+	    if ((num_write < 0) && (timeout > 0) && (errno == EAGAIN)) {
+		msg_warn("read() returns EAGAIN on a readable file descriptor!");
+		msg_warn("pausing to avoid going into a tight select/write loop!");
+		sleep(1);
+	    } else {
+		msg_warn("Read failed in network_biopair_interop with errno=%d: num_read=%d, want_read=%d", errno, num_read, want_read);
+		return (-1);	/* something happened to the socket */
+	    }
+	} else {
+	    to_bio = BIO_write(network_bio, buffer, num_read);
+	    if (to_bio != num_read)
 		msg_fatal("to_bio != num_read");
+	}
     }
 
     return (0);
@@ -645,6 +677,85 @@ static void pfixtls_print_errors(void)
     }
 }
 
+
+#ifdef __APPLE__
+
+/* apple_password_callback */
+
+int apple_password_callback ( char *inBuf, int inSize, int in_rwflag, void *inUserData )
+{
+	OSStatus			status		= noErr;
+	SecKeychainItemRef	keyChainRef	= NULL;
+	void			   *pwdBuf		= NULL;  /* will be allocated and filled in by SecKeychainFindGenericPassword */
+	UInt32				pwdLen		= 0;
+	char			   *service		= "certificateManager"; /* defined by Apple */
+	CallbackUserData   *cbUserData	= (CallbackUserData *)inUserData;
+
+	if ( (cbUserData == NULL) || strlen( cbUserData->key ) == 0 ||
+		 (cbUserData->len >= FILENAME_MAX) || (cbUserData->len == 0) || !inBuf )
+	{
+		if (var_smtpd_tls_loglevel >= 3)
+			msg_info("Error: Invalid arguments in callback" );
+		return( 0 );
+	}
+
+	/* Set the domain to System (daemon) */
+	status = SecKeychainSetPreferenceDomain( kSecPreferencesDomainSystem );
+	if ( status != noErr )
+	{
+		if (var_smtpd_tls_loglevel >= 3)
+			msg_info("Error: SecKeychainSetPreferenceDomain returned status: %d", status );
+		return( 0 );
+	}
+
+	// Passwords created by cert management have the keychain access dialog suppressed.
+	status = SecKeychainFindGenericPassword( NULL, strlen( service ), service,
+												   cbUserData->len, cbUserData->key,
+												   &pwdLen, &pwdBuf,
+												   &keyChainRef );
+
+	if ( (status == noErr) && (keyChainRef != NULL) )
+	{
+		if ( pwdLen > inSize )
+		{
+			if (var_smtpd_tls_loglevel >= 3)
+				msg_info("Error: Invalid buffer size callback (size:%d, len:%d)", inSize, pwdLen );
+			SecKeychainItemFreeContent( NULL, pwdBuf );
+			return( 0 );
+		}
+
+		memcpy( inBuf, (const void *)pwdBuf, pwdLen );
+		if ( inSize > 0 )
+		{
+			inBuf[ pwdLen ] = 0;
+			inBuf[ inSize - 1 ] = 0;
+		}
+
+		SecKeychainItemFreeContent( NULL, pwdBuf );
+
+		return( strlen(inBuf ) );
+	}
+	else if (status == errSecNotAvailable)
+	{
+		if (var_smtpd_tls_loglevel >= 3)
+			msg_info("Error: SecKeychainSetPreferenceDomain: No keychain is available" );
+	}
+	else if ( status == errSecItemNotFound )
+	{
+		if (var_smtpd_tls_loglevel >= 3)
+			msg_info("Error: SecKeychainSetPreferenceDomain: The requested key could not be found in the system keychain");
+	}
+	else if (status != noErr)
+	{
+		if (var_smtpd_tls_loglevel >= 3)
+			msg_info("Error: SecKeychainFindGenericPassword returned status %d", status);
+	}
+
+	return( 0 );
+}
+#endif /* __APPLE__ */
+
+
  /*
   * Set up the cert things on the server side. We do need both the
   * private key (in key_file) and the cert (in cert_file).
@@ -655,6 +766,16 @@ static void pfixtls_print_errors(void)
 
 static int set_cert_stuff(SSL_CTX * ctx, char *cert_file, char *key_file)
 {
+#ifdef __APPLE__
+	if ( sUserData == NULL )
+	{
+		sUserData = mymalloc( sizeof(CallbackUserData) );
+		if ( sUserData != NULL )
+		{
+			memset( sUserData, 0, sizeof(CallbackUserData) );
+		}
+	}
+#endif /* __APPLE__ */
     if (cert_file != NULL) {
 	if (SSL_CTX_use_certificate_chain_file(ctx, cert_file) <= 0) {
 	    msg_info("unable to get certificate from '%s'", cert_file);
@@ -663,6 +784,60 @@ static int set_cert_stuff(SSL_CTX * ctx, char *cert_file, char *key_file)
 	}
 	if (key_file == NULL)
 	    key_file = cert_file;
+#ifdef __APPLE__
+	if ( strlen( key_file ) < FILENAME_MAX )
+	{
+		char tmp[ FILENAME_MAX ];
+		strlcpy( tmp, key_file, FILENAME_MAX );
+		char *p = tmp;
+		char *q = tmp;
+
+		while ( *p != '\0' )
+		{
+			if ( *p == '/' )
+			{
+				q = p;
+			}
+			p++;
+		}
+
+		if ( (*q != '\0') && (*q == '/') && (*p+1 != '\0') )
+		{
+			p = ++q;
+			int len = strlen( p );
+
+			if ( sUserData != NULL )
+			{
+				if ( strncmp( p+(len-4), ".key", 4 ) == 0 )
+				{
+					len = len - 4;
+					strncpy( sUserData->key, p, len );
+					sUserData->key[ len ] = '\0';
+					sUserData->len = len;
+				}
+				else
+				{
+					strcpy( sUserData->key, p );
+					sUserData->len = strlen( p );
+				}
+				SSL_CTX_set_default_passwd_cb_userdata( ctx, (void *)sUserData );
+				SSL_CTX_set_default_passwd_cb( ctx, &apple_password_callback );
+			}
+			else
+			{
+				msg_info("Could not allocate data for callback: %s", key_file);
+			}
+		}
+		else
+		{
+			msg_info("Could not set custom callback: %s", key_file);
+		}
+	}
+	else
+	{
+		msg_info("Key file path too big for custom callback: %s", key_file );
+	}
+#endif /* __APPLE__ */
 	if (SSL_CTX_use_PrivateKey_file(ctx, key_file,
 					SSL_FILETYPE_PEM) <= 0) {
 	    msg_info("unable to get private key from '%s'", key_file);
@@ -749,6 +924,51 @@ static DH *tmp_dh_cb(SSL *s, int export, int keylength)
 
 
 /*
+ * match_hostname: match name provided in "buf" against the expected
+ * hostname. Comparison is case-insensitive, wildcard certificates are
+ * supported.
+ * "buf" may be come from some OpenSSL data structures, so we copy before
+ * modifying.
+ */
+static int match_hostname(const char *buf, TLScontext_t *TLScontext)
+{
+    char   *hostname_lowercase;
+    char   *peername_left;
+    int hostname_matched = 0;
+    int buf_len;
+
+    buf_len = strlen(buf);
+    if (!(hostname_lowercase = (char *)mymalloc(buf_len + 1)))
+	return 0;
+    memcpy(hostname_lowercase, buf, buf_len + 1);
+
+    hostname_lowercase = lowercase(hostname_lowercase);
+    if (!strcmp(TLScontext->peername_save, hostname_lowercase)) {
+        hostname_matched = 1;
+    } else { 
+        if ((buf_len > 2) &&
+            (hostname_lowercase[0] == '*') && (hostname_lowercase[1] == '.')) {
+            /*
+             * Allow wildcard certificate matching. The proposed rules in  
+             * RFCs (2818: HTTP/TLS, 2830: LDAP/TLS) are different, RFC2874
+             * does not specify a rule, so here the strict rule is applied.
+             * An asterisk '*' is allowed as the leftmost component and may
+             * replace the left most part of the hostname. Matching is done
+             * by removing '*.' from the wildcard name and the Name. from
+             * the peername and compare what is left.
+             */
+            peername_left = strchr(TLScontext->peername_save, '.');
+            if (peername_left) {
+                if (!strcmp(peername_left + 1, hostname_lowercase + 2))
+                    hostname_matched = 1;
+            }
+        }
+    }
+    myfree(hostname_lowercase);
+    return hostname_matched;
+}
+                                       
+/*
  * Skeleton taken from OpenSSL apps/s_cb.c
  *
  * The verify_callback is called several times (directly or indirectly) from
@@ -787,13 +1007,11 @@ static DH *tmp_dh_cb(SSL *s, int export, int keylength)
 static int verify_callback(int ok, X509_STORE_CTX * ctx)
 {
     char    buf[256];
-    char   *CN_lowercase;
     char   *peername_left;
     X509   *err_cert;
     int     err;
     int     depth;
     int     verify_depth;
-    int     hostname_matched;
     SSL    *con;
     TLScontext_t *TLScontext;
 
@@ -821,42 +1039,55 @@ static int verify_callback(int ok, X509_STORE_CTX * ctx)
     }
 
     if (ok && (depth == 0) && pfixtls_clientengine) {
+	int i, r;
+        int hostname_matched;
+	int dNSName_found;
+	STACK_OF(GENERAL_NAME) *gens;
+
 	/*
 	 * Check out the name certified against the hostname expected.
 	 * In case it does not match, print an information about the result.
 	 * If a matching is enforced, bump out with a verification error
 	 * immediately.
+	 * Standards are not always clear with respect to the handling of
+	 * dNSNames. RFC3207 does not specify the handling. We therefore follow
+	 * the strict rules in RFC2818 (HTTP over TLS), Section 3.1:
+	 * The Subject Alternative Name/dNSName has precedence over CommonName
+	 * (CN). If dNSName entries are provided, CN is not checked anymore.
 	 */
-	buf[0] = '\0';
-	if (!X509_NAME_get_text_by_NID(X509_get_subject_name(err_cert),
+	hostname_matched = dNSName_found = 0;
+
+        gens = X509_get_ext_d2i(err_cert, NID_subject_alt_name, 0, 0);
+        if (gens) {
+            for (i = 0, r = sk_GENERAL_NAME_num(gens); i < r; ++i) {
+                const GENERAL_NAME *gn = sk_GENERAL_NAME_value(gens, i);
+                if (gn->type == GEN_DNS) {
+		    dNSName_found++;
+                    if ((hostname_matched =
+			match_hostname((char *)gn->d.ia5->data, TLScontext)))
+			break;
+                }
+            }
+	    sk_GENERAL_NAME_free(gens);
+        }
+	if (dNSName_found) {
+	    if (!hostname_matched)
+		msg_info("Peer verification: %d dNSNames in certificate found, but no one does match %s", dNSName_found, TLScontext->peername_save);
+	} else {
+	    buf[0] = '\0';
+	    if (!X509_NAME_get_text_by_NID(X509_get_subject_name(err_cert),
                           NID_commonName, buf, 256)) {
-	    msg_info("Could not parse server's subject CN");
-	    pfixtls_print_errors();
-	}
-	CN_lowercase = lowercase(buf);
-	hostname_matched = 0;
-	if (!strcmp(TLScontext->peername_save, CN_lowercase))
-	    hostname_matched = 1;
-	else if ((strlen(CN_lowercase) > 2) &&
-		 (CN_lowercase[0] == '*') && (CN_lowercase[1] == '.')) {
-	    /*
-	     * Allow wildcard certificate matching. The proposed rules in
-	     * RFCs (2818: HTTP/TLS, 2830: LDAP/TLS) are different, RFC2874
-	     * does not specify a rule, so here the strict rule is applied.
-	     * An asterisk '*' is allowed as the leftmost component and may
-	     * replace the left most part of the hostname. Matching is done
-	     * by removing '*.' from the wildcard name and the `name.` from
-	     * the peername and compare what is left.
-	     */
-	    peername_left = strchr(TLScontext->peername_save, '.');
-	    if (peername_left) {
-		if (!strcmp(peername_left + 1, CN_lowercase + 2))
-		    hostname_matched = 1;
+	        msg_info("Could not parse server's subject CN");
+	        pfixtls_print_errors();
+	    }
+	    else {
+	        hostname_matched = match_hostname(buf, TLScontext);
+	        if (!hostname_matched)
+		    msg_info("Peer verification: CommonName in certificate does not match: %s != %s", buf, TLScontext->peername_save);
 	    }
 	}
 
 	if (!hostname_matched) {
-		msg_info("Peer verification: CommonName in certificate does not match: %s != %s", CN_lowercase, TLScontext->peername_save);
 	    if (TLScontext->enforce_verify_errors && TLScontext->enforce_CN) {
 		err = X509_V_ERR_CERT_REJECTED;
 		X509_STORE_CTX_set_error(ctx, err);
@@ -864,6 +1095,8 @@ static int verify_callback(int ok, X509_STORE_CTX * ctx)
 		ok = 0;
 	    }
 	}
+	else
+	    TLScontext->hostname_matched = 1;
     }
 
     switch (ctx->error) {
@@ -2053,10 +2286,11 @@ int     pfixtls_start_servertls(VSTREAM *stream, int timeout,
 		    VSTREAM_CTL_CONTEXT, (void *)TLScontext,
 		    VSTREAM_CTL_END);
 
-    msg_info("TLS connection established from %s[%s]: %s with cipher %s (%d/%d bits)",
-	     peername, peeraddr,
-	     tls_info->protocol, tls_info->cipher_name,
-	     tls_info->cipher_usebits, tls_info->cipher_algbits);
+    if (var_smtpd_tls_loglevel >= 1)
+   	 msg_info("TLS connection established from %s[%s]: %s with cipher %s (%d/%d bits)",
+		  peername, peeraddr,
+		  tls_info->protocol, tls_info->cipher_name,
+		  tls_info->cipher_usebits, tls_info->cipher_algbits);
     pfixtls_stir_seed();
 
     return (0);
@@ -2479,6 +2713,7 @@ int     pfixtls_start_clienttls(VSTREAM *stream, int timeout,
 	TLScontext->enforce_verify_errors = 0;
 	TLScontext->enforce_CN = 0;
     }
+    TLScontext->hostname_matched = 0;
 
     /*
      * The TLS connection is realized by a BIO_pair, so obtain the pair.
@@ -2608,6 +2843,7 @@ int     pfixtls_start_clienttls(VSTREAM *stream, int timeout,
 	if (SSL_get_verify_result(TLScontext->con) == X509_V_OK)
 	    tls_info->peer_verified = 1;
 
+	tls_info->hostname_matched = TLScontext->hostname_matched;
 	TLScontext->peer_CN[0] = '\0';
 	if (!X509_NAME_get_text_by_NID(X509_get_subject_name(peer),
 			NID_commonName, TLScontext->peer_CN, CCERT_BUFSIZ)) {
@@ -2664,10 +2900,10 @@ int     pfixtls_start_clienttls(VSTREAM *stream, int timeout,
 		    VSTREAM_CTL_CONTEXT, (void *)TLScontext,
 		    VSTREAM_CTL_END);
 
-    msg_info("TLS connection established to %s: %s with cipher %s (%d/%d bits)",
-	     peername,
-	     tls_info->protocol, tls_info->cipher_name,
-	     tls_info->cipher_usebits, tls_info->cipher_algbits);
+    if (var_smtp_tls_loglevel >= 1)
+	msg_info("TLS connection established to %s: %s with cipher %s (%d/%d bits)",
+		 peername, tls_info->protocol, tls_info->cipher_name,
+		 tls_info->cipher_usebits, tls_info->cipher_algbits);
 
     pfixtls_stir_seed();
 
@@ -2739,4 +2975,4 @@ int     pfixtls_stop_clienttls(VSTREAM *stream, int timeout, int failure,
 }
 
 
-#endif /* HAS_SSL */
+#endif /* USE_SSL */

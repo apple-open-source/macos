@@ -21,9 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: teln.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -233,7 +230,7 @@ int *lenp;
 	    }
 	  fore->w_telbufl--;
 	}
-      if ((c >= 0x20 && c <= 0x7e) || (c >= 0xa0 && c <= 0xff))
+      if ((c >= 0x20 && c <= 0x7e) || c >= 0xa0)
 	{
 	  if (echo)
 	    WriteString(fore, (char *)&c, 1);

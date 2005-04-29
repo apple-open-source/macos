@@ -1,7 +1,7 @@
 /*
  * LoginSessions.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/LoginSessions.c,v 1.10 2003/07/10 21:53:26 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/LoginSessions.c,v 1.17 2005/01/27 22:35:04 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -39,33 +39,7 @@
 
 // ---------------------------------------------------------------------------
 
-const char *LoginSessionGetServiceName (const char *inServicePrefix)
-{
-    SecuritySessionId    sessionID;
-    SessionAttributeBits attributes;
-    int                  needed = 0;
-
-    static char serviceName[kServiceNameMaxLength];
-    
-    if (SessionGetInfo (callerSecuritySession, &sessionID, &attributes) == noErr) {
-        needed = snprintf (serviceName, sizeof (serviceName), "%s[%ld]", inServicePrefix, sessionID);
-
-    } else {
-        needed = snprintf (serviceName, sizeof (serviceName), "%s", inServicePrefix);
-    }
-
-    if (needed > sizeof (serviceName)) {
-        serviceName [sizeof (serviceName) - 1] = '\0';
-        dprintf ("LoginSessionGetServiceName overflowed static buffer (%d > %d)\n",
-                 needed, sizeof (serviceName));
-    }
-
-    return serviceName;
-}
-
-// ---------------------------------------------------------------------------
-
-const char *LoginSessionGetSecuritySessionName ()
+const char *LoginSessionGetSecuritySessionName (void)
 {
     SecuritySessionId    sessionID;
     SessionAttributeBits attributes;
@@ -75,6 +49,8 @@ const char *LoginSessionGetSecuritySessionName ()
 
     // From a session standpoint, group all the stuff under the login window together
     if (SessionGetInfo (callerSecuritySession, &sessionID, &attributes) == noErr) {
+//        needed = snprintf (sessionName, sizeof (sessionName), "%ld", sessionID);
+
         needed = snprintf (sessionName, sizeof (sessionName), "%ld (%s%s%s%s%s)",
                            sessionID,
                            (attributes & sessionWasInitialized) ? "inited," : "",
@@ -82,12 +58,11 @@ const char *LoginSessionGetSecuritySessionName ()
                            (attributes & sessionHasGraphicAccess) ? "gui," : "",
                            (attributes & sessionHasTTY) ? "tty," : "",
                            (attributes & sessionIsRemote) ? "remote" : "local");
-
     } else {
         needed = snprintf (sessionName, sizeof (sessionName), "No Session");
     }
 
-    if (needed > sizeof (sessionName)) {
+    if (needed > (int) sizeof (sessionName)) {
         sessionName [sizeof (sessionName) - 1] = '\0';
         dprintf ("LoginSessionGetSecuritySessionName overflowed static buffer (%d > %d)\n",
                  needed, sizeof (sessionName));
@@ -98,47 +73,61 @@ const char *LoginSessionGetSecuritySessionName ()
 
 // ---------------------------------------------------------------------------
 
-LoginSessionType LoginSessionGetSessionUIType ()
+boolean_t LoginSessionIsRootSession (void)
 {
-    SessionAttributeBits  attributes;    
-    int                   fdIn = fileno (stdin);
-    int                   fdOut = fileno (stdout);
-    char                 *fdInName = ttyname (fdIn);
+    boolean_t            isRootSession = FALSE;
+    SessionAttributeBits sattrs = 0L;    
 
-    // Session info isn't reliable for remote sessions.
-    // Check manually for terminal access with file descriptors
-    if (isatty (fdIn) && isatty (fdOut) && (fdInName != NULL)) {
-        dprintf ("LoginSessionGetSessionUIType(): Terminal '%s' of type '%s' exists.  Using terminal.\n", fdInName, getenv ("TERM"));
-        return kLoginSessionControllingTerminal;
+    if ((SessionGetInfo (callerSecuritySession, NULL, &sattrs) == noErr) && (sattrs & sessionIsRoot)) {
+        isRootSession = TRUE;
     }
     
-    // If we don't have a terminal, do we have a GUI?
-    if (SessionGetInfo (callerSecuritySession, NULL, &attributes) == noErr) {
-        if (attributes & sessionHasGraphicAccess) {
-            dprintf ("LoginSessionGetSessionUIType(): Session has graphic access.\n");
-
-            // Check for the HIToolbox (Carbon) or AppKit (Cocoa).  If either is loaded, we are a GUI app!
-            CFBundleRef hiToolBoxBundle = CFBundleGetBundleWithIdentifier (CFSTR ("com.apple.HIToolbox"));
-            if (hiToolBoxBundle != NULL && CFBundleIsExecutableLoaded (hiToolBoxBundle)) {
-                dprintf ("LoginSessionGetSessionUIType(): Carbon Toolbox is loaded.  Using GUI.\n");
-                return kLoginSessionWindowServer;
-            }
-
-            CFBundleRef appKitBundle = CFBundleGetBundleWithIdentifier (CFSTR ("com.apple.AppKit"));
-            if (appKitBundle != NULL && CFBundleIsExecutableLoaded (appKitBundle)) {
-                dprintf ("LoginSessionGetSessionUIType(): AppKit is loaded.  Using GUI.\n");
-                return kLoginSessionWindowServer;
-            }
-        }
-    }
-        
-    /* No way to talk to the user */
-    return kLoginSessionNone;
+    dprintf ("LoginSessionIsRootSession(): caller is%s running in the root session", isRootSession ? "" : " not");
+    return isRootSession;
 }
 
 // ---------------------------------------------------------------------------
 
-uid_t LoginSessionGetSessionUID ()
+LoginSessionAttributes LoginSessionGetSessionAttributes (void)
+{
+    LoginSessionAttributes attributes = 0L;
+    SessionAttributeBits   sattrs = 0L;    
+    int                    fdIn = fileno (stdin);
+    int                    fdOut = fileno (stdout);
+    char                  *fdInName = ttyname (fdIn);
+    
+    if ((SessionGetInfo (callerSecuritySession, NULL, &sattrs) == noErr) && (sattrs & sessionHasGraphicAccess)) {
+        dprintf ("LoginSessionGetSessionAttributes(): Session has graphic access.");
+        attributes |= loginSessionHasGraphicsAccess;
+        
+        // Check for the HIToolbox (Carbon) or AppKit (Cocoa).  If either is loaded, we are a GUI app!
+        CFBundleRef hiToolBoxBundle = CFBundleGetBundleWithIdentifier (CFSTR ("com.apple.HIToolbox"));
+        if (hiToolBoxBundle != NULL && CFBundleIsExecutableLoaded (hiToolBoxBundle)) {
+            dprintf ("LoginSessionGetSessionAttributes(): Carbon Toolbox is loaded.");
+            attributes |= loginSessionCallerUsesGUI;
+        }
+        
+        CFBundleRef appKitBundle = CFBundleGetBundleWithIdentifier (CFSTR ("com.apple.AppKit"));
+        if (appKitBundle != NULL && CFBundleIsExecutableLoaded (appKitBundle)) {
+            dprintf ("LoginSessionGetSessionAttributes(): AppKit is loaded.");
+            attributes |= loginSessionCallerUsesGUI;
+        }
+    }
+    
+    // Session info isn't reliable for remote sessions.
+    // Check manually for terminal access with file descriptors
+    if (isatty (fdIn) && isatty (fdOut) && (fdInName != NULL)) {
+        dprintf ("LoginSessionGetSessionAttributes(): Terminal '%s' of type '%s' exists.", fdInName, getenv ("TERM"));
+        attributes |= loginSessionHasTerminalAccess;
+    }
+
+    dprintf ("LoginSessionGetSessionAttributes(): Attributes are %x", attributes);
+    return attributes;
+}
+
+// ---------------------------------------------------------------------------
+
+uid_t LoginSessionGetSessionUID (void)
 {
     // Get the uid of the user that the server will be run and named for.
     uid_t uid = geteuid ();

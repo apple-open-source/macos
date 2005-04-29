@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for PRO.
-   Copyright (C) 1997, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1997, 2000, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Joel Sherrill (joel@OARcorp.com).
 
 This file is part of GNU CC.
@@ -21,6 +21,20 @@ Boston, MA 02111-1307, USA.  */
 
 /* Specify predefined symbols in preprocessor.  */
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-Dhppa -DPWB -Acpu=hppa -Amachine=hppa \
-   -D__rtems__ -Asystem=rtems"
+#undef TARGET_OS_CPP_BUILTINS
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	if (c_language != clk_cplusplus		\
+	    && !flag_iso)			\
+	  {					\
+	    builtin_define ("hppa");		\
+	    builtin_define_std ("PWB");		\
+	  }					\
+	builtin_define ("__rtems__");		\
+	builtin_assert ("system=rtems");	\
+    }						\
+  while (0)
+
+#undef LIB_SPEC
+#define LIB_SPEC "%{!p:%{!pg:-lc}}%{p: -lc}%{pg: -lc} -N"

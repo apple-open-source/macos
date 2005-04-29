@@ -1,5 +1,5 @@
 /*
-* Copyright (C) {1997-2003}, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) {1997-2004}, International Business Machines Corporation and others. All Rights Reserved.
 ********************************************************************************
 *
 * File TIMEZONE.H
@@ -32,6 +32,7 @@
 
 #include "unicode/uobject.h"
 #include "unicode/unistr.h"
+#include "unicode/ures.h"
 
 U_NAMESPACE_BEGIN
 
@@ -52,11 +53,11 @@ class StringEnumeration;
  * with a time zone ID. For instance, the time zone ID for the Pacific
  * Standard Time zone is "PST". So, you can get a PST <code>TimeZone</code> object
  * with:
- * <blockquote>
+ * \htmlonly<blockquote>\endhtmlonly
  * <pre>
  * TimeZone *tz = TimeZone::createTimeZone("PST");
  * </pre>
- * </blockquote>
+ * \htmlonly</blockquote>\endhtmlonly
  * You can use <code>getAvailableIDs</code> method to iterate through
  * all the supported time zone IDs. You can then choose a
  * supported ID to get a <code>TimeZone</code>.
@@ -64,11 +65,11 @@ class StringEnumeration;
  * supported IDs, then you can create a custom time zone ID with
  * the following syntax:
  *
- * <blockquote>
+ * \htmlonly<blockquote>\endhtmlonly
  * <pre>
  * GMT[+|-]hh[[:]mm]
  * </pre>
- * </blockquote>
+ * \htmlonly</blockquote>\endhtmlonly
  *
  * For example, you might specify GMT+14:00 as a custom
  * time zone ID.  The <code>TimeZone</code> that is returned
@@ -77,14 +78,16 @@ class StringEnumeration;
  *
  * TimeZone is an abstract class representing a time zone.  A TimeZone is needed for
  * Calendar to produce local time for a particular time zone.  A TimeZone comprises
- * three basic pieces of information:<ul>
+ * three basic pieces of information:
+ * <ul>
  *    <li>A time zone offset; that, is the number of milliseconds to add or subtract
  *      from a time expressed in terms of GMT to convert it to the same time in that
- *      time zone (without taking daylight savings time into account).
+ *      time zone (without taking daylight savings time into account).</li>
  *    <li>Logic necessary to take daylight savings time into account if daylight savings
  *      time is observed in that time zone (e.g., the days and hours on which daylight
- *      savings time begins and ends).
- *    <li>An ID.  This is a text string that uniquely identifies the time zone.</ul>
+ *      savings time begins and ends).</li>
+ *    <li>An ID.  This is a text string that uniquely identifies the time zone.</li>
+ * </ul>
  *
  * (Only the ID is actually implemented in TimeZone; subclasses of TimeZone may handle
  * daylight savings time and GMT offset in different ways.  Currently we only have one
@@ -122,7 +125,7 @@ public:
      * @return the GMT time zone.
      * @stable ICU 2.0
      */
-    static const TimeZone* getGMT(void);
+    static const TimeZone* U_EXPORT2 getGMT(void);
 
     /**
      * Creates a <code>TimeZone</code> for the given ID.
@@ -135,16 +138,16 @@ public:
      * return result.
      * @stable ICU 2.0
      */
-    static TimeZone* createTimeZone(const UnicodeString& ID);
+    static TimeZone* U_EXPORT2 createTimeZone(const UnicodeString& ID);
 
     /**
      * Returns an enumeration over all recognized time zone IDs. (i.e.,
      * all strings that createTimeZone() accepts)
      *
      * @return an enumeration object, owned by the caller.
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
-    static StringEnumeration* createEnumeration();
+    static StringEnumeration* U_EXPORT2 createEnumeration();
 
     /**
      * Returns an enumeration over time zone IDs with a given raw
@@ -160,10 +163,10 @@ public:
      *
      * @param rawOffset an offset from GMT in milliseconds, ignoring
      * the effect of daylight savings time, if any
-     * @return an enumeration object, owned by the caller 
-     * @draft ICU 2.4
+     * @return an enumeration object, owned by the caller
+     * @stable ICU 2.4
      */
-    static StringEnumeration* createEnumeration(int32_t rawOffset);
+    static StringEnumeration* U_EXPORT2 createEnumeration(int32_t rawOffset);
 
     /**
      * Returns an enumeration over time zone IDs associated with the
@@ -172,11 +175,12 @@ public:
      *
      * @param country The ISO 3166 two-letter country code, or NULL to
      * retrieve zones not affiliated with any country.
-     * @return an enumeration object, owned by the caller 
-     * @draft ICU 2.4
+     * @return an enumeration object, owned by the caller
+     * @stable ICU 2.4
      */
-    static StringEnumeration* createEnumeration(const char* country);
+    static StringEnumeration* U_EXPORT2 createEnumeration(const char* country);
 
+#ifdef U_USE_TIMEZONE_OBSOLETE_2_8
     /**
      * Returns a list of time zone IDs, one for each time zone with a given GMT offset.
      * The return value is a list because there may be several times zones with the same
@@ -240,6 +244,7 @@ public:
      * @obsolete ICU 2.8.  Use createEnumeration(void) instead since this API will be removed in that release.
      */
     static const UnicodeString** createAvailableIDs(int32_t& numIDs);
+#endif
 
     /**
      * Returns the number of IDs in the equivalency group that
@@ -255,7 +260,7 @@ public:
      * @see #getEquivalentID
      * @stable ICU 2.0
      */
-    static int32_t countEquivalentIDs(const UnicodeString& id);
+    static int32_t U_EXPORT2 countEquivalentIDs(const UnicodeString& id);
 
     /**
      * Returns an ID in the equivalency group that
@@ -276,7 +281,7 @@ public:
      * @see #countEquivalentIDs
      * @stable ICU 2.0
      */
-    static const UnicodeString getEquivalentID(const UnicodeString& id,
+    static const UnicodeString U_EXPORT2 getEquivalentID(const UnicodeString& id,
                                                int32_t index);
 
     /**
@@ -291,7 +296,7 @@ public:
      *           object returned.
      * @stable ICU 2.0
      */
-    static TimeZone* createDefault(void);
+    static TimeZone* U_EXPORT2 createDefault(void);
 
     /**
      * Sets the default time zone (i.e., what's returned by getDefault()) to be the
@@ -302,7 +307,7 @@ public:
      * @param zone  A pointer to the new TimeZone object to use as the default.
      * @stable ICU 2.0
      */
-    static void adoptDefault(TimeZone* zone);
+    static void U_EXPORT2 adoptDefault(TimeZone* zone);
 
     /**
      * Same as adoptDefault(), except that the TimeZone object passed in is NOT adopted;
@@ -311,7 +316,7 @@ public:
      * @param zone  The given timezone.
      * @system
      */
-    static void setDefault(const TimeZone& zone);
+    static void U_EXPORT2 setDefault(const TimeZone& zone);
 
     /**
      * Returns true if the two TimeZones are equal.  (The TimeZone version only compares
@@ -343,14 +348,18 @@ public:
      * that is returned (in other words, what is the adjusted GMT offset in this time zone
      * at this particular date and time?).  For the time zones produced by createTimeZone(),
      * the reference data is specified according to the Gregorian calendar, and the date
-     * and time fields are in GMT, NOT local time.
+     * and time fields are local standard time.
+     *
+     * <p>Note: Don't call this method. Instead, call the getOffset(UDate...) overload,
+     * which returns both the raw and the DST offset for a given time. This method
+     * is retained only for backward compatibility.
      *
      * @param era        The reference date's era
      * @param year       The reference date's year
      * @param month      The reference date's month (0-based; 0 is January)
      * @param day        The reference date's day-in-month (1-based)
      * @param dayOfWeek  The reference date's day-of-week (1-based; 1 is Sunday)
-     * @param millis     The reference date's milliseconds in day, UTT (NOT local time).
+     * @param millis     The reference date's milliseconds in day, local standard time
      * @param status     Output param to filled in with a success or an error.
      * @return           The offset in milliseconds to add to GMT to get local time.
      * @stable ICU 2.0
@@ -361,6 +370,11 @@ public:
     /**
      * Gets the time zone offset, for current date, modified in case of
      * daylight savings. This is the offset to add *to* UTC to get local time.
+     *
+     * <p>Note: Don't call this method. Instead, call the getOffset(UDate...) overload,
+     * which returns both the raw and the DST offset for a given time. This method
+     * is retained only for backward compatibility.
+     *
      * @param era the era of the given date.
      * @param year the year in the given date.
      * @param month the month in the given date.
@@ -376,6 +390,32 @@ public:
     virtual int32_t getOffset(uint8_t era, int32_t year, int32_t month, int32_t day,
                            uint8_t dayOfWeek, int32_t milliseconds,
                            int32_t monthLength, UErrorCode& status) const = 0;
+
+    /**
+     * Returns the time zone raw and GMT offset for the given moment
+     * in time.  Upon return, local-millis = GMT-millis + rawOffset +
+     * dstOffset.  All computations are performed in the proleptic
+     * Gregorian calendar.  The default implementation in the TimeZone
+     * class delegates to the 8-argument getOffset().
+     *
+     * @param date moment in time for which to return offsets, in
+     * units of milliseconds from January 1, 1970 0:00 GMT, either GMT
+     * time or local wall time, depending on `local'.
+     * @param local if true, `date' is local wall time; otherwise it
+     * is in GMT time.
+     * @param rawOffset output parameter to receive the raw offset, that
+     * is, the offset not including DST adjustments
+     * @param dstOffset output parameter to receive the DST offset,
+     * that is, the offset to be added to `rawOffset' to obtain the
+     * total offset between local and GMT time. If DST is not in
+     * effect, this value is zero; otherwise it is a positive value,
+     * typically one hour.
+     * @param ec input-output error code
+     *
+     * @draft ICU 2.8
+     */
+    virtual void getOffset(UDate date, UBool local, int32_t& rawOffset,
+                           int32_t& dstOffset, UErrorCode& ec) const;
 
     /**
      * Sets the TimeZone's raw GMT offset (i.e., the number of milliseconds to add
@@ -410,7 +450,7 @@ public:
      * blockquote><pre>
      * .     TimeZone* foo = TimeZone::createTimeZone("America/New_York");
      * .     foo.setID("America/Los_Angeles");
-     * </pre></blockquote>
+     * </pre>\htmlonly</blockquote>\endhtmlonly
      * the time zone's GMT offset and daylight-savings rules don't change to those for
      * Los Angeles.  They're still those for New York.  Only the ID has changed.)
      *
@@ -421,17 +461,17 @@ public:
 
     /**
      * Enum for use with getDisplayName
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     enum EDisplayType {
         /**
          * Selector for short display name
-         * @draft ICU 2.4
+         * @stable ICU 2.4
          */
         SHORT = 1,
         /**
          * Selector for long display name
-         * @draft ICU 2.4
+         * @stable ICU 2.4
          */
         LONG
     };
@@ -538,28 +578,19 @@ public:
 
     /**
      * Return the class ID for this class.  This is useful only for
-     * comparing to a return value from getDynamicClassID().  For example:
-     * <pre>
-     * .   Base* polymorphic_pointer = createPolymorphicObject();
-     * .   if (polymorphic_pointer->getDynamicClassID() ==
-     * .       Derived::getStaticClassID()) ...
-     * </pre>
+     * comparing to a return value from getDynamicClassID().
      * @return The class ID for all objects of this class.
      * @stable ICU 2.0
      */
-    static inline UClassID getStaticClassID(void);
+    static UClassID U_EXPORT2 getStaticClassID(void);
 
     /**
-     * Returns a unique class ID POLYMORPHICALLY. Pure virtual method. This method is to
+     * Returns a unique class ID POLYMORPHICALLY. This method is to
      * implement a simple version of RTTI, since not all C++ compilers support genuine
      * RTTI. Polymorphic operator==() and clone() methods call this method.
      * <P>
-     * Concrete subclasses of TimeZone must implement getDynamicClassID() and also a
-     * static method and data member:
-     * <pre>
-     * .     static UClassID getStaticClassID() { return (UClassID)&fgClassID; }
-     * .     static char fgClassID;
-     * </pre>
+     * Concrete subclasses of TimeZone must use the UOBJECT_DEFINE_RTTI_IMPLEMENTATION
+     *  macro from uobject.h in their implementation to provide correct RTTI information.
      * @return   The class ID for this object. All objects of a given class have the
      *           same class ID. Objects of other classes have different class IDs.
      * @stable ICU 2.0
@@ -595,9 +626,18 @@ protected:
      */
     TimeZone& operator=(const TimeZone& right);
 
-private:
-    static const char fgClassID;
+    /**
+     * Utility function. For internally loading rule data.
+     * @param top Top resource bundle for tz data
+     * @param ruleid ID of rule to load
+     * @param oldbundle Old bundle to reuse or NULL
+     * @param status Status parameter
+     * @return either a new bundle or *oldbundle
+     * @internal
+     */
+    static UResourceBundle* loadRule(const UResourceBundle* top, const UnicodeString& ruleid, UResourceBundle* oldbundle, UErrorCode&status);
 
+private:
     static TimeZone*        createCustomTimeZone(const UnicodeString&); // Creates a time zone based on the string.
 
     /**
@@ -620,10 +660,6 @@ private:
     UnicodeString           fID;    // this time zone's ID
 };
 
-
-inline UClassID
-TimeZone::getStaticClassID(void)
-{ return (UClassID)&fgClassID; }
 
 // -------------------------------------
 

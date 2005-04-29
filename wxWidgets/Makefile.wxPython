@@ -1,0 +1,32 @@
+# Makefile for wxPython
+
+EXTRAS := $(DSTROOT)$(shell python -c 'import sys; print sys.prefix')/Extras
+OPTIONS = WX_CONFIG=$(FAKEBIN)/wx-config UNICODE=1
+ENV = CFLAGS='$(RC_CFLAGS)'
+EXTRASLIBPYTHON := $(EXTRAS)/lib/python
+WXPTH = wx.pth
+LINKS = wx wxPython
+
+no_target: build
+
+build:
+	@echo cd $(OBJROOT) && \
+	cd $(OBJROOT) && \
+	echo $(ENV) python setup.py build_ext $(OPTIONS) && \
+	$(ENV) python setup.py build_ext $(OPTIONS)
+
+install: build
+	@echo cd $(OBJROOT) && \
+	cd $(OBJROOT) && \
+	echo $(ENV) python setup.py install --home=$(EXTRAS) $(OPTIONS) && \
+	$(ENV) python setup.py install --home=$(EXTRAS) $(OPTIONS)
+	@for i in `find $(EXTRAS) -name \*.so`; do \
+	    echo strip -x $$i && \
+	    strip -x $$i; \
+	done
+	rm -f $(EXTRASLIBPYTHON)/$(WXPTH)
+	@name=`echo $(EXTRASLIBPYTHON)/wx-* | sed 's,^$(EXTRASLIBPYTHON)/,,'` && \
+	    for i in $(LINKS); do \
+		echo ln -sf $$name/$$i $(EXTRASLIBPYTHON) && \
+		ln -sf $$name/$$i $(EXTRASLIBPYTHON); \
+	    done

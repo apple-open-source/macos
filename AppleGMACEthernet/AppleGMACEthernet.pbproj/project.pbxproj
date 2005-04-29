@@ -3,56 +3,71 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		013905A7FFB1ECE711CA2B4D = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		013905A8FFB1ECE711CA2B4D = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
 		};
 		016FA200FFB1F76211CA2B4D = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = UniNEnet.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		016FA201FFB1F76211CA2B4D = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = UniNEnet.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		016FA203FFB1F76211CA2B4D = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = UniNEnetMII.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		016FA204FFB1F76211CA2B4D = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = UniNEnetMII.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		016FA207FFB1F76211CA2B4D = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = UniNEnetRegisters.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		016FA208FFB1F76211CA2B4D = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = UniNPowerSaver.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		016FA209FFB1F76211CA2B4D = {
 			fileRef = 016FA201FFB1F76211CA2B4D;
@@ -107,6 +122,8 @@
 //083
 //084
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				013905A7FFB1ECE711CA2B4D,
 				013905A8FFB1ECE711CA2B4D,
@@ -130,6 +147,7 @@
 			isa = PBXGroup;
 			name = AppleGMACEthernet;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -148,7 +166,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.AppleGMACEthernet;
-				MODULE_VERSION = 1.3.4f2;
+				MODULE_VERSION = 1.4.0b5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -183,11 +201,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.4</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.4f2</string>
+	<string>1.4.0b5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PCI Matching</key>
@@ -217,17 +235,17 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IONetworkingFamily</key>
-		<string>1.1</string>
+		<string>1.4.3</string>
 		<key>com.apple.iokit.IOPCIFamily</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.bsd</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
+		<string>1.6</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b2</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Network-Root</string>
@@ -285,6 +303,7 @@
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167DFE841241C02AAC07 = {
 			children = (
@@ -293,13 +312,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167EFE841241C02AAC07 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1680FE841241C02AAC07 = {
 			fileRef = 089C167DFE841241C02AAC07;
@@ -318,9 +340,11 @@
 //133
 //134
 		1356D0DFFFDF1FA211CA2B4D = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleGMACEthernet.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //130
 //131
@@ -334,8 +358,10 @@
 //174
 		175EBB20FFB2331C11CA2B4D = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = UniNEnetPrivate.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		175EBB21FFB2331C11CA2B4D = {
 			fileRef = 175EBB20FFB2331C11CA2B4D;
@@ -362,6 +388,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -387,6 +414,7 @@
 			name = Source;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //240
 //241
@@ -418,9 +446,6 @@
 			name = "Installer Package";
 			passBuildSettingsInEnvironment = 1;
 			productName = "Installer Package";
-			settingsToExpand = 6;
-			settingsToPassInEnvironment = 287;
-			settingsToPassOnCommandLine = 280;
 		};
 //720
 //721
@@ -443,31 +468,42 @@
 			isa = PBXGroup;
 			path = Tools;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F55CF24503A0167D01CE1498 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = gmacLog.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F55CF24603A0167D01CE1498 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = gmacPHYregs.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F55CF24703A0167D01CE1498 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = gmacRegs.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F55CF24803A0167D01CE1498 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = gmacRings.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F55CF24903A0167D01CE1498 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.make;
 			path = Makefile;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

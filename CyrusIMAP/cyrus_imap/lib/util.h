@@ -1,5 +1,5 @@
 /* util.h -- general utility functions
- * $Id: util.h,v 1.18 2004/09/10 13:38:41 ken3 Exp $
+ * $Id: util.h,v 1.5 2005/03/05 00:37:23 dasenbro Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

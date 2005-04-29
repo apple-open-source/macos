@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_context.h,v 1.6 2002/12/16 16:18:58 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_context.h,v 1.10 2004/01/23 19:09:33 dawes Exp $ */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -6,24 +6,25 @@ Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
 
 All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-on the rights to use, copy, modify, merge, publish, distribute, sub
-license, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice (including the next
-paragraph) shall be included in all copies or substantial portions of the
-Software.
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
-ATI, VA LINUX SYSTEMS AND/OR THEIR SUPPLIERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
@@ -39,11 +40,18 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef GLX_DIRECT_RENDERING
 
+#include "dri_util.h"
+#include "radeon_common.h"
+#include "texmem.h"
+
+#include "macros.h"
+#include "mtypes.h"
+#include "colormac.h"
+
 struct radeon_context;
 typedef struct radeon_context radeonContextRec;
 typedef struct radeon_context *radeonContextPtr;
 
-#include "mtypes.h"
 #include "radeon_lock.h"
 #include "radeon_screen.h"
 #include "mm.h"
@@ -57,6 +65,11 @@ typedef struct radeon_context *radeonContextPtr;
 #define RADEON_FALLBACK_BLEND_EQ	0x0010
 #define RADEON_FALLBACK_BLEND_FUNC	0x0020
 #define RADEON_FALLBACK_DISABLE 	0x0040
+#define RADEON_FALLBACK_BORDER_MODE	0x0080
+
+/* The blit width for texture uploads
+ */
+#define BLIT_WIDTH_BYTES 1024
 
 /* Use the templated vertex format:
  */
@@ -122,17 +135,10 @@ typedef struct radeon_tex_obj radeonTexObj, *radeonTexObjPtr;
 /* Texture object in locally shared texture space.
  */
 struct radeon_tex_obj {
-   radeonTexObjPtr next, prev;
+   driTextureObject   base;
 
-   struct gl_texture_object *tObj;	/* Mesa texture object */
-
-   PMemBlock memBlock;			/* Memory block containing texture */
    GLuint bufAddr;			/* Offset to start of locally
 					   shared texture block */
-
-   GLuint dirty_images;			/* Flags for whether or not
-					   images need to be uploaded to
-					   local or AGP texture space */
 
    GLuint dirty_state;		        /* Flags (1 per texunit) for
 					   whether or not this texobj
@@ -141,23 +147,19 @@ struct radeon_tex_obj {
 					   brought into the
 					   texunit. */
 
-   GLint heap;				/* Texture heap currently stored in */
-
-   drmRadeonTexImage image[RADEON_MAX_TEXTURE_LEVELS];
-
-   GLint totalSize;			/* Total size of the texture
-					   including all mipmap levels */
+   drmRadeonTexImage image[6][RADEON_MAX_TEXTURE_LEVELS];
+					/* Six, for the cube faces */
 
    GLuint pp_txfilter;		        /* hardware register values */
    GLuint pp_txformat;
-   GLuint pp_txoffset;
+   GLuint pp_txoffset;		        /* Image location in texmem.
+					   All cube faces follow. */
+   GLuint pp_txsize;		        /* npot only */
+   GLuint pp_txpitch;		        /* npot only */
    GLuint pp_border_color;
+   GLuint pp_cubic_faces;	        /* cube face 1,2,3,4 log2 sizes */
 
-   /* texObj->Image[firstLevel] through texObj->Image[lastLevel] are the
-    * images to upload.
-    */
-   GLint firstLevel;     
-   GLint lastLevel;      
+   GLboolean  border_fallback;
 };
 
 
@@ -185,8 +187,8 @@ struct radeon_state_atom {
 
 
 /* Trying to keep these relatively short as the variables are becoming
- * extravagently long.  Drop the RADEON_ off the front of everything -
- * I think we know we're in the radeon driver by now, and keep the
+ * extravagently long.  Drop the driver name prefix off the front of
+ * everything - I think we know which driver we're in by now, and keep the
  * prefix to 3 letters unless absolutely impossible.  
  */
 
@@ -249,6 +251,11 @@ struct radeon_state_atom {
 #define TEX_CMD_1                   7
 #define TEX_PP_BORDER_COLOR         8
 #define TEX_STATE_SIZE              9
+
+#define TXR_CMD_0                   0 /* rectangle textures */
+#define TXR_PP_TEX_SIZE             1 /* 0x1d04, 0x1d0c for NPOT! */
+#define TXR_PP_TEX_PITCH            2 /* 0x1d08, 0x1d10 for NPOT! */
+#define TXR_STATE_SIZE              3
 
 #define ZBS_CMD_0              0
 #define ZBS_SE_ZBIAS_FACTOR             1
@@ -413,6 +420,7 @@ struct radeon_hw_state {
    struct radeon_state_atom grd; /* guard band clipping */
    struct radeon_state_atom fog; 
    struct radeon_state_atom glt; 
+   struct radeon_state_atom txr[2]; /* for NPOT */
 };
 
 struct radeon_state {
@@ -427,15 +435,6 @@ struct radeon_state {
    struct radeon_texture_state texture;
 };
 
-struct radeon_texture {
-   radeonTexObj objects[RADEON_NR_TEX_HEAPS];
-   radeonTexObj swapped;
-
-   memHeap_t *heap[RADEON_NR_TEX_HEAPS];
-   GLint age[RADEON_NR_TEX_HEAPS];
-
-   GLint numHeaps;
-};
 
 /* Need refcounting on dma buffers:
  */
@@ -444,7 +443,7 @@ struct radeon_dma_buffer {
    drmBufPtr buf;
 };
 
-#define GET_START(rvb) (rmesa->radeonScreen->agp_buffer_offset +			\
+#define GET_START(rvb) (rmesa->radeonScreen->gart_buffer_offset +			\
 			(rvb)->address - rmesa->dma.buf0_address +	\
 			(rvb)->start)
 
@@ -474,8 +473,6 @@ struct radeon_dma {
 };
 
 struct radeon_dri_mirror {
-   Display *display;			/* X server display */
-
    __DRIcontextPrivate	*context;	/* DRI context */
    __DRIscreenPrivate	*screen;	/* DRI screen */
    __DRIdrawablePrivate	*drawable;	/* DRI drawable bound to this ctx */
@@ -529,7 +526,7 @@ struct radeon_swtcl_info {
    GLuint vertex_size;
    GLuint vertex_stride_shift;
    GLuint vertex_format;
-   char *verts;
+   GLubyte *verts;
 
    /* Fallback rasterization functions
     */
@@ -594,8 +591,6 @@ struct dfn_lists {
    struct dynfn MultiTexCoord1fvARB;
 };
 
-struct _vb;
-
 struct dfn_generators {
    struct dynfn *(*Vertex2f)( GLcontext *, int );
    struct dynfn *(*Vertex2fv)( GLcontext *, int );
@@ -626,9 +621,14 @@ struct dfn_generators {
 };
 
 
-struct radeon_vb {
-   /* Keep these first: referenced from codegen templates:
-    */
+
+struct radeon_prim {
+   GLuint start;
+   GLuint end;
+   GLuint prim;
+};
+
+struct radeon_vbinfo {
    GLint counter, initial_counter;
    GLint *dmaptr;
    void (*notify)( void );
@@ -653,23 +653,12 @@ struct radeon_vb {
    radeon_color_t *specptr;
    GLfloat *texcoordptr[2];
 
-   GLcontext *context;		/* current context : Single thread only! */
-};
-
-struct radeon_prim {
-   GLuint start;
-   GLuint end;
-   GLuint prim;
-};
-
-struct radeon_vbinfo {
    GLenum *prim;		/* &ctx->Driver.CurrentExecPrimitive */
    GLuint primflags;
-   GLboolean enabled;		/* RADEON_NO_VTXFMT//RADEON_NO_TCL env vars */
+   GLboolean enabled;		/* *_NO_VTXFMT / *_NO_TCL env vars */
    GLboolean installed;
    GLboolean fell_back;
    GLboolean recheck;
-   GLint initial_counter;
    GLint nrverts;
    GLuint vertex_format;
 
@@ -697,7 +686,9 @@ struct radeon_context {
 
    /* Texture object bookkeeping
     */
-   struct radeon_texture texture;
+   unsigned              nr_heaps;
+   driTexHeap          * texture_heaps[ RADEON_NR_TEX_HEAPS ];
+   driTextureObject      swapped;
 
 
    /* Rasterization and vertex state:
@@ -751,6 +742,15 @@ struct radeon_context {
    /* VBI
     */
    GLuint vbl_seq;
+   GLuint vblank_flags;
+
+   int64_t swap_ust;
+   int64_t swap_missed_ust;
+
+   GLuint swap_count;
+   GLuint swap_missed_count;
+
+   PFNGLXGETUSTPROC get_ust;
 
    /* radeon_tcl.c
     */
@@ -798,6 +798,17 @@ static __inline GLuint radeonPackColor( GLuint cpp,
 }
 
 #define RADEON_OLD_PACKETS 1
+
+
+extern void radeonDestroyContext( __DRIcontextPrivate *driContextPriv );
+extern GLboolean radeonCreateContext(const __GLcontextModes *glVisual,
+				     __DRIcontextPrivate *driContextPriv,
+				     void *sharedContextPrivate);
+extern void radeonSwapBuffers( __DRIdrawablePrivate *dPriv );
+extern GLboolean radeonMakeCurrent( __DRIcontextPrivate *driContextPriv,
+				    __DRIdrawablePrivate *driDrawPriv,
+				    __DRIdrawablePrivate *driReadPriv );
+extern GLboolean radeonUnbindContext( __DRIcontextPrivate *driContextPriv );
 
 /* ================================================================
  * Debugging:

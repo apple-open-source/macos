@@ -12,11 +12,11 @@ cc_int32 __CredentialsCacheInternalTellCCacheServerToQuit (void)
 {
     CCIResult		result = ccNoError;
     kern_return_t	err;
-    MachServerPort	machPort (CCacheMachIPCServiceName);
+    CCIMachIPCStub      stub;
     
-    if (machPort.Get () != MACH_PORT_NULL) {
+    if (stub.GetPortNoLaunch () != MACH_PORT_NULL) {
         // The server exists.  Tell it to quit, then remove our reference to it:
-        err = InternalIPC_TellServerToQuit (machPort.Get (), &result);
+        err = InternalIPC_TellServerToQuit (stub.GetPortNoLaunch (), &result);
         if (err != KERN_SUCCESS) {
             return ccErrServerUnavailable;
         }
@@ -28,13 +28,13 @@ cc_int32 __CredentialsCacheInternalTellCCacheServerToQuit (void)
 
 cc_int32 __CredentialsCacheInternalTellCCacheServerToBecomeUser (uid_t inNewUID) 
 {
-    CCIResult		result = ccNoError;
+    CCIResult		result = ccErrServerUnavailable;
     kern_return_t	err;
-    MachServerPort	machPort (CCacheMachIPCServiceName);
+    CCIMachIPCStub      stub;
     
-    if (machPort.Get () != MACH_PORT_NULL) {
+    if (stub.GetPortNoLaunch () != MACH_PORT_NULL) {
         // The server exists.  Tell it to quit, then remove our reference to it:
-        err = InternalIPC_TellServerToBecomeUser (machPort.Get (), inNewUID, &result);
+        err = InternalIPC_TellServerToBecomeUser (stub.GetPortNoLaunch (), inNewUID, &result);
         if (err != KERN_SUCCESS) {
             return ccErrServerUnavailable;
         }
@@ -44,6 +44,7 @@ cc_int32 __CredentialsCacheInternalTellCCacheServerToBecomeUser (uid_t inNewUID)
     return result;
 }
 
+#ifdef Classic_Ticket_Sharing
 cc_int32 __CredentialsCacheInternalGetDiffs (
         cc_uint32		inServerID,
 	cc_uint32		inSeqNo,
@@ -105,6 +106,7 @@ cc_int32 __CredentialsCacheInternalGetInitialDiffs (
 	
 	return result;
 }
+#endif // Classic_Ticket_Sharing
 
 cc_int32 __CredentialsCacheInternalCheckServerID (
         CCIUInt32		inServerID,

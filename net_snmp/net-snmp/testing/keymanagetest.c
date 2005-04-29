@@ -18,7 +18,7 @@
  * Test of {encode,decode}_keychange().         SUCCESSes: 3
  */
 
-static char    *rcsid = "$Id: keymanagetest.c,v 1.1.1.2 2003/05/29 00:03:12 rbraun Exp $";        /* */
+static char    *rcsid = "$Id: keymanagetest.c,v 5.0 2002/04/20 07:30:22 hardaker Exp $";        /* */
 
 #include <net-snmp/net-snmp-config.h>
 

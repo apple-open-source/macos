@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-compiler.m4,v 1.1.1.12 2003/04/11 21:07:17 jlovell Exp $"
+dnl "$Id: cups-compiler.m4,v 1.1.1.18 2005/01/04 19:15:06 jlovell Exp $"
 dnl
 dnl   Common configuration stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@ dnl
 dnl       Attn: CUPS Licensing Information
 dnl       Easy Software Products
 dnl       44141 Airport View Drive, Suite 204
-dnl       Hollywood, Maryland 20636-3111 USA
+dnl       Hollywood, Maryland 20636 USA
 dnl
-dnl       Voice: (301) 373-9603
+dnl       Voice: (301) 373-9600
 dnl       EMail: cups-info@cups.org
 dnl         WWW: http://www.cups.org
 dnl
@@ -119,7 +119,7 @@ else
 				OPTIM="+z $OPTIM"
 			fi
 			;;
-        	IRIX*)
+        	IRIX)
 			if test -z "$OPTIM"; then
 				if test "x$with_optim" = x; then
 					OPTIM="-O2"
@@ -133,7 +133,16 @@ else
 			fi
 
 			if test "x$with_optim" = x; then
-				OPTIM="-fullwarn $OPTIM"
+				# Show most warnings, but suppress the
+				# ones about arguments not being used,
+				# string constants assigned to const
+				# char *'s, etc.  We only set the warning
+				# options on IRIX 6.2 and higher because
+				# of limitations in the older SGI compiler
+				# tools.
+				if test $uversion -ge 62; then
+					OPTIM="-fullwarn -woff 1183,1209,1349,3201 $OPTIM"
+				fi
 			fi
 			;;
 		SunOS*)
@@ -147,7 +156,9 @@ else
 			fi
 
 			if test "x$with_optim" = x; then
-				OPTIM="$OPTIM -xarch=generic"
+				# Specify "generic" SPARC output and suppress
+				# all of Sun's questionable warning messages...
+				OPTIM="-w $OPTIM -xarch=generic"
 			fi
 
 			if test $PICFLAG = 1; then
@@ -191,5 +202,5 @@ if test $uname = HP-UX; then
 fi
 
 dnl
-dnl End of "$Id: cups-compiler.m4,v 1.1.1.12 2003/04/11 21:07:17 jlovell Exp $".
+dnl End of "$Id: cups-compiler.m4,v 1.1.1.18 2005/01/04 19:15:06 jlovell Exp $".
 dnl

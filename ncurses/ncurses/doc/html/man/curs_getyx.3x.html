@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <!-- 
   ****************************************************************************
-  * Copyright (c) 1998 Free Software Foundation, Inc.                        *
+  * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
   *                                                                          *
   * Permission is hereby granted, free of charge, to any person obtaining a  *
   * copy of this software and associated documentation files (the            *
@@ -27,17 +27,23 @@
   * sale, use or other dealings in this Software without prior written       *
   * authorization.                                                           *
   ****************************************************************************
-  * @Id: curs_getyx.3x,v 1.6 1998/03/11 21:12:53 juergen Exp @
+  * @Id: curs_getyx.3x,v 1.10 2003/05/10 20:33:49 jmc Exp @
 -->
 <HTML>
 <HEAD>
-<TITLE>curs_getyx 3x</TITLE><link rev=made href="mailto:bug-ncurses@gnu.org">
+<TITLE>curs_getyx 3x</TITLE>
+<link rev=made href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY>
 <H1>curs_getyx 3x</H1>
 <HR>
 <PRE>
 <!-- Manpage converted by man2html 3.0.1 -->
+<STRONG><A HREF="curs_getyx.3x.html">curs_getyx(3x)</A></STRONG>                                     <STRONG><A HREF="curs_getyx.3x.html">curs_getyx(3x)</A></STRONG>
+
+
+
 
 </PRE>
 <H2>NAME</H2><PRE>
@@ -72,21 +78,25 @@
 
 </PRE>
 <H2>RETURN VALUE</H2><PRE>
-       The return values of these  macros  are  undefined  (<EM>i</EM>.<EM>e</EM>.,
+       The return values of these  macros  are  undefined  (i.e.,
        they  should not be used as the right-hand side of assign-
        ment statements).
 
 
 </PRE>
 <H2>NOTES</H2><PRE>
-       All of these interfaces are macros and  that  "<STRONG>&amp;</STRONG>"  is  not
-       necessary before the variables <EM>y</EM> and <EM>x</EM>.
+       All of these interfaces are macros.  A "<STRONG>&amp;</STRONG>" is  not  neces-
+       sary before the variables <EM>y</EM> and <EM>x</EM>.
 
 
 </PRE>
 <H2>PORTABILITY</H2><PRE>
-       These  functions are described in the XSI Curses standard,
-       Issue 4.
+       The  <STRONG>getyx</STRONG>,  <STRONG>getparyx</STRONG>, <STRONG>getbegyx</STRONG> and <STRONG>getmaxyx</STRONG> functions are
+       described in the XSI Curses standard, Issue 4.
+
+       This  implementation  also  provides   <STRONG>getbegx</STRONG>,   <STRONG>getbegy</STRONG>,
+       <STRONG>getcurx</STRONG>,  <STRONG>getcury</STRONG>,  <STRONG>getmaxx</STRONG>,  <STRONG>getmaxy</STRONG>, <STRONG>getparx</STRONG> and <STRONG>getpary</STRONG>
+       for compatibility with older versions of curses.
 
 
 </PRE>
@@ -95,17 +105,7 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+                                                   <STRONG><A HREF="curs_getyx.3x.html">curs_getyx(3x)</A></STRONG>
 </PRE>
 <HR>
 <ADDRESS>

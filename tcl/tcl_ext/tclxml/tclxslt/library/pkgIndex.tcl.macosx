@@ -1,0 +1,15 @@
+# pkgIndex.tcl --
+#
+#       Handcrafted for TclXSLT.
+#
+# Copyright (c) 2001 Zveno Pty Ltd
+# http://www.zveno.com/
+#
+# $Id: pkgIndex.tcl.macosx,v 1.3 2002/09/24 21:15:14 balls Exp $
+
+package ifneeded xslt 2.4 "
+
+    load [file join [list $dir] .. .. .. tclxslt.framework tclxslt] Xslt
+    source [file join $dir tclxslt.tcl]
+"
+

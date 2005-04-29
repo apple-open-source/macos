@@ -1,21 +1,22 @@
-XCOMM $XFree86: xc/programs/mkfontscale/Imakefile,v 1.3 2002/12/14 04:41:12 dawes Exp $
+XCOMM $XFree86: xc/programs/mkfontscale/Imakefile,v 1.8 2003/11/17 15:18:06 tsi Exp $
 
 LOCAL_LIBRARIES = $(XFONTENCLIB) $(FREETYPE2LIB)
         DEPLIBS = $(DEPXFONTENCLIB) $(DEPFREETYPE2LIB)
 
-SYS_LIBRARIES = MathLibrary GzipLibrary
+SYS_LIBRARIES = GzipLibrary
 
-SRCS = mkfontscale.c list.c
+SRCS = mkfontscale.c list.c hash.c ident.c
 
-OBJS = mkfontscale.o list.o
+OBJS = mkfontscale.o list.o hash.o ident.o
 
 #if !HasSnprintf
 SNPRINTF_DEFINES  = -DNEED_SNPRINTF
 SNPRINTF_INCLUDES = -I$(LIBSRC)/misc
 #endif
 
-INCLUDES = $(FREETYPE2INCLUDES) $(SNPRINTF_INCLUDES)
-DEFINES = $(FREETYPE2DEFINES) $(SNPRINTF_DEFINES)
+INCLUDES = $(FREETYPE2INCLUDES) $(SNPRINTF_INCLUDES) -I$(XBUILDINCDIR)
+DEFINES = $(FREETYPE2DEFINES) $(SNPRINTF_DEFINES) -DXFREE86_FT2
 
 ComplexProgramTarget(mkfontscale)
+LinkBuildBinary(ProgramTargetName(mkfontscale))
 

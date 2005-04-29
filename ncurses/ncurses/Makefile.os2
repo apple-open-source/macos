@@ -1,7 +1,7 @@
 ################################################################################
 # Wrapper Makefile for ncurses library under OS/2.
 ################################################################################
-# $Id: Makefile.os2,v 1.1.1.1 2001/11/29 20:40:46 jevans Exp $
+# $Id: Makefile.os2,v 1.10 2000/10/09 23:53:57 Ilya.Zakharevich Exp $
 #
 # Author:  Juan Jose Garcia Ripoll <worm@arrakis.es>.
 # Webpage: http://www.arrakis.es/~worm/

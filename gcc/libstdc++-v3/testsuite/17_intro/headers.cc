@@ -18,6 +18,9 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
+// FreeBSD wants warning clean system headers:
+// { dg-options "-Wall -Wsystem-headers" { target *-*-freebsd* } }
+
 // 17.4.1.2 Headers
 
 
@@ -75,7 +78,7 @@
 
 // "C" headers that might not work if wchar_t support is disabled.
 #include <bits/c++config.h>
-#if _GLIBCPP_USE_WCHAR_T
+#if _GLIBCXX_USE_WCHAR_T
   #include <cwchar>
   #include <cwctype>
 #endif

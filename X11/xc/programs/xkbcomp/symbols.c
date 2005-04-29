@@ -24,7 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/programs/xkbcomp/symbols.c,v 3.14 2002/12/20 20:18:33 paulo Exp $ */
+/* $XFree86: xc/programs/xkbcomp/symbols.c,v 3.16 2003/10/31 14:32:04 pascal Exp $ */
 
 #include "xkbcomp.h"
 #include "tokens.h"
@@ -1507,20 +1507,54 @@ register unsigned n;
 }
 
 static Bool
-FindAutomaticType(int width,KeySym *syms,Atom *typeNameRtrn)
+KSIsLower (KeySym ks)
 {
+    KeySym lower, upper;
+    XConvertCase(ks, &lower, &upper);
+
+    if (lower == upper)
+        return False;
+    return (ks == lower ? True : False);
+}
+
+static Bool
+KSIsUpper (KeySym ks)
+{
+    KeySym lower, upper;
+    XConvertCase(ks, &lower, &upper);
+
+    if (lower == upper)
+        return False;
+    return (ks == upper ? True : False);
+}
+
+static Bool
+FindAutomaticType(int width,KeySym *syms,Atom *typeNameRtrn, Bool *autoType)
+{
+    *autoType = False;
     if ((width==1)||(width==0)) {
 	 *typeNameRtrn= XkbInternAtom(NULL,"ONE_LEVEL",False);
+	 *autoType = True;
     } else if (width == 2) {
-        if ( syms && XkbKSIsLower(syms[0]) && XkbKSIsUpper(syms[1]) )
+        if ( syms && KSIsLower(syms[0]) && KSIsUpper(syms[1]) ) {
 	     *typeNameRtrn= XkbInternAtom(NULL,"ALPHABETIC",False);
-        else if ( syms && (XkbKSIsKeypad(syms[0]) || XkbKSIsKeypad(syms[1])) ) 
+	} else if ( syms &&
+                    (XkbKSIsKeypad(syms[0]) || XkbKSIsKeypad(syms[1])) ) {
 	     *typeNameRtrn= XkbInternAtom(NULL,"KEYPAD",False);
-        else *typeNameRtrn= XkbInternAtom(NULL,"TWO_LEVEL",False);
+	     *autoType = True;
+	} else {
+             *typeNameRtrn= XkbInternAtom(NULL,"TWO_LEVEL",False);
+             *autoType = True;
+        }
     } else if (width <= 4 ) {
-        if ( syms && XkbKSIsLower(syms[0]) && XkbKSIsUpper(syms[1]) )
-	     *typeNameRtrn= XkbInternAtom(NULL,
-                            "FOUR_LEVEL_ALPHABETIC",False);
+        if ( syms && KSIsLower(syms[0]) && KSIsUpper(syms[1]) )
+             if (    KSIsLower(syms[2]) && KSIsUpper(syms[3]) )
+	        *typeNameRtrn= XkbInternAtom(NULL,
+                                            "FOUR_LEVEL_ALPHABETIC",False);
+             else
+	        *typeNameRtrn= XkbInternAtom(NULL,
+                                            "FOUR_LEVEL_SEMIALPHABETIC",False);
+
         else if ( syms && (XkbKSIsKeypad(syms[0]) || XkbKSIsKeypad(syms[1])) ) 
 	     *typeNameRtrn= XkbInternAtom(NULL,
                             "FOUR_LEVEL_KEYPAD",False);
@@ -1558,7 +1592,7 @@ PrepareKeyDef(KeyInfo *key)
             }
             key->typesDefined |= 1 << i;
         }
-        if (key->actsDefined & 1) {
+        if ((key->actsDefined & 1) && key->acts[0]) {
             key->acts[i]= uTypedCalloc(width, XkbAction);
             if (key->acts[i] == NULL)
                 continue;
@@ -1566,7 +1600,7 @@ PrepareKeyDef(KeyInfo *key)
                    width * sizeof(XkbAction));
             key->actsDefined |= 1 << i;
         }
-        if (key->symsDefined & 1) {
+        if ((key->symsDefined & 1) && key->syms[0]) {
             key->syms[i]= uTypedCalloc(width, KeySym);
             if (key->syms[i] == NULL)
                 continue;
@@ -1657,8 +1691,7 @@ unsigned	types[XkbNumKbdGroups];
 	    if (key->dfltType!=None)
 		key->types[i]= key->dfltType;
 	    else if (FindAutomaticType(key->numLevels[i],key->syms[i],
-  							&key->types[i])) {
-		autoType= True;
+  				       &key->types[i], &autoType)) {
 	    }
 	    else {
 		if (warningLevel>=5) {

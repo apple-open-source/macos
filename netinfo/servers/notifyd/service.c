@@ -30,10 +30,13 @@
 #include <sys/param.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <unistd.h>
 #include "notify.h"
 #include "daemon.h"
 #include "service.h"
 #include "file_watcher.h"
+
+#define ZONEINFO_DIR "/usr/share/zoneinfo/"
 
 uint32_t
 service_type(const char *name)
@@ -114,6 +117,8 @@ service_check_access(const char *path, int ftype, uid_t uid, gid_t gid)
 
 	/* Paths must be absolute */
 	if (path[0] != '/') return NOTIFY_STATUS_INVALID_REQUEST;
+
+	if (!strncasecmp(path, ZONEINFO_DIR, sizeof(ZONEINFO_DIR) - 1)) return 0;
 
 	/* Root dir is readable */
 	if (path[1] == '\0') return 0;

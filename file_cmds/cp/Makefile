@@ -49,3 +49,6 @@ include $(MAKEFILEDIR)/$(MAKEFILE)
 -include Makefile.postamble
 
 -include Makefile.dependencies
+
+ALL_CFLAGS += -I/System/Library/Frameworks/System.framework/PrivateHeaders
+

@@ -1,0 +1,385 @@
+Metakit 2.3.4 - last release candidate
+March, 2001
+
+Welcome to the latest release of the Metakit embedded database library.
+This is a near-final release, it is functionally 100% done, but a few
+minor problems/bugs still remain.  Release MK 2.3.4 is essentialy ready
+for production use, with one extremely important disclaimer:
+
+   >>> Do *not* rely on new commit-aside/-extend models, these
+   >>> new features are not good enough for general use yet.
+   >>> Worse still, they will remain experimental in 2.3 final!
+
+This document describes the main changes since 2.01 in some detail:
+
+ - a new version numbering scheme (again)
+ - some essential file format changes
+ - new commit modes: commit-aside and commit-extend
+ - the memo datatype has been removed from the public API
+ - made a start with making custom viewers modifiable
+ - new "mapped views": hashed, blocked, and ordered
+ - recursive view definitions
+ - the Tcl language binding now includes a command-object API
+ - better error checking to avoid disk full errors from being missed
+ - documentation and current status
+
+Most of these changes are intended to make Metakit more scalable and to
+improve performance in various ways.  This process is not complete, as
+several new bottlenecks have been intoduced in the new code.  The main
+goal of the 2.3 release is to make sure the file format is correct and
+functioning properly.  The next minor releases will then address various
+bottlenecks to take maximum advantage of the new file format.
+
+See the last section for notes about the status and stability of MK.
+
+
+NEW VERSION NUMBERING SCHEME
+
+I am adopting a more rigid 3-level numbering scheme, as follows:
+
+ - stable release are X.0, X.2, X.4, i.e. even-numbered
+ - development releases are X.1, X.3, X.5, i.e. odd-numbered
+ - alpha releases are all called X.Y.1, they are distinguished only by
+   the date embedded in the snapshot tarball, e.g "mk2-20000629.tar.gz"
+ - beta releases are all called X.Y.2, again only dates in snapshots
+ - the "final release candidate" will be called X.Y.3, with one extra
+   chance to fix any remaining mistakes in a release called X.Y.4
+ - the first final release will be called X.Y.5, with every new update
+   and fix incrementing that third digit
+
+To avoid confusion between 2.01 and a version number of 2.1, this new
+release has been dubbed 2.3 - since it is still development version.
+
+
+NEW FILE FORMAT
+
+This release has major changes in the way data is stored on file, or to
+be more accurate: the data itself is hardly different, but administration
+of the data is now radically different (it used to be a tree-walk on each
+open and commit, the new format reads/commits far more lazily).
+
+The most immediate effect is that file opens are now O(1), and no longer
+take time proprotional to the number of subviews and columns.  There has
+been some "cutting corners" in this release, but the file format is now
+able to support several degrees of laziness, which will gradually be
+implemented to make opens instant, and frequent commits cheap.
+
+The biggest drawback of this change, is that there are now two different
+file formats.  The new 2.3 release will convert old formats on-the-fly
+during open, and will save the new format on commit.  This means that
+moving to the new release is relatively painless, but once changes are
+committed with 2.3, you can not go back to 2.01 or earlier.
+
+The "random" versus "serial" file format differences of pre-2.3 Metakit is
+now gone.  When serializing data out with "SaveTo", MK will now figure out
+how to save the file in an optimally compact form, suitable for loading on
+demand.  That means that the best way to reorganize a MK datafile to get
+rid of internal free space, is now to serialize it out to file.  As extra
+benefit, a serialized file has an accurate file size in the header, so
+that the exact size is known up front when serializing back in.  This can
+be useful when data is streamed across a communications channel.  Finally,
+storage objects are now derived from views, and both can be initialized
+from an input file/stream.
+
+One special file format change affects the top level: MK datafiles are now
+conformant with *IFF file formats (i.e. 8-byte header with type and size).
+Serialized files, and files using the ordinary ("full") commits consist of
+exactly one section.  However, files using commit-extend (described below) 
+will contain multiple sections.
+
+The new file format now uses a tail marker.  Because of that, a datafile
+can be appended to another file.  MK will always start by looking for the
+tail marker to determine where the file starts (resorting to old-style
+search-from-start to deal with pre-2.3 files).  Another effect, is that
+any existing file can now be opened by MK.  If there is no valid MK data,
+new contents will be appended.  There is a new c4_Strategy::EndOfData
+member which returns -1 if the file contained to valid MK data.  One goal
+of all this logic, was to allow adding MK data at the end of executables.
+
+Several features have been prepared for in the new file format, including
+heterogenous views, clustering, compression, encryption - as well as the
+ability to store revisions.  None of this is anywhere near implementation,
+so please don't expect much in these areas for quite some time.  The main
+reason to mention this at all, is to indicate that the new file format has
+plenty of room for future expansion.
+
+
+NEW COMMIT MODES
+
+There are two new commit modes: "commit-aside" and "commit-extend", with
+very different characteristics.  They cannot yet be combined, but this is
+one of the goals, since that will support some interesting scenario's.
+
+Commit-aside stores all changes made to one datafile in another one.  The
+primary datafile is not altered, it may be opened read-only.  The changes
+are saved in a special format and managed completely by MK.  Opening the
+original file later will of course lead to the original pre-commit state.
+By attaching that other file (using c4_Storage::SetAside), the latest
+changes become visible again.  This logic can be stacked, though the API
+for all this is not very intuitive.  Commit-aside applies to every change
+made to the file, including structure changes.  The second data file is
+in effect a "difference file", it has no use without the original file.
+
+In commit-aside mode, the c4_View::Commit call takes an extra argument,
+specifying whether to do a "fast" or a "full" commit (fast is default).
+Fast means: save the changes in the aside file, full means: apply all
+changes to the primary datafile and clear the aside file contents.  The
+rollback also comes in two versions: fast rollback rolls back to the
+state before the last commit, while full rollback forgets about commit
+aside altogether and reverts to the original datafile (without deleting
+the aside file contents - it can be re-attached later).  Note that any
+changes made to the primary datafile will invalidate the aside file.
+
+The purpose of commit-aside is two-fold: to speed up commits, and as a
+way to save changes when a key database needs to remain unchanged (this
+is useful when distributing over CD-ROM, or to manage original releases,
+for example).  Commit aside is not yet optimally efficient, but it'll get
+better - the key issue is that the amount of data saved is proportional
+to the amount of change, and *not* to the size/number of views & columns,
+
+Commit-extend is somewhat different: it is a modified version of a normal
+commit, which saves all changes at the end of the datafile, in such a way
+that current readers are not affected.  Readers will not see any changes
+until they do a rollback (which is a misnomer in this context).  At that
+point, the reader will resynchronize to the latest *committed* changes.
+
+Commit-extend supports multiple readers and a single writer, and due to
+the way it is implemented it does so without any locking or contention.
+The trade-off is that datafiles will grow on each commit, and need to be
+cleaned up periodically to avoid filling the disk.  This can often be
+scheduled to some "idle" period, at which point a normal (exclusive)
+open and commit can be performed, possible followed by serialization to
+generate an optimally-packed datafile again.  Note that commit-extend is
+not much more efficient than a normal commit, it still writes out entire
+changed columns (there is a speedup because free-space is not reclaimed).
+
+In this release, commit-aside and commit-extend cannot be combined: this
+would greatly reduce the amount of data saved on commit, while supporting
+a form of high-performance concurrency.  This "hybrid commit" is planned
+for the final 2.3 release, as is a more sophisticated degree of delta-
+storage in commit-aside.
+
+
+NO MORE MEMOS TO WORRY ABOUT
+
+The memo ("M") datatype has always been a confusing addition to MK, since
+it complements the bytes ("B") datatype yet adds very little value.  It
+has always been difficult to decide between B and M in the design phase,
+and since there were no conversion tools - that choice has to be made up
+front.  This release does away with memos.  
+
+At least, that's how it looks on the outside.  On the inside, MK has now
+been extended to dynamically switch between column-wise (B) and item-wise
+(M) storage, depending on the amount of data and the size of the view.
+The result is likely to be better than either approach before, because
+the choise is based on actual dynamics, and on an item-by-item basis.
+The heuristics which determine how data is stored internally are still
+being tweaked.  But the good news is that binary data storage is now
+always specified in a uniform manner, i.e. through c4_BytesProp.  In a
+way, this is analogous to how MK has always offered "adaptive integers",
+i.e. the fully transparent switch between 1/2/4/8/16/32-bit integers.
+
+Another change is that strings are now internally based on the same more
+adaptive style, they now scale much better than before and also no longer
+suffer from a startup delay (caused by a pre-2.3 null-byte scan on open).
+
+
+MODIFIABLE CUSTOM VIEWERS
+
+Custom viewers were introduced in version 1.8 and have turned out to be
+extremely effective and flexible.  Almost all the relational operators of
+MK are implemented as classes derived from c4_CustomViewer.  As of this
+release, custom viewers now support the ability to handle modifications.
+
+Many of the existing viewers, such as join and intersection, are still
+read-only (and some changes could never be handled properly), but a few
+others were realtively easy to extend.  View operators such as Concat,
+RemapWith, Pair, now support modifications on the resulting view.  These
+modifications are passed back to the underlying views.
+
+There are several types of modifications: setting individual properties
+in individual rows, inserting/removing rows, and changing structure.
+Propagating individual property changes is usually easiest to implement.
+Inserting/deleting rows is far more complex, and not even semantically
+obvious in many cases (where do you insert row N, if the view is the
+result of concatenating an N-row view A and an M-row view B?).  For the
+moment, row insertions/deletions are only implemented in mapped views
+(see below).
+
+The last category of changes is the most complex of all, and has not
+been addressed in this release.  The best way to stay out of trouble is
+to only restructure views on open (i.e. at app initialization time),
+and to then only deal with inserting/modifying/deleting rows.  Subviews
+are no different, and can be modified in the same way as the main views.
+
+
+MAPPED VIEWS
+
+Modifiable custom viewers which support row insertion and deletion have
+been dubbed "mapped views", because they usually represent a mapping of
+some kind over one or more underlying views.  Changes are propagated to
+the underlying views in the way that is deemed most intuitive.
+
+The 2.3 release contains three new mapped view implementations: hash,
+blocked, and ordered.
+
+The hash view takes a main "data" view as input, plus a "map" view.  The
+map view must be defined with a fixed structure ("_H:I,_R:I"), and is
+managed fully by the hash view.  The data view can be any structure, it
+is the collection of data on which hashing is to be applied.  When hash
+views are defined, they must be told how many of the first properties
+form a key (note that the key fields must always be first).  What the
+hash view does is create a new layer on top of the original data view,
+which intercepts all modification and find requests.  Modifications
+are applied to the data, but also cause the map view to be adjusted as
+needed.  Find requests which happen to specify a value for the key are
+singled out and cause a fast O(1) hash lookup to take place.
+
+There are several consequences of this approach: first of all, it is up
+to the application to set up a hash view after open (for now at least).
+Also, once you want hashing, you should *never* change the underlying
+data or map views - the only way to make sure they contain the proper
+info for hashing to work is to always change *through* the hash view.
+Note that the data view is the same as without hashing, all details
+needed for instant hash lookup are maintained in the separate map view.
+Unlike most conventional hash tables, insertion by position is still
+allowed, though insertion at the end is fastest (by far).  Also unlike
+most hash implementations, it is possible to change the key of a row,
+because MK will rehash whenever that happens.  Caveat: the details of
+changing key fields are not yet correct in this release.
+
+Find requests automatically detect hash views and optimize accordingly.
+The "python/find.py" script demonstrates find access optimizations.
+
+The blocked view is a view which stores its rows in "blocks", i.e. one
+extra level of subviews.  To make a view of the form "a:I,b:S,c:D"
+blocked, you have to define it as "_B[a:I,b:S,c:D]" instead, then call
+the Blocked member to produce the view you can work with.  The blocked
+view then takes over all insertions and deletions and rebalances both
+root and leaf blocks in such a way that none of the subviews ever
+contains either very few nor very many rows ("few" and "many" depend
+on the total number of rows, everything is adaptive).  Due to the extra
+level of indirection, blocked views are slightly slower, but the gain
+is that they can scale to an unlimited number of rows and still offer
+good performance (probably O(log N) instead of the usual O(N)).  These
+blocked views will behave like ordinary views in every respect, i.e.
+you can iterate and access rows by position, regardless of the blocking
+and occasional rebalancing that takes place underneath.
+
+The ordered view is a view which assumes the underlying view is sorted
+on its first N properties (N defaults to 1), and which maintains that
+order by ignoring isnert positions and supplying its own instead.  As
+with hash views, keys are unique.  Inserting a row which has the same
+key as another one will cause the other row to be replaced instead.
+
+Ordered views intercept changes, but also find requests.  If a find
+specifies a value for the key field(s), then binary search is used to
+find the rows far more quickly.
+
+All of the above views can be combined, e.g. by layering a hash view
+on top of a blocked data view, you get a persistent hash structure
+which scales up indefinitely, yet offers O(1) hash access performance.
+
+An ordered view on top a blocked view creates a blocked structure
+which keeps its rows sorted.  The current release will take advantage
+of binary search if possible - but real btree-like searches will be
+implemented before 2.3 final (this is far more efficient than "just"
+binary search, due to its much higher locality of reference).
+
+And finally, you can layer an ordered view on a hash view on one or
+two blocked views (for data and/or map).  This creates a structure
+which maintains sort order (and can be traversed in that order), yet
+with instant hash access on single key values.  The "tcl/mapped.tcl"
+script shows an example of various ways in which this can be done.
+
+
+RECURSIVE VIEW DEFINIONS
+
+You can now define views with recursive subviews.  The way this is
+done is to specify a subview of the form "subview[^]".  An example:
+	roots[name:S,children[^]]
+This define a "roots" view containing 0 or more rows.  Each has the
+form given above, which is also identical to:
+	name:S,children[name:S,children[^]]
+In other words, the "children" subview has the same format as its
+parent, and this continues to arbitrary depths.  The above example is
+in fact nothing but a definition of a tree containing named nodes.
+Restructuring works, it will recursively restructure the entire tree.
+
+
+COMMAND OBJECTS IN MK4TCL
+
+The Mk4tcl extension has undergone a massive face-lift.  The original
+API is still there, but there is now also an OO-style command interface
+(in the same way as Tk works).  This is based on work by Matt Newman.
+Because of this, a far more powerful binding to the MK C++ core is now
+available from Tcl (as it has been in Python for a while).  These new
+calls include relational operators, such as join, select, sort, etc.
+For now, this is "thinly" documented in the "tcl/mk4tcl.h" header.
+Another useful source to check, is the "tcl/test/mk5object.tcl" script.
+
+The Tequila server and the I/O handler package (iohan) have undergone
+some changes (extensions, really).
+
+
+BETTER ERROR CHECKING
+
+The write and commit logic have been improved to better detect whether
+anything went wrong during the commit, to prevent the final end marker
+from being updated.  This has the effect of ignoring all changes.  The
+most important change was to check and remember errors in fflush, and
+to make the c4_Stream::Write member return a success flag i.s.o. void.
+
+
+DOCUMENTATION
+
+Documentation.  Hm, what documentation?  I have converted the C++ docs
+to work with Doxygen, which extracts everything from comments in the
+source code.  The C++ documentation is available as a scripted document.
+To get it, you need to download the file:
+	http://www.equi4.com/previews/mk4api.bin
+and one of the following (sorry, only Linux and Windows for now):
+	http://www.equi4.com/previews/tclkit-linux.bin
+	http://www.equi4.com/previews/tclkit.exe
+Uncompress and make all files executable, then drop mk4api on tclkit,
+or whatever your explorer, navigator, finder, or shell wants you to do.
+If this is not workable, I will create a tarball of the html/gif files.
+
+For Python and Tcl, check the pages doc/python.html and doc/tcl.html
+in the source distribution (they are also part of the above "mk4api").
+There is a new examples/ directory with several Python and Tcl examples.
+
+The documentation is far from complete ("non-existent" or "wrong" are
+also applicable terms in some cases, I'm afraid).  I have started work
+on improving this.  Comments on what needs to be done first are most
+gratefully accepted - there is a huge amount of work left to do.
+
+
+CURRENT STATUS
+
+This 2.3.4 build passes all but one of the original regression tests
+(the one which does not pass is related to serialized data loading).
+
+There are several performance bottlenecks, despite the fact that the new
+format really should work better than the pre-2.3 file format.  For now,
+the first goal is to make sure that the file format is 100% frozen and
+useable as is - to avoid even more complex future conversion nightmares.
+I will start aiming for top speed *after* everything works properly.
+
+The commit logic can be slow for complex datasets, I am looking into it.
+
+There are some problems when changing keys in hash & ordered views, the
+best workaround is to not change key properties - delete and re-insert
+the row instead if you need this capability.
+
+This MK 2.3.4 final release candidate is very solid.  Recent versions
+of the beta preceding it have been in use in a wide range of active
+projects without substantial problems.  A byte-order conversion bug has
+recently been found and fixed, as well as double alignment on Solaris.
+
+At this point, I recommend using 2.3.4 as replacement for 2.01, except
+when tweaks for top performance have been done in 2.01 (2.3.4 is not yet
+as highly optimized, and has a slightly different performance behavior).
+
+
+-- Jean-Claude Wippler <jcw@equi4.com>

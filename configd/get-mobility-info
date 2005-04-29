@@ -1,0 +1,236 @@
+#!/bin/sh
+# get-mobility-info
+#
+# Collect system & network configuration information.
+#
+
+OUT=mobility-config-$$
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+
+PRIV=""
+if [ ${EUID} -ne 0 ]; then
+	PRIV="sudo"
+fi
+
+cd /tmp
+mkdir ${OUT}
+
+#
+# processes
+#
+ps axlww						> ${OUT}/ps			2>&1
+
+#
+# network interface configuration
+#
+ifconfig -a -b						> ${OUT}/ifconfig		2>&1
+
+#
+# network route configuration
+#
+netstat -n -r						>> ${OUT}/netstat		2>&1
+
+#
+# DHCP configuration
+#
+for if in `ifconfig -l`
+do
+	case ${if} in
+	lo* )	;;
+	en* )	ipconfig getpacket ${if}		> ${OUT}/ipconfig-${if}		2>&1
+		;;
+	esac
+done
+
+#
+# OS info
+#
+if [ -e /System/Library/CoreServices/SystemVersion.plist ]; then
+	cat /System/Library/CoreServices/SystemVersion.plist	\
+							> ${OUT}/SystemVersion.plist	2>&1
+fi
+if [ -e /System/Library/CoreServices/ServerVersion.plist ]; then
+	cat /System/Library/CoreServices/ServerVersion.plist	\
+							> ${OUT}/ServerVersion.plist	2>&1
+fi
+
+#
+# IOKit info
+#
+ioreg -l						> ${OUT}/ioreg			2>&1
+
+#
+# Host configuration
+#
+hostinfo						> ${OUT}/hostinfo		2>&1
+if [ -e /etc/hostconfig ]; then
+	cat /etc/hostconfig				> ${OUT}/etc.hostconfig		2>&1
+fi
+
+#
+# DNS configuration
+#
+scutil --dns						> ${OUT}/dns-configuration	2>&1
+if [ -e /etc/resolv.conf ]; then
+	cat /etc/resolv.conf				> ${OUT}/etc.resolv.conf	2>&1
+fi
+if [ -e /var/run/resolv.conf ]; then
+	cat /var/run/resolv.conf			> ${OUT}/var.run.resolv.conf	2>&1
+fi
+
+#
+# NetInfo configuration
+#
+niutil -statistics .					> ${OUT}/netinfo-statistics	2>&1
+if [ -f /var/run/niconfig_local.xml ]; then
+	cat /var/run/niconfig_local.xml			> ${OUT}/niconfig_local.xml	2>&1
+fi
+
+#
+# System / network preferences
+#
+for f in										\
+	/Library/Preferences/SystemConfiguration/NetworkInterfaces.plist		\
+	/Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist	\
+	/Library/Preferences/SystemConfiguration/com.apple.airport.preferences.plist	\
+	/Library/Preferences/SystemConfiguration/com.apple.nat.plist			\
+	/Library/Preferences/SystemConfiguration/preferences.plist			\
+	/Library/Preferences/com.apple.sharing.firewall.plist				\
+
+do
+	if [ -e ${f} ]; then
+		b=`basename $f`
+		cat ${f}				> ${OUT}/${b}			2>&1
+	fi
+done
+
+#
+# configd's cache
+#
+${PRIV} scutil -p <<_END_OF_INPUT
+open
+snapshot
+quit
+_END_OF_INPUT
+if [ -f /var/tmp/configd-store.xml ]; then
+	cp /var/tmp/configd-store.xml			${OUT}/configd-store.xml
+fi
+if [ -f /var/tmp/configd-pattern.xml ]; then
+	cp /var/tmp/configd-pattern.xml			${OUT}/configd-pattern.xml
+fi
+if [ -f /var/tmp/configd-session.xml ]; then
+	cp /var/tmp/configd-session.xml			${OUT}/configd-session.xml
+fi
+
+#
+# network reachability
+#
+scutil -d -v -r www.apple.com				> ${OUT}/reachability-info	2>&1
+if [ -f /usr/bin/dig ]; then
+	dig -t any -c any www.apple.com			> ${OUT}/dig-results		2>&1
+fi
+
+#
+# mounted filesystems
+#
+mount							> ${OUT}/mounted-filesystems	2>&1
+
+#
+# system log
+#
+tail -1000 /var/log/system.log				> ${OUT}/system.log
+
+#
+# ppp log
+#
+if [ -f /var/log/ppp.log ]; then
+	cp /var/log/ppp.log				${OUT}/ppp.log
+fi
+
+#
+# kernel extensions statistic
+#
+if   [ -f /usr/sbin/kextstat ]; then
+	kextstat					> ${OUT}/kextstat		2>&1
+elif [ -f /usr/sbin/kmodstat ]; then
+	kmodstat					> ${OUT}/kmodstat		2>&1
+fi
+
+#
+# network statistics
+#
+echo "#"						>> ${OUT}/network-statistics
+echo "# netstat -n -a -A -f inet"			>> ${OUT}/network-statistics
+echo "#"						>> ${OUT}/network-statistics
+netstat -n -a -A -f inet				>> ${OUT}/network-statistics	2>&1
+echo "#"						>> ${OUT}/network-statistics
+echo "# lsof -n -i -P"					>> ${OUT}/network-statistics
+echo "#"						>> ${OUT}/network-statistics
+lsof -n -i -P						>> ${OUT}/network-statistics	2>&1
+echo "#"						>> ${OUT}/network-statistics
+echo "# netstat -s"					>> ${OUT}/network-statistics
+echo "#"						>> ${OUT}/network-statistics
+netstat -s						>> ${OUT}/network-statistics	2>&1
+echo "#"						>> ${OUT}/network-statistics
+echo "# netstat -m"					>> ${OUT}/network-statistics
+echo "#"						>> ${OUT}/network-statistics
+netstat -m						>> ${OUT}/network-statistics	2>&1
+echo "#"						>> ${OUT}/network-statistics
+echo "# netstat -i -n -d"				>> ${OUT}/network-statistics
+echo "#"						>> ${OUT}/network-statistics
+netstat -i -n -d					>> ${OUT}/network-statistics	2>&1
+echo "#"						>> ${OUT}/network-statistics
+echo "# ipfw -at show"					>> ${OUT}/network-statistics
+echo "#"						>> ${OUT}/network-statistics
+ipfw -at show						>> ${OUT}/network-statistics	2>&1
+echo "#"						>> ${OUT}/network-statistics
+echo "# appletalk -s"					>> ${OUT}/network-statistics
+echo "#"						>> ${OUT}/network-statistics
+appletalk -s						>> ${OUT}/network-statistics	2>&1
+
+#
+# system usage statistics
+#
+echo "#"						>  ${OUT}/system-statistics
+echo "# uptime"						>> ${OUT}/system-statistics
+echo "#"						>> ${OUT}/system-statistics
+uptime							>> ${OUT}/system-statistics	2>&1
+echo "#"						>> ${OUT}/system-statistics
+echo "# pstat -t"					>> ${OUT}/system-statistics
+echo "#"						>> ${OUT}/system-statistics
+pstat -t						>> ${OUT}/system-statistics	2>&1
+echo "#"						>> ${OUT}/system-statistics
+echo "# sysctl -a"					>> ${OUT}/system-statistics
+echo "#"						>> ${OUT}/system-statistics
+sysctl -a						>> ${OUT}/system-statistics	2>&1
+echo "#"						>> ${OUT}/system-statistics
+echo "# zprint"						>> ${OUT}/system-statistics
+echo "#"						>> ${OUT}/system-statistics
+zprint							>> ${OUT}/system-statistics	2>&1
+echo "#"						>> ${OUT}/system-statistics
+echo "# top -l5 -s2"					>> ${OUT}/system-statistics
+echo "#"						>> ${OUT}/system-statistics
+  echo ""
+  echo "Please wait, collecting statistics"
+  echo ""
+top -s 2 -l 5						>> ${OUT}/system-statistics	2>&1
+
+#
+# collect crash reports
+#
+for daemon in bootpd configd pppd
+do
+	LOG=${daemon}.crash.log
+	if [ -e /Library/Logs/CrashReporter/${LOG} ]; then
+		cat /Library/Logs/CrashReporter/${LOG}	> ${OUT}/${LOG}			2>&1
+	fi
+done
+
+#
+# collect everything into a single archive
+#
+tar cfz ${OUT}.tar.gz ${OUT}
+rm -rf ${OUT}
+
+echo "Network data collected to /tmp/${OUT}.tar.gz"

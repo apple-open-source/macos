@@ -1,18 +1,18 @@
 .PU
-.TH CSCOPE "1" "November 2000" "The Santa Cruz Operation"
+.TH CSCOPE "1" "August 2003" "The Santa Cruz Operation"
 .SH NAME
 cscope - interactively examine a C program 
 .SH SYNOPSIS
-.ll +8
 .B cscope
-.RB [ " -bCcdehkLlqRTUuV " ]
-.RB [ -F symfile  ]
-.RB [ -f reffile  ]
-.RB [ -I incdir  ]
-.RB [ -i namefile  ]
-.RB [ -num pattern  ]
-.RB [ -p n  ]
-.RB [ -s dir  ]
+.B [\-bCcdehkLlqRTUuVv]
+.BI [\-F symfile ]
+.BI [\-f reffile ]
+.BI [\-I incdir ]
+.BI [\-i namefile ]
+.BI [\-[ 0-9 ] pattern ]
+.BI [\-p n ]
+.BI [\-s dir ]
+.BI [ files ]
 .SH DESCRIPTION
 .I cscope
 is an interactive, screen-oriented tool that allows the user to
@@ -29,7 +29,7 @@ source files named on the command line. In either case,
 searches the standard directories for #include files that it does not
 find in the current directory. 
 .I cscope
-uses a symbol cross-reference,
+uses a symbol cross-reference, called 
 cscope.out by default, to locate functions, function calls, macros,
 variables, and preprocessor symbols in the files.
 .PP   
@@ -44,6 +44,25 @@ cross-reference is rebuilt, the data for the unchanged files are
 copied from the old cross-reference, which makes rebuilding faster
 than the initial build.
 .SH OPTIONS  
+Some command line arguments can only occur as the the ony argument in
+the execution of cscope.  They cause the program to just print out
+some output and exit immediately:
+.TP
+.B -h
+View the long usage help display.
+.TP
+.B -V
+Print on the first line of screen the version number of cscope.
+.TP
+.B --help
+Same as
+.B -h
+.TP
+.B --version
+Same as
+.B -V
+
+.PP
 The following options can appear in any combination:
 .TP
 .B -b
@@ -62,24 +81,28 @@ Do not update the cross-reference.
 .B -e
 Suppress the <Ctrl>-e command prompt between files.
 .TP
-.B -F symfile
-Read symbol reference lines from symfile. (A symbol reference
+.BI -F symfile
+Read symbol reference lines from 
+.I symfile. 
+(A symbol reference
 file is created by > and >>, and can also be read using the <
 command, described under ``Issuing Subsequent Requests,''
 below.)
 .TP
-.B -f reffile
-Use reffile as the cross-reference file name instead of the
-default cscope.out.
+.BI -f reffile
+Use 
+.I reffile 
+as the cross-reference file name instead of the default "cscope.out".
 .TP
-.B -h
-View the long usage help display.
-.TP
-.B -I incdir
-Look in incdir (before looking in INCDIR, the standard place
+.BI -I incdir
+Look in 
+.I incdir 
+(before looking in $INCDIR, the standard place
 for header files, normally /usr/include) for any #include files
 whose names do not begin with ``/'' and that are not specified
-on the command line or in namefile below. (The #include files
+on the command line or in 
+.I namefile 
+below. (The #include files
 may be specified with either double quotes or angle brackets.)
 The incdir directory is searched in addition to the current
 directory (which is searched first) and the standard list
@@ -87,13 +110,17 @@ directory (which is searched first) and the standard list
 appears, the directories are searched in the order they appear
 on the command line.
 .TP
-.B -i namefile
-Browse through all source files whose names are listed in
-namefile (file names separated by spaces, tabs, or new-lines)
-instead of the default (cscope.files). If this option is
-specified, cscope ignores any files appearing on the command
+.BI -i namefile
+Browse through all source files whose names are listed in 
+.I namefile
+(file names separated by spaces, tabs, or new-lines) instead of the
+default name list file, which is called cscope.files. If this option
+is specified, cscope ignores any file names appearing on the command
 line. The argument namefile can be set to ``-'' to accept a list of
-files from stdio.
+files from the standard input.  Filenames in the namefile that contain
+whitespace have to be enclosed in "double quotes".  Inside such quoted
+filenames, any double-quote and backslash characters have to be
+escaped by backslashes.
 .TP
 .B -k
 ``Kernel Mode'', turns off the use of the default include dir
@@ -108,18 +135,25 @@ Do a single search with line-oriented output when used with the
 Line-oriented interface (see ``Line-Oriented Interface''
 below).
 .TP
-.B -num pattern
-Go to input field num (counting from 0) and find pattern.
+.BI -[ "0-9" ] pattern
+Go to input field 
+.I num 
+(counting from 0) and find 
+.I pattern.
 .TP
-.B -P path
-Prepend path to relative file names in a pre-built
-cross-reference file so you do not have to change to the
-directory where the cross-reference file was built. This option
-is only valid with the -d option.
+.BI -P path
+Prepend 
+.I path 
+to relative file names in a pre-built cross-reference file so you do
+not have to change to the directory where the cross-reference file was
+built. This option is only valid with the -d option.
 .TP
-.B -p n
-Display the last n file path components instead of the default
-(1). Use 0 to not display the file name at all.
+.BI -p n
+Display the last
+.I n 
+file path components instead of the default (1). Use 
+.I 0 
+to not display the file name at all.
 .TP
 .B -q
 Enable fast symbol lookup via an inverted index. This option
@@ -129,11 +163,13 @@ database. This allows a faster symbol search algorithm that
 provides noticeably faster lookup performance for large projects.
 .TP
 .B -R
-Recurse subdirectories for source files.
+Recurse subdirectories during search for source files.
 .TP
-.B -s dir
-Look in dir for additional source files. This option is ignored
-if source files are given on the command line.
+.BI -s dir
+Look in
+.I dir
+for additional source files. This option is ignored if source files
+are given on the command line.
 .TP
 .B -T
 Use only the first eight characters to match against C symbols.
@@ -149,8 +185,12 @@ on the database even if no files have changed.
 Unconditionally build the cross-reference file (assume that all
 files have changed).
 .TP
-.B -V
-Print on the first line of screen the version number of cscope.
+.B -v
+Be more verbose in line-oriented mode.  Output progress updates during
+database building and searches.
+.TP
+.I files
+A list of file names to operate on.
 .PP
 The -I, -c, -k, -p, -q, and -T options can also be in the cscope.files file.
 .PP

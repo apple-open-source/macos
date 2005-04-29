@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -595,7 +594,20 @@ package body Ch5 is
                         Scan; -- past semicolon
                         Statement_Required := False;
 
-                        --  Else we have a missing semicolon
+                     --  A slash following an identifier or a selected
+                     --  component in this situation is most likely a
+                     --  period (have a look at the keyboard :-)
+
+                     elsif Token = Tok_Slash
+                       and then (Nkind (Name_Node) = N_Identifier
+                                   or else
+                                 Nkind (Name_Node) = N_Selected_Component)
+                     then
+                        Error_Msg_SC ("""/"" should be "".""");
+                        Statement_Required := False;
+                        raise Error_Resync;
+
+                     --  Else we have a missing semicolon
 
                      else
                         TF_Semicolon;

@@ -1,9 +1,9 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed enums
 enum fig {
     figgy,
-    pudding,
-}; // ERROR - comma
+    pudding,  // { dg-error "comma at end" }
+};
 
 class X {
 public:

@@ -1,0 +1,108 @@
+<!DOCTYPE article [
+  <!ENTITY version "2.6">
+]>
+<article>
+  <articleinfo>
+    <title>XSLT For Tcl</title>
+    <subtitle>A Tcl wrapper for the Gnome libxslt library</subtitle>
+
+    <releaseinfo>$Id: README.xml,v 1.1 2003/03/09 11:30:42 balls Exp $</releaseinfo>
+
+    <revhistory>
+      <revision>
+	<revnumber>&version;</revnumber>
+      </revision>
+    </revhistory>
+
+    <author>
+      <firstname>Steve</firstname>
+      <surname>Ball</surname>
+      <affiliation>
+	<orgname>Zveno Pty Ltd</orgname>
+	<address>
+	  <otheraddr>
+	    <ulink url='http://www.zveno.com/'>www.zveno.com</ulink>
+	  </otheraddr>
+	</address>
+      </affiliation>
+    </author>
+  </articleinfo>
+
+  <para>This package provides a Tcl interface to the <ulink url='http://xmlsoft.org/XSLT/'>Gnome libxslt library</ulink>.  The libxslt library is loaded into the Tcl interpeter process.  XSL stylesheets are compiled and managed by a Tcl object, so reusing a stylesheet is very fast.</para>
+
+  <para>TclXSLT also allows XSLT extensions elements and functions to be implemented as a callback into the application's Tcl code.</para>
+
+  <para>See <ulink url='http://xmlsoft.org/XSLT/'>xmlsoft.org/XSLT</ulink> for more information on the Gnome libxslt library.</para>
+
+  <para>See <ulink url='http://tclxml.sourceforge.net/'>tclxml.sf.net</ulink> for more information on XML support for Tcl.</para>
+
+  <section>
+    <title>Installation</title>
+
+    <para>Follow these steps:</para>
+
+    <orderedlist>
+      <listitem>
+	<para>Install libxml2 and libxslt.</para>
+      </listitem>
+      <listitem>
+	<para>Install TclXML v&version;.</para>
+      </listitem>
+      <listitem>
+	<para>Install TclDOM v&version; with libxml2 support.</para>
+      </listitem>
+      <listitem>
+	<para>Run the <filename>configure</filename> script.  Various switches may need to be included, namely <arg>--prefix</arg>, <arg>--exec_prefix</arg>, <arg>--enable-threads</arg>, <arg>--with-xml2-include</arg>, <arg>--with-xml2-lib</arg>, <arg>--with-libxslt-include</arg>, <arg>--with-libxslt-lib</arg>, <arg>--with-libexslt-include</arg>, <arg>--with-libexslt-lib</arg></para>
+
+	<para>For example, on my Linux system I have Tcl 8.4 installed (with threads) in <filename>/usr/local/tcl8.4</filename> and libxml2 and libxslt installed in <filename>/usr/local</filename> so I would use the command:</para>
+
+	<programlisting>./configure --prefix=/usr/local/tcl8.4 --exec-prefix=/usr/local/tcl8.4 --enable-threads --with-xml2-include=/usr/local/include --with-xml2-lib=/usr/local/lib --with-libxslt-include=/usr/local/include --with-libxslt-include=/usr/local/lib --with-libexslt-include=/usr/local/include --with-libexslt-include=/usr/local/lib</programlisting>
+      </listitem>
+      <listitem>
+	<programlisting>make</programlisting>
+      </listitem>
+      <listitem>
+	<programlisting>make install</programlisting>
+	<para>You may have to do this as root.</para>
+      </listitem>
+    </orderedlist>
+  </section>
+
+  <section>
+    <title>Usage</title>
+
+    <para>Here's a quick start:</para>
+    <programlisting>
+package require dom &version;
+package require xslt &version;
+
+# First use the TclDOM package to parse the
+# source and stylesheet documents.
+
+set source [dom::libxml2::parse $sourcexml]
+
+# NB. Specifying -baseuri is a good idea
+set styledoc [dom::libxml2::parse $stylexml]
+
+# Now create the stylesheet
+
+set stylesheet [xslt::compile $styledoc]
+
+# Now apply the transformation.
+# The return result is a TclDOM document.
+# Parameters may be supplied as additional arguments.
+
+set result [$stylesheet transform $source name 'value']
+
+# Use TclDOM to serialize the result document.
+
+set resultxml [dom::libxml2::serialize $result]
+</programlisting>
+  </section>
+
+  <section>
+    <title>Extensions</title>
+
+    <para>See <para>test/extension.test</para> for a demonstration of how to implement an extension function as a Tcl callback.</para>
+  </section>
+</article>

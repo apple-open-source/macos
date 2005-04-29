@@ -323,7 +323,7 @@ parseargs(char **argv)
     if(isset(SINGLECOMMAND))
 	opts[INTERACTIVE] &= 1;
     opts[INTERACTIVE] = !!opts[INTERACTIVE];
-    pparams = x = (char **) zcalloc((countlinknodes(paramlist) + 1) * sizeof(char *));
+    pparams = x = (char **) zshcalloc((countlinknodes(paramlist) + 1) * sizeof(char *));
 
     while ((*x++ = (char *)getlinknode(paramlist)));
     free(paramlist);
@@ -379,7 +379,13 @@ init_io(void)
 #endif
 
     if (shout) {
-	fclose(shout);
+	/*
+	 * Check if shout was set to stderr, if so don't close it.
+	 * We do this if we are interactive but don't have a
+	 * terminal.
+	 */
+	if (shout != stderr)
+	    fclose(shout);
 	shout = 0;
     }
     if (SHTTY != -1) {
@@ -448,9 +454,9 @@ init_io(void)
 
     /* We will only use zle if shell is interactive, *
      * SHTTY != -1, and shout != 0                   */
-    if (interact && SHTTY != -1) {
+    if (interact) {
 	init_shout();
-	if(!shout)
+	if(!SHTTY || !shout)
 	    opts[USEZLE] = 0;
     } else
 	opts[USEZLE] = 0;
@@ -476,8 +482,18 @@ init_shout(void)
 {
     static char shoutbuf[BUFSIZ];
 #if defined(JOB_CONTROL) && defined(TIOCSETD) && defined(NTTYDISC)
-    int ldisc = NTTYDISC;
+    int ldisc;
+#endif
 
+    if (SHTTY == -1)
+    {
+	/* Since we're interative, it's nice to have somewhere to write. */
+	shout = stderr;
+	return;
+    }
+
+#if defined(JOB_CONTROL) && defined(TIOCSETD) && defined(NTTYDISC)
+    ldisc = NTTYDISC;
     ioctl(SHTTY, TIOCSETD, (char *)&ldisc);
 #endif
 
@@ -792,7 +808,7 @@ setupvals(void)
     initlextabs();    /* initialize lexing tables    */
 
     createreswdtable();     /* create hash table for reserved words    */
-    createaliastable();     /* create hash table for aliases           */
+    createaliastables();    /* create hash tables for aliases           */
     createcmdnamtable();    /* create hash table for external commands */
     createshfunctable();    /* create hash table for shell functions   */
     createbuiltintable();   /* create hash table for builtin commands  */
@@ -840,7 +856,7 @@ setupvals(void)
 #endif
     }
 
-    times(&shtms);
+    get_usage();
 
     /* Close the file descriptors we opened to block off 0 to 9 */
     for (i = 0; i < 10; i++)
@@ -1092,7 +1108,7 @@ noop_function(void)
 
 /**/
 mod_export void
-noop_function_int(int nothing)
+noop_function_int(UNUSED(int nothing))
 {
     /* do nothing */
 }
@@ -1132,22 +1148,22 @@ mod_export ZleVoidIntFn zlesetkeymapptr = noop_function_int;
 
 /**/
 unsigned char *
-autoload_zleread(char *lp, char *rp, int ha)
+autoload_zleread(char **lp, char **rp, int ha, int con)
 {
     zlereadptr = fallback_zleread;
     if (load_module("zsh/zle"))
 	load_module("zsh/compctl");
-    return zleread(lp, rp, ha);
+    return zleread(lp, rp, ha, con);
 }
 
 /**/
 mod_export unsigned char *
-fallback_zleread(char *lp, char *rp, int ha)
+fallback_zleread(char **lp, UNUSED(char **rp), UNUSED(int ha), UNUSED(int con))
 {
     char *pptbuf;
     int pptlen;
 
-    pptbuf = unmetafy(promptexpand(lp, 0, NULL, NULL), &pptlen);
+    pptbuf = unmetafy(promptexpand(lp ? *lp : NULL, 0, NULL, NULL), &pptlen);
     write(2, (WRITE_ARG_2_T)pptbuf, pptlen);
     free(pptbuf);
 
@@ -1171,7 +1187,7 @@ mod_export CompctlReadFn compctlreadptr = fallback_compctlread;
 
 /**/
 mod_export int
-fallback_compctlread(char *name, char **args, Options ops, char *reply)
+fallback_compctlread(char *name, UNUSED(char **args), UNUSED(Options ops), UNUSED(char *reply))
 {
     zwarnnam(name, "option valid only in functions called from completion",
 	    NULL, 0);
@@ -1185,7 +1201,7 @@ fallback_compctlread(char *name, char **args, Options ops, char *reply)
 
 /**/
 mod_export int
-zsh_main(int argc, char **argv)
+zsh_main(UNUSED(int argc), char **argv)
 {
     char **t;
     int t0;
@@ -1193,7 +1209,7 @@ zsh_main(int argc, char **argv)
     setlocale(LC_ALL, "");
 #endif
 
-    init_hackzero(argv, environ);
+    init_jobs(argv, environ);
 
     /*
      * Provisionally set up the type table to allow metafication.
@@ -1228,7 +1244,7 @@ zsh_main(int argc, char **argv)
     } while (zsh_name);
 
     fdtable_size = zopenmax();
-    fdtable = zcalloc(fdtable_size);
+    fdtable = zshcalloc(fdtable_size);
 
     createoptiontable();
     emulate(zsh_name, 1);   /* initialises most options */
@@ -1247,6 +1263,13 @@ zsh_main(int argc, char **argv)
     init_misc();
 
     for (;;) {
+	/*
+	 * See if we can free up some of jobtab.
+	 * We only do this at top level, because if we are
+	 * executing stuff we may refer to them by job pointer.
+	 */
+	maybeshrinkjobtab();
+
 	do
 	    loop(1,0);
 	while (tok != ENDINPUT && (tok != LEXERR || isset(SHINSTDIN)));

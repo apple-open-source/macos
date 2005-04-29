@@ -1,5 +1,5 @@
 /* Time.java -- Wrapper around java.util.Date
-   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package java.sql;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
 /**
@@ -55,24 +56,106 @@ public class Time extends java.util.Date
    */
   private static SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
 
+  /**
+   * This method always throws an IllegalArgumentException.
+   *
+   * @throws IllegalArgumentException when it's called.
+   * @deprecated
+   */
+  public int getDate() throws IllegalArgumentException
+  {
+    throw new IllegalArgumentException();
+  }
+
+  /**
+   * This method always throws an IllegalArgumentException.
+   *
+   * @throws IllegalArgumentException when it's called.
+   * @deprecated
+   */
+  public int getDay() throws IllegalArgumentException
+  {
+    throw new IllegalArgumentException();
+  }
+
+  /**
+   * This method always throws an IllegalArgumentException.
+   *
+   * @throws IllegalArgumentException when it's called.
+   * @deprecated
+   */
+  public int getMonth() throws IllegalArgumentException
+  {
+    throw new IllegalArgumentException();
+  }
+
+  /**
+   * This method always throws an IllegalArgumentException.
+   *
+   * @throws IllegalArgumentException when it's called.
+   * @deprecated
+   */
+  public int getYear() throws IllegalArgumentException
+  {
+    throw new IllegalArgumentException();
+  }
+
+  /**
+   * This method always throws an IllegalArgumentException.
+   *
+   * @throws IllegalArgumentException when it's called.
+   * @deprecated
+   */
+  public void setDate(int newValue) throws IllegalArgumentException
+  {
+    throw new IllegalArgumentException();
+  }
+
+  /**
+   * This method always throws an IllegalArgumentException.
+   *
+   * @throws IllegalArgumentException when it's called.
+   * @deprecated
+   */
+  public void setMonth(int newValue) throws IllegalArgumentException
+  {
+    throw new IllegalArgumentException();
+  }
+
+  /**
+   * This method always throws an IllegalArgumentException.
+   *
+   * @throws IllegalArgumentException when it's called.
+   * @deprecated
+   */
+  public void setYear(int newValue) throws IllegalArgumentException
+  {
+    throw new IllegalArgumentException();
+  }
 
   /**
    * This method returns a new instance of this class by parsing a
    * date in JDBC format into a Java date.
    *
    * @param str The string to parse.
-   * @return The resulting <code>java.sql.Time</code> value. 
+   * @return The resulting <code>java.sql.Time</code> value.
+   *
+   * @deprecated
    */
-  public static Time valueOf(String str)
+  public static Time valueOf (String str)
   {
     try
       {
 	java.util.Date d = (java.util.Date) sdf.parseObject(str);
-	return new Time(d.getTime());
+
+	if (d == null)
+	  throw new IllegalArgumentException(str);
+	else
+	  return new Time(d.getTime());
       }
-    catch (Exception e)
+    catch (ParseException e)
       {
-	return null;
+	throw new IllegalArgumentException(str);
       }
   }
 
@@ -110,11 +193,12 @@ public class Time extends java.util.Date
    * This method returns this date in JDBC format.
    *
    * @return This date as a string.
+   *
+   * @deprecated
    */
-  public String
-  toString()
+  public String toString ()
   {
-    return sdf.format(this);
+    return sdf.format (this);
   }
 
 }

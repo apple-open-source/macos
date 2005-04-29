@@ -19,8 +19,9 @@
 
 # INPUT:
 # btest <target> <source> <prefix> <state> <build>
-# TARGET is the target triplet.  It should be the same one
-# as used in constructing PREFIX.
+# TARGET is the target triplet.  It should be the same one as used in
+# constructing PREFIX.  Or it can be the keyword 'native', indicating
+# a target of whatever platform the script is running on.
 TARGET=$1
 # SOURCE is the directory containing the toplevel configure.
 SOURCE=$2
@@ -104,18 +105,23 @@ if [ $H_REAL_TARGET = $H_REAL_HOST -a $H_REAL_TARGET = i686-pc-linux-gnu ]
  then
   make all-gdb all-dejagnu all-ld || exit 1
   make install-gdb install-dejagnu install-ld || exit 1
+elif [ $H_REAL_TARGET = $H_REAL_HOST ] ; then
+  make bootstrap || exit 1
+  make install || exit 1
 else
   make || exit 1
   make install || exit 1
 fi
 
-mkdir -p $PREFIX/share/gdb-testsuite || exit 1
-cd $SOURCE/gdb/testsuite || exit 1
-find . -print | cpio -pdmu $PREFIX/share/gdb-testsuite || exit 1
-# selftest.exp requires keeping old sources around, which is impractical
-rm $PREFIX/share/gdb-testsuite/gdb.base/selftest.exp
-# these tests seem to be broken and randomly failing
-rm -r $PREFIX/share/gdb-testsuite/gdb.mi
+if [ -x $PREFIX/bin/$TARGET-gdb ] ; then
+  mkdir -p $PREFIX/share/gdb-testsuite || exit 1
+  cd $SOURCE/gdb/testsuite || exit 1
+  find . -print | cpio -pdmu $PREFIX/share/gdb-testsuite || exit 1
+  # selftest.exp requires keeping old sources around, which is impractical
+  rm $PREFIX/share/gdb-testsuite/gdb.base/selftest.exp
+  # these tests seem to be broken and randomly failing
+  rm -r $PREFIX/share/gdb-testsuite/gdb.mi
+fi
 
 echo pass > $RESULT
 exit 0

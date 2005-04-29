@@ -696,7 +696,9 @@ static u_int __init ti113x_set_opts(socket_info_t *s, char *buf)
     switch (irq_mode) {
     case 0:
 	p->devctl &= ~TI113X_DCR_IMODE_MASK;
-	p->irqmux |= 0x02; /* minimal routing for INTA */
+	p->irqmux = (p->irqmux & ~0x0f) | 0x02; /* route INTA */
+	if (!(p->sysctl & TI122X_SCR_INTRTIE))
+	    p->irqmux = (p->irqmux & ~0xf0) | 0x20; /* route INTB */
 	break;
     case 1:
 	p->devctl &= ~TI113X_DCR_IMODE_MASK;
@@ -1211,8 +1213,11 @@ static u_int __init set_bridge_opts(socket_info_t *s, u_short ns)
 	    cb_set_opts(s+i, buf+strlen(buf));
 #endif
 	set_bridge_state(s+i);
+
+#ifdef PCMCIA_DEBUG  // macosx
 	printk(KERN_INFO "    host opts [%d]:%s\n", i,
 	       (*buf) ? buf : " none");
+#endif
     }
 #ifdef CONFIG_PCI
 //    m &= ~pci_irq_mask;	macosx
@@ -1519,24 +1524,30 @@ static void __init add_pcic(int ns, int type)
 #endif
     
 #ifdef __MACOSX__
+#ifdef PCMCIA_DEBUG
     printk("\n");
+    printk(KERN_INFO "  %s", pcic[type].name);
+#else
+    if (sockets > 1) printk(", ");
+    printk("  %s", pcic[type].name);
+#endif
 #else
     if (sockets == ns) printk("\n");
-#endif
     printk(KERN_INFO "  %s", pcic[type].name);
-#ifdef __MACOSX__
+#endif
+#ifdef CONFIG_PCI
     if (s->flags & IS_UNKNOWN)
 	printk(" [0x%04x 0x%04x]", s->vendor, s->device);
     printk(" rev %02x", s->revision);
-    if (s->flags & IS_CARDBUS)
-	printk(" PCI-to-CardBus phys mem 0x%08x virt mem 0x%08x\n", s->cb_phys, s->cb_virt);
-    else
-	printk("This code currently only supports cardbus controllers, s=0x%lx", (u_long)s);
+#ifdef __MACOSX__
+    if (s->flags & IS_CARDBUS) {
+#ifdef PCMCIA_DEBUG
+	printk("  PCI-to-CardBus phys mem 0x%08x virt mem 0x%08x\n", s->cb_phys, s->cb_virt);
+#endif
+    } else {
+	printk(KERN_INFO "  Only cardbus controllers are supported at this time.\n");
+    }
 #else
-#ifdef CONFIG_PCI
-    if (s->flags & IS_UNKNOWN)
-	printk(" [%04x %04x]", s->vendor, s->device);
-    printk(" rev %02x", s->revision);
     if (s->flags & IS_CARDBUS)
 	printk(" PCI-to-CardBus at slot %02x:%02x, mem %#08x\n",
 	       s->bus, PCI_SLOT(s->devfn), s->cb_phys);
@@ -1544,10 +1555,12 @@ static void __init add_pcic(int ns, int type)
 	printk(" PCI-to-PCMCIA at slot %02x:%02x, port %#x\n",
 	       s->bus, PCI_SLOT(s->devfn), s->ioaddr);
     else
+#endif // __MACOSX__
 #endif
+#ifndef __MACOSX__
 	printk(" ISA-to-PCMCIA at port %#x ofs 0x%02x\n",
 	       s->ioaddr, s->psock*0x40);
-#endif // __MACOSX__
+#endif
 
 #ifdef CONFIG_ISA
     if (irq_list[0] == -1)
@@ -1573,12 +1586,14 @@ static void __init add_pcic(int ns, int type)
 	mask = isa_scan(s, mask);
 #endif
 
+#ifdef PCMCIA_DEBUG  // macosx
 #ifdef CONFIG_PCI
     if (!mask)
 	printk(KERN_INFO "    %s card interrupts,",
 	       (use_pci && pci_int) ? "PCI" : "*NO*");
     if (use_pci && pci_csc)
 	printk(" PCI status changes\n");
+#endif
 #endif
 
 #ifdef CONFIG_ISA
@@ -1662,6 +1677,7 @@ static int __init pci_lookup(u_int class, pci_id_t *id,
 }
 #endif
 
+#ifndef __MACOSX__
 static void __init add_pci_bridge(int type, u_short v, u_short d)
 {
     socket_info_t *s = &socket[sockets];
@@ -1683,6 +1699,7 @@ static void __init add_pci_bridge(int type, u_short v, u_short d)
     }
     add_pcic(ns, type);
 }
+#endif
 
 static int check_cb_mapping(socket_info_t *s)
 {
@@ -1713,7 +1730,10 @@ static void __init add_cb_bridge(int type, u_short v, u_short d0)
     // sockets on the fly for each device it finds, iokit is handling that
     // for us, and hopefully its enumeration isn't broken :-)
 
-    if (type == PCIC_COUNT) type = IS_UNK_CARDBUS;
+    // only try to handle known controllers, due to out wacky interrupt handling
+    // see pcic_enable_functional_interrupt()
+    if (type == PCIC_COUNT) return;
+    
     pci_readb(s, PCI_CLASS_REVISION, &r);
     s->vendor = v; s->device = d0; s->revision = r;
     
@@ -1828,8 +1848,7 @@ static void __init pci_probe(u_int class)
 // so this code doesn't really "probe" anymore, it just
 // looks up the correct controller
 
-static void __init
-pci_probe(u_int class)
+static void __init pci_probe(u_int class)
 {
     socket_info_t *s = &socket[sockets];
     u_short i, v, d;
@@ -1843,10 +1862,10 @@ pci_probe(u_int class)
 	pci_readw(s, PCI_DEVICE_ID, &d);
 	for (i = 0; i < PCIC_COUNT; i++)
 	    if ((pcic[i].vendor == v) && (pcic[i].device == d)) break;
-	if (pcic[i].flags & IS_CARDBUS)
+	if ((i < PCIC_COUNT) && (pcic[i].flags & IS_CARDBUS))
 	    add_cb_bridge(i, v, d);
-	else
-	    add_pci_bridge(i, v, d);
+//	else
+//	    add_pci_bridge(i, v, d);
     }
 }
 #endif __MACOSX__
@@ -1999,6 +2018,9 @@ pcic_interrupt(u_int socket_index)
 // MACOSXXX This should probably be broken up in chip specific handlers
 // that can be registered individually by configure_i82365.
 
+// or maybe make it could be something like s->func_int_type driven,
+// with the predetermined values setup in pcic array?
+
 static u_int
 pcic_enable_functional_interrupt(u_int socket_index)
 {
@@ -2010,12 +2032,8 @@ pcic_enable_functional_interrupt(u_int socket_index)
 	pci_readb(s, TI113X_CARD_CONTROL, &cardctl);
 	cardctl |= TI113X_CCR_PCI_IREQ;
 	pci_writeb(s, TI113X_CARD_CONTROL, cardctl);
-    } else if (s->type == IS_TI1210 || 
-	       s->type == IS_TI1211 || 
-	       s->type == IS_TI1410 ||
-	       s->type == IS_TI1420 ||
-	       s->type == IS_TI1510 ||
-	       s->type == IS_TI4451 ||
+	
+    } else if ((s->flags & IS_TI) ||
 	       s->type == IS_RL5C475 ||
 	       s->type == IS_RL5C476 ||
 	       s->type == IS_RL5C478) {
@@ -2043,12 +2061,7 @@ pcic_disable_functional_interrupt(u_int socket_index)
 	pci_readb(s, TI113X_CARD_CONTROL, &cardctl);
 	cardctl &= ~TI113X_CCR_PCI_IREQ;
 	pci_writeb(s, TI113X_CARD_CONTROL, cardctl);
-    } else if (s->type == IS_TI1210 || 
-	       s->type == IS_TI1211 || 
-	       s->type == IS_TI1410 ||
-	       s->type == IS_TI1420 ||
-	       s->type == IS_TI1510 ||
-	       s->type == IS_TI4451 ||
+    } else if ((s->flags & IS_TI) ||
 	       s->type == IS_RL5C475 ||
 	       s->type == IS_RL5C476 ||
 	       s->type == IS_RL5C478) {
@@ -3077,7 +3090,7 @@ init_i82365(IOPCCardBridge *pccard_nub, IOPCIDevice *bridge_nub, void * device_r
     }
     DEBUG(0, "%s\n", version);
     printk(KERN_INFO "Intel PCIC probe: ");
-
+    
     // for macosx this is all evil, the original code assumes it is
     // called once during init, and all the "sockets" are found at
     // once, unfortunately it doesn't work that way in macosx. in
@@ -3096,12 +3109,16 @@ init_i82365(IOPCCardBridge *pccard_nub, IOPCIDevice *bridge_nub, void * device_r
     socket[sockets].cb_virt = device_regs;
     
     pci_probe(PCI_CLASS_BRIDGE_CARDBUS);
-//  pci_probe(PCI_CLASS_BRIDGE_PCMCIA);		// MACOSXXX - later   
+//  pci_probe(PCI_CLASS_BRIDGE_PCMCIA);		// MACOSXXX - never
 
     if (starting_socket == sockets) {
 	printk("not found.\n");
 	return -ENODEV;
     }
+
+#ifndef PCMCIA_DEBUG
+    printk("\n");
+#endif
 
     /* Set up interrupt handler(s) */
 #ifdef CONFIG_ISA

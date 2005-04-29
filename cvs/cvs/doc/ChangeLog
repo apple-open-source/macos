@@ -1,3 +1,1687 @@
+2004-10-29  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvs.texinfo (Common options): The -r TAG option works with
+	the cvs annotate command.
+	(Original patch from Ville Skytta <scop@cvshome.org>.)
+
+2004-09-25  Derek Price  <derek@ximbiot.com>
+
+	* mkman.in: Move to...
+	* mkman.pl: ...here.
+	* Makefile.am (cvs.1): mkman is in build dir, not src dir.
+
+2004-07-17  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Update imports, import): Add notes on requirement that
+	release tags be unique.
+	(Original patch from Ilya N. Golubev <gin@mo.msk.ru>.)
+
+2004-06-10  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (commit files): Remove reference to the obsolete -i
+	module option.
+
+2004-05-28  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Global options): Remove reference to global -l option.
+	(Report from Kevin Bulgrien <Kevin.Bulgrien@TriPointGlobal.com>.)
+
+2004-05-14  Mark D. Baushke  <mdb@cvshome.org>
+	
+	* cvs.texinfo: Fix makeinfo error.
+
+	* cvs.texinfo (Adding files): Minor cleanup.
+	(Using keywords): Minor cleanup.
+	(annotate): Move into the manual section, split into three nodes.
+	(annotate options): New node.
+	(annotate example): New node.
+	(based on patch from Steve McIntyre <steve@einval.com>.)
+	(Locks, GSSAPI authenticated): Minor cleanup.
+	(Sticky tags): Clarify operation.
+	(Locks): Spelling fix.
+	(Merging adds and removals): Ditto.
+	(Invoking CVS): Ditto
+	(Builds): Grammar fix.
+	(Line group formats): Ditto
+	(Line group formats, Line formats): Ditto
+	(commit files): Ditto.
+	* cvs.1, stamp-vti, version.texi: Regenerated
+	
+2004-05-12  Derek Price  <derek@ximbiot.com>
+
+	* mkman.in: Clarify status messages.
+
+2004-05-10  Derek Price  <derek@ximbiot.com>
+
+	* mkman.in: Organize & tidy comments.  Check for unprocessed texinfo
+	commands.  Output better error messages on finding unprocessed texinfo
+	commands.
+	(do_keyword, keyword_mode): Accept $file argument for error messages.
+
+2004-05-06  Derek Price  <derek@ximbiot.com>
+
+	* mkman.in: Require Perl 5.005.  Add comments.  Remove duplicate s///.
+	Handle @:.
+
+2004-05-06  Derek Price  <derek@ximbiot.com>
+
+	* cvs.man.header: Minor text correction.
+	* mkman.in: Ignore @need keyword.  Restore previous font for nested
+	keywords.
+	(do_keyword): Ditto on fonts.  Move some functionality to...
+	(keyword_mode): ...this new function.
+
+2004-05-06  Derek Price  <derek@ximbiot.com>
+
+	* mkman.in: Handle keywords that cross multiple lines.
+	(do_keyword): New function.
+
+2004-05-04  Derek Price  <derek@ximbiot.com>
+
+	* cvs.man.header, cvs.man.footer: Reference `info CVS' rather than
+	`info cvs' to send users to the top node.
+
+2004-05-03  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: mkman is built in the build dir, not $(srcdir).
+	(Report from Mark D. Baushke <mdb@cvshome.org>.)
+
+2004-05-03  Derek Price  <derek@ximbiot.com>
+
+	* HACKING.DOCS: Fix spelling error.  Add reference for @strong.
+	(Report from Mark D. Baushke <mdb@cvshome.org>.)
+
+	* HACKING.DOCS: Note dependency on `makeinfo' 3.11 & greater.
+
+2004-04-30  Derek Price  <derek@ximbiot.com>
+
+	* mkman.in: Handle single quotes better.  Parse out some redundancy
+	from node and section names.
+	* cvs.man.footer: Replace some quotes with the usual bold font.
+	Reformat links in the SEE ALSO section.
+	* cvs.1: Regenerated.
+
+2004-04-30  Derek Price  <derek@ximbiot.com>
+
+	* mkman.in: Handle examples better.  Protect a few more characters.
+	* cvs.1, stamp-vti, version.texi: Regenerated.
+
+2004-04-30  Derek Price  <derek@ximbiot.com>
+
+	* cvs.man.header: Add copyright notice.
+	* cvs.1: Regenerated.
+
+2004-04-30  Derek Price  <derek@ximbiot.com>
+
+	* mkman.in: Add copyright and license notice.
+
+2004-04-30  Derek Price  <derek@ximbiot.com>
+
+	* mkman.in: Handle @@.
+	* cvs.1: Regenerated.
+
+2004-04-30  Derek Price  <derek@ximbiot.com>
+
+	First pass at closing issue #3 on cvshome.org.
+	* .cvsignore: Ignore mkman.
+	* cvs.1, mkman.in, cvs.man.header, cvs.man.footer: New files.
+	* cvs.texinfo: Add cut tags for mkman.
+	* Makefile.in (man_MANS): Add cvs.1.
+	(EXTRA_DIST): Add cvs.man.header & cvs.man.footer.
+	(cvs.1, mkman): New targets.
+	* Makefile.in: Regenerated.
+
+2004-04-23  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Update years in Copyright.
+	* stamp-vti, version.texi: Regenerated.
+
+2004-04-21  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Use splitrcskeyword macro consistently in a failed
+	attempt to avoid a warning during PDF generation.
+	* stamp-vti, version.texi: Regenerated.
+
+2004-04-18  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Various spelling, typo, and capitalization fixes.
+	(Patch from Ville Skyttä <scop@cvshome.org>.)
+
+2004-04-06  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* cvs.texinfo (Assigning revisions): Note that client/server mode
+	only considers files sent to the server to determine the major
+	revision for new files.
+	(Reported by Krzysztof GORBIEL <Krzysztof_GORBIEL@raiffeisen.pl>.)
+	* stamp-vti, version.texi: Regenerated.
+
+2004-03-15  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2004-03-11  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* cvs.texinfo (loginfo, Error messages): Note that not reading all of
+	the log info can result in a broken pipe signal.
+	(Reported by Steven Nicoloso <spn@nwmail.wh.lucent.com>.)
+	* stamp-vti, version.texi: Regenerated.
+
+2004-02-04  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (File Permissions): Clarify index entry.
+	* stamp-vti, version.texi: Regenerated.
+
+2004-01-22  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2004-01-08  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* cvs.texinfo (user-defined logging): Move taginfo stuff from here...
+	(Administrative files): ...to its own node under here.
+
+2003-12-18  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.11.1.
+
+2003-12-18  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.11.
+
+2003-12-05  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated.
+
+2003-12-04  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.10.1.
+
+2003-12-04  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.10.
+
+2003-11-18  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2003-11-13  Larry Jones  <lawrence.jones@eds.com>
+
+	* cvs.texinfo (Reverting local changes): Use the same vendor tag
+	in the admin command as was used in the previous import commands.
+
+2003-11-10  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2003-11-07  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvs.texinfo (CVS commands): Fix typo.
+	(FreeBSD PR docs/58669 reported by Ceri Davies <ceri@FreeBSD.org>.)
+
+2003-10-30  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2003-10-30  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (File permissions, Error messages): Add index entries for
+	CVSROOT/val-tags file.
+
+2003-10-21  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Note gnu.cvs.* usenet mirrors of the email lists.
+	(Suggestion from Paul Edwards, from somewhere in Australia.)
+
+	* cvs.texinfo: Put email addresses in @email{} tags and URLs in @url{}
+	tags rather than relying on markup like @code{}.
+	* stamp-vti, version.texi: Regenerated.
+
+2003-10-14  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2003-10-14  Derek Price  <derek@ximbiot.com>
+
+	Port to pedantic POSIX 1003.1-2001 hosts, such as Debian GNU/Linux
+	testing with _POSIX2_VERSION=200112 in the environment.
+
+	* cvs.texinfo: Suggest 'sed 1q', not 'head -1'.
+	(Patch from Paul Eggert <eggert@twinsun.com>.)
+
+2003-10-10  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.9.1.
+
+2003-10-10  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.9.
+
+2003-10-06  Derek Price  <derek@ximbiot.com>
+
+	* cvsclient.texi (Requests): Add recommendation to client developers to
+	avoid the `Case' request.
+	* stamp-1, version-client.texi: Regenerated.
+
+2003-10-02  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.8.1.
+
+2003-10-02  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.8.
+
+2003-09-29  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.7.1.
+
+2003-09-29  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.7.
+
+2003-09-12  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (checkoutlist): Document the error messages which may be
+	specified in this file.
+	* stamp-vti, version.texi: Regenerated.
+
+2003-08-27  Larry Jones  <lawrence.jones@eds.com>
+
+	* cvs.texinfo (history options): Note the 'P' record type which
+	has been around for a long time but never actually appeared in
+	the history file due to bugs in the code.
+	(Invoking CVS): Ditto.
+	(config): Ditto.
+	* stamp-vti, version.texi: Regenerated.
+
+2003-08-07  Derek Price  <derek@ximbiot.com>
+
+	* .cvsignore: Ignore {cvs,cvsclient}.txt.
+
+2003-08-07  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Use the @dircategory and @direntry commands from texinfo
+	rather than rolling our own.
+
+	* stamp-vti, version.texi: Regenerated.
+
+2003-08-07  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (POSTSCRIPTS): Rename to...
+	(PSS): ...to sync with and override Automakes default targets.
+	(PDFS): Reorder to match PSS.
+	(SUFFIXES): Remove .pdf and .aux.
+	(cvs.aux, cvs.pdf, cvsclient.aux, cvsclient.pdf): Remove these targets.
+	.aux weren't being generated anyhow and .pdf no longer need to be
+	supplied explicitly.
+	(cvs-paper.pdf: cvs-paper.ps): Provide ps2pdf rule explicitly.
+	(.{texinfo,texi,txy}.pdf): Remove these suffix rules - they are now
+	provided by Automake.
+
+2003-08-06  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (CLEANFILES): Move...
+	(MOSTLYCLEANFILES): ...here and drop PDFs since this is where Automake
+	cleans PDFs & PSs by default.
+	(MAINTAINERCLEANFILES): Clean all PostScripts even though they will
+	have been removed in mostlyclean.  That is a bug in Automake.
+	(doc): Depend on info & ps.
+	(pdf, ps): Removed in favor of Automake's default targets for these
+	types.
+	(cvsclient.* targets): Depened on version-client.texi.
+	(cvs-paper.pdf): Remove in favor of Automake's default target.
+	(.{texinfo,texi,txi}.{pdf,txt}): Update these targets based on
+	Automake's similar treatment of dvi, ps, and info targets.
+	* .cvsignore: Add cvs.tmp, a `make pdf' generated file.
+
+	* Makefile.in: Regenerated.
+
+2003-07-18  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Put a few errant references to bug-cvs inside @code{}
+	for consistancy.
+
+2003-07-18  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Update WARNINGs and Notes for a more consistent
+	appearance.  Remove some obsolete comments.
+	* stamp-vti: Regenerated.
+	* version.texi: Regenerated.
+
+2003-07-12  Larry Jones  <lawrence.jones@eds.com>
+
+	* cvs.texinfo (Binary howto): Add note about how to determine whether
+	a file is marked as binary or not.
+	(Suggested by Erik Sigra <sigra@home.se>.)
+	* stamp-vti: Regenerated.
+	* version.texi: Regenerated.
+
+2003-06-23  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-06-16  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (splitrcskeyword): New macro, now that @ifhtml will work
+	properly with texi2html (as of version 1.68), to cause output HTML to
+	contain <i></i> where we used to have @asis{} and prevent RCS keyword
+	substitution in generated HTML.
+	(Original patch from Patrice Dumas <dumas@centre-cired.fr>.)
+
+2003-06-11  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Invoking CVS): Remove `-P' from the list of `cvs export'
+	options.
+	(Patch from Alexander Taler <dissent@cvshome.org>.)
+
+2003-06-11  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Top): Remove out-of-date (by at least 5 years) comment.
+	(Patch from Alexander Taler <dissent@cvshome.org>.)
+
+2003-05-27  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Consolidate copyright notices into a single macro that
+	is called elsewhere to avoid needing three of them.  Update copyright
+	notice.
+	(BUGS): Suggest Ximbiot rather than the defunct Signum Support as CVS
+	consultants.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-05-26  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated for 1.11.6.1.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2003-05-25  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated for 1.11.6.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2003-05-21  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerate with Automake version 1.7.5.
+
+2003-04-28  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Working directory storage, Module options, Module
+	program options): Remove references to Checkin.prog and Update.prog.
+	(commit options): Remove reference to -n option.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-04-10  Larry Jones  <lawrence.jones@eds.com>
+
+	* Makefile.in: Regenerated.
+
+2003-03-26  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-03-25  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Server temporary directory): Reorder list of places
+	to match code.
+	(Connection): Add additional example error message and note about
+	firewall software.
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-03-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Update copyright notice.
+
+	* Makefile.in: Regenerated.
+
+2003-03-06  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (What is CVS?): Correct date of first post of CVS by
+	Dick Grune from December to July based on the archive posted on
+	Google:
+	<http://groups.google.com/groups?q=Grune+cvs+group:mod.sources.*&hl=en&lr=&ie=UTF-8&selm=122%40mirror.UUCP&rnum=2>.
+	(Thanks to David A Wheeler <dwheeler@dwheeler.com>.)
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-03-05  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvs.texinfo (CVS_LOCAL_BRANCH_NUM): Backout CVS_LOCAL_BRANCH_NUM 
+	feature.
+
+	* cvs.texinfo (CVS_LOCAL_BRANCH_NUM): Document new environment
+	variable.
+
+2003-02-27  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Environment variables): Make the information on
+	CVS_CLIENT_PORT slightly clearer.
+	(Kerberos authenticated): XREF the Environment variables node.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-02-25  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+	* stamp-1: Ditto.
+	* version-client.texi: Ditto.
+
+2003-02-06  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Working directory storage, Module options,
+	Module program options): Correct description of where Checkin.prog
+	and Update.prog are run.  Provide more index entries and cross
+	references.  Remove some FIXME comments.  Add a FIXCVS THEN FIXME.
+	(Thanks to Art Manion at the CERT Coordination Center <cert@cert.org>.)
+
+2003-02-04  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (File status): Mention the "Unresolved Conflict" status
+	which was apparently and erroneously removed from the doc at some
+	point in the past.
+
+2003-02-03  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Merging a branch): Mention the GCA as opposed to the
+	"branch point" as the implicit revision when merging a branch.
+
+2003-02-03  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Remote repositories): :METHOD: is optional.
+
+2003-02-03  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Committing your changes): Move index entries closer to
+	their corresponding references.
+	(Environment variables): Include $VISUAL in order of
+	preference.  Add index entries.  Reference Global options node.
+	(Variables): Change order of list to match the Env. Variables node
+	mentioned above.
+
+	* stamp-1: Regenerated.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2003-02-14  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Watch Information, Editing files, Getting Notified,
+	Setting a watch): Edit usage specs for correctness and uniformity.
+	(Sticky tags): Use ref rather than xref to avoid a warning from
+	makeinfo.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-01-23  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2003-01-22  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (config): Correct LogHistory default (U was omitted).
+
+2003-01-16  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated for version (1.11.5).
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2003-01-16  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated for dev version (1.11.4.1).
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2002-12-28  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated for version 1.11.4.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2002-12-27  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated for dev version 1.11.3.1.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2002-12-27  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2002-11-18  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (commitinfo): Explain the environment of commands
+	run by commitinfo a little more fully.
+	(Original patch from Fred L. Drake, Jr.  <fdrake@acm.org>.)
+
+	* cvs.texinfo: Change the wording of some of the commit index entries
+	for consistency and clarity.
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated using Automake 1.6.3.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2002-09-20  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2002-08-16  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Error messages): Update CVS_BADROOT notes to specify
+	new configure option instead.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2002-08-12  Derek Price  <oberon@umich.edu>
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2002-08-06  Derek Price  <oberon@umich.edu>
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2002-08-05  Derek Price  <oberon@umich.edu>
+
+	* cvs.texinfo: Correct typo.
+	(Thanks to Chandra Mouleeswaran <chandra@openharbor.com>.)
+
+2002-04-30  Derek Price  <oberon@umich.edu>
+
+	* Makefile.in: Regenerated with automake 1.6.
+
+2002-04-18  Derek Price  <oberon@umich.edu>
+
+	* Makefile.am: Add FIXME comment about an automake bug.
+	* Makefile.in: Regenerated.
+
+2002-04-18  Derek Price  <oberon@umich.edu>
+
+	* stamp-1: Regenerated for 1.11.2.1 version update.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2002-04-17  Derek Price  <oberon@umich.edu>
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2002-04-17  Derek Price  <oberon@umich.edu>
+
+	* cvs.texinfo: Add index entries for inetd and xinetd.
+
+2002-03-26  Derek Price  <oberon@umich.edu>
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2002-03-17  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (log options): Add new -S option.
+
+2002-03-12  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (diff options): Add missing menu for new subsections.
+	(Patch from Pavel Roskin <proski@gnu.org>.)
+
+2002-03-09  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Update imports): Suggest merging with two rel tags
+	instead of the branch tag and a date and explain why.
+
+2002-02-26  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (diff options): Document all the diff options.
+
+2002-01-10  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (log options): Update -r :: to match code changes.
+	(Variables): Document LOGNAME and USER environment variables.
+
+2001-12-03  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Invoking CVS): Add -F option for annotate and
+	rannotate.
+
+2001-11-28  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (File permissions): Add note about SGID being required
+	on some systems.  Add note about LockDir.
+
+2001-10-18  Derek Price  <dprice@collab.net>
+
+	* Makefile.am: Add --batch to texi2dvi invocations.
+	(Thanks to Akim Demaille <akim@epita.fr> for the suggestion.)
+
+	* Makefile.in: Regenerated.
+
+2001-10-04  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Connecting via rsh): Add : between host name and
+	root directory in example since some versions of CVS require it.
+	(Reported by Trevor Jim <trevor@research.att.com>.)
+
+2001-09-14  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (commit files): Make following sections (commitinfo,
+	verifymsg, editinfo, and loginfo) subsections of this one.
+
+2001-09-06  Derek Price  <dprice@collab.net>
+
+	* cvs.texinfo (Watch information):  Cleanup some watch/edit
+	explanations and discourage the belief that files should be
+	releasable.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+	(Patch from Eric Siegerman <erics@telepres.com>.)
+
+2001-09-05  Derek Price  <dprice@collab.net>
+
+	* cvsclient.texi: Use version-client.texi instead of version.texi so
+	cvsclient.* can have a different build date than cvs.texinfo.
+
+	* Makefile.in: Regenerated.
+	* stamp-1: New file.
+	* version-client.texi: Ditto.
+	(Reported by Alexey Mahotkin <alexm@hsys.msk.ru>.)
+
+2001-09-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with automake 1.5.
+	* version.texi: Ditto.
+
+2001-08-24  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Error messages): Add new message about root not
+	being allowed to do commit.
+
+2001-08-24  Derek Price  <dprice@collab.net>
+
+	* cvs.texinfo (config): Add a new RereadLogAfterVerify
+	CVSROOT/config option to control how verifymsg scripts deal with
+	read-write log messages.
+	(Patch from Mark D. Baushke  <mdb@cvshome.org>.)
+
+	* cvs.texinfo (verifymsg): The verification script may now modify
+	the log message.
+	(Patch from Mark D. Baushke  <mdb@cvshome.org>.)
+
+	* cvs.texinfo (config, verifymsg): Correct default, changes for clarity,
+	and add a warning about `stat' and large repositories.
+
+	* version.texi: Regenerated.
+	* stamp-vti: Ditto.
+
+2001-08-20  Derek Price  <dprice@collab.net>
+
+	* Makefile.am: Reformat comment for 80 chars.
+
+	* Makefile.in: Regenerated.
+
+2001-08-10  Derek Price  <dprice@collab.net>
+
+	* cvs.texinfo (Default options and the ~/.cvsrc file): Added a few more
+	"standard" options to the example.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2001-08-06  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated.
+
+2001-07-17  Derek Price  <dprice@collab.net>
+
+	* version.texi: Regenerated.
+	* stamp-vti: Ditto.
+
+2001-07-06  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Variables): Add index entry for CVS_USER.
+	(Reported by Jens Schweikhardt <Jens.Schweikhardt@marconi.com>.)
+	(Working directory storage): Fix Emptydir index entry: Emptydir
+	is a directory, not a file.
+
+2001-07-05  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Working directory storage): Add Emptydir to index.
+
+2001-07-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with new Automake release candidate 1.4h.
+
+2001-06-28  Derek Price  <dprice@collab.net>
+
+	* Makefile.am: Reference to CVSvn.texi removed.
+	* cvs.texinfo: @include version.texi and change CVSVN to VERSION.
+	* cvsclient.texi: Ditto.
+
+	* version.texi: New file.
+	* stamp-vti: Ditto.
+	* mdate-sh: New File.  Work-around bug in Automake 1.4f by copying
+	top-level mdate-sh here.
+
+	* CVSvn.texi.in: Removed.
+	* CVSvn.texi: Ditto.
+
+	* Makefile.in: Regenerated.
+	(Patch from Alexey Mahotkin <alexm@hsys.msk.ru>.)
+
+2001-06-27  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (loginfo): Note that format string expansion is
+	quoted and contains escapes.
+
+2001-06-22  Derek Price  <dprice@collab.net>
+
+        * cvs.texinfo (checkout options): Fix transliteration typo in co
+        example.
+	(Patch from Adrian Aichner <adrian@xemacs.org>.)
+
+2001-06-12  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Global options): Note that -T only affects the local
+	process in client/server mode.
+	(Environment variables): Note that CVS_SERVER can include arguments
+	as well as a program name, and note that it applies to :fork: as well
+	as to :ext: and :server:, although the default value is different.
+
+2001-06-08  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (config): Mention using LockDir on in-memory
+	filesystem to speed up locking.
+
+2001-06-07  Derek Price  <dprice@collab.net>
+
+	* Makefile.am (EXTRA_DIST): Remove *.aux.
+	(MOSTLYCLEAN_FILES): Remove this macro since the Automake bug it was
+	working around has been fixed.
+
+2001-06-07  Derek Price  <dprice@collab.net>
+
+	* HACKING.DOCS: Add link to the main texinfo documentation.
+
+2001-06-07  Derek Price  <dprice@collab.net>
+
+	* README.DOCS: Rename to
+	* HACKING.DOCS: this.
+
+2001-06-07  Derek Price  <dprice@collab.net>
+
+	* README.DOCS: New file attempting to document some of our texinfo
+	conventions.
+
+2001-06-06  Derek Price  <dprice@collab.net>
+
+	(Reformatting, rewording, & additions to a patch from
+	Stephen Cameron <steve.cameron@compaq.com>.)
+
+	* cvs.texinfo (Invoking cvs, Modifying tags)
+	  document new -B option of rtag and tag commands.
+
+2001-06-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.am: Remove commented out DISTFILES &
+	AUTOMAKE_OPTIONS=no-texinfo.tex.
+	(Reported by Alexey Mahotkin <alexm@hsys.msk.ru>.)
+	* Makefile.in: Regenerated.
+
+2001-06-04  Larry Jones  <larry.jones@sdrc.com>
+
+	* Makefile.am: Fix rules for cvs-paper (.pdf rule actually generated
+	.ps and vice versa).
+	(Reported by Alexey Mahotkin <alexm@hsys.msk.ru>.)
+	* Makefile.in: Regenerated.
+
+2001-05-29  Derek Price  <dprice@collab.net>
+
+	* cvs.texinfo (Repository): Fix explanation of CVSROOT parsing
+	algorithm.
+
+2001-05-29  Derek Price  <dprice@collab.net>
+	patch from Pavel Roskin  <proski@gnu.org>
+
+	* Makefile.am (CVSvn.texi): Double hash comment in rule since single
+	hash comments are not portable.
+
+	* Makefile.in: Regenerated.
+
+2001-05-21  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Error messages): Fix ordering; add "cannot commit
+	files as root".
+
+	* cvs.texinfo (Invoking CVS): Add entries for kserver, pserver,
+	rannotate, rlog, and server.
+
+	* cvs.texinfo: Lots of minor editorial corrections.  Mostly adding
+	@noindent after examples where the following text is intended to
+	be a continuation of the preceding text, not a new paragraph.
+
+	* cvs.texinfo (Connection): Replace information about unsetting
+	$HOME for people with old releases.
+
+
+	* cvs.texinfo (Connecting via rsh): Use @samp{} instead of @file{}
+	where it seemed appropriate.
+	(Patch from Alexey Mahotkin <alexm@hsys.msk.ru>).
+
+2001-05-18  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Password authentication server): Add xinetd info.
+	(Connection): Add "broken pipe" to possible error messages.
+
+2001-05-18  Derek Price  <dprice@collab.net>
+
+	* cvs.texinfo (update output): Change wording to something that sounds
+	a bit more like english.
+
+2001-05-02  Derek Price  <dprice@collab.net>
+
+	* cvs.texinfo (Top): Change @ifinfo to @ifnottex to placate HTML
+	generators.
+
+2001-04-27  Derek Price  <dprice@collab.net>
+
+	* CVSvn.texi: Regenerated.
+
+2001-04-27  Derek Price  <dprice@collab.net>
+
+	* CVSvn.texi: Regenerated.
+
+2001-04-25  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated using AM 1.4e as of today at 18:10 -0400.
+	* CVSvn.texi: Regenerated.
+
+2001-03-30  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvsclient.texi (Dates, Requests): Add rannotate and rlog.
+
+2001-03-26  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (admin options): Fix typo: should be @pxref, not @xref.
+
+2001-03-26  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (admin options): Update description of -u option to
+	refer back to notify.
+
+2001-03-23  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.am (ps):  Make 'ps' an alias for 'doc'.
+	(doc, pdf, ps, txt): declare as '.PHONY'.
+
+	* Makefile.in:  Regenerated.
+
+2001-03-23  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.am (MOSTLYCLEANFILES):  Add cvs.cps & cvs.fns as a temporary
+	workaround for an Automake deficiency.
+
+	* Makefile.in:  Regenerated.
+
+2001-03-14  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.in: Regenerated
+
+2001-02-20  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (BUGS): There's only one company listed now, not two.
+
+2001-02-13  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Password authentication server, First import): Use
+	@ref instead of @xref when not at the beginning of a sentence.
+
+2001-02-01  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Connection): Add still more notes about common
+	pserver error messages.
+
+2001-01-18  Derek Price  <derek.price@openavenue.com>
+
+	* cvs.texinfo (Quick reference to CVS commands): add index entry for
+	version subcommand
+
+2001-01-18  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (log options): Document new :: syntax for -r.
+
+2001-01-10  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.am (CVSvn.texi): specify $(srcdir) explicitly in target rule
+	so CVSvn.texi gets built properly for all makes.
+	(cvs_TEXINFOS): specify $(srcdir) explicitly for CVSvn.texi
+	(cvsclient_TEXINFOS): ditto
+	* Makefile.in: regenerated
+
+2000-12-26  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.in: update timestamp
+	* CVSvn.texi: ditto
+
+2000-12-26  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.am: new target for creation of CVSvn.texi
+	(EXTRA_DIST): add CVSvn.texi.in & CVSvn.texi
+	* Makefile.in: Regenerated
+	* CVSvn.texi: new file
+	* .cvsignore: remove CVSvn.texi since it is now included in dist
+
+2000-12-22  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.in: Regenerated
+
+2000-12-21  Derek Price  <derek.price@openavenue.com>
+
+	* cvs-paper.ps: Backout accidental regeneration.
+
+2000-12-21  Derek Price  <derek.price@openavenue.com>
+
+	* .cvsignore: Added *.pdf versions of the *.ps docs
+	* CVSvn.texi.in: Use configure to generate CVSvn.texi
+	* Makefile.am: New file needed by Automake
+	* Makefile.in: Regenerated
+	* cvs-paper.ps: Regenerated
+	* texinfo.tex: New file added to placate Automake.  Apparently, its
+	inclusion is mandated by the GNU coding standards.
+
+2000-12-14  Derek Price  <derek.price@openavenue.com>
+	    Linus Tolke  <linus@epact.se>
+
+	* cvs.texinfo (Merging a branch): changed some references to "BRANCH"
+	to "BRANCHNAME" for consistancy.  Add a warning about merging using a
+	single tagname reference with an xref to "Merging adds and removals"
+	for the long explanation
+	(Merging adds and removals): Add the long explanation of why merging
+	from a single tagname can be tricky
+	(update): Add a warning about merging using a single tagname reference
+	with an xref to "Merging adds and removals" for the long explanation
+	
+2000-11-13  Derek Price  <derek.price@openavenue.com>
+
+	* cvs.texinfo: use '@sc{cvs}' instead of 'CVS' in various locations
+
+2000-11-08  Derek Price  <derek.price@openavenue.com>
+
+	* cvs.texinfo (settitle): stick a 'v' in front of the version number
+	to make it harder to confuse with chapter, section, and page numbers.
+
+2000-11-08  Derek Price  <derek.price@openavenue.com>
+
+	* cvs.texinfo (settitle): add the version number to the title string
+	so that it is easier to find on HTML pages and the like.
+
+2000-10-20  Jim Kingdon  <http://sourceforge.net/users/kingdon/>
+
+	* cvs.texinfo (Variables): Document CVS_USER.
+
+2000-10-17  Derek Price  <derek.price@openavenue.com>
+
+	* cvs.texinfo (Remote repositories): added a comment about specifying
+	a password in the repository name when performaing a checkout.
+
+2000-10-17  Derek Price  <derek.price@openavenue.com>
+
+	* cvs.texinfo (Remote repositories, password authenticated, GSSAPI
+	authenticated, Kerberos authenticated, Environment variables):
+	Documented CVSROOT spec change & CVS_CLIENT_PORT.
+
+2000-10-10  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Connection): Add additional notes about common
+	pserver error messages.  Remove information about unsetting $HOME
+	since CVS no longer pays any attention to it in server mode.
+
+2000-09-07  Larry Jones  <larry.jones@sdrc.com>
+
+	* Makefile.in: Use @bindir@, @libdir@, @infodir@, and @mandir@
+	from autoconf.
+
+2000-08-21  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Removing directories, export): Note that export always
+	prunes directories and remove references to the non-existent -P flag.
+
+2000-07-28  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvsclient.texi (Requests): Ensure that all rootless requests say
+	that they're rootless.
+
+2000-07-12  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Module program options): Remove note that commit and
+	update programs only working locally; they've worked client/server
+	for quite some time.
+
+2000-07-10  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Invoking CVS): Document new version command.
+	* cvsclient.texi (Requests): Document new version request.
+
+2000-07-06  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (admin options): Remove note about -t not working
+	in client/server.
+
+2000-04-03  Pavel Roskin  <pavel_roskin@geocities.com>
+
+	* cvs.texinfo (Telling CVS to notify you): Remove backslashes
+	before quotes.
+
+2000-05-24  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (From files): Clean up @var{wdir}/@var{rdir} vs.
+	@var{dir} usage.
+
+2000-05-19  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvsclient.texi (Requests): Note that Global_option is now
+	valid without Root.
+
+2000-04-17  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Variables): Clarify what USER means in pserver.
+
+2000-03-08  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Connection): Add note about inetd rate limit.
+	(ErrorMessages): Add root home directory permission messages.
+
+2000-02-12  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo: Clean up text/formatting of previous change.
+
+2000-02-21  K.J. Paradise <kj@sourcegear.com>
+
+	* cvs.texinfo : Adding John Cavanaugh's patch to allow 
+	the history file to log actions based on the CVSROOT/config
+	file.  (To limit which cvs actions actually make it into the 
+	history file)
+
+2000-02-17  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo: Remove references to PreservePermissions.
+
+	* cvs.texinfo (history options): Note default report type.
+
+2000-01-18  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Global options): Document compression levels.
+
+2000-01-18  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo: Minor editorial changes from Ken Foskey
+	<waratah@zip.com.au>.
+
+2000-01-11  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo: Add index entries for "Compression" and "Gzip".
+	Correct typography in many index entries (English phrases should
+	have initial caps, subcommands/files/etc. should be as-is).
+
+2000-01-10  Karl Fogel  <kfogel@red-bean.com>
+
+	* cvs.texinfo (loginfo): correctly describe CVSROOT/loginfo's
+	%-expansion behavior.  Thanks to Karl Heinz Marbaise
+	<kama@hippo.fido.de> for noticing the error.
+
+2000-01-07  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Password authentication server): Use -f in example
+	inetd.conf line.
+	(Connection): Add advice about using shell script or env to avoid
+	problems with inetd setting HOME in the server's environment.
+	(various): Use @file for inetd.conf.
+
+2000-01-02  John P Cavanaugh <cavanaug@sr.hp.com>
+
+	* cvs.texinfo: document new -C option to update, now that it works
+	both remotely and locally.
+	(Re-applied by Karl Fogel <kfogel@red-bean.com>.)
+
+1999-12-11  Karl Fogel  <kfogel@red-bean.com>
+
+	* Revert previous change -- it doesn't work remotely yet.
+
+1999-12-10  John P Cavanaugh <cavanaug@sr.hp.com>
+
+	* cvs.texinfo: document new -C option to update.
+	(Applied by Karl Fogel <kfogel@red-bean.com>.)
+
+1999-11-20  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo(history options): Document -f, -n, and -z.
+
+1999-11-09  Jim Kingdon  <http://developer.redhat.com/>
+
+	* cvsclient.texi (Requests): Document the arguments to "log", now
+	that I've changed log.c to be more specific in terms of what it
+	will send.
+
+1999-11-05  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo: Revert Karl's change once again since the code is now
+	fixed.  Add "Variables" and "User variables" to index.
+
+1999-11-04  Karl Fogel  <kfogel@red-bean.com>
+
+	* log.c (log_usage): Revert Jim Kingdon's reversion of my change
+	of 1999-11-03.  Allowing a space between option and argument
+	results in lossage; here is a reproduction recipe: run this from
+	the top of a remote copy of the cvs source tree
+
+	   cvs log -d '>1999-03-01' > log-out.with-space
+
+	and then run this (note there's no space after -d now):
+	
+	   cvs log -d'>1999-03-01' > log-out.no-space
+
+	The resulting files differ; furthermore, a glance at the output of
+	cvs shows that the first command failed to recurse into
+	subdirectories.  Until this misbehavior can be fixed in the source
+	code, the documentation should reflect the true state of affairs:
+	if one simply omits the space, everything works fine.
+
+1999-11-04  Jim Kingdon  <http://developer.redhat.com/>
+
+	* cvs.texinfo (log options): Revert Karl's change regarding -d and
+	-s.  A space is allowed (see sanity.sh for example).
+
+	* cvs.texinfo (Password authentication server): The name of the
+	file is "passwd" not "password".
+
+	* cvsclient.texi (Top): Add @dircategory and @direntry.
+
+1999-11-04  Karl Fogel  <kfogel@red-bean.com>
+
+	* cvs.texinfo (Password authentication server, Password
+	authentication client): Rewritten to accommodate the [new]
+	possibility of empty passwords.
+
+1999-11-03  Karl Fogel  <kfogel@red-bean.com>
+
+	* cvs.texinfo (Invoking CVS): correct documentation for -d and -s
+	options (as did elsewhere, earlier today).
+
+1999-11-03  Karl Fogel  <kfogel@red-bean.com>
+
+	* cvs.texinfo (Setting a watch): describe `watch off' behavior
+	more accurately.
+
+1999-11-03  Karl Fogel  <kfogel@red-bean.com>
+
+	* cvs.texinfo (log options): correct documentation for -d and -s
+	options.  There can be no space between these options and their
+	arguments.
+
+	Also, make sure all @sc{cvs} codes refer to "cvs" in lower case;
+	this avoids makeinfo warnings.  And use @code for the CVSEDITOR
+	environment variable, not @sc.
+
+1999-09-24  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo: Misc. formatting cleanups.
+
+1999-07-16  Tom Tromey  <tromey@cygnus.com>
+
+	* cvs.texinfo (admin): Mention admin -k exception.  Add cvsadmin
+	to index.
+
+1999-07-14  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Password authentication server): Note inetd limits
+	and suggest using shell script to avoid.
+
+1999-06-01  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvsclient.texi (Requests): For the import command, the
+	repository given to the Directory requests is ignored.
+
+1999-05-27  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvsclient.texi (Requests): Clarify that Modified, Is-modified,
+	Notify and Unchanged must specify a file within the current
+	directory.
+
+1999-05-24  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (checkoutlist): New node, contains more complete
+	documentation of this feature.
+	(CVSROOT storage): Refer to the new node when mentioning
+	checkoutlist.
+	(Administrative files): Update the menu entry for Wrappers.
+
+1999-05-17  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvsclient.texi (Requests): For Notify request, strike duplicate
+	"Response expected: no" and fix "a edit" -> "an edit".
+
+1999-05-14  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Working directory storage): Try to be more clear
+	about the conflict field.
+
+1999-05-11  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (config): Use comma after @xref (thanks to Pavel
+	Roskin for the report/fix).
+
+1999-05-10  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvsclient.texi (Requests): Document restrictions on characters
+	in Notify requests.
+
+1999-05-04  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Password authentication security): Remove sentence
+	about how no one has audited pserver for holes; a lot of holes
+	have been closed, looking for, &c, since that was written.
+	In the summary, reword to reflect the fact that sniffing a
+	readonly password does not imply general system access (as far as
+	I know, of course).
+
+	* cvs.texinfo (Connection): Also suggest inetd -d.
+
+1999-04-28  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvsclient.texi (Requests): Say what goes in the "watches" field
+	of the "Notify" request.
+
+	* cvs.texinfo (Common options): -r is for branches too.
+
+	* cvs.texinfo (Error messages): Add "no such tag" message.
+	(Common options): -f does not override val-tags check.
+
+1999-04-26  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Locks): #cvs.rfl locks must start with "#cvs.rfl."
+	not just "#cvs.rfl".  As far as I know CVS has always implemented
+	the former behavior, and this just fixes the documentation.
+
+1999-04-23  Yoshiki Hayashi of u-tokyo.ac.jp
+
+	* cvs.texinfo (verifymsg): Correct wrong file name (bugid.edit ->
+	bugid.verify).
+
+1999-04-22  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvsclient.texi (Responses): The text in the "M" response is not
+	designed for machine parsing.  Likewise for "error" in regular
+	protocol.  Likewise for "E" and "error" in authentication protocol.
+
+1999-04-19  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Error messages): Add "Cannot check out files into
+	the repository itself".
+
+1999-04-16  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Other problems): Add the Windows problem with home
+	directory ending in a slash.
+
+1999-04-14  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (CVS in repository): Include the format of the
+	fileattr file here, rather than referring to the CVS source code.
+
+1999-04-09  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Working directory storage): Whether the timestamp
+	in CVS/Entries is local or universal actually depends on the system.
+
+1999-04-05  Derek Price
+	<http://www-personal.engin.umich.edu/~oberon/resume.html>
+
+	* cvs.texinfo (export options): Remove notation that the -r
+	tag is sticky.  'cvs export' doesn't store that data.
+
+1999-04-08  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Error messages): Add "EOF in RCS file" and
+	"unexpected EOF" (in RCS file) messages.
+
+1999-03-25  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (admin options): Say there can be no space between
+	-e and its argument (since the previous sentence said the argument
+	can be omitted, this is the only possibility).
+
+1999-02-26  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Merging and keywords): When including conflict
+	markers, put @asis{} at the start of the line, in case this file
+	itself is in CVS.  Thanks to Derek Price for pointing this out.
+
+1999-02-25  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo: Refer to "keywords" not "RCS keywords".  We had
+	only used the latter term in a few places, and it seems like a
+	somewhat odd term in that this style of keyword is by no means
+	specific to RCS.
+	(Merging a branch): Remove spurious ")".  Use ref, not xref, after
+	"see".
+	(Merging a branch, Substitution modes): Make sure that @ref is
+	followed by comma, since info wants that.
+	(Merging and keywords): Use samp not code for "-kk".  Something of
+	a judgement call, but the rest of the manual uses samp and that
+	seems better to me.
+	(Merging and keywords): Rewrite, to (a) better motivate the
+	discussion based on what the user wants to do, (b) fix up lots of
+	convoluted sentences, (c) move the discussion of the binary files
+	to the end, that is get across the basic idea first and then
+	embellish it.  Remove a few unnecessary index entries.  Expand
+	example.  Just tell people to avoid -kk with binary files (comment
+	out the discussion of using -A after the commit).
+
+1999-01-29  Derek Price
+	<http://www-personal.engin.umich.edu/~oberon/resume.html>
+
+	* cvs.texinfo:  Added new node/section on merging and keywords.  It
+	contains advice on how to avoid RCS keyword conflicts when merging
+	and avoid corrupting your binary files while doing it.
+
+1999-02-24  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvsclient.texi (Request intro): Add paragraph about transmitting
+	more than one command.
+
+1999-01-29  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo: Use EXAMPLE.COM EXAMPLE.ORG and EXAMPLE.NET instead
+	of domains which might conflict with actual (current or future)
+	domains.  The EXAMPLE domains are registered for this purpose.
+
+1999-01-22  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Sticky tags): Refer to -j as the better way to undo
+	a change.
+	(Merging two revisions): Also talk about undoing removals and
+	adds.  Move the index entries to here.
+
+1999-01-21  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Error messages): Add "waiting for USER's lock".
+
+1999-01-16  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Wrappers): Comment out all the -t/-f documentation,
+	since that feature is currently disabled.
+
+1999-01-14  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.texinfo (Connecting via rsh): Add some more index entries so
+	that people who want to use SSH and such are slightly less lost.
+
+1999-01-12  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs-paper.ms: Remove comments which contained the FSF's old
+	address; it has changed.
+
+1998-12-29  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvsclient.texi (Dates): Numeric timezones are preferred.
+	Also mention the Checkin-time request.
+
+1998-12-23  Jim Kingdon  <http://www.cyclic.com>
+
+	* RCSFILES: Add clarification about certain character set issues
+	from Paul Eggert, the RCS maintainer.  The last paragraph and the
+	change from Shift-JIS to JIS as an example of a character set
+	which contains 0x40 bytes which are not '@' characters are mine;
+	the rest is directly from Paul Eggert.
+
+1998-12-22  Martin Buchholz  <martin@xemacs.org>
+
+	* cvs.texinfo: Fixed various trivial typos.
+
+1998-12-17  Jim Kingdon
+
+	* cvsclient.texi (Responses): Explicitly say that Mod-time need
+	not be sent for all files.
+
+1998-12-16  Jim Kingdon
+
+	Thanks to Ram Rajadhyaksha of the MacCVS Pro team for raising the
+	following issues.
+	* cvs.texinfo (Working directory storage): The deal about storing
+	files as text files applies to all the CVS/* files, not just
+	CVS/Entries.  State the rationale too.
+	Document CVSROOT/Emptydir in CVS/Repository.
+	There is no set order in CVS/Entries.
+	Explicitly say that writing Entries.Log is optional.
+
+1998-12-03  Jim Kingdon
+
+	* cvs.texinfo (Error messages): Add "unrecognized auth response".
+	(Password authentication server): Remove comment about
+	"unrecognized auth response" and link to the troubleshooting
+	section.
+
+1998-12-02  Jim Kingdon
+
+	* cvs.texinfo (Multiple repositories): Add an example.
+
+1998-11-18  Jim Kingdon
+
+	* cvs.texinfo (Invoking CVS): Change "-r tag" to "-r rev".  We
+	already use "tag" as the name of the tag we are adding.
+
+1998-11-13  Jim Kingdon
+
+	* cvs.texinfo (CVS commands): Add comment about whether part of
+	the manual should be organized by command.
+
+1998-11-06  Jim Kingdon
+
+	Clean up various confusions between modules and directories:
+	* cvs.texinfo: In "are you sure you want to release" message,
+	change module to directory.  CVS was changed some time ago.
+	(Tags): "working copy of the module" -> "working directory".
+	(Merging two revisions): Remove unnecessary text "that make up a
+	module".
+	(Recursive behavior): Change "module" to "directory".
+	(Removing files): Likewise.
+	(Tracking sources): Remove "a module" from titles.
+	(Moving directories): Change "module" to "parent-dir".
+	(Inside): Remove "of the module".
+	(Inside): Change "module" to "dir".
+	(Rename by copying): Change "module" to "dir".
+	(Rename by copying): Remove "of the module".
+	(Moving directories): "copy of the module" -> "checked out copy of
+	the directory"; remove second "of the module".  Change "check out
+	the module" to " check out again".
+	(Moving directories): Remove "of the module".
+	(Keyword substitution): "your working copy of a module" -> "a
+	working directory".
+	(CVS commands): Change "module" to "directory".
+	(release examples): "module" -> "tc directory".
+	(commitinfo): "relative path to the module" -> "directory in the
+	repository".
+	(verifymsg): Change "module" to "directory".
+	(Updating a file): "working copy of a module" -> "working directory".
+
+1998-10-25  Jim Kingdon
+
+	* cvs.texinfo (Branches and revisions): Fix error in branch
+	numbering which was introduced with change of 4 May 1997.
+
+1998-10-20  Jim Kingdon
+
+	* cvs.texinfo (Tags): Point to Invoking CVS node so people aren't
+	left wondering what the syntax is.  When introducing -r option,
+	warn people about sticky tags right off.
+	(Tagging the working directory, Tagging by date/tag, Modifying
+	tags, Tagging add/remove): New sections.
+	(Invoking CVS): Adjust tag and rtag to point to the new sections,
+	and to add tag -c which had been omitted.  Delete tag -n; there is
+	no such option.
+	(rtag, tag): Removed; no longer needed.
+	(commit examples): Update xref.
+
+1998-10-15  Jim Kingdon
+
+	* cvsclient.texi (Requests): It is OK to send Set before Root.
+
+1998-10-13  Jim Kingdon
+
+	* cvsclient.texi (Protocol Notes): Remove item about "cvs update"
+	sending modified files to the server; there are some better ideas
+	at http://www.cyclic.com/cvs/dev-update.txt
+	Add mention of www.cyclic.com.
+
+1998-09-30  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (Committing your changes, Environment variables):
+	Document VISUAL.
+
+1998-09-27  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (Password authentication server): Say explicitly
+	that you edit passwd directly, many users get confused by this.
+
+1998-09-24  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (Connecting via fork): :fork: may be of interest to
+	users, for example those who prefer CVS to prompt for one log
+	message per checkin, rather than one per directory.
+	(Connecting via fork): Document CVS_SERVER.
+
+1998-09-24  Noel Cragg  <noel@swish.red-bean.com>
+
+	* cvs.texinfo (Connecting via fork): new node about the fork
+	access method.
+
+1998-09-22  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (Environment variables): Document
+	CVS_IGNORE_REMOTE_ROOT in the CVS 1.10 context.
+	(Moving a repository): Update comments concerning surgery on
+	CVS/Root and CVS/Repository files.
+
+1998-09-21  Noel Cragg  <noel@swish.red-bean.com>
+
+	* cvs.texinfo (Environment variables): remove information about
+	CVS_IGNORE_REMOTE_ROOT, since it's no longer used.
+
+1998-09-21  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (config): Mention that CVS 1.10 doesn't have
+	LockDir.
+
+1998-09-18  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (Keyword list): Describe $Name and checking out with
+	a revision.
+
+1998-09-16  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo: RFC2346 is out; update comment.
+
+1998-09-13  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (Keyword list, Substitution modes): In describing
+	$Locker and -kkvl, refer to cvs admin -l.
+
+	* cvsclient.texi (Requests): Re-word description of Sticky to
+	allow room for "Ntagname" (or other, future, values).
+
+	* cvs.texinfo (tag): Remove confusing wording about supplying
+	revision numbers "implicitly".
+
+1998-09-10  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (rdiff options): Thanks to the diff library, -u is
+	supported regardless of your diff program.
+
+1998-09-07  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (config): Add LockDir.
+
+1998-09-01  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvsclient.texi (Requests): "Directory" and "Argument" are
+	requests, not commands.  Likewise for "other-request".  A command,
+	roughly, is a request that uses "Argument"s, but we might want to
+	phase out the use of that term more so than codify it, I'm not sure.
+
+1998-09-01  Noel Cragg  <noel@swish.red-bean.com>
+
+	* cvsclient.texi (Requests): added a detailed explanation of the
+	Directory request and how it is handled, both for pre-1.10 and
+	post-1.10 servers.
+
+1998-09-01  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (Multiple repositories): Also describe the CVS 1.10
+	behavior.  Looking at a mismatched version of the manual seems to
+	be a reasonably common occurrence.
+
+	* cvs.texinfo (Environment variables): Revert change regarding
+	CVS_SERVER_SLEEP*; having that kind of debugging code in the main
+	CVS is getting out of hand.
+
+1998-09-01  Noel Cragg  <noel@swish.red-bean.com>
+
+	* cvs.texinfo (Multiple repositories): brief mention that cvs now
+	handles a working directory composed of multiple repositories.
+	(Environment variables): add note about CVS_SERVER_SLEEP2.
+
+1998-08-21  Ian Lance Taylor  <ian@cygnus.com>
+
+	* cvsclient.texi (Text tags): Document importmergecmd tag.
+
+1998-08-20  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvs.texinfo (Common options): Replace out of date URL concerning
+	ISO8601 dates with a more general statement and a few comments.
+
+1998-08-18  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* cvsclient.texi (Requests): Add "Checkin-time" request.
+
 Sun Jul 26 02:42:20 1998  Noel Cragg  <noel@swish.red-bean.com>
 
 	* cvs.texinfo (config): TopLevelAdmin variable.
@@ -134,12 +1818,6 @@ Sun Jul 26 02:42:20 1998  Noel Cragg  <noel@swish.red-bean.com>
 1998-02-18  Jim Kingdon  <kingdon@harvey.cyclic.com>
 
 	* cvs.texinfo (user-defined logging): Add taginfo example.
-
-Wed Feb 11 23:32:45 PST 1998  Wilfredo Sanchez  <wsanchez@apple.com>
-
-	* Makefile.in: Set infodir to get value from configure (@infodir@).
-
-	* Makefile.in: Add html target using texi2html.
 
 1998-02-04  Tim Pierce  <twp@skepsis.com>
 

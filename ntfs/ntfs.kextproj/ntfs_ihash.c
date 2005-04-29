@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 /*	$NetBSD: ntfs_ihash.c,v 1.5 1999/09/30 16:56:40 jdolecek Exp $	*/
 
 /*
@@ -43,17 +67,9 @@
 #include <sys/vnode.h>
 #include <sys/malloc.h>
 #include <sys/mount.h>
-#ifdef APPLE
 #include "ntfs.h"
 #include "ntfs_inode.h"
 #include "ntfs_ihash.h"
-#else
-#include <sys/mutex.h>
-
-#include <fs/ntfs/ntfs.h>
-#include <fs/ntfs/ntfs_inode.h>
-#include <fs/ntfs/ntfs_ihash.h>
-#endif
 
 MALLOC_DEFINE(M_NTFSNTHASH, "NTFS nthash", "NTFS ntnode hash tables");
 
@@ -63,47 +79,38 @@ MALLOC_DEFINE(M_NTFSNTHASH, "NTFS nthash", "NTFS ntnode hash tables");
 static LIST_HEAD(nthashhead, ntnode) *ntfs_nthashtbl;
 static u_long	ntfs_nthash;		/* size of hash table - 1 */
 #define	NTNOHASH(device, inum)	(&ntfs_nthashtbl[(minor(device) + (inum)) & ntfs_nthash])
-#ifdef APPLE
-static struct slock ntfs_nthash_mtx;
-struct lock__bsd__ ntfs_hashlock;
-#else
-static struct mtx ntfs_nthash_mtx;
-struct lock ntfs_hashlock;
-#endif
+
+/*
+ * The lock group for ntnodes.
+ */
+lck_grp_t *ntfs_lck_grp;
+lck_grp_attr_t *ntfs_lck_grp_attr;
 
 /*
  * Initialize inode hash table.
  */
+__private_extern__
 void
 ntfs_nthashinit()
 {
-	lockinit(&ntfs_hashlock, PINOD, "ntfs_nthashlock", 0, 0);
 	ntfs_nthashtbl = hashinit(desiredvnodes, M_NTFSNTHASH, &ntfs_nthash);
-#ifdef APPLE
-	simple_lock_init(&ntfs_nthash_mtx);
-#else
-	mtx_init(&ntfs_nthash_mtx, "ntfs nthash", NULL, MTX_DEF);
-#endif
 }
 
 /*
  * Destroy inode hash table.
  */
+__private_extern__
 void
 ntfs_nthashdestroy(void)
 {
-#ifdef APPLE
-	/* On Darwin, there are no routines to destroy a lock. */
-#else
-	lockdestroy(&ntfs_hashlock);
-	mtx_destroy(&ntfs_nthash_mtx);
-#endif
+	/* Nothing to do */
 }
 
 /*
  * Use the device/inum pair to find the incore inode, and return a pointer
  * to it. If it is in core, return it, even if it is locked.
  */
+__private_extern__
 struct ntnode *
 ntfs_nthashlookup(dev, inum)
 	dev_t dev;
@@ -111,19 +118,9 @@ ntfs_nthashlookup(dev, inum)
 {
 	struct ntnode *ip;
 
-#ifdef APPLE
-	simple_lock(&ntfs_nthash_mtx);
-#else
-	mtx_lock(&ntfs_nthash_mtx);
-#endif
 	LIST_FOREACH(ip, NTNOHASH(dev, inum), i_hash)
 		if (inum == ip->i_number && dev == ip->i_dev)
 			break;
-#ifdef APPLE
-	simple_unlock(&ntfs_nthash_mtx);
-#else
-	mtx_unlock(&ntfs_nthash_mtx);
-#endif
 
 	return (ip);
 }
@@ -131,46 +128,28 @@ ntfs_nthashlookup(dev, inum)
 /*
  * Insert the ntnode into the hash table.
  */
+__private_extern__
 void
 ntfs_nthashins(ip)
 	struct ntnode *ip;
 {
 	struct nthashhead *ipp;
 
-#ifdef APPLE
-	simple_lock(&ntfs_nthash_mtx);
-#else
-	mtx_lock(&ntfs_nthash_mtx);
-#endif
 	ipp = NTNOHASH(ip->i_dev, ip->i_number);
 	LIST_INSERT_HEAD(ipp, ip, i_hash);
 	ip->i_flag |= IN_HASHED;
-#ifdef APPLE
-	simple_unlock(&ntfs_nthash_mtx);
-#else
-	mtx_unlock(&ntfs_nthash_mtx);
-#endif
 }
 
 /*
  * Remove the inode from the hash table.
  */
+__private_extern__
 void
 ntfs_nthashrem(ip)
 	struct ntnode *ip;
 {
-#ifdef APPLE
-	simple_lock(&ntfs_nthash_mtx);
-#else
-	mtx_lock(&ntfs_nthash_mtx);
-#endif
 	if (ip->i_flag & IN_HASHED) {
 		ip->i_flag &= ~IN_HASHED;
 		LIST_REMOVE(ip, i_hash);
 	}
-#ifdef APPLE
-	simple_unlock(&ntfs_nthash_mtx);
-#else
-	mtx_unlock(&ntfs_nthash_mtx);
-#endif
 }

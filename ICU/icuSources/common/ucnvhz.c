@@ -1,6 +1,6 @@
 /*  
 **********************************************************************
-*   Copyright (C) 2000-2003, International Business Machines
+*   Copyright (C) 2000-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  ucnvhz.c
@@ -16,10 +16,9 @@
 
 #include "unicode/utypes.h"
 
-#if !UCONFIG_NO_LEGACY_CONVERSION
+#if !UCONFIG_NO_CONVERSION && !UCONFIG_NO_LEGACY_CONVERSION
 
 #include "cmemory.h"
-#include "unicode/ucnv_err.h"
 #include "unicode/ucnv.h"
 #include "unicode/ucnv_cb.h"
 #include "unicode/uset.h"
@@ -69,7 +68,7 @@ _HZOpen(UConverter *cnv, const char *name,const char *locale,uint32_t options, U
     cnv->toUnicodeStatus = 0;
     cnv->fromUnicodeStatus= 0;
     cnv->mode=0;
-    cnv->fromUSurrogateLead=0x0000;
+    cnv->fromUChar32=0x0000;
     cnv->extraInfo = uprv_malloc (sizeof (UConverterDataHZ));
     if(cnv->extraInfo != NULL){
         ((UConverterDataHZ*)cnv->extraInfo)->gbConverter = ucnv_open("ibm-1386",errorCode);
@@ -108,7 +107,7 @@ _HZReset(UConverter *cnv, UConverterResetChoice choice){
     }
     if(choice!=UCNV_RESET_TO_UNICODE) {
         cnv->fromUnicodeStatus= 0;
-        cnv->fromUSurrogateLead=0x0000; 
+        cnv->fromUChar32=0x0000; 
         if(cnv->extraInfo != NULL){
             ((UConverterDataHZ*)cnv->extraInfo)->isEscapeAppended = FALSE;
             ((UConverterDataHZ*)cnv->extraInfo)->targetIndex = 0;
@@ -142,22 +141,20 @@ _HZReset(UConverter *cnv, UConverterResetChoice choice){
 static void 
 UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
                                                             UErrorCode* err){
-    char tempBuf[3];
-    const char* pBuf;
+    char tempBuf[2];
     const char *mySource = ( char *) args->source;
     UChar *myTarget = args->target;
-    char *tempLimit = &tempBuf[3]; 
     const char *mySourceLimit = args->sourceLimit;
     UChar32 targetUniChar = 0x0000;
     UChar mySourceChar = 0x0000;
     UConverterDataHZ* myData=(UConverterDataHZ*)(args->converter->extraInfo);
        
-    if ((args->converter == NULL) || (args->targetLimit < args->target) || (args->sourceLimit < args->source)){
+    if ((args->converter == NULL) || (args->targetLimit < args->target) || (mySourceLimit < args->source)){
         *err = U_ILLEGAL_ARGUMENT_ERROR;
         return;
     }
     
-    while(mySource< args->sourceLimit){
+    while(mySource< mySourceLimit){
         
         if(myTarget < args->targetLimit){
             
@@ -234,19 +231,14 @@ UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
                     tempBuf[1] = (char) (mySourceChar+0x80);
                     mySourceChar= (UChar)(((args->converter->toUnicodeStatus+0x80) << 8) | ((mySourceChar & 0x00ff)+0x80));
                     args->converter->toUnicodeStatus =0x00;
-                    pBuf = &tempBuf[0];
-                    tempLimit = &tempBuf[2]+1;
-                    targetUniChar = _MBCSSimpleGetNextUChar(myData->gbConverter->sharedData,
-                        &pBuf,tempLimit,args->converter->useFallback);
+                    targetUniChar = ucnv_MBCSSimpleGetNextUChar(myData->gbConverter->sharedData,
+                        tempBuf, 2, args->converter->useFallback);
                 }
             }
             else{
                 if(args->converter->fromUnicodeStatus == 0x00){
-                    tempBuf[0] = (char) mySourceChar;
-                    pBuf = &tempBuf[0];
-                    tempLimit = &tempBuf[1];
-                    targetUniChar = _MBCSSimpleGetNextUChar(myData->gbConverter->sharedData,
-                        &pBuf,tempLimit,args->converter->useFallback);
+                    targetUniChar = ucnv_MBCSSimpleGetNextUChar(myData->gbConverter->sharedData,
+                        mySource - 1, 1, args->converter->useFallback);
                 }
                 else{
                     goto SAVE_STATE;
@@ -262,80 +254,28 @@ UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
             }
             else if(targetUniChar>=0xfffe){
 SAVE_STATE:
-                {
-                   const char *saveSource = args->source;
-                    UChar *saveTarget = args->target; 
-                    int32_t *saveOffsets = args->offsets;
-                    
-                    UConverterCallbackReason reason;
-                    int32_t currentOffset ;
-                    int32_t saveIndex = (int32_t)(myTarget - args->target);
-
-                    args->converter->invalidCharLength=0;
-                   
-                    if(targetUniChar == 0xfffe){
-                        reason = UCNV_UNASSIGNED;
-                        *err = U_INVALID_CHAR_FOUND;
-                    }
-                    else{
-                        reason = UCNV_ILLEGAL;
-                        *err = U_ILLEGAL_CHAR_FOUND;
-                    }
-                    if(myData->isStateDBCS){
-
-                        args->converter->invalidCharBuffer[args->converter->invalidCharLength++] = (char)(tempBuf[0]-0x80);
-                        args->converter->invalidCharBuffer[args->converter->invalidCharLength++] = (char)(tempBuf[1]-0x80);
-                        currentOffset= (int32_t)(mySource - args->source -2);
-                    
-                    }
-                    else{
-                        args->converter->invalidCharBuffer[args->converter->invalidCharLength++] = (char)mySourceChar;
-                        currentOffset= (int32_t)(mySource - args->source -1);
-                    }
-                    args->offsets = args->offsets?args->offsets+(myTarget - args->target):0;
-                    args->target = myTarget;
-                    args->source = mySource;
-                    myTarget = saveTarget;
-                    args->converter->fromCharErrorBehaviour ( 
-                         args->converter->toUContext, 
-                         args, 
-                         args->converter->invalidCharBuffer, 
-                         args->converter->invalidCharLength, 
-                         reason, 
-                         err); 
-
-                    if(args->offsets){
-                        args->offsets = saveOffsets; 
-
-                        for (;saveIndex < (args->target - myTarget);saveIndex++) {
-                          args->offsets[saveIndex] += currentOffset;
-                        } 
-                    }
-                    args->source  = saveSource;
-                    myTarget = args->target;
-                    args->target  = saveTarget;
-                    args->offsets = saveOffsets;
-                    if(U_FAILURE(*err))
-                        break;
+                if(targetUniChar == 0xfffe){
+                    *err = U_INVALID_CHAR_FOUND;
                 }
+                else{
+                    *err = U_ILLEGAL_CHAR_FOUND;
+                }
+                if(myData->isStateDBCS){
+                    args->converter->toUBytes[0] = (uint8_t)(tempBuf[0]-0x80);
+                    args->converter->toUBytes[1] = (uint8_t)(tempBuf[1]-0x80);
+                    args->converter->toULength=2;
+                }
+                else{
+                    args->converter->toUBytes[0] = (uint8_t)mySourceChar;
+                    args->converter->toULength=1;
+                }
+                break;
             }
         }
         else{
             *err =U_BUFFER_OVERFLOW_ERROR;
             break;
         }
-    }
-    if((args->flush==TRUE)
-        && (mySource == mySourceLimit) 
-        && ( args->converter->toUnicodeStatus !=0x00)){
-            *err = U_TRUNCATED_CHAR_FOUND;
-            args->converter->toUnicodeStatus = 0x00;
-    }
-    /* Reset the state of converter if we consumed 
-     * the source and flush is true
-     */
-    if( (mySource == mySourceLimit) && args->flush){
-         _HZReset(args->converter, UCNV_RESET_TO_UNICODE);
     }
 
     args->target = myTarget;
@@ -347,11 +287,11 @@ static void
 UConverter_fromUnicode_HZ_OFFSETS_LOGIC (UConverterFromUnicodeArgs * args,
                                                       UErrorCode * err){
     const UChar *mySource = args->source;
-    unsigned char *myTarget = (unsigned char *) args->target;
+    char *myTarget = args->target;
     int32_t* offsets = args->offsets;
     int32_t mySourceIndex = 0;
     int32_t myTargetIndex = 0;
-    int32_t targetLength = (int32_t)(args->targetLimit - args->target);
+    int32_t targetLength = (int32_t)(args->targetLimit - myTarget);
     int32_t mySourceLength = (int32_t)(args->sourceLimit - args->source);
     int32_t length=0;
     uint32_t targetUniChar = 0x0000;
@@ -359,16 +299,15 @@ UConverter_fromUnicode_HZ_OFFSETS_LOGIC (UConverterFromUnicodeArgs * args,
     UConverterDataHZ *myConverterData=(UConverterDataHZ*)args->converter->extraInfo;
     UBool isTargetUCharDBCS = (UBool) myConverterData->isTargetUCharDBCS;
     UBool oldIsTargetUCharDBCS = isTargetUCharDBCS;
-    UConverterCallbackReason reason;
     UBool isEscapeAppended =FALSE;
     int len =0;
     const char* escSeq=NULL;
     
-    if ((args->converter == NULL) || (args->targetLimit < args->target) || (args->sourceLimit < args->source)){
+    if ((args->converter == NULL) || (args->targetLimit < myTarget) || (args->sourceLimit < args->source)){
         *err = U_ILLEGAL_ARGUMENT_ERROR;
         return;
     }
-    if(args->converter->fromUSurrogateLead!=0 && myTargetIndex < targetLength) {
+    if(args->converter->fromUChar32!=0 && myTargetIndex < targetLength) {
         goto getTrail;
     }
     /*writing the char to the output stream */
@@ -376,7 +315,7 @@ UConverter_fromUnicode_HZ_OFFSETS_LOGIC (UConverterFromUnicodeArgs * args,
         targetUniChar = missingCharMarker;
         if (myTargetIndex < targetLength){
             
-            c=mySourceChar = (UChar) args->source[mySourceIndex++];
+            c=mySourceChar = (UChar) mySource[mySourceIndex++];
             
 
             oldIsTargetUCharDBCS = isTargetUCharDBCS;
@@ -388,7 +327,7 @@ UConverter_fromUnicode_HZ_OFFSETS_LOGIC (UConverterFromUnicodeArgs * args,
                 continue;
             }
             else{
-                length= _MBCSFromUChar32(myConverterData->gbConverter->sharedData,
+                length= ucnv_MBCSFromUChar32(myConverterData->gbConverter->sharedData,
                     mySourceChar,&targetUniChar,args->converter->useFallback);
 
             }
@@ -418,12 +357,12 @@ UConverter_fromUnicode_HZ_OFFSETS_LOGIC (UConverterFromUnicodeArgs * args,
             
                 if(isTargetUCharDBCS){
                     if( myTargetIndex <targetLength){
-                        args->target[myTargetIndex++] =(char) ((targetUniChar >> 8) -0x80);
+                        myTarget[myTargetIndex++] =(char) ((targetUniChar >> 8) -0x80);
                         if(offsets){
                             *(offsets++) = mySourceIndex-1;
                         }
                         if(myTargetIndex < targetLength){
-                            args->target[myTargetIndex++] =(char) ((targetUniChar & 0x00FF) -0x80);
+                            myTarget[myTargetIndex++] =(char) ((targetUniChar & 0x00FF) -0x80);
                             if(offsets){
                                 *(offsets++) = mySourceIndex-1;
                             }
@@ -439,7 +378,7 @@ UConverter_fromUnicode_HZ_OFFSETS_LOGIC (UConverterFromUnicodeArgs * args,
 
                 }else{
                     if( myTargetIndex <targetLength){
-                        args->target[myTargetIndex++] = (char) (targetUniChar );
+                        myTarget[myTargetIndex++] = (char) (targetUniChar );
                         if(offsets){
                             *(offsets++) = mySourceIndex-1;
                         }
@@ -452,16 +391,12 @@ UConverter_fromUnicode_HZ_OFFSETS_LOGIC (UConverterFromUnicodeArgs * args,
 
             }
             else{
-                /* oops.. the code point is unassingned
-                 * set the error and reason
-                 */
-                reason =UCNV_UNASSIGNED;
-                *err =U_INVALID_CHAR_FOUND;
+                /* oops.. the code point is unassigned */
                 /*Handle surrogates */
                 /*check if the char is a First surrogate*/
                 if(UTF_IS_SURROGATE(mySourceChar)) {
                     if(UTF_IS_SURROGATE_FIRST(mySourceChar)) {
-                        args->converter->fromUSurrogateLead=(UChar)mySourceChar;
+                        args->converter->fromUChar32=mySourceChar;
 getTrail:
                         /*look ahead to find the trail surrogate*/
                         if(mySourceIndex <  mySourceLength) {
@@ -469,87 +404,32 @@ getTrail:
                             UChar trail=(UChar) args->source[mySourceIndex];
                             if(UTF_IS_SECOND_SURROGATE(trail)) {
                                 ++mySourceIndex;
-                                mySourceChar=UTF16_GET_PAIR_VALUE(args->converter->fromUSurrogateLead, trail);
-                                args->converter->fromUSurrogateLead=0x00;
+                                mySourceChar=UTF16_GET_PAIR_VALUE(args->converter->fromUChar32, trail);
+                                args->converter->fromUChar32=0x00;
                                 /* there are no surrogates in GB2312*/
                                 *err = U_INVALID_CHAR_FOUND;
-                                reason=UCNV_UNASSIGNED;
                                 /* exit this condition tree */
                             } else {
                                 /* this is an unmatched lead code unit (1st surrogate) */
                                 /* callback(illegal) */
-                                reason=UCNV_ILLEGAL;
                                 *err=U_ILLEGAL_CHAR_FOUND;
                             }
                         } else {
                             /* no more input */
                             *err = U_ZERO_ERROR;
-                            break;
                         }
                     } else {
                         /* this is an unmatched trail code unit (2nd surrogate) */
                         /* callback(illegal) */
-                        reason=UCNV_ILLEGAL;
                         *err=U_ILLEGAL_CHAR_FOUND;
                     }
+                } else {
+                    /* callback(unassigned) for a BMP code point */
+                    *err = U_INVALID_CHAR_FOUND;
                 }
 
-                {
-                    int32_t saveIndex=0;
-                    int32_t currentOffset = (args->offsets) ? *(offsets-1)+1:0;
-                    char * saveTarget = args->target;
-                    const UChar* saveSource = args->source;
-                    int32_t *saveOffsets = args->offsets;
-
-                    args->converter->invalidUCharLength = 0;
-
-                    if(mySourceChar>0xffff){
-                        args->converter->invalidUCharBuffer[args->converter->invalidUCharLength++] =(uint16_t)(((mySourceChar)>>10)+0xd7c0);
-                        args->converter->invalidUCharBuffer[args->converter->invalidUCharLength++] =(uint16_t)(((mySourceChar)&0x3ff)|0xdc00);
-                    }
-                    else{
-                        args->converter->invalidUCharBuffer[args->converter->invalidUCharLength++] =(UChar)mySourceChar;
-                    }
-                
-                    myConverterData->isTargetUCharDBCS = (UBool)isTargetUCharDBCS;
-                    args->target += myTargetIndex;
-                    args->source += mySourceIndex;
-                    args->offsets = args->offsets?offsets:0;
-                    
-
-                    saveIndex = myTargetIndex; 
-                    /*copies current values for the ErrorFunctor to update */ 
-                    /*Calls the ErrorFunctor */ 
-                    args->converter->fromUCharErrorBehaviour ( args->converter->fromUContext, 
-                                  args, 
-                                  args->converter->invalidUCharBuffer, 
-                                  args->converter->invalidUCharLength, 
-                                 (UChar32) (mySourceChar), 
-                                  reason, 
-                                  err);
-                    /*Update the local Indexes so that the conversion 
-                    *can restart at the right points 
-                    */ 
-                    myTargetIndex = (int32_t)(args->target - (char*)myTarget);
-                    mySourceIndex = (int32_t)(args->source - mySource);
-                    args->offsets = saveOffsets; 
-                    saveIndex = myTargetIndex - saveIndex;
-                    if(args->offsets){
-                        args->offsets = saveOffsets; 
-                        while(saveIndex-->0){
-                             *offsets = currentOffset;
-                              offsets++;
-                        }
-                    }
-                    isTargetUCharDBCS=myConverterData->isTargetUCharDBCS;
-                    args->source = saveSource;
-                    args->target = saveTarget;
-                    args->offsets = saveOffsets;
-                    args->converter->fromUSurrogateLead=0x00;
-                    if (U_FAILURE (*err))
-                        break;
-
-                }
+                args->converter->fromUChar32=mySourceChar;
+                break;
             }
         }
         else{
@@ -557,19 +437,6 @@ getTrail:
             break;
         }
         targetUniChar=missingCharMarker;
-    }
-    /*If at the end of conversion we are still carrying state information
-     *flush is TRUE, we can deduce that the input stream is truncated
-     */
-    if (args->converter->fromUSurrogateLead !=0 && (mySourceIndex == mySourceLength) && args->flush){
-        *err = U_TRUNCATED_CHAR_FOUND;
-        args->converter->toUnicodeStatus = 0x00;
-    }
-    /* Reset the state of converter if we consumed 
-     * the source and flush is true
-     */
-    if( (mySourceIndex == mySourceLength) && args->flush){
-        _HZReset(args->converter, UCNV_RESET_FROM_UNICODE);
     }
 
     args->target += myTargetIndex;
@@ -598,7 +465,7 @@ _HZ_WriteSub(UConverterFromUnicodeArgs *args, int32_t offsetIndex, UErrorCode *e
 }
 
 /* structure for SafeClone calculations */
-struct cloneStruct
+struct cloneHZStruct
 {
     UConverter cnv;
     UAlignedMemory deadSpace1;
@@ -614,8 +481,8 @@ _HZ_SafeClone(const UConverter *cnv,
               int32_t *pBufferSize, 
               UErrorCode *status)
 {
-    struct cloneStruct * localClone;
-    int32_t size, bufferSizeNeeded = sizeof(struct cloneStruct);
+    struct cloneHZStruct * localClone;
+    int32_t size, bufferSizeNeeded = sizeof(struct cloneHZStruct);
 
     if (U_FAILURE(*status)){
         return 0;
@@ -626,9 +493,8 @@ _HZ_SafeClone(const UConverter *cnv,
         return 0;
     }
 
-    localClone = (struct cloneStruct *)stackBuffer;
+    localClone = (struct cloneHZStruct *)stackBuffer;
     uprv_memcpy(&localClone->cnv, cnv, sizeof(UConverter));
-    localClone->cnv.isCopyLocal = TRUE;
 
     uprv_memcpy(&localClone->mydata, cnv->extraInfo, sizeof(UConverterDataHZ));
     localClone->cnv.extraInfo = &localClone->mydata;
@@ -644,17 +510,17 @@ _HZ_SafeClone(const UConverter *cnv,
 
 static void
 _HZ_GetUnicodeSet(const UConverter *cnv,
-                  USet *set,
+                  USetAdder *sa,
                   UConverterUnicodeSet which,
                   UErrorCode *pErrorCode) {
     /* the tilde '~' is hardcoded in the converter */
-    uset_add(set, 0x7e);
+    sa->add(sa->set, 0x7e);
 
     /* add all of the code points that the sub-converter handles */
     ((UConverterDataHZ*)cnv->extraInfo)->
         gbConverter->sharedData->impl->
             getUnicodeSet(((UConverterDataHZ*)cnv->extraInfo)->gbConverter,
-                          set, which, pErrorCode);
+                          sa, which, pErrorCode);
 }
 
 static const UConverterImpl _HZImpl={

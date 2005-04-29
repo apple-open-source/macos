@@ -1,3 +1,30 @@
+2004-06-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* getuid.c: Don't test __MWERKS__.
+	* syslog.c: Don't test macintosh.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (MACSRCS): Don't set.
+
+2004-02-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* daemon.c: Moved to util/apputils.
+
+2003-08-21  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (STLIBOBJS, OBJS): Empty.
+
+2003-08-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (OBJS, STLIBOBJS): Drop setenv.o.
+	* setenv.c: Deleted.
+	* pos-obsolete.h: Deleted.
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME, LIBOJS) [##WIN16##]: Don't define.
+
 2003-01-10  Ken Raeburn  <raeburn@mit.edu>
 
 	* Makefile.in: Add AC_SUBST_FILE marker for libobj_frag.

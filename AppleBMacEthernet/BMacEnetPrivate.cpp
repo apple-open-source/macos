@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -86,9 +83,6 @@ static u_int8_t reverseBitOrder(u_int8_t data )
 
 bool BMacEnet::_allocateMemory()
 {
-	IOReturn	ior;
-
-
 		/* Calculate total space for DMA channel commands:	*/
 
     dmaCommandsSize	= round_page(
@@ -96,25 +90,24 @@ bool BMacEnet::_allocateMemory()
 					+ TX_RING_LENGTH * sizeof (enet_txdma_cmd_t )
 					+ 2 * sizeof( IODBDMADescriptor ) );
 
-	dmaCommands	= (UInt8*)IOMallocContiguous( dmaCommandsSize, PAGE_SIZE, 0 );
+    dmaCommandsDesc	= IOBufferMemoryDescriptor::withOptions(	kIOMemoryPhysicallyContiguous,
+																dmaCommandsSize,
+																PAGE_SIZE );
 
-	if ( dmaCommands == NULL )
+	if ( dmaCommandsDesc == NULL )
 	{
 		IOLog( "BMacEnet::_allocateMemory: Cannot allocate channel DBDMA commands\n" );
 		return false;
 	}
+	dmaCommandsDesc->prepare( kIODirectionOutIn );
 
-	dmaCommandsDesc = IOMemoryDescriptor::withAddress(	(vm_address_t)dmaCommands,
-														dmaCommandsSize,
-														kIODirectionOutIn,
-														kernel_task );
-	dmaCommandsPhys = dmaCommandsDesc->getPhysicalAddress();
+	dmaCommands		= (UInt8*)dmaCommandsDesc->getBytesNoCopy();	// get virtual address
+	dmaCommandsPhys	= dmaCommandsDesc->getPhysicalAddress();		// may be DART address
     if ( dmaCommandsPhys == 0 )
 	{
         IOLog( "BMacEnet::_allocateMemory - Cannot get DBDMA commands physical address.\n" );
 		return false;
 	}
-	ior = dmaCommandsDesc->prepare( kIODirectionOutIn );
 
     /* 
      * Setup the receive ring pointers
@@ -443,7 +436,14 @@ void BMacEnet::_resetChip()
     IOSleep( 10 );
 
 	chipId = ReadBigMacRegister(ioBaseEnet, kCHIPID) & 0xFF;
-}
+	if ( chipId >= kCHIPID_PaddingtonXmitStreaming
+	 &&  (phyType & MII_DP83843_MASK) == MII_DP83843_ID )
+	{
+		chipId = kCHIPID_Paddington;
+	}
+	return;
+}/* end _resetChip */
+
 
 /*-------------------------------------------------------------------------
  *
@@ -703,7 +703,7 @@ void BMacEnet::_stopTransmitDMA()
  *
  *-------------------------------------------------------------------------*/
 
-bool BMacEnet::_transmitPacket(struct mbuf *packet)
+bool BMacEnet::_transmitPacket( mbuf_t packet )
 {
     enet_dma_cmd_t	tmpCommand;
     u_int32_t		i;
@@ -721,8 +721,7 @@ bool BMacEnet::_transmitPacket(struct mbuf *packet)
     i = txCommandTail + 1;
     if ( i >= txMaxCommand ) i = 0;
     
-	if ( (i == txCommandHead) ||
-		!_updateDescriptorFromMbuf(packet, &tmpCommand, false) )
+	if ( (i == txCommandHead) || !_updateDescriptorFromMbuf( packet, &tmpCommand, false ) )
     {
 		IOLog( "BMacEnet::_transmitPacket: Freeing transmit packet eh?\n" );
 		if (packet != txDebuggerPkt)
@@ -807,11 +806,13 @@ void BMacEnet::_receivePacket(void *pkt, unsigned int *pkt_len,
  * It also sets the var debuggerPktSize which will break the polling loop.
  *-------------------------------------------------------------------------*/
 
-void BMacEnet::_packetToDebugger(struct mbuf * packet, u_int size)
+void BMacEnet::_packetToDebugger( mbuf_t packet, u_int size )
 {
     debuggerPktSize = size;
-    bcopy( mtod(packet, char *), debuggerPkt, size );
-}
+    bcopy( (char*)mbuf_data( packet ), debuggerPkt, size );
+	return;
+}/* end _packetToDebugger */
+
 
 /*-------------------------------------------------------------------------
  * _sendPacket
@@ -845,14 +846,15 @@ void BMacEnet::_sendPacket(void *pkt, unsigned int pkt_len)
 	
 	if ( txCommandHead != txCommandTail )
 	{
-		IOLog( "BMacEnet::_sendPacket: Polled tranmit timeout - 1\n" );
+		IOLog( "BMacEnet::_sendPacket: Polled transmit timeout - 1\n" );
 		return;
     }
 
 		/* Recycle the same buffer dedicated to KDB transmit.	*/
 
-	bcopy( pkt, txDebuggerPkt->m_data, pkt_len );
-	txDebuggerPkt->m_pkthdr.len = txDebuggerPkt->m_len = pkt_len;
+	bcopy( pkt, (char*)mbuf_data( txDebuggerPkt ), pkt_len );
+	mbuf_setlen( txDebuggerPkt, pkt_len );
+	mbuf_pkthdr_setlen( txDebuggerPkt, pkt_len );
 
     /*
      * Send the debugger packet. txDebuggerPkt must not be freed by
@@ -874,7 +876,7 @@ void BMacEnet::_sendPacket(void *pkt, unsigned int pkt_len)
 
     if ( txCommandHead != txCommandTail )
     {
-		IOLog( "BMacEnet::_sendPacket: Polled tranmit timeout - 2\n" );
+		IOLog( "BMacEnet::_sendPacket: Polled transmit timeout - 2\n" );
     }
 
     return;
@@ -951,9 +953,9 @@ bool BMacEnet::_rejectBadUnicastPacket(struct ether_header * etherHeader)
 bool BMacEnet::_receivePackets(bool fDebugger)
 {
     enet_dma_cmd_t      tmpCommand;
-    struct mbuf *		packet;
+    mbuf_t				packet;
     u_int32_t           i, j, last;
-    int					receivedFrameSize = 0;
+	long unsigned int	receivedFrameSize = 0;
     u_int32_t           dmaCount[2], dmaResid[2], dmaStatus[2];
     u_int32_t			dmaChnlStatus;
     u_int16_t           rxPktStatus = 0;
@@ -1013,8 +1015,7 @@ bool BMacEnet::_receivePackets(bool fDebugger)
 			/*
 			 * Get the receive frame size as reported by the BMac controller
 			 */
-			rxPktStatus =  *(u_int16_t *)(mtod(rxMbuf[i], u_int32_t) +
-				receivedFrameSize - 2);
+			rxPktStatus =  *(u_int16_t*)((char*)mbuf_data( rxMbuf[i] ) + receivedFrameSize - 2);
 			receivedFrameSize = rxPktStatus & kRxLengthMask;
 		}
 
@@ -1024,7 +1025,7 @@ bool BMacEnet::_receivePackets(bool fDebugger)
 		if ( receivedFrameSize < (kIOEthernetMinPacketSize - kIOEthernetCRCSize) || 
 			 receivedFrameSize > (kIOEthernetMaxPacketSize) ||
 			 rxPktStatus & kRxAbortBit ||
-			 _rejectBadUnicastPacket(mtod(rxMbuf[i], struct ether_header *))
+			_rejectBadUnicastPacket( (struct ether_header*)mbuf_data( rxMbuf[i] ) )
 			 )
 		{
 			if (useNetif) netStats->inputErrors++;
@@ -1416,20 +1417,17 @@ bool BMacEnet::_debugTransmitInterruptOccurred()
  *
  *-------------------------------------------------------------------------*/
 
-bool
-BMacEnet::_updateDescriptorFromMbuf(struct mbuf * m,  enet_dma_cmd_t *desc,
-		bool isReceive)
+bool BMacEnet::_updateDescriptorFromMbuf( mbuf_t m, enet_dma_cmd_t *desc, bool isReceive )
 {
     u_int32_t		nextDesc = 0;
 	u_int32_t		waitMask = 0;   
-	int 			segments;
+	UInt32 			segments;
 	struct IOPhysicalSegment segVector[2];
 
 	segments = mbufCursor->getPhysicalSegmentsWithCoalesce(m, segVector);
 	
 	if ((!segments) || (segments > 2)) {
-		IOLog( "BMac:_updateDescriptorFromMbuf error, %d segments\n", 
-			segments);
+		IOLog( "BMac:_updateDescriptorFromMbuf error, %d segments\n", (int)segments );
 		return false;
 	}
 

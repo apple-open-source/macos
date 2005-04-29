@@ -1,0 +1,165 @@
+BAD_CONFIG_FILE
+	"não compreendi o ficheiro %s\n"
+CONFIG_OPEN_ERROR
+	"Aviso: não consigo usar o ficheiro de configuração %s\n"
+PARSE_ERROR_IN_CONFIG
+	"Erro no ficheiro de configuração\n"
+INCOMPAT
+	"opções %s e %s incompatíveis\n"
+NO_ALTERNATE
+	"Desculpe - não dispõe de suporte para sistemas alternativos\n"
+NO_COMPRESS
+	"Man compilado com compressão automática mas\n\
+o ficheiro de configuração não define COMPRESS.\n"
+NO_NAME_FROM_SECTION
+	"Que manual pretende da secção %s?\n"
+NO_NAME_NO_SECTION
+	"Que manual pretende?\n"
+NO_SUCH_ENTRY_IN_SECTION
+	"Não existe a entrada %s na secção %s\n"
+NO_SUCH_ENTRY
+	"Não existe a entrada %s\n"
+PAGER_IS
+	"\nusando %s como paginador\n"
+SYSTEM_FAILED
+	"Erro num comando de processamento do manual.\n\
+O comando %s terminou com o erro %d.\n"
+VERSION
+	"%s, versão %s\n\n"
+OUT_OF_MEMORY
+	"Memória esgotada - não obtive %d bytes\n"
+ROFF_CMD_FROM_FILE_ERROR
+	"Erro no processamento de um comando *roff no ficheiro %s\n"
+MANROFFSEQ_ERROR
+	"Erro no processamento de MANROFFSEQ. Usando defaults.\n"
+ROFF_CMD_FROM_COMMANDLINE_ERROR
+	"Erro no processamento de um comando *roff na linha de comando.\n"
+UNRECOGNIZED_LINE
+	"Linha desconhecida no ficheiro de configuração (ignorada)\n%s\n"
+GETVAL_ERROR
+	"man-config.c: erro interno: não se encontra a string %s\n"
+FOUND_MANDIR
+	"directoria de man %s encontrada\n"
+FOUND_MAP
+	"encontrado o manpath para %s --> %s\n"
+FOUND_CATDIR
+	"catdir correspondente é %s\n"
+LINE_TOO_LONG
+	"Linha demasiado longa no ficheiro de configuração\n"
+SECTION
+	"\nsecção: %s\n"
+UNLINKED
+	"%s removido\n"
+GLOBBING
+	"expandindo %s\n"
+EXPANSION_FAILED
+	"Tentativa [%s] para descomprimir o manual falhada\n"
+OPEN_ERROR
+	"Não posso ler o manual %s\n"
+READ_ERROR
+	"Erro na leitura do manual %s\n"
+FOUND_EQN
+	"directiva eqn(1) encontrada\n"
+FOUND_GRAP
+	"directiva grap(1) encontrada\n"
+FOUND_PIC
+	"directiva pic(1) encontrada\n"
+FOUND_TBL
+	"directiva tbl(1) encontrada\n"
+FOUND_VGRIND
+	"directiva vgrind(1) encontrada\n"
+FOUND_REFER
+	"directiva refer(1) encontrada\n"
+ROFF_FROM_COMMAND_LINE
+	"processando directiva da linha de comando\n"
+ROFF_FROM_FILE
+	"processando directiva do ficheiro %s\n"
+ROFF_FROM_ENV
+	"processando directiva do environment\n"
+USING_DEFAULT
+	"usando o preprocessamento por omissão\n"
+PLEASE_WAIT
+	"Formatando manual, aguarde por favor ...\n"
+CHANGED_MODE
+	"altere as protecções de %s para %o\n"
+CAT_OPEN_ERROR
+	"Não consegui escrever em %s.\n"
+PROPOSED_CATFILE
+	"tentarei escrever %s se necessário\n"
+IS_NEWER_RESULT
+	"estado de is_newer() = %d\n"
+TRYING_SECTION
+	"tentando a secção %s\n"
+SEARCHING
+	"\nprocurando em %s\n"
+ALREADY_IN_MANPATH
+	"mas %s já está no manpath\n"
+CANNOT_STAT
+	"Aviso: não consigo o ficheiro %s!\n"
+IS_NO_DIR
+	"Aviso: %s não é uma directoria!\n"
+ADDING_TO_MANPATH
+	"acrescentando %s ao manpath\n"
+PATH_DIR
+	"\ndirectoria %s "
+IS_IN_CONFIG
+	"está no ficheiro de configuração\n"
+IS_NOT_IN_CONFIG
+	"não está no ficheiro de configuração\n"
+MAN_NEARBY
+	"mas existe uma directoria de man perto\n"
+NO_MAN_NEARBY
+	"e não foi encontrada directoria de man perto\n"
+ADDING_MANDIRS
+	"\nacrescentando directorias de man obrigatórias\n\n"
+CATNAME_IS
+	"cat_name de convert_to_cat () é: %s\n"
+NO_EXEC
+	"\nnão executando o comando:\n  %s\n"
+USAGE1
+	"uso: %s [-adfhktwW] [secção] [-M path] [-P paginador] [-S lista]\n\t"
+USAGE2
+	"[-m sistema] "
+USAGE3
+	"[-p string] nome ...\n\n"
+USAGE4
+	"  a : encontrar todas as entradas\n\
+  d : imprimir informação de debug\n\
+  f : o mesmo que whatis(1)\n\
+  h : imprimir esta ajuda\n\
+  k : o mesmo que apropos(1)\n"
+USAGE5
+	"  t : usar troff para formatar o manual para imprimir\n"
+USAGE6
+	"\
+  w : imprimir a localização do manual a vêr\n\
+      (se não indicar o nome: imprime as directorias dos manuais)\n\n\
+  M path      : indica `path' como as directorias dos manuais\n\
+  P paginador : use o programa `paginador' para vêr os manuais\n\
+  S lista     : indicar lista de secções (separadas por ,)\n"
+USAGE7
+	"  m sistema : procura manual para o sistema indicado\n"
+USAGE8
+	"  p string : string indica o preprocessamento a efectuar\n\
+               e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
+               g - grap(1)     r - refer(1)  v - vgrind(1)\n"
+USER_CANNOT_OPEN_CAT
+	""
+USER_CAN_OPEN_CAT
+	""
+CANNOT_FORK
+	""
+WAIT_FAILED
+	""
+GOT_WRONG_PID
+	""
+CHILD_TERMINATED_ABNORMALLY
+	""
+IDENTICAL
+	""
+MAN_FOUND
+	""
+NO_TROFF
+	""
+NO_CAT_FOR_NONSTD_LL
+	""

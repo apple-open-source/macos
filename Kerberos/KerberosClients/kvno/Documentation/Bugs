@@ -1,8 +1,8 @@
 ========================================================================
 kvno Bug List
 ========================================================================
-Current version:	1.0a1
-Date:				June , 2003
+Current version:	1.1fc2
+Date:				December 17, 2004
 Authors:			lxs@mit.edu
 ========================================================================
 
@@ -10,3 +10,6 @@ Authors:			lxs@mit.edu
 Bug #		Bug description										Fixed in
 ========================================================================
 
+[RT 2820] fixed kvno error handling                                1.1fc2
+[RT 2178] kvno should always get fresh credentials                 1.1b1
+[RT 2179] kvno should honor etype option                           1.1b1

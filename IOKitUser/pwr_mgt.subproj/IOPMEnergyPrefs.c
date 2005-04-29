@@ -28,8 +28,12 @@
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
+#include <IOKit/IOCFSerialize.h>
+#include <servers/bootstrap.h>
+#include <sys/syslog.h>
 #include "IOPMLib.h"
 #include "IOPMLibPrivate.h"
+#include "powermanagement.h"
 
 #include <IOKit/network/IOEthernetController.h>
 #include <IOKit/IOKitLib.h>
@@ -37,8 +41,25 @@
 #include <IOKit/network/IONetworkLib.h>
 #include <IOKit/network/IOEthernetInterface.h>
 
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/sysctl.h>
+#include <sys/mount.h>
+
+
 #define kIOPMPrefsPath			    CFSTR("com.apple.PowerManagement.xml")
 #define kIOPMAppName			    CFSTR("PowerManagement configd")
+
+// 2936060
+#ifndef kIODisplayDimAggressiveness
+#define kIODisplayDimAggressiveness iokit_family_err(sub_iokit_graphics, 3)
+#endif 
+
+#define kIOPMNumPMProfiles              5
 
 /* Default Energy Saver settings for IOPMCopyPMPreferences
  * 
@@ -55,6 +76,8 @@
 #define kACSleepOnPowerButton           1
 #define kACWakeOnClamshell              1
 #define kACWakeOnACChange               0
+#define kACReduceBrightness             0
+#define kACDisplaySleepUsesDim          1
 #define kACMobileMotionModule           1
 
 /*
@@ -71,12 +94,14 @@
 #define kBatterySleepOnPowerButton      0
 #define kBatteryWakeOnClamshell         1
 #define kBatteryWakeOnACChange          0
+#define kBatteryReduceBrightness        1
+#define kBatteryDisplaySleepUsesDim     1
 #define kBatteryMobileMotionModule      1
 
 /*
  *      UPS
  */
-#define kUPSMinutesToDim	             kACMinutesToDim
+#define kUPSMinutesToDim	         kACMinutesToDim
 #define kUPSMinutesToSpin                kACMinutesToSpin
 #define kUPSMinutesToSleep               kACMinutesToSleep
 #define kUPSWakeOnRing                   kACWakeOnRing
@@ -87,9 +112,12 @@
 #define kUPSSleepOnPowerButton           kACSleepOnPowerButton
 #define kUPSWakeOnClamshell              kACWakeOnClamshell
 #define kUPSWakeOnACChange               kACWakeOnACChange
+#define kUPSReduceBrightness             kACReduceBrightness
+#define kUPSDisplaySleepUsesDim          kACDisplaySleepUsesDim
 #define kUPSMobileMotionModule           kACMobileMotionModule
 
-#define kIOPMNumPMFeatures		12
+
+#define kIOPMNumPMFeatures		15
 
 static char *energy_features_array[kIOPMNumPMFeatures] = {
     kIOPMDisplaySleepKey, 
@@ -103,6 +131,8 @@ static char *energy_features_array[kIOPMNumPMFeatures] = {
     kIOPMSleepOnPowerButtonKey,
     kIOPMWakeOnClamshellKey,
     kIOPMWakeOnACChangeKey,
+    kIOPMReduceBrightnessKey,
+    kIOPMDisplaySleepUsesDimKey,
     kIOPMMobileMotionModuleKey
 };
 
@@ -118,6 +148,8 @@ static const unsigned int battery_defaults_array[] = {
     kBatterySleepOnPowerButton,
     kBatteryWakeOnClamshell,
     kBatteryWakeOnACChange,
+    kBatteryReduceBrightness,
+    kBatteryDisplaySleepUsesDim,
     kBatteryMobileMotionModule
 };
 
@@ -133,6 +165,8 @@ static const unsigned int ac_defaults_array[] = {
     kACSleepOnPowerButton,
     kACWakeOnClamshell,
     kACWakeOnACChange,
+    kACReduceBrightness,
+    kACDisplaySleepUsesDim,
     kACMobileMotionModule
 };
 
@@ -148,6 +182,8 @@ static const unsigned int ups_defaults_array[] = {
     kUPSSleepOnPowerButton,
     kUPSWakeOnClamshell,
     kUPSWakeOnACChange,
+    kUPSReduceBrightness,
+    kUPSDisplaySleepUsesDim,
     kUPSMobileMotionModule
 };
 
@@ -177,133 +213,37 @@ typedef struct {
     unsigned int        fSleepOnPowerButton;
     unsigned int        fWakeOnClamshell;
     unsigned int        fWakeOnACChange;
+    unsigned int        fDisplaySleepUsesDimming;
     unsigned int        fMobileMotionModule;
 } IOPMAggressivenessFactors;
 
-
-//****************************
-//****************************
-//****************************
-
-
-static CFArrayRef      _copySystemProvidedPreferences()
-{
-    io_registry_entry_t		    registry_entry;
-    io_iterator_t		        tmp;
-    CFTypeRef                   ret_type;
-    
-    IOServiceGetMatchingServices(NULL, IOServiceNameMatching("IOPMrootDomain"), &tmp);
-    registry_entry = IOIteratorNext(tmp);
-    IOObjectRelease(tmp);
-
-    ret_type = IORegistryEntryCreateCFProperty(registry_entry, CFSTR("SystemPowerProfiles"),
-            kCFAllocatorDefault, 0);
-
-    if(!isA_CFArray(ret_type)) ret_type = 0;
-
-    IOObjectRelease(registry_entry);
-    return (CFArrayRef)ret_type;
-}
-
-static void             _mergeUnspecifiedSettingsInto(
-    CFMutableDictionaryRef      mergee,
-    CFDictionaryRef             merger)
-{
-    int                         i;
-    int                         count;
-    CFStringRef                 *keys;
-    CFTypeRef                   *vals;
-    CFTypeRef                   safe_val;
-    CFNumberRef                 n1, n0;
-    
-    if(!isA_CFDictionary(mergee) || !isA_CFDictionary(merger)) return;
-
-    i=1;
-    n1 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &i);
-    i=0;
-    n0 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &i);
-    
-    count = CFDictionaryGetCount(merger);
-    keys = (CFStringRef *)malloc(sizeof(CFStringRef)*count);
-    vals = (CFTypeRef *)malloc(sizeof(CFTypeRef)*count);
-    if(!keys || !vals) return;
-    CFDictionaryGetKeysAndValues(merger, (void **)keys, (void **)vals);
-    for(i=0; i<count; i++)
-    {
-        if(isA_CFBoolean(vals[i])) {
-            safe_val = (kCFBooleanTrue == vals[i] ? n1:n0);
-        } else {
-            safe_val = vals[i];
-        }
-        // Convert any booleans to numbers
-        CFDictionaryAddValue(mergee, keys[i], safe_val);    
-    }
-    free(keys);
-    free(vals);
-}
+Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void **bytes,
+				CFIndex *length, CFIndex maxLength);
 
 static int getDefaultEnergySettings(CFMutableDictionaryRef sys)
 {
-    CFMutableDictionaryRef 	            batt = NULL;
-    CFMutableDictionaryRef 	            ac = NULL;
-    CFMutableDictionaryRef 	            ups = NULL;
-    CFArrayRef                          platform_defaults = NULL;
-    int                                 i;
-    CFNumberRef                         val;
-    CFStringRef                         key;
+    CFMutableDictionaryRef 	batt = NULL;
+    CFMutableDictionaryRef 	ac = NULL;
+    CFMutableDictionaryRef 	ups = NULL;
+    int			i;
+    CFNumberRef		val;
+    CFStringRef		key;
 
 
-    // Use pre-existing battery dictionary if possible
-    if((batt=(CFMutableDictionaryRef)CFDictionaryGetValue(sys, CFSTR(kIOPMBatteryPowerKey))))
-      {
-        CFRetain(batt);   // So the CFRelease at the end of the function is OK
-      } else {
-        // If no pre-existing prefs dictionary, create one
-        batt = CFDictionaryCreateMutable(kCFAllocatorDefault, 
-					 0,  &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-      };
+    batt=(CFMutableDictionaryRef)CFDictionaryGetValue(sys, CFSTR(kIOPMBatteryPowerKey));
+    ac=(CFMutableDictionaryRef)CFDictionaryGetValue(sys, CFSTR(kIOPMACPowerKey));
+    ups=(CFMutableDictionaryRef)CFDictionaryGetValue(sys, CFSTR(kIOPMUPSPowerKey));
+
+    /*
+     * Note that in the following "poplulation" loops, we're using CFDictionaryAddValue rather
+     * than CFDictionarySetValue. If a value is already present AddValue will not replace it.
+     */
     
-    if((ac=(CFMutableDictionaryRef)CFDictionaryGetValue(sys, CFSTR(kIOPMACPowerKey))))
-      {
-        CFRetain(ac);
-      } else {
-        ac = CFDictionaryCreateMutable(kCFAllocatorDefault,
-				       0,  &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-      };
-
-    // Use pre-existing battery dictionary if possible
-    if((ups=(CFMutableDictionaryRef)CFDictionaryGetValue(sys, CFSTR(kIOPMUPSPowerKey))))
-      {
-        CFRetain(ups);   // So the CFRelease at the end of the function is OK
-      } else {
-        // If no pre-existing prefs dictionary, create one
-        ups = CFDictionaryCreateMutable(kCFAllocatorDefault, 
-					 0,  &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-      };
-
-    platform_defaults = _copySystemProvidedPreferences();
-    if(platform_defaults && (1 == CFArrayGetCount(platform_defaults)) )
-    {
-        // Platform specific default preferences
-        CFDictionaryRef                     profile = CFArrayGetValueAtIndex(platform_defaults, 0);
-        CFDictionaryRef                     sys_default_batt;
-        CFDictionaryRef                     sys_default_ac;
-        CFDictionaryRef                     sys_default_ups;
-                
-        sys_default_batt = CFDictionaryGetValue(profile, CFSTR(kIOPMBatteryPowerKey));
-        _mergeUnspecifiedSettingsInto(batt, sys_default_batt);
-        sys_default_ac = CFDictionaryGetValue(profile, CFSTR(kIOPMBatteryPowerKey));
-        _mergeUnspecifiedSettingsInto(ac, sys_default_ac);
-        sys_default_ups = CFDictionaryGetValue(profile, CFSTR(kIOPMBatteryPowerKey));
-        _mergeUnspecifiedSettingsInto(ups, sys_default_ups);
-
-        CFRelease(platform_defaults);        
-    } else {
-        /*
-         * Note that in the following "poplulation" loops, we're using CFDictionaryAddValue rather
-         * than CFDictionarySetValue. If a value is already present AddValue will not replace it.
-         */
-        // Populate default battery dictionary 
+    /* 
+     * Populate default battery dictionary 
+     */
+    
+    if(batt) {
         for(i=0; i<kIOPMNumPMFeatures; i++)
         {
             key = CFStringCreateWithCString(kCFAllocatorDefault, energy_features_array[i], kCFStringEncodingMacRoman);
@@ -312,7 +252,14 @@ static int getDefaultEnergySettings(CFMutableDictionaryRef sys)
             CFRelease(key);
             CFRelease(val);
         }
-        // Populate default AC dictionary 
+        CFDictionarySetValue(sys, CFSTR(kIOPMBatteryPowerKey), batt);
+    }
+
+    /* 
+     * Populate default AC dictionary 
+     */
+    if(ac)
+    {
         for(i=0; i<kIOPMNumPMFeatures; i++)
         {
             key = CFStringCreateWithCString(kCFAllocatorDefault, energy_features_array[i], kCFStringEncodingMacRoman);
@@ -321,7 +268,13 @@ static int getDefaultEnergySettings(CFMutableDictionaryRef sys)
             CFRelease(key);
             CFRelease(val);
         }
-        // Populate default UPS dictionary 
+        CFDictionarySetValue(sys, CFSTR(kIOPMACPowerKey), ac);
+    }
+    
+    /* 
+     * Populate default UPS dictionary 
+     */
+    if(ups) {
         for(i=0; i<kIOPMNumPMFeatures; i++)
         {
             key = CFStringCreateWithCString(kCFAllocatorDefault, energy_features_array[i], kCFStringEncodingMacRoman);
@@ -330,48 +283,10 @@ static int getDefaultEnergySettings(CFMutableDictionaryRef sys)
             CFRelease(key);
             CFRelease(val);
         }
+        CFDictionarySetValue(sys, CFSTR(kIOPMUPSPowerKey), ups);
     }
-
-    /*
-     * Stuff the default values into the "system settings"
-     */
-    CFDictionarySetValue(sys, CFSTR(kIOPMBatteryPowerKey), batt);
-    CFDictionarySetValue(sys, CFSTR(kIOPMACPowerKey), ac);
-    CFDictionarySetValue(sys, CFSTR(kIOPMUPSPowerKey), ups);
-
-    CFRelease(batt);
-    CFRelease(ac);
-    CFRelease(ups);
 
     return 0;
-}
-
-static io_registry_entry_t getCudaPMURef(void)
-{
-    io_iterator_t	            tmp = NULL;
-    io_registry_entry_t	        cudaPMU = NULL;
-    mach_port_t                 masterPort;
-    
-    IOMasterPort(bootstrap_port,&masterPort);
-    
-    // Search for PMU
-    IOServiceGetMatchingServices(masterPort, IOServiceNameMatching("ApplePMU"), &tmp);
-    if(tmp) {
-        cudaPMU = IOIteratorNext(tmp);
-        //if(cudaPMU) magicCookie = kAppleMagicPMUCookie;
-        IOObjectRelease(tmp);
-    }
-
-    // No? Search for Cuda
-    if(!cudaPMU) {
-        IOServiceGetMatchingServices(masterPort, IOServiceNameMatching("AppleCuda"), &tmp);
-        if(tmp) {
-            cudaPMU = IOIteratorNext(tmp);
-            //if(cudaPMU) magicCookie = kAppleMagicCudaCookie;
-            IOObjectRelease(tmp);
-        }
-    }
-    return cudaPMU;
 }
 
 static io_registry_entry_t  getPMRootDomainRef(void)
@@ -379,23 +294,20 @@ static io_registry_entry_t  getPMRootDomainRef(void)
     io_registry_entry_t		    registry_entry;
     io_iterator_t		        tmp;
     
-    IOServiceGetMatchingServices(NULL, IOServiceNameMatching("IOPMrootDomain"), &tmp);
+    IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceNameMatching("IOPMrootDomain"), &tmp);
     registry_entry = IOIteratorNext(tmp);
     IOObjectRelease(tmp);
     
     return registry_entry;    
 }
 
-static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
+
+static int sendEnergySettingsToKernel(CFDictionaryRef System, CFStringRef prof, IOPMAggressivenessFactors *p)
 {
-    io_registry_entry_t             cudaPMU = NULL;
-    io_registry_entry_t             PMRootDomain = NULL;
-    io_connect_t        		    PM_connection = NULL;
-    io_connect_t                    connection;
-    kern_return_t                   kr;
+    io_registry_entry_t             PMRootDomain = MACH_PORT_NULL;
+    io_connect_t        		    PM_connection = MACH_PORT_NULL;
     IOReturn    		            err;
     IOReturn                        ret;
-    CFDataRef                       on;
     CFNumberRef                     number1;
     CFNumberRef                     number0;
     int                             type;
@@ -427,81 +339,32 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
         type = kPMEthernetWakeOnLANSettings;
         err = IOPMSetAggressiveness(PM_connection, type, p->fWakeOnLAN);
     }
-        
+
+    if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMDisplaySleepUsesDimKey), NULL))
+    {
+        type = kIODisplayDimAggressiveness;
+        err = IOPMSetAggressiveness(PM_connection, type, p->fDisplaySleepUsesDimming);
+    }    
+    
     // Wake On Ring
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMWakeOnRingKey), NULL))
     {
-        cudaPMU = getCudaPMURef();
-        if(cudaPMU)
-        {
-            // DEPRECATED
-            // Delete this whole clause of the if statement when rdar://problems/3559004&3558998&3558989 
-            // are fixed and closed.
-            ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
-        
-            if(p->fWakeOnRing) i = 0xFFFFFFFF;
-            else i = 0x0;
-            on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4); 
-                   
-            ret = IOConnectSetCFProperty(connection, CFSTR("WakeOnRing"), on);
-            CFRelease(on);
-            IOServiceClose(connection);
-            IOObjectRelease(cudaPMU);
-        } else {
-            ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("WakeOnRing"), 
-                            (p->fWakeOnRing?number1:number0));
-        }
+        ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("WakeOnRing"), 
+                        (p->fWakeOnRing?number1:number0));
     }
     
     // Automatic Restart On Power Loss, aka FileServer mode
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMRestartOnPowerLossKey), NULL))
     {
-        cudaPMU = getCudaPMURef();
-        if(cudaPMU)
-        {
-            // DEPRECATED
-            // Delete this whole clause of the if statement when rdar://problems/3559004&3558998&3558989 
-            // are fixed and closed.
-            ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
-        
-            if(p->fAutomaticRestart) i = 0xFFFFFFFF;
-            else i = 0x0;
-            on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4);
-            
-            ret = IOConnectSetCFProperty(connection, CFSTR("FileServer"), on);
-            CFRelease(on);
-            IOServiceClose(connection);
-            IOObjectRelease(cudaPMU);
-        } else {
-            ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("AutoRestartOnPowerLoss"), 
-                            (p->fAutomaticRestart?number1:number0));
-        }
+        ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("AutoRestartOnPowerLoss"), 
+                        (p->fAutomaticRestart?number1:number0));
     }
     
     // Wake on change of AC state -- battery to AC or vice versa
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMWakeOnACChangeKey), NULL))
     {
-        cudaPMU = getCudaPMURef();
-        if(cudaPMU)
-        {
-            // DEPRECATED
-            // Delete this whole clause of the if statement when rdar://problems/3559004&3558998&3558989 
-            // are fixed and closed.
-            ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
-        
-            if(p->fWakeOnACChange) i = 0xFFFFFFFF;
-            else i = 0x0;
-            on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4);
-            
-            // Not a typo.  ApplePMU has ACchange, not ACChange
-            ret = IOConnectSetCFProperty(connection, CFSTR("WakeOnACchange"), on);
-            CFRelease(on);
-            IOServiceClose(connection);
-            IOObjectRelease(cudaPMU);
-        } else {
-            ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("WakeOnACChange"), 
-                            (p->fWakeOnACChange?number1:number0));
-        }
+        ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("WakeOnACChange"), 
+                        (p->fWakeOnACChange?number1:number0));
     }
     
     // Disable power button sleep on PowerMacs, Cubes, and iMacs
@@ -516,41 +379,32 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
     // Default is true == wakeup when the clamshell opens
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMWakeOnClamshellKey), NULL))
     {
-        cudaPMU = getCudaPMURef();
-        if(cudaPMU)
-        {
-            // DEPRECATED
-            // Delete this whole clause of the if statement when rdar://problems/3559004&3558998&3558989 
-            // are fixed and closed.
-            ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
-        
-            if(p->fWakeOnClamshell) i = 0xFFFFFFFF;
-            else i = 0x0;
-            on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4);
-            
-            ret = IOConnectSetCFProperty(connection, CFSTR("WakeOnLid"), on);
-            CFRelease(on);
-            IOServiceClose(connection);
-            IOObjectRelease(cudaPMU);
-        } else {
-            ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("WakeOnLid"), 
-                            (p->fWakeOnClamshell?number1:number0));            
-        }
-    }    
-       
+        ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("WakeOnLid"), 
+                        (p->fWakeOnClamshell?number1:number0));            
+    }
+
     // Mobile Motion Module
-    // Default is true == wakeup when the clamshell opens
+    // Defaults to on
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMMobileMotionModuleKey), NULL))
     {
-        type = 7; // kPMMotionSensor;
+        type = 7;   // kPMMotionSensor defined in Tiger
         IOPMSetAggressiveness(PM_connection, type, p->fMobileMotionModule);
+    }
+
+
+    CFDictionaryRef dict = NULL;
+    if((dict = CFDictionaryGetValue(System, prof)) )
+    {
     }
 
     /* PowerStep and Reduce Processor Speed are handled by a separate configd plugin that's
        watching the SCDynamicStore key State:/IOKit/PowerManagement/CurrentSettings. Changes
        to the settings notify the configd plugin, which then activates th processor speed settings.
        Note that IOPMActivatePMPreference updates that key in the SCDynamicStore when we activate
-       new settings.
+       new settings. See DynamicPowerStep configd plugin.
+
+       A separate display manager process handles activating the Reduce Brightness key through
+       the same mechanism desribed above for Reduce Process & Dynamic Power Step.
     */
     CFRelease(number0);
     CFRelease(number1);
@@ -583,7 +437,6 @@ static int getAggressivenessFactorsFromProfile(CFDictionaryRef System, CFStringR
 
     if( !(p = CFDictionaryGetValue(System, prof)) )
     {
-        printf("IOPMconfigd: error getting agg factors from profile!\n");
         return -1;
     }
 
@@ -629,9 +482,14 @@ static int getAggressivenessFactorsFromProfile(CFDictionaryRef System, CFStringR
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMWakeOnACChangeKey)),
                            kCFNumberSInt32Type, &agg->fWakeOnACChange);    
 
+    // Disable intermediate dimming stage for display sleep
+    GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMDisplaySleepUsesDimKey)),
+                           kCFNumberSInt32Type, &agg->fDisplaySleepUsesDimming);    
+
     // MMM
     GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMMobileMotionModuleKey)),
                            kCFNumberSInt32Type, &agg->fMobileMotionModule);    
+
     return 0;
 }
 
@@ -643,23 +501,19 @@ static int getAggressivenessFactorsFromProfile(CFDictionaryRef System, CFStringR
         kIOReturnSuccess if the given PM feature is supported on the given power source
         kIOReturnError if the feature is unsupported
  ***/
-extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
+bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
 {
-    CFDictionaryRef             supportedFeatures = NULL;
+    CFDictionaryRef		        supportedFeatures = NULL;
     CFArrayRef                  tmp_array;
-    io_registry_entry_t            registry_entry;
-    io_iterator_t                tmp;
-    mach_port_t                 masterPort;
+    io_registry_entry_t		    registry_entry = MACH_PORT_NULL;
     bool                        ret = false;
 
-    IOMasterPort(bootstrap_port, &masterPort);    
-    
-    IOServiceGetMatchingServices(masterPort, IOServiceNameMatching("IOPMrootDomain"), &tmp);
-    registry_entry = IOIteratorNext(tmp);
-    IOObjectRelease(tmp);
+    registry_entry = IORegistryEntryFromPath(0, 
+            kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+    if(!registry_entry) goto IOPMFeatureIsAvailable_exitpoint;
     
     supportedFeatures = IORegistryEntryCreateCFProperty(registry_entry, CFSTR("Supported Features"),
-                            kCFAllocatorDefault, NULL);
+                            kCFAllocatorDefault, kNilOptions);
     IOObjectRelease(registry_entry);
     
     if(CFEqual(f, CFSTR(kIOPMDisplaySleepKey))
@@ -669,7 +523,45 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
         ret = true;
         goto IOPMFeatureIsAvailable_exitpoint;
     }
-    
+
+    // Reduce Brightness
+    if(CFEqual(f, CFSTR(kIOPMReduceBrightnessKey)))
+    {
+        // ReduceBrightness feature is only supported on laptops
+        // and on desktops with UPS with brightness-adjustable LCD displays
+        // Luckily these machines report a "DisplayDims" property in the 
+        // supportedFeatures dictionary.
+        // Furthermore, on those machines it's only supported when on Battery or UPS
+        CFTypeRef ps = IOPSCopyPowerSourcesInfo();
+        if( ps &&
+            ( IOPSGetActiveBattery(ps) || IOPSGetActiveUPS(ps) ) &&
+            supportedFeatures &&
+            CFDictionaryGetValue(supportedFeatures, CFSTR("DisplayDims")) &&
+            (kCFCompareEqualTo != 
+                 CFStringCompare(power_source, CFSTR(kIOPMACPowerKey), 0)) ) 
+        {
+            ret = true;
+        } else {
+            ret = false;
+        }
+
+        if(ps) CFRelease(ps);
+
+        goto IOPMFeatureIsAvailable_exitpoint;       
+    }
+
+    // Display Sleep Uses Dim
+    if(CFEqual(f, CFSTR(kIOPMDisplaySleepUsesDimKey)))
+    {
+        if(supportedFeatures && CFDictionaryGetValue(supportedFeatures, CFSTR("DisplayDims")))
+        {
+            ret = true;
+        } else {
+            ret = false;
+        }
+        goto IOPMFeatureIsAvailable_exitpoint;       
+    }
+
     // reduce processor speed
     if(CFEqual(f, CFSTR(kIOPMReduceSpeedKey)))
     {
@@ -732,7 +624,7 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
     // Wake on AC change
     if(CFEqual(f, CFSTR(kIOPMWakeOnACChangeKey)))
     {
-        // Not a typo, ApplePMU has "ACchange" not "ACChange" :
+    	// Not a typo, ApplePMU has "ACchange" not "ACChange" :
         if(supportedFeatures && CFDictionaryGetValue(supportedFeatures, CFSTR("WakeOnACchange")))
         {
             ret = true;
@@ -749,7 +641,7 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
         // Therefore this feature is not supported on portables, just on desktops.
         // We'll use the presence of a battery (or the capability for a battery, as interpreted by the PMU)
         // as evidence whether this is a portable or not.
-        IOReturn r = IOPMCopyBatteryInfo(NULL, &tmp_array);
+        IOReturn r = IOPMCopyBatteryInfo(kIOMasterPortDefault, &tmp_array);
         if((r == kIOReturnSuccess) && tmp_array) 
         {
             CFRelease(tmp_array);
@@ -768,6 +660,7 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
         goto IOPMFeatureIsAvailable_exitpoint;
     }
 
+
     // Mobile Motion Module hard drive protector
     if(CFEqual(f, CFSTR(kIOPMMobileMotionModuleKey)))
     {
@@ -780,7 +673,6 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
         
  IOPMFeatureIsAvailable_exitpoint:
     if(supportedFeatures) CFRelease(supportedFeatures);
-    IOObjectRelease(masterPort);
     return ret;
 }
 
@@ -792,14 +684,14 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
  ***/
 static void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
 {
-    int            profile_count = 0;
-    int         dict_count = 0;
-    CFStringRef        *profile_keys = NULL;
-    CFDictionaryRef    *profile_vals = NULL;
-    CFStringRef        *dict_keys    = NULL;
-    CFDictionaryRef    *dict_vals    = NULL;
-    CFMutableDictionaryRef    this_profile;
-    CFTypeRef               ps_snapshot;
+    int                         profile_count = 0;
+    int                         dict_count = 0;
+    CFStringRef                 *profile_keys = NULL;
+    CFDictionaryRef             *profile_vals = NULL;
+    CFStringRef                 *dict_keys    = NULL;
+    CFDictionaryRef             *dict_vals    = NULL;
+    CFMutableDictionaryRef      this_profile;
+    CFTypeRef                   ps_snapshot;
     
     ps_snapshot = IOPSCopyPowerSourcesInfo();
     
@@ -820,11 +712,14 @@ static void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
             // Remove dictionary if the whole power source isn't supported on this machine.
             CFDictionaryRemoveValue(energyPrefs, profile_keys[profile_count]);        
         } else {
-            this_profile = (CFMutableDictionaryRef)CFDictionaryGetValue(energyPrefs, profile_keys[profile_count]);
+            this_profile = (CFMutableDictionaryRef)isA_CFDictionary(
+                CFDictionaryGetValue(energyPrefs, profile_keys[profile_count]));
+            if(!this_profile) continue;
+            
             dict_count = CFDictionaryGetCount(this_profile);
             dict_keys = (CFStringRef *)malloc(sizeof(CFStringRef) * dict_count);
             dict_vals = (CFDictionaryRef *)malloc(sizeof(CFDictionaryRef) * dict_count);
-        
+            if(!dict_keys || !dict_vals) continue;
             CFDictionaryGetKeysAndValues(this_profile, (const void **)dict_keys, (const void **)dict_vals);
             // For each specific property within each dictionary
             while(--dict_count >= 0)
@@ -835,6 +730,8 @@ static void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
                 }
             free(dict_keys);
             free(dict_vals);
+            
+//            CFDictionarySetValue(energyPrefs, profile_keys[profile_count], this_profile);
         }
     }
     free(profile_keys);
@@ -856,6 +753,7 @@ static int getCheetahPumaEnergySettings(CFMutableDictionaryRef energyPrefs)
    CFNumberRef                  n;
    CFBooleanRef                 b;
    
+   if(!energyPrefs) return 0;
    CheetahPrefs = SCPreferencesCreate (kCFAllocatorDefault, 
                                      CFSTR("I/O Kit PM Library"),
                                      CFSTR("/Library/Preferences/com.apple.PowerManagement.plist"));
@@ -863,100 +761,174 @@ static int getCheetahPumaEnergySettings(CFMutableDictionaryRef energyPrefs)
     if(!CheetahPrefs) return 0;
     
     s = (CFMutableDictionaryRef)CFDictionaryGetValue(energyPrefs, CFSTR(kIOPMBatteryPowerKey));
-      
+    if(!s) return 0;
     n = (CFNumberRef)SCPreferencesGetValue(CheetahPrefs, kCheetahDimKey);
-    if(n) CFDictionarySetValue(s, CFSTR(kIOPMDisplaySleepKey), n);
+    if(n) CFDictionaryAddValue(s, CFSTR(kIOPMDisplaySleepKey), n);
     n = (CFNumberRef)SCPreferencesGetValue(CheetahPrefs, kCheetahDiskKey);
-    if(n) CFDictionarySetValue(s, CFSTR(kIOPMDiskSleepKey), n);
+    if(n) CFDictionaryAddValue(s, CFSTR(kIOPMDiskSleepKey), n);
     n = (CFNumberRef)SCPreferencesGetValue(CheetahPrefs, kCheetahSleepKey);
-    if(n) CFDictionarySetValue(s, CFSTR(kIOPMSystemSleepKey), n);
+    if(n) CFDictionaryAddValue(s, CFSTR(kIOPMSystemSleepKey), n);
     b = (CFBooleanRef)SCPreferencesGetValue(CheetahPrefs, kCheetahRestartOnPowerLossKey);
-    if(b) CFDictionarySetValue(s, CFSTR(kIOPMRestartOnPowerLossKey), b);
+    if(b) CFDictionaryAddValue(s, CFSTR(kIOPMRestartOnPowerLossKey), b);
     b = (CFBooleanRef)SCPreferencesGetValue(CheetahPrefs, kCheetahWakeForNetworkAccessKey);
-    if(b) CFDictionarySetValue(s, CFSTR(kIOPMWakeOnLANKey), b);
+    if(b) CFDictionaryAddValue(s, CFSTR(kIOPMWakeOnLANKey), b);
     b = (CFBooleanRef)SCPreferencesGetValue(CheetahPrefs, kCheetahWakeOnRingKey);
-    if(b) CFDictionarySetValue(s, CFSTR(kIOPMWakeOnRingKey), b);
+    if(b) CFDictionaryAddValue(s, CFSTR(kIOPMWakeOnRingKey), b);
                     
-    CFDictionarySetValue(energyPrefs, CFSTR(kIOPMBatteryPowerKey), s);
+//    CFDictionarySetValue(energyPrefs, CFSTR(kIOPMBatteryPowerKey), s);
 
     s = (CFMutableDictionaryRef)CFDictionaryGetValue(energyPrefs, CFSTR(kIOPMACPowerKey));
-      
+    if(!s) return 0;
     n = (CFNumberRef)SCPreferencesGetValue(CheetahPrefs, kCheetahDimKey);
-    if(n) CFDictionarySetValue(s, CFSTR(kIOPMDisplaySleepKey), n);
+    if(n) CFDictionaryAddValue(s, CFSTR(kIOPMDisplaySleepKey), n);
     n = (CFNumberRef)SCPreferencesGetValue(CheetahPrefs, kCheetahDiskKey);
-    if(n) CFDictionarySetValue(s, CFSTR(kIOPMDiskSleepKey), n);
+    if(n) CFDictionaryAddValue(s, CFSTR(kIOPMDiskSleepKey), n);
     n = (CFNumberRef)SCPreferencesGetValue(CheetahPrefs, kCheetahSleepKey);
-    if(n) CFDictionarySetValue(s, CFSTR(kIOPMSystemSleepKey), n);
+    if(n) CFDictionaryAddValue(s, CFSTR(kIOPMSystemSleepKey), n);
     b = (CFBooleanRef)SCPreferencesGetValue(CheetahPrefs, kCheetahRestartOnPowerLossKey);
-    if(b) CFDictionarySetValue(s, CFSTR(kIOPMRestartOnPowerLossKey), b);
+    if(b) CFDictionaryAddValue(s, CFSTR(kIOPMRestartOnPowerLossKey), b);
     b = (CFBooleanRef)SCPreferencesGetValue(CheetahPrefs, kCheetahWakeForNetworkAccessKey);
-    if(b) CFDictionarySetValue(s, CFSTR(kIOPMWakeOnLANKey), b);
+    if(b) CFDictionaryAddValue(s, CFSTR(kIOPMWakeOnLANKey), b);
     b = (CFBooleanRef)SCPreferencesGetValue(CheetahPrefs, kCheetahWakeOnRingKey);
-    if(b) CFDictionarySetValue(s, CFSTR(kIOPMWakeOnRingKey), b);
+    if(b) CFDictionaryAddValue(s, CFSTR(kIOPMWakeOnRingKey), b);
 
-    CFDictionarySetValue(energyPrefs, CFSTR(kIOPMACPowerKey), s);
+//    CFDictionarySetValue(energyPrefs, CFSTR(kIOPMACPowerKey), s);
 
     CFRelease(CheetahPrefs);
-
 
      return 1; // success
     //return 0; // failure
 }
 
 
-extern CFMutableDictionaryRef IOPMCopyPMPreferences(void)
+/**************************************************
+*
+* Energy Saver Preferences
+*
+**************************************************/
+
+// TODO: Re-vamp prefs file to put all prefs under 1 dictionary
+// AND maintain compatibility to existing prefs format
+CFMutableDictionaryRef IOPMCopyPMPreferences(void)
 {
-    CFMutableDictionaryRef            energyDict = NULL;
-    SCPreferencesRef                    energyPrefs = NULL;
-    CFDictionaryRef                    batterySettings = NULL;
-    CFDictionaryRef                    ACSettings = NULL;
-    CFDictionaryRef                 UPSSettings = NULL;    
-
-
-    energyDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, 
-        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFMutableDictionaryRef                  energyDict = NULL;
+    CFDictionaryRef                         tmp_dict = NULL;
+    SCPreferencesRef                        energyPrefs = NULL;
+    CFDictionaryRef                         tmp = NULL;
+    CFMutableDictionaryRef                  batterySettings = NULL;
+    CFMutableDictionaryRef                  ACSettings = NULL;
+    CFMutableDictionaryRef                  UPSSettings = NULL;
+    bool                                    usingDefaults = true;
 
     energyPrefs = SCPreferencesCreate( kCFAllocatorDefault, kIOPMAppName, kIOPMPrefsPath );
-    if(energyPrefs == 0) {
-        if(energyDict != 0) CFRelease(energyDict);
+    if(!energyPrefs) {
         return NULL;
     }
     
     // Attempt to read battery & AC settings
-    batterySettings = isA_CFDictionary(SCPreferencesGetValue(energyPrefs, CFSTR(kIOPMBatteryPowerKey)));
-    ACSettings = isA_CFDictionary(SCPreferencesGetValue(energyPrefs, CFSTR(kIOPMACPowerKey)));
-    UPSSettings = isA_CFDictionary(SCPreferencesGetValue(energyPrefs, CFSTR(kIOPMUPSPowerKey)));
+    tmp_dict = isA_CFDictionary(SCPreferencesGetValue(energyPrefs, CFSTR("Custom Profile")));
     
     // If com.apple.PowerManagement.xml opened correctly, read data from it
-    if( batterySettings || ACSettings || UPSSettings) 
+    if(tmp_dict)
     {
+        usingDefaults = false;
+        
+        // Tiger preferences file format
+        energyDict = CFDictionaryCreateMutableCopy(
+            kCFAllocatorDefault,
+            0,
+            tmp_dict);
+        if(!energyDict) goto failure_exit;
+    } else {
+        // Try Panther/Jaguar  prefs formats
+
+        batterySettings = (CFMutableDictionaryRef)isA_CFDictionary(
+                SCPreferencesGetValue(energyPrefs, CFSTR(kIOPMBatteryPowerKey)));
+        ACSettings = (CFMutableDictionaryRef)isA_CFDictionary(
+                SCPreferencesGetValue(energyPrefs, CFSTR(kIOPMACPowerKey)));
+        UPSSettings = (CFMutableDictionaryRef)isA_CFDictionary(
+                SCPreferencesGetValue(energyPrefs, CFSTR(kIOPMUPSPowerKey)));
+
+        if(batterySettings || ACSettings || UPSSettings) usingDefaults = false;
+
+        energyDict = CFDictionaryCreateMutable(
+            kCFAllocatorDefault, 
+            0, 
+            &kCFTypeDictionaryKeyCallBacks, 
+            &kCFTypeDictionaryValueCallBacks);
+        if(!energyDict) goto failure_exit;
+        
         if(batterySettings)
             CFDictionaryAddValue(energyDict, CFSTR(kIOPMBatteryPowerKey), batterySettings);
         if(ACSettings)
             CFDictionaryAddValue(energyDict, CFSTR(kIOPMACPowerKey), ACSettings);
         if(UPSSettings)
             CFDictionaryAddValue(energyDict, CFSTR(kIOPMUPSPowerKey), UPSSettings);
-        
-        // Fill in any missing key/value pairs from the defaults.  Fixing Radar 3104287.
-        getDefaultEnergySettings(energyDict);
-
-    } else {
-    // If com.apple.PowerManagement.xml was not read, start with defaults
-        getDefaultEnergySettings(energyDict);
-        // If Cheetah settings exist, merge those
-        getCheetahPumaEnergySettings(energyDict);
     }
     
+    // Make sure that the enclosed dictionaries are all mutable
+    tmp = isA_CFDictionary(CFDictionaryGetValue(energyDict, CFSTR(kIOPMBatteryPowerKey)));
+    if(tmp) batterySettings = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, tmp);
+    else batterySettings = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if(batterySettings)
+    {
+        CFDictionarySetValue(energyDict, CFSTR(kIOPMBatteryPowerKey), batterySettings);
+        CFRelease(batterySettings);
+    } else goto failure_exit;
+
+    tmp = isA_CFDictionary(CFDictionaryGetValue(energyDict, CFSTR(kIOPMACPowerKey)));
+    if(tmp) ACSettings = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, tmp);
+    else ACSettings = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if(ACSettings) {
+        CFDictionarySetValue(energyDict, CFSTR(kIOPMACPowerKey), ACSettings);
+        CFRelease(ACSettings);
+    } else goto failure_exit;
+
+    tmp = isA_CFDictionary(CFDictionaryGetValue(energyDict, CFSTR(kIOPMUPSPowerKey)));
+    if(tmp) UPSSettings = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, tmp);        
+    else UPSSettings = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if(UPSSettings) {
+        CFDictionarySetValue(energyDict, CFSTR(kIOPMUPSPowerKey), UPSSettings);
+        CFRelease(UPSSettings);
+    } else goto failure_exit;
+    
+    // INVARIANT: At this point we want a mutable dictionary energyDict
+    // containing 3 mutable preferences dictionaries that are either empty or contain some settings.
+
+    // Check for existence of Puma/Cheetah prefs format
+    // And add settings defined there if present
+    getCheetahPumaEnergySettings(energyDict);
+
+    // Fill in any undefined settings with our defaults
+    // i.e. if no current or legacy prefs files exist, getDefaultEnergySettings()
+    // completely populates the default EnergySaver preferences.
+    getDefaultEnergySettings(energyDict);
+
+    // Remove any unsupported key/value pairs (including some of 
+    // those we just added in getDefaultEnergySettings)    
     IOPMRemoveIrrelevantProperties(energyDict);
-    CFRelease(energyPrefs);    
+    
+    if(usingDefaults) {
+        // If we couldn't find any user-specified settings on disk, tag this dictionary as
+        // "Defaults" so that BatteryMonitor and EnergySaver can tell these are user-selected
+        // values or just the system defaults.
+        CFDictionarySetValue(energyDict, CFSTR(kIOPMDefaultPreferencesKey), kCFBooleanTrue);
+    }
   
+//normal_exit:
+    if(energyPrefs) CFRelease(energyPrefs);      
     return energyDict;
+    
+failure_exit:
+    if(energyPrefs) CFRelease(energyPrefs);
+    if(energyDict) CFRelease(energyDict);
+    return 0;
 }
 
-
-extern IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStringRef profile)
+// TODO: Migrate this into PM daemon
+IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStringRef profile)
 {
-    IOPMAggressivenessFactors   *agg = NULL;
+    IOPMAggressivenessFactors	*agg = NULL;
     CFDictionaryRef                 activePMPrefs = NULL;
     CFDictionaryRef                 newPMPrefs = NULL;
     SCDynamicStoreRef               dynamic_store = NULL;
@@ -968,7 +940,7 @@ extern IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStrin
     // Activate settings by sending them to the kernel
     agg = (IOPMAggressivenessFactors *)malloc(sizeof(IOPMAggressivenessFactors));
     getAggressivenessFactorsFromProfile(SystemProfiles, profile, agg);
-    sendEnergySettingsToKernel(agg);
+    sendEnergySettingsToKernel(SystemProfiles, profile, agg);
     free(agg);
     
     // Put the new settings in the SCDynamicStore for interested apps
@@ -995,76 +967,498 @@ extern IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStrin
     if(activePMPrefs) CFRelease(activePMPrefs);
     CFRelease(dynamic_store);
     return kIOReturnSuccess;
-
 }
 
-extern IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs)
+// Sets (and activates) Custom power profile
+IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs)
 {
-    SCPreferencesRef            energyPrefs = NULL;
-    int                            i;
-    int                            dict_count = 0;
-    CFStringRef                    *dict_keys;
-    CFDictionaryRef                *dict_vals;
+    IOReturn                    ret = kIOReturnError;
+    SCPreferencesRef	        energyPrefs = NULL;
     
     energyPrefs = SCPreferencesCreate( kCFAllocatorDefault, kIOPMAppName, kIOPMPrefsPath );
     if(!energyPrefs) return kIOReturnError;
     
-    dict_count = CFDictionaryGetCount(ESPrefs);
-    dict_keys = (CFStringRef *)malloc(sizeof(CFStringRef) * dict_count);
-    dict_vals = (CFDictionaryRef *)malloc(sizeof(CFDictionaryRef) * dict_count);
-    
-    CFDictionaryGetKeysAndValues(ESPrefs, (const void **)dict_keys, (const void **)dict_vals);
-    
-    if(!dict_keys || !dict_vals) return kIOReturnError;
-
-    for(i=0; i<dict_count; i++)
-    {
-        if(!SCPreferencesSetValue(energyPrefs, dict_keys[i], dict_vals[i]))
-        {
-            return kIOReturnError;
-        }
+    if(!SCPreferencesLock(energyPrefs, true))
+    {  
+        // handle error
+        if(kSCStatusAccessError == SCError()) ret = kIOReturnNotPrivileged;
+        else ret = kIOReturnError;
+        goto exit;
     }
+
+    if(!SCPreferencesSetValue(energyPrefs, CFSTR("Custom Profile"), ESPrefs))
+    {
+        ret = kIOReturnError;
+        goto exit;
+    }
+
+    // If older profiles exist, remove them in favor of the new format
+    SCPreferencesRemoveValue(energyPrefs, CFSTR(kIOPMACPowerKey));
+    SCPreferencesRemoveValue(energyPrefs, CFSTR(kIOPMBatteryPowerKey));
+    SCPreferencesRemoveValue(energyPrefs, CFSTR(kIOPMUPSPowerKey));
 
     if(!SCPreferencesCommitChanges(energyPrefs))
     {
         // handle error
-        if(kSCStatusAccessError == SCError()) return kIOReturnNotPrivileged;
-        return kIOReturnError;
+        if(kSCStatusAccessError == SCError()) ret = kIOReturnNotPrivileged;
+        else ret = kIOReturnError;
+        goto exit;
     }
     
     if(!SCPreferencesApplyChanges(energyPrefs))
     {
         // handle error
-        if(kSCStatusAccessError == SCError()) return kIOReturnNotPrivileged;
-        return kIOReturnError;        
+        if(kSCStatusAccessError == SCError()) ret = kIOReturnNotPrivileged;
+        else ret = kIOReturnError;        
+        goto exit;
     }
-
-    CFRelease(energyPrefs);
-
-    return kIOReturnSuccess;
+    ret = kIOReturnSuccess;
+exit:
+    if(energyPrefs) {
+        SCPreferencesUnlock(energyPrefs);
+        CFRelease(energyPrefs);
+    }
+    return ret;
 }
 
-/***
- Support structures and functions for IOPMPrefsNotificationCreateRunLoopSource
-***/
+/**************************************************
+*
+* Power Profiles
+*
+**************************************************/
 
+static CFArrayRef      _copySystemProvidedProfiles()
+{
+    io_registry_entry_t		    registry_entry;
+    io_iterator_t		        tmp;
+    CFTypeRef                   ret_type;
+    
+    IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceNameMatching("IOPMrootDomain"), &tmp);
+    registry_entry = IOIteratorNext(tmp);
+    IOObjectRelease(tmp);
+
+    ret_type = IORegistryEntryCreateCFProperty(registry_entry, CFSTR("SystemPowerProfiles"),
+            kCFAllocatorDefault, 0);
+
+    if(!isA_CFArray(ret_type)) ret_type = 0;
+
+    IOObjectRelease(registry_entry);
+    return (CFArrayRef)ret_type;
+}
+
+static CFArrayRef       _createDefaultSystemProfiles()
+{
+    CFURLRef                pm_bundle_url = 0;
+    CFBundleRef             pm_bundle = 0;
+    CFURLRef                profiles_url = 0;
+    CFStringRef             profiles_path = 0;
+    CFArrayRef              system_default_profiles = 0;
+    CFArrayRef              return_array = 0;
+    SCPreferencesRef        open_file = 0;
+    
+    pm_bundle_url = CFURLCreateWithFileSystemPath(
+        kCFAllocatorDefault,
+        CFSTR("/System/Library/SystemConfiguration/PowerManagement.bundle"),
+        kCFURLPOSIXPathStyle,
+        1);
+    if(!pm_bundle_url) {
+        goto exit;
+    }
+
+    pm_bundle = CFBundleCreate(
+        kCFAllocatorDefault, 
+        pm_bundle_url);
+    if(!pm_bundle) {
+        //syslog(LOG_INFO, "PM Preferences cannot locate PowerManagement.bundle\n");
+        goto exit;
+    }
+
+    profiles_url = CFBundleCopyResourceURL(
+        pm_bundle,
+        CFSTR("com.apple.SystemPowerProfileDefaults.plist"),
+        NULL,
+        NULL);
+    if(!profiles_url) {
+        //syslog(LOG_INFO, "Can't find path to profiles\n");
+        goto exit;
+    }
+    profiles_path = CFURLCopyPath(profiles_url);
+    
+    open_file = SCPreferencesCreate(
+        kCFAllocatorDefault,
+        CFSTR("PowerManagementPreferencse"),
+        profiles_path);
+    if(!open_file) {
+        //syslog(LOG_INFO, "PM could not open System Profile defaults\n");
+        goto exit;
+    }    
+
+    system_default_profiles = SCPreferencesGetValue(
+        open_file,
+        CFSTR("SystemProfileDefaults"));
+    if(!isA_CFArray(system_default_profiles)) {
+        //syslog(LOG_INFO, "Badly formatted or non-existent preferences on disk (0x%08x).\n", system_default_profiles);
+        goto exit;
+    }
+    
+    return_array = CFArrayCreateCopy(kCFAllocatorDefault, system_default_profiles);
+    
+exit:
+    if(pm_bundle_url)       CFRelease(pm_bundle_url);
+    if(pm_bundle)           CFRelease(pm_bundle);
+    if(profiles_url)        CFRelease(profiles_url);
+    if(profiles_path)       CFRelease(profiles_path);
+    if(open_file)           CFRelease(open_file);
+    
+    if(!return_array) {
+        syslog(LOG_INFO, "Power Management error: unable to load default System Power Profiles.\n");
+    }    
+    return return_array;
+}
+
+static CFDictionaryRef      _createDefaultProfileSelections(void)
+{
+    CFURLRef                pm_bundle_url = 0;
+    CFBundleRef             pm_bundle = 0;
+    CFURLRef                profiles_url = 0;
+    CFStringRef             profiles_path = 0;
+    CFDictionaryRef         default_profiles_selection = 0;
+    CFDictionaryRef         return_dict = 0;
+    SCPreferencesRef        open_file = 0;
+    
+    pm_bundle_url = CFURLCreateWithFileSystemPath(
+        kCFAllocatorDefault,
+        CFSTR("/System/Library/SystemConfiguration/PowerManagement.bundle"),
+        kCFURLPOSIXPathStyle,
+        1);
+    if(!pm_bundle_url) {
+        goto exit;
+    }
+
+    pm_bundle = CFBundleCreate(
+        kCFAllocatorDefault, 
+        pm_bundle_url);
+    if(!pm_bundle) {
+        //syslog(LOG_INFO, "PM Preferences cannot locate PowerManagement.bundle\n");
+        goto exit;
+    }
+
+    profiles_url = CFBundleCopyResourceURL(
+        pm_bundle,
+        CFSTR("com.apple.SystemPowerProfileDefaults.plist"),
+        NULL,
+        NULL);
+    if(!profiles_url) {
+        //syslog(LOG_INFO, "Can't find path to profiles\n");
+        goto exit;
+    }
+    profiles_path = CFURLCopyPath(profiles_url);
+    
+    open_file = SCPreferencesCreate(
+        kCFAllocatorDefault,
+        CFSTR("PowerManagementPreferences"),
+        profiles_path);
+    if(!open_file) {
+        //syslog(LOG_INFO, "PM could not open System Profile defaults\n");
+        goto exit;
+    }    
+
+    default_profiles_selection = SCPreferencesGetValue(
+        open_file,
+        CFSTR("DefaultProfileChoices"));
+    if(!isA_CFDictionary(default_profiles_selection)) {
+        //syslog(LOG_INFO, "Badly formatted or non-existent preferences on disk (0x%08x).\n", system_default_profiles);
+        goto exit;
+    }
+    
+    return_dict = CFDictionaryCreateCopy(kCFAllocatorDefault, default_profiles_selection);
+    
+exit:
+    if(pm_bundle_url)       CFRelease(pm_bundle_url);
+    if(pm_bundle)           CFRelease(pm_bundle);
+    if(profiles_url)        CFRelease(profiles_url);
+    if(profiles_path)       CFRelease(profiles_path);
+    if(open_file)           CFRelease(open_file);
+    
+    if(!return_dict) {
+        syslog(LOG_INFO, "Power Management error: unable to load default profiles selections.\n");
+    }    
+    return return_dict;
+}
+
+static CFDictionaryRef _createAllCustomProfileSelections(void)
+{
+    int                         j = -1;
+    CFNumberRef                 n;
+    CFMutableDictionaryRef      custom_dict = NULL;
+
+    custom_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 3, 
+        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &j);
+    if(!custom_dict || !n) return NULL;
+    
+    CFDictionarySetValue(custom_dict, CFSTR(kIOPMACPowerKey), n);
+    CFDictionarySetValue(custom_dict, CFSTR(kIOPMBatteryPowerKey), n);
+    CFDictionarySetValue(custom_dict, CFSTR(kIOPMUPSPowerKey), n);
+
+    CFRelease(n);
+    return custom_dict;
+}
+
+
+CFArrayRef          IOPMCopyPowerProfiles(void)
+{
+    CFArrayRef                      power_profiles = 0;
+    CFMutableArrayRef               mutable_power_profiles = 0;
+    CFDictionaryRef                 tmp;
+    CFMutableDictionaryRef          mutable_profile;
+    int                             i, p_count;
+
+    power_profiles = _copySystemProvidedProfiles();
+    if(!power_profiles) {
+        power_profiles = _createDefaultSystemProfiles();
+    }
+    if(!power_profiles) return NULL;
+
+    mutable_power_profiles = CFArrayCreateMutableCopy(0, 0, power_profiles);
+    if(!mutable_power_profiles) goto exit;
+    
+    // Prune unsupported power supplies and unsupported
+    // settings
+    p_count = CFArrayGetCount(mutable_power_profiles);
+    for(i=0; i<p_count; i++)
+    {
+        tmp = CFArrayGetValueAtIndex(mutable_power_profiles, i);
+        if(!tmp) continue;
+        mutable_profile = CFDictionaryCreateMutableCopy(
+            kCFAllocatorDefault, 
+            0, 
+            tmp);
+        if(!mutable_profile) continue;
+        IOPMRemoveIrrelevantProperties(mutable_profile);
+        CFArraySetValueAtIndex(mutable_power_profiles, i, mutable_profile);
+        CFRelease(mutable_profile);
+    }
+exit:
+    if(power_profiles) CFRelease(power_profiles);    
+    return mutable_power_profiles;
+}
+
+static int _isActiveProfileDictValid(CFDictionaryRef p)
+{
+    CFNumberRef     val;
+    int             j;
+    
+    if(!p) return 0;
+    
+    // AC value required
+    val = CFDictionaryGetValue(p, CFSTR(kIOPMACPowerKey));
+    if(!val) return 0;
+    CFNumberGetValue(val, kCFNumberIntType, &j);
+    if(j<-1 || j>= kIOPMNumPowerProfiles) return 0;
+
+    // Battery value optional
+    val = CFDictionaryGetValue(p, CFSTR(kIOPMBatteryPowerKey));
+    if(val) {
+        CFNumberGetValue(val, kCFNumberIntType, &j);
+        if(j<-1 || j>= kIOPMNumPowerProfiles) return 0;
+    }
+    
+    // UPS value optional
+    val = CFDictionaryGetValue(p, CFSTR(kIOPMUPSPowerKey));
+    if(val) {
+        CFNumberGetValue(val, kCFNumberIntType, &j);
+        if(j<-1 || j>= kIOPMNumPowerProfiles) return 0;
+    }
+    
+    return 1;    
+}
+
+static void _purgeUnsupportedPowerSources(CFMutableDictionaryRef p)
+{
+    CFStringRef                     *ps_names = NULL;
+    CFTypeRef                       ps_snap = NULL;
+    int                             count;
+    int                             i;
+
+    ps_snap = IOPSCopyPowerSourcesInfo();
+    if(!ps_snap) return;
+    count = CFDictionaryGetCount(p);
+    ps_names = (CFStringRef *)malloc(count*sizeof(CFStringRef));
+    if(!ps_names) goto exit;
+    CFDictionaryGetKeysAndValues(p, (CFTypeRef *)ps_names, NULL);
+    for(i=0; i<count; i++)
+    {
+        if(kCFBooleanTrue != IOPSPowerSourceSupported(ps_snap, ps_names[i])) {
+            CFDictionaryRemoveValue(p, ps_names[i]);
+        }    
+    }
+exit:
+    if(ps_snap) CFRelease(ps_snap);
+    if(ps_names) free(ps_names);
+}
+
+// How we determine what ActivePowerProfiles to return:
+// (1) If the user has specified any profiles in the
+//     PM prefs file, we'll return those.
+// (2) If the user hasn't explicitly specified any
+//     profiles, we'll look to their Custom settings:
+// (3) If, in the past, a user has specified any PM settings at
+//     all (say from before an upgrade install), we'll return
+//     (-1, -1, -1) and respect those settings as custom settings.
+// (4) If there are no specified profiles and no previous specified
+//     custom settings, then we'll return (2, 1, 1) as specified
+//     in PowerManagement.bundle's com.apple.SystemPowerProfileDefaults.plist
+//
+// Also, note that in the case of (1), we'll re-populate any settings not
+// specified for a particular power source (UPS's are easy to plug/unplug)
+// with the defaults obtained as in (4).
+//
+// For all steps above, we'll strip any irrelevant settings before
+// returning the dictionary (i.e. battery or UPS settings will not be 
+// returned where unsupported)
+
+CFDictionaryRef     IOPMCopyActivePowerProfiles(void)
+{
+    SCPreferencesRef	        energyPrefs = NULL;
+    CFDictionaryRef             tmp = NULL;
+    CFDictionaryRef             tmp_custom = NULL;
+    CFDictionaryRef             defaultProfiles = NULL;
+    CFMutableDictionaryRef      activeProfiles = NULL;
+    CFStringRef                 *profileKeys = NULL;
+    CFNumberRef                 *profileValues = NULL;
+    bool                        activeProfilesSpecified = false;
+    bool                        customSettingsSpecified = false;
+    int                         profileCount;
+    int                         i;
+    
+    energyPrefs = SCPreferencesCreate( kCFAllocatorDefault, kIOPMAppName, kIOPMPrefsPath );
+    if(!energyPrefs) return NULL;
+
+    tmp = SCPreferencesGetValue(energyPrefs, CFSTR("ActivePowerProfiles"));
+    if(tmp && _isActiveProfileDictValid(tmp)) {
+        activeProfiles = CFDictionaryCreateMutableCopy(0, 0, tmp);
+        activeProfilesSpecified = true;
+    } else {
+        activeProfiles = CFDictionaryCreateMutable(0, 3, 
+            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    }
+    if(!activeProfiles) goto exit;
+    
+    // Determine if there are any user-specified settings for Energy Saver
+    // not a profile selection, but a custom dictionary
+    tmp_custom = IOPMCopyPMPreferences();
+    if(isA_CFDictionary(tmp_custom))
+    {
+        if(kCFBooleanTrue != CFDictionaryGetValue(tmp_custom, CFSTR("Defaults")))
+        {
+            customSettingsSpecified = true;
+        }
+        CFRelease(tmp_custom);
+    }
+    
+    if(!activeProfilesSpecified && customSettingsSpecified)
+    {
+        defaultProfiles = _createAllCustomProfileSelections();        
+    } else {
+        defaultProfiles = _createDefaultProfileSelections();
+    }
+    
+    // Merge default profiles into active profiles
+    // If the user has any specified Profiles, we'll merge in the defaults
+    // for any power sources that aren't specified. If there weren't any specified
+    // profile choices, we'll just merge in (-1, -1, -1) for all custom or
+    // (2, 1, 1) to the empty dictionary, as described in comments above.
+    if(isA_CFDictionary(defaultProfiles))
+    {
+        profileCount = CFDictionaryGetCount(defaultProfiles);
+        profileKeys = malloc(sizeof(CFStringRef)*profileCount);
+        profileValues = malloc(sizeof(CFNumberRef)*profileCount);
+        if(!profileKeys || !profileValues) goto exit;
+        CFDictionaryGetKeysAndValues(defaultProfiles, 
+                (const void **)profileKeys, (const void **)profileValues);
+        for(i=0; i<profileCount; i++)
+        {
+            if( isA_CFString(profileKeys[i]) &&
+                isA_CFNumber(profileValues[i]) )
+            {
+                // use the softer AddValue that won't replace any already present
+                // settings in the existing chosen profiles dictionary.
+                CFDictionaryAddValue(activeProfiles, profileKeys[i], profileValues[i]);            
+            }
+        }
+        free(profileKeys);
+        free(profileValues);
+    }
+    
+    // And remove all the unsupported profiles that we just added
+    _purgeUnsupportedPowerSources(activeProfiles);
+  
+exit:
+    if(energyPrefs) CFRelease(energyPrefs);
+    if(defaultProfiles) CFRelease(defaultProfiles);
+    return activeProfiles;
+}
+
+IOReturn IOPMSetActivePowerProfiles(CFDictionaryRef which_profile)
+{
+    CFDataRef           profiles_data;
+    vm_address_t        profiles_buffer;
+    IOByteCount         buffer_len;
+    kern_return_t       kern_result;
+    IOReturn            return_val = kIOReturnError;
+    mach_port_t         server_port = MACH_PORT_NULL;
+
+    if(!_isActiveProfileDictValid(which_profile)) {
+        return kIOReturnBadArgument;
+    }
+    
+    // open reference to PM configd
+    kern_result = bootstrap_look_up(bootstrap_port, 
+            kIOPMServerBootstrapName, &server_port);    
+    if(KERN_SUCCESS != kern_result) {
+        return kIOReturnError;
+    }
+
+    profiles_data = IOCFSerialize(which_profile, 0);
+    profiles_buffer = (vm_address_t) CFDataGetBytePtr(profiles_data);
+    buffer_len = CFDataGetLength(profiles_data);
+
+    // toss dictionary over the wall to conigd via mig-generated interface
+    // configd will perform a permissions check. If the caller is root,
+    // admin, or console, configd will write the prefs file from its
+    // root context.
+    kern_result = io_pm_set_active_profile(server_port, 
+                            profiles_buffer, buffer_len, 
+                            &return_val);
+
+    mach_port_destroy(mach_task_self(), server_port);
+    CFRelease(profiles_data);
+
+    if(KERN_SUCCESS == kern_result) {
+        return return_val;
+    } else {
+        return kIOReturnInternalError;
+    }
+}
+
+
+/**************************************************
+*
+* Support structures and functions for IOPMPrefsNotificationCreateRunLoopSource
+*
+**************************************************/
 typedef struct {
-    IOPMPrefsCallbackType    callback;
-    void            *context;
+    IOPMPrefsCallbackType       callback;
+    void                        *context;
 } user_callback_context;
 
-typedef struct {
-    SCDynamicStoreRef        store;
-    CFRunLoopSourceRef        SCDSrls;
-    user_callback_context   *user_callback;
-} my_cfrls_context;
-
 /* SCDynamicStoreCallback */
-static void my_dynamic_store_call(SCDynamicStoreRef store, CFArrayRef keys, void *ctxt) {
-    user_callback_context    *c = (user_callback_context *)ctxt;
+static void ioCallout(SCDynamicStoreRef store, CFArrayRef keys, void *ctxt) {
+    user_callback_context	*c; 
     IOPowerSourceCallbackType cb;
 
-    // Check that the callback is a valid pointer
+    c = (user_callback_context *)CFDataGetBytePtr((CFDataRef)ctxt);
     if(!c) return;
     cb = c->callback;
     if(!cb) return;
@@ -1072,39 +1466,6 @@ static void my_dynamic_store_call(SCDynamicStoreRef store, CFArrayRef keys, void
     // Execute callback
     (*cb)(c->context);
 }
-
-static void
-rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
-{
-    my_cfrls_context    *c = (my_cfrls_context *)info;
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), c->SCDSrls, mode);
-    return;
-}
-
-
-static void
-rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
-{
-    my_cfrls_context    *c = (my_cfrls_context *)info;
-    CFRunLoopRemoveSource(CFRunLoopGetCurrent(), c->SCDSrls, mode);
-    return;
-}
-
-static void
-rlsRelease(void *info)
-{
-    my_cfrls_context    *c = (my_cfrls_context *)info;
-
-    if(!c) return;
-    if(c->SCDSrls) CFRelease(c->SCDSrls);
-    if(c->store) CFRelease(c->store);
-    if(c->user_callback) free(c->user_callback);
-    free(c);
-        
-    return;
-}
-
-
 
 /***
  Returns a CFRunLoopSourceRef that notifies the caller when power source
@@ -1116,59 +1477,39 @@ rlsRelease(void *info)
  Caller must CFRelease() the returned value.
 ***/
 CFRunLoopSourceRef IOPMPrefsNotificationCreateRunLoopSource(IOPMPrefsCallbackType callback, void *context) {
-    SCDynamicStoreRef   store = NULL;
-    CFStringRef         EnergyPrefsKey = NULL;
-    CFRunLoopSourceRef  SCDrls = NULL;
-    // For the source we're creating:
-    CFRunLoopSourceRef    ourSource = NULL;
-    CFRunLoopSourceContext  rlsContext;
-    SCDynamicStoreContext    scdsctxt;
+    SCDynamicStoreRef           store = NULL;
+    CFStringRef                 EnergyPrefsKey = NULL;
+    CFRunLoopSourceRef          SCDrls = NULL;
+    user_callback_context       *ioContext = NULL;
+    SCDynamicStoreContext       scContext = {0, NULL, CFRetain, CFRelease, NULL};
 
-    user_callback_context        *callback_state = NULL;
-    my_cfrls_context            *runloop_state = NULL;
-    
-    // Save the state of the user's callback
-    callback_state = malloc(sizeof(user_callback_context));
-    callback_state->context = context;
-    callback_state->callback = callback;
-    
-    bzero(&scdsctxt, sizeof(SCDynamicStoreContext));
-    scdsctxt.info = callback_state;
-    
+    if(!callback) return NULL;
+
+    scContext.info = CFDataCreateMutable(NULL, sizeof(user_callback_context));
+    CFDataSetLength(scContext.info, sizeof(user_callback_context));
+    ioContext = (user_callback_context *)CFDataGetBytePtr(scContext.info); 
+    ioContext->context = context;
+    ioContext->callback = callback;
+        
     // Open connection to SCDynamicStore. User's callback as context.
     store = SCDynamicStoreCreate(kCFAllocatorDefault, 
-                CFSTR("IOKit Power Source Copy"), my_dynamic_store_call, (void *)&scdsctxt);
+                CFSTR("IOKit Preferences Copy"), ioCallout, (void *)&scContext);
     if(!store) return NULL;
      
     // Setup notification for changes in Energy Saver prefences
-    EnergyPrefsKey = SCDynamicStoreKeyCreatePreferences(NULL, kIOPMPrefsPath, kSCPreferencesKeyApply);
-    if(EnergyPrefsKey) 
+    EnergyPrefsKey = SCDynamicStoreKeyCreatePreferences(
+                    NULL, 
+                    kIOPMPrefsPath, 
+                    kSCPreferencesKeyApply);
+    if(EnergyPrefsKey) {
         SCDynamicStoreAddWatchedKey(store, EnergyPrefsKey, FALSE);
+        CFRelease(EnergyPrefsKey);
+    }
 
     // Obtain the CFRunLoopSourceRef from this SCDynamicStoreRef session
     SCDrls = SCDynamicStoreCreateRunLoopSource(kCFAllocatorDefault, store, 0);
-    
-    // Here's where it gets kind of hokey. The RLS granted us by the SCDynamicStore
-    // is what we want, but we need to keep the SCDynamicStoreRef around as long as
-    // the RLS is around, and free it when the RLS is released.
-    // So we create our own RLS, and free all our bookkeeping data when it's released.
-    runloop_state = malloc(sizeof(my_cfrls_context));
-    runloop_state->store = store;
-    runloop_state->SCDSrls = SCDrls;
-    runloop_state->user_callback = callback_state;
-        
-    // Setup the CFRunLoopSource context for the return-value CFRLS
-    // Install my hooks into schedule/cancel/perform here
-    bzero(&rlsContext, sizeof(CFRunLoopSourceContext));
-    rlsContext.version         = 0;
-    rlsContext.info            = (void *)runloop_state;
-    rlsContext.schedule        = rlsSchedule;
-    rlsContext.cancel          = rlsCancel;
-    rlsContext.release         = rlsRelease;
-    
-    // Create the RunLoopSource
-    ourSource = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &rlsContext);    
+    CFRelease(store);
 
-    return ourSource;
+    return SCDrls;
 }
 

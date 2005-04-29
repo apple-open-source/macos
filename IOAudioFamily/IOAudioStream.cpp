@@ -65,10 +65,10 @@ OSMetaClassDefineReservedUsed(IOAudioStream, 5);
 OSMetaClassDefineReservedUsed(IOAudioStream, 6);
 OSMetaClassDefineReservedUsed(IOAudioStream, 7);
 OSMetaClassDefineReservedUsed(IOAudioStream, 8);
+OSMetaClassDefineReservedUsed(IOAudioStream, 9);
+OSMetaClassDefineReservedUsed(IOAudioStream, 10);
+OSMetaClassDefineReservedUsed(IOAudioStream, 11);
 
-OSMetaClassDefineReservedUnused(IOAudioStream, 9);
-OSMetaClassDefineReservedUnused(IOAudioStream, 10);
-OSMetaClassDefineReservedUnused(IOAudioStream, 11);
 OSMetaClassDefineReservedUnused(IOAudioStream, 12);
 OSMetaClassDefineReservedUnused(IOAudioStream, 13);
 OSMetaClassDefineReservedUnused(IOAudioStream, 14);
@@ -107,6 +107,58 @@ OSMetaClassDefineReservedUnused(IOAudioStream, 46);
 OSMetaClassDefineReservedUnused(IOAudioStream, 47);
 
 // New code added here:
+
+#define CMPSAMPLERATE(left, right) ((left.whole < right->whole) ? -1 : (left.whole == right->whole) ? (left.fraction < right->fraction) ? -1 : 0 : 1)
+
+bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc, const IOAudioSampleRate *sampleRate)
+{
+    bool foundFormat = false;
+    
+    audioDebugIOLog(3, "IOAudioStream[%p]::validateFormat(%p, %p, %p)", this, streamFormat, formatExtension, formatDesc);
+
+    
+    if (streamFormat && availableFormats && (numAvailableFormats > 0) && sampleRate) {
+        UInt32 formatIndex;
+
+        for (formatIndex = 0; formatIndex < numAvailableFormats; formatIndex++) {
+			audioDebugIOLog(3, "%ld: streamFormat->fNumChannels = %ld", availableFormats[formatIndex].format.fNumChannels, streamFormat->fNumChannels);
+			audioDebugIOLog(3, "0x%lx: streamFormat->fSampleFormat = 0x%lx", availableFormats[formatIndex].format.fSampleFormat, streamFormat->fSampleFormat);
+			audioDebugIOLog(3, "0x%lx: streamFormat->fNumericRepresentation = 0x%lx", availableFormats[formatIndex].format.fNumericRepresentation, streamFormat->fNumericRepresentation);
+			audioDebugIOLog(3, "%d: streamFormat->fBitDepth = %d", availableFormats[formatIndex].format.fBitDepth, streamFormat->fBitDepth);
+			audioDebugIOLog(3, "%d: streamFormat->fBitWidth = %d", availableFormats[formatIndex].format.fBitWidth, streamFormat->fBitWidth);
+			audioDebugIOLog(3, "%d: streamFormat->fAlignment = %d", availableFormats[formatIndex].format.fAlignment, streamFormat->fAlignment);
+			audioDebugIOLog(3, "%d: streamFormat->fByteOrder = %d", availableFormats[formatIndex].format.fByteOrder, streamFormat->fByteOrder);
+            if ((availableFormats[formatIndex].format.fNumChannels == streamFormat->fNumChannels)
+				&& (availableFormats[formatIndex].format.fSampleFormat == streamFormat->fSampleFormat)
+				&& (availableFormats[formatIndex].format.fNumericRepresentation == streamFormat->fNumericRepresentation)
+				&& (availableFormats[formatIndex].format.fBitDepth == streamFormat->fBitDepth)
+				&& (availableFormats[formatIndex].format.fBitWidth == streamFormat->fBitWidth)
+				&& (availableFormats[formatIndex].format.fAlignment == streamFormat->fAlignment)
+				&& (availableFormats[formatIndex].format.fByteOrder == streamFormat->fByteOrder)
+				&& (availableFormats[formatIndex].format.fIsMixable == streamFormat->fIsMixable)) {
+				
+				bool passSRCheck = true;
+				if (0 != sampleRate->whole) { 
+					if ((CMPSAMPLERATE (availableFormats[formatIndex].minimumSampleRate, sampleRate) > 0) || (CMPSAMPLERATE (availableFormats[formatIndex].maximumSampleRate, sampleRate) < 0)) {
+						passSRCheck = false;
+					}
+				}
+				if (passSRCheck) {
+					streamFormat->fDriverTag = availableFormats[formatIndex].format.fDriverTag;
+	//				streamFormat->fIsMixable = availableFormats[formatIndex].format.fIsMixable;
+					if (formatDesc) {
+						memcpy(formatDesc, &availableFormats[formatIndex], sizeof(IOAudioStreamFormatDesc));
+					}
+					foundFormat = true;
+					break;
+				}
+            }
+        }
+    }
+    
+    return foundFormat;
+}
+
 const IOAudioStreamFormatExtension *IOAudioStream::getFormatExtension()
 {
 	assert(reserved);
@@ -146,6 +198,8 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
     IOAudioStreamFormat validFormat;
     IOAudioStreamFormatDesc formatDesc;
 	IOAudioStreamFormatExtension validFormatExtension;
+    const IOAudioSampleRate *requestedSampleRate = NULL;
+    OSDictionary *sampleRateDict;
     
     audioDebugIOLog(3, "IOAudioStream[%p]::setFormat(%p, %p)", this, streamFormat, formatDict);
 
@@ -167,8 +221,15 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 		validFormatExtension.fBytesPerPacket = streamFormat->fNumChannels * (streamFormat->fBitWidth / 8);
 	}
 
-    if (validateFormat(&validFormat, &validFormatExtension, &formatDesc)) {
-        OSDictionary *sampleRateDict;
+	sampleRateDict = OSDynamicCast(OSDictionary, formatDict->getObject(kIOAudioSampleRateKey));
+	if (sampleRateDict) {
+		requestedSampleRate = IOAudioEngine::createSampleRateFromDictionary(sampleRateDict);
+	} else {
+		requestedSampleRate = audioEngine->getSampleRate();
+	}
+
+    if (validateFormat(&validFormat, &validFormatExtension, &formatDesc, requestedSampleRate)) {
+//        OSDictionary *sampleRateDict;
         IOAudioSampleRate *newSampleRate = NULL;
         OSSet *userClientsToLock;
         
@@ -180,7 +241,7 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
             currentSampleRate = audioEngine->getSampleRate();
             if (newSampleRate && (newSampleRate->whole == currentSampleRate->whole) && (newSampleRate->fraction == currentSampleRate->fraction)) {
                 newSampleRate = NULL;
-            }
+			}
         }
         
         // In order to avoid deadlocks, we need to ensure we hold all of the user client locks
@@ -398,41 +459,7 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
 
 bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc)
 {
-    bool foundFormat = false;
-    
-    audioDebugIOLog(3, "IOAudioStream[%p]::validateFormat(%p, %p, %p)", this, streamFormat, formatExtension, formatDesc);
-    
-    if (streamFormat && availableFormats && (numAvailableFormats > 0)) {
-        UInt32 formatIndex;
-
-        for (formatIndex = 0; formatIndex < numAvailableFormats; formatIndex++) {
-			audioDebugIOLog(3, "%ld: streamFormat->fNumChannels = %ld", availableFormats[formatIndex].format.fNumChannels, streamFormat->fNumChannels);
-			audioDebugIOLog(3, "0x%lx: streamFormat->fSampleFormat = 0x%lx", availableFormats[formatIndex].format.fSampleFormat, streamFormat->fSampleFormat);
-			audioDebugIOLog(3, "0x%lx: streamFormat->fNumericRepresentation = 0x%lx", availableFormats[formatIndex].format.fNumericRepresentation, streamFormat->fNumericRepresentation);
-			audioDebugIOLog(3, "%d: streamFormat->fBitDepth = %d", availableFormats[formatIndex].format.fBitDepth, streamFormat->fBitDepth);
-			audioDebugIOLog(3, "%d: streamFormat->fBitWidth = %d", availableFormats[formatIndex].format.fBitWidth, streamFormat->fBitWidth);
-			audioDebugIOLog(3, "%d: streamFormat->fAlignment = %d", availableFormats[formatIndex].format.fAlignment, streamFormat->fAlignment);
-			audioDebugIOLog(3, "%d: streamFormat->fByteOrder = %d", availableFormats[formatIndex].format.fByteOrder, streamFormat->fByteOrder);
-            if ((availableFormats[formatIndex].format.fNumChannels == streamFormat->fNumChannels)
-             && (availableFormats[formatIndex].format.fSampleFormat == streamFormat->fSampleFormat)
-             && (availableFormats[formatIndex].format.fNumericRepresentation == streamFormat->fNumericRepresentation)
-             && (availableFormats[formatIndex].format.fBitDepth == streamFormat->fBitDepth)
-             && (availableFormats[formatIndex].format.fBitWidth == streamFormat->fBitWidth)
-             && (availableFormats[formatIndex].format.fAlignment == streamFormat->fAlignment)
-             && (availableFormats[formatIndex].format.fByteOrder == streamFormat->fByteOrder)
-			 && (availableFormats[formatIndex].format.fIsMixable == streamFormat->fIsMixable)) {
-				streamFormat->fDriverTag = availableFormats[formatIndex].format.fDriverTag;
-//				streamFormat->fIsMixable = availableFormats[formatIndex].format.fIsMixable;
-                if (formatDesc) {
-                    memcpy(formatDesc, &availableFormats[formatIndex], sizeof(IOAudioStreamFormatDesc));
-                }
-                foundFormat = true;
-                break;
-            }
-        }
-    }
-    
-    return foundFormat;
+	validateFormat(streamFormat, formatExtension, formatDesc, audioEngine->getSampleRate());
 }
 
 void IOAudioStream::setTerminalType(const UInt32 terminalType)
@@ -453,6 +480,20 @@ void IOAudioStream::setSampleLatency(UInt32 numSamples)
 {
     audioDebugIOLog(3, "IOAudioStream[%p]::setSampleLatency(0x%lx)", this, numSamples);
     setProperty(kIOAudioStreamSampleLatencyKey, numSamples, sizeof(UInt32)*8);
+}
+
+UInt32 IOAudioStream::getNumSampleFramesRead()
+{
+	assert(reserved);
+    audioDebugIOLog(3, "IOAudioStream[%p]::getNumSampleFramesRead() returns %ld", this, reserved->mSampleFramesReadByEngine);
+	return reserved->mSampleFramesReadByEngine;
+}
+
+void IOAudioStream::setDefaultNumSampleFramesRead(UInt32 inDefaultNumFramesRead)
+{
+	assert(reserved);
+    audioDebugIOLog(3, "IOAudioStream[%p]::setDefaultNumSampleFramesRead(%ld)", this, inDefaultNumFramesRead);
+	reserved->mSampleFramesReadByEngine = inDefaultNumFramesRead;
 }
 
 // Original code from here on:
@@ -1234,11 +1275,13 @@ IOReturn IOAudioStream::readInputSamples(IOAudioClientBuffer *clientBuffer, UInt
     
     assert(audioEngine);
     assert(getDirection() == kIOAudioStreamDirectionInput);
-    
+    assert(reserved);
+	
     if (clientBuffer) {
         UInt32 numWrappedFrames = 0;
+        UInt32 numReadFrames = 0;
         UInt32 numSampleFramesPerBuffer;
-        
+		
         numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
         
         if ((firstSampleFrame + clientBuffer->numSampleFrames) > numSampleFramesPerBuffer) {
@@ -1268,9 +1311,16 @@ IOReturn IOAudioStream::readInputSamples(IOAudioClientBuffer *clientBuffer, UInt
                 }
             }
         } else {
-            result = audioEngine->convertInputSamples(sampleBuffer, clientBuffer->sourceBuffer, firstSampleFrame, clientBuffer->numSampleFrames - numWrappedFrames, &format, this);
-            if ((result == kIOReturnSuccess) && (numWrappedFrames > 0)) {
-                result = audioEngine->convertInputSamples(sampleBuffer, &((float *)clientBuffer->sourceBuffer)[(numSampleFramesPerBuffer - firstSampleFrame) * format.fNumChannels], 0, numWrappedFrames, &format, this);
+			numReadFrames = clientBuffer->numSampleFrames - numWrappedFrames;
+            // numReadFrames passed by reference, value may or may not be modified by the engine.
+            result = audioEngine->convertInputSamplesVBR(sampleBuffer, clientBuffer->sourceBuffer, firstSampleFrame, numReadFrames, &format, this);
+			// override the default value set before this call with driver actual value
+            reserved->mSampleFramesReadByEngine = numReadFrames;
+
+			if ((result == kIOReturnSuccess) && (numWrappedFrames > 0)) {
+				numReadFrames = numWrappedFrames;
+                result = audioEngine->convertInputSamplesVBR(sampleBuffer, &((float *)clientBuffer->sourceBuffer)[(numSampleFramesPerBuffer - firstSampleFrame) * format.fNumChannels], 0, numReadFrames, &format, this);
+				reserved->mSampleFramesReadByEngine += numReadFrames;
             }
         }
     } else {
@@ -1531,10 +1581,16 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
 				if (!format.fIsMixable) {
 					mixBuffer = clientBuffer->sourceBuffer;
 				}
-                clipIfNecessary();
+				
+				reserved->mClipOutputStatus = kIOReturnSuccess;
+                
+				clipIfNecessary();
 				if (!format.fIsMixable) {
 					mixBuffer = NULL;
 				}
+				
+				// gets set based on IOAudioEngine::clipOutputSamples return value inside IOAudioStream::clipOutputSamples
+				result = reserved->mClipOutputStatus;
             }
         } else {
             IOLog("IOAudioStream[%p]::processOutputSamples(%p) - Internal Error: No mix buffer\n", this, clientBuffer);
@@ -1663,6 +1719,7 @@ void IOAudioStream::clipOutputSamples(UInt32 firstSampleFrame, UInt32 numSampleF
 
     assert(direction == kIOAudioStreamDirectionOutput);
     assert(audioEngine);
+    assert(reserved);
     
     if (!mixBuffer || !sampleBuffer) {
         IOLog("IOAudioStream[%p]::clipOutputSamples(0x%lx, 0x%lx) - Internal Error: mixBuffer = %p - sampleBuffer = %p\n", this, firstSampleFrame, numSampleFrames, mixBuffer, sampleBuffer);
@@ -1705,6 +1762,7 @@ void IOAudioStream::clipOutputSamples(UInt32 firstSampleFrame, UInt32 numSampleF
     if (result != kIOReturnSuccess) {
         IOLog("IOAudioStream[%p]::clipOutputSamples(0x%lx, 0x%lx) - clipping function returned error: 0x%x\n", this, firstSampleFrame, numSampleFrames, result);
     }
+	reserved->mClipOutputStatus = result;
 }
 
 void IOAudioStream::lockStreamForIO()

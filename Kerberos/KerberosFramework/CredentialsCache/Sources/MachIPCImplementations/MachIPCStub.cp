@@ -8,18 +8,9 @@ CCIChangeTimeStub CCIMachIPCStub::sServerStateChangedTime;
 
 CCIMachIPCStub::CCIMachIPCStub () : mPort (NULL)
 {
-    SInt32	version;
-    OSErr err = Gestalt (gestaltSystemVersion, &version);
-    if ((err != noErr) || (version < 0x01012)) { 
-        // Require Mac OS X 10.1.2
-        CFOptionFlags	responseFlags;
-        CFUserNotificationDisplayAlert (0, 0, NULL /* Icon */,
-            NULL /* Sound */, NULL /* Localization */, 
-            CFSTR ("Kerberos Error"), 
-            CFSTR ("This version of Kerberos requires Mac OS X 10.1.2 or later. Please upgrade your computer."), 
-            CFSTR ("OK"), NULL, NULL,  &responseFlags);
-        throw CCIException (ccErrServerUnavailable);
-    }
+    // Removed OS check because we ship with the OS
+    // The check was causing problems in B&I during configure checks
+    // for Kerberized packages.
 }
 
 CCIMachIPCStub::~CCIMachIPCStub ()
@@ -36,9 +27,7 @@ CCIMachIPCStub::GetPort () const
     
     if (mPort == NULL) {
         // Haven't tried to talk to the server yet. lookup or launch it.
-        mPort = new MachServerPort (CCacheMachIPCServiceName, NULL, 
-                    "/System/Library/Frameworks/Kerberos.framework/Servers", 
-                    "CCacheServer.app");
+        mPort = new MachServerPort (kCCacheServerBundleID, kCCacheServerPath, TRUE);
     }
     serverPort = mPort->Get ();
     
@@ -55,7 +44,7 @@ CCIMachIPCStub::GetPortNoLaunch () const
         serverPort = mPort->Get ();
     } else {
         // lookup but don't launch
-        mPort = new MachServerPort (CCacheMachIPCServiceName);
+        mPort = new MachServerPort (kCCacheServerBundleID, kCCacheServerPath, FALSE);
         if (mPort->Get () != MACH_PORT_NULL) {
             serverPort = mPort->Get ();
         } else {

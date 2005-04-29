@@ -30,8 +30,6 @@
  *
  */
 
-#include <libkern/OSByteOrder.h>
-#include <IOKit/IOBufferMemoryDescriptor.h>
 #include "UniNEnet.h"
 #include "UniNEnetMII.h"
 

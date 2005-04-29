@@ -1,5 +1,5 @@
-/* FileChannelImpl.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* FileLockImpl.java -- 
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,29 +35,48 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package gnu.java.nio;
 
-import java.nio.channels.FileChannel;
+import gnu.java.nio.channels.FileChannelImpl;
+
+import java.io.IOException;
 import java.nio.channels.FileLock;
 
 /**
  * @author Michael Koch
+ * @since 1.4
  */
 public class FileLockImpl extends FileLock
 {
-  public FileLockImpl (FileChannel channel, long position, long size,
-                       boolean shared)
+  private FileChannelImpl ch;
+  
+  public FileLockImpl (FileChannelImpl channel, long position,
+                       long size, boolean shared)
   {
     super (channel, position, size, shared);
+    ch = channel;
+  }
+
+  protected void finalize()
+  {
+    try
+      {
+	release();
+      }
+    catch (IOException e)
+      {
+	// Ignore this.
+      }
   }
   
   public boolean isValid ()
   {
-    throw new Error ("Not implemented");
+    return !channel().isOpen();
   }
 
-  public void release ()
+  public synchronized void release () throws IOException
   {
-    throw new Error ("Not implemented");
+    ch.unlock(position(), size());
   }
 }

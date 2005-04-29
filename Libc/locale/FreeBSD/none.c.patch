@@ -1,0 +1,112 @@
+--- none.c.orig	Fri Feb 18 15:34:30 2005
++++ none.c	Fri Feb 18 15:37:15 2005
+@@ -41,6 +41,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/none.c,v 1.12 2004/07/21 10:54:57 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <errno.h>
+ #include <limits.h>
+ #include <runetype.h>
+@@ -51,33 +53,32 @@
+ #include <wchar.h>
+ #include "mblocal.h"
+ 
+-int	_none_init(_RuneLocale *);
+-size_t	_none_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
+-	    mbstate_t * __restrict);
+-int	_none_mbsinit(const mbstate_t *);
+-size_t	_none_mbsnrtowcs(wchar_t * __restrict dst,
++__private_extern__ int	_none_init(struct __xlocale_st_runelocale *);
++__private_extern__ size_t	_none_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
++	    mbstate_t * __restrict, locale_t);
++__private_extern__ int	_none_mbsinit(const mbstate_t *, locale_t);
++__private_extern__ size_t	_none_mbsnrtowcs(wchar_t * __restrict dst,
+ 	    const char ** __restrict src, size_t nms, size_t len,
+-	    mbstate_t * __restrict ps __unused);
+-size_t	_none_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
+-size_t	_none_wcsnrtombs(char * __restrict, const wchar_t ** __restrict,
+-	    size_t, size_t, mbstate_t * __restrict);
++	    mbstate_t * __restrict ps __unused, locale_t);
++__private_extern__ size_t	_none_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t);
++__private_extern__ size_t	_none_wcsnrtombs(char * __restrict, const wchar_t ** __restrict,
++	    size_t, size_t, mbstate_t * __restrict, locale_t);
+ 
+-int
+-_none_init(_RuneLocale *rl)
++__private_extern__ int
++_none_init(struct __xlocale_st_runelocale *xrl)
+ {
+ 
+-	__mbrtowc = _none_mbrtowc;
+-	__mbsinit = _none_mbsinit;
+-	__mbsnrtowcs = _none_mbsnrtowcs;
+-	__wcrtomb = _none_wcrtomb;
+-	__wcsnrtombs = _none_wcsnrtombs;
+-	_CurrentRuneLocale = rl;
+-	__mb_cur_max = 1;
++	xrl->__mbrtowc = _none_mbrtowc;
++	xrl->__mbsinit = _none_mbsinit;
++	xrl->__mbsnrtowcs = _none_mbsnrtowcs;
++	xrl->__wcrtomb = _none_wcrtomb;
++	xrl->__wcsnrtombs = _none_wcsnrtombs;
++	xrl->__mb_cur_max = 1;
+ 	return(0);
+ }
+ 
+-int
+-_none_mbsinit(const mbstate_t *ps __unused)
++__private_extern__ int
++_none_mbsinit(const mbstate_t *ps __unused, locale_t loc)
+ {
+ 
+ 	/*
+@@ -87,9 +88,9 @@
+ 	return (1);
+ }
+ 
+-size_t
++__private_extern__ size_t
+ _none_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
+-    mbstate_t * __restrict ps __unused)
++    mbstate_t * __restrict ps __unused, locale_t loc)
+ {
+ 
+ 	if (s == NULL)
+@@ -103,9 +104,9 @@
+ 	return (*s == '\0' ? 0 : 1);
+ }
+ 
+-size_t
++__private_extern__ size_t
+ _none_wcrtomb(char * __restrict s, wchar_t wc,
+-    mbstate_t * __restrict ps __unused)
++    mbstate_t * __restrict ps __unused, locale_t loc)
+ {
+ 
+ 	if (s == NULL)
+@@ -119,9 +120,9 @@
+ 	return (1);
+ }
+ 
+-size_t
++__private_extern__ size_t
+ _none_mbsnrtowcs(wchar_t * __restrict dst, const char ** __restrict src,
+-    size_t nms, size_t len, mbstate_t * __restrict ps __unused)
++    size_t nms, size_t len, mbstate_t * __restrict ps __unused, locale_t loc)
+ {
+ 	const char *s;
+ 	size_t nchr;
+@@ -144,9 +145,9 @@
+ 	return (nchr);
+ }
+ 
+-size_t
++__private_extern__ size_t
+ _none_wcsnrtombs(char * __restrict dst, const wchar_t ** __restrict src,
+-    size_t nwc, size_t len, mbstate_t * __restrict ps __unused)
++    size_t nwc, size_t len, mbstate_t * __restrict ps __unused, locale_t loc)
+ {
+ 	const wchar_t *s;
+ 	size_t nchr;

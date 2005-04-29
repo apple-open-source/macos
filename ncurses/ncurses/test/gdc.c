@@ -6,12 +6,10 @@
  * modified 10-18-89 for curses (jrl)
  * 10-18-89 added signal handling
  *
- * $Id: gdc.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $
+ * $Id: gdc.c,v 1.23 2002/08/10 19:20:14 tom Exp $
  */
 
 #include <time.h>
-#include <signal.h>
-#include <string.h>
 
 #include <test.priv.h>
 
@@ -135,9 +133,10 @@ main(int argc, char *argv[])
     FILE *ifp = stdin;
     bool scrol = FALSE;
 
+    setlocale(LC_ALL, "");
+
     signal(SIGINT, sighndl);
     signal(SIGTERM, sighndl);
-    signal(SIGKILL, sighndl);
 
     while ((k = getopt(argc, argv, "sn")) != EOF) {
 	switch (k) {

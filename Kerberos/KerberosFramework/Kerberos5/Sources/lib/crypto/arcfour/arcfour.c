@@ -8,20 +8,17 @@ of RSA Data Security)
 */
 #include "k5-int.h"
 #include "arcfour-int.h"
-static const  char *l40 = "fortybits";
+static const char *const l40 = "fortybits";
 
 void
-krb5_arcfour_encrypt_length(enc, hash, inputlen, length)
-     const struct krb5_enc_provider *enc;
-     const struct krb5_hash_provider *hash;
-     size_t inputlen;
-     size_t *length;
+krb5_arcfour_encrypt_length(const struct krb5_enc_provider *enc,
+			    const struct krb5_hash_provider *hash,
+			    size_t inputlen, size_t *length)
 {
   size_t blocksize, hashsize;
 
-  (*(enc->block_size))(&blocksize);
-  (*(hash->hash_size))(&hashsize);
-
+  blocksize = enc->block_size;
+  hashsize = hash->hashsize;
 
   /* checksum + (confounder + inputlen, in even blocksize) */
   *length = hashsize + krb5_roundup(8 + inputlen, blocksize);
@@ -63,14 +60,11 @@ case 7:				/* tgs-req authenticator */
 }
 
 krb5_error_code
-krb5_arcfour_encrypt(enc, hash, key, usage, ivec, input, output)
-     const struct krb5_enc_provider *enc;
-     const struct krb5_hash_provider *hash;
-     const krb5_keyblock *key;
-     krb5_keyusage usage;
-     const krb5_data *ivec;
-     const krb5_data *input;
-     krb5_data *output;
+krb5_arcfour_encrypt(const struct krb5_enc_provider *enc,
+		     const struct krb5_hash_provider *hash,
+		     const krb5_keyblock *key, krb5_keyusage usage,
+		     const krb5_data *ivec, const krb5_data *input,
+		     krb5_data *output)
 {
   krb5_keyblock k1, k2, k3;
   krb5_data d1, d2, d3, salt, plaintext, checksum, ciphertext, confounder;
@@ -78,9 +72,10 @@ krb5_arcfour_encrypt(enc, hash, key, usage, ivec, input, output)
   size_t keylength, keybytes, blocksize, hashsize;
   krb5_error_code ret;
 
-  (*(enc->block_size))(&blocksize);
-  (*(enc->keysize))(&keybytes, &keylength);
-  (*(hash->hash_size))(&hashsize);
+  blocksize = enc->block_size;
+  keybytes = enc->keybytes;
+  keylength = enc->keylength;
+  hashsize = hash->hashsize;
   
   d1.length=keybytes;
   d1.data=malloc(d1.length);
@@ -191,14 +186,11 @@ krb5_arcfour_encrypt(enc, hash, key, usage, ivec, input, output)
 
 /* This is the arcfour-hmac decryption routine */
 krb5_error_code
-krb5_arcfour_decrypt(enc, hash, key, usage, ivec, input, output)
-     const struct krb5_enc_provider *enc;
-     const struct krb5_hash_provider *hash;
-     const krb5_keyblock *key;
-     krb5_keyusage usage;
-     const krb5_data *ivec;
-     const krb5_data *input;
-     krb5_data *output;
+krb5_arcfour_decrypt(const struct krb5_enc_provider *enc,
+		     const struct krb5_hash_provider *hash,
+		     const krb5_keyblock *key, krb5_keyusage usage,
+		     const krb5_data *ivec, const krb5_data *input,
+		     krb5_data *output)
 {
   krb5_keyblock k1,k2,k3;
   krb5_data d1,d2,d3,salt,ciphertext,plaintext,checksum;
@@ -206,9 +198,10 @@ krb5_arcfour_decrypt(enc, hash, key, usage, ivec, input, output)
   size_t keybytes, keylength, hashsize, blocksize;
   krb5_error_code ret;
 
-  (*(enc->block_size))(&blocksize);
-  (*(enc->keysize))(&keybytes, &keylength);
-  (*(hash->hash_size))(&hashsize);
+  blocksize = enc->block_size;
+  keybytes = enc->keybytes;
+  keylength = enc->keylength;
+  hashsize = hash->hashsize;
 
   d1.length=keybytes;
   d1.data=malloc(d1.length);

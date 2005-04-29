@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/locking.h,v 1.4 2001/12/14 19:54:10 dawes Exp $ */
+/* $XFree86: xc/lib/X11/locking.h,v 1.5 2003/11/17 22:20:12 dawes Exp $ */
 
 /*
  * Author: Stephen Gildea, MIT X Consortium
@@ -47,9 +47,7 @@ struct _XCVList {
 };
 
 extern xthread_t (*_Xthread_self_fn)( /* in XlibInt.c */
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 /* Display->lock is a pointer to one of these */
@@ -74,77 +72,57 @@ struct _XLockInfo {
 	struct _XCVList *free_cvls;
 	/* used only in XlibInt.c */
 	void (*pop_reader)(
-#if NeedNestedPrototypes
 			   Display* /* dpy */,
 			   struct _XCVList** /* list */,
 			   struct _XCVList*** /* tail */
-#endif
 			   );
 	struct _XCVList *(*push_reader)(
-#if NeedNestedPrototypes
 					Display *	   /* dpy */,
 					struct _XCVList*** /* tail */
-#endif
 					);
 	void (*condition_wait)(
-#if NeedNestedPrototypes
 			       xcondition_t /* cv */,
 			       xmutex_t /* mutex */
 #if defined(XTHREADS_WARN) || defined(XTHREADS_FILE_LINE)
 			       , char* /* file */,
 			       int /* line */
 #endif
-#endif
 			       );
 	void (*internal_lock_display)(
-#if NeedNestedPrototypes
 				      Display* /* dpy */,
 				      Bool /* wskip */
 #if defined(XTHREADS_WARN) || defined(XTHREADS_FILE_LINE)
 				      , char* /* file */,
 				      int /* line */
 #endif
-#endif
 				      );
 	/* used in XlibInt.c and locking.c */
 	void (*condition_signal)(
-#if NeedNestedPrototypes
 				 xcondition_t /* cv */
 #if defined(XTHREADS_WARN) || defined(XTHREADS_FILE_LINE)
 				 , char* /* file */,
 				 int /* line */
-#endif
 #endif
 				 );
 	void (*condition_broadcast)(
-#if NeedNestedPrototypes
 				 xcondition_t /* cv */
 #if defined(XTHREADS_WARN) || defined(XTHREADS_FILE_LINE)
 				 , char* /* file */,
 				 int /* line */
-#endif
 #endif
 				    );
 	/* used in XlibInt.c and XLockDis.c */
 	void (*lock_wait)(
-#if NeedNestedPrototypes
 			  Display* /* dpy */
-#endif
 			  );
 	void (*user_lock_display)(
-#if NeedNestedPrototypes
 				  Display* /* dpy */
-#endif
 				  );
 	void (*user_unlock_display)(
-#if NeedNestedPrototypes
 				    Display* /* dpy */
-#endif
 				    );
 	struct _XCVList *(*create_cvl)(
-#if NeedNestedPrototypes
 				       Display * /* dpy */
-#endif
 				       );
 };
 

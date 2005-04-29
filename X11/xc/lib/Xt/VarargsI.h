@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/VarargsI.h,v 3.6 2001/12/14 19:56:32 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/VarargsI.h,v 3.7 2003/04/21 16:34:29 herrb Exp $ */
 
 #ifndef _VarargsI_h_ 
 #define _VarargsI_h_ 
@@ -35,45 +35,31 @@ in this Software without prior written authorization from The Open Group.
 /* private routines */
 
 extern void _XtCountVaList(
-#if NeedFunctionPrototypes
     va_list /*var*/, int* /*total_count*/, int* /*typed_count*/
-#endif
 );
 
 extern void _XtVaToArgList(
-#if NeedFunctionPrototypes
    Widget /*widget*/, va_list /*var*/, int /*max_count*/, ArgList* /*args_return*/, Cardinal* /*num_args_return*/
-#endif
 );
 
 extern void _XtVaToTypedArgList(
-#if NeedFunctionPrototypes
     va_list /*var*/, int /*count*/, XtTypedArgList* /*args_return*/, Cardinal* /*num_args_return*/
-#endif
 );
 
 extern XtTypedArgList _XtVaCreateTypedArgList(
-#if NeedFunctionPrototypes
     va_list /*var*/, int /*count*/
-#endif
 );
 
 extern void _XtFreeArgList(
-#if NeedFunctionPrototypes
     ArgList /*args*/, int /*total_count*/, int /*typed_count*/
-#endif
 );
 
 extern void _XtGetApplicationResources(
-#if NeedFunctionPrototypes
     Widget /*w*/, XtPointer /*base*/, XtResourceList /*resources*/, Cardinal /*num_resources*/, ArgList /*args*/, Cardinal /*num_args*/, XtTypedArgList /*typed_args*/, Cardinal /*num_typed_args*/
-#endif
 );
 
 extern void _XtGetSubresources(
-#if NeedFunctionPrototypes
     Widget /*w*/, XtPointer /*base*/, const char* /*name*/, const char* /*class*/, XtResourceList /*resources*/, Cardinal /*num_resources*/, ArgList /*args*/, Cardinal /*num_args*/, XtTypedArgList /*typed_args*/, Cardinal /*num_typed_args*/
-#endif
 );
 
 #endif /* _VarargsI_h_ */

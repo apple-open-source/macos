@@ -1,8 +1,8 @@
 #
 #   mathn.rb - 
 #   	$Release Version: 0.5 $
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:48 $
+#   	$Revision: 1.1.1.1.4.1 $
+#   	$Date: 1998/01/16 12:36:05 $
 #   	by Keiju ISHITSUKA(SHL Japan Inc.)
 #
 # --
@@ -10,8 +10,8 @@
 #   
 #
 
-require "rational.rb"
 require "complex.rb"
+require "rational.rb"
 require "matrix.rb"
 
 class Integer
@@ -106,25 +106,18 @@ class Prime
 end
 
 class Fixnum
-  alias divmod! divmod
-  alias / rdiv
-  def divmod(other)
-    a = self.div(other)
-    b = self % other
-    return a,b
-  end
+  alias / quo
 end
 
 class Bignum
-  alias divmod! divmod
-  alias / rdiv
+  alias / quo
 end
 
 class Rational
   Unify = true
 
   def inspect
-    format "%s/%s", @numerator.inspect, @denominator.inspect
+    format "%s/%s", numerator.inspect, denominator.inspect
   end
 
   alias power! **
@@ -132,7 +125,7 @@ class Rational
   def ** (other)
     if other.kind_of?(Rational)
       if self < 0
-	return Complex(self, 0) ** other
+	return Complex.new!(self, 0) ** other
       elsif other == 0
 	return Rational(1,1)
       elsif self == 0
@@ -141,8 +134,8 @@ class Rational
 	return Rational(1,1)
       end
       
-      npd = @numerator.prime_division
-      dpd = @denominator.prime_division
+      npd = numerator.prime_division
+      dpd = denominator.prime_division
       if other < 0
 	other = -other
 	npd, dpd = dpd, npd
@@ -171,11 +164,11 @@ class Rational
       
     elsif other.kind_of?(Integer)
       if other > 0
-	num = @numerator ** other
-	den = @denominator ** other
+	num = numerator ** other
+	den = denominator ** other
       elsif other < 0
-	num = @denominator ** -other
-	den = @numerator ** -other
+	num = denominator ** -other
+	den = numerator ** -other
       elsif other == 0
 	num = 1
 	den = 1
@@ -215,11 +208,11 @@ class Rational
       
     elsif other.kind_of?(Integer)
       if other > 0
-	num = @numerator ** other
-	den = @denominator ** other
+	num = numerator ** other
+	den = denominator ** other
       elsif other < 0
-	num = @denominator ** -other
-	den = @numerator ** -other
+	num = denominator ** -other
+	den = numerator ** -other
       elsif other == 0
 	num = 1
 	den = 1

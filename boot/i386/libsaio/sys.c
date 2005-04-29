@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -82,24 +82,18 @@ static struct iob iob[NFILES];
 
 void * gFSLoadAddress = 0;
 
-static BVRef getBootVolumeRef( const char * path, const char ** outPath );
+//static BVRef getBootVolumeRef( const char * path, const char ** outPath );
 static BVRef newBootVolumeRef( int biosdev, int partno );
 
 //==========================================================================
-// LoadFile - LOW-LEVEL FILESYSTEM FUNCTION.
-//            Load the specified file to the load buffer at LOAD_ADDR.
+// LoadVolumeFile - LOW-LEVEL FILESYSTEM FUNCTION.
+//            Load the specified file from the specified volume
+//            to the load buffer at LOAD_ADDR.
 //            If the file is fat, load only the i386 portion.
 
-long LoadFile(const char * fileSpec)
+long LoadVolumeFile(BVRef bvr, const char *filePath)
 {
-    const char * filePath;
     long         fileSize;
-    BVRef        bvr;
-
-    // Resolve the boot volume from the file spec.
-
-    if ((bvr = getBootVolumeRef(fileSpec, &filePath)) == NULL)
-        return -1;
 
     // Read file into load buffer. The data in the load buffer will be
     // overwritten by the next LoadFile() call.
@@ -112,6 +106,86 @@ long LoadFile(const char * fileSpec)
 
     return fileSize;
 }
+
+//==========================================================================
+// LoadFile - LOW-LEVEL FILESYSTEM FUNCTION.
+//            Load the specified file to the load buffer at LOAD_ADDR.
+//            If the file is fat, load only the i386 portion.
+
+long LoadFile(const char * fileSpec)
+{
+    const char * filePath;
+    BVRef        bvr;
+
+    // Resolve the boot volume from the file spec.
+
+    if ((bvr = getBootVolumeRef(fileSpec, &filePath)) == NULL)
+        return -1;
+
+    return LoadVolumeFile(bvr, filePath);
+}
+
+long ReadFileAtOffset(const char * fileSpec, void *buffer, unsigned long offset, unsigned long length)
+{
+    const char *filePath;
+    BVRef bvr;
+
+    if ((bvr = getBootVolumeRef(fileSpec, &filePath)) == NULL)
+        return -1;
+
+    if (bvr->fs_readfile == NULL)
+        return -1;
+
+    return bvr->fs_readfile(bvr, (char *)filePath, buffer, offset, length);
+}
+
+long LoadThinFatFile(const char *fileSpec, void **binary)
+{
+    const char       *filePath;
+    FSReadFile readFile;
+    BVRef      bvr;
+    long       length, length2;
+  
+    // Resolve the boot volume from the file spec.
+
+    if ((bvr = getBootVolumeRef(fileSpec, &filePath)) == NULL)
+        return -1;
+  
+    *binary = (void *)kLoadAddr;
+  
+    // Read file into load buffer. The data in the load buffer will be
+    // overwritten by the next LoadFile() call.
+
+    gFSLoadAddress = (void *) LOAD_ADDR;
+
+    readFile = bvr->fs_readfile;
+  
+    if (readFile != NULL) {
+        // Read the first 4096 bytes (fat header)
+        length = readFile(bvr, (char *)filePath, *binary, 0, 0x1000);
+        if (length > 0) {
+            if (ThinFatFile(binary, &length) == 0) {
+                // We found a fat binary; read only the thin part
+                length = readFile(bvr, (char *)filePath,
+                                  (void *)kLoadAddr, (unsigned long)(*binary) - kLoadAddr, length);
+                *binary = (void *)kLoadAddr;
+            } else {
+                // Not a fat binary; read the rest of the file
+                length2 = readFile(bvr, (char *)filePath, (void *)(kLoadAddr + length), length, 0);
+                if (length2 == -1) return -1;
+                length += length2;
+            }
+        }
+    } else {
+        length = bvr->fs_loadfile(bvr, (char *)filePath);
+        if (length > 0) {
+            ThinFatFile(binary, &length);
+        }
+    }
+  
+    return length;
+}
+
 
 //==========================================================================
 // GetDirEntry - LOW-LEVEL FILESYSTEM FUNCTION.
@@ -133,20 +207,23 @@ long GetDirEntry(const char * dirSpec, long * dirIndex, const char ** name,
     return bvr->fs_getdirentry( bvr,
                 /* dirPath */   (char *)dirPath,
                 /* dirIndex */  dirIndex,
-                /* dirEntry */  (char **)name, flags, time );
+                /* dirEntry */  (char **)name, flags, time, 0, 0 );
 }
 
 //==========================================================================
 // GetFileInfo - LOW-LEVEL FILESYSTEM FUNCTION.
 //               Get attributes for the specified file.
 
-static char gMakeDirSpec[1024];
+static char* gMakeDirSpec;
 
 long GetFileInfo(const char * dirSpec, const char * name,
                  long * flags, long * time)
 {
     long         index = 0;
     const char * entryName;
+
+    if (gMakeDirSpec == 0)
+        gMakeDirSpec = (char *)malloc(1024);
 
     if (!dirSpec) {
         long       idx, len;
@@ -173,6 +250,21 @@ long GetFileInfo(const char * dirSpec, const char * name,
     return -1;  // file not found
 }
 
+long GetFileBlock(const char *fileSpec, unsigned long long *firstBlock)
+{
+    const char * filePath;
+    BVRef        bvr;
+
+    // Resolve the boot volume from the file spec.
+
+    if ((bvr = getBootVolumeRef(fileSpec, &filePath)) == NULL) {
+        printf("Boot volume for '%s' is bogus\n", fileSpec);
+        return -1;
+    }
+
+    return bvr->fs_getfileblock(bvr, (char *)filePath, firstBlock);
+}
+
 //==========================================================================
 // iob_from_fdesc()
 //
@@ -190,6 +282,7 @@ static struct iob * iob_from_fdesc(int fdesc)
         return io;
 }
 
+#if UNUSED
 //==========================================================================
 // openmem()
 
@@ -219,6 +312,7 @@ gotfile:
 
     return fdesc;
 }
+#endif
 
 //==========================================================================
 // open() - Open the file specified by 'path' for reading.
@@ -360,6 +454,29 @@ int file_size(int fdesc)
 
 //==========================================================================
 
+struct dirstuff * vol_opendir(BVRef bvr, const char * path)
+{
+    struct dirstuff * dirp = 0;
+
+    dirp = (struct dirstuff *) malloc(sizeof(struct dirstuff));
+    if (dirp == NULL)
+        goto error;
+
+    dirp->dir_path = newString(path);
+    if (dirp->dir_path == NULL)
+        goto error;
+
+    dirp->dir_bvr = bvr;
+
+    return dirp;
+
+error:
+    closedir(dirp);
+    return NULL;
+}
+
+//==========================================================================
+
 struct dirstuff * opendir(const char * path)
 {
     struct dirstuff * dirp = 0;
@@ -405,7 +522,21 @@ int readdir(struct dirstuff * dirp, const char ** name, long * flags,
     return dirp->dir_bvr->fs_getdirentry( dirp->dir_bvr,
                           /* dirPath */   dirp->dir_path,
                           /* dirIndex */  &dirp->dir_index,
-                          /* dirEntry */  (char **)name, flags, time );
+                          /* dirEntry */  (char **)name, flags, time,
+                                          0, 0);
+}
+
+//==========================================================================
+
+int readdir_ext(struct dirstuff * dirp, const char ** name, long * flags,
+            long * time, FinderInfo *finderInfo, long *infoValid)
+{
+    return dirp->dir_bvr->fs_getdirentry( dirp->dir_bvr,
+                          /* dirPath */   dirp->dir_path,
+                          /* dirIndex */  &dirp->dir_index,
+                          /* dirEntry */  (char **)name,
+                                          flags, time,
+                                          finderInfo, infoValid);
 }
 
 //==========================================================================
@@ -463,13 +594,6 @@ BVRef scanBootVolumes( int biosdev, int * count )
 
 //==========================================================================
 
-void getBootVolumeDescription( BVRef bvr, char * str, long strMaxLen )
-{
-    bvr->description( bvr, str, strMaxLen );
-}
-
-//==========================================================================
-
 BVRef selectBootVolume( BVRef chain )
 {
     BVRef bvr, bvr1 = 0, bvr2 = 0;
@@ -492,7 +616,7 @@ BVRef selectBootVolume( BVRef chain )
 #define RP ')'
 int gBIOSDev;
 
-static BVRef getBootVolumeRef( const char * path, const char ** outPath )
+BVRef getBootVolumeRef( const char * path, const char ** outPath )
 {
     const char * cp;
     BVRef        bvr;

@@ -59,7 +59,6 @@
 #include <arpa/inet.h>
 #include <syslog.h>
 #include <sys/ioctl.h>
-#include <net/dlil.h>
 #include <sys/un.h>
 #include <sys/uio.h>                     /* struct iovec */
 
@@ -120,6 +119,7 @@ extern char *serviceid; 	/* configuration service ID to publish */
 extern int	kill_link;
 
 static CFBundleRef 	bundle = 0;		/* our bundle ref */
+static CFURLRef    	url = 0;		/* our bundle url ref */
 
 /* option variables */
 static bool 	modemsound = 1;
@@ -186,6 +186,8 @@ int start(CFBundleRef ref)
     bundle = ref;
     CFRetain(bundle);
     
+    url = CFBundleCopyBundleURL(bundle);
+
     // hookup our handlers
     old_check_options = the_channel->check_options;
     the_channel->check_options = serial_check_options;
@@ -268,6 +270,8 @@ void serial_check_options()
 
     if (modemscript) {
         // actual command will be filled in at connection time
+		connector_uid = 0;
+		disconnector_uid = 0;
         connect_script = connectcommand;
         disconnect_script = disconnectcommand;
         if (altremoteaddress) {
@@ -292,10 +296,16 @@ void serial_check_options()
 int serial_connect(int *errorcode)
 {
     char 		str[1024];
+    char 		path[128];
     struct stat 	statbuf;
     int 		err;
 
+	*errorcode = 0;
+
     if (modemscript) {
+
+	path[0] = 0;
+	CFURLGetFileSystemRepresentation(url, TRUE, path, sizeof(path));
 
        /* check for ccl */ 
         err = 0;
@@ -319,12 +329,18 @@ int serial_connect(int *errorcode)
         }
 
         // ---------- connect and altconnect scripts ----------
-            sprintf(connectcommand, "%s -l %s -f '%s' -s %d -e %d -c %d -p %d -d %d %s %s -S %d -I '%s' -i '%s' -C '%s' ", 
+		
+            sprintf(connectcommand, "%s -l %s -f '%s' -s %d -e %d -c %d -p %d -d %d %s %s -S %d -L %d -I '%s' -i '%s' -C '%s' ", 
             PATH_CCL, serviceid, fullmodemscript, 
             modemsound, modemreliable, modemcompress, modempulse, modemdialmode, 
-            debug ? "-v" : "", (log_to_fd >= 0) ? "-E" : "", LOG_INFO | LOG_LOCAL2, 
+            debug ? "-v" : "", (log_to_fd >= 0) ? "-E" : "", LOG_NOTICE, LOG_PPP, 
             icstr, iconstr, cancelstr);
         
+        if (path[0]) {
+            strcat(connectcommand, " -B ");
+            strcat(connectcommand, path);
+        }
+
         // duplicate that into the alternate script
         strcpy(altconnectcommand, connectcommand);
 
@@ -340,9 +356,9 @@ int serial_connect(int *errorcode)
         }
 
         // ---------- disconnect script ----------
-        sprintf(disconnectcommand, "%s -m 1 -l %s -f '%s' %s %s -S %d -I '%s' -i '%s' -C '%s' ", 
+        sprintf(disconnectcommand, "%s -m 1 -l %s -f '%s' %s %s -S %d -L %d -I '%s' -i '%s' -C '%s' ", 
             PATH_CCL, serviceid, fullmodemscript, 
-            debug ? "-v" : "", (log_to_fd >= 0) ? "-E" : "", LOG_INFO | LOG_LOCAL2, 
+            debug ? "-v" : "", (log_to_fd >= 0) ? "-E" : "", LOG_NOTICE, LOG_PPP, 
             icstr, iconstr, cancelstr);
     }
         
@@ -354,9 +370,9 @@ int serial_connect(int *errorcode)
 
     if (terminalscript) {
         
-        sprintf(terminalcommand, "%s -l %s -f '%s%s' %s %s -S %d -I '%s' -i '%s' -C '%s' ", 
+        sprintf(terminalcommand, "%s -l %s -f '%s%s' %s %s -S %d -L %d -I '%s' -i '%s' -C '%s' ", 
             PATH_CCL, serviceid, terminalscript[0] == '/' ? "" :  DIR_TERMINALS, terminalscript, 
-            debug ? "-v" : "", (log_to_fd >= 0) ? "-E" : "", LOG_INFO | LOG_LOCAL2, 
+            debug ? "-v" : "", (log_to_fd >= 0) ? "-E" : "", LOG_NOTICE, LOG_PPP, 
             icstr, iconstr, cancelstr);
         
         if (user) {

@@ -24,9 +24,10 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/CrGC.c,v 3.6 2001/12/14 19:53:59 dawes Exp $ */
+/* $XFree86: xc/lib/X11/CrGC.c,v 3.7 2003/04/13 19:22:15 dawes Exp $ */
 
 #include "Xlibint.h"
+#include "Cr.h"
 
 static XGCValues const initial_GC = {
     GXcopy, 	/* function */
@@ -54,8 +55,10 @@ static XGCValues const initial_GC = {
     4		/* dashes (list [4,4]) */
 };
 
-static void _XGenerateGCList();
-int _XUpdateGCCache();
+static void _XGenerateGCList(
+    register Display *dpy,
+    GC gc,
+    xReq *req);
 
 GC XCreateGC (dpy, d, valuemask, values)
      register Display *dpy;
@@ -103,10 +106,10 @@ GC XCreateGC (dpy, d, valuemask, values)
  */
 
 static void
-_XGenerateGCList (dpy, gc, req)
-    register Display *dpy;
-    xReq *req;
-    GC gc;
+_XGenerateGCList (
+    register Display *dpy,
+    GC gc,
+    xReq *req)
     {
     unsigned long values[32];
     register unsigned long *value = values;

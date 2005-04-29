@@ -1,5 +1,5 @@
 # Global preference class implementation for Insight.
-# Copyright 1997, 1998, 1999, 2002 Red Hat
+# Copyright 1997, 1998, 1999, 2002, 2003 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -86,7 +86,7 @@ itcl::body GlobalPref::_build_win {} {
   frame $frame.icons
   label $frame.icons.lab -text "Icons "
   combobox::combobox $frame.icons.cb -editable 0 -maxheight 10\
-    -command [code $this _change_icons]
+    -command [code $this _change_icons] -bg $::Colors(textbg)
   
   # get list of icon directories
   set curdir [pwd]
@@ -279,7 +279,7 @@ itcl::body GlobalPref::_make_font_item {f name label font_list} {
   label $f.${name}x -text $label
 
   combobox::combobox $f.${name}n -editable 0 -value $_original($name,family) \
-    -command [code $this _change_font $name]
+    -command [code $this _change_font $name] -bg $::Colors(textbg)
 
   foreach a $font_list {
     $f.${name}n list insert end $a
@@ -314,8 +314,7 @@ itcl::body GlobalPref::_resize_font_item_height {} {
 #  PRIVATE METHOD:  _change_icons
 # ------------------------------------------------------------------
 itcl::body GlobalPref::_change_icons {w args} {
-  debug
-  set index [$w list curselection]
+  set index [$w curselection]
   if {$index != ""} {
     set _new(gdb/ImageDir) [lindex $_icondirlist $index]
   }

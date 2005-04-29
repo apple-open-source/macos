@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/lib/Xft1/XftFreetype.h,v 1.3 2002/03/02 22:09:04 keithp Exp $
+ * $XFree86: xc/lib/Xft1/XftFreetype.h,v 1.4 2003/11/20 22:36:34 dawes Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
@@ -26,7 +26,8 @@
 #define _XFTFREETYPE_H_
 
 #include "Xft.h"
-#include <freetype/freetype.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 #include <X11/Xfuncproto.h>
 #include <X11/Xosdefs.h>

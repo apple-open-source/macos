@@ -1,98 +1,50 @@
 /* Declarations for objc-act.c.
-   Copyright (C) 1990, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1990, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #ifndef GCC_OBJC_ACT_H
 #define GCC_OBJC_ACT_H
 
-/*** Public Interface (procedures) ***/
+/* APPLE LOCAL begin Radar 4015820 FSF candidate */
+/* For enum gimplify_status */
+#include "tree-gimple.h"
+/* APPLE LOCAL end Radar 4015820 FSF candidate */
+/*** Language hooks ***/
 
-const char *objc_init				PARAMS ((const char *));
-const char *objc_printable_name			PARAMS ((tree, int));
+bool objc_init (void);
+const char *objc_printable_name (tree, int);
+/* APPLE LOCAL Radar 3926484 FSF candidate */
+tree objc_get_callee_fndecl (tree);
+void objc_finish_file (void);
+tree objc_fold_obj_type_ref (tree, tree);
+int objc_types_compatible_p (tree, tree);
+/* APPLE LOCAL Radar 4015820 FSF candidate */
+enum gimplify_status objc_gimplify_expr (tree *, tree *, tree *);
 
-/* used by yyparse */
-
-/* APPLE LOCAL Objective-C++ */
-void objc_finish_file				PARAMS ((void));
-tree start_class				PARAMS ((enum tree_code, tree, tree, tree));
-tree continue_class				PARAMS ((tree));
-void finish_class				PARAMS ((tree));
-void start_method_def				PARAMS ((tree));
-void continue_method_def			PARAMS ((void));
-void finish_method_def				PARAMS ((void));
-tree start_protocol				PARAMS ((enum tree_code, tree, tree));
-void finish_protocol				PARAMS ((tree));
-/* APPLE LOCAL msg send super  */
-/* The 'add_objc_decls' routine is no more.  */
-
-/* APPLE LOCAL begin Panther ObjC enhancements */
-tree objc_build_throw_stmt			PARAMS ((tree));
-tree objc_build_try_catch_finally_stmt		PARAMS ((int, int));
-void objc_build_synchronized_prologue		PARAMS ((tree));
-tree objc_build_synchronized_epilogue		PARAMS ((void));
-tree objc_build_try_prologue			PARAMS ((void));
-void objc_build_try_epilogue			PARAMS ((int));
-void objc_build_catch_stmt			PARAMS ((tree));
-void objc_build_catch_epilogue			PARAMS ((void));
-tree objc_build_finally_prologue		PARAMS ((void));
-tree objc_build_finally_epilogue		PARAMS ((void));
-/* APPLE LOCAL end Panther ObjC enhancements */
-
-tree is_ivar					PARAMS ((tree, tree));
-int is_private					PARAMS ((tree));
-int is_public					PARAMS ((tree, tree));
-tree add_instance_variable			PARAMS ((tree, int, tree, tree, tree));
-tree add_class_method				PARAMS ((tree, tree));
-tree add_instance_method			PARAMS ((tree, tree));
-tree get_super_receiver				PARAMS ((void));
-/* APPLE LOCAL msg send super */
-void objc_clear_super_receiver			PARAMS ((void));
-/* APPLE LOCAL Objective-C++ */
-tree get_class_ivars_from_name			PARAMS ((tree));
-/* APPLE LOCAL bitfields */
-/* 'get_class_ivars' has been made static.  */
-tree get_class_reference			PARAMS ((tree));
-tree get_static_reference			PARAMS ((tree, tree));
-tree get_object_reference			PARAMS ((tree));
-tree build_message_expr				PARAMS ((tree));
-tree finish_message_expr			PARAMS ((tree, tree, tree));
-tree build_selector_expr			PARAMS ((tree));
-tree build_ivar_reference			PARAMS ((tree));
-tree build_keyword_decl				PARAMS ((tree, tree, tree));
-tree build_method_decl				PARAMS ((enum tree_code, tree, tree, tree));
-tree build_protocol_expr			PARAMS ((tree));
-tree build_objc_string_object			PARAMS ((tree));
-
-void objc_declare_alias				PARAMS ((tree, tree));
-void objc_declare_class				PARAMS ((tree));
-void objc_declare_protocols			PARAMS ((tree));
-
-/* the following routines are used to implement statically typed objects */
-
-int objc_comptypes				PARAMS ((tree, tree, int));
-void objc_check_decl				PARAMS ((tree));
-
-/* NeXT extensions */
-
-tree build_encode_expr				PARAMS ((tree));
+/* NB: The remaining public functions are prototyped in c-common.h, for the
+   benefit of stub-objc.c and objc-act.c.  */
 
 /* Objective-C structures */
+
+#define CLASS_LANG_SLOT_ELTS		5
+#define PROTOCOL_LANG_SLOT_ELTS		2
 
 /* KEYWORD_DECL */
 #define KEYWORD_KEY_NAME(DECL) ((DECL)->decl.name)
@@ -109,46 +61,52 @@ tree build_encode_expr				PARAMS ((tree));
    CATEGORY_INTERFACE_TYPE, CATEGORY_IMPLEMENTATION_TYPE,
    PROTOCOL_INTERFACE_TYPE */
 #define CLASS_NAME(CLASS) ((CLASS)->type.name)
-#define CLASS_SUPER_NAME(CLASS) ((CLASS)->type.context)
-#define CLASS_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 0)
-#define CLASS_RAW_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 1)
+#define CLASS_SUPER_NAME(CLASS) (TYPE_CHECK (CLASS)->type.context)
+#define CLASS_IVARS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 0)
+#define CLASS_RAW_IVARS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 1)
 #define CLASS_NST_METHODS(CLASS) ((CLASS)->type.minval)
 #define CLASS_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
-#define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 2)
-#define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 3)
-#define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 4)
-#define CLASS_OWN_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 5)
+#define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 2)
+#define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 3)
+#define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 4)
 #define PROTOCOL_NAME(CLASS) ((CLASS)->type.name)
-#define PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 0)
+#define PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 0)
 #define PROTOCOL_NST_METHODS(CLASS) ((CLASS)->type.minval)
 #define PROTOCOL_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
-#define PROTOCOL_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 1)
+#define PROTOCOL_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 1)
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
-#define TYPE_PROTOCOL_LIST(TYPE) ((TYPE)->type.context)
 
-/* APPLE LOCAL objc speedup dpatel */
-#define IDENTIFIER_INTERFACE_VALUE(NODE) (((struct lang_identifier *) (NODE))->interface_value)
-
-/* Set by `continue_class' and checked by `is_public'.  */
+/* We need to distinguish TYPE_PROTOCOL_LISTs from TYPE_CONTEXTs, both of which
+   are stored in the same accessor slot.  */
+#define TYPE_PROTOCOL_LIST(TYPE)				\
+	((TYPE_CHECK (TYPE)->type.context			\
+	  && TREE_CODE ((TYPE)->type.context) == TREE_LIST)	\
+	 ? (TYPE)->type.context : NULL_TREE)
+#define SET_TYPE_PROTOCOL_LIST(TYPE, P) (TYPE_CHECK (TYPE)->type.context = (P))
 
 #define TREE_STATIC_TEMPLATE(record_type) (TREE_PUBLIC (record_type))
 #define TYPED_OBJECT(type) \
        (TREE_CODE (type) == RECORD_TYPE && TREE_STATIC_TEMPLATE (type))
-/* APPLE LOCAL type aliasing */
 #define OBJC_TYPE_NAME(type) TYPE_NAME(type)
+#define OBJC_SET_TYPE_NAME(type, name) (TYPE_NAME (type) = name)
+
+/* APPLE LOCAL begin objc speedup --dpatel */
+#define IDENTIFIER_INTERFACE_VALUE(NODE) \
+	(((struct lang_identifier *) (NODE))->interface_value)
+/* APPLE LOCAL end objc speedup --dpatel */
 
 /* Define the Objective-C or Objective-C++ language-specific tree codes.  */
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
 enum objc_tree_code {
-/* APPLE LOCAL begin Objective C++ */
 #if defined (GCC_CP_TREE_H)
   LAST_BASE_TREE_CODE = LAST_CPLUS_TREE_CODE,
-#elif defined (GCC_C_TREE_H)
+#else 
+#if defined (GCC_C_TREE_H)
   LAST_BASE_TREE_CODE = LAST_C_TREE_CODE,
 #else
-#error You must include <c-tree.h> or <cp/cp-tree.h> before <objc/objc-act.h>
-/* APPLE LOCAL end Objective-C++ */
+  #error You must include <c-tree.h> or <cp/cp-tree.h> before <objc/objc-act.h>
+#endif
 #endif
 #include "objc-tree.def"
   LAST_OBJC_TREE_CODE
@@ -175,7 +133,7 @@ struct hashed_entry GTY(())
 extern GTY ((length ("SIZEHASHTABLE"))) hash *nst_method_hash_list;
 extern GTY ((length ("SIZEHASHTABLE"))) hash *cls_method_hash_list;
 
-#define SIZEHASHTABLE 		257
+#define SIZEHASHTABLE		257
 
 /* Objective-C/Objective-C++ @implementation list.  */
 
@@ -186,11 +144,16 @@ struct imp_entry GTY(())
   tree imp_template;
   tree class_decl;		/* _OBJC_CLASS_<my_name>; */
   tree meta_decl;		/* _OBJC_METACLASS_<my_name>; */
+  /* APPLE LOCAL ObjC C++ ivars */
+  BOOL_BITFIELD has_cxx_cdtors : 1;
 };
 
 extern GTY(()) struct imp_entry *imp_list;
-extern int imp_count;	/* `@implementation' */
-extern int cat_count;	/* `@category' */
+extern GTY(()) int imp_count;	/* `@implementation' */
+extern GTY(()) int cat_count;	/* `@category' */
+
+extern GTY(()) enum tree_code objc_inherit_code;
+extern GTY(()) int objc_public_flag;
 
 /* Objective-C/Objective-C++ global tree enumeration.  */
 
@@ -201,15 +164,14 @@ enum objc_tree_index
     OCTI_SELF_ID,
     OCTI_UCMD_ID,
     OCTI_UNUSED_LIST,
-    OCTI_ELLIPSIS_NODE,
 
     OCTI_SELF_DECL,
     OCTI_UMSG_DECL,
+    /* APPLE LOCAL ObjC direct dispatch */
+    OCTI_UMSG_FAST_DECL,
     OCTI_UMSG_SUPER_DECL,
-    /* APPLE LOCAL begin objc stret methods */
     OCTI_UMSG_STRET_DECL,
     OCTI_UMSG_SUPER_STRET_DECL,
-    /* APPLE LOCAL end objc stret methods */
     OCTI_GET_CLASS_DECL,
     OCTI_GET_MCLASS_DECL,
     OCTI_SUPER_TYPE,
@@ -240,7 +202,7 @@ enum objc_tree_index
     OCTI_MCLS_DECL,
     OCTI_SEL_TABLE_DECL,
     OCTI_MODULES_DECL,
-    OCTI_STRG_DECL,
+    OCTI_GNU_INIT_DECL,
 
     OCTI_INTF_CTX,
     OCTI_IMPL_CTX,
@@ -261,19 +223,20 @@ enum objc_tree_index
     OCTI_MODULE_TEMPL,
     OCTI_SUPER_TEMPL,
     OCTI_OBJ_REF,
+    OCTI_CLS_REF,
     OCTI_METH_PROTO_TEMPL,
     OCTI_FUNCTION1_TEMPL,
     OCTI_FUNCTION2_TEMPL,
 
     OCTI_OBJ_ID,
     OCTI_CLS_ID,
-    OCTI_ID_ID,
+    OCTI_ID_NAME,
+    OCTI_CLASS_NAME,
     OCTI_CNST_STR_ID,
     OCTI_CNST_STR_TYPE,
     OCTI_CNST_STR_GLOB_ID,
     OCTI_STRING_CLASS_DECL,
     OCTI_SUPER_DECL,
-    /* APPLE LOCAL begin Panther ObjC enhancements */
     OCTI_UMSG_NONNIL_DECL,
     OCTI_UMSG_NONNIL_STRET_DECL,
     OCTI_STORAGE_CLS,
@@ -290,9 +253,15 @@ enum objc_tree_index
     OCTI_LOCAL_EXCEPTION_DECL,
     OCTI_RETHROW_EXCEPTION_DECL,
     OCTI_EVAL_ONCE_DECL,
-    OCTI_EXCEPTION_BLK_STACK,
     OCTI_CATCH_TYPE,
-    /* APPLE LOCAL end Panther ObjC enhancements */
+    OCTI_EXECCLASS_DECL,
+
+    /* APPLE LOCAL begin ObjC GC */
+    OCTI_ASSIGN_IVAR_DECL,
+    OCTI_ASSIGN_IVAR_FAST_DECL,
+    OCTI_ASSIGN_GLOBAL_DECL,
+    OCTI_ASSIGN_STRONGCAST_DECL,
+    /* APPLE LOCAL end ObjC GC */
 
     OCTI_MAX
 };
@@ -310,36 +279,35 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define self_id			objc_global_trees[OCTI_SELF_ID]
 #define ucmd_id			objc_global_trees[OCTI_UCMD_ID]
 #define unused_list		objc_global_trees[OCTI_UNUSED_LIST]
-#define objc_ellipsis_node	objc_global_trees[OCTI_ELLIPSIS_NODE]
 
 #define self_decl		objc_global_trees[OCTI_SELF_DECL]
 #define umsg_decl		objc_global_trees[OCTI_UMSG_DECL]
+/* APPLE LOCAL ObjC GC */
+#define umsg_fast_decl		objc_global_trees[OCTI_UMSG_FAST_DECL]
 #define umsg_super_decl		objc_global_trees[OCTI_UMSG_SUPER_DECL]
-/* APPLE LOCAL begin objc stret methods */
 #define umsg_stret_decl		objc_global_trees[OCTI_UMSG_STRET_DECL]
 #define umsg_super_stret_decl	objc_global_trees[OCTI_UMSG_SUPER_STRET_DECL]
-/* APPLE LOCAL end objc stret methods */
 #define objc_get_class_decl	objc_global_trees[OCTI_GET_CLASS_DECL]
 #define objc_get_meta_class_decl			\
 				objc_global_trees[OCTI_GET_MCLASS_DECL]
 
-#define super_type		objc_global_trees[OCTI_SUPER_TYPE]
-#define selector_type		objc_global_trees[OCTI_SEL_TYPE]
-#define id_type			objc_global_trees[OCTI_ID_TYPE]
+#define objc_super_type		objc_global_trees[OCTI_SUPER_TYPE]
+#define objc_selector_type		objc_global_trees[OCTI_SEL_TYPE]
+#define objc_object_type	objc_global_trees[OCTI_ID_TYPE]
 #define objc_class_type		objc_global_trees[OCTI_CLS_TYPE]
-#define instance_type		objc_global_trees[OCTI_NST_TYPE]
-#define protocol_type		objc_global_trees[OCTI_PROTO_TYPE]
+#define objc_instance_type	objc_global_trees[OCTI_NST_TYPE]
+#define objc_protocol_type	objc_global_trees[OCTI_PROTO_TYPE]
 
 /* Type checking macros.  */
 
 #define IS_ID(TYPE) \
-  (TYPE_MAIN_VARIANT (TYPE) == TYPE_MAIN_VARIANT (id_type))
-#define IS_PROTOCOL_QUALIFIED_ID(TYPE) \
-  (IS_ID (TYPE) && TYPE_PROTOCOL_LIST (TYPE))
-/* APPLE LOCAL begin msg send super */  
+  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == TREE_TYPE (objc_object_type))
+#define IS_CLASS(TYPE) \
+  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == TREE_TYPE (objc_class_type))
+#define IS_PROTOCOL_QUALIFIED_UNTYPED(TYPE) \
+  ((IS_ID (TYPE) || IS_CLASS (TYPE)) && TYPE_PROTOCOL_LIST (TYPE))
 #define IS_SUPER(TYPE) \
-  (TREE_CODE (TYPE) == POINTER_TYPE && TREE_TYPE (TYPE) == objc_super_template)
-/* APPLE LOCAL end msg send super */  
+  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == objc_super_template)
 
 #define class_chain		objc_global_trees[OCTI_CLS_CHAIN]
 #define alias_chain		objc_global_trees[OCTI_ALIAS_CHAIN]
@@ -372,7 +340,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define UOBJC_METACLASS_decl		objc_global_trees[OCTI_MCLS_DECL]
 #define UOBJC_SELECTOR_TABLE_decl	objc_global_trees[OCTI_SEL_TABLE_DECL]
 #define UOBJC_MODULES_decl		objc_global_trees[OCTI_MODULES_DECL]
-#define UOBJC_STRINGS_decl		objc_global_trees[OCTI_STRG_DECL]
+#define GNU_INIT_decl			objc_global_trees[OCTI_GNU_INIT_DECL]
 
 /* The following are used when compiling a class implementation.
    implementation_template will normally be an interface, however if
@@ -393,7 +361,6 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define ucls_super_ref		objc_global_trees[OCTI_UCLS_SUPER_REF]
 #define uucls_super_ref		objc_global_trees[OCTI_UUCLS_SUPER_REF]
 
-/* APPLE LOCAL begin Panther ObjC enhancements */
 #define umsg_nonnil_decl	objc_global_trees[OCTI_UMSG_NONNIL_DECL]
 #define umsg_nonnil_stret_decl	objc_global_trees[OCTI_UMSG_NONNIL_STRET_DECL]
 #define objc_storage_class	objc_global_trees[OCTI_STORAGE_CLS]
@@ -417,10 +384,18 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_caught_exception	objc_global_trees[OCTI_LOCAL_EXCEPTION_DECL]	
 #define objc_rethrow_exception	objc_global_trees[OCTI_RETHROW_EXCEPTION_DECL]	
 #define objc_eval_once		objc_global_trees[OCTI_EVAL_ONCE_DECL]	
-#define objc_exception_block_stack		\
-				objc_global_trees[OCTI_EXCEPTION_BLK_STACK]
 #define objc_catch_type		objc_global_trees[OCTI_CATCH_TYPE]
-/* APPLE LOCAL end Panther ObjC enhancements */
+
+#define execclass_decl		objc_global_trees[OCTI_EXECCLASS_DECL]
+
+/* APPLE LOCAL begin ObjC GC */
+#define objc_assign_ivar_decl	objc_global_trees[OCTI_ASSIGN_IVAR_DECL]
+#define objc_assign_ivar_fast_decl		\
+				objc_global_trees[OCTI_ASSIGN_IVAR_FAST_DECL]
+#define objc_assign_global_decl	objc_global_trees[OCTI_ASSIGN_GLOBAL_DECL]
+#define objc_assign_strong_cast_decl		\
+				objc_global_trees[OCTI_ASSIGN_STRONGCAST_DECL]
+/* APPLE LOCAL end ObjC GC */
 
 #define objc_method_template	objc_global_trees[OCTI_METH_TEMPL]
 #define objc_ivar_template	objc_global_trees[OCTI_IVAR_TEMPL]
@@ -428,14 +403,16 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_module_template	objc_global_trees[OCTI_MODULE_TEMPL]
 #define objc_super_template	objc_global_trees[OCTI_SUPER_TEMPL]
 #define objc_object_reference	objc_global_trees[OCTI_OBJ_REF]
+#define objc_class_reference	objc_global_trees[OCTI_CLS_REF]
 #define objc_method_prototype_template		\
 				objc_global_trees[OCTI_METH_PROTO_TEMPL]
 #define function1_template	objc_global_trees[OCTI_FUNCTION1_TEMPL]
 #define function2_template	objc_global_trees[OCTI_FUNCTION2_TEMPL]
-				
+
 #define objc_object_id		objc_global_trees[OCTI_OBJ_ID]
 #define objc_class_id		objc_global_trees[OCTI_CLS_ID]
-#define objc_id_id		objc_global_trees[OCTI_ID_ID]
+#define objc_object_name		objc_global_trees[OCTI_ID_NAME]
+#define objc_class_name		objc_global_trees[OCTI_CLASS_NAME]
 #define constant_string_id	objc_global_trees[OCTI_CNST_STR_ID]
 #define constant_string_type	objc_global_trees[OCTI_CNST_STR_TYPE]
 #define constant_string_global_id		\

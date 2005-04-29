@@ -25,6 +25,7 @@
 #include "breakpoint.h"
 #include "gdbcmd.h"
 #include "gdbcore.h"
+#include "symfile.h"
 
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-inferior-util.h"
@@ -32,6 +33,7 @@
 #include "macosx-nat-cfm.h"
 #include "macosx-nat-cfm-io.h"
 #include "macosx-nat-dyld-info.h"
+#include "macosx-nat-dyld-io.h"
 
 #define CFM_MAX_UNIVERSE_LENGTH 1024
 #define CFM_MAX_CONNECTION_LENGTH 1024
@@ -65,57 +67,66 @@ cfm_update (task_t task, struct dyld_objfile_info *info)
   cfm_cookie = macosx_status->cfm_status.info_api_cookie;
   cfm_parser = &macosx_status->cfm_status.parser;
 
-  if (cfm_cookie == NULL)
+  if (cfm_cookie == 0)
     return -1;
 
   cfm_context = read_memory_unsigned_integer (cfm_cookie, 4);
 
-  ret = cfm_fetch_context_containers (cfm_parser, cfm_context, 0, 0, &n_container_ids, NULL);
+  ret =
+    cfm_fetch_context_containers (cfm_parser, cfm_context, 0, 0,
+                                  &n_container_ids, NULL);
   if (ret != CFM_NO_ERROR)
     return ret;
 
-  container_ids = (unsigned long *) xmalloc (n_container_ids * sizeof (unsigned long));
+  container_ids =
+    (unsigned long *) xmalloc (n_container_ids * sizeof (unsigned long));
 
-  ret = cfm_fetch_context_containers 
-    (cfm_parser, cfm_context, 
+  ret = cfm_fetch_context_containers
+    (cfm_parser, cfm_context,
      n_container_ids, 0, &nread_container_ids, container_ids);
   if (ret != CFM_NO_ERROR)
-      return ret;
+    return ret;
 
   CHECK (n_container_ids == nread_container_ids);
 
-  for (container_index = 0; container_index < n_container_ids; container_index++)
+  for (container_index = 0; container_index < n_container_ids;
+       container_index++)
     {
       NCFragContainerInfo container_info;
       NCFragSectionInfo section_info;
 
-      ret = cfm_fetch_container_info (cfm_parser, container_ids[container_index], &container_info);
+      ret =
+        cfm_fetch_container_info (cfm_parser, container_ids[container_index],
+                                  &container_info);
       if (ret != CFM_NO_ERROR)
-	continue;
-      
-      if (container_info.sectionCount > 0) {
-	ret = cfm_fetch_container_section_info (cfm_parser, container_ids[container_index], 0, &section_info);
-	if (ret != CFM_NO_ERROR)
-	  continue;
-      }
+        continue;
+
+      if (container_info.sectionCount > 0)
+        {
+          ret =
+            cfm_fetch_container_section_info (cfm_parser,
+                                              container_ids[container_index],
+                                              0, &section_info);
+          if (ret != CFM_NO_ERROR)
+            continue;
+        }
 
       {
-	struct dyld_objfile_entry *entry;
+        struct dyld_objfile_entry *entry;
 
-	entry = dyld_objfile_entry_alloc (info);
+        entry = dyld_objfile_entry_alloc (info);
 
-	entry->dyld_name = xstrdup (container_info.name + 1);
-	entry->dyld_name_valid = 1;
+        entry->dyld_name = xstrdup (container_info.name + 1);
+        entry->dyld_name_valid = 1;
 
-	entry->dyld_addr = container_info.address;
-	entry->dyld_slide = container_info.address;
-	entry->dyld_length = container_info.length;
-	entry->dyld_index = 0;
-	entry->dyld_valid = 1;
+        entry->dyld_addr = container_info.address;
+        entry->dyld_slide = container_info.address;
+        entry->dyld_length = container_info.length;
+        entry->dyld_valid = 1;
 
-	entry->cfm_container = container_ids[container_index];
+        entry->cfm_container = container_ids[container_index];
 
-	entry->reason = dyld_reason_cfm;
+        entry->reason = dyld_reason_cfm;
       }
     }
 
@@ -123,77 +134,117 @@ cfm_update (task_t task, struct dyld_objfile_info *info)
 }
 
 long
-cfm_parse_universe_info
-(struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragUniverseInfo *info)
+cfm_parse_universe_info (struct cfm_parser *parser,
+                         unsigned char *buf,
+                         size_t len, NCFragUniverseInfo *info)
 {
-  if (parser->universe_container_offset + 12 > len) { return -1; }
-  if (parser->universe_connection_offset + 12 > len) { return -1; }
-  if (parser->universe_closure_offset + 12 > len) { return -1; }
+  if (parser->universe_container_offset + 12 > len)
+    {
+      return -1;
+    }
+  if (parser->universe_connection_offset + 12 > len)
+    {
+      return -1;
+    }
+  if (parser->universe_closure_offset + 12 > len)
+    {
+      return -1;
+    }
 
-  info->containers.head = bfd_getb32 (buf + parser->universe_container_offset);
-  info->containers.tail = bfd_getb32 (buf + parser->universe_container_offset + 4);
-  info->containers.length = bfd_getb32 (buf + parser->universe_container_offset + 8);
-  info->connections.head = bfd_getb32 (buf + parser->universe_connection_offset);
-  info->connections.tail = bfd_getb32 (buf + parser->universe_connection_offset + 4);
-  info->connections.length = bfd_getb32 (buf + parser->universe_connection_offset + 8);
+  info->containers.head =
+    bfd_getb32 (buf + parser->universe_container_offset);
+  info->containers.tail =
+    bfd_getb32 (buf + parser->universe_container_offset + 4);
+  info->containers.length =
+    bfd_getb32 (buf + parser->universe_container_offset + 8);
+  info->connections.head =
+    bfd_getb32 (buf + parser->universe_connection_offset);
+  info->connections.tail =
+    bfd_getb32 (buf + parser->universe_connection_offset + 4);
+  info->connections.length =
+    bfd_getb32 (buf + parser->universe_connection_offset + 8);
   info->closures.head = bfd_getb32 (buf + parser->universe_closure_offset);
-  info->closures.tail = bfd_getb32 (buf + parser->universe_closure_offset + 4);
-  info->closures.length = bfd_getb32 (buf + parser->universe_closure_offset + 8);
+  info->closures.tail =
+    bfd_getb32 (buf + parser->universe_closure_offset + 4);
+  info->closures.length =
+    bfd_getb32 (buf + parser->universe_closure_offset + 8);
 
   return 0;
 }
 
 long
-cfm_fetch_universe_info
-(struct cfm_parser *parser, CORE_ADDR addr, NCFragUniverseInfo *info)
+cfm_fetch_universe_info (struct cfm_parser *parser,
+                         CORE_ADDR addr, NCFragUniverseInfo *info)
 {
   int ret, err;
 
   unsigned char buf[CFM_MAX_UNIVERSE_LENGTH];
-  if (parser->universe_length > CFM_MAX_UNIVERSE_LENGTH) { return -1; }
+  if (parser->universe_length > CFM_MAX_UNIVERSE_LENGTH)
+    {
+      return -1;
+    }
 
   ret = target_read_memory_partial (addr, buf, parser->universe_length, &err);
-  if (ret < 0) { return -1; }
+  if (ret < 0)
+    {
+      return -1;
+    }
 
   return cfm_parse_universe_info (parser, buf, parser->universe_length, info);
 }
 
 long
-cfm_parse_container_info
-(struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragContainerInfo *info)
+cfm_parse_container_info (struct cfm_parser *parser,
+                          unsigned char *buf,
+                          size_t len, NCFragContainerInfo *info)
 {
   info->next = bfd_getb32 (buf + 0);
   info->address = bfd_getb32 (buf + parser->container_address_offset);
   info->length = bfd_getb32 (buf + parser->container_length_offset);
-  info->sectionCount = bfd_getb32 (buf + parser->container_section_count_offset);
+  info->sectionCount =
+    bfd_getb32 (buf + parser->container_section_count_offset);
 
   return 0;
 }
 
 long
-cfm_fetch_container_info
-(struct cfm_parser *parser, CORE_ADDR addr, NCFragContainerInfo *info)
+cfm_fetch_container_info (struct cfm_parser *parser,
+                          CORE_ADDR addr, NCFragContainerInfo *info)
 {
   int ret, err;
   unsigned long name_length, name_addr;
 
   unsigned char buf[CFM_MAX_CONTAINER_LENGTH];
-  if (parser->container_length > CFM_MAX_CONTAINER_LENGTH) { return -1; }
+  if (parser->container_length > CFM_MAX_CONTAINER_LENGTH)
+    {
+      return -1;
+    }
 
-  ret = target_read_memory_partial (addr, buf, parser->container_length, &err);
-  if (ret < 0) { return -1; }
+  ret =
+    target_read_memory_partial (addr, buf, parser->container_length, &err);
+  if (ret < 0)
+    {
+      return -1;
+    }
 
-  ret = cfm_parse_container_info (parser, buf, parser->container_length, info);
-  if (ret < 0) { return -1; }
+  ret =
+    cfm_parse_container_info (parser, buf, parser->container_length, info);
+  if (ret < 0)
+    {
+      return -1;
+    }
 
-  name_length = CFContHashedStringLength (bfd_getb32 (buf + parser->container_fragment_name_offset));
+  name_length =
+    CFContHashedStringLength (bfd_getb32
+                              (buf + parser->container_fragment_name_offset));
   if (name_length > 63)
     return CFM_INTERNAL_ERROR;
   name_addr = bfd_getb32 (buf + parser->container_fragment_name_offset + 4);
 
   info->name[0] = name_length;
-  
-  ret = target_read_memory_partial (name_addr, &info->name[1], name_length, &err);
+
+  ret =
+    target_read_memory_partial (name_addr, &info->name[1], name_length, &err);
   if (ret < 0)
     return CFM_INTERNAL_ERROR;
 
@@ -203,11 +254,18 @@ cfm_fetch_container_info
 }
 
 long
-cfm_parse_connection_info
-(struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragConnectionInfo *info)
+cfm_parse_connection_info (struct cfm_parser *parser,
+                           unsigned char *buf,
+                           size_t len, NCFragConnectionInfo *info)
 {
-  if (parser->connection_next_offset + 4 > len) { return -1; }
-  if (parser->connection_container_offset + 4 > len) { return -1; }
+  if (parser->connection_next_offset + 4 > len)
+    {
+      return -1;
+    }
+  if (parser->connection_container_offset + 4 > len)
+    {
+      return -1;
+    }
 
   info->next = bfd_getb32 (buf + parser->connection_next_offset);
   info->container = bfd_getb32 (buf + parser->connection_container_offset);
@@ -216,25 +274,37 @@ cfm_parse_connection_info
 }
 
 long
-cfm_fetch_connection_info
-(struct cfm_parser *parser, CORE_ADDR addr, NCFragConnectionInfo *info)
+cfm_fetch_connection_info (struct cfm_parser *parser,
+                           CORE_ADDR addr, NCFragConnectionInfo *info)
 {
   int ret, err;
 
   unsigned char buf[CFM_MAX_CONNECTION_LENGTH];
-  if (parser->connection_length > CFM_MAX_CONNECTION_LENGTH) { return -1; }
+  if (parser->connection_length > CFM_MAX_CONNECTION_LENGTH)
+    {
+      return -1;
+    }
 
-  ret = target_read_memory_partial (addr, buf, parser->connection_length, &err);
-  if (ret < 0) { return -1; }
+  ret =
+    target_read_memory_partial (addr, buf, parser->connection_length, &err);
+  if (ret < 0)
+    {
+      return -1;
+    }
 
-  return cfm_parse_connection_info (parser, buf, parser->connection_length, info);
+  return cfm_parse_connection_info (parser, buf, parser->connection_length,
+                                    info);
 }
 
 long
-cfm_parse_section_info
-(struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragSectionInfo *info)
+cfm_parse_section_info (struct cfm_parser *parser,
+                        unsigned char *buf,
+                        size_t len, NCFragSectionInfo *info)
 {
-  if (parser->section_total_length_offset + 4 > len) { return -1; }
+  if (parser->section_total_length_offset + 4 > len)
+    {
+      return -1;
+    }
 
   info->length = bfd_getb32 (buf + parser->section_total_length_offset);
 
@@ -242,10 +312,14 @@ cfm_parse_section_info
 }
 
 long
-cfm_parse_instance_info
-(struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragInstanceInfo *info)
+cfm_parse_instance_info (struct cfm_parser *parser,
+                         unsigned char *buf,
+                         size_t len, NCFragInstanceInfo *info)
 {
-  if (parser->instance_address_offset + 4 > len) { return -1; }
+  if (parser->instance_address_offset + 4 > len)
+    {
+      return -1;
+    }
 
   info->address = bfd_getb32 (buf + parser->instance_address_offset);
 
@@ -253,11 +327,12 @@ cfm_parse_instance_info
 }
 
 long
-cfm_fetch_context_containers
-(struct cfm_parser *parser,
- CORE_ADDR contextAddr,
- unsigned long requestedCount, unsigned long skipCount,
- unsigned long *totalCount_o, unsigned long* containerIDs_o)
+cfm_fetch_context_containers (struct cfm_parser *parser,
+                              CORE_ADDR contextAddr,
+                              unsigned long requestedCount,
+                              unsigned long skipCount,
+                              unsigned long *totalCount_o,
+                              unsigned long *containerIDs_o)
 {
   int ret;
 
@@ -289,7 +364,7 @@ cfm_fetch_context_containers
   while (skipCount > 0)
     {
       if (curContainer == 0)
-	return CFM_INTERNAL_ERROR;
+        return CFM_INTERNAL_ERROR;
 
       ret = cfm_fetch_container_info (parser, curContainer, &container);
 
@@ -300,7 +375,7 @@ cfm_fetch_context_containers
   for (currIDSlot = 0; currIDSlot < requestedCount; currIDSlot += 1)
     {
       if (curContainer == 0)
-	return CFM_INTERNAL_ERROR;
+        return CFM_INTERNAL_ERROR;
 
       ret = cfm_fetch_container_info (parser, curContainer, &container);
 
@@ -313,9 +388,10 @@ cfm_fetch_context_containers
 }
 
 long
-cfm_fetch_container_section_info
-(struct cfm_parser *parser, CORE_ADDR addr, unsigned long sectionIndex,
- NCFragSectionInfo *section)
+cfm_fetch_container_section_info (struct cfm_parser *parser,
+                                  CORE_ADDR addr,
+                                  unsigned long sectionIndex,
+                                  NCFragSectionInfo *section)
 {
   int ret, err;
   unsigned long offset;
@@ -326,16 +402,22 @@ cfm_fetch_container_section_info
   ret = cfm_fetch_container_info (parser, addr, &container);
   if (ret < 0)
     return CFM_INTERNAL_ERROR;
-  
+
   if (sectionIndex >= container.sectionCount)
     return CFM_NO_SECTION_ERROR;
 
-  offset = (addr + parser->container_length - (2 * parser->section_length) + (sectionIndex * parser->section_length));
-  ret = target_read_memory_partial (offset, section_buf, parser->section_length, &err);
+  offset =
+    (addr + parser->container_length - (2 * parser->section_length) +
+     (sectionIndex * parser->section_length));
+  ret =
+    target_read_memory_partial (offset, section_buf, parser->section_length,
+                                &err);
   if (ret < 0)
     return CFM_INTERNAL_ERROR;
-  
-  ret = cfm_parse_section_info (parser, section_buf, parser->section_length, section);
+
+  ret =
+    cfm_parse_section_info (parser, section_buf, parser->section_length,
+                            section);
   if (ret < 0)
     return ret;
 

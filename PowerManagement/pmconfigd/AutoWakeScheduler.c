@@ -37,6 +37,7 @@
 #include <IOKit/graphics/IOGraphicsTypes.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <syslog.h>
 #include "PrivateLib.h"
 #include "AutoWakeScheduler.h"
 #include "RepeatingAutoWake.h"
@@ -307,7 +308,7 @@ static void wakeDozingMachine(void)
             kr = openHIDService(0, &io_connection);
             if (kr != KERN_SUCCESS) 
             {
-                io_connection = NULL;
+                io_connection = MACH_PORT_NULL;
                 return;
             }
     }

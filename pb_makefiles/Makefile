@@ -18,7 +18,7 @@ GLOBAL_RESOURCES = aggregate.make app.make build.make bundle.make\
                    commands-WINDOWS.make common.make compatibility.make\
                    depend.make flags.make framework.make\
                    implicitrules.make install.make installhdrs.make\
-                   installsrc.make javapackage.make library.make\
+                   installsrc.make javapackage.make javawrapper.make library.make\
                    Makefile.preamble.template Makefile.postamble.template\
                    palette.make prebuild.make recursion.make\
                    reinstall.make subproj.make tool.make versions.make\

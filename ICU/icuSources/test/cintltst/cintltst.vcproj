@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding = "Windows-1252"?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="7.00"
+	Version="7.10"
 	Name="cintltst"
 	SccProjectName=""
 	SccLocalPath="">
@@ -27,6 +27,7 @@
 				PreprocessorDefinitions="WIN32,_DEBUG,_CONSOLE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
+				BufferSecurityCheck="TRUE"
 				DisableLanguageExtensions="TRUE"
 				PrecompiledHeaderFile=".\Debug/cintltst.pch"
 				AssemblerListingLocation=".\Debug/"
@@ -41,15 +42,13 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="icuucd.lib icuind.lib icutud.lib ctestfwd.lib"
 				OutputFile=".\Debug/cintltst.exe"
-				LinkIncremental="1"
+				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
-				AdditionalLibraryDirectories="..\..\..\lib"
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile=".\Debug/cintltst.pdb"
-				SubSystem="1"/>
+				SubSystem="1"
+				FixedBaseAddress="1"/>
 			<Tool
 				Name="VCMIDLTool"
 				TypeLibraryName=".\Debug/cintltst.tlb"/>
@@ -66,7 +65,13 @@
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
 				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
@@ -78,12 +83,14 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="0"
+				Optimization="3"
+				InlineFunctionExpansion="2"
 				ImproveFloatingPointConsistency="TRUE"
 				AdditionalIncludeDirectories="..\..\..\include,..\..\tools\ctestfw,..\..\common,..\..\i18n,..\..\tools\toolutil"
 				PreprocessorDefinitions="WIN32,NDEBUG,_CONSOLE"
 				StringPooling="TRUE"
 				RuntimeLibrary="0"
+				BufferSecurityCheck="TRUE"
 				EnableFunctionLevelLinking="TRUE"
 				DisableLanguageExtensions="TRUE"
 				PrecompiledHeaderFile=".\Release/cintltst.pch"
@@ -92,18 +99,14 @@
 				ProgramDataBaseFileName=".\Release/"
 				WarningLevel="3"
 				SuppressStartupBanner="TRUE"
-				DebugInformationFormat="4"
 				CompileAs="0"/>
 			<Tool
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="icuuc.lib icuin.lib ctestfw.lib icutu.lib"
 				OutputFile=".\Release/cintltst.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
-				AdditionalLibraryDirectories="..\..\..\lib\"
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile=".\Release/cintltst.pdb"
 				SubSystem="1"/>
@@ -123,9 +126,17 @@
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
 				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 	</Configurations>
+	<References>
+	</References>
 	<Files>
 		<Filter
 			Name="bidi"
@@ -179,9 +190,6 @@
 			</File>
 			<File
 				RelativePath=".\ccolltst.h">
-			</File>
-			<File
-				RelativePath=".\cctest.c">
 			</File>
 			<File
 				RelativePath=".\ccurrtst.c">
@@ -269,6 +277,9 @@
 				RelativePath=".\chashtst.c">
 			</File>
 			<File
+				RelativePath=".\sorttest.c">
+			</File>
+			<File
 				RelativePath=".\trietest.c">
 			</File>
 			<File
@@ -292,6 +303,9 @@
 			</File>
 			<File
 				RelativePath=".\cconvtst.c">
+			</File>
+			<File
+				RelativePath=".\cctest.c">
 			</File>
 			<File
 				RelativePath=".\eurocreg.c">
@@ -394,10 +408,16 @@
 			<File
 				RelativePath=".\cnumtst.h">
 			</File>
+			<File
+				RelativePath=".\utmstest.c">
+			</File>
 		</Filter>
 		<Filter
 			Name="locales &amp; resources"
 			Filter="">
+			<File
+				RelativePath=".\cldrtest.c">
+			</File>
 			<File
 				RelativePath=".\cloctst.c">
 			</File>
@@ -436,10 +456,13 @@
 				RelativePath=".\cutiltst.c">
 			</File>
 			<File
-				RelativePath=".\mstrmtst.c">
+				RelativePath=".\hpmufn.c">
 			</File>
 			<File
 				RelativePath=".\putiltst.c">
+			</File>
+			<File
+				RelativePath=".\tracetst.c">
 			</File>
 		</Filter>
 		<Filter
@@ -457,6 +480,9 @@
 			Filter="">
 			<File
 				RelativePath=".\cucdapi.c">
+			</File>
+			<File
+				RelativePath=".\cucdapi.h">
 			</File>
 			<File
 				RelativePath=".\cucdtst.c">
@@ -500,6 +526,28 @@
 		<Filter
 			Name="regex"
 			Filter="">
+			<File
+				RelativePath=".\reapits.c">
+			</File>
+		</Filter>
+		<Filter
+			Name="sprep &amp; idna"
+			Filter="">
+			<File
+				RelativePath="idnatest.c">
+			</File>
+			<File
+				RelativePath="nfsprep.c">
+			</File>
+			<File
+				RelativePath="nfsprep.h">
+			</File>
+			<File
+				RelativePath="spreptst.c">
+			</File>
+			<File
+				RelativePath="sprpdata.c">
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

@@ -17,11 +17,10 @@ operator:*:5:root
 mail:*:6:
 bin:*:7:
 staff:*:20:root
-smmsp:*:25:
 lp:*:26:
 postfix:*:27:
 postdrop:*:28:
-guest:*:31:root
+certusers:*:29:root,jabber,postfix,cyrusimap
 utmp:*:45:
 uucp:*:66:
 dialer:*:68:
@@ -34,4 +33,14 @@ mailman:*:78:
 appserverusr:*:79:
 admin:*:80:root
 appserveradm:*:81:
+clamav:*:82:
+amavisd:*:83:
+jabber:*:84:
+xgridcontroller:*:85:
+xgridagent:*:86:
+appowner:*:87:
+windowserver:*:88:
+accessibility:*:90:
+tokend:*:91:
+securityagent:*:92:
 unknown:*:99:

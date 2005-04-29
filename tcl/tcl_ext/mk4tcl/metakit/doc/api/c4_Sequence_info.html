@@ -1,0 +1,561 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+Sequences represent arrays of rows (or indexed collections / tables).
+Insertion and removal of entries is allowed, but could take linear time.
+A reference count is maintained to decide when the object should go away.
+
+<P>
+
+
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_Sequence_AddHandler_c4_Handler___"><dt>
+	  <nobr>
+	  virtual int 
+	  <b>AddHandler</b> (c4_Handler*);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Add the specified data handler to this sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_Attach_c4_Sequence___"><dt>
+	  <nobr>
+	  void 
+	  <b>Attach</b> (<A HREF="c4_Sequence.html" >c4_Sequence</A>* child_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Register a sequence to receive change notifications</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_Buffer___"><dt>
+	  <nobr>
+	  <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; 
+	  <b>Buffer</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Gives access to a general purpose temporary buffer</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_ClearCache___"><dt>
+	  <nobr>
+	  void 
+	  <b>ClearCache</b> ();
+	  </nobr>
+	<dd>
+	  
+	  ! for c4_Table::Sequence setup
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_Compare_intc4_Cursor__const"><dt>
+	  <nobr>
+	  virtual int 
+	  <b>Compare</b> (int, <A HREF="c4_Cursor.html" >c4_Cursor</A>) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Compare the specified row with another one</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_CreateHandler_const__"><dt>
+	  <nobr>
+	  virtual c4_Handler* 
+	  <b>CreateHandler</b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create a handler of the appropriate type</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_DecRef___"><dt>
+	  <nobr>
+	  void 
+	  <b>DecRef</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Decrement the reference count, delete objects when last</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_Describe___"><dt>
+	  <nobr>
+	  const char* 
+	  <b>Describe</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a descriptions of the current data structure</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_Detach_c4_Sequence___"><dt>
+	  <nobr>
+	  void 
+	  <b>Detach</b> (<A HREF="c4_Sequence.html" >c4_Sequence</A>* child_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Unregister a sequence which received change notifications</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_Get_intintc4_Bytes___"><dt>
+	  <nobr>
+	  virtual bool 
+	  <b>Get</b> (int, int, <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Retrieve one data item from this sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_GetDependencies___const"><dt>
+	  <nobr>
+	  c4_Dependencies* 
+	  <b>GetDependencies</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a pointer to the dependencies, or null</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_HandlerContext_int__const"><dt>
+	  <nobr>
+	  virtual const <A HREF="c4_Sequence.html" >c4_Sequence</A>* 
+	  <b>HandlerContext</b> (int) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the context of the N-th handler in this sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_IncRef___"><dt>
+	  <nobr>
+	  void 
+	  <b>IncRef</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Increment the reference count of this sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_InsertAt_intc4_Cursorint__"><dt>
+	  <nobr>
+	  virtual void 
+	  <b>InsertAt</b> (int, <A HREF="c4_Cursor.html" >c4_Cursor</A>, int =1);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Insert one or more rows into this sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_ItemSize_intint__"><dt>
+	  <nobr>
+	  virtual int 
+	  <b>ItemSize</b> (int index_, int propId_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return width of specified data item</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_Move_intint__"><dt>
+	  <nobr>
+	  virtual void 
+	  <b>Move</b> (int, int);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Move a row to another position</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_NthHandler_int__const"><dt>
+	  <nobr>
+	  virtual c4_Handler&#38; 
+	  <b>NthHandler</b> (int) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a reference to the N-th handler in this sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_NthPropId_int__const"><dt>
+	  <nobr>
+	  int 
+	  <b>NthPropId</b> (int) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the id of the N-th property</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_NumHandlers___const"><dt>
+	  <nobr>
+	  virtual int 
+	  <b>NumHandlers</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the number of data handlers in this sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_NumRefs___const"><dt>
+	  <nobr>
+	  int 
+	  <b>NumRefs</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the current number of references to this sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_PostChange_c4_Notifier___"><dt>
+	  <nobr>
+	  virtual void 
+	  <b>PostChange</b> (c4_Notifier&#38; nf_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Called after changes have been made to the sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_PreChange_c4_Notifier___"><dt>
+	  <nobr>
+	  virtual c4_Notifier* 
+	  <b>PreChange</b> (c4_Notifier&#38; nf_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Called just before a change is made to the sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_PropIndex_const__"><dt>
+	  <nobr>
+	  int 
+	  <b>PropIndex</b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Find the index of a property, or create a new entry</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_PropIndex_int__"><dt>
+	  <nobr>
+	  int 
+	  <b>PropIndex</b> (int);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Find the index of a property by its id</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_RemapIndex_intconst__const"><dt>
+	  <nobr>
+	  virtual int 
+	  <b>RemapIndex</b> (int, const <A HREF="c4_Sequence.html" >c4_Sequence</A>*) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Remap the index to an underlying view</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_RemoveAt_intint__"><dt>
+	  <nobr>
+	  virtual void 
+	  <b>RemoveAt</b> (int, int =1);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Remove one or more rows from this sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_Resize_intint__"><dt>
+	  <nobr>
+	  void 
+	  <b>Resize</b> (int, int =-1);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Change number of rows, either by inserting or removing them</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_Set_intconstconst__"><dt>
+	  <nobr>
+	  virtual void 
+	  <b>Set</b> (int, const <A HREF="c4_Property.html" >c4_Property</A>&#38;, const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Store a data item into this sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_SetAt_intc4_Cursor__"><dt>
+	  <nobr>
+	  void 
+	  <b>SetAt</b> (int, <A HREF="c4_Cursor.html" >c4_Cursor</A>);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Replace the contents of a specified row</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_SetSize_int__"><dt>
+	  <nobr>
+	  virtual void 
+	  <b>SetSize</b> (int size_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_Size___const"><dt>
+	  <nobr>
+	  virtual int 
+	  <b>Size</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the current number of rows</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_UseTempBuffer_const__"><dt>
+	  <nobr>
+	  const char* 
+	  <b>UseTempBuffer</b> (const char*);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence__dependencies"><dt>
+	  <nobr>
+	  c4_Dependencies* 
+	  <b>_dependencies</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence__propertyLimit"><dt>
+	  <nobr>
+	  int 
+	  <b>_propertyLimit</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence__propertyMap"><dt>
+	  <nobr>
+	  short* 
+	  <b>_propertyMap</b>;
+	  </nobr>
+	<dd>
+	  
+	   see c4_HandlerSeq::Reset()
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence__refCount"><dt>
+	  <nobr>
+	  int 
+	  <b>_refCount</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence__tempBuf"><dt>
+	  <nobr>
+	  <A HREF="c4_Bytes.html" >c4_Bytes</A>* 
+	  <b>_tempBuf</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_c4_Sequence__"><dt>
+	  <nobr>
+	  
+	  <b>c4_Sequence</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Abstract constructor</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_c4_Sequence_const_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Sequence</b> (const <A HREF="c4_Sequence.html" >c4_Sequence</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	   not implemented
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence_operator___const__"><dt>
+	  <nobr>
+	  void 
+	  <b>operator= </b> (const <A HREF="c4_Sequence.html" >c4_Sequence</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	   not implemented
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Sequence__c4_Sequence___"><dt>
+	  <nobr>
+	  virtual 
+	  <b>~c4_Sequence</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_Sequence</b>
+</font>
+
+</body></html>

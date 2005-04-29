@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1997-2003, International Business Machines
+*   Copyright (C) 1997-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -14,12 +14,12 @@
 */
 #ifndef USCRIPT_H
 #define USCRIPT_H
-#include "utypes.h"
+#include "unicode/utypes.h"
 
 /**
  * Constants for Unicode script values from ScriptNames.txt .
  *
- * @draft ICU 2.2
+ * @stable ICU 2.2
  */
 typedef enum UScriptCode {
       USCRIPT_INVALID_CODE = -1,
@@ -30,7 +30,7 @@ typedef enum UScriptCode {
       USCRIPT_BENGALI      =  4,  /* Beng */
       USCRIPT_BOPOMOFO     =  5,  /* Bopo */
       USCRIPT_CHEROKEE     =  6,  /* Cher */
-      USCRIPT_COPTIC       =  7,  /* Qaac */
+      USCRIPT_COPTIC       =  7,  /* Copt */
       USCRIPT_CYRILLIC     =  8,  /* Cyrl (Cyrs) */
       USCRIPT_DESERET      =  9,  /* Dsrt */
       USCRIPT_DEVANAGARI   = 10,  /* Deva */
@@ -63,9 +63,9 @@ typedef enum UScriptCode {
       USCRIPT_THAANA       = 37,  /* Thaa */
       USCRIPT_THAI         = 38,  /* Thai */
       USCRIPT_TIBETAN      = 39,  /* Tibt */
-      /** Canadian_Aboriginal script. @draft ICU 2.6 */
+      /** Canadian_Aboriginal script. @stable ICU 2.6 */
       USCRIPT_CANADIAN_ABORIGINAL = 40,  /* Cans */
-      /** Canadian_Aboriginal script (alias). @draft ICU 2.2 */
+      /** Canadian_Aboriginal script (alias). @stable ICU 2.2 */
       USCRIPT_UCAS         = USCRIPT_CANADIAN_ABORIGINAL,
       USCRIPT_YI           = 41,  /* Yiii */
       USCRIPT_TAGALOG      = 42,  /* Tglg */
@@ -73,7 +73,7 @@ typedef enum UScriptCode {
       USCRIPT_BUHID        = 44,  /* Buhd */
       USCRIPT_TAGBANWA     = 45,  /* Tagb */
 
-      /* New scripts in Unicode 4 @draft ICU 2.6 */
+      /* New scripts in Unicode 4 @stable ICU 2.6 */
       USCRIPT_BRAILLE,            /* Brai */
       USCRIPT_CYPRIOT,            /* Cprt */
       USCRIPT_LIMBU,              /* Limb */
@@ -82,6 +82,9 @@ typedef enum UScriptCode {
       USCRIPT_SHAVIAN,            /* Shaw */
       USCRIPT_TAI_LE,             /* Tale */
       USCRIPT_UGARITIC,           /* Ugar */
+
+      /** New script code in Unicode 4.0.1 @draft ICU 3.0 */
+      USCRIPT_KATAKANA_OR_HIRAGANA,/*Hrkt */
 
       USCRIPT_CODE_LIMIT
 } UScriptCode;
@@ -102,9 +105,9 @@ typedef enum UScriptCode {
  * @param capacity the capacity (size) fo UScriptCode buffer passed in.
  * @param err the error status code.
  * @return The number of script codes filled in the buffer passed in 
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
-U_CAPI int32_t  U_EXPORT2 
+U_STABLE int32_t  U_EXPORT2 
 uscript_getCode(const char* nameOrAbbrOrLocale,UScriptCode* fillIn,int32_t capacity,UErrorCode *err);
 
 /**
@@ -113,9 +116,9 @@ uscript_getCode(const char* nameOrAbbrOrLocale,UScriptCode* fillIn,int32_t capac
  * @param scriptCode UScriptCode enum
  * @return script long name as given in
  * PropertyValueAliases.txt, or NULL if scriptCode is invalid
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
-U_CAPI const char*  U_EXPORT2 
+U_STABLE const char*  U_EXPORT2 
 uscript_getName(UScriptCode scriptCode);
 
 /**
@@ -124,9 +127,9 @@ uscript_getName(UScriptCode scriptCode);
  * @param scriptCode UScriptCode enum
  * @return script abbreviated name as given in
  * PropertyValueAliases.txt, or NULL if scriptCode is invalid
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
-U_CAPI const char*  U_EXPORT2 
+U_STABLE const char*  U_EXPORT2 
 uscript_getShortName(UScriptCode scriptCode);
 
 /** 
@@ -135,9 +138,9 @@ uscript_getShortName(UScriptCode scriptCode);
  * @param codepoint UChar32 codepoint
  * @param err the error status code.
  * @return The UScriptCode, or 0 if codepoint is invalid 
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
-U_CAPI UScriptCode  U_EXPORT2 
+U_STABLE UScriptCode  U_EXPORT2 
 uscript_getScript(UChar32 codepoint, UErrorCode *err);
 
 #endif

@@ -1,0 +1,1046 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+				D2A9FF4502429D400DCE0F4E,
+				D2A9FF4C02429D400DCE0F4E,
+				A687E2C006F242DC00077517,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				D2A9FF2B02429BC40DCE0F4E,
+				247142CAFF3F8F9811CA285C,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = AppleGPIO;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleGPIO;
+				MODULE_VERSION = 1.1.8;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleGPIO;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				D25717BD02679E0C0DCE0F4E,
+				D25717BE02679E0C0DCE0F4E,
+				A68395C306F25227007283AE,
+			);
+			isa = PBXBundleTarget;
+			name = AppleGPIO;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleGPIO;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleGPIO</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleGPIO version 1.1.8, Copyright 2002-2004 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleGPIO</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleGPIO</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.8</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1.8</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleGPIO-IOI2C</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleGPIO</string>
+			<key>IOClass</key>
+			<string>AppleGPIO</string>
+			<key>IONameMatch</key>
+			<string>gpio</string>
+			<key>IOProviderClass</key>
+			<string>IOI2CService</string>
+		</dict>
+		<key>AppleI2CGPIO</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleGPIO</string>
+			<key>IOClass</key>
+			<string>AppleGPIO</string>
+			<key>IONameMatch</key>
+			<string>gpio</string>
+			<key>IOProviderClass</key>
+			<string>I2CGPIODevice</string>
+		</dict>
+		<key>AppleMacIOGPIO</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleGPIO</string>
+			<key>IOClass</key>
+			<string>AppleGPIO</string>
+			<key>IONameMatch</key>
+			<string>gpio</string>
+			<key>IOProviderClass</key>
+			<string>MacIOGPIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.1d1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOPlatformFunction</key>
+		<string>1.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.mach</key>
+		<string>6.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				1A224C40FF42367911CA2CB7,
+				D24151F502510A310DCE0F4E,
+				D2B1AE13025B8A2C0DCE0F4E,
+				B475801A03CE1AA400CE0F57,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				1A224C41FF42367911CA2CB7,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = AppleGPIO.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+				D2A9FF4002429D400DCE0F4E,
+				D2A9FF4102429D400DCE0F4E,
+				A687E2CB06F242DC00077517,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+		1A224C3EFF42367911CA2CB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleGPIO.h;
+			refType = 4;
+		};
+		1A224C3FFF42367911CA2CB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleGPIO.cpp;
+			refType = 4;
+		};
+		1A224C40FF42367911CA2CB7 = {
+			fileRef = 1A224C3EFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		1A224C41FF42367911CA2CB7 = {
+			fileRef = 1A224C3FFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				B475801903CE1AA400CE0F57,
+				1A224C3EFF42367911CA2CB7,
+				1A224C3FFF42367911CA2CB7,
+			);
+			isa = PBXGroup;
+			name = AppleGPIO;
+			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//A60
+//A61
+//A62
+//A63
+//A64
+		A68395C306F25227007283AE = {
+			isa = PBXTargetDependency;
+			target = A687E2C006F242DC00077517;
+		};
+		A687E2C006F242DC00077517 = {
+			buildPhases = (
+				A687E2C106F242DC00077517,
+				A687E2C206F242DC00077517,
+				A687E2C606F242DC00077517,
+				A687E2C806F242DC00077517,
+				A687E2C906F242DC00077517,
+				A687E2CA06F242DC00077517,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CDriveBayGPIO;
+				MODULE_VERSION = 1.1.8;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CDriveBayGPIO;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOI2CDriveBayGPIO;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = I2CGPIO;
+			productReference = A687E2CB06F242DC00077517;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOI2CDriveBayGPIO</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOI2CDriveBayGPIO version 1.1.8, Copyright 2002-2004 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.IOI2CDriveBayGPIO</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOI2CDriveBayGPIO</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.8</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1.8</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOI2CDriveBayGPIO</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOI2CDriveBayGPIO</string>
+			<key>IOClass</key>
+			<string>IOI2CDriveBayGPIO</string>
+			<key>IONameMatch</key>
+			<string>drivebay-i2c-gpio</string>
+			<key>IOProbeScore</key>
+			<integer>1024</integer>
+			<key>IOProviderClass</key>
+			<string>IOI2CService</string>
+		</dict>
+		<key>IOI2CDriveBayMGPIO</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOI2CDriveBayGPIO</string>
+			<key>IOClass</key>
+			<string>IOI2CDriveBayMGPIO</string>
+			<key>IONameMatch</key>
+			<string>PCA9554M</string>
+			<key>IOProbeScore</key>
+			<integer>1024</integer>
+			<key>IOProviderClass</key>
+			<string>IOI2CService</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOI2CFamily</key>
+		<string>1.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.mach</key>
+		<string>6.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Local-Root</string>
+</dict>
+</plist>
+";
+		};
+		A687E2C106F242DC00077517 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A687E2C206F242DC00077517 = {
+			buildActionMask = 2147483647;
+			files = (
+				A687E2D606F24A1900077517,
+				A687E2D806F24A1900077517,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A687E2C606F242DC00077517 = {
+			buildActionMask = 2147483647;
+			files = (
+				A687E2D506F24A1900077517,
+				A687E2D706F24A1900077517,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A687E2C806F242DC00077517 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A687E2C906F242DC00077517 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A687E2CA06F242DC00077517 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A687E2CB06F242DC00077517 = {
+			isa = PBXBundleReference;
+			path = IOI2CDriveBayGPIO.kext;
+			refType = 3;
+		};
+		A687E2D106F24A1900077517 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOI2CDriveBayGPIO.cpp;
+			refType = 2;
+		};
+		A687E2D206F24A1900077517 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOI2CDriveBayGPIO.h;
+			refType = 2;
+		};
+		A687E2D306F24A1900077517 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOI2CDriveBayMGPIO.cpp;
+			refType = 2;
+		};
+		A687E2D406F24A1900077517 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOI2CDriveBayMGPIO.h;
+			refType = 2;
+		};
+		A687E2D506F24A1900077517 = {
+			fileRef = A687E2D106F24A1900077517;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A687E2D606F24A1900077517 = {
+			fileRef = A687E2D206F24A1900077517;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A687E2D706F24A1900077517 = {
+			fileRef = A687E2D306F24A1900077517;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A687E2D806F24A1900077517 = {
+			fileRef = A687E2D406F24A1900077517;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//A60
+//A61
+//A62
+//A63
+//A64
+//B40
+//B41
+//B42
+//B43
+//B44
+		B475801903CE1AA400CE0F57 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOPlatformFunction.h;
+			refType = 4;
+		};
+		B475801A03CE1AA400CE0F57 = {
+			fileRef = B475801903CE1AA400CE0F57;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//B40
+//B41
+//B42
+//B43
+//B44
+//D20
+//D21
+//D22
+//D23
+//D24
+		D24151F30251098C0DCE0F4E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = GPIOParent.h;
+			refType = 4;
+		};
+		D24151F40251098C0DCE0F4E = {
+			fileRef = D24151F30251098C0DCE0F4E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D24151F502510A310DCE0F4E = {
+			fileRef = D24151F30251098C0DCE0F4E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D24151F602510A310DCE0F4E = {
+			fileRef = D24151F30251098C0DCE0F4E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D25717BD02679E0C0DCE0F4E = {
+			isa = PBXTargetDependency;
+			target = D2A9FF4502429D400DCE0F4E;
+		};
+		D25717BE02679E0C0DCE0F4E = {
+			isa = PBXTargetDependency;
+			target = D2A9FF4C02429D400DCE0F4E;
+		};
+		D2A9FF2B02429BC40DCE0F4E = {
+			children = (
+				D2A9FF2E02429C2D0DCE0F4E,
+				D2A9FF2F02429C2D0DCE0F4E,
+				D2A9FF3002429C2D0DCE0F4E,
+				D2A9FF3102429C2D0DCE0F4E,
+				D24151F30251098C0DCE0F4E,
+				D2B1AE12025B8A2C0DCE0F4E,
+				A687E2D106F24A1900077517,
+				A687E2D206F24A1900077517,
+				A687E2D306F24A1900077517,
+				A687E2D406F24A1900077517,
+			);
+			isa = PBXGroup;
+			name = "GPIO Parent Drivers";
+			refType = 4;
+		};
+		D2A9FF2E02429C2D0DCE0F4E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = I2CGPIO.cpp;
+			refType = 4;
+		};
+		D2A9FF2F02429C2D0DCE0F4E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = I2CGPIO.h;
+			refType = 4;
+		};
+		D2A9FF3002429C2D0DCE0F4E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MacIOGPIO.cpp;
+			refType = 4;
+		};
+		D2A9FF3102429C2D0DCE0F4E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MacIOGPIO.h;
+			refType = 4;
+		};
+		D2A9FF4002429D400DCE0F4E = {
+			isa = PBXBundleReference;
+			path = MacIOGPIO.kext;
+			refType = 3;
+		};
+		D2A9FF4102429D400DCE0F4E = {
+			isa = PBXBundleReference;
+			path = I2CGPIO.kext;
+			refType = 3;
+		};
+		D2A9FF4502429D400DCE0F4E = {
+			buildPhases = (
+				D2A9FF4602429D400DCE0F4E,
+				D2A9FF4702429D400DCE0F4E,
+				D2A9FF4802429D400DCE0F4E,
+				D2A9FF4902429D400DCE0F4E,
+				D2A9FF4A02429D400DCE0F4E,
+				D2A9FF4B02429D400DCE0F4E,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.MacIOGPIO;
+				MODULE_VERSION = 1.1.8;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = MacIOGPIO;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = MacIOGPIO;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = MacIOGPIO;
+			productReference = D2A9FF4002429D400DCE0F4E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>MacIOGPIO</string>
+	<key>CFBundleGetInfoString</key>
+	<string>MacIOGPIO version 1.1.8, Copyright 2002-2004 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.MacIOGPIO</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>MacIOGPIO</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.8</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1.8</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>MacIOGPIO</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.MacIOGPIO</string>
+			<key>IOClass</key>
+			<string>MacIOGPIO</string>
+			<key>IONameMatch</key>
+			<string>mac-io-gpio</string>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.1d1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.mach</key>
+		<string>6.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+		};
+		D2A9FF4602429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2A9FF4702429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+				D2A9FF5402429D7B0DCE0F4E,
+				D24151F40251098C0DCE0F4E,
+				D2B1AE14025B8A2C0DCE0F4E,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2A9FF4802429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+				D2A9FF5502429D7B0DCE0F4E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2A9FF4902429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2A9FF4A02429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2A9FF4B02429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2A9FF4C02429D400DCE0F4E = {
+			buildPhases = (
+				D2A9FF4D02429D400DCE0F4E,
+				D2A9FF4E02429D400DCE0F4E,
+				D2A9FF4F02429D400DCE0F4E,
+				D2A9FF5002429D400DCE0F4E,
+				D2A9FF5102429D400DCE0F4E,
+				D2A9FF5202429D400DCE0F4E,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.I2CGPIO;
+				MODULE_VERSION = 1.1.8;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = I2CGPIO;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = I2CGPIO;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = I2CGPIO;
+			productReference = D2A9FF4102429D400DCE0F4E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>I2CGPIO</string>
+	<key>CFBundleGetInfoString</key>
+	<string>I2CGPIO version 1.1.8, Copyright 2002-2004 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.I2CGPIO</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>I2CGPIO</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.8</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1.8</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>I2CGPIO</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.I2CGPIO</string>
+			<key>IOClass</key>
+			<string>I2CGPIO</string>
+			<key>IONameMatch</key>
+			<string>drivebay-i2c-gpio</string>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.1d1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.mach</key>
+		<string>6.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Local-Root</string>
+</dict>
+</plist>
+";
+		};
+		D2A9FF4D02429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2A9FF4E02429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+				D2A9FF5702429D7B0DCE0F4E,
+				D24151F602510A310DCE0F4E,
+				D2B1AE15025B8A2C0DCE0F4E,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2A9FF4F02429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+				D2A9FF5802429D7B0DCE0F4E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2A9FF5002429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2A9FF5102429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2A9FF5202429D400DCE0F4E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2A9FF5402429D7B0DCE0F4E = {
+			fileRef = D2A9FF3102429C2D0DCE0F4E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2A9FF5502429D7B0DCE0F4E = {
+			fileRef = D2A9FF3002429C2D0DCE0F4E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2A9FF5702429D7B0DCE0F4E = {
+			fileRef = D2A9FF2F02429C2D0DCE0F4E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2A9FF5802429D7B0DCE0F4E = {
+			fileRef = D2A9FF2E02429C2D0DCE0F4E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2B1AE12025B8A2C0DCE0F4E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = GPIOEventHandler.h;
+			refType = 4;
+		};
+		D2B1AE13025B8A2C0DCE0F4E = {
+			fileRef = D2B1AE12025B8A2C0DCE0F4E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2B1AE14025B8A2C0DCE0F4E = {
+			fileRef = D2B1AE12025B8A2C0DCE0F4E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2B1AE15025B8A2C0DCE0F4E = {
+			fileRef = D2B1AE12025B8A2C0DCE0F4E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

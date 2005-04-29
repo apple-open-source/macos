@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -222,8 +221,8 @@ package System.Soft_Links is
 
    function  Get_Exc_Stack_Addr_NT return Address;
    procedure Set_Exc_Stack_Addr_NT (Self_ID : Address; Addr : Address);
-   --  Self_ID is a Task_ID, but in the non-tasking case there is no
-   --  Task_ID type available, so make do with Address.
+   --  Self_ID is a Task_Id, but in the non-tasking case there is no
+   --  Task_Id type available, so make do with Address.
 
    Get_Exc_Stack_Addr : Get_Address_Call := Get_Exc_Stack_Addr_NT'Access;
    Set_Exc_Stack_Addr : Set_Address_Call2 := Set_Exc_Stack_Addr_NT'Access;
@@ -327,9 +326,12 @@ package System.Soft_Links is
       --  current exception. Note that any exception in the same task
       --  destroys this information, so the data in this variable must
       --  be copied out before another exception can occur.
+      --
+      --  Also act as a list of the active exceptions in the case of the GCC
+      --  exception mechanism, organized as a stack with the most recent first.
 
       Machine_State_Addr : Address := Null_Address;
-      --
+      --  Machine state address. Used by front-end zero cost exception
    end record;
 
    procedure Create_TSD (New_TSD : in out TSD);

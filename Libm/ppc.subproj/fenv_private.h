@@ -34,8 +34,22 @@
 #include <fenv.h>
 
 /*  Macros to get or set environment flags doubleword  */
-#define      FEGETENVD(x)         asm volatile ("mffs %0" : "=f" (x));
-#define      FESETENVD(x)         asm volatile ("mtfsf 255,%0" : : "f" (x));
+#define      FEGETENVD(x) ({ __label__ L1, L2; L1: (void)&&L1; \
+					asm volatile ("mffs %0" : "=f" (x)); \
+                    L2: (void)&&L2; })
+					
+#define		 FESETENVD(x) ({ __label__ L1, L2; L1: (void)&&L1; \
+                    asm volatile("mtfsf 255,%0" : : "f" (x)); \
+                    L2: (void)&&L2; })
+
+/*  Macros to get or set environment flags doubleword in their own dispatch group  */
+#define      FEGETENVD_GRP(x)     ({ __label__ L1, L2; L1: (void)&&L1; \
+									asm volatile ("mffs %0" : "=f" (x)); \
+									L2: (void)&&L2; __NOOP; __NOOP; __NOOP; })
+									
+#define      FESETENVD_GRP(x)     ({ __label__ L1, L2; __NOOP; __NOOP; __NOOP; L1: (void)&&L1; \
+									asm volatile ("mtfsf 255,%0" : : "f" (x)); \
+									L2: (void)&&L2;})
 
 /*  exception flags  */
 #define      FE_SET_FX            0x80000000     /*  floating-point exception summary (FX) bit  */

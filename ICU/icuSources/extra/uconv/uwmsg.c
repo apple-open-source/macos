@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (C) 1998-2000, International Business Machines Corporation 
+* Copyright (C) 1998-2004, International Business Machines Corporation 
 * and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -18,6 +18,7 @@
 #include "unicode/umsg.h"
 #include "unicode/uwmsg.h"
 #include "unicode/ures.h"
+#include "unicode/putil.h"
 #include "cstring.h"
 
 #include <stdlib.h>
@@ -88,7 +89,7 @@ static UResourceBundle *gBundle = NULL;
 
 U_STRING_DECL(gNoFormatting, " (UCONFIG_NO_FORMATTING see uconfig.h)", 38);
 
-U_CAPI UResourceBundle *u_wmsg_setPath(const char *path, UErrorCode *err)
+U_CFUNC UResourceBundle *u_wmsg_setPath(const char *path, UErrorCode *err)
 {
   if(U_FAILURE(*err))
   {
@@ -119,7 +120,7 @@ U_CAPI UResourceBundle *u_wmsg_setPath(const char *path, UErrorCode *err)
 }
 
 /* Format a message and print it's output to fp */
-U_CAPI int u_wmsg(FILE *fp, const char *tag, ... )
+U_CFUNC int u_wmsg(FILE *fp, const char *tag, ... )
 {
     const UChar *msg;
     int32_t      msgLen;
@@ -196,21 +197,27 @@ U_CAPI int u_wmsg(FILE *fp, const char *tag, ... )
 }
 
 /* these will break if the # of messages change. simply add or remove 0's .. */
-UChar * gInfoMessages[U_ERROR_WARNING_LIMIT-U_ERROR_WARNING_START] = 
-    { 0,0 };
+UChar **gInfoMessages = NULL;
 
-UChar * gErrMessages[U_ERROR_LIMIT] = 
-    { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+UChar **gErrMessages = NULL;
 
 static const UChar *fetchErrorName(UErrorCode err)
 {
+    if (!gInfoMessages) {
+        gInfoMessages = (UChar **)malloc((U_ERROR_WARNING_LIMIT-U_ERROR_WARNING_START)*sizeof(UChar*));
+        memset(gInfoMessages, 0, (U_ERROR_WARNING_LIMIT-U_ERROR_WARNING_START)*sizeof(UChar*));
+    }
+    if (!gErrMessages) {
+        gErrMessages = (UChar **)malloc(U_ERROR_LIMIT*sizeof(UChar*));
+        memset(gErrMessages, 0, U_ERROR_LIMIT*sizeof(UChar*));
+    }
     if(err>=0)
         return gErrMessages[err];
     else
         return gInfoMessages[err-U_ERROR_WARNING_START];
 }
 
-U_CAPI const UChar *u_wmsg_errorName(UErrorCode err)
+U_CFUNC const UChar *u_wmsg_errorName(UErrorCode err)
 {
     UChar *msg;
     int32_t msgLen;

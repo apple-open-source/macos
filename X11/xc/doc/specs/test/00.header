@@ -1,0 +1,89 @@
+.\" $XConsortium: 00.header /main/11 1995/12/12 17:26:28 gildea $
+.\" Copyright (c) 1991, 1992  X Consortium
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a
+.\" copy of this software and associated documentation files (the "Software"), 
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+.\" and/or sell copies of the Software, and to permit persons to whom the 
+.\" Software furnished to do so, subject to the following conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be included in
+.\" all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL 
+.\" THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+.\" WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF 
+.\" OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+.\" SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of the X Consortium shall not 
+.\" be used in advertising or otherwise to promote the sale, use or other 
+.\" dealing in this Software without prior written authorization from the 
+.\" X Consortium.
+.de TP
+.sp 1
+.tl \\*(}t
+.if e 'tl \\*(}e
+.if o 'tl \\*(}o
+.sp 1
+..
+.\" uncomment next line for A4 paper
+.\" .VM 0 3
+.de )k
+..
+.PH "''''"
+.PF "''''"
+.ds HP +2 +2 +2 +2
+.ds rC "UniSoft Group Limited
+.ds xW "X\ Window System
+.ds xT "X\ Test Suite
+.ds xP X\ Protocol tests
+.ds xL Xlib tests
+.ds xR "X\ Version\ 11\ Release\ 6.1
+.ds cH "0"
+.nr Hs 4
+.S 18
+.B
+.DS 2
+Xlib and X Protocol Test Suite
+\*(xR
+
+\*(dD
+.DE
+.R
+.SP 8
+.S 14
+.DS 2
+July 1992
+.DE
+.SP 15
+.S 10
+.sp
+Copyright \(co 1991, 1992 UniSoft Group Limited
+.P
+Permission to use, copy, modify, distribute, and sell this software and
+its documentation for any purpose is hereby granted without fee,
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in
+supporting documentation, and that the name of UniSoft not be
+used in advertising or publicity pertaining to distribution of the
+software without specific, written prior permission.  UniSoft
+makes no representations about the suitability of this software for any
+purpose.  It is provided "as is" without express or implied warranty.
+.S 11
+.pn 1
+.PH "''''"
+.EH "''\s14\*(dD''"
+.OH "''\s14\*(dD''"
+.SK
+.PF "\s12''''"
+.OF "\s12''- % -''"
+.EF "\s12''- % -''"
+.S 16
+.B 
+\*(dD
+.R
+.S 12

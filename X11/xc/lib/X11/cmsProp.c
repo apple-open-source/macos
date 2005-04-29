@@ -31,10 +31,12 @@
  *		This utility routines for manipulating properties.
  *
  */
+/* $XFree86: xc/lib/X11/cmsProp.c,v 1.2 2003/04/13 19:22:20 dawes Exp $ */
 
 #include <X11/Xatom.h>
 #include "Xlibint.h"
 #include "Xcmsint.h"
+#include "Cv.h"
 
 
 /************************************************************************
@@ -51,10 +53,10 @@
  *	SYNOPSIS
  */
 unsigned long
-_XcmsGetElement (format, pValue, pCount) 
-    int             format;
-    char            **pValue;
-    unsigned long   *pCount;
+_XcmsGetElement(
+    int             format,
+    char            **pValue,
+    unsigned long   *pCount)
 /*
  *	DESCRIPTION
  *	    Get the next element from the property and return it.
@@ -97,14 +99,14 @@ _XcmsGetElement (format, pValue, pCount)
  *	SYNOPSIS
  */
 int
-_XcmsGetProperty (pDpy, w, property, pFormat, pNItems, pNBytes, pValue) 
-    Display *pDpy;
-    Window  w;
-    Atom property;
-    int             *pFormat;
-    unsigned long   *pNItems;
-    unsigned long   *pNBytes;
-    char            **pValue;
+_XcmsGetProperty(
+    Display *pDpy,
+    Window  w,
+    Atom property,
+    int             *pFormat,
+    unsigned long   *pNItems,
+    unsigned long   *pNBytes,
+    char            **pValue)
 /*
  *	DESCRIPTION
  *

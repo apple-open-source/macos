@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -54,22 +53,34 @@ package Namet is
 --                       stored in an encoded form (Uhh for upper half and
 --                       Whhhh for wide characters, as provided by the routine
 --                       Store_Encoded_Character, where hh are hex digits for
---                       the character code using lower case a-f). Other
---                       internally generated names use upper case letters
---                       (other than O,Q,U,W) to ensure that they do not clash
---                       with identifier names in the source program.
+--                       the character code using lower case a-f). Normally
+--                       the use of U or W in other internal names is avoided,
+--                       but these letters may be used in internal names
+--                       (without this special meaning), if the appear as
+--                       the last character of the name, or they are followed
+--                       by an upper case letter or an underscore.
+
 
 --    Operator symbols   Stored with an initial letter O, and the remainder
 --                       of the name is the lower case characters XXX where
 --                       the name is Name_Op_XXX, see Snames spec for a full
---                       list of the operator names.
+--                       list of the operator names. Normally the use of O
+--                       in other internal names is avoided, but it may be
+--                       used in internal names (without this special meaning)
+--                       if it is the last character of the name, or if it is
+--                       followed by an upper case letter or an underscore.
 
 --    Character literals Character literals have names that are used only for
 --                       debugging and error message purposes. The form is a
---                       upper case Q followed by a single letter, or by a Uxx
---                       or Wxxxx encoding as described for identifiers. The
---                       Set_Character_Literal_Name procedure should be used
---                       to construct these encodings.
+--                       upper case Q followed by a single lower case letter,
+--                       or by a Uxx or Wxxxx encoding as described for
+--                       identifiers. The Set_Character_Literal_Name procedure
+--                       should be used to construct these encodings. Normally
+--                       the use of O in other internal names is avoided, but
+--                       it may be used in internal names (without this special
+--                       meaning) if it is the last character of the name, or
+--                       if it is followed by an upper case letter or an
+--                       underscore.
 
 --    Unit names         Stored with upper case letters folded to lower case,
 --                       using Uhh/Whhhh encoding as described for identifiers,
@@ -193,6 +204,10 @@ package Namet is
    pragma Inline (Get_Name_Table_Info);
    --  Fetches the Int value associated with the given name
 
+   function Is_Operator_Name (Id : Name_Id) return Boolean;
+   --  Returns True if name given is of the form of an operator (that
+   --  is, it starts with an upper case O).
+
    procedure Initialize;
    --  Initializes the names table, including initializing the first 26
    --  entries in the table (for the 1-character lower case names a-z)
@@ -225,7 +240,8 @@ package Namet is
    --  table to see if the string has already been stored. If so the Id of
    --  the existing entry is returned. Otherwise a new entry is created with
    --  its Name_Table_Info field set to zero. The contents of Name_Buffer
-   --  and Name_Len are not modified by this call.
+   --  and Name_Len are not modified by this call. Note that it is permissible
+   --  for Name_Len to be set to zero to lookup the null name string.
 
    function Name_Enter return Name_Id;
    --  Name_Enter has the same calling interface as Name_Find. The difference
@@ -326,6 +342,11 @@ package Namet is
    procedure Tree_Write;
    --  Writes out internal tables to current tree file using Tree_Write
 
+   procedure Get_Last_Two_Chars (N : Name_Id; C1, C2 : out Character);
+   --  Obtains last two characters of a name. C1 is last but one character
+   --  and C2 is last character. If name is less than two characters long,
+   --  then both C1 and C2 are set to ASCII.NUL on return.
+
    procedure Write_Name (Id : Name_Id);
    --  Write_Name writes the characters of the specified name using the
    --  standard output procedures in package Output. No end of line is
@@ -341,8 +362,8 @@ package Namet is
 
    procedure Write_Name_Decoded (Id : Name_Id);
    --  Like Write_Name, except that the name written is the decoded name, as
-   --  described for Get_Name_Decoded, and the resulting value stored in
-   --  Name_Len and Name_Buffer is the decoded name.
+   --  described for Get_Decoded_Name_String, and the resulting value stored
+   --  in Name_Len and Name_Buffer is the decoded name.
 
    ---------------------------
    -- Table Data Structures --

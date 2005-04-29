@@ -50,9 +50,8 @@ log_error(msg)
 }
 
 user *
-load_user(crontab_fd, pw, name)
+load_user(crontab_fd, name)
 	int		crontab_fd;
-	struct passwd	*pw;		/* NULL implies syscrontab */
 	char		*name;
 {
 	char	envstr[MAX_ENVSTR];
@@ -102,7 +101,7 @@ load_user(crontab_fd, pw, name)
 			goto done;
 		case FALSE:
 			User_name = u->name;    /* for log_error */
-			e = load_entry(file, log_error, pw, envp);
+			e = load_entry(file, log_error, strcmp(name, "*system*") ? name : NULL, envp);
 			if (e) {
 				e->next = u->crontab;
 				u->crontab = e;

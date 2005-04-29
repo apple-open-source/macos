@@ -27,7 +27,7 @@
  */
 
 enum clnt_stat multi_call(unsigned,
-			  struct in_addr *, u_long, u_long, u_long,
+			  struct in_addr *, unsigned long, unsigned long, unsigned long,
 			  xdrproc_t, void *, unsigned, xdrproc_t, 
 			  void *,
 			  int (*)(), int);

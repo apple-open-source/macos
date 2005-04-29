@@ -1,5 +1,5 @@
 /*
-* Copyright (C) {1997-2003}, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) {1997-2004}, International Business Machines Corporation and others. All Rights Reserved.
 *******************************************************************************
 *
 * File SMPDTFMT.H
@@ -56,30 +56,34 @@ class DateFormat;
  * as the following:
  * <pre>
  * \code
- *    Symbol   Meaning                 Presentation       Example
- *    ------   -------                 ------------       -------
- *    G        era designator          (Text)             AD
- *    y        year                    (Number)           1996
- *    Y        year/week of year       (Number)           1996
- *    M        month in year           (Text & Number)    July & 07
- *    d        day in month            (Number)           10
- *    h        hour in am/pm (1~12)    (Number)           12
- *    H        hour in day (0~23)      (Number)           0
- *    m        minute in hour          (Number)           30
- *    s        second in minute        (Number)           55
- *    S        millisecond             (Number)           978
- *    E        day of week             (Text)             Tuesday
- *    e        day of week/local (1~7) (Number)           2
- *    D        day of year             (Number)           189
- *    F        day of week in month    (Number)           2 (2nd Wed in July)
- *    w        week in year            (Number)           27
- *    W        week in month           (Number)           2
- *    a        am/pm marker            (Text)             PM
- *    k        hour in day (1~24)      (Number)           24
- *    K        hour in am/pm (0~11)    (Number)           0
- *    z        time zone               (Text)             Pacific Standard Time
- *    '        escape for text
- *    ''       single quote                               '
+ * Symbol   Meaning                 Presentation        Example
+ * ------   -------                 ------------        -------
+ * G        era designator          (Text)              AD
+ * y        year                    (Number)            1996
+ * Y        year (week of year)     (Number)            1997
+ * u        extended year           (Number)            4601
+ * M        month in year           (Text & Number)     July & 07
+ * d        day in month            (Number)            10
+ * h        hour in am/pm (1~12)    (Number)            12
+ * H        hour in day (0~23)      (Number)            0
+ * m        minute in hour          (Number)            30
+ * s        second in minute        (Number)            55
+ * S        fractional second       (Number)            978
+ * E        day of week             (Text)              Tuesday
+ * e        day of week (local 1~7) (Number)            2
+ * D        day in year             (Number)            189
+ * F        day of week in month    (Number)            2 (2nd Wed in July)
+ * w        week in year            (Number)            27
+ * W        week in month           (Number)            2
+ * a        am/pm marker            (Text)              PM
+ * k        hour in day (1~24)      (Number)            24
+ * K        hour in am/pm (0~11)    (Number)            0
+ * z        time zone               (Text)              Pacific Standard Time
+ * Z        time zone (RFC 822)     (Number)            -0800
+ * g        Julian day              (Number)            2451334
+ * A        milliseconds in day     (Number)            69540000
+ * '        escape for text         (Delimiter)         'Date='
+ * ''       single quote            (Literal)           'o''clock'
  * \endcode
  * </pre>
  * The count of pattern letters determine the format.
@@ -91,6 +95,7 @@ class DateFormat;
  * this amount (e.g. if "m" produces "6", "mm" produces "06"). Year is handled
  * specially; that is, if the count of 'y' is 2, the Year will be truncated to 2 digits.
  * (e.g., if "yyyy" produces "1997", "yy" produces "97".)
+ * Unlike other fields, fractional seconds are padded on the right with zero.
  * <P>
  * (Text & Number): 3 or over, use text, otherwise use number.  (e.g., "M" produces "1",
  * "MM" produces "01", "MMM" produces "Jan", and "MMMM" produces "January".)
@@ -186,6 +191,10 @@ class DateFormat;
  * year, whether hours are zero based or not (0 vs 12 or 24), and the timezone.
  * There is one common number format to handle all the numbers; the digit count
  * is handled programmatically according to the pattern.
+ *
+ * <p><em>User subclasses are not supported.</em> While clients may write
+ * subclasses, such code will not necessarily work and will not be
+ * guaranteed to work stably from release to release.
  */
 class U_I18N_API SimpleDateFormat: public DateFormat {
 public:
@@ -557,7 +566,7 @@ public:
      * @return          The class ID for all objects of this class.
      * @stable ICU 2.0
      */
-    static inline UClassID getStaticClassID(void);
+    static UClassID U_EXPORT2 getStaticClassID(void);
 
     /**
      * Returns a unique class ID POLYMORPHICALLY. Pure virtual override. This
@@ -584,12 +593,6 @@ public:
     virtual void adoptCalendar(Calendar* calendarToAdopt);
 
 private:
-    static const char fgClassID;
-
-    static const char fgDateTimePatternsTag[];   // resource bundle tag for default date and time patterns
-
-    static const UChar fgDefaultPattern[];    // date/time pattern of last resort
-
     friend class DateFormat;
 
     void initializeDefaultCentury(void);
@@ -744,7 +747,7 @@ private:
      * @param translatedPattern Output param to receive the translited pattern.
      * @param from              the characters to be translited from.
      * @param to                the characters to be translited to.
-     * @param status            Receives a status code, which will be U_ZERO_ERROR 
+     * @param status            Receives a status code, which will be U_ZERO_ERROR
      *                          if the operation succeeds.
      */
     static void translatePattern(const UnicodeString& originalPattern,
@@ -757,20 +760,10 @@ private:
      * Sets the starting date of the 100-year window that dates with 2-digit years
      * are considered to fall within.
      * @param startDate the start date
-     * @param status    Receives a status code, which will be U_ZERO_ERROR 
+     * @param status    Receives a status code, which will be U_ZERO_ERROR
      *                  if the operation succeeds.
      */
     void         parseAmbiguousDatesAsAfter(UDate startDate, UErrorCode& status);
-
-
-    /**
-     * Last-resort string to use for "GMT" when constructing time zone strings.
-     */
-    // For time zones that have no names, use strings GMT+minutes and
-    // GMT-minutes. For instance, in France the time zone is GMT+60.
-    static const UChar fgGmtPlus[];
-    static const UChar fgGmtMinus[];
-    static const UChar fgGmt[];
 
     /**
      * Used to map pattern characters to Calendar field identifiers.
@@ -780,7 +773,7 @@ private:
     /**
      * Map index into pattern character string to DateFormat field number
      */
-    static const DateFormat::EField fgPatternIndexToDateFormatField[];
+    static const UDateFormatField fgPatternIndexToDateFormatField[];
 
     /**
      * The formatting pattern for this formatter.
@@ -812,27 +805,9 @@ private:
      * See documentation for defaultCenturyStart.
      */
     /*transient*/ int32_t   fDefaultCenturyStartYear;
-    
+
     UBool fHaveDefaultCentury;
-
-public:
-    /**
-     * If a start date is set to this value, that indicates that the system default
-     * start is in effect for this instance.
-     * @internal
-     * @obsolete ICU 2.8 Use parseAmbiguousDatesAsAfter instead, since this member will be removed in that release.
-     */
-    static const UDate        fgSystemDefaultCentury;
-    // TODO Not supposed to be public: make it private in 2.8!
 };
-
-inline UClassID
-SimpleDateFormat::getStaticClassID(void)
-{ return (UClassID)&fgClassID; }
-
-inline UClassID
-SimpleDateFormat::getDynamicClassID(void) const
-{ return SimpleDateFormat::getStaticClassID(); }
 
 inline UDate
 SimpleDateFormat::get2DigitYearStart(UErrorCode& /*status*/) const

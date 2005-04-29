@@ -1,5 +1,5 @@
 
-use Apache::test;
+use Apache::testold;
 
 my $sent = fetch "/perl/rwrite.pl";
 my $i = 0;

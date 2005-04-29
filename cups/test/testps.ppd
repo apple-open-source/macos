@@ -1,6 +1,6 @@
 *PPD-Adobe: "4.3"
 *%
-*% "$Id: testps.ppd,v 1.1.1.6 2002/12/24 00:07:49 jlovell Exp $"
+*% "$Id: testps.ppd,v 1.1.1.8 2004/10/31 16:15:55 jlovell Exp $"
 *%
 *%   Test PS PPD file for the Common UNIX Printing System (CUPS).
 *%
@@ -188,5 +188,5 @@
 *Font ZapfChancery-MediumItalic: Standard "(001.007S)" Standard ROM
 *Font ZapfDingbats: Special "(001.004S)" Standard ROM
 *%
-*% End of "$Id: testps.ppd,v 1.1.1.6 2002/12/24 00:07:49 jlovell Exp $".
+*% End of "$Id: testps.ppd,v 1.1.1.8 2004/10/31 16:15:55 jlovell Exp $".
 *%

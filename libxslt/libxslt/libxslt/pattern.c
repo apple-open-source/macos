@@ -770,7 +770,9 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 			     * If the node is in a Value Tree we cannot
 			     * cache it !
 			     */
-			    if (node->doc != NULL) {
+			    if ((node->doc != NULL) &&
+			        (node->doc->name != NULL) &&
+				(node->doc->name[0] != ' ')) {
 				len = (int)
 				    XSLT_RUNTIME_EXTRA(ctxt, select->lenExtra);
 				XSLT_RUNTIME_EXTRA(ctxt,
@@ -875,7 +877,9 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 			     * If the node is in a Value Tree we cannot
 			     * cache it !
 			     */
-			    if (node->doc != NULL) {
+			    if ((node->doc != NULL) &&
+			        (node->doc->name != NULL) &&
+				(node->doc->name[0] != ' ')) {
 				len = (int)
 				    XSLT_RUNTIME_EXTRA(ctxt, select->lenExtra);
 				XSLT_RUNTIME_EXTRA(ctxt,

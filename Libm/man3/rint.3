@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)rint.3	5.1 (Berkeley) 5/2/91
-.\"	$Id: rint.3,v 1.3 2003/08/17 20:36:47 scp Exp $
+.\"	$Id: rint.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
 .Dd January 23, 2003
 .Dt RINT 3
@@ -44,21 +44,25 @@
 .Fd #include <math.h>
 .Ft double
 .Fn rint "double x"
+.Ft long double
+.Fn rintl "long double x"
 .Ft float
 .Fn rintf "float x"
 .Ft long int
 .Fn lrint "double x"
 .Ft long int
+.Fn lrintl "long double x"
+.Ft long int
 .Fn lrintf "float x"
 .Ft long long int
 .Fn llrint "double x"
+.Ft long long int
+.Fn llrintl "long double x"
 .Ft long long int
 .Fn llrintf "float x"
 .Sh DESCRIPTION
 The
 .Fn rint
-and
-.Fn rintf
 functions return the integral value
 nearest to
 .Fa x
@@ -66,12 +70,8 @@ nearest to
 .Pp
 The
 .Fn lrint
-,
-.Fn lrintf
-,
-.Fn llrint
 and
-.Fn llrintf
+.Fn llrint
 functions return the integral value nearest to 
 .Fa x
 (according to the prevailing rounding mode) in the return formats specified.  If the rounded
@@ -93,19 +93,12 @@ value from the argument (except when they raise some other floating-point except
 .Xr fabs 3 ,
 .Xr ceil 3 ,
 .Xr floor 3 ,
-.Xr ieee 3 ,
 .Xr math 3
 .Sh STANDARDS
 The
 .Fn rint
 , 
-.Fn rintf
-,
 .Fn lrint
-,
-.Fn lrintf
-,
-.Fn llrint
 , and
-.Fn llrintf
+.Fn llrint
 functions conform to ISO/IEC 9899:1999(E).

@@ -4,7 +4,7 @@
 .\"
 .\" Copyright (c) 1996  Joe Moss, The XFree86 Project
 .\" 
-.\" $XFree86: xc/programs/Xserver/hw/xfree86/doc/man/XF86Misc.man,v 3.12 2002/12/22 00:46:54 dawes Exp $
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/doc/man/XF86Misc.man,v 3.13 2003/11/23 05:40:36 dawes Exp $
 .de ZN
 .ie t \fB\^\\$1\^\fR\\$2
 .el \fI\^\\$1\^\fP\\$2
@@ -93,24 +93,24 @@ Specifies a structure which contains the keyboard parameters.
 .ta 3i
 \fIMouse:\fP
 typedef struct {
-    char *device; 	/* returned path to device */
-    int type;	/* mouse protocol */
-    int baudrate;	/* 1200, 2400, 4800, or 9600 */
-    int samplerate;	/* samples per second */
-    int resolution;	/* resolution, count per inch */
-    int buttons;	/* number of buttons */
-    Bool emulate3buttons;	/* Button1+Button3 -> Button2 ? */
-    int emulate3timeout;	/* in milliseconds */
-    Bool chordmiddle;	/* Button1+Button3 == Button2 ? */
-    int flags;	/* Device open flags */
+    char *device; 	/\(** returned path to device */
+    int type;	/\(** mouse protocol */
+    int baudrate;	/\(** 1200, 2400, 4800, or 9600 */
+    int samplerate;	/\(** samples per second */
+    int resolution;	/\(** resolution, count per inch */
+    int buttons;	/\(** number of buttons */
+    Bool emulate3buttons;	/\(** Button1+Button3 -> Button2 ? */
+    int emulate3timeout;	/\(** in milliseconds */
+    Bool chordmiddle;	/\(** Button1+Button3 == Button2 ? */
+    int flags;	/\(** Device open flags */
 } XF86MiscMouseSettings;
 .LP
 \fIKeyboard:\fP
 typedef struct {
-    int type;	/* of keyboard: 84-key, 101-key, Xqueue  */
-    int rate;	/* repeat rate */
-    int delay;	/* delay until repeat starts */
-    Bool servnumlock;	/* Server handles NumLock ? */
+    int type;	/\(** of keyboard: 84-key, 101-key, Xqueue  */
+    int rate;	/\(** repeat rate */
+    int delay;	/\(** delay until repeat starts */
+    Bool servnumlock;	/\(** Server handles NumLock ? */
 } XF86MiscKbdSettings;
 .fi
 .SH DESCRIPTION

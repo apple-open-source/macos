@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)atan2.3	5.1 (Berkeley) 5/2/91
-.\"	$Id: atan2.3,v 1.3 2003/08/17 20:36:46 scp Exp $
+.\"	$Id: atan2.3,v 1.5 2004/12/20 21:35:44 scp Exp $
 .\"
 .Dd November 18, 2002
 .Dt ATAN2 3
@@ -42,13 +42,13 @@
 .Fd #include <math.h>
 .Ft double
 .Fn atan2 "double y" "double x"
-.\\.Ft float
-.\\.Fn atan2f "float y" "float x"
+.Ft long double
+.Fn atan2l "long double y" "long double x"
+.Ft float
+.Fn atan2f "float y" "float x"
 .Sh DESCRIPTION
 The
 .Fn atan2
-.\\and
-.\\.Fn atan2f
 function computes the principal value of the arc tangent of
 .Ar y/ Ns Ar x ,
 using the signs of both arguments to determine the quadrant of
@@ -113,6 +113,7 @@ theta	:= atan2(y,x).
 r	:= hypot(x,y);  ... := \(sr(x\u\s82\s10\d+y\u\s82\s10\d)
 \(*h	:= atan2(y,x).
 .\}
+.Ed
 .Sh SEE ALSO
 .Xr acos 3 ,
 .Xr asin 3 ,
@@ -127,6 +128,4 @@ r	:= hypot(x,y);  ... := \(sr(x\u\s82\s10\d+y\u\s82\s10\d)
 .Sh STANDARDS
 The
 .Fn atan2
-.\\and
-.\\.Fn atan2f
 function conforms to ISO/IEC 9899:1999(E).

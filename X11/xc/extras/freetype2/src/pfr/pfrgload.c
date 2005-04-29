@@ -17,6 +17,7 @@
 
 
 #include "pfrgload.h"
+#include "pfrsbit.h"
 #include "pfrload.h"            /* for macro definitions */
 #include FT_INTERNAL_DEBUG_H
 
@@ -139,7 +140,7 @@
 
 
       outline->points[n] = *to;
-      outline->tags  [n] = FT_Curve_Tag_On;
+      outline->tags  [n] = FT_CURVE_TAG_ON;
 
       outline->n_points++;
     }
@@ -172,9 +173,9 @@
       vec[0] = *control1;
       vec[1] = *control2;
       vec[2] = *to;
-      tag[0] = FT_Curve_Tag_Cubic;
-      tag[1] = FT_Curve_Tag_Cubic;
-      tag[2] = FT_Curve_Tag_On;
+      tag[0] = FT_CURVE_TAG_CUBIC;
+      tag[1] = FT_CURVE_TAG_CUBIC;
+      tag[2] = FT_CURVE_TAG_ON;
 
       outline->n_points = (FT_Short)( outline->n_points + 3 );
     }
@@ -298,7 +299,7 @@
         PFR_CHECK( 1 );
         mask = PFR_NEXT_BYTE( p );
       }
-      
+
       if ( mask & 1 )
       {
         PFR_CHECK( 2 );
@@ -309,7 +310,7 @@
         PFR_CHECK( 1 );
         x += PFR_NEXT_BYTE( p );
       }
-      
+
       glyph->x_control[i] = x;
 
       mask >>= 1;
@@ -409,7 +410,7 @@
         cur = pos;
         for ( n = 0; n < args_count; n++ )
         {
-          FT_Int  index, delta;
+          FT_Int  idx, delta;
 
 
           /* read the X argument */
@@ -417,9 +418,9 @@
           {
           case 0:                           /* 8-bit index */
             PFR_CHECK( 1 );
-            index  = PFR_NEXT_BYTE( p );
-            cur->x = glyph->x_control[index];
-            FT_TRACE7(( " cx#%d", index ));
+            idx  = PFR_NEXT_BYTE( p );
+            cur->x = glyph->x_control[idx];
+            FT_TRACE7(( " cx#%d", idx ));
             break;
 
           case 1:                           /* 16-bit value */
@@ -445,9 +446,9 @@
           {
           case 0:                           /* 8-bit index */
             PFR_CHECK( 1 );
-            index  = PFR_NEXT_BYTE( p );
-            cur->y = glyph->y_control[index];
-            FT_TRACE7(( " cy#%d", index ));
+            idx  = PFR_NEXT_BYTE( p );
+            cur->y = glyph->y_control[idx];
+            FT_TRACE7(( " cy#%d", idx ));
             break;
 
           case 1:                           /* 16-bit absolute value */
@@ -577,13 +578,14 @@
     }
 
     subglyph = glyph->subs + org_count;
-    x_pos    = 0;
-    y_pos    = 0;
 
     for ( i = 0; i < count; i++, subglyph++ )
     {
       FT_UInt  format;
 
+
+      x_pos = 0;
+      y_pos = 0;
 
       PFR_CHECK( 1 );
       format = PFR_NEXT_BYTE( p );
@@ -635,7 +637,7 @@
       default:
         ;
       }
-      
+
       subglyph->x_delta = x_pos;
       subglyph->y_delta = y_pos;
 
@@ -673,6 +675,9 @@
     FT_ERROR(( "pfr_glyph_load_compound: invalid glyph data\n" ));
     goto Exit;
   }
+
+
+
 
 
   static FT_Error
@@ -773,6 +778,9 @@
   Exit:
     return error;
   }
+
+
+
 
 
   FT_LOCAL_DEF( FT_Error )

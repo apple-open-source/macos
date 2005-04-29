@@ -194,12 +194,17 @@ Boston, MA 02111-1307, USA.  */
 
 /* Use the default action for outputting the case label.  */
 #undef ASM_OUTPUT_CASE_LABEL
-#define ASM_RETURN_CASE_JUMP			\
-  do {						\
-    if (TARGET_5200)				\
-      return "ext%.l %0\n\tjmp %%pc@(2,%0:l)";	\
-    else					\
-      return "jmp %%pc@(2,%0:w)";		\
+#define ASM_RETURN_CASE_JUMP				\
+  do {							\
+    if (TARGET_5200)					\
+      {							\
+	if (ADDRESS_REG_P (operands[0]))		\
+	  return "jmp %%pc@(2,%0:l)";			\
+	else						\
+	  return "ext%.l %0\n\tjmp %%pc@(2,%0:l)";	\
+      }							\
+    else						\
+      return "jmp %%pc@(2,%0:w)";			\
   } while (0)
 
 /* This is how to output an assembler line that says to advance the
@@ -246,9 +251,6 @@ Boston, MA 02111-1307, USA.  */
 /* Do not break .stabs pseudos into continuations.  */
 
 #define DBX_CONTIN_LENGTH 0
-
-/* Allow folding division by zero.  */
-#define REAL_INFINITY
 
 /* 1 if N is a possible register number for a function value.  For
    m68k/SVR4 allow d0, a0, or fp0 as return registers, for integral,
@@ -318,15 +320,6 @@ do {									\
    || (GET_CODE (X) == SYMBOL_REF && SYMBOL_REF_FLAG (X))       	\
    || PCREL_GENERAL_OPERAND_OK)
 
-/* Turn off function cse if we are doing PIC. We always want function
-   call to be done as `bsr foo@PLTPC', so it will force the assembler
-   to create the PLT entry for `foo'.  Doing function cse will cause
-   the address of `foo' to be loaded into a register, which is exactly
-   what we want to avoid when we are doing PIC on svr4 m68k.  */
-#undef SUBTARGET_OVERRIDE_OPTIONS
-#define SUBTARGET_OVERRIDE_OPTIONS \
-  if (flag_pic) flag_no_function_cse = 1;
-
 /* For m68k SVR4, structures are returned using the reentrant
    technique.  */
 #undef PCC_STATIC_STRUCT_RETURN
@@ -366,28 +359,3 @@ do {									\
      : "d" (_beg), "d" (_len)						\
      : "%d0", "%d2", "%d3");						\
 }
-
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
-do {									\
-  if (DELTA > 0 && DELTA <= 8)						\
-    asm_fprintf (FILE, "\taddq.l %I%d,4(%Rsp)\n", DELTA);		\
-  else if (DELTA < 0 && DELTA >= -8)					\
-    asm_fprintf (FILE, "\tsubq.l %I%d,4(%Rsp)\n", -DELTA);		\
-  else									\
-    asm_fprintf (FILE, "\tadd.l %I%d,4(%Rsp)\n", DELTA);		\
-									\
-  if (flag_pic)								\
-    {									\
-      fprintf (FILE, "\tbra.l ");					\
-      assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-      fprintf (FILE, "@PLTPC\n");					\
-    }									\
-  else									\
-    {									\
-      fprintf (FILE, "\tjmp ");						\
-      assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-      fprintf (FILE, "\n");						\
-    }									\
-} while (0)

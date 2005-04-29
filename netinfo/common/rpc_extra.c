@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)svc_udp.c 1.24 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)svc_udp.c	2.2 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: rpc_extra.c,v 1.3 2003/07/03 21:18:46 majka Exp $";
+static char *rcsid = "$Id: rpc_extra.c,v 1.4 2004/10/06 17:09:08 majka Exp $";
 #endif
 
 /*
@@ -70,6 +70,7 @@ static char *rcsid = "$Id: rpc_extra.c,v 1.3 2003/07/03 21:18:46 majka Exp $";
 #undef RPC_SUCCESS
 #endif
 #include <rpc/rpc.h>
+#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/time.h>

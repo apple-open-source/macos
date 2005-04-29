@@ -27,12 +27,12 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/string.h,v 1.11 2002/11/25 02:35:30 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/string.h,v 1.12 2003/04/27 18:17:34 tsi Exp $ */
 
 #ifndef Lisp_string_h
 #define Lisp_string_h
 
-#include "internal.h"
+#include "lisp/internal.h"
 
 LispObj *Lisp_AlphaCharP(LispBuiltin*);
 LispObj *Lisp_BothCaseP(LispBuiltin*);

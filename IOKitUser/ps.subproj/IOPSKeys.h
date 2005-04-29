@@ -28,6 +28,8 @@
     Note that all of these C strings must be converted to CFStrings before use. You can wrap
     them with the CFSTR() macro, or create a CFStringRef (that you must later CFRelease()) using CFStringCreateWithCString()
  */  
+#ifndef _IOPSKEYS_H_
+#define _IOPSKEYS_H_
 
 /*!
  @define kIOPSUPSManagementClaimed
@@ -66,7 +68,7 @@
 /*!
     @define kIOPSCommandDelayedRemovePowerKey
     @abstract Command to give a UPS when it should remove power from its AC plugs in a specified amount of time
-        <br>The matching argument should be a CFNumber of kCFNumberIntType specifying when the UPS should
+        <br>The matching argumnet should be a CFNumber of kCFNumberIntType specifying when the UPS should
         <br>remove power from its AC power ports.
 */
 #define kIOPSCommandDelayedRemovePowerKey     "Delayed Remove Power"
@@ -74,7 +76,7 @@
 /*!
     @define kIOPSCommandEnableAudibleAlarmKey
     @abstract Command to give a UPS when it should either enable or disable the audible alarm.
-        <br>The matching argument should be a CFBooleanRef where kCFBooleanTrue enables the alarm and 
+        <br>The matching argumnet should be a CFBooleanRef where kCFBooleanTrue enables the alarm and 
         <br>kCFBooleanFalse diables the alarm
 */
 #define kIOPSCommandEnableAudibleAlarmKey     "Enable Audible Alarm"
@@ -82,8 +84,8 @@
 /*!
     @define kIOPSCommandStartupDelayKey
     @abstract Tell UPS how long it should wait for 
-        <br>The matching argument should be a CFNumber of kCFNumberIntType specifying how soon
-        <br>after a power outage the UPS should restore computer power.
+        <br>The matching argumnet should be a CFNumber of kCFNumberIntType specifying when the UPS should
+        <br>remove power from its AC power ports.
 */
 #define kIOPSCommandStartupDelayKey           "Startup Delay"
 
@@ -243,3 +245,4 @@
 */
 #define kIOPSBatteryPowerValue         "Battery Power"
 
+#endif

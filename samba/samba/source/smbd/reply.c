@@ -5025,6 +5025,9 @@ int reply_getattrE(connection_struct *conn, char *inbuf,char *outbuf, int size, 
 	int outsize = 0;
 	int mode;
 	files_struct *fsp = file_fsp(inbuf,smb_vwv0);
+	#if defined(ATTR_CMN_CRTIME)
+	time_t c_time;
+	#endif
 	START_PROFILE(SMBgetattrE);
 
 	outsize = set_message(outbuf,11,0,True);
@@ -5047,8 +5050,14 @@ int reply_getattrE(connection_struct *conn, char *inbuf,char *outbuf, int size, 
 	 * date to be last modify date as UNIX doesn't save
 	 * this.
 	 */
-
+	#if defined(ATTR_CMN_CRTIME)
+		if (!(get_creation_time_attr(fsp->fsp_name, &c_time, 1) == 0))  {
+			c_time = get_create_time(&sbuf,lp_fake_dir_create_times(SNUM(conn)));
+		}
+		put_dos_date2(outbuf,smb_vwv0,c_time);		
+	#else
 	put_dos_date2(outbuf,smb_vwv0,get_create_time(&sbuf,lp_fake_dir_create_times(SNUM(conn))));
+	#endif
 	put_dos_date2(outbuf,smb_vwv2,sbuf.st_atime);
 	put_dos_date2(outbuf,smb_vwv4,sbuf.st_mtime);
 

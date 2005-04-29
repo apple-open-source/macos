@@ -6,9 +6,8 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.1.1.1 $
 --                                                                          --
---            Copyright (C) 1991-2000 Florida State University              --
+--            Copyright (C) 1991-2001 Florida State University              --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,6 +41,8 @@
 with Ada.Exceptions;
 
 package body System.Interrupts is
+
+   pragma Warnings (Off); -- kill warnings on unreferenced formals
 
    use System.Tasking;
 

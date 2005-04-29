@@ -24,7 +24,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sunffb/ffb_gc.c,v 1.3 2000/12/01 00:24:34 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sunffb/ffb_gc.c,v 1.4 2003/06/23 17:35:48 eich Exp $ */
 
 #include "ffb.h"
 #include "ffb_regs.h"
@@ -444,7 +444,7 @@ CreatorNewFillArea(GCPtr pGC, cfbPrivGCPtr devPriv, CreatorPrivGCPtr gcPriv, int
 }
 
 void
-CreatorValidateGC (GCPtr pGC, Mask changes, DrawablePtr pDrawable)
+CreatorValidateGC (GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
 {
 	int	mask;		/* stateChanges */
 	int	new_rrop;

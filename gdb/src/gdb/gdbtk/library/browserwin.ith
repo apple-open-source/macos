@@ -1,5 +1,5 @@
-# Browser window class definition for GDBtk.
-# Copyright 1998, 1999 Cygnus Solutions
+# Browser window class definition for Insight.
+# Copyright 1998, 1999, 2003 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -25,9 +25,7 @@ itcl::class BrowserWin {
   }
 
   private {
-    method _bind_toplevel {install}
     method _build_win {}
-    method _do_resize {}
     method _file_hide_h {}
     method _fill_file_box {}
     method _fill_funcs_combo {name}
@@ -37,25 +35,23 @@ itcl::class BrowserWin {
     method _goto_func {w {val ""}}
     method _process_file_selection {y}
     method _process_func_selection {y}
-    method _resize {}
     method _search_src {direction}
     method _select {highlight}
     method _set_filter_mode {w mode}
     method _toggle_bp {y}
-    method _toggle_more {{in_constructor 0}}
+    method _build_filter_frame {parent}
+    method _build_file_frame {parent}
+    method _build_function_frame {parent}
+    method _build_view_frame {parent}
+    method _switch_layout
 
     variable cur_filter_mode
-
-    variable MoreVisible 0; #whether viewing source
-    variable TopHalfHeight 0
-    variable BottomHalfHeight 0
-    variable CollapsedHeight 0; #height of the window when collapsed
     variable Current;
     variable labelUpdateCode ""
     variable index_to_file
     variable _mangled_func
-    variable resize_after ""
     variable filter_trace_after ""
+    variable _layout
 
     common componentToRow
     array set componentToRow {
@@ -64,7 +60,7 @@ itcl::class BrowserWin {
       view        2
       view_hidden 3
     }
-
+    
     common filter_modes [list "starts with" \
 			   "contains" \
 			   "ends with" \
@@ -77,8 +73,5 @@ itcl::class BrowserWin {
       "matches regexp" %s
     }
   }
-
-  protected proc dont_remember_size {} {
-    return 1
-  }
 }
+

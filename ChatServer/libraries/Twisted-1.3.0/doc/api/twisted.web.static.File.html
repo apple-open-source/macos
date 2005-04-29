@@ -1,0 +1,627 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.web.static.File</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.web.html">Package&nbsp;web</a> ::
+        <a href="twisted.web.static.html">Module&nbsp;static</a> ::
+        Class&nbsp;File
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.web.static.File.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class File</h2>
+
+<pre class="base-tree">
+ <a href="twisted.python.filepath.FilePath.html"><code>FilePath</code></a> --+
+            |
+ <a href="twisted.web.resource.Resource.html"><code>Resource</code></a> --+
+            |
+<a href="twisted.persisted.styles.Versioned.html"><code>Versioned</code></a> --+
+            |
+           <b>File</b>
+</pre><br />
+
+<hr/>
+
+<p>File is a resource that represents a plain non-interpreted file 
+(although it can look for an extension like .rpy or .cgi and hand the 
+file to a processor for interpretation if you wish). Its constructor 
+takes a file path.</p>
+<p>Alternatively, you can give a directory path to the constructor. In 
+this case the resource will represent that directory, and its children 
+will be files underneath that directory. This provides access to an 
+entire filesystem tree with a single Resource.</p>
+If you map the URL 'http://server/FILE' to a resource created as 
+File('/tmp'), then http://server/FILE/ will return an HTML-formatted 
+listing of the /tmp/ directory, and http://server/FILE/foo/bar.html will 
+return the contents of /tmp/foo/bar.html .
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.static.File.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>defaultType</span>,
+          <span class=summary-sig-arg>ignoredExts</span>,
+          <span class=summary-sig-arg>registry</span>,
+          <span class=summary-sig-arg>allowExt</span>)</span></code>
+<br />
+Create a file with the given path.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="createPickleChild"></a><span class="summary-sig"><span class="summary-sig-name">createPickleChild</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>child</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="createSimilarFile"></a><span class="summary-sig"><span class="summary-sig-name">createSimilarFile</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="directoryListing"></a><span class="summary-sig"><span class="summary-sig-name">directoryListing</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.static.File.html#getChild" class="summary-sig-name"><code>getChild</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+See twisted.web.Resource.getChild.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.static.File.html#getFileSize" class="summary-sig-name"><code>getFileSize</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Return file size.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.static.File.html#ignoreExt" class="summary-sig-name"><code>ignoreExt</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>ext</span>)</span></code>
+<br />
+Ignore the given extension.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="listEntities"></a><span class="summary-sig"><span class="summary-sig-name">listEntities</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="listNames"></a><span class="summary-sig"><span class="summary-sig-name">listNames</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.static.File.html#openForReading" class="summary-sig-name"><code>openForReading</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Open a file and return it.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="redirect"></a><span class="summary-sig"><span class="summary-sig-name">redirect</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.static.File.html#render" class="summary-sig-name"><code>render</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+You know what you doing.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="upgradeToVersion1"></a><span class="summary-sig"><span class="summary-sig-name">upgradeToVersion1</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="upgradeToVersion2"></a><span class="summary-sig"><span class="summary-sig-name">upgradeToVersion2</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="upgradeToVersion3"></a><span class="summary-sig"><span class="summary-sig-name">upgradeToVersion3</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="upgradeToVersion4"></a><span class="summary-sig"><span class="summary-sig-name">upgradeToVersion4</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="upgradeToVersion5"></a><span class="summary-sig"><span class="summary-sig-name">upgradeToVersion5</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="upgradeToVersion6"></a><span class="summary-sig"><span class="summary-sig-name">upgradeToVersion6</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Resource</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#delEntity" class="summary-sig-name"><code>delEntity</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#getChildForRequest" class="summary-sig-name"><code>getChildForRequest</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#getChildWithDefault" class="summary-sig-name"><code>getChildWithDefault</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Retrieve a static or dynamically generated child resource from me.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#getDynamicEntity" class="summary-sig-name"><code>getDynamicEntity</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#getStaticEntity" class="summary-sig-name"><code>getStaticEntity</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#listDynamicEntities" class="summary-sig-name"><code>listDynamicEntities</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#listDynamicNames" class="summary-sig-name"><code>listDynamicNames</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#listStaticEntities" class="summary-sig-name"><code>listStaticEntities</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#listStaticNames" class="summary-sig-name"><code>listStaticNames</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#putChild" class="summary-sig-name"><code>putChild</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>child</span>)</span></code>
+<br />
+Register a static child.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#reallyPutEntity" class="summary-sig-name"><code>reallyPutEntity</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>entity</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#render_HEAD" class="summary-sig-name"><code>render_HEAD</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Default handling of HEAD method.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Versioned</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#__getstate__" class="summary-sig-name"><code>__getstate__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>dict</span>)</span></code>
+<br />
+Get state, adding a version number to it on its way out.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#__setstate__" class="summary-sig-name"><code>__setstate__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>state</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#versionUpgrade" class="summary-sig-name"><code>versionUpgrade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(internal) Do a version upgrade.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from FilePath</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#__repr__" class="summary-sig-name"><code>__repr__</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#basename" class="summary-sig-name"><code>basename</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#child" class="summary-sig-name"><code>child</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#childSearchPreauth" class="summary-sig-name"><code>childSearchPreauth</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*paths</span>)</span></code>
+<br />
+Return my first existing child with a name in 'paths'.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#exists" class="summary-sig-name"><code>exists</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#getatime" class="summary-sig-name"><code>getatime</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#getContent" class="summary-sig-name"><code>getContent</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#getctime" class="summary-sig-name"><code>getctime</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#getmtime" class="summary-sig-name"><code>getmtime</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#getsize" class="summary-sig-name"><code>getsize</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#globChildren" class="summary-sig-name"><code>globChildren</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>pattern</span>)</span></code>
+<br />
+Assuming I am representing a directory, return a list of FilePaths 
+representing my children that match the given pattern.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#isabs" class="summary-sig-name"><code>isabs</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#isdir" class="summary-sig-name"><code>isdir</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#isfile" class="summary-sig-name"><code>isfile</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#islink" class="summary-sig-name"><code>islink</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#listdir" class="summary-sig-name"><code>listdir</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#makedirs" class="summary-sig-name"><code>makedirs</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#open" class="summary-sig-name"><code>open</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>mode</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#preauthChild" class="summary-sig-name"><code>preauthChild</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>)</span></code>
+<br />
+Use me if `path' might have slashes in it, but you know they're 
+safe.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#remove" class="summary-sig-name"><code>remove</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#restat" class="summary-sig-name"><code>restat</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reraise</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#setContent" class="summary-sig-name"><code>setContent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>content</span>,
+          <span class=summary-sig-arg>ext</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#siblingExtension" class="summary-sig-name"><code>siblingExtension</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>ext</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#siblingExtensionSearch" class="summary-sig-name"><code>siblingExtensionSearch</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*exts</span>)</span></code>
+<br />
+Attempt to return a path with my name, given multiple possible 
+extensions.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#splitext" class="summary-sig-name"><code>splitext</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.filepath.FilePath.html#touch" class="summary-sig-name"><code>touch</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>class</code></font></td>
+  <td><a name="__implements__"></a><b><code>__implements__</code></b> = <a href="twisted.web.resource.IResource.html"><code>twisted.web.resource.IResource</code></a></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><a href="twisted.web.error.NoResource.html" 
+          class="link"><code>NoResource</code></a></font></td>
+<td><b><a href="twisted.web.static.File.html#childNotFound"><code>childNotFound</code></a></b>: <code>Resource</code> used to render 404 Not Found error pages.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.web.static.File.html#contentEncodings"><code>contentEncodings</code></a></b> = <span title="{'.bz2': 'application/x-bzip2', '.gz': 'application/x-gzip'}"><code>{'.bz2':&nbsp;'application/x-bzip2',&nbsp;'.gz'<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.web.static.File.html#contentTypes"><code>contentTypes</code></a></b> = <span title="{'.rm': 'audio/x-pn-realaudio', '.obj': 'application/octet-stream', '.ra': 'audio/x-realaudio', '.book': 'application/x-maker', '.silo': 'model/mesh', '.skd': 'application/x-koan', '.skm': 'application/x-koan', '.wsc': 'text/scriptlet', '.ras': 'image/x-cmu-raster', '.skt': 'application/x-koan', '.ram': 'audio/x-pn-realaudio', '.skp': 'application/x-koan', '.bcpio': 'application/x-bcpio', '.hqx': 'application/mac-binhex40', '.isp': 'application/x-internet-signup', '.swfl': 'application/x-shockwave-flash', '.ksp': 'application/x-kspread', '.prf': 'application/pics-rules', '.doc': 'applicatio..."><code>{'.rm':&nbsp;'audio/x-pn-realaudio',&nbsp;'.obj':&nbsp;'<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>list</code></font></td>
+<td><b><a href="twisted.web.static.File.html#indexNames"><code>indexNames</code></a></b> = <span title="['index', 'index.html', 'index.htm', 'index.trp', 'index.rpy']"><code>['index',&nbsp;'index.html',&nbsp;'index.htm',&nbsp;'index<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.web.static.File.html#persistenceVersion"><code>persistenceVersion</code></a></b> = <span title="6">6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.web.static.File.html#processors"><code>processors</code></a></b> = <span title="{}"><code>{}                                          </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.web.static.File.html#type"><code>type</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Resource</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.web.resource.Resource.html#isLeaf"><code>isLeaf</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.web.resource.Resource.html#server"><code>server</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Versioned</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.persisted.styles.Versioned.html#persistenceForgets"><code>persistenceForgets</code></a></b> = <span title="()"><code>()                                  </code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from FilePath</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.python.filepath.FilePath.html#statinfo"><code>statinfo</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="__init__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__init__</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>path</span>,
+          <span class=sig-arg>defaultType</span>=<span class=sig-default>'text/html'</span>,
+          <span class=sig-arg>ignoredExts</span>=<span class=sig-default>()</span>,
+          <span class=sig-arg>registry</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>allowExt</span>=<span class=sig-default>0</span>)</span>
+    <br /><i>(Constructor)</i>
+  </h3>
+  Create a file with the given path.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.web.resource.Resource.html#__init__"><code>twisted.web.resource.Resource.__init__</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getChild"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getChild</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>path</span>,
+          <span class=sig-arg>request</span>)</span>
+  </h3>
+  See twisted.web.Resource.getChild.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.web.resource.Resource.html#getChild"><code>twisted.web.resource.Resource.getChild</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getFileSize"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getFileSize</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Return file size.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="ignoreExt"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">ignoreExt</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>ext</span>)</span>
+  </h3>
+  <p>Ignore the given extension.</p>
+  Serve file.ext if file is requested
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="openForReading"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">openForReading</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Open a file and return it.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="render"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">render</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>request</span>)</span>
+  </h3>
+  You know what you doing.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.web.resource.Resource.html#render"><code>twisted.web.resource.Resource.render</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="childNotFound"></a>
+<h3>childNotFound</h3>
+<code>Resource</code> used to render 404 Not Found error pages.
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <a href="twisted.web.error.NoResource.html" 
+          class="link"><code>NoResource</code></a>
+
+      </dd>
+<span title="&lt;twisted.web.error.NoResource instance at 0x85234ac&gt;">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+&lt;twisted.web.error.NoResource instance at 0x85234ac&gt;                   </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="contentEncodings"></a>
+<h3>contentEncodings</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{'.bz2': 'application/x-bzip2', '.gz': 'application/x-gzip'}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{'.bz2': 'application/x-bzip2', '.gz': 'application/x-gzip'}           </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="contentTypes"></a>
+<h3>contentTypes</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{'.rm': 'audio/x-pn-realaudio', '.obj': 'application/octet-stream', '.ra': 'audio/x-realaudio', '.book': 'application/x-maker', '.silo': 'model/mesh', '.skd': 'application/x-koan', '.skm': 'application/x-koan', '.wsc': 'text/scriptlet', '.ras': 'image/x-cmu-raster', '.skt': 'application/x-koan', '.ram': 'audio/x-pn-realaudio', '.skp': 'application/x-koan', '.bcpio': 'application/x-bcpio', '.hqx': 'application/mac-binhex40', '.isp': 'application/x-internet-signup', '.swfl': 'application/x-shockwave-flash', '.ksp': 'application/x-kspread', '.prf': 'application/pics-rules', '.doc': 'applicatio...">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{'.book': 'application/x-maker',
+ '.obj': 'application/octet-stream',
+ '.ra': 'audio/x-realaudio',
+ '.ras': 'image/x-cmu-raster',
+ '.rm': 'audio/x-pn-realaudio',
+ '.silo': 'model/mesh',
+ '.skd': 'application/x-koan',
+ '.skm': 'application/x-koan',
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="indexNames"></a>
+<h3>indexNames</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>list</code>
+
+      </dd>
+<span title="['index', 'index.html', 'index.htm', 'index.trp', 'index.rpy']">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+['index', 'index.html', 'index.htm', 'index.trp', 'index.rpy']         </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="persistenceVersion"></a>
+<h3>persistenceVersion</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="6">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="processors"></a>
+<h3>processors</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{}                                                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="type"></a>
+<h3>type</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:32 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

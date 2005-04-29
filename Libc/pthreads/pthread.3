@@ -107,6 +107,12 @@ Calls an initialization routine once.
 .Fn pthread_self void
 .Xc
 Returns the thread ID of the calling thread.
+.It Xo
+.Ft int 
+.Fn pthread_atfork "void (*prepare)(void)" "void (*parent)(void)" "void (*child)(void)"
+.Xc
+Registers handlers to be called before and after
+.Fn fork
 .El
 .Sh ATTRIBUTE OBJECT ROUTINES
 .Bl -tag -width Er

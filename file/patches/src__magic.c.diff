@@ -1,0 +1,12 @@
+--- file-4.10/src/magic.c	Sat Jul 24 15:55:17 2004
++++ src/magic.c	Wed Sep  1 22:56:17 2004
+@@ -293,6 +293,9 @@
+ 			file_tryelf(ms, fd, buf, (size_t)nbytes);
+ 		}
+ #endif
++#ifdef BUILTIN_FAT
++		file_tryfat(ms, fd, buf, (size_t)nbytes, inname);
++#endif /* BUILTIN_FAT */
+ 	}
+ gotit:
+ 	close_and_restore(ms, inname, fd, &sb);

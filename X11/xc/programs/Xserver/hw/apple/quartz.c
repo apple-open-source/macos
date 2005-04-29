@@ -32,6 +32,9 @@
  */
 /* $XFree86: xc/programs/Xserver/hw/darwin/quartz/quartz.c,v 1.1 2002/03/28 02:21:18 torrey Exp $ */
 
+#include <AvailabilityMacros.h>
+#include <CoreGraphics/CoreGraphics.h>
+
 #include "quartz.h"
 #include "darwin.h"
 #include "quartz-audio.h"
@@ -53,9 +56,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/wait.h>
-
-#include <AvailabilityMacros.h>
-#include <CoreGraphics/CoreGraphics.h>
 
 /* Shared global variables for Quartz modes */
 int quartzEventWriteFD = -1;
@@ -417,14 +417,23 @@ do_exec (void (*callback) (void *data), void *data)
 		chdir (tem);
 
 	    /* Setup environment */
+
 	    snprintf (buf, sizeof (buf), ":%s", display);
 	    setenv ("DISPLAY", buf, TRUE);
+
 	    tem = getenv ("PATH");
-	    if (tem != NULL && tem[0] != NULL)
+	    if (tem != NULL && tem[0] != 0)
 		snprintf (buf, sizeof (buf), "%s:/usr/X11R6/bin", tem);
 	    else
 		snprintf (buf, sizeof (buf), "/bin:/usr/bin:/usr/X11R6/bin");
 	    setenv ("PATH", buf, TRUE);
+
+	    tem = getenv ("MANPATH");
+	    if (tem != NULL && tem[0] != 0)
+		snprintf (buf, sizeof (buf), "%s:/usr/X11R6/man", tem);
+	    else
+		snprintf (buf, sizeof (buf), "/usr/man:/usr/X11R6/man");
+	    setenv ("MANPATH", buf, TRUE);
 
 	    (*callback) (data);
 
@@ -449,10 +458,11 @@ run_client_callback (void *data)
 
 /* Note that this function is called from both X server and appkit threads */
 void
-QuartzRunClient (const char *command)
+QuartzRunClient (const char *command, int needs_quoting)
 {
     const char *shell;
     const char *argv[5];
+    char *quoted = NULL;
 
     shell = getenv ("SHELL");
     if (shell == NULL)
@@ -468,7 +478,18 @@ QuartzRunClient (const char *command)
     argv[3] = command;
     argv[4] = NULL;
 
+    if (needs_quoting)
+    {
+	/* FIXME: do better quoting? */
+	quoted = malloc (strlen (command) + 3);
+	sprintf (quoted, "'%s'", command);
+	argv[3] = quoted;
+    }
+
     do_exec (run_client_callback, argv);
+
+    if (quoted != NULL)
+	free (quoted);
 }
 
 static void

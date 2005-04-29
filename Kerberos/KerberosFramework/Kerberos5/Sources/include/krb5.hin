@@ -65,7 +65,7 @@
 #define KRB5_PRIVATE 0
 #endif
 
-#if defined(macintosh) || (defined(__MACH__) && defined(__APPLE__))
+#if defined(__MACH__) && defined(__APPLE__)
 #	include <TargetConditionals.h>
 #    if TARGET_RT_MAC_CFM
 #	error "Use KfM 4.0 SDK headers for CFM compilation."
@@ -109,9 +109,6 @@
 KRB5INT_BEGIN_DECLS
 
 #if TARGET_OS_MAC
-#    if defined(__MWERKS__)
-#        pragma import on
-#    endif
 #    pragma options align=mac68k
 #endif
 
@@ -356,9 +353,6 @@ typedef struct _krb5_enc_data {
 #define ENCTYPE_ARCFOUR_HMAC	0x0017
 #define ENCTYPE_ARCFOUR_HMAC_EXP 0x0018
 #define ENCTYPE_UNKNOWN		0x01ff
-/* local crud */
-/* marc's DES-3 with 32-bit length */
-#define ENCTYPE_LOCAL_DES3_HMAC_SHA1 0x7007
 
 #define	CKSUMTYPE_CRC32		0x0001
 #define	CKSUMTYPE_RSA_MD4	0x0002
@@ -1155,6 +1149,7 @@ typedef struct _krb5_pwd_data {
 #define KRB5_AUTH_CONTEXT_DO_SEQUENCE	0x00000004
 #define KRB5_AUTH_CONTEXT_RET_SEQUENCE	0x00000008
 #define KRB5_AUTH_CONTEXT_PERMIT_ALL	0x00000010
+#define KRB5_AUTH_CONTEXT_USE_SUBKEY	0x00000020
  
 typedef struct krb5_replay_data { 
     krb5_timestamp	timestamp; 
@@ -1169,7 +1164,7 @@ typedef struct krb5_replay_data {
 #define KRB5_AUTH_CONTEXT_GENERATE_REMOTE_FULL_ADDR	0x00000008
 
 /* type of function used as a callback to generate checksum data for
-	* mk_req*/
+ * mk_req */
 
 typedef krb5_error_code 
 (KRB5_CALLCONV * krb5_mk_req_checksum_func) (krb5_context, krb5_auth_context , void *,
@@ -1205,6 +1200,7 @@ typedef struct _krb5_cc_ops krb5_cc_ops;
 
 /* for set_flags and other functions */
 #define KRB5_TC_OPENCLOSE		0x00000001
+#define KRB5_TC_NOTICKET                0x00000002
 
 const char * KRB5_CALLCONV
 krb5_cc_get_name (krb5_context context, krb5_ccache cache);
@@ -1268,56 +1264,6 @@ krb5_cc_get_type (krb5_context context, krb5_ccache cache);
 struct krb5_rc_st;
 typedef struct krb5_rc_st *krb5_rcache;
 
-#if KRB5_PRIVATE
-typedef struct _krb5_donot_replay {
-    krb5_magic magic;
-    char *server;			/* null-terminated */
-    char *client;			/* null-terminated */
-    krb5_int32 cusec;
-    krb5_timestamp ctime;
-} krb5_donot_replay;
-
-krb5_error_code krb5_rc_default 
-	(krb5_context,
-		krb5_rcache *);
-krb5_error_code krb5_rc_resolve_type 
-	(krb5_context,
-		krb5_rcache *,char *);
-krb5_error_code krb5_rc_resolve_full 
-	(krb5_context,
-		krb5_rcache *,char *);
-char * krb5_rc_get_type 
-	(krb5_context,
-		krb5_rcache);
-char * krb5_rc_default_type 
-	(krb5_context);
-char * krb5_rc_default_name 
-	(krb5_context);
-krb5_error_code krb5_auth_to_rep 
-	(krb5_context,
-		krb5_tkt_authent *,
-		krb5_donot_replay *);
-
-
-krb5_error_code KRB5_CALLCONV krb5_rc_initialize
-	(krb5_context, krb5_rcache,krb5_deltat);
-krb5_error_code KRB5_CALLCONV krb5_rc_recover
-	(krb5_context, krb5_rcache);
-krb5_error_code KRB5_CALLCONV krb5_rc_destroy
-	(krb5_context, krb5_rcache);
-krb5_error_code KRB5_CALLCONV krb5_rc_close
-	(krb5_context, krb5_rcache);
-krb5_error_code KRB5_CALLCONV krb5_rc_store
-	(krb5_context, krb5_rcache,krb5_donot_replay *);
-krb5_error_code KRB5_CALLCONV krb5_rc_expunge
-	(krb5_context, krb5_rcache);
-krb5_error_code KRB5_CALLCONV krb5_rc_get_lifespan
-	(krb5_context, krb5_rcache,krb5_deltat *);
-char *KRB5_CALLCONV krb5_rc_get_name
-	(krb5_context, krb5_rcache);
-krb5_error_code KRB5_CALLCONV krb5_rc_resolve
-	(krb5_context, krb5_rcache, char *);
-#endif /* KRB5_PRIVATE */
 /*
  * end "rcache.h"
  */
@@ -1422,6 +1368,8 @@ void KRB5_CALLCONV krb5_free_ktypes
 krb5_boolean krb5_is_permitted_enctype
 	(krb5_context, krb5_enctype);
 #endif
+
+krb5_boolean KRB5_CALLCONV krb5_is_thread_safe(void);
 
 /* libkrb.spec */
 #if KRB5_PRIVATE
@@ -1677,7 +1625,7 @@ int KRB5_CALLCONV krb5_524_convert_creds
 #if KRB5_PRIVATE
 krb5_error_code KRB5_CALLCONV krb5_kt_register
 	(krb5_context,
-		struct _krb5_kt_ops * );
+		const struct _krb5_kt_ops * );
 #endif
 
 krb5_error_code KRB5_CALLCONV krb5_kt_resolve
@@ -1710,7 +1658,7 @@ krb5_error_code KRB5_CALLCONV krb5_kt_add_entry
 	(krb5_context,
 		krb5_keytab,
 		krb5_keytab_entry * );
-krb5_error_code krb5_principal2salt
+krb5_error_code KRB5_CALLCONV_WRONG krb5_principal2salt
 	(krb5_context,
 		krb5_const_principal, krb5_data *);
 #if KRB5_PRIVATE
@@ -1883,7 +1831,6 @@ krb5_set_password_using_ccache
 			int *result_code, krb5_data *result_code_string, krb5_data *result_string);
 
 #if KRB5_PRIVATE
-#ifndef macintosh
 krb5_error_code krb5_set_config_files
 	(krb5_context, const char **);
 
@@ -1892,8 +1839,6 @@ krb5_error_code KRB5_CALLCONV krb5_get_default_config_files
 
 void KRB5_CALLCONV krb5_free_config_files
 	(char **filenames);
-
-#endif
 #endif
 
 krb5_error_code KRB5_CALLCONV
@@ -2462,6 +2407,8 @@ krb5_get_init_creds_opt_set_salt
 (krb5_get_init_creds_opt *opt,
 		krb5_data *salt);
 
+
+
 krb5_error_code KRB5_CALLCONV
 krb5_get_init_creds_password
 (krb5_context context,
@@ -2580,9 +2527,6 @@ krb5_prompt_type* KRB5_CALLCONV krb5_get_prompt_types
 	(krb5_context context);
 
 #if TARGET_OS_MAC
-#    if defined(__MWERKS__)
-#        pragma import reset
-#    endif
 #    pragma options align=reset
 #endif
 

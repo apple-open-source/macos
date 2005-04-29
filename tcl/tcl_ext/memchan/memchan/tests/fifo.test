@@ -1,0 +1,80 @@
+# -*- tcl -*-
+# Commands covered:	None, introductory text
+#
+# This file contains a collection of tests for one or more of the commands
+# the piTcl extension. Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: fifo.test,v 1.4 1999/09/18 13:36:06 aku Exp $
+
+if {[string compare test [info procs test]] == 1} then {source defs}
+
+
+test fifo-basics-1.0 {Create memory fifo channels} {
+    set m [fifo]
+    close $m
+    regsub -all {[0-9]} $m {} m
+    set m
+} {fifo}
+
+if {0} {
+    # Neither tell nor seek possible
+
+    test fifo-basics-1.1 {Check tell on memory fifo channels} {
+	set m [fifo]
+	set res [tell $m]
+	close $m
+	set res
+    } {0}
+
+    test fifo-basics-1.2 {Check seek on memory fifo channels} {
+	set m [fifo]
+	set res [seek $m 0]
+	close $m
+	set res
+    } {}
+}
+
+test fifo-basics-1.3 {Check fconfigure/get on memory fifo channels} {
+    set m [fifo]
+    set conf [fconfigure $m]
+    set res [list]
+    lappend res [lrange $conf [set x [lsearch -exact $conf -length]] [incr x]]
+    lappend res [lrange $conf [set x [lsearch -exact $conf -allocated]] [incr x]]
+    close $m
+    set res
+} {{-length 0} {-allocated 0}}
+
+test fifo-basics-1.4 {Check fconfigure/get -length} {
+    set m [fifo]
+    set res [fconfigure $m -length]
+    close $m
+    set res
+} {0}
+
+
+test fifo-readwrite-1.0 {Write and length} {
+    set m [fifo]
+    puts -nonewline $m {hello world}
+    set res [list [fconfigure $m -length]]
+    close $m
+    set res
+} {11}
+
+test fifo-readwrite-1.1 {Write and read} {
+    set m [fifo]
+    puts -nonewline $m {hello world!}
+    set res [list [fconfigure $m -length]]
+    lappend res [read $m]
+    close $m
+    set res
+} {12 {hello world!}}
+
+
+catch {unset m}
+catch {unset res}

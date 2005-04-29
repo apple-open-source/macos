@@ -1,0 +1,6 @@
+_MDS_Initialize
+_MDS_Install
+_MDS_Terminate
+_MDS_Uninstall
+_MDS_InstallFile
+_MDS_RemoveSubservice

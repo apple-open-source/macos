@@ -95,7 +95,7 @@ will vary depending on the precise printer model.
 printed?  What does it mean?  There are several possibilities,
 depending on the specific error message.  If the error message is
 "Invalid argument" (see following example), the problem is that the
-kernel is not configured with the CONFIG_PRINTER_READBACK option enabled.
+2.4.x kernel is not configured with the CONFIG_PARPORT_1284 option enabled.
 
   <programlisting>
   <![ CDATA [

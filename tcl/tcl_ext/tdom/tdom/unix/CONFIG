@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# This is a small collection of example settings you can use to
+# compile tdom on different platforms. Just uncomment the line(s)
+# you need and run this script with "sh CONFIG".
+#
+#
+# Comment-out next line if building with GCC compiler.
+# CC=gcc; export CC
+#
+#
+# Tcl 8.0.5 on Unix. Uses public Tcl library
+# -------------------------------------------
+# ../configure-tcl8.0.5
+#
+#
+# Tcl 8.1+ on Unix. Uses public Tcl library
+# -------------------------------------------
+# ../configure
+#
+#
+# AOLserver 3.X. It delivers its own patched Tcl lib.
+# Also, this one builds tdom as AOLserver module.
+# Please do not use "make install" after doing "make".
+# You have to manually adjust AOLserver config file
+# to load tdom module. See README.AOL for more info.
+# Also, you need to modify the "aolsrc" to point to
+# the directory with AOLserver source distribution.
+# ----------------------------------------------------
+# aolsrc="/usr/src/aolserver-3.4"
+# ../configure --enable-threads --disable-tdomalloc \
+#   --with-aolserver=$aolsrc \
+#   --with-tcl=$aolsrc/tcl8.3.4/unix 
+#
+#
+# AOLserver 4.X. It uses public Tcl library.
+# Just do "make" and "make install". You might
+# want to change the default AOLserver install
+# directory (/usr/local/aolserver). 
+# ----------------------------------------------------
+# ../configure --enable-threads --disable-tdomalloc \
+#   --prefix=/usr/local/aolserver
+#
+#
+# Mac OS X. Uses public Tcl library.
+# --------------------------------------------
+# ../configure \
+#   --mandir=/usr/local/share/man \
+#   --libdir=/Library/Tcl \
+#   --with-tcl=/Library/Frameworks/Tcl.framework \
+#   --with-tclinclude=/Library/Frameworks/Tcl.framework/Headers
+#
+# EOF

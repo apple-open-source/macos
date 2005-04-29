@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XRecCur.man,v 1.2 2001/01/27 18:20:03 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XRecCur.man,v 1.3 2003/04/28 22:17:56 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,29 +144,15 @@
 .SH NAME
 XRecolorCursor, XFreeCursor, XQueryBestCursor \- manipulate cursors
 .SH SYNTAX
-XRecolorCursor\^(\^\fIdisplay\fP, \fIcursor\fP\^, \fIforeground_color\fP\^, \fIbackground_color\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Cursor \fIcursor\fP\^;
-.br
-      XColor *\fIforeground_color\fP\^, *\fIbackground_color\fP\^;
-.LP
-XFreeCursor\^(\^\fIdisplay\fP, \fIcursor\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Cursor \fIcursor\fP\^;
-.LP
-Status XQueryBestCursor\^(\^\fIdisplay\fP, \fId\fP, \fIwidth\fP\^, \fIheight\fP\^, \fIwidth_return\fP\^, \fIheight_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Drawable \fId\fP\^;
-.br
-      unsigned int \fIwidth\fP\^, \fIheight\fP\^;
-.br
-      unsigned int *\fIwidth_return\fP\^, *\fIheight_return\fP\^;
+.HP
+int XRecolorCursor\^(\^Display *\fIdisplay\fP\^, Cursor \fIcursor\fP\^, XColor
+*\fIforeground_color\fP\^, XColor *\fIbackground_color\fP\^); 
+.HP
+int XFreeCursor\^(\^Display *\fIdisplay\fP\^, Cursor \fIcursor\fP\^); 
+.HP
+Status XQueryBestCursor\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^,
+unsigned int \fIwidth\fP\^, unsigned int \fIheight\fP\^, unsigned int
+*\fIwidth_return\fP\^, unsigned int *\fIheight_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIbackground_color\fP 1i
 Specifies the RGB values for the background of the source.

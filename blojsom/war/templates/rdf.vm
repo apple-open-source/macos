@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!-- name="generator" content="$BLOJSOM_VERSION" -->
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns="http://purl.org/rss/1.0/">
+
+	<channel rdf:about="$BLOJSOM_BLOG.getBlogURL()">
+		<title>$BLOJSOM_BLOG.getBlogName()</title>
+		<link>$BLOJSOM_BLOG.getBlogURL()</link>
+		<description>$BLOJSOM_BLOG.getBlogDescription()</description>
+		<dc:publisher>$BLOJSOM_BLOG.getBlogOwner()</dc:publisher>
+		<dc:creator>$BLOJSOM_BLOG.getBlogOwnerEmail()</dc:creator>
+		<dc:date>$BLOJSOM_DATE_ISO8601</dc:date>
+		<dc:language>$BLOJSOM_BLOG.getBlogLanguage()</dc:language>
+	</channel>
+
+    #foreach ($entry in $BLOJSOM_ENTRIES)
+	<item rdf:about="$entry.getEscapedLink()">
+	   <title>$entry.getEscapedTitle()</title>
+	   <link>$entry.getEscapedLink()</link>
+       <description>$entry.getEscapedDescription()</description>
+	   <dc:date>$entry.getISO8601Date()</dc:date>
+	   <wfw:comment xmlns:wfw="http://wellformedweb.org/CommentAPI/">
+          $BLOJSOM_BLOG.getBlogBaseURL()/commentapi/$entry.getId()
+       </wfw:comment>
+       #if ($entry.getMetaData() && $entry.getMetaData().get("blog-entry-author"))
+       <dc:creator>$USER_DATA_PLUGIN.getFullNameFromShortName($entry.getMetaData().get("blog-entry-author"))</dc:creator>
+       #end
+    </item>
+    #end
+
+</rdf:RDF>

@@ -27,27 +27,11 @@
 #include "k5-int.h"
 #include "des_int.h"
 
-static const mit_des_cblock mit_des_zeroblock[8] /* = all zero */;
-
-static void
-k5_des3_block_size(size_t *blocksize)
-{
-    *blocksize = 8;
-}
-
-static void
-k5_des3_keysize(size_t *keybytes, size_t *keylength)
-{
-    *keybytes = 21;
-    *keylength = 24;
-}
-
 static krb5_error_code
-k5_des3_docrypt(const krb5_keyblock *key, const krb5_data *ivec,
-		const krb5_data *input, krb5_data *output, int enc)
+validate_and_schedule(const krb5_keyblock *key, const krb5_data *ivec,
+		      const krb5_data *input, const krb5_data *output,
+		      mit_des3_key_schedule *schedule)
 {
-    mit_des3_key_schedule schedule;
-
     /* key->enctype was checked by the caller */
 
     if (key->length != 24)
@@ -60,38 +44,57 @@ k5_des3_docrypt(const krb5_keyblock *key, const krb5_data *ivec,
 	return(KRB5_BAD_MSIZE);
 
     switch (mit_des3_key_sched(*(mit_des3_cblock *)key->contents,
-				     schedule)) {
+			       *schedule)) {
     case -1:
 	return(KRB5DES_BAD_KEYPAR);
     case -2:
 	return(KRB5DES_WEAK_KEY);
     }
-
-    /* this has a return value, but the code always returns zero */
-
-    mit_des3_cbc_encrypt((krb5_pointer) input->data,
-			 (krb5_pointer) output->data, input->length,
-			 schedule[0], schedule[1], schedule[2],
-			 ivec?(unsigned char *) ivec->data:(unsigned char *)mit_des_zeroblock,
-			 enc);
-
-    memset(schedule, 0, sizeof(schedule));
-
-    return(0);
+    return 0;
 }
 
 static krb5_error_code
 k5_des3_encrypt(const krb5_keyblock *key, const krb5_data *ivec,
 		const krb5_data *input, krb5_data *output)
 {
-    return(k5_des3_docrypt(key, ivec, input, output, 1));
+    mit_des3_key_schedule schedule;
+    krb5_error_code err;
+
+    err = validate_and_schedule(key, ivec, input, output, &schedule);
+    if (err)
+	return err;
+
+    /* this has a return value, but the code always returns zero */
+    krb5int_des3_cbc_encrypt((krb5_pointer) input->data,
+			     (krb5_pointer) output->data, input->length,
+			     schedule[0], schedule[1], schedule[2],
+			     ivec?(unsigned char *) ivec->data:(unsigned char *)mit_des_zeroblock);
+
+    zap(schedule, sizeof(schedule));
+
+    return(0);
 }
 
 static krb5_error_code
 k5_des3_decrypt(const krb5_keyblock *key, const krb5_data *ivec,
 		const krb5_data *input, krb5_data *output)
 {
-    return(k5_des3_docrypt(key, ivec, input, output, 0));
+    mit_des3_key_schedule schedule;
+    krb5_error_code err;
+
+    err = validate_and_schedule(key, ivec, input, output, &schedule);
+    if (err)
+	return err;
+
+    /* this has a return value, but the code always returns zero */
+    krb5int_des3_cbc_decrypt((krb5_pointer) input->data,
+			     (krb5_pointer) output->data, input->length,
+			     schedule[0], schedule[1], schedule[2],
+			     ivec?(unsigned char *) ivec->data:(unsigned char *)mit_des_zeroblock);
+
+    zap(schedule, sizeof(schedule));
+
+    return(0);
 }
 
 static krb5_error_code
@@ -127,8 +130,8 @@ k5_des3_make_key(const krb5_data *randombits, krb5_keyblock *key)
 }
 
 const struct krb5_enc_provider krb5int_enc_des3 = {
-    k5_des3_block_size,
-    k5_des3_keysize,
+    8,
+    21, 24,
     k5_des3_encrypt,
     k5_des3_decrypt,
     k5_des3_make_key,

@@ -1,0 +1,12 @@
+--- isxdigit.3.orig	Fri Mar 11 19:25:22 2005
++++ isxdigit.3	Fri Mar 11 19:26:08 2005
+@@ -99,7 +99,8 @@
+ .Xr ctype 3 ,
+ .Xr iswxdigit 3 ,
+ .Xr multibyte 3 ,
+-.Xr ascii 7
++.Xr ascii 7 ,
++.Xr isalnum_l
+ .Sh STANDARDS
+ The
+ .Fn isxdigit

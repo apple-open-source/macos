@@ -109,3 +109,8 @@ STRIPFLAGS =
 # owned by the top-level Makefile API and no context has been set up for where 
 # derived files should go.
 
+after_install:
+	mkdir -p $(DSTROOT)/usr/share/man/man8
+	install -c -m 444 rexecd.8 $(DSTROOT)/usr/share/man/man8/rexecd.8
+	mkdir -p "$(DSTROOT)/System/Library/LaunchDaemons"
+	cp exec.plist "$(DSTROOT)/System/Library/LaunchDaemons/"

@@ -1,7 +1,7 @@
 /*
  * KLChangePassword.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLChangePassword.c,v 1.7 2003/09/02 15:03:35 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLChangePassword.c,v 1.8 2005/01/03 20:45:30 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -92,7 +92,7 @@ KLStatus KLChangePasswordWithPasswords (KLPrincipal   inPrincipal,
                 char *result_cstring = NULL;
 
                 if (err == klNoErr) {
-                    if ((result_code_string.data != NULL) || (result_code_string.length <= 0)) {
+                    if ((result_code_string.data != NULL) && (result_code_string.length > 0)) {
                         err = __KLCreateStringFromBuffer (result_code_string.data, result_code_string.length,
                                                           &result_code_cstring);
                     } else {
@@ -101,7 +101,7 @@ KLStatus KLChangePasswordWithPasswords (KLPrincipal   inPrincipal,
                 }
                 
                 if (err == klNoErr) {
-                    if ((result_string.data != NULL) || (result_string.length <= 0)) {
+                    if ((result_string.data != NULL) && (result_string.length > 0)) {
                         err = __KLCreateStringFromBuffer (result_string.data, result_string.length,
                                                           &result_cstring);
                     } else {

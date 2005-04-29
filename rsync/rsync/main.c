@@ -43,20 +43,28 @@ extern int local_server;
 extern int log_got_error;
 extern int module_id;
 extern int orig_umask;
+extern int copy_links;
+extern int keep_dirlinks;
 extern int preserve_hard_links;
 extern int protocol_version;
 extern int recurse;
 extern int relative_paths;
 extern int rsync_port;
+extern int whole_file;
 extern int read_batch;
 extern int write_batch;
+extern int batch_fd;
+extern int batch_gen_fd;
 extern int filesfrom_fd;
+#ifdef EA_SUPPORT
+extern int extended_attributes;
+#endif
 extern pid_t cleanup_child_pid;
 extern char *files_from;
 extern char *remote_filesfrom_file;
 extern char *rsync_path;
 extern char *shell_cmd;
-extern struct file_list *batch_flist;
+extern char *batch_name;
 
 
 /* there's probably never more than at most 2 outstanding child processes,
@@ -84,7 +92,7 @@ void wait_process(pid_t pid, int *status)
 		io_flush(FULL_FLUSH);
 	}
 
-	if ((waited_pid == -1) && (errno == ECHILD)) {
+	if (waited_pid == -1 && errno == ECHILD) {
 		/* status of requested child no longer available.
 		 * check to see if it was processed by the sigchld_handler.
 		 */
@@ -105,8 +113,19 @@ void wait_process(pid_t pid, int *status)
 	*status = WEXITSTATUS(*status);
 }
 
+/* This function gets called from all 3 processes.  We want the client side
+ * to actually output the text, but the sender is the only process that has
+ * all the stats we need.  So, if we're a client sender, we do the report.
+ * If we're a server sender, we write the stats on the supplied fd.  If
+ * we're the client receiver we read the stats from the supplied fd and do
+ * the report.  All processes might also generate a set of debug stats, if
+ * the verbose level is high enough (this is the only thing that the
+ * generator process and the server receiver ever do here). */
 static void report(int f)
 {
+	/* Cache two stats because the read/write code can change it. */
+	int64 total_read = stats.total_read;
+	int64 total_written = stats.total_written;
 	time_t t = time(NULL);
 
 	if (do_stats && verbose > 1) {
@@ -120,18 +139,15 @@ static void report(int f)
 
 	if (am_daemon) {
 		log_exit(0, __FILE__, __LINE__);
-		if (f == -1 || !am_sender) return;
+		if (f == -1 || !am_sender)
+			return;
 	}
 
 	if (am_server) {
 		if (am_sender) {
-			int64 w;
-			/* store total_written in a temporary
-			 * because write_longint changes it */
-			w = stats.total_written;
-			write_longint(f,stats.total_read);
-			write_longint(f,w);
-			write_longint(f,stats.total_size);
+			write_longint(f, total_read);
+			write_longint(f, total_written);
+			write_longint(f, stats.total_size);
 		}
 		return;
 	}
@@ -139,12 +155,17 @@ static void report(int f)
 	/* this is the client */
 
 	if (!am_sender) {
-		int64 r;
-		stats.total_written = read_longint(f);
-		/* store total_read in a temporary, read_longint changes it */
-		r = read_longint(f);
+		/* Read the first two in opposite order because the meaning of
+		 * read/write swaps when switching from sender to receiver. */
+		total_written = read_longint(f);
+		total_read = read_longint(f);
 		stats.total_size = read_longint(f);
-		stats.total_read = r;
+	} else if (write_batch) {
+		/* The --read-batch process is going to be a client
+		 * receiver, so we need to give it the stats. */
+		write_longint(batch_fd, total_read);
+		write_longint(batch_fd, total_written);
+		write_longint(batch_fd, stats.total_size);
 	}
 
 	if (do_stats) {
@@ -160,20 +181,20 @@ static void report(int f)
 		rprintf(FINFO,"Matched data: %.0f bytes\n",
 			(double)stats.matched_data);
 		rprintf(FINFO,"File list size: %d\n", stats.flist_size);
-		rprintf(FINFO,"Total bytes written: %.0f\n",
-			(double)stats.total_written);
-		rprintf(FINFO,"Total bytes read: %.0f\n",
-			(double)stats.total_read);
+		rprintf(FINFO,"Total bytes sent: %.0f\n",
+			(double)total_written);
+		rprintf(FINFO,"Total bytes received: %.0f\n",
+			(double)total_read);
 	}
 
 	if (verbose || do_stats) {
-		rprintf(FINFO,"\nwrote %.0f bytes  read %.0f bytes  %.2f bytes/sec\n",
-			(double)stats.total_written,
-			(double)stats.total_read,
-			(stats.total_written+stats.total_read)/(0.5 + (t-starttime)));
-		rprintf(FINFO,"total size is %.0f  speedup is %.2f\n",
+		rprintf(FINFO,
+			"\nsent %.0f bytes  received %.0f bytes  %.2f bytes/sec\n",
+			(double)total_written, (double)total_read,
+			(total_written + total_read)/(0.5 + (t - starttime)));
+		rprintf(FINFO, "total size is %.0f  speedup is %.2f\n",
 			(double)stats.total_size,
-			(1.0*stats.total_size)/(stats.total_written+stats.total_read));
+			(double)stats.total_size / (total_written+total_read));
 	}
 
 	fflush(stdout);
@@ -217,7 +238,7 @@ static pid_t do_cmd(char *cmd, char *machine, char *user, char *path,
 		    int *f_in, int *f_out)
 {
 	int i, argc = 0;
-	char *args[100];
+	char *args[MAX_ARGS];
 	pid_t ret;
 	char *tok, *dir = NULL;
 	int dash_l_set = 0;
@@ -232,8 +253,14 @@ static pid_t do_cmd(char *cmd, char *machine, char *user, char *path,
 		if (!cmd)
 			goto oom;
 
-		for (tok = strtok(cmd, " "); tok; tok = strtok(NULL, " "))
+		for (tok = strtok(cmd, " "); tok; tok = strtok(NULL, " ")) {
+			/* Comparison leaves rooms for server_options(). */
+			if (argc >= MAX_ARGS - 100) {
+				rprintf(FERROR, "internal: args[] overflowed in do_cmd()\n");
+				exit_cleanup(RERR_SYNTAX);
+			}
 			args[argc++] = tok;
+		}
 
 		/* check to see if we've already been given '-l user' in
 		 * the remote-shell command */
@@ -270,6 +297,11 @@ static pid_t do_cmd(char *cmd, char *machine, char *user, char *path,
 		}
 
 		server_options(args,&argc);
+
+		if (argc >= MAX_ARGS - 2) {
+			rprintf(FERROR, "internal: args[] overflowed in do_cmd()\n");
+			exit_cleanup(RERR_SYNTAX);
+		}
 	}
 
 	args[argc++] = ".";
@@ -277,29 +309,36 @@ static pid_t do_cmd(char *cmd, char *machine, char *user, char *path,
 	if (!daemon_over_rsh && path && *path)
 		args[argc++] = path;
 
-	if (argc >= (int)(sizeof args / sizeof args[0])) {
-		rprintf(FERROR, "internal: args[] overflowed in do_cmd()\n");
-		exit_cleanup(RERR_MALLOC); /* XXX Need better RERR? */
-	}
-
 	args[argc] = NULL;
 
 	if (verbose > 3) {
 		rprintf(FINFO,"cmd=");
-		for (i=0;i<argc;i++)
+		for (i = 0; i < argc; i++)
 			rprintf(FINFO,"%s ",args[i]);
 		rprintf(FINFO,"\n");
 	}
 
-	if (local_server) {
-		if (read_batch)
-			create_flist_from_batch(); /* sets batch_flist */
+	if (read_batch) {
+		int from_gen_pipe[2];
+		if (fd_pair(from_gen_pipe) < 0) {
+			rsyserr(FERROR, errno, "pipe");
+			exit_cleanup(RERR_IPC);
+		}
+		batch_gen_fd = from_gen_pipe[0];
+		*f_out = from_gen_pipe[1];
+		*f_in = batch_fd;
+		ret = -1; /* no child pid */
+	} else if (local_server) {
+		/* If the user didn't request --[no-]whole-file, force
+		 * it on, but only if we're not batch processing. */
+		if (whole_file < 0 && !write_batch)
+			whole_file = 1;
 		ret = local_child(argc, args, f_in, f_out, child_main);
-	} else {
+	} else
 		ret = piped_child(args,f_in,f_out);
-	}
 
-	if (dir) free(dir);
+	if (dir)
+		free(dir);
 
 	return ret;
 
@@ -324,12 +363,18 @@ static char *get_local_name(struct file_list *flist,char *name)
 	if (do_stat(name,&st) == 0) {
 		if (S_ISDIR(st.st_mode)) {
 			if (!push_dir(name)) {
-				rprintf(FERROR, "push_dir %s failed: %s (1)\n",
-					full_fname(name), strerror(errno));
+				rsyserr(FERROR, errno, "push_dir#1 %s failed",
+					full_fname(name));
 				exit_cleanup(RERR_FILESELECT);
 			}
 			return NULL;
 		}
+#ifdef EA_SUPPORT
+		if (extended_attributes) {
+			if(flist->count == 2 && !strncmp(flist->files[0]->basename, "._", 2))
+				return name;
+		}
+#endif
 		if (flist->count > 1) {
 			rprintf(FERROR,"ERROR: destination must be a directory when copying more than 1 file\n");
 			exit_cleanup(RERR_FILESELECT);
@@ -337,21 +382,30 @@ static char *get_local_name(struct file_list *flist,char *name)
 		return name;
 	}
 
+#ifdef EA_SUPPORT
+	if (extended_attributes) {
+		if(flist->count == 2 && !strncmp(flist->files[0]->basename, "._", 2))
+			return name;
+	}
+#endif
 	if (flist->count <= 1 && ((e = strlen(name)) <= 1 || name[e-1] != '/'))
 		return name;
 
 	if (do_mkdir(name,0777 & ~orig_umask) != 0) {
-		rprintf(FERROR, "mkdir %s failed: %s\n",
-			full_fname(name), strerror(errno));
+		rsyserr(FERROR, errno, "mkdir %s failed", full_fname(name));
 		exit_cleanup(RERR_FILEIO);
-	} else {
-		if (verbose > 0)
-			rprintf(FINFO,"created directory %s\n",name);
+	}
+	if (verbose > 0)
+		rprintf(FINFO, "created directory %s\n", name);
+
+	if (dry_run) {
+		dry_run++;
+		return NULL;
 	}
 
 	if (!push_dir(name)) {
-		rprintf(FERROR, "push_dir %s failed: %s (2)\n",
-			full_fname(name), strerror(errno));
+		rsyserr(FERROR, errno, "push_dir#2 %s failed",
+			full_fname(name));
 		exit_cleanup(RERR_FILESELECT);
 	}
 
@@ -370,9 +424,15 @@ static void do_server_sender(int f_in, int f_out, int argc,char *argv[])
 			(long)getpid());
 	}
 
+	if (am_daemon && lp_write_only(module_id)) {
+		rprintf(FERROR, "ERROR: module is write only\n");
+		exit_cleanup(RERR_SYNTAX);
+		return;
+	}
+
 	if (!relative_paths && !push_dir(dir)) {
-		rprintf(FERROR, "push_dir %s failed: %s (3)\n",
-			full_fname(dir), strerror(errno));
+		rsyserr(FERROR, errno, "push_dir#3 %s failed",
+			full_fname(dir));
 		exit_cleanup(RERR_FILESELECT);
 	}
 	argc--;
@@ -382,12 +442,12 @@ static void do_server_sender(int f_in, int f_out, int argc,char *argv[])
 		int l = strlen(dir);
 		if (strcmp(dir,"/") == 0)
 			l = 0;
-		for (i=0;i<argc;i++)
+		for (i = 0; i < argc; i++)
 			argv[i] += l+1;
 	}
 
 	if (argc == 0 && recurse) {
-		argc=1;
+		argc = 1;
 		argv--;
 		argv[0] = ".";
 	}
@@ -397,8 +457,9 @@ static void do_server_sender(int f_in, int f_out, int argc,char *argv[])
 		exit_cleanup(0);
 	}
 
-	io_start_buffering_in(f_in);
-	io_start_buffering_out(f_out);
+	io_start_buffering_in();
+	io_start_buffering_out();
+
 	send_files(flist,f_out,f_in);
 	io_flush(FULL_FLUSH);
 	report(f_out);
@@ -414,17 +475,20 @@ static void do_server_sender(int f_in, int f_out, int argc,char *argv[])
 static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 {
 	int pid;
-	int status=0;
+	int status = 0;
 	int error_pipe[2];
+
+	/* The receiving side mustn't obey this, or an existing symlink that
+	 * points to an identical file won't be replaced by the referent. */
+	copy_links = 0;
 
 	if (preserve_hard_links)
 		init_hard_links(flist);
 
 	if (!delete_after) {
 		/* I moved this here from recv_files() to prevent a race condition */
-		if (recurse && delete_mode && !local_name && flist->count>0) {
+		if (recurse && delete_mode && !local_name && flist->count > 0)
 			delete_files(flist);
-		}
 	}
 
 	if (fd_pair(error_pipe) < 0) {
@@ -434,12 +498,13 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 
 	io_flush(NORMAL_FLUSH);
 
-	if ((pid=do_fork()) == 0) {
+	if ((pid = do_fork()) == 0) {
 		close(error_pipe[0]);
-		if (f_in != f_out) close(f_out);
+		if (f_in != f_out)
+			close(f_out);
 
 		/* we can't let two processes write to the socket at one time */
-		io_multiplexing_close();
+		close_multiplexing_out();
 
 		/* set place to send errors */
 		set_msg_fd_out(error_pipe[1]);
@@ -458,11 +523,15 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 	}
 
 	am_generator = 1;
+	close_multiplexing_in();
+	if (write_batch)
+		stop_write_batch();
 
 	close(error_pipe[1]);
-	if (f_in != f_out) close(f_in);
+	if (f_in != f_out)
+		close(f_in);
 
-	io_start_buffering_out(f_out);
+	io_start_buffering_out();
 
 	set_msg_fd_in(error_pipe[0]);
 
@@ -496,7 +565,7 @@ static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 			argc, (long)getpid());
 	}
 
-	if (am_daemon && lp_read_only(module_id) && !am_sender) {
+	if (am_daemon && lp_read_only(module_id)) {
 		rprintf(FERROR,"ERROR: module is read only\n");
 		exit_cleanup(RERR_SYNTAX);
 		return;
@@ -508,13 +577,13 @@ static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 		argc--;
 		argv++;
 		if (!am_daemon && !push_dir(dir)) {
-			rprintf(FERROR, "push_dir %s failed: %s (4)\n",
-				full_fname(dir), strerror(errno));
+			rsyserr(FERROR, errno, "push_dir#4 %s failed",
+				full_fname(dir));
 			exit_cleanup(RERR_FILESELECT);
 		}
 	}
 
-	io_start_buffering_in(f_in);
+	io_start_buffering_in();
 	if (delete_mode && !delete_excluded)
 		recv_exclude_list(f_in);
 
@@ -527,10 +596,7 @@ static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 		filesfrom_fd = -1;
 	}
 
-	if (read_batch)
-		flist = batch_flist;
-	else
-		flist = recv_file_list(f_in);
+	flist = recv_file_list(f_in);
 	if (!flist) {
 		rprintf(FERROR,"server_recv: recv_file_list error\n");
 		exit_cleanup(RERR_FILESELECT);
@@ -539,7 +605,8 @@ static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 	if (argc > 0) {
 		if (strcmp(dir,".")) {
 			argv[0] += strlen(dir);
-			if (argv[0][0] == '/') argv[0]++;
+			if (argv[0][0] == '/')
+				argv[0]++;
 		}
 		local_name = get_local_name(flist,argv[0]);
 	}
@@ -558,20 +625,21 @@ int child_main(int argc, char *argv[])
 
 void start_server(int f_in, int f_out, int argc, char *argv[])
 {
-	setup_protocol(f_out, f_in);
-
 	set_nonblocking(f_in);
 	set_nonblocking(f_out);
 
+	io_set_sock_fds(f_in, f_out);
+	setup_protocol(f_out, f_in);
+
 	if (protocol_version >= 23)
-		io_start_multiplex_out(f_out);
+		io_start_multiplex_out();
 
 	if (am_sender) {
-		if (!read_batch) {
-			recv_exclude_list(f_in);
-			if (cvs_exclude)
-				add_cvs_excludes();
-		}
+		keep_dirlinks = 0; /* Must be disabled on the sender. */
+
+		recv_exclude_list(f_in);
+		if (cvs_exclude)
+			add_cvs_excludes();
 		do_server_sender(f_in, f_out, argc, argv);
 	} else {
 		do_server_recv(f_in, f_out, argc, argv);
@@ -591,25 +659,41 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 	char *local_name = NULL;
 
 	cleanup_child_pid = pid;
-	if (read_batch)
-		flist = batch_flist;
+	if (read_batch) {
+		assert(am_sender == 0);
+	} else {
+		set_nonblocking(f_in);
+		set_nonblocking(f_out);
+	}
 
-	set_nonblocking(f_in);
-	set_nonblocking(f_out);
-
+	io_set_sock_fds(f_in, f_out);
 	setup_protocol(f_out,f_in);
 
-	if (protocol_version >= 23)
-		io_start_multiplex_in(f_in);
+	if (protocol_version >= 23 && !read_batch)
+		io_start_multiplex_in();
+
+	/* We set our stderr file handle to blocking because ssh might have
+	 * set it to non-blocking.  This can be particularly troublesome if
+	 * stderr is a clone of stdout, because ssh would have set our stdout
+	 * to non-blocking at the same time (which can easily cause us to lose
+	 * output from our print statements).  This kluge shouldn't cause ssh
+	 * any problems for how we use it.  Note also that we delayed setting
+	 * this until after the above protocol setup so that we know for sure
+	 * that ssh is done twiddling its file descriptors.  */
+	set_blocking(STDERR_FILENO);
 
 	if (am_sender) {
-		io_start_buffering_out(f_out);
+		keep_dirlinks = 0; /* Must be disabled on the sender. */
+		io_start_buffering_out();
 		if (cvs_exclude)
 			add_cvs_excludes();
 		if (delete_mode && !delete_excluded)
 			send_exclude_list(f_out);
 		if (remote_filesfrom_file)
 			filesfrom_fd = f_in;
+
+		if (write_batch)
+			start_write_batch(f_out);
 		if (!read_batch) /* don't write to pipe */
 			flist = send_file_list(f_out,argc,argv);
 		if (verbose > 3)
@@ -633,11 +717,10 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 		exit_cleanup(status);
 	}
 
-	if (argc == 0) {
+	if (argc == 0)
 		list_only = 1;
-	}
 
-	if (!write_batch)
+	if (!read_batch)
 		send_exclude_list(f_out);
 
 	if (filesfrom_fd >= 0) {
@@ -645,6 +728,8 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 		filesfrom_fd = -1;
 	}
 
+	if (write_batch)
+		start_write_batch(f_in);
 	flist = recv_file_list(f_in);
 	if (!flist || flist->count == 0) {
 		rprintf(FINFO, "client: nothing to do: "
@@ -708,33 +793,39 @@ static int start_client(int argc, char *argv[])
 		return rc;
 
 	/* rsync:// always uses rsync server over direct socket connection */
-	if (strncasecmp(URL_PREFIX, argv[0], strlen(URL_PREFIX)) == 0) {
+	if (strncasecmp(URL_PREFIX, argv[0], strlen(URL_PREFIX)) == 0
+	    && !read_batch) {
 		char *host, *path;
 
 		host = argv[0] + strlen(URL_PREFIX);
 		p = strchr(host,'/');
 		if (p) {
-			*p = 0;
+			*p = '\0';
 			path = p+1;
-		} else {
+		} else
 			path = "";
-		}
-		p = strchr(host,':');
+		if (*host == '[' && (p = strchr(host, ']')) != NULL) {
+			host++;
+			*p++ = '\0';
+			if (*p != ':')
+				p = NULL;
+		} else
+			p = strchr(host, ':');
 		if (p) {
 			rsync_port = atoi(p+1);
-			*p = 0;
+			*p = '\0';
 		}
 		return start_socket_client(host, path, argc-1, argv+1);
 	}
 
-	if (!read_batch) {
+	if (!read_batch) { /* for read_batch, NO source is specified */
 		p = find_colon(argv[0]);
-		if (p) {
+		if (p) { /* source is remote */
 			if (remote_filesfrom_file
 			 && remote_filesfrom_file != files_from + 1
 			 && strncmp(files_from, argv[0], p-argv[0]+1) != 0) {
 				rprintf(FERROR,
-					"--files-from hostname is not transfer hostname\n");
+					"--files-from hostname is not the same as the transfer hostname\n");
 				exit_cleanup(RERR_SYNTAX);
 			}
 			if (p[1] == ':') { /* double colon */
@@ -747,7 +838,7 @@ static int start_client(int argc, char *argv[])
 				daemon_over_rsh = 1;
 			}
 
-			if (argc < 1) {
+			if (argc < 1) { /* destination required */
 				usage(FERROR);
 				exit_cleanup(RERR_SYNTAX);
 			}
@@ -756,9 +847,8 @@ static int start_client(int argc, char *argv[])
 			*p = 0;
 			shell_machine = argv[0];
 			shell_path = p+1;
-			argc--;
 			argv++;
-		} else {
+		} else { /* source is local */
 			am_sender = 1;
 
 			/* rsync:// destination uses rsync server over direct socket */
@@ -768,32 +858,37 @@ static int start_client(int argc, char *argv[])
 				host = argv[argc-1] + strlen(URL_PREFIX);
 				p = strchr(host,'/');
 				if (p) {
-					*p = 0;
+					*p = '\0';
 					path = p+1;
-				} else {
+				} else
 					path = "";
-				}
-				p = strchr(host,':');
+				if (*host == '[' && (p = strchr(host, ']')) != NULL) {
+					host++;
+					*p++ = '\0';
+					if (*p != ':')
+						p = NULL;
+				} else
+					p = strchr(host, ':');
 				if (p) {
 					rsync_port = atoi(p+1);
-					*p = 0;
+					*p = '\0';
 				}
 				return start_socket_client(host, path, argc-1, argv);
 			}
 
-			p = find_colon(argv[argc-1]);
+			p = find_colon(argv[argc-1]); /* look in dest arg */
 			if (p && remote_filesfrom_file
 			 && remote_filesfrom_file != files_from + 1
 			 && strncmp(files_from, argv[argc-1], p-argv[argc-1]+1) != 0) {
 				rprintf(FERROR,
-					"--files-from hostname is not transfer hostname\n");
+					"--files-from hostname is not the same as the transfer hostname\n");
 				exit_cleanup(RERR_SYNTAX);
 			}
-			if (!p) {
+			if (!p) { /* no colon found, so src & dest are local */
 				local_server = 1;
 				if (remote_filesfrom_file) {
 					rprintf(FERROR,
-						"--files-from is remote but transfer is local\n");
+						"--files-from cannot be remote when the transfer is local\n");
 					exit_cleanup(RERR_SYNTAX);
 				}
 			} else if (p[1] == ':') { /* double colon */
@@ -819,12 +914,15 @@ static int start_client(int argc, char *argv[])
 				shell_machine = argv[argc-1];
 				shell_path = p+1;
 			}
-			argc--;
 		}
-	} else {
-		am_sender = 1;
+		argc--;
+	} else {  /* read_batch */
 		local_server = 1;
 		shell_path = argv[argc-1];
+		if (find_colon(shell_path)) {
+			rprintf(FERROR, "remote destination is not allowed with --read-batch\n");
+			exit_cleanup(RERR_SYNTAX);
+		}
 	}
 
 	if (shell_machine) {
@@ -844,12 +942,14 @@ static int start_client(int argc, char *argv[])
 			shell_path?shell_path:"");
 	}
 
+	/* for remote source, only single dest arg can remain ... */
 	if (!am_sender && argc > 1) {
 		usage(FERROR);
 		exit_cleanup(RERR_SYNTAX);
 	}
 
-	if (argc == 0 && !am_sender) {
+	/* ... or no dest at all */
+	if (!am_sender && argc == 0) {
 		list_only = 1;
 	}
 
@@ -965,11 +1065,8 @@ static RETSIGTYPE rsync_panic_handler(UNUSED(int whatsig))
 int main(int argc,char *argv[])
 {
 	int ret;
-	int orig_argc;
-	char **orig_argv;
-
-	orig_argc = argc;
-	orig_argv = argv;
+	int orig_argc = argc;
+	char **orig_argv = argv;
 
 	signal(SIGUSR1, sigusr1_handler);
 	signal(SIGUSR2, sigusr2_handler);
@@ -1018,8 +1115,24 @@ int main(int argc,char *argv[])
 
 	init_flist();
 
-	if (write_batch && !am_server) {
-		write_batch_argvs_file(orig_argc, orig_argv);
+	if (write_batch || read_batch) {
+		if (write_batch)
+			write_batch_shell_file(orig_argc, orig_argv, argc);
+
+		if (read_batch && strcmp(batch_name, "-") == 0)
+			batch_fd = STDIN_FILENO;
+		else {
+			batch_fd = do_open(batch_name,
+				   write_batch ? O_WRONLY | O_CREAT | O_TRUNC
+				   : O_RDONLY, S_IRUSR | S_IWUSR);
+		}
+		if (batch_fd < 0) {
+			rsyserr(FERROR, errno, "Batch file %s open error",
+				batch_name);
+			exit_cleanup(RERR_FILEIO);
+		}
+		if (read_batch)
+			read_stream_flags(batch_fd);
 	}
 
 	if (am_daemon && !am_server)

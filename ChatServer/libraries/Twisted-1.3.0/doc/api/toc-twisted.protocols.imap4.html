@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.imap4</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+<center><font size="+1"><b><a target="mainFrame" href="twisted.protocols.imap4.html">imap4</a></b></font></center>
+<hr>
+
+<!-- =========== START OF CLASSES =========== -->
+<font size="+1"><b>Classes</b></font><br />
+<a target="mainFrame" href="twisted.protocols.imap4._FetchParser.html">_FetchParser</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.Command.html">Command</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.CramMD5ClientAuthenticator.html">CramMD5ClientAuthenticator</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.DontQuoteMe.html">DontQuoteMe</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.FileProducer.html">FileProducer</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IAccount.html">IAccount</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IClientAuthentication.html">IClientAuthentication</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.ICloseableMailbox.html">ICloseableMailbox</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IMailbox.html">IMailbox</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IMailboxInfo.html">IMailboxInfo</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IMailboxListener.html">IMailboxListener</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IMAP4Client.html">IMAP4Client</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IMAP4Server.html">IMAP4Server</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IMessage.html">IMessage</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IMessageCopier.html">IMessageCopier</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IMessageFile.html">IMessageFile</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IMessagePart.html">IMessagePart</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.INamespacePresenter.html">INamespacePresenter</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.ISearchableMailbox.html">ISearchableMailbox</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.LiteralFile.html">LiteralFile</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.LiteralString.html">LiteralString</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.LOGINAuthenticator.html">LOGINAuthenticator</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.LOGINCredentials.html">LOGINCredentials</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.MemoryAccount.html">MemoryAccount</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.MessageProducer.html">MessageProducer</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.MessageSet.html">MessageSet</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.PLAINAuthenticator.html">PLAINAuthenticator</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.PLAINCredentials.html">PLAINCredentials</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.StreamReader.html">StreamReader</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.StreamWriter.html">StreamWriter</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.WriteBuffer.html">WriteBuffer</a><br />
+<br />
+
+<!-- =========== START OF EXCEPTIONS =========== -->
+<font size="+1"><b>Exceptions</b></font><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IllegalClientResponse.html">IllegalClientResponse</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IllegalIdentifierError.html">IllegalIdentifierError</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IllegalMailboxEncoding.html">IllegalMailboxEncoding</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IllegalOperation.html">IllegalOperation</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IllegalQueryError.html">IllegalQueryError</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IllegalServerResponse.html">IllegalServerResponse</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.IMAP4Exception.html">IMAP4Exception</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.MailboxCollision.html">MailboxCollision</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.MailboxException.html">MailboxException</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.MismatchedNesting.html">MismatchedNesting</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.MismatchedQuoting.html">MismatchedQuoting</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.NegativeResponse.html">NegativeResponse</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.NoSuchMailbox.html">NoSuchMailbox</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.NoSupportedAuthentication.html">NoSupportedAuthentication</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.ReadOnlyMailbox.html">ReadOnlyMailbox</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.UnhandledResponse.html">UnhandledResponse</a><br />
+<br />
+
+<!-- =========== START OF FUNCTIONS =========== -->
+<font size="+1"><b>Functions</b></font><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#_formatHeaders">_formatHeaders</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#_literal">_literal</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#_needsLiteral">_needsLiteral</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#_needsQuote">_needsQuote</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#_quote">_quote</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#collapseNestedLists">collapseNestedLists</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#collapseStrings">collapseStrings</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#decoder">decoder</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#encoder">encoder</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#getBodyStructure">getBodyStructure</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#getEnvelope">getEnvelope</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#getLineCount">getLineCount</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#imap4_utf_7">imap4_utf_7</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#iterateInReactor">iterateInReactor</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#modified_base64">modified_base64</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#modified_unbase64">modified_unbase64</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#Not">Not</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#Or">Or</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#parseAddr">parseAddr</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#parseIdList">parseIdList</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#parseNestedParens">parseNestedParens</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#parseTime">parseTime</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#Query">Query</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#splitOn">splitOn</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#splitQuoted">splitQuoted</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#statusRequestHelper">statusRequestHelper</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#subparts">subparts</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#wildcardToRegexp">wildcardToRegexp</a><br />
+<br />
+
+<!-- =========== START OF VARIABLES =========== -->
+<font size="+1"><b>Variables</b></font><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#_ATOM_SPECIALS">_ATOM_SPECIALS</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#_NO_QUOTES">_NO_QUOTES</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#_SIMPLE_BOOL">_SIMPLE_BOOL</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#_statusRequestDict">_statusRequestDict</a><br />
+<a target="mainFrame" href="twisted.protocols.imap4.html#infrangeobject">infrangeobject</a><br />
+<br />
+
+</body>
+</html>

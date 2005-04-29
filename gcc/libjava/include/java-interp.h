@@ -1,6 +1,6 @@
 // java-interp.h - Header file for the bytecode interpreter.  -*- c++ -*-
 
-/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -22,7 +22,6 @@ details.  */
 #include <java/lang/Class.h>
 #include <java/lang/ClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
-#include <gnu/gcj/runtime/StackTrace.h>
 
 extern "C" {
 #include <ffi.h>
@@ -36,6 +35,7 @@ _Jv_IsInterpretedClass (jclass c)
 
 struct _Jv_ResolvedMethod;
 
+void _Jv_InitInterpreter ();
 void _Jv_DefineClass (jclass, jbyteArray, jint, jint);
 
 void _Jv_InitField (jobject, jclass, int);
@@ -80,13 +80,19 @@ class _Jv_MethodBase
 {
 protected:
   // The class which defined this method.
-  _Jv_InterpClass *defining_class;
+  jclass defining_class;
 
   // The method description.
   _Jv_Method *self;
 
   // Size of raw arguments.
   _Jv_ushort args_raw_size;
+
+  // Chain of addresses to fill in.  See _Jv_Defer_Resolution.
+  void *deferred;
+
+  friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
+  friend void _Jv_PrepareClass(jclass);
 
 public:
   _Jv_Method *get_method ()
@@ -132,6 +138,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
 
   static void run_normal (ffi_cif*, void*, ffi_raw*, void*);
   static void run_synch_object (ffi_cif*, void*, ffi_raw*, void*);
+  static void run_class (ffi_cif*, void*, ffi_raw*, void*);
   static void run_synch_class (ffi_cif*, void*, ffi_raw*, void*);
 
   void run (void*, ffi_raw *);
@@ -143,6 +150,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   friend class _Jv_BytecodeVerifier;
   friend class gnu::gcj::runtime::NameFinder;
   friend class gnu::gcj::runtime::StackTrace;
+  
 
   friend void _Jv_PrepareClass(jclass);
 
@@ -151,7 +159,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
 #endif
 };
 
-class _Jv_InterpClass : public java::lang::Class
+class _Jv_InterpClass
 {
   _Jv_MethodBase **interpreted_methods;
   _Jv_ushort        *field_initializers;
@@ -166,7 +174,34 @@ class _Jv_InterpClass : public java::lang::Class
 #endif
 
   friend _Jv_MethodBase ** _Jv_GetFirstMethod (_Jv_InterpClass *klass);
+  friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
 };
+
+// We have an interpreted class CL and we're trying to find the
+// address of the ncode of a method METH.  That interpreted class
+// hasn't yet been prepared, so we defer fixups until they are ready.
+// To do this, we create a chain of fixups that will be resolved by
+// _Jv_PrepareClass.
+extern inline void 
+_Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **address)
+{
+  int i;
+  jclass self = (jclass) cl;
+  _Jv_InterpClass *interp_cl = (_Jv_InterpClass*) self->aux_info;
+
+  for (i = 0; i < self->method_count; i++)
+    {
+      _Jv_Method *m = &self->methods[i];
+      if (m == meth)
+	{
+	  _Jv_MethodBase *imeth = interp_cl->interpreted_methods[i];
+	  *address = imeth->deferred;
+	  imeth->deferred = address;
+	  return;
+	}
+    }
+  return;
+}    
 
 extern inline _Jv_MethodBase **
 _Jv_GetFirstMethod (_Jv_InterpClass *klass)

@@ -2,46 +2,64 @@
 # xbs-compatible Makefile for bzip2.
 #
 
-SHELL := /bin/sh
+Project             = bzip2
+GnuNoConfigure      = YES
+Extra_CC_Flags      = -no-cpp-precomp -D_FILE_OFFSET_BITS=64
+Extra_Install_Flags = PREFIX=$(RC_Install_Prefix)
+GnuAfterInstall     = strip-binaries fix-manpages install-plist
 
-# Sane defaults, which are typically overridden on the command line.
-SRCROOT=
-OBJROOT=$(SRCROOT)
-SYMROOT=$(OBJROOT)
-DSTROOT=/usr/local
-RC_ARCHS=
+install:: shadow_source
 
-PROJNAME=bzip2
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-ENV=	CFLAGS="$(RC_ARCHS:%=-arch %) -no-cpp-precomp -O -D_FILE_OFFSET_BITS=64"
+Install_Target      = install
 
-.PHONY : installsrc installhdrs install clean
+strip-binaries:
+	$(STRIP) -x $(DSTROOT)/usr/bin/bunzip2
+	$(STRIP) -x $(DSTROOT)/usr/bin/bzcat
+	$(STRIP) -x $(DSTROOT)/usr/bin/bzip2recover
+	$(STRIP) -x $(DSTROOT)/usr/bin/bzip2
+	$(STRIP) -x $(DSTROOT)/usr/local/lib/libbz2.a
+	$(STRIP) -x $(DSTROOT)/usr/lib/libbz2.1.0.dylib
 
-installsrc :
-	tar cf - . | (cd $(SRCROOT) ; tar xfp -)
-	for i in `find $(SRCROOT) | grep "CVS$$"` ; do \
-		if test -d $$i ; then \
-			rm -rf $$i; \
-		fi; \
+fix-manpages:
+	$(MKDIR) $(DSTROOT)/usr/share
+	$(MV) $(DSTROOT)/usr/man $(DSTROOT)/usr/share
+	$(LN) $(DSTROOT)/usr/share/man/man1/bzip2.1 $(DSTROOT)/usr/share/man/man1/bunzip2.1
+	$(LN) $(DSTROOT)/usr/share/man/man1/bzip2.1 $(DSTROOT)/usr/share/man/man1/bzcat.1
+	$(LN) $(DSTROOT)/usr/share/man/man1/bzip2.1 $(DSTROOT)/usr/share/man/man1/bzip2recover.1
+
+OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
+OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses
+
+install-plist:
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) $(Sources)/LICENSE $(OSL)/$(Project).txt
+
+# Automatic Extract & Patch
+AEP            = YES
+AEP_Project    = $(Project)
+AEP_Version    = 1.0.2
+AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
+AEP_Filename   = $(AEP_ProjVers).tar.gz
+AEP_ExtractDir = $(AEP_ProjVers)
+AEP_Patches    = bzdiff.diff EA.diff dylib.diff
+
+ifeq ($(suffix $(AEP_Filename)),.bz2)
+AEP_ExtractOption = j
+else
+AEP_ExtractOption = z
+endif
+
+# Extract the source.
+install_source::
+ifeq ($(AEP),YES)
+	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(RMDIR) $(SRCROOT)/$(AEP_Project)
+	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
+	for patchfile in $(AEP_Patches); do \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
 	done
-
-installhdrs :
-
-install :
-	$(SHELL) -ec \
-	'cd $(SRCROOT)/$(PROJNAME); \
-	$(MAKE) $(ENV); \
-	$(MAKE) $(ENV) PREFIX=$(DSTROOT)/usr install; \
-	$(MAKE) distclean; \
-	strip -x $(DSTROOT)/usr/bin/bzip2; \
-	strip -x $(DSTROOT)/usr/bin/bunzip2; \
-	strip -x $(DSTROOT)/usr/bin/bzcat; \
-	strip -x $(DSTROOT)/usr/bin/bzip2recover; \
-	install -d $(DSTROOT)/usr/share; \
-	mv $(DSTROOT)/usr/man $(DSTROOT)/usr/share; \
-	ln $(DSTROOT)/usr/share/man/man1/bzip2.1 $(DSTROOT)/usr/share/man/man1/bunzip2.1; \
-	ln $(DSTROOT)/usr/share/man/man1/bzip2.1 $(DSTROOT)/usr/share/man/man1/bzcat.1; \
-	ln $(DSTROOT)/usr/share/man/man1/bzip2.1 $(DSTROOT)/usr/share/man/man1/bzip2recover.1'
-	ranlib $(DSTROOT)/usr/lib/libbz2.a
-
-clean:
+endif

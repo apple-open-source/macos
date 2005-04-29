@@ -1,9 +1,9 @@
 /*
- * "$Id: testhttp.c,v 1.1.1.8 2003/04/11 21:07:19 jlovell Exp $"
+ * "$Id: testhttp.c,v 1.5 2005/01/04 22:10:39 jlovell Exp $"
  *
  *   HTTP test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -35,6 +35,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "http.h"
+#include <config.h>
+#ifdef HAVE_INTTYPES_H
+#  include <inttypes.h>
+#endif /* HAVE_INTTYPES_H */
 
 
 /*
@@ -56,7 +60,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 		username[HTTP_MAX_URI],
 		resource[HTTP_MAX_URI];
   int		port;
-  long		length, total;
+  off_t		length, total;
   time_t	start, current;
 
 
@@ -94,7 +98,8 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 
     start = time(NULL);
-    length = atoi(httpGetField(http, HTTP_FIELD_CONTENT_LENGTH));
+
+    length = strtoimax(httpGetField(http, HTTP_FIELD_CONTENT_LENGTH), (char **)NULL, 10);
     total  = 0;
 
     while ((bytes = httpRead(http, buffer, sizeof(buffer))) > 0)
@@ -105,8 +110,9 @@ main(int  argc,			/* I - Number of command-line arguments */
       {
         current = time(NULL);
         if (current == start) current ++;
-        printf("\r%ld/%ld bytes (%ld bytes/sec)      ", total, length,
-               total / (current - start));
+        printf("\r%" PRIdMAX "/%" PRIdMAX " bytes (%ld bytes/sec)      ", 
+        	(intmax_t)total, (intmax_t)length,
+               (long)(total / (current - start)));
         fflush(stdout);
       }
     }
@@ -123,5 +129,5 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: testhttp.c,v 1.1.1.8 2003/04/11 21:07:19 jlovell Exp $".
+ * End of "$Id: testhttp.c,v 1.5 2005/01/04 22:10:39 jlovell Exp $".
  */

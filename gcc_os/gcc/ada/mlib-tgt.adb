@@ -7,7 +7,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --              Copyright (C) 2001, Ada Core Technologies, Inc.             --
 --                                                                          --
@@ -32,6 +31,8 @@
 --  except Libraries_Are_Supported which returns False.
 
 package body MLib.Tgt is
+
+   pragma Warnings (Off); -- stop warnings on unreferenced formals
 
    -----------------
    -- Archive_Ext --

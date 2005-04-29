@@ -1,14 +1,12 @@
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: mt19937db.c,v 1.1.1.1 2003/02/15 04:55:40 zarzycki Exp $";
+static const char revid[] = "$Id: mt19937db.c,v 1.2 2004/03/30 01:21:23 jtownsen Exp $";
 #endif /* not lint */
 
 #include "db_int.h"
 #include "dbinc/crypto.h"
 #include "dbinc/hmac.h"
-#include "dbinc/mutex.h"
-#include "dbinc_auto/os_ext.h"
 
 /* A C-program for MT19937: Integer version (1999/10/28)          */
 /*  genrand() generates one pseudorandom unsigned integer (32bit) */

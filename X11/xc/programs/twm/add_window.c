@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/twm/add_window.c,v 1.12 2002/12/10 22:28:07 tsi Exp $ */
+/* $XFree86: xc/programs/twm/add_window.c,v 1.13 2003/08/04 10:32:30 eich Exp $ */
 /*****************************************************************************/
 /*
 
@@ -209,6 +209,13 @@ IconMgr *iconp;
     FetchWmProtocols (tmp_win);
     FetchWmColormapWindows (tmp_win);
 
+    if (name == NULL)
+	tmp_win->name = strdup(NoName);
+    else {
+      tmp_win->name = strdup(name);
+      free(name);
+    }
+
     if (GetWindowConfig (tmp_win,
 	&saved_x, &saved_y, &saved_width, &saved_height,
 	&restore_iconified, &restore_icon_info_present,
@@ -277,12 +284,6 @@ IconMgr *iconp;
     tmp_win->transient = Transient(tmp_win->w, &tmp_win->transientfor);
 
     tmp_win->nameChanged = 0;
-    if (name == NULL)
-	tmp_win->name = strdup(NoName);
-    else {
-      tmp_win->name = strdup(name);
-      free(name);
-    }
     if (tmp_win->class.res_name == NULL)
     	tmp_win->class.res_name = NoName;
     if (tmp_win->class.res_class == NULL)

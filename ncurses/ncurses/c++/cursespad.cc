@@ -1,6 +1,6 @@
 // * this is for making emacs happy: -*-Mode: C++;-*-
 /****************************************************************************
- * Copyright (c) 1999,2001 Free Software Foundation, Inc.                   *
+ * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -28,14 +28,14 @@
  ****************************************************************************/
 
 /****************************************************************************
- *   Author: Juergen Pfeifer <juergen.pfeifer@gmx.net> 1999                 *
+ *   Author: Juergen Pfeifer, 1999                                          *
  ****************************************************************************/
 
 #include "internal.h"
 #include "etip.h"
 #include "cursesw.h"
 
-MODULE_ID("$Id: cursespad.cc,v 1.1.1.1 2001/11/29 20:40:48 jevans Exp $")
+MODULE_ID("$Id: cursespad.cc,v 1.7 2003/10/25 15:04:46 tom Exp $")
 
 NCursesPad::NCursesPad(int lines, int cols)
   : NCursesWindow(),
@@ -53,7 +53,8 @@ NCursesPad::NCursesPad(int lines, int cols)
 }
 
 
-int NCursesPad::driver (int key) {
+int NCursesPad::driver (int key)
+{
   // Default implementation
   switch(key) {
   case KEY_UP:
@@ -79,7 +80,8 @@ int NCursesPad::driver (int key) {
 }
 
 
-void NCursesPad::operator()(void) {
+void NCursesPad::operator()(void)
+{
   NCursesWindow* W = Win();
 
   if ((NCursesWindow*)0 != W) {
@@ -164,7 +166,8 @@ void NCursesPad::operator()(void) {
 }
 
 
-int NCursesPad::refresh() {
+int NCursesPad::refresh()
+{
   int res = noutrefresh();
   if (res==OK && ((NCursesWindow*)0 != viewWin)) {
     res = (viewWin->refresh());
@@ -172,7 +175,8 @@ int NCursesPad::refresh() {
   return(res);
 }
 
-int NCursesPad::noutrefresh() {
+int NCursesPad::noutrefresh()
+{
   int res = OK;
   NCursesWindow* W = Win();
   if ((NCursesWindow*)0 != W) {
@@ -210,7 +214,8 @@ void NCursesPad::setSubWindow(NCursesWindow& sub)
   viewSub = &sub;
 }
 
-void NCursesFramedPad::OnOperation(int pad_req) {
+void NCursesFramedPad::OnOperation(int pad_req)
+{
   NCursesWindow* W = Win();
   NCursesWindow* Win = getWindow();
 

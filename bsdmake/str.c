@@ -34,16 +34,11 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * @(#)str.c	5.8 (Berkeley) 6/1/90
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)str.c	5.8 (Berkeley) 6/1/90";
-#else
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/make/str.c,v 1.12 1999/09/11 13:08:01 hoek Exp $";
-#endif
-#endif /* not lint */
+#include <sys/cdefs.h>
 
 #include "make.h"
 
@@ -56,7 +51,7 @@ static int argmax, curlen;
  *
  */
 void
-str_init()
+str_init(void)
 {
     char *p1;
     argv = (char **)emalloc(((argmax = 50) + 1) * sizeof(char *));
@@ -70,12 +65,12 @@ str_init()
  *
  */
 void
-str_end()
+str_end(void)
 {
     if (argv) {
 	if (argv[0])
 	    free(argv[0]);
-	free((Address) argv);
+	free(argv);
     }
     if (buffer)
 	free(buffer);
@@ -90,12 +85,10 @@ str_end()
  *	the resulting string in allocated space.
  */
 char *
-str_concat(s1, s2, flags)
-	char *s1, *s2;
-	int flags;
+str_concat(char *s1, char *s2, int flags)
 {
-	register int len1, len2;
-	register char *result;
+	int len1, len2;
+	char *result;
 
 	/* get the length of both strings */
 	len1 = strlen(s1);
@@ -138,13 +131,10 @@ str_concat(s1, s2, flags)
  *	the first word is always the value of the .MAKE variable.
  */
 char **
-brk_string(str, store_argc, expand)
-	register char *str;
-	int *store_argc;
-	Boolean expand;
+brk_string(char *str, int *store_argc, Boolean expand)
 {
-	register int argc, ch;
-	register char inquote, *p, *start, *t;
+	int argc, ch;
+	char inquote, *p, *start, *t;
 	int len;
 
 	/* skip leading space chars. */
@@ -169,24 +159,17 @@ brk_string(str, store_argc, expand)
 		case '"':
 		case '\'':
 			if (inquote) {
-				if (inquote == ch)
-					inquote = '\0';
-				else
+				if (ch != inquote)
 					break;
-			} else {
-				inquote = (char) ch;
+				inquote = '\0';
 				/* Don't miss "" or '' */
-				if (start == NULL && p[1] == inquote) {
-					start = t + 1;
-					break;
-				}
-			}
-			if (!expand) {
 				if (!start)
 					start = t;
-				*t++ = ch;
-			}
-			continue;
+			} else
+				inquote = (char) ch;
+			if (expand)
+				continue;
+			break;
 		case ' ':
 		case '\t':
 		case '\n':
@@ -245,7 +228,11 @@ brk_string(str, store_argc, expand)
 			case 't':
 				ch = '\t';
 				break;
+			default:
+				break;
 			}
+			break;
+		default:
 			break;
 		}
 		if (!start)
@@ -255,44 +242,6 @@ brk_string(str, store_argc, expand)
 done:	argv[argc] = (char *)NULL;
 	*store_argc = argc;
 	return(argv);
-}
-
-/*
- * Str_FindSubstring -- See if a string contains a particular substring.
- *
- * Results: If string contains substring, the return value is the location of
- * the first matching instance of substring in string.  If string doesn't
- * contain substring, the return value is NULL.  Matching is done on an exact
- * character-for-character basis with no wildcards or special characters.
- *
- * Side effects: None.
- */
-char *
-Str_FindSubstring(string, substring)
-	register char *string;		/* String to search. */
-	char *substring;		/* Substring to find in string */
-{
-	register char *a, *b;
-
-	/*
-	 * First scan quickly through the two strings looking for a single-
-	 * character match.  When it's found, then compare the rest of the
-	 * substring.
-	 */
-
-	for (b = substring; *string != 0; string += 1) {
-		if (*string != *b)
-			continue;
-		a = string;
-		for (;;) {
-			if (*b == 0)
-				return(string);
-			if (*a++ != *b++)
-				break;
-		}
-		b = substring;
-	}
-	return((char *) NULL);
 }
 
 /*
@@ -307,9 +256,7 @@ Str_FindSubstring(string, substring)
  * Side effects: None.
  */
 int
-Str_Match(string, pattern)
-	register char *string;		/* String */
-	register char *pattern;		/* Pattern */
+Str_Match(const char *string, const char *pattern)
 {
 	char c2;
 
@@ -411,15 +358,19 @@ thisCharOK:	++pattern;
  *
  *-----------------------------------------------------------------------
  */
-char *
-Str_SYSVMatch(word, pattern, len)
-    char	*word;		/* Word to examine */
-    char	*pattern;	/* Pattern to examine against */
-    int		*len;		/* Number of characters to substitute */
+const char *
+Str_SYSVMatch(const char *word, const char *pattern, int *len)
 {
-    char *p = pattern;
-    char *w = word;
-    char *m;
+    const char *m, *p, *w;
+
+    p = pattern;
+    w = word;
+
+    if (*w == '\0') {
+	/* Zero-length word cannot be matched against */
+	*len = 0;
+	return NULL;
+    }
 
     if (*p == '\0') {
 	/* Null pattern is the whole string */
@@ -472,13 +423,9 @@ Str_SYSVMatch(word, pattern, len)
  *-----------------------------------------------------------------------
  */
 void
-Str_SYSVSubst(buf, pat, src, len)
-    Buffer buf;
-    char *pat;
-    char *src;
-    int   len;
+Str_SYSVSubst(Buffer buf, const char *pat, const char *src, int len)
 {
-    char *m;
+    const char *m;
 
     if ((m = strchr(pat, '%')) != NULL) {
 	/* Copy the prefix */

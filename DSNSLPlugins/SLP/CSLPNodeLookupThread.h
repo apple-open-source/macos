@@ -41,6 +41,7 @@ public:
                             CSLPNodeLookupThread		( CNSLPlugin* parentPlugin );
     virtual					~CSLPNodeLookupThread		();
     
+            void			AddResult					( const char* newNodeName );
 	virtual void*			Run							( void );
 			void			Cancel						( void ) { mCanceled = true; }
 			Boolean			IsCanceled					( void ) { return mCanceled; }
@@ -51,6 +52,7 @@ private:
     SLPHandle				mSLPRef;
 	Boolean					mCanceled;
 	Boolean					mDoItAgain;
+	Boolean					mFoundDefaultScope;
 };
 
 #endif		// #ifndef

@@ -11,6 +11,16 @@ Requires:
   diff (when a test fail, a diff is shown)
   stunnel (for HTTPS and FTPS tests)
 
+TCP ports used:
+
+  - 8999 on localhost for HTTP tests
+  - 8433 on localhost for HTTPS tests
+  - 8921 on localhost for FTP tests
+  - 8821 on localhost for FTPS tests (currently disabled)
+
+  The test suite runs simple FTP and HTTP servers on these ports to which
+  it makes requests.
+
 Run:
   'make test'. This invokes the 'runtests.pl' perl script. Edit the top
   variables of that script in case you have some specific needs.
@@ -27,7 +37,7 @@ Run:
 
 Memory:
   The test script will check that all allocated memory is freed properly IF
-  curl has been built with the MALLOCDEBUG define set. The script will
+  curl has been built with the CURLDEBUG define set. The script will
   automatically detect if that is the case, and it will use the ../memanalyze
   script to analyze the memory debugging output.
 
@@ -47,16 +57,15 @@ Debug:
           (gdb) where
 
 Logs:
-  All logs are generated in the logs/ subdirctory (it is emtpied first
-  in the runtests.pl script)
+  All logs are generated in the logs/ subdirctory (it is emptied first
+  in the runtests.pl script). Use runtests.pl -k to keep the temporary files
+  after the test run.
 
 Data:
-  All test-data are put in the data/ subdirctory. Each test is stored in the
+  All test cases are put in the data/ subdirctory. Each test is stored in the
   file named according to the test number.
 
-  The test case file format is simply a way to store different sections within
-  the same physical file. The different sections are to be described here
-  within shortly.
+  See FILEFORMAT for the description of the test case files.
 
 
 TEST CASE NUMBERS
@@ -68,13 +77,12 @@ TEST CASE NUMBERS
  200 - 299   FILE
  300 - 399   HTTPS
  400 - 499   FTPS
+ 500 - 599   libcurl source code tests, not using the curl command tool
 
-  ... if we run out of test numbers for a particular protocol, then we need
-  to fix it.
+ Since 30-apr-2003, there's nothing in the system that requires us to keep
+ within these number series. Each test case now specifies its own server
+ requirements, independent of test number.
 
 TODO:
 
-  * Port old test cases to the new file format
-
-  * Make httpserver.pl work when we PUT without Content-Length:
-  * Add persistant connection support and test cases
+  * Add tests for TELNET, GOPHER, LDAP, DICT...

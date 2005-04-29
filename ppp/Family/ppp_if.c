@@ -56,18 +56,18 @@ Includes
 #include <kern/clock.h>
 
 #include <net/if_types.h>
-#include <net/dlil.h>
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
-#include <netinet/in_var.h>
 #include <net/bpf.h>
+#include <net/kpi_interface.h>
+#include <net/if.h>
 
 #include "slcompress.h"
 #include "ppp_defs.h"		// public ppp values
 #include "if_ppp.h"		// public ppp API
 #include "if_ppplink.h"		// public link API
-#include "ppp_if.h"
 #include "ppp_domain.h"
+#include "ppp_if.h"
 #include "ppp_ip.h"
 #include "ppp_ipv6.h"
 #include "ppp_compress.h"
@@ -79,31 +79,74 @@ Includes
 Definitions
 ----------------------------------------------------------------------------- */
 
-
 /* -----------------------------------------------------------------------------
 Forward declarations
 ----------------------------------------------------------------------------- */
 
-static int	ppp_if_output(struct ifnet *ifp, struct mbuf *m);
-static int	ppp_if_if_free(struct ifnet *ifp);
-static int 	ppp_if_ioctl(struct ifnet *ifp, u_long cmd, void *data);
+static errno_t ppp_if_output(ifnet_t ifp, mbuf_t m);
+static void ppp_if_if_free(ifnet_t ifp);
+static errno_t ppp_if_ioctl(ifnet_t ifp, u_int32_t cmd, void *data);
+static int  ppp_if_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
+                  protocol_family_t *protocol_family);
+static int  ppp_if_add_proto(ifnet_t ifp, protocol_family_t protocol_family,
+			const struct ifnet_demux_desc *demux_list, u_int32_t demux_count);
+static int  ppp_if_del_proto(ifnet_t ifp, protocol_family_t protocol_family);
+static int  ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
+                     struct sockaddr *ndest, char *edst, char *ppp_type);
 
-static int 	ppp_if_detach(struct ifnet *ifp);
+static int 	ppp_if_detach(ifnet_t ifp);
 static struct ppp_if *ppp_if_findunit(u_short unit);
 static u_short 	ppp_if_findfreeunit();
+static int ppp_if_set_bpf_tap(ifnet_t ifp, bpf_tap_mode mode, bpf_packet_func func);
 
 /* -----------------------------------------------------------------------------
 Globals
 ----------------------------------------------------------------------------- */
 
 static TAILQ_HEAD(, ppp_if) 	ppp_if_head;
+static lck_grp_attr_t			*ppp_if_lck_grp_attr = 0;
+static lck_attr_t				*ppp_if_lck_attr = 0;
+static lck_grp_t				*ppp_if_lck_grp = 0;
+
+extern lck_mtx_t				*ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 int ppp_if_init()
 {
     TAILQ_INIT(&ppp_if_head);
+
+	ppp_if_lck_grp_attr = lck_grp_attr_alloc_init();
+	LOGNULLFAIL(ppp_if_lck_grp_attr, "ppp_if_init: lck_grp_attr_alloc_init failed\n");
+
+	lck_grp_attr_setdefault(ppp_if_lck_grp_attr);
+				
+	ppp_if_lck_grp = lck_grp_alloc_init("PPP", ppp_if_lck_grp_attr);
+	LOGNULLFAIL(ppp_if_lck_grp, "ppp_if_init: lck_grp_alloc_init failed\n");
+	
+	ppp_if_lck_attr = lck_attr_alloc_init();
+	LOGNULLFAIL(ppp_if_lck_attr, "ppp_if_init: lck_attr_alloc_init failed\n");
+
+	lck_attr_setdefault(ppp_if_lck_attr);
+	//lck_attr_setdebug(ppp_if_lck_attr);
+	
     return 0;
+	
+fail:
+	if (ppp_if_lck_grp) {
+		lck_grp_free(ppp_if_lck_grp);
+		ppp_if_lck_grp = 0;
+	}
+	if (ppp_if_lck_grp_attr) {
+		lck_grp_attr_free(ppp_if_lck_grp_attr);
+		ppp_if_lck_grp_attr = 0;
+	}
+	if (ppp_if_lck_attr) {
+		lck_attr_free(ppp_if_lck_attr);
+		ppp_if_lck_attr = 0;
+	}
+	return KERN_FAILURE;
+
 }
 
 /* -----------------------------------------------------------------------------
@@ -114,6 +157,15 @@ int ppp_if_dispose()
     // can't dispose if interface are in use
     if (!TAILQ_EMPTY(&ppp_if_head))
         return EBUSY;
+
+	lck_grp_free(ppp_if_lck_grp);
+	ppp_if_lck_grp = 0;
+
+	lck_grp_attr_free(ppp_if_lck_grp_attr);
+	ppp_if_lck_grp_attr = 0;
+
+	lck_attr_free(ppp_if_lck_attr);
+	ppp_if_lck_attr = 0;
         
     return 0;
 }
@@ -124,76 +176,101 @@ int ppp_if_attach(u_short *unit)
 {
     int 		ret = 0;	
     struct ppp_if  	*wan;
-    struct ifnet 	*ifp;
-
+	struct ifnet_init_params init;
+	struct ifnet_stats_param stats;
+	
     MALLOC(wan, struct ppp_if *, sizeof(struct ppp_if), M_TEMP, M_WAITOK);
     if (!wan)
         return ENOMEM;
-
+		
     bzero(wan, sizeof(struct ppp_if));
-
-    ret = dlil_if_acquire(APPLE_IF_FAM_PPP, 0, 0, &wan->net);
-    if (ret)
-        goto error;
-
+	
     // check if number requested is already in use
     if ((*unit != 0xFFFF) && ppp_if_findunit(*unit)) {
-        ret = EINVAL;
-        goto error;
+		lck_mtx_unlock(ppp_domain_mutex);
+		ret = EINVAL;
+		goto error;
     }
+    if (*unit == 0xFFFF) 
+		*unit = ppp_if_findfreeunit();
+	
+	wan->mtx = lck_mtx_alloc_init(ppp_if_lck_grp, ppp_if_lck_attr);
+	if (wan->mtx == 0) {
+		ret = ENOMEM;
+		goto error;
+	}
 
-    // it's time now to register our brand new channel
-    ifp = wan->net;
-    ifp->if_softc 	= wan;
-    ifp->if_name 	= APPLE_PPP_NAME;
-    ifp->if_family 	= APPLE_IF_FAM_PPP;
-    ifp->if_mtu 	= PPP_MTU;
-    ifp->if_flags 	= IFF_POINTOPOINT | IFF_MULTICAST; // || IFF_RUNNING
-    ifp->if_type 	= IFT_PPP;
-    ifp->if_hdrlen 	= PPP_HDRLEN;
-    ifp->if_ioctl 	= ppp_if_ioctl;
-    ifp->if_output 	= ppp_if_output;
-    ifp->if_free 	= ppp_if_if_free;
-    ifp->if_baudrate 	= 0; // 10 Mbits/s ???
-    ifp->if_snd.ifq_maxlen = IFQ_MAXLEN;
-    getmicrotime(&ifp->if_lastchange);
-    ifp->if_ibytes = ifp->if_obytes = 0;
-    ifp->if_ipackets = ifp->if_opackets = 0;
-    ifp->if_ierrors = ifp->if_oerrors = 0;
+    bzero(&init, sizeof(init));
+	init.name = APPLE_PPP_NAME;
+	init.unit = *unit;
+	init.family = IFNET_FAMILY_PPP;
+	init.type = IFT_PPP;
+	init.output = ppp_if_output;
+	init.demux = ppp_if_demux;
+	init.add_proto = ppp_if_add_proto;
+	init.del_proto = ppp_if_del_proto;
+	init.framer = ppp_if_frameout;
+	init.softc = wan;
+	init.ioctl = ppp_if_ioctl;
+	init.detach = ppp_if_if_free;
+	init.set_bpf_tap = ppp_if_set_bpf_tap;
+	
+	lck_mtx_unlock(ppp_domain_mutex);
+
+	ret = ifnet_allocate(&init, &wan->net);
+    if (ret)
+        goto error;
 
     TAILQ_INIT(&wan->link_head);
 
-    ifp->if_unit = *unit != 0xFFFF ? *unit : ppp_if_findfreeunit();
-    *unit = ifp->if_unit;
-    ret = dlil_if_attach(ifp);
-    if (ret)
-        goto error;
-    
+	ifnet_set_hdrlen(wan->net, PPP_HDRLEN);
+	ifnet_set_flags(wan->net, IFF_POINTOPOINT | IFF_MULTICAST, 0xFFFF); // || IFF_RUNNING
+	ifnet_set_mtu(wan->net, PPP_MTU);
+	ifnet_set_baudrate(wan->net, 0 /* 10 Mbits/s ??? */);
+	bzero(&stats, sizeof(stats));
+	ifnet_set_stat(wan->net, &stats);
+	ifnet_touch_lastchange(wan->net);
+
+	lck_mtx_lock(ppp_domain_mutex);
     TAILQ_INSERT_TAIL(&ppp_if_head, wan, next);
-    bpfattach(ifp, DLT_PPP, PPP_HDRLEN);
+	lck_mtx_unlock(ppp_domain_mutex);
+	
+    ret = ifnet_attach(wan->net, NULL);
+    if (ret) {
+		TAILQ_REMOVE(&ppp_if_head, wan, next);
+        goto error;
+	}
+    
+    bpfattach(wan->net, DLT_PPP, PPP_HDRLEN);
 
     // attach network protocols
+
+    wan->sndq.maxlen = IFQ_MAXLEN;
     wan->npmode[NP_IP] = NPMODE_ERROR;
     wan->npmode[NP_IPV6] = NPMODE_ERROR;
 
+	lck_mtx_lock(ppp_domain_mutex);
     return 0;
 
 error:
     if (wan->net)
-        dlil_if_release(wan->net);
+        ifnet_release(wan->net);
+	if (wan->mtx)
+		lck_mtx_free(wan->mtx, ppp_if_lck_grp);
     FREE(wan, M_TEMP);
+	lck_mtx_lock(ppp_domain_mutex);
     return ret;
 }
 
 /* -----------------------------------------------------------------------------
 detach ppp interface from dlil layer
 ----------------------------------------------------------------------------- */
-int ppp_if_detach(struct ifnet *ifp)
+int ppp_if_detach(ifnet_t ifp)
 {
-    struct ppp_if  	*wan = (struct ppp_if *)ifp->if_softc;
-    int 		ret;
+    struct ppp_if  	*wan = ifnet_softc(ifp);
+    int				ret;
     struct ppp_link	*link;
-    struct mbuf		*m;
+    mbuf_t			m;
 
     // need to remove all ref to ifnet in link structures
     TAILQ_FOREACH(link, &wan->link_head, lk_bdl_next) {
@@ -204,33 +281,45 @@ int ppp_if_detach(struct ifnet *ifp)
     ppp_comp_close(wan);
 
     // detach protocols when detaching interface, just in case pppd forgot... 
-    ppp_ipv6_detach(ifp, 0 /* not used */);
 
-    ppp_ip_detach(ifp, 0 /* not used */);	
+	lck_mtx_unlock(ppp_domain_mutex);
+    ppp_ipv6_detach(ifp, PF_INET6);
+    ppp_ip_detach(ifp, PF_INET);
+	lck_mtx_lock(ppp_domain_mutex);	
+	
     if (wan->vjcomp) {
 	FREE(wan->vjcomp, M_TEMP);
 	wan->vjcomp = 0;
     }
 
-    ret = dlil_if_detach(ifp);
-    switch (ret) {
-        case 0:
-            break;
-        case DLIL_WAIT_FOR_FREE:
-            sleep(ifp, PZERO+1);
-            break;
-        default:
-            return KERN_FAILURE;
-    }
+	wan->state |= PPP_IF_STATE_DETACHING;
+	lck_mtx_unlock(ppp_domain_mutex);
+    ret = ifnet_detach(ifp);
+	if (ret) {
+		wan->state &= ~PPP_IF_STATE_DETACHING;
+		lck_mtx_lock(ppp_domain_mutex);
+		return KERN_FAILURE;
+	}
+	
+	lck_mtx_lock(wan->mtx);
+	/* interface release is in progress, wait for callback */
+	if (wan->state & PPP_IF_STATE_DETACHING)
+		msleep(ifp, wan->mtx, PZERO+1, 0, 0);
+	lck_mtx_unlock(wan->mtx);
 
+	//sleep(ifp, PZERO+1);
+	lck_mtx_lock(ppp_domain_mutex);
+	
     do {
-        IF_DEQUEUE(&ifp->if_snd, m);
-        m_freem(m);
+        m = ppp_dequeue(&wan->sndq);
+        mbuf_freem(m);
     } while (m);
 
-    ifp->if_softc = 0;
-    dlil_if_release(ifp);
+	lck_mtx_unlock(ppp_domain_mutex);
+    ifnet_release(ifp);
+	lck_mtx_lock(ppp_domain_mutex);
     TAILQ_REMOVE(&ppp_if_head, wan, next);
+	lck_mtx_free(wan->mtx, ppp_if_lck_grp);
     FREE(wan, M_TEMP);
 
     return 0;
@@ -238,7 +327,7 @@ int ppp_if_detach(struct ifnet *ifp)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_if_attachclient(u_short unit, void *host, struct ifnet **ifp)
+int ppp_if_attachclient(u_short unit, void *host, ifnet_t *ifp)
 {
     struct ppp_if  	*wan;
 
@@ -256,9 +345,9 @@ int ppp_if_attachclient(u_short unit, void *host, struct ifnet **ifp)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void ppp_if_detachclient(struct ifnet *ifp, void *host)
+void ppp_if_detachclient(ifnet_t ifp, void *host)
 {
-    struct ppp_if  	*wan = (struct ppp_if *)ifp->if_softc;
+    struct ppp_if  	*wan = ifnet_softc(ifp);
 
     if (wan->host) {
         if (wan->host == host)
@@ -278,7 +367,7 @@ u_short ppp_if_findfreeunit()
     u_short 		unit = 0;
 
     while (wan) {
-    	if (wan->net->if_unit == unit) {
+    	if (ifnet_unit(wan->net) == unit) {
             unit++;
             wan = TAILQ_FIRST(&ppp_if_head); // restart
         }
@@ -296,44 +385,81 @@ struct ppp_if *ppp_if_findunit(u_short unit)
     struct ppp_if  	*wan;
 
     TAILQ_FOREACH(wan, &ppp_if_head, next) {
-        if (wan->net->if_unit == unit)
+        if (ifnet_unit(wan->net) == unit)
             return wan; 
     }
     return NULL;
 }
 
 /* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static errno_t 
+ppp_if_set_bpf_tap(ifnet_t ifp, bpf_tap_mode mode,
+				bpf_packet_func func)
+{
+    struct ppp_if 	*wan = ifnet_softc(ifp);
+
+	lck_mtx_lock(ppp_domain_mutex);
+
+    switch (mode) {
+        case BPF_MODE_DISABLED:
+            wan->bpf_input = wan->bpf_output = NULL;
+            break;
+
+        case BPF_MODE_INPUT:
+            wan->bpf_input = func;
+            break;
+
+        case BPF_MODE_OUTPUT:
+			wan->bpf_output = func;
+            break;
+        
+        case BPF_MODE_INPUT_OUTPUT:
+            wan->bpf_input = wan->bpf_output = func;
+            break;
+        default:
+            break;
+    }
+	lck_mtx_unlock(ppp_domain_mutex);
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
 called when data are present
 ----------------------------------------------------------------------------- */
-int ppp_if_input(struct ifnet *ifp, struct mbuf *m, u_int16_t proto, u_int16_t hdrlen)
+int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
 {    
-    struct ppp_if 	*wan = (struct ppp_if *)ifp->if_softc;
+    struct ppp_if 	*wan = ifnet_softc(ifp);
     int 		inlen, vjlen;
-    u_char		*iphdr, *p = mtod(m, u_char *);
+    u_char		*iphdr, *p = mbuf_data(m);
     u_int 		hlen;
     int 		error = ENOMEM;
+	struct timespec tv;
+	struct		ifnet_stat_increment_param statsinc;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
-    m->m_pkthdr.header = p;		// header point to the protocol header (0x21 or 0x0021)
-    m_adj(m, hdrlen);			// the packet points to the real data (0x45)
-    p = mtod(m, u_char *);
+    mbuf_pkthdr_setheader(m, p);		// header point to the protocol header (0x21 or 0x0021)
+    mbuf_adj(m, hdrlen);			// the packet points to the real data (0x45)
+    p = mbuf_data(m);
 
     if (wan->sc_flags & SC_DECOMP_RUN) {
         switch (proto) {
             case PPP_COMP:
                 if (ppp_comp_decompress(wan, &m) != DECOMP_OK) {
-                    LOGDBG(ifp, (LOGVAL, "ppp%d: decompression error\n", ifp->if_unit));
+                    LOGDBG(ifp, (LOGVAL, "ppp%d: decompression error\n", ifnet_unit(ifp)));
                     goto free;
                 }
-                p = mtod(m, u_char *);
+                p = mbuf_data(m);
                 proto = p[0];
                 hdrlen = 1;
                 if (!(proto & 0x1)) {  // lowest bit set for lowest byte of protocol
                     proto = (proto << 8) + p[1];
                     hdrlen = 2;
                 } 
-                m->m_pkthdr.header = p;// header point to the protocol header (0x21 or 0x0021)
-                m_adj(m, hdrlen);	// the packet points to the real data (0x45)
-                p = mtod(m, u_char *);
+                mbuf_pkthdr_setheader(m, p);// header point to the protocol header (0x21 or 0x0021)
+                mbuf_adj(m, hdrlen);	// the packet points to the real data (0x45)
+                p = mbuf_data(m);
                 break;
             default:
                 ppp_comp_incompress(wan, m);
@@ -348,48 +474,48 @@ int ppp_if_input(struct ifnet *ifp, struct mbuf *m, u_int16_t proto, u_int16_t h
                 goto reject;
         
             if (!wan->vjcomp) {
-                LOGDBG(ifp, (LOGVAL, "ppp%d: VJ structure not allocated\n", ifp->if_unit));
+                LOGDBG(ifp, (LOGVAL, "ppp%d: VJ structure not allocated\n", ifnet_unit(ifp)));
                 goto free;
             }
     
-            inlen = m->m_pkthdr.len;
+            inlen = mbuf_pkthdr_len(m);
             
             if (proto == PPP_VJC_COMP) {
 
-                vjlen = sl_uncompress_tcp_core(p, m->m_len, inlen, TYPE_COMPRESSED_TCP,
+                vjlen = sl_uncompress_tcp_core(p, mbuf_len(m), inlen, TYPE_COMPRESSED_TCP,
                     wan->vjcomp, &iphdr, &hlen);
 
                 if (vjlen <= 0) {
-                    LOGDBG(ifp, (LOGVAL, "ppp%d: VJ uncompress failed on type PPP_VJC_COMP\n", ifp->if_unit));
+                    LOGDBG(ifp, (LOGVAL, "ppp%d: VJ uncompress failed on type PPP_VJC_COMP\n", ifnet_unit(ifp)));
                     goto free;
                 }
 
                 // we must move data in the buffer, to add the uncompressed TCP/IP header...
-                if (M_TRAILINGSPACE(m) < (hlen - vjlen)) {
+                if (mbuf_trailingspace(m) < (hlen - vjlen)) {
                     goto free;
                 }
                 bcopy(p + vjlen, p + hlen, inlen - vjlen);
                 bcopy(iphdr, p, hlen);
-                m->m_len += hlen - vjlen;
-                m->m_pkthdr.len += hlen - vjlen;
+				mbuf_setlen(m, mbuf_len(m) + hlen - vjlen);
+                mbuf_pkthdr_setlen(m, mbuf_pkthdr_len(m) + hlen - vjlen);
             }
             else {
-                vjlen = sl_uncompress_tcp_core(p, m->m_len, inlen, TYPE_UNCOMPRESSED_TCP, 
+                vjlen = sl_uncompress_tcp_core(p, mbuf_len(m), inlen, TYPE_UNCOMPRESSED_TCP, 
                     wan->vjcomp, &iphdr, &hlen);
 
                 if (vjlen < 0) {
-                    LOGDBG(ifp, (LOGVAL, "ppp%d: VJ uncompress failed on type TYPE_UNCOMPRESSED_TCP\n", ifp->if_unit));
+                    LOGDBG(ifp, (LOGVAL, "ppp%d: VJ uncompress failed on type TYPE_UNCOMPRESSED_TCP\n", ifnet_unit(ifp)));
                     goto free;
                 }
             }
-            *(u_char *)m->m_pkthdr.header = PPP_IP; // change the protocol, use 1 byte
+            *(u_char *)mbuf_pkthdr_header(m) = PPP_IP; // change the protocol, use 1 byte
             proto = PPP_IP;
             //no break;
         case PPP_IP:
             if (wan->npmode[NP_IP] != NPMODE_PASS)
                 goto reject;
             if (wan->npafmode[NP_IP] & NPAFMODE_SRC_IN) {
-                if (ppp_ip_af_src_in(ifp, mtod(m, char *))) {
+                if (ppp_ip_af_src_in(ifp, mbuf_data(m))) {
                     error = 0;
                     goto free;
                 }
@@ -407,38 +533,51 @@ int ppp_if_input(struct ifnet *ifp, struct mbuf *m, u_int16_t proto, u_int16_t h
     }
 
     // See if bpf wants to look at the packet.
-    if (ifp->if_bpf) {
-        M_PREPEND(m, 4, M_WAIT);
-        if (m == 0) {
-            ifp->if_ierrors++;
+    if (wan->bpf_input) {
+        if (mbuf_prepend(&m, 4, MBUF_WAITOK) != 0) {
+			bzero(&statsinc, sizeof(statsinc));
+			statsinc.errors_in = 1;
+			ifnet_stat_increment(ifp, &statsinc);		
             return ENOMEM;
         }
-        p = mtod(m, u_char *);
-        *(u_int16_t *)p = 0xFF03;
-        *(u_int16_t *)(p + 2) = proto;
-        bpf_mtap(ifp, m);
-        m_adj(m, 4);
+        p = mbuf_data(m);
+        *(u_int16_t *)p = htons(0xFF03);
+        *(u_int16_t *)(p + 2) = htons(proto);
+        (*wan->bpf_input)(ifp, m);
+        mbuf_adj(m, 4);
     }
 
-    getmicrotime(&ifp->if_lastchange);
-    ifp->if_ibytes += m->m_pkthdr.len;
-    ifp->if_ipackets++;
-    m->m_pkthdr.rcvif = ifp;
-    wan->last_recv = clock_get_system_value().tv_sec;
+	bzero(&statsinc, sizeof(statsinc));
+	statsinc.packets_in = 1;
+	statsinc.bytes_in = mbuf_pkthdr_len(m);
+	mbuf_pkthdr_setrcvif(m, ifp);
+    nanouptime(&tv);
+    wan->last_recv = tv.tv_sec;
 
-    dlil_input(ifp, m, m);
+	lck_mtx_unlock(ppp_domain_mutex);
+    ifnet_input(ifp, m, &statsinc);
+	lck_mtx_lock(ppp_domain_mutex);
     return 0;
     
 reject:
 
-    // unexpected network protocol
-    M_PREPEND(m, hdrlen, M_DONTWAIT);	// just reput the header before to send it to pppd
+    // unexpected network protocol, prepend the 2 bytes protocol header expected by pppd
+	if (mbuf_prepend(&m, 2, MBUF_WAITOK) != 0) {
+		bzero(&statsinc, sizeof(statsinc));
+		statsinc.errors_in = 1;
+		ifnet_stat_increment(ifp, &statsinc);		
+		return ENOMEM;
+	}
+	p = mbuf_data(m);
+	*(u_int16_t *)p = htons(proto);
     ppp_proto_input(wan->host, m);
     return 0;
     
 free:
-    m_free(m);
-    ifp->if_ierrors++;
+    mbuf_freem(m);
+	bzero(&statsinc, sizeof(statsinc));
+	statsinc.errors_in = 1;
+	ifnet_stat_increment(ifp, &statsinc);		
     return error;
 }
 
@@ -446,42 +585,51 @@ free:
 This gets called when the interface is freed
 (if dlil_if_detach has returned DLIL_WAIT_FOR_FREE)
 ----------------------------------------------------------------------------- */
-int ppp_if_if_free(struct ifnet *ifp)
+void ppp_if_if_free(ifnet_t ifp)
 {
+    struct ppp_if  	*wan = ifnet_softc(ifp);
+
+	lck_mtx_lock(wan->mtx);
+	wan->state &= ~PPP_IF_STATE_DETACHING;
+	lck_mtx_unlock(wan->mtx);
     wakeup(ifp);
-    return 0;
 }
 
 /* -----------------------------------------------------------------------------
 Process an ioctl request to the ppp interface
 ----------------------------------------------------------------------------- */
-int ppp_if_control(struct ifnet *ifp, u_long cmd, void *data)
+int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
 {
-    struct ppp_if 	*wan = (struct ppp_if *)ifp->if_softc;
+    struct ppp_if 	*wan = ifnet_softc(ifp);
     int 		error = 0, npx;
-    u_int16_t		mru;
+    u_int16_t		mru, flags16;
     u_int32_t		flags;
     u_int32_t		t;
     struct npioctl 	*npi;
     struct npafioctl 	*npafi;
+	struct timespec tv;	
 
     //LOGDBG(ifp, (LOGVAL, "ppp_if_control, (ifnet = %s%d), cmd = 0x%x\n", ifp->if_name, ifp->if_unit, cmd));
 
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+	
     switch (cmd) {
 	case PPPIOCSDEBUG:
             flags = *(int *)data;
             LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCSDEBUG (level = 0x%x)\n", flags));
-            ifp->if_flags &= ~(IFF_DEBUG + PPP_LOG_INPKT + PPP_LOG_OUTPKT);  
-            if (flags & 1) ifp->if_flags |= IFF_DEBUG;	// general purpose debugging
-            if (flags & 2) ifp->if_flags |= PPP_LOG_INPKT;	// trace all packets in
-            if (flags & 4) ifp->if_flags |= PPP_LOG_OUTPKT;	// trace all packets out
+            flags16 = 0;  
+            if (flags & 1) flags16 |= IFF_DEBUG;	// general purpose debugging
+            if (flags & 2) flags16 |= PPP_LOG_INPKT;	// trace all packets in
+            if (flags & 4) flags16 |= PPP_LOG_OUTPKT;	// trace all packets out
+			ifnet_set_flags(ifp, flags16, IFF_DEBUG + PPP_LOG_INPKT + PPP_LOG_OUTPKT);
             break;
 
 	case PPPIOCGDEBUG:
+			flags16 = ifnet_flags(ifp);
             flags = 0;
-            if (ifp->if_flags & IFF_DEBUG) flags |= 1;
-            if (ifp->if_flags & PPP_LOG_INPKT) flags |= 2;
-            if (ifp->if_flags & PPP_LOG_OUTPKT) flags |= 4;
+            if (flags16 & IFF_DEBUG) flags |= 1;
+            if (flags16 & PPP_LOG_INPKT) flags |= 2;
+            if (flags16 & PPP_LOG_OUTPKT) flags |= 4;
             *(int *)data = flags;
             LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCGDEBUG (level = 0x%x)\n", flags));
             break;
@@ -509,12 +657,13 @@ int ppp_if_control(struct ifnet *ifp, u_long cmd, void *data)
 
 	case PPPIOCGUNIT:
             LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCGUNIT\n"));
-            *(int *)data = ifp->if_unit;
+            *(int *)data = ifnet_unit(ifp);
             break;
 
 	case PPPIOCGIDLE:
             LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCGIDLE\n"));
-            t = clock_get_system_value().tv_sec;
+			nanouptime(&tv);
+			t = tv.tv_sec;
             ((struct ppp_idle *)data)->xmit_idle = t - wan->last_xmit;
             ((struct ppp_idle *)data)->recv_idle = t - wan->last_recv;
             break;
@@ -592,14 +741,17 @@ int ppp_if_control(struct ifnet *ifp, u_long cmd, void *data)
 /* -----------------------------------------------------------------------------
 Process an ioctl request to the ppp interface
 ----------------------------------------------------------------------------- */
-int ppp_if_ioctl(struct ifnet *ifp, u_long cmd, void *data)
+errno_t ppp_if_ioctl(ifnet_t ifp, u_int32_t cmd, void *data)
 {
-    //struct ppp_if 	*wan = (struct ppp_if *)ifp->if_softc;
+    //struct ppp_if 	*wan = ifp->if_softc;
     struct ifreq 	*ifr = (struct ifreq *)data;
     int 		error = 0;
     struct ppp_stats 	*psp;
+	struct ifnet_stats_param statspar;
 
     //LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl, cmd = 0x%x\n", cmd));
+	
+	lck_mtx_lock(ppp_domain_mutex);
 
     switch (cmd) {
 
@@ -633,13 +785,18 @@ int ppp_if_ioctl(struct ifnet *ifp, u_long cmd, void *data)
             LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl, SIOCGPPPSTATS\n"));
             psp = &((struct ifpppstatsreq *) data)->stats;
             bzero(psp, sizeof(*psp));
-
-            psp->p.ppp_ibytes = ifp->if_ibytes;
-            psp->p.ppp_obytes = ifp->if_obytes;
-            psp->p.ppp_ipackets = ifp->if_ipackets;
-            psp->p.ppp_opackets = ifp->if_opackets;
-            psp->p.ppp_ierrors = ifp->if_ierrors;
-            psp->p.ppp_oerrors = ifp->if_oerrors;
+			ifnet_stat(ifp, &statspar); 
+			/* 
+				XXX ppp pcounters are only 32 bits.
+				need to implement a second ioctl  
+				for 64 bits conters
+			*/
+            psp->p.ppp_ibytes = statspar.bytes_in;
+            psp->p.ppp_obytes = statspar.bytes_out;
+            psp->p.ppp_ipackets = statspar.packets_in;
+            psp->p.ppp_opackets = statspar.packets_out;
+            psp->p.ppp_ierrors = statspar.errors_in;
+            psp->p.ppp_oerrors = statspar.errors_out;
 
 #if 0
             if (sc->sc_comp) {
@@ -661,14 +818,14 @@ int ppp_if_ioctl(struct ifnet *ifp, u_long cmd, void *data)
             if (ifr->ifr_mtu > PPP_MTU)
                 error = EINVAL;
             else
-                ifp->if_mtu = ifr->ifr_mtu;
+                ifnet_set_mtu(ifp, ifr->ifr_mtu);
             break;
 
 	default:
             LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl, unknown ioctl, cmd = 0x%x\n", cmd));
             error = EOPNOTSUPP;
 	}
-
+	lck_mtx_unlock(ppp_domain_mutex);
     return error;
 }
 
@@ -676,16 +833,20 @@ int ppp_if_ioctl(struct ifnet *ifp, u_long cmd, void *data)
 This gets called at splnet from if_ppp.c at various times
 when there is data ready to be sent
 ----------------------------------------------------------------------------- */
-int ppp_if_output(struct ifnet *ifp, struct mbuf *m)
+errno_t ppp_if_output(ifnet_t ifp, mbuf_t m)
 {
-    struct ppp_if 	*wan = (struct ppp_if *)ifp->if_softc;
-    int 		error;
+    struct ppp_if 	*wan = ifnet_softc(ifp);
+    int 		error = 0;
     u_int16_t		proto;
     enum NPmode		mode;
     enum NPAFmode	afmode;
     char		*p;
-    
-    proto = ntohs(*mtod(m, u_short *));
+	struct timespec tv;	
+	struct		ifnet_stat_increment_param statsinc;
+	
+	lck_mtx_lock(ppp_domain_mutex);
+	    
+    proto = ntohs(*(u_int16_t*)mbuf_data(m));
     switch (proto) {
         case PPP_IP:
             mode = wan->npmode[NP_IP];
@@ -714,7 +875,14 @@ int ppp_if_output(struct ifnet *ifp, struct mbuf *m)
     }
     
     if (afmode & NPAFMODE_SRC_OUT) {
-        p = mtod(m, char *);
+		mbuf_pullup(&m, sizeof(struct ip) + 2);
+		if (m == 0) {
+			bzero(&statsinc, sizeof(statsinc));
+			statsinc.errors_out = 1;
+			ifnet_stat_increment(ifp, &statsinc);		
+            return ENOBUFS;
+		}
+        p = mbuf_data(m);
         p += 2;
         switch (proto) {
             case PPP_IP:
@@ -728,35 +896,134 @@ int ppp_if_output(struct ifnet *ifp, struct mbuf *m)
     }
 
     // See if bpf wants to look at the packet.
-    if (ifp->if_bpf) {
-        M_PREPEND(m, 2, M_WAIT);
-        if (m == 0) {
-            ifp->if_oerrors++;
-            return ENOMEM;
+	lck_mtx_unlock(ppp_domain_mutex);
+    if (wan->bpf_output) {
+        if (mbuf_prepend(&m, 2, MBUF_WAITOK) != 0) {
+			bzero(&statsinc, sizeof(statsinc));
+			statsinc.errors_out = 1;
+			ifnet_stat_increment(ifp, &statsinc);		
+            return ENOBUFS;
         }
-        *mtod(m, u_int16_t *) = 0xFF03;
-        bpf_mtap(ifp, m);
-        m_adj(m, 2);
+        *(u_int16_t*)mbuf_data(m) = 0xFF03;
+		(*wan->bpf_output)(ifp, m);
+        mbuf_adj(m, 2);
     }
+	lck_mtx_lock(ppp_domain_mutex);
 
     // Update interface statistics.
-    getmicrotime(&ifp->if_lastchange);
-    wan->last_xmit = clock_get_system_value().tv_sec;
-    ifp->if_obytes += m->m_pkthdr.len - 2; // don't count protocol header
-    ifp->if_opackets++;
+	ifnet_touch_lastchange(ifp);
+	nanouptime(&tv);
+	wan->last_xmit = tv.tv_sec;
+	bzero(&statsinc, sizeof(statsinc));
+	statsinc.bytes_out = mbuf_pkthdr_len(m) - 2; // don't count protocol header;
+	statsinc.packets_out = 1;
+	ifnet_stat_increment(ifp, &statsinc);		
 
     if (wan->sc_flags & SC_LOOP_TRAFFIC) {
         ppp_proto_input(wan->host, m);
+        lck_mtx_unlock(ppp_domain_mutex);
         return 0;
     }
         
     ppp_if_send(ifp, m);
+	lck_mtx_unlock(ppp_domain_mutex);
     return 0;
 
 bad:
-    m_freem(m);
-    ifp->if_oerrors++;
+    mbuf_freem(m);
+	bzero(&statsinc, sizeof(statsinc));
+	statsinc.errors_out = 1;
+	ifnet_stat_increment(ifp, &statsinc);		
+	lck_mtx_unlock(ppp_domain_mutex);
     return error;
+}
+
+/* -----------------------------------------------------------------------------
+add protocol function
+called from dlil when a network protocol is attached for an
+interface from that family (i.e ip is attached through ppp_attach_ip)
+----------------------------------------------------------------------------- */
+int  ppp_if_add_proto(ifnet_t ifp, protocol_family_t protocol_family,
+			const struct ifnet_demux_desc *demux_list, u_int32_t demux_count)
+{        
+    LOGDBG(ifp, (LOGVAL, "ppp_if_add_proto = %d, ifp = 0x%x\n", protocol_family, ifp));
+    
+    switch (protocol_family) {
+        case PF_INET:
+        case PF_INET6:
+            break;
+        default:
+            return EINVAL;	// happen for unknown protocol, or for empty descriptor
+    }
+
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+delete protocol function
+called from dlil when a network protocol is detached for an
+interface from that family (i.e ip is attached through ppp_detach_ip)
+----------------------------------------------------------------------------- */
+int  ppp_if_del_proto(ifnet_t ifp, protocol_family_t protocol_family)
+{
+
+    LOGDBG(ifp, (LOGVAL, "ppp_if_del_proto, ifp = 0x%x\n", ifp));
+    
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+demux function
+----------------------------------------------------------------------------- */
+int ppp_if_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
+                  protocol_family_t *protocol_family)
+{
+    u_int16_t 		proto;
+
+    proto = frame_header[0];
+    if (!proto & 0x1) {  // lowest bit set for lowest byte of protocol
+        proto = (proto << 8) + frame_header[1];
+    } 
+
+    switch (proto) {
+        case PPP_IP:
+			// We could check pppfam->ip_attached, but dlil will handle case where it isn't
+			*protocol_family = PF_INET;
+            break;
+        case PPP_IPV6:
+			// We could check pppfam->ipv6_attached, but dlil will handle case where it isn't
+			*protocol_family = PF_INET6;
+            break;
+        default :
+            LOGDBG(ifp, (LOGVAL, "ppp_fam_demux, ifp = 0x%x, bad proto = 0x%x\n", ifp, proto));
+            return ENOENT;	// should never happen
+    }
+    
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+a network packet needs to be send through the interface.
+add the ppp header to the packet (as a network interface, we only worry
+about adding our protocol number)
+----------------------------------------------------------------------------- */
+int ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
+                     struct sockaddr *ndest, char *edst, char *ppp_type)
+{
+	struct		ifnet_stat_increment_param statsinc;
+
+    if (mbuf_prepend(m0, 2, MBUF_DONTWAIT) != 0) {
+        LOGDBG(ifp, (LOGVAL, "ppp_fam_ifoutput : no memory for transmit header\n"));
+		bzero(&statsinc, sizeof(statsinc));
+		statsinc.errors_out = 1;
+		ifnet_stat_increment(ifp, &statsinc);		
+        return EJUSTRETURN;	// just return, because the buffer was freed in m_prepend
+    }
+
+    // place protocol number at the beginning of the mbuf
+    *(u_int16_t*)mbuf_data(*m0) = htons(*(u_int16_t *)ppp_type);
+    
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -765,6 +1032,8 @@ bad:
 int ppp_if_attachlink(struct ppp_link *link, int unit)
 {
     struct ppp_if 	*wan;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (link->lk_ifnet)	// already attached
         return EINVAL;
@@ -773,8 +1042,8 @@ int ppp_if_attachlink(struct ppp_link *link, int unit)
     if (!wan)
 	return EINVAL;
 
-    wan->net->if_flags |= IFF_RUNNING;
-    wan->net->if_baudrate += link->lk_baudrate;
+	ifnet_set_flags(wan->net, IFF_RUNNING, IFF_RUNNING);
+    ifnet_set_baudrate(wan->net, ifnet_baudrate(wan->net) + link->lk_baudrate);
 
     TAILQ_INSERT_TAIL(&wan->link_head, link, lk_bdl_next);
     wan->nblinks++;
@@ -790,11 +1059,13 @@ int ppp_if_detachlink(struct ppp_link *link)
 {
     struct ifnet 	*ifp = (struct ifnet *)link->lk_ifnet;
     struct ppp_if 	*wan;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (!ifp)
         return EINVAL; // link already detached
 
-    wan = (struct ppp_if *)ifp->if_softc;
+    wan = ifp->if_softc;
     
     // check if this is the last link, when multilink is coded
     ifp->if_flags &= ~IFF_RUNNING;
@@ -808,15 +1079,20 @@ int ppp_if_detachlink(struct ppp_link *link)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_if_send(struct ifnet *ifp, struct mbuf *m)
+int ppp_if_send(ifnet_t ifp, mbuf_t m)
 {
-    struct ppp_if 	*wan = (struct ppp_if *)ifp->if_softc;
-    u_int16_t		proto = *mtod(m, u_int16_t *);	// always the 2 first bytes
+    struct ppp_if 	*wan = ifnet_softc(ifp);
+    u_int16_t		proto = *(u_int16_t*)mbuf_data(m);	// always the 2 first bytes
+	struct			ifnet_stat_increment_param statsinc;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
         
-    if (IF_QFULL(&ifp->if_snd)) {
-        IF_DROP(&ifp->if_snd);
-        ifp->if_oerrors++;
-        m_freem(m);
+    if (ppp_qfull(&wan->sndq)) {
+        ppp_drop(&wan->sndq);
+		bzero(&statsinc, sizeof(statsinc));
+		statsinc.errors_out = 1;
+		ifnet_stat_increment(ifp, &statsinc);		
+        mbuf_freem(m);
         return ENOBUFS;
     }
 
@@ -824,57 +1100,58 @@ int ppp_if_send(struct ifnet *ifp, struct mbuf *m)
         case PPP_IP:
             // see if we can compress it
             if ((wan->sc_flags & SC_COMP_TCP) && wan->vjcomp) {
-                struct mbuf 	*mp = m;
-                struct ip 	*ip = (struct ip *) (mtod(m, u_char *) + 2);
+                mbuf_t		mp = m;
+                struct ip 	*ip = mbuf_data(m) + 2;
                 int 		vjtype, len;
                 
                 // skip mbuf, in case the ppp header and ip header are not in the same mbuf
-                if (mp->m_len <= 2) {
-                    mp = mp->m_next;
+                if (mbuf_len(mp) <= 2) {
+                    mp = mbuf_next(mp);
                     if (!mp)
                         break;
-                    ip = mtod(mp, struct ip *);
+                    ip = mbuf_data(m);
                 }
                 // this code assumes the IP/TCP header is in one non-shared mbuf 
                 if (ip->ip_p == IPPROTO_TCP) {
                     vjtype = sl_compress_tcp(mp, ip, wan->vjcomp, !(wan->sc_flags & SC_NO_TCP_CCID));
                     switch (vjtype) {
                         case TYPE_UNCOMPRESSED_TCP:
-                            *mtod(m, u_int16_t *) = PPP_VJC_UNCOMP; // update protocol
+                            *(u_int16_t*)mbuf_data(m) = PPP_VJC_UNCOMP; // update protocol
                             break;
                         case TYPE_COMPRESSED_TCP:
-                            *mtod(m, u_int16_t *) = PPP_VJC_COMP; // header has moved, update protocol
+                            *(u_int16_t*)mbuf_data(m) = PPP_VJC_COMP; // header has moved, update protocol
                         break;
                     }
                     // adjust packet len
                     len = 0;
-                    for (mp = m; mp != 0; mp = mp->m_next)
-                        len += mp->m_len;
-                    m->m_pkthdr.len = len;
+                    for (mp = m; mp != 0; mp = mbuf_next(mp))
+                        len += mbuf_len(mp);
+                    mbuf_pkthdr_setlen(m, len);
                 }
             }
             break;
         case PPP_CCP:
-            m_adj(m, 2);
+            mbuf_adj(m, 2);
             ppp_comp_ccp(wan, m, 0);
-            M_PREPEND(m, 2, M_DONTWAIT);
+            mbuf_prepend(&m, 2, MBUF_DONTWAIT);
             break;
     }
 
     if (wan->sc_flags & SC_COMP_RUN) {
 
         if (ppp_comp_compress(wan, &m) == COMP_OK) {
-            M_PREPEND(m, 2, M_DONTWAIT);
-            if (m == 0) {
-                ifp->if_oerrors++;
+            if (mbuf_prepend(&m, 2, MBUF_DONTWAIT) != 0) {
+				bzero(&statsinc, sizeof(statsinc));
+				statsinc.errors_out = 1;
+				ifnet_stat_increment(ifp, &statsinc);		
                 return ENOBUFS;
             }
-            *mtod(m, u_int16_t *) = PPP_COMP; // update protocol
+            *(u_int16_t*)mbuf_data(m) = PPP_COMP; // update protocol
         } 
     } 
 
-    if (ifp->if_snd.ifq_len) {
-        IF_ENQUEUE(&ifp->if_snd, m);
+    if (wan->sndq.len) {
+        ppp_enqueue(&wan->sndq, m);
     }
     else 
        ppp_if_xmit(ifp, m);
@@ -884,46 +1161,51 @@ int ppp_if_send(struct ifnet *ifp, struct mbuf *m)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_if_xmit(struct ifnet *ifp, struct mbuf *m)
+int ppp_if_xmit(ifnet_t ifp, mbuf_t m)
 {
-    struct ppp_if 	*wan = (struct ppp_if *)ifp->if_softc;
+    struct ppp_if 	*wan = ifnet_softc(ifp);
     struct ppp_link	*link;
     int 		err, len;
+	struct		ifnet_stat_increment_param statsinc;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
             
     if (m == 0)
-        IF_DEQUEUE(&ifp->if_snd, m);
+        m = ppp_dequeue(&wan->sndq);
 
     while (m) {
 
         link = TAILQ_FIRST(&wan->link_head);
         if (link == 0) {
-            LOGDBG(ifp, (LOGVAL, "ppp%d: Trying to send data with link detached\n", ifp->if_unit));
+            LOGDBG(ifp, (LOGVAL, "ppp%d: Trying to send data with link detached\n", ifnet_unit(ifp)));
             // just flush everything
-            getmicrotime(&ifp->if_lastchange);
+            ifnet_touch_lastchange(ifp);
             while (m) {
-                ifp->if_oerrors++;
-                m_freem(m);
-                IF_DEQUEUE(&ifp->if_snd, m);
+				bzero(&statsinc, sizeof(statsinc));
+				statsinc.errors_out = 1;
+				ifnet_stat_increment(ifp, &statsinc);		
+                mbuf_freem(m);
+                m = ppp_dequeue(&wan->sndq);
             };
             return 1;
         }
     
         if (link->lk_flags & SC_HOLD) {
             // should try next link
-            m_freem(m);
-            IF_DEQUEUE(&ifp->if_snd, m);
+            mbuf_freem(m);
+            m = ppp_dequeue(&wan->sndq);
             continue;
         }
 
         if (link->lk_flags & (SC_XMIT_BUSY | SC_XMIT_FULL)) {
             // should try next link
-            IF_PREPEND(&ifp->if_snd, m);
+            ppp_prepend(&wan->sndq, m);
             return 0;
         }
 
         // get the len before we send the packet, 
         // we can not assume the state of the mbuf when we return
-        len = m->m_pkthdr.len;
+        len = mbuf_len(m);
 
         // since we tested the lk_flags, ppp_link_send should not failed
         // except if there is a dramatic error
@@ -935,7 +1217,7 @@ int ppp_if_xmit(struct ifnet *ifp, struct mbuf *m)
             return err;
         }
             
-        IF_DEQUEUE(&ifp->if_snd, m);
+         m = ppp_dequeue(&wan->sndq);
     }
      
     return 0;
@@ -943,9 +1225,11 @@ int ppp_if_xmit(struct ifnet *ifp, struct mbuf *m)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void ppp_if_error(struct ifnet *ifp)
+void ppp_if_error(ifnet_t ifp)
 {
-    struct ppp_if 	*wan = (struct ppp_if *)ifp->if_softc;
+    struct ppp_if 	*wan = ifnet_softc(ifp);
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
         
     // reset vj compression
     if (wan->vjcomp) {

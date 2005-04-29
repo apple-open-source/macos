@@ -1,0 +1,245 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">
+
+<HTML>
+<HEAD>
+  <TITLE>XOTcl - Documentation -- ./../library/lib/mixinStrategy.xotcl</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="FFFFFF">
+  <h1>
+    <IMG SRC="./logo-100.jpg" ALT="./../library/lib/mixinStrategy.xotcl" ALIGN="MIDDLE">
+  ./../library/lib/mixinStrategy.xotcl</h1>
+  <HR>
+  <P>
+    <h2> Package/File Information </h2>
+    <b> Package provided: </b> xotcl::mixinStrategy 0.8
+    <BR>
+    <BR>
+    <b>Defined Objects/Classes: </b>
+    <UL>
+      <LI>
+        <A HREF="#Object">
+          <em>Object</em>:
+        </A>
+        <a href="#Object-add">add</a>, <a href="#Object-mixinQueryStrategy">mixinQueryStrategy</a>, <a href="#Object-mixinStrategy">mixinStrategy</a>, <a href="#Object-remove">remove</a>.
+        <BR>
+      </LI>
+    </UL>
+    <BR>
+    <b> Filename: </b>
+    <A HREF="./../library/lib/mixinStrategy.xotcl">
+      ./../library/lib/mixinStrategy.xotcl
+    </A>
+    <BR>
+    <BR>
+    <TABLE BORDER="0">
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Description:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+  These methods provide support for managing "strategies",  i.e. 
+  mixin-classes, where only one kind of a family of conformant 
+  mixins should be registered.
+  <p>
+  Naming convertions for strategies:
+  All strategies must follow the naming convention 'kind=implementation'. 
+  Examples are the persistency strategy 'eager' specfied as 
+  'persistent=eager' or the persistency strategy 'lazy' (specified as
+  'persistent=lazy')
+
+        </TD>
+      </TR>
+    </TABLE>
+    <BR>
+    <HR>
+    <P>
+      <A NAME="Object">
+        
+      </A>
+      <h2> Class: <em> Object </em> </h2>
+      <b> Procs/Instprocs: </b> 
+      <a href="#Object-add">add</a>, <a href="#Object-mixinQueryStrategy">mixinQueryStrategy</a>, <a href="#Object-mixinStrategy">mixinStrategy</a>, <a href="#Object-remove">remove</a>.
+      <TABLE BORDER="0">
+      </TABLE>
+      <h3>Instprocs</h3>
+      <UL>
+        <LI>
+          <A NAME="Object-mixinStrategy">
+            
+          </A>
+          <b>mixinStrategy </b>
+          <em>strategy</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>strategy</b>: Strategy to be added
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    This method adds or replaces a new strategy from the mixin
+    list. Strategies are named following the converntion mentioned 
+    above.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                old strategy
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-mixinQueryStrategy">
+            
+          </A>
+          <b>mixinQueryStrategy </b>
+          <em>kind</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>kind</b>: strategy kind
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    This method searches the mixin list for a mixin of this
+    kind (starting with $kind=)
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                returns the maching strategy
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-add">
+            
+          </A>
+          <b>add </b>
+          <em>construct</em>
+          <em>args</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>construct</b>: (inst) 'filter' or 'mixin'
+            </TD>
+          </TR>
+          <TR VALIGN="top">
+            <TD VALIGN="top">
+              
+            </TD>
+            <TD VALIGN="top">
+              <b>args</b>: to be added
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                add the specified (inst) 'filters' or 'mixins'
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                empty
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-remove">
+            
+          </A>
+          <b>remove </b>
+          <em>construct</em>
+          <em>args</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>construct</b>: (inst) 'filter' or 'mixin'
+            </TD>
+          </TR>
+          <TR VALIGN="top">
+            <TD VALIGN="top">
+              
+            </TD>
+            <TD VALIGN="top">
+              <b>args</b>: to be removed
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                remove the specified (inst) 'filters' or 'mixins'
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                empty
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <BR>
+  </P>
+  <HR>
+  <P>
+  </P>
+  <A HREF="./index.html">
+    Back to index page.
+  </A>
+  <BR>
+  <HR>
+  <P>
+  </P>
+</BODY>
+</HTML>
+

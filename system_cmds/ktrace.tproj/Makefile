@@ -18,6 +18,7 @@ CFILES = ktrace.c subr.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble ktrace.1
 
+HEADER_PATHS = -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

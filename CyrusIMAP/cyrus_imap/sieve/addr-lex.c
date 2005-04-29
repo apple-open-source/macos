@@ -646,7 +646,7 @@ char *yytext;
 /*
  * addr-lex.l -- RFC 822 address lexer
  * Ken Murchison
- * $Id: addr-lex.l,v 1.8 2002/02/19 18:09:46 ken3 Exp $
+ * $Id: addr-lex.c,v 1.5 2005/03/05 00:37:36 dasenbro Exp $
  */
 /***********************************************************
         Copyright 1999 by Carnegie Mellon University

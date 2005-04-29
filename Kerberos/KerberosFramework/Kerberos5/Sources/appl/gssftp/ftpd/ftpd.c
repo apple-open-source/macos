@@ -154,6 +154,8 @@ krb5_ccache ccache;
 static void ftpd_gss_convert_creds(char *name, gss_cred_id_t);
 static int ftpd_gss_userok(gss_buffer_t, char *name);
 
+static void log_gss_error(int, OM_uint32, OM_uint32, const char *);
+
 #endif /* GSSAPI */
 
 char *auth_type;	/* Authentication succeeded?  If so, what type? */
@@ -258,6 +260,7 @@ static void end_login(void);
 static int disallowed_user(char *);
 static int restricted_user(char *);
 static int checkuser(char *);
+static char *gunique(char *);
 
 #ifdef SETPROCTITLE
 char	**Argv = NULL;		/* pointer to argument vector */
@@ -291,9 +294,9 @@ main(argc, argv, envp)
 	extern char *optarg;
 	extern int optopt;
 #ifdef KRB5_KRB4_COMPAT
-	char *option_string = "AaCcdlp:r:s:T:t:U:u:vw:";
+	char *option_string = "AaCcdElp:r:s:T:t:U:u:vw:";
 #else /* !KRB5_KRB4_COMPAT */
-	char *option_string = "AaCcdlp:r:T:t:U:u:vw:";
+	char *option_string = "AaCcdElp:r:T:t:U:u:vw:";
 #endif /* KRB5_KRB4_COMPAT */
 	ftpusers = _PATH_FTPUSERS_DEFAULT;
 
@@ -324,6 +327,11 @@ main(argc, argv, envp)
 
 		case 'd':
 			debug = 1;
+			break;
+
+		case 'E':
+			if (!authlevel)
+				authlevel = AUTHLEVEL_AUTHENTICATE;
 			break;
 
 		case 'l':
@@ -429,7 +437,8 @@ main(argc, argv, envp)
 
 	if (port != -1) {
 		struct sockaddr_in sin4;
-		int s, ns, sz;
+		int s, ns;
+		socklen_t sz;
 
 		/* Accept an incoming connection on port.  */
 		sin4.sin_family = AF_INET;
@@ -960,12 +969,12 @@ char *name, *passwd;
 	my_creds.times.endtime = now + 60 * 60 * 10;
 	my_creds.times.renew_till = 0;
 
-	if (krb5_get_in_tkt_with_password(kcontext, 0,
-					  0, NULL, 0 /*preauth*/,
-					  passwd,
-					  ccache,
-					  &my_creds, 0))
-		goto nuke_ccache;
+	if (krb5_get_init_creds_password(kcontext, &my_creds, me,
+					 passwd, NULL, NULL, 0, NULL, NULL))
+	  goto nuke_ccache;
+
+	if (krb5_cc_store_cred(kcontext, ccache, &my_creds))
+	  goto nuke_ccache;
 
 	if (!want_creds) {
 		krb5_cc_destroy(kcontext, ccache);
@@ -1271,7 +1280,6 @@ store_file(name, fmode, unique)
 	FILE *fout, *din;
 	struct stat st;
 	int (*closefunc)();
-	static char *gunique();
 
 	if (logging > 1) syslog(LOG_NOTICE, "put %s", path_expand(name));
 
@@ -2502,18 +2510,18 @@ char *adata;
 								&deleg_creds);
 				return(0);
 			}
-			if (stat_maj == GSS_S_COMPLETE) {
+			if (accept_maj == GSS_S_COMPLETE) {
 				reply(235, "ADAT=%s", gbuf);
-				replied = 1;
 			} else {
 				/* If the server accepts the security data, and
 				   requires additional data, it should respond
 				   with reply code 335. */
 				reply(335, "ADAT=%s", gbuf);
 			}
+			replied = 1;
 			(void) gss_release_buffer(&stat_min, &out_tok);
 		}
-		if (stat_maj == GSS_S_COMPLETE) {
+		if (accept_maj == GSS_S_COMPLETE) {
 			/* GSSAPI authentication succeeded */
 			stat_maj = gss_display_name(&stat_min, client,
 						    &client_name, &mechid);
@@ -2523,7 +2531,8 @@ char *adata;
 				   respond with reply code 535." */
 				reply_gss_error(535, stat_maj, stat_min,
 						"extracting GSSAPI identity name");
-				syslog(LOG_ERR, "gssapi error extracting identity");
+				log_gss_error(LOG_ERR, stat_maj, stat_min,
+					      "gssapi error extracting identity");
 				(void) gss_release_cred(&stat_min, &server_creds);
 				if (ret_flags & GSS_C_DELEG_FLAG)
 					(void) gss_release_cred(&stat_min,
@@ -2554,11 +2563,12 @@ char *adata;
 			  }
 				
 			return(1);
-		} else if (stat_maj == GSS_S_CONTINUE_NEEDED) {
+		} else if (accept_maj == GSS_S_CONTINUE_NEEDED) {
 			/* If the server accepts the security data, and
 			   requires additional data, it should respond with
 			   reply code 335. */
-			reply(335, "more data needed");
+			if (!replied)
+			    reply(335, "more data needed");
 			(void) gss_release_cred(&stat_min, &server_creds);
 			if (ret_flags & GSS_C_DELEG_FLAG)
 			  (void) gss_release_cred(&stat_min, &deleg_creds);
@@ -2806,11 +2816,44 @@ char *buf;
 #endif /* SETPROCTITLE */
 
 #ifdef GSSAPI
+/* A more general callback would probably use a void*, but currently I
+   only need an int in both cases.  */
+static void with_gss_error_text(void (*cb)(const char *, int, int),
+				OM_uint32 maj_stat, OM_uint32 min_stat,
+				int misc);
+
+static void
+log_gss_error_1(const char *msg, int severity, int is_major)
+{
+    syslog(severity, "... GSSAPI error %s: %s",
+	   is_major ? "major" : "minor", msg);
+}
+
+static void
+log_gss_error(int severity, OM_uint32 maj_stat, OM_uint32 min_stat,
+	      const char *s)
+{
+    syslog(severity, s);
+    with_gss_error_text(log_gss_error_1, maj_stat, min_stat, severity);
+}
+
+static void
+reply_gss_error_1(const char *msg, int code, int is_major)
+{
+    lreply(code, "GSSAPI error %s: %s",
+	   is_major ? "major" : "minor", msg);
+}
+
 void
-reply_gss_error(code, maj_stat, min_stat, s)
-int code;
-OM_uint32 maj_stat, min_stat;
-char *s;
+reply_gss_error(int code, OM_uint32 maj_stat, OM_uint32 min_stat, char *s)
+{
+    with_gss_error_text(reply_gss_error_1, maj_stat, min_stat, code);
+    reply(code, "GSSAPI error: %s", s);
+}
+
+static void with_gss_error_text(void (*cb)(const char *, int, int),
+				OM_uint32 maj_stat, OM_uint32 min_stat,
+				int misc)
 {
 	/* a lot of work just to report the error */
 	OM_uint32 gmaj_stat, gmin_stat;
@@ -2824,8 +2867,7 @@ char *s;
 					       &msg_ctx, &msg);
 		if ((gmaj_stat == GSS_S_COMPLETE)||
 		    (gmaj_stat == GSS_S_CONTINUE_NEEDED)) {
-			lreply(code, "GSSAPI error major: %s", 
-			       (char*)msg.value);
+			(*cb)((char*)msg.value, misc, 1);
 			(void) gss_release_buffer(&gmin_stat, &msg);
 		}
 		if (gmaj_stat != GSS_S_CONTINUE_NEEDED)
@@ -2839,14 +2881,12 @@ char *s;
 					       &msg_ctx, &msg);
 		if ((gmaj_stat == GSS_S_COMPLETE)||
 		    (gmaj_stat == GSS_S_CONTINUE_NEEDED)) {
-			lreply(code, "GSSAPI error minor: %s",
-			       (char*)msg.value);
+			(*cb)((char*)msg.value, misc, 0);
 			(void) gss_release_buffer(&gmin_stat, &msg);
 		}
 		if (gmaj_stat != GSS_S_CONTINUE_NEEDED)
 			break;
 	}
-	reply(code, "GSSAPI error: %s", s);
 }
 
 void
@@ -2919,7 +2959,7 @@ ftpd_gss_convert_creds(name, creds)
 				     6, "krbtgt",
 				     krb5_princ_realm(kcontext, me)->length,
 				     krb5_princ_realm(kcontext, me)->data,
-				     NULL))
+				     0))
 		goto cleanup;
 
 	memset((char *) &increds, 0, sizeof(increds));

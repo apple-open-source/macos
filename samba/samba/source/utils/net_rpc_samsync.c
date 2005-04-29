@@ -402,7 +402,7 @@ static NTSTATUS fetch_account_info(uint32 rid, SAM_ACCOUNT_INFO *delta)
 	struct group *grp;
 	DOM_SID user_sid;
 	DOM_SID group_sid;
-	struct passwd *passwd;
+	struct passwd *passwd=NULL;
 	fstring sid_string;
 
 	fstrcpy(account, unistr2_static(&delta->uni_acct_name));
@@ -441,11 +441,20 @@ static NTSTATUS fetch_account_info(uint32 rid, SAM_ACCOUNT_INFO *delta)
 		}
 		
 		/* try and find the possible unix account again */
+#ifdef WITH_OPENDIRECTORY
+		if (lp_opendirectory() && !strchr_m(account, '$')) { 
+#endif
 		if ( !(passwd = Get_Pwnam(account)) ) {
 			d_printf("Could not create posix account info for '%s'\n", account);
 			nt_ret = NT_STATUS_NO_SUCH_USER;
 			goto done;
 		}
+#ifdef WITH_OPENDIRECTORY
+	}
+#endif
+	} else {
+		fprintf(stderr, "Skipping  exists account (%s)\n", account);	
+		goto done;
 	}
 	
 	sid_copy(&user_sid, get_global_sam_sid());
@@ -479,7 +488,7 @@ static NTSTATUS fetch_account_info(uint32 rid, SAM_ACCOUNT_INFO *delta)
 		DEBUG(0, ("Primary group of %s has no mapping!\n",
 			  pdb_get_username(sam_account)));
 	} else {
-		if (map.gid != passwd->pw_gid) {
+		if (passwd && (map.gid != passwd->pw_gid)) {
 			if (!(grp = getgrgid(map.gid))) {
 				DEBUG(0, ("Could not find unix group %lu for user %s (group SID=%s)\n", 
 					  (unsigned long)map.gid, pdb_get_username(sam_account), sid_string_static(&group_sid)));

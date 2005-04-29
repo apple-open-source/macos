@@ -1,0 +1,652 @@
+2004-05-30  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpexpand.man: Updated reference 'dtformat' to 'doctools_fmt'.
+
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doctools.tcl: Rel. engineering. Updated version number 
+	* doctools.man: of doctools to reflect its changes, to 1.0.2.
+	* pkgIndex.tcl:
+
+2004-05-14  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/_text.tcl (SECT): Fixed a small problem in the text
+	  generator which was present for ages. Titles of more than one
+	  word would have braces around them. Not fatal but also not so
+	  nice looking. It was an argument versus argument list
+	  thing. Adding a lindex in the proper place gets rid of the
+	  additional level of quoting.
+
+2004-05-04  Andreas Kupries  <andreask@activestate.com>
+
+	* mpformats/_nroff.tcl: Fixed [SF Tcllib Bug 943146]. Added markup
+	* mpformats/fmt.nroff: protection code like already in use for
+	                       HTML and XML to handle nroff's special
+	                       characters, i.e. the backslash properly.
+	                       Also fixed handling of leading dashes in
+	                       'opt_def'.
+
+2004-04-22  Joe English  <jenglish@users.sourceforge.net>
+
+	* mpformats/fmt.xml: BUGFIX: "puts stderr" ==> "puts_stderr".
+	
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2004-02-09  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doctools.test: Fixed problems with Tcl 8.5, the tests were
+	  dependent on the order of keys in the result of [array get].
+
+2003-10-21  Andreas Kupries  <andreask@activestate.com>
+
+	* mpformats/fmt.wiki (fmt_manpage_end): Fixed usage of wrong
+	  variable ('copyright' was used, should have been 'ct').
+	  [Bug 826206].
+
+2003-06-06  Andreas Kupries  <andreask@activestate.com>
+
+	* mpformats/fr.msg: Added french message catalog. Supplied by
+	  David Zolli <dzolli@users.sourceforge.net>, aka kroc. This is
+	  tracker item [Bug 744149].
+
+2003-05-23  Andreas Kupries  <andreask@activestate.com>
+
+	* mpformats/fmt.nroff (fmt_arg_def, fmt_cmd_def): Analogous errors
+	  to fmt_opt_def, see below. Fixed. Reported by David Welton.
+
+2003-05-21  Andreas Kupries  <andreask@activestate.com>
+
+	* mpformats/fmt.nroff (fmt_opt_def): Fixed bug. Called [option],
+	  should have been [fmt_option]. Prevented the nroff conversion of
+	  the multiplexer documentation. Reported by David Welton.
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-04-01  Andreas Kupries  <andreask@activestate.com>
+
+	* checker_toc.tcl: Bug fixes for handling of nested toc divisions.
+
+	* ../../examples/doctools/doctools.idx:
+	* ../../examples/doctools/doctools.toc: Updated to reflect latest
+	  changes in the format definitions.
+
+	* doctoc.tcl:
+	* docidx.tcl: Added the package and file ops initially created in
+	  doctools.tcl to these packages too, so that their text engines
+	  can use 'textutil' too.
+
+	* mpformats/_text.tcl:
+	* mpformats/fmt.text: 
+	* mpformats/toc.text: 
+	* mpformats/idx.text: Bug fixes.
+
+2003-03-31  Andreas Kupries  <andreask@activestate.com>
+
+	* mpformats/toc.text:
+	* mpformats/idx.text: New files, toc & index formatting in plain text.
+
+	* mpformats/_text.tcl:
+	* mpformats/fmt.text: Moved processing of plain text into the generic part.
+
+2003-03-31  Andreas Kupries  <andreask@activestate.com>
+
+	* cvs.tcl (scanLog): Applied fix for Bug #712951 reported by Joe
+	  English <jenglish@users.sourceforge.net>.
+
+2003-03-29  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doctools.tcl (SetupFormatter): Moved error output command to the
+	  front, so that the code loading the engine can use it too, and
+	  not only the engine procedures. Added alias for 'file', and a
+	  special command which is a shortcut for 'package require' so
+	  that engines can load packages. This was required for the plain
+	  text engine which makes heavy use of the formatting commands in
+	  'textutil'. Added setup of 'ctopandclear'.
+	  (SetupChecker): Added setup of 'ctopandclear'.
+	  (Package, Locate): New commands supporting package
+	  require. Instead of trying to enable every command in the safe
+	  interpreter required for package management we use the standard
+	  package commands to locate the index for thr requested package
+	  and evaluate just that in the safe interpreter, after
+	  temporarily enabling source and load commands.
+
+	* checker.tcl: Added code for debugging, like already present in
+	  the files checker_doc*.tcl.
+
+	* mpformats/_text.tcl: Core for plain text engines.
+	* mpformats/fmt.text: New engine. Generates output in plain text.
+
+2003-03-28  Andreas Kupries  <andreask@activestate.com>
+
+	* pkgIndex.tcl: added 'doctools::cvs' and 'doctools::changelog' to
+	  the package index.
+
+	* changelog.man:
+	* changelog.tcl: New. Parsing of ChangeLogs into list structures,
+	  merging of multiple logs, conversion into a doctools
+	  document. The code for parsing came originally out
+	  Makedist_SupportAku, a private package extending my Makedist
+	  tool. Documented the code.
+
+	* cvs.tcl (toChangeLog): Using the new textutil commands 'indent'
+	  and 'undent' for proper alignment of the comments extracted from
+	  the log.
+
+2003-03-27  Andreas Kupries  <andreask@activestate.com>
+
+	* cvs.man:
+	* cvs.tcl: Added code to handle parsing and reformatting of cvs
+	  log files. Origin of the code the tcl'ers wiki, page
+	  http://wiki.tcl.tk/log2changelog. The actual original author is
+	  unknown (not listed on the wiki).
+
+2003-03-24  Andreas Kupries  <andreask@activestate.com>
+
+	* doctools_fmt.man: Fixed documentation bug #704187 reported by
+	  Roy Terry <royterry@users.sourceforge.net>.
+
+2003-03-13  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* checker.tcl:        Fixed incorrect signature of 'usage'.
+	* mpformats/fmt.null: Bugfix in naming of the procedures.
+
+2003-03-13  Andreas Kupries  <andreask@activestate.com>
+
+	* mpformats/_common.tcl: Fixed initialization error for
+	  cross-references causing unwanted suppression (leakage of
+	  definitions between multiple pages).
+
+	* doctoc.tcl:   Bug fixes in three return statemments.
+	* docidx.tcl:   (return -code error string, not return -code string)
+	* doctools.tcl: 
+
+2003-03-11  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.html:  Rewrite handling of [keywords] and
+	* mpformats/fmt.latex: [see_also] to behave like for the TMML
+	* mpformats/fmt.list:  formatter: Collect all keywords and
+	* mpformats/fmt.nroff: x-references during the first pass, insert
+	* mpformats/fmt.wiki:  the results during the second pass, in
+	                       [manpage_end]. Ensures that at most one
+			       see_also / keyword section is present,
+			       ensures uniform order and handling of
+			       multiple keyword / see_also commands is
+			       now uniform too.
+
+	* examples/doctools.idx: Moved to the new examples/doctools
+	* examples/doctools.toc: directory. Thanks to Larry Virden
+		                 <lvirden@users.sourceforge.net> for
+	                         pointing out that the original location
+				 in the doctools module violated the
+				 principle of collecting examples in a
+				 separate directory, instated by
+				 myself. Stupid me.
+
+2003-03-04  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* A examples/doctools.idx:     Fairly extensive revamping of the
+	* A examples/doctools.toc:     codebase. Added a format for
+	* A mpformats/_idx_common.tcl: indices, formatting engines, a
+	* A mpformats/_toc_common.tcl: package for handling it. Extended
+	* A mpformats/idx.html:        all packages to allow engine
+	* A mpformats/idx.nroff:       parameters and mapping from
+	* A mpformats/idx.null:        symbolic to actual filenames or
+	* A mpformats/idx.wiki:        urls. Right now only the HTML
+	* A mpformats/toc.html:        engines actually provide
+	* A mpformats/toc.nroff:       parameters. Added testsuites for
+	* A mpformats/toc.null:        doctoc and docidx. Revamped the
+	* A mpformats/toc.tmml:        documentation to cross-reference
+	* A mpformats/toc.wiki:        each other better, more uniform in
+	* A api_idx.tcl:               structure (not complete), naming of
+	* A api_toc.tcl:               the manpages for this module is now
+	* A checker_idx.tcl:           uniform. Added examples for doctoc
+	* A checker_toc.tcl:           and docidx formats, both in the
+	* A docidx.man:                manpages, and as separate files.
+	* A docidx.tcl:
+	* A docidx.test:
+	* A docidx_api.man:
+	* A docidx_fmt.man:
+	* A doctoc.man:
+	* A doctoc.tcl:
+	* A doctoc.test:
+	* A doctoc_api.man:
+	* A doctoc_fmt.man:
+	* A doctools_api.man:
+	* A doctools_fmt.man:
+	* A tocexpand:
+	* M ChangeLog:
+	* M NOTES:
+	* M api.tcl:
+	* M checker.tcl:
+	* M doctools.man:
+	* M doctools.tcl:
+	* M doctools.test:
+	* M pkgIndex.tcl:
+	* M mpformats/_common.tcl:
+	* M mpformats/_nroff.tcl:
+	* M mpformats/c.msg:
+	* M mpformats/de.msg:
+	* M mpformats/en.msg:
+	* M mpformats/fmt.html:
+	* M mpformats/fmt.latex:
+	* M mpformats/fmt.list:
+	* R dtformat.man:
+	* R dtformatter.man:
+
+2003-02-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.list: Modified to extract all meta information out
+	  of the page. Changed the output format. Argument to the
+	  'manpage' command in the output is now a key/value list
+	  acceptable to 'array set' instead of a simple list with fixed
+	  positions for the various data elements.
+
+2003-02-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doctoc.tcl:                Specified a new portable format for
+	* api_toc.tcl:	             writing a table of contents. Wrote a
+	* checker_toc.tcl:           package to handle input that format
+	* dtocformat.man:            and a number of formatting engines
+	* dtocengine.man:            plugging into this package to
+	* mpformats/_toc_common.tcl: generate output in various formats.
+	* mpformats/toc.html:        This required additional checker code
+	* mpformats/toc.nroff:       and more messages in the message
+	* mpformats/toc.null:        catalogs. 
+	* mpformats/toc.tmml:
+	* mpformats/toc.wiki:
+	* pkgIndex.tcl:
+	* mpformats/c.msg:
+	* mpformats/en.msg:
+	* mpformats/de.msg:
+	* mpformats/_nroff.tcl:
+
+	* doctools.tcl: Rephrased documentation of SetupChecker a bit.
+
+2003-02-12  Andreas Kupries  <andreask@activestate.com>
+
+	* dtformatter.man: Updated the documentation to include the
+	* dtformat.man:    two new commands (vset, include).
+
+	* doctools.tcl (Eval):           Added handling of new [include]
+	* doctools.tcl (ExpandInclude):  formatting command.
+
+	* checker.tcl (vset): New command in the formatting language for
+	  handling variables (setting and retrieving values). Differs from
+	  the regular in that the set value is not retruned as the result
+	  of the command. This is necessary to avoid unwanted insertion of
+	  data into the output stream. The command is handled in the
+	  checker layer (although no checking is required). The engines
+	  never see this command.
+
+	* mpformats/fmt.nroff: Changed both engines to not use the
+	* mpformats/fmt.wiki:  expander context stack anymore. It
+	                       interferes with handling of include
+	                       files. It was used to catch all output and
+	                       then perform last-miunte processing. for
+	                       that we have [fmt_postprocess], moved the
+	                       code to that.
+
+2003-01-27  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.html: Modified generation of section titles to
+	  make the resulting HTML more conformant and less
+	  troublesome. Thanks to Larry Virden
+	  <lvirden@users.sourceforge.net> for the catch.  Revised the
+	  engine a bit. Entries in the synopsis now refer directly to the
+	  location where they are defined ([call] command).
+
+2003-01-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.html:  Removed 'strong' formatting. The checker
+	* mpformats/fmt.latex: warns if used and warnings requested, it
+	* mpformats/fmt.nroff: now also redirects the command to 'emph'.
+	* mpformats/fmt.wiki:  The option -visualwarn (doctools, and
+	* mpformats/fmt.null:  mpexpand) renamed to -deprecated. Message
+	* mpformats/fmt.list:  'visualmarkup' removed from the catalogs,
+	* mpformats/c.msg:     and 'depr_strong' added instead.
+	* mpformats/en.msg: 
+	* mpformats/de.msg: 
+	* checker.tcl: 
+	* doctools.tcl: 
+	* mpexpand: 
+
+	* doctools.man:    Updated, converted [strong] to better
+	* dtformat.man:    formatting commands. Ditto for all manpages
+	* dtformatter.man: in tcllib containing 'strong'. 'strong' is now
+	* mpexpand.man:    not present anymore.
+
+	* mpformats/_common.tcl: Applied a patch by Joe English adding the
+	* mpformats/fmt.tmml:    copyright information to the appropriate
+	                         place in the TMML output. This also fixes
+				 a bug in c_get_copyright where an empty
+				 string resulted in a incomplete line
+				 being given to the formatter.
+
+	* mpformats/fmt.html:  Removed the phrase 'All rights reserved'
+	* mpformats/fmt.latex: from the code, on recommendation by
+	* mpformats/fmt.nroff: Joe English.
+	* mpformats/fmt.wiki: 
+
+	(In the way to early morrow :)
+	* mpformats/fmt.html:  Changed to display copyright information in
+	* mpformats/fmt.latex: the conversion result itself and not only
+	* mpformats/fmt.nroff: embedded in comments.
+	* mpformats/fmt.wiki: 
+
+2003-01-14  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doctools.tcl:          Added a new formatting command,
+	* doctools.test:         'copyright', to declare/assign copyright
+	* doctools.man:          for manpages. Updated both documentation
+	* dtformat.man:          and testsuite. Extended the common code
+	* checker.tcl:           base with convenience methods for storing
+	* api.tcl:               and retrieving such information. The
+	* mpformats/fmt.html:    retrieval operation also implements the
+	* mpformats/fmt.latex:   logic giving the information in a manpage
+	* mpformats/fmt.list:    precedence over information coming from the
+	* mpformats/fmt.nroff:   processor. Updated all predefined engines
+	* mpformats/fmt.null:    to handle the new command. TMML done only
+	* mpformats/fmt.tmml:    partially, as I don't know where the copy-
+	* mpformats/fmt.wiki:    right has to go.
+	* mpformats/_common.tcl: 
+	* mpformats/_html.tcl:   
+	* mpformats/_nroff.tcl:  
+	* mpexpand:
+
+2003-01-13  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpexpand:      Moved format help into the package itself.
+	* doctools.tcl:  Changed the checker. Input syntax errors are not
+	* checker.tcl:   written to stderr anymore, but reported through
+	* doctools.man:  an standard tcl error. Warnings are collected and
+	* doctools.test: can be queried after a formatting run. Made the
+	                 generic engine more robust against failures in a
+			 formatting engine. Wrote documentation for the
+			 package. Extended the configuration method to be
+			 more standard. Wrote a testsuite.
+
+2003-01-11  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpexpand:              Nearly complete rewrite of the system.
+	* mpformats/fmt.html:    The recognized input format was _not_
+	* mpformats/fmt.latex:   changed.  The main functionality was
+	* mpformats/fmt.list:    placed into a package, doctools.  This
+	* mpformats/fmt.nroff:   package allows the creation of multiple
+	* mpformats/fmt.null:    formatter objects, to be used alone or
+	* mpformats/fmt.tmml:    together.  The application 'mpexpand' was
+	* mpformats/fmt.wiki:    rewritten to use that package and is now
+	* mpformats/_common.tcl: much simpler.  The communication between
+	* mpformats/_nroff.tcl:  the various stages was made simpler, and
+	* mpformats/_xml.tcl:    one slave interpreter was dropped because
+	* mpformats/_html.tcl:   of this.  It might be added back if its
+	* api.tcl:               existence proves to be beneficial.  The
+	* checker.tcl:           API between main systen and formatter
+	* doctools.tcl:          engine was changed, consequently all
+	* dtformatter.man:       existing engines had to be updated.  They
+	                         were also made simpler, especially in the
+	                         area of list handling, because of the
+				 validation done by the checker subsystem.
+				 The version number is now 1.0.
+
+2002-12-16  David N. Welton  <davidw@dedasys.com>
+
+	* mpexpand (format_find): Added 'argv0' as a global variable, in
+	  order to avoid erroring out when providing a bad format.
+
+2002-12-05  Andreas Kupries  <andreask@activestate.com>
+
+	* mpformats/fmt.nroff: Changed so that comments coming before
+	  manpage_begin are moved after the standard header generated by
+	  manpage_begin.
+
+2002-09-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpexpand: Corrected example formatting, have to run argument
+	  through plain text handling.
+	* mpformats/fmt.wiki: Added Wiki formatting.
+
+2002-07-08  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.html: Changed bug #578465 which caused
+	  mis-generation of angle-brackets and quotes.
+
+2002-06-06  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.html: 
+	* mpformats/_html.tcl: Added the missing handling of " (&quot;) to
+	  the format.
+
+2002-05-27  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/_xml.tcl: args -> arguments, as the argument is not
+	  the last one. The code as is was not erroneous, but a possible
+	  trouble spot should tcl ever be more strict with 'args'.
+
+2002-05-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+	
+	* mpformats/fmt.nroff: Accepted patch for bug #556509, both by Joe
+	  English <jenglish@users.sourceforge.net>.
+
+2002-05-09  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* This completes the implementation of SF tcllib item #534334.
+
+	* mpformats/fmt.html: See last entry, completed definitions for
+	  the new lists.
+
+	* format.man: Added the new commands (see last entry) to the
+	  format specification and also added more explanations regarding
+	  sections and paragraphs.
+
+2002-05-09  Joe English  <jenglish@users.sourceforge.net>
+
+	* mpexpand:
+	* mpformats/c.msg:
+	* mpformats/de.msg:
+	* mpformats/en.msg:
+	* mpformats/fmt.nroff:
+	* mpformats/fmt.latex:
+	* mpformats/fmt.list:
+	* mpformats/fmt.nroff:
+	* mpformats/fmt.null:  Added new list types for arguments, options,
+	  commands, and Tk (widget) options.
+
+2002-04-24  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.html: 
+	* mpformats/_html.tcl: Changes analogous to TMML (see below) to
+	  differentiate internal markup and external special characters.
+
+2002-04-24  Joe English  <jenglish@users.sourceforge.net>
+
+	* mpformats/_xml.tcl
+	* mpformats/fmt.tmml: Correctly handles XML markup characters 
+	  in macro arguments.  Also correctly escapes apostrophes
+	  in attribute values (previously-unnoticed bug).
+	* mpformats/fmt.tmml: TMML uses <url> instead of <uri>, and
+	  does not have a <strong> element; changed output accordingly.
+
+2002-04-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* format.man: Added descriptions for all the commands performing
+	  semantic markup. This closes bug #527025.
+
+2002-04-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpexpand: Fixed error in checker of plain text.
+
+	* mpformats/fmt.nroff: Added newlines in front of dot commands to
+	  make sure that the formatting is correct. Superfluous newlines
+	  are stripped in the post processor of this format, so
+	  unconditionally adding them does not hurt.
+
+2002-04-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/en.msg: 
+	* mpformats/c.msg: 
+	* mpformats/de.msg: Added the messages required by the new code
+	  below.
+
+	* mpexpand: Added code to check that plain text is not used in
+	  places where it is not allowed.
+
+2002-04-01  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Committed changes to list generation (better generation of
+	  whitespace for HTML, allowing hints). Only the HTML formatter
+	  currently acknowledges hints. This fixes SF Bug #535382.
+
+2002-03-26  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpexpand: Changed the generation of error messages by the format
+	  checker to use explicit error codes instead of trying to
+	  construct the whole message automatically. Error codes are
+	  mapped to textual messages using the message catalog facility,
+	  allowing for easy i18n and l10n of mpexpand. Catalogs for the
+	  locales "c", "en", and "de" are provided.
+
+	* mpformats/fmt.html: Changed uri formatting to be a link.
+
+	* mpformats/fmt.tmml: 
+	* mpformats/fmt.html: 
+	* mpformats/fmt.nroff: 
+	* mpformats/fmt.latex: 
+	* mpformats/fmt.list: 
+	* mpformats/fmt.null: 
+	* mpformats/_api.tcl: Added formatting commands "term" and "const"
+	  to allow the structural markup of non-specific terminology and
+	  of constant values.
+
+	* mpformats/fmt.nroff (bullet): Bulleting changed, use \(bu as
+	  bullet instead of *.
+	  (uri): Fixed error with underlining.
+
+2002-03-25  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpexpand: Extended with additional code checking that the
+	  formatting commands are not used out of order and in the wrong
+	  context. This check is independent of the format and thus
+	  implemented outside of the format. Tcllib FR #530059.
+
+	* mpexpand: Implemented Tcllib FR #527029 (help options).
+
+2002-03-13  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.html: Removed 'center' alignment from
+	  examples. Tcllib Bug #528390.
+
+2002-03-09  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* modules/doctools/format.man: Added documentation for [rb] and
+	  [lb]. This partially fixes bug #527025.
+
+	* modules/doctools/mpformats/_html.tcl: The patch for FR #527716
+	  also fixes a bug in the generation of HTML escapes. The table
+	  swiped from htmlparse seems to contain some non-standard
+	  escapes. Which are removed now.
+
+	* modules/doctools/format.man:
+	* modules/doctools/mpexpand:
+	* modules/doctools/mpformats/fmt.html:
+	* modules/doctools/mpformats/fmt.latex:
+	* modules/doctools/mpformats/fmt.list:
+	* modules/doctools/mpformats/fmt.nroff:
+	* modules/doctools/mpformats/fmt.null:
+	* modules/doctools/mpformats/fmt.tmml:
+	* modules/doctools/mpformats/fmt.tmml: Accepted FR #527716 by
+	  Bryan Oakley <boakley@users.sourceforge.net> which adds a
+	  command [usage] to the format. It allows the specification of
+	  usage information for the synopsis without the need to be
+	  embedded into a definition list.
+
+2002-02-28  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.nroff: Corrected problems with trimming lines and
+	  the stripping of empty lines.
+
+	* mpformats/fmt.html: Changed the formatting of examples. Embedded
+	  them into a table and additionally marked them with a black bar
+	  to the left.
+
+2002-02-27  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.null: Null format, does not produce any output.
+
+	* mpformats/fmt.tmml: 
+	* mpformats/fmt.nroff: 
+	* mpformats/fmt.latex: 
+	* mpformats/fmt.html:
+	* mpformats/fmt.list: Implementations of the new command.
+
+	* mpexpand: Added the commands to the processor application. Added
+	  option "-visualwarn". When present the processor warn about
+	  usage of visual markup. Tcllib FR #517599.
+
+	* mpformats/_api.tcl: Added a number of semantic markup commands
+	  to the api as part of Tcllib FR #517599. Also added comment
+	  command, see Tcllib FR #520269.
+
+2002-02-14  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/_common.tcl: Frink run.
+
+2002-02-13  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/fmt.html: Added detection of section cross-references
+	  in [emph] and [strong] based on the code for TMML.
+
+2002-02-13  Joe English  <jenglish@users.sourceforge.net>
+
+	* mpformats/fmt.tmml:  [example_begin] inside lists was
+	  not handled correctly.
+
+	* mpformats/fmt.tmml:  Detect section cross-references
+	  in [emph] and [strong].
+
+2002-02-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* mpformats/_html.tcl: Added command to map HTML special
+	  characters to their escape sequences.
+
+	* mpformats/fmt.latex: Added code to disable special processing of
+	  plain text while inside of an example.
+
+	* mpformats/fmt.tmml: Added HandleText call to [example] to handle
+	  special XML characters inside of the example. Not requitred for
+	  [example_begin] / [example_end] as the text will go through
+	  HandleText automatically for that case.
+
+	* mpformats/fmt.nroff: Added split to lsearch statement in
+	  manpage_end to make the code robust against strings which are
+	  not valid lists.
+
+2002-02-12  Joe English  <jenglish@users.sourceforge.net>
+
+	* Added [example_begin] and [example_end] commands.
+	  Also [example { code ... }] command.
+
+2001-12-13  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Added formatter for LaTeX.
+
+2001-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New module. Application module providing a simple tcl-based
+	  manpage markup language and a processor for converting this
+	  format to TMML, nroff and HTML. Extensible, i.e. additional
+	  formats can be added without to much work (Manpages for format
+	  and internal interfaces are provided).

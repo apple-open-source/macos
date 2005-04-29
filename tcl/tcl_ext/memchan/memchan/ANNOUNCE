@@ -1,0 +1,16 @@
+Hello world,
+
+I hereby announce memchan 2.2.0.
+
+It is 
+	an extension implementing several new channel-types.
+	Instances store their contents in memory, not on disk.
+    
+@CHANGES@
+
+The distribution can be found at
+	<http://memchan.sourceforge.net/>
+
+Sincerely
+	Andreas Kupries <andreas_kupries@users.sourceforge.net>
+	JUN-03-2004

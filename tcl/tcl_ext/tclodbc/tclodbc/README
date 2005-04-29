@@ -1,0 +1,190 @@
+README
+
+This is just a repackaged version of the tclodbc package done by:
+
+    Roy Nurmi (main author)
+    Roy.Nurmi@iki.fi
+    
+    Tom Poindexter (Unix port)
+    tpoindex@nyx.net
+    
+    Rob Savoye (Unix port)
+    rob@cygnus.com
+
+The current configure and Makefile.in were updated to the TEA 2002
+specification by Jeff Hobbs.
+
+Please see the license.txt file for more information about the licensing of
+this package.
+
+SUPPORTED
+=========
+Supported (tested) platforms:
+    - Visual C++ 6.0 on Windows NT
+    - So far I have not done any Unix testing...
+
+    
+BINARY DISTRIBUTION
+===================
+Windows NT
+----------
+For Windows NT, you will probably install the included binary
+distribution. To do this, just type the following (tclsh may be
+tclsh82 or something similar):
+
+c:\temp> tclsh setup.tcl
+Installation successful.
+
+The resulting installation may be different than one done with the
+Makefile. The setup.tcl file does not know about --prefix and
+--exec-prefix, so it installs into the DLL into the standard Tcl package
+directory.
+
+Unix
+----
+There is no Unix binary distribution.
+
+
+BUILDING
+========
+Windows NT
+----------
+
+Follow the steps from the Unix section. If you want to rebuild the package
+without cygwin under Windows NT, the included tclodbc.mak can be used to
+build the library.  You will have to adjust the project to work properly on
+your configuration.
+
+Unix
+----
+
+Under Unix you will have to use configure to create a Makefile, which will
+build and install the package.  Specify the same --prefix and --exec-prefix
+that you used to build Tcl.  You may also have to specify --with-tcl to
+point to the directory that contains the tclConfig.sh file.
+
+>./configure --prefix=/usr/local/tcl --exec-prefix=/usr/local/tcl/bin
+>make
+>make install
+
+If your ODBC include files and libraries can not be found
+automatically, you may want to use the following two options:
+
+    --with-odbcinclude, directory where ODBC headers are
+    --with-odbclibrary, directory where ODBC libraries are
+
+
+USING THE PACKAGE
+=================
+The extension is installed as a tcl package. After installation the
+extension is loaded simply by command:
+
+    package require tclodbc
+
+This command adds the command "database" to the tcl command
+interpreter (or actually loads the package on demand). Command
+"database" is used for creating database connection objects as
+well as for configuring the system data sources.
+
+
+####################
+The original README.unix follows here:
+
+Tclodbc on Unix
+
+I have made a preliminary configure and Makefile for Tclodbc.
+
+The only IODBC drivers I have were the free ones. The one I use is now
+included in the PostgreSQL 6.4 release. This was developed under
+RedHat Linux 5.1, using G++ (cygnus-2.91.47).
+
+  --with-tclinclude       directory where tcl headers are
+  --with-tclconfig        directory containing tcl configuration (tclConfig.sh)
+  --with-tkinclude        directory where tk headers are
+  --with-tkconfig         directory containing tk configuration (tkConfig.sh)
+  --with-odbcinclude      directory where ODBc headers are
+  --with-odbclibrary      directory where ODBC headers are
+
+Also, configure expects to find a Tcl installation in the paths specified by
+--prefix= and --exec-prefix=.  You should specify the same directories as
+when you configured Tcl. Chances are you won't need to specify any
+configuration options. An example where the ODBC files are in a non
+standard place is:
+
+	 mkdir obj
+	 cd obj
+	 /usr/local/src/tclodbc/configure \
+		--with-odbcinclude=/usr/local/include/iodbc \
+		--with-odbclibrary=/usr/local/lib/iodbc
+
+You may also need to tweak the Makefile to set the correct C++
+compiler option flag to build a shared library. This uses the flags as
+determined by Tcl to build a shared library by default. As long as you
+use the same compiler to build Tcl and Tclodbc, everything should work
+fine.
+
+'make install' copies the library to your Tcl library, makes a directory for
+Tclodbc with version number, and builds a pkgIndex.tcl file.
+
+If all goes right, all you need to use it is:
+
+	$ tclsh8.0 (or cygtclsh8.0 when using cygwin)
+	% package require Tclodbc
+	2.1
+	% database datasources
+	{....
+
+Rob Savoye
+rob@cygnus.com
+
+#################
+Tclodbc on Unix
+
+I have made a preliminary configure and Makefile for Tclodbc.
+
+The only ODBC drivers to which I have access on Unix is Redbrick's, so I've
+left the ODBC configuration fairly simple.  The configure script expects:
+
+	--with-odbc-directory=DIR
+	--with-odbc-library=LIBSPEC
+
+The Makefile uses the ODBC directory to prefix $ODBC_DIR/include and 
+$ODBC_DIR/lib to find include and libraries.  You may have to tweak the
+Makefile after configuration if your ODBC installation is different.
+The ODBC library specification is just the library names you would use to
+link, eg. '-lodbc'
+
+Also, configure expects to find a Tcl installation in the paths specified by
+--prefix= and --exec-prefix=.  You should specify the same directories as
+when you configured Tcl.
+
+Example:
+	./configure --prefix=/home/tpoindex --with-odbc-directory=/redbrick \
+				--with-odbc-library=-lrbodbc
+
+Configure uses the Autoconf macros to find your C++ compiler.
+
+'make'
+The Makefile will build a shared library for Tclodbc.  You may also need to
+tweak the Makefile to set the correct C++ compiler option flag to build a 
+shared library.  See the define for TCL_SHLIB_LD.
+
+'make install' copies the library to your Tcl library, makes a directory for
+Tclodbc with version number, and builds a pkgIndex.tcl file.
+
+If all goes right, all you need to use it is:
+
+	$ tclsh8.0
+	% package require Tclodbc
+	1.2
+	% database datasources
+	{....
+
+
+My development environment is:
+	Dec Unix (unam -a: OSF1 xxx.xxx.com V4.0 564 alpha)
+	Redbrick ODBC driver for Dec (version: V5.0.12)
+	Dec C++ compiler (cxx -V: DEC C++ V5.3-004 on Digital UNIX (Alpha))
+
+Tom Poindexter
+tpoindex@nyx.net

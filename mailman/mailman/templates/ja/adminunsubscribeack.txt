@@ -1,2 +1,2 @@
-%(member)s さんの %(listname)s からの退会手続きが完了しました.
+%(member)s さんが %(listname)s から退会しました.
 

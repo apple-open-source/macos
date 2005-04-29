@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: imapurl.h,v 1.5 2003/02/13 20:15:40 rjs3 Exp $ */
+/* $Id: imapurl.h,v 1.5 2005/03/05 00:37:15 dasenbro Exp $ */
 
 #ifndef IMAPURL_H
 #define IMAPURL_H

@@ -6,7 +6,7 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFireWireLibDevice.h,v $
- *	Revision 1.7.12.1  2005/03/08 03:48:49  collin
+ *	Revision 1.8  2004/05/04 22:52:20  niels
  *	*** empty log message ***
  *	
  *	Revision 1.7  2003/11/07 21:24:28  niels
@@ -642,7 +642,7 @@ namespace IOFireWireLib {
 											Boolean					inTalking,
 											REFIID 					iid) ;
 			static IOFireWireLibLocalIsochPortRef
-									SCreateLocalIsochPort(
+									S_CreateLocalIsochPort(
 											IOFireWireLibDeviceRef 	self, 
 											Boolean					inTalking,
 											DCLCommand*		inDCLProgram,
@@ -689,14 +689,10 @@ namespace IOFireWireLib {
 			static IOFireWireLibNuDCLPoolRef				S_CreateNuDCLPool( IOFireWireLibDeviceRef self, UInt32 capacity, REFIID iid ) ;
 			static IOFireWireLibBufferFillIsochPortRef		S_CreateBufferFillIsochPort( IOFireWireLibDeviceRef self, UInt32 interruptMicroseconds, UInt32 numRanges, IOVirtualRange* ranges, REFIID iid ) ;
 
+			static IOFireWireSessionRef						S_GetSessionRef( IOFireWireLibDeviceRef self ) ;
+
 			//
 			// v7
-			//
-			
-			static IOFireWireSessionRef						S_GetSessionRef( IOFireWireLibDeviceRef self ) ;			
-			
-			//
-			// v8
 			//
 			
 			static IOFireWireLibLocalIsochPortRef
@@ -713,6 +709,5 @@ namespace IOFireWireLib {
 											UInt32					inBufferRangeCount,
 											IOFWIsochPortOptions	options,
 											REFIID 					iid) ;
-
 	} ;
 } // namespace

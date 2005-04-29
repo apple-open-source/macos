@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.persisted.journal.base</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.persisted.html">Package&nbsp;persisted</a> ::
+        <a href="twisted.persisted.journal.html">Package&nbsp;journal</a> ::
+        Module&nbsp;base
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.persisted.journal.base.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.persisted.journal.base</h2>
+
+Basic classes and interfaces for journal.
+<hr/>
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.persisted.journal.base.ICommand.html"><code>ICommand</code></a></b></td>
+  <td>A serializable command which interacts with a journaled service.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.persisted.journal.base.ICommandLog.html"><code>ICommandLog</code></a></b></td>
+  <td>Interface for command log.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.persisted.journal.base.Journal.html"><code>Journal</code></a></b></td>
+  <td>All commands to the system get routed through here.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.persisted.journal.base.LoadingService.html"><code>LoadingService</code></a></b></td>
+  <td>Base class for journalled service used with Wrappables.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.persisted.journal.base.MemoryJournal.html"><code>MemoryJournal</code></a></b></td>
+  <td>Prevayler-like journal that dumps from memory to disk.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.persisted.journal.base.ServiceWrapperCommand.html"><code>ServiceWrapperCommand</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.persisted.journal.base.Wrappable.html"><code>Wrappable</code></a></b></td>
+  <td>Base class for objects used with LoadingService.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.persisted.journal.base.WrapperCommand.html"><code>WrapperCommand</code></a></b></td>
+  <td>&nbsp;</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.journal.base.html#command" class="summary-sig-name"><code>command</code></a>(<span class=summary-sig-arg>methodName</span>,
+          <span class=summary-sig-arg>cmdClass</span>)</span></code>
+<br />
+Wrap a method so it gets turned into command automatically.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.journal.base.html#serviceCommand" class="summary-sig-name"><code>serviceCommand</code></a>(<span class=summary-sig-arg>methodName</span>,
+          <span class=summary-sig-arg>cmdClass</span>)</span></code>
+<br />
+Wrap methods into commands for a journalled service.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="command"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">command</span>(<span class=sig-arg>methodName</span>,
+          <span class=sig-arg>cmdClass</span>=<span class=sig-default>&lt;class&nbsp;twisted.persisted.journal.base.WrapperCommand&nbsp;at&nbsp;0...</span>)</span>
+  </h3>
+  <p>Wrap a method so it gets turned into command automatically.</p>
+  <p>For use with Wrappables.</p>
+  Usage:
+<pre class="literalblock">
+   | class Foo(Wrappable):
+   |     objectType = &quot;foo&quot;
+   |     def getUid(self):
+   |         return self.id
+   |     def _bar(self, x):
+   |         return x + 1
+   |
+   |     bar = command('_bar')
+</pre>
+  The resulting callable will have signature identical to wrapped 
+  function, except that it expects journal as first argument, and returns 
+  a Deferred.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="serviceCommand"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">serviceCommand</span>(<span class=sig-arg>methodName</span>,
+          <span class=sig-arg>cmdClass</span>=<span class=sig-default>&lt;class&nbsp;twisted.persisted.journal.base.ServiceWrapperComma...</span>)</span>
+  </h3>
+  <p>Wrap methods into commands for a journalled service.</p>
+  The resulting callable will have signature identical to wrapped 
+  function, except that it expects journal as first argument, and returns 
+  a Deferred.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:06 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

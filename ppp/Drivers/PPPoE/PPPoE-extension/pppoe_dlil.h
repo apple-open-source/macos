@@ -28,9 +28,9 @@
 
 int pppoe_dlil_init();
 int pppoe_dlil_dispose();
-int pppoe_dlil_attach(u_short unit, u_long *dl_tag);
-int pppoe_dlil_detach(u_long dl_tag);
-int pppoe_dlil_output(u_long dl_tag, struct mbuf *m, u_int8_t *to, u_int16_t typ);
+int pppoe_dlil_attach(u_short unit, ifnet_t *ifpp);
+int pppoe_dlil_detach(ifnet_t ifp);
+int pppoe_dlil_output(ifnet_t ifp, mbuf_t m, u_int8_t *to, u_int16_t typ);
 
 
 #endif

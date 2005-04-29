@@ -1,6 +1,6 @@
 /* TreeMap.java -- a class providing a basic Red-Black Tree data structure,
    mapping Object --> Object
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,10 +39,10 @@ exception statement from your version. */
 
 package java.util;
 
-import java.io.Serializable;
-import java.io.ObjectOutputStream;
-import java.io.ObjectInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 
 /**
  * This class provides a red-black tree implementation of the SortedMap
@@ -130,7 +130,7 @@ public class TreeMap extends AbstractMap
   /**
    * The root node of this TreeMap.
    */
-  private transient Node root = nil;
+  private transient Node root;
 
   /**
    * The size of this TreeMap. Package visible for use by nested classes.
@@ -213,6 +213,7 @@ public class TreeMap extends AbstractMap
   public TreeMap(Comparator c)
   {
     comparator = c;
+    fabricateTree(0);
   }
 
   /**
@@ -533,7 +534,7 @@ public class TreeMap extends AbstractMap
    * key's mapping.
    *
    * @param key the key used to locate the value
-   * @param value the value to be stored in the HashMap
+   * @param value the value to be stored in the Map
    * @return the prior mapping of the key, or null if there was none
    * @throws ClassCastException if key is not comparable to current map keys
    * @throws NullPointerException if key is null, but the comparator does
@@ -584,11 +585,11 @@ public class TreeMap extends AbstractMap
   }
 
   /**
-   * Copies all elements of the given map into this hashtable.  If this table
+   * Copies all elements of the given map into this TreeMap.  If this map
    * already has a mapping for a key, the new mapping replaces the current
    * one.
    *
-   * @param m the map to be hashed into this
+   * @param m the map to be added
    * @throws ClassCastException if a key in m is not comparable with keys
    *         in the map
    * @throws NullPointerException if a key in m is null, and the comparator
@@ -851,7 +852,11 @@ public class TreeMap extends AbstractMap
   private void fabricateTree(final int count)
   {
     if (count == 0)
-      return;
+      {
+	root = nil;
+	size = 0;
+	return;
+      }
 
     // We color every row of nodes black, except for the overflow nodes.
     // I believe that this is the optimal arrangement. We construct the tree
@@ -1374,7 +1379,7 @@ public class TreeMap extends AbstractMap
   }
 
   /**
-   * Iterate over HashMap's entries. This implementation is parameterized
+   * Iterate over TreeMap's entries. This implementation is parameterized
    * to give a sequential view of keys, values, or entries.
    *
    * @author Eric Blake <ebb9@email.byu.edu>
@@ -1531,7 +1536,7 @@ public class TreeMap extends AbstractMap
      * @param key the key to check
      * @return true if the key is in range
      */
-    final boolean keyInRange(Object key)
+    boolean keyInRange(Object key)
     {
       return ((minKey == nil || compare(key, minKey) >= 0)
               && (maxKey == nil || compare(key, maxKey) < 0));

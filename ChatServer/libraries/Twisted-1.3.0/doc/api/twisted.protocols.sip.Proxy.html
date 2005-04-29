@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.sip.Proxy</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.protocols.html">Package&nbsp;protocols</a> ::
+        <a href="twisted.protocols.sip.html">Module&nbsp;sip</a> ::
+        Class&nbsp;Proxy
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.protocols.sip.Proxy.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class Proxy</h2>
+
+<pre class="base-tree">
+<a href="twisted.internet.protocol.AbstractDatagramProtocol.html"><code>AbstractDatagramProtocol</code></a> --+        
+                           |        
+            <a href="twisted.internet.protocol.DatagramProtocol.html"><code>DatagramProtocol</code></a> --+    
+                               |    
+                            <a href="twisted.protocols.sip.Base.html"><code>Base</code></a> --+
+                                   |
+                                  <b>Proxy</b>
+</pre><br />
+
+<dl><dt><b>Known Subclasses:</b></dt>
+<dd>
+    <a href="twisted.protocols.sip.RegisterProxy.html"><code>RegisterProxy</code></a></dd></dl>
+
+<hr/>
+
+SIP proxy.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Proxy.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>host</span>,
+          <span class=summary-sig-arg>port</span>)</span></code>
+<br />
+Create new instance.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cantForwardRequest"></a><span class="summary-sig"><span class="summary-sig-name">_cantForwardRequest</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Proxy.html#deliverResponse" class="summary-sig-name"><code>deliverResponse</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>responseMessage</span>)</span></code>
+<br />
+Deliver response.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Proxy.html#getVia" class="summary-sig-name"><code>getVia</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Return value of Via header for this proxy.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Proxy.html#gotResponse" class="summary-sig-name"><code>gotResponse</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>addr</span>)</span></code>
+<br />
+Called with responses that are addressed at this server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Proxy.html#handle_request" class="summary-sig-name"><code>handle_request</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>addr</span>)</span></code>
+<br />
+Override to define behavior for requests received</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Proxy.html#handle_request_default" class="summary-sig-name"><code>handle_request_default</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>message</span>,
+          (<span class=summary-sig-arg>srcHost</span>,
+           <span class=summary-sig-arg>srcPort</span>))</span></code>
+<br />
+Default request handler.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Proxy.html#handle_response" class="summary-sig-name"><code>handle_response</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>addr</span>)</span></code>
+<br />
+Default response handler.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Proxy.html#responseFromRequest" class="summary-sig-name"><code>responseFromRequest</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>code</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Create a response to a request message.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Base</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Base.html#_fixupNAT" class="summary-sig-name"><code>_fixupNAT</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>message</span>,
+          (<span class=summary-sig-arg>srcHost</span>,
+           <span class=summary-sig-arg>srcPort</span>))</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Base.html#addMessage" class="summary-sig-name"><code>addMessage</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Base.html#datagramReceived" class="summary-sig-name"><code>datagramReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>addr</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.Base.html#sendMessage" class="summary-sig-name"><code>sendMessage</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>destURL</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+<br />
+Send a message.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from DatagramProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.DatagramProtocol.html#connectionRefused" class="summary-sig-name"><code>connectionRefused</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called due to error from write in connected mode.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from AbstractDatagramProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.AbstractDatagramProtocol.html#__getstate__" class="summary-sig-name"><code>__getstate__</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.AbstractDatagramProtocol.html#doStart" class="summary-sig-name"><code>doStart</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Make sure startProtocol is called.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.AbstractDatagramProtocol.html#doStop" class="summary-sig-name"><code>doStop</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Make sure stopProtocol is called.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.AbstractDatagramProtocol.html#makeConnection" class="summary-sig-name"><code>makeConnection</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>transport</span>)</span></code>
+<br />
+Make a connection to a transport and a server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.AbstractDatagramProtocol.html#startProtocol" class="summary-sig-name"><code>startProtocol</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when a transport is connected to this protocol.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.AbstractDatagramProtocol.html#stopProtocol" class="summary-sig-name"><code>stopProtocol</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when the transport is disconnected.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.sip.Proxy.html#locator"><code>locator</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.sip.Proxy.html#PORT"><code>PORT</code></a></b> = <span title="5060">5060&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Base</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.sip.Base.html#debug"><code>debug</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from AbstractDatagramProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.protocol.AbstractDatagramProtocol.html#noisy"><code>noisy</code></a></b> = <span title="1">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.protocol.AbstractDatagramProtocol.html#numPorts"><code>numPorts</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.protocol.AbstractDatagramProtocol.html#transport"><code>transport</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="__init__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__init__</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>host</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>port</span>=<span class=sig-default>5060</span>)</span>
+    <br /><i>(Constructor)</i>
+  </h3>
+  Create new instance.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>host</b></code> -
+         our hostname/IP as set in Via headers.
+      <dd><code><b>port</b></code> -
+         our port as set in Via headers.
+      </dd>
+    </dl>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.sip.Base.html#__init__"><code>twisted.protocols.sip.Base.__init__</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="deliverResponse"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">deliverResponse</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>responseMessage</span>)</span>
+  </h3>
+  <p>Deliver response.</p>
+  Destination is based on topmost Via header.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.sip.Base.html#deliverResponse"><code>twisted.protocols.sip.Base.deliverResponse</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getVia"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getVia</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Return value of Via header for this proxy.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="gotResponse"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">gotResponse</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>message</span>,
+          <span class=sig-arg>addr</span>)</span>
+  </h3>
+  Called with responses that are addressed at this server.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="handle_request"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">handle_request</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>message</span>,
+          <span class=sig-arg>addr</span>)</span>
+  </h3>
+  Override to define behavior for requests received
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>message</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Message</code>)</i>
+      <dd><code><b>addr</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>tuple</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.sip.Base.html#handle_request"><code>twisted.protocols.sip.Base.handle_request</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="handle_request_default"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">handle_request_default</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>message</span>,
+          (<span class=sig-arg>srcHost</span>,
+           <span class=sig-arg>srcPort</span>))</span>
+  </h3>
+  <p>Default request handler.</p>
+  <p>Default behaviour for OPTIONS and unknown methods for proxies is to 
+  forward message on to the client.</p>
+  Since at the moment we are stateless proxy, thats basically 
+  everything.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="handle_response"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">handle_response</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>message</span>,
+          <span class=sig-arg>addr</span>)</span>
+  </h3>
+  Default response handler.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.sip.Base.html#handle_response"><code>twisted.protocols.sip.Base.handle_response</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="responseFromRequest"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">responseFromRequest</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>code</span>,
+          <span class=sig-arg>request</span>)</span>
+  </h3>
+  Create a response to a request message.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.sip.Base.html#responseFromRequest"><code>twisted.protocols.sip.Base.responseFromRequest</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="locator"></a>
+<h3>locator</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="PORT"></a>
+<h3>PORT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="5060">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+5060&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:35 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

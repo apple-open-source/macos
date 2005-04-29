@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/config/cf/sco5.cf,v 3.12 2003/02/17 18:57:46 dawes Exp $
+XCOMM $XFree86: xc/config/cf/sco5.cf,v 3.16 2004/01/07 04:30:27 dawes Exp $
 
 /*
  * This is for SCO Open Server 5.0.6A or later. You must have the
@@ -53,12 +53,24 @@ XCOMM $XFree86: xc/config/cf/sco5.cf,v 3.12 2003/02/17 18:57:46 dawes Exp $
 #endif
 #endif
 
+/*
+ * Although OpenServer does not currently have threads, there are plans
+ * for it in the near future, and libc/libsocket are already thread
+ * safe, so use -D_REENTRANT when compiling libraries so that if an
+ * app that has either the new forthcoming threads, or one that uses
+ * GNU PTH or FSU pthreads is linked against X, that the libraries are
+ * safe at least with regards to things like errno and various _r functions.
+ */
+#ifndef LibraryCCOptions
+# define LibraryCCOptions	-D_REENTRANT
+#endif
+	
 #define StandardDefines		-Dsco -DSCO -DSCO5 -DSYSV -Di386 -DSCO325 -DFD_SETSIZE=256 -D_NO_STATIC -DMAXPATHLEN=1024
 #ifdef HasGcc2
 # define DefaultCCOptions       GccWarningOptions
 # define CcCmd			gcc
-# define DefaultCDebugFlags	-O2
-# define OptimizedCDebugFlags	-O2
+# define DefaultCDebugFlags	-O6 -fomit-frame-pointer -march=i586 -mcpu=i686
+# define OptimizedCDebugFlags	-O6 -fomit-frame-pointer -march=i586 -mcpu=i686
 #else
 # define DefaultCCOptions	-dy
 # define CcCmd			cc -belf
@@ -83,6 +95,10 @@ XCOMM $XFree86: xc/config/cf/sco5.cf,v 3.12 2003/02/17 18:57:46 dawes Exp $
 # define HasSymLinks            YES
 #endif
 
+#ifndef DoLoadableServer
+# define DoLoadableServer	YES
+#endif
+
 #ifdef BuildDynamicLoading
 # define SCODynamicFlags        -Wl,-Bexport
 #else
@@ -90,7 +106,7 @@ XCOMM $XFree86: xc/config/cf/sco5.cf,v 3.12 2003/02/17 18:57:46 dawes Exp $
 #endif
 
 #define AsmDefines		-D__ELF__ -D__PIC__
-#define XawI18nDefines          -DHAS_WCHAR_H -DHAS_ISW_FUNCS
+#define XawI18nDefines          -DHAS_WCHAR_H -DHAS_WCTYPE_H -DHAS_ISW_FUNCS
 #define ServerExtraSysLibs      $(CBRT) -lm -levent SCODynamicFlags
 #define ExtraLibraries          -lsocket
 #define NeedWidePrototypes      NO
@@ -103,6 +119,7 @@ XCOMM $XFree86: xc/config/cf/sco5.cf,v 3.12 2003/02/17 18:57:46 dawes Exp $
 #define HasPutenv               YES
 #define HasSnprintf             YES
 #define HasSetenv		NO
+#define HasMkstemp		YES
 #define ExecableScripts         YES
 #define HasShadowPasswd         YES
 #define ManSourcePath           $(MANPATH)/man
@@ -123,6 +140,7 @@ XCOMM $XFree86: xc/config/cf/sco5.cf,v 3.12 2003/02/17 18:57:46 dawes Exp $
 #define HasExpat		YES
 #define HasFreetype2		YES
 #define HasLibpng		YES
+#define HasPerl			YES
 #define HasPerl5		YES
 #define HasDlopen		YES
 #define HasShm			YES
@@ -134,19 +152,40 @@ XCOMM $XFree86: xc/config/cf/sco5.cf,v 3.12 2003/02/17 18:57:46 dawes Exp $
 #define SystemV                 YES
 #define LdCombineFlags          -r 
 
+#define AvoidNullMakeCommand	YES
 #define HasLdRunPath            YES
 #define HasPoll                 YES
 #define PatheticCpp		YES
 
+#define HasGnuMake		YES
+
+#define MesaUseX86Asm		NO
+
+#define MakeNamedTargetSubdir(dir,flags,subname)\
+	$(MAKE) -C dir $(MFLAGS) $(PARALLELMFLAGS) flags subname
+
 #define ArCmdBase               ar
 #define AsCmd                   CcCmd
 #define CppCmd			/lib/cpp
+#define PreProcessCmd		CppCmd
 #define RawCppCmd		CppCmd
-#define LdCmd                   ld
-#define LexCmd                  flex
-#define MakeCmd	                make
-#define YaccCmd                 yacc
+
+#ifdef HasGcc2
+# define LdCmd                   CcCmd
+# ifndef SharedLibraryLoadFlags
+#  define SharedLibraryLoadFlags -shared
+# endif
+# undef LdCombineFlags
+# define LdCombineFlags		-nostdlib -r
+#else
+# define LdCmd			/usr/ccs/bin/elf/ld
+#endif
+
+#define LexCmd                  /usr/gnu/bin/flex
+#define MakeCmd	                /usr/gnu/bin/gmake
+#define YaccCmd                 /usr/gnu/bin/bison -y
 #define InstallCmd		/usr/gnu/bin/ginstall
+
 
 #ifndef UseSeparateConfDir
 #define UseSeparateConfDir	NO
@@ -161,7 +200,62 @@ XCOMM $XFree86: xc/config/cf/sco5.cf,v 3.12 2003/02/17 18:57:46 dawes Exp $
 
 #define ConnectionFlags         -DLOCALCONN -DTCPCONN -DUNIXCONN 
 
-#define SharedGLUReqs           $(LDPRELIB) $(XLIB) $(GLXLIB)
+/*
+ * These settings control the interdependence of the shared libraries.
+ * Mostly borrowed from darwinLib.tmpl.
+ */
+#ifndef FixupLibReferences
+#define FixupLibReferences()						@@\
+XMULIBONLY = -lXmu							@@\
+XMULIB = $(XMULIBONLY) $(XTOOLLIB) $(XLIB)
+#endif
+
+#ifndef XawClientLibs
+#define XawClientLibs $(XAWLIB) $(XMULIBONLY) $(XTOOLLIB) $(XPMLIB) $(XLIB)
+#endif
+
+#define SharedXlibi18nReqs $(LDPRELIB) $(XLIBONLY)
+
+#define SharedXfontReqs     $(LDPRELIB) $(FONTSTUBLIB) GzipLibrary $(FREETYPE2LIB) $(XLIB)
+#define SharedFontencReqs   $(LDPRELIB) GzipLibrary
+#define SharedGLReqs        $(LDPRELIB) $(XLIB)
+#define SharedGLUReqs       $(LDPRELIB) $(XLIB) $(GLXLIB)
+#define SharedOSMesaReqs    $(LDPRELIB) $(XLIB) $(GLXLIB)
+#define SharedPexReqs       $(LDPRELIB) $(XONLYLIB) MathLibrary
+#define SharedSMReqs        $(LDPRELIB) $(ICELIB)
+#define SharedX11Reqs       $(LDPRELIB) -lsocket
+#define SharedXawReqs       $(LDPRELIB) $(XMULIB) $(XTOOLLIB) $(XPMLIB) $(XLIB)
+#define SharedXaw6Reqs      $(LDPRELIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
+#define SharedXcursorReqs   $(LDPRELIB) $(XRENDERLIB) $(XLIB)
+#define SharedXextReqs      $(LDPRELIB) $(XONLYLIB)
+#define SharedXiReqs        $(LDPRELIB) $(XLIB)
+#define SharedXieReqs       $(LDPRELIB) $(XONLYLIB)
+#define SharedXmuReqs       $(LDPRELIB) $(XTOOLLIB) $(XLIB)
+#define SharedXmuuReqs      $(LDPRELIB) $(XONLYLIB)
+#define SharedXpReqs        $(LDPRELIB) $(XLIB)
+#define SharedXpmReqs       $(LDPRELIB) $(XLIB)
+#define SharedXrandrReqs    $(LDPRELIB) $(XRENDERLIB) $(XLIB)
+#define SharedXrenderReqs   $(LDPRELIB) $(XLIB)
+#define SharedXtReqs        $(LDPRELIB) $(XONLYLIB) $(SMLIB) $(ICELIB)
+#define SharedXtstReqs      $(LDPRELIB) $(XLIB)
+#define SharedXvReqs        $(LDPRELIB) $(XLIB)
+#define SharedDPSReqs       $(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(XLIB)
+#define SharedDPSTKReqs     $(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(DPSLIB) $(XLIB)
+#define SharedOldXReqs      $(LDPRELIB) $(XONLYLIB)
+#define SharedpsresReqs     $(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(XLIB)
+#define SharedXResReqs	    $(LDPRELIB) $(XLIB)
+#define SharedXfontcacheReqs $(LDPRELIB) $(XLIB)
+#define SharedXineramaReqs  $(LDPRELIB) $(XLIB)
+#define SharedXssReqs	    $(LDPRELIB) $(XLIB)
+#define SharedXvMCReqs	    $(LDPRELIB) $(XLIB)
+#define SharedXxf86miscReqs $(LDPRELIB) $(XLIB)
+#define SharedXxf86vmReqs   $(LDPRELIB) $(XLIB)
+#define SharedxkbfileReqs   $(LDPRELIB) $(XONLYLIB)
+#define SharedxkbuiReqs	    $(LDPRELIB) $(XKBFILELIB) $(XONLYLIB)
+#define SharedXReqs         $(XTOOLLIB) $(XPLIB) $(XLIB)
+#define SharedXmReqs        $(LDPRELIB) SharedXReqs
+#define SharedMrmReqs       $(LDPRELIB) $(XMLIB) SharedXReqs
+#define SharedUilReqs       $(LDPRELIB) $(XMLIB) SharedXReqs
 
 #define ObjectFromAsmSource(src,flags)					@@\
 									@@\

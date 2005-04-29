@@ -1,23 +1,23 @@
 /* Stabs in sections linking support.
-   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Cygnus Support.
 
-This file is part of BFD, the Binary File Descriptor library.
+   This file is part of BFD, the Binary File Descriptor library.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This file contains support for linking stabs in sections, as used
    on COFF and ELF.  */
@@ -169,12 +169,13 @@ stab_link_includes_newfunc (entry, table, string)
    pass of the linker.  */
 
 bfd_boolean
-_bfd_link_section_stabs (abfd, psinfo, stabsec, stabstrsec, psecinfo)
+_bfd_link_section_stabs (abfd, psinfo, stabsec, stabstrsec, psecinfo, pstring_offset)
      bfd *abfd;
      PTR *psinfo;
      asection *stabsec;
      asection *stabstrsec;
      PTR *psecinfo;
+     bfd_size_type *pstring_offset;
 {
   bfd_boolean first;
   struct stab_info *sinfo;
@@ -276,7 +277,11 @@ _bfd_link_section_stabs (abfd, psinfo, stabsec, stabstrsec, psecinfo)
      and identify N_BINCL symbols which can be eliminated.  */
 
   stroff = 0;
-  next_stroff = 0;
+  /* The stabs sections can be split when
+     -split-by-reloc/-split-by-file is used.  We must keep track of
+     each stab section's place in the single concatenated string
+     table.  */
+  next_stroff = pstring_offset ? *pstring_offset : 0;
   skip = 0;
 
   symend = stabbuf + stabsec->_raw_size;
@@ -302,6 +307,8 @@ _bfd_link_section_stabs (abfd, psinfo, stabsec, stabstrsec, psecinfo)
 	     string table.  We only copy the very first one.  */
 	  stroff = next_stroff;
 	  next_stroff += bfd_get_32 (abfd, sym + 8);
+	  if (pstring_offset)
+	    *pstring_offset = next_stroff;
 	  if (! first)
 	    {
 	      *pstridx = (bfd_size_type) -1;
@@ -351,6 +358,8 @@ _bfd_link_section_stabs (abfd, psinfo, stabsec, stabstrsec, psecinfo)
 	      incl_type = incl_sym[TYPEOFF];
 	      if (incl_type == 0)
 		break;
+	      else if (incl_type == (int) N_EXCL)
+		continue;
 	      else if (incl_type == (int) N_EINCL)
 		{
 		  if (nest == 0)

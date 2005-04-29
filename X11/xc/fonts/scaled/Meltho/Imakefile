@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/fonts/scaled/Meltho/Imakefile,v 1.2 2003/01/10 13:29:34 eich Exp $
+XCOMM $XFree86: xc/fonts/scaled/Meltho/Imakefile,v 1.3 2003/12/31 19:30:36 dawes Exp $
 
 FONTS = SyrCOMAdiabene.otf SyrCOMAntioch.otf SyrCOMBatnan.otf \
       SyrCOMBatnanBold.otf SyrCOMCtesiphon.otf SyrCOMEdessa.otf \
@@ -12,6 +12,7 @@ OBJS = $(FONTS)
 
 FONTINSTDIR = $(FONTDIR)/OTF
 
+MakeFontsScale($(OBJS))
 MakeFontsDir(fonts.scale)
 
 #if UseFreetype2
@@ -19,7 +20,6 @@ MakeFcCache($(FONTS))
 #endif
 
 InstallFonts($(FONTINSTDIR))
-InstallFontScale($(FONTINSTDIR))
 InstallEncodingsDir($(ENCODINGSSRC),$(FONTINSTDIR))
 #if UseFreetype2
 InstallFcCache($(FONTINSTDIR))

@@ -4,7 +4,7 @@ after_install::
 	$(LN) -f $(INSTALLED_PRODUCTS) $(DSTROOT)$(INSTALLDIR)/atq
 	$(LN) -f $(INSTALLED_PRODUCTS) $(DSTROOT)$(INSTALLDIR)/atrm
 	$(LN) -f $(INSTALLED_PRODUCTS) $(DSTROOT)$(INSTALLDIR)/batch
-	mkdir -p "$(DSTROOT)/private/var/at/spool"
+	install -o daemon -d "$(DSTROOT)/private/var/at/spool"
 	touch "$(DSTROOT)/private/var/at/at.deny"
 	mkdir -p "$(DSTROOT)/usr/share/man/man1"
 	install -c -m 644 at.1 "$(DSTROOT)/usr/share/man/man1/at.1"

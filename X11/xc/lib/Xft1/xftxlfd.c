@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/lib/Xft1/xftxlfd.c,v 1.1.1.1 2002/02/15 01:26:16 keithp Exp $
+ * $XFree86: xc/lib/Xft1/xftxlfd.c,v 1.2 2003/05/27 22:26:41 tsi Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
@@ -56,7 +56,6 @@ XftXlfdParse (const char *xlfd_orig, Bool ignore_scalable, Bool complete)
     const char	*weight_name;
     const char	*slant;
     const char	*registry;
-    const char	*encoding;
     char	*save;
     char	style[128];
     int		pixel;
@@ -82,7 +81,7 @@ XftXlfdParse (const char *xlfd_orig, Bool ignore_scalable, Bool complete)
     if (!(xlfd = strchr (/* average_width = */ ++xlfd, '-'))) return 0;
     if (!(xlfd = strchr (registry = ++xlfd, '-'))) return 0;
     /* make sure no fields follow this one */
-    if ((xlfd = strchr (encoding = ++xlfd, '-'))) return 0;
+    if ((xlfd = strchr (/* encoding = */ ++xlfd, '-'))) return 0;
 
     if (ignore_scalable && !pixel)
 	return 0;

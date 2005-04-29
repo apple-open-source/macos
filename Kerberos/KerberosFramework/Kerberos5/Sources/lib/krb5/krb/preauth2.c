@@ -30,6 +30,8 @@
  */
 
 #include "k5-int.h"
+#include "pkinit_client.h"
+#include "pkinit_cert_store.h"
 
 typedef krb5_error_code (*pa_function)(krb5_context,
 				       krb5_kdc_req *request,
@@ -41,7 +43,8 @@ typedef krb5_error_code (*pa_function)(krb5_context,
 				       krb5_prompter_fct prompter_fct,
 				       void *prompter_data,
 				       krb5_gic_get_as_key_fct gak_fct,
-				       void *gak_data);
+				       void *gak_data,
+				       krb5_boolean *terminate);    // no more PA possible
 				 
 typedef struct _pa_types_t {
     krb5_preauthtype type;
@@ -61,7 +64,8 @@ krb5_error_code pa_salt(krb5_context context,
 			krb5_enctype *etype,
 			krb5_keyblock *as_key,
 			krb5_prompter_fct prompter, void *prompter_data,
-			krb5_gic_get_as_key_fct gak_fct, void *gak_data)
+			krb5_gic_get_as_key_fct gak_fct, void *gak_data,
+			krb5_boolean *terminate)
 {
     krb5_data tmp;
 
@@ -89,7 +93,8 @@ krb5_error_code pa_enc_timestamp(krb5_context context,
 				 krb5_prompter_fct prompter,
 				 void *prompter_data,
 				 krb5_gic_get_as_key_fct gak_fct,
-				 void *gak_data)
+				 void *gak_data, 
+				 krb5_boolean *terminate)
 {
     krb5_error_code ret;
     krb5_pa_enc_ts pa_enc;
@@ -229,7 +234,8 @@ krb5_error_code pa_sam(krb5_context context,
 		       krb5_prompter_fct prompter,
 		       void *prompter_data,
 		       krb5_gic_get_as_key_fct gak_fct,
-		       void *gak_data)
+		       void *gak_data, 
+		       krb5_boolean *terminate)
 {
     krb5_error_code		ret;
     krb5_data			tmpsam;
@@ -457,6 +463,219 @@ krb5_error_code pa_sam(krb5_context context,
     return(0);
 }
 
+/* 
+ * PKINIT. One function to generate AS-REQ, one to parse AS-REP
+ */
+#define  PKINIT_DEBUG    0
+#if     PKINIT_DEBUG
+#define kdcPkinitDebug(args...)       printf(args)
+#else
+#define kdcPkinitDebug(args...)
+#endif
+
+static krb5_error_code pa_pkinit_gen_req(
+    krb5_context context,
+    krb5_kdc_req *request,
+    krb5_pa_data *in_padata,
+    krb5_pa_data **out_padata,
+    krb5_data *salt, 
+    krb5_data *s2kparams,
+    krb5_enctype *etype,
+    krb5_keyblock *as_key,
+    krb5_prompter_fct prompter, 
+    void *prompter_data,
+    krb5_gic_get_as_key_fct gak_fct, 
+    void *gak_data,
+    krb5_boolean *terminate)
+{
+    krb5_error_code	    krtn;
+    krb5_data		    out_data = {0, 0, NULL};
+    krb5_timestamp	    ctime = 0;
+    krb5_ui_4		    cusec = 0;
+    krb5_ui_4		    nonce = 0;
+    krb5_checksum	    cksum;
+    pkinit_signing_cert_t   client_cert;
+    krb5_data		    *der_req = NULL;
+    char		    *princ_name = NULL;
+    
+    kdcPkinitDebug("pa_pkinit_gen_req\n");
+
+    /* If we don't have a client cert, we're done */
+    if(request->client == NULL) {
+	kdcPkinitDebug("No request->client; aborting PKINIT\n");
+	return KRB5KDC_ERR_PREAUTH_FAILED;
+    }
+    krtn = krb5_unparse_name(context, request->client, &princ_name);
+    if(krtn) {
+	return krtn;
+    }
+    krtn = pkinit_get_client_cert(princ_name, &client_cert);
+    free(princ_name);
+    if(krtn) {
+	kdcPkinitDebug("No client cert; aborting PKINIT\n");
+	return krtn;
+    }
+    
+    /* checksum of the encoded KDC-REQ-BODY */
+    krtn = encode_krb5_kdc_req_body(request, &der_req);
+    if(krtn) {
+	kdcPkinitDebug("encode_krb5_kdc_req_body returned %d\n", (int)krtn);
+	goto cleanup;
+    }
+    krtn = krb5_c_make_checksum(context, CKSUMTYPE_NIST_SHA, NULL, 0, der_req, &cksum);
+    if(krtn) {
+	goto cleanup;
+    }
+
+    krtn = krb5_us_timeofday(context, &ctime, &cusec);
+    if(krtn) {
+	goto cleanup;
+    }
+    /* FIXME - how to store this nonce for later comparison? */
+    pkinit_rand(&nonce, sizeof(nonce));
+
+    krtn = pkinit_as_req_create(ctime, cusec, nonce, &cksum,
+	client_cert, NULL, &out_data);
+    if(krtn) {
+	kdcPkinitDebug("error %d on pkinit_as_req_create; aborting PKINIT\n", (int)krtn);
+	goto cleanup;
+    }
+    *out_padata = (krb5_pa_data *)malloc(sizeof(krb5_pa_data));
+    if(*out_padata == NULL) {
+	krtn = ENOMEM;
+	free(out_data.data);
+	goto cleanup;
+    }
+    (*out_padata)->magic = KV5M_PA_DATA;
+    (*out_padata)->pa_type = KRB5_PADATA_PK_AS_REQ;
+    (*out_padata)->length = out_data.length;
+    (*out_padata)->contents = out_data.data;
+    krtn = 0;
+cleanup:
+    if(client_cert) {
+	pkinit_release_cert(client_cert);
+    }
+    if(cksum.contents) {
+	free(cksum.contents);
+    }
+    if (der_req) {
+	krb5_free_data(context, der_req);
+    }
+    return krtn;
+
+}
+
+static krb5_error_code pa_pkinit_parse_rep(
+    krb5_context context,
+    krb5_kdc_req *request,
+    krb5_pa_data *in_padata,
+    krb5_pa_data **out_padata,
+    krb5_data *salt, 
+    krb5_data *s2kparams,
+    krb5_enctype *etype,
+    krb5_keyblock *as_key,
+    krb5_prompter_fct prompter, 
+    void *prompter_data,
+    krb5_gic_get_as_key_fct gak_fct, 
+    void *gak_data,
+    krb5_boolean *terminate)
+{
+    krb5_boolean	is_signed;
+    krb5_boolean	is_encrypted;
+    krb5_ui_4		nonce;	
+    pki_cert_sig_status sig_status = (pki_cert_sig_status)-999;
+    krb5_error_code     krtn;
+    krb5_data		asRep;
+    krb5_keyblock       local_key;
+    pkinit_signing_cert_t   client_cert;
+    char		*princ_name = NULL;
+    
+    
+    /*
+     * One way or the other - success or failure - no other PA systems can
+     * work if the server sent us a PKINIT reply, since only we know how to 
+     * decrypt the key.
+     */
+    *terminate = TRUE;
+    *out_padata = NULL;
+    kdcPkinitDebug("pa_pkinit_parse_rep\n");
+    if((in_padata == NULL) || (in_padata->length== 0)) {
+	kdcPkinitDebug("pa_pkinit_parse_rep: no in_padata\n");
+	return KRB5KDC_ERR_PREAUTH_FAILED;
+    }
+
+    kdcPkinitDebug("pa_pkinit_gen_req\n");
+
+    /* If we don't have a client cert, we're done */
+    if(request->client == NULL) {
+	kdcPkinitDebug("No request->client; aborting PKINIT\n");
+	return KRB5KDC_ERR_PREAUTH_FAILED;
+    }
+    krtn = krb5_unparse_name(context, request->client, &princ_name);
+    if(krtn) {
+	return krtn;
+    }
+    krtn = pkinit_get_client_cert(princ_name, &client_cert);
+    free(princ_name);
+    if(krtn) {
+	kdcPkinitDebug("No client cert; aborting PKINIT\n");
+	return krtn;
+    }
+    
+    memset(&local_key, 0, sizeof(local_key));
+    asRep.data = in_padata->contents;
+    asRep.length = in_padata->length;
+    krtn = pkinit_as_rep_parse(&asRep, client_cert, &local_key, &nonce, &sig_status,
+	&is_signed, &is_encrypted,
+	/* don't care about returned certs - do we? */
+	NULL, NULL, NULL);
+    if(krtn) {
+	kdcPkinitDebug("pkinit_as_rep_parse returned %d\n", (int)krtn);
+	return krtn;
+    }
+    if(!is_encrypted || !is_signed) {
+	kdcPkinitDebug("pa_pkinit_parse_rep: not signed and encrypted!\n");
+	krtn = KRB5KDC_ERR_PREAUTH_FAILED;
+	goto error_out;
+    }
+    switch(sig_status) {
+	case pki_cs_good:
+	    break;
+	case pki_cs_unknown_root:   /* for now allow unknown roots */
+	    kdcPkinitDebug("pa_pkinit_parse_rep: allowing unknown root\n");
+	    break;
+	default:
+	    kdcPkinitDebug("pa_pkinit_parse_rep: bad cert/sig status %d\n", 
+		(int)sig_status);
+	    krtn = KRB5KDC_ERR_PREAUTH_FAILED;
+	    goto error_out;
+    }
+    
+    /* WE have the key; transfer to caller */
+    if (as_key->length) {
+	krb5_free_keyblock_contents(context, as_key);
+    }
+    *as_key = local_key;
+    
+    #if PKINIT_DEBUG
+    fprintf(stderr, "pa_pkinit_parse_rep: SUCCESS\n");
+    fprintf(stderr, "nonce 0x%x enctype %d keylen %d keydata %02x %02x %02x %02x...\n",
+	(int)nonce, (int)as_key->enctype, (int)as_key->length,
+	as_key->contents[0], as_key->contents[1], 
+	as_key->contents[2], as_key->contents[3]);
+    #endif
+
+    /* FIXME - how do we verify the nonce? That's the only job left here. */
+
+    return 0;
+    
+error_out:
+    if (local_key.length) {
+	krb5_free_keyblock_contents(context, &local_key);
+    }
+    return krtn;
+}
+
 static
 krb5_error_code pa_sam_2(krb5_context context,
 				krb5_kdc_req *request,
@@ -469,7 +688,8 @@ krb5_error_code pa_sam_2(krb5_context context,
 				krb5_prompter_fct prompter,
 				void *prompter_data,
 				krb5_gic_get_as_key_fct gak_fct,
-				void *gak_data) {
+				void *gak_data,
+				krb5_boolean *terminate) {
 
    krb5_error_code retval;
    krb5_sam_challenge_2 *sc2 = NULL;
@@ -786,6 +1006,7 @@ krb5_error_code pa_sam_2(krb5_context context,
    return(0);
 }
 
+/* FIXME - order significant? */
 static const pa_types_t pa_types[] = {
     {
 	KRB5_PADATA_PW_SALT,
@@ -796,6 +1017,16 @@ static const pa_types_t pa_types[] = {
 	KRB5_PADATA_AFS3_SALT,
 	pa_salt,
 	PA_INFO,
+    },
+    {
+	KRB5_PADATA_PK_AS_REQ,
+	pa_pkinit_gen_req,
+	PA_INFO,
+    },
+    {
+	KRB5_PADATA_PK_AS_REP,
+	pa_pkinit_parse_rep,
+	PA_REAL,
     },
     {
 	KRB5_PADATA_ENC_TIMESTAMP,
@@ -969,14 +1200,23 @@ krb5_do_preauth(krb5_context context,
 	    for (j=0; pa_types[j].type >= 0; j++) {
 		if ((in_padata[i]->pa_type == pa_types[j].type) &&
 		    (pa_types[j].flags & paorder[h])) {
+		    krb5_boolean terminate = FALSE;
 		    out_pa = NULL;
 
-		    if ((ret = ((*pa_types[j].fct)(context, request,
+		    ret = (*pa_types[j].fct)(context, request,
 						   in_padata[i], &out_pa,
 						   salt, s2kparams, etype, as_key,
 						   prompter, prompter_data,
-						   gak_fct, gak_data)))) {
-		      goto cleanup;
+						   gak_fct, gak_data, &terminate);
+		    if(ret) {
+			if(terminate) {
+			    /* failure, and no other PA possible - we're done */
+			    goto cleanup;
+			}
+			else {
+			    /* try another */
+			    continue;
+			}
 		    }
 
 		    if (out_pa) {
@@ -1004,12 +1244,16 @@ krb5_do_preauth(krb5_context context,
 			
 			out_pa_list[out_pa_list_size++] = out_pa;
 		    }
-		    if (paorder[h] == PA_REAL)
+		    if (paorder[h] == PA_REAL) {
 			realdone = 1;
-		}
-	    }
-	}
-    }
+			if(terminate) {
+			    break;
+			}
+		    }
+		}   /* match of incoming pa_type with known */
+	    }   /* for known pa_types */
+	}   /* for each incoming pa_type */
+    }	 /* INFO, then REAL */
 
     if (out_pa_list)
 	out_pa_list[out_pa_list_size++] = NULL;

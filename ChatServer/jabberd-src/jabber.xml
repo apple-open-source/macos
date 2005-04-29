@@ -1,0 +1,860 @@
+<jabber>
+
+  <!--
+  This is the Jabber server configuration file. The file is
+  broken into different sections based on the services being 
+  managed by jabberd, the server daemon. Most of the important 
+  sections have comments and are easy to modify.
+
+  At http://jabberd.jabberstudio.org/1.4/ you find further
+  instructions including an annotated version of this con-
+  figuration file and an installation guide.
+  
+  Note that when you see a tag like "jabberd:cmdline", it's
+  automatically replaced on startup with the command line flag
+  passed in to jabberd. This enables you to override para-
+  meters set in this configuration file if necessary or de-
+  sired. Also note as you comment things in and out that
+  jabberd does not like comments within comments, so be care-
+  ful with your XML. :)
+
+  Portions (c) Copyright 2005 Apple Computer, Inc.
+  -->
+
+
+  <!-- 
+  The following <service/> section is for the session manager, 
+  the most important component within the server. This section
+  contains the following types of information: 
+
+    * the server's hostname
+    * other basic server information
+    * the location of the session log file
+    * email addresses for server administrators 
+    * registration instructions for new users
+    * a welcome message for new users
+    * a list of agents with which users can register
+    * load rules for the modules within the session manager
+
+  -->
+
+  <service id="sessions">
+
+    <!-- 
+    Replace all occurrences of "localhost" in this file by
+    the hostname of your Jabber server. Be aware changing
+    the server's name is all but impossible once users start
+    to use the server. So choose a name that is permanent
+    (especially no Intranet hostnames or IP addresses).
+
+    Multiple <host/> entries are allowed - each one is for a 
+    separate virtual server. Note that each host entry must 
+    be on one line, the server doesn't like it otherwise! :)
+    Use lowercase for the hostname.
+    -->
+
+    <host>localhost</host>
+
+    <!-- 
+    This is the custom configuration section for the 
+    Jabber session manager, a.k.a. "JSM". 
+    -->
+
+    <jsm xmlns="jabber:config:jsm">
+
+      <!--
+      The <filter/> section below determines settings
+      for mod_filter, a server-side module built into
+      JSM that enables users to set delivery rules for
+      messages they receive (not yet supported by all
+      clients). The <allow/> subsection specifies which
+      conditions and actions to enable. High-level 
+      descriptions of each setting can be found below:
+
+      * <default/> - a user cannot delete this one, it's
+        the default rule for delivering messages
+      * <max_size/> - the maximum number of rules in a
+        user's rule set (we don't want to overdo it!)
+      * conditions...
+        * <ns/> - matches the query xmlns attrib on an iq packet
+        * <unavailable/> - matches when user is unavailable
+        * <from/> - matches the sender of the message
+        * <resource/> - matches the receiver's resource
+        * <subject/> - matches the subject of the message
+        * <body/> - matches the body of the message
+        * <show/> - matches the show tag on the receiver's presence
+        * <type/> - matches the type of the message
+        * <roster/> - matches if the sender is in your roster
+        * <group/> - matches if the sender is in the specified group
+      * actions...
+        * <error/> - replies with an error
+        * <offline/> - stores the messages offline
+        * <forward/> - forwards the message to another jid
+        * <reply/> - sends a reply to the sender of the message
+        * <continue/> - continues processing of the rules
+        * <settype/> - changes the type of the message
+      -->
+      <filter>
+          <default/>
+          <max_size>100</max_size>
+          <allow>
+              <conditions>
+                  <ns/>          <!-- Matches if the iq's xmlns is the same as the specified namespace -->
+                  <unavailable/> <!-- Flag that matches when the reciever is unavailable (offline) -->
+                  <from/>        <!-- Matches if the  sender's jid is the specified jid -->
+                  <resource/>    <!-- Matches if the sender's resource (anything after the / in a jid) is the specified resource -->
+                  <subject/>     <!-- Matches if the message's subject is the specified subject (no regex yet) -->
+                  <body/>        <!-- Matches if the message body is the specified body (no regex yet) --> 
+                  <show/>        <!-- Matches if the receiver's presence has a show tag that is the same as the specified text -->
+                  <type/>        <!-- Matches if the type of the message is the same as the specified text ("normal" is okay) -->
+                  <roster/>      <!-- Flag that matches when the sender is in the receiver's roster -->
+                  <group/>       <!-- Matches when the sender is in the specified group -->
+              </conditions>
+              <actions>
+                  <error/>       <!-- Sends back an error message to the sender, with the specified text -->
+                  <offline/>     <!-- Flag that stores the message offline -->
+                  <forward/>     <!-- forwards the message to the specified jid -->
+                  <reply/>       <!-- Sends back a reply to the sender with the specified text in the body -->
+                  <continue/>    <!-- Flag that continues rule matching, after a rule matches -->
+                  <settype/>     <!-- Changes the type of message to the specified type, before delivery to the receiver -->
+              </actions>
+          </allow>
+      </filter>
+
+      <mod_auth_crammd5digest>
+            <auto_detect_password_support/> <!-- Flag to enable auto detection of crammd5 password format -->
+      </mod_auth_crammd5digest>
+
+      <!-- The server vCard -->
+
+      <vCard>
+        <FN>iChat Server</FN>
+        <DESC>An XMPP Server</DESC>
+        <URL>http://localhost/</URL>
+      </vCard>
+
+      <!-- 
+      Registration instructions and required fields. The 
+      notify attribute will send the server administrator(s)
+      a message after each valid registration if the notify
+      attribute is present.
+      -->
+
+      <register notify="yes">
+        <instructions>Choose a username and password to register with this server.</instructions>
+        <name/>
+        <email/>
+      </register>
+
+      <!-- 
+      A welcome note that is sent to every new user who registers 
+      with your server. Comment it out to disable this function.
+      -->
+
+      <welcome>
+        <subject>Welcome!</subject>
+        <body>Welcome to the iChat service at localhost!</body>
+      </welcome>
+
+      <!-- 
+      IDs with admin access - these people will receive admin 
+      messages (any message to="yourhostname" is an admin
+      message).  These addresses must be local ids, they cannot
+      be remote addresses.
+
+      Note that they can also send announcements to all
+      users of the server, or to all online users. To use
+      the announcement feature, you need to send raw xml and be
+      logged in as one of the admin users. Here is the syntax 
+      for sending an announcement to online users:
+
+        <message to="yourhostname/announce/online">
+          <body>announcement here</body>
+        </message>
+
+        <message to="yourhostname/announce/motd">
+          <body>message (of the day) that is sent only once to all users that are logged in and additionally to new ones as they log in</body>
+        </message>
+
+      Sending to /announce/motd/delete will remove any existing
+      motd, and to /announce/motd/update will only update the motd
+      without re-announcing to all logged in users.
+
+      The <reply> will be the message that is automatically
+      sent in response to any admin messages.
+      -->
+
+      <!--
+      <admin>
+        <read>support@localhost</read>
+        <write>admin@localhost</write>
+        <reply>
+          <subject>Auto Reply</subject>
+          <body>This is a special administrative address.  Your message was received and forwarded to server administrators.</body>
+        </reply>
+      </admin>
+      -->
+
+      <!--
+      This enables the server to automatically update the 
+      user directory when a vcard is edited.  The update is
+      only sent to the first listed jud service below.  It is
+      safe to remove this flag if you do not want any users
+      automatically added to the directory.
+      -->
+
+      <vcard2jud/>
+
+      <!--
+      The <browse/> section identifies the transports and other
+      services that are available from this server. Note that each
+      entity identified here must exist elsewhere or be further 
+      defined in its own <service/> section below. These services 
+      will appear in the user interface of Jabber clients that
+      connect to your server.
+      The <browse/> section is also used by mod_disco (see below)
+      for building the disco#items reply.
+      -->
+
+      <browse>
+
+        <!-- 
+        This is the default agent for the master Jabber User 
+        Directory, a.k.a. "JUD", which is located at jabber.org.
+        You can add separate <service/> sections for additional
+        directories, e.g., one for a company intranet.
+
+        <service type="jud" jid="users.localhost" name="Jabber User Directory">
+          <ns>jabber:iq:search</ns>
+          <ns>jabber:iq:register</ns>
+        </service>
+        -->
+
+
+        <service jid="proxy65.localhost" name="SOCKS5 Bytestream Service"/>
+
+      
+        <item category="conference" type="public" jid="conference.localhost" name="Public Conferencing" version="0.6.0">
+        <ns>http://jabber.org/protocol/muc</ns>
+        </item>
+
+        <!--
+        The following services are examples only, you will need to
+        create/modify them to get them working on your Jabber 
+        server. See the README files for each service and/or the 
+        server howto for further information/instructions. 
+        -->
+
+        <!-- we're commenting these out, of course :)
+
+        <service type="aim" jid="aim.localhost" name="AIM Transport">
+          <ns>jabber:iq:gateway</ns>
+          <ns>jabber:iq:register</ns>
+        </service>
+
+        <service type="yahoo" jid="yahoo.localhost" name="Yahoo! Transport">
+          <ns>jabber:iq:gateway</ns>
+          <ns>jabber:iq:register</ns>
+        </service>
+
+        end of <service/> examples -->
+
+      </browse>
+
+      <!--
+      "Service Discovery" (disco, JEP-0030) supersedes
+      "Jabber Browsing" (JEP-0011).
+      The <disco/> section is used for building the disco#info reply.
+      -->
+      <disco>
+        <identity category='services' type='jabber' name='Jabber 1.4 Server'/>
+        <feature var='jabber:iq:browse'/>
+        <feature var='jabber:iq:agents'/>
+        <feature var='jabber:iq:register'/>
+        <feature var='jabber:iq:time'/>
+        <feature var='jabber:iq:last'/>
+        <feature var='jabber:iq:version'/>
+      </disco>
+
+      <!--
+      Select the hashing algorithm that mod_auth_crypt uses
+      for storing passwords
+      Possible values:
+      crypt ... traditional hashing as implemented in crypt()
+      SHA1  ... using SHA1 hashes
+      -->
+      <mod_auth_crypt>
+        <hash>SHA1</hash>
+      </mod_auth_crypt>
+
+      <!--
+      Configuration for mod_version. By defining <no_os_version/>
+      mod_version will not report the version of your OS.
+      -->
+      <!--
+      <mod_version>
+        <no_os_version/>
+      </mod_version>
+      -->
+
+      <archive>
+         <service></service>
+      </archive>
+      
+     <!--
+      to use syslog   <service>syslog</service>
+      to disable <service></service> 
+     -->
+
+      <logxml>
+         <syslog>disable</syslog>
+      </logxml>
+
+     <!--
+     to enable  <syslog>enable</syslog>
+     to disable <syslog>disable</syslog>
+     -->
+
+
+    </jsm>
+
+    <!--
+    The following section dynamically loads the individual
+    modules that make up the session manager. Remove or 
+    comment out modules to disable them. Note that the order
+    of modules is important, since packets are delivered 
+    based on the following order!!
+    -->
+
+    <load main="jsm">
+      <jsm>/usr/lib/jabber/jsm_apple.so</jsm>
+      <mod_echo>/usr/lib/jabber/jsm_apple.so</mod_echo>
+      <mod_roster>/usr/lib/jabber/jsm_apple.so</mod_roster>
+      <mod_time>/usr/lib/jabber/jsm_apple.so</mod_time>
+      <mod_vcard>/usr/lib/jabber/jsm_apple.so</mod_vcard>
+      <mod_last>/usr/lib/jabber/jsm_apple.so</mod_last>
+      <mod_version>/usr/lib/jabber/jsm_apple.so</mod_version>
+      <mod_announce>/usr/lib/jabber/jsm_apple.so</mod_announce>
+      <mod_agents>/usr/lib/jabber/jsm_apple.so</mod_agents>
+      <mod_browse>/usr/lib/jabber/jsm_apple.so</mod_browse>
+      <mod_disco>/usr/lib/jabber/jsm_apple.so</mod_disco>
+      <mod_admin>/usr/lib/jabber/jsm_apple.so</mod_admin>
+      <mod_filter>/usr/lib/jabber/jsm_apple.so</mod_filter>
+      <mod_offline>/usr/lib/jabber/jsm_apple.so</mod_offline>
+      <mod_presence>/usr/lib/jabber/jsm_apple.so</mod_presence>
+      <mod_log>/usr/lib/jabber/jsm_apple.so</mod_log>
+      <mod_register>/usr/lib/jabber/jsm_apple.so</mod_register>
+      <mod_xml>/usr/lib/jabber/jsm_apple.so</mod_xml>
+
+      <!--
+      Authentication
+      For standard setups mod_auth_digest is recommended. Additionally
+      enable mod_auth_plain if you need plaintext authentication.
+      For maximum security, force SSL connections and use mod_auth_crypt
+      exclusively. Be aware encrypted password storage can lead to
+      problems when migrating to other authentication mechanisms
+      (LDAP...).
+      Switching from plain/digest to crypt needs manual work for
+      existing accounts, the reverse is not possible.
+      http://jabberd.jabberstudio.org/1.4/doc/adminguide#security
+      -->
+      <!-- mod_auth_digest: Password is clear text in storage,
+           encrypted/hashed on the wire. Not supported by jsm_apple.so.
+           Replace with jsm.so for jabberd 1 digest support. 
+           <mod_auth_digest>/usr/lib/jabber/jsm_apple.so</mod_auth_digest> 
+      -->
+
+      <!-- mod_auth_plain: Password is encrypted/hashed in storage,
+           clear text on the wire. Disable this if you do not 
+           use clients that need plaintext auth 
+      -->
+      <mod_auth_plain>/usr/lib/jabber/jsm_apple.so</mod_auth_plain>
+
+      <!-- mod_auth_crypt: Password encrypted/hashed in storage,
+           clear text on the wire. Not supported by jsm_apple.so.
+           Disabled as this only makes sense when used exclusively 
+           and with SSL mandatory.
+           <mod_auth_crypt>/usr/lib/jabber/jsm_apple.so</mod_auth_crypt> 
+      -->
+
+      <!-- mod_auth_crammd5digest: Password is encrypted/hashed in storage, and
+           encrypted/hashed on the wire. The crammd5 auth method is unique
+           to the Apple jabberd server.
+      -->
+      <mod_auth_crammd5digest>/usr/lib/jabber/jsm_apple.so</mod_auth_crammd5digest>
+
+    </load>
+
+  </service>
+
+  <!-- OK, we've finished defining the Jabber Session Manager. -->
+
+  <!--
+  The <xdb/> component handles all data storage, using the filesystem.
+  Make sure the spool directory defined here exists and has proper
+  permissions.
+  -->
+
+  <xdb id="xdb">
+    <host/>
+    <load>
+      <xdb_file>/usr/lib/jabber/xdb_file.so</xdb_file>
+    </load>
+    <xdb_file xmlns="jabber:config:xdb_file">
+      <spool><jabberd:cmdline flag='s'>/var/jabber/spool</jabberd:cmdline></spool>
+    </xdb_file>
+  </xdb>
+
+  <!--
+  The following service manages incoming client socket connections.
+  There are several items you can set here to optimize performace:
+
+    * authtime - default is unlimited, but you can set this to
+      limit the amount of time allowed for authentication to be
+      completed, e.g., <authtime>10</authtime> for 10 seconds
+
+    * heartbeat - default is to not send out heartbeat packets
+      to the clients.  This option allows you to specify that
+      you want heartbeats to happen every x seconds.  This is
+      useful if you have a lot of dial-up or laptop users who
+      may drop their connection without logging off of jabber.
+      Otherwise the server won't notice that they are offline until
+      someone tries to send a packet to them (and the message is
+      lost).  Example: <heartbeat>60</heartbeat>
+
+    * karma - this is an input/output rate limiting system that
+      the Jabber team came up with to prevent bandwidth hogging.
+      For details about karma, read the io section at the bottom.
+      These are the low settings and apply per connection/socket
+      and can be changed as desired.
+      To disable rate limiting just delete the <karma/> section.
+  -->
+
+  <service id="c2s">
+    <load>
+      <pthsock_client>/usr/lib/jabber/pthsock_client.so</pthsock_client>
+    </load>
+    <pthcsock xmlns='jabber:config:pth-csock'>
+      <authtime/>
+      <heartbeat/>
+
+      <!-- 
+      Use these to listen on particular addresses and/or ports.
+      Example: <ip port="5222">127.0.0.1</ip>
+      Default is to listen on port 5222 on every interface.
+      Remove the <ip/> section to disable non-ssl client connections.
+      -->
+
+      <!--
+      The <ssl/> tag acts pretty much like the <ip/> tag,
+      except it defines that SSL is to be used on the 
+      ports and IP addresses specified. You must specify
+      an IP address here, or the connections will fail.
+      -->
+      <ssl port='5223'>0.0.0.0</ssl>
+
+    </pthcsock>
+  </service>
+
+     <!-- 
+      Use these to listen on particular addresses and/or ports.
+      Example: <ip port="5222">127.0.0.1</ip>
+      Default is to listen on port 5222 on every interface.
+      Remove the <ip/> section to disable non-ssl client connections.
+      -->
+      
+   <!--
+    CONFIGURING PROXY65
+
+    Next, update your server configuration. In this README, we use
+    a jabberd 1.4 XML file as our example, but you should be to add 
+    the correct configuration to other servers as well. 
+    
+    For jabberd 1.4, add an appropriate service line to the <browse> 
+    section of your jabber.xml file's JSM config:
+    
+      <jsm>
+        <browse>
+          ...
+          <service jid="proxy65.yourhostname.tld" name="SOCKS5 Bytestream Service"/>
+          ...
+        </browse>
+      </jsm>
+    
+    You do not have to name it "proxy65", it can be anything you'd
+    like. However, it MUST be a fully qualified domain name if you
+    want people from outside your domain to use it (which is usually
+    the point of running a bytestreams service).
+    
+    Then add an appropriate service definition of the kind you already
+    have for groupchat, gateways, JUD, and the like (this does not go
+    in the <jsm> section
+    
+    The 'id' SHOULD be the same as the 'jid' you provided above.
+    
+    The port number can be anything you like (usually some high port
+    not registered with the IANA is a good idea). The port number you 
+    provide is the one over which server-to-component communications 
+    will occur, not the port used by clients when they connect to the 
+    bytestreams service.
+    
+    The secret can be anything you like. 
+    
+    -->
+
+  <service id="proxy65.localhost">
+    <accept>
+      <ip>127.0.0.1</ip>
+      <port>51234</port>
+      <secret>secret</secret>
+    </accept>
+  </service>
+
+  <service id='conference.localhost'>
+    <load>
+      <conference>/usr/lib/jabber/mu-conference.so</conference>
+    </load>
+    <conference xmlns="jabber:config:conference">
+      <defaults/>
+      <dynamic/>
+      <vCard>
+        <FN>Public Chatrooms</FN>
+        <DESC>This service is for public chatrooms.</DESC>
+        <URL>http://localhost/</URL>
+      </vCard>
+      <history>20</history>
+      <logdir>/var/jabber/log/mu-conference/</logdir>
+      <sadmin>
+         <user>Administrator@localhost</user>
+      </sadmin>
+      <notice>
+        <join>has become available</join>
+        <leave>has left</leave>
+        <rename>is now known as</rename>
+      </notice>
+    </conference>
+  </service>
+
+
+  <!-- 
+  This is the default server error logging component, 
+  which copies to a file and to STDERR. 
+
+    <log id='elogger'>
+       <host/>
+          <format>%d: [%t] (%h): %s</format>
+           <file>/var/jabber/log/error.log</file>
+        <stderr/>
+    </log>
+  
+  
+  For syslog support replace the file path with syslog
+  <file>syslog</file>
+
+ -->
+
+    <log id='elogger'>
+        <host/>
+        <logtype/>
+        <format>%d: [%t] (%h): %s</format>
+        <stderr/>
+        <file>syslog</file>
+    </log>
+
+  <!-- 
+  This is the default server record logging component, 
+  which logs general statistical/tracking data. 
+   <log id='rlogger'>
+    <host/>
+    <logtype>record</logtype>
+    <format>%d %h %s</format>
+    <file>/var/jabber/log/record.log</file>
+  </log>
+  
+  For syslog support replace the file path with syslog
+  <file>syslog</file>
+
+  -->
+
+    <log id='rlogger'>
+       <host/>
+       <logtype>record</logtype>
+       <format>%d: [%t] (%h): %s</format>
+       <file>syslog</file>
+    </log>
+
+
+  <!-- The following two services are for handling server-to-server traffic. -->
+
+  <!-- External asychronous DNS resolver -->
+  
+  <!-- 
+  <service id="dnsrv">
+    <host/>
+    <load>
+      <dnsrv>/usr/lib/jabber/dnsrv.so</dnsrv>
+    </load>
+    <dnsrv xmlns="jabber:config:dnsrv">
+        <resend service="_xmpp-server._tcp">s2s</resend>
+        <resend service="_jabber._tcp">s2s</resend> 
+        <resend>s2s</resend>
+    </dnsrv>
+  </service>
+   -->
+
+  <!--
+  The following 's2s' config handles server connections and 
+  dialback hostname verification.  The <legacy/> element is 
+  here to enable communication with old 1.0 servers. The 
+  karma settings are a little higher here to handle the 
+  higher traffic of server-to-server connections (read
+  the io section below for more details, medium settings).
+  -->
+
+<!--
+  <service id="s2s">
+    <load>
+      <dialback>/usr/lib/jabber/dialback.so</dialback>
+    </load>
+    <dialback xmlns='jabber:config:dialback'>
+      <legacy/>
+
+      <ip port="7000"/>
+      <ip port="5269">127.0.0.1</ip>
+      
+      <ip port="5269"/>
+      <karma>
+        <init>50</init>
+        <max>50</max>
+        <inc>4</inc>
+        <dec>1</dec>
+        <penalty>-5</penalty>
+        <restore>50</restore>
+      </karma>
+    </dialback>
+  </service>
+-->
+
+  <!--
+  update.jabber.org is long dead but some clients still
+  request update information. In order to avoid errors
+  in the logs, just drop packages for update.jabber.org.
+  <service id="update.jabber.org">
+    <host>update.jabber.org</host>
+    <null/>
+  </service>
+  -->
+
+  <!-- 
+  If you identified additional agents in the main <service/> 
+  section (see examples above), you'll need to define each 
+  of them here using a separate <service/> section for each 
+  <agent/> you identified. Note that the <agent/> sections
+  determine what gets shown to clients that connect to your
+  server, whereas the following <service/> sections define
+  these services within the server itself. The following are
+  examples only, you will need to create/modify them to get 
+  them working on your Jabber server. See the README files 
+  for each agent and/or the server howto for further 
+  information/instructions. 
+  -->
+
+  <!-- we're commenting these out, of course :)
+
+  <service id="aim.localhost">
+    <accept>
+      <ip/>
+      <port>7009</port>
+      <secret>jabber-rocks</secret>
+    </accept>
+  </service>
+
+  <service id="yahoo.localhost">
+    <accept>
+      <ip/>
+      <port>9001</port>
+      <secret>jabber-rocks</secret>
+    </accept>
+  </service>
+
+  end of <service/> examples -->
+
+  <!--
+  The following <io/> config initializes the top-level
+  I/O, otherwise known as MIO (Managed Input/Output).
+  -->
+
+  <io>
+
+    <!-- Set the default karma for *all* sockets -->
+    <!-- definition of terms:
+
+      * Avg. Throughput - The number of bytes you can
+        send every second without incuring any penalty.
+
+      * Burst Allowed - The maximum number of bytes you
+        can send in 2 seconds without incurring any penalty.
+
+      * Max Sustained Rate - If you send data as fast as 
+        you can, you will hit penalty, and will not be 
+        able to send for 10 seconds; the max sustained 
+        rate is the average rate you can dump data when 
+        you are dumping as much data as you can, as fast 
+        as you can.
+
+      * Seconds to Recover from Burst - The amount of time 
+        it will take to reach Avg. Throughput capability 
+        after sending a max burst of data.
+
+      * Penalty Length - The length of your penalty is
+        determined according to this formula:
+              abs(penalty) * Heartbeat seconds
+        E.g., a penalty of -5 and heartbeat of 2 will 
+        cause your penalty length to be 10 seconds. 
+        Note that a penalty CANNOT be less than -100, 
+        otherwise strange things might happen.
+
+    -->
+    <!-- Example of Low Karma Limits 
+        Avg. Throughput: 1k-2k/s 
+        Burst Allowed To: 5.5k/s 
+        Max Sustained Rate: 485b/s
+        Seconds to Recover from Burst: 20
+        Penalty Length: 12 seconds
+    <karma>
+      <heartbeat>2</heartbeat>
+      <init>10</init>
+      <max>10</max>
+      <inc>1</inc>
+      <dec>1</dec>
+      <penalty>-6</penalty>
+      <restore>10</restore>
+    </karma>
+    -->
+
+    <!-- Example of Medium Karma Limits 
+        Avg. Throughput: 5k-10k/s 
+        Burst Allowed: 125.5k/s 
+        Max Sustained Rate: 12.6k/s
+        Seconds to Recover From Burst: 25
+        Penalty Length: 10 seconds
+    <karma>
+      <heartbeat>2</heartbeat>
+      <init>50</init>
+      <max>50</max>
+      <inc>4</inc>
+      <dec>1</dec>
+      <penalty>-5</penalty>
+      <restore>50</restore>
+    </karma>
+    -->
+
+    <!-- Example of High Karma Limits 
+        Avg. Throughput: 5k-10k/s 
+        Burst Allowed: 206k/s 
+        Max Sustained Rate: 34.3k/s
+        Seconds to Recover from Burst: 21
+        Penalty Length: 6 seconds
+    <karma>
+      <heartbeat>2</heartbeat>
+      <init>64</init>
+      <max>64</max>
+      <inc>6</inc>
+      <dec>1</dec>
+      <penalty>-3</penalty>
+      <restore>64</restore>
+    </karma>
+    -->
+
+    <!--
+    For corporate environments, Apple recommends using
+    the high karma limits to prevent DoS attacks without
+    impeding well-behaved clients.
+    -->
+    <karma>
+      <heartbeat>2</heartbeat>
+      <init>64</init>
+      <max>64</max>
+      <inc>6</inc>
+      <dec>1</dec>
+      <penalty>-3</penalty>
+      <restore>64</restore>
+    </karma>
+
+
+    <!-- 
+    Set rate limits to monitor the number of connection
+    attempts from a single IP, any more than [points]
+    within [time] will engage the limit.  This setting
+    applies to all incoming connections to any service,
+    unless otherwise overridden by that service.
+    -->
+
+    <rate points="5" time="25"/>
+
+    <!-- 
+    Set maximum number of connections server will maintain
+    for all purposes. This directive limits the number of
+    _file descriptors_, so actual number of client connections
+    will be slightly less than this number.
+    The default value of zero directs the server to use as
+    the lesser of 11,000 or the current OS maximum as obtained
+    from getrlimit(2).
+    -->
+    <!-- 
+    <max_connections>1000</max_connections>
+    -->
+
+    <!--
+    The following section puts limits on individual stanzas.
+    Disabling this section allows messages of arbitrary size.
+    The default tag defines a maximum number of bytes the
+    server will accept for any stanza, <iq>, <message>, etc.
+    before shutting down a connection.
+    Individual top-level tags may have lower limits placed
+    on them. (Currently, only the <message> tag is recognized.)
+    The optional "scale" attribute may be used to simplify
+    the value specification; "K", "M", and "G" is recognized.
+    Negative values log an error message but are otherwise ignored.
+    A (senseless) maximum of 2 GB may be set.
+    -->
+    <stanza_limits>
+      <default scale="K">64</default>
+      <message scale="K">64</message>
+    </stanza_limits>
+
+    <!-- 
+    The following section initializes SSL for top-level I/O.
+    This works only when the server is compiled with openssl!
+    Use IPs here or connections will fail.
+    -->
+    <ssl>
+      <key ip='0.0.0.0'>/etc/certificates/Default.crtkey</key>
+    </ssl>
+
+    <!-- 
+    The following section is used to allow or deny 
+    communications from specified IP networks or 
+    addressses. If there is no <allow/> section, 
+    then *all* IPs will be allowed to connect. If 
+    you allow one block, then only that block may 
+    connect. Note that <allow/> is checked before
+    <deny/>, so if a specific address is allowed 
+    but the network for that address is denied, 
+    then that address will still be denied.
+    -->
+    <!--
+    <allow><ip>127.0.0.0</ip><mask>255.255.255.0</mask></allow>
+    <allow><ip>12.34.56.78</ip></allow>
+    <deny><ip>22.11.44.0</ip><mask>255.255.255.0</mask></deny>
+    -->
+
+  </io>
+
+  <!--
+  This specifies the file to store the pid of the process in.
+  -->
+  <pidfile>/var/jabber/run/jabber.pid</pidfile>
+
+
+</jabber>

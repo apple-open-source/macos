@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: sysexits.h,v 1.4 2003/02/13 20:15:42 rjs3 Exp $ */
+/* $Id: sysexits.h,v 1.5 2005/03/05 00:37:19 dasenbro Exp $ */
 
 /*
  * Copyright (c) 1987, 1993

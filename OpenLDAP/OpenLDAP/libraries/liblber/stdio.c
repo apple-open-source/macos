@@ -1,7 +1,16 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/stdio.c,v 1.1.2.5 2003/03/03 17:10:04 kurt Exp $ */
-/*
- * Copyright 2002-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/libraries/liblber/stdio.c,v 1.5.2.3 2004/01/01 18:16:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -9,6 +18,8 @@
 #include <stdio.h>
 #include <ac/stdarg.h>
 #include <ac/string.h>
+#include <ac/ctype.h>
+#include <lutil.h>
 
 #if !defined(HAVE_VSNPRINTF) && !defined(HAVE_EBCDIC)
 /* Write at most n characters to the buffer in str, return the
@@ -73,7 +84,7 @@ int ber_pvt_snprintf( char *str, size_t n, const char *fmt, ... )
 	va_end( ap );
 	return res;
 }
-#endif /* !HAVE_VSNPRINTF */
+#endif /* !HAVE_SNPRINTF */
 
 #ifdef HAVE_EBCDIC
 /* stdio replacements with ASCII/EBCDIC translation for OS/390.
@@ -126,10 +137,11 @@ int ber_pvt_vsnprintf( char *str, size_t n, const char *fmt, va_list ap )
 	ptr = (char *)fmt;
 	s2 = str;
 	fm2[0] = '%';
-	if (n)
+	if (n) {
 		end = str + n;
-	else
+	} else {
 		end = NULL;
+	}
 
 	for (pct = strchr(ptr, '%'); pct; pct = strchr(ptr, '%')) {
 		len = pct-ptr;
@@ -138,13 +150,14 @@ int ber_pvt_vsnprintf( char *str, size_t n, const char *fmt, va_list ap )
 			if (rem < 1) return -1;
 			if (rem < len) len = rem;
 		}
-		s2 = ber_pvt_strncopy( s2, ptr, len );
+		s2 = lutil_strncopy( s2, ptr, len );
 		/* Did we cheat the length above? If so, bail out */
 		if (len < pct-ptr) return -1;
 		for (pct++, f2 = fm2+1; isdigit(*pct);) *f2++ = *pct++;
 		if (*pct == 'l') *f2++ = *pct++;
-		if (*pct == '%') *s2++ = '%';
-		else {
+		if (*pct == '%') {
+			*s2++ = '%';
+		} else {
 			*f2++ = *pct;
 			*f2 = '\0';
 			if (*pct == 's') {
@@ -164,8 +177,9 @@ int ber_pvt_vsnprintf( char *str, size_t n, const char *fmt, va_list ap )
 				} else {
 					s2 += sprintf(s2, fm2, ss);
 				}
-			} else
+			} else {
 				s2 += sprintf(s2, fm2, va_arg(ap, int));
+			}
 		}
 		ptr = pct + 1;
 	}
@@ -173,12 +187,12 @@ int ber_pvt_vsnprintf( char *str, size_t n, const char *fmt, va_list ap )
 		rem = end-s2;
 		if (rem > 0) {
 			len = strlen(ptr);
-			s2 = ber_pvt_strncopy( s2, ptr, rem );
+			s2 = lutil_strncopy( s2, ptr, rem );
 			rem -= len;
 		}
 		if (rem < 0) return -1;
 	} else {
-		s2 = ber_pvt_strcopy( s2, ptr );
+		s2 = lutil_strcopy( s2, ptr );
 	}
 	return s2 - str;
 }

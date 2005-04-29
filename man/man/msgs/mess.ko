@@ -1,0 +1,171 @@
+BAD_CONFIG_FILE
+	"설정 파일 %s에 잘못이 있습니다.\n"
+CONFIG_OPEN_ERROR
+	"경고: 설정 파일 %s를 열수 없습니다.\n"
+PARSE_ERROR_IN_CONFIG
+	"설정 파일의 해석중에 오류가 발견되었습니다.\n"
+INCOMPAT
+	"%s 옵션과 %s 옵션은 동시에 사용할 수 없습니다.\n"
+NO_ALTERNATE
+	"다른 시스템으로 컴파일 된 것은 지원하지 않습니다.\n"
+NO_COMPRESS
+	"man 명령는 포맷 한 cat 페이지를 자동적으로 압축하도록 \n\
+컴파일 되어 있으나, 설정 파일에 COMPRESS 정의가 없습니다.\n"
+NO_NAME_FROM_SECTION
+	"섹션 %s의 메뉴얼을 표시합니까?\n"
+NO_NAME_NO_SECTION
+	"어느 메뉴얼을 표시합니까?\n"
+NO_SUCH_ENTRY_IN_SECTION
+	"섹션 %2$s에는 %1$s의 메뉴얼은 없습니다.\n"
+NO_SUCH_ENTRY
+	"%s의 메뉴얼은 없습니다.\n"
+PAGER_IS
+	"\n%s를 pager로서 사용합니다.\n"
+SYSTEM_FAILED
+	"포맷·명령이나 표시 명령의 실행 오류가 발생했습니다.\n\
+커멘드 %s 가 종료 스테이터스 %d 로 종료했습니다.\n"
+VERSION
+	"%s, 버젼 %s\n\n"
+OUT_OF_MEMORY
+	"메모리가 충분하지 않습니다.- %d 바이트를 확보할 수 없습니다.\n"
+ROFF_CMD_FROM_FILE_ERROR
+	"파일 %s의 프리프로세서 지시의 해석중에 오류가 발생했습니다.\n"
+MANROFFSEQ_ERROR
+	"MANROFFSEQ 의 프리프로세서 지시의 해석중에 오류가 발생했습니다.\n\
+대신에 시스템·디폴트를 사용합니다.\n"
+ROFF_CMD_FROM_COMMANDLINE_ERROR
+	"명령 라인의 프리프로세서 지시의 해석중에 오류가 발생했습니다.\n"
+UNRECOGNIZED_LINE
+	"설정 파일에 이해할 수 없는 행이 있습니다.\n%s\n"
+GETVAL_ERROR
+	"man-config.c: 내부 오류: 문자 라인 %s가 발견되지 않습니다.\n"
+FOUND_MANDIR
+	"man 디렉토리 %s를 찾아냈습니다.\n"
+FOUND_MAP
+	"manpath map %s --> %s를 찾아냈습니다.\n"
+FOUND_CATDIR
+	"대응하는 catdir은 %s입니다.\n"
+LINE_TOO_LONG
+	"설정 파일의 행이 너무 깁니다.\n"
+SECTION
+	"\n섹션: %s\n"
+UNLINKED
+	"%s 를 삭제합니다.\n"
+GLOBBING
+	"%s 를 엽니다.\n"
+EXPANSION_FAILED
+	"[%s] 를 메뉴얼·페이지에 열수 없습니다.\n"
+OPEN_ERROR
+	"메뉴얼·페이지 %s 를 열 수 없습니다.\n"
+READ_ERROR
+	"메뉴얼·페이지 %s 를 읽을 수 없습니다.\n"
+FOUND_EQN
+	"eqn(1) 명령을 찾아냈습니다.\n"
+FOUND_GRAP
+	"grap(1) 명령을 찾아냈습니다.\n"
+FOUND_PIC
+	"pic(1) 명령을 찾아냈습니다.\n"
+FOUND_TBL
+	"tbl(1) 명령을 찾아냈습니다.\n"
+FOUND_VGRIND
+	"vgrind(1) 명령을 찾아냈습니다.\n"
+FOUND_REFER
+	"refer(1) 명령을 찾아냈습니다.\n"
+ROFF_FROM_COMMAND_LINE
+	"명령·라인으로부터의 명령을 해석중입니다.\n"
+ROFF_FROM_FILE
+	"파일 %s 로부터의 명령의 해석중입니다.\n"
+ROFF_FROM_ENV
+	"환경 변수로부터의 명령의 해석중입니다.\n"
+USING_DEFAULT
+	"디폴트의 사전 처리 순서를 사용합니다.\n"
+PLEASE_WAIT
+	"페이지를 포맷중입니다.조금 기다려 주세요...\n"
+CHANGED_MODE
+	"모드를 %s 로부터 %o 로 변경합니다.\n"
+CAT_OPEN_ERROR
+	"%s 를 기입을 위해서 오픈할 수 없었습니다.\n"
+PROPOSED_CATFILE
+	"필요하면, %s 에 기입을 시도합니다.\n"
+IS_NEWER_RESULT
+	"is_newer() = %d\n"
+TRYING_SECTION
+	"섹션 %s를 시도합니다.\n"
+SEARCHING
+	"\n%s를 검색중입니다.\n"
+ALREADY_IN_MANPATH
+	"그러나, %s 는 이미 manpath 에 포함되어 있습니다.\n"
+CANNOT_STAT
+	"경고: 파일 %s 상태(stat)를 얻을 수 없습니다.\n"
+IS_NO_DIR
+	"경고: %s 는 디렉토리가 아닙니다.\n"
+ADDING_TO_MANPATH
+	"%s를 manpath에 더합니다.\n"
+PATH_DIR
+	"\n패스의 디렉토리 %s "
+IS_IN_CONFIG
+	"(은)는 설정 파일에 있습니다.\n"
+IS_NOT_IN_CONFIG
+	"(은)는 설정 파일에 없습니다.\n"
+MAN_NEARBY
+	"그러나, 근처에 메뉴얼·디렉토리가 있습니다.\n"
+NO_MAN_NEARBY
+	"가까운 곳에도 메뉴얼·디렉토리가 없습니다.\n"
+ADDING_MANDIRS
+	"\n메뉴얼·디렉토리를 강제적으로 추가합니다.\n\n"
+CATNAME_IS
+	"convert_to_cat()에 있어서의 cat_name 는 %s 입니다.\n"
+NO_EXEC
+	"\n커멘드를 실행하지 않습니다 :\n  %s\n"
+USAGE1
+	"usage: %s [-adfhktwW] [section] [-M path] [-P pager] [-S list]\n\t"
+USAGE2
+	"[-m system] "
+USAGE3
+	"[-p string] name ...\n\n"
+USAGE4
+	"  a : 모든 일치하는 항을 찾아내는 \n\
+  c : cat 파일을 사용하지 않는 \n\
+  d : 디버깅 정보를 표시하는 \n\
+  D : -d 에 가세해 메뉴얼·페이지도 표시하는 \n\
+  f : whatis(1)와 같은 \n\
+  h : 이 도움메세지를 표시하는 \n\
+  k : apropos(1)와 같은 \n\
+  K : 모든 페이지보다 캐릭터 라인을 검색하는 \n"
+USAGE5
+	"  t : 페이지의 포맷 troff 를 사용하는 \n"
+USAGE6
+	"\
+  w : 메뉴얼·페이지의 위치를 표시하는 \n\
+      (이름을 지정하지 않았던 경우: 검색하는 디렉토리를 표시한다) \n\
+  W : -w 와 같은, 그러나 파일명 밖에 표시하지 않는 \n\n\
+  C file   : 설정 파일로서 `file'를 사용하는 \n\
+  M path   : `path'를 메뉴얼·페이지의 검색 패스로 설정하는 \n\
+  P pager  : `pager'를 페이지 표시 프로그램으로서 사용하는 \n\
+  S list   : 섹션명의 리스트(코론으로 단락짓는다) \n"
+USAGE7
+	"  m system : 다른 시스템용의 메뉴얼·페이지를 검색하는 \n"
+USAGE8
+	"  p string : 어느 사전 처리를 실행을 지정하는 캐릭터 라인 \n\
+               e - [n]eqn(1)   p - pic(1)    t - tbl(1) \n\
+               g - grap(1)     r - refer(1)  v - vgrind(1) \n"
+USER_CANNOT_OPEN_CAT
+	"그리고, 그 열매 유저에서는 cat 파일을 오픈할 수 없습니다.\n"
+USER_CAN_OPEN_CAT
+	"그러나, 그 열매 유저로 cat 파일을 오픈할 수 있습니다.\n"
+CANNOT_FORK
+	"커멘드 _%s_ 를 위한 fork 를 할 수 없었습니다.\n"
+WAIT_FAILED
+	"child process _%s_ 를 wait 하고 있는 동안에 에러가 발생했습니다.\n"
+GOT_WRONG_PID
+	"비정상입니다???, wait 하고 있는 child process와는 다른 PID 를 받았습니다.\n"
+CHILD_TERMINATED_ABNORMALLY
+	"치명적 에러: 커멘드 _%s_ 가 이상종료(ABEND) 했습니다.\n"
+IDENTICAL
+	"메뉴얼 페이지 %s는 %s과 완전히 같습니다.\n"
+MAN_FOUND
+	"메뉴얼 페이지를 찾았습니다 :\n"
+NO_TROFF
+	"에러: %s 로 지정되어 있는 TROFF 명령이 발견되지 않습니다.\n"
+NO_CAT_FOR_NONSTD_LL
+	"행의 길이가 표준이 아니기 때문에 cat 페이지가 보존되지 않았습니다.\n"

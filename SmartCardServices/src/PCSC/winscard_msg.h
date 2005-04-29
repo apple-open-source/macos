@@ -37,33 +37,8 @@ extern "C"
 {
 #endif
 
-	typedef struct rxSharedSegment
-	{
-		unsigned int mtype;
-		unsigned int user_id;
-		unsigned int group_id;
-		unsigned int command;
-		unsigned int request_id;
-		time_t date;
-		unsigned char key[PCSCLITE_MSG_KEY_LEN];
-		unsigned char data[PCSCLITE_MAX_MESSAGE_SIZE];
-	}
-	sharedSegmentMsg, *psharedSegmentMsg;
-
-	enum pcsc_adm_commands
-	{
-		CMD_FUNCTION = 0xF1,
-		CMD_FAILED = 0xF2,
-		CMD_SERVER_DIED = 0xF3,
-		CMD_CLIENT_DIED = 0xF4,
-		CMD_READER_EVENT = 0xF5,
-		CMD_SYN = 0xF6,
-		CMD_ACK = 0xF7
-	};
-
 	enum pcsc_msg_commands
 	{
-
 		SCARD_ESTABLISH_CONTEXT = 0x01,
 		SCARD_RELEASE_CONTEXT = 0x02,
 		SCARD_LIST_READERS = 0x03,
@@ -80,124 +55,168 @@ extern "C"
 		SCARD_CANCEL_TRANSACTION = 0x0E
 	};
 
-	struct client_struct
+	typedef struct request_header_struct
 	{
-		SCARDCONTEXT hContext;
-	};
-	typedef struct client_struct client_struct;
+		 // Size of the request struct including the header
+		unsigned int size;
 
-	struct establish_struct
+		// Size of the data blob following the request struct
+  		unsigned int additional_data_size;
+
+		unsigned int command;
+	} request_header;
+
+	typedef struct reply_header_struct
 	{
+		 // Size of the reply struct including the header
+		unsigned int size;
+
+		// Size of the data blob following the reply struct
+  		unsigned int additional_data_size;
+
+		LONG rv;
+	} reply_header;
+
+
+	typedef struct establish_request_struct
+	{
+		request_header header;
 		DWORD dwScope;
+	} establish_request;
+
+	typedef struct establish_reply_struct
+	{
+		reply_header header;
 		SCARDCONTEXT phContext;
-		LONG rv;
-	};
-	typedef struct establish_struct establish_struct;
+	} establish_reply;
 
-	struct release_struct
+	typedef struct release_request_struct
 	{
+		request_header header;
 		SCARDCONTEXT hContext;
-		LONG rv;
-	};
-	typedef struct release_struct release_struct;
+	} release_request;
 
-	struct connect_struct
+	typedef struct release_reply_struct
 	{
+		reply_header header;
+	} release_reply;
+
+	typedef struct connect_request_struct
+	{
+		request_header header;
 		SCARDCONTEXT hContext;
 		char szReader[MAX_READERNAME];
 		DWORD dwShareMode;
 		DWORD dwPreferredProtocols;
+	} connect_request;
+
+	typedef struct connect_reply_struct
+	{
+		reply_header header;
 		SCARDHANDLE phCard;
 		DWORD pdwActiveProtocol;
-		LONG rv;
-	};
-	typedef struct connect_struct connect_struct;
+	} connect_reply;
 
-	struct reconnect_struct
+	typedef struct reconnect_request_struct
 	{
+		request_header header;
 		SCARDHANDLE hCard;
 		DWORD dwShareMode;
 		DWORD dwPreferredProtocols;
 		DWORD dwInitialization;
+	} reconnect_request;
+
+	typedef struct reconnect_reply_struct
+	{
+		reply_header header;
 		DWORD pdwActiveProtocol;
-		LONG rv;
-	};
-	typedef struct reconnect_struct reconnect_struct;
+	} reconnect_reply;
 
-	struct disconnect_struct
+	typedef struct disconnect_request_struct
 	{
+		request_header header;
 		SCARDHANDLE hCard;
 		DWORD dwDisposition;
-		LONG rv;
-	};
-	typedef struct disconnect_struct disconnect_struct;
+	} disconnect_request;
 
-	struct begin_struct
+	typedef struct disconnect_reply_struct
 	{
+		reply_header header;
+	} disconnect_reply;
+
+	typedef struct begin_request_struct
+	{
+		request_header header;
 		SCARDHANDLE hCard;
-		LONG rv;
-	};
-	typedef struct begin_struct begin_struct;
+	} begin_request;
 
-	struct end_struct
+	typedef struct begin_reply_struct
 	{
+		reply_header header;
+	} begin_reply;
+
+	typedef struct end_request_struct
+	{
+		request_header header;
 		SCARDHANDLE hCard;
 		DWORD dwDisposition;
-		LONG rv;
-	};
-	typedef struct end_struct end_struct;
+	} end_request;
 
-	struct cancel_struct
+	typedef struct end_reply_struct
 	{
-		SCARDHANDLE hCard;
-		LONG rv;
-	};
-	typedef struct cancel_struct cancel_struct;
+		reply_header header;
+	} end_reply;
 
-	struct status_struct
+	typedef struct cancel_request_struct
 	{
+		request_header header;
 		SCARDHANDLE hCard;
+	} cancel_request;
+
+	typedef struct cancel_reply_struct
+	{
+		reply_header header;
+	} cancel_reply;
+
+	typedef struct status_request_struct
+	{
+		request_header header;
+		SCARDHANDLE hCard;
+		DWORD cbMaxAtrLen;
+	} status_request;
+
+	typedef struct status_reply_struct
+	{
+		reply_header header;
 		char mszReaderNames[MAX_READERNAME];
 		DWORD pcchReaderLen;
 		DWORD pdwState;
 		DWORD pdwProtocol;
-		UCHAR pbAtr[MAX_ATR_SIZE];
 		DWORD pcbAtrLen;
-		LONG rv;
-	};
-	typedef struct status_struct status_struct;
+		UCHAR pbAtr[MAX_ATR_SIZE];
+	} status_reply;
 
-	struct transmit_struct
+	typedef struct transmit_request_struct
 	{
+		request_header header;
 		SCARDHANDLE hCard;
 		SCARD_IO_REQUEST pioSendPci;
-		UCHAR pbSendBuffer[MAX_BUFFER_SIZE];
-		DWORD cbSendLength;
+		DWORD cbMaxRecvLength;
+	} transmit_request;
+
+	typedef struct transmit_reply_struct
+	{
+		reply_header header;
 		SCARD_IO_REQUEST pioRecvPci;
-		BYTE pbRecvBuffer[MAX_BUFFER_SIZE];
-		DWORD pcbRecvLength;
-		LONG rv;
-	};
-	typedef struct transmit_struct transmit_struct;
+		DWORD cbRecvLength;
+	} transmit_reply;
 
-	/*
-	 * Now some function definitions 
-	 */
 
-	int SHMClientRead(psharedSegmentMsg, int);
-	int SHMClientSetupSession(int);
-	int SHMClientCloseSession();
-	int SHMInitializeCommonConnect();
-	int SHMInitializeCommonSegment();
-	int SHMProcessCommonChannelRequest();
-	int SHMProcessEvents(psharedSegmentMsg, int);
-	int SHMMessageSend(psharedSegmentMsg, int, int);
-	int SHMMessageReceive(psharedSegmentMsg, int, int);
-	int WrapSHMWrite(unsigned int, unsigned int, unsigned int,
-		unsigned int, void *);
-	int WrapSHMWriteCommon(unsigned int, unsigned qint, unsigned int,
-		unsigned int, void *);
-	void SHMCleanupSharedSegment(int, char *);
+	/* Common functions for server and client. */
+	int MSGSendData(int filedes, int blockAmount, const void *data,
+		unsigned int dataSize);
+	int MSGRecieveData(int filedes, int blockAmount, void *data,
+		unsigned int dataSize);
 
 #ifdef __cplusplus
 }

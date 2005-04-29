@@ -27,6 +27,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
+/* $XFree86: xc/lib/xkbfile/XKBfileInt.h,v 3.4 2003/11/17 22:20:23 dawes Exp $ */
 
 #include "XKBfile.h"
 
@@ -64,16 +65,12 @@
 _XFUNCPROTOBEGIN
 
 extern char *	_XkbDupString(
-#if NeedFunctionPrototypes
 	char *	/* old_str */
-#endif
 );
 
 extern int	_XkbStrCaseCmp(
-#if NeedFunctionPrototypes
 	char *	/* str1 */,
 	char *	/* str2 */
-#endif
 );
 #define _XkbStrCaseEqual(s1,s2)	(_XkbStrCaseCmp(s1,s2)==0)
 

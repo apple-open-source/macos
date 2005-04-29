@@ -1,40 +1,36 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- *  keychain_list.c
- *  security
  *
- *  Created by Michael Brouwer on Tue May 06 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
+ * keychain_list.c
  */
 
 #include "keychain_list.h"
 
 #include "keychain_utilities.h"
+#include "security.h"
 
 #include <CoreFoundation/CFArray.h>
 #include <Security/SecKeychain.h>
-#include <Security/SecKeychainAPIPriv.h>
+#include <Security/SecKeychainPriv.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/param.h>
@@ -56,19 +52,21 @@ display_name(const void *value, void *context)
 	char pathName[MAXPATHLEN + 1];
 	OSStatus result = SecKeychainGetPath(keychain, &pathLength, pathName);
 	if (result)
-		fprintf(stderr, "\nSecKeychainGetPath(%p) returned %ld(0x%lx)\n", keychain, result, result);
+		sec_error("SecKeychainGetPath %p: %s", keychain, sec_errstr(result));
 	else
-		fprintf(stderr, "    \"%*s\"\n", (int)pathLength, pathName);
+		fprintf(stdout, "    \"%*s\"\n", (int)pathLength, pathName);
 }
 
 
 static void
 display_list(const char *desc, CFTypeRef keychainOrArray)
 {
-	fprintf(stderr, "%s\n", desc);
+	if (desc && strlen(desc))
+		fprintf(stdout, "%s\n", desc);
+
 	if (!keychainOrArray)
 	{
-		fprintf(stderr, " <NULL>\n");
+		fprintf(stdout, " <NULL>\n");
 	}
 	else if (CFGetTypeID(keychainOrArray) == SecKeychainGetTypeID())
 	{
@@ -93,11 +91,11 @@ parse_domain(const char *name, SecPreferencesDomain *domain)
 		*domain = kSecPreferencesDomainSystem;
 	else if (!strncmp("common", name, len))
 		*domain = kSecPreferencesDomainCommon;
-	else if (!strncmp("alternate", name, len))
-		*domain = kSecPreferencesDomainAlternate;
+	else if (!strncmp("dynamic", name, len))
+		*domain = kSecPreferencesDomainDynamic;
 	else
 	{
-		fprintf(stderr, "Invalid domain: %s\n", name);
+		sec_error("Invalid domain: %s", name);
 		return 2;
 	}
 
@@ -115,9 +113,9 @@ domain2str(SecPreferencesDomain domain)
 		return "system";
 	case kSecPreferencesDomainCommon:
 		return "common";
-	case kSecPreferencesDomainAlternate:
+	case kSecPreferencesDomainDynamic:
 	default:
-		return "alternate";
+		return "dynamic";
 	}
 }
 
@@ -172,12 +170,14 @@ keychain_list(int argc, char * const *argv)
 				status = SecKeychainCopyDomainSearchList(domain, &searchList);
 				if (status)
 				{
-					fprintf(stderr, "SecKeychainCopyDomainSearchList(%s) returned %ld(0x%lx)\n", domain2str(domain), status, status);
+					sec_error("SecKeychainCopyDomainSearchList %s: %s", domain2str(domain), sec_errstr(status));
 					result = 1;
 				}
 				else
 				{
-					fprintf(stderr, "%s search list: ", domain2str(domain));
+#if 0
+					fprintf(stdout, "%s search list: ", domain2str(domain));
+#endif
 					display_list("", searchList);
 				}
 			}
@@ -186,11 +186,17 @@ keychain_list(int argc, char * const *argv)
 				status = SecKeychainCopySearchList(&searchList);
 				if (status)
 				{
-					fprintf(stderr, "SecKeychainCopySearchList() returned %ld(0x%lx)\n", status, status);
+					sec_perror("SecKeychainCopySearchList", status);
 					result = 1;
 				}
 				else
+				{
+#if 0
 					display_list("search list:", searchList);
+#else
+					display_list("", searchList);
+#endif
+				}
 			}
 		}
 		break;
@@ -208,7 +214,7 @@ keychain_list(int argc, char * const *argv)
 			status = SecKeychainSetDomainSearchList(domain, searchList);
 			if (status)
 			{
-				fprintf(stderr, "SecKeychainSetDomainSearchList(%s) returned %ld(0x%lx)\n", domain2str(domain), status, status);
+				sec_error("SecKeychainSetDomainSearchList %s: %s", domain2str(domain), sec_errstr(status));
 				result = 1;
 			}
 		}
@@ -217,7 +223,7 @@ keychain_list(int argc, char * const *argv)
 			status = SecKeychainSetSearchList(searchList);
 			if (status)
 			{
-				fprintf(stderr, "SecKeychainSetSearchList() returned %ld(0x%lx)\n", status, status);
+				sec_perror("SecKeychainSetSearchList", status);
 				result = 1;
 			}
 		}
@@ -276,7 +282,7 @@ keychain_default(int argc, char * const *argv)
 			status = SecKeychainSetDomainDefault(domain, keychain);
 			if (status)
 			{
-				fprintf(stderr, "SecKeychainSetDomainDefault(%s) returned %ld(0x%lx)\n", domain2str(domain), status, status);
+				sec_error("SecKeychainSetDomainDefault %s: %s", domain2str(domain), sec_errstr(status));
 				result = 1;
 			}
 		}
@@ -285,7 +291,7 @@ keychain_default(int argc, char * const *argv)
 			status = SecKeychainSetDefault(keychain);
 			if (status)
 			{
-				fprintf(stderr, "SecKeychainSetDefault() returned %ld(0x%lx)\n", status, status);
+				sec_perror("SecKeychainSetDefault", status);
 				result = 1;
 			}
 		}
@@ -300,12 +306,14 @@ keychain_default(int argc, char * const *argv)
 			status = SecKeychainCopyDomainDefault(domain, &keychain);
 			if (status)
 			{
-				fprintf(stderr, "SecKeychainCopyDomainDefault(%s) returned %ld(0x%lx)\n", domain2str(domain), status, status);
+				sec_error("SecKeychainCopyDomainDefault %s: %s", domain2str(domain), sec_errstr(status));
 				result = 1;
 			}
 			else
 			{
-				fprintf(stderr, "default %s keychain: ", domain2str(domain));
+#if 0
+				fprintf(stdout, "default %s keychain: ", domain2str(domain));
+#endif
 				display_list("", keychain);
 			}
 		}
@@ -314,11 +322,17 @@ keychain_default(int argc, char * const *argv)
 			status = SecKeychainCopyDefault(&keychain);
 			if (status)
 			{
-				fprintf(stderr, "SecKeychainCopyDefault() returned %ld(0x%lx)\n", status, status);
+				sec_perror("SecKeychainCopyDefault", status);
 				result = 1;
 			}
 			else
+			{
+#if 0
 				display_list("default keychain: ", keychain);
+#else
+				display_list("", keychain);
+#endif
+			}
 		}
 	}
 
@@ -373,7 +387,7 @@ keychain_login(int argc, char * const *argv)
 			status = SecKeychainSetDomainLogin(domain, keychain);
 			if (status)
 			{
-				fprintf(stderr, "SecKeychainSetDomainLogin(%s) returned %ld(0x%lx)\n", domain2str(domain), status, status);
+				sec_error("SecKeychainSetDomainLogin %s: %s", domain2str(domain), sec_errstr(status));
 				result = 1;
 			}
 		}
@@ -382,7 +396,7 @@ keychain_login(int argc, char * const *argv)
 			status = SecKeychainSetLogin(keychain);
 			if (status)
 			{
-				fprintf(stderr, "SecKeychainSetDefault() returned %ld(0x%lx)\n", status, status);
+				sec_perror("SecKeychainSetLogin", status);
 				result = 1;
 			}
 		}
@@ -401,12 +415,14 @@ keychain_login(int argc, char * const *argv)
 			status = SecKeychainCopyDomainLogin(domain, &keychain);
 			if (status)
 			{
-				fprintf(stderr, "SecKeychainCopyDomainLogin(%s) returned %ld(0x%lx)\n", domain2str(domain), status, status);
+				sec_error("SecKeychainCopyDomainLogin %s: %s", domain2str(domain), sec_errstr(status));
 				result = 1;
 			}
 			else
 			{
-				fprintf(stderr, "login %s keychain: ", domain2str(domain));
+#if 0
+				fprintf(stdout, "login %s keychain: ", domain2str(domain));
+#endif
 				display_list("", keychain);
 			}
 #else
@@ -418,11 +434,17 @@ keychain_login(int argc, char * const *argv)
 			status = SecKeychainCopyLogin(&keychain);
 			if (status)
 			{
-				fprintf(stderr, "SecKeychainCopyLogin() returned %ld(0x%lx)\n", status, status);
+				sec_perror("SecKeychainCopyLogin", status);
 				result = 1;
 			}
 			else
+			{
+#if 0
 				display_list("login keychain: ", keychain);
+#else
+				display_list("", keychain);
+#endif
+			}
 		}
 	}
 

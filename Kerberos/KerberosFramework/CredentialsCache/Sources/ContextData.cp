@@ -1,7 +1,7 @@
 /*
  * CCIContextData.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/ContextData.cp,v 1.23 2003/03/17 20:47:27 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/ContextData.cp,v 1.24 2004/09/08 20:42:21 lxs Exp $
  */
 
 #include "ContextData.h"
@@ -87,8 +87,12 @@ CCIContextData::CreateCCache (
 	// Note that the default ccache is the first ccache in the list, so
 	// if it doesn't exist, this sets a new default, but if a default
 	// exists, it's unchanged
+        if (mCCaches.size() == 0) {
+            // About to become default
+            newCCache -> UpdateLastDefaultTime ();
+        }
 	mCCaches.push_back (newCCache -> GetGloballyUniqueID ());
-	
+        
 	Changed ();
 	
 	return newCCache -> GetGloballyUniqueID ();

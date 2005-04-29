@@ -36,7 +36,6 @@
 #include <netinet6/ipsec.h>
 #include <net/pfkeyv2.h>
 #include <netkey/key_var.h>
-#include <netkey/key_debug.h>
 
 #include <netinet/in.h>
 #include <netinet6/ipsec.h>

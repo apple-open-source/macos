@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/pixel.c,v 1.7 2002/10/30 12:51:26 alanh Exp $ */
+/* $XFree86: xc/lib/GL/glx/pixel.c,v 1.9 2004/01/28 18:11:42 alanh Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -79,120 +79,6 @@ static GLubyte HighBitsMask[9] = {
     0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff,
 };
 
-/*
-** Return the number of elements per group of a specified format
-*/
-static GLint ElementsPerGroup(GLenum format, GLenum type) 
-{
-    /*
-    ** To make row length computation valid for image extraction,
-    ** packed pixel types assume elements per group equals one.
-    */
-    switch(type) {
-    case GL_UNSIGNED_BYTE_3_3_2:
-    case GL_UNSIGNED_BYTE_2_3_3_REV:
-    case GL_UNSIGNED_SHORT_5_6_5:
-    case GL_UNSIGNED_SHORT_5_6_5_REV:
-    case GL_UNSIGNED_SHORT_4_4_4_4:
-    case GL_UNSIGNED_SHORT_4_4_4_4_REV:
-    case GL_UNSIGNED_SHORT_5_5_5_1:
-    case GL_UNSIGNED_SHORT_1_5_5_5_REV:
-    case GL_UNSIGNED_INT_8_8_8_8:
-    case GL_UNSIGNED_INT_8_8_8_8_REV:
-    case GL_UNSIGNED_INT_10_10_10_2:
-    case GL_UNSIGNED_INT_2_10_10_10_REV:
-      return 1;
-    default:
-      break;
-    }
-
-    switch(format) {
-      case GL_RGB:
-      case GL_BGR:
-	return 3;
-      case GL_LUMINANCE_ALPHA:
-	return 2;
-      case GL_RGBA:
-      case GL_BGRA:
-      case GL_ABGR_EXT:
-	return 4;
-      case GL_COLOR_INDEX:
-      case GL_STENCIL_INDEX:
-      case GL_DEPTH_COMPONENT:
-      case GL_RED:
-      case GL_GREEN:
-      case GL_BLUE:
-      case GL_ALPHA:
-      case GL_LUMINANCE:
-      case GL_INTENSITY:
-	return 1;
-      default:
-	return 0;
-    }
-}
-
-/*
-** Return the number of bytes per element, based on the element type (other
-** than GL_BITMAP).
-*/
-static GLint BytesPerElement(GLenum type) 
-{
-    switch(type) {
-      case GL_UNSIGNED_SHORT:
-      case GL_SHORT:
-      case GL_UNSIGNED_SHORT_5_6_5:
-      case GL_UNSIGNED_SHORT_5_6_5_REV:
-      case GL_UNSIGNED_SHORT_4_4_4_4:
-      case GL_UNSIGNED_SHORT_4_4_4_4_REV:
-      case GL_UNSIGNED_SHORT_5_5_5_1:
-      case GL_UNSIGNED_SHORT_1_5_5_5_REV:
-	return 2;
-      case GL_UNSIGNED_BYTE:
-      case GL_BYTE:
-      case GL_UNSIGNED_BYTE_3_3_2:
-      case GL_UNSIGNED_BYTE_2_3_3_REV:
-	return 1;
-      case GL_INT:
-      case GL_UNSIGNED_INT:
-      case GL_FLOAT:
-      case GL_UNSIGNED_INT_8_8_8_8:
-      case GL_UNSIGNED_INT_8_8_8_8_REV:
-      case GL_UNSIGNED_INT_10_10_10_2:
-      case GL_UNSIGNED_INT_2_10_10_10_REV:
-	return 4;
-      default:
-	return 0;
-    }
-}
-
-/*
-** Compute memory required for internal packed array of data of given type
-** and format.
-*/
-GLint __glImageSize(GLsizei width, GLsizei height, GLsizei depth,
-		    GLenum format, GLenum type) 
-{
-    int bytes_per_row;
-    int components;
-
-    if (width < 0 || height < 0 || depth < 0) {
-	return 0;
-    }
-    /*
-    ** Zero is returned if either format or type are invalid.
-    */
-    components = ElementsPerGroup(format,type);
-    if (type == GL_BITMAP) {
-	if (format == GL_COLOR_INDEX || format == GL_STENCIL_INDEX) {
-	    bytes_per_row = (width + 7) >> 3;
-	} else {
-	    return 0;
-	}
-    } else {
-	bytes_per_row = BytesPerElement(type) * width;
-    }
-    return bytes_per_row * height * depth * components;
-}
 
 /*
 ** Copy bitmap data from clients packed memory applying unpacking modes as the
@@ -203,11 +89,12 @@ static void FillBitmap(__GLXcontext *gc, GLint width, GLint height,
 		       GLenum format, const GLvoid *userdata,
 		       GLubyte *destImage)
 {
-    GLint rowLength = gc->state.storeUnpack.rowLength;
-    GLint alignment = gc->state.storeUnpack.alignment;
-    GLint skipPixels = gc->state.storeUnpack.skipPixels;
-    GLint skipRows = gc->state.storeUnpack.skipRows;
-    GLint lsbFirst = gc->state.storeUnpack.lsbFirst;
+    const __GLXattribute * state = gc->client_state_private;
+    GLint rowLength = state->storeUnpack.rowLength;
+    GLint alignment = state->storeUnpack.alignment;
+    GLint skipPixels = state->storeUnpack.skipPixels;
+    GLint skipRows = state->storeUnpack.skipRows;
+    GLint lsbFirst = state->storeUnpack.lsbFirst;
     GLint elementsLeft, bitOffset, currentByte, nextByte, highBitMask;
     GLint lowBitMask, i;
     GLint components, groupsPerRow, rowSize, padding, elementsPerRow;
@@ -218,7 +105,7 @@ static void FillBitmap(__GLXcontext *gc, GLint width, GLint height,
     } else {
 	groupsPerRow = width;
     }
-    components = ElementsPerGroup(format,GL_BITMAP);
+    components = __glElementsPerGroup(format,GL_BITMAP);
     rowSize = (groupsPerRow * components + 7) >> 3;
     padding = (rowSize % alignment);
     if (padding) {
@@ -279,13 +166,14 @@ void __glFillImage(__GLXcontext *gc, GLint dim, GLint width, GLint height,
 		   GLint depth, GLenum format, GLenum type,
 		   const GLvoid *userdata, GLubyte *newimage, GLubyte *modes)
 {
-    GLint rowLength = gc->state.storeUnpack.rowLength;
-    GLint imageHeight = gc->state.storeUnpack.imageHeight;
-    GLint alignment = gc->state.storeUnpack.alignment;
-    GLint skipPixels = gc->state.storeUnpack.skipPixels;
-    GLint skipRows = gc->state.storeUnpack.skipRows;
-    GLint skipImages = gc->state.storeUnpack.skipImages;
-    GLint swapBytes = gc->state.storeUnpack.swapEndian;
+    const __GLXattribute * state = gc->client_state_private;
+    GLint rowLength = state->storeUnpack.rowLength;
+    GLint imageHeight = state->storeUnpack.imageHeight;
+    GLint alignment = state->storeUnpack.alignment;
+    GLint skipPixels = state->storeUnpack.skipPixels;
+    GLint skipRows = state->storeUnpack.skipRows;
+    GLint skipImages = state->storeUnpack.skipImages;
+    GLint swapBytes = state->storeUnpack.swapEndian;
     GLint components, elementSize, rowSize, padding, groupsPerRow, groupSize;
     GLint elementsPerRow, imageSize, rowsPerImage, h, i, j, k;
     const GLubyte *start, *iter, *itera, *iterb, *iterc;
@@ -294,7 +182,7 @@ void __glFillImage(__GLXcontext *gc, GLint dim, GLint width, GLint height,
     if (type == GL_BITMAP) {
 	FillBitmap(gc, width, height, format, userdata, newimage);
     } else {
-	components = ElementsPerGroup(format,type);
+	components = __glElementsPerGroup(format,type);
 	if (rowLength > 0) {
 	    groupsPerRow = rowLength;
 	} else {
@@ -306,7 +194,7 @@ void __glFillImage(__GLXcontext *gc, GLint dim, GLint width, GLint height,
 	    rowsPerImage = height;
 	}
 
-	elementSize = BytesPerElement(type);
+	elementSize = __glBytesPerElement(type);
 	groupSize = elementSize * components;
 	if (elementSize == 1) swapBytes = 0;
 
@@ -397,11 +285,12 @@ static void EmptyBitmap(__GLXcontext *gc, GLint width, GLint height,
 			GLenum format, const GLubyte *sourceImage,
 			GLvoid *userdata)
 {
-    GLint rowLength = gc->state.storePack.rowLength;
-    GLint alignment = gc->state.storePack.alignment;
-    GLint skipPixels = gc->state.storePack.skipPixels;
-    GLint skipRows = gc->state.storePack.skipRows;
-    GLint lsbFirst = gc->state.storePack.lsbFirst;
+    const __GLXattribute * state = gc->client_state_private;
+    GLint rowLength = state->storePack.rowLength;
+    GLint alignment = state->storePack.alignment;
+    GLint skipPixels = state->storePack.skipPixels;
+    GLint skipRows = state->storePack.skipRows;
+    GLint lsbFirst = state->storePack.lsbFirst;
     GLint components, groupsPerRow, rowSize, padding, elementsPerRow;
     GLint sourceRowSize, sourcePadding, sourceSkip;
     GLubyte *start, *iter;
@@ -409,7 +298,7 @@ static void EmptyBitmap(__GLXcontext *gc, GLint width, GLint height,
     GLint writeMask, i;
     GLubyte writeByte;
 
-    components = ElementsPerGroup(format,GL_BITMAP);
+    components = __glElementsPerGroup(format,GL_BITMAP);
     if (rowLength > 0) {
 	groupsPerRow = rowLength;
     } else {
@@ -508,12 +397,13 @@ void __glEmptyImage(__GLXcontext *gc, GLint dim, GLint width, GLint height,
 		    GLint depth, GLenum format, GLenum type,
 		    const GLubyte *sourceImage, GLvoid *userdata)
 {
-    GLint rowLength = gc->state.storePack.rowLength;
-    GLint imageHeight = gc->state.storePack.imageHeight;
-    GLint alignment = gc->state.storePack.alignment;
-    GLint skipPixels = gc->state.storePack.skipPixels;
-    GLint skipRows = gc->state.storePack.skipRows;
-    GLint skipImages = gc->state.storePack.skipImages;
+    const __GLXattribute * state = gc->client_state_private;
+    GLint rowLength = state->storePack.rowLength;
+    GLint imageHeight = state->storePack.imageHeight;
+    GLint alignment = state->storePack.alignment;
+    GLint skipPixels = state->storePack.skipPixels;
+    GLint skipRows = state->storePack.skipRows;
+    GLint skipImages = state->storePack.skipImages;
     GLint components, elementSize, rowSize, padding, groupsPerRow, groupSize;
     GLint elementsPerRow, sourceRowSize, sourcePadding, h, i;
     GLint imageSize, rowsPerImage;
@@ -522,7 +412,7 @@ void __glEmptyImage(__GLXcontext *gc, GLint dim, GLint width, GLint height,
     if (type == GL_BITMAP) {
 	EmptyBitmap(gc, width, height, format, sourceImage, userdata);
     } else {
-	components = ElementsPerGroup(format,type);
+	components = __glElementsPerGroup(format,type);
 	if (rowLength > 0) {
 	    groupsPerRow = rowLength;
 	} else {
@@ -533,7 +423,7 @@ void __glEmptyImage(__GLXcontext *gc, GLint dim, GLint width, GLint height,
 	} else {
 	    rowsPerImage = height;
 	}
-	elementSize = BytesPerElement(type);
+	elementSize = __glBytesPerElement(type);
 	groupSize = elementSize * components;
 	rowSize = groupsPerRow * groupSize;
 	padding = (rowSize % alignment);

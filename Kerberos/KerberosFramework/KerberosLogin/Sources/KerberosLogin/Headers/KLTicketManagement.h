@@ -1,7 +1,7 @@
 /*
  * KLTicketManagement.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLTicketManagement.h,v 1.2 2003/04/23 22:05:48 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLTicketManagement.h,v 1.3 2004/07/15 20:06:39 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -25,12 +25,11 @@
  * this software for any purpose.  It is provided "as is" without express
  * or implied warranty.
  */
-KLStatus __KLAcquireInitialTicketsForCache (const KLPrincipal    inPrincipal,
-                                            KLLoginOptions       inLoginOptions,
-                                            const char          *inCacheName,
+KLStatus __KLAcquireInitialTicketsForCache (const char          *inCacheName,
                                             KLKerberosVersion    inKerberosVersion,
+                                            KLLoginOptions       inLoginOptions,
                                             KLPrincipal         *outPrincipal,
-                                            char               **outCacheName);
+                                            char               **outCacheName);;
 
 KLStatus __KLAcquireNewKerberos4TicketsFromKerberos5Tickets (KLPrincipal    inPrincipal,
                                                              KLPrincipal   *outPrincipal,

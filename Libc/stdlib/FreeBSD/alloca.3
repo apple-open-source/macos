@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)alloca.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/stdlib/alloca.3,v 1.8 2001/09/07 14:46:35 asmodai Exp $
+.\" $FreeBSD: src/lib/libc/stdlib/alloca.3,v 1.11 2003/06/28 22:12:30 ru Exp $
 .\"
 .Dd June 4, 1993
 .Dt ALLOCA 3
@@ -66,16 +66,18 @@ pointer is returned.
 .Xr getpagesize 3 ,
 .Xr malloc 3 ,
 .Xr realloc 3
-.Sh BUGS
+.Sh HISTORY
 The
 .Fn alloca
-function
-is machine dependent; its use is discouraged.
-.\" .Sh HISTORY
-.\" The
-.\" .Fn alloca
-.\" function appeared in
+function appeared in
+.At 32v .
 .\" .Bx ?? .
 .\" The function appeared in 32v, pwb and pwb.2 and in 3bsd 4bsd
 .\" The first man page (or link to a man page that I can find at the
 .\" moment is 4.3...
+.Sh BUGS
+The
+.Fn alloca
+function
+is machine and compiler dependent;
+its use is discouraged.

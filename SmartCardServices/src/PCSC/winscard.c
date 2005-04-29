@@ -605,7 +605,7 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 
 	LONG rv;
 	UCHAR controlBuffer[5];
-	UCHAR receiveBuffer[MAX_BUFFER_SIZE];
+	UCHAR receiveBuffer[2];
 	PREADER_CONTEXT rContext;
 	DWORD dwAction, dwAtrLen, receiveLength;
 
@@ -736,9 +736,9 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 		controlBuffer[2] = (rContext->dwSlot & 0x0000FFFF) + 1;
 		controlBuffer[3] = 0x00;
 		controlBuffer[4] = 0x00;
-		receiveLength = 2;
-		rv = IFDControl(rContext, controlBuffer, 5, receiveBuffer,
-			&receiveLength);
+		receiveLength = sizeof(receiveBuffer);
+		rv = IFDControl(rContext, controlBuffer, sizeof(controlBuffer),
+			receiveBuffer, &receiveLength);
 
 		if (rv == SCARD_S_SUCCESS)
 		{
@@ -859,7 +859,7 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
 	LONG rv;
 	PREADER_CONTEXT rContext;
 	UCHAR controlBuffer[5];
-	UCHAR receiveBuffer[MAX_BUFFER_SIZE];
+	UCHAR receiveBuffer[2];
 	DWORD dwAction, receiveLength;
 
 	/*
@@ -981,9 +981,9 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
 		controlBuffer[2] = (rContext->dwSlot & 0x0000FFFF) + 1;
 		controlBuffer[3] = 0x00;
 		controlBuffer[4] = 0x00;
-		receiveLength = 2;
-		rv = IFDControl(rContext, controlBuffer, 5, receiveBuffer,
-			&receiveLength);
+		receiveLength = sizeof(receiveBuffer);
+		rv = IFDControl(rContext, controlBuffer, sizeof(controlBuffer),
+			receiveBuffer, &receiveLength);
 
 		if (rv == SCARD_S_SUCCESS)
 		{
@@ -1248,16 +1248,6 @@ LONG SCardTransmit(SCARDHANDLE hCard, LPCSCARD_IO_REQUEST pioSendPci,
 		}
 	}
 
-	if (cbSendLength > MAX_BUFFER_SIZE)
-	{
-		return SCARD_E_INSUFFICIENT_BUFFER;
-	}
-
-	/*
-	 * Removed - a user may allocate a larger buffer if ( dwRxLength >
-	 * MAX_BUFFER_SIZE ) { return SCARD_E_INSUFFICIENT_BUFFER; } 
-	 */
-
 	/*
 	 * Quick fix: PC/SC starts at 1 for bit masking but the IFD_Handler
 	 * just wants 0 or 1 
@@ -1295,14 +1285,14 @@ LONG SCardTransmit(SCARDHANDLE hCard, LPCSCARD_IO_REQUEST pioSendPci,
 	{
 		rv = IFDControl(rContext, (PUCHAR) pbSendBuffer, cbSendLength,
 			pbRecvBuffer, &dwRxLength);
+		*pioRecvPci = *pioSendPci;
 	} else
 	{
 		rv = IFDTransmit(rContext, sSendPci, (PUCHAR) pbSendBuffer,
 			cbSendLength, pbRecvBuffer, &dwRxLength, &sRecvPci);
+		pioRecvPci->dwProtocol = sRecvPci.Protocol;
+		pioRecvPci->cbPciLength = sRecvPci.Length;
 	}
-
-	pioRecvPci->dwProtocol = sRecvPci.Protocol;
-	pioRecvPci->cbPciLength = sRecvPci.Length;
 
 	/*
 	 * Check for any errors that might have occurred 
@@ -1318,12 +1308,6 @@ LONG SCardTransmit(SCARDHANDLE hCard, LPCSCARD_IO_REQUEST pioSendPci,
 	 * Available is less than received 
 	 */
 	if (tempRxLength < dwRxLength)
-	{
-		*pcbRecvLength = 0;
-		return SCARD_E_INSUFFICIENT_BUFFER;
-	}
-
-	if (dwRxLength > MAX_BUFFER_SIZE)
 	{
 		*pcbRecvLength = 0;
 		return SCARD_E_INSUFFICIENT_BUFFER;

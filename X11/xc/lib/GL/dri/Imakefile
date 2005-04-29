@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/GL/dri/Imakefile,v 1.10 2002/02/22 21:32:51 dawes Exp $
+XCOMM $XFree86: xc/lib/GL/dri/Imakefile,v 1.11 2003/09/28 20:14:59 alanh Exp $
 
 #include <Threads.tmpl>
 
@@ -21,17 +21,13 @@ ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
 		-I$(MESASRCDIR)/include -I$(MESASRCDIR)/src
 #endif
 
-#if GlxBuiltInTdfx
-    TDFX_DEFS = -DUSE_TDFX
-#endif
-
 #if GlxUseBuiltInDRIDriver
      GLX_DEFS = -DBUILT_IN_DRI_DRIVER
 #endif
 
   PATHDEFINES = -DDEFAULT_DRIVER_DIR=\"$(MODULEDIR)/dri\"
 
-      DEFINES = $(ALLOC_DEFINES) GlxDefines $(TDFX_DEFS) $(GLX_DEFS) $(PATHDEFINES)
+      DEFINES = $(ALLOC_DEFINES) GlxDefines $(GLX_DEFS) $(PATHDEFINES)
      INCLUDES = -I$(XLIBSRC) -I$(EXTINCSRC) -I$(XF86OSSRC) $(DRI_INCS)
          SRCS = XF86dri.c dri_util.c $(DRI_SRCS)
          OBJS = XF86dri.o dri_util.o $(DRI_OBJS)

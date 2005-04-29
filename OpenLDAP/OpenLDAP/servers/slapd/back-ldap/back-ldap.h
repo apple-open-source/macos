@@ -1,38 +1,24 @@
 /* back-ldap.h - ldap backend header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/back-ldap.h,v 1.17.2.2 2003/02/09 16:31:38 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/back-ldap.h,v 1.42.2.9 2004/07/09 16:32:00 ando Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2000-2003 Pierangelo Masarati.
+ * Portions Copyright 1999-2003 Howard Chu.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/* This is an altered version */
-/*
- * Copyright 1999, Howard Chu, All rights reserved. <hyc@highlandsun.com>
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author is not responsible for the consequences of use of this
- *    software, no matter how awful, even if they arise from flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- * 
- * 4. This notice may not be removed or altered.
- *
- *
- *
- * Copyright 2000, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This software is being modified by Pierangelo Masarati.
- * The previously reported conditions apply to the modified code as well.
- * Changes in the original code are highlighted where required.
- * Credits for the original code go to the author, Howard Chu.      
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by the Howard Chu for inclusion
+ * in OpenLDAP Software and subsequently enhanced by Pierangelo
+ * Masarati.
  */
 
 #ifndef SLAPD_LDAP_H
@@ -55,7 +41,9 @@ struct ldapconn {
 	LDAP		*ld;
 	struct berval	cred;
 	struct berval 	bound_dn;
+	struct berval	local_dn;
 	int		bound;
+	ldap_pvt_thread_mutex_t		lc_mutex;
 };
 
 struct ldapmap {
@@ -70,13 +58,39 @@ struct ldapmapping {
 	struct berval dst;
 };
 
+struct ldaprwmap {
+	/*
+	 * DN rewriting
+	 */
+#ifdef ENABLE_REWRITE
+	struct rewrite_info *rwm_rw;
+#else /* !ENABLE_REWRITE */
+	/* some time the suffix massaging without librewrite
+	 * will be disabled */
+	BerVarray rwm_suffix_massage;
+#endif /* !ENABLE_REWRITE */
+
+	/*
+	 * Attribute/objectClass mapping
+	 */
+	struct ldapmap rwm_oc;
+	struct ldapmap rwm_at;
+};
+
 struct ldapinfo {
-	char *url;
-	char *binddn;
-	char *bindpw;
+	char		*url;
+	LDAPURLDesc	*lud;
+	struct berval binddn;
+	struct berval bindpw;
+#ifdef LDAP_BACK_PROXY_AUTHZ
+	struct berval proxyauthzdn;
+	struct berval proxyauthzpw;
+#endif /* LDAP_BACK_PROXY_AUTHZ */
 	ldap_pvt_thread_mutex_t		conn_mutex;
 	int savecred;
 	Avlnode *conntree;
+
+#if 0
 #ifdef ENABLE_REWRITE
 	struct rewrite_info *rwinfo;
 #else /* !ENABLE_REWRITE */
@@ -85,21 +99,41 @@ struct ldapinfo {
 
 	struct ldapmap oc_map;
 	struct ldapmap at_map;
+#endif
+
+	struct ldaprwmap rwmap;
 };
 
-struct ldapconn *ldap_back_getconn(struct ldapinfo *li, struct slap_conn *conn,
-	struct slap_op *op);
-int ldap_back_dobind(struct ldapconn *lc, Operation *op);
-int ldap_back_map_result(int err);
-int ldap_back_op_result(struct ldapconn *lc, Operation *op);
+/* Whatever context ldap_back_dn_massage needs... */
+typedef struct dncookie {
+	struct ldaprwmap *rwmap;
+
+#ifdef ENABLE_REWRITE
+	Connection *conn;
+	char *ctx;
+	SlapReply *rs;
+#else
+	int normalized;
+	int tofrom;
+#endif
+} dncookie;
+
+int ldap_back_freeconn( Operation *op, struct ldapconn *lc );
+struct ldapconn *ldap_back_getconn(struct slap_op *op, struct slap_rep *rs);
+int ldap_back_dobind(struct ldapconn *lc, Operation *op, SlapReply *rs);
+int ldap_back_map_result(SlapReply *rs);
+int ldap_back_op_result(struct ldapconn *lc, Operation *op, SlapReply *rs,
+	ber_int_t msgid, int sendok);
 int	back_ldap_LTX_init_module(int argc, char *argv[]);
 
-void ldap_back_dn_massage(struct ldapinfo *li, struct berval *dn,
-	struct berval *res, int normalized, int tofrom);
+int ldap_back_dn_massage(dncookie *dc, struct berval *dn,
+	struct berval *res);
 
 extern int ldap_back_conn_cmp( const void *c1, const void *c2);
 extern int ldap_back_conn_dup( void *c1, void *c2 );
+extern void ldap_back_conn_free( void *c );
 
+/* attributeType/objectClass mapping */
 int mapping_cmp (const void *, const void *);
 int mapping_dup (void *, void *);
 
@@ -115,21 +149,51 @@ ldap_back_map_filter(
 		struct berval *f,
 		int remap
 );
-char **
+
+int
 ldap_back_map_attrs(
 		struct ldapmap *at_map,
 		AttributeName *a,
-		int remap
+		int remap,
+		char ***mapped_attrs
 );
 
 extern void mapping_free ( void *mapping );
 
+extern int ldap_back_map_config(
+		struct ldapmap	*oc_map,
+		struct ldapmap	*at_map,
+		const char	*fname,
+		int		lineno,
+		int		argc,
+		char		**argv );
+
+extern int
+ldap_back_filter_map_rewrite(
+		dncookie		*dc,
+		Filter			*f,
+		struct berval		*fstr,
+		int			remap );
+
+/* suffix massaging by means of librewrite */
 #ifdef ENABLE_REWRITE
 extern int suffix_massage_config( struct rewrite_info *info,
 		struct berval *pvnc, struct berval *nvnc,
 		struct berval *prnc, struct berval *nrnc);
-extern int ldap_dnattr_rewrite( struct rewrite_info *rwinfo, BerVarray a_vals, void *cookie );
 #endif /* ENABLE_REWRITE */
+extern int ldap_dnattr_rewrite( dncookie *dc, BerVarray a_vals );
+extern int ldap_dnattr_result_rewrite( dncookie *dc, BerVarray a_vals );
+
+extern int ldap_chain_setup();
+
+#ifdef LDAP_BACK_PROXY_AUTHZ
+extern int
+ldap_back_proxy_authz_ctrl(
+		struct ldapconn	*lc,
+		Operation	*op,
+		SlapReply	*rs,
+		LDAPControl	***pctrls );
+#endif /* LDAP_BACK_PROXY_AUTHZ */
 
 LDAP_END_DECL
 

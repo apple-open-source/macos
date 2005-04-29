@@ -1,6 +1,6 @@
 #!/bin/perl
 
-# $Id: cscope,v 1.1.1.1 2002/01/09 18:50:29 umeshv Exp $
+# $Id: cscope,v 1.2 2004/07/09 21:34:44 nicolai Exp $
 #
 # WebCscope: A web interface to the cscope application
 # Copyright (C) 2001, Ragho Mahalingam <ragho@mahalingam.com>
@@ -22,8 +22,8 @@
 # Change History:
 # 
 # $Log: cscope,v $
-# Revision 1.1.1.1  2002/01/09 18:50:29  umeshv
-# Imported cscope-15.3
+# Revision 1.2  2004/07/09 21:34:44  nicolai
+# merge changes from update to 15.5
 #
 # Revision 1.1  2001/06/29 14:20:16  petr
 # Added webcscope to contribs.
@@ -434,7 +434,7 @@ ENDOFTEXT2
 sub Feedback {
 
   $feedback  = "<font size=-1>";
-  $feedback .= '$Id: cscope,v 1.1.1.1 2002/01/09 18:50:29 umeshv Exp $<br>';
+  $feedback .= '$Id: cscope,v 1.2 2004/07/09 21:34:44 nicolai Exp $<br>';
   $feedback .= "$comment{name}<i>&lt;";
   $feedback .= "<a href=\"mailto:$comment{email}\">";
   $feedback .= "$comment{email}</a>&gt;</i></font>";

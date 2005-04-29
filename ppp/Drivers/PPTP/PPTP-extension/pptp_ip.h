@@ -28,7 +28,7 @@
 
 int pptp_ip_init();
 int pptp_ip_dispose();
-int pptp_ip_output(struct mbuf *m, u_int32_t from, u_int32_t to);
+int pptp_ip_output(mbuf_t m, u_int32_t from, u_int32_t to);
 
 
 #endif

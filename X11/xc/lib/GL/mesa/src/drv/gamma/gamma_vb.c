@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_vb.c,v 1.3 2002/10/30 12:51:30 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_vb.c,v 1.5 2003/09/28 20:15:10 alanh Exp $ */
 /*
  * Copyright 2001 by Alan Hourihane.
  *
@@ -28,10 +28,9 @@
  
 #include "glheader.h"
 #include "mtypes.h"
-#include "mem.h"
+#include "imports.h"
 #include "macros.h"
 #include "colormac.h"
-#include "mmath.h"
 
 #include "swrast_setup/swrast_setup.h"
 #include "tnl/t_context.h"
@@ -279,21 +278,21 @@ void gammaBuildVertices( GLcontext *ctx,
    if (!newinputs)
       return;
 
-   if (newinputs & VERT_CLIP) {
+   if (newinputs & VERT_BIT_CLIP) {
       setup_tab[gmesa->SetupIndex].emit( ctx, start, count, v, stride );
    } else {
       GLuint ind = 0;
 
-      if (newinputs & VERT_RGBA)
+      if (newinputs & VERT_BIT_COLOR0)
 	 ind |= GAMMA_RGBA_BIT;
 
-      if (newinputs & VERT_SPEC_RGB)
+      if (newinputs & VERT_BIT_COLOR1)
 	 ind |= GAMMA_SPEC_BIT;
 
-      if (newinputs & VERT_TEX0)
+      if (newinputs & VERT_BIT_TEX0)
 	 ind |= GAMMA_TEX0_BIT;
 
-      if (newinputs & VERT_FOG_COORD)
+      if (newinputs & VERT_BIT_FOG)
 	 ind |= GAMMA_FOG_BIT;
 
       if (gmesa->SetupIndex & GAMMA_PTEX_BIT)
@@ -319,7 +318,7 @@ void gammaChooseVertexState( GLcontext *ctx )
    if (ctx->Fog.Enabled)
       ind |= GAMMA_FOG_BIT;
 
-   if (ctx->Texture._ReallyEnabled) {
+   if (ctx->Texture.Unit[0]._ReallyEnabled) {
       _tnl_need_projected_coords( ctx, GL_FALSE );
       ind |= GAMMA_TEX0_BIT;
    } else

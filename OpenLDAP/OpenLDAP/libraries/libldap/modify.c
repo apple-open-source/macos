@@ -1,13 +1,22 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/modify.c,v 1.12.2.3 2003/03/03 17:10:05 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/*  Portions
- *  Copyright (c) 1990 Regents of the University of Michigan.
- *  All rights reserved.
+/* $OpenLDAP: pkg/ldap/libraries/libldap/modify.c,v 1.16.2.3 2004/01/01 18:16:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *  modify.c
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1990 Regents of the University of Michigan.
+ * All rights reserved.
+ */
+/* Portions Copyright (C) The Internet Society (1997)
+ * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
  */
 
 #include "portable.h"
@@ -37,7 +46,9 @@
  * Example:
  *	LDAPMod	*mods[] = { 
  *			{ LDAP_MOD_ADD, "cn", { "babs jensen", "babs", 0 } },
- *			{ LDAP_MOD_REPLACE, "sn", { "jensen", 0 } },
+ *			{ LDAP_MOD_REPLACE, "sn", { "babs jensen", "babs", 0 } },
+ *			{ LDAP_MOD_DELETE, "ou", 0 },
+ *			{ LDAP_MOD_INCREMENT, "uidNumber, { "1", 0 } }
  *			0
  *		}
  *	rc=  ldap_modify_ext( ld, dn, mods, sctrls, cctrls, &msgid );
@@ -52,6 +63,7 @@ ldap_modify_ext( LDAP *ld,
 {
 	BerElement	*ber;
 	int		i, rc;
+	ber_int_t	id;
 
 	/*
 	 * A modify request looks like this:
@@ -60,8 +72,9 @@ ldap_modify_ext( LDAP *ld,
 	 *		modifications	SEQUENCE OF SEQUENCE {
 	 *			operation	ENUMERATED {
 	 *				add	(0),
-	 *				delete	(1),
-	 *				replace	(2)
+	 *				delete (1),
+	 *				replace	(2),
+	 *				increment (3) -- extension
 	 *			},
 	 *			modification	SEQUENCE {
 	 *				type	AttributeType,
@@ -86,8 +99,9 @@ ldap_modify_ext( LDAP *ld,
 		return( LDAP_NO_MEMORY );
 	}
 
-	if ( ber_printf( ber, "{it{s{" /*}}}*/, ++ld->ld_msgid, LDAP_REQ_MODIFY, dn )
-	    == -1 ) {
+	LDAP_NEXT_MSGID( ld, id );
+	rc = ber_printf( ber, "{it{s{" /*}}}*/, id, LDAP_REQ_MODIFY, dn );
+	if ( rc == -1 ) {
 		ld->ld_errno = LDAP_ENCODING_ERROR;
 		ber_free( ber, 1 );
 		return( ld->ld_errno );
@@ -131,7 +145,7 @@ ldap_modify_ext( LDAP *ld,
 	}
 
 	/* send the message */
-	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_MODIFY, dn, ber );
+	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_MODIFY, dn, ber, id );
 	return( *msgidp < 0 ? ld->ld_errno : LDAP_SUCCESS );
 }
 
@@ -149,7 +163,9 @@ ldap_modify_ext( LDAP *ld,
  * Example:
  *	LDAPMod	*mods[] = { 
  *			{ LDAP_MOD_ADD, "cn", { "babs jensen", "babs", 0 } },
- *			{ LDAP_MOD_REPLACE, "sn", { "jensen", 0 } },
+ *			{ LDAP_MOD_REPLACE, "sn", { "babs jensen", "babs", 0 } },
+ *			{ LDAP_MOD_DELETE, "ou", 0 },
+ *			{ LDAP_MOD_INCREMENT, "uidNumber, { "1", 0 } }
  *			0
  *		}
  *	msgid = ldap_modify( ld, dn, mods );

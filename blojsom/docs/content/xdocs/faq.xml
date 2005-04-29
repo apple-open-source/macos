@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE faqs PUBLIC "-//APACHE//DTD FAQ V1.2//EN" "dtd/faq-v12.dtd">
+
+<faqs title="Frequently Asked Questions">
+    <part id="general">
+        <title>General</title>
+
+        <faq id="name">
+            <question>
+                What does blojsom stand for?
+            </question>
+            <answer>
+                <p>
+                    blojsom is an acronym for (blo)gging in (j)ava ... (so)mewhat ... (m)aybe.
+                    I was looking for a way to play off the name,
+                    <link href="http://www.raelity.org/apps/blosxom">blosxom</link>, blojsom's not-so-distant "relative",
+                    and blojsom stuck.
+                </p>
+            </answer>
+        </faq>
+
+        <faq id="pronounce">
+            <question>
+                How do you pronounce blojsom?
+            </question>
+            <answer>
+                <p>
+                    Phonetically, I guess it would be bloj-sum.
+                </p>
+            </answer>
+        </faq>
+
+        <faq id="capital">
+            <question>
+                Is it Blojsom or blojsom?
+            </question>
+            <answer>
+                <p>
+                    blojsom.
+                </p>
+            </answer>
+        </faq>
+
+        <faq id="multiuser">
+            <question>
+                Can blojsom support more than one user with a single blojsom installation?
+            </question>
+            <answer>
+                <p>
+                    Yes. As of blojsom 2.0, blojsom is multi-user enabled.
+                </p>
+            </answer>
+        </faq>
+
+        <faq id="firstpost">
+            <question>
+                How do I create my first blog entry?
+            </question>
+            <answer>
+                <p>
+                    blojsom renders your blog based on what files it finds in the directory you set as your
+                    <em>blog-home</em> (see
+                    <link href="site:installation">installation</link>). In this directory, each
+                    individual file is treated as a seperate blog entry. You can control which files are processed
+                    and which are ignored using the
+                    <em>blog-file-extentions</em> and
+                    <em>blog-directory-filter</em>
+                    entries in
+                    <code>/WEB-INF/(user-id)/blog.properties</code>.
+                </p>
+            </answer>
+        </faq>
+
+        <faq id="categories">
+            <question>
+                How do I create different blog categories?
+            </question>
+            <answer>
+                <p>
+                    All you have to do is simply create new directories underneath your
+                    <em>blog-home</em>
+                    directory and blojsom will automatically recognize them as categories. You can further
+                    control the categories using optional meta-data, an example is a more descriptive name for
+                    the category. See
+                    <link href="site:customization">customization</link> for more details.
+                </p>
+            </answer>
+        </faq>
+
+        <faq id="database">
+            <question>
+                Does blojsom require a database?
+            </question>
+            <answer>
+                <p>
+                    No! This is contrary to the original zen and philosophy of blojsom's "relative" blosxom.
+                    blojsom uses the file system (folders and files) as its content database.
+                </p>
+            </answer>
+        </faq>
+
+        <faq id="artwork">
+            <question>
+                Who did the artwork and images?
+            </question>
+            <answer>
+                <p>
+                    Mark Pierce over at
+                    <link href="http://www.omnimondo.com">Omnimodo</link>.
+                </p>
+            </answer>
+        </faq>
+
+        <faq id="windows">
+            <question>
+                Any special instructions for running blojsom under Windows?
+            </question>
+            <answer>
+                <p>
+                    Paths such as the <code>blog-home</code> parameter in your individual <code>/WEB-INF/(user-id)/blog.properties</code>
+                    file should use '/' instead of '\'. For example:
+                    <source>
+                        ...
+                        blog-home=C:/blogs/default/
+                        ...
+                    </source>
+                </p>
+            </answer>
+        </faq>
+    </part>
+    <part id="moblogging">
+        <title>Moblogging</title>
+
+        <faq id="mob">
+            <question>
+                I hear a lot about moblogging ... is it supported in any way by blojsom?
+            </question>
+            <answer>
+                <p>
+                    Yes. Well, there are different ways to support moblogging and with blojsom, you can use
+                    <link href="http://blojsim.sf.net">blojsim</link>, an instant messenger add-on for blojsom to blog
+                    via AIM, Jabber, or MSN.
+                </p>
+                <p>
+                    You may also download the <link href="http://sourceforge.net/projects/pop2blog">pop2blog plugin</link>
+                    for blojsom. This plugin will monitor a POP3 mailbox and post blog entries to the appropriate
+                    category.
+                </p>
+            </answer>
+        </faq>
+
+        <faq id="othermob">
+            <question>
+                Besides blojsim, is there any other support for moblogging?
+            </question>
+            <answer>
+                <p>
+                    Eventually, we will get around to writing an e-mail interface so that you can send e-mail
+                    to a mailbox that blojsom will monitor and populate your blojsom blog with the content.
+                </p>
+            </answer>
+        </faq>
+    </part>
+    <part id="xml-rpc">
+        <title>XML-RPC</title>
+
+        <faq id="edit-xml-rpc">
+            <question>
+                Can I edit my blojsom blog via XML-RPC?
+            </question>
+            <answer>
+                <p>
+                    Yes. blojsom includes an
+                    <a href="javadoc/org/blojsom/extension/xmlrpc/package-summary.html">XML-RPC servlet</a>
+                    and
+                    <a href="javadoc/org/blojsom/extension/xmlrpc/handlers/package-summary.html">XML-RPC handlers</a>
+                    for the
+                    <a href="http://plant.blogger.com/api/index.html">Blogger API</a> and
+                    the
+                    <a href="http://www.xmlrpc.com/metaWeblogAPI">MetaWeblog API</a>.
+                </p>
+            </answer>
+        </faq>
+    </part>
+    <part id="ext-plug">
+        <title>Extensions / plug-ins</title>
+
+        <faq id="ext">
+            <question>
+                Are there any extensions available for blojsom?
+            </question>
+            <answer>
+                <p>
+                    Yes. In fact there is one (at the moment). Check out
+                    <link href="http://sourceforge.net/projects/blojsim">blojsim</link>, which is an instant messenger
+                    add-on for blojsom. Using blojsim, you can blog directly to blojsom from your mobile phone
+                    or any other IM-capable device.
+                </p>
+            </answer>
+        </faq>
+
+        <faq id="plugin">
+            <question>
+                What plugins are available for blojsom?
+            </question>
+            <answer>
+                <p>
+                    As blojsom users write plugins for blojsom, we will maintain a list of plugins for blojsom.
+                    Starting with blojsom 1.4, there are a number of plugins available using the
+                    <a href="javadoc/org/blojsom/plugin/package-summary.html">plugin API</a>.
+                </p>
+            </answer>
+        </faq>
+    </part>
+</faqs>

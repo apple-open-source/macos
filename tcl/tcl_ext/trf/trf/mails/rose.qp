@@ -1,0 +1,657 @@
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m111BpA-00027DC; Mon, 5 Jul 1999 18:42:32 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Mon Jul  5 18:38:49 1999
+X-From_: mrose@dbc.mtview.ca.us  Mon Jul  5 06:55:16 1999
+Received: from smtp1-alterdial.uu.net (alterdial.UU.NET [192.48.96.22])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id GAA09311
+	for <a.kupries@westend.com>; Mon, 5 Jul 1999 06:54:50 +0200 (MET DST)
+Received: from pixymisa by smtp1-alterdial.uu.net with SMTP 
+	(peer crosschecked as: [207.247.127.238])
+	id QQgwmt25745;
+	Mon, 5 Jul 1999 04:54:47 GMT
+Message-ID: <006201bec6a2$7c08b6a0$02c8a8c0@dbc.mtview.ca.us>
+From: "Marshall Rose" <mrose@dbc.mtview.ca.us>
+To: <a.kupries@westend.com>
+Cc: <mrose@dbc.mtview.ca.us>
+Subject: trf/mime updates
+Date: Sun, 4 Jul 1999 22:54:35 -0600
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_005D_01BEC670.3016F400"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 5.00.2314.1300
+X-MimeOLE: Produced By Microsoft MimeOLE V5.00.2314.1300
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_005D_01BEC670.3016F400
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_001_005E_01BEC670.3016F400"
+
+
+------=_NextPart_001_005E_01BEC670.3016F400
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
+
+hi. attached please find:
+
+1. trfupdate.zip - contains a new command, "quoted-printable". also updates
+the "base64" command. the update is that, according to MIME, base64 objects
+have an end-of-line after, at most, every 76 characters.
+
+2. mime package.txt - the latest version. it's about half-implemented. it
+will probably take me the rest of the week to finish it to alpha level.
+
+in experimenting with the "xxx -attach channel" stuff, i find that it is
+important to do a flush on the channel prior to an unstack. this strikes me
+as a bit odd, i thought that unstack would do an implicit flush prior to the
+actual work.
+
+and now, here's a great question!
+
+in building the mime parser for reading a file, i want to build
+datastructures like this:
+
+  token1: file=foo.msg parts={token2 token3 token4} ...
+  token2: file=foo.msg offset=10 count=100 ...
+  token3: file=foo.msg offset=118 count=12 ...
+  token4: file=foo.msg offset=138 count=500 ...
+
+the reason for this is that while i have to scan the file once, i don't have
+to keep it all in memory, i can simply seek to the offset and tell fcopy to
+read a certain number of octets.
+
+this works fine when i'm encoding content because the "fcopy -size" operates
+on the input channel while the attach is on the output channel.
+
+however, when i'm decoding content i want to do an "fcopy -size" but the
+attach is on the input channel. my question is when does fcopy do its
+counting before the transformer does its work or after??? my guess is that
+the transformer sits between the file and fcopy, so the -size option will
+get confused. am i right?
+
+thanks,
+
+/mtr
+
+
+------=_NextPart_001_005E_01BEC670.3016F400
+Content-Type: text/html;
+	charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META content=3D"text/html; charset=3Dwindows-1252" =
+http-equiv=3DContent-Type>
+<META content=3D"MSHTML 5.00.2614.3401" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV><FONT size=3D2>hi. attached please find:</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>1. trfupdate.zip - contains a new command, =
+"quoted-printable".=20
+also updates the "base64" command. the update is that, according to =
+MIME, base64=20
+objects have an end-of-line after, at most, every 76 =
+characters.</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>2. mime package.txt - the latest version. it's about =
+
+half-implemented. it will probably take me the rest of the week to =
+finish it to=20
+alpha level.</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>in experimenting with the "xxx -attach channel" =
+stuff, i find=20
+that it is important to do a flush on the channel prior to an unstack. =
+this=20
+strikes me as a bit odd, i thought that unstack would do an implicit =
+flush prior=20
+to the actual work.</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>and now, here's a great question!</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>in building the mime parser for reading a file, i =
+want to=20
+build datastructures like this:</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>&nbsp; token1: file=3Dfoo.msg parts=3D{token2 token3 =
+token4}=20
+...</FONT></DIV>
+<DIV><FONT size=3D2>&nbsp; token2: file=3Dfoo.msg offset=3D10 =
+count=3D100=20
+...</FONT></DIV>
+<DIV><FONT size=3D2>&nbsp; token3: file=3Dfoo.msg offset=3D118 =
+count=3D12=20
+...</FONT></DIV>
+<DIV><FONT size=3D2>&nbsp; token4: file=3Dfoo.msg offset=3D138 =
+count=3D500=20
+...</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>the reason for this is that while i have to scan the =
+file=20
+once, i don't have to keep it all in memory, i can simply seek to the =
+offset and=20
+tell fcopy to read a certain number of octets.</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>this works fine when i'm encoding content because =
+the "fcopy=20
+-size" operates on the input channel while the attach is on the output=20
+channel.</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>however, when i'm decoding content i want to do an =
+"fcopy=20
+-size" but the attach is on the input channel. my question is when does =
+fcopy do=20
+its counting before the transformer does its work or after??? my guess =
+is that=20
+the transformer sits between the file and fcopy, so the -size option =
+will get=20
+confused. am i right?</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>thanks,</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>/mtr</FONT></DIV>
+<DIV>&nbsp;</DIV></BODY></HTML>
+
+------=_NextPart_001_005E_01BEC670.3016F400--
+
+------=_NextPart_000_005D_01BEC670.3016F400
+Content-Type: application/x-zip-compressed;
+	name="trfupdate.zip"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="trfupdate.zip"
+
+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
+BQBkAQAAyDEAAAAA
+
+------=_NextPart_000_005D_01BEC670.3016F400
+Content-Type: text/plain;
+	name="mime package.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="mime package.txt"
+
+[ mime package.txt - Sun Jul 04 17:04:39 1999 - MIME package API - /mtr ]
+
+
+SYNOPSIS
+    
+    package require mime ?1.0?
+    
+SYNTAX
+
+    mime::initialize ?-canonical type/subtype ?-param  {key value}?...
+                                              ?-encoding value?
+                                              ?-header {key value}?... ?
+           (-file name | -string value | -parts {token1 ... tokenN})
+        -> token
+    
+    mime::finalize token ?-subordinates "all" | "dynamic" | "none"?
+        -> ""
+    
+    mime::getproperty token ?property | "-names"?
+        -> list or string
+
+    mime::getheader token ?key | "-names"?
+        -> list
+    
+    mime::setheader token key value ?-mode "write" | "append" | "delete"?
+        -> string
+    
+    mime::getbody token ?-command callback? ?-blocksize octets?
+    
+    mime::copymessage token channel
+    
+    mime::sendmessage token
+           ?-server list?       ?-queue boolean?    ?-atleastone boolean?
+           ?-originator string? ?-recipients string?
+           ?-header {key value}?...
+        -> ""
+    
+    mime::parseaddress string    
+        -> list
+
+    mime::parsedatetime [string | "-now"] property
+        -> string
+
+    
+DESCRIPTION
+    
+    A "MIME part" is described in RFC 2045. Each MIME part consists
+    of a header (zero or more key/value pairs), an empty line, and a
+    structured body. A simple example is:
+    
+        To: Andreas Kupries <a.kupries@westend.com>
+        Date: Sun, 04 July 1999 10:38:25 -0600
+        From: dnew@messagemedia.com
+        MIME-Version: 1.0
+        Content-Type: text/plain; charset="us-ascii"
+        Content-Description: a simple example
+    
+        Here is the body. In this case, simply plain text.
+    
+    A MIME part is either a "leaf" or has (zero or more) subordinates.
+    
+    mime::initialize creates a MIME part:
+    
+      - If the -canonical option is present, then the body is in
+        canonical (raw) form and is found by consulting either the
+        -file, -string, or -part option.  In addition, both the -param 
+        and -header options may occur zero or more times to specify
+        "Content-Type" parameters (e.g., "charset") and header
+        keyword/values (e.g., "Content-Disposition"), respectively.
+        Also, -encoding, if present, specifies the
+        "Content-Transfer-Encoding" when copying the body.
+    
+      - If the -canonical option is not present, then the MIME part
+        contained in either the -file or the -string option is parsed,
+        dynamically generating subordinates as appropriate.
+    
+    mime::finalize destroys a MIME part. If the -subordinates option is
+    present, it specifies which subordinates should be also be
+    destroyed. The default value is "-subordinates dynamic".
+    
+    mime::getproperty returns the properties of a MIME part. There are four
+    properties: "content", "encoding", "params", and "parts". The "parts"
+    property is present only if the MIME part has subordinates. If
+    mime::getproperty is invoked with the name of a specific property, then
+    the corresponding value is returned; instead, if "-names" is
+    specified, a list of all properties is returned; otherwise, a
+    serialized array of properties and values is returned.
+    
+    mime::getheader returns the header of a MIME part. A header consists
+    of zero or more key/value pairs. Each value is a list containing one
+    or more strings. If mime::getheader is invoked with the name of a
+    specific key, then the corresponding value is returned; instead, if
+    "-names" is specified, a list of all keys is returned; otherwise, a
+    serialized array of keys and values is returned.
+    
+    mime::setheader writes, appends to, or deletes the value associated
+    with a key in the header. With "-mode write" (the default), the
+    key/value is either created or overwritten; with "-mode append", a
+    new value is appended to the key (creating it as necessary); with
+    "-mode delete", all values associated with the key are removed.
+    (In this last case the "value" parameter is ignored.) Regardless,
+    the previous value is returned.
+    
+    mime::getbody returns the body of a leaf MIME part in canonical
+    form. If the -callback option is present, then it is invoked one
+    or more times, each time with a fragment of the body. (The
+    -blocksize option, if present, specifies the maximum size of each
+    fragment passed to the callback.) When the body is exhausted, the
+    callback is invoked without a final argument. If the -callback
+    option is absent, then mime::getbody returns the entire body as a
+    single string.
+    
+    mime::copymessage copies the MIME part to the specified channel. It
+    is operates synchronously, and uses vwait to allow asynchronous
+    operations to proceed independently.
+    
+    mime::sendmessage sends a MIME part to an SMTP server. The options are:
+    
+        option      meaning
+        ------      -------
+        -server     a list of SMTP servers (the default is "localhost")
+        -queue      indicates that the SMTP server should queue the
+                    message for later processing
+        -atleastone indicates that the SMTP server must find accept at
+                    least one recipient for the message to be sent
+        -originator a string containing an 822-style address specification
+        -recipients a string containing one or more 822-style address
+                    specifications
+        -header     a keyword/value pairing (may occur zero or more times)
+
+    If the -originator option is not present, the originator address is
+    taken from "From" (or "Resent-From"); similarly, if the -recipients
+    option is not present, recipient addresses are taken from "To",
+    "cc", and "Bcc" (or "Resent-To", and so on). mime::sendmessage adds
+    headers as necessary to ensure that a valid 822-style message is sent.
+    
+    mime::parseaddr takes a string containing one or more 822-style
+    address specifications and returns a list of serialized arrays, one
+    array for each address specified in the argument. Each serialized
+    array contains these properties (at least one of which is non-empty):
+
+        property    range
+        --------    -----
+        address     local@domain
+        comment     822-style comment
+        domain      the domain part (rhs)
+        error       non-empty on a parse error 
+        group       this address begins a group
+        friendly    user-friendly rendering
+        local       the local part (lhs)
+        memberP     this address belongs to a group
+        phrase      the phrase part
+        proper      822-style address specification
+        route       822-style route specification (obsolete)
+    
+    mime::parsedatetime takes a string containing an 822-style date-time
+    specification and returns the specified property. The list of
+    properties and their ranges are:
+
+        property    range
+        --------    -----
+        hour        0 .. 23
+        lmonth      January, February, ..., December
+        lweekday    Sunday, Monday, ... Saturday
+        mday        1 .. 31
+        min         0 .. 59
+        mon         1 .. 12
+        month       Jan, Feb, ..., Dec
+        proper      822-style date-time specification
+        rclock      elapsed seconds
+        sec         0 .. 59
+        wday        0 .. 6 (Sun .. Mon)
+        weekday     Sun, Mon, ..., Sat
+        yday        1 .. 366
+        year        1900 ...
+        zone        -720 .. 720 (minutes east of GMT)
+    
+    
+EXAMPLES    
+    
+    set part1 [mime::initialize -canonical text/plain \
+                                -param {charset us-ascii} \
+                                -string "hello world.\n"]
+    
+    set part2 [mime::initialize -file hello.eml]
+    
+    mime::getproperty $part1
+        -> [list content text/plain encoding "" \
+                 params {{charset us-ascii}}]
+    
+    mime::getproperty $part1 parts
+        -> error
+    
+    mime::getproperty $part2
+        -> [list content multipart/mixed encoding "" \
+                 params {{boundary "=_End_="}} {parts {$part3 $part4}}]
+
+    mime::getproperty $part2 parts
+        -> [list $part3 $part4]
+    
+    mime::getproperty $part3
+        -> [list content text/plain encoding 7bit \
+                 params {{charset us-ascii}}]
+    
+    mime::getproperty $part4
+        -> [list content image/gif encoding base64]
+    
+    mime::getheader $part2 Content-Description
+        -> {{the value of "Content-Description:" in hello.eml}}
+    
+    mime::setheader $part2 Comment "If I might be so bold..."
+        -> ""
+    
+    mime::getbody $part1
+        -> "hello world.\n"
+    
+    mime::getbody $part2
+        -> error
+
+    mime::getbody $part3 -command "savebody $part3" -blocksize 4096
+        -> ""
+    
+    proc savebody {token string} { ... }
+    
+    mime::sendmessage $part1 \
+          -header {From "Marshall Rose <mrose@dbc.mtview.ca.us>"} \
+          -header {To   "Darren New <dnew@messagemedia.com>"}     \
+          -header {Subject "Test Message}
+    
+    mime::finalize $part1
+    
+    mime::finalize $part2
+    
+    mime::parseaddr "Marshall Rose <mrose@dbc.mtview.ca.us>"
+        -> { {address mrose@dbc.mtview.ca.us 
+              domain dbc.mtview.ca.us local mrose
+              proper "Marshall Rose <mrose@dbc.mtview.ca.us>"
+              friendly "Marshall Rose"
+              comment "" error "" group "" memberP 0 phrase "" route "" } }
+    
+    mime::parsedatetime -now proper
+        -> "Mon, 28 Jun 1999 10:32:25 -0600"
+    
+                                  #######
+
+------=_NextPart_000_005D_01BEC670.3016F400--

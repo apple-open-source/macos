@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* RemoteServer.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,12 +37,13 @@ exception statement from your version. */
 
 package java.rmi.server;
 
+import gnu.java.rmi.server.RMIIncomingThread;
+
 import java.io.OutputStream;
 import java.io.PrintStream;
 
-public abstract class RemoteServer
-	extends RemoteObject {
-
+public abstract class RemoteServer extends RemoteObject
+{
 private static final long serialVersionUID = -4100238210092549637L;
 
 protected RemoteServer() {
@@ -54,7 +55,14 @@ protected RemoteServer(RemoteRef ref) {
 }
 
 public static String getClientHost() throws ServerNotActiveException {
-	throw new Error("Not implemented");
+	Thread currThread = Thread.currentThread();
+	if (currThread instanceof RMIIncomingThread) {
+		RMIIncomingThread incomingThread = (RMIIncomingThread) currThread;
+		return incomingThread.getClientHost();
+	} else {
+		throw new ServerNotActiveException(
+			"Unknown client host - current thread not instance of 'RMIIncomingThread'");
+	}
 }
 
 public static void setLog(OutputStream out) {

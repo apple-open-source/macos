@@ -90,6 +90,11 @@ call_ ## FUNC (void)					\
 #if defined(EH_FRAME_SECTION_NAME) && !defined(USE_PT_GNU_EH_FRAME)
 # define USE_EH_FRAME_REGISTRY
 #endif
+#if defined(EH_FRAME_SECTION_NAME) && defined(HAVE_LD_RO_RW_SECTION_MIXING)
+# define EH_FRAME_SECTION_CONST const
+#else
+# define EH_FRAME_SECTION_CONST
+#endif
 
 /* We do not want to add the weak attribute to the declarations of these
    routines in unwind-dw2-fde.h because that will cause the definition of
@@ -125,168 +130,6 @@ extern void *__deregister_frame_info_bases (void *)
 
 /* Likewise for _Jv_RegisterClasses.  */
 extern void _Jv_RegisterClasses (void *) TARGET_ATTRIBUTE_WEAK;
-
-/* APPLE LOCAL begin C++ EH */
-#ifdef DARWIN
-
-#ifdef CRT_BEGIN
-
-/* Homemade decls substituting for getsect.h and dyld.h, so cross
-   compilation works.  */
-struct mach_header;
-extern char *getsectdatafromheader (struct mach_header *, const char *,
-				    const char *, unsigned long *);
-extern void _dyld_register_func_for_add_image
-  (void (*) (struct mach_header *, unsigned long));
-extern void _dyld_register_func_for_remove_image
-  (void (*) (struct mach_header *, unsigned long));
-
-extern void __darwin_gcc3_preregister_frame_info (void);
-
-#define USE_KEYMGR	1
-
-#if USE_KEYMGR
-
-/* Grody stuff here until we get keymgr.h in gcc3.  */
-extern void _init_keymgr ();
-extern void *_keymgr_get_and_lock_processwide_ptr (unsigned key);
-extern void _keymgr_set_and_unlock_processwide_ptr (unsigned key, void *ptr);
-
-extern void *__keymgr_global[];
-typedef struct _Sinfo_Node {
-        unsigned int size ;             /*size of this node*/
-        unsigned short major_version ;  /*API major version.*/
-        unsigned short minor_version ;  /*API minor version.*/
-        } _Tinfo_Node ;
-
-/* KeyMgr 3.x is the first one supporting GCC3 stuff natively.  */
-#define KEYMGR_API_MAJOR_GCC3           3       
-/* ... with these keys.  */
-#define KEYMGR_GCC3_LIVE_IMAGE_LIST	301     /* loaded images  */
-#define KEYMGR_GCC3_DW2_OBJ_LIST	302     /* Dwarf2 object list  */   
-
-/*
-THE FOLLOWING ROUTINES ARE TEMPORARY!
-THEY ARE COPIES OF ROUTINES IN KEYMGR (and won't be used if your keymgr
-is new enough.)
-*/
-
-static void
-darwin_unwind_dyld_add_image_hook (struct mach_header *mh, unsigned long slide)
-{
-  struct __live_images *l = (struct __live_images *)calloc (1, sizeof (*l));
-  l->mh = mh;
-  l->vm_slide = slide;
-  l->this_size = sizeof (*l);
-  l->next = (struct __live_images *)
-	_keymgr_get_and_lock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST);
-  _keymgr_set_and_unlock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST, l);
-}
-
-static void
-darwin_unwind_dyld_remove_image_hook (struct mach_header *m, unsigned long s)
-{
-  struct __live_images *top, **lip, *destroy = NULL;
-
-  /* Look for it in the list of live images and delete it.  */
-
-  top = (struct __live_images *)
-	   _keymgr_get_and_lock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST);
-  for (lip = &top; *lip != NULL; lip = &(*lip)->next)
-    {
-      if ((*lip)->mh == m && (*lip)->vm_slide == s)
-        {
-          destroy = *lip;
-          *lip = destroy->next;			/* unlink DESTROY  */
-
-          if (destroy->this_size != sizeof (*destroy))	/* sanity check  */
-            abort ();
-
-          break;
-        }
-    }
-  _keymgr_set_and_unlock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST, top);
-
-  /* Now that we have unlinked this from the image list, toss it.  */
-  if (destroy != NULL)
-    {
-      if (destroy->destructor != NULL)
-	(*destroy->destructor) (destroy);
-      free (destroy);
-    }
-}
-
-#else	/* ! USE_KEYMGR  */
-
-static void
-darwin_unwind_dyld_add_image_hook (struct mach_header *mh,
-				   unsigned long vm_slide)
-{
-  unsigned long sz;
-  char *fde;
-
-  fde = getsectdatafromheader (mh, "__DATA", "__eh_frame", &sz);
-
-#if 0
-    printf ("add_image_hook: mach_header %08x vm_slide %08x "
-	    "<fde %08x>\n", mh, vm_slide, fde);
-#endif
-
-  if (fde)
-    {
-      struct object *ob = (struct object *) malloc (sizeof (struct object));
-
-      __register_frame_info (fde + vm_slide, ob);
-    }
-}
-
-static void
-darwin_unwind_dyld_remove_image_hook (struct mach_header *mh,
-				      unsigned long vm_slide)
-{
-  unsigned long sz;
-  char *fde;
-
-  fde = getsectdatafromheader (mh, "__DATA", "__eh_frame", &sz);
-#if 0
-    printf ("remove_image_hook: mach_header %08x vm_slide %08x "
-	    "<fde %08x>\n", mh, vm_slide, fde);
-#endif
-
-  if (fde)
-    __deregister_frame_info (fde + vm_slide);
-}
-#endif
-
-void
-__darwin_gcc3_preregister_frame_info ()
-{
-#if USE_KEYMGR
-  const _Tinfo_Node *info;
-  _init_keymgr ();
-  info = (_Tinfo_Node *)__keymgr_global[2];
-  if (info != NULL)
-    {
-      if (info->major_version >= KEYMGR_API_MAJOR_GCC3)
-	return;
-      /* Otherwise, use our own add_image_hooks.  */
-    }
-#endif 
-  _dyld_register_func_for_add_image (darwin_unwind_dyld_add_image_hook);
-  _dyld_register_func_for_remove_image (darwin_unwind_dyld_remove_image_hook);
-}
-
-#elif defined(CRT_END) /* ! CRT_BEGIN */
-
-/* This is now deprectated.  IT WILL BE GOING AWAY SOON!!  */
-__private_extern__ long __gcc3_EH_FRAME_END__ = 0;
-
-#endif
-
-#else  /* ! DARWIN  */
-/* APPLE LOCAL end C++ EH */
-
-#ifndef OBJECT_FORMAT_MACHO
 
 #ifdef OBJECT_FORMAT_ELF
 
@@ -347,13 +190,13 @@ STATIC func_ptr __DTOR_LIST__[1]
   = { (func_ptr) (-1) };
 #endif /* __DTOR_LIST__ alternatives */
 
-#ifdef EH_FRAME_SECTION_NAME
+#ifdef USE_EH_FRAME_REGISTRY
 /* Stick a label at the beginning of the frame unwind info so we can register
    and deregister it with the exception handling library code.  */
-STATIC char __EH_FRAME_BEGIN__[]
+STATIC EH_FRAME_SECTION_CONST char __EH_FRAME_BEGIN__[]
      __attribute__((section(EH_FRAME_SECTION_NAME), aligned(4)))
      = { };
-#endif /* EH_FRAME_SECTION_NAME */
+#endif /* USE_EH_FRAME_REGISTRY */
 
 #ifdef JCR_SECTION_NAME
 /* Stick a label at the beginning of the java class registration info
@@ -373,13 +216,9 @@ STATIC void *__JCR_LIST__[]
    in one DSO or the main program is not used in another object.  The
    dynamic linker takes care of this.  */
 
-/* XXX Ideally the following should be implemented using
-       __attribute__ ((__visibility__ ("hidden")))
-   but the __attribute__ support is not yet there.  */
 #ifdef HAVE_GAS_HIDDEN
-asm (".hidden\t__dso_handle");
+extern void *__dso_handle __attribute__ ((__visibility__ ("hidden")));
 #endif
-
 #ifdef CRTSTUFFS_O
 void *__dso_handle = &__dso_handle;
 #else
@@ -619,7 +458,7 @@ STATIC func_ptr __DTOR_END__[1]
 #ifdef EH_FRAME_SECTION_NAME
 /* Terminate the frame unwind info section with a 4byte 0 as a sentinel;
    this would be the 'length' field in a real FDE.  */
-STATIC int __FRAME_END__[]
+STATIC EH_FRAME_SECTION_CONST int __FRAME_END__[]
      __attribute__ ((unused, mode(SI), section(EH_FRAME_SECTION_NAME),
 		     aligned(4)))
      = { 0 };
@@ -706,70 +545,3 @@ __do_global_ctors (void)
 #else /* ! CRT_BEGIN && ! CRT_END */
 #error "One of CRT_BEGIN or CRT_END must be defined."
 #endif
-
-#else  /* OBJECT_FORMAT_MACHO */
-
-/* For Mach-O format executables, we assume that the system's runtime is
-   smart enough to handle constructors and destructors, but doesn't have
-   an init section (if it can't even handle constructors/destructors
-   you should be using INVOKE__main, not crtstuff). All we need to do
-   is install/deinstall the frame information for exceptions. We do this
-   by putting a constructor in crtbegin.o and a destructor in crtend.o.
-
-   crtend.o also puts in the terminating zero in the frame information
-   segment.  */
-
-/* The crtstuff for other object formats use the symbol __EH_FRAME_BEGIN__
-   to figure out the start of the exception frame, but here we use
-   getsectbynamefromheader to find this value. Either method would work,
-   but this method avoids creating any global symbols, which seems
-   cleaner.  */
-
-#include <mach-o/ldsyms.h>
-extern const struct section *
-  getsectbynamefromheader (const struct mach_header *,
-			   const char *, const char *);
-
-#ifdef CRT_BEGIN
-
-static void __reg_frame_ctor (void) __attribute__ ((constructor));
-
-static void
-__reg_frame_ctor (void)
-{
-  static struct object object;
-  const struct section *eh_frame;
-
-  eh_frame = getsectbynamefromheader (&_mh_execute_header,
-				      "__TEXT", "__eh_frame");
-  __register_frame_info ((void *) eh_frame->addr, &object);
-}
-
-#elif defined(CRT_END)
-
-static void __dereg_frame_dtor (void) __attribute__ ((destructor));
-
-static void
-__dereg_frame_dtor (void)
-{
-  const struct section *eh_frame;
-
-  eh_frame = getsectbynamefromheader (&_mh_execute_header,
-				      "__TEXT", "__eh_frame");
-  __deregister_frame_info ((void *) eh_frame->addr);
-}
-
-/* Terminate the frame section with a final zero.  */
-STATIC int __FRAME_END__[]
-     __attribute__ ((unused, mode(SI), section(EH_FRAME_SECTION_NAME),
-		     aligned(4)))
-     = { 0 };
-
-#else /* ! CRT_BEGIN && ! CRT_END */
-#error "One of CRT_BEGIN or CRT_END must be defined."
-#endif
-
-#endif /* OBJECT_FORMAT_MACHO */
-
-/* APPLE LOCAL C++ EH */
-#endif /* DARWIN */

@@ -83,9 +83,9 @@ des_cblock (*key);
 	for (i=0; i<DES_KEY_SZ; i++)
 		{
 		if ((*key)[i] != odd_parity[(*key)[i]])
-			return(0);
+			return (0);
 		}
-	return(1);
+	return (1);
 	}
 
 /* Weak and semi week keys as take from
@@ -129,10 +129,10 @@ des_cblock (*key);
 		 * engineering@MorningStar.Com for the fix
 		 * eay 93/06/29 */
 /*
-		if (memcmp(weak_keys[i],key,sizeof(key)) == 0) return(1);
+		if (memcmp(weak_keys[i],key,sizeof(key)) == 0) return (1);
 */
-		if (bcmp(weak_keys[i],key,sizeof(key)) == 0) return(1);
-	return(0);
+		if (bcmp(weak_keys[i],key,sizeof(key)) == 0) return (1);
+	return (0);
 	}
 
 /* NOW DEFINED IN des_local.h
@@ -162,10 +162,10 @@ des_key_schedule schedule;
 	if (des_check_key)
 		{
 		if (!check_parity(key))
-			return(-1);
+			return (-1);
 
 		if (des_is_weak_key(key))
-			return(-2);
+			return (-2);
 		}
 
 	k=(DES_LONG *)schedule;
@@ -227,12 +227,12 @@ des_key_schedule schedule;
 		s=(s<<4L)|(s>>28L);
 		*(k++)=s&0xffffffffL;
 		}
-	return(0);
+	return (0);
 	}
 
 int des_key_sched(key, schedule)
 des_cblock (*key);
 des_key_schedule schedule;
 	{
-	return(des_set_key(key,schedule));
+	return (des_set_key(key,schedule));
 	}

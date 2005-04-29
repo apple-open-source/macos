@@ -1,9 +1,9 @@
 #!/bin/sh -
-#	$Id: s_rpc,v 1.1.1.1 2003/02/15 04:55:44 zarzycki Exp $
+#	$Id: s_rpc,v 1.2 2004/03/30 01:21:34 jtownsen Exp $
 #
 # Build the automatically generated RPC files
 
-echo "Building RPC client/server files"
+echo "Building RPC client/server files..."
 
 . ./RELEASE
 

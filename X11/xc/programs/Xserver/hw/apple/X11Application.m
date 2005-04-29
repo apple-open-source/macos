@@ -1,5 +1,5 @@
 /* X11Application.m -- subclass of NSApplication to multiplex events
-   $Id: X11Application.m,v 1.53 2003/09/13 02:00:46 jharper Exp $
+   $Id: X11Application.m,v 1.55 2004/10/22 00:59:33 jharper Exp $
 
    Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
 
@@ -479,12 +479,41 @@ cfarray_to_nsarray (CFArrayRef in)
 							  &error_code))
 	    {
 		defaults = (CFPropertyListCreateFromXMLData
-			    (NULL, data, kCFPropertyListImmutable, &error));
+			    (NULL, data, kCFPropertyListMutableContainersAndLeaves, &error));
 		if (error != NULL)
 		    CFRelease (error);
 		CFRelease (data);
 	    }
 	    CFRelease (url);
+
+	    if (defaults != NULL)
+	    {
+		NSMutableArray *apps, *elt;
+		int count, i;
+		NSString *name, *nname;
+
+		/* Localize the names in the default apps menu. */
+
+		apps = [(NSDictionary *)defaults objectForKey:@PREFS_APPSMENU];
+		if (apps != nil)
+		{
+		    count = [apps count];
+		    for (i = 0; i < count; i++)
+		    {
+			elt = [apps objectAtIndex:i];
+			if (elt != nil && [elt isKindOfClass:[NSArray class]])
+			{
+			    name = [elt objectAtIndex:0];
+			    if (name != nil)
+			    {
+				nname = NSLocalizedString (name, nil);
+				if (nname != nil && nname != name)
+				    [elt replaceObjectAtIndex:0 withObject:nname];
+			    }
+			}
+		    }
+		}
+	    }
 	}
 
 	if (defaults != NULL)
@@ -862,7 +891,7 @@ check_xinitrc (void)
 Windows displayed by X11 applications may not have titlebars, or may look \
 different to windows displayed by native applications.\n\n\
 Would you like to move aside the existing file and use the standard X11 \
-environment?", @"");
+environment?", @"Startup xinitrc dialog");
 
     if (NSRunAlertPanel (nil, msg, NSLocalizedString (@"Yes", @""),
 			 NSLocalizedString (@"No", @""), nil)
@@ -982,7 +1011,7 @@ send_nsevent (NSEventType type, NSEvent *e)
 	goto do_press_event;
 
     do_press_event:
-	if (RootlessKnowsWindowNumber ([e windowNumber]) == NULL)
+	if (RootlessKnowsWindowNumber ([e windowNumber]) == 0)
 	{
 	    /* X server doesn't grok this window, drop the event.
 

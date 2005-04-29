@@ -1,0 +1,80 @@
+--- inet_net_pton.c.orig	2004-11-25 11:38:29.000000000 -0800
++++ inet_net_pton.c	2005-02-24 16:53:40.000000000 -0800
+@@ -21,6 +21,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/net/inet_net_pton.c,v 1.9 2003/09/15 23:38:06 fenner Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+@@ -97,19 +99,20 @@
+ 		digits[] = "0123456789";
+ 	int n, ch, tmp, dirty, bits;
+ 	const u_char *odst = dst;
++	locale_t loc = __current_locale();
+ 
+ 	ch = *src++;
+ 	if (ch == '0' && (src[0] == 'x' || src[0] == 'X')
+-	    && isascii(src[1]) && isxdigit(src[1])) {
++	    && isascii(src[1]) && isxdigit_l(src[1], loc)) {
+ 		/* Hexadecimal: Eat nybble string. */
+ 		if (size <= 0)
+ 			goto emsgsize;
+ 		*dst = 0, dirty = 0;
+ 		src++;	/* skip x or X. */
+ 		while ((ch = *src++) != '\0' &&
+-		       isascii(ch) && isxdigit(ch)) {
+-			if (isupper(ch))
+-				ch = tolower(ch);
++		       isascii(ch) && isxdigit_l(ch, loc)) {
++			if (isupper_l(ch, loc))
++				ch = tolower_l(ch, loc);
+ 			n = strchr(xdigits, ch) - xdigits;
+ 			assert(n >= 0 && n <= 15);
+ 			*dst |= n;
+@@ -122,7 +125,7 @@
+ 		}
+ 		if (dirty)
+ 			size--;
+-	} else if (isascii(ch) && isdigit(ch)) {
++	} else if (isascii(ch) && isdigit_l(ch, loc)) {
+ 		/* Decimal: eat dotted digit string. */
+ 		for (;;) {
+ 			tmp = 0;
+@@ -134,7 +137,7 @@
+ 				if (tmp > 255)
+ 					goto enoent;
+ 			} while ((ch = *src++) != '\0' &&
+-				 isascii(ch) && isdigit(ch));
++				 isascii(ch) && isdigit_l(ch, loc));
+ 			if (size-- <= 0)
+ 				goto emsgsize;
+ 			*dst++ = (u_char) tmp;
+@@ -143,14 +146,14 @@
+ 			if (ch != '.')
+ 				goto enoent;
+ 			ch = *src++;
+-			if (!isascii(ch) || !isdigit(ch))
++			if (!isascii(ch) || !isdigit_l(ch, loc))
+ 				goto enoent;
+ 		}
+ 	} else
+ 		goto enoent;
+ 
+ 	bits = -1;
+-	if (ch == '/' && isascii(src[0]) && isdigit(src[0]) && dst > odst) {
++	if (ch == '/' && isascii(src[0]) && isdigit_l(src[0], loc) && dst > odst) {
+ 		/* CIDR width specifier.  Nothing can follow it. */
+ 		ch = *src++;	/* Skip over the /. */
+ 		bits = 0;
+@@ -159,7 +162,7 @@
+ 			assert(n >= 0 && n <= 9);
+ 			bits *= 10;
+ 			bits += n;
+-		} while ((ch = *src++) != '\0' && isascii(ch) && isdigit(ch));
++		} while ((ch = *src++) != '\0' && isascii(ch) && isdigit_l(ch, loc));
+ 		if (ch != '\0')
+ 			goto enoent;
+ 		if (bits > 32)

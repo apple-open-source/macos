@@ -34,14 +34,16 @@
 
 int
 netinfo_back_referrals(
-	Backend	*be,
+	struct slap_op *op, 
+	struct slap_rep *rs )
+/*	Backend	*be,
 	Connection *conn,
 	Operation *op,
 	struct berval *dn,
 	struct berval *ndn,
-	const char **text )
+	const char **text*/
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	struct berval localDN;
 
 #ifdef NO_NETINFO_REFERRALS
@@ -49,9 +51,9 @@ netinfo_back_referrals(
 #endif
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_referrals DN %s\n", dn->bv_val));
+	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_referrals DN %s\n", op->o_req_dn.bv_val));
 #else
-	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_referrals dn=%s ndn=%s\n", dn->bv_val, ndn->bv_val, 0);
+	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_referrals dn=%s ndn=%s\n", op->o_req_dn.bv_val, op->o_req_ndn.bv_val, 0);
 #endif
 
 	if (op->o_tag == LDAP_REQ_SEARCH)
@@ -74,7 +76,7 @@ netinfo_back_referrals(
 		return LDAP_SUCCESS;
 	}
 
-	if (netinfo_back_send_referrals(be, conn, op, ndn) == DSStatusOK)
+	if (netinfo_back_send_referrals(op, rs, &op->o_req_ndn) == DSStatusOK)
 	{
 #ifdef NEW_LOGGING
 		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_referrals: referred to children\n"));
@@ -84,7 +86,7 @@ netinfo_back_referrals(
 		return LDAP_SUCCESS;
 	}
 
-	if (dnMakeLocal(be, &localDN, ndn) == DSStatusPathNotLocal)
+	if (dnMakeLocal(op->o_bd, &localDN, &op->o_req_ndn) == DSStatusPathNotLocal)
 	{
 #ifdef NEW_LOGGING
 		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_referrals: referred to parent\n"));
@@ -93,8 +95,10 @@ netinfo_back_referrals(
 #endif
 
 		/* Send parent referral */
-		send_ldap_result(conn, op, LDAP_REFERRAL, NULL, NULL,
-			di->parent ? di->parent->refs : NULL, NULL);
+		if (di->parent)
+			rs->sr_ref = di->parent->refs;
+		rs->sr_err = LDAP_REFERRAL;
+		send_ldap_result(op, rs);
 	}
 	else
 	{

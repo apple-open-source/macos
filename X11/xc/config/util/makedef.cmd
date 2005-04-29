@@ -1,5 +1,5 @@
 /* This is OS/2 REXX */
-/* $XFree86: xc/config/util/makedef.cmd,v 1.1 2002/05/31 16:31:21 dawes Exp $
+/* $XFree86: xc/config/util/makedef.cmd,v 1.5 2004/01/14 17:32:39 dawes Exp $
  *
  * This file was taken from Odin32 project and modified to suit
  * XFree86 4.x build process
@@ -22,13 +22,13 @@ sOrdinals       = 0;
 sASDFeatureId   = '';
 sCountryCode    = '';
 sDateTime       = left(' 'date()' 'time(), 26);
-sDescription    = 'XFree86 4.2';
+sDescription    = 'XFree86 4.4';
 sFixPakVer      = '';
 sHostname       = strip(substr(VALUE('HOSTNAME',,'OS2ENVIRONMENT'), 1, 11));
 sLanguageCode   = '';
 sMiniVer        = '';
 sVendor         = 'XFree86';
-sVersion        = '4.2.0';
+sVersion        = '4.4.0';
 
 
 /*
@@ -580,7 +580,7 @@ UpdateDefFile: procedure expose ordHash.;
 	    iterate
 	end
         if firstsym = 'VERSION' then do
-          call lineout outfile, 'DESCRIPTION "'sDescription sRealName'"'
+          call lineout outfile, 'DESCRIPTION "'sDescription sLibrary'"'
           fDescription = 1;
           AddCodeDataSection(outfile);
 	end   
@@ -600,7 +600,7 @@ UpdateDefFile: procedure expose ordHash.;
      */
     if (\fDescription) then
     do
-        call lineout outfile,"DESCRIPTION '"||sDescription libName||"'";
+        call lineout outfile,"DESCRIPTION '"||sDescription sLibrary||"'";
         AddCodeDataSection(outfile);
     end
 
@@ -609,5 +609,11 @@ UpdateDefFile: procedure expose ordHash.;
      */
     call stream outfile, 'c', 'close';
     call stream infile, 'c', 'close';
+    if sOrdinals = 1 then do
+        call SysFileDelete('dll.name');
+        call stream 'dll.name', 'c', 'open write';
+        call charout 'dll.name', sRealName".dll";
+        call stream 'dll.name', 'c'. 'close';
+    end
     return 0;
 

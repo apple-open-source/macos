@@ -3,40 +3,38 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
  *  main.c - Main functions for BootX.
  *
- *  Copyright (c) 1998-2003 Apple Computer, Inc.
+ *  Copyright (c) 1998-2004 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
 
 
 #include <sl.h>
+#include "aes.h"
 
 static void Start(void *unused1, void *unused2, ClientInterfacePtr ciPtr);
 static void Main(ClientInterfacePtr ciPtr);
 static long InitEverything(ClientInterfacePtr ciPtr);
-static long DecodeKernel(void);
+static long DecodeKernel(void *binary);
 static long SetUpBootArgs(void);
 static long CallKernel(void);
 static void FailToBoot(long num);
@@ -44,6 +42,7 @@ static long InitMemoryMap(void);
 static long GetOFVersion(void);
 static long TestForKey(long key);
 static long GetBootPaths(void);
+static long ReadBootPlist(char *devSpec);
 
 const unsigned long StartTVector[2] = {(unsigned long)Start, 0};
 
@@ -68,6 +67,7 @@ long gBootFileType;
 char gHaveKernelCache = 0;
 char gBootDevice[256];
 char gBootFile[256];
+TagPtr gBootDict = NULL;
 static char gBootKernelCacheFile[512];
 static char gExtensionsSpec[4096];
 static char gCacheNameAdler[64 + sizeof(gBootFile)];
@@ -77,7 +77,7 @@ char gTempStr[4096];
 
 long *gDeviceTreeMMTmp = 0;
 
-long gOFVersion;
+long gOFVersion = 0;
 
 char *gKeyMap;
 
@@ -102,6 +102,8 @@ static unsigned long gOFSPRG1Save;
 static unsigned long gOFSPRG2Save;
 static unsigned long gOFSPRG3Save;
 
+//int gDebugCount = 0;
+
 // Private Functions
 
 static void Start(void *unused1, void *unused2, ClientInterfacePtr ciPtr)
@@ -116,20 +118,25 @@ static void Start(void *unused1, void *unused2, ClientInterfacePtr ciPtr)
 }
 
 
+
 static void Main(ClientInterfacePtr ciPtr)
 {
   long ret;
   int  trycache;
-  long flags, cachetime, time;
+  long flags, cachetime, kerneltime, exttime = 0;
+  void *binary = (void *)kLoadAddr;
   
   ret = InitEverything(ciPtr);
   if (ret != 0) Exit();
-  
+
+
   // Get or infer the boot paths.
   ret = GetBootPaths();
   if (ret != 0) FailToBoot(1);
   
+#if kFailToBoot
   DrawSplashScreen(0);
+#endif
   
   while (ret == 0) {
     trycache = (0 == (gBootMode & kBootModeSafe))
@@ -138,20 +145,26 @@ static void Main(ClientInterfacePtr ciPtr)
     if (trycache && (gBootFileType == kBlockDeviceType)) do {
       
       // if we haven't found the kernel yet, don't use the cache
-      ret = GetFileInfo(NULL, gBootFile, &flags, &time);
+      ret = GetFileInfo(NULL, gBootFile, &flags, &kerneltime);
       if ((ret != 0) || ((flags & kFileTypeMask) != kFileTypeFlat)) {
 	trycache = 0;
 	break;
       }
       ret = GetFileInfo(NULL, gBootKernelCacheFile, &flags, &cachetime);
       if ((ret != 0) || ((flags & kFileTypeMask) != kFileTypeFlat)
-        || (cachetime < time)) {
+        || (cachetime < kerneltime)) {
 	trycache = 0;
 	break;
       }
-      ret = GetFileInfo(gExtensionsSpec, "Extensions", &flags, &time);
+      ret = GetFileInfo(gExtensionsSpec, "Extensions", &flags, &exttime);
       if ((ret == 0) && ((flags & kFileTypeMask) == kFileTypeDirectory)
-	&& (cachetime < time)) {
+	&& (cachetime < exttime)) {
+	trycache = 0;
+	break;
+      }
+      if (kerneltime > exttime)
+	exttime = kerneltime;
+      if (cachetime != (exttime + 1)) {
 	trycache = 0;
 	break;
       }
@@ -160,13 +173,12 @@ static void Main(ClientInterfacePtr ciPtr)
     if (trycache) {
       ret = LoadFile(gBootKernelCacheFile);
       if (ret != -1) {
-        ret = DecodeKernel();
+        ret = DecodeKernel(binary);
         if (ret != -1) break;
       }
     }
-    ret = LoadFile(gBootFile);
-    if (ret != -1)
-      ret = DecodeKernel();
+    ret = LoadThinFatFile(gBootFile, &binary);
+    if (ret != -1) ret = DecodeKernel(binary);
     if (ret != -1) break;
     
     ret = GetBootPaths();
@@ -180,7 +192,9 @@ static void Main(ClientInterfacePtr ciPtr)
     if (ret != 0) FailToBoot(4);
   }
   
+#if kFailToBoot
   DrawSplashScreen(1);
+#endif
   
   ret = SetUpBootArgs();
   if (ret != 0) FailToBoot(5);
@@ -190,6 +204,30 @@ static void Main(ClientInterfacePtr ciPtr)
   FailToBoot(6);
 }
 
+static uint32_t UnescapeData(const uint8_t * src, 
+                             uint32_t  srcLen,
+                             uint8_t * dst,
+                             uint32_t  dstMaxLen)
+{
+  uint32_t cnt, cnt2, dstLen = 0;
+  uint8_t  byte;
+
+  for (cnt = 0; cnt < srcLen;) {
+    byte = src[cnt++];
+    if (byte == 0xFF) {
+      byte = src[cnt++];
+      cnt2 = byte & 0x7F;
+      byte = (byte & 0x80) ? 0xFF : 0x00;
+    } else
+      cnt2 = 1;
+    while (cnt2--) {
+      if (dstLen >= dstMaxLen)
+        return (-1);
+      dst[dstLen++] = byte;
+    }
+  }
+  return (dstLen);
+}
 
 static long InitEverything(ClientInterfacePtr ciPtr)
 {
@@ -293,80 +331,82 @@ static long InitEverything(ClientInterfacePtr ciPtr)
   // printf now works.
   printf("\n\nMac OS X Loader\n");
   
-  // Test for Safe Boot Mode.
-  if (((gBootMode & kBootModeSecure) == 0) && TestForKey(kShiftKey)) {
+  // Test for Safe Boot Mode; Shift and not Delete.
+  if (((gBootMode & kBootModeSecure) == 0)
+      && TestForKey(kShiftKey) && !TestForKey(kDeleteKey)) {
     gBootMode |= kBootModeSafe;
   }
-  
-  // Claim memory for the FS Cache.
-  if (Claim(kFSCacheAddr, kFSCacheSize, 0) == 0) {
-    printf("Claim for fs cache failed.\n");
-    return -1;
-  }
-  
-  // Claim memory for malloc.
-  if (Claim(kMallocAddr, kMallocSize, 0) == 0) {
-    printf("Claim for malloc failed.\n");
-    return -1;
-  }
-  malloc_init((char *)kMallocAddr, kMallocSize);
-  
-  // Claim memory for the Load Addr.
-  mem_base = Claim(kLoadAddr, kLoadSize, 0);
-  if (mem_base == 0) {
-    printf("Claim for Load Area failed.\n");
-    return -1;
-  }
-  
-  // Claim the memory for the Image Addr
-  if (gOFVersion >= kOFVersion3x) {
-    mem_base = Claim(kImageAddr, kImageSize, 0);
+
+  {
+    // Claim memory for the FS Cache.
+    if (Claim(kFSCacheAddr, kFSCacheSize, 0) == 0) {
+      printf("Claim for fs cache failed.\n");
+      return -1;
+    }
+    
+    // Claim memory for malloc.
+    if (Claim(kMallocAddr, kMallocSize, 0) == 0) {
+      printf("Claim for malloc failed.\n");
+      return -1;
+    }
+    malloc_init((char *)kMallocAddr, kMallocSize);
+    
+    // Claim memory for the Load Addr.
+    mem_base = Claim(kLoadAddr, kLoadSize, 0);
     if (mem_base == 0) {
-      printf("Claim for Image Area failed.\n");
-      return -1;
-    }
-  } else {
-    // Claim the 1:1 mapped chunks first.
-    mem_base  = Claim(kImageAddr0, kImageSize0, 0);
-    mem_base2 = Claim(kImageAddr2, kImageSize2, 0);
-    if ((mem_base == 0) || (mem_base2 == 0)) {
-      printf("Claim for Image Area failed.\n");
+      printf("Claim for Load Area failed.\n");
       return -1;
     }
     
-    // Unmap the old xcoff stack.
-    CallMethod(2, 0, gMMUIH, "unmap", 0x00380000, 0x00080000);
-    
-    // Grap the physical memory then the logical.
-    CallMethod(3, 1, gMemoryIH, "claim",
-	       kImageAddr1Phys, kImageSize1, 0, &mem_base);
-    CallMethod(3, 1, gMMUIH, "claim",
-	       kImageAddr1, kImageSize1, 0, &mem_base2);
-    if ((mem_base == 0) || (mem_base2 == 0)) {
-      printf("Claim for Image Area failed.\n");
-      return -1;
+    // Claim the memory for the Image Addr
+    if (gOFVersion >= kOFVersion3x) {
+      mem_base = Claim(kImageAddr, kImageSize, 0);
+      if (mem_base == 0) {
+	printf("Claim for Image Area failed.\n");
+	return -1;
+      }
+    } else {
+      // Claim the 1:1 mapped chunks first.
+      mem_base  = Claim(kImageAddr0, kImageSize0, 0);
+      mem_base2 = Claim(kImageAddr2, kImageSize2, 0);
+      if ((mem_base == 0) || (mem_base2 == 0)) {
+        printf("Claim for Image Area failed.\n");
+        return -1;
+      }
+      
+      // Unmap the old xcoff stack.
+      CallMethod(2, 0, gMMUIH, "unmap", 0x00380000, 0x00080000);
+      
+      // Grab the physical memory then the logical.
+      CallMethod(3, 1, gMemoryIH, "claim",
+              kImageAddr1Phys, kImageSize1, 0, &mem_base);
+      CallMethod(3, 1, gMMUIH, "claim",
+              kImageAddr1, kImageSize1, 0, &mem_base2);
+      if ((mem_base == 0) || (mem_base2 == 0)) {
+        printf("Claim for Image Area failed.\n");
+        return -1;
+      }
+	
+      // Map them together.
+      CallMethod(4, 0, gMMUIH, "map",
+		kImageAddr1Phys, kImageAddr1, kImageSize1, 0);
     }
     
-    // Map them together.
-    CallMethod(4, 0, gMMUIH, "map",
-	       kImageAddr1Phys, kImageAddr1, kImageSize1, 0);
-  }
-  
-  bzero((char *)kImageAddr, kImageSize);
-  
-  // Allocate some space for the Vector Save area.
-  gVectorSaveAddr = AllocateBootXMemory(kVectorSize);
-  if (gVectorSaveAddr == 0) {
-    printf("Allocation for the Vector Save Area failed.\n");
-    return -1;
-  }
-  
-  // Find all the displays and set them up.
-  ret = InitDisplays();
-  if (ret != 0) {
-    printf("InitDisplays failed.\n");
-    return -1;
-  }
+    bzero((char *)kImageAddr, kImageSize);
+    
+    // Allocate some space for the Vector Save area.
+    gVectorSaveAddr = AllocateBootXMemory(kVectorSize);
+    if (gVectorSaveAddr == 0) {
+      printf("Allocation for the Vector Save Area failed.\n");
+      return -1;
+    }
+    // Find all the displays and set them up.
+    ret = InitDisplays(1);
+    if (ret != 0) {
+      printf("InitDisplays failed.\n");
+      return -1;
+    }
+  }  
   
   return 0;
 }
@@ -382,11 +422,10 @@ long ThinFatBinary(void **binary, unsigned long *length)
   return ret;
 }
 
-static long DecodeKernel(void)
+static long DecodeKernel(void *binary)
 {
-  void *binary = (void *)kLoadAddr;
   long ret;
-  compressed_kernel_header * kernel_header = (compressed_kernel_header *) kLoadAddr;
+  compressed_kernel_header *kernel_header = (compressed_kernel_header *)binary;
   u_int32_t size;
   
   if (kernel_header->signature == 'comp') {
@@ -405,7 +444,7 @@ static long DecodeKernel(void)
       return -1;
     }
     if (kernel_header->adler32 !=
-	Alder32(binary, kernel_header->uncompressed_size)) {
+	Adler32(binary, kernel_header->uncompressed_size)) {
       printf("adler mismatch\n");
       return -1;
     }
@@ -427,7 +466,7 @@ static long SetUpBootArgs(void)
   long               graphicsBoot = 1;
   long               ret, cnt, size, dash;
   long               sKey, vKey, keyPos;
-  char               ofBootArgs[128], *ofArgs, tc, keyStr[8];
+  char               ofBootArgs[240], *ofArgs, tc, keyStr[8];
   unsigned char      mem_regs[kMaxDRAMBanks*16];
   unsigned long      mem_banks, bank_shift;
   
@@ -465,9 +504,9 @@ static long SetUpBootArgs(void)
   // Create the command line.
   if (gOFVersion < kOFVersion3x) {
     ofBootArgs[0] = ' ';
-    size = GetProp(gChosenPH, "machargs", ofBootArgs + 1, 126);
+    size = GetProp(gChosenPH, "machargs", ofBootArgs + 1, (sizeof(ofBootArgs) - 2));
     if (size == -1) {
-      size = GetProp(gOptionsPH, "boot-command", ofBootArgs, 127);
+      size = GetProp(gOptionsPH, "boot-command", ofBootArgs, (sizeof(ofBootArgs) - 1));
       if (size == -1) ofBootArgs[0] = '\0';
       else ofBootArgs[size] = '\0';
       // Look for " bootr" but skip the number.
@@ -480,7 +519,7 @@ static long SetUpBootArgs(void)
     sprintf(gTempStr, "0 bootr%s", ofBootArgs);
     SetProp(gOptionsPH, "boot-command", gTempStr, strlen(gTempStr));
   } else {
-    size = GetProp(gOptionsPH, "boot-args", ofBootArgs, 127);
+    size = GetProp(gOptionsPH, "boot-args", ofBootArgs, (sizeof(ofBootArgs) - 1));
     if (size == -1) ofBootArgs[0] = '\0';
     else ofBootArgs[size] = '\0';
   }
@@ -589,7 +628,7 @@ static long SetUpBootArgs(void)
   bzero(args->PhysicalDRAM + mem_banks, (kMaxDRAMBanks - mem_banks) * sizeof(DRAMBank));
   
   // Get the video info
-  GetMainScreenPH(&args->Video);
+  GetMainScreenPH(&args->Video, 1);
   args->Video.v_display = graphicsBoot;
   
   // Add the DeviceTree to the memory-map.
@@ -660,7 +699,7 @@ static long CallKernel(void)
   
   // Call the Kernel's entry point
   (*(void (*)())gKernelEntryPoint)(gBootArgsAddr, kMacOSXSignature);
-  
+
   // Restore OF's Exception Vectors
   bcopy(gOFVectorSave, 0x0, 0x3000);
   for (cnt = 0; cnt < kVectorSize; cnt += 0x20) {
@@ -685,12 +724,13 @@ static long CallKernel(void)
 
 static void FailToBoot(long num)
 {
+  // useful for those holding down command-v ...
+  printf("FailToBoot: %d\n", num);
 #if kFailToBoot
   DrawFailedBootPicture();
   while (1);
   num = 0;
 #else
-  printf("FailToBoot: %d\n", num);
   Enter(); // For debugging
 #endif
 }
@@ -733,7 +773,7 @@ static long GetOFVersion(void)
     tmpStr = versStr + 15;
   } else if (!strncmp(versStr, "OpenFirmware ", 13)) {
     tmpStr = versStr + 13;
-  } else return -1;  
+  } else return -1;
   
   // Clasify by each instance as needed...
   switch (*tmpStr) {
@@ -790,6 +830,7 @@ static long TestForKey(long key)
     case kOptKey     : keyNum = 229; break;
     case kShiftKey   : keyNum = 230; break;
     case kControlKey : keyNum = 231; break;
+    case kDeleteKey  : keyNum = 45; break;
     default : keyNum = -1; break;
     }
     
@@ -812,19 +853,46 @@ static long GetBootPaths(void)
 {
   long ret, cnt, cnt2, cnt3, cnt4, size, partNum, bootplen, bsdplen;
   unsigned long adler32;
-  char *filePath, *buffer;
+  char *filePath, *buffer, uuidStr[64];
   
   if (gBootSourceNumber == -1) {
-    // Get the boot-device
+    // Get the boot device and derive its type
+    // (try chosen "bootpath", then boot-device in the options)
     size = GetProp(gChosenPH, "bootpath", gBootDevice, 255);
     gBootDevice[size] = '\0';
     if (gBootDevice[0] == '\0') {
       size = GetProp(gOptionsPH, "boot-device", gBootDevice, 255);
       gBootDevice[size] = '\0';
     }
-    gBootDeviceType = GetDeviceType(gBootDevice);
+// hardcode to my Apple_Boot before my Apple_RAID
+// debug: override boot device to boot from disk even if OF used TFTP
+//printf("old gBootDevice: %s\n", gBootDevice);
+//strcpy(gBootDevice, "fw/node@d0010100007a9d/sbp-2@c000/@0:12");  // SmartDisk
+//strcpy(gBootDevice, "fw/node@d04b491d060252/sbp-2@c000/@0:9");  // mconcatI
+//strcpy(gBootDevice, "fw/node@d04b491d060252/sbp-2@c000/@0:11");  // mconcatI
+//strcpy(gBootDevice, "fw/node@d04b491d075f57/sbp-2@c000/@0:2");  // mconcatII
+//strcpy(gBootDevice, "fw/node@d04b491d075f57/sbp-2@c000/@0:4");  // mconcatII
+//strcpy(gBootDevice, "fw/node@50770e0000676f/sbp-2@4000/@0:3");  // m120
+//strcpy(gBootDevice, "fw/node@50770e0000725b/sbp-2@4000/@0:3");  // m120
+
+
+    // Look for Boot.plist-based booter stuff (like RAID :)
+    ret = ReadBootPlist(gBootDevice);
+    if (ret == 0) {
+      // success -> gBootDevice = "AppleRAID/#:0,\\\\:tbxi"
+      (void)LookForRAID(gBootDict);	// could take gBootDevice?
+    }
     
-    // Get the boot-file
+
+    // note RAID itself is of "block" type like members
+    gBootDeviceType = GetDeviceType(gBootDevice);
+    if(gBootDeviceType == -1) {
+      printf("Could not find boot device %s\n", gBootDevice);
+      return -1;
+    }
+
+
+    // Get the boot file (e.g. mach_kernel)
     size = GetProp(gChosenPH, "bootargs", gBootFile, 256);
     gBootFile[size] = '\0';
     
@@ -843,6 +911,7 @@ static long GetBootPaths(void)
 	}
       }
     }
+// gBootSourceNumberMax = 2;	// helpful to prevent lots of probing
     
     if (gBootFileType == kNetworkDeviceType) {
       SetProp(Peer(0), "net-boot", NULL, 0);
@@ -948,7 +1017,7 @@ static long GetBootPaths(void)
       
       bzero(gCacheNameAdler + 64, sizeof(gBootFile));
       strcpy(gCacheNameAdler + 64, gBootFile);
-      adler32 = Alder32(gCacheNameAdler, sizeof(gCacheNameAdler));
+      adler32 = Adler32(gCacheNameAdler, sizeof(gCacheNameAdler));
       
       strncpy(gBootKernelCacheFile, gBootDevice, cnt + 1);
       sprintf(gBootKernelCacheFile + cnt + 1, 
@@ -964,7 +1033,10 @@ static long GetBootPaths(void)
   
   // Figure out the root dir.
   ret = ConvertFileSpec(gBootFile, gExtensionsSpec, &filePath);
-  if (ret == -1) return -1;
+  if (ret == -1) {
+    printf("Failed to determine root directory\n");
+    return -1;
+  }
   
   strcat(gExtensionsSpec, ",");
   
@@ -989,11 +1061,47 @@ static long GetBootPaths(void)
     strcpy(gExtensionsSpec + cnt, "System\\Library\\");
   }
 
+  // technically could just do this once at the end
   SetProp(gChosenPH, "rootpath", gBootFile, strlen(gBootFile) + 1);
+
+  if (GetFSUUID(gBootFile, uuidStr) == 0) {
+    printf("setting boot-uuid to: %s\n", uuidStr);
+    SetProp(gChosenPH, "boot-uuid", uuidStr, strlen(uuidStr) + 1);
+  }
   
   gBootSourceNumber++;
   
   return 0;
+}
+
+#define BOOTPLIST_PATH "com.apple.Boot.plist"
+
+// ReadBootPlist could live elsewhere
+static long ReadBootPlist(char *devSpec)
+{
+  char plistSpec[256];
+  int len;
+
+  do {
+    // construct the Boot.plist spec
+    if (ConvertFileSpec(devSpec, plistSpec, NULL))  break;
+    strncat(plistSpec, ",\\\\", 255-strlen(plistSpec));
+    strncat(plistSpec, BOOTPLIST_PATH, 255-strlen(plistSpec));
+
+    // load the contents
+    if ((len = LoadFile(plistSpec)) < 0)  break;
+    // we could try for the root as well as the blessed folder
+    *((char*)kLoadAddr + len) = '\0';  // terminate for parser safety
+
+    if (ParseXML((char*)kLoadAddr, &gBootDict) < 0 || !gBootDict) {
+      printf("couldn't parse %s\n", BOOTPLIST_PATH);
+      break;
+    }
+
+    return 0;
+  } while(0);
+
+  return -1;
 }
 
 // Public Functions
@@ -1004,6 +1112,9 @@ long GetDeviceType(char *devSpec)
   long   size;
   char   deviceType[32];
   
+  if (isRAIDPath(devSpec))
+    return kBlockDeviceType;
+
   ph = FindDevice(devSpec);
   if (ph == -1) return -1;
   
@@ -1117,29 +1228,36 @@ long AllocateMemoryRange(char *rangeName, long start, long length)
   return 0;
 }
 
+#define BASE 65521L /* largest prime smaller than 65536 */
+#define NMAX 5000  
+// NMAX (was 5521) the largest n such that 255n(n+1)/2 + (n+1)(BASE-1) <= 2^32-1
 
-unsigned long Alder32(unsigned char *buffer, long length)
+#define DO1(buf,i)  {s1 += buf[i]; s2 += s1;}
+#define DO2(buf,i)  DO1(buf,i); DO1(buf,i+1);
+#define DO4(buf,i)  DO2(buf,i); DO2(buf,i+2);
+#define DO8(buf,i)  DO4(buf,i); DO4(buf,i+4);
+#define DO16(buf)   DO8(buf,0); DO8(buf,8);
+
+unsigned long Adler32(unsigned char *buf, long len)
 {
-  long          cnt;
-  unsigned long result, lowHalf, highHalf;
-  
-  lowHalf = 1;
-  highHalf = 0;
-  
-  for (cnt = 0; cnt < length; cnt++) {
-    if ((cnt % 5000) == 0) {
-      lowHalf  %= 65521L;
-      highHalf %= 65521L;
-    }
-    
-    lowHalf += buffer[cnt];
-    highHalf += lowHalf;
-  }
+    unsigned long s1 = 1; // adler & 0xffff;
+    unsigned long s2 = 0; // (adler >> 16) & 0xffff;
+    int k;
 
-  lowHalf  %= 65521L;
-  highHalf %= 65521L;
-  
-  result = (highHalf << 16) | lowHalf;
-  
-  return result;
+    while (len > 0) {
+        k = len < NMAX ? len : NMAX;
+        len -= k;
+        while (k >= 16) {
+            DO16(buf);
+	    buf += 16;
+            k -= 16;
+        }
+        if (k != 0) do {
+            s1 += *buf++;
+	    s2 += s1;
+        } while (--k);
+        s1 %= BASE;
+        s2 %= BASE;
+    }
+    return (s2 << 16) | s1;
 }

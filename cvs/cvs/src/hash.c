@@ -102,7 +102,7 @@ dellist (listp)
 	{
 	    /* put the nodes into the cache */
 #ifndef NOCACHE
-	    p->type = UNKNOWN;
+	    p->type = NT_UNKNOWN;
 	    p->next = nodecache;
 	    nodecache = p;
 #else
@@ -147,7 +147,7 @@ getnode ()
 
     /* always make it clean */
     memset ((char *) p, 0, sizeof (Node));
-    p->type = UNKNOWN;
+    p->type = NT_UNKNOWN;
 
     return (p);
 }
@@ -195,7 +195,7 @@ freenode_mem (p)
 	free (p->key);
 
     /* to be safe, re-initialize these */
-    p->key = p->data = (char *) NULL;
+    p->key = p->data = NULL;
     p->delproc = (void (*) ()) NULL;
 }
 
@@ -211,7 +211,7 @@ freenode (p)
 
     /* then put it in the cache */
 #ifndef NOCACHE
-    p->type = UNKNOWN;
+    p->type = NT_UNKNOWN;
     p->next = nodecache;
     nodecache = p;
 #else
@@ -402,6 +402,9 @@ sortlist (list, comp)
     Node *head, *remain, *p, **array;
     int i, n;
 
+    if (list == NULL)
+	return;
+
     /* save the old first element of the list */
     head = list->list;
     remain = head->next;
@@ -456,7 +459,7 @@ nodetypestring (type)
     Ntype type;
 {
     switch (type) {
-    case UNKNOWN:	return("UNKNOWN");
+    case NT_UNKNOWN:	return("UNKNOWN");
     case HEADER:	return("HEADER");
     case ENTRIES:	return("ENTRIES");
     case FILES:		return("FILES");
@@ -470,6 +473,7 @@ nodetypestring (type)
     case FILEATTR:	return("FILEATTR");
     case VARIABLE:	return("VARIABLE");
     case RCSFIELD:	return("RCSFIELD");
+    case RCSCMPFLD:	return("RCSCMPFLD");
     }
 
     return("<trash>");
@@ -487,8 +491,10 @@ printnode (node, closure)
 	return(0);
     }
 
-    (void) printf("Node at 0x%p: type = %s, key = 0x%p = \"%s\", data = 0x%p, next = 0x%p, prev = 0x%p\n",
-	   node, nodetypestring(node->type), node->key, node->key, node->data, node->next, node->prev);
+    (void) printf("Node at %p: type = %s, key = %p = \"%s\", data = %p, next = %p, prev = %p\n",
+	   (void *)node, nodetypestring(node->type),
+	   (void *)node->key, node->key, node->data,
+	   (void *)node->next, (void *)node->prev);
 
     return(0);
 }
@@ -508,8 +514,8 @@ printlist (list)
 	return;
     }
 
-    (void) printf("List at 0x%p: list = 0x%p, HASHSIZE = %d, next = 0x%p\n",
-	   list, list->list, HASHSIZE, list->next);
+    (void) printf("List at %p: list = %p, HASHSIZE = %d, next = %p\n",
+	   (void *)list, (void *)list->list, HASHSIZE, (void *)list->next);
     
     (void) walklist(list, printnode, NULL);
 

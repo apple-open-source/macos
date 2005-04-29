@@ -161,10 +161,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* This is BSD, so it wants DBX format.  */
 
-#define DBX_DEBUGGING_INFO
-
-/* Allow folding division by zero.  */
-#define REAL_INFINITY
+#define DBX_DEBUGGING_INFO 1
 
 /* Generate calls to memcpy, memcmp and memset.  */
 #define TARGET_MEM_FUNCTIONS
@@ -211,7 +208,7 @@ Boston, MA 02111-1307, USA.  */
         }							\
       else							\
         { char dstr[30];					\
-          REAL_VALUE_TO_DECIMAL ((VALUE), "%.9g", dstr);	\
+	  real_to_decimal (dstr, &(VALUE), sizeof (dstr), 9, 0); \
           asm_fprintf (FILE, "%I0r%s", dstr);			\
         }							\
     } while (0)
@@ -231,25 +228,7 @@ Boston, MA 02111-1307, USA.  */
         }								\
       else								\
         { char dstr[30];						\
-          REAL_VALUE_TO_DECIMAL ((VALUE), "%.17g", dstr);		\
+	  real_to_decimal (dstr, &(VALUE), sizeof (dstr), 0, 1);	\
           asm_fprintf (FILE, "%I0r%s", dstr);				\
         }								\
     } while (0)
-
-#if 0
-/* This was turned off as it caused linking errors on sunos4.1.
-   `gcc -a' links in /usr/lib/bb_link.o which does not provide __bb_link
-   but its own version of __bb_init_func.  */
-#undef BLOCK_PROFILER_CODE
-#define BLOCK_PROFILER_CODE						\
-extern int ___tcov_init;						\
-									\
-__bb_init_func (blocks)							\
-	struct bb *blocks;						\
-{									\
-  if (! ___tcov_init)							\
-    ___tcov_init_func ();						\
-									\
-  ___bb_link (blocks->filename, blocks->counts, blocks->ncounts);	\
-}
-#endif

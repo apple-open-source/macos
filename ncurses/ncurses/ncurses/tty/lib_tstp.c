@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,1999,2000,2001,2002 Free Software Foundation, Inc.    *
+ * Copyright (c) 1998-2001,2002 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -38,8 +38,6 @@
 **	The routine _nc_signal_handler().
 **
 */
-#include <signal.h>
-
 #include <curses.priv.h>
 
 #include <SigAction.h>
@@ -48,7 +46,7 @@
 #define _POSIX_SOURCE
 #endif
 
-MODULE_ID("$Id: lib_tstp.c,v 1.1.1.3 2002/02/15 21:55:50 jevans Exp $")
+MODULE_ID("$Id: lib_tstp.c,v 1.30 2002/05/18 19:55:38 tom Exp $")
 
 #if defined(SIGTSTP) && (HAVE_SIGACTION || HAVE_SIGVEC)
 #define USE_SIGTSTP 1
@@ -292,7 +290,7 @@ sigwinch(int sig GCC_UNUSED)
  * handler.
  */
 static int
-CatchIfDefault(int sig, RETSIGTYPE(*handler) (int))
+CatchIfDefault(int sig, RETSIGTYPE (*handler) (int))
 {
     int result;
 #if HAVE_SIGACTION || HAVE_SIGVEC
@@ -302,7 +300,9 @@ CatchIfDefault(int sig, RETSIGTYPE(*handler) (int))
     memset(&new_act, 0, sizeof(new_act));
     sigemptyset(&new_act.sa_mask);
 #ifdef SA_RESTART
+#ifdef SIGWINCH
     if (sig != SIGWINCH)
+#endif
 	new_act.sa_flags |= SA_RESTART;
 #endif /* SA_RESTART */
     new_act.sa_handler = handler;
@@ -320,7 +320,7 @@ CatchIfDefault(int sig, RETSIGTYPE(*handler) (int))
 	result = FALSE;
     }
 #else /* !HAVE_SIGACTION */
-    RETSIGTYPE(*ohandler) (int);
+    RETSIGTYPE (*ohandler) (int);
 
     ohandler = signal(sig, SIG_IGN);
     if (ohandler == SIG_DFL

@@ -27,7 +27,7 @@
 ;; Author: Paulo César Pereira de Andrade
 ;;
 ;;
-;; $XFree86: xc/programs/xedit/lisp/modules/progmodes/man.lsp,v 1.2 2002/10/06 17:11:48 paulo Exp $
+;; $XFree86: xc/programs/xedit/lisp/modules/progmodes/man.lsp,v 1.3 2004/01/08 21:29:12 paulo Exp $
 ;;
 
 (require "syntax")
@@ -35,19 +35,19 @@
 
 (defsynprop *prop-man-b*
     "b"
-    :font	"*courier-bold-r*12*"
+    :font	"*courier-bold-r*-12-*"
     :foreground	"gray12"
 )
 
 (defsynprop *prop-man-i*
     "i"
-    :font	"*courier-medium-o*12*"
+    :font	"*courier-medium-o*-12-*"
     :foreground	"black"
 )
 
 (defsynprop *prop-man-bi*
     "bi"
-    :font	"*courier-bold-o*12*"
+    :font	"*courier-bold-o*-12-*"
     :foreground	"gray20"
 )
 
@@ -71,13 +71,13 @@
 
 (defsynprop *prop-man-escape*
     "escape"
-    :font	"*lucidatypewriter-medium-r*12*"
+    :font	"*lucidatypewriter-medium-r*-12-*"
     :foreground	"RoyalBlue4"
 )
 
 (defsynprop *prop-man-string*
     "string"
-    :font	"*lucidatypewriter-bold-r*12*"
+    :font	"*lucidatypewriter-bold-r*-12-*"
     :foreground	"RoyalBlue3"
 ;    :underline	t
 )

@@ -34,7 +34,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)floatio.h	8.1 (Berkeley) 6/4/93
- * $FreeBSD: src/lib/libc/stdio/floatio.h,v 1.4 2003/04/05 22:11:42 das Exp $
+ * $FreeBSD: src/lib/libc/stdio/floatio.h,v 1.5 2004/01/18 08:28:47 das Exp $
  */
 
 /*
@@ -53,4 +53,6 @@
 #error "floating point buffers too small"
 #endif
 
+char *__hdtoa(double, const char *, int, int *, int *, char **);
+char *__hldtoa(long double, const char *, int, int *, int *, char **);
 char *__ldtoa(long double *, int, int, int *, int *, char **);

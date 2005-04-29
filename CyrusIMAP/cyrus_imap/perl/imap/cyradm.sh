@@ -39,7 +39,7 @@
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 #
-# $Id: cyradm.sh,v 1.16 2004/01/15 14:35:34 ken3 Exp $
+# $Id: cyradm.sh,v 1.5 2005/03/05 00:37:31 dasenbro Exp $
 case "x$BASH_VERSION" in
 x) exec perl -MCyrus::IMAP::Shell -e shell -- ${1+"$@"} ;;
 *) exec perl -MCyrus::IMAP::Shell -e shell -- "$@" ;;

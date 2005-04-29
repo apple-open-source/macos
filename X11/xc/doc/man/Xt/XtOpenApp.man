@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtOpenApp.man,v 1.5 2001/03/07 15:13:09 tsi Exp $
+.\" $XFree86: xc/doc/man/Xt/XtOpenApp.man,v 1.6 2003/04/28 22:18:20 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -130,49 +130,17 @@
 .SH NAME
 XtOpenApplication, XtVaOpenApplication \- initialize, open, or close a display
 .SH SYNTAX
-Widget XtOpenApplication(\fIapp_context_return\fP, \fIapplication_class\fP,
-\fIoptions\fP, \fInum_options\fP, \fIargc_in_out\fP, \fIargv_in_out\fP,
-\fIfallback_resources\fP, \fIwidget_class\fP, \fIargs\fP, \fInum_args\fP)
-.br
-      XtAppContext* \fIapp_context_return\fP;
-.br
-      String \fIapplication_class\fP;
-.br
-      XrmOptionDescRec* \fIoptions\fP;
-.br
-      Cardinal \fInum_options\fP;
-.br
-      int* \fIargc_in_out\fP;
-.br
-      String* \fIargv_in_out\fP;
-.br
-      String* \fIfallback_resources\fP;
-.br
-      WidgetClass \fIwidget_class\fP;
-.br
-      ArgList \fIargs\fP;
-.br
-      Cardinal \fInum_args\fP;
-.LP
-Widget XtVaOpenApplication(\fIapp_context_return\fP, \fIapplication_class\fP,
-\fIoptions\fP, \fInum_options\fP, \fIargc_in_out\fP, \fIargv_in_out\fP,
-\fIfallback_resources\fP, \fIwidget_class\fP, ...)
-.br
-      XtAppContext* \fIapp_context_return\fP;
-.br
-      String \fIapplication_class\fP;
-.br
-      XrmOptionDescRec* \fIoptions\fP;
-.br
-      Cardinal \fInum_options\fP;
-.br
-      int* \fIargc_in_out\fP;
-.br
-      String* \fIargv_in_out\fP;
-.br
-      String* \fIfallback_resources\fP;
-.br
-      WidgetClass \fIwidget_class\fP;
+.HP
+Widget XtOpenApplication(XtAppContext *\fIapp_context_return\fP, String
+\fIapplication_class\fP, XrmOptionDescRec *\fIoptions\fP, Cardinal
+\fInum_options\fP, int *\fIargc_in_out\fP, String *\fIargv_in_out\fP, String 
+*\fIfallback_resources\fP, WidgetClass \fIwidget_class\fP, ArgList \fIargs\fP,
+Cardinal \fInum_args\fP); 
+.HP
+Widget XtVaOpenApplication(XtAppContext *\fIapp_context_return\fP, String
+\fIapplication_class\fP, XrmOptionDescRec *\fIoptions\fP, Cardinal
+\fInum_options\fP, int *\fIargc_in_out\fP, String *\fIargv_in_out\fP, String 
+*\fIfallback_resources\fP, WidgetClass \fIwidget_class\fP, ...\^); 
 .SH ARGUMENTS
 .IP \fIapp_context_return\fP 1i
 Specifies the application context.

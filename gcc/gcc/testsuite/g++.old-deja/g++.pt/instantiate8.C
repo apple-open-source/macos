@@ -1,5 +1,5 @@
-// Build don't link:
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// { dg-do assemble  }
+// Copyright (C) 2000, 2002 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 14 Nov 2000 <nathan@codesourcery.com>
 
 // bug 616. We failed to complete the type of decls in templates, leading to
@@ -13,7 +13,7 @@ struct Y
 void g ()
 {
   const Y y;
-  Z z;          // ERROR - incomplete
+  Z z;          // { dg-error "" } incomplete
 }
 
 template <int dim>
@@ -25,7 +25,7 @@ struct X
 void h ()
 {
   const X<2> z;
-  Z z1;         // ERROR - incomplete
+  Z z1;         // { dg-error "" } incomplete
 }
 
 template <int dim>
@@ -33,8 +33,8 @@ void f()
 {
   const X<dim> x;
   const X<dim+1> y[3];
-  Z z2;           // ERROR - incomplete
+  Z z2;           // { dg-error "" } incomplete
   typedef Z z3;   // ok
-};
+}
 
 template void f<3> ();

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Google Highlight plugin</title>
+        <authors>
+            <person id="czarneckid" name="David Czarnecki" email="czarneckid@users.sf.net"/>
+        </authors>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The Google Highlight plugin will highlight words on your blog if the referer came from a Google query.
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                google-highlight=org.blojsom.plugin.highlight.GoogleHighlightPlugin
+            </source>
+
+            <p>
+                You may then add "google-highlight" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+
+                html.blojsom-plugin-chain=google-highlight
+            </source>
+
+
+        </section>
+        <section>
+            <title>context attributes and types</title>
+            <p>
+                No context attributes are made available or used by the Google Highlight plugin.
+            </p>
+
+        </section>
+    </body>
+</document>
+

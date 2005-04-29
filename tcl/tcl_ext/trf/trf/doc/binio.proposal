@@ -1,0 +1,293 @@
+Return-Path: aku@kisters.de
+Return-Path: <jyl@bisque.Eng.Sun.COM>
+Received: from mercury.Sun.COM by mailhost.kisters.de with smtp
+	(Smail3.1.29.1 #3) id m0uyISF-000BhGC; Wed, 4 Sep 96 15:57 MET DST
+Received: by mercury.Sun.COM (Sun.COM)
+	id GAA29259; Wed, 4 Sep 1996 06:56:57 -0700
+Received: from bisque.Eng.Sun.COM by Eng.Sun.COM (SMI-8.6/SMI-5.3)
+	id GAA15069; Wed, 4 Sep 1996 06:56:56 -0700
+Received: from noam.Eng.Sun.COM by bisque.Eng.Sun.COM (5.x/SMI-SVR4)
+	id AA23111; Wed, 4 Sep 1996 06:56:53 -0700
+Received: by noam.Eng.Sun.COM (5.x/SMI-SVR4)
+	id AA00104; Wed, 4 Sep 1996 06:56:52 -0700
+Date: Wed, 4 Sep 1996 06:56:52 -0700
+From: jyl@bisque.Eng.Sun.COM (Jacob Levy)
+Message-Id: <9609041356.AA00104@noam.Eng.Sun.COM>
+To: Andreas Kupries <aku@kisters.de>
+In-Reply-To: <Pine.ULT.3.91.960904075524.4336A-100000@ramazotti>
+Subject: (Re: transformation procedures, patch for tcl7.6b1) / Feedback
+Reply-To: jyl@Eng.Sun.COM
+Status: RO
+X-Status: 
+
+Here is the proposal. Comments most welcome!
+
+--JYL
+
+===========================================================================
+
+Proposal: Adding binary I/O facilities to Tcl
+-===========================================-
+
+Abstract: This note outlines the "why" and "how" of adding binary I/O
+capabilities to Tcl.
+
+Introduction
+------------
+
+Tcl 7.5 introduces a new mechanism for portable I/O programming, based on
+channels and channel drivers. The channel facility was written in C, with
+attention paid to making it possible to transfer either text or binary data
+via the APIs. However, the Tcl level procedures that provide access to the
+channel mechanism only allow transporting text (NULL terminated strings).
+Furthermore, Tcl datums are always NULL terminated strings.
+
+Because Tcl is unable to represent data containing NULL characters
+directly, many interesting algorithms are not expressible in Tcl directly,
+e.g. image or video data manipulation, compression, encryption etc.
+Furthermore, there is no mechanism for translating such data into a form
+that Tcl can manipulate directly, i.e. data that does not contain NULLs.
+
+This note proposes to add to Tcl:
+
+- A mechanism for transporting binary data between channels.
+- A mechanism for translating between binary data and representation of
+  that data as Tcl strings.
+- A mechanism for constructing in-memory representations of binary data
+  from Tcl programs.
+
+With these facilities, it is possible to:
+
+- transmit binary data between channels, through Tcl programs.
+- obtain binary input from channels and send binary out from Tcl programs.
+- build binary data structures from inside Tcl programs.
+
+This enables Tcl to be used for the areas mentioned above, e.g. direct
+image and video data manipulation, and for many other applications that
+require direct manipulation, input and output of binary data.
+
+Acknowledgments
+---------------
+
+Several packages that implement various aspects of binary I/O in Tcl are
+already available. This proposal benefits from examining these packages:
+Tclbin by Laurent Demaille, TclBlob by Andreas Kupries, Binary by ???, and
+the Perl pack and unpack commands written by Larry Wall (???).
+
+Details
+-------
+
+The rest of this note provides an overview of one possible implementation
+approach. In this approach, I propose:
+
+- One new Tcl command to effect data transfer, input and output: "binio".
+  This command has sub commands to transfer data directly between any two
+  channels, and to translate between binary representation of data in a
+  channel and string representation for Tcl datums.
+- A new channel type for in-memory representation of data, including binary
+  data.
+- A new fconfigure option is added to all channels: the byte order in
+  effect for the channel. The default value for sockets is network order, and
+  for other channels it is the byte order of the architecture on which the
+  Tcl program is currently executing. I think it should be an error to copy
+  binary data between channels that have different byte order settings, since
+  it causes the data to become scrambled.
+
+With these additions, all channels are able to participate in binary data
+transfer, and binary I/O, and all existing channel commands can be applied
+to the new in-memory channel type.
+
+Binary I/O (Tcl APIs)
+---------------------
+
+The new "binio" command has three sub commands:
+
+- binio copy inChannel outChannel ?count?
+
+	Copies from inChannel to outChannel, up to the number of bytes
+	indicated by the optional count argument or up to end of file on
+	inChannel. inChannel must have been opened for reading and
+	outChannel must have been opened for writing. It is an error to
+	copy binary data between channels that have different byte orders.
+	This operation returns the number of bytes copied, or -1 on error.
+
+- binio pack outChannel format ?data1 data2 ...?
+
+	Packs binary data onto outChannel, a channel that must have been
+	opened for writing. The format argument determines how the optional
+	data1 through datan arguments are interpreted. This operation
+	returns	the number of data items successfully packed on outChannel
+	or -1 if an error occurred. If an error occurred, it is possible
+	that some output has already occurred. The various specifications
+	that can appear in the format string are explained below. This
+	operation reorders the bytes of each datum to match the order
+	expected on outChannel if its byte order is different from that of
+	the architecture on which the Tcl command is being executed.
+
+- binio unpack inChannel format ?var1 var2 ...?
+
+	Unpacks binary data from inChannel into the named variables. The
+	inChannel argument must denote a channel opened for reading. The
+	format argument determines how the data obtained from the channel
+	is translated into string representation and stored in the var1
+	through varn variables. If any of the variables are not initialized
+	then the command creates them as local variables. This operation
+	returns the number of data items successfully unpacked from
+	inChannel or -1 if an error occurred. If -1 is returned, it is
+	possible that some input may already have occurred. The various
+	format specifications that can appear in the format string are
+	explained below. This operation reorders the bytes of each datum
+	to match the byte order expected on the architecture on which the
+	command is executed if it is different from the byte order that is
+	in effect on inChannel.
+
+Format Specifications
+---------------------
+
+The new "binio pack" and "binio unpack" commands take a format
+specification to control how they operate. A format string consists of one
+or more "%" specifiers, as follows (unless otherwise specified, all values
+are in base ten):
+
+- %d specifies that the corresponding value is a four byte signed int.
+- %u specifies that the corresponding value is a four byte unsigned int.
+- %o specifies that the corresponding value is a four byte octal signed int.
+- %x specifies that the corresponding value is a four byte hexadecimal
+  signed int.
+- %l specifies that the corresponding value is an eight byte signed int.
+- %L specifies that the corresponding value is an eight byte unsigned int.
+- %D specifies that the corresponding value is a two byte signed int.
+- %U specifies that the corresponding value is a two byte unsigned int.
+- %O specifies that the corresponding value is a two byte octal signed int.
+- %X specifies that the corresponding value is a two byte hexadecimal
+  signed int.
+- %c specifies that the corresponding value is a one byte signed int (char).
+- %C specifies that the corresponding value is a one byte unsigned int.
+- %f specifies that the corresponding value is a four byte floating point
+  number.
+- %F specifies that the corresponding value is an eight byte floating
+  point number.
+- %s specifies that the corresponding value is a NULL terminated string.
+
+In-memory Channels (Tcl APIs)
+-----------------------------
+
+In-memory channels represent transient data stores for data to be read or
+written by a Tcl program. Each in-memory channel provides an infinite (up
+to the limitations of virtual memory) indexed byte space (starting at zero)
+for data storage, and has a notion of a current access point for reading
+and writing.  In-memory channels are always opened for both reading and
+writing.  In-memory channels are able to seek at random between position 0
+and the current length of the channel; seeking beyond the end of the
+current data is not possible -- you must explicitly write data on the
+channel to extend its length. Telling on the channel obtains the current
+access point.  Writing and reading is possible from any point in the
+channel; writing into the middle of the channel overwrites the current
+content for the length of the data newly written, possibly extending the
+length of the channel.  Reading and writing moves the current access point
+to the next byte to be read or written. Flushing has no effect; the channel
+is always completely up to date. It is possible to save or duplicate the
+contents of an in-memory channel using "binio copy".  In-memory channels
+are always writable (fileevent writable will fire continuously) and they
+are readable when the current access point is before the last byte
+contained in the channel. In-memory channels provide a channel type
+specific, read-only, fconfigure option, "length", that obtains the current
+number of bytes of data stored in the channel.
+
+In-memory channels are created by the new command "memchan" which takes no
+arguments and returns the name of a newly created in-memory channel. The
+usual operations, e.g. "read", "gets", "puts", and so forth can be applied
+to the in-memory channel, and it can be shared or transferred between Tcl
+interpreters using "interp share" and "interp transfer", and closed with
+the Tcl "close" command. Closing the last reference to an in-memory channel
+removes the data from memory; it is lost unless you saved a persistent copy
+of the data on another (e.g. file based) channel with "binio copy".
+
+New Fconfigure Option
+---------------------
+
+The "fconfigure" command is enhanced to provide a new option to set the
+byte order for a channel, and to query the current setting:
+
+- "fconfigure $chan -byteorder ?setting?" sets or gets the current setting.
+  The valid values for the optional setting argument are "network",
+  "bigendian" and "smallendian", which indicate network byte order,
+  bigendian and smallendian respectively. The "bigendian" and "network"
+  values are synonyms. 
+
+Binary I/O (C APIs)
+-------------------
+
+Do we need any? We can simply prepare a buffer (by copying the binary
+values into it) and then give the buffer to Tcl_Write. Similarly, we can
+get data out of the channel using Tcl_Read and then copy the binary data
+out of the returned buffer. On the other hand, we may want to provide a
+formatted I/O capability which also takes into account byte order issues.
+Note also that this functionality is already implemented to handle the pack
+and unpack sub commands.
+
+In-memory Channels (C APIs)
+---------------------------
+
+I don't think we need any special C level APIs.
+
+Examples
+--------
+
+I show below two examples of how the new facilities might be used; the
+first example shows how to compute a hash of data read from a channel, and
+the second shows how to build a C structure containing a short and a long
+in a Tcl program.
+
+Computing a hash:
+
+A hash may be computed from a channel by xor-ing each 4 byte value with a
+seed. The following procedure implements this:
+
+proc hash {chan seed} {
+    set hash 0
+    while {[expr {[binio unpack $chan "%d" l] > 0}]} {
+	set hash [expr {$hash + ($l ^ $seed)}]
+    }
+    return $hash
+}
+
+Creating an in-memory representation of a C structure:
+
+A C structure defined by the following C statement is needed as an argument
+to a function provided by a C extension:
+
+typedef struct mystruct {
+     short myshort;
+     long mylong;
+} mystruct;
+
+In Tcl, using the new in-memory channel, the structure can be built up in
+Tcl as follows (assume the Tcl variables "shortval" and "longval" contain
+the values to be stored in the structure):
+
+    set m [memchan]
+    binio pack $m "%s%l" $shortval $longval
+    seek $m 0 start
+    set result [some_primitive $m]
+
+The command procedure for "some_primitive" can obtain the structure from
+the in-memory channel using Tcl_Read:
+
+    int
+    SomePrimitiveCommand(clientData, interp, argc, argv)
+    ....
+    {
+	....
+	Tcl_Channel chan = Tcl_GetChannel(interp, argv[1], NULL);
+	mystruct *msPtr = ckalloc((unsigned) sizeof(mystruct));
+	int count = Tcl_Read(chan, (char *) msPtr, sizeof(mystruct));
+	....
+	ckfree((char *) msPtr;
+	return TCL_OK;
+    }
+
+Note that this does not do byte-order conversions, which is a neccessary
+step if the channel has a different byte order from that of the
+architecture on which the program is executing. For memory channels this is
+not an issue, but it will be an issue for external channels.

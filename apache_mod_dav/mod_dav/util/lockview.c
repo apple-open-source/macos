@@ -31,7 +31,7 @@ typedef struct dav_lock_discovery_fixed
 } dav_lock_discovery_fixed;
 /* /Include */
 
-char *show_uuid(uuid_t *u)
+char *show_uuid(dav_uuid_t *u)
 {
 	char *buf = calloc(100, sizeof(char));
 
@@ -68,7 +68,7 @@ int display_info(datum key, datum val)
 	char *ptr;
 	int i = 0;
 	dav_lock_discovery_fixed ld;
-	uuid_t locktoken;
+	dav_uuid_t locktoken;
 	time_t expires;
 
 	if (val.dsize == 0)

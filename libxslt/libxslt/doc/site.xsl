@@ -150,21 +150,22 @@
     <ul>
       <xsl:choose>
         <xsl:when test="$dirname = ''">
-      <li><a href="{$href_base}tutorial/libxslttutorial.html">Tutorial</a></li>
+      <li><a href="{$href_base}tutorial/libxslttutorial.html">Tutorial</a>,
+          <a href="{$href_base}tutorial2/libxslt_pipes.html">Tutorial2</a></li>
       <li><a href="{$href_base}xsltproc.html">Man page for xsltproc</a></li>
         </xsl:when>
       </xsl:choose>
       <li><a href="http://mail.gnome.org/archives/xslt/">Mail archive</a></li>
-      <li><a href="http://xmlsoft.org/">XML libxml</a></li>
-      <li><a href="http://phd.cs.unibo.it/gdome2/">DOM gdome2</a></li>
+      <li><a href="http://xmlsoft.org/">XML libxml2</a></li>
       <li><a href="ftp://xmlsoft.org/">FTP</a></li>
       <li><a href="http://www.zlatkovic.com/projects/libxml/">Windows binaries</a></li>
       <li><a href="http://garypennington.net/libxml2/">Solaris binaries</a></li>
       <li><a href="http://www.zveno.com/open_source/libxml2xslt.html">MacOsX binaries</a></li>
-      <li><a href="http://sourceforge.net/projects/libxml2-pas/">Pascal bindings</a></li>
       <li><a href="http://bugzilla.gnome.org/buglist.cgi?product=libxslt">Bug Tracker</a></li>
+      <li><a href="http://www.zend.com/php5/articles/php5-xmlphp.php#Heading17">XSLT with PHP</a></li>
+      <li><a href="http://www.mod-xslt2.com/">Apache module</a></li>
+      <li><a href="http://sourceforge.net/projects/libxml2-pas/">Pascal bindings</a></li>
       <li><a href="http://xsldbg.sourceforge.net/">Xsldbg Debugger</a></li>
-      <li><a href="http://www.mod-xslt.com/mod-xslt/">Apache module</a></li>
     </ul>
   </xsl:variable>
 

@@ -30,7 +30,7 @@
 
 static void DeviceAdded(void *refCon, io_iterator_t iterator)
 {
-    io_service_t ioDeviceObj=NULL;
+    io_service_t ioDeviceObj=nil;
     
     while( ioDeviceObj = IOIteratorNext( iterator) )
     {
@@ -41,7 +41,7 @@ static void DeviceAdded(void *refCon, io_iterator_t iterator)
 
 static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 {
-    io_service_t ioDeviceObj=NULL;
+    io_service_t ioDeviceObj=nil;
     
     while( (ioDeviceObj = IOIteratorNext( iterator)))
     {
@@ -129,9 +129,9 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     [_devicesArray removeAllObjects];
      
     CFDictionaryRef matchingDict = NULL;
-    mach_port_t         mMasterDevicePort = NULL;
-    io_iterator_t       devIter = NULL;
-    io_service_t        ioDeviceObj	= NULL;
+    mach_port_t         mMasterDevicePort = nil;
+    io_iterator_t       devIter = nil;
+    io_service_t        ioDeviceObj	= nil;
     IOReturn            kr;
     int                 deviceNumber = 0; //used to iterate through devices
     
@@ -167,8 +167,9 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
         }
         
         kr = (*ioPlugin)->QueryInterface(ioPlugin, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID *)&deviceIntf);
-        (*ioPlugin)->Release(ioPlugin);
+		IODestroyPlugInInterface(ioPlugin);
         ioPlugin = NULL;
+
         if (kr != kIOReturnSuccess) {
             IOObjectRelease(ioDeviceObj);
             continue;
@@ -242,12 +243,12 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
                 cfgHeader.wTotalLength = 0;
                 [DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:NO];
                 
-                // Try to get the descriptor again, using the sizeof(IOUSBConfigurationDescriptor)  - 1
+                // Try to get the descriptor again, using the sizeof(IOUSBConfigurationDescriptor) 
                 //
                 bzero(&config,sizeof(config)-1);
-                error = GetDescriptor(deviceIntf, kUSBConfDesc, iconfig, &config, sizeof(config) - 1);
+                error = GetDescriptor(deviceIntf, kUSBConfDesc, iconfig, &config, sizeof(config)-1);
                 if (error != kIOReturnSuccess) {
-                    cfgHeader.bDescriptorType = sizeof(config) - 1;
+                    cfgHeader.bDescriptorType = sizeof(config)-1;
                     cfgHeader.wTotalLength = 0;
                 }
                 else

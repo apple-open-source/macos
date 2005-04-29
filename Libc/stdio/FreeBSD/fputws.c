@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,29 +25,47 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fputws.c,v 1.4 2002/09/20 13:25:40 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fputws.c,v 1.6 2004/07/21 10:54:57 tjr Exp $");
 
 #include "namespace.h"
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <wchar.h>
 #include "un-namespace.h"
+#include "fvwrite.h"
 #include "libc_private.h"
 #include "local.h"
+#include "mblocal.h"
 
 int
 fputws(const wchar_t * __restrict ws, FILE * __restrict fp)
 {
+	size_t nbytes;
+	char buf[BUFSIZ];
+	struct __suio uio;
+	struct __siov iov;
 
 	FLOCKFILE(fp);
 	ORIENT(fp, 1);
-	/* XXX Inefficient */
-	while (*ws != '\0')
-		if (__fputwc(*ws++, fp) == WEOF) {
-			FUNLOCKFILE(fp);
-			return (-1);
-		}
+	if (prepwrite(fp) != 0)
+		goto error;
+	uio.uio_iov = &iov;
+	uio.uio_iovcnt = 1;
+	iov.iov_base = buf;
+	do {
+		nbytes = __wcsnrtombs(buf, &ws, SIZE_T_MAX, sizeof(buf),
+		    &fp->_extra->mbstate);
+		if (nbytes == (size_t)-1)
+			goto error;
+		iov.iov_len = uio.uio_resid = nbytes;
+		if (__sfvwrite(fp, &uio) != 0)
+			goto error;
+	} while (ws != NULL);
 	FUNLOCKFILE(fp);
-
 	return (0);
+
+error:
+	FUNLOCKFILE(fp);
+	return (-1);
 }

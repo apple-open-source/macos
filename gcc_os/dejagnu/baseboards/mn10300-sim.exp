@@ -9,7 +9,7 @@ load_generic_config "sim"
 # basic-sim.exp is a basic description for the standard Cygnus simulator.
 load_base_board_description "basic-sim"
 
-# This is the name of the sim subdir in devo/sim (and in the build tree).
+# This is the name of the sim subdir.
 setup_sim mn10300
 
 # No multilib flags are set by default.

@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 2003, International Business Machines
+ *   Copyright (C) 2003-2004, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -21,18 +21,18 @@
 
 #if !UCONFIG_NO_IDNA && !UCONFIG_NO_TRANSLITERATION
 
-#include "sprpimpl.h"
 #include "intltest.h"
 #include "unicode/parseerr.h"
+#include "unicode/uidna.h"
 
 U_CDECL_BEGIN
 typedef int32_t  
-(*TestFunc) (   const UChar *src, int32_t srcLength,
+(U_EXPORT2 *TestFunc) (   const UChar *src, int32_t srcLength,
                 UChar *dest, int32_t destCapacity,
                 int32_t options, UParseError *parseError,
                 UErrorCode *status);
 typedef int32_t  
-(*CompareFunc) (const UChar *s1, int32_t s1Len,
+(U_EXPORT2 *CompareFunc) (const UChar *s1, int32_t s1Len,
                 const UChar *s2, int32_t s2Len,
                 int32_t options,
                 UErrorCode *status);
@@ -65,7 +65,9 @@ public:
     void TestIDNAMonkeyTest();
     void TestConformance();
     static NamePrepTransform* getInstance(UErrorCode& status);
-    static NamePrepTransform* prep;
+    static NamePrepTransform* gPrep;
+    virtual ~TestIDNA();
+
 private:
     void testToASCII(const char* testName, TestFunc func);
     void testToUnicode(const char* testName, TestFunc func);
@@ -74,19 +76,18 @@ private:
     void testCompare(const char* testName, CompareFunc func);
     void testChaining(const char* toASCIIName, TestFunc toASCII,
                     const char* toUnicodeName, TestFunc toUnicode);
-
+    void debug(const UChar* src, int32_t srcLength, int32_t options);
     // main testing functions
     void testAPI(const UChar *src, const UChar *expected, const char *testName, 
              UBool useSTD3ASCIIRules, UErrorCode expectedStatus,
-             UBool doCompare, UBool testUnassigned, TestFunc func);
+             UBool doCompare, UBool testUnassigned, TestFunc func, UBool testSTD3ASCIIRules=TRUE);
 
     void testCompare(const UChar* s1, int32_t s1Len,
                         const UChar* s2, int32_t s2Len,
                         const char* testName, CompareFunc func,
                         UBool isEqual);
 
-    void testErrorCases(const char* toASCIIName, TestFunc toASCII,
-                    const char* IDNToASCIIName, TestFunc IDNToASCII,
+    void testErrorCases(const char* IDNToASCIIName, TestFunc IDNToASCII,
                     const char* IDNToUnicodeName, TestFunc IDNToUnicode);
 
     void testChaining(UChar* src,int32_t numIterations,const char* testName,
@@ -97,6 +98,11 @@ private:
                             const char* IDNToUnicodeName, TestFunc IDNToUnicode);
 
     void testCompareReferenceImpl(const UChar* src, int32_t srcLen);
+    
+    UnicodeString testCompareReferenceImpl(UnicodeString& src, 
+                                TestFunc refIDNA, const char* refIDNAName,
+                                TestFunc uIDNA, const char* uIDNAName,
+                                int32_t options);
 
     void testConformance(const char* toASCIIName, TestFunc toASCII,
                          const char* IDNToASCIIName, TestFunc IDNToASCII,

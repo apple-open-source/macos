@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2003 Massachusetts Institute of Technology.
+ * Copyright 1998-2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
  *
  * Export of this software from the United States of America may
@@ -25,7 +25,7 @@
 /*
  * KerberosLogin.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Headers/Kerberos/KerberosLogin.h,v 1.87 2003/08/22 05:53:24 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Headers/Kerberos/KerberosLogin.h,v 1.89 2004/10/04 17:43:46 lxs Exp $
  */
 
 #ifndef __KERBEROSLOGIN__
@@ -412,6 +412,12 @@ KLStatus KLCreatePrincipalFromString (const char        *inFullPrincipal,
                                       KLKerberosVersion  inKerberosVersion,
                                       KLPrincipal       *outPrincipal);
     
+KLStatus KLCreatePrincipalFromKerberos5Principal (krb5_principal  inKerberos5Principal,
+                                                  KLPrincipal    *outPrincipal);
+
+KLStatus KLCreatePrincipalFromPrincipal (KLPrincipal inPrincipal,
+                                         KLPrincipal *outPrincipal);
+
 KLStatus KLGetTripletFromPrincipal (KLPrincipal   inPrincipal,
                                     char        **outName,
                                     char        **outInstance,

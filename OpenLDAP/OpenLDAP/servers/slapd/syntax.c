@@ -1,8 +1,17 @@
 /* syntax.c - routines to manage syntax definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/syntax.c,v 1.21.2.7 2003/02/09 16:31:37 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/syntax.c,v 1.36.2.2 2004/01/01 18:16:35 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -89,6 +98,7 @@ syn_insert(
 {
 	struct sindexrec	*sir;
 
+	LDAP_SLIST_NEXT( ssyn, ssyn_next ) = NULL;
 	LDAP_SLIST_INSERT_HEAD( &syn_list, ssyn, ssyn_next );
  
 	if ( ssyn->ssyn_oid ) {
@@ -150,7 +160,6 @@ syn_add(
 	ssyn->ssyn_oidlen = strlen(syn->syn_oid);
 	ssyn->ssyn_flags = def->sd_flags;
 	ssyn->ssyn_validate = def->sd_validate;
-	ssyn->ssyn_normalize = def->sd_normalize;
 	ssyn->ssyn_pretty = def->sd_pretty;
 
 #ifdef SLAPD_BINARY_CONVERSION
@@ -207,12 +216,10 @@ register_syntax(
 int
 syn_schema_info( Entry *e )
 {
-	struct berval	vals[2];
-	Syntax		*syn;
-
 	AttributeDescription *ad_ldapSyntaxes = slap_schema.si_ad_ldapSyntaxes;
-
-	vals[1].bv_val = NULL;
+	Syntax		*syn;
+	struct berval	val;
+	struct berval	nval;
 
 	LDAP_SLIST_FOREACH(syn, &syn_list, ssyn_next ) {
 		if ( ! syn->ssyn_validate ) {
@@ -224,23 +231,28 @@ syn_schema_info( Entry *e )
 			continue;
 		}
 
-		if ( ldap_syntax2bv( &syn->ssyn_syn, vals ) == NULL ) {
+		if ( ldap_syntax2bv( &syn->ssyn_syn, &val ) == NULL ) {
 			return -1;
 		}
 #if 0
 #ifdef NEW_LOGGING
 		LDAP_LOG( config, ENTRY,
 			   "syn_schema_info: Merging syn [%ld] %s\n",
-			   (long)vals[0].bv_len, vals[0].bv_val, 0 );
+			   (long)val.bv_len, val.bv_val, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "Merging syn [%ld] %s\n",
-	       (long) vals[0].bv_len, vals[0].bv_val, 0 );
+	       (long) val.bv_len, val.bv_val, 0 );
+#endif
 #endif
 
-#endif
-		if( attr_merge( e, ad_ldapSyntaxes, vals ) )
+		nval.bv_val = syn->ssyn_oid;
+		nval.bv_len = strlen(syn->ssyn_oid);
+
+		if( attr_merge_one( e, ad_ldapSyntaxes, &val, &nval ) )
+		{
 			return -1;
-		ldap_memfree( vals[0].bv_val );
+		}
+		ldap_memfree( val.bv_val );
 	}
 	return 0;
 }

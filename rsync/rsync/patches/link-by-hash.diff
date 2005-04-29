@@ -1,44 +1,30 @@
-To: rsync@lists.samba.org
-From: "Jason M. Felice" <jfelice@cronosys.com>
-Subject: [patch] Add `--link-by-hash' option (rev 5).
-Date: Mon, 23 Feb 2004 13:29:08 -0500
+After applying this patch and running configure, you MUST run this
+command before "make":
+
+    make proto
+
+Jason M. Felice writes:
 
 This patch adds the --link-by-hash=DIR option, which hard links received
 files in a link farm arranged by MD4 file hash.  The result is that the system
 will only store one copy of the unique contents of each file, regardless of
 the file's name.
 
-(rev 5)
-* Fixed silly logic error.
 
-(rev 4)
-* Updated for committed robust_rename() patch, other changes in CVS.
-
-(rev 3)
-* Don't link empty files.
-* Roll over to new file when filesystem maximum link count is reached.
-* If link fails for another reason, leave non-linked file there.
-* Depends on rsync-rename.diff
-
-(rev 2)
-* This revision is actually against CVS HEAD (I didn't realize I was working
-  from a stale rsync'd CVS).
-* Apply permissions after linking (permissions were lost if we already had
-  a copy of the file in the link farm).
-
-Patch Summary:
-
-    -1   +1    Makefile.in
-    -0   +351  hashlink.c (new)
-    -1   +22   options.c
-    -0   +6    proto.h
-    -6   +21   receiver.c
-    -2   +8    rsync.c
-    -0   +8    rsync.h
-
---- hashlink.c	1969-12-31 19:00:00.000000000 -0500
-+++ hashlink.c	2004-02-23 10:30:45.000000000 -0500
-@@ -0,0 +1,351 @@
+--- orig/Makefile.in	2004-08-13 07:18:58
++++ Makefile.in	2004-07-03 20:20:15
+@@ -35,7 +35,7 @@ OBJS1=rsync.o generator.o receiver.o cle
+ 	main.o checksum.o match.o syscall.o log.o backup.o
+ OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o \
+ 	fileio.o batch.o clientname.o
+-OBJS3=progress.o pipe.o
++OBJS3=progress.o pipe.o hashlink.o
+ DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
+ popt_OBJS=popt/findme.o  popt/popt.o  popt/poptconfig.o \
+ 	popt/popthelp.o popt/poptparse.o
+--- orig/hashlink.c	2004-09-24 16:44:25
++++ hashlink.c	2004-09-24 16:44:25
+@@ -0,0 +1,340 @@
 +/*
 +   Copyright (C) Cronosys, LLC 2004
 +
@@ -125,12 +111,11 @@ Patch Summary:
 +	long this_fnbr;
 +
 +	*fnbr = 0;
-+	
++
 +	/* Build a list of potential candidates and open
 +	 * them. */
 +	if ((d = opendir(hashname)) == NULL) {
-+		rprintf(FERROR,"opendir \"%s\": %s\n",
-+			hashname, strerror(errno));
++		rsyserr(FERROR, errno, "opendir failed: \"%s\"", hashname);
 +		free(hashname);
 +		return NULL;
 +	}
@@ -149,8 +134,7 @@ Patch Summary:
 +		asprintf(&hashfile->name,"%s/%s",hashname,
 +			 di->d_name);
 +		if (do_stat(hashfile->name,&st) == -1) {
-+			rprintf(FERROR,"%s: %s", hashfile->name,
-+				strerror(errno));
++			rsyserr(FERROR, errno, "stat failed: %s", hashfile->name);
 +			kill_hashfile(hashfile);
 +			continue;
 +		}
@@ -161,8 +145,7 @@ Patch Summary:
 +		hashfile->nlink = st.st_nlink;
 +		hashfile->fd = open(hashfile->name,O_RDONLY|O_BINARY);
 +		if (hashfile->fd == -1) {
-+			rprintf(FERROR,"%s: %s\n", hashfile->name,
-+				strerror(errno));
++			rsyserr(FERROR, errno, "open failed: %s", hashfile->name);
 +			kill_hashfile(hashfile);
 +			continue;
 +		}
@@ -227,11 +210,10 @@ Patch Summary:
 +			/* There are no matches. */
 +			return NULL;
 +		}
-+		
 +	}
 +
 +	if (amt == -1) {
-+		rprintf(FERROR,"%s",strerror(errno));
++		rsyserr(FERROR, errno, "read failed in compare_hashfiles()");
 +		kill_hashfiles(files);
 +		return NULL;
 +	}
@@ -267,7 +249,7 @@ Patch Summary:
 +int link_by_hash(char *fnametmp,char *fname,struct file_struct *file)
 +{
 +	STRUCT_STAT st;
-+	char *hashname = make_hash_name(file);		
++	char *hashname = make_hash_name(file);
 +	int first = 0, rc;
 +	char *linkname;
 +	long last_fnbr;
@@ -283,8 +265,7 @@ Patch Summary:
 +		dirname = strdup(hashname);
 +		*strrchr(dirname,'/') = 0;
 +		if (do_mkdir(dirname, 0755) == -1 && errno != EEXIST) {
-+			rprintf(FERROR, "mkdir %s: %s\n", dirname,
-+				strerror(errno));
++			rsyserr(FERROR, errno, "mkdir failed: %s", dirname);
 +			free(hashname);
 +			free(dirname);
 +			return robust_rename(fnametmp,fname,0644);
@@ -292,8 +273,7 @@ Patch Summary:
 +		free(dirname);
 +
 +		if (do_mkdir(hashname, 0755) == -1 && errno != EEXIST) {
-+			rprintf(FERROR, "mkdir %s: %s\n", hashname,
-+				strerror(errno));
++			rsyserr(FERROR, errno, "mkdir failed: %s", hashname);
 +			free(hashname);
 +			return robust_rename(fnametmp,fname,0644);
 +		}
@@ -301,13 +281,11 @@ Patch Summary:
 +		first = 1;
 +		asprintf(&linkname,"%s/0",hashname);
 +		rprintf(FINFO, "(1) linkname = %s\n", linkname);
-+			
 +	} else {
 +		struct hashfile_struct *hashfiles, *hashfile;
-+		int fd;
 +
 +		if (do_stat(fnametmp,&st) == -1) {
-+			rprintf(FERROR,"%s: %s\n",fname,strerror(errno));
++			rsyserr(FERROR, errno, "stat failed: %s", fname);
 +			return -1;
 +		}
 +		hashfiles = find_hashfiles(hashname, st.st_size, &last_fnbr);
@@ -317,16 +295,16 @@ Patch Summary:
 +			asprintf(&linkname,"%s/0",hashname);
 +			rprintf(FINFO, "(2) linkname = %s\n", linkname);
 +		} else {
-+			
++			int fd;
 +			/* Search for one identical to us. */
 +			if ((fd = open(fnametmp,O_RDONLY|O_BINARY)) == -1) {
-+				rprintf(FERROR,"%s: %s\n",fnametmp,
-+					strerror(errno));
++				rsyserr(FERROR, errno, "open failed: %s", fnametmp);
 +				kill_hashfiles(hashfiles);
 +				return -1;
 +			}
 +			hashfile = compare_hashfiles(fd, hashfiles);
 +			hashfiles = NULL;
++			close(fd);
 +
 +			if (hashfile) {
 +				first = 0;
@@ -345,6 +323,7 @@ Patch Summary:
 +	if (!first) {
 +		rprintf(FINFO, "link-by-hash (existing): \"%s\" -> %s\n",
 +				linkname, full_fname(fname));
++		robust_unlink(fname);
 +		rc = do_link(linkname, fname);
 +		if (rc == -1) {
 +			if (errno == EMLINK) {
@@ -355,10 +334,8 @@ Patch Summary:
 +				rprintf(FINFO, "(5) linkname = %s\n", linkname);
 +				rprintf(FINFO,"link-by-hash: max link count exceeded, starting new file \"%s\".\n", linkname);
 +			} else {
-+				rprintf(FERROR,"link \"%s\" -> %s: %s\n",
-+					linkname,full_fname(fname),
-+					strerror(errno));
-+				robust_unlink(fname);
++				rsyserr(FERROR, errno, "link \"%s\" -> \"%s\"",
++					linkname, full_fname(fname));
 +				rc = robust_rename(fnametmp,fname,0644);
 +			}
 +		} else {
@@ -372,15 +349,13 @@ Patch Summary:
 +
 +		rc = robust_rename(fnametmp,fname,0644);
 +		if (rc != 0) {
-+			rprintf(FERROR,"rename \"%s\" -> \"%s\": %s\n",
-+				full_fname(fnametmp),full_fname(fname),
-+				strerror(errno));
++			rsyserr(FERROR, errno, "rename \"%s\" -> \"%s\"",
++				full_fname(fnametmp), full_fname(fname));
 +		}
 +		rc = do_link(fname,linkname);
 +		if (rc != 0) {
-+			rprintf(FERROR,"link \"%s\" -> \"%s\": %s\n",
-+				full_fname(fname),linkname,
-+				strerror(errno));
++			rsyserr(FERROR, errno, "link \"%s\" -> \"%s\"",
++				full_fname(fname), linkname);
 +		}
 +	}
 +
@@ -390,20 +365,9 @@ Patch Summary:
 +}
 +
 +#endif
---- Makefile.in	10 Feb 2004 17:06:11 -0000	1.98
-+++ Makefile.in	15 Apr 2004 19:18:59 -0000
-@@ -35,7 +35,7 @@ OBJS1=rsync.o generator.o receiver.o cle
- 	main.o checksum.o match.o syscall.o log.o backup.o
- OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o \
- 	fileio.o batch.o clientname.o
--OBJS3=progress.o pipe.o
-+OBJS3=progress.o pipe.o hashlink.o
- DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
- popt_OBJS=popt/findme.o  popt/popt.o  popt/poptconfig.o \
- 	popt/popthelp.o popt/poptparse.o
---- options.c	14 Apr 2004 23:33:34 -0000	1.146
-+++ options.c	15 Apr 2004 19:19:00 -0000
-@@ -121,6 +121,7 @@ char *log_format = NULL;
+--- orig/options.c	2004-09-23 17:42:07
++++ options.c	2004-08-13 18:13:18
+@@ -126,6 +126,7 @@ char *log_format = NULL;
  char *password_file = NULL;
  char *rsync_path = RSYNC_PATH;
  char *backup_dir = NULL;
@@ -411,24 +375,24 @@ Patch Summary:
  char backup_dir_buf[MAXPATHLEN];
  int rsync_port = RSYNC_PORT;
  int link_dest = 0;
-@@ -266,6 +267,7 @@ void usage(enum logcode F)
-   rprintf(F," -T  --temp-dir=DIR          create temporary files in directory DIR\n");
+@@ -279,6 +280,7 @@ void usage(enum logcode F)
+   rprintf(F," -T, --temp-dir=DIR          create temporary files in directory DIR\n");
    rprintf(F,"     --compare-dest=DIR      also compare destination files relative to DIR\n");
    rprintf(F,"     --link-dest=DIR         create hardlinks to DIR for unchanged files\n");
 +  rprintf(F,"     --link-by-hash=DIR      create hardlinks by hash to DIR for regular files\n");
    rprintf(F," -P                          equivalent to --partial --progress\n");
    rprintf(F," -z, --compress              compress file data\n");
    rprintf(F," -C, --cvs-exclude           auto ignore files in the same way CVS does\n");
-@@ -305,7 +307,7 @@ void usage(enum logcode F)
+@@ -319,7 +321,7 @@ void usage(enum logcode F)
  enum {OPT_VERSION = 1000, OPT_SENDER, OPT_EXCLUDE, OPT_EXCLUDE_FROM,
        OPT_DELETE_AFTER, OPT_DELETE_EXCLUDED, OPT_LINK_DEST,
        OPT_INCLUDE, OPT_INCLUDE_FROM, OPT_MODIFY_WINDOW,
--      OPT_READ_BATCH, OPT_WRITE_BATCH,
-+      OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_LINK_BY_HASH,
+-      OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_TIMEOUT,
++      OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_TIMEOUT, OPT_LINK_BY_HASH,
        OPT_REFUSED_BASE = 9000};
  
  static struct poptOption long_options[] = {
-@@ -362,6 +364,7 @@ static struct poptOption long_options[] 
+@@ -378,6 +380,7 @@ static struct poptOption long_options[] 
    {"temp-dir",        'T', POPT_ARG_STRING, &tmpdir, 0, 0, 0 },
    {"compare-dest",     0,  POPT_ARG_STRING, &compare_dest, 0, 0, 0 },
    {"link-dest",        0,  POPT_ARG_STRING, &compare_dest,  OPT_LINK_DEST, 0, 0 },
@@ -436,14 +400,16 @@ Patch Summary:
    /* TODO: Should this take an optional int giving the compression level? */
    {"compress",        'z', POPT_ARG_NONE,   &do_compression, 0, 0, 0 },
    {"daemon",           0,  POPT_ARG_NONE,   &daemon_opt, 0, 0, 0 },
-@@ -584,6 +587,19 @@ int parse_arguments(int *argc, const cha
+@@ -616,6 +619,21 @@ int parse_arguments(int *argc, const cha
  			return 0;
  #endif
  
 +                case OPT_LINK_BY_HASH:
 +#if HAVE_LINK
-+			link_by_hash_dir = (char *)poptGetOptArg(pc);
-+			checksum_seed = FIXED_CHECKSUM_SEED;
++			arg = poptGetOptArg(pc);
++			if (sanitize_paths)
++				arg = sanitize_path(NULL, arg, NULL, 0);
++			link_by_hash_dir = (char *)arg;
 +			break;
 +#else
 +			snprintf(err_buf, sizeof err_buf,
@@ -456,77 +422,63 @@ Patch Summary:
  		default:
  			/* A large opt value means that set_refuse_options()
  			 * turned this option off (opt-BASE is its index). */
-@@ -951,6 +967,11 @@ void server_options(char **args,int *arg
- 		 */
- 		args[ac++] = link_dest ? "--link-dest" : "--compare-dest";
+@@ -1087,6 +1105,11 @@ void server_options(char **args,int *arg
  		args[ac++] = compare_dest;
-+	}
-+
+ 	}
+ 
 +	if (link_by_hash_dir && am_sender) {
 +		args[ac++] = "--link-by-hash";
 +		args[ac++] = link_by_hash_dir;
- 	}
- 
++	}
++
  	if (files_from && (!am_sender || remote_filesfrom_file)) {
---- proto.h	14 Apr 2004 23:33:30 -0000	1.188
-+++ proto.h	15 Apr 2004 19:19:00 -0000
-@@ -91,6 +91,12 @@ char *f_name(struct file_struct *f);
- void write_sum_head(int f, struct sum_struct *sum);
- void recv_generator(char *fname, struct file_struct *file, int i, int f_out);
- void generate_files(int f, struct file_list *flist, char *local_name);
-+char* make_hash_name(struct file_struct *file);
-+void kill_hashfile(struct hashfile_struct *hashfile);
-+void kill_hashfiles(struct hashfile_struct *hashfiles);
-+struct hashfile_struct *find_hashfiles(char *hashname, int64 size, long *fnbr);
-+struct hashfile_struct *compare_hashfiles(int fd,struct hashfile_struct *files);
-+int link_by_hash(char *fnametmp,char *fname,struct file_struct *file);
- void init_hard_links(struct file_list *flist);
- int hard_link_check(struct file_struct *file, int skip);
- void do_hard_links(void);
---- receiver.c	23 Mar 2004 16:50:40 -0000	1.75
-+++ receiver.c	15 Apr 2004 19:19:00 -0000
-@@ -45,6 +45,7 @@ extern int cleanup_got_literal;
- extern int module_id;
- extern int ignore_errors;
- extern int orig_umask;
+ 		if (remote_filesfrom_file) {
+ 			args[ac++] = "--files-from";
+--- orig/receiver.c	2004-09-21 09:40:27
++++ receiver.c	2004-07-20 21:44:05
+@@ -39,6 +39,7 @@ extern int io_error;
+ extern char *tmpdir;
+ extern char *partial_dir;
+ extern char *compare_dest;
 +extern char *link_by_hash_dir;
+ extern int make_backups;
+ extern int do_progress;
+ extern char *backup_dir;
+@@ -202,12 +203,13 @@ static int get_tmpname(char *fnametmp, c
  
- static void delete_one(char *fn, int is_dir)
+ 
+ static int receive_data(int f_in, char *fname_r, int fd_r, OFF_T size_r,
+-			char *fname, int fd, OFF_T total_size)
++			char *fname, int fd, OFF_T total_size, char *md4)
  {
-@@ -190,10 +191,11 @@ static int get_tmpname(char *fnametmp, c
- 
- 
- static int receive_data(int f_in,struct map_struct *mapbuf,int fd,char *fname,
--			OFF_T total_size)
-+			OFF_T total_size,char *md4)
- {
- 	int i;
+ 	static char file_sum1[MD4_SUM_LENGTH];
+ 	static char file_sum2[MD4_SUM_LENGTH];
+ 	struct map_struct *mapbuf;
  	struct sum_struct sum;
 +	struct mdfour mdfour_data;
  	unsigned int len;
  	OFF_T offset = 0;
  	OFF_T offset2;
-@@ -203,7 +205,9 @@ static int receive_data(int f_in,struct 
- 	char *map=NULL;
+@@ -227,6 +229,9 @@ static int receive_data(int f_in, char *
+ 	} else
+ 		mapbuf = NULL;
  
- 	read_sum_head(f_in, &sum);
--
 +	if (md4)
 +		mdfour_begin(&mdfour_data);
-+	
- 	sum_init();
++
+ 	sum_init(checksum_seed);
  
  	while ((i = recv_token(f_in, &data)) != 0) {
-@@ -220,6 +224,8 @@ static int receive_data(int f_in,struct 
+@@ -243,6 +248,8 @@ static int receive_data(int f_in, char *
  			cleanup_got_literal = 1;
  
  			sum_update(data,i);
 +			if (md4)
 +				mdfour_update(&mdfour_data,data,i);
  
- 			if (fd != -1 && write_file(fd,data,i) != i) {
- 				rprintf(FERROR, "write failed on %s: %s\n",
-@@ -247,6 +253,8 @@ static int receive_data(int f_in,struct 
+ 			if (fd != -1 && write_file(fd,data,i) != i)
+ 				goto report_write_error;
+@@ -267,6 +274,8 @@ static int receive_data(int f_in, char *
  
  			see_token(map, len);
  			sum_update(map,len);
@@ -534,85 +486,66 @@ Patch Summary:
 +				mdfour_update(&mdfour_data,map,len);
  		}
  
- 		if (fd != -1 && write_file(fd,map,len) != (int) len) {
-@@ -269,6 +277,8 @@ static int receive_data(int f_in,struct 
+ 		if (inplace) {
+@@ -306,6 +315,8 @@ static int receive_data(int f_in, char *
  	}
  
  	sum_end(file_sum1);
 +	if (md4)
 +		mdfour_result(&mdfour_data, (unsigned char*)md4);
  
- 	read_buf(f_in,file_sum2,MD4_SUM_LENGTH);
- 	if (verbose > 2) {
-@@ -372,7 +382,7 @@ int recv_files(int f_in,struct file_list
- 		if (fd1 != -1 && do_fstat(fd1,&st) != 0) {
- 			rprintf(FERROR, "fstat %s failed: %s\n",
- 				full_fname(fnamecmp), strerror(errno));
--			receive_data(f_in,NULL,-1,NULL,file->length);
-+			receive_data(f_in,NULL,-1,NULL,file->length,NULL);
- 			close(fd1);
- 			continue;
- 		}
-@@ -385,7 +395,7 @@ int recv_files(int f_in,struct file_list
- 			 */
- 			rprintf(FERROR,"recv_files: %s is a directory\n",
- 				full_fname(fnamecmp));
--			receive_data(f_in, NULL, -1, NULL, file->length);
-+			receive_data(f_in,NULL,-1,NULL,file->length,NULL);
- 			close(fd1);
- 			continue;
- 		}
-@@ -437,7 +447,7 @@ int recv_files(int f_in,struct file_list
- 		if (fd2 == -1) {
- 			rprintf(FERROR, "mkstemp %s failed: %s\n",
- 				full_fname(fnametmp), strerror(errno));
--			receive_data(f_in,mapbuf,-1,NULL,file->length);
-+			receive_data(f_in,mapbuf,-1,NULL,file->length,NULL);
- 			if (mapbuf) unmap_file(mapbuf);
- 			if (fd1 != -1) close(fd1);
- 			continue;
-@@ -450,7 +460,12 @@ int recv_files(int f_in,struct file_list
- 		}
+ 	if (mapbuf)
+ 		unmap_file(mapbuf);
+@@ -321,7 +332,7 @@ static int receive_data(int f_in, char *
+ 
+ static void discard_receive_data(int f_in, OFF_T length)
+ {
+-	receive_data(f_in, NULL, -1, 0, NULL, -1, length);
++	receive_data(f_in, NULL, -1, 0, NULL, -1, length, NULL);
+ }
+ 
+ 
+@@ -542,8 +553,12 @@ int recv_files(int f_in, struct file_lis
+ 			rprintf(FINFO, "%s\n", safe_fname(fname));
  
  		/* recv file data */
--		recv_ok = receive_data(f_in,mapbuf,fd2,fname,file->length);
 +#ifdef HAVE_LINK
-+		if (link_by_hash_dir) {
-+			file->u.sum = (char*)malloc (MD4_SUM_LENGTH);
-+		}
++		if (link_by_hash_dir)
++			file->u.sum = (char*)malloc(MD4_SUM_LENGTH);
 +#endif
-+		recv_ok = receive_data(f_in,mapbuf,fd2,fname,file->length,file->u.sum);
+ 		recv_ok = receive_data(f_in, fnamecmp, fd1, st.st_size,
+-				       fname, fd2, file->length);
++				       fname, fd2, file->length, file->u.sum);
  
  		log_recv(file, &initial_stats);
  
---- rsync.c	23 Mar 2004 16:16:15 -0000	1.135
-+++ rsync.c	15 Apr 2004 19:19:00 -0000
-@@ -33,6 +33,7 @@ extern int preserve_uid;
- extern int preserve_gid;
- extern int preserve_perms;
+--- orig/rsync.c	2004-09-07 21:45:30
++++ rsync.c	2004-08-13 18:14:34
+@@ -34,6 +34,7 @@ extern int force_delete;
+ extern int recurse;
+ extern int keep_dirlinks;
  extern int make_backups;
 +extern char *link_by_hash_dir;
+ extern char *backup_dir;
+ extern int inplace;
  
- 
- /*
-@@ -235,8 +236,12 @@ void finish_transfer(char *fname, char *
- 	if (make_backups && !make_backup(fname))
- 		return;
- 
--	/* move tmp file over real file */
+@@ -254,7 +255,12 @@ void finish_transfer(char *fname, char *
+ 	/* move tmp file over real file */
+ 	if (verbose > 2)
+ 		rprintf(FINFO, "renaming %s to %s\n", fnametmp, fname);
 -	ret = robust_rename(fnametmp, fname, file->mode & INITACCESSPERMS);
 +#ifdef HAVE_LINK
 +	if (link_by_hash_dir)
-+		ret = link_by_hash(fnametmp,fname,file);
++		ret = link_by_hash(fnametmp, fname, file);
 +	else
 +#endif
 +		ret = robust_rename(fnametmp, fname, file->mode & INITACCESSPERMS);
  	if (ret < 0) {
- 		rprintf(FERROR, "%s %s -> \"%s\": %s\n",
+ 		rsyserr(FERROR, errno, "%s %s -> \"%s\"",
  		    ret == -2 ? "copy" : "rename",
---- rsync.h	14 Apr 2004 23:33:37 -0000	1.196
-+++ rsync.h	15 Apr 2004 19:19:00 -0000
-@@ -518,6 +518,14 @@ struct stats {
+--- orig/rsync.h	2004-09-22 08:47:31
++++ rsync.h	2004-07-03 20:20:15
+@@ -526,6 +526,14 @@ struct stats {
  	int current_file_index;
  };
  

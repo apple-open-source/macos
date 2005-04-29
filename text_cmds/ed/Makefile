@@ -29,7 +29,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -DBACKWARDS
+NEXTSTEP_PB_CFLAGS = -I/System/Library/Frameworks/System.framework/PrivateHeaders
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

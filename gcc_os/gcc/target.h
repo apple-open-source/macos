@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -69,6 +69,19 @@ struct gcc_target
        and UNALIGNED_OP are NULL.  */
     bool (* integer) PARAMS ((rtx x, unsigned int size, int aligned_p));
 
+    /* APPLE LOCAL begin - 3.4 scheduler update */
+    /* Output code that will globalize a label.  */
+    void (* globalize_label) PARAMS ((FILE *, const char *));
+    /* APPLE LOCAL end - 3.4 scheduler update */
+
+    /* APPLE LOCAL 3.4 sse backport */
+    /* Output an internal label.  */
+    void (* internal_label) PARAMS ((FILE *, const char *, unsigned long));
+
+    /* Emit an assembler directive to set visibility for the symbol
+       associated with the tree decl.  */
+    void (* visibility) PARAMS ((tree, int));
+
     /* Output the assembler code for entry to a function.  */
     void (* function_prologue) PARAMS ((FILE *, HOST_WIDE_INT));
 
@@ -91,11 +104,62 @@ struct gcc_target
     /* Switch to the section that holds the exception frames.  */
     void (* eh_frame_section) PARAMS ((void));
 
+    /* Select and switch to a section for EXP.  It may be a DECL or a
+       constant for which TREE_CST_RTL is valid.  RELOC is nonzero if
+       runtime relocations must be applied; bit 1 will be set if the
+       runtime relocations require non-local name resolution.  ALIGN is
+       the required alignment of the data.  */
+    void (* select_section) PARAMS ((tree, int, unsigned HOST_WIDE_INT));
+
+    /* Select and switch to a section for X with MODE.  ALIGN is
+       the desired alignment of the data.  */
+    void (* select_rtx_section) PARAMS ((enum machine_mode, rtx,
+					 unsigned HOST_WIDE_INT));
+
+    /* Select a unique section name for DECL.  RELOC is the same as
+       for SELECT_SECTION.  */
+    void (* unique_section) PARAMS ((tree, int));
+
     /* Output a constructor for a symbol with a given priority.  */
     void (* constructor) PARAMS ((rtx, int));
 
     /* Output a destructor for a symbol with a given priority.  */
     void (* destructor) PARAMS ((rtx, int));
+
+    /* Output the assembler code for a thunk function.  THUNK_DECL is the
+       declaration for the thunk function itself, FUNCTION is the decl for
+       the target function.  DELTA is an immediate constant offset to be
+       added to THIS.  If VCALL_OFFSET is nonzero, the word at
+       *(*this + vcall_offset) should be added to THIS.  */
+    void (* output_mi_thunk) PARAMS ((FILE *file, tree thunk_decl,
+				      HOST_WIDE_INT delta,
+				      HOST_WIDE_INT vcall_offset,
+				      tree function_decl));
+
+    /* Determine whether output_mi_thunk would succeed.  */
+    /* ??? Ideally, this hook would not exist, and success or failure
+       would be returned from output_mi_thunk directly.  But there's
+       too much undo-able setup involved in invoking output_mi_thunk.
+       Could be fixed by making output_mi_thunk emit rtl instead of
+       text to the output file.  */
+   bool (* can_output_mi_thunk) PARAMS ((tree thunk_decl,
+				 HOST_WIDE_INT delta,
+				 HOST_WIDE_INT vcall_offset,
+				 tree function_decl));
+
+    /* APPLE LOCAL begin deep branch prediction pic-base; copied from FSF mainline */
+   /* Output any boilerplate text needed at the beginning of a
+      translation unit.  */
+   void (*file_start) (void);
+
+   /* Output any boilerplate text needed at the end of a
+      translation unit.  */
+   void (*file_end) (void);
+
+   /* Output an assembler pseudo-op to declare a library function name
+      external.  */
+   void (*external_libcall) (rtx);
+    /* APPLE LOCAL end deep branch prediction pic-base; copied from FSF mainline */
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */
@@ -118,7 +182,7 @@ struct gcc_target
     /* Calculate how much this insn affects how many more insns we
        can emit this cycle.  Default is they all cost the same.  */
     int (* variable_issue) PARAMS ((FILE *, int, rtx, int));
-    
+
     /* Initialize machine-dependent scheduling code.  */
     void (* md_init) PARAMS ((FILE *, int, int));
 
@@ -130,12 +194,77 @@ struct gcc_target
     int (* reorder)  PARAMS ((FILE *, int, rtx *, int *, int));
     int (* reorder2) PARAMS ((FILE *, int, rtx *, int *, int));
 
-    /* cycle_display is a pointer to a function which can emit
-       data into the assembly stream about the current cycle.
-       Arguments are CLOCK, the data to emit, and LAST, the last
-       insn in the new chain we're building.  Returns a new LAST.
-       The default is to do nothing.  */
-    rtx (* cycle_display) PARAMS ((int clock, rtx last));
+    /* APPLE LOCAL begin - 3.4 scheduler update */
+    /* The following member value is a pointer to a function called
+       after evaluation forward dependencies of insns in chain given
+       by two parameter values (head and tail correspondingly).  */
+    void (* dependencies_evaluation_hook) PARAMS ((rtx, rtx));
+    /* APPLE LOCAL end - 3.4 scheduler update */
+
+    /* The following member value is a pointer to a function returning
+       nonzero if we should use DFA based scheduling.  The default is
+       to use the old pipeline scheduler.  */
+    int (* use_dfa_pipeline_interface) PARAMS ((void));
+    /* The values of all the following members are used only for the
+       DFA based scheduler: */
+    /* The values of the following four members are pointers to
+       functions used to simplify the automaton descriptions.
+       dfa_pre_cycle_insn and dfa_post_cycle_insn give functions
+       returning insns which are used to change the pipeline hazard
+       recognizer state when the new simulated processor cycle
+       correspondingly starts and finishes.  The function defined by
+       init_dfa_pre_cycle_insn and init_dfa_post_cycle_insn are used
+       to initialize the corresponding insns.  The default values of
+       the memebers result in not changing the automaton state when
+       the new simulated processor cycle correspondingly starts and
+       finishes.  */
+    void (* init_dfa_pre_cycle_insn) PARAMS ((void));
+    rtx (* dfa_pre_cycle_insn) PARAMS ((void));
+    void (* init_dfa_post_cycle_insn) PARAMS ((void));
+    rtx (* dfa_post_cycle_insn) PARAMS ((void));
+    /* The following member value is a pointer to a function returning value
+       which defines how many insns in queue `ready' will we try for
+       multi-pass scheduling.  if the member value is nonzero and the
+       function returns positive value, the DFA based scheduler will make
+       multi-pass scheduling for the first cycle.  In other words, we will
+       try to choose ready insn which permits to start maximum number of
+       insns on the same cycle.  */
+    int (* first_cycle_multipass_dfa_lookahead) PARAMS ((void));
+
+    /* APPLE LOCAL begin - 3.4 scheduler update */
+    /* The following member value is pointer to a function controlling
+       what insns from the ready insn queue will be considered for the
+       multipass insn scheduling.  If the hook returns zero for insn
+       passed as the parameter, the insn will be not chosen to be
+       issued.  */
+    int (* first_cycle_multipass_dfa_lookahead_guard) PARAMS ((rtx));
+    /* The following member value is pointer to a function called by
+       the insn scheduler before issuing insn passed as the third
+       parameter on given cycle.  If the hook returns nonzero, the
+       insn is not issued on given processors cycle.  Instead of that,
+       the processor cycle is advanced.  If the value passed through
+       the last parameter is zero, the insn ready queue is not sorted
+       on the new cycle start as usually.  The first parameter passes
+       file for debugging output.  The second one passes the scheduler
+       verbose level of the debugging output.  The forth and the fifth
+       parameter values are correspondingly processor cycle on which
+       the previous insn has been issued and the current processor
+       cycle.  */
+    int (* dfa_new_cycle) PARAMS ((FILE *, int, rtx, int, int, int *));
+    /* APPLE LOCAL end - 3.4 scheduler update */
+
+    /* The values of the following members are pointers to functions
+       used to improve the first cycle multipass scheduling by
+       inserting nop insns.  dfa_scheduler_bubble gives a function
+       returning a nop insn with given index.  The indexes start with
+       zero.  The function should return NULL if there are no more nop
+       insns with indexes greater than given index.  To initialize the
+       nop insn the function given by member
+       init_dfa_scheduler_bubbles is used.  The default values of the
+       members result in not inserting nop insns during the multipass
+       scheduling.  */
+    void (* init_dfa_bubbles) PARAMS ((void));
+    rtx (* dfa_bubble) PARAMS ((int));
   } sched;
 
   /* Given two decls, merge their attributes and return the result.  */
@@ -144,7 +273,8 @@ struct gcc_target
   /* Given two types, merge their attributes and return the result.  */
   tree (* merge_type_attributes) PARAMS ((tree, tree));
 
-  /* Table of machine attributes and functions to handle them.  */
+  /* Table of machine attributes and functions to handle them.
+     Ignored if NULL.  */
   const struct attribute_spec *attribute_table;
 
   /* Return zero if the attributes on TYPE1 and TYPE2 are incompatible,
@@ -178,6 +308,55 @@ struct gcc_target
   /* ??? Should be merged with SELECT_SECTION and UNIQUE_SECTION.  */
   unsigned int (* section_type_flags) PARAMS ((tree, const char *, int));
 
+  /* True if new jumps cannot be created, to replace existing ones or
+     not, at the current point in the compilation.  */
+  bool (* cannot_modify_jumps_p) PARAMS ((void));
+
+  /* True if the constant X cannot be placed in the constant pool.  */
+  bool (* cannot_force_const_mem) PARAMS ((rtx));
+
+  /* APPLE LOCAL begin - 3.4 scheduler update */
+  /* Given an address RTX, undo the effects of LEGITIMIZE_ADDRESS.  */
+  rtx (* delegitimize_address) PARAMS ((rtx));
+
+  /* True if it is OK to do sibling call optimization for the specified
+     call expression EXP.  DECL will be the called function, or NULL if
+     this is an indirect call.  */
+  bool (*function_ok_for_sibcall) PARAMS ((tree decl, tree exp));
+  /* APPLE LOCAL end - 3.4 scheduler update */
+
+  /* True if EXP should be placed in a "small data" section.  */
+  bool (* in_small_data_p) PARAMS ((tree));
+
+  /* True if EXP names an object for which name resolution must resolve
+     to the current module.  */
+  bool (* binds_local_p) PARAMS ((tree));
+
+  /* Do something target-specific to record properties of the DECL into
+     the associated SYMBOL_REF.  */
+  void (* encode_section_info) PARAMS ((tree, int));
+
+  /* Undo the effects of encode_section_info on the symbol string.  */
+  const char * (* strip_name_encoding) PARAMS ((const char *));
+
+  /* APPLE LOCAL begin - 3.4 scheduler update */
+  /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
+  bool (* valid_pointer_mode) PARAMS ((enum machine_mode mode));
+
+  /* Compute a (partial) cost for rtx X.  Return true if the complete
+     cost has been computed, and false if subexpressions should be
+     scanned.  In either case, *TOTAL contains the cost result.  */
+  /* Note that CODE and OUTER_CODE ought to be RTX_CODE, but that's
+     not necessarily defined at this point.  */
+  bool (* rtx_costs) PARAMS ((rtx x, int code, int outer_code, int *total));
+
+  /* Compute the cost of X, used as an address.  Never called with
+     invalid addresses.  */
+  int (* address_cost) PARAMS ((rtx x));
+  /* APPLE LOCAL end - 3.4 scheduler update */
+
+  /* Leave the boolean fields at the end.  */
+
   /* True if arbitrary sections are supported.  */
   bool have_named_sections;
 
@@ -185,9 +364,14 @@ struct gcc_target
      false if we're using collect2 for the job.  */
   bool have_ctors_dtors;
 
-  /* True if new jumps cannot be created, to replace existing ones or
-     not, at the current point in the compilation.  */
-  bool (* cannot_modify_jumps_p) PARAMS ((void));
+  /* True if thread-local storage is supported.  */
+  bool have_tls;
+
+  /* True if a small readonly data section is supported.  */
+  bool have_srodata_section;
+
+  /* True if EH frame info sections should be zero-terminated.  */
+  bool terminate_dw2_eh_frame_info;
 };
 
 extern struct gcc_target targetm;

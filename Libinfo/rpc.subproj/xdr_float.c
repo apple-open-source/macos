@@ -21,6 +21,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+/*	$NetBSD: xdr_float.c,v 1.23 2000/07/17 04:59:51 matt Exp $	*/
+
 /*
  * Sun RPC is a product of Sun Microsystems, Inc. and is provided for
  * unrestricted use provided that this legend is included on all tape
@@ -28,36 +31,36 @@
  * may copy or modify Sun RPC without charge, but are not authorized
  * to license or distribute it to anyone else except as part of a product or
  * program developed by the user.
- * 
+ *
  * SUN RPC IS PROVIDED AS IS WITH NO WARRANTIES OF ANY KIND INCLUDING THE
  * WARRANTIES OF DESIGN, MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
  * PURPOSE, OR ARISING FROM A COURSE OF DEALING, USAGE OR TRADE PRACTICE.
- * 
+ *
  * Sun RPC is provided with no support and without any obligation on the
  * part of Sun Microsystems, Inc. to assist in its use, correction,
  * modification or enhancement.
- * 
+ *
  * SUN MICROSYSTEMS, INC. SHALL HAVE NO LIABILITY WITH RESPECT TO THE
  * INFRINGEMENT OF COPYRIGHTS, TRADE SECRETS OR ANY PATENTS BY SUN RPC
  * OR ANY PART THEREOF.
- * 
+ *
  * In no event will Sun Microsystems, Inc. be liable for any lost revenue
  * or profits or other special, indirect and consequential damages, even if
  * Sun has been advised of the possibility of such damages.
- * 
+ *
  * Sun Microsystems, Inc.
  * 2550 Garcia Avenue
  * Mountain View, California  94043
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-/*static char *sccsid = "from: @(#)xdr_float.c 1.12 87/08/11 Copyr 1984 Sun Micro";*/
-/*static char *sccsid = "from: @(#)xdr_float.c	2.1 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: xdr_float.c,v 1.2 1999/10/14 21:56:55 wsanchez Exp $";
+static char *sccsid = "@(#)xdr_float.c 1.12 87/08/11 Copyr 1984 Sun Micro";
+static char *sccsid = "@(#)xdr_float.c	2.1 88/07/29 4.0 RPCSRC";
 #endif
+#include <sys/cdefs.h>
 
 /*
- * xdr_float.c, Generic XDR routines impelmentation.
+ * xdr_float.c, Generic XDR routines implementation.
  *
  * Copyright (C) 1984, Sun Microsystems, Inc.
  *
@@ -66,22 +69,25 @@ static char *rcsid = "$Id: xdr_float.c,v 1.2 1999/10/14 21:56:55 wsanchez Exp $"
  * xdr.
  */
 
-#include <stdio.h>
 #include <sys/types.h>
 #include <sys/param.h>
+
+#include <stdio.h>
+
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 
 /*
  * NB: Not portable.
- * This routine works on Suns (Sky / 68000's), i386's, MIPS, NS32k and Vaxen.
+ * This routine works on machines with IEEE754 FP and Vaxen.
  */
 
-#if defined(mc68000)||defined(sparc)||defined(i386)||defined(mips)||defined(ns32k)||defined(__APPLE__)
+#if 1	/* Used to be long list of architectures */
+#include <machine/endian.h>
 #define IEEEFP
 #endif
 
-#ifdef vax
+#if defined(__vax__)
 
 /* What IEEE single precision floating point looks like on a Vax */
 struct	ieee_single {
@@ -114,8 +120,8 @@ static struct sgl_limits {
 
 bool_t
 xdr_float(xdrs, fp)
-	register XDR *xdrs;
-	register float *fp;
+	XDR *xdrs;
+	float *fp;
 {
 #ifndef IEEEFP
 	struct ieee_single is;
@@ -126,8 +132,8 @@ xdr_float(xdrs, fp)
 	switch (xdrs->x_op) {
 
 	case XDR_ENCODE:
-#ifdef IEEEFP 
-		return (XDR_PUTLONG(xdrs, (long *)fp));
+#ifdef IEEEFP
+		return (XDR_PUTINT32(xdrs, (int32_t *)fp));
 #else
 		vs = *((struct vax_single *)fp);
 		for (i = 0, lim = sgl_limits;
@@ -144,15 +150,15 @@ xdr_float(xdrs, fp)
 		is.mantissa = (vs.mantissa1 << 16) | vs.mantissa2;
 	shipit:
 		is.sign = vs.sign;
-		return (XDR_PUTLONG(xdrs, (long *)&is));
+		return (XDR_PUTINT32(xdrs, (int32_t *)&is));
 #endif
 
 	case XDR_DECODE:
 #ifdef IEEEFP
-		return (XDR_GETLONG(xdrs, (long *)fp));
+		return (XDR_GETINT32(xdrs, (int32_t *)fp));
 #else
 		vsp = (struct vax_single *)fp;
-		if (!XDR_GETLONG(xdrs, (long *)&is))
+		if (!XDR_GETINT32(xdrs, (int32_t *)&is))
 			return (FALSE);
 		for (i = 0, lim = sgl_limits;
 			i < sizeof(sgl_limits)/sizeof(struct sgl_limits);
@@ -174,14 +180,11 @@ xdr_float(xdrs, fp)
 	case XDR_FREE:
 		return (TRUE);
 	}
+	/* NOTREACHED */
 	return (FALSE);
 }
 
-/*
- * This routine works on Suns (Sky / 68000's), i386's, MIPS and Vaxen.
- */
-
-#ifdef vax
+#if defined(__vax__)
 /* What IEEE double precision floating point looks like on a Vax */
 struct	ieee_double {
 	unsigned int	mantissa1 : 20;
@@ -219,14 +222,17 @@ static struct dbl_limits {
 
 bool_t
 xdr_double(xdrs, dp)
-	register XDR *xdrs;
+	XDR *xdrs;
 	double *dp;
 {
-	register long *lp;
-#ifndef IEEEFP
+#ifdef IEEEFP
+	int32_t *i32p;
+	bool_t rv;
+#else
+	int32_t *lp;
 	struct	ieee_double id;
 	struct	vax_double vd;
-	register struct dbl_limits *lim;
+	struct dbl_limits *lim;
 	int i;
 #endif
 
@@ -234,12 +240,19 @@ xdr_double(xdrs, dp)
 
 	case XDR_ENCODE:
 #ifdef IEEEFP
-		lp = (long *)dp;
+		i32p = (int32_t *)(void *)dp;
 #if BYTE_ORDER == BIG_ENDIAN
-		return (XDR_PUTLONG(xdrs, lp++) && XDR_PUTLONG(xdrs, lp));
+		rv = XDR_PUTINT32(xdrs, i32p);
+		if (!rv)
+			return (rv);
+		rv = XDR_PUTINT32(xdrs, i32p+1);
 #else
-		return (XDR_PUTLONG(xdrs, lp+1) && XDR_PUTLONG(xdrs, lp));
+		rv = XDR_PUTINT32(xdrs, i32p+1);
+		if (!rv)
+			return (rv);
+		rv = XDR_PUTINT32(xdrs, i32p);
 #endif
+		return (rv);
 #else
 		vd = *((struct vax_double *)dp);
 		for (i = 0, lim = dbl_limits;
@@ -261,21 +274,28 @@ xdr_double(xdrs, dp)
 				((vd.mantissa4 >> 3) & MASK(13));
 	shipit:
 		id.sign = vd.sign;
-		lp = (long *)&id;
-		return (XDR_PUTLONG(xdrs, lp++) && XDR_PUTLONG(xdrs, lp));
+		lp = (int32_t *)&id;
+		return (XDR_PUTINT32(xdrs, lp++) && XDR_PUTINT32(xdrs, lp));
 #endif
 
 	case XDR_DECODE:
 #ifdef IEEEFP
-		lp = (long *)dp;
+		i32p = (int32_t *)(void *)dp;
 #if BYTE_ORDER == BIG_ENDIAN
-		return (XDR_GETLONG(xdrs, lp++) && XDR_GETLONG(xdrs, lp));
+		rv = XDR_GETINT32(xdrs, i32p);
+		if (!rv)
+			return (rv);
+		rv = XDR_GETINT32(xdrs, i32p+1);
 #else
-		return (XDR_GETLONG(xdrs, lp+1) && XDR_GETLONG(xdrs, lp));
+		rv = XDR_GETINT32(xdrs, i32p+1);
+		if (!rv)
+			return (rv);
+		rv = XDR_GETINT32(xdrs, i32p);
 #endif
+		return (rv);
 #else
-		lp = (long *)&id;
-		if (!XDR_GETLONG(xdrs, lp++) || !XDR_GETLONG(xdrs, lp))
+		lp = (int32_t *)&id;
+		if (!XDR_GETINT32(xdrs, lp++) || !XDR_GETINT32(xdrs, lp))
 			return (FALSE);
 		for (i = 0, lim = dbl_limits;
 			i < sizeof(dbl_limits)/sizeof(struct dbl_limits);
@@ -302,5 +322,6 @@ xdr_double(xdrs, dp)
 	case XDR_FREE:
 		return (TRUE);
 	}
+	/* NOTREACHED */
 	return (FALSE);
 }

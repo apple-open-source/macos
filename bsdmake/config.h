@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 1988, 1989, 1990 The Regents of the University of California.
+ * Copyright (c) 1988, 1989, 1990, 1993
+ *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 1988, 1989 by Adam de Boor
  * Copyright (c) 1989 by Berkeley Softworks
  * All rights reserved.
@@ -35,11 +36,9 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)config.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.bin/make/config.h,v 1.9 1999/09/10 20:51:59 julian Exp $
+ *	@(#)config.h	8.2 (Berkeley) 4/28/95
+ * $FreeBSD: src/usr.bin/make/config.h,v 1.12 2002/09/17 21:29:06 jmallett Exp $
  */
-
-#define	DEFSHELL	1			/* Bourne shell */
 
 /*
  * DEFMAXJOBS
@@ -50,8 +49,8 @@
  *	created on the local machine at once. Note that if you set this
  *	to 0, nothing will ever happen...
  */
-#define DEFMAXJOBS	4
-#define DEFMAXLOCAL	1
+#define	DEFMAXJOBS	4
+#define	DEFMAXLOCAL	1
 
 /*
  * INCLUDES
@@ -62,8 +61,8 @@
  *	.INCLUDES dependency lines. Similarly for LIBRARIES and .LIBS
  *	See suff.c for more details.
  */
-#define INCLUDES
-#define LIBRARIES
+#define	INCLUDES
+#define	LIBRARIES
 
 /*
  * LIBSUFF
@@ -90,7 +89,7 @@
  *	  environment.
  *	- Allow empty command lines if starting with tab.
  */
-#define POSIX
+#define	POSIX
 
 /*
  * SYSVINCLUDE
@@ -98,8 +97,8 @@
  * SYSVVARSUB
  *	Recognize system V like ${VAR:x=y} variable substitutions
  */
-#define SYSVINCLUDE
-#define SYSVVARSUB
+#define	SYSVINCLUDE
+#define	SYSVVARSUB
 
 /*
  * SUNSHCMD
@@ -108,7 +107,7 @@
  *		${VAR:sh}	# Return the command substitution of the value
  *				# of ${VAR}
  */
-#define SUNSHCMD
+#define	SUNSHCMD
 
 #if !defined(__svr4__) && !defined(__SVR4) && !defined(__ELF__)
 # ifndef RANLIBMAG

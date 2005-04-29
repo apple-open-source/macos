@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_state.c,v 1.5 2002/11/05 17:46:07 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_state.c,v 1.7 2003/12/22 17:48:03 tsi Exp $ */
 /*
  * Copyright 2001 by Alan Hourihane.
  *
@@ -25,7 +25,6 @@
  * 3DLabs Gamma driver
  */
 
-#include <X11/Xlibint.h>
 #include "gamma_context.h"
 #include "gamma_macros.h"
 #include "macros.h"
@@ -48,11 +47,12 @@ static void gammaUpdateAlphaMode( GLcontext *ctx )
    CARD32 a = gmesa->AlphaTestMode;
    CARD32 b = gmesa->AlphaBlendMode;
    CARD32 f = gmesa->AB_FBReadMode_Save = 0;
+   GLubyte refByte = (GLint) (ctx->Color.AlphaRef * 255.0);
 
    a &= ~(AT_CompareMask | AT_RefValueMask);
    b &= ~(AB_SrcBlendMask | AB_DstBlendMask);
 
-   a |= ctx->Color.AlphaRef << 4;
+   a |= refByte << 4;
 
    switch ( ctx->Color.AlphaFunc ) {
       case GL_NEVER:
@@ -167,9 +167,10 @@ static void gammaUpdateAlphaMode( GLcontext *ctx )
    gmesa->AB_FBReadMode_Save = f;
 }
 
-static void gammaDDAlphaFunc( GLcontext *ctx, GLenum func, GLchan ref )
+static void gammaDDAlphaFunc( GLcontext *ctx, GLenum func, GLfloat ref )
 {
    gammaContextPtr gmesa = GAMMA_CONTEXT(ctx);
+   (void) ref;
 
    FLUSH_BATCH( gmesa );
 
@@ -588,6 +589,7 @@ static void gammaUpdateFogAttrib( GLcontext *ctx )
    }
 }
 
+#if 0
 static void gammaDDFogfv( GLcontext *ctx, GLenum pname, const GLfloat *param )
 {
    gammaContextPtr gmesa = GAMMA_CONTEXT(ctx);
@@ -595,6 +597,7 @@ static void gammaDDFogfv( GLcontext *ctx, GLenum pname, const GLfloat *param )
    FLUSH_BATCH( gmesa );
    gmesa->new_state |= GAMMA_NEW_FOG;
 }
+#endif
 
 /* =============================================================
  * Lines
@@ -1016,12 +1019,17 @@ static void gammaDDShadeModel( GLcontext *ctx, GLenum mode )
  * Miscellaneous
  */
 
-static void gammaDDClearColor( GLcontext *ctx, const GLchan color[4])
+static void gammaDDClearColor( GLcontext *ctx, const GLfloat color[4])
 {
    gammaContextPtr gmesa = GAMMA_CONTEXT(ctx);
+   GLubyte c[4];
+   UNCLAMPED_FLOAT_TO_UBYTE(c[0], color[0]);
+   UNCLAMPED_FLOAT_TO_UBYTE(c[1], color[1]);
+   UNCLAMPED_FLOAT_TO_UBYTE(c[2], color[2]);
+   UNCLAMPED_FLOAT_TO_UBYTE(c[3], color[3]);
 
    gmesa->ClearColor = gammaPackColor( gmesa->gammaScreen->cpp,
-				      color[0], color[1], color[2], color[3] );
+                                       c[0], c[1], c[2], c[3] );
 
    if (gmesa->gammaScreen->cpp == 2) gmesa->ClearColor |= gmesa->ClearColor<<16;
 }
@@ -1042,7 +1050,7 @@ static void gammaDDLogicalOpcode( GLcontext *ctx, GLenum opcode )
    gmesa->dirty |= GAMMA_UPLOAD_LOGICOP;
 }
 
-static void gammaDDSetDrawBuffer( GLcontext *ctx, GLenum mode )
+static void gammaDDDrawBuffer( GLcontext *ctx, GLenum mode )
 {
    gammaContextPtr gmesa = GAMMA_CONTEXT(ctx);
 
@@ -1056,6 +1064,11 @@ static void gammaDDSetDrawBuffer( GLcontext *ctx, GLenum mode )
       gmesa->drawOffset = gmesa->readOffset = gmesa->driScreen->fbHeight * gmesa->driScreen->fbWidth * gmesa->gammaScreen->cpp; 
       break;
    }
+}
+
+static void gammaDDReadBuffer( GLcontext *ctx, GLenum mode )
+{
+   /* XXX anything? */
 }
 
 /* =============================================================
@@ -1132,84 +1145,72 @@ void gammaUpdateViewportOffset( GLcontext *ctx )
 static void gammaLoadHWMatrix(GLcontext *ctx)
 {
     gammaContextPtr gmesa = GAMMA_CONTEXT(ctx);
+    const GLfloat *m;
 
     gmesa->TransformMode &= ~XM_XformTexture;
 
     switch (ctx->Transform.MatrixMode) {
     case GL_MODELVIEW:
 	gmesa->TransformMode |= XM_UseModelViewMatrix;
+        m = ctx->ModelviewMatrixStack.Top->m;
 	CHECK_DMA_BUFFER(gmesa, 16);
-	WRITEF(gmesa->buf, ModelViewMatrix0,  ctx->ModelView.m[0]);
-	WRITEF(gmesa->buf, ModelViewMatrix1,  ctx->ModelView.m[1]);
-	WRITEF(gmesa->buf, ModelViewMatrix2,  ctx->ModelView.m[2]);
-	WRITEF(gmesa->buf, ModelViewMatrix3,  ctx->ModelView.m[3]);
-	WRITEF(gmesa->buf, ModelViewMatrix4,  ctx->ModelView.m[4]);
-	WRITEF(gmesa->buf, ModelViewMatrix5,  ctx->ModelView.m[5]);
-	WRITEF(gmesa->buf, ModelViewMatrix6,  ctx->ModelView.m[6]);
-	WRITEF(gmesa->buf, ModelViewMatrix7,  ctx->ModelView.m[7]);
-	WRITEF(gmesa->buf, ModelViewMatrix8,  ctx->ModelView.m[8]);
-	WRITEF(gmesa->buf, ModelViewMatrix9,  ctx->ModelView.m[9]);
-	WRITEF(gmesa->buf, ModelViewMatrix10, ctx->ModelView.m[10]);
-	WRITEF(gmesa->buf, ModelViewMatrix11, ctx->ModelView.m[11]);
-	WRITEF(gmesa->buf, ModelViewMatrix12, ctx->ModelView.m[12]);
-	WRITEF(gmesa->buf, ModelViewMatrix13, ctx->ModelView.m[13]);
-	WRITEF(gmesa->buf, ModelViewMatrix14, ctx->ModelView.m[14]);
-	WRITEF(gmesa->buf, ModelViewMatrix15, ctx->ModelView.m[15]);
+	WRITEF(gmesa->buf, ModelViewMatrix0,  m[0]);
+	WRITEF(gmesa->buf, ModelViewMatrix1,  m[1]);
+	WRITEF(gmesa->buf, ModelViewMatrix2,  m[2]);
+	WRITEF(gmesa->buf, ModelViewMatrix3,  m[3]);
+	WRITEF(gmesa->buf, ModelViewMatrix4,  m[4]);
+	WRITEF(gmesa->buf, ModelViewMatrix5,  m[5]);
+	WRITEF(gmesa->buf, ModelViewMatrix6,  m[6]);
+	WRITEF(gmesa->buf, ModelViewMatrix7,  m[7]);
+	WRITEF(gmesa->buf, ModelViewMatrix8,  m[8]);
+	WRITEF(gmesa->buf, ModelViewMatrix9,  m[9]);
+	WRITEF(gmesa->buf, ModelViewMatrix10, m[10]);
+	WRITEF(gmesa->buf, ModelViewMatrix11, m[11]);
+	WRITEF(gmesa->buf, ModelViewMatrix12, m[12]);
+	WRITEF(gmesa->buf, ModelViewMatrix13, m[13]);
+	WRITEF(gmesa->buf, ModelViewMatrix14, m[14]);
+	WRITEF(gmesa->buf, ModelViewMatrix15, m[15]);
 	break;
     case GL_PROJECTION:
+        m = ctx->ProjectionMatrixStack.Top->m;
 	CHECK_DMA_BUFFER(gmesa, 16);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix0, 
-						ctx->ProjectionMatrix.m[0]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix1, 
-						ctx->ProjectionMatrix.m[1]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix2, 
-						ctx->ProjectionMatrix.m[2]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix3, 
-						ctx->ProjectionMatrix.m[3]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix4, 
-						ctx->ProjectionMatrix.m[4]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix5, 
-						ctx->ProjectionMatrix.m[5]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix6, 
-						ctx->ProjectionMatrix.m[6]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix7, 
-						ctx->ProjectionMatrix.m[7]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix8, 
-						ctx->ProjectionMatrix.m[8]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix9,
-						ctx->ProjectionMatrix.m[9]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix10, 
-						ctx->ProjectionMatrix.m[10]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix11, 
-						ctx->ProjectionMatrix.m[11]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix12, 
-						ctx->ProjectionMatrix.m[12]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix13, 
-						ctx->ProjectionMatrix.m[13]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix14, 
-						ctx->ProjectionMatrix.m[14]);
-	WRITEF(gmesa->buf, ModelViewProjectionMatrix15, 
-						ctx->ProjectionMatrix.m[15]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix0, m[0]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix1, m[1]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix2, m[2]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix3, m[3]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix4, m[4]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix5, m[5]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix6, m[6]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix7, m[7]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix8, m[8]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix9, m[9]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix10, m[10]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix11, m[11]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix12, m[12]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix13, m[13]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix14, m[14]);
+	WRITEF(gmesa->buf, ModelViewProjectionMatrix15, m[15]);
 	break;
     case GL_TEXTURE:
+        m = ctx->TextureMatrixStack[0].Top->m;
 	CHECK_DMA_BUFFER(gmesa, 16);
 	gmesa->TransformMode |= XM_XformTexture;
-	WRITEF(gmesa->buf, TextureMatrix0,  ctx->TextureMatrix[0].m[0]);
-	WRITEF(gmesa->buf, TextureMatrix1,  ctx->TextureMatrix[0].m[1]);
-	WRITEF(gmesa->buf, TextureMatrix2,  ctx->TextureMatrix[0].m[2]);
-	WRITEF(gmesa->buf, TextureMatrix3,  ctx->TextureMatrix[0].m[3]);
-	WRITEF(gmesa->buf, TextureMatrix4,  ctx->TextureMatrix[0].m[4]);
-	WRITEF(gmesa->buf, TextureMatrix5,  ctx->TextureMatrix[0].m[5]);
-	WRITEF(gmesa->buf, TextureMatrix6,  ctx->TextureMatrix[0].m[6]);
-	WRITEF(gmesa->buf, TextureMatrix7,  ctx->TextureMatrix[0].m[7]);
-	WRITEF(gmesa->buf, TextureMatrix8,  ctx->TextureMatrix[0].m[8]);
-	WRITEF(gmesa->buf, TextureMatrix9,  ctx->TextureMatrix[0].m[9]);
-	WRITEF(gmesa->buf, TextureMatrix10,  ctx->TextureMatrix[0].m[10]);
-	WRITEF(gmesa->buf, TextureMatrix11,  ctx->TextureMatrix[0].m[11]);
-	WRITEF(gmesa->buf, TextureMatrix12,  ctx->TextureMatrix[0].m[12]);
-	WRITEF(gmesa->buf, TextureMatrix13,  ctx->TextureMatrix[0].m[13]);
-	WRITEF(gmesa->buf, TextureMatrix14,  ctx->TextureMatrix[0].m[14]);
-	WRITEF(gmesa->buf, TextureMatrix15,  ctx->TextureMatrix[0].m[15]);
+	WRITEF(gmesa->buf, TextureMatrix0,  m[0]);
+	WRITEF(gmesa->buf, TextureMatrix1,  m[1]);
+	WRITEF(gmesa->buf, TextureMatrix2,  m[2]);
+	WRITEF(gmesa->buf, TextureMatrix3,  m[3]);
+	WRITEF(gmesa->buf, TextureMatrix4,  m[4]);
+	WRITEF(gmesa->buf, TextureMatrix5,  m[5]);
+	WRITEF(gmesa->buf, TextureMatrix6,  m[6]);
+	WRITEF(gmesa->buf, TextureMatrix7,  m[7]);
+	WRITEF(gmesa->buf, TextureMatrix8,  m[8]);
+	WRITEF(gmesa->buf, TextureMatrix9,  m[9]);
+	WRITEF(gmesa->buf, TextureMatrix10,  m[10]);
+	WRITEF(gmesa->buf, TextureMatrix11,  m[11]);
+	WRITEF(gmesa->buf, TextureMatrix12,  m[12]);
+	WRITEF(gmesa->buf, TextureMatrix13,  m[13]);
+	WRITEF(gmesa->buf, TextureMatrix14,  m[14]);
+	WRITEF(gmesa->buf, TextureMatrix15,  m[15]);
 	break;
 
     default:
@@ -1666,7 +1667,7 @@ void gammaDDUpdateHWState( GLcontext *ctx )
 }
 
 
-void gammaDDUpdateState( GLcontext *ctx, GLuint new_state )
+static void gammaDDUpdateState( GLcontext *ctx, GLuint new_state )
 {
    _swrast_InvalidateState( ctx, new_state );
    _swsetup_InvalidateState( ctx, new_state );
@@ -1692,7 +1693,8 @@ void gammaDDInitStateFuncs( GLcontext *ctx )
    ctx->Driver.Clear			= gammaDDClear;
    ctx->Driver.ClearIndex		= NULL;
    ctx->Driver.ClearColor		= gammaDDClearColor;
-   ctx->Driver.SetDrawBuffer		= gammaDDSetDrawBuffer;
+   ctx->Driver.DrawBuffer		= gammaDDDrawBuffer;
+   ctx->Driver.ReadBuffer		= gammaDDReadBuffer;
 
    ctx->Driver.IndexMask		= NULL;
    ctx->Driver.ColorMask		= gammaDDColorMask;

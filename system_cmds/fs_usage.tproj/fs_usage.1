@@ -8,7 +8,7 @@
 .Nd report system calls and page faults related to filesystem activity in
 real-time
 .Sh SYNOPSIS
-.Nm fs_usage [-e] [-w] [-f mode] [ pid|cmd [pid|cmd] ...]
+.Nm fs_usage [-e] [-w] [-f mode [-f mode] ...] [ pid|cmd [pid|cmd] ...]
 .Sh DESCRIPTION
 The
 .Nm fs_usage
@@ -53,7 +53,8 @@ Specifying the
 option turns on output filtering based on the
 .Pa mode
 provided.
-By default no filtering occurs.
+Multiple filtering options can be specified.
+By default no output filtering occurs.
 The supported modes are:
 .Pp
 .Pa  network	
@@ -61,6 +62,9 @@ Only network related output is displayed.
 .Pp
 .Pa filesys	
 Only file system related output is displayed.
+.Pp
+.Pa cachehit	
+In addition, display CACHE_HIT output.
 .It  pid | cmd
 The sampled data can be limited to a list of process ids or commands.
 When a command name is given, all processes with that name will be sampled.

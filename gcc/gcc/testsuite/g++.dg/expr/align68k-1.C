@@ -4,6 +4,11 @@
 // { dg-do run }
 // { dg-options "-mdynamic-no-pic" }
 
+#ifdef __LP64__
+/* mac68k align not going to be supported for 64-bit, so skip entirely.  */
+int main () { return 0; }
+#else
+
 const long val1 = 0xa0b0;
 const long val2 = 0x1234;
 
@@ -44,3 +49,5 @@ int main()
 
   return !ok;
 }
+
+#endif /* __LP64__ */

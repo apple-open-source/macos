@@ -1,7 +1,7 @@
 /* -*- c-file-style: "java"; indent-tabs-mode: nil -*- 
  *
  * distcc -- A simple distributed compiler system
- * $Header: /cvs/repository/devenv/pbxdev/distcc/src/filename.c,v 1.4 2003/06/14 23:22:57 rwill Exp $ 
+ * $Header: /cvs/repository/devenv/pbxdev/distcc/src/filename.c,v 1.5 2003/11/21 04:33:33 rnielsen Exp $ 
  *
  * Copyright (C) 2002 by Martin Pool <mbp@samba.org>
  *
@@ -37,6 +37,7 @@
 #include "trace.h"
 #include "util.h"
 #include "exitcode.h"
+#include "cpp_dialect.h"
 #include "filename.h"
 
 
@@ -101,6 +102,9 @@ const char * dcc_preproc_exten(const char *e)
     if (e[0] != '.')
         return NULL;
     e++;
+    if (seen_opt_x) {
+        return opt_x_ext;;
+    }
     if (!strcmp(e, "i") || !strcmp(e, "c")) {
         return ".i";
     } else if (!strcmp(e, "c") || !strcmp(e, "cc")

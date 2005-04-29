@@ -1,106 +1,83 @@
 /*
  * CCIFlattenedCredentials.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/FlattenCredentials.cp,v 1.13 2003/05/07 20:13:49 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/FlattenCredentials.cp,v 1.14 2004/09/08 20:48:35 lxs Exp $
  */
- 
+
 #include "FlattenCredentials.h"
 
 // These functions write credentials to streams and extract them back from streams.
 // Used to serialize credentials structures across various IPC layers.
 
-static void WriteDataArray (
-    std::ostream&	ioStream,
-    cc_data**	inArray);
-
-static void ReadDataArray (
-    std::istream&	ioStream,
-    cc_data**&	inArray);
-
-std::ostream& operator << (std::ostream& ioStream, const cc_credentials_union& inCredentials)
+void WriteCredentials (std::ostream& ioStream, const cc_credentials_union& inCredentials)
 {
-	// Output the version followed by the appropriate creds
-    ioStream << inCredentials.version << std::endl;
+    CCIUInt32 version = inCredentials.version;
+    //dprintf ("Entering %s(cc_credentials_union):", __FUNCTION__);
+    
+    // Output the version followed by the appropriate creds
+    ioStream.write ((char *)&version, sizeof (version));
     switch (inCredentials.version) {
         case cc_credentials_v4:
-            ioStream << *inCredentials.credentials.credentials_v4 << std::endl;
+            WriteV4Credentials (ioStream, *inCredentials.credentials.credentials_v4);
             break;
-        
+            
         case cc_credentials_v5:
-            ioStream << *inCredentials.credentials.credentials_v5 << std::endl;
+            WriteV5Credentials (ioStream, *inCredentials.credentials.credentials_v5);
             break;
             
         default:
             throw CCIException (ccErrBadCredentialsVersion);
     }
-    return ioStream;
 }
 
-std::ostream& operator << (std::ostream& ioStream, const cc_credentials_v4_t& inCredentials)
+void WriteV4Credentials (std::ostream& ioStream, const cc_credentials_v4_t& inCredentials)
 {
-	// Just dump the creds
-    for (CCIUInt32 i = 0; i < sizeof (inCredentials); i++) {
-        ioStream << ((int) ((char*) (&inCredentials)) [i]) << " ";
-    }
-    return ioStream;
+    //dprintf ("Entering %s():", __FUNCTION__);
+    ioStream.write ((char *)&inCredentials, sizeof (inCredentials));
 }
 
-std::ostream& operator << (std::ostream& ioStream, const cc_credentials_v5_t& inCredentials)
+void ReadV4Credentials (std::istream& ioStream, cc_credentials_v4_t& inCredentials)
 {
-	// Write out various parts of the creds in order
-    ioStream << inCredentials.client << std::endl;
-    ioStream << inCredentials.server << std::endl;
-    ioStream << inCredentials.keyblock << std::endl;
-    ioStream << inCredentials.authtime << std::endl;
-    ioStream << inCredentials.starttime << std::endl;
-    ioStream << inCredentials.endtime << std::endl;
-    ioStream << inCredentials.renew_till << std::endl;
-    ioStream << inCredentials.is_skey << std::endl;
-    ioStream << inCredentials.ticket_flags << std::endl;
+    //dprintf ("Entering %s():", __FUNCTION__);
+    ioStream.read ((char *)&inCredentials, sizeof (inCredentials));
+}
+
+void WriteV5Credentials (std::ostream& ioStream, const cc_credentials_v5_t& inCredentials)
+{
+    //dprintf ("Entering %s():", __FUNCTION__);
+    // Write out various parts of the creds in order
+    WriteString    (ioStream, inCredentials.client);
+    WriteString    (ioStream, inCredentials.server);
+    WriteData      (ioStream, inCredentials.keyblock);
+    WriteUInt32    (ioStream, inCredentials.authtime);
+    WriteUInt32    (ioStream, inCredentials.starttime);
+    WriteUInt32    (ioStream, inCredentials.endtime);
+    WriteUInt32    (ioStream, inCredentials.renew_till);
+    WriteUInt32    (ioStream, inCredentials.is_skey);
+    WriteUInt32    (ioStream, inCredentials.ticket_flags);
     WriteDataArray (ioStream, inCredentials.addresses);
-    ioStream << inCredentials.ticket << std::endl;
-    ioStream << inCredentials.second_ticket << std::endl;
+    WriteData      (ioStream, inCredentials.ticket);
+    WriteData      (ioStream, inCredentials.second_ticket);
     WriteDataArray (ioStream, inCredentials.authdata);
-    return ioStream;
 }
 
-std::istream& operator >> (std::istream& ioStream, cc_credentials_v4_t& inCredentials)
+void ReadV5Credentials (std::istream& ioStream, cc_credentials_v5_t& inCredentials)
 {
-	// Suck in the creds
-    for (CCIUInt32 i = 0; i < sizeof (inCredentials); i++) {
-        int c;
-        ioStream >> c;
-        ((char*) (&inCredentials)) [i] = c;
-    }
-    return ioStream;
-}
-    
-std::istream& operator >> (std::istream& ioStream, cc_credentials_v5_t& inCredentials)
-{
-	// Suck in the various parts of the creds in order
+    //dprintf ("Entering %s():", __FUNCTION__);
+    // Suck in the various parts of the creds in order
     try {
-        std::string		newString;
-        ioStream >> newString;
-
-        inCredentials.client = new char [newString.length () + 1];
-        inCredentials.client [newString.length ()] = '\0';
-        newString.copy (inCredentials.client, newString.length () + 1);
-
-        ioStream >> newString;
-        inCredentials.server = new char [newString.length () + 1];
-        inCredentials.server [newString.length ()] = '\0';
-        newString.copy (inCredentials.server, newString.length () + 1);
-
-        ioStream >> inCredentials.keyblock;
-        ioStream >> inCredentials.authtime;
-        ioStream >> inCredentials.starttime;
-        ioStream >> inCredentials.endtime;
-        ioStream >> inCredentials.renew_till;
-        ioStream >> inCredentials.is_skey;
-        ioStream >> inCredentials.ticket_flags;
+        ReadString    (ioStream, inCredentials.client);
+        ReadString    (ioStream, inCredentials.server);
+        ReadData      (ioStream, inCredentials.keyblock);
+        ReadUInt32    (ioStream, inCredentials.authtime);
+        ReadUInt32    (ioStream, inCredentials.starttime);
+        ReadUInt32    (ioStream, inCredentials.endtime);
+        ReadUInt32    (ioStream, inCredentials.renew_till);
+        ReadUInt32    (ioStream, inCredentials.is_skey);
+        ReadUInt32    (ioStream, inCredentials.ticket_flags);
         ReadDataArray (ioStream, inCredentials.addresses);
-        ioStream >> inCredentials.ticket;
-        ioStream >> inCredentials.second_ticket;
+        ReadData      (ioStream, inCredentials.ticket);
+        ReadData      (ioStream, inCredentials.second_ticket);
         ReadDataArray (ioStream, inCredentials.authdata);
     } catch (...) {
         if (inCredentials.client != NULL) {
@@ -114,90 +91,75 @@ std::istream& operator >> (std::istream& ioStream, cc_credentials_v5_t& inCreden
         
         throw;
     }
-    return ioStream;
 }
 
 #if CCache_v2_compat
 
-std::ostream& operator << (std::ostream& ioStream, const cred_union& inCredentials)
+void WriteCompatCredentials (std::ostream& ioStream, const cred_union& inCredentials)
 {
-    ioStream << inCredentials.cred_type << std::endl;
+    //dprintf ("Entering %s(cred_union):", __FUNCTION__);
+    WriteUInt32 (ioStream, inCredentials.cred_type);
     switch (inCredentials.cred_type) {
         case CC_CRED_V4:
-            ioStream << *inCredentials.cred.pV4Cred << std::endl;
+            WriteV4CompatCredentials (ioStream, *inCredentials.cred.pV4Cred);
             break;
-        
+            
         case CC_CRED_V5:
-            ioStream << *inCredentials.cred.pV5Cred << std::endl;
+            WriteV5CompatCredentials (ioStream, *inCredentials.cred.pV5Cred);
             break;
             
         default:
             throw CCIException (ccErrBadCredentialsVersion);
     }
-    return ioStream;
-}
-    
-std::ostream& operator << (std::ostream& ioStream, const cc_credentials_v4_compat& inCredentials)
-{
-    for (CCIUInt32 i = 0; i < sizeof (inCredentials); i++) {
-        ioStream << ((int) ((char*) (&inCredentials)) [i]) << " ";
-    }
-    return ioStream;
 }
 
-std::ostream& operator << (std::ostream& ioStream, const cc_credentials_v5_compat& inCredentials)
+
+void ReadV4CompatCredentials (std::istream& ioStream, cc_credentials_v4_compat& inCredentials)
 {
-    ioStream << inCredentials.client << std::endl;
-    ioStream << inCredentials.server << std::endl;
-    ioStream << inCredentials.keyblock << std::endl;
-    ioStream << inCredentials.authtime << std::endl;
-    ioStream << inCredentials.starttime << std::endl;
-    ioStream << inCredentials.endtime << std::endl;
-    ioStream << inCredentials.renew_till << std::endl;
-    ioStream << inCredentials.is_skey << std::endl;
-    ioStream << inCredentials.ticket_flags << std::endl;
+    //dprintf ("Entering %s():", __FUNCTION__);
+    ioStream.read ((char *)&inCredentials, sizeof (inCredentials));
+}
+
+void WriteV4CompatCredentials (std::ostream& ioStream, const cc_credentials_v4_compat& inCredentials)
+{
+    //dprintf ("Entering %s():", __FUNCTION__);
+    ioStream.write ((char *)&inCredentials, sizeof (inCredentials));
+}
+
+void WriteV5CompatCredentials (std::ostream& ioStream, const cc_credentials_v5_compat& inCredentials)
+{
+    //dprintf ("Entering %s():", __FUNCTION__);
+    WriteString    (ioStream, inCredentials.client);
+    WriteString    (ioStream, inCredentials.server);
+    WriteData      (ioStream, inCredentials.keyblock);
+    WriteUInt32    (ioStream, inCredentials.authtime);
+    WriteUInt32    (ioStream, inCredentials.starttime);
+    WriteUInt32    (ioStream, inCredentials.endtime);
+    WriteUInt32    (ioStream, inCredentials.renew_till);
+    WriteUInt32    (ioStream, inCredentials.is_skey);
+    WriteUInt32    (ioStream, inCredentials.ticket_flags);
     WriteDataArray (ioStream, inCredentials.addresses);
-    ioStream << inCredentials.ticket << std::endl;
-    ioStream << inCredentials.second_ticket << std::endl;
+    WriteData      (ioStream, inCredentials.ticket);
+    WriteData      (ioStream, inCredentials.second_ticket);
     WriteDataArray (ioStream, inCredentials.authdata);
-    return ioStream;
 }
 
-std::istream& operator >> (std::istream& ioStream, cc_credentials_v4_compat& inCredentials)
+void ReadV5CompatCredentials (std::istream& ioStream, cc_credentials_v5_compat& inCredentials)
 {
-    for (CCIUInt32 i = 0; i < sizeof (inCredentials); i++) {
-        int c;
-        ioStream >> c;
-        ((char*) (&inCredentials)) [i] = c;
-    }
-    return ioStream;
-}
-    
-std::istream& operator >> (std::istream& ioStream, cc_credentials_v5_compat& inCredentials)
-{
+    //dprintf ("Entering %s():", __FUNCTION__);
     try {
-        std::string		newString;
-        ioStream >> newString;
-
-        inCredentials.client = new char [newString.length () + 1];
-        inCredentials.client [newString.length ()] = '\0';
-        newString.copy (inCredentials.client, newString.length () + 1);
-
-        ioStream >> newString;
-        inCredentials.server = new char [newString.length () + 1];
-        inCredentials.server [newString.length ()] = '\0';
-        newString.copy (inCredentials.server, newString.length () + 1);
-
-        ioStream >> inCredentials.keyblock;
-        ioStream >> inCredentials.authtime;
-        ioStream >> inCredentials.starttime;
-        ioStream >> inCredentials.endtime;
-        ioStream >> inCredentials.renew_till;
-        ioStream >> inCredentials.is_skey;
-        ioStream >> inCredentials.ticket_flags;
+        ReadString    (ioStream, inCredentials.client);
+        ReadString    (ioStream, inCredentials.server);
+        ReadData      (ioStream, inCredentials.keyblock);
+        ReadUInt32    (ioStream, inCredentials.authtime);
+        ReadUInt32    (ioStream, inCredentials.starttime);
+        ReadUInt32    (ioStream, inCredentials.endtime);
+        ReadUInt32    (ioStream, inCredentials.renew_till);
+        ReadUInt32    (ioStream, inCredentials.is_skey);
+        ReadUInt32    (ioStream, inCredentials.ticket_flags);
         ReadDataArray (ioStream, inCredentials.addresses);
-        ioStream >> inCredentials.ticket;
-        ioStream >> inCredentials.second_ticket;
+        ReadData      (ioStream, inCredentials.ticket);
+        ReadData      (ioStream, inCredentials.second_ticket);
         ReadDataArray (ioStream, inCredentials.authdata);
     } catch (...) {
         if (inCredentials.client != NULL) {
@@ -211,59 +173,59 @@ std::istream& operator >> (std::istream& ioStream, cc_credentials_v5_compat& inC
         
         throw;
     }
-    return ioStream;
 }
 
 #endif // CCache_v2_Compat
 
-std::ostream& operator << (std::ostream& ioStream, const cc_data& inData)
+void WriteData (std::ostream& ioStream, const cc_data& inData)
 {
-    ioStream << inData.type << std::endl;
-    ioStream << inData.length << std::endl;
-    for (CCIUInt32 i = 0; i < inData.length; i++) {
-        ioStream << (int) (((char*) inData.data) [i]) << " ";
+    //dprintf ("Entering %s():", __FUNCTION__);
+    
+    WriteUInt32 (ioStream, inData.type);
+    WriteUInt32 (ioStream, inData.length);
+    //dprintf ("Wrote type %d, length %d", inData.type, inData.length);
+    if (inData.length > 0) {
+        ioStream.write ((char *)inData.data, inData.length);
+        //dprintmem (inData.data, inData.length);
     }
-    ioStream << std::endl;
-    return ioStream;
 }
 
-std::istream& operator >> (std::istream& ioStream, cc_data& inData)
+void ReadData (std::istream& ioStream, cc_data& inData)
 {
-    ioStream >> inData.type;
-    ioStream >> inData.length;
-    inData.data = new char [inData.length];
-    for (CCIUInt32 i = 0; i < inData.length; i++) {
-        int c;
-        ioStream >> c;
-        ((char*) (inData.data)) [i] = c;
+    //dprintf ("Entering %s():", __FUNCTION__);
+    
+    ReadUInt32 (ioStream, inData.type);
+    ReadUInt32 (ioStream, inData.length);
+    //dprintf ("Read type %d, length %d", inData.type, inData.length);
+    if (inData.length > 0) {
+        inData.data = new char [inData.length];
+        ioStream.read ((char *)inData.data, inData.length);
+        //dprintmem (inData.data, inData.length);
+    } else {
+        inData.data = NULL;
     }
-    return ioStream;
 }
 
-static void WriteDataArray (
-    std::ostream&	ioStream,
-    cc_data**	inDataArray)
+void WriteDataArray (std::ostream& ioStream,  cc_data** inDataArray)
 {
-    CCIUInt32	arraySize = 0;
+    //dprintf ("Entering %s():", __FUNCTION__);
+    CCIUInt32 arraySize = 0;
     if (inDataArray != NULL) {
-        while (inDataArray [arraySize] != NULL) {
-            arraySize++;
-        }
+        while (inDataArray [arraySize] != NULL) { arraySize++; }
     }
     
-    ioStream << arraySize << std::endl;   
-    
+    WriteUInt32 (ioStream, arraySize);
     for (CCIUInt32 i = 0; i < arraySize; i++) {
-        ioStream << *(inDataArray [i]) << std::endl;
+        WriteData (ioStream, *(inDataArray [i]));
     }
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
-static void ReadDataArray (
-    std::istream&	ioStream,
-    cc_data**&	outDataArray)
+void ReadDataArray (std::istream& ioStream, cc_data**& outDataArray)
 {
+    //dprintf ("Entering %s():", __FUNCTION__);
     CCIUInt32	arraySize = 0;
-    ioStream >> arraySize;
+    ReadUInt32 (ioStream, arraySize);
     
     if (arraySize == 0) {
         outDataArray = NULL;
@@ -281,7 +243,7 @@ static void ReadDataArray (
             dataArray [i] -> data = NULL;
         }
         for (CCIUInt32 i = 0; i < arraySize; i++) {
-            ioStream >> *dataArray [i];
+            ReadData (ioStream, *dataArray [i]);
         }
         
         outDataArray = dataArray;
@@ -292,9 +254,68 @@ static void ReadDataArray (
             }
             delete dataArray [i];
         }
-
-        delete [] dataArray;
         
+        delete [] dataArray;
         throw;
     }
+    //dprintf ("Exiting %s():", __FUNCTION__);
+}
+
+void ReadString (std::istream& ioStream, char *&outString)
+{
+    CCIUInt32 length;
+    
+    //dprintf ("Entering %s():", __FUNCTION__);
+    ReadUInt32 (ioStream, length);
+    outString = new char [length];
+    ioStream.read ((char *)outString, length);
+    //dprintf ("Read string '%s'", outString);
+}
+
+void WriteString (std::ostream& ioStream, const char *inString)
+{
+    CCIUInt32 length = strlen (inString) + 1;
+    
+    //dprintf ("Entering %s():", __FUNCTION__);
+    WriteUInt32 (ioStream, strlen (inString) + 1);
+    ioStream.write (inString, length);
+    //dprintf ("Wrote string '%s'", inString);
+}
+
+void ReadString (std::istream& ioStream, std::string &outString)
+{
+    char *string = NULL;
+    
+    //dprintf ("Entering %s():", __FUNCTION__);
+    try {
+        ReadString (ioStream, string);
+        //dprintf ("Intermediate string '%s'", string);
+        outString = string;
+        delete [] string;
+    } catch (...) {
+        if (string != NULL) { delete [] string; }
+        throw;
+    }
+    //dprintf ("Read std::string '%s'", outString.c_str());
+}
+
+void WriteString (std::ostream& ioStream, const std::string inString)
+{
+    //dprintf ("Entering %s():", __FUNCTION__);
+    WriteString (ioStream, inString.c_str ());
+    //dprintf ("Wrote std::string '%s'", inString.c_str ());
+}
+
+void WriteUInt32 (std::ostream& ioStream, CCIUInt32 integer)
+{
+    //dprintf ("Entering %s():", __FUNCTION__);
+    ioStream.write ((char *)&integer, sizeof (integer));
+    //dprintf ("Wrote integer '%d'", integer);
+}
+
+void ReadUInt32 (std::istream& ioStream, CCIUInt32& integer)
+{
+    //dprintf ("Entering %s():", __FUNCTION__);
+    ioStream.read ((char *)&integer, sizeof (integer));
+    //dprintf ("Read integer '%d'", integer);
 }

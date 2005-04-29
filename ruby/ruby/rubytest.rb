@@ -6,7 +6,7 @@ include Config
 unless File.exist? "./#{CONFIG['ruby_install_name']}#{CONFIG['EXEEXT']}"
   print "./#{CONFIG['ruby_install_name']} is not found.\n"
   print "Try `make' first, then `make test', please.\n"
-  exit 0
+  exit 1
 end
 
 if File.exist? CONFIG['LIBRUBY_SO']
@@ -17,6 +17,8 @@ if File.exist? CONFIG['LIBRUBY_SO']
     dldpath = "LIBPATH"
   when /-beos/
     dldpath = "LIBRARY_PATH"
+  when /-darwin/
+    dldpath = "DYLD_LIBRARY_PATH"
   else
     dldpath = "LD_LIBRARY_PATH"
   end
@@ -32,7 +34,7 @@ end
 $stderr.reopen($stdout)
 error = ''
 
-`./#{CONFIG["ruby_install_name"]}#{CONFIG["EXEEXT"]} #{CONFIG["srcdir"]}/sample/test.rb`.each do |line|
+`./#{CONFIG["ruby_install_name"]}#{CONFIG["EXEEXT"]} -I#{CONFIG["srcdir"]}/lib #{CONFIG["srcdir"]}/sample/test.rb`.each do |line|
   if line =~ /^end of test/
     print "test succeeded\n"
     exit 0

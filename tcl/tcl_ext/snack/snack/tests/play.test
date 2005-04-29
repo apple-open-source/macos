@@ -1,0 +1,295 @@
+# Commands covered: sound play
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test play-1.1.1 {play command, non-blocking, -load} {
+  set s [snack::sound snd -load ex1.wav]
+  $s play -command {set flag 1}
+  vwait flag
+  $s destroy
+  set flag
+} 1
+
+test play-1.1.2 {play command, non-blocking, -file} {
+  set s [snack::sound snd -file ex1.wav]
+  $s play -command {set flag 1}
+  vwait flag
+  $s destroy
+  set flag
+} 1
+after 1000 {set flag 1} ; vwait flag 
+
+test play-1.1.3 {play command, non-blocking, -channel} {
+  set fd [open ex1.wav]
+  set s [snack::sound snd -channel $fd]
+  $s play -command {set flag 1}
+  vwait flag
+  $s destroy
+  close $fd
+  set flag
+} 1
+
+test play-1.1.4 {play command, -channel, data in WAV format} {
+  proc endproc {snd sock} {
+    set info [$snd info]
+    close $sock
+    $snd destroy
+    set ::flag [lindex $info 6]
+  }
+  proc servproc { sock addr port } {
+    set s [snack::sound snd -channel $sock]
+    $s play -command [list endproc $s $sock]
+  }
+
+  set fd [open ex1.wav]
+  fconfigure $fd -translation binary
+  if {$::tcl_version > 8.0} {
+    fconfigure $fd -encoding binary
+  }
+  set data [read $fd]
+  close $fd
+
+  set servsock [socket -server servproc 24680]
+
+  set sock [socket localhost 24680]
+  fconfigure $sock -translation binary -blocking 1
+  if {$::tcl_version > 8.0} {
+    fconfigure $sock -encoding binary
+  }
+  puts -nonewline $sock $data
+  close $sock
+ 
+  vwait flag
+  set flag
+} WAV
+
+test play-1.1.5 {play command, -channel, data in AU format} {
+  proc endproc {snd sock} {
+    set info [$snd info]
+    close $sock
+    $snd destroy
+    set ::flag [lindex $info 6]
+  }
+  proc servproc { sock addr port } {
+    set s [snack::sound snd -channel $sock]
+    $s play -command [list endproc $s $sock]
+  }
+
+  set s [snack::sound snd -load ex1.wav]
+  set data [$s data -fileformat au]
+  $s destroy
+
+  set servsock [socket -server servproc 24681]
+
+  set sock [socket localhost 24681]
+  fconfigure $sock -translation binary -blocking 1
+  if {$::tcl_version > 8.0} {
+    fconfigure $sock -encoding binary
+  }
+  puts -nonewline $sock $data
+  close $sock
+ 
+  vwait flag
+  set flag
+} AU
+
+test play-1.1.6 {play command, -channel, data as littleEndian shorts} {
+  proc endproc {snd sock} {
+    set info [$snd info]
+    close $sock
+    $snd destroy
+    set ::flag [lindex $info 6]
+  }
+  proc servproc { sock addr port } {
+    set s [snack::sound snd -channel $sock -byteorder littleEndian]
+    $s play -command [list endproc $s $sock]
+  }
+
+  set s [snack::sound snd -load ex1.wav]
+  set data [$s data -fileformat raw -byteorder littleEndian]
+  $s destroy
+
+  set servsock [socket -server servproc 24682]
+
+  set sock [socket localhost 24682]
+  fconfigure $sock -translation binary -blocking 1
+  if {$::tcl_version > 8.0} {
+    fconfigure $sock -encoding binary
+  }
+  puts -nonewline $sock $data
+  close $sock
+ 
+  vwait flag
+  set flag
+} RAW
+
+test play-1.1.7 {play command, -channel, data as bigEndian shorts} {
+  proc endproc {snd sock} {
+    set info [$snd info]
+    close $sock
+    $snd destroy
+    set ::flag [lindex $info 6]
+  }
+  proc servproc { sock addr port } {
+    set s [snack::sound snd -channel $sock -byteorder bigEndian]
+    $s play -command [list endproc $s $sock]
+  }
+
+  set s [snack::sound snd -load ex1.wav]
+  set data [$s data -fileformat raw -byteorder bigendian]
+  $s destroy
+
+  set servsock [socket -server servproc 24683]
+
+  set sock [socket localhost 24683]
+  fconfigure $sock -translation binary -blocking 1
+  if {$::tcl_version > 8.0} {
+    fconfigure $sock -encoding binary
+  }
+  puts -nonewline $sock $data
+  close $sock
+ 
+  vwait flag
+  set flag
+} RAW
+
+test play-1.1.8 {play command, -channel, data length 0} {
+  proc endproc {snd sock} {
+    set info [$snd info]
+    close $sock
+    $snd destroy
+    set ::flag [lindex $info 6]
+  }
+  proc servproc { sock addr port } {
+    set s [snack::sound snd -channel $sock -byteorder bigEndian]
+    $s play -command [list endproc $s $sock]
+  }
+
+  set s [snack::sound snd]
+  set data [$s data -fileformat raw -byteorder bigendian]
+  $s destroy
+
+  set servsock [socket -server servproc 24684]
+
+  set sock [socket localhost 24684]
+  fconfigure $sock -translation binary -blocking 1
+  if {$::tcl_version > 8.0} {
+    fconfigure $sock -encoding binary
+  }
+  puts -nonewline $sock $data
+  close $sock
+ 
+  vwait flag
+  set flag
+} RAW
+
+test play-1.1.9 {play command, -channel, data with 1024 initial zeros} {
+  proc endproc {snd sock} {
+    set info [$snd info]
+    close $sock
+    $snd destroy
+    set ::flag [lindex $info 6]
+  }
+  proc servproc { sock addr port } {
+    set s [snack::sound snd -channel $sock -byteorder bigEndian]
+    $s play -command [list endproc $s $sock]
+  }
+
+  set s [snack::sound snd -load ex1.wav]
+  set s2 [snack::sound snd2]
+  $s2 length 512
+  set data [$s2 data -fileformat raw -byteorder bigendian]
+  append data [$s data -fileformat raw -byteorder bigendian]
+  $s destroy
+  $s2 destroy
+
+  set servsock [socket -server servproc 24685]
+
+  set sock [socket localhost 24685]
+  fconfigure $sock -translation binary -blocking 1
+  if {$::tcl_version > 8.0} {
+    fconfigure $sock -encoding binary
+  }
+  puts -nonewline $sock $data
+  close $sock
+ 
+  vwait flag
+  set flag
+} RAW
+
+test play-1.2.1 {play command, blocking} {
+  set s [snack::sound snd -load ex1.wav]
+  $s play -blocking 1 -command {set flag 1}
+  $s destroy
+  set flag
+} 1
+
+test play-1.3.1 {play command, auto-destruct} {
+  set s [snack::sound snd -load ex1.wav]
+  $s play -command "set flag 1; $s destroy" -start 0 -end -1
+  vwait flag
+  catch "$s info" msg
+  set msg
+} {invalid command name "snd"}
+
+test play-1.4.1 {play command, non-existing linked file} {
+  set s [snack::sound snd -file nosuch.wav]
+  catch {$s play} msg
+  $s destroy
+  set msg
+} {couldn't open "nosuch.wav": no such file or directory}
+
+test play-2.1 {play command, using default sound device} {
+  set s [snack::sound snd -load ex1.wav]
+  $s play -device "" -command {set flag 1}
+  vwait flag
+  $s destroy
+  set flag
+} 1
+
+test play-2.2 {play command, using first sound device} {
+  set s [snack::sound snd -load ex1.wav]
+  set dev [lindex [snack::audio outputDevices] 0]
+  $s play -device $dev -command {set flag 1}
+  vwait flag
+  $s destroy
+  set flag
+} 1
+
+test play-2.3 {play command, using unknown sound device} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s play -device junk} msg
+  $s destroy
+  set msg
+} {No such device: junk}
+
+test play-2.4 {play command, missing argument to -device option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s play -device} msg
+  $s destroy
+  set msg
+} {No argument given for -device option}
+
+test play-3.1 {play command, with filter option specifying invalid filter} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s play -filter junk} msg
+  $s destroy
+  set msg
+} {No such filter: junk}
+
+test play-3.2 {play command, with missing argument for -filter option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s play -filter} msg
+  $s destroy
+  set msg
+} {No argument given for -filter option}
+
+# cleanup
+::tcltest::cleanupTests
+return

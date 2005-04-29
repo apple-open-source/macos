@@ -37,6 +37,14 @@
 #endif
 #endif
 
+#ifdef __linux
+/*
+ * Turn on numerous extensions.
+ * This is in order to get the functions for manipulating /dev/ptmx.
+ */
+#define _GNU_SOURCE 1
+#endif
+
 /* NeXT has half-implemented POSIX support *
  * which currently fools configure         */
 #ifdef __NeXT__
@@ -418,7 +426,7 @@ struct timezone {
  * converted to printable decimal form including the sign and the     *
  * terminating null character. Below 0.30103 > lg 2.                  *
  * BDIGBUFSIZE is for a number converted to printable binary form.    */
-#define DIGBUFSIZE ((int)(((sizeof(zlong) * 8) - 1) * 0.30103) + 3)
+#define DIGBUFSIZE ((int)(((sizeof(zlong) * 8) - 1) * 30103/100000) + 3)
 #define BDIGBUFSIZE ((int)((sizeof(zlong) * 8) + 4))
 
 /* If your stat macros are broken, we will *
@@ -667,7 +675,15 @@ extern short ospeed;
 #endif
 
 #ifdef __CYGWIN__
+# include <sys/cygwin.h>
 # define IS_DIRSEP(c) ((c) == '/' || (c) == '\\')
 #else
 # define IS_DIRSEP(c) ((c) == '/')
+#endif
+
+#if defined(__GNUC__) && !defined(__APPLE__)
+/* Does the OS X port of gcc still gag on __attribute__? */
+#define UNUSED(x) x __attribute__((__unused__))
+#else
+#define UNUSED(x) x
 #endif

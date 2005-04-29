@@ -16,6 +16,8 @@ extern          "C" {
      * functions found below.
      */
 
+    void netsnmp_init_table_dataset(void);
+
 #define TABLE_DATA_SET_NAME "netsnmp_table_data_set"
 
     /*
@@ -119,16 +121,16 @@ extern          "C" {
                                                    char *line);
     void            netsnmp_config_parse_add_row(const char *token,
                                                  char *line);
-    NETSNMP_INLINE void     netsnmp_table_dataset_add_index(netsnmp_table_data_set
+    NETSNMP_INLINE void netsnmp_table_dataset_add_index(netsnmp_table_data_set
                                                     *table, u_char type);
-    NETSNMP_INLINE void     netsnmp_table_dataset_add_row(netsnmp_table_data_set
+    NETSNMP_INLINE void netsnmp_table_dataset_add_row(netsnmp_table_data_set
                                                   *table,
                                                   netsnmp_table_row *row);
-    NETSNMP_INLINE void     netsnmp_table_dataset_remove_row(netsnmp_table_data_set
+    NETSNMP_INLINE void netsnmp_table_dataset_remove_row(netsnmp_table_data_set
                                                      *table,
                                                      netsnmp_table_row
                                                      *row);
-    NETSNMP_INLINE void     netsnmp_table_dataset_delete_row(netsnmp_table_row
+    NETSNMP_INLINE void netsnmp_table_dataset_delete_row(netsnmp_table_row
                                                      *row);
     NETSNMP_INLINE void    
         netsnmp_table_dataset_remove_and_delete_row(netsnmp_table_data_set
@@ -148,6 +150,7 @@ extern          "C" {
                                                      *table_set,
                                                      char
                                                      *registration_name);
+    int netsnmp_table_data_num_rows(netsnmp_table_data *table);
 
 #if HAVE_STDARG_H
     void           
@@ -157,7 +160,7 @@ extern          "C" {
 #endif
 
 #ifdef __cplusplus
-};
+}
 #endif
 
 #define netsnmp_table_row_add_column(row, type, value, value_len) snmp_varlist_add_variable(&row->indexes, NULL, 0, type, (u_char *) value, value_len)

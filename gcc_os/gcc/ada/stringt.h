@@ -6,7 +6,6 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *                            $Revision: 1.1.1.1 $
  *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -22,7 +21,7 @@
  * MA 02111-1307, USA.                                                      *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -56,9 +55,7 @@ struct String_Entry
 };
 
 /* Pointer to string entry vector. This pointer is passed to the tree
-   transformer and stored in a global location for access from here after
-   subtracting String_First_Entry, so that String_Id values can be used as
-   subscripts into the vector. */
+   transformer and stored in a global location.  */
 extern struct String_Entry *Strings_Ptr;
 
 /* Pointer to name characters table. This pointer is passed to the tree
@@ -74,7 +71,7 @@ INLINE Int
 String_Length (Id)
      String_Id Id;
 {
-  return Strings_Ptr [Id].Length;
+  return Strings_Ptr[Id - First_String_Id].Length;
 }
 
 
@@ -88,5 +85,7 @@ Get_String_Char (Id, Index)
      String_Id Id;
      Int Index;
 {
-  return String_Chars_Ptr [Strings_Ptr [Id].String_Index + Index - 1];
+  return
+    String_Chars_Ptr
+      [Strings_Ptr[Id - First_String_Id].String_Index + Index - 1];
 }

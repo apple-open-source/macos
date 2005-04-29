@@ -48,7 +48,7 @@ from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/lbxproxy/di/cmap.c,v 1.6 2001/12/14 20:00:50 dawes Exp $ */
+/* $XFree86: xc/programs/lbxproxy/di/cmap.c,v 1.7 2003/11/17 22:20:48 dawes Exp $ */
 
 #include	<stdio.h>
 #include	"assert.h"
@@ -124,12 +124,10 @@ ResolveColor (pVisual, red, green, blue)
 }
 
 void (* LbxResolveColor)(
-#if NeedNestedPrototypes
     LbxVisualPtr /* pVisual */,
     CARD16* /* red */,
     CARD16* /* green */,
     CARD16* /* blue */
-#endif
 ) = ResolveColor;
 
 static Pixel
@@ -203,12 +201,10 @@ FindFreePixel (pmap, red, green, blue)
 }
 
 Pixel (* LbxFindFreePixel)(
-#if NeedNestedPrototypes
     ColormapPtr /* pmap */,
     CARD32 /* red */,
     CARD32 /* green */,
     CARD32 /* blue */
-#endif
 ) = FindFreePixel;
 
 typedef unsigned short	BigNumUpper;
@@ -326,13 +322,11 @@ FindBestPixel(pmap, red, green, blue, channels)
 }
 
 Entry * (* LbxFindBestPixel)(
-#if NeedNestedPrototypes
     ColormapPtr /* pmap */,
     CARD32	/* red */,
     CARD32	/* green */,
     CARD32	/* blue */,
     int		/* channels */
-#endif
 ) = FindBestPixel;
 
 

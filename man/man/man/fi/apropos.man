@@ -1,0 +1,26 @@
+.\" Man page for apropos
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\" Translated into Finnish by Raimo Koski <rkoski@pp.weppi.fi>
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.TH apropos 1 "Tammi 15, 1991"
+.LO 1
+.SH NIMI
+apropos \- etsi whatis-tietokannasta merkkijonoja
+.SH YLEISKATSAUS
+.BI apropos
+avainsana ...
+.SH KUVAUS
+apropos etsii avainsanoja tietokannoista, joissa on lyhyet kuvaukset j‰rjestelm‰n komennoista ja n‰ytt‰‰ tulokset vakiotulosteessa.
+.SH "KATSO MY÷S"
+whatis(1), man(1).

@@ -67,6 +67,8 @@ struct display {
 	char *officephone;
 	char *homephone;
 };
+
+int LaunchTaskWithPipes(const char *path, char *const argv[], int *outPipe0, int *outPipe1);
 #endif /* DIRECTORY_SERVICE */
 
 struct passwd;

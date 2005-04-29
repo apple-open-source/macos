@@ -24,7 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/lib/xkbfile/xkmout.c,v 1.5 2001/07/25 15:04:58 dawes Exp $ */
+/* $XFree86: xc/lib/xkbfile/xkmout.c,v 1.6 2003/11/17 22:20:24 dawes Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -52,13 +52,7 @@ typedef struct _XkmInfo {
 #define	xkmPutCARD8(f,v)	(putc(v,f),1)
 
 static int
-#if NeedFunctionPrototypes
 xkmPutCARD16(FILE *file,unsigned val)
-#else
-xkmPutCARD16(file,val)
-    FILE *		file;
-    unsigned		val;
-#endif
 {
 CARD16	tmp= val;
 
@@ -67,13 +61,7 @@ CARD16	tmp= val;
 }
 
 static int
-#if NeedFunctionPrototypes
 xkmPutCARD32(FILE *file,unsigned long val)
-#else
-xkmPutCARD32(file,val)
-    FILE *		file;
-    unsigned long	val;
-#endif
 {
 CARD32 tmp= val;
 
@@ -82,13 +70,7 @@ CARD32 tmp= val;
 }
 
 static int
-#if NeedFunctionPrototypes
 xkmPutPadding(FILE *file,unsigned pad)
-#else
-xkmPutPadding(file,pad)
-    FILE *		file;
-    unsigned		pad;
-#endif
 {
 int	i;
     for (i=0;i<pad;i++) {
@@ -98,14 +80,7 @@ int	i;
 }
 
 static int
-#if NeedFunctionPrototypes
 xkmPutCountedBytes(FILE *file,char *ptr,unsigned count)
-#else
-xkmPutCountedBytes(file,ptr,count)
-    FILE *		file;
-    char *		ptr;
-    unsigned		count;
-#endif
 {
 register int nOut;
 register unsigned pad;
@@ -125,12 +100,7 @@ register unsigned pad;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 xkmSizeCountedString(char *str)
-#else
-xkmSizeCountedString(str)
-    char *	str;
-#endif
 {
     if (str==NULL)
 	return 4;
@@ -138,13 +108,7 @@ xkmSizeCountedString(str)
 }
 
 static int
-#if NeedFunctionPrototypes
 xkmPutCountedString(FILE *file,char *str)
-#else
-xkmPutCountedString(file,str)
-    FILE *	file;
-    char *	str;
-#endif
 {
     if (str==NULL)
 	 return xkmPutCARD32(file,(unsigned long)0);
@@ -160,18 +124,10 @@ xkmPutCountedString(file,str)
 /***====================================================================***/
 
 static unsigned
-#if NeedFunctionPrototypes
 SizeXKMVirtualMods(	XkbFileInfo *		result,
 			XkmInfo *		info,
 			xkmSectionInfo *	toc,
 			int *			offset_inout)
-#else
-SizeXKMVirtualMods(result,info,toc,offset_inout)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    xkmSectionInfo *	toc;
-    int *		offset_inout;
-#endif
 {
 Display *	dpy;
 XkbDescPtr	xkb;
@@ -211,14 +167,7 @@ register unsigned	i,bit;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 WriteXKMVirtualMods(FILE *file,XkbFileInfo *result,XkmInfo *info)
-#else
-WriteXKMVirtualMods(file,result,info)
-    FILE *		file;
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-#endif
 {
 register unsigned int i,bit;
 XkbDescPtr	xkb;
@@ -248,14 +197,7 @@ unsigned	size= 0;
 /***====================================================================***/
 
 static unsigned
-#if NeedFunctionPrototypes
 SizeXKMKeycodes(XkbFileInfo *result,xkmSectionInfo *toc,int *offset_inout)
-#else
-SizeXKMKeycodes(result,toc,offset_inout)
-    XkbFileInfo *	result;
-    xkmSectionInfo *	toc;
-    int *		offset_inout;
-#endif
 {
 XkbDescPtr	xkb;
 Atom		kcName;
@@ -286,13 +228,7 @@ Display *	dpy;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 WriteXKMKeycodes(FILE *file,XkbFileInfo *result)
-#else
-WriteXKMKeycodes(file,result)
-    FILE *		file;
-    XkbFileInfo *	result;
-#endif
 {
 XkbDescPtr	xkb;
 Atom	 	kcName;
@@ -324,14 +260,7 @@ unsigned	tmp,size= 0;
 /***====================================================================***/
 
 static unsigned
-#if NeedFunctionPrototypes
 SizeXKMKeyTypes(XkbFileInfo *result,xkmSectionInfo *toc,int *offset_inout)
-#else
-SizeXKMKeyTypes(result,toc,offset_inout)
-    XkbFileInfo *	result;
-    xkmSectionInfo *	toc;
-    int *		offset_inout;
-#endif
 {
 register unsigned	i,n,size;
 XkbKeyTypePtr		type;
@@ -376,13 +305,7 @@ char *			name;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 WriteXKMKeyTypes(FILE *file,XkbFileInfo *result)
-#else
-WriteXKMKeyTypes(file,result)
-    FILE *	file;
-    XkbFileInfo *	result;
-#endif
 {
 register unsigned	i,n;
 XkbDescPtr		xkb;
@@ -445,18 +368,10 @@ char *			name;
 /***====================================================================***/
 
 static unsigned
-#if NeedFunctionPrototypes
 SizeXKMCompatMap(	XkbFileInfo *		result,
 			XkmInfo *		info,
 			xkmSectionInfo *	toc,
 			int *			offset_inout)
-#else
-SizeXKMCompatMap(result,info,toc,offset_inout)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    xkmSectionInfo *	toc;
-    int *		offset_inout;
-#endif
 {
 XkbDescPtr	xkb;
 char *		name;
@@ -496,14 +411,7 @@ Display *	dpy;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 WriteXKMCompatMap(FILE *file,XkbFileInfo *result,XkmInfo *info)
-#else
-WriteXKMCompatMap(file,result,info)
-    FILE *	file;
-    XkbFileInfo *	result;
-    XkmInfo *	info;
-#endif
 {
 register unsigned	i;
 char *			name;
@@ -557,18 +465,10 @@ unsigned		tmp,size=0;
 /***====================================================================***/
 
 static unsigned
-#if NeedFunctionPrototypes
 SizeXKMSymbols(	XkbFileInfo *		result,
 		XkmInfo *		info,
 		xkmSectionInfo *	toc,
 		int *			offset_inout)
-#else
-SizeXKMSymbols(result,info,toc,offset_inout)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    xkmSectionInfo *	toc;
-    int *		offset_inout;
-#endif
 {
 Display *	dpy;
 XkbDescPtr	xkb;
@@ -627,14 +527,7 @@ char *		name;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 WriteXKMSymbols(FILE *file,XkbFileInfo *result,XkmInfo *info)
-#else
-WriteXKMSymbols(file,result,info)
-    FILE *		file;
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-#endif
 {
 Display *		dpy;
 XkbDescPtr		xkb;
@@ -744,16 +637,8 @@ unsigned		tmp,size= 0;
 /***====================================================================***/
 
 static unsigned
-#if NeedFunctionPrototypes
 SizeXKMIndicators(XkbFileInfo *result,XkmInfo *info,xkmSectionInfo *toc,
 							int *offset_inout)
-#else
-SizeXKMIndicators(result,info,toc,offset_inout)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    xkmSectionInfo *	toc;
-    int *		offset_inout;
-#endif
 {
 Display *		dpy;
 XkbDescPtr		xkb;
@@ -797,14 +682,7 @@ register unsigned	i,nLEDs;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 WriteXKMIndicators(FILE *file,XkbFileInfo *result,XkmInfo *info)
-#else
-WriteXKMIndicators(file,result,info)
-    FILE *		file;
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-#endif
 {
 Display *		dpy;
 XkbDescPtr		xkb;
@@ -850,13 +728,7 @@ unsigned		tmp,size= 0;
 /***====================================================================***/
 
 static unsigned
-#if NeedFunctionPrototypes
 SizeXKMGeomDoodad(XkbFileInfo *result,XkbDoodadPtr doodad)
-#else
-SizeXKMGeomDoodad(result,doodad)
-    XkbFileInfo *	result;
-    XkbDoodadPtr	doodad;
-#endif
 {
 unsigned	size;
 
@@ -873,13 +745,7 @@ unsigned	size;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 SizeXKMGeomSection(XkbFileInfo *result,XkbSectionPtr section)
-#else
-SizeXKMGeomSection(result,section)
-    XkbFileInfo *	result;
-    XkbSectionPtr	section;
-#endif
 {
 register int i;
 unsigned size;
@@ -916,14 +782,7 @@ unsigned size;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 SizeXKMGeometry(XkbFileInfo *result,xkmSectionInfo *toc,int *offset_inout)
-#else
-SizeXKMGeometry(result,toc,offset_inout)
-    XkbFileInfo *	result;
-    xkmSectionInfo *	toc;
-    int *		offset_inout;
-#endif
 {
 register int	i;
 Display *	dpy;
@@ -989,14 +848,7 @@ unsigned	size;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 WriteXKMGeomDoodad(FILE *file,XkbFileInfo *result,XkbDoodadPtr doodad)
-#else
-WriteXKMGeomDoodad(file,result,doodad)
-    FILE *		file;
-    XkbFileInfo *	result;
-    XkbDoodadPtr	doodad;
-#endif
 {
 Display *	dpy;
 XkbDescPtr	xkb;
@@ -1052,14 +904,7 @@ unsigned	tmp,size= 0;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 WriteXKMGeomOverlay(FILE *file,XkbFileInfo *result,XkbOverlayPtr ol)
-#else
-WriteXKMGeomOverlay(file,result,ol)
-    FILE *		file;
-    XkbFileInfo *	result;
-    XkbOverlayPtr	ol;
-#endif
 {
 register int		r,k;
 Display *		dpy;
@@ -1096,14 +941,7 @@ unsigned		tmp,size= 0;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 WriteXKMGeomSection(FILE *file,XkbFileInfo *result,XkbSectionPtr section)
-#else
-WriteXKMGeomSection(file,result,section)
-    FILE *		file;
-    XkbFileInfo *	result;
-    XkbSectionPtr	section;
-#endif
 {
 register int	i;
 Display *	dpy;
@@ -1164,13 +1002,7 @@ unsigned	tmp,size= 0;
 }
 
 static unsigned
-#if NeedFunctionPrototypes
 WriteXKMGeometry(FILE *file,XkbFileInfo *result)
-#else
-WriteXKMGeometry(file,result)
-    FILE *		file;
-    XkbFileInfo *	result;
-#endif
 {
 register int	i;
 Display *	dpy;
@@ -1271,18 +1103,10 @@ unsigned	tmp,size= 0;
 
 /*ARGSUSED*/
 static int
-#if NeedFunctionPrototypes
 GetXKMKeyNamesTOC(	XkbFileInfo *	result,
 			XkmInfo *	info,
 			int		max_toc,
 			xkmSectionInfo *toc_rtrn)
-#else
-GetXKMKeyNamesTOC(result,info,max_toc,toc_rtrn)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    int			max_toc;
-    xkmSectionInfo *	toc_rtrn;
-#endif
 {
 int	num_toc;
 int	total_size;
@@ -1297,18 +1121,10 @@ int	total_size;
 
 /*ARGSUSED*/
 static int
-#if NeedFunctionPrototypes
 GetXKMTypesTOC(	XkbFileInfo *	result,
 		XkmInfo *	info,
 		int		max_toc,
 		xkmSectionInfo *toc_rtrn)
-#else
-GetXKMTypesTOC(result,info,max_toc,toc_rtrn)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    int			max_toc;
-    xkmSectionInfo *	toc_rtrn;
-#endif
 {
 int	num_toc;
 int	total_size;
@@ -1323,18 +1139,10 @@ int	total_size;
 
 /*ARGSUSED*/
 static int
-#if NeedFunctionPrototypes
 GetXKMCompatMapTOC(	XkbFileInfo *	result,
 			XkmInfo *	info,
 			int		max_toc,
 			xkmSectionInfo *toc_rtrn)
-#else
-GetXKMCompatMapTOC(result,info,max_toc,toc_rtrn)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    int			max_toc;
-    xkmSectionInfo *	toc_rtrn;
-#endif
 {
 int	num_toc;
 int	total_size;
@@ -1351,18 +1159,10 @@ int	total_size;
 
 /*ARGSUSED*/
 static int
-#if NeedFunctionPrototypes
 GetXKMSemanticsTOC(	XkbFileInfo *	result,
 			XkmInfo *	info,
 			int		max_toc,
 			xkmSectionInfo *toc_rtrn)
-#else
-GetXKMSemanticsTOC(result,info,max_toc,toc_rtrn)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    int			max_toc;
-    xkmSectionInfo *	toc_rtrn;
-#endif
 {
 int	num_toc;
 int	total_size;
@@ -1381,18 +1181,10 @@ int	total_size;
 
 /*ARGSUSED*/
 static int
-#if NeedFunctionPrototypes
 GetXKMLayoutTOC(	XkbFileInfo *	result,
 			XkmInfo *	info,
 			int		max_toc,
 			xkmSectionInfo *toc_rtrn)
-#else
-GetXKMLayoutTOC(result,info,max_toc,toc_rtrn)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    int			max_toc;
-    xkmSectionInfo *	toc_rtrn;
-#endif
 {
 int	num_toc;
 int	total_size;
@@ -1415,18 +1207,10 @@ int	total_size;
 
 /*ARGSUSED*/
 static int
-#if NeedFunctionPrototypes
 GetXKMKeymapTOC(	XkbFileInfo *	result,
 			XkmInfo *	info,
 			int		max_toc,
 			xkmSectionInfo *toc_rtrn)
-#else
-GetXKMKeymapTOC(result,info,max_toc,toc_rtrn)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    int			max_toc;
-    xkmSectionInfo *	toc_rtrn;
-#endif
 {
 int	num_toc;
 int	total_size;
@@ -1451,18 +1235,10 @@ int	total_size;
 
 /*ARGSUSED*/
 static int
-#if NeedFunctionPrototypes
 GetXKMGeometryTOC(	XkbFileInfo *	result,
 			XkmInfo *	info,
 			int		max_toc,
 			xkmSectionInfo *toc_rtrn)
-#else
-GetXKMGeometryTOC(result,info,max_toc,toc_rtrn)
-    XkbFileInfo *	result;
-    XkmInfo *		info;
-    int			max_toc;
-    xkmSectionInfo *	toc_rtrn;
-#endif
 {
 int	num_toc;
 int	total_size;
@@ -1474,20 +1250,11 @@ int	total_size;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteXKMFile(	FILE *		file,
 		XkbFileInfo *	result,
 		int		num_toc,
 		xkmSectionInfo *toc,
 		XkmInfo *	info)
-#else
-WriteXKMFile(file,result,num_toc,toc,info)
-    FILE *		file;
-    XkbFileInfo *	result;
-    int			num_toc;
-    xkmSectionInfo *	toc;
-    XkmInfo *		info;
-#endif
 {
 register int 	i;
 unsigned	tmp,size,total= 0;
@@ -1535,13 +1302,7 @@ unsigned	tmp,size,total= 0;
 #define	MAX_TOC	16
 
 Bool
-#if NeedFunctionPrototypes
 XkbWriteXKMFile(FILE *out,XkbFileInfo *result)
-#else
-XkbWriteXKMFile(out,result)
-    FILE *		out;
-    XkbFileInfo *	result;
-#endif
 {
 Bool	 		ok;
 XkbDescPtr		xkb;
@@ -1551,12 +1312,10 @@ unsigned		hdr,present;
 xkmFileInfo		fileInfo;
 xkmSectionInfo		toc[MAX_TOC];
 int			(*getTOC)(
-#if NeedFunctionPrototypes
 	XkbFileInfo *	/* result */,
 	XkmInfo *	/* info */,
 	int		/* max_to */,
 	xkmSectionInfo */* toc_rtrn */
-#endif
 );
 
     switch (result->type) {

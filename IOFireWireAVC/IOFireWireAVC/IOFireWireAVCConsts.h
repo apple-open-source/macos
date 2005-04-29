@@ -241,5 +241,19 @@ typedef enum
 #define kAVCPlugSignalFormatPalDV 0x80800000 
 #define kAVCPlugSignalFormatMPEGTS 0xA0000000
 
+// Possible states of an AVCAsynchronousCommand
+typedef enum
+{
+	kAVCAsyncCommandStatePendingRequest,
+	kAVCAsyncCommandStateRequestSent,
+	kAVCAsyncCommandStateRequestFailed,
+	kAVCAsyncCommandStateWaitingForResponse,
+	kAVCAsyncCommandStateReceivedInterimResponse,
+	kAVCAsyncCommandStateReceivedFinalResponse,
+	kAVCAsyncCommandStateTimeOutBeforeResponse,
+	kAVCAsyncCommandStateBusReset,
+	kAVCAsyncCommandStateOutOfMemory,
+	kAVCAsyncCommandStateCancled
+} IOFWAVCAsyncCommandState;
 
 #endif // _IOKIT_IOFIREWIREAVCCONSTS_H

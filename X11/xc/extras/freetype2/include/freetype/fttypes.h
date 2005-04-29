@@ -21,6 +21,7 @@
 
 
 #include <ft2build.h>
+#include FT_CONFIG_CONFIG_H
 #include FT_SYSTEM_H
 #include FT_IMAGE_H
 
@@ -36,14 +37,15 @@ FT_BEGIN_HEADER
   /*    basic_types                                                        */
   /*                                                                       */
   /* <Title>                                                               */
-  /*    Basic Types                                                        */
+  /*    Basic Data Types                                                   */
   /*                                                                       */
   /* <Abstract>                                                            */
   /*    The basic data types defined by the library.                       */
   /*                                                                       */
   /* <Description>                                                         */
   /*    This section contains the basic data types defined by FreeType 2,  */
-  /*    ranging from simple scalar types to font specific ones.            */
+  /*    ranging from simple scalar types to bitmap descriptors.  More      */
+  /*    font-specific structures are defined in a different section.       */
   /*                                                                       */
   /* <Order>                                                               */
   /*    FT_Byte                                                            */
@@ -57,6 +59,7 @@ FT_BEGIN_HEADER
   /*    FT_Bool                                                            */
   /*    FT_Offset                                                          */
   /*    FT_PtrDist                                                         */
+  /*    FT_String                                                          */
   /*    FT_Error                                                           */
   /*    FT_Fixed                                                           */
   /*    FT_Pointer                                                         */
@@ -64,6 +67,12 @@ FT_BEGIN_HEADER
   /*    FT_Vector                                                          */
   /*    FT_BBox                                                            */
   /*    FT_Matrix                                                          */
+  /*    FT_FWord                                                           */
+  /*    FT_UFWord                                                          */
+  /*    FT_F2Dot14                                                         */
+  /*    FT_UnitVector                                                      */
+  /*    FT_F26Dot6                                                         */
+  /*                                                                       */
   /*                                                                       */
   /*    FT_Generic                                                         */
   /*    FT_Generic_Finalizer                                               */
@@ -73,7 +82,6 @@ FT_BEGIN_HEADER
   /*    FT_Palette_Mode                                                    */
   /*    FT_Glyph_Format                                                    */
   /*    FT_IMAGE_TAG                                                       */
-  /*    FT_Glyph_Format                                                    */
   /*                                                                       */
   /*************************************************************************/
 
@@ -351,6 +359,27 @@ FT_BEGIN_HEADER
 
   /*************************************************************************/
   /*                                                                       */
+  /* <Struct>                                                              */
+  /*    FT_Data	                                                           */
+  /*                                                                       */
+  /* <Description>                                                         */
+  /*    Read-only binary data represented as a pointer and a length.       */
+  /*                                                                       */
+  /* <Fields>                                                              */
+  /*    pointer :: The data.                                               */
+  /*                                                                       */
+  /*    length  :: The length of the data in bytes.                        */
+  /*                                                                       */
+  typedef struct  FT_Data_
+  {
+    const FT_Byte*  pointer;
+    FT_Int          length;
+
+  } FT_Data;
+
+
+  /*************************************************************************/
+  /*                                                                       */
   /* <FuncType>                                                            */
   /*    FT_Generic_Finalizer                                               */
   /*                                                                       */
@@ -410,6 +439,10 @@ FT_BEGIN_HEADER
   /* <Description>                                                         */
   /*    This macro converts four letter tags which are used to label       */
   /*    TrueType tables into an unsigned long to be used within FreeType.  */
+  /*                                                                       */
+  /* <Note>                                                                */
+  /*    The produced values *must* be 32bit integers.  Don't redefine this */
+  /*    macro.                                                             */
   /*                                                                       */
 #define FT_MAKE_TAG( _x1, _x2, _x3, _x4 ) \
           ( ( (FT_ULong)_x1 << 24 ) |     \

@@ -1,7 +1,7 @@
 /* APPLE LOCAL file Macintosh alignment */
 /* align-test-5*.c are all the same code but with different options.  */
 
-/* { dg-do run } */
+/* { dg-do run { target "powerpc-*-darwin*" } } */
 /* { dg-options "-malign-natural -DSIZE=16" } */
 
 /*

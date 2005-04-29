@@ -1,7 +1,7 @@
 /* Copyright (C) 2000 Free Software Foundation, Inc.  */
 /* { dg-do preprocess } */
 /* { dg-options "-C" } */
-/* Test that multi-line tokens are recognised by cpp0 as being
+/* Test that multi-line tokens are recognized by cpp0 as being
    multiline .  Source: Neil Booth, 17 Dec 2000.  */
 /* Line 1
    Line 2
@@ -22,5 +22,11 @@ L"line 1
    { dg-final { if \{ [grep multiline.i "^$"] == "" \} \{               } }
    { dg-final { return \}                                               } }
    { dg-final { fail "multiline.c: multi-line tokens"                   } } */
-/* { dg-warning "deprecated" "multiline strings" { target *-*-* } 11 } */
-/* { dg-warning "deprecated" "multiline strings" { target *-*-* } 15 } */
+/* { dg-error "missing term" "multiline strings" { target *-*-* } 11 } */
+/* { dg-error "missing term" "multiline strings" { target *-*-* } 14 } */
+/* { dg-error "missing term" "multiline strings" { target *-*-* } 15 } */
+/* { dg-error "missing term" "multiline strings" { target *-*-* } 18 } */
+/* { dg-bogus "warning" "warning in place of error" { target *-*-* } 11 } */
+/* { dg-bogus "warning" "warning in place of error" { target *-*-* } 14 } */
+/* { dg-bogus "warning" "warning in place of error" { target *-*-* } 15 } */
+/* { dg-bogus "warning" "warning in place of error" { target *-*-* } 18 } */

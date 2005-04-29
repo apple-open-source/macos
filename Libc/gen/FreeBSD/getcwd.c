@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)getcwd.c	8.5 (Berkeley) 2/7/95";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/getcwd.c,v 1.24 2003/01/10 02:58:25 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/getcwd.c,v 1.25 2003/10/29 10:45:01 tjr Exp $");
 
 #include "namespace.h"
 #include <sys/param.h>
@@ -95,7 +95,6 @@ getcwd(pt, size)
 			return (NULL);
 		ept = pt + ptsize;
 	}
-#if	!defined(__NETBSD_SYSCALLS)
 	if (__getcwd(pt, ept - pt) == 0) {
 		if (*pt != '/') {
 			bpt = pt;
@@ -108,7 +107,6 @@ getcwd(pt, size)
 		}
 		return (pt);
 	}
-#endif
 	bpt = ept - 1;
 	*bpt = '\0';
 

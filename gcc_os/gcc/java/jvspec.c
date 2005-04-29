@@ -62,7 +62,7 @@ static const char jvgenmain_spec[] =
 		   %{v:-version} %{pg:-p} %{p}\
 		   %{<fbounds-check} %{<fno-bounds-check}\
 		   %{<fassume-compiled} %{<fno-assume-compiled}\
-                   %{<fcompile-resource*}\
+                   %{<fcompile-resource*} %{<fassert} %{<fno-assert} \
 		   %{<femit-class-file} %{<femit-class-files} %{<fencoding*}\
 		   %{<fuse-boehm-gc} %{<fhash-synchronization} %{<fjni}\
 		   %{<findirect-dispatch} \
@@ -88,8 +88,8 @@ find_spec_file (dir)
   int x;
   struct stat sb;
 
-  spec = (char *) xmalloc (strlen (dir) + sizeof (SPEC_FILE)
-			   + sizeof ("-specs=") + 4);
+  spec = xmalloc (strlen (dir) + sizeof (SPEC_FILE)
+		  + sizeof ("-specs=") + 4);
   strcpy (spec, "-specs=");
   x = strlen (spec);
   strcat (spec, dir);
@@ -148,7 +148,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 {
   int i, j;
 
-  /* If non-zero, the user gave us the `-v' flag.  */ 
+  /* If nonzero, the user gave us the `-v' flag.  */
   int saw_verbose_flag = 0;
 
   int saw_save_temps = 0;
@@ -188,7 +188,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   /* The new argument list will be contained in this.  */
   const char **arglist;
 
-  /* Non-zero if we saw a `-xfoo' language specification on the
+  /* Nonzero if we saw a `-xfoo' language specification on the
      command line.  Used to avoid adding our own -xc++ if the user
      already gave a language for the file.  */
   int saw_speclang = 0;
@@ -210,8 +210,8 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   int saw_libgcj ATTRIBUTE_UNUSED = 0;
 #endif
 
-  /* Saw -R, -C or -o options, respectively. */
-  int saw_R = 0;
+  /* Saw --resource, -C or -o options, respectively. */
+  int saw_resource = 0;
   int saw_C = 0;
   int saw_o = 0;
 
@@ -238,10 +238,10 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   /* The total number of arguments with the new stuff.  */
   int num_args = 1;
 
-  /* Non-zero if linking is supposed to happen.  */
+  /* Nonzero if linking is supposed to happen.  */
   int will_link = 1;
 
-  /* Non-zero if we want to find the spec file.  */
+  /* Nonzero if we want to find the spec file.  */
   int want_spec_file = 1;
 
   /* The argument we use to specify the spec file.  */
@@ -251,7 +251,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   argv = *in_argv;
   added_libraries = *in_added_libraries;
 
-  args = (int *) xcalloc (argc, sizeof (int));
+  args = xcalloc (argc, sizeof (int));
 
   for (i = 1; i < argc; i++)
     {
@@ -303,13 +303,12 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	      library = 0;
 	      will_link = 0;
 	    }
-	  else if (strcmp (argv[i], "-R") == 0)
+	  else if (strncmp (argv[i], "-fcompile-resource=", 19) == 0)
 	    {
-	      saw_R = 1;
-	      quote = argv[i];
+	      saw_resource = 1;
 	      want_spec_file = 0;
 	      if (library != 0)
-		added -= 2;
+		--added;
 	      library = 0;
 	      will_link = 0;
 	    }
@@ -382,7 +381,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	      continue;
 	    }
 
-	  if (saw_R)
+	  if (saw_resource)
 	    {
 	      args[i] |= RESOURCE_FILE_ARG;
 	      last_input_index = i;
@@ -430,10 +429,10 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
     fatal ("`%s' is not a valid class name", main_class_name);
 
   num_args = argc + added;
-  if (saw_R)
+  if (saw_resource)
     {
       if (! saw_o)
-	fatal ("-R requires -o");
+	fatal ("--resource requires -o");
     }
   if (saw_C)
     {
@@ -497,7 +496,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   
   num_args += shared_libgcc;
 
-  arglist = (const char **) xmalloc ((num_args + 1) * sizeof (char *));
+  arglist = xmalloc ((num_args + 1) * sizeof (char *));
   j = 0;
 
   for (i = 0; i < argc; i++, j++)
@@ -512,15 +511,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	  arglist[j++] = "-xjava";
 	  arglist[j++] = argv[i];
 	  arglist[j] = "-xnone";
-	}
-
-      if (strcmp (argv[i], "-R") == 0)
-	{
-	  arglist[j] = concat ("-fcompile-resource=",
-			       *argv[i+1] == '/' ? "" : "/",
-			       argv[i+1], NULL);
-	  i++;
-	  continue;
 	}
 
       if (strcmp (argv[i], "-classpath") == 0
@@ -642,3 +632,9 @@ lang_specific_pre_link ()
     }
   return err;
 }
+
+/* Table of language-specific spec functions.  */ 
+const struct spec_function lang_specific_spec_functions[] =
+{
+  { 0, 0 }
+};

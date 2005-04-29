@@ -34,10 +34,11 @@
 /* Macro for valid RC name characters*/
 #define isvalidrcname(x) ((!ispunct(x))&&isgraph(x))
 krb5_error_code KRB5_CALLCONV
-krb5_get_server_rcache(krb5_context context, const krb5_data *piece, krb5_rcache *rcptr)
+krb5_get_server_rcache(krb5_context context, const krb5_data *piece,
+		       krb5_rcache *rcptr)
 {
     krb5_rcache rcache = 0;
-    char *cachename = 0;
+    char *cachename = 0, *cachetype;
     char tmp[4];
     krb5_error_code retval;
     int p, i;
@@ -51,13 +52,7 @@ krb5_get_server_rcache(krb5_context context, const krb5_data *piece, krb5_rcache
     if (piece == NULL)
 	return ENOMEM;
     
-    rcache = (krb5_rcache) malloc(sizeof(*rcache));
-    if (!rcache)
-	return ENOMEM;
-    
-    retval = krb5_rc_resolve_type(context, &rcache, 
-				  krb5_rc_default_type(context));
-    if (retval) goto cleanup;
+    cachetype = krb5_rc_default_type(context);
 
     len = piece->length + 3 + 1;
     for (i = 0; i < piece->length; i++) {
@@ -73,13 +68,15 @@ krb5_get_server_rcache(krb5_context context, const krb5_data *piece, krb5_rcache
 	len++;
 #endif
     
-    cachename = malloc(len);
+    cachename = malloc(strlen(cachetype) + 5 + len);
     if (!cachename) {
 	retval = ENOMEM;
 	goto cleanup;
     }
-    strcpy(cachename, "rc_");
-    p = 3;
+    strcpy(cachename, cachetype);
+
+    p = strlen(cachename);
+    cachename[p++] = ':';
     for (i = 0; i < piece->length; i++) {
 	if (piece->data[i] == '-') {
 	    cachename[p++] = '-';
@@ -107,20 +104,19 @@ krb5_get_server_rcache(krb5_context context, const krb5_data *piece, krb5_rcache
 
     cachename[p++] = '\0';
 
-    if ((retval = krb5_rc_resolve(context, rcache, cachename)))
+    retval = krb5_rc_resolve_full(context, &rcache, cachename);
+    if (retval)
 	goto cleanup;
-    
+
     /*
      * First try to recover the replay cache; if that doesn't work,
      * initialize it.
      */
-    if (krb5_rc_recover(context, rcache)) {
-	if ((retval = krb5_rc_initialize(context, rcache,
-					 context->clockskew))) {
-	    krb5_rc_close(context, rcache);
-	    rcache = 0;
-	    goto cleanup;
-	}
+    retval = krb5_rc_recover_or_initialize(context, rcache, context->clockskew);
+    if (retval) {
+	krb5_rc_close(context, rcache);
+	rcache = 0;
+	goto cleanup;
     }
 
     *rcptr = rcache;

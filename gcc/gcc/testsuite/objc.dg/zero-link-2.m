@@ -1,11 +1,10 @@
-/* APPLE LOCAL file zero link */
 /* Check if the '-fno-zero-link' flag correctly _omits_ an objc_getClass() call. */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-fnext-runtime -fno-zero-link" } */
-/* { dg-do compile { target *-*-darwin* } } */
+/* { dg-do compile } */
 
-#import <objc/objc.h>
-#import <objc/Object.h>
+#include <objc/objc.h>
+#include <objc/Object.h>
 
 extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort();
@@ -26,4 +25,3 @@ int main(void) {
 
 /* { dg-final { scan-assembler "_OBJC_CLASS_REFERENCES_0" } } */
 /* { dg-final { scan-assembler-not "objc_getClass" } } */
-

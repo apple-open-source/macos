@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 2000-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 2000-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,6 +38,13 @@ package body SFN_Scan is
    use ASCII;
    --  Allow easy access to control character definitions
 
+   EOF : constant Character := ASCII.SUB;
+   --  The character SUB (16#1A#) is used in DOS and other systems derived
+   --  from DOS (OS/2, NT etc) to signal the end of a text file. If this
+   --  character appears as the last character of a file scanned by a call
+   --  to Scan_SFN_Pragmas, then it is ignored, otherwise it is treated as
+   --  an illegal character.
+
    type String_Ptr is access String;
 
    S : String_Ptr;
@@ -56,6 +62,11 @@ package body SFN_Scan is
    ----------------------
    -- Local Procedures --
    ----------------------
+
+   function Acquire_Integer return Natural;
+   --  This function skips white space, and then scans and returns
+   --  an unsigned integer. Raises Error if no integer is present
+   --  or if the integer is greater than 999.
 
    function Acquire_String (B : Natural; E : Natural) return String;
    --  This function takes a string scanned out by Scan_String, strips
@@ -122,6 +133,33 @@ package body SFN_Scan is
    --  Skips P past any white space characters (end of line
    --  characters, spaces, comments, horizontal tab characters).
 
+   ---------------------
+   -- Acquire_Integer --
+   ---------------------
+
+   function Acquire_Integer return Natural is
+      N : Natural := 0;
+
+   begin
+      Skip_WS;
+
+      if S (P) not in '0' .. '9' then
+         Error ("missing index parameter");
+      end if;
+
+      while S (P) in '0' .. '9' loop
+         N := N * 10 + Character'Pos (S (P)) - Character'Pos ('0');
+
+         if N > 999 then
+            Error ("index value greater than 999");
+         end if;
+
+         P := P + 1;
+      end loop;
+
+      return N;
+   end Acquire_Integer;
+
    --------------------
    -- Acquire_String --
    --------------------
@@ -185,7 +223,22 @@ package body SFN_Scan is
 
    function At_EOF return Boolean is
    begin
-      return P > S'Last;
+      --  Immediate return (False) if before last character of file
+
+      if P < S'Last then
+         return False;
+
+      --  Special case: DOS EOF character as last character of file is
+      --  allowed and treated as an end of file.
+
+      elsif P = S'Last then
+         return S (P) = EOF;
+
+      --  If beyond last character of file, then definitely at EOF
+
+      else
+         return True;
+      end if;
    end At_EOF;
 
    ---------------------
@@ -288,6 +341,10 @@ package body SFN_Scan is
 
       procedure Add_Nat (N : Natural);
       --  Add chars of integer to error msg buffer
+
+      -------------
+      -- Add_Nat --
+      -------------
 
       procedure Add_Nat (N : Natural) is
       begin
@@ -394,7 +451,10 @@ package body SFN_Scan is
 
          --  Source_File_Name pragma case
 
-         if Check_Token ("source_file_name") then
+         if Check_Token ("source_file_name")
+              or else
+             Check_Token ("source_file_name_project")
+         then
             Require_Token ("(");
 
             Typ := Check_File_Type;
@@ -422,11 +482,24 @@ package body SFN_Scan is
 
                   declare
                      F : constant String := Acquire_String (B, E);
+                     X : Natural;
 
                   begin
+                     --  Scan Index parameter if present
+
+                     if Check_Token (",") then
+                        if Check_Token ("index") then
+                           Require_Token ("=>");
+                        end if;
+
+                        X := Acquire_Integer;
+                     else
+                        X := 0;
+                     end if;
+
                      Require_Token (")");
                      Require_Token (";");
-                     SFN_Ptr.all (Typ, U, F);
+                     SFN_Ptr.all (Typ, U, F, X);
                   end;
                end;
 

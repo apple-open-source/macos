@@ -99,10 +99,10 @@ struct	aclent	*next;
 };
 
 __BEGIN_DECLS
-int		acl_check_host __P((struct in_addr *));
-int		acl_init __P((char *));
-int		acl_securenet __P((char *));
-void		acl_reset __P((void));
+int		yp_acl_check_host __P((struct in_addr *));
+int		yp_acl_init __P((char *));
+int		yp_acl_securenet __P((char *));
+void		yp_acl_reset __P((void));
 __END_DECLS
 
 #endif /* !_ACL_H_ */

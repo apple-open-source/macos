@@ -132,6 +132,7 @@
 #undef HAVE_READDIR_R
 #undef HAVE_GETHOSTBYNAME_R
 #undef HAVE_GETHOSTBYADDR_R
+#undef HAVE_FTRUNCATE
 
 /* Define if you want a bytecode interpreter.  */
 #undef INTERPRETER
@@ -174,11 +175,14 @@
 /* Define if you are using JVMPI.  */
 #undef ENABLE_JVMPI
 
+/* Define if your platform has a working backtrace() function.  */
+#undef HAVE_BACKTRACE
+
+/* Define if your platform has the global _timezone variable.  */
+#undef HAVE_UNDERSCORE_TIMEZONE
+
 /* Define if you have the access function.  */
 #undef HAVE_ACCESS
-
-/* Define if you have the backtrace function.  */
-#undef HAVE_BACKTRACE
 
 /* Define if you have the chmod function.  */
 #undef HAVE_CHMOD
@@ -197,6 +201,9 @@
 
 /* Define if you have the ftime function.  */
 #undef HAVE_FTIME
+
+/* Define if you have the ftruncate function.  */
+#undef HAVE_FTRUNCATE
 
 /* Define if you have the getcwd function.  */
 #undef HAVE_GETCWD
@@ -336,6 +343,9 @@
 /* Define if you have the <locale.h> header file.  */
 #undef HAVE_LOCALE_H
 
+/* Define if you have the <net/if.h> header file.  */
+#undef HAVE_NET_IF_H
+
 /* Define if you have the <netdb.h> header file.  */
 #undef HAVE_NETDB_H
 
@@ -384,6 +394,9 @@
 /* Define if the compiler is configured for setjmp/longjmp exceptions. */
 #undef SJLJ_EXCEPTIONS
 
+/* Indicate that linker is not able to 8-byte align static data */
+#undef JV_LINKER_CANNOT_8BYTE_ALIGN_STATICS
+
 /* Required define if using POSIX threads */
 #undef _REENTRANT
 
@@ -414,7 +427,7 @@
 /* The number of bytes in type void * */
 #undef SIZEOF_VOID_P
 
-/* Short GCJ version */
+/* Short GCJ version ID */
 #undef GCJVERSION
 
 /* Define if <inttypes.h> is available */

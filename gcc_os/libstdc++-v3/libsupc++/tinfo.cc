@@ -1,5 +1,5 @@
 // Methods for type_info for -*- C++ -*- Run Time Type Identification.
-// Copyright (C) 1994, 1996, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1994, 1996, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation
 //
 // This file is part of GNU CC.
@@ -28,6 +28,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+#include <bits/c++config.h>
 #include <cstddef>
 #include "tinfo.h"
 #include "new"			// for placement new
@@ -91,12 +92,28 @@ namespace {
 using namespace std;
 using namespace abi;
 
-// initial part of a vtable, this structure is used with offsetof, so we don't
+// Initial part of a vtable, this structure is used with offsetof, so we don't
 // have to keep alignments consistent manually.
-struct vtable_prefix {
-  ptrdiff_t whole_object;           // offset to most derived object
-  const __class_type_info *whole_type;  // pointer to most derived type_info
-  const void *origin;               // what a class's vptr points to
+struct vtable_prefix 
+{
+  // Offset to most derived object.
+  ptrdiff_t whole_object;
+
+  // Additional padding if necessary.
+#ifdef _GLIBCPP_VTABLE_PADDING
+  ptrdiff_t padding1;               
+#endif
+
+  // Pointer to most derived type_info.
+  const __class_type_info *whole_type;  
+
+  // Additional padding if necessary.
+#ifdef _GLIBCPP_VTABLE_PADDING
+  ptrdiff_t padding2;               
+#endif
+
+  // What a class's vptr points to.
+  const void *origin;               
 };
 
 template <typename T>
@@ -295,7 +312,7 @@ __do_find_public_src (ptrdiff_t src2dst,
         }
       base = convert_to_base (base, is_virtual, offset);
       
-      __sub_kind base_kind = __base_info[i].__base->__do_find_public_src
+      __sub_kind base_kind = __base_info[i].__base_type->__do_find_public_src
                               (src2dst, base, src_type, src_ptr);
       if (contained_p (base_kind))
         {
@@ -432,7 +449,7 @@ __do_dyncast (ptrdiff_t src2dst,
         }
       
       bool result2_ambig
-          = __base_info[i].__base->__do_dyncast (src2dst, base_access,
+          = __base_info[i].__base_type->__do_dyncast (src2dst, base_access,
                                              dst_type, base,
                                              src_type, src_ptr, result2);
       result.whole2src = __sub_kind (result.whole2src | result2.whole2src);
@@ -465,8 +482,9 @@ __do_dyncast (ptrdiff_t src2dst,
           result.whole2dst =
               __sub_kind (result.whole2dst | result2.whole2dst);
         }
-      else if ((result.dst_ptr != 0 | result_ambig)
-               && (result2.dst_ptr != 0 | result2_ambig))
+      else if ((result.dst_ptr != 0 & result2.dst_ptr != 0)
+	       || (result.dst_ptr != 0 & result2_ambig)
+	       || (result2.dst_ptr != 0 & result_ambig))
         {
           // Found two different DST_TYPE bases, or a valid one and a set of
           // ambiguous ones, must disambiguate. See whether SRC_PTR is
@@ -616,10 +634,10 @@ __do_upcast (const __class_type_info *dst, const void *obj_ptr,
       if (base)
         base = convert_to_base (base, is_virtual, offset);
       
-      if (__base_info[i].__base->__do_upcast (dst, base, result2))
+      if (__base_info[i].__base_type->__do_upcast (dst, base, result2))
         {
           if (result2.base_type == nonvirtual_base_type && is_virtual)
-            result2.base_type = __base_info[i].__base;
+            result2.base_type = __base_info[i].__base_type;
           if (contained_p (result2.part2dst) && !is_public)
             result2.part2dst = __sub_kind (result2.part2dst & ~__contained_public_mask);
           

@@ -25,6 +25,9 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOReturn.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 /* Keys for the CFDictionary used to communicate with the UPS preferences.
  * Caller must wrap these with CFStrings.
@@ -89,5 +92,7 @@ IOReturn IOPMSetUPSShutdownLevels(CFTypeRef whichUPS, CFDictionaryRef UPSPrefs);
     If NULL is returned, no matching UPS was found.
      */
 CFDictionaryRef IOPMCopyUPSShutdownLevels(CFTypeRef whichUPS);
+
+__END_DECLS
 
 #endif

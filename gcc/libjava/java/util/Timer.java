@@ -376,7 +376,7 @@ public class Timer
 
   // Number of Timers created.
   // Used for creating nice Thread names.
-  private static int nr = 0;
+  private static int nr;
 
   // The queue that all the tasks are put in.
   // Given to the scheduler
@@ -601,7 +601,7 @@ public class Timer
    * Tells the scheduler that the Timer task died
    * so there will be no more new tasks scheduled.
    */
-  protected void finalize()
+  protected void finalize() throws Throwable
   {
     queue.setNullOnEmpty(true);
   }

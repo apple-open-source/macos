@@ -33,7 +33,6 @@
  *	Created.
  */
  
-#define KERNEL_PRIVATE	1
 /*
  * Headers
  */
@@ -45,6 +44,19 @@
 #define UNIX_SYSCALL_TRAP	lcall	$0x2b, $0
 #define MACHDEP_SYSCALL_TRAP	lcall	$0x7, $0
 
+
+/*
+ * This is the same as UNIX_SYSCALL, but it can call an alternate error
+ * return function.  It's generic to support potential future callers.
+ */
+#define UNIX_SYSCALL_ERR(name, nargs,error_ret)		\
+	.globl	error_ret				;\
+LEAF(_##name, 0)					;\
+	movl	$ SYS_##name, %eax			;\
+	UNIX_SYSCALL_TRAP				;\
+	jnb	2f					;\
+	BRANCH_EXTERN(error_ret)  			;\
+2:
 
 #define UNIX_SYSCALL(name, nargs)			\
 	.globl	cerror					;\
@@ -87,5 +99,11 @@ LEAF(_##pseudo, 0)					;\
 #define SYS_shmctl      263
 #define SYS_shmdt       264
 #define SYS_shmget      265
+#endif
+
+#if !defined(SYS___pthread_canceled)
+#define SYS___pthread_markcancel	332
+#define SYS___pthread_canceled		333
+#define SYS___semwait_signal		334
 #endif
 

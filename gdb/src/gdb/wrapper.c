@@ -490,50 +490,21 @@ wrap_varobj_get_value (char *a)
   return 1;
 }
 
-static int
-wrap_execute_command (char *a)
-{
-  struct gdb_wrapper_arguments *args = (struct gdb_wrapper_arguments *) a;
-
-  char *command = (char *) args->args[0].pointer;
-  int from_tty = args->args[1].integer;
-
-  execute_command (command, from_tty);
-  return 1;
-
-}
-
-int
-safe_execute_command (char *command, int from_tty)
-{
-  struct gdb_wrapper_arguments args;
-  args.args[0].pointer = command;
-  args.args[1].integer = from_tty;
-
-  if (!catch_errors ((catch_errors_ftype *) wrap_execute_command, &args,
-		     "", RETURN_MASK_ALL))
-    {
-      /* An error occurred */
-      return 0;
-    }
-
-    return 1;
-}
-
 static int 
 wrap_value_objc_target_type (char *a)
 {
   struct gdb_wrapper_arguments *args = (struct gdb_wrapper_arguments *) a;
 
   struct value * val = (struct val *) args->args[0].pointer;
+  struct block * block = (struct block *) args->args[1].pointer;
 
-  (args)->result.pointer = value_objc_target_type (val);
+  (args)->result.pointer = value_objc_target_type (val, block);
 
   return 1;
 }
 
 int
-safe_value_objc_target_type (struct value *val, struct type **dynamic_type)
+safe_value_objc_target_type (struct value *val, struct block *block, struct type **dynamic_type)
 {
   struct gdb_wrapper_arguments args;
   struct ui_file *saved_gdb_stderr;
@@ -550,6 +521,7 @@ safe_value_objc_target_type (struct value *val, struct type **dynamic_type)
   gdb_stderr = null_stderr;
 
   args.args[0].pointer = val;
+  args.args[1].pointer = block;
 
   if (!catch_errors ((catch_errors_ftype *) wrap_value_objc_target_type, &args,
 		     "", RETURN_MASK_ALL))

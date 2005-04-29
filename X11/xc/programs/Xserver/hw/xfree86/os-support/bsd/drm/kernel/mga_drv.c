@@ -27,26 +27,14 @@
  * Authors:
  *    Rickard E. (Rik) Faith <faith@valinux.com>
  *    Gareth Hughes <gareth@valinux.com>
+ *
  */
-
-#include <sys/types.h>
 
 #include "mga.h"
 #include "drmP.h"
 #include "drm.h"
 #include "mga_drm.h"
 #include "mga_drv.h"
-
-/* List acquired from http://www.yourvote.com/pci/pcihdr.h and xc/xc/programs/Xserver/hw/xfree86/common/xf86PciInfo.h
- * Please report to anholt@teleport.com inaccuracies or if a chip you have works that is marked unsupported here.
- */
-drm_chipinfo_t DRM(devicelist)[] = {
-	{0x102b, 0x0520, 0, "Matrox G200 (PCI)"},
-	{0x102b, 0x0521, 1, "Matrox G200 (AGP)"},
-	{0x102b, 0x0525, 1, "Matrox G400/G450 (AGP)"},
-	{0x102b, 0x2527, 1, "Matrox G550 (AGP)"},
-	{0, 0, 0, NULL}
-};
 
 #include "drm_agpsupport.h"
 #include "drm_auth.h"
@@ -56,11 +44,15 @@ drm_chipinfo_t DRM(devicelist)[] = {
 #include "drm_drawable.h"
 #include "drm_drv.h"
 #include "drm_fops.h"
-#include "drm_init.h"
 #include "drm_ioctl.h"
+#include "drm_irq.h"
 #include "drm_lock.h"
 #include "drm_memory.h"
 #include "drm_vm.h"
 #include "drm_sysctl.h"
 
+#ifdef __FreeBSD__
 DRIVER_MODULE(mga, pci, mga_driver, mga_devclass, 0, 0);
+#elif defined(__NetBSD__)
+CFDRIVER_DECL(mga, DV_TTY, NULL);
+#endif

@@ -1,0 +1,50 @@
+
+
+              tDOM - a XML/DOM/XPath/XSLT implementation for Tcl
+                          (Version 0.8.0 alpha)
+
+		    Jochen Loewer (loewerj@hotmail.com)
+                       Rolf Ade (rolf@pointsman.de)
+
+                       with some contributions by:
+
+                 Zoran Vasiljevic (zoran@archiware.com)
+                
+
+This file contains some remarks about using tDOM package under the 
+AOLserver, a webserver from America Online. 
+For general information, look in the "README" file in this directory.
+
+
+COMPILING tDOM
+--------------
+
+    Change to "unix" directory, edit the CONFIG file to select
+    the correct configuration defaults and then do:
+
+        sh CONFIG
+        make
+
+    Depending on wether you use the AOLserver 3.x or 4.x series, you
+    need to install the library in a different way.
+
+    For AOLserver 3.x:
+
+      This builds the library as AOLserver module. Please consult
+      the AOLserver documentation how to setup the server to load 
+      AOLserver module(s).
+
+    For AOLserver 4.x:
+
+      This version supports standard Tcl "pacakge require" mechanism
+      so you can just:
+
+        make install
+
+      and it will install the library in the proper place. All you
+      need to do then is to use "ns_eval package require tdom" to
+      load the library and register it for every connection thread.
+      You should add this command to some of the Tcl startup files
+      in modules/tcl, so it loads the library on server startup. 
+
+- EOF -

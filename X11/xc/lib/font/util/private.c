@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/util/private.c,v 1.8 2001/12/14 19:56:57 dawes Exp $ */
+/* $XFree86: xc/lib/font/util/private.c,v 1.9 2003/02/27 22:19:20 tsi Exp $ */
 
 /*
  * Author:  Keith Packard, MIT X Consortium
@@ -51,9 +51,9 @@ CreateFontRec (void)
     size = sizeof(FontRec) + (sizeof(pointer) * _FontPrivateAllocateIndex);
 
     pFont = (FontPtr)xalloc(size);
-    bzero((char*)pFont, size);
     
     if(pFont) {
+	bzero((char*)pFont, size);
 	pFont->maxPrivate = _FontPrivateAllocateIndex - 1;
 	if(_FontPrivateAllocateIndex)
 	    pFont->devPrivates = (pointer)(&pFont[1]);
@@ -62,7 +62,8 @@ CreateFontRec (void)
     return pFont;
 }
 
-void DestroyFontRec (FontPtr pFont)
+void
+DestroyFontRec (FontPtr pFont)
 {
    if (pFont->devPrivates && pFont->devPrivates != (pointer)(&pFont[1]))
 	xfree(pFont->devPrivates);

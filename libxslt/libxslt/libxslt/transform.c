@@ -1017,17 +1017,8 @@ xsltCopyTree(xsltTransformContextPtr ctxt, xmlNodePtr node,
 	if ((node->type == XML_ELEMENT_NODE) ||
 	    (node->type == XML_ATTRIBUTE_NODE)) {
 	    xmlNsPtr *nsList, *cur, ns;
-	    if (node->ns != NULL)
-		copy->ns = xsltGetNamespace(ctxt, node, node->ns, copy);
-	    else if ((insert->type == XML_ELEMENT_NODE) && (insert->ns != NULL)) {
-		xmlNsPtr defaultNs;
-
-		defaultNs = xmlSearchNs(insert->doc, insert, NULL);
-		if (defaultNs != NULL)
-		    xmlNewNs(copy, BAD_CAST "", NULL);
-	    }
 	    /*
-	     * must also add in any new namespaces in scope for the node
+	     * must add in any new namespaces in scope for the node
 	     */
 	    nsList = xmlGetNsList(node->doc, node);
 	    if (nsList != NULL) {
@@ -1039,6 +1030,15 @@ xsltCopyTree(xsltTransformContextPtr ctxt, xmlNodePtr node,
 		    cur++;
 		}
 		xmlFree(nsList);
+	    }
+	    if (node->ns != NULL)
+		copy->ns = xsltGetNamespace(ctxt, node, node->ns, copy);
+	    else if ((insert->type == XML_ELEMENT_NODE) && (insert->ns != NULL)) {
+		xmlNsPtr defaultNs;
+
+		defaultNs = xmlSearchNs(insert->doc, insert, NULL);
+		if (defaultNs != NULL)
+		    xmlNewNs(copy, BAD_CAST "", NULL);
 	    }
 	}
 	if (node->nsDef != NULL) {
@@ -1566,7 +1566,7 @@ xsltApplyOneTemplate(xsltTransformContextPtr ctxt, xmlNodePtr node,
                      */
                     ctxt->insert = insert;
                     if (!xsltApplyFallbacks(ctxt, node, cur)) {
-                        xsltGenericError(xsltGenericDebugContext,
+                        xsltGenericError(xsltGenericErrorContext,
                                          "xsltApplyOneTemplate: %s was not compiled\n",
                                          cur->name);
                     }
@@ -1601,7 +1601,7 @@ xsltApplyOneTemplate(xsltTransformContextPtr ctxt, xmlNodePtr node,
             } else if (IS_XSLT_NAME(cur, "message")) {
                 xsltMessage(ctxt, node, cur);
             } else {
-                xsltGenericError(xsltGenericDebugContext,
+                xsltGenericError(xsltGenericErrorContext,
                                  "xsltApplyOneTemplate: problem with xsl:%s\n",
                                  cur->name);
             }
@@ -3083,11 +3083,11 @@ xsltCallTemplate(xsltTransformContextPtr ctxt, xmlNodePtr node,
 		    params = param;
 		}
 	    } else {
-		xsltGenericError(xsltGenericDebugContext,
+		xsltGenericError(xsltGenericErrorContext,
 		     "xsl:call-template: misplaced xsl:%s\n", cur->name);
 	    }
 	} else {
-	    xsltGenericError(xsltGenericDebugContext,
+	    xsltGenericError(xsltGenericErrorContext,
 		 "xsl:call-template: misplaced %s element\n", cur->name);
 	}
 	cur = cur->next;
@@ -3329,17 +3329,17 @@ xsltApplyTemplates(xsltTransformContextPtr ctxt, xmlNodePtr node,
 		}
 	    } else if (IS_XSLT_NAME(cur, "sort")) {
 		if (nbsorts >= XSLT_MAX_SORT) {
-		    xsltGenericError(xsltGenericDebugContext,
+		    xsltGenericError(xsltGenericErrorContext,
 			"xsl:apply-template: %s too many sort\n", node->name);
 		} else {
 		    sorts[nbsorts++] = cur;
 		}
 	    } else {
-		xsltGenericError(xsltGenericDebugContext,
+		xsltGenericError(xsltGenericErrorContext,
 		    "xsl:apply-template: misplaced xsl:%s\n", cur->name);
 	    }
         } else {
-            xsltGenericError(xsltGenericDebugContext,
+            xsltGenericError(xsltGenericErrorContext,
                  "xsl:apply-template: misplaced %s element\n", cur->name);
         }
         cur = cur->next;
@@ -3703,7 +3703,7 @@ xsltForEach(xsltTransformContextPtr ctxt, xmlNodePtr node,
     replacement = inst->children;
     while (IS_XSLT_ELEM(replacement) && (IS_XSLT_NAME(replacement, "sort"))) {
 	if (nbsorts >= XSLT_MAX_SORT) {
-	    xsltGenericError(xsltGenericDebugContext,
+	    xsltGenericError(xsltGenericErrorContext,
 		"xsl:for-each: too many sorts\n");
 	} else {
 	    sorts[nbsorts++] = replacement;

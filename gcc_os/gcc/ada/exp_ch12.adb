@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1997-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -62,7 +61,8 @@ package body Exp_Ch12 is
              Condition =>
                Make_Op_Not (Loc,
                  Right_Opnd =>
-                   New_Occurrence_Of (Elaboration_Entity (Ent), Loc))));
+                   New_Occurrence_Of (Elaboration_Entity (Ent), Loc)),
+             Reason => PE_Access_Before_Elaboration));
       end if;
    end Expand_N_Generic_Instantiation;
 

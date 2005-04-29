@@ -42,15 +42,15 @@
  * for file command by Ian Darwin.
  */
 
-#include "magic.h"
 #include "file.h"
+#include "magic.h"
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
 #include "tar.h"
 
 #ifndef lint
-FILE_RCSID("@(#)$Id: is_tar.c,v 1.1 2003/07/02 18:01:22 eseidel Exp $")
+FILE_RCSID("@(#)$Id: is_tar.c,v 1.24 2003/11/11 20:01:46 christos Exp $")
 #endif
 
 #define	isodigit(c)	( ((c) >= '0') && ((c) <= '7') )
@@ -104,7 +104,7 @@ is_tar(const unsigned char *buf, size_t nbytes)
 	p = header->charptr;
 	for (i = sizeof(union record); --i >= 0;) {
 		/*
-		 * We can't use unsigned char here because of old compilers,
+		 * We cannot use unsigned char here because of old compilers,
 		 * e.g. V7.
 		 */
 		sum += 0xFF & *p++;

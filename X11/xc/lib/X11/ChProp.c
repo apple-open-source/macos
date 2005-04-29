@@ -24,12 +24,11 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/ChProp.c,v 1.4 2001/12/14 19:53:57 dawes Exp $ */
+/* $XFree86: xc/lib/X11/ChProp.c,v 1.5 2003/11/17 22:20:06 dawes Exp $ */
 
 #include "Xlibint.h"
 
 int
-#if NeedFunctionPrototypes
 XChangeProperty (
     register Display *dpy,
     Window w,
@@ -39,16 +38,6 @@ XChangeProperty (
     int mode,  /* PropModeReplace, PropModePrepend, PropModeAppend */
     _Xconst unsigned char *data,
     int nelements)
-#else
-XChangeProperty (dpy, w, property, type, format, mode, data, nelements)
-    register Display *dpy;
-    Window w;
-    Atom property, type;
-    int format;  /* 8, 16, or 32 */
-    int mode;  /* PropModeReplace, PropModePrepend, PropModeAppend */
-    unsigned char *data;
-    int nelements;
-#endif
     {
     register xChangePropertyReq *req;
     register long len;

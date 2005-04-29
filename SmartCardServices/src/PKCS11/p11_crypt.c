@@ -1,6 +1,6 @@
 /******************************************************************************
 ** 
-**  $Id: p11_crypt.c,v 1.2 2003/02/13 20:06:37 ghoo Exp $
+**  $Id: p11_crypt.c,v 1.3 2004/10/14 20:33:36 mb Exp $
 **
 **  Package: PKCS-11
 **  Author : Chris Osgood <oznet@mac.com>
@@ -300,6 +300,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
 
         t_data1 = (CK_BYTE *)malloc(key->msc_key->keySize / 8);
         t_data2 = (CK_BYTE *)malloc(key->msc_key->keySize / 8);
+        t_data2_len = key->msc_key->keySize / 8;   /* FIX - bugzilla 1701 */
 
         if (!t_data1 || !t_data2)
             rv = CKR_HOST_MEMORY;

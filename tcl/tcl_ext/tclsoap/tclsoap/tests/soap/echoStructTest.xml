@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<SOAP-ENV:Envelope SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/1999/XMLSchema" xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance">
+	<SOAP-ENV:Body>
+		<echoStructTest>
+			<myStruct>
+				<substruct0>
+					<curly xsi:type="xsd:int">-48</curly>
+					<larry xsi:type="xsd:int">57</larry>
+					<moe xsi:type="xsd:int">75</moe>
+					</substruct0>
+				<substruct1>
+					<curly xsi:type="xsd:int">-99</curly>
+					<larry xsi:type="xsd:int">51</larry>
+					<moe xsi:type="xsd:int">49</moe>
+					</substruct1>
+				<substruct2>
+					<curly xsi:type="xsd:int">-73</curly>
+					<larry xsi:type="xsd:int">20</larry>
+					<moe xsi:type="xsd:int">33</moe>
+					</substruct2>
+				<substruct3>
+					<curly xsi:type="xsd:int">-74</curly>
+					<larry xsi:type="xsd:int">1</larry>
+					<moe xsi:type="xsd:int">58</moe>
+					</substruct3>
+				<substruct4>
+					<curly xsi:type="xsd:int">-42</curly>
+					<larry xsi:type="xsd:int">57</larry>
+					<moe xsi:type="xsd:int">34</moe>
+					</substruct4>
+				<substruct5>
+					<curly xsi:type="xsd:int">-84</curly>
+					<larry xsi:type="xsd:int">95</larry>
+					<moe xsi:type="xsd:int">69</moe>
+					</substruct5>
+				<substruct6>
+					<curly xsi:type="xsd:int">-13</curly>
+					<larry xsi:type="xsd:int">11</larry>
+					<moe xsi:type="xsd:int">93</moe>
+					</substruct6>
+				<substruct7>
+					<curly xsi:type="xsd:int">-3</curly>
+					<larry xsi:type="xsd:int">23</larry>
+					<moe xsi:type="xsd:int">56</moe>
+					</substruct7>
+				<substruct8>
+					<curly xsi:type="xsd:int">-42</curly>
+					<larry xsi:type="xsd:int">24</larry>
+					<moe xsi:type="xsd:int">27</moe>
+					</substruct8>
+				<substruct9>
+					<curly xsi:type="xsd:int">-19</curly>
+					<larry xsi:type="xsd:int">16</larry>
+					<moe xsi:type="xsd:int">77</moe>
+					</substruct9>
+				</myStruct>
+			</echoStructTest>
+		</SOAP-ENV:Body>
+	</SOAP-ENV:Envelope>

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XGFDBase.man,v 1.2 2001/01/27 18:19:59 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XGFDBase.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,37 +144,22 @@
 .SH NAME
 XrmGetFileDatabase, XrmPutFileDatabase, XrmGetStringDatabase, XrmLocaleOfDatabase, XrmGetDatabase, XrmSetDatabase, XrmDestroyDatabase \- retrieve and store resource databases
 .SH SYNTAX
-XrmDatabase XrmGetFileDatabase\^(\^\fIfilename\fP\^)
-.br
-     char *\fIfilename\fP\^;
-.LP
-void XrmPutFileDatabase\^(\^\fIdatabase\fP, \fIstored_db\fP\^)
-.br
-     XrmDatabase \fIdatabase\fP\^;
-.br
-     char *\fIstored_db\fP\^;
-.LP
-XrmDatabase XrmGetStringDatabase\^(\^\fIdata\fP\^)
-.br
-     char *\fIdata\fP\^;
-.LP
-char *XrmLocaleOfDatabase\^(\^\fIdatabase\fP\^)
-.br
-      XrmDatabase \fIdatabase\fP\^;
-.LP
-XrmDatabase XrmGetDatabase\^(\^\fIdisplay\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.LP
-void XrmSetDatabase\^(\^\fIdisplay\fP\^, \fIdatabase\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XrmDatabase \fIdatabase\fP\^;
-.LP
-void XrmDestroyDatabase\^(\^\fIdatabase\fP\^)
-.br
-      XrmDatabase \fIdatabase\fP\^;
+.HP
+XrmDatabase XrmGetFileDatabase\^(\^char *\fIfilename\fP\^); 
+.HP
+void XrmPutFileDatabase\^(\^XrmDatabase \fIdatabase\fP\^, char
+*\fIstored_db\fP\^); 
+.HP
+XrmDatabase XrmGetStringDatabase\^(\^char *\fIdata\fP\^, 
+.HP
+char *XrmLocaleOfDatabase\^(\^XrmDatabase \fIdatabase\fP\^); 
+.HP
+XrmDatabase XrmGetDatabase\^(\^Display *\fIdisplay\fP\^); 
+.HP
+void XrmSetDatabase\^(\^Display *\fIdisplay\fP\^, XrmDatabase
+\fIdatabase\fP\^); 
+.HP
+void XrmDestroyDatabase\^(\^XrmDatabase \fIdatabase\fP\^); 
 .SH ARGUMENTS
 .IP \fIfilename\fP 1i
 Specifies the resource database file name.

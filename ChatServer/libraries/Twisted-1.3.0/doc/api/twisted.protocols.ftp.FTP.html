@@ -1,0 +1,1019 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.ftp.FTP</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.protocols.html">Package&nbsp;protocols</a> ::
+        <a href="twisted.protocols.ftp.html">Module&nbsp;ftp</a> ::
+        Class&nbsp;FTP
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.protocols.ftp.FTP.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class FTP</h2>
+
+<pre class="base-tree">
+<a href="twisted.internet.protocol.BaseProtocol.html"><code>BaseProtocol</code></a> --+        
+               |        
+        <a href="twisted.internet.protocol.Protocol.html"><code>Protocol</code></a> --+    
+                   |    
+        <a href="twisted.protocols.basic.LineReceiver.html"><code>LineReceiver</code></a> --+
+                       |
+              <code>object</code> --+
+                       |
+        <a href="twisted.protocols.policies.TimeoutMixin.html"><code>TimeoutMixin</code></a> --+
+                       |
+                      <b>FTP</b>
+</pre><br />
+
+<hr/>
+
+Protocol Interpreter for the File Transfer Protocol
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__testingautologin"></a><span class="summary-sig"><span class="summary-sig-name">__testingautologin</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#_cbAnonLogin" class="summary-sig-name"><code>_cbAnonLogin</code></a>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>interface</span>,
+           <span class=summary-sig-arg>avatar</span>,
+           <span class=summary-sig-arg>logout</span>))</span></code>
+<br />
+sets up anonymous login avatar</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#_cbDTPCommand" class="summary-sig-name"><code>_cbDTPCommand</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+called back when any DTP command has completed successfully</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#_cbLogin" class="summary-sig-name"><code>_cbLogin</code></a>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>interface</span>,
+           <span class=summary-sig-arg>avatar</span>,
+           <span class=summary-sig-arg>logout</span>))</span></code>
+<br />
+sets up authorized user login avatar</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_createDTP"></a><span class="summary-sig"><span class="summary-sig-name">_createDTP</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_doDTPCommand"></a><span class="summary-sig"><span class="summary-sig-name">_doDTPCommand</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>cmd</span>,
+          <span class="summary-sig-vararg">*arg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_ebDTP"></a><span class="summary-sig"><span class="summary-sig-name">_ebDTP</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_ebLogin"></a><span class="summary-sig"><span class="summary-sig-name">_ebLogin</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_unblock"></a><span class="summary-sig"><span class="summary-sig-name">_unblock</span>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*_</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#cleanupDTP" class="summary-sig-name"><code>cleanupDTP</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+call when DTP connection exits</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="connectionLost"></a><span class="summary-sig"><span class="summary-sig-name">connectionLost</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#connectionMade" class="summary-sig-name"><code>connectionMade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when a connection is made.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#decodeHostPort" class="summary-sig-name"><code>decodeHostPort</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Decode an FTP response specifying a host and port.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#finishedFileTransfer" class="summary-sig-name"><code>finishedFileTransfer</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*arg</span>)</span></code>
+<br />
+called back when a file transfer has been completed by the dtp</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_CDUP"></a><span class="summary-sig"><span class="summary-sig-name">ftp_CDUP</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_CWD"></a><span class="summary-sig"><span class="summary-sig-name">ftp_CWD</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#ftp_LIST" class="summary-sig-name"><code>ftp_LIST</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+This command causes a list to be sent from the server to the passive 
+DTP.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_MDTM"></a><span class="summary-sig"><span class="summary-sig-name">ftp_MDTM</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_MODE"></a><span class="summary-sig"><span class="summary-sig-name">ftp_MODE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#ftp_PASS" class="summary-sig-name"><code>ftp_PASS</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Authorize the USER and the submitted password
+
+from the rfc:
+    The argument field is a Telnet string specifying the user's
+    password.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#ftp_PASV" class="summary-sig-name"><code>ftp_PASV</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Request for a passive connection
+
+reply is in format 227 =h1,h2,h3,h4,p1,p2
+
+from the rfc:
+    This command requests the server-DTP to &quot;listen&quot; on a data
+    port (which is not its default data port) and to wait for a
+    connection rather than initiate one upon receipt of a
+    transfer command.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_PORT"></a><span class="summary-sig"><span class="summary-sig-name">ftp_PORT</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#ftp_PWD" class="summary-sig-name"><code>ftp_PWD</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Print working directory command</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_QUIT"></a><span class="summary-sig"><span class="summary-sig-name">ftp_QUIT</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_RETR"></a><span class="summary-sig"><span class="summary-sig-name">ftp_RETR</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_SIZE"></a><span class="summary-sig"><span class="summary-sig-name">ftp_SIZE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_STRU"></a><span class="summary-sig"><span class="summary-sig-name">ftp_STRU</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_SYST"></a><span class="summary-sig"><span class="summary-sig-name">ftp_SYST</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ftp_TYPE"></a><span class="summary-sig"><span class="summary-sig-name">ftp_TYPE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#ftp_USER" class="summary-sig-name"><code>ftp_USER</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Get the login name, and reset the session
+PASS is expected to follow
+
+from the rfc:
+    The argument field is a Telnet string identifying the user.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#lineReceived" class="summary-sig-name"><code>lineReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Process the input from the client</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="processCommand"></a><span class="summary-sig"><span class="summary-sig-name">processCommand</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>cmd</span>,
+          <span class="summary-sig-vararg">*args</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#reply" class="summary-sig-name"><code>reply</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>key</span>,
+          <span class=summary-sig-arg>s</span>)</span></code>
+<br />
+format a RESPONSE and send it out over the wire</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="setTimeout"></a><span class="summary-sig"><span class="summary-sig-name">setTimeout</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>seconds</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTP.html#timeoutConnection" class="summary-sig-name"><code>timeoutConnection</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when the connection times out.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from object</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><span class="summary-sig-name">__init__</span>(...)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><span class="summary-sig-name">__delattr__</span>(...)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><span class="summary-sig-name">__getattribute__</span>(...)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><span class="summary-sig-name">__hash__</span>(...)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><span class="summary-sig-name">__reduce__</span>(...)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><span class="summary-sig-name">__repr__</span>(...)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><span class="summary-sig-name">__setattr__</span>(...)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><span class="summary-sig-name">__str__</span>(...)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from LineReceiver</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#clearLineBuffer" class="summary-sig-name"><code>clearLineBuffer</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Clear buffered data.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#dataReceived" class="summary-sig-name"><code>dataReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Protocol.dataReceived.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#lineLengthExceeded" class="summary-sig-name"><code>lineLengthExceeded</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Called when the maximum line length has been reached.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#rawDataReceived" class="summary-sig-name"><code>rawDataReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Override this for when raw data is received.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#sendLine" class="summary-sig-name"><code>sendLine</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Sends a line to the other end of the connection.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#setLineMode" class="summary-sig-name"><code>setLineMode</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>extra</span>)</span></code>
+<br />
+Sets the line-mode of this receiver.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#setRawMode" class="summary-sig-name"><code>setRawMode</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Sets the raw mode of this receiver.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Protocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Protocol.html#connectionFailed" class="summary-sig-name"><code>connectionFailed</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(Deprecated)</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.BaseProtocol.html#makeConnection" class="summary-sig-name"><code>makeConnection</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>transport</span>)</span></code>
+<br />
+Make a connection to a transport and a server.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from TimeoutMixin</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.policies.TimeoutMixin.html#resetTimeout" class="summary-sig-name"><code>resetTimeout</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Reset the timeout count down</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from type</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><span class="summary-sig-name">__new__</span>(...)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF INSTANCE VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Instance Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#binary"><code>binary</code></a></b>: The transfer mode.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#blocked"><code>blocked</code></a></b>: Command queue for command pipelining</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#dtpFactory"><code>dtpFactory</code></a></b>: Generates a single DTP for this session</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#dtpHostPort"><code>dtpHostPort</code></a></b>: cluient (address, port) to connect to on a PORT command</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#dtpInetPort"><code>dtpInetPort</code></a></b>: dtpPort.getHost()</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#dtpPort"><code>dtpPort</code></a></b>: Port returned from listenTCP</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#dtpTxfrMode"><code>dtpTxfrMode</code></a></b>: The current mode -- PASV or PORT</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#peerHost"><code>peerHost</code></a></b>: The (type, ip, port) of the client</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#shell"><code>shell</code></a></b>: The connected avatar</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#user"><code>user</code></a></b>: The username of the connected client</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class 'twisted.protocols.ftp.IDTPParent'&gt;, &lt;class twisted.internet.interfaces.IProtocol at 0x8278f0c&gt;)"><code>(&lt;class&nbsp;'twisted.protocols.ftp.IDTPPare<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>list</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#blockingCommands"><code>blockingCommands</code></a></b> = <span title="['RETR', 'STOR', 'LIST', 'PORT']"><code>['RETR',&nbsp;'STOR',&nbsp;'LIST',&nbsp;'PORT']      </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#dtpInstance"><code>dtpInstance</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#dtpTimeout"><code>dtpTimeout</code></a></b> = <span title="10">10&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#instanceNum"><code>instanceNum</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#portal"><code>portal</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>SRE_Pattern</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTP.html#reTelnetChars"><code>reTelnetChars</code></a></b> = <span title="&lt;_sre.SRE_Pattern object at 0x86ec228&gt;"><code><span class="re"><span class="re-group">(</span><span class="re-char">\\</span>x<span class="re-group">[</span>0<span class="re-group">-</span>9a<span class="re-group">-</span>f<span class="re-group">]</span><span class="re-op">{2}</span><span class="re-group">)</span><span class="re-op">+</span></span>                        </code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from LineReceiver</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#__buffer"><code>_LineReceiver__buffer</code></a></b> = <span title="''"><code><span class="variable-quote">'</span><span class="variable-quote">'</span>                               </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#delimiter"><code>delimiter</code></a></b>: The line-ending delimiter to use.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#line_mode"><code>line_mode</code></a></b> = <span title="1">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#MAX_LENGTH"><code>MAX_LENGTH</code></a></b>: The maximum length of a line to allow (If a sent line is longer than 
+this, the connection is dropped).</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#connected"><code>connected</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#transport"><code>transport</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from TimeoutMixin</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.policies.TimeoutMixin.html#__lastReceived"><code>_TimeoutMixin__lastReceived</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.policies.TimeoutMixin.html#__timeoutCall"><code>_TimeoutMixin__timeoutCall</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.policies.TimeoutMixin.html#timeOut"><code>timeOut</code></a></b>: The number of seconds after which to timeout the connection.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="_cbAnonLogin"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_cbAnonLogin</span>(<span class=sig-arg>self</span>,
+          (<span class=sig-arg>interface</span>,
+           <span class=sig-arg>avatar</span>,
+           <span class=sig-arg>logout</span>))</span>
+  </h3>
+  sets up anonymous login avatar
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_cbDTPCommand"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_cbDTPCommand</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  called back when any DTP command has completed successfully
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_cbLogin"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_cbLogin</span>(<span class=sig-arg>self</span>,
+          (<span class=sig-arg>interface</span>,
+           <span class=sig-arg>avatar</span>,
+           <span class=sig-arg>logout</span>))</span>
+  </h3>
+  sets up authorized user login avatar
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="cleanupDTP"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">cleanupDTP</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  call when DTP connection exits
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="connectionMade"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">connectionMade</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>Called when a connection is made.</p>
+  This may be considered the initializer of the protocol, because it 
+  is called when the connection is completed. For clients, this is called 
+  once the connection to the server has been established; for servers, 
+  this is called after an accept() call stops blocking and a socket has 
+  been received. If you need to send any greeting or initial message, do 
+  it here.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.internet.protocol.BaseProtocol.html#connectionMade"><code>twisted.internet.protocol.BaseProtocol.connectionMade</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="decodeHostPort"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">decodeHostPort</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  <p>Decode an FTP response specifying a host and port.</p>
+  see RFC sec. 4.1.2 &quot;PASV&quot;
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        a 2-tuple of (host, port).
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="finishedFileTransfer"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">finishedFileTransfer</span>(<span class=sig-arg>self</span>,
+          <span class="sig-vararg">*arg</span>)</span>
+  </h3>
+  called back when a file transfer has been completed by the dtp
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="ftp_LIST"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">ftp_LIST</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>params</span>=<span class=sig-default>''</span>)</span>
+  </h3>
+  This command causes a list to be sent from the server to the passive 
+  DTP. If the pathname specifies a directory or other group of files, the 
+  server should transfer a list of files in the specified directory. If 
+  the pathname specifies a file then the server should send current 
+  information on the file. A null argument implies the user's current 
+  working or default directory.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="ftp_PASS"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">ftp_PASS</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>params</span>=<span class=sig-default>''</span>)</span>
+  </h3>
+<pre class="literalblock">
+Authorize the USER and the submitted password
+
+from the rfc:
+    The argument field is a Telnet string specifying the user's
+    password.  This command must be immediately preceded by the
+    user name command, and, for some sites, completes the user's
+    identification for access control.
+</pre>
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="ftp_PASV"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">ftp_PASV</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+<pre class="literalblock">
+Request for a passive connection
+
+reply is in format 227 =h1,h2,h3,h4,p1,p2
+
+from the rfc:
+    This command requests the server-DTP to &quot;listen&quot; on a data
+    port (which is not its default data port) and to wait for a
+    connection rather than initiate one upon receipt of a
+    transfer command.  The response to this command includes the
+    host and port address this server is listening on.
+</pre>
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="ftp_PWD"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">ftp_PWD</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>params</span>=<span class=sig-default>''</span>)</span>
+  </h3>
+  Print working directory command
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="ftp_USER"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">ftp_USER</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+<pre class="literalblock">
+Get the login name, and reset the session
+PASS is expected to follow
+
+from the rfc:
+    The argument field is a Telnet string identifying the user.
+    The user identification is that which is required by the
+    server for access to its file system.  This command will
+    normally be the first command transmitted by the user after
+    the control connections are made
+
+    This has the effect of flushing any user, password, and account
+    information already supplied and beginning the login sequence
+    again.  All transfer parameters are unchanged and any file transfer
+    in progress is completed under the old access control parameters.
+</pre>
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="lineReceived"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">lineReceived</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Process the input from the client
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.basic.LineReceiver.html#lineReceived"><code>twisted.protocols.basic.LineReceiver.lineReceived</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="reply"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">reply</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>key</span>,
+          <span class=sig-arg>s</span>=<span class=sig-default>''</span>)</span>
+  </h3>
+  format a RESPONSE and send it out over the wire
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="timeoutConnection"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">timeoutConnection</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Called when the connection times out. Override to define behavior 
+  other than dropping the connection.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.policies.TimeoutMixin.html#timeoutConnection"><code>twisted.protocols.policies.TimeoutMixin.timeoutConnection</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF INSTANCE VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Instance Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="binary"></a>
+<h3>binary</h3>
+The transfer mode. If false, ASCII.
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="1">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="blocked"></a>
+<h3>blocked</h3>
+Command queue for command pipelining
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="dtpFactory"></a>
+<h3>dtpFactory</h3>
+Generates a single DTP for this session
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="dtpHostPort"></a>
+<h3>dtpHostPort</h3>
+cluient (address, port) to connect to on a PORT command
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="dtpInetPort"></a>
+<h3>dtpInetPort</h3>
+dtpPort.getHost()
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="dtpPort"></a>
+<h3>dtpPort</h3>
+Port returned from listenTCP
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="dtpTxfrMode"></a>
+<h3>dtpTxfrMode</h3>
+The current mode -- PASV or PORT
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="peerHost"></a>
+<h3>peerHost</h3>
+The (type, ip, port) of the client
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="shell"></a>
+<h3>shell</h3>
+The connected avatar
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="user"></a>
+<h3>user</h3>
+The username of the connected client
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="__implements__"></a>
+<h3>__implements__</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;class 'twisted.protocols.ftp.IDTPParent'&gt;, &lt;class twisted.internet.interfaces.IProtocol at 0x8278f0c&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;class 'twisted.protocols.ftp.IDTPParent'&gt;,
+ &lt;class twisted.internet.interfaces.IProtocol at 0x8278f0c&gt;)           </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="blockingCommands"></a>
+<h3>blockingCommands</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>list</code>
+
+      </dd>
+<span title="['RETR', 'STOR', 'LIST', 'PORT']">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+['RETR', 'STOR', 'LIST', 'PORT']                                       </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="dtpInstance"></a>
+<h3>dtpInstance</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="dtpTimeout"></a>
+<h3>dtpTimeout</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="10">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+10&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="instanceNum"></a>
+<h3>instanceNum</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="0">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="portal"></a>
+<h3>portal</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="reTelnetChars"></a>
+<h3>reTelnetChars</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>SRE_Pattern</code>
+
+      </dd>
+<span title="&lt;_sre.SRE_Pattern object at 0x86ec228&gt;">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="re"><span class="re-group">(</span><span class="re-char">\\</span>x<span class="re-group">[</span>0<span class="re-group">-</span>9a<span class="re-group">-</span>f<span class="re-group">]</span><span class="re-op">{2}</span><span class="re-group">)</span><span class="re-op">+</span></span>                                                      </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:07:58 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

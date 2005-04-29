@@ -814,7 +814,7 @@ qgetmodespec(char **s)
 	    }
 	    if (how == '=' || how == '-')
 		no |= val & mask;
-	} else {
+	} else if (!(end && c == end) && c != ',' && c) {
 	    t = 07777;
 	    while ((c = *p) == '?' || c == Quest ||
 		   (c >= '0' && c <= '7')) {
@@ -838,7 +838,10 @@ qgetmodespec(char **s)
 		yes |= val;
 	    else
 		no |= val;
-	}
+	} else {
+	    zerr("invalid mode specification", NULL, 0);
+	    return 0;
+        }
     } while (end && c != end);
 
     *s = p;
@@ -1319,6 +1322,9 @@ zglob(LinkList list, LinkNode np, int nountok)
 		    func = qualmodeflags;
 		    data = qgetmodespec(&s);
 		    break;
+		case 'F':
+		    func = qualnonemptydir;
+		    break;
 		case 'M':
 		    /* Mark directories with a / */
 		    if ((gf_markdirs = !(sense & 1)))
@@ -1420,22 +1426,43 @@ zglob(LinkList list, LinkNode np, int nountok)
 		    s++;
 		    break;
 		}
+		case '+':
 		case 'e':
 		{
-		    char sav, *tt = get_strarg(s);
+		    char sav, *tt;
+		    int plus;
 
-		    if (!*tt) {
-			zerr("missing end of string", NULL, 0);
+		    if (s[-1] == '+') {
+			plus = 0;
+			tt = s;
+			while (iident(*tt))
+			    tt++;
+			if (tt == s)
+			{
+			    zerr("missing identifier after `+'", NULL, 0);
+			    tt = NULL;
+			}
+		    } else {
+			plus = 1;
+			tt = get_strarg(s);
+			if (!*tt)
+			{
+			    zerr("missing end of string", NULL, 0);
+			    tt = NULL;
+			}
+		    }
+
+		    if (tt == NULL) {
 			data = 0;
 		    } else {
 			sav = *tt;
 			*tt = '\0';
 			func = qualsheval;
-			sdata = dupstring(s + 1);
+			sdata = dupstring(s + plus);
 			untokenize(sdata);
 			*tt = sav;
 			if (sav)
-			    s = tt + 1;
+			    s = tt + plus;
 			else
 			    s = tt;
 		    }
@@ -1864,12 +1891,13 @@ xpandbraces(LinkList list, LinkNode *np)
 	 * set of flags saying whether each character is present; *
 	 * the final list is in lexical order.                    */
 	char ccl[256], *p;
-	unsigned char c1, c2, lastch;
+	unsigned char c1, c2;
 	unsigned int len, pl;
+	int lastch = -1;
 
 	uremnode(list, node);
 	memset(ccl, 0, sizeof(ccl) / sizeof(ccl[0]));
-	for (p = str + 1, lastch = 0; p < str2;) {
+	for (p = str + 1; p < str2;) {
 	    if (itok(c1 = *p++))
 		c1 = ztokens[c1 - STOUC(Pound)];
 	    if ((char) c1 == Meta)
@@ -1878,10 +1906,10 @@ xpandbraces(LinkList list, LinkNode *np)
 		c2 = ztokens[c2 - STOUC(Pound)];
 	    if ((char) c2 == Meta)
 		c2 = 32 ^ p[1];
-	    if (c1 == '-' && lastch && p < str2 && (int)lastch <= (int)c2) {
-		while ((int)lastch < (int)c2)
+	    if (c1 == '-' && lastch >= 0 && p < str2 && lastch <= (int)c2) {
+		while (lastch < (int)c2)
 		    ccl[lastch++] = 1;
-		lastch = 0;
+		lastch = -1;
 	    } else
 		ccl[lastch = c1] = 1;
 	}
@@ -2188,20 +2216,37 @@ set_pat_end(Patprog p, char null_me)
 static int
 igetmatch(char **sp, Patprog p, int fl, int n, char *replstr)
 {
-    char *s = *sp, *t, sav;
-    int i, l = strlen(*sp), ml = ztrlen(*sp), matched = 1;
+    char *s = *sp, *t;
+    /*
+     * Note that ioff and ml count characters in the character
+     * set (Meta's are not included), while l counts characters in the
+     * string.
+     */
+    int ioff, l = strlen(*sp), ml = ztrlen(*sp), matched = 1;
 
     repllist = NULL;
 
     /* perform must-match test for complex closures */
-    if (p->mustoff && !strstr((char *)s, (char *)p + p->mustoff))
-	matched = 0;
+    if (p->mustoff)
+    {
+	/*
+	 * Yuk.  Probably we should rewrite this whole function to
+	 * use an unmetafied test string.
+	 *
+	 * Use META_HEAPDUP because we need a terminating NULL.
+	 */
+	char *muststr = metafy((char *)p + p->mustoff,
+			       p->patmlen, META_HEAPDUP);
+
+	if (!strstr(s, muststr))
+	    matched = 0;
+    }
 
     /* in case we used the prog before... */
     p->flags &= ~(PAT_NOTSTART|PAT_NOTEND);
 
     if (fl & SUB_ALL) {
-	i = matched && pattry(p, s);
+	int i = matched && pattry(p, s);
 	*sp = get_match_ret(*sp, 0, i ? l : 0, fl, i ? replstr : 0);
 	if (! **sp && (((fl & SUB_MATCH) && !i) || ((fl & SUB_REST) && i)))
 	    return 0;
@@ -2216,25 +2261,22 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr)
 	     * First get the longest match...
 	     */
 	    if (pattry(p, s)) {
-		char *mpos = patinput;
+		/* patmatchlen returns metafied length, as we need */
+	        int mlen = patmatchlen();
 		if (!(fl & SUB_LONG) && !(p->flags & PAT_PURES)) {
 		    /*
 		     * ... now we know whether it's worth looking for the
 		     * shortest, which we do by brute force.
 		     */
-		    for (t = s; t < mpos; METAINC(t)) {
-			sav = *t;
-			set_pat_end(p, sav);
-			*t = '\0';
-			if (pattry(p, s)) {
-			    mpos = patinput;
-			    *t = sav;
+		    for (t = s; t < s + mlen; METAINC(t)) {
+			set_pat_end(p, *t);
+			if (pattrylen(p, s, t - s, 0)) {
+			    mlen = patmatchlen();
 			    break;
 			}
-			*t = sav;
 		    }
 		}
-		*sp = get_match_ret(*sp, 0, mpos-s, fl, replstr);
+		*sp = get_match_ret(*sp, 0, mlen, fl, replstr);
 		return 1;
 	    }
 	    break;
@@ -2243,35 +2285,30 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr)
 	    /* Smallest possible match at tail of string:  *
 	     * move back down string until we get a match. *
 	     * There's no optimization here.               */
-	    patoffset = ml;
-	    for (t = s + l; t >= s; t--, patoffset--) {
+	    for (ioff = ml, t = s + l; t >= s; t--, ioff--) {
 		set_pat_start(p, t-s);
-		if (pattry(p, t)) {
+		if (pattrylen(p, t, -1, ioff)) {
 		    *sp = get_match_ret(*sp, t - s, l, fl, replstr);
-		    patoffset = 0;
 		    return 1;
 		}
 		if (t > s+1 && t[-2] == Meta)
 		    t--;
 	    }
-	    patoffset = 0;
 	    break;
 
 	case (SUB_END|SUB_LONG):
 	    /* Largest possible match at tail of string:       *
 	     * move forward along string until we get a match. *
 	     * Again there's no optimisation.                  */
-	    for (i = 0, t = s; i < l; i++, t++, patoffset++) {
+	    for (ioff = 0, t = s; t < s + l; ioff++, t++) {
 		set_pat_start(p, t-s);
-		if (pattry(p, t)) {
-		    *sp = get_match_ret(*sp, i, l, fl, replstr);
-		    patoffset = 0;
+		if (pattrylen(p, t, -1, ioff)) {
+		    *sp = get_match_ret(*sp, t-s, l, fl, replstr);
 		    return 1;
 		}
 		if (*t == Meta)
-		    i++, t++;
+		    t++;
 	    }
-	    patoffset = 0;
 	    break;
 
 	case SUB_SUBSTR:
@@ -2286,26 +2323,23 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr)
 	    t = s;
 	    if (fl & SUB_GLOBAL)
 		repllist = newlinklist();
+	    ioff = 0;		/* offset into string */
 	    do {
 		/* loop over all matches for global substitution */
 		matched = 0;
-		for (; t < s + l; t++, patoffset++) {
+		for (; t < s + l; t++, ioff++) {
 		    /* Find the longest match from this position. */
 		    set_pat_start(p, t-s);
-		    if (pattry(p, t)) {
-			char *mpos = patinput;
+		    if (pattrylen(p, t, -1, ioff)) {
+			char *mpos = t + patmatchlen();
 			if (!(fl & SUB_LONG) && !(p->flags & PAT_PURES)) {
 			    char *ptr;
 			    for (ptr = t; ptr < mpos; METAINC(ptr)) {
-				sav = *ptr;
-				set_pat_end(p, sav);
-				*ptr = '\0';
-				if (pattry(p, t)) {
-				    mpos = patinput;
-				    *ptr = sav;
+				set_pat_end(p, *ptr);
+				if (pattrylen(p, t, ptr - t, ioff)) {
+				    mpos = t + patmatchlen();
 				    break;
 				}
-				*ptr = sav;
 			    }
 			}
 			if (!--n || (n <= 0 && (fl & SUB_GLOBAL))) {
@@ -2323,7 +2357,6 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr)
 				 */
 				continue;
 			    } else {
-				patoffset = 0;
 				return 1;
 			    }
 			}
@@ -2332,7 +2365,7 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr)
 			 * which is already marked for replacement.
 			 */
 			matched = 1;
-			for ( ; t < mpos; t++, patoffset++)
+			for ( ; t < mpos; t++, ioff++)
 			    if (*t == Meta)
 				t++;
 			break;
@@ -2341,7 +2374,6 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr)
 			t++;
 		}
 	    } while (matched);
-	    patoffset = 0;
 	    /*
 	     * check if we can match a blank string, if so do it
 	     * at the start.  Goodness knows if this is a good idea
@@ -2358,50 +2390,39 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr)
 	case (SUB_END|SUB_SUBSTR):
 	case (SUB_END|SUB_LONG|SUB_SUBSTR):
 	    /* Longest/shortest at end, matching substrings.       */
-	    patoffset = ml;
 	    if (!(fl & SUB_LONG)) {
 		set_pat_start(p, l);
-		if (pattry(p, s + l) && !--n) {
+		if (pattrylen(p, s + l, -1, ml) && !--n) {
 		    *sp = get_match_ret(*sp, l, l, fl, replstr);
-		    patoffset = 0;
 		    return 1;
 		}
 	    }
-	    patoffset--;
-	    for (t = s + l - 1; t >= s; t--, patoffset--) {
+	    for (ioff = ml - 1, t = s + l - 1; t >= s; t--, ioff--) {
 		if (t > s && t[-1] == Meta)
 		    t--;
 		set_pat_start(p, t-s);
-		if (pattry(p, t) && !--n) {
+		if (pattrylen(p, t, -1, ioff) && !--n) {
 		    /* Found the longest match */
-		    char *mpos = patinput;
+		    char *mpos = t + patmatchlen();
 		    if (!(fl & SUB_LONG) && !(p->flags & PAT_PURES)) {
 			char *ptr;
 			for (ptr = t; ptr < mpos; METAINC(ptr)) {
-			    sav = *ptr;
-			    set_pat_end(p, sav);
-			    *ptr = '\0';
-			    if (pattry(p, t)) {
-				mpos = patinput;
-				*ptr = sav;
+			    set_pat_end(p, *ptr);
+			    if (pattrylen(p, t, ptr - t, ioff)) {
+				mpos = t + patmatchlen();
 				break;
 			    }
-			    *ptr = sav;
 			}
 		    }
 		    *sp = get_match_ret(*sp, t-s, mpos-s, fl, replstr);
-		    patoffset = 0;
 		    return 1;
 		}
 	    }
-	    patoffset = ml;
 	    set_pat_start(p, l);
-	    if ((fl & SUB_LONG) && pattry(p, s + l) && !--n) {
+	    if ((fl & SUB_LONG) && pattrylen(p, s + l, -1, ml) && !--n) {
 		*sp = get_match_ret(*sp, l, l, fl, replstr);
-		patoffset = 0;
 		return 1;
 	    }
-	    patoffset = 0;
 	    break;
 	}
     }
@@ -2412,6 +2433,7 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr)
 	Repldata rd;
 	int lleft = 0;		/* size of returned string */
 	char *ptr, *start;
+	int i;
 
 	i = 0;			/* start of last chunk we got from *sp */
 	for (nd = firstnode(repllist); nd; incnode(nd)) {
@@ -2553,16 +2575,16 @@ remnulargs(char *s)
 
 /**/
 static int
-qualdev(char *name, struct stat *buf, off_t dv, char *dummy)
+qualdev(UNUSED(char *name), struct stat *buf, off_t dv, UNUSED(char *dummy))
 {
-    return buf->st_dev == dv;
+    return (off_t)buf->st_dev == dv;
 }
 
 /* number of hard links to file */
 
 /**/
 static int
-qualnlink(char *name, struct stat *buf, off_t ct, char *dummy)
+qualnlink(UNUSED(char *name), struct stat *buf, off_t ct, UNUSED(char *dummy))
 {
     return (g_range < 0 ? buf->st_nlink < ct :
 	    g_range > 0 ? buf->st_nlink > ct :
@@ -2573,7 +2595,7 @@ qualnlink(char *name, struct stat *buf, off_t ct, char *dummy)
 
 /**/
 static int
-qualuid(char *name, struct stat *buf, off_t uid, char *dummy)
+qualuid(UNUSED(char *name), struct stat *buf, off_t uid, UNUSED(char *dummy))
 {
     return buf->st_uid == uid;
 }
@@ -2582,7 +2604,7 @@ qualuid(char *name, struct stat *buf, off_t uid, char *dummy)
 
 /**/
 static int
-qualgid(char *name, struct stat *buf, off_t gid, char *dummy)
+qualgid(UNUSED(char *name), struct stat *buf, off_t gid, UNUSED(char *dummy))
 {
     return buf->st_gid == gid;
 }
@@ -2591,7 +2613,7 @@ qualgid(char *name, struct stat *buf, off_t gid, char *dummy)
 
 /**/
 static int
-qualisdev(char *name, struct stat *buf, off_t junk, char *dummy)
+qualisdev(UNUSED(char *name), struct stat *buf, UNUSED(off_t junk), UNUSED(char *dummy))
 {
     return S_ISBLK(buf->st_mode) || S_ISCHR(buf->st_mode);
 }
@@ -2600,7 +2622,7 @@ qualisdev(char *name, struct stat *buf, off_t junk, char *dummy)
 
 /**/
 static int
-qualisblk(char *name, struct stat *buf, off_t junk, char *dummy)
+qualisblk(UNUSED(char *name), struct stat *buf, UNUSED(off_t junk), UNUSED(char *dummy))
 {
     return S_ISBLK(buf->st_mode);
 }
@@ -2609,7 +2631,7 @@ qualisblk(char *name, struct stat *buf, off_t junk, char *dummy)
 
 /**/
 static int
-qualischr(char *name, struct stat *buf, off_t junk, char *dummy)
+qualischr(UNUSED(char *name), struct stat *buf, UNUSED(off_t junk), UNUSED(char *dummy))
 {
     return S_ISCHR(buf->st_mode);
 }
@@ -2618,7 +2640,7 @@ qualischr(char *name, struct stat *buf, off_t junk, char *dummy)
 
 /**/
 static int
-qualisdir(char *name, struct stat *buf, off_t junk, char *dummy)
+qualisdir(UNUSED(char *name), struct stat *buf, UNUSED(off_t junk), UNUSED(char *dummy))
 {
     return S_ISDIR(buf->st_mode);
 }
@@ -2627,7 +2649,7 @@ qualisdir(char *name, struct stat *buf, off_t junk, char *dummy)
 
 /**/
 static int
-qualisfifo(char *name, struct stat *buf, off_t junk, char *dummy)
+qualisfifo(UNUSED(char *name), struct stat *buf, UNUSED(off_t junk), UNUSED(char *dummy))
 {
     return S_ISFIFO(buf->st_mode);
 }
@@ -2636,7 +2658,7 @@ qualisfifo(char *name, struct stat *buf, off_t junk, char *dummy)
 
 /**/
 static int
-qualislnk(char *name, struct stat *buf, off_t junk, char *dummy)
+qualislnk(UNUSED(char *name), struct stat *buf, UNUSED(off_t junk), UNUSED(char *dummy))
 {
     return S_ISLNK(buf->st_mode);
 }
@@ -2645,7 +2667,7 @@ qualislnk(char *name, struct stat *buf, off_t junk, char *dummy)
 
 /**/
 static int
-qualisreg(char *name, struct stat *buf, off_t junk, char *dummy)
+qualisreg(UNUSED(char *name), struct stat *buf, UNUSED(off_t junk), UNUSED(char *dummy))
 {
     return S_ISREG(buf->st_mode);
 }
@@ -2654,7 +2676,7 @@ qualisreg(char *name, struct stat *buf, off_t junk, char *dummy)
 
 /**/
 static int
-qualissock(char *name, struct stat *buf, off_t junk, char *dummy)
+qualissock(UNUSED(char *name), struct stat *buf, UNUSED(off_t junk), UNUSED(char *dummy))
 {
     return S_ISSOCK(buf->st_mode);
 }
@@ -2663,7 +2685,7 @@ qualissock(char *name, struct stat *buf, off_t junk, char *dummy)
 
 /**/
 static int
-qualflags(char *name, struct stat *buf, off_t mod, char *dummy)
+qualflags(UNUSED(char *name), struct stat *buf, off_t mod, UNUSED(char *dummy))
 {
     return mode_to_octal(buf->st_mode) & mod;
 }
@@ -2672,7 +2694,7 @@ qualflags(char *name, struct stat *buf, off_t mod, char *dummy)
 
 /**/
 static int
-qualmodeflags(char *name, struct stat *buf, off_t mod, char *dummy)
+qualmodeflags(UNUSED(char *name), struct stat *buf, off_t mod, UNUSED(char *dummy))
 {
     long v = mode_to_octal(buf->st_mode), y = mod & 07777, n = mod >> 12;
 
@@ -2683,7 +2705,7 @@ qualmodeflags(char *name, struct stat *buf, off_t mod, char *dummy)
 
 /**/
 static int
-qualiscom(char *name, struct stat *buf, off_t mod, char *dummy)
+qualiscom(UNUSED(char *name), struct stat *buf, UNUSED(off_t mod), UNUSED(char *dummy))
 {
     return S_ISREG(buf->st_mode) && (buf->st_mode & S_IXUGO);
 }
@@ -2692,7 +2714,7 @@ qualiscom(char *name, struct stat *buf, off_t mod, char *dummy)
 
 /**/
 static int
-qualsize(char *name, struct stat *buf, off_t size, char *dummy)
+qualsize(UNUSED(char *name), struct stat *buf, off_t size, UNUSED(char *dummy))
 {
 #if defined(LONG_IS_64_BIT) || defined(OFF_T_IS_64_BIT)
 # define QS_CAST_SIZE()
@@ -2727,7 +2749,7 @@ qualsize(char *name, struct stat *buf, off_t size, char *dummy)
 
 /**/
 static int
-qualtime(char *name, struct stat *buf, off_t days, char *dummy)
+qualtime(UNUSED(char *name), struct stat *buf, off_t days, UNUSED(char *dummy))
 {
     time_t now, diff;
 
@@ -2762,7 +2784,7 @@ qualtime(char *name, struct stat *buf, off_t days, char *dummy)
 
 /**/
 static int
-qualsheval(char *name, struct stat *buf, off_t days, char *str)
+qualsheval(char *name, UNUSED(struct stat *buf), UNUSED(off_t days), char *str)
 {
     Eprog prog;
 
@@ -2793,5 +2815,32 @@ qualsheval(char *name, struct stat *buf, off_t days, char *str)
 	}
 	return !ret;
     }
+    return 0;
+}
+
+/**/
+static int
+qualnonemptydir(char *name, struct stat *buf, UNUSED(off_t days), UNUSED(char *str))
+{
+    DIR *dirh;
+    struct dirent *de;
+
+    if (!S_ISDIR(buf->st_mode))
+	return 0;
+
+    if (buf->st_nlink > 2)
+	return 1;
+
+    if (!(dirh = opendir(name)))
+	return 0;
+
+    while ((de = readdir(dirh))) {
+	if (strcmp(de->d_name, ".") && strcmp(de->d_name, "..")) {
+	    closedir(dirh);
+	    return 1;
+	}
+    }
+
+    closedir(dirh);
     return 0;
 }

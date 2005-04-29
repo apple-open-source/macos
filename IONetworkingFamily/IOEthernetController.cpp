@@ -147,7 +147,8 @@ bool IOEthernetController::publishProperties()
         {
             UInt32     filters;
             OSNumber * num;
-            
+            OSDictionary *newdict;
+			
             if ( getPacketFilters(gIOEthernetWakeOnLANFilterGroup,
                                   &filters) != kIOReturnSuccess )
             {
@@ -157,8 +158,14 @@ bool IOEthernetController::publishProperties()
             num = OSNumber::withNumber(filters, sizeof(filters) * 8);
             if (num == 0)
                 break;
-
-            ret = dict->setObject(gIOEthernetWakeOnLANFilterGroup, num);
+			//to avoid race condition with external threads we'll modify a copy of dictionary
+			newdict = OSDictionary::withDictionary(dict); //copy the dictionary
+			if(newdict)
+			{
+				ret = newdict->setObject(gIOEthernetWakeOnLANFilterGroup, num); //and add the WOL group to it
+				setProperty(kIOPacketFilters, newdict); //then replace the property with the new dictionary
+				newdict->release();
+			}
             num->release();
         }
     }
@@ -413,21 +420,22 @@ IOReturn IOEthernetController::getMinPacketSize(UInt32 * minSize) const
 }
 
 OSMetaClassDefineReservedUsed( IOEthernetController,  0);
-bool IOEthernetController::getVlanTagDemand(mbuf *m, UInt32 *vlantag)
+bool IOEthernetController::getVlanTagDemand(mbuf_t mt, UInt32 *vlantag)
 {
-	if(m->m_pkthdr.csum_flags & CSUM_VLAN_TAG_VALID)
+	u_int16_t tag;
+	int rval = mbuf_get_vlan_tag(mt, &tag);
+	if(rval == 0)
 	{
-		*vlantag = m->m_pkthdr.vlan_tag;
+		*vlantag = tag;
 		return true;
 	}
 	return false;
 }
 
 OSMetaClassDefineReservedUsed( IOEthernetController,  1);
-void IOEthernetController::setVlanTag(mbuf *m, UInt32 vlantag)
+void IOEthernetController::setVlanTag(mbuf_t mt, UInt32 vlantag)
 {
-	m->m_pkthdr.csum_flags |= CSUM_VLAN_TAG_VALID;
-	m->m_pkthdr.vlan_tag = (UInt16) vlantag;
+	mbuf_set_vlan_tag(mt, vlantag);
 }
 
 

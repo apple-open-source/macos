@@ -1,34 +1,22 @@
 /* init.c - initialize monitor backend */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/init.c,v 1.53.2.9 2004/04/12 18:20:14 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This work has beed deveolped for the OpenLDAP Foundation 
- * in the hope that it may be useful to the Open Source community, 
- * but WITHOUT ANY WARRANTY.
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from
- *    flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- * 
- * 4. This notice may not be removed or altered.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Pierangelo Masarati for inclusion
+ * in OpenLDAP Software.
  */
 
 #include "portable.h"
@@ -36,14 +24,16 @@
 #include <stdio.h>
 #include <ac/string.h>
 
+#include <lutil.h>
 #include "slap.h"
 #include "lber_pvt.h"
 #include "back-monitor.h"
 
+#undef INTEGRATE_CORE_SCHEMA
+
 /*
  * used by many functions to add description to entries
  */
-AttributeDescription *monitor_ad_desc = NULL;
 BackendDB *be_monitor = NULL;
 
 /*
@@ -107,20 +97,12 @@ struct monitorsubsys monitor_subsys[] = {
 		monitor_subsys_conn_create,
 		NULL	/* modify */
        	}, { 
-		SLAPD_MONITOR_READW, SLAPD_MONITOR_READW_NAME,
+		SLAPD_MONITOR_RWW, SLAPD_MONITOR_RWW_NAME,
 		BER_BVNULL, BER_BVNULL, BER_BVNULL,
-		MONITOR_F_NONE,
-		NULL,	/* init */
-		monitor_subsys_readw_update,
+		MONITOR_F_PERSISTENT_CH,
+		monitor_subsys_rww_init,
+		monitor_subsys_rww_update,
 		NULL, 	/* create */
-		NULL	/* modify */
-       	}, { 
-		SLAPD_MONITOR_WRITEW, SLAPD_MONITOR_WRITEW_NAME,
-		BER_BVNULL, BER_BVNULL, BER_BVNULL,
-		MONITOR_F_NONE,
-		NULL,   /* init */
-		monitor_subsys_writew_update,
-		NULL,   /* create */
 		NULL	/* modify */
        	}, { 
 		SLAPD_MONITOR_LOG, SLAPD_MONITOR_LOG_NAME,
@@ -154,13 +136,21 @@ struct monitorsubsys monitor_subsys[] = {
 		monitor_subsys_time_update,
 		NULL,   /* create */
 		NULL,	/* modify */
+       	}, { 
+		SLAPD_MONITOR_OVERLAY, SLAPD_MONITOR_OVERLAY_NAME,
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
+		MONITOR_F_PERSISTENT_CH,
+		monitor_subsys_overlay_init,
+		NULL,	/* update */
+		NULL,   /* create */
+		NULL,	/* modify */
 	}, { -1, NULL }
 };
 
-#ifdef SLAPD_MONITOR_DYNAMIC
+#if SLAPD_MONITOR == SLAPD_MOD_DYNAMIC
 
 int
-back_monitor_LTX_init_module( int argc, char *argv[] )
+init_module( int argc, char *argv[] )
 {
 	BackendInfo bi;
 
@@ -171,7 +161,7 @@ back_monitor_LTX_init_module( int argc, char *argv[] )
 	return 0;
 }
 
-#endif /* SLAPD_MONITOR_DYNAMIC */
+#endif /* SLAPD_MONITOR */
 
 int
 monitor_back_initialize(
@@ -211,8 +201,6 @@ monitor_back_initialize(
 	bi->bi_extended = 0;
 
 	bi->bi_entry_release_rw = 0;
-	bi->bi_acl_group = 0;
-	bi->bi_acl_attribute = 0;
 	bi->bi_chk_referrals = 0;
 	bi->bi_operational = monitor_back_operational;
 
@@ -227,6 +215,9 @@ monitor_back_initialize(
 	bi->bi_tool_entry_put = 0;
 	bi->bi_tool_entry_reindex = 0;
 	bi->bi_tool_sync = 0;
+	bi->bi_tool_dn2id_get = 0;
+	bi->bi_tool_id2entry_get = 0;
+	bi->bi_tool_entry_modify = 0;
 
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = 0;
@@ -240,13 +231,9 @@ monitor_back_db_init(
 )
 {
 	struct monitorinfo 	*mi;
-	Entry 			*e, *e_tmp;
-	struct monitorentrypriv	*mp;
-	int			i, rc;
-	char 			buf[1024], *end_of_line;
+	int			rc;
 	struct berval		dn, ndn;
-	const char 		*text;
-	struct berval		bv[2];
+	struct berval		bv;
 
 	/*
 	 * database monitor can be defined once only
@@ -254,52 +241,465 @@ monitor_back_db_init(
 	if ( be_monitor ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG( OPERATION, CRIT,
-			"only one monitor backend is allowed\n" , 0, 0, 0);
+			"only one monitor backend is allowed\n", 0, 0, 0);
 #else
 		Debug( LDAP_DEBUG_ANY,
-			"only one monitor backend is allowed\n%s%s%s",
-			"", "", "" );
+			"only one monitor backend is allowed\n", 0, 0, 0 );
 #endif
 		return( -1 );
 	}
 	be_monitor = be;
 
 	/* indicate system schema supported */
-	be->be_flags |= SLAP_BFLAG_MONITOR;
+	SLAP_BFLAGS(be) |= SLAP_BFLAG_MONITOR;
 
 	dn.bv_val = SLAPD_MONITOR_DN;
 	dn.bv_len = sizeof( SLAPD_MONITOR_DN ) - 1;
 
-	rc = dnNormalize2( NULL, &dn, &ndn );
+	rc = dnNormalize( 0, NULL, NULL, &dn, &ndn, NULL );
 	if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG( OPERATION, CRIT,
-			"monitor DN \"" SLAPD_MONITOR_DN "\" backend is allowed\n" , 0, 0, 0 );
+			"unable to normalize monitor DN \"%s\"\n",
+			SLAPD_MONITOR_DN, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
-			"monitor DN \"" SLAPD_MONITOR_DN "\" backend is allowed\n",
-			0, 0, 0 );
+			"unable to normalize monitor DN \"%s\"\n",
+			SLAPD_MONITOR_DN, 0, 0 );
 #endif
 		return -1;
 	}
 
-	ber_dupbv( &bv[0], &dn );
-	ber_bvarray_add( &be->be_suffix, &bv[0] );
+	ber_dupbv( &bv, &dn );
+	ber_bvarray_add( &be->be_suffix, &bv );
 	ber_bvarray_add( &be->be_nsuffix, &ndn );
 
 	mi = ( struct monitorinfo * )ch_calloc( sizeof( struct monitorinfo ), 1 );
-	ldap_pvt_thread_mutex_init( &mi->mi_cache_mutex );
-
-	if ( slap_str2ad( "description", &monitor_ad_desc, &text ) ) {
+	if ( mi == NULL ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG( OPERATION, CRIT,
-			"monitor_back_db_init: %s\n", text, 0, 0 );
+			"unable to initialize monitor backend\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
-			"monitor_subsys_backend_init: %s\n%s%s", 
-			text, "", "" );
+			"unable to initialize monitor backend\n", 0, 0, 0 );
 #endif
-		return( -1 );
+		return -1;
+	}
+
+	memset( mi, 0, sizeof( struct monitorinfo ) );
+
+	ldap_pvt_thread_mutex_init( &mi->mi_cache_mutex );
+
+	be->be_private = mi;
+	
+	return 0;
+}
+
+int
+monitor_back_db_open(
+	BackendDB	*be
+)
+{
+	struct monitorinfo 	*mi = (struct monitorinfo *)be->be_private;
+	struct monitorsubsys	*ms;
+	Entry 			*e, *e_tmp;
+	struct monitorentrypriv	*mp;
+	int			i;
+#ifdef INTEGRATE_CORE_SCHEMA
+	int			k;
+#endif
+	char 			buf[ BACKMONITOR_BUFSIZE ], *end_of_line;
+	const char 		*text;
+	struct berval		bv;
+	struct m_s {
+		char	*name;
+		char	*schema;
+		slap_mask_t flags;
+		int	offset;
+	} moc[] = {
+		{ "monitor", "( 1.3.6.1.4.1.4203.666.3.2 "
+			"NAME 'monitor' "
+			"DESC 'OpenLDAP system monitoring' "
+			"SUP top STRUCTURAL "
+			"MUST cn "
+			"MAY ( "
+				"description "
+				"$ l "
+#if 0	/* temporarily disabled */
+				"$ st "
+				"$ street "
+				"$ postalAddress "
+				"$ postalCode "
+#endif
+				"$ seeAlso "
+				"$ labeledURI "
+				"$ monitoredInfo "
+				"$ managedInfo "
+				"$ monitorOverlay "
+			") )", SLAP_OC_OPERATIONAL|SLAP_OC_HIDE,
+			offsetof(struct monitorinfo, mi_oc_monitor) },
+		{ "monitorServer", "( 1.3.6.1.4.1.4203.666.3.7 "
+			"NAME 'monitorServer' "
+			"DESC 'Server monitoring root entry' "
+			"SUP monitor STRUCTURAL )", SLAP_OC_OPERATIONAL|SLAP_OC_HIDE,
+			offsetof(struct monitorinfo, mi_oc_monitorServer) },
+		{ "monitorContainer", "( 1.3.6.1.4.1.4203.666.3.8 "
+			"NAME 'monitorContainer' "
+			"DESC 'monitor container class' "
+			"SUP monitor STRUCTURAL )", SLAP_OC_OPERATIONAL|SLAP_OC_HIDE,
+			offsetof(struct monitorinfo, mi_oc_monitorContainer) },
+		{ "monitorCounterObject", "( 1.3.6.1.4.1.4203.666.3.9 "
+			"NAME 'monitorCounterObject' "
+			"DESC 'monitor counter class' "
+			"SUP monitor STRUCTURAL )", SLAP_OC_OPERATIONAL|SLAP_OC_HIDE,
+			offsetof(struct monitorinfo, mi_oc_monitorCounterObject) },
+		{ "monitorOperation", "( 1.3.6.1.4.1.4203.666.3.10 "
+			"NAME 'monitorOperation' "
+			"DESC 'monitor operation class' "
+			"SUP monitor STRUCTURAL )", SLAP_OC_OPERATIONAL|SLAP_OC_HIDE,
+			offsetof(struct monitorinfo, mi_oc_monitorOperation) },
+		{ "monitorConnection", "( 1.3.6.1.4.1.4203.666.3.11 "
+			"NAME 'monitorConnection' "
+			"DESC 'monitor connection class' "
+			"SUP monitor STRUCTURAL )", SLAP_OC_OPERATIONAL|SLAP_OC_HIDE,
+			offsetof(struct monitorinfo, mi_oc_monitorConnection) },
+		{ "managedObject", "( 1.3.6.1.4.1.4203.666.3.12 "
+			"NAME 'managedObject' "
+			"DESC 'monitor managed entity class' "
+			"SUP monitor STRUCTURAL )", SLAP_OC_OPERATIONAL|SLAP_OC_HIDE,
+			offsetof(struct monitorinfo, mi_oc_managedObject) },
+		{ "monitoredObject", "( 1.3.6.1.4.1.4203.666.3.13 "
+			"NAME 'monitoredObject' "
+			"DESC 'monitor monitored entity class' "
+			"SUP monitor STRUCTURAL )", SLAP_OC_OPERATIONAL|SLAP_OC_HIDE,
+			offsetof(struct monitorinfo, mi_oc_monitoredObject) },
+		{ NULL, NULL, 0, -1 }
+	}, mat[] = {
+		{ "monitoredInfo", "( 1.3.6.1.4.1.4203.666.1.14 "
+			"NAME 'monitoredInfo' "
+			"DESC 'monitored info' "
+			/* "SUP name " */
+			"EQUALITY caseIgnoreMatch "
+			"SUBSTR caseIgnoreSubstringsMatch "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15{32768} "
+			"NO-USER-MODIFICATION "
+			"USAGE directoryOperation )", SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_monitoredInfo) },
+		{ "managedInfo", "( 1.3.6.1.4.1.4203.666.1.15 "
+			"NAME 'managedInfo' "
+			"DESC 'monitor managed info' "
+			"SUP name )", SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_managedInfo) },
+		{ "monitorCounter", "( 1.3.6.1.4.1.4203.666.1.16 "
+			"NAME 'monitorCounter' "
+			"DESC 'monitor counter' "
+			"EQUALITY integerMatch "
+			"ORDERING integerOrderingMatch "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 "
+			"NO-USER-MODIFICATION "
+			"USAGE directoryOperation )", SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_monitorCounter) },
+		{ "monitorOpCompleted", "( 1.3.6.1.4.1.4203.666.1.17 "
+			"NAME 'monitorOpCompleted' "
+			"DESC 'monitor completed operations' "
+			"SUP monitorCounter "
+			"NO-USER-MODIFICATION "
+			"USAGE directoryOperation )", SLAP_AT_FINAL|SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_monitorOpCompleted) },
+		{ "monitorOpInitiated", "( 1.3.6.1.4.1.4203.666.1.18 "
+			"NAME 'monitorOpInitiated' "
+			"DESC 'monitor initiated operations' "
+			"SUP monitorCounter "
+			"NO-USER-MODIFICATION "
+			"USAGE directoryOperation )", SLAP_AT_FINAL|SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_monitorOpInitiated) },
+		{ "monitorConnectionNumber", "( 1.3.6.1.4.1.4203.666.1.19 "
+			"NAME 'monitorConnectionNumber' "
+			"DESC 'monitor connection number' "
+			"SUP monitorCounter "
+			"NO-USER-MODIFICATION "
+			"USAGE directoryOperation )", SLAP_AT_FINAL|SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_monitorConnectionNumber) },
+		{ "monitorConnectionAuthzDN", "( 1.3.6.1.4.1.4203.666.1.20 "
+			"NAME 'monitorConnectionAuthzDN' "
+			"DESC 'monitor connection authorization DN' "
+			/* "SUP distinguishedName " */
+			"EQUALITY distinguishedNameMatch "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 "
+			"NO-USER-MODIFICATION "
+			"USAGE directoryOperation )", SLAP_AT_FINAL|SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_monitorConnectionAuthzDN) },
+		{ "monitorConnectionLocalAddress", "( 1.3.6.1.4.1.4203.666.1.21 "
+			"NAME 'monitorConnectionLocalAddress' "
+			"DESC 'monitor connection local address' "
+			"SUP monitoredInfo "
+			"NO-USER-MODIFICATION "
+			"USAGE directoryOperation )", SLAP_AT_FINAL|SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_monitorConnectionLocalAddress) },
+		{ "monitorConnectionPeerAddress", "( 1.3.6.1.4.1.4203.666.1.22 "
+			"NAME 'monitorConnectionPeerAddress' "
+			"DESC 'monitor connection peer address' "
+			"SUP monitoredInfo "
+			"NO-USER-MODIFICATION "
+			"USAGE directoryOperation )", SLAP_AT_FINAL|SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_monitorConnectionPeerAddress) },
+		{ "monitorTimestamp", "( 1.3.6.1.4.1.4203.666.1.24 "
+			"NAME 'monitorTimestamp' "
+			"DESC 'monitor timestamp' "
+			"EQUALITY generalizedTimeMatch "
+			"ORDERING generalizedTimeOrderingMatch "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.24 "
+			"SINGLE-VALUE "
+			"NO-USER-MODIFICATION "
+			"USAGE directoryOperation )", SLAP_AT_FINAL|SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_monitorTimestamp) },
+		{ "monitorOverlay", "( 1.3.6.1.4.1.4203.666.1.27 "
+			"NAME 'monitorOverlay' "
+			"DESC 'name of overlays defined for a give database' "
+			"SUP monitoredInfo "
+			"NO-USER-MODIFICATION "
+			"USAGE directoryOperation )", SLAP_AT_HIDE,
+			offsetof(struct monitorinfo, mi_ad_monitorOverlay) },
+#ifdef INTEGRATE_CORE_SCHEMA
+		{ NULL, NULL, 0, -1 },	/* description */
+		{ NULL, NULL, 0, -1 },	/* seeAlso */
+		{ NULL, NULL, 0, -1 },	/* l */
+		{ NULL, NULL, 0, -1 },	/* labeledURI */
+#endif /* INTEGRATE_CORE_SCHEMA */
+		{ NULL, NULL, 0, -1 }
+	}, mat_core[] = {
+		{ "description", "( 2.5.4.13 "
+			"NAME 'description' "
+			"DESC 'RFC2256: descriptive information' "
+			"EQUALITY caseIgnoreMatch "
+			"SUBSTR caseIgnoreSubstringsMatch "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15{1024} )", 0,
+			offsetof(struct monitorinfo, mi_ad_description) },
+		{ "seeAlso", "( 2.5.4.34 "
+			"NAME 'seeAlso' "
+			"DESC 'RFC2256: DN of related object' "
+			"SUP distinguishedName )", 0,
+			offsetof(struct monitorinfo, mi_ad_seeAlso) },
+		{ "l", "( 2.5.4.7 "
+			"NAME ( 'l' 'localityName' ) "
+			"DESC 'RFC2256: locality which this object resides in' "
+			"SUP name )", 0,
+			offsetof(struct monitorinfo, mi_ad_l) },
+		{ "labeledURI", "( 1.3.6.1.4.1.250.1.57 "
+			"NAME 'labeledURI' "
+			"DESC 'RFC2079: Uniform Resource Identifier with optional label' "
+			"EQUALITY caseExactMatch "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )", 0,
+			offsetof(struct monitorinfo, mi_ad_labeledURI) },
+		{ NULL, NULL, 0, -1 }
+	};
+	
+	struct tm		*tms;
+#ifdef HAVE_GMTIME_R
+	struct tm		tm_buf;
+#endif
+	static char		tmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
+
+	/*
+	 * Start
+	 */
+#ifndef HAVE_GMTIME_R
+	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
+#endif
+#ifdef HACK_LOCAL_TIME
+# ifdef HAVE_LOCALTIME_R
+	tms = localtime_r( &starttime, &tm_buf );
+# else
+	tms = localtime( &starttime );
+# endif /* HAVE_LOCALTIME_R */
+	lutil_localtime( tmbuf, sizeof(tmbuf), tms, -timezone );
+#else /* !HACK_LOCAL_TIME */
+# ifdef HAVE_GMTIME_R
+	tms = gmtime_r( &starttime, &tm_buf );
+# else
+	tms = gmtime( &starttime );
+# endif /* HAVE_GMTIME_R */
+	lutil_gentime( tmbuf, sizeof(tmbuf), tms );
+#endif /* !HACK_LOCAL_TIME */
+#ifndef HAVE_GMTIME_R
+	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
+#endif
+
+	mi->mi_startTime.bv_val = tmbuf;
+	mi->mi_startTime.bv_len = strlen( tmbuf );
+
+#ifdef INTEGRATE_CORE_SCHEMA
+	/* prepare for schema integration */
+	for ( k = 0; mat[k].name != NULL; k++ );
+#endif /* INTEGRATE_CORE_SCHEMA */
+
+	for ( i = 0; mat_core[i].name != NULL; i++ ) {
+		AttributeDescription	**ad;
+		const char		*text;
+
+		ad = ((AttributeDescription **)&(((char *)mi)[mat_core[i].offset]));
+		ad[0] = NULL;
+
+		switch (slap_str2ad( mat_core[i].name, ad, &text ) ) {
+		case LDAP_SUCCESS:
+			break;
+
+#ifdef INTEGRATE_CORE_SCHEMA
+		case LDAP_UNDEFINED_TYPE:
+			mat[k] = mat_core[i];
+			k++;
+			break;
+#endif /* INTEGRATE_CORE_SCHEMA */
+
+		default:
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, CRIT,
+				"monitor_back_db_init: %s: %s\n",
+				mat_core[i].name, text, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY,
+				"monitor_back_db_init: %s: %s\n",
+				mat_core[i].name, text, 0 );
+#endif
+			return( -1 );
+		}
+	}
+
+	/* schema integration */
+	for ( i = 0; mat[i].name; i++ ) {
+		LDAPAttributeType	*at;
+		int			code;
+		const char		*err;
+		AttributeDescription	**ad;
+
+		at = ldap_str2attributetype( mat[i].schema, &code,
+			&err, LDAP_SCHEMA_ALLOW_ALL );
+		if ( !at ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, CRIT, "monitor_back_db_init: "
+				"in AttributeType '%s' %s before %s\n",
+				mat[i].name, ldap_scherr2str(code), err );
+#else
+			Debug( LDAP_DEBUG_ANY, "monitor_back_db_init: "
+				"in AttributeType '%s' %s before %s\n",
+				mat[i].name, ldap_scherr2str(code), err );
+#endif
+			return -1;
+		}
+
+		if ( at->at_oid == NULL ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, CRIT, "monitor_back_db_init: "
+				"null OID for attributeType '%s'\n",
+				mat[i].name, 0, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY, "monitor_back_db_init: "
+				"null OID for attributeType '%s'\n",
+				mat[i].name, 0, 0 );
+#endif
+			return -1;
+		}
+
+		code = at_add(at, &err);
+		if ( code ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, CRIT, "monitor_back_db_init: "
+				"%s in attributeType '%s'\n",
+				scherr2str(code), mat[i].name, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY, "monitor_back_db_init: "
+				"%s in attributeType '%s'\n",
+				scherr2str(code), mat[i].name, 0 );
+#endif
+			return -1;
+		}
+		ldap_memfree(at);
+
+		ad = ((AttributeDescription **)&(((char *)mi)[mat[i].offset]));
+		ad[0] = NULL;
+		if ( slap_str2ad( mat[i].name, ad, &text ) ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, CRIT,
+				"monitor_back_db_init: %s\n", text, 0, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY,
+				"monitor_back_db_init: %s\n", text, 0, 0 );
+#endif
+			return -1;
+		}
+
+		(*ad)->ad_type->sat_flags |= mat[i].flags;
+	}
+
+	for ( i = 0; moc[i].name; i++ ) {
+		LDAPObjectClass		*oc;
+		int			code;
+		const char		*err;
+		ObjectClass		*Oc;
+
+		oc = ldap_str2objectclass(moc[i].schema, &code, &err,
+				LDAP_SCHEMA_ALLOW_ALL );
+		if ( !oc ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, CRIT,
+				"unable to parse monitor objectclass '%s': "
+				"%s before %s\n" , moc[i].name,
+				ldap_scherr2str(code), err );
+#else
+			Debug( LDAP_DEBUG_ANY,
+				"unable to parse monitor objectclass '%s': "
+				"%s before %s\n" , moc[i].name,
+				ldap_scherr2str(code), err );
+#endif
+			return -1;
+		}
+
+		if ( oc->oc_oid == NULL ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, CRIT,
+				"objectclass '%s' has no OID\n" ,
+				moc[i].name, 0, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY,
+				"objectclass '%s' has no OID\n" ,
+				moc[i].name, 0, 0 );
+#endif
+			return -1;
+		}
+
+		code = oc_add(oc, 0, &err);
+		if ( code ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, CRIT,
+				"objectclass '%s': %s \"%s\"\n" ,
+				moc[i].name, scherr2str(code), err );
+#else
+			Debug( LDAP_DEBUG_ANY,
+				"objectclass '%s': %s \"%s\"\n" ,
+				moc[i].name, scherr2str(code), err );
+#endif
+			return -1;
+		}
+
+		ldap_memfree(oc);
+
+		Oc = oc_find( moc[i].name );
+		if ( Oc == NULL ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, CRIT, "monitor_back_db_init: "
+					"unable to find objectClass %s "
+					"(just added)\n", moc[i].name, 0, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY, "monitor_back_db_init: "
+					"unable to find objectClass %s "
+					"(just added)\n", moc[i].name, 0, 0 );
+#endif
+			return -1;
+		}
+
+		Oc->soc_flags |= moc[i].flags;
+
+		((ObjectClass **)&(((char *)mi)[moc[i].offset]))[0] = Oc;
 	}
 
 	/*	
@@ -315,7 +715,7 @@ monitor_back_db_init(
 		dn.bv_val = ch_calloc( sizeof( char ), dn.bv_len + 1 );
 		strcpy( dn.bv_val, "cn=" );
 		strcat( dn.bv_val, monitor_subsys[ i ].mss_name );
-		rc = dnPretty2( NULL, &dn, &monitor_subsys[ i ].mss_rdn );
+		rc = dnPretty( NULL, &dn, &monitor_subsys[ i ].mss_rdn, NULL );
 		free( dn.bv_val );
 		if ( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
@@ -335,7 +735,7 @@ monitor_back_db_init(
 		strcpy( dn.bv_val , monitor_subsys[ i ].mss_rdn.bv_val );
 		strcat( dn.bv_val, "," SLAPD_MONITOR_DN );
 		rc = dnPrettyNormal( NULL, &dn, &monitor_subsys[ i ].mss_dn,
-			&monitor_subsys[ i ].mss_ndn );
+			&monitor_subsys[ i ].mss_ndn, NULL );
 		free( dn.bv_val );
 		if ( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
@@ -352,10 +752,17 @@ monitor_back_db_init(
 
 		snprintf( buf, sizeof( buf ),
 				"dn: %s\n"
-				SLAPD_MONITOR_OBJECTCLASSES 
-				"cn: %s\n",
+				"objectClass: %s\n"
+				"structuralObjectClass: %s\n"
+				"cn: %s\n"
+				"createTimestamp: %s\n"
+				"modifyTimestamp: %s\n",
 				monitor_subsys[ i ].mss_dn.bv_val,
-				monitor_subsys[ i ].mss_name );
+				mi->mi_oc_monitorContainer->soc_cname.bv_val,
+				mi->mi_oc_monitorContainer->soc_cname.bv_val,
+				monitor_subsys[ i ].mss_name,
+				mi->mi_startTime.bv_val,
+				mi->mi_startTime.bv_val );
 		
 		e = str2entry( buf );
 		
@@ -399,12 +806,29 @@ monitor_back_db_init(
 	 * creates the "cn=Monitor" entry 
 	 */
 	snprintf( buf, sizeof( buf ), 
-			"dn: " SLAPD_MONITOR_DN "\n"
-			"objectClass: top\n"
-			"objectClass: monitor\n"
-			"objectClass: extensibleObject\n"
-			"structuralObjectClass: monitor\n"
-			"cn: Monitor" );
+		"dn: %s\n"
+		"objectClass: %s\n"
+		"structuralObjectClass: %s\n"
+		"cn: Monitor\n"
+		"%s: This subtree contains monitoring/managing objects.\n"
+		"%s: This object contains information about this server.\n"
+#if 0
+		"%s: createTimestamp reflects the time this server instance was created.\n"
+		"%s: modifyTimestamp reflects the time this server instance was last accessed.\n"
+#endif
+		"createTimestamp: %s\n"
+		"modifyTimestamp: %s\n",
+		SLAPD_MONITOR_DN,
+		mi->mi_oc_monitorServer->soc_cname.bv_val,
+		mi->mi_oc_monitorServer->soc_cname.bv_val,
+		mi->mi_ad_description->ad_cname.bv_val,
+		mi->mi_ad_description->ad_cname.bv_val,
+#if 0
+		mi->mi_ad_description->ad_cname.bv_val,
+		mi->mi_ad_description->ad_cname.bv_val,
+#endif
+		mi->mi_startTime.bv_val,
+		mi->mi_startTime.bv_val );
 
 	e = str2entry( buf );
 	if ( e == NULL) {
@@ -414,30 +838,47 @@ monitor_back_db_init(
 			SLAPD_MONITOR_DN, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
-			"unable to create '%s' entry\n%s%s",
-			SLAPD_MONITOR_DN, "", "" );
+			"unable to create '%s' entry\n",
+			SLAPD_MONITOR_DN, 0, 0 );
 #endif
 		return( -1 );
 	}
-	bv[1].bv_val = NULL;
-	bv[0].bv_val = (char *) Versionstr;
+
+	bv.bv_val = (char *) Versionstr;
 	end_of_line = strchr( Versionstr, '\n' );
 	if ( end_of_line ) {
-		bv[0].bv_len = end_of_line - Versionstr;
+		bv.bv_len = end_of_line - Versionstr;
 	} else {
-		bv[0].bv_len = strlen( Versionstr );
+		bv.bv_len = strlen( Versionstr );
 	}
-	if ( attr_merge( e, monitor_ad_desc, bv ) ) {
+
+	if ( attr_merge_normalize_one( e, mi->mi_ad_monitoredInfo,
+				&bv, NULL ) ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG( OPERATION, CRIT,
-			"unable to add description to '%s' entry\n",
+			"unable to add monitoredInfo to '%s' entry\n",
 			SLAPD_MONITOR_DN, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
-			"unable to add description to '%s' entry\n%s%s",
-			SLAPD_MONITOR_DN, "", "" );
+			"unable to add monitoredInfo to '%s' entry\n",
+			SLAPD_MONITOR_DN, 0, 0 );
 #endif
 		return( -1 );
+	}
+
+	if ( mi->mi_l.bv_len ) {
+		if ( attr_merge_normalize_one( e, mi->mi_ad_l, &mi->mi_l, NULL ) ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, CRIT,
+				"unable to add locality to '%s' entry\n",
+				SLAPD_MONITOR_DN, 0, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY,
+				"unable to add locality to '%s' entry\n",
+				SLAPD_MONITOR_DN, 0, 0 );
+#endif
+			return( -1 );
+		}
 	}
 
 	mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
@@ -454,24 +895,14 @@ monitor_back_db_init(
 			SLAPD_MONITOR_DN, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
-			"unable to add entry '%s' to cache\n%s%s",
-			SLAPD_MONITOR_DN, "", "" );
+			"unable to add entry '%s' to cache\n",
+			SLAPD_MONITOR_DN, 0, 0 );
 #endif
 		return -1;
 	}
 
 	be->be_private = mi;
 	
-	return 0;
-}
-
-int
-monitor_back_db_open(
-	BackendDB	*be
-)
-{
-	struct monitorsubsys	*ms;
-
 	assert( be );
 
 	/*
@@ -498,7 +929,7 @@ monitor_back_config(
 	/*
 	 * eventually, will hold backend specific configuration parameters
 	 */
-	return 0;
+	return SLAP_CONF_UNKNOWN;
 }
 
 int
@@ -510,16 +941,22 @@ monitor_back_db_config(
 	char        **argv
 )
 {
+	struct monitorinfo *mi = (struct monitorinfo *)be->be_private;
+
 	/*
 	 * eventually, will hold database specific configuration parameters
 	 */
-#ifdef NEW_LOGGING
-	LDAP_LOG( CONFIG, INFO,
-		"line %d of file '%s' will be ignored\n", lineno, fname, 0 );
-#else
-	Debug( LDAP_DEBUG_CONFIG, 
-		"line %d of file '%s' will be ignored\n%s", lineno, fname, "" );
-#endif
+	if ( strcasecmp( argv[ 0 ], "l" ) == 0 ) {
+		if ( argc != 2 ) {
+			return 1;
+		}
+		
+		ber_str2bv( argv[ 1 ], 0, 1, &mi->mi_l );
+
+	} else {
+		return SLAP_CONF_UNKNOWN;
+	}
+
 	return( 0 );
 }
 

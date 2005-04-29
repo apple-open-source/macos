@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,7 +81,6 @@ extern void DAPreferenceListRefresh( void );
 enum
 {
     kDAUnitStateCommandActive    = 0x00000001,
-    kDAUnitStateEjected          = 0x00000002,
     kDAUnitStateStagedUnreadable = 0x00010000
 };
 

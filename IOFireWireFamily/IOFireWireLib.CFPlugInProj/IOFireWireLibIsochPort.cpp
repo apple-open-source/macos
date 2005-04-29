@@ -27,7 +27,13 @@
  *  Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * $Log: IOFireWireLibIsochPort.cpp,v $
- * Revision 1.33.10.1  2005/03/08 03:48:49  collin
+ * Revision 1.36  2005/03/12 03:27:52  collin
+ * *** empty log message ***
+ *
+ * Revision 1.35  2005/02/18 03:19:05  niels
+ * fix isight
+ *
+ * Revision 1.34  2004/05/04 22:52:20  niels
  * *** empty log message ***
  *
  * Revision 1.33  2004/02/17 23:13:23  niels
@@ -627,7 +633,7 @@ namespace IOFireWireLib {
 		LocalIsochPortAllocateParams params ;
 		{
 			params.programExportBytes = 0 ;
-			params.programData = NULL ;
+			params.programData = 0 ;
 		}
 
 		if ( program->opcode == kDCLNuDCLLeaderOp )
@@ -713,12 +719,12 @@ namespace IOFireWireLib {
 		params.startState					= startState ;
 		params.startMask					= startMask ;
 		params.userObj						= this ;
-		params.options						= options;
+		params.options						= options ;
 
 #if 0
 		params.options |= kFWIsochEnableRobustness;
 #endif
-	
+		
 		InfoLog("startEvent=%x, startState=%x, startMask=%x\n", params.startEvent, params.startState, params.startMask) ;
 
 		IOByteCount	outputSize = sizeof( UserObjectHandle ) ;
@@ -747,7 +753,7 @@ namespace IOFireWireLib {
 
 			// nnn a bit skanky: turn a function pointer to member function into an integer:
 			OSAsyncReference asyncRef ;
-			asyncRef[ kIOAsyncCalloutFuncIndex ] =  (natural_t) (void (*)(IOReturn)) & LocalIsochPort::DCLStopTokenCallProcHandler ;
+			asyncRef[ kIOAsyncCalloutFuncIndex ] =  (natural_t) (void (*)(void*, int )) & LocalIsochPort::DCLStopTokenCallProcHandler ;
 			asyncRef[ kIOAsyncCalloutRefconIndex ] = (natural_t) this ;
 
 			error = :: io_async_method_scalarI_scalarO (	mDevice.GetUserClientConnection(), 
@@ -1097,7 +1103,7 @@ namespace IOFireWireLib {
 				IOByteCount dataSize = 0 ;
 				for( unsigned index=0; index < numDCLs; ++index )
 				{
-					dataSize += 4 + ((NuDCL**)inDCLList)[ index ]->Export( NULL, NULL, NULL ) ;
+					dataSize += 4 + ((NuDCL**)inDCLList)[ index ]->Export( NULL, NULL, 0 ) ;
 				}
 				
 				UInt8 data[ dataSize ] ;

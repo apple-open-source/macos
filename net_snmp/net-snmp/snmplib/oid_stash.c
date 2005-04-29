@@ -11,11 +11,17 @@
 
 #include <net-snmp/net-snmp-includes.h>
 
+/** @defgroup oid_stash Store and retrieve data referenced by an OID.
+    This is essentially a way of storing data associated with a given
+    OID.  It stores a bunch of data pointers within a memory tree that
+    allows fairly efficient lookups with a heavily populated tree.
+    @ingroup library
+    @{
+*/
+
 /*
  * xxx-rks: when you have some spare time:
  *
- * a) add get-next access
- * 
  * b) basically, everything currently creates one node per sub-oid,
  *    which is less than optimal. add code to create nodes with the
  *    longest possible OID per node, and split nodes when necessary
@@ -24,6 +30,8 @@
  * c) If you are feeling really ambitious, also merge split nodes if
  *    possible on a delete.
  *
+ * xxx-wes: uh, right, like I *ever* have that much time.
+ *
  */
 
 /***************************************************************************
@@ -31,7 +39,7 @@
  *
  ***************************************************************************/
 
-/*
+/**
  * Create an netsnmp_oid_stash node
  *
  * @param mysize  the size of the child pointer array
@@ -54,6 +62,10 @@ netsnmp_oid_stash_create_sized_node(size_t mysize)
     return ret;
 }
 
+/** Creates a netsnmp_oid_stash_node.
+ * Assumes you want the default OID_STASH_CHILDREN_SIZE hash size for the node.
+ * @return NULL on error, otherwise the newly allocated node
+ */
 NETSNMP_INLINE netsnmp_oid_stash_node *
 netsnmp_oid_stash_create_node(void)
 {
@@ -61,10 +73,15 @@ netsnmp_oid_stash_create_node(void)
 }
 
 /** adds data to the stash at a given oid.
- * returns SNMPERR_SUCCESS on success.
- * returns SNMPERR_GENERR if data is already there.
- * returns SNMPERR_MALLOC on malloc failures or if arguments passed in
- *   with NULL values.
+
+ * @param root the top of the stash tree
+ * @param lookup the oid index to store the data at.
+ * @param lookup_len the length of the lookup oid.
+ * @param mydata the data to store
+
+ * @return SNMPERR_SUCCESS on success, SNMPERR_GENERR if data is
+   already there, SNMPERR_MALLOC on malloc failures or if arguments
+   passed in with NULL values.
  */
 int
 netsnmp_oid_stash_add_data(netsnmp_oid_stash_node **root,
@@ -91,6 +108,7 @@ netsnmp_oid_stash_add_data(netsnmp_oid_stash_node **root,
             tmpp = curnode->children[lookup[i] % curnode->children_size] =
                 netsnmp_oid_stash_create_node();
             tmpp->value = lookup[i];
+            tmpp->parent = curnode;
         } else {
             for (loopp = tmpp; loopp; loopp = loopp->next_sibling) {
                 if (loopp->value == lookup[i])
@@ -105,6 +123,7 @@ netsnmp_oid_stash_add_data(netsnmp_oid_stash_node **root,
                 loopp = netsnmp_oid_stash_create_node();
                 loopp->value = lookup[i];
                 loopp->next_sibling = tmpp;
+                loopp->parent = curnode;
                 tmpp->prev_sibling = loopp;
                 curnode->children[lookup[i] % curnode->children_size] =
                     loopp;
@@ -128,6 +147,9 @@ netsnmp_oid_stash_add_data(netsnmp_oid_stash_node **root,
 }
 
 /** returns a node associated with a given OID.
+ * @param root the top of the stash tree
+ * @param lookup the oid to look up a node for.
+ * @param lookup_len the length of the lookup oid
  */
 netsnmp_oid_stash_node *
 netsnmp_oid_stash_get_node(netsnmp_oid_stash_node *root,
@@ -159,7 +181,103 @@ netsnmp_oid_stash_get_node(netsnmp_oid_stash_node *root,
     return tmpp;
 }
 
+/** returns the next node associated with a given OID. INCOMPLETE.
+    This is equivelent to a GETNEXT operation.
+ * @internal
+ * @param root the top of the stash tree
+ * @param lookup the oid to look up a node for.
+ * @param lookup_len the length of the lookup oid
+ */
+netsnmp_oid_stash_node *
+netsnmp_oid_stash_getnext_node(netsnmp_oid_stash_node *root,
+                               oid * lookup, size_t lookup_len)
+{
+    netsnmp_oid_stash_node *curnode, *tmpp, *loopp;
+    unsigned int    i, j, bigger_than = 0, do_bigger = 0;
+
+    if (!root)
+        return NULL;
+    tmpp = NULL;
+
+    /* get closest matching node */
+    for (curnode = root, i = 0; i < lookup_len; i++) {
+        tmpp = curnode->children[lookup[i] % curnode->children_size];
+        if (!tmpp) {
+            break;
+        } else {
+            for (loopp = tmpp; loopp; loopp = loopp->next_sibling) {
+                if (loopp->value == lookup[i])
+                    break;
+            }
+            if (loopp) {
+                tmpp = loopp;
+            } else {
+                break;
+            }
+        }
+        curnode = tmpp;
+    }
+
+    /* find the *next* node lexographically greater */
+    if (!curnode)
+        return NULL; /* ack! */
+
+    if (i+1 < lookup_len) {
+        bigger_than = lookup[i+1];
+        do_bigger = 1;
+    }
+
+    do {
+        /* check the children first */
+        tmpp = NULL;
+        /* next child must be (next) greater than our next search node */
+        /* XXX: should start this loop at best_nums[i]%... and wrap */
+        for(j = 0; j < curnode->children_size; j++) {
+            for (loopp = curnode->children[j];
+                 loopp; loopp = loopp->next_sibling) {
+                if ((!do_bigger || loopp->value > bigger_than) &&
+                    (!tmpp || tmpp->value > loopp->value)) {
+                    tmpp = loopp;
+                    /* XXX: can do better and include min_nums[i] */
+                    if (tmpp->value <= curnode->children_size-1) {
+                        /* best we can do. */
+                        goto done_this_loop;
+                    }
+                }
+            }
+        }
+
+      done_this_loop:
+        if (tmpp && tmpp->thedata)
+            /* found a node with data.  Go with it. */
+            return tmpp;
+
+        if (tmpp) {
+            /* found a child node without data, maybe find a grandchild? */
+            do_bigger = 0;
+            curnode = tmpp;
+        } else {
+            /* no respectable children (the bums), we'll have to go up.
+               But to do so, they must be better than our current best_num + 1.
+            */
+            do_bigger = 1;
+            bigger_than = curnode->value;
+            curnode = curnode->parent;
+        }
+    } while (curnode);
+
+    /* fell off the top */
+    return NULL;
+}
+
 /** returns a data pointer associated with a given OID.
+
+    This is equivelent to netsnmp_oid_stash_get_node, but returns only
+    the data not the entire node.
+
+ * @param root the top of the stash
+ * @param oid the oid to search for
+ * @param the length of the search oid.
  */
 void           *
 netsnmp_oid_stash_get_data(netsnmp_oid_stash_node *root,
@@ -172,6 +290,14 @@ netsnmp_oid_stash_get_data(netsnmp_oid_stash_node *root,
     return NULL;
 }
 
+/** a wrapper around netsnmp_oid_stash_store for use with a snmp_alarm.
+ * when calling snmp_alarm, you can list this as a callback.  The
+ * clientarg should be a pointer to a netsnmp_oid_stash_save_info
+ * pointer.  It can also be called directly, of course.  The last
+ * argument (clientarg) is the only one that is used.  The rest are
+ * ignored by the function.
+ * @param clientarg A pointer to a netsnmp_oid_stash_save_info structure.
+ */
 int
 netsnmp_oid_stash_store_all(int majorID, int minorID,
                             void *serverarg, void *clientarg) {
@@ -187,6 +313,21 @@ netsnmp_oid_stash_store_all(int majorID, int minorID,
     return SNMP_ERR_NOERROR;
 }
 
+/** stores data in a starsh tree to peristent storage.
+
+    This function can be called to save all data in a stash tree to
+    Net-SNMP's percent storage.  Make sure you register a parsing
+    function with the read_config system to re-incorperate your saved
+    data into future trees.
+
+    @param root the top of the stash to store.
+    @param tokenname the file token name to save in (passing "snmpd" will
+    save things into snmpd.conf).
+    @param dumpfn A function which can dump the data stored at a particular
+    node into a char buffer.
+    @param curoid must be a pointer to a OID array of length MAX_OID_LEN.
+    @param curoid_len must be 0 for the top level call.
+*/
 void
 netsnmp_oid_stash_store(netsnmp_oid_stash_node *root,
                         const char *tokenname, NetSNMPStashDump *dumpfn,
@@ -202,7 +343,7 @@ netsnmp_oid_stash_store(netsnmp_oid_stash_node *root,
     if (!tokenname || !root || !curoid || !dumpfn)
         return;
 
-    for (i = 0; i < root->children_size; i++) {
+    for (i = 0; i < (int)root->children_size; i++) {
         if (root->children[i]) {
             for (tmpp = root->children[i]; tmpp; tmpp = tmpp->next_sibling) {
                 curoid[curoid_len] = tmpp->value;
@@ -223,7 +364,11 @@ netsnmp_oid_stash_store(netsnmp_oid_stash_node *root,
     }
 }
 
-void
+/** For debugging: dump the netsnmp_oid_stash tree to stdout
+    @param root The top of the tree
+    @param prefix a character string prefix printed to the beginning of each line.
+*/
+void 
 oid_stash_dump(netsnmp_oid_stash_node *root, char *prefix)
 {
     char            myprefix[MAX_OID_LEN * 4];
@@ -237,9 +382,53 @@ oid_stash_dump(netsnmp_oid_stash_node *root, char *prefix)
     for (i = 0; i < root->children_size; i++) {
         if (root->children[i]) {
             for (tmpp = root->children[i]; tmpp; tmpp = tmpp->next_sibling) {
-                printf("%s%ld@%d:\n", prefix, tmpp->value, i);
+                printf("%s%ld@%d: %s\n", prefix, tmpp->value, i,
+                       (tmpp->thedata) ? "DATA" : "");
                 oid_stash_dump(tmpp, myprefix);
             }
         }
     }
 }
+
+/** Frees the contents of a netsnmp_oid_stash tree.
+    @param root the top of the tree (or branch to be freed)
+    @param freefn The function to be called on each data (void *)
+    pointer.  If left NULL the system free() function will be called
+*/
+void
+netsnmp_oid_stash_free(netsnmp_oid_stash_node **root,
+                       NetSNMPStashFreeNode *freefn) {
+
+    netsnmp_oid_stash_node *curnode, *tmpp;
+    unsigned int    i;
+
+    if (!root || !*root)
+        return;
+
+    /* loop through all our children and free each node */
+    for (i = 0; i < (*root)->children_size; i++) {
+        if ((*root)->children[i]) {
+            for(tmpp = (*root)->children[i]; tmpp; tmpp = curnode) {
+                if (tmpp->thedata) {
+                    if (freefn)
+                        (*freefn)(tmpp->thedata);
+                    else
+                        free(tmpp->thedata);
+                }
+                curnode = tmpp->next_sibling;
+                netsnmp_oid_stash_free(&tmpp, freefn);
+            }
+        }
+    }
+    free((*root)->children);
+    free (*root);
+    *root = NULL;
+}
+
+void
+netsnmp_oid_stash_no_free(void *bogus)
+{
+    /* noop */
+}
+
+/** @} */

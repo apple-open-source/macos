@@ -42,35 +42,8 @@ is_class_name (arg)
 }
 
 tree
-is_id (arg)
+objc_is_id (arg)
     tree arg ATTRIBUTE_UNUSED;
-{
-  return 0;
-}
-
-void
-objc_check_decl (decl)
-     tree decl ATTRIBUTE_UNUSED;
-{
-}
-
-int
-objc_comptypes (lhs, rhs, reflexive)
-     tree lhs ATTRIBUTE_UNUSED;
-     tree rhs ATTRIBUTE_UNUSED;
-     int reflexive ATTRIBUTE_UNUSED;
-{
-  return -1;
-}
-
-tree
-objc_message_selector ()
-{
-  return NULL_TREE;
-}
-
-int
-recognize_objc_keyword ()
 {
   return 0;
 }
@@ -84,18 +57,50 @@ lookup_objc_ivar (id)
   return 0;
 }
 
-/* APPLE LOCAL begin constant strings */
-int flag_next_runtime = 0;
-const char *constant_string_class_name = 0;
-/* APPLE LOCAL end constant strings */
-
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL begin Objective-C++ */
 /* Used by cp/lex.c (do_identifier), but only for objc++.  */
 int
 objcp_lookup_identifier (token, id, check_conflict)
-  tree token ATTRIBUTE_UNUSED;
-  tree *id ATTRIBUTE_UNUSED;
-  int check_conflict ATTRIBUTE_UNUSED;
+     tree token ATTRIBUTE_UNUSED;
+     tree *id ATTRIBUTE_UNUSED;
+     int check_conflict ATTRIBUTE_UNUSED;
 {
   return 0;
 }  
+
+/* Used by cp/decl2.c (build_expr_from_tree), but only for objc++.  */
+tree
+finish_message_expr (receiver, sel_name, method_params)
+     tree receiver ATTRIBUTE_UNUSED;
+     tree sel_name ATTRIBUTE_UNUSED;
+     tree method_params ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
+/* Used by cp/decl2.c (build_expr_from_tree), but only for objc++.  */
+tree
+get_class_reference (ident)
+     tree ident ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+/* APPLE LOCAL end Objective-C++ */
+
+/* APPLE LOCAL begin XJR */
+int
+objc_is_object_ptr_type (type, or_strong_p)
+     tree type ATTRIBUTE_UNUSED;
+     int or_strong_p ATTRIBUTE_UNUSED;
+{
+  return 0;
+}  
+
+tree
+objc_generate_write_barrier (lhs, modifycode, rhs)
+     tree lhs ATTRIBUTE_UNUSED, rhs ATTRIBUTE_UNUSED;
+     enum tree_code modifycode ATTRIBUTE_UNUSED;
+{
+  return 0;
+}  
+/* APPLE LOCAl end XJR */

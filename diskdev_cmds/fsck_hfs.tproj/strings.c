@@ -25,6 +25,7 @@ char * stat_msg[] =
 	"Look for missing items in lost+found directory.",
 	"Cannot repair volume when it is mounted with write access.",
 	"Detected a case-sensitive catalog.",
+	"The volume %s could not be repaired after 3 attempts.",
 };
 
 
@@ -115,7 +116,8 @@ char * err_msg[] =
 	"Orphaned indirect node %s",
 	"Invalid BSD file type",
 
-	/* 570 - 571 */
+	/* 570 - 572 */
 	"Invalid BSD User ID",
-	"Illegal name"
+	"Illegal name",
+	"Incorrect number of thread records",
 };

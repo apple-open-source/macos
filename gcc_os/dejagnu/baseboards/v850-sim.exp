@@ -1,5 +1,5 @@
 # This is a list of toolchains that are supported on this board.
-set_board_info target_install {v850-elf}
+set_board_info target_install {v850-elf v850e-elf}
 
 # Load the generic configuration for this board. This will define any
 # routines needed by the tool to communicate with the board.

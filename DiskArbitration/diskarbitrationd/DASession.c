@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -102,7 +102,7 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
 
     if ( session )
     {
-        session->_client   = NULL;
+        session->_client   = MACH_PORT_NULL;
         session->_name     = NULL;
         session->_pid      = 0;
         session->_options  = 0;
@@ -213,7 +213,7 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator, mach_port_t _client, con
                 {
                     AuthorizationRef rights;
 
-                    assert( port == NULL );
+                    assert( port == MACH_PORT_NULL );
 
                     /*
                      * Create the session's authorization reference.
@@ -248,6 +248,8 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator, mach_port_t _client, con
 
                 CFRelease( source );
             }
+
+            CFMachPortInvalidate( server );
 
             CFRelease( server );
         }
@@ -322,6 +324,7 @@ void DASessionQueueCallback( DASessionRef session, DACallbackRef callback )
     if ( CFArrayGetCount( session->_queue ) == 1 )
     {
         mach_msg_header_t message;
+        kern_return_t     status;
 
         message.msgh_bits        = MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, 0 );
         message.msgh_id          = 0;
@@ -330,7 +333,12 @@ void DASessionQueueCallback( DASessionRef session, DACallbackRef callback )
         message.msgh_reserved    = 0;
         message.msgh_size        = sizeof( message );
 
-        mach_msg( &message, MACH_SEND_MSG | MACH_SEND_TIMEOUT, message.msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL );
+        status = mach_msg( &message, MACH_SEND_MSG | MACH_SEND_TIMEOUT, message.msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL );
+
+        if ( status == MACH_SEND_TIMED_OUT )
+        {
+            mach_msg_destroy( &message );
+        }
     }
 }
 

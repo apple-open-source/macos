@@ -1,0 +1,61 @@
+--- vis.c.orig	2004-11-25 11:38:02.000000000 -0800
++++ vis.c	2005-02-24 16:58:00.000000000 -0800
+@@ -37,6 +37,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/gen/vis.c,v 1.13 2003/10/30 12:41:50 phk Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <sys/types.h>
+ #include <limits.h>
+ #include <ctype.h>
+@@ -54,18 +56,20 @@
+ 	int c, nextc;
+ 	int flag;
+ {
++	locale_t loc = __current_locale();
++
+ 	c = (unsigned char)c;
+ 
+ 	if (flag & VIS_HTTPSTYLE) {
+ 		/* Described in RFC 1808 */
+-		if (!(isalnum(c) /* alpha-numeric */
++		if (!(isalnum_l(c, loc) /* alpha-numeric */
+ 		    /* safe */
+ 		    || c == '$' || c == '-' || c == '_' || c == '.' || c == '+'
+ 		    /* extra */
+ 		    || c == '!' || c == '*' || c == '\'' || c == '('
+ 		    || c == ')' || c == ',')) {
+ 			*dst++ = '%';
+-			snprintf(dst, 4, (c < 16 ? "0%X" : "%X"), c);
++			snprintf_l(dst, 4, loc, (c < 16 ? "0%X" : "%X"), c);
+ 			dst += 2;
+ 			goto done;
+ 		}
+@@ -74,7 +78,7 @@
+ 	if ((flag & VIS_GLOB) &&
+ 	    (c == '*' || c == '?' || c == '[' || c == '#'))
+ 		;
+-	else if (isgraph(c) ||
++	else if (isgraph_l(c, loc) ||
+ 	   ((flag & VIS_SP) == 0 && c == ' ') ||
+ 	   ((flag & VIS_TAB) == 0 && c == '\t') ||
+ 	   ((flag & VIS_NL) == 0 && c == '\n') ||
+@@ -130,7 +134,7 @@
+ 			goto done;
+ 		}
+ 	}
+-	if (((c & 0177) == ' ') || isgraph(c) || (flag & VIS_OCTAL)) {
++	if (((c & 0177) == ' ') || isgraph_l(c, loc) || (flag & VIS_OCTAL)) {
+ 		*dst++ = '\\';
+ 		*dst++ = ((u_char)c >> 6 & 07) + '0';
+ 		*dst++ = ((u_char)c >> 3 & 07) + '0';
+@@ -143,7 +147,7 @@
+ 		c &= 0177;
+ 		*dst++ = 'M';
+ 	}
+-	if (iscntrl(c)) {
++	if (iscntrl_l(c, loc)) {
+ 		*dst++ = '^';
+ 		if (c == 0177)
+ 			*dst++ = '?';

@@ -27,7 +27,7 @@
 ;; Author: Paulo César Pereira de Andrade
 ;;
 ;;
-;; $XFree86: xc/programs/xedit/lisp/modules/progmodes/lisp.lsp,v 1.9 2003/01/30 02:46:26 paulo Exp $
+;; $XFree86: xc/programs/xedit/lisp/modules/progmodes/lisp.lsp,v 1.10 2004/01/08 21:29:12 paulo Exp $
 ;;
 
 (require "syntax")
@@ -36,25 +36,25 @@
 
 (defsynprop *prop-special*
   "special"
-  :font		"*courier-bold-r*12*"
+  :font		"*courier-bold-r*-12-*"
   :foreground	"NavyBlue"
 )
 
 (defsynprop *prop-quote*
   "quote"
-  :font		"*courier-bold-r*12*"
+  :font		"*courier-bold-r*-12-*"
   :foreground	"Red3"
 )
 
 (defsynprop *prop-package*
   "package"
-  :font		"*lucidatypewriter-medium-r*12*"
+  :font		"*lucidatypewriter-medium-r*-12-*"
   :foreground	"Gold4"
 )
 
 (defsynprop *prop-unreadable*
   "unreadable"
-  :font		"*courier-medium-r*12*"
+  :font		"*courier-medium-r*-12-*"
   :foreground	"Gray25"
   :underline	t
 )

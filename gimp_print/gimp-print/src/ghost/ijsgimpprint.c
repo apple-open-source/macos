@@ -1,5 +1,5 @@
 /*
- *  $Id: ijsgimpprint.c,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+ *  $Id: ijsgimpprint.c,v 1.1.1.3 2004/12/22 23:49:35 jlovell Exp $
  *
  *   ijs server for gimp-print.
  *
@@ -42,7 +42,9 @@
 #include <errno.h>
 #include <gimp-print/gimp-print-intl-internal.h>
 
+
 static int stp_debug = 0;
+volatile int SDEBUG = 1;
 
 #define STP_DEBUG(x) do { if (stp_debug || getenv("STP_DEBUG")) x; } while (0)
 
@@ -58,7 +60,7 @@ struct _GimpParamList {
 typedef struct _IMAGE
 {
   IjsServerCtx *ctx;
-  stp_vars_t v;
+  stp_vars_t *v;
   char *filename;	/* OutputFile */
   int fd;		/* OutputFD + 1 (so that 0 is invalid) */
   int width;		/* pixels */
@@ -68,6 +70,7 @@ typedef struct _IMAGE
   int xres;		/* dpi */
   int yres;
   int output_type;
+  int monochrome_flag;	/* for monochrome output */
   int row;		/* row number in buffer */
   int row_width;	/* length of a row */
   char *row_buf;	/* buffer for raster */
@@ -83,7 +86,7 @@ static const char DeviceCMYK[] = "DeviceCMYK";
 static char *
 c_strdup(const char *s)
 {
-  char *ret = malloc(strlen(s) + 1);
+  char *ret = stp_malloc(strlen(s) + 1);
   strcpy(ret, s);
   return ret;
 }
@@ -100,39 +103,55 @@ image_init(IMAGE *img, IjsPageHeader *ph)
 
   img->row = -1;
   img->row_width = (ph->n_chan * ph->bps * ph->width + 7) >> 3;
-  img->row_buf = (char *)malloc(img->row_width);
+  if (img->row_buf)
+    stp_free(img->row_buf);
+  img->row_buf = (char *)stp_malloc(img->row_width);
   STP_DEBUG(fprintf(stderr, "image_init\n"));
   STP_DEBUG(fprintf(stderr,
 		    "ph width %d height %d bps %d n_chan %d xres %f yres %f\n",
 		    ph->width, ph->height, ph->bps, ph->n_chan, ph->xres,
 		    ph->yres));
 
+  stp_set_string_parameter(img->v, "ChannelBitDepth", "8");
   if ((img->bps == 1) && (img->n_chan == 1) &&
       (strncmp(ph->cs, DeviceGray, strlen(DeviceGray)) == 0))
     {
+      stp_parameter_t desc;
       STP_DEBUG(fprintf(stderr, "output monochrome\n"));
-      img->output_type = OUTPUT_MONOCHROME;
+      stp_set_string_parameter(img->v, "InputImageType", "Whitescale");
+      stp_set_string_parameter(img->v, "PrintingMode", "BW");
+      stp_describe_parameter(img->v, "Contrast", &desc);
+      if (desc.p_type == STP_PARAMETER_TYPE_DOUBLE)
+	stp_set_float_parameter(img->v, "Contrast", desc.bounds.dbl.upper);
+      stp_parameter_description_destroy(&desc);
+      img->monochrome_flag = 1;
       /* 8-bit greyscale */
     }
   else if ((img->bps == 8) && (img->n_chan == 1) &&
       (strncmp(ph->cs, DeviceGray, strlen(DeviceGray)) == 0))
     {
       STP_DEBUG(fprintf(stderr, "output gray\n"));
-      img->output_type = OUTPUT_GRAY;
+      stp_set_string_parameter(img->v, "InputImageType", "Whitescale");
+      stp_set_string_parameter(img->v, "PrintingMode", "BW");
+      img->monochrome_flag = 0;
       /* 8-bit greyscale */
     }
   else if ((img->bps == 8) && (img->n_chan == 3) &&
 	   (strncmp(ph->cs, DeviceRGB, strlen(DeviceRGB)) == 0))
     {
       STP_DEBUG(fprintf(stderr, "output color\n"));
-      img->output_type = OUTPUT_COLOR;
+      stp_set_string_parameter(img->v, "InputImageType", "RGB");
+      stp_set_string_parameter(img->v, "PrintingMode", "Color");
+      img->monochrome_flag = 0;
       /* 24-bit colour */
     }
-  else if ((img->bps == 8) && (img->n_chan == 4) && 
+  else if ((img->bps == 8) && (img->n_chan == 4) &&
 	   (strncmp(ph->cs, DeviceCMYK, strlen(DeviceCMYK)) == 0))
     {
       STP_DEBUG(fprintf(stderr, "output CMYK\n"));
-      img->output_type = OUTPUT_RAW_CMYK;
+      stp_set_string_parameter(img->v, "InputImageType", "CMYK");
+      stp_set_string_parameter(img->v, "PrintingMode", "Color");
+      img->monochrome_flag = 0;
       /* 32-bit CMYK colour */
     }
   else
@@ -156,13 +175,12 @@ static void
 image_finish(IMAGE *img)
 {
   if (img->row_buf)
-    free(img->row_buf);
+    stp_free(img->row_buf);
   img->row_buf = NULL;
 }
 
-static int
-get_float(const char *str, const char *name, float *pval,
-	  float min_value, float max_value)
+static double
+get_float(const char *str, const char *name, double *pval)
 {
   float new_value;
   /* Force locale to "C", because decimal numbers coming from the IJS
@@ -171,28 +189,20 @@ get_float(const char *str, const char *name, float *pval,
   if (sscanf(str, "%f", &new_value) == 1)
     {
       setlocale(LC_ALL, "");
-      if ((new_value >= min_value) && (new_value <= max_value))
-	{
-	  *pval = new_value;
-	  return 0;
-	}
-      else
-	fprintf(stderr,
-		_("Parameter %s out of range (value %f, min %f, max %f)\n"),
-		name, new_value, min_value, max_value);
+      *pval = new_value;
+      return 0;
     }
   else
     {
       setlocale(LC_ALL, "");
       fprintf(stderr, _("Unable to parse parameter %s=%s (expect a number)\n"),
 	      name, str);
+      return -1;
     }
-  return -1;
 }
 
 static int
-get_int(const char *str, const char *name, int *pval,
-	int min_value, int max_value)
+get_int(const char *str, const char *name, int *pval)
 {
   int new_value;
   /* Force locale to "C", because decimal numbers sent to the IJS
@@ -201,22 +211,16 @@ get_int(const char *str, const char *name, int *pval,
   if (sscanf(str, "%d", &new_value) == 1)
     {
       setlocale(LC_ALL, "");
-      if ((new_value >= min_value) && (new_value <= max_value))
-	{
-	  *pval = new_value;
-	  return 0;
-	}
-	fprintf(stderr,
-		_("Parameter %s out of range (value %d, min %d, max %d)\n"),
-		name, new_value, min_value, max_value);
+      *pval = new_value;
+      return 0;
     }
   else
     {
       setlocale(LC_ALL, "");
       fprintf(stderr, _("Unable to parse parameter %s=%s (expect a number)\n"),
 	      name, str);
+      return -1;
     }
-  return -1;
 }
 
 /* A C implementation of /^(\d\.+\-eE)+x(\d\.+\-eE)+$/ */
@@ -292,6 +296,87 @@ gimp_status_cb (void *status_cb_data,
   return 0;
 }
 
+static const char *
+list_all_parameters(void)
+{
+  static char *param_string = NULL;
+  size_t param_length = 0;
+  size_t offset = 0;
+  if (param_length == 0)
+    {
+      stp_string_list_t *sl = stp_string_list_create();
+      int printer_count = stp_printer_model_count();
+      int i;
+      stp_string_list_add_string(sl, "PrintableArea", NULL);
+      stp_string_list_add_string(sl, "Dpi", NULL);
+      stp_string_list_add_string(sl, "PrintableTopLeft", NULL);
+      stp_string_list_add_string(sl, "DeviceManufacturer", NULL);
+      stp_string_list_add_string(sl, "DeviceModel", NULL);
+      stp_string_list_add_string(sl, "PageImageFormat", NULL);
+      stp_string_list_add_string(sl, "OutputFile", NULL);
+      stp_string_list_add_string(sl, "OutputFd", NULL);
+      stp_string_list_add_string(sl, "Quality", NULL);
+      stp_string_list_add_string(sl, "PaperSize", NULL);
+      stp_string_list_add_string(sl, "MediaName", NULL);
+      for (i = 0; i < printer_count; i++)
+	{
+	  const stp_printer_t *printer = stp_get_printer_by_index(i);
+	  stp_parameter_list_t params =
+	    stp_get_parameter_list(stp_printer_get_defaults(printer));
+	  size_t count = stp_parameter_list_count(params);
+	  int j;
+	  if (strcmp(stp_printer_get_family(printer), "ps") == 0 ||
+	      strcmp(stp_printer_get_family(printer), "raw") == 0)
+	    continue;
+	  for (j = 0; j < count; j++)
+	    {
+	      const stp_parameter_t *param =
+		stp_parameter_list_param(params, j);
+	      if ((param->p_level < STP_PARAMETER_LEVEL_ADVANCED4) &&
+		  (param->p_type != STP_PARAMETER_TYPE_RAW) &&
+		  (param->p_type != STP_PARAMETER_TYPE_FILE) &&
+		  (!param->read_only) &&
+		  (strcmp(param->name, "Resolution") != 0) &&
+		  (strcmp(param->name, "PageSize") != 0) &&
+		  (!stp_string_list_is_present(sl, param->name)))
+		stp_string_list_add_string(sl, param->name, NULL);
+	      if ((param->p_type == STP_PARAMETER_TYPE_DOUBLE ||
+		   param->p_type == STP_PARAMETER_TYPE_DIMENSION) &&
+		  !param->read_only && param->is_active &&
+		  !param->is_mandatory)
+		{
+		  char *tmp =
+		    stp_malloc(strlen(param->name) + strlen("Enable") + 1);
+		  sprintf(tmp, "Enable%s", param->name);
+		  stp_string_list_add_string(sl, tmp, NULL);
+		  stp_free(tmp);
+		}
+	    }
+	  stp_parameter_list_destroy(params);
+	}
+      for (i = 0; i < stp_string_list_count(sl); i++)
+	param_length += strlen(stp_string_list_param(sl, i)->name) + 1;
+      param_string = stp_malloc(param_length);
+      for (i = 0; i < stp_string_list_count(sl); i++)
+	{
+	  stp_param_string_t *param = stp_string_list_param(sl, i);
+	  strcpy(param_string + offset, param->name);
+	  offset += strlen(param->name) + 1;
+	  param_string[offset - 1] = ',';
+	}
+      if (offset != param_length)
+	{
+	  fprintf(stderr, "Bad string length %lu != %lu!\n",
+		  (unsigned long) offset,
+		  (unsigned long) param_length);
+	  exit(1);
+	}
+      param_string[param_length - 1] = '\0';
+    }
+  return param_string;
+}
+
+
 static int
 gimp_list_cb (void *list_cb_data,
 	      IjsServerCtx *ctx,
@@ -299,8 +384,9 @@ gimp_list_cb (void *list_cb_data,
 	      char *val_buf,
 	      int val_size)
 {
-  const char *param_list = "OutputFile,OutputFD,DeviceManufacturer,DeviceModel,Quality,MediaName,MediaType,MediaSource,InkType,Dither,ImageType,Brightness,Gamma,Contrast,Cyan,Magenta,Yellow,Saturation,Density,PrintableArea,PrintableTopLeft,TopLeft,Dpi";
+  const char *param_list = list_all_parameters();
   int size = strlen (param_list);
+  STP_DEBUG(fprintf(stderr, "gimp_list_cb: %s\n", param_list));
 
   if (size > val_size)
     return IJS_EBUF;
@@ -318,6 +404,7 @@ gimp_enum_cb (void *enum_cb_data,
 	      int val_size)
 {
   const char *val = NULL;
+  STP_DEBUG(fprintf(stderr, "gimp_enum_cb: key=%s\n", key));
   if (!strcmp (key, "ColorSpace"))
     val = "DeviceRGB,DeviceGray,DeviceCMYK";
   else if (!strcmp (key, "DeviceManufacturer"))
@@ -349,8 +436,8 @@ gimp_get_cb (void *get_cb_data,
 	     int val_size)
 {
   IMAGE *img = (IMAGE *)get_cb_data;
-  stp_vars_t v = img->v;
-  stp_printer_t printer = stp_get_printer_by_driver(stp_get_driver(v));
+  stp_vars_t *v = img->v;
+  const stp_printer_t *printer = stp_get_printer(v);
   GimpParamList *pl = img->params;
   GimpParamList *curs;
   const char *val = NULL;
@@ -379,9 +466,8 @@ gimp_get_cb (void *get_cb_data,
     {
       int l, r, b, t;
       int h, w;
-      (*stp_printer_get_printfuncs(printer)->imageable_area)
-	(printer, v, &l, &r, &b, &t);
-      h = t - b;
+      stp_get_imageable_area(v, &l, &r, &b, &t);
+      h = b - t;
       w = r - l;
       /* Force locale to "C", because decimal numbers sent to the IJS
 	 client must have a decimal point, nver a decimal comma */
@@ -394,26 +480,21 @@ gimp_get_cb (void *get_cb_data,
   else if (!strcmp(key, "Dpi"))
     {
       int x, y;
-      (*stp_printer_get_printfuncs(printer)->describe_resolution)
-	(printer, stp_get_resolution(v), &x, &y);
+      stp_describe_resolution(v, &x, &y);
       /* Force locale to "C", because decimal numbers sent to the IJS
 	 client must have a decimal point, nver a decimal comma */
       setlocale(LC_ALL, "C");
       sprintf(buf, "%d", x);
       setlocale(LC_ALL, "");
       STP_DEBUG(fprintf(stderr, "Dpi %d %d (%d) %s\n", x, y, x, buf));
-      stp_set_scaling(v, -x);
       val = buf;
     }
   else if (!strcmp(key, "PrintableTopLeft"))
     {
       int l, r, b, t;
       int h, w;
-      (*stp_printer_get_printfuncs(printer)->media_size)
-	(printer, v, &w, &h);
-      (*stp_printer_get_printfuncs(printer)->imageable_area)
-	(printer, v, &l, &r, &b, &t);
-      t = h - t;
+      stp_get_media_size(v, &w, &h);
+      stp_get_imageable_area(v, &l, &r, &b, &t);
       /* Force locale to "C", because decimal numbers sent to the IJS
 	 client must have a decimal point, nver a decimal comma */
       setlocale(LC_ALL, "C");
@@ -448,14 +529,12 @@ gimp_set_cb (void *set_cb_data, IjsServerCtx *ctx, IjsJobId jobid,
 {
   int code = 0;
   char vbuf[256];
-  const stp_vars_t lower = stp_minimum_settings();
-  const stp_vars_t upper = stp_maximum_settings();
   int i;
-  float z;
+  double z;
   IMAGE *img = (IMAGE *)set_cb_data;
-  STP_DEBUG(fprintf (stderr, "gimp_set_cb: %s=", key));
+  STP_DEBUG(fprintf (stderr, "gimp_set_cb: %s='", key));
   STP_DEBUG(fwrite (value, 1, value_size, stderr));
-  STP_DEBUG(fputs ("\n", stderr));
+  STP_DEBUG(fputs ("'\n", stderr));
   if (value_size > sizeof(vbuf)-1)
     return -1;
   memset(vbuf, 0, sizeof(vbuf));
@@ -464,59 +543,49 @@ gimp_set_cb (void *set_cb_data, IjsServerCtx *ctx, IjsJobId jobid,
   if (strcmp(key, "OutputFile") == 0)
     {
       if (img->filename)
-	free(img->filename);
+	stp_free(img->filename);
       img->filename = c_strdup(vbuf);
     }
-  else if (strcmp(key, "OutputFD") == 0) {
-    /* Force locale to "C", because decimal numbers sent to the IJS
-       client must have a decimal point, nver a decimal comma */
-    setlocale(LC_ALL, "C");
-    img->fd = atoi(vbuf) + 1;
-    setlocale(LC_ALL, "");
-  } else if (strcmp(key, "DeviceManufacturer") == 0)
+  else if (strcmp(key, "OutputFD") == 0)
+    {
+      /* Force locale to "C", because decimal numbers sent to the IJS
+	 client must have a decimal point, nver a decimal comma */
+      setlocale(LC_ALL, "C");
+      img->fd = atoi(vbuf) + 1;
+      setlocale(LC_ALL, "");
+    }
+  else if (strcmp(key, "DeviceManufacturer") == 0)
     ;				/* We don't care who makes it */
   else if (strcmp(key, "DeviceModel") == 0)
     {
-      stp_printer_t printer = stp_get_printer_by_driver(vbuf);
+      const stp_printer_t *printer = stp_get_printer_by_driver(vbuf);
       stp_set_driver(img->v, vbuf);
-      if (printer)
-	{
-	  stp_set_printer_defaults(img->v, printer, NULL);
-	  if (strlen(stp_get_resolution(img->v)) == 0)
-	    stp_set_resolution(img->v,
-			       ((*stp_printer_get_printfuncs(printer)->default_parameters)
-				(printer, NULL, "Resolution")));
-	  if (strlen(stp_get_dither_algorithm(img->v)) == 0)
-	    stp_set_dither_algorithm(img->v, stp_default_dither_algorithm());
-	}
+      if (printer &&
+	  strcmp(stp_printer_get_family(printer), "ps") != 0 &&
+	  strcmp(stp_printer_get_family(printer), "raw") != 0)
+        {
+	  stp_set_printer_defaults(img->v, printer);
+          /* Reset JobMode to "Job" */
+          stp_set_string_parameter(img->v, "JobMode", "Job");
+        }
       else
 	code = IJS_ERANGE;
     }
-  else if (strcmp(key, "PPDFile") == 0)
-    stp_set_ppd_file(img->v, vbuf);
   else if (strcmp(key, "Quality") == 0)
-    stp_set_resolution(img->v, vbuf);
-#if 0
-  else if (strcmp(key, "MediaName") == 0)
-    stp_set_media_size(img->v, vbuf);
-#endif
+    stp_set_string_parameter(img->v, "Resolution", vbuf);
   else if (strcmp(key, "TopLeft") == 0)
     {
       int l, r, b, t, pw, ph;
       double w, h;
-      stp_printer_t printer =
-	(stp_get_printer_by_driver(stp_get_driver(img->v)));
-      ((*stp_printer_get_printfuncs(printer)->imageable_area))
-	(printer, img->v, &l, &r, &b, &t);
-      (*stp_printer_get_printfuncs(printer)->media_size)
-	(printer, img->v, &pw, &ph);
+      stp_get_imageable_area(img->v, &l, &r, &b, &t);
+      stp_get_media_size(img->v, &pw, &ph);
       STP_DEBUG(fprintf(stderr, "l %d r %d t %d b %d pw %d ph %d\n",
 			l, r, t, b, pw, ph));
       code = gimp_parse_wxh(vbuf, strlen(vbuf), &w, &h);
       if (code == 0)
 	{
-	  int al = (w * 72) - l;
-	  int ah = (h * 72) - (ph - t);
+	  int al = (w * 72) + .5;
+	  int ah = (h * 72) + .5;
 	  STP_DEBUG(fprintf(stderr, "left top %f %f %d %d %s\n",
 			    w * 72, h * 72, al, ah, vbuf));
 	  if (al >= 0)
@@ -524,14 +593,14 @@ gimp_set_cb (void *set_cb_data, IjsServerCtx *ctx, IjsJobId jobid,
 	  if (ah >= 0)
 	    stp_set_top(img->v, ah);
 	}
-    }      
+    }
   else if (strcmp(key, "PaperSize") == 0)
     {
       double w, h;
       code = gimp_parse_wxh(vbuf, strlen(vbuf), &w, &h);
       if (code == 0)
 	{
-	  stp_papersize_t p;
+	  const stp_papersize_t *p;
 	  w *= 72;
 	  h *= 72;
 	  STP_DEBUG(fprintf(stderr, "paper size %f %f %s\n", w, h, vbuf));
@@ -539,101 +608,83 @@ gimp_set_cb (void *set_cb_data, IjsServerCtx *ctx, IjsJobId jobid,
 	  stp_set_page_height(img->v, h);
 	  if ((p = stp_get_papersize_by_size(h, w)) != NULL)
 	    {
-	      STP_DEBUG(fprintf(stderr, "Found page size %s\n",
-				stp_papersize_get_name(p)));
-	      stp_set_media_size(img->v, stp_papersize_get_name(p));
+	      STP_DEBUG(fprintf(stderr, "Found page size %s\n", p->name));
+	      stp_set_string_parameter(img->v, "PageSize", p->name);
 	    }
 	  else
 	    STP_DEBUG(fprintf(stderr, "No matching paper size found\n"));
 	}
     }
-  else if (strcmp(key, "MediaType") == 0)
-    stp_set_media_type(img->v, vbuf);
-  else if (strcmp(key, "MediaSource") == 0)
-    stp_set_media_source(img->v, vbuf);
-  else if (strcmp(key, "InkType") == 0)
-    stp_set_ink_type(img->v, vbuf);
-  else if (strcmp(key, "Dither") == 0)
-    stp_set_dither_algorithm(img->v, vbuf);
-  else if (strcmp(key, "ImageType") == 0)
+
+/*
+ * Duplex & Tumble. The PS: values come from the PostScript document, the
+ * others come from the command line. However, the PS: values seem to get
+ * fed back again as non PS: values after the command line is processed.
+ * The net effect is that the command line is always overridden by the
+ * values from the document.
+ */
+
+  else if ((strcmp (key, "Duplex") == 0) || (strcmp (key, "PS:Duplex") == 0))
     {
-      code = get_int(vbuf, key, &i,
-		     stp_get_image_type(lower), stp_get_image_type(upper));
-      if (code == 0)
-	stp_set_image_type(img->v, i);
+      stp_set_string_parameter(img->v, "x_Duplex", vbuf);
     }
-  else if (strcmp(key, "Brightness") == 0)
+  else if ((strcmp (key, "Tumble") == 0) || (strcmp (key, "PS:Tumble") == 0))
     {
-      code = get_float(vbuf, key, &z,
-		       stp_get_brightness(lower), stp_get_brightness(upper));
-      if (code == 0)
-	stp_set_brightness(img->v, z);
-    }
-  else if (strcmp(key, "Gamma") == 0)
-    {
-      code = get_float(vbuf, key, &z, 
-		       stp_get_gamma(lower), stp_get_gamma(upper));
-      if (code == 0)
-	stp_set_gamma(img->v, z);
-    }
-  else if (strcmp(key, "Contrast") == 0)
-    {
-      code = get_float(vbuf, key, &z, 
-		       stp_get_contrast(lower), stp_get_contrast(upper));
-      if (code == 0)
-	stp_set_contrast(img->v, z);
-    }
-  else if (strcmp(key, "Cyan") == 0)
-    {
-      code = get_float(vbuf, key, &z, 
-		       stp_get_cyan(lower), stp_get_cyan(upper));
-      if (code == 0)
-	stp_set_cyan(img->v, z);
-    }
-  else if (strcmp(key, "Magenta") == 0)
-    {
-      code = get_float(vbuf, key, &z, 
-		       stp_get_magenta(lower), stp_get_magenta(upper));
-      if (code == 0)
-	stp_set_magenta(img->v, z);
-    }
-  else if (strcmp(key, "Yellow") == 0)
-    {
-      code = get_float(vbuf, key, &z, 
-		       stp_get_yellow(lower), stp_get_yellow(upper));
-      if (code == 0)
-	stp_set_yellow(img->v, z);
-    }
-  else if (strcmp(key, "Saturation") == 0)
-    {
-      code = get_float(vbuf, key, &z, 
-		       stp_get_saturation(lower), stp_get_saturation(upper));
-      if (code == 0)
-	stp_set_saturation(img->v, z);
-    }
-  else if (strcmp(key, "Density") == 0)
-    {
-      code = get_float(vbuf, key, &z, 
-		       stp_get_density(lower), stp_get_density(upper));
-      if (code == 0)
-	stp_set_density(img->v, z);
-    }
-  else if (strcmp (key, "Duplex") == 0)
-    {
-    }
-  else if (strcmp (key, "PS:Duplex") == 0)
-    {
-    }
-  else if (strcmp (key, "Tumble") == 0)
-    {
-    }
-  else if (strcmp (key, "PS:Tumble") == 0)
-    {
+       stp_set_string_parameter(img->v, "x_Tumble", vbuf);
     }
   else
     {
-      fprintf(stderr, _("Unknown option %s\n"), key);
-      code = -1;
+      stp_curve_t *curve;
+      stp_parameter_t desc;
+      stp_describe_parameter(img->v, key, &desc);
+      switch (desc.p_type)
+	{
+	case STP_PARAMETER_TYPE_STRING_LIST:
+	  stp_set_string_parameter(img->v, key, vbuf);
+	  break;
+	case STP_PARAMETER_TYPE_FILE:
+	  stp_set_file_parameter(img->v, key, vbuf);
+	  break;
+	case STP_PARAMETER_TYPE_CURVE:
+	  curve = stp_curve_create_from_string(vbuf);
+	  if (curve)
+	    {
+	      stp_set_curve_parameter(img->v, key, curve);
+	      stp_curve_destroy(curve);
+	    }
+	  break;
+	case STP_PARAMETER_TYPE_DOUBLE:
+	  code = get_float(vbuf, key, &z);
+	  if (code == 0)
+	    stp_set_float_parameter(img->v, key, z);
+	  break;
+	case STP_PARAMETER_TYPE_INT:
+	  code = get_int(vbuf, key, &i);
+	  if (code == 0)
+	    stp_set_int_parameter(img->v, key, i);
+	  break;
+	case STP_PARAMETER_TYPE_DIMENSION:
+	  code = get_int(vbuf, key, &i);
+	  if (code == 0)
+	    stp_set_dimension_parameter(img->v, key, i);
+	  break;
+	case STP_PARAMETER_TYPE_BOOLEAN:
+	  code = get_int(vbuf, key, &i);
+	  if (code == 0)
+	    stp_set_boolean_parameter(img->v, key, i);
+	  break;
+	default:
+	  if (strncmp(key, "Enable", strlen("Enable")) == 0)
+	    {
+	      STP_DEBUG(fprintf(stderr,
+				"Setting dummy enable parameter %s %s\n",
+				key, vbuf));
+	      stp_set_string_parameter(img->v, key, vbuf);
+	    }
+	  else
+	    STP_DEBUG(fprintf(stderr, "Bad parameter %s %d\n", key, desc.p_type));
+	}
+      stp_parameter_description_destroy(&desc);
     }
 
   if (code == 0)
@@ -642,17 +693,17 @@ gimp_set_cb (void *set_cb_data, IjsServerCtx *ctx, IjsJobId jobid,
 
       if (pl == NULL)
 	{
-	  pl = (GimpParamList *)malloc (sizeof (GimpParamList));
+	  pl = (GimpParamList *)stp_malloc (sizeof (GimpParamList));
 	  pl->next = img->params;
-	  pl->key = malloc (strlen(key) + 1);
+	  pl->key = stp_malloc (strlen(key) + 1);
 	  memcpy (pl->key, key, strlen(key) + 1);
 	  img->params = pl;
 	}
       else
 	{
-	  free (pl->value);
+	  stp_free (pl->value);
 	}
-      pl->value = malloc (value_size);
+      pl->value = stp_malloc (value_size);
       memcpy (pl->value, value, value_size);
       pl->value_size = value_size;
     }
@@ -671,26 +722,6 @@ gimp_outfunc(void *data, const char *buffer, size_t bytes)
 
 /**********************************************************/
 /* stp_image_t functions */
-
-static void
-gimp_image_init(stp_image_t *image)
-{
-}
-
-static void
-gimp_image_reset(stp_image_t *image)
-{
-}
-
-/* bytes per pixel (NOT bits per pixel) */
-static int
-gimp_image_bpp(stp_image_t *image)
-{
-  IMAGE *img = (IMAGE *)(image->rep);
-  STP_DEBUG(fprintf(stderr, "gimp_image_bpp: bps=%d n_chan=%d returning %d\n", 
-		    img->bps, img->n_chan, (img->bps * img->n_chan + 7) / 8));
-  return (img->bps * img->n_chan + 7) / 8;
-}
 
 static int
 gimp_image_width(stp_image_t *image)
@@ -736,20 +767,21 @@ image_next_row(IMAGE *img)
   return status;
 }
 
-static stp_image_status_t 
-gimp_image_get_row(stp_image_t *image, unsigned char *data, int row)
+static stp_image_status_t
+gimp_image_get_row(stp_image_t *image, unsigned char *data, size_t byte_limit,
+		   int row)
 {
   IMAGE *img = (IMAGE *)(image->rep);
   int physical_row = row * img->yres / img->xres;
 
   if ((physical_row < 0) || (physical_row >= img->height))
-    return STP_IMAGE_ABORT;
+    return STP_IMAGE_STATUS_ABORT;
 
   /* Read until we reach the requested row. */
   while (physical_row > img->row)
     {
       if (image_next_row(img))
-	return STP_IMAGE_ABORT;
+	return STP_IMAGE_STATUS_ABORT;
     }
 
   if (physical_row == img->row)
@@ -782,12 +814,12 @@ gimp_image_get_row(stp_image_t *image, unsigned char *data, int row)
 	    }
 	  break;
 	default:
-	  return STP_IMAGE_ABORT;
+	  return STP_IMAGE_STATUS_ABORT;
 	}
     }
   else
-    return STP_IMAGE_ABORT;
-  return STP_IMAGE_OK;
+    return STP_IMAGE_STATUS_ABORT;
+  return STP_IMAGE_STATUS_OK;
 }
 
 
@@ -797,48 +829,107 @@ gimp_image_get_appname(stp_image_t *image)
   return "ijsgimp";
 }
 
-static void
-gimp_image_progress_init(stp_image_t *image)
-{
-}
-
-static void
-gimp_image_note_progress(stp_image_t *image, double current, double total)
-{
-  char buf[256];
-  sprintf(buf, _("%.0f of %.0f\n"), current, total);
-  STP_DEBUG(gimp_outfunc(stderr, buf, strlen(buf)));
-}
-
-static void
-gimp_image_progress_conclude(stp_image_t *image)
-{
-}
-
 /**********************************************************/
 
-static void
-stp_dbg(const char *msg, const stp_vars_t v)
+static const char *
+safe_get_string_parameter(const stp_vars_t *v, const char *param)
 {
-  fprintf(stderr,"%s Settings: c: %f  m: %f  y: %f\n",
-	  msg, stp_get_cyan(v), stp_get_magenta(v), stp_get_yellow(v));
-  fprintf(stderr, "Ink type %s\n", stp_get_ink_type(v));
+  const char *val = stp_get_string_parameter(v, param);
+  if (val)
+    return val;
+  else
+    return "NULL";
+}
+
+static void
+stp_dbg(const char *msg, const stp_vars_t *v)
+{
+  fprintf(stderr, "Settings: Model %s\n", stp_get_driver(v));
+  fprintf(stderr,"%s Settings: c: %f  m: %f  y: %f\n", msg,
+	  stp_get_float_parameter(v, "Cyan"),
+	  stp_get_float_parameter(v, "Magenta"),
+	  stp_get_float_parameter(v, "Yellow"));
   fprintf(stderr,"Settings: bright: %f  contrast: %f\n",
-	  stp_get_brightness(v), stp_get_contrast(v));
+	  stp_get_float_parameter(v, "Brightness"),
+	  stp_get_float_parameter(v, "Contrast"));
   fprintf(stderr,"Settings: Gamma: %f  Saturation: %f  Density: %f\n",
-	  stp_get_gamma(v), stp_get_saturation(v), stp_get_density(v));
+	  stp_get_float_parameter(v, "Gamma"),
+	  stp_get_float_parameter(v, "Saturation"),
+	  stp_get_float_parameter(v, "Density"));
   fprintf(stderr, "Settings: width %d, height %d\n",
 	  stp_get_page_width(v), stp_get_page_height(v));
-  fprintf(stderr, "Settings: output type %d  image type %d\n",
-	  stp_get_output_type(v), stp_get_image_type(v));
-  fprintf(stderr, "Settings: Quality %s\n", stp_get_resolution(v));
-  fprintf(stderr, "Settings: Dither %s\n", stp_get_dither_algorithm(v));
-  fprintf(stderr, "Settings: MediaSource %s\n", stp_get_media_source(v));
-  fprintf(stderr, "Settings: MediaType %s\n", stp_get_media_type(v));
-  fprintf(stderr, "Settings: MediaSize %s\n", stp_get_media_size(v));
-  fprintf(stderr, "Settings: Model %s\n", stp_get_driver(v));
-  fprintf(stderr, "Settings: InkType %s\n", stp_get_ink_type(v));
-  fprintf(stderr, "Settings: OutputTo %s\n", stp_get_output_to(v));
+  fprintf(stderr, "Settings: output type %s\n",
+	  safe_get_string_parameter(v, "InputImageType"));
+  fprintf(stderr, "Settings: Image Type %s\n",
+	  safe_get_string_parameter(v, "ImageOptimization"));
+  fprintf(stderr, "Settings: Quality %s\n",
+	  safe_get_string_parameter(v, "Resolution"));
+  fprintf(stderr, "Settings: Dither %s\n",
+	  safe_get_string_parameter(v, "DitherAlgorithm"));
+  fprintf(stderr, "Settings: MediaSource %s\n",
+	  safe_get_string_parameter(v, "InputSlot"));
+  fprintf(stderr, "Settings: MediaType %s\n",
+	  safe_get_string_parameter(v, "MediaType"));
+  fprintf(stderr, "Settings: MediaSize %s\n",
+	  safe_get_string_parameter(v, "PageSize"));
+  fprintf(stderr, "Settings: InkType %s\n",
+	  safe_get_string_parameter(v, "InkType"));
+  fprintf(stderr, "Settings: Duplex %s\n",
+	  safe_get_string_parameter(v, "Duplex"));
+}
+
+static void
+purge_unused_float_parameters(stp_vars_t *v)
+{
+  int i;
+  stp_parameter_list_t params = stp_get_parameter_list(v);
+  size_t count = stp_parameter_list_count(params);
+  STP_DEBUG(fprintf(stderr, "Purging unused floating point parameters"));
+  for (i = 0; i < count; i++)
+    {
+      const stp_parameter_t *param = stp_parameter_list_param(params, i);
+      if (param->p_type == STP_PARAMETER_TYPE_DOUBLE &&
+	  !param->read_only && param->is_active && !param->is_mandatory)
+	{
+	  size_t bytes = strlen(param->name) + strlen("Enable") + 1;
+	  char *tmp = stp_malloc(bytes);
+	  const char *value;
+	  sprintf(tmp, "Enable%s", param->name);
+	  STP_DEBUG(fprintf(stderr, "  Looking for parameter %s\n", tmp));
+	  value = stp_get_string_parameter(v, tmp);
+	  if (value)
+	    {
+	      STP_DEBUG(fprintf(stderr, "    Found %s: %s\n", tmp, value));
+	      if (strcmp(value, "Disabled") == 0)
+		{
+		  STP_DEBUG(fprintf(stderr, "    Clearing %s\n", param->name));
+		  stp_clear_float_parameter(v, param->name);
+		}
+	    }
+	  stp_free(tmp);
+	}
+      if (param->p_type == STP_PARAMETER_TYPE_DIMENSION &&
+	  !param->read_only && param->is_active && !param->is_mandatory)
+	{
+	  size_t bytes = strlen(param->name) + strlen("Enable") + 1;
+	  char *tmp = stp_malloc(bytes);
+	  const char *value;
+	  sprintf(tmp, "Enable%s", param->name);
+	  STP_DEBUG(fprintf(stderr, "  Looking for parameter %s\n", tmp));
+	  value = stp_get_string_parameter(v, tmp);
+	  if (value)
+	    {
+	      STP_DEBUG(fprintf(stderr, "    Found %s: %s\n", tmp, value));
+	      if (strcmp(value, "Disabled") == 0)
+		{
+		  STP_DEBUG(fprintf(stderr, "    Clearing %s\n", param->name));
+		  stp_clear_dimension_parameter(v, param->name);
+		}
+	    }
+	  stp_free(tmp);
+	}
+    }
+  stp_parameter_list_destroy(params);
 }
 
 int
@@ -849,9 +940,15 @@ main (int argc, char **argv)
   int page = 0;
   IMAGE img;
   stp_image_t si;
-  stp_printer_t printer = NULL;
+  const stp_printer_t *printer = NULL;
   FILE *f = NULL;
+  int l, t, r, b, w, h;
+  int width, height;
 
+  if (getenv("STP_DEBUG_STARTUP"))
+    while (SDEBUG)
+      ;
+    
   memset(&img, 0, sizeof(img));
 
   img.ctx = ijs_server_init();
@@ -859,7 +956,7 @@ main (int argc, char **argv)
     return 1;
 
   stp_init();
-  img.v = stp_allocate_vars();
+  img.v = stp_vars_create();
   if (img.v == NULL)
     {
       ijs_server_done(img.ctx);
@@ -867,7 +964,6 @@ main (int argc, char **argv)
     }
   stp_set_top(img.v, 0);
   stp_set_left(img.v, 0);
-  stp_set_orientation(img.v, ORIENT_PORTRAIT);
 
   /* Error messages to stderr. */
   stp_set_errfunc(img.v, gimp_outfunc);
@@ -878,23 +974,10 @@ main (int argc, char **argv)
   stp_set_outdata(img.v, NULL);
 
   memset(&si, 0, sizeof(si));
-  si.init = gimp_image_init;
-  si.reset = gimp_image_reset;
-  si.transpose = NULL;
-  si.hflip = NULL;
-  si.vflip = NULL;
-  si.crop = NULL;
-  si.rotate_ccw = NULL;
-  si.rotate_cw = NULL;
-  si.rotate_180 = NULL;
-  si.bpp = gimp_image_bpp;
   si.width = gimp_image_width;
   si.height = gimp_image_height;
   si.get_row = gimp_image_get_row;
   si.get_appname = gimp_image_get_appname;
-  si.progress_init = gimp_image_progress_init;
-  si.note_progress = gimp_image_note_progress;
-  si.progress_conclude = gimp_image_progress_conclude;
   si.rep = &img;
 
   ijs_server_install_status_cb (img.ctx, gimp_status_cb, &img);
@@ -908,7 +991,9 @@ main (int argc, char **argv)
   do
     {
 
+      STP_DEBUG(fprintf(stderr, "About to get page header\n"));
       status = ijs_server_get_page_header(img.ctx, &ph);
+      STP_DEBUG(fprintf(stderr, "Got page header %d\n", status));
       if (status)
 	{
 	  if (status < 0)
@@ -955,7 +1040,7 @@ main (int argc, char **argv)
 	  /* Printer data to file */
 	  stp_set_outdata(img.v, f);
 
-	  printer = stp_get_printer_by_driver(stp_get_driver(img.v));
+	  printer = stp_get_printer(img.v);
 	  if (printer == NULL)
 	    {
 	      fprintf(stderr, _("Unknown printer %s\n"),
@@ -963,31 +1048,68 @@ main (int argc, char **argv)
 	      status = -1;
 	      break;
 	    }
-	  stp_merge_printvars(img.v, stp_printer_get_printvars(printer));
-	  if (strlen(stp_get_resolution(img.v)) == 0)
-	    stp_set_resolution(img.v, 
-			       stp_printer_get_printfuncs(printer)->
-			       default_parameters(printer, NULL, "Resolution"));
-	  if (strlen(stp_get_dither_algorithm(img.v)) == 0)
-	    stp_set_dither_algorithm(img.v, stp_default_dither_algorithm());
+	  stp_merge_printvars(img.v, stp_printer_get_defaults(printer));
 	}
 
-      img.total_bytes = (double) ((ph.n_chan * ph.bps * ph.width + 7) >> 3) 
+
+      img.total_bytes = (double) ((ph.n_chan * ph.bps * ph.width + 7) >> 3)
 	* (double) ph.height;
       img.bytes_left = img.total_bytes;
 
-      stp_set_app_gamma(img.v, (float)1.7);
-      stp_set_cmap(img.v, NULL);
-      stp_set_scaling(img.v, (float)-img.xres); /* resolution of image */
-      stp_set_output_type(img.v, img.output_type); 
-      stp_set_page_number(img.v, page);
-      stp_set_job_mode(img.v, STP_JOB_MODE_JOB);
+      stp_set_float_parameter(img.v, "AppGamma", 1.7);
+      stp_get_media_size(img.v, &w, &h);
+      stp_get_imageable_area(img.v, &l, &r, &b, &t);
+      if (l < 0)
+	width = r;
+      else
+	width = r - l;
+      stp_set_width(img.v, width);
+      if (t < 0)
+	height = b;
+      else
+	height = b - t;
+      stp_set_height(img.v, height);
+      stp_set_int_parameter(img.v, "PageNumber", page);
+
+/* 
+ * Fix up the duplex/tumble settings stored in the "x_" parameters
+ * If Duplex is "true" then look at "Tumble". If duplex is not "true" or "false"
+ * then just take it (e.g. Duplex=DuplexNoTumble).
+ */
+      STP_DEBUG(fprintf(stderr, "x_Duplex=%s\n", safe_get_string_parameter(img.v, "x_Duplex")));
+      STP_DEBUG(fprintf(stderr, "x_Tumble=%s\n", safe_get_string_parameter(img.v, "x_Tumble")));
+
+      if (stp_get_string_parameter(img.v, "x_Duplex"))
+        {
+          if (strcmp(stp_get_string_parameter(img.v, "x_Duplex"), "false") == 0)
+            stp_set_string_parameter(img.v, "Duplex", "None");
+          else if (strcmp(stp_get_string_parameter(img.v, "x_Duplex"), "true") == 0)
+            {
+              if (stp_get_string_parameter(img.v, "x_Tumble"))
+              {
+                if (strcmp(stp_get_string_parameter(img.v, "x_Tumble"), "false") == 0)
+                  stp_set_string_parameter(img.v, "Duplex", "DuplexNoTumble");
+                else
+                  stp_set_string_parameter(img.v, "Duplex", "DuplexTumble");
+              }
+            else	/* Tumble missing, assume false */
+              stp_set_string_parameter(img.v, "Duplex", "DuplexNoTumble");
+            }
+          else	/* Not true or false */
+            stp_set_string_parameter(img.v, "Duplex", stp_get_string_parameter(img.v, "x_Duplex"));
+        }
+
+/* can I destroy the unused parameters? */
+
+      STP_DEBUG(fprintf(stderr, "Duplex=%s\n", safe_get_string_parameter(img.v, "Duplex")));
+
+      purge_unused_float_parameters(img.v);
       STP_DEBUG(stp_dbg("about to print", img.v));
-      if (stp_printer_get_printfuncs(printer)->verify(printer, img.v))
+      if (stp_verify(img.v))
 	{
 	  if (page == 0)
-	    stp_printer_get_printfuncs(printer)->start_job(printer, &si, img.v);
-	  stp_printer_get_printfuncs(printer)->print(printer, &si, img.v);
+	    stp_start_job(img.v, &si);
+	  stp_print(img.v, &si);
 	}
       else
 	{
@@ -1011,7 +1133,8 @@ main (int argc, char **argv)
       page++;
     }
   while (status == 0);
-  stp_printer_get_printfuncs(printer)->end_job(printer, &si, img.v);
+  if (status > 0)
+    stp_end_job(img.v, &si);
 
   if (f)
     {

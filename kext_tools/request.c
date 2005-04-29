@@ -95,14 +95,6 @@ Boolean kextd_launch_kernel_request_thread(void)
         goto finish;
     }
 
-    gRunLoopSourceLock = PTLockCreate();
-    if (!gRunLoopSourceLock) {
-        kextd_error_log(
-            "failed to create kernel request run loop source lock");
-        result = false;
-        goto finish;
-    }
-
     pthread_attr_init(&kernel_request_thread_attr);
     pthread_create(&kernel_request_thread,
         &kernel_request_thread_attr,

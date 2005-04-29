@@ -31,7 +31,7 @@
 {
 }
 
-- (void)removeLinksRecursively:(Vnode*)v;
+- (void)removeLinksRecursivelyFrom:(Vnode*)v fromMarkedNodesOnly:(BOOL)markedNodesOnly;
 
 @end
 

@@ -43,13 +43,84 @@
 *                                                                              *
 *******************************************************************************/
 #include "math.h"
+#include "fenv.h"
+#include "limits.h"
+#include "fp_private.h"
 
 long long int llrint ( double x )
 {
-    return (long long int)rint( x );
+	double t;
+	long long int result;
+	fenv_t env;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_LONG_MIN;
+	}
+	
+	(void)fegetenv(&env);
+	t = rint ( x );
+	(void)fesetenv(&env);
+	
+	if ( t < (double)LONG_LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MIN;
+	}
+	else if ( t > (double)LONG_LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long long int) t;
+	}
+	else
+	{
+		result = (long long int) t;
+	}
+	
+    return result;
 }
 
 long long int llrintf (float x)
 {
-    return (long long int)rintf ( x );
+	float t;
+	long long int result;
+	fenv_t env;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_LONG_MIN;
+	}
+	
+	(void)fegetenv(&env);
+	t = rintf ( x );
+	(void)fesetenv(&env);
+	
+	if ( t < (float)LONG_LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MIN;
+	}
+	else if ( t > (float)LONG_LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long long int) t;
+	}
+	else
+	{
+		result = (long long int) t;
+	}
+	
+    return result;
 }

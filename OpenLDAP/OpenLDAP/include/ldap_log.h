@@ -1,16 +1,18 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_log.h,v 1.26.2.3 2003/03/03 17:10:03 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* $OpenLDAP: pkg/ldap/include/ldap_log.h,v 1.29.2.5 2004/02/23 22:08:05 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ * 
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/* Portions
- * Copyright (c) 1990 Regents of the University of Michigan.
+/* Portions Copyright (c) 1990 Regents of the University of Michigan.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms are permitted
@@ -112,6 +114,12 @@ LDAP_BEGIN_DECL
 #   ifdef LDAP_SYSLOG
     extern int	ldap_syslog;
     extern int	ldap_syslog_level;
+
+#	ifdef HAVE_EBCDIC
+#	define syslog	eb_syslog
+	extern void eb_syslog(int pri, const char *fmt, ...);
+#	endif
+
 #   endif /* LDAP_SYSLOG */
 
 /* this doesn't below as part of ldap.h */
@@ -139,6 +147,9 @@ LDAP_BEGIN_DECL
 
 #ifdef NEW_LOGGING
 extern int ldap_loglevels[LDAP_SUBSYS_NUM];
+
+#ifdef LDAP_DEBUG
+
 #define LDAP_LOG(a, b, fmt, arg1, arg2, arg3) do {\
 	if (ldap_loglevels[LDAP_SUBSYS_##a] >= LDAP_LEVEL_##b || \
 		ldap_loglevels[LDAP_SUBSYS_GLOBAL] >= LDAP_LEVEL_##b)\
@@ -150,10 +161,13 @@ extern int ldap_loglevels[LDAP_SUBSYS_NUM];
 	(ldap_loglevels[LDAP_SUBSYS_##a] >= LDAP_LEVEL_##b || \
 	 ldap_loglevels[LDAP_SUBSYS_GLOBAL] >= LDAP_LEVEL_##b)
 
-#endif /* LDAP_LOG */
+#endif /* LDAP_DEBUG */
+
+#endif /* NEW_LOGGING */
 
 #ifndef LDAP_LOG
 #define LDAP_LOG(a, b, fmt, arg1, arg2, arg3)
+#define LDAP_LOGS_TEST(a, b) 0
 #endif
 
 LDAP_LUTIL_F(int) lutil_mnem2level LDAP_P(( const char *level ));

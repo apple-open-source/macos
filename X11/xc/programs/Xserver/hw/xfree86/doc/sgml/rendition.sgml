@@ -3,12 +3,12 @@
 ]>
 
 <article>
-<title>Information for Rendition (Micron) Verité Users
+<title>Information for Rendition (Micron) Verit&eacute; Users
 <author>The XFree86 Project Inc.
 <date>9 June 2000, last update by Dejan Ilic <email>dejan.ilic@home.se</email>
 
 <ident>
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/rendition.sgml,v 1.12 2000/06/17 02:30:33 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/rendition.sgml,v 1.13 2003/10/19 19:47:17 dawes Exp $
 </ident>
 
 <toc>

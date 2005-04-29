@@ -1,13 +1,23 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/delete.c,v 1.15.2.3 2003/03/03 17:10:04 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/*  Portions
- *  Copyright (c) 1990 Regents of the University of Michigan.
- *  All rights reserved.
+/* $OpenLDAP: pkg/ldap/libraries/libldap/delete.c,v 1.19.2.3 2004/01/01 18:16:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *  delete.c
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1990 Regents of the University of Michigan.
+ * All rights reserved.
+ */
+/*
+ * Portions Copyright (C) The Internet Society (1997)
+ * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
  */
 
 /*
@@ -47,6 +57,7 @@ ldap_delete_ext(
 {
 	int rc;
 	BerElement	*ber;
+	ber_int_t	id;
 
 #ifdef NEW_LOGGING
 	LDAP_LOG ( OPERATION, ENTRY, "ldap_delete_ext\n", 0,0,0 );
@@ -69,8 +80,10 @@ ldap_delete_ext(
 		return( ld->ld_errno );
 	}
 
-	if ( ber_printf( ber, "{its", /* '}' */
-		++ld->ld_msgid, LDAP_REQ_DELETE, dn ) == -1 )
+	LDAP_NEXT_MSGID( ld, id );
+	rc = ber_printf( ber, "{its", /* '}' */
+		id, LDAP_REQ_DELETE, dn );
+	if ( rc == -1 )
 	{
 		ld->ld_errno = LDAP_ENCODING_ERROR;
 		ber_free( ber, 1 );
@@ -90,7 +103,7 @@ ldap_delete_ext(
 	}
 
 	/* send the message */
-	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_DELETE, dn, ber );
+	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_DELETE, dn, ber, id );
 
 	if(*msgidp < 0)
 		return ld->ld_errno;

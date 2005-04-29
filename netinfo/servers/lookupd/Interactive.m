@@ -47,15 +47,20 @@
 #import <stdlib.h>
 #import <stdio.h>
 #import <string.h>
+#import <time.h>
 #import <sgtty.h>
 #import <setjmp.h>
 #import <sys/signal.h>
 #import <arpa/inet.h>
 #import <resolv.h>
 #import <NetInfo/dsutil.h>
+#import <NetInfo/system_log.h>
 #import <dns_util.h>
 
 int oldflags;
+int old_debug_enabled = -1;
+int old_trace_enabled = -1;
+int old_max_log_pri = -1;
 struct ltchars termc;
 struct sgttyb iobasic;
 jmp_buf jmpenv;
@@ -302,7 +307,7 @@ void put_char(FILE *out, char c)
 char *get_string(FILE *in, FILE *out, char *prompt)
 {
 	char c;
-	static char str[256];
+	static char str[512];
 	int i;
 
 	fprintf(out, "%s", prompt);
@@ -340,7 +345,7 @@ char *get_string(FILE *in, FILE *out, char *prompt)
 		}
 	}
 	str[i] = '\0';
-	return(str);
+	return str;
 }
 
 void printDictionary(FILE *out, LUDictionary *d)
@@ -508,12 +513,19 @@ void dohelp(FILE *in, FILE *out, int proc, char **commands)
 		fprintf(out, "Prints configuration.\n");
 	}
 
+	else if (streq(commands[proc], "debug"))
+	{
+		fprintf(out, "\n");
+		fprintf(out, "usage: debug [on | off]\n\n");
+		fprintf(out, "Controls debug / trace facility.\n");
+	}
+	
 	else if (streq(commands[proc], "disableStatistics"))
 	{
 		fprintf(out, "\n");
 		fprintf(out, "Turns off statistics gathering.\n");
 	}
-
+	
 	else if (streq(commands[proc], "dns_query"))
 	{
 		fprintf(out, "\n");
@@ -806,11 +818,10 @@ void help(FILE *in, FILE *out, char **commands)
 	fprintf(out, "\n");
 }
 
-void doproc(FILE *in, FILE *out, int proc, char **commands)
+void doproc(LUServer *server, FILE *in, FILE *out, int proc, char **commands)
 {
 	LUDictionary *dict, *pattern;
 	LUArray *list;
-	LUServer *server;
 	LUServer *tserver;
 	int i, len;
 	u_int16_t hi;
@@ -822,31 +833,15 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	char *key, *val, *cat;
 	Thread *t;
 	unsigned long ts;
-	char scratch[64];
+	char scratch[64], *gs;
+	time_t tick;
+	struct tm gtime;
 
 	if (proc < 0) return;
 	if (streq(commands[proc], "help"))
 	{
 		help(in, out, commands);
 		return;
-	}
-
-	server = nil;
-
-	if (streq(commands[proc], "memory"));
-	else if (streq(commands[proc], "disableStatistics"));
-	else if (streq(commands[proc], "enableStatistics"));
-	else if (streq(commands[proc], "flushCache"));
-	else if (streq(commands[proc], "normalLookupOrder"));
-	else if (streq(commands[proc], "showMemoryObject"));
-	else
-	{
-		server = [controller checkOutServer];
-		if (server == nil)
-		{
-			fprintf(out, "Internal error: can't check out a server!\n");
-			return;
-		}
 	}
 
 	list = nil;
@@ -858,8 +853,10 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 
 	if (streq(commands[proc], "agent"))
 	{
-		agent = [server agentNamed:get_string(in, out, ": ")];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		agent = [server agentNamed:gs];
 
 		if (agent == nil)
 		{
@@ -873,8 +870,10 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 
 	else if (streq(commands[proc], "aliasWithName"))
 	{
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryAlias];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"name" value:gs category:LUCategoryAlias];
 	}
 	
 	else if (streq(commands[proc], "allAliases"))
@@ -900,8 +899,10 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	
 	else if (streq(commands[proc], "allGroupsWithUser"))
 	{
-		dict = [ask allGroupsWithUser:get_string(in, out, ": ")];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask allGroupsWithUser:gs];
 	}
 
 	else if (streq(commands[proc], "allHosts"))
@@ -913,10 +914,10 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	
 	else if (streq(commands[proc], "allItemsWithCategory"))
 	{
-		cat = copyString(get_string(in, out, ": "));
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
-		i = [LUAgent categoryWithName:cat];
-		freeString(cat);
+
+		i = [LUAgent categoryWithName:gs];
 		list = nil;
 	
 		if (i == -1) fprintf(out, "Unknown category\n");
@@ -975,20 +976,26 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 
 	else if (streq(commands[proc], "bootpWithEthernetAddress"))
 	{
-		dict = [ask itemWithKey:"en_address" value:get_string(in, out, ": ") category:LUCategoryBootp];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"en_address" value:gs category:LUCategoryBootp];
 	}
 	
 	else if (streq(commands[proc], "bootpWithInternetAddress"))
 	{
-		dict = [ask itemWithKey:"ip_address" value:get_string(in, out, ": ") category:LUCategoryBootp];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"ip_address" value:gs category:LUCategoryBootp];
 	}
 	
 	else if (streq(commands[proc], "bootparamsWithName"))
 	{
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryBootparam];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"name" value:gs category:LUCategoryBootparam];
 	}
 	
 	else if (streq(commands[proc], "configuration"))
@@ -998,13 +1005,46 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		resultIsList = YES;
 	}
 	
+	else if (streq(commands[proc], "debug"))
+	{
+		gs = get_string(in, out, ": ");
+		fprintf(out, "\n");
+
+		if ((gs == NULL) || (gs[0] == '\0'))
+		{
+			fprintf(out, "usage: debug: [on | off]\n");
+			return;
+		}
+
+		if ((gs[0] == '1') || (gs[0] == 'y') || (gs[0] == 'Y') || (!strcasecmp(gs, "on")))
+		{
+			if (old_debug_enabled == -1) old_debug_enabled = debug_enabled;
+			if (old_trace_enabled == -1) old_trace_enabled = trace_enabled;
+			if (old_max_log_pri == -1) old_max_log_pri = system_log_max_priority();
+			debug_enabled = 1;
+			trace_enabled = 1;
+			system_log_set_max_priority(7);
+			system_log_set_logfile(out);
+		}
+		else
+		{
+			if (old_debug_enabled == -1) return;
+			if (old_max_log_pri == -1) return;
+			debug_enabled = old_debug_enabled;
+			trace_enabled = old_trace_enabled;
+			system_log_set_max_priority(old_max_log_pri);
+			system_log_set_logfile(NULL);
+		}
+		return;
+	}
+	
 	else if (streq(commands[proc], "disableStatistics"))
 	{
 		fprintf(out, "\n");
 		statistics_enabled = NO;
 		return;
 	}
-
+	
 	else if (streq(commands[proc], "dns_query"))
 	{
 		name = copyString(get_string(in, out, ": "));
@@ -1159,32 +1199,42 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 
 	else if (streq(commands[proc], "groupWithName"))
 	{
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryGroup];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"name" value:gs category:LUCategoryGroup];
 	}
 	
 	else if (streq(commands[proc], "groupWithNumber"))
 	{
-		dict = [ask itemWithKey:"gid" value:get_string(in, out, ": ") category:LUCategoryGroup];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"gid" value:gs category:LUCategoryGroup];
 	}	
 
 	else if (streq(commands[proc], "hostWithEthernetAddress"))
 	{
-		dict = [ask itemWithKey:"en_address" value:get_string(in, out, ": ") category:LUCategoryHost];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"en_address" value:gs category:LUCategoryHost];
 	}
 	
 	else if (streq(commands[proc], "hostWithInternetAddress"))
 	{
-		dict = [ask itemWithKey:"ip_address" value:get_string(in, out, ": ") category:LUCategoryHost];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"ip_address" value:gs category:LUCategoryHost];
 	}
 	
 	else if (streq(commands[proc], "hostWithName"))
 	{
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryHost];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"name" value:gs category:LUCategoryHost];
 	}
 	
 	else if (streq(commands[proc], "inNetgroup"))
@@ -1223,8 +1273,10 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 
 	else if (streq(commands[proc], "ipv6NodeWithName"))
 	{
-		dict = [ask ipv6NodeWithName:get_string(in, out, ": ")];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask ipv6NodeWithName:gs];
 	}
 	
 	else if (streq(commands[proc], "isNetwareEnabled"))
@@ -1238,8 +1290,10 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 
 	else if (streq(commands[proc], "isSecurityEnabledForOption"))
 	{
-		test = [server isSecurityEnabledForOption:get_string(in, out, ": ")];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		test = [server isSecurityEnabledForOption:gs];
 		fprintf(out, "%s\n", test ? "YES" : "NO");
 		[controller checkInServer:server];
 		return;
@@ -1251,6 +1305,7 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		val = copyString(get_string(in, out, " value: "));
 		cat = copyString(get_string(in, out, " category: "));
 		fprintf(out, "\n");
+
 		i = [LUAgent categoryWithName:cat];
 		dict = nil;
 	
@@ -1272,27 +1327,35 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	
 	else if (streq(commands[proc], "mountWithName"))
 	{
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryMount];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"name" value:gs category:LUCategoryMount];
 	}
 	
 	else if (streq(commands[proc], "netgroupWithName"))
 	{
 		/* XXX domain doesn't print */
-		dict = [ask netgroupWithName:get_string(in, out, ": ")];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask netgroupWithName:gs];
 	}
 	
 	else if (streq(commands[proc], "networkWithInternetAddress"))
 	{
-		dict = [ask itemWithKey:"address" value:get_string(in, out, ": ") category:LUCategoryNetwork];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"address" value:gs category:LUCategoryNetwork];
 	}
 	
 	else if (streq(commands[proc], "networkWithName"))
 	{
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryNetwork];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"name" value:gs category:LUCategoryNetwork];
 	}
 	
 	else if (streq(commands[proc], "normalLookupOrder"))
@@ -1306,32 +1369,42 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 
 	else if (streq(commands[proc], "printerWithName"))
 	{
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryPrinter];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"name" value:gs category:LUCategoryPrinter];
 	}
 	
 	else if (streq(commands[proc], "protocolWithName"))
 	{
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryProtocol];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"name" value:gs category:LUCategoryProtocol];
 	}
 	
 	else if (streq(commands[proc], "protocolWithNumber"))
 	{
-		dict = [ask itemWithKey:"number" value:get_string(in, out, ": ") category:LUCategoryProtocol];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"number" value:gs category:LUCategoryProtocol];
 	}	
 	
 	else if (streq(commands[proc], "rpcWithName"))
 	{
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryRpc];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"name" value:gs category:LUCategoryRpc];
 	}
 	
 	else if (streq(commands[proc], "rpcWithNumber"))
 	{
-		dict = [ask itemWithKey:"number" value:get_string(in, out, ": ") category:LUCategoryRpc];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"number" value:gs category:LUCategoryRpc];
 	}	
 
 	else if (streq(commands[proc], "serviceWithName"))
@@ -1339,6 +1412,7 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		name = copyString(get_string(in, out, ": "));
 		proto = copyString(get_string(in, out, " protocol: "));
 		fprintf(out, "\n");
+
 		if (streq(proto, "-"))
 		{
 			freeString(proto);
@@ -1354,6 +1428,7 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	{
 		i = atoi(get_string(in, out, ": "));
 		fprintf(out, "\n");
+
 		[rover printObject:i file:out];
 		return;
 	}
@@ -1363,6 +1438,7 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		i = atoi(get_string(in, out, ": "));
 		proto = copyString(get_string(in, out, " protocol: "));
 		fprintf(out, "\n");
+
 		if (streq(proto, "-"))
 		{
 			freeString(proto);
@@ -1378,14 +1454,20 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		/* retain stats since we don't want to *really* free it */
 		sprintf(scratch, "%u", [rover totalMemory]);
 		[statistics setValue:scratch forKey:"# Total Memory"];
+		tick = time(NULL);
+		gmtime_r(&tick, &gtime);
+		sprintf(scratch, "%d.%02d.%02d %02d:%02d:%02d UTC", gtime.tm_year + 1900, gtime.tm_mon + 1, gtime.tm_mday, gtime.tm_hour, gtime.tm_min, gtime.tm_sec);
+		[statistics setValue:scratch forKey:"# Timestamp"];
 		dict = statistics;
 		if (dict != nil) [dict retain];
 	}
 
 	else if (streq(commands[proc], "statisticsForAgent"))
 	{
-		agent = [server agentNamed:get_string(in, out, ": ")];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		agent = [server agentNamed:gs];
 		if (agent != nil)
 		{
 			dict = [agent statistics];
@@ -1424,12 +1506,13 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 			for(; len < 15; len++) fprintf(out, " ");
 			switch (ts)
 			{
-				case ThreadStateTerminal: fprintf(out, "exiting     "); break;
-				case ThreadStateInitial:  fprintf(out, "initializing"); break;
-				case ThreadStateIdle:     fprintf(out, "idle        "); break;
-				case ThreadStateActive:   fprintf(out, "active      "); break;
-				case ThreadStateSleeping: fprintf(out, "sleeping    "); break;
-				default: fprintf(out, "unknown %3lu", [t state]);
+				case ThreadStateTerminal:		fprintf(out, "exiting       "); break;
+				case ThreadStateInitial:		fprintf(out, "initializing  "); break;
+				case ThreadStateIdle:			fprintf(out, "idle          "); break;
+				case ThreadStateActive:			fprintf(out, "active        "); break;
+				case ThreadStateSleeping:		fprintf(out, "sleeping      "); break;
+				case ThreadStateExitRequested:  fprintf(out, "exit requested"); break;
+				default: fprintf(out, "unknown %3u", [t state]);
 			}
 			
 			if (test && (ts == ThreadStateActive))
@@ -1452,14 +1535,18 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 
 	else if (streq(commands[proc], "userWithName"))
 	{
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryUser];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"name" value:gs category:LUCategoryUser];
 	}
 	
 	else if (streq(commands[proc], "userWithNumber"))
 	{
-		dict = [ask itemWithKey:"uid" value:get_string(in, out, ": ") category:LUCategoryUser];
+		gs = get_string(in, out, ": ");
 		fprintf(out, "\n");
+
+		dict = [ask itemWithKey:"uid" value:gs category:LUCategoryUser];
 	}
 
 	else
@@ -1468,8 +1555,6 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		[controller checkInServer:server];
 		return;
 	}
-
-	[controller checkInServer:server];
 
 	if (resultIsList)
 	{
@@ -1487,7 +1572,15 @@ void interactive(FILE *in, FILE *out)
 {
 	char **commands = NULL;
 	int n, len;
+	LUServer *server;
 
+	server = [controller checkOutServer];
+	if (server == nil)
+	{
+		fprintf(out, "Internal error: can't check out a server!\n");
+		return;
+	}
+	
 	commands = appendString("agent", commands);
 	commands = appendString("aliasWithName", commands);
 	commands = appendString("allAliases", commands);
@@ -1507,6 +1600,7 @@ void interactive(FILE *in, FILE *out)
 	commands = appendString("bootpWithInternetAddress", commands);
 	commands = appendString("bootparamsWithName", commands);
 	commands = appendString("configuration", commands);
+	commands = appendString("debug", commands);
 	commands = appendString("disableStatistics", commands);
 	commands = appendString("dns_query", commands);
 	commands = appendString("dns_search", commands);
@@ -1563,7 +1657,7 @@ void interactive(FILE *in, FILE *out)
 
 		if (streq(commands[n], "quit")) break;
 
-		doproc(in, out, n, commands);
+		doproc(server, in, out, n, commands);
 		fprintf(out, "\n");
 	}
 
@@ -1572,4 +1666,6 @@ void interactive(FILE *in, FILE *out)
 	fprintf(out, "\n");
 	freeList(commands);
 	oldterm();
+
+	[controller checkInServer:server];
 }

@@ -4,6 +4,19 @@
 
 mach_port_t gMasterPort;
 
+void callback(CFMachPortRef port, void *msg, CFIndex size, void *info);
+
+static void IOREInterestCallback(
+	void *			refcon,
+	io_service_t		service,
+	natural_t		messageType,
+	void *			messageArgument );
+
+static void IOREMatchingCallback(
+	void *			refcon,
+	io_iterator_t		iterator );
+
+
 @implementation NSDictionary (Compare)
 
 - (NSComparisonResult)compareNames:(NSDictionary *)dict2
@@ -47,57 +60,52 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 {
     io_registry_entry_t		entry;
     kern_return_t		kr;
-    IONotificationPortRef	notifyPort;
     io_object_t		notification;
-
+        
     self = [super init];
-
-    // Obtain the I/O Kit communication handle.
-    assert( KERN_SUCCESS == (
-    kr = IOMasterPort(bootstrap_port, &gMasterPort)
-    ));
-
+    
+    gMasterPort = kIOMasterPortDefault;
     notifyPort = IONotificationPortCreate( gMasterPort );
     port = IONotificationPortGetMachPort( notifyPort );
     assert( KERN_SUCCESS == (
-    kr = IOServiceAddInterestNotification( notifyPort,
-                                           IORegistryEntryFromPath( gMasterPort, kIOServicePlane ":/"),
-                                           kIOBusyInterest, 0, 0, &notification )
-    ));
-
+                             kr = IOServiceAddInterestNotification( notifyPort,
+                                                                    IORegistryEntryFromPath( gMasterPort, kIOServicePlane ":/"),
+                                                                    kIOBusyInterest, &IOREInterestCallback, self, &notification )
+                             ));
+    
     assert( KERN_SUCCESS == (
-    kr = IOServiceAddMatchingNotification( notifyPort, kIOFirstMatchNotification,
-                                           IOServiceMatching("IOService"),
-                                           0, 0, &notification )
-    ));
-
+                             kr = IOServiceAddMatchingNotification( notifyPort, kIOFirstMatchNotification,
+                                                                    IOServiceMatching("IOService"),
+                                                                    &IOREMatchingCallback, self, &notification )
+                             ));
+    
     while ( (entry = IOIteratorNext( notification )) ) {
         IOObjectRelease( entry );
     }
-
+    
     assert( KERN_SUCCESS == (
-    kr = IOServiceAddMatchingNotification( notifyPort, kIOTerminatedNotification,
-                                           IOServiceMatching("IOService"),
-                                           0, 0, &notification )
-    ));
-
+                             kr = IOServiceAddMatchingNotification( notifyPort, kIOTerminatedNotification,
+                                                                    IOServiceMatching("IOService"),
+                                                                    &IOREMatchingCallback, self, &notification )
+                             ));
+    
     while ( (entry = IOIteratorNext( notification )) ) {
         IOObjectRelease( entry );
     }
-
+        
     // create a timer to check for hardware additions/removals, etc.
     updateTimer = [[NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(checkForUpdate:) userInfo:nil repeats:YES] retain];
-
+        
     // register services
     [NSApp registerServicesMenuSendTypes: [NSArray arrayWithObjects: NSStringPboardType, nil] returnTypes: [NSArray arrayWithObjects: NSStringPboardType, nil]];
-
+    
     return self;
 }
 
 - (void)awakeFromNib
 {
     int prefsSetting = 0;
-        
+            
     [self initializeRegistryDictionaryWithPlane:kIOServicePlane];
     [splitView setVertical:NO];
     [propertiesOutlineView setDelegate:self];
@@ -205,16 +213,16 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 - (void)initializeRegistryDictionaryWithPlane:(const char *)plane
 {
     io_registry_entry_t rootEntry;
-    NSMutableDictionary *localDict = [NSMutableDictionary dictionary];
+    NSMutableDictionary *localDict = nil;
 
     if (registryDict) {
         [registryDict release];
     }
-    registryDict = [[NSMutableDictionary alloc] init];
+    registryDict = nil;
 
     currentPlane = plane;
 
-    rootEntry = IORegistryGetRootEntry(gMasterPort);
+    rootEntry = IORegistryGetRootEntry(kIOMasterPortDefault);
 
     localDict = (NSMutableDictionary *)[self dictForIterated:rootEntry];
 
@@ -244,7 +252,7 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     } else
 	props = [object retain];
 
-    return props;
+    return [props autorelease];
 }
 
 - (void)changeLevel:(id)sender
@@ -270,10 +278,11 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     if (currentSelectedItemDict != newItemDict) {
         [currentSelectedItemDict release];
         currentSelectedItemDict = newItemDict;
+		[currentSelectedItemDict retain];
         [inspectorText setString:[newItemDict description]];
         [inspectorText display];
     }
-
+		
     [objectDescription setStringValue:[NSString stringWithFormat:@"%@ : %@",
 	    [object objectForKey:@"name"],
 	    [object objectForKey:@"className"]]];
@@ -298,8 +307,24 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
                 }
 
             } else {
-                [newDict setObject:[[[valueArray objectAtIndex:i] copy] autorelease] forKey:[keyArray objectAtIndex:i]];
-            }
+				
+				id newObj;
+				
+				if ([[valueArray objectAtIndex:i] isKindOfClass:[NSString class]]) {
+					newObj = [NSString stringWithString:[valueArray objectAtIndex:i]];
+				} else if ([[valueArray objectAtIndex:i] isKindOfClass:[NSArray class]]) {
+					newObj = [NSArray arrayWithArray:[valueArray objectAtIndex:i]];
+				} else if ([[valueArray objectAtIndex:i] isKindOfClass:[NSDictionary class]]) {
+					newObj = [NSDictionary dictionaryWithDictionary:[valueArray objectAtIndex:i]];
+				} else {
+					newObj = [[[valueArray objectAtIndex:i] copy] autorelease];
+				}
+				
+                [newDict setObject:newObj forKey:[keyArray objectAtIndex:i]];
+
+				
+            
+			}
         }
         [currentSelectedItemDict release];
         currentSelectedItemDict = [newDict retain];
@@ -401,10 +426,11 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 
 - (void)sheetDidEnd:(NSWindow *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo
 {
-        if (NSAlertDefaultReturn == returnCode) {
-            [self reload];
-        }
-        [NSApp endSheet:window];
+    if (NSAlertDefaultReturn == returnCode) {
+        [self reload];
+    }
+    [NSApp endSheet:window];
+    dialogDisplayed = NO;
 }
 
 - (void)registryHasChanged
@@ -413,8 +439,9 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 
     if (prefsSetting == 1) {
         [self reload];
-    } else if (prefsSetting == 0) {
+    } else if (prefsSetting == 0 && !dialogDisplayed) {
         NSBeginInformationalAlertSheet(NSLocalizedString(@"The IOKit Registry has been changed.\nDo you wish to update your display or skip this update?", @""), NSLocalizedString(@"Update", @""), NSLocalizedString(@"Skip", @""), NULL, window, self, @selector(sheetDidEnd:returnCode:contextInfo:), NULL, NULL, @"");
+        dialogDisplayed = YES;
     }
     
         
@@ -422,13 +449,9 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 
 - (void)forceUpdate:(id)sender
 {
-    if(autoUpdate)
-	autoUpdate = NO;
-    else {
-//	autoUpdate = YES;
-	[self doUpdate];
-    }
-    return;
+	[self reload];
+
+	return;
 }
 
 // Window delegation
@@ -461,51 +484,53 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     return;
 }
 
+static void IOREInterestCallback(
+	void *			refcon,
+	io_service_t		service,
+	natural_t		messageType,
+	void *			messageArgument )
+{
+    ((RExplorer *)refcon)->registryHasQuieted = messageArgument ? FALSE : TRUE;
+}
+
+static void IOREMatchingCallback(
+	void *			refcon,
+	io_iterator_t		iterator )
+{
+    io_registry_entry_t	entry;
+
+    while ( (entry = IOIteratorNext( iterator )) ) {
+	IOObjectRelease( entry );
+    }
+
+    ((RExplorer *)refcon)->registryHasChanged = TRUE;
+}
+
 - (void)checkForUpdate:(NSTimer *)timer
 {
     kern_return_t	kr;
-    unsigned long int	type;
-    Boolean		registryHasQuieted = FALSE;
     struct {
-        mach_msg_header_t		msgHdr;
-        OSNotificationHeader		notifyHeader;
-        IOServiceInterestContent	content;
-        mach_msg_trailer_t		trailer;
+        mach_msg_header_t              msgHdr;
+        void *       		       content[1024];
     } msg;
-
+        
+    registryHasQuieted = FALSE;
     do {
-
+        
         kr = mach_msg(&msg.msgHdr, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof(msg), port, 0, MACH_PORT_NULL);
         if (kr != KERN_SUCCESS) {
             break;
         }
-
-        kr = OSGetNotificationFromMessage(&msg.msgHdr, 0, &type, 0, 0, 0);
-        if (kr != KERN_SUCCESS) {
-            continue;
-        }
-
-        if (type == kIOServiceMatchedNotificationType || type == kIOServiceTerminatedNotificationType) {
-            io_registry_entry_t	entry;
-            io_iterator_t	notification = (io_iterator_t) msg.msgHdr.msgh_remote_port;
-
-            while ( (entry = IOIteratorNext( notification )) ) {
-                IOObjectRelease( entry );
-            }
-
-            registryHasChanged = TRUE;
-        } else if (type == kIOServiceMessageNotificationType) {
-            registryHasQuieted = (msg.content.messageArgument[0]) ? FALSE : TRUE;
-        }
-
+        IODispatchCalloutFromMessage(NULL, &msg.msgHdr, notifyPort);
+        
     } while ( TRUE );
-
+    
     if (registryHasChanged && registryHasQuieted) {
         registryHasChanged = FALSE;
         [self registryHasChanged];
     } else if (autoUpdate)
         [self doUpdate];
-
+    
     return;
 }
 
@@ -562,11 +587,11 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     if (count > 2) {
         count -= 2;
     }
-
+	
     [browser setPath:newPath];
     [self changeLevel:browser];
     [browser scrollColumnToVisible:count];
-
+	
     return;
 }
 
@@ -584,5 +609,86 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     [[NSUserDefaults standardUserDefaults] synchronize];
     
 }
+
+static void LogNSString( NSFileHandle *fileHandle, NSString *string)
+{
+	char            timeStr[16];
+	time_t          t = time(NULL);
+	
+	strftime(timeStr, sizeof(timeStr), "%b %d %I:%M:%S", localtime(&t));
+	
+	[fileHandle writeData:[[NSString stringWithFormat:@"%s %@\n", timeStr, string] dataUsingEncoding:NSASCIIStringEncoding]]; 
+}
+
+-(void)application:(NSApplication *)sender runTest:(unsigned int)testToRun duration:(NSTimeInterval)duration
+{
+	NSProcessInfo		*processInfo = [NSProcessInfo processInfo];
+	NSString			*logFileName = [NSString stringWithFormat:@"%@_%d.selftest.txt", [processInfo processName], [processInfo processIdentifier]];
+	NSString			*logFileDir = [[NSHomeDirectory() stringByAppendingPathComponent:@"Library"] stringByAppendingPathComponent:@"Logs"];
+	NSString			*logFilePath = [logFileDir stringByAppendingPathComponent:logFileName];
+
+	[[NSFileManager defaultManager] createDirectoryAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Library"] attributes:nil];
+	[[NSFileManager defaultManager] createDirectoryAtPath:logFileDir attributes:nil];
+	[[NSFileManager defaultManager] createFileAtPath:logFilePath contents:nil attributes:nil];
+	
+	NSFileHandle		*logFile = [NSFileHandle fileHandleForWritingAtPath:logFilePath];
+	
+	NSString			*initMessage = [NSString stringWithFormat:@"Test:%d duration:%d", testToRun, (int)duration];
+	LogNSString( logFile, initMessage);
+	
+	NSDate *startTime = [NSDate date];
+	NSTimeInterval runningTime = 0;
+	
+	int j = 0;
+	
+	// register special defaults for testing ...
+		
+	do {
+		
+		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+		
+		LogNSString( logFile, [NSString stringWithFormat:@"Iteration: %d", j + 1]);
+		LogNSString( logFile, @"Message: Start iterating all functions ...");
+		
+		[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0]];
+		
+		[self displayAboutWindow:self];
+		[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0]];
+
+		// for updates 20 times
+		int i = 0;
+		for (i=0;i<20;i++) {
+			
+			[self forceUpdate:self];
+
+			LogNSString( logFile, [NSString stringWithFormat:@"Output: ...forced update %d.", i+1]);
+
+			[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1]];
+		}
+		
+		LogNSString( logFile, [NSString stringWithFormat:@"Message: ...done with iterating all functions."]);
+		
+		runningTime = -[startTime timeIntervalSinceNow];
+		
+		j++;
+		
+		[pool release];
+		
+	} while (runningTime <= duration);
+	
+	LogNSString( logFile, [NSString stringWithFormat:@"Message: Test completed in %d seconds", (int)runningTime]);
+	
+	[logFile closeFile];
+}
+
+- (void)applicationWillFinishLaunching:(NSNotification *)notification
+{
+	
+	// test self test
+	// [self application:NSApp runTest:0 duration:0];
+
+	return;
+}
+
 
 @end

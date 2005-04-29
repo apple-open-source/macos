@@ -71,7 +71,7 @@ extern __ptr_t memcpy __P ((__ptr_t __dest, __const __ptr_t __src,
 
 #if defined( MACHINE_NAME_CHECK )
 /* MACH_DIFF: */
-#if defined( __i386__ ) || defined( sparc ) || defined( vax )
+#if defined( i386 ) || defined( sparc ) || defined( vax )
 /* no uniform test, so be careful  :-) */
 #endif  /* MACHINE_NAME_CHECK */
 
@@ -121,3 +121,8 @@ extern size_t
 #endif
 
 #endif  /* UNDEFINE_NULL_CHECK */
+
+
+#if defined( WINDISS_VALIST_CHECK )
+#include <stdarg.h>
+#endif  /* WINDISS_VALIST_CHECK */

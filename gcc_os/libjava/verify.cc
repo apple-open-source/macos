@@ -1,6 +1,6 @@
 // defineclass.cc - defining a class from .class format.
 
-/* Copyright (C) 2001, 2002  Free Software Foundation
+/* Copyright (C) 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -126,6 +126,34 @@ private:
     utf8_list = lu;
 
     return r;
+  }
+
+  __attribute__ ((__noreturn__)) void verify_fail (char *s, jint pc = -1)
+  {
+    using namespace java::lang;
+    StringBuffer *buf = new StringBuffer ();
+
+    buf->append (JvNewStringLatin1 ("verification failed"));
+    if (pc == -1)
+      pc = start_PC;
+    if (pc != -1)
+      {
+	buf->append (JvNewStringLatin1 (" at PC "));
+	buf->append (pc);
+      }
+
+    _Jv_InterpMethod *method = current_method;
+    buf->append (JvNewStringLatin1 (" in "));
+    buf->append (current_class->getName());
+    buf->append ((jchar) ':');
+    buf->append (JvNewStringUTF (method->get_method()->name->data));
+    buf->append ((jchar) '(');
+    buf->append (JvNewStringUTF (method->get_method()->signature->data));
+    buf->append ((jchar) ')');
+
+    buf->append (JvNewStringLatin1 (": "));
+    buf->append (JvNewStringLatin1 (s));
+    throw new java::lang::VerifyError (buf->toString ());
   }
 
   // This enum holds a list of tags for all the different types we
@@ -405,7 +433,7 @@ private:
 
       using namespace java::lang;
       java::lang::ClassLoader *loader
-	= verifier->current_class->getClassLoader();
+	= verifier->current_class->getClassLoaderInternal();
       // We might see either kind of name.  Sigh.
       if (data.name->data[0] == 'L'
 	  && data.name->data[data.name->length - 1] == ';')
@@ -458,8 +486,8 @@ private:
       if (key < reference_type || k.key < reference_type)
 	return key == k.key;
 
-      // The `null' type is convertible to any reference type.
-      // FIXME: is this correct for THIS?
+      // The `null' type is convertible to any initialized reference
+      // type.
       if (key == null_type || k.key == null_type)
 	return true;
 
@@ -571,7 +599,7 @@ private:
 
       if (key == reference_type)
 	return type (_Jv_GetArrayClass (data.klass,
-					data.klass->getClassLoader ()));
+					data.klass->getClassLoaderInternal()));
       else
 	verifier->verify_fail ("internal error in type::to_array()");
     }
@@ -695,7 +723,7 @@ private:
 		      while (arraycount > 0)
 			{
 			  java::lang::ClassLoader *loader
-			    = verifier->current_class->getClassLoader();
+			    = verifier->current_class->getClassLoaderInternal();
 			  k = _Jv_GetArrayClass (k, loader);
 			  --arraycount;
 			}
@@ -793,6 +821,12 @@ private:
     // assigns to locals[0] (overwriting `this') and then returns
     // without really initializing.
     type this_type;
+    // This is a list of all subroutines that have been seen at this
+    // point.  Ordinarily this is NULL; it is only allocated and used
+    // in relatively weird situations involving non-ret exit from a
+    // subroutine.  We have to keep track of this in this way to avoid
+    // endless recursion in these cases.
+    subr_info *seen_subrs;
 
     // INVALID marks a state which is not on the linked list of states
     // requiring reverification.
@@ -811,6 +845,7 @@ private:
       stack = NULL;
       locals = NULL;
       local_changed = NULL;
+      seen_subrs = NULL;
     }
 
     state (int max_stack, int max_locals)
@@ -823,6 +858,7 @@ private:
 	stack[i] = unsuitable_type;
       locals = new type[max_locals];
       local_changed = (bool *) _Jv_Malloc (sizeof (bool) * max_locals);
+      seen_subrs = NULL;
       for (int i = 0; i < max_locals; ++i)
 	{
 	  locals[i] = unsuitable_type;
@@ -838,6 +874,7 @@ private:
       stack = new type[max_stack];
       locals = new type[max_locals];
       local_changed = (bool *) _Jv_Malloc (sizeof (bool) * max_locals);
+      seen_subrs = NULL;
       copy (orig, max_stack, max_locals, ret_semantics);
       next = INVALID;
     }
@@ -850,6 +887,7 @@ private:
 	delete[] locals;
       if (local_changed)
 	_Jv_Free (local_changed);
+      clean_subrs ();
     }
 
     void *operator new[] (size_t bytes)
@@ -872,6 +910,17 @@ private:
       _Jv_Free (mem);
     }
 
+    void clean_subrs ()
+    {
+      subr_info *info = seen_subrs;
+      while (info != NULL)
+	{
+	  subr_info *next = info->next;
+	  _Jv_Free (info);
+	  info = next;
+	}
+    }
+
     void copy (const state *copy, int max_stack, int max_locals,
 	       bool ret_semantics = false)
     {
@@ -891,6 +940,16 @@ private:
 	    locals[i] = copy->locals[i];
 	  local_changed[i] = copy->local_changed[i];
 	}
+
+      clean_subrs ();
+      if (copy->seen_subrs)
+	{
+	  for (subr_info *info = seen_subrs; info != NULL; info = info->next)
+	    add_subr (info->pc);
+	}
+      else
+	seen_subrs = NULL;
+
       this_type = copy->this_type;
       // Don't modify `next'.
     }
@@ -915,6 +974,15 @@ private:
       // parent by the `ret'.
       for (int i = 0; i < max_locals; ++i)
 	local_changed[i] = false;
+    }
+
+    // Indicate that we've been in this this subroutine.
+    void add_subr (int pc)
+    {
+      subr_info *n = (subr_info *) _Jv_Malloc (sizeof (subr_info));
+      n->pc = pc;
+      n->next = seen_subrs;
+      seen_subrs = n;
     }
 
     // Merge STATE_OLD into this state.  Destructively modifies this
@@ -944,10 +1012,23 @@ private:
 	}
       else
 	{
-	  // If the subroutines differ, indicate that the state
-	  // changed.  This is needed to detect when subroutines have
-	  // merged.
-	  changed = true;
+	  // If the subroutines differ, and we haven't seen this
+	  // subroutine before, indicate that the state changed.  This
+	  // is needed to detect when subroutines have merged.
+	  bool found = false;
+	  for (subr_info *info = seen_subrs; info != NULL; info = info->next)
+	    {
+	      if (info->pc == state_old->subroutine)
+		{
+		  found = true;
+		  break;
+		}
+	    }
+	  if (! found)
+	    {
+	      add_subr (state_old->subroutine);
+	      changed = true;
+	    }
 	}
 
       // Merge stacks.  Special handling for NO_STACK case.
@@ -1134,6 +1215,19 @@ private:
     match.promote ();
     type t = pop_raw ();
     if (! match.compatible (t, this))
+      verify_fail ("incompatible type on stack");
+    return t;
+  }
+
+  // Pop a reference which is guaranteed to be initialized.  MATCH
+  // doesn't have to be a reference type; in this case this acts like
+  // pop_type.
+  type pop_init_ref (type match)
+  {
+    type t = pop_raw ();
+    if (t.isreference () && ! t.isinitialized ())
+      verify_fail ("initialized reference required");
+    else if (! match.compatible (t, this))
       verify_fail ("incompatible type on stack");
     return t;
   }
@@ -1338,7 +1432,6 @@ private:
   {
     int *prev_loc = &next_verify_pc;
     int npc = next_verify_pc;
-    bool skipped = false;
 
     while (npc != state::NO_NEXT)
       {
@@ -1355,7 +1448,6 @@ private:
 	    return npc;
 	  }
 
-	skipped = true;
 	prev_loc = &states[npc]->next;
 	npc = states[npc]->next;
       }
@@ -1434,6 +1526,12 @@ private:
 
     for (subr_info *subr = jsr_ptrs[csub]; subr != NULL; subr = subr->next)
       {
+	// We might be returning to a `jsr' that is at the end of the
+	// bytecode.  This is ok if we never return from the called
+	// subroutine, but if we see this here it is an error.
+	if (subr->pc >= current_method->code_length)
+	  verify_fail ("fell off end");
+
 	// Temporarily modify the current state so it looks like we're
 	// in the enclosing context.
 	current_state->subroutine = get_subroutine (subr->pc);
@@ -1483,16 +1581,15 @@ private:
     // the local variable state across the jsr, but the subroutine
     // might change the stack depth, so we can't make any assumptions
     // about it.  So we have yet another special case.  We know that
-    // at this point PC points to the instruction after the jsr.
-
-    // FIXME: what if we have a jsr at the end of the code, but that
-    // jsr has no corresponding ret?  Is this verifiable, or is it
-    // not?  If it is then we need a special case here.
-    if (PC >= current_method->code_length)
-      verify_fail ("fell off end");
-
-    current_state->stacktop = state::NO_STACK;
-    push_jump_merge (PC, current_state);
+    // at this point PC points to the instruction after the jsr.  Note
+    // that it is ok to have a `jsr' at the end of the bytecode,
+    // provided that the called subroutine never returns.  So, we have
+    // a special case here and another one when we handle the ret.
+    if (PC < current_method->code_length)
+      {
+	current_state->stacktop = state::NO_STACK;
+	push_jump_merge (PC, current_state);
+      }
     invalidate_pc ();
   }
 
@@ -1525,6 +1622,19 @@ private:
       case long_type:
 	k = JvPrimClass (long);
 	break;
+
+      // These aren't used here but we call them out to avoid
+      // warnings.
+      case void_type:
+      case unsuitable_type:
+      case return_address_type:
+      case continuation_type:
+      case unused_by_subroutine_type:
+      case reference_type:
+      case null_type:
+      case unresolved_reference_type:
+      case uninitialized_reference_type:
+      case uninitialized_unresolved_reference_type:
       default:
 	verify_fail ("unknown type in construct_primitive_array_type");
       }
@@ -1828,6 +1938,30 @@ private:
 	    note_branch_target (compute_jump (get_int ()), last_was_jsr);
 	    break;
 
+	  // These are unused here, but we call them out explicitly
+	  // so that -Wswitch-enum doesn't complain.
+	  case op_putfield_1:
+	  case op_putfield_2:
+	  case op_putfield_4:
+	  case op_putfield_8:
+	  case op_putfield_a:
+	  case op_putstatic_1:
+	  case op_putstatic_2:
+	  case op_putstatic_4:
+	  case op_putstatic_8:
+	  case op_putstatic_a:
+	  case op_getfield_1:
+	  case op_getfield_2s:
+	  case op_getfield_2u:
+	  case op_getfield_4:
+	  case op_getfield_8:
+	  case op_getfield_a:
+	  case op_getstatic_1:
+	  case op_getstatic_2s:
+	  case op_getstatic_2u:
+	  case op_getstatic_4:
+	  case op_getstatic_8:
+	  case op_getstatic_a:
 	  default:
 	    verify_fail ("unrecognized instruction in branch_prepass",
 			 start_PC);
@@ -1845,18 +1979,18 @@ private:
     // Verify exception handlers.
     for (int i = 0; i < current_method->exc_count; ++i)
       {
-	if (! (flags[exception[i].handler_pc] & FLAG_INSN_START))
+	if (! (flags[exception[i].handler_pc.i] & FLAG_INSN_START))
 	  verify_fail ("exception handler not at instruction start",
-		       exception[i].handler_pc);
-	if (! (flags[exception[i].start_pc] & FLAG_INSN_START))
+		       exception[i].handler_pc.i);
+	if (! (flags[exception[i].start_pc.i] & FLAG_INSN_START))
 	  verify_fail ("exception start not at instruction start",
-		       exception[i].start_pc);
-	if (exception[i].end_pc != current_method->code_length
-	    && ! (flags[exception[i].end_pc] & FLAG_INSN_START))
+		       exception[i].start_pc.i);
+	if (exception[i].end_pc.i != current_method->code_length
+	    && ! (flags[exception[i].end_pc.i] & FLAG_INSN_START))
 	  verify_fail ("exception end not at instruction start",
-		       exception[i].end_pc);
+		       exception[i].end_pc.i);
 
-	flags[exception[i].handler_pc] |= FLAG_BRANCH_TARGET;
+	flags[exception[i].handler_pc.i] |= FLAG_BRANCH_TARGET;
       }
   }
 
@@ -2149,12 +2283,12 @@ private:
 	// through them all.
 	for (int i = 0; i < current_method->exc_count; ++i)
 	  {
-	    if (PC >= exception[i].start_pc && PC < exception[i].end_pc)
+	    if (PC >= exception[i].start_pc.i && PC < exception[i].end_pc.i)
 	      {
 		type handler (&java::lang::Throwable::class$);
-		if (exception[i].handler_type != 0)
-		  handler = check_class_constant (exception[i].handler_type);
-		push_exception_jump (handler, exception[i].handler_pc);
+		if (exception[i].handler_type.i != 0)
+		  handler = check_class_constant (exception[i].handler_type.i);
+		push_exception_jump (handler, exception[i].handler_pc.i);
 	      }
 	  }
 
@@ -2264,42 +2398,42 @@ private:
 	    break;
 	  case op_iaload:
 	    pop_type (int_type);
-	    push_type (require_array_type (pop_type (reference_type),
+	    push_type (require_array_type (pop_init_ref (reference_type),
 					   int_type));
 	    break;
 	  case op_laload:
 	    pop_type (int_type);
-	    push_type (require_array_type (pop_type (reference_type),
+	    push_type (require_array_type (pop_init_ref (reference_type),
 					   long_type));
 	    break;
 	  case op_faload:
 	    pop_type (int_type);
-	    push_type (require_array_type (pop_type (reference_type),
+	    push_type (require_array_type (pop_init_ref (reference_type),
 					   float_type));
 	    break;
 	  case op_daload:
 	    pop_type (int_type);
-	    push_type (require_array_type (pop_type (reference_type),
+	    push_type (require_array_type (pop_init_ref (reference_type),
 					   double_type));
 	    break;
 	  case op_aaload:
 	    pop_type (int_type);
-	    push_type (require_array_type (pop_type (reference_type),
+	    push_type (require_array_type (pop_init_ref (reference_type),
 					   reference_type));
 	    break;
 	  case op_baload:
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), byte_type);
+	    require_array_type (pop_init_ref (reference_type), byte_type);
 	    push_type (int_type);
 	    break;
 	  case op_caload:
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), char_type);
+	    require_array_type (pop_init_ref (reference_type), char_type);
 	    push_type (int_type);
 	    break;
 	  case op_saload:
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), short_type);
+	    require_array_type (pop_init_ref (reference_type), short_type);
 	    push_type (int_type);
 	    break;
 	  case op_istore:
@@ -2350,42 +2484,42 @@ private:
 	  case op_iastore:
 	    pop_type (int_type);
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), int_type);
+	    require_array_type (pop_init_ref (reference_type), int_type);
 	    break;
 	  case op_lastore:
 	    pop_type (long_type);
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), long_type);
+	    require_array_type (pop_init_ref (reference_type), long_type);
 	    break;
 	  case op_fastore:
 	    pop_type (float_type);
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), float_type);
+	    require_array_type (pop_init_ref (reference_type), float_type);
 	    break;
 	  case op_dastore:
 	    pop_type (double_type);
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), double_type);
+	    require_array_type (pop_init_ref (reference_type), double_type);
 	    break;
 	  case op_aastore:
 	    pop_type (reference_type);
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), reference_type);
+	    require_array_type (pop_init_ref (reference_type), reference_type);
 	    break;
 	  case op_bastore:
 	    pop_type (int_type);
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), byte_type);
+	    require_array_type (pop_init_ref (reference_type), byte_type);
 	    break;
 	  case op_castore:
 	    pop_type (int_type);
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), char_type);
+	    require_array_type (pop_init_ref (reference_type), char_type);
 	    break;
 	  case op_sastore:
 	    pop_type (int_type);
 	    pop_type (int_type);
-	    require_array_type (pop_type (reference_type), short_type);
+	    require_array_type (pop_init_ref (reference_type), short_type);
 	    break;
 	  case op_pop:
 	    pop32 ();
@@ -2723,7 +2857,7 @@ private:
 	    invalidate_pc ();
 	    break;
 	  case op_areturn:
-	    check_return_type (pop_type (reference_type));
+	    check_return_type (pop_init_ref (reference_type));
 	    invalidate_pc ();
 	    break;
 	  case op_return:
@@ -2805,7 +2939,7 @@ private:
 		  // This is only used for verifying the byte for
 		  // invokeinterface.
 		  nargs -= arg_types[i].depth ();
-		  pop_type (arg_types[i]);
+		  pop_init_ref (arg_types[i]);
 		}
 
 	      if (opcode == op_invokeinterface
@@ -2822,7 +2956,15 @@ private:
 		    }
 		  type raw = pop_raw ();
 		  bool ok = false;
-		  if (t.compatible (raw, this))
+		  if (! is_init && ! raw.isinitialized ())
+		    {
+		      // This is a failure.
+		    }
+		  else if (is_init && raw.isnull ())
+		    {
+		      // Another failure.
+		    }
+		  else if (t.compatible (raw, this))
 		    {
 		      ok = true;
 		    }
@@ -2878,7 +3020,7 @@ private:
 	    break;
 	  case op_arraylength:
 	    {
-	      type t = pop_type (reference_type);
+	      type t = pop_init_ref (reference_type);
 	      if (! t.isarray () && ! t.isnull ())
 		verify_fail ("array type expected");
 	      push_type (int_type);
@@ -2889,19 +3031,19 @@ private:
 	    invalidate_pc ();
 	    break;
 	  case op_checkcast:
-	    pop_type (reference_type);
+	    pop_init_ref (reference_type);
 	    push_type (check_class_constant (get_ushort ()));
 	    break;
 	  case op_instanceof:
-	    pop_type (reference_type);
+	    pop_init_ref (reference_type);
 	    check_class_constant (get_ushort ());
 	    push_type (int_type);
 	    break;
 	  case op_monitorenter:
-	    pop_type (reference_type);
+	    pop_init_ref (reference_type);
 	    break;
 	  case op_monitorexit:
-	    pop_type (reference_type);
+	    pop_init_ref (reference_type);
 	    break;
 	  case op_wide:
 	    {
@@ -2935,7 +3077,7 @@ private:
 		  set_variable (get_ushort (), pop_type (double_type));
 		  break;
 		case op_astore:
-		  set_variable (get_ushort (), pop_type (reference_type));
+		  set_variable (get_ushort (), pop_init_ref (reference_type));
 		  break;
 		case op_ret:
 		  handle_ret_insn (get_short ());
@@ -2974,40 +3116,36 @@ private:
 	    handle_jsr_insn (get_int ());
 	    break;
 
+	  // These are unused here, but we call them out explicitly
+	  // so that -Wswitch-enum doesn't complain.
+	  case op_putfield_1:
+	  case op_putfield_2:
+	  case op_putfield_4:
+	  case op_putfield_8:
+	  case op_putfield_a:
+	  case op_putstatic_1:
+	  case op_putstatic_2:
+	  case op_putstatic_4:
+	  case op_putstatic_8:
+	  case op_putstatic_a:
+	  case op_getfield_1:
+	  case op_getfield_2s:
+	  case op_getfield_2u:
+	  case op_getfield_4:
+	  case op_getfield_8:
+	  case op_getfield_a:
+	  case op_getstatic_1:
+	  case op_getstatic_2s:
+	  case op_getstatic_2u:
+	  case op_getstatic_4:
+	  case op_getstatic_8:
+	  case op_getstatic_a:
 	  default:
 	    // Unrecognized opcode.
 	    verify_fail ("unrecognized instruction in verify_instructions_0",
 			 start_PC);
 	  }
       }
-  }
-
-  __attribute__ ((__noreturn__)) void verify_fail (char *s, jint pc = -1)
-  {
-    using namespace java::lang;
-    StringBuffer *buf = new StringBuffer ();
-
-    buf->append (JvNewStringLatin1 ("verification failed"));
-    if (pc == -1)
-      pc = start_PC;
-    if (pc != -1)
-      {
-	buf->append (JvNewStringLatin1 (" at PC "));
-	buf->append (pc);
-      }
-
-    _Jv_InterpMethod *method = current_method;
-    buf->append (JvNewStringLatin1 (" in "));
-    buf->append (current_class->getName());
-    buf->append ((jchar) ':');
-    buf->append (JvNewStringUTF (method->get_method()->name->data));
-    buf->append ((jchar) '(');
-    buf->append (JvNewStringUTF (method->get_method()->signature->data));
-    buf->append ((jchar) ')');
-
-    buf->append (JvNewStringLatin1 (": "));
-    buf->append (JvNewStringLatin1 (s));
-    throw new java::lang::VerifyError (buf->toString ());
   }
 
 public:

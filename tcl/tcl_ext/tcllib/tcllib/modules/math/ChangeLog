@@ -1,0 +1,241 @@
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2004-02-09  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* combinatorics.tcl (::math::factorial): correct fac 171
+	off-by-one and use of -strict in string is int|double.
+
+2003-12-22  Joe English  <jenglish@users.sourceforge.net>
+	* calculus.man (rungeKuttaStep): Add missing argument 
+	in function synopsis (bug report from Richard Body).
+
+2003-10-29  Arjen Markus <arjenmarkus@users.sourceforge.net>
+
+	* statistics.tcl (BasicStat): Applied fix for [SF Tcllib Bug
+	  820807]. Uniform data may cause a small negative value when
+	  computing the base value for a standard deviation, instead of
+	  the correct 0.0. The fix now enforces 0.0 when encountering this
+	  situation. This entry in the ChangeLog by Andreas Kupries.
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-04-24  Andreas Kupries  <andreask@activestate.com>
+
+	* pkgIndex.tcl: Found math::optimize missing in index.
+	* optimize.man: Version number inconsistent with code,
+	  corrected.
+
+	* calculus.test: Converted [puts] into log statements, and
+	  suppress them by default. Reduces the noise when running the
+	  testsuite.
+
+	* math.test:          Added output listing the version of the
+	* statistics.test:    package we are testing.
+	* calculus.test:
+	* geometry.test:
+	* combinatorics.test:
+	* optimize.test:
+
+2003-04-24  Arjen Markus <arjenmarkus@users.sourceforge.net>
+
+	* liststat.tcl: Corrected the handling of the expression in the
+	  list manipulation procedures. This solves the scope problem (bug
+	  725231). AK: Lifted from the 'cvs log'. This passes the testsuite.
+
+2003-04-23  Andreas Kupries  <andreask@activestate.com>
+
+	* fuzzy.test: Re-applied bug fixes I did before (See 2003-04-13)
+	  to the newly committed version, which was not merged, but simply
+	  overwrote my changes.
+
+2003-04-21  Andreas Kupries  <andreask@activestate.com>
+
+	* optimize.test: Corrected errors in loading the functionality
+	  under test, and of accessing tcltest. Now functional.
+
+2003-04-18  Joe English  <jenglish@flightlab.com
+
+	* optimize.man: fix minor markup errors that doctools and tmml 
+	  were complaining about. 
+
+2003-04-16  Andreas Kupries  <andreask@activestate.com>
+
+	* pkgIndex.tcl: Added math::statistics after yesterday's commit by
+	  Arjen Markus.
+
+	* statistics.test: Changed to conform to standard of importing
+	  tcltest, changed import of tested functionality, added checks
+	  that actually tcltest 1.2 or higher is used (Aborting if not).
+	
+	* statistics.tcl:
+	* liststat.tcl
+	* pdf_stat.tcl:
+	* plotstat.tcl: Reformatted a bit to be more near to the
+	  style-guide with regard to indentation.
+
+2003-04-13  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* pkgIndex.tcl:
+	* fuzzy.tcl: Committed new code (see #535216), this also updates
+	  the package to version 0.2
+
+	* fuzzy.man: 
+	* fuzzy.test: New files for fuzzy comparisons, documentation and
+	  testsuite. Fixed some bugs in them. NOTE: There are failures in
+	  the testsuite.
+
+2003-04-11  Andreas Kupries  <andreask@activestate.com>
+
+	* combinatorics.man:
+	* math.man:
+	* math.tcl:
+	* pkgIndex.tcl:  Set version of the package to to 1.2.2.
+
+2003-01-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* combinatorics.man: More semantic markup, less visual one.
+	* calculus.man:
+
+2002-06-03  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* pkgIndex.tcl: updated calculus to version 0.5.
+	* calculus.man: Added [require] declarations.
+
+	* calculus.README:
+	* calculus.CHANGES:
+	* calculus.tcl:
+	* calculus.test:
+	* calculus.man: Applied changes for #553773 on behalf of Arjen
+	  Markus <arjenmarkus@users.sourceforge.net>.
+
+2002-05-08  Don Porter <dgp@users.sourceforge.net>
+
+	* calculus.test: Corrected testing problems by namespace-ifying
+	the file.
+
+2002-04-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* combinatorics.man: Added doctools manpage.
+	* math.man: Added doctools manpage.
+
+2002-03-25  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* calculus.man: Fixed formatting errors in the doctools manpage.
+
+2002-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Update of calculus. #528434
+
+	* calculus.man: New file, calculus documentation in doctools format.
+	* calculus.test: New file, beginnings of testsuite
+
+	* calculus.CHANGES:
+	* calculus.README:
+	* calculus.tcl:
+	* pkgIndex.tcl: updated to calculus 0.3
+
+2002-02-14  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* combinatorics.tcl
+	* geometry.tcl (proc): Frink run
+
+	* math::geometry: Version is now 1.0.1 to distinguish this from
+	  the code in tcllib release 1.2
+
+	* math: Version is now 1.2.1 to distinguish this from
+	  the code in tcllib release 1.2
+
+2002-01-18  Don Porter <dgp@users.sourceforge.net>
+
+	* math.tcl: [namespace export Beta] got out of sync with the
+	command name.
+	* misc.tcl: removed [package provide math]; duplicated in
+	math.tcl, a sync problem waiting to happen.
+
+2002-01-18  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Bumped version to 1.2.
+
+2002-01-18  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Added calculus functionality and fuzzy FP comparison as provided
+	  by Arjen Markus <arjen.markus@wldelft.nl> as is. This code
+	  currently has neither true testsuite nor good documentation but
+	  was considered important enough to get in now. Polish has to
+	  come in the subsequent patch releases.
+
+2002-01-11  Kevin Kenny  <kennykb@users.sourceforge.net>
+
+	* combinatorics.tcl: Removed incorrect 'package provide'.
+	
+2002-01-11  Kevin Kenny  <kennykb@users.sourceforge.net>
+
+	* math.tcl: 
+	* misc.tcl:
+	* pkgIndex.tcl:
+	* tclIndex: Reorganized so that math.tcl is a top-level 'package
+	provide' script and loads a tclIndex.  The code from 'math.tcl'
+	moves into 'misc.tcl'.
+	* combinatorics.n:
+	* combinatorics.tcl:
+	* combinatorics.test: Added a 'combinatorics' module containing
+	the Gamma function and several related functions (factorial,
+	binomial coefficient, and Beta). (Feature request #484850).
+	
+2001-06-21  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* math.tcl: Fixed dubious code reported by frink.
+
+2000-10-06  Eric Melski  <ericm@ajubasolutions.com>
+
+	* math.test: 
+	* math.n: 
+	* math.tcl: Added ::math::fibonacci function, to compute numbers
+	in the Fibonacci sequence.
+
+2000-09-08  Eric Melski  <ericm@ajubasolutions.com>
+
+	* math.test:
+	* math.n:
+	* math.tcl: Added ::math::random function.
+
+	* pkgIndex.tcl: Bumped version number to 1.1.
+
+2000-06-15  Eric Melski  <ericm@scriptics.com>
+
+	* math.n: 
+	* math.test: 
+	* math.tcl: Incorporated sigma, cov, stats, integrate functions
+	(from Philip Ehrens <pehrens@ligo.caltech.edu>). [RFE: 5060]
+
+2000-03-27  Eric Melski  <ericm@scriptics.com>
+
+	* math.n: 
+	* math.test: 
+	* math.tcl: Added sum, mean, and product functions (from Philip
+	Ehrens <pehrens@ligo.caltech.edu>).
+
+2000-03-09  Eric Melski  <ericm@scriptics.com>
+
+	* math.test: Adapted tests for use in/out of tcllib test framework.
+
+2000-03-07  Eric Melski  <ericm@scriptics.com>
+
+	* pkgIndex.tcl:
+	* math.tcl:
+	* math.test:
+	* math.n: Initial versions of files for math library.

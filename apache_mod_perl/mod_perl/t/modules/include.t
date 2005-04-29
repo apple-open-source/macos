@@ -1,5 +1,5 @@
 
-use Apache::test;
+use Apache::testold;
 skip_test if $net::callback_hooks{USE_DSO}; 
 my $ua = LWP::UserAgent->new;    # create a useragent to test
 

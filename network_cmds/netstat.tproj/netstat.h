@@ -81,7 +81,9 @@ extern int	unit;	/* unit number for above */
 
 extern int	af;	/* address family */
 
+#if 0
 int	kread (u_long addr, char *buf, int size);
+#endif
 char	*plural (int);
 char	*plurales (int);
 
@@ -100,15 +102,17 @@ void	ip6_stats (u_long, char *, int);
 void	ip6_ifstats (char *);
 void	icmp6_stats (u_long, char *, int);
 void	icmp6_ifstats (char *);
+#ifdef notyet
 void	pim6_stats (u_long, char *, int);
+#endif
 void	rip6_stats (u_long, char *, int);
-void	mroute6pr (u_long, u_long);
-void	mrt6_stats (u_long);
+void	mroute6pr (void);
+void	mrt6_stats (void);
 
 struct sockaddr_in6;
 struct in6_addr;
 char *routename6 (struct sockaddr_in6 *);
-char *netname6 (struct sockaddr_in6 *, struct in6_addr *);
+char *netname6 (struct sockaddr_in6 *, struct sockaddr *);
 #endif /*INET6*/
 
 #ifdef IPSEC
@@ -117,17 +121,16 @@ void	pfkey_stats (u_long, char *, int);
 
 void	bdg_stats (u_long, char *, int);
 
-//void	mbpr (u_long, u_long, u_long, u_long);
-void	mbpr (u_long);
+void	mbpr (void);
 
 void	hostpr (u_long, u_long);
 void	impstats (u_long, u_long);
 
-void	intpr (int, u_long, void (*)(char *));
+void	intpr (void (*)(char *));
 
 void	pr_rthdr (int);
 void	pr_family (int);
-void	rt_stats (u_long, u_long);
+void	rt_stats (void);
 char	*ipx_pnet (struct sockaddr *);
 char	*ipx_phost (struct sockaddr *);
 char	*ns_phost (struct sockaddr *);
@@ -171,6 +174,6 @@ void	tp_protopr (u_long, char *, int);
 void	tp_inproto (u_long);
 void	tp_stats (caddr_t, caddr_t);
 
-void	mroutepr (u_long, u_long);
-void	mrt_stats (u_long);
+void	mroutepr (void);
+void	mrt_stats (void);
 

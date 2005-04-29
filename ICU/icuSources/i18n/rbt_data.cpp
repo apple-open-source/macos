@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -9,6 +9,7 @@
 */
 
 #include "unicode/utypes.h"
+#include "umutex.h"
 
 #if !UCONFIG_NO_TRANSLITERATION
 
@@ -102,6 +103,7 @@ TransliterationRuleData::lookupReplacer(UChar32 standIn) const {
     UnicodeFunctor *f = lookup(standIn);
     return (f != 0) ? f->toReplacer() : 0;
 }
+
 
 U_NAMESPACE_END
 

@@ -1,19 +1,11 @@
 ## Process this file with automake to create Makefile.in.
 
-AUTOMAKE_OPTIONS = cygnus
+AUTOMAKE_OPTIONS = 1.8 cygnus
 
-# Multilib support variables.
-MULTISRCTOP =
-MULTIBUILDTOP =
-MULTIDIRS =
-MULTISUBDIR =
-MULTIDO = true
-MULTICLEAN = true
-
-ZLIB_SOURCES = adler32.c compress.c crc32.c deflate.c deflate.h \
-gzio.c infblock.c infblock.h infcodes.c infcodes.h inffast.c inffast.h \
-inffixed.h inflate.c inftrees.c inftrees.h infutil.c infutil.h trees.c \
-trees.h uncompr.c zconf.h zlib.h zutil.c zutil.h
+ZLIB_SOURCES = adler32.c compress.c crc32.c crc32.h deflate.c \
+deflate.h gzio.c infback.c inffast.c inffast.h inffixed.h inflate.c \
+inflate.h inftrees.c inftrees.h trees.c trees.h uncompr.c zconf.h \
+zconf.in.h zlib.h zutil.c zutil.h
 
 if TARGET_LIBRARY
 noinst_LTLIBRARIES = libzgcj_convenience.la
@@ -21,6 +13,7 @@ libzgcj_convenience_la_SOURCES = $(ZLIB_SOURCES)
 else
 toolexeclib_LIBRARIES = libz.a
 libz_a_SOURCES = $(ZLIB_SOURCES)
+libz_a_CFLAGS = $(AM_CFLAGS)
 endif
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
@@ -63,27 +56,3 @@ AM_MAKEFLAGS = \
 	"PICFLAG=$(PICFLAG)" \
 	"RANLIB=$(RANLIB)" \
 	"DESTDIR=$(DESTDIR)"
-
-# Multilib support.
-.PHONY: all-multi mostlyclean-multi clean-multi distclean-multi \
-	maintainer-clean-multi
-
-all-am: all-multi
-install-am: install-multi
-mostlyclean-am: mostlyclean-multi
-clean-am: clean-multi
-distclean-am: distclean-multi
-maintainer-clean-am: maintainer-clean-multi
-
-all-multi:
-	: $(MAKE) ; exec $(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do
-install-multi:
-	$(MULTIDO) $(AM_MAKEFLAGS) DO=install multi-do
-mostlyclean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=mostlyclean multi-clean
-clean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=clean multi-clean
-distclean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=distclean multi-clean
-maintainer-clean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=maintainer-clean multi-clean

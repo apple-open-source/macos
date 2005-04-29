@@ -48,7 +48,11 @@ int foo(void) {
   id<Booing, Fooing> stupidVar;
   [stupidVar boo];
   [stupidVar foo];
-  [stupidVar anotherMsg]; /* { dg-warning ".\-anotherMsg. not implemented by protocol" } */
-  /* { dg-warning "cannot find method .\-anotherMsg.. return type .id. assumed" "" { target *-*-* } 51 } */
+  [stupidVar anotherMsg]; /* { dg-warning ".\\-anotherMsg. not found in protocol" } */
+       /* { dg-warning "no .\\-anotherMsg. method found" "" { target *-*-* } 51 } */
   return 0;
 }
+
+/* { dg-warning "Messages without a matching method signature" "" { target *-*-* } 0 } */
+/* { dg-warning "will be assumed to return .id. and accept" "" { target *-*-* } 0 } */
+/* { dg-warning ".\.\.\.. as arguments" "" { target *-*-* } 0 } */

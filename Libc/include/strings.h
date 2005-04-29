@@ -55,4 +55,27 @@
  *	@(#)strings.h	8.1 (Berkeley) 6/2/93
  */
 
+#if !defined(_XOPEN_SOURCE) && !defined(_POSIX_C_SOURCE)
+
 #include <string.h>
+
+#else
+
+#include <_types.h>
+
+#ifndef	_SIZE_T
+#define	_SIZE_T
+typedef	__darwin_size_t	size_t;
+#endif
+
+int      bcmp(const void *, const void *, size_t);
+void     bcopy(const void *, void *, size_t);
+void     bzero(void *, size_t);
+int      ffs(int);
+char    *index(const char *, int);
+char    *rindex(const char *, int); 
+int      strcasecmp(const char *, const char *);
+int      strncasecmp(const char *, const char *, size_t);
+
+#endif  /* _POSIX_C_SOURCE */
+

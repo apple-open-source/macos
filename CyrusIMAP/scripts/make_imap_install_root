@@ -1,5 +1,0 @@
-#!/bin/sh
-
-DIR=`pwd`
-
-make make_imap_install SRCROOT=$DIR DSTROOT=/

@@ -1,0 +1,44 @@
+[comment {-*- tk -*- piePeripheralLabeler manpage}]
+[manpage_begin piePeripheralLabeler n 6.6]
+[copyright {1995-2004 Jean-Luc Fontaine <jfontain@free.fr>}]
+[moddesc   {piePeripheralLabeler class}]
+[titledesc {tkpiechart pie peripheral style labeler class}]
+
+[description]
+The pie peripheral style labeler object is used as a slice label placer for a [class pie] object and is passed to the pie constructor via its [option -labeler] option (see the [class pie] class manual).
+[para]The slice description text labels are arranged in 2 columns below the pie graphics, whereas the slice values are placed next to the slice and actually follow the slice as the pie is updated. Each description label text is placed to the right of a rectangle, the background color of which matches its corresponding slice. Each description label is actually a canvasLabel object.
+[para]There is no need to delete a [class piePeripheralLabeler] object as it is automatically handled by the pie class.
+[list_begin definitions]
+[call [cmd stooop::new] [class piePeripheralLabeler] [arg canvas] [opt options]]
+Creates a piePeripheralLabeler object in the specified Tk canvas. The piePeripheralLabeler object identifier is returned (refered to as [emph piePeripheralLabelerObject] in this document).
+[call [cmd switched::configure] [arg piePeripheralLabelerObject] [opt options]]
+Configures a piePeripheralLabeler object or returns all the options with their current values if no options are passed as parameters.
+[call [cmd switched::cget] [arg piePeripheralLabelerObject] [arg option]]
+Returns an option value for the specified piePeripheralLabeler object.
+[list_end]
+
+[section OPTIONS]
+[list_begin opt]
+[opt_def -font value]
+Specifies a font for the slice labels. If not specified, the default font is system dependent.
+[opt_def -justify value]
+Specifies how to justify labels within their own column. Must be one of [emph left], [emph center] or [emph right]. Defaults to [emph left]. For example, if justification is [emph right], all column labels right edges are aligned.
+[opt_def -offset value]
+Specifies the distance between the pie graphics and the closest slice label. This value may be specified in any of the forms described in the [syscmd canvas] [emph COORDINATES] manual section.
+[opt_def -smallfont]
+Specifies a font for the slice values. It is usually a small font in order to avoid values overlapping when 2 slices are very close to each other. If not specified, the description label font ([option -font] option) is used.
+[opt_def -widestvaluetext]
+Specifies a string of maximum width for slice values (placed around the pie next to the slices), so that enough room is allocated for these value labels when the pie width and height are set. It defaults to 00.0. For example, it could be set to "00.00 %".
+
+[list_end]
+
+[section TAGS]
+The labeler has the following specific tag (see the [syscmd canvas] manual page [emph {ITEM IDS AND TAGS}] section for more information):
+[list_begin bullet]
+  [bullet]piePeripheralLabeler(piePeripheralLabelerObject)
+[list_end]
+
+[see_also pie pieBoxLabeler canvasLabel]
+[keywords pie slice labeler canvas]
+[manpage_end]
+

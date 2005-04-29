@@ -362,6 +362,9 @@ DarwinUpdateModifiers (xEvent xe, unsigned int flags)
 {
     static const struct {int mask; int nxkey;} pairs[] = {
 	{ShiftMask, NX_MODIFIERKEY_SHIFT},
+#if !USING_XKB
+	{LockMask, NX_MODIFIERKEY_ALPHALOCK},
+#endif
 	{ControlMask, NX_MODIFIERKEY_CONTROL},
 	{Mod1Mask, NX_MODIFIERKEY_ALTERNATE},
 	{Mod2Mask, NX_MODIFIERKEY_COMMAND},
@@ -392,6 +395,7 @@ DarwinUpdateModifiers (xEvent xe, unsigned int flags)
 	}
     }
 
+#if USING_XKB
     /* Do the same for Lock, but need both press and release to toggle it. */
 
     if ((flags ^ lockMods) & LockMask)
@@ -406,6 +410,7 @@ DarwinUpdateModifiers (xEvent xe, unsigned int flags)
 	    lockMods ^= LockMask;
 	}
     }
+#endif
 }
 
 /* Release all non-modifier keys that we think are currently pressed.

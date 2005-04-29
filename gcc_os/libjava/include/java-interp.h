@@ -1,6 +1,6 @@
 // java-interp.h - Header file for the bytecode interpreter.  -*- c++ -*-
 
-/* Copyright (C) 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -13,6 +13,7 @@ details.  */
 
 #include <jvm.h>
 #include <java-cpool.h>
+#include <gnu/gcj/runtime/NameFinder.h>
 
 #ifdef INTERPRETER
 
@@ -20,6 +21,8 @@ details.  */
 
 #include <java/lang/Class.h>
 #include <java/lang/ClassLoader.h>
+#include <java/lang/reflect/Modifier.h>
+#include <gnu/gcj/runtime/StackTrace.h>
 
 extern "C" {
 #include <ffi.h>
@@ -28,7 +31,7 @@ extern "C" {
 extern inline jboolean
 _Jv_IsInterpretedClass (jclass c)
 {
-  return (c->loader != 0);
+  return (c->accflags & java::lang::reflect::Modifier::INTERPRETED) != 0;
 }
 
 struct _Jv_ResolvedMethod;
@@ -49,14 +52,22 @@ void _Jv_VerifyMethod (_Jv_InterpMethod *method);
 
 class _Jv_InterpClass;
 class _Jv_InterpMethod;
-class _Jv_InterpMethodInvocation;
+
+// Before a method is "compiled" we store values as the bytecode PC,
+// an int.  Afterwards we store them as pointers into the prepared
+// code itself.
+union _Jv_InterpPC
+{
+  int i;
+  void *p;
+};
 
 class _Jv_InterpException
 {
-  int  start_pc;
-  int  end_pc;
-  int  handler_pc;
-  int  handler_type;
+  _Jv_InterpPC start_pc;
+  _Jv_InterpPC end_pc;
+  _Jv_InterpPC handler_pc;
+  _Jv_InterpPC handler_type;
 
   friend class _Jv_ClassReader;
   friend class _Jv_InterpMethod;
@@ -92,6 +103,8 @@ class _Jv_InterpMethod : public _Jv_MethodBase
 
   _Jv_ushort       exc_count;
 
+  void *prepared;
+
   unsigned char* bytecode () 
   {
     return 
@@ -99,7 +112,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
       + ROUND((sizeof (_Jv_InterpMethod)
 	       + exc_count*sizeof (_Jv_InterpException)), 4);
   }
-    
+
   _Jv_InterpException * exceptions ()
   {
     return (_Jv_InterpException*) (this+1);
@@ -115,40 +128,29 @@ class _Jv_InterpMethod : public _Jv_MethodBase
 
   // return the method's invocation pointer (a stub).
   void *ncode ();
-  void continue1 (_Jv_InterpMethodInvocation *inv);
+  void compile (const void * const *);
 
   static void run_normal (ffi_cif*, void*, ffi_raw*, void*);
   static void run_synch_object (ffi_cif*, void*, ffi_raw*, void*);
   static void run_synch_class (ffi_cif*, void*, ffi_raw*, void*);
 
-  inline jobject run (ffi_cif*, void*, ffi_raw*, 
-		      _Jv_InterpMethodInvocation*);
-
-  bool find_exception (jobject ex,
-		       _Jv_InterpMethodInvocation *inv);
+  void run (void*, ffi_raw *);
 
  public:
   static void dump_object(jobject o);
 
   friend class _Jv_ClassReader;
-  friend class _Jv_InterpMethodInvocation;
   friend class _Jv_BytecodeVerifier;
+  friend class gnu::gcj::runtime::NameFinder;
+  friend class gnu::gcj::runtime::StackTrace;
 
   friend void _Jv_PrepareClass(jclass);
+
+#ifdef JV_MARKOBJ_DECL
+  friend JV_MARKOBJ_DECL;
+#endif
 };
 
-class _Jv_InterpMethodInvocation {
-  _Jv_InterpMethod *running;
-  _Jv_word         *sp;
-  unsigned char    *pc;
-  _Jv_word          state[0];
-
-  _Jv_word*         stack_base () { return &state[0]; }
-  _Jv_word*         local_base () { return &state[running->max_stack]; }
-
-  friend class _Jv_InterpMethod;
-};
-  
 class _Jv_InterpClass : public java::lang::Class
 {
   _Jv_MethodBase **interpreted_methods;
@@ -157,6 +159,7 @@ class _Jv_InterpClass : public java::lang::Class
   friend class _Jv_ClassReader;
   friend class _Jv_InterpMethod;
   friend void  _Jv_PrepareClass(jclass);
+  friend void  _Jv_PrepareMissingMethods (jclass base2, jclass iface_class);
   friend void  _Jv_InitField (jobject, jclass, int);
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;
@@ -209,6 +212,28 @@ public:
   void set_function (void *f)
   {
     function = f;
+  }
+};
+
+// A structure of this type is used to link together interpreter
+// invocations on the stack.
+struct _Jv_MethodChain
+{
+  const _Jv_InterpMethod *self;
+  _Jv_MethodChain **ptr;
+  _Jv_MethodChain *next;
+
+  _Jv_MethodChain (const _Jv_InterpMethod *s, _Jv_MethodChain **n)
+  {
+    self = s;
+    ptr = n;
+    next = *n;
+    *n = this;
+  }
+
+  ~_Jv_MethodChain ()
+  {
+    *ptr = next;
   }
 };
 

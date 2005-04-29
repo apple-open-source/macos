@@ -1,0 +1,2 @@
+>>> Automatic structure info (obsolete)
+<<< done.

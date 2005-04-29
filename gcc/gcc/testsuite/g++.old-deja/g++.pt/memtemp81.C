@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 
 template <int i> class a
 {
@@ -7,7 +7,7 @@ int  k;
 
 template <int j> int f() const { return this->f<j-1>(); }
 
-int g() const { return f<i>(); };
+int g() const { return f<i>(); }
 };
 
 template <>

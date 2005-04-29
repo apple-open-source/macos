@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)vfscanf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.32 2003/06/28 09:03:05 das Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.37 2004/05/02 10:55:05 das Exp $");
 
 #include "namespace.h"
 #include <ctype.h>
@@ -56,9 +56,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.32 2003/06/28 09:03:05 das 
 #include "libc_private.h"
 #include "local.h"
 
-#define FLOATING_POINT
-
-#ifdef FLOATING_POINT
+#ifndef NO_FLOATING_POINT
 #include <locale.h>
 #endif
 
@@ -88,6 +86,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.32 2003/06/28 09:03:05 das 
 #define	NDIGITS		0x80	/* no digits detected */
 #define	PFXOK		0x100	/* 0x prefix is (still) legal */
 #define	NZDIGITS	0x200	/* no zero digits detected */
+#define	HAVESIGN	0x10000	/* sign detected */
 
 /*
  * Conversion types.
@@ -140,8 +139,9 @@ __svfscanf(FILE *fp, const char *fmt0, va_list ap)
 	char buf[BUF];		/* buffer for numeric and mb conversions */
 	wchar_t *wcp;		/* handy wide character pointer */
 	wchar_t *wcp0;		/* saves original value of wcp */
-	mbstate_t mbs;		/* multibyte conversion state */
 	size_t nconv;		/* length of multibyte sequence converted */
+	static const mbstate_t initial;
+	mbstate_t mbs;
 
 	/* `basefix' is used to avoid `if' tests in the integer scanner */
 	static short basefix[17] =
@@ -252,7 +252,7 @@ literal:
 			base = 16;
 			break;
 
-#ifdef FLOATING_POINT
+#ifndef NO_FLOATING_POINT
 		case 'A': case 'E': case 'F': case 'G':
 		case 'a': case 'e': case 'f': case 'g':
 			c = CT_FLOAT;
@@ -367,7 +367,7 @@ literal:
 					buf[n++] = *fp->_p;
 					fp->_p++;
 					fp->_r--;
-					memset(&mbs, 0, sizeof(mbs));
+					mbs = initial;
 					nconv = mbrtowc(wcp, buf, n, &mbs);
 					if (nconv == (size_t)-1) {
 						fp->_flags |= __SERR;
@@ -447,7 +447,7 @@ literal:
 					buf[n++] = *fp->_p;
 					fp->_p++;
 					fp->_r--;
-					memset(&mbs, 0, sizeof(mbs));
+					mbs = initial;
 					nconv = mbrtowc(wcp, buf, n, &mbs);
 					if (nconv == (size_t)-1) {
 						fp->_flags |= __SERR;
@@ -548,7 +548,7 @@ literal:
 					buf[n++] = *fp->_p;
 					fp->_p++;
 					fp->_r--;
-					memset(&mbs, 0, sizeof(mbs));
+					mbs = initial;
 					nconv = mbrtowc(wcp, buf, n, &mbs);
 					if (nconv == (size_t)-1) {
 						fp->_flags |= __SERR;
@@ -683,13 +683,18 @@ literal:
 				case '+': case '-':
 					if (flags & SIGNOK) {
 						flags &= ~SIGNOK;
+						flags |= HAVESIGN;
 						goto ok;
 					}
 					break;
-
-				/* x ok iff flag still set & 2nd char */
+					
+				/*
+				 * x ok iff flag still set & 2nd char (or
+				 * 3rd char if we have a sign).
+				 */
 				case 'x': case 'X':
-					if (flags & PFXOK && p == buf + 1) {
+					if (flags & PFXOK && p ==
+					    buf + 1 + !!(flags & HAVESIGN)) {
 						base = 16;	/* if %i */
 						flags &= ~PFXOK;
 						goto ok;
@@ -761,7 +766,7 @@ literal:
 			nconversions++;
 			break;
 
-#ifdef FLOATING_POINT
+#ifndef NO_FLOATING_POINT
 		case CT_FLOAT:
 			/* scan a floating point number as if by strtod */
 			if (width == 0 || width > sizeof(buf) - 1)
@@ -786,7 +791,7 @@ literal:
 			nread += width;
 			nconversions++;
 			break;
-#endif /* FLOATING_POINT */
+#endif /* !NO_FLOATING_POINT */
 		}
 	}
 input_failure:
@@ -908,7 +913,7 @@ doswitch:
 	/* NOTREACHED */
 }
 
-#ifdef FLOATING_POINT
+#ifndef NO_FLOATING_POINT
 static int
 parsefloat(FILE *fp, char *buf, char *end)
 {
@@ -1008,7 +1013,7 @@ reswitch:
 				goto reswitch;
 			}
 		case S_DIGITS:
-			if (ishex && isxdigit(c) || isdigit(c))
+			if ((ishex && isxdigit(c)) || isdigit(c))
 				gotmantdig = 1;
 			else {
 				state = S_FRAC;
@@ -1019,13 +1024,13 @@ reswitch:
 				commit = p;
 			break;
 		case S_FRAC:
-			if ((c == 'E' || c == 'e') && !ishex ||
-			    (c == 'P' || c == 'p') && ishex) {
+			if (((c == 'E' || c == 'e') && !ishex) ||
+			    ((c == 'P' || c == 'p') && ishex)) {
 				if (!gotmantdig)
 					goto parsedone;
 				else
 					state = S_EXP;
-			} else if (ishex && isxdigit(c) || isdigit(c)) {
+			} else if ((ishex && isxdigit(c)) || isdigit(c)) {
 				commit = p;
 				gotmantdig = 1;
 			} else

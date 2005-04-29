@@ -3,7 +3,7 @@
 // Written by David Megginson
 // This class is in the Public Domain.  NO WARRANTY!
 
-// $Id: NamespaceSupport.java,v 1.4 2003/01/22 06:04:37 gkeating Exp $
+// $Id: NamespaceSupport.java,v 1.6.2.5 2002/01/29 21:34:14 dbrownell Exp $
 
 package org.xml.sax.helpers;
 

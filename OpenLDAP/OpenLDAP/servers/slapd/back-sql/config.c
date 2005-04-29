@@ -1,10 +1,21 @@
-/*
- *	 Copyright 1999, Dmitry Kovalev <mit@openldap.org>, All rights reserved.
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/config.c,v 1.7.2.5 2004/09/24 14:09:15 ando Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *	 Redistribution and use in source and binary forms are permitted only
- *	 as authorized by the OpenLDAP Public License.	A copy of this
- *	 license is available at http://www.OpenLDAP.org/license.html or
- *	 in file LICENSE in the top-level directory of the distribution.
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999 Dmitry Kovalev.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Dmitry Kovalev for inclusion
+ * by OpenLDAP Software.
  */
 
 #include "portable.h"
@@ -14,10 +25,9 @@
 #include <stdio.h>
 #include "ac/string.h"
 #include <sys/types.h>
+
 #include "slap.h"
-#include "back-sql.h"
-#include "sql-wrap.h"
-#include "util.h"
+#include "proto-sql.h"
 
 int
 backsql_db_config(
@@ -264,6 +274,32 @@ backsql_db_config(
 		Debug( LDAP_DEBUG_TRACE, "<==backsql_db_config(): "
 			"delentry_query=%s\n", si->delentry_query, 0, 0 );
 
+	} else if ( !strcasecmp( argv[ 0 ], "delobjclasses_query" ) ) {
+		if ( argc < 2 ) {
+			Debug( LDAP_DEBUG_TRACE,
+				"<==backsql_db_config (%s line %d): "
+				"missing SQL statement "
+				"in \"delobjclasses_query\" directive\n",
+				fname, lineno, 0 );
+			return 1;
+		}
+		si->delobjclasses_query = ch_strdup( argv[ 1 ] );
+		Debug( LDAP_DEBUG_TRACE, "<==backsql_db_config(): "
+			"delobjclasses_query=%s\n", si->delobjclasses_query, 0, 0 );
+
+	} else if ( !strcasecmp( argv[ 0 ], "delreferrals_query" ) ) {
+		if ( argc < 2 ) {
+			Debug( LDAP_DEBUG_TRACE,
+				"<==backsql_db_config (%s line %d): "
+				"missing SQL statement "
+				"in \"delreferrals_query\" directive\n",
+				fname, lineno, 0 );
+			return 1;
+		}
+		si->delreferrals_query = ch_strdup( argv[ 1 ] );
+		Debug( LDAP_DEBUG_TRACE, "<==backsql_db_config(): "
+			"delreferrals_query=%s\n", si->delreferrals_query, 0, 0 );
+
 	} else if ( !strcasecmp( argv[ 0 ], "has_ldapinfo_dn_ru") ) {
 		if ( argc < 2 ) {
 			Debug( LDAP_DEBUG_TRACE,
@@ -324,10 +360,17 @@ backsql_db_config(
 			"fail_if_no_mapping=%s\n", 
 			BACKSQL_FAIL_IF_NO_MAPPING( si ) ? "yes" : "no", 0, 0 );
 
+	} else if ( !strcasecmp( argv[ 0 ], "sqllayer") ) {
+		if ( backsql_api_config( si, argv[ 1 ] ) ) {
+			Debug( LDAP_DEBUG_TRACE,
+				"<==backsql_db_config (%s line %d): "
+				"unable to load sqllayer \"%s\"\n",
+				fname, lineno, argv[ 1 ] );
+			return 1;
+		}
+
 	} else {
-		Debug( LDAP_DEBUG_TRACE, "<==backsql_db_config (%s line %d): "
-			"unknown directive \"%s\" (ignored)\n",
-			fname, lineno, argv[ 0 ] );
+		return SLAP_CONF_UNKNOWN;
 	}
 
 	return 0;

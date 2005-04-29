@@ -1,41 +1,30 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/add.c,v 1.6.2.1 2002/04/18 15:20:01 kurt Exp $ */
-/*
- *	 Copyright 1999, John C. Quillan, All rights reserved.
- *	 Portions Copyright 2002, myinternet Limited. All rights reserved.
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/add.c,v 1.11.2.5 2004/04/28 23:23:16 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *	 Redistribution and use in source and binary forms are permitted only
- *	 as authorized by the OpenLDAP Public License.	A copy of this
- *	 license is available at http://www.OpenLDAP.org/license.html or
- *	 in file LICENSE in the top-level directory of the distribution.
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999 John C. Quillan.
+ * Portions Copyright 2002 myinternet Limited.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-
-#include "portable.h"
-
-#include <stdio.h>
-
-#include "slap.h"
-#ifdef HAVE_WIN32_ASPERL
-#include "asperl_undefs.h"
-#endif
-
-#include <EXTERN.h>
-#include <perl.h>
 
 #include "perl_back.h"
 
 int
 perl_back_add(
-	Backend	*be,
-	Connection	*conn,
 	Operation	*op,
-	Entry	*e
-)
+	SlapReply	*rs )
 {
+	PerlBackend *perl_back = (PerlBackend *) op->o_bd->be_private;
 	int len;
 	int count;
-	int return_code;
-
-	PerlBackend *perl_back = (PerlBackend *) be->be_private;
 
 	ldap_pvt_thread_mutex_lock( &perl_interpreter_mutex );
 	ldap_pvt_thread_mutex_lock( &entry2str_mutex );
@@ -45,7 +34,7 @@ perl_back_add(
 
 		PUSHMARK(sp);
 		XPUSHs( perl_back->pb_obj_ref );
-		XPUSHs(sv_2mortal(newSVpv( entry2str( e, &len ), 0 )));
+		XPUSHs(sv_2mortal(newSVpv( entry2str( op->ora_e, &len ), 0 )));
 
 		PUTBACK;
 
@@ -61,7 +50,7 @@ perl_back_add(
 			croak("Big trouble in back_add\n");
 		}
 							 
-		return_code = POPi;
+		rs->sr_err = POPi;
 
 		PUTBACK; FREETMPS; LEAVE;
 	}
@@ -69,8 +58,7 @@ perl_back_add(
 	ldap_pvt_thread_mutex_unlock( &entry2str_mutex );
 	ldap_pvt_thread_mutex_unlock( &perl_interpreter_mutex );	
 
-	send_ldap_result( conn, op, return_code,
-		NULL, NULL, NULL, NULL );
+	send_ldap_result( op, rs );
 
 	Debug( LDAP_DEBUG_ANY, "Perl ADD\n", 0, 0, 0 );
 	return( 0 );

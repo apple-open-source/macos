@@ -1,9 +1,9 @@
 /*
- * "$Id: emit.c,v 1.8.4.2 2004/01/13 23:41:30 gelphman Exp $"
+ * "$Id: emit.c,v 1.16 2005/01/04 22:10:38 jlovell Exp $"
  *
  *   PPD code emission routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -63,7 +63,7 @@ static int	ppd_sort(ppd_choice_t **c1, ppd_choice_t **c2);
  * Local globals...
  */
 
-static const char *ppd_custom_code =
+static const char ppd_custom_code[] =
 		"pop pop pop\n"
 		"<</PageSize[5 -2 roll]/ImagingBBox null>>setpagedevice\n";
 
@@ -262,22 +262,42 @@ ppdEmitAfterOrder(ppd_file_t    *ppd,	/* I - PPD file record */
 	values[pos] = size->length;
 	isfloat[pos] = 1;
 
-        if (size->width < size->length)
-	  orientation = 1;
-	else
-	  orientation = 0;
+       /*
+        * According to the Adobe PPD specification, an orientation of 1
+	* will produce a print that comes out upside-down with the X
+	* axis perpendicular to the direction of feed, which is exactly
+	* what we want to be consistent with non-PS printers.
+	*
+	* We could also use an orientation of 3 to produce output that
+	* comes out rightside-up (this is the default for many large format
+	* printer PPDs), however for consistency we will stick with the
+	* value 1.
+	*
+	* If we wanted to get fancy, we could use orientations of 0 or
+	* 2 and swap the width and length, however we don't want to get
+	* fancy, we just want it to work consistently.
+	*
+	* The orientation value is range limited by the Orientation
+	* parameter definition, so certain non-PS printer drivers that
+	* only support an Orientation of 0 will get the value 0 as
+	* expected.
+	*/
+
+        orientation = 1;
 
 	if ((attr = ppdFindAttr(ppd, "ParamCustomPageSize",
 	                        "Orientation")) != NULL)
 	{
 	  int min_orient, max_orient;	/* Minimum and maximum orientations */
 
+
           if (sscanf(attr->value, "%d%*s%d%d", &pos, &min_orient,
 	             &max_orient) != 3)
 	    pos = 4;
 	  else
 	  {
-            pos = pos - 1;
+	    pos --;
+
             if (pos < 0 || pos > 4)
 	      pos = 4;
 
@@ -415,9 +435,9 @@ ppdEmitFd(ppd_file_t    *ppd,		/* I - PPD file record */
       {
         custom_size = 0;
 
-      snprintf(buf, sizeof(buf), "%%%%BeginFeature: *%s %s\n",
-               ((ppd_option_t *)choices[i]->option)->keyword,
-	       choices[i]->choice);
+	snprintf(buf, sizeof(buf), "%%%%BeginFeature: *%s %s\n",
+        	 ((ppd_option_t *)choices[i]->option)->keyword,
+		 choices[i]->choice);
       }
 
       if (write(fd, buf, strlen(buf)) < 1)
@@ -483,7 +503,8 @@ ppdEmitFd(ppd_file_t    *ppd,		/* I - PPD file record */
 	    pos = 4;
 	  else
 	  {
-            pos = pos - 1;
+	    pos --;
+
             if (pos < 0 || pos > 4)
 	      pos = 4;
 
@@ -718,14 +739,14 @@ ppd_handle_media(ppd_file_t *ppd)
 
     ppdMarkOption(ppd, "PageRegion", size->name);
 
-    /* 
-        RequiresPageRegion does not apply to manual feed so we need to check that we are not doing manual feed
-        before unmarking Page Region.
+   /*
+    * RequiresPageRegion does not apply to manual feed so we need to
+    * check that we are not doing manual feed before unmarking PageRegion.
     */
-    if ( !(manual_feed != NULL && strcasecmp(manual_feed->choice, "True") == 0) &&
-        ( (rpr && rpr->value && !strcmp(rpr->value, "False")) ||
-        (!rpr && !ppd->num_filters) )
-        )
+
+    if (!(manual_feed && !strcasecmp(manual_feed->choice, "True")) &&
+        ((rpr && rpr->value && !strcmp(rpr->value, "False")) ||
+         (!rpr && !ppd->num_filters)))
     {
      /*
       * Either the PPD file specifies no PageRegion code or the PPD file
@@ -761,5 +782,5 @@ ppd_sort(ppd_choice_t **c1,	/* I - First choice */
 
 
 /*
- * End of "$Id: emit.c,v 1.8.4.2 2004/01/13 23:41:30 gelphman Exp $".
+ * End of "$Id: emit.c,v 1.16 2005/01/04 22:10:38 jlovell Exp $".
  */

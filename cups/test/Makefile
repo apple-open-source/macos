@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.7 2003/04/12 03:04:30 jlovell Exp $"
+# "$Id: Makefile,v 1.11 2005/01/04 22:10:54 jlovell Exp $"
 #
 #   IPP test makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
 #       Attn: CUPS Licensing Information
 #       Easy Software Products
 #       44141 Airport View Drive, Suite 204
-#       Hollywood, Maryland 20636-3111 USA
+#       Hollywood, Maryland 20636 USA
 #
-#       Voice: (301) 373-9603
+#       Voice: (301) 373-9600
 #       EMail: cups-info@cups.org
 #         WWW: http://www.cups.org
 #
@@ -37,7 +37,8 @@ all:	ipptest convert
 #
 
 clean:
-	$(RM) ipptest ipptest.o convert xjob.o
+	$(RM) ipptest ipptest.o
+	$(RM) convert xjob.o
 
 
 #
@@ -52,7 +53,7 @@ depend:
 # Install all targets...
 #
 
-install: ipptest convert
+install: convert
 	$(INSTALL_DIR) $(BUILDROOT)/System/Library/Printers/Libraries; \
 	$(INSTALL_BIN) convert $(BUILDROOT)/System/Library/Printers/Libraries
 	if test "x$(SYMROOT)" != "x"; then \
@@ -86,7 +87,7 @@ convert: xjob.o ../scheduler/filter.o ../scheduler/mime.o ../scheduler/type.o ..
 		../scheduler/mime.o \
 		../scheduler/type.o \
 		../scheduler/file.o \
-		$(LIBS) $(LIBZ)
+		$(LIBS) $(LIBZ) $(LIBCUPSLIBS)
 
 #
 # Dependencies...
@@ -96,5 +97,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.7 2003/04/12 03:04:30 jlovell Exp $".
+# End of "$Id: Makefile,v 1.11 2005/01/04 22:10:54 jlovell Exp $".
 #

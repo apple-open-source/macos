@@ -1,0 +1,378 @@
+[manpage_begin math::calculus n 0.5.1]
+[moddesc   {Math}]
+[titledesc {Integration and ordinary differential equations}]
+[require Tcl 8]
+[require math::calculus 0.5.1]
+[description]
+[para]
+This package implements several simple mathematical algorithms:
+
+[list_begin bullet]
+[bullet]
+The integration of a function over an interval
+
+[bullet]
+The numerical integration of a system of ordinary differential
+equations.
+
+[bullet]
+Estimating the root(s) of an equation of one variable.
+
+[list_end]
+
+[para]
+The package is fully implemented in Tcl. No particular attention has
+been paid to the accuracy of the calculations. Instead, well-known
+algorithms have been used in a straightforward manner.
+[para]
+This document describes the procedures and explains their usage.
+
+[section "PROCEDURES"]
+This package defines the following public procedures:
+[list_begin definitions]
+
+[call [cmd ::math::calculus::integral] [arg begin] [arg end] [arg nosteps] [arg func]]
+Determine the integral of the given function using the Simpson
+rule. The interval for the integration is [lb][arg begin], [arg end][rb].
+The remaining arguments are:
+
+[list_begin definitions]
+[lst_item [arg nosteps]]
+Number of steps in which the interval is divided.
+
+[lst_item [arg func]]
+Function to be integrated. It should take one single argument.
+[list_end]
+[nl]
+
+[call [cmd ::math::calculus::integralExpr] [arg begin] [arg end] [arg nosteps] [arg expression]]
+Similar to the previous proc, this one determines the integral of
+the given [arg expression] using the Simpson rule.
+The interval for the integration is [lb][arg begin], [arg end][rb].
+The remaining arguments are:
+
+[list_begin definitions]
+[lst_item [arg nosteps]]
+Number of steps in which the interval is divided.
+
+[lst_item [arg expression]]
+Expression to be integrated. It should
+use the variable "x" as the only variable (the "integrate")
+[list_end]
+[nl]
+
+[call [cmd ::math::calculus::integral2D] [arg xinterval] [arg yinterval] [arg func]]
+The command [cmd integral2D] calculates the integral of
+a function of two variables over the rectangle given by the
+first two arguments, each a list of three items, the start and
+stop interval for the variable and the number of steps.
+[nl]
+The currently implemented integration is simple: the function is
+evaluated at the centre of each rectangle and the content of
+this block is added to the integral. In future this will be
+replaced by a bilinear interpolation.
+[nl]
+The function must take two arguments and return the function
+value.
+
+
+[call [cmd ::math::calculus::integral3D] [arg xinterval] [arg yinterval] [arg zinterval] [arg func]]
+The command [cmd Integral3D] is the three-dimensional
+equivalent of [cmd integral2D]. The function taking three
+arguments is integrated over the block in 3D space given by three
+intervals.
+
+
+[call [cmd ::math::calculus::eulerStep] [arg t] [arg tstep] [arg xvec] [arg func]]
+Set a single step in the numerical integration of a system of
+differential equations. The method used is Euler's.
+
+[list_begin definitions]
+[lst_item [arg t]]
+Value of the independent variable (typically time)
+at the beginning of the step.
+
+[lst_item [arg tstep]]
+Step size for the independent variable.
+
+[lst_item [arg xvec]]
+List (vector) of dependent values
+
+[lst_item [arg func]]
+Function of t and the dependent values, returning
+a list of the derivatives of the dependent values. (The lengths of
+xvec and the return value of "func" must match).
+[list_end]
+[nl]
+
+
+[call [cmd ::math::calculus::heunStep] [arg t] [arg tstep] [arg xvec] [arg func]]
+Set a single step in the numerical integration of a system of
+differential equations. The method used is Heun's.
+
+[list_begin definitions]
+[lst_item [arg t]]
+Value of the independent variable (typically time)
+at the beginning of the step.
+
+[lst_item [arg tstep]]
+Step size for the independent variable.
+
+[lst_item [arg xvec]]
+List (vector) of dependent values
+
+[lst_item [arg func]]
+Function of t and the dependent values, returning
+a list of the derivatives of the dependent values. (The lengths of
+xvec and the return value of "func" must match).
+[list_end]
+[nl]
+
+
+[call [cmd ::math::calculus::rungeKuttaStep] [arg t] [arg tstep] [arg xvec] [arg func]]
+Set a single step in the numerical integration of a system of
+differential equations. The method used is Runge-Kutta 4th
+order.
+
+[list_begin definitions]
+[lst_item [arg t]]
+Value of the independent variable (typically time)
+at the beginning of the step.
+
+[lst_item [arg tstep]]
+Step size for the independent variable.
+
+[lst_item [arg xvec]]
+List (vector) of dependent values
+
+[lst_item [arg func]]
+Function of t and the dependent values, returning
+a list of the derivatives of the dependent values. (The lengths of
+xvec and the return value of "func" must match).
+[list_end]
+[nl]
+
+
+[call [cmd ::math::calculus::boundaryValueSecondOrder] [arg coeff_func] [arg force_func] [arg leftbnd] [arg rightbnd] [arg nostep]]
+Solve a second order linear differential equation with boundary
+values at two sides. The equation has to be of the form (the
+"conservative" form):
+[example_begin]
+         d      dy     d
+         -- A(x)--  +  -- B(x)y + C(x)y  =  D(x)
+         dx     dx     dx
+[example_end]
+Ordinarily, such an equation would be written as:
+[example_begin]
+             d2y        dy
+         a(x)---  + b(x)-- + c(x) y  =  D(x)
+             dx2        dx
+[example_end]
+The first form is easier to discretise (by integrating over a
+finite volume) than the second form. The relation between the two
+forms is fairly straightforward:
+[example_begin]
+         A(x)  =  a(x)
+         B(x)  =  b(x) - a'(x)
+         C(x)  =  c(x) - B'(x)  =  c(x) - b'(x) + a''(x)
+[example_end]
+Because of the differentiation, however, it is much easier to ask
+the user to provide the functions A, B and C directly.
+
+[list_begin definitions]
+[lst_item [arg coeff_func]]
+Procedure returning the three coefficients
+(A, B, C) of the equation, taking as its one argument the x-coordinate.
+
+[lst_item [arg force_func]]
+Procedure returning the right-hand side
+(D) as a function of the x-coordinate.
+
+[lst_item [arg leftbnd]]
+A list of two values: the x-coordinate of the
+left boundary and the value at that boundary.
+
+[lst_item [arg rightbnd]]
+A list of two values: the x-coordinate of the
+right boundary and the value at that boundary.
+
+[lst_item [arg nostep]]
+Number of steps by which to discretise the
+interval.
+
+The procedure returns a list of x-coordinates and the approximated
+values of the solution.
+[list_end]
+[nl]
+
+
+[call [cmd ::math::calculus::solveTriDiagonal] [arg acoeff] [arg bcoeff] [arg ccoeff] [arg dvalue]]
+Solve a system of linear equations Ax = b with A a tridiagonal
+matrix. Returns the solution as a list.
+
+[list_begin definitions]
+[lst_item [arg acoeff]]
+List of values on the lower diagonal
+
+[lst_item [arg bcoeff]]
+List of values on the main diagonal
+
+[lst_item [arg ccoeff]]
+List of values on the upper diagonal
+
+[lst_item [arg dvalue]]
+List of values on the righthand-side
+[list_end]
+[nl]
+
+
+[call [cmd ::math::calculus::newtonRaphson] [arg func] [arg deriv] [arg initval]]
+Determine the root of an equation given by
+[example_begin]
+    func(x) = 0
+[example_end]
+using the method of Newton-Raphson. The procedure takes the following
+arguments:
+
+[list_begin definitions]
+[lst_item [arg func]]
+Procedure that returns the value the function at x
+
+[lst_item [arg deriv]]
+Procedure that returns the derivative of the function at x
+
+[lst_item [arg initval]]
+Initial value for x
+[list_end]
+[nl]
+
+
+[call [cmd ::math::calculus::newtonRaphsonParameters] [arg maxiter] [arg tolerance]]
+Set the numerical parameters for the Newton-Raphson method:
+
+[list_begin definitions]
+[lst_item [arg maxiter]]
+Maximum number of iteration steps (defaults to 20)
+
+[lst_item [arg tolerance]]
+Relative precision (defaults to 0.001)
+[list_end]
+[list_end]
+[para]
+
+[emph Notes:]
+[para]
+Several of the above procedures take the [emph names] of procedures as
+arguments. To avoid problems with the [emph visibility] of these
+procedures, the fully-qualified name of these procedures is determined
+inside the calculus routines. For the user this has only one
+consequence: the named procedure must be visible in the calling
+procedure. For instance:
+[example_begin]
+    namespace eval ::mySpace {
+       namespace export calcfunc
+       proc calcfunc { x } { return $x }
+    }
+    #
+    # Use a fully-qualified name
+    #
+    namespace eval ::myCalc {
+       proc detIntegral { begin end } {
+          return [lb]integral $begin $end 100 ::mySpace::calcfunc[rb]
+       }
+    }
+    #
+    # Import the name
+    #
+    namespace eval ::myCalc {
+       namespace import ::mySpace::calcfunc
+       proc detIntegral { begin end } {
+          return [lb]integral $begin $end 100 calcfunc[rb]
+       }
+    }
+[example_end]
+[para]
+Enhancements for the second-order boundary value problem:
+[list_begin bullet]
+[bullet]
+Other types of boundary conditions (zero gradient, zero flux)
+[bullet]
+Other schematisation of the first-order term (now central
+differences are used, but upstream differences might be useful too).
+[list_end]
+
+[section EXAMPLES]
+Let us take a few simple examples:
+[para]
+Integrate x over the interval [lb]0,100[rb] (20 steps):
+[example_begin]
+proc linear_func { x } { return $x }
+puts "Integral: [lb]::math::calculus::integral 0 100 20 linear_func[rb]"
+[example_end]
+For simple functions, the alternative could be:
+[example_begin]
+puts "Integral: [lb]::math::calculus::integralExpr 0 100 20 {$x}[rb]"
+[example_end]
+Do not forget the braces!
+[para]
+The differential equation for a dampened oscillator:
+[para]
+[example_begin]
+x'' + rx' + wx = 0
+[example_end]
+[para]
+can be split into a system of first-order equations:
+[para]
+[example_begin]
+x' = y
+y' = -ry - wx
+[example_end]
+[para]
+Then this system can be solved with code like this:
+[para]
+[example_begin]
+proc dampened_oscillator { t xvec } {
+   set x  [lb]lindex $xvec 0[rb]
+   set x1 [lb]lindex $xvec 1[rb]
+   return [lb]list $x1 [lb]expr {-$x1-$x}[rb][rb]
+}
+
+set xvec   { 1.0 0.0 }
+set t      0.0
+set tstep  0.1
+for { set i 0 } { $i < 20 } { incr i } {
+   set result [lb]::math::calculus::eulerStep $t $tstep $xvec dampened_oscillator[rb]
+   puts "Result ($t): $result"
+   set t      [lb]expr {$t+$tstep}[rb]
+   set xvec   $result
+}
+[example_end]
+[para]
+Suppose we have the boundary value problem:
+[para]
+[example_begin]
+    Dy'' + ky = 0
+    x = 0: y = 1
+    x = L: y = 0
+[example_end]
+[para]
+This boundary value problem could originate from the diffusion of a
+decaying substance.
+[para]
+It can be solved with the following fragment:
+[para]
+[example_begin]
+   proc coeffs { x } { return [lb]list $::Diff 0.0 $::decay[rb] }
+   proc force  { x } { return 0.0 }
+
+   set Diff   1.0e-2
+   set decay  0.0001
+   set length 100.0
+
+   set y [lb]::math::calculus::boundaryValueSecondOrder \
+      coeffs force {0.0 1.0} [lb]list $length 0.0[rb] 100[rb]
+[example_end]
+
+[keywords math calculus integration "differential equations" roots]
+
+[manpage_end]

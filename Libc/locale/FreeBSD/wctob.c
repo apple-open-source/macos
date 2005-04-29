@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,17 +25,21 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wctob.c,v 1.1 2002/08/03 13:49:55 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wctob.c,v 1.4 2004/05/12 14:26:54 tjr Exp $");
 
-#include <rune.h>
+#include <limits.h>
+#include <stdio.h>
 #include <wchar.h>
+#include "mblocal.h"
 
 int
 wctob(wint_t c)
 {
-	char cc;
+	static const mbstate_t initial;
+	mbstate_t mbs = initial;
+	char buf[MB_LEN_MAX];
 
-	if (c == WEOF || sputrune(c, &cc, 1, NULL) != 1)
+	if (c == WEOF || __wcrtomb(buf, c, &mbs) != 1)
 		return (EOF);
-	return ((unsigned char)cc);
+	return ((unsigned char)*buf);
 }

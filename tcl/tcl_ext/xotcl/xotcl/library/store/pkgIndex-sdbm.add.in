@@ -1,0 +1,3 @@
+package ifneeded xotcl::store::sdbm @VERSION@ \
+   [list load [file join $dir libxotclsdbm@VERSION@[info sharedlibextension]]]
+

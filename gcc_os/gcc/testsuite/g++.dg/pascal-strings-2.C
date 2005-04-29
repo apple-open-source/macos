@@ -1,4 +1,5 @@
-/* APPLE LOCAL file Negative C++ test cases 2001-07-05 zll */
+/* APPLE LOCAL file Pascal strings 2001-07-05 zll */
+/* Negative C++ test cases.  */
 /* Origin: Ziemowit Laski <zlaski@apple.com> */
 /* { dg-do compile } */
 /* { dg-options "-fpascal-strings" } */
@@ -23,11 +24,11 @@ const char *pascalStr3 = "Hello\p, World!"; /* { dg-error "must be at beginning"
 const char *concat2 = "Hi" "\pthere"; /* { dg-error "not allowed in concatenation" } */
 const char *concat3 = "Hi" "there\p"; /* { dg-error "must be at beginning" } */
 
-const char *s2 = "\pGoodbye!";   /* { dg-error "cannot convert" } */
-unsigned char *s3 = "\pHi!";     /* { dg-error "cannot convert" } */
-char *s4 = "\pHi";               /* { dg-error "cannot convert" } */
-signed char *s5 = "\pHi";        /* { dg-error "cannot convert" } */
-const signed char *s6 = "\pHi";  /* { dg-error "cannot convert" } */
+const char *s2 = "\pGoodbye!";   /* { dg-warning "invalid conversion from .const unsigned char" } */
+unsigned char *s3 = "\pHi!";     /* { dg-warning "invalid conversion from .const unsigned char" } */
+char *s4 = "\pHi";               /* { dg-warning "invalid conversion from .const unsigned char" } */
+signed char *s5 = "\pHi";        /* { dg-warning "invalid conversion from .const unsigned char" } */
+const signed char *s6 = "\pHi";  /* { dg-warning "invalid conversion from .const unsigned char" } */
 
 /* the maximum length of a Pascal literal is 255. */
 const unsigned char *almostTooLong =

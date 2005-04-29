@@ -28,20 +28,21 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xmessage/readfile.c,v 1.2 2000/02/14 19:21:04 dawes Exp $ */
+/* $XFree86: xc/programs/xmessage/readfile.c,v 1.3 2003/04/14 23:03:13 herrb Exp $ */
 
 #include <X11/Xos.h>			/* for types.h */
 #include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "readfile.h"
+
 /*
  * get_data_from_file - read data from a file into a single buffer; meant 
  * for small files containing messages.
  */
-static char *get_data_from_file (filename, len_return)
-    char *filename;
-    int *len_return;
+static char *
+get_data_from_file (char *filename, int *len_return)
 {
     FILE *fp;
     struct stat statbuf;
@@ -83,8 +84,8 @@ static char *get_data_from_file (filename, len_return)
 /*
  * get_data_from_stdin - read data from stdin into a single buffer.
  */
-static char *get_data_from_stdin (len_return)
-    int *len_return;
+static char *
+get_data_from_stdin (int *len_return)
 {
     char *cp;
     int count;
@@ -122,9 +123,8 @@ static char *get_data_from_stdin (len_return)
  * read_file - read data from indicated file and return pointer to malloced
  * buffer.  Returns NULL on error or if no such file.
  */
-char *read_file (filename, len)
-    char *filename;
-    int *len;			/* returned */
+char *
+read_file (char *filename, int *len /* returned */)
 {
     if (filename[0] == '-' && filename[1] == '\0') {
 	return (get_data_from_stdin (len));

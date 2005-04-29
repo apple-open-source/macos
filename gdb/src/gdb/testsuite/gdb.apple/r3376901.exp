@@ -1,0 +1,59 @@
+# Copyright 2003 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# This file was written by Jason Molenda (jmolenda@apple.com)
+
+# This radar encapsulates a bug reported in radar 3376901 where gdb would
+# reset it's current source file & line when the user does a 'backtrace'.
+# backtrace shouldn't have side effects like that.
+
+
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+set testfile "r3376901"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+
+if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this fil
+e will automatically fail."
+}
+
+# Start with a fresh gdb
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+
+if ![runto foo] then { 
+  fail "r3376901 tests suppressed"
+  return -1
+}
+
+gdb_test "l" ".*lines after foo.*" "list does right thing at breakpoint"
+
+gdb_test "bt" "#0 *foo.*#1 *$hex in main.*"
+
+gdb_test "l" ".*lines after foo.*" "list does right thing after backtrace"
+
+gdb_exit
+return 0

@@ -23,7 +23,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from The Open Group.
 .\"
-.\" $XFree86: xc/programs/xfd/xfd.man,v 1.8 2001/12/14 20:01:31 dawes Exp $
+.\" $XFree86: xc/programs/xfd/xfd.man,v 1.10 2003/04/21 20:42:49 dawes Exp $
 .\"
 .TH XFD 1 __xorgversion__
 .SH NAME
@@ -31,6 +31,9 @@ xfd \- display all the characters in an X font
 .SH SYNOPSIS
 .B xfd
 [\-options ...] \fB\-fn\fP \fIfontname\fP
+.PP
+.B xfd
+[\-options ...] \fB\-fa\fP \fIfontname\fP
 .SH DESCRIPTION
 The \fIxfd\fP utility creates a window containing the name of the font being
 displayed, a row of command buttons, several lines of text for displaying
@@ -73,8 +76,13 @@ accepts all of the standard toolkit command line options along with
 the additional options listed below:
 .TP 8
 .B \-fn \fIfont\fP
-This option specifies the font to be displayed.  This can also be set with
+This option specifies the core X server side font to be displayed.  
+This can also be set with 
 the FontGrid \fBfont\fP resource.  A font must be specified.
+.TP 8
+.B \-fa \fIfont\fP
+This option specifies a Xft font to be displayed. This can also be set with 
+the FontGrid \fBface\fP resource. A font pattern must be specified. 
 .TP 8
 .B \-box
 This option indicates that a box should be displayed outlining the area
@@ -180,7 +188,7 @@ character does not exist.  The default is "no such character
 0x%02x%02x (%u,%u) (%#o,%#o)".  The arguments that will come after the
 format string are the same as for the \fBselectFormat\fP resource.
 .SH "SEE ALSO"
-X(__miscmansuffix__), xlsfonts(1), xrdb(1), xfontsel(1),
+X(__miscmansuffix__), xlsfonts(1), xrdb(1), xfontsel(1), fontconfig(3),
 .I "X Logical Font Description Conventions"
 .SH "BUGS"
 The program should skip over pages full of non-existent characters.

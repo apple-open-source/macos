@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/sharedlib.c,v 3.7 2002/05/31 18:45:46 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/sharedlib.c,v 3.8 2003/04/21 16:34:29 herrb Exp $ */
 
 #if (defined(SUNSHLIB) || defined(AIXSHLIB)) && !defined(SHAREDCODE)
 #include "IntrinsicI.h"
@@ -81,57 +81,31 @@ void XtToolkitInitialize()
     _XtToolkitInitialize();
 }
 
-#if NeedFunctionPrototypes
 Widget 
 XtInitialize(
-_Xconst char* name,
-_Xconst char* classname,
-XrmOptionDescRec *options,
-Cardinal num_options,
-int *argc,
-String *argv
-)
-#else
-Widget 
-XtInitialize(name, classname, options, num_options, argc, argv)
-String name, classname;
-XrmOptionDescRec *options;
-Cardinal num_options;
-String *argv;
-int *argc;
-#endif
+    _Xconst char* name,
+    _Xconst char* classname,
+    XrmOptionDescRec *options,
+    Cardinal num_options,
+    int *argc,
+    String *argv)
 {
     extern Widget _XtInitialize();
     VENDORINIT
     return _XtInitialize (name, classname, options, num_options, argc, argv);
 }
 
-#if NeedFunctionPrototypes
 Widget
 XtAppInitialize(
-XtAppContext * app_context_return,
-_Xconst char* application_class,
-XrmOptionDescRec *options,
-Cardinal num_options,
-int *argc_in_out,
-String *argv_in_out,
-String *fallback_resources,
-ArgList args_in,
-Cardinal num_args_in
-)
-#else
-Widget
-XtAppInitialize(app_context_return, application_class, options, num_options,
-		argc_in_out, argv_in_out, fallback_resources, 
-		args_in, num_args_in)
-XtAppContext * app_context_return;
-String application_class;
-XrmOptionDescRec *options;
-Cardinal num_options, num_args_in;
-int *argc_in_out;
-String *argv_in_out, * fallback_resources;     
-ArgList args_in;
-#endif
+    XtAppContext * app_context_return,
+    _Xconst char* application_class,
+    XrmOptionDescRec *options,
+    Cardinal num_options,
+    int *argc_in_out,
+    String *argv_in_out,
+    String *fallback_resources,
+    ArgList args_in,
+    Cardinal num_args_in)
 {
     extern Widget _XtAppInitialize();
     VENDORINIT
@@ -161,34 +135,18 @@ XtVaAppInitialize(
 			      fallback_resources, var);
 }
 
-#if NeedFunctionPrototypes
 Widget
 XtOpenApplication(
-XtAppContext * app_context_return,
-_Xconst char* application_class,
-XrmOptionDescRec *options,
-Cardinal num_options,
-int *argc_in_out,
-String *argv_in_out,
-String *fallback_resources,
-WidgetClass widget_class,
-ArgList args_in,
-Cardinal num_args_in
-)
-#else
-Widget
-XtOpenApplication(app_context_return, application_class, options, num_options,
-		  argc_in_out, argv_in_out, fallback_resources, 
-		  widget_class, args_in, num_args_in)
-XtAppContext * app_context_return;
-String application_class;
-XrmOptionDescRec *options;
-Cardinal num_options, num_args_in;
-int *argc_in_out;
-String *argv_in_out, * fallback_resources;
-WidgetClass widget_class;
-ArgList args_in;
-#endif
+    XtAppContext * app_context_return,
+    _Xconst char* application_class,
+    XrmOptionDescRec *options,
+    Cardinal num_options,
+    int *argc_in_out,
+    String *argv_in_out,
+    String *fallback_resources,
+    WidgetClass widget_class,
+    ArgList args_in,
+    Cardinal num_args_in)
 {
     extern Widget _XtOpenApplication();
     VENDORINIT

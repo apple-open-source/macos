@@ -69,7 +69,7 @@
 #include <openssl/des.h>
 #endif
 
-const char PEM_version[]="PEM" OPENSSL_VERSION_PTEXT;
+const char *PEM_version="PEM" OPENSSL_VERSION_PTEXT;
 
 #define MIN_LENGTH	4
 
@@ -147,7 +147,7 @@ void PEM_proc_type(char *buf, int type)
 
 void PEM_dek_info(char *buf, const char *type, int len, char *str)
 	{
-	static const unsigned char map[17]="0123456789ABCDEF";
+	static unsigned char map[17]="0123456789ABCDEF";
 	long i;
 	int j;
 

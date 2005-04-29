@@ -2,8 +2,10 @@
 
 #include "CCache.MachIPC.h"
 #include "MachIPCInterface.h"
-#include "ClassicSupport.h"
-#include "ClassicProtocol.h"
+#ifdef Classic_Ticket_Sharing
+#  include "ClassicSupport.h"
+#  include "ClassicProtocol.h"
+#endif
 
 extern "C" {
     #include "CCacheIPCServer.h"
@@ -34,6 +36,7 @@ kern_return_t  InternalIPC_TellServerToBecomeUser (
     return KERN_SUCCESS;
 }
 
+#ifdef Classic_Ticket_Sharing
 // Returns recent changes made to the caches
 kern_return_t	InternalIPC_GetDiffs (
 	mach_port_t				inServerPort,
@@ -63,7 +66,6 @@ kern_return_t	InternalIPC_GetDiffs (
             *outDiffs = NULL;
             *outDiffsCnt = 0;
         }
-
         *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
     
@@ -102,6 +104,7 @@ kern_return_t	InternalIPC_FabricateInitialDiffs (
     
     return KERN_SUCCESS;
 }
+#endif
 
 kern_return_t	InternalIPC_CheckServerID (
 	mach_port_t				inServerPort,

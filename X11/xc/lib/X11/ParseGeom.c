@@ -27,7 +27,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/ParseGeom.c,v 1.3 2001/12/14 19:54:03 dawes Exp $ */
+/* $XFree86: xc/lib/X11/ParseGeom.c,v 1.4 2003/11/17 22:20:08 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xutil.h"
@@ -86,19 +86,13 @@ ReadInteger(char *string, char **NextString)
 	return (-Result);
 }
 
-#if NeedFunctionPrototypes
-int XParseGeometry (
+int
+XParseGeometry (
 _Xconst char *string,
 int *x,
 int *y,
 unsigned int *width,    /* RETURN */
 unsigned int *height)    /* RETURN */
-#else
-int XParseGeometry (string, x, y, width, height)
-char *string;
-int *x, *y;
-unsigned int *width, *height;    /* RETURN */
-#endif
 {
 	int mask = NoValue;
 	register char *strind;

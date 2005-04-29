@@ -1,4 +1,4 @@
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.debug.h,v 1.22 2003/03/17 20:46:13 lxs Exp $ */
+/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.debug.h,v 1.23 2004/12/10 21:31:25 lxs Exp $ */
 
 /* $Copyright:
  *
@@ -38,7 +38,7 @@
  * $
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.debug.h,v 1.22 2003/03/17 20:46:13 lxs Exp $ */
+/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.debug.h,v 1.23 2004/12/10 21:31:25 lxs Exp $ */
 
 /*
  * CCache debugging utilities
@@ -64,12 +64,12 @@
 #define CCIDebugThrow_(x)	throw (x)
 #endif
 
-#define CCIBeginSafeTry_											\
+#define CCIBeginSafeTry_ \
 	try
 	
-#define CCIEndSafeTry_(resultVariable, exceptionError)				\
-	catch (std::bad_alloc&) { resultVariable = ccErrNoMem; }		\
-	catch (CCIException& e) { resultVariable = e.Error (); }	\
-	catch (...) { resultVariable = exceptionError; } 
+#define CCIEndSafeTry_(resultVariable, exceptionError)            \
+        catch (std::bad_alloc&) { resultVariable = ccErrNoMem; }  \
+        catch (CCIException& e) { resultVariable = e.Error (); }  \
+        catch (...) { resultVariable = exceptionError; } 
 
 #endif /* CCache_debug_h__ */

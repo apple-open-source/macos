@@ -144,6 +144,19 @@ case $host in
   # Find out which ABI we are using.
   echo '[#]line __oline__ "configure"' > conftest.$ac_ext
   if AC_TRY_EVAL(ac_compile); then
+   if test "$lt_cv_prog_gnu_ld" = yes; then
+    case `/usr/bin/file conftest.$ac_objext` in
+    *32-bit*)
+      LD="${LD-ld} -melf32bsmip"
+      ;;
+    *N32*)
+      LD="${LD-ld} -melf32bmipn32"
+      ;;
+    *64-bit*)
+      LD="${LD-ld} -melf64bmip"
+      ;;
+    esac
+   else
     case `/usr/bin/file conftest.$ac_objext` in
     *32-bit*)
       LD="${LD-ld} -32"
@@ -153,6 +166,65 @@ case $host in
       ;;
     *64-bit*)
       LD="${LD-ld} -64"
+      ;;
+    esac
+   fi
+  fi
+  rm -rf conftest*
+  ;;
+
+ia64-*-hpux*)
+  # Find out which ABI we are using.
+  echo 'int i;' > conftest.$ac_ext
+  if AC_TRY_EVAL(ac_compile); then
+    case "`/usr/bin/file conftest.o`" in
+    *ELF-32*)
+      HPUX_IA64_MODE="32"
+      ;;
+    *ELF-64*)
+      HPUX_IA64_MODE="64"
+      ;;
+    esac
+  fi
+  rm -rf conftest*
+  ;;
+
+x86_64-*linux*|ppc*-*linux*|powerpc*-*linux*|s390*-*linux*|sparc*-*linux*)
+  # Find out which ABI we are using.
+  echo 'int i;' > conftest.$ac_ext
+  if AC_TRY_EVAL(ac_compile); then
+    case "`/usr/bin/file conftest.o`" in
+    *32-bit*)
+      case $host in
+        x86_64-*linux*)
+          LD="${LD-ld} -m elf_i386"
+          ;;
+        ppc64-*linux*)
+          LD="${LD-ld} -m elf32ppclinux"
+          ;;
+        s390x-*linux*)
+          LD="${LD-ld} -m elf_s390"
+          ;;
+        sparc64-*linux*)
+          LD="${LD-ld} -m elf32_sparc"
+          ;;
+      esac
+      ;;
+    *64-bit*)
+      case $host in
+        x86_64-*linux*)
+          LD="${LD-ld} -m elf_x86_64"
+          ;;
+        ppc*-*linux*|powerpc*-*linux*)
+          LD="${LD-ld} -m elf64ppc"
+          ;;
+        s390*-*linux*)
+          LD="${LD-ld} -m elf64_s390"
+          ;;
+        sparc*-*linux*)
+          LD="${LD-ld} -m elf64_sparc"
+          ;;
+      esac
       ;;
     esac
   fi
@@ -568,9 +640,18 @@ gnu*)
   ;;
 
 hpux10.20*|hpux11*)
-  lt_cv_deplibs_check_method=['file_magic (s[0-9][0-9][0-9]|PA-RISC[0-9].[0-9]) shared library']
-  lt_cv_file_magic_cmd=/usr/bin/file
-  lt_cv_file_magic_test_file=/usr/lib/libc.sl
+  case $host_cpu in
+  hppa*)
+    [lt_cv_deplibs_check_method='file_magic (s[0-9][0-9][0-9]|PA-RISC[0-9].[0-9]) shared library']
+    lt_cv_file_magic_cmd=/usr/bin/file
+    lt_cv_file_magic_test_file=/usr/lib/libc.sl
+    ;;
+  ia64*)
+    [lt_cv_deplibs_check_method='file_magic (s[0-9][0-9][0-9]|ELF-[0-9][0-9]) shared object file - IA64']
+    lt_cv_file_magic_cmd=/usr/bin/file
+    lt_cv_file_magic_test_file=/usr/lib/hpux32/libc.so
+    ;;
+  esac
   ;;
 
 irix5* | irix6*)

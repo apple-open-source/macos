@@ -170,7 +170,7 @@ cut(int i, int ct, int dir)
 	Cutbuffer kptr;
 	if (!kring) {
 	    kringsize = KRINGCTDEF;
-	    kring = (Cutbuffer)zcalloc(kringsize * sizeof(struct cutbuffer));
+	    kring = (Cutbuffer)zshcalloc(kringsize * sizeof(struct cutbuffer));
 	} else
 	    kringnum = (kringnum + 1) % kringsize;
 	kptr = kring + kringnum;
@@ -388,7 +388,7 @@ printbind(char *str, FILE *stream)
  * The message must be metafied.                              */
 
 /**/
-void mod_export
+mod_export void
 showmsg(char const *msg)
 {
     char const *p;
@@ -424,7 +424,7 @@ showmsg(char const *msg)
 
 /**/
 int
-handlefeep(char **args)
+handlefeep(UNUSED(char **args))
 {
     zbeep();
     return 0;
@@ -565,7 +565,7 @@ setlastline(void)
 
 /**/
 int
-undo(char **args)
+undo(UNUSED(char **args))
 {
     handleundo();
     do {
@@ -610,7 +610,7 @@ unapplychange(struct change *ch)
 
 /**/
 int
-redo(char **args)
+redo(UNUSED(char **args))
 {
     handleundo();
     do {

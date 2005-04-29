@@ -1,35 +1,21 @@
 /*
- * Copyright (c) 1996, 1998-2001 Todd C. Miller <Todd.Miller@courtesan.com>
- * All rights reserved.
+ * Copyright (c) 1996, 1998-2004 Todd C. Miller <Todd.Miller@courtesan.com>
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
- *
- * 4. Products derived from this software may not be called "Sudo" nor
- *    may "Sudo" appear in their names without specific prior written
- *    permission from the author.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL
- * THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Sponsored in part by the Defense Advanced Research Projects
+ * Agency (DARPA) and Air Force Research Laboratory, Air Force
+ * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
 #include "config.h"
@@ -56,12 +42,16 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
-#include <errno.h>
+#ifdef HAVE_ERR_H
+# include <err.h>
+#else
+# include "emul/err.h"
+#endif /* HAVE_ERR_H */
 
 #include "sudo.h"
 
 #ifndef lint
-static const char rcsid[] = "$Sudo: find_path.c,v 1.98 2001/12/14 06:40:03 millert Exp $";
+static const char rcsid[] = "$Sudo: find_path.c,v 1.109 2004/08/24 18:01:12 millert Exp $";
 #endif /* lint */
 
 /*
@@ -72,29 +62,29 @@ static const char rcsid[] = "$Sudo: find_path.c,v 1.98 2001/12/14 06:40:03 mille
  * but it is in '.' and IGNORE_DOT is set.
  */
 int
-find_path(infile, outfile, path)
+find_path(infile, outfile, sbp, path)
     char *infile;		/* file to find */
     char **outfile;		/* result parameter */
+    struct stat *sbp;		/* stat result parameter */
     char *path;			/* path to search */
 {
-    static char command[MAXPATHLEN]; /* qualified filename */
+    static char command[PATH_MAX]; /* qualified filename */
     char *n;			/* for traversing path */
     char *origpath;		/* so we can free path later */
     char *result = NULL;	/* result of path/file lookup */
     int checkdot = 0;		/* check current dir? */
+    int len;			/* length parameter */
 
-    if (strlen(infile) >= MAXPATHLEN) {
-	(void) fprintf(stderr, "%s: path too long: %s\n", Argv[0], infile);
-	exit(1);
-    }
+    if (strlen(infile) >= PATH_MAX)
+	errx(1, "%s: File name too long", infile);
 
     /*
      * If we were given a fully qualified or relative path
      * there is no need to look at $PATH.
      */
     if (strchr(infile, '/')) {
-	(void) strcpy(command, infile);
-	if (sudo_goodpath(command)) {
+	strlcpy(command, infile, sizeof(command));	/* paranoia */
+	if (sudo_goodpath(command, sbp)) {
 	    *outfile = command;
 	    return(FOUND);
 	} else
@@ -117,7 +107,7 @@ find_path(infile, outfile, path)
 
 	/*
 	 * Search current dir last if it is in PATH This will miss sneaky
-	 * things like using './' or './/' 
+	 * things like using './' or './/'
 	 */
 	if (*path == '\0' || (*path == '.' && *(path + 1) == '\0')) {
 	    checkdot = 1;
@@ -128,12 +118,10 @@ find_path(infile, outfile, path)
 	/*
 	 * Resolve the path and exit the loop if found.
 	 */
-	if (strlen(path) + strlen(infile) + 1 >= MAXPATHLEN) {
-	    (void) fprintf(stderr, "%s: path too long: %s\n", Argv[0], infile);
-	    exit(1);
-	}
-	(void) sprintf(command, "%s/%s", path, infile);
-	if ((result = sudo_goodpath(command)))
+	len = snprintf(command, sizeof(command), "%s/%s", path, infile);
+	if (len <= 0 || len >= sizeof(command))
+	    errx(1, "%s: File name too long", infile);
+	if ((result = sudo_goodpath(command, sbp)))
 	    break;
 
 	path = n + 1;
@@ -145,8 +133,8 @@ find_path(infile, outfile, path)
      * Check current dir if dot was in the PATH
      */
     if (!result && checkdot) {
-	result = sudo_goodpath(infile);
-	if (result && def_flag(I_IGNORE_DOT))
+	result = sudo_goodpath(infile, sbp);
+	if (result && def_ignore_dot)
 	    return(NOT_FOUND_DOT);
     }
 

@@ -1,5 +1,4 @@
 /* $Xorg: FSGetCats.c,v 1.4 2001/02/09 02:03:25 xorgcvs Exp $ */
-
 /*
  * Copyright 1990 Network Computing Devices;
  * Portions Copyright 1987 by Digital Equipment Corporation
@@ -24,6 +23,7 @@
  * ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS 
  * SOFTWARE.
  */
+/* $XFree86: xc/lib/FS/FSGetCats.c,v 1.7 2003/12/22 17:48:02 tsi Exp $ */
 
 /*
 
@@ -72,9 +72,14 @@ FSGetCatalogues(svr, num)
 	SyncHandle();
 	return (char **) NULL;
     }
-    if (rep.num_catalogues) {
+    if (rep.num_catalogues
+#if (SIZE_MAX >> 2) <= UINT_MAX
+	&& rep.num_catalogues <= SIZE_MAX/sizeof(char *)
+	&& rep.length <= (SIZE_MAX >> 2)
+#endif
+	) {
 	list = (char **)
-	    FSmalloc((unsigned) (rep.num_catalogues * sizeof(char *)));
+	       FSmalloc((unsigned) (rep.num_catalogues * sizeof(char *)));
 	rlen = (rep.length << 2) - SIZEOF(fsGetCataloguesReply);
 	c = (char *) FSmalloc((unsigned) rlen + 1);
 	if ((!list) || (!c)) {

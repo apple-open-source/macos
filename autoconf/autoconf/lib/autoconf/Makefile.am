@@ -20,10 +20,10 @@
 autoconflibdir = $(pkgdatadir)/autoconf
 dist_autoconflib_DATA = \
 	autoconf.m4 \
-        general.m4 status.m4 oldnames.m4 specific.m4 \
+	general.m4 status.m4 oldnames.m4 specific.m4 \
 	autoheader.m4 autoupdate.m4 autotest.m4 autoscan.m4 \
 	lang.m4 c.m4 fortran.m4 \
-        functions.m4 headers.m4 types.m4 libs.m4 programs.m4
+	functions.m4 headers.m4 types.m4 libs.m4 programs.m4
 
 nodist_autoconflib_DATA = autoconf.m4f
 CLEANFILES = $(nodist_autoconflib_DATA)

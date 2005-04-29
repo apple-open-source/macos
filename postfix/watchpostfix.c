@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <syslog.h>
+#include <mach/boolean.h>
 
 /*
  * Monitor whether or not something has entered postfix's maildrop and, when

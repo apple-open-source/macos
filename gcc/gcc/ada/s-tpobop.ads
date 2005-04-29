@@ -7,8 +7,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNARL was developed by the GNARL team at Florida State University.       --
--- Extensive contributions were provided by Ada Core Technologies Inc.      --
+-- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -96,19 +95,25 @@ package System.Tasking.Protected_Objects.Operations is
    pragma Inline (Service_Entries);
 
    procedure PO_Service_Entries
-     (Self_ID : Task_ID;
-      Object  : Entries.Protection_Entries_Access);
+     (Self_ID       : Task_Id;
+      Object        : Entries.Protection_Entries_Access;
+      Unlock_Object : Boolean := True);
    --  Service all entry queues of the specified object, executing the
    --  corresponding bodies of any queued entry calls that are waiting
    --  on True barriers. This is used when the state of a protected
    --  object may have changed, in particular after the execution of
    --  the statement sequence of a protected procedure.
+   --
    --  Note that servicing an entry may change the value of one or more
    --  barriers, so this routine keeps checking barriers until all of
    --  them are closed.
    --
    --  This must be called with abortion deferred and with the corresponding
    --  object locked.
+   --
+   --  If Unlock_Object is set True, then Object is unlocked on return,
+   --  otherwise Object remains locked and the caller is responsible for
+   --  the required unlock.
 
    procedure Complete_Entry_Body (Object : Entries.Protection_Entries_Access);
    --  Called from within an entry body procedure, indicates that the
@@ -171,7 +176,7 @@ package System.Tasking.Protected_Objects.Operations is
    --  Return the number of entry calls to E on Object.
 
    function Protected_Entry_Caller
-     (Object : Entries.Protection_Entries'Class) return Task_ID;
+     (Object : Entries.Protection_Entries'Class) return Task_Id;
    --  Return value of E'Caller, where E is the protected entry currently
    --  being handled. This will only work if called from within an entry
    --  body, as required by the LRM (C.7.1(14)).
@@ -179,7 +184,7 @@ package System.Tasking.Protected_Objects.Operations is
    --  For internal use only:
 
    procedure PO_Do_Or_Queue
-     (Self_ID    : Task_ID;
+     (Self_ID    : Task_Id;
       Object     : Entries.Protection_Entries_Access;
       Entry_Call : Entry_Call_Link;
       With_Abort : Boolean);
@@ -189,7 +194,7 @@ package System.Tasking.Protected_Objects.Operations is
 
 private
    type Communication_Block is record
-      Self      : Task_ID;
+      Self      : Task_Id;
       Enqueued  : Boolean := True;
       Cancelled : Boolean := False;
    end record;

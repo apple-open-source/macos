@@ -2,7 +2,7 @@ XCOMM platform:  $Xorg: FreeBSD.cf,v 1.3 2000/08/17 19:41:45 cpqbld Exp $
 XCOMM
 XCOMM
 XCOMM
-XCOMM platform:  $XFree86: xc/config/cf/FreeBSD.cf,v 3.128 2003/01/15 02:52:12 dawes Exp $
+XCOMM platform:  $XFree86: xc/config/cf/FreeBSD.cf,v 3.148 2004/02/07 04:30:15 dawes Exp $
 
 #ifndef UseElfFormat
 #define UseElfFormat		DefaultToElfFormat
@@ -46,6 +46,14 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #define HasNdbm			YES
 #define HasPutenv		YES
 #define HasSnprintf		YES
+#if OSMajorVersion == 3 && OSMinorVersion >= 3 || OSMajorVersion > 3
+# define HasStrlcat		YES
+#endif
+#if OSMajorVersion == 4 && OSMinorVersion >= 2 || OSMajorVersion > 4
+# define HasBasename		YES
+#else
+# define HasBasename		NO
+#endif
 #define HasBSD44Sockets 	YES
 #define HasDlopen		YES
 #if ((OSRelVersion >= 410002) && OSRelVersion < 500000) || (OSRelVersion >= 500012)
@@ -72,11 +80,22 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #define HasGetIfAddrs		YES
 #endif
 
+/* All versions define AF_INET6. 3.x and earlier don't have IPv6 support. */
+#if OSMajorVersion < 4
+#ifndef BuildIPv6
+#define BuildIPv6		NO
+#endif
+#endif
+
+#define IPv6SocketsAlsoIPv4	NO
+
 #if (OSMajorVersion > 1)
 #define InstallXloadSetGID	NO
 #else
 #define InstallXloadSetGID	YES
 #endif
+
+#define HasWeakSymbols		UseElfFormat
 
 /*
  * Multi-thread safe libs 
@@ -107,12 +126,18 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #  endif
 #  if (OSRelVersion >= 500016)
 #   define ThreadsLibraries	-lc_r
+#   define SharedGLReqs		$(LDPRELIBS) $(XLIB) -lc
 #  else
 #   define ThreadsLibraries	-pthread
 #  endif
 #  define SharedX11Reqs		$(LDPRELIB) $(XTHRSTUBLIB)
-#  define SharedXtReqs		$(LDPRELIB) $(XLIBONLY) $(SMLIB) $(ICELIB) $(XTHRSTUBLIB)
+#  define SharedXtReqs		$(LDPRELIB) $(XONLYLIB) $(SMLIB) $(ICELIB) $(XTHRSTUBLIB)
 # endif
+#endif
+
+/* This fixes linking C programs against libGLU on FreeBSD 3.x */
+#if (OSMajorVersion == 3)
+#define SharedGLUReqs		$(LDPRELIB) $(XLIB) $(GLXLIB) -lstdc++ -lgcc
 #endif
 
 #define AvoidNullMakeCommand	YES
@@ -177,7 +202,13 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #if defined(UseInstalled)
 #define DefaultCCOptions	/**/
 #else
-#define DefaultCCOptions	-ansi -pedantic -Dasm=__asm GccWarningOptions
+#if defined(HasGcc3) && HasGcc3
+#define NoSystemWarn		-Wno-system-headers
+#else
+#define NoSystemWarn
+#endif
+#define DefaultCCOptions	-ansi -pedantic NoSystemWarn -Dasm=__asm \
+	GccWarningOptions
 #endif
 #endif
 #ifndef ExtraLibraries
@@ -228,11 +259,15 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #endif
 
 /*
- * 4.1/i386 and 5.0/i386 have the AGP driver.
+ * 4.1/i386 and 5.0/i386,alpha,ia64,amd64 have the AGP driver.
  */
 #ifndef HasAgpGart
 #if defined(i386Architecture) && \
 	(OSMajorVersion >= 5 || (OSMajorVersion == 4 && OSMinorVersion >= 1))
+#define HasAgpGart		YES
+#endif
+#if (defined(AlphaArchitecture) || defined(ia64Architecture) || \
+	defined(AMD64Architecture)) && (OSMajorVersion >= 5)
 #define HasAgpGart		YES
 #endif
 #endif
@@ -241,7 +276,7 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
  * SSE and 3DNow will be autodetected, so binutils is the only 
  * requirement for enabling this.  By 4.2 they were all supported.
  */
-#if defined(i386Architecture) && \
+#if defined(AMD64Architecture) || defined(i386Architecture) && \
 	(OSMajorVersion >= 5 || (OSMajorVersion == 4 && OSMinorVersion >= 2))
 # define HasX86Support          YES
 # define HasMMXSupport		YES
@@ -287,22 +322,53 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
  * and they can remove it from the list of directories they add to ld.so.cache 
  * in their /etc/rc file.
  */
+
+#ifndef UseRpath
+# define UseRpath		YES
+#endif
+
 #if OSMajorVersion > 2 || (OSMajorVersion == 2 && OSMinorVersion >= 2)
-#ifndef ExtraLoadFlags
-#if UseElfFormat
-#define ExtraLoadFlags		-Wl,-rpath,$(USRLIBDIRPATH)
-#else
-#define ExtraLoadFlags		-Wl,-R,$(USRLIBDIRPATH)
+
+# ifndef RpathLoadFlags
+#  if UseRpath
+#   if UseElfFormat
+#    define RpathLoadFlags	-Wl,-rpath,$(USRLIBDIRPATH)
+#   else
+#    define RpathLoadFlags	-Wl,-R,$(USRLIBDIRPATH)
+#   endif
+#  else
+#   define RpathLoadFlags	/**/
+#  endif
+# endif
+
+# ifndef ExtraLoadFlags
+#  if UseElfFormat && !defined(UseInstalled)
+#   define ExtraLoadFlags	RpathLoadFlags -Wl,-rpath-link,$(BUILDLIBDIR)
+#  else
+#   define ExtraLoadFlags	RpathLoadFlags
+#  endif
+# endif
+
 #endif
-#endif
+
+#ifndef LibraryRpathLoadFlags
+# if UseRpath
+#  if UseElfFormat
+#   define LibraryRpathLoadFlags	-rpath $(USRLIBDIRPATH)
+#  else
+#   define LibraryRpathLoadFlags	-R $(USRLIBDIRPATH)
+#  endif
+# else
+#  define LibraryRpathLoadFlags		/**/
+# endif
 #endif
 
 #ifndef SharedLibraryLoadFlags
-#if UseElfFormat
-#define SharedLibraryLoadFlags	-shared -rpath $(USRLIBDIRPATH)
-#else
-#define SharedLibraryLoadFlags	-Bshareable -R $(USRLIBDIRPATH)
-#endif
+# if UseElfFormat
+#  define SharedLibraryLoadFlags	-shared LibraryRpathLoadFlags
+# else
+#  define SharedLibraryLoadFlags	-Bshareable LibraryRpathLoadFlags
+# endif
 #endif
 
 #ifndef GnuMallocLibrary
@@ -321,117 +387,6 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #if (OSMajorVersion > 3) || (OSMajorVersion == 3 && OSMinorVersion >=1 )
 #ifndef HasPam
 #define HasPam		YES
-#endif
-#endif
-
-/*
- * For FreeBSD 2.2.5 and later don't make any assumptions about the version
- * of Tcl in the base OS.
- *
- * Note the static libs in some versions of the FreeBSD packages are
- * broken.  The symptom of this is unresolved symbols when linking
- * XF86Setup.  If you run into this problem, either build your own
- * static libs from the standard Tcl and Tk source, or change the
- * definitions of XF86SetupUsesStatic{Tcl,Tk}.  The latter is not
- * recommended for binaries that are going to be redistributed.
- */
-
-#if OSMajorVersion > 2 || (OSMajorVersion == 2 && OSMinorVersion > 2) || \
-    (OSMajorVersion == 2 && OSMinorVersion == 2 && OSTeenyVersion > 5)
-/*
- * For 2.2.6, 3.0 and later the defaults assume that the tcl-8.0 and tk-8.0
- * packages have been installed.  XF86Setup is much faster with 8.x than
- * with earlier versions.
- *
- */
-
-#ifndef TkLibName
-#define TkLibName		tk80
-#endif
-#ifndef TkIncDir
-#define TkIncDir		/usr/local/include/tk8.0
-#endif
-#ifndef TclLibName
-#define TclLibName		tcl80
-#endif
-#ifndef TclIncDir
-#define TclIncDir		/usr/local/include/tcl8.0
-#endif
-
-#elif OSMajorVersion == 2 && OSMinorVersion == 2 && OSTeenyVersion > 2
-/*
- * For 2.2.5, the defaults assume that the tcl-7.6 and tk-4.2
- * packages have been installed.
- */
-
-#ifndef TkLibName
-#define TkLibName		tk42
-#endif
-#ifndef TkIncDir
-#define TkIncDir		/usr/local/include/tk4.2
-#endif
-#ifndef TclLibName
-#define TclLibName		tcl76
-#endif
-#ifndef TclIncDir
-#define TclIncDir		/usr/local/include/tcl7.6
-#endif
-
-#elif OSMajorVersion == 2 && OSMinorVersion == 2
-/*
- * FreeBSD 2.2 prior to 2.2.5
- *
- * tcl is part of the base OS.
- *
- * Note: the tk-4.1 package for FreeBSD doesn't have the static lib, so
- * you'll have to build it yourself, or change the definition of
- * XF86SetupUsesStaticTk.
- */
-#ifndef TkLibName
-#define TkLibName		tk41
-#endif
-#ifndef TclLibName
-#define TclLibName		tcl
-#endif
-#ifndef TclLibDir
-#define TclLibDir		/usr/lib
-#endif
-#ifndef TclIncDir
-#define TclIncDir		/usr/include
-#endif
-/* FreeBSD 2.2 has libtcl in the base system */
-#ifndef XF86SetupUsesStaticTcl
-#define XF86SetupUsesStaticTcl	NO
-#endif
-
-#else /* ! 2.2 or later */
-
-#if OSMajorVersion == 2 && OSMinorVersion == 1 && OSTeenyVersion >= 6
-
-/*
- * 2.1.x with x >=6 has tk 4.1 and tcl 7.5 in the packages collection.
- * Neither packages include the static libs, so you either need to build
- * them yourself or set XF86SetupUsesStaticTcl and XF86SetupUsesStaticTk
- * to NO.  This isn't the default because we don't want the XFree86
- * binaries to have these packages as a dependency.
- */
-
-#ifndef TkLibName
-#define TkLibName		tk41
-#endif
-#ifndef TclLibName
-#define TclLibName		tcl75
-#endif
-
-#else /* ! 2.1.6 or later */
-
-#ifndef TkLibName
-#define TkLibName		tk40
-#endif
-#ifndef TclLibName
-#define TclLibName		tcl74
-#endif
-
 #endif
 #endif
 
@@ -455,11 +410,13 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #ifdef i386Architecture
 #define ServerExtraDefines GccGasOption XFree86ServerDefines
 #endif
-#ifdef AlphaArchitecture
+#if defined(AlphaArchitecture) || defined(Sparc64Architecture) || \
+	defined(ia64Architecture) || defined(AMD64Architecture)
 #define ServerExtraDefines GccGasOption XFree86ServerDefines -D_XSERVER64
 #endif
 #ifdef Sparc64Architecture
-#define ServerExtraDefines GccGasOption XFree86ServerDefines -D_XSERVER64
+#define AsVISOption		-Av9a
+#define AsOutputArchSize	64
 #endif
 
 #define StandardDefines	-DCSRG_BASED
@@ -485,7 +442,7 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 /* The GCC strength-reduce bug is fixed for FreeBSD 2.1.5 and later */
 #ifndef DefaultGcc2i386Opt
 #if OSMajorVersion > 2 || (OSMajorVersion == 2 && OSMinorVersion > 1) || (OSMajorVersion == 2 && OSMinorVersion == 1 && OSTeenyVersion >= 5)
-#define DefaultGcc2i386Opt -O2
+#define DefaultGcc2i386Opt -O2 GccAliasingArgs
 #endif
 #endif
 
@@ -500,7 +457,7 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #endif
 
 #define HasGroff	YES
-#define NroffCmd	groff -Tascii
+#define NroffCmd	env GROFF_NO_SGR=y groff -Tascii
 #define SetTtyGroup	YES
 
 #ifndef ExtraFilesToClean
@@ -564,10 +521,13 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
  */
 #if UseElfFormat
 #ifndef PreloadFontSetup
-#define PreloadFontSetup	LD_PRELOAD="`(cd $(XENVLIBDIR); echo libXfont*.so.?)`"
+#define PreloadFontSetup	LD_PRELOAD="`(cd $(XENVLIBDIR); echo $(XFONTPRELOADPATTERN))`"
+#endif
+#ifndef PreloadFreetypeSetup
+#define PreloadFreetypeSetup	LD_PRELOAD="`(cd $(XENVLIBDIR); echo $(FT2PRELOADPATTERN))`"
 #endif
 #ifndef PreloadXFTSetup
-#define PreloadXFTSetup		LD_PRELOAD="`(cd $(XENVLIBDIR); echo libfreetype.so.? libXft.so.? libXrender.so.? libfontconfig.so.?)`"
+#define PreloadXFTSetup		LD_PRELOAD="`(cd $(XENVLIBDIR); echo $(FT2PRELOADPATTERN) $(XFTPRELOADPATTERN) $(XRENDERPRELOADPATTERN) $(FCPRELOADPATTERN))`"
 #endif
 #endif
 
@@ -585,7 +545,7 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 /*
  * A hack to work around an optimization problem with gcc 2.95.2 - 2.95.4
  */
-#if OSMajorVersion == 4
+#if (GccMajorVersion == 2 && GccMinorVersion == 95)
 #define GccOptBug295
 #endif
 

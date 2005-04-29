@@ -26,15 +26,13 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 /*
  * Copyright 2002 SuSE Linux AG, Author: Egbert Eich
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/neomagic/neo_video.c,v 1.4 2002/11/25 14:05:00 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/neomagic/neo_video.c,v 1.7 2003/11/10 18:22:23 tsi Exp $ */
 
 #include "neo.h"
 #include "neo_video.h"
 
 #define nElems(x)		(sizeof(x) / sizeof(x[0]))
 #define MAKE_ATOM(a)	MakeAtom(a, sizeof(a) - 1, TRUE)
-
-#if defined(XvExtension)
 
 #include "dixstruct.h"
 #include "xaa.h"
@@ -56,15 +54,11 @@ static int NEOPutImage(ScrnInfoPtr, short, short, short, short, short, short,
 static int NEOQueryImageAttributes(ScrnInfoPtr, int, unsigned short *, 
 				   unsigned short *, int *, int *);
 
-static Bool RegionsEqual(RegionPtr, RegionPtr);
 static void NEODisplayVideo(ScrnInfoPtr, int, int, short, short, int, int, 
 			    int, int, int, BoxPtr, short, short, short, short);
 
 static void NEOInitOffscreenImages(ScreenPtr);
 static FBLinearPtr NEOAllocateMemory(ScrnInfoPtr, FBLinearPtr, int);
-static void NEOCopyData(unsigned char *, unsigned char *, int, int, int, int);
-static void NEOCopyYV12Data(unsigned char *, unsigned char *, unsigned char *,
-			    unsigned char *, int, int, int, int, int);
 
 static int NEOAllocSurface(ScrnInfoPtr, int, unsigned short, unsigned short, 
 			   XF86SurfacePtr);
@@ -258,7 +252,7 @@ NEOSetupVideo(ScreenPtr pScreen)
     pPriv->interlace = nPtr->interlace;
     pPriv->videoStatus = 0;
     pPriv->brightness = 0;
-    REGION_INIT(pScreen, &pPriv->clip, NullBox, 0);
+    REGION_NULL(pScreen, &pPriv->clip);
     nPtr->overlayAdaptor = overlayAdaptor;
 
     xvBrightness = MAKE_ATOM("XV_BRIGHTNESS");
@@ -391,10 +385,9 @@ NEOPutVideo(ScrnInfoPtr pScrn,
      WAIT_ENGINE_IDLE();
      memset(nPtr->NeoFbBase + offset, 0, size);
 
-    if (!RegionsEqual(&pPriv->clip, clipBoxes)){
-	REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
-	xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey,
-			    clipBoxes);
+    if (!REGION_EQUAL(pScrn->pScreen, &pPriv->clip, clipBoxes)){
+	REGION_COPY(pScrn->pScreen, &pPriv->clip, clipBoxes);
+	xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes);
     }
 
     x1 >>= 16;
@@ -706,18 +699,20 @@ NEOPutImage(ScrnInfoPtr pScrn,
 	offset2 += tmp;
 	offset3 += tmp;
 	nLines = ((((y2 + 0xFFFF) >> 16) + 1) & ~1) - top;
-	NEOCopyYV12Data(buf + (top * srcPitch) + (left >> 1), buf + offset2, 
-			buf + offset3, dstStart, srcPitch, srcPitch2, 
-			dstPitch, nLines, nPixels);
+	xf86XVCopyYUV12ToPacked(buf + (top * srcPitch) + (left >> 1),
+				buf + offset2, buf + offset3,
+				dstStart, srcPitch, srcPitch2, 
+				dstPitch, nLines, nPixels);
 	break;
     default:
 	buf += (top * srcPitch) + left;
 	nLines = ((y2 + 0xFFFF) >> 16) - top;
-	NEOCopyData(buf, dstStart, srcPitch, dstPitch, nLines, nPixels << 1);
+	xf86XVCopyPacked(buf, dstStart, srcPitch, dstPitch,
+			 nLines, nPixels << 1);
     }
 
-    if (!RegionsEqual(&pPriv->clip, clipBoxes)){
-	REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
+    if (!REGION_EQUAL(pScrn->pScreen, &pPriv->clip, clipBoxes)){
+	REGION_COPY(pScrn->pScreen, &pPriv->clip, clipBoxes);
         xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes);
     }
 	NEODisplayVideo(pScrn, id, offset, width, height, dstPitch, x1, y1,
@@ -785,37 +780,6 @@ NEOQueryImageAttributes(ScrnInfoPtr pScrn, int id,
 	break;
     }
     return (size);
-}
-
-static Bool
-RegionsEqual(RegionPtr A, RegionPtr B)
-{
-    int *dataA, *dataB;
-    int num;
-
-    num = REGION_NUM_RECTS(A);
-    if (num != REGION_NUM_RECTS(B)){
-	return (FALSE);
-    }
-
-    if ((A->extents.x1 != B->extents.x1)
-	|| (A->extents.y1 != B->extents.y1)
-	|| (A->extents.x2 != B->extents.x2)
-	|| (A->extents.y2 != B->extents.y2)){
-	return (FALSE);
-    }
-
-    dataA = (int*) REGION_RECTS(A);
-    dataB = (int*) REGION_RECTS(B);
-
-    while (num--){
-	if ((dataA[0] != dataB[0]) || (dataA[1] != dataB[1])){
-	    return (FALSE);
-	}
-	dataA += 2;
-	dataB += 2;
-    }
-    return (TRUE);
 }
 
 static void
@@ -1017,55 +981,12 @@ NEOAllocateMemory(ScrnInfoPtr pScrn, FBLinearPtr linear, int size)
     return (new_linear);
 }
 
-static void
-NEOCopyData(unsigned char *src, unsigned char *dst, 
-	    int srcPitch, int dstPitch,
-	    int height, int width)
-{
-    while (height-- > 0){
-	memcpy(dst, src, width);
-	src += srcPitch;
-	dst += dstPitch;
-    }
-}
-
-static void
-NEOCopyYV12Data(unsigned char *src1, unsigned char *src2,
-		unsigned char *src3, unsigned char *dst,
-		int srcPitch1, int srcPitch2, int dstPitch,
-		int height, int width)
-{
-    CARD32 *pDst = (CARD32 *) dst;
-    int i;
-
-    width >>= 1;
-    height >>= 1;
-    dstPitch >>= 2;
-    while (--height >= 0){
-	for (i =0; i < width; i++){
-	    pDst[i] = src1[i << 1] | (src1[(i << 1) + 1] << 16) |
-		(src3[i] << 8) | (src2[i] << 24);
-	}
-	pDst += dstPitch;
-	src1 += srcPitch1;
-
-	for (i =0; i < width; i++){
-	    pDst[i] = src1[i << 1] | (src1[(i << 1) + 1] << 16) |
-		(src3[i] << 8) | (src2[i] << 24);
-	}
-	pDst += dstPitch;
-	src1 += srcPitch1;
-	    src2 += srcPitch2;
-	    src3 += srcPitch2;
-    }
-}
-
 static int
 NEOAllocSurface(ScrnInfoPtr pScrn, int id, 
 		unsigned short width, unsigned short height,
 		XF86SurfacePtr surface)
 {
-    int pitch, bpp, size;
+    int pitch, size;
     NEOOffscreenPtr pPriv;
     FBLinearPtr linear;
 
@@ -1077,7 +998,6 @@ NEOAllocSurface(ScrnInfoPtr pScrn, int id,
     }
 
     width = (width + 1) & ~1;
-    bpp = ((pScrn->bitsPerPixel + 1) >> 3);
     pitch = ((width << 1) + 15) & ~15;
     size = pitch * height;
 
@@ -1176,7 +1096,7 @@ NEODisplaySurface(XF86SurfacePtr surface,
     
     pPriv->isOn = TRUE;
     if (portPriv->videoStatus & CLIENT_VIDEO_ON){
-	REGION_EMPTY(pScrn->pScreen, &portPriv->clip);
+	REGION_EMPTY(surface->pScrn->pScreen, &portPriv->clip);
 	UpdateCurrentTime();
 	portPriv->videoStatus = FREE_TIMER;
 	portPriv->freeTime = currentTime.milliseconds + FREE_DELAY;
@@ -1224,10 +1144,3 @@ NEOSetSurfaceAttribute(ScrnInfoPtr pScrn, Atom attr, INT32 value)
     return (NEOSetPortAttribute(pScrn, 
             attr, value, (pointer)nPtr->overlayAdaptor->pPortPrivates[0].ptr));
 }
-
-#else /* XvExtension */
-
-void NEOInitVideo(ScreenPtr pScreen) {}
-void NEOResetVideo(ScreenPtr pScreen) {}
-
-#endif

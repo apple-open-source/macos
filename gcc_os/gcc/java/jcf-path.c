@@ -30,12 +30,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "jcf.h"
 
-/* Some boilerplate that really belongs in a header.  */
-
-#ifndef GET_ENV_PATH_LIST
-#define GET_ENV_PATH_LIST(VAR,NAME)	do { (VAR) = getenv (NAME); } while (0)
-#endif
-
 /* By default, colon separates directories in a path.  */
 #ifndef PATH_SEPARATOR
 #define PATH_SEPARATOR ':'
@@ -149,7 +143,7 @@ add_entry (entp, filename, is_system)
   int len;
   struct entry *n;
 
-  n = (struct entry *) ALLOC (sizeof (struct entry));
+  n = ALLOC (sizeof (struct entry));
   n->flags = is_system ? FLAG_SYSTEM : 0;
   n->next = NULL;
 
@@ -171,7 +165,7 @@ add_entry (entp, filename, is_system)
      work more easily.  Eww.  */
   if (filename[len - 1] != '/' && filename[len - 1] != DIR_SEPARATOR)
     {
-      char *f2 = (char *) alloca (len + 2);
+      char *f2 = alloca (len + 2);
       strcpy (f2, filename);
       f2[len] = DIR_SEPARATOR;
       f2[len + 1] = '\0';
@@ -197,7 +191,7 @@ add_path (entp, cp, is_system)
 
   if (cp)
     {
-      char *buf = (char *) alloca (strlen (cp) + 3);
+      char *buf = alloca (strlen (cp) + 3);
       startp = endp = cp;
       while (1)
 	{
@@ -244,7 +238,7 @@ jcf_path_init ()
   sep[0] = DIR_SEPARATOR;
   sep[1] = '\0';
 
-  GET_ENV_PATH_LIST (cp, "GCC_EXEC_PREFIX");
+  GET_ENVIRONMENT (cp, "GCC_EXEC_PREFIX");
   if (cp)
     {
       try = alloca (strlen (cp) + 50);
@@ -305,7 +299,7 @@ jcf_path_init ()
       /* Desperation: use the installed one.  */
       char *extdirs;
       add_entry (&sys_dirs, LIBGCJ_ZIP_FILE, 1);
-      extdirs = (char *) alloca (strlen (LIBGCJ_ZIP_FILE));
+      extdirs = alloca (strlen (LIBGCJ_ZIP_FILE) + 1);
       strcpy (extdirs, LIBGCJ_ZIP_FILE);
       strcpy (&extdirs[strlen (LIBGCJ_ZIP_FILE)
 		      - strlen ("libgcj-" DEFAULT_TARGET_VERSION ".jar")],
@@ -315,7 +309,7 @@ jcf_path_init ()
 	jcf_path_extdirs_arg (extdirs);
     }
 
-  GET_ENV_PATH_LIST (cp, "CLASSPATH");
+  GET_ENVIRONMENT (cp, "CLASSPATH");
   add_path (&classpath_env, cp, 0);
 }
 
@@ -352,7 +346,7 @@ jcf_path_extdirs_arg (cp)
 
   if (cp)
     {
-      char *buf = (char *) alloca (strlen (cp) + 3);
+      char *buf = alloca (strlen (cp) + 3);
       startp = endp = cp;
       while (1)
 	{
@@ -381,9 +375,8 @@ jcf_path_extdirs_arg (cp)
 		    
 		    if (direntp->d_name[0] != '.')
 		      {
-			char *name = 
-			  (char *) alloca (dirname_length
-					   + strlen (direntp->d_name) + 2);
+			char *name = alloca (dirname_length
+					     + strlen (direntp->d_name) + 2);
 			strcpy (name, buf);
 			if (name[dirname_length-1] != DIR_SEPARATOR)
 			  {

@@ -89,10 +89,11 @@
 #include <mypwd.h>
 #include <canon_addr.h>
 
+#ifdef __APPLE__
 /* Apple Open Directory */
-
 #include <DirectoryService/DirServices.h>
 #include "aod.h"
+#endif /* __APPLE__ */
 
 /* Application-specific. */
 
@@ -106,10 +107,12 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
 {
     char   *myname = "deliver_switch";
     int     status = 0;
+#ifdef __APPLE__
 	int		addr_count = 0;
+	struct od_user_opts user_opts;
+#endif /* __APPLE__ */
     struct stat st;
     struct mypasswd *mypwd;
-	struct od_user_opts user_opts;
 
     /*
      * Make verbose logging easier to understand.
@@ -183,6 +186,7 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
     if (state.msg_attr.exp_type == EXPAND_TYPE_INCL)
 	return (deliver_indirect(state));
 
+#ifdef __APPLE__
 	/*
 	 * Check for forward info in user record
 	 */
@@ -198,6 +202,7 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
 			}
 		}
 	}
+#endif /* __APPLE__ */
 
     /*
      * Delivery to local user. First try expansion of the recipient's
@@ -207,7 +212,7 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
     if (var_stat_home_dir
 	&& (mypwd = mypwnam(state.msg_attr.user)) != 0
 	&& stat_as(mypwd->pw_dir, &st, mypwd->pw_uid, mypwd->pw_gid) < 0)
-	return (defer_append(BOUNCE_FLAG_KEEP,
+	return (defer_append(BOUNCE_FLAGS(state.request),
 			     BOUNCE_ATTR(state.msg_attr),
 			     "cannot access home directory %s: %m",
 			     mypwd->pw_dir));
@@ -285,13 +290,13 @@ int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
 	    myfree(owner_alias);
 	}
 	if (canon_owner) {
-	    rcpt_stat = bounce_one(BOUNCE_FLAG_KEEP,
+	    rcpt_stat = bounce_one(BOUNCE_FLAGS(state.request),
 				   BOUNCE_ONE_ATTR(state.msg_attr),
 				   "mail forwarding loop for %s",
 				   state.msg_attr.recipient);
 	    vstring_free(canon_owner);
 	} else {
-	    rcpt_stat = bounce_append(BOUNCE_FLAG_KEEP,
+	    rcpt_stat = bounce_append(BOUNCE_FLAGS(state.request),
 				      BOUNCE_ATTR(state.msg_attr),
 				      "mail forwarding loop for %s",
 				      state.msg_attr.recipient);
@@ -331,7 +336,8 @@ int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
      * Do not allow null usernames.
      */
     if (state.msg_attr.user[0] == 0)
-	return (bounce_append(BOUNCE_FLAG_KEEP, BOUNCE_ATTR(state.msg_attr),
+	return (bounce_append(BOUNCE_FLAGS(state.request),
+			      BOUNCE_ATTR(state.msg_attr),
 			  "null username in %s", state.msg_attr.recipient));
 
     /*

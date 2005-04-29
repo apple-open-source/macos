@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2002, International Business Machines Corporation
+*   Copyright (c) 2002-2004, International Business Machines Corporation
 *   and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -19,9 +19,10 @@
 
 U_NAMESPACE_BEGIN
 
-const UChar EMPTY[] = { 0 }; // empty string: ""
+static const UChar EMPTY[] = { 0 }; // empty string: ""
 
-const char StringReplacer::fgClassID=0;
+UnicodeReplacer::~UnicodeReplacer() {}
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(StringReplacer)
 
 /**
  * Construct a StringReplacer that sets the emits the given output
@@ -65,7 +66,10 @@ StringReplacer::StringReplacer(const UnicodeString& theOutput,
 /**
  * Copy constructor.
  */
-StringReplacer::StringReplacer(const StringReplacer& other) {
+StringReplacer::StringReplacer(const StringReplacer& other) :
+    UnicodeFunctor(other),
+    UnicodeReplacer(other)
+{
     output = other.output;
     cursorPos = other.cursorPos;
     hasCursor = other.hasCursor;
@@ -291,13 +295,13 @@ UnicodeString& StringReplacer::toReplacerPattern(UnicodeString& rule,
 void StringReplacer::addReplacementSetTo(UnicodeSet& toUnionTo) const {
     UChar32 ch;
     for (int32_t i=0; i<output.length(); i+=UTF_CHAR_LENGTH(ch)) {
-	ch = output.char32At(i);
-	UnicodeReplacer* r = data->lookupReplacer(ch);
-	if (r == NULL) {
-	    toUnionTo.add(ch);
-	} else {
-	    r->addReplacementSetTo(toUnionTo);
-	}
+    ch = output.char32At(i);
+    UnicodeReplacer* r = data->lookupReplacer(ch);
+    if (r == NULL) {
+        toUnionTo.add(ch);
+    } else {
+        r->addReplacementSetTo(toUnionTo);
+    }
     }
 }
 

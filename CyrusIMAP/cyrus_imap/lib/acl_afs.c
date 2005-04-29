@@ -8,7 +8,7 @@
  *
  */
 /* 
- $Id: acl_afs.c,v 1.24 2004/03/05 19:19:21 rjs3 Exp $
+ $Id: acl_afs.c,v 1.5 2005/03/05 00:37:11 dasenbro Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

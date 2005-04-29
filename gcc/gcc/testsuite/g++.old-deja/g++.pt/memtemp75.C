@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 
 void
 print(const int& i)
@@ -21,5 +21,5 @@ int
 main()
 {
   bar<int>	b;
-  b.template doit<print>(2);
+  b.doit<print>(2);
 }

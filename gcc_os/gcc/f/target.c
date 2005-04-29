@@ -69,13 +69,13 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Include files. */
 
 #include "proj.h"
-#include "glimits.h"
 #include "target.h"
 #include "diagnostic.h"
 #include "bad.h"
 #include "info.h"
 #include "lex.h"
 #include "malloc.h"
+#include "real.h"
 
 /* Externals defined here. */
 
@@ -2191,7 +2191,7 @@ ffetarget_print_hex (FILE *f, ffetargetTypeless value)
 {
   char *p;
   char digits[sizeof (value) * CHAR_BIT / 4 + 1];
-  static char hexdigits[16] = "0123456789ABCDEF";
+  static const char hexdigits[16] = "0123456789ABCDEF";
 
   if (f == NULL)
     f = dmpout;
@@ -2277,9 +2277,11 @@ ffetarget_real1 (ffetargetReal1 *value, ffelexToken integer,
 
   *p = '\0';
 
-  ffetarget_make_real1 (value,
-			FFETARGET_ATOF_ (ptr,
-					 SFmode));
+  {
+    REAL_VALUE_TYPE rv;
+    rv = FFETARGET_ATOF_ (ptr, SFmode);
+    ffetarget_make_real1 (value, rv);
+  }
 
   if (sz > ARRAY_SIZE (ffetarget_string_))
     malloc_kill_ks (malloc_pool_image (), ptr, sz);
@@ -2363,9 +2365,11 @@ ffetarget_real2 (ffetargetReal2 *value, ffelexToken integer,
 
   *p = '\0';
 
-  ffetarget_make_real2 (value,
-			FFETARGET_ATOF_ (ptr,
-					 DFmode));
+  {
+    REAL_VALUE_TYPE rv;
+    rv = FFETARGET_ATOF_ (ptr, DFmode);
+    ffetarget_make_real2 (value, rv);
+  }
 
   if (sz > ARRAY_SIZE (ffetarget_string_))
     malloc_kill_ks (malloc_pool_image (), ptr, sz);
@@ -2521,27 +2525,14 @@ void *
 ffetarget_memcpy_ (void *dst, void *src, size_t len)
 {
 #ifdef CROSS_COMPILE
+  /* HOST_WORDS_BIG_ENDIAN corresponds to both WORDS_BIG_ENDIAN and
+     BYTES_BIG_ENDIAN (i.e. there are no HOST_ macros to represent a
+     difference in the two latter).  */
   int host_words_big_endian =
 #ifndef HOST_WORDS_BIG_ENDIAN
     0
 #else
     HOST_WORDS_BIG_ENDIAN
-#endif
-    ;
-
-  int host_bytes_big_endian =
-#ifndef HOST_BYTES_BIG_ENDIAN
-    0
-#else
-    HOST_BYTES_BIG_ENDIAN
-#endif
-    ;
-
-  int host_bits_big_endian =
-#ifndef HOST_BITS_BIG_ENDIAN
-    0
-#else
-    HOST_BITS_BIG_ENDIAN
 #endif
     ;
 
@@ -2555,8 +2546,7 @@ ffetarget_memcpy_ (void *dst, void *src, size_t len)
      for instance in g77.f-torture/execute/980628-[4-6].f and alpha2.f.
      Still, we compile *some* code.  FIXME: Rewrite handling of numbers.  */
   if (!WORDS_BIG_ENDIAN != !host_words_big_endian
-      || !BYTES_BIG_ENDIAN != !host_bytes_big_endian
-      || !BITS_BIG_ENDIAN != !host_bits_big_endian)
+      || !BYTES_BIG_ENDIAN != !host_words_big_endian)
     sorry ("data initializer on host with different endianness");
 
 #endif /* CROSS_COMPILE */

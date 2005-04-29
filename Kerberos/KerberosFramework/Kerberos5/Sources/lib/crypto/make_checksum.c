@@ -30,13 +30,9 @@
 #include "dk.h"
 
 krb5_error_code KRB5_CALLCONV
-krb5_c_make_checksum(context, cksumtype, key, usage, input, cksum)
-     krb5_context context;
-     krb5_cksumtype cksumtype;
-     const krb5_keyblock *key;
-     krb5_keyusage usage;
-     const krb5_data *input;
-     krb5_checksum *cksum;
+krb5_c_make_checksum(krb5_context context, krb5_cksumtype cksumtype,
+		     const krb5_keyblock *key, krb5_keyusage usage,
+		     const krb5_data *input, krb5_checksum *cksum)
 {
     int i, e1, e2;
     krb5_data data;
@@ -52,9 +48,9 @@ krb5_c_make_checksum(context, cksumtype, key, usage, input, cksum)
 	return(KRB5_BAD_ENCTYPE);
 
     if (krb5_cksumtypes_list[i].keyhash)
-	(*(krb5_cksumtypes_list[i].keyhash->hash_size))(&cksumlen);
+	cksumlen = krb5_cksumtypes_list[i].keyhash->hashsize;
     else
-	(*(krb5_cksumtypes_list[i].hash->hash_size))(&cksumlen);
+	cksumlen = krb5_cksumtypes_list[i].hash->hashsize;
 
     cksum->length = cksumlen;
 
@@ -87,16 +83,6 @@ krb5_c_make_checksum(context, cksumtype, key, usage, input, cksum)
 
 	ret = (*(krb5_cksumtypes_list[i].keyhash->hash))(key, usage, 0, input, &data);
     } else if (krb5_cksumtypes_list[i].flags & KRB5_CKSUMFLAG_DERIVE) {
-	/* any key is ok */
-#ifdef ATHENA_DES3_KLUDGE
-	/*
-	 * XXX Punt on actually using krb5_marc_dk_make_checksum
-	 * for now because we never actually use a DES3 session key
-	 * anywhere on Athena, and this is temporary anyway.
-	 * In any case, it's way too hairy to actually make this work
-	 * properly.
-	 */
-#endif
 	ret = krb5_dk_make_checksum(krb5_cksumtypes_list[i].hash,
 				    key, usage, input, &data);
     } else {

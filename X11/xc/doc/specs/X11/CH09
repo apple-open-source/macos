@@ -1,4 +1,4 @@
-.\" Copyright \(co 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1994, 1996 X Consortium
+.\" Copyright \(co 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1994, 1996, 2002 The Open Group
 .\"
 .\" Permission is hereby granted, free of charge, to any person obtaining
 .\" a copy of this software and associated documentation files (the
@@ -19,10 +19,10 @@
 .\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 .\" OTHER DEALINGS IN THE SOFTWARE.
 .\"
-.\" Except as contained in this notice, the name of the X Consortium shall
+.\" Except as contained in this notice, the name of The Open Group shall
 .\" not be used in advertising or otherwise to promote the sale, use or
 .\" other dealings in this Software without prior written authorization
-.\" from the X Consortium.
+.\" from The Open Group.
 .\"
 .\" Copyright \(co 1985, 1986, 1987, 1988, 1989, 1990, 1991 by
 .\" Digital Equipment Corporation
@@ -40,6 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
+.\" $XFree86: xc/doc/specs/X11/CH09,v 1.3 2003/07/18 15:53:24 tsi Exp $
 \&
 .sp 1
 .ce 3
@@ -968,6 +969,7 @@ typedef struct {
 The family member specifies which protocol address family to use 
 (for example, TCP/IP or DECnet) and can be
 .PN FamilyInternet ,
+.PN FamilyInternet6 ,
 .PN FamilyDECnet ,
 or
 .PN FamilyChaos .
@@ -975,6 +977,10 @@ The length member specifies the length of the address in bytes.
 The address member specifies a pointer to the address.
 .LP
 For TCP/IP, the address should be in network byte order.
+For IP version 4 addresses, the family should be FamilyInternet
+and the length should be 4 bytes.  For IP version 6 addresses, the
+family should be FamilyInternet6 and the length should be 16 bytes.
+.LP
 For the DECnet family, 
 the server performs no automatic swapping on the address bytes.
 A Phase IV address is 2 bytes long.

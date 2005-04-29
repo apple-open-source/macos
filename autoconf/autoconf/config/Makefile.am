@@ -19,7 +19,7 @@
 ## 02111-1307, USA.
 
 EXTRA_DIST = $(SPECIFIC_MACROS) $(SPECIFIC_TOOLS) \
-              prev-version.txt
+	      prev-version.txt
 MAINTAINERCLEANFILES = $(GENERIC_TOOLS)
 
 SPECIFIC_MACROS =				\

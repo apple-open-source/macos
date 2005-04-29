@@ -322,14 +322,8 @@ static inline UInt64 getDebugFlagsTable(OSDictionary *props)
 
 bool AppleRS232Serial::start(IOService *provider)
 {
-    IORegistryEntry	*parentEntry;
-    OSString 		*matched;
     IOMemoryMap 	*map;
-    OSData		*cProp;
-    char 		*tmp;
-    Boolean		ok = false;
-    IOService 		*topProvider = NULL;
-    IOService 		*tProvider;
+    IOByteCount		temp;
     
 #if USE_ELG
     XTraceLogInfo	*logInfo;
@@ -346,7 +340,7 @@ bool AppleRS232Serial::start(IOService *provider)
         return false;
     }
 #endif
-
+    
     ELG(this, provider, "AppleRS232Serial::start - this, provider");
 
     if (!super::start(provider))
@@ -363,13 +357,15 @@ bool AppleRS232Serial::start(IOService *provider)
         return false;
     }
 
+/*** matching on AAPL,connector set to DB9, don't need the other checks
+
         // Check if the parent is escc or escc-legacy - don't need to match on escc-legacy nodes
         
     parentEntry = provider->getParentEntry(gIODTPlane);
     if (!parentEntry || IODTMatchNubWithKeys(parentEntry, "'escc-legacy'"))
     {
         ELG(0, 0, "AppleRS232Serial::start - escc-legacy not supported");
-	return false;
+		return false;
     }
 
     ok = false;
@@ -386,27 +382,13 @@ bool AppleRS232Serial::start(IOService *provider)
         }
     }
         
-        // "temp" - if top-level provider has RackMac1,1, then we're ok
-        
-    if (0) 
-    {
-        tProvider = fProvider;
-        while (tProvider)
-        {
-            topProvider = tProvider;		// Save last non-null on the chain up
-            tProvider = tProvider->getProvider();
-        }
-        if (topProvider && IODTMatchNubWithKeys(topProvider, "'RackMac1,1'"))
-        {
-            ok = true;
-        }
-    }						// end "temp" check
         
     if (!ok)
     {
         ALERT(0, 0, "AppleRS232Serial::start - returning false early, Connector or machine incorrect");
         return false;
     }
+	*****/
 
 	/* This section will stop the driver from loading on machines that have debugging enabled */
 	/* This is to address <rdar://problem/3543234> */
@@ -422,22 +404,27 @@ bool AppleRS232Serial::start(IOService *provider)
 		}
     }
 	
-	
+	/**** this returns NULL now that we're not matching by name anymore
     matched = (OSString *)getProperty(gIONameMatchedKey);
-    if (matched->isEqualTo("ch-a"))
-    {
-        ELG(0, 0, "AppleRS232Serial::start - escc Port A");
-        fPort.whichPort = serialPortA;
-    } else {
-        if (matched->isEqualTo("ch-b"))
-        {
-            ELG(0, 0, "AppleRS232Serial::start - escc Port B");
-            fPort.whichPort = serialPortB;
-        } else {
-            ALERT(0, 0, "AppleRS232Serial::start - Port invalid");
-            return false;
-        }
-    }
+	if (matched) {
+		if (matched->isEqualTo("ch-a"))
+		{
+			ELG(0, 0, "AppleRS232Serial::start - escc Port A");
+			fPort.whichPort = serialPortA;
+		} else {
+			if (matched->isEqualTo("ch-b"))
+			{
+				ELG(0, 0, "AppleRS232Serial::start - escc Port B");
+				fPort.whichPort = serialPortB;
+			} else {
+				ALERT(0, 0, "AppleRS232Serial::start - Port invalid");
+				return false;
+			}
+		}
+	}
+	*****/
+    fPort.whichPort = serialPortA;	// jdg - this driver only matches on sccA
+
     
         // get workloop
         
@@ -467,24 +454,11 @@ bool AppleRS232Serial::start(IOService *provider)
 
     fCommandGate->enable();
 
-	// Begin fixed bug # 2550140 & 2553750 */
-	// init the DBDMA memory lock
-        
-    fPort.IODBDMARxLock = IOLockAlloc();
-    fPort.IODBDMATrLock = IOLockAlloc();
-    
-	// End fixed bug # 2550140 & 2553750
-
-    fPort.DTRAsserted = true;					// Data Terminal Ready
+    fPort.DTRAsserted = true;					// Data Terminal Ready, true unless doing DTR flow control
+    fPort.xOffSent = false;					// set true only if we're doing software flow control and have send xoff
+    fPort.RTSAsserted = true;					// RTS.  true unless doing RTS flow control and have lowered to slow down rx
     fPort.aboveRxHighWater = false;
 	
-    fPort.SCCAccessLock = IOLockAlloc();
-    if (!fPort.SCCAccessLock)
-    {
-        ALERT(0, 0, "AppleRS232Serial::start - Allocate SCC Access lock failed");
-        shutDown();
-        return false;
-    }
     
         // Init the Port structure
         
@@ -496,7 +470,6 @@ bool AppleRS232Serial::start(IOService *provider)
     }
     
     setStructureDefaults(&fPort);  
-    fPort.Instance = fPort.whichPort;
     fPort.RS232 = this;							// So some of our boys can find their way home
     
         // Get chip access addresses
@@ -509,15 +482,12 @@ bool AppleRS232Serial::start(IOService *provider)
         return false;
     }
     
-//    fPort.Base = map->getPhysicalAddress();
-    fPort.Base = map->getVirtualAddress();
-    fPort.ChipBaseAddress = fPort.Base;
+    fPort.ChipBaseAddress	    = map->getVirtualAddress();				// was fPort.Base;
+    fPort.ChipBaseAddressPhysical   = map->getPhysicalSegment(0, &temp);
+    ALERT(fPort.ChipBaseAddress, fPort.ChipBaseAddressPhysical, "chip base, virtual, physical");
 
-        // Calls the DMA function that knows how to handle all the different hardware
         
-    SccSetDMARegisters(&fPort, provider);
-    if ((fPort.TxDBDMAChannel.dmaChannelAddress == NULL) || (fPort.TxDBDMAChannel.dmaBase == NULL) ||
-        (fPort.RxDBDMAChannel.dmaChannelAddress == NULL) || (fPort.RxDBDMAChannel.dmaBase == NULL))
+    if (!SccSetDMARegisters(&fPort, provider))
     {
         ALERT(0, 0, "AppleRS232Serial::start - DMA setup failed");
         shutDown();
@@ -609,7 +579,8 @@ bool AppleRS232Serial::start(IOService *provider)
 
         // Create and set up the ring buffers
             
-    if (!allocateRingBuffer(&(fPort.TX), fPort.TXStats.BufferSize) || !allocateRingBuffer(&(fPort.RX), fPort.RXStats.BufferSize))
+    if (!allocateRingBuffer(&(fPort.TX), fPort.TXStats.BufferSize, fWorkLoop) ||
+	!allocateRingBuffer(&(fPort.RX), fPort.RXStats.BufferSize, fWorkLoop))
     {
         ELG(0, 0, "AppleRS232Serial::start - Allocate for ring buffers failed");
         shutDown();
@@ -620,8 +591,23 @@ bool AppleRS232Serial::start(IOService *provider)
         
     callPlatformFunction("EnableSCC", false, (void *)true, 0, 0, 0);
     
-        // Finished all initialization so start service matching
+//rcs Tiger Fixes..
+    fdmaStartTransmissionThread = thread_call_allocate (
+        &SccStartTransmissionDelayedHandler, ( thread_call_param_t ) this);
+	if ( fdmaStartTransmissionThread == NULL )
+	{
+        return false;
+	}
 
+
+    dmaRxHandleCurrentPositionThread = thread_call_allocate (
+        &SccCurrentPositionDelayedHandler, ( thread_call_param_t ) this);
+	if ( dmaRxHandleCurrentPositionThread == NULL )
+	{
+        return false;
+	}
+
+        // Finished all initialization so start service matching
     if (!createSerialStream(provider))
     {
         ALERT(0, 0, "AppleRS232Serial::start - Create serial stream failed");
@@ -638,7 +624,6 @@ bool AppleRS232Serial::start(IOService *provider)
     }
         
     ELG(0, 0, "AppleRS232Serial::start - Successful");
-    
     return true;
     
 }/* end start */
@@ -667,6 +652,30 @@ void AppleRS232Serial::stop(IOService *provider)
     super::stop(provider);
     
 }/* end stop */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleRS232Serial::getWorkLoop
+//
+//		Inputs:	
+//
+//		Outputs:	
+//
+//		Desc:		create our own workloop if we don't have one already.
+//
+/****************************************************************************************************/
+IOWorkLoop* AppleRS232Serial::getWorkLoop() const
+{
+    IOWorkLoop *w;
+    
+    if (fWorkLoop) w = fWorkLoop;
+    else	   w = IOWorkLoop::workLoop();
+    
+    ELG(0, w, "get workloop, workloop=");
+    return w;
+    
+}/* end getWorkLoop */
+
 
 /****************************************************************************************************/
 //
@@ -705,7 +714,7 @@ IOReturn AppleRS232Serial::acquirePort(bool sleep, void *refCon)
 
 IOReturn AppleRS232Serial::acquirePortAction(OSObject *owner, void *arg0, void *, void *, void *)
 {
-
+    ELG(owner, arg0, "acquirePortAction");
     return ((AppleRS232Serial *)owner)->acquirePortGated((bool)arg0);
     
 }/* end acquirePortAction */
@@ -787,8 +796,10 @@ IOReturn AppleRS232Serial::acquirePortGated(bool sleep)
 		
             // Enables all the DMA transfers
             
-        SccSetupReceptionChannel(&fPort);
-        SccdbdmaDefineReceptionCommands(&fPort);
+        SccSetupReceptionChannel(&fPort, 0);
+        //SccdbdmaDefineReceptionCommands(&fPort, 0);	    // called now in start rx
+        SccSetupReceptionChannel(&fPort, 1);
+        //SccdbdmaDefineReceptionCommands(&fPort, 1);	    // called now in start rx
         SccSetupTansmissionChannel(&fPort);
         SccdbdmaDefineTansmissionCommands(&fPort);
 
@@ -800,7 +811,7 @@ IOReturn AppleRS232Serial::acquirePortGated(bool sleep)
 
 	// Begin to monitor the channel
             
-        SccdbdmaStartReception(&fPort);
+        SccdbdmaStartReception(&fPort, fPort.activeRxChannelIndex, true);
         
         portOpened = true;
 //        changePowerStateTo(1);
@@ -860,7 +871,7 @@ IOReturn AppleRS232Serial::releasePort(void *refCon)
 
 IOReturn AppleRS232Serial::releasePortAction(OSObject *owner, void *, void *, void *, void *)
 {
-
+    ELG(0, 0, "releasePortAction");
     return ((AppleRS232Serial *)owner)->releasePortGated();
     
 }/* end releasePortAction */
@@ -899,7 +910,6 @@ IOReturn AppleRS232Serial::releasePortGated()
     }
     
     fPort.CharLength = 8;
-    fPort.BreakLength = 1;
     fPort.XONchar = '\x11';
     fPort.XOFFchar = '\x13';
     fPort.StopBits = 1<<1;
@@ -911,6 +921,10 @@ IOReturn AppleRS232Serial::releasePortGated()
     fPort.FlowControlState = CONTINUE_SEND;
     fPort.DCDState = false;
     fPort.BreakState = false;
+    
+    fPort.xOffSent = false;
+    fPort.RTSAsserted = true;
+    fPort.DTRAsserted = true;    
     
     SccCloseChannel(&fPort);						// Turn the chip off (just in case - it should already have been done)
 
@@ -972,6 +986,8 @@ UInt32 AppleRS232Serial::getState(void *refCon)
 IOReturn AppleRS232Serial::getStateAction(OSObject *owner, void *, void *, void *, void *)
 {
     UInt32	newState;
+    
+    ELG(0, 0, "getStateAction");
 
     newState = ((AppleRS232Serial *)owner)->getStateGated();
     
@@ -1059,7 +1075,7 @@ IOReturn AppleRS232Serial::setState(UInt32 state, UInt32 mask, void *refCon)
 
 IOReturn AppleRS232Serial::setStateAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
 {
-
+    ELG(0, 0, "setStateAction");
     return ((AppleRS232Serial *)owner)->setStateGated((UInt32)arg0, (UInt32)arg1);
     
 }/* end setStateAction */
@@ -1088,7 +1104,7 @@ IOReturn AppleRS232Serial::setStateGated(UInt32 state, UInt32 mask)
 {
     UInt32	delta;
 	
-//    ELG(state, mask, "AppleRS232Serial::setStateGated");
+    ELG(state, mask, "AppleRS232Serial::setStateGated");
 
         // Check if it's being acquired or already acquired
 
@@ -1168,7 +1184,7 @@ IOReturn AppleRS232Serial::watchState(UInt32 *state, UInt32 mask, void *refCon)
 
 IOReturn AppleRS232Serial::watchStateAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
 {
-
+    ELG(0, 0, "watchStateAction");
     return ((AppleRS232Serial *)owner)->watchStateGated((UInt32 *)arg0, (UInt32)arg1);
     
 }/* end watchStateAction */
@@ -1336,7 +1352,7 @@ IOReturn AppleRS232Serial::executeEvent(UInt32 event, UInt32 data, void *refCon)
 
 IOReturn AppleRS232Serial::executeEventAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
 {
-
+    ELG(0, 0, "executeEventAction");
     return ((AppleRS232Serial *)owner)->executeEventGated((UInt32)arg0, (UInt32)arg1);
     
 }/* end executeEventAction */
@@ -1359,7 +1375,7 @@ IOReturn AppleRS232Serial::executeEventAction(OSObject *owner, void *arg0, void 
 IOReturn AppleRS232Serial::executeEventGated(UInt32 event, UInt32 data)
 {
     IOReturn	ret = kIOReturnSuccess;
-    UInt32 	state, delta, tmp;
+    UInt32 	state, delta, old;
         
     delta = 0;
     state = fPort.State;	
@@ -1388,16 +1404,54 @@ IOReturn AppleRS232Serial::executeEventGated(UInt32 event, UInt32 data)
             break;
 	case PD_E_FLOW_CONTROL:
             ELG(data, event, "AppleRS232Serial::executeEventGated - PD_E_FLOW_CONTROL");
-            tmp = FLOW_RX_AUTO & (data ^ fPort.FlowControl);
-            fPort.FlowControl = data & (CAN_BE_AUTO | CAN_NOTIFY);
-            if (tmp)
-            {
-                if (tmp & PD_RS232_A_RXO)
-                {
-                    fPort.RXOstate = NEEDS_XOFF;
-                }
-            }
-            break;
+            old = fPort.FlowControl;				    // save old modes for unblock checks
+            fPort.FlowControl = data & (CAN_BE_AUTO | CAN_NOTIFY);  // new values, trimmed to legal values
+	    
+	    // now cleanup if we've blocked RX or TX with the previous style flow control and we're switching to a different kind
+	    // we have 5 different flow control modes to check and unblock; 3 on rx, 2 on tx
+	    if (portOpened && old && (old ^ fPort.FlowControl))		// if had some modes, and some modes are different
+	    {
+		#define SwitchingAwayFrom(flag) ((old & flag) && !(fPort.FlowControl & flag))
+		
+		// if switching away from rx xon/xoff and we've sent an xoff, unblock
+		if (SwitchingAwayFrom(PD_RS232_A_RXO) && fPort.xOffSent)
+		{
+		    AddBytetoQueue(&(fPort.TX), fPort.XONchar);
+		    fPort.xOffSent = false;
+		    SetUpTransmit(&fPort);
+		}
+		
+		// if switching away from RTS flow control and we've lowered RTS, need to raise it to unblock
+		if (SwitchingAwayFrom(PD_RS232_A_RTS) && !fPort.RTSAsserted)
+		{
+		    fPort.RTSAsserted = true;
+		    SccSetRTS(&fPort, true);			    // raise RTS again
+		}
+
+		// if switching away from DTR flow control and we've lowered DTR, need to raise it to unblock
+		if (SwitchingAwayFrom(PD_RS232_A_DTR) && !fPort.DTRAsserted)
+		{
+		    fPort.DTRAsserted = true;
+		    SccSetDTR(&fPort, true);			    // raise DTR again
+		}
+		
+		// If switching away from CTS and we've paused tx, continue it
+		if (SwitchingAwayFrom(PD_RS232_S_CTS) && fPort.FlowControlState != CONTINUE_SEND)
+		{
+		    fPort.FlowControlState = CONTINUE_SEND;
+		    IODBDMAContinue(fPort.TxDBDMAChannel.dmaBase);		// Continue transfer
+		}
+		
+		// If switching away from TX xon/xoff and we've paused tx, continue it
+		if (SwitchingAwayFrom(PD_RS232_S_TXO) && fPort.RXOstate == NEEDS_XON)
+		{
+		    fPort.RXOstate = NEEDS_XOFF;
+		    fPort.FlowControlState = CONTINUE_SEND;
+		    IODBDMAContinue(fPort.TxDBDMAChannel.dmaBase);		// Continue transfer
+		}
+	    }
+		
+	    break;
 	case PD_E_ACTIVE:
             ELG( data, event, "AppleRS232Serial::executeEventGated - PD_E_ACTIVE");
             if ((bool)data)
@@ -1419,7 +1473,7 @@ IOReturn AppleRS232Serial::executeEventGated(UInt32 event, UInt32 data)
 	case PD_RS232_E_MIN_LATENCY:
             ELG(data, event, "AppleRS232Serial::executeEventGated - PD_RS232_E_MIN_LATENCY");
             fPort.MinLatency = bool(data);
-            fPort.DLRimage = 0x0000;
+            //fPort.DLRimage = 0x0000;
             break;
 	case PD_E_DATA_INTEGRITY:
             ELG(data, event, "AppleRS232Serial::executeEventGated - PD_E_DATA_INTEGRITY");
@@ -1578,17 +1632,62 @@ IOReturn AppleRS232Serial::executeEventGated(UInt32 event, UInt32 data)
 //		Outputs:	Return Code - kIOReturnSuccess, kIOReturnBadArgument
 //				data - any data associated with the event
 //
-//		Desc:		requestEvent processes the specified event as an immediate request and
-//				returns the results in data.  This is primarily used for getting link
-//				status information and verifying baud rate and such.
+//		Desc:		call requestEventGated through the command gate.
 //
 /****************************************************************************************************/
 
 IOReturn AppleRS232Serial::requestEvent(UInt32 event, UInt32 *data, void *refCon)
 {
+    IOReturn 	ret;
+    
+    ELG(event, data, "AppleRS232Serial::requestEvent");
+    
+    retain();
+    ret = fCommandGate->runAction(requestEventAction, (void *)event, (void *)data);
+    release();
+    
+    return ret;
+    
+}/* end requestEvent */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleRS232Serial::requestEventAction
+//
+//		Desc:		Dummy pass through for requestEventGated.
+//
+/****************************************************************************************************/
+
+IOReturn AppleRS232Serial::requestEventAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
+{
+    ELG(0, 0, "requestEventAction");
+    return ((AppleRS232Serial *)owner)->requestEventGated((UInt32)arg0, (UInt32 *)arg1);
+    
+}/* end requestEventAction */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleRS232Serial::requestEventGated
+//
+//		Inputs:		event - The event
+//				refCon - the Port (not used)
+//
+//		Outputs:	Return Code - kIOReturnSuccess, kIOReturnBadArgument
+//				data - any data associated with the event
+//
+//		Desc:		requestEvent processes the specified event as an immediate request and
+//				returns the results in data.  This is primarily used for getting link
+//				status information and verifying baud rate and such.
+//
+//				Queue access requires this be on the command gate.
+//
+/****************************************************************************************************/
+
+IOReturn AppleRS232Serial::requestEventGated(UInt32 event, UInt32 *data)
+{
     IOReturn	returnValue = kIOReturnSuccess;
 
-    ELG(0, 0, "AppleRS232Serial::requestEvent");
+    ELG(0, 0, "AppleRS232Serial::requestEventGated");
 
     if (data == NULL) 
     {
@@ -1706,7 +1805,7 @@ IOReturn AppleRS232Serial::requestEvent(UInt32 event, UInt32 *data, void *refCon
 
     return kIOReturnSuccess;
 	
-}/* end requestEvent */
+}/* end requestEventGated */
 
 /****************************************************************************************************/
 //
@@ -1748,7 +1847,7 @@ IOReturn AppleRS232Serial::enqueueEvent(UInt32 event, UInt32 data, bool sleep, v
 
 IOReturn AppleRS232Serial::enqueueEventAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
 {
-
+    ELG(0, 0, "enqueueEventAction");
     return ((AppleRS232Serial *)owner)->executeEventGated((UInt32)arg0, (UInt32)arg1);
     
 }/* end enqueueEventAction */
@@ -1823,7 +1922,7 @@ IOReturn AppleRS232Serial::enqueueData(UInt8 *buffer, UInt32 size, UInt32 *count
 
 IOReturn AppleRS232Serial::enqueueDataAction(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
-
+    ELG(0, 0, "enqueueDataAction");
     return ((AppleRS232Serial *)owner)->enqueueDataGated((UInt8 *)arg0, (UInt32)arg1, (UInt32 *)arg2, (bool)arg3);
     
 }/* end enqueueDataAction */
@@ -1949,7 +2048,7 @@ IOReturn AppleRS232Serial::dequeueData(UInt8 *buffer, UInt32 size, UInt32 *count
 
 IOReturn AppleRS232Serial::dequeueDataAction(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
-
+    ELG(0, 0, "dequeueDataAction");
     return ((AppleRS232Serial *)owner)->dequeueDataGated((UInt8 *)arg0, (UInt32)arg1, (UInt32 *)arg2, (UInt32)arg3);
     
 }/* end dequeueDataAction */
@@ -2050,8 +2149,10 @@ void AppleRS232Serial::CheckQueues(PortInfo_t *port)
     UInt32	OldState;
     UInt32	DeltaState;
     UInt32	SW_FlowControl;
-    UInt32	CTS_FlowControl;
+    UInt32	RTS_FlowControl;
     UInt32	DTR_FlowControl;
+    
+    ELG(0, 0, "CheckQueues");
 
     // This lock is the fix for 2977847.  The PD_S_TX_BUSY flag was getting cleared during
     // the execution of this routine by tx interrupt code, and but then this routine was
@@ -2115,19 +2216,29 @@ void AppleRS232Serial::CheckQueues(PortInfo_t *port)
     }
 
     SW_FlowControl = port->FlowControl & PD_RS232_A_RXO;
-    CTS_FlowControl = port->FlowControl & PD_RS232_A_CTS;
+    RTS_FlowControl = port->FlowControl & PD_RS232_A_RTS;
     DTR_FlowControl = port->FlowControl & PD_RS232_A_DTR;
 
         // Check to see if we are below the low water mark
 
-    if (Used < port->RXStats.LowWater)
+    if (Used < port->RXStats.LowWater)			    // if under low water mark, release any active flow control
     {
-        if ((SW_FlowControl) && (port->xOffSent))
+        if ((SW_FlowControl) && (port->xOffSent))	    // unblock xon/xoff flow control
         {
             port->xOffSent = false;
             AddBytetoQueue(&(port->TX), port->XONchar);
             SetUpTransmit(port);
         }
+	if (RTS_FlowControl && !port->RTSAsserted)	    // unblock RTS flow control
+        {
+            port->RTSAsserted = true;
+            SccSetRTS(port, true);
+        }	
+	if (DTR_FlowControl && !port->DTRAsserted)	    // unblock DTR flow control
+        {
+            port->DTRAsserted = true;
+            SccSetDTR(port, true);
+        }	
         OldState |= PD_S_RXQ_LOW_WATER;
     } else {
         OldState &= ~PD_S_RXQ_LOW_WATER;
@@ -2135,7 +2246,7 @@ void AppleRS232Serial::CheckQueues(PortInfo_t *port)
 
         // Check to see if we are above the high water mark
         
-    if (Used > port->RXStats.HighWater)
+    if (Used > port->RXStats.HighWater)			    // if over highwater mark, block w/any flow control thats enabled
     {
         if ((SW_FlowControl) && (!port->xOffSent))
         {
@@ -2144,9 +2255,10 @@ void AppleRS232Serial::CheckQueues(PortInfo_t *port)
             SetUpTransmit(port);
         }
 
-        if (CTS_FlowControl)
+        if (RTS_FlowControl && port->RTSAsserted)
         {
-            // Need to set a software overrun error flag
+	    port->RTSAsserted = false;
+	    SccSetRTS(port, false);			    // lower RTS to hold back more rx data
         }
 
         if (DTR_FlowControl && port->DTRAsserted)
@@ -2154,18 +2266,10 @@ void AppleRS232Serial::CheckQueues(PortInfo_t *port)
             port->DTRAsserted = false;
             SccSetDTR(port, false);
         }
+        OldState |= PD_S_RXQ_HIGH_WATER;
     } else {
-        if (DTR_FlowControl && !port->DTRAsserted)
-        {
-            port->DTRAsserted = true;
-            SccSetDTR(port, true);
-        }
         OldState &= ~PD_S_RXQ_HIGH_WATER;
-
-        if (port->aboveRxHighWater)
-        {
-            port->aboveRxHighWater = false;
-        }
+	port->aboveRxHighWater = false;
     }
     
         // Figure out what has changed to get mask
@@ -2239,171 +2343,96 @@ bool AppleRS232Serial::createSerialStream(IOService *provider)
 bool AppleRS232Serial::initializePort(PortInfo_t *port)
 {
     SerialDBDMAStatusInfo	*dmaInfo;
-    UInt32			descsize;
+    IODBDMADescriptor		*poolBase;
+    IODBDMADescriptor		*poolPhysical;
+    IOByteCount			temp;
+    int i;
     
     ELG(0, sizeof(IODBDMADescriptor), "AppleRS232Serial::initializePort");
-
-        // Set up the transmission channel
+    
+    // allocate the shared dbdma command pool
+    {
+	UInt32 bytes_needed = sizeof(IODBDMADescriptor) * (2*kNumberOfRxDBDMACommands + kNumberOfTxDBDMACommands);
+	port->dmaChannelCommandAreaMDP = IOBufferMemoryDescriptor::withOptions(kIOMemoryPhysicallyContiguous,	// options
+									       bytes_needed,			// size
+									       sizeof(IODBDMADescriptor));	// alignment, needs what?
+	if (port->dmaChannelCommandAreaMDP == NULL)
+	{
+	    ALERT(0, 0, "AppleRS232Serial::initializePort - DBDMA command descriptor pool not allocated");
+	    return false;
+	}
+	port->dmaChannelCommandAreaMDP->prepare();
+	poolBase     = (IODBDMADescriptor *)port->dmaChannelCommandAreaMDP->getBytesNoCopy();
+	poolPhysical = (IODBDMADescriptor *)port->dmaChannelCommandAreaMDP->getPhysicalSegment(0, &temp);
+	if (temp < bytes_needed) return false;
+	bzero(poolBase, bytes_needed);
+    }
+    
+    
+    // Set up the transmission channel
         
     dmaInfo = &port->TxDBDMAChannel;
     ELG(0, dmaInfo, "AppleRS232Serial::initializePort - dmaInfo for TX");
         
-        // Create the transmit buffer
+    // allocate the transmit Command Area buffer from the pool
+    
+    dmaInfo->dmaChannelCommandArea         = poolBase;
+    dmaInfo->dmaChannelCommandAreaPhysical = poolPhysical;
+    dmaInfo->dmaNumberOfDescriptors = kNumberOfTxDBDMACommands;		
+    poolBase	 += dmaInfo->dmaNumberOfDescriptors;
+    poolPhysical += dmaInfo->dmaNumberOfDescriptors;
+    ELG(dmaInfo->dmaChannelCommandArea, kNumberOfTxDBDMACommands, "AppleRS232Serial::initializePort - TX DMA Channel Command address, count");
+    
+    // Create the transmit buffer
 
-#if NEWPHYS
-    dmaInfo->dmaTransferBufferMDP = IOBufferMemoryDescriptor::withOptions(0, PAGE_SIZE, PAGE_SIZE);
-//    dmaInfo->dmaTransferBufferMDP = IOBufferMemoryDescriptor::withOptions(0, PAGE_SIZE, PAGE_SIZE);
-//    dmaInfo->dmaTransferBufferMDP = IOBufferMemoryDescriptor::withCapacity(PAGE_SIZE, kIODirectionOut);
+    dmaInfo->dmaTransferBufferMDP = IOBufferMemoryDescriptor::withOptions(kIOMemoryPhysicallyContiguous, kTxDBDMABufferSize, 1);
     if (dmaInfo->dmaTransferBufferMDP == NULL)
     {
-        ALERT(0, 0, "AppleRS232Serial::initializePort - TX DMA Transfer buffer descriptor not allocated");
+        ALERT(0, kTxDBDMABufferSize, "AppleRS232Serial::initializePort - TX DMA Transfer buffer descriptor not allocated");
         return false;
     }
-    
-    ELG(0, dmaInfo->dmaTransferBufferMDP, "AppleRS232Serial::initializePort - TX DMA transfer buffer MDP");
-		
     dmaInfo->dmaTransferBufferMDP->prepare();
     dmaInfo->dmaTransferBuffer = (UInt8 *)dmaInfo->dmaTransferBufferMDP->getBytesNoCopy();
-    bzero(dmaInfo->dmaTransferBuffer, PAGE_SIZE);
-    
+    bzero(dmaInfo->dmaTransferBuffer, kTxDBDMABufferSize);
     dmaInfo->dmaTransferSize = 0;
-    
-    ELG(dmaInfo->dmaTransferBuffer, PAGE_SIZE, "AppleRS232Serial::initializePort - TX DMA transfer buffer and size");
+    ELG(0, dmaInfo->dmaTransferBufferMDP, "AppleRS232Serial::initializePort - TX DMA transfer buffer MDP");
+    ELG(dmaInfo->dmaTransferBuffer, kTxDBDMABufferSize, "AppleRS232Serial::initializePort - TX DMA transfer buffer and size");
  
-#else
-    dmaInfo->dmaTransferBuffer = (UInt8 *)IOMallocContiguous(PAGE_SIZE, PAGE_SIZE, NULL);
-    if (dmaInfo->dmaTransferBuffer == NULL)
-    {
-        ALERT(0, 0, "AppleRS232Serial::initializePort - TX DMA Transfer buffer not allocated");
-        return false;
-    } else {
-        ELG(dmaInfo->dmaTransferBuffer, PAGE_SIZE, "AppleRS232Serial::initializePort - TX DMA transfer buffer and size");
+
+    // Set up the reception channelsl, two of them now
+    
+    for (i = 0; i < 2; i++) {
         
-        bzero(dmaInfo->dmaTransferBuffer, PAGE_SIZE);
-    }
-#endif
-
-        // Create the transmit Command Area buffer
-
-    dmaInfo->dmaNumberOfDescriptors = 2;
-
-#if NEWPHYS
-    dmaInfo->dmaChannelCommandAreaMDP = IOBufferMemoryDescriptor::withOptions(0, PAGE_SIZE, PAGE_SIZE);
-//    dmaInfo->dmaChannelCommandAreaMDP = IOBufferMemoryDescriptor::withOptions(0, PAGE_SIZE, PAGE_SIZE);
-//    dmaInfo->dmaChannelCommandAreaMDP = IOBufferMemoryDescriptor::withCapacity(PAGE_SIZE, kIODirectionOut);
-    if (dmaInfo->dmaChannelCommandAreaMDP == NULL)
-    {
-        dmaInfo->dmaNumberOfDescriptors = 0;
-        ALERT(0, 0, "AppleRS232Serial::initializePort - TX DMA Command Area descriptor not allocated");
-        return false;
-    }
-		
-    dmaInfo->dmaChannelCommandAreaMDP->prepare();
-    dmaInfo->dmaChannelCommandArea = (IODBDMADescriptor *)dmaInfo->dmaChannelCommandAreaMDP->getBytesNoCopy();
-    bzero(dmaInfo->dmaChannelCommandArea, sizeof(IODBDMADescriptor) * dmaInfo->dmaNumberOfDescriptors);
+	dmaInfo = &port->rxDBDMAChannels[i];
+	ELG(i, dmaInfo, "AppleRS232Serial::initializePort - dmaInfo for RX");
     
-    ELG(dmaInfo->dmaNumberOfDescriptors, PAGE_SIZE, "AppleRS232Serial::initializePort - TX DMA Channel Command number of descriptors and size");
+	// allocate the receive Command Area buffer from the pool
 
-#else  
-    dmaInfo->dmaChannelCommandArea = (IODBDMADescriptor *)IOMallocContiguous(PAGE_SIZE, PAGE_SIZE, NULL);
-    if (dmaInfo->dmaChannelCommandArea == NULL)
-    {
-        dmaInfo->dmaNumberOfDescriptors = 0;
-        ALERT(0, 0, "AppleRS232Serial::initializePort - TX DMA Channel Command Area not allocated");
-        return false;
-    } else {
-        ELG(dmaInfo->dmaNumberOfDescriptors, PAGE_SIZE, "AppleRS232Serial::initializePort - TX DMA Channel Command number of descriptors and size");
+	dmaInfo->dmaChannelCommandArea         = poolBase;
+	dmaInfo->dmaChannelCommandAreaPhysical = poolPhysical;
+	dmaInfo->dmaNumberOfDescriptors = kNumberOfRxDBDMACommands;
+	poolBase     += dmaInfo->dmaNumberOfDescriptors;
+	poolPhysical += dmaInfo->dmaNumberOfDescriptors;
+	ELG(dmaInfo->dmaChannelCommandArea, kNumberOfRxDBDMACommands, "AppleRS232Serial::initializePort - RX DMA Channel Command address, count");
         
-        bzero(dmaInfo->dmaChannelCommandArea, sizeof(IODBDMADescriptor) * dmaInfo->dmaNumberOfDescriptors);
+	// Create the receive buffer
+    
+	dmaInfo->dmaTransferBufferMDP = IOBufferMemoryDescriptor::withOptions(kIOMemoryPhysicallyContiguous, kRxDBDMABufferSize, 1);
+	if (dmaInfo->dmaTransferBufferMDP == NULL)
+	{
+	    ALERT(0, i, "AppleRS232Serial::initializePort - RX DMA Transfer buffer descriptor not allocated");
+	    return false;
+	}
+	dmaInfo->dmaTransferBufferMDP->prepare();
+	dmaInfo->dmaTransferBuffer = (UInt8 *)dmaInfo->dmaTransferBufferMDP->getBytesNoCopy();
+	bzero(dmaInfo->dmaTransferBuffer, kRxDBDMABufferSize);
+	dmaInfo->dmaTransferSize = 0;
+    
+	ELG(i, dmaInfo->dmaTransferBufferMDP, "AppleRS232Serial::initializePort - RX DMA transfer buffer MDP");
+	ELG(dmaInfo->dmaTransferBuffer, dmaInfo->dmaNumberOfDescriptors, "AppleRS232Serial::initializePort - RX DMA transfer buffer and size");
     }
-#endif
+    port->activeRxChannelIndex = 0;
 
-        // Set up the reception channel
-        
-    dmaInfo = &port->RxDBDMAChannel;
-    ELG(0, dmaInfo, "AppleRS232Serial::initializePort - dmaInfo for RX");
-    
-    dmaInfo->dmaNumberOfDescriptors = PAGE_SIZE / sizeof(IODBDMADescriptor);
-    descsize = sizeof(IODBDMADescriptor) * dmaInfo->dmaNumberOfDescriptors;
-    
-        // Create the receive Command Area buffer
-
-#if NEWPHYS
-    dmaInfo->dmaChannelCommandAreaMDP = IOBufferMemoryDescriptor::withOptions(0, descsize, PAGE_SIZE);
-//    dmaInfo->dmaChannelCommandAreaMDP = IOBufferMemoryDescriptor::withOptions(0, descsize, PAGE_SIZE);
-//    dmaInfo->dmaChannelCommandAreaMDP = IOBufferMemoryDescriptor::withCapacity(descsize, kIODirectionOut);
-    if (dmaInfo->dmaChannelCommandAreaMDP == NULL)
-    {
-        dmaInfo->dmaNumberOfDescriptors = 0;
-        ALERT(0, 0, "AppleRS232Serial::initializePort - RX DMA Command Area descriptor not allocated");
-        return false;
-    }
-    
-    dmaInfo->dmaChannelCommandAreaMDP->prepare();
-    dmaInfo->dmaChannelCommandArea = (IODBDMADescriptor *)dmaInfo->dmaChannelCommandAreaMDP->getBytesNoCopy();
-    bzero(dmaInfo->dmaChannelCommandArea, sizeof(IODBDMADescriptor) * dmaInfo->dmaNumberOfDescriptors);
-    
-    ELG(dmaInfo->dmaNumberOfDescriptors, descsize, "AppleRS232Serial::initializePort - RX DMA Channel Command number of descriptors and size");
-    
-#else    
-    dmaInfo->dmaChannelCommandArea = (IODBDMADescriptor *)IOMallocContiguous(descsize, PAGE_SIZE, NULL);
-    if (dmaInfo->dmaChannelCommandArea == NULL)
-    {
-        ALERT(0, 0, "AppleRS232Serial::initializePort - RX DMA Channel Command Area not allocated");
-        dmaInfo->dmaNumberOfDescriptors = 0;
-        return false;
-    } else {
-        ELG(dmaInfo->dmaNumberOfDescriptors, descsize, "AppleRS232Serial::initializePort - RX DMA Channel Command number of descriptors and size");
-        
-        bzero(dmaInfo->dmaChannelCommandArea, sizeof(IODBDMADescriptor) * dmaInfo->dmaNumberOfDescriptors);
-    }
-#endif
-    
-        // Create the receive buffer (each command transfers one byte - commands = bytes)
-        
-    dmaInfo->dmaTransferSize = dmaInfo->dmaNumberOfDescriptors;
-
-#if NEWPHYS
-    dmaInfo->dmaTransferBufferMDP = IOBufferMemoryDescriptor::withOptions(0, dmaInfo->dmaNumberOfDescriptors, PAGE_SIZE);
-//    dmaInfo->dmaTransferBufferMDP = IOBufferMemoryDescriptor::withOptions(0, dmaInfo->dmaNumberOfDescriptors, PAGE_SIZE);
-//    dmaInfo->dmaTransferBufferMDP = IOBufferMemoryDescriptor::withCapacity(dmaInfo->dmaNumberOfDescriptors, kIODirectionIn);
-    if (dmaInfo->dmaTransferBufferMDP == NULL)
-    {
-        ALERT(0, 0, "AppleRS232Serial::initializePort - RX DMA Transfer buffer descriptor not allocated");
-        return false;
-    }
-    
-    ELG(0, dmaInfo->dmaTransferBufferMDP, "AppleRS232Serial::initializePort - RX DMA transfer buffer MDP");
-		
-    dmaInfo->dmaTransferBufferMDP->prepare();
-    dmaInfo->dmaTransferBuffer = (UInt8 *)dmaInfo->dmaTransferBufferMDP->getBytesNoCopy();
-    bzero(dmaInfo->dmaTransferBuffer, dmaInfo->dmaNumberOfDescriptors);
-    
-    ELG(dmaInfo->dmaTransferBuffer, dmaInfo->dmaNumberOfDescriptors, "AppleRS232Serial::initializePort - RX DMA transfer buffer and size");
-
-#else
-
-    dmaInfo->dmaTransferBuffer = (UInt8*)IOMallocContiguous(dmaInfo->dmaNumberOfDescriptors, PAGE_SIZE, NULL);
-    if (dmaInfo->dmaTransferBuffer == NULL) 
-    {
-        ALERT(0, 0, "AppleRS232Serial::initializePort - RX DMA Transfer buffer not allocated");
-        return false;
-    } else {
-        ELG(dmaInfo->dmaTransferBuffer, dmaInfo->dmaNumberOfDescriptors, "AppleRS232Serial::initializePort - RX DMA transfer buffer and size");
-        
-        bzero(dmaInfo->dmaTransferBuffer, PAGE_SIZE);
-    }
-#endif
-
-    port->Instance = 0;
-    port->PortName = NULL;
-    port->MasterClock = CHIP_CLOCK_DEFAULT;
-    port->DLRimage = 0x0000;
-    port->LCRimage = 0x00;
-    port->FCRimage = 0x00;
-    port->IERmask = 0x00;
-    port->RBRmask = 0x00;
-    port->Base = 0x0000;
     port->DataLatInterval.tv_sec = 0;
     port->DataLatInterval.tv_nsec = 0;
     port->CharLatInterval.tv_sec = 0;
@@ -2433,14 +2462,11 @@ void AppleRS232Serial::setStructureDefaults(PortInfo_t *port)
     
     ELG(0, 0, "AppleRS232Serial::setStructureDefaults");
 
-    port->BreakLength = 0;
     port->BaudRate = 0;
     port->CharLength = 0;
-    port->BreakLength = 0;
     port->StopBits = 0;
     port->TX_Parity = 0;
     port->RX_Parity = 0;
-    port->WaitingForTXIdle = false;
     port->MinLatency = false;
     port->XONchar = '\x11';
     port->XOFFchar = '\x13';
@@ -2448,6 +2474,11 @@ void AppleRS232Serial::setStructureDefaults(PortInfo_t *port)
     port->FlowControlState = CONTINUE_SEND;
     port->RXOstate = IDLE_XO;
     port->TXOstate = IDLE_XO;
+    
+    port->xOffSent = false;
+    port->RTSAsserted = true;
+    port->DTRAsserted = true;
+    
 
     port->RXStats.BufferSize = BUFFER_SIZE_DEFAULT;
     port->RXStats.HighWater = (port->RXStats.BufferSize << 1) / 3;
@@ -2466,12 +2497,12 @@ void AppleRS232Serial::setStructureDefaults(PortInfo_t *port)
 	port->SWspecial[tmp] = 0;
     }
 
-    port->Stats.ints = 0;
-    port->Stats.txInts = 0;
-    port->Stats.rxInts = 0;
-    port->Stats.mdmInts = 0;
-    port->Stats.txChars = 0;
-    port->Stats.rxChars = 0;
+    //port->Stats.ints = 0;
+    //port->Stats.txInts = 0;
+    //port->Stats.rxInts = 0;
+    //port->Stats.mdmInts = 0;
+    //port->Stats.txChars = 0;
+    //port->Stats.rxChars = 0;
     port->DCDState = false;
     port->BreakState = false;
     
@@ -2517,7 +2548,7 @@ void AppleRS232Serial::freeRingBuffer(CirQueue *Queue)
 //
 /****************************************************************************************************/
 
-bool AppleRS232Serial::allocateRingBuffer(CirQueue *Queue, size_t BufferSize)
+bool AppleRS232Serial::allocateRingBuffer(CirQueue *Queue, size_t BufferSize, IOWorkLoop *workloop)
 {
     UInt8	*Buffer;
 		
@@ -2525,7 +2556,7 @@ bool AppleRS232Serial::allocateRingBuffer(CirQueue *Queue, size_t BufferSize)
     
     Buffer = (UInt8*)IOMalloc(BufferSize);
 
-    InitQueue(Queue, Buffer, BufferSize);
+    InitQueue(Queue, Buffer, BufferSize, workloop);
 
     if (Buffer)
         return true;
@@ -2553,8 +2584,17 @@ void AppleRS232Serial::shutDown()
 
         // Disable the dma channles
         
-    SccFreeReceptionChannel(&fPort);
+    SccFreeReceptionChannel(&fPort, 0);
+    SccFreeReceptionChannel(&fPort, 1);
     SccFreeTansmissionChannel(&fPort);
+    
+    if (fPort.dmaChannelCommandAreaMDP != NULL)
+    {
+	fPort.dmaChannelCommandAreaMDP->complete();
+	fPort.dmaChannelCommandAreaMDP->release();
+	fPort.dmaChannelCommandAreaMDP = NULL;
+    }
+    
 
     if (txDMAInterruptSource)
     {
@@ -2585,16 +2625,6 @@ void AppleRS232Serial::shutDown()
         fPort.rxTimer = NULL;
     }
 
-#if USE_TIMER_EVENT_SOURCE_DEBUGGING
-    if (fTimer)
-    {
-        fTimer->cancelTimeout();						// stop the timer
-        fWorkLoop->removeEventSource(fTimer);					// remove the timer from the workloop
-        fTimer->release();							// release the timer
-        fTimer = NULL;
-    }
-#endif
-
         // Turn the chip off after closing the port
         
     if (fPort.ControlRegister != NULL)
@@ -2604,24 +2634,24 @@ void AppleRS232Serial::shutDown()
 
     	// Begin fixed bug # 2550140 & 2553750
      
-    if (fPort.IODBDMARxLock)
-    {
-        IOLockFree(fPort.IODBDMARxLock);
-        fPort.IODBDMARxLock = NULL;
-    }
-    if (fPort.IODBDMATrLock)
-    {
-        IOLockFree(fPort.IODBDMATrLock);
-        fPort.IODBDMATrLock = NULL;
-    }
+    //if (fPort.IODBDMARxLock)
+    //{
+    //    IOLockFree(fPort.IODBDMARxLock);
+    //    fPort.IODBDMARxLock = NULL;
+    //}
+    //if (fPort.IODBDMATrLock)
+    //{
+    //    IOLockFree(fPort.IODBDMATrLock);
+    //    fPort.IODBDMATrLock = NULL;
+    //}
     
 	// End fixed bug # 2550140 & 2553750
     
-    if (fPort.SCCAccessLock)
-    {
-        IOLockFree(fPort.SCCAccessLock);
-        fPort.SCCAccessLock = NULL;
-    }
+    //if (fPort.SCCAccessLock)
+    //{
+    //    IOLockFree(fPort.SCCAccessLock);
+    //    fPort.SCCAccessLock = NULL;
+    //}
     
     freeRingBuffer(&(fPort.TX));
     freeRingBuffer(&(fPort.RX));
@@ -2637,36 +2667,25 @@ void AppleRS232Serial::shutDown()
         fWorkLoop = NULL;
     }
         
+	//rcs TBD??? We may need to incorporate the AppleSCCSerial::stop semantics where we explicitly check to see that the
+	//thread is not running? 
+
+	if (fdmaStartTransmissionThread != NULL)
+	{
+			thread_call_free(fdmaStartTransmissionThread);
+			fdmaStartTransmissionThread = NULL;
+	}
+		
+	if (dmaRxHandleCurrentPositionThread != NULL)
+	{
+		thread_call_free(dmaRxHandleCurrentPositionThread);
+		dmaRxHandleCurrentPositionThread = NULL;
+	}
+
+
+
 }/* end shutDown */
 
-/****************************************************************************************************/
-//
-//		Method:		AppleRS232Serial::sleepThread
-//
-//		Inputs:		Sleep/wakeup event
-//
-//		Outputs:	return Code - various, kIOReturnNotPermitted if the thread does not
-//				hold the command gate
-//
-//		Desc:		Sleeps the calling thread (must have the command gate when called).
-//
-/****************************************************************************************************/
-IOReturn AppleRS232Serial::sleepThread(void *event)
-{
-    IOReturn stat;
-
-    ELG(0, event, "AppleRS232Serial::sleepThread");
-    
-    retain();
-    fCommandGate->retain();
-    stat = fCommandGate->commandSleep((void*)&event);
-    fCommandGate->release();
-    release();
-    
-    ELG(0, stat, "AppleRS232Serial::sleepThread - Exit");
-    return stat;
-    
-}/* end sleepThread */
 
 /****************************************************************************************************/
 //
@@ -2766,7 +2785,7 @@ void AppleRS232Serial::handleInterrupt(OSObject *target, void *refCon, IOService
 {
     AppleRS232Serial *serialPortPtr = (AppleRS232Serial *)target;
 
-    ELG(0, 0, "AppleRS232Serial::handleInterrupt");
+    ELG(0, serialPortPtr->fWorkLoop->inGate(), "AppleRS232Serial::handleInterrupt, inGate");
     
     if (serialPortPtr != NULL) 
     {
@@ -2794,11 +2813,11 @@ void AppleRS232Serial::handleDBDMATxInterrupt(OSObject *target, void *refCon, IO
 {
     AppleRS232Serial *serialPortPtr = OSDynamicCast(AppleRS232Serial, target);
 
-    ELG(0, target, "AppleRS232Serial::handleDBDMATxInterrupt");
+    ELG(serialPortPtr, serialPortPtr->fWorkLoop->inGate(), "AppleRS232Serial::handleDBDMATxInterrupt, obj, inGate");
     
     if (serialPortPtr != NULL)
     {
-        PPCSerialTxDMAISR(NULL, NULL,  &serialPortPtr->fPort);
+        PPCSerialTxDMAISR(serialPortPtr, NULL,  &serialPortPtr->fPort);
     }
     
 }/* end handleDBDMATxInterrupt */
@@ -2822,49 +2841,12 @@ void AppleRS232Serial::handleDBDMARxInterrupt(OSObject *target, void *refCon, IO
 {
     AppleRS232Serial *serialPortPtr = OSDynamicCast(AppleRS232Serial, target);
     
-    ELG(0, target, "AppleRS232Serial::handleDBDMARxInterrupt");
+    ELG(serialPortPtr, serialPortPtr->fWorkLoop->inGate(), "AppleRS232Serial::handleDBDMARxInterrupt, obj, inGate");
 
     if (serialPortPtr != NULL)
     {
-#if USE_TIMER_EVENT_SOURCE_DEBUGGING    
-        serialPortPtr->myTimer->cancelTimeout();
-        serialPortPtr->myTimer->setTimeoutMS( kTimerTimeout );		// Arm a 1 second timer
-#endif    
-
-        PPCSerialRxDMAISR(NULL, NULL,  &serialPortPtr->fPort);
+        PPCSerialRxDMAISR(serialPortPtr, NULL,  &serialPortPtr->fPort);
     }
     
 }/* end handleDBDMARxInterrupt */
-
-#if USE_TIMER_EVENT_SOURCE_DEBUGGING
-/****************************************************************************************************/
-//
-//		Method:		AppleRS232Serial::timeoutHandler
-//
-//		Inputs:		owner - Hopefully it's us
-//				sender - Whomever initiated it (usually us again)
-//
-//		Outputs:	
-//
-//		Desc:		Timeout has fired
-//
-/****************************************************************************************************/
-
-void AppleRS232Serial::timeoutHandler(OSObject *owner, IOTimerEventSource *sender)
-{
-    AppleRS232Serial	*serialPortPtr;
-	
-	// Make sure that the owner of the timer is us
-        
-    serialPortPtr = OSDynamicCast(AppleRS232Serial, owner);
-    if(serialPortPtr)
-    {		
-        serialPortPtr->fCounter++;					// Increment the counter
-        HandleRxIntTimeout(serialPortPtr->fPort);
-
-        sender->setTimeoutMS(kTimerTimeout);				// Reset the timer for 1 second(s)
-    }
-    
-}/* end timeoutHandler */
-#endif
 

@@ -1,6 +1,6 @@
 // natDeflater.cc - Implementation of Deflater native methods.
 
-/* Copyright (C) 1999  Free Software Foundation
+/* Copyright (C) 1999, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -124,7 +124,9 @@ java::util::zip::Deflater::reset ()
   z_streamp s = (z_streamp) zstream;
   // Just ignore errors.
   deflateReset (s);
+  s->avail_in = 0;
   flush_flag = 0;
+  is_finished = false;
 }
 
 void

@@ -38,11 +38,10 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.peer.ScrollbarPeer;
-import java.awt.peer.ComponentPeer;
 import java.awt.event.AdjustmentListener;
 import java.awt.event.AdjustmentEvent;
-import java.io.Serializable;
+import java.awt.peer.ScrollbarPeer;
+import java.util.EventListener;
 import javax.accessibility.Accessible;
 
 /**
@@ -52,8 +51,7 @@ import javax.accessibility.Accessible;
   * @author Tom Tromey <tromey@cygnus.com>
   */
 public class Scrollbar extends Component implements Accessible,
-                                                    Adjustable,
-                                                    Serializable
+                                                    Adjustable
 {
 
 // FIXME: Serialization readObject/writeObject
@@ -119,6 +117,13 @@ private int visibleAmount;
 
 // List of AdjustmentListener's.
 private AdjustmentListener adjustment_listeners;
+
+private transient boolean valueIsAdjusting = false;
+
+  /*
+   * The number used to generate the name returned by getName.
+   */
+  private static transient long next_scrollbar_number = 0;
 
 /*************************************************************************/
 
@@ -194,9 +199,8 @@ Scrollbar(int orientation, int value, int visibleAmount, int minimum,
   // Default is 1 according to online docs.
   lineIncrement = 1;
 
-  pageIncrement = (maximum - minimum) / 5;
-  if (pageIncrement == 0)
-    pageIncrement = 1;
+  // Default is 10 according to javadocs.
+  pageIncrement = 10;
 }
 
 /*************************************************************************/
@@ -333,7 +337,7 @@ setMinimum(int minimum)
 public int
 getVisibleAmount()
 {
-  return(visibleAmount);
+  return getVisible ();
 }
 
 /*************************************************************************/
@@ -350,7 +354,7 @@ getVisibleAmount()
 public int
 getVisible()
 {
-  return(getVisibleAmount());
+  return visibleAmount;
 }
 
 /*************************************************************************/
@@ -391,17 +395,19 @@ setValues(int value, int visibleAmount, int minimum, int maximum)
   if (value > maximum)
     value = maximum;
 
-  if (visibleAmount > value)
-    visibleAmount = value;
+  if (visibleAmount > maximum - minimum)
+    visibleAmount = maximum - minimum;
+
+  ScrollbarPeer peer = (ScrollbarPeer) getPeer ();
+  if (peer != null
+      && (this.value != value || this.visibleAmount != visibleAmount
+          || this.minimum != minimum || this.maximum != maximum))
+    peer.setValues(value, visibleAmount, minimum, maximum);
 
   this.value = value;
   this.visibleAmount = visibleAmount;
   this.minimum = minimum;
   this.maximum = maximum;
-
-  ScrollbarPeer sp = (ScrollbarPeer)getPeer();
-  if (sp != null)
-    sp.setValues(value, visibleAmount, minimum, maximum);
 
   int range = maximum - minimum;
   if (lineIncrement > range)
@@ -411,8 +417,8 @@ setValues(int value, int visibleAmount, int minimum, int maximum)
       else
         lineIncrement = range;
 
-      if (sp != null)
-        sp.setLineIncrement(lineIncrement);
+      if (peer != null)
+        peer.setLineIncrement(lineIncrement);
     }
 
   if (pageIncrement > range)
@@ -422,8 +428,8 @@ setValues(int value, int visibleAmount, int minimum, int maximum)
       else
         pageIncrement = range;
 
-      if (sp != null)
-        sp.setPageIncrement(pageIncrement);
+      if (peer != null)
+        peer.setPageIncrement(pageIncrement);
     }
 }
 
@@ -438,7 +444,7 @@ setValues(int value, int visibleAmount, int minimum, int maximum)
 public int
 getUnitIncrement()
 {
-  return(lineIncrement);
+  return getLineIncrement ();
 }
 
 /*************************************************************************/
@@ -455,7 +461,7 @@ getUnitIncrement()
 public int
 getLineIncrement()
 {
-  return(lineIncrement);
+  return lineIncrement;
 }
 
 /*************************************************************************/
@@ -469,26 +475,7 @@ getLineIncrement()
 public synchronized void
 setUnitIncrement(int unitIncrement)
 {
-  if (unitIncrement < 0)
-    throw new IllegalArgumentException("Unit increment less than zero.");
-
-  int range = maximum - minimum;
-  if (unitIncrement > range)
-    {
-      if (range == 0)
-        unitIncrement = 1;
-      else
-        unitIncrement = range;
-    }
-
-  if (unitIncrement == lineIncrement)
-    return;
-
-  lineIncrement = unitIncrement;
-
-  ScrollbarPeer sp = (ScrollbarPeer)getPeer();
-  if (sp != null)
-    sp.setLineIncrement(lineIncrement);
+  setLineIncrement (unitIncrement);
 }
 
 /*************************************************************************/
@@ -505,7 +492,26 @@ setUnitIncrement(int unitIncrement)
 public void
 setLineIncrement(int lineIncrement)
 {
-  setUnitIncrement(lineIncrement);
+  if (lineIncrement < 0)
+    throw new IllegalArgumentException ("Unit increment less than zero.");
+
+  int range = maximum - minimum;
+  if (lineIncrement > range)
+    {
+      if (range == 0)
+        lineIncrement = 1;
+      else
+        lineIncrement = range;
+    }
+
+  if (lineIncrement == this.lineIncrement)
+    return;
+
+  this.lineIncrement = lineIncrement;
+
+  ScrollbarPeer peer = (ScrollbarPeer) getPeer ();
+  if (peer != null)
+    peer.setLineIncrement (this.lineIncrement);
 }
 
 /*************************************************************************/
@@ -519,7 +525,7 @@ setLineIncrement(int lineIncrement)
 public int
 getBlockIncrement()
 {
-  return(pageIncrement);
+  return getPageIncrement ();
 }
 
 /*************************************************************************/
@@ -536,7 +542,7 @@ getBlockIncrement()
 public int
 getPageIncrement()
 {
-  return(pageIncrement);
+  return pageIncrement;
 }
 
 /*************************************************************************/
@@ -550,26 +556,7 @@ getPageIncrement()
 public synchronized void
 setBlockIncrement(int blockIncrement)
 {
-  if (blockIncrement < 0)
-    throw new IllegalArgumentException("Block increment less than zero.");
-
-  int range = maximum - minimum;
-  if (blockIncrement > range)
-    {
-      if (range == 0)
-        blockIncrement = 1;
-      else
-        blockIncrement = range;
-    }
-
-  if (blockIncrement == pageIncrement)
-    return;
-
-  pageIncrement = blockIncrement;
-
-  ScrollbarPeer sp = (ScrollbarPeer)getPeer();
-  if (sp != null)
-    sp.setPageIncrement(pageIncrement);
+  setPageIncrement (blockIncrement);
 }
 
 /*************************************************************************/
@@ -586,7 +573,26 @@ setBlockIncrement(int blockIncrement)
 public void
 setPageIncrement(int pageIncrement)
 {
-  setBlockIncrement(pageIncrement);
+  if (pageIncrement < 0)
+    throw new IllegalArgumentException ("Block increment less than zero.");
+
+  int range = maximum - minimum;
+  if (pageIncrement > range)
+    {
+      if (range == 0)
+        pageIncrement = 1;
+      else
+        pageIncrement = range;
+    }
+
+  if (pageIncrement == this.pageIncrement)
+    return;
+
+  this.pageIncrement = pageIncrement;
+
+  ScrollbarPeer peer = (ScrollbarPeer) getPeer ();
+  if (peer != null)
+    peer.setPageIncrement (this.pageIncrement);
 }
 
 /*************************************************************************/
@@ -665,6 +671,7 @@ processEvent(AWTEvent event)
 protected void
 processAdjustmentEvent(AdjustmentEvent event)
 {
+  value = event.getValue();
   if (adjustment_listeners != null)
     adjustment_listeners.adjustmentValueChanged(event);
 }
@@ -701,5 +708,64 @@ paramString()
 	 + super.paramString());
 }
 
+  /**
+   * Returns an array of all the objects currently registered as FooListeners
+   * upon this <code>Scrollbar</code>. FooListeners are registered using the 
+   * addFooListener method.
+   *
+   * @exception ClassCastException If listenerType doesn't specify a class or
+   * interface that implements java.util.EventListener.
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    if (listenerType == AdjustmentListener.class)
+      return AWTEventMulticaster.getListeners (adjustment_listeners,
+                                               listenerType);
+
+    return super.getListeners (listenerType);
+  }
+
+  /**
+   * Returns an array of all registered adjustment listeners.
+   */
+  public AdjustmentListener[] getAdjustmentListeners ()
+  {
+    return (AdjustmentListener[]) getListeners (AdjustmentListener.class);
+  }
+
+  /**
+   * Returns true if the value is in the process of changing.
+   *
+   * @since 1.4
+   */
+  public boolean getValueIsAdjusting ()
+  {
+    return valueIsAdjusting;
+  }
+
+  /**
+   * Sets the value of valueIsAdjusting.
+   *
+   * @since 1.4
+   */
+  public void setValueIsAdjusting (boolean valueIsAdjusting)
+  {
+    this.valueIsAdjusting = valueIsAdjusting;
+  }
+
+  /**
+   * Generate a unique name for this scroll bar.
+   *
+   * @return A unique name for this scroll bar.
+   */
+  String generateName ()
+  {
+    return "scrollbar" + getUniqueLong ();
+  }
+
+  private static synchronized long getUniqueLong ()
+  {
+    return next_scrollbar_number++;
+  }
 } // class Scrollbar 
 

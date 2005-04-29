@@ -134,7 +134,11 @@ void CDataBuff::Clear ( uInt32 inSize )
 {
 	fLength = 0;
 
-	if ( inSize < fSize )
+	if ( inSize == 0 ) //if simple clear then just clear and leave size as is since we already allocated space
+	{
+		bzero(fData, fSize);
+	}
+	else if ( inSize < fSize )
 	{
 		::free( fData );
 		fData = nil;
@@ -143,7 +147,7 @@ void CDataBuff::Clear ( uInt32 inSize )
 	}
 	else
 	{
-		::memset( fData, 0, fSize );
+		bzero( fData, fSize );
 	}
 } // Clear
 

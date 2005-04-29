@@ -1,5 +1,5 @@
 /*
- * Copyright 1997 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1997 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -44,7 +44,7 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $XFree86: xc/programs/Xserver/mi/mibank.c,v 1.13 2003/01/01 19:16:42 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/mi/mibank.c,v 1.16 2004/01/05 16:42:10 tsi Exp $ */
 
 /*
  * This thing originated from an idea of Edwin Goei and his bank switching
@@ -300,7 +300,7 @@ static unsigned long miBankGeneration = 0;
 
 #define GCOP_0D_ARGS mode,
 #define GCOP_1D_ARGS
-#define GCOP_2D_ARGS shape, mode, 
+#define GCOP_2D_ARGS shape, mode,
 
 #define GCOP_COMPLEX(aop, atype) \
     if (nArray > 0) \
@@ -1911,7 +1911,7 @@ miBankPaintWindow(
     }
     else
     {
-        REGION_INIT(pScreen, &tmpReg, NullBox, 0);
+        REGION_NULL(pScreen, &tmpReg);
 
         for (i = 0;  i < pScreenPriv->nBanks;  i++)
         {
@@ -2082,7 +2082,7 @@ miBankSaveAreas(
     }
     else
     {
-        REGION_INIT(pScreen, &rgnClipped, NullBox, 0);
+        REGION_NULL(pScreen, &rgnClipped);
         REGION_TRANSLATE(pScreen, prgnSave, xorg, yorg);
 
         for (i = 0;  i < pScreenPriv->nBanks;  i++)
@@ -2136,7 +2136,7 @@ miBankRestoreAreas(
     }
     else
     {
-        REGION_INIT(pScreen, &rgnClipped, NullBox, 0);
+        REGION_NULL(pScreen, &rgnClipped);
 
         for (i = 0;  i < pScreenPriv->nBanks;  i++)
         {

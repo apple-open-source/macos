@@ -24,7 +24,7 @@ OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
-/* $XFree86: xc/lib/X11/XKBlibint.h,v 3.4 2001/01/17 19:41:49 dawes Exp $ */
+/* $XFree86: xc/lib/X11/XKBlibint.h,v 3.6 2003/11/17 22:20:10 dawes Exp $ */
 
 #ifndef _XKBLIBINT_H_
 #define	_XKBLIBINT_H_
@@ -36,28 +36,22 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define	XkbXlibNewKeyboard	(1<<1)
 
 typedef int	(*XkbKSToMBFunc)(
-#if NeedFunctionPrototypes
 	XPointer	/* priv */,
 	KeySym		/* sym */,
 	char *		/* buf */,
 	int		/* len */,
 	int *		/* extra_rtrn */
-#endif
 );
 
 typedef KeySym	(*XkbMBToKSFunc)(
-#if NeedFunctionPrototypes
 	XPointer	/* priv */,
 	char *		/* buf */,
 	int		/* len */,
 	Status *	/* status */
-#endif
 );
 
 typedef KeySym	(*XkbToUpperFunc)(
-#if NeedFunctionPrototypes
 	KeySym		/* sym */
-#endif
 );
 
 typedef struct _XkbConverters {
@@ -141,131 +135,103 @@ typedef struct _XkbReadBuffer {
 _XFUNCPROTOBEGIN
 
 extern	void _XkbReloadDpy(
-#if NeedFunctionPrototypes
     Display *		/* dpy */
-#endif
 );
 
 extern KeySym _XKeycodeToKeysym(
-#if NeedFunctionPrototypes
     Display*		/* display */,
+#if NeedWidePrototypes
+    unsigned int	/* keycode */,
+#else
     KeyCode		/* keycode */,
-    int			/* index */
 #endif
+    int			/* index */
 );
 
 extern KeyCode _XKeysymToKeycode(
-#if NeedFunctionPrototypes
     Display*		/* display */,
     KeySym		/* keysym */
-#endif
 );
 
 extern KeySym _XLookupKeysym(
-#if NeedFunctionPrototypes
     XKeyEvent*		/* key_event */,
     int			/* index */
-#endif
 );
 
 extern int _XRefreshKeyboardMapping(
-#if NeedFunctionPrototypes
     XMappingEvent*	/* event_map */    
-#endif
 );
 
 extern unsigned	_XKeysymToModifiers(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     KeySym 		/* ks */
-#endif
 );
 
 extern int _XTranslateKey(	
-#if NeedFunctionPrototypes
     register Display *	/* dpy */,
     KeyCode 		/* keycode */,
     register unsigned int /* modifiers */,
     unsigned int *	/* modifiers_return */,
     KeySym *		/* keysym_return */
-#endif
 );
 
 extern int	_XTranslateKeySym(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     register KeySym 	/* symbol */,
     unsigned int 	/* modifiers */,
     char *		/* buffer */,
     int 		/* nbytes */
-#endif
 );
 
 extern	int _XLookupString(
-#if NeedFunctionPrototypes
     register XKeyEvent *	/* event */,
     char *			/* buffer */,
     int 			/* nbytes */,
     KeySym *			/* keysym */,
     XComposeStatus *		/* status */
-#endif
 );
 
 extern void _XkbNoteCoreMapChanges(
-#if NeedFunctionPrototypes
     XkbMapChangesRec * 		/* old */,
     XMappingEvent * 		/* new */,
     unsigned int 		/* wanted */
-#endif
 );
 
 extern	int _XkbInitReadBuffer(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     XkbReadBufferPtr	/* buf */,
     int			/* size */
-#endif
 );
 
 extern int _XkbSkipReadBufferData(
-#if NeedFunctionPrototypes
     XkbReadBufferPtr	/* from */,
     int			/* size */
-#endif
 );
 
 extern int _XkbCopyFromReadBuffer(
-#if NeedFunctionPrototypes
     XkbReadBufferPtr	/* from */,
     char *		/* to */,
     int			/* size */
-#endif
 );
 
 
 #if defined(WORD64) || defined(LONG64)
 extern	int _XkbReadCopyData32(
-#if NeedFunctionPrototypes
     int *		/* from */,
     long *		/* to */,
     int			/* num_words */
-#endif
 );
 
 extern	int _XkbWriteCopyData32(
-#if NeedFunctionPrototypes
     unsigned long *	/* from */,
     CARD32 *		/* to */,
     int			/* num_words */
-#endif
 );
 
 extern int _XkbReadBufferCopy32(
-#if NeedFunctionPrototypes
     XkbReadBufferPtr	/* from */,
     long *		/* to */,
     int			/* size */
-#endif
 );
 #else
 #define	_XkbReadCopyData32(f,t,s)    memcpy((char *)(t),(char *)(f),(s)*4)
@@ -279,23 +245,18 @@ extern int _XkbReadBufferCopy32(
 
 #ifdef XKB_FORCE_INT_KEYSYM
 extern int _XkbReadCopyKeySyms(
-#if NeedFunctionPrototypes
     int *		/* from */,
     KeySym *		/* to */,
     int			/* num_words */
-#endif
 );
 
 extern	int _XkbWriteCopyKeySyms(
-#if NeedFunctionPrototypes
     KeySym *		/* from */,
     CARD32 *		/* to */,
     int			/* num_words */
-#endif
 );
 
 extern int _XkbReadBufferCopyKeySyms(
-#if NeedFunctionPrototypes
     XkbReadBufferPtr	/* from */,
 #ifndef NO_DEC_BUG_FIX
     KeySym *		/* to */,
@@ -303,7 +264,6 @@ extern int _XkbReadBufferCopyKeySyms(
     long *		/* to */,
 #endif
     int			/* size */
-#endif
 );
 #else
 #define	_XkbReadCopyKeySyms(f,t,n)		_XkbReadCopyData32(f,t,n)
@@ -312,92 +272,70 @@ extern int _XkbReadBufferCopyKeySyms(
 #endif
 
 extern char *_XkbPeekAtReadBuffer(
-#if NeedFunctionPrototypes
     XkbReadBufferPtr	/* from */,
     int			/*  size */
-#endif
 );
 
 extern char *_XkbGetReadBufferPtr(
-#if NeedFunctionPrototypes
     XkbReadBufferPtr	/* from */,
     int			/* size */
-#endif
 );
 #define	_XkbGetTypedRdBufPtr(b,n,t) ((t *)_XkbGetReadBufferPtr(b,(n)*SIZEOF(t)))
 
 extern int _XkbFreeReadBuffer(
-#if NeedFunctionPrototypes
     XkbReadBufferPtr	/* buf */
-#endif
 );
 
 extern Bool
 _XkbGetReadBufferCountedString(
-#if NeedFunctionPrototypes
     XkbReadBufferPtr	/* buf */,
     char **		/* rtrn */
-#endif
 );
 
 extern char	*_XkbGetCharset(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern int	 _XkbGetConverters(
-#if NeedFunctionPrototypes
     char *		/* encoding_name */,
     XkbConverters *	/* cvt_rtrn */
-#endif
 );
 
 #ifdef	NEED_MAP_READERS
 
 extern	Status	_XkbReadGetMapReply(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     xkbGetMapReply * 	/* rep */,
     XkbDescRec *	/* xkb */,
     int *		/* nread_rtrn */
-#endif
 );
 
 extern	Status	_XkbReadGetCompatMapReply(
-#if NeedFunctionPrototypes
     Display *			/* dpy */,
     xkbGetCompatMapReply *	/* rep */,
     XkbDescPtr			/* xkb */,
     int	*			/* nread_rtrn */
-#endif
 );
 
 extern	Status	_XkbReadGetIndicatorMapReply(
-#if NeedFunctionPrototypes
     Display *			/* dpy */,
     xkbGetIndicatorMapReply *	/* rep */,
     XkbDescPtr			/* xkb */,
     int	*			/* nread_rtrn */
-#endif
 );
 
 extern	Status	_XkbReadGetNamesReply(
-#if NeedFunctionPrototypes
     Display *			/* dpy */,
     xkbGetNamesReply *		/* rep */,
     XkbDescPtr 			/* xkb */,
     int *			/* nread_rtrn */
-#endif
 );
 
 extern	Status	_XkbReadGetGeometryReply(
-#if NeedFunctionPrototypes
     Display *			/* dpy */,
     xkbGetGeometryReply *	/* rep */,
     XkbDescPtr 			/* xkb */,
     int *			/* nread_rtrn */
-#endif
 );
 
 #endif

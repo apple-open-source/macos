@@ -25,16 +25,6 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef ENABLE_DMP_TREE
 
-/* If we're building with the persistent front-end, some pointers
-   may already be frozen, in which case the RP() macro defined in
-   pfe/pfe.h will uncover their true value.  */
-   
-#ifdef PFE
-#include "pfe/pfe.h"
-#else
-#define RP(p) (p)
-#endif
-
 /* Language-specific initialization  */
 typedef int (*lang_dump_tree_p_t)  PARAMS ((FILE *, const char *, tree, int));
 extern lang_dump_tree_p_t set_dump_tree_p PARAMS ((lang_dump_tree_p_t));

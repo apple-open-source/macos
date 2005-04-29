@@ -83,6 +83,17 @@
 #define kIOUPSPlugInInterfaceID CFUUIDGetConstantUUIDWithBytes(NULL, 	\
     0x63, 0xf8, 0xbf, 0xc4, 0x26, 0xa0, 0x11, 0xd8, 			\
     0x88, 0xb4, 0x0, 0xa, 0x95, 0x8a, 0x2c, 0x78)
+    
+/* E60E0799-9AA6-49DF-B55B-A5C94BA07A4A */
+/*! 
+    @define kIOUPSPlugInInterfaceID_v140
+    @discussion Interface ID for the IOUPSPlugInInterface. Corresponds to an
+                 available UPS device. 
+*/
+#define kIOUPSPlugInInterfaceID_v140 CFUUIDGetConstantUUIDWithBytes(NULL, 	\
+    0xe6, 0xe, 0x7, 0x99, 0x9a, 0xa6, 0x49, 0xdf,               \
+    0xb5, 0x5b, 0xa5, 0xc9, 0x4b, 0xa0, 0x7a, 0x4a)
+
 
 /*! 
     @typedef IOUPSEventCallbackFunction
@@ -101,7 +112,7 @@ typedef void (*IOUPSEventCallbackFunction)
                IOReturn 		result,
                void * 			refcon,
                void * 			sender,
-               CFDictionaryRef		event);
+               CFDictionaryRef  event);
 
 #define IOUPSPLUGINBASE							\
     IOReturn (*getProperties)(	void * thisPointer, 			\
@@ -116,11 +127,22 @@ typedef void (*IOUPSEventCallbackFunction)
                                 void * callbackRefcon);			\
     IOReturn (*sendCommand)(	void * thisPointer, 			\
                                 CFDictionaryRef command)
+                                
+#define IOUPSPLUGIN_V140							\
+    IOReturn (*createAsyncEventSource)(void * thisPointer,      \
+                                CFTypeRef * source)
+
 
 typedef struct IOUPSPlugInInterface {
     IUNKNOWN_C_GUTS;
     IOUPSPLUGINBASE;
 } IOUPSPlugInInterface;
+
+typedef struct IOUPSPlugInInterface_v140 {
+    IUNKNOWN_C_GUTS;
+    IOUPSPLUGINBASE;
+    IOUPSPLUGIN_V140;
+} IOUPSPlugInInterface_v140;
 
 //
 //  BEGIN READABLE STRUCTURE DEFINITIONS 
@@ -185,9 +207,10 @@ typedef struct IOUPSPlugInInterface {
             @abstract	Set the callback that should be called to handle an event 
                         from the UPS.
             @discussion The proivided callback method should be called whenever there
-                        is a change of state in the UPS.
-            @param	thisPointer	The UPS Interface to use.
-            @param   	callback 	A callback handler of type 
+                        is a change of state in the UPS.  This should be used in 
+                        conjunction with createAsyncEventSource.
+            @param      thisPointer     The UPS Interface to use.
+            @param   	callback        A callback handler of type 
                                         IOUPSEventCallbackFunction.
             @param   	callbackTarget	The address to be targeted by this callback.
             @param   	callbackRefcon	A user specified reference value. This will 
@@ -205,12 +228,27 @@ typedef struct IOUPSPlugInInterface {
             @discussion	Command keys are defined in IOPSKeys.h and begin with 
                         kIOPSCommand.  An error should be returned if your device does
                         not know how to respond to a command.
-            @param	thisPointer	The UPS Interface to use.
-            @param   	command		CFDictionaryRef that contains the command.
+            @param      thisPointer     The UPS Interface to use.
+            @param   	command         CFDictionaryRef that contains the command.
             @result	An IOReturn error code.
     */
     IOReturn (*sendCommand)(	void * thisPointer,
                                 CFDictionaryRef command);
+                                
+    /*!
+            @function 	createAsyncEventSource 
+            @abstract	Used to create an async run loop event source of the plugin. 
+            @discussion This is an allocation method.  Thus the caller must 
+                        release the object that is returned.
+            @param      thisPointer 	The UPS Interface to use.
+            @param   	source          Pointer to a CFTypeRef.  It is expected that this
+                                        point to either a CFRunLoopSourceRef or a 
+                                        CFRunLoopTimerRef.
+            @result	An IOReturn error code.
+    */
+    IOReturn (*createAsyncEventSource)(	void * thisPointer,
+                                        CFTypeRef * source);
+
 
 } IOUPSPlugInInterface;
 #endif

@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
  * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
+ * are subject to the Apple Public Source License Version 2.0 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
@@ -30,6 +30,40 @@
 #include <sl.h>
 #include "hfs_CaseTables.h"
 
+#if ! UNCOMPRESSED
+
+static unsigned short *
+UncompressStructure(struct compressed_block *bp, int count, int size)
+{
+    unsigned short *out = malloc(size);
+    unsigned short *op = out;
+    unsigned short data;
+    int i, j;
+
+    for (i=0; i<count; i++, bp++) {
+        data = bp->data;
+        for (j=0; j<bp->count; j++) {
+            *op++ = data;
+            if (bp->type == kTypeAscending) data++;
+            else if (bp->type == kTypeAscending256) data += 256;
+        }
+    }
+    return out;
+}
+
+static void
+InitCompareTables(void)
+{
+    if (gCompareTable == 0) {
+        gCompareTable = UncompressStructure(gCompareTableCompressed,
+                                            kCompareTableNBlocks, kCompareTableDataSize);
+        gLowerCaseTable = UncompressStructure(gLowerCaseTableCompressed,
+                                            kLowerCaseTableNBlocks, kLowerCaseTableDataSize);
+    }
+}
+
+#endif /* ! UNCOMPRESSED */
+
 //_______________________________________________________________________
 //
 //	Routine:	FastRelString
@@ -44,6 +78,10 @@ int32_t	FastRelString(char * str1, char * str2)
 {
 	int32_t  bestGuess;
 	u_int8_t length, length2;
+
+#if ! UNCOMPRESED
+        InitCompareTables();
+#endif
 
 	length = *(str1++);
 	length2 = *(str2++);
@@ -153,6 +191,10 @@ int32_t FastUnicodeCompare( u_int16_t * str1, register u_int32_t length1,
 	register u_int16_t c1,c2;
 	register u_int16_t temp;
 
+#if ! UNCOMPRESSED
+        InitCompareTables();
+#endif
+
 	while (1) {
 		/* Set default values for c1, c2 in case there are no more valid chars */
 		c1 = 0;
@@ -188,6 +230,43 @@ int32_t FastUnicodeCompare( u_int16_t * str1, register u_int32_t length1,
 }
 
 
+//
+//  BinaryUnicodeCompare - Compare two Unicode strings; produce a relative ordering
+//  Compared using a 16-bit binary comparison (no case folding)
+//
+int32_t BinaryUnicodeCompare (u_int16_t * str1, u_int32_t length1,
+                              u_int16_t * str2, u_int32_t length2)
+{
+        register u_int16_t c1, c2;
+        int32_t bestGuess;
+        u_int32_t length;
+
+        bestGuess = 0;
+
+        if (length1 < length2) {
+                length = length1;
+                --bestGuess;
+        } else if (length1 > length2) {
+                length = length2;
+                ++bestGuess;
+        } else {
+                length = length1;
+        }
+
+        while (length--) {
+                c1 = *(str1++);
+                c2 = *(str2++);
+
+                if (c1 > c2)
+                        return (1);
+                if (c1 < c2)
+                        return (-1);
+        }
+
+        return (bestGuess);
+}
+
+
 /*
  * UTF-8 (UCS Transformation Format)
  *
@@ -216,7 +295,7 @@ int32_t FastUnicodeCompare( u_int16_t * str1, register u_int32_t length1,
  */
 void
 utf_encodestr( const u_int16_t * ucsp, int ucslen,
-               u_int8_t * utf8p, u_int32_t bufsize )
+               u_int8_t * utf8p, u_int32_t bufsize, int byte_order )
 {
 	u_int8_t *bufend;
 	u_int16_t ucs_ch;
@@ -224,7 +303,10 @@ utf_encodestr( const u_int16_t * ucsp, int ucslen,
 	bufend = utf8p + bufsize;
 
 	while (ucslen-- > 0) {
-		ucs_ch = SWAP_BE16(*ucsp++);
+                if (byte_order == OSBigEndian)
+		    ucs_ch = SWAP_BE16(*ucsp++);
+                else
+                    ucs_ch = SWAP_LE16(*ucsp++);
 
 		if (ucs_ch < 0x0080) {
 			if (utf8p >= bufend)
@@ -259,7 +341,7 @@ utf_encodestr( const u_int16_t * ucsp, int ucslen,
  * ucslen is the number of UCS-2 output characters (not bytes)
  * bufsize is the size of the output buffer in bytes
  */
-void utf_decodestr(const u_int8_t * utf8p, u_int16_t * ucsp, u_int16_t * ucslen, u_int32_t bufsize)
+void utf_decodestr(const u_int8_t * utf8p, u_int16_t * ucsp, u_int16_t * ucslen, u_int32_t bufsize, int byte_order)
 {
 	u_int16_t *bufstart;
 	u_int16_t *bufend;
@@ -277,7 +359,11 @@ void utf_decodestr(const u_int8_t * utf8p, u_int16_t * ucsp, u_int16_t * ucslen,
 		if (byte < 0x80) {
 			ucs_ch = byte;
 			
-			*ucsp++ = SWAP_BE16(ucs_ch);
+                        if (byte_order == OSBigEndian)
+		            *ucsp++ = SWAP_BE16(ucs_ch);
+                        else
+                            *ucsp++ = SWAP_LE16(ucs_ch);
+			
 			continue;
 		}
 
@@ -309,8 +395,14 @@ void utf_decodestr(const u_int8_t * utf8p, u_int16_t * ucsp, u_int16_t * ucslen,
 			goto stop;
 		ucs_ch += (byte & 0x3F);  
 
-		*ucsp++ = SWAP_BE16(ucs_ch);
+                if (byte_order == OSBigEndian)
+                    *ucsp++ = SWAP_BE16(ucs_ch);
+                else
+                    *ucsp++ = SWAP_LE16(ucs_ch);
 	}
 stop:
-	*ucslen = SWAP_BE16(ucsp - bufstart);
+        if (byte_order == OSBigEndian)
+            *ucslen = SWAP_BE16(ucsp - bufstart);
+        else
+            *ucslen = SWAP_LE16(ucsp - bufstart);
 }

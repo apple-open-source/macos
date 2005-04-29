@@ -26,8 +26,10 @@ class CCISharedCCData:
 		CCIUInt32											mSize;
 		Implementations::Vector <unsigned char>::Shared		mData;
 
-        friend std::istream& operator >> (std::istream& inStream, CCISharedCCData& ioData);
+                friend void ReadData (std::istream& inStream, CCISharedCCData& ioData);
+                friend void WriteData (std::ostream& ioStream, const CCISharedCCData& inData);
 };
+
 
 class CCISharedCCDataArray:
 	public Implementations::SharedData {
@@ -50,8 +52,10 @@ class CCISharedCCDataArray:
 	private:
 		Implementations::Vector <CCISharedCCData*>::Shared	mItems;
                 
-        friend std::istream& operator >> (std::istream& inStream, CCISharedCCDataArray& ioArray);
-};
+                friend void ReadDataArray (std::istream& ioStream, CCISharedCCDataArray& ioArray); 
+                friend void WriteDataArray (std::ostream& ioStream, const CCISharedCCDataArray& inDataArray);
+ };
+
 
 namespace CallImplementations {
 	typedef ::CCISharedCCData CCISharedCCData;

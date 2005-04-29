@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: extern.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
+ * $Id: extern.h,v 1.18 1994/05/31 12:31:57 mlschroe Exp $ FAU
  */
 
 #if !defined(__GNUC__) || __GNUC__ < 2
@@ -41,7 +41,6 @@ extern void  Panic __P((int, char *, ...)) __attribute__((format(printf, 2, 3)))
 extern void  Msg __P(());
 extern void  Panic __P(());
 #endif
-extern void  DisplaySleep __P((int, int));
 extern void  Finit __P((int));
 extern void  MakeNewEnv __P((void));
 extern char *MakeWinMsg __P((char *, struct win *, int));
@@ -68,7 +67,7 @@ extern int   MFindUsedLine __P((struct win *, int, int));
 /* fileio.c */
 extern void  StartRc __P((char *));
 extern void  FinishRc __P((char *));
-extern void  RcLine __P((char *));
+extern void  RcLine __P((char *, int));
 extern FILE *secfopen __P((char *, char *));
 extern int   secopen __P((char *, int, int));
 extern void  WriteFile __P((struct acluser *, char *, int));
@@ -76,6 +75,7 @@ extern char *ReadFile __P((char *, int *));
 extern void  KillBuffers __P((void));
 extern int   printpipe __P((struct win *, char *));
 extern int   readpipe __P((char **));
+extern void  RunBlanker __P((char **));
 extern void  do_source __P((char *));
 
 /* tty.c */
@@ -122,9 +122,13 @@ extern void  display_help __P((char *, struct action *));
 extern void  display_copyright __P((void));
 extern void  display_displays __P((void));
 extern void  display_bindkey __P((char *, struct action *));
-extern void  display_wlist __P((int));
+extern void  display_wlist __P((int, int));
 extern int   InWList __P((void));
 extern void  WListUpdatecv __P((struct canvas *, struct win *));
+extern void  WListLinkChanged __P((void));
+#ifdef ZMODEM
+extern void  ZmodemPage __P((void));
+#endif
 
 /* window.c */
 extern int   MakeWindow __P((struct NewWindow *));
@@ -139,7 +143,10 @@ extern int   DoStartLog __P((struct win *, char *, int));
 extern int   ReleaseAutoWritelock __P((struct display *, struct win *));
 extern int   ObtainAutoWritelock __P((struct display *, struct win *));
 extern void  CloseDevice __P((struct win *));
-
+#ifdef ZMODEM
+extern void  zmodem_abort __P((struct win *, struct display *));
+#endif
+extern void  execvpe __P((char *, char **, char **));
 
 /* utmp.c */
 #ifdef UTMPOK
@@ -179,12 +186,12 @@ extern void  ProcessInput2 __P((char *, int));
 extern void  DoProcess __P((struct win *, char **, int *, struct paster *));
 extern void  DoAction  __P((struct action *, int));
 extern int   FindCommnr __P((char *));
-extern void  DoCommand __P((char **));
+extern void  DoCommand __P((char **, int *));
 extern void  Activate __P((int));
 extern void  KillWindow __P((struct win *));
 extern void  SetForeWindow __P((struct win *));
-extern int   Parse __P((char *, char **));
-extern int   ParseEscape __P((struct acluser *, char *));
+extern int   Parse __P((char *, int, char **, int *));
+extern void  SetEscape __P((struct acluser *, int, int));
 extern void  DoScreen __P((char *, char **));
 extern int   IsNumColon __P((char *, int, char *, int));
 extern void  ShowWindows __P((int));
@@ -194,7 +201,7 @@ extern char *AddOtherUsers __P((char *, int, struct win *));
 extern int   WindowByNoN __P((char *));
 extern struct win *FindNiceWindow __P((struct win *, char *));
 #ifdef COPY_PASTE
-extern int   CompileKeys __P((char *, unsigned char *));
+extern int   CompileKeys __P((char *, int, unsigned char *));
 #endif
 #ifdef RXVT_OSC
 extern void  RefreshXtermOSC __P((void));
@@ -205,6 +212,7 @@ extern int   ParseSwitch __P((struct action *, int *));
 extern int   ParseAttrColor __P((char *, char *, int));
 extern void  ApplyAttrColor __P((int, struct mchar *));
 extern void  SwitchWindow __P((int));
+extern int   StuffKey __P((int));
 
 /* termcap.c */
 extern int   InitTermcap __P((int, int));
@@ -296,6 +304,9 @@ extern int   color256to16 __P((int));
 extern int   color256to88 __P((int));
 # endif
 #endif
+extern void  ResetIdle __P((void));
+extern void  KillBlanker __P((void));
+extern void  DisplaySleep1000 __P((int, int));
 
 /* resize.c */
 extern int   ChangeWindowSize __P((struct win *, int, int, int));
@@ -327,6 +338,7 @@ extern int   SendErrorMsg __P((char *, char *));
 
 /* misc.c */
 extern char *SaveStr __P((const char *));
+extern char *SaveStrn __P((const char *, int));
 extern char *InStr __P((char *, const char *));
 #ifndef HAVE_STRERROR
 extern char *strerror __P((int));
@@ -356,7 +368,6 @@ extern void  xsetegid  __P((int));
 extern int   AddXChar __P((char *, int));
 extern int   AddXChars __P((char *, int, char *));
 extern void  xsetenv  __P((char *, char *));
-extern char *expand_vars __P((char *, struct display *));
 extern void  sleep1000 __P((int));
 #ifdef DEBUG
 extern void  opendebug __P((int, int));

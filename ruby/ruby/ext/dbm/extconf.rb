@@ -11,6 +11,7 @@ $dbm_conf_headers = {
   "dbm" => ["ndbm.h"],
   "gdbm" => ["gdbm-ndbm.h", "ndbm.h"],
   "gdbm_compat" => ["gdbm-ndbm.h", "ndbm.h"],
+  "qdbm" => ["relic.h"],
 }
 
 def db_check(db)
@@ -31,8 +32,9 @@ def db_check(db)
 
   if have_library(db, db_prefix("dbm_open")) || have_func(db_prefix("dbm_open"))
     for hdr in $dbm_conf_headers.fetch(db, ["ndbm.h"])
-      if have_header(hdr.dup)
-	$CFLAGS += " " + hsearch + "-DDBM_HDR='<"+hdr+">'"
+      if have_header(hdr.dup) and have_type("DBM", hdr.dup, hsearch)
+	$CFLAGS += " " + hsearch + '-DDBM_HDR="<'+hdr+'>"'
+	$CPPFLAGS += " " + hsearch + '-DDBM_HDR="<'+hdr+'>"'
 	return true
       end
     end
@@ -47,14 +49,14 @@ end
 if dblib
   db_check(dblib)
 else
-  for dblib in %w(db db2 db1 dbm gdbm)
+  for dblib in %w(db db2 db1 dbm gdbm gdbm_compat qdbm)
     db_check(dblib) and break
   end
 end
 
 have_header("cdefs.h") 
 have_header("sys/cdefs.h") 
-if /DBM_HDR/ =~ $CFLAGS and have_func(db_prefix("dbm_open"))
+if (/DBM_HDR/ =~ $CFLAGS || /DBM_HDR/ =~ $CPPFLAGS) and have_func(db_prefix("dbm_open"))
   have_func(db_prefix("dbm_clearerr")) unless $dbm_conf_have_gdbm
   create_makefile("dbm")
 end

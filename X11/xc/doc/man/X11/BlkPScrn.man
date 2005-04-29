@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/BlkPScrn.man,v 1.2 2001/01/27 18:19:56 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/BlkPScrn.man,v 1.3 2003/04/28 22:17:53 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,47 +144,46 @@
 .SH NAME
 BlackPixelOfScreen, WhitePixelOfScreen, CellsOfScreen, DefaultColormapOfScreen, DefaultDepthOfScreen, DefaultGCOfScreen, DefaultVisualOfScreen, DoesBackingStore, DoesSaveUnders, DisplayOfScreen, XScreenNumberOfScreen, EventMaskOfScreen, HeightOfScreen, HeightMMOfScreen, MaxCmapsOfScreen, MinCmapsOfScreen, PlanesOfScreen, RootWindowOfScreen, WidthOfScreen, WidthMMOfScreen \- screen information functions and macros
 .SH SYNTAX
-BlackPixelOfScreen\^(\^\fIscreen\fP\^)
-.LP
-WhitePixelOfScreen\^(\^\fIscreen\fP\^)
-.LP
-CellsOfScreen\^(\^\fIscreen\fP\^)
-.LP
-DefaultColormapOfScreen\^(\^\fIscreen\fP\^)
-.LP
-DefaultDepthOfScreen\^(\^\fIscreen\fP\^)
-.LP
-DefaultGCOfScreen\^(\^\fIscreen\fP\^)
-.LP
-DefaultVisualOfScreen\^(\^\fIscreen\fP\^)
-.LP
-DoesBackingStore\^(\^\fIscreen\fP\^)
-.LP
-DoesSaveUnders\^(\^\fIscreen\fP\^)
-.LP
-DisplayOfScreen\^(\^\fIscreen\fP\^)
-.LP
-int XScreenNumberOfScreen\^(\^\fIscreen\fP\^)
-.br
-      Screen *\fIscreen\fP\^;
-.LP
-EventMaskOfScreen\^(\^\fIscreen\fP\^)
-.LP
-HeightOfScreen\^(\^\fIscreen\fP\^)
-.LP
-HeightMMOfScreen\^(\^\fIscreen\fP\^)
-.LP
-MaxCmapsOfScreen\^(\^\fIscreen\fP\^)
-.LP
-MinCmapsOfScreen\^(\^\fIscreen\fP\^)
-.LP
-PlanesOfScreen\^(\^\fIscreen\fP\^)
-.LP
-RootWindowOfScreen\^(\^\fIscreen\fP\^)
-.LP
-WidthOfScreen\^(\^\fIscreen\fP\^)
-.LP
-WidthMMOfScreen\^(\^\fIscreen\fP\^)
+.HP
+unsigned long BlackPixelOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+unsigned long WhitePixelOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int CellsOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+Colormap DefaultColormapOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int DefaultDepthOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+GC DefaultGCOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+Visual *DefaultVisualOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int DoesBackingStore\^(\^Screen *\fIscreen\fP\^);
+.HP
+Bool DoesSaveUnders\^(\^Screen *\fIscreen\fP\^);
+.HP
+Display *DisplayOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int XScreenNumberOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+long EventMaskOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int HeightOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int HeightMMOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int MaxCmapsOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int MinCmapsOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int PlanesOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+Window RootWindowOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int WidthOfScreen\^(\^Screen *\fIscreen\fP\^);
+.HP
+int WidthMMOfScreen\^(\^Screen *\fIscreen\fP\^);
 .SH ARGUMENTS
 .IP \fIscreen\fP 1i
 Specifies the appropriate 

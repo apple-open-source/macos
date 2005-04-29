@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!-- name="generator" content="$BLOJSOM_VERSION" -->
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        #foreach ($entry in $BLOJSOM_ENTRIES)
+        <title>$entry.getEscapedTitle()</title>
+        <link>$entry.getEscapedLink()</link>
+        <description>$entry.getEscapedDescription()</description>
+        <language>$BLOJSOM_BLOG.getBlogLanguage()</language>
+		<dc:creator>$BLOJSOM_BLOG.getBlogOwnerEmail()</dc:creator>
+		<generator>$BLOJSOM_VERSION</generator>
+		<docs>http://backend.userland.com/rss</docs>
+
+        #foreach ($entryComment in $entry.getComments())
+        <item>
+           <title>$entry.getEscapedTitle()</title>
+           <link>$entry.getEscapedLink()</link>
+           <description>$entryComment.getComment()</description>
+		   <dc:creator>$entryComment.getAuthor()</dc:creator>
+		   <dc:date>$entryComment.getISO8601Date()</dc:date>
+        </item>
+        #end
+        #end
+    </channel>
+</rss>
+
+

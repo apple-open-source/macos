@@ -1,17 +1,19 @@
-/*
- * Copyright 2001-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* ldap_queue.h -- queue macros */
+/* $OpenLDAP: pkg/ldap/include/ldap_queue.h,v 1.8.2.3 2004/01/01 18:16:28 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2001-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/* stolen from FreeBSD for use in OpenLDAP */
-/* $OpenLDAP: pkg/ldap/include/ldap_queue.h,v 1.3.2.3 2003/05/24 23:06:41 kurt Exp $ */
-/*
- * Copyright (c) 1991, 1993
+/* Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,8 +46,13 @@
  *
  *	@(#)queue.h	8.5 (Berkeley) 8/20/94
  * $FreeBSD: src/sys/sys/queue.h,v 1.32.2.5 2001/09/30 21:12:54 luigi Exp $
+ *
+ * See also: ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change
  */
-/* See also: ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change */
+/* ACKNOWLEDGEMENTS:
+ * This work is derived from FreeBSD queue.h work.  Adapted for use in
+ * OpenLDAP Software by Kurt D. Zeilenga.
+ */
 
 #ifndef _LDAP_QUEUE_H_
 #define	_LDAP_QUEUE_H_
@@ -136,6 +143,9 @@ struct {								\
 	struct type *sle_next;	/* next element */			\
 }
 
+#define LDAP_SLIST_ENTRY_INITIALIZER(entry)				\
+	{ NULL }
+
 /*
  * Singly-linked List functions.
  */
@@ -195,6 +205,9 @@ struct name {								\
 struct {								\
 	struct type *stqe_next;	/* next element */			\
 }
+
+#define LDAP_STAILQ_ENTRY_INITIALIZER(entry)				\
+	{ NULL }
 
 /*
  * Singly-linked Tail queue functions.
@@ -279,6 +292,9 @@ struct {								\
 	struct type **le_prev;	/* address of previous next element */	\
 }
 
+#define LDAP_LIST_ENTRY_INITIALIZER(entry)			\
+	{ NULL, NULL }
+
 /*
  * List functions.
  */
@@ -343,13 +359,16 @@ struct {								\
 	struct type **tqe_prev;	/* address of previous next element */	\
 }
 
+#define LDAP_TAILQ_ENTRY_INITIALIZER(entry)				\
+	{ NULL, NULL }
+
 /*
  * Tail queue functions.
  */
 #define	LDAP_TAILQ_EMPTY(head) ((head)->tqh_first == NULL)
 
 #define LDAP_TAILQ_FOREACH(var, head, field)				\
-	for (var = LDAP_TAILQ_FIRST(head); var; var = TAILQ_NEXT(var, field))
+	for (var = LDAP_TAILQ_FIRST(head); var; var = LDAP_TAILQ_NEXT(var, field))
 
 #define LDAP_TAILQ_FOREACH_REVERSE(var, head, type, field)		\
 	for ((var) = LDAP_TAILQ_LAST((head), type, field);		\

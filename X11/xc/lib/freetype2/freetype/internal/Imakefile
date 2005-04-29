@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/freetype2/freetype/internal/Imakefile,v 1.5 2002/06/20 08:26:20 keithp Exp $
+XCOMM $XFree86: xc/lib/freetype2/freetype/internal/Imakefile,v 1.6 2003/05/29 03:05:09 dawes Exp $
 
 FREETYPETOP = $(TOP)/extras/freetype2
 FREETYPESRC = $(FREETYPETOP)/src
@@ -24,6 +24,7 @@ HEADERS= \
         internal.h \
         pcftypes.h \
         psaux.h \
+        pfr.h \
         pshints.h \
         psnames.h \
         sfnt.h \
@@ -52,6 +53,7 @@ LinkSourceFile(ftstream.h,$(FREETYPEINC)/internal)
 LinkSourceFile(fttrace.h,$(FREETYPEINC)/internal)
 LinkSourceFile(internal.h,$(FREETYPEINC)/internal)
 LinkSourceFile(pcftypes.h,$(FREETYPEINC)/internal)
+LinkSourceFile(pfr.h,$(FREETYPEINC)/internal)
 LinkSourceFile(psaux.h,$(FREETYPEINC)/internal)
 LinkSourceFile(pshints.h,$(FREETYPEINC)/internal)
 LinkSourceFile(psnames.h,$(FREETYPEINC)/internal)

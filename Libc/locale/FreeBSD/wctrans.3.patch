@@ -1,0 +1,53 @@
+--- wctrans.3.orig	Fri Mar 11 18:13:15 2005
++++ wctrans.3	Fri Mar 11 18:14:31 2005
+@@ -28,7 +28,8 @@
+ .Dt WCTRANS 3
+ .Os
+ .Sh NAME
+-.Nm towctrans , wctrans
++.Nm towctrans , wctrans ,
++.Nm towctrans_l , wctrans_l
+ .Nd "wide character mapping functions"
+ .Sh LIBRARY
+ .Lb libc
+@@ -38,6 +39,11 @@
+ .Fn towctrans "wint_t wc" "wctrans_t desc"
+ .Ft wctrans_t
+ .Fn wctrans "const char *charclass"
++.In xlocale.h
++.Ft wint_t
++.Fn towctrans_l "wint_t wc" "wctrans_t desc" "locale_t loc"
++.Ft wctrans_t
++.Fn wctrans_l "const char *charclass" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn wctrans
+@@ -58,6 +64,18 @@
+ .Fa wc
+ according to the mapping described by
+ .Fa desc .
++.Pp
++While the
++.Fn towctrans
++and
++.Fn wctrans
++functions use the current locale, the
++.Fn towctrans_l
++and
++.Fn wctrans_l
++functions may be passed locales directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn towctrans
+@@ -105,7 +123,8 @@
+ .Sh SEE ALSO
+ .Xr tolower 3 ,
+ .Xr toupper 3 ,
+-.Xr wctype 3
++.Xr wctype 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn towctrans

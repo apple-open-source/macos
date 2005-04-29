@@ -1,0 +1,340 @@
+.\"
+.\" $XFree86: xc/lib/apple/AppleWM.man,v 1.2 2003/09/16 00:36:08 torrey Exp $
+.\"
+.\" Copyright (c) 2002 Apple Computer, Inc. All Rights Reserved.
+.\" Copyright (c) 2003 Torrey T. Lyons. All Rights Reserved.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a
+.\" copy of this software and associated documentation files (the
+.\" "Software"), to deal in the Software without restriction, including
+.\" without limitation the rights to use, copy, modify, merge, publish,
+.\" distribute, sub license, and/or sell copies of the Software, and to
+.\" permit persons to whom the Software is furnished to do so, subject to
+.\" the following conditions:
+.\" 
+.\" The above copyright notice and this permission notice (including the
+.\" next paragraph) shall be included in all copies or substantial portions
+.\" of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+.\" IN NO EVENT SHALL PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR
+.\" ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+.\" TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+.\" SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\"
+.de TQ
+.br
+.ns
+.TP \\$1
+..
+.TH APPLEWM 3 "Version 1.0" "XFree86"
+
+.SH NAME
+ AppleWM \- Apple rootless window management extension.
+.SH SYNTAX
+\&#include <X11/extensions/applewm.h>
+.nf    
+.sp
+Bool XAppleWMQueryExtension \^(\^Display *\fIdpy\fP, 
+        int *\fIevent_basep\fP, int *\fIerror_basep\fP\^);
+.sp
+Status XAppleWMQueryVersion \^(\^Display *\fIdpy\fP,
+        int *\fImajor_versionp\fP, int *\fIminor_versionp\fP\^);
+.sp
+Bool XAppleWMDisableUpdate \^(\^Display *\fIdpy\fP, int \fIscreen\fP\^);
+.sp
+Bool XAppleWMReenableUpdate \^(\^Display *\fIdpy\fP, int \fIscreen\fP\^);
+.sp
+Bool XAppleWMSelectInput \^(\^Display *\fIdpy\fP, unsigned long \fImask\fP\^);
+.sp
+Bool XAppleWMSetWindowMenu \^(\^Display *\fIdpy\fP, int \fInitems\fP,
+        const char **\fIitems\fP\^);
+.sp
+Bool XAppleWMSetWindowMenuWithShortcuts \^(\^Display *\fIdpy\fP,
+        int \fInitems\fP, const char **\fIitems\fP,
+        const char *\fIshortcuts\fP\^);
+.sp
+Bool XAppleWMSetWindowMenuCheck \^(\^Display *\fIdpy\fP, int \fIindex\fP\^);
+.sp
+Bool XAppleWMSetFrontProcess \^(\^Display *\fIdpy\fP\^);
+.sp
+Bool XAppleWMSetWindowLevel \^(\^Display *\fIdpy\fP, Window \fIwindow\fP,
+        int \fIlevel\fP\^);
+.sp
+Bool XAppleWMSetCanQuit \^(\^Display *\fIdpy\fP, Bool \fIstate\fP\^);
+.sp
+Bool XAppleWMFrameGetRect \^(\^Display *\fIdpy\fP,
+        unsigned int \fIframe_class\fP,
+        unsigned int \fIframe_rect\fP,
+        short \fIinner_x\fP, short \fIinner_y\fP,
+        short \fIinner_w\fP, short \fIinner_h\fP,
+        short \fIouter_x\fP, short \fIouter_y\fP,
+        short \fIouter_w\fP, short \fIouter_h\fP,
+        short *\fIret_x\fP, short *\fIret_y\fP,
+        short *\fIret_w\fP, short *\fIret_h\fP\^);
+.sp
+unsigned int XAppleWMFrameHitTest \^(\^Display *\fIdpy\fP,
+        unsigned int \fIframe_class\fP,
+        short \fIpoint_x\fP, short \fIpoint_y\fP,
+        short \fIinner_x\fP, short \fIinner_y\fP,
+        short \fIinner_w\fP, short \fIinner_h\fP,
+        short \fIouter_x\fP, short \fIouter_y\fP,
+        short \fIouter_w\fP, short \fIouter_h\fP\^);
+.sp
+Bool XAppleWMFrameDraw \^(\^Display *\fIdpy\fP, int \fIscreen\fP,
+        Window \fIwindow\fP,
+        unsigned int \fIframe_class\fP,
+        unsigned int \fIframe_attr\fP,
+        short \fIinner_x\fP, short \fIinner_y\fP,
+        short \fIinner_w\fP, short \fIinner_h\fP,
+        short \fIouter_x\fP, short \fIouter_y\fP,
+        short \fIouter_w\fP, short \fIouter_h\fP,
+        unsigned int \fItitle_length\fP,
+        const unsigned char *\fItitle_bytes\fP);
+.fi
+.SH ARGUMENTS
+.IP \fIdpy\fP 1i
+Specifies the connection to the X server.
+.IP \fIscreen\fP 1i
+Specifies which screen.
+.IP \fImask\fP 1i
+Mask of event types the client is interested in.
+.IP \fIwindow\fP 1i
+Specifies which window.
+.IP \fIlevel\fP 1i
+Specifies the window level.
+.IP \fIframe_class\fP 1i
+Specifies the class of window frame decoration.
+.IP \fIframe_rect\fP 1i
+Specifies which rectangle to return from the window frame decoration.
+.IP \fIframe_attr\fP 1i
+A mask specifying the attributes of the window frame decoration.
+.IP \fIinner_x\fP,\fIinner_y\fP,\fIinner_w\fP,\fIinner_h\fP 1i
+Rectangle of the window content inside the window frame decoration.
+.IP \fIouter_x\fP,\fIouter_y\fP,\fIouter_w\fP,\fIouter_h\fP 1i
+Rectangle of the outer border of the window frame decoration.
+.IP \fIpoint_x\fP,\fIpoint_y\fP 1i
+Specifies the coordinates of the mouse up event.
+
+.SH DATATYPES
+
+.PP
+.B Events
+.nf
+typedef struct {
+    int type;               \/* of event *\/
+    unsigned long serial;   \/* # of last request processed by server *\/
+    Bool send_event;        \/* true if came from a SendEvent request *\/
+    Display *display;       \/* Display the event was read from *\/
+    Window window;          \/* window of event *\/
+    Time time;              \/* server timestamp when event happened *\/
+    int kind;               \/* subtype of event *\/
+    int arg;
+} XAppleWMNotifyEvent;
+.fi
+.B XAppleWMNotifyEvent
+is sent to a client who has requested notification of AppleWM events with
+\fBXAppleWMSelectInput\fP.
+
+.PP
+Event types:
+.nf
+\&#define AppleWMControllerNotify               0
+\&#define AppleWMActivationNotify               1
+\&#define AppleWMPasteboardNotify               2
+.fi
+.PP
+Event masks:
+.nf
+\&#define AppleWMControllerNotifyMask           (1L << 0)
+\&#define AppleWMActivationNotifyMask           (1L << 1)
+\&#define AppleWMPasteboardNotifyMask           (1L << 2)
+.fi
+.PP
+Kinds of ControllerNotify events:
+.nf
+\&#define AppleWMMinimizeWindow                 0
+\&#define AppleWMZoomWindow                     1
+\&#define AppleWMCloseWindow                    2
+\&#define AppleWMBringAllToFront                3
+\&#define AppleWMHideWindow                     4
+\&#define AppleWMHideAll                        5
+\&#define AppleWMShowAll                        6
+\&#define AppleWMWindowMenuItem                 9
+\&#define AppleWMWindowMenuNotify               10
+\&#define AppleWMNextWindow                     11
+\&#define AppleWMPreviousWindow                 12
+.fi
+.PP
+Kinds of ActivationNotify events:
+.nf
+\&#define AppleWMIsActive                       0
+\&#define AppleWMIsInactive                     1
+.fi
+.PP
+Kinds of PasteboardNotify events:
+.nf
+\&#define AppleWMCopyToPasteboard               0
+.sp
+.fi
+.PP
+.B Window Parameters
+.PP
+Window level ids for \fBXAppleWMSetWindowLevel\fP:
+.nf
+\&#define AppleWMWindowLevelNormal              0
+\&#define AppleWMWindowLevelFloating            1
+\&#define AppleWMWindowLevelTornOff             2
+\&#define AppleWMWindowLevelDock                3
+\&#define AppleWMWindowLevelDesktop             4
+\&#define AppleWMNumWindowLevels                5
+.fi
+.PP
+Values for \fIframe_rect\fP argument to \fBXAppleWMFrameGetRect\fP:
+.nf
+\&#define AppleWMFrameRectTitleBar              1
+\&#define AppleWMFrameRectTracking              2
+\&#define AppleWMFrameRectGrowBox               3
+.fi
+.PP
+Window frame classes:
+.nf
+\&#define AppleWMFrameClassDocument             1 << 0
+\&#define AppleWMFrameClassDialog               1 << 1
+\&#define AppleWMFrameClassModalDialog          1 << 2
+\&#define AppleWMFrameClassSystemModalDialog    1 << 3
+\&#define AppleWMFrameClassUtility              1 << 4
+\&#define AppleWMFrameClassToolbar              1 << 5
+\&#define AppleWMFrameClassMenu                 1 << 6
+\&#define AppleWMFrameClassSplash               1 << 7
+\&#define AppleWMFrameClassBorderless           1 << 8
+.fi
+.PP
+Window frame attributes:
+.nf
+\&#define AppleWMFrameActive                    0x0001
+\&#define AppleWMFrameUrgent                    0x0002
+\&#define AppleWMFrameTitle                     0x0004
+\&#define AppleWMFramePrelight                  0x0008
+\&#define AppleWMFrameShaded                    0x0010
+\&#define AppleWMFrameCloseBox                  0x0100
+\&#define AppleWMFrameCollapseBox               0x0200
+\&#define AppleWMFrameZoomBox                   0x0400
+\&#define AppleWMFrameAnyBox                    0x0700
+\&#define AppleWMFrameCloseBoxClicked           0x0800
+\&#define AppleWMFrameCollapseBoxClicked        0x1000
+\&#define AppleWMFrameZoomBoxClicked            0x2000
+\&#define AppleWMFrameAnyBoxClicked             0x3800
+\&#define AppleWMFrameGrowBox                   0x4000
+.fi
+
+.SH DESCRIPTION
+.B AppleWM
+is a simple library designed to interface with the Apple-WM extension.
+This extension allows X window managers to better interact with
+the Mac OS X Aqua user interface when running X11 in a rootless mode.
+.PP
+A more complete description will be forthcoming eventually.
+
+.SH FUNCTIONS
+.B XAppleWMDisableUpdate
+causes any updates to the windows on the screen to be queued until updates
+are reenabled with \fBXAppleWMReenableUpdate\fP. This is useful to avoid
+intermediate redraws to the screen if a number of changes are going to be
+made at once. Updates should only be disabled temporarily while drawing
+to a window. These calls may be nested and each call to
+\fBXAppleWMDisableUpdate\fP must be paired with a subsequent call to
+\fBXAppleWMReenableUpdate\fP. Updating is not reenabled until the last
+unnested call to \fBXAppleWMReenableUpdate\fP. Disabling updates applies
+to window content; however, it is implementation dependent whether window
+size and position changes are disabled as well.
+.PP
+.B XAppleWMSelectInput
+is used to request that a client receive notification of the
+.B AppleWM
+events listed above. The event mask specifies the event types the client is
+interested in receiving. Passing an event mask of 0 stops notification of
+events.
+.PP
+.B XAppleWMSetWindowMenu
+and
+.B XAppleWMSetWindowMenuWithShortcuts
+set the list of windows displayed in the X server's "Window" menu in the
+Aqua menu bar. Other items may be listed in this menu by the X server, but
+a part of this menu is set aside for use by the Apple-WM extension. This
+is intended to be used to set a list of important top-level X11 windows.
+.PP
+One item of the X server's "Window" menu can have a checkmark beside it to
+indicate it is the active or front most window.
+.B XAppleWMSetWindowMenuCheck
+can be used to set the item number to put a checkmark beside.
+.PP
+.B XAppleWMSetFrontProcess
+directs the X server to make itself the front most application among all
+the other Mac OS X applications. This causes X11 windows to move above
+other applications' windows and for the X server to start receiving
+keyboard and mouse events.
+.PP
+Windows can be placed into different Aqua window levels with
+\fBXAppleWMSetWindowLevel\fP. The stacking of window levels takes precedence
+over the stacking of windows within a level. Thus the bottom window in a level
+will obscure even the top most window of a lower window level. By default all
+windows are placed in the lowest window level, AppleWMWindowLevelNormal. When
+a window is moved to a new level, it is ordered in front of all of its peers
+at the new level. \fINote, X11 does not have the concept of window levels and
+this function does not change the X11 window order. The result of trying to
+reorder an X11 window above another window of higher level is undefined.
+This should probably be changed.\fP
+.PP
+By default, the X server will ask for confirmation whenever the user requests
+that it quit from the Aqua UI.
+.B XAppleWMSetCanQuit
+can be used to change this behavior. If a \fIstate\fP of TRUE is passed, the
+X server will quit without confirmation when requested. If FALSE is passed,
+the default behavior is used.
+.PP
+.B XAppleWMFrameDraw
+can be used to decorate a top-level window with the standard Aqua window
+frame and widgets. The \fIframe_class\fP controls the overall look of the
+window frame and \fIframe_attr\fP specifies the details of how the various
+UI elements should be drawn. The dimensions of the X11 window content are
+passed as the \fIinner_*\fP rectangle and the dimensions of the Aqua window
+frame are passed as the \fIouter_*\fP rectangle.
+.B XAppleWMFrameGetRect
+is used to calculate the size of the outer rectangle from the size of the
+window content, which is being reparented.
+.PP
+.B XAppleWMFrameGetRect
+returns a rectangle that encloses an element of the window frame decoration.
+The \fIframe_rect\fP argument specifies the element of interest. The
+\fIinner_*\fP and \fIouter_*\fP rectangles (as described above) specify the
+window geometry. If AppleWMFrameRectTitleBar is passed for \fIframe_rect\fP,
+the \fIinner_*\fP parameters are ignored. The returned rectangle has the
+dimensions of the \fIouter_*\fP rectangle except that its height is equal
+to the constant title bar height for the specified \fIframe_class\fP. The
+proper outer rectangle for a given window content size is the union of inner
+rectangle and the title bar rectangle. The AppleWMFrameRectTracking and
+AppleWMFrameRectGrowBox rectangles are primarily intended to be used by the
+window manager to determine the correct placement for child windows to
+receive events. The tracking rectangle is the area of the window containing
+the close, collapse and zoom boxes. Typically when the cursor is over this
+area, the window manager will highlight the close, collapse, and zoom
+buttons to conform to the standard Aqua interface.
+.PP
+If a mouse up or down event is received in the tracking rectangle,
+.B XAppleWMFrameHitTest
+is used to determine which button was clicked.
+.B XAppleWMFrameHitTest
+returns AppleWMFrameCloseBox, AppleWMFrameCollapseBox, or AppleWMFrameZoomBox
+to indicate which button was clicked. If no button was clicked, 0 will be
+returned.
+.PP
+Other functions include: \fBXAppleWMQueryExtension\fP, which returns the event
+and error base codes and \fBXAppleWMQueryVersion\fP, which returns the current
+version of the extension. (This information is cached by the library.)
+
+.SH RESTRICTIONS
+.B AppleWM
+is only intended to be used on Mac OS X when running a rootless X server.

@@ -1,0 +1,123 @@
+# Features covered:  XML Namespaces
+#
+# This file contains a collection of tests for the TclXML parser.
+# This file tests the parser's performance on XML namespaces.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 2000 Zveno Pty Ltd.
+#
+# $Id: namespace.test,v 1.2 2001/02/06 07:29:51 doss Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if { ![llength [info commands ::xml::parser]] } {
+     catch {puts stderr "You havent loaded a valid parser class before running this test"}
+     return
+}
+
+proc keysort args {
+    array set keyvalue $args
+    set result {}
+    foreach key [lsort [array names keyvalue]] {
+	lappend result $key $keyvalue($key)
+    }
+    return $result
+}
+
+catch {unset result}
+catch {unset nsdecls}
+proc EStart {tag attlist args} {
+    global result nsdecls
+
+    array set extra $args
+
+    catch {eval lappend nsdecls $extra(-namespacedecls)}
+
+    if {[info exists extra(-namespace)]} {
+	lappend result $extra(-namespace)^$tag
+    } else {
+	lappend result $tag
+    }
+}
+
+test ns-1.1 {Namespace declaration} {
+    set ::result {}
+    set ::nsdecls {}
+
+    catch {rename xml::ns-1.1 {}}
+    set parser [xml::parser ns-1.1 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<Test xmlns:test="http://www.zveno.com/Schemas"></Test>
+}
+    list $::result $::nsdecls
+} {Test {http://www.zveno.com/Schemas test}}
+
+test ns-1.2 {Multiple namespace declarations} {
+    set ::result {}
+    set ::nsdecls {}
+
+    catch {rename xml::ns-1.2 {}}
+    set parser [xml::parser ns-1.2 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<Test xmlns:test="http://www.zveno.com/Schemas"
+xmlns:x='urn:schema'></Test>
+}
+    list $::result [eval keysort $::nsdecls]
+} {Test {http://www.zveno.com/Schemas test urn:schema x}}
+
+test ns-1.3 {Default namespace declaration} {
+    set ::result {}
+    set ::nsdecls {}
+
+    catch {rename xml::ns-1.3 {}}
+    set parser [xml::parser ns-1.3 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<Test xmlns="http://www.zveno.com/Schemas"
+xmlns:x='urn:schema'></Test>
+}
+    list $::result [eval keysort $::nsdecls]
+} {http://www.zveno.com/Schemas^Test {http://www.zveno.com/Schemas {} urn:schema x}}
+
+test ns-1.4 {Default namespace declaration w/- separate usage} {
+    set ::result {}
+    set ::nsdecls {}
+
+    catch {rename xml::ns-1.4 {}}
+    set parser [xml::parser ns-1.4 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<x:Test xmlns="http://www.zveno.com/Schemas"
+xmlns:x='urn:schema'><Test/></x:Test>
+}
+    list $::result [eval keysort $::nsdecls]
+} {{urn:schema^Test http://www.zveno.com/Schemas^Test} {http://www.zveno.com/Schemas {} urn:schema x}}
+
+test ns-2.0 {Multiple namespace declarations, same prefix} {
+    set ::result {}
+    set ::nsdecls {}
+
+    catch {rename xml::ns-2.0 {}}
+    set parser [xml::parser ns-2.0 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<Test>
+  <x:Test xmlns:x="http://www.zveno.com/Schemas">
+    <x:y/>
+  </x:Test>
+  <x:Test xmlns:x='urn:schema'>
+    <x:z/>
+  </x:Test>
+</Test>
+}
+    list $::result [eval keysort $::nsdecls]
+} {{Test http://www.zveno.com/Schemas^Test http://www.zveno.com/Schemas^y urn:schema^Test urn:schema^z} {http://www.zveno.com/Schemas x urn:schema x}}
+
+# cleanup
+::tcltest::cleanupTests
+return

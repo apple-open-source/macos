@@ -1,0 +1,64 @@
+--- scanf.3.orig	Fri Mar 11 17:08:59 2005
++++ scanf.3	Fri Mar 11 17:03:13 2005
+@@ -115,10 +115,18 @@
+ each successive conversion specifier
+ (but see the
+ .Cm *
+-conversion below).
++and
++.Cm %n$
++conversions below).
+ All conversions are introduced by the
+ .Cm %
+-(percent sign) character.
++(percent sign) character or
++.Cm %n$
++sequence. In the latter case the next 
++.Em pointer 
++will be the
++.Cm n
++th argument after the format string.
+ The
+ .Fa format
+ string
+@@ -132,10 +140,18 @@
+ when an input character does not match such a format character.
+ Scanning also stops
+ when an input conversion cannot be made (see below).
++.Pp
++Extended locale versions of these functions are documented in
++.Xr scanf_l 3 .
++See
++.Xr xlocale 3
++for more information.
+ .Sh CONVERSIONS
+ Following the
+ .Cm %
+-character introducing a conversion
++character or
++.Cm %n$
++sequence introducing a conversion
+ there may be a number of
+ .Em flag
+ characters, as follows:
+@@ -466,7 +482,8 @@
+ .Xr strtod 3 ,
+ .Xr strtol 3 ,
+ .Xr strtoul 3 ,
+-.Xr wscanf 3
++.Xr wscanf 3 ,
++.Xr scanf_l 3
+ .Sh STANDARDS
+ The functions
+ .Fn fscanf ,
+@@ -505,10 +522,6 @@
+ .Cm %512f
+ and
+ .Cm %512d .
+-.Pp
+-The
+-.Cm %n$
+-modifiers for positional arguments are not implemented.
+ .Pp
+ The
+ .Nm

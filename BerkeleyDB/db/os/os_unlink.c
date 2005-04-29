@@ -1,14 +1,14 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2002
+ * Copyright (c) 1997-2003
  *	Sleepycat Software.  All rights reserved.
  */
 
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: os_unlink.c,v 1.1.1.1 2003/02/15 04:56:09 zarzycki Exp $";
+static const char revid[] = "$Id: os_unlink.c,v 1.2 2004/03/30 01:23:46 jtownsen Exp $";
 #endif /* not lint */
 
 #ifndef NO_SYSTEM_INCLUDES
@@ -67,8 +67,9 @@ __os_unlink(dbenv, path)
 	DB_ENV *dbenv;
 	const char *path;
 {
-	int ret;
+	int ret, retries;
 
+	retries = 0;
 retry:	ret = DB_GLOBAL(j_unlink) != NULL ?
 	    DB_GLOBAL(j_unlink)(path) :
 #ifdef HAVE_VXWORKS
@@ -77,7 +78,8 @@ retry:	ret = DB_GLOBAL(j_unlink) != NULL ?
 	    unlink(path);
 #endif
 	if (ret == -1) {
-		if ((ret = __os_get_errno()) == EINTR)
+		if (((ret = __os_get_errno()) == EINTR || ret == EBUSY) &&
+		    ++retries < DB_RETRY)
 			goto retry;
 		/*
 		 * XXX

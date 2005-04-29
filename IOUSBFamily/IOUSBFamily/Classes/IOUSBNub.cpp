@@ -106,3 +106,55 @@ IOUSBNub::USBCompareProperty( OSDictionary   * matching, const char     * key )
     return matches;
 }
 
+bool 
+IOUSBNub::IsWildCardMatch( OSDictionary   * matching, const char     * key )
+{
+    // We return success iff the  key in the dictionary exists AND it is a OSString "*"
+    // the property table.
+    //
+    OSString 	* theString;
+    bool	matches;
+    
+    theString = OSDynamicCast(OSString, matching->getObject( key ));
+    
+    if( theString)
+        matches = theString->isEqualTo("*");
+    else
+        matches = false;
+    
+    return matches;
+}  
+
+bool
+IOUSBNub::USBComparePropertyWithMask( OSDictionary *matching, const char *key, const char * maskKey )
+{
+    // This routine will return success if the "key" in the dictionary  matches the key in the property table
+    // while applying the "mask" value to both
+    // First, check to see if we have both keys
+    //
+    OSNumber *	registryProperty = NULL;
+    OSNumber *	dictionaryProperty = NULL;
+    OSNumber *	dictionaryMask = NULL;
+    
+    registryProperty = OSDynamicCast(OSNumber,  getProperty(key));
+    dictionaryProperty = OSDynamicCast(OSNumber, matching->getObject(key));
+    dictionaryMask = OSDynamicCast(OSNumber, matching->getObject(maskKey));
+    
+    if ( registryProperty && dictionaryProperty && dictionaryMask )
+    {
+	// If all our values are OSNumbers, then get their actual value and do the masking
+	// to see if they are equal
+	//
+	UInt32  registryValue = registryProperty->unsigned32BitValue();
+	UInt32  dictionaryValue = dictionaryProperty->unsigned32BitValue();
+	UInt32  mask = dictionaryMask->unsigned32BitValue();
+	
+	if ( (registryValue & mask) == (dictionaryValue & mask) )
+	{
+	    return true;
+	}
+    }
+    
+    return false;
+}
+

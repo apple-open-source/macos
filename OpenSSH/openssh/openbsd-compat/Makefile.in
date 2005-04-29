@@ -1,4 +1,4 @@
-# $Id: Makefile.in,v 1.2 2004/02/27 23:27:25 nicolai Exp $
+# $Id: Makefile.in,v 1.30 2004/01/21 06:07:23 djm Exp $
 
 sysconfdir=@sysconfdir@
 piddir=@piddir@
@@ -17,21 +17,23 @@ INSTALL=@INSTALL@
 LDFLAGS=-L. @LDFLAGS@
 
 OPENBSD=base64.o basename.o bindresvport.o daemon.o dirname.o \
-	getcwd.o getgrouplist.o getopt.o glob.o \
+	getcwd.o getgrouplist.o getopt.o getrrsetbyname.o glob.o \
 	inet_aton.o inet_ntoa.o inet_ntop.o \
 	mktemp.o readpassphrase.o realpath.o rresvport.o \
 	setenv.o setproctitle.o sigact.o \
 	strlcat.o strlcpy.o strmode.o strsep.o \
-	vis.o
+	strtoul.o vis.o
 
 COMPAT=bsd-arc4random.o \
 	bsd-cray.o \
 	bsd-cygwin_util.o \
 	bsd-nextstep.o \
 	bsd-solaris.o \
-	bsd-getpeereid.o bsd-misc.o bsd-snprintf.o bsd-waitpid.o \
-	fake-getaddrinfo.o fake-getnameinfo.o \
-	xmmap.o
+	bsd-getpeereid.o bsd-misc.o bsd-snprintf.o \
+	bsd-waitpid.o bsd-openpty.o \
+	fake-rfc2553.o \
+	xmmap.o \
+	xcrypt.o
 
 PORTS=port-irix.o port-aix.o
 

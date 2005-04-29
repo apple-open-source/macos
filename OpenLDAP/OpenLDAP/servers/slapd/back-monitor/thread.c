@@ -1,39 +1,28 @@
 /* thread.c - deal with thread subsystem */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/thread.c,v 1.19.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This work has beed deveolped for the OpenLDAP Foundation 
- * in the hope that it may be useful to the Open Source community, 
- * but WITHOUT ANY WARRANTY.
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from
- *    flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- * 
- * 4. This notice may not be removed or altered.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Pierangelo Masarati for inclusion
+ * in OpenLDAP Software.
  */
 
 #include "portable.h"
 
 #include <stdio.h>
+#include <ac/string.h>
 
 #include "slap.h"
 #include "back-monitor.h"
@@ -48,8 +37,8 @@ monitor_subsys_thread_init(
 {
 	struct monitorinfo      *mi;
 	Entry                   *e;
-	struct berval           bv[2];
-	static char		buf[1024];
+	static char		buf[ BACKMONITOR_BUFSIZE ];
+	struct berval		bv;
 
 	mi = ( struct monitorinfo * )be->be_private;
 
@@ -72,11 +61,10 @@ monitor_subsys_thread_init(
 	/* initialize the thread number */
 	snprintf( buf, sizeof( buf ), "max=%d", connection_pool_max );
 
-	bv[1].bv_val = NULL;
-	bv[0].bv_val = buf;
-	bv[0].bv_len = strlen( bv[0].bv_val );
+	bv.bv_val = buf;
+	bv.bv_len = strlen( bv.bv_val );
 
-	attr_merge( e, monitor_ad_desc, bv );
+	attr_merge_normalize_one( e, mi->mi_ad_monitoredInfo, &bv, NULL );
 
 	monitor_cache_release( mi, e );
 
@@ -85,21 +73,22 @@ monitor_subsys_thread_init(
 
 int 
 monitor_subsys_thread_update( 
-	struct monitorinfo 	*mi,
+	Operation		*op,
 	Entry 			*e
 )
 {
+	struct monitorinfo *mi = (struct monitorinfo *)op->o_bd->be_private;
 	Attribute		*a;
-	struct berval           bv[2], *b = NULL;
-	char 			buf[1024];
+	struct berval           *b = NULL;
+	char 			buf[ BACKMONITOR_BUFSIZE ];
 
-	bv[1].bv_val = NULL;
+	assert( mi != NULL );
 
 	snprintf( buf, sizeof( buf ), "backload=%d", 
 			ldap_pvt_thread_pool_backload( &connection_pool ) );
 
-	if ( ( a = attr_find( e->e_attrs, monitor_ad_desc ) ) != NULL ) {
-
+	a = attr_find( e->e_attrs, mi->mi_ad_monitoredInfo );
+	if ( a != NULL ) {
 		for ( b = a->a_vals; b[0].bv_val != NULL; b++ ) {
 			if ( strncmp( b[0].bv_val, "backload=", 
 					sizeof( "backload=" ) - 1 ) == 0 ) {
@@ -111,9 +100,12 @@ monitor_subsys_thread_update(
 	}
 
 	if ( b == NULL || b[0].bv_val == NULL ) {
-		bv[0].bv_val = buf;
-		bv[0].bv_len = strlen( buf );
-		attr_merge( e, monitor_ad_desc, bv );
+		struct berval	bv;
+
+		bv.bv_val = buf;
+		bv.bv_len = strlen( buf );
+		attr_merge_normalize_one( e, mi->mi_ad_monitoredInfo,
+				&bv, NULL );
 	}
 
 	return( 0 );

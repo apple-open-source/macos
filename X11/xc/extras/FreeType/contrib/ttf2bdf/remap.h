@@ -26,6 +26,7 @@
 
 /*
  * Id: remap.h,v 1.4 1999/05/03 17:07:04 mleisher Exp $
+ * $XFree86: xc/extras/FreeType/contrib/ttf2bdf/remap.h,v 1.3 2003/10/21 18:10:07 tsi Exp $
  */
 
 #ifdef __cplusplus

@@ -114,9 +114,13 @@ cxx_dump_identifier (FILE *file,
     }
   else
     {
-      dump_tree (file, "(bindings)", IDENTIFIER_NAMESPACE_BINDINGS (node), indent + INDENT);
+#if 0
+      dump_binding (file, "(bindings)", IDENTIFIER_NAMESPACE_BINDINGS (node), indent + INDENT);
+#endif
       dump_tree (file, "(class)", IDENTIFIER_CLASS_VALUE (node), indent + INDENT);
-      dump_tree (file, "(lcl-bindings)", IDENTIFIER_BINDING (node), indent + INDENT);
+#if 0
+      dump_binding (file, "(lcl-bindings)", IDENTIFIER_BINDING (node), indent + INDENT);
+#endif
       dump_tree (file, "(lbl)", IDENTIFIER_LABEL_VALUE (node), indent + INDENT);
       dump_tree (file, "(tmpl)", IDENTIFIER_TEMPLATE (node), indent + INDENT);
       dump_tree (file, "(impl)", IDENTIFIER_IMPLICIT_DECL (node), indent + INDENT);
@@ -520,6 +524,15 @@ print_EMPTY_CLASS_EXPR (FILE *file,
 }
 
 static void
+print_BASELINK (FILE *file,
+		const char *annotation ATTRIBUTE_UNUSED,
+		tree node,
+		int indent)
+{
+  print_operands (file, node, indent, TRUE, NULL);
+}
+
+static void
 print_TEMPLATE_DECL (FILE *file,
 		     const char *annotation ATTRIBUTE_UNUSED,
 		     tree node,
@@ -790,6 +803,8 @@ print_TEMPLATE_ID_EXPR (FILE *file,
   print_operands (file, node, indent, TRUE, "(tmpl)", "(args)", NULL);
 }
 
+#if 0
+
 static void
 print_CPLUS_BINDING (FILE *file, 
                      const char *annotation ATTRIBUTE_UNUSED, 
@@ -839,6 +854,8 @@ print_CPLUS_BINDING (FILE *file,
     dump_tree (file, "(chain)", n, indent + INDENT);
 }
 
+#endif
+
 static void
 print_OVERLOAD (FILE *file,
 	        const char *annotation ATTRIBUTE_UNUSED,
@@ -876,16 +893,14 @@ print_OVERLOAD (FILE *file,
 }
 
 static void
-print_WRAPPER (FILE *file, 
-               const char *annotation ATTRIBUTE_UNUSED, 
-	       tree node, 
+print_WRAPPER (FILE *file,
+               const char *annotation ATTRIBUTE_UNUSED,
+	       tree node,
 	       int indent ATTRIBUTE_UNUSED)
 {
+  /* TODO: Print out tree_common.  */
   fprintf (file, " ptr=");
-  fprintf (file, HOST_PTR_PRINTF, HOST_PTR_PRINTF_VALUE (WRAPPER_PTR (node)));
-  fprintf (file, " or int=%d (", WRAPPER_INT (node));
-  fprintf (file, HOST_PTR_PRINTF, WRAPPER_INT (node));
-  fprintf (file, ")");
+  fprintf (file, HOST_PTR_PRINTF, HOST_PTR_PRINTF_VALUE (WRAPPER_ZC (node)));
 }
 
 static void
@@ -979,29 +994,6 @@ print_PSEUDO_DTOR_EXPR (FILE *file,
 			int indent)
 {
   print_operands (file, node, indent, TRUE, "(obj)", "(scope)", "(dtor)", NULL);
-}
-
-static void
-print_SUBOBJECT (FILE *file, 
-                 const char *annotation ATTRIBUTE_UNUSED, 
-		 tree node, 
-		 int indent)
-{
-  print_operands (file, node, indent, TRUE, "(subobj-clnp)", NULL);
-}
-
-static void
-print_CTOR_STMT (FILE *file,
-		 const char *annotation ATTRIBUTE_UNUSED,
-		 tree node,
-		 int indent)
-{
-  if (CTOR_BEGIN_P (node))
-    fputs (" begin", file);
-  if (CTOR_END_P (node))
-    fputs (" end", file);
-    
-  print_operands (file, node, indent, TRUE, NULL);
 }
 
 static void

@@ -25,7 +25,7 @@
 ## SOFTWARE.
 ##
 ## Author: Alison Greenwald <alison@andrew.cmu.edu>
-## $Id: cyrus.pl,v 1.1 2001/01/28 22:43:02 wcw Exp $
+## $Id: cyrus.pl,v 1.5 2005/03/05 00:36:15 dasenbro Exp $
 ##
 ################################################################################
 #

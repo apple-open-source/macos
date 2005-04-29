@@ -1,0 +1,5203 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		014CEA520018CE5811CA2923 = {
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		014CEA530018CE5811CA2923 = {
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//010
+//011
+//012
+//013
+//014
+//080
+//081
+//082
+//083
+//084
+		08FB7793FE84155DC02AAC07 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				014CEA520018CE5811CA2923,
+				014CEA530018CE5811CA2923,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 08FB7794FE84155DC02AAC07;
+			productRefGroup = 84C8D42D06260355001E4CD5;
+			projectDirPath = "";
+			targets = (
+				526FEBEB070B1DA100B3BCAC,
+				845CB38C06482F4600D0A5CF,
+				84427BAD0625E2D100C1952B,
+				84D803B306484AD70089F1C8,
+				E7519C2606DD406B004CF4F8,
+			);
+		};
+		08FB7794FE84155DC02AAC07 = {
+			children = (
+				84C8D29D0625FF95001E4CD5,
+				84C8D2BE0625FF95001E4CD5,
+				8471067406545516000C180E,
+				84C8D2C00625FF95001E4CD5,
+				84C8D3110625FF96001E4CD5,
+				84C8D3270625FF96001E4CD5,
+				84C8D3280625FF96001E4CD5,
+				522D566B074BE4970099CBC3,
+				84880362073AE6AE0076AE14,
+				84C8D32D0625FF96001E4CD5,
+				84C8D3A00625FF96001E4CD5,
+				84C8D3A30625FF96001E4CD5,
+				523CB14907C3F7A600C207CD,
+				84C8D3A40625FF96001E4CD5,
+				84C8D3D70625FF96001E4CD5,
+				84C8D3D80625FFF7001E4CD5,
+				84C8D1BD0625F6BE001E4CD5,
+				E7F76A8F06DD13E40028BFA6,
+				84C8D42D06260355001E4CD5,
+			);
+			isa = PBXGroup;
+			name = blojsom;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//080
+//081
+//082
+//083
+//084
+//520
+//521
+//522
+//523
+//524
+		521E0E7507A87C4B00A7949B = {
+			children = (
+				521E0E7707A87C4B00A7949B,
+			);
+			isa = PBXGroup;
+			path = userdata;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		521E0E7707A87C4B00A7949B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = UserDataPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		522D566B074BE4970099CBC3 = {
+			children = (
+				522D566C074BE4970099CBC3,
+				522D566D074BE4970099CBC3,
+			);
+			isa = PBXGroup;
+			path = license_info;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		522D566C074BE4970099CBC3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = blojsom.plist;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		522D566D074BE4970099CBC3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = blojsom.txt;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		522D566E074BE4D10099CBC3 = {
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/local/OpenSourceVersions\"\nmkdir -p \"${DSTROOT}/usr/local/OpenSourceLicenses\"\ncp \"${SRCROOT}/license_info/blojsom.plist\" \"${DSTROOT}/usr/local/OpenSourceVersions/\"\ncp \"${SRCROOT}/license_info/blojsom.txt\" \"${DSTROOT}/usr/local/OpenSourceLicenses/\"\nchmod a+x \"${DSTROOT}/System/Library/ServerSetup/SetupExtras/weblogsetup\"\n";
+		};
+		523CB14907C3F7A600C207CD = {
+			children = (
+				523CB14A07C3F7A600C207CD,
+			);
+			isa = PBXGroup;
+			path = SetupExtras;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		523CB14A07C3F7A600C207CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.script.sh;
+			path = weblogsetup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		523CB14C07C3F7BD00C207CD = {
+			buildActionMask = 8;
+			dstPath = /System/Library/ServerSetup/SetupExtras;
+			dstSubfolderSpec = 0;
+			files = (
+				523CB14E07C3F7DF00C207CD,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		523CB14E07C3F7DF00C207CD = {
+			fileRef = 523CB14A07C3F7A600C207CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		526FEBEB070B1DA100B3BCAC = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				526FEBED070B1DB300B3BCAC,
+				526FEBEF070B1DB700B3BCAC,
+			);
+			isa = PBXAggregateTarget;
+			name = all;
+			productName = all;
+		};
+		526FEBEC070B1DB300B3BCAC = {
+			containerPortal = 08FB7793FE84155DC02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 845CB38C06482F4600D0A5CF;
+			remoteInfo = "blojsom-install";
+		};
+		526FEBED070B1DB300B3BCAC = {
+			isa = PBXTargetDependency;
+			target = 845CB38C06482F4600D0A5CF;
+			targetProxy = 526FEBEC070B1DB300B3BCAC;
+		};
+		526FEBEE070B1DB700B3BCAC = {
+			containerPortal = 08FB7793FE84155DC02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = E7519C2606DD406B004CF4F8;
+			remoteInfo = ismember_blojsom_helper;
+		};
+		526FEBEF070B1DB700B3BCAC = {
+			isa = PBXTargetDependency;
+			target = E7519C2606DD406B004CF4F8;
+			targetProxy = 526FEBEE070B1DB700B3BCAC;
+		};
+		528546EE0630472C009E998A = {
+			children = (
+				528546EF0630472C009E998A,
+			);
+			isa = PBXGroup;
+			path = com;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		528546EF0630472C009E998A = {
+			children = (
+				528546F00630472C009E998A,
+			);
+			isa = PBXGroup;
+			path = apple;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		528546F00630472C009E998A = {
+			children = (
+				528546F10630472C009E998A,
+			);
+			isa = PBXGroup;
+			path = blojsom;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		528546F10630472C009E998A = {
+			children = (
+				E7F76A8806DD13760028BFA6,
+				84D37079069EF38B00597021,
+				84D803AC064841020089F1C8,
+				E7F76A8C06DD13810028BFA6,
+				8490DD4406346EE4008440C5,
+				84AD40F3069DDF1300B16283,
+				528546F20630472C009E998A,
+				84B1FDFE069DBDCE00FECDB9,
+				521E0E7507A87C4B00A7949B,
+			);
+			isa = PBXGroup;
+			path = plugin;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		528546F20630472C009E998A = {
+			children = (
+				528546FB063047DA009E998A,
+				528546F40630472C009E998A,
+			);
+			isa = PBXGroup;
+			path = inlineadmin;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		528546F40630472C009E998A = {
+			children = (
+				528546F50630472C009E998A,
+			);
+			isa = PBXGroup;
+			path = resources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		528546F50630472C009E998A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = messages.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		528546FB063047DA009E998A = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = InlineAdminPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52B96D1E06275DA800FE102E = {
+			children = (
+				52B96D1F06275DA800FE102E,
+				52B96D2006275DA800FE102E,
+			);
+			isa = PBXGroup;
+			path = editorlogin;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52B96D1F06275DA800FE102E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EditorLoginPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52B96D2006275DA800FE102E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52B96D5F06276C5200FE102E = {
+			children = (
+				52B96D6006276C5200FE102E,
+			);
+			isa = PBXGroup;
+			path = com;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52B96D6006276C5200FE102E = {
+			children = (
+				52B96D6106276C5200FE102E,
+			);
+			isa = PBXGroup;
+			path = apple;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52B96D6106276C5200FE102E = {
+			children = (
+				52B96D6A06276C8200FE102E,
+			);
+			isa = PBXGroup;
+			path = blojsom;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52B96D6A06276C8200FE102E = {
+			children = (
+				84761AA60655813100691314,
+				52B96D6B06276C8200FE102E,
+				E73692B906C314C1005A155E,
+				52B96D6D06276CA500FE102E,
+			);
+			isa = PBXGroup;
+			path = util;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52B96D6B06276C8200FE102E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomAppleUtils.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52B96D6D06276CA500FE102E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52CBF19506401C4A00D6A08D = {
+			children = (
+				52CBF19606401C4A00D6A08D,
+				52CBF19A06401CAB00D6A08D,
+			);
+			isa = PBXGroup;
+			path = stylesheets;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52CBF19606401C4A00D6A08D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = apple_layout.css;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52CBF19A06401CAB00D6A08D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.javascript;
+			path = apple_layout.js;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//520
+//521
+//522
+//523
+//524
+//840
+//841
+//842
+//843
+//844
+		84022BEF06FF715B007A92AA = {
+			children = (
+				84022BF006FF715B007A92AA,
+				84022BF106FF715B007A92AA,
+			);
+			isa = PBXGroup;
+			path = templates;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84022BF006FF715B007A92AA = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = html.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84022BF106FF715B007A92AA = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = include.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F62062F4098002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = blank.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F64062F40B4002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = dialog_400_body.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F65062F40B4002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = dialog_400_footer.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F66062F40B4002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = dialog_400_header.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F67062F40B4002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = dialog_500_body.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F68062F40B4002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = dialog_500_footer.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F69062F40B4002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = dialog_500_header.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F6A062F40B4002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = dialog_600_body.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F6B062F40B4002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = dialog_600_footer.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F6C062F40B4002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = dialog_600_header.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F76062F40C8002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = main_box_body.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F77062F40C8002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = main_box_footer.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F78062F40C8002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = main_box_header.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F7C062F40DE002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = side_box_body.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F7D062F40DE002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = side_box_footer.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F7E062F40DE002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = side_box_header.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F7F062F40DE002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = span_body.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F80062F40DE002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = span_footer.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84133F81062F40DE002CF2A9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = span_header.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8418EED90648309E00CBC13B = {
+			containerPortal = 08FB7793FE84155DC02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 84427BAD0625E2D100C1952B;
+			remoteInfo = blojsom;
+		};
+		8418EEDA0648309E00CBC13B = {
+			isa = PBXTargetDependency;
+			target = 84427BAD0625E2D100C1952B;
+			targetProxy = 8418EED90648309E00CBC13B;
+		};
+		842B15950725961B00C552E5 = {
+			children = (
+				842B15970725963300C552E5,
+				842B159C0725965700C552E5,
+				842B15A10725966200C552E5,
+				842B15A60725966D00C552E5,
+				842B15AB0725967500C552E5,
+				842B15B00725967B00C552E5,
+				842B15B50725968600C552E5,
+				842B15BA0725968E00C552E5,
+				842B15BC0725969500C552E5,
+				842B15BE0725969D00C552E5,
+			);
+			isa = PBXGroup;
+			path = bootstrap;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842B15970725963300C552E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = authorization.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842B159C0725965700C552E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = blacklist.filters;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842B15A10725966200C552E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = blog.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842B15A60725966D00C552E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = contextloader.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842B15AB0725967500C552E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = emoticons.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842B15B00725967B00C552E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = flavor.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842B15B50725968600C552E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = macros.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842B15BA0725968E00C552E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = plugin.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842B15BC0725969500C552E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = referer.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842B15BE0725969D00C552E5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = showmemore.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84427BAD0625E2D100C1952B = {
+			buildArgumentsString = "-emacs \"-DDSTROOT=$DSTROOT\" \"-DOBJROOT=$OBJROOT\" \"-DPRODUCT_NAME=$PRODUCT_NAME\" $ACTION";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = blojsom;
+			};
+			buildToolPath = /Developer/Java/Ant/bin/ant;
+			buildWorkingDirectory = $SRCROOT;
+			dependencies = (
+				84D803B506484AE00089F1C8,
+			);
+			isa = PBXLegacyTarget;
+			name = blojsom;
+			passBuildSettingsInEnvironment = 1;
+			productName = blojsom;
+		};
+		845CB38B06482F4600D0A5CF = {
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/mkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/blojsom_resources\"\n/bin/mv \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/images\" \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/blojsom_resources/\"\n/bin/mv \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/includes\" \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/blojsom_resources/\"\n/bin/mv \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/stylesheets\" \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/blojsom_resources/\"\n/bin/mkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root/logs\"\n/bin/mkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root/temp\"\n/bin/mkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root/work\"\n/bin/mkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root/shared/classes\"\n/bin/cp \"$OBJROOT/WEB-INF/classes/log4j.properties\" \"$DSTROOT/Library/Tomcat/blojsom_root/shared/classes/\"\n/bin/chmod -R g+w \"$DSTROOT/Library/Tomcat/blojsom_root\"\n";
+		};
+		845CB38C06482F4600D0A5CF = {
+			buildPhases = (
+				845CB38B06482F4600D0A5CF,
+				8488035A073AE65C0076AE14,
+				523CB14C07C3F7BD00C207CD,
+				522D566E074BE4D10099CBC3,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = chmod;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				8418EEDA0648309E00CBC13B,
+			);
+			isa = PBXAggregateTarget;
+			name = "blojsom-install";
+			productName = chmod;
+		};
+		84611CC40651797F00349844 = {
+			children = (
+				84611CC50651797F00349844,
+				84611CC60651797F00349844,
+				84611CC70651797F00349844,
+				84611CC80651797F00349844,
+				84611CC90651797F00349844,
+				84611CCA0651797F00349844,
+				84611CCB0651797F00349844,
+				84611CCC0651797F00349844,
+				84611CCD0651797F00349844,
+				84611CCE0651797F00349844,
+				84611CCF0651797F00349844,
+				84611CD00651797F00349844,
+				84611CD10651797F00349844,
+				84611CD20651797F00349844,
+			);
+			isa = PBXGroup;
+			path = templates;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CC50651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = atom.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CC60651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "html-comments.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CC70651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "html-referers.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CC80651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "html-trackback.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CC90651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = html.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CCA0651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = rdf.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CCB0651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = rsd.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CCC0651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "rss-comments.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CCD0651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = rss.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CCE0651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "rss2-comments.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CCF0651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = rss2.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CD00651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = text.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CD10651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "trackback-failure.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84611CD20651797F00349844 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "trackback-success.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8471067406545516000C180E = {
+			children = (
+				8471067506545516000C180E,
+			);
+			isa = PBXGroup;
+			path = blojsom_root;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8471067506545516000C180E = {
+			children = (
+				8471067606545516000C180E,
+				8471067706545516000C180E,
+				8471067806545516000C180E,
+				8471067906545516000C180E,
+				8471067A06545516000C180E,
+				8471067B06545516000C180E,
+			);
+			isa = PBXGroup;
+			path = conf;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8471067606545516000C180E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = catalina.policy;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8471067706545516000C180E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = jk2.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8471067806545516000C180E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "server-noexamples.xml.config";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8471067906545516000C180E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = server.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8471067A06545516000C180E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "tomcat-users.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8471067B06545516000C180E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = web.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84761AA60655813100691314 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AppleBlojsomVersion.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		847AF801069F4B2800A3E7B4 = {
+			children = (
+				847AF802069F4B2900A3E7B4,
+				847AF803069F4B2900A3E7B4,
+			);
+			isa = PBXGroup;
+			path = strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		847AF802069F4B2900A3E7B4 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = de.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		847AF803069F4B2900A3E7B4 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = en.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		848576F8072593E6006FAE53 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			name = atom.png;
+			path = war/images/atom.png;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		848576FD072593F5006FAE53 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			name = "powered-by-blojsom.gif";
+			path = "war/images/powered-by-blojsom.gif";
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		848577020725940C006FAE53 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			name = rdf.gif;
+			path = war/images/rdf.gif;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		8485770707259417006FAE53 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			name = rss.gif;
+			path = war/images/rss.gif;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		8485770C07259429006FAE53 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			name = trackback.gif;
+			path = war/images/trackback.gif;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		8485771107259436006FAE53 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			name = xml.gif;
+			path = war/images/xml.gif;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		8488035A073AE65C0076AE14 = {
+			buildActionMask = 8;
+			dstPath = /System/Library/ServerSetup/MigrationExtras;
+			dstSubfolderSpec = 0;
+			files = (
+				84880363073AE6B20076AE14,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		84880362073AE6AE0076AE14 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.script.perl;
+			path = migrate_workers_file;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		84880363073AE6B20076AE14 = {
+			fileRef = 84880362073AE6AE0076AE14;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8490DD4406346EE4008440C5 = {
+			children = (
+				8490DD4706346EFB008440C5,
+			);
+			isa = PBXGroup;
+			path = convertlinebreaks;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8490DD4706346EFB008440C5 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = ConvertLineBreaksPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84AD40F3069DDF1300B16283 = {
+			children = (
+				84AD40F4069DDF1300B16283,
+			);
+			isa = PBXGroup;
+			path = escapetags;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84AD40F4069DDF1300B16283 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EscapeTagsPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84B1FDFE069DBDCE00FECDB9 = {
+			children = (
+				84B1FE02069DBDEC00FECDB9,
+			);
+			isa = PBXGroup;
+			path = localizer;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84B1FE02069DBDEC00FECDB9 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = LocalizerPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84B980DE0725947300B4EC71 = {
+			children = (
+				84E74883072594A000ACCF80,
+				84E74885072594A900ACCF80,
+				84E74887072594B100ACCF80,
+				84E74889072594BF00ACCF80,
+				84E7488B072594C700ACCF80,
+				84E7488D072594D200ACCF80,
+				84E7488F072594D900ACCF80,
+				84E74891072594E100ACCF80,
+			);
+			isa = PBXGroup;
+			path = includes;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84B99CFA062B0BFD004831CC = {
+			children = (
+				848576F8072593E6006FAE53,
+				84133F62062F4098002CF2A9,
+				84B99CFB062B0BFD004831CC,
+				84133F64062F40B4002CF2A9,
+				84133F65062F40B4002CF2A9,
+				84133F66062F40B4002CF2A9,
+				84133F67062F40B4002CF2A9,
+				84133F68062F40B4002CF2A9,
+				84133F69062F40B4002CF2A9,
+				84133F6A062F40B4002CF2A9,
+				84133F6B062F40B4002CF2A9,
+				84133F6C062F40B4002CF2A9,
+				84B99D09062B0BFD004831CC,
+				84133F76062F40C8002CF2A9,
+				84133F77062F40C8002CF2A9,
+				84133F78062F40C8002CF2A9,
+				848576FD072593F5006FAE53,
+				848577020725940C006FAE53,
+				8485770707259417006FAE53,
+				84B99D2A062B0FCC004831CC,
+				84133F7C062F40DE002CF2A9,
+				84133F7D062F40DE002CF2A9,
+				84133F7E062F40DE002CF2A9,
+				84133F7F062F40DE002CF2A9,
+				84133F80062F40DE002CF2A9,
+				84133F81062F40DE002CF2A9,
+				84B99D0A062B0BFD004831CC,
+				8485770C07259429006FAE53,
+				8485771107259436006FAE53,
+			);
+			isa = PBXGroup;
+			path = images;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84B99CFB062B0BFD004831CC = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = box_background.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84B99D09062B0BFD004831CC = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.jpeg;
+			path = grayx.jpg;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84B99D0A062B0BFD004831CC = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = striped_background.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84B99D2A062B0FCC004831CC = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = search.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1BD0625F6BE001E4CD5 = {
+			children = (
+				84C8D1C10625F6BE001E4CD5,
+				84B99CFA062B0BFD004831CC,
+				84B980DE0725947300B4EC71,
+				84C8D1C20625F6BE001E4CD5,
+				84C8D2560625FA3D001E4CD5,
+				847AF801069F4B2800A3E7B4,
+				52CBF19506401C4A00D6A08D,
+				84611CC40651797F00349844,
+				84C8D1C80625F6BE001E4CD5,
+			);
+			isa = PBXGroup;
+			path = war;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1C10625F6BE001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.ico;
+			path = favicon.ico;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1C20625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = index.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1C80625F6BE001E4CD5 = {
+			children = (
+				84C8D1CA0625F6BE001E4CD5,
+				84C8D1CB0625F6BE001E4CD5,
+				842B15950725961B00C552E5,
+				84C8D1CE0625F6BE001E4CD5,
+				84C8D1E80625F6BE001E4CD5,
+				84C8D1FC0625F6BE001E4CD5,
+				84C8D1FD0625F6BE001E4CD5,
+				84C8D1FE0625F6BE001E4CD5,
+				84C8D1FF0625F6BE001E4CD5,
+				84C8D2000625F6BE001E4CD5,
+				84C8D2010625F6BE001E4CD5,
+			);
+			isa = PBXGroup;
+			path = "WEB-INF";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1CA0625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = blojsom.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1CB0625F6BE001E4CD5 = {
+			children = (
+				84C8D1CC0625F6BE001E4CD5,
+				84C8D1CD0625F6BE001E4CD5,
+			);
+			isa = PBXGroup;
+			path = classes;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1CC0625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = log4j.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1CD0625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = oscache.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1CE0625F6BE001E4CD5 = {
+			children = (
+				84C8D1CF0625F6BE001E4CD5,
+				84C8D1D00625F6BE001E4CD5,
+				84C8D1D10625F6BE001E4CD5,
+				84C8D1D20625F6BE001E4CD5,
+				84C8D1D30625F6BE001E4CD5,
+				84C8D1D40625F6BE001E4CD5,
+				84C8D1D50625F6BE001E4CD5,
+				84C8D1D60625F6BE001E4CD5,
+				84C8D1D70625F6BE001E4CD5,
+				84C8D1D80625F6BE001E4CD5,
+				84022BEF06FF715B007A92AA,
+			);
+			isa = PBXGroup;
+			path = default;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1CF0625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = authorization.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1D00625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = blacklist.filters;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1D10625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = blog.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1D20625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = contextloader.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1D30625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = emoticons.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1D40625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = flavor.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1D50625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = macros.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1D60625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = plugin.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1D70625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = referer.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1D80625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = showmemore.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1E80625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = dispatcher.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1FC0625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "plugin-admin-edit-users.properties";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1FD0625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "plugin-admin-upload.properties";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1FE0625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = plugin.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D1FF0625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = velocity.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2000625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = web.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2010625F6BE001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = xmlrpc.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2560625FA3D001E4CD5 = {
+			children = (
+				84C8D2570625FA3D001E4CD5,
+			);
+			isa = PBXGroup;
+			path = "META-INF";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2570625FA3D001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = MANIFEST.MF;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D29D0625FF95001E4CD5 = {
+			children = (
+				84C8D29E0625FF95001E4CD5,
+				84C8D2A90625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = addon;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D29E0625FF95001E4CD5 = {
+			children = (
+				84C8D29F0625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = core;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D29F0625FF95001E4CD5 = {
+			children = (
+				84C8D2A00625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = src;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2A00625FF95001E4CD5 = {
+			children = (
+				84C8D2A10625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = org;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2A10625FF95001E4CD5 = {
+			children = (
+				84C8D2A20625FF95001E4CD5,
+				84C8D2A60625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = blojsom;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2A20625FF95001E4CD5 = {
+			children = (
+				84C8D2A30625FF95001E4CD5,
+				84C8D2A40625FF95001E4CD5,
+				84C8D2A50625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = dispatcher;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2A30625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = FreeMarkerDispatcher.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2A40625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = GroovyDispatcher.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2A50625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2A60625FF95001E4CD5 = {
+			children = (
+				84C8D2A70625FF95001E4CD5,
+				84C8D2A80625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = fetcher;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2A70625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = CachingFetcher.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2A80625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2A90625FF95001E4CD5 = {
+			children = (
+				84C8D2AA0625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = plugins;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2AA0625FF95001E4CD5 = {
+			children = (
+				84C8D2AB0625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = src;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2AB0625FF95001E4CD5 = {
+			children = (
+				84C8D2AC0625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = org;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2AC0625FF95001E4CD5 = {
+			children = (
+				84C8D2AD0625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = blojsom;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2AD0625FF95001E4CD5 = {
+			children = (
+				84C8D2AE0625FF95001E4CD5,
+				84C8D2B10625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = plugin;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2AE0625FF95001E4CD5 = {
+			children = (
+				84C8D2AF0625FF95001E4CD5,
+				84C8D2B00625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = wiki;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2AF0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2B00625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = WikiPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2B10625FF95001E4CD5 = {
+			children = (
+				84C8D2B20625FF95001E4CD5,
+				84C8D2B30625FF95001E4CD5,
+				84C8D2B40625FF95001E4CD5,
+				84C8D2B50625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = xpath;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2B20625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlogEntryWrapper.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2B30625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2B40625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = XPathPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2B50625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = XPathSearchPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2BE0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = build.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2C00625FF95001E4CD5 = {
+			children = (
+				84C8D2C10625FF95001E4CD5,
+				84C8D3000625FF95001E4CD5,
+				84C8D3010625FF95001E4CD5,
+				84C8D3100625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = docs;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2C10625FF95001E4CD5 = {
+			children = (
+				84C8D2C30625FF95001E4CD5,
+				84C8D2C40625FF95001E4CD5,
+				84C8D2CC0625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = content;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2C30625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.script.perl;
+			path = mt2blojsom.pl;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2C40625FF95001E4CD5 = {
+			children = (
+				84C8D2C50625FF95001E4CD5,
+				84C8D2C60625FF95001E4CD5,
+				84C8D2C70625FF95001E4CD5,
+				84C8D2C80625FF95001E4CD5,
+				84C8D2C90625FF95001E4CD5,
+				84C8D2CA0625FF95001E4CD5,
+				84C8D2CB0625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = screenshots;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2C50625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.jpeg;
+			path = "blojsom-calendar.jpg";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2C60625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.jpeg;
+			path = "blojsom-comment-form.jpg";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2C70625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.jpeg;
+			path = "blojsom-comments-trackbacks.jpg";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2C80625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.jpeg;
+			path = "blojsom-main.jpg";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2C90625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.jpeg;
+			path = "blojsom-referers.jpg";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2CA0625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.jpeg;
+			path = "blojsom-screenshot.jpg";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2CB0625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.jpeg;
+			path = "blojsom-search.jpg";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2CC0625FF95001E4CD5 = {
+			children = (
+				84C8D2CD0625FF95001E4CD5,
+				84C8D2D90625FF95001E4CD5,
+				84C8D2DA0625FF95001E4CD5,
+				84C8D2DC0625FF95001E4CD5,
+				84C8D2DD0625FF95001E4CD5,
+				84C8D2DE0625FF95001E4CD5,
+				84C8D2DF0625FF95001E4CD5,
+				84C8D2E00625FF95001E4CD5,
+				84C8D2F90625FF95001E4CD5,
+				84C8D2FA0625FF95001E4CD5,
+				84C8D2FB0625FF95001E4CD5,
+				84C8D2FC0625FF95001E4CD5,
+				84C8D2FD0625FF95001E4CD5,
+				84C8D2FE0625FF95001E4CD5,
+				84C8D2FF0625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = xdocs;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2CD0625FF95001E4CD5 = {
+			children = (
+				84C8D2CE0625FF95001E4CD5,
+				84C8D2CF0625FF95001E4CD5,
+				84C8D2D00625FF95001E4CD5,
+				84C8D2D10625FF95001E4CD5,
+				84C8D2D20625FF95001E4CD5,
+				84C8D2D30625FF95001E4CD5,
+				84C8D2D40625FF95001E4CD5,
+				84C8D2D50625FF95001E4CD5,
+				84C8D2D60625FF95001E4CD5,
+				84C8D2D70625FF95001E4CD5,
+				84C8D2D80625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = administration;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2CE0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-blog-authorization.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2CF0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-blog-categories.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2D00625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-blog-entries.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2D10625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-blog-flavors.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2D20625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-blog-plugins.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2D30625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-blog-properties.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2D40625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-blog-templates.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2D50625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-blog-users.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2D60625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-file-upload.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2D70625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = book.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2D80625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = index.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2D90625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = comments.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2DA0625FF95001E4CD5 = {
+			children = (
+				84C8D2DB0625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = contributed;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2DB0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = index.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2DC0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = custom.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2DD0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = faq.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2DE0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = index.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2DF0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = install.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2E00625FF95001E4CD5 = {
+			children = (
+				84C8D2E10625FF95001E4CD5,
+				84C8D2E20625FF95001E4CD5,
+				84C8D2E30625FF95001E4CD5,
+				84C8D2E40625FF95001E4CD5,
+				84C8D2E50625FF95001E4CD5,
+				84C8D2E60625FF95001E4CD5,
+				84C8D2E70625FF95001E4CD5,
+				84C8D2E80625FF95001E4CD5,
+				84C8D2E90625FF95001E4CD5,
+				84C8D2EA0625FF95001E4CD5,
+				84C8D2EB0625FF95001E4CD5,
+				84C8D2EC0625FF95001E4CD5,
+				84C8D2ED0625FF95001E4CD5,
+				84C8D2EE0625FF95001E4CD5,
+				84C8D2EF0625FF95001E4CD5,
+				84C8D2F00625FF95001E4CD5,
+				84C8D2F10625FF95001E4CD5,
+				84C8D2F20625FF95001E4CD5,
+				84C8D2F30625FF95001E4CD5,
+				84C8D2F40625FF95001E4CD5,
+				84C8D2F50625FF95001E4CD5,
+				84C8D2F60625FF95001E4CD5,
+				84C8D2F70625FF95001E4CD5,
+				84C8D2F80625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = plugins;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2E10625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "associated-categories.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2E20625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = book.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2E30625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = calendar.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2E40625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = chronological.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2E50625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "conditional-get.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2E60625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = date.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2E70625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = emoticons.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2E80625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "entries-limiter.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2E90625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "google-highlight.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2EA0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "hyperlink-URL.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2EB0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = index.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2EC0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "macro-expansion.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2ED0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = markdown.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2EE0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = meta.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2EF0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = obfuscation.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2F00625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = preview.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2F10625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = referer.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2F20625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "send-email.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2F30625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "show-me-more.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2F40625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "simple-search.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2F50625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = textile.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2F60625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "trackback-autodiscovery.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2F70625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "weblogs-ping.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2F80625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = xpath.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2F90625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = screenshots.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2FA0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = site.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2FB0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = tabs.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2FC0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = themes.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2FD0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = trackbacks.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2FE0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = upgrading.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D2FF0625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "xml-rpc.xml";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3000625FF95001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = redirect.xmap;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3010625FF95001E4CD5 = {
+			children = (
+				84C8D3020625FF95001E4CD5,
+				84C8D30B0625FF96001E4CD5,
+				84C8D30E0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = resources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3020625FF95001E4CD5 = {
+			children = (
+				84C8D3030625FF95001E4CD5,
+				84C8D3040625FF95001E4CD5,
+				84C8D3070625FF95001E4CD5,
+				84C8D3080625FF95001E4CD5,
+				84C8D3090625FF96001E4CD5,
+				84C8D30A0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = images;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3030625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.jpeg;
+			path = "blojsom-logo.jpg";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3040625FF95001E4CD5 = {
+			children = (
+				84C8D3050625FF95001E4CD5,
+				84C8D3060625FF95001E4CD5,
+			);
+			isa = PBXGroup;
+			path = emoticons;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3050625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = happy.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3060625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = wink.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3070625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.ico;
+			path = favicon.ico;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3080625FF95001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = "powered-by-blojsom.gif";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3090625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = project.svg;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D30A0625FF96001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = sflogo.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D30B0625FF96001E4CD5 = {
+			children = (
+				84C8D30C0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = schema;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D30C0625FF96001E4CD5 = {
+			children = (
+				84C8D30D0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = dtd;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D30D0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "libre-v01.dtd";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D30E0625FF96001E4CD5 = {
+			children = (
+				84C8D30F0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = stylesheets;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D30F0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = changes2document.xsl;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3100625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = skinconf.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3110625FF96001E4CD5 = {
+			children = (
+				84C8D3120625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = extensions;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3120625FF96001E4CD5 = {
+			children = (
+				84C8D3130625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = src;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3130625FF96001E4CD5 = {
+			children = (
+				84C8D3140625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = org;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3140625FF96001E4CD5 = {
+			children = (
+				84C8D3150625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = blojsom;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3150625FF96001E4CD5 = {
+			children = (
+				84C8D3160625FF96001E4CD5,
+				84C8D31B0625FF96001E4CD5,
+				84C8D31E0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = extension;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3160625FF96001E4CD5 = {
+			children = (
+				84C8D3170625FF96001E4CD5,
+				84C8D3180625FF96001E4CD5,
+				84C8D3190625FF96001E4CD5,
+				84C8D31A0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = atomapi;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3170625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AtomAPIConstants.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3180625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AtomAPIServlet.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3190625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AtomUtils.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D31A0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D31B0625FF96001E4CD5 = {
+			children = (
+				84C8D31C0625FF96001E4CD5,
+				84C8D31D0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = comment;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D31C0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = CommentAPIServlet.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D31D0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D31E0625FF96001E4CD5 = {
+			children = (
+				84C8D31F0625FF96001E4CD5,
+				84C8D3200625FF96001E4CD5,
+				84C8D3210625FF96001E4CD5,
+				84C8D3260625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = xmlrpc;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D31F0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomXMLRPCConstants.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3200625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomXMLRPCServlet.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3210625FF96001E4CD5 = {
+			children = (
+				84C8D3220625FF96001E4CD5,
+				84C8D3230625FF96001E4CD5,
+				84C8D3240625FF96001E4CD5,
+				84C8D3250625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = handlers;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3220625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AbstractBlojsomAPIHandler.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3230625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BloggerAPIHandler.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3240625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = MetaWeblogAPIHandler.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3250625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3260625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3270625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "forrest-targets.ent";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3280625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = forrest.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D32D0625FF96001E4CD5 = {
+			children = (
+				84C8D32E0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = plugins;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D32E0625FF96001E4CD5 = {
+			children = (
+				528546EE0630472C009E998A,
+				84C8D32F0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = src;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D32F0625FF96001E4CD5 = {
+			children = (
+				84C8D3300625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = org;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3300625FF96001E4CD5 = {
+			children = (
+				84C8D3310625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = blojsom;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3310625FF96001E4CD5 = {
+			children = (
+				84C8D3320625FF96001E4CD5,
+				E73692CC06C315FD005A155E,
+				84C8D3520625FF96001E4CD5,
+				84C8D35A0625FF96001E4CD5,
+				84C8D35D0625FF96001E4CD5,
+				84C8D3610625FF96001E4CD5,
+				84C8D3650625FF96001E4CD5,
+				52B96D1E06275DA800FE102E,
+				84C8D3680625FF96001E4CD5,
+				84C8D36D0625FF96001E4CD5,
+				84C8D3700625FF96001E4CD5,
+				84C8D3730625FF96001E4CD5,
+				84C8D3760625FF96001E4CD5,
+				84C8D3790625FF96001E4CD5,
+				84C8D37E0625FF96001E4CD5,
+				84C8D3810625FF96001E4CD5,
+				84C8D3840625FF96001E4CD5,
+				E73692CF06C31614005A155E,
+				84C8D38B0625FF96001E4CD5,
+				84C8D3900625FF96001E4CD5,
+				84C8D3930625FF96001E4CD5,
+				E73692DA06C31625005A155E,
+				84C8D3990625FF96001E4CD5,
+				84C8D39D0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = plugin;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3320625FF96001E4CD5 = {
+			children = (
+				84C8D3330625FF96001E4CD5,
+				84C8D3340625FF96001E4CD5,
+				84C8D3350625FF96001E4CD5,
+				84C8D3360625FF96001E4CD5,
+				84C8D3370625FF96001E4CD5,
+				84C8D3380625FF96001E4CD5,
+				84C8D3390625FF96001E4CD5,
+				84C8D33A0625FF96001E4CD5,
+				84C8D33B0625FF96001E4CD5,
+				84C8D33C0625FF96001E4CD5,
+				84C8D33D0625FF96001E4CD5,
+				84C8D33E0625FF96001E4CD5,
+				84C8D3400625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = admin;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3330625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BaseAdminPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3340625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EditBlogAuthorizationPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3350625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EditBlogCategoriesPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3360625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EditBlogEntriesPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3370625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EditBlogFlavorsPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3380625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EditBlogPluginsPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3390625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EditBlogPropertiesPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D33A0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EditBlogTemplatesPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D33B0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EditBlogUsersPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D33C0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = FileUploadPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D33D0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D33E0625FF96001E4CD5 = {
+			children = (
+				84C8D33F0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = resources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D33F0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = messages.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3400625FF96001E4CD5 = {
+			children = (
+				84C8D3410625FF96001E4CD5,
+				84C8D3420625FF96001E4CD5,
+				84C8D3430625FF96001E4CD5,
+				84C8D3440625FF96001E4CD5,
+				84C8D3450625FF96001E4CD5,
+				84C8D3460625FF96001E4CD5,
+				84C8D3470625FF96001E4CD5,
+				84C8D3480625FF96001E4CD5,
+				84C8D3490625FF96001E4CD5,
+				84C8D34A0625FF96001E4CD5,
+				84C8D34B0625FF96001E4CD5,
+				84C8D34C0625FF96001E4CD5,
+				84C8D34D0625FF96001E4CD5,
+				84C8D34E0625FF96001E4CD5,
+				84C8D34F0625FF96001E4CD5,
+				84C8D3500625FF96001E4CD5,
+				84C8D3510625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = templates;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3410625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-add-blog-entry.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3420625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-authorization.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3430625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-categories.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3440625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-category.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3450625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-entries-list.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3460625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-entries.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3470625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-entry.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3480625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-flavors.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3490625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-plugins.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D34A0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-properties.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D34B0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-template.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D34C0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-templates.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D34D0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-blog-users.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D34E0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-file-upload.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D34F0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-login.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3500625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "admin-macros.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3510625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = admin.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3520625FF96001E4CD5 = {
+			children = (
+				84C8D3530625FF96001E4CD5,
+				84C8D3540625FF96001E4CD5,
+				84C8D3550625FF96001E4CD5,
+				84C8D3560625FF96001E4CD5,
+				84C8D3570625FF96001E4CD5,
+				84C8D3580625FF96001E4CD5,
+				84C8D3590625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = calendar;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3530625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AbstractCalendarPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3540625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AbstractVisualCalendarPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3550625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlogCalendar.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3560625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = CalendarFilterPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3570625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3580625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = VelocityCalendarPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3590625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = VelocityHelper.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D35A0625FF96001E4CD5 = {
+			children = (
+				84C8D35B0625FF96001E4CD5,
+				84C8D35C0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = chrono;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D35B0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = ChronoPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D35C0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D35D0625FF96001E4CD5 = {
+			children = (
+				84C8D35E0625FF96001E4CD5,
+				84C8D35F0625FF96001E4CD5,
+				84C8D3600625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = comment;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D35E0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = CommentPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D35F0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = CommentUtils.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3600625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3610625FF96001E4CD5 = {
+			children = (
+				84C8D3620625FF96001E4CD5,
+				84C8D3630625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = common;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3620625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = IPBanningPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3630625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3650625FF96001E4CD5 = {
+			children = (
+				84C8D3660625FF96001E4CD5,
+				84C8D3670625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = date;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3660625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = DateFormatPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3670625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3680625FF96001E4CD5 = {
+			children = (
+				84C8D3690625FF96001E4CD5,
+				84C8D36A0625FF96001E4CD5,
+				84C8D36B0625FF96001E4CD5,
+				84C8D36C0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = email;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3690625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EmailMessage.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D36A0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EmailUtils.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D36B0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D36C0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = SendEmailPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D36D0625FF96001E4CD5 = {
+			children = (
+				84C8D36E0625FF96001E4CD5,
+				84C8D36F0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = emoticons;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D36E0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EmoticonsPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D36F0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3700625FF96001E4CD5 = {
+			children = (
+				84C8D3710625FF96001E4CD5,
+				84C8D3720625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = excerpt;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3710625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = ExcerptPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3720625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3730625FF96001E4CD5 = {
+			children = (
+				84C8D3740625FF96001E4CD5,
+				84C8D3750625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = highlight;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3740625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = GoogleHighlightPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3750625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3760625FF96001E4CD5 = {
+			children = (
+				84C8D3770625FF96001E4CD5,
+				84C8D3780625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = hyperlink;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3770625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = HyperlinkURLPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3780625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3790625FF96001E4CD5 = {
+			children = (
+				84C8D37A0625FF96001E4CD5,
+				84C8D37B0625FF96001E4CD5,
+				84C8D37C0625FF96001E4CD5,
+				84C8D37D0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = limiter;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D37A0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = ConditionalGetPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D37B0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = EntriesLimiterPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D37C0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D37D0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = PreviewPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D37E0625FF96001E4CD5 = {
+			children = (
+				84C8D37F0625FF96001E4CD5,
+				84C8D3800625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = macro;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D37F0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = MacroExpansionPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3800625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3810625FF96001E4CD5 = {
+			children = (
+				84C8D3820625FF96001E4CD5,
+				84C8D3830625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = markdown;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3820625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = MarkdownPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3830625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3840625FF96001E4CD5 = {
+			children = (
+				84C8D3850625FF96001E4CD5,
+				84C8D3860625FF96001E4CD5,
+				84C8D3870625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = meta;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3850625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AssociatedCategoriesPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3860625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = MetaPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3870625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D38B0625FF96001E4CD5 = {
+			children = (
+				84C8D38C0625FF96001E4CD5,
+				84C8D38D0625FF96001E4CD5,
+				84C8D38E0625FF96001E4CD5,
+				84C8D38F0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = referer;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D38C0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlogReferer.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D38D0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlogRefererGroup.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D38E0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D38F0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = RefererLogPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3900625FF96001E4CD5 = {
+			children = (
+				84C8D3910625FF96001E4CD5,
+				84C8D3920625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = search;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3910625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3920625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = SimpleSearchPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3930625FF96001E4CD5 = {
+			children = (
+				84C8D3940625FF96001E4CD5,
+				84C8D3950625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = showmore;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3940625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3950625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = ShowMeMorePlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3990625FF96001E4CD5 = {
+			children = (
+				84C8D39A0625FF96001E4CD5,
+				84C8D39B0625FF96001E4CD5,
+				84C8D39C0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = trackback;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D39A0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AutoTrackbackPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D39B0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D39C0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = TrackbackPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D39D0625FF96001E4CD5 = {
+			children = (
+				84C8D39E0625FF96001E4CD5,
+				84C8D39F0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = weblogsping;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D39E0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D39F0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = WeblogsPingPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3A00625FF96001E4CD5 = {
+			children = (
+				84C8D3A10625FF96001E4CD5,
+				84C8D3A20625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3A10625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = log4j.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3A20625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = oscache.properties;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3A30625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = README;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3A40625FF96001E4CD5 = {
+			children = (
+				52B96D5F06276C5200FE102E,
+				84C8D3A50625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = src;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3A50625FF96001E4CD5 = {
+			children = (
+				84C8D3A60625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = org;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3A60625FF96001E4CD5 = {
+			children = (
+				E73692C706C315C4005A155E,
+				84C8D3A70625FF96001E4CD5,
+				84C8D3B30625FF96001E4CD5,
+				84C8D3B40625FF96001E4CD5,
+				84C8D3B90625FF96001E4CD5,
+				84C8D3BE0625FF96001E4CD5,
+				84C8D3C30625FF96001E4CD5,
+				84C8D3C40625FF96001E4CD5,
+				84C8D3C80625FF96001E4CD5,
+				84C8D3CC0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = blojsom;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3A70625FF96001E4CD5 = {
+			children = (
+				84C8D3A80625FF96001E4CD5,
+				84C8D3A90625FF96001E4CD5,
+				84C8D3AA0625FF96001E4CD5,
+				84C8D3AB0625FF96001E4CD5,
+				84C8D3AC0625FF96001E4CD5,
+				84C8D3AD0625FF96001E4CD5,
+				84C8D3AE0625FF96001E4CD5,
+				84C8D3AF0625FF96001E4CD5,
+				84C8D3B00625FF96001E4CD5,
+				84C8D3B10625FF96001E4CD5,
+				84C8D3B20625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = blog;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3A80625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = Blog.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3A90625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlogCategory.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3AA0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlogComment.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3AB0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlogEntry.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3AC0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlogUser.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3AD0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomConfiguration.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3AE0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomConfigurationException.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3AF0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = FileBackedBlogCategory.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3B00625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = FileBackedBlogEntry.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3B10625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3B20625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = Trackback.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3B30625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomException.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3B40625FF96001E4CD5 = {
+			children = (
+				84C8D3B50625FF96001E4CD5,
+				84C8D3B60625FF96001E4CD5,
+				84C8D3B70625FF96001E4CD5,
+				84C8D3B80625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = dispatcher;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3B50625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomDispatcher.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3B60625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = JSPDispatcher.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3B70625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3B80625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = VelocityDispatcher.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3B90625FF96001E4CD5 = {
+			children = (
+				84C8D3BA0625FF96001E4CD5,
+				84C8D3BB0625FF96001E4CD5,
+				84C8D3BC0625FF96001E4CD5,
+				84C8D3BD0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = fetcher;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3BA0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomFetcher.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3BB0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomFetcherException.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3BC0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3BD0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = StandardFetcher.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3BE0625FF96001E4CD5 = {
+			children = (
+				84C8D3BF0625FF96001E4CD5,
+				84C8D3C00625FF96001E4CD5,
+				84C8D3C10625FF96001E4CD5,
+				84C8D3C20625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = filter;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3BF0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = CompressionFilter.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3C00625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = GZIPResponseStream.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3C10625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = GZIPResponseWrapper.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3C20625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3C30625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3C40625FF96001E4CD5 = {
+			children = (
+				84C8D3C50625FF96001E4CD5,
+				84C8D3C60625FF96001E4CD5,
+				84C8D3C70625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = plugin;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3C50625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3C60625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomPluginException.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3C70625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3C80625FF96001E4CD5 = {
+			children = (
+				84C8D3C90625FF96001E4CD5,
+				84C8D3CA0625FF96001E4CD5,
+				84C8D3CB0625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = servlet;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3C90625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomBaseServlet.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3CA0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomServlet.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3CB0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3CC0625FF96001E4CD5 = {
+			children = (
+				84C8D3CD0625FF96001E4CD5,
+				84C8D3CE0625FF96001E4CD5,
+				84C8D3CF0625FF96001E4CD5,
+				84C8D3D00625FF96001E4CD5,
+				84C8D3D10625FF96001E4CD5,
+				84C8D3D20625FF96001E4CD5,
+				84C8D3D30625FF96001E4CD5,
+				84C8D3D40625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = util;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3CD0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomConstants.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3CE0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomMetaDataConstants.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3CF0625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomProperties.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3D00625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomSimpleLog4JSystem.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3D10625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlojsomUtils.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3D20625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = CookieUtils.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3D30625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3D40625FF96001E4CD5 = {
+			children = (
+				84C8D3D50625FF96001E4CD5,
+				84C8D3D60625FF96001E4CD5,
+			);
+			isa = PBXGroup;
+			path = resources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3D50625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = ResourceBundleResourceManager.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3D60625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = ResourceManager.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3D70625FF96001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = status.xml;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3D80625FFF7001E4CD5 = {
+			children = (
+				84C8D3DB0625FFF7001E4CD5,
+				84C8D3DE0625FFF7001E4CD5,
+				84C8D3E40625FFF7001E4CD5,
+				84C8D4010625FFF7001E4CD5,
+				84C8D4030625FFF7001E4CD5,
+				84C8D40C0625FFF7001E4CD5,
+				84C8D4120625FFF7001E4CD5,
+				84C8D4180625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = themes;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3DB0625FFF7001E4CD5 = {
+			children = (
+				84C8D3DC0625FFF7001E4CD5,
+				84C8D3DD0625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = cipher;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3DC0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = "blojsom-cipher-background.gif";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3DD0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "blojsom-cipher.css";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3DE0625FFF7001E4CD5 = {
+			children = (
+				84C8D3DF0625FFF7001E4CD5,
+				84C8D3E00625FFF7001E4CD5,
+				84C8D3E10625FFF7001E4CD5,
+				84C8D3E20625FFF7001E4CD5,
+				84C8D3E30625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = eclipse;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3DF0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "blojsom-eclipse.css";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3E00625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "eclipse-comments.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3E10625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "eclipse-referers.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3E20625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "eclipse-trackback.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3E30625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = eclipse.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3E40625FFF7001E4CD5 = {
+			children = (
+				84C8D3E50625FFF7001E4CD5,
+				84C8D3E60625FFF7001E4CD5,
+				84C8D3E70625FFF7001E4CD5,
+				84C8D3E80625FFF7001E4CD5,
+				84C8D3E90625FFF7001E4CD5,
+				84C8D3EA0625FFF7001E4CD5,
+				84C8D3EB0625FFF7001E4CD5,
+				84C8D3EC0625FFF7001E4CD5,
+				84C8D3ED0625FFF7001E4CD5,
+				84C8D3EE0625FFF7001E4CD5,
+				84C8D3EF0625FFF7001E4CD5,
+				84C8D3F00625FFF7001E4CD5,
+				84C8D3F10625FFF7001E4CD5,
+				84C8D3F20625FFF7001E4CD5,
+				84C8D3F30625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = flex;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3E50625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "blojsom-flex.css";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3E60625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "flex-comments.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3E70625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "flex-inc-entries.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3E80625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "flex-inc-main.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3E90625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "flex-inc-post-entry-comments.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3EA0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "flex-inc-post-entry-summary.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3EB0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "flex-inc-post-entry-trackback.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3EC0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "flex-inc-referers.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3ED0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "flex-inc-trackback-auto-discovery.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3EE0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "flex-referers.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3EF0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "flex-trackback-failure.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3F00625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "flex-trackback-success.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3F10625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "flex-trackback.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3F20625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = flex.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3F30625FFF7001E4CD5 = {
+			children = (
+				84C8D3F40625FFF7001E4CD5,
+				84C8D3F50625FFF7001E4CD5,
+				84C8D3F60625FFF7001E4CD5,
+				84C8D3F70625FFF7001E4CD5,
+				84C8D3F80625FFF7001E4CD5,
+				84C8D3F90625FFF7001E4CD5,
+				84C8D3FA0625FFF7001E4CD5,
+				84C8D3FB0625FFF7001E4CD5,
+				84C8D3FC0625FFF7001E4CD5,
+				84C8D3FD0625FFF7001E4CD5,
+				84C8D3FE0625FFF7001E4CD5,
+				84C8D3FF0625FFF7001E4CD5,
+				84C8D4000625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = images;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3F40625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = arrow.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3F50625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = comment.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3F60625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = fade.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3F70625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = header.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3F80625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = header2.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3F90625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = javablog.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3FA0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = permalink.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3FB0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = rdf.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3FC0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = rss092.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3FD0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = rss2.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3FE0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = tagline.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D3FF0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = top.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4000625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = zen.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4010625FFF7001E4CD5 = {
+			children = (
+				84C8D4020625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = "green-lantern";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4020625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = blojsom.css;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4030625FFF7001E4CD5 = {
+			children = (
+				84C8D4040625FFF7001E4CD5,
+				84C8D4050625FFF7001E4CD5,
+				84C8D4060625FFF7001E4CD5,
+				84C8D4070625FFF7001E4CD5,
+				84C8D4080625FFF7001E4CD5,
+				84C8D4090625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = grid;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4040625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "blojsom-grid.css";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4050625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "grid-comments.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4060625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "grid-referers.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4070625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "grid-trackback.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4080625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = grid.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4090625FFF7001E4CD5 = {
+			children = (
+				84C8D40A0625FFF7001E4CD5,
+				84C8D40B0625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = images;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D40A0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = comment.png;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D40B0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = "small-grid.gif";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D40C0625FFF7001E4CD5 = {
+			children = (
+				84C8D40D0625FFF7001E4CD5,
+				84C8D40E0625FFF7001E4CD5,
+				84C8D40F0625FFF7001E4CD5,
+				84C8D4100625FFF7001E4CD5,
+				84C8D4110625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = pumpkin;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D40D0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "pumpkin-comments.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D40E0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "pumpkin-referers.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D40F0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "pumpkin-trackback.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4100625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = pumpkin.css;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4110625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = pumpkin.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4120625FFF7001E4CD5 = {
+			children = (
+				84C8D4130625FFF7001E4CD5,
+				84C8D4140625FFF7001E4CD5,
+				84C8D4150625FFF7001E4CD5,
+				84C8D4160625FFF7001E4CD5,
+				84C8D4170625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = secondwave;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4130625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "blojsom-secondwave.css";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4140625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "secondwave-comments.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4150625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "secondwave-referers.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4160625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "secondwave-trackback.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4170625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = secondwave.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4180625FFF7001E4CD5 = {
+			children = (
+				84C8D4190625FFF7001E4CD5,
+				84C8D41A0625FFF7001E4CD5,
+				84C8D41B0625FFF7001E4CD5,
+				84C8D41C0625FFF7001E4CD5,
+				84C8D41D0625FFF7001E4CD5,
+				84C8D41E0625FFF7001E4CD5,
+				84C8D41F0625FFF7001E4CD5,
+				84C8D4200625FFF7001E4CD5,
+				84C8D4210625FFF7001E4CD5,
+				84C8D4220625FFF7001E4CD5,
+				84C8D4230625FFF7001E4CD5,
+				84C8D4240625FFF7001E4CD5,
+			);
+			isa = PBXGroup;
+			path = shrubbery;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4190625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "blojsom-shrubbery.css";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D41A0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.jpeg;
+			path = h.jpg;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D41B0625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = pbb.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D41C0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "shrubbery-calendar.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D41D0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "shrubbery-categories.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D41E0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "shrubbery-comments.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D41F0625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "shrubbery-header.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4200625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "shrubbery-pbb.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4210625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "shrubbery-sidebars.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4220625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "shrubbery-trackback.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4230625FFF7001E4CD5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = shrubbery.vm;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D4240625FFF7001E4CD5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.gif;
+			path = tb.gif;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C8D42D06260355001E4CD5 = {
+			children = (
+				E7519C2706DD406B004CF4F8,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84D37079069EF38B00597021 = {
+			children = (
+				84D3707A069EF38B00597021,
+			);
+			isa = PBXGroup;
+			path = activateurls;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84D3707A069EF38B00597021 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = ActivateURLsPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84D803AC064841020089F1C8 = {
+			children = (
+				84D803AD064841020089F1C8,
+			);
+			isa = PBXGroup;
+			path = addhost;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84D803AD064841020089F1C8 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AddHostPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84D803B206484AD70089F1C8 = {
+			buildActionMask = 12;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "tar -C \"${OBJROOT}\" -xzf \"${SRCROOT}/addon-lib.tar.gz\"\nmkdir -p \"${OBJROOT}/WEB-INF\"\ntar -C \"${OBJROOT}/WEB-INF/\" -xzf \"${SRCROOT}/lib.tar.gz\"\nmkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root\"\nchmod o+r \"$DSTROOT/Library/Tomcat/blojsom_root\"\nchmod g+w \"$DSTROOT/Library/Tomcat/blojsom_root\"\n";
+		};
+		84D803B306484AD70089F1C8 = {
+			buildPhases = (
+				84D803B206484AD70089F1C8,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = prepare;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXAggregateTarget;
+			name = prepare;
+			productName = prepare;
+		};
+		84D803B406484AE00089F1C8 = {
+			containerPortal = 08FB7793FE84155DC02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 84D803B306484AD70089F1C8;
+			remoteInfo = prepare;
+		};
+		84D803B506484AE00089F1C8 = {
+			isa = PBXTargetDependency;
+			target = 84D803B306484AD70089F1C8;
+			targetProxy = 84D803B406484AE00089F1C8;
+		};
+		84E74883072594A000ACCF80 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = apple_stylesheet_overrides.css;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84E74885072594A900ACCF80 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = atom.css;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84E74887072594B100ACCF80 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = base_layout.css;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84E74889072594BF00ACCF80 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.javascript;
+			path = base_scripts.js;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84E7488B072594C700ACCF80 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "blojsom-admin.css";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84E7488D072594D200ACCF80 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = blojsom.css;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84E7488F072594D900ACCF80 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.javascript;
+			path = emptyStartup.js;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84E74891072594E100ACCF80 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.javascript;
+			path = win32ImageWorkaround.js;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//840
+//841
+//842
+//843
+//844
+//E70
+//E71
+//E72
+//E73
+//E74
+		E73692B906C314C1005A155E = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AppleBlojsomAuthorizationProvider.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692C706C315C4005A155E = {
+			children = (
+				E73692C806C315C4005A155E,
+				E73692C906C315C4005A155E,
+				E73692CA06C315C4005A155E,
+			);
+			isa = PBXGroup;
+			path = authorization;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692C806C315C4005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = AuthorizationProvider.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692C906C315C4005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692CA06C315C4005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = PropertiesAuthorizationProvider.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692CC06C315FD005A155E = {
+			children = (
+				E73692CD06C315FD005A155E,
+				E73692CE06C315FD005A155E,
+			);
+			isa = PBXGroup;
+			path = aggregator;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692CD06C315FD005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = InternalAggregatorPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692CE06C315FD005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692CF06C31614005A155E = {
+			children = (
+				E73692D006C31614005A155E,
+				E73692D506C31614005A155E,
+				E73692D606C31614005A155E,
+				E73692D706C31614005A155E,
+				E73692D806C31614005A155E,
+			);
+			isa = PBXGroup;
+			path = moblog;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692D006C31614005A155E = {
+			children = (
+				E73692D106C31614005A155E,
+				E73692D206C31614005A155E,
+				E73692D306C31614005A155E,
+			);
+			isa = PBXGroup;
+			path = admin;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692D106C31614005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = MoblogAdminPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692D206C31614005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692D306C31614005A155E = {
+			children = (
+				E73692D406C31614005A155E,
+			);
+			isa = PBXGroup;
+			path = templates;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692D406C31614005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "admin-edit-moblog-settings.vm";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692D506C31614005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = Mailbox.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692D606C31614005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = MoblogPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692D706C31614005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = MoblogPluginUtils.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692D806C31614005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692DA06C31625005A155E = {
+			children = (
+				E73692DB06C31625005A155E,
+				E73692DC06C31625005A155E,
+				E73692DD06C31625005A155E,
+			);
+			isa = PBXGroup;
+			path = statistics;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692DB06C31625005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = DaysSincePostedPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692DC06C31625005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = package.html;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E73692DD06C31625005A155E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = WordCountPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E7519C2406DD406B004CF4F8 = {
+			buildActionMask = 2147483647;
+			files = (
+				E7519C2906DD40C9004CF4F8,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E7519C2506DD406B004CF4F8 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E7519C2606DD406B004CF4F8 = {
+			buildPhases = (
+				E7519C2406DD406B004CF4F8,
+				E7519C2506DD406B004CF4F8,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_MODE_FLAG = "a-w,a+rx";
+				INSTALL_PATH = /usr/libexec/blojsom/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = ismember_blojsom_helper;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = ismember_blojsom_helper;
+			productName = ismember_blojsom_helper;
+			productReference = E7519C2706DD406B004CF4F8;
+			productType = "com.apple.product-type.tool";
+		};
+		E7519C2706DD406B004CF4F8 = {
+			explicitFileType = "compiled.mach-o.executable";
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = ismember_blojsom_helper;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		E7519C2906DD40C9004CF4F8 = {
+			fileRef = E7F76A9006DD13E40028BFA6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E7F76A8806DD13760028BFA6 = {
+			children = (
+				E7F76A8906DD13760028BFA6,
+				E7F76A8A06DD13760028BFA6,
+			);
+			isa = PBXGroup;
+			path = acl;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E7F76A8906DD13760028BFA6 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = ACLPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E7F76A8A06DD13760028BFA6 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = HTTPACLPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E7F76A8C06DD13810028BFA6 = {
+			children = (
+				E7F76A8D06DD13810028BFA6,
+			);
+			isa = PBXGroup;
+			path = bloglisting;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E7F76A8D06DD13810028BFA6 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.java;
+			path = BlogListingPlugin.java;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E7F76A8F06DD13E40028BFA6 = {
+			children = (
+				E7F76A9006DD13E40028BFA6,
+			);
+			isa = PBXGroup;
+			path = ismember;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E7F76A9006DD13E40028BFA6 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = ismember_main.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+	};
+	rootObject = 08FB7793FE84155DC02AAC07;
+}

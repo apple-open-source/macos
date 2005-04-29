@@ -1,0 +1,62 @@
+# The path to the tcl.h header file
+
+TCL_INCPATH = @TCL_SRC_DIR@/generic
+
+# The path to the tk.h header file
+
+TK_INCPATH  = @TK_SRC_DIR@/generic
+
+# The path to the X11 include files
+
+XINCLUDES   = @XINCLUDES@
+
+# Install SQUARE package here
+
+SQUARE_INSTALL_PATH = @SQUARE_INSTALL_PATH@
+
+# Install SQUARE plug-in add-on here
+
+MOZILLA_DIR = @MOZILLA_DIR@
+
+#----------------------------------------------------------------
+
+VERSION = 1.0
+
+CC        = @CC@
+
+INCLUDES  = ${XINCLUDES} -I${TCL_INCPATH} -I${TK_INCPATH} \
+	    -I@SNACK_INC_DIR@ @AINC@
+
+CFLAGS    = -O @CFLAGS@ @AFLAG@ ${INCLUDES}
+
+LIBS      = -lc @TK_LIBS@ @ALIB@ @TCL_LIB_SPEC@ @TK_LIB_SPEC@ \
+	    -L@SNACK_OBJ_DIR@ @SNACK_STUB_LIB_FLAG@
+
+SHLIB_LD     = @SHLIB_LD@
+SHLIB_SUFFIX = @SHLIB_SUFFIX@
+
+all: libsquare${SHLIB_SUFFIX}
+
+OBJS =  square.o
+
+libsquare${SHLIB_SUFFIX}: ${OBJS}
+	${SHLIB_LD} ${OBJS} ${LIBS} -o libsquare${SHLIB_SUFFIX} 
+
+install:
+	@if [ ! -d ${SQUARE_INSTALL_PATH}/square${VERSION} ] ; then \
+	    echo "Making directory ${SQUARE_INSTALL_PATH}/square${VERSION}"; \
+	    mkdir ${SQUARE_INSTALL_PATH}/square${VERSION}; \
+	    chmod 755 ${SQUARE_INSTALL_PATH}/square${VERSION}; \
+        else true; \
+        fi;
+	cp -f libsquare${SHLIB_SUFFIX} ${SQUARE_INSTALL_PATH}/square${VERSION}/
+	cp -f pkgIndex.tcl ${SQUARE_INSTALL_PATH}/square${VERSION}/
+	@if [ -d "@MOZILLA_DIR@" ] ; then \
+	    cp -rf ${SQUARE_INSTALL_PATH}/square${VERSION} ${MOZILLA_DIR}/tclplug/2.0/; \
+	fi;
+
+clean:
+	rm -f *.o libsquare${SHLIB_SUFFIX}
+
+distclean: clean
+	rm -f Makefile config.status config.cache config.log

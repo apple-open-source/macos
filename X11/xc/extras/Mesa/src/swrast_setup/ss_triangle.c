@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 #include "glheader.h"
@@ -47,7 +47,8 @@ static quad_func     quad_tab[SS_MAX_TRIFUNC];
 
 
 static void _swsetup_render_line_tri( GLcontext *ctx,
-				      GLuint e0, GLuint e1, GLuint e2 )
+				      GLuint e0, GLuint e1, GLuint e2,
+                                      GLuint facing )
 {
    SScontext *swsetup = SWSETUP_CONTEXT(ctx);
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
@@ -59,6 +60,14 @@ static void _swsetup_render_line_tri( GLcontext *ctx,
    GLchan c[2][4];
    GLchan s[2][4];
    GLuint i[2];
+
+   /* cull testing */
+   if (ctx->Polygon.CullFlag) {
+      if (facing == 1 && ctx->Polygon.CullFaceMode != GL_FRONT)
+         return;
+      if (facing == 0 && ctx->Polygon.CullFaceMode != GL_BACK)
+         return;
+   }
 
    if (ctx->_TriangleCaps & DD_FLATSHADE) {
       COPY_CHAN4(c[0], v0->color);
@@ -97,7 +106,8 @@ static void _swsetup_render_line_tri( GLcontext *ctx,
 }
 
 static void _swsetup_render_point_tri( GLcontext *ctx,
-				       GLuint e0, GLuint e1, GLuint e2 )
+				       GLuint e0, GLuint e1, GLuint e2,
+                                       GLuint facing )
 {
    SScontext *swsetup = SWSETUP_CONTEXT(ctx);
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
@@ -109,6 +119,14 @@ static void _swsetup_render_point_tri( GLcontext *ctx,
    GLchan c[2][4];
    GLchan s[2][4];
    GLuint i[2];
+
+   /* cull testing */
+   if (ctx->Polygon.CullFlag) {
+      if (facing == 1 && ctx->Polygon.CullFaceMode != GL_FRONT)
+         return;
+      if (facing == 0 && ctx->Polygon.CullFaceMode != GL_BACK)
+         return;
+   }
 
    if (ctx->_TriangleCaps & DD_FLATSHADE) {
       COPY_CHAN4(c[0], v0->color);
@@ -138,6 +156,7 @@ static void _swsetup_render_point_tri( GLcontext *ctx,
       v0->index = i[0];
       v1->index = i[1];
    }
+   _swrast_flush(ctx);
 }
 
 #define SS_COLOR(a,b) COPY_CHAN4(a,b)
@@ -264,13 +283,19 @@ void _swsetup_choose_trifuncs( GLcontext *ctx )
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    GLuint ind = 0;
 
-   if (ctx->Polygon._OffsetAny)
+   if (ctx->Polygon.OffsetPoint ||
+       ctx->Polygon.OffsetLine ||
+       ctx->Polygon.OffsetFill)
       ind |= SS_OFFSET_BIT;
 
    if (ctx->Light.Enabled && ctx->Light.Model.TwoSide)
       ind |= SS_TWOSIDE_BIT;
 
-   if (ctx->_TriangleCaps & DD_TRI_UNFILLED)
+   /* We piggyback the two-sided stencil front/back determination on the
+    * unfilled triangle path.
+    */
+   if ((ctx->_TriangleCaps & DD_TRI_UNFILLED) ||
+       (ctx->Stencil.Enabled && ctx->Stencil.TestTwoSide))
       ind |= SS_UNFILLED_BIT;
 
    if (ctx->Visual.rgbMode)
@@ -280,4 +305,6 @@ void _swsetup_choose_trifuncs( GLcontext *ctx )
    tnl->Driver.Render.Quad = quad_tab[ind];
    tnl->Driver.Render.Line = swsetup_line;
    tnl->Driver.Render.Points = swsetup_points;
+
+   ctx->_Facing = 0;
 }

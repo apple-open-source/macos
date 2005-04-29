@@ -1,7 +1,8 @@
 /* Core dump and executable file functions below target vector, for GDB.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996,
+   1997, 1998, 1999, 2000, 2001, 2003, 2004 Free Software Foundation,
+   Inc.
 
    This file is part of GDB.
 
@@ -21,6 +22,7 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
+#include "arch-utils.h"
 #include "gdb_string.h"
 #include <errno.h>
 #include <signal.h>
@@ -37,8 +39,12 @@
 #include "gdbcore.h"
 #include "gdbthread.h"
 #include "regcache.h"
+#include "regset.h"
 #include "symfile.h"
-#include <readline/readline.h>
+#include "exec.h"
+#include "readline/readline.h"
+
+#include "gdb_assert.h"
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -54,6 +60,11 @@ static struct core_fns *core_file_fns = NULL;
    file currently open on core_bfd. */
 
 static struct core_fns *core_vec = NULL;
+
+/* FIXME: kettenis/20031023: Eventually this variable should
+   disappear.  */
+
+struct gdbarch *core_gdbarch = NULL;
 
 static void core_files_info (struct target_ops *);
 
@@ -124,6 +135,10 @@ sniff_core_bfd (bfd *abfd)
   struct core_fns *yummy = NULL;
   int matches = 0;;
 
+  /* Don't sniff if we have support for register sets in CORE_GDBARCH.  */
+  if (core_gdbarch && gdbarch_regset_from_core_section_p (core_gdbarch))
+    return NULL;
+
   for (cf = core_file_fns; cf != NULL; cf = cf->next)
     {
       if (cf->core_sniffer (cf, abfd))
@@ -179,7 +194,6 @@ gdb_check_format (bfd *abfd)
 /* Discard all vestiges of any previous core file and mark data and stack
    spaces as empty.  */
 
-/* ARGSUSED */
 static void
 core_close (int quitting)
 {
@@ -208,6 +222,7 @@ core_close (int quitting)
 	}
     }
   core_vec = NULL;
+  core_gdbarch = NULL;
 }
 
 static void
@@ -310,6 +325,14 @@ core_open (char *filename, int from_tty)
   core_bfd = temp_bfd;
   old_chain = make_cleanup (core_close_cleanup, 0 /*ignore*/);
 
+  /* FIXME: kettenis/20031023: This is very dangerous.  The
+     CORE_GDBARCH that results from this call may very well be
+     different from CURRENT_GDBARCH.  However, its methods may only
+     work if it is selected as the current architecture, because they
+     rely on swapped data (see gdbarch.c).  We should get rid of that
+     swapped data.  */
+  core_gdbarch = gdbarch_from_bfd (core_bfd);
+
   /* Find a suitable core file handler to munch on core_bfd */
   core_vec = sniff_core_bfd (core_bfd);
 
@@ -409,7 +432,7 @@ get_core_register_section (char *name,
 			   int required)
 {
   char section_name[100];
-  sec_ptr section;
+  struct bfd_section *section;
   bfd_size_type size;
   char *contents;
 
@@ -436,7 +459,25 @@ get_core_register_section (char *name,
       return;
     }
 
-  core_vec->core_read_registers (contents, size, which, 
+  if (core_gdbarch && gdbarch_regset_from_core_section_p (core_gdbarch))
+    {
+      const struct regset *regset;
+
+      regset = gdbarch_regset_from_core_section (core_gdbarch, name, size);
+      if (regset == NULL)
+	{
+	  if (required)
+	    warning ("Couldn't recognize %s registers in core file.\n",
+		     human_name);
+	  return;
+	}
+
+      regset->supply_regset (regset, current_regcache, -1, contents, size);
+      return;
+    }
+
+  gdb_assert (core_vec);
+  core_vec->core_read_registers (contents, size, which,
 				 ((CORE_ADDR)
 				  bfd_section_vma (core_bfd, section)));
 }
@@ -448,14 +489,13 @@ get_core_register_section (char *name,
 
 /* We just get all the registers, so we don't use regno.  */
 
-/* ARGSUSED */
 static void
 get_core_registers (int regno)
 {
   int status;
 
-  if (core_vec == NULL
-      || core_vec->core_read_registers == NULL)
+  if (!(core_gdbarch && gdbarch_regset_from_core_section_p (core_gdbarch))
+      && (core_vec == NULL || core_vec->core_read_registers == NULL))
     {
       fprintf_filtered (gdb_stderr,
 		     "Can't fetch registers from this type of core file\n");
@@ -474,6 +514,63 @@ core_files_info (struct target_ops *t)
 {
   print_section_info (t, core_bfd);
 }
+
+static LONGEST
+core_xfer_partial (struct target_ops *ops, enum target_object object,
+		   const char *annex, void *readbuf,
+		   const void *writebuf, ULONGEST offset, LONGEST len)
+{
+  switch (object)
+    {
+    case TARGET_OBJECT_MEMORY:
+      if (readbuf)
+	return (*ops->to_xfer_memory) (offset, readbuf, len, 0/*write*/,
+				       NULL, ops);
+      if (writebuf)
+	return (*ops->to_xfer_memory) (offset, readbuf, len, 1/*write*/,
+				       NULL, ops);
+      return -1;
+
+    case TARGET_OBJECT_AUXV:
+      if (readbuf)
+	{
+	  /* When the aux vector is stored in core file, BFD
+	     represents this with a fake section called ".auxv".  */
+
+	  struct bfd_section *section;
+	  bfd_size_type size;
+	  char *contents;
+
+	  section = bfd_get_section_by_name (core_bfd, ".auxv");
+	  if (section == NULL)
+	    return -1;
+
+	  size = bfd_section_size (core_bfd, section);
+	  if (offset >= size)
+	    return 0;
+	  size -= offset;
+	  if (size > len)
+	    size = len;
+	  if (size > 0 &&
+	      ! bfd_get_section_contents (core_bfd, section, readbuf,
+					  (file_ptr) offset, size))
+	    {
+	      warning ("Couldn't read NT_AUXV note in core file.");
+	      return -1;
+	    }
+
+	  return size;
+	}
+      return -1;
+
+    default:
+      if (ops->beneath != NULL)
+	return ops->beneath->to_xfer_partial (ops->beneath, object, annex,
+					      readbuf, writebuf, offset, len);
+      return -1;
+    }
+}
+
 
 /* If mourn is being called in all the right places, this could be say
    `gdb internal error' (since generic_mourn calls breakpoint_init_inferior).  */
@@ -511,6 +608,7 @@ init_core_ops (void)
   core_ops.to_attach = find_default_attach;
   core_ops.to_detach = core_detach;
   core_ops.to_fetch_registers = get_core_registers;
+  core_ops.to_xfer_partial = core_xfer_partial;
   core_ops.to_xfer_memory = xfer_memory;
   core_ops.to_files_info = core_files_info;
   core_ops.to_insert_breakpoint = ignore;

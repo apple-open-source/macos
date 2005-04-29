@@ -40,7 +40,7 @@
 # This file is specific to Carnegie Mellon University's
 # software build process
 # 
-# $Id: SMakefile,v 1.94 2004/06/02 17:22:11 rjs3 Exp $
+# $Id: SMakefile,v 1.5 2005/03/05 00:36:04 dasenbro Exp $
 #
 
 NEW_AUTOTOOLS=yes

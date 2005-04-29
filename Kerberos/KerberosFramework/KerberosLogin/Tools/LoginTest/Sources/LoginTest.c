@@ -1,6 +1,8 @@
 #include <Kerberos/Kerberos.h>
 #include <Carbon/Carbon.h>
 #include <stdio.h>
+#include <syslog.h>
+#include <stdarg.h>
 
 /* Prototypes */
 void Initialize(void);
@@ -41,11 +43,11 @@ int main(void)
     printf ("KLLastChangedTime returned %d (err = %d)\n", time, err);
 
     //TestKerberosRealms ();
-    TestKLPrincipal ();
+    //TestKLPrincipal ();
     //TestLoginOptions ();
-    //TestApplicationOptions ();
+    TestApplicationOptions ();
     //TestErrorHandling ();
-    //TestHighLevelAPI ();
+    TestHighLevelAPI ();
 
     err = KLLastChangedTime(&time);
     printf ("KLLastChangedTime returned %d (err = %d)\n", time, err);
@@ -554,7 +556,7 @@ char* TimeToString (char* timeString, long time)
 
 void MyKerberosLoginIdleCallback (KLRefCon inAppData)
 {
-    printf ("App got callback while waiting for Mach IPC (appData == %d)\n", inAppData);
+    syslog (LOG_ALERT, "App got callback while waiting for Mach IPC (appData == %d)\n", inAppData);
 //    KLCancelAllDialogs ();
 }
 

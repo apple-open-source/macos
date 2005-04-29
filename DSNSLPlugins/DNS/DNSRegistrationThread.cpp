@@ -202,8 +202,8 @@ tDirStatus DNSRegistrationThread::PerformRegistration( 	CFStringRef nameRef,
 														CFStringRef portRef,
 														CFStringRef* serviceKeyRef )
 {
-    char mode = 'A';
-    
+    Boolean useOldAPICalls	 = false;
+	
 	*serviceKeyRef = NULL;
 	
     while (!mRunLoopRef)
@@ -217,6 +217,7 @@ tDirStatus DNSRegistrationThread::PerformRegistration( 	CFStringRef nameRef,
     
     if ( CFStringCompare( domainRef, kEmptySAFE_CFSTR, 0 ) != kCFCompareEqualTo && !CFStringHasSuffix( domainRef, kDotSAFE_CFSTR ) )
     {
+		DBGLOG( "DNSRegistrationThread::PerformRegistration appending \".\" to domain\n" );
         // we need to pass fully qualified domains (i.e. local. not local)
         modDomainRef = CFStringCreateMutableCopy( NULL, 0, domainRef );
         CFStringAppendCString( (CFMutableStringRef)modDomainRef, ".", kCFStringEncodingUTF8 );
@@ -239,7 +240,7 @@ tDirStatus DNSRegistrationThread::PerformRegistration( 	CFStringRef nameRef,
 	
 	if ( serviceKey )
 	{
-		// we are just going to make the key be the name.type.location
+		// we are just going to make the key be the name.type.port.location
 		CFStringAppend( serviceKey, nameRef );
 		CFStringAppend( serviceKey, kDotSAFE_CFSTR );
 		CFStringAppend( serviceKey, (modTypeRef)?modTypeRef:typeRef );
@@ -260,33 +261,86 @@ tDirStatus DNSRegistrationThread::PerformRegistration( 	CFStringRef nameRef,
 	}
 	else
 	{
-		DBGLOG("DNSRegistrationThread::PerformRegistration, port is %ld\n", port );
-        if ( GetParentPlugin()->GetComputerNameString() && CFStringCompare( GetParentPlugin()->GetComputerNameString(), nameRef, 0 ) == kCFCompareEqualTo )
+		if ( DEBUGGING_NSL )
+		{
+			char*		name = (char*)malloc( CFStringGetMaximumSizeForEncoding( CFStringGetLength(nameRef), kCFStringEncodingUTF8 ) + 1 );
+			char*		location = (char*)malloc( CFStringGetMaximumSizeForEncoding( CFStringGetLength((modDomainRef)?modDomainRef:domainRef), kCFStringEncodingUTF8 ) + 1 );
+			char*		service = (char*)malloc( CFStringGetMaximumSizeForEncoding( CFStringGetLength(typeRef), kCFStringEncodingUTF8 ) + 1 );
+			
+			if ( name && location && service )
+			{
+				CFStringGetCString( nameRef, name, CFStringGetMaximumSizeForEncoding( CFStringGetLength(nameRef), kCFStringEncodingUTF8 ) + 1, kCFStringEncodingUTF8 );
+
+				CFStringGetCString( (modDomainRef)?modDomainRef:domainRef, location, CFStringGetMaximumSizeForEncoding( CFStringGetLength((modDomainRef)?modDomainRef:domainRef), kCFStringEncodingUTF8 ) + 1, kCFStringEncodingUTF8 );
+
+				CFStringGetCString( typeRef, service, CFStringGetMaximumSizeForEncoding( CFStringGetLength(typeRef), kCFStringEncodingUTF8 ) + 1, kCFStringEncodingUTF8 );
+				DBGLOG("DNSRegistrationThread::PerformRegistration for [%s] for service [%s] in domain [%s] using port %ld\n", name, service, location, port );
+			}
+			
+			if ( name )
+				free( name );
+
+			if ( location )
+				free( location );
+
+			if ( service )
+				free( service );
+		}
+		
+        if ( CFStringCompare( nameRef, CFSTR(kUseMachineName), 0 ) == kCFCompareEqualTo || GetParentPlugin()->GetComputerNameString() && CFStringCompare( GetParentPlugin()->GetComputerNameString(), nameRef, 0 ) == kCFCompareEqualTo )
 			nameRef = kEmptySAFE_CFSTR;	// use default
 
 		entity = CFNetServiceCreate(NULL, (modDomainRef)?modDomainRef:domainRef, (modTypeRef)?modTypeRef:typeRef, nameRef, port);
 		
-		if ( protocolSpecificData )
+		if ( protocolSpecificData && CFGetTypeID(protocolSpecificData) == CFStringGetTypeID() )
 		{
-			CFNetServiceSetProtocolSpecificInformation( entity, protocolSpecificData );
-		}
-	
-		mode = 'A';
-		{
-			CFNetServiceClientContext c = {0, NULL, NULL, NULL, CopyRegistrationDescription};
-			if ( !CFNetServiceSetClient( entity, RegisterEntityCallBack, &c) )
-				syslog( LOG_ERR, "DS Rendezvous was unable to register a service with CFNetService!\n" );
-			CFNetServiceScheduleWithRunLoop(entity, mRunLoopRef, kCFRunLoopDefaultMode);
+			
+			CFDictionaryRef		txtDataAsDictionary = CreateMutableDictionaryFromXMLString( (CFStringRef)protocolSpecificData );
+			
+			if ( txtDataAsDictionary )
+			{
+				CFDataRef         txtRecord = NULL;
+				
+				DBGLOG("DNSRegistrationThread::PerformRegistration adding TXT data dictionary type data to registration\n" );
+				txtRecord = CFNetServiceCreateTXTDataWithDictionary( NULL, txtDataAsDictionary );
+				
+				CFNetServiceSetTXTData( entity, txtRecord );
+				CFRelease( txtRecord );
+			}
+			else
+			{
+				CFNetServiceSetProtocolSpecificInformation( entity, protocolSpecificData );
+				DBGLOG("DNSRegistrationThread::PerformRegistration adding TXT data text type data to registration\n" );
+				
+				useOldAPICalls = true;
+			}
 		}
 		
-		if (CFNetServiceRegister(entity, &error))
+		CFNetServiceClientContext c = {0, NULL, NULL, NULL, CopyRegistrationDescription};
+		if ( !CFNetServiceSetClient( entity, RegisterEntityCallBack, &c) )
+			syslog( LOG_ERR, "DS Bonjour was unable to register a service with CFNetService!\n" );
+		CFNetServiceScheduleWithRunLoop(entity, mRunLoopRef, kCFRunLoopDefaultMode);
+		
+		if ( useOldAPICalls )
 		{
-			CFRunLoopWakeUp( mRunLoopRef );
-			DBGLOG("CFNetServiceRegister returned TRUE!\n");
+			if (CFNetServiceRegister(entity, &error))
+			{
+				CFRunLoopWakeUp( mRunLoopRef );
+				DBGLOG("CFNetServiceRegister returned TRUE!\n");
+			}
+			else
+				DBGLOG("CFNetServiceRegister returned FALSE (%d, %ld).\n", error.domain, error.error);
 		}
 		else
-			DBGLOG("CFNetServiceRegister returned FALSE (%d, %ld).\n", error.domain, error.error);
-			
+		{
+			if (CFNetServiceRegisterWithOptions(entity, 0, &error))
+			{
+				DBGLOG("CFNetServiceRegister started\n");
+			}
+			else
+				DBGLOG("CFNetServiceRegister returned FALSE (%d, %ld).\n", error.domain, error.error);
+		}
+		
 		if ( !error.error && serviceKey )
 		{
 			*serviceKeyRef = serviceKey;
@@ -335,6 +389,12 @@ tDirStatus DNSRegistrationThread::PerformDeregistration( CFDictionaryRef service
 	domainRef = (CFStringRef)::CFDictionaryGetValue( service, kDS1AttrLocationSAFE_CFSTR );
 	if ( !domainRef )
 		domainRef = kEmptySAFE_CFSTR;		// just deregister local
+	else
+	if ( CFStringCompare( domainRef, CFSTR("local"), 0 ) == kCFCompareEqualTo )
+	{
+		DBGLOG( "DNSRegistrationThread::PerformDeregistration, deregistering in local, use \"\"\n" );
+		domainRef = kEmptySAFE_CFSTR;		// just deregister local
+	}
 		
 	typeOfService = (CFStringRef)::CFDictionaryGetValue( service, kDS1AttrServiceTypeSAFE_CFSTR );
 	if ( !typeOfService )
@@ -359,7 +419,7 @@ tDirStatus DNSRegistrationThread::PerformDeregistration( CFDictionaryRef service
 	
 	if ( serviceKey )
 	{
-		// we are just going to make the key be the name._type._tcp.location.
+		// we are just going to make the key be the name.type.port.location
 		CFStringAppend( serviceKey, nameOfService );
 		CFStringAppend( serviceKey, kDotSAFE_CFSTR );
 		CFStringAppend( serviceKey, (modTypeRef)?modTypeRef:typeOfService );
@@ -406,7 +466,7 @@ tDirStatus DNSRegistrationThread::PerformDeregistration( CFStringRef serviceKey 
         
 			CFNetServiceUnscheduleFromRunLoop( entity, mRunLoopRef, kCFRunLoopDefaultMode );		// need to unschedule from run loop
 			if ( !CFNetServiceSetClient( entity, NULL, NULL ) )
-				syslog( LOG_ERR, "DS Rendezvous was unable to unregister a service with CFNetService!\n" );
+				syslog( LOG_ERR, "DS Bonjour was unable to unregister a service with CFNetService!\n" );
 				
 			CFNetServiceCancel( entity );
 			CFRelease( entity );
@@ -420,6 +480,12 @@ tDirStatus DNSRegistrationThread::PerformDeregistration( CFStringRef serviceKey 
 			DBGLOG( "DNSRegistrationThread::PerformDeregistration, service is now registered %ld times\n", regData->fCount );
 		}
     }
+	else if ( serviceKey )
+	{
+		char	serviceKeyStr[1024] = {0,};
+		CFStringGetCString( serviceKey, serviceKeyStr, sizeof(serviceKeyStr), kCFStringEncodingUTF8 );
+		DBGLOG( "DNSRegistrationThread::PerformDeregistration, unable to deregister CFNetService: %s as there no match in our registered services table!\n", serviceKeyStr );
+	}
     
     return status;
 }
@@ -438,7 +504,10 @@ boolean_t SystemConfigurationNameChangedCallBack(SCDynamicStoreRef session, void
 
 static void RegisterEntityCallBack(CFNetServiceRef theEntity, CFStreamError* error, void* info)
 {
-    DBGLOG( "Registration is finished error: (%d, %ld).\n", error->domain, error->error);
+    if ( error->error )
+		DBGLOG( "Registration is finished error: (%d, %ld).\n", error->domain, error->error );
+	else
+		DBGLOG( "Registration has started\n" );
 }
 
 CFStringRef CopyCancelRegDescription( const void* info )
@@ -460,15 +529,23 @@ CFStringRef CopyRegistrationDescription( const void* info )
     return description;
 }
 
+#define	kMaxLengthOfNamePortionOfString			64-sizeof(" [00:00:00:00:00:00]")
 CFStringRef	CreateComputerNameEthernetString( CFStringRef computerName )
 {
 	CFMutableStringRef		modString = NULL;
 	
 	if ( computerName )
 	{
+		char					testDNSStringBuf[kMaxLengthOfNamePortionOfString];		// we need to test the actual string
 		CFStringRef				macAddress = CreateMacAddressString();
 		modString = CFStringCreateMutableCopy( NULL, 0, computerName );
     
+		while ( CFStringGetLength(modString)>0 && !CFStringGetCString( modString, testDNSStringBuf, sizeof(testDNSStringBuf), kCFStringEncodingUTF8 ) )
+		{
+			DBGLOG( "DNSRegistrationThread::CreateComputerNameEthernetString name is too long, need to try trimming...\n" );
+			CFStringDelete( modString, CFRangeMake(CFStringGetLength(modString)-1, 1) );
+		}
+			
 		CFStringAppend( modString, kSpaceLeftBracketSAFE_CFSTR );
 		if ( macAddress )
 			CFStringAppend( modString, macAddress );
@@ -519,6 +596,71 @@ CFStringRef	CreateMacAddressString( void )
     }
 
     return macAddrStringRef;
+}
+
+CFMutableDictionaryRef CreateMutableDictionaryFromXMLString( CFStringRef xmlplist )
+{
+	if ( !xmlplist )
+		return NULL;
+		
+	CFDataRef						xmlData						= NULL;
+	CFMutableDictionaryRef			newDataRef					= NULL;
+	CFStringRef						errorString					= NULL;
+	char*							rawDataPtr					= NULL;
+	bool							rawDataAlloced				= false;
+	
+	rawDataPtr = (char*)CFStringGetCStringPtr( xmlplist, kCFStringEncodingUTF8 );
+	
+	if ( !rawDataPtr )
+	{
+		int		bufLen = CFStringGetMaximumSizeForEncoding( CFStringGetLength(xmlplist), kCFStringEncodingUTF8 ) + 1;
+		
+		rawDataPtr = (char*)malloc( bufLen );
+		CFStringGetCString( xmlplist, rawDataPtr, bufLen, kCFStringEncodingUTF8 );
+		rawDataAlloced = true;
+	}
+	
+	DBGLOG( "CreateMutableDictionaryFromXMLString called on\n%s\n", rawDataPtr );
+
+	xmlData = CFDataCreate(NULL,(UInt8 *)rawDataPtr, strlen(rawDataPtr));
+	
+	if ( xmlData )
+	{
+		newDataRef = (CFMutableDictionaryRef)CFPropertyListCreateFromXMLData(	NULL,
+																				xmlData,
+																				kCFPropertyListMutableContainersAndLeaves,
+																				&errorString);
+		if ( errorString )
+		{
+			char*		errorStr = (char*)malloc(CFStringGetLength( errorString ) + 1);
+			
+			if ( errorStr )
+			{
+				CFStringGetCString( errorString, errorStr, CFStringGetLength( errorString ) + 1, kCFStringEncodingUTF8 );
+				DBGLOG( "CreateMutableDictionaryFromXMLString got the error [%s] trying to parse the XML: [%s]\n", errorStr, rawDataPtr );
+				free( errorStr );
+			}
+
+			CFRelease( errorString );
+		}
+		else if ( newDataRef && CFGetTypeID(newDataRef) == CFDictionaryGetTypeID() && CFPropertyListIsValid( newDataRef, kCFPropertyListXMLFormat_v1_0 ) )
+		{
+			DBGLOG( "CreateMutableDictionaryFromXMLString successfully created newDataRef: 0x%x\n", newDataRef );
+		}
+		else
+		{
+			DBGLOG( "CreateMutableDictionaryFromXMLString: newDataRef is not a valid dictionary, returning NULL\n" );
+			CFRelease( newDataRef );
+			newDataRef = NULL;
+		}
+		
+		CFRelease( xmlData );
+	}
+
+	if ( rawDataAlloced )
+		free( rawDataPtr );
+		
+	return newDataRef;
 }
 
 

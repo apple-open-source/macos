@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: IMAP.xs,v 1.24 2003/11/25 21:28:23 rjs3 Exp $ */
+/* $Id: IMAP.xs,v 1.5 2005/03/05 00:37:31 dasenbro Exp $ */
 
 /*
  * Perl interface to the Cyrus imclient routines.  This enables the

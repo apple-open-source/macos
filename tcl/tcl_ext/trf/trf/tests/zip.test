@@ -1,0 +1,95 @@
+# -*- tcl -*-
+# Commands covered:  bin
+#
+# This file contains a collection of tests for one or more of the trf
+# commands of the TRF extension. Sourcing this file into Tcl runs the
+# tests and generates output for errors.  No output means no errors were
+# found.
+#
+# Copyright (c) 1995 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: zip.test,v 1.5 1999/10/20 22:47:06 aku Exp $
+
+if {[string compare test [info procs test]] == 1} then {source defs}
+
+set text                               "hello, hello!"
+set text_compressed_as_hex             "789CCB48CDC9C9D751C800518A0021700496"
+set text_compressed_as_hex_with_nowrap "CB48CDC9C9D751C800518A00"
+
+
+# differentiate tcl versions
+if {[info tclversion] < 8.0} {
+    # 7.6, use channels to transfer information, we have embedded \0s.
+
+    test zip-1.0-7.6 {zip compression} {hasZlib} {
+	set in  [text2chan $text]
+	set out [memchan]
+
+	fconfigure   $out -translation binary
+	hex  -attach $out -mode encode
+
+	zip -mode compress -in $in -out $out
+
+	unstack $out
+	seek             $out 0
+	set data   [read $out]
+	close            $out
+	close $in
+
+	set data
+    } $text_compressed_as_hex	; #{}
+
+    test zip-1.1-7.6 {zip decompression} {hasZlib} {
+	set in  [hex2chan $text_compressed_as_hex]
+	set out [memchan]
+
+	seek $in 0
+	zip -mode decompress -in $in -out $out
+
+	seek             $out 0
+	set data   [read $out]
+	close            $out
+	close $in
+
+	set data
+    } $text	; #{}
+
+} else {
+    # 8.x is able to work with embedded \0s.
+
+    test zip-1.0-8.x {zip compression} {hasZlib} {
+	hex -mode encode [zip -mode compress $text]
+    } $text_compressed_as_hex	; #{}
+
+    test zip-1.1-8.x {zip decompression} {hasZlib} {
+	zip -mode decompress [hex -mode decode $text_compressed_as_hex]
+    } $text	; #{}
+
+    test zip-1.2-8.x {zip compression with nowrap} {
+	hex -mode encode [zip -mode compress -nowrap true $text]
+    } $text_compressed_as_hex_with_nowrap	; #{}
+
+    test zip-1.3-8.x {zip decompression with nowrap} {
+	zip -mode decompress -nowrap true [hex -mode decode $text_compressed_as_hex_with_nowrap]
+    } $text	; #{}
+}
+
+
+set data  [info commands]
+set zdata [zip -mode compress $data]
+
+test zip-2.0 {(De)compression while reading/writing from/to a file} {hasZlib} {
+    write_zip zip $data
+    read_zip  zip
+} $data
+
+
+test zip-2.1 {(De)compression of binary information} {hasZlib} {
+    write_file zip $zdata
+    zip -mode decompress [read_file zip]
+} $data
+
+unset data zdata

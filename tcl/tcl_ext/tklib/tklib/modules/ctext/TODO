@@ -1,0 +1,1 @@
+Make the flags that ctext adds have Class and resource names.  Also make .t config return those resource/class names.  I suspect that I could do this by making each value for a flag a list, but this needs proper planning before I go coding in the unknown.

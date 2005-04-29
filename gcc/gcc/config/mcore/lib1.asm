@@ -1,9 +1,9 @@
 /* libgcc routines for the MCore.
    Copyright (C) 1993, 1999, 2000 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it
+GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 2, or (at your option) any
 later version.
@@ -241,7 +241,7 @@ FUNC_END modsi3
    jump on to __cmpdf2 and __cmpsf2.
  
    All of these shortcircuit the return path so that __cmp{sd}f2
-   will go directly back to the caller. */
+   will go directly back to the caller.  */
 
 .macro  COMPARE_DF_JUMP name
 	.import SYM (cmpdf2)

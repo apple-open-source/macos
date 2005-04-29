@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1999-2003, International Business Machines Corporation and
+ * Copyright (c) 1999-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /************************************************************************
@@ -70,8 +70,12 @@ public:
     UChar *ReadAndConvertFile(const char *fileName, int &ulen, UErrorCode &status);
     void executeTest(TestParams *);
 
-    
- 
+    void TestWordBreaks();
+    void TestWordBoundary();
+    void TestLineBreaks();
+    void TestSentBreaks();
+    void TestBug3818();
+    void TestJapaneseWordBreak();
     
     
 /***********************/
@@ -117,7 +121,7 @@ private:
     void doBreakInvariantTest(BreakIterator& tb, UnicodeString& testChars);
     void doOtherInvariantTest(BreakIterator& tb, UnicodeString& testChars);
 
-    void RunMonkey(BreakIterator *bi, RBBIMonkeyKind &mk, uint32_t  seed, int32_t loopCount);
+    void RunMonkey(BreakIterator *bi, RBBIMonkeyKind &mk, const char *name, uint32_t  seed, int32_t loopCount);
 
 };
 

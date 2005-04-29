@@ -11,7 +11,6 @@ TDEPFILES = \
 	ppc-sysv-tdep.o \
 	ppc-macosx-tdep.o \
 	ppc-macosx-frameinfo.o \
-	ppc-macosx-frameops.o \
 	ppc-macosx-regs.o \
 	remote-kdp.o \
 	kdp-udp.o \

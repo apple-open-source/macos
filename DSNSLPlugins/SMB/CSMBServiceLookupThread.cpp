@@ -38,13 +38,15 @@
 const CFStringRef	kSMBColonSlashSlashSAFE_CFSTR = CFSTR("smb://");
 const CFStringRef	kColonSAFE_CFSTR = CFSTR(";");
 
-CSMBServiceLookupThread::CSMBServiceLookupThread( CNSLPlugin* parentPlugin, char* serviceType, CNSLDirNodeRep* nodeDirRep, CFArrayRef lmbListRef )
+CSMBServiceLookupThread::CSMBServiceLookupThread( CNSLPlugin* parentPlugin, char* serviceType, CNSLDirNodeRep* nodeDirRep, CFArrayRef lmbListRef, const char* winsServer )
     : CNSLServiceLookupThread( parentPlugin, serviceType, nodeDirRep )
 {
 	DBGLOG( "CSMBServiceLookupThread::CSMBServiceLookupThread\n" );
 	mLMBsRef = lmbListRef;
 	if ( mLMBsRef )
 		CFRetain( mLMBsRef );
+	mResultList = NULL;
+	mWINSServer = winsServer;	// if they pass this in, use it in your url creation
 }
 
 CSMBServiceLookupThread::~CSMBServiceLookupThread()
@@ -53,6 +55,10 @@ CSMBServiceLookupThread::~CSMBServiceLookupThread()
 	if ( mLMBsRef )
 		CFRelease( mLMBsRef );
 	mLMBsRef = NULL;
+	
+	if ( mResultList )
+		CFRelease( mResultList );
+	mResultList = NULL;
 }
 
 void* CSMBServiceLookupThread::Run( void )
@@ -71,7 +77,7 @@ void* CSMBServiceLookupThread::Run( void )
 void CSMBServiceLookupThread::GetWorkgroupServers( char* workgroup )
 {
     char*		resultPtr = NULL;
-	const char*	argv[9] = {0};
+	char*		argv[11] = {0};
 	char		lmbName[256] = {0,};
 	CFStringRef	workgroupRef = GetNodeName();
     Boolean		canceled = false;
@@ -94,22 +100,24 @@ void CSMBServiceLookupThread::GetWorkgroupServers( char* workgroup )
 			argv[0] = "/usr/bin/smbclient";
 			argv[1] = "-W";
 			argv[2] = workgroup;
-			argv[3] = "-NL";
-			argv[4] = lmbName;
+			argv[3] = "-p";
+			argv[4] = "139";
+			argv[5] = "-NL";
+			argv[6] = lmbName;
 			
 			for ( int tryNum=1; tryNum<=2 && resultsFound==false; tryNum++ )
 			{
 				if ( tryNum == 1 )
 				{
-					argv[5] = "-U%";		// first try use USER or LOGNAME env variable
-					argv[6] = "-s";
-					argv[7] = kBrowsingConfFilePath;
+					argv[7] = "-U%";		// first try use USER or LOGNAME env variable
+					argv[8] = "-s";
+					argv[9] = kBrowsingConfFilePath;
 				}
 				else
 				{
-					argv[5] = "-s";
-					argv[6] = kBrowsingConfFilePath;
-					argv[7] = NULL;			// second try use NULL or anon
+					argv[7] = "-s";
+					argv[8] = kBrowsingConfFilePath;
+					argv[9] = NULL;			// second try use NULL or anon
 				}
 		
 				DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers calling smbclient -W %s -NL %s -U\%\n", workgroup, lmbName );
@@ -140,6 +148,20 @@ void CSMBServiceLookupThread::GetWorkgroupServers( char* workgroup )
 							{
 								resultsFound = true;
 								AddServiceResult( workgroupRef, (CFStringRef)CFArrayGetValueAtIndex(results, i), (CFStringRef)CFArrayGetValueAtIndex(results, i+1) );	// adding workgroup as key, lmb as value
+							}
+							
+							if ( !AreWeCanceled() )
+								GetNodeToSearch()->AddServices( mResultList );	
+							else
+							{
+								CFIndex		numSearches = ::CFArrayGetCount( mResultList );
+								CNSLResult*	result;
+								for ( CFIndex i=numSearches-1; i>=0; i-- )
+								{
+									result = (CNSLResult*)::CFArrayGetValueAtIndex( mResultList, i );
+									::CFArrayRemoveValueAtIndex( mResultList, i );
+									delete result;
+								}
 							}
 							
 							CFRelease( results );
@@ -174,7 +196,10 @@ void CSMBServiceLookupThread::GetWorkgroupServers( char* workgroup )
 	}
 
 	if ( !resultsFound )
+	{
+		DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers, we have no results from LMBs for this, just do a broadcast lookup\n" );
 		DoBroadcastLookup( workgroup, workgroupRef );	// if we have no results from LMBs for this, just do a broadcast lookup
+	}
 }
 
 void CSMBServiceLookupThread::DoBroadcastLookup( char* workgroup, CFStringRef workgroupRef )
@@ -185,7 +210,8 @@ void CSMBServiceLookupThread::DoBroadcastLookup( char* workgroup, CFStringRef wo
     char*			curPtr = NULL;
     char*			curResult = NULL;
     Boolean			canceled = false;
-	const char*		argv[6] = {0};
+	Boolean			foundResult = false;
+	char*			argv[7] = {0};
 	char*			broadcastAddress = NULL;
 	
 	if ( !workgroupRef || !workgroup )
@@ -202,6 +228,8 @@ void CSMBServiceLookupThread::DoBroadcastLookup( char* workgroup, CFStringRef wo
 		argv[1] = "-B";
 		argv[2] = broadcastAddress;
 		argv[3] = workgroup;
+		argv[4] = "-s";
+		argv[5] = kBrowsingConfFilePath;
 		
 		if ( myexecutecommandas( NULL, "/usr/bin/nmblookup", argv, false, kTimeOutVal, &resultPtr, &canceled, getuid(), getgid() ) < 0 )
 		{
@@ -218,11 +246,12 @@ void CSMBServiceLookupThread::DoBroadcastLookup( char* workgroup, CFStringRef wo
 				curResult = curPtr;
 				
 				while( (curResult = CopyNextMachine(&curPtr)) != NULL )
-				{
+				{					
 					CFStringRef		curName = CFStringCreateWithCString( NULL, curResult, GetWindowsSystemEncodingEquivalent() );
 					
 					if ( curName )
 					{
+						foundResult = true;
 						AddServiceResult( workgroupRef, curName, CFSTR("") );
 					
 						CFRelease( curName );
@@ -231,10 +260,36 @@ void CSMBServiceLookupThread::DoBroadcastLookup( char* workgroup, CFStringRef wo
 					free( curResult );
 				}
 	
+				if ( !AreWeCanceled() )
+				{
+					GetNodeToSearch()->AddServices( mResultList );	
+				}
+				else
+				{
+					CFIndex		numSearches = ::CFArrayGetCount( mResultList );
+					CNSLResult*	result;
+					for ( CFIndex i=numSearches-1; i>=0; i-- )
+					{
+						result = (CNSLResult*)::CFArrayGetValueAtIndex( mResultList, i );
+						::CFArrayRemoveValueAtIndex( mResultList, i );
+						delete result;
+					}
+				}
+				
 				DBGLOG( "CSMBServiceLookupThread finished reading\n" );
 			}
 			
 			free( resultPtr );
+		}
+
+		if ( foundResult )
+		{
+			((CSMBPlugin*)GetParentPlugin())->BroadcastServiceLookupSucceededInWorkgroup( workgroupRef );
+		}
+		else
+		{
+			// nothing found, let our parent know so they can control query throttling
+			((CSMBPlugin*)GetParentPlugin())->BroadcastServiceLookupFailedInWorkgroup( workgroupRef );
 		}
 
 		free( broadcastAddress );
@@ -277,12 +332,14 @@ char* CSMBServiceLookupThread::CopyNextMachine( char** buffer )
 				char*			curPtr;
 				char*			resultPtr = NULL;
 				Boolean			canceled = false;
-				const char*		argv[4] = {0};
+				char*			argv[6] = {0};
 				
 				argv[0] = "/usr/bin/nmblookup";
 				
 				argv[1] = "-A";
 				argv[2] = testString;
+				argv[3] = "-s";
+				argv[4] = kBrowsingConfFilePath;
 			
 				DBGLOG( "CSMBServiceLookupThread::CopyNextMachine: %s\n", testString );
 			
@@ -339,19 +396,42 @@ char* CSMBServiceLookupThread::CopyNextMachine( char** buffer )
 
 void CSMBServiceLookupThread::AddServiceResult( CFStringRef workgroupRef, CFStringRef netBIOSRef, CFStringRef commentRef )
 {
-	if ( netBIOSRef && commentRef )
+	CFStringRef			netBIOSNameRef = netBIOSRef;
+	CFStringRef			workgroupNameRef = workgroupRef;
+	
+	if ( !mResultList )
+		mResultList = CFArrayCreateMutable( NULL, 0, NULL );
+	
+	if ( UseCapitalization() )
+	{
+		CFMutableStringRef		modName= CFStringCreateMutableCopy( NULL, 0, netBIOSNameRef );
+
+		CFStringCapitalize( modName, 0 );	// make pretty for display
+		netBIOSNameRef = modName;
+		
+		modName = CFStringCreateMutableCopy( NULL, 0, workgroupNameRef );
+		CFStringUppercase( modName, 0 );	// make uppercase for URL
+		workgroupNameRef = modName;
+	}
+
+	if ( netBIOSNameRef && commentRef )
 	{
 		CNSLResult*				newResult = new CNSLResult();
 		CFMutableStringRef		smbURLRef = CFStringCreateMutable( NULL, 0 );
 		
-		newResult->AddAttribute( kDSNAttrRecordNameSAFE_CFSTR, netBIOSRef );		// this should be what is displayed
+		newResult->AddAttribute( kDSNAttrRecordNameSAFE_CFSTR, netBIOSNameRef );		// this should be what is displayed
 		newResult->AddAttribute( kDS1AttrCommentSAFE_CFSTR, commentRef );			// additional information
 	
 		if ( smbURLRef )
 		{
-			CFStringRef             escapedWorkgroup = CFURLCreateStringByAddingPercentEscapes(NULL, workgroupRef, NULL, NULL, GetWindowsSystemEncodingEquivalent());
+#define USE_UTF8_FOR_SMB_URL
+#ifdef USE_UTF8_FOR_SMB_URL
+			CFStringRef             escapedWorkgroup = CFURLCreateStringByAddingPercentEscapes(NULL, workgroupNameRef, NULL, NULL, kCFStringEncodingUTF8);
+			CFStringRef             escapedName = CFURLCreateStringByAddingPercentEscapes(NULL, netBIOSRef, NULL, NULL, kCFStringEncodingUTF8);
+#else			
+			CFStringRef             escapedWorkgroup = CFURLCreateStringByAddingPercentEscapes(NULL, workgroupNameRef, NULL, NULL, GetWindowsSystemEncodingEquivalent());
 			CFStringRef             escapedName = CFURLCreateStringByAddingPercentEscapes(NULL, netBIOSRef, NULL, NULL, GetWindowsSystemEncodingEquivalent());
-			
+#endif
 			if ( escapedWorkgroup && escapedName )
 			{
 				CFStringAppend( smbURLRef, kSMBColonSlashSlashSAFE_CFSTR );
@@ -359,6 +439,12 @@ void CSMBServiceLookupThread::AddServiceResult( CFStringRef workgroupRef, CFStri
 				CFStringAppend( smbURLRef, kColonSAFE_CFSTR );
 				CFStringAppend( smbURLRef, escapedName );
 
+				if ( UseWINSURLMechanism() )
+				{
+					CFStringAppend( smbURLRef, CFSTR("?WINS=") );
+					CFStringAppendCString( smbURLRef, mWINSServer, kCFStringEncodingASCII );
+				}
+				
 				newResult->SetURL( smbURLRef );
 				newResult->SetServiceType( "smb" );
 				
@@ -369,7 +455,7 @@ void CSMBServiceLookupThread::AddServiceResult( CFStringRef workgroupRef, CFStri
 	char	workgroup[256];
 	char	url[256];
 	
-	CFStringGetCString( netBIOSRef, name, sizeof(name), GetWindowsSystemEncodingEquivalent() );
+	CFStringGetCString( netBIOSNameRef, name, sizeof(name), GetWindowsSystemEncodingEquivalent() );
 	CFStringGetCString( workgroupRef, workgroup, sizeof(workgroup), GetWindowsSystemEncodingEquivalent() );
 	CFStringGetCString( smbURLRef, url, sizeof(url), GetWindowsSystemEncodingEquivalent() );
 	
@@ -397,7 +483,30 @@ void CSMBServiceLookupThread::AddServiceResult( CFStringRef workgroupRef, CFStri
 			CFRelease( smbURLRef );
 		}
 	
-		AddResult( newResult );
+		CFArrayAppendValue( mResultList, newResult );
 	}
+	
+	if ( netBIOSNameRef != netBIOSRef )
+		CFRelease( netBIOSNameRef );
+	
+	if ( workgroupNameRef != workgroupRef )
+		CFRelease( workgroupNameRef );
 }
+
+Boolean CSMBServiceLookupThread::UseWINSURLMechanism( void )
+{
+	Boolean		returnValue = false;
+	
+	if ( mWINSServer )
+		returnValue = true;
+		
+	return returnValue;
+}
+
+
+
+
+
+
+
 

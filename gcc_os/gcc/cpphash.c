@@ -37,7 +37,7 @@ alloc_node (table)
      hash_table *table;
 {
   cpp_hashnode *node;
-  
+
   node = (cpp_hashnode *) obstack_alloc (&table->pfile->hash_ob,
 					 sizeof (cpp_hashnode));
   memset ((PTR) node, 0, sizeof (cpp_hashnode));
@@ -72,7 +72,6 @@ _cpp_init_hashtable (pfile, table)
   s->n_defined		= cpp_lookup (pfile, DSC("defined"));
   s->n_true		= cpp_lookup (pfile, DSC("true"));
   s->n_false		= cpp_lookup (pfile, DSC("false"));
-  s->n__STRICT_ANSI__   = cpp_lookup (pfile, DSC("__STRICT_ANSI__"));
   s->n__VA_ARGS__       = cpp_lookup (pfile, DSC("__VA_ARGS__"));
   s->n__VA_ARGS__->flags |= NODE_DIAGNOSTIC;
 }
@@ -128,22 +127,3 @@ cpp_forall_identifiers (pfile, cb, v)
      first in cpp_hashnode.  */
   ht_forall (pfile->hash_table, (ht_cb) cb, v);
 }
-
-/* APPLE LOCAL PFE */
-/*-------------------------------------------------------------------*/
-#ifdef PFE
-
-typedef hashnode (*alloc_node_fp)(hash_table *);
-alloc_node_fp pfe_get_cpphash_alloc_node PARAMS ((void));
-
-/* When loading a pre-compiled header we need to restore the pointer
-   to a hash table's alloc_node function.  Here we pass out a pointer
-   to what is otherwise a private static function.  */
-
-alloc_node_fp
-pfe_get_cpphash_alloc_node (void)
-{
-  return (alloc_node_fp)alloc_node;
-}
-#endif
-

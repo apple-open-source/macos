@@ -1,81 +1,82 @@
 /* APPLE LOCAL file Objective-C++ */
-/* Test for passing arguments to ObjC methods in the context of template
-   expansion.  */
-/* Contributed by Ziemowit Laski  <zlaski@apple.com>.  */
+/* Author:  Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-do run } */
-/* { dg-options "-lobjc -lstdc++" } */
 
 #include <objc/Object.h>
+#include <stdarg.h>
+#include <stdlib.h>
 
-extern void abort(void);
+#ifdef __NEXT_RUNTIME__
+/* The following ain't pretty, but does allow us to have just one copy
+   of next_mapping.h.  */
+#include "../objc/execute/next_mapping.h"
+#else
+#include <objc/NXConstStr.h>
+#endif
+
 #define CHECK_IF(expr) if(!(expr)) abort()
 
-@interface ObjCClass : Object
+template <class ARR, class TYPE> class TestT
 {
-  int info;
-}
--(id) init;
--(id) initWithInformation: (int) whatInfo;
--(id) initWithInformation: (int) whatInfo andInfo: (int) info2;
-@end
-
-void foo(int info) {
-   ObjCClass *mObj1 = [[ObjCClass alloc] init];
-   ObjCClass *mObj2 = [[ObjCClass alloc] initWithInformation: info];
-   ObjCClass *mObj3 = [[ObjCClass alloc] initWithInformation: info andInfo: 39];
-
-   CHECK_IF(mObj1->info == 666);
-   CHECK_IF(mObj2->info == info);
-   CHECK_IF(mObj3->info == info + 39);
-}
-
-template <class WrappedObjCClass>
-class ObjCObjectWrapper
-{
-    public:
-        ObjCObjectWrapper(int info);
-        WrappedObjCClass *mObj1, *mObj2, *mObj3;
+public:
+	TYPE k;
+	int abc( ARR *array ) {
+		return [array count] * k;
+	}
+	TestT(TYPE _k): k(_k) { }
 };
 
-template <class WrappedObjCClass>
-ObjCObjectWrapper<WrappedObjCClass>::ObjCObjectWrapper(int info)
-{
-    mObj1 = [[WrappedObjCClass alloc] init];
-    mObj2 = [[WrappedObjCClass alloc] initWithInformation: info];
-    mObj3 = [[WrappedObjCClass alloc] initWithInformation: info andInfo: 67];
+template <class TYPE>
+const char *getDesc(void) {
+	return [TYPE name];
 }
 
-@implementation ObjCClass
--(id) init {
-  return [self initWithInformation:666];
+@class Array;
+
+template <class TYPE>
+int abc( TYPE *xyz, Array *array ) {
+	return [xyz count] + [array count];
 }
--(id) initWithInformation: (int) whatInfo {
-  [super init];
-  info = whatInfo;
-  return self;
+
+@interface Array: Object {
+  id *arr;
+  int count;
 }
--(id) initWithInformation: (int) whatInfo andInfo: (int) info2 {
-  [super init];
-  info = whatInfo + info2;
-  return self;
++ (id)arrayWithObjects:(id)first, ... ;
+- (int)count;
+@end
+
+@implementation Array
++ (id)arrayWithObjects:(id)first, ... {
+  Array *a = [Array new];
+  a->count = 0;
+  a->arr = (id *) calloc(8, sizeof(id));
+
+  va_list args;
+  va_start (args, first);
+  
+  a->arr[a->count++] = first;
+
+  for (id el; el = va_arg(args, id); a->count++)
+    a->arr[a->count] = el;
+
+  return a;
+}
+- (int)count {
+  return count;
 }
 @end
 
-ObjCObjectWrapper<ObjCClass> staticInstance(42); 
+int main(void)
+{
+	CHECK_IF(!strcmp ([@"Object" cString], getDesc<Object>()));
+	CHECK_IF(!strcmp ([@"Array" cString], getDesc<Array>()));
 
-int main(void) {
-  ObjCObjectWrapper<ObjCClass> stackInstance(47);
+	Array* a1 = [Array arrayWithObjects:@"One", @"Two", @"Three", nil];
+	Array* a2 = [Array arrayWithObjects:@"Four", @"Five", nil];
 
-  foo(89);
-  
-  CHECK_IF(staticInstance.mObj1->info == 666);
-  CHECK_IF(staticInstance.mObj2->info == 42);
-  CHECK_IF(staticInstance.mObj3->info == 42 + 67);
-  
-  CHECK_IF(stackInstance.mObj1->info == 666);
-  CHECK_IF(stackInstance.mObj2->info == 47);
-  CHECK_IF(stackInstance.mObj3->info == 47 + 67);
-  
-  return 0;
+	TestT<Array, int> t(7);
+	CHECK_IF(t.abc(a1) + t.abc(a2) == 35);
+        CHECK_IF(abc(a1, a2) * t.k == 35);
+	return 0;
 }
-

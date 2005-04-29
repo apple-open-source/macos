@@ -22,9 +22,10 @@
   */
 #include "rsync.h"
 
+extern int sparse_files;
+
 static char last_byte;
 static int last_sparse;
-extern int sparse_files;
 
 int sparse_end(int f)
 {
@@ -91,6 +92,7 @@ int flush_write_file(int f)
 	return ret;
 }
 
+
 /*
  * write_file does not allow incomplete writes.  It loops internally
  * until len bytes are written or errno is set.
@@ -106,9 +108,9 @@ int write_file(int f,char *buf,size_t len)
 			r1 = write_sparse(f, buf, len1);
 		} else {
 			if (!wf_writeBuf) {
-				wf_writeBufSize = MAX_MAP_SIZE;
+				wf_writeBufSize = WRITE_SIZE * 8;
 				wf_writeBufCnt  = 0;
-				wf_writeBuf = new_array(char, MAX_MAP_SIZE);
+				wf_writeBuf = new_array(char, wf_writeBufSize);
 				if (!wf_writeBuf)
 					out_of_memory("write_file");
 			}
@@ -125,7 +127,8 @@ int write_file(int f,char *buf,size_t len)
 			}
 		}
 		if (r1 <= 0) {
-			if (ret > 0) return ret;
+			if (ret > 0)
+				return ret;
 			return r1;
 		}
 		len -= r1;
@@ -136,28 +139,29 @@ int write_file(int f,char *buf,size_t len)
 }
 
 
-
-/* this provides functionality somewhat similar to mmap() but using
-   read(). It gives sliding window access to a file. mmap() is not
-   used because of the possibility of another program (such as a
-   mailer) truncating the file thus giving us a SIGBUS */
-struct map_struct *map_file(int fd,OFF_T len)
+/* This provides functionality somewhat similar to mmap() but using read().
+ * It gives sliding window access to a file.  mmap() is not used because of
+ * the possibility of another program (such as a mailer) truncating the
+ * file thus giving us a SIGBUS. */
+struct map_struct *map_file(int fd, OFF_T len, OFF_T map_size,
+			    size_t block_size)
 {
 	struct map_struct *map;
-	map = new(struct map_struct);
-	if (!map) out_of_memory("map_file");
 
+	if (!(map = new(struct map_struct)))
+		out_of_memory("map_file");
+
+	if (block_size && (map_size % block_size))
+		map_size += block_size - (map_size % block_size);
+
+	memset(map, 0, sizeof map[0]);
 	map->fd = fd;
 	map->file_size = len;
-	map->p = NULL;
-	map->p_size = 0;
-	map->p_offset = 0;
-	map->p_fd_offset = 0;
-	map->p_len = 0;
-	map->status = 0;
+	map->def_window_size = map_size;
 
 	return map;
 }
+
 
 /* slide the read window in the file */
 char *map_ptr(struct map_struct *map,OFF_T offset,int len)
@@ -166,9 +170,8 @@ char *map_ptr(struct map_struct *map,OFF_T offset,int len)
 	OFF_T window_start, read_start;
 	int window_size, read_size, read_offset;
 
-	if (len == 0) {
+	if (len == 0)
 		return NULL;
-	}
 
 	/* can't go beyond the end of file */
 	if (len > (map->file_size - offset)) {
@@ -181,15 +184,9 @@ char *map_ptr(struct map_struct *map,OFF_T offset,int len)
 		return (map->p + (offset - map->p_offset));
 	}
 
-
 	/* nope, we are going to have to do a read. Work out our desired window */
-	if (offset > 2*CHUNK_SIZE) {
-		window_start = offset - 2*CHUNK_SIZE;
-		window_start &= ~((OFF_T)(CHUNK_SIZE-1)); /* assumes power of 2 */
-	} else {
-		window_start = 0;
-	}
-	window_size = MAX_MAP_SIZE;
+	window_start = offset;
+	window_size = map->def_window_size;
 	if (window_start + window_size > map->file_size) {
 		window_size = map->file_size - window_start;
 	}
@@ -200,7 +197,8 @@ char *map_ptr(struct map_struct *map,OFF_T offset,int len)
 	/* make sure we have allocated enough memory for the window */
 	if (window_size > map->p_size) {
 		map->p = realloc_array(map->p, char, window_size);
-		if (!map->p) out_of_memory("map_ptr");
+		if (!map->p)
+			out_of_memory("map_ptr");
 		map->p_size = window_size;
 	}
 
@@ -259,9 +257,8 @@ int unmap_file(struct map_struct *map)
 		map->p = NULL;
 	}
 	ret = map->status;
-	memset(map, 0, sizeof(*map));
+	memset(map, 0, sizeof map[0]);
 	free(map);
 
 	return ret;
 }
-

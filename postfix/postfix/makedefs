@@ -6,7 +6,7 @@
 # SUMMARY
 #	makefile configuration utility
 # SYNOPSIS
-#	\fBmakedefs\fR
+#	\fBmake makefiles \fIname=value...\fR
 # DESCRIPTION
 #	The \fBmakedefs\fR command identifies the program compilation
 #	environment, and emits macro definitions on the standard output
@@ -29,6 +29,9 @@
 # .IP \fBOPT=\fIoptimization_level\fR
 #	Specifies a non-default optimization level. The default is \fB-O\fR.
 #	Specify \fBOPT=\fR to turn off optimization.
+# .IP \fBWARN=\fIwarning_flags\fR
+#	Specifies non-default gcc compiler warning options for use when
+#	"make" is invoked in a source subdirectory only.
 # LICENSE
 # .ad
 # .fi
@@ -61,7 +64,7 @@ case "$SYSTEM.$RELEASE" in
    SCO_SV.3.2)	SYSTYPE=SCO5
 		# Use the native compiler by default
 		: ${CC="/usr/bin/cc -b elf"}
-		CCARGS="-DPIPES_CANT_FIONREAD $CCARGS"
+		CCARGS="$CCARGS -DPIPES_CANT_FIONREAD $CCARGS"
 		SYSLIBS="-lsocket -ldbm"
 		RANLIB=echo
 		;;
@@ -94,7 +97,11 @@ case "$SYSTEM.$RELEASE" in
 		;;
   OpenBSD.3*)	SYSTYPE=OPENBSD3
 		;;
+  ekkoBSD.1*)	SYSTYPE=EKKOBSD1
+		;;
    NetBSD.1*)	SYSTYPE=NETBSD1
+		;;
+   NetBSD.2*)	SYSTYPE=NETBSD2
 		;;
    BSD/OS.2*)	SYSTYPE=BSDI2
 		;;
@@ -215,7 +222,7 @@ case "$SYSTEM.$RELEASE" in
 		;;
      IRIX*.5.*)	SYSTYPE=IRIX5
 		# Use the native compiler by default
-		: ${CC=cc}
+		: ${CC=cc} ${DEBUG="-g3"}
 		RANLIB=echo
 		;;
      IRIX*.6.*)	SYSTYPE=IRIX6
@@ -251,14 +258,18 @@ ReliantUNIX-?.5.43) SYSTYPE=ReliantUnix543
 		SYSLIBS="-lresolv -lsocket -lnsl"
 		;;
 Rhapsody.5*|Darwin.*)
-		SYSTYPE=RHAPSODY5
+		SYSTYPE=MACOSX
 		# Use the native compiler by default
 		: ${CC=cc}
-		AWK=gawk
 		case $RELEASE in
-		 1.[0-3]) ;;
+		 1.[0-3]) AWK=gawk
+			  ;;
+		 [2-6].*) AWK=awk
+			  SYSLIBS=-flat_namespace
+			  ;;
 		       *) AWK=awk
 			  SYSLIBS=-flat_namespace
+			  CCARGS="$CCARGS -DBIND_8_COMPAT -DNO_NETINFO"
 			  ;;
 		esac
 		;;
@@ -316,7 +327,10 @@ case "$CC" in
         *) : ${OPT='-O'};;
 esac
 
-: ${CC='gcc $(WARN)'} ${OPT='-O'} ${DEBUG='-g'} ${AWK=awk}
+: ${CC='gcc $(WARN)'} ${OPT='-O'} ${DEBUG='-g'} ${AWK=awk} \
+${WARN='-W -Wformat -Wimplicit -Wmissing-prototypes \
+	-Wparentheses -Wstrict-prototypes -Wswitch -Wuninitialized \
+	-Wunused'}
 
 export SYSTYPE AR ARFL RANLIB SYSLIBS CC OPT DEBUG AWK OPTS
 
@@ -332,4 +346,5 @@ DEBUG	= $DEBUG
 AWK	= $AWK
 STRCASE = $STRCASE
 EXPORT	= AUXLIBS='$AUXLIBS' CCARGS='$CCARGS' OPT='$OPT' DEBUG='$DEBUG'
+WARN	= $WARN
 EOF

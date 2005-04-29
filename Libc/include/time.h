@@ -63,29 +63,29 @@
 #ifndef _TIME_H_
 #define	_TIME_H_
 
-#include <machine/ansi.h>
+#include <_types.h>
 
-#ifndef	NULL
-#define	NULL	0
+#ifndef NULL
+#define NULL __DARWIN_NULL
+#endif /* ! NULL */
+
+#ifndef	_CLOCK_T
+#define _CLOCK_T
+typedef	__darwin_clock_t	clock_t;
 #endif
 
-#ifndef	_BSD_CLOCK_T_DEFINED_
-#define _BSD_CLOCK_T_DEFINED_
-typedef	_BSD_CLOCK_T_	clock_t;
+#ifndef	_SIZE_T
+#define	_SIZE_T
+typedef	__darwin_size_t		size_t;
 #endif
 
-#ifndef	_BSD_TIME_T_DEFINED_
-#define	_BSD_TIME_T_DEFINED_
-typedef	_BSD_TIME_T_	time_t;
+#ifndef	_TIME_T
+#define	_TIME_T
+typedef	__darwin_time_t		time_t;
 #endif
 
-#ifndef	_BSD_SIZE_T_DEFINED_
-#define	_BSD_SIZE_T_DEFINED_
-typedef	_BSD_SIZE_T_	size_t;
-#endif
-
-#ifndef _TIMESPEC_DECLARED           
-#define _TIMESPEC_DECLARED
+#ifndef _TIMESPEC           
+#define _TIMESPEC
 struct timespec {
         time_t  tv_sec;         /* seconds */
         long    tv_nsec;        /* and nanoseconds */  
@@ -106,9 +106,9 @@ struct tm {
 	char	*tm_zone;	/* timezone abbreviation */
 };
 
-#include <machine/limits.h>	/* Include file containing CLK_TCK. */
+#include <machine/_limits.h>	/* Include file containing CLK_TCK. */
 
-#define CLOCKS_PER_SEC  (CLK_TCK)
+#define CLOCKS_PER_SEC  (__DARWIN_CLK_TCK)
 
 #include <sys/cdefs.h>
 
@@ -116,29 +116,38 @@ struct tm {
 extern char *tzname[];
 #endif
 
+extern int getdate_err;
+#if __DARWIN_UNIX03
+extern long timezone __DARWIN_ALIAS(timezone);
+#endif /* __DARWIN_UNIX03 */
+extern int daylight;
+
 __BEGIN_DECLS
 char *asctime(const struct tm *);
 clock_t clock(void);
 char *ctime(const time_t *);
 double difftime(time_t, time_t);
+struct tm *getdate(const char *);
 struct tm *gmtime(const time_t *);
 struct tm *localtime(const time_t *);
 time_t mktime(struct tm *);
-size_t strftime(char *, size_t, const char *, const struct tm *);
+size_t strftime(char * __restrict, size_t, const char * __restrict, const struct tm * __restrict) __DARWIN_ALIAS(strftime);
+char *strptime(const char * __restrict, const char * __restrict, struct tm * __restrict);
 time_t time(time_t *);
 
 #ifndef _ANSI_SOURCE
 void tzset(void);
 #endif /* not ANSI */
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_SOURCE)
+#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
 char *asctime_r(const struct tm *, char *);
 char *ctime_r(const time_t *, char *);
 struct tm *gmtime_r(const time_t *, struct tm *);
 struct tm *localtime_r(const time_t *, struct tm *);
 time_t posix2time(time_t);
-char *strptime(const char *, const char *, struct tm *);
+#if !__DARWIN_UNIX03
 char *timezone(int, int);
+#endif /* !__DARWIN_UNIX03 */
 void tzsetwall(void);
 time_t time2posix(time_t);
 time_t timelocal(struct tm * const);
@@ -146,8 +155,12 @@ time_t timegm(struct tm * const);
 #endif /* neither ANSI nor POSIX */
 
 #if !defined(_ANSI_SOURCE)
-int nanosleep(const struct timespec *, struct timespec *);
+int nanosleep(const struct timespec *, struct timespec *) __DARWIN_ALIAS(nanosleep);
 #endif
 __END_DECLS
+
+#ifdef _USE_EXTENDED_LOCALES_
+#include <xlocale/_time.h>
+#endif /* _USE_EXTENDED_LOCALES_ */
 
 #endif /* !_TIME_H_ */

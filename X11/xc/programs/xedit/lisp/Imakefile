@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/xedit/lisp/Imakefile,v 1.22 2002/12/14 04:41:13 dawes Exp $
+XCOMM $XFree86: xc/programs/xedit/lisp/Imakefile,v 1.26 2003/05/20 21:44:48 tsi Exp $
 
 #include "lisp.cf"
 #include "lisp.rules"
@@ -112,7 +112,7 @@ SHARED_DEFINES	= -DSHARED_MODULES
         DEFINES = -DLISP $(SHARED_DEFINES) -DLISPDIR='"$(LISPDIR)"' \
 		  $(SNPRINTF_DEFS) $(SYS_DEFINES) $(SIGNAL_DEFINES)
         DEPLIBS = mp re
-       INCLUDES = -I. -Imp -Ire -I- $(MISC_INCLUDES)
+       INCLUDES = -I.. -Imp -Ire -I../.. $(MISC_INCLUDES)
 LOCAL_LIBRARIES = -L. -llisp -Lmp -lmp -Lre -lre -lm $(DLLIB)
 
 #ifdef IHaveSubdirs

@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
 --          Copyright (C) 1992-1998, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
@@ -50,8 +49,6 @@ pragma Elaborate_Body;
    --    no user specifiable size
    --    Space of allocated objects is reclaimed at pool finalization
    --    Manages a list of allocated objects
-
-   --  Default pool in the compiler for access types locally declared
 
    type Unbounded_Reclaim_Pool is new
      System.Pool_Global.Unbounded_No_Reclaim_Pool with

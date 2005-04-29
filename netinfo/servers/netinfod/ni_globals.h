@@ -74,6 +74,7 @@ extern const char ACCESS_USER_SUPER[];
 extern const char ACCESS_USER_ANYBODY[];
 extern const char ACCESS_NAME_PREFIX[];
 extern const char ACCESS_DIR_KEY[];
+extern const char LOCK_DIR_KEY[];
 extern const char SHADOW_NAME_PREFIX[];
 extern const char SECURE_NAME_PREFIX[];
 extern const char SHADOW_DIR_KEY[];

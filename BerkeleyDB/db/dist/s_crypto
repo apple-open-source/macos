@@ -1,5 +1,5 @@
 #!/bin/sh -
-#	$Id: s_crypto,v 1.1.1.1 2003/02/15 04:55:44 zarzycki Exp $
+#	$Id: s_crypto,v 1.2 2004/03/30 01:21:34 jtownsen Exp $
 
 # Remove crypto from the DB source tree.
 
@@ -17,8 +17,8 @@ fi
 # Remove the crypto.
 rm -rf $d/crypto
 
-# Update the docs.
-f=$d/docs/ref/env/encrypt.html
+# Update the release splash page.
+f=$d/docs/index.html
 chmod 664 $f
 (echo '/DOES/' &&
  echo 's/DOES/DOES NOT/' &&
@@ -38,6 +38,8 @@ chmod 664 $f
 f=srcfiles.in
 chmod 664 $f
 (echo 'g/^crypto\//d' &&
+ echo '/crypto_stub\.c/' &&
+ echo 's/small/dynamic small static vx/' &&
  echo 'w' &&
  echo 'q') | ed $f
 

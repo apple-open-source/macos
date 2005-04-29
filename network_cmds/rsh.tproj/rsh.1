@@ -40,9 +40,8 @@
 .Nd remote shell
 .Sh SYNOPSIS
 .Nm
-.Op Fl 46Kdnx
+.Op Fl 46dn
 .Op Fl t Ar timeout
-.Op Fl k Ar realm
 .Op Fl l Ar username
 .Ar host
 .Op command
@@ -86,11 +85,6 @@ Redirect input from the special device
 (see the
 .Sx BUGS
 section of this manual page).
-.It Fl x
-Turn on
-.Tn DES
-encryption for all data exchange.
-This may introduce a significant delay in response time.
 .It Fl t Ar timeout
 Allow a
 .Ar timeout
@@ -136,9 +130,6 @@ to
 .Sh SEE ALSO
 .Xr rlogin 1 ,
 .Xr setsockopt 2 ,
-.Xr kerberos 3 ,
-.Xr krb_realmofhost 3 ,
-.Xr krb_sendauth 3 ,
 .Xr rcmd 3 ,
 .Xr ruserok 3 ,
 .Xr auth.conf 5 ,

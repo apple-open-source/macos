@@ -41,13 +41,15 @@
 static char sccsid[] = "@(#)regfree.c	8.3 (Berkeley) 3/20/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/regex/regfree.c,v 1.5 2002/03/22 21:52:47 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/regex/regfree.c,v 1.6 2004/07/12 07:35:59 tjr Exp $");
 
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <regex.h>
+#include <wchar.h>
+#include <wctype.h>
 
 #include "utils.h"
 #include "regex2.h"
@@ -61,6 +63,7 @@ regfree(preg)
 regex_t *preg;
 {
 	struct re_guts *g;
+	int i;
 
 	if (preg->re_magic != MAGIC1)	/* oops */
 		return;			/* nice to complain, but hard */
@@ -73,10 +76,14 @@ regex_t *preg;
 
 	if (g->strip != NULL)
 		free((char *)g->strip);
-	if (g->sets != NULL)
+	if (g->sets != NULL) {
+		for (i = 0; i < g->ncsets; i++) {
+			free(g->sets[i].ranges);
+			free(g->sets[i].wides);
+			free(g->sets[i].types);
+		}
 		free((char *)g->sets);
-	if (g->setbits != NULL)
-		free((char *)g->setbits);
+	}
 	if (g->must != NULL)
 		free(g->must);
 	if (g->charjump != NULL)

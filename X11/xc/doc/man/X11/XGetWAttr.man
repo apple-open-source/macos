@@ -41,7 +41,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XGetWAttr.man,v 1.2 2001/01/27 18:19:59 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XGetWAttr.man,v 1.4 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -146,31 +146,14 @@
 .SH NAME
 XGetWindowAttributes, XGetGeometry, XWindowAttributes \- get current window attribute or geometry and current window attributes structure
 .SH SYNTAX
-Status XGetWindowAttributes\^(\^\fIdisplay\fP, \fIw\fP\^, \fIwindow_attributes_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XWindowAttributes *\fIwindow_attributes_return\fP\^;
-.LP
-Status XGetGeometry\^(\^\fIdisplay\fP, \fId\fP\^, \^\fIroot_return\fP\^, \fIx_return\fP\^, \fIy_return\fP\^, \fIwidth_return\fP\^, 
-.br
-                      \fIheight_return\fP\^, \fIborder_width_return\fP\^, \fIdepth_return\fP\^)
-.br
-        Display *\fIdisplay\fP\^;
-.br
-        Drawable \fId\fP\^;
-.br
-        Window *\fIroot_return\fP\^;
-.br
-        int *\fIx_return\fP\^, *\fIy_return\fP\^;
-.br
-        unsigned int *\fIwidth_return\fP\^, *\fIheight_return\fP\^;
-.br
-        unsigned int *\fIborder_width_return\fP\^;
-.br
-        unsigned int *\fIdepth_return\fP\^;
+.HP
+Status XGetWindowAttributes\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^,
+XWindowAttributes *\fIwindow_attributes_return\fP\^); 
+.HP
+Status XGetGeometry\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, Window
+*\fIroot_return\fP\^, int *\fIx_return\fP\^, int *\fIy_return\fP\^, unsigned
+int *\fIwidth_return\fP\^, unsigned int *\fIheight_return\fP\^, unsigned int
+*\fIborder_width_return\fP\^, unsigned int *\fIdepth_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIborder_width_return\fP 1i
 Returns the border width in pixels. 
@@ -235,27 +218,27 @@ structure contains:
 .TA .5i 3i
 .ta .5i 3i
 typedef struct {
-	int x, y;	/* location of window */
-	int width, height;	/* width and height of window */
-	int border_width;	/* border width of window */
-	int depth;	/* depth of window */
-	Visual *visual;	/* the associated visual structure */
-	Window root;	/* root of screen containing window */
-	int class;	/* InputOutput, InputOnly*/
-	int bit_gravity;	/* one of the bit gravity values */
-	int win_gravity;	/* one of the window gravity values */
-	int backing_store;	/* NotUseful, WhenMapped, Always */
-	unsigned long backing_planes;	/* planes to be preserved if possible */
-	unsigned long backing_pixel;	/* value to be used when restoring planes */
-	Bool save_under;	/* boolean, should bits under be saved? */
-	Colormap colormap;	/* color map to be associated with window */
-	Bool map_installed;	/* boolean, is color map currently installed*/
-	int map_state;	/* IsUnmapped, IsUnviewable, IsViewable */
-	long all_event_masks;	/* set of events all people have interest in*/
-	long your_event_mask;	/* my event mask */
-	long do_not_propagate_mask;	/* set of events that should not propagate */
-	Bool override_redirect;	/* boolean value for override-redirect */
-	Screen *screen;	/* back pointer to correct screen */
+	int x, y;	/\(** location of window */
+	int width, height;	/\(** width and height of window */
+	int border_width;	/\(** border width of window */
+	int depth;	/\(** depth of window */
+	Visual *visual;	/\(** the associated visual structure */
+	Window root;	/\(** root of screen containing window */
+	int class;	/\(** InputOutput, InputOnly*/
+	int bit_gravity;	/\(** one of the bit gravity values */
+	int win_gravity;	/\(** one of the window gravity values */
+	int backing_store;	/\(** NotUseful, WhenMapped, Always */
+	unsigned long backing_planes;	/\(** planes to be preserved if possible */
+	unsigned long backing_pixel;	/\(** value to be used when restoring planes */
+	Bool save_under;	/\(** boolean, should bits under be saved? */
+	Colormap colormap;	/\(** color map to be associated with window */
+	Bool map_installed;	/\(** boolean, is color map currently installed*/
+	int map_state;	/\(** IsUnmapped, IsUnviewable, IsViewable */
+	long all_event_masks;	/\(** set of events all people have interest in*/
+	long your_event_mask;	/\(** my event mask */
+	long do_not_propagate_mask;	/\(** set of events that should not propagate */
+	Bool override_redirect;	/\(** boolean value for override-redirect */
+	Screen *screen;	/\(** back pointer to correct screen */
 } XWindowAttributes;
 .De
 .LP

@@ -1,0 +1,20 @@
+[page_begin mem/images]
+	[nav_link [mem/sf/txt]]
+<br>
+	[site_xref]
+[page_content]
+
+[p] This page displays a series of images all containing the [mem/txt]
+logo in various sizes.
+
+[p] For the two smaller images animated gifs are provided, but on a
+separate [mem/anim] page. The reason for the separation are the sizes
+of these two animated images, which are 230 K and 512 K resp.
+
+<hr>
+
+[table][trtop][td] 43 x 64 </td>[td] 68 x 100 </td>[td] 354 x 520
+</td></tr>[trtop][td][mem/logo/64]</td>[td][mem/logo/100]</td>[td]
+[mem/logo/520]</td></tr></table>
+
+[page_end]

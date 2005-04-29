@@ -65,6 +65,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -93,19 +94,20 @@
 				06AA1264FFB2107B11CA28AA,
 			);
 			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple3Com3C90x;
-				MODULE_VERSION = 1.2.2;
+				MODULE_VERSION = 1.4.0;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Apple3Com3C90x;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = i386;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -113,7 +115,7 @@
 			);
 			isa = PBXBundleTarget;
 			name = Apple3Com3C90x;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
 			productName = Apple3Com3C90x;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -125,7 +127,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Apple3Com3C90x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.2, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>1.4.0, Copyright Apple Computer, Inc. 2000-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -137,14 +139,14 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2</string>
+	<string>1.4.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
-		<key>PCI Matching</key>
+		<key>PCI 3C90x</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.Apple3Com3C90x</string>
@@ -153,35 +155,56 @@
 			<key>IODefaultMedium</key>
 			<string>Auto</string>
 			<key>IOPCIMatch</key>
-			<string>0x900010b7&amp;0xf000ffff 0x920010b7</string>
+			<string>0x900010b7 0x900110b7 0x905010b7 0x905110b7</string>
+			<key>IOProbeScore</key>
+			<integer>2000</integer>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
+		</dict>
+		<key>PCI 3C90xB</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.Apple3Com3C90x</string>
+			<key>IOClass</key>
+			<string>Apple3Com3C90xB</string>
+			<key>IODefaultMedium</key>
+			<string>Auto</string>
+			<key>IOPCIMatch</key>
+			<string>0x900010b7&amp;0xf000ffff 0x920010b7</string>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+			<key>TCP/IP Checksum</key>
+			<true/>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IONetworkingFamily</key>
-		<string>1.1</string>
+		<string>1.4.3</string>
 		<key>com.apple.iokit.IOPCIFamily</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
+		<string>1.6</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b2</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Network-Root</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 				1A224C40FF42367911CA2CB7,
 				B94F6FAD01C18CEA08CA29FD,
-				B94F6FAE01C18CEA08CA29FD,
 				B94F6FB701C18DC508CA29FD,
 			);
 			isa = PBXHeadersBuildPhase;
@@ -190,7 +213,6 @@
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -225,32 +247,10 @@
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
-				089C167DFE841241C02AAC07,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
-		};
-		089C167DFE841241C02AAC07 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-		};
-		089C167EFE841241C02AAC07 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
-			refType = 4;
-		};
-		089C1680FE841241C02AAC07 = {
-			fileRef = 089C167DFE841241C02AAC07;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //080
 //081
@@ -296,11 +296,13 @@
 //1A3
 //1A4
 		1A224C3EFF42367911CA2CB7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = 3C90x.h;
 			refType = 4;
 		};
 		1A224C3FFF42367911CA2CB7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = 3C90x.cpp;
 			refType = 4;
@@ -340,7 +342,6 @@
 				B94F6FB501C18DC508CA29FD,
 				B90FA78201F490EB08CA29FD,
 				B94F6FB601C18DC508CA29FD,
-				B94F6FA601C18CEA08CA29FD,
 				B94F6FA501C18CEA08CA29FD,
 			);
 			isa = PBXGroup;
@@ -359,6 +360,7 @@
 //B93
 //B94
 		B90FA78201F490EB08CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = 3C90xMAC.cpp;
 			refType = 4;
@@ -370,43 +372,37 @@
 			};
 		};
 		B94F6FA501C18CEA08CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = 3C90xDefines.h;
 			refType = 4;
 		};
-		B94F6FA601C18CEA08CA29FD = {
-			isa = PBXFileReference;
-			path = 3C90xInline.h;
-			refType = 4;
-		};
 		B94F6FA701C18CEA08CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = 3C90xKDB.cpp;
 			refType = 4;
 		};
 		B94F6FA801C18CEA08CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = 3C90xMedia.cpp;
 			refType = 4;
 		};
 		B94F6FA901C18CEA08CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = 3C90xMIIPHY.cpp;
 			refType = 4;
 		};
 		B94F6FAA01C18CEA08CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = 3C90xEngine.cpp;
 			refType = 4;
 		};
 		B94F6FAD01C18CEA08CA29FD = {
 			fileRef = B94F6FA501C18CEA08CA29FD;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B94F6FAE01C18CEA08CA29FD = {
-			fileRef = B94F6FA601C18CEA08CA29FD;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -436,11 +432,13 @@
 			};
 		};
 		B94F6FB501C18DC508CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = 3C90xTables.cpp;
 			refType = 4;
 		};
 		B94F6FB601C18DC508CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = 3C90xDebug.h;
 			refType = 4;

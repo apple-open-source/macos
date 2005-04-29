@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
  *
  */
-/* $XFree86: xc/include/Xfuncs.h,v 3.10 2002/05/31 18:45:38 dawes Exp $ */
+/* $XFree86: xc/include/Xfuncs.h,v 3.11 2003/12/19 02:05:37 dawes Exp $ */
 
 #ifndef _XFUNCS_H_
 #define _XFUNCS_H_
@@ -40,13 +40,16 @@ void bcopy();
 void bzero();
 int bcmp();
 #else
-#if defined(SYSV)
+#if defined(SYSV) && !defined(SCO325)
 #include <memory.h>
 void bcopy();
 #define bzero(b,len) memset(b, 0, len)
 #define bcmp(b1,b2,len) memcmp(b1, b2, len)
 #else
 #include <string.h>
+#ifdef SCO325
+#include <strings.h>
+#endif
 #define _XFUNCS_H_INCLUDED_STRING_H
 #define bcopy(b1,b2,len) memmove(b2, b1, (size_t)(len))
 #define bzero(b,len) memset(b, 0, (size_t)(len))

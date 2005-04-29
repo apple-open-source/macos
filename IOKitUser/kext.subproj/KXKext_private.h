@@ -10,6 +10,7 @@ extern "C" {
 #include "KXKextRepository_private.h"
 #include "dgraph.h"
 #include "vers_rsrc.h"
+#include <Bom/Bom.h>
 
 /*******************************************************************************
 * This file is for declaring private  API used by code other than kext.c,
@@ -98,6 +99,28 @@ KXKextManagerError _KXKextMakeSecure(KXKextRef aKext);
 
 KXKextManagerError _KXKextCheckIntegrity(KXKextRef aKext, CFMutableArrayRef bomArray);
 void _KXKextSetStartAddress(KXKextRef aKext, vm_address_t newAddr);
+
+/*BOM stuff*/
+
+BOMBom _BOMBomOpen(const char *bomPath, Boolean forWriting);
+#define BOMBomOpen _BOMBomOpen
+
+off_t  _BOMFSObjectSize(BOMFSObject fsObject);
+#define BOMFSObjectSize _BOMFSObjectSize
+
+unsigned int _BOMFSObjectChecksum(BOMFSObject fsObject);
+#define BOMFSObjectChecksum _BOMFSObjectChecksum
+
+int _BOMCRC32ForFile(const char *path, unsigned int *crc, off_t *length);
+#define BOMCRC32ForFile _BOMCRC32ForFile
+
+BOMFSObject _BOMBomGetFSObjectAtPath(BOMBom bom, const char *path);
+#define BOMBomGetFSObjectAtPath _BOMBomGetFSObjectAtPath
+
+BOMFSObject _BOMFSObjectFree(BOMFSObject fsObject);
+#define BOMFSObjectFree _BOMFSObjectFree
+/*end BOM stuff*/
+
 
 #ifdef __cplusplus
 }

@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.own.mk,v 1.28 2000/06/09 19:15:51 ghelmer Exp $
+# $FreeBSD: src/share/mk/bsd.own.mk,v 1.41 2004/02/05 20:48:44 ru Exp $
 #
 # The include file <bsd.own.mk> set common variables for owner,
 # group, mode, and directories. Defaults are in brackets.
@@ -11,25 +11,10 @@
 # DISTDIR	Change the tree where the file for a distribution
 # 		gets installed (see /usr/src/release/Makefile). [not set]
 #
-#
-# COPY		The flag passed to the install program to cause the binary
-#		to be copied rather than moved.  This is to be used when
-#		building our own install script so that the entire system
-#		can either be installed with copies, or with moves using
-#		a single knob. [-c]
-#
 # COMPRESS_CMD	Program to compress documents. 
 #		Output is to stdout. [gzip -cn]
 #
 # COMPRESS_EXT	File name extension of ${COMPRESS_CMD} command. [.gz]
-#
-# STRIP		The flag passed to the install program to cause the binary
-#		to be stripped.  This is to be used when building your
-#		own install script so that the entire system can be made
-#		stripped/not-stripped using a single knob. [-s]
-#
-# OBJFORMAT	Default object format that selects which set of tools to run.
-#		[mach-o]
 #
 # BINOWN	Binary owner. [root]
 #
@@ -38,14 +23,6 @@
 # BINMODE	Binary mode. [555]
 #
 # NOBINMODE	Mode for non-executable files. [444]
-#
-# INCOWN	Include owner. [root]
-#
-# INCGRP	Include group. [wheel]
-#
-# INCMODE	Include mode. [444]
-#
-# INCDIR	Base path for include files. [/usr/include]
 #
 # LIBDIR	Base path for libraries. [/usr/lib]
 #
@@ -57,7 +34,7 @@
 #
 # SHLIBDIR	Base path for shared libraries. [${LIBDIR}]
 #
-# LIBOWN	Library mode. [${BINOWN}]
+# LIBOWN	Library owner. [${BINOWN}]
 #
 # LIBGRP	Library group. [${BINGRP}]
 #
@@ -65,7 +42,7 @@
 #
 #
 # KMODDIR	Base path for loadable kernel modules
-#		(see kld(4)). [/modules]
+#		(see kld(4)). [/boot/kernel]
 #
 # KMODOWN	KLD owner. [${BINOWN}]
 #
@@ -114,31 +91,18 @@
 #
 #
 # NLSDIR	Base path for National Language Support files
-#		installation (see mklocale(1)). [${SHAREDIR}/nls]
+#		installation. [${SHAREDIR}/nls]
 #
-# NLSGRP	National Language Support files group. [${SHAREOWN}]
+# NLSOWN	National Language Support files owner. [${SHAREOWN}]
 #
-# NLSOWN	National Language Support files owner. [${SHAREGRP}]
+# NLSGRP	National Language Support files group. [${SHAREGRP}]
 #
 # NLSMODE	National Language Support files mode. [${NOBINMODE}]
 #
 # INCLUDEDIR	Base path for standard C include files [/usr/include]
 
-# This is only here for bootstrapping and is not officially exported
-# from here.  It has normally already been defined in sys.mk.
-MACHINE_ARCH?=	i386
-
-#
-# The build tools are indirected by /usr/bin/objformat which determines the
-# object format from the OBJFORMAT environment variable and if this is not
-# defined, it reads /etc/objformat.
-#
-.if exists(/etc/objformat) && !defined(OBJFORMAT)
-.include "/etc/objformat"
-.endif
-
-# Default executable format
-OBJFORMAT?=	mach-o
+.if !target(__<bsd.own.mk>__)
+__<bsd.own.mk>__:
 
 # Binaries
 BINOWN?=	root
@@ -146,23 +110,16 @@ BINGRP?=	wheel
 BINMODE?=	555
 NOBINMODE?=	444
 
-GAMEGRP?=	games
-
-INCOWN?=	root
-INCGRP?=	wheel
-INCMODE?=	444
-INCDIR?=	/usr/include
-
-KMODDIR?=	/modules
+.if defined(MODULES_WITH_WORLD)
+KMODDIR?=	/boot/modules
+.else
+KMODDIR?=	/boot/kernel
+.endif
 KMODOWN?=	${BINOWN}
 KMODGRP?=	${BINGRP}
 KMODMODE?=	${BINMODE}
 
-.if ${OBJFORMAT} == aout
-LIBDIR?=	/usr/lib/aout
-.else
 LIBDIR?=	/usr/lib
-.endif
 LIBCOMPATDIR?=	/usr/lib/compat
 LIBDATADIR?=	/usr/libdata
 LINTLIBDIR?=	/usr/libdata/lint
@@ -194,8 +151,8 @@ INFOGRP?=	${SHAREGRP}
 INFOMODE?=	${NOBINMODE}
 
 NLSDIR?=	${SHAREDIR}/nls
-NLSGRP?=	${SHAREOWN}
-NLSOWN?=	${SHAREGRP}
+NLSOWN?=	${SHAREOWN}
+NLSGRP?=	${SHAREGRP}
 NLSMODE?=	${NOBINMODE}
 
 INCLUDEDIR?=	/usr/include
@@ -205,6 +162,7 @@ INCLUDEDIR?=	/usr/include
 STRIP?=		-s
 .endif
 
-COPY?=		-c
 COMPRESS_CMD?=	gzip -cn
 COMPRESS_EXT?=	.gz
+
+.endif !target(__<bsd.own.mk>__)

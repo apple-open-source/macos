@@ -1,0 +1,218 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
+<head>
+  <title>$BLOJSOM_BLOG.getBlogName()</title>
+
+  <!-- to correct the unsightly Flash of Unstyled Content. http://www.bluerobot.com/web/css/fouc.asp -->
+  <script type="text/javascript"></script>
+
+  <style type="text/css" media="all">
+    @import "$BLOJSOM_SITE_URL/blojsom-flex.css";
+  </style>
+
+  <link rel="SHORTCUT ICON" href="$BLOJSOM_SITE_URL/favicon.ico" />
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="$BLOJSOM_BLOG.getBlogURL()?flavor=rss" />
+</head>
+
+<body onload="window.defaultStatus='$BLOJSOM_BLOG.getBlogName(): $BLOJSOM_BLOG.getBlogDescription()';">
+
+<div id="container">
+
+  <div id="intro">
+    <div id="pageHeader">
+      <div id="blogName">$BLOJSOM_BLOG.getBlogName()</div>
+      <div id="blogDescription">$BLOJSOM_BLOG.getBlogDescription()</div>
+    </div>
+  </div>
+
+  <div id="mainContent">
+#foreach ($entry in $BLOJSOM_ENTRIES)
+    <div id="blogEntry">
+      <h3><span><a href="$entry.getLink()" title="Permalink to $entry.getTitle()">$entry.getTitle() <img src="$BLOJSOM_SITE_URL/images/permalink.png" alt=""/></a></span></h3>
+      <h4><span>$entry.getDate()</span></h4>
+      <p class="p1"><span>$entry.getDescription()</span></p>
+    </div>
+#if ($BLOJSOM_COMMENTS_ENABLED.booleanValue() && $entry.supportsComments())
+  <div id="entryCommentAndTrackbackCount">
+    (<a href="$entry.getLink()&amp;page=comments">$entry.getNumComments() comment(s)</a> and
+    <a href="$entry.getLink()&amp;page=trackback">$entry.getNumTrackbacks() trackback(s)</a>)
+  </div>
+#end
+  #if ($BLOJSOM_PERMALINK)
+  <!-- Trackback Auto Discovery -->
+  #set( $blogDescription = $entry.getEscapedDescription() )
+  #if ($blogDescription.length() > 255 )
+    #set( $ellipses = "..." )
+    #set( $blogDescription = "$blogDescription.substring(0,252)$ellipses" )
+  #end
+<!--
+      <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+               xmlns:dc="http://purl.org/dc/elements/1.1/"
+               xmlns:trackback="http://madskills.com/public/xml/rss/module/trackback/">
+        <rdf:Description
+            rdf:about="$entry.getLink()"
+            dc:identifier="$entry.getLink()"
+            dc:title="$entry.getTitle()"
+            dc:subject="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()"
+            dc:description="$blogDescription"
+            dc:creator="$BLOJSOM_BLOG.getBlogOwner()"
+            dc:date="$entry.getISO8601Date()"
+            trackback:ping="$entry.getLink()&tb=y" />
+      </rdf:RDF>
+-->
+  #end
+#end
+
+
+    <div id="footer">
+#foreach ($blogCategory in $BLOJSOM_CATEGORIES)
+      <a href="$blogCategory.getCategoryURL()">#if ($blogCategory.getName())$blogCategory.getName()#else$blogCategory.getCategory()#end</a>
+#end
+      <a href="http://validator.w3.org/check/referer" title="Check the validity of this site&#8217;s XHTML">xhtml</a> &nbsp;
+      <a href="http://jigsaw.w3.org/css-validator/check/referer" title="Check the validity of this site&#8217;s CSS">css</a> &nbsp;
+    </div>
+
+  </div>
+
+#if (!$hideCalendar)
+  <div id="calendar">
+    <table summary="Monthly calendar with links to each day's posts">
+      <caption class="calendarCaption">
+        $BLOJSOM_CALENDAR_VTLHELPER.getPreviousMonth()&nbsp;&nbsp;&nbsp;
+        $BLOJSOM_CALENDAR_VTLHELPER.getToday()&nbsp;&nbsp;&nbsp;
+        $BLOJSOM_CALENDAR_VTLHELPER.getNextMonth()
+      </caption>
+      <tr>
+#foreach( $downame in $BLOJSOM_CALENDAR.getShortDayOfWeekNames())
+  #if($downame)
+    <th class="calendarHeader" abbr="$downame">$downame</th>
+  #end
+#end
+      </tr>
+      <tr>$BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(1,"calendarColumn")</tr>
+      <tr>$BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(2,"calendarColumn")</tr>
+      <tr>$BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(3,"calendarColumn")</tr>
+      <tr>$BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(4,"calendarColumn")</tr>
+      <tr>$BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(5,"calendarColumn")</tr>
+      <tr>$BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(6,"calendarColumn")</tr>
+    </table>
+  </div>
+#end
+
+#if (!$hideNavigation)
+  <div id="navigation">
+    <div id="search">
+      <h3 class="category"><span>Search:</span></h3>
+      <form method="get" action=".">
+        <ul>
+          <li><input size="14" type="text" name="query" value=""/></li>
+        </ul>
+      </form>
+    </div>
+
+    <div id="categories">
+      <h3 class="category"><span>Categories:</span></h3>
+      <ul>
+  #foreach ($blogCategory in $BLOJSOM_CATEGORIES)
+        <li><a href="$blogCategory.getCategoryURL()">#if ($blogCategory.getName())$blogCategory.getName()#else$blogCategory.getCategory()#end</a></li>
+  #end
+      </ul>
+    </div>
+
+    <!--
+    <div id="blogroll">
+      <h3 class="archives"><span>Blogroll:</span></h3>
+      <ul>
+        <li><a href="http://www.thauvin.net/blog/index.jsp" title="Erik's Weblog">Erik's Weblog</a></li>
+      </ul>
+    </div>
+    -->
+
+    <div id="resources">
+      <script type="text/JavaScript">
+        if (document.layers){
+          //Netscape 4 specific code
+          pre = 'document.';
+          post = '';
+        }
+        if (document.getElementById){
+          //Netscape 6 specific code
+          pre = 'document.getElementById("';
+          post = '").style';
+        }
+        if (document.all){
+          //IE4+ specific code
+          pre = 'document.all.';
+          post = '.style';
+        }
+        function layer(id) {
+          return eval(pre + id + post);
+        }
+        function aboutWindow() {
+          layer('aboutMe').visibility = 'visible';
+        }
+        function closeAboutWindow() {
+          layer('aboutMe').visibility = 'hidden';
+        }
+      </script>
+      <div id="aboutMe">
+        <div id="aboutMeText">
+          <p>
+            <a href="http://blojsom.sf.net">blojsom</a> developer.
+          </p>
+        </div>
+        <div id="closeButton"><a href="javascript:closeAboutWindow();" onclick="javascript:closeAboutWindow();">close</a></div>
+      </div>
+      <h3><span>Resources:</span></h3>
+      <ul>
+        <li><a href="javascript:aboutWindow()" onclick="javascript:aboutWindow()" title="About Me">About Me</a></li>
+        <li><a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rss" title="RSS 0.92 Feed"><img src="$BLOJSOM_SITE_URL/images/rss092.gif" alt=""/></a></li>
+        <li><a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rss2" title="RSS 2.0 Feed"><img src="$BLOJSOM_SITE_URL/images/rss2.gif" alt=""/></a></li>
+        <li><a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rdf" title="RDF Feed"><img src="$BLOJSOM_SITE_URL/images/rdf.gif" alt=""/></a></li>
+        <li><a href="http://www.javablogs.com" title="JavaBlogs.com"><img src="$BLOJSOM_SITE_URL/images/javablog.gif" alt=""/></a></li>
+      </ul>
+    </div>
+
+    <div id="poweredby">
+      <p><a href="http://blojsom.sf.net" title="Powered By blojsom"><img src="$BLOJSOM_SITE_URL/powered-by-blojsom.gif" alt=""/></a></p>
+    </div>
+  </div>
+#end
+
+#if($REFERER_HISTORY && !$hideRefererHistory)
+  <div id="refererHistory">
+  #foreach( $flavorgroup in $REFERER_HISTORY.keySet())
+    #set ($group = $REFERER_HISTORY.get($flavorgroup))
+    #if ($group.isHitCounter())
+      <div id="groupRefererHitCounter">$flavorgroup hits:&nbsp;<a href="$BLOJSOM_BLOG.getBlogURL()?&amp;page=referers" title="Referer History">$group.getReferralCount()</a></div>
+    #else
+      <div id="groupReferersToday">
+         $flavorgroup referers today&nbsp;(<a href="$BLOJSOM_BLOG.getBlogURL()?&amp;page=referers" title="Referer History">$group.getReferralCount() overall</a>)
+      </div>
+
+      <div id="groupRefererUrls">
+      #foreach( $refererurl in $group.keySet())
+        #if ( $group.get($refererurl).isToday() )
+          #if ($refererurl.length() < $REFERER_MAX_LENGTH.intValue())
+            <div id="groupRefererUrl"><a href="$refererurl">$refererurl</a>&nbsp;($group.get($refererurl).getCount())</div>
+          #else
+            <div id="groupRefererUrl"><a href="$refererurl">$refererurl.substring(0,$REFERER_MAX_LENGTH.intValue())</a>&nbsp;($group.get($refererurl).getCount())</div>
+          #end
+        #end
+      #end
+      </div>
+
+    #end
+  #end
+  </div>
+#end
+
+</div>
+
+<!-- These extra divs/spans may be used as catch-alls to add extra imagery. -->
+<div id="extraDiv1"><span></span></div><div id="extraDiv2"><span></span></div><div id="extraDiv3"><span></span></div>
+<div id="extraDiv4"><span></span></div><div id="extraDiv5"><span></span></div><div id="extraDiv6"><span></span></div>
+
+</body>
+</html>

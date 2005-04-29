@@ -50,7 +50,8 @@ import java.util.Arrays;
  */
 public class BinaryRefAddr extends RefAddr
 {
-
+  static final long serialVersionUID = -3415254970957330361L;
+	
   /**
    * The possibly null content of this RefAddr.
    * Set by the constructor and returned by getContent.
@@ -97,17 +98,17 @@ public class BinaryRefAddr extends RefAddr
    *         the addrType is the same as this addrType and the bytes of the
    *         content are the same.
    */
-  public boolean equals (Object o)
+  public boolean equals(Object o)
   {
     if (o instanceof BinaryRefAddr)
       {
         BinaryRefAddr refAddr = (BinaryRefAddr) o;
         if (this.getType().equals(refAddr.getType()))
-	  {
-	    byte[] c1 = (byte[]) this.getContent();
-	    byte[] c2 = (byte[]) refAddr.getContent();
-	    return Arrays.equals(c1, c2);
-	  }
+        {
+          byte[] c1 = (byte[]) this.getContent();
+          byte[] c2 = (byte[]) refAddr.getContent();
+	  return Arrays.equals(c1, c2);
+        }
       }
     return false;
   }

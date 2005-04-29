@@ -21,9 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: process.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
@@ -71,6 +68,7 @@ extern int hardstatusemu;
 extern char *printcmd;
 extern int default_startup;
 extern int defobuflimit;
+extern int defnonblock;
 extern int ZombieKey_destroy;
 extern int ZombieKey_resurrect;
 #ifdef AUTO_NUKE
@@ -96,7 +94,6 @@ extern struct acluser *EffectiveAclUser;	/* acl.c */
 #endif
 extern struct term term[];      /* terminal capabilities */
 #ifdef MAPKEYS
-extern int maptimeout;
 extern char *kmapdef[];
 extern char *kmapadef[];
 extern char *kmapmdef[];
@@ -109,19 +106,20 @@ extern char *screenencodings;
 
 static int  CheckArgNum __P((int, char **));
 static void ClearAction __P((struct action *));
+static void SaveAction __P((struct action *, int, char **, int *));
 static int  NextWindow __P((void));
 static int  PreviousWindow __P((void));
 static int  MoreWindows __P((void));
 static void LogToggle __P((int));
 static void ShowInfo __P((void));
 static void ShowDInfo __P((void));
-static char **SaveArgs __P((char **));
 static struct win *WindowByName __P((char *));
 static int  WindowByNumber __P((char *));
 static int  ParseOnOff __P((struct action *, int *));
-static int  ParseWinNum __P((struct action *act, int *));
-static int  ParseBase __P((struct action *act, char *, int *, int, char *));
-static char *ParseChar __P((char *, char *));
+static int  ParseWinNum __P((struct action *, int *));
+static int  ParseBase __P((struct action *, char *, int *, int, char *));
+static int  ParseNum1000 __P((struct action *, int *));
+static char **SaveArgs __P((char **));
 static int  IsNum __P((char *, int));
 static void Colonfin __P((char *, int, char *));
 static void InputSelect __P((void));
@@ -146,12 +144,10 @@ static void pow_detach_fn __P((char *, int, char *));
 #endif
 static void digraph_fn __P((char *, int, char *));
 static void confirm_fn __P((char *, int, char *));
-#ifdef MAPKEYS
-static int  StuffKey __P((int));
-#endif
-static int IsOnDisplay __P((struct win *));
+static int  IsOnDisplay __P((struct win *));
 static void ResizeRegions __P((char*));
 static void ResizeFin __P((char *, int, char *));
+static struct action *FindKtab __P((char *, int));
 
 
 extern struct layer *flayer;
@@ -188,6 +184,18 @@ struct plop plop_tab[MAX_PLOP_DEFS];
 int TtyMode = PTYMODE;
 int hardcopy_append = 0;
 int all_norefresh = 0;
+#ifdef ZMODEM
+int zmodem_mode = 0;
+char *zmodem_sendcmd;
+char *zmodem_recvcmd;
+static char *zmodes[4] = {"off", "auto", "catch", "pass"};
+#endif
+
+int idletimo;
+struct action idleaction;
+#ifdef BLANKER_PRG
+char **blankerprg;
+#endif
 
 struct action ktab[256];	/* command key translation table */
 struct kclass {
@@ -198,13 +206,12 @@ struct kclass {
 struct kclass *kclasses;
 
 #ifdef MAPKEYS
-struct action umtab[KMAP_KEYS+KMAP_AKEYS+KMAP_EXT];
-struct action dmtab[KMAP_KEYS+KMAP_AKEYS+KMAP_EXT];
-struct action mmtab[KMAP_KEYS+KMAP_AKEYS+KMAP_EXT];
-
-char *kmap_extras[KMAP_EXT];
-int kmap_extras_fl[KMAP_EXT];
-
+struct action umtab[KMAP_KEYS+KMAP_AKEYS];
+struct action dmtab[KMAP_KEYS+KMAP_AKEYS];
+struct action mmtab[KMAP_KEYS+KMAP_AKEYS];
+struct kmap_ext *kmap_exts;
+int kmap_extn;
+static int maptimeout = 300;
 #endif
 
 
@@ -398,16 +405,20 @@ InitKeytab()
     {
       ktab[i].nr = RC_ILLEGAL;
       ktab[i].args = noargs;
+      ktab[i].argl = 0;
     }
 #ifdef MAPKEYS
-  for (i = 0; i < KMAP_KEYS+KMAP_AKEYS+KMAP_EXT; i++)
+  for (i = 0; i < KMAP_KEYS+KMAP_AKEYS; i++)
     {
       umtab[i].nr = RC_ILLEGAL;
       umtab[i].args = noargs;
+      umtab[i].argl = 0;
       dmtab[i].nr = RC_ILLEGAL;
       dmtab[i].args = noargs;
+      dmtab[i].argl = 0;
       mmtab[i].nr = RC_ILLEGAL;
       mmtab[i].args = noargs;
+      mmtab[i].argl = 0;
     }
   argarr[1] = 0;
   for (i = 0; i < NKMAPDEF; i++)
@@ -419,8 +430,7 @@ InitKeytab()
       if (kmapdef[i] == 0)
 	continue;
       argarr[0] = kmapdef[i];
-      dmtab[i + (KMAPDEFSTART - T_CAPS)].nr = RC_STUFF;
-      dmtab[i + (KMAPDEFSTART - T_CAPS)].args = SaveArgs(argarr);
+      SaveAction(dmtab + i + (KMAPDEFSTART - T_CAPS), RC_STUFF, argarr, 0);
     }
   for (i = 0; i < NKMAPADEF; i++)
     {
@@ -431,8 +441,7 @@ InitKeytab()
       if (kmapadef[i] == 0)
 	continue;
       argarr[0] = kmapadef[i];
-      dmtab[i + (KMAPADEFSTART - T_CURSOR + KMAP_KEYS)].nr = RC_STUFF;
-      dmtab[i + (KMAPADEFSTART - T_CURSOR + KMAP_KEYS)].args = SaveArgs(argarr);
+      SaveAction(dmtab + i + (KMAPADEFSTART - T_CURSOR + KMAP_KEYS), RC_STUFF, argarr, 0);
     }
   for (i = 0; i < NKMAPMDEF; i++)
     {
@@ -444,8 +453,7 @@ InitKeytab()
 	continue;
       argarr[0] = kmapmdef[i];
       argarr[1] = 0;
-      mmtab[i + (KMAPMDEFSTART - T_CAPS)].nr = RC_STUFF;
-      mmtab[i + (KMAPMDEFSTART - T_CAPS)].args = SaveArgs(argarr);
+      SaveAction(mmtab + i + (KMAPMDEFSTART - T_CAPS), RC_STUFF, argarr, 0);
     }
 #endif
 
@@ -496,8 +504,7 @@ InitKeytab()
     char *args[2];
     args[0] = "-";
     args[1] = NULL;
-    ktab['-'].nr = RC_SELECT;
-    ktab['-'].args = SaveArgs(args);
+    SaveAction(ktab + '-', RC_SELECT, args, 0);
   }
   for (i = 0; i < ((MAXWIN < 10) ? MAXWIN : 10); i++)
     {
@@ -505,16 +512,14 @@ InitKeytab()
       args[0] = arg1;
       args[1] = 0;
       sprintf(arg1, "%d", i);
-      ktab['0' + i].nr = RC_SELECT;
-      ktab['0' + i].args = SaveArgs(args);
+      SaveAction(ktab + '0' + i, RC_SELECT, args, 0);
     }
   ktab['\''].nr = RC_SELECT; /* calling a window by name */
   {
     char *args[2];
     args[0] = "-b";
     args[1] = 0;
-    ktab['"'].nr = RC_WINDOWLIST;
-    ktab['"'].args = SaveArgs(args);
+    SaveAction(ktab + '"', RC_WINDOWLIST, args, 0);
   }
   ktab[Ctrl('G')].nr = RC_VBELL;
   ktab[':'].nr = RC_COLON;
@@ -524,9 +529,8 @@ InitKeytab()
     char *args[2];
     args[0] = ".";
     args[1] = 0;
-    ktab[']'].args = SaveArgs(args);
-    ktab[Ctrl(']')].args = SaveArgs(args);
-    ktab[']'].nr = ktab[Ctrl(']')].nr = RC_PASTE;
+    SaveAction(ktab + ']', RC_PASTE, args, 0);
+    SaveAction(ktab + Ctrl(']'), RC_PASTE, args, 0);
   }
   ktab['{'].nr = RC_HISTORY;
   ktab['}'].nr = RC_HISTORY;
@@ -559,9 +563,13 @@ InitKeytab()
       ClearAction(&ktab[DefaultMetaEsc]);
       ktab[DefaultMetaEsc].nr = RC_META;
     }
+
+  idleaction.nr = RC_BLANKER;
+  idleaction.args = noargs;
+  idleaction.argl = 0;
 }
 
-struct action *
+static struct action *
 FindKtab(class, create)
 char *class;
 int create;
@@ -590,7 +598,7 @@ int create;
 	  return 0;
 	}
       kp->name = SaveStr(class);
-      for (i = 0; i < sizeof(kp->ktab)/sizeof(*kp->ktab); i++)
+      for (i = 0; i < (int)(sizeof(kp->ktab)/sizeof(*kp->ktab)); i++)
 	{
 	  kp->ktab[i].nr = RC_ILLEGAL;
 	  kp->ktab[i].args = noargs;
@@ -616,6 +624,7 @@ struct action *act;
     free(*p);
   free((char *)act->args);
   act->args = noargs;
+  act->argl = 0;
 }
 
 /*
@@ -636,7 +645,7 @@ char *ibuf;
 int ilen;
 {
   int ch, slen;
-  unsigned char *s;
+  unsigned char *s, *q;
   int i, l;
   char *p;
 
@@ -647,7 +656,7 @@ int ilen;
     evdeq(&D_mapev);
   slen = ilen;
   s = (unsigned char *)ibuf;
-  while(ilen-- > 0)
+  while (ilen-- > 0)
     {
       ch = *s++;
       if (D_dontmap || !D_nseqs)
@@ -657,47 +666,84 @@ int ilen;
 	}
       for (;;)
 	{
-	  if (*(unsigned char *)D_seqp != ch)
+	  debug3("cmp %c %c[%d]\n", ch, *D_seqp, D_seqp - D_kmaps);
+	  if (*D_seqp != ch)
 	    {
-	      l = *((unsigned char *)D_seqp + (KMAP_OFF - KMAP_SEQ));
+	      l = D_seqp[D_seqp[-D_seql-1] + 1];
 	      if (l)
 		{
-		  D_seqp += sizeof(struct kmap) * l;
+		  D_seqp += l * 2 + 4;
+		  debug1("miss %d\n", D_seqp - D_kmaps);
 		  continue;
 		}
+	      debug("complete miss\n");
 	      D_mapdefault = 0;
 	      l = D_seql;
-	      p = D_seqp - l;
+	      p = (char *)D_seqp - l;
 	      D_seql = 0;
-	      D_seqp = D_kmaps[0].seq;
-	      if (l)
+	      D_seqp = D_kmaps + 3;
+	      if (l == 0)
+		break;
+	      if ((q = D_seqh) != 0)
 		{
-		  ProcessInput2(p, l);
+		  D_seqh = 0;
+		  i = q[0] << 8 | q[1];
+		  i &= ~KMAP_NOTIMEOUT;
+		  debug1("Mapping former hit #%d - ", i);
+		  debug2("%d(%s) - ", q[2], q + 3);
+		  if (StuffKey(i))
+		    ProcessInput2((char *)q + 3, q[2]);
 		  if (display == 0)
 		    return;
+		  l -= q[2];
+		  p += q[2];
 		}
-	      break;
+	      else
+	        D_dontmap = 1;
+	      debug1("flush old %d\n", l);
+	      ProcessInput(p, l);
+	      if (display == 0)
+		return;
+	      evdeq(&D_mapev);
+	      continue;
 	    }
 	  if (D_seql++ == 0)
 	    {
 	      /* Finish old stuff */
 	      slen -= ilen + 1;
-	      ProcessInput2(ibuf, slen);
+	      debug1("finish old %d\n", slen);
+	      if (slen)
+	        ProcessInput2(ibuf, slen);
 	      if (display == 0)
 		return;
+	      D_seqh = 0;
 	    }
 	  ibuf = (char *)s;
 	  slen = ilen;
-	  ch = -1;
-	  if (*++D_seqp == 0)
-	    { 
-	      i = (struct kmap *)(D_seqp - D_seql - KMAP_SEQ) - D_kmaps;
+	  D_seqp++;
+	  l = D_seql;
+	  debug2("length am %d, want %d\n", l, D_seqp[-l - 1]);
+	  if (l == D_seqp[-l - 1])
+	    {
+	      if (D_seqp[l] != l)
+		{
+		  q = D_seqp + 1 + l;
+		  if (D_kmaps + D_nseqs > q && q[2] > l && !bcmp(D_seqp - l, q + 3, l))
+		    {
+		      debug1("have another mapping (%s), delay execution\n", q + 3);
+		      D_seqh = D_seqp - 3 - l;
+		      D_seqp = q + 3 + l;
+		      break;
+		    }
+		}
+	      i = D_seqp[-l - 3] << 8 | D_seqp[-l - 2];
+	      i &= ~KMAP_NOTIMEOUT;
 	      debug1("Mapping #%d - ", i);
-	      i = D_kmaps[i].nr & ~KMAP_NOTIMEOUT;
-	      l = D_seql;
-	      p = D_seqp - l;
+	      p = (char *)D_seqp - l;
+	      debug2("%d(%s) - ", l, p);
 	      D_seql = 0;
-	      D_seqp = D_kmaps[0].seq;
+	      D_seqp = D_kmaps + 3;
+	      D_seqh = 0;
 	      if (StuffKey(i))
 		ProcessInput2(p, l);
 	      if (display == 0)
@@ -708,19 +754,18 @@ int ilen;
     }
   if (D_seql)
     {
-      struct kmap *km;
       debug("am in sequence -> check for timeout\n");
-      km = (struct kmap *)(D_seqp - D_seql - KMAP_SEQ);
-      i = *(D_seqp - 1 + (KMAP_OFF - KMAP_SEQ));
-      if (i == 0)
-	i = D_nseqs - (km - D_kmaps);
-      for (; i; km++, i--)
-	if (km->nr & KMAP_NOTIMEOUT)
-	  break;
-      if (i == 0)
+      l = D_seql;
+      for (s = D_seqp; ; s += i * 2 + 4)
 	{
-	  SetTimeout(&D_mapev, maptimeout/1000);
-	  evenq(&D_mapev);
+	  if (s[-l-3] & KMAP_NOTIMEOUT >> 8)
+	    break;
+	  if ((i = s[s[-l-1] + 1]) == 0)
+	    {
+	      SetTimeout(&D_mapev, maptimeout);
+	      evenq(&D_mapev);
+	      break;
+	    }
 	}
     }
   ProcessInput2(ibuf, slen);
@@ -801,15 +846,6 @@ struct paster *pa;
   struct display *d = display;
 
 #ifdef COPY_PASTE
-  if (!pa && p && p->w_paster.pa_pastelen)
-    {
-      debug("layer is busy - beep!\n");
-      WBell(p, visual_bell);
-      *bufp += *lenp;
-      *lenp = 0;
-      display = d;
-      return;
-    }
   /* XXX -> PasteStart */
   if (pa && *lenp > 1 && p && p->w_slowpaste)
     {
@@ -821,6 +857,17 @@ struct paster *pa;
 #endif
   while (flayer && *lenp)
     {
+#ifdef COPY_PASTE
+      if (!pa && p && p->w_paster.pa_pastelen && flayer == p->w_paster.pa_pastelayer)
+	{
+	  debug("layer is busy - beep!\n");
+	  WBell(p, visual_bell);
+	  *bufp += *lenp;
+	  *lenp = 0;
+	  display = d;
+	  return;
+	}
+#endif
       oldlen = *lenp;
       LayProcess(bufp, lenp);
 #ifdef COPY_PASTE
@@ -979,6 +1026,7 @@ int key;
 {
   int nr = act->nr;
   char **args = act->args;
+  int *argl = act->argl;
   struct win *p;
   int argc, i, n, msgok;
   char *s;
@@ -1032,6 +1080,16 @@ int key;
 	{
 	  SetForeWindow((struct win *)0);
 	  Activate(0);
+	}
+      else if (args[0][0] == '.' && !args[0][1])
+	{
+	  if (!fore)
+	    Msg(0, "select . needs a window");
+	  else
+	    {
+	      SetForeWindow(fore);
+	      Activate(0);
+	    }
 	}
       else if (ParseWinNum(act, &n) == 0)
         SwitchWindow(n);
@@ -1195,25 +1253,62 @@ int key;
         Msg(0, "Sorry, screen was compiled without -DDEBUG option.");
 #endif
       break;
+#ifdef ZMODEM
+    case RC_ZMODEM:
+      if (*args && !strcmp(*args, "sendcmd"))
+	{
+	  if (args[1])
+	    {
+	      free(zmodem_sendcmd);
+	      zmodem_sendcmd = SaveStr(args[1]);
+	    }
+	  if (msgok)
+	    Msg(0, "zmodem sendcmd: %s", zmodem_sendcmd);
+	  break;
+	}
+      if (*args && !strcmp(*args, "recvcmd"))
+	{
+	  if (args[1])
+	    {
+	      free(zmodem_recvcmd);
+	      zmodem_recvcmd = SaveStr(args[1]);
+	    }
+	  if (msgok)
+	    Msg(0, "zmodem recvcmd: %s", zmodem_recvcmd);
+	  break;
+	}
+      if (*args)
+	{
+	  for (i = 0; i < 4; i++)
+	    if (!strcmp(zmodes[i], *args))
+	      break;
+	  if (i == 4 && !strcmp(*args, "on"))
+	    i = 1;
+	  if (i == 4)
+	    {
+	      Msg(0, "usage: zmodem off|auto|catch|pass");
+	      break;
+	    }
+	  zmodem_mode = i;
+	}
+      if (msgok)
+	Msg(0, "zmodem mode is %s", zmodes[zmodem_mode]);
+      break;
+#endif
     case RC_ZOMBIE:
       {
-        char ch2 = 0;
- 
         if (!(s = *args))
           {
             ZombieKey_destroy = 0;
             break;
           }
-        if (!(s = ParseChar(s, &ch)) || *s)
-          {
-            if (!s || !(s = ParseChar(s, &ch2)) || *s)
-              {
-                Msg(0, "%s:zombie: one or two characters expected.", rc_name);
-                break;
-              }
-          }
-        ZombieKey_destroy = ch;
-        ZombieKey_resurrect = ch2;
+	if (*argl == 0 || *argl > 2)
+	  {
+	    Msg(0, "%s:zombie: one or two characters expected.", rc_name);
+	    break;
+	  }
+        ZombieKey_destroy = args[0][0];
+        ZombieKey_resurrect = *argl == 2 ? args[0][1] : 0;
       }
       break;
     case RC_WALL:
@@ -1272,7 +1367,7 @@ int key;
 	        if (D_user != u)
 		  continue;
 		debug1("AT display %s\n", D_usertty);
-		DoCommand(args + 1);
+		DoCommand(args + 1, argl + 1);
 		if (display)
 		  Msg(0, "command from %s: %s %s", 
 		      s, args[1], args[2] ? args[2] : "");
@@ -1301,7 +1396,7 @@ int key;
 		     strncmp(args[0], D_usertty + 8, n)))
 		  continue;
 		debug1("AT display %s\n", D_usertty);
-		DoCommand(args + 1);
+		DoCommand(args + 1, argl + 1);
 		if (display)
 		  Msg(0, "command from %s: %s %s", 
 		      s, args[1], args[2] ? args[2] : "");
@@ -1344,7 +1439,7 @@ int key;
 		    if (fore->w_layer.l_cvlist)
 		      display = fore->w_layer.l_cvlist->c_display;
 		    flayer = fore->w_savelayer ? fore->w_savelayer : &fore->w_layer;
-		    DoCommand(args + 1);	/* may destroy our display */
+		    DoCommand(args + 1, argl + 1);	/* may destroy our display */
 		    if (fore && fore->w_layer.l_cvlist)
 		      {
 		        display = fore->w_layer.l_cvlist->c_display;
@@ -1364,7 +1459,8 @@ int key;
 	        debug2("AT window %d (%s)\n", fore->w_number, fore->w_title);
 		if (fore->w_layer.l_cvlist)
 		  display = fore->w_layer.l_cvlist->c_display;
-		DoCommand(args + 1);
+		flayer = fore->w_savelayer ? fore->w_savelayer : &fore->w_layer;
+		DoCommand(args + 1, argl + 1);
 		if (fore && fore->w_layer.l_cvlist)
 		  {
 		    display = fore->w_layer.l_cvlist->c_display;
@@ -1411,11 +1507,12 @@ int key;
 	  Input("Copy to register:", 1, INP_RAW, copy_reg_fn, NULL);
 	  break;
 	}
-      if (((s = ParseChar(s, &ch)) == NULL) || *s)
+      if (*argl != 1)
 	{
 	  Msg(0, "%s: copyreg: character, ^x, or (octal) \\032 expected.", rc_name);
 	  break;
 	}
+      ch = args[0][0];
       /* 
        * With two arguments we *really* read register contents from file
        */
@@ -1468,17 +1565,21 @@ int key;
 	  Msg(0, "%s: register: illegal number of arguments.", rc_name);
 	  break;
 	}
-      if ((s = ParseChar(*args, &ch)) == 0 || *s)
-	Msg(0, "%s: register: character, ^x, or (octal) \\032 expected.", rc_name);
+      if (*argl != 1)
+	{
+	  Msg(0, "%s: register: character, ^x, or (octal) \\032 expected.", rc_name);
+	  break;
+	}
+      ch = args[0][0];
 #ifdef COPY_PASTE
-      else if (ch == '.')
+      if (ch == '.')
 	{
 	  if (user->u_plop.buf != NULL)
 	    UserFreeCopyBuffer(user);
 	  if (args[1] && args[1][0])
 	    {
-	      user->u_plop.buf = SaveStr(args[1]);
-	      user->u_plop.len = strlen(user->u_plop.buf);
+	      user->u_plop.buf = SaveStrn(args[1], argl[1]);
+	      user->u_plop.len = argl[1];
 #ifdef ENCODINGS
 	      user->u_plop.enc = i;
 #endif
@@ -1491,8 +1592,8 @@ int key;
 
 	  if (plp->buf)
 	    free(plp->buf);
-	  plp->buf = SaveStr(args[1]);
-	  plp->len = strlen(plp->buf);
+	  plp->buf = SaveStrn(args[1], argl[1]);
+	  plp->len = argl[1];
 #ifdef ENCODINGS
 	  plp->enc = i;
 #endif
@@ -1504,15 +1605,17 @@ int key;
 	  Input("Process register:", 1, INP_RAW, process_fn, NULL);
 	  break;
 	}
-      if ((s = ParseChar(s, &ch)) == NULL || *s)
+      if (*argl != 1)
 	{
 	  Msg(0, "%s: process: character, ^x, or (octal) \\032 expected.", rc_name);
 	  break;
 	}
+      ch = args[0][0];
       process_fn(&ch, 0, NULL);
       break;
     case RC_STUFF:
       s = *args;
+      n = *argl;
       if (args[1])
 	{
 	  if (strcmp(s, "-k"))
@@ -1536,8 +1639,8 @@ int key;
 	  s = display ? D_tcs[i].str : 0;
 	  if (s == 0)
 	    break;
+	  n = strlen(s);
 	}
-      n = strlen(s);
       while(n)
         LayProcess(&s, &n);
       break;
@@ -1616,7 +1719,7 @@ int key;
 	  if (*args)
 	    {
 	      if (ParseNum(act, &n))
-		for (n = 0; n < sizeof(types)/sizeof(*types); n++)
+		for (n = 0; n < (int)(sizeof(types)/sizeof(*types)); n++)
 		  {
 		    for (i = 0; i < 4; i++)
 		      {
@@ -1629,7 +1732,7 @@ int key;
 		    if (i == 4)
 		      break;
 		  }
-	      if (n < 0 || n >= sizeof(types)/sizeof(*types))
+	      if (n < 0 || n >= (int)(sizeof(types)/sizeof(*types)))
 	        Msg(0, "%s invalid, chose one of %s, %s or %s", *args, types[0], types[1], types[2]);
 	      else
 	        {
@@ -1785,7 +1888,7 @@ int key;
       if (*args == 0)
 	InputAKA();
       else
-	ChangeAKA(fore, *args, 20);
+	ChangeAKA(fore, *args, strlen(*args));
       break;
     case RC_COLON:
       Input(":", 100, INP_COOKED, Colonfin, NULL);
@@ -1876,6 +1979,10 @@ int key;
       break;
     case RC_RESET:
       ResetAnsiState(fore);
+#ifdef ZMODEM
+      if (fore->w_zdisplay)
+        zmodem_abort(fore, fore->w_zdisplay);
+#endif
       WriteString(fore, "\033c", 2);
       break;
     case RC_MONITOR:
@@ -1920,9 +2027,15 @@ int key;
 #endif
     case RC_WINDOWLIST:
       if (!*args)
-        display_wlist(0);
+        display_wlist(0, WLIST_NUM);
+      else if (!strcmp(*args, "-m") && !args[1])
+        display_wlist(0, WLIST_MRU);
       else if (!strcmp(*args, "-b") && !args[1])
-        display_wlist(1);
+        display_wlist(1, WLIST_NUM);
+      else if (!strcmp(*args, "-b") && !strcmp(args[1], "-m") && !args[2])
+        display_wlist(1, WLIST_MRU);
+      else if (!strcmp(*args, "-m") && !strcmp(args[1], "-b") && !args[2])
+        display_wlist(1, WLIST_MRU);
       else if (!strcmp(*args, "string"))
 	{
 	  if (args[1])
@@ -1977,6 +2090,7 @@ int key;
     case RC_HISTORY:
       {
         static char *pasteargs[] = {".", 0};
+	static int pasteargl[] = {1};
 
 	if (flayer->l_layfn != &WinLf)
 	  {
@@ -1988,6 +2102,7 @@ int key;
 	if (user->u_plop.buf == NULL)
 	  break;
 	args = pasteargs;
+	argl = pasteargl;
       }
       /*FALLTHROUGH*/
     case RC_PASTE:
@@ -2012,7 +2127,7 @@ int key;
 	 * with two arguments we paste into a destination register
 	 * (no window needed here).
 	 */
-	if (args[1] && ((s = ParseChar(args[1], &dch)) == NULL || *s))
+	if (args[1] && argl[1] != 1)
 	  {
 	    Msg(0, "%s: paste destination: character, ^x, or (octal) \\032 expected.",
 		rc_name);
@@ -2108,6 +2223,7 @@ int key;
 	     * we have two arguments, the second is already in dch.
 	     * use this as destination rather than the window.
 	     */
+	    dch = args[1][0];
 	    if (dch == '.')
 	      {
 	        if (user->u_plop.buf != NULL)
@@ -2221,7 +2337,11 @@ int key;
       break;
 #endif				/* COPY_PASTE */
     case RC_ESCAPE:
-      if (ParseEscape(user, *args))
+      if (*argl == 0)
+	SetEscape(user, -1, -1);
+      else if (*argl == 2)
+	SetEscape(user, (int)(unsigned char)args[0][0], (int)(unsigned char)args[0][1]);
+      else
 	{
 	  Msg(0, "%s: two characters required after escape.", rc_name);
 	  break;
@@ -2233,7 +2353,11 @@ int key;
 	break;
       /* FALLTHROUGH */
     case RC_DEFESCAPE:
-      if (ParseEscape(NULL, *args))
+      if (*argl == 0)
+	SetEscape(NULL, -1, -1);
+      else if (*argl == 2)
+	SetEscape(NULL, (int)(unsigned char)args[0][0], (int)(unsigned char)args[0][1]);
+      else
 	{
 	  Msg(0, "%s: two characters required after defescape.", rc_name);
 	  break;
@@ -2331,16 +2455,30 @@ int key;
       debug("new termcap made\n");
       break;
     case RC_ECHO:
-      if (!msgok)
+      if (!msgok && (!rc_name || strcmp(rc_name, "-X")))
 	break;
       /*
        * user typed ^A:echo... well, echo isn't FinishRc's job,
        * but as he wanted to test us, we show good will
        */
-      if (*args && (args[1] == 0 || (strcmp(args[1], "-n") == 0 && args[2] == 0)))
-	Msg(0, "%s", args[1] ? args[1] : *args);
+      if (argc > 1 && !strcmp(*args, "-n"))
+	{
+	  args++;
+	  argc--;
+	}
+      s = *args;
+      if (argc > 1 && !strcmp(*args, "-p"))
+	{
+	  args++;
+	  argc--;
+	  s = *args;
+	  if (s)
+	    s = MakeWinMsg(s, fore, '%');
+	}
+      if (s)
+	Msg(0, "%s", s);
       else
-	Msg(0, "%s: 'echo [-n] \"string\"' expected.", rc_name);
+	Msg(0, "%s: 'echo [-n] [-p] \"string\"' expected.", rc_name);
       break;
     case RC_BELL:
     case RC_BELL_MSG:
@@ -2594,26 +2732,26 @@ int key;
         Msg(0, "switched to visual bell.");
       break;
     case RC_VBELLWAIT:
-      if (ParseNum(act, &VBellWait) == 0 && msgok)
-        Msg(0, "vbellwait set to %d seconds", VBellWait);
+      if (ParseNum1000(act, &VBellWait) == 0 && msgok)
+        Msg(0, "vbellwait set to %.10g seconds", VBellWait/1000.);
       break;
     case RC_MSGWAIT:
-      if (ParseNum(act, &MsgWait) == 0 && msgok)
-        Msg(0, "msgwait set to %d seconds", MsgWait);
+      if (ParseNum1000(act, &MsgWait) == 0 && msgok)
+        Msg(0, "msgwait set to %.10g seconds", MsgWait/1000.);
       break;
     case RC_MSGMINWAIT:
-      if (ParseNum(act, &MsgMinWait) == 0 && msgok)
-        Msg(0, "msgminwait set to %d seconds", MsgMinWait);
+      if (ParseNum1000(act, &MsgMinWait) == 0 && msgok)
+        Msg(0, "msgminwait set to %.10g seconds", MsgMinWait/1000.);
       break;
     case RC_SILENCEWAIT:
-      if ((ParseNum(act, &SilenceWait) == 0) && msgok)
-        {
-	  if (SilenceWait < 1)
-	    SilenceWait = 1;
-	  for (p = windows; p; p = p->w_next)
-	    p->w_silencewait = SilenceWait;
-	  Msg(0, "silencewait set to %d seconds", SilenceWait);
-	}
+      if (ParseNum(act, &SilenceWait))
+	break;
+      if (SilenceWait < 1)
+	SilenceWait = 1;
+      for (p = windows; p; p = p->w_next)
+	p->w_silencewait = SilenceWait;
+      if (msgok)
+	Msg(0, "silencewait set to %d seconds", SilenceWait);
       break;
     case RC_NUMBER:
       if (*args == 0)
@@ -2786,17 +2924,12 @@ int key;
 	    fore->w_number, fore->w_slowpaste);
       break;
     case RC_MARKKEYS:
-      s = 0;
-      if (ParseSaveStr(act, &s))
-        break;
-      if (CompileKeys(s, mark_key_tab))
+      if (CompileKeys(*args, *argl, mark_key_tab))
 	{
 	  Msg(0, "%s: markkeys: syntax error.", rc_name);
-	  free(s);
 	  break;
 	}
       debug1("markkeys %s\n", *args);
-      free(s);
       break;
 # ifdef FONT
     case RC_PASTEFONT:
@@ -2885,14 +3018,14 @@ int key;
 	      if (ktabp == 0)
 		break;
 	      args += 2;
+	      argl += 2;
 	    }
-	  if ((s = ParseChar(*args, &ch)) == 0 || *s)
+	  if (*argl != 1)
 	    {
-	      Msg(0, "%s: bind: character, ^x, or (octal) \\032 expected.",
-		  rc_name);
+	      Msg(0, "%s: bind: character, ^x, or (octal) \\032 expected.", rc_name);
 	      break;
 	    }
-	  n = (unsigned char)ch;
+	  n = (unsigned char)args[0][0];
 	  if (args[1])
 	    {
 	      if ((i = FindCommnr(args[1])) == RC_ILLEGAL)
@@ -2903,9 +3036,7 @@ int key;
 	      if (CheckArgNum(i, args + 2) < 0)
 		break;
 	      ClearAction(&ktabp[n]);
-	      ktabp[n].nr = i;
-	      if (args[2])
-		ktabp[n].args = SaveArgs(args + 2);
+	      SaveAction(ktabp + n, i, args + 2, argl + 2);
 	    }
 	  else
 	    ClearAction(&ktabp[n]);
@@ -2918,8 +3049,9 @@ int key;
           int newnr, fl = 0, kf = 0, af = 0, df = 0, mf = 0;
 	  struct display *odisp = display;
 	  int used = 0;
+          struct kmap_ext *kme;
 
-	  for (; *args && **args == '-'; args++)
+	  for (; *args && **args == '-'; args++, argl++)
 	    {
 	      if (strcmp(*args, "-t") == 0)
 		fl = KMAP_NOTIMEOUT;
@@ -2934,6 +3066,7 @@ int key;
 	      else if (strcmp(*args, "--") == 0)
 		{
 		  args++;
+		  argl++;
 		  break;
 		}
 	      else
@@ -2964,27 +3097,48 @@ int key;
 		  Msg(0, "%s: bindkey: -a only works with -k", rc_name);
 		  break;
 		}
-	      for (i = 0; i < KMAP_EXT; i++)
-		if (kmap_extras[i] == 0)
+	      if (*argl == 0)
+		{
+		  Msg(0, "%s: bindkey: empty string makes no sense", rc_name);
+		  break;
+		}
+	      for (i = 0, kme = kmap_exts; i < kmap_extn; i++, kme++)
+		if (kme->str == 0)
 		  {
 		    if (args[1])
 		      break;
 		  }
 		else
-		  if (strcmp(kmap_extras[i], *args) == 0)
+		  if (*argl == (kme->fl & ~KMAP_NOTIMEOUT) && bcmp(kme->str, *args, *argl) == 0)
 		      break;
-	      if (i == KMAP_EXT)
+	      if (i == kmap_extn)
 		{
-		  Msg(0, args[1] ? "%s: bindkey: no more room for keybinding" : "%s: bindkey: keybinding not found", rc_name);
-		  break;
+		  if (!args[1])
+		    {
+		      Msg(0, "%s: bindkey: keybinding not found", rc_name);
+		      break;
+		    }
+		  kmap_extn += 8;
+		  kmap_exts = (struct kmap_ext *)xrealloc((char *)kmap_exts, kmap_extn * sizeof(*kmap_exts));
+		  kme = kmap_exts + i;
+		  bzero((char *)kme, 8 * sizeof(*kmap_exts));
+		  for (; i < kmap_extn; i++, kme++)
+		    {
+		      kme->str = 0;
+		      kme->dm.nr = kme->mm.nr = kme->um.nr = RC_ILLEGAL;
+		      kme->dm.args = kme->mm.args = kme->um.args = noargs;
+		    }
+		  i -= 8;
+		  kme -= 8;
 		}
-	      if (df == 0 && dmtab[i + KMAP_KEYS + KMAP_AKEYS].nr != RC_ILLEGAL)
+	      if (df == 0 && kme->dm.nr != RC_ILLEGAL)
 		used = 1;
-	      if (mf == 0 && mmtab[i + KMAP_KEYS + KMAP_AKEYS].nr != RC_ILLEGAL)
+	      if (mf == 0 && kme->mm.nr != RC_ILLEGAL)
 		used = 1;
-	      if ((df || mf) && umtab[i + KMAP_KEYS + KMAP_AKEYS].nr != RC_ILLEGAL)
+	      if ((df || mf) && kme->um.nr != RC_ILLEGAL)
 		used = 1;
 	      i += KMAP_KEYS + KMAP_AKEYS;
+	      newact = df ? &kme->dm : mf ? &kme->mm : &kme->um;
 	    }
 	  else
 	    {
@@ -3000,8 +3154,8 @@ int key;
 	        i -=  T_CURSOR - KMAP_KEYS;
 	      else
 	        i -=  T_CAPS;
+	      newact = df ? &dmtab[i] : mf ? &mmtab[i] : &umtab[i];
 	    }
-	  newact = df ? &dmtab[i] : mf ? &mmtab[i] : &umtab[i];
 	  if (args[1])
 	    {
 	      if ((newnr = FindCommnr(args[1])) == RC_ILLEGAL)
@@ -3012,15 +3166,13 @@ int key;
 	      if (CheckArgNum(newnr, args + 2) < 0)
 		break;
 	      ClearAction(newact);
-	      newact->nr = newnr;
-	      if (args[2])
-		newact->args = SaveArgs(args + 2);
+	      SaveAction(newact, newnr, args + 2, argl + 2);
 	      if (kf == 0 && args[1])
 		{
-		  if (kmap_extras[i - (KMAP_KEYS+KMAP_AKEYS)])
-		    free(kmap_extras[i - (KMAP_KEYS+KMAP_AKEYS)]);
-	          kmap_extras[i - (KMAP_KEYS+KMAP_AKEYS)] = SaveStr(*args);
-		  kmap_extras_fl[i - (KMAP_KEYS+KMAP_AKEYS)] = fl;
+		  if (kme->str)
+		    free(kme->str);
+		  kme->str = SaveStrn(*args, *argl);
+		  kme->fl = fl | *argl;
 		}
 	    }
 	  else
@@ -3029,12 +3181,11 @@ int key;
 	    remap(i, args[1] ? 1 : 0);
 	  if (kf == 0 && !args[1])
 	    {
-	      i -= KMAP_KEYS + KMAP_AKEYS;
-	      if (!used && kmap_extras[i])
+	      if (!used && kme->str)
 		{
-		  free(kmap_extras[i]);
-		  kmap_extras[i] = 0;
-		  kmap_extras_fl[i] = 0;
+		  free(kme->str);
+		  kme->str = 0;
+		  kme->fl = 0;
 		}
 	    }
 	  display = odisp;
@@ -3045,15 +3196,15 @@ int key;
 	{
           if (ParseNum(act, &n))
 	    break;
-	  if (n < 0 || n >= 1000)
+	  if (n < 0)
 	    {
 	      Msg(0, "%s: maptimeout: illegal time %d", rc_name, n);
 	      break;
 	    }
-	  maptimeout = n * 1000;
+	  maptimeout = n;
 	}
       if (*args == 0 || msgok)
-        Msg(0, "maptimeout is %dms", maptimeout/1000);
+        Msg(0, "maptimeout is %dms", maptimeout);
       break;
     case RC_MAPNOTNEXT:
       D_dontmap = 1;
@@ -3159,9 +3310,42 @@ int key;
 #endif
 #ifdef MULTI
     case RC_NONBLOCK:
-      if (!ParseSwitch(act, &i) && msgok)
-        Msg(0, "display set to %sblocking mode.", D_nonblock ? "non" : "");
+      i = D_nonblock >= 0;
+      if (*args && ((args[0][0] >= '0' && args[0][0] <= '9') || args[0][0] == '.'))
+	{
+          if (ParseNum1000(act, &i))
+	    break;
+	}
+      else if (!ParseSwitch(act, &i))
+	i = i == 0 ? -1 : 1000;
+      else
+	break;
+      if (msgok && i == -1)
+        Msg(0, "display set to blocking mode");
+      else if (msgok && i == 0)
+        Msg(0, "display set to nonblocking mode, no timeout");
+      else if (msgok)
+        Msg(0, "display set to nonblocking mode, %.10gs timeout", i/1000.);
       D_nonblock = i;
+      if (D_nonblock <= 0)
+	evdeq(&D_blockedev);
+      break;
+    case RC_DEFNONBLOCK:
+      if (*args && ((args[0][0] >= '0' && args[0][0] <= '9') || args[0][0] == '.'))
+	{
+          if (ParseNum1000(act, &defnonblock))
+	    break;
+	}
+      else if (!ParseOnOff(act, &defnonblock))
+        defnonblock = defnonblock == 0 ? -1 : 1000;
+      else
+	break;
+      if (display && *rc_name)
+	{
+	  D_nonblock = defnonblock;
+          if (D_nonblock <= 0)
+	    evdeq(&D_blockedev);
+	}
       break;
 #endif
     case RC_GR:
@@ -3432,6 +3616,7 @@ int key;
 	  if (i == -1)
 	    break;
 	  ApplyAttrColor(i, &mchar_so);
+	  debug2("--> %x %x\n", mchar_so.attr, mchar_so.color);
 	}
       if (msgok)
 #ifdef COLOR
@@ -3537,7 +3722,8 @@ int key;
       for (; *args; args++)
 	{
 	  char *ss = SaveStr(*args);
-	  RcLine(ss);
+	  if (*ss)
+	    Colonfin(ss, strlen(ss), (char *)0);
 	  free(ss);
 	}
       break;
@@ -3560,7 +3746,7 @@ int key;
       if (ParseBase(act, *args, &n, 10, "decimal"))
 	break;
       if (!args[1])
-	setbacktick(n, 0, 0, (char **)0);
+        setbacktick(n, 0, 0, (char **)0);
       else
 	{
 	  int lifespan, tick;
@@ -3574,6 +3760,65 @@ int key;
 	  if (ParseBase(act, args[2], &tick, 10, "decimal"))
 	    break;
 	  setbacktick(n, lifespan, tick, SaveArgs(args + 3));
+	}
+      WindowChanged(0, '`');
+      break;
+    case RC_BLANKER:
+#ifdef BLANKER_PRG
+      if (blankerprg)
+	{
+          RunBlanker(blankerprg);
+	  break;
+	}
+#endif
+      ClearAll();
+      CursorVisibility(-1);
+      D_blocked = 4;
+      break;
+#ifdef BLANKER_PRG
+    case RC_BLANKERPRG:
+      if (blankerprg)
+	{
+	  char **pp;
+	  for (pp = blankerprg; *pp; pp++)
+	    free(*pp);
+	  free(blankerprg);
+	  blankerprg = 0;
+	}
+      if (args[0][0])
+	blankerprg = SaveArgs(args);
+      break;
+#endif
+    case RC_IDLE:
+      if (*args)
+	{
+	  struct display *olddisplay = display;
+	  if (!strcmp(*args, "off"))
+	    idletimo = 0;
+	  else if (args[0][0])
+	    idletimo = atoi(*args) * 1000;
+	  if (argc > 1)
+	    {
+	      if ((i = FindCommnr(args[1])) == RC_ILLEGAL)
+		{
+		  Msg(0, "%s: idle: unknown command '%s'", rc_name, args[1]);
+		  break;
+		}
+	      if (CheckArgNum(i, args + 2) < 0)
+		break;
+	      ClearAction(&idleaction);
+	      SaveAction(&idleaction, i, args + 2, argl + 2);
+	    }
+	  for (display = displays; display; display = display->d_next)
+	    ResetIdle();
+	  display = olddisplay;
+	}
+      if (msgok)
+	{
+	  if (idletimo)
+	    Msg(0, "idle timeout %ds, %s", idletimo / 1000, comms[idleaction.nr].name);
+	  else
+	    Msg(0, "idle off");
 	}
       break;
     default:
@@ -3592,8 +3837,9 @@ int key;
 }
 
 void
-DoCommand(argv) 
+DoCommand(argv, argl) 
 char **argv;
+int *argl;
 {
   struct action act;
 
@@ -3603,7 +3849,44 @@ char **argv;
       return;
     }
   act.args = argv + 1;
+  act.argl = argl + 1;
   DoAction(&act, -1);
+}
+
+static void
+SaveAction(act, nr, args, argl)
+struct action *act;
+int nr;
+char **args;
+int *argl;
+{
+  register int argc = 0;
+  char **pp;
+  int *lp;
+
+  if (args)
+    while (args[argc])
+      argc++;
+  if (argc == 0)
+    {
+      act->nr = nr;
+      act->args = noargs;
+      act->argl = 0;
+      return;
+    }
+  if ((pp = (char **)malloc((unsigned)(argc + 1) * sizeof(char **))) == 0)
+    Panic(0, strnomem);
+  if ((lp = (int *)malloc((unsigned)(argc) * sizeof(int *))) == 0)
+    Panic(0, strnomem);
+  act->nr = nr;
+  act->args = pp;
+  act->argl = lp;
+  while (argc--)
+    {
+      *lp = argl ? *argl++ : (int)strlen(*args);
+      *pp++ = SaveStrn(*args++, *lp++);
+    }
+  *pp = 0;
 }
 
 static char **
@@ -3615,13 +3898,14 @@ char **args;
 
   while (args[argc])
     argc++;
-  if ((pp = ap = (char **) malloc((unsigned) (argc + 1) * sizeof(char **))) == 0)
+  if ((pp = ap = (char **)malloc((unsigned)(argc + 1) * sizeof(char **))) == 0)
     Panic(0, strnomem);
   while (argc--)
     *pp++ = SaveStr(*args++);
   *pp = 0;
   return ap;
 }
+
 
 /*
  * buf is split into argument vector args.
@@ -3633,111 +3917,177 @@ char **args;
  * argc is returned.
  */
 int 
-Parse(buf, args)
+Parse(buf, bufl, args, argl)
 char *buf, **args;
+int bufl, *argl;
 {
   register char *p = buf, **ap = args, *pp;
   register int delim, argc;
+  int *lp = argl;
 
+  debug2("Parse %d %s\n", bufl, buf);
   argc = 0;
+  pp = buf;
+  delim = 0;
   for (;;)
     {
       while (*p && (*p == ' ' || *p == '\t'))
 	++p;
-      if (argc == 0)
-	{
-	  /* 
-	   * Expand hardcoded shortcuts.
-	   * This should not be done here, cause multiple commands per
-	   * line or prefixed commands won't be recognized.
-	   * But as spaces between shortcut character and arguments
-	   * can be ommited this expansion affects tokenisation and
-	   * should be done here. Hmmm. jw.
-	   */
-	  switch (*p)
-	    {
-	    case '@':
-	      *ap++ = "at";
-	      /*
-	       * If comments were removed before this shortcut expanded,
-	       * we wouldn't need this hack.
-	       */
-	      if (p[1] == '#')
-	        *p = '\\';
-	      while (*(++p) == ' ' || *p == '\t')
-	        ;
-	      argc++;
-	      break;
 #ifdef PSEUDOS
-	    case '!':
-	    case '|':
-	      *ap++ = "exec";
-	      if (*p == '!')
-		p++;
-	      while (*p == ' ' || *p == '\t')
-		p++;
-	      argc++;
-	      break;
-#endif
-	    }
+      if (argc == 0 && *p == '!')
+	{
+	  *ap++ = "exec";
+	  *lp++ = 4;
+	  p++;
+	  argc++;
+	  continue;
         }
-      if (*p == '\0' || *p == '#')
+#endif
+      if (*p == '\0' || *p == '#' || *p == '\n')
 	{
 	  *p = '\0';
+	  for (delim = 0; delim < argc; delim++)
+	    debug1("-- %s\n", args[delim]);
 	  args[argc] = 0;
 	  return argc;
 	}
-      if (*p == '\\' && p[1] == '#')
-        p++;
       if (++argc >= MAXARGS)
 	{
 	  Msg(0, "%s: too many tokens.", rc_name);
 	  return 0;
 	}
-      delim = 0;
-      *ap++ = pp = p;
-      while (*p && (delim || (*p != ' ' && *p != '\t')))
-        {
+      *ap++ = pp;
+
+      debug1("- new arg %s\n", p);
+      while (*p)
+	{
 	  if (*p == delim)
 	    delim = 0;
-	  else if (!delim && (*p == '"' || *p == '\''))
+	  else if (delim != '\'' && *p == '\\' && (p[1] == '\'' || p[1] == '"' || p[1] == '\\' || p[1] == '$' || p[1] == '#' || p[1] == '^' || (p[1] >= '0' && p[1] <= '7')))
+	    {
+	      p++;
+	      if (*p >= '0' && *p <= '7')
+		{
+		  *pp = *p - '0';
+		  if (p[1] >= '0' && p[1] <= '7')
+		    {
+		      p++;
+		      *pp = (*pp << 3) | (*p - '0');
+		      if (p[1] >= '0' && p[1] <= '7')
+			{
+			  p++;
+			  *pp = (*pp << 3) | (*p - '0');
+			}
+		    }
+		  pp++;
+		}
+	      else
+		*pp++ = *p;
+	    }
+	  else if (delim != '\'' && *p == '$' && (p[1] == '{' || p[1] == ':' || (p[1] >= 'a' && p[1] <= 'z') || (p[1] >= 'A' && p[1] <= 'Z') || (p[1] >= '0' && p[1] <= '9') || p[1] == '_'))
+
+	    {
+	      char *ps, *pe, op, *v, xbuf[11];
+	      int vl;
+
+	      ps = ++p;
+	      debug1("- var %s\n", ps);
+	      p++;
+	      while (*p)
+		{
+		  if (*ps == '{' && *p == '}')
+		    break;
+		  if (*ps == ':' && *p == ':')
+		    break;
+		  if (*ps != '{' && *ps != ':' && (*p < 'a' || *p > 'z') && (*p < 'A' || *p > 'Z') && (*p < '0' || *p > '9') && *p != '_')
+		    break;
+		  p++;
+		}
+	      pe = p;
+	      if (*ps == '{' || *ps == ':')
+		{
+		  if (!*p)
+		    {
+		      Msg(0, "%s: bad variable name.", rc_name);
+		      return 0;
+		    }
+		  p++;
+		}
+	      op = *pe;
+	      *pe = 0;
+	      debug1("- var is '%s'\n", ps);
+	      if (*ps == ':')
+		v = gettermcapstring(ps + 1);
+	      else
+		{
+		  if (*ps == '{')
+		    ps++;
+		  v = xbuf;
+		  if (!strcmp(ps, "TERM"))
+		    v = display ? D_termname : "unknown";
+		  else if (!strcmp(ps, "COLUMNS"))
+		    sprintf(xbuf, "%d", display ? D_width : -1);
+		  else if (!strcmp(ps, "LINES"))
+		    sprintf(xbuf, "%d", display ? D_height : -1);
+		  else
+		    v = getenv(ps);
+		}
+	      *pe = op;
+	      vl = v ? strlen(v) : 0;
+	      if (vl)
+		{
+		  debug1("- sub is '%s'\n", v);
+		  if (p - pp < vl)
+		    {
+		      int right = buf + bufl - (p + strlen(p) + 1);
+		      if (right > 0)
+			{
+			  bcopy(p, p + right, strlen(p) + 1);
+			  p += right;
+			}
+		    }
+		  if (p - pp < vl)
+		    {
+		      Msg(0, "%s: no space left for variable expansion.", rc_name);
+		      return 0;
+		    }
+		  bcopy(v, pp, vl);
+		  pp += vl;
+		}
+	      continue;
+	    }
+	  else if (delim != '\'' && *p == '^' && p[1])
+	    {
+	      p++;
+	      *pp++ = *p == '?' ? '\177' : *p & 0x1f;
+	    }
+	  else if (delim == 0 && (*p == '\'' || *p == '"'))
 	    delim = *p;
+	  else if (delim == 0 && (*p == ' ' || *p == '\t' || *p == '\n'))
+	    break;
 	  else
 	    *pp++ = *p;
 	  p++;
-        }
-      if (*p == 0)
-	{
-	  if (delim)
-	    {
-	      Msg(0, "%s: Missing quote.", rc_name);
-	      return 0;
-	    }
 	}
-      else
+      if (delim)
+	{
+	  Msg(0, "%s: Missing %c quote.", rc_name, delim);
+	  return 0;
+	}
+      if (*p)
 	p++;
       *pp = 0;
+      debug2("- arg done, '%s' rest %s\n", ap[-1], p);
+      *lp++ = pp - ap[-1];
+      pp++;
     }
 }
 
-int 
-ParseEscape(u, p)
+void
+SetEscape(u, e, me)
 struct acluser *u;
-char *p;
+int e, me;
 {
-  unsigned char buf[2];
-  int e, me;
-
-  if (*p == 0)
-    e = me = -1;
-  else
-    {
-      if ((p = ParseChar(p, (char *)buf)) == NULL ||
-	  (p = ParseChar(p, (char *)buf+1)) == NULL || *p)
-	return -1;
-      e = buf[0];
-      me = buf[1];
-    }
   if (u)
     {
       u->u_Esc = e;
@@ -3768,7 +4118,6 @@ char *p;
 	    }
 	}
     }
-  return 0;
 }
 
 int
@@ -3854,6 +4203,56 @@ int *var;
       p++;
     }
   debug1("ParseNum got %d\n", i);
+  *var = i;
+  return 0;
+}
+
+static int
+ParseNum1000(act, var)
+struct action *act;
+int *var;
+{
+  int i;
+  char *p, **args = act->args;
+  int dig = 0;
+
+  p = *args;
+  if (p == 0 || *p == 0 || args[1])
+    {
+      Msg(0, "%s: %s: invalid argument. Give one argument.",
+          rc_name, comms[act->nr].name);
+      return -1;
+    }
+  i = 0; 
+  while (*p)
+    {
+      if (*p >= '0' && *p <= '9')
+	{
+	  if (dig < 4)
+	    i = 10 * i + (*p - '0');
+          else if (dig == 4 && *p >= '5')
+	    i++;
+	  if (dig)
+	    dig++;
+	}
+      else if (*p == '.' && !dig)
+        dig++;
+      else
+	{
+	  Msg(0, "%s: %s: invalid argument. Give floating point argument.",
+	      rc_name, comms[act->nr].name);
+	  return -1;
+	}    
+      p++;
+    }
+  if (dig == 0)
+    i *= 1000;
+  else
+    while (dig++ < 4)
+      i *= 10;
+  if (i < 0)
+    i = (int)((unsigned int)~0 >> 1);
+  debug1("ParseNum1000 got %d\n", i);
   *var = i;
   return 0;
 }
@@ -3970,42 +4369,6 @@ char *bname;
   *var = i;
   return 0;
 }
-
-/*
- * Interprets ^?, ^@ and other ^-control-char notation.
- * Interprets \ddd octal notation
- * 
- * The result is placed in *cp, p is advanced behind the parsed expression and 
- * returned. 
- */
-static char *
-ParseChar(p, cp)
-char *p, *cp;
-{
-  if (*p == 0)
-    return 0;
-  if (*p == '^' && p[1])
-    {
-      if (*++p == '?')
-        *cp = '\177';
-      else if (*p >= '@')
-        *cp = Ctrl(*p);
-      else
-        return 0;
-      ++p;
-    }
-  else if (*p == '\\' && *++p <= '7' && *p >= '0')
-    {
-      *cp = 0;
-      do
-        *cp = *cp * 8 + *p - '0';
-      while (*++p <= '7' && *p >= '0');
-    }
-  else
-    *cp = *p++;
-  return p;
-}
-
 
 static int
 IsNum(s, base)
@@ -4151,13 +4514,17 @@ struct win *wi;
 	  /*
 	   * Place the window at the head of the most-recently-used list
 	   */
-	  for (pp = &windows; (p = *pp); pp = &p->w_next)
-	    if (p == wi)
-	      break;
-	  ASSERT(p);
-	  *pp = p->w_next;
-	  p->w_next = windows;
-	  windows = p;
+	  if (windows != wi)
+	    {
+	      for (pp = &windows; (p = *pp); pp = &p->w_next)
+		if (p == wi)
+		  break;
+	      ASSERT(p);
+	      *pp = p->w_next;
+	      p->w_next = windows;
+	      windows = p;
+	      WListLinkChanged();
+	    }
 	}
     }
 }
@@ -4319,7 +4686,16 @@ struct win *wi;
 	  gotone = 1;
 	}
       if (gotone)
-	Activate(-1);
+	{
+#ifdef ZMODEM
+	  if (wi->w_zdisplay == display)
+	    {
+	      D_blocked = 0;
+	      D_readev.condpos = D_readev.condneg = 0;
+	    }
+#endif
+	  Activate(-1);
+	}
     }
   FreeWindow(wi);
   WindowChanged((struct win *)0, 'w');
@@ -4369,6 +4745,7 @@ int where;
   register char *s, *ss;
   register struct win **pp, *p;
   register char *cmd;
+  int l;
 
   s = ss = buf;
   for (pp = ((flags & 4) && where >= 0) ? wtab + where + 1: wtab; pp < wtab + MAXWIN; pp++)
@@ -4381,7 +4758,10 @@ int where;
 	continue;
 
       cmd = p->w_title;
-      if (s - buf + strlen(cmd) > len - 24)
+      l = strlen(cmd);
+      if (l > 20)
+        l = 20;
+      if (s - buf + l > len - 24)
 	break;
       if (s > buf || (flags & 4))
 	{
@@ -4401,8 +4781,8 @@ int where;
           s = AddWindowFlags(s, len, p);
 	}
       *s++ = ' ';
-      strcpy(s, cmd);
-      s += strlen(s);
+      strncpy(s, cmd, l);
+      s += l;
     }
   *s = 0;
   return ss;
@@ -4674,7 +5054,7 @@ char *data;	/* dummy */
 {
   ASSERT(display);
   if (len && fore)
-    ChangeAKA(fore, buf, 20);
+    ChangeAKA(fore, buf, strlen(buf));
 }
 
 static void
@@ -4682,7 +5062,7 @@ InputAKA()
 {
   char *s, *ss;
   int n;
-  Input("Set window's title to: ", 20, INP_COOKED, AKAfin, NULL);
+  Input("Set window's title to: ", sizeof(fore->w_akabuf) - 1, INP_COOKED, AKAfin, NULL);
   s = fore->w_title;
   if (!s)
     return;
@@ -4702,8 +5082,18 @@ char *buf;
 int len;
 char *data;	/* dummy */
 {
+  char mbuf[256];
   if (len)
-    RcLine(buf);
+    {
+      len = strlen(buf) + 1;
+      if (len > (int)sizeof(mbuf))
+        RcLine(buf, len);
+      else
+	{
+	  bcopy(buf, mbuf, len);
+          RcLine(mbuf, sizeof mbuf);
+	}
+    }
 }
 
 static void
@@ -4914,37 +5304,40 @@ char *fn, **av;
  * l (left), r (right). placing a mark will now be done with ".".
  */
 int
-CompileKeys(s, array)
+CompileKeys(s, sl, array)
 char *s;
+int sl;
 unsigned char *array;
 {
   int i;
   unsigned char key, value;
 
-  if (!s || !*s)
+  if (sl == 0)
     {
       for (i = 0; i < 256; i++)
         array[i] = i;
       return 0;
     }
   debug1("CompileKeys: '%s'\n", s);
-  while (*s)
+  while (sl)
     {
-      s = ParseChar(s, (char *) &key);
-      if (!s || *s != '=')
+      key = *(unsigned char *)s++;
+      if (*s != '=' || sl < 3)
 	return -1;
+      sl--;
       do 
 	{
-          s = ParseChar(++s, (char *) &value);
-	  if (!s)
-	    return -1;
+	  s++;
+	  sl -= 2;
+	  value = *(unsigned char *)s++;
 	  array[value] = key;
 	}
-      while (*s == '=');
-      if (!*s) 
+      while (*s == '=' && sl >= 2);
+      if (sl == 0) 
 	break;
       if (*s++ != ':')
 	return -1;
+      sl--;
     }
   return 0;
 }
@@ -5075,6 +5468,7 @@ char *data;	/* dummy */
     }
   act.nr = (int)data;
   act.args = noargs;
+  act.argl = 0;
   DoAction(&act, -1);
 }
 
@@ -5290,11 +5684,11 @@ char *data;	/* dummy */
     }
   else
     {
-      for (i = 0; i < sizeof(digraphs)/sizeof(*digraphs); i++)
+      for (i = 0; i < (int)(sizeof(digraphs)/sizeof(*digraphs)); i++)
 	if ((digraphs[i][0] == (unsigned char)buf[0] && digraphs[i][1] == (unsigned char)buf[1]) ||
 	    (digraphs[i][0] == (unsigned char)buf[1] && digraphs[i][1] == (unsigned char)buf[0]))
 	  break;
-      if (i == sizeof(digraphs)/sizeof(*digraphs))
+      if (i == (int)(sizeof(digraphs)/sizeof(*digraphs)))
 	{
 	  Msg(0, "Unknown digraph");
 	  return;
@@ -5312,7 +5706,7 @@ char *data;	/* dummy */
 }
 
 #ifdef MAPKEYS
-static int
+int
 StuffKey(i)
 int i;
 {
@@ -5333,13 +5727,13 @@ int i;
   act = 0;
 #ifdef COPY_PASTE
   if (InMark() || InInput() || InWList())
-    act = &mmtab[i];
+    act = i < KMAP_KEYS+KMAP_AKEYS ? &mmtab[i] : &kmap_exts[i - (KMAP_KEYS+KMAP_AKEYS)].mm;
 #endif
   if ((!act || act->nr == RC_ILLEGAL) && !D_mapdefault)
-    act = &umtab[i];
+    act = i < KMAP_KEYS+KMAP_AKEYS ? &umtab[i] : &kmap_exts[i - (KMAP_KEYS+KMAP_AKEYS)].um;
   D_mapdefault = 0;
   if (!act || act->nr == RC_ILLEGAL)
-    act = &dmtab[i];
+    act = i < KMAP_KEYS+KMAP_AKEYS ? &dmtab[i] : &kmap_exts[i - (KMAP_KEYS+KMAP_AKEYS)].dm;
   if (act == 0 || act->nr == RC_ILLEGAL)
     return -1;
   DoAction(act, 0);

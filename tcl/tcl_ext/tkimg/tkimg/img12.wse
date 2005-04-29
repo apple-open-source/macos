@@ -1,0 +1,775 @@
+Document Type: WSE
+item: Global
+  Version=6.0
+  Title=Img 1.2.4 Installation
+  Flags=00010100
+  Languages=65 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+  Japanese Font Name=MS Gothic
+  Japanese Font Size=10
+  Progress Bar DLL=%_WISE_%\Progress\WIZ%_EXE_OS_TYPE_%.DLL
+  Start Gradient=0 0 255
+  End Gradient=0 0 0
+  Windows Flags=00000100000000010010110000011000
+  Log Pathname=%MAINDIR%\INSTALL.LOG
+  Message Font=MS Sans Serif
+  Font Size=8
+  Disk Filename=SETUP
+  Patch Flags=0000000000000001
+  Patch Threshold=85
+  Patch Memory=4000
+  FTP Cluster Size=20
+  Per-User Version ID=1
+  Dialogs Version=6
+  Variable Name1=_SYS_
+  Variable Default1=C:\WINNT\System32
+  Variable Flags1=00001000
+  Variable Name2=_WISE_
+  Variable Default2=C:\Program Files\Wise
+  Variable Flags2=00001000
+end
+item: Open/Close INSTALL.LOG
+  Flags=00000001
+end
+item: Check if File/Dir Exists
+  Pathname=%SYS32%
+  Flags=10000100
+end
+item: Set Variable
+  Variable=SYS32
+  Value=%WIN%
+end
+item: End Block
+end
+item: Set Variable
+  Variable=APPTITLE
+  Value=Img 1.2.4
+  Flags=10000000
+end
+item: Set Variable
+  Variable=GROUP
+  Flags=10000000
+end
+item: Set Variable
+  Variable=DISABLED
+  Value=!
+end
+item: Set Variable
+  Variable=MAINDIR
+  Value=Tcl\lib\img1.2
+  Flags=10000000
+end
+item: Check Configuration
+  Flags=10111011
+end
+item: Get Registry Key Value
+  Variable=COMMON
+  Key=SOFTWARE\Microsoft\Windows\CurrentVersion
+  Default=C:\Program Files\Common Files
+  Value Name=CommonFilesDir
+  Flags=00000100
+end
+item: Get Registry Key Value
+  Variable=PROGRAM_FILES
+  Key=SOFTWARE\Microsoft\Windows\CurrentVersion
+  Default=C:\Program Files
+  Value Name=ProgramFilesDir
+  Flags=00000100
+end
+item: Set Variable
+  Variable=MAINDIR
+  Value=%PROGRAM_FILES%\%MAINDIR%
+  Flags=00001100
+end
+item: Set Variable
+  Variable=EXPLORER
+  Value=1
+end
+item: Else Statement
+end
+item: Set Variable
+  Variable=MAINDIR
+  Value=C:\%MAINDIR%
+  Flags=00001100
+end
+item: End Block
+end
+item: Set Variable
+  Variable=BACKUP
+  Value=%MAINDIR%\BACKUP
+  Flags=10000000
+end
+item: Set Variable
+  Variable=DOBACKUP
+  Value=B
+  Flags=10000000
+end
+item: Set Variable
+  Variable=COMPONENTS
+  Flags=10000000
+end
+item: Set Variable
+  Variable=BRANDING
+  Value=0
+end
+item: If/While Statement
+  Variable=BRANDING
+  Value=1
+end
+item: Read INI Value
+  Variable=NAME
+  Pathname=%INST%\CUSTDATA.INI
+  Section=Registration
+  Item=Name
+end
+item: Read INI Value
+  Variable=COMPANY
+  Pathname=%INST%\CUSTDATA.INI
+  Section=Registration
+  Item=Company
+end
+item: If/While Statement
+  Variable=NAME
+end
+item: Set Variable
+  Variable=DOBRAND
+  Value=1
+end
+item: End Block
+end
+item: End Block
+end
+item: Wizard Block
+  Direction Variable=DIRECTION
+  Display Variable=DISPLAY
+  Bitmap Pathname=%_WISE_%\DIALOGS\TEMPLATE\WIZARD.BMP
+  X Position=9
+  Y Position=10
+  Filler Color=8421440
+  Dialog=Select Program Manager Group
+  Dialog=Select Backup Directory
+  Dialog=Display Registration Information
+  Dialog=Get Registration Information
+  Variable=EXPLORER
+  Variable=DOBACKUP
+  Variable=DOBRAND
+  Variable=DOBRAND
+  Value=1
+  Value=A
+  Value=1
+  Value=1
+  Compare=0
+  Compare=1
+  Compare=0
+  Compare=1
+  Flags=00000011
+end
+item: Custom Dialog Set
+  Name=Welcome
+  Display Variable=DISPLAY
+  item: Dialog
+    Title=Welcome
+    Width=280
+    Height=226
+    Font Name=Helv
+    Font Size=8
+    item: Push Button
+      Rectangle=168 191 210 205
+      Variable=DIRECTION
+      Value=N
+      Create Flags=01010000000000010000000000000001
+      Text=&Next >
+    end
+    item: Push Button
+      Rectangle=220 191 262 205
+      Action=3
+      Create Flags=01010000000000010000000000000000
+      Text=Cancel
+    end
+    item: Static
+      Rectangle=9 182 263 183
+      Action=3
+      Create Flags=01010000000000000000000000000111
+    end
+    item: Static
+      Rectangle=83 8 121 33
+      Action=2
+      Enabled Color=00000000000000001111111111111111
+      Create Flags=01010000000000000000000000001011
+      Pathname=%_WISE_%\dialogs\template\install.grf
+    end
+    item: Static
+      Rectangle=121 10 258 44
+      Enabled Color=00000000000000001111111111111111
+      Create Flags=01010000000000000000000000000000
+      Text=Welcome to %APPTITLE% (Windows 95/98/NT/ 2000) Setup program. This program will install %APPTITLE% on your computer.
+    end
+    item: Static
+      Rectangle=90 45 260 164
+      Enabled Color=00000000000000001111111111111111
+      Create Flags=01010000000000000000000000000000
+      Text=It is strongly recommended that you exit all Windows programs before running this Setup Program.
+      Text=
+      Text=Click Cancel to quit Setup and close any programs you have running.  Click Next to continue with the Setup program .
+      Text=
+      Text=This software is provided 'as-is', without any express or implied warranty.  In no event will the author be held liable for any damages arising from the use of this software.
+      Text=
+      Text=Permission is granted to anyone to use this software for any purpose, including commercial applications, and redistribute it freely. Please read the license.terms
+    end
+  end
+end
+item: Custom Dialog Set
+  Name=Select Destination Directory
+  Display Variable=DISPLAY
+  item: Dialog
+    Title=Choose Destination Location
+    Width=280
+    Height=224
+    Font Name=Helv
+    Font Size=8
+    item: Push Button
+      Rectangle=172 185 214 199
+      Variable=DIRECTION
+      Value=N
+      Create Flags=01010000000000010000000000000001
+      Text=&Next >
+    end
+    item: Push Button
+      Rectangle=130 185 172 199
+      Variable=DIRECTION
+      Value=B
+      Create Flags=01010000000000010000000000000000
+      Flags=0000000000000001
+      Text=< &Back
+    end
+    item: Push Button
+      Rectangle=222 185 264 199
+      Action=3
+      Create Flags=01010000000000010000000000000000
+      Text=Cancel
+    end
+    item: Static
+      Rectangle=9 177 263 178
+      Action=3
+      Create Flags=01010000000000000000000000000111
+    end
+    item: Static
+      Rectangle=90 10 260 122
+      Create Flags=01010000000000000000000000000000
+      Text=Setup will install %APPTITLE% in the following folder.
+      Text=
+      Text=To install into a different folder, click Browse, and select another folder. 
+      Text=
+      Text=You can choose not to install %APPTITLE% by clicking Cancel to exit Setup.
+    end
+    item: Static
+      Rectangle=90 134 260 162
+      Action=1
+      Create Flags=01010000000000000000000000000111
+      Text=Destination Folder
+    end
+    item: Push Button
+      Rectangle=213 143 255 157
+      Variable=MAINDIR_SAVE
+      Value=%MAINDIR%
+      Destination Dialog=1
+      Action=2
+      Create Flags=01010000000000010000000000000000
+      Text=B&rowse...
+    end
+    item: Static
+      Rectangle=95 146 211 157
+      Destination Dialog=2
+      Create Flags=01010000000000000000000000000000
+      Text=%MAINDIR%
+    end
+  end
+  item: Dialog
+    Title=Select Destination Directory
+    Width=221
+    Height=173
+    Font Name=Helv
+    Font Size=8
+    item: Listbox
+      Rectangle=5 2 160 149
+      Variable=MAINDIR
+      Create Flags=01010000100000010000000101000000
+      Flags=0000110000100010
+      Text=%MAINDIR%
+    end
+    item: Push Button
+      Rectangle=167 6 212 21
+      Create Flags=01010000000000010000000000000001
+      Text=OK
+    end
+    item: Push Button
+      Rectangle=167 25 212 40
+      Variable=MAINDIR
+      Value=%MAINDIR_SAVE%
+      Create Flags=01010000000000010000000000000000
+      Flags=0000000000000001
+      Text=Cancel
+    end
+  end
+end
+item: Custom Dialog Set
+  Name=Select Program Manager Group
+  Display Variable=DISPLAY
+  item: Dialog
+    Title=Select Program Manager Group
+    Width=280
+    Height=224
+    Font Name=Helv
+    Font Size=8
+    item: Push Button
+      Rectangle=172 185 214 199
+      Variable=DIRECTION
+      Value=N
+      Create Flags=01010000000000010000000000000001
+      Text=&Next >
+    end
+    item: Push Button
+      Rectangle=130 185 172 199
+      Variable=DIRECTION
+      Value=B
+      Create Flags=01010000000000010000000000000000
+      Flags=0000000000000001
+      Text=< &Back
+    end
+    item: Push Button
+      Rectangle=222 185 264 199
+      Action=3
+      Create Flags=01010000000000010000000000000000
+      Text=Cancel
+    end
+    item: Static
+      Rectangle=9 177 263 178
+      Action=3
+      Create Flags=01010000000000000000000000000111
+    end
+    item: Static
+      Rectangle=90 10 260 38
+      Create Flags=01010000000000000000000000000000
+      Text=Enter the name of the Program Manager group to add %APPTITLE% icons to:
+    end
+    item: Combobox
+      Rectangle=90 42 260 148
+      Variable=GROUP
+      Create Flags=01010000001000010000001100000001
+      Flags=0000000000000001
+      Text=%GROUP%
+      Text=
+    end
+  end
+end
+item: Custom Dialog Set
+  Name=Start Installation
+  Display Variable=DISPLAY
+  item: Dialog
+    Title=Start Installation
+    Width=280
+    Height=224
+    Font Name=Helv
+    Font Size=8
+    item: Push Button
+      Rectangle=172 185 214 199
+      Variable=DIRECTION
+      Value=N
+      Create Flags=01010000000000010000000000000001
+      Text=&Next >
+    end
+    item: Push Button
+      Rectangle=130 185 172 199
+      Variable=DIRECTION
+      Value=B
+      Create Flags=01010000000000010000000000000000
+      Text=< &Back
+    end
+    item: Push Button
+      Rectangle=222 185 264 199
+      Action=3
+      Create Flags=01010000000000010000000000000000
+      Text=Cancel
+    end
+    item: Static
+      Rectangle=9 177 263 178
+      Action=3
+      Create Flags=01010000000000000000000000000111
+    end
+    item: Static
+      Rectangle=90 10 260 70
+      Create Flags=01010000000000000000000000000000
+      Text=You are now ready to install %APPTITLE%.
+      Text=
+      Text=Press the Next button to begin the installation or the Back button to reenter the installation information.
+    end
+  end
+end
+item: If/While Statement
+  Variable=DISPLAY
+  Value=Select Destination Directory
+end
+item: Set Variable
+  Variable=BACKUP
+  Value=%MAINDIR%\BACKUP
+end
+item: End Block
+end
+item: End Block
+end
+item: Set Variable
+  Variable=LIBDIR
+  Value=%MAINDIR%
+  Flags=10000010
+end
+item: Set Variable
+  Variable=TCLDIR
+  Value=%LIBDIR%
+  Flags=10001110
+end
+item: Set Variable
+  Variable=INCLUDEDIR
+  Value=%TCLDIR%\Include
+  Flags=10010100
+end
+item: Set Variable
+  Variable=BINDIR
+  Value=%TCLDIR%\Bin
+  Flags=10010100
+end
+remarked item: Check if File/Dir Exists
+  Pathname=%INCLUDEDIR%\TCL.H
+  Flags=00000101
+end
+remarked item: Display Message
+  Title=Tcl/Tk not installed
+  Text=Before you install Img, you should first install Tcl/Tk version 8.0 or higher in %TCLDIR%
+  Flags=00001000
+end
+remarked item: Exit Installation
+end
+remarked item: End Block
+end
+item: If/While Statement
+  Variable=DOBACKUP
+  Value=A
+end
+item: Set Variable
+  Variable=BACKUPDIR
+  Value=%BACKUP%
+end
+item: End Block
+end
+item: If/While Statement
+  Variable=BRANDING
+  Value=1
+end
+item: If/While Statement
+  Variable=DOBRAND
+  Value=1
+end
+item: Edit INI File
+  Pathname=%INST%\CUSTDATA.INI
+  Settings=[Registration]
+  Settings=NAME=%NAME%
+  Settings=COMPANY=%COMPANY%
+  Settings=
+end
+item: End Block
+end
+item: End Block
+end
+item: Open/Close INSTALL.LOG
+end
+item: Check Disk Space
+  Component=COMPONENTS
+end
+item: Include Script
+  Pathname=%_WISE_%\INCLUDE\uninstal.wse
+end
+remarked item: Install File
+  Source=Zlib.dll
+  Destination=%BINDIR%\ZLIB.DLL
+  Flags=0000000010000010
+end
+item: Install File
+  Source=Png.dll
+  Destination=%BINDIR%\PNG.DLL
+  Flags=0000000010000010
+end
+item: Install File
+  Source=Jpeg62.dll
+  Destination=%BINDIR%\JPEG62.DLL
+  Flags=0000000010000010
+end
+item: Install File
+  Source=Tiff.dll
+  Destination=%BINDIR%\TIFF.DLL
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Zconf.h
+  Destination=%INCLUDEDIR%\ZCONF.H
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Zlib.h
+  Destination=%INCLUDEDIR%\ZLIB.H
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Pngconf.h
+  Destination=%INCLUDEDIR%\PNGCONF.H
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Png.h
+  Destination=%INCLUDEDIR%\Png.h
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Jconfig.h
+  Destination=%INCLUDEDIR%\JCONFIG.H
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Jmorecfg.h
+  Destination=%INCLUDEDIR%\JMORECFG.H
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Jerror.h
+  Destination=%INCLUDEDIR%\JERROR.H
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Jpeglib.h
+  Destination=%INCLUDEDIR%\JPEGLIB.H
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Tiffconf.h
+  Destination=%INCLUDEDIR%\Tiffconf.h
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Tiffio.h
+  Destination=%INCLUDEDIR%\Tiffio.h
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Tiff.h
+  Destination=%INCLUDEDIR%\Tiff.h
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Zlib.lib
+  Destination=%LIBDIR%\ZLIB.LIB
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Png.lib
+  Destination=%LIBDIR%\Png.lib
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Jpeg62.lib
+  Destination=%LIBDIR%\JPEG.LIB
+  Flags=0000000010000010
+end
+remarked item: Install File
+  Source=Tiff.lib
+  Destination=%LIBDIR%\Tiff.lib
+  Flags=0000000010000010
+end
+item: Install File
+  Source=Demo.tcl
+  Destination=%MAINDIR%\DEMO.TCL
+  Flags=0000000010000010
+end
+item: Install File
+  Source=Tkv.tcl
+  Destination=%MAINDIR%\TKV.TCL
+  Flags=0000000010000010
+end
+item: Install File
+  Source=Pkgindex.win
+  Destination=%MAINDIR%\pkgIndex.tcl
+  Flags=0000000010000010
+end
+item: Install File
+  Source=Img1280.dll
+  Destination=%MAINDIR%\IMG1280.DLL
+  Flags=0000000010000010
+end
+item: Install File
+  Source=Img12.dll
+  Destination=%MAINDIR%\IMG12.DLL
+  Flags=0000000010000010
+end
+item: Install File
+  Source=tests\*
+  Destination=%MAINDIR%\tests
+  Flags=0000000010000010
+end
+item: Install File
+  Source=doc\*
+  Destination=%MAINDIR%\doc
+  Flags=0000000010000010
+end
+item: Set Variable
+  Variable=COMMON
+  Value=%COMMON%
+  Flags=00010100
+end
+item: Set Variable
+  Variable=MAINDIR
+  Value=%MAINDIR%
+  Flags=00010100
+end
+item: Check Configuration
+  Flags=10111011
+end
+item: Get Registry Key Value
+  Variable=STARTUPDIR
+  Key=Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+  Default=%WIN%\Start Menu\Programs\StartUp
+  Value Name=StartUp
+  Flags=00000010
+end
+item: Get Registry Key Value
+  Variable=DESKTOPDIR
+  Key=Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+  Default=%WIN%\Desktop
+  Value Name=Desktop
+  Flags=00000010
+end
+item: Get Registry Key Value
+  Variable=STARTMENUDIR
+  Key=Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+  Default=%WIN%\Start Menu
+  Value Name=Start Menu
+  Flags=00000010
+end
+item: Get Registry Key Value
+  Variable=GROUPDIR
+  Key=Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+  Default=%WIN%\Start Menu\Programs
+  Value Name=Programs
+  Flags=00000010
+end
+item: Get Registry Key Value
+  Variable=CSTARTUPDIR
+  Key=Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+  Default=%STARTUPDIR%
+  Value Name=Common Startup
+  Flags=00000100
+end
+item: Get Registry Key Value
+  Variable=CDESKTOPDIR
+  Key=Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+  Default=%DESKTOPDIR%
+  Value Name=Common Desktop
+  Flags=00000100
+end
+item: Get Registry Key Value
+  Variable=CSTARTMENUDIR
+  Key=Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+  Default=%STARTMENUDIR%
+  Value Name=Common Start Menu
+  Flags=00000100
+end
+item: Get Registry Key Value
+  Variable=CGROUPDIR
+  Key=Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+  Default=%GROUPDIR%
+  Value Name=Common Programs
+  Flags=00000100
+end
+item: Set Variable
+  Variable=CGROUP_SAVE
+  Value=%GROUP%
+end
+item: Set Variable
+  Variable=GROUP
+  Value=%GROUPDIR%\%GROUP%
+end
+item: Else Statement
+end
+item: End Block
+end
+item: Self-Register OCXs/DLLs
+  Description=Updating System Configuration, Please Wait...
+end
+item: Wizard Block
+  Direction Variable=DIRECTION
+  Display Variable=DISPLAY
+  Bitmap Pathname=%_WISE_%\DIALOGS\TEMPLATE\WIZARD.BMP
+  X Position=9
+  Y Position=10
+  Filler Color=8421440
+  Flags=00000011
+end
+item: Custom Dialog Set
+  Name=Finished
+  Display Variable=DISPLAY
+  item: Dialog
+    Title=Installation Complete
+    Width=280
+    Height=224
+    Font Name=Helv
+    Font Size=8
+    item: Push Button
+      Rectangle=170 185 212 199
+      Variable=DIRECTION
+      Value=N
+      Create Flags=01010000000000010000000000000001
+      Text=&Finish >
+    end
+    item: Push Button
+      Control Name=CANCEL
+      Rectangle=222 185 264 199
+      Action=3
+      Create Flags=01010000000000010000000000000000
+      Text=Cancel
+    end
+    item: Static
+      Rectangle=9 177 263 178
+      Action=3
+      Create Flags=01010000000000000000000000000111
+    end
+    item: Static
+      Rectangle=90 10 260 63
+      Enabled Color=00000000000000001111111111111111
+      Create Flags=01010000000000000000000000000000
+      Text=%APPTITLE% has been successfully installed.
+      Text=
+      Text=
+      Text=Press the Finish button to exit this installation.
+      Text=
+    end
+    item: Push Button
+      Control Name=BACK
+      Rectangle=128 185 170 199
+      Variable=DIRECTION
+      Value=B
+      Create Flags=01010000000000010000000000000000
+      Text=< &Back
+    end
+    item: Set Control Attribute
+      Control Name=BACK
+      Operation=1
+    end
+    item: Set Control Attribute
+      Control Name=CANCEL
+      Operation=1
+    end
+  end
+end
+item: End Block
+end
+item: New Event
+  Name=Cancel
+end
+item: Include Script
+  Pathname=%_WISE_%\INCLUDE\rollback.wse
+end

@@ -93,6 +93,7 @@
 
 #include <msg.h>
 #include <mymalloc.h>
+#include <stringops.h>
 
 /* Global library. */
 
@@ -128,7 +129,7 @@ int     smtpd_sasl_auth_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 	smtpd_chat_reply(state, "503 Error: authentication not enabled");
 	return (-1);
     }
-#ifdef HAS_SSL
+#ifdef USE_SSL
     if (state->tls_auth_only && !state->tls_active) {
 	state->error_mask |= MAIL_ERROR_PROTOCOL;
 	smtpd_chat_reply(state, "538 Encryption required for requested authentication mechanism");
@@ -153,7 +154,7 @@ int     smtpd_sasl_auth_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
      */
     auth_mechanism = argv[1].strval;
     initial_response = (argc == 3 ? argv[2].strval : 0);
-
+#ifdef __APPLE__
 	if ( var_smtpd_use_pw_server )
 	{
 		err = smtpd_pw_server_authenticate( state, auth_mechanism, initial_response );
@@ -162,6 +163,9 @@ int     smtpd_sasl_auth_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 	{
 		err = smtpd_sasl_authenticate(state, auth_mechanism, initial_response);
 	}
+#else /* __APPLE__ */
+    err = smtpd_sasl_authenticate(state, auth_mechanism, initial_response);
+#endif /* __APPLE__ */
     if (err != 0) {
 	msg_warn("%s[%s]: SASL %s authentication failed",
 		 state->name, state->addr, auth_mechanism);
@@ -201,8 +205,10 @@ char   *smtpd_sasl_mail_opt(SMTPD_STATE *state, const char *addr)
 	state->error_mask |= MAIL_ERROR_PROTOCOL;
 	return ("503 Error: multiple AUTH= options");
     }
-    if (strcmp(addr, "<>") != 0)
+    if (strcmp(addr, "<>") != 0) {
 	state->sasl_sender = mystrdup(addr);
+	printable(state->sasl_sender, '?');
+    }
     return (0);
 }
 
@@ -212,8 +218,8 @@ void    smtpd_sasl_mail_log(SMTPD_STATE *state)
 {
 #define IFELSE(e1,e2,e3) ((e1) ? (e2) : (e3))
 
-    msg_info("%s: client=%s[%s]%s%s%s%s%s%s",
-	     state->queue_id, state->name, state->addr,
+    msg_info("%s: client=%s%s%s%s%s%s%s",
+      state->queue_id ? state->queue_id : "NOQUEUE", FORWARD_NAMADDR(state),
 	     IFELSE(state->sasl_method, ", sasl_method=", ""),
 	     IFELSE(state->sasl_method, state->sasl_method, ""),
 	     IFELSE(state->sasl_username, ", sasl_username=", ""),

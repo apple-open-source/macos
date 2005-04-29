@@ -34,8 +34,7 @@
 #ifndef __R128_DRV_H__
 #define __R128_DRV_H__
 
-#define GET_RING_HEAD(ring)		DRM_READ32(  (volatile u32 *) (ring)->head )
-#define SET_RING_HEAD(ring,val)		DRM_WRITE32( (volatile u32 *) (ring)->head, (val) )
+#define GET_RING_HEAD(dev_priv)		R128_READ( R128_PM4_BUFFER_DL_RPTR )
 
 typedef struct drm_r128_freelist {
    	unsigned int age;
@@ -50,7 +49,6 @@ typedef struct drm_r128_ring_buffer {
 	int size;
 	int size_l2qw;
 
-	volatile u32 *head;
 	u32 tail;
 	u32 tail_mask;
 	int space;
@@ -98,13 +96,13 @@ typedef struct drm_r128_private {
 	u32 depth_pitch_offset_c;
 	u32 span_pitch_offset_c;
 
-	drm_map_t *sarea;
-	drm_map_t *fb;
-	drm_map_t *mmio;
-	drm_map_t *cce_ring;
-	drm_map_t *ring_rptr;
-	drm_map_t *buffers;
-	drm_map_t *agp_textures;
+	drm_local_map_t *sarea;
+	drm_local_map_t *fb;
+	drm_local_map_t *mmio;
+	drm_local_map_t *cce_ring;
+	drm_local_map_t *ring_rptr;
+	drm_local_map_t *buffers;
+	drm_local_map_t *agp_textures;
 } drm_r128_private_t;
 
 typedef struct drm_r128_buf_priv {
@@ -131,14 +129,6 @@ extern drm_buf_t *r128_freelist_get( drm_device_t *dev );
 
 extern int r128_wait_ring( drm_r128_private_t *dev_priv, int n );
 
-static __inline__ void
-r128_update_ring_snapshot( drm_r128_ring_buffer_t *ring )
-{
-	ring->space = (GET_RING_HEAD( ring ) - ring->tail) * sizeof(u32);
-	if ( ring->space <= 0 )
-		ring->space += ring->size;
-}
-
 extern int r128_do_cce_idle( drm_r128_private_t *dev_priv );
 extern int r128_do_cleanup_cce( drm_device_t *dev );
 extern int r128_do_cleanup_pageflip( drm_device_t *dev );
@@ -146,6 +136,7 @@ extern int r128_do_cleanup_pageflip( drm_device_t *dev );
 				/* r128_state.c */
 extern int r128_cce_clear( DRM_IOCTL_ARGS );
 extern int r128_cce_swap( DRM_IOCTL_ARGS );
+extern int r128_cce_flip( DRM_IOCTL_ARGS );
 extern int r128_cce_vertex( DRM_IOCTL_ARGS );
 extern int r128_cce_indices( DRM_IOCTL_ARGS );
 extern int r128_cce_blit( DRM_IOCTL_ARGS );
@@ -277,6 +268,7 @@ extern int r128_cce_indirect( DRM_IOCTL_ARGS );
 #	define R128_PM4_64PIO_64VCBM_64INDBM	(7  << 28)
 #	define R128_PM4_64BM_64VCBM_64INDBM	(8  << 28)
 #	define R128_PM4_64PIO_64VCPIO_64INDPIO	(15 << 28)
+#	define R128_PM4_BUFFER_CNTL_NOUPDATE	(1  << 27)
 
 #define R128_PM4_BUFFER_WM_CNTL		0x0708
 #	define R128_WMA_SHIFT			0
@@ -342,13 +334,20 @@ extern int r128_cce_indirect( DRM_IOCTL_ARGS );
 #define R128_CCE_VC_CNTL_PRIM_WALK_RING		0x00000030
 #define R128_CCE_VC_CNTL_NUM_SHIFT		16
 
+#define R128_DATATYPE_VQ		0
+#define R128_DATATYPE_CI4		1
 #define R128_DATATYPE_CI8		2
 #define R128_DATATYPE_ARGB1555		3
 #define R128_DATATYPE_RGB565		4
 #define R128_DATATYPE_RGB888		5
 #define R128_DATATYPE_ARGB8888		6
 #define R128_DATATYPE_RGB332		7
+#define R128_DATATYPE_Y8		8
 #define R128_DATATYPE_RGB8		9
+#define R128_DATATYPE_CI16		10
+#define R128_DATATYPE_YVYU422		11
+#define R128_DATATYPE_VYUY422		12
+#define R128_DATATYPE_AYUV444		14
 #define R128_DATATYPE_ARGB4444		15
 
 /* Constants */
@@ -370,15 +369,10 @@ extern int r128_cce_indirect( DRM_IOCTL_ARGS );
 
 #define R128_PERFORMANCE_BOXES		0
 
-
-#define R128_BASE(reg)		((unsigned long)(dev_priv->mmio->handle))
-#define R128_ADDR(reg)		(R128_BASE( reg ) + reg)
-
-#define R128_READ(reg)		DRM_READ32(  (volatile u32 *) R128_ADDR(reg) )
-#define R128_WRITE(reg,val)	DRM_WRITE32( (volatile u32 *) R128_ADDR(reg), (val) )
-
-#define R128_READ8(reg)		DRM_READ8(  (volatile u8 *) R128_ADDR(reg) )
-#define R128_WRITE8(reg,val)	DRM_WRITE8( (volatile u8 *) R128_ADDR(reg), (val) )
+#define R128_READ(reg)		DRM_READ32(  dev_priv->mmio, (reg) )
+#define R128_WRITE(reg,val)	DRM_WRITE32( dev_priv->mmio, (reg), (val) )
+#define R128_READ8(reg)		DRM_READ8(   dev_priv->mmio, (reg) )
+#define R128_WRITE8(reg,val)	DRM_WRITE8(  dev_priv->mmio, (reg), (val) )
 
 #define R128_WRITE_PLL(addr,val)					\
 do {									\
@@ -399,25 +393,25 @@ extern int R128_READ_PLL(drm_device_t *dev, int addr);
 					 (pkt) | ((n) << 16))
 
 
+static __inline__ void
+r128_update_ring_snapshot( drm_r128_private_t *dev_priv )
+{
+	drm_r128_ring_buffer_t *ring = &dev_priv->ring;
+	ring->space = (GET_RING_HEAD( dev_priv ) - ring->tail) * sizeof(u32);
+	if ( ring->space <= 0 )
+		ring->space += ring->size;
+}
+
 /* ================================================================
  * Misc helper macros
  */
-
-#define LOCK_TEST_WITH_RETURN( dev )					\
-do {									\
-	if ( !_DRM_LOCK_IS_HELD( dev->lock.hw_lock->lock ) ||		\
-	     dev->lock.pid != DRM_CURRENTPID ) {			\
-		DRM_ERROR( "%s called without lock held\n", __FUNCTION__ );	\
-		return DRM_ERR(EINVAL);				\
-	}								\
-} while (0)
 
 #define RING_SPACE_TEST_WITH_RETURN( dev_priv )				\
 do {									\
 	drm_r128_ring_buffer_t *ring = &dev_priv->ring; int i;		\
 	if ( ring->space < ring->high_mark ) {				\
 		for ( i = 0 ; i < dev_priv->usec_timeout ; i++ ) {	\
-			r128_update_ring_snapshot( ring );		\
+			r128_update_ring_snapshot( dev_priv );		\
 			if ( ring->space >= ring->high_mark )		\
 				goto __ring_space_done;			\
 			DRM_UDELAY(1);				\
@@ -450,17 +444,10 @@ do {									\
  * Ring control
  */
 
-#if defined(__powerpc__)
-#define r128_flush_write_combine()	(void) GET_RING_HEAD( &dev_priv->ring )
-#else
-#define r128_flush_write_combine()	DRM_WRITEMEMORYBARRIER()
-#endif
-
-
 #define R128_VERBOSE	0
 
 #define RING_LOCALS							\
-	int write; unsigned int tail_mask; volatile u32 *ring;
+	int write, _nr; unsigned int tail_mask; volatile u32 *ring;
 
 #define BEGIN_RING( n ) do {						\
 	if ( R128_VERBOSE ) {						\
@@ -468,9 +455,10 @@ do {									\
 			   (n), __FUNCTION__ );				\
 	}								\
 	if ( dev_priv->ring.space <= (n) * sizeof(u32) ) {		\
+		COMMIT_RING();						\
 		r128_wait_ring( dev_priv, (n) * sizeof(u32) );		\
 	}								\
-	dev_priv->ring.space -= (n) * sizeof(u32);			\
+	_nr = n; dev_priv->ring.space -= (n) * sizeof(u32);		\
 	ring = dev_priv->ring.start;					\
 	write = dev_priv->ring.tail;					\
 	tail_mask = dev_priv->ring.tail_mask;				\
@@ -493,9 +481,23 @@ do {									\
 			dev_priv->ring.start,				\
 			write * sizeof(u32) );				\
 	}								\
-	r128_flush_write_combine();					\
-	dev_priv->ring.tail = write;					\
-	R128_WRITE( R128_PM4_BUFFER_DL_WPTR, write );			\
+	if (((dev_priv->ring.tail + _nr) & tail_mask) != write) {	\
+		DRM_ERROR( 						\
+			"ADVANCE_RING(): mismatch: nr: %x write: %x line: %d\n",	\
+			((dev_priv->ring.tail + _nr) & tail_mask),	\
+			write, __LINE__);				\
+	} else								\
+		dev_priv->ring.tail = write;				\
+} while (0)
+
+#define COMMIT_RING() do {						\
+	if ( R128_VERBOSE ) {						\
+		DRM_INFO( "COMMIT_RING() tail=0x%06x\n",		\
+			dev_priv->ring.tail );				\
+	}								\
+	DRM_MEMORYBARRIER();						\
+	R128_WRITE( R128_PM4_BUFFER_DL_WPTR, dev_priv->ring.tail );	\
+	R128_READ( R128_PM4_BUFFER_DL_WPTR );				\
 } while (0)
 
 #define OUT_RING( x ) do {						\

@@ -381,6 +381,10 @@ symbolname(const struct fileRecord *file, const struct nlist *sym)
     unsigned int index;
 
     index = sym - file->fSymbolBase;
+
+    if (index && !sym->n_un.n_strx)
+	return file->fStringBase + sym->n_value;
+
     if (index < file->fSymtab->nsyms)
         return symNameByIndex(file,  index);
 
@@ -996,7 +1000,7 @@ static Boolean parseSymtab(struct fileRecord *file, const char *pathName)
 		errprintf("%s: Undefined in symbol set: %s\n", pathName, symname);
 		patchsym->n_type = N_ABS;
 		patchsym->n_desc  = 0;
-		patchsym->n_value = 0;
+		patchsym->n_value = patchsym->n_un.n_strx;
 		patchsym->n_un.n_strx = 0;
 	    }
 

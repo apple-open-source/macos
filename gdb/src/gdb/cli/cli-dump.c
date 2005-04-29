@@ -31,7 +31,7 @@
 #include "gdb_assert.h"
 #include <ctype.h>
 #include "target.h"
-#include <readline/readline.h>
+#include "readline/readline.h"
 
 #define XMALLOC(TYPE) ((TYPE*) xmalloc (sizeof (TYPE)))
 
@@ -132,7 +132,8 @@ bfd_openr_with_cleanup (const char *filename, const char *target)
 {
   bfd *ibfd;
 
-  if ((ibfd = bfd_openr (filename, target)) == NULL)
+  ibfd = bfd_openr (filename, target);
+  if (ibfd == NULL)
     error ("Failed to open %s: %s.", filename, 
 	   bfd_errmsg (bfd_get_error ()));
 
@@ -150,7 +151,8 @@ bfd_openw_with_cleanup (char *filename, const char *target, char *mode)
 
   if (*mode == 'w')	/* Write: create new file */
     {
-      if ((obfd = bfd_openw (filename, target)) == NULL)
+      obfd = bfd_openw (filename, target);
+      if (obfd == NULL)
 	error ("Failed to open %s: %s.", filename, 
 	       bfd_errmsg (bfd_get_error ()));
       make_cleanup_bfd_close (obfd);
@@ -326,36 +328,6 @@ static void
 dump_value_command (char *cmd, char *mode)
 {
   dump_value_to_file (cmd, mode, "binary");
-}
-
-static void
-dump_filetype (char *cmd, char *mode, char *filetype)
-{
-  char *suffix = cmd;
-
-  if (cmd == NULL || *cmd == '\0')
-    error ("Missing subcommand: try 'help %s %s'.", 
-	   mode[0] == 'a' ? "append" : "dump", 
-	   filetype);
-
-  suffix += strcspn (cmd, " \t");
-
-  if (suffix != cmd)
-    {
-      if (strncmp ("memory", cmd, suffix - cmd) == 0)
-	{
-	  dump_memory_to_file (suffix, mode, filetype);
-	  return;
-	}
-      else if (strncmp ("value", cmd, suffix - cmd) == 0)
-	{
-	  dump_value_to_file (suffix, mode, filetype);
-	  return;
-	}
-    }
-
-  error ("dump %s: unknown subcommand '%s' -- try 'value' or 'memory'.",
-	 filetype, cmd);
 }
 
 static void
@@ -695,6 +667,8 @@ binary_append_command (char *cmd, int from_tty)
   printf_unfiltered ("\"append binary\" must be followed by a subcommand.\n");
   help_list (binary_append_cmdlist, "append binary ", -1, gdb_stdout);
 }
+
+extern initialize_file_ftype _initialize_cli_dump; /* -Wmissing-prototypes */
 
 void
 _initialize_cli_dump (void)

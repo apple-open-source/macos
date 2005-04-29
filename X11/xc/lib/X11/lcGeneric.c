@@ -28,7 +28,7 @@
  *  This is source code modified by FUJITSU LIMITED under the Joint
  *  Development Agreement for the CDE/Motif PST.
  */
-/* $XFree86: xc/lib/X11/lcGeneric.c,v 3.17 2003/02/03 22:11:58 paulo Exp $ */
+/* $XFree86: xc/lib/X11/lcGeneric.c,v 3.20 2003/09/24 02:43:12 dawes Exp $ */
 
 #include <stdio.h>
 #include "Xlibint.h"
@@ -787,7 +787,7 @@ load_generic(
 	if (num > 0) {
 	    static struct { 
 		const char *str;
-		int type;
+		EncodingType type;
 	    } shifts[] = {
 		{"<SS>", E_SS},
 		{"<LSL>", E_LSL},
@@ -801,7 +801,7 @@ load_generic(
 	    for ( ; num-- > 0; value++) {
 		char encoding[256];
 		char *tmp = *value;
-		int type = E_SS;    /* for BC */
+		EncodingType type = E_SS;    /* for BC */
 		for (j = 0; shifts[j].str; j++) {
 		    if (!_XlcNCompareISOLatin1(tmp, shifts[j].str,
 					       strlen(shifts[j].str))) {
@@ -868,7 +868,7 @@ load_generic(
         /* For VW/UDC */
         /***** 3.4.2 byteM (1 <= M <= length)*****/
         for (M=1; M-1  < codeset->length; M++) {
-            long start,end;
+            unsigned long start,end;
             ByteInfo tmpb;
 
             sprintf(name,"%s.%s%d",cs,"byte",M);
@@ -992,8 +992,8 @@ err:
    super_class's initialize method() */
 
 static Bool
-initialize_core(lcd)
-    XLCd lcd;
+initialize_core(
+    XLCd lcd)
 {
     _XInitDynamicOM(lcd);
 

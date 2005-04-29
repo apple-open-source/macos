@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -65,6 +65,9 @@ struct driveInfo {
     int valid;
 };
 
+typedef struct FinderInfo {
+    unsigned char data[16];
+} FinderInfo;
 
 struct         BootVolume;
 typedef struct BootVolume * BVRef;
@@ -72,8 +75,11 @@ typedef struct BootVolume * CICell;
 
 typedef long (*FSInit)(CICell ih);
 typedef long (*FSLoadFile)(CICell ih, char * filePath);
+typedef long (*FSReadFile)(CICell ih, char *filePath, void *base, unsigned long offset, unsigned long length);
+typedef long (*FSGetFileBlock)(CICell ih, char *filePath, unsigned long long *firstBlock);
 typedef long (*FSGetDirEntry)(CICell ih, char * dirPath, long * dirIndex,
-                              char ** name, long * flags, long * time);
+                              char ** name, long * flags, long * time,
+                              FinderInfo * finderInfo, long * infoValid);
 typedef void (*BVGetDescription)(CICell ih, char * str, long strMaxLen);
 
 struct iob {
@@ -110,7 +116,9 @@ struct BootVolume {
     unsigned int     part_type;       /* partition type */
     unsigned int     fs_boff;         /* 1st block # of next read */
     FSLoadFile       fs_loadfile;     /* FSLoadFile function */
+    FSReadFile       fs_readfile;     /* FSReadFile function */
     FSGetDirEntry    fs_getdirentry;  /* FSGetDirEntry function */
+    FSGetFileBlock   fs_getfileblock; /* FSGetFileBlock function */
     unsigned int     bps;             /* bytes per sector for this device */
     char             name[BVSTRLEN];  /* (name of partition) */
     char             type_name[BVSTRLEN]; /* (type of partition, eg. Apple_HFS) */

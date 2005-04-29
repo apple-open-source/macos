@@ -34,11 +34,13 @@
 
 #define IONetworkParameter IONetworkData  // FIXME
 
-/*! @enum An enumeration of constants that describe access types.
+/*! @enum NetworkDataAccessTypes
+    @abstract Constants that describe access types.
     @constant kIONetworkDataAccessTypeRead  Read access.
     @constant kIONetworkDataAccessTypeWrite Write access.
     @constant kIONetworkDataAccessTypeReset Reset access.
-    @constant kIONetworkDataAccessTypeSerialize Serialization access. */
+    @constant kIONetworkDataAccessTypeSerialize Serialization access. 
+*/
 
 enum {
     kIONetworkDataAccessTypeRead        = 0x01,
@@ -55,15 +57,16 @@ enum {
 #define kIONetworkDataBasicAccessTypes \
        (kIONetworkDataAccessTypeRead | kIONetworkDataAccessTypeSerialize)
 
-/*! @enum An enumeration of the type of data buffers that can be
-    managed by an IONetworkData object.
+/*! @enum NetworkDataBufferTypes
+    @abstract The types of data buffers that can be managed by an IONetworkData object.
     @constant kIONetworkDataBufferTypeInternal An internal data buffer
               allocated by the init() method.
     @constant kIONetworkDataBufferTypeExternal An external (persistent) data
               buffer.
     @constant kIONetworkDataBufferTypeNone No data buffer. The only useful 
               action perfomed by an IONetworkData object with this buffer type 
-              is to call the access notification handler. */
+              is to call the access notification handler. 
+*/
 
 enum {
     kIONetworkDataBufferTypeInternal = 0,
@@ -72,27 +75,27 @@ enum {
 };
 
 /*! @defined kIONetworkDataBytes
-    @abstract kIONetworkDataBytes is a property of IONetworkData objects.
-        It has an OSData value.
+    @abstract A property of IONetworkData objects.
     @discussion The kIONetworkDataBytes property is an OSData that describes
         the data buffer of an IONetworkData object. This property is present
-        only if kIONetworkDataAccessTypeSerialize access is supported. */
+        only if kIONetworkDataAccessTypeSerialize access is supported. 
+*/
 
 #define kIONetworkDataBytes             "Data"
 
 /*! @defined kIONetworkDataAccessTypes
-    @abstract kIONetworkDataAccessTypes is a property of IONetworkData
-        objects. It has an OSNumber value.
+    @abstract A property of IONetworkData objects.
     @discussion The kIONetworkDataAccessTypes property is an OSNumber that
-        describes the supported access types of an IONetworkData object. */
+        describes the supported access types of an IONetworkData object. 
+*/
 
 #define kIONetworkDataAccessTypes       "Access Types"
 
 /*! @defined kIONetworkDataSize
-    @abstract kIONetworkDataSize is a property of IONetworkData
-        objects. It has an OSNumber value.
+    @abstract A property of IONetworkData objects.
     @discussion The kIONetworkDataSize property is an OSNumber that
-        describes the size of the data buffer of an IONetworkData object. */
+        describes the size of the data buffer of an IONetworkData object. 
+*/
 
 #define kIONetworkDataSize              "Size"
 
@@ -101,8 +104,9 @@ enum {
 #include <libkern/c++/OSSymbol.h>
 #include <libkern/c++/OSSerialize.h>
 
-/*! @class IONetworkData : public OSObject
-    An IONetworkData object manages a fixed-size named buffer.
+/*! @class IONetworkData
+    @abstract An object that manages a fixed-size named buffer.
+    @discussion An IONetworkData object manages a fixed-size named buffer.
     This object provides external access methods that can be used to
     access the contents of the data buffer. In addition, serialization
     is supported, and therefore this object can be added to a property
@@ -129,7 +133,8 @@ enum {
     and allow the handler to override the access protocol.
 
     This object is primarily used by IONetworkInterface to export interface
-    properties to user space. */
+    properties to user space. 
+*/
 
 
 class IONetworkData : public OSObject
@@ -139,7 +144,7 @@ class IONetworkData : public OSObject
 public:
 
 /*! @typedef Action
-    Defines a C function that may be called by an IONetworkData object
+    @abstract Defines a C function that may be called by an IONetworkData object
     when one of its access methods is called.
     @param target The target of the notification.
     @param param A parameter that was provided when the notification
@@ -152,7 +157,8 @@ public:
            read() and write() accesses.
     @param bufferSize Pointer to the size of the accessor's buffer.
     @param offset An offset from the start of the data buffer to begin
-           reading or writing. */
+           reading or writing. 
+*/
 
     typedef IOReturn (*Action)(void *           target,
                                void *           param,
@@ -179,25 +185,27 @@ protected:
 
 
 /*! @function free
-    @abstract Free the IONetworkData object. */
+    @abstract Frees the IONetworkData object. 
+*/
 
     virtual void free();
 
 /*! @function writeBytes
-    @abstract Write to the data buffer with data from a source buffer
+    @abstract Writes to the data buffer with data from a source buffer
     provided by the caller.
     @param srcBuffer Pointer to a source buffer provided by the caller.
     @param srcBufferSize The size of the source buffer.
     @param writeOffset A byte offset from the start of the data buffer
            to begin writting.
-    @result true if the operation was successful, false otherwise. */
+    @result Returns true if the operation was successful, false otherwise. 
+*/
 
     virtual bool writeBytes(const void * srcBuffer,
                             UInt32       srcBufferSize,
                             UInt32       writeOffset = 0);
 
 /*! @function readBytes
-    @abstract Read from the data buffer and copy the data to a destination
+    @abstract Reads from the data buffer and copies the data to a destination
     buffer provided by the caller.
     @param dstBuffer Pointer to the destination buffer.
     @param dstBufferSize Pointer to an integer containing the size of the
@@ -205,22 +213,24 @@ protected:
     number of bytes copied to the destination buffer.
     @param readOffset A byte offset from the start of the data buffer
            to begin reading.
-    @result true if the operation was successful, false otherwise. */
+    @result Returns true if the operation was successful, false otherwise. 
+*/
 
     virtual bool readBytes(void *   dstBuffer,
                            UInt32 * dstBufferSize,
                            UInt32   readOffset = 0) const;
 
 /*! @function clearBuffer
-    @abstract Clear the data buffer by filling it with zeroes.
-    @result true if the operation was successful, false otherwise. */
+    @abstract Clears the data buffer by filling it with zeroes.
+    @result Returns true if the operation was successful, false otherwise. 
+*/
 
     virtual bool clearBuffer();
 
 public:
 
 /*! @function withInternalBuffer
-    @abstract Factory method that will construct and initialize an
+    @abstract Factory method that constructs and initializes an
     IONetworkData object with an internal data buffer.
     @param name A name to assign to this object.
     @param bufferSize The number of bytes to allocate for the internal data
@@ -229,7 +239,8 @@ public:
     @param target The notification target.
     @param action The notification action.
     @param param A parameter to pass to the notification action.
-    @result An IONetworkData object on success, or 0 otherwise. */
+    @result Returns an IONetworkData object on success, or 0 otherwise. 
+*/
 
     static IONetworkData *
            withInternalBuffer(const char * name,
@@ -241,7 +252,7 @@ public:
                               void *       param  = 0);
 
 /*! @function withExternalBuffer
-    @abstract Factory method that will construct and initialize an
+    @abstract Factory method that constructs and initializes an
     IONetworkData object with an external data buffer.
     @param name A name to assign to this object.
     @param bufferSize The size of the external data buffer.
@@ -250,7 +261,8 @@ public:
     @param target The notification target.
     @param action The notification action.
     @param param A parameter to pass to the notification action.
-    @result An IONetworkData object on success, or 0 otherwise. */
+    @result Returns an IONetworkData object on success, or 0 otherwise. 
+*/
 
     static IONetworkData *
            withExternalBuffer(const char * name,
@@ -263,8 +275,9 @@ public:
                               void *       param  = 0);
 
 /*! @function withNoBuffer
-    @abstract Factory method that will construct and initialize an
-    IONetworkData object without a data buffer. The notification handler
+    @abstract Factory method that constructs and initializes an
+    IONetworkData object without a data buffer. 
+    @discussion The notification handler
     must intervene when the IONetworkData is accessed.
     @param name A name to assign to this object.
     @param bufferSize The size of the phantom data buffer.
@@ -272,7 +285,8 @@ public:
     @param target The notification target.
     @param action The notification action.
     @param param A parameter to pass to the notification action.
-    @result An IONetworkData object on success, or 0 otherwise. */
+    @result Returns an IONetworkData object on success, or 0 otherwise. 
+*/
 
     static IONetworkData * withNoBuffer(const char * name,
                                         UInt32       bufferSize,
@@ -282,7 +296,7 @@ public:
                                         void *       param = 0);
 
 /*! @function init
-    @abstract Initialize an IONetworkData object.
+    @abstract Initializes an IONetworkData object.
     @param name A name to assign to this object.
     @param bufferType The type of buffer associated with this object.
     @param bufferSize The size of the data buffer.
@@ -292,7 +306,8 @@ public:
     @param target The notification target.
     @param action The notification action.
     @param param A parameter to pass to the notification action.
-    @result true if initialized successfully, false otherwise. */
+    @result Returns true if initialized successfully, false otherwise. 
+*/
 
     virtual bool init(const char * name,
                       UInt32       bufferType,
@@ -305,14 +320,15 @@ public:
                       void *       param          = 0);
 
 /*! @function setAccessTypes
-    @abstract Set the types of access that are permitted on the data buffer.
+    @abstract Sets the types of access that are permitted on the data buffer.
     @param types A mask of access types indicating the supported access
-                 types. */
+                 types. 
+*/
 
     virtual void setAccessTypes(UInt32 types);
 
 /*! @function setNotificationTarget
-    @abstract Register a C function to handle access notifications sent
+    @abstract Registers a C function to handle access notifications sent
     from this object.
     @discussion A notification is sent by an IONetworkData object to the
     registered notification handler, when an access method is called to
@@ -320,83 +336,93 @@ public:
     @param target The first parameter passed to the notification handler.
     @param action A pointer to a C function that will handle the notification.
            If 0, then notification is disabled.
-    @param param An optional parameter passed to the notification handler. */
+    @param param An optional parameter passed to the notification handler. 
+*/
 
     virtual void setNotificationTarget(void *  target,
                                        Action  action,
                                        void *  param = 0);
 
 /*! @function getBuffer
-    @abstract Get a pointer to the data buffer.
-    @result A pointer to the data buffer. Returns 0 if the buffer type is
-            kIONetworkDataBufferTypeNone. */
+    @abstract Gets a pointer to the data buffer.
+    @result Returns a pointer to the data buffer. Returns 0 if the buffer type is
+            kIONetworkDataBufferTypeNone. 
+*/
 
     virtual const void *     getBuffer() const;
 
 /*! @function getBufferType
-    @abstract Get the type of data buffer managed by this object.
-    @result A constant that describes the type of the data buffer. */
+    @abstract Gets the type of data buffer managed by this object.
+    @result Returns a constant that describes the type of the data buffer. 
+*/
 
     virtual UInt32           getBufferType() const;
 
 /*! @function getAccessTypes
-    @abstract Get the types of data access supported by this object.
-    @result A mask of supported access types. */
+    @abstract Gets the types of data access supported by this object.
+    @result Returns a mask of supported access types. 
+*/
 
     virtual UInt32           getAccessTypes() const;
 
 /*! @function getNotificationTarget
-    @abstract Get the first parameter that will be passed to the access
+    @abstract Gets the first parameter that will be passed to the access
               notification handler.
-    @result The first parameter that will be passed to the access notification
-            handler. */
+    @result Returns the first parameter that will be passed to the access notification
+            handler. 
+*/
 
     virtual void *           getNotificationTarget() const;
 
 /*! @function getNotificationAction
-    @abstract Get the C function that was registered to handle access
+    @abstract Gets the C function that was registered to handle access
               notifications sent from this object.
-    @result A pointer to a C function, or 0 if notification is disabled. */
+    @result Returns a pointer to a C function, or 0 if notification is disabled. 
+*/
 
     virtual Action           getNotificationAction() const;
 
 /*! @function getNotificationParameter
-    @abstract Get the parameter that will be passed to the access
+    @abstract Gets the parameter that will be passed to the access
               notification handler.
-    @result The parameter that will be passed to the access notification
-            handler. */
+    @result Returns the parameter that will be passed to the access notification
+            handler. 
+*/
 
     virtual void *           getNotificationParameter() const;
 
 /*! @function getKey
-    @abstract Get an unique OSSymbol key associated with this object.
+    @abstract Gets a unique OSSymbol key associated with this object.
     @discussion During initialization, IONetworkData will create an
     OSSymbol key based on its assigned name.
-    @result An OSSymbol key that was generated from the name assigned to
-    this object. */
+    @result Returns an OSSymbol key that was generated from the name assigned to
+    this object. 
+*/
 
     virtual const OSSymbol * getKey() const;
 
 /*! @function getSize
-    @abstract Get the size of the data buffer.
-    @result The size of the data buffer managed by this object in bytes. */
+    @abstract Gets the size of the data buffer.
+    @result Returns the size of the data buffer managed by this object in bytes. 
+*/
 
     virtual UInt32           getSize() const;
 
 /*! @function reset
-    @abstract An access method to reset the data buffer.
-    @discussion Handle an external request to reset the data buffer.
-    If notication is enabled, then the notification handler is called
+    @abstract An access method that resets the data buffer.
+    @discussion This method handles an external request to reset the data buffer.
+    If notification is enabled, then the notification handler is called
     after the data buffer has been cleared.
-    @result kIOReturnSuccess on success,
+    @result Returns kIOReturnSuccess on success,
             kIOReturnNotWritable if reset access is not permitted,
-            or an error from the notification handler. */
+            or an error from the notification handler. 
+*/
 
     virtual IOReturn reset();
 
 /*! @function read
-    @abstract An access method to read from the data buffer.
-    @discussion Handle an external request to read from the data buffer
+    @abstract An access method that reads from the data buffer.
+    @discussion This method handles an external request to read from the data buffer
     and copy it to the destination buffer provided by the accessor.
     If notification is enabled, then the notification handler is called
     before the data buffer is copied to the destination buffer. The 
@@ -408,18 +434,19 @@ public:
     of bytes copied to the destination buffer.
     @param readOffset An offset from the start of the source data buffer to
     begin reading.
-    @result kIOReturnSuccess on success,
+    @result Returns kIOReturnSuccess on success,
             kIOReturnBadArgument if any of the arguments provided is invalid,
             kIOReturnNotReadable if read access is not permitted,
-            or an error from the notification handler. */
+            or an error from the notification handler. 
+*/
 
     virtual IOReturn read(void *   dstBuffer,
                           UInt32 * dstBufferSize,
                           UInt32   readOffset = 0);
 
 /*! @function write
-    @abstract An access method to write to the data buffer.
-    @discussion Handle an external request to write to the data buffer
+    @abstract An access method that writes to the data buffer.
+    @discussion This method handles an external request to write to the data buffer
     from a source buffer provided by the accessor. After checking that
     the data object supports write accesses, the data buffer is updated
     if it exists. Then the registered notification handler is called.
@@ -427,21 +454,23 @@ public:
     @param srcBufferSize The number of bytes to write to the data buffer.
     @param writeOffset An offset from the start of the destination data buffer
     to begin writing.
-    @result kIOReturnSuccess on success,
+    @result Returns kIOReturnSuccess on success,
             kIOReturnBadArgument if any of the arguments provided is invalid,
             kIOReturnNotWritable if write access is not permitted,
-            or an error from the notification handler. */
+            or an error from the notification handler. 
+*/
 
     virtual IOReturn write(void *  srcBuffer,
                            UInt32  srcBufferSize,
                            UInt32  writeOffset = 0);
 
 /*! @function serialize
-    @abstract Serialize the IONetworkData object.
+    @abstract Serializes the IONetworkData object.
     @discussion If notification is enabled, then the notification
     handler is called just before the data buffer is serialized.
     @param s An OSSerialize object.
-    @result true on success, false otherwise. */
+    @result Returns true on success, false otherwise. 
+*/
 
     virtual bool serialize(OSSerialize * s) const;
 

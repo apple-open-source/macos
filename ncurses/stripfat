@@ -1,0 +1,30 @@
+#!/usr/bin/perl -w
+
+use strict qw(vars);
+
+foreach my $l (@ARGV) {
+	my(@thin);
+	open(LIPO, "lipo -detailed_info $l|") || die "$!";
+	while(<LIPO>) {
+		next unless (m/^architecture\s*(\S+)\s*$/);
+		my $a = $1;
+		&sys("lipo $l -extract $a -output $a-$l");
+		&sys("strip -x $a-$l");
+		push(@thin, "$a-$l");
+	}
+	unless (&sys("lipo " . join(" ", @thin) . " -output $l -create")) {
+		unlink(@thin);
+	}
+}
+
+sub sys {
+	my($cmd) = @_;
+
+	print "Running $cmd\n";
+	my $rc = system($cmd);
+	if ($rc) {
+		warn "Couldn't run $cmd: $rc $?";
+	}
+
+	return $rc;
+}

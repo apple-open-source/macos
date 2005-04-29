@@ -55,6 +55,8 @@
 #ifndef _RPCSVC_YPCLNT_H_
 #define _RPCSVC_YPCLNT_H_
 
+#include <sys/cdefs.h>
+
 #define YPERR_BADARGS	1		/* args to function are bad */
 #define YPERR_RPC	2		/* RPC failure */
 #define YPERR_DOMAIN	3		/* can't bind to a server for domain */
@@ -82,7 +84,7 @@
  
 struct ypall_callback {
 	/* return non-0 to stop getting called */
-	int (*foreach) __P((u_long, char *, int, char *, int, void *));
+	int (*foreach) __P((unsigned long, char *, int, char *, int, void *));
 	char *data;		/* opaque pointer for use of callback fn */
 };
 

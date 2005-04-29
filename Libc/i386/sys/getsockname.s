@@ -25,5 +25,8 @@
  */
 #include "SYS.h"
 
-UNIX_SYSCALL(getsockname, 3)
+PSEUDO(getsockname$UNIX2003, getsockname, 3)
+	ret
+
+UNIX_SYSCALL_ERR(getsockname, 3, cerror_cvt)
 	ret

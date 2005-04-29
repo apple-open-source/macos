@@ -1,0 +1,29 @@
+.\"
+.\" Man page for whatis
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.TH whatis 1 "Jan 5, 1991"
+.LO 1
+.SH NAME
+whatis \- 단어를 완성시키기 위해 whatis 데이타베이스를 찾는다.
+.SH SYNOPSIS
+.BI whatis
+키워드 ...
+.SH DESCRIPTION
+whatis는 시스템 명령의 간단한 설명을 키워드로 하는 여러 셋으로 구성된 데이타베이스 파일을 검색하여 그 결과를 표준 출력을 보여준다. 완전히 단어가 일치할 경우만 보여준다.
+
+whatis 데이타베이스는 @makewhatis@를 이용하여 만든다
+.SH "SEE ALSO"
+apropos(1), man(1).
+

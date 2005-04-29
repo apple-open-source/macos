@@ -1,9 +1,8 @@
-
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  * 
- * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -89,7 +88,7 @@ extern struct Library *XLibBase;
 
 
 #define XMESA_MAJOR_VERSION 4
-#define XMESA_MINOR_VERSION 0
+#define XMESA_MINOR_VERSION 1
 
 
 
@@ -371,6 +370,16 @@ extern GLboolean XMesaSetFXmode( GLint mode );
  * New in Mesa 4.0.2
  */
 extern void XMesaResizeBuffers( XMesaBuffer b );
+
+
+
+/*
+ * Create a pbuffer.
+ * New in Mesa 4.1
+ */
+extern XMesaBuffer XMesaCreatePBuffer(XMesaVisual v, XMesaColormap cmap,
+                                      unsigned int width, unsigned int height);
+
 
 
 #ifdef __cplusplus

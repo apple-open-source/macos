@@ -1,6 +1,6 @@
 \input texinfo  @c -*-texinfo-*-
 
-@c "@(#)$Name: emacs-56 $:$Id: eshell.texi,v 1.1.1.2 2002/09/10 23:34:27 jevans Exp $"
+@c "@(#)$Name: emacs-59 $:$Id: eshell.texi,v 1.1.1.2 2002/09/10 23:34:27 jevans Exp $"
 
 @c Documentation for Eshell: The Emacs Shell.
 @c Copyright (C) 1999, 2000  Free Software Foundation, Inc.

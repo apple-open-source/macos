@@ -14,7 +14,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: procmail.c,v 1.1.1.2 2001/07/20 19:38:18 bbraun Exp $";
+ "$Id: procmail.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
 #endif
 #include "../patchlevel.h"
 #include "procmail.h"
@@ -43,7 +43,7 @@ static /*const*/char rcsid[]=
 static const char*const nullp,exflags[]=RECFLAGS,drcfile[]="Rcfile:",
  pmusage[]=PM_USAGE,*etcrc=ETCRC,misrecpt[]="Missing recipient\n",
  extrns[]="Extraneous ",ignrd[]=" ignored\n",pardir[]=chPARDIR,
- defspath[]=DEFSPATH,defpath[]=DEFPATH,defmaildir[]=DEFmaildir;
+ defspath[]=DEFSPATH,defmaildir[]=DEFmaildir;
 char*buf,*buf2,*loclock;
 const char shell[]="SHELL",lockfile[]="LOCKFILE",newline[]="\n",binsh[]=BinSh,
  unexpeof[]="Unexpected EOL\n",*const*gargv,*const*restargv= &nullp,*sgetcp,
@@ -52,7 +52,7 @@ const char shell[]="SHELL",lockfile[]="LOCKFILE",newline[]="\n",binsh[]=BinSh,
  procmailn[]="procmail",whilstwfor[]=" whilst waiting for ",home[]="HOME",
  host[]="HOST",*defdeflock=empty,*argv0=empty,curdir[]={chCURDIR,'\0'},
  slogstr[]="%s \"%s\"",conflicting[]="Conflicting ",orgmail[]="ORGMAIL",
- insufprivs[]="Insufficient privileges\n",
+ insufprivs[]="Insufficient privileges\n",defpath[]=DEFPATH,
  exceededlb[]="Exceeded LINEBUF\n",errwwriting[]="Error while writing to",
  Version[]=VERSION;
 int retval=EX_CANTCREAT,retvl2=EXIT_SUCCESS,sh,pwait,rc= -1,
@@ -95,7 +95,7 @@ static int
  mainloop P((void));
 
 int main(argc,argv)int argc;const char*const argv[];
-{ register char*chp,*chp2;int suppmunreadable;
+{ register char*chp,*chp2;
 #if 0				/* enable this if you want to trace procmail */
   kill(getpid(),SIGSTOP);/*raise(SIGSTOP);*/
 #endif
@@ -242,6 +242,7 @@ nodevnull:
 	signal(SIGCHLD,SIG_DFL);
 #endif
 	signal(SIGPIPE,SIG_IGN);
+	setcomsat(empty);			  /* turn on biff by default */
 	ultstr(0,(unsigned long)uid,buf);filled=0;
 	if(!passinvk||!(chp2=(char*)auth_username(passinvk)))
 	   chp2=buf;
@@ -319,13 +320,17 @@ dorcpt:	   if(enoughprivs(passinvk,euid,egid,auth_whatuid(pass),
 	   return EX_NOPERM;	      /* need more mana, decline the request */
 	 }
 	else
-	 { suppmunreadable=nextrcfile();
+	 { int commandlinerc=nextrcfile();
 	   if(presenviron)		      /* preserving the environment? */
 	      etcrc=0;				    /* don't read etcrc then */
-	   if(suppmunreadable)			     /* command-line rcfile? */
-	      etcrc=0,setcomsat(DEFcomsat);	  /* forget etcrc and comsat */
+	   if(commandlinerc)			     /* command-line rcfile? */
+	    { etcrc=0;				 /* forget etcrc and comsat: */
+	      setcomsat(DEFcomsat);			/* the internal flag */
+	      if(!presenviron)			 /* and usually the variable */
+		 setdef(scomsat,DEFcomsat);
+	    }
 	   if(mailfilter)
-	    { if(!suppmunreadable)
+	    { if(!commandlinerc)
 	       { nlog("Missing rcfile\n");
 		 return EX_NOINPUT;
 	       }
@@ -354,7 +359,7 @@ dorcpt:	   if(enoughprivs(passinvk,euid,egid,auth_whatuid(pass),
 		    *	last bit
 		    */
 		    if(presenviron||			  /* -p is dangerous */
-		       suppmunreadable!=2||   /* so are variable assignments */
+		       commandlinerc!=2||     /* so are variable assignments */
 #ifdef CAN_chown		  /* anyone can chown in this filesystem so: */
 		       stat(buf2,&stbuf)||	     /* the /etc/procmailrcs */
 		       !S_ISDIR(stbuf.st_mode)||	/* directory must be */
@@ -400,13 +405,13 @@ Setuser: { gid=auth_whatgid(pass);uid=auth_whatuid(pass);
 	initdefenv(pass,buf,!presenviron||!mailfilter);		 /* override */
 	endpwent();auth_freeid(spassinvk);	   /* environment by default */
       }
-     /*
-      * Processing point of proposed /etc/procmail.conf file
-      */
      if(buildpath(orgmail,fdefault,(char*)0))	/* setup DEFAULT and ORGMAIL */
       { fdefault=empty;			   /* uh, Houston, we have a problem */
 	goto nix_sysmbox;
       }
+     /*
+      * Processing point of proposed /etc/procmail.conf file
+      */
      fdefault=tstrdup(buf);sgid=egid;
      chp=(char*)tgetenv(orgmail);
      if(mailfilter||!screenmailbox(chp,egid,Deliverymode))
@@ -418,11 +423,11 @@ nix_sysmbox:
 	   free((char*)fdefault),fdefault=empty;		 /* so panic */
       }						/* bad news, be conservative */
    }
-  doumask(INIT_UMASK);eputenv(defpath,buf);
-  while(chp=(char*)argv[argc])	    /* interpret command line specs first */
+  doumask(INIT_UMASK);
+  while(chp=(char*)argv[argc])	       /* interpret command line specs first */
    { argc++;
      if(!asenvcpy(chp)&&mailfilter)
-      { gargv= &nullp;			 /* stop at the first rcfile */
+      { gargv= &nullp;				 /* stop at the first rcfile */
 	for(restargv=argv+argc;restargv[crestarg];crestarg++);
 	break;
       }
@@ -458,11 +463,14 @@ nix_sysmbox:
 	      goto mailed;					 /* success! */
 	   if(rcs==rcs_EOF)
 	      break;				     /* normal end of rcfile */
+	   if(!nextrcfile())				       /* none left? */
+	      goto mailed;					 /* then out */
 	 }
 	else				      /* not available? try the next */
-	   dowarning=0;				/* suppress further messages */
-	if(!nextrcfile())				       /* none left? */
-	   break;						 /* then out */
+	 { dowarning=0;				/* suppress further messages */
+	   if(!nextrcfile())				       /* none left? */
+	      break;						 /* then out */
+	 }
       }
    }
   else
@@ -690,16 +698,14 @@ commint:do skipspace();					  /* skip whitespace */
 	if(i)
 	   zombiecollect(),concon('\n');
 progrm: if(testB('!'))					 /* forward the mail */
-	 { char*fencepost=buf+linebuf-1;
-	   if(!i)
+	 { if(!i)
 	      skiprc|=1;
-	   *fencepost='\0';
-	   strncpy(buf,sendmail,linebuf-1);
-	   if((chp=strchr(buf,'\0'))==fencepost)
+	   if(strlcpy(buf,sendmail,linebuf)>=linebuf)
 	      goto fail;
+	   chp=strchr(buf,'\0');
 	   if(*flagsendmail)
 	    { char*q;int got=0;
-	      if(!(q=simplesplit(chp+1,flagsendmail,fencepost,&got)))
+	      if(!(q=simplesplit(chp+1,flagsendmail,buf+linebuf-1,&got)))
 		 goto fail;
 	      *(chp=q)='\0';
 	    }

@@ -2,12 +2,10 @@
  *  newdemo.c	-	A demo program using PDCurses. The program illustrate
  *  	 		the use of colours for text output.
  *
- * $Id: newdemo.c,v 1.1.1.1 2001/11/29 20:41:00 jevans Exp $
+ * $Id: newdemo.c,v 1.24 2002/06/29 23:32:18 tom Exp $
  */
 
-#include <signal.h>
 #include <time.h>
-#include <string.h>
 
 #include <test.priv.h>
 
@@ -224,6 +222,8 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
     int width, height;
     chtype save[80];
     chtype c;
+
+    setlocale(LC_ALL, "");
 
     initscr();
     if (has_colors())

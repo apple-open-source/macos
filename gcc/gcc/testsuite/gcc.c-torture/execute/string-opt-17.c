@@ -1,50 +1,45 @@
-/* Copyright (C) 2002  Free Software Foundation.
+/* Copyright (C) 2003  Free Software Foundation.
 
-   Ensure that builtin memset operations for constant length and
-   non-constant assigned value don't cause compiler problems.
+   Test strcpy optimizations don't evaluate side-effects twice.
+      
+   Written by Jakub Jelinek, June 23, 2003.  */
 
-   Written by Roger Sayle, 21 April 2002.  */
-
-extern void abort (void);
 typedef __SIZE_TYPE__ size_t;
-extern void *memset (void *, int, size_t);
+extern char *strcpy (char *, const char *);
+extern int memcmp (const void *, const void *, size_t);
+extern void abort (void);
+extern void exit (int);
 
-char buffer[32];
+size_t
+test1 (char *s, size_t i)
+{
+  strcpy (s, "foobarbaz" + i++);
+  return i;
+}
+
+size_t
+check2 (void)
+{
+  static size_t r = 5;
+  if (r != 5)
+    abort ();
+  return ++r;
+}
+
+void
+test2 (char *s)
+{
+  strcpy (s, "foobarbaz" + check2 ());
+}
 
 int
-main (int argc)
+main (void)
 {
-  memset (buffer, argc, 0);
-  memset (buffer, argc, 1);
-  memset (buffer, argc, 2);
-  memset (buffer, argc, 3);
-  memset (buffer, argc, 4);
-  memset (buffer, argc, 5);
-  memset (buffer, argc, 6);
-  memset (buffer, argc, 7);
-  memset (buffer, argc, 8);
-  memset (buffer, argc, 9);
-  memset (buffer, argc, 10);
-  memset (buffer, argc, 11);
-  memset (buffer, argc, 12);
-  memset (buffer, argc, 13);
-  memset (buffer, argc, 14);
-  memset (buffer, argc, 15);
-  memset (buffer, argc, 16);
-  memset (buffer, argc, 17);
-
-  return 0;
-}
-
-#ifdef __OPTIMIZE__
-/* When optimizing, most of the above cases should be transformed into
-   something else.  So any remaining calls to the original function
-   for short lengths should abort.  */
-static void *
-memset (void *dst, int c, size_t len)
-{
-  if (len < 2)
+  char buf[10];
+  if (test1 (buf, 7) != 8 || memcmp (buf, "az", 3))
     abort ();
+  test2 (buf);
+  if (memcmp (buf, "baz", 4))
+    abort ();
+  exit (0);
 }
-#endif
-

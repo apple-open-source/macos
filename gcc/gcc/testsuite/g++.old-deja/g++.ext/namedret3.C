@@ -1,4 +1,5 @@
-// Special g++ Options: -Wno-deprecated
+// { dg-do assemble  }
+// { dg-options "-Wno-deprecated" }
 
 extern "C" void abort();
 
@@ -8,9 +9,9 @@ int f2(int *x)
   return 2;
 }
 
-int f1() return x
+int f1() return x // { dg-error "" } 
 {
-  f2(&x);
+  f2(&x); // { dg-error "" } 
 }
 
 void g()

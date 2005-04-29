@@ -2,7 +2,7 @@
 
 AT_BANNER([M4sh.])
 
-# Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,9 +18,6 @@ AT_BANNER([M4sh.])
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 # 02111-1307, USA.
-
-# Used in many tests.
-m4_pattern_allow([^AS_EXIT$])
 
 ## ---------------- ##
 ## LINENO support.  ##
@@ -350,5 +347,33 @@ fi
 
 AT_CHECK_M4SH
 AT_CHECK([./script])
+
+AT_CLEANUP
+
+## -------------- ##
+## AS_HELP_STRING ##
+## -------------- ##
+
+# I'm not totally certain that we want to enforce the defaults here,
+# but at least it is being tested.
+
+AT_SETUP([[AS@&t@_HELP_STRING]])
+
+AT_DATA_M4SH([script.as],
+[[AS_INIT
+_AS_LINENO_PREPARE
+
+echo "AS_HELP_STRING([--an-option],[some text])"
+echo "AS_HELP_STRING([--another-much-longer-option],
+[some other text which should wrap at our default of 80 characters.])"
+]])
+
+AT_CHECK_M4SH
+AT_CHECK([./script], [0],
+[  --an-option             some text
+  --another-much-longer-option
+                          some other text which should wrap at our default of
+                          80 characters.
+])
 
 AT_CLEANUP

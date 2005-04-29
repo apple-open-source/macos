@@ -1,6 +1,12 @@
 /*
  * util_funcs.c
  */
+/*
+ * Portions of this file are copyrighted by:
+ * Copyright Copyright 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
 
 #include <net-snmp/net-snmp-config.h>
 
@@ -77,6 +83,9 @@
 #if HAVE_RAISE
 #define alarm raise
 #endif
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
 
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
@@ -107,23 +116,33 @@ Exit(int var)
     exit(var);
 }
 
-static const char *
+const char *
 make_tempfile(void)
 {
     static char     name[32];
     int             fd = -1;
 
-    strcpy(name, "/tmp/snmpdXXXXXX");
+    strcpy(name, get_temp_file_pattern());
 #ifdef HAVE_MKSTEMP
     fd = mkstemp(name);
 #else
-    if (mktemp(name))
+    if (mktemp(name)) {
+# ifndef WIN32        
         fd = open(name, O_CREAT | O_EXCL | O_WRONLY);
+# else
+        /*
+          Win32 needs _S_IREAD | _S_IWRITE to set permissions on file after closing
+         */
+        fd = _open(name, _O_CREAT, _S_IREAD | _S_IWRITE | _O_EXCL | _O_WRONLY);
+# endif
+    }
 #endif
     if (fd >= 0) {
         close(fd);
+        DEBUGMSGTL(("make_tempfile", "temp file created: %s\n", name));
         return name;
     }
+    snmp_log(LOG_ERR,"make_tempfile: error creating file %s\n", name);
     return NULL;
 }
 
@@ -184,6 +203,18 @@ exec_command(struct extensible *ex)
         ex->result = 0;
     }
     return (ex->result);
+}
+
+struct extensible *
+get_exten_instance(struct extensible *exten, size_t inst)
+{
+    int             i;
+
+    if (exten == NULL)
+        return (NULL);
+    for (i = 1; i != (int) inst && exten != NULL; i++)
+        exten = exten->next;
+    return (exten);
 }
 
 void
@@ -625,7 +656,7 @@ header_simple_table(struct variable *vp, oid * name, size_t * length,
             newname[*length - 1] = name[*length - 1];
         }
     }
-    if ((max >= 0 && (newname[*length - 1] > max)) ||
+    if ((max >= 0 && ((int)newname[*length - 1] > max)) ||
                ( 0 == newname[*length - 1] )) {
         if (var_len)
             *var_len = 0;
@@ -805,7 +836,7 @@ struct internal_mib_table {
 };
 
 mib_table_t
-Initialise_Table(int size, int timeout, RELOAD reload, COMPARE compare)
+Initialise_Table(int size, int timeout, RELOAD *reload, COMPARE *compare)
 {
     struct internal_mib_table *t;
 

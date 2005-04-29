@@ -261,13 +261,6 @@ void des_cblock_print_file();
 /* The following functions are not in the normal unix build or the
  * SSLeay build.  When using the SSLeay build, use RAND_seed()
  * and RAND_bytes() instead. */
-#ifdef FreeBSD
-int des_new_random_key();
-void des_init_random_number_generator();
-void des_set_random_generator_seed();
-void des_set_sequence_number();
-void des_generate_random_block();
-#endif
 
 #endif
 

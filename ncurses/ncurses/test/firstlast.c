@@ -2,7 +2,7 @@
  * This test was written by Alexander V. Lukyanov to demonstrate difference
  * between ncurses 4.1 and SVR4 curses
  *
- * $Id: firstlast.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $
+ * $Id: firstlast.c,v 1.3 2001/09/15 21:46:34 tom Exp $
  */
 
 #include <test.priv.h>

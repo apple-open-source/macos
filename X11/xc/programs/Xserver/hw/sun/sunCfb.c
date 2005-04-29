@@ -54,7 +54,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
 
-/* $XFree86: xc/programs/Xserver/hw/sun/sunCfb.c,v 3.14 2001/12/14 19:59:42 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sun/sunCfb.c,v 3.15 2003/10/07 21:43:09 herrb Exp $ */
 
 /*
  * Copyright 1987 by the Regents of the University of California
@@ -373,6 +373,7 @@ static Bool CG2SaveScreen (pScreen, on)
 
     if (on != SCREEN_SAVER_FORCER)
 	regp->video_enab = (on == SCREEN_SAVER_ON) ? 0 : 1;
+    return TRUE;
 }
 
 static void CG2ScreenInit (pScreen)
@@ -390,7 +391,6 @@ Bool sunCG2Init (screen, pScreen, argc, argv)
     int		argc;	    	/* The number of the Server's arguments. */
     char**	argv;   	/* The arguments themselves. Don't change! */
 {
-    sunScreenPtr    pPrivate;
     int		i;
     Bool	ret;
     Bool	mono = FALSE;

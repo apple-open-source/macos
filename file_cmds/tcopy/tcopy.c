@@ -1,7 +1,5 @@
-/*	$NetBSD: tcopy.c,v 1.8 1998/08/25 20:59:41 ross Exp $	*/
-
 /*
- * Copyright (c) 1985, 1987, 1993, 1995
+ * Copyright (c) 1985, 1987, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,17 +32,16 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1985, 1987, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)tcopy.c	8.3 (Berkeley) 1/23/95";
+static const char copyright[] =
+"@(#) Copyright (c) 1985, 1987, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-__RCSID("$NetBSD: tcopy.c,v 1.8 1998/08/25 20:59:41 ross Exp $");
-#endif /* not lint */
+
+#ifndef lint
+static const char sccsid[] = "@(#)tcopy.c	8.2 (Berkeley) 4/17/94";
+#endif
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -53,9 +50,10 @@ __RCSID("$NetBSD: tcopy.c,v 1.8 1998/08/25 20:59:41 ross Exp $");
 
 #include <err.h>
 #include <errno.h>
-#include <paths.h>
 #include <fcntl.h>
+#include <paths.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,30 +63,29 @@ __RCSID("$NetBSD: tcopy.c,v 1.8 1998/08/25 20:59:41 ross Exp $");
 #define	NOCOUNT	(-2)
 
 int	filen, guesslen, maxblk = MAXREC;
-long	lastrec, record;
-off_t	size, tsize;
-FILE	*msg = stdout;
+u_int64_t	lastrec, record, size, tsize;
+FILE	*msg;
 
-void	*getspace __P((int));
-void	 intr __P((int));
-int	 main __P((int, char **));
-void	 usage __P((void));
-void	 verify __P((int, int, char *));
-void	 writeop __P((int, int));
+void	*getspace(int);
+void	 intr(int);
+static void	 usage(void);
+void	 verify(int, int, char *);
+void	 writeop(int, int);
+void	rewind_tape(int);
 
 int
 main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	int ch, needeof, nw, inp, outp;
-	ssize_t lastnread, nread;
+	register int lastnread, nread, nw, inp, outp;
 	enum {READ, VERIFY, COPY, COPYVERIFY} op = READ;
 	sig_t oldsig;
-	char *buff, *inf;
+	int ch, needeof;
+	char *buff;
+	const char *inf;
 
-	outp = 0;
-	inf = NULL;
+	msg = stdout;
 	guesslen = 1;
 	while ((ch = getopt(argc, argv, "cs:vx")) != -1)
 		switch((char)ch) {
@@ -132,16 +129,15 @@ main(argc, argv)
 			op = COPY;
 		inf = argv[0];
 		if ((outp = open(argv[1], op == VERIFY ? O_RDONLY :
-		    op == COPY ? O_WRONLY : O_RDWR, DEFFILEMODE)) < 0) {
-			err(3, argv[1]);
-		}
+		    op == COPY ? O_WRONLY : O_RDWR, DEFFILEMODE)) < 0)
+			err(3, "%s", argv[1]);
 		break;
 	default:
 		usage();
 	}
 
 	if ((inp = open(inf, O_RDONLY, 0)) < 0)
-		err(1, inf);
+		err(1, "%s", inf);
 
 	buff = getspace(maxblk);
 
@@ -161,21 +157,20 @@ main(argc, argv)
 				if (nread >= 0)
 					goto r1;
 			}
-			err(1, "read error, file %d, record %ld",
-			    filen, record);
+			err(1, "read error, file %d, record %qu", filen, record);
 		} else if (nread != lastnread) {
 			if (lastnread != 0 && lastnread != NOCOUNT) {
 				if (lastrec == 0 && nread == 0)
-					fprintf(msg, "%ld records\n", record);
+					fprintf(msg, "%qu records\n", record);
 				else if (record - lastrec > 1)
-					fprintf(msg, "records %ld to %ld\n",
+					fprintf(msg, "records %qu to %qu\n",
 					    lastrec, record);
 				else
-					fprintf(msg, "record %ld\n", lastrec);
+					fprintf(msg, "record %qu\n", lastrec);
 			}
 			if (nread != 0)
-				fprintf(msg, "file %d: block size %ld: ",
-				    filen, (long)nread);
+				fprintf(msg, "file %d: block size %d: ",
+				    filen, nread);
 			(void) fflush(stdout);
 			lastrec = record;
 		}
@@ -188,19 +183,13 @@ r1:		guesslen = 0;
 				}
 				nw = write(outp, buff, nread);
 				if (nw != nread) {
-				    int error = errno;
-				    fprintf(stderr,
-					"write error, file %d, record %ld: ",
-					filen, record);
-				    if (nw == -1)
-					fprintf(stderr,
-						": %s", strerror(error));
-				    else
-					fprintf(stderr,
-					    "write (%d) != read (%ld)\n",
-					    nw, (long)nread);
-				    fprintf(stderr, "copy aborted\n");
-				    exit(5);
+					if (nw == -1) {
+					warn("write error, file %d, record %qu", filen, record);
+					} else {
+					warnx("write error, file %d, record %qu", filen, record);
+					warnx("write (%d) != read (%d)", nw, nread);
+					}
+					errx(5, "copy aborted");
 				}
 			}
 			size += nread;
@@ -211,8 +200,8 @@ r1:		guesslen = 0;
 				break;
 			}
 			fprintf(msg,
-			    "file %d: eof after %ld records: %qd bytes\n",
-			    filen, record, (long long)size);
+			    "file %d: eof after %qu records: %qu bytes\n",
+			    filen, record, size);
 			needeof = 1;
 			filen++;
 			tsize += size;
@@ -221,14 +210,14 @@ r1:		guesslen = 0;
 		}
 		lastnread = nread;
 	}
-	fprintf(msg, "total length: %qd bytes\n", (long long)tsize);
+	fprintf(msg, "total length: %qu bytes\n", tsize);
 	(void)signal(SIGINT, oldsig);
 	if (op == COPY || op == COPYVERIFY) {
 		writeop(outp, MTWEOF);
 		writeop(outp, MTWEOF);
 		if (op == COPYVERIFY) {
-			writeop(outp, MTREW);
-			writeop(inp, MTREW);
+			rewind_tape(outp);
+			rewind_tape(inp);
 			verify(inp, outp, buff);
 		}
 	}
@@ -237,11 +226,11 @@ r1:		guesslen = 0;
 
 void
 verify(inp, outp, outb)
-	int inp, outp;
-	char *outb;
+	register int inp, outp;
+	register char *outb;
 {
-	int eot, inmaxblk, inn, outmaxblk, outn;
-	char *inb;
+	register int eot, inmaxblk, inn, outmaxblk, outn;
+	register char *inb;
 
 	inb = getspace(maxblk);
 	inmaxblk = outmaxblk = maxblk;
@@ -274,15 +263,13 @@ r2:		if (inn != outn) {
 		}
 		if (!inn) {
 			if (eot++) {
-				fprintf(msg, "%s: tapes are identical.\n",
-					"tcopy");
+				fprintf(msg, "tcopy: tapes are identical.\n");
 				return;
 			}
 		} else {
-			if (memcmp(inb, outb, inn)) {
+			if (bcmp(inb, outb, inn)) {
 				fprintf(msg,
-				    "%s: tapes have different data.\n",
-					"tcopy");
+				    "tcopy: tapes have different data.\n");
 				break;
 			}
 			eot = 0;
@@ -293,16 +280,16 @@ r2:		if (inn != outn) {
 
 void
 intr(signo)
-	int signo;
+	int signo __unused;
 {
 	if (record) {
 		if (record - lastrec > 1)
-			fprintf(msg, "records %ld to %ld\n", lastrec, record);
+			fprintf(msg, "records %qu to %qu\n", lastrec, record);
 		else
-			fprintf(msg, "record %ld\n", lastrec);
+			fprintf(msg, "record %qu\n", lastrec);
 	}
-	fprintf(msg, "interrupt at file %d: record %ld\n", filen, record);
-	fprintf(msg, "total length: %qd bytes\n", (long long)(tsize + size));
+	fprintf(msg, "interrupt at file %d: record %qu\n", filen, record);
+	fprintf(msg, "total length: %ju bytes\n", (uintmax_t)(tsize + size));
 	exit(1);
 }
 
@@ -314,7 +301,6 @@ getspace(blk)
 
 	if ((bp = malloc((size_t)blk)) == NULL)
 		errx(11, "no memory");
-
 	return (bp);
 }
 
@@ -330,10 +316,28 @@ writeop(fd, type)
 		err(6, "tape op");
 }
 
-void
+static void
 usage()
 {
-
-	fprintf(stderr, "usage: tcopy [-cvx] [-s maxblk] src [dest]\n");
+	fprintf(stderr, "usage: tcopy [-cvx] [-s maxblk] [src [dest]]\n");
 	exit(1);
+}
+
+void
+rewind_tape(int fd)
+{
+	struct stat sp;
+
+	if(fstat(fd, &sp))
+		errx(12, "fstat in rewind");
+
+	/*
+	 * don't want to do tape ioctl on regular files:
+	 */
+	if( S_ISREG(sp.st_mode) ) {
+		if( lseek(fd, 0, SEEK_SET) == -1 )
+			errx(13, "lseek");
+	} else
+		/*  assume its a tape	*/
+		writeop(fd, MTREW);
 }

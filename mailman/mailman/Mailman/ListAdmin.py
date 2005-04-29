@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,9 +25,9 @@ elsewhere.
 
 import os
 import time
-import marshal
 import errno
 import cPickle
+import marshal
 from cStringIO import StringIO
 
 import email
@@ -69,51 +69,20 @@ class ListAdmin:
 
     def InitTempVars(self):
         self.__db = None
-
-    def __filename(self):
-        return os.path.join(self.fullpath(), 'request.db')
+        self.__filename = os.path.join(self.fullpath(), 'request.pck')
 
     def __opendb(self):
-        filename = self.__filename()
         if self.__db is None:
             assert self.Locked()
             try:
-                fp = open(filename)
-                self.__db = marshal.load(fp)
-                fp.close()
+                fp = open(self.__filename)
+                try:
+                    self.__db = cPickle.load(fp)
+                finally:
+                    fp.close()
             except IOError, e:
                 if e.errno <> errno.ENOENT: raise
                 self.__db = {}
-            except EOFError, e:
-                # The unmarshalling failed, which means the file is corrupt.
-                # Sigh. Start over.
-                syslog('error',
-                       'request.db file corrupt for list %s, blowing it away.',
-                       self.internal_name())
-                self.__db = {}
-            # Migrate pre-2.1a3 held subscription records to include the
-            # fullname data field.
-            type, version = self.__db.get('version', (IGN, None))
-            if version is None:
-                # No previous revision number, must be upgrading to 2.1a3 or
-                # beyond from some unknown earlier version.
-                for id, (type, data) in self.__db.items():
-                    if type == IGN:
-                        pass
-                    elif type == HELDMSG and len(data) == 5:
-                        # tack on a msgdata dictionary
-                        self.__db[id] = data + ({},)
-                    elif type == SUBSCRIPTION:
-                        if len(data) == 4:
-                            # fullname and lang was added
-                            stime, addr, password, digest = data
-                            lang = self.preferred_language
-                            data = stime, addr, '', password, digest, lang
-                        elif len(data) == 5:
-                            # a fullname field was added
-                            stime, addr, password, digest, lang = data
-                            data = stime, addr, '', password, digest, lang
-                        self.__db[id] = type, data
 
     def __closedb(self):
         if self.__db is not None:
@@ -123,22 +92,30 @@ class ListAdmin:
             # Now save a temp file and do the tmpfile->real file dance.  BAW:
             # should we be as paranoid as for the config.pck file?  Should we
             # use pickle?
-            tmpfile = self.__filename() + '.tmp'
+            tmpfile = self.__filename + '.tmp'
             omask = os.umask(002)
             try:
                 fp = open(tmpfile, 'w')
-                marshal.dump(self.__db, fp)
-                fp.close()
-                self.__db = None
+                try:
+                    cPickle.dump(self.__db, fp, 1)
+                    fp.flush()
+                    os.fsync(fp.fileno())
+                finally:
+                    fp.close()
             finally:
                 os.umask(omask)
+            self.__db = None
             # Do the dance
-            os.rename(tmpfile, self.__filename())
+            os.rename(tmpfile, self.__filename)
 
-    def __request_id(self):
-        id = self.next_request_id
-        self.next_request_id += 1
-        return id
+    def __nextid(self):
+        assert self.Locked()
+        while True:
+            next = self.next_request_id
+            self.next_request_id += 1
+            if not self.__db.has_key(next):
+                break
+        return next
 
     def SaveRequestsDb(self):
         self.__closedb()
@@ -146,13 +123,11 @@ class ListAdmin:
     def NumRequestsPending(self):
         self.__opendb()
         # Subtrace one for the version pseudo-entry
-        if self.__db.has_key('version'):
-            return len(self.__db) - 1
-        return len(self.__db)
+        return len(self.__db) - 1
 
     def __getmsgids(self, rtype):
         self.__opendb()
-        ids = [k for k, (type, data) in self.__db.items() if type == rtype]
+        ids = [k for k, (op, data) in self.__db.items() if op == rtype]
         ids.sort()
         return ids
 
@@ -198,16 +173,11 @@ class ListAdmin:
         # Make a copy of msgdata so that subsequent changes won't corrupt the
         # request database.  TBD: remove the `filebase' key since this will
         # not be relevant when the message is resurrected.
-        newmsgdata = {}
-        newmsgdata.update(msgdata)
-        msgdata = newmsgdata
+        msgdata = msgdata.copy()
         # assure that the database is open for writing
         self.__opendb()
         # get the next unique id
-        id = self.__request_id()
-        while self.__db.has_key(id):
-            # Shouldn't happen unless the db has gone odd, but let's cope.
-            id = self.__request_id()
+        id = self.__nextid()
         # get the message sender
         sender = msg.get_sender()
         # calculate the file name for the message text and write it to disk
@@ -217,17 +187,19 @@ class ListAdmin:
             ext = 'txt'
         filename = 'heldmsg-%s-%d.%s' % (self.internal_name(), id, ext)
         omask = os.umask(002)
-        fp = None
         try:
             fp = open(os.path.join(mm_cfg.DATA_DIR, filename), 'w')
-            if mm_cfg.HOLD_MESSAGES_AS_PICKLES:
-                cPickle.dump(msg, fp, 1)
-            else:
-                g = Generator(fp)
-                g(msg, 1)
-        finally:
-            if fp:
+            try:
+                if mm_cfg.HOLD_MESSAGES_AS_PICKLES:
+                    cPickle.dump(msg, fp, 1)
+                else:
+                    g = Generator(fp)
+                    g(msg, 1)
+                fp.flush()
+                os.fsync(fp.fileno())
+            finally:
                 fp.close()
+        finally:
             os.umask(omask)
         # save the information to the request database.  for held message
         # entries, each record in the database will be of the following
@@ -365,8 +337,8 @@ class ListAdmin:
 \tSubject: %(subject)s''' % {
                 'listname' : self.internal_name(),
                 'rejection': rejection,
-                'sender'   : sender.replace('%', '%%'),
-                'subject'  : subject.replace('%', '%%'),
+                'sender'   : str(sender).replace('%', '%%'),
+                'subject'  : str(subject).replace('%', '%%'),
                 }
             if comment:
                 note += '\n\tReason: ' + comment.replace('%', '%%')
@@ -387,9 +359,7 @@ class ListAdmin:
         # Assure that the database is open for writing
         self.__opendb()
         # Get the next unique id
-        id = self.__request_id()
-        assert not self.__db.has_key(id)
-        #
+        id = self.__nextid()
         # Save the information to the request database. for held subscription
         # entries, each record in the database will be one of the following
         # format:
@@ -399,7 +369,6 @@ class ListAdmin:
         # the subscriber's selected password (TBD: is this safe???)
         # the digest flag
         # the user's preferred language
-        #
         data = time.time(), addr, fullname, password, digest, lang
         self.__db[id] = (SUBSCRIPTION, data)
         #
@@ -454,8 +423,7 @@ class ListAdmin:
         # Assure the database is open for writing
         self.__opendb()
         # Get the next unique id
-        id = self.__request_id()
-        assert not self.__db.has_key(id)
+        id = self.__nextid()
         # All we need to do is save the unsubscribing address
         self.__db[id] = (UNSUBSCRIPTION, addr)
         syslog('vette', '%s: held unsubscription request from %s',
@@ -540,9 +508,30 @@ class ListAdmin:
         # These always include the requests time, the sender, subject, default
         # rejection reason, and message text.  When of length 6, it also
         # includes the message metadata dictionary on the end of the tuple.
-        self.__opendb()
-        for id, (type, info) in self.__db.items():
-            if type == SUBSCRIPTION:
+        #
+        # In Mailman 2.1.5 we converted these files to pickles.
+        filename = os.path.join(self.fullpath(), 'request.db')
+        try:
+            fp = open(filename)
+            try:
+                self.__db = marshal.load(fp)
+            finally:
+                fp.close()
+            os.unlink(filename)
+        except IOError, e:
+            if e.errno <> errno.ENOENT: raise
+            filename = os.path.join(self.fullpath(), 'request.pck')
+            try:
+                fp = open(filename)
+                try:
+                    self.__db = cPickle.load(fp)
+                finally:
+                    fp.close()
+            except IOError, e:
+                if e.errno <> errno.ENOENT: raise
+                self.__db = {}
+        for id, (op, info) in self.__db.items():
+            if op == SUBSCRIPTION:
                 if len(info) == 4:
                     # pre-2.1a2 compatibility
                     when, addr, passwd, digest = info
@@ -557,7 +546,7 @@ class ListAdmin:
                     continue
                 # Here's the new layout
                 self.__db[id] = when, addr, fullname, passwd, digest, lang
-            elif type == HELDMSG:
+            elif op == HELDMSG:
                 if len(info) == 5:
                     when, sender, subject, reason, text = info
                     msgdata = {}

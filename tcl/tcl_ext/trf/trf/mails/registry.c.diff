@@ -1,0 +1,299 @@
+Index: registry.c
+===================================================================
+RCS file: /cvs/tcl/trf/generic/registry.c,v
+retrieving revision 1.1.1.1
+diff -c -r1.1.1.1 registry.c
+*** registry.c	1999/04/11 16:52:52	1.1.1.1
+--- registry.c	1999/04/13 03:17:30
+***************
+*** 36,41 ****
+--- 36,53 ----
+  #define ASSOC "binTrf"
+  
+  /*
++  * Normally defined in tcl*Port.h
++  */
++ #ifndef EWOULDBLOCK
++ #define EWOULDBLOCK EAGAIN
++ #endif
++ 
++ /*
++  * Possible values for 'flags' field in control structure.
++  */
++ #define CHANNEL_ASYNC		(1<<0) /* non-blocking mode */
++ 
++ /*
+   * Structures used by an attached transformation procedure
+   *
+   * => Information stored for a single direction of the channel.
+***************
+*** 57,66 ****
+--- 69,81 ----
+  
+  
+  typedef struct _TrfTransformationInstance_ {
++   Tcl_Channel self;  /* Our own Channel handle */
+    Tcl_Channel parent; /* The channel superceded by this one */
+  
+    int readIsFlushed; /* flag to note wether in.flushProc was called or not */
+  
++   int flags;         /* currently CHANNEL_ASYNC or zero */
++   int watchMask;     /* current TrfWatch mask */
+    int mode;          /* mode of parent channel,
+  		      * OR'ed combination of
+  		      * TCL_READABLE, TCL_WRITABLE */
+***************
+*** 105,110 ****
+--- 120,128 ----
+  TrfDeleteCmd _ANSI_ARGS_((ClientData clientData));
+  
+  static int
++ TrfBlock _ANSI_ARGS_ ((ClientData instanceData, int mode));
++ 
++ static int
+  TrfClose _ANSI_ARGS_ ((ClientData instanceData, Tcl_Interp* interp));
+  
+  static int
+***************
+*** 168,173 ****
+--- 186,194 ----
+  PutInterpResult _ANSI_ARGS_ ((ClientData clientData,
+  			      unsigned char* outString, int outLen,
+  			      Tcl_Interp* interp));
++ 
++ static void
++ ChannelHandler _ANSI_ARGS_ ((ClientData clientData, int mask));
+  
+  /*
+   *------------------------------------------------------*
+***************
+*** 331,337 ****
+     */
+  
+    entry->transType->typeName         = (char*) type->name;
+!   entry->transType->blockModeProc    = NULL;
+    entry->transType->closeProc        = TrfClose;
+    entry->transType->inputProc        = TrfInput;
+    entry->transType->outputProc       = TrfOutput;
+--- 352,358 ----
+     */
+  
+    entry->transType->typeName         = (char*) type->name;
+!   entry->transType->blockModeProc    = TrfBlock;
+    entry->transType->closeProc        = TrfClose;
+    entry->transType->inputProc        = TrfInput;
+    entry->transType->outputProc       = TrfOutput;
+***************
+*** 881,886 ****
+--- 902,942 ----
+  /*
+   *------------------------------------------------------*
+   *
++  *	TrfBlock --
++  *
++  *	------------------------------------------------*
++  *	Trap handler. Called by the generic IO system
++  *	during destruction of the transformation channel.
++  *	------------------------------------------------*
++  *
++  *	Sideeffects:
++  *		Releases the memory allocated in
++  *		'AttachTransform'.
++  *
++  *	Result:
++  *		None.
++  *
++  *------------------------------------------------------*
++  */
++ 
++ static int
++ TrfBlock (instanceData, mode)
++ ClientData  instanceData;
++ int mode;
++ {
++   TrfTransformationInstance* trans = (TrfTransformationInstance*) instanceData;
++ 
++   if (mode == TCL_MODE_NONBLOCKING) {
++     trans->flags |= CHANNEL_ASYNC;
++   } else {
++     trans->flags &= ~(CHANNEL_ASYNC);
++   }
++   return 0;
++ }
++ 
++ /*
++  *------------------------------------------------------*
++  *
+   *	TrfClose --
+   *
+   *	------------------------------------------------*
+***************
+*** 911,916 ****
+--- 967,978 ----
+    TrfTransformationInstance* trans = (TrfTransformationInstance*) instanceData;
+  
+    /*
++    * Remove event handler to underlying channel, this could
++    * be because we are closing for real, or being "unstacked".
++    */
++   Tcl_DeleteChannelHandler( trans->parent, ChannelHandler, (ClientData) trans);
++ 
++   /*
+     * Flush data waiting in transformation buffers to output.
+     * Flush input too, maybe there are side effects other
+     * parts do rely on (-> message digests).
+***************
+*** 1043,1049 ****
+         */
+  
+        if (! Tcl_Eof (trans->parent)) {
+! 	return gotBytes;
+        } else {
+  	if (trans->readIsFlushed) {
+  	  /* already flushed, nothing to do anymore */
+--- 1105,1116 ----
+         */
+  
+        if (! Tcl_Eof (trans->parent)) {
+! 	if (gotBytes == 0 && trans->flags & CHANNEL_ASYNC) {
+! 	  *errorCodePtr = EWOULDBLOCK;
+! 	  return -1;
+! 	} else {
+! 	  return gotBytes;
+! 	}
+        } else {
+  	if (trans->readIsFlushed) {
+  	  /* already flushed, nothing to do anymore */
+***************
+*** 1240,1250 ****
+--- 1307,1335 ----
+    Tcl_ChannelType*           p_type     = Tcl_GetChannelType         (trans->parent);
+    ClientData                 p_instance = Tcl_GetChannelInstanceData (trans->parent);
+  
++   if (mask == trans->watchMask)
++     return;
++ 
++   if (trans->watchMask) {
++     /*
++      * Remove event handler to underlying channel, this could
++      * be because we are closing for real, or being "unstacked".
++      */
++     Tcl_DeleteChannelHandler( trans->parent, ChannelHandler, (ClientData) trans);
++   }
++   trans->watchMask = mask;
++   if (trans->watchMask) {
++     /* Setup active monitor for events on underlying Channel */
++     Tcl_CreateChannelHandler( trans->parent, trans->watchMask,
++ 				ChannelHandler, (ClientData) trans);
++   }
++ #if 0
+  #if (TCL_MAJOR_VERSION < 8)
+    p_type->watchChannelProc (p_instance, mask);
+  #else
+    p_type->watchProc (p_instance, mask);
+  #endif
++ #endif
+  }
+  
+  #if (TCL_MAJOR_VERSION < 8)
+***************
+*** 1576,1582 ****
+  Trf_Options        optInfo;
+  Tcl_Interp*        interp;
+  {
+-   Tcl_Channel                new;
+    TrfTransformationInstance* trans;
+  
+    trans = (TrfTransformationInstance*) Tcl_Alloc (sizeof (TrfTransformationInstance));
+--- 1661,1666 ----
+***************
+*** 1585,1590 ****
+--- 1669,1676 ----
+    trans->clientData       = entry->trfType->clientData;
+    trans->parent           = attach;
+    trans->readIsFlushed    = 0;
++   trans->flags            = 0;
++   trans->watchMask        = 0;
+    trans->mode             = Tcl_GetChannelMode (attach);
+  
+    if (ENCODE_REQUEST (entry, optInfo)) {
+***************
+*** 1640,1658 ****
+     * Build channel from converter definition and stack it upon the one we shall attach to.
+     */
+  
+!   new = Tcl_ReplaceChannel (interp,
+  			    entry->transType, (ClientData) trans,
+  			    trans->mode, attach);
+  
+  
+!   if (new == (Tcl_Channel) NULL) {
+      Tcl_Free ((char*) trans);
+      Tcl_AppendResult (interp, "internal error in Tcl_ReplaceChannel", (char*) NULL);
+      return TCL_ERROR;
+    }
+  
+    /*  Tcl_RegisterChannel (interp, new); */
+!   Tcl_AppendResult (interp, Tcl_GetChannelName (new), (char*) NULL);
+  
+    return TCL_OK;
+  }
+--- 1726,1744 ----
+     * Build channel from converter definition and stack it upon the one we shall attach to.
+     */
+  
+!   trans->self = Tcl_ReplaceChannel (interp,
+  			    entry->transType, (ClientData) trans,
+  			    trans->mode, attach);
+  
+  
+!   if (trans->self == (Tcl_Channel) NULL) {
+      Tcl_Free ((char*) trans);
+      Tcl_AppendResult (interp, "internal error in Tcl_ReplaceChannel", (char*) NULL);
+      return TCL_ERROR;
+    }
+  
+    /*  Tcl_RegisterChannel (interp, new); */
+!   Tcl_AppendResult (interp, Tcl_GetChannelName (trans->self), (char*) NULL);
+  
+    return TCL_OK;
+  }
+***************
+*** 1806,1809 ****
+--- 1892,1926 ----
+    r->used += outLen;
+  
+    return TCL_OK;
++ }
++ 
++ /*
++  *------------------------------------------------------*
++  *
++  *	ChannelHandler --
++  *
++  *	------------------------------------------------*
++  *	Handler called by Tcl as a result of
++  *	Tcl_CreateChannelHandler - to inform us of activity
++  *	on the underlying channel.
++  *	------------------------------------------------*
++  *
++  *	Sideeffects:
++  *		May generate subsequent calls to
++  *		Tcl_NotifyChannel.
++  *
++  *	Result:
++  *		None.
++  *
++  *------------------------------------------------------*
++  */
++ 
++ static void
++ ChannelHandler (clientData, mask)
++ ClientData     clientData;
++ int            mask;
++ {
++   TrfTransformationInstance* trans = (TrfTransformationInstance*) clientData;
++ 
++   Tcl_NotifyChannel(trans->self, mask);
+  }
+

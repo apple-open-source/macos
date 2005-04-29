@@ -1,4 +1,5 @@
-/* Copyright (C) 2000, 2002  Free Software Foundation
+/* ICC_ColorSpace.java -- the canonical color space implementation
+   Copyright (C) 2000, 2002 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -34,39 +35,108 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.awt.color;
 
 /**
+ * NEEDS DOCUMENTATION
+ *
  * @author Rolf W. Rasmussen <rolfwr@ii.uib.no>
+ * @since 1.2
  */
 public class ICC_ColorSpace extends ColorSpace
 {
-  private ICC_Profile profile;
+  /**
+   * Compatible with JDK 1.2+.
+   */
+  private static final long serialVersionUID = 3455889114070431483L;
 
+  /**
+   * @serial
+   */
+  private ICC_Profile thisProfile;
+
+  /**
+   * @serial
+   */
+  private float[] minVal;
+
+  /**
+   * @serial
+   */
+  private float[] maxVal;
+
+  /**
+   * @serial
+   */
+  private float[] diffMinMax;
+
+  /**
+   * @serial
+   */
+  private float[] invDiffMinMax;
+
+  /**
+   * @serial
+   */
+  private boolean needScaleInit;
+
+  /**
+   * Constructs a new ICC_ColorSpace from an ICC_Profile object.
+   *
+   * @exception IllegalArgumentException If profile is inappropriate for
+   * representing a ColorSpace.
+   */
   public ICC_ColorSpace(ICC_Profile profile)
   {
     super(CS_sRGB, profile.getNumComponents());
-    
-    this.profile = profile;
+    thisProfile = profile;
   }
 
   public ICC_Profile getProfile()
   {
-    return profile;
+    return thisProfile;
   }
 
+  /**
+   * Transforms a color value assumed to be in this ColorSpace into a value in
+   * the default CS_sRGB color space.
+   *
+   * @exception ArrayIndexOutOfBoundsException If array length is not at least
+   * the number of components in this ColorSpace.
+   */
   public float[] toRGB(float[] colorvalue)
   {
+    if (colorvalue.length < numComponents)
+      throw new IllegalArgumentException ();
+      
     // FIXME: Always assumes sRGB:
     return colorvalue;
   }
 
+  /**
+   * Transforms a color value assumed to be in the default CS_sRGB color space
+   * into this ColorSpace.
+   *
+   * @exception ArrayIndexOutOfBoundsException If array length is not at
+   * least 3.
+   */
   public float[] fromRGB(float[] rgbvalue)
   {
+    if (rgbvalue.length < 3)
+      throw new IllegalArgumentException ();
+    
     // FIXME: Always assumes sRGB:
     return rgbvalue;
   }
 
+  /**
+   * Transforms a color value assumed to be in this ColorSpace into the
+   * CS_CIEXYZ conversion color space.
+   *
+   * @exception ArrayIndexOutOfBoundsException If array length is not at
+   * least the number of components in this ColorSpace.
+   */
   public float[] toCIEXYZ(float[] colorvalue)
   {
     // FIXME: Not implemented
@@ -78,4 +148,35 @@ public class ICC_ColorSpace extends ColorSpace
     // FIXME: Not implemented
     throw new UnsupportedOperationException();
   }
-}
+
+  /**
+   * @since 1.4
+   */
+  public float getMinValue(int idx)
+  {
+    if (type == TYPE_Lab && (idx == 1 || idx == 2))
+      return -128;
+    if (idx < 0 || idx >= numComponents)
+      throw new IllegalArgumentException();
+    return 0;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public float getMaxValue(int idx)
+  {
+    if (type == TYPE_XYZ && idx >= 0 && idx <= 2)
+      return 1 + 32767 / 32768f;
+    else if (type == TYPE_Lab)
+      {
+        if (idx == 0)
+          return 100;
+        if (idx == 1 || idx == 2)
+          return 127;
+      }
+    if (idx < 0 || idx >= numComponents)
+      throw new IllegalArgumentException();
+    return 1;
+  }
+} // class ICC_ColorSpace

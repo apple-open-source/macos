@@ -65,6 +65,15 @@
 #include <ext/stl_hashtable.h>
 #include <bits/concept_check.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define hash_set _Release_hash_set
+#  define hash_multiset _Release_hash_multiset
+#endif
+/* APPLE LOCAL begin libstdc++ debug mode */
+
 namespace __gnu_cxx
 {
 using std::equal_to;
@@ -90,8 +99,9 @@ operator==(const hash_set<_Value,_HashFcn,_EqualKey,_Alloc>& __hs1,
  *  @ingroup SGIextensions
  *  @doctodo
 */
+/* APPLE LOCAL libstdc++ debug mode */
 template <class _Value, class _HashFcn, class _EqualKey, class _Alloc>
-class hash_set
+class _GLIBCXX_RELEASE_CLASS(hash_set) hash_set
 {
   // concept requirements
   __glibcpp_class_requires(_Value, _SGIAssignableConcept)
@@ -247,7 +257,7 @@ operator==(const hash_multiset<_Val,_HashFcn,_EqualKey,_Alloc>& __hs1,
  *  @doctodo
 */
 template <class _Value, class _HashFcn, class _EqualKey, class _Alloc>
-class hash_multiset
+class _GLIBCXX_RELEASE_CLASS(hash_multiset) hash_multiset
 {
   // concept requirements
   __glibcpp_class_requires(_Value, _SGIAssignableConcept)
@@ -437,6 +447,15 @@ public:
 };
 
 } // namespace std
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef hash_set
+#  undef hash_multiset
+#  include <debug/dbg_hash_set.h>
+#  include <debug/dbg_hash_multiset.h>
+#endif
+/* APPLE LOCAL begin libstdc++ debug mode */
 
 #endif /* __SGI_STL_INTERNAL_HASH_SET_H */
 

@@ -1,5 +1,5 @@
 ## Makefile.in for ICU - tools/gennorm
-## Copyright (c) 2001-2003, International Business Machines Corporation and
+## Copyright (c) 2001-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 ## Steven R. Loomis/Markus W. Scherer
 
@@ -13,21 +13,20 @@ include $(top_builddir)/icudefs.mk
 
 ##
 
+TARGET_STUB_NAME = gennorm
+
 SECTION = 8
 
-MAN_FILES = $(TARGET:$(EXEEXT)=).$(SECTION)
+MAN_FILES = $(TARGET_STUB_NAME).$(SECTION)
 
 ## Build directory information
 subdir = tools/gennorm
 
-ICUDATADIR=$(top_builddir)/data
-UNICODEDATADIR=$(top_srcdir)/../data/unidata
-
 ## Extra files to remove for 'make clean'
-CLEANFILES = *~ $(DEPS) $(RES_FILES) $(TEST_FILES) $(MAN_FILES)
+CLEANFILES = *~ $(DEPS) $(MAN_FILES)
 
 ## Target information
-TARGET = gennorm$(EXEEXT)
+TARGET = $(BINDIR)/$(TARGET_STUB_NAME)$(EXEEXT)
 
 CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(srcdir)/../toolutil
 LIBS = $(LIBICUTOOLUTIL) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
@@ -39,7 +38,7 @@ DEPS = $(OBJECTS:.o=.d)
 ## List of phony targets
 .PHONY : all all-local install install-local clean clean-local		\
 distclean distclean-local dist dist-local check	\
-check-local build-data install-man
+check-local install-man
 
 ## Clear suffix list
 .SUFFIXES :
@@ -52,11 +51,11 @@ distclean : distclean-local
 dist: dist-local
 check: all check-local
 
-all-local: $(TARGET) build-data $(MAN_FILES)
+all-local: $(TARGET) $(MAN_FILES)
 
 install-local: all-local install-man
 	$(MKINSTALLDIRS) $(DESTDIR)$(sbindir)
-	$(INSTALL) $(TARGET) $(DESTDIR)$(sbindir)/$(TARGET)
+	$(INSTALL) $(TARGET) $(DESTDIR)$(sbindir)
 
 # man page
 install-man: $(MAN_FILES)

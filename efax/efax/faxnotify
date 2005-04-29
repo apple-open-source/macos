@@ -17,9 +17,11 @@ from email.MIMEMultipart import MIMEMultipart
 
 def defaults_read(key, domain = '/Library/Preferences/com.apple.print.FaxPrefs'):
 	"""Read the value of 'key' from the defaults system"""
-	pipe = os.popen('/usr/bin/defaults read ' + domain + ' ' + key)
-	value = string.rstrip(pipe.read())
-	pipe.close()
+	i,o,e = os.popen3('/usr/bin/defaults read ' + domain + ' ' + key)
+	i.close()
+	value = string.rstrip(o.read())
+	o.close()
+	e.close()
 	return value
 
 
@@ -36,20 +38,16 @@ def quote(x):
 	return s
 
 
-def phone_from_log(logfilename):
+def remote_id():
 	"""Find the sender's phone number so it can be used in the PDF name"""
-	phone_number = ''
-	PHONE_KEY = 'remote ID ->'
-	logfile = file(logfilename)
-	for line in logfile :
-		index = line.find(PHONE_KEY)
-		if index != -1 :
-			phone_number = string.strip(line[index + len(PHONE_KEY):])
-			break
-	logfile.close()
-	if len(phone_number) == 0 :
-		phone_number = 'Unknown'
-	return phone_number
+	try:
+		remote_id = os.environ['REMID']
+	except:
+		remote_id = '?'
+
+	if remote_id == '?' :
+		remote_id = 'Unknown'
+	return remote_id
 
 
 def copy_versioned_file(srcfile, dstdir):
@@ -141,13 +139,16 @@ def email_fax(receipents, sender, pdffile):
 #
 # Make sure we have enough arguments
 #
-if len(sys.argv) <= 2 :
+if len(sys.argv) == 1 :
 	print >> sys.stderr, 'Usage: faxnotify log-file image-file [image-file ...]'
 	sys.exit(2)
 
+# If there are no tiff files to process just exit quietly.
+if len(sys.argv) == 2 :
+	sys.exit(0)
 
 tiff_files = string.join(map(quote, sys.argv[2:]))
-pdf_file = 'FAX from ' + phone_from_log(sys.argv[1]) + '.pdf'
+pdf_file = 'FAX from ' + remote_id() + '.pdf'
 
 try:
 	# Convert TIFFs into a single PDF
@@ -160,7 +161,11 @@ try:
 	# Print on printer
 	if defaults_read('PrintFax') == '1' :
 		printer = quote(defaults_read('PrinterID'))
-		command = '/usr/bin/lpr -P ' + printer + ' ' + quote(pdf_file)
+		faxuser = defaults_read('FaxUser')
+		if faxuser == '' :
+			faxuser = 'FaxNotify'
+		faxuser = quote(faxuser)
+		command = '/usr/bin/lpr -P ' + printer + ' -U ' + faxuser + ' ' + quote(pdf_file)
 		if os.system(command) :
 			print >> sys.stderr, 'faxnotify: Print on printer ' + printer + ' failed'
 

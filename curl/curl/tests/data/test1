@@ -20,11 +20,14 @@ Funny-head: yesyes
 #
 # Client-side
 <client>
+<server>
+http
+</server>
  <name>
-simple HTTP GET
+HTTP GET
  </name>
  <command>
-http://%HOSTIP:%HOSTPORT/1
+http://%HOSTIP:%HTTPPORT/1
 </command>
 </client>
 
@@ -36,9 +39,9 @@ http://%HOSTIP:%HOSTPORT/1
 </strip>
 <protocol>
 GET /1 HTTP/1.1
-Host: 127.0.0.1:8999
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
 
 </protocol>
 </verify>

@@ -1,0 +1,16 @@
+[vset    encoding quoted-printable]
+[include encoding/header.inc]
+
+[para]
+
+Printable ASCII characters are largely untouched. Otherwise a
+three-character encoding sequence is used. This is MIME's compromise
+encoding.
+
+See RFC 2045 ([uri http://www.rfc-editor.org/rfc/rfc2045.txt]) for its
+definition.
+
+[include encoding/middle.inc]
+
+[keywords {rfc 2045} mime]
+[include encoding/footer.inc]

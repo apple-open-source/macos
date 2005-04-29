@@ -41,7 +41,7 @@
 #define LU_MESSAGE_SEND_ID 4241776
 #define LU_MESSAGE_REPLY_ID 4241876
 
-static pthread_key_t _info_key = NULL;
+static pthread_key_t _info_key = 0;
 static pthread_once_t _info_key_initialized = PTHREAD_ONCE_INIT;
 
 struct _lu_data_s
@@ -112,9 +112,9 @@ _lu_async_send(_lu_async_request_t *r)
 	inp->query_data_len = r->request_buffer_len;
 	memcpy(inp->query_data, r->request_buffer, 4 * r->request_buffer_len);
 
-	status = mach_msg(&inp->head, MACH_SEND_MSG, msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);	
+	status = mach_msg(&inp->head, MACH_SEND_MSG, msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
 	if (status == MACH_MSG_SUCCESS) return KERN_SUCCESS;
-	
+
 	if (status == MACH_SEND_INVALID_REPLY)
 	{
 		mach_port_mod_refs(mach_task_self(), r->reply_port, MACH_PORT_RIGHT_RECEIVE, -1);
@@ -204,6 +204,7 @@ lu_async_receive(mach_port_t p, char **buf, uint32_t *len)
 	kern_return_t status;
 	uint32_t size;
 	_lu_async_request_t *req;
+	boolean_t msgh_simple;
 
 	size = sizeof(_lu_reply_msg_t);
 
@@ -219,11 +220,21 @@ lu_async_receive(mach_port_t p, char **buf, uint32_t *len)
 		return status;
 	}
 
+	msgh_simple = !(r->head.msgh_bits & MACH_MSGH_BITS_COMPLEX);
+
 	req = _lu_worklist_remove(r->head.msgh_local_port);
 	if (req == NULL)
 	{
 		free(r);
 		return KERN_FAILURE;
+	}
+
+	if (msgh_simple && ((mig_reply_error_t *) r)->RetCode != KERN_SUCCESS)
+	{
+		_lu_free_request(req);
+		status = ((mig_reply_error_t *) r)->RetCode;
+		free(r);
+		return status;
 	}
 
 	*buf = r->reply_data.address;
@@ -273,7 +284,7 @@ _lu_create_request(uint32_t proc, const char *buf, uint32_t len, void *callback,
 	_lu_async_request_t *r;
 	kern_return_t status;
 
-	if (_lu_port == NULL) return NULL;
+	if (_lu_port == MACH_PORT_NULL) return NULL;
 
 	r = (_lu_async_request_t *)calloc(1, sizeof(_lu_async_request_t));
 	if (r == NULL) return NULL;
@@ -350,6 +361,7 @@ lu_async_handle_reply(void *msg, char **buf, uint32_t *len, void **callback, voi
 	_lu_async_request_t *req;
 	kern_return_t status;
 	uint32_t retry;
+	boolean_t msgh_simple;
 
 	if (msg == NULL) return -1;
 	r = (_lu_reply_msg_t *)msg;
@@ -375,15 +387,23 @@ lu_async_handle_reply(void *msg, char **buf, uint32_t *len, void **callback, voi
 		return MIG_REPLY_MISMATCH;
 	}
 
+        msgh_simple = !(r->head.msgh_bits & MACH_MSGH_BITS_COMPLEX);
+
 	req = _lu_worklist_remove(r->head.msgh_local_port);
 	if (req == NULL) return -1;
 
-	*buf = r->reply_data.address;
-	*len = r->reply_data.size;
 	*callback = req->callback;
 	*context = req->context;
-
 	_lu_free_request(req);
+ 
+	if (msgh_simple && ((mig_reply_error_t *) r)->RetCode != KERN_SUCCESS)
+	{
+		return ((mig_reply_error_t *) r)->RetCode;
+	}
+
+	*buf = r->reply_data.address;
+	*len = r->reply_data.size;
+
 	return 0;
 }
 
@@ -403,8 +423,7 @@ _lookupd_xdr_dictionary(XDR *inxdr)
 	l->ni_proplist_val = NULL;
 	if (nkeys > 0)
 	{
-		i = nkeys * sizeof(ni_property);
-		l->ni_proplist_val = (ni_property *)calloc(1, i);
+		l->ni_proplist_val = (ni_property *)calloc(nkeys, sizeof(ni_property));
 	}
 
 	for (i = 0; i < nkeys; i++)
@@ -417,20 +436,19 @@ _lookupd_xdr_dictionary(XDR *inxdr)
 		}
 
 		l->ni_proplist_val[i].nip_name = key;
-	
+
 		if (!xdr_int(inxdr, &nvals))
 		{
 			ni_proplist_free(l);
 			return NULL;
 		}
-	
+
 		l->ni_proplist_val[i].nip_val.ni_namelist_len = nvals;
 		if (nvals > 0)
 		{
-			j = nvals * sizeof(ni_name);
-			l->ni_proplist_val[i].nip_val.ni_namelist_val = (ni_name *)calloc(1, j);
+			l->ni_proplist_val[i].nip_val.ni_namelist_val = (ni_name *)calloc(nvals, sizeof(ni_name));
 		}
-		
+
 		for (j = 0; j < nvals; j++)
 		{
 			val = NULL;
@@ -463,7 +481,7 @@ lookupd_query(ni_proplist *l, ni_proplist ***out)
 	if (l == NULL) return 0;
 	if (out == NULL) return 0;
 
-	if (_lu_port == NULL) return 0;
+	if (_lu_port == MACH_PORT_NULL) return 0;
 
 	status = _lookup_link(_lu_port, "query", &proc);
 	if (status != KERN_SUCCESS) return 0;
@@ -482,13 +500,12 @@ lookupd_query(ni_proplist *l, ni_proplist ***out)
 	for (i = 0; i < l->ni_proplist_len; i++)
 	{
 		p = &(l->ni_proplist_val[i]);
-		s = NULL;
+		s = p->nip_name;
 		if (!xdr_string(&outxdr, &s, _LU_MAXLUSTRLEN))
 		{
 			xdr_destroy(&outxdr);
 			return 0;
 		}
-		p->nip_name = s;
 
 		if (!xdr_int(&outxdr, &(p->nip_val.ni_namelist_len)))
 		{
@@ -498,21 +515,20 @@ lookupd_query(ni_proplist *l, ni_proplist ***out)
 
 		for (j = 0; j < p->nip_val.ni_namelist_len; j++)
 		{
-			s = NULL;
+			s = p->nip_val.ni_namelist_val[j];
 			if (!xdr_string(&outxdr, &s, _LU_MAXLUSTRLEN))
 			{
 				xdr_destroy(&outxdr);
 				return 0;
 			}
-			p->nip_val.ni_namelist_val[j] = s;
 		}
 	}
 
 	listbuf = NULL;
 	datalen = 0;
 
-	n = xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT;
-	status = _lookup_all(_lu_port, proc, (unit *)databuf, n, &listbuf, &datalen);
+	n = xdr_getpos(&outxdr);
+	status = _lookup_all(_lu_port, proc, (void *)databuf, n, &listbuf, &datalen);
 	if (status != KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
@@ -520,12 +536,7 @@ lookupd_query(ni_proplist *l, ni_proplist ***out)
 	}
 
 	xdr_destroy(&outxdr);
-
-#ifdef NOTDEF
-/* NOTDEF because OOL buffers are counted in bytes with untyped IPC */
 	datalen *= BYTES_PER_XDR_UNIT;
-#endif
-
 	xdrmem_create(&inxdr, listbuf, datalen, XDR_DECODE);
 
 	if (!xdr_int(&inxdr, &n))
@@ -550,7 +561,7 @@ lookupd_query(ni_proplist *l, ni_proplist ***out)
 	xdr_destroy(&inxdr);
 
 	vm_deallocate(mach_task_self(), (vm_address_t)listbuf, datalen);
-	
+
 	return n;
 }
 
@@ -587,7 +598,7 @@ lookupd_make_query(char *cat, char *fmt, ...)
 	}
 
 	va_start(ap, fmt);
-	for (f = fmt; *f != NULL; f++)
+	for (f = fmt; (*f) != '\0'; f++)
 	{
 		arg = va_arg(ap, char *);
 		if (*f == 'k')
@@ -696,7 +707,7 @@ _lu_data_free(void *x)
 	t = (struct _lu_data_s *)x;
 
 	for (i = 0; i < t->icount; i++)
-	{		
+	{
 		if ((t->idata[i] != NULL) && (t->idata_destructor[i] != NULL))
 		{
 			(*(t->idata_destructor[i]))(t->idata[i]);

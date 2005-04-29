@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/dgux/dgux_kbd.c,v 1.1 1998/12/13 07:37:46 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/dgux/dgux_kbd.c,v 1.2 2003/11/17 22:20:40 dawes Exp $ */
 /*
  * INTEL DG/UX RELEASE 4.20 MU03
  * Copyright 1997 Takis Psarogiannakopoulos Cambridge,UK
@@ -65,12 +65,7 @@ int xf86GetKbdLeds()
 }
 
 /* ADDED FOR INTEL DGUX */
-#if NeedFunctionPrototypes
 void xf86SetKbdRepeat(char rad)
-#else
-void xf86SetKbdRepeat(rad)
-char rad;
-#endif
 {
         return;
 }

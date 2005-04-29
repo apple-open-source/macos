@@ -12,7 +12,7 @@ NAME = zic
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = private.h tzfile.h
+HFILES = private.h
 
 CFILES = ialloc.c scheck.c zic.c
 

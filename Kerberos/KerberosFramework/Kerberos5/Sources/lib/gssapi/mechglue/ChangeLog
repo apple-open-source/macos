@@ -1,3 +1,17 @@
+2004-09-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in: Delete @SHARED_RULE@ line.
+	(thisconfigdir): Fix.
+
+2004-06-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* g_initialize.c, oid_ops.c: Don't test macintosh.
+	* mechglue.h: Don't test __MWERKS__, applec, THINK_C.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (all-mac, clean-mac): Targets deleted.
+
 2002-08-29  Ken Raeburn  <raeburn@mit.edu>
 
 	* Makefile.in: Revert $(S)=>/ change, for Windows support.

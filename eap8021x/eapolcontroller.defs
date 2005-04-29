@@ -1,0 +1,132 @@
+/*
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*
+ * Modification History
+ *
+ * October 16, 2002		Dieter Siegmund (dieter@apple.com)
+ * - initial revision
+ */
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem eapolcontroller 22000;
+
+import "eapolcontroller_types.h";
+
+/*
+ * serialized XML data (client->server)
+ */
+type xmlData    = ^ array [] of MACH_MSG_TYPE_BYTE
+	ctype : xmlData_t;
+
+/*
+ * serialized XML data (server->client)
+ */
+type xmlDataOut = ^ array [] of MACH_MSG_TYPE_BYTE
+	ctype : xmlDataOut_t;
+
+type if_name = array[32] of char
+	ctype : if_name_t;
+
+/*
+ * additional types
+ */
+/*
+type task_move_send_t = MACH_MSG_TYPE_MOVE_SEND
+	ctype: mach_port_t;
+*/
+
+/* 
+ * routines called by UI/control to start/stop/update an 802.1x client process
+ */
+routine eapolcontroller_get_state (	server		: mach_port_t;
+					if_name		: if_name;
+				 out	state		: int;
+				 out	result		: int);
+
+routine eapolcontroller_start	(	server		: mach_port_t;
+					if_name		: if_name;
+					config_data	: xmlData;
+					bootstrap	: bootstrap_t;
+				 out	result		: int);
+
+routine eapolcontroller_stop	(	server		: mach_port_t;
+					if_name		: if_name;
+				 out	result		: int);
+
+routine eapolcontroller_update	(	server		: mach_port_t;
+					if_name		: if_name;
+					config_data	: xmlData;
+				 out	result		: int);
+
+routine eapolcontroller_retry	(	server		: mach_port_t;
+					if_name		: if_name;
+				 out	result		: int);
+
+routine eapolcontroller_copy_status (	server		: mach_port_t;
+					if_name		: if_name;
+				 out	status_data	: xmlDataOut, dealloc;
+				 out	state		: int;
+				 out	result		: int);
+
+routine eapolcontroller_set_logging (	server		: mach_port_t;
+					if_name		: if_name;
+					level		: int32_t;
+				 out	result		: int);
+
+skip;
+skip;
+skip;
+
+/*
+ * routines called by the 802.1x client process 
+ */
+routine eapolcontroller_client_attach (	server		: mach_port_t;
+					task		: task_t;
+					if_name		: if_name;
+					port		: mach_port_move_send_t;
+				 out	session		: mach_port_move_send_t;
+				 out    control_data	: xmlDataOut, dealloc;
+				 out	bootstrap	: bootstrap_t;
+				 out	result		: int);
+
+/*
+ * the client must talk to the server using the session port
+ * returned by attach with the following routines
+ */
+routine eapolcontroller_client_detach (	server		: mach_port_t;
+				 out	result		: int);
+
+routine eapolcontroller_client_getconfig (server	: mach_port_t;
+				 out      control_data	: xmlDataOut, dealloc;
+				 out	  result	: int);
+
+routine eapolcontroller_client_report_status(server	: mach_port_t;
+					status_data	: xmlData;
+				 out	result		: int);
+
+routine eapolcontroller_client_force_renew(server	: mach_port_t;
+				 out	result		: int);
+

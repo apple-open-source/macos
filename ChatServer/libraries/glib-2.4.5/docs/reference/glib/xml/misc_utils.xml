@@ -1,0 +1,710 @@
+<refentry id="glib-Miscellaneous-Utility-Functions">
+<refmeta>
+<refentrytitle>Miscellaneous Utility Functions</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Miscellaneous Utility Functions</refname><refpurpose>a selection of portable utility functions.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-get-application-name">g_get_application_name</link>
+                                            (void);
+<link linkend="void">void</link>        <link linkend="g-set-application-name">g_set_application_name</link>          (const <link linkend="gchar">gchar</link> *application_name);
+<link linkend="gchar">gchar</link>*      <link linkend="g-get-prgname">g_get_prgname</link>                   (void);
+<link linkend="void">void</link>        <link linkend="g-set-prgname">g_set_prgname</link>                   (const <link linkend="gchar">gchar</link> *prgname);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-getenv">g_getenv</link>              (const <link linkend="gchar">gchar</link> *variable);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-setenv">g_setenv</link>                        (const <link linkend="gchar">gchar</link> *variable,
+                                             const <link linkend="gchar">gchar</link> *value,
+                                             <link linkend="gboolean">gboolean</link> overwrite);
+<link linkend="void">void</link>        <link linkend="g-unsetenv">g_unsetenv</link>                      (const <link linkend="gchar">gchar</link> *variable);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-get-user-name">g_get_user_name</link>       (void);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-get-real-name">g_get_real_name</link>       (void);
+
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-get-home-dir">g_get_home_dir</link>        (void);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-get-tmp-dir">g_get_tmp_dir</link>         (void);
+<link linkend="gchar">gchar</link>*      <link linkend="g-get-current-dir">g_get_current_dir</link>               (void);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-basename">g_basename</link>            (const <link linkend="gchar">gchar</link> *file_name);
+#define     <link linkend="g-dirname">g_dirname</link>
+<link linkend="gboolean">gboolean</link>    <link linkend="g-path-is-absolute">g_path_is_absolute</link>              (const <link linkend="gchar">gchar</link> *file_name);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-path-skip-root">g_path_skip_root</link>      (const <link linkend="gchar">gchar</link> *file_name);
+<link linkend="gchar">gchar</link>*      <link linkend="g-path-get-basename">g_path_get_basename</link>             (const <link linkend="gchar">gchar</link> *file_name);
+<link linkend="gchar">gchar</link>*      <link linkend="g-path-get-dirname">g_path_get_dirname</link>              (const <link linkend="gchar">gchar</link> *file_name);
+<link linkend="gchar">gchar</link>*      <link linkend="g-build-filename">g_build_filename</link>                (const <link linkend="gchar">gchar</link> *first_element,
+                                             ...);
+<link linkend="gchar">gchar</link>*      <link linkend="g-build-path">g_build_path</link>                    (const <link linkend="gchar">gchar</link> *separator,
+                                             const <link linkend="gchar">gchar</link> *first_element,
+                                             ...);
+
+<link linkend="gchar">gchar</link>*      <link linkend="g-find-program-in-path">g_find_program_in_path</link>          (const <link linkend="gchar">gchar</link> *program);
+
+<link linkend="gint">gint</link>        <link linkend="g-bit-nth-lsf">g_bit_nth_lsf</link>                   (<link linkend="gulong">gulong</link> mask,
+                                             <link linkend="gint">gint</link> nth_bit);
+<link linkend="gint">gint</link>        <link linkend="g-bit-nth-msf">g_bit_nth_msf</link>                   (<link linkend="gulong">gulong</link> mask,
+                                             <link linkend="gint">gint</link> nth_bit);
+<link linkend="guint">guint</link>       <link linkend="g-bit-storage">g_bit_storage</link>                   (<link linkend="gulong">gulong</link> number);
+
+<link linkend="guint">guint</link>       <link linkend="g-spaced-primes-closest">g_spaced_primes_closest</link>         (<link linkend="guint">guint</link> num);
+
+<link linkend="void">void</link>        <link linkend="g-atexit">g_atexit</link>                        (<link linkend="GVoidFunc">GVoidFunc</link> func);
+
+<link linkend="guint">guint</link>       <link linkend="g-parse-debug-string">g_parse_debug_string</link>            (const <link linkend="gchar">gchar</link> *string,
+                                             const <link linkend="GDebugKey">GDebugKey</link> *keys,
+                                             <link linkend="guint">guint</link> nkeys);
+struct      <link linkend="GDebugKey">GDebugKey</link>;
+
+<link linkend="void">void</link>        (<link linkend="GVoidFunc">*GVoidFunc</link>)                    (void);
+<link linkend="void">void</link>        (<link linkend="GFreeFunc">*GFreeFunc</link>)                    (<link linkend="gpointer">gpointer</link> data);
+
+<link linkend="void">void</link>        <link linkend="g-qsort-with-data">g_qsort_with_data</link>               (<link linkend="gconstpointer">gconstpointer</link> pbase,
+                                             <link linkend="gint">gint</link> total_elems,
+                                             <link linkend="gsize">gsize</link> size,
+                                             <link linkend="GCompareDataFunc">GCompareDataFunc</link> compare_func,
+                                             <link linkend="gpointer">gpointer</link> user_data);
+
+<link linkend="void">void</link>        <link linkend="g-nullify-pointer">g_nullify_pointer</link>               (<link linkend="gpointer">gpointer</link> *nullify_location);
+
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+These are portable utility functions.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="g-get-application-name"/>g_get_application_name ()</title>
+<indexterm role="2.2"><primary>g_get_application_name</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_get_application_name
+                                            (void);</programlisting>
+<para>
+Gets a human-readable name for the application, as set by
+<link linkend="g-set-application-name"><function>g_set_application_name()</function></link>. This name should be localized if
+possible, and is intended for display to the user.  Contrast with
+<link linkend="g-get-prgname"><function>g_get_prgname()</function></link>, which gets a non-localized name. If
+<link linkend="g-set-application-name"><function>g_set_application_name()</function></link> has not been called, returns the result of
+<link linkend="g-get-prgname"><function>g_get_prgname()</function></link> (which may be <literal>NULL</literal> if <link linkend="g-set-prgname"><function>g_set_prgname()</function></link> has also not
+been called).</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> human-readable application name. may return <literal>NULL</literal>
+
+</simpara></listitem></varlistentry>
+</variablelist><para>Since  2.2
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-set-application-name"/>g_set_application_name ()</title>
+<indexterm><primary>g_set_application_name</primary></indexterm><programlisting><link linkend="void">void</link>        g_set_application_name          (const <link linkend="gchar">gchar</link> *application_name);</programlisting>
+<para>
+Sets a human-readable name for the application. This name should be
+localized if possible, and is intended for display to the user.
+Contrast with <link linkend="g-set-prgname"><function>g_set_prgname()</function></link>, which sets a non-localized name.
+<link linkend="g-set-prgname"><function>g_set_prgname()</function></link> will be called automatically by <link linkend="gtk-init"><function>gtk_init()</function></link>,
+but <link linkend="g-set-application-name"><function>g_set_application_name()</function></link> will not.
+</para>
+<para>
+Note that for thread safety reasons, this function can only
+be called once.
+</para>
+<para>
+The application name will be used in contexts such as error messages,
+or when displaying an application's name in the task list.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>application_name</parameter>&nbsp;:</term>
+<listitem><simpara> localized name of the application
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-get-prgname"/>g_get_prgname ()</title>
+<indexterm><primary>g_get_prgname</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_get_prgname                   (void);</programlisting>
+<para>
+Gets the name of the program. This name should NOT be localized,
+contrast with <link linkend="g-get-application-name"><function>g_get_application_name()</function></link>.
+(If you are using GDK or GTK+ the program name is set in <link linkend="gdk-init"><function>gdk_init()</function></link>, which
+is called by <link linkend="gtk-init"><function>gtk_init()</function></link>. The program name is found by taking the last
+component of <literal>argv[0]</literal>.)
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the name of the program.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-set-prgname"/>g_set_prgname ()</title>
+<indexterm><primary>g_set_prgname</primary></indexterm><programlisting><link linkend="void">void</link>        g_set_prgname                   (const <link linkend="gchar">gchar</link> *prgname);</programlisting>
+<para>
+Sets the name of the program. This name should NOT be localized, 
+contrast with <link linkend="g-set-application-name"><function>g_set_application_name()</function></link>. Note that for thread-safety
+reasons this function can only be called once.
+</para><variablelist role="params">
+<varlistentry><term><parameter>prgname</parameter>&nbsp;:</term>
+<listitem><simpara>the name of the program.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-getenv"/>g_getenv ()</title>
+<indexterm><primary>g_getenv</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_getenv              (const <link linkend="gchar">gchar</link> *variable);</programlisting>
+<para>
+Returns an environment variable.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>variable</parameter>&nbsp;:</term>
+<listitem><simpara> the environment variable to get.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> the value of the environment variable, or <literal>NULL</literal> if the environment
+variable is not found. The returned string may be overwritten by the next call to <link linkend="g-getenv"><function>g_getenv()</function></link>,
+<link linkend="g-setenv"><function>g_setenv()</function></link> or <link linkend="g-unsetenv"><function>g_unsetenv()</function></link>.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-setenv"/>g_setenv ()</title>
+<indexterm role="2.4"><primary>g_setenv</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_setenv                        (const <link linkend="gchar">gchar</link> *variable,
+                                             const <link linkend="gchar">gchar</link> *value,
+                                             <link linkend="gboolean">gboolean</link> overwrite);</programlisting>
+<para>
+Sets an environment variable.
+</para>
+<para>
+Note that on some systems, the memory used for the variable and its value 
+can't be reclaimed later.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>variable</parameter>&nbsp;:</term>
+<listitem><simpara> the environment variable to set, must not contain '='.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara> the value for to set the variable to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>overwrite</parameter>&nbsp;:</term>
+<listitem><simpara> whether to change the variable if it already exists.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> <literal>FALSE</literal> if the environment variable couldn't be set.
+
+</simpara></listitem></varlistentry>
+</variablelist><para>Since  2.4
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-unsetenv"/>g_unsetenv ()</title>
+<indexterm role="2.4"><primary>g_unsetenv</primary></indexterm><programlisting><link linkend="void">void</link>        g_unsetenv                      (const <link linkend="gchar">gchar</link> *variable);</programlisting>
+<para>
+Removes an environment variable from the environment.
+</para>
+<para>
+Note that on some systems, the memory used for the variable and its value 
+can't be reclaimed. Furthermore, this function can't be guaranteed to operate in a 
+threadsafe way.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>variable</parameter>&nbsp;:</term>
+<listitem><simpara> the environment variable to remove, must not contain '='.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since  2.4 
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-get-user-name"/>g_get_user_name ()</title>
+<indexterm><primary>g_get_user_name</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_get_user_name       (void);</programlisting>
+<para>
+Gets the user name of the current user.
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the user name of the current user.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-get-real-name"/>g_get_real_name ()</title>
+<indexterm><primary>g_get_real_name</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_get_real_name       (void);</programlisting>
+<para>
+Gets the real name of the user. This usually comes from the user's entry in the
+<filename>passwd</filename> file. The encoding of the returned string is system
+defined. If the real user name cannot be determined, the string "Unknown" is 
+returned.
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the user's real name.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-get-home-dir"/>g_get_home_dir ()</title>
+<indexterm><primary>g_get_home_dir</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_get_home_dir        (void);</programlisting>
+<para>
+Gets the current user's home directory.
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the current user's home directory.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-get-tmp-dir"/>g_get_tmp_dir ()</title>
+<indexterm><primary>g_get_tmp_dir</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_get_tmp_dir         (void);</programlisting>
+<para>
+Gets the directory to use for temporary files.
+This is found from inspecting the environment variables <envar>TMPDIR</envar>, 
+<envar>TMP</envar>, and <envar>TEMP</envar>
+in that order. If none of those are defined "/tmp" is returned on UNIX and 
+"C:\" on Windows.
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the directory to use for temporary files.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-get-current-dir"/>g_get_current_dir ()</title>
+<indexterm><primary>g_get_current_dir</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_get_current_dir               (void);</programlisting>
+<para>
+Gets the current directory.
+The returned string should be freed when no longer needed.
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the current directory.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-basename"/>g_basename ()</title>
+<indexterm role="deprecated"><primary>g_basename</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_basename            (const <link linkend="gchar">gchar</link> *file_name);</programlisting>
+<warning><para><literal>g_basename</literal> is deprecated and should not be used in newly-written code. Use <link linkend="g-path-get-basename"><function>g_path_get_basename()</function></link> instead, but notice that
+<link linkend="g-path-get-basename"><function>g_path_get_basename()</function></link> allocates new memory for the returned string, unlike
+this function which returns a pointer into the argument.</para></warning>
+<para>
+Gets the name of the file without any leading directory components.  
+It returns a pointer into the given file name string.</para>
+<variablelist role="params">
+<varlistentry><term><parameter>file_name</parameter>&nbsp;:</term>
+<listitem><simpara> the name of the file.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> the name of the file without any leading directory components.
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dirname"/>g_dirname</title>
+<indexterm role="deprecated"><primary>g_dirname</primary></indexterm><programlisting>#define     g_dirname</programlisting>
+<warning><para><literal>g_dirname</literal> is deprecated and should not be used in newly-written code.</para></warning>
+<para>
+This function is deprecated and will be removed in the next major
+release of GLib. Use <link linkend="g-path-get-dirname"><function>g_path_get_dirname()</function></link> instead.
+</para>
+
+<para>
+Gets the directory components of a file name.
+If the file name has no directory components "." is returned.
+The returned string should be freed when no longer needed.
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the directory components of the file.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-path-is-absolute"/>g_path_is_absolute ()</title>
+<indexterm><primary>g_path_is_absolute</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_path_is_absolute              (const <link linkend="gchar">gchar</link> *file_name);</programlisting>
+<para>
+Returns <literal>TRUE</literal> if the given <parameter>file_name</parameter> is an absolute file name,
+i.e. it contains a full path from the root directory such as '/usr/local'
+on UNIX or 'C:\windows' on Windows systems.
+</para><variablelist role="params">
+<varlistentry><term><parameter>file_name</parameter>&nbsp;:</term>
+<listitem><simpara>a file name.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara><literal>TRUE</literal> if <parameter>file_name</parameter> is an absolute path.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-path-skip-root"/>g_path_skip_root ()</title>
+<indexterm><primary>g_path_skip_root</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_path_skip_root      (const <link linkend="gchar">gchar</link> *file_name);</programlisting>
+<para>
+Returns a pointer into <parameter>file_name</parameter> after the root component, i.e. after
+the '/' in UNIX or 'C:\' under Windows. If <parameter>file_name</parameter> is not an absolute
+path it returns <literal>NULL</literal>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>file_name</parameter>&nbsp;:</term>
+<listitem><simpara>a file name.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a pointer into <parameter>file_name</parameter> after the root component.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-path-get-basename"/>g_path_get_basename ()</title>
+<indexterm><primary>g_path_get_basename</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_path_get_basename             (const <link linkend="gchar">gchar</link> *file_name);</programlisting>
+<para>
+Gets the last component of the filename. If <parameter>file_name</parameter> ends with a 
+directory separator it gets the component before the last slash. If 
+<parameter>file_name</parameter> consists only of directory separators (and on Windows, 
+possibly a drive letter), a single separator is returned. If
+<parameter>file_name</parameter> is empty, it gets ".".</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>file_name</parameter>&nbsp;:</term>
+<listitem><simpara> the name of the file.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> a newly allocated string containing the last component of 
+  the filename.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-path-get-dirname"/>g_path_get_dirname ()</title>
+<indexterm><primary>g_path_get_dirname</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_path_get_dirname              (const <link linkend="gchar">gchar</link> *file_name);</programlisting>
+<para>
+Gets the directory components of a file name.  If the file name has no
+directory components "." is returned.  The returned string should be
+freed when no longer needed.
+</para><variablelist role="params">
+<varlistentry><term><parameter>file_name</parameter>&nbsp;:</term>
+<listitem><simpara>the name of the file.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the directory components of the file.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-build-filename"/>g_build_filename ()</title>
+<indexterm><primary>g_build_filename</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_build_filename                (const <link linkend="gchar">gchar</link> *first_element,
+                                             ...);</programlisting>
+<para>
+Creates a filename from a series of elements using the correct
+separator for filenames.
+</para>
+<para>
+On Unix, this function behaves identically to <literal>g_build_path
+(G_DIR_SEPARATOR_S, first_element, ....)</literal>.
+</para>
+<para>
+On Windows, it takes into account that either the backslash
+(<literal>\</literal> or slash (<literal>/</literal>) can be used
+as separator in filenames, but otherwise behaves as on Unix. When
+file pathname separators need to be inserted, the one that last
+previously occurred in the parameters (reading from left to right)
+is used.
+</para>
+<para>
+No attempt is made to force the resulting filename to be an absolute
+path. If the first element is a relative path, the result will
+be a relative path.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>first_element</parameter>&nbsp;:</term>
+<listitem><simpara> the first element in the path
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>...</parameter>&nbsp;:</term>
+<listitem><simpara> remaining elements in path, terminated by <literal>NULL</literal>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> a newly-allocated string that must be freed with <link linkend="g-free"><function>g_free()</function></link>.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-build-path"/>g_build_path ()</title>
+<indexterm><primary>g_build_path</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_build_path                    (const <link linkend="gchar">gchar</link> *separator,
+                                             const <link linkend="gchar">gchar</link> *first_element,
+                                             ...);</programlisting>
+<para>
+Creates a path from a series of elements using <parameter>separator</parameter> as the
+separator between elements. At the boundary between two elements,
+any trailing occurrences of separator in the first element, or
+leading occurrences of separator in the second element are removed
+and exactly one copy of the separator is inserted.
+</para>
+<para>
+Empty elements are ignored.
+</para>
+<para>
+The number of leading copies of the separator on the result is
+the same as the number of leading copies of the separator on
+the first non-empty element.
+</para>
+<para>
+The number of trailing copies of the separator on the result is
+the same as the number of trailing copies of the separator on
+the last non-empty element. (Determination of the number of
+trailing copies is done without stripping leading copies, so
+if the separator is <literal>ABA</literal>, <literal>ABABA</literal>
+has 1 trailing copy.)
+</para>
+<para>
+However, if there is only a single non-empty element, and there
+are no characters in that element not part of the leading or
+trailing separators, then the result is exactly the original value
+of that element.
+</para>
+<para>
+Other than for determination of the number of leading and trailing
+copies of the separator, elements consisting only of copies
+of the separator are ignored.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>separator</parameter>&nbsp;:</term>
+<listitem><simpara> a string used to separator the elements of the path.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>first_element</parameter>&nbsp;:</term>
+<listitem><simpara> the first element in the path
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>...</parameter>&nbsp;:</term>
+<listitem><simpara> remaining elements in path, terminated by <literal>NULL</literal>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> a newly-allocated string that must be freed with <link linkend="g-free"><function>g_free()</function></link>.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-find-program-in-path"/>g_find_program_in_path ()</title>
+<indexterm><primary>g_find_program_in_path</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_find_program_in_path          (const <link linkend="gchar">gchar</link> *program);</programlisting>
+<para>
+Locates the first executable named <parameter>program</parameter> in the user's path, in the
+same way that <link linkend="execvp"><function>execvp()</function></link> would locate it. Returns an allocated string
+with the absolute path name, or NULL if the program is not found in
+the path. If <parameter>program</parameter> is already an absolute path, returns a copy of
+<parameter>program</parameter> if <parameter>program</parameter> exists and is executable, and NULL otherwise.
+</para>
+<para>
+On Windows, if <parameter>program</parameter> does not have a file type suffix, tries to
+append the suffixes in the PATHEXT environment variable (if that
+doesn't exists, the suffixes .com, .exe, and .bat) in turn, and
+then look for the resulting file name in the same way as
+<link linkend="CreateProcess"><function>CreateProcess()</function></link> would. This means first in the directory where the
+program was loaded from, then in the current directory, then in the
+Windows 32-bit system directory, then in the Windows directory, and
+finally in the directories in the PATH environment variable. If
+the program is found, the return value contains the full name
+including the type suffix.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>program</parameter>&nbsp;:</term>
+<listitem><simpara> a program name
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> absolute path, or NULL
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-bit-nth-lsf"/>g_bit_nth_lsf ()</title>
+<indexterm><primary>g_bit_nth_lsf</primary></indexterm><programlisting><link linkend="gint">gint</link>        g_bit_nth_lsf                   (<link linkend="gulong">gulong</link> mask,
+                                             <link linkend="gint">gint</link> nth_bit);</programlisting>
+<para>
+Find the position of the first bit set in <parameter>mask</parameter>, searching from (but not
+including) <parameter>nth_bit</parameter> upwards. Bits are numbered from 0 (least significant)
+to sizeof(<link linkend="gulong"><type>gulong</type></link>) * 8 - 1 (31 or 63, usually). To start searching from the
+0th bit, set <parameter>nth_bit</parameter> to -1.
+</para><variablelist role="params">
+<varlistentry><term><parameter>mask</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="gulong"><type>gulong</type></link> containing flags.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>nth_bit</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the bit to start the search from.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the index of the first bit set which is higher than <parameter>nth_bit</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-bit-nth-msf"/>g_bit_nth_msf ()</title>
+<indexterm><primary>g_bit_nth_msf</primary></indexterm><programlisting><link linkend="gint">gint</link>        g_bit_nth_msf                   (<link linkend="gulong">gulong</link> mask,
+                                             <link linkend="gint">gint</link> nth_bit);</programlisting>
+<para>
+Find the position of the first bit set in <parameter>mask</parameter>, searching from (but not
+including) <parameter>nth_bit</parameter> downwards. Bits are numbered from 0 (least significant)
+to sizeof(<link linkend="gulong"><type>gulong</type></link>) * 8 - 1 (31 or 63, usually). To start searching from the
+last bit, set <parameter>nth_bit</parameter> to -1 or GLIB_SIZEOF_LONG * 8.
+</para><variablelist role="params">
+<varlistentry><term><parameter>mask</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="gulong"><type>gulong</type></link> containing flags.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>nth_bit</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the bit to start the search from.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the index of the first bit set which is lower than <parameter>nth_bit</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-bit-storage"/>g_bit_storage ()</title>
+<indexterm><primary>g_bit_storage</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_bit_storage                   (<link linkend="gulong">gulong</link> number);</programlisting>
+<para>
+Gets the number of bits used to hold <parameter>number</parameter>,
+e.g. if <parameter>number</parameter> is 4, 3 bits are needed.
+</para><variablelist role="params">
+<varlistentry><term><parameter>number</parameter>&nbsp;:</term>
+<listitem><simpara>a guint.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the number of bits used to hold <parameter>number</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-spaced-primes-closest"/>g_spaced_primes_closest ()</title>
+<indexterm><primary>g_spaced_primes_closest</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_spaced_primes_closest         (<link linkend="guint">guint</link> num);</programlisting>
+<para>
+Gets the smallest prime number from a built-in array of primes which
+is larger than <parameter>num</parameter>. This is used within GLib to calculate the optimum
+size of a <link linkend="GHashTable"><type>GHashTable</type></link>.
+</para>
+<para>
+The built-in array of primes ranges from 11 to 13845163 such that
+each prime is approximately 1.5-2 times the previous prime.
+</para><variablelist role="params">
+<varlistentry><term><parameter>num</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="guint"><type>guint</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the smallest prime number from a built-in array of primes which is
+larger than <parameter>num</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-atexit"/>g_atexit ()</title>
+<indexterm><primary>g_atexit</primary></indexterm><programlisting><link linkend="void">void</link>        g_atexit                        (<link linkend="GVoidFunc">GVoidFunc</link> func);</programlisting>
+<para>
+Specifies a function to be called at normal program termination.
+</para><variablelist role="params">
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>the function to call on normal program termination.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-parse-debug-string"/>g_parse_debug_string ()</title>
+<indexterm><primary>g_parse_debug_string</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_parse_debug_string            (const <link linkend="gchar">gchar</link> *string,
+                                             const <link linkend="GDebugKey">GDebugKey</link> *keys,
+                                             <link linkend="guint">guint</link> nkeys);</programlisting>
+<para>
+Parses a string containing debugging options separated by ':' into a guint
+containing bit flags.
+This is used within GDK and GTK+ to parse the debug options passed on the
+command line or through environment variables.
+</para><variablelist role="params">
+<varlistentry><term><parameter>string</parameter>&nbsp;:</term>
+<listitem><simpara>a list of debug options separated by ':' or "all" to set all flags.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>keys</parameter>&nbsp;:</term>
+<listitem><simpara>pointer to an array of <link linkend="GDebugKey"><type>GDebugKey</type></link> which associate strings with
+bit flags.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>nkeys</parameter>&nbsp;:</term>
+<listitem><simpara>the number of <link linkend="GDebugKey"><type>GDebugKey</type></link> in the array.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the combined set of bit flags.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GDebugKey"/>struct GDebugKey</title>
+<indexterm><primary>GDebugKey</primary></indexterm><programlisting>struct GDebugKey {
+
+  gchar *key;
+  guint	 value;
+};
+</programlisting>
+<para>
+Associates a string with a bit flag.
+Used in <link linkend="g-parse-debug-string"><function>g_parse_debug_string()</function></link>.
+</para></refsect2>
+<refsect2>
+<title><anchor id="GVoidFunc"/>GVoidFunc ()</title>
+<indexterm><primary>GVoidFunc</primary></indexterm><programlisting><link linkend="void">void</link>        (*GVoidFunc)                    (void);</programlisting>
+<para>
+Declares a type of function which takes no arguments and has no return value.
+It is used to specify the type function passed to <link linkend="g-atexit"><function>g_atexit()</function></link>.
+</para></refsect2>
+<refsect2>
+<title><anchor id="GFreeFunc"/>GFreeFunc ()</title>
+<indexterm><primary>GFreeFunc</primary></indexterm><programlisting><link linkend="void">void</link>        (*GFreeFunc)                    (<link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+Declares a type of function which takes an arbitrary data pointer argument
+and has no return value. It is not currently used in GLib or GTK+.
+</para><variablelist role="params">
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>a data pointer.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-qsort-with-data"/>g_qsort_with_data ()</title>
+<indexterm><primary>g_qsort_with_data</primary></indexterm><programlisting><link linkend="void">void</link>        g_qsort_with_data               (<link linkend="gconstpointer">gconstpointer</link> pbase,
+                                             <link linkend="gint">gint</link> total_elems,
+                                             <link linkend="gsize">gsize</link> size,
+                                             <link linkend="GCompareDataFunc">GCompareDataFunc</link> compare_func,
+                                             <link linkend="gpointer">gpointer</link> user_data);</programlisting>
+<para>
+This is just like the standard C <link linkend="qsort"><function>qsort()</function></link> function, but
+the comparison routine accepts a user data argument.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>pbase</parameter>&nbsp;:</term>
+<listitem><simpara> start of array to sort
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>total_elems</parameter>&nbsp;:</term>
+<listitem><simpara> elements in the array
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>size</parameter>&nbsp;:</term>
+<listitem><simpara> size of each element
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>compare_func</parameter>&nbsp;:</term>
+<listitem><simpara> function to compare elements
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data</parameter>&nbsp;:</term>
+<listitem><simpara> data to pass to <parameter>compare_func</parameter>
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-nullify-pointer"/>g_nullify_pointer ()</title>
+<indexterm><primary>g_nullify_pointer</primary></indexterm><programlisting><link linkend="void">void</link>        g_nullify_pointer               (<link linkend="gpointer">gpointer</link> *nullify_location);</programlisting>
+<para>
+Set the pointer at the specified location to <literal>NULL</literal>.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>nullify_location</parameter>&nbsp;:</term>
+<listitem><simpara> the memory address of the pointer.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

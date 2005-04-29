@@ -14,12 +14,9 @@ all:: server-setkey-test client-setkey-test
 # The client-side test programs.
 #
 
-init-test: init-test.o client_init.o $(KADMCLNT_DEPLIBS) $(KRB5_BASE_DEPLIBS)
-	$(CC_LINK) -o init-test init-test.o client_init.o \
+init-test: init-test.o $(KADMCLNT_DEPLIBS) $(KRB5_BASE_DEPLIBS)
+	$(CC_LINK) -o init-test init-test.o \
 		$(KADMCLNT_LIBS) $(KRB5_BASE_LIBS)
-
-client_init.o: $(SRCTOP)/lib/kadm5/clnt/client_init.c
-	$(CC) $(ALL_CFLAGS) -UUSE_KADM5_API_VERSION -DUSE_KADM5_API_VERSION=2 -DINIT_TEST -c -I$(SRCTOP)/lib/kadm5 $(SRCTOP)/lib/kadm5/clnt/client_init.c
 
 destroy-test: destroy-test.o $(KADMCLNT_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 	$(CC_LINK) -o destroy-test destroy-test.o \
@@ -115,14 +112,16 @@ unit-test-client-body: site.exp test-noauth test-destroy test-handle-client
 	$(ENV_SETUP) $(RUNTEST) --tool api RPC=1 API=$(CLNTTCL) \
 		KINIT=$(BUILDTOP)/clients/kinit/kinit \
 		KDESTROY=$(BUILDTOP)/clients/kdestroy/kdestroy \
-		KADMIN_LOCAL=$(BUILDTOP)/kadmin/cli/kadmin.local $(RUNTESTFLAGS)
+		KADMIN_LOCAL=$(BUILDTOP)/kadmin/cli/kadmin.local \
+		PRIOCNTL_HACK=@PRIOCNTL_HACK@ $(RUNTESTFLAGS)
 	-mv api.log capi.log
 	-mv api.sum capi.sum
 
 unit-test-server-body: site.exp test-handle-server lock-test 
 	$(ENV_SETUP) $(RUNTEST) --tool api RPC=0 API=$(SRVTCL) \
 		LOCKTEST=./lock-test \
-		KADMIN_LOCAL=$(BUILDTOP)/kadmin/cli/kadmin.local $(RUNTESTFLAGS)
+		KADMIN_LOCAL=$(BUILDTOP)/kadmin/cli/kadmin.local \
+		PRIOCNTL_HACK=@PRIOCNTL_HACK@ $(RUNTESTFLAGS)
 	-mv api.log sapi.log
 	-mv api.sum sapi.sum
 

@@ -2,8 +2,6 @@
 # Do a makedepend, only leave out the standard headers
 # Written by Ben Laurie <ben@algroup.co.uk> 19 Jan 1999
 
-export PATH=$PATH:/usr/X11R6/bin
-
 TOP=$1
 shift
 

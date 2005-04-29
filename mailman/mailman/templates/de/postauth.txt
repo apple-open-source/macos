@@ -11,4 +11,4 @@ Bitte besuchen Sie bei Gelegenheit
 
 %(admindb_url)s
         
-um die Email zu genehmigen oder abzulehnen.
+um die e-Mail zu genehmigen oder abzulehnen.

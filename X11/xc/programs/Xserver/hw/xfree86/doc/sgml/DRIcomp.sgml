@@ -13,7 +13,7 @@
     <date>21 April 2001
 
     <ident>
-    $XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/DRIcomp.sgml,v 1.19 2002/11/26 01:05:50 dawes Exp $
+    $XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/DRIcomp.sgml,v 1.20 2003/07/14 14:51:35 dawes Exp $
     </ident>
 
     <toc>
@@ -434,6 +434,14 @@
           <verb>
             #define MesaUseSSE YES
           </verb>
+
+	<p>
+	  If you want to build the DRM kernel modules as part of the
+	  full build process, add the following:
+          <verb>
+            #define BuildXF86DRM YES
+          </verb>
+	  Otherwise, you'll need to build them separately as described below.
 	<p>
 
       <sect1>Compilation <p>
@@ -463,12 +471,25 @@
 
           Using your text editor, examine <tt>world.log</tt> for errors
           by searching for the pattern <tt>***</tt>.
+
         <p>
-          Verify that the DRI kernel module(s) for your system were built:
+          After fixing the errors, run <tt>make World</tt> again.
+          Later, you might just compile parts of the source tree but it's
+          important that the whole tree will build first.
+
+        <p>
+          If you edited your host.def file to enable automatic building of the
+          DRI kernel module(s), verify that they were built:
           <verb>
           cd ~/DRI-CVS/build/xc/programs/Xserver/hw/xfree86/os-support/linux/drm/kernel
           ls
           </verb>
+	  Otherwise, build them now by running
+          <verb>
+          cd ~/DRI-CVS/build/xc/programs/Xserver/hw/xfree86/os-support/linux/drm/kernel
+          make -f Makefile.linux
+          </verb>
+
         <p>
           For the 3dfx Voodoo, you should see <em>tdfx.o</em>.
           For the Matrox G200/G400, you should see <em>mga.o</em>.
@@ -482,19 +503,16 @@
         <p>
           If your build machine is running a different version of the kernel
           than your target machine (i.e. 2.2.x vs. 2.4.x), make will
-          select the wrong kernel headers. This can be fixed by explicitly
-          setting the value of <tt>TREE</tt>.
+          select the wrong kernel source tree. This can be fixed by explicitly
+          setting the value of <tt>LINUXDIR</tt>.
           If the path to your kernel source is 
           <tt>/usr/src/linux-2.4.x</tt>,
           <verb>
           cd ~/DRI-CVS/build/xc/programs/Xserver/hw/xfree86/os-support/linux/drm/kernel
-          make TREE=/usr/src/linux-2.4.x/include
+          make -f Makefile.linux LINUXDIR=/usr/src/linux-2.4.x
           </verb>
-          or alternatively, edit Makefile to include this change.
-        <p>
-          After fixing the errors, run <tt>make World</tt> again.
-          Later, you might just compile parts of the source tree but it's
-          important that the whole tree will build first.
+	  or alternatively, edit Makefile.linux to set <tt>LINUXDIR</tt>
+	  before the <tt>ifndef LINUXDIR</tt> line.
 
       <sect1>DRI kernel module installation <p>
 

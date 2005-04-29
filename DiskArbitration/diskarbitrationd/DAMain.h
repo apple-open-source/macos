@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@ extern "C" {
 extern const char *           kDAMainMountPointFolder;
 extern const char *           kDAMainMountPointFolderCookieFile;
 
+extern CFURLRef               gDABundlePath;
 extern CFStringRef            gDAConsoleUser;
 extern gid_t                  gDAConsoleUserGID;
 extern uid_t                  gDAConsoleUserUID;
@@ -55,8 +56,6 @@ extern CFMutableArrayRef      gDARequestList;
 extern CFMutableArrayRef      gDAResponseList;
 extern CFMutableArrayRef      gDASessionList;
 extern CFMutableDictionaryRef gDAUnitList;
-
-extern void DAMainRendezvous( void );
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,185 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		4CA1FEAC052A3C5800F22E42 = {
+			children = (
+				C2B3635A05894DAF00DA394D,
+				C26403820589583400E95F9A,
+				4CA1FEB7052A3C6D00F22E42,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4CA1FEAE052A3C5800F22E42 = {
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		4CA1FEAF052A3C5800F22E42 = {
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		4CA1FEB0052A3C5800F22E42 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				4CA1FEAE052A3C5800F22E42,
+				4CA1FEAF052A3C5800F22E42,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 4CA1FEAC052A3C5800F22E42;
+			productRefGroup = 4CA1FEB7052A3C6D00F22E42;
+			projectDirPath = "";
+			targets = (
+				4CA1FEB5052A3C6D00F22E42,
+			);
+		};
+		4CA1FEB1052A3C6D00F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB2052A3C6D00F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+				C2B3635C05894DAF00DA394D,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB3052A3C6D00F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+				C264033F0589582F00E95F9A,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB5052A3C6D00F22E42 = {
+			buildPhases = (
+				4CA1FEB1052A3C6D00F22E42,
+				4CA1FEB2052A3C6D00F22E42,
+				4CA1FEB3052A3C6D00F22E42,
+			);
+			buildSettings = {
+				BUILD_VARIANTS = "normal debug";
+				CURRENT_PROJECT_VERSION = 11;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\"";
+				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"securityd_client\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\"";
+				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" -pg";
+				PRODUCT_NAME = systemkeychain;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = security_systemkeychain;
+			productInstallPath = /usr/sbin;
+			productName = security_systemkeychain;
+			productReference = 4CA1FEB6052A3C6D00F22E42;
+		};
+		4CA1FEB6052A3C6D00F22E42 = {
+			isa = PBXFileReference;
+			lastKnownFileType = "compiled.mach-o.executable";
+			path = systemkeychain;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		4CA1FEB7052A3C6D00F22E42 = {
+			children = (
+				4CA1FEB6052A3C6D00F22E42,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+//C20
+//C21
+//C22
+//C23
+//C24
+		C264033E0589582F00E95F9A = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		C264033F0589582F00E95F9A = {
+			fileRef = C264033E0589582F00E95F9A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C26403820589583400E95F9A = {
+			children = (
+				C264033E0589582F00E95F9A,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		C2B3635A05894DAF00DA394D = {
+			children = (
+				C2B3635B05894DAF00DA394D,
+			);
+			isa = PBXGroup;
+			path = src;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		C2B3635B05894DAF00DA394D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = systemkeychain.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		C2B3635C05894DAF00DA394D = {
+			fileRef = C2B3635B05894DAF00DA394D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 4CA1FEB0052A3C5800F22E42;
+}

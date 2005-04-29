@@ -1,3 +1,5 @@
+// $XFree86: xc/programs/xkbcomp/symbols/ctrl,v 3.2 2003/10/24 20:38:20 tsi Exp $
+//
 // eliminate the caps lock key completely (replace with control)
 partial modifier_keys 
 xkb_symbols "nocaps" {
@@ -28,4 +30,10 @@ partial modifier_keys
 xkb_symbols "ctrl_aa" {
     key <AA00>	{  symbols[Group1]= [ Control_L ] };
     key <AC00>	{  symbols[Group1]= [ Caps_Lock ] };
+};
+
+// Right Ctrl works as Right Alt
+partial modifier_keys 
+xkb_symbols "ctrl_ra" {
+    key <RCTL>	{  symbols[Group1]= [ Alt_R ] };
 };

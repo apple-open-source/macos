@@ -70,12 +70,12 @@
 **			char  (dav_lock_type),
 **			int    depth,
 **			time_t expires,
-**			uuid_t locktoken,
+**			dav_uuid_t locktoken,
 **			char[] owner,
 **                      char[] auth_user]
 **
 **    INDIRECT LOCK:   [char  (DAV_LOCK_INDIRECT),
-**			uuid_t locktoken,
+**			dav_uuid_t locktoken,
 **			time_t expires,
 **			int    key_size,
 **			char[] key]
@@ -105,7 +105,7 @@ static dav_error * dav_fs_remove_locknull_member(pool *p,
 ** Use the opaquelock scheme for locktokens
 */
 struct dav_locktoken {
-    uuid_t uuid;
+    dav_uuid_t uuid;
 };
 
 

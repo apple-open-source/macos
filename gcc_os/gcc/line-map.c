@@ -25,9 +25,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "line-map.h"
 #include "intl.h"
 
-/* APPLE LOCAL cpp-precomp */
-extern int flag_cpp_precomp;
-
 static void trace_include
   PARAMS ((const struct line_maps *, const struct line_map *));
 
@@ -119,9 +116,7 @@ add_line_map (set, reason, sysp, from_line, to_file, to_line)
 
       /* Depending upon whether we are handling preprocessed input or
 	 not, this can be a user error or an ICE.  */
-      /* APPLE LOCAL cpp-precomp dpatel */
-      /* Remove when Radar 2788633 is fixed. */ 
-      if (error && !flag_cpp_precomp)
+      if (error)
 	fprintf (stderr, "line-map.c: file \"%s\" left but not entered\n",
 		 to_file);
 

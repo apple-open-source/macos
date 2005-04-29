@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/r128_dri.c,v 1.28 2003/02/07 20:41:14 martin Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/r128_dri.c,v 1.32 2003/11/10 18:41:20 tsi Exp $ */
 /*
  * Copyright 1999, 2000 ATI Technologies Inc., Markham, Ontario,
  *                      Precision Insight, Inc., Cedar Park, Texas, and
@@ -49,6 +49,7 @@
 #include "windowstr.h"
 #include "xf86PciInfo.h"
 
+#include "shadowfb.h"
 				/* GLX/DRI/DRM definitions */
 #define _XF86DRI_SERVER_
 #include "GL/glxtokens.h"
@@ -63,6 +64,13 @@
 #else
 # define DRM_PAGE_SIZE 4096
 #endif
+
+static void R128DRITransitionTo2d(ScreenPtr pScreen);
+static void R128DRITransitionTo3d(ScreenPtr pScreen);
+static void R128DRITransitionMultiToSingle3d(ScreenPtr pScreen);
+static void R128DRITransitionSingleToMulti3d(ScreenPtr pScreen);
+
+static void R128DRIRefreshArea(ScrnInfoPtr pScrn, int num, BoxPtr pbox);
 
 /* Initialize the visual configs that are supported by the hardware.
    These are combined with the visual configs that the indirect
@@ -144,7 +152,7 @@ static Bool R128InitVisualConfigs(ScreenPtr pScreen)
 		    pConfigs[i].accumBlueSize  = 0;
 		    pConfigs[i].accumAlphaSize = 0;
 		}
-		if (db) 
+		if (db)
 		    pConfigs[i].doubleBuffer       = TRUE;
 		else
 		    pConfigs[i].doubleBuffer       = FALSE;
@@ -158,9 +166,9 @@ static Bool R128InitVisualConfigs(ScreenPtr pScreen)
 		pConfigs[i].auxBuffers         = 0;
 		pConfigs[i].level              = 0;
 		if (accum || stencil) {
-		   pConfigs[i].visualRating    = GLX_SLOW_VISUAL_EXT;
+		   pConfigs[i].visualRating    = GLX_SLOW_CONFIG;
 		} else {
-		   pConfigs[i].visualRating    = GLX_NONE_EXT;
+		   pConfigs[i].visualRating    = GLX_NONE;
 		}
 		pConfigs[i].transparentPixel   = GLX_NONE;
 		pConfigs[i].transparentRed     = 0;
@@ -243,9 +251,9 @@ static Bool R128InitVisualConfigs(ScreenPtr pScreen)
 		pConfigs[i].auxBuffers         = 0;
 		pConfigs[i].level              = 0;
 		if (accum || stencil) {
-		   pConfigs[i].visualRating    = GLX_SLOW_VISUAL_EXT;
+		   pConfigs[i].visualRating    = GLX_SLOW_CONFIG;
 		} else {
-		   pConfigs[i].visualRating    = GLX_NONE_EXT;
+		   pConfigs[i].visualRating    = GLX_NONE;
 		}
 		pConfigs[i].transparentPixel   = GLX_NONE;
 		pConfigs[i].transparentRed     = 0;
@@ -355,7 +363,11 @@ static void R128DRIInitBuffers(WindowPtr pWin, RegionPtr prgn, CARD32 indx)
     int         nbox, nboxSave;
     int         depth;
 
-    /* FIXME: Use accel when CCE 2D code is written */
+    /* FIXME: Use accel when CCE 2D code is written
+     * EA: What is this code kept for? Radeon doesn't have it and
+     * has a comment: "There's no need for the 2d driver to be clearing
+     * buffers for the 3d client.  It knows how to do that on its own."
+     */
     if (info->directRenderingEnabled)
 	return;
 
@@ -477,7 +489,7 @@ static Bool R128DRIAgpInit(R128InfoPtr info, ScreenPtr pScreen)
 	return FALSE;
     }
     xf86DrvMsg(pScreen->myNum, X_INFO,
-	       "[agp] %d kB allocated with handle 0x%08x\n",
+	       "[agp] %d kB allocated with handle 0x%08lx\n",
 	       info->agpSize*1024, info->agpMemHandle);
 
     if (drmAgpBind(info->drmFD, info->agpMemHandle, info->agpOffset) < 0) {
@@ -606,7 +618,7 @@ static Bool R128DRIAgpInit(R128InfoPtr info, ScreenPtr pScreen)
 	return FALSE;
     }
     agpBase = drmAgpBase(info->drmFD);
-    OUTREG(R128_AGP_BASE, agpBase); 
+    OUTREG(R128_AGP_BASE, agpBase);
     OUTREG(R128_AGP_CNTL, cntl);
 
 				/* Disable Rage 128's PCIGART registers */
@@ -637,7 +649,7 @@ static Bool R128DRIPciInit(R128InfoPtr info, ScreenPtr pScreen)
 	return FALSE;
     }
     xf86DrvMsg(pScreen->myNum, X_INFO,
-	       "[pci] %d kB allocated with handle 0x%08x\n",
+	       "[pci] %d kB allocated with handle 0x%08lx\n",
 	       info->agpSize*1024, info->pciMemHandle);
 
 				/* Initialize the CCE ring buffer data */
@@ -1063,6 +1075,10 @@ Bool R128DRIScreenInit(ScreenPtr pScreen)
     pDRIInfo->InitBuffers    = R128DRIInitBuffers;
     pDRIInfo->MoveBuffers    = R128DRIMoveBuffers;
     pDRIInfo->bufferRequests = DRI_ALL_WINDOWS;
+    pDRIInfo->TransitionTo2d = R128DRITransitionTo2d;
+    pDRIInfo->TransitionTo3d = R128DRITransitionTo3d;
+    pDRIInfo->TransitionSingleToMulti3D = R128DRITransitionSingleToMulti3d;
+    pDRIInfo->TransitionMultiToSingle3D = R128DRITransitionMultiToSingle3d;
 
     pDRIInfo->createDummyCtx     = TRUE;
     pDRIInfo->createDummyCtxPriv = FALSE;
@@ -1130,6 +1146,7 @@ Bool R128DRIScreenInit(ScreenPtr pScreen)
 	    R128DRICloseScreen(pScreen);
 	    return FALSE;
 	}
+	info->drmMinor = version->version_minor;
 	drmFreeVersion(version);
     }
 
@@ -1161,9 +1178,9 @@ Bool R128DRIScreenInit(ScreenPtr pScreen)
     {
 	void *scratch_ptr;
         int scratch_int;
-	
+
 	DRIGetDeviceInfo(pScreen, &info->fbHandle,
-                         &scratch_int, &scratch_int, 
+                         &scratch_int, &scratch_int,
                          &scratch_int, &scratch_int,
                          &scratch_ptr);
     }
@@ -1253,6 +1270,15 @@ Bool R128DRIFinishScreenInit(ScreenPtr pScreen)
     pR128DRI->agpTexOffset      = info->agpTexStart;
     pR128DRI->sarea_priv_offset = sizeof(XF86DRISAREARec);
 
+    /* Have shadowfb run only while there is 3d active. */
+    if (info->allowPageFlip && info->drmMinor >= 5 ) {
+	ShadowFBInit( pScreen, R128DRIRefreshArea );
+    } else if (info->allowPageFlip) {
+	xf86DrvMsg(pScreen->myNum, X_WARNING,
+		   "[dri] Kernel module version 2.5.0 or newer is required for pageflipping.\n");
+       info->allowPageFlip = 0;
+    }
+
     return TRUE;
 }
 
@@ -1303,10 +1329,10 @@ void R128DRICloseScreen(ScreenPtr pScreen)
 	drmUnmap(info->ring, info->ringMapSize);
 	info->ring = NULL;
     }
-    if (info->agpMemHandle) {
+    if (info->agpMemHandle != DRM_AGP_NO_HANDLE) {
 	drmAgpUnbind(info->drmFD, info->agpMemHandle);
 	drmAgpFree(info->drmFD, info->agpMemHandle);
-	info->agpMemHandle = 0;
+	info->agpMemHandle = DRM_AGP_NO_HANDLE;
 	drmAgpRelease(info->drmFD);
     }
     if (info->pciMemHandle) {
@@ -1334,4 +1360,130 @@ void R128DRICloseScreen(ScreenPtr pScreen)
 	xfree(info->pVisualConfigsPriv);
 	info->pVisualConfigsPriv = NULL;
     }
+}
+
+/* Use callbacks from dri.c to support pageflipping mode for a single
+ * 3d context without need for any specific full-screen extension.
+ */
+
+/* Use the shadowfb module to maintain a list of dirty rectangles.
+ * These are blitted to the back buffer to keep both buffers clean
+ * during page-flipping when the 3d application isn't fullscreen.
+ *
+ * Unlike most use of the shadowfb code, both buffers are in video memory.
+ *
+ * An alternative to this would be to organize for all on-screen drawing
+ * operations to be duplicated for the two buffers.  That might be
+ * faster, but seems like a lot more work...
+ */
+
+
+static void R128DRIRefreshArea(ScrnInfoPtr pScrn, int num, BoxPtr pbox)
+{
+    R128InfoPtr         info       = R128PTR(pScrn);
+    int                 i;
+    R128SAREAPrivPtr    pSAREAPriv = DRIGetSAREAPrivate(pScrn->pScreen);
+
+    /* Don't want to do this when no 3d is active and pages are
+     * right-way-round
+     */
+    if (!pSAREAPriv->pfAllowPageFlip && pSAREAPriv->pfCurrentPage == 0)
+	return;
+
+    (*info->accel->SetupForScreenToScreenCopy)(pScrn,
+					       1, 1, GXcopy,
+					       (CARD32)(-1), -1);
+
+    for (i = 0 ; i < num ; i++, pbox++) {
+	int xa = max(pbox->x1, 0), xb = min(pbox->x2, pScrn->virtualX-1);
+	int ya = max(pbox->y1, 0), yb = min(pbox->y2, pScrn->virtualY-1);
+
+	if (xa <= xb && ya <= yb) {
+	    (*info->accel->SubsequentScreenToScreenCopy)(pScrn, xa, ya,
+							 xa + info->backX,
+							 ya + info->backY,
+							 xb - xa + 1,
+							 yb - ya + 1);
+	}
+    }
+}
+
+static void R128EnablePageFlip(ScreenPtr pScreen)
+{
+    ScrnInfoPtr         pScrn      = xf86Screens[pScreen->myNum];
+    R128InfoPtr         info       = R128PTR(pScrn);
+    R128SAREAPrivPtr    pSAREAPriv = DRIGetSAREAPrivate(pScreen);
+
+    if (info->allowPageFlip) {
+	/* Duplicate the frontbuffer to the backbuffer */
+	(*info->accel->SetupForScreenToScreenCopy)(pScrn,
+						   1, 1, GXcopy,
+						   (CARD32)(-1), -1);
+
+	(*info->accel->SubsequentScreenToScreenCopy)(pScrn,
+						     0,
+						     0,
+						     info->backX,
+						     info->backY,
+						     pScrn->virtualX,
+						     pScrn->virtualY);
+
+	pSAREAPriv->pfAllowPageFlip = 1;
+    }
+}
+
+static void R128DisablePageFlip(ScreenPtr pScreen)
+{
+    /* Tell the clients not to pageflip.  How?
+     *   -- Field in sarea, plus bumping the window counters.
+     *   -- DRM needs to cope with Front-to-Back swapbuffers.
+     */
+    R128SAREAPrivPtr  pSAREAPriv = DRIGetSAREAPrivate(pScreen);
+
+    pSAREAPriv->pfAllowPageFlip = 0;
+}
+
+static void R128DRITransitionSingleToMulti3d(ScreenPtr pScreen)
+{
+    R128DisablePageFlip(pScreen);
+}
+
+static void R128DRITransitionMultiToSingle3d(ScreenPtr pScreen)
+{
+    /* Let the remaining 3d app start page flipping again */
+    R128EnablePageFlip(pScreen);
+}
+
+static void R128DRITransitionTo3d(ScreenPtr pScreen)
+{
+    ScrnInfoPtr    pScrn = xf86Screens[pScreen->myNum];
+    R128InfoPtr    info  = R128PTR(pScrn);
+
+    R128EnablePageFlip(pScreen);
+
+    info->have3DWindows = 1;
+
+    if (info->cursor_start)
+        xf86ForceHWCursor(pScreen, TRUE);
+}
+
+static void R128DRITransitionTo2d(ScreenPtr pScreen)
+{
+    ScrnInfoPtr         pScrn      = xf86Screens[pScreen->myNum];
+    R128InfoPtr         info       = R128PTR(pScrn);
+    R128SAREAPrivPtr    pSAREAPriv = DRIGetSAREAPrivate(pScreen);
+
+    /* Shut down shadowing if we've made it back to the front page */
+    if (pSAREAPriv->pfCurrentPage == 0) {
+	R128DisablePageFlip(pScreen);
+    } else {
+	xf86DrvMsg(pScreen->myNum, X_WARNING,
+		   "[dri] R128DRITransitionTo2d: "
+		   "kernel failed to unflip buffers.\n");
+    }
+
+    info->have3DWindows = 0;
+
+    if (info->cursor_start)
+        xf86ForceHWCursor(pScreen, FALSE);
 }

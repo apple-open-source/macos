@@ -1,0 +1,22 @@
+--- Makefile.in.orig	Sun Sep  5 14:31:43 2004
++++ Makefile.in	Sun Sep  5 14:32:03 2004
+@@ -2,7 +2,7 @@
+ # [need allow_null_glob_expansion=true]
+ # The parts behind % are removed when no message catalogs should be installed
+ 
+-all:	Makefile conf_script source manhtml manpages %messages
++all:	Makefile conf_script source manpages %messages
+ 	@echo; echo 'You can now do "make install"'
+ 
+ Makefile: Makefile.in configure
+@@ -42,9 +42,8 @@
+ %gencat/gencat:
+ %	cd gencat; $(MAKE)
+ 
+-install: src/Makefile man/Makefile man2html/Makefile %msgs/Makefile
++install: src/Makefile man/Makefile %msgs/Makefile
+ 	cd src; $(MAKE) install
+-	cd man2html; $(MAKE) install
+ 	cd man; $(MAKE) installsubdirs
+ %	cd msgs; $(MAKE) install
+ 	@echo; echo 'Done.'

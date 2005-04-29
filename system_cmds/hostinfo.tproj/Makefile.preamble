@@ -29,6 +29,20 @@ SECTORDER_FLAGS =
 # uncomment the following line.  This can be a big time saver.
 #SKIP_EXPORTING_HEADERS = YES
 
+# These variables provide hooks enabling you to add behavior at almost every
+# stage of the make:
+#
+#    BEFORE_PREBUILD: targets to build before installing headers for a subproject
+#    AFTER_PREBUILD: targets to build after installing headers for a subproject
+#    BEFORE_BUILD_RECURSION: targets to make before building subprojects
+#    BEFORE_BUILD: targets to make before a build, but after subprojects
+#    AFTER_BUILD: targets to make after a build
+#
+#    BEFORE_INSTALL: targets to build before installing the product
+#    AFTER_INSTALL: targets to build after installing the product
+
+AFTER_INSTALL += install-man-pages
+
 # Stuff related to exporting headers from this project that isn't already 
 # handled by PB.
 OTHER_PUBLIC_HEADERS =

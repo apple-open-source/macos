@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dstore.c,v 1.2 2000/11/30 18:45:47 abe Exp $";
+static char *rcsid = "$Id: dstore.c,v 1.3 2004/03/10 23:50:16 abe Exp $";
 #endif
 
 
@@ -48,18 +48,16 @@ struct file *Cfp;			/* curent file's file struct pointer */
 
 struct drive_Nl Drive_Nl[] = {
 
+	{ "aproc",	"_allproc"	},
+	{ "nproc",	"_nprocs"	},
 	{ X_NCACHE,	"_nchashtbl"	},
 	{ X_NCSIZE,	"_nchash"	},
 	{ "",		""		},
 	{ NULL,		NULL		}
 };
 
-kvm_t *Kd = NULL;			/* kvm descriptor */
-
-#if	defined(P_ADDR)
+int Kd = -1;				/* KMEM descriptor */
 KA_T Kpa;				/* kernel proc struct address */
-#endif	/* defined(P_ADDR) */
-
 struct l_vfs *Lvfs = NULL;		/* local vfs structure table */
 
 int Np = 0;				/* number of kernel processes */

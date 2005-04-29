@@ -1,12 +1,12 @@
 # Croatian translation for Mailman
-# Copyright (C) 2003 SRCE
-# Nino Katic <nkatic@jagor.srce.hr>, 2003.
+# Copyright (C) 2004 SRCE
+# Nino Katic <nkatic@jagor.srce.hr>, 2004.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: 1.0\n"
-"POT-Creation-Date: Sat Dec 13 14:40:28 2003\n"
-"PO-Revision-Date: 2003-11-28 11:00+1\n"
+"Project-Id-Version: 1.2\n"
+"POT-Creation-Date: Mon Mar 15 22:04:14 2004\n"
+"PO-Revision-Date: 2004-02-16 13:20+1\n"
 "Last-Translator: Nino Katic <nkatic@jagor.srce.hr>\n"
 "Language-Team: Croatian <nkatic@jagor.srce.hr>\n"
 "MIME-Version: 1.0\n"
@@ -23,7 +23,7 @@ msgid " %(size)i bytes "
 msgstr " %(size)i  bytes"
 
 #: Mailman/Archiver/HyperArch.py:279 Mailman/Archiver/HyperArch.py:438
-#: Mailman/Archiver/HyperArch.py:1000 Mailman/Archiver/HyperArch.py:1165
+#: Mailman/Archiver/HyperArch.py:1006 Mailman/Archiver/HyperArch.py:1132
 msgid " at "
 msgstr " at "
 
@@ -35,155 +35,155 @@ msgstr "Prethodna poruka"
 msgid "Next message:"
 msgstr "Sljedeca poruka"
 
-#: Mailman/Archiver/HyperArch.py:642 Mailman/Archiver/HyperArch.py:678
+#: Mailman/Archiver/HyperArch.py:648 Mailman/Archiver/HyperArch.py:684
 msgid "thread"
 msgstr "diskusija"
 
-#: Mailman/Archiver/HyperArch.py:643 Mailman/Archiver/HyperArch.py:679
+#: Mailman/Archiver/HyperArch.py:649 Mailman/Archiver/HyperArch.py:685
 msgid "subject"
 msgstr "naslov"
 
-#: Mailman/Archiver/HyperArch.py:644 Mailman/Archiver/HyperArch.py:680
+#: Mailman/Archiver/HyperArch.py:650 Mailman/Archiver/HyperArch.py:686
 msgid "author"
 msgstr "autor"
 
-#: Mailman/Archiver/HyperArch.py:645 Mailman/Archiver/HyperArch.py:681
+#: Mailman/Archiver/HyperArch.py:651 Mailman/Archiver/HyperArch.py:687
 msgid "date"
 msgstr "datum"
 
-#: Mailman/Archiver/HyperArch.py:717
+#: Mailman/Archiver/HyperArch.py:723
 msgid "<P>Currently, there are no archives. </P>"
 msgstr "<P>Trenutno nema arhive. </P>"
 
-#: Mailman/Archiver/HyperArch.py:755
+#: Mailman/Archiver/HyperArch.py:761
 msgid "Gzip'd Text%(sz)s"
 msgstr "Gzipovani Tekst%(sz)s"
 
-#: Mailman/Archiver/HyperArch.py:760
+#: Mailman/Archiver/HyperArch.py:766
 msgid "Text%(sz)s"
 msgstr "Tekst%(sz)s"
 
-#: Mailman/Archiver/HyperArch.py:850
+#: Mailman/Archiver/HyperArch.py:856
 msgid "figuring article archives\n"
 msgstr "prouèavam arhivu èlanaka\n"
 
-#: Mailman/Archiver/HyperArch.py:860
+#: Mailman/Archiver/HyperArch.py:866
 msgid "April"
 msgstr "Travanj"
 
-#: Mailman/Archiver/HyperArch.py:860
+#: Mailman/Archiver/HyperArch.py:866
 msgid "February"
 msgstr "Veljaèa"
 
-#: Mailman/Archiver/HyperArch.py:860
+#: Mailman/Archiver/HyperArch.py:866
 msgid "January"
 msgstr "Sijeèanj"
 
-#: Mailman/Archiver/HyperArch.py:860
+#: Mailman/Archiver/HyperArch.py:866
 msgid "March"
 msgstr "O¾ujak"
 
-#: Mailman/Archiver/HyperArch.py:861
+#: Mailman/Archiver/HyperArch.py:867
 msgid "August"
 msgstr "Kolovoz"
 
-#: Mailman/Archiver/HyperArch.py:861
+#: Mailman/Archiver/HyperArch.py:867
 msgid "July"
 msgstr "Srpanj"
 
-#: Mailman/Archiver/HyperArch.py:861
+#: Mailman/Archiver/HyperArch.py:867
 msgid "June"
 msgstr "Lipanj"
 
-#: Mailman/Archiver/HyperArch.py:861 Mailman/i18n.py:102
+#: Mailman/Archiver/HyperArch.py:867 Mailman/i18n.py:102
 msgid "May"
 msgstr "Svibanj"
 
-#: Mailman/Archiver/HyperArch.py:862
+#: Mailman/Archiver/HyperArch.py:868
 msgid "December"
 msgstr "Prosinac"
 
-#: Mailman/Archiver/HyperArch.py:862
+#: Mailman/Archiver/HyperArch.py:868
 msgid "November"
 msgstr "Studeni"
 
-#: Mailman/Archiver/HyperArch.py:862
+#: Mailman/Archiver/HyperArch.py:868
 msgid "October"
 msgstr "Listopad"
 
-#: Mailman/Archiver/HyperArch.py:862
+#: Mailman/Archiver/HyperArch.py:868
 msgid "September"
 msgstr "Rujan"
 
-#: Mailman/Archiver/HyperArch.py:870
+#: Mailman/Archiver/HyperArch.py:876
 msgid "First"
 msgstr "Prvi"
 
-#: Mailman/Archiver/HyperArch.py:870
+#: Mailman/Archiver/HyperArch.py:876
 msgid "Fourth"
 msgstr "Èetvrti"
 
-#: Mailman/Archiver/HyperArch.py:870
+#: Mailman/Archiver/HyperArch.py:876
 msgid "Second"
 msgstr "Drugi"
 
-#: Mailman/Archiver/HyperArch.py:870
+#: Mailman/Archiver/HyperArch.py:876
 msgid "Third"
 msgstr "Treæi"
 
-#: Mailman/Archiver/HyperArch.py:872
+#: Mailman/Archiver/HyperArch.py:878
 msgid "%(ord)s quarter %(year)i"
 msgstr "%(ord)s kvartal %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:879
+#: Mailman/Archiver/HyperArch.py:885
 msgid "%(month)s %(year)i"
 msgstr "%(month)s %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:884
+#: Mailman/Archiver/HyperArch.py:890
 msgid "The Week Of Monday %(day)i %(month)s %(year)i"
 msgstr "Tjedan Ponedjeljka %(day)i %(month)s %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:888
+#: Mailman/Archiver/HyperArch.py:894
 msgid "%(day)i %(month)s %(year)i"
 msgstr "%(day)i %(month)s %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:988
+#: Mailman/Archiver/HyperArch.py:994
 msgid "Computing threaded index\n"
 msgstr "Izraèunavam indekse diskusija\n"
 
-#: Mailman/Archiver/HyperArch.py:1245
+#: Mailman/Archiver/HyperArch.py:1255
 msgid "Updating HTML for article %(seq)s"
 msgstr "Osvje¾avam HTML za èlanak %(seq)s"
 
-#: Mailman/Archiver/HyperArch.py:1252
+#: Mailman/Archiver/HyperArch.py:1262
 msgid "article file %(filename)s is missing!"
 msgstr "datoteka èlanka %(filename)s nedostaje!"
 
-#: Mailman/Archiver/pipermail.py:168 Mailman/Archiver/pipermail.py:169
+#: Mailman/Archiver/pipermail.py:172 Mailman/Archiver/pipermail.py:173
 msgid "No subject"
 msgstr "Nema naslova"
 
-#: Mailman/Archiver/pipermail.py:269
+#: Mailman/Archiver/pipermail.py:276
 msgid "Creating archive directory "
 msgstr "Kreiram direktorij arhive"
 
-#: Mailman/Archiver/pipermail.py:281
+#: Mailman/Archiver/pipermail.py:288
 msgid "Reloading pickled archive state"
 msgstr "Uèitavam zapakirano stanje arhive"
 
-#: Mailman/Archiver/pipermail.py:308
+#: Mailman/Archiver/pipermail.py:315
 msgid "Pickling archive state into "
 msgstr "Pakiram stanje arhive u "
 
-#: Mailman/Archiver/pipermail.py:419
+#: Mailman/Archiver/pipermail.py:426
 msgid "Updating index files for archive [%(archive)s]"
 msgstr "Osvje¾avam indeksne datoteke za arhivu [%(archive)s]"
 
-#: Mailman/Archiver/pipermail.py:452
+#: Mailman/Archiver/pipermail.py:459
 msgid "  Thread"
 msgstr "  Diskusija"
 
-#: Mailman/Archiver/pipermail.py:557
+#: Mailman/Archiver/pipermail.py:566
 msgid "#%(counter)05d %(msgid)s"
 msgstr "#%(counter)05d %(msgid)s"
 
@@ -199,31 +199,31 @@ msgstr "od mene"
 msgid "by the list administrator"
 msgstr "od strane administratora liste"
 
-#: Mailman/Bouncer.py:47 Mailman/Bouncer.py:235
+#: Mailman/Bouncer.py:47 Mailman/Bouncer.py:238
 #: Mailman/Commands/cmd_set.py:182
 msgid "for unknown reasons"
 msgstr "zbog nepoznatih razloga"
 
-#: Mailman/Bouncer.py:182
+#: Mailman/Bouncer.py:185
 msgid "disabled"
 msgstr "onemogucen"
 
-#: Mailman/Bouncer.py:187
+#: Mailman/Bouncer.py:190
 msgid "Bounce action notification"
 msgstr "Obavijest o akciji odbijanja"
 
-#: Mailman/Bouncer.py:242
+#: Mailman/Bouncer.py:245
 msgid " The last bounce received from you was dated %(date)s"
 msgstr " Datum va¹eg posljednjeg odbijanja %(date)s"
 
-#: Mailman/Bouncer.py:267 Mailman/Deliverer.py:135
+#: Mailman/Bouncer.py:270 Mailman/Deliverer.py:136
 #: Mailman/Handlers/Acknowledge.py:44 Mailman/Handlers/CookHeaders.py:233
-#: Mailman/Handlers/Hold.py:215 Mailman/Handlers/Hold.py:250
-#: Mailman/Handlers/ToDigest.py:216 Mailman/ListAdmin.py:243
+#: Mailman/Handlers/Hold.py:205 Mailman/Handlers/ToDigest.py:217
+#: Mailman/ListAdmin.py:215
 msgid "(no subject)"
 msgstr "(nema naslova)"
 
-#: Mailman/Bouncer.py:269
+#: Mailman/Bouncer.py:272
 msgid "[No bounce details are available]"
 msgstr "[Detalji o odbijanju nisu dostupni]"
 
@@ -235,7 +235,7 @@ msgstr "Moderator"
 msgid "Administrator"
 msgstr "Administrator"
 
-#: Mailman/Cgi/admin.py:76 Mailman/Cgi/admindb.py:89 Mailman/Cgi/confirm.py:55
+#: Mailman/Cgi/admin.py:76 Mailman/Cgi/admindb.py:89 Mailman/Cgi/confirm.py:61
 #: Mailman/Cgi/edithtml.py:67 Mailman/Cgi/listinfo.py:51
 #: Mailman/Cgi/options.py:77 Mailman/Cgi/private.py:98
 #: Mailman/Cgi/rmlist.py:64 Mailman/Cgi/roster.py:57
@@ -262,7 +262,7 @@ msgstr ""
 "                za vasu mailing listu, inace ce ona biti neupotrebljiva."
 
 #: Mailman/Cgi/admin.py:185 Mailman/Cgi/admin.py:191 Mailman/Cgi/admin.py:196
-#: Mailman/Cgi/admin.py:1434 Mailman/Gui/GUIBase.py:186
+#: Mailman/Cgi/admin.py:1435 Mailman/Gui/GUIBase.py:190
 msgid "Warning: "
 msgstr "Upozorenje: "
 
@@ -288,15 +288,15 @@ msgstr ""
 msgid "%(hostname)s mailing lists - Admin Links"
 msgstr "%(hostname)s mailing liste - Admin Linkovi"
 
-#: Mailman/Cgi/admin.py:247 Mailman/Cgi/listinfo.py:99
+#: Mailman/Cgi/admin.py:248 Mailman/Cgi/listinfo.py:100
 msgid "Welcome!"
 msgstr "Dobrodo¹li!"
 
-#: Mailman/Cgi/admin.py:250 Mailman/Cgi/listinfo.py:102
+#: Mailman/Cgi/admin.py:251 Mailman/Cgi/listinfo.py:103
 msgid "Mailman"
 msgstr "Mailman"
 
-#: Mailman/Cgi/admin.py:254
+#: Mailman/Cgi/admin.py:255
 msgid ""
 "<p>There currently are no publicly-advertised %(mailmanlink)s\n"
 "            mailing lists on %(hostname)s."
@@ -304,7 +304,7 @@ msgstr ""
 "<p>Trenutno nema javno oglasenih %(mailmanlink)s\n"
 "            mailing lista na %(hostname)s."
 
-#: Mailman/Cgi/admin.py:260
+#: Mailman/Cgi/admin.py:261
 msgid ""
 "<p>Below is the collection of publicly-advertised\n"
 "            %(mailmanlink)s mailing lists on %(hostname)s.  Click on a list\n"
@@ -314,11 +314,11 @@ msgstr ""
 "            %(mailmanlink)s mailing lista na %(hostname)s.  Kliknite na ime\n"
 "            liste da biste posjetili konfiguracijsku stranicu za tu listu."
 
-#: Mailman/Cgi/admin.py:267
+#: Mailman/Cgi/admin.py:268
 msgid "right "
 msgstr "u redu "
 
-#: Mailman/Cgi/admin.py:269
+#: Mailman/Cgi/admin.py:270
 msgid ""
 "To visit the administrators configuration page for an\n"
 "        unadvertised list, open a URL similar to this one, but with a '/' "
@@ -337,32 +337,32 @@ msgstr ""
 "\n"
 "        <p>Opæe informacije o listi nalaze se na "
 
-#: Mailman/Cgi/admin.py:276
+#: Mailman/Cgi/admin.py:277
 msgid "the mailing list overview page"
 msgstr "stranica za pregled mailing liste"
 
-#: Mailman/Cgi/admin.py:278
+#: Mailman/Cgi/admin.py:279
 msgid "<p>(Send questions and comments to "
 msgstr "<p>(Pitanja i komentare po¹aljite na "
 
-#: Mailman/Cgi/admin.py:288 Mailman/Cgi/listinfo.py:134 cron/mailpasswds:198
+#: Mailman/Cgi/admin.py:289 Mailman/Cgi/listinfo.py:135 cron/mailpasswds:198
 msgid "List"
 msgstr "Lista"
 
-#: Mailman/Cgi/admin.py:289 Mailman/Cgi/admin.py:555
-#: Mailman/Cgi/listinfo.py:135
+#: Mailman/Cgi/admin.py:290 Mailman/Cgi/admin.py:556
+#: Mailman/Cgi/listinfo.py:136
 msgid "Description"
 msgstr "Opis"
 
-#: Mailman/Cgi/admin.py:295 Mailman/Cgi/listinfo.py:141 bin/list_lists:116
+#: Mailman/Cgi/admin.py:296 Mailman/Cgi/listinfo.py:142 bin/list_lists:116
 msgid "[no description available]"
 msgstr "[opis nije dostupan]"
 
-#: Mailman/Cgi/admin.py:328
+#: Mailman/Cgi/admin.py:329
 msgid "No valid variable name found."
 msgstr "Ispravno ime varijable nije pronaðeno."
 
-#: Mailman/Cgi/admin.py:338
+#: Mailman/Cgi/admin.py:339
 msgid ""
 "%(realname)s Mailing list Configuration Help\n"
 "    <br><em>%(varname)s</em> Option"
@@ -370,11 +370,11 @@ msgstr ""
 "%(realname)s Pomoæ za konfiguraciju mailing liste\n"
 "    <br><em>%(varname)s</em> Opcija"
 
-#: Mailman/Cgi/admin.py:345
+#: Mailman/Cgi/admin.py:346
 msgid "Mailman %(varname)s List Option Help"
 msgstr "Mailmanova pomoæ za opcije liste %(varname)s"
 
-#: Mailman/Cgi/admin.py:363
+#: Mailman/Cgi/admin.py:364
 msgid ""
 "<em><strong>Warning:</strong> changing this option here\n"
 "    could cause other screens to be out-of-sync.  Be sure to reload any "
@@ -390,60 +390,60 @@ msgstr ""
 "Takoðer mo¾ete\n"
 "    "
 
-#: Mailman/Cgi/admin.py:374
+#: Mailman/Cgi/admin.py:375
 msgid "return to the %(categoryname)s options page."
 msgstr "vratite se na %(categoryname)s stranicu sa opcijama."
 
-#: Mailman/Cgi/admin.py:389
+#: Mailman/Cgi/admin.py:390
 msgid "%(realname)s Administration (%(label)s)"
 msgstr "%(realname)s Administracija (%(label)s)"
 
-#: Mailman/Cgi/admin.py:390
+#: Mailman/Cgi/admin.py:391
 msgid "%(realname)s mailing list administration<br>%(label)s Section"
 msgstr "Administracija mailing liste %(realname)s<br>Sekcija %(label)s"
 
-#: Mailman/Cgi/admin.py:406
+#: Mailman/Cgi/admin.py:407
 msgid "Configuration Categories"
 msgstr "Konfiguracija kategorija"
 
-#: Mailman/Cgi/admin.py:407
+#: Mailman/Cgi/admin.py:408
 msgid "Other Administrative Activities"
 msgstr "Druge administratorske aktivnosti"
 
-#: Mailman/Cgi/admin.py:411
+#: Mailman/Cgi/admin.py:412
 msgid "Tend to pending moderator requests"
 msgstr "Nastojim obraditi zahtjeve moderatora na èekanju"
 
-#: Mailman/Cgi/admin.py:413
+#: Mailman/Cgi/admin.py:414
 msgid "Go to the general list information page"
 msgstr "Idi na opæenitu informacijsku stranicu liste"
 
-#: Mailman/Cgi/admin.py:415
+#: Mailman/Cgi/admin.py:416
 msgid "Edit the public HTML pages"
 msgstr "Uredi javne HTML stranice"
 
-#: Mailman/Cgi/admin.py:417
+#: Mailman/Cgi/admin.py:418
 msgid "Go to list archives"
 msgstr "Idi u arhivu liste"
 
-#: Mailman/Cgi/admin.py:423
+#: Mailman/Cgi/admin.py:424
 msgid "Delete this mailing list"
 msgstr "Obri¹i ovu mailing listu"
 
-#: Mailman/Cgi/admin.py:424
+#: Mailman/Cgi/admin.py:425
 #, fuzzy
 msgid " (requires confirmation)<br>&nbsp;<br>"
 msgstr " (zatra¾i potvrdu)<br> <br>"
 
-#: Mailman/Cgi/admin.py:430
+#: Mailman/Cgi/admin.py:431
 msgid "Logout"
 msgstr "Izlaz"
 
-#: Mailman/Cgi/admin.py:474
+#: Mailman/Cgi/admin.py:475
 msgid "Emergency moderation of all list traffic is enabled"
 msgstr "Ukljuèeno je hitno moderiranje cjelokupnog prometa na listi"
 
-#: Mailman/Cgi/admin.py:485
+#: Mailman/Cgi/admin.py:486
 msgid ""
 "Make your changes in the following section, then submit them\n"
 "        using the <em>Submit Your Changes</em> button below."
@@ -451,11 +451,11 @@ msgstr ""
 "Napravite promjene u sljedeæim sekcijama a zatim ih po¹aljite\n"
 "        koristeæi gumb <em>Po¹aljite promjene</em>."
 
-#: Mailman/Cgi/admin.py:503
+#: Mailman/Cgi/admin.py:504
 msgid "Additional Member Tasks"
 msgstr "Dodatni Èlanski Zadaci"
 
-#: Mailman/Cgi/admin.py:509
+#: Mailman/Cgi/admin.py:510
 msgid ""
 "<li>Set everyone's moderation bit, including\n"
 "            those members not currently visible"
@@ -463,23 +463,23 @@ msgstr ""
 "<li>Postavi svima moderacijski bit, ukljuèujuæi\n"
 "            i one èlanove koji trenutno nisu vidljivi."
 
-#: Mailman/Cgi/admin.py:513
+#: Mailman/Cgi/admin.py:514
 msgid "Off"
 msgstr "Iskljuèeno"
 
-#: Mailman/Cgi/admin.py:513
+#: Mailman/Cgi/admin.py:514
 msgid "On"
 msgstr "Ukljuèeno"
 
-#: Mailman/Cgi/admin.py:515
+#: Mailman/Cgi/admin.py:516
 msgid "Set"
 msgstr "Postavi"
 
-#: Mailman/Cgi/admin.py:556
+#: Mailman/Cgi/admin.py:557
 msgid "Value"
 msgstr "Vrijednost"
 
-#: Mailman/Cgi/admin.py:610
+#: Mailman/Cgi/admin.py:611
 msgid ""
 "Badly formed options entry:\n"
 " %(record)s"
@@ -487,105 +487,105 @@ msgstr ""
 "Lo¹e formiran unos opcije:\n"
 " %(record)s"
 
-#: Mailman/Cgi/admin.py:668
+#: Mailman/Cgi/admin.py:669
 msgid "<em>Enter the text below, or...</em><br>"
 msgstr "<em>Unesite tekst ispod, ili...</em><br>"
 
-#: Mailman/Cgi/admin.py:670
+#: Mailman/Cgi/admin.py:671
 msgid "<br><em>...specify a file to upload</em><br>"
 msgstr "<br><em>...specificirajte datoteku koju æete uploadati</em><br>"
 
-#: Mailman/Cgi/admin.py:696 Mailman/Cgi/admin.py:699
+#: Mailman/Cgi/admin.py:697 Mailman/Cgi/admin.py:700
 msgid "Topic %(i)d"
 msgstr "Naslov %(i)d"
 
-#: Mailman/Cgi/admin.py:700 Mailman/Cgi/admin.py:750
+#: Mailman/Cgi/admin.py:701 Mailman/Cgi/admin.py:751
 msgid "Delete"
 msgstr "Obri¹i"
 
-#: Mailman/Cgi/admin.py:701
+#: Mailman/Cgi/admin.py:702
 msgid "Topic name:"
 msgstr "Naziv naslova"
 
-#: Mailman/Cgi/admin.py:703
+#: Mailman/Cgi/admin.py:704
 msgid "Regexp:"
 msgstr "Regexp:"
 
-#: Mailman/Cgi/admin.py:706 Mailman/Cgi/options.py:976
+#: Mailman/Cgi/admin.py:707 Mailman/Cgi/options.py:979
 msgid "Description:"
 msgstr "Opis"
 
-#: Mailman/Cgi/admin.py:710 Mailman/Cgi/admin.py:768
+#: Mailman/Cgi/admin.py:711 Mailman/Cgi/admin.py:769
 msgid "Add new item..."
 msgstr "Dodaj novu stavku..."
 
-#: Mailman/Cgi/admin.py:712 Mailman/Cgi/admin.py:770
+#: Mailman/Cgi/admin.py:713 Mailman/Cgi/admin.py:771
 msgid "...before this one."
 msgstr "...prije ove."
 
-#: Mailman/Cgi/admin.py:713 Mailman/Cgi/admin.py:771
+#: Mailman/Cgi/admin.py:714 Mailman/Cgi/admin.py:772
 msgid "...after this one."
 msgstr "....poslije ove."
 
-#: Mailman/Cgi/admin.py:746 Mailman/Cgi/admin.py:749
+#: Mailman/Cgi/admin.py:747 Mailman/Cgi/admin.py:750
 msgid "Spam Filter Rule %(i)d"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:751
+#: Mailman/Cgi/admin.py:752
 msgid "Spam Filter Regexp:"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:289
-#: Mailman/Cgi/admindb.py:346 Mailman/Cgi/admindb.py:389
-#: Mailman/Cgi/admindb.py:612
+#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:289
+#: Mailman/Cgi/admindb.py:348 Mailman/Cgi/admindb.py:391
+#: Mailman/Cgi/admindb.py:625
 msgid "Defer"
 msgstr "Odgodi"
 
-#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:291
-#: Mailman/Cgi/admindb.py:348 Mailman/Cgi/admindb.py:389
-#: Mailman/Cgi/admindb.py:612 Mailman/Gui/ContentFilter.py:37
+#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:291
+#: Mailman/Cgi/admindb.py:350 Mailman/Cgi/admindb.py:391
+#: Mailman/Cgi/admindb.py:625 Mailman/Gui/ContentFilter.py:37
 #: Mailman/Gui/Privacy.py:216 Mailman/Gui/Privacy.py:290
 msgid "Reject"
 msgstr "Odbij"
 
-#: Mailman/Cgi/admin.py:762 Mailman/Gui/Privacy.py:216
+#: Mailman/Cgi/admin.py:763 Mailman/Gui/Privacy.py:216
 #: Mailman/Gui/Privacy.py:290
 msgid "Hold"
 msgstr "Zadr¾i"
 
-#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:292
-#: Mailman/Cgi/admindb.py:349 Mailman/Cgi/admindb.py:389
-#: Mailman/Cgi/admindb.py:612 Mailman/Gui/ContentFilter.py:37
+#: Mailman/Cgi/admin.py:764 Mailman/Cgi/admindb.py:292
+#: Mailman/Cgi/admindb.py:351 Mailman/Cgi/admindb.py:391
+#: Mailman/Cgi/admindb.py:625 Mailman/Gui/ContentFilter.py:37
 #: Mailman/Gui/Privacy.py:216 Mailman/Gui/Privacy.py:290
 msgid "Discard"
 msgstr "Odbaci"
 
-#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:389
+#: Mailman/Cgi/admin.py:764 Mailman/Cgi/admindb.py:391
 #: Mailman/Gui/Privacy.py:290
 msgid "Accept"
 msgstr "Prihvati"
 
-#: Mailman/Cgi/admin.py:766 Mailman/Cgi/admindb.py:618
+#: Mailman/Cgi/admin.py:767 Mailman/Cgi/admindb.py:631
 msgid "Action:"
 msgstr "Akcija"
 
-#: Mailman/Cgi/admin.py:778
+#: Mailman/Cgi/admin.py:779
 msgid "Move rule up"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:779
+#: Mailman/Cgi/admin.py:780
 msgid "Move rule down"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:812
+#: Mailman/Cgi/admin.py:813
 msgid "<br>(Edit <b>%(varname)s</b>)"
 msgstr "<br>(Uredi <b>%(varname)s</b>)"
 
-#: Mailman/Cgi/admin.py:814
+#: Mailman/Cgi/admin.py:815
 msgid "<br>(Details for <b>%(varname)s</b>)"
 msgstr "<br>(Detalji za <b>%(varname)s</b>)"
 
-#: Mailman/Cgi/admin.py:821
+#: Mailman/Cgi/admin.py:822
 msgid ""
 "<br><em><strong>Note:</strong>\n"
 "        setting this value performs an immediate action but does not modify\n"
@@ -596,107 +596,107 @@ msgstr ""
 "mijenja\n"
 "        fiksna stanja.</em>"
 
-#: Mailman/Cgi/admin.py:835
+#: Mailman/Cgi/admin.py:836
 msgid "Mass Subscriptions"
 msgstr "Masovna pretplata"
 
-#: Mailman/Cgi/admin.py:842
+#: Mailman/Cgi/admin.py:843
 msgid "Mass Removals"
 msgstr "Masovno uklanjanje"
 
-#: Mailman/Cgi/admin.py:849
+#: Mailman/Cgi/admin.py:850
 msgid "Membership List"
 msgstr "Èlanska lista"
 
-#: Mailman/Cgi/admin.py:856
+#: Mailman/Cgi/admin.py:857
 msgid "(help)"
 msgstr "(pomoæ)"
 
-#: Mailman/Cgi/admin.py:857
+#: Mailman/Cgi/admin.py:858
 msgid "Find member %(link)s:"
 msgstr "Pronaði èlana %(link)s:"
 
-#: Mailman/Cgi/admin.py:860
+#: Mailman/Cgi/admin.py:861
 msgid "Search..."
 msgstr "Tra¾i..."
 
-#: Mailman/Cgi/admin.py:877
+#: Mailman/Cgi/admin.py:878
 msgid "Bad regular expression: "
 msgstr "Pogre¹an regular expression:"
 
-#: Mailman/Cgi/admin.py:933
+#: Mailman/Cgi/admin.py:934
 msgid "%(allcnt)s members total, %(membercnt)s shown"
 msgstr "%(allcnt)s èlanova ukupno, %(membercnt)s prikazano"
 
-#: Mailman/Cgi/admin.py:936
+#: Mailman/Cgi/admin.py:937
 msgid "%(allcnt)s members total"
 msgstr "%(allcnt)s èlanova ukupno"
 
-#: Mailman/Cgi/admin.py:959
+#: Mailman/Cgi/admin.py:960
 msgid "unsub"
 msgstr "odjavi"
 
-#: Mailman/Cgi/admin.py:960
+#: Mailman/Cgi/admin.py:961
 msgid "member address<br>member name"
 msgstr "èlanska adresa<br>ime èlana"
 
-#: Mailman/Cgi/admin.py:961
+#: Mailman/Cgi/admin.py:962
 msgid "hide"
 msgstr "sakrij"
 
-#: Mailman/Cgi/admin.py:961
+#: Mailman/Cgi/admin.py:962
 msgid "mod"
 msgstr "mod"
 
-#: Mailman/Cgi/admin.py:962
+#: Mailman/Cgi/admin.py:963
 msgid "nomail<br>[reason]"
 msgstr "nema maila<br>[razlog]"
 
-#: Mailman/Cgi/admin.py:963
+#: Mailman/Cgi/admin.py:964
 msgid "ack"
 msgstr "ack"
 
-#: Mailman/Cgi/admin.py:963
+#: Mailman/Cgi/admin.py:964
 msgid "not metoo"
 msgstr "ne metoo"
 
-#: Mailman/Cgi/admin.py:964
+#: Mailman/Cgi/admin.py:965
 msgid "nodupes"
 msgstr "nodupes"
 
-#: Mailman/Cgi/admin.py:965
+#: Mailman/Cgi/admin.py:966
 msgid "digest"
 msgstr "digest"
 
-#: Mailman/Cgi/admin.py:965
+#: Mailman/Cgi/admin.py:966
 msgid "plain"
 msgstr "obièan"
 
-#: Mailman/Cgi/admin.py:966
+#: Mailman/Cgi/admin.py:967
 msgid "language"
 msgstr "jezik"
 
-#: Mailman/Cgi/admin.py:977
+#: Mailman/Cgi/admin.py:978
 msgid "?"
 msgstr "?"
 
-#: Mailman/Cgi/admin.py:978
+#: Mailman/Cgi/admin.py:979
 msgid "U"
 msgstr "U"
 
-#: Mailman/Cgi/admin.py:979
+#: Mailman/Cgi/admin.py:980
 msgid "A"
 msgstr "A"
 
-#: Mailman/Cgi/admin.py:980
+#: Mailman/Cgi/admin.py:981
 msgid "B"
 msgstr "B"
 
-#: Mailman/Cgi/admin.py:1051
+#: Mailman/Cgi/admin.py:1052
 msgid "<b>unsub</b> -- Click on this to unsubscribe the member."
 msgstr "<b>odjava</b> -- Kliknite ovdje da biste odjavili èlana."
 
-#: Mailman/Cgi/admin.py:1053
+#: Mailman/Cgi/admin.py:1054
 msgid ""
 "<b>mod</b> -- The user's personal moderation flag.  If this is\n"
 "        set, postings from them will be moderated, otherwise they will be\n"
@@ -706,7 +706,7 @@ msgstr ""
 "        ukljuèeno, njihove poruke æe biti moderirane, inaèe one neæe biti\n"
 "        odobrene."
 
-#: Mailman/Cgi/admin.py:1057
+#: Mailman/Cgi/admin.py:1058
 msgid ""
 "<b>hide</b> -- Is the member's address concealed on\n"
 "        the list of subscribers?"
@@ -714,7 +714,7 @@ msgstr ""
 "<b>sakrij</b> -- Da li je èlanska adresa sakrivena na\n"
 "        listi pretplatnika?"
 
-#: Mailman/Cgi/admin.py:1059
+#: Mailman/Cgi/admin.py:1060
 msgid ""
 "<b>nomail</b> -- Is delivery to the member disabled?  If so, an\n"
 "        abbreviation will be given describing the reason for the disabled\n"
@@ -749,7 +749,7 @@ msgstr ""
 "                    u starjim verzijama Mailmana.\n"
 "            </ul>"
 
-#: Mailman/Cgi/admin.py:1074
+#: Mailman/Cgi/admin.py:1075
 msgid ""
 "<b>ack</b> -- Does the member get acknowledgements of their\n"
 "        posts?"
@@ -757,7 +757,7 @@ msgstr ""
 "<b>ack</b> -- Da li èlan dobija potrdu poslanih\n"
 "        poruka?"
 
-#: Mailman/Cgi/admin.py:1077
+#: Mailman/Cgi/admin.py:1078
 msgid ""
 "<b>not metoo</b> -- Does the member want to avoid copies of their\n"
 "        own postings?"
@@ -765,7 +765,7 @@ msgstr ""
 "<b>ne metoo</b> -- Da li èlan ¾eli izbjeæi kopije njegovih vlastitih\n"
 "        poslanih poruka?"
 
-#: Mailman/Cgi/admin.py:1080
+#: Mailman/Cgi/admin.py:1081
 msgid ""
 "<b>nodupes</b> -- Does the member want to avoid duplicates of the\n"
 "        same message?"
@@ -773,7 +773,7 @@ msgstr ""
 "<b>nodupes</b> -- Da li èlan ¾eli izbjeæi duplikate iste\n"
 "        poruke?"
 
-#: Mailman/Cgi/admin.py:1083
+#: Mailman/Cgi/admin.py:1084
 msgid ""
 "<b>digest</b> -- Does the member get messages in digests?\n"
 "        (otherwise, individual messages)"
@@ -781,7 +781,7 @@ msgstr ""
 "<b>digest</b> -- Da li èlan prima poruke u obliku digesta?\n"
 "        (inaèe, individualne poruke)"
 
-#: Mailman/Cgi/admin.py:1086
+#: Mailman/Cgi/admin.py:1087
 msgid ""
 "<b>plain</b> -- If getting digests, does the member get plain\n"
 "        text digests?  (otherwise, MIME)"
@@ -789,19 +789,19 @@ msgstr ""
 "<b>obièan</b> -- Ako èlan dobija digeste, da li su to obièni\n"
 "        tekstualni digesti?  (inaèe, MIME)"
 
-#: Mailman/Cgi/admin.py:1088
+#: Mailman/Cgi/admin.py:1089
 msgid "<b>language</b> -- Language preferred by the user"
 msgstr "<b>jezik</b> -- Jezik koji preferira korisnik"
 
-#: Mailman/Cgi/admin.py:1102
+#: Mailman/Cgi/admin.py:1103
 msgid "Click here to hide the legend for this table."
 msgstr "Kliknite ovdje da biste sakrili legendu ove tablice"
 
-#: Mailman/Cgi/admin.py:1106
+#: Mailman/Cgi/admin.py:1107
 msgid "Click here to include the legend for this table."
 msgstr "Kliknite ovdje da biste prikazali legendu za ovu tablicu."
 
-#: Mailman/Cgi/admin.py:1113
+#: Mailman/Cgi/admin.py:1114
 msgid ""
 "<p><em>To view more members, click on the appropriate\n"
 "        range listed below:</em>"
@@ -809,44 +809,44 @@ msgstr ""
 "<p><em>Da biste vidjeli vi¹e èlanova, kliknite na odgovarajuæi\n"
 "        èlan skupa koji je prikazan dolje:</em>"
 
-#: Mailman/Cgi/admin.py:1122
+#: Mailman/Cgi/admin.py:1123
 msgid "from %(start)s to %(end)s"
 msgstr "od %(start)s do %(end)s"
 
-#: Mailman/Cgi/admin.py:1135
+#: Mailman/Cgi/admin.py:1136
 msgid "Subscribe these users now or invite them?"
 msgstr "Odmah pretplati ove korisnike ili ih pozovi?"
 
-#: Mailman/Cgi/admin.py:1137
+#: Mailman/Cgi/admin.py:1138
 msgid "Invite"
 msgstr "Pozovi"
 
-#: Mailman/Cgi/admin.py:1137 Mailman/Cgi/listinfo.py:177
+#: Mailman/Cgi/admin.py:1138 Mailman/Cgi/listinfo.py:178
 msgid "Subscribe"
 msgstr "Pretplati"
 
-#: Mailman/Cgi/admin.py:1143
+#: Mailman/Cgi/admin.py:1144
 msgid "Send welcome messages to new subscribees?"
 msgstr "Po¹alji poruku dobrodo¹lice novim pretplatnicima?"
 
-#: Mailman/Cgi/admin.py:1145 Mailman/Cgi/admin.py:1154
-#: Mailman/Cgi/admin.py:1187 Mailman/Cgi/admin.py:1195
-#: Mailman/Cgi/confirm.py:271 Mailman/Cgi/create.py:338
+#: Mailman/Cgi/admin.py:1146 Mailman/Cgi/admin.py:1155
+#: Mailman/Cgi/admin.py:1188 Mailman/Cgi/admin.py:1196
+#: Mailman/Cgi/confirm.py:289 Mailman/Cgi/create.py:338
 #: Mailman/Cgi/create.py:368 Mailman/Cgi/create.py:406
 #: Mailman/Cgi/rmlist.py:228 Mailman/Gui/Archive.py:33
 #: Mailman/Gui/Autoresponse.py:54 Mailman/Gui/Autoresponse.py:62
 #: Mailman/Gui/Autoresponse.py:71 Mailman/Gui/Bounce.py:77
-#: Mailman/Gui/Bounce.py:108 Mailman/Gui/Bounce.py:134
-#: Mailman/Gui/Bounce.py:143 Mailman/Gui/ContentFilter.py:70
+#: Mailman/Gui/Bounce.py:120 Mailman/Gui/Bounce.py:146
+#: Mailman/Gui/Bounce.py:155 Mailman/Gui/ContentFilter.py:70
 #: Mailman/Gui/ContentFilter.py:103 Mailman/Gui/Digest.py:46
 #: Mailman/Gui/Digest.py:62 Mailman/Gui/Digest.py:84 Mailman/Gui/Digest.py:89
-#: Mailman/Gui/General.py:148 Mailman/Gui/General.py:154
-#: Mailman/Gui/General.py:232 Mailman/Gui/General.py:259
-#: Mailman/Gui/General.py:286 Mailman/Gui/General.py:297
-#: Mailman/Gui/General.py:300 Mailman/Gui/General.py:310
-#: Mailman/Gui/General.py:315 Mailman/Gui/General.py:325
-#: Mailman/Gui/General.py:345 Mailman/Gui/General.py:373
-#: Mailman/Gui/General.py:396 Mailman/Gui/NonDigest.py:44
+#: Mailman/Gui/General.py:150 Mailman/Gui/General.py:156
+#: Mailman/Gui/General.py:234 Mailman/Gui/General.py:261
+#: Mailman/Gui/General.py:288 Mailman/Gui/General.py:299
+#: Mailman/Gui/General.py:302 Mailman/Gui/General.py:312
+#: Mailman/Gui/General.py:317 Mailman/Gui/General.py:327
+#: Mailman/Gui/General.py:347 Mailman/Gui/General.py:375
+#: Mailman/Gui/General.py:398 Mailman/Gui/NonDigest.py:44
 #: Mailman/Gui/NonDigest.py:52 Mailman/Gui/Privacy.py:110
 #: Mailman/Gui/Privacy.py:116 Mailman/Gui/Privacy.py:149
 #: Mailman/Gui/Privacy.py:197 Mailman/Gui/Privacy.py:305
@@ -855,23 +855,23 @@ msgstr "Po¹alji poruku dobrodo¹lice novim pretplatnicima?"
 msgid "No"
 msgstr "Ne"
 
-#: Mailman/Cgi/admin.py:1145 Mailman/Cgi/admin.py:1154
-#: Mailman/Cgi/admin.py:1187 Mailman/Cgi/admin.py:1195
-#: Mailman/Cgi/confirm.py:271 Mailman/Cgi/create.py:338
+#: Mailman/Cgi/admin.py:1146 Mailman/Cgi/admin.py:1155
+#: Mailman/Cgi/admin.py:1188 Mailman/Cgi/admin.py:1196
+#: Mailman/Cgi/confirm.py:289 Mailman/Cgi/create.py:338
 #: Mailman/Cgi/create.py:368 Mailman/Cgi/create.py:406
 #: Mailman/Cgi/rmlist.py:228 Mailman/Gui/Archive.py:33
 #: Mailman/Gui/Autoresponse.py:54 Mailman/Gui/Autoresponse.py:62
-#: Mailman/Gui/Bounce.py:77 Mailman/Gui/Bounce.py:108
-#: Mailman/Gui/Bounce.py:134 Mailman/Gui/Bounce.py:143
+#: Mailman/Gui/Bounce.py:77 Mailman/Gui/Bounce.py:120
+#: Mailman/Gui/Bounce.py:146 Mailman/Gui/Bounce.py:155
 #: Mailman/Gui/ContentFilter.py:70 Mailman/Gui/ContentFilter.py:103
 #: Mailman/Gui/Digest.py:46 Mailman/Gui/Digest.py:62 Mailman/Gui/Digest.py:84
-#: Mailman/Gui/Digest.py:89 Mailman/Gui/General.py:148
-#: Mailman/Gui/General.py:154 Mailman/Gui/General.py:232
-#: Mailman/Gui/General.py:259 Mailman/Gui/General.py:286
-#: Mailman/Gui/General.py:297 Mailman/Gui/General.py:300
-#: Mailman/Gui/General.py:310 Mailman/Gui/General.py:315
-#: Mailman/Gui/General.py:325 Mailman/Gui/General.py:345
-#: Mailman/Gui/General.py:373 Mailman/Gui/General.py:396
+#: Mailman/Gui/Digest.py:89 Mailman/Gui/General.py:150
+#: Mailman/Gui/General.py:156 Mailman/Gui/General.py:234
+#: Mailman/Gui/General.py:261 Mailman/Gui/General.py:288
+#: Mailman/Gui/General.py:299 Mailman/Gui/General.py:302
+#: Mailman/Gui/General.py:312 Mailman/Gui/General.py:317
+#: Mailman/Gui/General.py:327 Mailman/Gui/General.py:347
+#: Mailman/Gui/General.py:375 Mailman/Gui/General.py:398
 #: Mailman/Gui/NonDigest.py:44 Mailman/Gui/NonDigest.py:52
 #: Mailman/Gui/Privacy.py:110 Mailman/Gui/Privacy.py:116
 #: Mailman/Gui/Privacy.py:149 Mailman/Gui/Privacy.py:197
@@ -881,19 +881,19 @@ msgstr "Ne"
 msgid "Yes"
 msgstr "Da"
 
-#: Mailman/Cgi/admin.py:1152
+#: Mailman/Cgi/admin.py:1153
 msgid "Send notifications of new subscriptions to the list owner?"
 msgstr "Po¹alji obavijesti o novim pretplatnicima vlasniku liste?"
 
-#: Mailman/Cgi/admin.py:1160 Mailman/Cgi/admin.py:1201
+#: Mailman/Cgi/admin.py:1161 Mailman/Cgi/admin.py:1202
 msgid "Enter one address per line below..."
 msgstr "Unesite dolje jednu adresu po liniji..."
 
-#: Mailman/Cgi/admin.py:1165 Mailman/Cgi/admin.py:1206
+#: Mailman/Cgi/admin.py:1166 Mailman/Cgi/admin.py:1207
 msgid "...or specify a file to upload:"
 msgstr "...ili specificirajte datoteku za upload:"
 
-#: Mailman/Cgi/admin.py:1170
+#: Mailman/Cgi/admin.py:1171
 msgid ""
 "Below, enter additional text to be added to the\n"
 "    top of your invitation or the subscription notification.  Include at "
@@ -904,19 +904,19 @@ msgstr ""
 "    vrh va¹e pozivnice, ili na obavijest o pretplati.  Ukljuèite\n"
 "    najmanje jednu praznu liniju na kraju..."
 
-#: Mailman/Cgi/admin.py:1185
+#: Mailman/Cgi/admin.py:1186
 msgid "Send unsubscription acknowledgement to the user?"
 msgstr "Po¹alji potvrdu odjave korisniku?"
 
-#: Mailman/Cgi/admin.py:1193
+#: Mailman/Cgi/admin.py:1194
 msgid "Send notifications to the list owner?"
 msgstr "Po¹alji obavijesti vlasniku liste?"
 
-#: Mailman/Cgi/admin.py:1215
+#: Mailman/Cgi/admin.py:1216
 msgid "Change list ownership passwords"
 msgstr "Promjeni lozinku vlasnika liste"
 
-#: Mailman/Cgi/admin.py:1218
+#: Mailman/Cgi/admin.py:1219
 msgid ""
 "The <em>list administrators</em> are the people who have ultimate control "
 "over\n"
@@ -953,92 +953,92 @@ msgstr ""
 "i upisati e-mail adresu moderatora liste na\n"
 "<a href=\"%(adminurl)s/general\">dio opæih postavki</a>."
 
-#: Mailman/Cgi/admin.py:1237
+#: Mailman/Cgi/admin.py:1238
 msgid "Enter new administrator password:"
 msgstr "Unesite novu administratorsku lozinku:"
 
-#: Mailman/Cgi/admin.py:1239
+#: Mailman/Cgi/admin.py:1240
 msgid "Confirm administrator password:"
 msgstr "Potvrdite administratorsku lozinku:"
 
-#: Mailman/Cgi/admin.py:1244
+#: Mailman/Cgi/admin.py:1245
 msgid "Enter new moderator password:"
 msgstr "Unesite novu moderatorsku lozinku:"
 
-#: Mailman/Cgi/admin.py:1246
+#: Mailman/Cgi/admin.py:1247
 msgid "Confirm moderator password:"
 msgstr "Potvrdite moderatorsku lozinku:"
 
-#: Mailman/Cgi/admin.py:1256
+#: Mailman/Cgi/admin.py:1257
 msgid "Submit Your Changes"
 msgstr "Po¹aljite promjene"
 
-#: Mailman/Cgi/admin.py:1279
+#: Mailman/Cgi/admin.py:1280
 msgid "Moderator passwords did not match"
 msgstr "Moderatorske lozinke se ne podudaraju"
 
-#: Mailman/Cgi/admin.py:1289
+#: Mailman/Cgi/admin.py:1290
 msgid "Administrator passwords did not match"
 msgstr "Administratorske lozinke se ne podudaraju"
 
-#: Mailman/Cgi/admin.py:1338
+#: Mailman/Cgi/admin.py:1339
 msgid "Already a member"
 msgstr "Veæ je èlan"
 
-#: Mailman/Cgi/admin.py:1341
+#: Mailman/Cgi/admin.py:1342
 #, fuzzy
 msgid "&lt;blank line&gt;"
 msgstr "<blank line>"
 
-#: Mailman/Cgi/admin.py:1342 Mailman/Cgi/admin.py:1345
+#: Mailman/Cgi/admin.py:1343 Mailman/Cgi/admin.py:1346
 msgid "Bad/Invalid email address"
 msgstr "Kriva/Neispravna e-mail adresa"
 
-#: Mailman/Cgi/admin.py:1348
+#: Mailman/Cgi/admin.py:1349
 msgid "Hostile address (illegal characters)"
 msgstr "Hostile adresa (nedozvoljeni znakovi)"
 
-#: Mailman/Cgi/admin.py:1354
+#: Mailman/Cgi/admin.py:1355
 msgid "Successfully invited:"
 msgstr "Uspje¹no pozvani:"
 
-#: Mailman/Cgi/admin.py:1356
+#: Mailman/Cgi/admin.py:1357
 msgid "Successfully subscribed:"
 msgstr "Uspje¹no pretplaæeni:"
 
-#: Mailman/Cgi/admin.py:1361
+#: Mailman/Cgi/admin.py:1362
 msgid "Error inviting:"
 msgstr "Gre¹ka kod pozivanja:"
 
-#: Mailman/Cgi/admin.py:1363
+#: Mailman/Cgi/admin.py:1364
 msgid "Error subscribing:"
 msgstr "Gre¹ka kod pretplaæivanja:"
 
-#: Mailman/Cgi/admin.py:1392
+#: Mailman/Cgi/admin.py:1393
 msgid "Successfully Unsubscribed:"
 msgstr "Uspje¹no Odjavljeni:"
 
-#: Mailman/Cgi/admin.py:1397
+#: Mailman/Cgi/admin.py:1398
 msgid "Cannot unsubscribe non-members:"
 msgstr "Ne mogu odjaviti one koji nisu èlanovi:"
 
-#: Mailman/Cgi/admin.py:1409
+#: Mailman/Cgi/admin.py:1410
 msgid "Bad moderation flag value"
 msgstr "Kriva vrijednost moderacijske zastavice"
 
-#: Mailman/Cgi/admin.py:1430
+#: Mailman/Cgi/admin.py:1431
 msgid "Not subscribed"
 msgstr "Nije pretplaæen"
 
-#: Mailman/Cgi/admin.py:1433
+#: Mailman/Cgi/admin.py:1434
 msgid "Ignoring changes to deleted member: %(user)s"
 msgstr "Ignoriram promjene obrisanog èlana: %(user)s"
 
-#: Mailman/Cgi/admin.py:1473
+#: Mailman/Cgi/admin.py:1474
 msgid "Successfully Removed:"
 msgstr "Uspje¹no Maknut:"
 
-#: Mailman/Cgi/admin.py:1477
+#: Mailman/Cgi/admin.py:1478
 msgid "Error Unsubscribing:"
 msgstr "Gre¹ka kod Odjavljivanja:"
 
@@ -1102,16 +1102,16 @@ msgstr "Zahtjevi za Pretplatom"
 msgid "Address/name"
 msgstr "Adresa/ime"
 
-#: Mailman/Cgi/admindb.py:271 Mailman/Cgi/admindb.py:320
+#: Mailman/Cgi/admindb.py:271 Mailman/Cgi/admindb.py:322
 msgid "Your decision"
 msgstr "Va¹a odluka"
 
-#: Mailman/Cgi/admindb.py:272 Mailman/Cgi/admindb.py:321
+#: Mailman/Cgi/admindb.py:272 Mailman/Cgi/admindb.py:323
 msgid "Reason for refusal"
 msgstr "Razlog odbijanja"
 
-#: Mailman/Cgi/admindb.py:290 Mailman/Cgi/admindb.py:347
-#: Mailman/Cgi/admindb.py:612
+#: Mailman/Cgi/admindb.py:290 Mailman/Cgi/admindb.py:349
+#: Mailman/Cgi/admindb.py:625
 msgid "Approve"
 msgstr "Odobri"
 
@@ -1119,60 +1119,60 @@ msgstr "Odobri"
 msgid "Permanently ban from this list"
 msgstr "Trajno zabrani pristup ovoj listi"
 
-#: Mailman/Cgi/admindb.py:319
+#: Mailman/Cgi/admindb.py:321
 msgid "User address/name"
 msgstr "Korisnièka adresa/ime"
 
-#: Mailman/Cgi/admindb.py:359
+#: Mailman/Cgi/admindb.py:361
 msgid "Unsubscription Requests"
 msgstr "Zahtjevi za Odjavom"
 
-#: Mailman/Cgi/admindb.py:382 Mailman/Cgi/admindb.py:596
+#: Mailman/Cgi/admindb.py:384 Mailman/Cgi/admindb.py:608
 msgid "From:"
 msgstr "Od:"
 
-#: Mailman/Cgi/admindb.py:385
+#: Mailman/Cgi/admindb.py:387
 msgid "Action to take on all these held messages:"
 msgstr "Poduzmi navedene akcije za sve ove zadr¾ane poruke:"
 
-#: Mailman/Cgi/admindb.py:397
+#: Mailman/Cgi/admindb.py:399
 msgid "Preserve messages for the site administrator"
 msgstr "Saèuvaj poruke za site administratora"
 
-#: Mailman/Cgi/admindb.py:403
+#: Mailman/Cgi/admindb.py:405
 msgid "Forward messages (individually) to:"
 msgstr "Prosljedi poruke (individualno) na:"
 
-#: Mailman/Cgi/admindb.py:421
+#: Mailman/Cgi/admindb.py:423
 msgid "Clear this member's <em>moderate</em> flag"
 msgstr "Iskljuèi ovom èlanu <em>moderatorsku</em> oznaku"
 
-#: Mailman/Cgi/admindb.py:425
+#: Mailman/Cgi/admindb.py:427
 msgid "<em>The sender is now a member of this list</em>"
 msgstr "<em>Po¹iljatelj je sada èlan ove liste</em>"
 
-#: Mailman/Cgi/admindb.py:434
+#: Mailman/Cgi/admindb.py:436
 #, fuzzy
 msgid "Add <b>%(esender)s</b> to one of these sender filters:"
 msgstr "Dodaj <b>%(esender)s</b> u filter po¹iljatelja"
 
-#: Mailman/Cgi/admindb.py:439
+#: Mailman/Cgi/admindb.py:441
 msgid "Accepts"
 msgstr "Prihvaæeno"
 
-#: Mailman/Cgi/admindb.py:439
+#: Mailman/Cgi/admindb.py:441
 msgid "Discards"
 msgstr "Zanemareno"
 
-#: Mailman/Cgi/admindb.py:439
+#: Mailman/Cgi/admindb.py:441
 msgid "Holds"
 msgstr "Zadr¾ano"
 
-#: Mailman/Cgi/admindb.py:439
+#: Mailman/Cgi/admindb.py:441
 msgid "Rejects"
 msgstr "Odbijeno"
 
-#: Mailman/Cgi/admindb.py:448
+#: Mailman/Cgi/admindb.py:450
 msgid ""
 "Ban <b>%(esender)s</b> from ever subscribing to this\n"
 "                    mailing list"
@@ -1180,7 +1180,7 @@ msgstr ""
 "Zabrani pristup <b>%(esender)s</b> da se vi¹e ikad pretplati na ovu\n"
 "                    mailing listu"
 
-#: Mailman/Cgi/admindb.py:453
+#: Mailman/Cgi/admindb.py:455
 msgid ""
 "Click on the message number to view the individual\n"
 "            message, or you can "
@@ -1188,97 +1188,97 @@ msgstr ""
 "Kliknite na broj poruke da biste vidjeli pojedinu poruku,\n"
 "           ili mo¾ete "
 
-#: Mailman/Cgi/admindb.py:455
+#: Mailman/Cgi/admindb.py:457
 msgid "view all messages from %(esender)s"
 msgstr "pogledajte sve poruke od %(esender)s"
 
-#: Mailman/Cgi/admindb.py:475 Mailman/Cgi/admindb.py:599
+#: Mailman/Cgi/admindb.py:479 Mailman/Cgi/admindb.py:611
 msgid "Subject:"
 msgstr "Naslov:"
 
-#: Mailman/Cgi/admindb.py:478
+#: Mailman/Cgi/admindb.py:482
 msgid " bytes"
 msgstr " bytes"
 
-#: Mailman/Cgi/admindb.py:478
+#: Mailman/Cgi/admindb.py:482
 msgid "Size:"
 msgstr "Velièina:"
 
-#: Mailman/Cgi/admindb.py:482 Mailman/Handlers/Decorate.py:56
+#: Mailman/Cgi/admindb.py:486 Mailman/Handlers/Decorate.py:56
 #: Mailman/Handlers/Scrubber.py:268 Mailman/Handlers/Scrubber.py:269
 msgid "not available"
 msgstr "nije dostupno"
 
-#: Mailman/Cgi/admindb.py:483 Mailman/Cgi/admindb.py:601
+#: Mailman/Cgi/admindb.py:487 Mailman/Cgi/admindb.py:614
 msgid "Reason:"
 msgstr "Razlog:"
 
-#: Mailman/Cgi/admindb.py:487 Mailman/Cgi/admindb.py:605
+#: Mailman/Cgi/admindb.py:491 Mailman/Cgi/admindb.py:618
 msgid "Received:"
 msgstr "Primljeno:"
 
-#: Mailman/Cgi/admindb.py:545
+#: Mailman/Cgi/admindb.py:549
 msgid "Posting Held for Approval"
 msgstr "Poruka Zadr¾ana za Odobrenje"
 
-#: Mailman/Cgi/admindb.py:547
+#: Mailman/Cgi/admindb.py:551
 msgid " (%(count)d of %(total)d)"
 msgstr " (%(count)d od %(total)d)"
 
-#: Mailman/Cgi/admindb.py:558
+#: Mailman/Cgi/admindb.py:562
 msgid "<em>Message with id #%(id)d was lost."
 msgstr "<em>Poruka sa id-om #%(id)d je izgubljena."
 
-#: Mailman/Cgi/admindb.py:567
+#: Mailman/Cgi/admindb.py:571
 msgid "<em>Message with id #%(id)d is corrupted."
 msgstr "<em>Poruka sa id-om #%(id)d je nepravilna."
 
-#: Mailman/Cgi/admindb.py:622
+#: Mailman/Cgi/admindb.py:635
 msgid "Preserve message for site administrator"
 msgstr "Saèuvaj poruku za site administratora"
 
-#: Mailman/Cgi/admindb.py:626
+#: Mailman/Cgi/admindb.py:639
 msgid "Additionally, forward this message to: "
 msgstr "Dodatno, preusmjeri ovu poruku na: "
 
-#: Mailman/Cgi/admindb.py:630
+#: Mailman/Cgi/admindb.py:643
 msgid "[No explanation given]"
 msgstr "[Nije dato obja¹njenje]"
 
-#: Mailman/Cgi/admindb.py:632
+#: Mailman/Cgi/admindb.py:645
 msgid "If you reject this post,<br>please explain (optional):"
 msgstr "Ako odbijete ovu poruku,<br>molim objasnite (opcionalno):"
 
-#: Mailman/Cgi/admindb.py:638
+#: Mailman/Cgi/admindb.py:651
 msgid "Message Headers:"
 msgstr "Zaglavlja Poruke"
 
-#: Mailman/Cgi/admindb.py:643
+#: Mailman/Cgi/admindb.py:656
 msgid "Message Excerpt:"
 msgstr "Izvadak Poruke"
 
-#: Mailman/Cgi/admindb.py:676 Mailman/Deliverer.py:133
+#: Mailman/Cgi/admindb.py:689 Mailman/Deliverer.py:134
 msgid "No reason given"
 msgstr "Razlog nije dat"
 
-#: Mailman/Cgi/admindb.py:737 Mailman/ListAdmin.py:316
-#: Mailman/ListAdmin.py:437
+#: Mailman/Cgi/admindb.py:750 Mailman/ListAdmin.py:288
+#: Mailman/ListAdmin.py:406
 msgid "[No reason given]"
 msgstr "[Razlog nije dat]"
 
-#: Mailman/Cgi/admindb.py:766
+#: Mailman/Cgi/admindb.py:779
 msgid "Database Updated..."
 msgstr "Baza Podataka je Osvje¾ena...."
 
-#: Mailman/Cgi/admindb.py:769
+#: Mailman/Cgi/admindb.py:782
 msgid " is already a member"
 msgstr " je veæ èlan"
 
-#: Mailman/Cgi/confirm.py:69
+#: Mailman/Cgi/confirm.py:75
 msgid "Confirmation string was empty."
 msgstr "Potvrdni tekst je bio prazan."
 
-#: Mailman/Cgi/confirm.py:89
+#: Mailman/Cgi/confirm.py:95
 msgid ""
 "<b>Invalid confirmation string:</b>\n"
 "    %(safecookie)s.\n"
@@ -1299,7 +1299,7 @@ msgstr ""
 "    Inaèe, <a href=\"%(confirmurl)s\">ponovno unesite</a> va¹ potvrdni\n"
 "    tekst."
 
-#: Mailman/Cgi/confirm.py:122
+#: Mailman/Cgi/confirm.py:128
 msgid ""
 "The address requesting unsubscription is not\n"
 "                a member of the mailing list.  Perhaps you have already "
@@ -1311,7 +1311,7 @@ msgstr ""
 "strane\n"
 "                administratora liste?"
 
-#: Mailman/Cgi/confirm.py:138
+#: Mailman/Cgi/confirm.py:144
 msgid ""
 "The address requesting to be changed has\n"
 "                    been subsequently unsubscribed.  This request has been\n"
@@ -1321,19 +1321,19 @@ msgstr ""
 "                    vi¹e puta odjavljena.  Ovaj zahtjev je\n"
 "                    odbaèen."
 
-#: Mailman/Cgi/confirm.py:157
+#: Mailman/Cgi/confirm.py:164
 msgid "System error, bad content: %(content)s"
 msgstr "Sistemska gre¹ka, krivi sadr¾aj: %(content)s"
 
-#: Mailman/Cgi/confirm.py:167
+#: Mailman/Cgi/confirm.py:174
 msgid "Bad confirmation string"
 msgstr "Krivi potvrdni tekst"
 
-#: Mailman/Cgi/confirm.py:175
+#: Mailman/Cgi/confirm.py:193
 msgid "Enter confirmation cookie"
 msgstr "Unesite potvrdni kolaèiæ (cookie)"
 
-#: Mailman/Cgi/confirm.py:188
+#: Mailman/Cgi/confirm.py:206
 msgid ""
 "Please enter the confirmation string\n"
 "    (i.e. <em>cookie</em>) that you received in your email message, in the "
@@ -1346,19 +1346,19 @@ msgstr ""
 "    polje.  Zatim kliknite na gumb <em>Po¹alji</em> da biste pre¹li na\n"
 "    sljedeæi korak potvrde."
 
-#: Mailman/Cgi/confirm.py:193
+#: Mailman/Cgi/confirm.py:211
 msgid "Confirmation string:"
 msgstr "Potvrdni tekst"
 
-#: Mailman/Cgi/confirm.py:195
+#: Mailman/Cgi/confirm.py:213
 msgid "Submit"
 msgstr "Po¹alji"
 
-#: Mailman/Cgi/confirm.py:212
+#: Mailman/Cgi/confirm.py:230
 msgid "Confirm subscription request"
 msgstr "Potvrdi zahtjev za pretplatom"
 
-#: Mailman/Cgi/confirm.py:227
+#: Mailman/Cgi/confirm.py:245
 #, fuzzy
 msgid ""
 "Your confirmation is required in order to complete the\n"
@@ -1397,7 +1397,7 @@ msgstr ""
 "pretplatnièki\n"
 "    zahtjev."
 
-#: Mailman/Cgi/confirm.py:242
+#: Mailman/Cgi/confirm.py:260
 msgid ""
 "Your confirmation is required in order to continue with\n"
 "        the subscription request to the mailing list <em>%(listname)s</em>.\n"
@@ -1438,39 +1438,39 @@ msgstr ""
 "mailing listu,\n"
 "        stisnite <em>Zanemari moj pretplatnièki zahtjev</em>."
 
-#: Mailman/Cgi/confirm.py:260
+#: Mailman/Cgi/confirm.py:278
 msgid "Your email address:"
 msgstr "Va¹a e-mail adresa:"
 
-#: Mailman/Cgi/confirm.py:261
+#: Mailman/Cgi/confirm.py:279
 msgid "Your real name:"
 msgstr "Va¹e stvarno ime:"
 
-#: Mailman/Cgi/confirm.py:270
+#: Mailman/Cgi/confirm.py:288
 msgid "Receive digests?"
 msgstr "Primati digeste?"
 
-#: Mailman/Cgi/confirm.py:279
+#: Mailman/Cgi/confirm.py:297
 msgid "Preferred language:"
 msgstr "Preferirani jezik:"
 
-#: Mailman/Cgi/confirm.py:284
+#: Mailman/Cgi/confirm.py:302
 msgid "Cancel my subscription request"
 msgstr "Zanemari moj zahtjev za pretplatom"
 
-#: Mailman/Cgi/confirm.py:285
+#: Mailman/Cgi/confirm.py:303
 msgid "Subscribe to list %(listname)s"
 msgstr "Pretplatite se na listu %(listname)s"
 
-#: Mailman/Cgi/confirm.py:298
+#: Mailman/Cgi/confirm.py:316
 msgid "You have canceled your subscription request."
 msgstr "Zanemarili ste svoj zahtjev za pretplatom."
 
-#: Mailman/Cgi/confirm.py:336
+#: Mailman/Cgi/confirm.py:354
 msgid "Awaiting moderator approval"
 msgstr "Oèekujem odobrenje moderatora"
 
-#: Mailman/Cgi/confirm.py:339
+#: Mailman/Cgi/confirm.py:357
 msgid ""
 "            You have successfully confirmed your subscription request to "
 "the\n"
@@ -1488,8 +1488,8 @@ msgstr ""
 "moderatoru\n"
 "            liste, tako da æete biti obavje¹teni o njegovoj odluci."
 
-#: Mailman/Cgi/confirm.py:346 Mailman/Cgi/confirm.py:406
-#: Mailman/Cgi/confirm.py:494 Mailman/Cgi/confirm.py:717
+#: Mailman/Cgi/confirm.py:364 Mailman/Cgi/confirm.py:424
+#: Mailman/Cgi/confirm.py:513 Mailman/Cgi/confirm.py:736
 msgid ""
 "Invalid confirmation string.  It is\n"
 "            possible that you are attempting to confirm a request for an\n"
@@ -1499,11 +1499,11 @@ msgstr ""
 "            da poku¹avate potvrditi zahtjev za adresom koja je veæ\n"
 "            odjavljena sa liste."
 
-#: Mailman/Cgi/confirm.py:350
+#: Mailman/Cgi/confirm.py:368
 msgid "You are already a member of this mailing list!"
 msgstr "Vi ste veæ èlan ove mailing liste!"
 
-#: Mailman/Cgi/confirm.py:352
+#: Mailman/Cgi/confirm.py:370
 msgid ""
 "            You were not invited to this mailing list.  The invitation has\n"
 "            been discarded, and both list administrators have been\n"
@@ -1512,11 +1512,11 @@ msgstr ""
 "            Niste pozvani na ovu mailing listu.  Poziv je odbaèen,\n"
 "            a oba administratora liste su upozorena."
 
-#: Mailman/Cgi/confirm.py:362
+#: Mailman/Cgi/confirm.py:380
 msgid "Subscription request confirmed"
 msgstr "Zahtjev za pretplatom je potvrðen"
 
-#: Mailman/Cgi/confirm.py:366
+#: Mailman/Cgi/confirm.py:384
 msgid ""
 "            You have successfully confirmed your subscription request for\n"
 "            \"%(addr)s\" to the %(listname)s mailing list.  A separate\n"
@@ -1538,15 +1538,15 @@ msgstr ""
 "            <a href=\"%(optionsurl)s\">otiæi na svoju èlansku stranicu\n"
 "            za prijavu</a>."
 
-#: Mailman/Cgi/confirm.py:384
+#: Mailman/Cgi/confirm.py:402
 msgid "You have canceled your unsubscription request."
 msgstr "Zanemarili ste svoj zahtjev za odjavom."
 
-#: Mailman/Cgi/confirm.py:412
+#: Mailman/Cgi/confirm.py:430
 msgid "Unsubscription request confirmed"
 msgstr "Zahtjev za odjavom je povtrðen"
 
-#: Mailman/Cgi/confirm.py:416
+#: Mailman/Cgi/confirm.py:434
 msgid ""
 "            You have successfully unsubscribed from the %(listname)s "
 "mailing\n"
@@ -1559,15 +1559,15 @@ msgstr ""
 "glavnu\n"
 "            stranicu sa informacijama o listi</a>."
 
-#: Mailman/Cgi/confirm.py:427
+#: Mailman/Cgi/confirm.py:445
 msgid "Confirm unsubscription request"
 msgstr "Potvrdi zahtjev za odjavom"
 
-#: Mailman/Cgi/confirm.py:442 Mailman/Cgi/confirm.py:531
+#: Mailman/Cgi/confirm.py:460 Mailman/Cgi/confirm.py:550
 msgid "<em>Not available</em>"
 msgstr "<em>Nije dostupno</em>"
 
-#: Mailman/Cgi/confirm.py:445
+#: Mailman/Cgi/confirm.py:463
 msgid ""
 "Your confirmation is required in order to complete the\n"
 "    unsubscription request from the mailing list <em>%(listname)s</em>.  "
@@ -1598,24 +1598,24 @@ msgstr ""
 "    <p>Ili stisnite <em>Zanemari i odbaci</em> da biste zanemarili ovaj\n"
 "    zahtjev za pretplatom."
 
-#: Mailman/Cgi/confirm.py:461 Mailman/Cgi/options.py:693
-#: Mailman/Cgi/options.py:834 Mailman/Cgi/options.py:844
+#: Mailman/Cgi/confirm.py:479 Mailman/Cgi/options.py:696
+#: Mailman/Cgi/options.py:837 Mailman/Cgi/options.py:847
 msgid "Unsubscribe"
 msgstr "Odjava"
 
-#: Mailman/Cgi/confirm.py:462 Mailman/Cgi/confirm.py:560
+#: Mailman/Cgi/confirm.py:480 Mailman/Cgi/confirm.py:579
 msgid "Cancel and discard"
 msgstr "Zanemari i odbaci"
 
-#: Mailman/Cgi/confirm.py:472
+#: Mailman/Cgi/confirm.py:490
 msgid "You have canceled your change of address request."
 msgstr "Zanemarili ste zahtjev za promjenom svoje adrese."
 
-#: Mailman/Cgi/confirm.py:500
+#: Mailman/Cgi/confirm.py:519
 msgid "Change of address request confirmed"
 msgstr "Zahtjev za promjenom adrese je potvrðen"
 
-#: Mailman/Cgi/confirm.py:504
+#: Mailman/Cgi/confirm.py:523
 msgid ""
 "            You have successfully changed your address on the %(listname)s\n"
 "            mailing list from <b>%(oldaddr)s</b> to <b>%(newaddr)s</b>.  "
@@ -1629,15 +1629,15 @@ msgstr ""
 "poèetnu\n"
 "            stranicu.</a>."
 
-#: Mailman/Cgi/confirm.py:516
+#: Mailman/Cgi/confirm.py:535
 msgid "Confirm change of address request"
 msgstr "Potvrdi zahtjev za promjenom adrese"
 
-#: Mailman/Cgi/confirm.py:535
+#: Mailman/Cgi/confirm.py:554
 msgid "globally"
 msgstr "opæenito"
 
-#: Mailman/Cgi/confirm.py:538
+#: Mailman/Cgi/confirm.py:557
 msgid ""
 "Your confirmation is required in order to complete the\n"
 "    change of address request for the mailing list <em>%(listname)s</em>.  "
@@ -1679,15 +1679,15 @@ msgstr ""
 "    <p>Ili stisnite <em>Zanemari odbaci</em> da biste zanemarili ovu "
 "promjenu adrese\n"
 
-#: Mailman/Cgi/confirm.py:559
+#: Mailman/Cgi/confirm.py:578
 msgid "Change address"
 msgstr "Promjeni adresu"
 
-#: Mailman/Cgi/confirm.py:569 Mailman/Cgi/confirm.py:682
+#: Mailman/Cgi/confirm.py:587 Mailman/Cgi/confirm.py:701
 msgid "Continue awaiting approval"
 msgstr "Nastavi oèekivano odobrenje"
 
-#: Mailman/Cgi/confirm.py:576
+#: Mailman/Cgi/confirm.py:595
 msgid ""
 "Okay, the list moderator will still have the\n"
 "    opportunity to approve or reject this message."
@@ -1695,11 +1695,11 @@ msgstr ""
 "U redu, moderator liste æe i dalje imati\n"
 "    ¹ansu da odobri ili odbaci ovu poruku."
 
-#: Mailman/Cgi/confirm.py:602
+#: Mailman/Cgi/confirm.py:621
 msgid "Sender discarded message via web."
 msgstr "Po¹iljatelj je odbacio poruku koristeæi web."
 
-#: Mailman/Cgi/confirm.py:604
+#: Mailman/Cgi/confirm.py:623
 msgid ""
 "The held message with the Subject:\n"
 "            header <em>%(subject)s</em> could not be found.  The most "
@@ -1715,11 +1715,11 @@ msgstr ""
 "poruku.\n"
 "            Niste bili u moguænosti zanemariti istu na vrijeme.\n"
 
-#: Mailman/Cgi/confirm.py:612
+#: Mailman/Cgi/confirm.py:631
 msgid "Posted message canceled"
 msgstr "Poslana poruka je zanemarena"
 
-#: Mailman/Cgi/confirm.py:615
+#: Mailman/Cgi/confirm.py:634
 msgid ""
 "            You have successfully canceled the posting of your message with\n"
 "            the Subject: header <em>%(subject)s</em> to the mailing list\n"
@@ -1729,11 +1729,11 @@ msgstr ""
 "            <em>%(subject)s</em> zaglavljem na mailing listu\n"
 "            %(listname)s."
 
-#: Mailman/Cgi/confirm.py:626
+#: Mailman/Cgi/confirm.py:645
 msgid "Cancel held message posting"
 msgstr "Zanemari zadr¾anu poslanu poruku"
 
-#: Mailman/Cgi/confirm.py:651
+#: Mailman/Cgi/confirm.py:670
 msgid ""
 "The held message you were referred to has\n"
 "        already been handled by the list administrator."
@@ -1741,7 +1741,7 @@ msgstr ""
 "Zadr¾ana poruka na koju ste se referencirali je\n"
 "        veæ obraðena od strane administratora liste."
 
-#: Mailman/Cgi/confirm.py:665
+#: Mailman/Cgi/confirm.py:684
 msgid ""
 "Your confirmation is required in order to cancel the\n"
 "    posting of your message to the mailing list <em>%(listname)s</em>:\n"
@@ -1771,11 +1771,11 @@ msgstr ""
 "dali\n"
 "    moderatoru liste moguænost da odobri ili odbaci poruku."
 
-#: Mailman/Cgi/confirm.py:681
+#: Mailman/Cgi/confirm.py:700
 msgid "Cancel posting"
 msgstr "Zanemari slanje poruke"
 
-#: Mailman/Cgi/confirm.py:693
+#: Mailman/Cgi/confirm.py:712
 msgid ""
 "You have canceled the re-enabling of your membership.  If\n"
 "    we continue to receive bounces from your address, it could be deleted "
@@ -1787,11 +1787,11 @@ msgstr ""
 "obrisana\n"
 "    sa ove mailing liste."
 
-#: Mailman/Cgi/confirm.py:723
+#: Mailman/Cgi/confirm.py:742
 msgid "Membership re-enabled."
 msgstr "Èlanstvo je obnovljeno."
 
-#: Mailman/Cgi/confirm.py:727
+#: Mailman/Cgi/confirm.py:746
 msgid ""
 "            You have successfully re-enabled your membership in the\n"
 "            %(listname)s mailing list.  You can now <a\n"
@@ -1804,11 +1804,11 @@ msgstr ""
 "postavkama.</a>.\n"
 "            "
 
-#: Mailman/Cgi/confirm.py:739
+#: Mailman/Cgi/confirm.py:758
 msgid "Re-enable mailing list membership"
 msgstr "Obnovi èlanstvo na mailing listi"
 
-#: Mailman/Cgi/confirm.py:756
+#: Mailman/Cgi/confirm.py:775
 msgid ""
 "We're sorry, but you have already been unsubscribed\n"
 "        from this mailing list.  To re-subscribe, please visit the\n"
@@ -1818,11 +1818,11 @@ msgstr ""
 "        Da biste se ponovno pretplatili, posjetite\n"
 "        <a href=\"%(listinfourl)s\">informacijsku stranicu liste</a>."
 
-#: Mailman/Cgi/confirm.py:770
+#: Mailman/Cgi/confirm.py:789
 msgid "<em>not available</em>"
 msgstr "<em>nije dostupno</em>"
 
-#: Mailman/Cgi/confirm.py:774
+#: Mailman/Cgi/confirm.py:793
 msgid ""
 "Your membership in the %(realname)s mailing list is\n"
 "    currently disabled due to excessive bounces.  Your confirmation is\n"
@@ -1861,11 +1861,11 @@ msgstr ""
 "    odustali od istog.\n"
 "    "
 
-#: Mailman/Cgi/confirm.py:794
+#: Mailman/Cgi/confirm.py:813
 msgid "Re-enable membership"
 msgstr "Obnovi èlanstvo"
 
-#: Mailman/Cgi/confirm.py:795
+#: Mailman/Cgi/confirm.py:814
 msgid "Cancel"
 msgstr "Zanemari"
 
@@ -1875,11 +1875,11 @@ msgstr "Kriva specifikacija URLa"
 
 #: Mailman/Cgi/create.py:63 Mailman/Cgi/rmlist.py:176
 msgid "Return to the "
-msgstr "Vrati se na"
+msgstr "Vrati se na "
 
 #: Mailman/Cgi/create.py:65 Mailman/Cgi/rmlist.py:178
 msgid "general list overview"
-msgstr "Opæeniti pregled liste"
+msgstr "opæeniti pregled liste"
 
 #: Mailman/Cgi/create.py:66 Mailman/Cgi/rmlist.py:179
 msgid "<br>Return to the "
@@ -1901,7 +1901,7 @@ msgstr "Lista veæ postoji: %(listname)s"
 
 #: Mailman/Cgi/create.py:113
 msgid "You forgot to enter the list name"
-msgstr "Zaboravili ste unjeti naziv liste"
+msgstr "Zaboravili ste unijeti naziv liste"
 
 #: Mailman/Cgi/create.py:117
 msgid "You forgot to specify the list owner"
@@ -1987,7 +1987,7 @@ msgid "Create a %(hostname)s Mailing List"
 msgstr "Kreiraj %(hostname)s Mailing Listu"
 
 #: Mailman/Cgi/create.py:290 Mailman/Cgi/rmlist.py:199
-#: Mailman/Gui/Bounce.py:175 Mailman/htmlformat.py:339
+#: Mailman/Gui/Bounce.py:187 Mailman/htmlformat.py:339
 msgid "Error: "
 msgstr "Gre¹ka: "
 
@@ -2021,7 +2021,7 @@ msgstr ""
 "    za slanje poruka na listu, pa bi trebao biti napisan malim slovima.\n"
 "    Navedeno neæete moæi promjeniti kada kreirate listu.\n"
 "\n"
-"    <p>Takoðer trebate unjeti e-mail adresu poèetnog vlasnika liste.\n"
+"    <p>Takoðer trebate unijeti e-mail adresu poèetnog vlasnika liste.\n"
 "    Jednom kada je lista kreirana, vlasnik liste æe biti obavje¹ten, zajedno "
 "sa\n"
 "    inicijalnom lozinkom liste.  Vlasnik liste æe tada biti u moguænosti\n"
@@ -2034,8 +2034,8 @@ msgstr ""
 "\n"
 "    <p>Da biste kreirali nove mailing liste morate imati odgovarajuæa "
 "prava.\n"
-"    Svaki site treba imati <em>list creator's</em> lozinku, koju mo¾ete "
-"unjeti u\n"
+"    Svaki site treba imati lozinku <em>kreatora liste</em>, koju mo¾ete "
+"unijeti u\n"
 "    polje na dnu.  Primjetite da administratorska lozinka takoðer mo¾e biti\n"
 "    kori¹tena za autentikaciju.\n"
 "    "
@@ -2171,7 +2171,7 @@ msgstr "HTML je uspje¹no osvje¾en."
 msgid "%(hostname)s Mailing Lists"
 msgstr "%(hostname)s Mailing Liste"
 
-#: Mailman/Cgi/listinfo.py:105
+#: Mailman/Cgi/listinfo.py:106
 msgid ""
 "<p>There currently are no publicly-advertised\n"
 "            %(mailmanlink)s mailing lists on %(hostname)s."
@@ -2179,7 +2179,7 @@ msgstr ""
 "<p>Trenutno nema javno ogla¹enih\n"
 "            %(mailmanlink)s mailing lista na %(hostname)s."
 
-#: Mailman/Cgi/listinfo.py:109
+#: Mailman/Cgi/listinfo.py:110
 msgid ""
 "<p>Below is a listing of all the public mailing lists on\n"
 "            %(hostname)s.  Click on a list name to get more information "
@@ -2195,11 +2195,11 @@ msgstr ""
 "postavke va¹e\n"
 "            pretplate."
 
-#: Mailman/Cgi/listinfo.py:115
+#: Mailman/Cgi/listinfo.py:116
 msgid "right"
 msgstr "u redu"
 
-#: Mailman/Cgi/listinfo.py:118
+#: Mailman/Cgi/listinfo.py:119
 msgid ""
 " To visit the general information page for an unadvertised list,\n"
 "        open a URL similar to this one, but with a '/' and the %(adj)s\n"
@@ -2212,11 +2212,11 @@ msgstr ""
 "        dodanim nazivom liste.\n"
 "        <p>Administratori liste, mo¾ete posjetiti "
 
-#: Mailman/Cgi/listinfo.py:123
+#: Mailman/Cgi/listinfo.py:124
 msgid "the list admin overview page"
 msgstr "administratorska stranica za opæi pregled"
 
-#: Mailman/Cgi/listinfo.py:124
+#: Mailman/Cgi/listinfo.py:125
 #, fuzzy
 msgid ""
 " to find the management interface for your list.\n"
@@ -2225,11 +2225,11 @@ msgstr ""
 " da biste prona¹li upravljaèko suèelje za va¹u listu.\n"
 "         <p>Po¹aljite pitanja i komentare na "
 
-#: Mailman/Cgi/listinfo.py:189
+#: Mailman/Cgi/listinfo.py:190
 msgid "Edit Options"
 msgstr "Uredi Opcije"
 
-#: Mailman/Cgi/listinfo.py:196 Mailman/Cgi/options.py:800
+#: Mailman/Cgi/listinfo.py:197 Mailman/Cgi/options.py:803
 #: Mailman/Cgi/roster.py:109
 msgid "View this page in"
 msgstr "Pogledaj ovu stranicu koristeæi"
@@ -2250,12 +2250,12 @@ msgstr "Adresa nije dana"
 msgid "Illegal Email Address: %(safeuser)s"
 msgstr "Pogre¹na Email Adresa: %(safeuser)s"
 
-#: Mailman/Cgi/options.py:123 Mailman/Cgi/options.py:186
-#: Mailman/Cgi/options.py:208
+#: Mailman/Cgi/options.py:123 Mailman/Cgi/options.py:187
+#: Mailman/Cgi/options.py:209
 msgid "No such member: %(safeuser)s."
 msgstr "Nema takvog èlana: %(safeuser)s."
 
-#: Mailman/Cgi/options.py:172
+#: Mailman/Cgi/options.py:173
 #, fuzzy
 msgid ""
 "Your unsubscription request has been\n"
@@ -2264,11 +2264,11 @@ msgstr ""
 "Va¹ zahtjev za odjavom je prosljeðen administratoru liste na\n"
 "odobrenje."
 
-#: Mailman/Cgi/options.py:180 Mailman/Cgi/options.py:191
+#: Mailman/Cgi/options.py:178 Mailman/Cgi/options.py:192
 msgid "The confirmation email has been sent."
 msgstr "Potvrdni e-mail je poslan."
 
-#: Mailman/Cgi/options.py:202 Mailman/Cgi/options.py:214
+#: Mailman/Cgi/options.py:203 Mailman/Cgi/options.py:215
 #: Mailman/Cgi/options.py:257
 msgid "A reminder of your password has been emailed to you."
 msgstr "Podsjetnik va¹e lozinke poslan vam je mailom."
@@ -2422,55 +2422,55 @@ msgstr "Uspje¹no ste postavili svoje opcije."
 msgid "You may get one last digest."
 msgstr "Mo¾ete eventualno dobiti jo¹ jedan digest mail."
 
-#: Mailman/Cgi/options.py:695
+#: Mailman/Cgi/options.py:698
 msgid "<em>Yes, I really want to unsubscribe</em>"
 msgstr "<em>Da, ja se stvarno ¾elim odjaviti</em>"
 
-#: Mailman/Cgi/options.py:699
+#: Mailman/Cgi/options.py:702
 msgid "Change My Password"
 msgstr "Promjeni Moju Lozinku"
 
-#: Mailman/Cgi/options.py:702
+#: Mailman/Cgi/options.py:705
 msgid "List my other subscriptions"
 msgstr "Prika¾i listu mojih drugih pretplata"
 
-#: Mailman/Cgi/options.py:708
+#: Mailman/Cgi/options.py:711
 msgid "Email My Password To Me"
 msgstr "Po¹alji mi Moju Lozinku Mailom"
 
-#: Mailman/Cgi/options.py:710
+#: Mailman/Cgi/options.py:713
 msgid "password"
 msgstr "lozinka"
 
-#: Mailman/Cgi/options.py:712
+#: Mailman/Cgi/options.py:715
 msgid "Log out"
 msgstr "Odjava"
 
-#: Mailman/Cgi/options.py:714
+#: Mailman/Cgi/options.py:717
 msgid "Submit My Changes"
 msgstr "Po¹alji Moje Promjene"
 
-#: Mailman/Cgi/options.py:726
+#: Mailman/Cgi/options.py:729
 msgid "days"
 msgstr "dani"
 
-#: Mailman/Cgi/options.py:728
+#: Mailman/Cgi/options.py:731
 msgid "day"
 msgstr "dan"
 
-#: Mailman/Cgi/options.py:729
+#: Mailman/Cgi/options.py:732
 msgid "%(days)d %(units)s"
 msgstr "%(days)d %(units)s"
 
-#: Mailman/Cgi/options.py:735
+#: Mailman/Cgi/options.py:738
 msgid "Change My Address and Name"
 msgstr "Promjeni Moju Adresu i Ime"
 
-#: Mailman/Cgi/options.py:759
+#: Mailman/Cgi/options.py:762
 msgid "<em>No topics defined</em>"
 msgstr "<em>Nijedna tema nije napisana</em>"
 
-#: Mailman/Cgi/options.py:767
+#: Mailman/Cgi/options.py:770
 msgid ""
 "\n"
 "You are subscribed to this list with the case-preserved address\n"
@@ -2481,19 +2481,19 @@ msgstr ""
 "mala slova)\n"
 "<em>%(cpuser)s</em>."
 
-#: Mailman/Cgi/options.py:781
+#: Mailman/Cgi/options.py:784
 msgid "%(realname)s list: member options login page"
 msgstr "%(realname)s lista: èlanska ulazna stranica sa opcijama"
 
-#: Mailman/Cgi/options.py:782
+#: Mailman/Cgi/options.py:785
 msgid "email address and "
 msgstr "e-mail adresa i "
 
-#: Mailman/Cgi/options.py:785
+#: Mailman/Cgi/options.py:788
 msgid "%(realname)s list: member options for user %(safeuser)s"
 msgstr "%(realname)s lista: èlanske opcije za korisnika %(safeuser)s"
 
-#: Mailman/Cgi/options.py:810
+#: Mailman/Cgi/options.py:813
 msgid ""
 "In order to change your membership option, you must\n"
 "    first log in by giving your %(extra)smembership password in the section\n"
@@ -2525,19 +2525,19 @@ msgstr ""
 "    koje ste napravili neæe imati uèinka.\n"
 "    "
 
-#: Mailman/Cgi/options.py:824
+#: Mailman/Cgi/options.py:827
 msgid "Email address:"
 msgstr "Email adresa:"
 
-#: Mailman/Cgi/options.py:828
+#: Mailman/Cgi/options.py:831
 msgid "Password:"
 msgstr "Lozinka:"
 
-#: Mailman/Cgi/options.py:830
+#: Mailman/Cgi/options.py:833
 msgid "Log in"
 msgstr "Prijavi se"
 
-#: Mailman/Cgi/options.py:838
+#: Mailman/Cgi/options.py:841
 msgid ""
 "By clicking on the <em>Unsubscribe</em> button, a\n"
 "    confirmation message will be emailed to you.  This message will have a\n"
@@ -2551,11 +2551,11 @@ msgstr ""
 "takoðer mo¾ete\n"
 "    potvrditi i mailom; pogledajte upute u poruci sa potvrdom"
 
-#: Mailman/Cgi/options.py:846
+#: Mailman/Cgi/options.py:849
 msgid "Password reminder"
 msgstr "Podsjetnik lozinke"
 
-#: Mailman/Cgi/options.py:850
+#: Mailman/Cgi/options.py:853
 msgid ""
 "By clicking on the <em>Remind</em> button, your\n"
 "    password will be emailed to you."
@@ -2563,27 +2563,27 @@ msgstr ""
 "Klikom na <em>Podsjeti</em> gumb bit æe\n"
 "    vam mailana va¹a lozinka."
 
-#: Mailman/Cgi/options.py:853
+#: Mailman/Cgi/options.py:856
 msgid "Remind"
 msgstr "Podsjeti"
 
-#: Mailman/Cgi/options.py:953
+#: Mailman/Cgi/options.py:956
 msgid "<missing>"
 msgstr "<missing>"
 
-#: Mailman/Cgi/options.py:964
+#: Mailman/Cgi/options.py:967
 msgid "Requested topic is not valid: %(topicname)s"
 msgstr "Tra¾eni naslov (tema) nije ispravan: %(topicname)s"
 
-#: Mailman/Cgi/options.py:969
+#: Mailman/Cgi/options.py:972
 msgid "Topic filter details"
 msgstr "Detalji o filteru teme"
 
-#: Mailman/Cgi/options.py:972
+#: Mailman/Cgi/options.py:975
 msgid "Name:"
 msgstr "Naziv:"
 
-#: Mailman/Cgi/options.py:974
+#: Mailman/Cgi/options.py:977
 msgid "Pattern (as regexp):"
 msgstr "Uzorak (kao regexp):"
 
@@ -2711,7 +2711,7 @@ msgstr "Gre¹ka"
 
 #: Mailman/Cgi/subscribe.py:111
 msgid "You must supply a valid email address."
-msgstr "Morate unjeti ispravnu e-mail adresu."
+msgstr "Morate unijeti ispravnu e-mail adresu."
 
 #: Mailman/Cgi/subscribe.py:123
 msgid "You may not subscribe a list to itself!"
@@ -2853,7 +2853,7 @@ msgid ""
 "        supplied by a mailback confirmation notice.\n"
 msgstr ""
 "\n"
-"    potvrdi <confirmation-string>\n"
+"    confirm <confirmation-string>\n"
 "        Potvrdi akciju.  Confirmation-string je potreban i treba biti\n"
 "        dostavljen s povratnim, potvrdnim mailom.\n"
 
@@ -3576,127 +3576,127 @@ msgstr "Non-digest (regularni) èlanovi:"
 msgid "Digest members:"
 msgstr "Digest èlanovi:"
 
-#: Mailman/Defaults.py:1271
+#: Mailman/Defaults.py:1249
 #, fuzzy
 msgid "Catalan"
 msgstr "Talijanski"
 
-#: Mailman/Defaults.py:1272
+#: Mailman/Defaults.py:1250
 msgid "Czech"
 msgstr "Èe¹ki"
 
-#: Mailman/Defaults.py:1273
+#: Mailman/Defaults.py:1251
 #, fuzzy
 msgid "Danish"
 msgstr "Finski"
 
-#: Mailman/Defaults.py:1274
+#: Mailman/Defaults.py:1252
 msgid "German"
 msgstr "Njemaèki"
 
-#: Mailman/Defaults.py:1275
+#: Mailman/Defaults.py:1253
 msgid "English (USA)"
 msgstr "Engleski (SAD)"
 
-#: Mailman/Defaults.py:1276
+#: Mailman/Defaults.py:1254
 msgid "Spanish (Spain)"
 msgstr "©panjolski"
 
-#: Mailman/Defaults.py:1277
+#: Mailman/Defaults.py:1255
 msgid "Estonian"
 msgstr "Estonski"
 
-#: Mailman/Defaults.py:1278
+#: Mailman/Defaults.py:1256
 msgid "Euskara"
 msgstr ""
 
-#: Mailman/Defaults.py:1279
+#: Mailman/Defaults.py:1257
 msgid "Finnish"
 msgstr "Finski"
 
-#: Mailman/Defaults.py:1280
+#: Mailman/Defaults.py:1258
 msgid "French"
 msgstr "Francuski"
 
-#: Mailman/Defaults.py:1281
+#: Mailman/Defaults.py:1259
 msgid "Croatian"
 msgstr ""
 
-#: Mailman/Defaults.py:1282
+#: Mailman/Defaults.py:1260
 msgid "Hungarian"
 msgstr "Maðarski"
 
-#: Mailman/Defaults.py:1283
+#: Mailman/Defaults.py:1261
 msgid "Italian"
 msgstr "Talijanski"
 
-#: Mailman/Defaults.py:1284
+#: Mailman/Defaults.py:1262
 msgid "Japanese"
 msgstr "Japanski"
 
-#: Mailman/Defaults.py:1285
+#: Mailman/Defaults.py:1263
 msgid "Korean"
 msgstr "Korejski"
 
-#: Mailman/Defaults.py:1286
+#: Mailman/Defaults.py:1264
 msgid "Lithuanian"
 msgstr "Litvanski"
 
-#: Mailman/Defaults.py:1287
+#: Mailman/Defaults.py:1265
 msgid "Dutch"
 msgstr "Nizozemski"
 
-#: Mailman/Defaults.py:1288
+#: Mailman/Defaults.py:1266
 msgid "Norwegian"
 msgstr "Norve¹ki"
 
-#: Mailman/Defaults.py:1289
+#: Mailman/Defaults.py:1267
 msgid "Polish"
 msgstr "Poljski"
 
-#: Mailman/Defaults.py:1290
+#: Mailman/Defaults.py:1268
 msgid "Portuguese"
 msgstr "Portugalski"
 
-#: Mailman/Defaults.py:1291
+#: Mailman/Defaults.py:1269
 msgid "Portuguese (Brazil)"
 msgstr "Portugalski (Brazil)"
 
-#: Mailman/Defaults.py:1292
+#: Mailman/Defaults.py:1270
 #, fuzzy
 msgid "Romanian"
 msgstr "Estonski"
 
-#: Mailman/Defaults.py:1293
+#: Mailman/Defaults.py:1271
 msgid "Russian"
 msgstr "Ruski"
 
-#: Mailman/Defaults.py:1294
+#: Mailman/Defaults.py:1272
 #, fuzzy
 msgid "Serbian"
 msgstr "Njemaèki"
 
-#: Mailman/Defaults.py:1295
+#: Mailman/Defaults.py:1273
 msgid "Slovenian"
 msgstr ""
 
-#: Mailman/Defaults.py:1296
+#: Mailman/Defaults.py:1274
 msgid "Swedish"
 msgstr "©vedski"
 
-#: Mailman/Defaults.py:1297
+#: Mailman/Defaults.py:1275
 msgid "Ukrainian"
 msgstr ""
 
-#: Mailman/Defaults.py:1298
+#: Mailman/Defaults.py:1276
 msgid "Chinese (China)"
 msgstr ""
 
-#: Mailman/Defaults.py:1299
+#: Mailman/Defaults.py:1277
 msgid "Chinese (Taiwan)"
 msgstr ""
 
-#: Mailman/Deliverer.py:51
+#: Mailman/Deliverer.py:52
 msgid ""
 "Note: Since this is a list of mailing lists, administrative\n"
 "notices like the password reminder will be sent to\n"
@@ -3706,27 +3706,27 @@ msgstr ""
 "obavijesti kao ¹to je podsjetnik lozinke bit æe vam poslane\n"
 "na va¹u èlansku administrativnu adresu, %(addr)s."
 
-#: Mailman/Deliverer.py:71
+#: Mailman/Deliverer.py:72
 msgid " (Digest mode)"
 msgstr " (Digest mod)"
 
-#: Mailman/Deliverer.py:77
+#: Mailman/Deliverer.py:78
 msgid "Welcome to the \"%(realname)s\" mailing list%(digmode)s"
 msgstr "Dobrodo¹li na \"%(realname)s\" mailing listu%(digmode)s"
 
-#: Mailman/Deliverer.py:86
+#: Mailman/Deliverer.py:87
 msgid "You have been unsubscribed from the %(realname)s mailing list"
 msgstr "Odjavljeni ste sa %(realname)s mailing liste"
 
-#: Mailman/Deliverer.py:113
+#: Mailman/Deliverer.py:114
 msgid "%(listfullname)s mailing list reminder"
 msgstr "%(listfullname)s podsjetnik mailing liste"
 
-#: Mailman/Deliverer.py:157 Mailman/Deliverer.py:176
+#: Mailman/Deliverer.py:158 Mailman/Deliverer.py:177
 msgid "Hostile subscription attempt detected"
 msgstr "Detektiran je nedozvoljeni poku¹aj pretplate"
 
-#: Mailman/Deliverer.py:158
+#: Mailman/Deliverer.py:159
 msgid ""
 "%(address)s was invited to a different mailing\n"
 "list, but in a deliberate malicious attempt they tried to confirm the\n"
@@ -3738,7 +3738,7 @@ msgstr ""
 "listu.  Smatrali smo da ste ¾eljeli to znati.  Sa va¹e strane nije potrebna\n"
 "nikakva daljnja akcija."
 
-#: Mailman/Deliverer.py:177
+#: Mailman/Deliverer.py:178
 msgid ""
 "You invited %(address)s to your list, but in a\n"
 "deliberate malicious attempt, they tried to confirm the invitation to a\n"
@@ -3750,6 +3750,11 @@ msgstr ""
 "poku¹aju, namjeravalo se potvrditi poziv na drugu listu.\n"
 "Smatrali smo da ste ¾eljeli to znati.  Sa va¹e strane nije potrebna\n"
 "nikakva daljnja akcija."
+
+#: Mailman/Deliverer.py:212
+#, fuzzy
+msgid "%(listname)s mailing list probe message"
+msgstr "%(listfullname)s podsjetnik mailing liste"
 
 #: Mailman/Errors.py:114
 msgid "For some unknown reason"
@@ -4065,7 +4070,25 @@ msgstr ""
 "decimalni\n"
 "             broj."
 
-#: Mailman/Gui/Bounce.py:90
+#: Mailman/Gui/Bounce.py:88
+msgid ""
+"Each subscriber is assigned a bounce score, as a floating\n"
+"             point number.  Whenever Mailman receives a bounce from a list\n"
+"             member, that member's score is incremented.  Hard bounces "
+"(fatal\n"
+"             errors) increase the score by 1, while soft bounces (temporary\n"
+"             errors) increase the score by 0.5.  Only one bounce per day\n"
+"             counts against a member's score, so even if 10 bounces are\n"
+"             received for a member on the same day, their score will "
+"increase\n"
+"             by just 1.\n"
+"\n"
+"             This variable describes the upper limit for a member's bounce\n"
+"             score, above which they are automatically disabled, but not\n"
+"             removed from the mailing list."
+msgstr ""
+
+#: Mailman/Gui/Bounce.py:102
 msgid ""
 "The number of days after which a member's bounce information\n"
 "             is discarded, if no new bounces have been received in the\n"
@@ -4075,7 +4098,7 @@ msgstr ""
 "             èlana i to u sluèaju da nisu primljene nove odbijene poruke.\n"
 "             Ova vrijednost mora biti cijeli broj."
 
-#: Mailman/Gui/Bounce.py:95
+#: Mailman/Gui/Bounce.py:107
 msgid ""
 "How many <em>Your Membership Is Disabled</em> warnings a\n"
 "             disabled member should get before their address is removed "
@@ -4094,7 +4117,7 @@ msgstr ""
 "vrijednost.  Ova\n"
 "             vrijednost mora biti cijeli broj."
 
-#: Mailman/Gui/Bounce.py:102
+#: Mailman/Gui/Bounce.py:114
 msgid ""
 "The number of days between sending the <em>Your Membership\n"
 "             Is Disabled</em> warnings.  This value must be an integer."
@@ -4102,11 +4125,11 @@ msgstr ""
 "Broj dana izmeðu slanja <em>Va¹e èlanstvo je onemoguæeno\n"
 "             </em> upozorenja.  Ova vrijednost mora biti cijeli broj."
 
-#: Mailman/Gui/Bounce.py:105 Mailman/Gui/General.py:257
+#: Mailman/Gui/Bounce.py:117 Mailman/Gui/General.py:259
 msgid "Notifications"
 msgstr "Obavijesti"
 
-#: Mailman/Gui/Bounce.py:109
+#: Mailman/Gui/Bounce.py:121
 msgid ""
 "Should Mailman send you, the list owner, any bounce messages\n"
 "             that failed to be detected by the bounce processor?  <em>Yes</"
@@ -4118,7 +4141,7 @@ msgstr ""
 "em>\n"
 "             se preporuèuje."
 
-#: Mailman/Gui/Bounce.py:112
+#: Mailman/Gui/Bounce.py:124
 msgid ""
 "While Mailman's bounce detector is fairly robust, it's\n"
 "             impossible to detect every bounce format in the world.  You\n"
@@ -4182,7 +4205,7 @@ msgstr ""
 "             odgovor na poruku</a> za e-mail poslan na -owner i -admin "
 "adresu."
 
-#: Mailman/Gui/Bounce.py:135
+#: Mailman/Gui/Bounce.py:147
 msgid ""
 "Should Mailman notify you, the list owner, when bounces\n"
 "             cause a member's subscription to be disabled?"
@@ -4190,7 +4213,7 @@ msgstr ""
 "Treba li vas kao vlasnika liste Mailman obavijestiti kada odbijanje poruka\n"
 "             uzrokuje onemoguæavanje èlanske pretplate?"
 
-#: Mailman/Gui/Bounce.py:137
+#: Mailman/Gui/Bounce.py:149
 msgid ""
 "By setting this value to <em>No</em>, you turn off\n"
 "             notification messages that are normally sent to the list "
@@ -4204,7 +4227,7 @@ msgstr ""
 "odbijanja poruka.\n"
 "             Poku¹aj da se èlan o tome obavijesti bit æe uvijek napravljen."
 
-#: Mailman/Gui/Bounce.py:144
+#: Mailman/Gui/Bounce.py:156
 msgid ""
 "Should Mailman notify you, the list owner, when bounces\n"
 "             cause a member to be unsubscribed?"
@@ -4212,7 +4235,7 @@ msgstr ""
 "Treba li vas kao vlasnika liste Mailman obavijestiti kada odbijanje poruka\n"
 "             uzrokuje odjavu èlana s liste?"
 
-#: Mailman/Gui/Bounce.py:146
+#: Mailman/Gui/Bounce.py:158
 msgid ""
 "By setting this value to <em>No</em>, you turn off\n"
 "             notification messages that are normally sent to the list "
@@ -4225,7 +4248,7 @@ msgstr ""
 "             je èlan odjavljen sa liste zbog pretjeranog odbijanja poruka.\n"
 "             Poku¹aj da se èlan o tome obavijesti bit æe uvijek napravljen."
 
-#: Mailman/Gui/Bounce.py:173
+#: Mailman/Gui/Bounce.py:185
 msgid ""
 "Bad value for <a href=\"?VARHELP=bounce/%(property)s\"\n"
 "                >%(property)s</a>: %(val)s"
@@ -4593,15 +4616,15 @@ msgstr "Digest je poslan."
 msgid "There was no digest to send."
 msgstr "Nije poslan nikakav digest."
 
-#: Mailman/Gui/GUIBase.py:151
+#: Mailman/Gui/GUIBase.py:155
 msgid "Invalid value for variable: %(property)s"
 msgstr "Pogre¹na vrijednost za varijablu: %(property)s"
 
-#: Mailman/Gui/GUIBase.py:155
+#: Mailman/Gui/GUIBase.py:159
 msgid "Bad email address for option %(property)s: %(val)s"
 msgstr "Pogre¹na e-mail adresa za opciju %(property)s: %(val)s"
 
-#: Mailman/Gui/GUIBase.py:181
+#: Mailman/Gui/GUIBase.py:185
 msgid ""
 "The following illegal substitution variables were\n"
 "                found in the <code>%(property)s</code> string:\n"
@@ -4617,7 +4640,7 @@ msgstr ""
 "ovaj\n"
 "                problem."
 
-#: Mailman/Gui/GUIBase.py:195
+#: Mailman/Gui/GUIBase.py:199
 msgid ""
 "Your <code>%(property)s</code> string appeared to\n"
 "                    have some correctable problems in its new value.\n"
@@ -4633,27 +4656,27 @@ msgstr ""
 "namjeravali..\n"
 "                    "
 
-#: Mailman/Gui/General.py:32
+#: Mailman/Gui/General.py:34
 msgid "General Options"
 msgstr "Opæe postavke"
 
-#: Mailman/Gui/General.py:46
+#: Mailman/Gui/General.py:48
 msgid "Conceal the member's address"
 msgstr "Sakrivena èlanska adresa"
 
-#: Mailman/Gui/General.py:47
+#: Mailman/Gui/General.py:49
 msgid "Acknowledge the member's posting"
 msgstr "Potvrdi poslanu poruku èlana"
 
-#: Mailman/Gui/General.py:48
+#: Mailman/Gui/General.py:50
 msgid "Do not send a copy of a member's own post"
 msgstr "Ne ¹alji kopiju poruke koja je poslana od strane nekog èlana liste"
 
-#: Mailman/Gui/General.py:50
+#: Mailman/Gui/General.py:52
 msgid "Filter out duplicate messages to list members (if possible)"
 msgstr "Filtriraj duplikate poruka èlanovima liste (ako je moguæe)"
 
-#: Mailman/Gui/General.py:57
+#: Mailman/Gui/General.py:59
 msgid ""
 "Fundamental list characteristics, including descriptive\n"
 "            info and basic behaviors."
@@ -4661,16 +4684,16 @@ msgstr ""
 "Glavne karakteristike liste, ukljuèujuæi opisne\n"
 "            informacije i osnovna pona¹anja."
 
-#: Mailman/Gui/General.py:60
+#: Mailman/Gui/General.py:62
 msgid "General list personality"
 msgstr "Opæenita personalizacija liste"
 
-#: Mailman/Gui/General.py:63
+#: Mailman/Gui/General.py:65
 msgid "The public name of this list (make case-changes only)."
 msgstr ""
 "Javni naziv liste (napravite samo promjene vezane uz velika i mala slova)."
 
-#: Mailman/Gui/General.py:64
+#: Mailman/Gui/General.py:66
 msgid ""
 "The capitalization of this name can be changed to make it\n"
 "             presentable in polite company as a proper noun, or to make an\n"
@@ -4693,7 +4716,7 @@ msgstr ""
 "su zato\n"
 "             osjetljive na bilo koju drugu promjenu :-)"
 
-#: Mailman/Gui/General.py:73
+#: Mailman/Gui/General.py:75
 msgid ""
 "The list administrator email addresses.  Multiple\n"
 "             administrator addresses, each on separate line is okay."
@@ -4701,7 +4724,7 @@ msgstr ""
 "E-mail adrese administratora.  Prihvatljive su vi¹estruke\n"
 "             administratorske adrese, od kojih je svaka u drugoj liniji."
 
-#: Mailman/Gui/General.py:76
+#: Mailman/Gui/General.py:78
 msgid ""
 "There are two ownership roles associated with each mailing\n"
 "             list.  The <em>list administrators</em> are the people who "
@@ -4756,7 +4779,7 @@ msgstr ""
 "mijenjate\n"
 "             odreðuje administratore liste."
 
-#: Mailman/Gui/General.py:97
+#: Mailman/Gui/General.py:99
 msgid ""
 "The list moderator email addresses.  Multiple\n"
 "             moderator addresses, each on separate line is okay."
@@ -4764,7 +4787,7 @@ msgstr ""
 "E-mail adrese moderatora liste.  Prihvatljive su vi¹estruke\n"
 "             moderatorske adrese, od kojih je svaka u drugoj liniji."
 
-#: Mailman/Gui/General.py:100
+#: Mailman/Gui/General.py:102
 msgid ""
 "There are two ownership roles associated with each mailing\n"
 "             list.  The <em>list administrators</em> are the people who "
@@ -4817,11 +4840,11 @@ msgstr ""
 "da polje koje ovdje\n"
 "             mijenjate odreðuje moderatore liste."
 
-#: Mailman/Gui/General.py:121
+#: Mailman/Gui/General.py:123
 msgid "A terse phrase identifying this list."
 msgstr "Sa¾eta fraza koja identificira ovu listu."
 
-#: Mailman/Gui/General.py:123
+#: Mailman/Gui/General.py:125
 msgid ""
 "This description is used when the mailing list is listed with\n"
 "                other mailing lists, or in headers, and so forth.  It "
@@ -4837,7 +4860,7 @@ msgstr ""
 "listi,\n"
 "                tj. da listu na neki naèin identificira."
 
-#: Mailman/Gui/General.py:129
+#: Mailman/Gui/General.py:131
 msgid ""
 "An introductory description - a few paragraphs - about the\n"
 "             list.  It will be included, as html, at the top of the "
@@ -4852,7 +4875,7 @@ msgstr ""
 "informacija\n"
 "             pogledajte detalje."
 
-#: Mailman/Gui/General.py:133
+#: Mailman/Gui/General.py:135
 #, fuzzy
 msgid ""
 "The text will be treated as html <em>except</em> that\n"
@@ -4875,11 +4898,11 @@ msgstr ""
 "             pogre¹an html (kao npr. otvoreni HTML tagovi) mo¾e sprijeèiti\n"
 "             prikaz cijele stranice sa informacijama o listi."
 
-#: Mailman/Gui/General.py:141
+#: Mailman/Gui/General.py:143
 msgid "Prefix for subject line of list postings."
 msgstr "Prefiks za naslovnu liniju poruke."
 
-#: Mailman/Gui/General.py:142
+#: Mailman/Gui/General.py:144
 msgid ""
 "This text will be prepended to subject lines of messages\n"
 "             posted to the list, to distinguish mailing list messages in in\n"
@@ -4897,7 +4920,7 @@ msgstr ""
 "             mogu skratiti u neki kraæi oblik, sve dok to jo¹ uvijek\n"
 "             identificira mailing listu."
 
-#: Mailman/Gui/General.py:149
+#: Mailman/Gui/General.py:151
 msgid ""
 "Hide the sender of a message, replacing it with the list\n"
 "             address (Removes From, Sender and Reply-To fields)"
@@ -4905,11 +4928,11 @@ msgstr ""
 "Sakrij po¹iljatelja poruke tako da ga zamijeni¹ adresom\n"
 "             liste (Uklanja From, Sender i Reply-To polja)."
 
-#: Mailman/Gui/General.py:152
+#: Mailman/Gui/General.py:154
 msgid "<tt>Reply-To:</tt> header munging"
 msgstr "<tt>Reply-To:</tt> rad sa zaglavljima"
 
-#: Mailman/Gui/General.py:155
+#: Mailman/Gui/General.py:157
 msgid ""
 "Should any existing <tt>Reply-To:</tt> header found in the\n"
 "             original message be stripped?  If so, this will be done\n"
@@ -4923,19 +4946,19 @@ msgstr ""
 "strane\n"
 "             Mailmana ili nije dodano."
 
-#: Mailman/Gui/General.py:161
+#: Mailman/Gui/General.py:163
 msgid "Explicit address"
 msgstr "Eksplicitna adresa"
 
-#: Mailman/Gui/General.py:161
+#: Mailman/Gui/General.py:163
 msgid "Poster"
 msgstr "Po¹iljatelj"
 
-#: Mailman/Gui/General.py:161
+#: Mailman/Gui/General.py:163
 msgid "This list"
 msgstr "Ova lista"
 
-#: Mailman/Gui/General.py:162
+#: Mailman/Gui/General.py:164
 msgid ""
 "Where are replies to list messages directed?\n"
 "             <tt>Poster</tt> is <em>strongly</em> recommended for most "
@@ -4947,7 +4970,8 @@ msgstr ""
 "mailing\n"
 "             listi."
 
-#: Mailman/Gui/General.py:167
+#: Mailman/Gui/General.py:169
+#, fuzzy
 msgid ""
 "This option controls what Mailman does to the\n"
 "             <tt>Reply-To:</tt> header in messages flowing through this\n"
@@ -4961,7 +4985,7 @@ msgid ""
 "             necessary (<em>Explicit address</em> inserts the value of <a\n"
 "             href=\"?VARHELP=general/reply_to_address\">reply_to_address</"
 "a>).\n"
-" \n"
+"\n"
 "             <p>There are many reasons not to introduce or override the\n"
 "             <tt>Reply-To:</tt> header.  One is that some posters depend on\n"
 "             their own <tt>Reply-To:</tt> settings to convey their valid\n"
@@ -5035,11 +5059,11 @@ msgstr ""
 "             lista, izaberite <tt>Eksplicitne adrese</tt> i postavite donju\n"
 "             <tt>Reply-To:</tt> adresu tako da upuæuje na paralelnu listu."
 
-#: Mailman/Gui/General.py:199
+#: Mailman/Gui/General.py:201
 msgid "Explicit <tt>Reply-To:</tt> header."
 msgstr "Eksplicitno <tt>Reply-To:</tt> zaglavlje."
 
-#: Mailman/Gui/General.py:201
+#: Mailman/Gui/General.py:203
 msgid ""
 "This is the address set in the <tt>Reply-To:</tt> header\n"
 "             when the <a\n"
@@ -5120,11 +5144,11 @@ msgstr ""
 "promijenjeno\n"
 "             ako ga sadr¾i izvorna poruka."
 
-#: Mailman/Gui/General.py:230
+#: Mailman/Gui/General.py:232
 msgid "Umbrella list settings"
 msgstr "Za¹titne postavke liste"
 
-#: Mailman/Gui/General.py:233
+#: Mailman/Gui/General.py:235
 msgid ""
 "Send password reminders to, eg, \"-owner\" address instead of\n"
 "             directly to user."
@@ -5132,7 +5156,7 @@ msgstr ""
 "©alji podsjetnike lozinke na npr. \"-owner\" adresu umjesto\n"
 "             izravno korisniku."
 
-#: Mailman/Gui/General.py:236
+#: Mailman/Gui/General.py:238
 msgid ""
 "Set this to yes when this list is intended to cascade only\n"
 "             to other mailing lists.  When set, meta notices like\n"
@@ -5148,7 +5172,7 @@ msgstr ""
 "             izvedena iz èlanske adrese - imat æe vrijednost \n"
 "             \"èlan_pod_za¹titom_sufiks\" dodan korisnièkom imenu èlana."
 
-#: Mailman/Gui/General.py:244
+#: Mailman/Gui/General.py:246
 msgid ""
 "Suffix for use when this list is an umbrella for other\n"
 "             lists, according to setting of previous \"umbrella_list\"\n"
@@ -5157,7 +5181,7 @@ msgstr ""
 "Sufiks koji se koristi onda kada je ova lista za¹titna za druge\n"
 "             liste, u skladu sa stanjem prethodne postavke \"za¹titna_lista\""
 
-#: Mailman/Gui/General.py:248
+#: Mailman/Gui/General.py:250
 msgid ""
 "When \"umbrella_list\" is set to indicate that this list has\n"
 "             other mailing lists as members, then administrative notices "
@@ -5181,11 +5205,11 @@ msgstr ""
 "nema\n"
 "             utjecaja kada je \"za¹titna_lista\" postavljena na \"Ne\"."
 
-#: Mailman/Gui/General.py:260
+#: Mailman/Gui/General.py:262
 msgid "Send monthly password reminders?"
 msgstr "©alji podsjetnike lozinke mjeseèno?"
 
-#: Mailman/Gui/General.py:262
+#: Mailman/Gui/General.py:264
 msgid ""
 "Turn this on if you want password reminders to be sent once\n"
 "             per month to your members.  Note that members may disable "
@@ -5196,7 +5220,7 @@ msgstr ""
 "             mjeseèno.  Primijetite da èlanovi mogu onemoguæiti svoje\n"
 "             individulane podsjetnike lozinke."
 
-#: Mailman/Gui/General.py:267
+#: Mailman/Gui/General.py:269
 msgid ""
 "List-specific text prepended to new-subscriber welcome\n"
 "             message"
@@ -5204,7 +5228,7 @@ msgstr ""
 "Specifièan tekst liste koji se dodaje poruci dobrodo¹lice za nove\n"
 "             pretplatnike"
 
-#: Mailman/Gui/General.py:270
+#: Mailman/Gui/General.py:272
 msgid ""
 "This value, if any, will be added to the front of the\n"
 "             new-subscriber welcome message.  The rest of the welcome "
@@ -5245,11 +5269,11 @@ msgstr ""
 "                 <li>Prazna linija odvaja odlomke.\n"
 "             </ul>"
 
-#: Mailman/Gui/General.py:287
+#: Mailman/Gui/General.py:289
 msgid "Send welcome message to newly subscribed members?"
 msgstr "Po¹alji poruku dobrodo¹lice novim pretplatnicima?"
 
-#: Mailman/Gui/General.py:288
+#: Mailman/Gui/General.py:290
 msgid ""
 "Turn this off only if you plan on subscribing people manually\n"
 "             and don't want them to know that you did so.  This option is "
@@ -5265,7 +5289,7 @@ msgstr ""
 "upravljanje listama na\n"
 "             Mailmana."
 
-#: Mailman/Gui/General.py:294
+#: Mailman/Gui/General.py:296
 msgid ""
 "Text sent to people leaving the list.  If empty, no special\n"
 "             text will be added to the unsubscribe message."
@@ -5273,11 +5297,11 @@ msgstr ""
 "Tekst koji se ¹alje osobama koje napu¹taju listu.  Ako je prazan, nikakav\n"
 "             poseban tekst neæe biti dodan odjavnoj poruci."
 
-#: Mailman/Gui/General.py:298
+#: Mailman/Gui/General.py:300
 msgid "Send goodbye message to members when they are unsubscribed?"
 msgstr "Po¹alji pozdravnu poruku èlanovima kada su odjavljeni?"
 
-#: Mailman/Gui/General.py:301
+#: Mailman/Gui/General.py:303
 msgid ""
 "Should the list moderators get immediate notice of new\n"
 "             requests, as well as daily notices about collected ones?"
@@ -5286,7 +5310,7 @@ msgstr ""
 "             zahtjevima, kao ¹to dobiva dnevne obavijesti o prikupljenim "
 "zahtjevima?"
 
-#: Mailman/Gui/General.py:304
+#: Mailman/Gui/General.py:306
 msgid ""
 "List moderators (and list administrators) are sent daily\n"
 "             reminders of requests pending approval, like subscriptions to "
@@ -5304,7 +5328,7 @@ msgstr ""
 "             opcije uzrokuje slanje obavijesti odmah po primitku novih "
 "zahtjeva."
 
-#: Mailman/Gui/General.py:311
+#: Mailman/Gui/General.py:313
 msgid ""
 "Should administrator get notices of subscribes and\n"
 "             unsubscribes?"
@@ -5312,12 +5336,12 @@ msgstr ""
 "Treba li administrator dobivati obavijesti o pretplatama\n"
 "             i odjavama?"
 
-#: Mailman/Gui/General.py:316
+#: Mailman/Gui/General.py:318
 msgid "Send mail to poster when their posting is held for approval?"
 msgstr ""
 "Po¹alji e-mail po¹iljatelju kada je njegova poruka zadr¾ana za odobrenje?"
 
-#: Mailman/Gui/General.py:318
+#: Mailman/Gui/General.py:320
 msgid ""
 "Approval notices are sent when mail triggers certain of the\n"
 "             limits <em>except</em> routine list moderation and spam "
@@ -5331,15 +5355,15 @@ msgstr ""
 "             za koje se <em>ne</em> ¹alju obavijesti.  Ova opcija \n"
 "             sprjeèava slanje obavijesti."
 
-#: Mailman/Gui/General.py:323
+#: Mailman/Gui/General.py:325
 msgid "Additional settings"
 msgstr "Dodatne postavke"
 
-#: Mailman/Gui/General.py:326
+#: Mailman/Gui/General.py:328
 msgid "Emergency moderation of all list traffic."
 msgstr "Hitna moderacija cjelokupnog prometa liste."
 
-#: Mailman/Gui/General.py:327
+#: Mailman/Gui/General.py:329
 msgid ""
 "When this option is enabled, all list traffic is emergency\n"
 "             moderated, i.e. held for moderation.  Turn this option on when\n"
@@ -5353,7 +5377,7 @@ msgstr ""
 "             va¹a lista do¾ivljava flame rat, a vi ¾elite sve to malo "
 "ohladiti."
 
-#: Mailman/Gui/General.py:339
+#: Mailman/Gui/General.py:341
 msgid ""
 "Default options for new members joining this list.<input\n"
 "             type=\"hidden\" name=\"new_member_options\" value=\"ignore\">"
@@ -5361,7 +5385,7 @@ msgstr ""
 "Poèetne postavke za nove èlanove koji dolaze na listu.<input\n"
 "             type=\"hidden\" name=\"new_member_options\" value=\"ignore\">"
 
-#: Mailman/Gui/General.py:342
+#: Mailman/Gui/General.py:344
 msgid ""
 "When a new member is subscribed to this list, their initial\n"
 "             set of options is taken from the this variable's setting."
@@ -5369,7 +5393,7 @@ msgstr ""
 "Kada je novi èlan pretplaæen na ovu listu, njegove su poèetne\n"
 "             postavke uzete iz vrijednosti varijabli."
 
-#: Mailman/Gui/General.py:346
+#: Mailman/Gui/General.py:348
 msgid ""
 "(Administrivia filter) Check postings and intercept ones\n"
 "             that seem to be administrative requests?"
@@ -5377,7 +5401,7 @@ msgstr ""
 "(Administracijski filter) Provjerite poslane poruke i presretnite one\n"
 "             za koje vam se èini da su administrativni zahtjevi?"
 
-#: Mailman/Gui/General.py:349
+#: Mailman/Gui/General.py:351
 msgid ""
 "Administrivia tests will check postings to see whether it's\n"
 "             really meant as an administrative request (like subscribe,\n"
@@ -5394,7 +5418,7 @@ msgstr ""
 "             obavje¹tavajuæi administratora o novim zahtjevima koji se\n"
 "             obraðuju."
 
-#: Mailman/Gui/General.py:356
+#: Mailman/Gui/General.py:358
 msgid ""
 "Maximum length in kilobytes (KB) of a message body.  Use 0\n"
 "             for no limit."
@@ -5402,11 +5426,11 @@ msgstr ""
 "Maksimalna velièina tijela poruke u kilobajtima (KB).  Koristite 0\n"
 "             za neogranièeno."
 
-#: Mailman/Gui/General.py:360
+#: Mailman/Gui/General.py:362
 msgid "Host name this list prefers for email."
 msgstr "Naziv raèunala kojeg ova lista preferira za e-mail."
 
-#: Mailman/Gui/General.py:362
+#: Mailman/Gui/General.py:364
 msgid ""
 "The \"host_name\" is the preferred name for email to\n"
 "             mailman-related addresses on this host, and generally should "
@@ -5425,7 +5449,7 @@ msgstr ""
 "             za odabir izmeðu vi¹e alternativnih naziva hosta koji ima vi¹e "
 "adresa."
 
-#: Mailman/Gui/General.py:374
+#: Mailman/Gui/General.py:376
 msgid ""
 "Should messages from this mailing list include the\n"
 "                 <a href=\"http://www.faqs.org/rfcs/rfc2369.html\">RFC 2369</"
@@ -5439,7 +5463,7 @@ msgstr ""
 "                 (npr. <tt>List-*</tt>) zaglavlja?  Preporuèuje se <em>Da</"
 "em>."
 
-#: Mailman/Gui/General.py:379
+#: Mailman/Gui/General.py:381
 msgid ""
 "RFC 2369 defines a set of List-* headers that are\n"
 "                 normally added to every message sent to the list "
@@ -5482,11 +5506,11 @@ msgstr ""
 "                 ¹to se ipak ne preporuèa (ta moguænost mo¾e u buduænosti\n"
 "                 biti i izbaèena)."
 
-#: Mailman/Gui/General.py:397
+#: Mailman/Gui/General.py:399
 msgid "Should postings include the <tt>List-Post:</tt> header?"
 msgstr "Trebaju li poslane poruke ukljuèivati <tt>List-Post:</tt> zaglavlje?"
 
-#: Mailman/Gui/General.py:398
+#: Mailman/Gui/General.py:400
 msgid ""
 "The <tt>List-Post:</tt> header is one of the headers\n"
 "             recommended by\n"
@@ -5518,7 +5542,7 @@ msgstr ""
 "zaglavlja. (Ovo\n"
 "             ne utjeèe na ukljuèivanje drugih <tt>List-*:</tt> zaglavlja.)"
 
-#: Mailman/Gui/General.py:416
+#: Mailman/Gui/General.py:418
 msgid ""
 "<b>real_name</b> attribute not\n"
 "            changed!  It must differ from the list's name by case\n"
@@ -5528,7 +5552,7 @@ msgstr ""
 "            promjenjen!  Ono se mora razlikovati od naziva liste samo po\n"
 "            velikim i malim slovima."
 
-#: Mailman/Gui/General.py:437
+#: Mailman/Gui/General.py:448
 msgid ""
 "You cannot add a Reply-To: to an explicit\n"
 "            address if that address is blank.  Resetting these values."
@@ -7249,7 +7273,7 @@ msgid ""
 "This is %(also)sa private list, which means that the\n"
 "            list of members is not available to non-members."
 msgstr ""
-"Ovo je %(also)sa privatna lista, ¹to znaèi da lista\n"
+"Ovo je %(also)s privatna lista, ¹to znaèi da lista\n"
 "            èlanova nije dostupna onima koji nisu èlanovi."
 
 #: Mailman/HTMLFormatter.py:209
@@ -7257,7 +7281,7 @@ msgid ""
 "This is %(also)sa hidden list, which means that the\n"
 "            list of members is available only to the list administrator."
 msgstr ""
-"Ovo je %(also)sa skrivena lista, ¹to znaèi da je lista\n"
+"Ovo je %(also)s skrivena lista, ¹to znaèi da je lista\n"
 "            èlanova dostupna samo administratorima liste."
 
 #: Mailman/HTMLFormatter.py:212
@@ -7265,7 +7289,7 @@ msgid ""
 "This is %(also)sa public list, which means that the\n"
 "            list of members list is available to everyone."
 msgstr ""
-"Ovo je %(also)sa javna lista, ¹to znaèi da je lista\n"
+"Ovo je %(also)s javna lista, ¹to znaèi da je lista\n"
 "            èlanova dostupna svakome."
 
 #: Mailman/HTMLFormatter.py:215
@@ -7332,7 +7356,7 @@ msgid ""
 "(<i>%(which)s is only available to the list\n"
 "                members.</i>)"
 msgstr ""
-"(<i>%(which)s je dostupno samo èlanovima\n"
+"(<i>%(which)s je dostupna samo èlanovima\n"
 "                liste.</i>)"
 
 #: Mailman/HTMLFormatter.py:279
@@ -7361,11 +7385,11 @@ msgstr "èlanovi"
 
 #: Mailman/HTMLFormatter.py:297
 msgid "Address:"
-msgstr "Adresa"
+msgstr "Adresa:"
 
 #: Mailman/HTMLFormatter.py:300
 msgid "Admin address:"
-msgstr "Admin adresa"
+msgstr "Admin adresa:"
 
 #: Mailman/HTMLFormatter.py:303
 msgid "The subscribers list"
@@ -7373,11 +7397,11 @@ msgstr "Lista pretplatnika"
 
 #: Mailman/HTMLFormatter.py:305
 msgid " <p>Enter your "
-msgstr "<p>Unesite svoj "
+msgstr " <p>Email  "
 
 #: Mailman/HTMLFormatter.py:307
 msgid " and password to visit  the subscribers list: <p><center> "
-msgstr " i lozinku da biste posjetili listu pretplatnika: <p><center> "
+msgstr " i lozinka s kojom pristupate listi pretplatnika: <p><center> "
 
 #: Mailman/HTMLFormatter.py:312
 msgid "Password: "
@@ -7430,7 +7454,7 @@ msgstr "Po¹aljite poruku na moderiranu listu"
 
 #: Mailman/Handlers/Hold.py:61
 msgid "Post by non-member to a members-only list"
-msgstr "Poruka poslana od strane ne-èlana na samo-èlanksku listu"
+msgstr "Poruka poslana od strane ne-èlana na samo-èlasku listu"
 
 #: Mailman/Handlers/Hold.py:62
 msgid "Non-members are not allowed to post messages to this list."
@@ -7511,15 +7535,15 @@ msgstr ""
 msgid "Posting to a moderated newsgroup"
 msgstr "Slanje poruke na moderiranu news grupu"
 
-#: Mailman/Handlers/Hold.py:234
+#: Mailman/Handlers/Hold.py:240
 msgid "Your message to %(listname)s awaits moderator approval"
 msgstr "Va¹a poruka na %(listname)s èeka odobrenje moderatora"
 
-#: Mailman/Handlers/Hold.py:254
+#: Mailman/Handlers/Hold.py:259
 msgid "%(listname)s post from %(sender)s requires approval"
 msgstr "%(listname)s poruka od strane %(sender)s treba odobrenje"
 
-#: Mailman/Handlers/Hold.py:261
+#: Mailman/Handlers/Hold.py:266
 msgid ""
 "If you reply to this message, keeping the Subject: header intact, Mailman "
 "will\n"
@@ -7669,67 +7693,71 @@ msgstr ""
 msgid "Message rejected by filter rule match"
 msgstr ""
 
-#: Mailman/Handlers/ToDigest.py:145
+#: Mailman/Handlers/ToDigest.py:146
 msgid "%(realname)s Digest, Vol %(volume)d, Issue %(issue)d"
 msgstr "%(realname)s Digest, Broj %(volume)d, Izdanje %(issue)d"
 
-#: Mailman/Handlers/ToDigest.py:186
+#: Mailman/Handlers/ToDigest.py:187
 msgid "digest header"
 msgstr "zaglavlje digesta"
 
-#: Mailman/Handlers/ToDigest.py:189
+#: Mailman/Handlers/ToDigest.py:190
 msgid "Digest Header"
 msgstr "Zaglavlje Digesta"
 
-#: Mailman/Handlers/ToDigest.py:202
+#: Mailman/Handlers/ToDigest.py:203
 msgid "Today's Topics:\n"
 msgstr "Dana¹nje Teme:\n"
 
-#: Mailman/Handlers/ToDigest.py:281
+#: Mailman/Handlers/ToDigest.py:282
 msgid "Today's Topics (%(msgcount)d messages)"
 msgstr "Dana¹nje Teme (%(msgcount)d poruka)"
 
-#: Mailman/Handlers/ToDigest.py:318
+#: Mailman/Handlers/ToDigest.py:308
+msgid "[Message discarded by content filter]"
+msgstr ""
+
+#: Mailman/Handlers/ToDigest.py:323
 msgid "digest footer"
 msgstr "podno¾je digesta"
 
-#: Mailman/Handlers/ToDigest.py:321
+#: Mailman/Handlers/ToDigest.py:326
 msgid "Digest Footer"
 msgstr "Podno¾je Digesta"
 
-#: Mailman/Handlers/ToDigest.py:335
+#: Mailman/Handlers/ToDigest.py:340
 msgid "End of "
 msgstr "Kraj "
 
-#: Mailman/ListAdmin.py:315
+#: Mailman/ListAdmin.py:287
 msgid "Posting of your message titled \"%(subject)s\""
 msgstr "Slanje poruke naslovljene \"%(subject)s\""
 
-#: Mailman/ListAdmin.py:354
+#: Mailman/ListAdmin.py:326
 msgid "Forward of moderated message"
 msgstr "Prosljeðivanje moderirane poruke"
 
-#: Mailman/ListAdmin.py:413
+#: Mailman/ListAdmin.py:382
 msgid "New subscription request to list %(realname)s from %(addr)s"
 msgstr "Novi zahtjev za pretplatom na listu %(realname)s sa %(addr)s"
 
-#: Mailman/ListAdmin.py:436
+#: Mailman/ListAdmin.py:405
 msgid "Subscription request"
 msgstr "Zahtjev za pretplatom"
 
-#: Mailman/ListAdmin.py:466
+#: Mailman/ListAdmin.py:434
 msgid "New unsubscription request from %(realname)s by %(addr)s"
 msgstr "Novi zahtjev za odjavom od %(realname)s sa %(addr)s"
 
-#: Mailman/ListAdmin.py:489
+#: Mailman/ListAdmin.py:457
 msgid "Unsubscription request"
 msgstr "Zahtjev za odjavom"
 
-#: Mailman/ListAdmin.py:520
+#: Mailman/ListAdmin.py:488
 msgid "Original Message"
 msgstr "Izvorna Poruka"
 
-#: Mailman/ListAdmin.py:523
+#: Mailman/ListAdmin.py:491
 msgid "Request to mailing list %(realname)s rejected"
 msgstr "Zahtjev na mailing listi %(realname)s je odbijen"
 
@@ -7767,7 +7795,7 @@ msgstr "## %(listname)s mailing lista"
 
 #: Mailman/MTA/Manual.py:97
 msgid "Mailing list creation request for list %(listname)s"
-msgstr "Zahtjev za kreiranjem mailign liste za listu %(listname)s"
+msgstr "Zahtjev za kreiranjem mailing liste za listu %(listname)s"
 
 #: Mailman/MTA/Manual.py:112
 msgid ""
@@ -7833,39 +7861,39 @@ msgstr "provjeravam vlasni¹tvo %(dbfile)s"
 msgid "%(dbfile)s owned by %(owner)s (must be owned by %(user)s"
 msgstr "%(dbfile)s vlasni¹tvo %(owner)s (mora biti u vlasni¹tvu %(user)s"
 
-#: Mailman/MailList.py:720
+#: Mailman/MailList.py:756
 msgid "You have been invited to join the %(listname)s mailing list"
 msgstr "Pozvani ste da se pridru¾ite %(listname)s mailing listi"
 
-#: Mailman/MailList.py:824 Mailman/MailList.py:1213
+#: Mailman/MailList.py:860 Mailman/MailList.py:1249
 msgid " from %(remote)s"
 msgstr " od %(remote)s"
 
-#: Mailman/MailList.py:858
+#: Mailman/MailList.py:894
 msgid "subscriptions to %(realname)s require moderator approval"
 msgstr "prtplate na %(realname)s zahtjevaju odobrenje moderatora"
 
-#: Mailman/MailList.py:922 bin/add_members:242
+#: Mailman/MailList.py:958 bin/add_members:242
 msgid "%(realname)s subscription notification"
 msgstr "%(realname)s obavijest o pretplati"
 
-#: Mailman/MailList.py:941
+#: Mailman/MailList.py:977
 msgid "unsubscriptions require moderator approval"
 msgstr "odjava treba odobrenje moderatora"
 
-#: Mailman/MailList.py:961
+#: Mailman/MailList.py:997
 msgid "%(realname)s unsubscribe notification"
 msgstr "%(realname)s obavijest o odjavi"
 
-#: Mailman/MailList.py:1122
+#: Mailman/MailList.py:1158
 msgid "subscriptions to %(name)s require administrator approval"
 msgstr "pretplata na %(name)s treba odobrenje administratora"
 
-#: Mailman/MailList.py:1382
+#: Mailman/MailList.py:1418
 msgid "Last autoresponse notification for today"
 msgstr "Posljednja obavijest o automatskom odgovoru za danas"
 
-#: Mailman/Queue/BounceRunner.py:182
+#: Mailman/Queue/BounceRunner.py:298
 msgid ""
 "The attached message was received as a bounce, but either the bounce format\n"
 "was not recognized, or no member addresses could be extracted from it.  "
@@ -7889,7 +7917,7 @@ msgstr ""
 "%(adminurl)s\n"
 "\n"
 
-#: Mailman/Queue/BounceRunner.py:192
+#: Mailman/Queue/BounceRunner.py:308
 msgid "Uncaught bounce notification"
 msgstr "Neuhvaæena obavijest o odbijanju"
 
@@ -8125,7 +8153,7 @@ msgid "No such list: %(listname)s"
 msgstr ""
 
 #: bin/add_members:230 bin/change_pw:158 bin/check_db:114 bin/discard:83
-#: bin/sync_members:244 cron/bumpdigests:78
+#: bin/sync_members:244 bin/update:552 cron/bumpdigests:78
 msgid "Nothing to do."
 msgstr ""
 
@@ -8790,16 +8818,28 @@ msgid ""
 "-- or if the file ends in neither suffix -- use the -p or -m flags.\n"
 msgstr ""
 
-#: bin/dumpdb:101
+#: bin/dumpdb:106
 msgid "No filename given."
 msgstr ""
 
-#: bin/dumpdb:104
+#: bin/dumpdb:109
 msgid "Bad arguments: %(pargs)s"
 msgstr ""
 
-#: bin/dumpdb:114
+#: bin/dumpdb:119
 msgid "Please specify either -p or -m."
+msgstr ""
+
+#: bin/dumpdb:135
+msgid "[----- start pickle file -----]"
+msgstr ""
+
+#: bin/dumpdb:140
+msgid "[----- end pickle file -----]"
+msgstr ""
+
+#: bin/dumpdb:142
+msgid "<----- start object %(cnt)s ----->"
 msgstr ""
 
 #: bin/find_member:19
@@ -9254,35 +9294,35 @@ msgstr ""
 msgid "Site list is missing: %(sitelistname)s"
 msgstr ""
 
-#: bin/mailmanctl:295
+#: bin/mailmanctl:303
 msgid "Run this program as root or as the %(name)s user, or use -u."
 msgstr ""
 
-#: bin/mailmanctl:326
+#: bin/mailmanctl:334
 msgid "No command given."
 msgstr ""
 
-#: bin/mailmanctl:329
+#: bin/mailmanctl:337
 msgid "Bad command: %(command)s"
 msgstr ""
 
-#: bin/mailmanctl:334
+#: bin/mailmanctl:342
 msgid "Warning!  You may encounter permission problems."
 msgstr ""
 
-#: bin/mailmanctl:343
+#: bin/mailmanctl:351
 msgid "Shutting down Mailman's master qrunner"
 msgstr ""
 
-#: bin/mailmanctl:350
+#: bin/mailmanctl:358
 msgid "Restarting Mailman's master qrunner"
 msgstr ""
 
-#: bin/mailmanctl:354
+#: bin/mailmanctl:362
 msgid "Re-opening all log files"
 msgstr ""
 
-#: bin/mailmanctl:390
+#: bin/mailmanctl:398
 msgid "Starting Mailman's master qrunner."
 msgstr ""
 
@@ -9535,6 +9575,75 @@ msgstr ""
 
 #: bin/qrunner:213
 msgid "No runner name given."
+msgstr ""
+
+#: bin/rb-archfix:21
+msgid ""
+"Reduce disk space usage for Pipermail archives.\n"
+"\n"
+"Usage: %(PROGRAM)s [options] file ...\n"
+"\n"
+"Where options are:\n"
+"    -h / --help\n"
+"        Print this help message and exit.\n"
+"\n"
+"Only use this to 'fix' archive -article database files that have been "
+"written\n"
+"with Mailman 2.1.3 or earlier and have html_body attributes in them.  These\n"
+"attributes can cause huge amounts of memory bloat and impact performance "
+"for\n"
+"high activity lists, particularly those where large text postings are made "
+"to\n"
+"them.\n"
+"\n"
+"Example:\n"
+"\n"
+"%% ls -1 archives/private/*/database/*-article | xargs %(PROGRAM)s\n"
+"\n"
+"You should run `bin/check_perms -f' after running this script.\n"
+"\n"
+"You will probably want to delete the -article.bak files created by this "
+"script\n"
+"when you are satisfied with the results.\n"
+"\n"
+"This script is provided for convenience purposes only.  It isn't supported.\n"
+msgstr ""
+
+#: bin/rb-archfix.~1~:21
+msgid ""
+"Reduce disk space usage for Pipermail archives.\n"
+"\n"
+"Only use this script if you have correctly installed the patch file\n"
+"fixarchiver-2.1.3-0.1.patch that this file came with. Using this if you "
+"have\n"
+"not installed the rest of the patch (including restarting mailmanctl) will "
+"ruin\n"
+"your whole day.\n"
+"\n"
+"Usage: %(PROGRAM)s [options] file ...\n"
+"\n"
+"Where options are:\n"
+"    -h / --help\n"
+"        Print this help message and exit.\n"
+"\n"
+"Only use this to 'fix' archive -article database files that have been "
+"written\n"
+"with Mailman 2.1.3 or earlier and have html_body attributes in them . These\n"
+"attributes can cause huge amounts of memory bloat and impact performance "
+"for\n"
+"high activity lists, particularly those having large text postings made to\n"
+"them. Use like this from your $PREFIX directory:\n"
+"\n"
+"\n"
+"%% ls -1 archives/private/*/database/*-article | xargs %(PROGRAM)s\n"
+"\n"
+"(note the backquotes are required)\n"
+"\n"
+"You will need to run `bin/check_perms -f' after running this script.\n"
+"\n"
+"You will probably want to delete the -article.bak files created by this "
+"script\n"
+"when you are satisifed the upad\n"
 msgstr ""
 
 #: bin/remove_members:19
@@ -9893,29 +10002,29 @@ msgid ""
 "some previous version.  It knows about versions back to 1.0b4 (?).\n"
 msgstr ""
 
-#: bin/update:102
+#: bin/update:107
 msgid "Fixing language templates: %(listname)s"
 msgstr ""
 
-#: bin/update:191 bin/update:466
+#: bin/update:196 bin/update:686
 msgid "WARNING: could not acquire lock for list: %(listname)s"
 msgstr ""
 
-#: bin/update:210
+#: bin/update:215
 msgid "Resetting %(n)s BYBOUNCEs disabled addrs with no bounce info"
 msgstr ""
 
-#: bin/update:216
+#: bin/update:221
 msgid "Updating the held requests database."
 msgstr ""
 
-#: bin/update:238
+#: bin/update:243
 msgid ""
 "For some reason, %(mbox_dir)s exists as a file.  This won't work with\n"
 "b6, so I'm renaming it to %(mbox_dir)s.tmp and proceeding."
 msgstr ""
 
-#: bin/update:250
+#: bin/update:255
 msgid ""
 "\n"
 "%(listname)s has both public and private mbox archives.  Since this list\n"
@@ -9929,7 +10038,7 @@ msgid ""
 "script.\n"
 msgstr ""
 
-#: bin/update:265
+#: bin/update:270
 msgid ""
 "%s has both public and private mbox archives.  Since this list\n"
 "currently uses public archiving, I'm installing the public mbox file\n"
@@ -9942,11 +10051,11 @@ msgid ""
 "script.\n"
 msgstr ""
 
-#: bin/update:282
+#: bin/update:287
 msgid "- updating old private mbox file"
 msgstr ""
 
-#: bin/update:290
+#: bin/update:295
 msgid ""
 "    unknown file in the way, moving\n"
 "        %(o_pri_mbox_file)s\n"
@@ -9954,17 +10063,17 @@ msgid ""
 "        %(newname)s"
 msgstr ""
 
-#: bin/update:297 bin/update:320
+#: bin/update:302 bin/update:325
 msgid ""
 "    looks like you have a really recent CVS installation...\n"
 "    you're either one brave soul, or you already ran me"
 msgstr ""
 
-#: bin/update:306
+#: bin/update:311
 msgid "- updating old public mbox file"
 msgstr ""
 
-#: bin/update:314
+#: bin/update:319
 msgid ""
 "    unknown file in the way, moving\n"
 "        %(o_pub_mbox_file)s\n"
@@ -9972,77 +10081,97 @@ msgid ""
 "        %(newname)s"
 msgstr ""
 
-#: bin/update:345
+#: bin/update:350
 msgid "- This list looks like it might have <= b4 list templates around"
 msgstr ""
 
-#: bin/update:352
+#: bin/update:358
 msgid "- moved %(o_tmpl)s to %(n_tmpl)s"
 msgstr ""
 
-#: bin/update:354
+#: bin/update:360
 msgid "- both %(o_tmpl)s and %(n_tmpl)s exist, leaving untouched"
 msgstr ""
 
-#: bin/update:384
+#: bin/update:363
+msgid "- %(o_tmpl)s doesn't exist, leaving untouched"
+msgstr ""
+
+#: bin/update:393
 msgid "removing directory %(src)s and everything underneath"
 msgstr ""
 
-#: bin/update:387
+#: bin/update:396
 msgid "removing %(src)s"
 msgstr ""
 
-#: bin/update:391
+#: bin/update:400
 msgid "Warning: couldn't remove %(src)s -- %(rest)s"
 msgstr ""
 
-#: bin/update:396
+#: bin/update:405
 msgid "couldn't remove old file %(pyc)s -- %(rest)s"
 msgstr ""
 
-#: bin/update:400
+#: bin/update:409
 msgid "updating old qfiles"
 msgstr ""
 
-#: bin/update:422
+#: bin/update:509
+msgid "message is unparsable: %(filebase)s"
+msgstr ""
+
+#: bin/update:538
+msgid "Updating Mailman 2.0 pending_subscriptions.db database"
+msgstr ""
+
+#: bin/update:549
+msgid "Updating Mailman 2.1.4 pending.pck database"
+msgstr ""
+
+#: bin/update:573
+msgid "Ignoring bad pended data: %(key)s: %(val)s"
+msgstr ""
+
+#: bin/update:589
+msgid "WARNING: Ignoring duplicate pending ID: %(id)s."
+msgstr ""
+
+#: bin/update:642
 msgid "getting rid of old source files"
 msgstr ""
 
-#: bin/update:432
+#: bin/update:652
 msgid "no lists == nothing to do, exiting"
 msgstr ""
 
-#: bin/update:439
+#: bin/update:659
 msgid ""
 "fixing all the perms on your old html archives to work with b6\n"
 "If your archives are big, this could take a minute or two..."
 msgstr ""
 
-#: bin/update:444
+#: bin/update:664
 msgid "done"
 msgstr ""
 
-#: bin/update:446
+#: bin/update:666
 msgid "Updating mailing list: %(listname)s"
 msgstr ""
 
-#: bin/update:449
+#: bin/update:669
 msgid "Updating Usenet watermarks"
 msgstr ""
 
-#: bin/update:454
+#: bin/update:674
 msgid "- nothing to update here"
 msgstr ""
 
-#: bin/update:477
+#: bin/update:697
 msgid "- usenet watermarks updated and gate_watermarks removed"
 msgstr ""
 
-#: bin/update:487
-msgid "Updating old pending_subscriptions.db database"
-msgstr ""
-
-#: bin/update:504
+#: bin/update:711
 msgid ""
 "\n"
 "\n"
@@ -10065,22 +10194,22 @@ msgid ""
 "\n"
 msgstr ""
 
-#: bin/update:561
+#: bin/update:768
 msgid "No updates are necessary."
 msgstr ""
 
-#: bin/update:564
+#: bin/update:771
 msgid ""
 "Downgrade detected, from version %(hexlversion)s to version %(hextversion)s\n"
 "This is probably not safe.\n"
 "Exiting."
 msgstr ""
 
-#: bin/update:569
+#: bin/update:776
 msgid "Upgrading from version %(hexlversion)s to %(hextversion)s"
 msgstr ""
 
-#: bin/update:578
+#: bin/update:785
 msgid ""
 "\n"
 "ERROR:\n"
@@ -10308,17 +10437,17 @@ msgstr ""
 msgid "%(count)d %(realname)s moderator request(s) waiting"
 msgstr ""
 
-#: cron/checkdbs:129
+#: cron/checkdbs:130
 msgid "Pending subscriptions:"
 msgstr ""
 
-#: cron/checkdbs:138
+#: cron/checkdbs:141
 msgid ""
 "\n"
 "Pending posts:"
 msgstr ""
 
-#: cron/checkdbs:144
+#: cron/checkdbs:148
 msgid ""
 "From: %(sender)s on %(date)s\n"
 "Subject: %(subject)s\n"

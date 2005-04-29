@@ -2,7 +2,7 @@
 ** getfilename.c
 **
 */
-/* $XFree86: xc/programs/xgc/getfile.c,v 1.3 2000/02/17 14:00:35 dawes Exp $ */
+/* $XFree86: xc/programs/xgc/getfile.c,v 1.5 2003/05/27 22:27:06 tsi Exp $ */
 
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -15,26 +15,22 @@
 
 #include "xgc.h"
 
-extern XStuff X;
-extern Widget topform;
 
 static Widget popupshell = NULL;	/* popup dialog box */
 Widget filename_text_widget;	/* Widget containing the name of
 				   the file the user has selected */
-extern XtAppContext appcontext;
 
-static void kill_popup_shell();
+static void kill_popup_shell(void);
 
 void
-get_filename(success,failure) 
-     void (*success)();		/* what function to call when a filename is
+get_filename(
+     void (*success)(void),	/* what function to call when a filename is
 				   chosen */
-     void (*failure)();		/* what function to call when the user
+     void (*failure)(void))	/* what function to call when the user
 				   cancels */
 {
   static Widget popupform;	/* form inside shell */
   static Widget label;		/* "Filename :" */
-  static Widget cancel;		/* command, select to cancel */
 
   Window dummy1, dummy2;
   int x1,y1,x2,y2;
@@ -138,8 +134,8 @@ get_filename(success,failure)
   cancelargs[0].value = (XtArgVal) filename_text_widget;
   cancelargs[1].value = (XtArgVal) cancelcallbacklist;
 
-  cancel = XtCreateManagedWidget("Cancel",commandWidgetClass,popupform,
-				 cancelargs,XtNumber(cancelargs));
+  (void) XtCreateManagedWidget("Cancel",commandWidgetClass,popupform,
+			       cancelargs,XtNumber(cancelargs));
 
   /* Bring up the popup.  When the user presses cancel or the return key,
   ** the function kill_popup_shell (below) will be called to remove it. */
@@ -153,7 +149,7 @@ get_filename(success,failure)
 */
 
 static void
-kill_popup_shell()
+kill_popup_shell(void)
 {
   XtPopdown(popupshell);
 }

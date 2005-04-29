@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/twm/parse.c,v 1.16 2002/12/10 22:29:55 tsi Exp $ */
+/* $XFree86: xc/programs/twm/parse.c,v 1.17 2003/08/04 10:32:30 eich Exp $ */
 /*****************************************************************************/
 /*
 
@@ -389,6 +389,7 @@ typedef struct _TwmKeyword {
 #define kwn_IconBorderWidth		8
 #define kwn_TitleButtonBorderWidth	9
 #define kwn_Priority			10
+#define kwn_MenuBorderWidth		11
 
 #define kwcl_BorderColor		1
 #define kwcl_IconManagerHighlight	2
@@ -411,6 +412,7 @@ typedef struct _TwmKeyword {
 #define kwc_MenuShadowColor		7
 #define kwc_PointerForeground		8
 #define kwc_PointerBackground		9
+#define kwc_MenuBorderColor		10
 
 
 /*
@@ -547,6 +549,8 @@ static TwmKeyword keytable[] = {
     { "maxwindowsize",		SKEYWORD, kws_MaxWindowSize },
     { "menu",			MENU, 0 },
     { "menubackground",		CKEYWORD, kwc_MenuBackground },
+    { "menubordercolor",	CKEYWORD, kwc_MenuBorderColor },
+    { "menuborderwidth",	NKEYWORD, kwn_MenuBorderWidth },
     { "menufont",		SKEYWORD, kws_MenuFont },
     { "menuforeground",		CKEYWORD, kwc_MenuForeground },
     { "menushadowcolor",	CKEYWORD, kwc_MenuShadowColor },
@@ -865,6 +869,10 @@ int do_number_keyword (keyword, num)
 	if (Scr->FirstTime) Scr->IconBorderWidth = num;
 	return 1;
 
+      case kwn_MenuBorderWidth:
+	if (Scr->FirstTime) Scr->MenuBorderWidth = num;
+	return 1;
+
       case kwn_TitleButtonBorderWidth:
 	if (Scr->FirstTime) Scr->TBInfo.border = num;
 	return 1;
@@ -950,6 +958,10 @@ int do_color_keyword (keyword, colormode, s)
 
       case kwc_MenuBackground:
 	GetColor (colormode, &Scr->MenuC.back, s);
+	return 1;
+
+      case kwc_MenuBorderColor:
+	GetColor (colormode, &Scr->MenuBorderColor, s);
 	return 1;
 
       case kwc_MenuTitleForeground:

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html
+     PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><title>$BLOJSOM_BLOG.getBlogName()</title><link rel="stylesheet" type="text/css" href="$BLOJSOM_SITE_URL/blojsom-shrubbery.css" /><link rel="SHORTCUT ICON" type="image/gif" href="$BLOJSOM_SITE_URL/favicon.ico" /><link rel="alternate" type="application/rss+xml" title="RSS" href="$BLOJSOM_BLOG.getBlogURL()?flavor=rss" /></head>
+<body>
+
+#parse( "shrubbery-header.vm" )
+#parse( "shrubbery-categories.vm" )
+
+<div class="rc">
+#parse( "shrubbery-calendar.vm" )
+#parse( "shrubbery-sidebars.vm" )
+</div><div class="lc">
+#set( $totalEntries = 0)
+#foreach ($entry in $BLOJSOM_ENTRIES)
+    <div class="es"><p class="wlt">$entry.getTitle() <span class="st">[<a href="$entry.getLink()">Permalink</a>]</span> </p><p class="wldl">$entry.getDate()</p>$entry.getDescription()</div>
+    <div class="wlbl">#if ($BLOJSOM_COMMENTS_ENABLED.booleanValue() && $entry.supportsComments())<a href="$entry.getLink()&amp;page=comments">Comments [$entry.getNumComments()]</a> | #end
+<a href="$entry.getLink()&amp;page=trackback">Trackbacks [$entry.getNumTrackbacks()]</a></div>
+    #set( $totalEntries = $totalEntries + 1)
+#end
+#if ($totalEntries > 0)
+	#parse( "shrubbery-categories.vm" )
+#end 
+#parse( "shrubbery-pbb.vm" )</div>
+</body></html>

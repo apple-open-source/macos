@@ -2,10 +2,10 @@
 
   fcntl.c -
 
-  $Author: jkh $
+  $Author: akr $
   created at: Mon Apr  7 18:53:05 JST 1997
 
-  Copyright (C) 1997-1998 Yukihiro Matsumoto
+  Copyright (C) 1997-2001 Yukihiro Matsumoto
 
 ************************************************/
 
@@ -103,5 +103,10 @@ Init_fcntl()
 #endif
 #ifdef O_WRONLY
     rb_define_const(mFcntl, "O_WRONLY", INT2NUM(O_WRONLY));
+#endif
+#ifdef O_ACCMODE
+    rb_define_const(mFcntl, "O_ACCMODE", INT2FIX(O_ACCMODE));
+#else
+    rb_define_const(mFcntl, "O_ACCMODE", INT2FIX(O_RDONLY | O_WRONLY | O_RDWR));
 #endif
 }

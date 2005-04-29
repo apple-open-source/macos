@@ -51,7 +51,9 @@
             "rijndael_local.h", 
             "rijndael.h", 
             "var.h",
-            "isakmp_natd.h"
+            "isakmp_natd.h",
+            "crypto_cssm.h",
+            "open_dir.h"
         ); 
         "OTHER_LIBS" = (crypto, ipsec, ssl); 
         "OTHER_LINKED" = (
@@ -99,7 +101,9 @@
             "strnames.c", 
             "vendorid.c", 
             "vmbuf.c",
-            "isakmp_natd.c"
+            "isakmp_natd.c",
+            "crypto_cssm.c",
+            "open_dir.c"
         ); 
         "OTHER_SOURCES" = (
             "Makefile.preamble", 

@@ -1,0 +1,1302 @@
+# Microsoft Developer Studio Generated Dependency File, included by cvsnt.mak
+
+.\src\add.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\savecwd.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\fileattr.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\admin.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\annotate.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\buffer.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\checkin.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\edit.h"\
+	".\src\fileattr.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\checkout.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\classify.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\client.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\md5.h"\
+	".\lib\regex.h"\
+	".\lib\savecwd.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\edit.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\commit.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\edit.h"\
+	".\src\fileattr.h"\
+	".\src\hardlink.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\create_adm.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\cvsrc.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\diff.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\edit.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\edit.h"\
+	".\src\fileattr.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\src\watch.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\entries.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\error.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\expand_path.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\fileattr.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\fileattr.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\filesubr.c" : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\JmgStat.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\find_names.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\hash.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\history.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\savecwd.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\history.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\ignore.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\import.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\savecwd.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\JmgStat.c" : \
+	".\windows-NT\JmgStat.h"\
+	
+
+.\src\lock.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\log.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\login.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\logmsg.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\main.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\mkdir.c" : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\mkmodules.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\savecwd.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\history.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\modules.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\savecwd.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\myndbm.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\ndir.c" : \
+	".\windows-NT\ndir.h"\
+	
+
+.\src\no_diff.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\parseinfo.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\patch.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\pwd.c" : \
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\rcmd.c" : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	".\windows-NT\rcmd.h"\
+	
+
+.\src\rcs.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\edit.h"\
+	".\src\hardlink.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\rcscmds.c : \
+	".\diff\diffrun.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\recurse.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\savecwd.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\edit.h"\
+	".\src\fileattr.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\release.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\savecwd.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\remove.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\repos.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\root.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\run.c" : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\scramble.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\server.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\edit.h"\
+	".\src\fileattr.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\src\watch.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\sockerror.c" : \
+	
+
+.\src\stack.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\startserver.c" : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	".\windows-NT\rcmd.h"\
+	
+
+.\src\status.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\subr.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\tag.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\savecwd.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\update.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\savecwd.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\edit.h"\
+	".\src\fileattr.h"\
+	".\src\hardlink.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\src\watch.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\vers_ts.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\version.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\waitpid.c" : \
+	".\windows-NT\config.h"\
+	
+
+.\src\watch.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\edit.h"\
+	".\src\fileattr.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\src\watch.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+".\windows-NT\woe32.c" : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\wrapper.c : \
+	".\lib\getline.h"\
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	
+
+.\src\zlib.c : \
+	".\lib\getopt.h"\
+	".\lib\regex.h"\
+	".\lib\system.h"\
+	".\lib\wait.h"\
+	".\lib\xsize.h"\
+	".\lib\xtime.h"\
+	".\src\client.h"\
+	".\src\cvs.h"\
+	".\src\hash.h"\
+	".\src\myndbm.h"\
+	".\src\rcs.h"\
+	".\src\root.h"\
+	".\src\server.h"\
+	".\src\stack.h"\
+	".\src\update.h"\
+	".\windows-NT\config.h"\
+	".\windows-NT\ndir.h"\
+	".\windows-NT\pwd.h"\
+	".\zlib\zconf.h"\
+	".\zlib\zlib.h"\
+	

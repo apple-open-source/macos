@@ -1,0 +1,39 @@
+.\" @(#)man.conf
+.TH MAN.CONF 5 "30/3/1994"
+.SH NOME
+man.conf \- dicheiro de configuração para man
+.SH DESCRIÇÃO
+.LP
+Este ficheiro é lido por
+.BR man (1)
+e contém: (a) informação de como construir o manpath; (b) nomes completos
+de vários programas como nroff, eqn, tbl, etc. usados por man; (c) a lista
+de descompressores dos ficheiros com determinadas extensões. Um ficheiro
+alternativo pode ser indicado com
+.LP
+.RS
+man -C fich_config ...
+.RE
+.LP
+Os nomes de comandos podem ser indicados com opções se pretendido.
+Opções uteis para o nroff podem ser encontradas em grotty(1).
+Por exemplo, am vez de linha
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+pode-se usar
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+para suprimir sublinhados e carregados.
+.SH "VEJA TAMBÉM"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) e compress(1), gzip(1).

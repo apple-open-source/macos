@@ -1,20 +1,20 @@
 /* Definitions for ELF assembler support.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2003 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -32,20 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #define DATA_SECTION_ASM_OP "\t.data"
 #define BSS_SECTION_ASM_OP "\t.section\t.bss"
 
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE) \
-do {  \
-     if (TARGET_PA_20) \
-       fputs("\t.LEVEL 2.0\n", FILE); \
-     else if (TARGET_PA_11) \
-       fputs("\t.LEVEL 1.1\n", FILE); \
-     else \
-       fputs("\t.LEVEL 1.0\n", FILE); \
-     if (profile_flag)\
-       fprintf (FILE, "\t.IMPORT _mcount, ENTRY\n");\
-     if (write_symbols != NO_DEBUG) \
-       output_file_directive ((FILE), main_input_filename); \
-   } while (0)
+#define TARGET_ASM_FILE_START pa_elf_file_start
 
 #undef ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL) \

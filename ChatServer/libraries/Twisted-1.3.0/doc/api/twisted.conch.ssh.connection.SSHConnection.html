@@ -1,0 +1,606 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.conch.ssh.connection.SSHConnection</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.conch.html">Package&nbsp;conch</a> ::
+        <a href="twisted.conch.ssh.html">Package&nbsp;ssh</a> ::
+        <a href="twisted.conch.ssh.connection.html">Module&nbsp;connection</a> ::
+        Class&nbsp;SSHConnection
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.conch.ssh.connection.SSHConnection.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class SSHConnection</h2>
+
+<pre class="base-tree">
+<a href="twisted.conch.ssh.service.SSHService.html"><code>SSHService</code></a> --+
+             |
+            <b>SSHConnection</b>
+</pre><br />
+
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__init__"></a><span class="summary-sig"><span class="summary-sig-name">__init__</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbChannelRequest"></a><span class="summary-sig"><span class="summary-sig-name">_cbChannelRequest</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>localChannel</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_ebChannelRequest"></a><span class="summary-sig"><span class="summary-sig-name">_ebChannelRequest</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>localChannel</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#adjustWindow" class="summary-sig-name"><code>adjustWindow</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>channel</span>,
+          <span class=summary-sig-arg>bytesToAdd</span>)</span></code>
+<br />
+Tell the other side that we will receive more data.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        subclass of <code>SSHChannel</code>/<code>tuple</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#getChannel" class="summary-sig-name"><code>getChannel</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>channelType</span>,
+          <span class=summary-sig-arg>windowSize</span>,
+          <span class=summary-sig-arg>maxPacket</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+The other side requested a channel of some sort.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>int</code>/<code>tuple</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#gotGlobalRequest" class="summary-sig-name"><code>gotGlobalRequest</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>requestType</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+We got a global request.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#openChannel" class="summary-sig-name"><code>openChannel</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>channel</span>,
+          <span class=summary-sig-arg>extra</span>)</span></code>
+<br />
+Open a new channel on this connection.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#sendClose" class="summary-sig-name"><code>sendClose</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>channel</span>)</span></code>
+<br />
+Close a channel.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#sendData" class="summary-sig-name"><code>sendData</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>channel</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Send data to a channel.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#sendEOF" class="summary-sig-name"><code>sendEOF</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>channel</span>)</span></code>
+<br />
+Send an EOF (End of File) for a channel.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#sendExtendedData" class="summary-sig-name"><code>sendExtendedData</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>channel</span>,
+          <span class=summary-sig-arg>dataType</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Send extended data to a channel.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#sendGlobalRequest" class="summary-sig-name"><code>sendGlobalRequest</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>wantReply</span>)</span></code>
+<br />
+Send a global request for this connection.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#sendRequest" class="summary-sig-name"><code>sendRequest</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>channel</span>,
+          <span class=summary-sig-arg>requestType</span>,
+          <span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>wantReply</span>)</span></code>
+<br />
+Send a request to a channel.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#serviceStarted" class="summary-sig-name"><code>serviceStarted</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+called when the service is active on the transport.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.connection.SSHConnection.html#serviceStopped" class="summary-sig-name"><code>serviceStopped</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+called when the service is stopped, either by the connection ending or 
+by another service being started</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_CLOSE"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_CLOSE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_DATA"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_DATA</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_EOF"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_EOF</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_EXTENDED_DATA"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_EXTENDED_DATA</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_FAILURE"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_FAILURE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_OPEN"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_OPEN</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_OPEN_CONFIRMATION"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_OPEN_CONFIRMATION</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_OPEN_FAILURE"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_OPEN_FAILURE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_REQUEST"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_REQUEST</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_SUCCESS"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_SUCCESS</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_CHANNEL_WINDOW_ADJUST"></a><span class="summary-sig"><span class="summary-sig-name">ssh_CHANNEL_WINDOW_ADJUST</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_GLOBAL_REQUEST"></a><span class="summary-sig"><span class="summary-sig-name">ssh_GLOBAL_REQUEST</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_REQUEST_FAILURE"></a><span class="summary-sig"><span class="summary-sig-name">ssh_REQUEST_FAILURE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ssh_REQUEST_SUCCESS"></a><span class="summary-sig"><span class="summary-sig-name">ssh_REQUEST_SUCCESS</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from SSHService</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.service.SSHService.html#packetReceived" class="summary-sig-name"><code>packetReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>messageType</span>,
+          <span class=summary-sig-arg>packet</span>)</span></code>
+<br />
+called when we receieve a packet on the transport</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.conch.ssh.connection.SSHConnection.html#name"><code>name</code></a></b> = <span title="'ssh-connection'"><code><span class="variable-quote">'</span>ssh-connection<span class="variable-quote">'</span>                                  </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.conch.ssh.connection.SSHConnection.html#protocolMessages"><code>protocolMessages</code></a></b> = <span title="{96: 'MSG_CHANNEL_EOF', 97: 'MSG_CHANNEL_CLOSE', 98: 'MSG_CHANNEL_REQUEST', 99: 'MSG_CHANNEL_SUCCESS', 100: 'MSG_CHANNEL_FAILURE', 80: 'MSG_GLOBAL_REQUEST', 81: 'MSG_REQUEST_SUCCESS', 82: 'MSG_REQUEST_FAILURE', 90: 'MSG_CHANNEL_OPEN', 91: 'MSG_CHANNEL_OPEN_CONFIRMATION', 92: 'MSG_CHANNEL_OPEN_FAILURE', 93: 'MSG_CHANNEL_WINDOW_ADJUST', 94: 'MSG_CHANNEL_DATA', 95: 'MSG_CHANNEL_EXTENDED_DATA'}"><code>{96:&nbsp;'MSG_CHANNEL_EOF',&nbsp;97:&nbsp;'MSG_CHAN<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from SSHService</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.conch.ssh.service.SSHService.html#transport"><code>transport</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="adjustWindow"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">adjustWindow</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>channel</span>,
+          <span class=sig-arg>bytesToAdd</span>)</span>
+  </h3>
+  Tell the other side that we will receive more data. This should not 
+  normally need to be called as it is managed automatically.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>channel</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=subclass of <code>SSHChannel</code>)</i>
+      <dd><code><b>bytesToAdd</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>int</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getChannel"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getChannel</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>channelType</span>,
+          <span class=sig-arg>windowSize</span>,
+          <span class=sig-arg>maxPacket</span>,
+          <span class=sig-arg>data</span>)</span>
+  </h3>
+  <p>The other side requested a channel of some sort. channelType is the 
+  type of channel being requested, windowSize is the initial size of the 
+  remote window, maxPacket is the largest packet we should send, data is 
+  any other packet data (often nothing).</p>
+  <p>We return a subclass of SSHChannel</p>
+  By default, this dispatches to a method 'channel_channelType' with 
+  any non-alphanumerics in the channelType replace with _'s. If it cannot 
+  find a suitable method, it returns an OPEN_UNKNOWN_CHANNEL_TYPE error. 
+  The method is called with arguments of windowSize, maxPacket, data.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>channelType</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>windowSize</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>int</code>)</i>
+      <dd><code><b>maxPacket</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>int</code>)</i>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        subclass of <code>SSHChannel</code>/<code>tuple</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="gotGlobalRequest"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">gotGlobalRequest</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>requestType</span>,
+          <span class=sig-arg>data</span>)</span>
+  </h3>
+  We got a global request. pretty much, this is just used by the 
+  client to request that we forward a port from the server to the client. 
+  returns either:
+  <ul>
+    <li>
+      1: request accepted
+    </li>
+    <li>
+      1, &lt;data&gt;: request accepted with request specific data
+    </li>
+    <li>
+      0: request denied
+    </li>
+  </ul>
+  By default, this dispatches to a method 'global_requestType' with 
+  -'s in requestType replaced with _'s. The found method is passed data. 
+  If this method cannot be found, this method returns 0. Otherwise, it 
+  returns the return value of that method.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>requestType</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <code>int</code>/<code>tuple</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="openChannel"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">openChannel</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>channel</span>,
+          <span class=sig-arg>extra</span>=<span class=sig-default>''</span>)</span>
+  </h3>
+  Open a new channel on this connection.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>channel</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=subclass of <code>SSHChannel</code>)</i>
+      <dd><code><b>extra</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendClose"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendClose</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>channel</span>)</span>
+  </h3>
+  Close a channel.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>channel</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=subclass of <code>SSHChannel</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendData"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendData</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>channel</span>,
+          <span class=sig-arg>data</span>)</span>
+  </h3>
+  Send data to a channel. This should not normally be used: instead 
+  use channel.write(data) as it manages the window automatically.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>channel</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=subclass of <code>SSHChannel</code>)</i>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendEOF"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendEOF</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>channel</span>)</span>
+  </h3>
+  Send an EOF (End of File) for a channel.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>channel</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=subclass of <code>SSHChannel</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendExtendedData"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendExtendedData</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>channel</span>,
+          <span class=sig-arg>dataType</span>,
+          <span class=sig-arg>data</span>)</span>
+  </h3>
+  Send extended data to a channel. This should not normally be used: 
+  instead use channel.writeExtendedData(data, dataType) as it manages the 
+  window automatically.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>channel</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=subclass of <code>SSHChannel</code>)</i>
+      <dd><code><b>dataType</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>int</code>)</i>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendGlobalRequest"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendGlobalRequest</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>request</span>,
+          <span class=sig-arg>data</span>,
+          <span class=sig-arg>wantReply</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  Send a global request for this connection. Current this is only used 
+  for remote-&gt;local TCP forwarding.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>request</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>wantReply</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>bool</code> &#64;rtype 
+              <code>Deferred</code>/<code>None</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendRequest"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendRequest</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>channel</span>,
+          <span class=sig-arg>requestType</span>,
+          <span class=sig-arg>data</span>,
+          <span class=sig-arg>wantReply</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  Send a request to a channel.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>channel</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=subclass of <code>SSHChannel</code>)</i>
+      <dd><code><b>requestType</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>wantReply</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>bool</code> &#64;rtype 
+              <code>Deferred</code>/<code>None</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="serviceStarted"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">serviceStarted</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  called when the service is active on the transport.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.conch.ssh.service.SSHService.html#serviceStarted"><code>twisted.conch.ssh.service.SSHService.serviceStarted</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="serviceStopped"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">serviceStopped</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  called when the service is stopped, either by the connection ending 
+  or by another service being started
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.conch.ssh.service.SSHService.html#serviceStopped"><code>twisted.conch.ssh.service.SSHService.serviceStopped</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="name"></a>
+<h3>name</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'ssh-connection'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>ssh-connection<span class="variable-quote">'</span>                                                       </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="protocolMessages"></a>
+<h3>protocolMessages</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{96: 'MSG_CHANNEL_EOF', 97: 'MSG_CHANNEL_CLOSE', 98: 'MSG_CHANNEL_REQUEST', 99: 'MSG_CHANNEL_SUCCESS', 100: 'MSG_CHANNEL_FAILURE', 80: 'MSG_GLOBAL_REQUEST', 81: 'MSG_REQUEST_SUCCESS', 82: 'MSG_REQUEST_FAILURE', 90: 'MSG_CHANNEL_OPEN', 91: 'MSG_CHANNEL_OPEN_CONFIRMATION', 92: 'MSG_CHANNEL_OPEN_FAILURE', 93: 'MSG_CHANNEL_WINDOW_ADJUST', 94: 'MSG_CHANNEL_DATA', 95: 'MSG_CHANNEL_EXTENDED_DATA'}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{80: 'MSG_GLOBAL_REQUEST',
+ 81: 'MSG_REQUEST_SUCCESS',
+ 82: 'MSG_REQUEST_FAILURE',
+ 90: 'MSG_CHANNEL_OPEN',
+ 91: 'MSG_CHANNEL_OPEN_CONFIRMATION',
+ 92: 'MSG_CHANNEL_OPEN_FAILURE',
+ 93: 'MSG_CHANNEL_WINDOW_ADJUST',
+ 94: 'MSG_CHANNEL_DATA',
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:16 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

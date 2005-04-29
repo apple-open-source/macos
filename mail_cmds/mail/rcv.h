@@ -35,6 +35,9 @@
  * $FreeBSD: src/usr.bin/mail/rcv.h,v 1.2 2001/03/25 04:57:04 mikeh Exp $
  */
 
+#ifndef RCV_H
+#define RCV_H
+
 /*
  * Mail -- a mail program
  *
@@ -44,3 +47,6 @@
 
 #include "def.h"
 #include "glob.h"
+
+#endif RCV_H
+

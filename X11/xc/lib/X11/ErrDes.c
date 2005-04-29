@@ -48,7 +48,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/ErrDes.c,v 3.10 2001/12/14 19:53:59 dawes Exp $ */
+/* $XFree86: xc/lib/X11/ErrDes.c,v 3.12 2003/11/17 22:20:06 dawes Exp $ */
 
 #include "Xlibint.h"
 #include <X11/Xos.h>
@@ -122,7 +122,6 @@ XGetErrorText(dpy, code, buffer, nbytes)
 }
 
 int
-#if NeedFunctionPrototypes
 /*ARGSUSED*/
 XGetErrorDatabaseText(
     Display *dpy,
@@ -131,15 +130,6 @@ XGetErrorDatabaseText(
     _Xconst char *defaultp,
     char *buffer,
     int nbytes)
-#else
-/*ARGSUSED*/
-XGetErrorDatabaseText(dpy, name, type, defaultp, buffer, nbytes)
-    Display *dpy;
-    register char *name, *type;
-    char *defaultp;
-    char *buffer;
-    int nbytes;
-#endif
 {
 
     static XrmDatabase db = NULL;
@@ -175,11 +165,19 @@ XGetErrorDatabaseText(dpy, name, type, defaultp, buffer, nbytes)
     if (db)
     {
 	tlen = strlen (name) + strlen (type) + 2;
-	if (tlen <= BUFSIZE) tptr = temp;
-	else tptr = Xmalloc (tlen);
-	sprintf(tptr, "%s.%s", name, type);
-	XrmGetResource(db, tptr, "ErrorType.ErrorNumber", &type_str, &result);
-	if (tptr != temp) Xfree (tptr);
+	if (tlen <= BUFSIZE)
+	    tptr = temp;
+	else
+	    tptr = Xmalloc (tlen);
+	if (tptr) {
+	    sprintf(tptr, "%s.%s", name, type);
+	    XrmGetResource(db, tptr, "ErrorType.ErrorNumber", 
+	      &type_str, &result);
+	    if (tptr != temp)
+		Xfree (tptr);
+	} else {
+	    result.addr = (XPointer) NULL;
+	}
     }
     else
 	result.addr = (XPointer)NULL;

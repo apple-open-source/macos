@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = sync.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.dist sync.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.dist sync.8 Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

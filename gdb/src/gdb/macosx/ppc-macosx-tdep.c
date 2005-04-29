@@ -21,10 +21,11 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#include "ppc-macosx-tdep.h"
 #include "ppc-macosx-regs.h"
+#include "ppc-macosx-regnums.h"
 #include "ppc-macosx-tdep.h"
 #include "ppc-macosx-frameinfo.h"
-#include "ppc-macosx-frameops.h"
 
 #include "defs.h"
 #include "frame.h"
@@ -40,6 +41,9 @@
 #include "gdbtypes.h"
 #include "regcache.h"
 #include "reggroups.h"
+#include "frame-base.h"
+#include "frame-unwind.h"
+#include "dummy-frame.h"
 
 #include "libbfd.h"
 
@@ -49,613 +53,318 @@
 #include "gdbarch.h"
 #include "osabi.h"
 
-extern int backtrace_below_main;
+#include <mach/mach.h>
+#include <mach/mach_host.h>
+#include <mach/host_info.h>
+#include <mach/machine.h>
+
+extern int backtrace_past_main;
 
 #undef XMALLOC
 #define XMALLOC(TYPE) ((TYPE*) xmalloc (sizeof (TYPE)))
 
-/* 
+/*
    0x030     c linkage
    0x040     paramsavelen
    0x008     pad
-   0x408     struct mcontext
+   0x040     siginfo_t
+        int     si_signo;                signal number
+        int     si_errno;                errno association
+        int     si_code;                 signal code
+        pid_t   si_pid;                  sending process
+        uid_t   si_uid;                  sender's ruid
+        int     si_status;               exit value
+        void    *si_addr;                faulting instruction
+        union sigval si_value;           signal value
+        long    si_band;                 band event for SIGPOLL
+        unsigned int    pad[7];          Reserved for Future Use
+   0x020     ucontext
+        int             uc_onstack;
+        sigset_t        uc_sigmask;      signal mask used by this context (unsigned int)
+        stack_t         uc_stack;        stack used by this context
+                        void    *ss_sp;          signal stack base
+                        size_t  ss_size;         signal stack length
+                        int     ss_flags;        SA_DISABLE and/or SA_ONSTACK
+        struct ucontext *uc_link;        pointer to resuming context
+        size_t          uc_mcsize;       size of the machine context passed in
+        mcontext_t      uc_mcontext;     machine specific context
+   0x410     struct mcontext32
    - 0x020   - ppc_exception_state_t
    - 0x0a0   - ppc_thread_state_t
    - 0x108   - ppc_float_state_t
    - 0x240   - ppc_vector_state_t
-   0x040     siginfo_t
-   0x020     ucontext
+   0x410     struct mcontext64
+   - 0x020   - ppc_exception_state_t
+   - 0x0a0   - ppc_thread_state64_t
+   - 0x108   - ppc_float_state_t
+   - 0x240   - ppc_vector_state_t
    0x0e0     redzone
 */
 
 const unsigned int PPC_SIGCONTEXT_PC_OFFSET = 0x90;
 const unsigned int PPC_SIGCONTEXT_SP_OFFSET = 0x9c;
- 
+
 static int ppc_debugflag = 0;
 static unsigned int ppc_max_frame_size = UINT_MAX;
 
-void ppc_debug (const char *fmt, ...)
+static void ppc_macosx_init_abi (struct gdbarch_info info,
+                                 struct gdbarch *gdbarch);
+
+static void ppc_macosx_init_abi_64 (struct gdbarch_info info,
+                                    struct gdbarch *gdbarch);
+
+static int ppc_macosx_get_longjmp_target (CORE_ADDR * pc);
+static int ppc_64_macosx_get_longjmp_target (CORE_ADDR * pc);
+static enum gdb_osabi ppc_mach_o_osabi_sniffer_use_dyld_hint (bfd *abfd);
+
+/* When we're doing native debugging, and we attach to a process,
+   we start out by finding the in-memory dyld -- the osabi of that
+   dyld is stashed away here for use when picking the right osabi of
+   a fat file.  In the case of cross-debugging, none of this happens
+   and this global remains untouched.  */
+
+enum gdb_osabi osabi_seen_in_attached_dyld = GDB_OSABI_UNKNOWN;
+
+void
+ppc_debug (const char *fmt, ...)
 {
   va_list ap;
-  if (ppc_debugflag) {
-    va_start (ap, fmt);
-    vfprintf (stderr, fmt, ap);
-    va_end (ap);
-  }
+  if (ppc_debugflag)
+    {
+      va_start (ap, fmt);
+      vfprintf (stderr, fmt, ap);
+      va_end (ap);
+    }
+}
+
+static struct ppc_frame_cache *
+ppc_alloc_frame_cache (void)
+{
+  struct ppc_frame_cache *cache;
+  int i;
+
+  cache = FRAME_OBSTACK_ZALLOC (struct ppc_frame_cache);
+  cache->saved_regs =
+    (CORE_ADDR *) frame_obstack_zalloc ((NUM_REGS) * sizeof (CORE_ADDR));
+
+  cache->prev_pc = (CORE_ADDR) - 1;
+  cache->prev_sp = (CORE_ADDR) - 1;
+
+  cache->stack = (CORE_ADDR) - 1;
+  cache->frame = (CORE_ADDR) - 1;
+  cache->pc = (CORE_ADDR) - 1;
+
+  for (i = 0; i < NUM_REGS; i++)
+    cache->saved_regs[i] = -1;
+  cache->saved_regs_valid = 0;
+
+  cache->properties_valid = 0;
+
+  cache->boundaries_status = 0;
+
+  return cache;
+}
+
+struct ppc_frame_cache *
+ppc_frame_cache (struct frame_info *next_frame, void **this_cache)
+{
+  struct ppc_frame_cache *cache;
+
+  if (*this_cache)
+    return *this_cache;
+
+  cache = ppc_alloc_frame_cache ();
+  *this_cache = cache;
+
+  cache->stack = frame_unwind_register_unsigned (next_frame, SP_REGNUM);
+  if (cache->stack == 0)
+    return cache;
+
+  cache->frame = ppc_frame_find_prev_fp (next_frame, this_cache);
+
+  cache->pc = frame_func_unwind (next_frame);
+
+  return cache;
 }
 
 /* function implementations */
 
 void
-ppc_init_extra_frame_info (int fromleaf, struct frame_info *frame)
+ppc_print_extra_frame_info (struct frame_info *next_frame, void **this_cache)
 {
-  CHECK_FATAL (frame != NULL);
+  struct ppc_frame_cache *cache;
+  struct ppc_function_boundaries *bounds;
+  struct ppc_function_properties *props;
 
-  frame->extra_info = (struct frame_extra_info *)
-    frame_obstack_zalloc (sizeof (struct frame_extra_info));
+  cache = ppc_frame_cache (next_frame, this_cache);
 
-  frame->extra_info->initial_sp = 0;
-  frame->extra_info->bounds = NULL;
-  frame->extra_info->props = 0;
-}
-
-void
-ppc_print_extra_frame_info (struct frame_info *frame)
-{
-  if (get_frame_type (frame) == SIGTRAMP_FRAME) {
-    printf_filtered (" This function was called from a signal handler.\n");
-  } else {
-    printf_filtered (" This function was not called from a signal handler.\n");
-  }
-
-  ppc_frame_cache_initial_stack_address (frame);
-  if (frame->extra_info->initial_sp) {
-    printf_filtered (" The initial stack pointer for this frame was 0x%lx.\n", 
-		     (unsigned long) frame->extra_info->initial_sp);
-  } else {
-    printf_filtered (" Unable to determine initial stack pointer for this frame.\n");
-  }    
-
-  ppc_frame_cache_boundaries (frame, NULL);
-  if (frame->extra_info->bounds != NULL) {
-    ppc_print_boundaries (frame->extra_info->bounds);
-  } else {
-    printf_filtered (" Unable to determine function boundary information.\n");
-  }
-
-  ppc_frame_cache_properties (frame, NULL);
-  if (frame->extra_info->props != NULL) {
-    ppc_print_properties (frame->extra_info->props);
-  } else {
-    printf_filtered (" Unable to determine function property information.\n");
-  }
-}
-/* We need to make sure that ppc_init_frame_pc_first won't longjmp, 
-   since if it does it can leave a frame structure with no extra_info
-   allocated in get_prev_frame, and there are way too many places that
-   assume that a valid frame has a valid extra_info to catch them all. */
-
-struct ppc_init_frame_pc_args
-{
-  int fromleaf;
-  struct frame_info *frame;
-};
-
-int
-ppc_init_frame_pc_first_unsafe (struct ppc_init_frame_pc_args *args)
-{
-  struct frame_info *frame = args->frame;
-  struct frame_info *next;
-
-  CHECK_FATAL (frame != NULL);
-  next = get_next_frame (frame);
-  CHECK_FATAL (next != NULL);
-  frame->pc = ppc_frame_saved_pc (next);
-
-  return 1;
-}
-
-CORE_ADDR
-ppc_init_frame_pc_first (int fromleaf, struct frame_info *frame)
-{
-  struct ppc_init_frame_pc_args args;
-
-  args.fromleaf = fromleaf;
-  args.frame = frame;
-
-  if (! catch_errors ((catch_errors_ftype *) ppc_init_frame_pc_first_unsafe, 
-		      &args, "", RETURN_MASK_ERROR))
+  if (get_frame_type (next_frame) == SIGTRAMP_FRAME)
     {
-      ppc_debug ("ppc_init_frame_pc_first: got an error calling %s.\n", 
-		 "ppc_frame_saved_pc.\n");
-    }
-
-  return frame->pc;
-}
-
-CORE_ADDR
-ppc_init_frame_pc (int fromleaf, struct frame_info *frame)
-{
-  CHECK_FATAL (frame != NULL);
-  return frame->pc;
-}
-
-/* This function hides a little complication when you are looking for
-   a the saved pc in a frame which either does not save the pc, or saves
-   it but hasn't done so yet.  In that case, the pc may still be in the
-   link register, but it ALSO might have gotten displaced by the PIC base
-   setting call - which does "blc pc+4; mflr r31" so the lr is wrong for
-   a little while. */
-
-CORE_ADDR
-ppc_get_unsaved_pc (struct frame_info *frame, ppc_function_properties *props)
-{
-  if ((props->lr_reg == -1)
-      || ((props->lr_invalid == 0) 
-	  || (frame->pc <= props->lr_invalid)
-	  || (frame->pc > props->lr_valid_again)))
-    {
-      ULONGEST val;
-      ppc_debug ("ppc_get_unsaved_pc: link register was not saved.\n");
-      frame_read_unsigned_register (frame, LR_REGNUM, &val);
-      return val;
+      printf_filtered (" This function was called from a signal handler.\n");
     }
   else
     {
-      ULONGEST val;
-      ppc_debug ("ppc_get_unsaved_pc: link register stashed in register %d.\n",
-		 props->lr_reg);
-      frame_read_unsigned_register (frame, props->lr_reg, &val);
-      return val;
+      printf_filtered
+        (" This function was not called from a signal handler.\n");
+    }
+
+  bounds = ppc_frame_function_boundaries (next_frame, this_cache);
+  if (bounds != NULL)
+    {
+      ppc_print_boundaries (bounds);
+    }
+  else
+    {
+      printf_filtered
+        (" Unable to determine function boundary information.\n");
+    }
+
+  props = ppc_frame_function_properties (next_frame, this_cache);
+  if (props != NULL)
+    {
+      ppc_print_properties (props);
+    }
+  else
+    {
+      printf_filtered
+        (" Unable to determine function property information.\n");
     }
 }
 
-CORE_ADDR
-ppc_frame_find_pc (frame)
-     struct frame_info *frame;
+static struct frame_id
+ppc_unwind_dummy_id (struct gdbarch *gdbarch, struct frame_info *next_frame)
 {
+  char buf[8];
+  CORE_ADDR fp;
+
+  frame_unwind_register (next_frame, SP_REGNUM, buf);
+  fp =
+    extract_unsigned_integer (buf,
+                              register_size (current_gdbarch, SP_REGNUM));
+
+  return frame_id_build (fp, frame_pc_unwind (next_frame));
+}
+
+CORE_ADDR
+ppc_frame_find_prev_pc (struct frame_info * next_frame, void **this_cache)
+{
+
+  struct ppc_frame_cache *cache;
+  ppc_function_properties *props = NULL;
   CORE_ADDR prev;
 
-  CHECK_FATAL (frame != NULL);
+  cache = ppc_frame_cache (next_frame, this_cache);
 
-  if (DEPRECATED_PC_IN_CALL_DUMMY (frame->pc, frame->frame, frame->frame))
+  props = ppc_frame_function_properties (next_frame, this_cache);
+  if (props == NULL)
+    return 0;
+
+  prev = ppc_frame_find_prev_sp (next_frame, this_cache);
+
+  if ((props->lr_saved) && (props->lr_saved < frame_pc_unwind (next_frame)))
     {
-      ULONGEST pc;
-      frame_unwind_unsigned_register (frame, PC_REGNUM, &pc);
-      return pc;
+      return read_memory_unsigned_integer (prev + props->lr_offset,
+                                           gdbarch_addr_bit (current_gdbarch)
+                                           / 8);
     }
-
-  if (get_next_frame (frame))
-    if (DEPRECATED_PC_IN_CALL_DUMMY (get_next_frame (frame)->pc, get_next_frame (frame)->frame, get_next_frame (frame)->frame))
-      {
-	ULONGEST pc;
-	frame_unwind_unsigned_register (frame, LR_REGNUM, &pc);
-	return pc;
-      }
-  
-  if (get_frame_type (frame) == SIGTRAMP_FRAME) {
-    CORE_ADDR psp = read_memory_unsigned_integer (frame->frame, 4);
-    return read_memory_unsigned_integer (psp + PPC_SIGCONTEXT_PC_OFFSET, 4);
-  }
-
-  prev = ppc_frame_chain (frame);
-  if ((prev == 0) || (! ppc_frame_chain_valid (prev, frame))) { 
-    ppc_debug ("ppc_frame_find_pc: previous stack frame not valid: returning 0\n");
-    return 0; 
-  }
-  ppc_debug ("ppc_frame_find_pc: value of prev is 0x%lx\n", (unsigned long) prev);
-
-  if (ppc_frame_cache_properties (frame, NULL) != 0) 
+  else if ((props->lr_reg >= 0) &&
+           (props->lr_invalid) &&
+           (frame_pc_unwind (next_frame) > props->lr_invalid) &&
+           (frame_pc_unwind (next_frame) <= props->lr_valid_again))
     {
-      ppc_debug ("ppc_frame_find_pc: unable to find properties of function containing 0x%lx\n",
-		 (unsigned long) frame->pc);
-      ppc_debug ("ppc_frame_find_pc: assuming link register saved in normal location\n");
-      
-      if (ppc_frameless_function_invocation (frame)) 
-	{
-	  /* FIXME: Formally, we ought to check for frameless function
-	     invocation, but in fact, ppc_frameless_function_invocation
-	     first calls ppc_frame_cache_properties and returns 0 if it
-	     fails.  Since this just failed above, we won't ever get
-	     into this branch. But I don't know another way to figure
-	     this out. */
-	  return read_register (LR_REGNUM);
-	} 
-      else 
-	{
-	  ppc_function_properties lprops;
-	  CORE_ADDR body_start;
-	  if (frame->pc % 4 != 0)
-	    {
-	      /* My we did get lost...  Can't call ppc_parse_instructions,
-		 it will just error out.  So let's just guess.  If our frame
-		 is the next from the top, try the link register, otherwise 
-		 the stack is probably the safest place to look at this point...  */
-	      if (frame->level == 1)
-		{
-		  ULONGEST val;
-		  frame_read_unsigned_register (frame, LR_REGNUM, &val);
-		  return val;
-		}
-	      else
-		return read_memory_unsigned_integer (prev + DEFAULT_LR_SAVE, 4);
-	    }
-
-	  body_start = ppc_parse_instructions (frame->pc, INVALID_ADDRESS, 
-					       &lprops);
-          
-	  /* We get here if we are a bit lost: after all we weren't
-	     able to successfully run ppc_frame_cache_properties.  So
-	     we should treat the lprops with some caution.  One common
-	     mistake is to falsly assume the lr hasn't been saved
-	     (since un-interpretible prologue and frameless prologue
-	     look kind of the same).  So add this obvious check
-	     here for being a leaf fn. in the first branch... */
-	  
-	  if ((get_next_frame (frame) == NULL && lprops.lr_saved == 0) || 
-	      (lprops.lr_saved >= frame->pc))
-	    {
-      	      /* Either we aren't saving the link register, or our scan
-		 shows that the link register WILL be saved, but has not
-		 been yet.  So figure out where it actually is.  To do this,
-		 we need to see if the lr is ever stomped, and if so, if we
-		 are within that part of the prologue.
-	      */
-	      return ppc_get_unsaved_pc (frame, &lprops);
-	    }
-	  else
-	    {
-	      /* The link register is safely on the stack... */
-	      return read_memory_unsigned_integer (prev + DEFAULT_LR_SAVE, 4);
-	    }
-	}
+      return frame_unwind_register_unsigned (next_frame, props->lr_reg);
     }
   else
     {
-      ppc_function_properties *props;
-
-      props = frame->extra_info->props;
-      CHECK_FATAL (props != NULL);
-
-      if (props->lr_saved)
-	{
-	  if (props->lr_saved < frame->pc)
-	    {
-	      /* The link register is safely on the stack... */
-	      return read_memory_unsigned_integer (prev 
-						   + props->lr_offset, 4);
-	    }
-	  else 
-	    {
-	      ppc_debug ("ppc_frame_find_pc: function did not save link register\n");
-	      return ppc_get_unsaved_pc (frame, props);
-	    }
-        }
-      else if ((get_next_frame (frame) != NULL)
-	       && (get_frame_type (get_next_frame (frame)) == SIGTRAMP_FRAME))
-	{
-	  ppc_debug ("ppc_frame_find_pc: %s\n", 
-		     "using link area from signal handler.");
-	  return read_memory_unsigned_integer (frame->frame - 0x320 
-					       + DEFAULT_LR_SAVE, 4);
-	}
-      else if (get_next_frame (frame) && ppc_is_dummy_frame (get_next_frame (frame))) 
-	{
-	  ppc_debug ("ppc_frame_find_pc: using link area from call dummy\n");
-	  return read_memory_unsigned_integer (frame->frame - 0x1c, 4);
-	}
-      else if (!props->lr_saved)
-	{
-	  return ppc_get_unsaved_pc (frame, props);
-	}
-      else
-	{
-	  ppc_debug ("ppc_frame_find_pc: function is not a leaf\n");
-	  ppc_debug ("ppc_frame_find_pc: assuming link register saved in normal location\n");
-	  return read_memory_unsigned_integer (prev + DEFAULT_LR_SAVE, 4);
-	}
+      return frame_unwind_register_unsigned (next_frame,
+                                             PPC_MACOSX_LR_REGNUM);
     }
-  /* Should never get here, just quiets the compiler. */
-  return 0;
 }
 
 CORE_ADDR
-ppc_frame_saved_pc (struct frame_info *frame)
+ppc_frame_find_prev_fp (struct frame_info * next_frame, void **this_cache)
 {
-  return (ppc_frame_find_pc (frame));
-}
+  struct ppc_frame_cache *cache;
+  ppc_function_properties *props;
+  CORE_ADDR prev_fp;
 
+  cache = ppc_frame_cache (next_frame, this_cache);
 
-CORE_ADDR
-ppc_frame_saved_pc_after_call (struct frame_info *frame)
-{
-  CHECK_FATAL (frame != NULL);
-  return read_register (LR_REGNUM);
-}
+  props = ppc_frame_function_properties (next_frame, this_cache);
+  if (props == NULL)
+    return frame_unwind_register_unsigned (next_frame, SP_REGNUM);
 
-CORE_ADDR
-ppc_frame_chain (struct frame_info *frame)
-{
-  CORE_ADDR psp = read_memory_unsigned_integer (frame->frame, 4);
-
-  if (DEPRECATED_PC_IN_CALL_DUMMY (frame->pc, frame->frame, frame->frame))
-    return psp;
-	    
-  if (get_frame_type (frame) == SIGTRAMP_FRAME) {
-    return read_memory_unsigned_integer (psp + PPC_SIGCONTEXT_SP_OFFSET, 4);
-  }
-
-  /* If a frameless function is interrupted by a signal, no change to
-     the stack pointer */
-  if (get_next_frame (frame) != NULL
-      && (get_frame_type (get_next_frame (frame)) == SIGTRAMP_FRAME)
-      && ppc_frameless_function_invocation (frame)) {
-    return frame->frame;
-  }
-
-  return psp;
-}
-
-int 
-ppc_frame_chain_valid (CORE_ADDR chain, struct frame_info *frame)
-{
-  unsigned long retval;
-
-  if (chain == 0) { return 0; }
-
-  /* reached end of stack? */
-  if (!safe_read_memory_unsigned_integer (chain, 4, &retval))
+  if (props->frameptr_used && (props->frameptr_reg > 0))
     {
-        ppc_debug ("ppc_frame_chain_valid: Got an error reading at 0x%lx",
-                   chain);
-        return 0;
+      /* Be a little bit careful here.  We are trying to unwind the frameptr register,
+         but we might get it wrong (for instance because we mis-parsed a prolog and
+         got the stored location wrong.)  So if the fp value looks ridiculous, fall
+         back on the SP value - which we seem to get right more consistently... */
+
+      CORE_ADDR this_sp = get_frame_register_unsigned (next_frame, SP_REGNUM);
+      prev_fp = frame_unwind_register_unsigned (next_frame, props->frameptr_reg);
+      if (prev_fp >= this_sp && prev_fp - this_sp < 0xfffff)
+          return prev_fp;
     }
-  else
-    if (retval == 0) { return 0; }
 
-#if 0
-  if (inside_entry_func (frame->pc)) { return 0; }
-  if (inside_main_func (frame->pc)) { return 0; }
-#endif
+  return frame_unwind_register_unsigned (next_frame, SP_REGNUM);
+}
 
-  /* check for bogus stack frames */
-  if (! (chain >= frame->frame)) {
-    warning ("ppc_frame_chain_valid: stack pointer from 0x%lx to 0x%lx "
-	     "grows upward; assuming invalid\n",
-	     (unsigned long) frame->frame, (unsigned long) chain);
+CORE_ADDR
+ppc_frame_find_prev_sp (struct frame_info * next_frame, void **this_cache)
+{
+  ppc_function_properties *props = NULL;
+  CORE_ADDR sp;
+
+  sp = frame_unwind_register_unsigned (next_frame, SP_REGNUM);
+  if (sp == 0)
     return 0;
-  }
-  if ((chain - frame->frame) > ppc_max_frame_size) {
-    warning ("ppc_frame_chain_valid: stack frame from 0x%lx to 0x%lx "
-	     "larger than ppc-maximum-frame-size bytes; assuming invalid",
-	     (unsigned long) frame->frame, (unsigned long) chain);
+
+  props = ppc_frame_function_properties (next_frame, this_cache);
+  if (props == NULL)
     return 0;
-  }
 
-  return 1;
-}
+  if (props->frameless)
+    return sp;
 
-int
-ppc_is_dummy_frame (struct frame_info *frame)
-{
-  return (DEPRECATED_PC_IN_CALL_DUMMY (get_frame_pc (frame),
-				       get_frame_base (frame),
-				       get_frame_base (frame)));
-}
-
-/* Return the address of a frame. This is the inital %sp value when the frame
-   was first allocated. For functions calling alloca(), it might be saved in
-   the frame pointer register. */
-
-CORE_ADDR
-ppc_frame_cache_initial_stack_address (struct frame_info *frame)
-{
-  CHECK_FATAL (frame != NULL);
-  CHECK_FATAL (frame->extra_info != NULL);
-    
-  if (frame->extra_info->initial_sp == 0) { 
-    frame->extra_info->initial_sp = ppc_frame_initial_stack_address (frame);
-  }
-  return frame->extra_info->initial_sp;
+  return read_memory_unsigned_integer (sp,
+                                       gdbarch_addr_bit (current_gdbarch) /
+                                       8);
 }
 
 CORE_ADDR
-ppc_frame_initial_stack_address (struct frame_info *frame)
-{
-  CORE_ADDR tmpaddr;
-  struct frame_info *callee;
-
-  /* Find out if this function is using an alloca register. */
-
-  if (ppc_frame_cache_properties (frame, NULL) != 0) {
-    ppc_debug ("ppc_frame_initial_stack_address: unable to find properties of " 
-		 "function containing 0x%lx\n", frame->pc);
-    return 0;
-  }
-
-  /* Read and cache saved registers if necessary. */
-
-  ppc_frame_cache_saved_regs (frame);
-
-  /* If no alloca register is used, then frame->frame is the value of
-     %sp for this frame, and it is valid.  Also check to make sure we 
-     aren't in the prologue BEFORE the frameptr is set up.  If we are
-     use frame->frame since it will still be valid.  */
-
-  if (!frame->extra_info->props->frameptr_used
-      || frame->extra_info->props->frameptr_pc >= frame->pc) {
-    frame->extra_info->initial_sp = frame->frame;
-    return frame->extra_info->initial_sp;
-  }
-
-  /* This function has an alloca register. If this is the top-most frame
-     (with the lowest address), the value in alloca register is valid. */
-
-  if (! get_next_frame (frame)) 
-    {
-      frame->extra_info->initial_sp 
-	= read_register (frame->extra_info->props->frameptr_reg);     
-      return frame->extra_info->initial_sp;
-    }
-
-  /* Otherwise, this is a caller frame. Callee has usually already saved
-     registers, but there are exceptions (such as when the callee
-     has no parameters). Find the address in which caller's alloca
-     register is saved. */
-
-  for (callee = get_next_frame (frame); callee != NULL; 
-       callee = get_next_frame (callee)) 
-    {
-
-      ppc_frame_cache_saved_regs (callee);
-      
-      /* this is the address in which alloca register is saved. */
-      
-      tmpaddr = callee->saved_regs[frame->extra_info->props->frameptr_reg];
-      if (tmpaddr) {
-	frame->extra_info->initial_sp 
-	  = read_memory_unsigned_integer (tmpaddr, 4); 
-	return frame->extra_info->initial_sp;
-      }
-
-      /* Go look into deeper levels of the frame chain to see if any one of
-	 the callees has saved the frame pointer register. */
-    }
-
-  /* If frame pointer register was not saved, by the callee (or any of
-     its callees) then the value in the register is still good. */
-
-  frame->extra_info->initial_sp 
-    = read_register (frame->extra_info->props->frameptr_reg);     
-  return frame->extra_info->initial_sp;
-}
-
-CORE_ADDR
-ppc_extract_struct_value_address (char regbuf[REGISTER_BYTES])
-{
-  return extract_unsigned_integer (&regbuf[REGISTER_BYTE (GP0_REGNUM + 3)], 4);
-}
-
-void
-ppc_extract_return_value (struct type *valtype, char *regbuf, char *valbuf)
-{
-  int offset = 0;
-
-  if (TYPE_CODE (valtype) == TYPE_CODE_FLT)
-    {
-
-      double dd;
-      float ff;
-      /* floats and doubles are returned in fpr1. fpr's have a size of 8 bytes.
-         We need to truncate the return value into float size (4 byte) if
-         necessary. */
-
-      if (TYPE_LENGTH (valtype) > 4)	/* this is a double */
-	memcpy (valbuf,
-		&regbuf[REGISTER_BYTE (FP0_REGNUM + 1)],
-		TYPE_LENGTH (valtype));
-      else
-	{			/* float */
-	  memcpy (&dd, &regbuf[REGISTER_BYTE (FP0_REGNUM + 1)], 8);
-	  ff = (float) dd;
-	  memcpy (valbuf, &ff, sizeof (float));
-	}
-    }
-  else if (TYPE_CODE (valtype) == TYPE_CODE_ARRAY
-           && TYPE_LENGTH (valtype) == 16
-           && TYPE_VECTOR (valtype))
-    {
-      memcpy (valbuf, regbuf + REGISTER_BYTE (VP0_REGNUM + 2),
-	      TYPE_LENGTH (valtype));
-    }
-  else
-    {
-      /* return value is copied starting from r3. */
-      if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG
-	  && TYPE_LENGTH (valtype) < REGISTER_RAW_SIZE (3))
-	offset = REGISTER_RAW_SIZE (3) - TYPE_LENGTH (valtype);
-
-      memcpy (valbuf,
-	      regbuf + REGISTER_BYTE (3) + offset,
-	      TYPE_LENGTH (valtype));
-    }
-}
-
-CORE_ADDR 
 ppc_skip_prologue (CORE_ADDR pc)
 {
   ppc_function_boundaries_request request;
   ppc_function_boundaries bounds;
   int ret;
-  
+
   ppc_clear_function_boundaries_request (&request);
   ppc_clear_function_boundaries (&bounds);
 
   request.prologue_start = pc;
   ret = ppc_find_function_boundaries (&request, &bounds);
-  if (ret != 0) { return 0; }
+  if (ret != 0)
+    {
+      return 0;
+    }
 
   return bounds.body_start;
 }
 
-/* Determines whether the current frame has allocated a frame on the
-   stack or not.  */
-
-int
-ppc_frameless_function_invocation (struct frame_info *frame)
-{
-  /* if not a leaf, it's not frameless (unless it was interrupted by a
-     signal or a call_dummy) */
-
-  if ((get_next_frame (frame) != NULL)
-      && ! (get_frame_type (get_next_frame (frame)) == SIGTRAMP_FRAME)
-      && ! ppc_is_dummy_frame (get_next_frame (frame)))
-    { 
-      return 0; 
-    }
-
-  if (ppc_frame_cache_properties (frame, NULL) != 0) {
-    /* Distinguish two cases here.  In general, it is safer to assume that the
-       function is not frameless if we don't know any better.  But if the pc is not
-       readable, then we probably crashed chasing a bad function pointer, in which
-       case it is for all practical purposes frameless.  
-       FIXME: We should actually go through and get ppc_frame_cache_properties to
-       return error codes that we can use to distinguish these two cases.  */
-    
-    unsigned long op;
-    if (frame->pc % 4 != 0 || !safe_read_memory_unsigned_integer (frame->pc, 4, &op))
-      {
-	ppc_debug ("frameless_function_invocation: unable to find properties of " 
-		   "function containing %s which is not readable; assuming frameless\n", 
-		   paddr_nz (frame->pc));
-	return 1;
-      }
-    else
-      {
-	ppc_debug ("frameless_function_invocation: unable to find properties of " 
-		   "function containing %s; assuming not frameless\n", 
-		   paddr_nz (frame->pc));
-	return 0;
-      }
-  }
-  
-  return frame->extra_info->props->frameless;
-}
-
-const char *gdb_register_names[] =
-{
+const char *gdb_register_names[] = {
   "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
-  "r8", "r9", "r10","r11","r12","r13","r14","r15",
-  "r16","r17","r18","r19","r20","r21","r22","r23",
-  "r24","r25","r26","r27","r28","r29","r30","r31",
+  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+  "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
+  "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",
   "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
-  "f8", "f9", "f10","f11","f12","f13","f14","f15",
-  "f16","f17","f18","f19","f20","f21","f22","f23",
-  "f24","f25","f26","f27","f28","f29","f30","f31",
+  "f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
+  "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
+  "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
   "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
-  "v8", "v9", "v10","v11","v12","v13","v14","v15",
-  "v16","v17","v18","v19","v20","v21","v22","v23",
-  "v24","v25","v26","v27","v28","v29","v30","v31",
+  "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15",
+  "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",
+  "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",
   "pc", "ps", "cr", "lr", "ctr", "xer", "mq",
   "fpscr",
   "vscr", "vrsave"
@@ -671,105 +380,13 @@ ppc_register_name (int reg_nr)
   return gdb_register_names[reg_nr];
 }
 
-void ppc_store_struct_return (CORE_ADDR addr, CORE_ADDR sp)
-{
-  write_register (SRA_REGNUM, addr);
-}
-
-void ppc_store_return_value (struct type *type, char *valbuf)
-{
-  /* Floating point values are returned starting from FPR1 and up.
-     Say a double_double_double type could be returned in
-     FPR1/FPR2/FPR3 triple.  */
-
-  /* Everything else is returned in GPR3 and up.  */
-
-  unsigned int regbase = -1;
-  unsigned int offset = 0;
-
-  if (TYPE_CODE (type) == TYPE_CODE_FLT)
-    regbase = FP0_REGNUM + 1;
-  else if ((TYPE_CODE (type) == TYPE_CODE_ARRAY) && TYPE_VECTOR (type))
-    regbase = VP0_REGNUM + 2;
-  else
-    regbase = GP0_REGNUM + 3;
-  
-  if ((REGISTER_RAW_SIZE (regbase) > TYPE_LENGTH (type))
-      && (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG))
-  {
-    offset = REGISTER_RAW_SIZE (regbase) - TYPE_LENGTH (type);
-  }
-
-  if ((TYPE_CODE (type) == TYPE_CODE_FLT) && (TYPE_LENGTH (type) < 8))
-    {
-      char buf[8];
-      double d = extract_floating (valbuf, TYPE_LENGTH (type));
-      store_floating (buf, 8, d);
-      deprecated_write_register_bytes (REGISTER_BYTE (regbase), buf, 8);
-    }
-  else
-    deprecated_write_register_bytes (REGISTER_BYTE (regbase) + offset, valbuf, TYPE_LENGTH (type));
-}
-
-CORE_ADDR ppc_push_return_address (CORE_ADDR pc, CORE_ADDR sp)
-{
-  unsigned char buf[4];
-  store_address (buf, 4, CALL_DUMMY_ADDRESS ());
-  write_register (LR_REGNUM, CALL_DUMMY_ADDRESS ());
-  write_memory (sp + 8, buf, 4);
-  return sp;
-}
-
-/* Nonzero if register N requires conversion
-   from raw format to virtual format.
-   The register format for rs6000 floating point registers is always
-   double, we need a conversion if the memory format is float.  */
-
-int ppc_register_convertible (int regno)
-{
-  return ((regno >= FIRST_FP_REGNUM) && (regno <= LAST_FP_REGNUM));
-}
-
-/* Convert data from raw format for register REGNUM in buffer FROM
-   to virtual format with type TYPE in buffer TO.  */
-
-void ppc_register_convert_to_virtual
-(int regno, struct type *type, char *from, char *to)
-{ 
-  if (TYPE_LENGTH (type) != REGISTER_RAW_SIZE (regno)) 
-    { 
-      double val = extract_floating (from, REGISTER_RAW_SIZE (regno)); 
-      store_floating (to, TYPE_LENGTH (type), val); 
-    } 
-  else 
-    memcpy (to, from, REGISTER_RAW_SIZE (regno)); 
-}
-
-/* Convert data from virtual format with type TYPE in buffer FROM
-   to raw format for register REGNUM in buffer TO.  */
-
-void ppc_register_convert_to_raw
-(struct type *type, int regno, char *from, char *to)
-{ 
-  if (TYPE_LENGTH (type) != REGISTER_RAW_SIZE (regno)) 
-    { 
-      double val = extract_floating (from, TYPE_LENGTH (type)); 
-      store_floating (to, REGISTER_RAW_SIZE (regno), val); 
-    } 
-  else 
-    memcpy (to, from, REGISTER_RAW_SIZE (regno)); 
-}
-
 /* Sequence of bytes for breakpoint instruction.  */
 
-#define BIG_BREAKPOINT { 0x7f, 0xe0, 0x00, 0x08 }
-#define LITTLE_BREAKPOINT { 0x08, 0x00, 0xe0, 0x7f }
-
 static const unsigned char *
-ppc_breakpoint_from_pc (CORE_ADDR *addr, int *size)
+ppc_breakpoint_from_pc (CORE_ADDR * addr, int *size)
 {
-  static unsigned char big_breakpoint[] = BIG_BREAKPOINT;
-  static unsigned char little_breakpoint[] = LITTLE_BREAKPOINT;
+  static unsigned char big_breakpoint[] = { 0x7f, 0xe0, 0x00, 0x08 };
+  static unsigned char little_breakpoint[] = { 0x08, 0x00, 0xe0, 0x7f };
   *size = 4;
   if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
     return big_breakpoint;
@@ -780,52 +397,396 @@ ppc_breakpoint_from_pc (CORE_ADDR *addr, int *size)
 static struct type *
 ppc_register_virtual_type (int n)
 {
-  if (((n >= FIRST_GP_REGNUM) && (n <= LAST_GP_REGNUM))
-      || (n == PC_REGNUM)
-      || (n == PS_REGNUM)
-      || (n == LR_REGNUM)
-      || (n == CTR_REGNUM)
-      || (n == XER_REGNUM))
+  if (((n >= PPC_MACOSX_FIRST_GP_REGNUM) && (n <= PPC_MACOSX_LAST_GP_REGNUM))
+      || (n == PPC_MACOSX_PC_REGNUM)
+      || (n == PPC_MACOSX_PS_REGNUM)
+      || (n == PPC_MACOSX_LR_REGNUM)
+      || (n == PPC_MACOSX_CTR_REGNUM) || (n == PPC_MACOSX_XER_REGNUM))
     {
-      if (gdbarch_osabi (current_gdbarch) == GDB_OSABI_DARWIN64)
-	return builtin_type_unsigned_long_long;
-      else
-	return builtin_type_unsigned_int;
+      /* I think it's okay to always treat registers as long long.  We always use
+         the 64 bit calls even on G4 systems, and let the system cut this down to 32
+         bits.  */
+      return builtin_type_unsigned_long_long;
     }
-  if ((n >= FIRST_VP_REGNUM) && (n <= LAST_VP_REGNUM))
+  if ((n >= PPC_MACOSX_FIRST_VP_REGNUM) && (n <= PPC_MACOSX_LAST_VP_REGNUM))
     return builtin_type_vec128;
-  if ((n >= FIRST_FP_REGNUM) && (n <= LAST_FP_REGNUM))
+  if ((n >= PPC_MACOSX_FIRST_FP_REGNUM) && (n <= PPC_MACOSX_LAST_FP_REGNUM))
     return builtin_type_double;
   return builtin_type_unsigned_int;
 }
 
 int
 ppc_register_reggroup_p (struct gdbarch *gdbarch, int regnum,
-			 struct reggroup *group)
+                         struct reggroup *group)
 {
-  if ((regnum == VSCR_REGNUM) || (regnum == VRSAVE_REGNUM))
+  if ((regnum == PPC_MACOSX_VSCR_REGNUM)
+      || (regnum == PPC_MACOSX_VRSAVE_REGNUM))
     if (group == vector_reggroup)
       return 1;
 
-  if (regnum == FPSCR_REGNUM)
+  if (regnum == PPC_MACOSX_FPSCR_REGNUM)
     if (group == float_reggroup)
       return 1;
 
   return default_register_reggroup_p (gdbarch, regnum, group);
 }
 
-int ppc_use_struct_convention (int gccp, struct type *value_type)
+int
+ppc_use_struct_convention (int gccp, struct type *value_type)
 {
-  if ((TYPE_LENGTH (value_type) == 16)
-      && TYPE_VECTOR (value_type))
+  if ((TYPE_LENGTH (value_type) == 16) && TYPE_VECTOR (value_type))
     return 0;
 
   return 1;
 }
 
-/* keep this as multiple of 16 ($sp requires 16 byte alignment) */
+static CORE_ADDR
+ppc_frame_base_address (struct frame_info *next_frame, void **this_cache)
+{
+  struct ppc_frame_cache *cache = ppc_frame_cache (next_frame, this_cache);
 
-#define INSTRUCTION_SIZE 4
+  return cache->frame;
+}
+
+static CORE_ADDR
+ppc_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame)
+{
+  return frame_unwind_register_unsigned (next_frame, PC_REGNUM);
+}
+
+static void
+ppc_frame_prev_register (struct frame_info *next_frame, void **this_cache,
+                         int regnum, int *optimizedp,
+                         enum lval_type *lvalp, CORE_ADDR * addrp,
+                         int *realnump, void *valuep)
+{
+  struct ppc_frame_cache *cache = ppc_frame_cache (next_frame, this_cache);
+  CORE_ADDR *saved_regs = NULL;
+
+  if (regnum == SP_REGNUM)
+    {
+      *optimizedp = 0;
+      *lvalp = not_lval;
+      *addrp = 0;
+      *realnump = -1;
+
+      if (valuep)
+        {
+          if (cache->prev_sp == (CORE_ADDR) - 1)
+            cache->prev_sp = ppc_frame_find_prev_sp (next_frame, this_cache);
+          store_unsigned_integer (valuep,
+                                  register_size (current_gdbarch, regnum),
+                                  cache->prev_sp);
+        }
+
+      return;
+    }
+
+  if (regnum == PC_REGNUM)
+    {
+      *optimizedp = 0;
+      *lvalp = not_lval;
+      *addrp = 0;
+      *realnump = -1;
+
+      if (valuep)
+        {
+          if (cache->prev_pc == (CORE_ADDR) - 1)
+            cache->prev_pc = ppc_frame_find_prev_pc (next_frame, this_cache);
+          store_unsigned_integer (valuep,
+                                  register_size (current_gdbarch, regnum),
+                                  cache->prev_pc);
+        }
+
+      return;
+    }
+
+  saved_regs = ppc_frame_saved_regs (next_frame, this_cache);
+
+  if ((saved_regs != NULL) && (saved_regs[regnum] != -1))
+    {
+      *optimizedp = 0;
+      *lvalp = lval_memory;
+      *addrp = cache->saved_regs[regnum];
+      *realnump = -1;
+      if (valuep)
+        {
+          int wordsize = (gdbarch_tdep (current_gdbarch))->wordsize;
+          int offset = register_size (current_gdbarch, regnum) - wordsize;
+          *((int *) valuep) = 0;
+
+          read_memory (*addrp, ((char *) valuep) + offset,
+                       wordsize);
+        }
+      return;
+    }
+
+  frame_register_unwind (next_frame, regnum,
+                         optimizedp, lvalp, addrp, realnump, valuep);
+}
+
+static void
+ppc_frame_this_id (struct frame_info *next_frame, void **this_cache,
+                   struct frame_id *this_id)
+{
+  struct ppc_frame_cache *cache = ppc_frame_cache (next_frame, this_cache);
+
+  if (cache->stack == 0)
+    {
+      *this_id = null_frame_id;
+      return;
+    }
+  else
+    {
+      ULONGEST prev_frame_addr = 0;
+      if (safe_read_memory_unsigned_integer
+          (cache->stack, TARGET_PTR_BIT / 8, &prev_frame_addr))
+        {
+          if (safe_read_memory_unsigned_integer
+              (prev_frame_addr, TARGET_PTR_BIT / 8, &prev_frame_addr))
+            if (prev_frame_addr == 0)
+              {
+                *this_id = null_frame_id;
+                return;
+              }
+        }
+    }
+
+  (*this_id) = frame_id_build (cache->frame, cache->pc);
+}
+
+static struct ppc_frame_cache *
+ppc_sigtramp_frame_cache (struct frame_info *next_frame, void **this_cache)
+{
+  enum
+  { EXCSTATE = 0x20, GPSTATE = 0xa0, GPSTATE64 = 0x130,
+    FPSTATE = 0x108, VPSTATE = 0x240
+  };
+
+  struct ppc_frame_cache *cache;
+  CORE_ADDR sigframe, context;
+  ULONGEST length = 0;
+  CORE_ADDR regs = 0, fpregs = 0, vpregs = 0;
+  unsigned int reglen = 4;
+  unsigned int i;
+
+  if (*this_cache)
+    return *this_cache;
+
+  cache = ppc_alloc_frame_cache ();
+  *this_cache = cache;
+
+  cache->stack = frame_unwind_register_unsigned (next_frame, SP_REGNUM);
+  if (cache->stack == 0)
+    return cache;
+
+  cache->pc = frame_func_unwind (next_frame);
+  cache->frame = cache->stack;
+
+  sigframe = read_memory_unsigned_integer (cache->stack, TARGET_PTR_BIT / 8);
+  context =
+    read_memory_unsigned_integer (sigframe + 0xd4, TARGET_PTR_BIT / 8);
+  length = read_memory_unsigned_integer (sigframe + 0xd0, TARGET_INT_BIT / 8);
+
+  switch (length)
+    {
+    case (EXCSTATE + GPSTATE + FPSTATE + VPSTATE):
+      vpregs = context + EXCSTATE + GPSTATE + FPSTATE;
+    case (EXCSTATE + GPSTATE + FPSTATE):
+      fpregs = context + EXCSTATE + GPSTATE;
+    case (EXCSTATE + GPSTATE):
+      regs = context + EXCSTATE;
+      reglen = 4;
+      break;
+
+    case (EXCSTATE + GPSTATE64 + FPSTATE + VPSTATE):
+      vpregs = context + EXCSTATE + GPSTATE64 + FPSTATE;
+    case (EXCSTATE + GPSTATE64 + FPSTATE):
+      fpregs = context + EXCSTATE + GPSTATE64;
+    case (EXCSTATE + GPSTATE64):
+      regs = context + EXCSTATE;
+      reglen = 8;
+      break;
+
+    default:
+      warning ("unrecognized length (0x%lx) for sigtramp context",
+               (unsigned long) length);
+      break;
+    }
+
+  cache->sigtramp_gp_store_size = reglen;
+
+  /* FIXME: need to see how these actually get laid out on 64-bit systems. */
+
+  if (regs != 0)
+    {
+      /* The CR register is always stored in an unsigned int...  */
+      int cr_offset = reglen - 4;
+
+      cache->saved_regs[PPC_MACOSX_PC_REGNUM] = regs;
+      cache->saved_regs[PPC_MACOSX_PS_REGNUM] = regs + (1 * reglen);
+      for (i = 0; i < 32; i++)
+        cache->saved_regs[PPC_MACOSX_FIRST_GP_REGNUM + i] =
+          regs + ((i + 2) * reglen);
+      cache->saved_regs[PPC_MACOSX_CR_REGNUM] = regs + (34 * reglen);
+      cache->saved_regs[PPC_MACOSX_XER_REGNUM] = regs + (35 * reglen) - cr_offset;
+      cache->saved_regs[PPC_MACOSX_LR_REGNUM] = regs + (36 * reglen) - cr_offset;
+      cache->saved_regs[PPC_MACOSX_CTR_REGNUM] = regs + (37 * reglen) - cr_offset;
+      cache->saved_regs[PPC_MACOSX_MQ_REGNUM] = regs + (38 * reglen) - cr_offset;
+      cache->saved_regs[PPC_MACOSX_VRSAVE_REGNUM] = regs + (39 * reglen) - cr_offset;
+    }
+
+  if (fpregs != 0)
+    {
+      for (i = 0; i < 32; i++)
+        cache->saved_regs[PPC_MACOSX_FIRST_FP_REGNUM + i] = fpregs + (i * 8);
+      cache->saved_regs[PPC_MACOSX_FPSCR_REGNUM] = fpregs + (i * 8) + 4;
+    }
+
+  if (vpregs != 0)
+    {
+      for (i = 0; i < 32; i++)
+        cache->saved_regs[PPC_MACOSX_FIRST_VP_REGNUM + i] = fpregs + (i * 16);
+      cache->saved_regs[PPC_MACOSX_VSCR_REGNUM] = vpregs + (i * 16);
+      /* cache->saved_regs[PPC_MACOSX_VRSAVE_REGNUM] = vpregs + (i * 16) +  (4 * 8); */
+    }
+
+  cache->saved_regs_valid = 1;
+
+  return cache;
+}
+
+static void
+ppc_sigtramp_frame_this_id (struct frame_info *next_frame, void **this_cache,
+                            struct frame_id *this_id)
+{
+  struct ppc_frame_cache *cache =
+    ppc_sigtramp_frame_cache (next_frame, this_cache);
+
+  /* See the end of ppc_push_dummy_call.  */
+  (*this_id) = frame_id_build (cache->frame, frame_pc_unwind (next_frame));
+}
+
+static void
+ppc_sigtramp_frame_prev_register (struct frame_info *next_frame,
+                                  void **this_cache,
+                                  int regnum, int *optimizedp,
+                                  enum lval_type *lvalp, CORE_ADDR * addrp,
+                                  int *realnump, void *valuep)
+{
+  struct ppc_frame_cache *cache =
+    ppc_sigtramp_frame_cache (next_frame, this_cache);
+  CORE_ADDR *saved_regs = NULL;
+
+  saved_regs = ppc_frame_saved_regs (next_frame, this_cache);
+
+  if ((saved_regs != NULL) && (saved_regs[regnum] != -1))
+    {
+      int size;
+      int offset = 0;
+
+      *optimizedp = 0;
+      *lvalp = lval_memory;
+      *addrp = cache->saved_regs[regnum];
+      *realnump = -1;
+      if (valuep)
+        {
+          int reg_size = register_size (current_gdbarch, regnum);
+          if (regnum == PPC_MACOSX_CR_REGNUM)
+            {
+              size = 4;
+              offset = reg_size - size;
+            }
+          else if (PPC_MACOSX_IS_GP_REGNUM (regnum) || PPC_MACOSX_IS_GSP_REGNUM (regnum))
+            {
+              size = cache->sigtramp_gp_store_size;
+              offset = reg_size - size;
+            }
+          else
+            {
+              size = reg_size;
+              offset = 0;
+            }
+
+          if (reg_size > size)
+            bzero ((char *) valuep, reg_size - size);
+
+          read_memory (*addrp, ((char *) valuep) + offset, size);
+        }
+      return;
+    }
+
+  frame_register_unwind (next_frame, regnum,
+                         optimizedp, lvalp, addrp, realnump, valuep);
+}
+
+static const struct frame_unwind ppc_sigtramp_frame_unwind = {
+  SIGTRAMP_FRAME,
+  ppc_sigtramp_frame_this_id,
+  ppc_sigtramp_frame_prev_register
+};
+
+static const struct frame_unwind *
+ppc_sigtramp_frame_sniffer (struct frame_info *next_frame)
+{
+  CORE_ADDR pc = frame_pc_unwind (next_frame);
+  char *name;
+
+  find_pc_partial_function (pc, &name, NULL, NULL);
+  if (PC_IN_SIGTRAMP (pc, name))
+    return &ppc_sigtramp_frame_unwind;
+
+  return NULL;
+}
+
+static const struct frame_unwind ppc_frame_unwind = {
+  NORMAL_FRAME,
+  ppc_frame_this_id,
+  ppc_frame_prev_register
+};
+
+static const struct frame_unwind *
+ppc_frame_sniffer (struct frame_info *next_frame)
+{
+  return &ppc_frame_unwind;
+}
+
+static const struct frame_base ppc_frame_base = {
+  &ppc_frame_unwind,
+  ppc_frame_base_address,
+  ppc_frame_base_address,
+  ppc_frame_base_address
+};
+
+/* Get the ith function argument for the current function.  */
+CORE_ADDR
+ppc_fetch_pointer_argument (struct frame_info *frame, int argi,
+                            struct type *type)
+{
+  CORE_ADDR addr;
+  static unsigned long long mask = 0xffffffff;
+  struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch);
+
+  addr = get_frame_register_unsigned (frame, 3 + argi);
+
+  /* I am not sure whether the ABI specifies that the upper 32
+     bits of the register holding a pointer need to be set to
+     zero.  So clear them here just in case.  */
+
+  if (tdep->wordsize == 4)
+    addr &= mask;
+  return addr;
+}
+
+static CORE_ADDR
+ppc_integer_to_address (struct type *type, void *buf)
+{
+  char *tmp = alloca (TYPE_LENGTH (builtin_type_void_data_ptr));
+  LONGEST val = unpack_long (type, buf);
+  store_unsigned_integer (tmp, TYPE_LENGTH (builtin_type_void_data_ptr), val);
+  return extract_unsigned_integer (tmp,
+                                   TYPE_LENGTH (builtin_type_void_data_ptr));
+}
 
 static struct gdbarch *
 ppc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
@@ -843,31 +804,22 @@ ppc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   gdbarch = gdbarch_alloc (&info, tdep);
 
   tdep->wordsize = 4;
-  tdep->ppc_lr_regnum = LR_REGNUM;
+  tdep->ppc_lr_regnum = PPC_MACOSX_LR_REGNUM;
+  tdep->ppc_gp0_regnum = PPC_MACOSX_FIRST_GP_REGNUM;
 
-  set_gdbarch_sp_regnum (gdbarch, SP_REGNUM);
-  set_gdbarch_fp_regnum (gdbarch, FP_REGNUM);
-  set_gdbarch_pc_regnum (gdbarch, PC_REGNUM);
-  set_gdbarch_ps_regnum (gdbarch, -1);
-  set_gdbarch_fp0_regnum (gdbarch, FP0_REGNUM);
-  set_gdbarch_npc_regnum (gdbarch, -1);
-  
-  set_gdbarch_read_pc (gdbarch, generic_target_read_pc);
-  set_gdbarch_write_pc (gdbarch, generic_target_write_pc);
-  set_gdbarch_read_fp (gdbarch, generic_target_read_fp);
-  set_gdbarch_read_sp (gdbarch, generic_target_read_sp);
-  set_gdbarch_write_sp (gdbarch, generic_target_write_sp);
+  set_gdbarch_num_regs (gdbarch, PPC_MACOSX_NUM_REGS);
+  set_gdbarch_sp_regnum (gdbarch, PPC_MACOSX_SP_REGNUM);
+  set_gdbarch_pc_regnum (gdbarch, PPC_MACOSX_PC_REGNUM);
+  set_gdbarch_ps_regnum (gdbarch, PPC_MACOSX_PS_REGNUM);
+  set_gdbarch_fp0_regnum (gdbarch, PPC_MACOSX_FIRST_FP_REGNUM);
 
-  set_gdbarch_num_regs (gdbarch, NUM_REGS);
-  set_gdbarch_sp_regnum (gdbarch, SP_REGNUM);
-  set_gdbarch_fp_regnum (gdbarch, FP_REGNUM);
-  set_gdbarch_pc_regnum (gdbarch, PC_REGNUM);
   set_gdbarch_register_name (gdbarch, ppc_register_name);
-  set_gdbarch_register_bytes (gdbarch, REGISTER_BYTES);
-  set_gdbarch_max_register_raw_size (gdbarch, 16);
-  set_gdbarch_max_register_virtual_size (gdbarch, 16);
-  set_gdbarch_register_virtual_type (gdbarch, ppc_register_virtual_type);
+  set_gdbarch_deprecated_max_register_raw_size (gdbarch, 16);
+  set_gdbarch_deprecated_max_register_virtual_size (gdbarch, 16);
+  set_gdbarch_deprecated_register_virtual_type (gdbarch,
+                                                ppc_register_virtual_type);
 
+  set_gdbarch_addr_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_ptr_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_short_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_int_bit (gdbarch, 4 * TARGET_CHAR_BIT);
@@ -876,7 +828,6 @@ ppc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_float_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_double_bit (gdbarch, 8 * TARGET_CHAR_BIT);
   set_gdbarch_long_double_bit (gdbarch, 8 * TARGET_CHAR_BIT);
-  set_gdbarch_addr_bit (gdbarch, 4 * TARGET_CHAR_BIT);
 
   switch (info.byte_order)
     {
@@ -888,43 +839,20 @@ ppc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     case BFD_ENDIAN_LITTLE:
       set_gdbarch_float_format (gdbarch, &floatformat_ieee_single_little);
       set_gdbarch_double_format (gdbarch, &floatformat_ieee_double_little);
-      set_gdbarch_long_double_format (gdbarch, &floatformat_ieee_double_little);
+      set_gdbarch_long_double_format (gdbarch,
+                                      &floatformat_ieee_double_little);
       break;
     default:
-      internal_error (__FILE__, __LINE__, "ppc_gdbarch_init: bad byte order for float format");
+      internal_error (__FILE__, __LINE__,
+                      "ppc_gdbarch_init: bad byte order for float format");
     }
 
-  set_gdbarch_call_dummy_length (gdbarch, 0);
-  set_gdbarch_call_dummy_location (gdbarch, AT_ENTRY_POINT);
-  set_gdbarch_call_dummy_address (gdbarch, entry_point_address);
-  set_gdbarch_call_dummy_breakpoint_offset_p (gdbarch, 1);
-  set_gdbarch_call_dummy_breakpoint_offset (gdbarch, 0);
-  set_gdbarch_call_dummy_start_offset (gdbarch, 0);
+  set_gdbarch_push_dummy_call (gdbarch, ppc_darwin_abi_push_dummy_call);
 
-  set_gdbarch_sizeof_call_dummy_words (gdbarch, 0);
-  set_gdbarch_call_dummy_words (gdbarch, NULL);
-
-  set_gdbarch_call_dummy_p (gdbarch, 1);
-  set_gdbarch_call_dummy_stack_adjust_p (gdbarch, 0);
-  set_gdbarch_push_dummy_frame (gdbarch, generic_push_dummy_frame);
-  set_gdbarch_save_dummy_frame_tos (gdbarch, generic_save_dummy_frame_tos);
-  set_gdbarch_call_dummy_stack_adjust_p (gdbarch, 0);
-  set_gdbarch_fix_call_dummy (gdbarch, generic_fix_call_dummy);
-  set_gdbarch_push_return_address (gdbarch, ppc_push_return_address);
-
-  set_gdbarch_register_convertible (gdbarch, ppc_register_convertible);
-  set_gdbarch_register_convert_to_virtual (gdbarch, ppc_register_convert_to_virtual);
-  set_gdbarch_register_convert_to_raw (gdbarch, ppc_register_convert_to_raw);
   set_gdbarch_stab_reg_to_regnum (gdbarch, ppc_macosx_stab_reg_to_regnum);
 
-  set_gdbarch_deprecated_extract_return_value (gdbarch, ppc_extract_return_value);
-  
-  set_gdbarch_push_arguments (gdbarch, ppc_darwin_abi_push_arguments);
+  set_gdbarch_return_value (gdbarch, ppc_darwin_abi_return_value);
 
-  set_gdbarch_store_struct_return (gdbarch, ppc_store_struct_return);
-  set_gdbarch_deprecated_store_return_value (gdbarch, ppc_store_return_value);
-  set_gdbarch_deprecated_extract_struct_value_address (gdbarch, ppc_extract_struct_value_address);
-  set_gdbarch_pop_frame (gdbarch, rs6000_pop_frame);
   set_gdbarch_use_struct_convention (gdbarch, ppc_use_struct_convention);
 
   set_gdbarch_skip_prologue (gdbarch, ppc_skip_prologue);
@@ -933,50 +861,48 @@ ppc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_function_start_offset (gdbarch, 0);
   set_gdbarch_breakpoint_from_pc (gdbarch, ppc_breakpoint_from_pc);
 
+  set_gdbarch_unwind_dummy_id (gdbarch, ppc_unwind_dummy_id);
+
+  set_gdbarch_unwind_pc (gdbarch, ppc_unwind_pc);
+
   set_gdbarch_frame_args_skip (gdbarch, 0);
 
-  set_gdbarch_frame_chain_valid (gdbarch, ppc_frame_chain_valid);
-
-  set_gdbarch_frameless_function_invocation (gdbarch, ppc_frameless_function_invocation);
-  set_gdbarch_frame_chain (gdbarch, ppc_frame_chain);
-  set_gdbarch_frame_saved_pc (gdbarch, ppc_frame_saved_pc);
-
-  set_gdbarch_frame_init_saved_regs (gdbarch, ppc_frame_cache_saved_regs);
-  set_gdbarch_init_extra_frame_info (gdbarch, ppc_init_extra_frame_info);
-
-  set_gdbarch_frame_args_address (gdbarch, ppc_frame_cache_initial_stack_address);
-  set_gdbarch_frame_locals_address (gdbarch, ppc_frame_cache_initial_stack_address);
-  set_gdbarch_saved_pc_after_call (gdbarch, ppc_frame_saved_pc_after_call);
-
   set_gdbarch_skip_trampoline_code (gdbarch, ppc_macosx_skip_trampoline_code);
-  set_gdbarch_dynamic_trampoline_nextpc (gdbarch, ppc_macosx_dynamic_trampoline_nextpc);
-  set_gdbarch_frame_num_args (gdbarch, frame_num_args_unknown);
+  set_gdbarch_dynamic_trampoline_nextpc (gdbarch,
+                                         ppc_macosx_dynamic_trampoline_nextpc);
 
-  set_gdbarch_in_solib_call_trampoline (gdbarch, ppc_macosx_in_solib_call_trampoline);
-  set_gdbarch_in_solib_return_trampoline (gdbarch, ppc_macosx_in_solib_return_trampoline);
-  set_gdbarch_deprecated_init_frame_pc_first (gdbarch, ppc_init_frame_pc_first);
-  set_gdbarch_deprecated_init_frame_pc (gdbarch, ppc_init_frame_pc);
+  set_gdbarch_in_solib_call_trampoline (gdbarch,
+                                        ppc_macosx_in_solib_call_trampoline);
+  set_gdbarch_in_solib_return_trampoline (gdbarch,
+                                          ppc_macosx_in_solib_return_trampoline);
+
+  set_gdbarch_print_insn (gdbarch, print_insn_big_powerpc);
 
   set_gdbarch_register_reggroup_p (gdbarch, ppc_register_reggroup_p);
 
-  /* For now, initialize for a 32-bit ABI by default, in case no osabi
-     is recognized by GDB.  This prevents problems when attaching to
-     other processes, where exec_bfd does not get set.  We should
-     probably remove this call once we fix exec_bfd to be set properly
-     when attaching. */
-  ppc_macosx_init_abi (info, gdbarch);
+  frame_unwind_append_sniffer (gdbarch, ppc_sigtramp_frame_sniffer);
+  frame_unwind_append_sniffer (gdbarch, ppc_frame_sniffer);
+
+  set_gdbarch_integer_to_address (gdbarch, ppc_integer_to_address);
+
+  set_gdbarch_fetch_pointer_argument (gdbarch, ppc_fetch_pointer_argument);
+
+  set_gdbarch_deprecated_print_extra_frame_info (gdbarch,
+                                                 ppc_print_extra_frame_info);
 
   /* Hook in ABI-specific overrides, if they have been registered.  */
   gdbarch_init_osabi (info, gdbarch);
 
+  frame_base_set_default (gdbarch, &ppc_frame_base);
+
   return gdbarch;
 }
 
-/* 
+/*
  * This is set to the FAST_COUNT_STACK macro for ppc.  The return value
  * is 1 if no errors were encountered traversing the stack, and 0 otherwise.
  * it sets count to the stack depth.  If SHOW_FRAMES is 1, then it also
- * emits a list of frame info bits, with the pc & fp for each frame to 
+ * emits a list of frame info bits, with the pc & fp for each frame to
  * the current UI_OUT.  If GET_NAMES is 1, it also emits the names for
  * each frame (though this slows the function a good bit.)
  */
@@ -992,10 +918,10 @@ ppc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
 int
 ppc_fast_show_stack (int show_frames, int get_names,
-		     unsigned int count_limit, unsigned int print_limit,
-		     unsigned int *count,
-		     void (print_fun) (struct ui_out *uiout, int frame_num, 
-				       CORE_ADDR pc, CORE_ADDR fp))
+                     unsigned int count_limit, unsigned int print_limit,
+                     unsigned int *count,
+                     void (print_fun) (struct ui_out * uiout, int frame_num,
+                                       CORE_ADDR pc, CORE_ADDR fp))
 {
   CORE_ADDR fp = 0;
   static CORE_ADDR sigtramp_start = 0;
@@ -1003,69 +929,76 @@ ppc_fast_show_stack (int show_frames, int get_names,
   struct frame_info *fi = NULL;
   int i = 0;
   int err = 0;
-  unsigned long next_fp;
-  unsigned long pc;
+  ULONGEST next_fp = 0;
+  ULONGEST pc = 0;
 
-  if (sigtramp_start == 0) 
+  if (sigtramp_start == 0)
     {
       char *name;
       struct minimal_symbol *msymbol;
 
       msymbol = lookup_minimal_symbol ("_sigtramp", NULL, NULL);
       if (msymbol == NULL)
-	warning ("Couldn't find minimal symbol for \"_sigtramp\" - backtraces may be unreliable");
+        warning
+          ("Couldn't find minimal symbol for \"_sigtramp\" - backtraces may be unreliable");
       else
-	{
-	  pc = SYMBOL_VALUE_ADDRESS (msymbol);
-	  if (find_pc_partial_function (pc, &name, 
-					&sigtramp_start, &sigtramp_end) == 0)
-	    {
-	      error ("Couldn't find _sigtramp symbol -- backtraces will be unreliable");
-	    }
-	}
+        {
+          pc = SYMBOL_VALUE_ADDRESS (msymbol);
+          if (find_pc_partial_function (pc, &name,
+                                        &sigtramp_start, &sigtramp_end) == 0)
+            {
+              error
+                ("Couldn't find _sigtramp symbol -- backtraces will be unreliable");
+            }
+        }
     }
 
   /* Get the first two frames.  If anything funky is going on, it will
      be here.  The second frame helps us get above frameless functions
      called from signal handlers.  Above these frames we have to deal
-     with sigtramps and alloca frames, that is about all. */  
+     with sigtramps and alloca frames, that is about all. */
 
   if (show_frames)
-    ui_out_list_begin (uiout, "frames");
-  
-  i = 0;
+    ui_out_begin (uiout, ui_out_type_list, "frames");
 
+  i = 0;
   if (i >= count_limit)
     goto ppc_count_finish;
 
   fi = get_current_frame ();
-  if (fi == NULL) 
+  if (fi == NULL)
     {
       err = 1;
       goto ppc_count_finish;
     }
-  if (show_frames && print_fun && (i < print_limit))
-    print_fun (uiout, i, fi->pc, fi->frame);
-  i++;
-
-  if (i >= count_limit)
-    goto ppc_count_finish;
-
-  fi = get_prev_frame (fi);
-  if (fi == NULL)
-    goto ppc_count_finish;
-
-  pc = fi->pc;
-  fp = fi->frame;
 
   if (show_frames && print_fun && (i < print_limit))
-    print_fun (uiout, i, pc, fp);
-  i++;
-  
-  if (!backtrace_below_main && inside_main_func (pc))
-    goto ppc_count_finish;
+    print_fun (uiout, i, get_frame_pc (fi), get_frame_base (fi));
+  i = 1;
 
-  if (! safe_read_memory_unsigned_integer (fp, 4, &next_fp))
+  do
+    {
+      if (i >= count_limit)
+        goto ppc_count_finish;
+
+      fi = get_prev_frame (fi);
+      if (fi == NULL)
+        goto ppc_count_finish;
+
+      pc = get_frame_pc (fi);
+      fp = get_frame_base (fi);
+
+      if (show_frames && print_fun && (i < print_limit))
+        print_fun (uiout, i, pc, fp);
+
+      i++;
+
+      if (!backtrace_past_main && inside_main_func (pc))
+        goto ppc_count_finish;
+    }
+  while (i < 5);
+
+  if (!safe_read_memory_unsigned_integer (fp, 4, &next_fp))
     goto ppc_count_finish;
 
   if (i >= count_limit)
@@ -1073,49 +1006,50 @@ ppc_fast_show_stack (int show_frames, int get_names,
 
   while (1)
     {
-      if ((sigtramp_start<= pc) && (pc <= sigtramp_end))
-	{
-	  fp = next_fp + 0x70 + 0xc;
-	  if (! safe_read_memory_unsigned_integer (fp, 4, &next_fp)) 
-	    goto ppc_count_finish;
-	  if (!safe_read_memory_unsigned_integer (fp - 0xc, 4, &pc))
-	    goto ppc_count_finish;
-	  fp = next_fp;
-	  if (! safe_read_memory_unsigned_integer (fp, 4, &next_fp))
-	    goto ppc_count_finish;
-	}
+      if ((sigtramp_start <= pc) && (pc <= sigtramp_end))
+        {
+          fp = next_fp + 0x70 + 0xc;
+          if (!safe_read_memory_unsigned_integer (fp, 4, &next_fp))
+            goto ppc_count_finish;
+          if (!safe_read_memory_unsigned_integer (fp - 0xc, 4, &pc))
+            goto ppc_count_finish;
+          fp = next_fp;
+          if (!safe_read_memory_unsigned_integer (fp, 4, &next_fp))
+            goto ppc_count_finish;
+        }
       else
-	{
-	  fp = next_fp;
-	  if (! safe_read_memory_unsigned_integer (fp, 4, &next_fp))
-	    goto ppc_count_finish;
-	  if (next_fp == 0)
-	    goto ppc_count_finish;
-	  if (! safe_read_memory_unsigned_integer
-	      (fp + DEFAULT_LR_SAVE, 4, &pc))
-	    goto ppc_count_finish;
-	}	
+        {
+          fp = next_fp;
+          if (!safe_read_memory_unsigned_integer (fp, 4, &next_fp))
+            goto ppc_count_finish;
+          if (next_fp == 0)
+            goto ppc_count_finish;
+          if (!safe_read_memory_unsigned_integer
+              (fp + PPC_MACOSX_DEFAULT_LR_SAVE, 4, &pc))
+            goto ppc_count_finish;
+        }
 
       if (show_frames && print_fun && (i < print_limit))
-	print_fun (uiout, i, pc, fp);
+        print_fun (uiout, i, pc, fp);
       i++;
 
-      if (!backtrace_below_main && inside_main_func (pc))
-	goto ppc_count_finish;
-      
+      if (!backtrace_past_main && inside_main_func (pc))
+        goto ppc_count_finish;
+
       if (i >= count_limit)
-	goto ppc_count_finish;
+        goto ppc_count_finish;
     }
-  
- ppc_count_finish:
+
+ppc_count_finish:
   if (show_frames)
-    ui_out_list_end (uiout);
-  
+    ui_out_end (uiout, ui_out_type_list);
+
   *count = i;
-  return (! err);
+  return (!err);
 }
 
-CORE_ADDR ppc_macosx_skip_trampoline_code (CORE_ADDR pc)
+CORE_ADDR
+ppc_macosx_skip_trampoline_code (CORE_ADDR pc)
 {
   CORE_ADDR newpc;
 
@@ -1124,29 +1058,38 @@ CORE_ADDR ppc_macosx_skip_trampoline_code (CORE_ADDR pc)
     return newpc;
 
   newpc = decode_fix_and_continue_trampoline (pc);
-  return newpc;
+  if (newpc != 0)
+    return newpc;
+
+  return 0;
 }
 
-CORE_ADDR ppc_macosx_dynamic_trampoline_nextpc (CORE_ADDR pc)
+CORE_ADDR
+ppc_macosx_dynamic_trampoline_nextpc (CORE_ADDR pc)
 {
   return dyld_symbol_stub_function_address (pc, NULL);
 }
 
-int ppc_macosx_in_solib_return_trampoline (CORE_ADDR pc, char *name)
+int
+ppc_macosx_in_solib_return_trampoline (CORE_ADDR pc, char *name)
 {
   return 0;
 }
 
-int ppc_macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name)
+int
+ppc_macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name)
 {
-  if (ppc_macosx_skip_trampoline_code (pc) != 0) { return 1; }
+  if (ppc_macosx_skip_trampoline_code (pc) != 0)
+    {
+      return 1;
+    }
   return 0;
 }
 
 /* Grub around in the argument list to find the exception object,
-   and return the type info string (without the "typeinfo for " bits). 
-   CURR_FRAME is the __cxa_throw frame. 
-   NOTE: We are getting the mangled name of the typeinfo object, and 
+   and return the type info string (without the "typeinfo for " bits).
+   CURR_FRAME is the __cxa_throw frame.
+   NOTE: We are getting the mangled name of the typeinfo object, and
    demangling that.  We could instead look inside the object, and pull
    out the string description field, but then we have to know where this
    is in the typeinfo object, or call a function.  Getting the mangled
@@ -1154,68 +1097,313 @@ int ppc_macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name)
 */
 
 char *
-ppc_throw_catch_find_typeinfo (struct frame_info *curr_frame, int exception_type)
+ppc_throw_catch_find_typeinfo (struct frame_info *curr_frame,
+                               int exception_type)
 {
-  struct minimal_symbol *typeinfo_sym;
+  struct minimal_symbol *typeinfo_sym = NULL;
   ULONGEST typeinfo_ptr;
   char *typeinfo_str;
-  
+
   if (exception_type == EX_EVENT_THROW)
     {
-      frame_unwind_unsigned_register (curr_frame, GP0_REGNUM + 4, &typeinfo_ptr);
+      frame_unwind_unsigned_register (curr_frame,
+                                      PPC_MACOSX_FIRST_GP_REGNUM + 4,
+                                      &typeinfo_ptr);
       typeinfo_sym = lookup_minimal_symbol_by_pc (typeinfo_ptr);
-      
+
     }
   else
     {
       /* This is hacky, the runtime code gets a pointer to an _Unwind_Exception,
-	 which is actually contained in the __cxa_exception that we want.  But
-	 the function that does the cast is a static inline, so we can't see it. 
-	 FIXME: we need to get the runtime to keep this so we aren't relying on
-	 the particular layout of the __cxa_exception... 
+         which is actually contained in the __cxa_exception that we want.  But
+         the function that does the cast is a static inline, so we can't see it.
+         FIXME: we need to get the runtime to keep this so we aren't relying on
+         the particular layout of the __cxa_exception...
          Anyway, then the first field of __cxa_exception is the type object. */
-      unsigned long type_obj_addr;
+      ULONGEST type_obj_addr = 0;
 
-      frame_unwind_unsigned_register (curr_frame, GP0_REGNUM + 3, &typeinfo_ptr);
-      
-      /* This is also a bit bogus.  We assume that an unsigned integer is the 
-	 same size as an address on our system.  */
-      if (safe_read_memory_unsigned_integer (typeinfo_ptr - 48, 4, &type_obj_addr))
-	typeinfo_sym = lookup_minimal_symbol_by_pc (type_obj_addr);
+      frame_unwind_unsigned_register (curr_frame,
+                                      PPC_MACOSX_FIRST_GP_REGNUM + 3,
+                                      &typeinfo_ptr);
+
+      /* This is also a bit bogus.  We assume that an unsigned integer is the
+         same size as an address on our system.  */
+      if (safe_read_memory_unsigned_integer
+          (typeinfo_ptr - 48, 4, &type_obj_addr))
+        typeinfo_sym = lookup_minimal_symbol_by_pc (type_obj_addr);
     }
 
   if (!typeinfo_sym)
     return NULL;
 
-  typeinfo_str = typeinfo_sym->ginfo.language_specific.cplus_specific.demangled_name; 
+  typeinfo_str =
+    typeinfo_sym->ginfo.language_specific.cplus_specific.demangled_name;
   if ((typeinfo_str == NULL)
-      || (strstr(typeinfo_str, "typeinfo for ") != typeinfo_str))
+      || (strstr (typeinfo_str, "typeinfo for ") != typeinfo_str))
     return NULL;
 
   return typeinfo_str + strlen ("typeinfo for ");
 }
 
+/* If the type is larger than the wordsize for GP registers, we have to
+   be careful to copy only the lower halves of the register values.  We
+   have to support wordsize = 4, register size = 8 for 32 bit apps
+   on G5's...  */
+
+static int
+ppc_macosx_convert_register_p (int regno, struct type *type)
+{
+  int wordsize = gdbarch_tdep (current_gdbarch)->wordsize;
+  if (PPC_MACOSX_IS_GP_REGNUM (regno)
+      && (TYPE_LENGTH (type) > wordsize)
+      && (register_size (current_gdbarch, regno) > wordsize))
+    return 1;
+  else
+    return 0;
+}
+
+static void
+ppc_macosx_value_to_register (struct frame_info *frame, int regno,
+                              struct type *type, const void *buf)
+{
+  int len = TYPE_LENGTH (type);
+  int wordsize = gdbarch_tdep (current_gdbarch)->wordsize;
+  int reg_size;
+  int upper_half_size;
+  int num_regs;
+  int i;
+  char reg_buf[8] = { 0 };
+
+
+  if (len <= wordsize)
+    {
+      legacy_value_to_register (frame, regno, type, buf);
+      return;
+    }
+
+  reg_size = register_size (current_gdbarch, regno);
+  upper_half_size = reg_size - wordsize;
+  num_regs = len / wordsize;
+
+  for (i = 0; i < num_regs; i++)
+    {
+      memcpy (reg_buf + upper_half_size, ((bfd_byte *) buf) + i * wordsize,
+              wordsize);
+      put_frame_register (frame, regno + i, reg_buf);
+    }
+}
+
+static void
+ppc_macosx_register_to_value (struct frame_info *frame, int regno,
+                              struct type *type, void *buf)
+{
+  int len = TYPE_LENGTH (type);
+  int wordsize = gdbarch_tdep (current_gdbarch)->wordsize;
+  int reg_size;
+  int upper_half_size;
+  int num_regs;
+  int i;
+
+  if (len <= wordsize)
+    {
+      legacy_register_to_value (frame, regno, type, buf);
+      return;
+    }
+
+  reg_size = register_size (current_gdbarch, regno);
+  upper_half_size = reg_size - wordsize;
+  num_regs = len / wordsize;
+
+  for (i = 0; i < num_regs; i++)
+    {
+      char reg_buf[8];
+
+      get_frame_register (frame, regno + i, reg_buf);
+      memcpy (((bfd_byte *) buf) + i * wordsize, reg_buf + upper_half_size,
+              wordsize);
+    }
+
+}
+
 static void
 ppc_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
-  set_gdbarch_register_size (gdbarch, 4);
+  set_gdbarch_get_longjmp_target (gdbarch, ppc_macosx_get_longjmp_target);
+  set_gdbarch_register_to_value (gdbarch, ppc_macosx_register_to_value);
+  set_gdbarch_value_to_register (gdbarch, ppc_macosx_value_to_register);
+  set_gdbarch_convert_register_p (gdbarch, ppc_macosx_convert_register_p);
+
 }
 
 static void
 ppc_macosx_init_abi_64 (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
-  set_gdbarch_register_size (gdbarch, 8);
+  struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
+
+  tdep->wordsize = 8;
+
+  set_gdbarch_addr_bit (gdbarch, 8 * TARGET_CHAR_BIT);
+  set_gdbarch_ptr_bit (gdbarch, 8 * TARGET_CHAR_BIT);
+  set_gdbarch_short_bit (gdbarch, 2 * TARGET_CHAR_BIT);
+  set_gdbarch_int_bit (gdbarch, 4 * TARGET_CHAR_BIT);
+  set_gdbarch_long_bit (gdbarch, 8 * TARGET_CHAR_BIT);
+  set_gdbarch_long_long_bit (gdbarch, 8 * TARGET_CHAR_BIT);
+  set_gdbarch_float_bit (gdbarch, 4 * TARGET_CHAR_BIT);
+  set_gdbarch_double_bit (gdbarch, 8 * TARGET_CHAR_BIT);
+  set_gdbarch_long_double_bit (gdbarch, 8 * TARGET_CHAR_BIT);
+
+  set_gdbarch_push_dummy_call (gdbarch, ppc64_darwin_abi_push_dummy_call);
+  set_gdbarch_return_value (gdbarch, ppc64_darwin_abi_return_value);
+
+  set_gdbarch_get_longjmp_target (gdbarch, ppc_64_macosx_get_longjmp_target);
 }
+
+static int
+ppc_mach_o_query_64bit ()
+{
+  host_basic_info_data_t info;
+  mach_msg_type_number_t count;
+
+  count = HOST_BASIC_INFO_COUNT;
+  host_info (mach_host_self (), HOST_BASIC_INFO, (host_info_t) & info,
+             &count);
+
+  return (info.cpu_type == CPU_TYPE_POWERPC &&
+          info.cpu_subtype == CPU_SUBTYPE_POWERPC_970);
+}
+
+/* Two functions in one!  If this is a "bfd_archive" (read: a MachO fat file),
+   recurse for each separate fork of the fat file.
+   If this is not a fat file, detect whether the file is ppc32 or ppc64.
+   Before either of these, check if we've already sniffed an appropriate
+   OSABI from dyld (in the case of attaching to a process) and prefer that.  */
 
 static enum gdb_osabi
 ppc_mach_o_osabi_sniffer (bfd *abfd)
 {
-  if (strcmp (bfd_get_target (abfd), "mach-o-be") == 0
-      || strcmp (bfd_get_target (abfd), "mach-o-le") == 0
-      || strcmp (bfd_get_target (abfd), "mach-o-fat") == 0)
-    return GDB_OSABI_DARWIN;
+  enum gdb_osabi ret;
+  ret = ppc_mach_o_osabi_sniffer_use_dyld_hint (abfd);
+  if (ret == GDB_OSABI_DARWIN64 || ret == GDB_OSABI_DARWIN)
+    return ret;
+
+  if (bfd_check_format (abfd, bfd_archive))
+    {
+      enum gdb_osabi best = GDB_OSABI_UNKNOWN;
+      enum gdb_osabi cur = GDB_OSABI_UNKNOWN;
+
+      bfd *nbfd = NULL;
+      for (;;)
+        {
+          nbfd = bfd_openr_next_archived_file (abfd, nbfd);
+
+          if (nbfd == NULL)
+            break;
+          if (!bfd_check_format (nbfd, bfd_object))
+            continue;
+
+          cur = ppc_mach_o_osabi_sniffer (nbfd);
+          if (cur == GDB_OSABI_DARWIN64 &&
+              best != GDB_OSABI_DARWIN64 && ppc_mach_o_query_64bit ())
+            best = cur;
+
+          if (cur == GDB_OSABI_DARWIN &&
+              best != GDB_OSABI_DARWIN64 && best != GDB_OSABI_DARWIN)
+            best = cur;
+        }
+      return best;
+    }
+
+  if (!bfd_check_format (abfd, bfd_object))
+    return GDB_OSABI_UNKNOWN;
+
+  if (strcmp (bfd_get_target (abfd), "mach-o-be") == 0)
+    {
+      if (bfd_default_compatible (bfd_get_arch_info (abfd),
+                                  bfd_lookup_arch (bfd_arch_powerpc,
+                                                   bfd_mach_ppc64)))
+        return GDB_OSABI_DARWIN64;
+
+      if (bfd_default_compatible (bfd_get_arch_info (abfd),
+                                  bfd_lookup_arch (bfd_arch_powerpc,
+                                                   bfd_mach_ppc)))
+        return GDB_OSABI_DARWIN;
+
+      return GDB_OSABI_UNKNOWN;
+    }
 
   return GDB_OSABI_UNKNOWN;
+}
+
+/* If we're attaching to a process, we start by finding the dyld that
+   is loaded and go from there.  So when we're selecting the OSABI,
+   prefer the osabi of the actually-loaded dyld when we can.  */
+
+static enum gdb_osabi
+ppc_mach_o_osabi_sniffer_use_dyld_hint (bfd *abfd)
+{
+  if (osabi_seen_in_attached_dyld == GDB_OSABI_UNKNOWN)
+    return GDB_OSABI_UNKNOWN;
+
+  bfd *nbfd = NULL;
+  for (;;)
+    {
+      nbfd = bfd_openr_next_archived_file (abfd, nbfd);
+
+      if (nbfd == NULL)
+        break;
+      if (!bfd_check_format (nbfd, bfd_object))
+        continue;
+      if (bfd_default_compatible (bfd_get_arch_info (nbfd),
+                                  bfd_lookup_arch (bfd_arch_powerpc,
+                                                   bfd_mach_ppc64))
+          && osabi_seen_in_attached_dyld == GDB_OSABI_DARWIN64)
+        return GDB_OSABI_DARWIN64;
+
+      if (bfd_default_compatible (bfd_get_arch_info (nbfd),
+                                  bfd_lookup_arch (bfd_arch_powerpc,
+                                                   bfd_mach_ppc))
+          && osabi_seen_in_attached_dyld == GDB_OSABI_DARWIN)
+        return GDB_OSABI_DARWIN;
+    }
+
+  return GDB_OSABI_UNKNOWN;
+}
+
+#define PPC_JMP_LR 0x54
+#define PPC_64_JMP_LR 0xa8
+
+static int
+ppc_macosx_get_longjmp_target_helper (unsigned int offset, CORE_ADDR * pc)
+{
+  CORE_ADDR jmp_buf;
+  ULONGEST long_addr = 0;
+
+  /* The first argument to longjmp (in $r3) is the pointer to the
+     jump buf.  The stored lr there is offset by PPC_JMP_LR as
+     given above.  */
+
+  jmp_buf = read_register (PPC_MACOSX_FIRST_GP_REGNUM + 3);
+
+  if (safe_read_memory_unsigned_integer
+      (jmp_buf + offset, TARGET_PTR_BIT / 8, &long_addr))
+    {
+      *pc = long_addr;
+      return 1;
+    }
+  else
+    return 0;
+}
+
+static int
+ppc_64_macosx_get_longjmp_target (CORE_ADDR * pc)
+{
+  return ppc_macosx_get_longjmp_target_helper (PPC_64_JMP_LR, pc);
+}
+
+static int
+ppc_macosx_get_longjmp_target (CORE_ADDR * pc)
+{
+  return ppc_macosx_get_longjmp_target_helper (PPC_JMP_LR, pc);
 }
 
 void
@@ -1225,27 +1413,23 @@ _initialize_ppc_tdep ()
 
   register_gdbarch_init (bfd_arch_powerpc, ppc_gdbarch_init);
 
-  tm_print_insn = print_insn_big_powerpc;
-
-  gdbarch_register_osabi_sniffer (bfd_arch_powerpc, bfd_target_mach_o_flavour,
-				  ppc_mach_o_osabi_sniffer);
+  gdbarch_register_osabi_sniffer (bfd_arch_unknown, bfd_target_mach_o_flavour,
+                                  ppc_mach_o_osabi_sniffer);
 
   gdbarch_register_osabi (bfd_arch_powerpc, 0, GDB_OSABI_DARWIN,
-			  ppc_macosx_init_abi);
+                          ppc_macosx_init_abi);
 
-  gdbarch_register_osabi (bfd_arch_powerpc, 0, GDB_OSABI_DARWIN64,
-			  ppc_macosx_init_abi_64);
+  gdbarch_register_osabi (bfd_arch_powerpc, bfd_mach_ppc64,
+                          GDB_OSABI_DARWIN64, ppc_macosx_init_abi_64);
 
-  cmd = add_set_cmd ("ppc", class_obscure, var_boolean, 
-		     (char *) &ppc_debugflag,
-		     "Set if printing PPC stack analysis debugging statements.",
-		     &setdebuglist),
-  add_show_from_set (cmd, &showdebuglist);		
+  cmd = add_set_cmd ("ppc", class_obscure, var_boolean,
+                     (char *) &ppc_debugflag,
+                     "Set if printing PPC stack analysis debugging statements.",
+                     &setdebuglist), add_show_from_set (cmd, &showdebuglist);
 
   cmd = add_set_cmd
     ("ppc-maximum-frame-size", class_obscure, var_uinteger,
      (char *) &ppc_max_frame_size,
-     "Set the maximum size to expect for a valid PPC frame.",
-     &setlist);
+     "Set the maximum size to expect for a valid PPC frame.", &setlist);
   add_show_from_set (cmd, &showlist);
 }

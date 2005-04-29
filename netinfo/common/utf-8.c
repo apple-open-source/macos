@@ -24,8 +24,6 @@
 
 static dsutil_utf8_callbacks _utf8_callbacks = { 0, NULL, NULL };
 
-#undef ISASCII
-#define ISASCII(uc)	((uc) < 0x100)
 #undef UCS4_INVALID
 #define UCS4_INVALID	0x80000000U
 
@@ -267,47 +265,22 @@ int dsutil_utf8_copy( char* dst, const char *src )
 
 int dsutil_utf8_isascii( const char * p )
 {
-	unsigned c = * (const unsigned char *) p;
-	return ISASCII(c);
+	return isascii( *p );
 }
 
 int dsutil_utf8_isdigit( const char * p )
 {
-	unsigned c = * (const unsigned char *) p;
-
-	if(!ISASCII(c)) return 0;
-
-	return c >= '0' && c <= '9';
+	 return isdigit( *p );
 }
 
 int dsutil_utf8_isxdigit( const char * p )
 {
-	unsigned c = * (const unsigned char *) p;
-
-	if(!ISASCII(c)) return 0;
-
-	return ( c >= '0' && c <= '9' )
-		|| ( c >= 'A' && c <= 'F' )
-		|| ( c >= 'a' && c <= 'f' );
+	return isxdigit( *p );
 }
 
 int dsutil_utf8_isspace( const char * p )
 {
-	unsigned c = * (const unsigned char *) p;
-
-	if(!ISASCII(c)) return 0;
-
-	switch(c) {
-	case ' ':
-	case '\t':
-	case '\n':
-	case '\r':
-	case '\v':
-	case '\f':
-		return 1;
-	}
-
-	return 0;
+	return isspace( *p );
 }
 
 #ifndef UTF8_ALPHA_CTYPE
@@ -317,41 +290,22 @@ int dsutil_utf8_isspace( const char * p )
  */
 int dsutil_utf8_isalpha( const char * p )
 {
-	unsigned c = * (const unsigned char *) p;
-
-	if(!ISASCII(c)) return 0;
-
-	return ( c >= 'A' && c <= 'Z' )
-		|| ( c >= 'a' && c <= 'z' );
+	return isalpha( *p );
 }
 
 int dsutil_utf8_isalnum( const char * p )
 {
-	unsigned c = * (const unsigned char *) p;
-
-	if(!ISASCII(c)) return 0;
-
-	return ( c >= '0' && c <= '9' )
-		|| ( c >= 'A' && c <= 'Z' )
-		|| ( c >= 'a' && c <= 'z' );
+	return isalnum( *p );
 }
 
 int dsutil_utf8_islower( const char * p )
 {
-	unsigned c = * (const unsigned char *) p;
-
-	if(!ISASCII(c)) return 0;
-
-	return ( c >= 'a' && c <= 'z' );
+	return islower( *p );
 }
 
 int dsutil_utf8_isupper( const char * p )
 {
-	unsigned c = * (const unsigned char *) p;
-
-	if(!ISASCII(c)) return 0;
-
-	return ( c >= 'A' && c <= 'Z' );
+	return isupper( *p );
 }
 #endif
 

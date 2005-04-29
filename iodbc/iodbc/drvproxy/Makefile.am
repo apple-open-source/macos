@@ -1,7 +1,7 @@
 #
 #  Makefile.am
 #
-#  $Id: Makefile.am,v 1.1.1.2 2002/04/30 00:40:21 miner Exp $
+#  $Id: Makefile.am,v 1.2 2004/08/10 22:20:21 luesang Exp $
 #
 #  The iODBC driver manager.
 #  
@@ -95,6 +95,7 @@ libdrvproxy_la_LIBADD	= \
 	../iodbc/dlf.lo \
 	../drvproxy/gtk/confirm.lo \
 	../drvproxy/gtk/gensetup.lo \
+	../drvproxy/gtk/loginbox.lo \
 	-L../iodbcinst -liodbcinst \
 	-L../iodbcadm -liodbcadm \
 	@GTK_LIBS@
@@ -110,8 +111,7 @@ libdrvproxy_la_SOURCES	= \
 	ConfigDSN.c \
 	ConfigDriver.c \
 	Info.c \
-	drvconn.c \
-	login.c
+	drvconn.c
 
 noinst_HEADERS		= gui.h
 

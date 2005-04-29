@@ -30,6 +30,8 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <assert.h>
+#include <syslog.h>
+
 typedef struct {
     long       			idrefCount;
     CFMutableDictionaryRef	idrefDict;
@@ -192,24 +194,47 @@ DoCFSerializeBoolean(CFBooleanRef object, IOCFSerializeState * state)
 static Boolean
 DoCFSerializeString(CFStringRef object, IOCFSerializeState * state)
 {
-	CFIndex	len = 0;
-	char *	buffer;
-        char c;
+	CFDataRef dataBuffer = 0;
+	const char * buffer;
+	CFIndex length;
+	bool conversionFailed = false;
+	char c;
 	int i;
 
 	if (previouslySerialized(object, state)) return true;
 
 	if (!addStartTag(object, 0, state)) return false;
 
-	buffer = CFStringGetCStringPtr(object, kCFStringEncodingMacRoman);
-	if (!buffer) {
-		len = CFStringGetLength(object) + 1;
-		buffer = malloc(len);
-		if (!buffer || !CFStringGetCString(object, buffer, len, kCFStringEncodingMacRoman))
-			return false;
+	dataBuffer = CFStringCreateExternalRepresentation(kCFAllocatorDefault, object, kCFStringEncodingUTF8, 0);	
+	if (!dataBuffer) {
+		dataBuffer = CFStringCreateExternalRepresentation(kCFAllocatorDefault, object, kCFStringEncodingUTF8, (UInt8)'?');
+		conversionFailed = true;
 	}
 
-	for (i = 0; (c = buffer[i]); i++) {
+	if (dataBuffer) {
+		length = CFDataGetLength(dataBuffer);
+		buffer = CFDataGetBytePtr(dataBuffer);
+	} else {
+		length = 0;
+		buffer = "";
+		conversionFailed = true;
+	}
+	
+	if (conversionFailed) {
+		char * tempBuffer;
+		if (buffer && (tempBuffer = malloc(length + 1))) {
+			bcopy(buffer, tempBuffer, length);
+			tempBuffer[length] = 0;
+
+			syslog(LOG_ERR, "FIXME: IOCFSerialize has detected a string that can not be converted to UTF-8, \"%s\"", tempBuffer);
+
+			free(tempBuffer);
+		}
+	}
+	
+	// this works because all bytes in a multi-byte utf-8 character have the high order bit set
+	for (i = 0; i < length; i++) {
+		c = buffer[i];
 		if (c == '<') {
 			if (!addString("&lt;", state)) return false;
 		} else if (c == '>') {
@@ -221,8 +246,7 @@ DoCFSerializeString(CFStringRef object, IOCFSerializeState * state)
 		}
 	}
 
-	if (len)
-		free(buffer);
+	if (dataBuffer) CFRelease(dataBuffer);
 
 	return addEndTag(object, state);
 }
@@ -230,22 +254,45 @@ DoCFSerializeString(CFStringRef object, IOCFSerializeState * state)
 static Boolean
 DoCFSerializeKey(CFStringRef object, IOCFSerializeState * state)
 {
-	CFIndex	len = 0;
-	char *	buffer;
+	CFDataRef dataBuffer = 0;
+	const char * buffer;
+	CFIndex length;
+	bool conversionFailed = false;
         char c;
 	int i;
 
 	if (!addString("<key>", state)) return false;
 
-	buffer = CFStringGetCStringPtr(object, kCFStringEncodingMacRoman);
-	if (!buffer) {
-		len = CFStringGetLength(object) + 1;
-		buffer = malloc(len);
-		if (!buffer || !CFStringGetCString(object, buffer, len, kCFStringEncodingMacRoman))
-			return false;
+	dataBuffer = CFStringCreateExternalRepresentation(kCFAllocatorDefault, object, kCFStringEncodingUTF8, 0);	
+	if (!dataBuffer) {
+		dataBuffer = CFStringCreateExternalRepresentation(kCFAllocatorDefault, object, kCFStringEncodingUTF8, (UInt8)'?');
+		conversionFailed = true;
 	}
 
-	for (i = 0; (c = buffer[i]); i++) {
+	if (dataBuffer) {
+		length = CFDataGetLength(dataBuffer);
+		buffer = CFDataGetBytePtr(dataBuffer);
+	} else {
+		length = 0;
+		buffer = "";
+		conversionFailed = true;
+	}
+	
+	if (conversionFailed) {
+		char * tempBuffer;
+		if (buffer && (tempBuffer = malloc(length + 1))) {
+			bcopy(buffer, tempBuffer, length);
+			tempBuffer[length] = 0;
+
+			syslog(LOG_ERR, "FIXME: IOCFSerialize has detected a string that can not be converted to UTF-8, \"%s\"", tempBuffer);
+
+			free(tempBuffer);
+		}
+	}
+	
+	// this works because all bytes in a multi-byte utf-8 character have the high order bit set
+	for (i = 0; i < length; i++) {
+		c = buffer[i];
 		if (c == '<') {
 			if (!addString("&lt;", state)) return false;
 		} else if (c == '>') {
@@ -257,8 +304,7 @@ DoCFSerializeKey(CFStringRef object, IOCFSerializeState * state)
 		}
 	}
 
-	if (len)
-		free(buffer);
+	if (dataBuffer) CFRelease(dataBuffer);
 
 	return addString("</key>", state);
 }

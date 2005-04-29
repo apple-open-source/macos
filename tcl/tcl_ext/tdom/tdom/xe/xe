@@ -1,0 +1,2585 @@
+#!/opt/tcl/bin/wish
+#----------------------------------------------------------------------------
+#   Copyright (c) 1999 - 2000  Jochen C. Loewer (loewerj@hotmail.com)
+#----------------------------------------------------------------------------
+#
+#   A XML/DOM/XPath evaluator/viewer... featuring the Tk text widget.
+#
+#
+#   The contents of this file are subject to the Mozilla Public License
+#   Version 1.1 (the "License"); you may not use this file except in
+#   compliance with the License. You may obtain a copy of the License at
+#   http://www.mozilla.org/MPL/
+#
+#   Software distributed under the License is distributed on an "AS IS"
+#   basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+#   License for the specific language governing rights and limitations
+#   under the License.
+#
+#   The Original Code is tDOM.
+#
+#   The Initial Developer of the Original Code is Jochen Loewer
+#   Portions created by Jochen Loewer are Copyright (C) 1998, 1999
+#   Jochen Loewer. All Rights Reserved. 
+#
+#   Contributor(s):
+#
+#
+#
+#   $Log: xe,v $
+#   Revision 1.1.1.1  2002/02/22 01:05:35  rolf
+#   tDOM0.7test with Jochens first set of patches
+#
+#
+#
+#
+#   written by Jochen Loewer
+#   December, 1999
+#
+#
+#
+#   Contains emacsbinds.tcl:
+#
+#     Copyright 1993 by Paul Raines (raines@bohr.physics.upenn.edu)
+#
+#     Permission to use, copy, modify, and distribute this
+#     software and its documentation for any purpose and without
+#     fee is hereby granted, provided that the above copyright
+#     notice appear in all copies.  The University of Pennsylvania
+#     makes no representations about the suitability of this
+#     software for any purpose.  It is provided "as is" without
+#     express or implied warranty.
+#
+#----------------------------------------------------------------------------
+
+
+
+# ! All that needs some code cleanup! The code should be more readable!
+# ! Currently just use xe!
+
+
+
+#----------------------------------------------------------------------------
+#   Package/Includes
+#----------------------------------------------------------------------------
+package require http 2
+
+if {[catch { load ../unix/tdom0.6[info shared] }]} {
+     catch { load ../win/tdom0.6.dll           }
+}
+catch { package require tdom 0.6            }
+catch { source ../lib/tdom.tcl              }
+
+
+
+
+#----------------------------------------------------------------------------
+#   Globals
+#----------------------------------------------------------------------------
+set HttpProxyHost ""
+set HttpProxyPort ""
+
+
+
+
+
+#----------------------------------------------------------------------------
+#   $Header: /usr/local/pubcvs/tdom/xe/xe,v 1.1.1.1 2002/02/22 01:05:35 rolf Exp $
+#
+# 
+#   p a n e   implements the new widget 'pane' to realize a
+#             resizing of the space between two sub windows
+#             in fixed size outer window, the pane window.
+#             Uses plain tcl/tk code
+#
+#
+#   $Log: xe,v $
+#   Revision 1.1.1.1  2002/02/22 01:05:35  rolf
+#   tDOM0.7test with Jochens first set of patches
+#
+#   Revision 1.1  96/12/06  15:59:14  15:59:14  jolo (#Jochen Loewer)
+#   Initial revision
+#   
+#
+#
+#   written by Jochen Loewer
+#   July, 1996
+#
+#----------------------------------------------------------------------------
+
+
+
+#----------------------------------------------------------------------pane--
+proc pane { path type width height } {
+    global _pane_Priv
+
+    set _pane_Priv(moving) no
+
+    frame $path  -height $height -width $width -relief flat
+    frame $path.separator -height 7 -relief flat
+    frame $path.separator.line -height 4 -relief ridge -borderwidth 1
+    frame $path.separator.handle -width 8 -height 8 -relief raised -borderwidth 1
+    place $path.separator.line -anchor nw -x 0  -rely 0.4 -relwidth 1.0 
+    place $path.separator.handle -anchor center -relx 1.0 -rely 0.5 -x -8
+
+
+    place $path.separator -anchor nw -x 0 -y 0 -relwidth 1.0 
+
+    $path.separator.handle config -cursor sb_v_double_arrow
+    
+    set _pane_Priv(maxy)   $height
+    set _pane_Priv(moving) no
+}
+
+
+#----------------------------------------------------------------------pane--
+proc pane_place { path type ratio win1 win2 } {
+    global _pane_Priv
+
+    set _pane_Priv(moving) no
+    update
+    scan  [winfo geometry $path]  "%dx%d+%d+%d"   w h x y
+    set middley [expr $h*$ratio]
+    place $path.separator -anchor nw -x 0 -y $middley -relwidth 1.0 
+    update
+    pane_partionize $path $win1 $win2
+ 
+    $path.separator.handle config -cursor sb_v_double_arrow
+    
+    bind $path.separator.handle <ButtonPress-1>   "pane_down    $path"
+    bind $path.separator.handle <B1-Motion>       "pane_motion  $path"
+    bind $path.separator.handle <ButtonRelease-1> "pane_release $path $win1 $win2"
+
+    bind $path  <Configure>     "pane_resize $path $win1 $win2 %w %h"
+
+    set _pane_Priv(maxy)   $h
+    set _pane_Priv(moving) no
+}
+
+#-----------------------------------------------------------------pane_down--
+proc pane_down { pane } {
+    global _pane_Priv
+
+    $pane.separator.handle configure -relief sunken
+    raise $pane.separator
+    set _pane_Priv(rooty) [winfo pointery $pane]
+
+    scan  [winfo geometry $pane]  "%dx%d+%d+%d"   w h x y
+    set _pane_Priv(maxy)  $h
+
+    scan  [winfo geometry $pane.separator]  "%dx%d+%d+%d"   w h x y
+    set _pane_Priv(oldy)  $y 
+
+    set _pane_Priv(moving) yes    
+}
+
+
+#---------------------------------------------------------------pane_motion--
+proc pane_motion { pane } {
+    global _pane_Priv
+
+    set y [winfo pointery $pane]
+    set delta [expr $y-$_pane_Priv(rooty)]
+
+    set newy [expr $_pane_Priv(oldy)+$delta]
+    if { ($newy > 8) && ([expr $newy+16] <$_pane_Priv(maxy)) } {
+        place $pane.separator -anchor nw -x 0 -y $newy -relwidth 1.0 
+    }
+}
+
+
+#--------------------------------------------------------------pane_release--
+proc pane_partionize { pane win1 win2 } {
+
+    scan  [winfo geometry $pane.separator]  "%dx%d+%d+%d"   w h x y
+    place $win1 -anchor nw -x 0 -y 0 -relwidth 1.0 -height $y -relheight {}
+
+    set ywin2  [expr $y+$h]
+    scan  [winfo geometry $pane]  "%dx%d+%d+%d"   w h x y
+    set hwin2  [expr $h-$ywin2-1]   
+    place $win2 -anchor se -relx 1.0  -rely 1.0  -relwidth 1.0 -height $hwin2
+}
+
+
+#--------------------------------------------------------------pane_release--
+proc pane_release { pane win1 win2 } {
+    global _pane_Priv
+
+    $pane.separator.handle configure -relief raised
+   
+    pane_partionize $pane $win1 $win2
+    set _pane_Priv(moving)  no 
+}
+
+
+#---------------------------------------------------------------pane_resize--
+proc pane_resize { pane win1 win2 neww newh} {
+    global _pane_Priv
+    if { $_pane_Priv(moving) != "yes" } {
+
+        scan  [winfo geometry $pane.separator]    "%dx%d+%d+%d"   w h xp y
+        set newy [expr ($y*$newh)/$_pane_Priv(maxy)]
+        place $pane.separator -anchor nw -x 0 -y $newy -relwidth 1.0 
+        update
+        pane_partionize $pane $win1 $win2
+
+    }
+    set _pane_Priv(maxy)  $newh
+}
+
+
+############################################################################
+# include bindings.tk from TkMail (Thanks Paul!)
+############################################################################
+#
+# COPYRIGHT:
+#     Copyright 1993 by Paul Raines (raines@bohr.physics.upenn.edu)
+#
+#     Permission to use, copy, modify, and distribute this
+#     software and its documentation for any purpose and without
+#     fee is hereby granted, provided that the above copyright
+#     notice appear in all copies.  The University of Pennsylvania
+#     makes no representations about the suitability of this
+#     software for any purpose.  It is provided "as is" without
+#     express or implied warranty.
+#
+
+
+global bind_xnd btp
+
+# USER SETTINGS
+
+set btp(prevcmd) "begin-line"
+
+# maximum number of kills to save in ring
+set btp(maxkill) 10
+# maximum number of marks to save in ring
+set btp(maxmark) 10
+# syntax for letter not part of a "word"
+set btp(not-word) {[^a-zA-Z_0-9]}
+# procedure to use for errors
+set btp(error) error
+# procedure to use for beeping
+set btp(beep) ""
+# whether to bind Escape prefix commands also to the Meta modifier
+set btp(use-meta) 1
+# column at which to line wrap
+set btp(fillcol) 0
+# prefix for line wrapping (NOT REALLY WORKING YET)
+set btp(fillprefix) ""
+
+# PRIVATE SETTINGS
+
+set btp(lastkill) 0.0
+set btp(killring) ""
+set btp(killptr) 0
+set btp(killlen) 0
+set btp(arg) def
+
+proc tk_entryForwspace w {
+     set x [expr [$w index insert] - 1]
+     catch {$w delete $x}
+}
+
+# selection_if_any - return selection if it exists, else {}
+#   this is from kjx@comp.vuw.ac.nz (R. James Noble)
+proc selection_if_any {} {
+  if {[catch {selection get} s]} {return ""} {return $s}
+}
+
+proc bind_cleanup { w } {
+    global btp
+    catch {unset btp($w,markring)}
+}
+
+proc bt:current-line { w } {
+    return [lindex [split [$w index insert] .] 0]
+}
+
+proc bt:current-col { w } {
+    return [lindex [split [$w index insert] .] 1]
+}
+
+proc bt:move-line { w {num 1} } {
+    global btp
+    set btp(lastkill) 0.0
+    if {$btp(arg) != "def"} {
+	set num [expr $num*$btp(arg)]
+	set btp(arg) def
+    }
+    if {$btp(prevcmd) != "move-line"} {
+        set btp(goalcol) [lindex [split [$w index insert] .] 1]
+    }
+    if {$num > -1} {set num "+$num"}
+    $w tag remove sel 1.0 end
+    set ndx [$w index "insert $num line lineend"]
+    set goalndx [lindex [split $ndx .] 0].$btp(goalcol)
+    if {$btp(goalcol) < [lindex [split $ndx .] 1]} {
+        $w mark set insert $goalndx
+    } else {
+        $w mark set insert $ndx
+    }
+    $w yview -pickplace insert
+    set btp(prevcmd) move-line
+}
+
+proc bt:move-char { w {num 1} } {
+    global btp
+    set btp(lastkill) 0.0
+    if {$btp(arg) != "def"} {
+	set num [expr $num*$btp(arg)]
+	set btp(arg) def
+    }
+    if {$num > -1} {set num "+$num"}
+    $w tag remove sel 1.0 end
+    $w mark set insert "insert $num char"
+    $w yview -pickplace insert
+    set btp(prevcmd) "move-char"
+}
+
+proc bt:move-word {w {num 1}} {
+    global btp
+    set btp(lastkill) 0.0
+    $w tag remove sel 1.0 end
+    if {$btp(arg) != "def"} {
+	set num [expr $num*$btp(arg)]
+	set btp(arg) def
+    }
+    if {$num > 0} {
+        for {set i 0} {$i < $num } {incr i} {
+	    while {[regexp $btp(not-word) [$w get insert]]} {
+	        $w mark set insert insert+1c
+	    } 
+	    $w mark set insert {insert wordend}
+	}
+    } else {
+        for {set i 0} {$i > $num } {incr i -1} {
+	    $w mark set insert insert-1c
+	    while {[regexp $btp(not-word) [$w get insert]]} {
+	        $w mark set insert insert-1c
+	    } 
+	    $w mark set insert {insert wordstart}
+	}
+    }
+    $w yview -pickplace insert
+    set btp(prevcmd) "move-word"
+}
+
+proc bt:begin-line { w {num 0}} {
+    global btp
+    set btp(lastkill) 0.0
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    if {$num != 0} {set num [expr $num-1]}
+    bt:move-line $w $num
+    $w mark set insert {insert linestart}
+    $w tag remove sel 1.0 end
+    $w yview -pickplace insert
+    set btp(prevcmd) "begin-line"
+}
+
+proc bt:end-line { w {num 0}} {
+    global btp
+    set btp(lastkill) 0.0
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    if {$num != 0} {set num [expr $num-1]}
+    bt:move-line $w $num
+    $w mark set insert {insert lineend}
+    $w tag remove sel 1.0 end
+    $w yview -pickplace insert
+    set btp(prevcmd) end-line
+}
+
+proc bt:begin-buffer { w {num 0}} {
+    global btp
+    set btp(lastkill) 0.0
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    bt:set-mark $w
+    set ndx [expr 1+[lindex [split [$w index end] .] 0]*$num/10]
+    $w mark set insert $ndx.0
+    $w tag remove sel 1.0 end
+    $w yview -pickplace insert
+    set btp(prevcmd) begin-buffer
+}
+
+proc bt:end-buffer { w {num 0}} {
+    global btp
+    set btp(lastkill) 0.0
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    bt:set-mark $w
+    set ndx [expr [lindex [split [$w index end] .] 0]*$num/10]
+    $w mark set insert "end - $ndx lines"
+    $w tag remove sel 1.0 end
+    $w yview -pickplace insert
+    set btp(prevcmd) end-buffer
+}
+
+proc bt:scroll-next { w {num 1}} {
+    global  btp
+    set btp(lastkill) 0.0
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    $w tag remove sel 1.0 end
+    set scr [lindex [lindex [$w configure -yscroll] 4] 0]
+    $w mark set insert [lindex [$scr get] 3].0
+    $w yview insert-1l
+    set btp(prevcmd) scroll-next
+}
+
+proc bt:scroll-prior { w {num 1}} {
+    global btp
+    set btp(lastkill) 0.0
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    $w tag remove sel 1.0 end
+    set scr [lindex [lindex [$w configure -yscroll] 4] 0]
+    set tndx [expr [lindex [$scr get] 2]-[lindex [$scr get] 1]+5].0
+    if {$tndx < 1.0} {set tndx 1.0}
+    $w mark set insert $tndx
+    $w yview insert-1l
+    set btp(prevcmd) scroll-prior
+}
+
+proc bt:delete-word { w {num 1}} {
+    global btp
+    $w tag remove sel 1.0 end
+    if {[$w compare $btp(lastkill) == insert]} {
+	set lastcut [bt:pop-cut]
+    } else { set lastcut "" }
+    set beg [$w index insert]
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    bt:move-word $w $num
+    #puts "$num : $beg [$w index insert]"
+    if {$beg < [$w index insert]} {
+        bt:push-cut "$lastcut[$w get $beg insert]"
+        $w delete $beg insert
+    } else {
+        bt:push-cut "[$w get insert $beg]$lastcut"
+        $w delete insert $beg
+    }
+    set btp(lastkill) [$w index insert]
+    $w yview -pickplace insert
+    set btp(prevcmd) delete-word
+}
+
+proc bt:delete-line { w {num 0}} {
+    global btp
+    $w tag remove sel 1.0 end
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    if {[$w compare $btp(lastkill) == insert]} {
+	set lastcut [bt:pop-cut]
+    } else { set lastcut ""}
+    #    while {[$w get insert] == " "} {
+    #	$w mark set insert insert+1c
+    #    } 
+    if {[$w compare insert == "insert lineend"] && $num == 0} { set num 1 }
+    set beg [$w index insert]
+    if {$num != 0} {
+	bt:move-line $w $num
+	bt:begin-line $w
+	if {$beg < [$w index insert]} {
+	    bt:push-cut "$lastcut[$w get $beg insert]"
+	    $w delete $beg insert
+	} else {
+	    bt:push-cut "[$w get insert $beg]$lastcut"
+	    $w delete insert $beg
+	}
+    } else {
+      bt:push-cut "$lastcut[$w get insert {insert lineend}]"
+      $w delete insert {insert lineend};
+      $w yview -pickplace insert
+    }
+    $w yview -pickplace insert
+    set btp(lastkill) [$w index insert]
+    set btp(prevcmd) delete-line
+}
+
+proc bt:delete-back-char-or-sel { w {num 1} } {
+    global btp
+    if {$btp(arg) != "def"} {
+        set num $btp(arg)
+    } else {set btp(lastkill) 0.0}
+    set num [expr -1*$num]
+    if {$num > -1} {set num "+$num"}
+    if {[$w compare $btp(lastkill) == insert]} {
+	set lastcut [bt:pop-cut]
+    } else { set lastcut ""}
+    if [catch {set tmp [$w get sel.first sel.last]}] {
+        if {$btp(arg) != "def"} {
+	    if {$num < 0} {
+		bt:push-cut "[$w get "insert $num char" insert]$lastcut"
+	        $w delete "insert $num char" insert
+	    } else {
+		bt:push-cut "$lastcut[$w get insert "insert $num char"]"
+	        $w delete insert "insert $num char"
+	    }
+	    set btp(lastkill) [$w index insert]
+        } else {
+	    if {$num < 0} {
+	        $w delete "insert $num char" insert
+	    } else {
+	        $w delete insert "insert $num char"
+	    }
+	    set btp(lastkill) 0.0
+        }
+    } else {
+	$w delete sel.first sel.last
+	bt:push-cut $tmp
+        set btp(lastkill) 0.0
+    }
+    set btp(arg) def
+    $w yview -pickplace insert
+    set btp(prevcmd) delete-back-char-or-sel
+}
+
+proc bt:delete-region-or-sel { w } {
+    global btp
+
+    if {[catch {set tmp [$w get sel.first sel.last]}]} {
+	if {[catch "$w index emacs"]} {
+	    $btp(error) "No emacs mark has been set yet!"
+	}
+        if {[$w compare $btp(lastkill) == insert]} {
+	    set lastcut [bt:pop-cut]
+        } else { set lastcut ""}
+	if {[$w compare emacs < insert]} {
+	    bt:push-cut "$lastcut[$w get emacs insert]"
+	    $w delete emacs insert
+	} else {
+	    bt:push-cut "[$w get insert emacs]$lastcut"
+	    $w delete insert emacs
+	}
+        set btp(lastkill) [$w index insert]
+    } else {
+	$w delete sel.first sel.last
+	bt:push-cut $tmp
+        set btp(lastkill) 0.0
+    }
+    set btp(arg) def
+    set btp(prevcmd) delete-region-or-sel
+}
+
+proc bt:copy-region-or-sel { w } {
+    global btp
+
+    if {[catch {set tmp [$w get sel.first sel.last]}]} {
+	if {[catch "$w index emacs"]} {
+	    $btp(error) "No emacs mark has been set yet!"
+	}
+        if {[$w compare $btp(lastkill) == insert]} {
+	    set lastcut [bt:pop-cut]
+        } else { set lastcut ""}
+	if {[$w compare emacs < insert]} {
+	    bt:push-cut "$lastcut[$w get emacs insert]"
+	} else {
+	    bt:push-cut "[$w get insert emacs]$lastcut"
+	}
+	bt:exchange-point-and-mark $w
+	after 200 bt:exchange-point-and-mark $w
+    } else {
+	bt:push-cut $tmp
+    }
+    set btp(arg) def
+    set btp(lastkill) 0.0
+    set btp(prevcmd) copy-region-or-sel
+}
+
+proc bt:append-next-kill { w } {
+    global btp
+    set btp(lastkill) [$w index insert]
+}
+
+proc bt:push-cut { txt } {
+    global btp
+
+    set btp(killlen) [llength [lappend btp(killring) $txt]]
+    if { $btp(killlen) > $btp(maxkill)} {
+	set btp(killring) [lreplace $btp(killring) 0 0]
+	incr btp(killlen) -1    }
+    set btp(killptr) 0
+}
+
+proc bt:pop-cut { } {
+    global btp
+
+    if {$btp(killlen) == 0} {return ""}
+    set txt [bt:get-cut 1]
+    set ndx [expr $btp(killlen)-1]
+    set btp(killring) [lreplace $btp(killring) $ndx $ndx ]
+    incr btp(killlen) -1
+    set btp(killptr) 0
+    return $txt
+}
+
+proc bt:get-cut { {ndx 1} } {
+    global btp
+
+    set ndx [expr $ndx+$btp(killptr)]
+    set btp(killptr) [expr $ndx-1]
+    set ndx [expr $ndx%$btp(killlen)]
+    if {$ndx == 0} {set ndx $btp(killlen)}
+    return [lindex $btp(killring) [expr $btp(killlen)-$ndx]]
+
+}
+
+proc bt:yank { w {num 1}} {
+    global btp
+    $w tag remove sel 1.0 end
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    set btp(lastkill) 0.0
+    set tmp [$w index insert]
+    $w insert insert [bt:get-cut $num]
+    $w mark set emacs $tmp
+    $w yview -pickplace insert
+    set btp(prevcmd) yank
+}
+
+proc bt:yank-pop { w {num 1}} {
+    global btp
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    if {$btp(prevcmd) != "yank"} return
+    $w tag remove sel 1.0 end
+    $w delete emacs insert
+    set tmp [$w index insert]
+    $w insert insert [bt:get-cut [expr $num+1]]
+    $w mark set emacs $tmp
+    $w yview -pickplace insert
+}
+
+proc bt:pop-mark { w } {
+    global btp
+    set ndx [expr [llength $btp($w,markring)]-1]
+    set oldmark [lindex $btp($w,markring) $ndx]
+    $w mark set emacs $oldmark
+    set btp($w,markring) [concat $oldmark [lreplace $btp($w,markring) $ndx $ndx]]
+}
+
+proc bt:push-mark { w ndx } {
+    global btp
+    lappend btp($w,markring) $ndx
+    $w tag remove emacssel 1.0 end 
+}
+ 
+proc bt:set-mark { w {num def}} {
+    global btp
+    $w tag remove sel 1.0 end
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    if {$num != "def"} {
+	if {[catch "$w index emacs"]} {
+	    $btp(error) "No emacs mark has been set yet!"
+	}
+        #puts stdout "$w.yview \n"
+        $w yview -pickplace insert
+        bt:pop-mark $w
+        $w mark set insert emacs
+    } else {
+	bt:push-mark $w [$w index insert]
+        $w mark set emacs insert
+    }
+    set btp(lastkill) 0.0
+    set btp(prevcmd) set-mark
+}
+
+proc bt:exchange-point-and-mark { w } {
+    global btp
+    if {[catch "$w index emacs"]} {
+	$btp(error) "No emacs mark has been set yet!"
+    }
+    set tmp [$w index insert]
+    $w mark set insert emacs
+    $w mark set emacs $tmp
+    set btp(lastkill) 0.0
+    set btp(prevcmd) set-mark
+}
+
+proc bt:open-line {w {num 1}} {
+    global btp
+    if {$btp(arg) != "def"} {
+	set num $btp(arg)
+	set btp(arg) def
+    }
+    catch {$w delete sel.first sel.last}
+    for {set i 0} {$i < $num } {incr i} {
+        $w insert insert \n
+    }
+    $w mark set insert insert-1c
+    $w yview -pickplace insert
+    set btp(prevcmd) open-line
+}
+
+proc bt:argkey { w a } {
+    global btp
+    set btp(arg) $a
+} 
+
+proc bt:numkey { w a } {
+    global btp
+    if {$btp(arg) == "def"} {
+	catch {%W delete sel.first sel.last}
+	$w insert insert $a
+	if {$btp(fillcol) && [bt:current-col $w] >= $btp(fillcol)} {
+	    bt:wrap-word $w
+	}
+	$w yview -pickplace insert
+	set btp(lastkill) 0.0
+	set btp(prevcmd) self-insert
+    } else {
+	if {$a == "-"} {
+	    if {$btp(arg) == "-"} { 
+		set btp(arg) "0" 
+	    } elseif {$btp(arg) == "0"} {
+		set btp(arg) "-"
+	    } else {
+		set btp(arg) [expr -1*$btp(arg)]
+	    }
+	} else {
+	    append btp(arg) $a
+	}
+    }
+} 
+
+proc bt:univ-arg { w } {
+    global btp
+    if {$btp(arg) == "def"} {
+	set btp(arg) 4
+    } else {
+	if {$btp(arg) == "-"} { 
+	    set btp(arg) "-4" 
+	} else {
+	    set btp(arg) [expr 4*$btp(arg)]
+	}
+    }
+}
+
+proc bt:wrap-word { w } {
+    global btp
+
+    bt:move-word $w -1
+    $w insert insert \n
+    bt:end-line $w
+}
+
+proc bt:set-fill-col { w {num 0}} {
+    global btp
+    if {$btp(arg) == "def"} {
+	if {$num < 1} {
+	    set btp(fillcol) [bt:current-col $w]
+	} else {
+	    set btp(fillcol) $num
+	}
+    } else {
+	if {$btp(arg) < 1} {
+	    set btp(fillcol) [bt:current-col $w]
+	} else {
+	    set btp(fillcol) $btp(arg)
+	}
+    }
+    set btp(arg) def
+    set btp(lastkill) 0.0
+    set btp(prevcmd) set-fill-col
+}
+
+proc bind_motiftext { tw } {
+    global bind_xnd
+
+    bind $tw <Control-KeyPress> {
+        global btp
+	if {"%A" != ""} {eval $btp(beep) }
+    }
+
+    # Some better bindings for text and entry
+    bind $tw <Up> {bt:move-line %W -1}
+    bind $tw <Down> {bt:move-line %W 1}
+    bind $tw <Left> {bt:move-char %W -1}
+    bind $tw <Right> {bt:move-char %W 1}
+    bind $tw <Home> {bt:begin-line %W}
+    bind $tw <End> {bt:end-line %W}
+    bind $tw <Control-Home> {bt:begin-buffer %W}
+    bind $tw <Control-End> {bt:end-buffer %W}
+    bind $tw <Control-Left> {bt:move-word %W -1}
+    bind $tw <Control-Right> {bt:move-word %W 1}
+    bind $tw <Next> {bt:scroll-next %W}
+    bind $tw <Prior> {bt:scroll-prior %W}
+
+    bind $tw <Any-KeyPress> {
+	global btp
+	set num 1
+	if {"%A" != ""} {
+	    if {$btp(arg) != "def"} {
+		set num $btp(arg)
+		set btp(arg) def
+	    }
+	    catch {%W delete sel.first sel.last}
+	    for {set i 0} { $i < $num} {incr i} {%W insert insert %A}
+	    if {$btp(fillcol) && [bt:current-col %W] >= $btp(fillcol)} {
+		if {"%A" == " "} {
+		    %W insert insert \n
+		} elseif {"%A" == "\t"} {
+		    %W insert insert \n\t
+		} else {
+		    bt:wrap-word %W
+		}
+	    }
+	    %W yview -pickplace insert
+	    set btp(lastkill) 0.0
+	    set btp(prevcmd) self-insert
+	}
+    }
+
+    bind $tw <KeyPress-Return> {
+	global btp
+        catch {%W delete sel.first sel.last}
+	set num 1
+	if {$btp(arg) != "def"} {
+	    set num $btp(arg)
+	    set btp(arg) def
+	}
+        for {set i 0} { $i < $num} {incr i} {%W insert insert "\n"}
+        %W yview -pickplace insert
+	set btp(lastkill) 0.0
+	set btp(prevcmd) newline
+    }
+
+    bind $tw <KeyPress-Delete> {bt:delete-back-char-or-sel %W 1}
+    bind $tw <KeyPress-BackSpace> {bt:delete-back-char-or-sel %W 1}
+
+    bind $tw <1> "[bind Text <1>]; \
+                  global btp; set btp(lastkill) 0.0; \
+		  set btp(prevcmd) mouse-set"
+    bind $tw <3> {%W tag remove sel 1.0 end}
+    bind $tw <B1-Motion> {bind_textB1motion %W @%x,%y}
+
+    set bind_xnd(b2-time) 0
+    set bind_xnd(b2-y) 0
+    bind $tw <2> {
+        global bind_xnd
+        %W scan mark %y
+        set bind_xnd(b2-time) %t
+        set bind_xnd(b2-y) %y
+    }
+    bind $tw <ButtonRelease-2> {
+        global bind_xnd
+	if {[expr %t-$bind_xnd(b2-time)]<1000} {
+	    %W insert insert [selection_if_any]
+ 	    global btp
+	    set btp(lastkill) 0.0
+	    set btp(prevcmd) mouse-insert
+        }
+    }
+
+    # only one mouse, so no need have separate vars for each widget
+    set bind_xnd(txnd) 0
+    set bind_xnd(xdelay) 100
+    proc bind_textB1motion  { w loc } {
+	global bind_xnd
+
+	set ypos [lindex [split $loc ","] 1]
+	if {$ypos > [winfo height $w]} {
+		if {!$bind_xnd(txnd)} {after $bind_xnd(xdelay) bind_textExtend $w}
+		set bind_xnd(txnd) 1
+		set bind_xnd(direction) down
+	} elseif {$ypos < 0} {
+		if {!$bind_xnd(txnd)} {after $bind_xnd(xdelay) bind_textExtend $w}
+		set bind_xnd(txnd) 1
+		set bind_xnd(direction) up
+	} else {
+		set bind_xnd(txnd) 0
+		set bind_xnd(direction) 0
+	}
+
+	if {!$bind_xnd(txnd)} {
+		tk_textSelectTo $w $loc
+	}
+
+    }
+
+    bind $tw <ButtonRelease-1> { 
+        global bind_xnd btp
+        set bind_xnd(txnd) 0
+	set btp(lastkill) 0.0
+	set btp(prevcmd) mouse-select
+    }
+
+    proc bind_textExtend { w } {
+	 global bind_xnd
+
+	 if {$bind_xnd(txnd)} {
+	     if {$bind_xnd(direction) == "down"} {
+		 tk_textSelectTo $w sel.last+1l
+		 $w yview -pickplace sel.last+1l
+	     } elseif {$bind_xnd(direction) == "up"} {
+		 tk_textSelectTo $w sel.first-1l
+		 $w yview -pickplace sel.first-1l
+	     } else { return }
+	     after $bind_xnd(xdelay) bind_textExtend $w
+	 }
+    }
+
+}
+
+proc bind_emacstext { tw } {
+    global btp
+
+    bind $tw <Any-KeyPress> {
+        if [catch {set tmp [%W get emacssel.first emacssel.last]}] {
+        } else {
+            %W tag remove emacssel 1.0 $first
+            %W tag add emacssel $first $last
+            %W tag remove emacssel $last end
+            update idletasks
+        }
+        %W insert insert %A
+    }
+
+    # make Escape key simulate a state Alt key
+    bind $tw <Escape> { }
+    bind $tw <Escape><Any-KeyPress> {
+        global btp
+	if {"%A" != ""} {eval $btp(beep) }
+    }
+
+    bind $tw <Control-a> {bt:begin-line %W}
+    bind $tw <Control-e> {bt:end-line %W}
+    bind $tw <Control-f> {bt:move-char %W 1}
+    bind $tw <Control-b> {bt:move-char %W -1}
+    bind $tw <Escape><f> {bt:move-word %W 1}
+    bind $tw <Escape><b> {bt:move-word %W -1}
+
+    bind $tw <Control-n> {bt:move-line %W 1}
+    bind $tw <Control-p> {bt:move-line %W -1}
+    bind $tw <Control-l> {
+	%W yview -pickplace insert
+    }
+    bind $tw <Control-o> {bt:open-line %W 1}
+    bind $tw <Control-d> {bt:delete-back-char-or-sel %W -1}
+    bind $tw <Escape><d> {bt:delete-word %W 1}
+
+    bind $tw <Control-h> {bt:delete-back-char-or-sel %W -1}
+
+    bind $tw <Control-k> {bt:delete-line %W 0}
+    bind $tw <Control-w> {bt:delete-region-or-sel %W}
+    bind $tw <Escape><w> {bt:copy-region-or-sel %W}
+    bind $tw <Control-y> {bt:yank %W}
+    bind $tw <Escape><y> {bt:yank-pop %W}
+    bind $tw <Control-space> {bt:set-mark %W}
+
+    bind $tw <Control-u> {bt:univ-arg %W}
+    bind $tw <KeyPress-0> {bt:numkey %W %A}
+    bind $tw <KeyPress-1> {bt:numkey %W %A}
+    bind $tw <KeyPress-2> {bt:numkey %W %A}
+    bind $tw <KeyPress-3> {bt:numkey %W %A}
+    bind $tw <KeyPress-4> {bt:numkey %W %A}
+    bind $tw <KeyPress-5> {bt:numkey %W %A}
+    bind $tw <KeyPress-6> {bt:numkey %W %A}
+    bind $tw <KeyPress-7> {bt:numkey %W %A}
+    bind $tw <KeyPress-8> {bt:numkey %W %A}
+    bind $tw <KeyPress-9> {bt:numkey %W %A}
+
+    bind $tw <Escape><KeyPress-0> {bt:argkey %W %A}
+    bind $tw <Escape><KeyPress-1> {bt:argkey %W %A}
+    bind $tw <Escape><KeyPress-2> {bt:argkey %W %A}
+    bind $tw <Escape><KeyPress-3> {bt:argkey %W %A}
+    bind $tw <Escape><KeyPress-4> {bt:argkey %W %A}
+    bind $tw <Escape><KeyPress-5> {bt:argkey %W %A}
+    bind $tw <Escape><KeyPress-6> {bt:argkey %W %A}
+    bind $tw <Escape><KeyPress-7> {bt:argkey %W %A}
+    bind $tw <Escape><KeyPress-8> {bt:argkey %W %A}
+    bind $tw <Escape><KeyPress-9> {bt:argkey %W %A}
+    bind $tw <Escape><KeyPress-minus> {bt:argkey %W %A}
+
+    # make C-x key a state
+    bind $tw <Control-x> { }
+    bind $tw <Control-x><Any-KeyPress> {
+        global btp
+	if {"%A" != ""} {eval $btp(beep) }
+    }
+    bind $tw <Control-x><Control-x> {bt:exchange-point-and-mark %W}
+    bind $tw <Control-x><KeyPress-f> {bt:set-fill-col %W}
+
+    # Make Meta key like and Escape prefix
+    if {$btp(use-meta)} {
+	bind $tw <Meta-KeyPress> {
+	    global btp
+	    if {"%A" != ""} {eval $btp(beep) }
+	}
+	bind $tw <Control-Meta-KeyPress> {
+	    global btp
+	    if {"%A" != ""} {eval $btp(beep) }
+	}
+
+	bind $tw <Meta-f> {bt:move-word %W 1}
+	bind $tw <Meta-b> {bt:move-word %W -1}
+	bind $tw <Meta-d> {bt:delete-word %W 1}
+	bind $tw <Meta-w> {bt:copy-region-or-sel %W}
+	bind $tw <Meta-y> {bt:yank-pop %W}
+
+	bind $tw <Meta-0> {bt:argkey %W %A}
+	bind $tw <Meta-1> {bt:argkey %W %A}
+	bind $tw <Meta-2> {bt:argkey %W %A}
+	bind $tw <Meta-3> {bt:argkey %W %A}
+	bind $tw <Meta-4> {bt:argkey %W %A}
+	bind $tw <Meta-5> {bt:argkey %W %A}
+	bind $tw <Meta-6> {bt:argkey %W %A}
+	bind $tw <Meta-7> {bt:argkey %W %A}
+	bind $tw <Meta-8> {bt:argkey %W %A}
+	bind $tw <Meta-9> {bt:argkey %W %A}
+	bind $tw <Meta-minus> {bt:argkey %W %A}
+    }
+}
+
+
+
+
+#----------------------------------------------------------------------------
+#----------------------------------------------------------------------------
+#  
+#     The  xe  main  code  follows  now  ...
+#
+#----------------------------------------------------------------------------
+#----------------------------------------------------------------------------
+
+
+#---------------------------------------------------------------
+#   PrintOutputWindow
+#
+#---------------------------------------------------------------
+proc PrintOutputWindow { printer_pipe } {
+
+    set f [open "|$printer_pipe" w] 
+    puts $f [.pane.output.text get 1.0 end ] 
+    close $f
+}
+
+
+#---------------------------------------------------------------
+#   PrintPreDefined
+#
+#---------------------------------------------------------------
+proc PrintPreDefined { } {
+
+    global landscape doublesided nobanner prsize
+
+
+    set printerName [.printdlg.input.predef.f.prname.name get]
+
+    #puts stderr "printer_name: $printerName"
+    #puts stderr "landscape:    $landscape"
+    #puts stderr "doublesided:  $doublesided"
+    #puts stderr "prsize:       $prsize"
+
+
+    array set sizeoption { 
+        yes-large    { -o vsi7 -o fp16 -o landscape }
+        yes-normal   { -o vsi6 -o fp18 -o landscape -o height80  }
+        yes-small    { -o vsi5 -o fp20 -o landscape -o height90  }
+        yes-smallest { -o vsi4 -o fp24 -o landscape -o height100 }
+        yes-micro    { -o vsi3 -o fp28 -o landscape -o height110 }
+
+        no-large     { -o vsi7 -o fp16 -o portrait }
+        no-normal    { -o vsi6 -o fp18 -o portrait }
+        no-small     { -o vsi5 -o fp20 -o portrait }
+        no-smallest  { -o vsi4 -o fp24 -o portrait }
+    }
+
+    set command $sizeoption(${landscape}-${prsize})
+
+    if {$doublesided == "yes"} {
+        append command " -o duplex"
+    } else {
+        append command " -o simplex"
+    }
+
+    if {$nobanner == "yes"} {
+        append command " -o nb"
+    }
+
+    append command " -d $printerName"
+
+    PrintOutputWindow  "lp $command"
+}
+
+
+#---------------------------------------------------------------
+#   PrintDialog
+#
+#---------------------------------------------------------------
+proc PrintDialog { } {
+
+    global dbname dbsname
+
+    set w .printdlg
+    catch {destroy $w}
+    toplevel $w -class Dialog
+    wm title $w "Print Output"
+    wm iconname $w "Print Output"
+    wm protocol $w WM_DELETE_WINDOW { }
+
+    frame $w.input \
+        -relief flat -borderwidth 0 -highlightthickness 0
+    frame $w.buttons \
+        -relief flat -borderwidth 0 -highlightthickness 0
+
+    button $w.buttons.print \
+        -text " Print "  \
+        -command "PrintPreDefined; destroy $w"
+    button $w.buttons.cancel \
+        -text " Cancel "  -command "destroy $w"
+    pack $w.buttons.print $w.buttons.cancel -side top -pady 10 -fill x
+
+
+
+    #-----------------------------------------------
+    #   pre-customized printer configuration
+    #-----------------------------------------------
+    frame $w.input.predef \
+        -relief flat -borderwidth 0 -highlightthickness 0
+    label $w.input.predef.h \
+        -text "Pre-customized Printer Configuration:"
+    frame $w.input.predef.f \
+        -relief groove -borderwidth 2 -highlightthickness 0
+    pack $w.input.predef.h -anchor w -side top 
+    pack $w.input.predef.f -side top -ipadx 5 -ipady 5 -fill x
+
+    frame $w.input.predef.f.prname \
+        -relief groove -borderwidth 0 -highlightthickness 0
+    label $w.input.predef.f.prname.l \
+        -text "Printer Name:"
+    entry $w.input.predef.f.prname.name \
+        -relief sunken -borderwidth 1 -highlightthickness 1 \
+        -width 20 -background gray90 -exportselection yes
+    pack $w.input.predef.f.prname.l -side left
+    pack $w.input.predef.f.prname.name -side left -anchor w -fill x
+
+    frame $w.input.predef.f.kind \
+        -relief groove -borderwidth 0 -highlightthickness 0
+    radiobutton $w.input.predef.f.kind.large  \
+         -text "Large (100 char width) " -variable prsize  -relief flat -value large
+    radiobutton $w.input.predef.f.kind.normal \
+         -text "Normal (150 char width)" -variable prsize  -relief flat -value normal
+    radiobutton $w.input.predef.f.kind.small  \
+         -text "Small (200 char width)" -variable  prsize   -relief flat -value small 
+    radiobutton $w.input.predef.f.kind.smallest \
+         -text "Smallest (240 char width)" -variable prsize  -relief flat -value smallest
+    radiobutton $w.input.predef.f.kind.micro \
+         -text "Micro (>240 char width)" -variable prsize  -relief flat -value micro
+
+    $w.input.predef.f.kind.small select
+
+    pack $w.input.predef.f.kind.large    \
+         $w.input.predef.f.kind.normal   \
+         $w.input.predef.f.kind.small    \
+         $w.input.predef.f.kind.smallest \
+         $w.input.predef.f.kind.micro    -anchor w -side top
+
+
+    frame $w.input.predef.f.optionskind \
+        -relief groove -borderwidth 0 -highlightthickness 0
+    checkbutton $w.input.predef.f.optionskind.landscape -text "landscape (-o landscape)" \
+        -variable landscape -onvalue "yes" -offvalue "no" -relief flat 
+    $w.input.predef.f.optionskind.landscape select
+    checkbutton $w.input.predef.f.optionskind.double    -text "double sided (-o duplex)" \
+        -variable doublesided  -onvalue "yes" -offvalue "no" -relief flat
+    checkbutton $w.input.predef.f.optionskind.nobanner  -text "no banner (-o nb)" \
+        -variable nobanner -onvalue "yes" -offvalue "no" -relief flat
+    pack $w.input.predef.f.optionskind.landscape \
+         $w.input.predef.f.optionskind.double    \
+         $w.input.predef.f.optionskind.nobanner  -anchor w -side top
+
+
+    pack $w.input.predef.f.prname \
+         $w.input.predef.f.kind   \
+         $w.input.predef.f.optionskind -side top -padx 1 -pady 5 -fill x
+
+   
+    #-----------------------------------------------
+    #   self printer configuration
+    #-----------------------------------------------
+    frame $w.input.self \
+        -relief flat -borderwidth 0 -highlightthickness 0
+    label $w.input.self.h \
+        -text "Full Command Line:"
+    frame $w.input.self.f2 \
+        -relief groove -borderwidth 2 -highlightthickness 0
+
+    entry $w.input.self.f2.cmdline \
+        -relief sunken -borderwidth 2 -highlightthickness 1 \
+        -width 40 -background gray90 -exportselection yes
+    button $w.input.self.f2.print \
+        -text " Print " -command {
+            set printer_pipe [.printdlg.input.self.f2.cmdline get];
+            PrintOutputWindow "$printer_pipe"
+        }
+    pack $w.input.self.f2.cmdline $w.input.self.f2.print \
+        -side left -padx 5
+    pack $w.input.self.h -anchor w -side top
+    pack $w.input.self.f2 -side top -ipadx 5 -ipady 5
+
+    #-------------------------------------------------------------
+    pack $w.input.predef $w.input.self -side top -pady 10 -fill x 
+    pack $w.input    -side left -padx 10 -pady 10 -fill x
+    pack $w.buttons  -side left -padx 10 -pady 30 -fill y
+
+}
+
+
+#----------------------------------------------------------------------------
+#   SaveTextWindow
+#
+#----------------------------------------------------------------------------
+proc SaveTextWindow { textw filename } {
+    set f [open $filename w ];
+    $textw mark set insert end
+    #--remove the empty part at the bottom
+    while {1} {
+        set line [$textw get {insert linestart} {insert lineend}]
+        if {$line != ""} {
+            break;
+        }
+        $textw mark set insert {insert -1 line}
+        if {[$textw compare insert < 3.0]} {
+            break;
+        }
+    }
+    puts $f [$textw get 1.0 {insert lineend} ] 
+    close $f
+}
+
+
+#----------------------------------------------------------------------------
+#   Base64Init
+#
+#----------------------------------------------------------------------------
+proc Base64Init { } {
+ 
+    global base64_b2c base64_c2b
+    set i -1
+    foreach a { A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
+                a b c d e f g h i j k l m n o p q r s t u v w x y z 
+                0 1 2 3 4 5 6 7 8 9 + /                             } {
+
+        binary scan [binary format c1 [incr i]] B* v
+        set base64_b2c([string range $v 2 end]) $a
+        set base64_c2b($a) [string range $v 2 end]
+    }
+}
+
+
+#----------------------------------------------------------------------------
+#   Base64EncodeBufferData
+#
+#----------------------------------------------------------------------------
+proc Base64EncodeBufferData { data } {
+    global base64_b2c
+
+    # Get the bit stream
+    binary scan $data B* bits
+
+    # Convert groups of six bits to a list for easy traversal
+    regsub -all {((0|1)(0|1)(0|1)(0|1)(0|1)(0|1))} $bits {\1 } bits
+    foreach b $bits {
+	append result $base64_b2c($b)
+    }
+    return $result
+}
+
+
+#----------------------------------------------------------------------------
+#   Base64Encode
+#
+#----------------------------------------------------------------------------
+proc Base64Encode { data {buffersize 6144} } {
+
+    global base64_b2c
+
+    if { ![array exists base64_b2c] } {
+       Base64Init
+    }
+
+    # Convert the data to a bitstream and then encode.
+    # This approach requires a buffer eight times the size of the
+    # data to be encoded, so just work on a buffer at a time.
+    # The default buffer size is 6 * 1024 bytes (6KB).
+    # This is a trade-off between speed and space.
+
+    if {$buffersize % 3} {
+	# Buffer must be a multiple of 3 bytes
+	set buffersize [expr $buffersize - $buffersize % 3]
+    }
+
+    set linelen 0
+    while {[string length $data] > $buffersize} {
+	# Get the buffer to work on
+	set buffer [string range $data 0 [expr $buffersize - 1]]
+	set data [string range $data $buffersize end]
+
+	append result [Base64EncodeBufferData $buffer]
+    }
+    if {[string length $data]} {
+	# Deal with remaining data
+	# Encode to an even multiple of 3 bytes, and then
+	# pad the rest
+	set buffer [string range $data 0 [expr [string length $data] - [string length $data] % 3 - 1]]
+	set remainder [string range $data [expr [string length $data] - [string length $data] % 3] end]
+
+	append result [Base64EncodeBufferData $buffer]
+
+	switch [string length $remainder] {
+	    1 {
+		binary scan $remainder B* bits
+		append result $base64_b2c([string range $bits 0 5])
+		append result $base64_b2c([string range $bits 6 7]0000)
+		append result ==
+	    }
+	    2 {
+		binary scan $remainder B* bits
+		append result $base64_b2c([string range $bits 0 5])
+		append result $base64_b2c([string range $bits 6 11])
+		append result $base64_b2c([string range $bits 12 15]00)
+		append result =
+	    }
+	}
+    }
+
+    # Ensure lines are no more than 76 characters
+    regsub -all {(........................................................................)} \
+                $result "\\1\n" result
+    return $result
+}
+
+
+#----------------------------------------------------------------------------
+#   IntroWindow
+#
+#----------------------------------------------------------------------------
+proc IntroWindow { } {
+
+    global HelvB12 Helv12
+
+    frame .splash -borderwidth 4 -relief raised
+
+    label .splash.info1 -font $HelvB12 -text "XE - a simple XML/XPath Browser/Viewer"
+    label .splash.info2 -font $Helv12  -text "Version 0.2"
+    label .splash.info3 -font $Helv12  -text "Copyright (c) 1999,2001 Jochen Loewer (loewerj@hotmail.com)"
+
+    pack  .splash.info1 \
+          .splash.info2 \
+          .splash.info3  -padx 4 -pady 4 -anchor w
+    place .splash -anchor c -relx .5 -rely .5
+    after 2500 destroy .splash
+    update
+}
+
+
+#----------------------------------------------------------------------------
+#   ConfigureProxy
+#
+#----------------------------------------------------------------------------
+proc ConfigureProxy { } {
+
+    global HttpProxyHost HttpProxyPort gotProxy
+
+ 
+    set gotProxy  -1
+
+    set w .proxyDdlg
+    catch {destroy $w}
+
+    toplevel    $w -class Dialog
+    wm title    $w "Configure HTTP Proxy"
+    wm iconname $w "HTTP Proxy"
+    wm protocol $w WM_DELETE_WINDOW { }
+
+    frame $w.hdr \
+        -relief flat -borderwidth 0 -highlightthickness 0
+    label $w.hdr.icon -bitmap questhead
+    label $w.hdr.msg -text "Specify HTTP proxy server:  "
+
+    frame $w.fields \
+        -relief flat -borderwidth 0 -highlightthickness 0
+    label $w.fields.hostlabel -text "Proxy Host:"    
+    entry $w.fields.hostvalue \
+        -relief sunken -borderwidth 1 -highlightthickness 1 \
+        -width 20 -background gray90 -exportselection yes    
+    label $w.fields.portlabel -text "Porxy Port:"    
+    entry $w.fields.portvalue \
+        -relief sunken -borderwidth 1 -highlightthickness 1 \
+        -width 20 -background gray90 -exportselection yes 
+
+    frame $w.buttons \
+        -relief flat -borderwidth 0 -highlightthickness 0
+    button $w.buttons.ok  -text " OK "  \
+        -command "set gotProxy \[list 1 \[$w.fields.hostvalue get\]     \
+                                        \[$w.fields.portvalue get\] \]; \
+                  destroy $w"
+    bind $w.fields.portvalue <Return> "                                 \
+                  set gotProxy \[list 1 \[$w.fields.hostvalue get\]     \
+                                        \[$w.fields.portvalue get\] \]; \
+                  destroy $w"
+    button $w.buttons.cancel -text " Cancel " \
+           -command "destroy $w; set gotProxy {0 {} {}}"
+
+    $w.fields.hostvalue insert 0 $HttpProxyHost
+    $w.fields.portvalue insert 0 $HttpProxyPort
+
+    pack $w.hdr.icon $w.hdr.msg             -side left
+
+    grid $w.fields.hostlabel -in $w.fields -column 0 -row 0 -sticky e
+    grid $w.fields.portlabel -in $w.fields -column 0 -row 1 -sticky e
+    grid $w.fields.hostvalue -in $w.fields -column 1 -row 0 -sticky w
+    grid $w.fields.portvalue -in $w.fields -column 1 -row 1 -sticky w
+
+    pack $w.buttons.ok $w.buttons.cancel     -side left
+
+
+    pack $w.hdr     \
+         $w.fields  \
+         $w.buttons -side top -anchor w -padx 9 -pady 9
+
+    focus $w.fields.hostvalue
+
+    while {$gotProxy == -1} {
+        vwait gotProxy
+    }
+    if {[lindex $gotProxy 0]} {
+        set HttpProxyHost [lindex $gotProxy 1]
+        set HttpProxyPort [lindex $gotProxy 2] 
+    }
+}
+
+
+#----------------------------------------------------------------------------
+#   GetUserPassword
+#
+#----------------------------------------------------------------------------
+proc GetUserPassword { state_var login_var password_var } {
+
+    global gotPassword Login
+
+    upvar $state_var    state
+    upvar $login_var    login
+    upvar $password_var password
+
+    #parray state
+
+    set server ""
+    set realm  ""
+
+    
+    regexp {http://([^/]*)/(.*)} $state(url) all server file
+
+    array set meta $state(meta)
+    if {[info exists meta(WWW-authenticate)]} {
+        set realmStr [lindex $meta(WWW-authenticate) 1]
+        regexp {realm="([^"]*)"} $realmStr all realm
+    }
+
+    #puts stderr "login='$login' password='$password' server='$server' realm='$realm'"
+
+
+    if {[info exists Login($server,$realm)]} {
+        foreach { new_login new_password } $Login($server,$realm) break
+        if {($new_login != $login ) || ($new_password != $password)} {
+            set login    $new_login
+            set password $new_password
+            return 1 
+        }
+    }
+ 
+    set gotPassword -1
+    set login       ""
+    set password    ""
+
+    set w .passwordDdlg
+    catch {destroy $w}
+
+    toplevel    $w -class Dialog
+    wm title    $w "HTTP Password"
+    wm iconname $w "HTTP Password"
+    wm protocol $w WM_DELETE_WINDOW { }
+
+    frame $w.hdr \
+        -relief flat -borderwidth 0 -highlightthickness 0
+    label $w.hdr.icon -bitmap questhead
+    label $w.hdr.msg -text "Enter username for  $realm  at  $server  "
+
+    frame $w.fields \
+        -relief flat -borderwidth 0 -highlightthickness 0
+    label $w.fields.userlabel -text "User name:"    
+    entry $w.fields.uservalue \
+        -relief sunken -borderwidth 1 -highlightthickness 1 \
+        -width 20 -background gray90 -exportselection yes    
+    label $w.fields.passlabel -text "Password:"    
+    entry $w.fields.passvalue \
+        -relief sunken -borderwidth 1 -highlightthickness 1 \
+        -width 20 -background gray90 -exportselection yes -show *
+
+    frame $w.buttons \
+        -relief flat -borderwidth 0 -highlightthickness 0
+    button $w.buttons.ok  -text " OK "  \
+        -command "set gotPassword \[list 1 \[$w.fields.uservalue get\]     \
+                                           \[$w.fields.passvalue get\] \]; \
+                  destroy $w"
+    bind $w.fields.passvalue <Return> "                                    \
+                  set gotPassword \[list 1 \[$w.fields.uservalue get\]     \
+                                           \[$w.fields.passvalue get\] \]; \
+                  destroy $w"
+    button $w.buttons.cancel -text " Cancel " \
+           -command "destroy $w; set gotPassword {0 {} {}}"
+
+    pack $w.hdr.icon $w.hdr.msg             -side left
+
+    grid $w.fields.userlabel -in $w.fields -column 0 -row 0 -sticky e
+    grid $w.fields.passlabel -in $w.fields -column 0 -row 1 -sticky e
+    grid $w.fields.uservalue -in $w.fields -column 1 -row 0 -sticky w
+    grid $w.fields.passvalue -in $w.fields -column 1 -row 1 -sticky w
+
+    pack $w.buttons.ok $w.buttons.cancel     -side left
+
+
+    pack $w.hdr     \
+         $w.fields  \
+         $w.buttons -side top -anchor w -padx 9 -pady 9
+
+    focus $w.fields.uservalue
+
+    while {$gotPassword == -1} {
+        vwait gotPassword
+    }
+
+    if {[lindex $gotPassword 0]} {
+        set login    [lindex $gotPassword 1]
+        set password [lindex $gotPassword 2]
+        set Login($server,$realm) [list $login $password]
+        return 1
+    }
+    return 0
+}
+
+
+#----------------------------------------------------------------------------
+#   xmlEdit
+#
+#----------------------------------------------------------------------------
+proc xmlEdit { {line 0} {column 0} } {
+
+    global xml Cour12 Helv12
+
+    if {[winfo exists .edit]} {
+        .edit.f.text mark set  insert $line.$column
+        .edit.f.text see insert
+        focus .edit.f.text 
+        return
+    }
+    toplevel .edit
+    wm title .edit "XML Source"
+
+    set path .edit.f
+
+    frame $path -relief flat -borderwidth 3 -highlightthickness 0
+
+    text $path.text -width 100 -height 30 -font $Cour12 \
+                    -bg gray90 \
+                    -exportselection yes  -wrap none  \
+                    -yscrollcommand "$path.vsb set"   \
+                    -xscrollcommand "$path.hsb set"
+
+    scrollbar $path.vsb -relief sunken  -orient vertical \
+                        -command "$path.text yview"  
+
+    scrollbar $path.hsb -relief sunken  -orient horizontal  \
+                        -command "$path.text xview" 
+ 
+    button .edit.reload -text " Reload " -command xmlReload \
+                        -font $Helv12
+
+    pack $path.vsb  -side right  -fill y    -expand no
+    pack $path.hsb  -side bottom -fill x    -expand no
+    pack $path.text -side top    -fill both -expand yes 
+    pack $path -expand yes -fill both
+    pack .edit.reload -anchor e
+   
+    $path.text delete 1.0 end
+    $path.text insert end $xml
+    .edit.f.text mark set  insert $line.$column
+    .edit.f.text see insert
+    focus .edit.f.text 
+}
+
+
+#----------------------------------------------------------------------------
+#   xmlHighlight
+#
+#----------------------------------------------------------------------------
+proc xmlHighlight { path pos tag highlight_tag} {
+
+    set range [$path tag nextrange $tag $pos [$path index "$pos lineend"] ]
+    if {$range == ""} {
+        set range [$path tag prevrange $tag $pos [$path index "$pos linestart"] ]
+    }
+    if {$range != ""} {
+        eval $path tag add $highlight_tag [lrange $range 0 1]
+    }
+}
+
+
+#----------------------------------------------------------------------------
+#   xmlHighlightMotion
+#
+#----------------------------------------------------------------------------
+proc xmlHighlightMotion { path pos tag highlight_tag} {
+
+    set tags [$path tag names $pos]
+    if {[lsearch -exact $tags $highlight_tag] < 0} {
+        $path tag remove $highlight_tag 1.0 end
+    } 
+    xmlHighlight $path $pos $tag $highlight_tag
+}
+
+
+#----------------------------------------------------------------------------
+#   xmlJump
+#
+#----------------------------------------------------------------------------
+proc xmlJump { path pos } {
+    foreach tag [$path tag names $pos] {
+        if { ($tag != "tag") } {
+            xmlEdit [$tag getLine] [$tag getColumn]
+        }
+    }
+}
+
+
+#----------------------------------------------------------------------------
+#   xmlOpen
+#
+#----------------------------------------------------------------------------
+proc xmlOpen { path pos } {
+    global levels
+    foreach tag [$path tag names $pos] {
+        if {($tag != "open") && ($tag != "hot") && ($tag != "sel")} {
+
+            $path configure -state normal
+            set start [$path index "$pos linestart"]
+            set end   [$path index "$start + 1 lines"]
+            $path delete $start $end
+            while 1 {
+                set end   [$path index "$start + 1 lines"]
+                set nextLine [$path get $start $end]
+                if {[string match "$levels($tag)    *" $nextLine]} {
+                     $path delete $start $end
+                } else {
+                   break
+                }
+            }
+            $path mark set insert $start
+            xmlWidgetLoad_Recurs $path 0 $levels($tag) $tag 2
+            $path see $start
+        }
+    }
+
+    # that's a hack to remove selections, which occur sometimes
+    after 50 "$path tag remove sel 1.0 end"
+}
+
+#----------------------------------------------------------------------------
+#   xmlClose
+#
+#----------------------------------------------------------------------------
+proc xmlClose { path pos } {
+    global levels
+    foreach tag [$path tag names $pos] {
+        if {($tag != "close") && ($tag != "hot") && ($tag != "sel")} {
+
+            $path configure -state normal
+            set start [$path index "$pos linestart"]
+            set end   [$path index "$start + 1 lines"]
+            $path delete $start $end
+
+            while 1 {
+                set end   [$path index "$start + 1 lines"]
+                set nextLine [$path get $start $end]
+                if {[string match "$levels($tag)    *" $nextLine]} {
+                     $path delete $start $end
+                } else {
+                   break
+                }
+            }
+            $path mark set insert $start
+            xmlWidgetLoad_Recurs $path 0 $levels($tag) $tag 1
+            $path see $start
+        }
+    }
+
+    # that's a hack to remove selections, which occur sometimes
+    after 50 "$path tag remove sel 1.0 end"
+}
+
+
+#----------------------------------------------------------------------------
+#   xmlWidget
+#
+#----------------------------------------------------------------------------
+proc xmlWidget { path } {
+  
+    global  Cour12 HelvB12
+
+    set tagFont   $HelvB12
+    set attrFont  $Cour12
+    set opnclFont $Cour12
+
+    frame $path -relief flat -borderwidth 0 -highlightthickness 0
+
+    text $path.text -width 100 -height 25 -font $Cour12 \
+                    -bg gray85 -cursor left_ptr         \
+                    -exportselection yes  -wrap none    \
+                    -yscrollcommand "$path.vsb set"     \
+                    -xscrollcommand "$path.hsb set"
+
+    scrollbar $path.vsb -relief sunken  -orient vertical \
+                        -command "$path.text yview"  
+
+    scrollbar $path.hsb -relief sunken  -orient horizontal  \
+                        -command "$path.text xview" 
+
+    pack $path.vsb  -side right  -fill y    -expand no
+    pack $path.hsb  -side bottom -fill x    -expand no
+    pack $path.text -side top    -fill both -expand yes 
+
+    #$path.text tag configure tag  -font $tagFont            \
+    #                              -background #ffffa666a666 \
+    #                              -foreground black
+
+    $path.text tag configure tag  -font $tagFont \
+                                  -foreground #40004000D000
+
+    $path.text tag configure comment -font $attrFont           \
+                                     -background #d000e800d000 \
+                                     -foreground black
+
+    $path.text tag configure textValue -font $attrFont           \
+                                       -background #d200d200f000 \
+                                       -foreground black
+
+    #$path.text tag configure attr -font $attrFont            \
+    #                              -background #fae0d53fdaaa  \
+    #                              -foreground black
+
+    #                                 -background #D000D000ffff \
+    $path.text tag configure attrName -font $attrFont           \
+                                      -foreground black
+
+    #                                 -background #D000D000ffff \
+    #                                 -background #e800d000d000 \
+
+    #                                 -background gray90        \
+    #                                 -foreground #d00000000000
+
+    $path.text tag configure attrValue -font $attrFont           \
+                                       -background #f000d000d000 \
+                                       -foreground black         
+
+    $path.text tag configure header -background gray90 \
+                                    -foreground red2   
+
+    $path.text tag configure query -background gray95 \
+                                   -foreground red2   
+
+    $path.text tag configure hot  -background #a666a666ffff
+
+    $path.text tag configure open  -font $opnclFont 
+    $path.text tag configure close -font $opnclFont 
+    $path.text tag configure leave -font $opnclFont 
+
+    $path.text tag bind tag   <2>      "xmlJump $path.text @%x,%y"
+ 
+    $path.text tag bind open  <Enter>  "xmlHighlight $path.text @%x,%y open hot"
+    $path.text tag bind open  <Motion> "xmlHighlightMotion $path.text @%x,%y open hot"
+    $path.text tag bind open  <Leave>  "$path.text tag remove hot 1.0 end"
+    $path.text tag bind open  <1>      "xmlOpen $path.text @%x,%y"
+
+    $path.text tag bind close <Enter>  "xmlHighlight $path.text @%x,%y open hot"
+    $path.text tag bind close <Motion> "xmlHighlightMotion $path.text @%x,%y close hot"
+    $path.text tag bind close <Leave>  "$path.text tag remove hot 1.0 end"
+    $path.text tag bind close <1>      "xmlClose $path.text @%x,%y"
+}
+
+
+#----------------------------------------------------------------------------
+#   xmlWidgetLoad_Recurs
+#
+#----------------------------------------------------------------------------
+proc xmlWidgetLoad_Recurs { path doSiblings level node maxlevel } {
+
+    global levels
+
+    incr maxlevel -1
+    if {$maxlevel < 0} { return }
+
+    while {$node != ""} {
+        
+        set levels($node) $level
+
+        $path insert insert $level
+
+        set type [$node nodeType]
+        if { $type == "ELEMENT_NODE" } {
+
+        set firstChild [$node firstChild]
+
+        if {$firstChild == ""} {
+            $path insert insert " = " leave
+        } else {
+            if {$maxlevel > 0} {
+                $path insert insert " - " [list close $node]
+            } else {
+                $path insert insert " + " [list open $node]
+            }
+        }
+        $path insert insert "[$node nodeName] " [list tag $node]
+
+        set attr_line_width 0
+        set attr_name_width 0
+        set attr_value_width [string length $level]
+        foreach attr [$node attributes] {
+            if {[llength $attr] > 1} {
+                if {[lindex $attr 1] == ""} {
+                    set attr [lindex $attr 0]
+                } else {
+                    set attr "[lindex $attr 1]:[lindex $attr 0]"
+                }
+            }
+            set l [string length $attr]
+            if {$l > $attr_name_width} { 
+                set attr_name_width $l
+            }
+            incr attr_line_width $l
+            set l [string length [$node getAttribute $attr]]
+            if {$l > $attr_value_width} {
+                set attr_value_width $l
+            }
+            incr attr_line_width $l
+        }
+
+        set recurseToChilds 1
+        set attrDisplayMode [expr $attr_line_width > 80]
+       
+        if {$attrDisplayMode} {
+            foreach attr [$node attributes] {
+                $path insert insert "\n"
+                $path insert insert "$level    " 
+                #$path insert insert [format " %-${attr_name_width}s = %-${attr_value_width}s  " \
+                #                            $attr [$node getAttribute $attr] \
+                #                    ] attr
+                if {[llength $attr] > 1} {
+                    if {[lindex $attr 1] == ""} {
+                        set attr [lindex $attr 0]
+                    } else {
+                        set attr "[lindex $attr 1]:[lindex $attr 0]"
+                    }
+                }
+                $path insert insert [format " %-${attr_name_width}s= " \
+                                            $attr                      \
+                                    ] attrName
+                $path insert insert [$node getAttribute $attr] attrValue
+                #$path insert insert [format "%-${attr_value_width}s  "    \
+                #                            '[$node getAttribute $attr]'  \
+                #                    ] attrValue
+            }
+            $path insert insert "\n"
+        } else {
+            if {[$node attributes] == ""} {
+                set childs [$node childNodes] 
+                if {[llength $childs] == 1} {
+                    if {[$childs nodeType] == "TEXT_NODE"} {
+                        set value [$childs nodeValue]
+                        if {([string length $value] < 60) && 
+                            ([string first \n $value] == -1)} {
+
+                            $path insert insert $value textValue
+                            set recurseToChilds 0
+                        }
+                    }
+                }
+            } else {
+                foreach attr [$node attributes] {
+                    if {[llength $attr] > 1} {
+                        if {[lindex $attr 1] == ""} {
+                            set attr [lindex $attr 0]
+                        } else {
+                           set attr "[lindex $attr 1]:[lindex $attr 0]"
+                        }
+                    }
+                    $path insert insert " $attr=" attrName
+                    $path insert insert [$node getAttribute $attr] attrValue
+                    #$path insert insert ' attrName
+                }
+            }
+            $path insert insert "\n"
+        }
+        set recurseToChilds 1
+        if {$recurseToChilds} {
+            foreach child [$node childNodes] {
+                xmlWidgetLoad_Recurs $path 1 "$level   " $child $maxlevel
+            }
+        }
+        } else {
+            switch $type {
+                COMMENT_NODE {
+                    $path insert insert " C "
+                    $path insert insert [$node nodeValue] comment
+                    $path insert insert "\n"
+                }
+
+                CDATA_SECTION_NODE -
+                TEXT_NODE {
+                    set lines 0
+                    foreach line [split [$node nodeValue] \n] {
+                        if {$lines == 0} {         
+                            $path insert insert " T "
+                        } else {
+                            $path insert insert "$level   "
+                        }
+                        if {$line == ""} {
+                            $path insert insert " " textValue
+                        } else {
+                            $path insert insert $line textValue
+                        }
+                        $path insert insert "\n"
+                        incr lines
+                    }
+                }
+
+                PROCESSING_INSTRUCTION_NODE {
+                    $path insert insert " P "
+                    $path insert insert [$node target] tag
+                    set lines 0
+                    foreach line [split [$node data] \n] {
+                        if {$lines == 0} {
+                            $path insert insert " "
+                        } else {
+                            $path insert insert "$level    "
+                        }
+                        $path insert insert $line attrValue
+                        $path insert insert "\n"
+                        incr lines
+                    }
+                }
+
+                default {
+                    $path insert insert " ? "
+                    $path insert insert [$node nodeValue] attrValue
+                    $path insert insert "\n"
+                }
+            }
+        }
+
+        if {!$doSiblings} {
+            return
+        }
+        break
+        #set node [$node nextSibling]
+    }
+}
+
+#----------------------------------------------------------------------------
+#   xmlWidgetLoad
+#
+#----------------------------------------------------------------------------
+proc xmlWidgetLoad { path mode location xml query } {
+
+    global doc root keepEmpties useSimple
+
+  if {$mode == "xml"} {
+    if {$useSimple} {
+        if {$keepEmpties} { 
+            set doc [dom parse -keepEmpties -simple $xml]
+        } else {
+            set doc [dom parse -simple $xml]
+        }
+    } else {
+        if {$keepEmpties} { 
+            set doc [dom parse -keepEmpties $xml]
+        } else {
+            set doc [dom parse $xml]
+        }
+    }
+  } else {
+        if {$keepEmpties} { 
+            set doc [dom parse -keepEmpties -html $xml]
+        } else {
+            set doc [dom parse -html $xml]
+        }
+  }
+    set root [$doc documentElement]
+
+    set query [string trim $query]
+    if {$query == ""} {
+        set query /
+    }
+    $path insert end \n
+    $path insert end xml(      header
+    $path insert end $location query
+    $path insert end ") "      header
+    $path insert end $query    query
+    $path insert end \n
+
+
+    set nodes 0
+    set rows  0
+
+    set results [$root selectNodes $query type]
+
+    switch $type { 
+        nodes { 
+            foreach node $results {
+                $path mark set insert end
+                xmlWidgetLoad_Recurs $path 1 "" $node 2
+                $path insert end \n
+                incr nodes
+            }
+        }
+        attrnodes {
+            foreach {attrName attrValue} $results {
+                $path insert end $attrName attrName 
+                $path insert end " "
+                $path insert end $attrValue attrValue
+                $path insert end \n
+                incr rows
+            }
+        }
+        attrvalues {
+             foreach result $results {
+                 $path insert end "$result\n"
+                 incr rows
+             }
+        }
+        default {
+             $path insert end "$results\n"
+        }
+    }
+    if {$rows  != 0} { $path insert end "---$rows result(s)---\n" }
+    if {$nodes != 0} { $path insert end "---$nodes node(s)---\n"  }
+    $path yview -pickplace end
+}
+
+
+#----------------------------------------------------------------------------
+#   xmlReload
+#
+#----------------------------------------------------------------------------
+proc xmlReload { } {
+    global xml
+
+    set xml [.edit.f.text get 1.0 end]
+
+    xmlWidgetLoad .xml.text xml $xml
+}
+
+
+
+
+
+
+
+   
+#----------------------------------------------------------------------------
+#   GetXML
+#
+#----------------------------------------------------------------------------
+proc GetXML { url } {
+
+    global Login HttpProxyHost HttpProxyPort
+
+
+    if {[regexp { *file:(.*)} $url all path]} {
+        #puts stderr "file path='$path'"
+        set fd [open $path]
+        set xml [read $fd [file size $path]]
+        close $fd
+    } 
+    if {[regexp { *http:(.*)} $url all path]} {
+
+        #puts stderr "http url='$path'"
+        set xml      ""
+        set login    ""
+        set password ""
+
+        #------------------------------------------------------
+        #    try to re-use old login and password
+        #
+        #------------------------------------------------------
+        regexp {//([^/]*)/(.*)} $url all server file
+        set indexes [array names Login $server,*]
+        if {[llength $indexes] == 1} {
+            foreach { login password } $Login($indexes) break
+        }
+
+        while 1 { 
+                set hdrs {}
+                if {$login != ""} {
+                    #-------------------------------------------
+                    #   generate Basic Authenication header
+                    #------------------------------------------
+                    set hdrs [list Authorization "Basic [Base64Encode $login:$password]" ] 
+                }
+                #-------------------------------------------
+                #   do HTTP request
+                #------------------------------------------- 
+                http::config -proxyhost $HttpProxyHost -proxyport $HttpProxyPort 
+                set token [http::geturl $url -headers $hdrs]
+   
+                
+                #-------------------------------------------
+                #   wait till HTTP request finishes
+                #------------------------------------------
+                http::wait $token
+                upvar $token state
+
+                set statuscode [lindex $state(http) 1]
+                if {$statuscode != "200"} {
+                    if {$statuscode == "401"} {
+                        if {[GetUserPassword state login password]} {
+                            #puts stderr "login='$login' password='$password'"
+                            continue
+                        } else {
+                            return ""
+                        }
+                    } else {
+                        puts stderr "\n\n\nstatuscode=$statuscode"
+                        puts stderr "$state(http)"
+                        break
+                    }
+                } else {
+                    set xml [http::data $token] 
+                    break
+                }
+        }
+    } 
+    return $xml
+}
+
+
+#----------------------------------------------------------------------------
+#   xmlExecute
+#
+#----------------------------------------------------------------------------
+proc xmlExecute { sel } {
+
+    #puts stderr $sel
+
+    if {[regexp { *(xml|html)\(([^)]*)\)(.*)} $sel all mode location query]} {
+        #puts stderr "'$sel' location='$location' query='$query'"
+       
+        .pane.output.text configure -cursor watch
+        .                 configure -cursor watch
+        update
+
+        set xml [GetXML $location]
+        if {$xml != ""} {
+            xmlWidgetLoad .pane.output.text $mode $location $xml $query
+        }
+        .pane.output.text configure -cursor left_ptr
+        .                 configure -cursor left_ptr
+
+    } else {
+        error "Not a complete query!!"
+    }
+}
+
+
+#----------------------------------------------------------------------------
+#   GotoParent
+#
+#----------------------------------------------------------------------------
+proc GotoParent { } {
+
+    global PointerXY
+ 
+
+    set pos  $PointerXY
+    set path .pane.output.text
+
+    foreach tag [$path tag names $pos] {
+
+        #puts stderr "tag=$tag"
+
+        if {[string match domNode* $tag]} {
+
+            set tag [$tag parentNode]
+            if {$tag == ""} return
+
+            $path configure -state normal
+            set start [$path index "$pos linestart"]
+            set end   [$path index "$start + 1 lines"]
+            regexp {$( *)} [$path index "$start + 1 lines"] all level
+            $path delete $start $end
+            while 1 {
+                set end   [$path index "$start + 1 lines"]
+                set nextLine [$path get $start $end]
+                if {[string match "$level    *" $nextLine]} {
+                     $path delete $start $end
+                } else {
+                   break
+                }
+            }
+            $path mark set insert $start
+            xmlWidgetLoad_Recurs $path 0 $level $tag 2
+            $path see $start
+        }
+    }
+}
+
+
+#----------------------------------------------------------------------------
+#   As
+#
+#----------------------------------------------------------------------------
+proc As { method } {
+
+    global PointerXY
+ 
+    set path .pane.output.text
+
+    foreach tag [$path tag names $PointerXY] {
+
+        if {[string match domNode* $tag]} {
+             set oldEnd [$path index end]
+             $path insert end \n[$tag $method]
+             $path see $oldEnd
+        }
+    }
+}
+
+
+#----------------------------------------------------------------------------
+#   ToXPath
+#
+#----------------------------------------------------------------------------
+proc ToXPath { } {
+
+    global PointerXY
+ 
+    set path .pane.output.text
+
+    foreach tag [$path tag names $PointerXY] {
+
+        if {[string match domNode* $tag]} {
+             set oldEnd [$path index end]
+             $path insert end \n[$tag toXPath]
+             $path see $oldEnd
+        }
+    }
+}
+
+
+
+
+#----------------------------------------------------------------------------
+#   begin main part
+#----------------------------------------------------------------------------
+
+namespace eval ::dom::xpathFunc {
+    proc names { ctxNode pos nodeListType nodeList args } {
+        if {[llength $args] != 2} {
+            error "wrong # of args for XPATH function 'names'"
+        } 
+        foreach { type value } $args break
+        if {($type != "nodes") && ($type != "attrnodes") } {
+            error "names only applicable for node or attribute node lists!"
+        }
+        set n {}
+        if {$type == "nodes"} {
+            foreach node $value { lappend n [$node nodeName] }
+        } else {
+            foreach {attrName attrValue} $value { lappend n $attrName }
+        }
+        return [list string $n]
+    }
+}
+ 
+  set xe_save   "~/.xe-input"
+  set xe_config "~/.xe-config"
+
+  if {[llength $argv] > 0} {
+      set xe_save [lindex $argv 0]
+  }
+
+
+  set bgcolor   "grey90"
+  set fgcolor   "black"
+
+  switch $tcl_platform(platform) {
+      unix {
+          set Cour12    8x13
+          set CourB12   8x13b
+          set Helv10    "-Adobe-helvetica-medium-r-normal--*-100-*"
+          set Helv12    "-Adobe-helvetica-medium-r-normal--*-120-*"
+          set HelvB10   "-Adobe-helvetica-bold-r-normal--*-100-*"
+          set HelvB12   "-Adobe-helvetica-bold-r-normal--*-120-*"
+      }
+      windows {
+          set Cour12    "{Courier New} 10"
+          set CourB12   "{Courier New} 10 bold"
+          set Helv10    "Arial 9"
+          set Helv12    "Arial 10"
+          set HelvB10   "Arial 9  bold"
+          set HelvB12   "Arial 10 bold"
+      }
+  }
+
+  option add *background                  gray80
+  option add *foreground                  black
+  option add *selector                    black
+  option add *Scrollbar.foreground        #dfdfdf
+  option add *Scrollbar.activeForeground  #efefef
+  option add *font                        $HelvB12
+
+  wm title . "xe - [lindex $argv 0]"
+
+  wm minsize . 30 10
+  wm geometry  . 80x20
+
+  #---------------------------------------
+  #   set up iconwin
+  #---------------------------------------
+  if {$tcl_platform(platform)== "unix"} {
+      toplevel .icwin
+      frame .icwin.f -relief flat  -borderwidth 1
+      label .icwin.f.l1 -text xe -font $Helv12
+      label .icwin.f.l2 -text  [lindex $argv 0] -font $Helv12
+      pack  .icwin.f
+      pack  .icwin.f.l1 .icwin.f.l2 -anchor nw
+      .icwin configure  -relief ridge -borderwidth 2
+      wm geometry .icwin 60x60
+      wm iconwindow . .icwin 
+  }
+ 
+  
+  set keepEmpties 0  
+  set useSimple   0
+
+  frame .menu -relief raised -borderwidth 1 -highlightthickness 0
+
+  #-- File --------------
+
+  menubutton .menu.file -text " File " -menu .menu.file.m
+  menu .menu.file.m -tearoff 0                                       
+    .menu.file.m add command  -label " Clear Input Window "  -command {
+        .pane.upper.input.text delete 0.0 end 
+     }
+    .menu.file.m add separator
+    .menu.file.m add command -label " Save Output Window in  ~/xe-out" -command { 
+        SaveTextWindow .pane.output.text "~/xe-out" 
+    }
+    .menu.file.m add command -label " Print Output Window" -command { 
+        PrintDialog 
+    }
+    .menu.file.m add separator
+    .menu.file.m add command -label " Quit without Save" -command  { exit }
+    .menu.file.m add command -label " Save Input Window in $xe_save" -command { 
+        SaveTextWindow .pane.upper.input.text $xe_save 
+    }
+    .menu.file.m add command -label " Quit and Save Input Window in $xe_save" \
+    -command  { 
+        SaveTextWindow .pane.upper.input.text $xe_save
+        exit   
+    }   
+   
+  #-- Options --------------
+
+  menubutton .menu.options -text " Options " -menu .menu.options.m
+  menu .menu.options.m  -tearoff 0 
+      .menu.options.m add command -label " http proxy " -command ConfigureProxy
+      .menu.options.m add check -label " keep empties " \
+                                -underline 1 -variable  keepEmpties 
+      .menu.options.m add check -label " use simple parser " \
+                                -underline 1 -variable  useSimple
+  pack .menu.file  \
+       .menu.options -side left
+
+  label .menu.info -text "XE " -font $HelvB12
+  pack  .menu.info -side right
+
+
+
+  
+  pane .pane vertical 1000 1000 
+  .pane configure -highlightthickness 0
+
+  frame .pane.upper -borderwidth 0 -highlightthickness 0
+
+  frame .pane.upper.input   -borderwidth 2 -highlightthickness 0
+
+  text .pane.upper.input.text -relief sunken -bd 2 -height 10 -width 80 \
+                   -bg $bgcolor  -fg $fgcolor                           \
+                   -font $Cour12 -padx 2 -pady 2 -setgrid 1             \
+                   -yscrollcommand ".pane.upper.input.sb set"
+
+  .pane.upper.input.text configure -exportselection yes
+  .pane.upper.input.text tag configure search  -background white -foreground black
+  scrollbar .pane.upper.input.sb  -relief sunken   -command ".pane.upper.input.text yview"
+  pack .pane.upper.input.sb     -side right -fill y    -expand no
+  pack .pane.upper.input.text   -side top   -fill both -expand yes 
+
+  xmlWidget .pane.output
+
+  
+  pack .pane.output -side bottom -fill both -expand yes 
+
+  frame .pane.upper.buttons  -borderwidth 1 -highlightthickness 0
+
+  label  .pane.upper.buttons.searchL -text "   search:" -underline 4 -font $Helv12
+  entry  .pane.upper.buttons.search  -width 20  -relief sunken -borderwidth 2 \
+                            -textvariable searchString -exportselection yes   \
+                            -font $Cour12 -highlightthickness 1 \
+                            -background  gray90
+  button .pane.upper.buttons.padb1 -state disabled -relief flat \
+                                   -highlightthickness 0        \
+                                   -borderwidth 0 -padx 15 -pady 0 
+
+  button .pane.upper.buttons.padb2 -state disabled -relief flat \
+                                   -highlightthickness 0        \
+                                    -borderwidth 0 -padx 15 -pady 0
+
+  button .pane.upper.buttons.execute -text "execute <sel.>" -command {
+      set sel [selection get]
+      if {$sel != ""} {
+          xmlExecute $sel
+      }
+  } -pady 2
+
+  button .pane.upper.buttons.clearoutput -text clearoutput -command {
+       .pane.output.text delete 0.0 en
+       foreach doc [info commands domDoc*] {
+           $doc delete
+       }
+  } -pady 2
+
+
+  pack .pane.upper.buttons.searchL     \
+       .pane.upper.buttons.search      \
+       .pane.upper.buttons.padb1       \
+       .pane.upper.buttons.execute     \
+       .pane.upper.buttons.padb2       \
+       .pane.upper.buttons.clearoutput -side left
+  pack .pane.upper.buttons -anchor w
+
+
+  pack .pane.upper.input    -side top    -fill both -expand yes  
+  pack .pane.upper.buttons  -side bottom -fill x    -expand no
+  pack .pane.upper          -fill both -expand yes
+
+  pack .menu   -fill x    -side top   -expand no
+  pack .pane   -side top  -fill both  -expand yes
+
+  pane_place .pane vertical 0.25  .pane.upper .pane.output
+
+  bind_emacstext Text
+
+
+  menu .pane.output.m  -tearoff 0
+  .pane.output.m add command -label " goto parent " -command GotoParent
+  .pane.output.m add command -label " asXML "       -command "As asXML"
+  .pane.output.m add command -label " asHTML "      -command "As asHTML"
+  .pane.output.m add command -label " toXPath "     -command ToXPath
+
+  bind .pane.output.text <3> {
+      .pane.output.text configure -cursor left_ptr
+      set PointerXY @%x,%y
+      eval tk_popup .pane.output.m [winfo pointerxy %W]
+  }
+    
+
+  #--------------------------------------------------------------------
+  #   search feature
+  #--------------------------------------------------------------------
+  set origSearchWin .pane.upper.input.text
+  .pane.output.text      tag configure search -background white -foreground black  
+  .pane.upper.input.text tag configure search -background white -foreground black  
+  bind Text <Control-s> {
+      global origSearchWin
+      set origSearchWin %W
+      focus .pane.upper.buttons.search
+  }
+  bind .pane.upper.buttons.search <Control-s> {
+      set len [string length $searchString]
+      .pane.upper.input.text tag remove search 0.0 end  
+      .pane.output.text tag  remove search 0.0 end     
+      set curinsert [$origSearchWin index insert]
+      set spos [$origSearchWin search -regexp $searchString insert]
+      if {$spos != ""} { 
+          if {[$origSearchWin compare $curinsert == $spos]} {
+              $origSearchWin mark set insert {insert +1char}
+          }
+          set spos [$origSearchWin search -regexp $searchString insert]
+          if {$spos != ""} { 
+              $origSearchWin mark set insert $spos
+              $origSearchWin see insert
+              $origSearchWin tag add search insert "insert + $len char"
+          }
+      }
+      break
+  }
+
+
+  #--------------------------------------------------------------------
+  #   load the xe save file into the input window 
+  #
+  #--------------------------------------------------------------------
+  if {[catch { set f [open $xe_save r ] }] == 0} {
+      .pane.upper.input.text delete 1.0 end
+      while { [gets $f i] >= 0 }  {
+          .pane.upper.input.text insert end $i
+          .pane.upper.input.text insert end "\n"
+      }
+      close $f
+  }
+
+  IntroWindow
+
+
+  # button .startedit -text " Edit plain XML " -font $Helv12 -command xmlEdit
+  # button .dump -text " dump " -font $Helv12 -command {puts stderr [info commands xmlelem*]}
+
+  # pack .xml -fill both -expand yes
+  # pack .dump .startedit -anchor e
+
+  # set fd  [open [lindex $argv 0]] 
+  # set xml [read $fd]
+  # close $fd        
+  # xmlWidgetLoad .pane.output.text $xml
+
+
+#----------------------------------------------------------------------------
+#   end of main part
+#----------------------------------------------------------------------------

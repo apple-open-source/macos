@@ -1,0 +1,434 @@
+<HTML>
+<HEAD>
+<TITLE>TclResource Help</TITLE>
+<META NAME=GENERATOR CONTENT="Aida Mode">
+</HEAD>
+<BODY>
+<!-- :Title:			Resource Help -->
+<!-- :Project:		Tclresource extension for Tcl -->
+<!-- :Version:		$Revision 1.1 $ -->
+<!-- :Author:		Bernard Desgraupes <A HREF="mailto:bdesgraupes@easyconnect.fr">bdesgraupes@easyconnect.fr</A> -->
+<!-- :Homepage:		<A HREF="http://webperso.easyconnect.fr/bdesgraupes/">http://webperso.easyconnect.fr/bdesgraupes/</A> -->
+<!-- :Created: 		2003-09-30 03:53:27 -->
+<!-- :Modified:	 	2003-10-16 08:44:28 -->
+<!-- :Keywords:		resource, forks  -->
+
+
+<HR><BLOCKQUOTE><P><I> 
+This is a manual page for the Tclresource extension for Tcl.
+</I></P></BLOCKQUOTE><HR>
+<UL>
+<LI><A HREF="#anchor1">NAME</A>
+<LI><A HREF="#anchor2">SYNOPSIS</A>
+<LI><A HREF="#anchor3">INTRODUCTION</A>
+<UL><LI><A HREF="#anchor4"><B>resource attributes</B> <I>resourceRef</I> ?<I>option</I> <I>resourceType</I>? ?<I>value</I>?</A></UL>
+<UL><UL><LI><A HREF="#anchor5"><B>resource attributes</B> <I>resourceRef</I></A></UL></UL>
+<UL><UL><LI><A HREF="#anchor6"><B>resource attributes</B> <I>resourceRef</I> <I>value</I></A></UL></UL>
+<UL><UL><LI><A HREF="#anchor7"><B>resource attributes</B> <I>resourceRef</I> <I>option</I> <I>resourceType</I></A></UL></UL>
+<UL><UL><LI><A HREF="#anchor8"><B>resource attributes</B> <I>resourceRef</I> <I>option</I> <I>resourceType</I> <I>value</I></A></UL></UL>
+<UL><LI><A HREF="#anchor9"><B>resource close</B> <I>resourceRef</I></A></UL>
+<UL><LI><A HREF="#anchor10"><B>resource delete</B> ?<I>options</I>? <I>resourceType</I></A></UL>
+<UL><LI><A HREF="#anchor11"><B>resource fork</B> <I>resourceRef</I></A></UL>
+<UL><LI><A HREF="#anchor12"><B>resource files</B> ?<I>resourceRef</I>?</A></UL>
+<UL><LI><A HREF="#anchor13"><B>resource id</B> <I>resourceType</I> <I>resourceName</I> <I>resourceRef</I></A></UL>
+<UL><LI><A HREF="#anchor14"><B>resource list</B> ?<I>-ids</I>? <I>resourceType</I> ?<I>resourceRef</I>?</A></UL>
+<UL><LI><A HREF="#anchor15"><B>resource name</B> <I>resourceType</I> <I>resourceId</I> <I>resourceRef</I></A></UL>
+<UL><LI><A HREF="#anchor16"><B>resource open</B> ?(<I>-datafork</I>|<I>-resourcefork</I>)? <I>fileName</I> ?<I>access</I>?</A></UL>
+<UL><LI><A HREF="#anchor17"><B>resource read</B> <I>resourceType</I> <I>resourceId</I> ?<I>resourceRef</I>?</A></UL>
+<UL><LI><A HREF="#anchor18"><B>resource types</B> ?<I>resourceRef</I>?</A></UL>
+<UL><LI><A HREF="#anchor19"><B>resource update</B> <I>resourceRef</I></A></UL>
+<UL><LI><A HREF="#anchor20"><B>resource write</B> ?<I>options</I>? <I>resourceType</I> <I>data</I></A></UL>
+<LI><A HREF="#anchor21">RESOURCE TYPES</A>
+<LI><A HREF="#anchor22">RESOURCE IDS</A>
+<LI><A HREF="#anchor23">RESOURCE ATTRIBUTES</A>
+<LI><A HREF="#anchor24">PORTABILITY ISSUES</A>
+<LI><A HREF="#anchor25">VERSION HISTORY</A>
+<LI><A HREF="#anchor26">KNOW ISSUES</A>
+<LI><A HREF="#anchor27">LICENSE AND DISCLAIMER</A>
+<LI><A HREF="#anchor28">SOURCE CODE</A>
+<LI><A HREF="#anchor29">SEE ALSO</A>
+<LI><A HREF="#anchor30">KEYWORDS</A>
+</UL>
+<HR>
+
+
+
+
+<H2><A NAME="anchor1"></A> NAME</H2>
+resource - Manipulate Macintosh resources 
+
+<H2><A NAME="anchor2"></A> SYNOPSIS</H2>
+<PRE>
+ package require resource 1.1
+ resource subcommand ?arg arg ...?
+</PRE>
+
+<H2><A NAME="anchor3"></A> INTRODUCTION</H2>
+The resource command provides some  generic  operations  for  dealing  with
+Macintosh resources. This  command  is  only  supported  on  the  Macintosh
+platform. Prior to system OSX, each Macintosh file consisted of two forks: a
+data fork and a resource fork. Since the advent of system OSX, resources can
+also be stored in the  data  fork  (this  is  the  recommended  format  for
+portability reasons: resource forks tend to be otherwise deleted when copied
+on another platform). You use the normal open, puts, close, etc. commands to
+manipulate the data fork but you must use this command, however, to interact
+with the resource map, even if it is stored in the data fork. In a resource
+map, resources are categorized by type and, in each type, are designated by
+an ID and possibly a name. See RESOURCE TYPES and RESOURCE  IDS  below  for
+details. 
+
+On OSX, the resource command is not a built-in command of Tcl anymore. It is
+made available by this extension which much be explicitely  loaded  with  a
+package require instruction like this:
+<PRE>
+ package require resource 1.1
+</PRE>
+
+<I>Subcommand</I> indicates what operation to perform. Any unique  abbreviation
+for <I>subcommand</I> is acceptable. The valid  <I>subcommands</I>  are  explained  in  the  next
+sections. 
+
+<DL>
+    <DT><A NAME="anchor4"></A> <B>resource attributes</B> <I>resourceRef</I> ?<I>option</I> <I>resourceType</I>? ?<I>value</I>?<DD>
+   This command is used to get or set the attributes of the resource map or
+   the attributes of a particular resource in the resource map. It has four
+   different syntaxes:
+<DL>
+<DT><A NAME="anchor5"></A> <B><B>resource attributes</B></B> <I>resourceRef</I><DD>
+   To get the attributes of the resource map specified by  the  <I>resourceRef</I>
+   argument. 
+
+<DT><A NAME="anchor6"></A> <B><B>resource attributes</B></B> <I>resourceRef</I> <I>value</I><DD>
+   To give the value <I>value</I> to the attributes of the resource map  specified
+   by the <I>resourceRef</I> argument.
+
+<DT><A NAME="anchor7"></A> <B>resource attributes</B> <I>resourceRef</I> <I>option</I> <I>resourceType</I><DD>
+   To get the attributes of the resource specified by the  argument  <I>option</I>
+   in the resource map designated by the <I>resourceRef</I> argument.  The  option
+   can be one of:
+<DL>
+
+<DT><B>-id</B> <I>resourceId</I><DD>
+   If the <B>-id</B> option is given, the id <I>resourceId</I> (see RESOURCE  IDS  below)
+   is used to specify the resource whose attributes must be returned or set.
+   The id must be a number: to specify a name use the <B>-name</B> option.
+
+
+<DT><B>-name</B> <I>resourceName</I><DD>
+   If the <B>-name</B> option is specified, the  resource  named  <I>resourceName</I>  is
+   used. 
+
+
+</DL>
+
+<DT><A NAME="anchor8"></A> <B>resource attributes</B> <I>resourceRef</I> <I>option</I> <I>resourceType</I> <I>value</I><DD>
+   To give the value <I>value</I> to the attributes of the resource  specified  by
+   the argument <I>option</I> in the resource map designated  by  the  <I>resourceRef</I>
+   argument. The resource can be specified using either the <B>-id</B> or the
+   <B>-name</B> as indicated above.
+
+   <P>Note that the <B>resource attributes</B>  command  is  available  only  since
+   version 1.1 of the Tclresource extension. See RESOURCE ATTRIBUTES  below
+   for details about the possible values for attributes.
+
+</DL>
+
+<DT><A NAME="anchor9"></A> <B>resource close</B> <I>resourceRef</I><DD>
+   Closes the given  resource  reference  (obtained  from  resource  open).
+   Resources from that resource file will no longer be available.
+
+<DT><A NAME="anchor10"></A> <B>resource delete</B> ?<I>options</I>? <I>resourceType</I><DD>
+   This command will delete the resource  specified  by  <I>options</I>  and  type
+   <I>resourceType</I> (see RESOURCE TYPES below). The options  give  you  several
+   ways to specify the resource to be deleted.
+
+<DL>
+
+<DT><B>-id</B> <I>resourceId</I><DD>
+   If the <B>-id</B> option is given the id <I>resourceId</I> (see RESOURCE IDS below) is
+   used to specify the resource to be deleted. The id must be a number:  to
+   specify a name use the <B>-name</B> option.
+
+<DT><B>-name</B> <I>resourceName</I><DD>
+   If <B>-name</B> is specified, the resource named <I>resourceName</I> will be  deleted.
+   If the <B>-id</B> is also provided, then there must be a resource with BOTH this
+   name and this id. If no name is provided,  then  the  id  will  be  used
+   regardless of the name of the actual resource.
+
+<DT><B>-file</B> <I>resourceRef</I><DD>
+   If the <B>-file</B> option is specified then the resource will be deleted  from
+   the file pointed to by <I>resourceRef</I>. Otherwise the first resource with the
+   given <I>resourceName</I> and or <I>resourceId</I> which is found on the resource file
+   path will be deleted. To inspect the file path, use the  resource  files
+   command. 
+
+</DL>
+
+<DT><A NAME="anchor11"></A> <B>resource fork</B> <I>resourceRef</I><DD>
+   Returns which fork (either data fork or resource  fork)  contains
+   the resource map specified by the argument <I>resourceRef</I>. The return value
+   will be <I>datafork</I>, <I>resourcefork</I> or <I>unknown</I>. The value <I>unknown</I> is returned
+   for the resource maps listed by the command <B>resource list</B> which were not
+   opened explicitely by a resource open command but were already in memory.
+
+   <P>Note that the <B>resource fork</B> command is available only since version 1.1
+   of the Tclresource extension.
+
+<DT><A NAME="anchor12"></A> <B>resource files</B> ?<I>resourceRef</I>?<DD>
+   If resourceRef is not provided, this command returns a Tcl  list  of  the
+   resource references for all the currently open resource files. The  list
+   is in the normal Macintosh search order for resources. If <I>resourceRef</I> is
+   specified, the command will return the path to the file  whose  resource
+   fork is represented by that token.
+
+<DT><A NAME="anchor13"></A> <B>resource id</B> <I>resourceType</I> <I>resourceName</I> <I>resourceRef</I><DD>
+   Returns the id of the resource of   type    <I>resourceType</I>    with    name
+   <I>resourceName</I> in the resource map designated by the argument <I>resourceRef</I>.
+   This is the reverse of command [resource name].
+
+<DT><A NAME="anchor14"></A> <B>resource list</B> ?<I>-ids</I>? <I>resourceType</I> ?<I>resourceRef</I>?<DD>
+   List all of the resources ids of type <I>resourceType</I> (see  RESOURCE  TYPES
+   below). If <I>resourceRef</I> is specified then  the  command  will  limit  the
+   search to that particular resource file. Otherwise, all  resource  files
+   currently opened by the application will be  searched.  A  Tcl  list  of
+   either the resource name's or resource id's of the found resources  will
+   be returned: each time the name of the resource is not empty, it is used
+   preferably to the id, unless the <I>-ids</I>  option  has  been  specified,  in
+   which case only id's are returned. See the RESOURCE IDS section below for
+   more details about what a resource id is.
+
+   <P>Note that the <I>-ids</I> option is only available since  version  1.1  of  the
+   Tclresource extension.
+
+<DT><A NAME="anchor15"></A> <B>resource name</B> <I>resourceType</I> <I>resourceId</I> <I>resourceRef</I><DD>
+   Returns the (possibly empty) name of the resource of  type  <I>resourceType</I>
+   with ID <I>resourceId</I> in  the  resource  map  designated  by  the  argument
+   <I>resourceRef</I>. This is the reverse of command [resource id].
+
+<DT><A NAME="anchor16"></A> <B>resource open</B> ?(<I>-datafork</I>|<I>-resourcefork</I>)? <I>fileName</I> ?<I>access</I>?<DD>
+   Open the resource map for the file <I>fileName</I>. On OSX,  resources  can  be
+   stored either in the resource fork of the file or in the data fork of the
+   file. By default, resource open will try to find resources in  the  data
+   fork of the file, then, if none is found, in  its  resource  fork.  This
+   behavior can be modified with one  of  the  <I>-datafork</I>  or  <I>-resourcefork</I>
+   switches which force the command to search only in the data fork or  the
+   resource fork respectively. Standard file access permissions may also be
+   specified with the <I>access</I> optional argument (see the  manual  entry  for
+   open for details). A resource reference (<I>resourceRef</I>) is  returned  that
+   can be used by the other resource  commands  to  refer  to  this  opened
+   resource map.
+
+   <P>An error can occur if the file doesn't exist or the file does  not  have
+   resources in the data or the resource fork. However, if you open the file
+   with write permissions the file and/or resource  fork  will  be  created
+   instead of generating an error: the <I>-datafork</I> or <I>-resourcefork</I>  switches
+   let you specify which kind of resource file should be created (data fork
+   resource file or resource fork resource file). If neither <I>-datafork</I>  nor 
+   <I>-resourcefork</I> are specified, a data fork resource  file  is  created  by 
+   default.
+
+   <P>Note that the <I>-datafork</I> and <I>-resourcefork</I> switches  are  only  available
+   since version 1.1 of the Tclresource extension.
+
+<DT><A NAME="anchor17"></A> <B>resource read</B> <I>resourceType</I> <I>resourceId</I> ?<I>resourceRef</I>?<DD>
+   Read the entire resource of type <I>resourceType</I> (see RESOURCE TYPES below)
+   and the name or id of <I>resourceId</I> (see RESOURCE IDS below) into memory and
+   return the result. If <I>resourceRef</I> is specified we limit  our  search  to
+   that resource file, otherwise we search all open resource forks  in  the
+   application. It is important to note that most Macintosh resource use  a
+   binary format and the data returned from this command may have  embedded
+   NULLs or other non-ASCII data.
+
+<DT><A NAME="anchor18"></A> <B>resource types</B> ?<I>resourceRef</I>?<DD>
+   This command returns a Tcl list of  all  resource  types  (see  RESOURCE
+   TYPES below) found in the resource file pointed to  by  <I>resourceRef</I>.  If
+   <I>resourceRef</I> is not specified it will return all the resource types found
+   in every resource file currently opened by the application.
+
+<DT><A NAME="anchor19"></A> <B>resource update</B> <I>resourceRef</I><DD>
+   This command updates the resource  map  designated  by  the  <I>resourceRef</I>
+   argument. It performs three tasks:
+<UL>
+	<LI> changing, adding, or removing resource data in the fork on disk to
+      match the resource map in memory; 
+	<LI> compacting the resource fork, closing up any empty space created when
+      a resource was removed, made smaller, or made larger; 
+	<LI> writing the resource map in memory to the resource fork. 
+
+</UL>
+
+   Because the [resource close] command calls [resource update]  before  it
+   closes the resource fork, you need to call it directly only if you  want
+   to update the file without closing it.
+
+   <P>Note that the <B>resource update</B> command is available only since  version
+   1.1 of the Tclresource extension.
+
+<DT><A NAME="anchor20"></A> <B>resource write</B> ?<I>options</I>? <I>resourceType</I> <I>data</I><DD>
+   This command will write the passed in <I>data</I> as a  new  resource  of  type
+   <I>resourceType</I> (see RESOURCE TYPES below). Several options  are  available
+   that describe where and how the resource is stored.
+<DL>
+
+<DT><B>-id</B> <I>resourceId</I><DD>
+   If the <B>-id</B> option is given the id <I>resourceId</I> (see RESOURCE IDS below) is
+   used for the new resource, otherwise a unique id will be generated  that
+   will not conflict with any existing resource. However, the id must be  a
+   number: to specify a name use the <B>-name</B> option.
+
+
+<DT><B>-name</B> <I>resourceName</I><DD>
+   If <B>-name</B> is specified the resource will be named <I>resourceName</I>, otherwise
+   it will have the empty string as the name.
+
+
+<DT><B>-file</B> <I>resourceRef</I><DD>
+   If the <B>-file</B> option is specified then the resource will  be  written  in
+   the file pointed to by <I>resourceRef</I>, otherwise  the  most  recently  open
+   resource will be used.
+
+
+<DT><B>-force</B><DD>
+   If the target resource already exists, then  by  default  Tcl  will  not
+   overwrite it, but raise an error instead. Use the <B>-force</B> flag  to  force
+   overwriting the existant resource.
+
+
+</DL>
+
+</DL>
+
+<H2><A NAME="anchor21"></A> RESOURCE TYPES</H2>
+Resource types are defined as a four character string that is then mapped to
+an underlying id. For example, TEXT refers to the Macintosh  resource  type
+for text. The type STR#  is  a  list  of  counted  strings.  All  Macintosh
+resources must be of some type. See  Macintosh  documentation  for  a  more
+complete list of resource types that are commonly used.
+
+<H2><A NAME="anchor22"></A> RESOURCE IDS</H2>
+For this command the notion of a resource id actually refers to two ideas in
+Macintosh resources. Every place you can use a  resource  Id  you  can  use
+either the resource name or a resource number. Names are always searched or
+returned in preference to numbers. For example, the resource  list  command
+will return names if they exist or numbers if the name is NULL.
+
+<H2><A NAME="anchor23"></A> RESOURCE ATTRIBUTES</H2>
+Resource maps and individual resources have attributes. The attributes  for
+resource maps are:
+<P><TABLE BORDER=1 CELLPADDING=1 WIDTH="100%">
+<TR><TD><I>mapChanged</I></TD><TD>32</TD><TD>Write map out at update </TD></TR>
+<TR><TD><I>mapCompact</I></TD><TD>64</TD><TD>Compact resource file when writing to disk </TD></TR>
+<TR><TD><I>mapReadOnly</I></TD><TD>128</TD><TD>Resource file is read-only </TD></TR>
+</TABLE></P>
+
+The attributes are additional values.  To  set  both  the  <I>mapReadOnly</I>  and
+<I>mapChanged</I>attributes for the resource map with reference <I>resourceRef</I>,  one
+would write:
+<PRE>
+ resource attributes <I>resourceRef</I> 160
+</PRE>
+
+The allowable attributes for individual resources are: 
+
+<P><TABLE BORDER=1 CELLPADDING=1 WIDTH="100%">
+<TR><TD><I>resChanged</I></TD><TD>2</TD><TD>Resource changed </TD></TR>
+<TR><TD><I>resPreload</I></TD><TD>4</TD><TD>Load in on OpenResFile </TD></TR>
+<TR><TD><I>resProtected</I></TD><TD>8</TD><TD>Protected </TD></TR>
+<TR><TD><I>resLocked</I></TD><TD>16</TD><TD>Load it in locked </TD></TR>
+<TR><TD><I>resPurgeable</I></TD><TD>32</TD><TD>Purgeable resource </TD></TR>
+<TR><TD><I>resSysHeap</I></TD><TD>64</TD><TD>System or application heap </TD></TR>
+</TABLE></P>
+
+<H2><A NAME="anchor24"></A> PORTABILITY ISSUES</H2>
+The resource command is only available on Macintosh. On systems older  than
+OSX, the resource command was built in Tcl but  it  was  removed  from  the
+versions of Tcl compiled for OSX. It is now made available as an  extension
+which should be loaded in the scripts with the following instruction:
+<PRE>
+ package require resource 1.1
+</PRE>
+
+Version 1.0 of the extension is simply a port to OSX of the old <B>resource</B>
+command: it does not handle data fork resource files. Support for data fork
+resource files is introduced in version 1.1. 
+
+<H2><A NAME="anchor25"></A> VERSION HISTORY</H2>
+<UL>
+	<LI> 1.0 - 03/09/25 -  First release of the extension for OSX.
+	<LI> 1.1 - 03/10/05 -  Support for data fork resources, attributes, update, name. 
+
+</UL>
+
+
+<H2><A NAME="anchor26"></A> KNOW ISSUES</H2>
+The resource command has been ported to OSX as a Tcl extension 
+by <A HREF="mailto:bdesgraupes@easyconnect.fr">Bernard Desgraupes</A>. Please e-mail any bug or problem you encounter: 
+<A HREF="mailto:bdesgraupes@easyconnect.fr">&lt;bdesgraupes@easyconnect.fr&gt;</A>
+
+<P> Version 1.0 corresponds strictly to the code provided in the Tcl source code
+(tclMacResource.c). Version 1.1 added several improvements: 
+<UL>
+	<LI> possibility of opening and writing to datafork resource files as well 
+  as resource fork resource files. 
+	<LI> new subcommand [resource attributes] to get/set the attributes of a resource 
+  map or an individual resource. 
+	<LI> new subcommand [resource update] to update a resource map without closing it. 
+	<LI> new subcommand [resource fork] to indicate which fork a resource map was opened from. 
+	<LI> new subcommands [resource name] and [resource id] returning the name of a resource 
+given its ID, and vice versa. 
+	<LI> new <I>-ids</I> option for the [resource list] command 
+
+</UL>
+
+The Tclresource folder (Tclresource1.0, Tclresource1.1  etc)  contains
+the extension compiled as a dynamic library. For the Tcl interpreter to
+find it  automatically,  it  should  be  located  on  your  system  in
+/Library/Tcl/ (administrator password required) or  in  your  personal
+folder ~/Library/Tcl/.
+
+<H2><A NAME="anchor27"></A> LICENSE AND DISCLAIMER</H2>
+This software is free software and distributed under the same licensing terms 
+as the Tcl language itself. See license.terms in the Tcl distribution.
+
+The original code of the resource command has the following copyright.
+<PRE>
+ Copyright © 1997 Sun Microsystems, Inc.
+ Copyright © 1995-1997 Roger E. Critchlow Jr.
+</PRE>
+For the Tclresource extension:
+<PRE>
+ Copyright © 2003 Bernard Desgraupes
+</PRE>
+
+<H2><A NAME="anchor28"></A> SOURCE CODE</H2>
+Tclresource is an Open Source Project. Its source code is public and can 
+be found on the SourceForge site at the following address:
+<A HREF="http://sourceforge.net/projects/tclresource">http://sourceforge.net/projects/tclresource</A>
+
+<P> Tclresource binary releases are available at
+<A HREF="http://sourceforge.net/project/showfiles.php?group_id=93101">http://sourceforge.net/project/showfiles.php?group_id=93101</A>
+ or on my web page at 
+<A HREF="http://webperso.easyconnect.fr/bdesgraupes/tcl.html">http://webperso.easyconnect.fr/bdesgraupes/tcl.html</A>
+
+<P> The code is under CVS control. You can retrieve the latest stage of 
+development using any CVS client. See instructions at:
+<A HREF="http://sourceforge.net/cvs/?group_id=93101">http://sourceforge.net/cvs/?group_id=93101</A>
+
+<P> You can browse the cvs repository online at
+<A HREF="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclresource">http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclresource</A>
+
+
+
+<H2><A NAME="anchor29"></A> SEE ALSO</H2>
+open 
+
+<H2><A NAME="anchor30"></A> KEYWORDS</H2>
+open, resource 
+
+
+
+
+
+
+</BODY>
+</HTML>

@@ -1,10 +1,10 @@
 /*
- * "$Id: rastertoepson.c,v 1.1.1.7 2002/12/24 00:07:05 jlovell Exp $"
+ * "$Id: rastertoepson.c,v 1.1.1.12 2005/01/04 19:16:03 jlovell Exp $"
  *
  *   EPSON ESC/P and ESC/P2 filter for the Common UNIX Printing System
  *   (CUPS).
  *
- *   Copyright 1993-2003 by Easy Software Products.
+ *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -16,9 +16,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -176,7 +176,7 @@ StartPage(const ppd_file_t         *ppd,	/* I - PPD file */
   {
     case EPSON_9PIN :
     case EPSON_24PIN :
-        printf("\033P");		/* Set 10 CPI */
+        printf("\033P\022");		/* Set 10 CPI */
 
 	if (header->HWResolution[0] == 360 || header->HWResolution[0] == 240)
 	{
@@ -194,6 +194,7 @@ StartPage(const ppd_file_t         *ppd,	/* I - PPD file */
 	printf("\033C%c%c", 0,		/* Page length */
                       (int)(header->PageSize[1] / 72.0 + 0.5));
 	printf("\033N%c", 0);		/* Bottom margin */
+        printf("\033O");		/* No perforation skip */
 
        /*
 	* Setup various buffer limits...
@@ -210,6 +211,7 @@ StartPage(const ppd_file_t         *ppd,	/* I - PPD file */
 	  {
 	    case 60:
 	    case 120 :
+	    case 240 :
         	printf("\033\063\030");	/* Set line feed */
 		break;
 
@@ -339,7 +341,10 @@ EndPage(const cups_page_header_t *header)	/* I - Page header */
     */
 
     if (!Shingling)
-      OutputRows(header, 0);
+    {
+      if (DotBit < 128 || EvenOffset)
+        OutputRows(header, 0);
+    }
     else if (OddOffset > EvenOffset)
     {
       OutputRows(header, 1);
@@ -730,7 +735,7 @@ OutputLine(const cups_page_header_t *header)	/* I - Page header */
 
         for (width = header->cupsWidth, tempptr = CompBuffer,
                  evenptr = LineBuffers[0] + EvenOffset;
-             width >= 0;
+             width > 0;
              width --, tempptr ++, evenptr += DotBytes)
           *evenptr = tempptr[0];
       }
@@ -866,10 +871,15 @@ OutputRows(const cups_page_header_t *header,	/* I - Page image header */
     * Position print head for printing...
     */
 
-    putchar(0x1b);
-    putchar('$');
-    putchar(i & 255);
-    putchar(i >> 8);
+    if (i == 0)
+      putchar('\r');
+    else
+    {
+      putchar(0x1b);
+      putchar('$');
+      putchar(i & 255);
+      putchar(i >> 8);
+    }
 
    /*
     * Start bitmap graphics for this line...
@@ -933,10 +943,15 @@ OutputRows(const cups_page_header_t *header,	/* I - Page image header */
       * Move the head back and print the odd bytes...
       */
 
-      putchar(0x1b);
-      putchar('$');
-      putchar(i & 255);
-      putchar(i >> 8);
+      if (i == 0)
+	putchar('\r');
+      else
+      {
+	putchar(0x1b);
+	putchar('$');
+	putchar(i & 255);
+	putchar(i >> 8);
+      }
 
       if (header->HWResolution[0] == 120)
       	printf("\033*\001");		/* Select bit image */
@@ -1133,5 +1148,5 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: rastertoepson.c,v 1.1.1.7 2002/12/24 00:07:05 jlovell Exp $".
+ * End of "$Id: rastertoepson.c,v 1.1.1.12 2005/01/04 19:16:03 jlovell Exp $".
  */

@@ -142,6 +142,7 @@ privilege can change the value.
 .It kern.vdisable	integer	no
 .It kern.boottime	struct	no
 .It vm.loadavg	struct	no
+.It vm.swapusage	struct	no
 .It machdep.console_device	dev_t	no
 .It net.inet.ip.forwarding	integer	yes
 .It net.inet.ip.redirect	integer	yes
@@ -214,9 +215,14 @@ Information about the system clock rate may be obtained with:
 sysctl kern.clockrate
 .Ed
 .Pp
-Information about the load average history may be obtained with
+Information about the load average history may be obtained with:
 .Bd -literal -offset indent -compact
 sysctl vm.loadavg
+.Ed
+.Pp
+Information about the system's swap space usage may be obtained with:
+.Bd -literal -offset indent -compact
+sysctl vm.swapusage
 .Ed
 .Sh FILES
 .Bl -tag -width <netinet/icmpXvar.h> -compact

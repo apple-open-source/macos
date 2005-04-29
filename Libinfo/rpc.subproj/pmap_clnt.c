@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)pmap_clnt.c 1.37 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)pmap_clnt.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: pmap_clnt.c,v 1.4 2002/02/19 20:36:23 epeyton Exp $";
+static char *rcsid = "$Id: pmap_clnt.c,v 1.5 2004/12/19 22:45:44 zarzycki Exp $";
 #endif
 
 /*
@@ -73,6 +73,8 @@ static char *rcsid = "$Id: pmap_clnt.c,v 1.4 2002/02/19 20:36:23 epeyton Exp $";
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+
+#include "pmap_wakeup.h"
 
 static struct timeval timeout = { 5, 0 };
 static struct timeval tottimeout = { 60, 0 };
@@ -96,6 +98,8 @@ pmap_set(program, version, protocol, port)
 	register CLIENT *client;
 	struct pmap parms;
 	bool_t rslt;
+
+	pmap_wakeup();
 
 	memset(&myaddress, 0, sizeof(struct sockaddr_in));
 	myaddress.sin_family = AF_INET;
@@ -133,6 +137,8 @@ pmap_unset(program, version)
 	register CLIENT *client;
 	struct pmap parms;
 	bool_t rslt;
+
+	pmap_wakeup();
 
 	memset(&myaddress, 0, sizeof(struct sockaddr_in));
 	myaddress.sin_family = AF_INET;

@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)putc.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/putc.c,v 1.11 2002/08/13 09:30:41 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/putc.c,v 1.13 2004/03/19 09:04:56 tjr Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -46,14 +46,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/putc.c,v 1.11 2002/08/13 09:30:41 tjr Exp
 #include "local.h"
 #include "libc_private.h"
 
-/*
- * putc has traditionally been a macro in <stdio.h>.  That is no
- * longer true because POSIX requires it to be thread-safe.  POSIX
- * does define putc_unlocked() which is defined as a macro and is
- * probably what you want to use instead.
- *
- * #undef putc
- */
+#undef putc
+
 int
 putc(c, fp)
 	int c;
@@ -61,7 +55,8 @@ putc(c, fp)
 {
 	int retval;
 	FLOCKFILE(fp);
-	ORIENT(fp, -1);
+	/* Orientation set by __sputc() when buffer is full. */
+	/* ORIENT(fp, -1); */
 	retval = __sputc(c, fp);
 	FUNLOCKFILE(fp);
 	return (retval);

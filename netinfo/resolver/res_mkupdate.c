@@ -20,9 +20,11 @@
  * <viraj_bais@ccm.fm.intel.com>
  */
 
+#ifndef __APPLE__
 #if !defined(lint) && !defined(SABER)
-static const char rcsid[] = "$Id: res_mkupdate.c,v 1.2 2003/02/18 16:52:07 majka Exp $";
+static const char rcsid[] = "$Id: res_mkupdate.c,v 1.3 2003/10/16 22:13:09 majka Exp $";
 #endif /* not lint */
+#endif
 
 #ifndef __APPLE__
 #include "port_before.h"

@@ -1,34 +1,22 @@
 /* time.c - deal with time subsystem */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/time.c,v 1.17.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This work has beed deveolped for the OpenLDAP Foundation 
- * in the hope that it may be useful to the Open Source community, 
- * but WITHOUT ANY WARRANTY.
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from
- *    flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- * 
- * 4. This notice may not be removed or altered.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Pierangelo Masarati for inclusion
+ * in OpenLDAP Software.
  */
 
 #include "portable.h"
@@ -43,11 +31,6 @@
 #include "proto-slap.h"
 #include "back-monitor.h"
 
-#ifdef HACK_LOCAL_TIME
-static int
-local_time( const struct tm *ztm, long delta, char *buf, size_t len );
-#endif /* HACK_LOCAL_TIME */
-
 int
 monitor_subsys_time_init(
 	BackendDB		*be
@@ -57,13 +40,7 @@ monitor_subsys_time_init(
 	
 	Entry			*e, *e_tmp, *e_time;
 	struct monitorentrypriv	*mp;
-	char			buf[1024];
-	struct tm		*tms;
-	char			tmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
-
-	/*
-	 * Note: ltmbuf, ltm are used only if HACK_LOCAL_TIME is defined
-	 */
+	char			buf[ BACKMONITOR_BUFSIZE ];
 
 	assert( be != NULL );
 
@@ -88,25 +65,21 @@ monitor_subsys_time_init(
 
 	e_tmp = NULL;
 
-	/*
-	 * Start
-	 */
-	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
-#ifdef HACK_LOCAL_TIME
-	tms = localtime( &starttime );
-	local_time( tms, -timezone, tmbuf, sizeof( tmbuf ) );
-#else /* !HACK_LOCAL_TIME */
-	tms = gmtime( &starttime );
-	lutil_gentime( tmbuf, sizeof(tmbuf), tms );
-#endif /* !HACK_LOCAL_TIME */
-	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
 	snprintf( buf, sizeof( buf ),
 			"dn: cn=Start,%s\n"
-			SLAPD_MONITOR_OBJECTCLASSES
+			"objectClass: %s\n"
+			"structuralObjectClass: %s\n"
 			"cn: Start\n"
-			"createTimestamp: %s", 
+			"%s: %s\n"
+			"createTimestamp: %s\n"
+			"modifyTimestamp: %s\n", 
 			monitor_subsys[SLAPD_MONITOR_TIME].mss_dn.bv_val,
-			tmbuf );
+			mi->mi_oc_monitoredObject->soc_cname.bv_val,
+			mi->mi_oc_monitoredObject->soc_cname.bv_val,
+			mi->mi_ad_monitorTimestamp->ad_cname.bv_val,
+			mi->mi_startTime.bv_val,
+			mi->mi_startTime.bv_val,
+			mi->mi_startTime.bv_val );
 
 	e = str2entry( buf );
 	if ( e == NULL ) {
@@ -156,12 +129,19 @@ monitor_subsys_time_init(
 	 */
 	snprintf( buf, sizeof( buf ),
 			"dn: cn=Current,%s\n"
-			SLAPD_MONITOR_OBJECTCLASSES
+			"objectClass: %s\n"
+			"structuralObjectClass: %s\n"
 			"cn: Current\n"
+			"%s: %s\n"
 			"createTimestamp: %s\n"
-			"modifyTimestamp: %s",
+			"modifyTimestamp: %s\n",
 			monitor_subsys[SLAPD_MONITOR_TIME].mss_dn.bv_val,
-			tmbuf, tmbuf );
+			mi->mi_oc_monitoredObject->soc_cname.bv_val,
+			mi->mi_oc_monitoredObject->soc_cname.bv_val,
+			mi->mi_ad_monitorTimestamp->ad_cname.bv_val,
+			mi->mi_startTime.bv_val,
+			mi->mi_startTime.bv_val,
+			mi->mi_startTime.bv_val );
 
 	e = str2entry( buf );
 	if ( e == NULL ) {
@@ -179,7 +159,7 @@ monitor_subsys_time_init(
 #endif
 		return( -1 );
 	}
-	
+
 	mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
 	e->e_private = ( void * )mp;
 	mp->mp_next = e_tmp;
@@ -216,119 +196,61 @@ monitor_subsys_time_init(
 
 int
 monitor_subsys_time_update(
-	struct monitorinfo      *mi,
+	Operation		*op,
 	Entry                   *e
 )
 {
-	char		stmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ],
-			ctmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
-	struct tm	*stm, *ctm;
-	Attribute	*a;
-	ber_len_t	len;
-
-	static int	init_start = 0, init_current = 0;
-#define ENTRY_TIME	0
-#define ENTRY_START	1
-#define ENTRY_CURRENT	2
-	int		entry = ENTRY_TIME;
+	struct monitorinfo *mi = (struct monitorinfo *)op->o_bd->be_private;
 
 	assert( mi );
 	assert( e );
 	
-	if ( strncmp( e->e_nname.bv_val, "cn=start", 
-				sizeof("cn=start")-1 ) == 0 ) {
-		entry = ENTRY_START;
-		if ( init_start == 1 ) {
-			return( 0 );
-		}
+	if ( strncmp( e->e_nname.bv_val, "cn=current",
+				sizeof("cn=current") - 1 ) == 0 ) {
+		struct tm	*tm;
+#ifdef HAVE_GMTIME_R
+		struct tm	tm_buf;
+#endif
+		char		tmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
+		Attribute	*a;
+		ber_len_t	len;
+		time_t		currtime;
 
-	} else if ( strncmp( e->e_nname.bv_val, "cn=current",
-				sizeof("cn=current")-1 ) == 0 ) {
-		entry = ENTRY_CURRENT;
-	}
-	
-	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
-	if ( init_start == 0 ) {
+		currtime = slap_get_time();
+
+#ifndef HAVE_GMTIME_R
+		ldap_pvt_thread_mutex_lock( &gmtime_mutex );
+#endif
 #ifdef HACK_LOCAL_TIME
-		stm = localtime( &starttime );
-		local_time( stm, -timezone, stmbuf, sizeof( stmbuf ) );
+# ifdef HAVE_LOCALTIME_R
+		tm = localtime_r( &currtime, &tm_buf );
+# else
+		tm = localtime( &currtime );
+# endif /* HAVE_LOCALTIME_R */
+		lutil_localtime( tmbuf, sizeof( tmbuf ), tm, -timezone );
 #else /* !HACK_LOCAL_TIME */
-		stm = gmtime( &starttime );
-		lutil_gentime( stmbuf, sizeof( stmbuf ), stm );
+# ifdef HAVE_GMTIME_R
+		tm = gmtime_r( &currtime, &tm_buf );
+# else
+		tm = gmtime( &currtime );
+# endif /* HAVE_GMTIME_R */
+		lutil_gentime( tmbuf, sizeof( tmbuf ), tm );
 #endif /* !HACK_LOCAL_TIME */
-	}
+#ifndef HAVE_GMTIME_R
+		ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
+#endif
 
-	if ( entry == ENTRY_CURRENT ) {
-		time_t currentTime = slap_get_time();
-#ifdef HACK_LOCAL_TIME
-		ctm = localtime( &currentTime );
-		local_time( ctm, -timezone, ctmbuf, sizeof( ctmbuf ) );
-#else /* !HACK_LOCAL_TIME */
-		ctm = gmtime( &currentTime );
-		lutil_gentime( ctmbuf, sizeof( ctmbuf ), ctm );
-#endif /* !HACK_LOCAL_TIME */
-	}
-	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
+		len = strlen( tmbuf );
 
-	if ( ( entry == ENTRY_START && init_start == 0 ) 
-			|| ( entry == ENTRY_CURRENT && init_current == 0 ) ) {
-		a = attr_find( e->e_attrs, slap_schema.si_ad_createTimestamp );
+		a = attr_find( e->e_attrs, mi->mi_ad_monitorTimestamp );
 		if ( a == NULL ) {
 			return( -1 );
 		}
 
-		len = strlen( stmbuf );
 		assert( len == a->a_vals[0].bv_len );
-		AC_MEMCPY( a->a_vals[0].bv_val, stmbuf, len );
-
-		if ( entry == ENTRY_START ) {
-			init_start = 1;
-		} else if ( entry == ENTRY_CURRENT ) {
-			init_current = 1;
-		}
-	}
-
-	if ( entry == ENTRY_CURRENT ) {
-		a = attr_find( e->e_attrs, slap_schema.si_ad_modifyTimestamp );
-		if ( a == NULL ) {
-			return( -1 );
-		}
-
-		len = strlen( ctmbuf );
-		assert( len == a->a_vals[0].bv_len );
-		AC_MEMCPY( a->a_vals[0].bv_val, ctmbuf, len );
+		AC_MEMCPY( a->a_vals[0].bv_val, tmbuf, len );
 	}
 
 	return( 0 );
 }
-
-#ifdef HACK_LOCAL_TIME
-/*
- * assumes gmtime_mutex is locked
- */
-static int
-local_time( const struct tm *ltm, long delta, char *buf, size_t len )
-{
-	char *p;
-
-	if ( len < 20 ) {
-		return -1;
-	}
-	strftime( buf, len, "%Y%m%d%H%M%S", ltm );
-
-	p = buf + 14;
-
-	if ( delta < 0 ) {
-		p[ 0 ] = '-';
-		delta = -delta;
-	} else {
-		p[ 0 ] = '+';
-	}
-	p++;
-
-	snprintf( p, len - 15, "%02ld%02ld", delta / 3600, delta % 3600 );
-	
-	return 0;
-}
-#endif /* HACK_LOCAL_TIME */
 

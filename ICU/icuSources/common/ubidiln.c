@@ -1,7 +1,7 @@
 /*  
 ******************************************************************************
 *
-*   Copyright (C) 1999-2001, International Business Machines
+*   Copyright (C) 1999-2003, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -76,21 +76,38 @@
  * change the now shared levels for (L1).
  */
 
-/* prototypes --------------------------------------------------------------- */
+/* handle trailing WS (L1) -------------------------------------------------- */
 
+/*
+ * setTrailingWSStart() sets the start index for a trailing
+ * run of WS in the line. This is necessary because we do not modify
+ * the paragraph's levels array that we just point into.
+ * Using trailingWSStart is another form of performing (L1).
+ *
+ * To make subsequent operations easier, we also include the run
+ * before the WS if it is at the paraLevel - we merge the two here.
+ */
 static void
-setTrailingWSStart(UBiDi *pBiDi);
+setTrailingWSStart(UBiDi *pBiDi) {
+    /* pBiDi->direction!=UBIDI_MIXED */
 
-static void
-getSingleRun(UBiDi *pBiDi, UBiDiLevel level);
+    const DirProp *dirProps=pBiDi->dirProps;
+    UBiDiLevel *levels=pBiDi->levels;
+    int32_t start=pBiDi->length;
+    UBiDiLevel paraLevel=pBiDi->paraLevel;
 
-static void
-reorderLine(UBiDi *pBiDi, UBiDiLevel minLevel, UBiDiLevel maxLevel);
+    /* go backwards across all WS, BN, explicit codes */
+    while(start>0 && DIRPROP_FLAG(dirProps[start-1])&MASK_WS) {
+        --start;
+    }
 
-static UBool
-prepareReorder(const UBiDiLevel *levels, int32_t length,
-               int32_t *indexMap,
-               UBiDiLevel *pMinLevel, UBiDiLevel *pMaxLevel);
+    /* if the WS run can be merged with the previous run then do so here */
+    while(start>0 && levels[start-1]==paraLevel) {
+        --start;
+    }
+
+    pBiDi->trailingWSStart=start;
+}
 
 /* ubidi_setLine ------------------------------------------------------------ */
 
@@ -295,39 +312,6 @@ ubidi_getLogicalRun(const UBiDi *pBiDi, int32_t logicalStart,
     }
 }
 
-/* handle trailing WS (L1) -------------------------------------------------- */
-
-/*
- * setTrailingWSStart() sets the start index for a trailing
- * run of WS in the line. This is necessary because we do not modify
- * the paragraph's levels array that we just point into.
- * Using trailingWSStart is another form of performing (L1).
- *
- * To make subsequent operations easier, we also include the run
- * before the WS if it is at the paraLevel - we merge the two here.
- */
-static void
-setTrailingWSStart(UBiDi *pBiDi) {
-    /* pBiDi->direction!=UBIDI_MIXED */
-
-    const DirProp *dirProps=pBiDi->dirProps;
-    UBiDiLevel *levels=pBiDi->levels;
-    int32_t start=pBiDi->length;
-    UBiDiLevel paraLevel=pBiDi->paraLevel;
-
-    /* go backwards across all WS, BN, explicit codes */
-    while(start>0 && DIRPROP_FLAG(dirProps[start-1])&MASK_WS) {
-        --start;
-    }
-
-    /* if the WS run can be merged with the previous run then do so here */
-    while(start>0 && levels[start-1]==paraLevel) {
-        --start;
-    }
-
-    pBiDi->trailingWSStart=start;
-}
-
 /* runs API functions ------------------------------------------------------- */
 
 U_CAPI int32_t U_EXPORT2
@@ -365,140 +349,6 @@ ubidi_getVisualRun(UBiDi *pBiDi, int32_t runIndex,
         }
         return (UBiDiDirection)GET_ODD_BIT(start);
     }
-}
-
-/* compute the runs array --------------------------------------------------- */
-
-/*
- * Compute the runs array from the levels array.
- * After ubidi_getRuns() returns TRUE, runCount is guaranteed to be >0
- * and the runs are reordered.
- * Odd-level runs have visualStart on their visual right edge and
- * they progress visually to the left.
- */
-U_CFUNC UBool
-ubidi_getRuns(UBiDi *pBiDi) {
-    if(pBiDi->direction!=UBIDI_MIXED) {
-        /* simple, single-run case - this covers length==0 */
-        getSingleRun(pBiDi, pBiDi->paraLevel);
-    } else /* UBIDI_MIXED, length>0 */ {
-        /* mixed directionality */
-        int32_t length=pBiDi->length, limit;
-
-        /*
-         * If there are WS characters at the end of the line
-         * and the run preceding them has a level different from
-         * paraLevel, then they will form their own run at paraLevel (L1).
-         * Count them separately.
-         * We need some special treatment for this in order to not
-         * modify the levels array which a line UBiDi object shares
-         * with its paragraph parent and its other line siblings.
-         * In other words, for the trailing WS, it may be
-         * levels[]!=paraLevel but we have to treat it like it were so.
-         */
-        limit=pBiDi->trailingWSStart;
-        if(limit==0) {
-            /* there is only WS on this line */
-            getSingleRun(pBiDi, pBiDi->paraLevel);
-        } else {
-            UBiDiLevel *levels=pBiDi->levels;
-            int32_t i, runCount;
-            UBiDiLevel level=UBIDI_DEFAULT_LTR;   /* initialize with no valid level */
-
-            /* count the runs, there is at least one non-WS run, and limit>0 */
-            runCount=0;
-            for(i=0; i<limit; ++i) {
-                /* increment runCount at the start of each run */
-                if(levels[i]!=level) {
-                    ++runCount;
-                    level=levels[i];
-                }
-            }
-
-            /*
-             * We don't need to see if the last run can be merged with a trailing
-             * WS run because setTrailingWSStart() would have done that.
-             */
-            if(runCount==1 && limit==length) {
-                /* There is only one non-WS run and no trailing WS-run. */
-                getSingleRun(pBiDi, levels[0]);
-            } else /* runCount>1 || limit<length */ {
-                /* allocate and set the runs */
-                Run *runs;
-                int32_t runIndex, start;
-                UBiDiLevel minLevel=UBIDI_MAX_EXPLICIT_LEVEL+1, maxLevel=0;
-
-                /* now, count a (non-mergable) WS run */
-                if(limit<length) {
-                    ++runCount;
-                }
-
-                /* runCount>1 */
-                if(getRunsMemory(pBiDi, runCount)) {
-                    runs=pBiDi->runsMemory;
-                } else {
-                    return FALSE;
-                }
-
-                /* set the runs */
-                /* this could be optimized, e.g.: 464->444, 484->444, 575->555, 595->555 */
-                /* however, that would take longer and make other functions more complicated */
-                runIndex=0;
-
-                /* search for the run limits and initialize visualLimit values with the run lengths */
-                i=0;
-                do {
-                    /* prepare this run */
-                    start=i;
-                    level=levels[i];
-                    if(level<minLevel) {
-                        minLevel=level;
-                    }
-                    if(level>maxLevel) {
-                        maxLevel=level;
-                    }
-
-                    /* look for the run limit */
-                    while(++i<limit && levels[i]==level) {}
-
-                    /* i is another run limit */
-                    runs[runIndex].logicalStart=start;
-                    runs[runIndex].visualLimit=i-start;
-                    ++runIndex;
-                } while(i<limit);
-
-                if(limit<length) {
-                    /* there is a separate WS run */
-                    runs[runIndex].logicalStart=limit;
-                    runs[runIndex].visualLimit=length-limit;
-                    if(pBiDi->paraLevel<minLevel) {
-                        minLevel=pBiDi->paraLevel;
-                    }
-                }
-
-                /* set the object fields */
-                pBiDi->runs=runs;
-                pBiDi->runCount=runCount;
-
-                reorderLine(pBiDi, minLevel, maxLevel);
-
-                /* now add the direction flags and adjust the visualLimit's to be just that */
-                ADD_ODD_BIT_FROM_LEVEL(runs[0].logicalStart, levels[runs[0].logicalStart]);
-                limit=runs[0].visualLimit;
-                for(i=1; i<runIndex; ++i) {
-                    ADD_ODD_BIT_FROM_LEVEL(runs[i].logicalStart, levels[runs[i].logicalStart]);
-                    limit=runs[i].visualLimit+=limit;
-                }
-
-                /* same for the trailing WS run */
-                if(runIndex<runCount) {
-                    ADD_ODD_BIT_FROM_LEVEL(runs[i].logicalStart, pBiDi->paraLevel);
-                    runs[runIndex].visualLimit+=limit;
-                }
-            }
-        }
-    }
-    return TRUE;
 }
 
 /* in trivial cases there is only one trivial run; called by ubidi_getRuns() */
@@ -639,6 +489,182 @@ reorderLine(UBiDi *pBiDi, UBiDiLevel minLevel, UBiDiLevel maxLevel) {
     }
 }
 
+/* compute the runs array --------------------------------------------------- */
+
+/*
+ * Compute the runs array from the levels array.
+ * After ubidi_getRuns() returns TRUE, runCount is guaranteed to be >0
+ * and the runs are reordered.
+ * Odd-level runs have visualStart on their visual right edge and
+ * they progress visually to the left.
+ */
+U_CFUNC UBool
+ubidi_getRuns(UBiDi *pBiDi) {
+    if(pBiDi->direction!=UBIDI_MIXED) {
+        /* simple, single-run case - this covers length==0 */
+        getSingleRun(pBiDi, pBiDi->paraLevel);
+    } else /* UBIDI_MIXED, length>0 */ {
+        /* mixed directionality */
+        int32_t length=pBiDi->length, limit;
+
+        /*
+         * If there are WS characters at the end of the line
+         * and the run preceding them has a level different from
+         * paraLevel, then they will form their own run at paraLevel (L1).
+         * Count them separately.
+         * We need some special treatment for this in order to not
+         * modify the levels array which a line UBiDi object shares
+         * with its paragraph parent and its other line siblings.
+         * In other words, for the trailing WS, it may be
+         * levels[]!=paraLevel but we have to treat it like it were so.
+         */
+        limit=pBiDi->trailingWSStart;
+        if(limit==0) {
+            /* there is only WS on this line */
+            getSingleRun(pBiDi, pBiDi->paraLevel);
+        } else {
+            UBiDiLevel *levels=pBiDi->levels;
+            int32_t i, runCount;
+            UBiDiLevel level=UBIDI_DEFAULT_LTR;   /* initialize with no valid level */
+
+            /* count the runs, there is at least one non-WS run, and limit>0 */
+            runCount=0;
+            for(i=0; i<limit; ++i) {
+                /* increment runCount at the start of each run */
+                if(levels[i]!=level) {
+                    ++runCount;
+                    level=levels[i];
+                }
+            }
+
+            /*
+             * We don't need to see if the last run can be merged with a trailing
+             * WS run because setTrailingWSStart() would have done that.
+             */
+            if(runCount==1 && limit==length) {
+                /* There is only one non-WS run and no trailing WS-run. */
+                getSingleRun(pBiDi, levels[0]);
+            } else /* runCount>1 || limit<length */ {
+                /* allocate and set the runs */
+                Run *runs;
+                int32_t runIndex, start;
+                UBiDiLevel minLevel=UBIDI_MAX_EXPLICIT_LEVEL+1, maxLevel=0;
+
+                /* now, count a (non-mergable) WS run */
+                if(limit<length) {
+                    ++runCount;
+                }
+
+                /* runCount>1 */
+                if(getRunsMemory(pBiDi, runCount)) {
+                    runs=pBiDi->runsMemory;
+                } else {
+                    return FALSE;
+                }
+
+                /* set the runs */
+                /* this could be optimized, e.g.: 464->444, 484->444, 575->555, 595->555 */
+                /* however, that would take longer and make other functions more complicated */
+                runIndex=0;
+
+                /* search for the run limits and initialize visualLimit values with the run lengths */
+                i=0;
+                do {
+                    /* prepare this run */
+                    start=i;
+                    level=levels[i];
+                    if(level<minLevel) {
+                        minLevel=level;
+                    }
+                    if(level>maxLevel) {
+                        maxLevel=level;
+                    }
+
+                    /* look for the run limit */
+                    while(++i<limit && levels[i]==level) {}
+
+                    /* i is another run limit */
+                    runs[runIndex].logicalStart=start;
+                    runs[runIndex].visualLimit=i-start;
+                    ++runIndex;
+                } while(i<limit);
+
+                if(limit<length) {
+                    /* there is a separate WS run */
+                    runs[runIndex].logicalStart=limit;
+                    runs[runIndex].visualLimit=length-limit;
+                    if(pBiDi->paraLevel<minLevel) {
+                        minLevel=pBiDi->paraLevel;
+                    }
+                }
+
+                /* set the object fields */
+                pBiDi->runs=runs;
+                pBiDi->runCount=runCount;
+
+                reorderLine(pBiDi, minLevel, maxLevel);
+
+                /* now add the direction flags and adjust the visualLimit's to be just that */
+                ADD_ODD_BIT_FROM_LEVEL(runs[0].logicalStart, levels[runs[0].logicalStart]);
+                limit=runs[0].visualLimit;
+
+                /* this loop will also handle the trailing WS run */
+                for(i=1; i<runCount; ++i) {
+                    ADD_ODD_BIT_FROM_LEVEL(runs[i].logicalStart, levels[runs[i].logicalStart]);
+                    limit=runs[i].visualLimit+=limit;
+                }
+
+                /* Set the "odd" bit for the trailing WS run. */
+                /* For a RTL paragraph, it will be the *first* run in visual order. */
+                if(runIndex<runCount) {
+                    int32_t trailingRun = ((pBiDi->paraLevel & 1) != 0)? 0 : runIndex;
+
+                    ADD_ODD_BIT_FROM_LEVEL(runs[trailingRun].logicalStart, pBiDi->paraLevel);
+                }
+            }
+        }
+    }
+    return TRUE;
+}
+
+static UBool
+prepareReorder(const UBiDiLevel *levels, int32_t length,
+               int32_t *indexMap,
+               UBiDiLevel *pMinLevel, UBiDiLevel *pMaxLevel) {
+    int32_t start;
+    UBiDiLevel level, minLevel, maxLevel;
+
+    if(levels==NULL || length<=0) {
+        return FALSE;
+    }
+
+    /* determine minLevel and maxLevel */
+    minLevel=UBIDI_MAX_EXPLICIT_LEVEL+1;
+    maxLevel=0;
+    for(start=length; start>0;) {
+        level=levels[--start];
+        if(level>UBIDI_MAX_EXPLICIT_LEVEL+1) {
+            return FALSE;
+        }
+        if(level<minLevel) {
+            minLevel=level;
+        }
+        if(level>maxLevel) {
+            maxLevel=level;
+        }
+    }
+    *pMinLevel=minLevel;
+    *pMaxLevel=maxLevel;
+
+    /* initialize the index map */
+    for(start=length; start>0;) {
+        --start;
+        indexMap[start]=start;
+    }
+
+    return TRUE;
+}
+
 /* reorder a line based on a levels array (L2) ------------------------------ */
 
 U_CAPI void U_EXPORT2
@@ -762,44 +788,6 @@ ubidi_reorderVisual(const UBiDiLevel *levels, int32_t length, int32_t *indexMap)
             }
         }
     } while(--maxLevel>=minLevel);
-}
-
-static UBool
-prepareReorder(const UBiDiLevel *levels, int32_t length,
-               int32_t *indexMap,
-               UBiDiLevel *pMinLevel, UBiDiLevel *pMaxLevel) {
-    int32_t start;
-    UBiDiLevel level, minLevel, maxLevel;
-
-    if(levels==NULL || length<=0) {
-        return FALSE;
-    }
-
-    /* determine minLevel and maxLevel */
-    minLevel=UBIDI_MAX_EXPLICIT_LEVEL+1;
-    maxLevel=0;
-    for(start=length; start>0;) {
-        level=levels[--start];
-        if(level>UBIDI_MAX_EXPLICIT_LEVEL+1) {
-            return FALSE;
-        }
-        if(level<minLevel) {
-            minLevel=level;
-        }
-        if(level>maxLevel) {
-            maxLevel=level;
-        }
-    }
-    *pMinLevel=minLevel;
-    *pMaxLevel=maxLevel;
-
-    /* initialize the index map */
-    for(start=length; start>0;) {
-        --start;
-        indexMap[start]=start;
-    }
-
-    return TRUE;
 }
 
 /* API functions for logical<->visual mapping ------------------------------- */

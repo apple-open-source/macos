@@ -69,7 +69,7 @@ extern int target_flags;
 #define MASK_68881	2
 #define TARGET_68881 (target_flags & MASK_68881)
 
-/* Compile using 68020 bitfield insns.  */
+/* Compile using 68020 bit-field insns.  */
 #define MASK_BITFIELD	4
 #define TARGET_BITFIELD (target_flags & MASK_BITFIELD)
 
@@ -277,15 +277,7 @@ extern int target_flags;
    Don't use this macro to turn on various extra optimizations for
    `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
 
-#define OVERRIDE_OPTIONS		\
-{					\
-  override_options();			\
-  if (! TARGET_68020 && flag_pic == 2)	\
-    error("-fPIC is not currently supported on the 68000 or 68010\n");	\
-  if (TARGET_PCREL && flag_pic == 0)	\
-    flag_pic = 1;			\
-  SUBTARGET_OVERRIDE_OPTIONS;		\
-}
+#define OVERRIDE_OPTIONS   override_options()
 
 /* These are meant to be redefined in the host dependent files */
 #define SUBTARGET_SWITCHES
@@ -294,14 +286,13 @@ extern int target_flags;
 
 /* target machine storage layout */
 
-/* Define for XFmode extended real floating point support.
-   This will automatically cause REAL_ARITHMETIC to be defined.  */
+/* Define for XFmode extended real floating point support.  */
 #define LONG_DOUBLE_TYPE_SIZE 96
 
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-/* #define REAL_ARITHMETIC */
+/* Set the value of FLT_EVAL_METHOD in float.h.  When using 68040 fp
+   instructions, we get proper intermediate rounding, otherwise we 
+   get extended precision results.  */
+#define TARGET_FLT_EVAL_METHOD (TARGET_68040_ONLY ? 0 : 2)
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
@@ -321,21 +312,8 @@ extern int target_flags;
    So let's be consistent.  */
 #define WORDS_BIG_ENDIAN 1
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_SHORT ? 16 : 32)
@@ -368,16 +346,6 @@ extern int target_flags;
 
 /* This is how to align an instruction for optimal branching.  */
 #define LABEL_ALIGN_AFTER_BARRIER(LABEL) (m68k_align_jumps)
-
-#define SELECT_RTX_SECTION(MODE, X, ALIGN)				\
-{									\
-  if (!flag_pic)							\
-    readonly_data_section();						\
-  else if (LEGITIMATE_PIC_OPERAND_P (X))				\
-    readonly_data_section();						\
-  else									\
-    data_section();							\
-}
 
 /* Define number of bits in most basic integer type.
    (If undefined, default is BITS_PER_WORD).  */
@@ -1570,6 +1538,12 @@ __transfer_from_trampoline ()					\
   case SYMBOL_REF:						\
     return 3;							\
   case CONST_DOUBLE:						\
+    /* Make 0.0 cheaper than other floating constants to	\
+       encourage creating tstsf and tstdf insns.  */		\
+    if ((OUTER_CODE) == COMPARE					\
+        && ((RTX) == CONST0_RTX (SFmode)			\
+	    || (RTX) == CONST0_RTX (DFmode)))			\
+      return 4;							\
     return 5;
 
 /* Compute the cost of various arithmetic operations.
@@ -1691,6 +1665,8 @@ __transfer_from_trampoline ()					\
 
 #define DATA_SECTION_ASM_OP "\t.data"
 
+#define GLOBAL_ASM_OP "\t.globl\t"
+
 /* Here are four prefixes that are used by asm_fprintf to
    facilitate customization for alternate assembler syntaxes.
    Machines with no likelihood of an alternate syntax need not
@@ -1758,20 +1734,23 @@ __transfer_from_trampoline ()					\
 /* Before the prologue, the top of the frame is at 4(%sp).  */
 #define INCOMING_FRAME_SP_OFFSET 4
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
+/* Describe how we implement __builtin_eh_return.  */
+#define EH_RETURN_DATA_REGNO(N) \
+  ((N) < 2 ? (N) : INVALID_REGNUM)
+#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, 8)
+#define EH_RETURN_HANDLER_RTX					    \
+  gen_rtx_MEM (Pmode,						    \
+	       gen_rtx_PLUS (Pmode, arg_pointer_rtx,		    \
+			     plus_constant (EH_RETURN_STACKADJ_RTX, \
+					    UNITS_PER_WORD)))
 
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define GLOBAL_ASM_OP "\t.globl\t"
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fprintf (FILE, "%s", GLOBAL_ASM_OP);		\
-       assemble_name (FILE, NAME);			\
-       fputs ("\n", FILE);} while (0)
+/* Select a format to encode pointers in exception handling data.  CODE
+   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
+   true if the symbol may be affected by dynamic relocations.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)       		   \
+  (flag_pic								   \
+   ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4 \
+   : DW_EH_PE_absptr)
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
@@ -1862,7 +1841,7 @@ __transfer_from_trampoline ()					\
       if (CODE == 'f')						\
         {							\
           char dstr[30];					\
-          REAL_VALUE_TO_DECIMAL (VALUE, "%.9g", dstr);		\
+      	  real_to_decimal (dstr, &(VALUE), sizeof (dstr), 9, 0); \
           asm_fprintf ((FILE), "%I0r%s", dstr);			\
         }							\
       else							\
@@ -1877,7 +1856,7 @@ __transfer_from_trampoline ()					\
    This macro is a 68k-specific macro.  */
 #define ASM_OUTPUT_DOUBLE_OPERAND(FILE,VALUE)				\
  do { char dstr[30];							\
-      REAL_VALUE_TO_DECIMAL (VALUE, "%.20g", dstr);			\
+      real_to_decimal (dstr, &(VALUE), sizeof (dstr), 0, 1);		\
       asm_fprintf (FILE, "%I0r%s", dstr);				\
     } while (0)
 
@@ -1885,7 +1864,7 @@ __transfer_from_trampoline ()					\
    generated by m68k.md.  */
 #define ASM_OUTPUT_LONG_DOUBLE_OPERAND(FILE,VALUE)			\
  do { char dstr[30];							\
-      REAL_VALUE_TO_DECIMAL (VALUE, "%.20g", dstr);			\
+      real_to_decimal (dstr, &(VALUE), sizeof (dstr), 0, 1);		\
       asm_fprintf (FILE, "%I0r%s", dstr);				\
     } while (0)
 
@@ -1952,12 +1931,7 @@ __transfer_from_trampoline ()					\
 
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
-   reference whose address is ADDR.  ADDR is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on
-   the section that the address refers to.  On these machines,
-   define the macro `ENCODE_SECTION_INFO' to store the information
-   into the `symbol_ref', and then check for it here.  */
+   reference whose address is ADDR.  ADDR is an RTL expression.  */
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
@@ -1970,6 +1944,21 @@ extern int m68k_align_jumps;
 extern int m68k_align_funcs;
 extern int m68k_last_compare_had_fp_operands;
 
+
+/* Define the codes that are matched by predicates in m68k.c.  */
+
+#define PREDICATE_CODES							\
+  {"general_src_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
+			   LABEL_REF, SUBREG, REG, MEM}},		\
+  {"nonimmediate_src_operand", {SUBREG, REG, MEM}},			\
+  {"memory_src_operand", {SUBREG, MEM}},				\
+  {"not_sp_operand", {SUBREG, REG, MEM}},				\
+  {"pcrel_address", {SYMBOL_REF, LABEL_REF, CONST}},			\
+  {"const_uint32_operand", {CONST_INT, CONST_DOUBLE}},			\
+  {"const_sint32_operand", {CONST_INT}},				\
+  {"valid_dbcc_comparison_p", {EQ, NE, GTU, LTU, GEU, LEU,		\
+			       GT, LT, GE, LE}},			\
+  {"extend_operator", {SIGN_EXTEND, ZERO_EXTEND}},
 
 /*
 Local variables:

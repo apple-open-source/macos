@@ -1,4 +1,4 @@
-# $Id: Makefile.in,v 1.1.1.2 2002/01/03 23:53:51 jevans Exp $
+# $Id: Makefile.in,v 1.31 2003/11/01 22:46:24 tom Exp $
 # Makefile for tack
 #
 # The variable 'srcdir' refers to the source-distribution, and can be set with
@@ -15,7 +15,9 @@ THIS		= Makefile
 
 CF_MFLAGS 	= @cf_cv_makeflags@
 @SET_MAKE@
-x		= @PROG_EXT@
+
+x		= @EXEEXT@
+o		= .@OBJEXT@
 
 MODEL		= ../@DFT_OBJ_SUBDIR@
 DESTDIR		= @DESTDIR@
@@ -24,11 +26,16 @@ prefix		= @prefix@
 exec_prefix	= @exec_prefix@
 bindir		= @bindir@
 libdir		= @libdir@
-mandir		= @mandir@/man1
+MAN_DIR		= $(DSTROOT)@mandir@/man1
 includedir	= @includedir@
 datadir		= @datadir@
 
 LIBTOOL		= @LIBTOOL@
+LIBTOOL_CLEAN	= @LIB_CLEAN@
+LIBTOOL_COMPILE	= @LIB_COMPILE@
+LIBTOOL_LINK	= @LIB_LINK@
+LIBTOOL_INSTALL	= @LIB_INSTALL@
+LIBTOOL_UNINSTALL = @LIB_UNINSTALL@
 
 INSTALL		= @INSTALL@
 INSTALL_PROGRAM	= @INSTALL_PROGRAM@
@@ -44,26 +51,26 @@ CFLAGS		= @CFLAGS@
 INCDIR		= $(srcdir)/../include
 CPPFLAGS	= -DHAVE_CONFIG_H -I../tack -I$(srcdir) @CPPFLAGS@
 
-CCFLAGS		= $(CPPFLAGS) $(CFLAGS)
+CC_FLAGS		= $(CPPFLAGS) $(CFLAGS)
 
-CFLAGS_LIBTOOL	= $(CCFLAGS)
-CFLAGS_NORMAL	= $(CCFLAGS)
-CFLAGS_DEBUG	= $(CCFLAGS) @CC_G_OPT@ -DTRACE
-CFLAGS_PROFILE	= $(CCFLAGS) -pg
-CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
+CFLAGS_LIBTOOL	= $(CC_FLAGS)
+CFLAGS_NORMAL	= $(CC_FLAGS)
+CFLAGS_DEBUG	= $(CC_FLAGS) @CC_G_OPT@ -DTRACE
+CFLAGS_PROFILE	= $(CC_FLAGS) -pg
+CFLAGS_SHARED	= $(CC_FLAGS) @CC_SHARED_OPTS@
 
 CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
 
 LD		= @LD@
-LINK		= @LINK_PROGS@ $(LIBTOOL) $(CC)
-LDFLAGS		= @EXTRA_LDFLAGS@ \
-		@PROG_ARGS@ @LDFLAGS@ @LD_MODEL@ @LIBS@ @EXTRA_LIBS@
+LINK		= @LINK_PROGS@ $(LIBTOOL_LINK) $(CC)
+LD_FLAGS		= @EXTRA_LDFLAGS@ \
+		$(shell $(SRCROOT)/ldfix @PROG_ARGS@) @LDFLAGS@ @LD_MODEL@ @LIBS@ @EXTRA_LIBS@
 
-LDFLAGS_LIBTOOL	= $(LDFLAGS)
-LDFLAGS_NORMAL	= $(LDFLAGS)
-LDFLAGS_DEBUG	= $(LDFLAGS) @CC_G_OPT@
-LDFLAGS_PROFILE	= $(LDFLAGS) -pg
-LDFLAGS_SHARED	= $(LDFLAGS) @LD_SHARED_OPTS@
+LDFLAGS_LIBTOOL	= $(LD_FLAGS) $(CFLAGS_LIBTOOL)
+LDFLAGS_NORMAL	= $(LD_FLAGS) $(CFLAGS_NORMAL)
+LDFLAGS_DEBUG	= $(LD_FLAGS) $(CFLAGS_DEBUG)
+LDFLAGS_PROFILE	= $(LD_FLAGS) $(CFLAGS_PROFILE)
+LDFLAGS_SHARED	= $(LD_FLAGS) $(CFLAGS_SHARED) @LD_SHARED_OPTS@
 
 LDFLAGS_DEFAULT	= $(LDFLAGS_@DFT_UPR_MODEL@)
 
@@ -91,16 +98,16 @@ uninstall.libs:
 
 install.tack: $(PROGS) \
 	$(DESTDIR)$(bindir) \
-	$(DESTDIR)$(mandir)
-	$(LIBTOOL) $(INSTALL_PROGRAM) tack$x $(DESTDIR)$(bindir)/tack$x
-	$(INSTALL_DATA) $(srcdir)/tack.1 $(DESTDIR)$(mandir)/tack.1
+	$(DESTDIR)$(MAN_DIR)
+	$(LIBTOOL_INSTALL) $(INSTALL_PROGRAM) tack$x $(DESTDIR)$(bindir)/tack$x
+	$(INSTALL_DATA) $(srcdir)/tack.1 $(DESTDIR)$(MAN_DIR)/tack.1
 
 uninstall.tack:
-	-@$(LIBTOOL) rm -f $(DESTDIR)$(bindir)/tack$x
-	-@rm -f $(DESTDIR)$(mandir)/tack.1
+	-@$(LIBTOOL_UNINSTALL) rm -f $(DESTDIR)$(bindir)/tack$x
+	-@rm -f $(DESTDIR)$(MAN_DIR)/tack.1
 
 $(DESTDIR)$(bindir) \
-$(DESTDIR)$(mandir) :
+$(DESTDIR)$(MAN_DIR) :
 	sh $(srcdir)/../mkinstalldirs $@
 
 #
@@ -108,22 +115,22 @@ $(DESTDIR)$(mandir) :
 #
 
 DEPS_TACK = \
-	$(MODEL)/ansi.o \
-	$(MODEL)/charset.o \
-	$(MODEL)/color.o \
-	$(MODEL)/control.o \
-	$(MODEL)/crum.o \
-	$(MODEL)/edit.o \
-	$(MODEL)/fun.o \
-	$(MODEL)/init.o \
-	$(MODEL)/menu.o \
-	$(MODEL)/modes.o \
-	$(MODEL)/output.o \
-	$(MODEL)/pad.o \
-	$(MODEL)/scan.o \
-	$(MODEL)/sync.o \
-	$(MODEL)/sysdep.o \
-	$(MODEL)/tack.o
+	$(MODEL)/ansi$o \
+	$(MODEL)/charset$o \
+	$(MODEL)/color$o \
+	$(MODEL)/control$o \
+	$(MODEL)/crum$o \
+	$(MODEL)/edit$o \
+	$(MODEL)/fun$o \
+	$(MODEL)/init$o \
+	$(MODEL)/menu$o \
+	$(MODEL)/modes$o \
+	$(MODEL)/output$o \
+	$(MODEL)/pad$o \
+	$(MODEL)/scan$o \
+	$(MODEL)/sync$o \
+	$(MODEL)/sysdep$o \
+	$(MODEL)/tack$o
 
 tack$x: $(DEPS_TACK) $(DEPS_CURSES)
 	@ECHO_LINK@ $(LINK) $(DEPS_TACK) $(LDFLAGS_DEFAULT) -o $@
@@ -142,6 +149,7 @@ mostlyclean ::
 	-rm -f core tags TAGS *~ *.bak *.i *.atac trace
 
 clean :: mostlyclean
+	-sh -c "if test -n '$x' ; then $(MAKE) clean x=''; fi"
 	-rm -f $(PROGS)
 	-rm -rf .libs
 

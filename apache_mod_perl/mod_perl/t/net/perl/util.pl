@@ -1,8 +1,9 @@
+#!perl
 use strict;
-use Apache::test;
+use Apache::testold;
 $|++;
 my $i = 0;
-my $tests = 7;
+my $tests = 9;
 
 my $r = shift;
 $r->send_http_header('text/plain');
@@ -100,6 +101,25 @@ timethese(10000, {
 });  
 =cut
 
+    {
+        my $str = "aa%20dd%2epl";
+        my $expected = "aa dd.pl";
+        my $received = Apache::unescape_url($str);
+        test ++$i, $received eq $expected;
+        print "expected: $expected\n";
+        print "received: $received\n";
+    }
+
+    {
+        my $str = undef;
+        my $expected = "";
+        local $^W = 0;
+        my $received = Apache::unescape_url($str);
+        test ++$i, $received eq $expected;
+        print "expected: $expected\n";
+        print "received: $received\n";
+    }
+
 $C = Apache::Util::ht_time();
 $Perl = HTTP::Date::time2str();
 my $builtin = scalar gmtime;
@@ -152,7 +172,7 @@ Benchmark: timing 10000 iterations of C, Perl...
   Perl: 21 secs (20.57 usr  0.14 sys = 20.71 cpu) 
 =cut
 
-my $date_str = "Sat, 18 Jul 1998 08:38:00 -0700";
+my $date_str = "Sat, 18 Jul 1998 08:38:00 GMT";
 
 test ++$i, Apache::Util::parsedate($date_str);
 

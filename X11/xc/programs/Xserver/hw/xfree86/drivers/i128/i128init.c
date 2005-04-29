@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i128/i128init.c,v 1.5 2000/11/03 00:50:53 robin Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i128/i128init.c,v 1.6 2003/09/24 02:43:23 dawes Exp $ */
 /*
  * Copyright 1995-2000 by Robin Cutshaw <robin@XFree86.Org>
  * Copyright 1998 by Number Nine Visual Technology, Inc.
@@ -52,7 +52,7 @@ I128SaveState(ScrnInfoPtr pScrn)
 	if (pI128->Debug) {
 		unsigned long tmp1 = inl(iR->iobase + 0x1C);
 		unsigned long tmp2 = inl(iR->iobase + 0x20);
-        	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "I128SaveState saving, config1/2 = 0x%x/0x%x\n", tmp1, tmp2);
+        	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "I128SaveState saving, config1/2 = 0x%lx/0x%lx\n", tmp1, tmp2);
 		I128DumpActiveRegisters(pScrn);
 	}
 
@@ -276,7 +276,7 @@ I128RestoreState(ScrnInfoPtr pScrn)
 		if (pI128->Debug) {
 			unsigned long tmp1 = inl(iR->iobase + 0x1C);
 			unsigned long tmp2 = inl(iR->iobase + 0x20);
-       	 	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "I128RestoreState restoring, config1/2 = 0x%x/0x%x\n", tmp1, tmp2);
+       	 	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "I128RestoreState restoring, config1/2 = 0x%lx/0x%lx\n", tmp1, tmp2);
 			I128DumpActiveRegisters(pScrn);
 		}
 
@@ -338,7 +338,7 @@ I128RestoreState(ScrnInfoPtr pScrn)
 	if (pI128->Debug) {
 		unsigned long tmp1 = inl(iR->iobase + 0x1C);
 		unsigned long tmp2 = inl(iR->iobase + 0x20);
-        	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "I128RestoreState resetting config1/2 from 0x%x/0x%x to 0x%x/0x%x\n", tmp1, tmp2, iR->config1, iR->config2);
+        	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "I128RestoreState resetting config1/2 from 0x%lx/0x%lx to 0x%lx/0x%lx\n", tmp1, tmp2, (unsigned long)iR->config1, (unsigned long)iR->config2);
 		I128DumpActiveRegisters(pScrn);
 	}
 

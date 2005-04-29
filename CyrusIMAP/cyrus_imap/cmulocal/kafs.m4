@@ -1,7 +1,7 @@
 dnl kerberos_v4.m4--Kafs libraries and includes
 dnl Derrick Brashear
 dnl from KTH kafs and Arla
-dnl $Id: kafs.m4,v 1.6 2003/10/08 20:35:24 rjs3 Exp $
+dnl $Id: kafs.m4,v 1.5 2005/03/05 00:36:09 dasenbro Exp $
 
 AC_DEFUN([CMU_KAFS_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS

@@ -34,31 +34,33 @@
 
 int
 netinfo_back_delete(
-	BackendDB *be,
+	struct slap_op *op, 
+	struct slap_rep *rs
+/*	BackendDB *be,
 	Connection *conn,
 	Operation *op,
 	struct berval *dn,
-	struct berval *ndn
+	struct berval *ndn*/
 )
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	dsstatus status;
 	u_int32_t dsid, parent;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_delete: DN %s\n", dn->bv_val));
+	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_delete: DN %s\n", op->o_req_dn.bv_val));
 #else
-	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_delete dn=%s\n", dn->bv_val, 0, 0);
+	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_delete dn=%s\n", op->o_req_dn.bv_val, 0, 0);
 #endif
 
-	if (netinfo_back_send_referrals(be, conn, op, ndn) == DSStatusOK)
+	if (netinfo_back_send_referrals(op, rs, &op->o_req_ndn) == DSStatusOK)
 	{
 		return -1;
 	}
 
 	ENGINE_LOCK(di);
 
-	status = netinfo_back_dn_pathmatch(be, ndn, &dsid);
+	status = netinfo_back_dn_pathmatch(op->o_bd, &op->o_req_ndn, &dsid);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
@@ -67,7 +69,7 @@ netinfo_back_delete(
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_delete\n", 0, 0, 0);
 #endif
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
 	/* get the parent as we do ACL checking based on it */
@@ -80,7 +82,7 @@ netinfo_back_delete(
 		 * which is not relevant for deleting children; however we
 		 * pass it in for good measure.
 		 */
-		status = netinfo_back_access_allowed(be, conn, op, parent,
+		status = netinfo_back_access_allowed(op, parent,
 			slap_schema.si_ad_children, NULL, ACL_WRITE);
 		if (status != DSStatusOK)
 		{
@@ -90,16 +92,16 @@ netinfo_back_delete(
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_delete\n", 0, 0, 0);
 #endif
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 	}
 	else
 	{
 		/* no parent, must be root to delete */
-		if (!be_isroot(be, &op->o_ndn))
+		if (!be_isroot_dn(op->o_bd, &op->o_ndn))
 		{
 			ENGINE_UNLOCK(di);
-			send_ldap_result(conn, op, LDAP_INSUFFICIENT_ACCESS, NULL, NULL, NULL, NULL);
+			send_ldap_error(op, rs, LDAP_INSUFFICIENT_ACCESS, NULL);
 #ifdef NEW_LOGGING
 			LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_delete: insufficient access\n"));
 #else
@@ -117,5 +119,5 @@ netinfo_back_delete(
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_delete\n", 0, 0, 0);
 #endif
-	return netinfo_back_op_result(be, conn, op, status);
+	return netinfo_back_op_result(op, rs, status);
 }

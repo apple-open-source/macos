@@ -18,7 +18,7 @@ MFILES = bootpd.m bsdpd.m dhcpd.m macNC.m
 
 CFILES = AFPUsers.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble bootpd.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble bootpd.8 bootps.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -32,6 +32,7 @@ PROF_LIBS = $(LIBS)
 
 HEADER_PATHS = -I../bootplib
 FRAMEWORK_PATHS = -F$(NEXT_ROOT)/System/Library/PrivateFrameworks
+NEXTSTEP_PB_CFLAGS = -fconstant-cfstrings -mdynamic-no-pic
 FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
 
 

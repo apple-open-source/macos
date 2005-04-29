@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Pascal strings 2001-07-05 zll */
+/* APPLE LOCAL file pascal strings */
 /* Positive C test cases.  */
 /* Origin: Ziemowit Laski <zlaski@apple.com> */
 /* { dg-do run } */

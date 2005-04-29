@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wcsftime.c,v 1.2 2002/09/15 08:06:17 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wcsftime.c,v 1.4 2004/04/07 09:47:56 tjr Exp $");
 
 #include <errno.h>
 #include <limits.h>
@@ -51,7 +51,7 @@ wcsftime(wchar_t * __restrict wcs, size_t maxsize,
     const wchar_t * __restrict format, const struct tm * __restrict timeptr)
 {
 	static const mbstate_t initial;
-	mbstate_t state;
+	mbstate_t mbs;
 	char *dst, *dstp, *sformat;
 	size_t n, sflen;
 	int sverrno;
@@ -62,14 +62,14 @@ wcsftime(wchar_t * __restrict wcs, size_t maxsize,
 	 * Convert the supplied format string to a multibyte representation
 	 * for strftime(), which only handles single-byte characters.
 	 */
-	state = initial;
-	sflen = wcsrtombs(NULL, &format, 0, &state);
+	mbs = initial;
+	sflen = wcsrtombs(NULL, &format, 0, &mbs);
 	if (sflen == (size_t)-1)
 		goto error;
 	if ((sformat = malloc(sflen + 1)) == NULL)
 		goto error;
-	state = initial;
-	wcsrtombs(sformat, &format, sflen + 1, &state);
+	mbs = initial;
+	wcsrtombs(sformat, &format, sflen + 1, &mbs);
 
 	/*
 	 * Allocate memory for longest multibyte sequence that will fit
@@ -86,9 +86,9 @@ wcsftime(wchar_t * __restrict wcs, size_t maxsize,
 		goto error;
 	if (strftime(dst, maxsize, sformat, timeptr) == 0)
 		goto error;
-	state = initial;
 	dstp = dst;
-	n = mbsrtowcs(wcs, (const char **)&dstp, maxsize, &state);
+	mbs = initial;
+	n = mbsrtowcs(wcs, (const char **)&dstp, maxsize, &mbs);
 	if (n == (size_t)-2 || n == (size_t)-1 || dstp != NULL)
 		goto error;
 

@@ -236,7 +236,7 @@ dopr(char *buffer, size_t maxlen, size_t *retlen, const char *format,
 			case 'i':
 				switch (cflags) {
 				case DP_C_SHORT:
-					value = va_arg(args, short int);
+					value = va_arg(args, int);
 					break;
 				case DP_C_LONG:
 					value = va_arg(args, long int);
@@ -260,8 +260,7 @@ dopr(char *buffer, size_t maxlen, size_t *retlen, const char *format,
 				flags |= DP_F_UNSIGNED;
 				switch (cflags) {
 				case DP_C_SHORT:
-					value = va_arg(args,
-					    unsigned short int);
+					value = va_arg(args, unsigned int);
 					break;
 				case DP_C_LONG:
 					value = (LLONG) va_arg(args,
@@ -370,8 +369,8 @@ dopr(char *buffer, size_t maxlen, size_t *retlen, const char *format,
 }
 
 static void
-fmtstr(char *buffer, size_t *currlen, size_t maxlen, char *value, int flags,
-	int min, int max)
+fmtstr(char *buffer, size_t *currlen, size_t maxlen, char *value,
+	int min, int max, int flags)
 {
 	int	padlen, strln;	/* amount to pad */
 	int	cnt = 0;

@@ -27,7 +27,7 @@
 ;; Author: Paulo César Pereira de Andrade
 ;;
 ;;
-;; $XFree86: xc/programs/xedit/lisp/modules/progmodes/imake.lsp,v 1.2 2002/10/06 17:11:48 paulo Exp $
+;; $XFree86: xc/programs/xedit/lisp/modules/progmodes/imake.lsp,v 1.3 2004/01/08 21:29:12 paulo Exp $
 ;;
 
 (require "syntax")
@@ -35,13 +35,13 @@
 
 (defsynprop *prop-shell*
     "shell"
-    :font	"*courier-bold-r*12*"
+    :font	"*courier-bold-r*-12-*"
     :foreground	"Red4"
 )
 
 (defsynprop *prop-variable*
     "variable"
-    :font	"*courier-medium-r*12*"
+    :font	"*courier-medium-r*-12-*"
     :foreground	"Red3"
 )
 
@@ -49,13 +49,13 @@
 ;; tabs in the start of lines for better visualization.
 (defsynprop *prop-tabulation*
     "tabulation"
-    :font	"*courier-medium-r*12*"
+    :font	"*courier-medium-r*-12-*"
     :background	"Gray90"
 )
 
 (defsynprop *prop-xcomm*
     "xcomm"
-    :font	"*courier-medium-o*12*"
+    :font	"*courier-medium-o*-12-*"
     :foreground	"SkyBlue4"
 )
 

@@ -24,9 +24,16 @@
 #ifndef _SCPREFERENCESPRIVATE_H
 #define _SCPREFERENCESPRIVATE_H
 
+
+#include <sys/cdefs.h>
+#include <AvailabilityMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPreferences.h>
 
+
+/*!
+	@header SCPreferencesPrivate
+ */
 
 /*!
 	@enum SCPreferencesKeyType
@@ -45,6 +52,7 @@ enum {
 	kSCPreferencesKeyApply	= 3
 };
 typedef	int32_t	SCPreferencesKeyType;
+
 
 __BEGIN_DECLS
 
@@ -65,7 +73,7 @@ SCDynamicStoreKeyCreatePreferences	(
 					CFAllocatorRef		allocator,
 					CFStringRef		prefsID,
 					SCPreferencesKeyType	keyType
-					);
+					)	AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 SCPreferencesRef
 SCUserPreferencesCreate			(

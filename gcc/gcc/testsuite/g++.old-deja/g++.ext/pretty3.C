@@ -1,3 +1,4 @@
+// { dg-do run  }
 // Copyright (C) 1999 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 21 Nov 1999 <nathan@acm.org>
 
@@ -32,7 +33,7 @@ template<> void f1<int> (int)
   printf ("__FUNCTION__ %s\n", function);
   printf ("__PRETTY_FUNCTION__ %s\n", pretty);
   
-  if (strcmp (function, "f1"))
+  if (strcmp (function, "f1<int>"))
     bad = true;
   if (strcmp (pretty, "void f1(T) [with T = int]"))
     bad = true;

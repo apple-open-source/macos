@@ -6,10 +6,8 @@
 	objectVersion = 39;
 	objects = {
 		01B2E3050091091211CD2984 = {
-			buildRules = (
-			);
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				BUILD_VARIANTS = debug;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -21,10 +19,7 @@
 			name = Development;
 		};
 		01B2E3060091091211CD2984 = {
-			buildRules = (
-			);
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				ZERO_LINK = NO;
 			};
@@ -36,79 +31,735 @@
 //012
 //013
 //014
-//D60
-//D61
-//D62
-//D63
-//D64
-		D6F8CD5E05C09281005FB422 = {
+//2C0
+//2C1
+//2C2
+//2C3
+//2C4
+		2C818C0706CAC7570089B214 = {
+			buildActionMask = 2147483647;
+			files = (
+				2C818C1E06CAC7820089B214,
+				2C818C1F06CAC7820089B214,
+				2C818C2106CAC7820089B214,
+				2C818C2206CAC7820089B214,
+				2C818C2406CAC7820089B214,
+				2C818C2506CAC7820089B214,
+				2C818C2706CAC7820089B214,
+				2C818C2906CAC7820089B214,
+				2C818C3106CAC7E10089B214,
+				2C818C3506CAC7F70089B214,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2C818C0806CAC7570089B214 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2C818C0906CAC7570089B214 = {
+			buildActionMask = 2147483647;
+			files = (
+				2C818C1D06CAC7820089B214,
+				2C818C2006CAC7820089B214,
+				2C818C2306CAC7820089B214,
+				2C818C2606CAC7820089B214,
+				2C818C2806CAC7820089B214,
+				2C818C2F06CAC7BE0089B214,
+				2C818C3406CAC7F70089B214,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2C818C0A06CAC7570089B214 = {
+			buildActionMask = 2147483647;
+			files = (
+				2CC9AB9B06CC036D0048A811,
+				2CC9ABC906CC03A10048A811,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2C818C0C06CAC7570089B214 = {
+			buildPhases = (
+				2C818C0706CAC7570089B214,
+				2C818C0806CAC7570089B214,
+				2C818C0906CAC7570089B214,
+				2C818C0A06CAC7570089B214,
+			);
+			buildSettings = {
+				INSTALL_PATH = /usr/libexec/SmartCardServices/drivers;
+				PRODUCT_NAME = CCIDClassDriver;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = CCIDClassDriver;
+			productInstallPath = /usr/libexec/SmartCardServices/drivers;
+			productName = CCIDDriver;
+			productReference = 2C818C0D06CAC7570089B214;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>CCIDClassDriver</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.ccidclassdriver</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>CCIDCLASSDRIVER</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>5.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>31</string>
+	<key>ifdCapabilities</key>
+	<string>0x00000000</string>
+	<key>ifdFriendlyName</key>
+	<string>CCID Smart Card Reader</string>
+	<key>ifdInterfaceClass</key>
+	<string>0x0B</string>
+	<key>ifdInterfaceProtocol</key>
+	<string>0x00</string>
+	<key>ifdInterfaceSubClass</key>
+	<string>0x00</string>
+	<key>ifdLogLevel</key>
+	<string>0</string>
+	<key>ifdLogPeriodic</key>
+	<string>Y</string>
+	<key>ifdLogType</key>
+	<string>stderr</string>
+</dict>
+</plist>
+";
+		};
+		2C818C0D06CAC7570089B214 = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = CCIDClassDriver.bundle;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		2C818C1006CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = CCID.c;
+			path = src/CCIDDriver/common/CCID.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1106CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = CCID.h;
+			path = src/CCIDDriver/common/CCID.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1206CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = CCIDprivate.h;
+			path = src/CCIDDriver/common/CCIDprivate.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1306CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = CCIDPropExt.c;
+			path = src/CCIDDriver/common/CCIDPropExt.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1406CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = CCIDPropExt.h;
+			path = src/CCIDDriver/common/CCIDPropExt.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1506CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = global.h;
+			path = src/CCIDDriver/common/global.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1606CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = ifdhandler.c;
+			path = src/CCIDDriver/common/ifdhandler.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1706CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = ifdhandler.h;
+			path = src/CCIDDriver/common/ifdhandler.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1806CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = pcscdefines.h;
+			path = src/CCIDDriver/common/pcscdefines.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1906CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = tools.c;
+			path = src/CCIDDriver/common/tools.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1A06CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = tools.h;
+			path = src/CCIDDriver/common/tools.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1B06CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = Transport.c;
+			path = src/CCIDDriver/common/Transport.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1C06CAC7820089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = Transport.h;
+			path = src/CCIDDriver/common/Transport.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C1D06CAC7820089B214 = {
+			fileRef = 2C818C1006CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C1E06CAC7820089B214 = {
+			fileRef = 2C818C1106CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C1F06CAC7820089B214 = {
+			fileRef = 2C818C1206CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2006CAC7820089B214 = {
+			fileRef = 2C818C1306CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2106CAC7820089B214 = {
+			fileRef = 2C818C1406CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2206CAC7820089B214 = {
+			fileRef = 2C818C1506CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2306CAC7820089B214 = {
+			fileRef = 2C818C1606CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2406CAC7820089B214 = {
+			fileRef = 2C818C1706CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2506CAC7820089B214 = {
+			fileRef = 2C818C1806CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2606CAC7820089B214 = {
+			fileRef = 2C818C1906CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2706CAC7820089B214 = {
+			fileRef = 2C818C1A06CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2806CAC7820089B214 = {
+			fileRef = 2C818C1B06CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2906CAC7820089B214 = {
+			fileRef = 2C818C1C06CAC7820089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C2D06CAC7970089B214 = {
+			children = (
+				2C818C3206CAC7F70089B214,
+				2C818C3306CAC7F70089B214,
+				2C818C3006CAC7E10089B214,
+				2C818C2E06CAC7BE0089B214,
+				2C818C1006CAC7820089B214,
+				2C818C1106CAC7820089B214,
+				2C818C1206CAC7820089B214,
+				2C818C1306CAC7820089B214,
+				2C818C1406CAC7820089B214,
+				2C818C1506CAC7820089B214,
+				2C818C1606CAC7820089B214,
+				2C818C1706CAC7820089B214,
+				2C818C1806CAC7820089B214,
+				2C818C1906CAC7820089B214,
+				2C818C1A06CAC7820089B214,
+				2C818C1B06CAC7820089B214,
+				2C818C1C06CAC7820089B214,
+			);
+			isa = PBXGroup;
+			name = CCIDDriver;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		2C818C2E06CAC7BE0089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = tools_mosx.c;
+			path = src/CCIDDriver/specific/MacOSX/tools_mosx.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C2F06CAC7BE0089B214 = {
+			fileRef = 2C818C2E06CAC7BE0089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C3006CAC7E10089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = usbserial.h;
+			path = src/CCIDDriver/USB/usbserial.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C3106CAC7E10089B214 = {
+			fileRef = 2C818C3006CAC7E10089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C3206CAC7F70089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = usbserial_mosx.c;
+			path = src/CCIDDriver/USB/MacOSX/usbserial_mosx.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C3306CAC7F70089B214 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = usbserial_mosx.h;
+			path = src/CCIDDriver/USB/MacOSX/usbserial_mosx.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2C818C3406CAC7F70089B214 = {
+			fileRef = 2C818C3206CAC7F70089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2C818C3506CAC7F70089B214 = {
+			fileRef = 2C818C3306CAC7F70089B214;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2CBB605406CA680F006AA7C8 = {
+			children = (
+				2CBB606306CA69F9006AA7C8,
+				2CBB606406CA69F9006AA7C8,
+			);
+			isa = PBXGroup;
+			name = GSCISPlugin;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		2CBB605506CA6944006AA7C8 = {
+			buildActionMask = 2147483647;
+			files = (
+				2CBB606606CA69F9006AA7C8,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2CBB605606CA6944006AA7C8 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2CBB605706CA6944006AA7C8 = {
+			buildActionMask = 2147483647;
+			files = (
+				2CBB606506CA69F9006AA7C8,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2CBB605806CA6944006AA7C8 = {
+			buildActionMask = 2147483647;
+			files = (
+				2CC9AB8406CC02F30048A811,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2CBB605A06CA6944006AA7C8 = {
+			buildPhases = (
+				2CBB605506CA6944006AA7C8,
+				2CBB605606CA6944006AA7C8,
+				2CBB605706CA6944006AA7C8,
+				2CBB605806CA6944006AA7C8,
+			);
+			buildSettings = {
+				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
+				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
+				PRODUCT_NAME = GSCISPlugin;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = GSCISPlugin;
+			productInstallPath = /usr/libexec/SmartCardServices/services;
+			productName = GSCISPlugin;
+			productReference = 2CBB605B06CA6944006AA7C8;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>gscisPlugin</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.gscisplugin</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>GSCISPLUGIN</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>31</string>
+</dict>
+</plist>
+";
+		};
+		2CBB605B06CA6944006AA7C8 = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = GSCISPlugin.bundle;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		2CBB606306CA69F9006AA7C8 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = GSCISPlugin.c;
+			path = src/GSCISPlugin/GSCISPlugin.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2CBB606406CA69F9006AA7C8 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = GSCISPlugin.h;
+			path = src/GSCISPlugin/GSCISPlugin.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		2CBB606506CA69F9006AA7C8 = {
+			fileRef = 2CBB606306CA69F9006AA7C8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2CBB606606CA69F9006AA7C8 = {
+			fileRef = 2CBB606406CA69F9006AA7C8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2CBB607406CA6DDE006AA7C8 = {
+			containerPortal = F5294A4F0090C4CA01CD285A;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 2CBB605A06CA6944006AA7C8;
+			remoteInfo = GSCISPlugin;
+		};
+		2CBB607506CA6DDE006AA7C8 = {
+			isa = PBXTargetDependency;
+			target = 2CBB605A06CA6944006AA7C8;
+			targetProxy = 2CBB607406CA6DDE006AA7C8;
+		};
+		2CC9AB8406CC02F30048A811 = {
+			fileRef = F5448E630379F08001B94948;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2CC9AB9A06CC036D0048A811 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		2CC9AB9B06CC036D0048A811 = {
+			fileRef = 2CC9AB9A06CC036D0048A811;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2CC9ABC806CC03A10048A811 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		2CC9ABC906CC03A10048A811 = {
+			fileRef = 2CC9ABC806CC03A10048A811;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//2C0
+//2C1
+//2C2
+//2C3
+//2C4
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+		4C6C32CD071E04AD006A2CAE = {
+			buildSettings = {
+				BUILD_VARIANTS = normal;
+				OPT_LDFLAGS = "";
+				OPT_LDXFLAGS = "";
+				OPT_LDXNOPIC = "";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
+				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
+				PREBINDING = NO;
+				SECTORDER_FLAGS = "";
+			};
+			isa = PBXBuildStyle;
+			name = "normal with debug";
+		};
+		4CB55A760592598500B25B27 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = Makefile.installPhase;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4CFE9C05059254C8007119DE = {
 			containerPortal = F5294A4F0090C4CA01CD285A;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = F5448E020379EE2A01B94948;
 			remoteInfo = MCardPlugin;
 		};
-		D6F8CD5F05C09281005FB422 = {
+		4CFE9C06059254C9007119DE = {
 			containerPortal = F5294A4F0090C4CA01CD285A;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = F5294A800090C73501CD285A;
 			remoteInfo = pcscd;
 		};
-		D6F8CD6005C09281005FB422 = {
+		4CFE9C07059254C9007119DE = {
 			containerPortal = F5294A4F0090C4CA01CD285A;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = F5448E100379EE6401B94948;
 			remoteInfo = CFlexPlugin;
 		};
-		D6F8CD6205C09281005FB422 = {
+		4CFE9C09059254C9007119DE = {
 			containerPortal = F5294A4F0090C4CA01CD285A;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = F538896903953B79012F6BBF;
 			remoteInfo = InstallPhase;
 		};
-		D6F8CD6305C09281005FB422 = {
+		4CFE9C0A059254C9007119DE = {
 			containerPortal = F5294A4F0090C4CA01CD285A;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = F5448E090379EE3601B94948;
 			remoteInfo = CACPlugin;
 		};
-		D6F8CD6405C09281005FB422 = {
+		4CFE9C0B059254C9007119DE = {
 			containerPortal = F5294A4F0090C4CA01CD285A;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = F537A7D10379ED7501B94948;
 			remoteInfo = PKCS11;
 		};
-		D6F8CD6505C09281005FB422 = {
+		4CFE9C0C059254C9007119DE = {
 			containerPortal = F5294A4F0090C4CA01CD285A;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = F51121270272F895017BB957;
 			remoteInfo = pcsctool;
 		};
-		D6F8CD6605C09281005FB422 = {
+		4CFE9C0D059254C9007119DE = {
 			containerPortal = F5294A4F0090C4CA01CD285A;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = F5294AD40090CAE601CD285A;
 			remoteInfo = pcsctest;
 		};
-		D6F8CD6705C09281005FB422 = {
+		4CFE9C0E059254C9007119DE = {
 			containerPortal = F5294A4F0090C4CA01CD285A;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = F52A93D402541D8C01B94B21;
 			remoteInfo = PCSC;
 		};
-//D60
-//D61
-//D62
-//D63
-//D64
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+//BB0
+//BB1
+//BB2
+//BB3
+//BB4
+		BB7E0F6906D12A7B008D66C6 = {
+			containerPortal = F5294A4F0090C4CA01CD285A;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 2C818C0C06CAC7570089B214;
+			remoteInfo = CCIDDriver;
+		};
+		BB7E0F6A06D12A7B008D66C6 = {
+			isa = PBXTargetDependency;
+			target = 2C818C0C06CAC7570089B214;
+			targetProxy = BB7E0F6906D12A7B008D66C6;
+		};
+//BB0
+//BB1
+//BB2
+//BB3
+//BB4
+//C20
+//C21
+//C22
+//C23
+//C24
+		C2F2094A0662B851001DFD06 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = sys_macosx.cpp;
+			path = src/PCSC/sys_macosx.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		C2F2094B0662B851001DFD06 = {
+			fileRef = C2F2094A0662B851001DFD06;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//C20
+//C21
+//C22
+//C23
+//C24
 //F50
 //F51
 //F52
@@ -139,8 +790,7 @@
 			};
 		};
 		F503CADB025428F601B94B21 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
@@ -148,8 +798,7 @@
 			sourceTree = "<absolute>";
 		};
 		F503CADC025428F601B94B21 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
@@ -199,8 +848,7 @@
 		};
 		F51121260272F895017BB957 = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = pcsctool;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -210,10 +858,9 @@
 				F51121280272F895017BB957,
 				F51121290272F895017BB957,
 				F511212A0272F895017BB957,
-				F511212B0272F895017BB957,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 15.2;
+				CURRENT_PROJECT_VERSION = 31;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
@@ -222,6 +869,7 @@
 				PRODUCT_NAME = pcsctool;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
@@ -255,13 +903,6 @@
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F511212B0272F895017BB957 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		F511212C0272F8D9017BB957 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -280,22 +921,22 @@
 		F511213B0272FA1C017BB957 = {
 			isa = PBXTargetDependency;
 			target = F51121270272F895017BB957;
-			targetProxy = D6F8CD6505C09281005FB422;
+			targetProxy = 4CFE9C0C059254C9007119DE;
 		};
 		F520A5F60257B49C01D97E8A = {
 			isa = PBXTargetDependency;
 			target = F52A93D402541D8C01B94B21;
-			targetProxy = D6F8CD6705C09281005FB422;
+			targetProxy = 4CFE9C0E059254C9007119DE;
 		};
 		F520E3A001F6204201B94B28 = {
 			isa = PBXTargetDependency;
 			target = F5294A800090C73501CD285A;
-			targetProxy = D6F8CD5F05C09281005FB422;
+			targetProxy = 4CFE9C06059254C9007119DE;
 		};
 		F520E3A301F6204201B94B28 = {
 			isa = PBXTargetDependency;
 			target = F5294AD40090CAE601CD285A;
-			targetProxy = D6F8CD6605C09281005FB422;
+			targetProxy = 4CFE9C0D059254C9007119DE;
 		};
 		F5294A4F0090C4CA01CD285A = {
 			buildSettings = {
@@ -303,6 +944,7 @@
 			buildStyles = (
 				01B2E3050091091211CD2984,
 				01B2E3060091091211CD2984,
+				4C6C32CD071E04AD006A2CAE,
 			);
 			hasScannedForEncodings = 1;
 			isa = PBXProject;
@@ -320,18 +962,24 @@
 				F5448E090379EE3601B94948,
 				F5448E100379EE6401B94948,
 				F538896903953B79012F6BBF,
+				2CBB605A06CA6944006AA7C8,
+				2C818C0C06CAC7570089B214,
 			);
 		};
 		F5294A500090C4CA01CD285A = {
 			children = (
+				2C818C2D06CAC7970089B214,
 				F538896A0397E93B012F6BBF,
 				F537A7CB0379ECEB01B94948,
+				2CBB605406CA680F006AA7C8,
 				F537A7CA0379ECE301B94948,
 				F537A7C90379ECDC01B94948,
 				F537A7C80379ECD501B94948,
 				F537A7B50379EB8B01B94948,
 				F5294A520090C5DF01CD285A,
 				F5448E630379F08001B94948,
+				2CC9AB9A06CC036D0048A811,
+				2CC9ABC806CC03A10048A811,
 			);
 			isa = PBXGroup;
 			refType = 4;
@@ -355,9 +1003,11 @@
 				F511213B0272FA1C017BB957,
 				F5448E810379FE0101B94948,
 				F5448E820379FE0501B94948,
+				2CBB607506CA6DDE006AA7C8,
 				F5448E830379FE0801B94948,
 				F5448E840379FE0C01B94948,
 				F54DC28B0397F35F01115D8D,
+				BB7E0F6A06D12A7B008D66C6,
 			);
 			isa = PBXAggregateTarget;
 			name = World;
@@ -373,6 +1023,8 @@
 				F5448E030379EE2A01B94948,
 				F5448E0A0379EE3601B94948,
 				F5448E110379EE6401B94948,
+				2CBB605B06CA6944006AA7C8,
+				2C818C0D06CAC7570089B214,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -381,8 +1033,7 @@
 		};
 		F5294A7E0090C73501CD285A = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = pcscd;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -392,20 +1043,34 @@
 				F5294A810090C73501CD285A,
 				F5294A820090C73501CD285A,
 				F5294A830090C73501CD285A,
-				F5294A840090C73501CD285A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 15.2;
-				FRAMEWORK_SEARCH_PATHS = "";
+				BUILD_VARIANTS = "normal debug";
+				CURRENT_PROJECT_VERSION = 31;
+				FRAMEWORK_SEARCH_PATHS = "\"${BUILT_PRODUCTS_DIR}\" /usr/local/SecurityPieces/Components/Security /usr/local/SecurityPieces/Frameworks";
 				HEADER_SEARCH_PATHS = "/System/Library/Frameworks/CoreFoundation.framework/Headers /System/Library/Frameworks/IOKit.framework/Headers/usb /System/Library/Frameworks/IOKit.framework/Headers";
 				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines -fcoalesce-templates";
+				OPT_CXFLAGS = "-DNDEBUG -Os $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = "-finline-functions --param max-inline-insns-single=100 --param max-inline-insns-auto=150 --param max-inline-insns=180 --param min-inline-insns=60";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
 				OTHER_CFLAGS = "-DPCSC_DEBUG=1 -DUSE_SYSLOG=1 -DUSE_DAEMON=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
 				PRODUCT_NAME = pcscd;
-				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
@@ -454,12 +1119,12 @@
 				F52A94C50254242101B94B21,
 				F52A94C60254242101B94B21,
 				F52A94C70254242101B94B21,
-				F52A94C80254242101B94B21,
 				F52A94C90254242101B94B21,
 				F52A94CA0254242101B94B21,
 				F52A94CB0254242101B94B21,
 				F52A94CC0254242101B94B21,
 				F555DF360274962801D2E99F,
+				C2F2094B0662B851001DFD06,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -474,17 +1139,9 @@
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5294A840090C73501CD285A = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		F5294AD30090CAE601CD285A = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = pcsctest;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -494,10 +1151,9 @@
 				F5294AD50090CAE601CD285A,
 				F5294AD60090CAE601CD285A,
 				F5294AD70090CAE601CD285A,
-				F5294AD80090CAE601CD285A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 15.2;
+				CURRENT_PROJECT_VERSION = 31;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
@@ -506,6 +1162,7 @@
 				PRODUCT_NAME = pcsctest;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
@@ -539,17 +1196,9 @@
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5294AD80090CAE601CD285A = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		F52A93D102541D8C01B94B21 = {
 			explicitFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			path = PCSC.framework;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -560,22 +1209,33 @@
 				F52A93D602541D8C01B94B21,
 				F52A93D702541D8C01B94B21,
 				F52A93D802541D8C01B94B21,
-				F52A93D902541D8C01B94B21,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 15.2;
+				BUILD_VARIANTS = "normal debug";
+				CURRENT_PROJECT_VERSION = 31;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 15.2;
-				FRAMEWORK_SEARCH_PATHS = "";
+				DYLIB_CURRENT_VERSION = 31;
 				FRAMEWORK_VERSION = A;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS) -fno-enforce-eh-specs -fno-implement-inlines -fcoalesce-templates";
+				OPT_INLINEFLAGS = "-finline-functions --param max-inline-insns-single=100 --param max-inline-insns-auto=150 --param max-inline-insns=180 --param min-inline-insns=60";
+				OPT_LDFLAGS = "-dead_strip";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "-DPCSC_DEBUG=1 -DUSE_SYSLOG=1 -DUSE_DAEMON=1";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = PCSC;
-				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = framework;
 			};
@@ -605,11 +1265,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.2</string>
+	<string>5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>15.2</string>
+	<string>31</string>
 </dict>
 </plist>
 ";
@@ -661,13 +1321,6 @@
 				F503CAE502542A9201B94B21,
 			);
 			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F52A93D902541D8C01B94B21 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F52A94510254232701B94B21 = {
@@ -1120,12 +1773,6 @@
 			settings = {
 			};
 		};
-		F52A94C80254242101B94B21 = {
-			fileRef = F52A94A40254242101B94B21;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F52A94C90254242101B94B21 = {
 			fileRef = F52A94A60254242101B94B21;
 			isa = PBXBuildFile;
@@ -1303,6 +1950,7 @@
 			fileRef = F52A94D2025424AC01B94B21;
 			isa = PBXBuildFile;
 			settings = {
+				COMPILER_FLAGS = "-DYY_NO_UNPUT";
 			};
 		};
 		F52A94E3025424AC01B94B21 = {
@@ -1376,6 +2024,7 @@
 				F52A94A20254242101B94B21,
 				F52A94A30254242101B94B21,
 				F52A94A40254242101B94B21,
+				C2F2094A0662B851001DFD06,
 				F52A94A50254242101B94B21,
 				F52A94A60254242101B94B21,
 				F52A94A70254242101B94B21,
@@ -1539,28 +2188,22 @@
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F537A7D00379ED7501B94948 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		F537A7D10379ED7501B94948 = {
 			buildPhases = (
 				F537A7CC0379ED7501B94948,
 				F537A7CD0379ED7501B94948,
 				F537A7CE0379ED7501B94948,
 				F537A7CF0379ED7501B94948,
-				F537A7D00379ED7501B94948,
 			);
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 31;
 				INSTALL_PATH = /usr/libexec/SmartCardServices/pkcs11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-lcrypto";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pkcs11;
 				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -1592,19 +2235,18 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.2</string>
+	<string>5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>15.2</string>
+	<string>31</string>
 </dict>
 </plist>
 ";
 		};
 		F537A7D20379ED7501B94948 = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = pkcs11.bundle;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -1614,11 +2256,7 @@
 			buildPhases = (
 			);
 			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = InstallPhase;
-				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			buildToolPath = /usr/bin/gnumake;
@@ -1632,6 +2270,7 @@
 		};
 		F538896A0397E93B012F6BBF = {
 			children = (
+				4CB55A760592598500B25B27,
 			);
 			isa = PBXGroup;
 			name = InstallPhase;
@@ -1669,28 +2308,22 @@
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5448E010379EE2A01B94948 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		F5448E020379EE2A01B94948 = {
 			buildPhases = (
 				F5448DFD0379EE2A01B94948,
 				F5448DFE0379EE2A01B94948,
 				F5448DFF0379EE2A01B94948,
 				F5448E000379EE2A01B94948,
-				F5448E010379EE2A01B94948,
 			);
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 31;
 				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
 				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = mscMuscleCard;
 				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -1722,11 +2355,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.2</string>
+	<string>5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>15.2</string>
+	<string>31</string>
 	<key>spAtrValue</key>
 	<string>3B751300009C02020102</string>
 	<key>spDefaultApplication</key>
@@ -1741,8 +2374,7 @@
 		};
 		F5448E030379EE2A01B94948 = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = mscMuscleCard.bundle;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -1779,28 +2411,22 @@
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5448E080379EE3601B94948 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		F5448E090379EE3601B94948 = {
 			buildPhases = (
 				F5448E040379EE3601B94948,
 				F5448E050379EE3601B94948,
 				F5448E060379EE3601B94948,
 				F5448E070379EE3601B94948,
-				F5448E080379EE3601B94948,
 			);
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 31;
 				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
 				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = commonAccessCard;
 				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -1832,27 +2458,31 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.2</string>
+	<string>5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>15.2</string>
+	<string>31</string>
 	<key>spAtrValue</key>
-	<string>3B6500009C02020702</string>
+	<array>
+		<string>3B6500009C02020102</string>
+		<string>3B7D110000003180718E6486D60100819000</string>
+		<string>3B7F1100000031C053CAC4016452D90400829000</string>
+		<string>3B6500009C02020702</string>
+	</array>
 	<key>spDefaultApplication</key>
 	<string>A0000000790101</string>
 	<key>spProductName</key>
 	<string>Common Access Card</string>
 	<key>spVendorName</key>
-	<string>Apple Computer</string>
+	<string>Department of Defense</string>
 </dict>
 </plist>
 ";
 		};
 		F5448E0A0379EE3601B94948 = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = commonAccessCard.bundle;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -1888,28 +2518,22 @@
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5448E0F0379EE6401B94948 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		F5448E100379EE6401B94948 = {
 			buildPhases = (
 				F5448E0B0379EE6401B94948,
 				F5448E0C0379EE6401B94948,
 				F5448E0D0379EE6401B94948,
 				F5448E0E0379EE6401B94948,
-				F5448E0F0379EE6401B94948,
 			);
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 31;
 				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
 				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = slbCryptoflex;
 				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -1941,11 +2565,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.2</string>
+	<string>5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>15.2</string>
+	<string>31</string>
 	<key>spAtrValue</key>
 	<string>3B959440FF6301010201</string>
 	<key>spDefaultApplication</key>
@@ -1960,8 +2584,7 @@
 		};
 		F5448E110379EE6401B94948 = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = slbCryptoflex.bundle;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -2537,8 +3160,7 @@
 			};
 		};
 		F5448E630379F08001B94948 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = PCSC.framework;
 			path = /System/Library/Frameworks/PCSC.framework;
@@ -2598,27 +3220,27 @@
 		F5448E810379FE0101B94948 = {
 			isa = PBXTargetDependency;
 			target = F537A7D10379ED7501B94948;
-			targetProxy = D6F8CD6405C09281005FB422;
+			targetProxy = 4CFE9C0B059254C9007119DE;
 		};
 		F5448E820379FE0501B94948 = {
 			isa = PBXTargetDependency;
 			target = F5448E020379EE2A01B94948;
-			targetProxy = D6F8CD5E05C09281005FB422;
+			targetProxy = 4CFE9C05059254C8007119DE;
 		};
 		F5448E830379FE0801B94948 = {
 			isa = PBXTargetDependency;
 			target = F5448E090379EE3601B94948;
-			targetProxy = D6F8CD6305C09281005FB422;
+			targetProxy = 4CFE9C0A059254C9007119DE;
 		};
 		F5448E840379FE0C01B94948 = {
 			isa = PBXTargetDependency;
 			target = F5448E100379EE6401B94948;
-			targetProxy = D6F8CD6005C09281005FB422;
+			targetProxy = 4CFE9C07059254C9007119DE;
 		};
 		F54DC28B0397F35F01115D8D = {
 			isa = PBXTargetDependency;
 			target = F538896903953B79012F6BBF;
-			targetProxy = D6F8CD6205C09281005FB422;
+			targetProxy = 4CFE9C09059254C9007119DE;
 		};
 		F555DF350274962801D2E99F = {
 			fileEncoding = 30;

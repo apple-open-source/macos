@@ -61,9 +61,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include    "fenv_private.h"
 #include    "fp_private.h"
 
@@ -80,7 +77,7 @@ struct tableEntry                             /* tanatantable entry structure */
       double f0;
       };
 
-extern const unsigned long tanatantable[];
+extern const uint32_t tanatantable[];
 
 static const double kPiBy2 = 1.570796326794896619231322;      // 0x1.921fb54442d18p0
 static const double kPiBy2Tail = 6.1232339957367660e-17;      // 0x1.1a62633145c07p-54
@@ -96,324 +93,7 @@ static const hexdouble infinity = HEXDOUBLE(0x7ff00000, 0x00000000);
 *                                 T   A   N                                    *
 ********************************************************************************
 *******************************************************************************/
-#ifdef notdef
-double tan (   double x  )
-      {
-      register double absOfX, intquo ,arg, argtail, aSquared, aThird, aFourth,
-                      temp1, temp2, s, u, v, w, y, result;
-      long tableIndex;
-      unsigned long iz;
-      hexdouble zD, aD, OldEnvironment;
-      struct tableEntry *tablePointer;
-      const double ts11 = 8.898406739539066157565e-3,
-                   ts9  = 2.186936821731655951177e-2,
-                   ts7  = 5.396825413618260185395e-2,
-                   ts5  = 0.1333333333332513155016,
-                   ts3  = 0.3333333333333333333333;
-      const double tt7  = 0.05396875452473400572649,
-                   tt5  = 0.1333333333304691192925,
-                   tt3  = 0.3333333333333333357614;
-      const double k2ToM1023 = 1.112536929253600692e-308; // 0x1.0p-1023
-      static const long indexTable[] =
-            {  
-            16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,
-            27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,
-            38,  39,  40,  41,  42,  43,  44,  45,  47,  48,  49,
-            50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,
-            61,  62,  63,  64,  65,  66,  68,  69,  70,  71,  72,
-            73,  74,  75,  76,  77,  78,  79,  81,  82,  83,  84,
-            85,  86,  87,  88,  89,  91,  92,  93,  94,  95,  96,
-            97,  98,  100, 101, 102, 103, 104, 105, 107, 108, 109,
-            110, 111, 113, 114, 115, 116, 117, 119, 120, 121, 122,
-            123, 125, 126, 127, 128, 130, 131, 132, 133, 135, 136,
-            137, 139, 140, 141, 142, 144, 145, 146, 148, 149, 150,
-            152, 153, 154, 156, 157, 159, 160, 161, 163, 164, 166,
-            167, 168, 170, 171, 173, 174, 176, 177, 179, 180, 182,
-            183, 185, 186, 188, 189, 191, 192, 194, 196, 197, 199,
-            200, 202, 204, 205, 207, 209, 210, 212, 214, 215, 217,
-            219, 220, 222, 224, 226, 228, 229, 231, 233, 235, 237,
-            238, 240, 242, 244, 246, 248, 250, 252, 254, 256, 256
-            };
-            
-      static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
-     
-      absOfX = __FABS( x );
-      
-      tablePointer = ( struct tableEntry * ) ( tanatantable - ( 16 * 14 ) );      // init tbl ptr
-      FEGETENVD( OldEnvironment.d );                     // save env, set default
-      FESETENVD( 0.0 );
-      
-/*******************************************************************************
-*     |x| < 0.7853980064392090732                                              *
-*******************************************************************************/
 
-      if ( absOfX < 0.7853980064392090732 ) 
-            {  
-
-            if ( absOfX == 0.0 )
-                {
-                FESETENVD( OldEnvironment.d );       	// restore caller's mode
-                return x; 				// +0 -0 preserved
-                }
-                
-            aD.d = 256.0 * absOfX + kRint;
-            OldEnvironment.i.lo |= FE_INEXACT;               // set INEXACT
-
-/*******************************************************************************
-*     |x| < 0.0625                                                             *
-*******************************************************************************/
-            
-            if ( aD.i.lo < 16UL ) 
-                  {
-
-                  aSquared = absOfX * absOfX;
-                  temp1 = ( ( ( ts11 * aSquared + ts9 ) * aSquared + ts7 ) * aSquared + ts5 )*aSquared + ts3;
-                  aThird = absOfX * aSquared;
-                  if ( x > 0.0 )
-                        result = ( temp1 * aThird + absOfX );
-                  else 
-                        {
-                        aThird = -aThird;
-                        result = ( temp1 * aThird - absOfX );
-                        }
-                        
-                  if ( fabs ( result ) < kMinNormal )
-                        OldEnvironment.i.lo |= FE_UNDERFLOW;
-                        
-                  FESETENVD( OldEnvironment.d );             // restore caller's mode
-                  return result;
-                  }
-            
-/*******************************************************************************
-*     .0625 <= x < .7853980064392090732.                                       *
-*******************************************************************************/
-            else 
-                  {
-                  tableIndex = indexTable[aD.i.lo - 16];
-                  w = absOfX - tablePointer[tableIndex].f0;  // w = deltax
-                  y = tablePointer[tableIndex].p;            // y = Tan from table
-                  aSquared = w * w;                          // calculate delta Tan
-                  temp1 = ( ( tt7 * aSquared + tt5 ) * aSquared + tt3 ) * ( aSquared * w ) + w;
-                  v = y * temp1;
-                  aSquared = v * v;
-                  aThird = 1.0 + v;
-                  aFourth = aSquared * aSquared;
-                  w = aThird + aThird * aSquared;
-                  aThird = w + w * aFourth;
-                  temp1 = temp1 + v * y;
-                  if ( x > 0.0 )                             // fix final sign
-                        result = ( y + temp1 * aThird );
-                  else 
-                        {
-                        aThird = -aThird;
-                        result = ( temp1 * aThird - y );
-                        }
-                  FESETENVD( OldEnvironment.d );             // restore caller's mode
-                  return result;
-                  }
-            }
-      
-      if ( x != x )                                          // x is a NaN
-            {
-            FESETENVD( OldEnvironment.d );                   // restore caller's mode
-            return ( x );
-            }
-      
-/*******************************************************************************
-*     |x| > ¹/4 and perhaps |x| > kPiScale42.                                  *
-*******************************************************************************/
-
-      if ( absOfX > kPiScale42 ) 
-            {                                                // |x| is huge or infinite
-            if ( absOfX == infinity.d ) 
-                  {                                          // infinite case is invalid
-                  OldEnvironment.i.lo |= SET_INVALID;
-                  FESETENVD( OldEnvironment.d );             // restore caller's mode
-                  return ( nan ( TRIG_NAN ) );               // return NaN
-                  }
-            
-            while ( absOfX > kPiScale53 ) 
-                  {                                          // loop to reduce x below
-                  intquo = x * k2ByPi;                       // ¹*2^53 in magnitude
-                  x = ( x - intquo * kPiBy2 ) - intquo * kPiBy2Tail;
-                  absOfX = __FABS( x );
-                  }
-
-/*******************************************************************************
-*     final reduction of x to magnitude between 0 and 2*¹.                     *
-*******************************************************************************/
-            
-            intquo = ( x * k2ByPi + kRintBig ) - kRintBig;
-            x = ( x - intquo * kPiBy2 ) - intquo * kPiBy2Tail;
-            absOfX = __FABS( x );
-            }
-      
-/*******************************************************************************
-*     ¹/4 < x < ¹*2^42                                                         *
-*******************************************************************************/
-
-      OldEnvironment.i.lo |= FE_INEXACT;                     // set the inexact flag
-      
-/*******************************************************************************
-*     Further argument reduction is probably necessary.  A double-double       *
-*     reduced argument is determined ( arg|argtail ).                          *
-*******************************************************************************/
-
-      zD.d = x*k2ByPi + kRint;                               // find int quo x / ( pi/2 )
-      iz = zD.i.lo & 1UL;                                    // quo modulo 2
-      intquo = zD.d - kRint;                                 // Rint( x )
-      arg = ( x - intquo*kPiBy2 ) - intquo*kPiBy2Tail;       // reduced arg ( head )
-      absOfX = __FABS( arg );
-      aD.d = 256.0*absOfX + kRint;
-      argtail = ( ( x - intquo*kPiBy2 ) - arg ) - intquo*kPiBy2Tail; // red. arg tail
-      
-/*******************************************************************************
-*     |arg| < .0625.                                                           *
-*******************************************************************************/
-
-      if ( aD.i.lo < 16UL ) 
-            {
-            u = absOfX;
-            aSquared = u * u;
-            v = argtail;
-            temp1 = ( ( ( ts11 * aSquared + ts9 ) * aSquared + ts7 ) * aSquared + ts5 ) * aSquared + ts3;
-            aThird = aSquared*u;
-            
-/*******************************************************************************
-*     tangent approximation starts here.                                       *
-*******************************************************************************/
-
-            if ( iz == 0 ) 
-                  {
-                  if ( arg > 0.0 ) 
-                        {                                    // positive arg
-                        w = temp1 * aThird + v;
-                        result =  ( w + u );
-                        }
-                  
-                  else 
-                        {                                    // negative arg
-                        w = v - temp1 * aThird;
-                        result = ( w - u );
-                        }
-                  FESETENVD( OldEnvironment.d );             // restore caller's mode
-                  return result;   
-                  }
-            
-/*******************************************************************************
-*     cotangent approximation starts here.                                     *
-*******************************************************************************/
-            else 
-                  {
-                  if ( arg > 0.0 ) 
-                        {                                    // positive argument
-                        s = temp1 * aThird + v;
-                        temp2 = s + u;
-                        }
-                  
-                  else 
-                        {                                    // negative argument
-                        s = temp1 * aThird - v;
-                        temp2 = s + u;
-                        }
-                  
-                  aFourth = ( u - temp2 ) + s;
-                  
-                  if ( __FABS ( temp2 ) < k2ToM1023 ) 
-                        {                                    // huge result
-                        if ( arg > 0 ) 
-                              result = ( 1.0 / temp2 );
-                        else 
-                              result = ( 1.0 / ( -temp2 ) );
-                        FESETENVD( OldEnvironment.d );        // restore caller's mode
-                        return result;   
-                        }
-                  
-                  u = 1.0 / temp2;
-                  v = 1.0 - u * temp2;
-                  temp1 = aFourth * u - v;
-                  
-                  if ( arg > 0.0 )
-                        result = ( temp1 * u - u );
-                  else 
-                        {
-                        temp1 = -temp1;
-                        result = ( temp1 * u + u );
-                        }
-                  FESETENVD( OldEnvironment.d );             // restore caller's mode
-                  return result;   
-                  }
-            } 
-      
-/*******************************************************************************
-*     The following code covers the case where the reduced argument has        *
-*     magnitude greater than 0.0625 but less than ¹/4.                         *
-*******************************************************************************/
-      
-      tableIndex = indexTable [ aD.i.lo - 16 ];
-      
-      if ( arg > 0.0 ) 
-            {                                                        // positive argument
-            w = absOfX - tablePointer [tableIndex].f0 + argtail;     // argument delta
-            aSquared = w * w;
-            v = absOfX - tablePointer [tableIndex].f0 - w + argtail; // tail of argument delta
-            }
-      
-      else 
-            {                                                        // negative argument
-            w = absOfX - tablePointer [tableIndex].f0 - argtail;     // argument delta
-            aSquared = w * w;
-            v = absOfX - tablePointer [tableIndex].f0 - w - argtail; // tail of argument delta
-            }
-      
-      y = tablePointer[tableIndex].p;
-      temp1 = ( ( tt7 * aSquared + tt5 ) * aSquared + tt3 ) * ( aSquared * w ) + v + w;
-      v = y * temp1;                                                 // Tan( delta )
-
-/*******************************************************************************
-*      polynomial approx of 1/(1-v)                                            *
-*******************************************************************************/
-
-      aSquared = v * v;
-      aThird = 1.0 + v;
-      aFourth = aSquared * aSquared;
-      w = aThird + aThird * aSquared;
-      aThird = w + w * aFourth;                                      // aThird = 1/(1-v)
-      s = ( 1.0 + y * y ) * aThird;
-      
-      if ( iz == 0 ) 
-            {                                                        // tangent approximation
-            FESETENVD( OldEnvironment.d );                           // restore caller's mode
-            if ( arg > 0.0 )
-                  result = ( y + temp1 * s );
-            else
-                  {
-                  y = -y;
-                  result = ( y - temp1 * s );
-                  }
-            FESETENVD( OldEnvironment.d );                           // restore caller's mode
-            return result;   
-            }
-      
-      else 
-            {                                                        // cotangent approx
-            w = y + temp1 * s;
-            aFourth = ( y - w ) + temp1 * s;
-            u = 1.0 / w;
-            v = 1.0 - u * w;
-            w = u * aFourth - v;
-            if ( arg > 0.0 )
-                  result = ( u * w - u );
-            else 
-                  {
-                  w = -w;
-                  result = ( u * w + u );
-                  }
-            FESETENVD( OldEnvironment.d );                            // restore caller's mode
-            return result;   
-            }
-      }
-#else
 static const double ts11 = 8.898406739539066157565e-3,
             ts9  = 2.186936821731655951177e-2,
             ts7  = 5.396825413618260185395e-2,
@@ -422,8 +102,8 @@ static const double ts11 = 8.898406739539066157565e-3,
 static const double tt7  = 0.05396875452473400572649,
             tt5  = 0.1333333333304691192925,
             tt3  = 0.3333333333333333357614;
-static const double k2ToM1023 = 1.112536929253600692e-308; // 0x1.0p-1023
-static const long indexTable[] =
+static const double k2ToM1023 = 0x1.0p-1023; // 1.112536929253600692e-308
+static const uint32_t indexTable[] =
     {  
     16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,
     27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,
@@ -444,21 +124,21 @@ static const long indexTable[] =
     238, 240, 242, 244, 246, 248, 250, 252, 254, 256, 256
     };
     
-static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
+static const double kMinNormal = 0x1.0p-1022;                 // 2.2250738585072014e-308;
 static const double kPiDiv4 = 0.7853980064392090732;
 
 double tan (   double x  )
 {
       register double absOfX, intquo ,arg, argtail, aSquared, aThird, aFourth,
                       temp1, temp2, s, u, v, w, y, result;
-      long tableIndex;
-      unsigned long iz;
+      int tableIndex;
+      uint32_t iz;
       hexdouble zD, aD, OldEnvironment;
       struct tableEntry *tablePointer;
      
       register double FPR_env, FPR_z, FPR_one, FPR_PiDiv4, FPR_256, FPR_piScale;
       register double FPR_t, FPR_u, FPR_inf, FPR_pi53, FPR_2divPi, FPR_PiDiv2, FPR_PiDiv2Tail, FPR_kRintBig, FPR_kRint;
-      register unsigned long GPR_f;
+      register uint32_t GPR_f;
       register struct tableEntry *pT;
 
       FEGETENVD( FPR_env );                     	// save env, set default
@@ -484,7 +164,7 @@ double tan (   double x  )
             FPR_t = __FMADD( FPR_256, absOfX, FPR_kRint ); 
             aD.d = FPR_t;
             
-            if ( absOfX == FPR_z )
+            if (unlikely( absOfX == FPR_z ))
             {
                 FESETENVD( FPR_env );       		// restore caller's mode
                 return x; 				// +0 -0 preserved
@@ -495,12 +175,12 @@ double tan (   double x  )
 *     |x| < 0.0625                                                             *
 *******************************************************************************/
             
-            if ( aD.i.lo < 16UL ) // No Store/Load hazard thanks to the imediately preceding branch
+            if ( aD.i.lo < 16u ) // No Store/Load hazard thanks to the imediately preceding branch
             {
                   register double FPR_ts3, FPR_ts5, FPR_ts7, FPR_ts9, FPR_ts11, FPR_Min;
                   
                   aSquared = __FMUL( absOfX, absOfX );	FPR_Min = kMinNormal;
-                  __ORI_NOOP;
+                  __NOOP;
 
                   FPR_ts11 = ts11;		 	FPR_ts9 = ts9;
                   
@@ -582,7 +262,7 @@ double tan (   double x  )
             }
       }
       
-      if ( x != x )                                 	// x is a NaN
+      if (unlikely( x != x ))                           // x is a NaN
       {
             FESETENVD( FPR_env );                   	// restore caller's mode
             return ( x );
@@ -597,13 +277,17 @@ double tan (   double x  )
       FPR_inf = infinity.d; 		 		FPR_kRintBig = kRintBig;
       __ENSURE( FPR_2divPi, FPR_PiDiv2, FPR_piScale );
 
-      if ( absOfX > FPR_piScale ) 
+      if (unlikely( absOfX > FPR_piScale )) 
       {                                                	// |x| is huge or infinite
             if ( absOfX == FPR_inf )  
             {                               	  	// infinite case is invalid
                   OldEnvironment.d = FPR_env;
+				  __NOOP;
+				  __NOOP;
+				  __NOOP;
+      
                   OldEnvironment.i.lo |= SET_INVALID;
-                  FESETENVD( OldEnvironment.d );  	// restore caller's mode
+                  FESETENVD_GRP( OldEnvironment.d );  	// restore caller's mode
                   return ( nan ( TRIG_NAN ) );    	// return NaN
             }
             
@@ -645,8 +329,8 @@ double tan (   double x  )
       
       FPR_u = __FMADD( FPR_256, absOfX, FPR_kRint ); 
       aD.d = FPR_u;
-      __ORI_NOOP;
-      __ORI_NOOP;
+      __NOOP;
+      __NOOP;
       
       argtail = __FNMSUB( intquo, FPR_PiDiv2Tail, FPR_t );
       
@@ -654,7 +338,7 @@ double tan (   double x  )
 *     |arg| < .0625.                                                           *
 *******************************************************************************/
 
-      if ( aD.i.lo < 16UL ) // No Store/Load hazard, NOOPs above push this issue to next cycle.
+      if ( aD.i.lo < 16u ) // No Store/Load hazard, NOOPs above push this issue to next cycle.
       {
             register double FPR_ts3, FPR_ts5, FPR_ts7, FPR_ts9, FPR_ts11;
             
@@ -666,7 +350,7 @@ double tan (   double x  )
             
             FPR_ts7 = ts7;		 		FPR_ts5 = ts5;
             
-            FPR_ts3 = ts3;           			iz = GPR_f & 1UL; // quo modulo 2
+            FPR_ts3 = ts3;           			iz = GPR_f & 1u; // quo modulo 2
 
             temp1 = __FMADD( FPR_ts11, aSquared, FPR_ts9 );
             
@@ -792,7 +476,7 @@ double tan (   double x  )
 *      polynomial approx of 1/(1-v)                                            *
 *******************************************************************************/
 
-      aSquared = __FMUL( v, v );	      		iz = GPR_f & 1UL; // quo modulo 2
+      aSquared = __FMUL( v, v );	      		iz = GPR_f & 1u; // quo modulo 2
       aThird = FPR_one + v;
       aFourth = __FMUL( aSquared, aSquared );
       w = __FMADD( aThird, aSquared, aThird );
@@ -833,9 +517,3 @@ double tan (   double x  )
             return result;   
       }
 }
-#endif
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

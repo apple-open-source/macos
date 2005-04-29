@@ -1,6 +1,6 @@
 /*
 ***************************************************************************
-*   Copyright (C) 1999-2003 International Business Machines Corporation   *
+*   Copyright (C) 1999-2004 International Business Machines Corporation   *
 *   and others. All rights reserved.                                      *
 ***************************************************************************
 */
@@ -51,7 +51,9 @@ RBBIDataWrapper::RBBIDataWrapper(const RBBIDataHeader *data, UErrorCode &status)
 
 RBBIDataWrapper::RBBIDataWrapper(UDataMemory* udm, UErrorCode &status) {
     const RBBIDataHeader *d = (const RBBIDataHeader *)
-        ((char *)&(udm->pHeader->info) + udm->pHeader->info.size);
+        // ((char *)&(udm->pHeader->info) + udm->pHeader->info.size);
+        // taking into consideration the padding added in by udata_write
+        ((char *)(udm->pHeader) + udm->pHeader->dataHeader.headerSize);
     init(d, status);
     fUDataMem = udm;
 }
@@ -73,10 +75,20 @@ void RBBIDataWrapper::init(const RBBIDataHeader *data, UErrorCode &status) {
     }
 
     fUDataMem     = NULL;
-    fForwardTable = (RBBIStateTable *)((char *)data + fHeader->fFTable);
     fReverseTable = NULL;
+    fSafeFwdTable = NULL;
+    fSafeRevTable = NULL;
+    if (data->fFTableLen != 0) {
+        fForwardTable = (RBBIStateTable *)((char *)data + fHeader->fFTable);
+    }
     if (data->fRTableLen != 0) {
         fReverseTable = (RBBIStateTable *)((char *)data + fHeader->fRTable);
+    }
+    if (data->fSFTableLen != 0) {
+        fSafeFwdTable = (RBBIStateTable *)((char *)data + fHeader->fSFTable);
+    }
+    if (data->fSRTableLen != 0) {
+        fSafeRevTable = (RBBIStateTable *)((char *)data + fHeader->fSRTable);
     }
 
 
@@ -92,6 +104,10 @@ void RBBIDataWrapper::init(const RBBIDataHeader *data, UErrorCode &status) {
 
     fRuleSource   = (UChar *)((char *)data + fHeader->fRuleSource);
     fRuleString.setTo(TRUE, fRuleSource, -1);
+    U_ASSERT(data->fRuleSourceLen > 0);
+
+    fRuleStatusTable = (int32_t *)((char *)data + fHeader->fStatusTable);
+    fStatusMaxIdx    = data->fStatusTableLen / sizeof(int32_t);
 
     fRefCount = 1;
 
@@ -104,7 +120,7 @@ void RBBIDataWrapper::init(const RBBIDataHeader *data, UErrorCode &status) {
 
 //-----------------------------------------------------------------------------
 //
-//    Destructor.     Don't call this - use removeReferenc() instead.
+//    Destructor.     Don't call this - use removeReference() instead.
 //
 //-----------------------------------------------------------------------------
 RBBIDataWrapper::~RBBIDataWrapper() {
@@ -173,7 +189,7 @@ RBBIDataWrapper *RBBIDataWrapper::addReference() {
 //  getRuleSourceString
 //
 //-----------------------------------------------------------------------------
-const UnicodeString &RBBIDataWrapper::getRuleSourceString() {
+const UnicodeString &RBBIDataWrapper::getRuleSourceString() const {
     return fRuleString;
 }
 
@@ -183,45 +199,224 @@ const UnicodeString &RBBIDataWrapper::getRuleSourceString() {
 //  print   -  debugging function to dump the runtime data tables.
 //
 //-----------------------------------------------------------------------------
-void  RBBIDataWrapper::printData() {
 #ifdef RBBI_DEBUG
-    uint32_t c, s;
+void  RBBIDataWrapper::printTable(const char *heading, const RBBIStateTable *table) {
+    uint32_t   c;
+    uint32_t   s;
 
-    RBBIDebugPrintf("RBBI Data at %p\n", (void *)fHeader);
-    RBBIDebugPrintf("   Version = %d\n", fHeader->fVersion);
-    RBBIDebugPrintf("   total length of data  = %d\n", fHeader->fLength);
-    RBBIDebugPrintf("   number of character categories = %d\n\n", fHeader->fCatCount);
+    RBBIDebugPrintf("   %s\n", heading);
 
-    RBBIDebugPrintf("   Forward State Transition Table\n");
-    RBBIDebugPrintf("State |  Acc  LA   Tag");
+    RBBIDebugPrintf("State |  Acc  LA TagIx");
     for (c=0; c<fHeader->fCatCount; c++) {RBBIDebugPrintf("%3d ", c);}
-    RBBIDebugPrintf("\n------|---------------"); for (c=0;c<fHeader->fCatCount; c++) {RBBIDebugPrintf("----");}
+    RBBIDebugPrintf("\n------|---------------"); for (c=0;c<fHeader->fCatCount; c++) {
+        RBBIDebugPrintf("----");
+    }
     RBBIDebugPrintf("\n");
 
-    for (s=0; s<fForwardTable->fNumStates; s++) {
+    if (table == NULL) {
+        RBBIDebugPrintf("         N U L L   T A B L E\n\n");
+        return;
+    }
+    for (s=0; s<table->fNumStates; s++) {
         RBBIStateTableRow *row = (RBBIStateTableRow *)
-                                  (fForwardTable->fTableData + (fForwardTable->fRowLen * s));
-        RBBIDebugPrintf("%4d  |  %3d %3d %3d ", s, row->fAccepting, row->fLookAhead, row->fTag);
+                                  (table->fTableData + (table->fRowLen * s));
+        RBBIDebugPrintf("%4d  |  %3d %3d %3d ", s, row->fAccepting, row->fLookAhead, row->fTagIdx);
         for (c=0; c<fHeader->fCatCount; c++)  {
             RBBIDebugPrintf("%3d ", row->fNextState[c]);
         }
         RBBIDebugPrintf("\n");
     }
+    RBBIDebugPrintf("\n");
+}
+#endif
+
+
+#ifdef RBBI_DEBUG
+void  RBBIDataWrapper::printData() {
+    RBBIDebugPrintf("RBBI Data at %p\n", (void *)fHeader);
+    RBBIDebugPrintf("   Version = %d\n", fHeader->fVersion);
+    RBBIDebugPrintf("   total length of data  = %d\n", fHeader->fLength);
+    RBBIDebugPrintf("   number of character categories = %d\n\n", fHeader->fCatCount);
+
+    printTable("Forward State Transition Table", fForwardTable);
+    printTable("Reverse State Transition Table", fReverseTable);
+    printTable("Safe Forward State Transition Table", fSafeFwdTable);
+    printTable("Safe Reverse State Transition Table", fSafeRevTable);
 
     RBBIDebugPrintf("\nOrignal Rules source:\n");
-    c = 0;
-    for (;;) {
-        if (fRuleSource[c] == 0)
-            break;
+    for (int32_t c=0; fRuleSource[c] != 0; c++) {
         RBBIDebugPrintf("%c", fRuleSource[c]);
-        c++;
     }
     RBBIDebugPrintf("\n\n");
-#endif
 }
-
+#endif
 
 
 U_NAMESPACE_END
+
+//-----------------------------------------------------------------------------
+//
+//  ubrk_swap   -  byte swap and char encoding swap of RBBI data
+//
+//-----------------------------------------------------------------------------
+
+U_CAPI int32_t U_EXPORT2
+ubrk_swap(const UDataSwapper *ds, const void *inData, int32_t length, void *outData,
+           UErrorCode *status) {
+
+    if (status == NULL || U_FAILURE(*status)) {
+        return 0;
+    }
+
+    //
+    //  Check that the data header is for for break data.
+    //    (Header contents are defined in genbrk.cpp)
+    //
+    const UDataInfo *pInfo = (const UDataInfo *)((const char *)inData+4);
+    if(!(  pInfo->dataFormat[0]==0x42 &&   /* dataFormat="Brk " */
+           pInfo->dataFormat[1]==0x72 &&
+           pInfo->dataFormat[2]==0x6b &&
+           pInfo->dataFormat[3]==0x20 &&
+           pInfo->formatVersion[0]==3  )) {
+        udata_printError(ds, "ubrk_swap(): data format %02x.%02x.%02x.%02x (format version %02x) is not recognized\n",
+                         pInfo->dataFormat[0], pInfo->dataFormat[1],
+                         pInfo->dataFormat[2], pInfo->dataFormat[3],
+                         pInfo->formatVersion[0]);
+        *status=U_UNSUPPORTED_ERROR;
+        return 0;
+    }
+
+    //
+    // Swap the data header.  (This is the generic ICU Data Header, not the RBBI Specific
+    //                         RBBIDataHeader).  This swap also conveniently gets us
+    //                         the size of the ICU d.h., which lets us locate the start
+    //                         of the RBBI specific data.
+    //
+    int32_t headerSize=udata_swapDataHeader(ds, inData, length, outData, status);
+
+
+    //
+    // Get the RRBI Data Header, and check that it appears to be OK.
+    //
+    const uint8_t  *inBytes =(const uint8_t *)inData+headerSize;
+    RBBIDataHeader *rbbiDH = (RBBIDataHeader *)inBytes;
+    if (ds->readUInt32(rbbiDH->fMagic)   != 0xb1a0 ||
+        ds->readUInt32(rbbiDH->fVersion) != 1      ||
+        ds->readUInt32(rbbiDH->fLength)  <  sizeof(RBBIDataHeader)) 
+    {
+        udata_printError(ds, "ubrk_swap(): RBBI Data header is invalid.\n");
+        *status=U_UNSUPPORTED_ERROR;
+        return 0;
+    }
+
+    //
+    // Prefight operation?  Just return the size
+    //
+    int32_t totalSize = headerSize + ds->readUInt32(rbbiDH->fLength);
+    if (length < 0) {
+        return totalSize;
+    }
+
+    //
+    // Check that length passed in is consistent with length from RBBI data header.
+    //
+    if (length > 0) {
+        length -= headerSize;
+        if ((uint32_t)length < ds->readUInt32(rbbiDH->fLength)) {
+            udata_printError(ds, "ubrk_swap(): too few bytes (%d after ICU Data header) for break data.\n",
+                             length);
+            *status=U_INDEX_OUTOFBOUNDS_ERROR;
+            return 0;
+        }
+    }
+
+
+    //
+    // Swap the Data.  Do the data itself first, then the RBBI Data Header, because
+    //                 we need to reference the header to locate the data, and an
+    //                 inplace swap of the header leaves it unusable.
+    //
+    uint8_t *outBytes = (uint8_t *)outData + headerSize;
+    int32_t   tableStartOffset;
+    int32_t   tableLength;
+
+    //
+    // If not swapping in place, zero out the output buffer before starting.
+    //    Individual tables and other data items within are aligned to 8 byte boundaries
+    //    when originally created.  Any unused space between items needs to be zero.
+    //
+    if (inBytes != outBytes) {
+       uprv_memset(outBytes, 0, length);
+    }
+
+    //
+    // Each state table begins with several 32 bit fields.  Calculate the size
+    //   in bytes of these.
+    //
+    RBBIStateTable *stp = NULL;
+    int32_t         topSize = (char *)stp->fTableData - (char *)stp;
+
+    // Forward state table.  
+    tableStartOffset = ds->readUInt32(rbbiDH->fFTable);
+    tableLength      = ds->readUInt32(rbbiDH->fFTableLen);
+
+    if (tableLength > 0) {
+        ds->swapArray32(ds, inBytes+tableStartOffset, topSize, 
+                            outBytes+tableStartOffset, status);
+        ds->swapArray16(ds, inBytes+tableStartOffset+topSize, tableLength-topSize,
+                            outBytes+tableStartOffset+topSize, status);
+    }
+    
+    // Reverse state table.  Same layout as forward table, above.
+    tableStartOffset = ds->readUInt32(rbbiDH->fRTable);
+    tableLength      = ds->readUInt32(rbbiDH->fRTableLen);
+
+    if (tableLength > 0) {
+        ds->swapArray32(ds, inBytes+tableStartOffset, topSize, 
+                            outBytes+tableStartOffset, status);
+        ds->swapArray16(ds, inBytes+tableStartOffset+topSize, tableLength-topSize,
+                            outBytes+tableStartOffset+topSize, status);
+    }
+
+    // Safe Forward state table.  Same layout as forward table, above.
+    tableStartOffset = ds->readUInt32(rbbiDH->fSFTable);
+    tableLength      = ds->readUInt32(rbbiDH->fSFTableLen);
+
+    if (tableLength > 0) {
+        ds->swapArray32(ds, inBytes+tableStartOffset, topSize, 
+                            outBytes+tableStartOffset, status);
+        ds->swapArray16(ds, inBytes+tableStartOffset+topSize, tableLength-topSize,
+                            outBytes+tableStartOffset+topSize, status);
+    }
+
+    // Safe Reverse state table.  Same layout as forward table, above.
+    tableStartOffset = ds->readUInt32(rbbiDH->fSRTable);
+    tableLength      = ds->readUInt32(rbbiDH->fSRTableLen);
+
+    if (tableLength > 0) {
+        ds->swapArray32(ds, inBytes+tableStartOffset, topSize, 
+                            outBytes+tableStartOffset, status);
+        ds->swapArray16(ds, inBytes+tableStartOffset+topSize, tableLength-topSize,
+                            outBytes+tableStartOffset+topSize, status);
+    }
+
+    // Trie table for character categories
+    utrie_swap(ds, inBytes+ds->readUInt32(rbbiDH->fTrie), ds->readUInt32(rbbiDH->fTrieLen),
+                            outBytes+ds->readUInt32(rbbiDH->fTrie), status);
+
+    // Source Rules Text.  It's UChar data
+    ds->swapArray16(ds, inBytes+ds->readUInt32(rbbiDH->fRuleSource), ds->readUInt32(rbbiDH->fRuleSourceLen),
+                        outBytes+ds->readUInt32(rbbiDH->fRuleSource), status);
+
+    // Table of rule status values.  It's all int_32 values
+    ds->swapArray32(ds, inBytes+ds->readUInt32(rbbiDH->fStatusTable), ds->readUInt32(rbbiDH->fStatusTableLen),
+                        outBytes+ds->readUInt32(rbbiDH->fStatusTable), status);
+
+    // And, last, the header.  All 32 bit values.
+    ds->swapArray32(ds, inBytes,  sizeof(RBBIDataHeader), outBytes, status);
+
+    return totalSize;
+}
+
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */

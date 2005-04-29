@@ -59,6 +59,7 @@ typedef void (*ProximityEventCallback)(
 class IOHITablet : public IOHIPointing
 {
     OSDeclareDefaultStructors(IOHITablet);
+    friend class IOHITabletPointer;
 
 public:
     UInt16		_systemTabletID;

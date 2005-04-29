@@ -1,0 +1,1 @@
+// CoreHeadersMach-O.pch#pragma c99 on#define _MSL_USING_MW_C_HEADERS 1#if __mwlinker__	#pragma precompile_target "CoreHeadersMacOSX"#else	#pragma precompile_target "CoreHeadersMach-O"#endif/* Now just include the "CoreHeadersMach-O.c" source file ... */#pragma once on#include "CoreHeadersMach-O.c"

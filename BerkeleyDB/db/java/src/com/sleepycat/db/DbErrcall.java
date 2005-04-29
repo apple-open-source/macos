@@ -1,23 +1,22 @@
-/*-
- * See the file LICENSE for redistribution information.
+/*
+ *  -
+ *  See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2002
- *      Sleepycat Software.  All rights reserved.
+ *  Copyright (c) 1997-2003
+ *  Sleepycat Software.  All rights reserved.
  *
- * $Id: DbErrcall.java,v 1.1.1.1 2003/02/15 04:56:07 zarzycki Exp $
+ *  $Id: DbErrcall.java,v 1.2 2004/03/30 01:23:37 jtownsen Exp $
  */
-
 package com.sleepycat.db;
 
 /**
- *
- * @author Donald D. Anderson
+ * @deprecated    As of Berkeley DB 4.2, replaced by {@link
+ *      DbErrorHandler}
  */
-public interface DbErrcall
-{
-    // methods
-    //
+public interface DbErrcall {
+    /**
+     * @deprecated     As of Berkeley DB 4.2, replaced by {@link
+     *      DbErrorHandler#error(String,String)}
+     */
     public abstract void errcall(String prefix, String buffer);
 }
-
-// end of DbErrcall.java

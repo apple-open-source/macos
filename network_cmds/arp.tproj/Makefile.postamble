@@ -113,3 +113,6 @@ beforeinstall:
 	install -c -o ${MANOWN} -g ${MANGRP} -m ${MANMODE} arp4.0 \
 	    ${DESTDIR}${MANDIR}4/arp.0
 
+after_install:
+	mkdir -p $(DSTROOT)/usr/share/man/man8
+	install -c -m 444 arp.8 $(DSTROOT)/usr/share/man/man8/arp.8

@@ -25,5 +25,8 @@
  */
 #include "SYS.h"
 
-UNIX_SYSCALL(sendmsg, 3)
+PSEUDO(sendmsg$UNIX2003, sendmsg, 3)
+	ret
+
+UNIX_SYSCALL_ERR(sendmsg, 3, cerror_cvt)
 	ret

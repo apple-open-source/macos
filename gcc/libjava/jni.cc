@@ -1,6 +1,7 @@
 // jni.cc - JNI implementation, including the jump table.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation
 
    This file is part of libgcj.
 
@@ -27,6 +28,7 @@ details.  */
 #include <java/lang/Throwable.h>
 #include <java/lang/ArrayIndexOutOfBoundsException.h>
 #include <java/lang/StringIndexOutOfBoundsException.h>
+#include <java/lang/StringBuffer.h>
 #include <java/lang/UnsatisfiedLinkError.h>
 #include <java/lang/InstantiationException.h>
 #include <java/lang/NoSuchFieldError.h>
@@ -35,10 +37,13 @@ details.  */
 #include <java/lang/reflect/Method.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/lang/OutOfMemoryError.h>
-#include <java/util/IdentityHashMap.h>
 #include <java/lang/Integer.h>
 #include <java/lang/ThreadGroup.h>
 #include <java/lang/Thread.h>
+#include <java/lang/IllegalAccessError.h>
+#include <java/nio/DirectByteBufferImpl.h>
+#include <java/util/IdentityHashMap.h>
+#include <gnu/gcj/RawData.h>
 
 #include <gcj/method.h>
 #include <gcj/field.h>
@@ -217,8 +222,8 @@ unwrap (T *obj)
 
 
 
-static jobject
-(JNICALL _Jv_JNI_NewGlobalRef) (JNIEnv *, jobject obj)
+static jobject JNICALL
+_Jv_JNI_NewGlobalRef (JNIEnv *, jobject obj)
 {
   // This seems weird but I think it is correct.
   obj = unwrap (obj);
@@ -226,16 +231,16 @@ static jobject
   return obj;
 }
 
-static void
-(JNICALL _Jv_JNI_DeleteGlobalRef) (JNIEnv *, jobject obj)
+static void JNICALL
+_Jv_JNI_DeleteGlobalRef (JNIEnv *, jobject obj)
 {
   // This seems weird but I think it is correct.
   obj = unwrap (obj);
   unmark_for_gc (obj, global_ref_table);
 }
 
-static void
-(JNICALL _Jv_JNI_DeleteLocalRef) (JNIEnv *env, jobject obj)
+static void JNICALL
+_Jv_JNI_DeleteLocalRef (JNIEnv *env, jobject obj)
 {
   _Jv_JNI_LocalFrame *frame;
 
@@ -261,8 +266,8 @@ static void
   JvAssert (0);
 }
 
-static jint
-(JNICALL _Jv_JNI_EnsureLocalCapacity) (JNIEnv *env, jint size)
+static jint JNICALL
+_Jv_JNI_EnsureLocalCapacity (JNIEnv *env, jint size)
 {
   // It is easier to just always allocate a new frame of the requested
   // size.  This isn't the most efficient thing, but for now we don't
@@ -289,8 +294,8 @@ static jint
   return 0;
 }
 
-static jint
-(JNICALL _Jv_JNI_PushLocalFrame) (JNIEnv *env, jint size)
+static jint JNICALL
+_Jv_JNI_PushLocalFrame (JNIEnv *env, jint size)
 {
   jint r = _Jv_JNI_EnsureLocalCapacity (env, size);
   if (r < 0)
@@ -302,8 +307,8 @@ static jint
   return 0;
 }
 
-static jobject
-(JNICALL _Jv_JNI_NewLocalRef) (JNIEnv *env, jobject obj)
+static jobject JNICALL
+_Jv_JNI_NewLocalRef (JNIEnv *env, jobject obj)
 {
   // This seems weird but I think it is correct.
   obj = unwrap (obj);
@@ -343,8 +348,8 @@ static jobject
   return obj;
 }
 
-static jobject
-(JNICALL _Jv_JNI_PopLocalFrame) (JNIEnv *env, jobject result, int stop)
+static jobject JNICALL
+_Jv_JNI_PopLocalFrame (JNIEnv *env, jobject result, int stop)
 {
   _Jv_JNI_LocalFrame *rf = env->locals;
 
@@ -378,10 +383,26 @@ static jobject
   return result == NULL ? NULL : _Jv_JNI_NewLocalRef (env, result);
 }
 
-static jobject
-(JNICALL _Jv_JNI_PopLocalFrame) (JNIEnv *env, jobject result)
+static jobject JNICALL
+_Jv_JNI_PopLocalFrame (JNIEnv *env, jobject result)
 {
   return _Jv_JNI_PopLocalFrame (env, result, MARK_USER);
+}
+
+// Make sure an array's type is compatible with the type of the
+// destination.
+template<typename T>
+static bool
+_Jv_JNI_check_types (JNIEnv *env, JArray<T> *array, jclass K)
+{
+  jclass klass = array->getClass()->getComponentType();
+  if (__builtin_expect (klass != K, false))
+    {
+      env->ex = new java::lang::IllegalAccessError ();
+      return false;
+    }
+  else
+    return true;
 }
 
 // Pop a `system' frame from the stack.  This is `extern "C"' as it is
@@ -399,6 +420,18 @@ _Jv_JNI_PopSystemFrame (JNIEnv *env)
     }
 }
 
+template<typename T> T extract_from_jvalue(jvalue const & t);
+template<> jboolean extract_from_jvalue(jvalue const & jv) { return jv.z; }
+template<> jbyte    extract_from_jvalue(jvalue const & jv) { return jv.b; }
+template<> jchar    extract_from_jvalue(jvalue const & jv) { return jv.c; }
+template<> jshort   extract_from_jvalue(jvalue const & jv) { return jv.s; }
+template<> jint     extract_from_jvalue(jvalue const & jv) { return jv.i; }
+template<> jlong    extract_from_jvalue(jvalue const & jv) { return jv.j; }
+template<> jfloat   extract_from_jvalue(jvalue const & jv) { return jv.f; }
+template<> jdouble  extract_from_jvalue(jvalue const & jv) { return jv.d; }
+template<> jobject  extract_from_jvalue(jvalue const & jv) { return jv.l; }
+
+
 // This function is used from other template functions.  It wraps the
 // return value appropriately; we specialize it so that object returns
 // are turned into local references.
@@ -411,7 +444,7 @@ wrap_value (JNIEnv *, T value)
 
 // This specialization is used for jobject, jclass, jstring, jarray,
 // etc.
-template<typename T>
+template<typename R, typename T>
 static T *
 wrap_value (JNIEnv *env, T *value)
 {
@@ -422,15 +455,15 @@ wrap_value (JNIEnv *env, T *value)
 
 
 
-static jint
-(JNICALL _Jv_JNI_GetVersion) (JNIEnv *)
+static jint JNICALL
+_Jv_JNI_GetVersion (JNIEnv *)
 {
   return JNI_VERSION_1_4;
 }
 
-static jclass
-(JNICALL _Jv_JNI_DefineClass) (JNIEnv *env, const char *name, jobject loader,
-		               const jbyte *buf, jsize bufLen)
+static jclass JNICALL
+_Jv_JNI_DefineClass (JNIEnv *env, const char *name, jobject loader,
+		     const jbyte *buf, jsize bufLen)
 {
   try
     {
@@ -455,8 +488,8 @@ static jclass
     }
 }
 
-static jclass
-(JNICALL _Jv_JNI_FindClass) (JNIEnv *env, const char *name)
+static jclass JNICALL
+_Jv_JNI_FindClass (JNIEnv *env, const char *name)
 {
   // FIXME: assume that NAME isn't too long.
   int len = strlen (name);
@@ -472,7 +505,7 @@ static jclass
 
       java::lang::ClassLoader *loader = NULL;
       if (env->klass != NULL)
-	loader = env->klass->getClassLoader ();
+	loader = env->klass->getClassLoaderInternal ();
 
       if (loader == NULL)
 	{
@@ -491,20 +524,20 @@ static jclass
   return (jclass) wrap_value (env, r);
 }
 
-static jclass
-(JNICALL _Jv_JNI_GetSuperclass) (JNIEnv *env, jclass clazz)
+static jclass JNICALL
+_Jv_JNI_GetSuperclass (JNIEnv *env, jclass clazz)
 {
   return (jclass) wrap_value (env, unwrap (clazz)->getSuperclass ());
 }
 
-static jboolean
-(JNICALL _Jv_JNI_IsAssignableFrom) (JNIEnv *, jclass clazz1, jclass clazz2)
+static jboolean JNICALL
+_Jv_JNI_IsAssignableFrom (JNIEnv *, jclass clazz1, jclass clazz2)
 {
   return unwrap (clazz1)->isAssignableFrom (unwrap (clazz2));
 }
 
-static jint
-(JNICALL _Jv_JNI_Throw) (JNIEnv *env, jthrowable obj)
+static jint JNICALL
+_Jv_JNI_Throw (JNIEnv *env, jthrowable obj)
 {
   // We check in case the user did some funky cast.
   obj = unwrap (obj);
@@ -513,8 +546,8 @@ static jint
   return 0;
 }
 
-static jint
-(JNICALL _Jv_JNI_ThrowNew) (JNIEnv *env, jclass clazz, const char *message)
+static jint JNICALL
+_Jv_JNI_ThrowNew (JNIEnv *env, jclass clazz, const char *message)
 {
   using namespace java::lang::reflect;
 
@@ -550,47 +583,47 @@ static jint
   return r;
 }
 
-static jthrowable
-(JNICALL _Jv_JNI_ExceptionOccurred) (JNIEnv *env)
+static jthrowable JNICALL
+_Jv_JNI_ExceptionOccurred (JNIEnv *env)
 {
   return (jthrowable) wrap_value (env, env->ex);
 }
 
-static void
-(JNICALL _Jv_JNI_ExceptionDescribe) (JNIEnv *env)
+static void JNICALL
+_Jv_JNI_ExceptionDescribe (JNIEnv *env)
 {
   if (env->ex != NULL)
     env->ex->printStackTrace();
 }
 
-static void
-(JNICALL _Jv_JNI_ExceptionClear) (JNIEnv *env)
+static void JNICALL
+_Jv_JNI_ExceptionClear (JNIEnv *env)
 {
   env->ex = NULL;
 }
 
-static jboolean
-(JNICALL _Jv_JNI_ExceptionCheck) (JNIEnv *env)
+static jboolean JNICALL
+_Jv_JNI_ExceptionCheck (JNIEnv *env)
 {
   return env->ex != NULL;
 }
 
-static void
-(JNICALL _Jv_JNI_FatalError) (JNIEnv *, const char *message)
+static void JNICALL
+_Jv_JNI_FatalError (JNIEnv *, const char *message)
 {
   JvFail (message);
 }
 
 
 
-static jboolean
-(JNICALL _Jv_JNI_IsSameObject) (JNIEnv *, jobject obj1, jobject obj2)
+static jboolean JNICALL
+_Jv_JNI_IsSameObject (JNIEnv *, jobject obj1, jobject obj2)
 {
   return unwrap (obj1) == unwrap (obj2);
 }
 
-static jobject
-(JNICALL _Jv_JNI_AllocObject) (JNIEnv *env, jclass clazz)
+static jobject JNICALL
+_Jv_JNI_AllocObject (JNIEnv *env, jclass clazz)
 {
   jobject obj = NULL;
   using namespace java::lang::reflect;
@@ -602,7 +635,7 @@ static jobject
       if (clazz->isInterface() || Modifier::isAbstract(clazz->getModifiers()))
 	env->ex = new java::lang::InstantiationException ();
       else
-	obj = JvAllocObject (clazz);
+	obj = _Jv_AllocObject (clazz);
     }
   catch (jthrowable t)
     {
@@ -612,16 +645,16 @@ static jobject
   return wrap_value (env, obj);
 }
 
-static jclass
-(JNICALL _Jv_JNI_GetObjectClass) (JNIEnv *env, jobject obj)
+static jclass JNICALL
+_Jv_JNI_GetObjectClass (JNIEnv *env, jobject obj)
 {
   obj = unwrap (obj);
   JvAssert (obj);
   return (jclass) wrap_value (env, obj->getClass());
 }
 
-static jboolean
-(JNICALL _Jv_JNI_IsInstanceOf) (JNIEnv *, jobject obj, jclass clazz)
+static jboolean JNICALL
+_Jv_JNI_IsInstanceOf (JNIEnv *, jobject obj, jclass clazz)
 {
   return unwrap (clazz)->isInstance(unwrap (obj));
 }
@@ -633,9 +666,9 @@ static jboolean
 //
 
 template<jboolean is_static>
-static jmethodID
-(JNICALL _Jv_JNI_GetAnyMethodID) (JNIEnv *env, jclass clazz,
-			          const char *name, const char *sig)
+static jmethodID JNICALL
+_Jv_JNI_GetAnyMethodID (JNIEnv *env, jclass clazz,
+			const char *name, const char *sig)
 {
   try
     {
@@ -674,7 +707,10 @@ static jmethodID
 	  clazz = clazz->getSuperclass ();
 	}
 
-      env->ex = new java::lang::NoSuchMethodError ();
+      java::lang::StringBuffer *name_sig =
+        new java::lang::StringBuffer (JvNewStringUTF (name));
+      name_sig->append ((jchar) ' ')->append (JvNewStringUTF (s));
+      env->ex = new java::lang::NoSuchMethodError (name_sig->toString ());
     }
   catch (jthrowable t)
     {
@@ -729,15 +765,12 @@ array_from_valist (jvalue *values, JArray<jclass> *arg_types, va_list vargs)
 // This can call any sort of method: virtual, "nonvirtual", static, or
 // constructor.
 template<typename T, invocation_type style>
-static T
-(JNICALL _Jv_JNI_CallAnyMethodV) (JNIEnv *env, jobject obj, jclass klass,
-			          jmethodID id, va_list vargs)
+static T JNICALL
+_Jv_JNI_CallAnyMethodV (JNIEnv *env, jobject obj, jclass klass,
+			jmethodID id, va_list vargs)
 {
   obj = unwrap (obj);
   klass = unwrap (klass);
-
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
 
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
@@ -758,15 +791,12 @@ static T
 	return_type = klass;
 
       jvalue result;
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, args, &result);
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  style == normal,
+			  arg_types, args, &result);
 
-      if (ex != NULL)
-	env->ex = ex;
-
-      // We cheat a little here.  FIXME.
-      return wrap_value (env, * (T *) &result);
+      return wrap_value (env, extract_from_jvalue<T>(result));
     }
   catch (jthrowable t)
     {
@@ -777,9 +807,9 @@ static T
 }
 
 template<typename T, invocation_type style>
-static T
-(JNICALL _Jv_JNI_CallAnyMethod) (JNIEnv *env, jobject obj, jclass klass,
-		                 jmethodID method, ...)
+static T JNICALL
+_Jv_JNI_CallAnyMethod (JNIEnv *env, jobject obj, jclass klass,
+		       jmethodID method, ...)
 {
   va_list args;
   T result;
@@ -792,15 +822,12 @@ static T
 }
 
 template<typename T, invocation_type style>
-static T
-(JNICALL _Jv_JNI_CallAnyMethodA) (JNIEnv *env, jobject obj, jclass klass,
-			          jmethodID id, jvalue *args)
+static T JNICALL
+_Jv_JNI_CallAnyMethodA (JNIEnv *env, jobject obj, jclass klass,
+			jmethodID id, jvalue *args)
 {
   obj = unwrap (obj);
   klass = unwrap (klass);
-
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
 
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
@@ -828,15 +855,12 @@ static T
 	}
 
       jvalue result;
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, arg_copy, &result);
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  style == normal,
+			  arg_types, arg_copy, &result);
 
-      if (ex != NULL)
-	env->ex = ex;
-
-      // We cheat a little here.  FIXME.
-      return wrap_value (env, * (T *) &result);
+      return wrap_value (env, extract_from_jvalue<T>(result));
     }
   catch (jthrowable t)
     {
@@ -847,15 +871,12 @@ static T
 }
 
 template<invocation_type style>
-static void
-(JNICALL _Jv_JNI_CallAnyVoidMethodV) (JNIEnv *env, jobject obj, jclass klass,
-			              jmethodID id, va_list vargs)
+static void JNICALL
+_Jv_JNI_CallAnyVoidMethodV (JNIEnv *env, jobject obj, jclass klass,
+			    jmethodID id, va_list vargs)
 {
   obj = unwrap (obj);
   klass = unwrap (klass);
-
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
 
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
@@ -874,12 +895,10 @@ static void
       if (style == constructor)
 	return_type = klass;
 
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, args, NULL);
-
-      if (ex != NULL)
-	env->ex = ex;
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  style == normal,
+			  arg_types, args, NULL);
     }
   catch (jthrowable t)
     {
@@ -888,9 +907,9 @@ static void
 }
 
 template<invocation_type style>
-static void
-(JNICALL _Jv_JNI_CallAnyVoidMethod) (JNIEnv *env, jobject obj, jclass klass,
-			             jmethodID method, ...)
+static void JNICALL
+_Jv_JNI_CallAnyVoidMethod (JNIEnv *env, jobject obj, jclass klass,
+			   jmethodID method, ...)
 {
   va_list args;
 
@@ -900,13 +919,10 @@ static void
 }
 
 template<invocation_type style>
-static void
-(JNICALL _Jv_JNI_CallAnyVoidMethodA) (JNIEnv *env, jobject obj, jclass klass,
-			              jmethodID id, jvalue *args)
+static void JNICALL
+_Jv_JNI_CallAnyVoidMethodA (JNIEnv *env, jobject obj, jclass klass,
+			    jmethodID id, jvalue *args)
 {
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
-
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
 
@@ -928,12 +944,10 @@ static void
 	    arg_copy[i].l = unwrap (args[i].l);
 	}
 
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, args, NULL);
-
-      if (ex != NULL)
-	env->ex = ex;
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  style == normal,
+			  arg_types, args, NULL);
     }
   catch (jthrowable t)
     {
@@ -944,9 +958,9 @@ static void
 // Functions with this signature are used to implement functions in
 // the CallMethod family.
 template<typename T>
-static T
-(JNICALL _Jv_JNI_CallMethodV) (JNIEnv *env, jobject obj, 
-                               jmethodID id, va_list args)
+static T JNICALL
+_Jv_JNI_CallMethodV (JNIEnv *env, jobject obj, 
+		     jmethodID id, va_list args)
 {
   return _Jv_JNI_CallAnyMethodV<T, normal> (env, obj, NULL, id, args);
 }
@@ -954,8 +968,8 @@ static T
 // Functions with this signature are used to implement functions in
 // the CallMethod family.
 template<typename T>
-static T
-(JNICALL _Jv_JNI_CallMethod) (JNIEnv *env, jobject obj, jmethodID id, ...)
+static T JNICALL
+_Jv_JNI_CallMethod (JNIEnv *env, jobject obj, jmethodID id, ...)
 {
   va_list args;
   T result;
@@ -970,22 +984,22 @@ static T
 // Functions with this signature are used to implement functions in
 // the CallMethod family.
 template<typename T>
-static T
-(JNICALL _Jv_JNI_CallMethodA) (JNIEnv *env, jobject obj, 
-                               jmethodID id, jvalue *args)
+static T JNICALL
+_Jv_JNI_CallMethodA (JNIEnv *env, jobject obj, 
+		     jmethodID id, jvalue *args)
 {
   return _Jv_JNI_CallAnyMethodA<T, normal> (env, obj, NULL, id, args);
 }
 
-static void
-(JNICALL _Jv_JNI_CallVoidMethodV) (JNIEnv *env, jobject obj, 
-                                   jmethodID id, va_list args)
+static void JNICALL
+_Jv_JNI_CallVoidMethodV (JNIEnv *env, jobject obj, 
+			 jmethodID id, va_list args)
 {
   _Jv_JNI_CallAnyVoidMethodV<normal> (env, obj, NULL, id, args);
 }
 
-static void
-(JNICALL _Jv_JNI_CallVoidMethod) (JNIEnv *env, jobject obj, jmethodID id, ...)
+static void JNICALL
+_Jv_JNI_CallVoidMethod (JNIEnv *env, jobject obj, jmethodID id, ...)
 {
   va_list args;
 
@@ -994,9 +1008,9 @@ static void
   va_end (args);
 }
 
-static void
-(JNICALL _Jv_JNI_CallVoidMethodA) (JNIEnv *env, jobject obj, 
-                                   jmethodID id, jvalue *args)
+static void JNICALL
+_Jv_JNI_CallVoidMethodA (JNIEnv *env, jobject obj, 
+			 jmethodID id, jvalue *args)
 {
   _Jv_JNI_CallAnyVoidMethodA<normal> (env, obj, NULL, id, args);
 }
@@ -1004,9 +1018,9 @@ static void
 // Functions with this signature are used to implement functions in
 // the CallStaticMethod family.
 template<typename T>
-static T
-(JNICALL _Jv_JNI_CallStaticMethodV) (JNIEnv *env, jclass klass,
-			             jmethodID id, va_list args)
+static T JNICALL
+_Jv_JNI_CallStaticMethodV (JNIEnv *env, jclass klass,
+			   jmethodID id, va_list args)
 {
   JvAssert (((id->accflags) & java::lang::reflect::Modifier::STATIC));
   JvAssert (java::lang::Class::class$.isInstance (unwrap (klass)));
@@ -1017,9 +1031,9 @@ static T
 // Functions with this signature are used to implement functions in
 // the CallStaticMethod family.
 template<typename T>
-static T
-(JNICALL _Jv_JNI_CallStaticMethod) (JNIEnv *env, jclass klass, 
-                                    jmethodID id, ...)
+static T JNICALL
+_Jv_JNI_CallStaticMethod (JNIEnv *env, jclass klass, 
+			  jmethodID id, ...)
 {
   va_list args;
   T result;
@@ -1038,9 +1052,9 @@ static T
 // Functions with this signature are used to implement functions in
 // the CallStaticMethod family.
 template<typename T>
-static T
-(JNICALL _Jv_JNI_CallStaticMethodA) (JNIEnv *env, jclass klass, jmethodID id,
-			             jvalue *args)
+static T JNICALL
+_Jv_JNI_CallStaticMethodA (JNIEnv *env, jclass klass, jmethodID id,
+			   jvalue *args)
 {
   JvAssert (((id->accflags) & java::lang::reflect::Modifier::STATIC));
   JvAssert (java::lang::Class::class$.isInstance (unwrap (klass)));
@@ -1048,16 +1062,16 @@ static T
   return _Jv_JNI_CallAnyMethodA<T, static_type> (env, NULL, klass, id, args);
 }
 
-static void
-(JNICALL _Jv_JNI_CallStaticVoidMethodV) (JNIEnv *env, jclass klass, 
-                                         jmethodID id, va_list args)
+static void JNICALL
+_Jv_JNI_CallStaticVoidMethodV (JNIEnv *env, jclass klass, 
+			       jmethodID id, va_list args)
 {
   _Jv_JNI_CallAnyVoidMethodV<static_type> (env, NULL, klass, id, args);
 }
 
-static void
-(JNICALL _Jv_JNI_CallStaticVoidMethod) (JNIEnv *env, jclass klass, 
-                                        jmethodID id, ...)
+static void JNICALL
+_Jv_JNI_CallStaticVoidMethod (JNIEnv *env, jclass klass, 
+			      jmethodID id, ...)
 {
   va_list args;
 
@@ -1066,16 +1080,16 @@ static void
   va_end (args);
 }
 
-static void
-(JNICALL _Jv_JNI_CallStaticVoidMethodA) (JNIEnv *env, jclass klass, 
-                                         jmethodID id, jvalue *args)
+static void JNICALL
+_Jv_JNI_CallStaticVoidMethodA (JNIEnv *env, jclass klass, 
+			       jmethodID id, jvalue *args)
 {
   _Jv_JNI_CallAnyVoidMethodA<static_type> (env, NULL, klass, id, args);
 }
 
-static jobject
-(JNICALL _Jv_JNI_NewObjectV) (JNIEnv *env, jclass klass,
-		              jmethodID id, va_list args)
+static jobject JNICALL
+_Jv_JNI_NewObjectV (JNIEnv *env, jclass klass,
+		    jmethodID id, va_list args)
 {
   JvAssert (klass && ! klass->isArray ());
   JvAssert (! strcmp (id->name->data, "<init>")
@@ -1088,8 +1102,8 @@ static jobject
 						       id, args);
 }
 
-static jobject
-(JNICALL _Jv_JNI_NewObject) (JNIEnv *env, jclass klass, jmethodID id, ...)
+static jobject JNICALL
+_Jv_JNI_NewObject (JNIEnv *env, jclass klass, jmethodID id, ...)
 {
   JvAssert (klass && ! klass->isArray ());
   JvAssert (! strcmp (id->name->data, "<init>")
@@ -1109,9 +1123,9 @@ static jobject
   return result;
 }
 
-static jobject
-(JNICALL _Jv_JNI_NewObjectA) (JNIEnv *env, jclass klass, jmethodID id,
-		              jvalue *args)
+static jobject JNICALL
+_Jv_JNI_NewObjectA (JNIEnv *env, jclass klass, jmethodID id,
+		    jvalue *args)
 {
   JvAssert (klass && ! klass->isArray ());
   JvAssert (! strcmp (id->name->data, "<init>")
@@ -1127,8 +1141,8 @@ static jobject
 
 
 template<typename T>
-static T
-(JNICALL _Jv_JNI_GetField) (JNIEnv *env, jobject obj, jfieldID field)
+static T JNICALL
+_Jv_JNI_GetField (JNIEnv *env, jobject obj, jfieldID field)
 {
   obj = unwrap (obj);
   JvAssert (obj);
@@ -1137,8 +1151,8 @@ static T
 }
 
 template<typename T>
-static void
-(JNICALL _Jv_JNI_SetField) (JNIEnv *, jobject obj, jfieldID field, T value)
+static void JNICALL
+_Jv_JNI_SetField (JNIEnv *, jobject obj, jfieldID field, T value)
 {
   obj = unwrap (obj);
   value = unwrap (value);
@@ -1149,9 +1163,9 @@ static void
 }
 
 template<jboolean is_static>
-static jfieldID
-(JNICALL _Jv_JNI_GetAnyFieldID) (JNIEnv *env, jclass clazz,
-		                 const char *name, const char *sig)
+static jfieldID JNICALL
+_Jv_JNI_GetAnyFieldID (JNIEnv *env, jclass clazz,
+		       const char *name, const char *sig)
 {
   try
     {
@@ -1170,7 +1184,7 @@ static jfieldID
 
       // FIXME: what if field_class == NULL?
 
-      java::lang::ClassLoader *loader = clazz->getClassLoader ();
+      java::lang::ClassLoader *loader = clazz->getClassLoaderInternal ();
       while (clazz != NULL)
 	{
 	  // We acquire the class lock so that fields aren't resolved
@@ -1210,24 +1224,24 @@ static jfieldID
 }
 
 template<typename T>
-static T
-(JNICALL _Jv_JNI_GetStaticField) (JNIEnv *env, jclass, jfieldID field)
+static T JNICALL
+_Jv_JNI_GetStaticField (JNIEnv *env, jclass, jfieldID field)
 {
   T *ptr = (T *) field->u.addr;
   return wrap_value (env, *ptr);
 }
 
 template<typename T>
-static void
-(JNICALL _Jv_JNI_SetStaticField) (JNIEnv *, jclass, jfieldID field, T value)
+static void JNICALL
+_Jv_JNI_SetStaticField (JNIEnv *, jclass, jfieldID field, T value)
 {
   value = unwrap (value);
   T *ptr = (T *) field->u.addr;
   *ptr = value;
 }
 
-static jstring
-(JNICALL _Jv_JNI_NewString) (JNIEnv *env, const jchar *unichars, jsize len)
+static jstring JNICALL
+_Jv_JNI_NewString (JNIEnv *env, const jchar *unichars, jsize len)
 {
   try
     {
@@ -1241,14 +1255,14 @@ static jstring
     }
 }
 
-static jsize
-(JNICALL _Jv_JNI_GetStringLength) (JNIEnv *, jstring string)
+static jsize JNICALL
+_Jv_JNI_GetStringLength (JNIEnv *, jstring string)
 {
   return unwrap (string)->length();
 }
 
-static const jchar *
-(JNICALL _Jv_JNI_GetStringChars) (JNIEnv *, jstring string, jboolean *isCopy)
+static const jchar * JNICALL
+_Jv_JNI_GetStringChars (JNIEnv *, jstring string, jboolean *isCopy)
 {
   string = unwrap (string);
   jchar *result = _Jv_GetStringChars (string);
@@ -1258,14 +1272,14 @@ static const jchar *
   return (const jchar *) result;
 }
 
-static void
-(JNICALL _Jv_JNI_ReleaseStringChars) (JNIEnv *, jstring string, const jchar *)
+static void JNICALL
+_Jv_JNI_ReleaseStringChars (JNIEnv *, jstring string, const jchar *)
 {
   unmark_for_gc (unwrap (string), global_ref_table);
 }
 
-static jstring
-(JNICALL _Jv_JNI_NewStringUTF) (JNIEnv *env, const char *bytes)
+static jstring JNICALL
+_Jv_JNI_NewStringUTF (JNIEnv *env, const char *bytes)
 {
   try
     {
@@ -1279,22 +1293,24 @@ static jstring
     }
 }
 
-static jsize
-(JNICALL _Jv_JNI_GetStringUTFLength) (JNIEnv *, jstring string)
+static jsize JNICALL
+_Jv_JNI_GetStringUTFLength (JNIEnv *, jstring string)
 {
   return JvGetStringUTFLength (unwrap (string));
 }
 
-static const char *
-(JNICALL _Jv_JNI_GetStringUTFChars) (JNIEnv *env, jstring string, 
-                                     jboolean *isCopy)
+static const char * JNICALL
+_Jv_JNI_GetStringUTFChars (JNIEnv *env, jstring string, 
+			   jboolean *isCopy)
 {
-  string = unwrap (string);
-  jsize len = JvGetStringUTFLength (string);
   try
     {
+      string = unwrap (string);
+      if (string == NULL)
+	return NULL;
+      jsize len = JvGetStringUTFLength (string);
       char *r = (char *) _Jv_Malloc (len + 1);
-      JvGetStringUTFRegion (string, 0, len, r);
+      JvGetStringUTFRegion (string, 0, string->length(), r);
       r[len] = '\0';
 
       if (isCopy)
@@ -1309,15 +1325,15 @@ static const char *
     }
 }
 
-static void
-(JNICALL _Jv_JNI_ReleaseStringUTFChars) (JNIEnv *, jstring, const char *utf)
+static void JNICALL
+_Jv_JNI_ReleaseStringUTFChars (JNIEnv *, jstring, const char *utf)
 {
   _Jv_Free ((void *) utf);
 }
 
-static void
-(JNICALL _Jv_JNI_GetStringRegion) (JNIEnv *env, jstring string, jsize start, 
-                                   jsize len, jchar *buf)
+static void JNICALL
+_Jv_JNI_GetStringRegion (JNIEnv *env, jstring string, jsize start, 
+			 jsize len, jchar *buf)
 {
   string = unwrap (string);
   jchar *result = _Jv_GetStringChars (string);
@@ -1337,9 +1353,9 @@ static void
     memcpy (buf, &result[start], len * sizeof (jchar));
 }
 
-static void
-(JNICALL _Jv_JNI_GetStringUTFRegion) (JNIEnv *env, jstring str, jsize start,
-			              jsize len, char *buf)
+static void JNICALL
+_Jv_JNI_GetStringUTFRegion (JNIEnv *env, jstring str, jsize start,
+			    jsize len, char *buf)
 {
   str = unwrap (str);
     
@@ -1359,8 +1375,8 @@ static void
     _Jv_GetStringUTFRegion (str, start, len, buf);
 }
 
-static const jchar *
-(JNICALL _Jv_JNI_GetStringCritical) (JNIEnv *, jstring str, jboolean *isCopy)
+static const jchar * JNICALL
+_Jv_JNI_GetStringCritical (JNIEnv *, jstring str, jboolean *isCopy)
 {
   jchar *result = _Jv_GetStringChars (unwrap (str));
   if (isCopy)
@@ -1368,21 +1384,21 @@ static const jchar *
   return result;
 }
 
-static void
-(JNICALL _Jv_JNI_ReleaseStringCritical) (JNIEnv *, jstring, const jchar *)
+static void JNICALL
+_Jv_JNI_ReleaseStringCritical (JNIEnv *, jstring, const jchar *)
 {
   // Nothing.
 }
 
-static jsize
-(JNICALL _Jv_JNI_GetArrayLength) (JNIEnv *, jarray array)
+static jsize JNICALL
+_Jv_JNI_GetArrayLength (JNIEnv *, jarray array)
 {
   return unwrap (array)->length;
 }
 
-static jarray
-(JNICALL _Jv_JNI_NewObjectArray) (JNIEnv *env, jsize length, 
-                                  jclass elementClass, jobject init)
+static jarray JNICALL
+_Jv_JNI_NewObjectArray (JNIEnv *env, jsize length, 
+			jclass elementClass, jobject init)
 {
   try
     {
@@ -1400,9 +1416,9 @@ static jarray
     }
 }
 
-static jobject
-(JNICALL _Jv_JNI_GetObjectArrayElement) (JNIEnv *env, jobjectArray array, 
-                                         jsize index)
+static jobject JNICALL
+_Jv_JNI_GetObjectArrayElement (JNIEnv *env, jobjectArray array, 
+			       jsize index)
 {
   if ((unsigned) index >= (unsigned) array->length)
     _Jv_ThrowBadArrayIndex (index);
@@ -1410,9 +1426,9 @@ static jobject
   return wrap_value (env, elts[index]);
 }
 
-static void
-(JNICALL _Jv_JNI_SetObjectArrayElement) (JNIEnv *env, jobjectArray array, 
-                                         jsize index, jobject value)
+static void JNICALL
+_Jv_JNI_SetObjectArrayElement (JNIEnv *env, jobjectArray array, 
+			       jsize index, jobject value)
 {
   try
     {
@@ -1432,8 +1448,8 @@ static void
 }
 
 template<typename T, jclass K>
-static JArray<T> *
-(JNICALL _Jv_JNI_NewPrimitiveArray) (JNIEnv *env, jsize length)
+static JArray<T> * JNICALL
+_Jv_JNI_NewPrimitiveArray (JNIEnv *env, jsize length)
 {
   try
     {
@@ -1446,12 +1462,14 @@ static JArray<T> *
     }
 }
 
-template<typename T>
-static T *
-(JNICALL _Jv_JNI_GetPrimitiveArrayElements) (JNIEnv *, JArray<T> *array,
-				             jboolean *isCopy)
+template<typename T, jclass K>
+static T * JNICALL
+_Jv_JNI_GetPrimitiveArrayElements (JNIEnv *env, JArray<T> *array,
+				   jboolean *isCopy)
 {
   array = unwrap (array);
+  if (! _Jv_JNI_check_types (env, array, K))
+    return NULL;
   T *elts = elements (array);
   if (isCopy)
     {
@@ -1462,25 +1480,28 @@ static T *
   return elts;
 }
 
-template<typename T>
-static void
-(JNICALL _Jv_JNI_ReleasePrimitiveArrayElements) (JNIEnv *, JArray<T> *array,
-				                 T *, jint /* mode */)
+template<typename T, jclass K>
+static void JNICALL
+_Jv_JNI_ReleasePrimitiveArrayElements (JNIEnv *env, JArray<T> *array,
+				       T *, jint /* mode */)
 {
   array = unwrap (array);
+  _Jv_JNI_check_types (env, array, K);
   // Note that we ignore MODE.  We can do this because we never copy
   // the array elements.  My reading of the JNI documentation is that
   // this is an option for the implementor.
   unmark_for_gc (array, global_ref_table);
 }
 
-template<typename T>
-static void
-(JNICALL _Jv_JNI_GetPrimitiveArrayRegion) (JNIEnv *env, JArray<T> *array,
-				           jsize start, jsize len,
+template<typename T, jclass K>
+static void JNICALL
+_Jv_JNI_GetPrimitiveArrayRegion (JNIEnv *env, JArray<T> *array,
+				 jsize start, jsize len,
 				 T *buf)
 {
   array = unwrap (array);
+  if (! _Jv_JNI_check_types (env, array, K))
+    return;
 
   // The cast to unsigned lets us save a comparison.
   if (start < 0 || len < 0
@@ -1504,12 +1525,14 @@ static void
     }
 }
 
-template<typename T>
-static void
-(JNICALL _Jv_JNI_SetPrimitiveArrayRegion) (JNIEnv *env, JArray<T> *array,
-				           jsize start, jsize len, T *buf)
+template<typename T, jclass K>
+static void JNICALL
+_Jv_JNI_SetPrimitiveArrayRegion (JNIEnv *env, JArray<T> *array,
+				 jsize start, jsize len, T *buf)
 {
   array = unwrap (array);
+  if (! _Jv_JNI_check_types (env, array, K))
+    return;
 
   // The cast to unsigned lets us save a comparison.
   if (start < 0 || len < 0
@@ -1532,9 +1555,9 @@ static void
     }
 }
 
-static void *
-(JNICALL _Jv_JNI_GetPrimitiveArrayCritical) (JNIEnv *, jarray array,
-				             jboolean *isCopy)
+static void * JNICALL
+_Jv_JNI_GetPrimitiveArrayCritical (JNIEnv *, jarray array,
+				   jboolean *isCopy)
 {
   array = unwrap (array);
   // FIXME: does this work?
@@ -1546,14 +1569,14 @@ static void *
   return r;
 }
 
-static void
-(JNICALL _Jv_JNI_ReleasePrimitiveArrayCritical) (JNIEnv *, jarray, void *, jint)
+static void JNICALL
+_Jv_JNI_ReleasePrimitiveArrayCritical (JNIEnv *, jarray, void *, jint)
 {
   // Nothing.
 }
 
-static jint
-(JNICALL _Jv_JNI_MonitorEnter) (JNIEnv *env, jobject obj)
+static jint JNICALL
+_Jv_JNI_MonitorEnter (JNIEnv *env, jobject obj)
 {
   try
     {
@@ -1567,8 +1590,8 @@ static jint
   return JNI_ERR;
 }
 
-static jint
-(JNICALL _Jv_JNI_MonitorExit) (JNIEnv *env, jobject obj)
+static jint JNICALL
+_Jv_JNI_MonitorExit (JNIEnv *env, jobject obj)
 {
   try
     {
@@ -1583,9 +1606,9 @@ static jint
 }
 
 // JDK 1.2
-jobject
-(JNICALL _Jv_JNI_ToReflectedField) (JNIEnv *env, jclass cls, jfieldID fieldID,
-			            jboolean)
+jobject JNICALL
+_Jv_JNI_ToReflectedField (JNIEnv *env, jclass cls, jfieldID fieldID,
+			  jboolean)
 {
   try
     {
@@ -1604,8 +1627,8 @@ jobject
 }
 
 // JDK 1.2
-static jfieldID
-(JNICALL _Jv_JNI_FromReflectedField) (JNIEnv *, jobject f)
+static jfieldID JNICALL
+_Jv_JNI_FromReflectedField (JNIEnv *, jobject f)
 {
   using namespace java::lang::reflect;
 
@@ -1614,9 +1637,9 @@ static jfieldID
   return _Jv_FromReflectedField (field);
 }
 
-jobject
-(JNICALL _Jv_JNI_ToReflectedMethod) (JNIEnv *env, jclass klass, jmethodID id,
-        		             jboolean)
+jobject JNICALL
+_Jv_JNI_ToReflectedMethod (JNIEnv *env, jclass klass, jmethodID id,
+			   jboolean)
 {
   using namespace java::lang::reflect;
 
@@ -1649,8 +1672,8 @@ jobject
   return wrap_value (env, result);
 }
 
-static jmethodID
-(JNICALL _Jv_JNI_FromReflectedMethod) (JNIEnv *, jobject method)
+static jmethodID JNICALL
+_Jv_JNI_FromReflectedMethod (JNIEnv *, jobject method)
 {
   using namespace java::lang::reflect;
   method = unwrap (method);
@@ -1661,8 +1684,8 @@ static jmethodID
 }
 
 // JDK 1.2.
-jweak
-(JNICALL _Jv_JNI_NewWeakGlobalRef) (JNIEnv *env, jobject obj)
+jweak JNICALL
+_Jv_JNI_NewWeakGlobalRef (JNIEnv *env, jobject obj)
 {
   using namespace gnu::gcj::runtime;
   JNIWeakRef *ref = NULL;
@@ -1682,8 +1705,8 @@ jweak
   return reinterpret_cast<jweak> (ref);
 }
 
-void
-(JNICALL _Jv_JNI_DeleteWeakGlobalRef) (JNIEnv *, jweak obj)
+void JNICALL
+_Jv_JNI_DeleteWeakGlobalRef (JNIEnv *, jweak obj)
 {
   using namespace gnu::gcj::runtime;
   JNIWeakRef *ref = reinterpret_cast<JNIWeakRef *> (obj);
@@ -1695,25 +1718,29 @@ void
 
 // Direct byte buffers.
 
-static jobject
-(JNICALL _Jv_JNI_NewDirectByteBuffer) (JNIEnv *, void *, jlong)
+static jobject JNICALL
+_Jv_JNI_NewDirectByteBuffer (JNIEnv *, void *address, jlong length)
 {
-  // For now we don't support this.
-  return NULL;
+  using namespace gnu::gcj;
+  using namespace java::nio;
+  return new DirectByteBufferImpl (reinterpret_cast<RawData *> (address),
+				   length);
 }
 
-static void *
-(JNICALL _Jv_JNI_GetDirectBufferAddress) (JNIEnv *, jobject)
+static void * JNICALL
+_Jv_JNI_GetDirectBufferAddress (JNIEnv *, jobject buffer)
 {
-  // For now we don't support this.
-  return NULL;
+  using namespace java::nio;
+  DirectByteBufferImpl* bb = static_cast<DirectByteBufferImpl *> (buffer);
+  return reinterpret_cast<void *> (bb->address);
 }
 
-static jlong
-(JNICALL _Jv_JNI_GetDirectBufferCapacity) (JNIEnv *, jobject)
+static jlong JNICALL
+_Jv_JNI_GetDirectBufferCapacity (JNIEnv *, jobject buffer)
 {
-  // For now we don't support this.
-  return -1;
+  using namespace java::nio;
+  DirectByteBufferImpl* bb = static_cast<DirectByteBufferImpl *> (buffer);
+  return bb->capacity();
 }
 
 
@@ -1832,10 +1859,10 @@ nathash_add (const JNINativeMethod *method)
   slot->fnPtr = method->fnPtr;
 }
 
-static jint
-(JNICALL _Jv_JNI_RegisterNatives) (JNIEnv *env, jclass klass,
-			           const JNINativeMethod *methods,
-			           jint nMethods)
+static jint JNICALL
+_Jv_JNI_RegisterNatives (JNIEnv *env, jclass klass,
+			 const JNINativeMethod *methods,
+			 jint nMethods)
 {
   // Synchronize while we do the work.  This must match
   // synchronization in some other functions that manipulate or use
@@ -1853,11 +1880,10 @@ static jint
 	{
 	  _Jv_Method *self = &imeths[i];
 
-	  if (! strcmp (self->name->data, methods[j].name)
-	      && ! strcmp (self->signature->data, methods[j].signature))
+	  if (! strcmp (self->name->chars (), methods[j].name)
+	      && ! strcmp (self->signature->chars (), methods[j].signature))
 	    {
-	      if (! (self->accflags
-		     & java::lang::reflect::Modifier::NATIVE))
+	      if (! (self->accflags & java::lang::reflect::Modifier::NATIVE))
 		break;
 
 	      // Found a match that is native.
@@ -1873,7 +1899,7 @@ static jint
 	  jstring m = JvNewStringUTF (methods[j].name);
 	  try
 	    {
-	      env->ex =new java::lang::NoSuchMethodError (m);
+	      env->ex = new java::lang::NoSuchMethodError (m);
 	    }
 	  catch (jthrowable t)
 	    {
@@ -1886,8 +1912,8 @@ static jint
   return JNI_OK;
 }
 
-static jint
-(JNICALL _Jv_JNI_UnregisterNatives) (JNIEnv *, jclass)
+static jint JNICALL
+_Jv_JNI_UnregisterNatives (JNIEnv *, jclass)
 {
   // FIXME -- we could implement this.
   return JNI_ERR;
@@ -1958,8 +1984,8 @@ mangled_name (jclass klass, _Jv_Utf8Const *func_name,
   // Don't use add_char because we need a literal `_'.
   buf[here++] = '_';
 
-  const unsigned char *fn = (const unsigned char *) func_name->data;
-  const unsigned char *limit = fn + func_name->length;
+  const unsigned char *fn = (const unsigned char *) func_name->chars ();
+  const unsigned char *limit = fn + func_name->len ();
   for (int i = 0; ; ++i)
     {
       int ch = UTF8_GET (fn, limit);
@@ -1973,8 +1999,8 @@ mangled_name (jclass klass, _Jv_Utf8Const *func_name,
   buf[here++] = '_';
   buf[here++] = '_';
 
-  const unsigned char *sig = (const unsigned char *) signature->data;
-  limit = sig + signature->length;
+  const unsigned char *sig = (const unsigned char *) signature->chars ();
+  limit = sig + signature->len ();
   JvAssert (sig[0] == '(');
   ++sig;
   while (1)
@@ -2029,9 +2055,11 @@ _Jv_GetJNIEnvNewFrame (jclass klass)
 // This is `extern "C"' because the compiler uses it.
 extern "C" void *
 _Jv_LookupJNIMethod (jclass klass, _Jv_Utf8Const *name,
-		     _Jv_Utf8Const *signature, int args_size)
+		     _Jv_Utf8Const *signature, MAYBE_UNUSED int args_size)
 {
-  char buf[10 + 6 * (name->length + signature->length) + 12];
+  int name_length = name->len();
+  int sig_length = signature->len();
+  char buf[10 + 6 * (name_length + sig_length) + 12];
   int long_start;
   void *function;
 
@@ -2039,13 +2067,13 @@ _Jv_LookupJNIMethod (jclass klass, _Jv_Utf8Const *name,
   JvSynchronize sync (global_ref_table);
 
   // First see if we have an override in the hash table.
-  strncpy (buf, name->data, name->length);
-  buf[name->length] = '\0';
-  strncpy (buf + name->length + 1, signature->data, signature->length);
-  buf[name->length + signature->length + 1] = '\0';
+  strncpy (buf, name->chars (), name_length);
+  buf[name_length] = '\0';
+  strncpy (buf + name_length + 1, signature->chars (), sig_length);
+  buf[name_length + sig_length + 1] = '\0';
   JNINativeMethod meth;
   meth.name = buf;
-  meth.signature = buf + name->length + 1;
+  meth.signature = buf + name_length + 1;
   function = nathash_find (&meth);
   if (function != NULL)
     return function;
@@ -2090,9 +2118,7 @@ _Jv_LookupJNIMethod (jclass klass, _Jv_Utf8Const *name,
           function = _Jv_FindSymbolInExecutable (buf + 1);
         }
     }
-#else /* WIN32 */
-  args_size;  /* Dummy statement to avoid unused parameter warning */
-#endif /* ! WIN32 */
+#endif /* WIN32 */
 
   if (function == NULL)
     {
@@ -2114,7 +2140,7 @@ _Jv_LookupJNIMethod (jclass klass, _Jv_Utf8Const *name,
           if (function == NULL)
 #endif /* WIN32 */
             {
-              jstring str = JvNewStringUTF (name->data);
+              jstring str = JvNewStringUTF (name->chars ());
               throw new java::lang::UnsatisfiedLinkError (str);
             }
 	}
@@ -2187,8 +2213,13 @@ _Jv_JNIMethod::call (ffi_cif *, void *ret, ffi_raw *args, void *__this)
   memcpy (&real_args[offset], args, _this->args_raw_size);
 
   // The actual call to the JNI function.
+#if FFI_NATIVE_RAW_API
   ffi_raw_call (&_this->jni_cif, (void (*)()) _this->function,
 		ret, real_args);
+#else
+  ffi_java_raw_call (&_this->jni_cif, (void (*)()) _this->function,
+		     ret, real_args);
+#endif
 
   if (sync != NULL)
     _Jv_MonitorExit (sync);
@@ -2275,21 +2306,21 @@ _Jv_JNI_AttachCurrentThread (JavaVM *, jstring name, void **penv,
 }
 
 // This is the one actually used by JNI.
-static jint
-(JNICALL _Jv_JNI_AttachCurrentThread) (JavaVM *vm, void **penv, void *args)
+static jint JNICALL
+_Jv_JNI_AttachCurrentThread (JavaVM *vm, void **penv, void *args)
 {
   return _Jv_JNI_AttachCurrentThread (vm, NULL, penv, args, false);
 }
 
-static jint
-(JNICALL _Jv_JNI_AttachCurrentThreadAsDaemon) (JavaVM *vm, void **penv, 
-                                               void *args)
+static jint JNICALL
+_Jv_JNI_AttachCurrentThreadAsDaemon (JavaVM *vm, void **penv, 
+				     void *args)
 {
   return _Jv_JNI_AttachCurrentThread (vm, NULL, penv, args, true);
 }
 
-static jint
-(JNICALL _Jv_JNI_DestroyJavaVM) (JavaVM *vm)
+static jint JNICALL
+_Jv_JNI_DestroyJavaVM (JavaVM *vm)
 {
   JvAssert (the_vm && vm == the_vm);
 
@@ -2322,15 +2353,15 @@ static jint
   return JNI_ERR;
 }
 
-jint
-(JNICALL _Jv_JNI_DetachCurrentThread) (JavaVM *)
+jint JNICALL
+_Jv_JNI_DetachCurrentThread (JavaVM *)
 {
   jint code = _Jv_DetachCurrentThread ();
   return code  ? JNI_EDETACHED : 0;
 }
 
-static jint
-(JNICALL _Jv_JNI_GetEnv) (JavaVM *, void **penv, jint version)
+static jint JNICALL
+_Jv_JNI_GetEnv (JavaVM *, void **penv, jint version)
 {
   if (_Jv_ThreadCurrent () == NULL)
     {
@@ -2359,7 +2390,7 @@ static jint
   return 0;
 }
 
-JNIEXPORT jint JNICALL
+jint JNICALL
 JNI_GetDefaultJavaVMInitArgs (void *args)
 {
   jint version = * (jint *) args;
@@ -2376,7 +2407,7 @@ JNI_GetDefaultJavaVMInitArgs (void *args)
   return 0;
 }
 
-JNIEXPORT jint JNICALL
+jint JNICALL
 JNI_CreateJavaVM (JavaVM **vm, void **penv, void *args)
 {
   JvAssert (! the_vm);
@@ -2441,7 +2472,7 @@ JNI_CreateJavaVM (JavaVM **vm, void **penv, void *args)
   return 0;
 }
 
-JNIEXPORT jint JNICALL
+jint JNICALL
 JNI_GetCreatedJavaVMs (JavaVM **vm_buffer, jsize buf_len, jsize *n_vms)
 {
   if (buf_len <= 0)
@@ -2481,8 +2512,8 @@ _Jv_GetJavaVM ()
   return the_vm;
 }
 
-static jint
-(JNICALL _Jv_JNI_GetJavaVM) (JNIEnv *, JavaVM **vm)
+static jint JNICALL
+_Jv_JNI_GetJavaVM (JNIEnv *, JavaVM **vm)
 {
   *vm = _Jv_GetJavaVM ();
   return *vm == NULL ? JNI_ERR : JNI_OK;
@@ -2688,38 +2719,70 @@ struct JNINativeInterface _Jv_JNIFunctions =
   _Jv_JNI_NewPrimitiveArray<jlong, JvPrimClass (long)>,	    // NewLongArray
   _Jv_JNI_NewPrimitiveArray<jfloat, JvPrimClass (float)>,   // NewFloatArray
   _Jv_JNI_NewPrimitiveArray<jdouble, JvPrimClass (double)>, // NewDoubleArray
-  _Jv_JNI_GetPrimitiveArrayElements,	    // GetBooleanArrayElements
-  _Jv_JNI_GetPrimitiveArrayElements,	    // GetByteArrayElements
-  _Jv_JNI_GetPrimitiveArrayElements,	    // GetCharArrayElements
-  _Jv_JNI_GetPrimitiveArrayElements,	    // GetShortArrayElements
-  _Jv_JNI_GetPrimitiveArrayElements,	    // GetIntArrayElements
-  _Jv_JNI_GetPrimitiveArrayElements,	    // GetLongArrayElements
-  _Jv_JNI_GetPrimitiveArrayElements,	    // GetFloatArrayElements
-  _Jv_JNI_GetPrimitiveArrayElements,	    // GetDoubleArrayElements
-  _Jv_JNI_ReleasePrimitiveArrayElements,    // ReleaseBooleanArrayElements
-  _Jv_JNI_ReleasePrimitiveArrayElements,    // ReleaseByteArrayElements
-  _Jv_JNI_ReleasePrimitiveArrayElements,    // ReleaseCharArrayElements
-  _Jv_JNI_ReleasePrimitiveArrayElements,    // ReleaseShortArrayElements
-  _Jv_JNI_ReleasePrimitiveArrayElements,    // ReleaseIntArrayElements
-  _Jv_JNI_ReleasePrimitiveArrayElements,    // ReleaseLongArrayElements
-  _Jv_JNI_ReleasePrimitiveArrayElements,    // ReleaseFloatArrayElements
-  _Jv_JNI_ReleasePrimitiveArrayElements,    // ReleaseDoubleArrayElements
-  _Jv_JNI_GetPrimitiveArrayRegion,	    // GetBooleanArrayRegion
-  _Jv_JNI_GetPrimitiveArrayRegion,	    // GetByteArrayRegion
-  _Jv_JNI_GetPrimitiveArrayRegion,	    // GetCharArrayRegion
-  _Jv_JNI_GetPrimitiveArrayRegion,	    // GetShortArrayRegion
-  _Jv_JNI_GetPrimitiveArrayRegion,	    // GetIntArrayRegion
-  _Jv_JNI_GetPrimitiveArrayRegion,	    // GetLongArrayRegion
-  _Jv_JNI_GetPrimitiveArrayRegion,	    // GetFloatArrayRegion
-  _Jv_JNI_GetPrimitiveArrayRegion,	    // GetDoubleArrayRegion
-  _Jv_JNI_SetPrimitiveArrayRegion,	    // SetBooleanArrayRegion
-  _Jv_JNI_SetPrimitiveArrayRegion,	    // SetByteArrayRegion
-  _Jv_JNI_SetPrimitiveArrayRegion,	    // SetCharArrayRegion
-  _Jv_JNI_SetPrimitiveArrayRegion,	    // SetShortArrayRegion
-  _Jv_JNI_SetPrimitiveArrayRegion,	    // SetIntArrayRegion
-  _Jv_JNI_SetPrimitiveArrayRegion,	    // SetLongArrayRegion
-  _Jv_JNI_SetPrimitiveArrayRegion,	    // SetFloatArrayRegion
-  _Jv_JNI_SetPrimitiveArrayRegion,	    // SetDoubleArrayRegion
+  _Jv_JNI_GetPrimitiveArrayElements<jboolean, JvPrimClass (boolean)>,	    
+					    // GetBooleanArrayElements
+  _Jv_JNI_GetPrimitiveArrayElements<jbyte, JvPrimClass (byte)>,	 
+					    // GetByteArrayElements
+  _Jv_JNI_GetPrimitiveArrayElements<jchar, JvPrimClass (char)>,
+					    // GetCharArrayElements
+  _Jv_JNI_GetPrimitiveArrayElements<jshort, JvPrimClass (short)>,	    
+					    // GetShortArrayElements
+  _Jv_JNI_GetPrimitiveArrayElements<jint, JvPrimClass (int)>,		    
+					    // GetIntArrayElements
+  _Jv_JNI_GetPrimitiveArrayElements<jlong, JvPrimClass (long)>,		    
+					    // GetLongArrayElements
+  _Jv_JNI_GetPrimitiveArrayElements<jfloat, JvPrimClass (float)>,	    
+					    // GetFloatArrayElements
+  _Jv_JNI_GetPrimitiveArrayElements<jdouble, JvPrimClass (double)>,	    
+					    // GetDoubleArrayElements
+  _Jv_JNI_ReleasePrimitiveArrayElements<jboolean, JvPrimClass (boolean)>,    
+					    // ReleaseBooleanArrayElements
+  _Jv_JNI_ReleasePrimitiveArrayElements<jbyte, JvPrimClass (byte)>,    
+					    // ReleaseByteArrayElements
+  _Jv_JNI_ReleasePrimitiveArrayElements<jchar, JvPrimClass (char)>,    
+					    // ReleaseCharArrayElements
+  _Jv_JNI_ReleasePrimitiveArrayElements<jshort, JvPrimClass (short)>,	 
+					    // ReleaseShortArrayElements
+  _Jv_JNI_ReleasePrimitiveArrayElements<jint, JvPrimClass (int)>,    
+					    // ReleaseIntArrayElements
+  _Jv_JNI_ReleasePrimitiveArrayElements<jlong, JvPrimClass (long)>,    
+					    // ReleaseLongArrayElements
+  _Jv_JNI_ReleasePrimitiveArrayElements<jfloat, JvPrimClass (float)>,	 
+					    // ReleaseFloatArrayElements
+  _Jv_JNI_ReleasePrimitiveArrayElements<jdouble, JvPrimClass (double)>,	   
+					    // ReleaseDoubleArrayElements
+  _Jv_JNI_GetPrimitiveArrayRegion<jboolean, JvPrimClass (boolean)>,	    
+					    // GetBooleanArrayRegion
+  _Jv_JNI_GetPrimitiveArrayRegion<jbyte, JvPrimClass (byte)>,	    
+					    // GetByteArrayRegion
+  _Jv_JNI_GetPrimitiveArrayRegion<jchar, JvPrimClass (char)>,	    
+					    // GetCharArrayRegion
+  _Jv_JNI_GetPrimitiveArrayRegion<jshort, JvPrimClass (short)>,	    
+					    // GetShortArrayRegion
+  _Jv_JNI_GetPrimitiveArrayRegion<jint, JvPrimClass (int)>,	    
+					    // GetIntArrayRegion
+  _Jv_JNI_GetPrimitiveArrayRegion<jlong, JvPrimClass (long)>,	    
+					    // GetLongArrayRegion
+  _Jv_JNI_GetPrimitiveArrayRegion<jfloat, JvPrimClass (float)>,	    
+					    // GetFloatArrayRegion
+  _Jv_JNI_GetPrimitiveArrayRegion<jdouble, JvPrimClass (double)>,	    
+					    // GetDoubleArrayRegion
+  _Jv_JNI_SetPrimitiveArrayRegion<jboolean, JvPrimClass (boolean)>,	    
+					    // SetBooleanArrayRegion
+  _Jv_JNI_SetPrimitiveArrayRegion<jbyte, JvPrimClass (byte)>,	    
+					    // SetByteArrayRegion
+  _Jv_JNI_SetPrimitiveArrayRegion<jchar, JvPrimClass (char)>,	    
+					    // SetCharArrayRegion
+  _Jv_JNI_SetPrimitiveArrayRegion<jshort, JvPrimClass (short)>,	    
+					    // SetShortArrayRegion
+  _Jv_JNI_SetPrimitiveArrayRegion<jint, JvPrimClass (int)>,	    
+					    // SetIntArrayRegion
+  _Jv_JNI_SetPrimitiveArrayRegion<jlong, JvPrimClass (long)>,	    
+					    // SetLongArrayRegion
+  _Jv_JNI_SetPrimitiveArrayRegion<jfloat, JvPrimClass (float)>,	    
+					    // SetFloatArrayRegion
+  _Jv_JNI_SetPrimitiveArrayRegion<jdouble, JvPrimClass (double)>,	    
+					    // SetDoubleArrayRegion
   _Jv_JNI_RegisterNatives,		    // RegisterNatives
   _Jv_JNI_UnregisterNatives,		    // UnregisterNatives
   _Jv_JNI_MonitorEnter,			    // MonitorEnter

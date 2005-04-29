@@ -18,8 +18,6 @@
 
 #define MAXNSLOBJECTNAMELENGTH 256
 
-#define NSLService CFMutableDictionaryRef
-
 @class NSLVnode;
 
 typedef enum {
@@ -50,7 +48,7 @@ struct SearchResult {
     NetworkObjectType objectType;
 	union {
 		NSLNeighborhood neighborhood;
-		NSLService service;
+		NSLServiceRef service;
 	} result;
 };
 
@@ -70,6 +68,7 @@ enum searchStatus {
 };
 
 #define kSearchResultsBeingProcessed 0x00000001
+#define kSearchAwaitingCleanup       0x00000002
 
 typedef struct _searchContext {
 	TAILQ_ENTRY(_searchContext) sc_link;
@@ -102,4 +101,4 @@ void WaitForCachedSearchCompletion(SearchContextPtr callContext);
 void WaitForInitialSearchCompletion(SearchContextPtr callContext);
 int StartSearchForNeighborhoodsInNeighborhood( NSLNeighborhood ParentNeighborhood, SearchContextPtr callContext );
 int StartSearchForServicesInNeighborhood(NSLNeighborhood neighborhood, CFArrayRef serviceTypes, SearchContextPtr callContext );
-CFStringRef GetMainStringFromAttribute( CFDictionaryRef inDict, CFStringRef inKey );
+CFStringRef CopyMainStringFromAttribute( NSLServiceRef inServiceRef, CFStringRef inKey );

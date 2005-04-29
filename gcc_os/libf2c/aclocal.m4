@@ -1,4 +1,4 @@
-dnl Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
+dnl Copyright (C) 1994, 1995-8, 1999, 2001, 2002 Free Software Foundation, Inc.
 dnl This file is free software; the Free Software Foundation
 dnl gives unlimited permission to copy and/or distribute it,
 dnl with or without modifications, as long as this notice is preserved.
@@ -11,8 +11,8 @@ dnl PARTICULAR PURPOSE.
 dnl
 dnl Initialize configure bits.
 dnl
-dnl GLIBCPP_CONFIGURE
-AC_DEFUN(GLIBCPP_CONFIGURE, [
+dnl GLIBCPP_TOPREL_CONFIGURE
+AC_DEFUN(GLIBCPP_TOPREL_CONFIGURE, [
   dnl Default to --enable-multilib
   AC_ARG_ENABLE(multilib,
   [  --enable-multilib       build hella library versions (default)],
@@ -43,12 +43,18 @@ fi
 AC_CONFIG_AUX_DIR(${srcdir}/$toprel)
 toplevel_srcdir=\${top_srcdir}/$toprel
 AC_SUBST(toplevel_srcdir)
+])
 
+dnl
+dnl Initialize configure bits.
+dnl
+dnl GLIBCPP_CONFIGURE
+AC_DEFUN(GLIBCPP_CONFIGURE, [
 # Export build and source directories.
 # These need to be absolute paths, yet at the same time need to
 # canonicalize only relative paths, because then amd will not unmount
 # drives. Thus the use of PWDCMD: set it to 'pawd' or 'amq -w' if using amd.
-glibcpp_builddir=`pwd`
+glibcpp_builddir=`${PWDCMD-pwd}`
 case $srcdir in
 [\\/$]* | ?:[\\/]*) glibcpp_srcdir=${srcdir} ;;
 *) glibcpp_srcdir=`cd "$srcdir" && ${PWDCMD-pwd} || echo "$srcdir"` ;;
@@ -201,11 +207,12 @@ if test x"$glibcpp_toolexecdir" = x"no"; then
   if test -n "$with_cross_host" &&
      test x"$with_cross_host" != x"no"; then
     glibcpp_toolexecdir='$(exec_prefix)/$(target_alias)'
-    glibcpp_toolexeclibdir='$(toolexecdir)/lib$(MULTISUBDIR)'
+    glibcpp_toolexeclibdir='$(toolexecdir)/lib'
   else
     glibcpp_toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
-    glibcpp_toolexeclibdir='$(libdir)$(MULTISUBDIR)'
+    glibcpp_toolexeclibdir='$(libdir)'
   fi
+  glibcpp_toolexeclibdir=$glibcpp_toolexeclibdir/`$CC -print-multi-os-directory`
 fi
 
 AC_SUBST(glibcpp_prefixdir)

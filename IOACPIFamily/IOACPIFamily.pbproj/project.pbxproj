@@ -1,0 +1,450 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+				B99800C1040D1A5E08D5663B,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = IOACPIFamily;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOACPIFamily;
+				MODULE_VERSION = 1.1.0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOACPIFamily;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = i386;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				B99800C8040D1B2A08D5663B,
+			);
+			isa = PBXBundleTarget;
+			name = IOACPIFamily;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOACPIFamily;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOACPIFamily</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Version 1.1.0, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOACPIFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>I/O Kit ACPI Family</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1.0</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0d1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				B99800B1040D096308D5663B,
+				B99800B5040D097A08D5663B,
+				B99800B8040D09CF08D5663B,
+				B99800CB040D1F4708D5663B,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				B99800B4040D097A08D5663B,
+				B99800B9040D09CF08D5663B,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = IOACPIFamily.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+				B99800C2040D1A5E08D5663B,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				B99800B0040D096308D5663B,
+				B99800B3040D097A08D5663B,
+				B99800B2040D097A08D5663B,
+				B99800B6040D09CF08D5663B,
+				B99800B7040D09CF08D5663B,
+				B99800CA040D1F4708D5663B,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//B90
+//B91
+//B92
+//B93
+//B94
+		B99800B0040D096308D5663B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOACPITypes.h;
+			refType = 4;
+		};
+		B99800B1040D096308D5663B = {
+			fileRef = B99800B0040D096308D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B99800B2040D097A08D5663B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOACPIPlatformDevice.cpp;
+			refType = 4;
+		};
+		B99800B3040D097A08D5663B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOACPIPlatformDevice.h;
+			refType = 4;
+		};
+		B99800B4040D097A08D5663B = {
+			fileRef = B99800B2040D097A08D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B99800B5040D097A08D5663B = {
+			fileRef = B99800B3040D097A08D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B99800B6040D09CF08D5663B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOACPIPlatformExpert.h;
+			refType = 4;
+		};
+		B99800B7040D09CF08D5663B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOACPIPlatformExpert.cpp;
+			refType = 4;
+		};
+		B99800B8040D09CF08D5663B = {
+			fileRef = B99800B6040D09CF08D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B99800B9040D09CF08D5663B = {
+			fileRef = B99800B7040D09CF08D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B99800BD040D1A5E08D5663B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B99800BE040D1A5E08D5663B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B99800BF040D1A5E08D5663B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B99800C0040D1A5E08D5663B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B99800C1040D1A5E08D5663B = {
+			buildPhases = (
+				B99800C4040D1AF008D5663B,
+				B99800BD040D1A5E08D5663B,
+				B99800BE040D1A5E08D5663B,
+				B99800BF040D1A5E08D5663B,
+				B99800C0040D1A5E08D5663B,
+			);
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IOACPIFamily Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = InstallHeaders;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+			productName = InstallHeaders;
+			productReference = B99800C2040D1A5E08D5663B;
+		};
+		B99800C2040D1A5E08D5663B = {
+			isa = PBXExecutableFileReference;
+			path = "IOACPIFamily Headers";
+			refType = 3;
+		};
+		B99800C4040D1AF008D5663B = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/acpi";
+			dstSubfolderSpec = 0;
+			files = (
+				B99800C5040D1B1308D5663B,
+				B99800C6040D1B1608D5663B,
+				B99800C7040D1B1A08D5663B,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		B99800C5040D1B1308D5663B = {
+			fileRef = B99800B0040D096308D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B99800C6040D1B1608D5663B = {
+			fileRef = B99800B3040D097A08D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B99800C7040D1B1A08D5663B = {
+			fileRef = B99800B6040D09CF08D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B99800C8040D1B2A08D5663B = {
+			isa = PBXTargetDependency;
+			target = B99800C1040D1A5E08D5663B;
+		};
+		B99800CA040D1F4708D5663B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOACPIInlineIO.h;
+			refType = 4;
+		};
+		B99800CB040D1F4708D5663B = {
+			fileRef = B99800CA040D1F4708D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

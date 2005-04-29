@@ -6,8 +6,9 @@
 #undef HAVE_NCURSES_H
 #undef HAVE_TERM_H
 #undef HAVE_VIS_H
-#undef HAVE_ISSETUGID
+#undef HAVE_ALLOCA_H
 
+#undef HAVE_ISSETUGID
 #undef HAVE_STRLCAT
 #undef HAVE_STRLCPY
 #undef HAVE_FGETLN

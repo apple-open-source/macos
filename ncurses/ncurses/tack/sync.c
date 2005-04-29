@@ -22,7 +22,7 @@
 #include <tack.h>
 #include <time.h>
 
-MODULE_ID("$Id: sync.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $")
+MODULE_ID("$Id: sync.c,v 1.3 2001/06/16 17:55:48 tom Exp $")
 
 /* terminal-synchronization and performance tests */
 

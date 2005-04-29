@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
 --               Copyright (C) 1986 by University of Toronto.               --
---           Copyright (C) 1996-2002 Ada Core Technologies, Inc.            --
+--           Copyright (C) 1996-2004 Ada Core Technologies, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,7 +27,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).   --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -237,11 +237,10 @@ package body GNAT.Regpat is
 
    function Get_From_Class
      (Bitmap : Character_Class;
-      C      : Character)
-      return   Boolean;
+      C      : Character) return Boolean;
    --  Return True if the entry is set for C in the class Bitmap.
 
-   procedure Reset_Class (Bitmap : in out Character_Class);
+   procedure Reset_Class (Bitmap : out Character_Class);
    --  Clear all the entries in the class Bitmap.
 
    pragma Inline (Set_In_Class);
@@ -257,7 +256,7 @@ package body GNAT.Regpat is
    function Is_Alnum (C : Character) return Boolean;
    --  Return True if C is an alphanum character or an underscore ('_')
 
-   function Is_Space (C : Character) return Boolean;
+   function Is_White_Space (C : Character) return Boolean;
    --  Return True if C is a whitespace character
 
    function Is_Printable (C : Character) return Boolean;
@@ -268,8 +267,7 @@ package body GNAT.Regpat is
 
    function String_Length
      (Program : Program_Data;
-      P       : Pointer)
-      return    Program_Size;
+      P       : Pointer) return Program_Size;
    --  Return the length of the string argument of the node at P
 
    function String_Operand (P : Pointer) return Pointer;
@@ -283,14 +281,12 @@ package body GNAT.Regpat is
 
    function Get_Next_Offset
      (Program : Program_Data;
-      IP      : Pointer)
-      return    Pointer;
+      IP      : Pointer) return Pointer;
    --  Get the offset field of a node. Used by Get_Next.
 
    function Get_Next
      (Program : Program_Data;
-      IP      : Pointer)
-      return    Pointer;
+      IP      : Pointer) return Pointer;
    --  Dig the next instruction pointer out of a node
 
    procedure Optimize (Self : in out Pattern_Matcher);
@@ -298,15 +294,14 @@ package body GNAT.Regpat is
 
    function Read_Natural
      (Program : Program_Data;
-      IP      : Pointer)
-      return    Natural;
+      IP      : Pointer) return Natural;
    --  Return the 2-byte natural coded at position IP.
 
    --  All of the subprograms above are tiny and should be inlined
 
    pragma Inline ("=");
    pragma Inline (Is_Alnum);
-   pragma Inline (Is_Space);
+   pragma Inline (Is_White_Space);
    pragma Inline (Get_Next);
    pragma Inline (Get_Next_Offset);
    pragma Inline (Operand);
@@ -378,20 +373,19 @@ package body GNAT.Regpat is
       Emit_Ptr  : Pointer := Program_First;
 
       Parse_Pos : Natural := Expression'First; -- Input-scan pointer
-      Parse_End : Natural := Expression'Last;
+      Parse_End : constant Natural := Expression'Last;
 
       ----------------------------
       -- Subprograms for Create --
       ----------------------------
 
       procedure Emit (B : Character);
-      --  Output the Character to the Program.
-      --  If code-generation is disables, simply increments the program
-      --  counter.
+      --  Output the Character B to the Program. If code-generation is
+      --  disabled, simply increments the program counter.
 
       function  Emit_Node (Op : Opcode) return Pointer;
       --  If code-generation is enabled, Emit_Node outputs the
-      --  opcode and reserves space for a pointer to the next node.
+      --  opcode Op and reserves space for a pointer to the next node.
       --  Return value is the location of new opcode, ie old Emit_Ptr.
 
       procedure Emit_Natural (IP : Pointer; N : Natural);
@@ -406,24 +400,26 @@ package body GNAT.Regpat is
 
       procedure Parse
         (Parenthesized : Boolean;
-         Flags         : in out Expression_Flags;
+         Flags         : out Expression_Flags;
          IP            : out Pointer);
       --  Parse regular expression, i.e. main body or parenthesized thing
       --  Caller must absorb opening parenthesis.
 
       procedure Parse_Branch
-        (Flags         : in out Expression_Flags;
+        (Flags         : out Expression_Flags;
          First         : Boolean;
          IP            : out Pointer);
       --  Implements the concatenation operator and handles '|'
       --  First should be true if this is the first item of the alternative.
 
       procedure Parse_Piece
-        (Expr_Flags : in out Expression_Flags; IP : out Pointer);
+        (Expr_Flags : out Expression_Flags;
+         IP         : out Pointer);
       --  Parse something followed by possible [*+?]
 
       procedure Parse_Atom
-        (Expr_Flags : in out Expression_Flags; IP : out Pointer);
+        (Expr_Flags : out Expression_Flags;
+         IP         : out Pointer);
       --  Parse_Atom is the lowest level parse procedure.
       --  Optimization:  gobbles an entire sequence of ordinary characters
       --  so that it can turn them into a single node, which is smaller to
@@ -476,15 +472,16 @@ package body GNAT.Regpat is
          Greedy : out Boolean);
       --  Parse the argument list for a curly operator.
       --  It is assumed that IP is indeed pointing at a valid operator.
+      --  So what is IP and how come IP is not referenced in the body ???
 
       procedure Parse_Character_Class (IP : out Pointer);
       --  Parse a character class.
       --  The calling subprogram should consume the opening '[' before.
 
-      procedure Parse_Literal (Expr_Flags : in out Expression_Flags;
-                               IP : out Pointer);
-      --  Parse_Literal encodes a string of characters
-      --  to be matched exactly.
+      procedure Parse_Literal
+        (Expr_Flags : out Expression_Flags;
+         IP         : out Pointer);
+      --  Parse_Literal encodes a string of characters to be matched exactly
 
       function Parse_Posix_Character_Class return Std_Class;
       --  Parse a posic character class, like [:alpha:] or [:^alpha:].
@@ -590,7 +587,7 @@ package body GNAT.Regpat is
          Max    : out Natural;
          Greedy : out Boolean)
       is
-         pragma Warnings (Off, IP);
+         pragma Unreferenced (IP);
 
          Save_Pos : Natural := Parse_Pos + 1;
 
@@ -702,8 +699,8 @@ package body GNAT.Regpat is
          --  the operator before it.
 
          if Emit_Code then
-            Program (Operand + Size .. Emit_Ptr + Size)
-              := Program (Operand .. Emit_Ptr);
+            Program (Operand + Size .. Emit_Ptr + Size) :=
+              Program (Operand .. Emit_Ptr);
          end if;
 
          --  Insert the operator at the position previously occupied by the
@@ -849,7 +846,7 @@ package body GNAT.Regpat is
 
       procedure Parse
         (Parenthesized  : in Boolean;
-         Flags          : in out Expression_Flags;
+         Flags          : out Expression_Flags;
          IP             : out Pointer)
       is
          E              : String renames Expression;
@@ -973,7 +970,7 @@ package body GNAT.Regpat is
       ----------------
 
       procedure Parse_Atom
-        (Expr_Flags : in out Expression_Flags;
+        (Expr_Flags : out Expression_Flags;
          IP         : out Pointer)
       is
          C : Character;
@@ -1040,8 +1037,15 @@ package body GNAT.Regpat is
             when '|' | ASCII.LF | ')' =>
                Fail ("internal urp");  --  Supposed to be caught earlier
 
-            when '?' | '+' | '*' | '{' =>
-               Fail ("?+*{ follows nothing");
+            when '?' | '+' | '*' =>
+               Fail (C & " follows nothing");
+
+            when '{' =>
+               if Is_Curly_Operator (Parse_Pos - 1) then
+                  Fail (C & " follows nothing");
+               else
+                  Parse_Literal (Expr_Flags, IP);
+               end if;
 
             when '\' =>
                if Parse_Pos > Parse_End then
@@ -1097,7 +1101,7 @@ package body GNAT.Regpat is
                      IP := Emit_Node (REFF);
 
                      declare
-                        Save : Natural := Parse_Pos - 1;
+                        Save : constant Natural := Parse_Pos - 1;
 
                      begin
                         while Parse_Pos <= Expression'Last
@@ -1125,7 +1129,7 @@ package body GNAT.Regpat is
       ------------------
 
       procedure Parse_Branch
-        (Flags : in out Expression_Flags;
+        (Flags : out Expression_Flags;
          First : Boolean;
          IP    : out Pointer)
       is
@@ -1133,7 +1137,9 @@ package body GNAT.Regpat is
          Chain     : Pointer;
          Last      : Pointer;
          New_Flags : Expression_Flags;
-         Dummy     : Pointer;
+
+         Discard : Pointer;
+         pragma Warnings (Off, Discard);
 
       begin
          Flags := Worst_Expression;    -- Tentatively
@@ -1169,10 +1175,11 @@ package body GNAT.Regpat is
             Chain := Last;
          end loop;
 
-         if Chain = 0 then            -- Loop ran zero CURLY
-            Dummy := Emit_Node (NOTHING);
-         end if;
+         --  Case where loop ran zero CURLY
 
+         if Chain = 0 then
+            Discard := Emit_Node (NOTHING);
+         end if;
       end Parse_Branch;
 
       ---------------------------
@@ -1284,14 +1291,14 @@ package body GNAT.Regpat is
 
                   when ANYOF_SPACE =>
                      for Value in Class_Byte'Range loop
-                        if Is_Space (Character'Val (Value)) then
+                        if Is_White_Space (Character'Val (Value)) then
                            Set_In_Class (Bitmap, Character'Val (Value));
                         end if;
                      end loop;
 
                   when ANYOF_NSPACE =>
                      for Value in Class_Byte'Range loop
-                        if not Is_Space (Character'Val (Value)) then
+                        if not Is_White_Space (Character'Val (Value)) then
                            Set_In_Class (Bitmap, Character'Val (Value));
                         end if;
                      end loop;
@@ -1393,7 +1400,7 @@ package body GNAT.Regpat is
                   when ANYOF_PUNCT =>
                      for Value in Class_Byte'Range loop
                         if Is_Printable (Character'Val (Value))
-                          and then not Is_Space (Character'Val (Value))
+                          and then not Is_White_Space (Character'Val (Value))
                           and then not Is_Alnum (Character'Val (Value))
                         then
                            Set_In_Class (Bitmap, Character'Val (Value));
@@ -1403,7 +1410,7 @@ package body GNAT.Regpat is
                   when ANYOF_NPUNCT =>
                      for Value in Class_Byte'Range loop
                         if not Is_Printable (Character'Val (Value))
-                          or else Is_Space (Character'Val (Value))
+                          or else Is_White_Space (Character'Val (Value))
                           or else Is_Alnum (Character'Val (Value))
                         then
                            Set_In_Class (Bitmap, Character'Val (Value));
@@ -1521,17 +1528,17 @@ package body GNAT.Regpat is
       --  This is a bit tricky due to quoted chars and due to
       --  the multiplier characters '*', '+', and '?' that
       --  take the SINGLE char previous as their operand.
-      --
+
       --  On entry, the character at Parse_Pos - 1 is going to go
       --  into the string, no matter what it is. It could be
       --  following a \ if Parse_Atom was entered from the '\' case.
-      --
+
       --  Basic idea is to pick up a good char in C and examine
       --  the next char. If Is_Mult (C) then twiddle, if it's a \
       --  then frozzle and if it's another magic char then push C and
       --  terminate the string. If none of the above, push C on the
       --  string and go around again.
-      --
+
       --  Start_Pos is used to remember where "the current character"
       --  starts in the string, if due to an Is_Mult we need to back
       --  up and put the current char in a separate 1-character string.
@@ -1540,12 +1547,13 @@ package body GNAT.Regpat is
       --  flag at the end.
 
       procedure Parse_Literal
-        (Expr_Flags : in out Expression_Flags;
+        (Expr_Flags : out Expression_Flags;
          IP         : out Pointer)
       is
          Start_Pos  : Natural := 0;
          C          : Character;
          Length_Ptr : Pointer;
+
          Has_Special_Operator : Boolean := False;
 
       begin
@@ -1562,7 +1570,6 @@ package body GNAT.Regpat is
 
          Parse_Loop :
          loop
-
             C := Expression (Parse_Pos); --  Get current character
 
             case C is
@@ -1583,9 +1590,11 @@ package body GNAT.Regpat is
 
                   --  Are we looking at an operator, or is this
                   --  simply a normal character ?
+
                   elsif not Is_Mult (Parse_Pos) then
                      Start_Pos := Parse_Pos;
                      Case_Emit (C);
+
                   else
                      --  We've got something like "abc?d".  Mark this as a
                      --  special case. What we want to emit is a first
@@ -1593,14 +1602,17 @@ package body GNAT.Regpat is
                      --  ultimately be transformed with a CURLY operator, A
                      --  special case has to be handled for "a?", since there
                      --  is no initial string to emit.
+
                      Has_Special_Operator := True;
                      exit Parse_Loop;
                   end if;
 
                when '\' =>
                   Start_Pos := Parse_Pos;
+
                   if Parse_Pos = Parse_End then
                      Fail ("Trailing \");
+
                   else
                      case Expression (Parse_Pos + 1) is
                         when 'b' | 'B' | 's' | 'S' | 'd' | 'D'
@@ -1614,6 +1626,7 @@ package body GNAT.Regpat is
                         when 'a'         => Emit (ASCII.BEL);
                         when others      => Emit (Expression (Parse_Pos + 1));
                      end case;
+
                      Parse_Pos := Parse_Pos + 1;
                   end if;
 
@@ -1664,8 +1677,8 @@ package body GNAT.Regpat is
       --  role is not redundant.
 
       procedure Parse_Piece
-        (Expr_Flags : in out Expression_Flags;
-         IP    : out Pointer)
+        (Expr_Flags : out Expression_Flags;
+         IP         : out Pointer)
       is
          Op        : Character;
          New_Flags : Expression_Flags;
@@ -1775,7 +1788,26 @@ package body GNAT.Regpat is
          Class  : Std_Class := ANYOF_NONE;
          E      : String renames Expression;
 
+         --  Class names. Note that code assumes that the length of all
+         --  classes starting with the same letter have the same length.
+
+         Alnum   : constant String := "alnum:]";
+         Alpha   : constant String := "alpha:]";
+         Ascii_C : constant String := "ascii:]";
+         Cntrl   : constant String := "cntrl:]";
+         Digit   : constant String := "digit:]";
+         Graph   : constant String := "graph:]";
+         Lower   : constant String := "lower:]";
+         Print   : constant String := "print:]";
+         Punct   : constant String := "punct:]";
+         Space   : constant String := "space:]";
+         Upper   : constant String := "upper:]";
+         Word    : constant String := "word:]";
+         Xdigit  : constant String := "xdigit:]";
+
       begin
+         --  Case of character class specified
+
          if Parse_Pos <= Parse_End
            and then Expression (Parse_Pos) = ':'
          then
@@ -1790,150 +1822,196 @@ package body GNAT.Regpat is
                Parse_Pos := Parse_Pos + 1;
             end if;
 
-            --  All classes have 6 characters at least
-            --  ??? magid constant 6 should have a name!
+            --  Check for class names based on first letter
 
-            if Parse_Pos + 6 <= Parse_End then
+            case Expression (Parse_Pos) is
 
-               case Expression (Parse_Pos) is
-                  when 'a' =>
-                     if E (Parse_Pos .. Parse_Pos + 4) = "alnum:]" then
+               when 'a' =>
+
+                  --  All 'a' classes have the same length (Alnum'Length)
+
+                  if Parse_Pos + Alnum'Length - 1 <= Parse_End then
+
+                     if E (Parse_Pos .. Parse_Pos + Alnum'Length - 1) =
+                                                                      Alnum
+                     then
                         if Invert then
                            Class := ANYOF_NALNUMC;
                         else
                            Class := ANYOF_ALNUMC;
                         end if;
 
-                     elsif E (Parse_Pos .. Parse_Pos + 6) = "alpha:]" then
+                        Parse_Pos := Parse_Pos + Alnum'Length;
+
+                     elsif E (Parse_Pos .. Parse_Pos + Alpha'Length - 1) =
+                                                                      Alpha
+                     then
                         if Invert then
                            Class := ANYOF_NALPHA;
                         else
                            Class := ANYOF_ALPHA;
                         end if;
 
-                     elsif E (Parse_Pos .. Parse_Pos + 6) = "ascii:]" then
+                        Parse_Pos := Parse_Pos + Alpha'Length;
+
+                     elsif E (Parse_Pos .. Parse_Pos + Ascii_C'Length - 1) =
+                                                                      Ascii_C
+                     then
                         if Invert then
                            Class := ANYOF_NASCII;
                         else
                            Class := ANYOF_ASCII;
                         end if;
 
+                        Parse_Pos := Parse_Pos + Ascii_C'Length;
+                     end if;
+                  end if;
+
+               when 'c' =>
+                  if Parse_Pos + Cntrl'Length - 1 <= Parse_End
+                    and then E (Parse_Pos .. Parse_Pos + Cntrl'Length - 1) =
+                                                                      Cntrl
+                  then
+                     if Invert then
+                        Class := ANYOF_NCNTRL;
+                     else
+                        Class := ANYOF_CNTRL;
                      end if;
 
-                  when 'c' =>
-                     if E (Parse_Pos .. Parse_Pos + 6) = "cntrl:]" then
-                        if Invert then
-                           Class := ANYOF_NCNTRL;
-                        else
-                           Class := ANYOF_CNTRL;
-                        end if;
+                     Parse_Pos := Parse_Pos + Cntrl'Length;
+                  end if;
+
+               when 'd' =>
+                  if Parse_Pos + Digit'Length - 1 <= Parse_End
+                    and then E (Parse_Pos .. Parse_Pos + Digit'Length - 1) =
+                                                                      Digit
+                  then
+                     if Invert then
+                        Class := ANYOF_NDIGIT;
+                     else
+                        Class := ANYOF_DIGIT;
                      end if;
 
-                  when 'd' =>
+                     Parse_Pos := Parse_Pos + Digit'Length;
+                  end if;
 
-                     if E (Parse_Pos .. Parse_Pos + 6) = "digit:]" then
-                        if Invert then
-                           Class := ANYOF_NDIGIT;
-                        else
-                           Class := ANYOF_DIGIT;
-                        end if;
+               when 'g' =>
+                  if Parse_Pos + Graph'Length - 1 <= Parse_End
+                    and then E (Parse_Pos .. Parse_Pos + Graph'Length - 1) =
+                                                                      Graph
+                  then
+                     if Invert then
+                        Class := ANYOF_NGRAPH;
+                     else
+                        Class := ANYOF_GRAPH;
                      end if;
+                     Parse_Pos := Parse_Pos + Graph'Length;
+                  end if;
 
-                  when 'g' =>
-
-                     if E (Parse_Pos .. Parse_Pos + 6) = "graph:]" then
-                        if Invert then
-                           Class := ANYOF_NGRAPH;
-                        else
-                           Class := ANYOF_GRAPH;
-                        end if;
+               when 'l' =>
+                  if Parse_Pos + Lower'Length - 1 <= Parse_End
+                    and then E (Parse_Pos .. Parse_Pos + Lower'Length - 1) =
+                                                                      Lower
+                  then
+                     if Invert then
+                        Class := ANYOF_NLOWER;
+                     else
+                        Class := ANYOF_LOWER;
                      end if;
+                     Parse_Pos := Parse_Pos + Lower'Length;
+                  end if;
 
-                  when 'l' =>
+               when 'p' =>
 
-                     if E (Parse_Pos .. Parse_Pos + 6) = "lower:]" then
-                        if Invert then
-                           Class := ANYOF_NLOWER;
-                        else
-                           Class := ANYOF_LOWER;
-                        end if;
-                     end if;
+                  --  All 'p' classes have the same length
 
-                  when 'p' =>
-
-                     if E (Parse_Pos .. Parse_Pos + 6) = "print:]" then
+                  if Parse_Pos + Print'Length - 1 <= Parse_End then
+                     if E (Parse_Pos .. Parse_Pos + Print'Length - 1) =
+                                                                      Print
+                     then
                         if Invert then
                            Class := ANYOF_NPRINT;
                         else
                            Class := ANYOF_PRINT;
                         end if;
 
-                     elsif E (Parse_Pos .. Parse_Pos + 6) = "punct:]" then
+                        Parse_Pos := Parse_Pos + Print'Length;
+
+                     elsif E (Parse_Pos .. Parse_Pos + Punct'Length - 1) =
+                                                                      Punct
+                     then
                         if Invert then
                            Class := ANYOF_NPUNCT;
                         else
                            Class := ANYOF_PUNCT;
                         end if;
+
+                        Parse_Pos := Parse_Pos + Punct'Length;
+                     end if;
+                  end if;
+
+               when 's' =>
+                  if Parse_Pos + Space'Length - 1 <= Parse_End
+                    and then E (Parse_Pos .. Parse_Pos + Space'Length - 1) =
+                                                                      Space
+                  then
+                     if Invert then
+                        Class := ANYOF_NSPACE;
+                     else
+                        Class := ANYOF_SPACE;
                      end if;
 
-                  when 's' =>
+                     Parse_Pos := Parse_Pos + Space'Length;
+                  end if;
 
-                     if E (Parse_Pos .. Parse_Pos + 6) = "space:]" then
-                        if Invert then
-                           Class := ANYOF_NSPACE;
-                        else
-                           Class := ANYOF_SPACE;
-                        end if;
+               when 'u' =>
+
+                  if Parse_Pos + Upper'Length - 1 <= Parse_End
+                    and then E (Parse_Pos .. Parse_Pos + Upper'Length - 1) =
+                    Upper
+                  then
+                     if Invert then
+                        Class := ANYOF_NUPPER;
+                     else
+                        Class := ANYOF_UPPER;
+                     end if;
+                     Parse_Pos := Parse_Pos + Upper'Length;
+                  end if;
+
+               when 'w' =>
+
+                  if Parse_Pos + Word'Length - 1 <= Parse_End
+                    and then E (Parse_Pos .. Parse_Pos + Word'Length - 1) =
+                    Word
+                  then
+                     if Invert then
+                        Class := ANYOF_NALNUM;
+                     else
+                        Class := ANYOF_ALNUM;
+                     end if;
+                     Parse_Pos := Parse_Pos + Word'Length;
+                  end if;
+
+               when 'x' =>
+
+                  if Parse_Pos + Xdigit'Length - 1 <= Parse_End
+                    and then E (Parse_Pos .. Parse_Pos + Xdigit'Length - 1)
+                    = Digit
+                  then
+                     if Invert then
+                        Class := ANYOF_NXDIGIT;
+                     else
+                        Class := ANYOF_XDIGIT;
                      end if;
 
-                  when 'u' =>
+                     Parse_Pos := Parse_Pos + Xdigit'Length;
+                  end if;
 
-                     if E (Parse_Pos .. Parse_Pos + 6) = "upper:]" then
-                        if Invert then
-                           Class := ANYOF_NUPPER;
-                        else
-                           Class := ANYOF_UPPER;
-                        end if;
-                     end if;
+               when others =>
+                  Fail ("Invalid character class");
+            end case;
 
-                  when 'w' =>
-
-                     if E (Parse_Pos .. Parse_Pos + 5) = "word:]" then
-                        if Invert then
-                           Class := ANYOF_NALNUM;
-                        else
-                           Class := ANYOF_ALNUM;
-                        end if;
-
-                        Parse_Pos := Parse_Pos - 1;
-                     end if;
-
-                  when 'x' =>
-
-                     if Parse_Pos + 7 <= Parse_End
-                       and then E (Parse_Pos .. Parse_Pos + 7) = "xdigit:]"
-                     then
-                        if Invert then
-                           Class := ANYOF_NXDIGIT;
-                        else
-                           Class := ANYOF_XDIGIT;
-                        end if;
-
-                        Parse_Pos := Parse_Pos + 1;
-                     end if;
-
-                  when others =>
-                     Class := ANYOF_NONE;
-
-               end case;
-
-               if Class /= ANYOF_NONE then
-                  Parse_Pos := Parse_Pos + 7;
-               end if;
-
-            else
-               Fail ("Invalid character class");
-            end if;
+         --  Character class not specified
 
          else
             return ANYOF_NONE;
@@ -1969,8 +2047,7 @@ package body GNAT.Regpat is
 
    function Compile
      (Expression : String;
-      Flags      : Regexp_Flags := No_Flags)
-      return       Pattern_Matcher
+      Flags      : Regexp_Flags := No_Flags) return Pattern_Matcher
    is
       Size  : Program_Size;
       Dummy : Pattern_Matcher (0);
@@ -2041,7 +2118,7 @@ package body GNAT.Regpat is
             end if;
 
             declare
-               Point : String := Pointer'Image (Index);
+               Point : constant String := Pointer'Image (Index);
 
             begin
                for J in 1 .. 6 - Point'Length loop
@@ -2213,14 +2290,13 @@ package body GNAT.Regpat is
 
    function Get_From_Class
      (Bitmap : Character_Class;
-      C      : Character)
-      return   Boolean
+      C      : Character) return Boolean
    is
       Value : constant Class_Byte := Character'Pos (C);
 
    begin
-      return (Bitmap (Value / 8)
-               and Bit_Conversion (Value mod 8)) /= 0;
+      return
+        (Bitmap (Value / 8) and Bit_Conversion (Value mod 8)) /= 0;
    end Get_From_Class;
 
    --------------
@@ -2244,8 +2320,7 @@ package body GNAT.Regpat is
 
    function Get_Next_Offset
      (Program : Program_Data;
-      IP      : Pointer)
-      return    Pointer
+      IP      : Pointer) return Pointer
    is
    begin
       return Pointer (Read_Natural (Program, IP + 1));
@@ -2265,26 +2340,24 @@ package body GNAT.Regpat is
    ------------------
 
    function Is_Printable (C : Character) return Boolean is
-      Value : constant Natural := Character'Pos (C);
-
    begin
-      return (Value > 32 and then Value < 127)
-        or else Is_Space (C);
+      --  Printable if space or graphic character or other whitespace
+      --  Other white space includes (HT/LF/VT/FF/CR = codes 9-13)
+
+      return C in Character'Val (32) .. Character'Val (126)
+        or else C in ASCII.HT .. ASCII.CR;
    end Is_Printable;
 
-   --------------
-   -- Is_Space --
-   --------------
+   --------------------
+   -- Is_White_Space --
+   --------------------
 
-   function Is_Space (C : Character) return Boolean is
+   function Is_White_Space (C : Character) return Boolean is
    begin
-      return C = ' '
-        or else C = ASCII.HT
-        or else C = ASCII.CR
-        or else C = ASCII.LF
-        or else C = ASCII.VT
-        or else C = ASCII.FF;
-   end Is_Space;
+      --  Note: HT = 9, LF = 10, VT = 11, FF = 12, CR = 13
+
+      return C = ' ' or else C in ASCII.HT .. ASCII.CR;
+   end Is_White_Space;
 
    -----------
    -- Match --
@@ -2293,9 +2366,14 @@ package body GNAT.Regpat is
    procedure Match
      (Self    : Pattern_Matcher;
       Data    : String;
-      Matches : out Match_Array)
+      Matches : out Match_Array;
+      Data_First : Integer := -1;
+      Data_Last  : Positive := Positive'Last)
    is
       Program   : Program_Data renames Self.Program; -- Shorter notation
+
+      First_In_Data : constant Integer := Integer'Max (Data_First, Data'First);
+      Last_In_Data  : constant Integer := Integer'Min (Data_Last, Data'Last);
 
       --  Global work variables
 
@@ -2346,9 +2424,8 @@ package body GNAT.Regpat is
       --  Find character C in Data starting at Start and return position
 
       function Repeat
-        (IP   : Pointer;
-         Max  : Natural := Natural'Last)
-         return Natural;
+        (IP  : Pointer;
+         Max : Natural := Natural'Last) return Natural;
       --  Repeatedly match something simple, report how many
       --  It only matches on things of length 1.
       --  Starting from Input_Pos, it matches at most Max CURLY.
@@ -2366,9 +2443,11 @@ package body GNAT.Regpat is
       --  particular by going through "ordinary" nodes (that don't
       --  need to know whether the rest of the match failed) by
       --  using a loop instead of recursion.
+      --  Why is the above comment part of the spec rather than body ???
 
-      function Match_Whilem (IP     : Pointer) return Boolean;
+      function Match_Whilem (IP : Pointer) return Boolean;
       --  Return True if a WHILEM matches
+      --  How come IP is unreferenced in the body ???
 
       function Recurse_Match (IP : Pointer; From : Natural) return Boolean;
       pragma Inline (Recurse_Match);
@@ -2380,8 +2459,7 @@ package body GNAT.Regpat is
         (Op     : Opcode;
          Scan   : Pointer;
          Next   : Pointer;
-         Greedy : Boolean)
-         return   Boolean;
+         Greedy : Boolean) return Boolean;
       --  Return True it the simple operator (possibly non-greedy) matches
 
       pragma Inline (Index);
@@ -2396,13 +2474,9 @@ package body GNAT.Regpat is
       -- Index --
       -----------
 
-      function Index
-        (Start : Positive;
-         C     : Character)
-         return  Natural
-      is
+      function Index (Start : Positive; C : Character) return Natural is
       begin
-         for J in Start .. Data'Last loop
+         for J in Start .. Last_In_Data loop
             if Data (J) = C then
                return J;
             end if;
@@ -2417,15 +2491,19 @@ package body GNAT.Regpat is
 
       function Recurse_Match (IP : Pointer; From : Natural) return Boolean is
          L : constant Natural := Last_Paren;
+
          Tmp_F : constant Match_Array :=
-           Matches_Full (From + 1 .. Matches_Full'Last);
+                   Matches_Full (From + 1 .. Matches_Full'Last);
+
          Start : constant Natural_Array :=
-           Matches_Tmp (From + 1 .. Matches_Tmp'Last);
+                   Matches_Tmp (From + 1 .. Matches_Tmp'Last);
          Input : constant Natural := Input_Pos;
+
       begin
          if Match (IP) then
             return True;
          end if;
+
          Last_Paren := L;
          Matches_Full (Tmp_F'Range) := Tmp_F;
          Matches_Tmp (Start'Range) := Start;
@@ -2437,7 +2515,7 @@ package body GNAT.Regpat is
       -- Match --
       -----------
 
-      function Match (IP   : Pointer) return Boolean is
+      function Match (IP : Pointer) return Boolean is
          Scan   : Pointer := IP;
          Next   : Pointer;
          Op     : Opcode;
@@ -2481,28 +2559,24 @@ package body GNAT.Regpat is
                   null;
 
                when BOL =>
-                  exit State_Machine when
-                    Input_Pos /= BOL_Pos
+                  exit State_Machine when Input_Pos /= BOL_Pos
                     and then ((Self.Flags and Multiple_Lines) = 0
                               or else Data (Input_Pos - 1) /= ASCII.LF);
 
                when MBOL =>
-                  exit State_Machine when
-                    Input_Pos /= BOL_Pos
+                  exit State_Machine when Input_Pos /= BOL_Pos
                     and then Data (Input_Pos - 1) /= ASCII.LF;
 
                when SBOL =>
                   exit State_Machine when Input_Pos /= BOL_Pos;
 
                when EOL =>
-                  exit State_Machine when
-                    Input_Pos <= Data'Last
+                  exit State_Machine when Input_Pos <= Data'Last
                     and then ((Self.Flags and Multiple_Lines) = 0
                               or else Data (Input_Pos) /= ASCII.LF);
 
                when MEOL =>
-                  exit State_Machine when
-                    Input_Pos <= Data'Last
+                  exit State_Machine when Input_Pos <= Data'Last
                     and then Data (Input_Pos) /= ASCII.LF;
 
                when SEOL =>
@@ -2517,11 +2591,11 @@ package body GNAT.Regpat is
                      Ln : Boolean := False;
 
                   begin
-                     if Input_Pos /= Data'First then
+                     if Input_Pos /= First_In_Data then
                         N := Is_Alnum (Data (Input_Pos - 1));
                      end if;
 
-                     if Input_Pos > Data'Last then
+                     if Input_Pos > Last_In_Data then
                         Ln := False;
                      else
                         Ln := Is_Alnum (Data (Input_Pos));
@@ -2539,60 +2613,55 @@ package body GNAT.Regpat is
                   end;
 
                when SPACE =>
-                  exit State_Machine when
-                    Input_Pos > Data'Last
-                    or else not Is_Space (Data (Input_Pos));
+                  exit State_Machine when Input_Pos > Last_In_Data
+                    or else not Is_White_Space (Data (Input_Pos));
                   Input_Pos := Input_Pos + 1;
 
                when NSPACE =>
-                  exit State_Machine when
-                    Input_Pos > Data'Last
-                    or else Is_Space (Data (Input_Pos));
+                  exit State_Machine when Input_Pos > Last_In_Data
+                    or else Is_White_Space (Data (Input_Pos));
                   Input_Pos := Input_Pos + 1;
 
                when DIGIT =>
-                  exit State_Machine when
-                    Input_Pos > Data'Last
+                  exit State_Machine when Input_Pos > Last_In_Data
                     or else not Is_Digit (Data (Input_Pos));
                   Input_Pos := Input_Pos + 1;
 
                when NDIGIT =>
-                  exit State_Machine when
-                    Input_Pos > Data'Last
+                  exit State_Machine when Input_Pos > Last_In_Data
                     or else Is_Digit (Data (Input_Pos));
                   Input_Pos := Input_Pos + 1;
 
                when ALNUM =>
-                  exit State_Machine when
-                    Input_Pos > Data'Last
+                  exit State_Machine when Input_Pos > Last_In_Data
                     or else not Is_Alnum (Data (Input_Pos));
                   Input_Pos := Input_Pos + 1;
 
                when NALNUM =>
-                  exit State_Machine when
-                    Input_Pos > Data'Last
+                  exit State_Machine when Input_Pos > Last_In_Data
                     or else Is_Alnum (Data (Input_Pos));
                   Input_Pos := Input_Pos + 1;
 
                when ANY =>
-                  exit State_Machine when Input_Pos > Data'Last
+                  exit State_Machine when Input_Pos > Last_In_Data
                     or else Data (Input_Pos) = ASCII.LF;
                   Input_Pos := Input_Pos + 1;
 
                when SANY =>
-                  exit State_Machine when Input_Pos > Data'Last;
+                  exit State_Machine when Input_Pos > Last_In_Data;
                   Input_Pos := Input_Pos + 1;
 
                when EXACT =>
                   declare
-                     Opnd    : Pointer          := String_Operand (Scan);
-                     Current : Positive         := Input_Pos;
+                     Opnd    : Pointer  := String_Operand (Scan);
+                     Current : Positive := Input_Pos;
+
                      Last    : constant Pointer :=
                                  Opnd + String_Length (Program, Scan);
 
                   begin
                      while Opnd <= Last loop
-                        exit State_Machine when Current > Data'Last
+                        exit State_Machine when Current > Last_In_Data
                           or else Program (Opnd) /= Data (Current);
                         Current := Current + 1;
                         Opnd := Opnd + 1;
@@ -2603,14 +2672,15 @@ package body GNAT.Regpat is
 
                when EXACTF =>
                   declare
-                     Opnd    : Pointer          := String_Operand (Scan);
-                     Current : Positive         := Input_Pos;
+                     Opnd    : Pointer  := String_Operand (Scan);
+                     Current : Positive := Input_Pos;
+
                      Last    : constant Pointer :=
                                  Opnd + String_Length (Program, Scan);
 
                   begin
                      while Opnd <= Last loop
-                        exit State_Machine when Current > Data'Last
+                        exit State_Machine when Current > Last_In_Data
                           or else Program (Opnd) /= To_Lower (Data (Current));
                         Current := Current + 1;
                         Opnd := Opnd + 1;
@@ -2625,8 +2695,7 @@ package body GNAT.Regpat is
 
                   begin
                      Bitmap_Operand (Program, Scan, Bitmap);
-                     exit State_Machine when
-                       Input_Pos > Data'Last
+                     exit State_Machine when Input_Pos > Last_In_Data
                        or else not Get_From_Class (Bitmap, Data (Input_Pos));
                      Input_Pos := Input_Pos + 1;
                   end;
@@ -2634,7 +2703,8 @@ package body GNAT.Regpat is
                when OPEN =>
                   declare
                      No : constant Natural :=
-                       Character'Pos (Program (Operand (Scan)));
+                            Character'Pos (Program (Operand (Scan)));
+
                   begin
                      Matches_Tmp (No) := Input_Pos;
                   end;
@@ -2642,9 +2712,11 @@ package body GNAT.Regpat is
                when CLOSE =>
                   declare
                      No : constant Natural :=
-                       Character'Pos (Program (Operand (Scan)));
+                            Character'Pos (Program (Operand (Scan)));
+
                   begin
                      Matches_Full (No) := (Matches_Tmp (No), Input_Pos - 1);
+
                      if Last_Paren < No then
                         Last_Paren := No;
                      end if;
@@ -2654,6 +2726,7 @@ package body GNAT.Regpat is
                   declare
                      No : constant Natural :=
                             Character'Pos (Program (Operand (Scan)));
+
                      Data_Pos : Natural;
 
                   begin
@@ -2664,8 +2737,9 @@ package body GNAT.Regpat is
                      end if;
 
                      Data_Pos := Matches_Full (No).First;
+
                      while Data_Pos <= Matches_Full (No).Last loop
-                        if Input_Pos > Data'Last
+                        if Input_Pos > Last_In_Data
                           or else Data (Input_Pos) /= Data (Data_Pos)
                         then
                            return False;
@@ -2682,6 +2756,7 @@ package body GNAT.Regpat is
                when STAR | PLUS | CURLY =>
                   declare
                      Greed : constant Boolean := Greedy;
+
                   begin
                      Greedy := True;
                      return Match_Simple_Operator (Op, Scan, Next, Greed);
@@ -2690,15 +2765,18 @@ package body GNAT.Regpat is
                when CURLYX =>
 
                   --  Looking at something like:
+
                   --    1: CURLYX {n,m}  (->4)
                   --    2:   code for complex thing  (->3)
                   --    3:   WHILEM (->0)
                   --    4: NOTHING
 
                   declare
+                     Min : constant Natural :=
+                             Read_Natural (Program, Scan + 3);
+                     Max : constant Natural :=
+                             Read_Natural (Program, Scan + 5);
                      Cc  : aliased Current_Curly_Record;
-                     Min : Natural := Read_Natural (Program, Scan + 3);
-                     Max : Natural := Read_Natural (Program, Scan + 5);
 
                      Has_Match : Boolean;
 
@@ -2724,9 +2802,6 @@ package body GNAT.Regpat is
 
                when WHILEM =>
                   return Match_Whilem (IP);
-
-               when others =>
-                  raise Expression_Error; -- Invalid instruction
             end case;
 
             Scan := Next;
@@ -2746,8 +2821,7 @@ package body GNAT.Regpat is
         (Op     : Opcode;
          Scan   : Pointer;
          Next   : Pointer;
-         Greedy : Boolean)
-         return   Boolean
+         Greedy : Boolean) return Boolean
       is
          Next_Char       : Character := ASCII.Nul;
          Next_Char_Known : Boolean := False;
@@ -2757,7 +2831,7 @@ package body GNAT.Regpat is
          Operand_Code    : Pointer;
          Old             : Natural;
          Last_Pos        : Natural;
-         Save            : Natural := Input_Pos;
+         Save            : constant Natural := Input_Pos;
 
       begin
          --  Lookahead to avoid useless match attempts
@@ -2788,6 +2862,7 @@ package body GNAT.Regpat is
          --  Non greedy operators
 
          if not Greedy then
+
             --  Test the minimal repetitions
 
             if Min /= 0
@@ -2805,10 +2880,10 @@ package body GNAT.Regpat is
 
                Last_Pos := Input_Pos + Max;
 
-               if Last_Pos > Data'Last
+               if Last_Pos > Last_In_Data
                  or else Max = Natural'Last
                then
-                  Last_Pos := Data'Last;
+                  Last_Pos := Last_In_Data;
                end if;
 
                --  Look for the first possible opportunity
@@ -2891,7 +2966,7 @@ package body GNAT.Regpat is
 
             while No >= Min loop
                if not Next_Char_Known
-                 or else (Input_Pos <= Data'Last
+                 or else (Input_Pos <= Last_In_Data
                            and then Data (Input_Pos) = Next_Char)
                then
                   if Match (Next) then
@@ -2904,6 +2979,7 @@ package body GNAT.Regpat is
                No := No - 1;
                Input_Pos := Save + No;
             end loop;
+
             return False;
          end if;
       end Match_Simple_Operator;
@@ -2912,20 +2988,20 @@ package body GNAT.Regpat is
       -- Match_Whilem --
       ------------------
 
-      --  This is really hard to understand, because after we match what we're
-      --  trying to match, we must make sure the rest of the REx is going to
-      --  match for sure, and to do that we have to go back UP the parse tree
-      --  by recursing ever deeper.  And if it fails, we have to reset our
-      --  parent's current state that we can try again after backing off.
+      --  This is really hard to understand, because after we match what we
+      --  are trying to match, we must make sure the rest of the REx is going
+      --  to match for sure, and to do that we have to go back UP the parse
+      --  tree by recursing ever deeper.  And if it fails, we have to reset
+      --  our parent's current state that we can try again after backing off.
 
       function Match_Whilem (IP : Pointer) return Boolean is
-         pragma Warnings (Off, IP);
+         pragma Unreferenced (IP);
 
-         Cc : Current_Curly_Access := Current_Curly;
-         N  : Natural              := Cc.Cur + 1;
-         Ln : Natural              := 0;
+         Cc : constant Current_Curly_Access := Current_Curly;
+         N  : constant Natural              := Cc.Cur + 1;
+         Ln : Natural                       := 0;
 
-         Lastloc : Natural := Cc.Lastloc;
+         Lastloc : constant Natural := Cc.Lastloc;
          --  Detection of 0-len.
 
       begin
@@ -3046,9 +3122,8 @@ package body GNAT.Regpat is
       ------------
 
       function Repeat
-        (IP   : Pointer;
-         Max  : Natural := Natural'Last)
-         return Natural
+        (IP  : Pointer;
+         Max : Natural := Natural'Last) return Natural
       is
          Scan  : Natural := Input_Pos;
          Last  : Natural;
@@ -3059,8 +3134,8 @@ package body GNAT.Regpat is
          Bitmap   : Character_Class;
 
       begin
-         if Max = Natural'Last or else Scan + Max - 1 > Data'Last then
-            Last := Data'Last;
+         if Max = Natural'Last or else Scan + Max - 1 > Last_In_Data then
+            Last := Last_In_Data;
          else
             Last := Scan + Max - 1;
          end if;
@@ -3126,14 +3201,14 @@ package body GNAT.Regpat is
 
             when SPACE =>
                while Scan <= Last
-                 and then Is_Space (Data (Scan))
+                 and then Is_White_Space (Data (Scan))
                loop
                   Scan := Scan + 1;
                end loop;
 
             when NSPACE =>
                while Scan <= Last
-                 and then not Is_Space (Data (Scan))
+                 and then not Is_White_Space (Data (Scan))
                loop
                   Scan := Scan + 1;
                end loop;
@@ -3203,7 +3278,7 @@ package body GNAT.Regpat is
             Must_First : constant Pointer := Self.Must_Have;
             Must_Last  : constant Pointer :=
                            Must_First + Pointer (Self.Must_Have_Length - 1);
-            Next_Try   : Natural := Index (Data'First, First);
+            Next_Try   : Natural := Index (First_In_Data, First);
 
          begin
             while Next_Try /= 0
@@ -3227,11 +3302,11 @@ package body GNAT.Regpat is
       --  Simplest case first: an anchored match need be tried only once
 
       if Self.Anchored and then (Self.Flags and Multiple_Lines) = 0 then
-         Matched := Try (Data'First);
+         Matched := Try (First_In_Data);
 
       elsif Self.Anchored then
          declare
-            Next_Try : Natural := Data'First;
+            Next_Try : Natural := First_In_Data;
          begin
             --  Test the first position in the buffer
             Matched := Try (Next_Try);
@@ -3239,8 +3314,8 @@ package body GNAT.Regpat is
             --  Else only test after newlines
 
             if not Matched then
-               while Next_Try <= Data'Last loop
-                  while Next_Try <= Data'Last
+               while Next_Try <= Last_In_Data loop
+                  while Next_Try <= Last_In_Data
                     and then Data (Next_Try) /= ASCII.LF
                   loop
                      Next_Try := Next_Try + 1;
@@ -3248,7 +3323,7 @@ package body GNAT.Regpat is
 
                   Next_Try := Next_Try + 1;
 
-                  if Next_Try <= Data'Last then
+                  if Next_Try <= Last_In_Data then
                      Matched := Try (Next_Try);
                      exit when Matched;
                   end if;
@@ -3257,11 +3332,10 @@ package body GNAT.Regpat is
          end;
 
       elsif Self.First /= ASCII.NUL then
-
          --  We know what char it must start with
 
          declare
-            Next_Try : Natural := Index (Data'First, Self.First);
+            Next_Try : Natural := Index (First_In_Data, Self.First);
 
          begin
             while Next_Try /= 0 loop
@@ -3274,10 +3348,10 @@ package body GNAT.Regpat is
       else
          --  Messy cases: try all locations (including for the empty string)
 
-         Matched := Try (Data'First);
+         Matched := Try (First_In_Data);
 
          if not Matched then
-            for S in Data'First + 1 .. Data'Last loop
+            for S in First_In_Data + 1 .. Last_In_Data loop
                Matched := Try (S);
                exit when Matched;
             end loop;
@@ -3294,15 +3368,20 @@ package body GNAT.Regpat is
       return;
    end Match;
 
-   function  Match
-     (Self : Pattern_Matcher;
-      Data : String)
-      return Natural
+   -----------
+   -- Match --
+   -----------
+
+   function Match
+     (Self       : Pattern_Matcher;
+      Data       : String;
+      Data_First : Integer := -1;
+      Data_Last  : Positive := Positive'Last) return Natural
    is
       Matches : Match_Array (0 .. 0);
 
    begin
-      Match (Self, Data, Matches);
+      Match (Self, Data, Matches, Data_First, Data_Last);
       if Matches (0) = No_Match then
          return Data'First - 1;
       else
@@ -3310,47 +3389,72 @@ package body GNAT.Regpat is
       end if;
    end Match;
 
+   function Match
+     (Self       : Pattern_Matcher;
+      Data       : String;
+      Data_First : Integer  := -1;
+      Data_Last  : Positive := Positive'Last) return Boolean
+   is
+      Matches : Match_Array (0 .. 0);
+
+   begin
+      Match (Self, Data, Matches, Data_First, Data_Last);
+      return Matches (0).First >= Data'First;
+   end Match;
+
    procedure Match
      (Expression : String;
       Data       : String;
       Matches    : out Match_Array;
-      Size       : Program_Size := 0)
+      Size       : Program_Size := Auto_Size;
+      Data_First : Integer      := -1;
+      Data_Last  : Positive     := Positive'Last)
    is
       PM            : Pattern_Matcher (Size);
       Finalize_Size : Program_Size;
 
    begin
       if Size = 0 then
-         Match (Compile (Expression), Data, Matches);
+         Match (Compile (Expression), Data, Matches, Data_First, Data_Last);
       else
          Compile (PM, Expression, Finalize_Size);
-         Match (PM, Data, Matches);
+         Match (PM, Data, Matches, Data_First, Data_Last);
       end if;
    end Match;
 
-   function  Match
+   -----------
+   -- Match --
+   -----------
+
+   function Match
      (Expression : String;
       Data       : String;
-      Size       : Program_Size := 0)
-      return       Natural
+      Size       : Program_Size := Auto_Size;
+      Data_First : Integer      := -1;
+      Data_Last  : Positive     := Positive'Last) return Natural
    is
       PM         : Pattern_Matcher (Size);
       Final_Size : Program_Size; -- unused
 
    begin
       if Size = 0 then
-         return Match (Compile (Expression), Data);
+         return Match (Compile (Expression), Data, Data_First, Data_Last);
       else
          Compile (PM, Expression, Final_Size);
-         return Match (PM, Data);
+         return Match (PM, Data, Data_First, Data_Last);
       end if;
    end Match;
+
+   -----------
+   -- Match --
+   -----------
 
    function  Match
      (Expression : String;
       Data       : String;
-      Size       : Program_Size := 0)
-      return       Boolean
+      Size       : Program_Size := Auto_Size;
+      Data_First : Integer      := -1;
+      Data_Last  : Positive     := Positive'Last) return Boolean
    is
       Matches    : Match_Array (0 .. 0);
       PM         : Pattern_Matcher (Size);
@@ -3358,10 +3462,10 @@ package body GNAT.Regpat is
 
    begin
       if Size = 0 then
-         Match (Compile (Expression), Data, Matches);
+         Match (Compile (Expression), Data, Matches, Data_First, Data_Last);
       else
          Compile (PM, Expression, Final_Size);
-         Match (PM, Data, Matches);
+         Match (PM, Data, Matches, Data_First, Data_Last);
       end if;
 
       return Matches (0).First >= Data'First;
@@ -3458,8 +3562,8 @@ package body GNAT.Regpat is
    begin
       for J in Str'Range loop
          case Str (J) is
-            when '^' | '$' | '|' | '*' | '+' | '?' | '{'
-              | '}' | '[' | ']' | '(' | ')' | '\' =>
+            when '^' | '$' | '|' | '*' | '+' | '?' | '{' |
+                 '}' | '[' | ']' | '(' | ')' | '\' =>
 
                S (Last + 1) := '\';
                S (Last + 2) := Str (J);
@@ -3480,8 +3584,7 @@ package body GNAT.Regpat is
 
    function Read_Natural
      (Program : Program_Data;
-      IP      : Pointer)
-      return    Natural
+      IP      : Pointer) return Natural
    is
    begin
       return Character'Pos (Program (IP)) +
@@ -3492,7 +3595,7 @@ package body GNAT.Regpat is
    -- Reset_Class --
    -----------------
 
-   procedure Reset_Class (Bitmap : in out Character_Class) is
+   procedure Reset_Class (Bitmap : out Character_Class) is
    begin
       Bitmap := (others => 0);
    end Reset_Class;
@@ -3506,7 +3609,6 @@ package body GNAT.Regpat is
       C      : Character)
    is
       Value : constant Class_Byte := Character'Pos (C);
-
    begin
       Bitmap (Value / 8) := Bitmap (Value / 8)
         or Bit_Conversion (Value mod 8);
@@ -3518,8 +3620,7 @@ package body GNAT.Regpat is
 
    function String_Length
      (Program : Program_Data;
-      P       : Pointer)
-      return    Program_Size
+      P       : Pointer) return Program_Size
    is
    begin
       pragma Assert (Program (P) = EXACT or else Program (P) = EXACTF);

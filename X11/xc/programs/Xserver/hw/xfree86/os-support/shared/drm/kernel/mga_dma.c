@@ -554,9 +554,9 @@ static int mga_do_init_dma( drm_device_t *dev, drm_mga_init_t *init )
 		(drm_mga_sarea_t *)((u8 *)dev_priv->sarea->handle +
 				    init->sarea_priv_offset);
 
-	DRM_IOREMAP( dev_priv->warp );
-	DRM_IOREMAP( dev_priv->primary );
-	DRM_IOREMAP( dev_priv->buffers );
+	DRM_IOREMAP( dev_priv->warp, dev );
+	DRM_IOREMAP( dev_priv->primary, dev );
+	DRM_IOREMAP( dev_priv->buffers, dev );
 
 	if(!dev_priv->warp->handle ||
 	   !dev_priv->primary->handle ||
@@ -639,12 +639,23 @@ int mga_do_cleanup_dma( drm_device_t *dev )
 {
 	DRM_DEBUG( "\n" );
 
+#if __HAVE_IRQ
+	/* Make sure interrupts are disabled here because the uninstall ioctl
+	 * may not have been called from userspace and after dev_private
+	 * is freed, it's too late.
+	 */
+	if ( dev->irq_enabled ) DRM(irq_uninstall)(dev);
+#endif
+
 	if ( dev->dev_private ) {
 		drm_mga_private_t *dev_priv = dev->dev_private;
 
-		DRM_IOREMAPFREE( dev_priv->warp );
-		DRM_IOREMAPFREE( dev_priv->primary );
-		DRM_IOREMAPFREE( dev_priv->buffers );
+		if ( dev_priv->warp != NULL )
+			DRM_IOREMAPFREE( dev_priv->warp, dev );
+		if ( dev_priv->primary != NULL )
+			DRM_IOREMAPFREE( dev_priv->primary, dev );
+		if ( dev_priv->buffers != NULL )
+			DRM_IOREMAPFREE( dev_priv->buffers, dev );
 
 		if ( dev_priv->head != NULL ) {
 			mga_freelist_cleanup( dev );
@@ -662,6 +673,8 @@ int mga_dma_init( DRM_IOCTL_ARGS )
 {
 	DRM_DEVICE;
 	drm_mga_init_t init;
+
+	LOCK_TEST_WITH_RETURN( dev, filp );
 
 	DRM_COPY_FROM_USER_IOCTL( init, (drm_mga_init_t *)data, sizeof(init) );
 
@@ -686,7 +699,7 @@ int mga_dma_flush( DRM_IOCTL_ARGS )
 	drm_mga_private_t *dev_priv = (drm_mga_private_t *)dev->dev_private;
 	drm_lock_t lock;
 
-	LOCK_TEST_WITH_RETURN( dev );
+	LOCK_TEST_WITH_RETURN( dev, filp );
 
 	DRM_COPY_FROM_USER_IOCTL( lock, (drm_lock_t *)data, sizeof(lock) );
 
@@ -720,7 +733,7 @@ int mga_dma_reset( DRM_IOCTL_ARGS )
 	DRM_DEVICE;
 	drm_mga_private_t *dev_priv = (drm_mga_private_t *)dev->dev_private;
 
-	LOCK_TEST_WITH_RETURN( dev );
+	LOCK_TEST_WITH_RETURN( dev, filp );
 
 	return mga_do_dma_reset( dev_priv );
 }
@@ -730,7 +743,8 @@ int mga_dma_reset( DRM_IOCTL_ARGS )
  * DMA buffer management
  */
 
-static int mga_dma_get_buffers( drm_device_t *dev, drm_dma_t *d )
+static int mga_dma_get_buffers( DRMFILE filp,
+				drm_device_t *dev, drm_dma_t *d )
 {
 	drm_buf_t *buf;
 	int i;
@@ -739,7 +753,7 @@ static int mga_dma_get_buffers( drm_device_t *dev, drm_dma_t *d )
 		buf = mga_freelist_get( dev );
 		if ( !buf ) return DRM_ERR(EAGAIN);
 
-		buf->pid = DRM_CURRENTPID;
+		buf->filp = filp;
 
 		if ( DRM_COPY_TO_USER( &d->request_indices[i],
 				   &buf->idx, sizeof(buf->idx) ) )
@@ -761,7 +775,7 @@ int mga_dma_buffers( DRM_IOCTL_ARGS )
 	drm_dma_t d;
 	int ret = 0;
 
-	LOCK_TEST_WITH_RETURN( dev );
+	LOCK_TEST_WITH_RETURN( dev, filp );
 
 	DRM_COPY_FROM_USER_IOCTL( d, (drm_dma_t *)data, sizeof(d) );
 
@@ -786,7 +800,7 @@ int mga_dma_buffers( DRM_IOCTL_ARGS )
 	d.granted_count = 0;
 
 	if ( d.request_count ) {
-		ret = mga_dma_get_buffers( dev, &d );
+		ret = mga_dma_get_buffers( filp, dev, &d );
 	}
 
 	DRM_COPY_TO_USER_IOCTL( (drm_dma_t *)data, d, sizeof(d) );

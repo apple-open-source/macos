@@ -34,6 +34,7 @@
 .Fl r |
 .Fl e
 }
+.Nm
 .Sh DESCRIPTION
 .Nm Crontab
 is the program used to install, deinstall or list the tables
@@ -62,6 +63,7 @@ command.
 .Pp
 The first form of this command is used to install a new crontab from some
 named file or standard input if the pseudo-filename ``-'' is given.
+The third form will process standard input as a new crontab.
 .Pp
 The following options are available:
 .Bl -tag -width indent
@@ -99,6 +101,7 @@ from the editor, the modified crontab will be installed automatically.
 .El
 .Sh SEE ALSO
 .Xr crontab 5 ,
+.Xr compat 5 ,
 .Xr cron 8
 .Sh FILES
 .Bl -tag -width /var/cron/allow -compact

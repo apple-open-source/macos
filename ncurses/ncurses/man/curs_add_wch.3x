@@ -26,7 +26,7 @@
 .\" authorization.                                                           *
 .\"***************************************************************************
 .\"
-.\" $Id: curs_add_wch.3x,v 1.1.1.2 2002/02/15 21:55:27 jevans Exp $
+.\" $Id: curs_add_wch.3x,v 1.4 2002/02/16 22:28:43 tom Exp $
 .TH curs_add_wch 3X ""
 .SH NAME
 \fBadd_wch\fP,
@@ -37,7 +37,6 @@
 \fBwecho_wchar\fP - add a complex character and rendition to a \fBcurses\fR window, then advance the cursor
 .SH SYNOPSIS
 .PP
-.sS
 \fB#include <curses.h>\fP
 .sp
 .B "int add_wch( const cchar_t *\fIwch\fB );"
@@ -51,7 +50,6 @@
 .B "int echo_wchar( const cchar_t *\fIwch\fB );"
 .br
 .B "int wecho_wchar( WINDOW *\fIwin\fP, const cchar_t *\fIwch\fB );"
-.sE
 .br
 .SH DESCRIPTION
 .PP

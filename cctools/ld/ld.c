@@ -2473,6 +2473,12 @@ unknown_flag:
 		      "program out of sync with get_arch_family_from_cputype())"
 		      ,arch_flag.cputype, arch_flag.name);
 	    /*
+	     * If for this cputype we are to always output the ALL cpusubtype
+	     * then set force_cpusubtype_ALL.
+	     */
+	    if(force_cpusubtype_ALL_for_cputype(arch_flag.cputype) == TRUE)
+		force_cpusubtype_ALL = TRUE;
+	    /*
 	     * First, if -force_cpusubtype_ALL is set and an -arch flag was
 	     * specified set the cpusubtype to the _ALL type for that cputype 
 	     * since the specified flag may not have the _ALL type and the

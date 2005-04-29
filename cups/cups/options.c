@@ -1,9 +1,9 @@
 /*
- * "$Id: options.c,v 1.1.1.9.4.1 2004/01/13 23:43:52 gelphman Exp $"
+ * "$Id: options.c,v 1.8 2005/01/04 22:10:39 jlovell Exp $"
  *
  *   Option routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -180,7 +180,7 @@ cupsParseOptions(const char    *arg,		/* I - Argument to parse */
   * Skip leading spaces...
   */
 
-  while (isspace(*ptr))
+  while (isspace(*ptr & 255))
     ptr ++;
 
  /*
@@ -194,7 +194,7 @@ cupsParseOptions(const char    *arg,		/* I - Argument to parse */
     */
 
     name = ptr;
-    while (!isspace(*ptr) && *ptr != '=' && *ptr != '\0')
+    while (!isspace(*ptr & 255) && *ptr != '=' && *ptr != '\0')
       ptr ++;
 
    /*
@@ -208,7 +208,7 @@ cupsParseOptions(const char    *arg,		/* I - Argument to parse */
     * Skip trailing spaces...
     */
 
-    while (isspace(*ptr))
+    while (isspace(*ptr & 255))
       *ptr++ = '\0';
 
     if (*ptr != '=')
@@ -310,7 +310,7 @@ cupsParseOptions(const char    *arg,		/* I - Argument to parse */
 
       value = ptr;
 
-      while (!isspace(*ptr) && *ptr != '\0')
+      while (!isspace(*ptr & 255) && *ptr != '\0')
       {
         if (*ptr == '\\')
 	  cups_strcpy(ptr, ptr + 1);
@@ -323,7 +323,7 @@ cupsParseOptions(const char    *arg,		/* I - Argument to parse */
     * Skip trailing whitespace...
     */
 
-    while (isspace(*ptr))
+    while (isspace(*ptr & 255))
       *ptr++ = '\0';
 
    /*
@@ -498,5 +498,5 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
 
 
 /*
- * End of "$Id: options.c,v 1.1.1.9.4.1 2004/01/13 23:43:52 gelphman Exp $".
+ * End of "$Id: options.c,v 1.8 2005/01/04 22:10:39 jlovell Exp $".
  */

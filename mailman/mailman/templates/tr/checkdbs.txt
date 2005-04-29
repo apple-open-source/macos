@@ -1,0 +1,8 @@
+%(real_name)s@%(host_name)s mesaj listesi için þu adreste dikkatinizi
+gerektiren %(count)d istek bulunuyor:
+
+	%(adminDB)s
+	
+Lütefen size uygun en yakýn zamanda bunlarý inceleyin. Eðer bekleyen
+istek varsa, bu bildirim her gün gönderilecektir.
+

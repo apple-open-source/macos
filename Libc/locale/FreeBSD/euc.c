@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 2002-2004 Tim J. Robbins. All rights reserved.
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -37,42 +38,46 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)euc.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/euc.c,v 1.11 2002/08/09 08:22:29 ache Exp $");
-
-#include <sys/types.h>
+#include <sys/param.h>
+__FBSDID("$FreeBSD: src/lib/libc/locale/euc.c,v 1.20 2004/06/23 07:01:43 tjr Exp $");
 
 #include <errno.h>
-#include <rune.h>
-#include <stddef.h>
-#include <stdio.h>
+#include <limits.h>
+#include <runetype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
+#include "mblocal.h"
 
-rune_t	_EUC_sgetrune(const char *, size_t, char const **);
-int	_EUC_sputrune(rune_t, char *, size_t, char **);
+int	_EUC_init(_RuneLocale *);
+size_t	_EUC_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
+	    mbstate_t * __restrict);
+int	_EUC_mbsinit(const mbstate_t *);
+size_t	_EUC_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
 
 typedef struct {
 	int	count[4];
-	rune_t	bits[4];
-	rune_t	mask;
+	wchar_t	bits[4];
+	wchar_t	mask;
 } _EucInfo;
 
+typedef struct {
+	wchar_t	ch;
+	int	set;
+	int	want;
+} _EucState;
+
 int
-_EUC_init(rl)
-	_RuneLocale *rl;
+_EUC_init(_RuneLocale *rl)
 {
 	_EucInfo *ei;
 	int x, new__mb_cur_max;
 	char *v, *e;
 
-	rl->sgetrune = _EUC_sgetrune;
-	rl->sputrune = _EUC_sputrune;
-
-	if (rl->variable == NULL)
+	if (rl->__variable == NULL)
 		return (EFTYPE);
 
-	v = (char *)rl->variable;
+	v = (char *)rl->__variable;
 
 	while (*v == ' ' || *v == '\t')
 		++v;
@@ -104,119 +109,156 @@ _EUC_init(rl)
 		free(ei);
 		return (EFTYPE);
 	}
-	rl->variable = ei;
-	rl->variable_len = sizeof(_EucInfo);
+	rl->__variable = ei;
+	rl->__variable_len = sizeof(_EucInfo);
 	_CurrentRuneLocale = rl;
 	__mb_cur_max = new__mb_cur_max;
+	__mbrtowc = _EUC_mbrtowc;
+	__wcrtomb = _EUC_wcrtomb;
+	__mbsinit = _EUC_mbsinit;
 	return (0);
 }
 
-#define	CEI	((_EucInfo *)(_CurrentRuneLocale->variable))
+int
+_EUC_mbsinit(const mbstate_t *ps)
+{
+
+	return (ps == NULL || ((const _EucState *)ps)->want == 0);
+}
+
+#define	CEI	((_EucInfo *)(_CurrentRuneLocale->__variable))
 
 #define	_SS2	0x008e
 #define	_SS3	0x008f
 
 #define	GR_BITS	0x80808080 /* XXX: to be fixed */
 
-static inline int
-_euc_set(c)
-	u_int c;
+static __inline int
+_euc_set(u_int c)
 {
 	c &= 0xff;
-
 	return ((c & 0x80) ? c == _SS3 ? 3 : c == _SS2 ? 2 : 1 : 0);
 }
-rune_t
-_EUC_sgetrune(string, n, result)
-	const char *string;
-	size_t n;
-	char const **result;
-{
-	rune_t rune = 0;
-	int len, set;
 
-	if (n < 1 || (len = CEI->count[set = _euc_set(*string)]) > n) {
-		if (result)
-			*result = string;
-		return (_INVALID_RUNE);
+size_t
+_EUC_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
+    mbstate_t * __restrict ps)
+{
+	_EucState *es;
+	int i, set, want;
+	wchar_t wc;
+	const char *os;
+
+	es = (_EucState *)ps;
+
+	if (es->want < 0 || es->want > MB_CUR_MAX || es->set < 0 ||
+	    es->set > 3) {
+		errno = EINVAL;
+		return ((size_t)-1);
 	}
-	switch (set) {
-	case 3:
-	case 2:
-		--len;
-		++string;
-		/* FALLTHROUGH */
-	case 1:
-	case 0:
-		while (len-- > 0)
-			rune = (rune << 8) | ((u_int)(*string++) & 0xff);
-		break;
+
+	if (s == NULL) {
+		s = "";
+		n = 1;
+		pwc = NULL;
 	}
-	if (result)
-		*result = string;
-	return ((rune & ~CEI->mask) | CEI->bits[set]);
+
+	if (n == 0)
+		/* Incomplete multibyte sequence */
+		return ((size_t)-2);
+
+	os = s;
+
+	if (es->want == 0) {
+		want = CEI->count[set = _euc_set(*s)];
+		if (set == 2 || set == 3) {
+			--want;
+			if (--n == 0) {
+				/* Incomplete multibyte sequence */
+				es->set = set;
+				es->want = want;
+				es->ch = 0;
+				return ((size_t)-2);
+			}
+			++s;
+			if (*s == '\0') {
+				errno = EILSEQ;
+				return ((size_t)-1);
+			}
+		}
+		wc = (unsigned char)*s++;
+	} else {
+		set = es->set;
+		want = es->want;
+		wc = es->ch;
+	}
+	for (i = (es->want == 0) ? 1 : 0; i < MIN(want, n); i++) {
+		if (*s == '\0') {
+			errno = EILSEQ;
+			return ((size_t)-1);
+		}
+		wc = (wc << 8) | (unsigned char)*s++;
+	}
+	if (i < want) {
+		/* Incomplete multibyte sequence */
+		es->set = set;
+		es->want = want - i;
+		es->ch = wc;
+		return ((size_t)-2);
+	}
+	wc = (wc & ~CEI->mask) | CEI->bits[set];
+	if (pwc != NULL)
+		*pwc = wc;
+	es->want = 0;
+	return (wc == L'\0' ? 0 : s - os);
 }
 
-int
-_EUC_sputrune(c, string, n, result)
-	rune_t c;
-	char *string, **result;
-	size_t n;
+size_t
+_EUC_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
 {
-	rune_t m = c & CEI->mask;
-	rune_t nm = c & ~m;
+	_EucState *es;
+	wchar_t m, nm;
 	int i, len;
+
+	es = (_EucState *)ps;
+
+	if (es->want != 0) {
+		errno = EINVAL;
+		return ((size_t)-1);
+	}
+
+	if (s == NULL)
+		/* Reset to initial shift state (no-op) */
+		return (1);
+
+	m = wc & CEI->mask;
+	nm = wc & ~m;
 
 	if (m == CEI->bits[1]) {
 CodeSet1:
 		/* Codeset 1: The first byte must have 0x80 in it. */
 		i = len = CEI->count[1];
-		if (n >= len) {
-			if (result)
-				*result = string + len;
-			while (i-- > 0)
-				*string++ = (nm >> (i << 3)) | 0x80;
-		} else
-			if (result)
-				*result = (char *) 0;
-	} else {
-		if (m == CEI->bits[0]) {
-			i = len = CEI->count[0];
-			if (n < len) {
-				if (result)
-					*result = NULL;
-				return (len);
-			}
-		} else
-			if (m == CEI->bits[2]) {
-				i = len = CEI->count[2];
-				if (n < len) {
-					if (result)
-						*result = NULL;
-					return (len);
-				}
-				*string++ = _SS2;
-				--i;
-				/* SS2 designates G2 into GR */
-				nm |= GR_BITS;
-			} else
-				if (m == CEI->bits[3]) {
-					i = len = CEI->count[3];
-					if (n < len) {
-						if (result)
-							*result = NULL;
-						return (len);
-					}
-					*string++ = _SS3;
-					--i;
-					/* SS3 designates G3 into GR */
-					nm |= GR_BITS;
-				} else
-					goto CodeSet1;	/* Bletch */
 		while (i-- > 0)
-			*string++ = (nm >> (i << 3)) & 0xff;
-		if (result)
-			*result = string;
+			*s++ = (nm >> (i << 3)) | 0x80;
+	} else {
+		if (m == CEI->bits[0])
+			i = len = CEI->count[0];
+		else if (m == CEI->bits[2]) {
+			i = len = CEI->count[2];
+			*s++ = _SS2;
+			--i;
+			/* SS2 designates G2 into GR */
+			nm |= GR_BITS;
+		} else if (m == CEI->bits[3]) {
+			i = len = CEI->count[3];
+			*s++ = _SS3;
+			--i;
+			/* SS3 designates G3 into GR */
+			nm |= GR_BITS;
+		} else
+			goto CodeSet1;	/* Bletch */
+		while (i-- > 0)
+			*s++ = (nm >> (i << 3)) & 0xff;
 	}
 	return (len);
 }

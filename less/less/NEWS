@@ -13,6 +13,34 @@
 ======================================================================
 
 
+	Major changes between "less" versions 381 and 382
+
+* Removed some old copyrighted code.
+  This probably breaks OS/9 support.
+
+======================================================================
+
+	Major changes between "less" versions 378 and 381
+
+* New -L option to disable LESSOPEN processing.
+
+* Further support for large (64 bit) file addressing.
+  Large file support is now set up by the configure script.
+
+* Use autoconf 2.54.
+  Replace configure.in, acconfig.h, defines.h.top with configure.ac.
+
+* Overstriking underscore with underscore is now bold or underlined 
+  depending on context.
+
+* Use only 7 spaces for line numbers in -N mode, if possible.
+
+* Fix some bugs in handling overstriking in UTF-8 files.
+
+* Fix some nroff issues in the man page.
+
+======================================================================
+
 	Major changes between "less" versions 376 and 378
 
 * Bug fixes:

@@ -55,7 +55,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: chap.c,v 1.6 2003/08/14 00:00:29 callie Exp $"
+#define RCSID	"$Id: chap.c,v 1.7 2004/02/03 19:10:55 callie Exp $"
 
 /*
  * TODO:
@@ -763,7 +763,7 @@ ChapReceiveSuccess(cstate, inp, id, len)
     if (cstate->resp_type == CHAP_MICROSOFT_V2) {
 	if ((len >= MS_AUTH_RESPONSE_LENGTH + 2) && !strncmp(inp, "S=", 2)) {
 	    inp += 2; len -= 2;
-	    if (!memcmp(inp, cstate->earesponse, MS_AUTH_RESPONSE_LENGTH)) {
+	    if (!strncasecmp(inp, cstate->earesponse, MS_AUTH_RESPONSE_LENGTH)) {
 		/* Authenticator Response matches. */
 		inp += MS_AUTH_RESPONSE_LENGTH; /* Eat it */
 		len -= MS_AUTH_RESPONSE_LENGTH;

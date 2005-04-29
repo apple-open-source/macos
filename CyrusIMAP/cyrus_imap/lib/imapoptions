@@ -42,7 +42,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.\" $Id: imapoptions,v 1.30 2004/07/21 19:07:45 rjs3 Exp $
+.\" $Id: imapoptions,v 1.7 2005/03/05 00:37:14 dasenbro Exp $
 .SH NAME
 imapd.conf \- IMAP configuration file
 .SH DESCRIPTION

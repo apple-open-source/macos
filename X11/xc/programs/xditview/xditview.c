@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xditview/xditview.c,v 1.4 2001/08/27 23:35:12 dawes Exp $ */
+/* $XFree86: xc/programs/xditview/xditview.c,v 1.5 2003/05/27 22:27:00 tsi Exp $ */
 /*
  * xditview -- 
  *
@@ -101,7 +101,7 @@ static Widget	form, panner;
 static Widget	popupMenu;
 static Widget	menuBar;
 static Widget	fileMenuButton, fileMenu;
-static Widget	prevButton, pageNumber, nextButton;
+static Widget	pageNumber;
 
 static void	NextPage(Widget entry, XtPointer name, XtPointer data);
 static void	PreviousPage(Widget entry, XtPointer name, XtPointer data);
@@ -273,14 +273,14 @@ main(int argc, char **argv)
 	XtAddCallback (entry, XtNcallback, fileMenuEntries[i].function, NULL);
     }
 
-    prevButton = XtCreateManagedWidget ("prevButton", commandWidgetClass,
-					menuBar, NULL, (Cardinal) 0);
+    (void) XtCreateManagedWidget ("prevButton", commandWidgetClass,
+				  menuBar, NULL, (Cardinal) 0);
 
     pageNumber = XtCreateManagedWidget("pageNumber", asciiTextWidgetClass,
 					menuBar, NULL, (Cardinal) 0);
   
-    nextButton = XtCreateManagedWidget ("nextButton", commandWidgetClass,
-					 menuBar, NULL, (Cardinal) 0);
+    (void) XtCreateManagedWidget ("nextButton", commandWidgetClass,
+				  menuBar, NULL, (Cardinal) 0);
 
 #ifdef NOTDEF
     form = XtCreateManagedWidget ("form", formWidgetClass, paned,

@@ -27,18 +27,14 @@
 #include "value.h"
 #include "language.h"
 #include "parser-defs.h"
-#include "frame.h"		/* For frame_map_regnum_to_name.  */
+#include "user-regs.h"		/* For user_reg_map_regnum_to_name.  */
 #include "target.h"
 #include "gdb_string.h"
+#include "block.h"
 
 #ifdef HAVE_CTYPE_H
 #include <ctype.h>
 #endif
-
-/* Prototypes for local functions */
-
-static void print_subexp (struct expression *, int *, struct ui_file *,
-			  enum precedence);
 
 void
 print_expression (struct expression *exp, struct ui_file *stream)
@@ -52,15 +48,24 @@ print_expression (struct expression *exp, struct ui_file *stream)
    if the precedence of the main operator of this subexpression is less,
    parentheses are needed here.  */
 
-static void
-print_subexp (register struct expression *exp, register int *pos,
+void
+print_subexp (struct expression *exp, int *pos,
 	      struct ui_file *stream, enum precedence prec)
 {
-  register unsigned tem;
-  register const struct op_print *op_print_tab;
-  register int pc;
+  exp->language_defn->la_exp_desc->print_subexp (exp, pos, stream, prec);
+}
+
+/* Standard implementation of print_subexp for use in language_defn
+   vectors.  */
+void
+print_subexp_standard (struct expression *exp, int *pos,
+		       struct ui_file *stream, enum precedence prec)
+{
+  unsigned tem;
+  const struct op_print *op_print_tab;
+  int pc;
   unsigned nargs;
-  register char *op_str;
+  char *op_str;
   int assign_modify = 0;
   enum exp_opcode opcode;
   enum precedence myprec = PREC_NULL;
@@ -107,12 +112,12 @@ print_subexp (register struct expression *exp, register int *pos,
 	b = exp->elts[pc + 1].block;
 	if (b != NULL
 	    && BLOCK_FUNCTION (b) != NULL
-	    && SYMBOL_SOURCE_NAME (BLOCK_FUNCTION (b)) != NULL)
+	    && SYMBOL_PRINT_NAME (BLOCK_FUNCTION (b)) != NULL)
 	  {
-	    fputs_filtered (SYMBOL_SOURCE_NAME (BLOCK_FUNCTION (b)), stream);
+	    fputs_filtered (SYMBOL_PRINT_NAME (BLOCK_FUNCTION (b)), stream);
 	    fputs_filtered ("::", stream);
 	  }
-	fputs_filtered (SYMBOL_SOURCE_NAME (exp->elts[pc + 2].symbol), stream);
+	fputs_filtered (SYMBOL_PRINT_NAME (exp->elts[pc + 2].symbol), stream);
       }
       return;
 
@@ -125,8 +130,10 @@ print_subexp (register struct expression *exp, register int *pos,
     case OP_REGISTER:
       {
 	int regnum = longest_to_int (exp->elts[pc + 1].longconst);
+	const char *name = user_reg_map_regnum_to_name (current_gdbarch,
+							regnum);
 	(*pos) += 2;
-	fprintf_filtered (stream, "$%s", frame_map_regnum_to_name (regnum));
+	fprintf_filtered (stream, "$%s", name);
 	return;
       }
 
@@ -532,7 +539,7 @@ char *
 op_string (enum exp_opcode op)
 {
   int tem;
-  register const struct op_print *op_print_tab;
+  const struct op_print *op_print_tab;
 
   op_print_tab = current_language->la_op_print_tab;
   for (tem = 0; op_print_tab[tem].opcode != OP_NULL; tem++)
@@ -544,10 +551,22 @@ op_string (enum exp_opcode op)
 /* Support for dumping the raw data from expressions in a human readable
    form.  */
 
-static char *op_name (int opcode);
+static char *op_name (struct expression *, enum exp_opcode);
+static int dump_subexp_body (struct expression *exp, struct ui_file *, int);
+
+/* Name for OPCODE, when it appears in expression EXP. */
 
 static char *
-op_name (int opcode)
+op_name (struct expression *exp, enum exp_opcode opcode)
+{
+  return exp->language_defn->la_exp_desc->op_name (opcode);
+}
+
+/* Default name for the standard operator OPCODE (i.e., one defined in
+   the definition of enum exp_opcode).  */
+
+char *
+op_name_standard (enum exp_opcode opcode)
 {
   switch (opcode)
     {
@@ -734,8 +753,8 @@ op_name (int opcode)
 }
 
 void
-dump_prefix_expression (struct expression *exp, struct ui_file *stream,
-			char *note)
+dump_raw_expression (struct expression *exp, struct ui_file *stream,
+		     char *note)
 {
   int elt;
   char *opcode_name;
@@ -744,11 +763,6 @@ dump_prefix_expression (struct expression *exp, struct ui_file *stream,
 
   fprintf_filtered (stream, "Dump of expression @ ");
   gdb_print_host_address (exp, stream);
-  fprintf_filtered (stream, ", %s:\nExpression: `", note);
-  if (exp->elts[0].opcode != OP_TYPE)
-    print_expression (exp, stream);
-  else
-    fprintf_filtered (stream, "Type printing not yet supported....");
   fprintf_filtered (stream, "'\n\tLanguage %s, %d elements, %ld bytes each.\n",
 		    exp->language_defn->la_name, exp->nelts,
 		    (long) sizeof (union exp_element));
@@ -757,7 +771,7 @@ dump_prefix_expression (struct expression *exp, struct ui_file *stream,
   for (elt = 0; elt < exp->nelts; elt++)
     {
       fprintf_filtered (stream, "\t%5d  ", elt);
-      opcode_name = op_name (exp->elts[elt].opcode);
+      opcode_name = op_name (exp, exp->elts[elt].opcode);
 
       fprintf_filtered (stream, "%20s  ", opcode_name);
       print_longest (stream, 'd', 0, exp->elts[elt].longconst);
@@ -775,10 +789,11 @@ dump_prefix_expression (struct expression *exp, struct ui_file *stream,
     }
 }
 
-static int dump_subexp (struct expression *exp, struct ui_file *stream,
-			int elt);
+/* Dump the subexpression of prefix expression EXP whose operator is at
+   position ELT onto STREAM.  Returns the position of the next 
+   subexpression in EXP.  */
 
-static int
+int
 dump_subexp (struct expression *exp, struct ui_file *stream, int elt)
 {
   static int indent = 0;
@@ -791,9 +806,34 @@ dump_subexp (struct expression *exp, struct ui_file *stream, int elt)
     fprintf_filtered (stream, " ");
   indent += 2;
 
-  fprintf_filtered (stream, "%-20s  ", op_name (exp->elts[elt].opcode));
+  fprintf_filtered (stream, "%-20s  ", op_name (exp, exp->elts[elt].opcode));
 
-  switch (exp->elts[elt++].opcode)
+  elt = dump_subexp_body (exp, stream, elt);
+
+  indent -= 2;
+
+  return elt;
+}
+
+/* Dump the operands of prefix expression EXP whose opcode is at
+   position ELT onto STREAM.  Returns the position of the next 
+   subexpression in EXP.  */
+
+static int
+dump_subexp_body (struct expression *exp, struct ui_file *stream, int elt)
+{
+  return exp->language_defn->la_exp_desc->dump_subexp_body (exp, stream, elt);
+}
+
+/* Default value for subexp_body in exp_descriptor vector.  */
+
+int
+dump_subexp_body_standard (struct expression *exp, 
+			   struct ui_file *stream, int elt)
+{
+  int opcode = exp->elts[elt++].opcode;
+
+  switch (opcode)
     {
     case TERNOP_COND:
     case TERNOP_SLICE:
@@ -889,7 +929,7 @@ dump_subexp (struct expression *exp, struct ui_file *stream, int elt)
       fprintf_filtered (stream, ", symbol @");
       gdb_print_host_address (exp->elts[elt + 1].symbol, stream);
       fprintf_filtered (stream, " (%s)",
-			SYMBOL_NAME (exp->elts[elt + 1].symbol));
+			DEPRECATED_SYMBOL_NAME (exp->elts[elt + 1].symbol));
       elt += 3;
       break;
     case OP_LAST:
@@ -911,7 +951,7 @@ dump_subexp (struct expression *exp, struct ui_file *stream, int elt)
       break;
     case OP_FUNCALL:
       {
-	int nargs;
+	int i, nargs;
 
 	nargs = longest_to_int (exp->elts[elt].longconst);
 
@@ -1003,20 +1043,17 @@ dump_subexp (struct expression *exp, struct ui_file *stream, int elt)
       fprintf_filtered (stream, "Unknown format");
     }
 
-  indent -= 2;
-
   return elt;
 }
 
 void
-dump_postfix_expression (struct expression *exp, struct ui_file *stream,
-			 char *note)
+dump_prefix_expression (struct expression *exp, struct ui_file *stream)
 {
   int elt;
 
   fprintf_filtered (stream, "Dump of expression @ ");
   gdb_print_host_address (exp, stream);
-  fprintf_filtered (stream, ", %s:\nExpression: `", note);
+  fputs_filtered (", after conversion to prefix form:\nExpression: `", stream);
   if (exp->elts[0].opcode != OP_TYPE)
     print_expression (exp, stream);
   else

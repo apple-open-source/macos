@@ -1,5 +1,5 @@
 /* Style.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,11 +37,28 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-import javax.swing.event.*;
+import javax.swing.event.ChangeListener;
 
-public interface Style
+public interface Style extends MutableAttributeSet
 {
-    void addChangeListener(ChangeListener l);
-    String getName();
-    void removeChangeListener(ChangeListener l);
+  /**
+   * Returns the name of the style.
+   *
+   * @return the name
+   */
+  String getName();
+
+  /**
+   * Adds a <code>ChangeListener</code> object to the style.
+   *
+   * @param listener the listener object to add
+   */
+  void addChangeListener(ChangeListener listener);
+
+  /**
+   * Removes a <code>ChangeListener</code> from to the style.
+   *
+   * @param listener the listener object to remove,
+   */
+  void removeChangeListener(ChangeListener listener);
 }

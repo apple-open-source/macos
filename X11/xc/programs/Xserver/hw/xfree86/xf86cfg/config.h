@@ -26,20 +26,23 @@
  *
  * Author: Paulo César Pereira de Andrade <pcpa@conectiva.com.br>
  *
- * $XFree86: xc/programs/Xserver/hw/xfree86/xf86cfg/config.h,v 1.16 2002/05/31 18:46:03 dawes Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/xf86cfg/config.h,v 1.22 2004/02/14 17:53:49 dawes Exp $
  */
 
 #include <X11/IntrinsicP.h>
 #include <X11/StringDefs.h>
 #include <X11/Xmu/SysUtil.h>
+#include <X11/Xos.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <dirent.h>
 #include <string.h>
-#include <unistd.h>
-#if defined(sun) && defined(SVR4)
+#ifdef sun
+#undef index
+#undef rindex
 #include <strings.h>
 #endif
+#include <unistd.h>
 
 #include <stdarg.h>
 
@@ -97,6 +100,7 @@
 #define CONFIG_ACCESSX	3
 extern int config_mode;
 
+#ifndef __UNIXOS2__
 #define CONFPATH	"%A," "%R," \
 			"/etc/X11/%R," "%P/etc/X11/%R," \
 			"%E," "%F," \
@@ -113,6 +117,26 @@ extern int config_mode;
 			"%P/etc/X11/%X," \
 			"%P/lib/X11/%X.%H," "%P/lib/X11/%X-%M," \
 			"%P/lib/X11/%X"
+#else
+#define CONFPATH	"%&"XF86CONFIGDIR"/%R," "%&"XF86CONFIGDIR"/%X," \
+			"%A," "%R," \
+			"/etc/X11/%R," "%P/etc/X11/%R," \
+			"%E," "%F," \
+			"/etc/X11/%F," "%P/etc/X11/%F," \
+			"%D/%X," \
+			"/etc/X11/%X-%M," "/etc/X11/%X," "/etc/%X," \
+			"%P/etc/X11/%X.%H," "%P/etc/X11/%X-%M," \
+			"%P/etc/X11/%X," \
+			"%P/lib/X11/%X.%H," "%P/lib/X11/%X-%M," \
+			"%P/lib/X11/%X"
+#define USER_CONFPATH	"%&"XF86CONFIGDIR"/%X," "%&"XF86CONFIGDIR"/%X," \
+			"/etc/X11/%S," "%P/etc/X11/%S," \
+                        "/etc/X11/%G," "%P/etc/X11/%G," \
+			"%P/etc/X11/%X.%H," "%P/etc/X11/%X-%M," \
+			"%P/etc/X11/%X," \
+			"%P/lib/X11/%X.%H," "%P/lib/X11/%X-%M," \
+			"%P/lib/X11/%X"
+#endif
 
 /*
  * Types

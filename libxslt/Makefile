@@ -17,11 +17,11 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.1.9
+AEP_Version    = 1.1.11
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = configure.diff ltmain.sh.diff
+AEP_Patches    = configure.diff ltmain.sh.diff Makefile.in.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -46,13 +46,13 @@ install_headers:: shadow_source configure
 
 fix-xslt-links:
 	$(RM) $(DSTROOT)/usr/lib/libxslt.1.dylib
-	$(MV) $(DSTROOT)/usr/lib/libxslt.1.1.9.dylib $(DSTROOT)/usr/lib/libxslt.1.dylib
+	$(MV) $(DSTROOT)/usr/lib/libxslt.1.1.11.dylib $(DSTROOT)/usr/lib/libxslt.1.dylib
 	$(RM) $(DSTROOT)/usr/lib/libxslt.dylib
 	$(LN) -s libxslt.1.dylib $(DSTROOT)/usr/lib/libxslt.dylib
 
 fix-exslt-links:
 	$(RM) $(DSTROOT)/usr/lib/libexslt.0.dylib
-	$(MV) $(DSTROOT)/usr/lib/libexslt.0.8.7.dylib $(DSTROOT)/usr/lib/libexslt.0.dylib
+	$(MV) $(DSTROOT)/usr/lib/libexslt.0.8.9.dylib $(DSTROOT)/usr/lib/libexslt.0.dylib
 	$(RM) $(DSTROOT)/usr/lib/libexslt.dylib
 	$(LN) -s libexslt.0.dylib $(DSTROOT)/usr/lib/libexslt.dylib
 

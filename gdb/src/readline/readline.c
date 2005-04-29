@@ -684,6 +684,7 @@ _rl_dispatch_subseq (key, map, got_subseq)
     }
 #if defined (VI_MODE)
   if (rl_editing_mode == vi_mode && _rl_keymap == vi_movement_keymap &&
+      key != ANYOTHERKEY &&
       _rl_vi_textmod_command (key))
     _rl_vi_set_last (key, rl_numeric_arg, rl_arg_sign);
 #endif
@@ -933,7 +934,9 @@ rl_save_state (sp)
   sp->macro = rl_executing_macro;
 
   sp->catchsigs = rl_catch_signals;
+#if defined (SIGWINCH)
   sp->catchsigwinch = rl_catch_sigwinch;
+#endif
 
   return (0);
 }
@@ -967,7 +970,9 @@ rl_restore_state (sp)
   rl_executing_macro = sp->macro;
 
   rl_catch_signals = sp->catchsigs;
+#if defined (SIGWINCH)
   rl_catch_sigwinch = sp->catchsigwinch;
+#endif
 
   return (0);
 }

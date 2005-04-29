@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)ualarm.3	8.2 (Berkeley) 4/19/94
-.\" $FreeBSD: src/lib/libc/gen/ualarm.3,v 1.15 2001/10/01 16:08:51 ru Exp $
+.\" $FreeBSD: src/lib/libc/gen/ualarm.3,v 1.19 2004/07/02 23:52:10 ru Exp $
 .\"
 .Dd April 19, 1994
 .Dt UALARM 3
@@ -42,8 +42,8 @@
 .Lb libc
 .Sh SYNOPSIS
 .In unistd.h
-.Ft u_int
-.Fn ualarm "u_int microseconds" "u_int interval"
+.Ft useconds_t
+.Fn ualarm "useconds_t microseconds" "useconds_t interval"
 .Sh DESCRIPTION
 .Bf -symbolic
 This is a simplified interface to
@@ -54,7 +54,7 @@ The
 .Fn ualarm
 function
 waits a count of
-.Ar microseconds
+.Fa microseconds
 before asserting the terminating signal
 .Dv SIGALRM .
 System activity or time used in processing the call may cause a slight
@@ -67,18 +67,18 @@ argument is non-zero, the
 signal will be sent
 to the process every
 .Fa interval
-microseconds after the timer expires (e.g. after
-.Fa value
-microseconds have passed).
+microseconds after the timer expires (e.g.\& after
+.Fa microseconds
+number of microseconds have passed).
 .Pp
 Due to
 .Xr setitimer 2
 restriction the maximum number of
-.Ar microseconds
+.Fa microseconds
 and
-.Ar interval
+.Fa interval
 is limited to 100000000000000
-(in case this value fit in the unsigned integer).
+(in case this value fits in the unsigned integer).
 .Sh RETURN VALUES
 When the signal has successfully been caught,
 .Fn ualarm

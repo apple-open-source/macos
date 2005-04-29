@@ -29,7 +29,7 @@ authorization from The Open Group.
 X Window System is a trademark of The Open Group.
 
 */
-/* $XFree86: xc/programs/xfwp/pm.c,v 1.8 2002/09/18 17:11:56 tsi Exp $ */
+/* $XFree86: xc/programs/xfwp/pm.c,v 1.9 2003/05/27 22:27:06 tsi Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,11 +109,14 @@ void FWPprocessMessages(
        * went through such contortions to set up earlier!
        */
       program_data = (struct clientDataStruct *) client_data;
+
+#if 0 /* No-op */
       /*
        * initial check on expected message size
        */ 
       CHECK_AT_LEAST_SIZE (iceConn, global_data.major_opcode, opcode,
           length, SIZEOF (pmGetProxyAddrMsg), IceFatalToProtocol);
+#endif
 
       IceReadCompleteMessage (iceConn, SIZEOF (pmGetProxyAddrMsg),
           pmGetProxyAddrMsg, pMsg, pStart);

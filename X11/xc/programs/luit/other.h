@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-/* $XFree86: xc/programs/luit/other.h,v 1.1 2002/10/17 01:06:09 dawes Exp $ */
+/* $XFree86: xc/programs/luit/other.h,v 1.2 2004/01/27 02:30:30 dawes Exp $ */
 
 typedef struct {
     FontMapPtr mapping;
@@ -40,10 +40,30 @@ typedef struct {
     int buf;
 } aux_sjis;
 
+typedef struct {
+    FontMapPtr mapping;
+    FontMapReversePtr reverse;
+    int buf;
+} aux_hkscs;
+
+typedef struct {
+    FontMapPtr          cs0_mapping;    /* gb18030.2000-0 */
+    FontMapReversePtr   cs0_reverse;
+
+    FontMapPtr          cs1_mapping;    /* gb18030.2000-1 */
+    FontMapReversePtr   cs1_reverse;
+
+    int     linear;     /* set to '1' if stack_gb18030 linearized a 4bytes seq */
+    int     buf[3];
+    int     buf_ptr;
+} aux_gb18030;
+
 typedef union {
     aux_gbk gbk;
     aux_utf8 utf8;
     aux_sjis sjis;
+    aux_hkscs hkscs;
+    aux_gb18030 gb18030;
 } OtherState, *OtherStatePtr;
 
 int init_gbk(OtherStatePtr);
@@ -60,4 +80,14 @@ int init_sjis(OtherStatePtr);
 unsigned int mapping_sjis(unsigned int, OtherStatePtr);
 unsigned int reverse_sjis(unsigned int, OtherStatePtr);
 int stack_sjis(unsigned char, OtherStatePtr);
+
+int init_hkscs(OtherStatePtr);
+unsigned int mapping_hkscs(unsigned int, OtherStatePtr);
+unsigned int reverse_hkscs(unsigned int, OtherStatePtr);
+int stack_hkscs(unsigned char, OtherStatePtr);
+
+int init_gb18030(OtherStatePtr);
+unsigned int mapping_gb18030(unsigned int, OtherStatePtr);
+unsigned int reverse_gb18030(unsigned int, OtherStatePtr);
+int stack_gb18030(unsigned char, OtherStatePtr);
 

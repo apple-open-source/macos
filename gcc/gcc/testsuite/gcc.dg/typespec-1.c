@@ -11,8 +11,7 @@
    not requiring -pedantic.  */
 /* Origin: Joseph Myers <jsm28@cam.ac.uk> */
 /* { dg-do compile } */
-/* APPLE LOCAL -Wlong-double */
-/* { dg-options "-std=gnu99 -Wno-long-double" } */
+/* { dg-options "-std=gnu99" } */
 
 typedef char type;
 void *x0;

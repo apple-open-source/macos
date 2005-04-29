@@ -1,46 +1,19 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-#if defined(LIBC_SCCS) && !defined(lint)
-#if 0
-static char	elsieid[] = "@(#)ialloc.c	8.28";
-#else
-static char rcsid[] = "$OpenBSD: ialloc.c,v 1.3 1997/01/14 03:16:45 millert Exp $";
-#endif
-#endif /* LIBC_SCCS and not lint */
+#ifndef lint
+#ifndef NOID
+static const char	elsieid[] = "@(#)ialloc.c	8.29";
+#endif /* !defined NOID */
+#endif /* !defined lint */
+
+#ifndef lint
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/zic/ialloc.c,v 1.6 2000/11/28 18:18:56 charnier Exp $";
+#endif /* not lint */
 
 /*LINTLIBRARY*/
 
 #include "private.h"
 
 #define nonzero(n)	(((n) == 0) ? 1 : (n))
-
-char *	icalloc P((int nelem, int elsize));
-char *	icatalloc P((char * old, const char * new));
-char *	icpyalloc P((const char * string));
-char *	imalloc P((int n));
-void *	irealloc P((void * pointer, int size));
-void	ifree P((char * pointer));
 
 char *
 imalloc(n)

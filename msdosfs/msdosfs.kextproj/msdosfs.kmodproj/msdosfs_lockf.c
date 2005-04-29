@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -92,11 +95,11 @@ void msdosfs_lprintlist(char *tag, struct msdosfs_lockf *lock);
 /*
  * Set a byte-range lock.
  */
-int
+__private_extern__ int
 msdosfs_setlock(lock)
-	register struct msdosfs_lockf *lock;
+	struct msdosfs_lockf *lock;
 {
-	register struct msdosfs_lockf *block;
+	struct msdosfs_lockf *block;
 	struct denode *dep = lock->lf_denode;
 	struct msdosfs_lockf **prev, *overlap, *ltmp;
 	static char lockstr[] = "msdosfs_lockf";
@@ -126,39 +129,6 @@ msdosfs_setlock(lock)
 			return (EAGAIN);
 		}
 		/*
-		 * We are blocked. Since flock style locks cover
-		 * the whole file, there is no chance for deadlock.
-		 * For byte-range locks we must check for deadlock.
-		 *
-		 * Deadlock detection is done by looking through the
-		 * wait channels to see if there are any cycles that
-		 * involve us. MAXDEPTH is set just to make sure we
-		 * do not go off into neverland.
-		 */
-		if ((lock->lf_flags & F_POSIX) &&
-		    (block->lf_flags & F_POSIX)) {
-			register struct proc *wproc;
-			register struct msdosfs_lockf *waitblock;
-			int i = 0;
-
-			/* The block is waiting on something */
-			wproc = (struct proc *)block->lf_id;
-			while (wproc->p_wchan &&
-			       (wproc->p_wmesg == lockstr) &&
-			       (i++ < msdosfsmaxlockdepth)) {
-				waitblock = (struct msdosfs_lockf *)wproc->p_wchan;
-				/* Get the owner of the blocking lock */
-				waitblock = waitblock->lf_next;
-				if ((waitblock->lf_flags & F_POSIX) == 0)
-					break;
-				wproc = (struct proc *)waitblock->lf_id;
-				if (wproc == (struct proc *)lock->lf_id) {
-					_FREE(lock, M_LOCKF);
-					return (EDEADLK);
-				}
-			}
-		}
-		/*
 		 * For flock type locks, we must first remove
 		 * any shared locks that we hold before we sleep
 		 * waiting for an exclusive lock.
@@ -181,7 +151,7 @@ msdosfs_setlock(lock)
 			msdosfs_lprintlist("msdosfs_setlock", block);
 		}
 #endif /* LOCKF_DEBUG */
-		if (error = tsleep((caddr_t)lock, priority, lockstr, 0)) {
+		if (error = msleep((caddr_t)lock, NULL, priority, lockstr, 0)) {
 			/*
 			 * We may have been awakened by a signal (in
 			 * which case we must remove ourselves from the
@@ -329,12 +299,12 @@ msdosfs_setlock(lock)
  * Generally, find the lock (or an overlap to that lock)
  * and remove it (or shrink it), then wakeup anyone we can.
  */
-int
+__private_extern__ int
 msdosfs_clearlock(unlock)
-	register struct msdosfs_lockf *unlock;
+	struct msdosfs_lockf *unlock;
 {
 	struct denode *dep = unlock->lf_denode;
-	register struct msdosfs_lockf *lf = dep->de_lockf;
+	struct msdosfs_lockf *lf = dep->de_lockf;
 	struct msdosfs_lockf *overlap, **prev;
 	int ovcase;
 
@@ -398,12 +368,12 @@ msdosfs_clearlock(unlock)
  * Check whether there is a blocking lock,
  * and if so return its process identifier.
  */
-int
+__private_extern__ int
 msdosfs_getlock(lock, fl)
-	register struct msdosfs_lockf *lock;
-	register struct flock *fl;
+	struct msdosfs_lockf *lock;
+	struct flock *fl;
 {
-	register struct msdosfs_lockf *block;
+	struct msdosfs_lockf *block;
 
 #ifdef LOCKF_DEBUG
 	if (lockf_debug & 1)
@@ -419,7 +389,7 @@ msdosfs_getlock(lock, fl)
 		else
 			fl->l_len = block->lf_end - block->lf_start + 1;
 		if (block->lf_flags & F_POSIX)
-			fl->l_pid = ((struct proc *)(block->lf_id))->p_pid;
+			fl->l_pid = proc_pid((proc_t)(block->lf_id));
 		else
 			fl->l_pid = -1;
 	} else {
@@ -432,9 +402,9 @@ msdosfs_getlock(lock, fl)
  * Walk the list of locks for a denode and
  * return the first blocking lock.
  */
-struct msdosfs_lockf *
+__private_extern__ struct msdosfs_lockf *
 msdosfs_getblock(lock)
-	register struct msdosfs_lockf *lock;
+	struct msdosfs_lockf *lock;
 {
 	struct msdosfs_lockf **prev, *overlap, *lf = lock->lf_denode->de_lockf;
 	int ovcase;
@@ -462,9 +432,9 @@ msdosfs_getblock(lock)
  * NOTE: this returns only the FIRST overlapping lock.  There
  *	 may be more than one.
  */
-int
+__private_extern__ int
 msdosfs_findoverlap(lf, lock, type, prev, overlap)
-	register struct msdosfs_lockf *lf;
+	struct msdosfs_lockf *lf;
 	struct msdosfs_lockf *lock;
 	int type;
 	struct msdosfs_lockf ***prev;
@@ -572,12 +542,12 @@ msdosfs_findoverlap(lf, lock, type, prev, overlap)
  * Split a lock and a contained region into
  * two or three locks as necessary.
  */
-void
+__private_extern__ void
 msdosfs_split(lock1, lock2)
-	register struct msdosfs_lockf *lock1;
-	register struct msdosfs_lockf *lock2;
+	struct msdosfs_lockf *lock1;
+	struct msdosfs_lockf *lock2;
 {
-	register struct msdosfs_lockf *splitlock;
+	struct msdosfs_lockf *splitlock;
 
 #ifdef LOCKF_DEBUG
 	if (lockf_debug & 2) {
@@ -619,11 +589,11 @@ msdosfs_split(lock1, lock2)
 /*
  * Wakeup a blocklist
  */
-void
+__private_extern__ void
 msdosfs_wakelock(listhead)
 	struct msdosfs_lockf *listhead;
 {
-	register struct msdosfs_lockf *wakelock;
+	struct msdosfs_lockf *wakelock;
 
 	while (wakelock = listhead->lf_blkhd.tqh_first) {
 		TAILQ_REMOVE(&listhead->lf_blkhd, wakelock, lf_block);
@@ -640,14 +610,14 @@ msdosfs_wakelock(listhead)
 /*
  * Print out a lock.
  */
-void msdosfs_lprint(tag, lock)
+__private_extern__ void msdosfs_lprint(tag, lock)
 	char *tag;
-	register struct msdosfs_lockf *lock;
+	struct msdosfs_lockf *lock;
 {
 	
 	printf("%s: lock 0x%lx for ", tag, lock);
 	if (lock->lf_flags & F_POSIX)
-		printf("proc %d", ((struct proc *)(lock->lf_id))->p_pid);
+		printf("proc %d", proc_pid((proc_t)(lock->lf_id)));
 	else
 		printf("id 0x%x", lock->lf_id);
 	printf(" in cluster %d, offset %d on dev <%d, %d>, %s, start %d, end %d",
@@ -665,11 +635,11 @@ void msdosfs_lprint(tag, lock)
 		printf("\n");
 }
 
-void msdosfs_lprintlist(tag, lock)
+__private_extern__ void msdosfs_lprintlist(tag, lock)
 	char *tag;
 	struct msdosfs_lockf *lock;
 {
-	register struct msdosfs_lockf *lf, *blk;
+	struct msdosfs_lockf *lf, *blk;
 
 	printf("%s: Lock list for cluster %d, offset %d on dev <%d, %d>:\n",
 		tag,
@@ -680,7 +650,7 @@ void msdosfs_lprintlist(tag, lock)
 	for (lf = lock->lf_denode->de_lockf; lf; lf = lf->lf_next) {
 		printf("\tlock 0x%lx for ", lf);
 		if (lf->lf_flags & F_POSIX)
-			printf("proc %d", ((struct proc *)(lf->lf_id))->p_pid);
+			printf("proc %d", proc_pid((proc_t)(lf->lf_id)));
 		else
 			printf("id 0x%x", lf->lf_id);
 		printf(", %s, start %d, end %d",
@@ -693,7 +663,7 @@ void msdosfs_lprintlist(tag, lock)
 			printf("\n\t\tlock request 0x%lx for ", blk);
 			if (blk->lf_flags & F_POSIX)
 				printf("proc %d",
-				    ((struct proc *)(blk->lf_id))->p_pid);
+				    proc_pid((proc_t)(blk->lf_id)));
 			else
 				printf("id 0x%x", blk->lf_id);
 			printf(", %s, start %d, end %d",

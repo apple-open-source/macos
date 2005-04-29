@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XcmsCClrs.man,v 1.2 2001/01/27 18:20:06 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XcmsCClrs.man,v 1.3 2003/04/28 22:17:58 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,17 +144,10 @@
 .SH NAME
 XcmsConvertColors \- convert CCC color specifications
 .SH SYNTAX
-Status XcmsConvertColors\^(\^\fIccc\fP\^, \fIcolors_in_out\fP\^, \fIncolors\fP\^, \fItarget_format\fP\^, \fIcompression_flags_return\fP\^)
-.br
-      XcmsCCC \fIccc\fP\^;
-.br
-      XcmsColor \fIcolors_in_out\fP\^[\^]\^;
-.br
-      unsigned int \fIncolors\fP\^;
-.br
-      XcmsColorFormat \fItarget_format\fP\^;
-.br
-      Bool \fIcompression_flags_return\fP\^[\^]\^;
+.HP
+Status XcmsConvertColors\^(\^XcmsCCC \fIccc\fP\^, XcmsColor
+\fIcolors_in_out\fP\^[\^]\^, unsigned int \fIncolors\fP\^, XcmsColorFormat
+\fItarget_format\fP\^, Bool \fIcompression_flags_return\fP\^[\^]\^); 
 .SH ARGUMENTS
 .IP \fIccc\fP 1i
 Specifies the CCC.

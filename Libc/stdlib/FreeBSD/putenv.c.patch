@@ -1,0 +1,32 @@
+--- putenv.c.orig	2003-05-20 15:23:25.000000000 -0700
++++ putenv.c	2004-10-24 01:10:20.000000000 -0700
+@@ -40,10 +40,22 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
++#if __DARWIN_UNIX03
++#include <errno.h> 
++__private_extern__ int __setenv(const char *, const char *, int, int);
++#endif /* __DARWIN_UNIX03 */
++
+ int
+ putenv(str)
+-	const char *str;
++	char *str;
+ {
++#if __DARWIN_UNIX03
++	if (str == NULL || *str == 0 || index(str, '=') == NULL) {
++		errno = EINVAL;
++		return (-1);
++	}
++	return (__setenv(str, NULL, 1, 0));
++#else /* !__DARWIN_UNIX03 */
+ 	char *p, *equal;
+ 	int rval;
+ 
+@@ -57,4 +69,5 @@
+ 	rval = setenv(p, equal + 1, 1);
+ 	(void)free(p);
+ 	return (rval);
++#endif /* __DARWIN_UNIX03 */
+ }

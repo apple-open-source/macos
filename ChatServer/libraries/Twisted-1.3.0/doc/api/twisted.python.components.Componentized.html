@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.python.components.Componentized</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.python.html">Package&nbsp;python</a> ::
+        <a href="twisted.python.components.html">Module&nbsp;components</a> ::
+        Class&nbsp;Componentized
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.python.components.Componentized.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class Componentized</h2>
+
+<pre class="base-tree">
+<a href="twisted.persisted.styles.Versioned.html"><code>Versioned</code></a> --+
+            |
+           <b>Componentized</b>
+</pre><br />
+
+<dl><dt><b>Known Subclasses:</b></dt>
+<dd>
+    <a href="twisted.web.woven.guard.GuardSession.html"><code>GuardSession</code></a>,
+    <a href="twisted.manhole.ui.gtk2manhole.ManholeWindow.html"><code>ManholeWindow</code></a>,
+    <a href="twisted.web.static.Registry.html"><code>Registry</code></a>,
+    <a href="twisted.python.components.ReprableComponentized.html"><code>ReprableComponentized</code></a>,
+    <a href="twisted.web.server.Request.html"><code>Request</code></a>,
+    <a href="twisted.web.server.Session.html"><code>Session</code></a></dd></dl>
+
+<hr/>
+
+<p>I am a mixin to allow you to be adapted in various ways 
+persistently.</p>
+<p>I define a list of persistent adapters. This is to allow adapter 
+classes to store system-specific state, and initialized on demand. The 
+getComponent method implements this. You must also register adapters for 
+this class for the interfaces that you wish to pass to getComponent.</p>
+Many other classes and utilities listed here are present in Zope3; 
+this one is specific to Twisted.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__init__"></a><span class="summary-sig"><span class="summary-sig-name">__init__</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#addAdapter" class="summary-sig-name"><code>addAdapter</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>adapterClass</span>,
+          <span class=summary-sig-arg>ignoreClass</span>,
+          <span class=summary-sig-arg>registry</span>)</span></code>
+<br />
+Utility method that calls addComponent.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#addComponent" class="summary-sig-name"><code>addComponent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>component</span>,
+          <span class=summary-sig-arg>ignoreClass</span>,
+          <span class=summary-sig-arg>registry</span>)</span></code>
+<br />
+Add a component to me, for all appropriate interfaces.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#getComponent" class="summary-sig-name"><code>getComponent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>interface</span>,
+          <span class=summary-sig-arg>registry</span>,
+          <span class=summary-sig-arg>default</span>)</span></code>
+<br />
+Create or retrieve an adapter for the given interface.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="locateAdapterClass"></a><span class="summary-sig"><span class="summary-sig-name">locateAdapterClass</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>klass</span>,
+          <span class=summary-sig-arg>interfaceClass</span>,
+          <span class=summary-sig-arg>default</span>,
+          <span class=summary-sig-arg>registry</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#removeComponent" class="summary-sig-name"><code>removeComponent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>component</span>)</span></code>
+<br />
+Remove the given component from me entirely, for all interfaces for 
+which it has been registered.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="setAdapter"></a><span class="summary-sig"><span class="summary-sig-name">setAdapter</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>interfaceClass</span>,
+          <span class=summary-sig-arg>adapterClass</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="setComponent"></a><span class="summary-sig"><span class="summary-sig-name">setComponent</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>interfaceClass</span>,
+          <span class=summary-sig-arg>component</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#unsetComponent" class="summary-sig-name"><code>unsetComponent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>interfaceClass</span>)</span></code>
+<br />
+Remove my component specified by the given interface class.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="upgradeToVersion1"></a><span class="summary-sig"><span class="summary-sig-name">upgradeToVersion1</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Versioned</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#__getstate__" class="summary-sig-name"><code>__getstate__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>dict</span>)</span></code>
+<br />
+Get state, adding a version number to it on its way out.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#__setstate__" class="summary-sig-name"><code>__setstate__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>state</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#versionUpgrade" class="summary-sig-name"><code>versionUpgrade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(internal) Do a version upgrade.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.python.components.Componentized.html#persistenceVersion"><code>persistenceVersion</code></a></b> = <span title="1">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Versioned</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.persisted.styles.Versioned.html#persistenceForgets"><code>persistenceForgets</code></a></b> = <span title="()"><code>()                                  </code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="addAdapter"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">addAdapter</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>adapterClass</span>,
+          <span class=sig-arg>ignoreClass</span>=<span class=sig-default>0</span>,
+          <span class=sig-arg>registry</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  Utility method that calls addComponent. I take an adapter class and 
+  instantiate it with myself as the first argument.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        The adapter instantiated.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="addComponent"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">addComponent</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>component</span>,
+          <span class=sig-arg>ignoreClass</span>=<span class=sig-default>0</span>,
+          <span class=sig-arg>registry</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Add a component to me, for all appropriate interfaces.</p>
+  <p>In order to determine which interfaces are appropriate, the 
+  component's __implements__ attribute will be scanned.</p>
+  <p>If the argument 'ignoreClass' is True, then all interfaces are 
+  considered appropriate.</p>
+  Otherwise, an 'appropriate' interface is one for which its class has 
+  been registered as an adapter for my class according to the rules of 
+  getComponent.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        the list of appropriate interfaces
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getComponent"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getComponent</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>interface</span>,
+          <span class=sig-arg>registry</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>default</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Create or retrieve an adapter for the given interface.</p>
+  <p>If such an adapter has already been created, retrieve it from the 
+  cache that this instance keeps of all its adapters. Adapters created 
+  through this mechanism may safely store system-specific state.</p>
+  <p>If you want to register an adapter that will be created through 
+  getComponent, but you don't require (or don't want) your adapter to be 
+  cached and kept alive for the lifetime of this Componentized object, 
+  set the attribute 'temporaryAdapter' to True on your adapter class.</p>
+  If you want to automatically register an adapter for all appropriate 
+  interfaces (with addComponent), set the attribute 'multiComponent' to 
+  True on your adapter class.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="removeComponent"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">removeComponent</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>component</span>)</span>
+  </h3>
+  Remove the given component from me entirely, for all interfaces for 
+  which it has been registered.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        a list of the interfaces that were removed.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="unsetComponent"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">unsetComponent</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>interfaceClass</span>)</span>
+  </h3>
+  Remove my component specified by the given interface class.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="persistenceVersion"></a>
+<h3>persistenceVersion</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="1">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:10 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

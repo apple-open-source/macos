@@ -404,40 +404,6 @@ namespace __gnu_cxx
 			     __out_last - __out_first);
     }
   
-  // is_heap, a predicate testing whether or not a range is
-  // a heap.  This function is an extension, not part of the C++
-  // standard.
-
-  template<typename _RandomAccessIter, typename _Distance>
-    bool
-    __is_heap(_RandomAccessIter __first, _Distance __n)
-    {
-      _Distance __parent = 0;
-      for (_Distance __child = 1; __child < __n; ++__child) {
-	if (__first[__parent] < __first[__child]) 
-	  return false;
-	if ((__child & 1) == 0)
-	  ++__parent;
-      }
-      return true;
-    }
-
-  template<typename _RandomAccessIter, typename _Distance,
-           typename _StrictWeakOrdering>
-    bool
-    __is_heap(_RandomAccessIter __first, _StrictWeakOrdering __comp,
-	      _Distance __n)
-    {
-      _Distance __parent = 0;
-      for (_Distance __child = 1; __child < __n; ++__child) {
-	if (__comp(__first[__parent], __first[__child]))
-	  return false;
-	if ((__child & 1) == 0)
-	  ++__parent;
-      }
-      return true;
-    }
-
   /**
    *  This is an SGI extension.
    *  @ingroup SGIextensions
@@ -452,7 +418,7 @@ namespace __gnu_cxx
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_RandomAccessIter>::value_type>)
 
-      return __is_heap(__first, __last - __first);
+	return std::__is_heap(__first, __last - __first);
     }
 
   /**
@@ -471,7 +437,7 @@ namespace __gnu_cxx
 	    typename iterator_traits<_RandomAccessIter>::value_type, 
 	    typename iterator_traits<_RandomAccessIter>::value_type>)
 
-      return __is_heap(__first, __comp, __last - __first);
+	return std::__is_heap(__first, __comp, __last - __first);
     }
 
   // is_sorted, a predicated testing whether a range is sorted in

@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/GL/glx/glxext.c,v 1.8 2001/08/23 18:25:40 alanh Exp $
+/* $XFree86: xc/programs/Xserver/GL/glx/glxext.c,v 1.10 2004/01/28 22:36:05 alanh Exp $
 ** The contents of this file are subject to the GLX Public License Version 1.0
 ** (the "License"). You may not use this file except in compliance with the
 ** License. You may obtain a copy of the License at Silicon Graphics, Inc.,
@@ -31,6 +31,9 @@
 
 
 extern __GLXextensionInfo __glDDXExtensionInfo;
+void GlxWrapInitVisuals(miInitVisualsProcPtr *);
+void GlxSetVisualConfigs(int nconfigs, 
+                         __GLXvisualConfig *configs, void **privates);
 
 __GLXextensionInfo *__glXExt = &__glDDXExtensionInfo;
 
@@ -114,7 +117,7 @@ static int ClientGone(int clientIndex, XID id)
 	for (i=0; i < cl->numCurrentContexts; i++) {
 	    cx = cl->currentContexts[i];
 	    if (cx) {
-		__glXDeassociateContext(cx, cx->glxPriv);
+		__glXDeassociateContext(cx);
 		cx->isCurrent = GL_FALSE;
 		if (!cx->idExists) {
 		    __glXFreeContext(cx);
@@ -343,7 +346,7 @@ __GLXcontext *__glXForceCurrent(__GLXclientState *cl, GLXContextTag tag,
     }
 
     if (!cx->isDirect) {
-	if (cx->glxPriv == NULL) {
+	if (cx->drawPriv == NULL) {
 	    /*
 	    ** The drawable has vanished.  It must be a window, because only
 	    ** windows can be destroyed from under us; GLX pixmaps are

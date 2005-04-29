@@ -13,6 +13,27 @@
 # The : is required for some old versions of csh.
 # On Ultrix, /bin/sh is too buggy, change the first line to: #!/bin/sh5
 
+
+# Copyright (C) 1998, 2002 Free Software Foundation
+# Copyright (C) 1993 Jean-loup Gailly
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+
+PATH="BINDIR:$PATH"
 x=`basename $0`
 if test $# = 0; then
   echo compress executables. original file foo is renamed to foo~
@@ -53,6 +74,9 @@ if test -z "$tail"; then
   echo cannot find tail
   exit 1
 fi
+case `echo foo | $tail -n +1 2>/dev/null` in
+foo) tail="$tail -n";;
+esac
 
 for i do
   if test ! -f "$i" ; then
@@ -75,7 +99,7 @@ for i do
     continue
   fi
   case "`basename $i`" in
-  gzip | tail | chmod | ln | sleep | rm)
+  gzip | tail | sed | chmod | ln | sleep | rm)
 	echo "${x}: $i would depend on itself"; continue ;;
   esac
   if test -z "$cpmod"; then
@@ -90,8 +114,12 @@ for i do
   if test $decomp -eq 0; then
     sed 1q $0 > $tmp
     sed "s|^if tail|if $tail|" >> $tmp <<'EOF'
-skip=18
-if tail +$skip $0 | "BINDIR"/gzip -cd > /tmp/gztmp$$; then
+skip=22
+set -C
+umask=`umask`
+umask 77
+if tail +$skip "$0" | "BINDIR"/gzip -cd > /tmp/gztmp$$; then
+  umask $umask
   /bin/chmod 700 /tmp/gztmp$$
   prog="`echo $0 | /bin/sed 's|^.*/||'`"
   if /bin/ln /tmp/gztmp$$ "/tmp/$prog" 2>/dev/null; then
@@ -107,7 +135,7 @@ else
   echo Cannot decompress $0; exit 1
 fi; exit $res
 EOF
-    "BINDIR"/gzip -cv9 "$i" >> $tmp || {
+    gzip -cv9 "$i" >> $tmp || {
       /bin/rm -f $tmp
       echo ${x}: compression not possible for $i, file unchanged.
       res=1
@@ -116,11 +144,11 @@ EOF
 
   else
     # decompression
-    skip=18
-    if sed -e 1d -e 2q "$i" | grep "^skip=[0-9]*$" >/dev/null; then
+    skip=22
+    if sed -e 1d -e 2q "$i" | grep "^skip=[0-9][0-9]*$" >/dev/null; then
       eval `sed -e 1d -e 2q "$i"`
     fi
-    if tail +$skip "$i" | "BINDIR"/gzip -cd > $tmp; then
+    if tail +$skip "$i" | gzip -cd > $tmp; then
       :
     else
       echo ${x}: $i probably not in gzexe format, file unchanged.

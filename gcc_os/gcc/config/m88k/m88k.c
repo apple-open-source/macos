@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Motorola 88000.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001 Free Software Foundation, Inc. 
+   2001, 2002 Free Software Foundation, Inc. 
    Contributed by Michael Tiemann (tiemann@mcc.com)
    Currently maintained by (gcc@dg-rtp.dg.com)
 
@@ -43,7 +43,6 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 
-extern int flag_traditional;
 extern FILE *asm_out_file;
 
 const char *m88k_pound_sign = ""; /* Either # for SVR4 or empty for SVR3 */
@@ -72,8 +71,9 @@ static void m88k_output_function_begin_epilogue PARAMS ((FILE *));
 static void m88k_svr3_asm_out_constructor PARAMS ((rtx, int));
 static void m88k_svr3_asm_out_destructor PARAMS ((rtx, int));
 #endif
-
+static void m88k_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
 static int m88k_adjust_cost PARAMS ((rtx, rtx, rtx, int));
+static void m88k_encode_section_info PARAMS ((tree, int));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -98,6 +98,9 @@ static int m88k_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST m88k_adjust_cost
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO  m88k_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -243,7 +246,7 @@ output_load_const_dimode (operands)
    do the move.  Otherwise, return 0 and the caller will emit the move
    normally.
 
-   SCRATCH if non zero can be used as a scratch register for the move
+   SCRATCH if nonzero can be used as a scratch register for the move
    operation.  It is provided by a SECONDARY_RELOAD_* macro if needed.  */
 
 int
@@ -312,7 +315,7 @@ emit_move_sequence (operands, mode, scratch)
 /* Return a legitimate reference for ORIG (either an address or a MEM)
    using the register REG.  If PIC and the address is already
    position-independent, use ORIG.  Newly generated position-independent
-   addresses go into a reg.  This is REG if non zero, otherwise we
+   addresses go into a reg.  This is REG if nonzero, otherwise we
    allocate register(s) as necessary.  If this is called during reload,
    and we need a second temp register, then we use SCRATCH, which is
    provided via the SECONDARY_INPUT_RELOAD_CLASS mechanism.  */
@@ -1124,9 +1127,9 @@ real_power_of_2_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
+  REAL_VALUE_TYPE d;
   union {
-    REAL_VALUE_TYPE d;
-    int i[sizeof (REAL_VALUE_TYPE) / sizeof (int)];
+    long l[2];
     struct {				/* IEEE double precision format */
       unsigned sign	 :  1;
       unsigned exponent  : 11;
@@ -1148,8 +1151,8 @@ real_power_of_2_operand (op, mode)
   if (GET_CODE (op) != CONST_DOUBLE)
     return 0;
 
-  u.i[0] = CONST_DOUBLE_LOW  (op);
-  u.i[1] = CONST_DOUBLE_HIGH (op);
+  REAL_VALUE_FROM_CONST_DOUBLE (d, op);
+  REAL_VALUE_TO_TARGET_DOUBLE (d, u.l);
 
   if (u.s.mantissa1 != 0 || u.s.mantissa2 != 0	/* not a power of two */
       || u.s.exponent == 0			/* constant 0.0 */
@@ -1170,8 +1173,9 @@ legitimize_operand (op, mode)
      enum machine_mode mode;
 {
   rtx temp;
+  REAL_VALUE_TYPE r;
   union {
-    union real_extract r;
+    long l[2];
     struct {				/* IEEE double precision format */
       unsigned sign	 :  1;
       unsigned exponent  : 11;
@@ -1192,7 +1196,8 @@ legitimize_operand (op, mode)
 
   if (GET_CODE (op) == CONST_DOUBLE)
     {
-      memcpy (&u.r, &CONST_DOUBLE_LOW (op), sizeof u);
+      REAL_VALUE_FROM_CONST_DOUBLE (r, op);
+      REAL_VALUE_TO_TARGET_DOUBLE (r, u.l);
       if (u.d.exponent != 0x7ff /* NaN */
 	  && u.d.mantissa2 == 0 /* Mantissa fits */
 	  && (u.s.exponent1 == 0x8 || u.s.exponent1 == 0x7) /* Exponent fits */
@@ -1567,8 +1572,6 @@ output_options (file, f_options, f_len, W_options, W_len,
     pos = output_option (file, sep, "-O", "", indent, pos, max);
   if (write_symbols != NO_DEBUG)
     pos = output_option (file, sep, "-g", "", indent, pos, max);
-  if (flag_traditional)
-    pos = output_option (file, sep, "-traditional", "", indent, pos, max);
   if (profile_flag)
     pos = output_option (file, sep, "-p", "", indent, pos, max);
   for (j = 0; j < f_len; j++)
@@ -1903,7 +1906,7 @@ m88k_layout_frame ()
   m88k_stack_size = m88k_fp_offset + STARTING_FRAME_OFFSET;
 
   /* First, combine m88k_stack_size and size.  If m88k_stack_size is
-     non-zero, align the frame size to 8 mod 16; otherwise align the
+     nonzero, align the frame size to 8 mod 16; otherwise align the
      frame size to 0 mod 16.  (If stacks are 8 byte aligned, this ends
      up as a NOP.  */
   {
@@ -1944,7 +1947,6 @@ uses_arg_area_p ()
   register tree parm;
 
   if (current_function_decl == 0
-      || current_function_varargs
       || variable_args_p)
     return 1;
 
@@ -2468,73 +2470,6 @@ output_function_profiler (file, labelno, name, savep)
       fprintf (file, "\taddu\t %s,%s,64\n", reg_names[31], reg_names[31]);
     }
 }
-
-/* Output assembler code to FILE to initialize basic-block profiling for
-   the current module.  LABELNO is unique to each instance.  */
-
-void
-output_function_block_profiler (file, labelno)
-     FILE *file;
-     int labelno;
-{
-  char block[256];
-  char label[256];
-
-  /* Remember to update FUNCTION_BLOCK_PROFILER_LENGTH.  */
-
-  ASM_GENERATE_INTERNAL_LABEL (block, "LPBX", 0);
-  ASM_GENERATE_INTERNAL_LABEL (label, "LPY", labelno);
-
-  /* @@ Need to deal with PIC.  I'm not sure what the requirements are on
-     register usage, so I used r26/r27 to be safe.  */
-  fprintf (file, "\tor.u\t %s,%s,%shi16(%s)\n", reg_names[27], reg_names[0],
-		 m88k_pound_sign, &block[1]);
-  fprintf (file, "\tld\t %s,%s,%slo16(%s)\n", reg_names[26], reg_names[27],
-		 m88k_pound_sign, &block[1]);
-  fprintf (file, "\tbcnd\t %sne0,%s,%s\n",
-		 m88k_pound_sign, reg_names[26], &label[1]);
-  fprintf (file, "\tsubu\t %s,%s,64\n", reg_names[31], reg_names[31]);
-  fprintf (file, "\tst.d\t %s,%s,32\n", reg_names[2], reg_names[31]);
-  fprintf (file, "\tst.d\t %s,%s,40\n", reg_names[4], reg_names[31]);
-  fprintf (file, "\tst.d\t %s,%s,48\n", reg_names[6], reg_names[31]);
-  fprintf (file, "\tst.d\t %s,%s,56\n", reg_names[8], reg_names[31]);
-  fputs ("\tbsr.n\t ", file);
-  ASM_OUTPUT_LABELREF (file, "__bb_init_func");
-  putc ('\n', file);
-  fprintf (file, "\tor\t %s,%s,%slo16(%s)\n", reg_names[2], reg_names[27],
-		 m88k_pound_sign, &block[1]);
-  fprintf (file, "\tld.d\t %s,%s,32\n", reg_names[2], reg_names[31]);
-  fprintf (file, "\tld.d\t %s,%s,40\n", reg_names[4], reg_names[31]);
-  fprintf (file, "\tld.d\t %s,%s,48\n", reg_names[6], reg_names[31]);
-  fprintf (file, "\tld.d\t %s,%s,56\n", reg_names[8], reg_names[31]);
-  fprintf (file, "\taddu\t %s,%s,64\n", reg_names[31], reg_names[31]);
-  ASM_OUTPUT_INTERNAL_LABEL (file, "LPY", labelno);
-}
-
-/* Output assembler code to FILE to increment the count associated with
-   the basic block number BLOCKNO.  */
-
-void
-output_block_profiler (file, blockno)
-     FILE *file;
-     int blockno;
-{
-  char block[256];
-
-  /* Remember to update BLOCK_PROFILER_LENGTH.  */
-
-  ASM_GENERATE_INTERNAL_LABEL (block, "LPBX", 2);
-
-  /* @@ Need to deal with PIC.  I'm not sure what the requirements are on
-     register usage, so I used r26/r27 to be safe.  */
-  fprintf (file, "\tor.u\t %s,%s,%shi16(%s+%d)\n", reg_names[27], reg_names[0],
-	   m88k_pound_sign, &block[1], 4 * blockno);
-  fprintf (file, "\tld\t %s,%s,%slo16(%s+%d)\n", reg_names[26], reg_names[27],
-	   m88k_pound_sign, &block[1], 4 * blockno);
-  fprintf (file, "\taddu\t %s,%s,1\n", reg_names[26], reg_names[26]);
-  fprintf (file, "\tst\t %s,%s,%slo16(%s+%d)\n", reg_names[26], reg_names[27],
-	   m88k_pound_sign, &block[1], 4 * blockno);
-}
 
 /* Determine whether a function argument is passed in a register, and
    which register.
@@ -2683,8 +2618,7 @@ m88k_build_va_list ()
 /* Implement `va_start' for varargs and stdarg.  */
 
 void
-m88k_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p ATTRIBUTE_UNUSED;
+m88k_va_start (valist, nextarg)
      tree valist;
      rtx nextarg ATTRIBUTE_UNUSED;
 {
@@ -2987,7 +2921,7 @@ print_operand (file, x, code)
       fprintf (file, "%d", value);
       return;
 
-    case 'S': /* compliment the value and then... */
+    case 'S': /* complement the value and then... */
       value = ~value;
     case 's': /* print the width and offset values forming the integer
 		 constant with a SET instruction.  See integer_ok_for_set. */
@@ -3321,6 +3255,38 @@ m88k_svr3_asm_out_destructor (symbol, priority)
 }
 #endif /* INIT_SECTION_ASM_OP && ! OBJECT_FORMAT_ELF */
 
+static void
+m88k_select_section (decl, reloc, align)
+     tree decl;
+     int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (decl) == STRING_CST)
+    {
+      if (! flag_writable_strings)
+	readonly_data_section ();
+      else if (TREE_STRING_LENGTH (decl) <= m88k_gp_threshold)
+	sdata_section ();
+      else
+	data_section ();
+    }
+  else if (TREE_CODE (decl) == VAR_DECL)
+    {
+      if (SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)))
+	sdata_section ();
+      else if ((flag_pic && reloc)
+	       || !TREE_READONLY (decl) || TREE_SIDE_EFFECTS (decl)
+	       || !DECL_INITIAL (decl)
+	       || (DECL_INITIAL (decl) != error_mark_node
+		   && !TREE_CONSTANT (DECL_INITIAL (decl))))
+	data_section ();
+      else
+	readonly_data_section ();
+    }
+  else
+    readonly_data_section ();
+}
+
 /* Adjust the cost of INSN based on the relationship between INSN that
    is dependent on DEP_INSN through the dependence LINK.  The default
    is to make no adjustment to COST.
@@ -3346,4 +3312,30 @@ m88k_adjust_cost (insn, link, dep, cost)
     return cost - 4;  /* 88110 store reservation station.  */
 
   return cost;
+}
+
+/* For the m88k, determine if the item should go in the global pool.  */
+
+static void
+m88k_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (m88k_gp_threshold > 0)
+    {
+      if (TREE_CODE (decl) == VAR_DECL)
+	{
+	  if (!TREE_READONLY (decl) || TREE_SIDE_EFFECTS (decl))
+	    {
+	      int size = int_size_in_bytes (TREE_TYPE (decl));
+
+	      if (size > 0 && size <= m88k_gp_threshold)
+		SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+	    }
+	}
+      else if (TREE_CODE (decl) == STRING_CST
+	       && flag_writable_strings
+	       && TREE_STRING_LENGTH (decl) <= m88k_gp_threshold)
+	SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (decl), 0)) = 1;
+    }
 }

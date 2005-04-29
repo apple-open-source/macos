@@ -28,7 +28,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
                                fujiwara@a80.tech.yk.fujitsu.co.jp
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/imTrX.c,v 1.2 2002/11/26 01:21:25 dawes Exp $ */
+/* $XFree86: xc/lib/X11/imTrX.c,v 1.4 2003/11/17 22:20:12 dawes Exp $ */
 
 #include <string.h>
 #include <X11/Xatom.h>
@@ -40,14 +40,12 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include "XimTrX.h"
 
 Private Bool
-_XimXRegisterDispatcher(im, callback, call_data)
-    Xim			 im;
+_XimXRegisterDispatcher(
+    Xim			 im,
     Bool		 (*callback)(
-#if NeedNestedPrototypes
 				     Xim, INT16, XPointer, XPointer
-#endif
-				     );
-    XPointer		 call_data;
+				     ),
+    XPointer		 call_data)
 {
     XIntrCallbackPtr	 rec;
     XSpecRec		*spec = (XSpecRec *)im->private.proto.spec;
@@ -63,8 +61,8 @@ _XimXRegisterDispatcher(im, callback, call_data)
 }
 
 Private void
-_XimXFreeIntrCallback(im)
-    Xim			 im;
+_XimXFreeIntrCallback(
+    Xim			 im)
 {
     XSpecRec		*spec = (XSpecRec *)im->private.proto.spec;
     register XIntrCallbackPtr rec, next;
@@ -78,14 +76,7 @@ _XimXFreeIntrCallback(im)
 }
 
 Private Bool
-#if NeedFunctionPrototypes
 _XimXCallDispatcher(Xim im, INT16 len, XPointer data)
-#else
-_XimXCallDispatcher(im, len, data)
-    Xim			 	 im;
-    INT16			 len;
-    XPointer			 data;
-#endif
 {
     register XIntrCallbackRec	*rec;
     XSpecRec		*spec = (XSpecRec *)im->private.proto.spec;
@@ -98,11 +89,11 @@ _XimXCallDispatcher(im, len, data)
 }
 
 Private Bool
-_XimXFilterWaitEvent(d, w, ev, arg)
-    Display	*d;
-    Window	 w;
-    XEvent	*ev;
-    XPointer	 arg;
+_XimXFilterWaitEvent(
+    Display	*d,
+    Window	 w,
+    XEvent	*ev,
+    XPointer	 arg)
 {
     Xim		 im = (Xim)arg;
     XSpecRec	*spec = (XSpecRec *)im->private.proto.spec;
@@ -126,10 +117,10 @@ _XimXFilterWaitEvent(d, w, ev, arg)
 }
 
 Private Bool
-_CheckConnect(display, event, xim)
-    Display	*display;
-    XEvent	*event;
-    XPointer	 xim;
+_CheckConnect(
+    Display	*display,
+    XEvent	*event,
+    XPointer	 xim)
 {
     Xim		 im = (Xim)xim;
     XSpecRec	*spec = (XSpecRec *)im->private.proto.spec;
@@ -142,12 +133,7 @@ _CheckConnect(display, event, xim)
 }
 
 Private Bool
-#if NeedFunctionPrototypes
 _XimXConnect(Xim im)
-#else
-_XimXConnect(im)
-    Xim im;
-#endif
 {
     XEvent	 event;
     XSpecRec	*spec = (XSpecRec *)im->private.proto.spec;
@@ -216,12 +202,7 @@ _XimXConnect(im)
 }
 
 Private Bool
-#if NeedFunctionPrototypes
 _XimXShutdown(Xim im)
-#else
-_XimXShutdown(im)
-    Xim		 im;
-#endif
 {
     XSpecRec	*spec = (XSpecRec *)im->private.proto.spec;
 
@@ -241,8 +222,8 @@ _XimXShutdown(im)
 }
 
 Private char *
-_NewAtom(atomName)
-    char	*atomName;
+_NewAtom(
+    char	*atomName)
 {
     static int	 sequence = 0;
 
@@ -252,14 +233,7 @@ _NewAtom(atomName)
 }
 
 Private Bool
-#if NeedFunctionPrototypes
 _XimXWrite(Xim im, INT16 len, XPointer data)    
-#else
-_XimXWrite(im, len, data)    
-    Xim		 im;
-    INT16	 len;
-    XPointer	 data;
-#endif
 {
     Atom	 atom;
     char	 atomName[16];
@@ -320,12 +294,12 @@ _XimXWrite(im, len, data)
 }
 
 Private Bool
-_XimXGetReadData(im, buf, buf_len, ret_len, event)
-    Xim			  im;
-    char		 *buf;
-    int			  buf_len;
-    int			 *ret_len;
-    XEvent		 *event;
+_XimXGetReadData(
+    Xim			  im,
+    char		 *buf,
+    int			  buf_len,
+    int			 *ret_len,
+    XEvent		 *event)
 {
     char		 *data;
     int			  len;
@@ -434,10 +408,10 @@ _XimXGetReadData(im, buf, buf_len, ret_len, event)
 }
 
 Private Bool
-_CheckCMEvent(display, event, xim)
-    Display	*display;
-    XEvent	*event;
-    XPointer	 xim;
+_CheckCMEvent(
+    Display	*display,
+    XEvent	*event,
+    XPointer	 xim)
 {
     Xim		 im = (Xim)xim;
     XSpecRec	*spec = (XSpecRec *)im->private.proto.spec;
@@ -455,15 +429,7 @@ _CheckCMEvent(display, event, xim)
 }
 
 Private Bool
-#if NeedFunctionPrototypes
 _XimXRead(Xim im, XPointer recv_buf, int buf_len, int *ret_len)
-#else
-_XimXRead(im, recv_buf, buf_len, ret_len)
-    Xim		 im;
-    XPointer	 recv_buf;
-    int		 buf_len;
-    int		*ret_len;
-#endif
 {
     XEvent	*ev;
     XEvent	 event;
@@ -486,12 +452,7 @@ _XimXRead(im, recv_buf, buf_len, ret_len)
 }
 
 Private void
-#if NeedFunctionPrototypes
 _XimXFlush(Xim im)
-#else
-_XimXFlush(im)
-    Xim		 im;
-#endif
 {
     XFlush(im->core.display);
     return;

@@ -1,11 +1,11 @@
 /*****************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: multi-single.c,v 1.1.1.1 2002/11/26 19:07:44 zarzycki Exp $
+ * $Id: multi-single.c,v 1.5 2004/05/24 15:16:29 bagder Exp $
  *
  * This is a very simple example using the multi interface.
  */
@@ -70,11 +70,14 @@ int main(int argc, char **argv)
     switch(rc) {
     case -1:
       /* select error */
+      still_running = 0;
+      printf("select() returns error, this is badness\n");
       break;
     case 0:
     default:
       /* timeout or readable/writable sockets */
-      curl_multi_perform(multi_handle, &still_running);
+      while(CURLM_CALL_MULTI_PERFORM ==
+            curl_multi_perform(multi_handle, &still_running));
       break;
     }
   }

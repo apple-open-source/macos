@@ -1,7 +1,7 @@
 /*
  * KLString.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLString.h,v 1.7 2003/07/03 19:52:54 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLString.h,v 1.11 2004/10/22 20:51:44 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -28,22 +28,21 @@
 
 /* Error handling syslogs for debugging purposes */
 
-KLStatus __KerberosLoginError (KLStatus err, char *file, int line);
+KLStatus __KerberosLoginError (KLStatus inError, const char *function, const char *file, int line);
 KLStatus __KLRemapKerberos4Error (int err);
 
-#define KLError_(err)        __KerberosLoginError(err, __FILE__, __LINE__)
+#define KLError_(err) __KerberosLoginError(err, __FUNCTION__, __FILE__, __LINE__)
 
 /* String utilities */
 
 KLStatus __KLCreateString (const char *inString, char **outString);
-KLStatus __KLCreateStringFromCFString (CFStringRef inString, char **outString);
+KLStatus __KLCreateStringFromCFString (CFStringRef inString, CFStringEncoding inEncoding, char **outString);
 KLStatus __KLCreateStringFromBuffer (const char *inBuffer, KLIndex inBufferLength, char **outString);
 KLStatus __KLAddPrefixToString (const char *inPrefix, char **ioString);
 KLStatus __KLAppendToString (const char *inAppendString, char **ioString);
 CFStringEncoding __KLApplicationGetTextEncoding (void);
-KLStatus __KLGetApplicationNameString (char **outApplicationName);
-KLStatus __KLGetApplicationIconPathString (char **outApplicationIconPath);
 KLStatus __KLGetLocalizedString (const char *inKeyString, char **outString);
+KLStatus __KLGetApplicationPathString (char **outApplicationPath);
 
 /* StringArray utilities */
 

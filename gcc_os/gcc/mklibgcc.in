@@ -1,6 +1,6 @@
 #!/bin/sh
 # Construct makefile for libgcc.
-#   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
+#   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 
@@ -21,6 +21,8 @@
 # LIB2_DIVMOD_FUNCS
 # DPBIT
 # DPBIT_FUNCS
+# TPBIT
+# TPBIT_FUNCS
 # LIBGCC
 # MULTILIBS
 # EXTRA_MULTILIB_PARTS
@@ -32,6 +34,7 @@
 # SHLIB_MAPFILES
 # SHLIB_NM_FLAGS
 # SHLIB_INSTALL
+# MULTILIB_OSDIRNAMES
 
 # Make needs VPATH to be literal.
 echo 'srcdir = @srcdir@'
@@ -57,8 +60,8 @@ make_compile='$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	  AR_EXTRACT_FOR_TARGET="$(AR_EXTRACT_FOR_TARGET)" \
 	  AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
 	  CC="$(CC)" CFLAGS="$(CFLAGS)" \
-	  HOST_PREFIX="$(HOST_PREFIX)" \
-	  HOST_PREFIX_1="$(HOST_PREFIX_1)" \
+	  BUILD_PREFIX="$(BUILD_PREFIX)" \
+	  BUILD_PREFIX_1="$(BUILD_PREFIX_1)" \
 	  LANGUAGES="$(LANGUAGES)"'
 
 # Dependencies for libgcc2.c
@@ -162,7 +165,7 @@ if [ "$FPBIT" ]; then
 
       echo $out: $FPBIT $fpbit_c_dep
       echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name \
-	  -c $FPBIT -o $out
+	-c $FPBIT -o $out
     done
     libgcc2_objs="$libgcc2_objs ${name}${objext}"
   done
@@ -177,7 +180,7 @@ if [ "$DPBIT" ]; then
 
       echo $out: $DPBIT $fpbit_c_dep
       echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name \
-	  -c $DPBIT -o $out
+	-c $DPBIT -o $out
     done
     libgcc2_objs="$libgcc2_objs ${name}${objext}"
   done
@@ -323,7 +326,9 @@ for name in $LIBKSUPCXXFUNCS; do
     cxx_root='$(srcdir)/../libstdc++-v3' ; cxx_root_incl=${cxx_root}/include
     config_stuff='$(objdir)'
     file=${cxx_root}/libsupc++/${name}
-    incls="-I${cxx_root}/libsupc++ -I${cxx_root_incl}/std -I${cxx_root_incl}/c_std -I${config_stuff}"
+    obj_incl='$(objdir)/../$(ARCH_NAME)/libstdc++-v3/include'
+    obj_incl2=${obj_incl}'/$(ARCH_NAME)-darwin'
+    incls="-I${cxx_root}/libsupc++ -I${cxx_root_incl}/std -I${cxx_root_incl}/c_std -I${config_stuff} -I${obj_incl} -I${obj_incl2}"
     out="libcc_kext/${dir}/${stem}${objext}"
 
     echo ''
@@ -378,7 +383,10 @@ for ml in $MULTILIBS; do
     tmpmapfile="libgcc/${dir}/tmp-libgcc.map"
     echo ""
     echo "${mapfile}: $SHLIB_MKMAP $SHLIB_MAPFILES $libgcc_sh_objs"
-    echo '	{ $(NM_FOR_TARGET)'" $SHLIB_NM_FLAGS $libgcc_sh_objs; echo %%; cat $SHLIB_MAPFILES; } | "'$(AWK)'" -f $SHLIB_MKMAP $SHLIB_MKMAP_OPTS > ${tmpmapfile}"
+    echo '	{ $(NM_FOR_TARGET)'" $SHLIB_NM_FLAGS $libgcc_sh_objs; echo %%; \\"
+    echo "	  cat $SHLIB_MAPFILES | sed -e "'"/^[ 	]*#/d" -e '\''s/^%\(if\|else\|elif\|endif\|define\)/#\1/'\'" \\"
+    echo "	  | $gcc_compile $flags -E -xassembler-with-cpp -; \\"
+    echo '	} | $(AWK)'" -f $SHLIB_MKMAP $SHLIB_MKMAP_OPTS > ${tmpmapfile}"
     echo '	mv '"$tmpmapfile"' $@'
   fi
   shlib_deps="$shlib_deps $mapfile"
@@ -407,9 +415,7 @@ for ml in $MULTILIBS; do
   echo "${dir}/libgcc.a: $libgcc_a_objs"
   echo "	-rm -rf ${dir}/libgcc.a"
   echo '	$(AR_CREATE_FOR_TARGET)' ${dir}/libgcc.a $libgcc_a_objs
-  echo '	if $(RANLIB_TEST_FOR_TARGET) ; then' \\
-  echo '	  $(RANLIB_FOR_TARGET)' ${dir}/libgcc.a ';' \\
-  echo '	else true; fi;'
+  echo '	$(RANLIB_FOR_TARGET)' ${dir}/libgcc.a
 
   if [ "$SHLIB_LINK" ]; then
 
@@ -417,15 +423,29 @@ for ml in $MULTILIBS; do
     echo "${dir}/libgcc_eh.a: $libgcc_eh_objs"
     echo "	-rm -rf ${dir}/libgcc_eh.a"
     echo '	$(AR_CREATE_FOR_TARGET)' ${dir}/libgcc_eh.a $libgcc_eh_objs
-    echo '	if $(RANLIB_TEST_FOR_TARGET) ; then' \\
-    echo '	  $(RANLIB_FOR_TARGET)' ${dir}/libgcc_eh.a ';' \\
-    echo '	else true; fi;'
+    echo '	$(RANLIB_FOR_TARGET)' ${dir}/libgcc_eh.a
 
     if [ -z "$SHLIB_MULTILIB" ]; then
-      if [ "$dir" = "." ]; then
-	shlib_base_name="libgcc_s";
+      if [ "$dir" = . ]; then
+	shlib_base_name=libgcc_s
       else
 	shlib_base_name=libgcc_s_`echo $dir | sed s,/,_,g`
+      fi
+      shlib_so_name="$shlib_base_name"
+      shlib_dir=
+      if [ -n "$MULTILIB_OSDIRNAMES" ]; then
+	if [ "$dir" != . ]; then
+	  gcc_multilib_dir=`./xgcc -B./ $flags --print-multi-directory`
+	  os_multilib_dir=`./xgcc -B./ $flags --print-multi-os-directory`
+	  shlib_dir="$dir"/
+	  gcc_multilib_sup=`echo $gcc_multilib_dir | sed 's~^[^/]*/~~'`
+	  os_multilib_base=`echo $os_multilib_dir | sed -n "s~/${gcc_multilib_sup}\$~~p"`
+	  if [ -z "$os_multilib_base" ]; then
+	    shlib_so_name=libgcc_s
+	  else
+	    shlib_so_name=libgcc_s_`echo $gcc_multilib_sup | sed s,/,_,g`
+	  fi
+	fi
       fi
       echo ""
       echo "${dir}/${shlib_base_name}${SHLIB_EXT}: $shlib_deps"
@@ -434,7 +454,9 @@ for ml in $MULTILIBS; do
 	       -e "s%@multilib_dir@%$dir%g" \
 	       -e "s%@shlib_objs@%$libgcc_sh_objs%g" \
 	       -e "s%@shlib_base_name@%$shlib_base_name%g" \
-	       -e "s%@shlib_map_file@%$mapfile%g"
+	       -e "s%@shlib_map_file@%$mapfile%g" \
+	       -e "s%@shlib_so_name@%$shlib_so_name%g" \
+	       -e "s%@shlib_dir@%$shlib_dir%g"
     elif [ "$SHLIB_MULTILIB" = "$dir" ]; then
       shlib_base_name="libgcc_s";
       echo ""
@@ -444,7 +466,9 @@ for ml in $MULTILIBS; do
 	       -e "s%@multilib_dir@%$dir%g" \
 	       -e "s%@shlib_objs@%$libgcc_sh_objs%g" \
 	       -e "s%@shlib_base_name@%$shlib_base_name%g" \
-	       -e "s%@shlib_map_file@%$mapfile%g"
+	       -e "s%@shlib_map_file@%$mapfile%g" \
+	       -e "s%@shlib_so_name@%$shlib_base_name%g" \
+	       -e "s%@shlib_dir@%%g"
     fi
   fi
 
@@ -454,9 +478,7 @@ for ml in $MULTILIBS; do
   echo "	-rm -rf ${dir}/libcc_kext.a"
   echo '	$(AR_CREATE_FOR_TARGET)' ${dir}/libcc_kext.a $libcc_kext_objs $libcc_kext_supcxx_objs
   echo '	nmedit -p' ${dir}/libcc_kext.a
-  echo '	if $(RANLIB_TEST_FOR_TARGET) ; then' \\
-  echo '	  $(RANLIB_FOR_TARGET)' ${dir}/libcc_kext.a ';' \\
-  echo '	else true; fi;'
+  echo '	$(RANLIB_FOR_TARGET)' ${dir}/libcc_kext.a
 # /* APPLE LOCAL end libcc_kext */
 
 done
@@ -540,11 +562,12 @@ echo ""
 echo "install: $all"
 for ml in $MULTILIBS; do
   dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
+  flags=`echo ${ml} | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`;
   if [ $dir != . ]; then
-    ldir='$(libsubdir)'/$dir
+    ldir='$(DESTDIR)$(libsubdir)'/$dir
     echo "	if [ -d $ldir ]; then true; else mkdir $ldir; chmod a+rx $ldir; fi;"
   else
-    ldir='$(libsubdir)'
+    ldir='$(DESTDIR)$(libsubdir)'
   fi
   echo '	$(INSTALL_DATA)' ${dir}/libgcc.a ${ldir}/
   echo '	$(RANLIB_FOR_TARGET)' ${ldir}/libgcc.a
@@ -560,17 +583,44 @@ for ml in $MULTILIBS; do
     echo '	$(RANLIB_FOR_TARGET)' ${ldir}/libgcc_eh.a
 
     if [ -z "$SHLIB_MULTILIB" ]; then
-      if [ "$dir" = "." ]; then
-	shlib_base_name="libgcc_s";
+      if [ "$dir" = . ]; then
+	shlib_base_name=libgcc_s
       else
 	shlib_base_name=libgcc_s_`echo $dir | sed s,/,_,g`
       fi
+      shlib_so_name="$shlib_base_name"
+      shlib_dir=
+      shlib_slibdir_qual=
+      if [ -n "$MULTILIB_OSDIRNAMES" ]; then
+	gcc_multilib_dir=`./xgcc -B./ $flags --print-multi-directory`
+	os_multilib_dir=`./xgcc -B./ $flags --print-multi-os-directory`
+	if [ "$dir" != . ]; then
+	  shlib_dir="$dir"/
+	fi
+	gcc_multilib_sup=`echo $gcc_multilib_dir | sed 's~^[^/]*/~~'`
+	os_multilib_base=`echo $os_multilib_dir | sed -n "s~/${gcc_multilib_sup}\$~~p"`
+	if [ -z "$os_multilib_base" ]; then
+	  shlib_so_name=libgcc_s
+	  if [ "$os_multilib_dir" != "." ]; then
+	    shlib_slibdir_qual="/$os_multilib_dir"
+	  fi
+	else
+	  shlib_so_name=libgcc_s_`echo $gcc_multilib_sup | sed s,/,_,g`
+	  shlib_slibdir_qual="/$os_multilib_base"
+	fi
+      fi
       echo "	$SHLIB_INSTALL" \
-	| sed -e "s%@shlib_base_name@%$shlib_base_name%g"
+	| sed -e "s%@shlib_base_name@%$shlib_base_name%g" \
+	      -e "s%@shlib_so_name@%$shlib_so_name%g" \
+	      -e "s%@shlib_dir@%$shlib_dir%g" \
+	      -e "s%@shlib_slibdir_qual@%$shlib_slibdir_qual%g"
     elif [ "$SHLIB_MULTILIB" = "$dir" ]; then
       shlib_base_name="libgcc_s";
       echo "	$SHLIB_INSTALL" \
-	| sed -e "s%@shlib_base_name@%$shlib_base_name%g"
+	| sed -e "s%@shlib_base_name@%$shlib_base_name%g" \
+	      -e "s%@shlib_so_name@%$shlib_base_name%g" \
+	      -e "s%@shlib_dir@%%g" \
+	      -e "s%@shlib_slibdir_qual@%%g"
     fi
   fi
 done
@@ -579,10 +629,10 @@ for f in $EXTRA_MULTILIB_PARTS; do
     dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
     if [ $dir != . ]; then
       out=${dir}/$f
-      ldir='$(libsubdir)'/$dir
+      ldir='$(DESTDIR)$(libsubdir)'/$dir
     else
       out=$f
-      ldir='$(libsubdir)'
+      ldir='$(DESTDIR)$(libsubdir)'
     fi
     echo '	$(INSTALL_DATA)' $out $ldir/
   done

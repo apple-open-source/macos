@@ -1,0 +1,456 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML
+><HEAD
+><TITLE
+>CUPS Printer Installation</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.7"><LINK
+REL="HOME"
+TITLE="The User's Guide to the Gimp-Print - Complete Edition"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="CUPS and Gimp-Print"
+HREF="c443.html"><LINK
+REL="PREVIOUS"
+TITLE="CUPS and Gimp-Print"
+HREF="c443.html"><LINK
+REL="NEXT"
+TITLE="Configuring your Printer in CUPS"
+HREF="x544.html"><META
+http-equiv="Content-Type"
+content="text/html; charset="></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>The User's Guide to the Gimp-Print - Complete Edition</TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="c443.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Chapter 3. CUPS and Gimp-Print</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x544.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="AEN452"
+>CUPS Printer Installation</A
+></H1
+><P
+>This explanation will use the web interface provided by CUPS. First,
+aim your favorite web browser at
+<A
+HREF="http://localhost:631"
+TARGET="_top"
+>the CUPS server</A
+>.  The
+following screen should appear within your browser.
+    </P
+><DIV
+CLASS="FIGURE"
+><A
+NAME="AEN456"
+></A
+><P
+><B
+>Figure 3-1. The CUPS Startup Window</B
+></P
+><DIV
+CLASS="MEDIAOBJECT"
+><P
+><IMG
+SRC="figures/cups_startup.png"></P
+></DIV
+></DIV
+><P
+>Now, you may click on either the word <SPAN
+CLASS="GUILABEL"
+>Printers</SPAN
+> in the bar at the top
+of the page, or you may click on the <SPAN
+CLASS="GUILABEL"
+>Manage Printers</SPAN
+> text.  In
+either case, the next screen you see will look like this one if you
+have not yet configured any printers.
+   </P
+><DIV
+CLASS="FIGURE"
+><A
+NAME="AEN466"
+></A
+><P
+><B
+>Figure 3-2. The CUPS Printers Window</B
+></P
+><DIV
+CLASS="MEDIAOBJECT"
+><P
+><IMG
+SRC="figures/cups_printers.png"></P
+></DIV
+></DIV
+><P
+>At this time, click on the <SPAN
+CLASS="GUIBUTTON"
+>Add Printer</SPAN
+> button.
+You will then see the Admin screen (shown below).
+    </P
+><DIV
+CLASS="FIGURE"
+><A
+NAME="AEN475"
+></A
+><P
+><B
+>Figure 3-3. The CUPS Admin Window</B
+></P
+><DIV
+CLASS="MEDIAOBJECT"
+><P
+><IMG
+SRC="figures/cups_admin.png"></P
+></DIV
+></DIV
+><P
+>Notice in the screenshot that the three boxes are shown after the
+author filled them in for his printer at home.  You will need to fill
+in an appropriate name of your printer, its location, and a
+description which meets your own needs.  Once this is done, click on
+the <SPAN
+CLASS="GUIBUTTON"
+>Continue</SPAN
+> button, and then this screen will appear.
+   </P
+><DIV
+CLASS="FIGURE"
+><A
+NAME="FIG-CUPS-ADMIN-DEVICE"
+></A
+><P
+><B
+>Figure 3-4. The CUPS Admin Device Window</B
+></P
+><DIV
+CLASS="MEDIAOBJECT"
+><P
+><IMG
+SRC="figures/cups_admin_device.png"></P
+></DIV
+></DIV
+><P
+>Click on the drop down menu next to the word
+<SPAN
+CLASS="GUILABEL"
+>Device</SPAN
+> and a list of possible printer devices
+appears.  Select the device appropriate for your printer.  Note that
+there are a range of serial, parallel, USB, and other devices from
+which to choose.  Once the selection is made, click the
+<SPAN
+CLASS="GUIBUTTON"
+>Continue</SPAN
+> button.  Now, this screen appears.
+   </P
+><DIV
+CLASS="FIGURE"
+><A
+NAME="AEN494"
+></A
+><P
+><B
+>Figure 3-5. The CUPS Admin Model/Driver Window</B
+></P
+><DIV
+CLASS="MEDIAOBJECT"
+><P
+><IMG
+SRC="figures/cups_admin_make.png"></P
+></DIV
+></DIV
+><DIV
+CLASS="CAUTION"
+><P
+></P
+><TABLE
+CLASS="CAUTION"
+BORDER="1"
+WIDTH="100%"
+><TR
+><TD
+ALIGN="CENTER"
+><B
+>Caution Regarding USB Printers</B
+></TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+><P
+>CUPS versions 1.1.11 and later <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>REQUIRE</I
+></SPAN
+>
+the user to insure that the desired USB printer is powered on
+<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>AND</I
+></SPAN
+> physically connected to the USB bus
+<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>BEFORE</I
+></SPAN
+> starting the CUPS software.  
+   </P
+><P
+>CUPS must see the USB printer when the software starts.  The CUPS software
+is typically started when the computer boots.  Note that one cannot
+simply plug in the USB printer and power it on after CUPS has started.
+(Note that this does not apply to parallel port printers).
+   </P
+><P
+>If the USB printer was not connected and powered on at the time CUPS was
+started, there will not be a USB printer shown in the
+list of devices on the CUPS Admin Device Window (see 
+<A
+HREF="x452.html#FIG-CUPS-ADMIN-DEVICE"
+>Figure 3-4</A
+>).  In this event, stop the CUPS
+software, properly connect and power on the USB printer, and restart
+the CUPS software.
+   </P
+><P
+>From the list of devices shown in the CUPS Admin Device Window
+(see <A
+HREF="x452.html#FIG-CUPS-ADMIN-DEVICE"
+>Figure 3-4</A
+>), a clever user might
+attempt to avoid this issue by selecting 
+<SPAN
+CLASS="GUIMENUITEM"
+>Internet Printing Protocol</SPAN
+> 
+and then enter something similar to 'usb:/dev/usblp0' in the next
+screen.  However, this fails later in the configuration process with a
+"client_error_not_possible" error message with no other explanation.
+Note that entering 'file:/dev/usblp0' will not work either. While CUPS
+will allow this, printing will not actually work in some situations.
+   </P
+><P
+>CUPS versions 1.1.10 and earlier exhibit similar behavior with regard
+to not displaying the USB printer if it was not connected to the USB
+bus and powered up prior to starting the CUPS software.  However,
+these versions of CUPS will indeed allow the user to enter the name of
+the USB connection, unlike versions 1.1.11 and later.
+   </P
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>Select the manufacturer of your printer and click the
+<SPAN
+CLASS="GUIBUTTON"
+>Continue</SPAN
+> button.  A window will appear which
+asks you to select the specific model number for your printer.
+   </P
+><P
+>Scroll through the long list and find the model number for your
+printer.  Notice carefully that there are many different languages
+supported for each printer, as denoted by the initials in parenthesis.
+(en) would be for English, (da) for Danish, (sv) for Swedish, (fr) for
+French, (no) for Norwegian, (pl) for Polish, and (en_GB) for British
+English (see <A
+HREF="x452.html#FIG-CUPS-ADMIN-MODEL"
+>Figure 3-6</A
+>).  Also take note
+of the Gimp-Print revision for the driver, and ensure that it is
+indeed the version of Gimp-Print which you have most recently
+installed.  Once you have made the proper selection, click on the
+<SPAN
+CLASS="GUIBUTTON"
+>Continue</SPAN
+> button. 
+   </P
+><DIV
+CLASS="FIGURE"
+><A
+NAME="FIG-CUPS-ADMIN-MODEL"
+></A
+><P
+><B
+>Figure 3-6. The 2nd CUPS Admin Model/Driver Window</B
+></P
+><DIV
+CLASS="MEDIAOBJECT"
+><P
+><IMG
+SRC="figures/cups_admin_model.png"></P
+></DIV
+></DIV
+><DIV
+CLASS="FIGURE"
+><A
+NAME="AEN526"
+></A
+><P
+><B
+>Figure 3-7. The CUPS Admin Success Window</B
+></P
+><DIV
+CLASS="MEDIAOBJECT"
+><P
+><IMG
+SRC="figures/cups_admin_success.png"></P
+></DIV
+></DIV
+><P
+>Congratulations!  You should now see the CUPS window indicating that
+your printer was successfully installed.  Notice the sentence which
+reads "Printer your_printer has been added successfully".  Click on
+your_printer, which will be the underlined name for your printer.
+   </P
+><DIV
+CLASS="FIGURE"
+><A
+NAME="FIG-CUPS-MY-PRINTER"
+></A
+><P
+><B
+>Figure 3-8. The CUPS Window for Your Printer</B
+></P
+><DIV
+CLASS="MEDIAOBJECT"
+><P
+><IMG
+SRC="figures/cups_my_printer.png"></P
+></DIV
+></DIV
+><P
+>After clicking on your_printer (epson_870 in this example), a window
+will appear similar to that shown in <A
+HREF="x452.html#FIG-CUPS-MY-PRINTER"
+>Figure 3-8</A
+>.
+It would probably be a good idea at this point to click on the
+<SPAN
+CLASS="GUIBUTTON"
+>Print Test Page</SPAN
+> button to ensure that
+everything is working properly.  Take note of the Gimp-Print revision
+printed on this screen and confirm once again that it is the expected
+revision.
+   </P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="c443.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x544.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>CUPS and Gimp-Print</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="c443.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Configuring your Printer in CUPS</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

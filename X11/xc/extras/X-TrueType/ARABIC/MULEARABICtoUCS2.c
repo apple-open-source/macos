@@ -37,11 +37,14 @@ Notice===
     and help of Juliusz Chorobczek.
 
  */
+/* $XFree86: xc/extras/X-TrueType/ARABIC/MULEARABICtoUCS2.c,v 1.2 2003/10/22 16:25:24 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"

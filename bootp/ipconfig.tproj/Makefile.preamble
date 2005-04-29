@@ -134,7 +134,4 @@ OTHER_GENERATED_OFILES = $(VERS_OFILE)
 # Change this definition to install projects somewhere other than the
 # standard locations.  NEXT_ROOT defaults to "C:/Apple" on Windows systems
 # and "" on other systems.
-ifeq "$(PLATFORM_OS)" "macos" 
-        OTHER_CFLAGS += -DMOSX -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS
-endif
-
+AFTER_INSTALL = install_extra

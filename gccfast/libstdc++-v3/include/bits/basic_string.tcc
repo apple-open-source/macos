@@ -45,6 +45,18 @@
 
 namespace std
 {
+  /* APPLE LOCAL begin libstdc++ debug mode */
+  template<typename _Type>
+    inline bool
+    __is_null_pointer(_Type* __ptr)
+    { return __ptr == 0; }
+
+  template<typename _Type>
+    inline bool
+    __is_null_pointer(const _Type&)
+    { return false; }
+  /* APPLE LOCAL end libstdc++ debug mode */
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     const typename basic_string<_CharT, _Traits, _Alloc>::size_type 
     basic_string<_CharT, _Traits, _Alloc>::
@@ -141,8 +153,10 @@ namespace std
 	  return _S_empty_rep()._M_refcopy();
 
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(__beg == _InIter(), 0))
+	/* APPLE LOCAL begin libstdc++ debug mode bug fix */
+	if (__builtin_expect(std::__is_null_pointer(__beg), 0))
 	  __throw_logic_error("attempt to create string with null pointer");
+	/* APPLE LOCAL end libstdc++ debug mode bug fix */
 
 	size_type __dnew = static_cast<size_type>(std::distance(__beg, __end));
 	
@@ -232,7 +246,7 @@ namespace std
     basic_string(size_type __n, _CharT __c, const _Alloc& __a)
     : _M_dataplus(_S_construct(__n, __c, __a), __a)
     { }
- 
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     template<typename _InputIter>
     basic_string<_CharT, _Traits, _Alloc>::
@@ -590,6 +604,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     append(const _CharT* __s, size_type __n)
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __len = __n + this->size();
       if (__len > this->capacity())
 	this->reserve(__len);
@@ -612,6 +630,10 @@ namespace std
     operator+(const _CharT* __lhs,
 	      const basic_string<_CharT, _Traits, _Alloc>& __rhs)
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string(__lhs);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       typedef basic_string<_CharT, _Traits, _Alloc> __string_type;
       typedef typename __string_type::size_type	  __size_type;
       __size_type __len = _Traits::length(__lhs);
@@ -641,17 +663,21 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     replace(iterator __i1, iterator __i2, size_type __n2, _CharT __c)
     {
-      size_type __n1 = __i2 - __i1;
-      size_type __off1 = __i1 - _M_ibegin();
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+			       && __i2 <= _M_iend());
+      /* APPLE LOCAL end libstdc++ debug mode */
+      const size_type __n1 = __i2 - __i1;
+      const size_type __off1 = __i1 - _M_ibegin();
       if (max_size() - (this->size() - __n1) <= __n2)
-	__throw_length_error("basic_string::replace");
+      __throw_length_error("basic_string::replace");
       _M_mutate (__off1, __n1, __n2);
       // Invalidated __i1, __i2
       if (__n2)
-	traits_type::assign(_M_data() + __off1, __n2, __c);
+      traits_type::assign(_M_data() + __off1, __n2, __c);
       return *this;
     }
-  
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     typename basic_string<_CharT, _Traits, _Alloc>::size_type
     basic_string<_CharT, _Traits, _Alloc>::
@@ -662,7 +688,11 @@ namespace std
       
       if (__n > this->size() - __pos)
 	__n = this->size() - __pos;
-      
+
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       traits_type::copy(__s, _M_data() + __pos, __n);
       // 21.3.5.7 par 3: do not append null.  (good.)
       return __n;
@@ -673,6 +703,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       size_t __xpos = __pos;
       const _CharT* __data = _M_data();
@@ -706,6 +740,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     rfind(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       if (__n <= __size)
 	{
@@ -745,6 +783,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find_first_of(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       for (; __n && __pos < this->size(); ++__pos)
 	{
 	  const _CharT* __p = traits_type::find(__s, __n, _M_data()[__pos]);
@@ -759,6 +801,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find_last_of(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       if (__size && __n)
 	{ 
@@ -779,6 +825,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find_first_not_of(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_t __xpos = __pos;
       for (; __xpos < this->size(); ++__xpos)
 	if (!traits_type::find(__s, __n, _M_data()[__xpos]))
@@ -803,6 +853,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find_last_not_of(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       if (__size)
 	{ 
@@ -883,6 +937,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     compare(const _CharT* __s) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string(__s);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       size_type __osize = traits_type::length(__s);
       size_type __len = std::min(__size, __osize);
@@ -898,6 +956,10 @@ namespace std
     basic_string <_CharT, _Traits, _Alloc>::
     compare(size_type __pos, size_type __n1, const _CharT* __s) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string(__s);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       if (__pos > __size)
 	__throw_out_of_range("basic_string::compare");
@@ -917,6 +979,10 @@ namespace std
     compare(size_type __pos, size_type __n1, const _CharT* __s, 
 	    size_type __n2) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n2);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       if (__pos > __size)
 	__throw_out_of_range("basic_string::compare");

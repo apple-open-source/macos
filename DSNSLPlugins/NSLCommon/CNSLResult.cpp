@@ -52,12 +52,12 @@ Boolean SLPRAdminNotifierEqualCallback ( const void *item1, const void *item2 )
         return false;
 }
 
-CFStringRef CNSLResult::GetURLRef( void )
+CFStringRef CNSLResult::GetURLRef( void ) const
 {
 	return GetAttributeRef( kDSNAttrURLSAFE_CFSTR );
 }
 
-CFStringRef CNSLResult::GetServiceTypeRef( void )
+CFStringRef CNSLResult::GetServiceTypeRef( void ) const
 {
 	return GetAttributeRef( kDS1AttrServiceTypeSAFE_CFSTR );
 }

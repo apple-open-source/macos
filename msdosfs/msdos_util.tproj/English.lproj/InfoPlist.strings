@@ -7,9 +7,24 @@
 	<key>FSPersonalities</key>
 	<dict>
 		<key>MS-DOS</key>
-		<dict>
+		<dict> 
 			<key>FSName</key>
 			<string>MS-DOS File System</string>
+		</dict>
+		<key>MS-DOS FAT12</key>
+		<dict>
+			<key>FSName</key>
+			<string>MS-DOS File System (FAT12)</string>
+		</dict>
+		<key>MS-DOS FAT16</key>
+		<dict>
+			<key>FSName</key>
+			<string>MS-DOS File System (FAT16)</string>
+		</dict>
+		<key>MS-DOS FAT32</key>
+		<dict>
+			<key>FSName</key>
+			<string>MS-DOS File System (FAT32)</string>
 		</dict>
 	</dict>
 </dict>

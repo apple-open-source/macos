@@ -205,6 +205,15 @@ sInt32 CNBPPlugin::SetServerIdleRunLoopRef( CFRunLoopRef idleRunLoopRef )
 	return eDSNoErr;
 }
 
+Boolean CNBPPlugin::PluginSupportsServiceType( const char* serviceType )
+{
+	Boolean		serviceTypeSupported = false;		// default to true except for the following
+	
+	if ( serviceType && strcmp( serviceType, kDSStdRecordTypeAFPServer ) == 0 )
+		serviceTypeSupported = true;
+		
+	return serviceTypeSupported;
+}
 
 void CNBPPlugin::NewNodeLookup( void )
 {
@@ -259,11 +268,15 @@ Boolean CNBPPlugin::OKToSearchThisType( char* serviceType )
         okToSearch = false;
     else if ( strcmp( serviceType, "nfs" ) == 0 )
         okToSearch = false;
+    else if ( strcmp( serviceType, "ftp" ) == 0 )
+        okToSearch = false;
     else if ( strcmp( serviceType, "http" ) == 0 )
         okToSearch = false;
     else if ( strcmp( serviceType, "radmin" ) == 0 )
         okToSearch = false;
     else if ( strcmp( serviceType, "radminx" ) == 0 )
+        okToSearch = false;
+    else if ( strcmp( serviceType, "file" ) == 0 )
         okToSearch = false;
     
     return okToSearch;

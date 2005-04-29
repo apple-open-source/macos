@@ -1,9 +1,9 @@
 /*
- * "$Id: ppd.c,v 1.22 2003/09/09 06:11:15 jlovell Exp $"
+ * "$Id: ppd.c,v 1.31 2005/01/04 22:10:39 jlovell Exp $"
  *
  *   PPD file routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -67,6 +67,7 @@
 #include <ctype.h>
 #include "string.h"
 #include "language.h"
+#include "globals.h"
 #include "debug.h"
 
 
@@ -93,11 +94,11 @@
 /*
  * Local globals...
  */
-
-static ppd_status_t	ppd_status = PPD_OK;
+#define	ppd_status	(_cups_globals()->ppd_status)
 					/* Status of last ppdOpen*() */
-static int		ppd_line = 0;	/* Current line number */
-static ppd_conform_t	ppd_conform = PPD_CONFORM_RELAXED;
+#define	ppd_line	(_cups_globals()->ppd_line)
+					/* Current line number */
+#define	ppd_conform	(_cups_globals()->ppd_conform)
 					/* Level of conformance required */
 
 
@@ -114,7 +115,7 @@ static ppd_size_t	*ppd_add_size(ppd_file_t *ppd, const char *name);
 static int		ppd_compare_groups(ppd_group_t *g0, ppd_group_t *g1);
 static int		ppd_compare_options(ppd_option_t *o0, ppd_option_t *o1);
 #endif /* !__APPLE__ */
-static void		ppd_decode(char *string);
+static int		ppd_decode(char *string);
 #ifndef __APPLE__
 static void		ppd_fix(char *string);
 #else
@@ -126,7 +127,7 @@ static ppd_group_t	*ppd_get_group(ppd_file_t *ppd, const char *name,
 			               const char *text);
 static ppd_option_t	*ppd_get_option(ppd_group_t *group, const char *name);
 static int		ppd_read(FILE *fp, char *keyword, char *option,
-			         char *text, char **string);
+			         char *text, char **string, int ignoreblank);
 
 
 /*
@@ -304,7 +305,7 @@ ppdErrorString(ppd_status_t status)	/* I - PPD status */
 		  "Bad OpenGroup",
 		  "OpenGroup without a CloseGroup first",
 		  "Bad OpenUI/JCLOpenUI",
-		  "OpenUI/JCLOpenUI without a CloseUI/JCLCLoseUI first",
+		  "OpenUI/JCLOpenUI without a CloseUI/JCLCloseUI first",
 		  "Bad OrderDependency",
 		  "Bad UIConstraints",
 		  "Missing asterisk in column 1",
@@ -448,7 +449,9 @@ ppdOpen(FILE *fp)			/* I - File to read from */
   * Grab the first line and make sure it reads '*PPD-Adobe: "major.minor"'...
   */
 
-  mask = ppd_read(fp, keyword, name, text, &string);
+  mask = ppd_read(fp, keyword, name, text, &string, 0);
+
+  DEBUG_printf(("mask=%x, keyword=\"%s\"...\n", mask, keyword));
 
   if (mask == 0 ||
       strcmp(keyword, "PPD-Adobe") != 0 ||
@@ -458,7 +461,7 @@ ppdOpen(FILE *fp)			/* I - File to read from */
     * Either this is not a PPD file, or it is not a 4.x PPD file.
     */
 
-    if (ppd_status != PPD_OK)
+    if (ppd_status == PPD_OK)
       ppd_status = PPD_MISSING_PPDADOBE4;
 
     ppd_free(string);
@@ -508,7 +511,7 @@ ppdOpen(FILE *fp)			/* I - File to read from */
   choice     = NULL;
   ui_keyword = 0;
 
-  while ((mask = ppd_read(fp, keyword, name, text, &string)) != 0)
+  while ((mask = ppd_read(fp, keyword, name, text, &string, 1)) != 0)
   {
 #ifdef DEBUG
     printf("mask = %x, keyword = \"%s\"", mask, keyword);
@@ -585,6 +588,7 @@ ppdOpen(FILE *fp)			/* I - File to read from */
 
         if (!group)
 	{
+#ifndef __APPLE__
           if (strcmp(keyword, "Collate") && strcmp(keyword, "Duplex") &&
               strcmp(keyword, "InputSlot") && strcmp(keyword, "ManualFeed") &&
               strcmp(keyword, "MediaType") && strcmp(keyword, "MediaColor") &&
@@ -594,15 +598,12 @@ ppdOpen(FILE *fp)			/* I - File to read from */
 	    group = ppd_get_group(ppd, "Extra",
 	                          cupsLangString(language, CUPS_MSG_EXTRA));
 	  else
+#endif /* !__APPLE__ */
 	    group = ppd_get_group(ppd, "General",
 	                          cupsLangString(language, CUPS_MSG_GENERAL));
 
           if (group == NULL)
-	  {
-            ppd_status = PPD_ALLOC_ERROR;
-
 	    goto error;
-	  }
 
           DEBUG_printf(("Adding to group %s...\n", group->text));
           option = ppd_get_option(group, keyword);
@@ -835,8 +836,6 @@ ppdOpen(FILE *fp)			/* I - File to read from */
 	  {
 	    DEBUG_puts("Unable to get general group!");
 
-            ppd_status = PPD_ALLOC_ERROR;
-
 	    goto error;
 	  }
 
@@ -982,7 +981,7 @@ ppdOpen(FILE *fp)			/* I - File to read from */
       if (name[0] == '*')
         cups_strcpy(name, name + 1); /* Eliminate leading asterisk */
 
-      for (i = strlen(name) - 1; i > 0 && isspace(name[i]); i --)
+      for (i = strlen(name) - 1; i > 0 && isspace(name[i] & 255); i --)
         name[i] = '\0'; /* Eliminate trailing spaces */
 
       DEBUG_printf(("OpenUI of %s in group %s...\n", name,
@@ -992,6 +991,7 @@ ppdOpen(FILE *fp)			/* I - File to read from */
         option = ppd_get_option(subgroup, name);
       else if (group == NULL)
       {
+#ifndef __APPLE__
         if (strcmp(name, "Collate") && strcmp(name, "Duplex") &&
             strcmp(name, "InputSlot") && strcmp(name, "ManualFeed") &&
             strcmp(name, "MediaType") && strcmp(name, "MediaColor") &&
@@ -1001,15 +1001,12 @@ ppdOpen(FILE *fp)			/* I - File to read from */
 	  group = ppd_get_group(ppd, "Extra",
 	                        cupsLangString(language, CUPS_MSG_EXTRA));
 	else
+#endif /* !__APPLE__ */
 	  group = ppd_get_group(ppd, "General",
 	                        cupsLangString(language, CUPS_MSG_GENERAL));
 
         if (group == NULL)
-	{
-          ppd_status = PPD_ALLOC_ERROR;
-
 	  goto error;
-	}
 
         DEBUG_printf(("Adding to group %s...\n", group->text));
         option = ppd_get_option(group, name);
@@ -1107,11 +1104,7 @@ ppdOpen(FILE *fp)			/* I - File to read from */
       group = ppd_get_group(ppd, "JCL", "JCL");
 
       if (group == NULL)
-      {
-        ppd_status = PPD_ALLOC_ERROR;
-
 	goto error;
-      }
 
      /*
       * Add an option record to the current JCLs...
@@ -1215,6 +1208,9 @@ ppdOpen(FILE *fp)			/* I - File to read from */
       */
 
       group = ppd_get_group(ppd, string, sptr);
+
+      if (group == NULL)
+	goto error;
 
       ppd_free(string);
       string = NULL;
@@ -1638,8 +1634,17 @@ ppdOpen(FILE *fp)			/* I - File to read from */
   */
 
   if (ppd->num_attrs > 1)
+#ifndef __APPLE__
     qsort(ppd->attrs, ppd->num_attrs, sizeof(ppd_attr_t *),
           (int (*)(const void *, const void *))_ppd_attr_compare);
+#else
+   /*
+    * Use mergesort to preserve the order of the *APDialogExtension entries.
+    */
+
+    mergesort(ppd->attrs, ppd->num_attrs, sizeof(ppd_attr_t *),
+          (int (*)(const void *, const void *))_ppd_attr_compare);
+#endif /* !__APPLE__ */
 
  /*
   * Return the PPD file structure...
@@ -1930,7 +1935,7 @@ ppd_compare_options(ppd_option_t *o0,	/* I - First option */
  * 'ppd_decode()' - Decode a string value...
  */
 
-static void
+static int				/* O - Length of decoded string */
 ppd_decode(char *string)		/* I - String to decode */
 {
   char	*inptr,				/* Input pointer */
@@ -1941,14 +1946,14 @@ ppd_decode(char *string)		/* I - String to decode */
   outptr = string;
 
   while (*inptr != '\0')
-    if (*inptr == '<' && isxdigit(inptr[1]))
+    if (*inptr == '<' && isxdigit(inptr[1] & 255))
     {
      /*
       * Convert hex to 8-bit values...
       */
 
       inptr ++;
-      while (isxdigit(*inptr))
+      while (isxdigit(*inptr & 255))
       {
 	if (isalpha(*inptr))
 	  *outptr = (tolower(*inptr) - 'a' + 10) << 4;
@@ -1956,6 +1961,9 @@ ppd_decode(char *string)		/* I - String to decode */
 	  *outptr = (*inptr - '0') << 4;
 
 	inptr ++;
+
+        if (!isxdigit(*inptr & 255))
+	  break;
 
 	if (isalpha(*inptr))
 	  *outptr |= tolower(*inptr) - 'a' + 10;
@@ -1975,6 +1983,8 @@ ppd_decode(char *string)		/* I - String to decode */
       *outptr++ = *inptr++;
 
   *outptr = '\0';
+
+  return (outptr - string);
 }
 
 
@@ -2114,6 +2124,13 @@ ppd_get_group(ppd_file_t *ppd,		/* I - PPD file */
   {
     DEBUG_printf(("Adding group %s...\n", name));
 
+    if (ppd_conform == PPD_CONFORM_STRICT && strlen(text) >= sizeof(group->text))
+    {
+      ppd_status = PPD_ILLEGAL_TRANSLATION;
+
+      return (NULL);
+    }
+	    
     if (ppd->num_groups == 0)
       group = malloc(sizeof(ppd_group_t));
     else
@@ -2121,7 +2138,11 @@ ppd_get_group(ppd_file_t *ppd,		/* I - PPD file */
 	              (ppd->num_groups + 1) * sizeof(ppd_group_t));
 
     if (group == NULL)
+    {
+      ppd_status = PPD_ALLOC_ERROR;
+
       return (NULL);
+    }
 
     ppd->groups = group;
     group += ppd->num_groups;
@@ -2188,14 +2209,16 @@ ppd_read(FILE *fp,			/* I - File to read from */
          char *keyword,			/* O - Keyword from line */
 	 char *option,			/* O - Option from line */
          char *text,			/* O - Human-readable text from line */
-	 char **string)			/* O - Code/string data */
+	 char **string,			/* O - Code/string data */
+         int  ignoreblank)		/* I - Ignore blank lines? */
 {
   int		ch,			/* Character from file */
 		col,			/* Column in line */
 		colon,			/* Colon seen? */
 		endquote,		/* Waiting for an end quote */
 		mask,			/* Mask to be returned */
-		startline;		/* Start line */
+		startline,		/* Start line */
+		textlen;		/* Length of text */
   char		*keyptr,		/* Keyword pointer */
 		*optptr,		/* Option pointer */
 		*textptr,		/* Text pointer */
@@ -2254,8 +2277,8 @@ ppd_read(FILE *fp,			/* I - File to read from */
 	    ungetc(ch, fp);
 	}
 
-	if (lineptr == line)		/* Skip blank lines */
-          continue;
+	if (lineptr == line && ignoreblank)
+          continue;			/* Skip blank lines */
 
 	ch = '\n';
 
@@ -2425,7 +2448,7 @@ ppd_read(FILE *fp,			/* I - File to read from */
 
     *lineptr = '\0';
 
-/*    DEBUG_printf(("LINE = \"%s\"\n", line));*/    
+    DEBUG_printf(("LINE = \"%s\"\n", line));
 
 #ifdef __APPLE__
     /* The dynamically created PPDs for older style Mac OS X
@@ -2452,9 +2475,10 @@ ppd_read(FILE *fp,			/* I - File to read from */
     text[0]    = '\0';
     *string    = NULL;
 
-    if (!line[0] ||			/* Blank line */
-        strncmp(line, "*%", 2) == 0 ||	/* Comment line */
-        strcmp(line, "*End") == 0)	/* End of multi-line string */
+    if ((!line[0] ||			/* Blank line */
+         strncmp(line, "*%", 2) == 0 ||	/* Comment line */
+         strcmp(line, "*End") == 0) &&	/* End of multi-line string */
+        ignoreblank)			/* Ignore these? */
     {
       startline = ppd_line + 1;
       continue;
@@ -2491,7 +2515,7 @@ ppd_read(FILE *fp,			/* I - File to read from */
       */
 
       for (lineptr = line; *lineptr; lineptr ++)
-        if (!isspace(*lineptr))
+        if (!isspace(*lineptr & 255))
 	  break;
 
       if (*lineptr)
@@ -2499,8 +2523,10 @@ ppd_read(FILE *fp,			/* I - File to read from */
         ppd_status = PPD_MISSING_ASTERISK;
         return (0);
       }
-      else
+      else if (ignoreblank)
         continue;
+      else
+        return (0);
     }
 
    /*
@@ -2509,7 +2535,7 @@ ppd_read(FILE *fp,			/* I - File to read from */
 
     keyptr = keyword;
 
-    while (*lineptr != '\0' && *lineptr != ':' && !isspace(*lineptr))
+    while (*lineptr != '\0' && *lineptr != ':' && !isspace(*lineptr & 255))
     {
       if (*lineptr <= ' ' || *lineptr > 126 || *lineptr == '/' ||
           (keyptr - keyword) >= (PPD_MAX_NAME - 1))
@@ -2530,18 +2556,18 @@ ppd_read(FILE *fp,			/* I - File to read from */
 
 /*    DEBUG_printf(("keyword = \"%s\", lineptr = \"%s\"\n", keyword, lineptr));*/
 
-    if (isspace(*lineptr))
+    if (isspace(*lineptr & 255))
     {
      /*
       * Get an option name...
       */
 
-      while (isspace(*lineptr))
+      while (isspace(*lineptr & 255))
         lineptr ++;
 
       optptr = option;
 
-      while (*lineptr != '\0' && !isspace(*lineptr) && *lineptr != ':' &&
+      while (*lineptr != '\0' && !isspace(*lineptr & 255) && *lineptr != ':' &&
              *lineptr != '/')
       {
 	if (*lineptr <= ' ' || *lineptr > 126 ||
@@ -2556,13 +2582,13 @@ ppd_read(FILE *fp,			/* I - File to read from */
 
       *optptr = '\0';
 
-      if (isspace(*lineptr) && ppd_conform == PPD_CONFORM_STRICT)
+      if (isspace(*lineptr & 255) && ppd_conform == PPD_CONFORM_STRICT)
       {
         ppd_status = PPD_ILLEGAL_WHITESPACE;
 	return (0);
       }
 
-      while (isspace(*lineptr))
+      while (isspace(*lineptr & 255))
 	lineptr ++;
 
       mask |= PPD_OPTION;
@@ -2592,21 +2618,27 @@ ppd_read(FILE *fp,			/* I - File to read from */
         }
 
 	*textptr = '\0';
-	ppd_decode(text);
+	textlen  = ppd_decode(text);
 
+	if (textlen > PPD_MAX_TEXT && ppd_conform == PPD_CONFORM_STRICT)
+	{
+	  ppd_status = PPD_ILLEGAL_TRANSLATION;
+	  return (0);
+	}
+	    
 	mask |= PPD_TEXT;
       }
 
 /*      DEBUG_printf(("text = \"%s\", lineptr = \"%s\"\n", text, lineptr));*/
     }
 
-    if (isspace(*lineptr) && ppd_conform == PPD_CONFORM_STRICT)
+    if (isspace(*lineptr & 255) && ppd_conform == PPD_CONFORM_STRICT)
     {
       ppd_status = PPD_ILLEGAL_WHITESPACE;
       return (0);
     }
 
-    while (isspace(*lineptr))
+    while (isspace(*lineptr & 255))
       lineptr ++;
 
     if (*lineptr == ':')
@@ -2616,11 +2648,11 @@ ppd_read(FILE *fp,			/* I - File to read from */
       */
 
       lineptr ++;
-      while (isspace(*lineptr))
+      while (isspace(*lineptr & 255))
         lineptr ++;
 
       strptr = lineptr + strlen(lineptr) - 1;
-      while (strptr >= lineptr && isspace(*strptr))
+      while (strptr >= lineptr && isspace(*strptr & 255))
         *strptr-- = '\0';
 
       if (*strptr == '\"')
@@ -2654,5 +2686,5 @@ ppd_read(FILE *fp,			/* I - File to read from */
 
 
 /*
- * End of "$Id: ppd.c,v 1.22 2003/09/09 06:11:15 jlovell Exp $".
+ * End of "$Id: ppd.c,v 1.31 2005/01/04 22:10:39 jlovell Exp $".
  */

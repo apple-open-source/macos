@@ -1,1 +1,2 @@
-SRCS += mach_absolute_time.s
+.PATH: ${.CURDIR}/ppc/mach
+MDSRCS += mach_absolute_time.s

@@ -2,11 +2,11 @@
 
   dln.h -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:43 $
+  $Author: michal $
+  $Date: 2003/01/16 07:34:01 $
   created at: Wed Jan 19 16:53:09 JST 1994
 
-  Copyright (C) 1993-2000 Yukihiro Matsumoto
+  Copyright (C) 1993-2003 Yukihiro Matsumoto
 
 **********************************************************************/
 
@@ -22,13 +22,11 @@
 # endif
 #endif
 
-#ifndef _
-#ifndef __STDC__
-# define _(args) ()
-# define const
-#else
+#undef _
+#ifdef HAVE_PROTOTYPES
 # define _(args) args
-#endif
+#else
+# define _(args) ()
 #endif
 
 char *dln_find_exe _((const char*,const char*));

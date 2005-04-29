@@ -53,6 +53,7 @@
 // --------------------------------------------------------------------------------
 extern CFRunLoopRef			gServerRunLoop;
 extern CPluginConfig	   *gPluginConfig;
+extern DSMutexSemaphore    *gKerberosMutex;
 
 //--------------------------------------------------------------------------------------------------
 // * CLauncher()
@@ -165,6 +166,15 @@ long CLauncher::ThreadMain ( void )
 					aHeader.fResult			= eDSNoErr;
 					aHeader.fContextData	= (void *)gServerRunLoop;
 					siResult = fPlugin->ProcessRequest( (void*)&aHeader ); //don't handle return
+				}
+				
+				// provide the Kerberos Mutex to plugins that need it
+				if (gKerberosMutex != NULL)
+				{
+					aHeader.fType			= kKerberosMutex;
+					aHeader.fResult			= eDSNoErr;
+					aHeader.fContextData	= (void *)gKerberosMutex;
+					fPlugin->ProcessRequest( (void*)&aHeader ); // don't handle return
 				}
 
 				pluginState = gPluginConfig->GetPluginState( fPlugin->GetPluginName() );

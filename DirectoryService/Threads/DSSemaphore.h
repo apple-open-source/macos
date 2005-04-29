@@ -32,7 +32,7 @@
 #include <unistd.h>		// for _POSIX_THREADS
 #include <pthread.h>	// for pthread_*_t
 
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
 
 //	DSSemaphore class definition
 

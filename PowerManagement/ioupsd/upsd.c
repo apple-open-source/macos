@@ -23,6 +23,8 @@
 //---------------------------------------------------------------------------
 // Includes
 //---------------------------------------------------------------------------
+
+#include <syslog.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach/mach.h>
 #include <mach/mach_host.h>
@@ -56,20 +58,22 @@ static CFRunLoopSourceRef 	gClientRequestRunLoopSource = NULL;
 static CFRunLoopRef		gMainRunLoop = NULL;
 static CFMutableArrayRef	gUPSDataArrayRef = NULL;
 static IONotificationPortRef	gNotifyPort = NULL;
-static io_iterator_t		gAddedIter = NULL;
+static io_iterator_t		gAddedIter = MACH_PORT_NULL;
 
 //---------------------------------------------------------------------------
 // TypeDefs
 //---------------------------------------------------------------------------
 typedef struct UPSData
 {
-    io_object_t			notification;
+    io_object_t                 notification;
     IOUPSPlugInInterface ** 	upsPlugInInterface;
-    int				upsID;
-    Boolean			isPresent;
-    CFMutableDictionaryRef	upsStoreDict;
-    SCDynamicStoreRef		upsStore;
-    CFStringRef			upsStoreKey;
+    int                         upsID;
+    Boolean                     isPresent;
+    CFMutableDictionaryRef      upsStoreDict;
+    SCDynamicStoreRef           upsStore;
+    CFStringRef                 upsStoreKey;
+    CFRunLoopSourceRef          upsEventSource;
+    CFRunLoopTimerRef           upsEventTimer;
 } UPSData;
 
 typedef UPSData * 		UPSDataRef;
@@ -290,16 +294,19 @@ void InitUPSNotifications()
 
 void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
 {
-    io_object_t 		upsDevice 		= NULL;
-    UPSDataRef			upsDataRef 		= NULL;
-    CFDictionaryRef		upsProperties 		= NULL;
-    CFDictionaryRef		upsEvent 		= NULL;
-    CFSetRef			upsCapabilites 		= NULL;
+    io_object_t             upsDevice           = MACH_PORT_NULL;
+    UPSDataRef              upsDataRef          = NULL;
+    CFDictionaryRef         upsProperties       = NULL;
+    CFDictionaryRef         upsEvent            = NULL;
+    CFSetRef                upsCapabilites 		= NULL;
+    CFRunLoopSourceRef      upsEventSource      = NULL;
+    CFRunLoopTimerRef       upsEventTimer       = NULL;
+    CFTypeRef               typeRef             = NULL;
     IOCFPlugInInterface **	plugInInterface 	= NULL;
-    IOUPSPlugInInterface **	upsPlugInInterface 	= NULL;
-    HRESULT 			result 			= S_FALSE;
-    IOReturn			kr;
-    SInt32 			score;
+    IOUPSPlugInInterface_v140 **	upsPlugInInterface 	= NULL;
+    HRESULT                 result              = S_FALSE;
+    IOReturn                kr;
+    SInt32                  score;
         
     while ( upsDevice = IOIteratorNext(iterator) )
     {        
@@ -309,9 +316,35 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
                     
         if ( kr != kIOReturnSuccess )
             goto UPSDEVICEADDED_NONPLUGIN_CLEANUP;
-    
-        result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUPSPlugInInterfaceID), 
+            
+        // Grab the new v140 interface
+        result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUPSPlugInInterfaceID_v140), 
                                                 (LPVOID)&upsPlugInInterface);
+                                                
+        if ( ( result == S_OK ) && upsPlugInInterface )
+        {
+            kr = (*upsPlugInInterface)->createAsyncEventSource(upsPlugInInterface, &typeRef);
+            
+            if ((kr != kIOReturnSuccess) || !typeRef)
+                goto UPSDEVICEADDED_FAIL;
+                
+            if ( CFGetTypeID(typeRef) == CFRunLoopTimerGetTypeID() )
+            {
+                upsEventTimer = typeRef;
+                CFRunLoopAddTimer(CFRunLoopGetCurrent(), upsEventTimer, kCFRunLoopDefaultMode);
+            }
+            else if ( CFGetTypeID(typeRef) == CFRunLoopSourceGetTypeID() )
+            {
+                upsEventSource = typeRef;
+                CFRunLoopAddSource(CFRunLoopGetCurrent(), upsEventSource, kCFRunLoopDefaultMode);
+            }
+        }
+        // Couldn't grab the new interface.  Fallback on the old.
+        else
+        {
+            result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUPSPlugInInterfaceID), 
+                                                (LPVOID)&upsPlugInInterface);
+        }
                                                         
         // Got the interface
         if ( ( result == S_OK ) && upsPlugInInterface )
@@ -326,8 +359,10 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
             if ( !upsDataRef )
                 goto UPSDEVICEADDED_FAIL;
 
-            upsDataRef->upsPlugInInterface = upsPlugInInterface;
-            upsDataRef->isPresent = true;
+            upsDataRef->upsPlugInInterface  = upsPlugInInterface;
+            upsDataRef->upsEventSource      = upsEventSource;
+            upsDataRef->upsEventTimer       = upsEventTimer;
+            upsDataRef->isPresent           = true;
             
             kr = (*upsPlugInInterface)->getCapabilities(upsPlugInInterface, &upsCapabilites);
 
@@ -367,6 +402,18 @@ UPSDEVICEADDED_FAIL:
             (*upsPlugInInterface)->Release(upsPlugInInterface);
             upsPlugInInterface = NULL;
         }
+        
+        if ( upsEventSource )
+        {
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), upsEventSource, kCFRunLoopDefaultMode);
+            upsEventSource = NULL;
+        }
+
+        if ( upsEventTimer )
+        {
+            CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), upsEventTimer, kCFRunLoopDefaultMode);
+            upsEventSource = NULL;
+        }
 
 UPSDEVICEADDED_CLEANUP:
         // Clean up
@@ -399,16 +446,30 @@ void DeviceNotification(void *		refCon,
         
         SCDynamicStoreRemoveValue(upsDataRef->upsStore, upsDataRef->upsStoreKey);
 
+        if ( upsDataRef->upsEventSource )
+        {
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), upsDataRef->upsEventSource, kCFRunLoopDefaultMode);
+            CFRelease(upsDataRef->upsEventSource);
+            upsDataRef->upsEventSource = NULL;
+        }
+
+        if ( upsDataRef->upsEventTimer )
+        {
+            CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), upsDataRef->upsEventTimer, kCFRunLoopDefaultMode);
+            CFRelease(upsDataRef->upsEventTimer);
+            upsDataRef->upsEventTimer = NULL;
+        }
+
         if (upsDataRef->upsPlugInInterface != NULL)
         {
             kr = (*(upsDataRef->upsPlugInInterface))->Release (upsDataRef->upsPlugInInterface);
             upsDataRef->upsPlugInInterface = NULL;
         }
         
-        if (upsDataRef->notification != NULL)
+        if (upsDataRef->notification != MACH_PORT_NULL)
         {
             kr = IOObjectRelease(upsDataRef->notification);
-            upsDataRef->notification = NULL;
+            upsDataRef->notification = MACH_PORT_NULL;
         }
 
         if (upsDataRef->upsStoreKey)
@@ -768,7 +829,10 @@ kern_return_t _io_ups_get_event(
         
     *eventBufferSizePtr = CFDataGetLength(serializedData);
 
-    *eventBufferPtr = malloc(*eventBufferSizePtr);
+    vm_allocate(mach_task_self(), 
+            eventBufferPtr, 
+            *eventBufferSizePtr, 
+            TRUE);
 
     if( *eventBufferPtr )
         memcpy(*eventBufferPtr, CFDataGetBytePtr(serializedData), *eventBufferSizePtr);
@@ -823,7 +887,10 @@ kern_return_t _io_ups_get_capabilities(
         
     *capabilitiesBufferSizePtr = CFDataGetLength(serializedData);
 
-    *capabilitiesBufferPtr = malloc(*capabilitiesBufferSizePtr);
+    vm_allocate(mach_task_self(), 
+            capabilitiesBufferPtr, 
+            *capabilitiesBufferSizePtr, 
+            TRUE);
 
     if( *capabilitiesBufferPtr )
         memcpy(*capabilitiesBufferPtr, 

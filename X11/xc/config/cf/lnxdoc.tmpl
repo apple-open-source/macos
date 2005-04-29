@@ -1,60 +1,61 @@
-XCOMM $XFree86: xc/config/cf/lnxdoc.tmpl,v 3.11 2000/09/26 15:56:27 tsi Exp $
+XCOMM $XFree86: xc/config/cf/lnxdoc.tmpl,v 3.12 2003/04/23 15:43:29 tsi Exp $
 XCOMM
 
 #ifndef HasSgmlFmt
-#define HasSgmlFmt		NO
+#define HasSgmlFmt	  NO
 #endif
 
 #ifndef HasLinuxDoc
-#define HasLinuxDoc		NO
+#define HasLinuxDoc	  NO
 #endif
 
 #ifndef DoSgmlDocs
-#define DoSgmlDocs		(HasLinuxDoc || HasSgmlFmt)
+#define DoSgmlDocs	  (HasLinuxDoc || HasSgmlFmt)
 #endif
 
 #ifndef XFree86IdentFix
-#define XFree86IdentFix		sed '/\$$\XFree86:/s/\$$/Generated from /'
+#define XFree86IdentFix	  sed -e '/\$$\XFree86:/s/....\/..\/.. ..:..:.. *//' \
+			      -e '/\$$\XFree86:/s/\$$/Generated from /'
 #endif
 
 #ifndef HasLatex
-#define HasLatex		NO
+#define HasLatex	  NO
 #endif
 
 #ifndef SgmlFmtCmd
-#define SgmlFmtCmd		sgmlfmt
+#define SgmlFmtCmd	  sgmlfmt
 #endif
 
 #ifndef HasDvips
-#define HasDvips		NO
+#define HasDvips	  NO
 #endif
 
 #ifndef DvipsOptions
-#define DvipsOptions		/**/
+#define DvipsOptions	  /**/
 #endif
 
 #ifndef DvipsCmd
-#define DvipsCmd		dvips
+#define DvipsCmd	  dvips
 #endif
 
 #ifndef BuildLinuxDocText
-#define BuildLinuxDocText	DoSgmlDocs
+#define BuildLinuxDocText DoSgmlDocs
 #endif
 
 #ifndef BuildLinuxDocHtml
-#define BuildLinuxDocHtml	DoSgmlDocs
+#define BuildLinuxDocHtml DoSgmlDocs
 #endif
 
 #ifndef BuildLinuxDocPS
-#define BuildLinuxDocPS		DoSgmlDocs
+#define BuildLinuxDocPS	  DoSgmlDocs
 #endif
 
 #ifndef BuildSgmlDocs
-#define BuildSgmlDocs		DoSgmlDocs
+#define BuildSgmlDocs	  DoSgmlDocs
 #endif
 
 #ifndef ReadmeFile
-#define ReadmeFile(base)	README.base     
+#define ReadmeFile(base)  README.base     
 #endif
 
 

@@ -39,6 +39,7 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/IOLib.h>
+#include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
 #include <IOKit/hidsystem/IOHIKeyboard.h>
 #include <IOKit/hidsystem/IOHIKeyboardMapper.h>
@@ -51,7 +52,7 @@
 #define _f12Eject_State 			_reserved->f12Eject_State
 #define _eject_Delay_MS 			_reserved->eject_Delay_MS
 #define _ejectTimerEventSource 			_reserved->ejectTimerEventSource
-#define _stickyKeys_Modifier_KeyBits 		_reserved->stickyKeys_Modifier_KeyBits
+#define _cached_KeyBits                     _reserved->cached_KeyBits
 #define _stickyKeys_StuckModifiers  		_reserved->stickyKeys_StuckModifiers
 #define _stickyKeysMouseClickEventSource 	_reserved->stickyKeysMouseClickEventSource
 #define _stickyKeysSetFnStateEventSource 	_reserved->stickyKeysSetFnStateEventSource
@@ -62,20 +63,13 @@
 #define _slowKeysTimerEventSource 		_reserved->slowKeysTimerEventSource
 #define _slowKeys_Aborted_Key 			_reserved->slowKeys_Aborted_Key
 #define _slowKeys_Current_Key 			_reserved->slowKeys_Current_Key
-#define _slowKeys_Current_KeyBits 		_reserved->slowKeys_Current_KeyBits
-#define _swapKeyState				_reserved->swapKeyState
 #define _specialKeyModifierFlags		_reserved->specialKeyModifierFlags
 #define _supportsF12Eject			_reserved->supportsF12Eject
+#define _modifierSwap_Modifiers     _reserved->modifierSwap_Modifiers
+#define _cachedAlphaLockModDefs		_reserved->cachedAlphaLockModDefs
 
 #define super OSObject
 OSDefineMetaClassAndStructors(IOHIKeyboardMapper, OSObject);
-
-// swap key state
-enum
-{
-    kSwapState_CMD_ALT_flag	= 0x0001,
-    kSwapState_CNT_CAP_flag	= 0x0002
-};
 
 // sticky keys private state flags
 enum
@@ -86,10 +80,10 @@ enum
                                                 // cannot post key up events when our
                                                 // entry point is not a key event
                                                                                         
-    kState_PreviousFnKeyStateOn	= 0x0200,
-    kState_CurrentFnKeyStateOn = 0x0400,
-    kState_StickyFnKeyStateOn = 0x0800,
-    kState_MouseKeyStateOn = 0x1000
+    kState_PrefFnKeyStateOn                 = 0x0200,
+    kState_StickyFnKeyStateOn               = 0x0400,
+    kState_MouseKeyStateOn                  = 0x0800,
+    kState_StickyFnKeyStateChangePending    = 0x1000,
 
 };
 
@@ -134,8 +128,7 @@ enum
 #define convertToLeftModBit(modBit) \
         modBit -= ((modBit >= NX_MODIFIERKEY_RSHIFT) && \
                     (modBit <= NX_MODIFIERKEY_RCOMMAND)) ? 8 : 0;
-
-                        
+                    
 static UInt32 DeviceModifierMasks[NX_NUMMODIFIERS] = 
 {
   /* NX_MODIFIERKEY_ALPHALOCK */	0,
@@ -197,74 +190,129 @@ bool IOHIKeyboardMapper::init( IOHIKeyboard * delegate,
 	
 	_hidSystem					= NULL;
 	_stateDirty					= false;
-        
-        _reserved = IONew(ExpansionData, 1);
-        
-        _ejectTimerEventSource		= 0;
-        
-        _f12Eject_State			= 0;
-        
-        _eject_Delay_MS			= 250;  // Default HI setting.
-        
-        _slowKeys_State			= 0;
-        
-        _slowKeys_Delay_MS		= 0;
-        
-        _slowKeysTimerEventSource	= 0;
-                
-        _swapKeyState			= 0;
-
-        _specialKeyModifierFlags	= 0;
-        
-        _supportsF12Eject		= 0;
-                
-        // If there are right hand modifiers defined, set a property
-        if (_delegate && (_parsedMapping.maxMod > 0))
-        {
-
-            _delegate->setProperty( kIOHIDKeyboardCapsLockDoesLockKey,
-                                    _delegate->doesKeyLock(NX_KEYTYPE_CAPS_LOCK));
-
-            UInt32 supportedModifiers = 0;
+    
+    _reserved = IONew(ExpansionData, 1);
+    
+    _ejectTimerEventSource		= 0;
+    
+    _f12Eject_State			= 0;
+    
+    _eject_Delay_MS			= 250;  // Default HI setting.
+    
+    _slowKeys_State			= 0;
+    
+    _slowKeys_Delay_MS		= 0;
+    
+    _slowKeysTimerEventSource	= 0;
             
-            for (int mod=0; mod<NX_NUMMODIFIERS; mod++)
+    _specialKeyModifierFlags	= 0;
+    
+    _supportsF12Eject		= 0;
+    
+    _cached_KeyBits         = 0;
+    
+    _cachedAlphaLockModDefs = 0;
+            
+    // If there are right hand modifiers defined, set a property
+    if (_delegate && (_parsedMapping.maxMod > 0))
+    {
+
+        if ( _delegate->doesKeyLock(NX_KEYTYPE_CAPS_LOCK) )
+        {
+            _delegate->setProperty( kIOHIDKeyboardCapsLockDoesLockKey, kOSBooleanTrue);
+            _cachedAlphaLockModDefs = _parsedMapping.modDefs[NX_MODIFIERKEY_ALPHALOCK];  
+        }
+        else
+        {
+            _delegate->setProperty( kIOHIDKeyboardCapsLockDoesLockKey, kOSBooleanFalse);
+        }
+
+        UInt32 supportedModifiers = 0;
+        OSNumber * number = 0;
+        
+        number = (OSNumber *)_delegate->getProperty(kIOHIDKeyboardSupportedModifiersKey);
+        
+        if (number) supportedModifiers = number->unsigned32BitValue();
+        
+        for (int mod=0; mod<NX_NUMMODIFIERS; mod++)
+        {
+            if (_parsedMapping.modDefs[mod])
             {
-                if (_parsedMapping.modDefs[mod])
+                if (DeviceModifierMasks[mod])
+                    supportedModifiers |= DeviceModifierMasks[mod];
+                else
+                    supportedModifiers |= 1<<(mod+16);
+            }
+            
+            // RY: Init modifier swap while we are at it
+            _modifierSwap_Modifiers[mod] = mod;
+        }
+        _delegate->setProperty( kIOHIDKeyboardSupportedModifiersKey, supportedModifiers, 32 );
+        
+        if ( (supportedModifiers & NX_DEVICERSHIFTKEYMASK) || 
+             (supportedModifiers & NX_DEVICERCTLKEYMASK) ||
+             (supportedModifiers & NX_DEVICERALTKEYMASK) ||
+             (supportedModifiers & NX_DEVICERCMDKEYMASK) )
+        {
+            _delegate->setProperty("HIDKeyboardRightModifierSupport", kOSBooleanTrue);
+        }
+    }
+
+    if (_parsedMapping.numDefs && _delegate)
+    {
+        _delegate->setProperty("HIDKeyboardKeysDefined", kOSBooleanTrue);
+
+        // If keys are defined, check the device type to determine 
+        // if we should support F12 eject.
+        if ((_delegate->interfaceID() == NX_EVS_DEVICE_INTERFACE_ADB) &&
+            (((_delegate->deviceType() >= 0xc3) && (_delegate->deviceType() <= 0xc9)) ||
+            ((_delegate->deviceType() >= 0x00) && (_delegate->deviceType() <= 0x1e))))
+        {
+        
+            IORegistryEntry *   devicetreeRegEntry = IORegistryEntry::fromPath("/", gIODTPlane);
+            OSData *            modelData;
+            
+            _supportsF12Eject = true;
+
+            // RY: perform extra check because the 1st TiBook, 101 and Pismo share the same
+            // device type.  The TiBook has an eject key and thus should not support F12 eject.
+            if ( devicetreeRegEntry )
+            {
+                if ((modelData = OSDynamicCast(OSData, devicetreeRegEntry->getProperty("model")))
+                    && (strcmp((char *)modelData->getBytesNoCopy(), "PowerBook3,2") == 0) )
                 {
-                    if (DeviceModifierMasks[mod])
-                        supportedModifiers |= DeviceModifierMasks[mod];
-                    else
-                        supportedModifiers |= 1<<(mod+16);
+                    _supportsF12Eject = false;
                 }
+                devicetreeRegEntry->release();
             }
-            _delegate->setProperty( kIOHIDKeyboardSupportedModifiersKey, supportedModifiers, 32 );
             
-            if ( (supportedModifiers & NX_DEVICERSHIFTKEYMASK) || 
-                 (supportedModifiers & NX_DEVICERCTLKEYMASK) ||
-                 (supportedModifiers & NX_DEVICERALTKEYMASK) ||
-                 (supportedModifiers & NX_DEVICERCMDKEYMASK) )
+            if ( _supportsF12Eject )
             {
-                _delegate->setProperty("HIDKeyboardRightModifierSupport", kOSBooleanTrue);
-            }
-        }
-
-        if (_parsedMapping.numDefs && _delegate)
-        {
-            _delegate->setProperty("HIDKeyboardKeysDefined", kOSBooleanTrue);
-
-            // If keys are defined, check the device type to determine 
-            // if we should support F12 eject.
-            if ((_delegate->interfaceID() == NX_EVS_DEVICE_INTERFACE_ADB) &&
-                (((_delegate->deviceType() >= 0xc3) && (_delegate->deviceType() <= 0xc9)) ||
-                ((_delegate->deviceType() >= 0x00) && (_delegate->deviceType() <= 0x1e))))
-            {
-                _supportsF12Eject = true;
                 _delegate->setProperty( kIOHIDKeyboardSupportsF12EjectKey,
-                                        _supportsF12Eject);
+                                    _supportsF12Eject);
             }
-
         }
+    }
 
+    if ( !_delegate->doesKeyLock(NX_KEYTYPE_CAPS_LOCK) )
+    {
+        UInt32 myFlags = _delegate->deviceFlags();
+        
+        if ( _delegate->alphaLock() )
+        {
+            _specialKeyModifierFlags    |= NX_ALPHASHIFTMASK;
+            myFlags                     |= NX_ALPHASHIFTMASK;
+            
+            _delegate->IOHIKeyboard::setDeviceFlags(myFlags);
+        }
+        else
+        {
+            _specialKeyModifierFlags    &= ~NX_ALPHASHIFTMASK;
+            myFlags                     &= ~NX_ALPHASHIFTMASK;
+
+            _delegate->IOHIKeyboard::setDeviceFlags(myFlags);
+        }
+    }
 
 	return stickyKeysinit();
 }
@@ -345,18 +393,20 @@ void IOHIKeyboardMapper::translateKeyCode(UInt8        key,
     if (key >= NX_NUMKEYCODES)
         return;
         
-    calcModSwap(&key);
-    
-    // SlowKeys filter, if slowKeysFilterKey returns true, 
-    // this key is already processed
-    if (!slowKeysFilterKey(key, keyDown, keyBits))
-        // Filter out F12 to check for an eject
-        if (!f12EjectFilterKey(key, keyDown, keyBits))
-            // Stickykeys filter, if stickyKeysFilterKey returns true, 
-            // this key is already processed
-            if (!stickyKeysFilterKey(key, keyDown, keyBits))
-                    // otherwise, call the original raw translate key code
-                    rawTranslateKeyCode(key, keyDown, keyBits);
+    if ( !_cached_KeyBits )
+        _cached_KeyBits = keyBits;
+        
+    if (!modifierSwapFilterKey(&key))
+        // SlowKeys filter, if slowKeysFilterKey returns true, 
+        // this key is already processed
+        if (!slowKeysFilterKey(key, keyDown, keyBits))
+            // Filter out F12 to check for an eject
+            if (!f12EjectFilterKey(key, keyDown, keyBits))
+                // Stickykeys filter, if stickyKeysFilterKey returns true, 
+                // this key is already processed
+                if (!stickyKeysFilterKey(key, keyDown, keyBits))
+                        // otherwise, call the original raw translate key code
+                        rawTranslateKeyCode(key, keyDown, keyBits);
 }
 
 
@@ -716,59 +766,65 @@ static inline int NEXTNUM(unsigned char ** mapping, short shorts)
   return returnValue;
 }
 
-void IOHIKeyboardMapper::calcModSwap(UInt8 * key)
+bool IOHIKeyboardMapper::modifierSwapFilterKey(UInt8 * key)
 {
     unsigned char 	thisBits = _parsedMapping.keyBits[*key];
-    UInt8 		modBit = (thisBits & NX_WHICHMODMASK);
+    SInt16          modBit = (thisBits & NX_WHICHMODMASK);
+    SInt16          swapBit;
     unsigned char 	*mapping;
     
-    if (_swapKeyState == 0)
-        return;
-        
     if (!(thisBits & NX_MODMASK))
     {
         if (*key == getParsedSpecialKey(NX_KEYTYPE_CAPS_LOCK))
             modBit = NX_MODIFIERKEY_ALPHALOCK;
         else
-            return;
-    }
-    
-    switch(modBit)
-    {
-        case NX_MODIFIERKEY_COMMAND:
-            modBit = (_swapKeyState & kSwapState_CMD_ALT_flag) ? NX_MODIFIERKEY_ALTERNATE : modBit;
-            break;
-            
-        case NX_MODIFIERKEY_RCOMMAND:
-            modBit = (_swapKeyState & kSwapState_CMD_ALT_flag) ? NX_MODIFIERKEY_RALTERNATE : modBit;
-            break;
-
-        case NX_MODIFIERKEY_ALTERNATE:
-            modBit = (_swapKeyState & kSwapState_CMD_ALT_flag) ? NX_MODIFIERKEY_COMMAND : modBit;
-            break;
-
-        case NX_MODIFIERKEY_RALTERNATE:
-            modBit = (_swapKeyState & kSwapState_CMD_ALT_flag) ? NX_MODIFIERKEY_RCOMMAND : modBit;
-            break;
-
-        case NX_MODIFIERKEY_ALPHALOCK:
-            modBit = (_swapKeyState & kSwapState_CNT_CAP_flag) ? NX_MODIFIERKEY_CONTROL : modBit;
-            break;
-
-        case NX_MODIFIERKEY_CONTROL:
-            modBit = (_swapKeyState & kSwapState_CNT_CAP_flag) ? NX_MODIFIERKEY_ALPHALOCK : modBit;
-            break;
-            
-        default:
-            return;
+            return false;
     }
 
-    if (((mapping = _parsedMapping.modDefs[modBit]) != 0 ) &&
+    if (modBit > NX_MODIFIERKEY_RCOMMAND)
+        return false;
+        
+    swapBit = _modifierSwap_Modifiers[modBit];
+	
+    if (swapBit == modBit)
+	{
+		// RY: Handle situation where modifiers were mapped to CapsLock on 
+		// physically locking caps keyboards.  In this case, we want to restore
+		// the NX_MODIFIERKEY_ALPHALOCK modDef and remove the char generation.
+		// This will deactivate the AlphaLock toggle behavior.
+		if (_delegate->doesKeyLock(NX_KEYTYPE_CAPS_LOCK) && (swapBit == NX_MODIFIERKEY_ALPHALOCK))
+		{
+			_parsedMapping.keyBits[ _parsedMapping.specialKeys[NX_KEYTYPE_CAPS_LOCK] ]
+                        &= ~NX_CHARGENMASK;
+			_parsedMapping.modDefs[NX_MODIFIERKEY_ALPHALOCK] = _cachedAlphaLockModDefs;  
+			_specialKeyModifierFlags &= ~NX_ALPHASHIFTMASK;
+		}
+        return false;
+	}
+    else if (swapBit == -1)
+	{
+        return true;
+	}
+
+	// RY: Handle situation where modifiers are being mapped to CapsLock on 
+	// physically locking caps keyboards.  In this case, we want to remove
+	// the NX_MODIFIERKEY_ALPHALOCK modDef and generate a char.  This will
+	// activate the AlphaLock toggle behavior. 
+	if (_delegate->doesKeyLock(NX_KEYTYPE_CAPS_LOCK) && (swapBit == NX_MODIFIERKEY_ALPHALOCK))
+	{
+		_parsedMapping.keyBits[ _parsedMapping.specialKeys[NX_KEYTYPE_CAPS_LOCK] ]
+                        |= NX_CHARGENMASK;
+		_parsedMapping.modDefs[NX_MODIFIERKEY_ALPHALOCK] = 0;  
+	}
+        
+    if (((mapping = _parsedMapping.modDefs[swapBit]) != 0 ) &&
         ( NEXTNUM(&mapping, _parsedMapping.shorts) ))
         *key = NEXTNUM(&mapping, _parsedMapping.shorts);
 
-    else if (modBit == NX_MODIFIERKEY_ALPHALOCK)
+    else if (swapBit == NX_MODIFIERKEY_ALPHALOCK)
         *key = getParsedSpecialKey(NX_KEYTYPE_CAPS_LOCK);
+        
+    return false;
 }
 
 //
@@ -798,10 +854,10 @@ static inline int IsModifierDown(NXParsedKeyMapping *parsedMapping,
 
 void IOHIKeyboardMapper::calcModBit(int bit, kbdBitVector keyBits)
 {
-        int 		otherHandBit;
-        int 		deviceBitMask = 0;
-	int		systemBitMask = 0;
-	unsigned	myFlags;
+        int 		otherHandBit	= 0;
+        int 		deviceBitMask 	= 0;
+	int		systemBitMask 	= 0;
+	unsigned	myFlags		= 0;
 
         systemBitMask = 1<<(bit+16);
         deviceBitMask = DeviceModifierMasks[bit];
@@ -1099,7 +1155,7 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 
 void IOHIKeyboardMapper::setKeyboardTarget (IOService * keyboardTarget)
 {
-	_hidSystem = OSDynamicCast( IOHIDSystem, keyboardTarget );
+	_hidSystem = OSDynamicCast( IOHIDSystem, keyboardTarget );    
 }
 
 void IOHIKeyboardMapper::makeNumberParamProperty( OSDictionary * dict, 
@@ -1124,13 +1180,16 @@ bool IOHIKeyboardMapper::updateProperties( void )
 
 IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
 {
-    OSNumber *		number;
-    OSData *		data;
-    IOReturn		err = kIOReturnSuccess;
-    bool		updated = false;
-    bool		turnedOff = false;
-    bool		stickyKeysStateAdjusted = false;
-    UInt32		value = 0;
+    OSNumber *		number                  = 0;
+    OSData *		data                    = 0;
+    OSArray *       array                   = 0;
+    IOReturn		err                     = kIOReturnSuccess;
+    bool            updated                 = false;
+    UInt32          value                   = 0;
+    bool            issueFlagsChangedEvent  = false;
+    bool            alphaState              = false;
+    UInt32          myFlags                 = _delegate->deviceFlags();
+    UInt32          ledStatus               = 0;
 
     // Check for eject delay property
     if ((number = OSDynamicCast(OSNumber,
@@ -1148,22 +1207,23 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
     } 
     
     // Check for fkey mode property
-    if ((number = OSDynamicCast(OSNumber,
+    if (((dict != _offFnParamDict) && (dict != _onFnParamDict)) &&
+		(number = OSDynamicCast(OSNumber,
                               dict->getObject(kIOHIDFKeyModeKey))) ||
         (data = OSDynamicCast(OSData,
                               dict->getObject(kIOHIDFKeyModeKey))))
     {
-        value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
-		
-        // if set, then set the bit in our state
-        if (value)
-                _stickyKeys_State |= kState_CurrentFnKeyStateOn;
-        // otherwise clear the bit in our state
-        else
-                _stickyKeys_State &= ~kState_CurrentFnKeyStateOn;
-                		
-        // we changed something
-        updated = true;
+		value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
+
+		// if set, then set the bit in our state
+		if (value)
+				_stickyKeys_State |= kState_PrefFnKeyStateOn;
+		// otherwise clear the bit in our state
+		else
+				_stickyKeys_State &= ~kState_PrefFnKeyStateOn;
+						
+		// we changed something
+		updated = true;
     } 
     
     
@@ -1218,14 +1278,14 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
         if (value)
         {
                 _stickyKeys_State |= kState_Disabled_Flag;
-                turnedOff = true;
+                stickyKeysCleanup();
         }
         // otherwise clear the bit in our state
         else
                 _stickyKeys_State &= ~kState_Disabled_Flag;
 		
 		// we changed something
-        updated = stickyKeysStateAdjusted = true;
+        updated = true;
     }
 
     // check for on/off property in the dictionary
@@ -1239,23 +1299,14 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
         // if set, then set the bit in our state
         if (value) {
                 _stickyKeys_State |= kState_On;
-                    
-                _stickyKeys_State &= ~kState_StickyFnKeyStateOn;
-                                        
-                if (_stickyKeys_State & kState_CurrentFnKeyStateOn)
-                    _stickyKeys_State |= kState_PreviousFnKeyStateOn;
-                else 
-                    _stickyKeys_State &= ~kState_PreviousFnKeyStateOn;
-
         }
         // otherwise clear the bit in our state
         else {
-                _stickyKeys_State &= ~kState_On;
-                turnedOff = true;
+		stickyKeysCleanup();
         }
         
         // we changed something
-        updated = stickyKeysStateAdjusted = true;
+        updated = true;
     }
 
     // check for shift toggles property in the dictionary
@@ -1296,64 +1347,132 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
         updated = true;
     }
 
-    // check for swap of command and alt
-    if ((number = OSDynamicCast(OSNumber,
-                              dict->getObject(kIOHIDKeyboardSwapCommandAltKey))) ||
-        (data = OSDynamicCast(OSData,
-                              dict->getObject(kIOHIDKeyboardSwapCommandAltKey))))
+    if ((array = OSDynamicCast(OSArray, dict->getObject(kIOHIDKeyboardModifierMappingPairsKey))) && (_parsedMapping.maxMod != -1))
     {
-        value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
-
-        // if set, then set the bit in our state
-        if (value)
-                _swapKeyState |= kSwapState_CMD_ALT_flag;
-        // otherwise clear the bit in our state
-        else
-                _swapKeyState &= ~kSwapState_CMD_ALT_flag;
-                        
-    }
-
-    // check for swap of control and caps lock
-    if ((number = OSDynamicCast(OSNumber,
-                              dict->getObject(kIOHIDKeyboardSwapControlCapsLockKey))) ||
-        (data = OSDynamicCast(OSData,
-                              dict->getObject(kIOHIDKeyboardSwapControlCapsLockKey)))&&
-        (!_delegate->doesKeyLock(NX_KEYTYPE_CAPS_LOCK)))
-    {
-        value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
-
-        // if set, then set the bit in our state
-        if (value)
-                _swapKeyState |= kSwapState_CNT_CAP_flag;
-        // otherwise clear the bit in our state
-        else
-                _swapKeyState &= ~kSwapState_CNT_CAP_flag;
-                        
-    }
-	
-	// if turned off, flush some things
-    if (turnedOff)
-	{
-            // if we were on, clear a few things going off
-
-            // post the keyups for all the modifier keys being held
-            for (int index = 0; index < _stickyKeys_NumModifiersDown; index++)
-                    rawTranslateKeyCode(_stickyKeys_StuckModifiers[index].key, false, _stickyKeys_Modifier_KeyBits);
-
-            // clear state, modifiers no longer down
-            _stickyKeys_State &= ~kState_On_ModifiersDown;
-            _stickyKeys_NumModifiersDown = 0;
-
-	}
+        UInt32 count = array->getCount();
         
-    if (stickyKeysStateAdjusted)
+        if ( count )
+        {
+            for ( unsigned i=0; i<count; i++)
+            {
+                OSDictionary *  pair            = OSDynamicCast(OSDictionary, array->getObject(i));
+                SInt32          src             = 0;
+                SInt32          dst             = 0;
+                
+                if ( !pair ) continue;
+                
+                number = OSDynamicCast(OSNumber, pair->getObject(kIOHIDKeyboardModifierMappingSrcKey));
+                
+                if ( !number ) continue;
+                
+                src = number->unsigned32BitValue();
+
+                number = OSDynamicCast(OSNumber, pair->getObject(kIOHIDKeyboardModifierMappingDstKey));
+                
+                if ( !number ) continue;
+
+                dst = number->unsigned32BitValue();
+                
+                if ( src == NX_MODIFIERKEY_ALPHALOCK )
+                {
+                    ledStatus = _delegate->getLEDStatus();
+                
+                    if (dst == NX_MODIFIERKEY_ALPHALOCK)
+                    {
+                        if ((ledStatus & 0x2) && !(myFlags & NX_ALPHASHIFTMASK))
+                        {
+                            issueFlagsChangedEvent  = true;
+                            alphaState              = true;
+                        }
+                        else if (!(ledStatus & 0x2) && (myFlags & NX_ALPHASHIFTMASK))
+                        {
+                            issueFlagsChangedEvent  = true;
+                            alphaState              = false;
+                        }
+                    }
+                    else if (_delegate->doesKeyLock(NX_KEYTYPE_CAPS_LOCK) && (dst != -1))
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        issueFlagsChangedEvent  = true;
+                        alphaState              = false;
+                    }
+                }
+                
+                if ((src >= NX_MODIFIERKEY_ALPHALOCK) && (src <= NX_MODIFIERKEY_RCOMMAND))
+                    _modifierSwap_Modifiers[src] = dst;            
+            }
+        }
+        else
+        {            
+            for (unsigned i=0; i<NX_NUMMODIFIERS; i++)
+            {
+				if (((i == NX_MODIFIERKEY_ALPHALOCK) && (_modifierSwap_Modifiers[i] != NX_MODIFIERKEY_ALPHALOCK)) ||
+					((i != NX_MODIFIERKEY_ALPHALOCK) && (_modifierSwap_Modifiers[i] == NX_MODIFIERKEY_ALPHALOCK)))
+				{
+					ledStatus = _delegate->getLEDStatus();
+				
+					if ((ledStatus & 0x2) && !(myFlags & NX_ALPHASHIFTMASK))
+					{
+						issueFlagsChangedEvent  = true;
+						alphaState              = true;
+					}
+					else if (!(ledStatus & 0x2) && (myFlags & NX_ALPHASHIFTMASK))
+					{
+						issueFlagsChangedEvent  = true;
+						alphaState              = false;
+					}
+				}
+				
+                _modifierSwap_Modifiers[i] = i;
+            }
+            
+        }
+
+    }
+
+    if ( issueFlagsChangedEvent )
     {
-            // Since we most likely running via IOHIDSystem::cmdGate runAction,
-            // we should really trigger an interrupt to run this later on the
-            // workloop.  This will also avoid any synchronization anomolies.
-            if (_stickyKeysSetFnStateEventSource)
-                _stickyKeysSetFnStateEventSource->interruptOccurred(0, 0, 0);
-    
+        if ( alphaState )
+        {
+			if ( !_delegate->doesKeyLock(NX_KEYTYPE_CAPS_LOCK) )
+			{
+				_specialKeyModifierFlags |= NX_ALPHASHIFTMASK;
+			}
+
+            myFlags |= NX_ALPHASHIFTMASK;
+
+            _delegate->setDeviceFlags(myFlags);
+            _delegate->setAlphaLock(true);            
+        }
+        else
+        {
+            _specialKeyModifierFlags    &= ~NX_ALPHASHIFTMASK;
+            myFlags                     &= ~NX_ALPHASHIFTMASK;
+            
+            _delegate->setDeviceFlags(myFlags);
+            _delegate->setAlphaLock(false);            
+        }
+                    
+        UInt8           keyCode;
+        unsigned char 	*mapping;
+
+        if (((mapping = _parsedMapping.modDefs[NX_MODIFIERKEY_ALPHALOCK]) != 0 ) &&
+            ( NEXTNUM(&mapping, _parsedMapping.shorts) ))
+            keyCode = NEXTNUM(&mapping, _parsedMapping.shorts);
+        else
+            keyCode = getParsedSpecialKey(NX_KEYTYPE_CAPS_LOCK);
+
+        _delegate->keyboardEvent(NX_FLAGSCHANGED,
+         /* flags */            myFlags,
+         /* keyCode */          keyCode,
+         /* charCode */         0,
+         /* charSet */          0,
+         /* originalCharCode */ 0,
+         /* originalCharSet */  0);
+
     }
 
 	// right now updateProperties does nothing interesting
@@ -1563,7 +1682,7 @@ bool IOHIKeyboardMapper::stickyKeysModifierToggleCheck(
     int				index, innerindex;
     AbsoluteTime	now, deadline;
     bool			shouldToggle = false;
-    int			leftModBit = (thisBits & NX_WHICHMODMASK);
+    unsigned			leftModBit = (thisBits & NX_WHICHMODMASK);
 
         // Convert the modbit to left hand modifier
         convertToLeftModBit(leftModBit);
@@ -1681,12 +1800,13 @@ bool IOHIKeyboardMapper::stickyKeysModifierKey(
 							bool         keyDown,
 							kbdBitVector keyBits)
 {
-    unsigned char 	thisBits = _parsedMapping.keyBits[key];
-    int				index, innerindex;
-	bool			isBeingHeld;
-        bool			shouldBeHandled = true;
-	int				heldIndex;
-        int			leftModBit = (thisBits & NX_WHICHMODMASK);
+    unsigned char	thisBits 	= _parsedMapping.keyBits[key];
+    int			index		= 0;
+    int			innerindex	= 0;
+    bool		isBeingHeld	= false;
+    bool		shouldBeHandled	= true;
+    int			heldIndex	= 0;
+    int			leftModBit	= (thisBits & NX_WHICHMODMASK);
         
         // Convert the modbit to left hand modifier
         convertToLeftModBit(leftModBit);
@@ -1719,6 +1839,15 @@ bool IOHIKeyboardMapper::stickyKeysModifierKey(
                                     // set the state flag, so that stickyKeysNonModifierKey can call
                                     // back into this function to release the key.
                                     _stickyKeys_StuckModifiers[heldIndex].state |= kModifier_DidKeyUp;
+                                    
+                                    if (((thisBits & NX_WHICHMODMASK) == NX_MODIFIERKEY_SECONDARYFN) &&
+                                        ((_stickyKeys_State & kState_StickyFnKeyStateChangePending) != 0))
+                                    {
+                                        _stickyKeys_State &= ~kState_StickyFnKeyStateChangePending;
+                                        
+                                        if (_stickyKeysSetFnStateEventSource)
+                                            _stickyKeysSetFnStateEventSource->interruptOccurred(0, 0, 0);
+                                    }                                        
                             }
                 }
                 // RY: take care of the case where the modifier was held down 
@@ -1790,7 +1919,8 @@ RELEASE_STICKY_MODIFIER_KEY:
                                 // Since we most likely running via IOHIDSystem::cmdGate runAction,
                                 // we should really trigger an interrupt to run this later on the
                                 // workloop.  This will also avoid any synchronization anomolies.
-                                _stickyKeys_State &= ~kState_StickyFnKeyStateOn;
+                                _stickyKeys_State &= ~(kState_StickyFnKeyStateOn | kState_StickyFnKeyStateChangePending);
+                                
                                 if (_stickyKeysSetFnStateEventSource)
                                     _stickyKeysSetFnStateEventSource->interruptOccurred(0, 0, 0);
                                                     
@@ -1841,8 +1971,6 @@ RELEASE_STICKY_MODIFIER_KEY:
                 // if this key is not being held already, then post the modifier down
 		else
 		{
-                        // cache the keyBits.  this will be used for clearing
-                        _stickyKeys_Modifier_KeyBits = keyBits;
                         rawTranslateKeyCode(key, keyDown, keyBits);
 			
 			// and remember it is down
@@ -1884,9 +2012,7 @@ RELEASE_STICKY_MODIFIER_KEY:
                                 // Since we most likely running via IOHIDSystem::cmdGate runAction,
                                 // we should really trigger an interrupt to run this later on the
                                 // workloop.  This will also avoid any synchronization anomolies.
-                                _stickyKeys_State |= kState_StickyFnKeyStateOn;
-                                if (_stickyKeysSetFnStateEventSource)
-                                    _stickyKeysSetFnStateEventSource->interruptOccurred(0, 0, 0);
+                                _stickyKeys_State |= kState_StickyFnKeyStateOn | kState_StickyFnKeyStateChangePending;
                                                     
                                 postKeyboardSpecialEvent (NX_SUBTYPE_STICKYKEYS_FN_DOWN);
                                 break;
@@ -1910,12 +2036,14 @@ bool IOHIKeyboardMapper::stickyKeysFilterKey(
 							UInt8        key,
 							bool         keyDown,
 							kbdBitVector keyBits,
-                                                        bool 	     mouseClick)
+                            bool 	     mouseClick)
 {
     unsigned char 	thisBits = _parsedMapping.keyBits[key];
     bool			shouldFilter = false;
-    int				index;
     bool			shouldToggleState = false;
+    
+    if ( _parsedMapping.maxMod == -1 )
+        return false;
 	
     // if we are disabled, then do nothing
     if ((_stickyKeys_State & kState_Disabled_Flag) != 0)
@@ -1968,7 +2096,7 @@ bool IOHIKeyboardMapper::stickyKeysFilterKey(
         {
             _stickyKeysMouseClickEventSource = 
                 IOInterruptEventSource::interruptEventSource
-                (this, (IOInterruptEventSource::Action) stickyKeysMouseDown);
+                (this, (IOInterruptEventSource::Action) stickyKeysMouseUp);
                             
             if(_stickyKeysMouseClickEventSource &&
                 (_hidSystem->getWorkLoop()->addEventSource(_stickyKeysMouseClickEventSource) != kIOReturnSuccess)) {
@@ -2009,38 +2137,18 @@ bool IOHIKeyboardMapper::stickyKeysFilterKey(
         // if we were on, clear a few things going off
         if ((_stickyKeys_State & kState_On) != 0)
         {
-            // post the keyups for all the modifier keys being held
-            for (index = 0; index < _stickyKeys_NumModifiersDown; index++)
-                rawTranslateKeyCode(_stickyKeys_StuckModifiers[index].key, false, keyBits);
-
-            // clear state, modifiers no longer down
-            _stickyKeys_State &= ~kState_On_ModifiersDown;
-            _stickyKeys_NumModifiersDown = 0;
-
-            // clear the fn key state
-            _stickyKeys_State &= ~kState_StickyFnKeyStateOn;
-        } else 
-        {
-            if (_stickyKeys_State & kState_CurrentFnKeyStateOn)
-                _stickyKeys_State |= kState_PreviousFnKeyStateOn;
-            else 
-                _stickyKeys_State &= ~kState_PreviousFnKeyStateOn;
+            stickyKeysCleanup();
+			postKeyboardSpecialEvent (NX_SUBTYPE_STICKYKEYS_OFF);
         }
-        
-        // toggle our state
-        _stickyKeys_State ^= kState_On;
-		
+        else
+        {
+            _stickyKeys_State |= kState_On;
+			postKeyboardSpecialEvent (NX_SUBTYPE_STICKYKEYS_ON);
+        }
+        		
 		// remember we changed
 		_stateDirty = true;
 		
-		// notify the world we changed
-		// are we now on?
-        if ((_stickyKeys_State & kState_On) != 0)
-			postKeyboardSpecialEvent (NX_SUBTYPE_STICKYKEYS_ON);
-		// else, we are now off
-		else
-			postKeyboardSpecialEvent (NX_SUBTYPE_STICKYKEYS_OFF);
-                        
         // Since we most likely running via IOHIDSystem::cmdGate runAction,
         // we should really trigger an interrupt to run this later on the
         // workloop.  This will also avoid any synchronization anomolies.
@@ -2049,6 +2157,29 @@ bool IOHIKeyboardMapper::stickyKeysFilterKey(
     }
     
     return shouldFilter;
+}
+
+void IOHIKeyboardMapper::stickyKeysCleanup()
+{
+	_stickyKeys_State &= ~kState_On;
+
+	// post the keyups for all the modifier keys being held
+	for (int index = 0; index < _stickyKeys_NumModifiersDown; index++)
+		rawTranslateKeyCode(_stickyKeys_StuckModifiers[index].key, false, _cached_KeyBits);
+
+	// clear state, modifiers no longer down
+	_stickyKeys_State &= ~kState_On_ModifiersDown;
+	_stickyKeys_NumModifiersDown = 0;
+
+	// clear the fn key state
+	_stickyKeys_State &= ~kState_StickyFnKeyStateOn;
+
+	// Since we most likely running via IOHIDSystem::cmdGate runAction,
+	// we should really trigger an interrupt to run this later on the
+	// workloop.  This will also avoid any synchronization anomolies.
+	if (_stickyKeysSetFnStateEventSource)
+		_stickyKeysSetFnStateEventSource->interruptOccurred(0, 0, 0);
+
 }
 
 void IOHIKeyboardMapper::keyEventPostProcess (void)
@@ -2207,7 +2338,7 @@ bool IOHIKeyboardMapper::slowKeysFilterKey (UInt8 key, bool keyDown, kbdBitVecto
             // clear the flag.
             if ((key != _slowKeys_Current_Key) && ((_slowKeys_State & kState_Is_Repeat_Flag) != 0)) {
                 
-                postSlowKeyTranslateKeyCode(this, _slowKeys_Current_Key, false, _slowKeys_Current_KeyBits);
+                postSlowKeyTranslateKeyCode(this, _slowKeys_Current_Key, false, _cached_KeyBits);
                 
                 _slowKeys_State &= ~kState_Is_Repeat_Flag;
             }
@@ -2217,7 +2348,6 @@ bool IOHIKeyboardMapper::slowKeysFilterKey (UInt8 key, bool keyDown, kbdBitVecto
             _slowKeys_State |= kState_In_Progess_Flag;
             
             _slowKeys_Current_Key = key;
-            _slowKeys_Current_KeyBits = keyBits;
             
             _slowKeysTimerEventSource->setTimeoutMS(_slowKeys_Delay_MS);
             
@@ -2243,7 +2373,7 @@ bool IOHIKeyboardMapper::slowKeysFilterKey (UInt8 key, bool keyDown, kbdBitVecto
             // for that key and clear the flag
             if ((_slowKeys_State & kState_Is_Repeat_Flag) != 0) {
             
-                postSlowKeyTranslateKeyCode(this, _slowKeys_Current_Key, false, _slowKeys_Current_KeyBits);
+                postSlowKeyTranslateKeyCode(this, _slowKeys_Current_Key, false, _cached_KeyBits);
                 
                 _slowKeys_State &= ~kState_Is_Repeat_Flag;
             }
@@ -2297,7 +2427,7 @@ bool IOHIKeyboardMapper::slowKeysFilterKey (UInt8 key, bool keyDown, kbdBitVecto
             // and clear the flag
             if ((_slowKeys_State & kState_Is_Repeat_Flag) != 0) {
             
-                postSlowKeyTranslateKeyCode(this, _slowKeys_Current_Key, false, _slowKeys_Current_KeyBits);
+                postSlowKeyTranslateKeyCode(this, _slowKeys_Current_Key, false, _cached_KeyBits);
                 
                 _slowKeys_State &= ~kState_Is_Repeat_Flag;
             }
@@ -2327,7 +2457,7 @@ void IOHIKeyboardMapper::slowKeysPostProcess (IOHIKeyboardMapper *owner, IOTimer
     owner->_slowKeys_State &= ~kState_In_Progess_Flag;
 
     // Post the key down
-    postSlowKeyTranslateKeyCode(owner, owner->_slowKeys_Current_Key, true, owner->_slowKeys_Current_KeyBits);
+    postSlowKeyTranslateKeyCode(owner, owner->_slowKeys_Current_Key, true, owner->_cached_KeyBits);
                 
     // Notify System that this is the end
     owner->postKeyboardSpecialEvent(NX_SUBTYPE_SLOWKEYS_END);
@@ -2337,17 +2467,22 @@ void IOHIKeyboardMapper::stickyKeysSetFnState(IOHIKeyboardMapper *owner, IOEvent
 {
     OSDictionary *dict;
 
-    dict = ((owner->_stickyKeys_State & kState_On) ? 
-            (owner->_stickyKeys_State & kState_StickyFnKeyStateOn) : 
-            (owner->_stickyKeys_State & kState_PreviousFnKeyStateOn)) ? 
-            owner->_onFnParamDict : owner->_offFnParamDict;
+	if ((owner->_stickyKeys_State & kState_On) != 0)
+	{
+		dict = (((owner->_stickyKeys_State & kState_PrefFnKeyStateOn) != 0) ^ ((owner->_stickyKeys_State & kState_StickyFnKeyStateOn) != 0)) ? 
+				owner->_onFnParamDict : owner->_offFnParamDict;
+	}
+	else
+	{
+		dict = ((owner->_stickyKeys_State & kState_PrefFnKeyStateOn) != 0) ? owner->_onFnParamDict : owner->_offFnParamDict;
+	}
             
     owner->_hidSystem->setParamProperties (dict);
 }
 
-void IOHIKeyboardMapper::stickyKeysMouseDown(IOHIKeyboardMapper *owner, IOEventSource *sender)
+void IOHIKeyboardMapper::stickyKeysMouseUp(IOHIKeyboardMapper *owner, IOEventSource *sender)
 {
-    owner->stickyKeysFilterKey (0, 0, owner->_reserved->stickyKeys_Modifier_KeyBits, true);
+    owner->stickyKeysFilterKey (0, 0, owner->_cached_KeyBits, true);
 }
 
 OSMetaClassDefineReservedUsed(IOHIKeyboardMapper,  0);
@@ -2357,6 +2492,7 @@ IOReturn IOHIKeyboardMapper::message( UInt32 type, IOService * provider, void * 
     switch (type)
     {
         case kIOHIDSystem508MouseClickMessage:
+        case kIOHIDSystem508SpecialKeyDownMessage:
             
             // Since we most likely running via IOHIDSystem::cmdGate runAction,
             // we should really trigger an interrupt to run this later on the

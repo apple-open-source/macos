@@ -1,5 +1,5 @@
 /* 
-Copyright (c) 1998-2002 by Juliusz Chroboczek
+Copyright (c) 1998-2003 by Juliusz Chroboczek
  
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-/* $XFree86: xc/lib/font/FreeType/ftenc.c,v 1.21 2002/10/01 00:02:10 alanh Exp $ */
+/* $XFree86: xc/lib/font/FreeType/ftenc.c,v 1.25 2003/11/20 22:36:34 dawes Exp $ */
 
 #ifndef FONTMODULE
 #include <string.h>
@@ -29,13 +29,19 @@ THE SOFTWARE.
 #include "xf86_ansic.h"
 #endif
 
+#include "fntfilst.h"
+#include "fontutil.h"
+#include "FSproto.h"
+
 #include "fontmisc.h"
 #include "fontenc.h"
-#include "freetype/freetype.h"
-#include "freetype/ttnameid.h"
-#include "freetype/tttables.h"
-#include "freetype/t1tables.h"
-#include "freetype/ftxf86.h"
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_TRUETYPE_IDS_H
+#include FT_TRUETYPE_TABLES_H
+#include FT_TYPE1_TABLES_H
+#include FT_BDF_H
+#include FT_XFREE86_H
 #include "ft.h"
 
 static int find_cmap(int, int, int, FT_Face, FT_CharMap *);
@@ -45,6 +51,9 @@ FTEncFontSpecific(char *encoding)
 {
     char *p = encoding;
 
+    if(strcasecmp(encoding, "microsoft-symbol") == 0)
+        return 1;
+       
     while(*p != '-') {
         if(*p == '\0')
             return 0;
@@ -62,36 +71,46 @@ FTPickMapping(char *xlfd, int length, char *filename, FT_Face face,
     FontMapPtr mapping;
     FT_CharMap cmap;
     int ftrc;
-    
+    int symbol = 0;
+    const char *enc, *reg;
     char *encoding_name = 0;
+    char buf[20];
 
     if(xlfd)
       encoding_name = FontEncFromXLFD(xlfd, length);
     if(!encoding_name)
         encoding_name = "iso8859-1";
 
-    if(FTEncFontSpecific(encoding_name)) {
-        ftrc = FT_Select_Charmap(face, ft_encoding_adobe_custom);
-        if(ftrc != 0) {
-            ErrorF("FreeType: couldn't select custom Type 1 encoding\n");
-            return -1;
-        } else {
-            tm->named = 0;
-            tm->cmap = face->charmap;
-            tm->base = 0;
-            tm->mapping = NULL;
-            return 0;
+    symbol = FTEncFontSpecific(encoding_name);
+
+    ftrc = FT_Get_BDF_Charset_ID(face, &enc, &reg);
+    if(ftrc == 0) {
+        /* Disable reencoding for non-Unicode fonts.  This will
+           currently only work for BDFs. */
+        if(strlen(enc) + strlen(reg) > 18)
+            goto native;
+        strcpy(buf, enc);
+        strcat(buf, "-");
+        strcat(buf, reg);
+        ErrorF("%s %s\n", buf, encoding_name);
+        if(strcasecmp(buf, "iso10646-1") != 0) {
+            if(strcasecmp(buf, encoding_name) == 0)
+                goto native;
+            return BadFontFormat;
         }
+    } else if(symbol) {
+        ftrc = FT_Select_Charmap(face, ft_encoding_adobe_custom);
+        if(ftrc == 0)
+            goto native;
     }
 
     encoding = FontEncFind(encoding_name, filename);
+    if(symbol && encoding == NULL)
+        encoding = FontEncFind("microsoft-symbol", filename);
     if(encoding == NULL) {
-        ErrorF("FreeType: couldn't find encoding %s\n", encoding_name);
-        encoding = FontEncFind("iso8859-1", filename);
-    }
-    if(encoding == NULL) {
-        ErrorF("FreeType: couldn't find encoding iso8859-1.\n");
-        return -1;
+        ErrorF("FreeType: couldn't find encoding '%s' for '%s'\n",
+               encoding_name, filename);
+        return BadFontName;
     }
 
     if(FT_Has_PS_Glyph_Names(face)) {
@@ -100,7 +119,7 @@ FTPickMapping(char *xlfd, int length, char *filename, FT_Face face,
                 tm->named = 1;
                 tm->base = 0;
                 tm->mapping = mapping;
-                return 0;
+                return Successful;
             }
         }
     }
@@ -110,8 +129,9 @@ FTPickMapping(char *xlfd, int length, char *filename, FT_Face face,
                      &cmap)) {
             tm->named = 0;
             tm->cmap = cmap;
-            if(strcasecmp(encoding_name, "microsoft-symbol") == 0) {
-                /* deal with undocumented lossage */
+            if(symbol) {
+                /* deal with an undocumented ``feature'' of the
+                   Microsft-Symbol cmap */
                 TT_OS2 *os2;
                 os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
                 if(os2)
@@ -121,11 +141,18 @@ FTPickMapping(char *xlfd, int length, char *filename, FT_Face face,
             } else
                 tm->base = 0;
             tm->mapping = mapping;
-            return 0;
+            return Successful;
         }
     }
     
-    return -1;
+    return BadFontFormat;
+
+  native:
+    tm->named = 0;
+    tm->cmap = face->charmap;
+    tm->base = 0;
+    tm->mapping = NULL;
+    return Successful;
 }
 
 static int 

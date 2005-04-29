@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_merge.c,v 1.2 2002/09/18 21:25:45 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_merge.c,v 1.5 2003/11/02 04:24:36 dawes Exp $ */
 
 /* All drivers should typically include these */
 #include "xf86.h"
@@ -204,7 +204,7 @@ GenerateModeList(ScrnInfoPtr pScrn, char* str,
                         xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, 
                             "Mode: \"%s\" is not a supported mode for monitor 2\n",mode1->name);
                         xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
-                            "Skipping clone mode \"%s\".\n");
+                            "Skipping clone mode \"%s\".\n", mode1->name);
                         mode1 = NULL;
                     } else {
                         result = CopyModeNLink(pScrn,result,mode1,mode2,sr);
@@ -293,7 +293,7 @@ MGAPreInitMergedFB(ScrnInfoPtr pScrn1, int flags)
     pScrn->AdjustFrame = MGAAdjustMergeFrames;
     pScrn1->AdjustFrame = MGAAdjustMergeFrames;
     
-/*    if (!xf86SetDepthBpp(pScrn, 8, 8, 8, flags24))   FIXME:have to copy result form scrn1 
+/*    if (!xf86SetDepthBpp(pScrn, 0, 0, 0, flags24))   FIXME:have to copy result form scrn1 
   if (!xf86SetWeight(pScrn, zeros, zeros)) {
 */
 
@@ -428,7 +428,8 @@ MGAPreInitMergedFB(ScrnInfoPtr pScrn1, int flags)
 	       pMga->MinClock / 1000);
    /* Override on 2nd crtc */
 
-    if (pMga->ChipRev >= 0x80) {	/* G450 */
+    if (pMga->ChipRev >= 0x80 || (pMga->Chipset == PCI_CHIP_MGAG550)) {
+	/* G450, G550 */
         pMga->MaxClock = 234000;
     } else {
         pMga->MaxClock = 135000;

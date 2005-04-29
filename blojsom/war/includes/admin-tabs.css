@@ -1,0 +1,112 @@
+#main {
+	border: 1px solid #666;
+	clear: both;
+	/* width: 50em;  optional width to set a size to main body text area */
+}
+
+#contents {
+	padding: 1.5em;
+	background: #FFFDF3;
+	min-height: 300px;
+	border-top: 2em solid #FFF3B3;
+}
+
+#header {
+	position: absolute;
+	top: 0px;
+	left: 0;
+	width: 100%;
+	height: 6em;
+	width: 45em; /* a width is required for Opera, older Mozilla browsers, and Konqueror browsers */
+}
+
+#header ul#primary {
+	margin: 0;
+	padding: 0;
+	position: absolute;
+	bottom: -1px;
+	left: 20px;
+	width: 45em; /* a width is required for Opera, older Mozilla browsers, and Konqueror browsers */
+}
+
+#header ul#primary li  {
+	display: inline;
+	list-style: none;
+}
+
+#header ul#primary a,#header ul#primary span,#header ul#primary a.current {
+	width: 8em;
+	display: block;
+	float: left;
+	padding: 4px 0;
+	margin-top: 1px;
+	margin-right: 2px;
+	text-align: center;
+	font-family: tahoma;
+	font-size: 85%;
+	text-decoration: none;
+	color: #333;
+}
+
+#header ul#primary span,#header ul#primary a.current,#header ul#primary a.current:hover {
+	border: 1px solid #666;
+	border-bottom: none;
+	background: #FFF3B3;
+	padding-bottom: 6px;
+	margin-top: 0;
+}
+
+#header ul#primary a {
+	background: #FFFAE1;
+	border: 1px solid #AAA;
+	border-bottom: none;
+}
+
+#header ul#primary a:hover {
+	margin-top: 0;
+	border-color: #666;
+	background: #FFF7CD;
+	padding-bottom: 5px;
+}
+
+#header ul#secondary {
+	position: absolute;
+	margin: 0;
+	padding: 0;
+	bottom: -1.4em;
+	left: 1px;
+	width: 50em; /* a width is required for Opera, older Mozilla browsers, and Konqueror browsers */
+}
+
+#header ul#secondary li a,#header ul#secondary li span {
+	width: auto;
+	display: block;
+	float: left;
+	padding: 0 10px;
+	margin: 0;
+	text-align: center;
+	border: none;
+	border-left: 1px dotted #AAA;
+	background: none;
+
+}
+
+#header ul#secondary li a {
+	color: #06C;
+	text-decoration: underline;
+}
+
+#header ul#secondary li a:hover {
+	color: #333;
+	background: transparent;
+	padding: 0 10px;
+	border: none;
+	border-left: 1px dotted #AAA;
+}
+
+#header ul#secondary li a:active {
+	color: #000;
+	background: transparent;
+}
+
+#header ul#secondary li:first-child a,#header ul#secondary li:first-child span { border: none; }

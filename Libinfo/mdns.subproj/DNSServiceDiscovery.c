@@ -32,7 +32,7 @@
 
 #include <netinet/in.h>
 
-extern struct rpc_subsystem internal_DNSServiceDiscoveryReply_subsystem;
+extern struct mig_subsystem internal_DNSServiceDiscoveryReply_subsystem;
 
 extern boolean_t DNSServiceDiscoveryReply_server(
         mach_msg_header_t *InHeadP,
@@ -63,7 +63,7 @@ kern_return_t DNSServiceRegistrationCreate_rpc
     DNSCString name,
     DNSCString regtype,
     DNSCString domain,
-    int port,
+    IPPort port,
     DNSCString txtRecord
 );
 
@@ -270,7 +270,9 @@ dns_service_discovery_ref DNSServiceRegistrationCreate
     kern_return_t		result;
     dns_service_discovery_ref return_t;
     struct a_requests	*request;
-    
+    IPPort IpPort;
+	char *portptr = (char *)&port;
+	
     if (!serverPort) {
         return NULL;
     }
@@ -300,7 +302,15 @@ dns_service_discovery_ref DNSServiceRegistrationCreate
     request->context = context;
     request->callout.regCallback = callBack;
 
-    result = DNSServiceRegistrationCreate_rpc(serverPort, clientPort, (char *)name, (char *)regtype, (char *)domain, port, (char *)txtRecord);
+	// older versions of this code passed the port via mach IPC as an int.
+	// we continue to pass it as 4 bytes to maintain binary compatibility,
+	// but now ensure that the network byte order is preserved by using a struct
+	IpPort.bytes[0] = 0;
+	IpPort.bytes[1] = 0;
+	IpPort.bytes[2] = portptr[0];
+	IpPort.bytes[3] = portptr[1];
+
+    result = DNSServiceRegistrationCreate_rpc(serverPort, clientPort, (char *)name, (char *)regtype, (char *)domain, IpPort, (char *)txtRecord);
 
     if (result != KERN_SUCCESS) {
         printf("There was an error creating a resolve, %s\n", mach_error_string(result));

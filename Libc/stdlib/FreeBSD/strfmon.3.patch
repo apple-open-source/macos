@@ -1,11 +1,48 @@
---- strfmon.3.orig	Mon Apr 28 16:37:26 2003
-+++ strfmon.3	Sat May  3 01:09:16 2003
-@@ -35,7 +35,7 @@
+--- strfmon.3.orig	Fri Mar 11 10:06:33 2005
++++ strfmon.3	Fri Mar 11 10:20:51 2005
+@@ -28,14 +28,18 @@
+ .Dt STRFMON 3
+ .Os
+ .Sh NAME
+-.Nm strfmon
++.Nm strfmon ,
++.Nm strfmon_l
+ .Nd convert monetary value to string
+ .Sh LIBRARY
+ .Lb libc
  .Sh SYNOPSIS
  .In monetary.h
  .Ft ssize_t
 -.Fn strfmon "char * restrict s" "size_t maxsize" "const char * restrict format" "..."
 +.Fn strfmon "char * s" "size_t maxsize" "const char *format" "..."
++.In xlocale.h
++.Ft ssize_t
++.Fn strfmon_l "char * s" "size_t maxsize" "locale_t loc" "const char *format" "..."
  .Sh DESCRIPTION
+ The
+ .Fn strfmon
+@@ -47,6 +51,14 @@
+ .Fa maxsize
+ bytes are placed into the array.
+ .Pp
++While the
++.Fn strfmon
++function uses the current locale, the
++.Fn strfmon_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
++.Pp
+ The format string is composed of zero or more directives:
+ ordinary characters (not
+ .Cm % ) ,
+@@ -142,7 +154,8 @@
+ Not enough memory for temporary buffers.
+ .El
+ .Sh SEE ALSO
+-.Xr localeconv 3
++.Xr localeconv 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
  The
  .Fn strfmon

@@ -1,7 +1,7 @@
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: sha1.c,v 1.1.1.1 2003/02/15 04:56:06 zarzycki Exp $";
+static const char revid[] = "$Id: sha1.c,v 1.2 2004/03/30 01:23:29 jtownsen Exp $";
 #endif /* not lint */
 /*
 SHA-1 in C

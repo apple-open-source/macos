@@ -1,6 +1,6 @@
 KERBEROSVERSION = "$(SRCROOT)/../Scripts/KerberosVersion.pl" ;
-APPLEVERSION = "5.0.21" ;
-KFMVERSION = "5.0" ;
+APPLEVERSION = "5.5.19" ;
+KFMVERSION = "5.5" ;
 
 # KerberosVersion <target> : <searchdir>
 rule KerberosVersion

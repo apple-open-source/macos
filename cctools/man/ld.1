@@ -1,4 +1,4 @@
-.TH LD 1 "December 16, 2004" "Apple Computer, Inc."
+.TH LD 1 "March 7, 2005" "Apple Computer, Inc."
 .SH NAME
 ld \- Mach object file link editor
 .SH SYNOPSIS
@@ -160,7 +160,7 @@ flags. See their descriptions below.
 .PP
 When a dynamic shared library or an object file that was linked against a dynamic shared library is specified as an argument to 
 .IR ld ,
-that library is placed in the dynamic shared library search list. The order of the search list is always the same order the libraries were encountered on the command line. All dynamic libraries libraries that the dynamic libraries are dependent upon are added to the end of the search list. 
+that library is placed in the dynamic shared library search list. The order of the search list is always the same order the libraries were encountered on the command line. When linking -flat_namesapce, all dynamic libraries libraries that the dynamic libraries are dependent upon are added to the end of the search list. 
 .PP
 Once the search list is constructed, the static link editor checks for undefined symbols by simulating the way the dynamic linker will search for undefined symbols at runtime. For each undefined symbol, the static link editor searches each library in the search list until it finds a module that defines the symbol.
 With each undefined symbol, the search starts with the first library in the list.
@@ -225,23 +225,6 @@ frameworks) are searched.  Other dependent libraries which are not
 sub-frameworks, sub-umbrellas or sub-libraries of umbrella frameworks are not
 searched.
 .RS
-If a two-level namespace static link references a symbol from an indirectly
-referenced dynamic library not listed on the link line the following error
-message will result:
-.RS
-ld:
-.I object_file
-illegal reference to symbol:
-.I symbol
-defined in indirectly referenced dynamic library:
-.I library
-.RE
-To correct the link error the user should add
-.I library
-to the link line in the order he wants the
-.I library
-to be searched.
-.RE
 .PP
 When creating bundles (MH_BUNDLE outputs) with the static link editor when
 two-level namespace is in effect (now the default) and the bundle has
@@ -379,6 +362,10 @@ options to
 using
 .BR \-Wl,\-option,argument1,argument2 .
 
+In this release of the static link editor, 64-bit code (-arch ppc64) are processed by a separate
+tool /usr/bin/ld64.  Not all of the ld command line options are recognized by this tool.  
+The options not currently support for building 64-bit binaries are flagged
+.BR "(32-bit only)" .
 
 The most common option is:
 .TP 
@@ -436,7 +423,7 @@ and the architecture (from the
 .BI \-arch " arch_type"
 flag).  This helps distinguish which architecture the error messages refer to.
 .TP
-.BI \-force_cpusubtype_ALL
+.B \-force_cpusubtype_ALL
 The
 .B \-force_cpusubtype_ALL
 flag causes the CPU subtype to remain the 
@@ -445,6 +432,7 @@ CPU subtype and not to be combined or
 changed.  This flag has precedence over any
 .BI \-arch " arch_type"
 flag for a specific implementation.
+This is the default for all x86 architectures.
 .PP
 The following flags are related to using the dynamic link editor and/or
 dynamic shared libraries (and any of the features used to implement them):
@@ -524,7 +512,7 @@ in the output, respectively.  Care must be taken when using the treatment
 as the use of the non-weak symbol references in an object file may cause the
 program to crash when the symbol is not present at execution time.
 .TP
-.B \-prebind
+.B \-prebind (32-bit only)
 Have the static linker,
 .IR ld (1),
 prebind an executable's or dynamic shared library's undefined symbols to the
@@ -548,14 +536,14 @@ Or if the environment variable
 is set to 10.4 or greater and the output is not a split a dynamic library the
 output is not prebound.
 .TP
-.B \-noprebind
+.B \-noprebind (32-bit only)
 Do not have the static linker,
 .IR ld (1),
 prebind the output.  If this is specified the environment variable
 .SM LD_PREBIND
 is ignored.
 .TP
-.B \-prebind_allow_overlap
+.B \-prebind_allow_overlap (32-bit only)
 Have the static linker,
 .IR ld (1),
 prebind the output even if the addresses of the dynamic libraries it uses
@@ -566,7 +554,7 @@ have been rebuilt.  This option can also be specified by setting the
 environment variable
 .SM LD_PREBIND_ALLOW_OVERLAP.
 .TP
-.B \-prebind_all_twolevel_modules
+.B \-prebind_all_twolevel_modules (32-bit only)
 Have the static linker,
 .IR ld (1),
 mark all modules from prebound two-level namespace dynamic libraries as used
@@ -576,7 +564,7 @@ indirectly through NIB files. This option can also be specified by setting the
 environment variable
 .SM LD_PREBIND_ALL_TWOLEVEL_MODULES.
 .TP
-.B \-noprebind_all_twolevel_modules
+.B \-noprebind_all_twolevel_modules (32-bit only)
 Don't have the static linker,
 .IR ld (1),
 mark all modules from prebound two-level namespace dynamic libraries as used
@@ -584,7 +572,7 @@ by the program.  This flag overrides the setting of the
 environment variable
 .SM LD_PREBIND_ALL_TWOLEVEL_MODULES.
 .TP
-.B \-nofixprebinding
+.B \-nofixprebinding (32-bit only)
 Have the static linker,
 .IR ld (1),
 mark the executable so that the dynamic linker will never notify the prebinding
@@ -653,7 +641,7 @@ are searched before the standard directories.
 .B \-Z
 Do not search the standard directories when searching for libraries.
 .TP
-.BI "\-syslibroot " rootdir
+.BI "\-syslibroot " rootdir " (32-bit only)"
 Prepend
 .I rootdir
 to the standard directories when searching for libraries or frameworks.
@@ -720,7 +708,7 @@ Loads all members of static archive libraries.
 This option does not apply to dynamic shared
 libraries.
 .TP
-.BI \-dylib_file " install_name:file_name"
+.BI \-dylib_file " install_name:file_name" (32-bit only)
 Specifies that a dynamic shared library is in a different location than its standard location. Use this option when you link with a library that is dependent on a dynamic library, and the dynamic library is in a location other than its default location. 
 .I install_name
 specifies the path where the library normally resides.
@@ -729,7 +717,7 @@ specifies the path of the library you want to use instead.
 For example, if you link to a library that depends upon the dynamic library libsys and you have libsys installed in a nondefault location, you would use this option:
 \fB\-dylib_file /lib/libsys_s.A.dylib:/me/lib/libsys_s.A.dylib\fR.
 .TP
-.BI \-executable_path " path_name"
+.BI \-executable_path " path_name" (32-bit only)
 Specifies that
 .I path_name
 is used to replace
@@ -754,7 +742,7 @@ This option was previously named
 .BR "\-Mach" ,
 which will continue to be recognized.
 .TP
-.B "\-object"
+.B \-object (32-bit only)
 Produce a Mach-O file in the relocatable object file format that is
 intended for execution.  This differs from using the
 .B \-r
@@ -771,7 +759,7 @@ defined symbol ``\_\^\_mh_execute_header'' is not defined since the headers are
 not part of the segment.  This format file can't be used with the dynamic
 linker.
 .TP
-.B "\-preload"
+.B \-preload (32-bit only)
 Produce a Mach-O preloaded executable format file.  The headers are not placed
 in any segment.  All sections are placed in their proper segments and they are
 padded to the segment alignment.  This has a file type of
@@ -803,7 +791,7 @@ first segment.  All sections are placed in their proper segments, and they are
 padded to the segment alignment.  This has a file type of
 .SM MH_DYLINKER.
 .TP
-.B "\-fvmlib"
+.B \-fvmlib (32-bit only)
 Produce a Mach-O fixed VM shared library format file.  The headers are placed
 in the first segment but the first section in that segment will be placed on
 the next segment alignment boundary in that segment.  All sections are placed
@@ -825,7 +813,7 @@ This flag also prevents final definitions from being
 given to common symbols,
 and suppresses the `undefined symbol' diagnostics.
 .TP 
-.B  \-d
+.B  \-d (32-bit only)
 Force definition of common storage even if the
 .B \-r
 option is present.  This option also forces link editor defined symbols to be defined.
@@ -837,7 +825,7 @@ is not specified.
 .PP
 The following flags support segment specifications:
 .TP
-.BI "\-segalign" " value"
+.BI "\-segalign" " value" " (32-bit only)"
 Specifies the segment alignment.
 .I value
 is a hexadecimal number that must be an integral power of 2.
@@ -851,14 +839,14 @@ is a hexadecimal number and must be a multiple of the segment alignment.
 This option can also be specified as
 .B "\-image_base."
 .TP
-.BI "\-segaddr" " name addr"
+.BI "\-segaddr" " name addr" " (32-bit only)"
 Specifies the starting address of the segment named
 .I name
 to be
 .I addr.
 The address must be a hexadecimal number that is a multiple of the segment alignment.
 .TP
-.BI "\-segs_read_only_addr" " addr"
+.BI "\-segs_read_only_addr" " addr" " (32-bit only)"
 Specifies the starting address of the read-only segments in a dynamic shared
 library.  When this option is used the dynamic shared library is built such
 that the read-only and read-write segments are split into separate address
@@ -867,7 +855,7 @@ the read-only segments.
 .I addr
 is a hexadecimal number and must be a multiple of the segment alignment.
 .TP
-.BI "\-segs_read_write_addr" " addr"
+.BI "\-segs_read_write_addr" " addr" " (32-bit only)"
 Specifies the starting address of the read-write segments in a dynamic shared
 library.  When this option is used the
 .B \-segs_read_only_addr
@@ -875,7 +863,7 @@ must also be used (see above).
 .I addr
 is a hexadecimal number and must be a multiple of the segment alignment.
 .TP
-.BI "\-seg_addr_table" " filename"
+.BI "\-seg_addr_table" " filename" " (32-bit only)"
 For dynamic shared libraries the 
 .B "\-seg1addr"
 or the pair of
@@ -904,13 +892,13 @@ and
 .B "\-seg_addr_table"
 options are ignored and a warning is printed.
 .TP
-.BI "\-seg_addr_table_filename" " pathname"
+.BI "\-seg_addr_table_filename" " pathname" " (32-bit only)"
 Use
 .B pathname
 instead of the install name of the library for matching an entry in the segment
 address table.
 .TP
-.BI "\-segprot" " name max init"
+.BI "\-segprot" " name max init" " (32-bit only)"
 Specifies the maximum and initial virtual memory protection of the named
 segment,
 .I name,
@@ -932,7 +920,7 @@ The default for the initial protection for the
 .SM "``_\|_TEXT''"
 segment is `rx' (not writable).
 .TP
-.B "\-seglinkedit"
+.B \-seglinkedit (32-bit only)
 Create the link edit segment, named
 .SM "``_\|_LINKEDIT''"
 (this is the default).
@@ -948,7 +936,7 @@ and load commands must be parsed from the link editor defined symbols like
 `\_\^\_mh_execute_header' (see
 .IR Mach-O (5)).
 .TP
-.B "\-noseglinkedit"
+.B \-noseglinkedit (32-bit only)
 Do not create the link edit segment (see
 .B \-seglinkedit
 above).
@@ -1038,7 +1026,7 @@ individual literals to be aligned on that boundary.  If the section
 alignment is not specified by a section header in an object file or on the
 command line, it defaults to 10 (hex), indicating 16-byte alignment.
 .TP
-.BI "\-sectorder" " segname sectname orderfile"
+.BI "\-sectorder" " segname sectname orderfile" (32-bit only)
 The section
 .I sectname
 in the segment
@@ -1088,7 +1076,7 @@ For literal sections, the easiest way to generate an order file is with
 the ``\f3\-X \-v \-s \f2segname sectname\f1'' options to
 .IR otool (1).
 .TP
-.B \-sectorder_detail
+.B \-sectorder_detail (32-bit only)
 When using the
 .B \-sectorder
 option,  any pairs of object file names and symbol names that are found in 
@@ -1112,7 +1100,7 @@ are zero.)  To instead produce a detailed list of these symbols, use the
 flag.  If an object file-symbol name pair is listed multiple times, a 
 warning is generated, and the first occurrence is used.
 .TP
-.BI "\-sectobjectsymbols" " segname sectname"
+.BI "\-sectobjectsymbols" " segname sectname" " (32-bit only)"
 This causes the link editor to generate local symbols in the section 
 .I sectname
 in the segment
@@ -1151,7 +1139,7 @@ dynamic libraries as flat namespace images.  This marks the executable so that
 the dynamic link editor know to treat all dynamic libraries as flat namespace
 images when the program is executed.
 .TP 
-.BI \-bundle_loader " executable"
+.BI \-bundle_loader " executable" " (32-bit only)"
 This specifies the 
 .I executable
 that will be loading the bundle output file being linked.  Undefined symbols
@@ -1166,7 +1154,7 @@ flag relative to the dynamic libraries.  If the the bundle being created with
 .B \-flat_namespace
 then the searching of the executable is done before all dynamic libraries.
 .TP 
-.B \-private_bundle
+.B \-private_bundle (32-bit only)
 This allows symbols defined in the output to also be defined in executable in
 the
 .B \-bundle_loader
@@ -1180,7 +1168,7 @@ the executable with the
 option to
 .IR NSLinkModule (3).
 .TP 
-.B \-twolevel_namespace_hints
+.B \-twolevel_namespace_hints (32-bit only)
 Specifies to create the output with the two-level namespace hints table to be
 used by the dynamic linker.  This is the default except when the
 .B \-bundle
@@ -1189,7 +1177,7 @@ flag is specified.  If this is used when the
 flag is specified the bundle will fail to load on a MacOS X 10.0 system with a
 malformed object error.
 .TP 
-.BI \-multiply_defined " treatment"
+.BI \-multiply_defined " treatment" " (32-bit only)"
 Specifies how multiply defined symbols in dynamic libraries when
 .B \-twolevel_namespace
 is in effect are to be treated.
@@ -1209,7 +1197,7 @@ warnings when
 .B \-twolevel_namespace
 is in effect.
 .TP 
-.BI \-multiply_defined_unused " treatment"
+.BI \-multiply_defined_unused " treatment" " (32-bit only)"
 Specifies how unused multiply defined symbols in dynamic libraries when
 .B \-twolevel_namespace
 is in effect are to be treated.
@@ -1225,7 +1213,7 @@ or
 .I suppress.
 The default for unused multiply defined symbols is to suppress these messages.
 .TP
-.B -nomultidefs
+.B -nomultidefs (32-bit only)
 specifying this flag marks the umbrella being created such that the dynamic
 linker is guaranteed that no multiple definitions of symbols in the umbrella's
 sub-images will ever exist.  This allows the dynamic linker to always use the
@@ -1239,7 +1227,7 @@ are external symbols whose names have `_' prepended to the C,
 .SM FORTRAN,
 or Pascal variable name.
 .TP
-.BI \-y sym
+.BI \-y sym " (32-bit only)"
 Display each file in which
 .I sym
 appears, its type, and whether the file defines or references it.  Any
@@ -1249,7 +1237,7 @@ traced.  Like most of the other symbol-related flags,
 takes only one argument; the flag may be specified more than once in the
 command line to trace more than one symbol.  
 .TP
-.BI \-Y " number"
+.BI \-Y " number" " (32-bit only)"
 For the first 
 .I number
 undefined symbols, displays each file in which the symbol appears, its type and whether the file defines or references it (that is, the same style of output produced by the 
@@ -1262,7 +1250,7 @@ references.
 Don't turn private external symbols into static symbols, but rather leave them
 as private external in the resulting output file.
 .TP
-.B \-m
+.B \-m (32-bit only)
 Don't treat multiply defined symbols from the linked objects as a hard error;
 instead, simply print a warning.  The first linked object defining such a symbol
 is used for linking; its value is used for the symbol in the symbol table.  The
@@ -1271,7 +1259,7 @@ symbols other than the first symbol may still end up being used in the resulting
 output file through local references.  This can still produce a resulting output
 file that is in error.  This flag's use is strongly discouraged!
 .TP
-.B \-whyload
+.B \-whyload (32-bit only)
 Indicate why each member of a library is loaded.  In other words, indicate
 which currently undefined symbol is being resolved, causing that 
 member to be loaded.  This in combination with the above
@@ -1295,7 +1283,7 @@ is taken to be the symbol name of the entry point of
 the resulting file.  By default, the entry point is the address of the 
 first section in the first segment.
 .TP
-.BI \-i definition:indirect
+.BI \-i definition:indirect " (32-bit only)"
 Create an indirect symbol for the symbol name
 .I definition
 which is defined to be the same as the symbol name
@@ -1357,6 +1345,30 @@ invoke this option in this way:
 .B \-bind_at_load
 Causes the output file to be marked such that the dynamic linker will bind all
 undefined references when the file is loaded or launched.
+.TP
+.BI \-commons " treatment" " (64-bit only)"
+Specifies how common symbols (tentative defintions) from object files interact with dynamic libraries.
+.I treatment
+can be:
+.I ignore_dylibs,
+.I use_dylibs,
+or
+.I error.
+The default is ignore_dylibs 
+which means the static linker will use a common defintion from an object file even if a true definition
+exisits in a dynamic library.  If you want your code to use a dynamic library definition, then add
+the extern keyword to your tentative definition (e.g. change 
+.I int foo;
+to
+.I extern int foo;
+).  The treatment use_dylibs means a definition form a dynamic library should override a common symbol
+in an object file. Note, the 32-bit linker always uses this treatment. 
+The treatment error means the linker should abort whenever if finds a common symbol in 
+an object file and an external definition with the same name in a dynamic library.
+.TP
+.B \-warn_commons (64-bit only)
+Causes the static linker to write a diagnostic line about how common symbols were processed.  This is 
+useful for debugging problems with common symbols.
 
 .PP
 The following flags are related to stripping link edit information.  
@@ -1370,11 +1382,11 @@ flag below, but this is the same as
 with no arguments.)
 The following flags are listed in decreasing level of stripping.
 .TP 
-.B \-s
+.B \-s (32-bit only)
 Completely strip the output; that is, remove the symbol table
 and relocation information.
 .TP 
-.B \-x
+.B \-x (32-bit only)
 Strips the non-global symbols; only saves external symbols.
 .IP
 This option overlaps with a compiler option.
@@ -1384,20 +1396,20 @@ to invoke \fIld\fR,
 invoke this option in this way:
 .B \-Wl,\-x.
 .TP
-.B \-S
+.B \-S (32-bit only)
 Strip debugging symbols; only save local and global symbols.
 .TP 
-.B \-X
+.B \-X (32-bit only)
 Strip local symbols whose names begin with `L'; save all other symbols.
 (The compiler and assembler currently strip these internally-generated 
 labels by default, so they generally do not appear in object files 
 seen by the link editor.)
 .TP 
-.B \-Si
+.B \-Si (32-bit only)
 Strip duplicate debugging symbols from include files.  This is
 the default. 
 .TP 
-.B  \-b
+.B  \-b (32-bit only)
 Strip the base file's symbols from the output file.  (The base file 
 is given as the argument to the 
 .B \-A
@@ -1410,7 +1422,7 @@ to invoke \fIld\fR,
 invoke this option in this way:
 .B \-Wl,\-b.
 .TP
-.B \-Sn
+.B \-Sn (32-bit only)
 Don't strip any symbols.
 .TP
 .BI \-exported_symbols_list " filename"
@@ -1438,10 +1450,11 @@ symbol name.  Lines starting with # are ignored, as are lines with only white
 space.
 
 .TP
-.B -dead_strip
+.B -dead_strip (32-bit only)
 Remove blocks of code and data that are unreachable by the entry point or
 exported symbols.
-.B -no_dead_strip_inits_and_terms
+.TP
+.B -no_dead_strip_inits_and_terms (32-bit only)
 When specified along with
 .B -dead_strip
 cause all constructors and destructors to never be dead stripped.
@@ -1452,7 +1465,7 @@ The remaining options are infrequently used:
 .B \-v
 Print the version of the linker.
 .TP
-.B \-w
+.B \-w (32-bit only)
 Suppresses all warning messages.
 .TP
 .B \-no_arch_warnings
@@ -1460,11 +1473,11 @@ Suppresses warning messages about files that have the wrong architecture for the
 .B \-arch
 flag.
 .TP
-.B \-arch_errors_fatal
+.B \-arch_errors_fatal (32-bit only)
 Cause the errors having to do with files that have the wrong architecture to be
 fatal and stop the link editor.
 .TP
-.B \-M
+.B \-M (32-bit only)
 Produce a load map, listing all the segments and sections.  The list 
 includes the address where each input file's section appears in the 
 output file, as well as the section's size.
@@ -1476,7 +1489,7 @@ to invoke \fIld\fR,
 invoke this option in this way:
 .B \-Wl,\-M.
 .TP
-.B \-whatsloaded
+.B \-whatsloaded (32-bit only)
 Display a single line listing each object file that is
 loaded.  Names of objects in archives have the form libfoo.a(bar.o).
 .TP
@@ -1514,7 +1527,7 @@ up to the segment alignment,
 and use the difference between the rounded 
 and unrounded sizes as the minimum amount of padding.)
 .TP
-.B \-headerpad_max_install_names
+.B \-headerpad_max_install_names (32-bit only)
 Add to the header padding enough space to allow changing all dynamic shared
 library paths recorded in the output file to be changed to MAXPATHLEN in length.
 .TP
@@ -1524,7 +1537,7 @@ that is
 loaded as it is processed in the first and second pass of the link
 editor.
 .TP
-.BI \-A " basefile"
+.BI \-A " basefile" " (32-bit only)"
 Incremental loading: linking is to be done in a manner 
 that lets the resulting object be read into an already executing 
 program, the
@@ -1581,7 +1594,7 @@ must have the proper format for an install name of a framework for the
 .I framework_name
 of the umbrella framework to be determined.
 .TP
-.BI \-allowable_client " client_name"
+.BI \-allowable_client " client_name" " (32-bit only)"
 Specifies that for this subframework the
 .I client_name
 can link with this subframework without error even though it is not part of
@@ -1591,7 +1604,7 @@ can be another framework name or a name used by bundles (see the
 .BI \-client_name " client_name"
 option below).
 .TP
-.BI \-client_name " client_name"
+.BI \-client_name " client_name" " (32-bit only)"
 Specifies the
 .I client_name
 of a bundle for checking of allowable clients of subframeworks (see the
@@ -1623,7 +1636,7 @@ routine.  If any module is used from the dynamic library the library
 initialization routine is called before any symbol is used from the library
 including C++ static initializers (and #pragma CALL_ON_LOAD routines).
 .TP
-.BI \-run_init_lazily
+.B \-run_init_lazily (32-bit only)
 This option is obsolete.
 .TP
 .BI \-dylib_compatibility_version " number"
@@ -1681,7 +1694,7 @@ option is set.
 When building a dynamic library build the library so that it contains only
 one module.
 .TP
-.BI \-multi_module
+.BI \-multi_module  (32-bit only)
 When building a dynamic library build the library so that it contains one
 module for each object file linked in.  This is the default.
 .TP

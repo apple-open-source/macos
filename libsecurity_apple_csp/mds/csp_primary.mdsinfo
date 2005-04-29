@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>AclSubjectTypes</key>
+	<array/>
+	<key>AuthTags</key>
+	<array/>
+	<key>CspCustomFlags</key>
+	<integer>0</integer>
+	<key>CspFlags</key>
+	<string></string>
+	<key>CspType</key>
+	<string>CSSM_CSP_SOFTWARE</string>
+	<key>MdsFileDescription</key>
+	<string>Built-in CSP Primary info</string>
+	<key>MdsFileType</key>
+	<string>PluginSpecific</string>
+	<key>MdsRecordType</key>
+	<string>MDS_CDSADIR_CSP_PRIMARY_RECORDTYPE</string>
+	<key>ModuleID</key>
+	<string>{87191ca2-0fc9-11d4-849a-000502b52122}</string>
+	<key>ModuleName</key>
+	<string>AppleCSP</string>
+	<key>ProductVersion</key>
+	<string>1.0</string>
+	<key>SSID</key>
+	<integer>0</integer>
+	<key>SampleTypes</key>
+	<array/>
+	<key>UseeTags</key>
+	<array/>
+	<key>Vendor</key>
+	<string>Apple Computer, Inc.</string>
+</dict>
+</plist>

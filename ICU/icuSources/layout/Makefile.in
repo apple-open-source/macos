@@ -1,9 +1,6 @@
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 ## Makefile.in for ICU - layout
-
-SO_TARGET_VERSION = @LIB_VERSION@
-SO_TARGET_VERSION_MAJOR = @LIB_VERSION_MAJOR@
 
 ## Install directory information
 srcdir = @srcdir@
@@ -17,28 +14,39 @@ include $(top_builddir)/icudefs.mk
 subdir = layout
 
 ## Extra files to remove for 'make clean'
-CLEANFILES = *~ $(DEPS)
+CLEANFILES = *~ $(DEPS) $(IMPORT_LIB) $(MIDDLE_IMPORT_LIB) $(FINAL_IMPORT_LIB)
 
 ## Target information
 
-TARGET_STUBNAME=le
+TARGET_STUBNAME=$(LAYOUT_STUBNAME)
 
 ifneq ($(ENABLE_STATIC),)
-TARGET = $(LIBICU)$(TARGET_STUBNAME)$(ICULIBSUFFIX).a
+TARGET = $(LIBDIR)/$(LIBSICU)$(TARGET_STUBNAME)$(ICULIBSUFFIX).$(A)
 endif
 
 ifneq ($(ENABLE_SHARED),)
-SO_TARGET = $(LIBICU)$(TARGET_STUBNAME)$(ICULIBSUFFIX).$(SO)
+SO_TARGET = $(LIBDIR)/$(LIBICU)$(TARGET_STUBNAME)$(ICULIBSUFFIX).$(SO)
 ALL_SO_TARGETS = $(SO_TARGET) $(MIDDLE_SO_TARGET) $(FINAL_SO_TARGET)
+
+ifeq ($(ENABLE_SO_VERSION_DATA),1)
+SO_VERSION_DATA = layout.res
 endif
 
-ALL_TARGETS = $(TARGET) $(ALL_SO_TARGETS)
+ifeq ($(OS390BATCH),1)
+BATCH_TARGET = $(BATCH_LAYOUT_TARGET)
+BATCH_LIBS = $(BATCH_LIBICUUC) -lm
+endif   # OS390BATCH
+
+endif   # ENABLE_SHARED
+
+ALL_TARGETS = $(TARGET) $(ALL_SO_TARGETS) $(BATCH_TARGET)
 
 DYNAMICCPPFLAGS = $(SHAREDLIBCPPFLAGS)
 DYNAMICCFLAGS = $(SHAREDLIBCFLAGS)
 DYNAMICCXXFLAGS = $(SHAREDLIBCXXFLAGS)
 
-CPPFLAGS += -I$(srcdir) -I$(top_builddir)/common -I$(srcdir)/unicode -I$(srcdir)/.. -I$(top_builddir)/common -I$(top_srcdir)/common $(LIBCPPFLAGS)
+LDFLAGS += $(LDFLAGSICULE)
+CPPFLAGS += -I$(srcdir) -I$(top_builddir)/common -I$(top_srcdir)/common -I$(srcdir)/unicode -I$(srcdir)/.. $(LIBCPPFLAGS)
 DEFS += -DU_LAYOUT_IMPLEMENTATION
 LIBS = $(LIBICUUC) $(DEFAULT_LIBS)
 
@@ -68,8 +76,8 @@ SubtableProcessor.o \
 TrimmedArrayProcessor.o \
 AlternateSubstSubtables.o \
 AnchorTables.o \
-ArabicLigatureData.o \
 ArabicShaping.o \
+CanonData.o \
 ClassDefinitionTables.o \
 ContextualSubstSubtables.o \
 CoverageTables.o \
@@ -80,14 +88,15 @@ Features.o \
 GDEFMarkFilter.o \
 GlyphDefinitionTables.o \
 GlyphIterator.o \
+GlyphLookupTables.o \
 GlyphPosnLookupProc.o \
 GlyphPositioningTables.o \
 GlyphSubstLookupProc.o \
 GlyphSubstitutionTables.o \
-HebrewLigatureData.o \
-HebrewShaping.o \
 IndicClassTables.o \
 IndicReordering.o \
+LEInsertionList.o \
+LEGlyphStorage.o \
 LigatureSubstSubtables.o \
 LookupProcessor.o \
 Lookups.o \
@@ -111,7 +120,7 @@ STATIC_OBJECTS = $(OBJECTS:.o=.$(STATIC_O))
 DEPS = $(OBJECTS:.o=.d)
 
 ## Header files to install
-HEADERS= $(srcdir)/*LayoutEngine.h $(srcdir)/LE*.h
+HEADERS= $(srcdir)/LayoutEngine.h $(srcdir)/LE*.h
 LOHEADERS= $(srcdir)/unicode/loengine.h
 
 ## List of phony targets
@@ -137,22 +146,24 @@ install-local: install-headers install-library
 install-library: all-local
 	$(MKINSTALLDIRS) $(DESTDIR)$(libdir)
 ifneq ($(ENABLE_STATIC),)
-	$(INSTALL-L) $(TARGET) $(DESTDIR)$(libdir)/$(TARGET)
+	$(INSTALL-L) $(TARGET) $(DESTDIR)$(libdir)
 endif
 ifneq ($(ENABLE_SHARED),)
-	$(INSTALL-L) $(FINAL_SO_TARGET) $(DESTDIR)$(libdir)/$(FINAL_SO_TARGET)
+	$(INSTALL-L) $(FINAL_SO_TARGET) $(DESTDIR)$(libdir)
 ifneq ($(FINAL_SO_TARGET),$(SO_TARGET))
-	cd $(DESTDIR)$(libdir) && $(RM) $(SO_TARGET) && ln -s $(FINAL_SO_TARGET) $(SO_TARGET)
+	cd $(DESTDIR)$(libdir) && $(RM) $(notdir $(SO_TARGET)) && ln -s $(notdir $(FINAL_SO_TARGET)) $(notdir $(SO_TARGET))
 ifneq ($(FINAL_SO_TARGET),$(MIDDLE_SO_TARGET))
-	cd $(DESTDIR)$(libdir) && $(RM) $(MIDDLE_SO_TARGET) && ln -s $(FINAL_SO_TARGET) $(MIDDLE_SO_TARGET)
+	cd $(DESTDIR)$(libdir) && $(RM) $(notdir $(MIDDLE_SO_TARGET)) && ln -s $(notdir $(FINAL_SO_TARGET)) $(notdir $(MIDDLE_SO_TARGET))
 endif
 endif
 endif
 ifneq ($(IMPORT_LIB_EXT),)
-	$(INSTALL-L) $(FINAL_IMPORT_LIB) $(DESTDIR)$(libdir)/$(FINAL_IMPORT_LIB)
-	cd $(DESTDIR)$(libdir) && $(RM) $(IMPORT_LIB) && ln -s $(FINAL_IMPORT_LIB) $(IMPORT_LIB)
+	$(INSTALL-L) $(FINAL_IMPORT_LIB) $(DESTDIR)$(libdir)
+ifneq ($(IMPORT_LIB),$(FINAL_IMPORT_LIB))
+	cd $(DESTDIR)$(libdir) && $(RM) $(notdir $(IMPORT_LIB)) && ln -s $(notdir $(FINAL_IMPORT_LIB)) $(notdir $(IMPORT_LIB))
+endif
 ifneq ($(MIDDLE_IMPORT_LIB),$(FINAL_IMPORT_LIB))
-	cd $(DESTDIR)$(libdir) && $(RM) $(MIDDLE_IMPORT_LIB) && ln -s $(FINAL_IMPORT_LIB) $(MIDDLE_IMPORT_LIB)
+	cd $(DESTDIR)$(libdir) && $(RM) $(notdir $(MIDDLE_IMPORT_LIB)) && ln -s $(notdir $(FINAL_IMPORT_LIB)) $(notdir $(MIDDLE_IMPORT_LIB))
 endif
 endif
 
@@ -172,8 +183,7 @@ dist-local:
 
 clean-local:
 	test -z "$(CLEANFILES)" || $(RMV) $(CLEANFILES)
-	$(RMV) $(OBJECTS) $(ALL_TARGETS)
-#	$(RMV) $(OBJECTS) $(STATIC_OBJECTS) $(ALL_TARGETS)
+	$(RMV) $(OBJECTS) $(ALL_TARGETS) $(SO_VERSION_DATA)
 
 distclean-local: clean-local
 	$(RMV) Makefile
@@ -190,8 +200,14 @@ $(TARGET): $(TARGET)($(STATIC_OBJECTS))
 endif
 
 ifneq ($(ENABLE_SHARED),)
-$(FINAL_SO_TARGET): $(OBJECTS)
+$(FINAL_SO_TARGET): $(OBJECTS) $(SO_VERSION_DATA)
 	$(SHLIB.cc) $(LD_SONAME) $(OUTOPT)$@ $^ $(LIBS)
+
+ifeq ($(OS390BATCH),1)
+$(BATCH_TARGET): $(OBJECTS)
+	$(SHLIB.cc) $(LD_SONAME) $(OUTOPT)$@ $^ $(BATCH_LIBS)
+endif   # OS390BATCH
+
 endif
 
 ifeq (,$(MAKECMDGOALS))

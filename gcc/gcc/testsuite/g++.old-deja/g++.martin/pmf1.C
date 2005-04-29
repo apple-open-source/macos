@@ -1,10 +1,11 @@
+// { dg-do run  }
 // Based on a test case by Andrew Bell <andrew.bell@bigfoot.com>
 // Check for pointer-to-virtual-function calls on 
 // bases without virtual functions.
 
 struct B{};
 
-struct D:B{
+struct D: public B{
   virtual void foo();
 };
 

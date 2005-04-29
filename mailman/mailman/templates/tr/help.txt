@@ -1,0 +1,35 @@
+%(listname)s mesaj listesi yardýmý:
+
+Bu, "Mailman" liste yönetim programýnýn %(version)s sürümü için
+e-posta komut yardýmýdýr. Aþaðýda, bu sitedeki Mailman listeleri ile
+ilgili bilgi almak ve liste üyeliklerinizi kontrol etmek için
+gerekli komutlar açýklanmýþtýr. Bir komut, mesajýn konu satýrýnda
+veya mesaj gövdesinde bulunabilir.
+
+Aþaðýda anlatýlanlarýn çoðu web aracýlýðýyla þu sayfadan da
+yapýlabilir:
+
+    %(listinfo_url)s
+
+Özellikle, þifrenizin e-posta adresinize gönderilmesi için web
+sayfasýný kullanabilirsiniz.
+
+Bir listeye özel komutlar (subscribe, who vb), o listenin *-request
+adresine gönderilmelidir, örneðin 'mailman' listesi için
+'mailman-request@...' adresine gönderin.
+
+Açýklamalarla ilgili - "<>" arasýnda bulunan sözcükler GEREKLÝ
+maddeleri, "[]" arasýnda bulunan sözcükler ÝSTEÐE BAÐLI maddeleri
+gösterir. Komutlarý kullanýrken "<>" ve "[]" karakterlerini
+eklemeyin.
+
+Aþaðýdaki komutlar geçerlidir:
+
+    %(commands)s
+
+Komutlar %(requestaddr)s adresine gönderilmelidir.
+
+Herhangi bir soru veya bilgi isteði þu adrese gönderilmelidir:
+
+    %(adminaddr)s
+

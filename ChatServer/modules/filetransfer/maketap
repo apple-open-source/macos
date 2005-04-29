@@ -1,0 +1,3 @@
+cd /var/jabber/modules/proxy65
+
+./makeargtap localhost secret 127.0.0.1 51234 10.0.1.2 7777

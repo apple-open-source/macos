@@ -1,5 +1,5 @@
-// Build don't link: 
-// Special g++ Options: -O
+// { dg-do assemble  }
+// { dg-options "-O" }
 // GROUPS passed old-abort
 typedef unsigned char uchar;
 typedef unsigned short ushort;
@@ -23,7 +23,7 @@ swaplong(ulong value)
 {
     ulong v = (value << 16) | (value >> 16);
     return ((v >> 8) & 0x00ff00ff) | ((v << 8) & 0xff00ff00);
-};
+}
 struct elong
 {
     ulong	data;			 

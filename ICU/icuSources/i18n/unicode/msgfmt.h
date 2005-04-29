@@ -1,5 +1,5 @@
 /*
-* Copyright (C) {1997-2003}, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) {1997-2004}, International Business Machines Corporation and others. All Rights Reserved.
 ********************************************************************************
 *
 * File MSGFMT.H
@@ -227,7 +227,7 @@ class DateFormat;
  * the string patterns), then be careful not to produce a format that
  * recurses on itself, which will cause an infinite loop.
  * <P>
- * <EM>Note:<EM>Subformats are numbered by their order in the pattern.
+ * <EM>Note:</EM> Subformats are numbered by their order in the pattern.
  * This is <EM>not</EM> the same as the argumentIndex.
  * <pre>
  * \code
@@ -238,6 +238,10 @@ class DateFormat;
  *    format2 affects the second variable {0}
  * \endcode
  * </pre>
+ *
+ * <p><em>User subclasses are not supported.</em> While clients may write
+ * subclasses, such code will not necessarily work and will not be
+ * guaranteed to work stably from release to release.
  */
 class U_I18N_API MessageFormat : public Format {
 public:
@@ -593,10 +597,9 @@ public:
      * @return          The class ID for all objects of this class.
      * @stable ICU 2.0
      */
-    static inline UClassID getStaticClassID(void);
+    static UClassID U_EXPORT2 getStaticClassID(void);
     
 private:
-    static const char fgClassID;
 
     Locale              fLocale;
     UnicodeString       fPattern;
@@ -605,7 +608,7 @@ private:
 
     MessageFormat(); // default constructor not implemented
 
-    /**
+    /*
      * A structure representing one subformat of this MessageFormat.
      * Each subformat has a Format object, an offset into the plain
      * pattern text fPattern, and an argument number.  The argument
@@ -768,15 +771,6 @@ private:
     friend class MessageFormatAdapter; // getFormatTypeList() access
 };
 
-inline UClassID
-MessageFormat::getStaticClassID(void)
-{ return (UClassID)&fgClassID; }
-
-inline UClassID
-MessageFormat::getDynamicClassID() const
-{ return MessageFormat::getStaticClassID(); }
-
-
 inline UnicodeString&
 MessageFormat::format(const Formattable& obj,
                       UnicodeString& appendTo,
@@ -789,3 +783,4 @@ U_NAMESPACE_END
 
 #endif // _MSGFMT
 //eof
+

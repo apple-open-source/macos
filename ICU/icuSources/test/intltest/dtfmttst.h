@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -39,14 +39,15 @@ public:
 public: // package
     // internal utility routine (genrates escape sequences for characters)
     static UnicodeString& escape(UnicodeString& s);
-    static const char* fieldNames[];
  
 public:
     /**
      * Verify that returned field position indices are correct.
      */
-    virtual void TestFieldPosition(void);
+    void TestFieldPosition(void);
  
+    void TestGeneral();
+
 public: // package
     // internal utility function
     static void getFieldText(DateFormat* df, int32_t field, UDate date, UnicodeString& str);
@@ -112,8 +113,6 @@ private:
     static const char* parseFormats[];
     static const char* inputStrings[];
  
-    static const DateFormat::EField fgCalendarToDateFormatField [];
-
 public:
     /**
      * Verify the correct behavior when parsing an array of inputs against an
@@ -154,9 +153,16 @@ public: // package
 
     void TestWhiteSpaceParsing(void);
 
+    void TestInvalidPattern(void);
+
+    void TestGreekMay(void);
+
  private:
     void expectParse(const char** data, int32_t data_length,
                      const Locale& locale);
+
+    void expect(const char** data, int32_t data_length,
+                const Locale& loc);
 };
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtGetSValI.man,v 1.3 2001/02/09 03:47:51 tsi Exp $
+.\" $XFree86: xc/doc/man/Xt/XtGetSValI.man,v 1.5 2003/05/29 21:48:05 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -130,37 +130,14 @@
 .SH NAME
 XtGetSelectionValueIncremental, XtGetSelectionValuesIncremental \- obtain selection values
 .SH SYNTAX
-void XtGetSelectionValueIncremental(\fIw\fP, \fIselection\fP, \fItarget\fP,
-\fIcallback\fP, \fIclient_data\fP, \fItime\fP)
-.br
-      Widget \fIw\fP;
-.br
-      Atom \fIselection\fP;
-.br
-      Atom \fItarget\fP;
-.br
-      XtSelectionCallbackProc \fIcallback\fP;
-.br
-      XtPointer \fIclient_data\fP;
-.br
-      Time \fItime\fP;
-.LP
-void XtGetSelectionValuesIncremental(\fIw\fP, \fIselection\fP, \fItargets\fP,
-\fIcount\fP, \fIcallback\fP, \fIclient_data\fP, \fItime\fP)
-.br
-      Widget \fIw\fP;
-.br
-      Atom \fIselection\fP;
-.br
-      Atom *\fItargets\fP;
-.br
-      int \fIcount\fP;
-.br
-      XtSelectionCallbackProc \fIcallback\fP;
-.br
-      XtPointer \fIclient_data\fP;
-.br
-      Time \fItime\fP;
+.HP
+void XtGetSelectionValueIncremental(Widget \fIw\fP, Atom \fIselection\fP, Atom
+\fItarget\fP, XtSelectionCallbackProc \fIcallback\fP, XtPointer
+\fIclient_data\fP, Time \fItime\fP); 
+.HP
+void XtGetSelectionValuesIncremental(Widget \fIw\fP, Atom \fIselection\fP,
+Atom *\fItargets\fP, int \fIcount\fP, XtSelectionCallbackProc \fIcallback\fP,
+XtPointer \fIclient_data\fP, Time \fItime\fP); 
 .SH ARGUMENTS
 .ds Cb \ that is to be called when the selection value has been obtained
 .IP \fIcallback\fP 1i
@@ -217,7 +194,7 @@ The effect is as if each target were specified in a separate call to
 The callback is called once with the corresponding client data for each target.
 .ZN XtGetSelectionValuesIncremental
 does guarantee that all the conversions will use the same selection value
-becaues the ownership of the selection cannot change in the middle of the list,
+because the ownership of the selection cannot change in the middle of the list,
 as would be when calling
 .ZN XtGetSelectionValueIncremental
 repeatedly.

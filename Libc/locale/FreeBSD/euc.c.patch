@@ -1,37 +1,124 @@
---- euc.c.orig	Tue May 20 15:21:44 2003
-+++ euc.c	Wed Jun 18 12:01:30 2003
-@@ -48,6 +48,7 @@
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
-+#include <ctype.h>
+--- euc.c.orig	Thu Nov 25 11:38:16 2004
++++ euc.c	Fri Feb 18 15:30:38 2005
+@@ -41,6 +41,8 @@
+ #include <sys/param.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/euc.c,v 1.20 2004/06/23 07:01:43 tjr Exp $");
  
- rune_t	_EUC_sgetrune(const char *, size_t, char const **);
- int	_EUC_sputrune(rune_t, char *, size_t, char **);
-@@ -135,11 +136,10 @@
- 	rune_t rune = 0;
- 	int len, set;
++#include "xlocale_private.h"
++
+ #include <errno.h>
+ #include <limits.h>
+ #include <runetype.h>
+@@ -49,11 +51,12 @@
+ #include <wchar.h>
+ #include "mblocal.h"
  
--	if (n < 1 || (len = CEI->count[set = _euc_set(*string)]) > n) {
--		if (result)
--			*result = string;
-+	if (result)
-+		*result = string;
-+	if (n < 1 || (len = CEI->count[set = _euc_set(*string)]) > n)
- 		return (_INVALID_RUNE);
--	}
- 	switch (set) {
- 	case 3:
- 	case 2:
-@@ -151,6 +151,11 @@
- 		while (len-- > 0)
- 			rune = (rune << 8) | ((u_int)(*string++) & 0xff);
- 		break;
-+	}
-+	if (!isrune(rune)) {
-+		if (result)
-+			(*result)++;
-+		return (_INVALID_RUNE);
+-int	_EUC_init(_RuneLocale *);
+-size_t	_EUC_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
+-	    mbstate_t * __restrict);
+-int	_EUC_mbsinit(const mbstate_t *);
+-size_t	_EUC_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
++__private_extern__ int	_EUC_init(struct __xlocale_st_runelocale *);
++static size_t	_EUC_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
++	    mbstate_t * __restrict, locale_t);
++static int	_EUC_mbsinit(const mbstate_t *, locale_t);
++static size_t	_EUC_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict,
++	    locale_t);
+ 
+ typedef struct {
+ 	int	count[4];
+@@ -67,12 +70,20 @@
+ 	int	want;
+ } _EucState;
+ 
+-int
+-_EUC_init(_RuneLocale *rl)
++/* This will be called by the XL_RELEASE() macro to free the extra storage */
++static void
++_EUC_free_extra(struct __xlocale_st_runelocale *xrl)
++{
++	free(xrl->_CurrentRuneLocale.__variable);
++}
++
++__private_extern__ int
++_EUC_init(struct __xlocale_st_runelocale *xrl)
+ {
+ 	_EucInfo *ei;
+ 	int x, new__mb_cur_max;
+ 	char *v, *e;
++	_RuneLocale *rl = &xrl->_CurrentRuneLocale;
+ 
+ 	if (rl->__variable == NULL)
+ 		return (EFTYPE);
+@@ -111,23 +122,21 @@
  	}
- 	if (result)
- 		*result = string;
+ 	rl->__variable = ei;
+ 	rl->__variable_len = sizeof(_EucInfo);
+-	_CurrentRuneLocale = rl;
+-	__mb_cur_max = new__mb_cur_max;
+-	__mbrtowc = _EUC_mbrtowc;
+-	__wcrtomb = _EUC_wcrtomb;
+-	__mbsinit = _EUC_mbsinit;
++	xrl->__mb_cur_max = new__mb_cur_max;
++	xrl->__mbrtowc = _EUC_mbrtowc;
++	xrl->__wcrtomb = _EUC_wcrtomb;
++	xrl->__mbsinit = _EUC_mbsinit;
++	xrl->__free_extra = (__free_extra_t)_EUC_free_extra;
+ 	return (0);
+ }
+ 
+-int
+-_EUC_mbsinit(const mbstate_t *ps)
++static int
++_EUC_mbsinit(const mbstate_t *ps, locale_t loc)
+ {
+ 
+ 	return (ps == NULL || ((const _EucState *)ps)->want == 0);
+ }
+ 
+-#define	CEI	((_EucInfo *)(_CurrentRuneLocale->__variable))
+-
+ #define	_SS2	0x008e
+ #define	_SS3	0x008f
+ 
+@@ -140,18 +149,20 @@
+ 	return ((c & 0x80) ? c == _SS3 ? 3 : c == _SS2 ? 2 : 1 : 0);
+ }
+ 
+-size_t
++static size_t
+ _EUC_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
+-    mbstate_t * __restrict ps)
++    mbstate_t * __restrict ps, locale_t loc)
+ {
+ 	_EucState *es;
+ 	int i, set, want;
+ 	wchar_t wc;
+ 	const char *os;
++	struct __xlocale_st_runelocale *rl = loc->__lc_ctype;
++	_EucInfo *CEI = (_EucInfo *)rl->_CurrentRuneLocale.__variable;
+ 
+ 	es = (_EucState *)ps;
+ 
+-	if (es->want < 0 || es->want > MB_CUR_MAX || es->set < 0 ||
++	if (es->want < 0 || es->want > rl->__mb_cur_max || es->set < 0 ||
+ 	    es->set > 3) {
+ 		errno = EINVAL;
+ 		return ((size_t)-1);
+@@ -213,12 +224,14 @@
+ 	return (wc == L'\0' ? 0 : s - os);
+ }
+ 
+-size_t
+-_EUC_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
++static size_t
++_EUC_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps,
++    locale_t loc)
+ {
+ 	_EucState *es;
+ 	wchar_t m, nm;
+ 	int i, len;
++	_EucInfo *CEI = (_EucInfo *)loc->__lc_ctype->_CurrentRuneLocale.__variable;
+ 
+ 	es = (_EucState *)ps;
+ 

@@ -1,7 +1,7 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_gx2_vga.c,v 1.2 2003/01/14 09:34:32 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_gx2_vga.c,v 1.3 2003/11/03 05:11:21 tsi Exp $ */
 /*
  * $Workfile: nsc_gx2_vga.c $
- * $Revision: 1.1.1.1 $
+ * $Revision: 1.1.1.2 $
  * $Author: jharper $
  *
  * This file contains routines to set modes using the VGA registers.  
@@ -227,12 +227,10 @@ gu2_vga_seq_blanking(void)
 int
 gu2_vga_attr_ctrl(int reset)
 {
-   int tmp;
-
-   tmp = gfx_inb(0x3DA);
+   (void) gfx_inb(0x3DA);
    gfx_outb(0x3C0, (unsigned char)(reset ? 0x00 : 0x20));
    if (reset)
-      tmp = gfx_inb(0x3DA);
+      (void) gfx_inb(0x3DA);
    return (GFX_STATUS_OK);
 }
 
@@ -250,7 +248,6 @@ gu2_vga_to_gfx(void)
 void
 gu2_gfx_to_vga(int vga_mode)
 {
-   int tmp;
    char sequencer;
 
    gu2_vga_extcrtc(0x40, vga_mode);
@@ -268,9 +265,9 @@ gu2_gfx_to_vga(int vga_mode)
    gfx_outw(0x3C4, 0x300);
 
    /* turn on the attribute controler */
-   tmp = gfx_inb(0x3DA);
+   (void) gfx_inb(0x3DA);
    gfx_outb(0x3C0, 0x20);
-   tmp = gfx_inb(0x3DA);
+   (void) gfx_inb(0x3DA);
 
    gu2_vga_extcrtc(0x3F, 0);
 }

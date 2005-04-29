@@ -1,76 +1,98 @@
 #	from: @(#)bsd.doc.mk	5.3 (Berkeley) 1/2/91
-# $FreeBSD: src/share/mk/bsd.doc.mk,v 1.47 1999/08/28 00:21:46 peter Exp $
+# $FreeBSD: src/share/mk/bsd.doc.mk,v 1.58 2002/10/30 17:03:48 ru Exp $
 #
 # The include file <bsd.doc.mk> handles installing BSD troff documents.
 #
 #
 # +++ variables +++
 #
-# LPR		Printer command. [lpr]
+# DCOMPRESS_CMD	Program to compress troff documents.  Output is to stdout.
+#		[${COMPRESS_CMD}]
 #
-# 	[incomplete]
+# DESTDIR	Change the tree where the documents get installed.  [not set]
 #
-# +++ targets +++
+# DOC		Document name.  [paper]
 #
-# 	[incomplete]
+# EXTRA		Extra files (not SRCS) that make up the document.  [not set]
+#
+# LPR		Printer command.  [lpr]
+#
+# MACROS	Macro packages used to build the document.  [not set]
+#
+# NODOCCOMPRESS	If you do not want formatted troff documents to be
+#		compressed when they are installed.  [not set]
+#
+# PRINTERDEVICE	Indicates which output formats will be generated
+#		(ascii, ps, html).  [ascii]
+#
+# SRCDIR	Directory where source files live.  [${.CURDIR}]
+#
+# SRCS		List of source files.  [not set]
+#
+# TRFLAGS	Additional flags to groff(1).  [not set]
+#
+# USE_EQN	If set, preprocess with eqn(1).  [not set]
+#
+# USE_PIC	If set, preprocess with pic(1).  [not set]
+#
+# USE_REFER	If set, preprocess with refer(1).  [not set]
+#
+# USE_SOELIM	If set, preprocess with soelim(1).  [not set]
+#
+# USE_TBL	If set, preprocess with tbl(1).  [not set]
+#
+# VOLUME	Volume the document belongs to.  [not set]
 
-.if !target(__initialized__)
-__initialized__:
-.if exists(${.CURDIR}/../Makefile.inc)
-.include "${.CURDIR}/../Makefile.inc"
-.endif
-.endif
+.include <bsd.init.mk>
 
 PRINTERDEVICE?=	ascii
 
 BIB?=		bib
-EQN?=		eqn -T${PRINTERDEVICE}
 GREMLIN?=	grn
 GRIND?=		vgrind -f
 INDXBIB?=	indxbib
 PIC?=		pic
 REFER?=		refer
-.if ${PRINTERDEVICE} == "ascii"
-ROFF?=          groff -mtty-char ${TRFLAGS} ${MACROS} -o${PAGES}
-.else
-ROFF?=		groff ${TRFLAGS} ${MACROS} -o${PAGES}
-.endif
+.for _dev in ${PRINTERDEVICE:Mascii}
+ROFF.ascii?=	groff -Tascii ${TRFLAGS} -mtty-char ${MACROS} -o${PAGES}
+.endfor
+.for _dev in ${PRINTERDEVICE:Nascii}
+ROFF.${_dev}?=	groff -T${_dev} ${TRFLAGS} ${MACROS} -o${PAGES}
+.endfor
 SOELIM?=	soelim
-SOELIMPP=	sed ${SOELIMPPARGS}
-SOELIMPPARGS0=	${SRCS} ${EXTRA}
-SOELIMPPARGS1=	${SOELIMPPARGS0:S/^/-e\\ \'s:\(\.so[\\ \\	][\\ \\	]*\)\(/}
-SOELIMPPARGS2=	${SOELIMPPARGS1:S/$/\)\$:\1${SRCDIR}\/\2:\'/}
-SOELIMPPARGS=	${SOELIMPPARGS2:S/\\'/'/g}
 TBL?=		tbl
 
 DOC?=		paper
 LPR?=		lpr
 
-TRFLAGS+=	-T${PRINTERDEVICE}
 .if defined(USE_EQN)
 TRFLAGS+=	-e
-.endif
-.if defined(USE_TBL)
-TRFLAGS+=	-t
 .endif
 .if defined(USE_PIC)
 TRFLAGS+=	-p
 .endif
-.if defined(USE_SOELIM)
-TRFLAGS+=	-s
-.endif
 .if defined(USE_REFER)
 TRFLAGS+=	-R
 .endif
+.if defined(USE_SOELIM)
+TRFLAGS+=	-I${SRCDIR}
+.endif
+.if defined(USE_TBL)
+TRFLAGS+=	-t
+.endif
 
 DCOMPRESS_EXT?=	${COMPRESS_EXT}
-.if defined(NODOCCOMPRESS) || ${PRINTERDEVICE} == "html"
-DFILE=	${DOC}.${PRINTERDEVICE}
-DCOMPRESS_CMD=	cat
-.else
-DFILE=	${DOC}.${PRINTERDEVICE}${DCOMPRESS_EXT}
 DCOMPRESS_CMD?=	${COMPRESS_CMD}
+.for _dev in ${PRINTERDEVICE:Mhtml}
+DFILE.html=	${DOC}.html
+.endfor
+.for _dev in ${PRINTERDEVICE:Nhtml}
+.if defined(NODOCCOMPRESS)
+DFILE.${_dev}=	${DOC}.${_dev}
+.else
+DFILE.${_dev}=	${DOC}.${_dev}${DCOMPRESS_EXT}
 .endif
+.endfor
 
 PAGES?=		1-
 
@@ -82,92 +104,93 @@ UNROFFFLAGS+=	split=1
 .endif
 
 # Compatibility mode flag for groff.  Use this when formatting documents with
-# Berkeley me macros.
+# Berkeley me macros (orig_me(7)).
 COMPAT?=	-C
 
 .PATH: ${.CURDIR} ${SRCDIR}
 
-.MAIN:	all
-all:	${DFILE}
+.for _dev in ${PRINTERDEVICE}
+all: ${DFILE.${_dev}}
+.endfor
 
 .if !target(print)
-print: ${DFILE}
+.for _dev in ${PRINTERDEVICE}
+print: ${DFILE.${_dev}}
+.endfor
+print:
+.for _dev in ${PRINTERDEVICE}
 .if defined(NODOCCOMPRESS)
-	${LPR} ${DFILE}
+	${LPR} ${DFILE.${_dev}}
 .else
-	${DCOMPRESS_CMD} -d ${DFILE} | ${LPR}
+	${DCOMPRESS_CMD} -d ${DFILE.${_dev}} | ${LPR}
 .endif
+.endfor
 .endif
 
-.if ${PRINTERDEVICE} != "ascii" && ${PRINTERDEVICE} != "ps"
-CLEANFILES+=	${DOC}.${PRINTERDEVICE} ${DOC}.${PRINTERDEVICE}${DCOMPRESS_EXT}
-.endif
+.for _dev in ${PRINTERDEVICE:Nascii:Nps:Nhtml}
+CLEANFILES+=	${DOC}.${_dev} ${DOC}.${_dev}${DCOMPRESS_EXT}
+.endfor
 CLEANFILES+=	${DOC}.ascii ${DOC}.ascii${DCOMPRESS_EXT} \
 		${DOC}.ps ${DOC}.ps${DCOMPRESS_EXT} \
 		${DOC}.html ${DOC}-*.html
 
-FILES?=	${SRCS}
 realinstall:
-.if ${PRINTERDEVICE} == "html"
+.for _dev in ${PRINTERDEVICE:Mhtml}
 	cd ${SRCDIR}; \
-		${INSTALL} ${COPY} -o ${BINOWN} -g ${BINGRP} -m ${BINMODE} \
-		${DOC}*.html ${DESTDIR}${BINDIR}/${VOLUME}
-.else
-	${INSTALL} ${COPY} -o ${BINOWN} -g ${BINGRP} -m ${BINMODE} \
-		${DFILE} ${DESTDIR}${BINDIR}/${VOLUME}
-.endif
-
-install:	beforeinstall realinstall afterinstall
-
-.if !target(beforeinstall)
-beforeinstall:
-
-.endif
-.if !target(afterinstall)
-afterinstall:
-
-.endif
-
-DISTRIBUTION?=	doc
-.if !target(distribute)
-distribute:
-.for dist in ${DISTRIBUTION}
-	cd ${.CURDIR} ; $(MAKE) install DESTDIR=${DISTDIR}/${dist} SHARED=copies
+	    ${INSTALL} -o ${BINOWN} -g ${BINGRP} -m ${BINMODE} \
+	    ${DOC}*.html ${DESTDIR}${BINDIR}/${VOLUME}
 .endfor
-.endif
+.for _dev in ${PRINTERDEVICE:Nhtml}
+	${INSTALL} -o ${BINOWN} -g ${BINGRP} -m ${BINMODE} \
+	    ${DFILE.${_dev}} ${DESTDIR}${BINDIR}/${VOLUME}
+.endfor
 
 spell: ${SRCS}
-	(cd ${.CURDIR};  spell ${SRCS} ) | sort | \
+	(cd ${.CURDIR}; spell ${SRCS} ) | sort | \
 		comm -23 - ${.CURDIR}/spell.ok > ${DOC}.spell
 
 BINDIR?=	/usr/share/doc
-BINMODE=        444
+BINMODE=	444
 
 SRCDIR?=	${.CURDIR}
 
-.if !target(${DFILE})
-_stamp.extraobjs: ${EXTRA} ${OBJS}
+.if defined(EXTRA) && !empty(EXTRA)
+_stamp.extra: ${EXTRA}
 	touch ${.TARGET}
-CLEANFILES+=	_stamp.extraobjs
-${DFILE}: ${SRCS} _stamp.extraobjs
-.if ${PRINTERDEVICE} == "html"
+.endif
+
+CLEANFILES+=	_stamp.extra
+.for _dev in ${PRINTERDEVICE:Nhtml}
+.if !target(${DFILE.${_dev}})
+.if target(_stamp.extra)
+${DFILE.${_dev}}: _stamp.extra
+.endif
+${DFILE.${_dev}}: ${SRCS}
+.if defined(NODOCCOMPRESS)
+	${ROFF.${_dev}} ${.ALLSRC:N_stamp.extra} > ${.TARGET}
+.else
+	${ROFF.${_dev}} ${.ALLSRC:N_stamp.extra} | ${DCOMPRESS_CMD} > ${.TARGET}
+.endif
+.endif
+.endfor
+
+.for _dev in ${PRINTERDEVICE:Mhtml}
+.if !target(${DFILE.html})
+.if target(_stamp.extra)
+${DFILE.html}: _stamp.extra
+.endif
+${DFILE.html}: ${SRCS}
+.if defined(MACROS) && !empty(MACROS)
 	cd ${SRCDIR}; ${UNROFF} ${MACROS} ${UNROFFFLAGS} \
 	    document=${DOC} ${SRCS}
-.elif defined(USE_SOELIMPP)
-	${SOELIMPP} ${.ALLSRC:N_stamp.extraobjs} | ${ROFF} | \
-	    ${DCOMPRESS_CMD} > ${.TARGET}
+.else # unroff(1) requires a macro package as an argument
+	cd ${SRCDIR}; ${UNROFF} -ms ${UNROFFFLAGS} \
+	    document=${DOC} ${SRCS}
 .else
-	(cd ${SRCDIR}; ${ROFF} ${.ALLSRC:N_stamp.extraobjs}) | \
-	    ${DCOMPRESS_CMD} > ${.TARGET}
 .endif
 .endif
+.endfor
 
-.if !target(maninstall)
-maninstall:
-.endif
-
-.if !target(regress)
-regress:
-.endif
+DISTRIBUTION?=	doc
 
 .include <bsd.obj.mk>

@@ -65,6 +65,14 @@
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define deque _Release_deque
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 { 
   /**
@@ -633,8 +641,10 @@ namespace std
    *  and we can use other standard algorithms as well.
    *  @endif
   */
+  /* APPLE LOCAL libstdc++ debug mode */
   template <typename _Tp, typename _Alloc = allocator<_Tp> >
-    class deque : protected _Deque_base<_Tp, _Alloc>
+    class _GLIBCXX_RELEASE_CLASS(deque) deque
+    : protected _Deque_base<_Tp, _Alloc>
   {
     // concept requirements
     __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
@@ -1599,5 +1609,12 @@ namespace std
     __x.swap(__y);
   }
 } // namespace std 
-  
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef deque
+#  include <debug/dbg_deque.h>
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+
 #endif /* __GLIBCPP_INTERNAL_DEQUE_H */

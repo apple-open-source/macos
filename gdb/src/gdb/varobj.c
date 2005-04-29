@@ -24,6 +24,7 @@
 #include "language.h"
 #include "gdbcmd.h"
 #include "gdb_string.h"
+#include "block.h"
 #include <math.h>
 
 #include "varobj.h"
@@ -521,6 +522,7 @@ safe_value_rtti_target_type (struct value *val, int *full, int *top, int *using_
 static struct value *
 varobj_fixup_value (struct value *in_value, 
 		    int use_dynamic_type,
+		    struct block *block,
 		    struct type **dynamic_type_handle)
 {
   /* Look up the full type of the varobj, and record that in
@@ -554,7 +556,7 @@ varobj_fixup_value (struct value *in_value,
 	     an ObjC class. */
 	  int ret_val;
 
-	  ret_val = safe_value_objc_target_type (in_value, &dynamic_type);
+	  ret_val = safe_value_objc_target_type (in_value, block, &dynamic_type);
 	  if (!ret_val)
 	    dynamic_type = NULL;
 	  else if (dynamic_type)
@@ -588,7 +590,7 @@ varobj_fixup_value (struct value *in_value,
 		 an ObjC class. */
 	      int ret_val;
 
-	      ret_val = safe_value_objc_target_type (in_value, &dynamic_type);
+	      ret_val = safe_value_objc_target_type (in_value, block, &dynamic_type);
 	      if (!ret_val)
 		dynamic_type = NULL;
 	      else if (dynamic_type)
@@ -640,7 +642,7 @@ find_frame_addr_in_frame_chain (CORE_ADDR frame_addr)
       frame = get_prev_frame (frame);
       if (frame == NULL)
 	return NULL;
-      if (get_frame_base (frame) == frame_addr)
+      if (get_frame_base_address (frame) == frame_addr)
 	return frame;
     }
 }
@@ -685,6 +687,8 @@ varobj_create (char *objname,
       if ((type == USE_CURRENT_FRAME) || (type == USE_SELECTED_FRAME)
 	  || (type == USE_BLOCK_IN_FRAME))
 	fi = deprecated_selected_frame;
+      else if (type == NO_FRAME_NEEDED)
+	fi = NULL;
       else
 	/* FIXME: cagney/2002-11-23: This code should be doing a
 	   lookup using the frame ID and not just the frame's
@@ -707,6 +711,11 @@ varobj_create (char *objname,
 	  if (type == USE_BLOCK_IN_FRAME) 
 	    {
 	      warning ("Attempting to create USE_BLOCK_IN_FRAME variable with NULL block.");
+	      goto error_cleanup;
+	    }
+	  else if (type == NO_FRAME_NEEDED)
+	    {
+	      warning ("Attempting to create NO_FRAME_NEEDED variable with NULL block.");
 	      goto error_cleanup;
 	    }
 	  else if (fi != NULL)
@@ -772,7 +781,8 @@ varobj_create (char *objname,
 	     success, since technically the variable does not exist yet... */
 
 	      	      
-	  if ((var->root->use_selected_frame || varobj_pc_in_valid_block_p (var)) 
+	  if ((var->root->use_selected_frame || varobj_pc_in_valid_block_p (var)
+	       || type == NO_FRAME_NEEDED) 
 	      && gdb_evaluate_expression (var->root->exp, &var->value))
 	    {
 	      /* no error */
@@ -782,6 +792,7 @@ varobj_create (char *objname,
 	      var->type = VALUE_TYPE (var->value);
 
 	      var->value = varobj_fixup_value (var->value, varobj_use_dynamic_type, 
+					       block,
 					       &(var->dynamic_type));
 
 	      if (VALUE_LAZY (var->value))
@@ -804,6 +815,11 @@ varobj_create (char *objname,
 		}
 	      else
 		{
+		  /* If we haven't been able to parse either the value
+		     or the type from the expression, it is probably bogus.
+		     Discard it so we can remake it later when it might
+		     actually work.  */
+		  free_current_contents (&var->root->exp);
 		  var->root->in_scope = 0;
 		  var->type = NULL;
 		  var->value = NULL;
@@ -1182,7 +1198,6 @@ varobj_set_value (struct varobj *var, char *expression)
   struct expression *exp;
   struct value *value;
   int saved_input_radix = input_radix;
-  enum scheduler_locking_mode old_mode;
   int ret_val = 1;
   struct cleanup *schedlock_chain;
 
@@ -1843,8 +1858,8 @@ get_type (struct varobj *var)
   else
     type = var->type;
 
-  while (type != NULL && TYPE_CODE (type) == TYPE_CODE_TYPEDEF)
-    type = TYPE_TARGET_TYPE (type);
+  if (type != NULL)
+    type = check_typedef (type);
 
   return type;
 }
@@ -1884,8 +1899,8 @@ get_target_type (struct type *type)
   if (type != NULL)
     {
       type = TYPE_TARGET_TYPE (type);
-      while (type != NULL && TYPE_CODE (type) == TYPE_CODE_TYPEDEF)
-	type = TYPE_TARGET_TYPE (type);
+      if (type != NULL)
+	type = check_typedef (type);
     }
 
   return type;
@@ -2105,6 +2120,7 @@ variable_language (struct varobj *var)
     case language_c:
       lang = vlang_c;
       break;
+    case language_objcplus:
     case language_cplus:
       lang = vlang_cplus;
       break;
@@ -2172,6 +2188,14 @@ varobj_type_is_equal_p (struct varobj *old_var, struct varobj *new_var)
   char *old_type, *new_type;
   int result;
   
+  /* Don't consider them equal if either has a NULL type pointer.  */
+  if (old_var->type == NULL || new_var->type == NULL)
+    return 0;
+
+  /* FIXME: Just comparing the names is not good enough.  They have to have
+     the same children as well, or we could end up casting the variable to
+     another of the same name but different layout behind the user's back.  */
+
   old_type = varobj_get_type (old_var);
   new_type = varobj_get_type (new_var);
 
@@ -2185,13 +2209,19 @@ varobj_type_is_equal_p (struct varobj *old_var, struct varobj *new_var)
 
 /* What is the ``struct value *'' of the root variable VAR? 
 
-   Returns the current value of VAR_HANDLE.  On return, TYPE_CHANGED
-   will be 1 if the type has changed, and 0 otherwise.  Finally, if
-   the type has changed in the generic value_of_root code, then the
-   old varobj will be discarded, and a new one made for it.  However,
-   if the type changed down in the language part of value_of_root
-   (possibly because the dynamic type changed, the varobj may just be
-   fixed up, so you shouldn't depend on its being replaced or not.  */
+   Returns the current value of VAR_HANDLE, or NULL if there was 
+   some error.  
+
+   On return, TYPE_CHANGED will be 1 if the type has changed, and 0
+   otherwise.  However, if the return value is NULL, TYPE_CHANGED
+   won't be set.
+   
+   Finally, if the type has changed in the generic value_of_root code,
+   then the old varobj will be discarded, and a new one made for it.
+   However, if the type changed down in the language part of
+   value_of_root (possibly because the dynamic type changed, the
+   varobj may just be fixed up, so you shouldn't depend on its being
+   replaced or not.  */
 
 static struct value *
 value_of_root (struct varobj **var_handle, enum varobj_type_change *type_changed)
@@ -2216,7 +2246,10 @@ value_of_root (struct varobj **var_handle, enum varobj_type_change *type_changed
      One example where this could happen is if the varobj is an ObjC expression
      which references something that hasn't been initialized yet... In this
      case one of the "lookup implementation for selector & object" functions
-     can crash, so we can't even get the type.  */
+     can crash, so we can't even get the type.  
+
+     FIXME: Shouldn't we be able to short-circuit this here if the valid block
+     of the varobj is the same as the currently selected block?  */
 
   if (var->root->use_selected_frame || get_type (var) == NULL)
     {
@@ -2225,14 +2258,15 @@ value_of_root (struct varobj **var_handle, enum varobj_type_change *type_changed
       tmp_var = varobj_create (NULL, name_of_variable (var), (CORE_ADDR) 0, NULL,
 			       USE_SELECTED_FRAME);
       /* If there was some error creating the variable, or we couldn't
-	 find an expression for this variable, then just return NULL.
+	 find an expression for this variable, or we couldn't get its type,
+	 then just return NULL.
 	 There is no need to update it if it can't be parsed. */
 
       if (tmp_var == NULL)
 	{
 	  return NULL;
 	}
-      else if (tmp_var->root->exp == NULL)
+      else if (tmp_var->root->exp == NULL || tmp_var->type == NULL)
 	{
 	  free_variable (tmp_var);
 	  return NULL;
@@ -2305,7 +2339,7 @@ varobj_pc_in_valid_block_p (struct varobj *var)
   
   /* reinit_frame_cache (); */
   
-  fi = find_frame_addr_in_frame_chain (var->root->frame.base);
+  fi = frame_find_by_id (var->root->frame);
   if (fi != NULL)
     {
       cur_pc = get_frame_pc (fi);
@@ -2349,7 +2383,8 @@ value_of_child (struct varobj *parent, int index,
       struct value *new_value;
 
       new_value = varobj_fixup_value (value, varobj_use_dynamic_type, 
-				  &dynamic_type);
+				      child->root->valid_block,
+				      &dynamic_type);
 
       /* value_of_child returns a value that has been released.  So if
 	 we are going to replace it, we need to free the old value,
@@ -2670,7 +2705,9 @@ c_value_of_root (struct varobj **var_handle, enum varobj_type_change *type_chang
       if (gdb_evaluate_expression (var->root->exp, &new_val))
 	{
 	  struct type *dynamic_type;
-	  new_val = varobj_fixup_value (new_val, varobj_use_dynamic_type, &dynamic_type);
+	  new_val = varobj_fixup_value (new_val, varobj_use_dynamic_type, 
+					var->root->valid_block,
+					&dynamic_type);
 	  if (varobj_use_dynamic_type && (var->dynamic_type != dynamic_type))
 	    {
 	      *type_changed = VAROBJ_DYNAMIC_TYPE_CHANGED;
@@ -2809,8 +2846,10 @@ c_type_of_child (struct varobj *parent, int index)
     case TYPE_CODE_ARRAY:
       /* APPLE LOCAL: Don't call get_target_type here, that
 	 skips over typedefs, but what the variable was typedef'ed
-	 to be is often useful. */
-      type = TYPE_TARGET_TYPE (parent->type); 
+	 to be is often useful.  However, DO call check_typedef
+         on the parent, or you won't get the real type of the
+         child, you'll get what the parent was typedef'ed to.  */
+      type = TYPE_TARGET_TYPE (check_typedef(parent->type)); 
       /* END APPLE LOCAL */
       break;
 
@@ -2884,7 +2923,7 @@ c_value_of_variable (struct varobj *var)
     case TYPE_CODE_ARRAY:
       {
 	char *number;
-	xasprintf (&number, "[%d]", var->num_children);
+	xasprintf (&number, "[%d]", varobj_get_num_children (var));
 	return (number);
       }
       /* break; */
@@ -2910,7 +2949,7 @@ c_value_of_variable (struct varobj *var)
 	    val_print (VALUE_TYPE (var->value),
 		       VALUE_CONTENTS_RAW (var->value), 0,
 		       VALUE_ADDRESS (var->value), stb,
-		       format_code[(int) var->format], 1, 0, 0);
+		       format_code[(int) var->format], 0, 0, 0);
 	    thevalue = ui_file_xstrdup (stb, &dummy);
 	    do_cleanups (old_chain);
 	return thevalue;

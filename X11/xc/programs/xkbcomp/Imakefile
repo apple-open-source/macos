@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/xkbcomp/Imakefile,v 3.21 2003/02/15 22:22:43 dawes Exp $
+XCOMM $XFree86: xc/programs/xkbcomp/Imakefile,v 3.22 2003/05/27 17:58:24 tsi Exp $
 
 #define IHaveSubdirs
 #define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
@@ -19,8 +19,8 @@ XCOMM $XFree86: xc/programs/xkbcomp/Imakefile,v 3.21 2003/02/15 22:22:43 dawes E
 		 keymap.o keycodes.o keytypes.o compat.o action.o \
 		 symbols.o geometry.o xkbpath.o listing.o \
 		 xkbparse.o parseutils.o utils.o
-        DEPLIBS = $(DEPXKBFILELIB) $(DEPXLIBONLY)
-LOCAL_LIBRARIES = $(XKBFILELIB) $(XLIB)
+        DEPLIBS = $(DEPXKBFILELIB) $(DEPXONLYLIB)
+LOCAL_LIBRARIES = $(XKBFILELIB) $(XONLYLIB)
         SUBDIRS = $(CROSS) compat geometry keycodes keymap semantics symbols \
 		  types compiled rules
       DATAFILES = README README.config README.enhancing

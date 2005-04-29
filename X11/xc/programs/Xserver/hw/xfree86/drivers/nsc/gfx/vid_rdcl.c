@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/gfx/vid_rdcl.c,v 1.3 2003/02/21 16:51:10 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/gfx/vid_rdcl.c,v 1.4 2003/11/03 05:11:23 tsi Exp $ */
 /*
  * $Workfile: vid_rdcl.c $
  *
@@ -446,7 +446,6 @@ gfx_set_clock_frequency(unsigned long frequency)
 {
    Q_WORD msr_value;
    unsigned int i, index = 0;
-   unsigned long value;
    long timeout = 1000;
    long min, diff;
    RCDFPLLENTRY *PllTable;
@@ -462,7 +461,6 @@ gfx_set_clock_frequency(unsigned long frequency)
    /* FIND THE REGISTER VALUES FOR THE DESIRED FREQUENCY */
    /* Search the table for the closest frequency (16.16 format). */
 
-   value = PllTable[0].pll_value;
    min = (long)PllTable[0].frequency - frequency;
    if (min < 0L)
       min = -min;

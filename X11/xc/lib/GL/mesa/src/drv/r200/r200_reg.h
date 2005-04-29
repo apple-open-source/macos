@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_reg.h,v 1.2 2002/12/16 16:18:54 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_reg.h,v 1.3 2003/09/28 20:15:23 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -818,6 +818,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define     R200_CLAMP_S_MIRROR_CLAMP_LAST            (3  << 23)
 #define     R200_CLAMP_S_CLAMP_BORDER                 (4  << 23)
 #define     R200_CLAMP_S_MIRROR_CLAMP_BORDER          (5  << 23)
+#define     R200_CLAMP_S_CLAMP_GL                     (6  << 23)
+#define     R200_CLAMP_S_MIRROR_CLAMP_GL              (7  << 23)
 #define     R200_CLAMP_S_MASK                         (7  << 23)
 #define     R200_WRAPEN_T                             (1  << 26)
 #define     R200_CLAMP_T_WRAP                         (0  << 27)
@@ -826,6 +828,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define     R200_CLAMP_T_MIRROR_CLAMP_LAST            (3  << 27)
 #define     R200_CLAMP_T_CLAMP_BORDER                 (4  << 27)
 #define     R200_CLAMP_T_MIRROR_CLAMP_BORDER          (5  << 27)
+#define     R200_CLAMP_T_CLAMP_GL                     (6  << 27)
+#define     R200_CLAMP_T_MIRROR_CLAMP_GL              (7  << 27)
 #define     R200_CLAMP_T_MASK                         (7  << 27)
 #define     R200_KILL_LT_ZERO                         (1  << 30)
 #define     R200_BORDER_MODE_OGL                      (0  << 31)
@@ -854,30 +858,37 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define     R200_TXFORMAT_WIDTH_SHIFT        8
 #define     R200_TXFORMAT_HEIGHT_MASK        (15 << 12)
 #define     R200_TXFORMAT_HEIGHT_SHIFT       12
-#define     R200_TXFORMAT_F5_WIDTH_MASK      (15 << 15)	/* cube face 5 */
-#define     R200_TXFORMAT_F5_WIDTH_SHIFT     15
+#define     R200_TXFORMAT_F5_WIDTH_MASK      (15 << 16)	/* cube face 5 */
+#define     R200_TXFORMAT_F5_WIDTH_SHIFT     16
 #define     R200_TXFORMAT_F5_HEIGHT_MASK     (15 << 20)
 #define     R200_TXFORMAT_F5_HEIGHT_SHIFT    20
-#define     R200_TXFORMAT_ST_ROUTE_MASK      (7  << 24)
 #define     R200_TXFORMAT_ST_ROUTE_STQ0      (0  << 24)
 #define     R200_TXFORMAT_ST_ROUTE_STQ1      (1  << 24)
 #define     R200_TXFORMAT_ST_ROUTE_STQ2      (2  << 24)
 #define     R200_TXFORMAT_ST_ROUTE_STQ3      (3  << 24)
 #define     R200_TXFORMAT_ST_ROUTE_STQ4      (4  << 24)
 #define     R200_TXFORMAT_ST_ROUTE_STQ5      (5  << 24)
+#define     R200_TXFORMAT_ST_ROUTE_MASK      (7  << 24)
+#define     R200_TXFORMAT_ST_ROUTE_SHIFT     24
 #define     R200_TXFORMAT_ALPHA_MASK_ENABLE  (1  << 28)
 #define     R200_TXFORMAT_CHROMA_KEY_ENABLE  (1  << 29)
 #define     R200_TXFORMAT_CUBIC_MAP_ENABLE   (1  << 30)
 #define R200_PP_TXFORMAT_X_0              0x2c08
-#define     R200_DEPTH_LOG2_MASK                      (0xff << 0)
+#define     R200_DEPTH_LOG2_MASK                      (0xf << 0)
 #define     R200_DEPTH_LOG2_SHIFT                     0
+#define     R200_VOLUME_FILTER_SHIFT                  4
+#define     R200_VOLUME_FILTER_MASK                   (1 << 4)
+#define     R200_VOLUME_FILTER_NEAREST                (0 << 4)
+#define     R200_VOLUME_FILTER_LINEAR                 (1 << 4)
 #define     R200_WRAPEN_Q                             (1  << 8)
 #define     R200_CLAMP_Q_WRAP                         (0  << 9)
 #define     R200_CLAMP_Q_MIRROR                       (1  << 9)
 #define     R200_CLAMP_Q_CLAMP_LAST                   (2  << 9)
 #define     R200_CLAMP_Q_MIRROR_CLAMP_LAST            (3  << 9)
-#define     R200_CLAMP_Q_CLAMP_BORDER                 (6  << 9)
-#define     R200_CLAMP_Q_MIRROR_CLAMP_BORDER          (7  << 9)
+#define     R200_CLAMP_Q_CLAMP_BORDER                 (4  << 9)
+#define     R200_CLAMP_Q_MIRROR_CLAMP_BORDER          (5  << 9)
+#define     R200_CLAMP_Q_CLAMP_GL                     (6  << 9)
+#define     R200_CLAMP_Q_MIRROR_CLAMP_GL              (7  << 9)
 #define     R200_CLAMP_Q_MASK                         (7  << 9)
 #define     R200_MIN_MIP_LEVEL_MASK                   (0xff << 12)
 #define     R200_MIN_MIP_LEVEL_SHIFT                  12
@@ -889,12 +900,29 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define     R200_TEXCOORD_1D_PROJ                     (5  << 16)
 #define     R200_TEXCOORD_1D                          (6  << 16)
 #define     R200_TEXCOORD_ZERO                        (7  << 16)
+#define     R200_TEXCOORD_MASK                        (7  << 16)
 #define     R200_LOD_BIAS_MASK                        (0xfff80000)
 #define     R200_LOD_BIAS_SHIFT                       19
 #define R200_PP_TXSIZE_0                  0x2c0c /* NPOT only */
 #define R200_PP_TXPITCH_0                 0x2c10 /* NPOT only */
 #define R200_PP_BORDER_COLOR_0            0x2c14
 #define R200_PP_CUBIC_FACES_0             0x2c18
+#define     R200_FACE_WIDTH_1_SHIFT                   0
+#define     R200_FACE_HEIGHT_1_SHIFT                  4
+#define     R200_FACE_WIDTH_1_MASK                   (0xf << 0)
+#define     R200_FACE_HEIGHT_1_MASK                  (0xf << 4)
+#define     R200_FACE_WIDTH_2_SHIFT                   8
+#define     R200_FACE_HEIGHT_2_SHIFT                 12
+#define     R200_FACE_WIDTH_2_MASK                   (0xf << 8)
+#define     R200_FACE_HEIGHT_2_MASK                  (0xf << 12)
+#define     R200_FACE_WIDTH_3_SHIFT                  16
+#define     R200_FACE_HEIGHT_3_SHIFT                 20
+#define     R200_FACE_WIDTH_3_MASK                   (0xf << 16)
+#define     R200_FACE_HEIGHT_3_MASK                  (0xf << 20)
+#define     R200_FACE_WIDTH_4_SHIFT                  24
+#define     R200_FACE_HEIGHT_4_SHIFT                 28
+#define     R200_FACE_WIDTH_4_MASK                   (0xf << 24)
+#define     R200_FACE_HEIGHT_4_MASK                  (0xf << 28)
 #define R200_PP_TXFILTER_1                0x2c20 
 #define R200_PP_TXFORMAT_1                0x2c24
 #define R200_PP_TXFORMAT_X_1              0x2c28
@@ -1405,12 +1433,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define R200_CP_CMD_PAINT_MULTI		0xC0009A00
 #define R200_CP_CMD_BITBLT_MULTI	0xC0009B00
 #define R200_CP_CMD_TRANS_BITBLT	0xC0009C00
-
-
-#define R200_AGP_TEX_OFFSET               0x02000000
-
-
-
 
 #endif
 

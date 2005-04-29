@@ -1,3 +1,38 @@
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in: Regenerate with Automake 1.8.5.
+	* aclocal.m4: Likewise.
+	* configure: Regenerate.
+
+2004-05-03  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* acinclude.m4: Replace -W with more speaking -Wextra.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2004-03-10  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac: Bump AC_PREREQ to 2.59.
+	* configure: Regenerate.
+	* config-h.in: Regenerate.
+
+2004-02-22  Zack Weinberg <zack@codesourcery.com>
+	    Nathanael Nerode <neroden@twcny.rr.com>
+	    Alexandre Oliva <aoliva@redhat.com>
+
+	* config.sub, config.guess: Replace with forwarding scripts
+	which invoke the master copies in the top level.
+
+2004-02-20  Andrew Cagney  <cagney@redhat.com>
+
+	* config.guess: Update from version 2003-10-07 to 2004-02-16.
+	* config.sub: Update from version 2003-10-07 to 2004-02-16.
+
+2003-08-07  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Don't initialize GCINCS to boehm-gc/include.
+	* Regenerate.
+
 2002-04-28  Mark Mitchell  <mark@codesourcery.com>
 
 	* .cvsignore: Remove files that are present in CVS.

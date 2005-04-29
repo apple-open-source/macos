@@ -1,7 +1,7 @@
 /* dlopen.c--Unix dlopen() dynamic loader interface
  * Rob Siemborski
  * Rob Earhart
- * $Id: dlopen.c,v 1.5 2004/07/07 22:48:35 snsimon Exp $
+ * $Id: dlopen.c,v 1.6 2005/03/03 02:29:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -223,11 +223,11 @@ static int _sasl_plugin_load(char *plugin, void *library,
     
     result = _sasl_locate_entry(library, entryname, &entry_point);
     if(result == SASL_OK) {
-	result = add_plugin(plugin, entry_point);
+		result = add_plugin(plugin, entry_point);
 	if(result != SASL_OK)
-	    _sasl_log(NULL, SASL_LOG_DEBUG,
-		      "_sasl_plugin_load failed on %s for plugin: %s\n",
-		      entryname, plugin);
+			_sasl_log(NULL, SASL_LOG_DEBUG,
+				  "_sasl_plugin_load failed on %s for plugin: %s\n",
+				  entryname, plugin);
     }
 
     return result;
@@ -505,10 +505,10 @@ int _sasl_load_plugins(const add_plugin_list_t *entrypoints,
 		
 		/* skip "lib" and cut off suffix --
 		   this only need be approximate */
-		strcpy(plugname, name + 3);
+		strlcpy(plugname, (strncmp(name, "lib", 3) == 0) ? (name + 3) : name, sizeof(plugname));
 		c = strchr(plugname, (int)'.');
 		if(c) *c = '\0';
-
+		
 		result = _sasl_get_plugin(tmp, verifyfile_cb, &library);
 
 		if(result != SASL_OK)
@@ -528,6 +528,165 @@ int _sasl_load_plugins(const add_plugin_list_t *entrypoints,
 #endif /* defined(DO_DLOPEN) && (!defined(PIC) || (defined(PIC) && defined(TRY_DLOPEN_WHEN_STATIC))) */
 
     return SASL_OK;
+}
+
+/* gets the list of mechanisms */
+int _sasl_load_plugins_alt(const add_plugin_list_t *entrypoints,
+		       const sasl_callback_t *getpath_cb,
+		       const sasl_callback_t *verifyfile_cb)
+{
+    int result;
+	int has_auxprop = 0;
+    const add_plugin_list_t *cur_ep;
+#ifdef DO_DLOPEN
+    char str[PATH_MAX], tmp[PATH_MAX+2], prefix[PATH_MAX+2];
+				/* 1 for '/' 1 for trailing '\0' */
+    char c;
+    int pos;
+    const char *path=NULL;
+    int position;
+    DIR *dp;
+    struct dirent *dir;
+#endif
+#ifndef PIC
+    add_plugin_t *add_plugin;
+    _sasl_plug_type type;
+    _sasl_plug_rec *p;
+#endif
+
+	if (! entrypoints
+		|| ! getpath_cb
+		|| getpath_cb->id != SASL_CB_GETPATH
+		|| ! getpath_cb->proc
+		|| ! verifyfile_cb
+		|| verifyfile_cb->id != SASL_CB_VERIFYFILE
+		|| ! verifyfile_cb->proc)
+		return SASL_BADPARAM;
+
+#ifndef PIC
+    /* do all the static plugins first */
+
+    for (cur_ep = entrypoints; cur_ep->entryname; cur_ep++) {
+		/* What type of plugin are we looking for? */
+		if(!strcmp(cur_ep->entryname, "sasl_server_plug_init")) {
+			type = SERVER;
+			add_plugin = (add_plugin_t *)sasl_server_add_plugin;
+		} else if (!strcmp(cur_ep->entryname, "sasl_client_plug_init")) {
+			type = CLIENT;
+			add_plugin = (add_plugin_t *)sasl_client_add_plugin;
+		} else if (!strcmp(cur_ep->entryname, "sasl_auxprop_plug_init")) {
+			type = AUXPROP;
+			add_plugin = (add_plugin_t *)sasl_auxprop_add_plugin_nolog;
+		} else if (!strcmp(cur_ep->entryname, "sasl_canonuser_init")) {
+			type = CANONUSER;
+			add_plugin = (add_plugin_t *)sasl_canonuser_add_plugin;
+		} else {
+			/* What are we looking for then? */
+			return SASL_FAIL;
+		}
+		for (p = _sasl_static_plugins; p->type; p++) {
+			if (type == p->type) {
+				result = add_plugin(p->name, p->plug);
+				if (result == SASL_OK && type == AUXPROP) {
+					has_auxprop = 1;
+				}
+			}
+		}
+    }
+#endif /* !PIC */
+
+/* only do the following if:
+ * 
+ * we support dlopen()
+ *  AND we are not staticly compiled
+ *      OR we are staticly compiled and TRY_DLOPEN_WHEN_STATIC is defined
+ */
+#if defined(DO_DLOPEN) && (defined(PIC) || (!defined(PIC) && defined(TRY_DLOPEN_WHEN_STATIC)))
+    /* get the path to the plugins */
+    result = ((sasl_getpath_t *)(getpath_cb->proc))(getpath_cb->context,
+						    &path);
+    if (result != SASL_OK) return result;
+    if (! path) return SASL_FAIL;
+
+    if (strlen(path) >= PATH_MAX) { /* no you can't buffer overrun */
+		return SASL_FAIL;
+    }
+	
+    position=0;
+    do {
+		pos=0;
+		do {
+			c=path[position];
+			position++;
+			str[pos]=c;
+			pos++;
+		} while ((c!=':') && (c!='=') && (c!=0));
+		str[pos-1]='\0';
+
+		strcpy(prefix,str);
+		strcat(prefix,"/");
+
+		if ((dp=opendir(str)) !=NULL) /* ignore errors */    
+		{
+			while ((dir=readdir(dp)) != NULL)
+			{
+				size_t length;
+				void *library;
+				char *c;
+				char plugname[PATH_MAX];
+				char name[PATH_MAX];
+
+				length = NAMLEN(dir);
+				if (length < 4) 
+					continue; /* can not possibly be what we're looking for */
+
+				if (length + pos>=PATH_MAX) continue; /* too big */
+
+		#ifdef __APPLE__
+				/* require .la files */
+				if (strcmp(dir->d_name + (length - strlen(LA_SUFFIX)), LA_SUFFIX))
+					continue;
+		#else
+				if (strcmp(dir->d_name + (length - strlen(SO_SUFFIX)),
+					   SO_SUFFIX)
+					&& strcmp(dir->d_name + (length - strlen(LA_SUFFIX)),
+					   LA_SUFFIX))
+					continue;
+		#endif
+
+				memcpy(name,dir->d_name,length);
+				name[length]='\0';
+
+				result = _parse_la(prefix, name, tmp);
+				if(result != SASL_OK)
+					continue;
+				
+				/* skip "lib" and cut off suffix --
+				   this only need be approximate */
+				strlcpy(plugname, (strncmp(name, "lib", 3) == 0) ? (name + 3) : name, sizeof(plugname));
+				c = strchr(plugname, (int)'.');
+				if(c) *c = '\0';
+				
+				result = _sasl_get_plugin(tmp, verifyfile_cb, &library);
+
+				if(result != SASL_OK)
+					continue;
+
+				for(cur_ep = entrypoints; cur_ep->entryname; cur_ep++) {
+					/* If this fails, it's not the end of the world */
+					result = _sasl_plugin_load(plugname, library, cur_ep->entryname,
+							  cur_ep->add_plugin);
+					if (result == SASL_OK && strcmp(cur_ep->entryname, "sasl_auxprop_plug_init") == 0)
+						has_auxprop = 1;
+				}
+			}
+			
+			closedir(dp);
+		}
+	} while ((c!='=') && (c!=0));
+#endif /* defined(DO_DLOPEN) && (!defined(PIC) || (defined(PIC) && defined(TRY_DLOPEN_WHEN_STATIC))) */
+
+    return has_auxprop ? SASL_OK : SASL_NOMECH;
 }
 
 int

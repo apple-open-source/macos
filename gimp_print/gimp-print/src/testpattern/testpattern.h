@@ -1,5 +1,5 @@
 /*
- * "$Id: testpattern.h,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $"
+ * "$Id: testpattern.h,v 1.1.1.2 2004/07/23 06:26:32 jlovell Exp $"
  *
  *   Test pattern generator for Gimp-Print
  *
@@ -20,32 +20,32 @@
  *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#include <gimp-print/gimp-print.h>
+
 typedef struct
 {
   enum {
     E_PATTERN,
-    E_IMAGE
+    E_XPATTERN,
+    E_IMAGE,
+    E_GRID
   } t;
   union {
     struct {
-      double c_min;
-      double c;
-      double c_gamma;
-      double m_min;
-      double m;
-      double m_gamma;
-      double y_min;
-      double y;
-      double y_gamma;
-      double k_min;
-      double k;
-      double k_gamma;
-      double c_level;
-      double m_level;
-      double y_level;
+      double mins[32];
+      double vals[32];
+      double gammas[32];
+      double levels[32];
       double lower;
       double upper;
     } p;
+    struct {
+      int ticks;
+    } g;
     struct {
       int x;
       int y;
@@ -61,29 +61,27 @@ typedef struct
  */
 #define YY_ALWAYS_INTERACTIVE 1
 
-extern double global_c_level;
-extern double global_c_gamma;
-extern double global_m_level;
-extern double global_m_gamma;
-extern double global_y_level;
-extern double global_y_gamma;
-extern double global_k_gamma;
+extern stp_vars_t *global_vars;
+extern double global_levels[];
+extern double global_gammas[];
 extern double global_gamma;
-extern int levels;
-extern double ink_limit;
-extern char *printer;
-extern char *ink_type;
-extern char *resolution;
-extern char *media_source;
-extern char *media_type;
-extern char *media_size;
-extern char *dither_algorithm;
-extern double density;
-extern double xtop;
-extern double xleft;
-extern double hsize;
-extern double vsize;
-extern int noblackline;
+extern int global_steps;
+extern double global_ink_limit;
+extern char *global_printer;
+extern double global_density;
+extern double global_xtop;
+extern double global_xleft;
+extern double global_hsize;
+extern double global_vsize;
+extern int global_noblackline;
+extern const char *global_image_type;
+extern int global_color_model;
+extern int global_bit_depth;
+extern int global_channel_depth;
+extern int global_did_something;
+extern int global_invert_data;
+
+
 extern char *c_strdup(const char *s);
 extern testpattern_t *get_next_testpattern(void);
 
@@ -93,7 +91,7 @@ typedef union yylv {
   char *sval;
 } YYSTYPE;
 
-extern YYSTYPE yylval;
+#define YYSTYPE_IS_DECLARED 1
 
 #include "testpatterny.h"
 

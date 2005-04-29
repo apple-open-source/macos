@@ -1,0 +1,37 @@
+# This is the right place to customize your installation of SpamAssassin.
+#
+# See 'perldoc Mail::SpamAssassin::Conf' for details of what can be
+# tweaked.
+#
+###########################################################################
+#
+# rewrite_subject 0
+# report_safe 1
+# trusted_networks 212.17.35.
+
+# Bayesian Auto Learn
+auto_learn 1
+
+# Safe Reporting
+safe_reporting 0
+
+# Full/Terse Reporting
+use_terse_report 0
+
+# Subject Tag
+subject_tag *** Warning: Junk Mail ***
+
+# Rewrite the Subject
+rewrite_subject 0
+
+# Use Bayesian Filtering
+use_bayes 1
+
+# OK locals
+ok_locales en
+
+# OK languages
+ok_languages en fr de ja
+
+# Required hits to be marked as spam
+required_hits 6

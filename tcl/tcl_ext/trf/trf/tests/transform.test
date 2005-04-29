@@ -1,0 +1,95 @@
+# -*- tcl -*-
+# Commands covered:  transform
+#
+# This file contains a collection of tests for one or more of the trf
+# commands of the TRF extension. Sourcing this file into Tcl runs the
+# tests and generates output for errors.  No output means no errors were
+# found.
+#
+# Copyright (c) 1997 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: transform.test,v 1.6 2001/08/21 05:51:33 tcl Exp $
+
+if {[string compare test [info procs test]] == 1} then {source defs}
+
+
+proc 82 {a b} {
+    if {[string compare [info tclversion] 8.2] < 0} {
+	return $b
+    } else {
+	return $a
+    }
+}
+
+
+proc identity {operation buffer} {
+    global  tracevar
+    lappend tracevar "${operation}-[string length $buffer]"
+
+    # no changes!
+    set     buffer
+}
+
+proc pfx {prefix operation buffer} {
+    return $prefix$buffer
+}
+
+
+test transform-1.0 {transform behaviour, immediate write} {
+    set     tracevar ""
+    lappend tracevar [transform -mode write -command identity foobarflabbergast]
+    set     tracevar
+} {create/write-0 write-17 flush/write-0 delete/write-0 foobarflabbergast}
+
+
+test transform-1.1 {transform behaviour, immediate read} {
+    set     tracevar ""
+    lappend tracevar [transform -mode read -command identity foobarflabbergast]
+    set     tracevar
+} {create/read-0 read-17 flush/read-0 delete/read-0 foobarflabbergast}
+
+
+test transform-2.0 {transform behaviour, attached write} {
+    set tracevar ""
+    set                out [memchan]
+    transform -attach $out -command identity
+    puts -nonewline   $out foobarflabbergast
+    close             $out
+
+    set tracevar
+} {create/write-0 create/read-0 query/ratio-0 write-17 flush/write-0 flush/read-0 delete/write-0 delete/read-0}
+
+
+test transform-2.1 {transform behaviour, attached read} {
+    set tracevar ""
+    set                in [memchan]
+    puts -nonewline   $in foobarflabbergast
+    seek              $in 0
+    transform -attach $in -command identity
+    read              $in
+    close             $in
+
+    set tracevar
+} [82 {create/write-0 create/read-0 query/ratio-0 query/maxRead-0 read-17 query/maxRead-0 flush/read-0 flush/write-0 delete/write-0 delete/read-0} {create/write-0 create/read-0 query/ratio-0 query/maxRead-0 read-17 query/maxRead-0 flush/read-0 query/maxRead-0 flush/write-0 delete/write-0 delete/read-0}]
+
+
+test transform-3.0 {More than one transform should work too} {
+    set tracevar ""
+    set                out [memchan]
+
+    transform -attach $out -command [list pfx a]
+    transform -attach $out -command [list pfx b]
+    puts -nonewline   $out foo
+
+    unstack $out
+    unstack $out
+
+    seek $out 0
+    set data [read $out]
+    close             $out
+
+    set data
+} {abfooaba}

@@ -1,8 +1,8 @@
-                     README for XFree86 4.3.0 on OpenBSD
+                     README for XFree86 4.4.0 on OpenBSD
 
                                Matthieu Herrb
 
-                      Last modified on: 9 November 2002
+                      Last modified on: 9 December 2003
 
 1.  What and Where is XFree86?
 
@@ -13,13 +13,13 @@ X11R6.6.
 
 See the Copyright Notice.
 
-The sources for XFree86 4.3.0 are available by anonymous ftp from:
+The sources for XFree86 4.4.0 are available by anonymous ftp from:
 
-ftp://ftp.XFree86.org/pub/XFree86/4.3.0
+ftp://ftp.XFree86.org/pub/XFree86/4.4.0
 
-Binaries for OpenBSD/i386 3.2 and later are available from:
+Binaries for OpenBSD/i386 3.4 and later are available from:
 
-ftp://ftp.XFree86.org/pub/XFree86/4.3.0/binaries/OpenBSD
+ftp://ftp.XFree86.org/pub/XFree86/4.4.0/binaries/OpenBSD
 
 A list of mirror sites is provided by http://www.xfree86.org/MIRRORS.shtml
 
@@ -28,30 +28,43 @@ other architectures (section 8., page 1) for details.
 
 2.  Bug Reports for This Document
 
-Send email to <herrb@xfree86.org> (Matthieu Herrb) or <XFree86@XFree86.org>
-if you have comments or suggestions about this file and we'll revise it.
+Use the XFree86 Bugzilla at <URL:http://bugs.xfree86.org> to submit comments
+or suggestions about this file.
 
 3.  New OS dependent features
 
-See the Release Notes for non-OS dependent new features in XFree86 4.3.0.
+See the Release Notes for non-OS dependent new features in XFree86 4.4.0.
 
-3.1  New OS related features in 4.3
+3.1  New OS related features in 4.4
+
+   o The IPv6 support is enabled on OpenBSD, but XDMCP over IPv6 is not cur-
+     rently enabled since the code uses IPv6 mapped IPv4 addresses which are
+     not supported on OpenBSD.
+
+   o The userland part of DRI is enabled and built. Now waiting for someone
+     to port the kernel modules...
+
+   o All major revisions of the shared libraries are incremented on OpenBSD
+     3.3 and later, to support the API changes introduced by gcc stack pro-
+     tector.
+
+3.2  New OS related features in 4.3
 
    o Support for some VGA cards on OpenBSD/alpha
 
-3.2  New OS dependent features in 4.2
+3.3  New OS dependent features in 4.2
 
    o Support for OpenBSD/macppc on the ATI Rage128 based Power Macintoshes.
 
    o Support for building clients on OpenBSD/sparc64.
 
-3.3  New OS dependent features in 4.0.3
+3.4  New OS dependent features in 4.0.3
 
    o Support for the wscons console driver in post 2.8 OpenBSD.
 
    o A fix for multi-threaded libraries support.
 
-3.4  New OS dependent features in 4.0.2
+3.5  New OS dependent features in 4.0.2
 
    o Support for the OpenBSD ports tree,
 
@@ -62,7 +75,7 @@ See the Release Notes for non-OS dependent new features in XFree86 4.3.0.
 
    o startx now creates an Xauthority magic cookie for the display.
 
-3.5  New OS dependent features in 4.0.1
+3.6  New OS dependent features in 4.0.1
 
    o Several features from the OpenBSD X11 tree were merged into xdm:
 
@@ -81,21 +94,21 @@ See the Release Notes for non-OS dependent new features in XFree86 4.3.0.
 
    o The Xsun server can be built again on OpenBSD/sparc.
 
-3.6  New OS dependent features in 4.0
+3.7  New OS dependent features in 4.0
 
    o Multi-thread safe libraries are built by default on OpenBSD 2.6 and
      later,
 
    o Preliminary APM support.
 
-3.7  New OS dependent features in 3.9.18
+3.8  New OS dependent features in 3.9.18
 
    o Support for USB mices has been added on OpenBSD.
 
    o Soft-booting secondary cards through the int10 BIOS interface is now
      possible using the x86emu real mode emulator.
 
-3.8  New OS dependent features in 3.9.17
+3.9  New OS dependent features in 3.9.17
 
    o Silken mouse is supported for serial mices, and, under post 2.6 OpenBSD-
      current for PS/2 mices.
@@ -133,7 +146,7 @@ the xvidtune utility.
 
 5.1  About mouse configuration
 
-XFree86 4.3.0 has support for the mouse driver included in the new wscons
+XFree86 4.4.0 has support for the mouse driver included in the new wscons
 console driver introduced by OpenBSD-2.9.  Specify ``wsmouse'' as the proto-
 col and ``/dev/wsmouse0'' as the  device in /etc/X11/XF86Config if you're
 using OpenBSD-2.9 or later with a PS/2 or USB mouse.
@@ -180,15 +193,10 @@ in your config file in /sys/arch/i386/conf:
 
 7.1  Console drivers
 
-The server supports the standard  OpenBSD/i386 console drivers: pcvt and
-wscons. They are detected at runtime and no configuration of the server
-itself is required.
+The server supports wscons, the standard OpenBSD/i386 console driver.
 
-The pcvt console driver is the default in OpenBSD up to OpenBSD 2.8.  It
-offers several virtual consoles and international keyboard support.
-
-OpenBSD 2.9 and later has switched to the wscons console driver. This console
-driver has a pcvt compatibility mode for X support.
+The pcvt console driver which was the default up to OpenBSD 2.8, is also sup-
+ported on those releases.
 
 7.2  Aperture Driver
 
@@ -196,9 +204,9 @@ By default OpenBSD includes the BSD 4.4 kernel security feature that disables
 access to the /dev/mem device when in multi-user mode. But the XFree86 server
 requires linear access to the display memory in most cases.
 
-OpenBSD now requires the aperture driver to be enabled for all X servers,
-because the aperture driver also controls access to the I/O ports of the
-video boards.
+OpenBSD requires the aperture driver to be enabled for all X servers, because
+the aperture driver also controls access to the I/O ports of the video
+boards.
 
 To enable the aperture driver, once included in the kernel, set
 
@@ -298,7 +306,7 @@ particular: David Dawes, Todd Fries, Rod Grimes, Charles Hannum, Amancio
 Hasty, Christoph Robitschko, Matthias Scheler, Michael Smith, Ignatios Sou-
 vatzis, Jack Velte, Nate Williams and Pace Willison.
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/OpenBSD.sgml,v 1.30 2003/02/25 19:31:01 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/OpenBSD.sgml,v 1.33 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.OpenBSD,v 1.38 2003/02/25 21:32:34 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.OpenBSD,v 1.48 2004/02/24 03:49:42 dawes Exp $

@@ -47,7 +47,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/programs/xfontsel/ULabel.c,v 1.3 2001/10/28 03:34:32 tsi Exp $ */
+/* $XFree86: xc/programs/xfontsel/ULabel.c,v 1.4 2003/10/24 20:38:18 tsi Exp $ */
 
 /*
  * ULabel.c - UCSLabel widget
@@ -274,10 +274,11 @@ static void _XawLabelDrawUCS(dpy, d, gc, x, y, str, n)
     XDrawString16(dpy, d, gc, x, y, buf2b, ptr - buf2b);
 }
 
-static int _XawLabelWidthUCS(fs, str, n)
-    XFontStruct *fs;
-    char *str;
-    int	n;
+static int _XawLabelWidthUCS(
+    XFontStruct *fs,
+    char *str,
+    int	n
+)
 {
     char *ep;
     unsigned short codepoint;

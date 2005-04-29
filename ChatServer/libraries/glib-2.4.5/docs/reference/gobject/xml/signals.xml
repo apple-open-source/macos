@@ -1,0 +1,1836 @@
+<refentry id="gobject-Signals">
+<refmeta>
+<refentrytitle>Signals</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GOBJECT Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Signals</refname><refpurpose>A means for customization of object behaviour and a general purpose notification mechanism</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib-object.h&gt;
+
+
+struct      <link linkend="GSignalInvocationHint">GSignalInvocationHint</link>;
+<link linkend="gboolean">gboolean</link>    (<link linkend="GSignalAccumulator">*GSignalAccumulator</link>)           (<link linkend="GSignalInvocationHint">GSignalInvocationHint</link> *ihint,
+                                             <link linkend="GValue">GValue</link> *return_accu,
+                                             const <link linkend="GValue">GValue</link> *handler_return,
+                                             <link linkend="gpointer">gpointer</link> data);
+typedef     <link linkend="GSignalCMarshaller">GSignalCMarshaller</link>;
+<link linkend="gboolean">gboolean</link>    (<link linkend="GSignalEmissionHook">*GSignalEmissionHook</link>)          (<link linkend="GSignalInvocationHint">GSignalInvocationHint</link> *ihint,
+                                             <link linkend="guint">guint</link> n_param_values,
+                                             const <link linkend="GValue">GValue</link> *param_values,
+                                             <link linkend="gpointer">gpointer</link> data);
+enum        <link linkend="GSignalFlags">GSignalFlags</link>;
+enum        <link linkend="GSignalMatchType">GSignalMatchType</link>;
+struct      <link linkend="GSignalQuery">GSignalQuery</link>;
+#define     <link linkend="G-SIGNAL-TYPE-STATIC-SCOPE-CAPS">G_SIGNAL_TYPE_STATIC_SCOPE</link>
+#define     <link linkend="G-SIGNAL-MATCH-MASK-CAPS">G_SIGNAL_MATCH_MASK</link>
+#define     <link linkend="G-SIGNAL-FLAGS-MASK-CAPS">G_SIGNAL_FLAGS_MASK</link>
+<link linkend="guint">guint</link>       <link linkend="g-signal-new">g_signal_new</link>                    (const <link linkend="gchar">gchar</link> *signal_name,
+                                             <link linkend="GType">GType</link> itype,
+                                             <link linkend="GSignalFlags">GSignalFlags</link> signal_flags,
+                                             <link linkend="guint">guint</link> class_offset,
+                                             <link linkend="GSignalAccumulator">GSignalAccumulator</link> accumulator,
+                                             <link linkend="gpointer">gpointer</link> accu_data,
+                                             <link linkend="GSignalCMarshaller">GSignalCMarshaller</link> c_marshaller,
+                                             <link linkend="GType">GType</link> return_type,
+                                             <link linkend="guint">guint</link> n_params,
+                                             ...);
+<link linkend="guint">guint</link>       <link linkend="g-signal-newv">g_signal_newv</link>                   (const <link linkend="gchar">gchar</link> *signal_name,
+                                             <link linkend="GType">GType</link> itype,
+                                             <link linkend="GSignalFlags">GSignalFlags</link> signal_flags,
+                                             <link linkend="GClosure">GClosure</link> *class_closure,
+                                             <link linkend="GSignalAccumulator">GSignalAccumulator</link> accumulator,
+                                             <link linkend="gpointer">gpointer</link> accu_data,
+                                             <link linkend="GSignalCMarshaller">GSignalCMarshaller</link> c_marshaller,
+                                             <link linkend="GType">GType</link> return_type,
+                                             <link linkend="guint">guint</link> n_params,
+                                             <link linkend="GType">GType</link> *param_types);
+<link linkend="guint">guint</link>       <link linkend="g-signal-new-valist">g_signal_new_valist</link>             (const <link linkend="gchar">gchar</link> *signal_name,
+                                             <link linkend="GType">GType</link> itype,
+                                             <link linkend="GSignalFlags">GSignalFlags</link> signal_flags,
+                                             <link linkend="GClosure">GClosure</link> *class_closure,
+                                             <link linkend="GSignalAccumulator">GSignalAccumulator</link> accumulator,
+                                             <link linkend="gpointer">gpointer</link> accu_data,
+                                             <link linkend="GSignalCMarshaller">GSignalCMarshaller</link> c_marshaller,
+                                             <link linkend="GType">GType</link> return_type,
+                                             <link linkend="guint">guint</link> n_params,
+                                             <link linkend="va-list">va_list</link> args);
+<link linkend="void">void</link>        <link linkend="g-signal-query">g_signal_query</link>                  (<link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GSignalQuery">GSignalQuery</link> *query);
+<link linkend="guint">guint</link>       <link linkend="g-signal-lookup">g_signal_lookup</link>                 (const <link linkend="gchar">gchar</link> *name,
+                                             <link linkend="GType">GType</link> itype);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-signal-name">g_signal_name</link>         (<link linkend="guint">guint</link> signal_id);
+<link linkend="guint">guint</link>*      <link linkend="g-signal-list-ids">g_signal_list_ids</link>               (<link linkend="GType">GType</link> itype,
+                                             <link linkend="guint">guint</link> *n_ids);
+<link linkend="void">void</link>        <link linkend="g-signal-emit">g_signal_emit</link>                   (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             ...);
+<link linkend="void">void</link>        <link linkend="g-signal-emit-by-name">g_signal_emit_by_name</link>           (<link linkend="gpointer">gpointer</link> instance,
+                                             const <link linkend="gchar">gchar</link> *detailed_signal,
+                                             ...);
+<link linkend="void">void</link>        <link linkend="g-signal-emitv">g_signal_emitv</link>                  (const <link linkend="GValue">GValue</link> *instance_and_params,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GValue">GValue</link> *return_value);
+<link linkend="void">void</link>        <link linkend="g-signal-emit-valist">g_signal_emit_valist</link>            (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="va-list">va_list</link> var_args);
+#define     <link linkend="g-signal-connect">g_signal_connect</link>                (instance, detailed_signal, c_handler, data)
+#define     <link linkend="g-signal-connect-after">g_signal_connect_after</link>          (instance, detailed_signal, c_handler, data)
+#define     <link linkend="g-signal-connect-swapped">g_signal_connect_swapped</link>        (instance, detailed_signal, c_handler, data)
+<link linkend="gulong">gulong</link>      <link linkend="g-signal-connect-object">g_signal_connect_object</link>         (<link linkend="gpointer">gpointer</link> instance,
+                                             const <link linkend="gchar">gchar</link> *detailed_signal,
+                                             <link linkend="GCallback">GCallback</link> c_handler,
+                                             <link linkend="gpointer">gpointer</link> gobject,
+                                             <link linkend="GConnectFlags">GConnectFlags</link> connect_flags);
+enum        <link linkend="GConnectFlags">GConnectFlags</link>;
+<link linkend="gulong">gulong</link>      <link linkend="g-signal-connect-data">g_signal_connect_data</link>           (<link linkend="gpointer">gpointer</link> instance,
+                                             const <link linkend="gchar">gchar</link> *detailed_signal,
+                                             <link linkend="GCallback">GCallback</link> c_handler,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="GClosureNotify">GClosureNotify</link> destroy_data,
+                                             <link linkend="GConnectFlags">GConnectFlags</link> connect_flags);
+<link linkend="gulong">gulong</link>      <link linkend="g-signal-connect-closure">g_signal_connect_closure</link>        (<link linkend="gpointer">gpointer</link> instance,
+                                             const <link linkend="gchar">gchar</link> *detailed_signal,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gboolean">gboolean</link> after);
+<link linkend="gulong">gulong</link>      <link linkend="g-signal-connect-closure-by-id">g_signal_connect_closure_by_id</link>  (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gboolean">gboolean</link> after);
+<link linkend="void">void</link>        <link linkend="g-signal-handler-block">g_signal_handler_block</link>          (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="gulong">gulong</link> handler_id);
+<link linkend="void">void</link>        <link linkend="g-signal-handler-unblock">g_signal_handler_unblock</link>        (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="gulong">gulong</link> handler_id);
+<link linkend="void">void</link>        <link linkend="g-signal-handler-disconnect">g_signal_handler_disconnect</link>     (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="gulong">gulong</link> handler_id);
+<link linkend="gulong">gulong</link>      <link linkend="g-signal-handler-find">g_signal_handler_find</link>           (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="GSignalMatchType">GSignalMatchType</link> mask,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gpointer">gpointer</link> func,
+                                             <link linkend="gpointer">gpointer</link> data);
+<link linkend="guint">guint</link>       <link linkend="g-signal-handlers-block-matched">g_signal_handlers_block_matched</link> (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="GSignalMatchType">GSignalMatchType</link> mask,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gpointer">gpointer</link> func,
+                                             <link linkend="gpointer">gpointer</link> data);
+<link linkend="guint">guint</link>       <link linkend="g-signal-handlers-unblock-matched">g_signal_handlers_unblock_matched</link>
+                                            (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="GSignalMatchType">GSignalMatchType</link> mask,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gpointer">gpointer</link> func,
+                                             <link linkend="gpointer">gpointer</link> data);
+<link linkend="guint">guint</link>       <link linkend="g-signal-handlers-disconnect-matched">g_signal_handlers_disconnect_matched</link>
+                                            (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="GSignalMatchType">GSignalMatchType</link> mask,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gpointer">gpointer</link> func,
+                                             <link linkend="gpointer">gpointer</link> data);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-signal-handler-is-connected">g_signal_handler_is_connected</link>   (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="gulong">gulong</link> handler_id);
+#define     <link linkend="g-signal-handlers-block-by-func">g_signal_handlers_block_by_func</link> (instance, func, data)
+#define     <link linkend="g-signal-handlers-unblock-by-func">g_signal_handlers_unblock_by_func</link>(instance, func, data)
+#define     <link linkend="g-signal-handlers-disconnect-by-func">g_signal_handlers_disconnect_by_func</link>(instance, func, data)
+<link linkend="gboolean">gboolean</link>    <link linkend="g-signal-has-handler-pending">g_signal_has_handler_pending</link>    (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="gboolean">gboolean</link> may_be_blocked);
+<link linkend="void">void</link>        <link linkend="g-signal-stop-emission">g_signal_stop_emission</link>          (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail);
+<link linkend="void">void</link>        <link linkend="g-signal-stop-emission-by-name">g_signal_stop_emission_by_name</link>  (<link linkend="gpointer">gpointer</link> instance,
+                                             const <link linkend="gchar">gchar</link> *detailed_signal);
+<link linkend="void">void</link>        <link linkend="g-signal-override-class-closure">g_signal_override_class_closure</link> (<link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GType">GType</link> instance_type,
+                                             <link linkend="GClosure">GClosure</link> *class_closure);
+<link linkend="void">void</link>        <link linkend="g-signal-chain-from-overridden">g_signal_chain_from_overridden</link>  (const <link linkend="GValue">GValue</link> *instance_and_params,
+                                             <link linkend="GValue">GValue</link> *return_value);
+<link linkend="gulong">gulong</link>      <link linkend="g-signal-add-emission-hook">g_signal_add_emission_hook</link>      (<link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GSignalEmissionHook">GSignalEmissionHook</link> hook_func,
+                                             <link linkend="gpointer">gpointer</link> hook_data,
+                                             <link linkend="GDestroyNotify">GDestroyNotify</link> data_destroy);
+<link linkend="void">void</link>        <link linkend="g-signal-remove-emission-hook">g_signal_remove_emission_hook</link>   (<link linkend="guint">guint</link> signal_id,
+                                             <link linkend="gulong">gulong</link> hook_id);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-signal-parse-name">g_signal_parse_name</link>             (const <link linkend="gchar">gchar</link> *detailed_signal,
+                                             <link linkend="GType">GType</link> itype,
+                                             <link linkend="guint">guint</link> *signal_id_p,
+                                             <link linkend="GQuark">GQuark</link> *detail_p,
+                                             <link linkend="gboolean">gboolean</link> force_detail_quark);
+<link linkend="GSignalInvocationHint">GSignalInvocationHint</link>* <link linkend="g-signal-get-invocation-hint">g_signal_get_invocation_hint</link>
+                                            (<link linkend="gpointer">gpointer</link> instance);
+<link linkend="GClosure">GClosure</link>*   <link linkend="g-signal-type-cclosure-new">g_signal_type_cclosure_new</link>      (<link linkend="GType">GType</link> itype,
+                                             <link linkend="guint">guint</link> struct_offset);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-signal-accumulator-true-handled">g_signal_accumulator_true_handled</link>
+                                            (<link linkend="GSignalInvocationHint">GSignalInvocationHint</link> *ihint,
+                                             <link linkend="GValue">GValue</link> *return_accu,
+                                             const <link linkend="GValue">GValue</link> *handler_return,
+                                             <link linkend="gpointer">gpointer</link> dummy);
+
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+The basic concept of the signal system is that of the <emphasis>emission</emphasis>
+of a signal.
+Signals are introduced per-type and are identified through strings.
+Signals introduced for a parent type are available in derived types as well,
+so basically they are a per-type facility that is inherited.
+A signal emission mainly involves invocation of a certain set of callbacks in
+precisely defined manner. There are two main categories of such callbacks,
+per-object
+	<footnote><para>Although signals can deal with any kind of instantiatable type,
+	i'm referring to those types as "object types" in the following, simply
+	because that is the context most users will encounter signals in.
+	</para></footnote>
+ones and user provided ones.
+The per-object callbacks are most often referred to as "object method
+handler" or "default (signal) handler", while user provided callbacks are
+usually just called "signal handler".
+The object method handler is provided at signal creation time (this most
+frequently happens at the end of an object class' creation), while user
+provided handlers are frequently connected and disconnected to/from a certain
+signal on certain object instances.
+</para>
+<para>
+A signal emission consists of five stages, unless prematurely stopped:
+<variablelist>
+  <varlistentry><term></term><listitem><para>
+	1 - Invocation of the object method handler for <literal>G_SIGNAL_RUN_FIRST</literal> signals
+  </para></listitem></varlistentry>
+  <varlistentry><term></term><listitem><para>
+	2 - Invocation of normal user-provided signal handlers (<emphasis>after</emphasis> flag <literal>FALSE</literal>)
+  </para></listitem></varlistentry>
+  <varlistentry><term></term><listitem><para>
+	3 - Invocation of the object method handler for <literal>G_SIGNAL_RUN_LAST</literal> signals
+  </para></listitem></varlistentry>
+  <varlistentry><term></term><listitem><para>
+	4 - Invocation of user provided signal handlers, connected with an <emphasis>after</emphasis> flag of <literal>TRUE</literal>
+  </para></listitem></varlistentry>
+  <varlistentry><term></term><listitem><para>
+	5 - Invocation of the object method handler for <literal>G_SIGNAL_RUN_CLEANUP</literal> signals
+  </para></listitem></varlistentry>
+</variablelist>
+The user-provided signal handlers are called in the order they were
+connected in.
+All handlers may prematurely stop a signal emission, and any number of
+handlers may be connected, disconnected, blocked or unblocked during
+a signal emission.
+There are certain criteria for skipping user handlers in stages 2 and 4
+of a signal emission.
+First, user handlers may be <emphasis>blocked</emphasis>, blocked handlers are omitted
+during callback invocation, to return from the "blocked" state, a
+handler has to get unblocked exactly the same amount of times
+it has been blocked before.
+Second, upon emission of a <literal>G_SIGNAL_DETAILED</literal> signal, an additional
+"detail" argument passed in to <link linkend="g-signal-emit"><function>g_signal_emit()</function></link> has to match the detail
+argument of the signal handler currently subject to invocation.
+Specification of no detail argument for signal handlers (omission of the
+detail part of the signal specification upon connection) serves as a
+wildcard and matches any detail argument passed in to emission.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GSignalInvocationHint"/>struct GSignalInvocationHint</title>
+<indexterm><primary>GSignalInvocationHint</primary></indexterm><programlisting>struct GSignalInvocationHint {
+
+  guint		signal_id;
+  GQuark	detail;
+  GSignalFlags	run_type;
+};
+</programlisting>
+<para>
+The <link linkend="GSignalInvocationHint"><type>GSignalInvocationHint</type></link> structure is used to pass on additional information
+to callbacks during a signal emission.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="guint">guint</link> <structfield>signal_id</structfield></term>
+<listitem><simpara>	The signal id of the signal invoking the callback
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GQuark">GQuark</link> <structfield>detail</structfield></term>
+<listitem><simpara>	The detail passed on for this emission
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GSignalFlags">GSignalFlags</link> <structfield>run_type</structfield></term>
+<listitem><simpara>	The stage the signal emission is currently in, this
+		field will contain one of <literal>G_SIGNAL_RUN_FIRST</literal>,
+		<literal>G_SIGNAL_RUN_LAST</literal> or <literal>G_SIGNAL_RUN_CLEANUP</literal>.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GSignalAccumulator"/>GSignalAccumulator ()</title>
+<indexterm><primary>GSignalAccumulator</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    (*GSignalAccumulator)           (<link linkend="GSignalInvocationHint">GSignalInvocationHint</link> *ihint,
+                                             <link linkend="GValue">GValue</link> *return_accu,
+                                             const <link linkend="GValue">GValue</link> *handler_return,
+                                             <link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+The signal accumulator is a special callback function that can be used
+to collect return values of the various callbacks that are called
+during a signal emission. The signal accumulator is specified at signal
+creation time, if it is left <literal>NULL</literal>, no accumulation of callback return
+values is performed. The return value of signal emissions is then the
+value returned by the last callback.
+</para><variablelist role="params">
+<varlistentry><term><parameter>ihint</parameter>&nbsp;:</term>
+<listitem><simpara>	Signal invocation hint, see <link linkend="GSignalInvocationHint"><type>GSignalInvocationHint</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>return_accu</parameter>&nbsp;:</term>
+<listitem><simpara>	Accumulator to collect callback return values in, this
+		is the return value of the current signal emission.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>handler_return</parameter>&nbsp;:</term>
+<listitem><simpara>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>	The accumulator function returns whether the signal emission
+		should be aborted. Returning <literal>FALSE</literal> means to abort the
+		current emission and <literal>TRUE</literal> is returned for continuation.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GSignalCMarshaller"/>GSignalCMarshaller</title>
+<indexterm><primary>GSignalCMarshaller</primary></indexterm><programlisting>typedef GClosureMarshal			 GSignalCMarshaller;
+</programlisting>
+<para>
+This is the signature of marshaller functions, required to marshall
+arrays of parameter values to signal emissions into C language callback
+invocations. It is merely an alias to <link linkend="GClosureMarshal"><type>GClosureMarshal</type></link> since the <link linkend="GClosure"><type>GClosure</type></link>
+mechanism takes over responsibility of actual function invocation for the
+signal system.
+</para></refsect2>
+<refsect2>
+<title><anchor id="GSignalEmissionHook"/>GSignalEmissionHook ()</title>
+<indexterm><primary>GSignalEmissionHook</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    (*GSignalEmissionHook)          (<link linkend="GSignalInvocationHint">GSignalInvocationHint</link> *ihint,
+                                             <link linkend="guint">guint</link> n_param_values,
+                                             const <link linkend="GValue">GValue</link> *param_values,
+                                             <link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+A simple function pointer to get invoked when the signal is emitted. This 
+allows you to tie a hook to the signal type, so that it will trap all 
+emissions of that signal, from any object.
+</para>
+<para>
+You may not attach these to signals created with the <link linkend="G-SIGNAL-NO-HOOKS-CAPS"><type>G_SIGNAL_NO_HOOKS</type></link> flag.
+</para><variablelist role="params">
+<varlistentry><term><parameter>ihint</parameter>&nbsp;:</term>
+<listitem><simpara>Signal invocation hint, see <link linkend="GSignalInvocationHint"><type>GSignalInvocationHint</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>n_param_values</parameter>&nbsp;:</term>
+<listitem><simpara>the number of parameters to the function, including
+                 the instance on which the signal was emitted.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>param_values</parameter>&nbsp;:</term>
+<listitem><simpara>the instance on which the signal was emitted, followed by the 
+               parameters of the emission.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>user data associated with the hook.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>whether it wants to stay connected. If it returns <literal>FALSE</literal>, the signal 
+          hook is disconnected (and destroyed).
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GSignalFlags"/>enum GSignalFlags</title>
+<indexterm><primary>GSignalFlags</primary></indexterm><programlisting>typedef enum
+{
+  G_SIGNAL_RUN_FIRST	= 1 &lt;&lt; 0,
+  G_SIGNAL_RUN_LAST	= 1 &lt;&lt; 1,
+  G_SIGNAL_RUN_CLEANUP	= 1 &lt;&lt; 2,
+  G_SIGNAL_NO_RECURSE	= 1 &lt;&lt; 3,
+  G_SIGNAL_DETAILED	= 1 &lt;&lt; 4,
+  G_SIGNAL_ACTION	= 1 &lt;&lt; 5,
+  G_SIGNAL_NO_HOOKS	= 1 &lt;&lt; 6
+} GSignalFlags;
+</programlisting>
+<para>
+The signal flags are used to specify a signal's behaviour, the overall
+signal description outlines how especially the RUN flags control the
+stages of a signal emission.
+</para><variablelist role="enum">
+<varlistentry>
+<term><literal>G_SIGNAL_RUN_FIRST</literal></term>
+<listitem><simpara>  Invoke the object method handler in the first emission stage.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_RUN_LAST</literal></term>
+<listitem><simpara>   Invoke the object method handler in the third emission stage.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_RUN_CLEANUP</literal></term>
+<listitem><simpara>Invoke the object method handler in the last emission stage.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_NO_RECURSE</literal></term>
+<listitem><simpara> Signals being emitted for an object while currently being in
+                       emission for this very object will not be emitted recursively,
+                       but instead cause the first emission to be restarted.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_DETAILED</literal></term>
+<listitem><simpara>   This signal supports "::detail" appendices to the signal name
+                       upon handler connections and emissions.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_ACTION</literal></term>
+<listitem><simpara>     Action signals are signals that may freely be emitted on alive
+                       objects from user code via <link linkend="g-signal-emit"><function>g_signal_emit()</function></link> and friends, without
+                       the need of being embedded into extra code that performs pre or
+                       post emission adjustments on the object. They can also be thought
+                       of as object methods which can be called generically by 
+                       third-party code.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_NO_HOOKS</literal></term>
+<listitem><simpara>   No emissions hooks are supported for this signal.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GSignalMatchType"/>enum GSignalMatchType</title>
+<indexterm><primary>GSignalMatchType</primary></indexterm><programlisting>typedef enum
+{
+  G_SIGNAL_MATCH_ID	   = 1 &lt;&lt; 0,
+  G_SIGNAL_MATCH_DETAIL	   = 1 &lt;&lt; 1,
+  G_SIGNAL_MATCH_CLOSURE   = 1 &lt;&lt; 2,
+  G_SIGNAL_MATCH_FUNC	   = 1 &lt;&lt; 3,
+  G_SIGNAL_MATCH_DATA	   = 1 &lt;&lt; 4,
+  G_SIGNAL_MATCH_UNBLOCKED = 1 &lt;&lt; 5
+} GSignalMatchType;
+</programlisting>
+<para>
+The match types specify what <link linkend="g-signal-handlers-block-matched"><function>g_signal_handlers_block_matched()</function></link>,
+<link linkend="g-signal-handlers-unblock-matched"><function>g_signal_handlers_unblock_matched()</function></link> and <link linkend="g-signal-handlers-disconnect-matched"><function>g_signal_handlers_disconnect_matched()</function></link>
+match signals by.
+</para><variablelist role="enum">
+<varlistentry>
+<term><literal>G_SIGNAL_MATCH_ID</literal></term>
+<listitem><simpara>The signal id must be equal.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_MATCH_DETAIL</literal></term>
+<listitem><simpara>The signal detail be equal.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_MATCH_CLOSURE</literal></term>
+<listitem><simpara>The closure must be the same.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_MATCH_FUNC</literal></term>
+<listitem><simpara>The C closure callback must be the same.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_MATCH_DATA</literal></term>
+<listitem><simpara>The closure data must be the same.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_SIGNAL_MATCH_UNBLOCKED</literal></term>
+<listitem><simpara>Only unblocked signals may matched.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GSignalQuery"/>struct GSignalQuery</title>
+<indexterm><primary>GSignalQuery</primary></indexterm><programlisting>struct GSignalQuery {
+
+  guint		signal_id;
+  const gchar  *signal_name;
+  GType		itype;
+  GSignalFlags	signal_flags;
+  GType		return_type; /* mangled with G_SIGNAL_TYPE_STATIC_SCOPE flag */
+  guint		n_params;
+  const GType  *param_types; /* mangled with G_SIGNAL_TYPE_STATIC_SCOPE flag */
+};
+</programlisting>
+<para>
+A structure holding in-depth information for a specific signal. It is
+filled in by the <link linkend="g-signal-query"><function>g_signal_query()</function></link> function.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="guint">guint</link> <structfield>signal_id</structfield></term>
+<listitem><simpara>	The signal id of the signal being queried, or 0 if the
+		signal to be queried was unknown.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term>const <link linkend="gchar">gchar</link> *<structfield>signal_name</structfield></term>
+<listitem><simpara>	The signal name.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GType">GType</link> <structfield>itype</structfield></term>
+<listitem><simpara>	The interface/instance type that this signal can be emitted for.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GSignalFlags">GSignalFlags</link> <structfield>signal_flags</structfield></term>
+<listitem><simpara>	The signal flags as passed in to <link linkend="g-signal-new"><function>g_signal_new()</function></link>.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GType">GType</link> <structfield>return_type</structfield></term>
+<listitem><simpara>	The return type for user callbacks.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="guint">guint</link> <structfield>n_params</structfield></term>
+<listitem><simpara>	The number of parameters that user callbacks take.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term>const <link linkend="GType">GType</link> *<structfield>param_types</structfield></term>
+<listitem><simpara>	The individual parameter types for user callbacks, note that the
+		effective callback signature is:
+<programlisting>
+<parameter>return_type</parameter> callback (<link linkend="gpointer"><type>gpointer</type></link>     data1,
+                      [<link linkend="param-types"><type>param_types</type></link> param_names,]
+                       <link linkend="gpointer"><type>gpointer</type></link>     data2);
+</programlisting>
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-SIGNAL-TYPE-STATIC-SCOPE-CAPS"/>G_SIGNAL_TYPE_STATIC_SCOPE</title>
+<indexterm><primary>G_SIGNAL_TYPE_STATIC_SCOPE</primary></indexterm><programlisting>#define	G_SIGNAL_TYPE_STATIC_SCOPE (G_TYPE_FLAG_RESERVED_ID_BIT)
+</programlisting>
+<para>
+This macro flags signal argument types for which the signal system may 
+assume that instances thereof remain persistent across all signal emissions
+they are used in. This is only useful for non ref-counted, value-copy types.
+</para>
+<para>
+To flag a signal argument in this way, add 
+<literal>| G_SIGNAL_TYPE_STATIC_SCOPE</literal> to the corresponding argument
+of <link linkend="g-signal-new"><function>g_signal_new()</function></link>.
+</para>
+<informalexample>
+<programlisting>
+    g_signal_new ("size_request",
+		  G_TYPE_FROM_CLASS (gobject_class),
+		  G_SIGNAL_RUN_FIRST,
+		  G_STRUCT_OFFSET (GtkWidgetClass, size_request),
+		  NULL, NULL,
+		  _gtk_marshal_VOID__BOXED,
+		  G_TYPE_NONE, 1,
+		  GTK_TYPE_REQUISITION | G_SIGNAL_TYPE_STATIC_SCOPE);
+</programlisting>
+</informalexample></refsect2>
+<refsect2>
+<title><anchor id="G-SIGNAL-MATCH-MASK-CAPS"/>G_SIGNAL_MATCH_MASK</title>
+<indexterm><primary>G_SIGNAL_MATCH_MASK</primary></indexterm><programlisting>#define G_SIGNAL_MATCH_MASK  0x3f
+</programlisting>
+<para>
+A mask for all <link linkend="GSignalMatchType"><type>GSignalMatchType</type></link> bits.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-SIGNAL-FLAGS-MASK-CAPS"/>G_SIGNAL_FLAGS_MASK</title>
+<indexterm><primary>G_SIGNAL_FLAGS_MASK</primary></indexterm><programlisting>#define G_SIGNAL_FLAGS_MASK  0x7f
+</programlisting>
+<para>
+A mask for all <link linkend="GSignalFlags"><type>GSignalFlags</type></link> bits.
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-signal-new"/>g_signal_new ()</title>
+<indexterm><primary>g_signal_new</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_signal_new                    (const <link linkend="gchar">gchar</link> *signal_name,
+                                             <link linkend="GType">GType</link> itype,
+                                             <link linkend="GSignalFlags">GSignalFlags</link> signal_flags,
+                                             <link linkend="guint">guint</link> class_offset,
+                                             <link linkend="GSignalAccumulator">GSignalAccumulator</link> accumulator,
+                                             <link linkend="gpointer">gpointer</link> accu_data,
+                                             <link linkend="GSignalCMarshaller">GSignalCMarshaller</link> c_marshaller,
+                                             <link linkend="GType">GType</link> return_type,
+                                             <link linkend="guint">guint</link> n_params,
+                                             ...);</programlisting>
+<para>
+Creates a new signal. (This is usually done in the class initializer.)
+</para>
+<para>
+A signal name consists of segments consisting of ASCII letters and
+digits, separated by either the '-' or '_' character. The first
+character of a signal name must be a letter. Names which violate these
+rules lead to undefined behaviour of the GSignal system. 
+</para>
+<para>
+When registering a signal and looking up a signal, either separator can
+be used, but they cannot be mixed. 
+</para><variablelist role="params">
+<varlistentry><term><parameter>signal_name</parameter>&nbsp;:</term>
+<listitem><simpara>the name for the signal
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>itype</parameter>&nbsp;:</term>
+<listitem><simpara>the type this signal pertains to. It will also pertain to 
+   types which are derived from this type.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_flags</parameter>&nbsp;:</term>
+<listitem><simpara>a combination of <link linkend="GSignalFlags"><type>GSignalFlags</type></link> specifying detail of when 
+   the default handler is to be invoked. You should at least specify 
+   <literal>G_SIGNAL_RUN_FIRST</literal> or <literal>G_SIGNAL_RUN_LAST</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>class_offset</parameter>&nbsp;:</term>
+<listitem><simpara>The offset of the function pointer in the class structure 
+   for this type. Used to invoke a class method generically.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>accumulator</parameter>&nbsp;:</term>
+<listitem><simpara>the accumulator for this signal; may be <literal>NULL</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>accu_data</parameter>&nbsp;:</term>
+<listitem><simpara>user data for the <parameter>accumulator</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>c_marshaller</parameter>&nbsp;:</term>
+<listitem><simpara>the function to translate arrays of parameter values to 
+   signal emissions into C language callback invocations.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>return_type</parameter>&nbsp;:</term>
+<listitem><simpara>the type of return value, or <link linkend="G-TYPE-NONE-CAPS"><type>G_TYPE_NONE</type></link> for a signal 
+    without a return value.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>n_params</parameter>&nbsp;:</term>
+<listitem><simpara>the number of parameter types to follow.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>...</parameter>&nbsp;:</term>
+<listitem><simpara>a list of types, one for each parameter.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the signal id
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-newv"/>g_signal_newv ()</title>
+<indexterm><primary>g_signal_newv</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_signal_newv                   (const <link linkend="gchar">gchar</link> *signal_name,
+                                             <link linkend="GType">GType</link> itype,
+                                             <link linkend="GSignalFlags">GSignalFlags</link> signal_flags,
+                                             <link linkend="GClosure">GClosure</link> *class_closure,
+                                             <link linkend="GSignalAccumulator">GSignalAccumulator</link> accumulator,
+                                             <link linkend="gpointer">gpointer</link> accu_data,
+                                             <link linkend="GSignalCMarshaller">GSignalCMarshaller</link> c_marshaller,
+                                             <link linkend="GType">GType</link> return_type,
+                                             <link linkend="guint">guint</link> n_params,
+                                             <link linkend="GType">GType</link> *param_types);</programlisting>
+<para>
+Creates a new signal. (This is usually done in the class initializer.)
+</para>
+<para>
+See <link linkend="g-signal-new"><function>g_signal_new()</function></link> for details on allowed signal names.
+</para><variablelist role="params">
+<varlistentry><term><parameter>signal_name</parameter>&nbsp;:</term>
+<listitem><simpara>the name for the signal
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>itype</parameter>&nbsp;:</term>
+<listitem><simpara>the type this signal pertains to. It will also pertain to 
+   types which are derived from this type.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_flags</parameter>&nbsp;:</term>
+<listitem><simpara>a combination of <link linkend="GSignalFlags"><type>GSignalFlags</type></link> specifying detail of when 
+   the default handler is to be invoked. You should at least specify 
+   <literal>G_SIGNAL_RUN_FIRST</literal> or <literal>G_SIGNAL_RUN_LAST</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>class_closure</parameter>&nbsp;:</term>
+<listitem><simpara>The closure to invoke on signal emission.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>accumulator</parameter>&nbsp;:</term>
+<listitem><simpara>the accumulator for this signal; may be <literal>NULL</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>accu_data</parameter>&nbsp;:</term>
+<listitem><simpara>user data for the <parameter>accumulator</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>c_marshaller</parameter>&nbsp;:</term>
+<listitem><simpara>the function to translate arrays of parameter values to 
+    signal emissions into C language callback invocations.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>return_type</parameter>&nbsp;:</term>
+<listitem><simpara>the type of return value, or <link linkend="G-TYPE-NONE-CAPS"><type>G_TYPE_NONE</type></link> for a signal 
+    without a return value.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>n_params</parameter>&nbsp;:</term>
+<listitem><simpara>the length of <parameter>param_types</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>param_types</parameter>&nbsp;:</term>
+<listitem><simpara>an array types, one for each parameter.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the signal id
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-new-valist"/>g_signal_new_valist ()</title>
+<indexterm><primary>g_signal_new_valist</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_signal_new_valist             (const <link linkend="gchar">gchar</link> *signal_name,
+                                             <link linkend="GType">GType</link> itype,
+                                             <link linkend="GSignalFlags">GSignalFlags</link> signal_flags,
+                                             <link linkend="GClosure">GClosure</link> *class_closure,
+                                             <link linkend="GSignalAccumulator">GSignalAccumulator</link> accumulator,
+                                             <link linkend="gpointer">gpointer</link> accu_data,
+                                             <link linkend="GSignalCMarshaller">GSignalCMarshaller</link> c_marshaller,
+                                             <link linkend="GType">GType</link> return_type,
+                                             <link linkend="guint">guint</link> n_params,
+                                             <link linkend="va-list">va_list</link> args);</programlisting>
+<para>
+Creates a new signal. (This is usually done in the class initializer.)
+</para>
+<para>
+See <link linkend="g-signal-new"><function>g_signal_new()</function></link> for details on allowed signal names.
+</para><variablelist role="params">
+<varlistentry><term><parameter>signal_name</parameter>&nbsp;:</term>
+<listitem><simpara>the name for the signal
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>itype</parameter>&nbsp;:</term>
+<listitem><simpara>the type this signal pertains to. It will also pertain to 
+   types which are derived from this type.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_flags</parameter>&nbsp;:</term>
+<listitem><simpara>a combination of <link linkend="GSignalFlags"><type>GSignalFlags</type></link> specifying detail of when 
+   the default handler is to be invoked. You should at least specify 
+   <literal>G_SIGNAL_RUN_FIRST</literal> or <literal>G_SIGNAL_RUN_LAST</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>class_closure</parameter>&nbsp;:</term>
+<listitem><simpara>The closure to invoke on signal emission.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>accumulator</parameter>&nbsp;:</term>
+<listitem><simpara>the accumulator for this signal; may be <literal>NULL</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>accu_data</parameter>&nbsp;:</term>
+<listitem><simpara>user data for the <parameter>accumulator</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>c_marshaller</parameter>&nbsp;:</term>
+<listitem><simpara>the function to translate arrays of parameter values to 
+   signal emissions into C language callback invocations.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>return_type</parameter>&nbsp;:</term>
+<listitem><simpara>the type of return value, or <link linkend="G-TYPE-NONE-CAPS"><type>G_TYPE_NONE</type></link> for a signal 
+   without a return value.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>n_params</parameter>&nbsp;:</term>
+<listitem><simpara>the number of parameter types in <parameter>args</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>args</parameter>&nbsp;:</term>
+<listitem><simpara>va_list of <link linkend="GType"><type>GType</type></link>, one for each parameter.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the signal id
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-query"/>g_signal_query ()</title>
+<indexterm><primary>g_signal_query</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_query                  (<link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GSignalQuery">GSignalQuery</link> *query);</programlisting>
+<para>
+Queries the signal system for in-depth information about a
+specific signal. This function will fill in a user-provided
+structure to hold signal-specific information. If an invalid
+signal id is passed in, the <parameter>signal_id</parameter> member of the <link linkend="GSignalQuery"><type>GSignalQuery</type></link>
+is 0. All members filled into the <link linkend="GSignalQuery"><type>GSignalQuery</type></link> structure should
+be considered constant and have to be left untouched.
+</para><variablelist role="params">
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>The signal id of the signal to query information for.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>query</parameter>&nbsp;:</term>
+<listitem><simpara>A user provided structure that is filled in with constant
+         values upon success.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-lookup"/>g_signal_lookup ()</title>
+<indexterm><primary>g_signal_lookup</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_signal_lookup                 (const <link linkend="gchar">gchar</link> *name,
+                                             <link linkend="GType">GType</link> itype);</programlisting>
+<para>
+Given the name of the signal and the type of object it connects to, gets 
+the signal's identifying integer. Emitting the signal by number is 
+somewhat faster than using the name each time.
+</para>
+<para>
+Also tries the ancestors of the given type.
+</para>
+<para>
+See <link linkend="g-signal-new"><function>g_signal_new()</function></link> for details on allowed signal names.
+</para><variablelist role="params">
+<varlistentry><term><parameter>name</parameter>&nbsp;:</term>
+<listitem><simpara>the signal's name.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>itype</parameter>&nbsp;:</term>
+<listitem><simpara>the type that the signal operates on.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the signal's identifying number, or 0 if no signal was found.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-name"/>g_signal_name ()</title>
+<indexterm><primary>g_signal_name</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_signal_name         (<link linkend="guint">guint</link> signal_id);</programlisting>
+<para>
+Given the signal's identifier, finds its name.
+</para>
+<para>
+Two different signals may have the same name, if they have differing types.
+</para><variablelist role="params">
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>the signal's identifying number.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the signal name, or <literal>NULL</literal> if the signal number was invalid.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-list-ids"/>g_signal_list_ids ()</title>
+<indexterm><primary>g_signal_list_ids</primary></indexterm><programlisting><link linkend="guint">guint</link>*      g_signal_list_ids               (<link linkend="GType">GType</link> itype,
+                                             <link linkend="guint">guint</link> *n_ids);</programlisting>
+<para>
+Lists the signals by id that a certain instance or interface type
+created. Further information about the signals can be acquired through
+<link linkend="g-signal-query"><function>g_signal_query()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>itype</parameter>&nbsp;:</term>
+<listitem><simpara>Instance or interface type.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>n_ids</parameter>&nbsp;:</term>
+<listitem><simpara>Location to store the number of signal ids for <parameter>itype</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>Newly allocated array of signal IDs.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-emit"/>g_signal_emit ()</title>
+<indexterm><primary>g_signal_emit</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_emit                   (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             ...);</programlisting>
+<para>
+Emits a signal. 
+</para>
+<para>
+Note that <link linkend="g-signal-emit"><function>g_signal_emit()</function></link> resets the return value to the default
+if no handlers are connected, in contrast to <link linkend="g-signal-emitv"><function>g_signal_emitv()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance the signal is being emitted on.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>the signal id
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>the detail
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>...</parameter>&nbsp;:</term>
+<listitem><simpara>parameters to be passed to the signal, followed by a
+           location for the return value. If the return type of the signal
+           is <link linkend="G-TYPE-NONE-CAPS"><type>G_TYPE_NONE</type></link>, the return value location can be omitted.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-emit-by-name"/>g_signal_emit_by_name ()</title>
+<indexterm><primary>g_signal_emit_by_name</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_emit_by_name           (<link linkend="gpointer">gpointer</link> instance,
+                                             const <link linkend="gchar">gchar</link> *detailed_signal,
+                                             ...);</programlisting>
+<para>
+Emits a signal. 
+</para>
+<para>
+Note that <link linkend="g-signal-emit-by-name"><function>g_signal_emit_by_name()</function></link> resets the return value to the default
+if no handlers are connected, in contrast to <link linkend="g-signal-emitv"><function>g_signal_emitv()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance the signal is being emitted on.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detailed_signal</parameter>&nbsp;:</term>
+<listitem><simpara>a string of the form "signal-name::detail".
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>...</parameter>&nbsp;:</term>
+<listitem><simpara>parameters to be passed to the signal, followed by a
+          location for the return value. If the return type of the signal
+          is <link linkend="G-TYPE-NONE-CAPS"><type>G_TYPE_NONE</type></link>, the return value location can be omitted.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-emitv"/>g_signal_emitv ()</title>
+<indexterm><primary>g_signal_emitv</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_emitv                  (const <link linkend="GValue">GValue</link> *instance_and_params,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GValue">GValue</link> *return_value);</programlisting>
+<para>
+Emits a signal. 
+</para>
+<para>
+Note that <link linkend="g-signal-emitv"><function>g_signal_emitv()</function></link> doesn't change <parameter>return_value</parameter> if no handlers are
+connected, in contrast to <link linkend="g-signal-emit"><function>g_signal_emit()</function></link> and <link linkend="g-signal-emit-valist"><function>g_signal_emit_valist()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance_and_params</parameter>&nbsp;:</term>
+<listitem><simpara>argument list for the signal emission. The first 
+     element in the array is a <link linkend="GValue"><type>GValue</type></link> for the instance the signal is 
+     being emitted on. The rest are any arguments to be passed to the 
+     signal.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>the signal id
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>the detail
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>return_value</parameter>&nbsp;:</term>
+<listitem><simpara>Location to store the return value of the signal emission.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-emit-valist"/>g_signal_emit_valist ()</title>
+<indexterm><primary>g_signal_emit_valist</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_emit_valist            (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="va-list">va_list</link> var_args);</programlisting>
+<para>
+Emits a signal. 
+</para>
+<para>
+Note that <link linkend="g-signal-emit-valist"><function>g_signal_emit_valist()</function></link> resets the return value to the default
+if no handlers are connected, in contrast to <link linkend="g-signal-emitv"><function>g_signal_emitv()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance the signal is being emitted on.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>the signal id
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>the detail
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>var_args</parameter>&nbsp;:</term>
+<listitem><simpara>a list of parameters to be passed to the signal, followed by a
+           location for the return value. If the return type of the signal
+           is <link linkend="G-TYPE-NONE-CAPS"><type>G_TYPE_NONE</type></link>, the return value location can be omitted.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-connect"/>g_signal_connect()</title>
+<indexterm><primary>g_signal_connect</primary></indexterm><programlisting>#define     g_signal_connect(instance, detailed_signal, c_handler, data)</programlisting>
+<para>
+Connects a <link linkend="GCallback"><type>GCallback</type></link> function to a signal for a particular object.
+</para>
+<para>
+The handler will be called before the default handler of the signal.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance to connect to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detailed_signal</parameter>&nbsp;:</term>
+<listitem><simpara>a string of the form "signal-name::detail".
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>c_handler</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GCallback"><type>GCallback</type></link> to connect.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>data to pass to <parameter>c_handler</parameter> calls.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the handler id
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-connect-after"/>g_signal_connect_after()</title>
+<indexterm><primary>g_signal_connect_after</primary></indexterm><programlisting>#define     g_signal_connect_after(instance, detailed_signal, c_handler, data)</programlisting>
+<para>
+Connects a <link linkend="GCallback"><type>GCallback</type></link> function to a signal for a particular object.
+</para>
+<para>
+The handler will be called after the default handler of the signal.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance to connect to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detailed_signal</parameter>&nbsp;:</term>
+<listitem><simpara>a string of the form "signal-name::detail".
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>c_handler</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GCallback"><type>GCallback</type></link> to connect.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>data to pass to <parameter>c_handler</parameter> calls.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the handler id
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-connect-swapped"/>g_signal_connect_swapped()</title>
+<indexterm><primary>g_signal_connect_swapped</primary></indexterm><programlisting>#define     g_signal_connect_swapped(instance, detailed_signal, c_handler, data)</programlisting>
+<para>
+Connects a <link linkend="GCallback"><type>GCallback</type></link> function to a signal for a particular object.
+</para>
+<para>
+The instance on which the signal is emitted and <parameter>data</parameter> will be swapped when 
+calling the handler.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance to connect to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detailed_signal</parameter>&nbsp;:</term>
+<listitem><simpara>a string of the form "signal-name::detail".
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>c_handler</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GCallback"><type>GCallback</type></link> to connect.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>data to pass to <parameter>c_handler</parameter> calls.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the handler id
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-connect-object"/>g_signal_connect_object ()</title>
+<indexterm><primary>g_signal_connect_object</primary></indexterm><programlisting><link linkend="gulong">gulong</link>      g_signal_connect_object         (<link linkend="gpointer">gpointer</link> instance,
+                                             const <link linkend="gchar">gchar</link> *detailed_signal,
+                                             <link linkend="GCallback">GCallback</link> c_handler,
+                                             <link linkend="gpointer">gpointer</link> gobject,
+                                             <link linkend="GConnectFlags">GConnectFlags</link> connect_flags);</programlisting>
+<para>
+ This is similar to <link linkend="g-signal-connect-data"><function>g_signal_connect_data()</function></link>, but uses a closure which
+ ensures that the <parameter>gobject</parameter> stays alive during the call to <parameter>c_handler</parameter>
+ by temporarily adding a reference count to <parameter>gobject</parameter>.
+</para>
+<para>
+ Note that there this a bug in GObject that makes this function
+ much less useful than it might seem otherwise. Once <parameter>gobject</parameter> is
+ disposed, the callback will no longer be called, but, the signal
+ handler is <emphasis>not</emphasis> currently disconnected. If the
+ <parameter>instance</parameter> is itself being freed at the same time than this doesn't
+ matter, since the signal will automatically be removed, but
+ if <parameter>instance</parameter> persists, then the signal handler will leak. You
+ should not remove the signal yourself because in a future versions of
+ GObject, the handler <emphasis>will</emphasis> automatically
+ be disconnected.
+</para>
+<para>
+ It's possible to work around this problem in a way that will
+ continue to work with future versions of GObject by checking
+ that the signal handler is still connected before disconnected it:
+<informalexample><programlisting>
+ if (g_signal_handler_is_connected (instance, id))
+   g_signal_handler_disconnect (instance, id);
+</programlisting></informalexample>
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance to connect to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detailed_signal</parameter>&nbsp;:</term>
+<listitem><simpara>a string of the form "signal-name::detail".
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>c_handler</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GCallback"><type>GCallback</type></link> to connect.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>gobject</parameter>&nbsp;:</term>
+<listitem><simpara>the object to pass as data to <parameter>c_handler</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>connect_flags</parameter>&nbsp;:</term>
+<listitem><simpara>a combination of <link linkend="GConnnectFlags"><type>GConnnectFlags</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the handler id.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GConnectFlags"/>enum GConnectFlags</title>
+<indexterm><primary>GConnectFlags</primary></indexterm><programlisting>typedef enum
+{
+  G_CONNECT_AFTER	= 1 &lt;&lt; 0,
+  G_CONNECT_SWAPPED	= 1 &lt;&lt; 1
+} GConnectFlags;
+</programlisting>
+<para>
+The connection flags are used to specify the behaviour of a signal's 
+connection.
+</para><variablelist role="enum">
+<varlistentry>
+<term><literal>G_CONNECT_AFTER</literal></term>
+<listitem><simpara>whether the handler should be called before or after the 
+                  default handler of the signal.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_CONNECT_SWAPPED</literal></term>
+<listitem><simpara>whether the instance and data should be swapped when
+                  calling the handler.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-connect-data"/>g_signal_connect_data ()</title>
+<indexterm><primary>g_signal_connect_data</primary></indexterm><programlisting><link linkend="gulong">gulong</link>      g_signal_connect_data           (<link linkend="gpointer">gpointer</link> instance,
+                                             const <link linkend="gchar">gchar</link> *detailed_signal,
+                                             <link linkend="GCallback">GCallback</link> c_handler,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="GClosureNotify">GClosureNotify</link> destroy_data,
+                                             <link linkend="GConnectFlags">GConnectFlags</link> connect_flags);</programlisting>
+<para>
+Connects a <link linkend="GCallback"><type>GCallback</type></link> function to a signal for a particular object.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance to connect to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detailed_signal</parameter>&nbsp;:</term>
+<listitem><simpara>a string of the form "signal-name::detail".
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>c_handler</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GCallback"><type>GCallback</type></link> to connect.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>data to pass to <parameter>c_handler</parameter> calls.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>destroy_data</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GDestroyNotify"><type>GDestroyNotify</type></link> for <parameter>data</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>connect_flags</parameter>&nbsp;:</term>
+<listitem><simpara>a combination of <link linkend="GConnectFlags"><type>GConnectFlags</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the handler id
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-connect-closure"/>g_signal_connect_closure ()</title>
+<indexterm><primary>g_signal_connect_closure</primary></indexterm><programlisting><link linkend="gulong">gulong</link>      g_signal_connect_closure        (<link linkend="gpointer">gpointer</link> instance,
+                                             const <link linkend="gchar">gchar</link> *detailed_signal,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gboolean">gboolean</link> after);</programlisting>
+<para>
+Connects a closure to a signal for a particular object.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance to connect to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detailed_signal</parameter>&nbsp;:</term>
+<listitem><simpara>a string of the form "signal-name::detail".
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>closure</parameter>&nbsp;:</term>
+<listitem><simpara>the closure to connect.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>after</parameter>&nbsp;:</term>
+<listitem><simpara>whether the handler should be called before or after the 
+        default handler of the signal.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the handler id
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-connect-closure-by-id"/>g_signal_connect_closure_by_id ()</title>
+<indexterm><primary>g_signal_connect_closure_by_id</primary></indexterm><programlisting><link linkend="gulong">gulong</link>      g_signal_connect_closure_by_id  (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gboolean">gboolean</link> after);</programlisting>
+<para>
+Connects a closure to a signal for a particular object.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance to connect to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>the id of the signal.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>the detail.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>closure</parameter>&nbsp;:</term>
+<listitem><simpara>the closure to connect.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>after</parameter>&nbsp;:</term>
+<listitem><simpara>whether the handler should be called before or after the 
+        default handler of the signal.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the handler id
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handler-block"/>g_signal_handler_block ()</title>
+<indexterm><primary>g_signal_handler_block</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_handler_block          (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="gulong">gulong</link> handler_id);</programlisting>
+<para>
+Blocks a handler of an instance so it will not be called during 
+any signal emissions unless it is unblocked again. Thus "blocking" 
+a signal handler means to temporarily deactive it, a signal handler 
+has to be unblocked exactly the same amount of times it has been 
+blocked before to become active again.
+</para>
+<para>
+The <parameter>handler_id</parameter> has to be a valid signal handler id, connected to a 
+signal of <parameter>instance</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance to block the signal handler of.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>handler_id</parameter>&nbsp;:</term>
+<listitem><simpara>Handler id of the handler to be blocked.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handler-unblock"/>g_signal_handler_unblock ()</title>
+<indexterm><primary>g_signal_handler_unblock</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_handler_unblock        (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="gulong">gulong</link> handler_id);</programlisting>
+<para>
+Undoes the effect of a previous <link linkend="g-signal-handler-block"><function>g_signal_handler_block()</function></link> call. 
+A blocked handler is skipped during signal emissions and will not be 
+invoked, unblocking it (for exactly the amount of times it has been 
+blocked before) reverts its "blocked" state, so the handler will be 
+recognized by the signal system and is called upon future or currently
+ongoing signal emissions (since the order in which handlers are
+called during signal emissions is deterministic, whether the
+unblocked handler in question is called as part of a currently
+ongoing emission depends on how far that emission has proceeded
+yet).
+</para>
+<para>
+The <parameter>handler_id</parameter> has to be a valid id of a signal handler that is 
+connected to a signal of <parameter>instance</parameter> and is currently blocked.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance to unblock the signal handler of.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>handler_id</parameter>&nbsp;:</term>
+<listitem><simpara>Handler id of the handler to be unblocked.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handler-disconnect"/>g_signal_handler_disconnect ()</title>
+<indexterm><primary>g_signal_handler_disconnect</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_handler_disconnect     (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="gulong">gulong</link> handler_id);</programlisting>
+<para>
+Disconnects a handler from an instance so it will not be called during 
+any future or currently ongoing emissions of the signal it has been 
+connected to. The <parameter>handler_id</parameter> becomes invalid and may be reused.
+</para>
+<para>
+The <parameter>handler_id</parameter> has to be a valid signal handler id, connected to a 
+signal of <parameter>instance</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance to remove the signal handler from.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>handler_id</parameter>&nbsp;:</term>
+<listitem><simpara>Handler id of the handler to be disconnected.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handler-find"/>g_signal_handler_find ()</title>
+<indexterm><primary>g_signal_handler_find</primary></indexterm><programlisting><link linkend="gulong">gulong</link>      g_signal_handler_find           (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="GSignalMatchType">GSignalMatchType</link> mask,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gpointer">gpointer</link> func,
+                                             <link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+Finds the first signal handler that matches certain selection criteria.
+The criteria mask is passed as an OR-ed combination of <link linkend="GSignalMatchType"><type>GSignalMatchType</type></link>
+flags, and the criteria values are passed as arguments.
+The match <parameter>mask</parameter> has to be non-0 for successful matches.
+If no handler was found, 0 is returned.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance owning the signal handler to be found.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>mask</parameter>&nbsp;:</term>
+<listitem><simpara>Mask indicating which of <parameter>signal_id</parameter>, <parameter>detail</parameter>, <parameter>closure</parameter>, <parameter>func</parameter> 
+       and/or <parameter>data</parameter> the handler has to match.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>Signal the handler has to be connected to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>Signal detail the handler has to be connected to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>closure</parameter>&nbsp;:</term>
+<listitem><simpara>The closure the handler will invoke.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>The C closure callback of the handler (useless for non-C closures).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>The closure data of the handler's closure.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>A valid non-0 signal handler id for a successful match.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handlers-block-matched"/>g_signal_handlers_block_matched ()</title>
+<indexterm><primary>g_signal_handlers_block_matched</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_signal_handlers_block_matched (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="GSignalMatchType">GSignalMatchType</link> mask,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gpointer">gpointer</link> func,
+                                             <link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+Blocks all handlers on an instance that match a certain selection criteria.
+The criteria mask is passed as an OR-ed combination of <link linkend="GSignalMatchType"><type>GSignalMatchType</type></link> 
+flags, and the criteria values are passed as arguments.
+Passing at least one of the <literal>G_SIGNAL_MATCH_CLOSURE</literal>, <literal>G_SIGNAL_MATCH_FUNC</literal>
+or <literal>G_SIGNAL_MATCH_DATA</literal> match flags is required for successful matches.
+If no handlers were found, 0 is returned, the number of blocked handlers
+otherwise.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance to block handlers from.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>mask</parameter>&nbsp;:</term>
+<listitem><simpara>Mask indicating which of <parameter>signal_id</parameter>, <parameter>detail</parameter>, <parameter>closure</parameter>, <parameter>func</parameter> 
+       and/or <parameter>data</parameter> the handlers have to match.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>Signal the handlers have to be connected to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>Signal detail the handlers have to be connected to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>closure</parameter>&nbsp;:</term>
+<listitem><simpara>The closure the handlers will invoke.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>The C closure callback of the handlers (useless for non-C closures).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>The closure data of the handlers' closures.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>The amount of handlers that got blocked.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handlers-unblock-matched"/>g_signal_handlers_unblock_matched ()</title>
+<indexterm><primary>g_signal_handlers_unblock_matched</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_signal_handlers_unblock_matched
+                                            (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="GSignalMatchType">GSignalMatchType</link> mask,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gpointer">gpointer</link> func,
+                                             <link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+Unblocks all handlers on an instance that match a certain selection
+criteria. The criteria mask is passed as an OR-ed combination of
+<link linkend="GSignalMatchType"><type>GSignalMatchType</type></link> flags, and the criteria values are passed as arguments.
+Passing at least one of the <literal>G_SIGNAL_MATCH_CLOSURE</literal>, <literal>G_SIGNAL_MATCH_FUNC</literal>
+or <literal>G_SIGNAL_MATCH_DATA</literal> match flags is required for successful matches.
+If no handlers were found, 0 is returned, the number of unblocked handlers
+otherwise. The match criteria should not apply to any handlers that are
+not currently blocked.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance to unblock handlers from.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>mask</parameter>&nbsp;:</term>
+<listitem><simpara>Mask indicating which of <parameter>signal_id</parameter>, <parameter>detail</parameter>, <parameter>closure</parameter>, <parameter>func</parameter> 
+       and/or <parameter>data</parameter> the handlers have to match.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>Signal the handlers have to be connected to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>Signal detail the handlers have to be connected to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>closure</parameter>&nbsp;:</term>
+<listitem><simpara>The closure the handlers will invoke.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>The C closure callback of the handlers (useless for non-C closures).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>The closure data of the handlers' closures.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>The amount of handlers that got unblocked.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handlers-disconnect-matched"/>g_signal_handlers_disconnect_matched ()</title>
+<indexterm><primary>g_signal_handlers_disconnect_matched</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_signal_handlers_disconnect_matched
+                                            (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="GSignalMatchType">GSignalMatchType</link> mask,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GClosure">GClosure</link> *closure,
+                                             <link linkend="gpointer">gpointer</link> func,
+                                             <link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+Disconnects all handlers on an instance that match a certain selection 
+criteria. The criteria mask is passed as an OR-ed combination of
+<link linkend="GSignalMatchType"><type>GSignalMatchType</type></link> flags, and the criteria values are passed as arguments.
+Passing at least one of the <literal>G_SIGNAL_MATCH_CLOSURE</literal>, <literal>G_SIGNAL_MATCH_FUNC</literal>
+or <literal>G_SIGNAL_MATCH_DATA</literal> match flags is required for successful matches.
+If no handlers were found, 0 is returned, the number of disconnected 
+handlers otherwise.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance to remove handlers from.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>mask</parameter>&nbsp;:</term>
+<listitem><simpara>Mask indicating which of <parameter>signal_id</parameter>, <parameter>detail</parameter>, <parameter>closure</parameter>, <parameter>func</parameter> 
+       and/or <parameter>data</parameter> the handlers have to match.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>Signal the handlers have to be connected to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>Signal detail the handlers have to be connected to.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>closure</parameter>&nbsp;:</term>
+<listitem><simpara>The closure the handlers will invoke.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>The C closure callback of the handlers (useless for non-C closures).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>The closure data of the handlers' closures.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>The amount of handlers that got disconnected.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handler-is-connected"/>g_signal_handler_is_connected ()</title>
+<indexterm><primary>g_signal_handler_is_connected</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_signal_handler_is_connected   (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="gulong">gulong</link> handler_id);</programlisting>
+<para>
+Returns whether <parameter>handler_id</parameter> is the id of a handler connected to <parameter>instance</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance where a signal handler is sought.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>handler_id</parameter>&nbsp;:</term>
+<listitem><simpara>the handler id.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>whether <parameter>handler_id</parameter> identifies a handler connected to <parameter>instance</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handlers-block-by-func"/>g_signal_handlers_block_by_func()</title>
+<indexterm><primary>g_signal_handlers_block_by_func</primary></indexterm><programlisting>#define     g_signal_handlers_block_by_func(instance, func, data)</programlisting>
+<para>
+Blocks all handlers on an instance that match <parameter>func</parameter> and <parameter>data</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance to block handlers from.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>The C closure callback of the handlers (useless for non-C closures).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>The closure data of the handlers' closures.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>The number of handlers that got blocked.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handlers-unblock-by-func"/>g_signal_handlers_unblock_by_func()</title>
+<indexterm><primary>g_signal_handlers_unblock_by_func</primary></indexterm><programlisting>#define     g_signal_handlers_unblock_by_func(instance, func, data)</programlisting>
+<para>
+Unblocks all handlers on an instance that match <parameter>func</parameter> and <parameter>data</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance to unblock handlers from.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>The C closure callback of the handlers (useless for non-C closures).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>The closure data of the handlers' closures.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>The number of handlers that got unblocked.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-handlers-disconnect-by-func"/>g_signal_handlers_disconnect_by_func()</title>
+<indexterm><primary>g_signal_handlers_disconnect_by_func</primary></indexterm><programlisting>#define     g_signal_handlers_disconnect_by_func(instance, func, data)</programlisting>
+<para>
+Disconnects all handlers on an instance that match <parameter>func</parameter> and <parameter>data</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>The instance to remove handlers from.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>The C closure callback of the handlers (useless for non-C closures).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>The closure data of the handlers' closures.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>The number of handlers that got disconnected.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-has-handler-pending"/>g_signal_has_handler_pending ()</title>
+<indexterm><primary>g_signal_has_handler_pending</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_signal_has_handler_pending    (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="gboolean">gboolean</link> may_be_blocked);</programlisting>
+<para>
+Returns whether there are any handlers connected to <parameter>instance</parameter> for the
+given signal id and detail.
+</para>
+<para>
+One example of when you might use this is when the arguments to the 
+signal are difficult to compute. A class implementor may opt to not emit 
+the signal if no one is attached anyway, thus saving the cost of building
+the arguments.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the object whose signal handlers are sought.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>the signal id.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>the detail.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>may_be_blocked</parameter>&nbsp;:</term>
+<listitem><simpara>whether blocked handlers should count as match.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara><literal>TRUE</literal> if a handler is connected to the signal, 
+          <literal>FALSE</literal> otherwise.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-stop-emission"/>g_signal_stop_emission ()</title>
+<indexterm><primary>g_signal_stop_emission</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_stop_emission          (<link linkend="gpointer">gpointer</link> instance,
+                                             <link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail);</programlisting>
+<para>
+Stops a signal's current emission.
+</para>
+<para>
+This will prevent the default method from running, if the signal was
+<literal>G_SIGNAL_RUN_LAST</literal> and you connected normally (i.e. without the "after" 
+flag).
+</para>
+<para>
+Prints a warning if used on a signal which isn't being emitted.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the object whose signal handlers you wish to stop.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>the signal identifier, as returned by <link linkend="g-signal-lookup"><function>g_signal_lookup()</function></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>the detail which the signal was emitted with.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-stop-emission-by-name"/>g_signal_stop_emission_by_name ()</title>
+<indexterm><primary>g_signal_stop_emission_by_name</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_stop_emission_by_name  (<link linkend="gpointer">gpointer</link> instance,
+                                             const <link linkend="gchar">gchar</link> *detailed_signal);</programlisting>
+<para>
+Stops a signal's current emission.
+</para>
+<para>
+This is just like <link linkend="g-signal-stop-emission"><function>g_signal_stop_emission()</function></link> except it will look up the 
+signal id for you.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the object whose signal handlers you wish to stop.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detailed_signal</parameter>&nbsp;:</term>
+<listitem><simpara>a string of the form "signal-name::detail".
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-override-class-closure"/>g_signal_override_class_closure ()</title>
+<indexterm><primary>g_signal_override_class_closure</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_override_class_closure (<link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GType">GType</link> instance_type,
+                                             <link linkend="GClosure">GClosure</link> *class_closure);</programlisting>
+<para>
+Overrides the class closure (i.e. the default handler) for the given signal
+for emissions on instances of <parameter>instance_type</parameter>. <parameter>instance_type</parameter> must be derived
+from the type to which the signal belongs.
+</para><variablelist role="params">
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>the signal id
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>instance_type</parameter>&nbsp;:</term>
+<listitem><simpara>the instance type on which to override the class closure 
+                for the signal.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>class_closure</parameter>&nbsp;:</term>
+<listitem><simpara>the closure.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-chain-from-overridden"/>g_signal_chain_from_overridden ()</title>
+<indexterm><primary>g_signal_chain_from_overridden</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_chain_from_overridden  (const <link linkend="GValue">GValue</link> *instance_and_params,
+                                             <link linkend="GValue">GValue</link> *return_value);</programlisting>
+<para>
+Calls the original class closure of a signal. This function should only
+be called from an overridden class closure; see 
+<link linkend="g-signal-override-class-closure"><function>g_signal_override_class_closure()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance_and_params</parameter>&nbsp;:</term>
+<listitem><simpara> the argument list of the signal emission. The first 
+  element in the array is a <link linkend="GValue"><type>GValue</type></link> for the instance the signal is being 
+  emitted on. The rest are any arguments to be passed to the signal.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>return_value</parameter>&nbsp;:</term>
+<listitem><simpara>Location for the return value.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-add-emission-hook"/>g_signal_add_emission_hook ()</title>
+<indexterm><primary>g_signal_add_emission_hook</primary></indexterm><programlisting><link linkend="gulong">gulong</link>      g_signal_add_emission_hook      (<link linkend="guint">guint</link> signal_id,
+                                             <link linkend="GQuark">GQuark</link> detail,
+                                             <link linkend="GSignalEmissionHook">GSignalEmissionHook</link> hook_func,
+                                             <link linkend="gpointer">gpointer</link> hook_data,
+                                             <link linkend="GDestroyNotify">GDestroyNotify</link> data_destroy);</programlisting>
+<para>
+Adds an emission hook for a signal, which will get called for any emission
+of that signal, independent of the instance.
+</para><variablelist role="params">
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>the signal identifier, as returned by <link linkend="g-signal-lookup"><function>g_signal_lookup()</function></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail</parameter>&nbsp;:</term>
+<listitem><simpara>the detail on which to call the hook.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>hook_func</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSignalEmissionHook"><type>GSignalEmissionHook</type></link> function.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>hook_data</parameter>&nbsp;:</term>
+<listitem><simpara>user data for <parameter>hook_func</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data_destroy</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GDestroyNotify"><type>GDestroyNotify</type></link> for <parameter>hook_data</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the hook id, for later use with <link linkend="g-signal-remove-emission-hook"><function>g_signal_remove_emission_hook()</function></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-remove-emission-hook"/>g_signal_remove_emission_hook ()</title>
+<indexterm><primary>g_signal_remove_emission_hook</primary></indexterm><programlisting><link linkend="void">void</link>        g_signal_remove_emission_hook   (<link linkend="guint">guint</link> signal_id,
+                                             <link linkend="gulong">gulong</link> hook_id);</programlisting>
+<para>
+Deletes an emission hook.
+</para><variablelist role="params">
+<varlistentry><term><parameter>signal_id</parameter>&nbsp;:</term>
+<listitem><simpara>the id of the signal
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>hook_id</parameter>&nbsp;:</term>
+<listitem><simpara>the id of the emission hook, as returned by 
+<link linkend="g-signal-add-emission-hook"><function>g_signal_add_emission_hook()</function></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-parse-name"/>g_signal_parse_name ()</title>
+<indexterm><primary>g_signal_parse_name</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_signal_parse_name             (const <link linkend="gchar">gchar</link> *detailed_signal,
+                                             <link linkend="GType">GType</link> itype,
+                                             <link linkend="guint">guint</link> *signal_id_p,
+                                             <link linkend="GQuark">GQuark</link> *detail_p,
+                                             <link linkend="gboolean">gboolean</link> force_detail_quark);</programlisting>
+<para>
+Internal function to parse a signal name into its <parameter>signal_id</parameter>
+and <parameter>detail</parameter> quark.
+</para><variablelist role="params">
+<varlistentry><term><parameter>detailed_signal</parameter>&nbsp;:</term>
+<listitem><simpara>a string of the form "signal-name::detail".
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>itype</parameter>&nbsp;:</term>
+<listitem><simpara>The interface/instance type that introduced "signal-name".
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>signal_id_p</parameter>&nbsp;:</term>
+<listitem><simpara>Location to store the signal id.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>detail_p</parameter>&nbsp;:</term>
+<listitem><simpara>Location to store the detail quark.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>force_detail_quark</parameter>&nbsp;:</term>
+<listitem><simpara><literal>TRUE</literal> forces creation of a <link linkend="GQuark"><type>GQuark</type></link> for the detail.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>Whether the signal name could successfully be parsed and <parameter>signal_id_p</parameter> and <parameter>detail_p</parameter> contain valid return values.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-get-invocation-hint"/>g_signal_get_invocation_hint ()</title>
+<indexterm><primary>g_signal_get_invocation_hint</primary></indexterm><programlisting><link linkend="GSignalInvocationHint">GSignalInvocationHint</link>* g_signal_get_invocation_hint
+                                            (<link linkend="gpointer">gpointer</link> instance);</programlisting>
+<para>
+Returns the invocation hint of the innermost signal emission of instance. 
+</para><variablelist role="params">
+<varlistentry><term><parameter>instance</parameter>&nbsp;:</term>
+<listitem><simpara>the instance to query
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the invocation hint of the innermost signal emission.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-type-cclosure-new"/>g_signal_type_cclosure_new ()</title>
+<indexterm><primary>g_signal_type_cclosure_new</primary></indexterm><programlisting><link linkend="GClosure">GClosure</link>*   g_signal_type_cclosure_new      (<link linkend="GType">GType</link> itype,
+                                             <link linkend="guint">guint</link> struct_offset);</programlisting>
+<para>
+Creates a new closure which invokes the function found at the offset
+<parameter>struct_offset</parameter> in the class structure of the interface or classed type
+identified by <parameter>itype</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>itype</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GType"><type>GType</type></link> identifier of an interface or classed type
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>struct_offset</parameter>&nbsp;:</term>
+<listitem><simpara>the offset of the member function of <parameter>itype</parameter>'s class 
+  structure which is to be invoked by the new closure
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a new <link linkend="GCClosure"><type>GCClosure</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-signal-accumulator-true-handled"/>g_signal_accumulator_true_handled ()</title>
+<indexterm role="2.4"><primary>g_signal_accumulator_true_handled</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_signal_accumulator_true_handled
+                                            (<link linkend="GSignalInvocationHint">GSignalInvocationHint</link> *ihint,
+                                             <link linkend="GValue">GValue</link> *return_accu,
+                                             const <link linkend="GValue">GValue</link> *handler_return,
+                                             <link linkend="gpointer">gpointer</link> dummy);</programlisting>
+<para>
+A predefined <link linkend="GSignalAccumulator"><type>GSignalAccumulator</type></link> for signals that return a
+boolean values. The behavior that this accumulator gives is
+that a return of <literal>TRUE</literal> stops the signal emission: no further
+callbacks will be invokced, while a return of <literal>FALSE</literal> allows
+the emission to coninue. The idea here is that a <literal>TRUE</literal> return
+indicates that the callback <emphasis>handled</emphasis> the signal,
+and no further handling is needed.
+</para><variablelist role="params">
+<varlistentry><term><parameter>ihint</parameter>&nbsp;:</term>
+<listitem><simpara>standard <link linkend="GSignalAccumulator"><type>GSignalAccumulator</type></link> parameter
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>return_accu</parameter>&nbsp;:</term>
+<listitem><simpara>standard <link linkend="GSignalAccumulator"><type>GSignalAccumulator</type></link> parameter
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>handler_return</parameter>&nbsp;:</term>
+<listitem><simpara>standard <link linkend="GSignalAccumulator"><type>GSignalAccumulator</type></link> parameter
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>dummy</parameter>&nbsp;:</term>
+<listitem><simpara>standard <link linkend="GSignalAccumulator"><type>GSignalAccumulator</type></link> parameter
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>standard <link linkend="GSignalAccumulator"><type>GSignalAccumulator</type></link> result
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

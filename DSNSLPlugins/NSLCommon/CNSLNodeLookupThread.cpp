@@ -42,11 +42,15 @@ CNSLNodeLookupThread::~CNSLNodeLookupThread()
 void CNSLNodeLookupThread::AddResult( CFStringRef newNodeName )
 {
 	DBGLOG( "CNSLNodeLookupThread::AddResult (CFStringRef)\n" );
-    mParentPlugin->AddNode( newNodeName );
-}
+	
+	if ( CFStringFind(newNodeName, CFSTR("/"), 0).length > 0 )
+	{
+		CFMutableStringRef theString = CFStringCreateMutableCopy( NULL, 0, newNodeName );
 
-void CNSLNodeLookupThread::AddResult( const char* newNodeName )
-{
-	DBGLOG( "CNSLNodeLookupThread::AddResult (%s)\n", newNodeName );
-    mParentPlugin->AddNode( newNodeName );
+		CFStringFindAndReplace(theString, CFSTR("/"), CFSTR("\\047"), CFRangeMake(0,CFStringGetLength(newNodeName)), 0);
+		mParentPlugin->AddNode( theString );
+		CFRelease( theString );
+	}
+	else
+		mParentPlugin->AddNode( newNodeName );
 }

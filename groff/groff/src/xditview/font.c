@@ -9,10 +9,16 @@
 #include <X11/StringDefs.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include "DviP.h"
 #include "XFontName.h"
 
-static DisposeFontSizes();
+static void DisposeFontSizes();
+void DestroyFontMap();
+
+/* XFontName.c */
+extern Bool XParseFontName();
+extern Bool XFormatFontName();
 
 static char *
 savestr (s)
@@ -115,7 +121,7 @@ SkipFontNameElement (n)
 # define SizePosition		8
 # define EncodingPosition	13
 
-static
+static int
 ConvertFontNameToSize (n)
 	char	*n;
 {
@@ -191,7 +197,7 @@ InstallFontSizes (dw, x_name, scalablep)
 	return sizes;
 }
 
-static
+static void
 DisposeFontSizes (dw, fs)
 	DviWidget	dw;
 	DviFontSizeList	*fs;
@@ -263,6 +269,7 @@ InstallFont (dw, position, dvi_name, x_name)
 	return f;
 }
 
+void
 ForgetFonts (dw)
 	DviWidget dw;
 {
@@ -322,6 +329,7 @@ MapXNameToDviName (dw, x_name)
 }
 #endif
 
+void
 ParseFontMap (dw)
 	DviWidget	dw;
 {
@@ -357,6 +365,7 @@ ParseFontMap (dw)
 	dw->dvi.font_map = fm;
 }
 
+void
 DestroyFontMap (font_map)
 	DviFontMap	*font_map;
 {
@@ -374,6 +383,7 @@ DestroyFontMap (font_map)
 
 /* ARGSUSED */
 
+void
 SetFontPosition (dw, position, dvi_name, extra)
 	DviWidget	dw;
 	int		position;

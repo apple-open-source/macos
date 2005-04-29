@@ -126,6 +126,12 @@ Find an internet password item.
 Find a certificate item.
 .It Nm create-db
 Create an db using the DL.
+.It Nm import
+Import item(s) into a keychain.
+.It Nm export
+Export item(s) from a keychain.
+.It Nm install-mds
+Install (or re-install) the MDS database.
 .It Nm leaks
 Run
 .Pa /usr/bin/leaks
@@ -289,12 +295,16 @@ Show the settings for keychain.
 .El
 .It
 .Nm dump-keychain
-.Op Fl dhr
+.Op Fl adhir
 .Bl -item -offset -indent
 Dump the contents of one or more keychains.
 .Bl -tag -compact -width -indent-indent
+.It Fl a
+Dump acl of items.
 .It Fl d
 Dump cleartext data of items.
+.It Fl i
+Interactive acl editing mode.
 .It Fl r
 Dump raw (possibly ciphertext) data of items.
 .El
@@ -427,6 +437,89 @@ Force using version 0 openparams
 .Dl security> create-db -m 0644 test.db
 .Dl security> create-db -g cspdl -a test2.db
 .El
+.\"new import/export commands.
+.El
+.It
+.Nm export
+.Op Fl k Ar keychain
+.Op Fl t Ar item_type
+.Op Fl f Ar item_format
+.Op Fl w
+.Op Fl p Ar item_format
+.Op Fl P Ar passphrase
+.Op Fl o Ar outfile
+.Bl -item -offset -indent
+Export one or more items from a keychain to one of a number of external representations.  If
+.Ar keychain
+isn't provided, items will be exported from the user's default keychain.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl k Ar keychain
+Specify keychain from which item(s) will be exported. 
+.It Fl t Ar item_type
+Specify the type of items to export. Possible types are certs, allKeys, pubKeys, privKeys, identities, and all. The default is all. An identity consists of both a certificate and the corresponding provate key. 
+.It Fl f Ar item_format
+Specify the format of the exported data. Possible formats are openssl, bsafe, pkcs7, pkcs8, pkcs12, x509, and pemseq. The default is pemseq if more than one item is being exported. The default is openssl if one key is being exported. The default is x509 if one certificate is being exported.
+.It Fl w
+Specifies that private keys are to be wrapped on export. 
+.It Fl p 
+Specifies that PEM armour is to be applied to the output data.
+.It Fl P Ar passphrase
+Specify the wrapping passphrase immediately. The default is to obtain a secure passphrase via GUI.
+.It Fl o Ar outfile
+Write the output data to 
+.Ar outfile Ns
+\&. Default is to write data to stdout. 
+.El
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.Dl security> export -k login.keychain -t certs -o /tmp/certs.pem
+.Dl security> export -k newcert.keychain -t identities -f pkcs12 -o /tmp/mycerts.p12
+.El
+.\"marker.
+.El
+.It
+.Nm import
+inputfile
+.Op Fl k Ar keychain
+.Op Fl t Ar item_type
+.Op Fl f Ar item_format
+.Op Fl w
+.Op Fl P Ar passphrase
+.Bl -item -offset -indent
+Import one or more items from 
+.Ar inputfile Ns
+\& into a keychain. If
+.Ar keychain
+isn't provided, items will be imported into the user's default keychain.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl k Ar keychain
+Specify keychain into which item(s) will be imported. 
+.It Fl t Ar item_type
+Specify the type of items to import. Possible types are cert, pub, priv, session, cert, and agg. Pub, priv, and session refer to keys; agg is one of the aggregate types (pkcs12 and PEM sequence). The command can often figure out what item_type an item contains based in the filename and/or item_format.
+.It Fl f Ar item_format
+Specify the format of the exported data. Possible formats are openssl, bsafe, raw, pkcs7, pkcs8, pkcs12, x509, and pemseq. The command can often figure out what format an item is in based in the filename and/or item_type. 
+.It Fl w
+Specifies that private keys are wrapped and must be unwrapped on import. 
+.It Fl P Ar passphrase
+Specify the unwrapping passphrase immediately. The default is to obtain a secure passphrase via GUI.
+.El
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.Dl security> import /tmp/certs.pem -k 
+.Dl security> import /tmp/mycerts.p12 -t agg -k newcert.keychain
+.Dl security> import /tmp/mycerts.p12 -f pkcs12 -k newcert.keychain
+.El
+.\"end of new import/export commands.
+.It
+.Nm install-mds
+.Bl -item -offset -indent
+Install (or re-install) the Module Directory Services (MDS) database. This is a system tool which is not normally used by users. There are no options. 
 .El
 .It
 .Nm leaks
@@ -454,6 +547,7 @@ Don't show stack traces of leaked memory.
 .It Fl exclude Ar symbol
 Ignore leaks called from
 .Ar symbol Ns .
+.El
 .El
 .El
 .El
@@ -494,7 +588,7 @@ was first introduced in Mac OS X version 10.3
 .Sh BUGS
 .Nm
 still needs a lot more commands before it can be considered complete.
-In paticular it should someday superceed both the
+In particular it should someday supersede both the
 .Li certtool
 and
 .Li systemkeychain

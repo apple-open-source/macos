@@ -24,6 +24,8 @@
 #if !defined (GDBCORE_H)
 #define GDBCORE_H 1
 
+struct type;
+
 #include "bfd.h"
 
 /* Return the name of the executable file as a string.
@@ -113,6 +115,8 @@ extern bfd *exec_bfd;
 extern int write_files;
 
 extern void core_file_command (char *filename, int from_tty);
+
+extern void core_file_attach (char *filename, int from_tty);
 
 extern void exec_open (char *filename, int from_tty);
 

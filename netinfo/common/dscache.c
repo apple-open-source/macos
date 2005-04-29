@@ -29,103 +29,47 @@
 #include <stdio.h>
 
 #define CACHE_DEFAULT_SIZE 1000
+#define CACHE_MIN_MERIT 1
 
 /* remove n items from the cache */
-static u_int32_t
-dscache_prune(dscache *cache, u_int32_t n)
+static void
+dscache_prune(dscache *cache, uint32_t n)
 {
-	u_int32_t i, j, x, m;
+	dscache_node *x;
+	uint32_t i;
 
-	if (cache == NULL) return (u_int32_t)-1;
+	if (cache == NULL) return;
 
-	if (cache->cache_count == 0) return 0;
-	if (n == 0) return (u_int32_t)-1;
+	if (cache->cache_head == NULL) return;
 
-	if (n >= cache->cache_count)
+	for (i = 0; (i < n) && (cache->cache_head != NULL); i++)
 	{
-		cache->prune_count += cache->cache_count;
-	
-		for (i = 0; i < cache->cache_size; i++)
-		{
-			if (cache->cache[i].record == NULL) continue;
+		cache->prune_count++;
 
-			cache->cache[i].merit = 0;
-			dsrecord_release(cache->cache[i].record);
-			cache->cache[i].record = NULL;
-		}
-		cache->cache_count = 0;
-		return 0;
+		x = cache->cache_head->next;
+		dsrecord_release(cache->cache_head->record);
+		free(cache->cache_head);
+		cache->cache_head = x;
 	}
-
-	cache->prune_count += n;
-	x = 0;
-
-	for (j = 0; j < n; j++)
-	{
-		x = (u_int32_t)-1;
-		m = (u_int32_t)-1;
-
-		for (i = 0; i < cache->cache_size; i++)
-		{
-			if (cache->cache[i].record == NULL) continue;
-
-			if (cache->cache[i].merit < m)
-			{
-				x = i;
-				m = cache->cache[i].merit;
-			}
-		}
-
-		cache->cache[x].merit = 0;
-		dsrecord_release(cache->cache[x].record);
-		cache->cache[x].record = NULL;
-		cache->cache_count--;
-	}
-
-	for (i = 0; i < cache->cache_size; i++) 
-		if (cache->cache[i].merit > 1) cache->cache[i].merit--;
-
-	return x;
 }
 
-static u_int32_t
-index_merit(dsrecord *r)
+static uint32_t
+record_merit(dsrecord *r)
 {
-	dsindex *x;
-	u_int32_t i, m;
-
-	if (r == NULL) return 0;
-	if (r->index == NULL) return 0;
-
-	x = r->index;
-	m = 0;
-	for (i = 0; i < x->key_count; i++) m += x->kindex[i]->val_count;
-	return m;
+	if (r->dsid == 0) return (uint32_t)-1;
+	return r->sub_count;
 }
 
 dscache *
-dscache_new(u_int32_t m)
+dscache_new(uint32_t m)
 {
-	u_int32_t i;
 	dscache *cache;
 
-	cache = (dscache *)malloc(sizeof(dscache));
+	cache = (dscache *)calloc(1, sizeof(dscache));
 
-	cache->cache_count = 0;
-	cache->prune_count = 0;
-	cache->save_count = 0;
-	cache->remove_count = 0;
-	cache->fetch_count = 0;
+	cache->cache_max = m;
+	if (m == 0) cache->cache_max = CACHE_DEFAULT_SIZE;
 
-	cache->cache_size = m;
-	if (m == 0) cache->cache_size = CACHE_DEFAULT_SIZE;
-
-	cache->cache = (dscache_record *)malloc(cache->cache_size * sizeof(dscache_record));
-	for (i = 0; i < cache->cache_size; i++)
-	{
-		cache->cache[i].merit = 0;
-		cache->cache[i].record = NULL;
-	}
 	return cache;
 }
 
@@ -133,8 +77,8 @@ void
 dscache_free(dscache *cache)
 {
 	if (cache == NULL) return;
+
 	dscache_flush(cache);
-	free(cache->cache);
 	free(cache);
 }
 
@@ -148,119 +92,123 @@ dscache_flush(dscache *cache)
 void
 dscache_save(dscache *cache, dsrecord *r)
 {
-	u_int32_t i, where;
+	uint32_t merit;
+	dscache_node *p, *n, *new;
 
+	if (cache == NULL) return;
 	if (r == NULL) return;
 
-	where = dscache_index(cache, r->dsid);
-	if (where != (u_int32_t)-1)
+	merit = record_merit(r);
+	if (merit < CACHE_MIN_MERIT) return;
+
+	if (cache->cache_size == cache->cache_max)
 	{
-		/* Cache already contains this record id - update */
-		dsrecord_retain(r);
-		dsrecord_release(cache->cache[where].record);
-		cache->cache[where].record = r;
-		if (r->dsid == 0) cache->cache[where].merit = (u_int32_t)-1;
-		else cache->cache[where].merit = cache->cache_size + index_merit(r);
+		if ((cache->cache_head != NULL) && (merit < cache->cache_head->merit)) return;
+		dscache_prune(cache, 1);
+	}
+
+	cache->cache_size++;
+	cache->save_count++;
+	
+	new = (dscache_node *)calloc(1, sizeof(dscache_node));
+	new->merit = merit;
+	new->record = dsrecord_retain(r);
+
+	if (cache->cache_head == NULL)
+	{
+		cache->cache_head = new;
 		return;
 	}
 
-	cache->save_count++;
-
-	if (cache->cache_count == cache->cache_size)
+	if (merit < cache->cache_head->merit)
 	{
-		where = dscache_prune(cache, 1);
+		new->next = cache->cache_head;
+		cache->cache_head = new;
+		return;
 	}
-	else
+
+	p = cache->cache_head;
+	for (n = p->next; n != NULL; n = n->next)
 	{
-		for (i = 0; i < cache->cache_size; i++)
+		if (merit < n->merit)
 		{
-			if (cache->cache[i].record == NULL)
-			{
-				where = i;
-				break;
-			}
+			new->next = n;
+			p->next = new;
+			return;
 		}
+		p = n;
 	}
 
-	if (where >= cache->cache_size) where = 0;
-	if (cache->cache[where].record != NULL)
-		dsrecord_release(cache->cache[where].record);
-
-	dsrecord_retain(r);
-	cache->cache[where].record = r;
-	if (r->dsid == 0) cache->cache[where].merit = (u_int32_t)-1;
-	else cache->cache[where].merit = cache->cache_size + index_merit(r);
-	cache->cache_count++;
+	p->next = new;
 }
 
 void 
-dscache_remove(dscache *cache, u_int32_t dsid)
+dscache_remove(dscache *cache, uint32_t dsid)
 {
-	u_int32_t where;
-
+	dscache_node *p, *n;
+	
 	if (cache == NULL) return;
-
-	where = dscache_index(cache, dsid);
-	if (where == IndexNull) return;
-
-	cache->remove_count++;
-
-	dsrecord_release(cache->cache[where].record);
-	cache->cache[where].record = NULL;
-	cache->cache[where].merit = 0;
-	cache->cache_count--;
-}
-
-u_int32_t
-dscache_index(dscache *cache, u_int32_t dsid)
-{
-	u_int32_t i;
-
-	if (cache == NULL) return IndexNull;
-
-	if (cache->cache_count == 0) return IndexNull;
-
-	for (i = 0; i < cache->cache_size; i++)
+	if (cache->cache_head == NULL) return;
+	if (cache->cache_head->record->dsid == dsid)
 	{
-		if (cache->cache[i].record == NULL) continue;
-		if (cache->cache[i].record->dsid == dsid) return i;
+		dsrecord_release(cache->cache_head->record);
+		n = cache->cache_head->next;
+		free(cache->cache_head);
+		cache->cache_head = n;
+		return;
 	}
 
-	return IndexNull;
+	p = cache->cache_head;
+	for (n = p->next; n != NULL; n = n->next)
+	{
+		if (n->record == NULL) continue;
+		if (n->record->dsid == dsid) 
+		{
+			cache->remove_count++;
+
+			p->next = n->next;
+			dsrecord_release(n->record);
+			free(n);
+			return;
+		}
+		p = n;
+	}
 }
 
 dsrecord *
-dscache_fetch(dscache *cache, u_int32_t dsid)
+dscache_fetch(dscache *cache, uint32_t dsid)
 {
-	u_int32_t where;
-
+	dscache_node *n;
+	
 	if (cache == NULL) return NULL;
 
-	where = dscache_index(cache, dsid);
-	if (where == IndexNull) return NULL;
+	for (n = cache->cache_head; n != NULL; n = n->next)
+	{
+		if (n->record == NULL) continue;
+		if (n->record->dsid == dsid)
+		{
+			cache->fetch_count++;
+			return dsrecord_retain(n->record);
+		}
+	}
 
-	cache->fetch_count++;
-
-	if (dsid == 0) cache->cache[where].merit = (u_int32_t)-1;
-	else cache->cache[where].merit = cache->cache_size + index_merit(cache->cache[where].record);
-	dsrecord_retain(cache->cache[where].record);
-	return(cache->cache[where].record);
+	return NULL;
 }
 
 void
 dscache_print_statistics(dscache *cache, FILE *f)
 {
-	u_int32_t i;
-
+	dscache_node *n;
+	uint32_t i;
+	
 	if (f == NULL) return;
 	if (cache == NULL) fprintf(f, "-nil-\n");
 
-	fprintf(f, "cache_count = %u\n", cache->cache_count);
+	fprintf(f, "cache_size = %u\n", cache->cache_size);
 
-	for (i = 0; i < cache->cache_size; i++)
+	for (n = cache->cache_head; n != NULL; n = n->next)
 	{
-		if (cache->cache[i].record == NULL) continue;
-		fprintf(f, "%u: %u %u\n", i, cache->cache[i].record->dsid,
-			cache->cache[i].merit);
+		if (n->record == NULL) continue;
+		fprintf(f, "%u: %u %u\n", i, n->record->dsid, n->merit);
 	}
 }

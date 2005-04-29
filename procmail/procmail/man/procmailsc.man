@@ -1,6 +1,6 @@
 Please read the README file in this directory first.
 .ex
-.Id $Id: procmailsc.man,v 1.1.1.2 2001/07/20 19:38:13 bbraun Exp $
+.Id $Id: procmailsc.man,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $
 .TH PROCMAILSC 5 \*(Dt BuGless
 .na
 .SH NAME
@@ -76,7 +76,7 @@ The score will grow exponentially.
 x<0
 Can be utilised to favour odd or even number of matches.
 .PP
-If the regular expression is negated (i.e. matches if it isn't found),
+If the regular expression is negated (i.e., matches if it isn't found),
 then
 .B n
 obviously can either be zero or one.
@@ -148,7 +148,7 @@ the score will only be positive if the mail contained more than 150 lines.
 .Ex
 Suppose you have a priority folder which you always read first.  The next
 recipe picks out the priority mail and files them in this special folder.
-The first condition is a regular one, i.e. it doesn't contribute to the
+The first condition is a regular one, i.e., it doesn't contribute to the
 score, but simply has to be satisfied.  The other conditions describe things
 like: john and claire usually have something important to say, meetings
 are usually important, replies are favoured a bit, mails about Elvis

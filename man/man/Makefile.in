@@ -1,0 +1,80 @@
+# Makefile for man
+# [need allow_null_glob_expansion=true]
+# The parts behind % are removed when no message catalogs should be installed
+
+all:	Makefile conf_script source manpages %messages
+	@echo; echo 'You can now do "make install"'
+
+Makefile: Makefile.in configure
+	@echo "Please run configure first"
+	exit 1
+
+conf_script:	configure
+	@echo "Please run configure first"
+	exit 1
+
+src/Makefile:	conf_script src/Makefile.in
+	cd src; ../conf_script Makefile
+
+man2html/Makefile:	conf_script man2html/Makefile.in
+	cd man2html; ../conf_script Makefile			
+
+man/Makefile:	conf_script man/Makefile.in
+	cd man; ../conf_script Makefile
+
+msgs/Makefile:	conf_script msgs/Makefile.in
+	cd msgs; ../conf_script Makefile
+
+makefiles: src/Makefile man2html/Makefile man/Makefile msgs/Makefile
+
+source:	src/Makefile
+	cd src; $(MAKE)
+
+manhtml: man2html/Makefile
+	cd man2html; $(MAKE)
+
+manpages: man/Makefile
+	cd man; $(MAKE) subdirs
+
+%messages: gencat/gencat msgs/Makefile
+%	cd msgs; $(MAKE)
+
+%gencat/gencat:
+%	cd gencat; $(MAKE)
+
+install: src/Makefile man/Makefile %msgs/Makefile
+	cd src; $(MAKE) install
+	cd man; $(MAKE) installsubdirs
+%	cd msgs; $(MAKE) install
+	@echo; echo 'Done.'
+	@echo 'In case you want to browse man pages using a www browser,'
+	@echo '"cd man2html", read README, and perhaps "make install-scripts".'
+#	@echo; echo 'Done. In case you want to mount /usr read-only, please'
+#	@echo 'install a symlink /usr/man/whatis -> /var/catman/whatis, or so.'
+
+clean: src/Makefile man/Makefile msgs/Makefile man2html/Makefile
+	cd src; $(MAKE) clean
+	cd man2html; $(MAKE) clean
+	cd man; $(MAKE) cleansubdirs
+	cd msgs; $(MAKE) clean
+	cd gencat; $(MAKE) clean
+	rm -f core *~
+
+spotless distclean reallyclean: clean
+	cd src; $(MAKE) spotless
+	cd man2html; $(MAKE) spotless
+	cd man; $(MAKE) spotlesssubdirs
+	cd msgs; $(MAKE) spotless
+	cd gencat; $(MAKE) clean
+	rm -f conf_script Makefile
+
+DISTR = COPYING README README.HP README.RedHat README.GNU-WIN32 INSTALL \
+	Makefile.in configure src man2html man msgs gencat catopen misc
+
+dist:	spotless
+	echo man-`grep "static char version" src/version.h | \
+		sed -e 's/.*"\([0-9.a-z]*\)".*/\1/'` > .fname
+	rm -rf `cat .fname`; mkdir `cat .fname`
+	cd `cat .fname`; for i in $(DISTR); do ln -s ../$$i $$i; done
+	tar chzf `cat .fname`.tar.gz `cat .fname`
+	rm -rf `cat .fname` .fname 

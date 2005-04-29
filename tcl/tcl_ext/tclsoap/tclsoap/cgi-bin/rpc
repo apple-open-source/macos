@@ -1,0 +1,75 @@
+#! /bin/sh
+#  or /opt/TclPro1.4/win32-ix86/bin/tclsh83
+#
+# rpc - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# A CGI framework for SOAP and XML-RPC services from TclSOAP
+#
+# -------------------------------------------------------------------------
+# This software is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+# for more details.
+# -------------------------------------------------------------------------
+#
+# restart using tclsh \
+TCLLIBPATH="/home/pat/lib/tcl" \
+exec tclsh "$0" ${1+"$@"}
+
+#set ::auto_path [linsert $::auto_path 0 {/home/pat/lib/tcl}]
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Write a complete html page to stdout, setting the content length correctly.
+# Notes:
+#   The string length is incremented by the number of newlines as HTTP content
+#   assumes CR-NL line endings.
+#
+proc write {html} {
+    puts "Content-Type: text/html"
+    set len [string length $html]
+    puts "X-Content-Length: $len"
+    incr len [regexp -all "\n" $html]
+    puts "Content-Length: $len"
+
+    puts "\n$html"
+    catch {flush stdout}
+}
+
+# -------------------------------------------------------------------------
+
+if {[catch {
+
+    package require SOAP::CGI
+
+    # Set this to point to you SOAP service implementations.
+    set root [file join $::env(HOME) lib tcl tclsoap cgi-bin]
+
+    set SOAP::CGI::soapdir       [file join $root soap]
+    set SOAP::CGI::soapmapfile   [file join $root soapmap.dat]
+    set SOAP::CGI::xmlrpcdir     [file join $root soap]
+    set SOAP::CGI::xmlrpcmapfile [file join $root xmlrpcmap.dat]
+
+    # Set this for some logging.
+    #set SOAP::CGI::logfile       "../logs/rpc.log"
+    catch {unset SOAP::CGI::logfile}
+
+    SOAP::CGI::main
+
+} msg]} {
+
+    set html "<!doctype HTML public \"-//W3O//DTD W3 HTML 2.0//EN\">\n"
+    append html "<html>\n<head>\n<title>CGI Error</title>\n</head>\n<body>"
+    append html "<h1>CGI Error</h1>\n<p>$msg</p>\n"
+    append html "<br>\n<pre>$::errorInfo</pre>\n"
+    append html "</body>\n</html>"
+    write $html
+
+}
+
+# -------------------------------------------------------------------------
+#
+# Local variables:
+# mode: tcl
+# End:

@@ -1,3 +1,261 @@
+2005-02-21  Jason Molenda  (jmolenda@apple.com)
+
+        * mi-main.c (mi_cmd_file_fix_file_is_grooved): New MI command to
+        show whether Fix and Continue is supported with the current
+        executable or not.
+        * mi-cmds.h: Prototype for above.
+        * mi-cmds.c (mi_cmds): Add an entry for the new MI cmd.
+
+2005-02-17  Jim Ingham <jingham@apple.com>
+
+	* mi-out.c (mi_notify_begin): Store away the whole uiout data,
+	not just the buffer.  This way we will start with a clean state
+	for any lists we make in the notify.
+	(mi_notify_end): restore the state.
+	
+2005-02-10  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-main.c (mi_cmd_thread_set_pc): New thread-set-pc behavior:
+	if setting the PC to a function prologue, advance it out of the
+	prologue.  Can be defeated with the -n command option.
+
+2005-01-28  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-stack.c (mi_cmd_file_list_globals): Use the
+	enum return value from objfile_matches_name.
+	
+2005-01-13  Jim Ingham  <jingham@apple.com>
+
+	* mi-interp.c (mi_command_loop): Prime the uiout with the
+	mi interpreter's uiout.
+	
+2004-10-28  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-break.c (mi_cmd_break_insert): Added the "-l"
+	option, and process it.
+	
+2004-10-08  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmds-file.c (print_syms_for_block): New consts argument.
+	Change all uses of print_syms_for_block to pass this.
+	(parse_statics_globals_args): New function.
+	(mi_cmd_file_list_statics, mi_cmd_file_list_globals): Change to
+	use parse_statics_globals_args.
+	
+2004-09-28  Jim Ingham  <jingham@apple.com>
+
+        * mi-cmds.c: Add mi_cmd_pid_info so we can add it to the
+	list of commands that can be run while the target is 
+	running.
+	* mi-main.c: (mi_cmd_pid_info): New function.
+	* (mi_command_completes_while_target_executing): Add 
+	pid-info to the list of commands that can be run while the
+	target is running.
+
+2004-09-29  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmd-break.c (mi_cmd_break_insert): realpath() the shlib
+	argument so it matches what we get (& realpath) from dyld if
+        the argument looks like an absolute pathname.
+
+2004-09-28  Jim Ingham  <jingham@apple.com>
+
+	* mi-main.c (mi_execute_async_cli_command): Don't use the
+	exec_cleanup_chain for freeing the command string.  That can
+	be done right after the safe_execute_command, do a normal
+	cleanup is just fine.  And the exec_cleanup_chain is pretty
+	fragile.
+	
+2004-09-23  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmds.h: Prototype for file-fix-file MI func.
+	* mi-cmds.c (mi_cmds): Use MI function for file-fix-file instead
+	of console command.
+	* mi-main.c (mi_cmd_file_fix_file): New function.
+
+2004-09-07  Jim Ingham  <jingham@apple.com>
+
+	* mi-interp.c (_initialize_mi_interp): Set the "mi" interpreter
+	back to mi0.  CodeWarrior 9 requires mi0, but asks for just "mi".
+	* (mi_interpreter_resume): Reset the default to mi0 here as well.
+	
+2004-09-07  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmd-break.c (mi_cmd_break_insert): If 'ignore' argument
+	is less than 0, set to 0 -- same behavior as 
+	breakpoint.c:set_ignore_count().
+
+2004-09-02  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-main.h (mi_interp_query_hook): This func is now static; do not
+	list a prototype in the header file.
+
+2004-07-15  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-main.c (mi_cmd_thread_set_pc): Use new_pc instead of the
+	sal.pc when setting the default breakpoint..
+
+2004-07-15  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-main.c (mi_cmd_thread_set_pc): Add FIXME comment about
+	my weak-ass parser.
+
+2004-07-14  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-main.c (mi_cmd_thread_set_pc): Split apart filename and line
+	number manually instead of using decode_line_1.  Add appropriate
+        error checking to catch bad filenames/line #'s.  Correct CORE_ADDR
+        printing to work for both 32 and 64 bit addrs.
+
+2004-06-14  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-main.c (mi_cmd_thread_set_pc): Restore call to 
+	update_picbase_register().
+
+2004-05-27  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-stack.c (mi_cmd_file_list_statics): Not being able to
+	find a symtab for the CURRENT_FRAME_COOKIE, or for a "" filename
+	should just return an empty list, not an error.
+	
+2004-05-25  Jim Ingham  <jingham@apple.com>
+
+        * mi-cmd-break.c (mi_cmd_break_catch): Return from unsetting
+        the catchpoints rather than continuing on to set new ones (doh!)
+
+2004-05-18  Jim Ingham  <jingham@apple.com>
+
+        * mi-cmd-stack.c (mi_cmd_file_list_statics): Added the
+        "*CURRENT FRAME*" cookie.
+
+2004-05-17  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmd-stack.c (mi_cmd_stack_list_frames_lite): Don't try to use
+	struct frame_info's members directly; use accessor function.
+
+2004-05-15  Jim Ingham  <jingham@apple.com>
+
+        * gdbmi.texinfo: Document new -file-list-statics and -file-list-globals
+        commands.
+        * mi-cmd-stack.c (mi_cmd_file_list_statics): New function.
+        * (print_globals_for_symtab): New function.
+        * (mi_cmd_file_list_globals): New function.
+        * (print_syms_for_block): Handle static block as well.
+        * (mi_decode_print_values): New function.
+        * (list_args_or_locals, print_syms_for_block): Combine the function
+        of values and create_varobj, and use enum print_frame.
+        * (mi_cmd_stack_list_locals): Use mi_decode_print_values instead
+        of decoding by hand.
+        * (mi_cmd_stack_list_args): ditto.
+        * mi-cmds.h: Add the ftype's for the new commands.
+        * mi-cmds.c: And add them to the command array.
+
+2004-05-05  Jason Molenda  (jmolenda@apple.com)
+
+        * mi-cmds.c (mi_cmds): Route -exec-abort MI command to CLI's "kill".
+
+2004-04-29  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmd-var.c (mi_cmd_var_list_children): Rework to integrate
+	our expected var-list-children command behavior with the new
+	FSF command behavior, where we have multiple potential ways to
+	express "show me the values of the child".
+
+2004-04-28  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmd-stack.c (mi_print_frame_info_lite): Each frame is a 
+	tuple, not a list.
+
+2004-04-28  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmds.c (mi_cmds): Re-add stack-list-frames-lite command.
+
+2004-04-15  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-break.c: Switch from a breakpoint_create event
+	to a breakpoint_resolve event.
+	
+2004-04-14  Jim Ingham <jingham@apple.com>
+	* mi-cmd-break.c (breakpoint_notify): This now gets the
+	parent pended breakpoint if there was one.  Print it...
+	* (mi_async_breakpoint_create_event): Report pending 
+	breakpoint resolution here.
+	* mi-interps.c: Add event hook.
+	
+2004-03-26  Jim Ingham (jingham@apple.com)
+
+	* mi-interp.c (mi_interpreter_resume): Set the 
+	frame_more_info_hook.
+	(mi_command_loop) ditto.
+	
+2004-03-17  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmds.c (mi_cmds): Correct gdb-unset so args are
+	expected & passed.
+
+2004-02-27  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-break.c (mi_cmd_break_commands): New function.
+        * (mi_read_next_line): New function.
+	* mi-cmds.c: mi_cmd_break_commands implements break-commands
+	* mi-cmds.h: declare ftype for mi_cmd_break_commands.
+	
+2004-02-09  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-break.c (mi_interp_create_breakpoint_hook): Don't
+	report internal breakpoints.
+	(mi_interp_modify_breakpoint_hook): ditto
+	(mi_interp_delete_breakpoint_hook): ditto
+	* mi-cmd-stack.c (mi_interp_frame_changed_hook): Don't
+	report frame resetting events.
+	* mi-interp.c (mi_cmd_interpreter_exec): Merge fallout -
+	remember to set mi_interp.
+	
+2004-02-03  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmds.c: Add exec-safe-call.
+	* mi-main.c (mi_cmd_exec_safe_call): New function.
+	
+2003-10-30  Jim Ingham  <jingham@apple.com>
+
+	* mi-main.c (mi_insert_notify_hooks): Add the "stack_changed"
+	hooks to the hooks we use.  This way we get notified if the
+	return command changes the stack.
+	(mi_remove_notify_hooks): Remove "stack_changed.
+
+2003-10-22  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmds.c (mi_cmds): Add "-pid-info" MI command.
+
+2003-10-20  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-disas.c (mi_cmd_disassemble): Allow the data-disassemble
+	command to that "-s -n" as a pair, and throttle the disassembly
+	to the number of lines specified in by the -n argument.
+
+2003-10-15  Jim Ingham  <jingham@apple.com>
+	
+	* mi-cmd-break.c: (mi_cmd_break_insert): Handle the "-s" option
+	for shared-library specific breakpoints.
+
+2003-10-08  James Ingham  <jingham@apple.com>
+
+	* mi-cmd-disas.c (mi_cmd_disassemble): Change the data-disassemble 
+	command so if you only provide -s, we disassemble the function
+	around the start address.
+
+2003-09-26  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmds.c: Add interpreter-complete.
+	* mi-cmds.h: ditto
+	* mi-main.c (mi_create_interpreter): pass a NULL complete_proc.
+	(mi_cmd_interpreter_complete): New function.
+
+2003-08-26  Jason Molenda  (jmolenda@apple.com)
+
+        * mi-main.c (mi_cmd_thread_set_pc): Update current source line
+        and current default breakpoint location after moving the pc.
+
 2003-08-08  Jim Ingham (jingham@apple.com)
 
 	* mi-main.c (mi_execute_async_cli_command): Use 

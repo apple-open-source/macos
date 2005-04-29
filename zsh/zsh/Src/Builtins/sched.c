@@ -46,7 +46,7 @@ static struct schedcmd *schedcmds;
 
 /**/
 static int
-bin_sched(char *nam, char **argv, Options ops, int func)
+bin_sched(UNUSED(char *nam), char **argv, UNUSED(Options ops), UNUSED(int func))
 {
     char *s = *argv++;
     time_t t;
@@ -141,7 +141,7 @@ bin_sched(char *nam, char **argv, Options ops, int func)
     }
     /* The time has been calculated; now add the new entry to the linked list
     of scheduled commands. */
-    sch = (struct schedcmd *) zcalloc(sizeof *sch);
+    sch = (struct schedcmd *) zshcalloc(sizeof *sch);
     sch->time = t;
     sch->cmd = zjoin(argv, ' ', 0);
     sch->next = NULL;
@@ -183,7 +183,7 @@ static struct builtin bintab[] = {
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
@@ -216,7 +216,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

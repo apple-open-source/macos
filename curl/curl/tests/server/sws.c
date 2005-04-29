@@ -1,16 +1,16 @@
 /***************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
  * are also available at http://curl.haxx.se/docs/copyright.html.
- * 
+ *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
  * furnished to do so, under the terms of the COPYING file.
@@ -18,33 +18,105 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: sws.c,v 1.1.1.1 2002/11/26 19:08:11 zarzycki Exp $
+ * $Id: sws.c,v 1.64 2004/12/14 21:52:16 bagder Exp $
  ***************************************************************************/
 
 /* sws.c: simple (silly?) web server
 
-   This code was originally graciously donated to the project Juergen
+   This code was originally graciously donated to the project by Juergen
    Wilke. Thanks a bunch!
-   
+
  */
+#include "setup.h" /* portability help from the lib directory */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <stdarg.h>
 #include <signal.h>
 #include <time.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
 
-const char *
-spitout(FILE *stream,
-        const char *main,
-        const char *sub, int *size);
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef _XOPEN_SOURCE_EXTENDED
+/* This define is "almost" required to build on HPUX 11 */
+#include <arpa/inet.h>
+#endif
+#ifdef HAVE_NETDB_H
+#include <netdb.h>
+#endif
+
+#include "curlx.h" /* from the private lib dir */
+#include "getpart.h"
+
+#ifdef ENABLE_IPV6
+#define SWS_IPV6
+#endif
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+#ifndef TRUE
+#define TRUE 1
+#endif
+
+#if defined(WIN32) && !defined(__CYGWIN__)
+#include <windows.h>
+#include <winsock2.h>
+#include <process.h>
+
+#define sleep(sec)   Sleep ((sec)*1000)
+
+#define EINPROGRESS  WSAEINPROGRESS
+#define EWOULDBLOCK  WSAEWOULDBLOCK
+#define EISCONN      WSAEISCONN
+#define ENOTSOCK     WSAENOTSOCK
+#define ECONNREFUSED WSAECONNREFUSED
+
+static void win32_cleanup(void);
+
+#if defined(ENABLE_IPV6) && defined(__MINGW32__)
+const struct in6_addr in6addr_any = {{ IN6ADDR_ANY_INIT }};
+#endif
+#endif
+
+/* include memdebug.h last */
+#include "memdebug.h"
+
+#define REQBUFSIZ 150000
+#define REQBUFSIZ_TXT "149999"
+
+long prevtestno=-1; /* previous test number we served */
+long prevpartno=-1; /* previous part number we served */
+bool prevbounce;    /* instructs the server to increase the part number for
+                       a test in case the identical testno+partno request
+                       shows up again */
+
+struct httprequest {
+  char reqbuf[REQBUFSIZ]; /* buffer area for the incoming request */
+  int offset;     /* size of the incoming request */
+  long testno;     /* test number found in the request */
+  long partno;     /* part number found in the request */
+  int open;       /* keep connection open info, as found in the request */
+  bool auth_req;  /* authentication required, don't wait for body unless
+                     there's an Authorization header */
+  bool auth;      /* Authorization header present in the incoming request */
+  size_t cl;      /* Content-Length of the incoming request */
+  bool digest;    /* Authorization digest header found */
+  bool ntlm;      /* Authorization ntlm header found */
+};
+
+int ProcessRequest(struct httprequest *req);
+void storerequest(char *reqbuf);
 
 #define DEFAULT_PORT 8999
 
@@ -52,49 +124,92 @@ spitout(FILE *stream,
 #define DEFAULT_LOGFILE "log/sws.log"
 #endif
 
-#define VERSION "cURL test suite HTTP server/0.1"
+#define SWSVERSION "cURL test suite HTTP server/0.1"
 
-#define REQUEST_DUMP "log/server.input"
+#define REQUEST_DUMP  "log/server.input"
+#define RESPONSE_DUMP "log/server.response"
 
-#define TEST_DATA_PATH "data/test%d"
+#define TEST_DATA_PATH "%s/data/test%ld"
 
-static const char *docfriends = "HTTP/1.1 200 Mighty fine indeed\r\n\r\nWE ROOLZ\r\n";
-static const char *doc404 = "HTTP/1.1 404 Not Found\n"
-    "Server: " VERSION "\n"
-    "Connection: close\n"
-    "Content-Type: text/html\n"
-    "\n"
+/* very-big-path support */
+#define MAXDOCNAMELEN 140000
+#define MAXDOCNAMELEN_TXT "139999"
+
+#define REQUEST_KEYWORD_SIZE 256
+
+#define CMD_AUTH_REQUIRED "auth_required"
+
+#define END_OF_HEADERS "\r\n\r\n"
+
+/* global variable, where to find the 'data' dir */
+const char *path=".";
+
+enum {
+  DOCNUMBER_NOTHING = -7,
+  DOCNUMBER_QUIT    = -6,
+  DOCNUMBER_BADCONNECT = -5,
+  DOCNUMBER_INTERNAL= -4,
+  DOCNUMBER_CONNECT = -3,
+  DOCNUMBER_WERULEZ = -2,
+  DOCNUMBER_404     = -1
+};
+
+
+/* sent as reply to a QUIT */
+static const char *docquit =
+"HTTP/1.1 200 Goodbye" END_OF_HEADERS;
+
+/* sent as reply to a CONNECT */
+static const char *docconnect =
+"HTTP/1.1 200 Mighty fine indeed" END_OF_HEADERS;
+
+/* sent as reply to a "bad" CONNECT */
+static const char *docbadconnect =
+"HTTP/1.1 501 Forbidden you fool" END_OF_HEADERS;
+
+/* send back this on 404 file not found */
+static const char *doc404 = "HTTP/1.1 404 Not Found\r\n"
+    "Server: " SWSVERSION "\r\n"
+    "Connection: close\r\n"
+    "Content-Type: text/html"
+    END_OF_HEADERS
     "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
     "<HTML><HEAD>\n"
     "<TITLE>404 Not Found</TITLE>\n"
     "</HEAD><BODY>\n"
     "<H1>Not Found</H1>\n"
     "The requested URL was not found on this server.\n"
-    "<P><HR><ADDRESS>" VERSION "</ADDRESS>\n" "</BODY></HTML>\n";
+    "<P><HR><ADDRESS>" SWSVERSION "</ADDRESS>\n" "</BODY></HTML>\n";
 
-#ifdef HAVE_SIGNAL
-static volatile int sigpipe;
+#ifdef SIGPIPE
+static volatile int sigpipe;  /* Why? It's not used */
 #endif
-static FILE *logfp;
 
-
-static void logmsg(const char *msg)
+static void logmsg(const char *msg, ...)
 {
-    time_t t = time(NULL);
-    struct tm *curr_time = localtime(&t);
-    char loctime[80];
+  time_t t = time(NULL);
+  va_list ap;
+  struct tm *curr_time = localtime(&t);
+  char buffer[256]; /* possible overflow if you pass in a huge string */
+  FILE *logfp;
 
-    strcpy(loctime, asctime(curr_time));
-    loctime[strlen(loctime) - 1] = '\0';
-    fprintf(logfp, "%s: pid %d: %s\n", loctime, (int)getpid(), msg);
-#ifdef DEBUG
-    fprintf(stderr, "%s: pid %d: %s\n", loctime, (int)getpid(), msg);
-#endif
-    fflush(logfp);
+  va_start(ap, msg);
+  vsprintf(buffer, msg, ap);
+  va_end(ap);
+
+  logfp = fopen(DEFAULT_LOGFILE, "a");
+
+  fprintf(logfp?logfp:stderr, /* write to stderr if the logfile doesn't open */
+          "%02d:%02d:%02d %s\n",
+          curr_time->tm_hour,
+          curr_time->tm_min,
+          curr_time->tm_sec, buffer);
+  if(logfp)
+    fclose(logfp);
 }
 
 
-#ifdef HAVE_SIGNAL
+#ifdef SIGPIPE
 static void sigpipe_handler(int sig)
 {
   (void)sig; /* prevent warning */
@@ -102,15 +217,155 @@ static void sigpipe_handler(int sig)
 }
 #endif
 
-int ProcessRequest(char *request)
+#if defined(WIN32) && !defined(__CYGWIN__)
+#undef perror
+#define perror(m) win32_perror(m)
+
+static void win32_perror (const char *msg)
 {
-  char *line=request;
-  unsigned long contentlength=0;
+  char buf[256];
+  DWORD err = WSAGetLastError();
 
-#define END_OF_HEADERS "\r\n\r\n"
+  if (!FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, err,
+                     LANG_NEUTRAL, buf, sizeof(buf), NULL))
+     snprintf(buf, sizeof(buf), "Unknown error %lu (%#lx)", err, err);
+  if (msg)
+     fprintf(stderr, "%s: ", msg);
+  fprintf(stderr, "%s\n", buf);
+}
+#endif
 
+static char *test2file(long testno)
+{
+  static char filename[256];
+  sprintf(filename, TEST_DATA_PATH, path, testno);
+  return filename;
+}
+
+
+int ProcessRequest(struct httprequest *req)
+{
+  char *line=req->reqbuf;
+  char chunked=FALSE;
+  static char request[REQUEST_KEYWORD_SIZE];
+  static char doc[MAXDOCNAMELEN];
+  char logbuf[256];
+  int prot_major, prot_minor;
   char *end;
-  end = strstr(request, END_OF_HEADERS);
+  end = strstr(req->reqbuf, END_OF_HEADERS);
+
+  /* try to figure out the request characteristics as soon as possible, but
+     only once! */
+  if((req->testno == DOCNUMBER_NOTHING) &&
+     sscanf(line, "%" REQBUFSIZ_TXT"s %" MAXDOCNAMELEN_TXT "s HTTP/%d.%d",
+            request,
+            doc,
+            &prot_major,
+            &prot_minor) == 4) {
+    char *ptr;
+
+    /* find the last slash */
+    ptr = strrchr(doc, '/');
+
+    /* get the number after it */
+    if(ptr) {
+      FILE *stream;
+      char *filename;
+
+      if((strlen(doc) + strlen(request)) < 200)
+        sprintf(logbuf, "Got request: %s %s HTTP/%d.%d",
+                request, doc, prot_major, prot_minor);
+      else
+        sprintf(logbuf, "Got a *HUGE* request HTTP/%d.%d",
+                prot_major, prot_minor);
+      logmsg(logbuf);
+
+      if(!strncmp("/verifiedserver", ptr, 15)) {
+        logmsg("Are-we-friendly question received");
+        req->testno = DOCNUMBER_WERULEZ;
+        return 1; /* done */
+      }
+
+      if(!strncmp("/quit", ptr, 15)) {
+        logmsg("Request-to-quit received");
+        req->testno = DOCNUMBER_QUIT;
+        return 1; /* done */
+      }
+
+      ptr++; /* skip the slash */
+
+      req->testno = strtol(ptr, &ptr, 10);
+
+      if(req->testno > 10000) {
+        req->partno = req->testno % 10000;
+        req->testno /= 10000;
+      }
+      else
+        req->partno = 0;
+
+      sprintf(logbuf, "Requested test number %ld part %ld",
+              req->testno, req->partno);
+
+      logmsg(logbuf);
+
+      filename = test2file(req->testno);
+
+      stream=fopen(filename, "rb");
+      if(!stream) {
+        logmsg("Couldn't open test file %d", req->testno);
+        req->open = FALSE; /* closes connection */
+        return 0;
+      }
+      else {
+        char *cmd = NULL;
+        size_t cmdsize = 0;
+
+        /* get the custom server control "commands" */
+        cmd = (char *)spitout(stream, "reply", "servercmd", &cmdsize);
+        fclose(stream);
+
+        if(cmdsize) {
+          logmsg("Found a reply-servercmd section!");
+
+          if(!strncmp(CMD_AUTH_REQUIRED, cmd, strlen(CMD_AUTH_REQUIRED))) {
+            logmsg("instructed to require authorization header");
+            req->auth_req = TRUE;
+          }
+          free(cmd);
+        }
+      }
+    }
+    else {
+      if(sscanf(req->reqbuf, "CONNECT %" MAXDOCNAMELEN_TXT "s HTTP/%d.%d",
+                doc, &prot_major, &prot_minor) == 3) {
+        sprintf(logbuf, "Receiced a CONNECT %s HTTP/%d.%d request",
+                doc, prot_major, prot_minor);
+        logmsg(logbuf);
+
+        if(prot_major*10+prot_minor == 10)
+          req->open = FALSE; /* HTTP 1.0 closes connection by default */
+
+        if(!strncmp(doc, "bad", 3))
+          /* if the host name starts with bad, we fake an error here */
+          req->testno = DOCNUMBER_BADCONNECT;
+        else if(!strncmp(doc, "test", 4)) {
+          /* if the host name starts with test, the port number used in the
+             CONNECT line will be used as test number! */
+          char *ptr = strchr(doc, ':');
+          if(ptr)
+            req->testno = atoi(ptr+1);
+          else
+            req->testno = DOCNUMBER_CONNECT;
+        }
+        else
+          req->testno = DOCNUMBER_CONNECT;
+      }
+      else {
+        logmsg("Did not find test number in PATH");
+        req->testno = DOCNUMBER_404;
+      }
+    }
+  }
 
   if(!end)
     /* we don't have a complete request yet! */
@@ -128,16 +383,68 @@ int ProcessRequest(char *request)
    */
 
   do {
-    if(!strncasecmp("Content-Length:", line, 15))
-      contentlength = strtol(line+15, &line, 10);
+    if(!req->cl && curlx_strnequal("Content-Length:", line, 15)) {
+      /* If we don't ignore content-length, we read it and we read the whole
+         request including the body before we return. If we've been told to
+         ignore the content-length, we will return as soon as all headers
+         have been received */
+      req->cl = strtol(line+15, &line, 10);
+
+      logmsg("Found Content-Legth: %d in the request", req->cl);
+      break;
+    }
+    else if(curlx_strnequal("Transfer-Encoding: chunked", line,
+                            strlen("Transfer-Encoding: chunked"))) {
+      /* chunked data coming in */
+      chunked = TRUE;
+    }
+
+    if(chunked) {
+      if(strstr(req->reqbuf, "\r\n0\r\n"))
+        /* end of chunks reached */
+        return 1; /* done */
+      else
+        return 0; /* not done */
+    }
 
     line = strchr(line, '\n');
     if(line)
       line++;
   } while(line);
 
-  if(contentlength > 0 ) {
-    if(contentlength <= strlen(end+strlen(END_OF_HEADERS)))
+  if(!req->auth && strstr(req->reqbuf, "Authorization:")) {
+    req->auth = TRUE; /* Authorization: header present! */
+    if(req->auth_req)
+      logmsg("Authorization header found, as required");
+  }
+
+  if(!req->digest && strstr(req->reqbuf, "Authorization: Digest")) {
+    /* If the client is passing this Digest-header, we set the part number
+       to 1000. Not only to spice up the complexity of this, but to make
+       Digest stuff to work in the test suite. */
+    req->partno += 1000;
+    req->digest = TRUE; /* header found */
+    logmsg("Received Digest request, sending back data %d", req->partno);
+  }
+  else if(!req->ntlm &&
+          strstr(req->reqbuf, "Authorization: NTLM TlRMTVNTUAAD")) {
+    /* If the client is passing this type-3 NTLM header */
+    req->partno += 1002;
+    req->ntlm = TRUE; /* NTLM found */
+    logmsg("Received NTLM type-3, sending back data %d", req->partno);
+  }
+  else if(!req->ntlm &&
+          strstr(req->reqbuf, "Authorization: NTLM TlRMTVNTUAAB")) {
+    /* If the client is passing this type-1 NTLM header */
+    req->partno += 1001;
+    req->ntlm = TRUE; /* NTLM found */
+    logmsg("Received NTLM type-1, sending back data %d", req->partno);
+  }
+  if(strstr(req->reqbuf, "Connection: close"))
+    req->open = FALSE; /* close connection after this request */
+
+  if(req->cl && (req->auth || !req->auth_req)) {
+    if(req->cl <= strlen(end+strlen(END_OF_HEADERS)))
       return 1; /* done */
     else
       return 0; /* not complete yet */
@@ -152,145 +459,134 @@ void storerequest(char *reqbuf)
 
   dump = fopen(REQUEST_DUMP, "ab"); /* b is for windows-preparing */
   if(dump) {
-    fwrite(reqbuf, 1, strlen(reqbuf), dump);
+    size_t len = strlen(reqbuf);
+    fwrite(reqbuf, 1, len, dump);
 
     fclose(dump);
+    logmsg("Wrote request (%d bytes) input to " REQUEST_DUMP,
+           (int)len);
   }
-
+  else {
+    logmsg("Failed to write request input to " REQUEST_DUMP);
+  }
 }
 
-
-#define REQBUFSIZ 150000
-#define REQBUFSIZ_TXT "149999"
-
-/* very-big-path support */
-#define MAXDOCNAMELEN 140000
-#define MAXDOCNAMELEN_TXT "139999"
-
-#define REQUEST_KEYWORD_SIZE 256
-static int get_request(int sock, int *part)
+/* return 0 on success, non-zero on failure */
+static int get_request(int sock, struct httprequest *req)
 {
-  static char reqbuf[REQBUFSIZ], doc[MAXDOCNAMELEN];
-  static char request[REQUEST_KEYWORD_SIZE];
-  unsigned int offset = 0;
-  int prot_major, prot_minor;
-  char logbuf[256];
+  int fail= FALSE;
+  char *reqbuf = req->reqbuf;
 
-  *part = 0; /* part zero equals none */
+  /*** Init the httpreqest structure properly for the upcoming request ***/
+  memset(req, 0, sizeof(struct httprequest));
 
-  while (offset < REQBUFSIZ) {
-    int got = recv(sock, reqbuf + offset, REQBUFSIZ - offset, 0);
+  /* here's what should not be 0 from the start */
+  req->testno = DOCNUMBER_NOTHING; /* safe default */
+  req->open = TRUE; /* connection should remain open and wait for more
+                       commands */
+
+  /*** end of httprequest init ***/
+
+  while (req->offset < REQBUFSIZ) {
+    int got = sread(sock, reqbuf + req->offset, REQBUFSIZ - req->offset);
     if (got <= 0) {
       if (got < 0) {
         perror("recv");
-        return -1;
+        logmsg("recv() returned error");
+        return DOCNUMBER_INTERNAL;
       }
       logmsg("Connection closed by client");
-      return -1;
+      reqbuf[req->offset]=0;
+
+      /* dump the request receivied so far to the external file */
+      storerequest(reqbuf);
+      return DOCNUMBER_INTERNAL;
     }
-    offset += got;
+    req->offset += got;
 
-    reqbuf[offset] = 0;
+    reqbuf[req->offset] = 0;
 
-    if(ProcessRequest(reqbuf))
+    if(ProcessRequest(req))
       break;
   }
 
-  if (offset >= REQBUFSIZ) {
+  if (req->offset >= REQBUFSIZ) {
     logmsg("Request buffer overflow, closing connection");
-    return -1;
+    reqbuf[REQBUFSIZ-1]=0;
+    fail = TRUE;
+    /* dump the request to an external file anyway */
   }
-  reqbuf[offset]=0;
-  
-  logmsg("Received a request");
+  else
+    reqbuf[req->offset]=0;
 
   /* dump the request to an external file */
   storerequest(reqbuf);
 
-  if (sscanf(reqbuf, "%" REQBUFSIZ_TXT"s %" MAXDOCNAMELEN_TXT "s HTTP/%d.%d",
-             request,
-             doc,
-             &prot_major,
-             &prot_minor) == 4) {
-    char *ptr;
-    int test_no=0;
-
-    /* find the last slash */
-    ptr = strrchr(doc, '/');
-
-    /* get the number after it */
-    if(ptr) {
-
-      if((strlen(doc) + strlen(request)) < 200)
-        sprintf(logbuf, "Got request: %s %s HTTP/%d.%d",
-                request, doc, prot_major, prot_minor);
-      else
-        sprintf(logbuf, "Got a *HUGE* request HTTP/%d.%d",
-                prot_major, prot_minor);
-      logmsg(logbuf);
-      
-      if(!strncmp("/verifiedserver", ptr, 15)) {
-        logmsg("Are-we-friendly question received");
-        return -2;
-      }
-
-      ptr++; /* skip the slash */
-
-      test_no = strtol(ptr, &ptr, 10);
-
-      if(test_no > 10000) {
-        *part = test_no % 10000;
-        test_no /= 10000;
-      }
-
-      sprintf(logbuf, "Found test number %d in path", test_no);
-      logmsg(logbuf);
-    }
-    else {
-
-      logmsg("Did not find test number in PATH");
-    }
-
-    return test_no;
-  }
-  
-  logmsg("Got illegal request");
-  fprintf(stderr, "Got illegal request\n");
-  return -1;
+  return fail; /* success */
 }
 
-
-static int send_doc(int sock, int doc, int part_no)
+/* returns -1 on failure */
+static int send_doc(int sock, struct httprequest *req)
 {
   int written;
-  int count;
+  size_t count;
   const char *buffer;
   char *ptr;
   FILE *stream;
   char *cmd=NULL;
-  int cmdsize;
+  size_t cmdsize=0;
+  FILE *dump;
+  int persistant = TRUE;
+  size_t responsesize;
 
-  char filename[256];
+  static char weare[256];
+
   char partbuf[80]="data";
 
-  if(doc < 0) {
-    if(-2 == doc)
+  req->open = FALSE;
+
+  logmsg("Send response number %d part %d", req->testno, req->partno);
+
+  if(req->testno < 0) {
+    switch(req->testno) {
+    case DOCNUMBER_QUIT:
+      logmsg("Replying to QUIT");
+      buffer = docquit;
+      break;
+    case DOCNUMBER_WERULEZ:
       /* we got a "friends?" question, reply back that we sure are */
-      buffer = docfriends;
-    else
+      logmsg("Identifying ourselves as friends");
+      sprintf(weare, "HTTP/1.1 200 OK\r\n\r\nWE ROOLZ: %d\r\n",
+              (int)getpid());
+      buffer = weare;
+      break;
+    case DOCNUMBER_INTERNAL:
+      logmsg("Bailing out due to internal error");
+      return -1;
+    case DOCNUMBER_CONNECT:
+      logmsg("Replying to CONNECT");
+      buffer = docconnect;
+      break;
+    case DOCNUMBER_BADCONNECT:
+      logmsg("Replying to a bad CONNECT");
+      buffer = docbadconnect;
+      break;
+    case DOCNUMBER_404:
+    default:
+      logmsg("Replying to with a 404");
       buffer = doc404;
+      break;
+    }
     ptr = NULL;
     stream=NULL;
 
     count = strlen(buffer);
   }
   else {
-    if(0 != part_no) {
-      sprintf(partbuf, "data%d", part_no);
-    }
+    char *filename = test2file(req->testno);
 
-
-    sprintf(filename, TEST_DATA_PATH, doc);
+    if(0 != req->partno)
+      sprintf(partbuf, "data%ld", req->partno);
 
     stream=fopen(filename, "rb");
     if(!stream) {
@@ -309,21 +605,52 @@ static int send_doc(int sock, int doc, int part_no)
       logmsg("Couldn't open test file");
       return 0;
     }
-    else {    
+    else {
       /* get the custom server control "commands" */
       cmd = (char *)spitout(stream, "reply", "postcmd", &cmdsize);
       fclose(stream);
     }
   }
 
+  dump = fopen(RESPONSE_DUMP, "ab"); /* b is for windows-preparing */
+  if(!dump) {
+    logmsg("couldn't create logfile: " RESPONSE_DUMP);
+    return -1;
+  }
+
+  /* If the word 'swsclose' is present anywhere in the reply chunk, the
+     connection will be closed after the data has been sent to the requesting
+     client... */
+  if(strstr(buffer, "swsclose") || !count) {
+    persistant = FALSE;
+    logmsg("connection close instruction \"swsclose\" found in response");
+  }
+  if(strstr(buffer, "swsbounce")) {
+    prevbounce = TRUE;
+    logmsg("enable \"swsbounce\" in the next request");
+  }
+  else
+    prevbounce = FALSE;
+
+
+  responsesize = count;
   do {
-    written = send(sock, buffer, count, 0);
+    written = swrite(sock, buffer, count);
     if (written < 0) {
+      logmsg("Sending response failed and we bailed out!");
       return -1;
     }
+    /* write to file as well */
+    fwrite(buffer, 1, written, dump);
+
     count -= written;
     buffer += written;
   } while(count>0);
+
+  fclose(dump);
+
+  logmsg("Response sent (%d bytes) and written to " RESPONSE_DUMP,
+         responsesize);
 
   if(ptr)
     free(ptr);
@@ -334,11 +661,12 @@ static int send_doc(int sock, int doc, int part_no)
     char *ptr=cmd;
     do {
       if(2 == sscanf(ptr, "%31s %d", command, &num)) {
-        if(!strcmp("wait", command))
+        if(!strcmp("wait", command)) {
+          logmsg("Told to sleep for %d seconds", num);
           sleep(num); /* wait this many seconds */
-        else {
-          logmsg("Unknown command in reply command section");
         }
+        else
+          logmsg("Unknown command in reply command section");
       }
       ptr = strchr(ptr, '\n');
       if(ptr)
@@ -350,41 +678,120 @@ static int send_doc(int sock, int doc, int part_no)
   if(cmd)
     free(cmd);
 
+  req->open = persistant;
+
+  prevtestno = req->testno;
+  prevpartno = req->partno;
+
   return 0;
 }
+
+#if defined(WIN32) && !defined(__CYGWIN__)
+static void win32_init(void)
+{
+  WORD wVersionRequested;
+  WSADATA wsaData;
+  int err;
+  wVersionRequested = MAKEWORD(2, 0);
+
+  err = WSAStartup(wVersionRequested, &wsaData);
+
+  if (err != 0) {
+    perror("Winsock init failed");
+    logmsg("Error initialising winsock -- aborting\n");
+    exit(1);
+  }
+
+  if ( LOBYTE( wsaData.wVersion ) != 2 ||
+       HIBYTE( wsaData.wVersion ) != 0 ) {
+
+    WSACleanup();
+    perror("Winsock init failed");
+    logmsg("No suitable winsock.dll found -- aborting\n");
+    exit(1);
+  }
+}
+static void win32_cleanup(void)
+{
+  WSACleanup();
+}
+#endif
+
+char use_ipv6=FALSE;
 
 int main(int argc, char *argv[])
 {
   struct sockaddr_in me;
+#ifdef ENABLE_IPV6
+  struct sockaddr_in6 me6;
+#endif /* ENABLE_IPV6 */
   int sock, msgsock, flag;
   unsigned short port = DEFAULT_PORT;
-  const char *logfile = DEFAULT_LOGFILE;
-  int part_no;
   FILE *pidfile;
-  
-  if(argc>1)
-    port = atoi(argv[1]);
+  char *pidname= (char *)".http.pid";
+  struct httprequest req;
+  int rc;
+  int arg=1;
 
-  /* FIX: write our pid to a file name */
+  while(argc>arg) {
+    if(!strcmp("--version", argv[arg])) {
+      printf("sws IPv4%s\n",
+#ifdef ENABLE_IPV6
+             "/IPv6"
+#else
+             ""
+#endif
+             );
+      return 0;
+    }
+    else if(!strcmp("--pidfile", argv[arg])) {
+      arg++;
+      if(argc>arg)
+        pidname = argv[arg++];
+    }
+    else if(!strcmp("--ipv6", argv[arg])) {
+#ifdef ENABLE_IPV6
+      use_ipv6=TRUE;
+#endif
+      arg++;
+    }
+    else if(argc>arg) {
 
-  logfp = fopen(logfile, "a");
-  if (!logfp) {
-    perror(logfile);
-    exit(1);
+      if(atoi(argv[arg]))
+        port = (unsigned short)atoi(argv[arg++]);
+
+      if(argc>arg)
+        path = argv[arg++];
+    }
   }
 
-#ifdef HAVE_SIGNAL
-  /* FIX: make a more portable signal handler */
-  signal(SIGPIPE, sigpipe_handler);
+#if defined(WIN32) && !defined(__GNUC__) || defined(__MINGW32__)
+  win32_init();
+  atexit(win32_cleanup);
+#else
 
+#ifdef SIGPIPE
+#ifdef HAVE_SIGNAL
+  signal(SIGPIPE, sigpipe_handler);
+#endif
+#ifdef HAVE_SIGINTERRUPT
   siginterrupt(SIGPIPE, 1);
 #endif
+#endif
+#endif
 
-  sock = socket(AF_INET, SOCK_STREAM, 0);
+#ifdef ENABLE_IPV6
+  if(!use_ipv6)
+#endif
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+#ifdef ENABLE_IPV6
+  else
+    sock = socket(AF_INET6, SOCK_STREAM, 0);
+#endif
+
   if (sock < 0) {
     perror("opening stream socket");
-    fprintf(logfp, "Error opening socket -- aborting\n");
-    fclose(logfp);
+    logmsg("Error opening socket");
     exit(1);
   }
 
@@ -395,17 +802,30 @@ int main(int argc, char *argv[])
     perror("setsockopt(SO_REUSEADDR)");
   }
 
-  me.sin_family = AF_INET;
-  me.sin_addr.s_addr = INADDR_ANY;
-  me.sin_port = htons(port);
-  if (bind(sock, (struct sockaddr *) &me, sizeof me) < 0) {
+#ifdef ENABLE_IPV6
+  if(!use_ipv6) {
+#endif
+    me.sin_family = AF_INET;
+    me.sin_addr.s_addr = INADDR_ANY;
+    me.sin_port = htons(port);
+    rc = bind(sock, (struct sockaddr *) &me, sizeof(me));
+#ifdef ENABLE_IPV6
+  }
+  else {
+    memset(&me6, 0, sizeof(struct sockaddr_in6));
+    me6.sin6_family = AF_INET6;
+    me6.sin6_addr = in6addr_any;
+    me6.sin6_port = htons(port);
+    rc = bind(sock, (struct sockaddr *) &me6, sizeof(me6));
+  }
+#endif /* ENABLE_IPV6 */
+  if(rc < 0) {
     perror("binding stream socket");
-    fprintf(logfp, "Error binding socket -- aborting\n");
-    fclose(logfp);
+    logmsg("Error binding socket");
     exit(1);
   }
 
-  pidfile = fopen(".http.pid", "w");
+  pidfile = fopen(pidname, "w");
   if(pidfile) {
     fprintf(pidfile, "%d\n", (int)getpid());
     fclose(pidfile);
@@ -413,30 +833,64 @@ int main(int argc, char *argv[])
   else
     fprintf(stderr, "Couldn't write pid file\n");
 
+  logmsg("Running IPv%d version",
+#ifdef ENABLE_IPV6
+         (use_ipv6?6:4)
+#else
+         4
+#endif
+    );
+
   /* start accepting connections */
   listen(sock, 5);
 
-  fprintf(stderr, "*** %s listening on port %u ***\n", VERSION, port);
-
   while (1) {
-    int doc;
-
     msgsock = accept(sock, NULL, NULL);
-    
+
     if (msgsock == -1)
       continue;
-    
-    logmsg("New client connected");
 
-    doc = get_request(msgsock, &part_no);
-    send_doc(msgsock, doc, part_no);
+    logmsg("====> Client connect");
 
-    close(msgsock);
+    do {
+      if(get_request(msgsock, &req))
+        /* non-zero means error, break out of loop */
+        break;
+
+      if(prevbounce) {
+        /* bounce treatment requested */
+        if((req.testno == prevtestno) &&
+           (req.partno == prevpartno)) {
+          req.partno++;
+          logmsg("BOUNCE part number to %ld", req.partno);
+        }
+      }
+
+      send_doc(msgsock, &req);
+
+      if((req.testno < 0) && (req.testno != DOCNUMBER_CONNECT)) {
+        logmsg("special request received, no persistancy");
+        break;
+      }
+      if(!req.open) {
+        logmsg("instructed to close connection after server-reply");
+        break;
+      }
+
+      if(req.open)
+        logmsg("persistant connection, awaits new request");
+      /* if we got a CONNECT, loop and get another request as well! */
+    } while(req.open || (req.testno == DOCNUMBER_CONNECT));
+
+    logmsg("====> Client disconnect");
+    sclose(msgsock);
+
+    if (req.testno == DOCNUMBER_QUIT)
+      break;
   }
-  
-  close(sock);
-  fclose(logfp);
-  
+
+  sclose(sock);
+
   return 0;
 }
 

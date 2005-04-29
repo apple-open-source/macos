@@ -54,13 +54,12 @@ protected:
         Reserved for future use.  (Internal use only)  */
     ExpansionData *_reserved;
 
-	static int filter_if_ioctl( struct ifnet * ifp, u_long cmd, void * data );
 
     static bool interfacePublished( void *      target,
                                     void *      param,
                                     IOService * service );
 
-    static void unregisterBSDInterface( IONetworkInterface * netif );
+    static void unregisterBSDInterface( IONetworkInterface * netif, thread_call_t );
 
     static void registerBSDInterface( IONetworkInterface * netif );
 
@@ -68,7 +67,7 @@ protected:
                                              const OSMetaClassBase * obj2,
                                              void *     ref );
 
-    static void completeRegistrationUsingArray( OSArray * array );
+    static void completeRegistrationUsingArray( OSArray * array, thread_call_t );
 
     static void completeRegistration( OSArray * array, bool isSync );
 
@@ -108,8 +107,6 @@ public:
     };
 
     static IONetworkStack * getNetworkStack();
-
-    static int bsdInterfaceWasUnregistered( struct ifnet * ifp );
 
     virtual bool init( OSDictionary * properties );
 

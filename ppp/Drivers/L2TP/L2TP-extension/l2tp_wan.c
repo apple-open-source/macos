@@ -57,8 +57,8 @@ Includes
 #include <sys/sockio.h>
 #include <sys/kernel.h>
 #include <net/if_types.h>
-#include <net/dlil.h>
 #include <kern/clock.h>
+#include <kern/locks.h>
 
 
 
@@ -96,7 +96,7 @@ struct l2tp_wan {
 Forward declarations
 ----------------------------------------------------------------------------- */
 
-static int	l2tp_wan_output(struct ppp_link *link, struct mbuf *m);
+static int	l2tp_wan_output(struct ppp_link *link, mbuf_t m);
 static int 	l2tp_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data);
 static int 	l2tp_wan_findfreeunit(u_short *freeunit);
 
@@ -106,6 +106,7 @@ Globals
 
 static TAILQ_HEAD(, l2tp_wan) 	l2tp_wan_head;
 
+extern lck_mtx_t   *ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -137,6 +138,8 @@ int l2tp_wan_attach(void *rfc, struct ppp_link **link)
     struct l2tp_wan  	*wan;
     struct ppp_link  	*lk;
     u_short 		unit;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     // Note : we allocate/find number/insert in queue in that specific order
     // because of funnels and race condition issues
@@ -161,7 +164,7 @@ int l2tp_wan_attach(void *rfc, struct ppp_link **link)
     lk->lk_mru 		= L2TP_MTU;;
     lk->lk_type 	= PPP_TYPE_L2TP;
     lk->lk_hdrlen 	= 80;	// ??? 
-    //ld->lk_if.link_lk_baudrate = tp->t_ospeed;
+	l2tp_rfc_command(rfc, L2TP_CMD_GETBAUDRATE, &lk->lk_baudrate);
     lk->lk_ioctl 	= l2tp_wan_ioctl;
     lk->lk_output 	= l2tp_wan_output;
     lk->lk_unit 	= unit;
@@ -170,13 +173,13 @@ int l2tp_wan_attach(void *rfc, struct ppp_link **link)
 
     ret = ppp_link_attach((struct ppp_link *)wan);
     if (ret) {
-        log(LOG_INFO, "L2TP_wan_attach, error = %d, (ld = 0x%x)\n", ret, wan);
+        log(LOGVAL, "L2TP_wan_attach, error = %d, (ld = 0x%x)\n", ret, wan);
         TAILQ_REMOVE(&l2tp_wan_head, wan, next);
         FREE(wan, M_TEMP);
         return ret;
     }
     
-    log(LOG_INFO, "L2TP_wan_attach, link index = %d, (ld = 0x%x)\n", lk->lk_index, lk);
+    //log(LOGVAL, "L2TP_wan_attach, link index = %d, (ld = 0x%x)\n", lk->lk_index, lk);
 
     *link = lk;
     
@@ -189,6 +192,8 @@ detach L2TP interface dlil layer
 void l2tp_wan_detach(struct ppp_link *link)
 {
     struct l2tp_wan  	*wan = (struct l2tp_wan *)link;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     ppp_link_detach(link);
     TAILQ_REMOVE(&l2tp_wan_head, wan, next);
@@ -202,6 +207,8 @@ int l2tp_wan_findfreeunit(u_short *freeunit)
 {
     struct l2tp_wan  	*wan = TAILQ_FIRST(&l2tp_wan_head);
     u_short 		unit = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     while (wan) {
     	if (wan->link.lk_unit == unit) {
@@ -218,12 +225,16 @@ int l2tp_wan_findfreeunit(u_short *freeunit)
 /* -----------------------------------------------------------------------------
 called from l2tp_rfc when data are present
 ----------------------------------------------------------------------------- */
-int l2tp_wan_input(struct ppp_link *link, struct mbuf *m)
+int l2tp_wan_input(struct ppp_link *link, mbuf_t m)
 {
+	struct timespec tv;	
     
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+	
     link->lk_ipackets++;
-    link->lk_ibytes += m->m_pkthdr.len;
-    link->lk_last_recv = clock_get_system_value().tv_sec;
+    link->lk_ibytes += mbuf_pkthdr_len(m);
+	nanouptime(&tv);
+	link->lk_last_recv = tv.tv_sec;
     ppp_link_input(link, m);	
     return 0;
 }
@@ -233,6 +244,8 @@ called from l2tp_rfc when xmit is full
 ----------------------------------------------------------------------------- */
 void l2tp_wan_xmit_full(struct ppp_link *link)
 {
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     link->lk_flags |= SC_XMIT_FULL;
 }
@@ -242,6 +255,7 @@ called from l2tp_rfc when there is an input error
 ----------------------------------------------------------------------------- */
 void l2tp_wan_input_error(struct ppp_link *link)
 {
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     ppp_link_event(link, PPP_LINK_EVT_INPUTERROR, 0);
 }
@@ -251,7 +265,7 @@ called from l2tp_rfc when xmit is ok again
 ----------------------------------------------------------------------------- */
 void l2tp_wan_xmit_ok(struct ppp_link *link)
 {
-
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     link->lk_flags &= ~SC_XMIT_FULL;
     ppp_link_event(link, PPP_LINK_EVT_XMIT_OK, 0);
 }
@@ -263,6 +277,8 @@ int l2tp_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data)
 {
     //struct l2tp_wan 	*wan = (struct l2tp_wan *)link;;
     int error = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
     //LOGDBG(ifp, (LOGVAL, "l2tp_wan_ioctl, cmd = 0x%x\n", cmd));
 
@@ -277,11 +293,14 @@ int l2tp_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data)
 This gets called at splnet from if_ppp.c at various times
 when there is data ready to be sent
 ----------------------------------------------------------------------------- */
-int l2tp_wan_output(struct ppp_link *link, struct mbuf *m)
+int l2tp_wan_output(struct ppp_link *link, mbuf_t m)
 {
     struct l2tp_wan 	*wan = (struct l2tp_wan *)link;
-    u_int32_t		len = m->m_pkthdr.len;	// take it now, as output will change the mbuf
+    u_int32_t		len = mbuf_pkthdr_len(m);	// take it now, as output will change the mbuf
     int 		err;
+	struct timespec tv;	
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
     if (err = l2tp_rfc_output(wan->rfc, m, 0)) {
         link->lk_oerrors++;
@@ -290,6 +309,7 @@ int l2tp_wan_output(struct ppp_link *link, struct mbuf *m)
 
     link->lk_opackets++;
     link->lk_obytes += len;
-    link->lk_last_xmit = clock_get_system_value().tv_sec;
+	nanouptime(&tv);
+	link->lk_last_xmit = tv.tv_sec;
     return 0;
 }

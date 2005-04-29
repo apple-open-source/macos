@@ -24,13 +24,12 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/ImText16.c,v 1.4 2001/12/14 19:54:02 dawes Exp $ */
+/* $XFree86: xc/lib/X11/ImText16.c,v 1.5 2003/11/17 22:20:07 dawes Exp $ */
 
 #define NEED_REPLIES
 #include "Xlibint.h"
 
 int
-#if NeedFunctionPrototypes
 XDrawImageString16(
     register Display *dpy,
     Drawable d,
@@ -39,15 +38,6 @@ XDrawImageString16(
     int y,
     _Xconst XChar2b *string,
     int length)
-#else
-XDrawImageString16(dpy, d, gc, x, y, string, length)
-    register Display *dpy;
-    Drawable d;
-    GC gc;
-    int x, y;
-    XChar2b *string;
-    int length;
-#endif
 {   
     register xImageText16Req *req;
     XChar2b *CharacterOffset = (XChar2b *)string;

@@ -23,7 +23,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 ********************************************************/
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_arc.c,v 1.10 2001/12/14 19:59:51 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_arc.c,v 1.13 2004/02/20 16:59:49 tsi Exp $ */
 
 
 #include "X.h"
@@ -32,7 +32,7 @@ in this Software without prior written authorization from The Open Group.
 #include "pixmapstr.h"
 #include "regionstr.h"
 #include "Xprotostr.h"
-#include "miscstruct.h"
+#include "regionstr.h"
 #include "mizerarc.h"
 #include "mi.h"
 #include "scrnintstr.h"
@@ -70,7 +70,8 @@ MGAZeroArc(
 ){
     int yoffset, dyoffset, x, y, a, b, d, mask, k1, k3, dx, dy, tmp;
     XAAInfoRecPtr infoRec = GET_XAAINFORECPTR_FROM_GC(pGC);
-    MGAPtr pMga = MGAPTR(infoRec->pScrn);
+    ScrnInfoPtr pScrn = infoRec->pScrn;
+    MGAPtr pMga = MGAPTR(pScrn);
     miZeroArcRec info;
     Bool do360;
     DDXPointRec org, orgo;

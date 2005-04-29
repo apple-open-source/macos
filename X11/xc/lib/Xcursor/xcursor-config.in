@@ -3,6 +3,7 @@
 prefix="@prefix@"
 exec_prefix="@exec_prefix@"
 libdir="@libdir@"
+hardcode_libdir_flag_spec=@hardcode_libdir_flag_spec@
 includedir="@includedir@"
 version="@PACKAGE_VERSION@"
 
@@ -85,7 +86,7 @@ fi
 if test "$echo_libs" = "yes" ; then
  libs="-lXcursor"
  if test "${libdir}" != "/usr/lib" ; then
-  echo -L${libdir} $libs
+  echo ${hardcode_libdir_flag_spec} -L${libdir} $libs
  else
   echo $libs
  fi

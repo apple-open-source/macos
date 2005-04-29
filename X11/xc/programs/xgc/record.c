@@ -3,7 +3,7 @@
 **
 ** record.c
 */
-/* $XFree86: xc/programs/xgc/record.c,v 1.3 2000/02/17 14:00:37 dawes Exp $ */
+/* $XFree86: xc/programs/xgc/record.c,v 1.4 2003/05/07 21:02:07 herrb Exp $ */
 
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -16,33 +16,16 @@
 
 #include "xgc.h"
 
-static void start_recording();
-static void stop_recording();
-static void print_out_gc_values();
-static void chose_playback_filename();
-static void cancel_playback();
-extern void get_filename();
-extern void yyparse();
-
-extern XgcStuff TestStuff;
-extern XgcStuff FunctionStuff;
-extern XgcStuff LinestyleStuff;
-extern XgcStuff CapstyleStuff;
-extern XgcStuff JoinstyleStuff;
-extern XgcStuff FillstyleStuff;
-extern XgcStuff FillruleStuff;
-extern XgcStuff ArcmodeStuff;
-
-extern XStuff X;
-extern Boolean recording;
-extern Widget filename_text_widget, recordbutton;
-
-static void cancel_record();
-static void done_choosing_filename();
+static void start_recording(void);
+static void stop_recording(void);
+static void print_out_gc_values(void);
+static void chose_playback_filename(void);
+static void cancel_playback(void);
+static void done_choosing_filename(void) ;
+static void cancel_record(void);
 
 FILE *recordfile;		/* the file we're recording to */
 FILE *playbackfile;		/* the file we're playing back from */
-extern FILE *yyin;		/* for yyparse */
 
 /* toggle_recordbutton(w,closure,call_data)
 ** ----------------------------------------
@@ -54,10 +37,7 @@ extern FILE *yyin;		/* for yyparse */
 
 /*ARGSUSED*/
 void
-toggle_recordbutton(w,closure,call_data)
-     Widget w;
-     caddr_t closure;
-     caddr_t call_data;
+toggle_recordbutton(Widget w, caddr_t closure, caddr_t call_data)
 {
   /* ArgList for changing the label */
   static Arg recordargs[] = {
@@ -72,7 +52,7 @@ toggle_recordbutton(w,closure,call_data)
   else {
     recording = FALSE;
     stop_recording();
-    sprintf(tmp,"Record");
+    snprintf(tmp, sizeof tmp, "Record");
     recordargs[0].value = (XtArgVal) tmp;
   }
 
@@ -86,7 +66,7 @@ toggle_recordbutton(w,closure,call_data)
 */
 
 static void
-start_recording() 
+start_recording(void) 
 {
   get_filename(done_choosing_filename,cancel_record);
 }
@@ -97,7 +77,7 @@ start_recording()
 */
 
 static void
-stop_recording() 
+stop_recording(void) 
 {
   fclose(recordfile);
 }
@@ -108,7 +88,7 @@ stop_recording()
 */
 
 static void
-cancel_record() 
+cancel_record(void) 
 {
 }
 
@@ -120,7 +100,7 @@ cancel_record()
 */
 
 static void
-done_choosing_filename() 
+done_choosing_filename(void) 
 {
   static Arg recordargs[] = {
     {XtNlabel,        (XtArgVal) NULL},
@@ -134,7 +114,7 @@ done_choosing_filename()
 
   if ((recordfile = fopen(filename,"w")) != NULL) {
     recording = TRUE;
-    sprintf(tmp,"End Record");
+    snprintf(tmp, sizeof tmp, "End Record");
     recordargs[0].value = (XtArgVal) tmp;
     XtSetValues(recordbutton,recordargs,XtNumber(recordargs));
 
@@ -148,8 +128,7 @@ done_choosing_filename()
 */
 
 void
-print_if_recording(str)
-     char *str;
+print_if_recording(const char *str)
 {
   if (recording)
     fprintf(recordfile,"%s",str);
@@ -161,7 +140,7 @@ print_if_recording(str)
 */
 
 void 
-close_file_if_recording()
+close_file_if_recording(void)
 {
   if (recording)
     fclose(recordfile);
@@ -174,7 +153,7 @@ close_file_if_recording()
 */
 
 static void
-print_out_gc_values()
+print_out_gc_values(void)
 {
   int i;
   for (i=0;i<NUM_TESTS;++i) {
@@ -250,7 +229,7 @@ print_out_gc_values()
 */
 
 void
-start_playback()
+start_playback(void)
 {
   get_filename(chose_playback_filename,cancel_playback);
 }
@@ -261,7 +240,7 @@ start_playback()
 */
 
 static void
-cancel_playback()
+cancel_playback(void)
 {
 }
 
@@ -272,7 +251,7 @@ cancel_playback()
 */
 
 static void
-chose_playback_filename()
+chose_playback_filename(void)
 {
   Arg args[1];
   char *filename;
@@ -292,7 +271,7 @@ chose_playback_filename()
 */
 
 void
-read_from_keyboard()
+read_from_keyboard(void)
 {
   yyin = stdin;
   yyparse();

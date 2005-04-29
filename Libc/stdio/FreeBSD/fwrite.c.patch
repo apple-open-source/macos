@@ -1,0 +1,14 @@
+--- fwrite.c.orig	2004-11-01 00:27:25.000000000 -0800
++++ fwrite.c	2004-11-01 00:29:40.000000000 -0800
+@@ -63,6 +63,11 @@
+ 
+ 	iov.iov_base = (void *)buf;
+ 	uio.uio_resid = iov.iov_len = n = count * size;
++
++#if __DARWIN_UNIX03
++	if (n == 0)		/* POSIX */
++		return 0;
++#endif /* __DARWIN_UNIX03 */
+ 	uio.uio_iov = &iov;
+ 	uio.uio_iovcnt = 1;
+ 

@@ -69,14 +69,9 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include    "math.h"
 #include    "fenv_private.h"
 #include    "fp_private.h"
-
-static const double pi = 3.141592653589793116e+00;
 
 /*******************************************************************************
 *            Functions needed for the computation.                             *
@@ -89,152 +84,7 @@ static const double pi = 3.141592653589793116e+00;
 *     This function is odd.  The positive interval is computed and for         *
 *     negative values, the sign is reflected in the computation.               *
 *******************************************************************************/
-#ifdef notdef
-double atan2 ( double y, double x )
-      {
-      register double result;
-      hexdouble OldEnvironment, CurrentEnvironment;
-      CurrentEnvironment.i.lo = 0;
-      
-
-/*******************************************************************************
-*     If argument is SNaN then a QNaN has to be returned and the invalid       *
-*     flag signaled.                                                           * 
-*******************************************************************************/
-
-      if ( ( x != x ) || ( y != y ) )
-            return x + y;
-      
-      FEGETENVD( OldEnvironment.d );
-      FESETENVD( 0.0 );
-
-/*******************************************************************************
-*     The next switch will decipher what sort of argument we have:             *
-*                                                                              *
-*     atan2 ( ±0, x ) = ±0, if x > 0,                                          *
-*     atan2 ( ±0, +0) = ±0,                                                    *
-*     atan2 ( ±0, x ) = ±¹, if x < 0,                                          *
-*     atan2 ( ±0, -0) = ±¹,                                                    *
-*     atan2 ( y, ±0 ) = ¹/2, if y > 0,                                         *
-*     atan2 ( y, ±0 ) = -¹/2, if y < 0,                                        *
-*     atan2 ( ±y, ° ) = ±0, for finite y > 0,                                  *
-*     atan2 ( ±°, x ) = ±¹/2, for finite x,                                    *
-*     atan2 ( ±y, -°) = ±¹, for finite y > 0,                                  *
-*     atan2 ( ±°, ° ) = ±¹/4,                                                  *
-*     atan2 ( ±°, -°) = ±3¹/4.                                                 *
-*                                                                              *
-*     note that the non obvious cases are y and x both infinite or both zero.  *
-*     for more information, see ÒBranch Cuts for Complex Elementary Functions, *
-*     or much Much Ado About NothingÕs Sign bitÓ, by W. Kahan, Proceedings of  *
-*     the joint IMA/SIAM conference on The state of the Art in Numerical       *
-*     Analysis, 14-18 April 1986, Clarendon Press (1987).                      *
-*                                                                              *
-*     atan2(y,0) does not raise the divide-by-zero exception, nor does         *
-*     atan2(0,0) raise the invalid exception.                                  *
-*******************************************************************************/
-
-      switch ( __fpclassifyd ( x ) )
-            {
-            case FP_ZERO:
-                  CurrentEnvironment.i.lo |= FE_INEXACT;
-                  if ( y > 0.0 )
-                        x = + 0.5 * pi;
-                  else if ( y < 0.0 )
-                        x = - 0.5 * pi;
-                  else
-                        {
-                        if ( __signbitd ( x ) )
-                              x = copysign ( pi, y );
-                        else
-                              {
-                              CurrentEnvironment.i.lo &= ~FE_INEXACT;
-                              x = y;
-                              }
-                        }
-                  OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-                  FESETENVD( OldEnvironment.d );
-                  return x;
-            case FP_INFINITE:
-                  if ( x > 0.0 )
-                        {
-                        if ( __isfinited ( y ) )
-                              x = copysign ( 0.0, y );
-                        else
-                              {
-                              CurrentEnvironment.i.lo |= FE_INEXACT;
-                              x = copysign ( 0.25 * pi, y );
-                              }
-                        }
-                  else
-                        {
-                        CurrentEnvironment.i.lo |= FE_INEXACT;
-                        if ( __isfinited ( y ) )
-                              x = copysign ( pi, y );
-                        else
-                              x = copysign ( 0.75 * pi, y );
-                        }
-                  OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-                  FESETENVD( OldEnvironment.d );
-                  return x;
-            default:
-                  break;
-            }
-                        
-      switch ( __fpclassifyd ( y ) )
-            {
-            case FP_ZERO:
-                  if ( x > 0.0 )
-                        x = y;
-                  else
-                        {
-                        CurrentEnvironment.i.lo |= FE_INEXACT;
-                        x = copysign ( pi, y );
-                        }
-                  OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-                  FESETENVD( OldEnvironment.d );
-                  return x;
-            case FP_INFINITE:
-                  CurrentEnvironment.i.lo |= FE_INEXACT;
-                  x = copysign ( 0.5 * pi, y );
-                  OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-                  FESETENVD( OldEnvironment.d );
-                  return x;
-            default:
-                  break;
-            }
-      
-/*******************************************************************************
-*     End of the special case section. atan2 is mostly a collection of special *
-*     case functions.  Next we will carry out the main computation which at    *
-*     this point will only receive normal or denormal numbers.                 *
-*******************************************************************************/
-      
-      result = atan ( __FABS ( y / x ) );
-      FEGETENVD( CurrentEnvironment.d );
-      CurrentEnvironment.i.lo &= ~( FE_UNDERFLOW | FE_OVERFLOW );
-      if ( __signbitd ( x ) )
-            result = pi - result;
-
-      switch ( __fpclassifyd ( result ) )
-            {
-            case FP_SUBNORMAL:
-                  CurrentEnvironment.i.lo |= FE_UNDERFLOW;
-                  /* FALL THROUGH */
-            case FP_NORMAL:
-                  CurrentEnvironment.i.lo |= FE_INEXACT;
-                  /* FALL THROUGH */
-            default:
-                  break;
-            }
-            
-      OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-      FESETENVD( OldEnvironment.d );
-
-      return ( copysign ( result, y ) );
-      }
-#else
-
-static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
+static const double kMinNormal = 0x1.0p-1022;                 // 2.2250738585072014e-308;
 static const double kMaxNormal = 1.7976931348623157e308;
 static const double kHalf = 0.5;
 
@@ -253,15 +103,15 @@ double atan2 ( double y, double x )
 *     flag signaled.                                                           * 
 *******************************************************************************/
 
-      if ( ( x != x ) || ( y != y ) )
+      if (unlikely( ( x != x ) || ( y != y ) ))
             return x + y;
       
       FEGETENVD( FPR_env );
       FESETENVD( FPR_z );
       
-      __ORI_NOOP;	// takes slot 0  following the mtfsf
+      __NOOP;           // takes slot 0  following the mtfsf
       FPR_t = y / x;	// takes slot 1 (hence fpu1) following the mtfsf
-      FPR_pi = pi;
+      FPR_pi = M_PI;
       
       FPR_kMinNormal = kMinNormal;			FPR_kMaxNormal = kMaxNormal; 
            
@@ -294,9 +144,9 @@ double atan2 ( double y, double x )
 *     atan2(0,0) raise the invalid exception.                                  *
 *******************************************************************************/
 
-      if ( FPR_absx <= FPR_kMaxNormal ) // slot 0 hence fpu0
+      if (likely( FPR_absx <= FPR_kMaxNormal )) // slot 0 hence fpu0
       {
-            if ( x == FPR_z ) // slot 0 hence fpu 0
+            if (unlikely( x == FPR_z )) // slot 0 hence fpu 0
             {
                   if ( y > FPR_z )
                         result = __FMUL( FPR_half, FPR_pi );
@@ -352,9 +202,9 @@ double atan2 ( double y, double x )
             return result;
       }
       
-      if ( FPR_absy <= FPR_kMaxNormal )
+      if (likely( FPR_absy <= FPR_kMaxNormal ))
       {
-            if ( y == FPR_z )
+            if (unlikely( y == FPR_z ))
             {
                   if ( x > FPR_z )
                   {
@@ -406,9 +256,3 @@ double atan2 ( double y, double x )
       else
             return -result;
 }
-#endif
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

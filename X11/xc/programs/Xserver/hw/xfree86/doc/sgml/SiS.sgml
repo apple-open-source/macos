@@ -1,16 +1,16 @@
 <!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN" [
 <!ENTITY % defs SYSTEM "defs.ent"> %defs;
 ]>
- 
+
 <article>
 
 <!-- Title information -->
 <title>Information for SiS Users
-<author>Juanjo Santamarta (<email>santamarta@ctv.es</email>)
-<date>5 March 2000
+<author>Thomas Winischhofer (<email>thomas@winischhofer.net</email>)
+<date>5 October 2003
 
 <ident>
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/SiS.sgml,v 3.7 2000/03/06 22:59:24 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/SiS.sgml,v 3.9 2004/02/15 02:16:49 dawes Exp $
 </ident>
 
 <!-- Table of contents -->
@@ -18,30 +18,34 @@ $XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/SiS.sgml,v 3.7 2000/03/06 22:5
 
 <sect> Introduction <p>
 
-This driver was primarily written for the SiS6326 and SiS530 by Alan Hourihane.
-It also works on 5597/5598 chips, and probably on older SiS862X5 family.
+This driver is written by Thomas Winischhofer and is a (nearly) complete re-write
+of a driver written for the SiS6326 and SiS530 by Alan Hourihane and others.
 
-The driver supports :
+It currently supports the following chipsets:
 <itemize>
-  <item>Linear Addressing
-  <item>8/15/16/24 bits per pixel
-  <item>Fully programmable clocks are supported
-  <item>H/W acceleration and cursor support
-  <item>XAA support (XFree86 Acceleration Architecture)
+   <item>old series: 5597/5598, 6236/AGP/DVD, 530/620
+   <item>300 series: 300/305, 540, 630/730
+   <item>315 series: 315, 550, 650, 651, M650, 740
+   <item>330 series: 330 ("Xabre"), 661FX, M661FX, 741, 760
 </itemize>
 
-<!-- this is incorrect
-<sect> Supported chips <p>
+The driver supports:
+<itemize>
+  <item>8/16/24 bits color depth; old series also 15;
+  <item>XAA (XFree86 Acceleration Architecture)
+  <item>XVideo (Xv)
+  <item>Render (XRAND)
+  <item>Hardware cursor; 315/330 series: Color HW cursor;
+  <item>6326: TV output
+  <item>300/315/330 series: TV output via Chrontel TV encoders or SiS video bridges
+  <item>300/315/330 series: LCD output via LVDS transmitters or SiS video bridges
+  <item>300/315/330 series: Dual head mode; Xinerama; Merged framebuffer mode;
+</itemize>
 
-<quote>
-SiS 530, SiS 86c2x5, SiS 5597/5598, SiS 6326
-</quote>
-
-This driver needs linear framebuffer support in the card. Because this 
-SiS 86C201 and 86C202 based cards don't work with this driver.
-
-Color expansion is not supported by the engine in 16M-color graphic mode.
--->
+This document gives an overview over the driver's features and configuration options.
+Please see http://www.winischhofer.net/linuxsisvga.shtml for detailed documentation
+and updates. Support for the 661, 741 and 760 is entirely untested as of this writing,
+and possibly incomplete for LCD output.
 
 <sect> XF86Config Options <p>
 
@@ -49,83 +53,155 @@ The following options are of particular interest for the SiS
 driver. Each of them must be specified in the Device section of the
 XF86Config file for this card.
 
+<sect1>For all chipsets<p>
+
 <descrip>
-<tag>Option "SetMclk"</tag>
-        This option lets you to modify the memory clocking of your card.
-    (only for 5597 and 6326) Modifying the memory timings can destroy the 
-	device, but usually the only ill effects of overclocking is to 
-	have some noise an drawing errors, but BE CAREFUL. Usually a little 
-	increment can improve the drawing speed, and allows also higher dotclocks. 
-	The server reports default memclock on starting messages, so take it
-	as a base. Units are in KHZ.
-<tag>Option "DacSpeed"</tag>
-        This option lets you to modify the maximum allowed dotclock).	
-<tag>Option "sw_cursor", "hw_cursor"</tag>
-	The default is for using the hardware cursor.
-<!-- Which of these chips is even supported? -->
-<tag>Option "Turboqueue"</tag>
-	5597/8 and 6326 have the option to extend the engine command queue on
-	VRAM. With extended queue length, the driver only checks queue status 
-	on some color-expansion commands. This gives some performance improvement, 
-	but is possible to lose some commands, corrupting screen output. As the 
-	size of extended command queue is 16-32K, the probability is very low, but
-	exists. The performance gain observed is around 8-10%. Currently, using
-	this option will occasionally freeze the acceleration engine, causing 
-	weird image display.
-<tag>Option "FastVram"</tag>
-        Enables 1 cycle memory access. Try it. Increased memory bandwidth reduces
-	the possibility of glitches and noise on high resolution modes. 
-
-<tag>Option "PciRetry"</tag>
-
+<tag>Option "SWCursor", "HWCursor"</tag>
+	These options select whether the software (SW) or hardware (HW) cursor should
+	be used. The default is using the hardware cursor.
 <tag>Option "NoAccel"</tag>
-        Disables various hardware accelerations.
-
-<tag>VideoRAM size</tag> The SiS chips can only directly address 4096K
-        bytes of video RAM.  Some video cards using these chips are
-        shipped with additional video RAM.  The videoRAM must be
-        explicitly limited to 4096 for those cards.  Attempting to use
-        the additional RAM leads to a variety of scrambled screen
-        artifacts.
-
+        Disables 2D acceleration. Default: 2D acceleration is enabled.
+<tag>Option "Turboqueue"</tag>
+	SiS chipsets have the option to extend the engine command queue on
+	VRAM. This concept is called "TurboQueue" and gives some performance improvement.
+	Due to hardware bugs, the TurboQueue is disabled on the 530/620, otherwise
+	enabled by default.
+<tag>Option "Rotate"</tag>
+        This option enables clockwise ("CW") or counter-clockwise ("CCW") rotation of
+	the display. Enabling either CW or CCW rotation disables the RandR extension.
+	Default: no rotation.
+<tag>Option "ShadowFB"</tag>
+        This option enables the shadow framebuffer layer. By default, it is disabled.
+<tag>Option "NoXVideo"</tag>
+        Disables the XVideo support. Default: XVideo support is enabled.
+<tag>Option "CRT1Gamma"</tag>
+        Enables or disables gamma correction. Default: gamma correction is enabled.
 </descrip>
 
+<sect1>old series specific options <p>
 
-<sect> Modelines <p>
+<descrip>
+<tag>Option "FastVram"</tag>
+        Enables 1 cycle memory access for read and write operations. The default
+	depends on the chipset used.
+<tag>Option "NoHostBus"</tag>
+        For 5597/5598 only. This option, if set, disables the CPU to VGA host bus.
+	Disabling the host bus will result in a severe performance regression.
+<tag>VideoRAM size</tag> The SiS 6326 can only directly address 4096K
+        bytes of video RAM. However, there are some cards out there featuring
+	8192K (8MB) of video RAM. This RAM is not addressable by the engines.
+	Therefore, by default, the driver will only use 4096K. This behavior
+	can be overridden by specifying the amount of video RAM using the
+	VideoRAM keyword. If more than 4096K is specified, the driver will
+	disable 2D acceleration, Xv and the HW cursor. On all other chipsets,
+	this keyword is ignored.
+<tag>Option "NoYV12"</tag>
+        Due to hardware bugs, XVideo may display a corrupt image when using
+	YV12 encoded material. This option, if set, disables support for YV12
+	and hence forces the Xv-aware application to use either YUV2 or XShm
+	for video output.
+<tag>Option "TVStandard"</tag>
+	(6326 only) Selects the TV output standard. May be PAL or NTSC. By default,
+	this is selected by a jumper on the card.
+</descrip>
 
-When constructing a modeline for use with the Sis
-driver you'll need to consider several points:
-<itemize>
-  <item>H/W Acceleration.  The H/W cursor, and fill operations
-	currently allocate memory of the video ram for there own use.
-	If this is not available these functions will automatically be
-	disabled. Also, Turboqueue allocate 32k of Vram. 
-  <item>Dot Clock. SiS documents the following video modes to work with 
-        6326. The max dot clock allowable for your 6326 based board depends 
-	also on the memory installed on it. Option FastVram can be needed 
-	for high dot clocks to work. Of course, the memory installed must
-	allow 1 cycle R/W. 
-	<p>
-        SiS recommended video modes for 6326: 
-	<descrip>
-         <tag>640x480 :</tag>4, 8, 15, 16, 24 bpp at 85Hz Non-interlaced
-         <tag>800x600 :</tag>4, 8, 15, 16, 24 bpp at 85Hz Non-interlaced
-         <tag>1024x768 :</tag>4, 8, 15, 16, 24 bpp at 85Hz Non-interlaced
-         <tag>1280x1024 :</tag>4, 8, 15, 16, 24 bpp at 75Hz Non-interlaced
-         <tag>1600x1200 :</tag>4, 8  bpp at 65Hz Non-interlaced
-	</descrip>
-</itemize>
+<sect1>300/315/330 series specific options<p>
 
-<sect> Troubleshooting <p>
+<descrip>
+<tag>Option "ForceCRT1"</tag>
+        Enables or disables CRT1 (= the external VGA monitor). By default,
+	the driver will use CRT1 if a monitor is detected during server
+	start. Some older monitors can't be detected, so they may require
+	setting this option to true. To disable CRT1 output, set this option
+	to false.
+<tag>Option "ForceCRT1Type"</tag>
+ 	SiS 650, M650 and 651 with either 301LV or 302LV video bridge only.
+	May be VGA or LCD. Specifying LCD will force the driver to use the
+	VGA controller's CRT1 channel for driving the LCD, while CRT2 is
+	free for TV usage. Default is VGA.
+<tag>Option "ForceCRT2Type"</tag>
+    Selects the CRT2 output device type. Valid parameters are LCD, TV,
+	SVIDEO, COMPOSITE, SCART, VGA, NONE. NONE disables CRT2. SVIDEO and
+	COMPOSITE are only for systems with a SiS video bridge and select the
+	desired plug type. For Chrontel systems, TV should be used instead.
+	VGA means secondary VGA and is only available on some SiS video bridges
+	(301, 301B, 301C).
+<tag>Option "CRT2Gamma"</tag>
+    Enables or disables gamma correction for CRT2. This is only supported
+	for SiS video bridges. Default: gamma correction for CRT2 is enabled.
+<tag>Option "DRI"</tag>
+	Although this option is accepted for all chipsets, it currently only
+	makes sense on the 300 series; DRI is only supported on these chipsets.
+	This option enables/disables DRI.
+<tag>Option "TVStandard"</tag>
+	Selects the TV output standard. May be PAL or NTSC, on some machines
+	(depending on the hardware) also PALM and PALN. Default: BIOS setting.
+<tag>Option "TVXPosOffset", "TVYPosOffset"</tag>
+	These options allow relocating the image on your TV. Both options take
+	an integer within the range of -16 to 16. Default: 0. Not supported for
+	Chrontel 7019.
+<tag>Option "CHTVOverscan"</tag>
+	For Chrontel TV encoders only. Selects whether TV output should be
+	overscan or underscan.
+<tag>Option "CHTVSuperOverscan"</tag>
+	For Chrontel 7005 TV encoders in PAL mode only. Selects whether TV output
+	should be super-overscan (slightly larger than the viewable area) or
+	not.
+<tag> Option "SISTVXScale", "SISTVYScale"</tag>
+	For SiS video bridges only. These options allow zooming the image on
+	your TV. SISTVXScale takes an integer within the range of -16 to 16.
+	SISTVYScale accepts -4 to 3. Default: 0. Not all modes can be scaled.
+</descrip>
 
-<!-- don't have XF86Setup for 4.0
-The generic VGA driver don't work with 6326, so XF86Setup can't be used
-for this card. Please use xf86config instead.
--->
+<sect1> 300 series specific options<p>
 
-Some video modes with high dot-clocks don't work at all, resulting on black 
-screen. Lowering dotclock in that case could solve the problem. 
+<descrip>
+<tag>Option "MaxXFBMem"</tag>
+	DRI requires the linux kernel's SiS framebuffer driver "sisfb" and some
+	other modules which come with either the linux kernel or XFree86. (On *BSD,
+	the DRI driver does not require any framebuffer driver.)
+  	Sisfb takes care of memory management for texture data. In order to prevent
+	the X driver and sisfb from overwriting each others video memory, sisfb
+	reserves an amount of video memory for the X driver. This amount can either
+	be selected using sisfb's mem parameter, or auto-selected depending on the
+	amount of total video RAM available. However, the X driver needs to know about
+	the amount of RAM sisfb reserved. For this purpose, the Option "MaxXFBMem" exists.
 
-Document based on 3.3 version written by Xavier Ducoin.
+	XFree 4.3.0 disabled SiS DRI support due to a lack of maintenance of the SiS DRI
+	driver. XFree86 4.4 contains a newly written SiS DRI driver by Eric Anholt.
+
+	If you intend to use DRI, I recommend setting the total video memory in the BIOS
+	to 64MB in order to at least overcome the lack of memory swap functions.
+
+	Sisfb can be used for memory management only, or as a complete framebuffer driver.
+	If you start sisfb with a valid mode (ie you gain a graphical console), the X driver
+	can communicate with sisfb and doesn't require setting the MaxXFBMem option at all.
+	The X driver will receive enough information from sisfb in this case.
+
+	However, if you use sisfb for memory management only, ie you started sisfb with
+	mode=none and still have a text mode console, there is no communication between sisfb
+	and the X driver. In this case, you need to set MaxXFBMem to the same value as you
+	gave sisfb with its mem parameter. If you didn't specify any mem parameter, sisfb
+	will reserve 12288KB if more than 16MB of total video RAM is available, 8192KB if
+	between 12 and 16MB of video RAM is available, 4096KB in all other cases.
+
+	Then you need to specify any of these amounts as the parameter for the MaxXFBMem
+	option. The value is to be given without 'KB'.
+</descrip>
+
+<sect1> 315/330 series specific options<p>
+
+<descrip>
+<tag>Option "RenderAcceleration"</tag>
+	Enables or disables RENDER acceleration. By default, RENDER acceleration
+	is enabled.
+<tag>Option "XvOnCRT2"</tag>
+	315, 650, 740, 330 only. This option selects whether the XVideo (Xv)
+	overlay should be displayed on CRT1 or CRT2. Setting this options
+	means CRT2. The other CRT will only display the (blue) color key.
+</descrip>
+
+Document based on 4.1 version written by Joanjo Santamarta and 3.3 version
+written by Xavier Ducoin.
 
 </article>

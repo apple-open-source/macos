@@ -1,12 +1,31 @@
 ========================================================================
 kinit Version History
 ========================================================================
-Current version:	1.1a1
-Date:				March 11, 2003
+Current version:	1.1fc1
+Date:				December 6, 2004
 Author:				lxs@mit.edu
 ========================================================================
 
+kinit 1.1
+Released as part of KfM 5.5
+
+========================================================================
+
+	kinit 1.1fc1
+	December 6, 2004
+
+	Moved to final candidate.
+	
+	========================================================================
+
 	kinit 1.1a2
+	August 20, 2004
+
+	[RT 2658] kinit should support getting non-renewable tickets
+	
+	========================================================================
+
+	kinit 1.1a1
 	March 11, 2003
 
 	[RT 1359] Usage message for kinit lists -A twice and not -a
@@ -15,8 +34,7 @@ Author:				lxs@mit.edu
 	========================================================================
 
 kinit 1.0
-
-First Public Release
+Released as part of KfM 5.0
 
 ========================================================================
 

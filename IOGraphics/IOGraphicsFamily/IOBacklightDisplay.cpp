@@ -177,6 +177,8 @@ void IOBacklightDisplay::initPowerManagement( IOService * provider )
 
     fDisplayPMVars->currentState = kIODisplayMaxPowerState;
 
+    getPMRootDomain()->publishFeature("DisplayDims");
+
     // initialize superclass variables
     PMinit();
     // attach into the power management hierarchy
@@ -184,6 +186,39 @@ void IOBacklightDisplay::initPowerManagement( IOService * provider )
 
     // register ourselves with policy-maker (us)
     registerPowerDriver(this, (IOPMPowerState *) ourPowerStates, kIODisplayNumPowerStates);
+}
+
+IOReturn IOBacklightDisplay::setAggressiveness( unsigned long type, unsigned long newLevel )
+{
+    if (type == (unsigned long) kIODisplayDimAggressiveness)
+    {
+        newLevel = newLevel ? (fMinBrightness + 1) : fMaxBrightness;
+        if (newLevel != fMaxBrightnessLevel[2])
+        {
+            fMaxBrightnessLevel[2] = newLevel;
+            if (2 == fCurrentPowerState)
+                setBrightness(newLevel);
+        }
+    }
+
+    super::setAggressiveness(type, newLevel);
+
+    return (kIOReturnSuccess);
+}
+
+IOReturn IOBacklightDisplay::getAggressiveness( unsigned long type, unsigned long * currentLevel )
+{
+    IOReturn ret;
+
+    if (type == (unsigned long) kIODisplayDimAggressiveness)
+    {
+	*currentLevel = (fMaxBrightnessLevel[2] == (fMinBrightness + 1));
+	ret = kIOReturnSuccess;
+    }
+    else
+	ret = super::getAggressiveness(type, currentLevel);
+
+    return (ret);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -406,6 +441,7 @@ bool AppleBacklightDisplay::start( IOService * provider )
     if (fDeferredEvents)
         getWorkLoop()->addEventSource(fDeferredEvents);
 
+    getConnection()->getFramebuffer()->setProperty(kIOFBBuiltInKey, this, 0);
 
 
     return (true);
@@ -472,7 +508,7 @@ IOReturn AppleBacklightDisplay::framebufferEvent( IOFramebuffer * framebuffer,
         setBrightness( value );
     }
 
-    return (kIOReturnSuccess);
+    return (super::framebufferEvent( framebuffer, event, info ));
 }
 
 bool AppleBacklightDisplay::_clamshellHandler( void * target, void * ref,

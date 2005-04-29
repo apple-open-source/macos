@@ -1,3 +1,5 @@
+XCOMM $XFree86: xc/lib/X11/xlibi18n/om/generic/Imakefile,v 1.3 2003/10/24 15:34:02 tsi Exp $
+
 #include "../../Xi18nLib.conf"
 
  EXTRA_INCLUDES = -I../../..
@@ -5,7 +7,7 @@
 		  omTextEsc.c omTextExt.c omTextPer.c omXChar.c
 
            OBJS = ${SRCS:.c=.o}
-   REQUIREDLIBS = -L$(XENVLIBDIR) -lX11 -lc
+   REQUIREDLIBS = SharedXlibi18nReqs
 
 LinkSourceFile(omDefault.c, ../../..)
 LinkSourceFile(omGeneric.c, ../../..)

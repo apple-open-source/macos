@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 int foo (void)
 {
   printf ("In foo\n");

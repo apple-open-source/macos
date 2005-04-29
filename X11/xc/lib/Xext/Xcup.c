@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/Xext/Xcup.c,v 1.8 2002/10/16 02:19:22 dawes Exp $ */
+/* $XFree86: xc/lib/Xext/Xcup.c,v 1.9 2003/11/17 22:20:21 dawes Exp $ */
 /*
 
 Copyright 1987, 1988, 1998  The Open Group
@@ -118,19 +118,11 @@ XcupQueryVersion(dpy, major_version_return, minor_version_return)
 #endif
 
 Status 
-#if NeedFunctionPrototypes
 XcupGetReservedColormapEntries(
     Display* dpy,
     int screen,
     XColor** colors_out,
     int* ncolors)
-#else
-XcupGetReservedColormapEntries(dpy, screen, colors_out, ncolors)
-    Display* dpy;
-    int screen;
-    XColor** colors_out;
-    int* ncolors;
-#endif
 {
     XExtDisplayInfo *info = find_display (dpy);
     xXcupGetReservedColormapEntriesReply rep;
@@ -192,19 +184,11 @@ XcupGetReservedColormapEntries(dpy, screen, colors_out, ncolors)
 }
 
 Status
-#if NeedFunctionPrototypes
 XcupStoreColors(
     Display* dpy,
     Colormap colormap,
     XColor* colors_in_out,
     int ncolors)
-#else
-XcupStoreColors(dpy, colormap, colors_in_out, ncolors)
-    Display* dpy;
-    Colormap colormap;
-    XColor* colors_in_out;
-    int ncolors;
-#endif
 {
     XExtDisplayInfo *info = find_display (dpy);
     xXcupStoreColorsReply rep;

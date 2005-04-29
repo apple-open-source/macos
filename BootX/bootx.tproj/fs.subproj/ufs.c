@@ -3,29 +3,26 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
  *  ufs.c - File System Module for UFS.
  *
- *  Copyright (c) 1998-2002 Apple Computer, Inc.
+ *  Copyright (c) 1998-2004 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -49,13 +46,15 @@ static long FindFileInDir(char *fileName, long *flags,
 			  InodePtr fileInode, InodePtr dirInode);
 static char *ReadFileBlock(InodePtr fileInode, long fragNum, long blockOffset,
 			   long length, char *buffer, long cache);
-static long ReadFile(InodePtr fileInode, long *length);
+static long ReadFile(InodePtr fileInode, long *length,
+		     void *base, long offset);
 
 
 static CICell    gCurrentIH;
 static long long gPartitionBase;
 static char      gFSBuf[SBSIZE];
 static struct fs *gFS;
+static struct ufslabel  gUFSLabel;   // for UUID
 static long      gBlockSize;
 static long      gBlockSizeOld;
 static long      gFragSize;
@@ -70,23 +69,35 @@ static Inode     gFileInode;
 
 long UFSInitPartition(CICell ih)
 {
+  int ret;
+
   if (ih == gCurrentIH) return 0;
   
   printf("UFSInitPartition: %x\n", ih);
   
   gCurrentIH = 0;
-  
-  // Assume there is no Disk Label
+
+  // Assume UFS starts at the beginning of the device
   gPartitionBase = 0;
+  
+  // read the disk label to get the UUID
+  // (rumor has it that UFS headers can be either-endian on disk; hopefully
+  // that isn't true for this UUID field).
+  Seek(ih, gPartitionBase + UFS_LABEL_OFFSET);
+  ret = Read(ih, (long)&gUFSLabel, UFS_LABEL_SIZE);
+  if(ret != UFS_LABEL_SIZE)
+    bzero(&gUFSLabel, UFS_LABEL_SIZE);
   
   // Look for the Super Block
   Seek(ih, gPartitionBase + SBOFF);
   Read(ih, (long)gFSBuf, SBSIZE);
   
   gFS = (struct fs *)gFSBuf;
+//printf("looking for UFS magic ... \n");
   if (gFS->fs_magic != FS_MAGIC) {
     return -1;
   }
+//printf("continuing w/UFS\n");
   
   // Calculate the block size and set up the block cache.
   gBlockSize = gFS->fs_bsize;
@@ -110,13 +121,31 @@ long UFSInitPartition(CICell ih)
 }
 
 
+long UFSGetUUID(CICell ih, char *uuidStr)
+{
+  long long uuid = gUFSLabel.ul_uuid;
+
+  if (UFSInitPartition(ih) == -1) return -1;
+  if (uuid == 0LL)  return -1;
+
+  return CreateUUIDString((uint8_t*)(&uuid), sizeof(uuid), uuidStr);
+}
+
 long UFSLoadFile(CICell ih, char *filePath)
 {
-  long ret, length, flags;
+  return UFSReadFile(ih, filePath, (void *)kLoadAddr, 0, 0);
+}
+
+long UFSReadFile(CICell ih, char *filePath, void *base,
+		 unsigned long offset, unsigned long length)
+{
+  long ret, flags;
   
   if (UFSInitPartition(ih) == -1) return -1;
   
-  printf("Loading UFS file: [%s] from %x.\n", filePath, ih);
+  printf("%s UFS file: [%s] from %x.\n",
+	 (((offset == 0) && (length == 0)) ? "Loading" : "Reading"),
+	 filePath, ih);
   
   // Skip one or two leading '\'.
   if (*filePath == '\\') filePath++;
@@ -124,9 +153,12 @@ long UFSLoadFile(CICell ih, char *filePath)
   ret = ResolvePathToInode(filePath, &flags, &gFileInode, &gRootInode);
   if ((ret == -1) || ((flags & kFileTypeMask) != kFileTypeFlat)) return -1;
   
-  if (flags & (kOwnerNotRoot | kPermGroupWrite | kPermOtherWrite)) return -1;
+  if (flags & (kOwnerNotRoot | kPermGroupWrite | kPermOtherWrite)) {
+    printf("%s: permissions incorrect\n", filePath);
+    return -1;
+  }
   
-  ret = ReadFile(&gFileInode, &length);
+  ret = ReadFile(&gFileInode, &length, base, offset);
   if (ret == -1) return -1;
   
   return length;
@@ -203,7 +235,12 @@ static long ReadInode(long inodeNum, InodePtr inode, long *flags, long *time)
     
     *flags |= inode->di_mode & kPermMask;
     
-    if (inode->di_uid != 0) *flags |= kOwnerNotRoot;
+    if (inode->di_uid != 0) {
+      static int nwarnings = 0;
+      if(nwarnings++ < 25)  // so we don't warn for all in an Extensions walk
+      printf("non-root file owner detected: %d\n", inode->di_uid);
+      *flags |= kOwnerNotRoot;
+    }
   }
   
   return 0;
@@ -353,24 +390,40 @@ static char *ReadFileBlock(InodePtr fileInode, long fragNum, long blockOffset,
 }
 
 
-static long ReadFile(InodePtr fileInode, long *length)
+static long ReadFile(InodePtr fileInode, long *length, void *base, long offset)
 {
-  long bytesLeft, curSize, curFrag = 0;
-  char *buffer, *curAddr = (char *)kLoadAddr;
+  long bytesLeft, curSize, curFrag;
+  char *buffer, *curAddr = (char *)base;
   
-  bytesLeft = *length = fileInode->di_size;
+  bytesLeft = fileInode->di_size;
+  
+  if (offset > bytesLeft) {
+    printf("Offset is too large.\n");
+    return -1;
+  }
+  
+  if ((*length == 0) || ((offset + *length) > bytesLeft)) {
+    *length = bytesLeft - offset;
+  }
   
   if (*length > kLoadSize) {
     printf("File is too large.\n");
     return -1;
   }
   
+  bytesLeft = *length;
+  curFrag = (offset / gBlockSize) * gFragsPerBlock;
+  offset %= gBlockSize;
+  
   while (bytesLeft) {
-    if (bytesLeft > gBlockSize) curSize = gBlockSize;
-    else curSize = bytesLeft;
+    curSize = gBlockSize;
+    if (curSize > bytesLeft) curSize = bytesLeft;
+    if (offset != 0) curSize -= offset;
     
-    buffer = ReadFileBlock(fileInode, curFrag, 0, curSize, curAddr, 0);
+    buffer = ReadFileBlock(fileInode, curFrag, offset, curSize, curAddr, 0);
     if (buffer == 0) break;
+    
+    if (offset != 0) offset = 0;
     
     curFrag += gFragsPerBlock;
     curAddr += curSize;

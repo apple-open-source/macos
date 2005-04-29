@@ -1,0 +1,20 @@
+[vset    encoding oct]
+[include encoding/header.inc]
+
+[para]
+
+This encoding transforms every byte in the input into a sequence of 3
+characters containing the octal representation of the byte.
+
+For example
+
+[para]
+[example {
+	% oct -mode encode Z
+	132
+}]
+
+[include encoding/middle.inc]
+
+[keywords bin hex]
+[include encoding/footer.inc]

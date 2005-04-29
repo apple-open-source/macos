@@ -14,11 +14,11 @@ PROJECT_TYPE = Tool
 
 HFILES = extern.h ls.h
 
-CFILES = cmp.c ls.c print.c stat_flags.c util.c
+CFILES = cmp.c ls.c print.c util.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble ls.1
 
-OTHER_CFLAGS = -DCOLORLS
+OTHER_CFLAGS = -DCOLORLS -I/System/Library/Frameworks/System.framework/PrivateHeaders
 OTHER_LDFLAGS = -lncurses
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

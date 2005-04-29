@@ -5,12 +5,12 @@ Sie die "Betreff:" (Subject) Zeile intakt lassen müssen.
 
 Alternativ können Sie auch die folgende Webseite besuchen:
 
-    %(confirmurl)s
+%(confirmurl)s
 
 Oder Sie senden die folgende Zeile - und *nur* die folgende Zeile - in
 einer neuen Nachricht an %(requestaddr)s:
 
-    confirm %(cookie)s
+confirm %(cookie)s
 
 Bei den meisten Email-Programmen sollte es aber reichen, wenn Sie einfach
 auf "Antworten" klicken.

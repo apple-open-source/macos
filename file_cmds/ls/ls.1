@@ -43,7 +43,7 @@
 .Nd list directory contents
 .Sh SYNOPSIS
 .Nm
-.Op Fl ABCFGHLPRTWZabcdfghiklmnopqrstuwx1
+.Op Fl ABCFGHLPRTWZabcdefghiklmnopqrstuwx1
 .Op Ar
 .Sh DESCRIPTION
 For each operand that names a
@@ -136,6 +136,8 @@ and
 options.
 .It Fl R
 Recursively list subdirectories encountered.
+.It Fl S
+Sort files by size
 .It Fl T
 When used with the
 .Fl l
@@ -159,13 +161,14 @@ escape codes whenever possible.
 Use time when file status was last changed for sorting or printing.
 .It Fl d
 Directories are listed as plain files (not searched recursively).
+.It Fl e
+Print the Access Control List (ACL) associated with the file, if present.
 .It Fl f
 Output is not sorted.
 .It Fl g
-This option is deprecated and is only available for compatibility
-with
-.Bx 4.3 ;
-it was used to display the group name in the long
+This option is only available for compatibility
+with POSIX;
+it is used to display the group name in the long
 .Pq Fl l
 format output.
 .It Fl h
@@ -212,7 +215,10 @@ the character
 this is the default when output is to a terminal.
 .It Fl r
 Reverse the order of the sort to get reverse
-lexicographical order or the oldest entries first.
+lexicographical order or the oldest entries first (or largest files
+last, if combined with sort by size
+.Pq Fl S
+flag).
 .It Fl s
 Display the number of file system blocks actually used by each file, in units
 of 512 bytes, where partial units are rounded up to the next integer value.
@@ -312,6 +318,10 @@ In addition, for each directory whose contents are displayed, the total
 number of 512-byte blocks used by the files in the directory is displayed
 on a line by itself immediately before the information for the files in the
 directory.
+If the file or directory has extended security information, the permissions
+field printed by the 
+.Fl l
+option is followed by a '+' character.
 .Pp
 If the modification time of the file is more than 6 months
 in the past or future, then the year of the last modification
@@ -623,6 +633,7 @@ specification.
 .Xr chmod 1 ,
 .Xr sort 1 ,
 .Xr xterm 1 ,
+.Xr compat 5 ,
 .Xr termcap 5 ,
 .Xr symlink 7 ,
 .Xr sticky 8

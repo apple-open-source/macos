@@ -53,7 +53,7 @@ class CCIInternal {
 };
 
 #if CCache_v2_compat
-#include "CredentialsCache2.h"
+#include <Kerberos/CredentialsCache2.h>
 
 // cred_union doesn't have function table, so we have to special-case this
 // We can't make this a partial template specialization because of VC++ bugs

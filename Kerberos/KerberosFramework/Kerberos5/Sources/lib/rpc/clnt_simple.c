@@ -54,11 +54,15 @@ static struct callrpc_private {
 } *callrpc_private;
 
 int
-gssrpc_callrpc(host, prognum, versnum, procnum, inproc, in, outproc, out)
-	char *host;
-	xdrproc_t inproc, outproc;
-	rpc_u_int32 prognum, versnum, procnum;
-	char *in, *out;
+callrpc(
+	char *host,
+	rpcprog_t prognum,
+	rpcvers_t versnum,
+	rpcproc_t procnum,
+	xdrproc_t inproc,
+	char *in,
+	xdrproc_t outproc,
+	char *out)
 {
 	register struct callrpc_private *crp = callrpc_private;
 	struct sockaddr_in server_addr;
@@ -94,12 +98,16 @@ gssrpc_callrpc(host, prognum, versnum, procnum, inproc, in, outproc, out)
 			return ((int) RPC_UNKNOWNHOST);
 		timeout.tv_usec = 0;
 		timeout.tv_sec = 5;
+		memset(&server_addr, 0, sizeof(server_addr));
 		memmove((char *)&server_addr.sin_addr, hp->h_addr, 
 			sizeof(server_addr.sin_addr));
+#if HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+		server_addr.sin_len = sizeof(server_addr);
+#endif
 		server_addr.sin_family = AF_INET;
 		server_addr.sin_port =  0;
-		if ((crp->client = clntudp_create(&server_addr, (rpc_u_int32)prognum,
-		    (rpc_u_int32)versnum, timeout, &crp->socket)) == NULL)
+		if ((crp->client = clntudp_create(&server_addr, prognum,
+		    versnum, timeout, &crp->socket)) == NULL)
 			return ((int) rpc_createerr.cf_stat);
 		crp->valid = 1;
 		crp->oldprognum = prognum;

@@ -60,13 +60,13 @@
 !
 ! This section consists of values related to pi.
 ! For now, only the nearest case is provided.
-36	=d	1	0	x	$3FFFC90FDAA22168C235	;	pi/2
-36	=d	-1	0	x	$BFFFC90FDAA22168C235	;	-pi/2
+36	=d	1	0	x	Pm1	;	pi/2
+36	=d	-1	0	x	-Pm1	;	-pi/2
 
 ! <scp> harness appears to incorrectly convert the '$' constants below. 
 ! <scp> Use long double derived values instead.
-!36	=e	$3FFEB504F333F9DE6485	0	x	$3FFEC90FDAA22168C235+1	; pi/4
-!36	=e	$BFFEB504F333F9DE6485	0	x	$BFFEC90FDAA22168C235+1	; -pi/4
+!36	=e	$3FFEB504F333F9DE6485	0	x	Pm2+1	; pi/4
+!36	=e	$BFFEB504F333F9DE6485	0	x	-Pm2+1	; -pi/4
 !36	=e	1m1	0	x	$3FFE860A91C16B9B2C23	; pi/6
 !36	=e	-1m1	0	x	$BFFE860A91C16B9B2C23	; -pi/6
 
@@ -103,42 +103,42 @@
 
 ! <scp> harness appears to incorrectly convert the '$' constants below. 
 ! <scp> Use long double derived values instead.
-!37	e	0	0	x	$3FFFC90FDAA22168C235		! flags???
-!37	e	-0	0	x	$3FFFC90FDAA22168C235
+!37	e	0	0	x	Pm1		! flags???
+!37	e	-0	0	x	Pm1
 
 47	=d	0x0	0x0	0x0	0x0	x	0x3ff921fb	0x54442d18	;	pi/2
 47	=d	0x80000000	0x0	0x0	0x0	x	0x3ff921fb	0x54442d18	;	pi/2
 
 ! acos(-1) is pi.
 ! For now, only nearest case is provided.
-37	=d	-1	0	x	$4000C90FDAA22168C235
+37	=d	-1	0	x	P
 ! acos(tiny) is pi/2 - noise
 ! For now, only nearest case is provided.
-37	=d	E	0	x	$3FFFC90FDAA22168C235
-37	=d	Ei1	0	x	$3FFFC90FDAA22168C235
-37	=d	Ep1	0	x	$3FFFC90FDAA22168C235
-37	=d	Ep1i3	0	x	$3FFFC90FDAA22168C235
-37	=d	Ed2	0	x	$3FFFC90FDAA22168C235
-37	=d	Ep1d5	0	x	$3FFFC90FDAA22168C235
-37	=d	0i1	0	x	$3FFFC90FDAA22168C235
-37	=d	0i9	0	x	$3FFFC90FDAA22168C235
+37	=d	E	0	x	Pm1
+37	=d	Ei1	0	x	Pm1
+37	=d	Ep1	0	x	Pm1
+37	=d	Ep1i3	0	x	Pm1
+37	=d	Ed2	0	x	Pm1
+37	=d	Ep1d5	0	x	Pm1
+37	=d	0i1	0	x	Pm1
+37	=d	0i9	0	x	Pm1
 ! acos(-tiny) is pi/2 + noise
 ! For now, only nearest case is provided.
-37	=d	-E	0	x	$3FFFC90FDAA22168C235
-37	=d	-Ei1	0	x	$3FFFC90FDAA22168C235
-37	=d	-Ep1	0	x	$3FFFC90FDAA22168C235
-37	=d	-Ep1i3	0	x	$3FFFC90FDAA22168C235
-37	=d	-Ed2	0	x	$3FFFC90FDAA22168C235
-37	=d	-Ep1d5	0	x	$3FFFC90FDAA22168C235
-37	=d	-0i1	0	x	$3FFFC90FDAA22168C235
-37	=d	-0i9	0	x	$3FFFC90FDAA22168C235
+37	=d	-E	0	x	Pm1
+37	=d	-Ei1	0	x	Pm1
+37	=d	-Ep1	0	x	Pm1
+37	=d	-Ep1i3	0	x	Pm1
+37	=d	-Ed2	0	x	Pm1
+37	=d	-Ep1d5	0	x	Pm1
+37	=d	-0i1	0	x	Pm1
+37	=d	-0i9	0	x	Pm1
 !
 ! This section consists of more values related to pi.
 ! For now, only the nearest case is provided.
 
 ! <scp> harness appears to incorrectly convert the '$' constants below. 
 ! <scp> Use long double derived values instead.
-!37	=e	$3FFEB504F333F9DE6484	0	x	$3FFEC90FDAA22168C235	; pi/4
+!37	=e	$3FFEB504F333F9DE6484	0	x	Pm2	; pi/4
 !37	=e	1m1	0	x	$3FFF860A91C16B9B2C23	; pi/3
 !37	=e	$3FFEDDB3D742C265539E	0	x	$3FFE860A91C16B9B2C23	; pi/6
 !37	=e	-1m1	0	x	$4000860A91C16B9B2C23+1	; 2*pi/3

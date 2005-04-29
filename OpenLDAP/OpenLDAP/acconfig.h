@@ -1,12 +1,15 @@
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #ifndef _LDAP_PORTABLE_H
@@ -84,10 +87,6 @@
 #define LDAP_NEEDS_PROTOTYPES 1
 #endif
 
-#ifdef HAVE_STDDEF_H
-#	include <stddef.h>
-#endif
-
 #ifndef LDAP_REL_ENG
 #if (LDAP_VENDOR_VERSION == 000000) && !defined(LDAP_DEVEL)
 #define LDAP_DEVEL
@@ -95,9 +94,10 @@
 #if defined(LDAP_DEVEL) && !defined(LDAP_TEST)
 #define LDAP_TEST
 #endif
-#if defined(LDAP_TEST) && !defined(LDAP_DEBUG)
-#define LDAP_DEBUG
 #endif
+
+#ifdef HAVE_STDDEF_H
+#	include <stddef.h>
 #endif
 
 #ifdef HAVE_EBCDIC 
@@ -113,9 +113,12 @@
 #define vsprintf ber_pvt_vsprintf
 #endif
 
+#include "ac/fdset.h"
+
 #include "ldap_cdefs.h"
 #include "ldap_features.h"
 
 #include "ac/assert.h"
+#include "ac/localize.h"
 
 #endif /* _LDAP_PORTABLE_H */

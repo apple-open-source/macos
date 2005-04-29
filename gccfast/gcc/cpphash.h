@@ -24,13 +24,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define GCC_CPPHASH_H
 
 #include "hashtable.h"
+#include "cpp-id-data.h"
 
 struct directive;		/* Deliberately incomplete.  */
 struct pending_option;
 struct op;
-
-typedef unsigned char uchar;
-#define U (const uchar *)  /* Intended use: U"string" */
 
 #define BITS_PER_CPPCHAR_T (CHAR_BIT * sizeof (cppchar_t))
 
@@ -64,44 +62,6 @@ struct dummy
 #define DEFAULT_ALIGNMENT offsetof (struct dummy, u)
 #define CPP_ALIGN2(size, align) (((size) + ((align) - 1)) & ~((align) - 1))
 #define CPP_ALIGN(size) CPP_ALIGN2 (size, DEFAULT_ALIGNMENT)
-
-/* Each macro definition is recorded in a cpp_macro structure.
-   Variadic macros cannot occur with traditional cpp.  */
-struct cpp_macro
-{
-  /* Parameters, if any.  */
-  cpp_hashnode **params;
-
-  /* Replacement tokens (ISO) or replacement text (traditional).  See
-     comment at top of cpptrad.c for how traditional function-like
-     macros are encoded.  */
-  union
-  {
-    cpp_token *tokens;
-    const uchar *text;
-  } exp;
-
-  /* Definition line number.  */
-  unsigned int line;
-
-  /* Number of tokens in expansion, or bytes for traditional macros.  */
-  unsigned int count;
-
-  /* Number of parameters.  */
-  unsigned short paramc;
-
-  /* If a function-like macro.  */
-  unsigned int fun_like : 1;
-
-  /* If a variadic macro.  */
-  unsigned int variadic : 1;
-
-  /* If macro defined in system header.  */
-  unsigned int syshdr   : 1;
-
-  /* Nonzero if it has been expanded or had its existence tested.  */
-  unsigned int used     : 1;
-};
 
 #define _cpp_mark_macro_used(NODE) do {					\
   if ((NODE)->type == NT_MACRO && !((NODE)->flags & NODE_BUILTIN))	\

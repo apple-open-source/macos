@@ -1,52 +1,56 @@
 /**************************************************************************
 
 Copyright 2000 Silicon Integrated Systems Corp, Inc., HsinChu, Taiwan.
+Copyright 2003 Eric Anholt
 All Rights Reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sub license, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+on the rights to use, copy, modify, merge, publish, distribute, sub
+license, and/or sell copies of the Software, and to permit persons to whom
+the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice (including the
-next paragraph) shall be included in all copies or substantial portions
-of the Software.
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
-IN NO EVENT SHALL PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR
-ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
+ERIC ANHOLT OR SILICON INTEGRATED SYSTEMS CORP BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/lib/GL/mesa/src/drv/sis/sis_span.c,v 1.5 2001/03/21 16:14:26 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/sis/sis_span.c,v 1.7 2003/12/09 00:15:22 alanh Exp $ */
 
 /*
  * Authors:
- *    Sung-Ching Lin <sclin@sis.com.tw>
- *
+ *   Sung-Ching Lin <sclin@sis.com.tw>
+ *   Eric Anholt <anholt@FreeBSD.org>
  */
 
-#include "sis_ctx.h"
-#include "sis_mesa.h"
+#include "sis_context.h"
+#include "sis_span.h"
+
+#include "swrast/swrast.h"
 
 #define DBG 0
 
-/* from mga */
-/* TODO: should lock drawable in these routines because glBitmap will
- *       call this function without locking, or modify sis_Bitmap
- */
+#define LOCAL_VARS							\
+   sisContextPtr smesa = SIS_CONTEXT(ctx);				\
+   char *buf = (char *)(smesa->FbBase + smesa->drawOffset);		\
+   char *read_buf = (char *)(smesa->FbBase + smesa->readOffset);	\
+   GLuint p;								\
+   (void) read_buf; (void) buf; (void) p
 
-#define LOCAL_VARS					\
-   XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;  \
-   __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private; \
-   GLuint pitch = hwcx->swRenderPitch;			\
-   char *buf = (char *)hwcx->swRenderBase			
+#define LOCAL_DEPTH_VARS						\
+   sisContextPtr smesa = SIS_CONTEXT(ctx);				\
+   char *buf = smesa->depthbuffer;					\
+
+#define LOCAL_STENCIL_VARS LOCAL_DEPTH_VARS 
 
 #define CLIPPIXEL(_x,_y) (_x >= minx && _x < maxx && \
 			  _y >= miny && _y < maxy)
@@ -61,260 +65,247 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       if ( _x1 + _n1 >= maxx ) n1 -= (_x1 + n1 - maxx);		        \
    }
 
-#define HW_LOCK() do{}while(0);
+#define HW_LOCK() do {} while(0);
 
-#define HW_CLIPLOOP()						\
-  do {								\
-    BoxPtr _pExtents;                                           \
-    int _nc;                                                    \
-    GLuint _x, _y;                    			        \
-    sis_get_drawable_origin (xmesa, &_x, &_y);                  \
-    sis_get_clip_rects (xmesa, &_pExtents, &_nc);               \
-    while (_nc--) {						\
-       int minx = _pExtents->x1 - _x;	\
-       int miny = _pExtents->y1 - _y; 	\
-       int maxx = _pExtents->x2 - _x;	\
-       int maxy = _pExtents->y2 - _y;   \
-       _pExtents++;
-       
-#define HW_ENDCLIPLOOP()			\
-    }						\
-  } while (0)
+#define HW_CLIPLOOP()							\
+   do {									\
+      __DRIdrawablePrivate *dPriv = smesa->driDrawable;			\
+      int _nc = dPriv->numClipRects;					\
+									\
+      while ( _nc-- ) {							\
+	 int minx = dPriv->pClipRects[_nc].x1 - dPriv->x;		\
+	 int miny = dPriv->pClipRects[_nc].y1 - dPriv->y;		\
+	 int maxx = dPriv->pClipRects[_nc].x2 - dPriv->x;		\
+	 int maxy = dPriv->pClipRects[_nc].y2 - dPriv->y;
 
-#define HW_UNLOCK() do{}while(0);
+#define HW_ENDCLIPLOOP()						\
+      }									\
+   } while (0)
+
+#define HW_UNLOCK() do {} while(0);
 
 /* RGB565 */
-#define INIT_MONO_PIXEL(p) \
-   GLushort p = hwcx->pixelValue;
+#define INIT_MONO_PIXEL(p, color) \
+  p = SISPACKCOLOR565( color[0], color[1], color[2] )
 
 #define WRITE_RGBA( _x, _y, r, g, b, a )				\
-   *(GLushort *)(buf + _x*2 + _y*pitch)  = ( ((r & 0xf8) << 8) |	\
-		                             ((g & 0xfc) << 3) |	\
-		                             (b >> 3))
+   *(GLushort *)(buf + _x*2 + _y*smesa->drawPitch) =			\
+					     (((r & 0xf8) << 8) |	\
+					     ((g & 0xfc) << 3) |	\
+					     (b >> 3))
 
 #define WRITE_PIXEL( _x, _y, p )  \
-   *(GLushort *)(buf + _x*2 + _y*pitch) = p
+   *(GLushort *)(buf + _x*2 + _y*smesa->drawPitch) = p
 
 #define READ_RGBA( rgba, _x, _y )			\
 do {							\
-   GLushort p = *(GLushort *)(buf + _x*2 + _y*pitch);	\
+   GLushort p = *(GLushort *)(read_buf + _x*2 + _y*smesa->readPitch);	\
    rgba[0] = (p & 0xf800) >> 8;				\
    rgba[1] = (p & 0x07e0) >> 3;			        \
    rgba[2] = (p & 0x001f) << 3;			        \
-   rgba[3] = 0;			         		\
+   rgba[3] = 0xff;					\
 } while(0)
 
-#define TAG(x) sis_##x##_565
+#define TAG(x) sis##x##_565
 #include "spantmp.h"
-static void sis_Color_565( GLcontext *ctx,
-                  GLubyte red, GLubyte green, GLubyte blue, GLubyte alpha )
-{
-   XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-   __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
-   
-   hwcx->pixelValue = ((red & 0xf8) << 8) |
-                      ((green & 0xfc) << 3) |
-                      (blue >> 3);
-}                  
 
 
 /* ARGB8888 */
 #undef INIT_MONO_PIXEL
-#define INIT_MONO_PIXEL(p) \
-   GLuint p = hwcx->pixelValue;
+#define INIT_MONO_PIXEL(p, color) \
+  p = SISPACKCOLOR8888( color[0], color[1], color[2], color[3] )
 
 #define WRITE_RGBA( _x, _y, r, g, b, a )			\
-   *(GLuint *)(buf + _x*4 + _y*pitch)  = ( ((a) << 24) |        \
-                                           ((r) << 16) |	\
-		                           ((g) << 8) |		\
-                         		   ((b)))
+   *(GLuint *)(buf + _x*4 + _y*smesa->drawPitch) =		\
+					   (((a) << 24) |	\
+					   ((r) << 16) |	\
+					   ((g) << 8) |		\
+					   ((b)))
 
 #define WRITE_PIXEL( _x, _y, p )  \
-   *(GLuint *)(buf + _x*4 + _y*pitch)  = p
+   *(GLuint *)(buf + _x*4 + _y*smesa->drawPitch)  = p
 
 #define READ_RGBA( rgba, _x, _y )			\
 do {							\
-   GLuint p = *(GLuint *)(buf + _x*4 + _y*pitch);	\
+   GLuint p = *(GLuint *)(read_buf + _x*4 + _y*smesa->readPitch);	\
    rgba[0] = (p >> 16) & 0xff;				\
    rgba[1] = (p >> 8) & 0xff;				\
    rgba[2] = (p >> 0) & 0xff;				\
-   rgba[3] = (p >> 24) & 0xff;			        \
+   rgba[3] = 0xff;					\
 } while(0)
 
-#define TAG(x) sis_##x##_8888
+#define TAG(x) sis##x##_8888
 #include "spantmp.h"
-static void sis_Color_8888( GLcontext *ctx,
-                  GLubyte red, GLubyte green, GLubyte blue, GLubyte alpha )
-{
-   XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-   __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
-   
-   hwcx->pixelValue = (red << 16) |
-                      (green << 8) |
-                      (blue) |
-                      (alpha << 24);
-}                  
 
-void sis_sw_init_driver( GLcontext *ctx )
-{
-   XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-   __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
 
-   if (hwcx->colorFormat == DST_FORMAT_RGB_565) {
-      ctx->Driver.Color = sis_Color_565;      
-      ctx->Driver.WriteRGBASpan = sis_WriteRGBASpan_565;
-      ctx->Driver.WriteRGBSpan = sis_WriteRGBSpan_565;
-      ctx->Driver.WriteMonoRGBASpan = sis_WriteMonoRGBASpan_565;
-      ctx->Driver.WriteRGBAPixels = sis_WriteRGBAPixels_565;
-      ctx->Driver.WriteMonoRGBAPixels = sis_WriteMonoRGBAPixels_565;
-      ctx->Driver.ReadRGBASpan = sis_ReadRGBASpan_565;
-      ctx->Driver.ReadRGBAPixels = sis_ReadRGBAPixels_565;
-   } 
-   else if(hwcx->colorFormat == DST_FORMAT_ARGB_8888){
-      ctx->Driver.Color = sis_Color_8888;      
-      ctx->Driver.WriteRGBASpan = sis_WriteRGBASpan_8888;
-      ctx->Driver.WriteRGBSpan = sis_WriteRGBSpan_8888;
-      ctx->Driver.WriteMonoRGBASpan = sis_WriteMonoRGBASpan_8888;
-      ctx->Driver.WriteRGBAPixels = sis_WriteRGBAPixels_8888;
-      ctx->Driver.WriteMonoRGBAPixels = sis_WriteMonoRGBAPixels_8888;
-      ctx->Driver.ReadRGBASpan = sis_ReadRGBASpan_8888;
-      ctx->Driver.ReadRGBAPixels = sis_ReadRGBAPixels_8888;
-   }
-   else{
-     assert(0);
-   }
+/* 16 bit depthbuffer functions.
+ */
+#define WRITE_DEPTH( _x, _y, d )	\
+   *(GLushort *)(buf + _x*2 + _y*smesa->depthPitch) = d;
 
-   ctx->Driver.WriteCI8Span        =NULL;
-   ctx->Driver.WriteCI32Span       =NULL;
-   ctx->Driver.WriteMonoCISpan     =NULL;
-   ctx->Driver.WriteCI32Pixels     =NULL;
-   ctx->Driver.WriteMonoCIPixels   =NULL;
-   ctx->Driver.ReadCI32Span        =NULL;
-   ctx->Driver.ReadCI32Pixels      =NULL;
+#define READ_DEPTH( d, _x, _y )		\
+   d = *(GLushort *)(buf + _x*2 + _y*smesa->depthPitch);
+
+#define TAG(x) sis##x##_16
+#include "depthtmp.h"
+
+
+/* 32 bit depthbuffer functions.
+ */
+#define WRITE_DEPTH( _x, _y, d )	\
+   *(GLuint *)(buf + _x*4 + _y*smesa->depthPitch) = d;
+
+#define READ_DEPTH( d, _x, _y )		\
+   d = *(GLuint *)(buf + _x*4 + _y*smesa->depthPitch);
+
+#define TAG(x) sis##x##_32
+#include "depthtmp.h"
+
+
+/* 8/24 bit interleaved depth/stencil functions
+ */
+#define WRITE_DEPTH( _x, _y, d ) {				\
+   GLuint tmp = *(GLuint *)(buf + _x*4 + _y*smesa->depthPitch); \
+   tmp &= 0xff000000;						\
+   tmp |= (d & 0x00ffffff);					\
+   *(GLuint *)(buf + _x*4 + _y*smesa->depthPitch) = tmp;	\
 }
 
-/* Depth/Stencil Functions
- * use sizeof(GLdepth) to know the Z rnage of mesa is
- * 0 ~ 2^16-1 or 0 ~ 2^32-1
+#define READ_DEPTH( d, _x, _y )	{			\
+   d = *(GLuint *)(buf + _x*4 + _y*smesa->depthPitch) & 0x00ffffff; \
+}
+
+#define TAG(x) sis##x##_24_8
+#include "depthtmp.h"
+
+#define WRITE_STENCIL( _x, _y, d ) {				\
+   GLuint tmp = *(GLuint *)(buf + _x*4 + _y*smesa->depthPitch); \
+   tmp &= 0x00ffffff;						\
+   tmp |= (d << 24);						\
+   *(GLuint *)(buf + _x*4 + _y*smesa->depthPitch) = tmp;	\
+}
+
+#define READ_STENCIL( d, _x, _y )			\
+   d = (*(GLuint *)(buf + _x*4 + _y*smesa->depthPitch) & 0xff000000) >> 24;
+
+#define TAG(x) sis##x##_24_8
+#include "stenciltmp.h"
+
+/*
+ * This function is called to specify which buffer to read and write
+ * for software rasterization (swrast) fallbacks.  This doesn't necessarily
+ * correspond to glDrawBuffer() or glReadBuffer() calls.
  */
-#define SIS_SW_Z_BASE(x,y) \
-   ((SIS_SW_DTYPE *)(hwcx->swZBase + (x)*sizeof(SIS_SW_DTYPE) + \
-       (y)*hwcx->swZPitch))
+static void sisDDSetBuffer( GLcontext *ctx,
+                            GLframebuffer *colorBuffer,
+                            GLuint bufferBit )
+{
+   sisContextPtr smesa = SIS_CONTEXT(ctx);
 
-/* Z16 */
-#define SIS_TAG(x) x##_Z16
-#define SIS_SW_DTYPE GLushort
-#define SIS_SW_D2I(D,I) \
-  do{ \
-    if(sizeof(GLdepth) == 2) \
-      I = D; \
-    else \
-      I = D << 16; \
-  }while(0)
-#define SIS_SW_I2D(I,D) \
-  do{ \
-    if(sizeof(GLdepth) == 2) \
-      D = I; \
-    else \
-      D = I >> 16; \
-  }while(0)
-#include "sis_swzfunc.h"
+   switch ( bufferBit ) {
+   case FRONT_LEFT_BIT:
+      smesa->drawOffset = smesa->readOffset = smesa->frontOffset;
+      smesa->drawPitch  = smesa->readPitch  = smesa->frontPitch;
+      break;
+   case BACK_LEFT_BIT:
+      smesa->drawOffset = smesa->readOffset = smesa->backOffset;
+      smesa->drawPitch  = smesa->readPitch  = smesa->backPitch;
+      break;
+   default:
+      break;
+   }
+}
 
-/* Z32 */
-#define SIS_TAG(x) x##_Z32
-#define SIS_SW_DTYPE GLuint
-#define SIS_SW_D2I(D,I) \
-  do{ \
-    if(sizeof(GLdepth) == 4) \
-      I = D; \
-    else \
-      I = D >> 16; \
-  }while(0)
-#define SIS_SW_I2D(I,D) \
-  do{ \
-    if(sizeof(GLdepth) == 4) \
-      D = I; \
-    else \
-      D = I << 16; \
-  }while(0)
-#include "sis_swzfunc.h"
+static void sisSpanRenderStart( GLcontext *ctx )
+{
+   sisContextPtr smesa = SIS_CONTEXT(ctx);
 
-#define SIS_SW_STENCIL_FUNC
+   WaitEngIdle( smesa );
+}
 
-/* S8Z24 */
-# define SIS_TAG(x) x##_S8Z24
-# define SIS_SW_DTYPE GLuint
-# define SIS_SW_D2I(D,I) \
-   do{ \
-    if(sizeof(GLdepth) == 4) \
-      I = (D << 8); \
-    else \
-      I = (D >> 8); \
-   }while(0)
-# define SIS_SW_I2D(I,D) \
-   do{ \
-    if(sizeof(GLdepth) == 4){ \
-      D &= 0xff000000; \
-      D |= (I >> 8); \
-    } \
-    else{ \
-      D &= 0xff000000; \
-      D |= (I << 8); \
-    } \
-   }while(0)
-# define SIS_SW_S2I(S,I) \
-   do{ \
-     I = (S >> 24); \
-   }while(0)
-# define SIS_SW_I2S(I,S) \
-   do{ \
-     S &= 0x00ffffff; \
-     S |= (I << 24); \
-   }while(0)
-# include "sis_swzfunc.h"
-
-#undef SIS_SW_STENCIL_FUNC
+static void sisSpanRenderFinish( GLcontext *ctx )
+{
+   _swrast_flush( ctx );
+}
 
 void
-sis_sw_set_zfuncs_static (GLcontext * ctx)
+sisDDInitSpanFuncs( GLcontext *ctx )
 {
-  XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
+   sisContextPtr smesa = SIS_CONTEXT(ctx);
+   struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
 
-  switch (hwcx->zFormat)
-    {
-    case Z_16:
-      ctx->Driver.ReadDepthSpan = sis_ReadDepthSpan_Z16;
-      ctx->Driver.ReadDepthPixels = sis_ReadDepthPixels_Z16;
-      ctx->Driver.WriteDepthSpan = sis_WriteDepthSpan_Z16;
-      ctx->Driver.WriteDepthPixels = sis_WriteDepthPixels_Z16;
+   swdd->SetBuffer = sisDDSetBuffer;
 
-      ctx->Driver.ReadStencilSpan = NULL;
-      ctx->Driver.ReadStencilPixels = NULL;
-      ctx->Driver.WriteStencilSpan = NULL;
-      ctx->Driver.WriteStencilPixels = NULL;
+   switch (smesa->zFormat)
+   {
+   case SiS_ZFORMAT_Z16:
+      swdd->ReadDepthSpan = sisReadDepthSpan_16;
+      swdd->ReadDepthPixels = sisReadDepthPixels_16;
+      swdd->WriteDepthSpan = sisWriteDepthSpan_16;
+      swdd->WriteDepthPixels = sisWriteDepthPixels_16;
+
+      swdd->ReadStencilSpan = NULL;
+      swdd->ReadStencilPixels = NULL;
+      swdd->WriteStencilSpan = NULL;
+      swdd->WriteStencilPixels = NULL;
       break;
-    case Z_32:
-      ctx->Driver.ReadDepthSpan = sis_ReadDepthSpan_Z32;
-      ctx->Driver.ReadDepthPixels = sis_ReadDepthPixels_Z32;
-      ctx->Driver.WriteDepthSpan = sis_WriteDepthSpan_Z32;
-      ctx->Driver.WriteDepthPixels = sis_WriteDepthPixels_Z32;
+   case SiS_ZFORMAT_Z32:
+      swdd->ReadDepthSpan = sisReadDepthSpan_32;
+      swdd->ReadDepthPixels = sisReadDepthPixels_32;
+      swdd->WriteDepthSpan = sisWriteDepthSpan_32;
+      swdd->WriteDepthPixels = sisWriteDepthPixels_32;
 
-      ctx->Driver.ReadStencilSpan = NULL;
-      ctx->Driver.ReadStencilPixels = NULL;
-      ctx->Driver.WriteStencilSpan = NULL;
-      ctx->Driver.WriteStencilPixels = NULL;
+      swdd->ReadStencilSpan = NULL;
+      swdd->ReadStencilPixels = NULL;
+      swdd->WriteStencilSpan = NULL;
+      swdd->WriteStencilPixels = NULL;
       break;
-    case S_8_Z_24:
-      ctx->Driver.ReadDepthSpan = sis_ReadDepthSpan_S8Z24;
-      ctx->Driver.ReadDepthPixels = sis_ReadDepthPixels_S8Z24;
-      ctx->Driver.WriteDepthSpan = sis_WriteDepthSpan_S8Z24;
-      ctx->Driver.WriteDepthPixels = sis_WriteDepthPixels_S8Z24;
+   case SiS_ZFORMAT_S8Z24:
+      swdd->ReadDepthSpan = sisReadDepthSpan_24_8;
+      swdd->ReadDepthPixels = sisReadDepthPixels_24_8;
+      swdd->WriteDepthSpan = sisWriteDepthSpan_24_8;
+      swdd->WriteDepthPixels = sisWriteDepthPixels_24_8;
 
-      ctx->Driver.ReadStencilSpan = sis_ReadStencilSpan_S8Z24;
-      ctx->Driver.ReadStencilPixels = sis_ReadStencilPixels_S8Z24;
-      ctx->Driver.WriteStencilSpan = sis_WriteStencilSpan_S8Z24;
-      ctx->Driver.WriteStencilPixels = sis_WriteStencilPixels_S8Z24;
+      swdd->ReadStencilSpan = sisReadStencilSpan_24_8;
+      swdd->ReadStencilPixels = sisReadStencilPixels_24_8;
+      swdd->WriteStencilSpan = sisWriteStencilSpan_24_8;
+      swdd->WriteStencilPixels = sisWriteStencilPixels_24_8;
       break;
-    }
+   }
+
+   switch ( smesa->bytesPerPixel )
+   {
+   case 2:
+      swdd->WriteRGBASpan = sisWriteRGBASpan_565;
+      swdd->WriteRGBSpan = sisWriteRGBSpan_565;
+      swdd->WriteMonoRGBASpan = sisWriteMonoRGBASpan_565;
+      swdd->WriteRGBAPixels = sisWriteRGBAPixels_565;
+      swdd->WriteMonoRGBAPixels = sisWriteMonoRGBAPixels_565;
+      swdd->ReadRGBASpan = sisReadRGBASpan_565;
+      swdd->ReadRGBAPixels = sisReadRGBAPixels_565;
+      break;
+   case 4:
+      swdd->WriteRGBASpan = sisWriteRGBASpan_8888;
+      swdd->WriteRGBSpan = sisWriteRGBSpan_8888;
+      swdd->WriteMonoRGBASpan = sisWriteMonoRGBASpan_8888;
+      swdd->WriteRGBAPixels = sisWriteRGBAPixels_8888;
+      swdd->WriteMonoRGBAPixels = sisWriteMonoRGBAPixels_8888;
+      swdd->ReadRGBASpan = sisReadRGBASpan_8888;
+      swdd->ReadRGBAPixels = sisReadRGBAPixels_8888;
+      break;
+    default:
+      assert(0);
+      break;
+   }
+
+   swdd->WriteCI8Span      = NULL;
+   swdd->WriteCI32Span     = NULL;
+   swdd->WriteMonoCISpan   = NULL;
+   swdd->WriteCI32Pixels   = NULL;
+   swdd->WriteMonoCIPixels = NULL;
+   swdd->ReadCI32Span      = NULL;
+   swdd->ReadCI32Pixels    = NULL;
+
+   swdd->SpanRenderStart   = sisSpanRenderStart;
+   swdd->SpanRenderFinish  = sisSpanRenderFinish; 
 }

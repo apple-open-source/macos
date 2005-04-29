@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 1988, 1989, 1990 The Regents of the University of California.
+ * Copyright (c) 1988, 1989, 1990, 1993
+ *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 1988, 1989 by Adam de Boor
  * Copyright (c) 1989 by Berkeley Softworks
  * All rights reserved.
@@ -35,8 +36,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)buf.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.bin/make/buf.h,v 1.9 1999/08/28 01:03:26 peter Exp $
+ *	@(#)buf.h	8.2 (Berkeley) 4/28/95
+ * $FreeBSD: src/usr.bin/make/buf.h,v 1.12 2002/09/17 21:29:06 jmallett Exp $
  */
 
 /*-
@@ -45,7 +46,7 @@
  */
 
 #ifndef _BUF_H
-#define _BUF_H
+#define	_BUF_H
 
 #include    "sprite.h"
 
@@ -64,19 +65,19 @@ typedef struct Buffer {
 	(void) (--(bp)->left <= 0 ? Buf_OvAddByte(bp, byte), 1 : \
 		(*(bp)->inPtr++ = (byte), *(bp)->inPtr = 0), 1)
 
-#define BUF_ERROR 256
+#define	BUF_ERROR 256
 
-void Buf_OvAddByte __P((Buffer, int));
-void Buf_AddBytes __P((Buffer, int, const Byte *));
-void Buf_UngetByte __P((Buffer, int));
-void Buf_UngetBytes __P((Buffer, int, Byte *));
-int Buf_GetByte __P((Buffer));
-int Buf_GetBytes __P((Buffer, int, Byte *));
-Byte *Buf_GetAll __P((Buffer, int *));
-void Buf_Discard __P((Buffer, int));
-int Buf_Size __P((Buffer));
-Buffer Buf_Init __P((int));
-void Buf_Destroy __P((Buffer, Boolean));
-void Buf_ReplaceLastByte __P((Buffer, int));
+void Buf_OvAddByte(Buffer, int);
+void Buf_AddBytes(Buffer, int, const Byte *);
+void Buf_UngetByte(Buffer, int);
+void Buf_UngetBytes(Buffer, int, Byte *);
+int Buf_GetByte(Buffer);
+int Buf_GetBytes(Buffer, int, Byte *);
+Byte *Buf_GetAll(Buffer, int *);
+void Buf_Discard(Buffer, int);
+int Buf_Size(Buffer);
+Buffer Buf_Init(int);
+void Buf_Destroy(Buffer, Boolean);
+void Buf_ReplaceLastByte(Buffer, int);
 
 #endif /* _BUF_H */

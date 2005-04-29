@@ -6,8 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                                                                          --
---         Copyright (C) 1992-2002, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,8 +26,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies, Inc. (http://www.gnat.com).     --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -93,7 +92,7 @@ package body System.Tasking.Utilities is
    --    (2) may be called for tasks that have not yet been activated
    --    (3) always aborts whole task
 
-   procedure Abort_One_Task (Self_ID : Task_ID; T : Task_ID) is
+   procedure Abort_One_Task (Self_ID : Task_Id; T : Task_Id) is
    begin
       if Parameters.Runtime_Traces then
          Send_Trace_Info (T_Abort, Self_ID, T);
@@ -127,9 +126,9 @@ package body System.Tasking.Utilities is
    --  Abort_Signal special exception.
 
    procedure Abort_Tasks (Tasks : Task_List) is
-      Self_Id : constant Task_ID := STPO.Self;
-      C       : Task_ID;
-      P       : Task_ID;
+      Self_Id : constant Task_Id := STPO.Self;
+      C       : Task_Id;
+      P       : Task_Id;
 
    begin
       Initialization.Defer_Abort_Nestable (Self_Id);
@@ -179,12 +178,18 @@ package body System.Tasking.Utilities is
    --  This should only be called by T, unless T is a terminated previously
    --  unactivated task.
 
-   procedure Cancel_Queued_Entry_Calls (T : Task_ID) is
+   procedure Cancel_Queued_Entry_Calls (T : Task_Id) is
       Next_Entry_Call : Entry_Call_Link;
       Entry_Call      : Entry_Call_Link;
-      Caller          : Task_ID;
-      Level           : Integer;
-      Self_Id         : constant Task_ID := STPO.Self;
+      Self_Id         : constant Task_Id := STPO.Self;
+
+      Caller : Task_Id;
+      pragma Unreferenced (Caller);
+      --  Should this be removed ???
+
+      Level : Integer;
+      pragma Unreferenced (Level);
+      --  Should this be removed ???
 
    begin
       pragma Assert (T = Self or else T.Common.State = Terminated);
@@ -193,6 +198,7 @@ package body System.Tasking.Utilities is
          Queuing.Dequeue_Head (T.Entry_Queues (J), Entry_Call);
 
          while Entry_Call /= null loop
+
             --  Leave Entry_Call.Done = False, since this is cancelled
 
             Caller := Entry_Call.Self;
@@ -224,7 +230,7 @@ package body System.Tasking.Utilities is
    --  In any case, reset Self_Id.Aborting, to allow re-raising of
    --  Abort_Signal.
 
-   procedure Exit_One_ATC_Level (Self_ID : Task_ID) is
+   procedure Exit_One_ATC_Level (Self_ID : Task_Id) is
    begin
       Self_ID.ATC_Nesting_Level := Self_ID.ATC_Nesting_Level - 1;
 
@@ -257,10 +263,11 @@ package body System.Tasking.Utilities is
    ----------------------
 
    procedure Make_Independent is
-      Self_Id               : constant Task_ID := STPO.Self;
-      Environment_Task      : constant Task_ID := STPO.Environment_Task;
-      Parent                : constant Task_ID := Self_Id.Common.Parent;
+      Self_Id               : constant Task_Id := STPO.Self;
+      Environment_Task      : constant Task_Id := STPO.Environment_Task;
+      Parent                : constant Task_Id := Self_Id.Common.Parent;
       Parent_Needs_Updating : Boolean := False;
+      Master_of_Task        : Integer;
 
    begin
       if Self_Id.Known_Tasks_Index /= -1 then
@@ -279,6 +286,7 @@ package body System.Tasking.Utilities is
       pragma Assert (Parent = Environment_Task
         or else Self_Id.Master_of_Task = Library_Task_Level);
 
+      Master_of_Task := Self_Id.Master_of_Task;
       Self_Id.Master_of_Task := Independent_Task_Level;
 
       --  The run time assumes that the parent of an independent task is the
@@ -314,6 +322,18 @@ package body System.Tasking.Utilities is
          Unlock (Parent);
       end if;
 
+      --  In case the environment task is already waiting for children to
+      --  complete.
+      --  ??? There may be a race condition if the environment task was not in
+      --  master completion sleep when this task was created, but now is
+
+      if Environment_Task.Common.State = Master_Completion_Sleep and then
+        Master_of_Task = Environment_Task.Master_Within
+      then
+         Environment_Task.Common.Wait_Count :=
+           Environment_Task.Common.Wait_Count - 1;
+      end if;
+
       Unlock (Environment_Task);
 
       if Single_Lock then
@@ -327,9 +347,9 @@ package body System.Tasking.Utilities is
    -- Make_Passive --
    ------------------
 
-   procedure Make_Passive (Self_ID : Task_ID; Task_Completed : Boolean) is
-      C : Task_ID := Self_ID;
-      P : Task_ID := C.Common.Parent;
+   procedure Make_Passive (Self_ID : Task_Id; Task_Completed : Boolean) is
+      C : Task_Id := Self_ID;
+      P : Task_Id := C.Common.Parent;
 
       Master_Completion_Phase : Integer;
 

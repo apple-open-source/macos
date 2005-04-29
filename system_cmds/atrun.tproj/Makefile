@@ -16,7 +16,7 @@ HFILES = atrun.h
 
 CFILES = atrun.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.dist atrun.8 Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.dist atrun.8 Makefile.postamble com.apple.atrun.plist
 
 NEXTSTEP_PB_CFLAGS += -DDAEMON_UID=1 -DDAEMON_GID=1
 

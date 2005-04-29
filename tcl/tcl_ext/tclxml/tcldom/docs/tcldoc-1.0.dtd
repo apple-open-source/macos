@@ -1,0 +1,108 @@
+<!-- tcldoc-1.0.dtd -
+   -
+   -	Customisation of DocBook for Tcl documentation.
+   -
+   - Copyright (c) 2000 Zveno Pty Ltd
+   -
+   - $Id: tcldoc-1.0.dtd,v 1.1 2002/05/20 11:35:00 balls Exp $
+ -->
+
+<!-- Define overriding entities here -->
+
+<!ENTITY % common.attrib "">
+
+<!ENTITY % local.para.mix "|tclpackage|tclnamespace">
+<!ENTITY % local.refcomponent.mix "|tclcmdsynopsis|tclpkgsynopsis|tclnamespacesynopsis">
+<!ENTITY % local.synop.class "|tclcmdsynopsis">
+
+<!ENTITY % local.tech.char.class "|tclcommand">
+
+<!-- Import the DocBook DTD -->
+
+<!ENTITY % DocBook 
+	PUBLIC "-//Norman Walsh//DTD DocBk XML V4.1.2//EN" 
+	       "file:///usr/local/share/xml/docbook/dtd/docbookx.dtd">
+%DocBook;
+
+<!--
+   - Tcl documentation is written as a DocBook RefEntry.
+   - RefEntry includes a number of elements to represent
+   - commands, functions, options, etc.  For system-related
+   - concepts, these are used as-is.  However, the elements 
+   - below are used to distinguish Tcl-related concepts.
+   -
+   - In addition, XLink may be used for hyperlinking.
+ -->
+
+<!-- tclcmdsynopsis -
+   -
+   -	Information about a Tcl command.
+   -	Content is taken to be Tcl commands, options, etc.
+   -
+  -->
+
+<!ELEMENT tclcmdsynopsis ((command | arg | group | sbr)+, synopfragment*)>
+<!ATTLIST tclcmdsynopsis
+	%cmdsynopsis.role.attrib;
+	%common.attrib;>
+
+<!-- tclpkgsynopsis -
+   -
+   -	Tcl Package usage synopsis.
+   -
+  -->
+
+<!ELEMENT tclpkgsynopsis ((package | version)+, synopfragment*)>
+<!ATTLIST tclpkgsynopsis
+	%cmdsynopsis.role.attrib;
+	%common.attrib;>
+
+<!ELEMENT package (#PCDATA)>
+<!ATTLIST package
+	%common.attrib;>
+
+<!ELEMENT version (#PCDATA)>
+<!ATTLIST version
+	%common.attrib;>
+
+<!ELEMENT tclpackage (#PCDATA)>
+<!ATTLIST tclpackage
+	%common.attrib;>
+
+<!-- tclnamespacesynopsis -
+   -
+   -	Tcl namespace usage synopsis.
+   -
+  -->
+
+<!ELEMENT tclnamespacesynopsis (tclnamespace+, synopfragment*)>
+<!ATTLIST tclnamespacesynopsis
+	%cmdsynopsis.role.attrib;
+	%common.attrib;>
+
+<!ELEMENT tclnamespace (#PCDATA)>
+<!ATTLIST tclnamespace
+	%common.attrib;>
+
+<!-- tcloptionsynopsis -
+   -
+   -	Tcl command configuration option synopsis.
+   -
+  -->
+
+<!ELEMENT tcloptionsynopsis ((option | arg | group | sbr)+, synopfragment*)>
+<!ATTLIST tcloptionsynopsis
+	%cmdsynopsis.role.attrib;
+	%common.attrib;>
+
+<!-- tclcommand -
+   -
+   -	A Tcl command, derived from DocBook's command.
+   -
+  -->
+
+<!ELEMENT tclcommand (%cptr.char.mix;)*>
+<!ATTLIST tclcommand
+	%moreinfo.attrib;
+	%command.role.attrib;
+	%common.attrib;>

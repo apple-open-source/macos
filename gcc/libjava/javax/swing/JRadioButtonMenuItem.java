@@ -1,5 +1,5 @@
 /* JRadioButtonMenuItem.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,185 +37,177 @@ exception statement from your version. */
 
 package javax.swing;
 
-// Imports
-import java.io.*;
-import javax.accessibility.*;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+
 
 /**
- * JRadioButtonMenuItem
- * @author	Andrew Selkirk
- * @version	1.0
+ * This class represents JRadioButtonMenuItem. Its behaviour is very similar
+ * to JRadioButton. Just like JRadioButton, user can check and uncheck this
+ * menu item by clicking on it. JRadioButtonMenuItem uses ToggleButtonModel
+ * to keep track of its selection. If the JRadioButtonMenuItem is included in
+ * the button group, then only one JRadioButtonMenuItem can be selected at
+ * one time.
  */
-public class JRadioButtonMenuItem extends JMenuItem implements Accessible {
+public class JRadioButtonMenuItem extends JMenuItem implements Accessible
+{
+  private static final long serialVersionUID = 8482658191548521743L;
 
-	//-------------------------------------------------------------
-	// Classes ----------------------------------------------------
-	//-------------------------------------------------------------
+  /** name for the UI delegate for this radio button menu item. */
+  private static final String uiClassID = "RadioButtonMenuItemUI";
 
-	/**
-	 * AccessibleJRadioButtonMenuItem
-	 */
-	protected class AccessibleJRadioButtonMenuItem extends AccessibleJMenuItem {
+  /**
+   * Creates a new JRadioButtonMenuItem object.
+   */
+  public JRadioButtonMenuItem()
+  {
+    this(null, null);
+  }
 
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
+  /**
+   * Creates a new JRadioButtonMenuItem with specified icon
+   *
+   * @param icon Icon to be used for this menu item
+   */
+  public JRadioButtonMenuItem(Icon icon)
+  {
+    this(null, icon);
+  }
 
-		/**
-		 * Constructor AccessibleJRadioButtonMenuItem
-		 * @param component TODO
-		 */
-		protected AccessibleJRadioButtonMenuItem(JRadioButtonMenuItem component) {
-			super(component);
-			// TODO
-		} // AccessibleJRadioButtonMenuItem()
+  /**
+   * Creates a new JRadioButtonMenuItem with specified label
+   *
+   * @param text Label for this menu item
+   */
+  public JRadioButtonMenuItem(String text)
+  {
+    this(text, null);
+  }
 
+  /**
+   * Creates a new JRadioButtonMenuItem using specified action
+   *
+   * @param action Action for this menu item
+   */
+  public JRadioButtonMenuItem(Action action)
+  {
+    this();
+    setAction(action);
+  }
 
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
+  /**
+   * Creates a new JRadioButtonMenuItem with specified label and icon
+   *
+   * @param text Label for this menu item
+   * @param icon Icon for this menu item
+   */
+  public JRadioButtonMenuItem(String text, Icon icon)
+  {
+    this(text, icon, false);
+  }
 
-		/**
-		 * getAccessibleRole
-		 * @returns AccessibleRole
-		 */
-		public AccessibleRole getAccessibleRole() {
-			return AccessibleRole.RADIO_BUTTON;
-		} // getAccessibleRole()
+  /**
+   * Creates a new JRadioButtonMenuItem with specified label
+   * and marked selected if 'selected' is true.
+   *
+   * @param text Text for this menu item
+   * @param selected Selected state of this menu item
+   */
+  public JRadioButtonMenuItem(String text, boolean selected)
+  {
+    this(text, null, selected);
+  }
 
+  /**
+   * Creates a new JRadioButtonMenuItem with specified icon
+   * and given selected state
+   *
+   * @param icon Icon for this menu item
+   * @param selected Selected state for this menu item
+   */
+  public JRadioButtonMenuItem(Icon icon, boolean selected)
+  {
+    this(null, icon, selected);
+  }
 
-	} // AccessibleJRadioButtonMenuItem
+  /**
+   * Creates a new JRadioButtonMenuItem with specified label,
+   * icon and selected state.
+   *
+   * @param text Label for this menu item
+   * @param icon Icon to be use for this menu item
+   * @param selected selected state of this menu item
+   */
+  public JRadioButtonMenuItem(String text, Icon icon, boolean selected)
+  {
+    super(text, icon);
+    setModel(new JToggleButton.ToggleButtonModel());
+    model.setSelected(selected);
+  }
 
+  private void writeObject(ObjectOutputStream stream) throws IOException
+  {
+  }
 
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * This method returns a name to identify which look and feel class will be
+   * the UI delegate for the menuItem.
+   *
+   * @return The Look and Feel classID. "JRadioButtonMenuItemUI"
+   */
+  public String getUIClassID()
+  {
+    return uiClassID;
+  }
 
-	/**
-	 * uiClassID
-	 */
-	private static final String uiClassID = "RadioButtonMenuItemUI";
+  /**
+   * This method overrides JComponent.requestFocus with an empty
+   * implementation, since JRadioButtonMenuItems should not
+   * receve focus in general.
+   */
+  public void requestFocus()
+  {
+    //  Should do nothing here
+  }
 
+  /**
+   * A string that describes this JRadioButtonMenuItem. Normally only used
+   * for debugging.
+   *
+   * @return A string describing this JRadioButtonMenuItem
+   */
+  protected String paramString()
+  {
+    return "JRadioButtonMenuItem";
+  }
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  public AccessibleContext getAccessibleContext()
+  {
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJRadioButtonMenuItem();
 
-	/**
-	 * Constructor JRadioButtonMenuItem
-	 */
-	public JRadioButtonMenuItem() {
-		// TODO
-	} // JRadioButtonMenuItem()
+    return accessibleContext;
+  }
 
-	/**
-	 * Constructor JRadioButtonMenuItem
-	 * @param icon TODO
-	 */
-	public JRadioButtonMenuItem(Icon icon) {
-		// TODO
-	} // JRadioButtonMenuItem()
+  protected class AccessibleJRadioButtonMenuItem extends AccessibleJMenuItem
+  {
+    private static final long serialVersionUID = 4381471510145292179L;
 
-	/**
-	 * Constructor JRadioButtonMenuItem
-	 * @param text TODO
-	 */
-	public JRadioButtonMenuItem(String text) {
-		// TODO
-	} // JRadioButtonMenuItem()
+    /**
+     * Creates a new AccessibleJRadioButtonMenuItem object.
+     */
+    protected AccessibleJRadioButtonMenuItem()
+    {
+    }
 
-	/**
-	 * Constructor JRadioButtonMenuItem
-	 * @param action TODO
-	 */
-	public JRadioButtonMenuItem(Action action) {
-		// TODO
-	} // JRadioButtonMenuItem()
-
-	/**
-	 * Constructor JRadioButtonMenuItem
-	 * @param text TODO
-	 * @param icon TODO
-	 */
-	public JRadioButtonMenuItem(String text, Icon icon) {
-		// TODO
-	} // JRadioButtonMenuItem()
-
-	/**
-	 * Constructor JRadioButtonMenuItem
-	 * @param text TODO
-	 * @param selected TODO
-	 */
-	public JRadioButtonMenuItem(String text, boolean selected) {
-		// TODO
-	} // JRadioButtonMenuItem()
-
-	/**
-	 * Constructor JRadioButtonMenuItem
-	 * @param icon TODO
-	 * @param selected TODO
-	 */
-	public JRadioButtonMenuItem(Icon icon, boolean selected) {
-		// TODO
-	} // JRadioButtonMenuItem()
-
-	/**
-	 * Constructor JRadioButtonMenuItem
-	 * @param text TODO
-	 * @param icon TODO
-	 * @param selected TODO
-	 */
-	public JRadioButtonMenuItem(String text, Icon icon, boolean selected) {
-		// TODO
-	} // JRadioButtonMenuItem()
-
-
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * writeObject
-	 * @param stream TODO
-	 * @exception IOException TODO
-	 */
-	private void writeObject(ObjectOutputStream stream) throws IOException {
-		// TODO
-	} // writeObject()
-
-	/**
-	 * getUIClassID
-	 * @returns String
-	 */
-	public String getUIClassID() {
-		return uiClassID;
-	} // getUIClassID()
-
-	/**
-	 * requestFocus
-	 */
-	public void requestFocus() {
-		// TODO
-	} // requestFocus()
-
-	/**
-	 * paramString
-	 * @returns String
-	 */
-	protected String paramString() {
-		return null; // TODO
-	} // paramString()
-
-	/**
-	 * getAccessibleContext
-	 * @returns AccessibleContext
-	 */
-	public AccessibleContext getAccessibleContext() {
-		if (accessibleContext == null) {
-			accessibleContext = new AccessibleJRadioButtonMenuItem(this);
-		} // if
-		return accessibleContext;
-	} // getAccessibleContext()
-
-
-} // JRadioButtonMenuItem
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.RADIO_BUTTON;
+    }
+  }
+}

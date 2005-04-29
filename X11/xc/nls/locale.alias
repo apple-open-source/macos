@@ -5,7 +5,7 @@ XCOMM	Each alias name is described within one line.
 XCOMM	The first word is the alias name (simplified locale name)
 XCOMM	the second word is full locale name.
 XCOMM
-XCOMM	$XFree86: xc/nls/locale.alias,v 1.62 2003/02/13 02:52:42 dawes Exp $
+XCOMM	$XFree86: xc/nls/locale.alias,v 1.66 2004/02/09 01:35:17 dawes Exp $
 XCOMM
 
 POSIX:						C
@@ -419,6 +419,7 @@ kl_GL.iso885915:				kl_GL.ISO8859-15
 ko:						ko_KR.eucKR
 ko_KR:						ko_KR.eucKR
 ko_KR.EUC:					ko_KR.eucKR
+ko_KR.EUC-KR:					ko_KR.eucKR
 ko_KR.euc:					ko_KR.eucKR
 ko_KR.euckr:					ko_KR.eucKR
 ko_KR.utf8:					ko_KR.UTF-8
@@ -659,6 +660,8 @@ ur_PK.cp1256:					ur_PK.CP1256
 ur_PK.microsoftcp1256:				ur_PK.CP1256
 ur_PK.microsoft-cp1256:				ur_PK.CP1256
 ur_PK.MICROSOFT-CP1256:				ur_PK.CP1256
+uz:						uz_UZ.UTF-8
+uz_UZ:						uz_UZ.UTF-8
 vi:						vi_VN.TCVN
 vi_VN:						vi_VN.TCVN
 vi_VN.tcvn:					vi_VN.TCVN
@@ -676,14 +679,14 @@ yi_US.cp1255:					yi_US.CP1255
 yi_US.microsoftcp1255:				yi_US.CP1255
 yi_US.microsoft-cp1255:				yi_US.CP1255
 yi_US.MICROSOFT-CP1255:				yi_US.CP1255
-zh_CN:						zh_CN.gbk
+zh_CN:						zh_CN.gb2312
 zh_CN.Big5:					zh_TW.big5
 zh_CN.EUC:					zh_CN.eucCN
-zh_CN.GB2312:					zh_CN.eucCN
+zh_CN.GB2312:					zh_CN.gb2312
 zh_CN.GBK:					zh_CN.gbk
 zh_CN.big5:					zh_TW.big5
 zh_CN.euc:					zh_CN.eucCN
-zh_CN.gb2312:					zh_CN.eucCN
+zh_CN.utf8:					zh_CN.UTF-8
 zh_HK:						zh_HK.big5hkscs
 zh_HK.Big5hkscs:				zh_HK.big5hkscs
 zh_HK.Big5-hkscs:				zh_HK.big5hkscs

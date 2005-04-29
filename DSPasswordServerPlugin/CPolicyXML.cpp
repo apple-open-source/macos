@@ -129,8 +129,10 @@ CPolicyXML::CPolicyXML( const char *xmlDataStr ) : CPolicyBase()
 		if ( xmlData != NULL )
 		{
 			policyDict = (CFMutableDictionaryRef) CFPropertyListCreateFromXMLData( kCFAllocatorDefault, xmlData, kCFPropertyListMutableContainersAndLeaves, &errorString );
-			this->ConvertPropertyListPolicyToStruct( policyDict );
-			
+			if ( policyDict != NULL ) {
+				this->ConvertPropertyListPolicyToStruct( policyDict );
+				CFRelease( policyDict );
+			}
 			CFRelease( xmlData );
 		}
 	}
@@ -143,11 +145,6 @@ CPolicyXML::CPolicyXML( const char *xmlDataStr ) : CPolicyBase()
 
 CPolicyXML::~CPolicyXML()
 {
-	if ( mPolicyDict != NULL )
-	{
-		CFRelease( mPolicyDict );
-		mPolicyDict = NULL;
-	}
 }
 
 
@@ -161,6 +158,10 @@ void
 CPolicyXML::CPolicyCommonInit( void )
 {
 	CPolicyXML::CPolicyXMLCommonInitStatic( &mPolicy );
+	mWarnOfExpirationMinutes = 0;
+	mWarnOfDisableMinutes = 0;
+	mProjectedPasswordExpireDate = 0;
+	mProjectedAccountDisableDate = 0;
 }
 
 
@@ -221,17 +222,37 @@ CPolicyXML::GetPolicy( PWAccessFeatures *outPolicy )
 char *
 CPolicyXML::GetPolicyAsSpaceDelimitedData( void )
 {
-	char *returnString = NULL;
-	char featureString[2048];
+	char *returnStr = NULL;
+	long metaFeatureStrLen = 0;
+	char featureStr[2048];
+	char metaFeatureStr[256] = { 0, };
 	
-//	PWAccessFeaturesToStringWithoutStateInfo( &mPolicy, sizeof(featureString), featureString );
-	PWAccessFeaturesToStringWithoutStateInfo( &mPolicy, featureString );
+	PWAccessFeaturesToStringWithoutStateInfo( &mPolicy, featureStr );
 	
-	returnString = (char *) malloc( strlen(featureString) + 1 );
-	if ( returnString != NULL )
-		strcpy( returnString, featureString );
+	if ( mWarnOfExpirationMinutes > 0 )
+	{
+		metaFeatureStrLen = sprintf( metaFeatureStr,
+				 " warnOfExpirationMinutes=%lu projectedPasswordExpireDate=%lu",
+				 mWarnOfExpirationMinutes,
+				 (unsigned long)mProjectedPasswordExpireDate );
+	}
 	
-	return returnString;
+	if ( mWarnOfDisableMinutes > 0 )
+	{
+		sprintf( metaFeatureStr + metaFeatureStrLen,
+				 " warnOfDisableMinutes=%lu projectedAccountDisableDate=%lu",
+				 mWarnOfDisableMinutes,
+				 (unsigned long)mProjectedAccountDisableDate );
+	}
+	
+	returnStr = (char *) malloc( strlen(featureStr) + strlen(metaFeatureStr) + 1 );
+	if ( returnStr != NULL )
+	{
+		strcpy( returnStr, featureStr );
+		strcat( returnStr, metaFeatureStr );
+	}
+	
+	return returnStr;
 }
 
 
@@ -277,6 +298,7 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 	long aLongValue;
 	bool aBoolValue;
 	CFTypeRef valueRef;
+	struct tm bsdTimeStruct;
 	
 	if ( inPolicyDict == NULL )
 		return -1;
@@ -286,21 +308,21 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 		CFRelease( mPolicyDict );
 	mPolicyDict = inPolicyDict;	
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_canModifyPasswordforSelf), &aBoolValue );
-	mPolicy.canModifyPasswordforSelf = aBoolValue;
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_canModifyPasswordforSelf), &aBoolValue ) )
+		mPolicy.canModifyPasswordforSelf = aBoolValue;
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_usingExpirationDate), &aBoolValue );
-	mPolicy.usingExpirationDate = aBoolValue;
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_usingExpirationDate), &aBoolValue ) )
+		mPolicy.usingExpirationDate = aBoolValue;
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_usingHardExpirationDate), &aBoolValue );
-	mPolicy.usingHardExpirationDate = aBoolValue;
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_usingHardExpirationDate), &aBoolValue ) )
+		mPolicy.usingHardExpirationDate = aBoolValue;
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresAlpha), &aBoolValue );
-	mPolicy.requiresAlpha = aBoolValue;
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresAlpha), &aBoolValue ) )
+		mPolicy.requiresAlpha = aBoolValue;
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresNumeric), &aBoolValue );
-	mPolicy.requiresNumeric = aBoolValue;
-		
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresNumeric), &aBoolValue ) )
+		mPolicy.requiresNumeric = aBoolValue;
+	
     // expirationDateGMT
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_expirationDateGMT), (const void **)&valueRef ) &&
 		CFGetTypeID(valueRef) == CFDateGetTypeID() )
@@ -382,11 +404,45 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 		}
 	}
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_passwordCannotBeName), &aBoolValue );
-	mPolicy.passwordCannotBeName = aBoolValue;
+	// passwordCannotBeName
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_passwordCannotBeName), &aBoolValue ) )
+		mPolicy.passwordCannotBeName = aBoolValue;
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_isSessionKeyAgent), &aBoolValue );
-	mPolicy.isSessionKeyAgent = aBoolValue;
+	// isSessionKeyAgent
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_isSessionKeyAgent), &aBoolValue ) )
+		mPolicy.isSessionKeyAgent = aBoolValue;
+	
+	// warnOfExpirationMinutes
+	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_warnOfExpirationMinutes), (const void **)&valueRef ) &&
+		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
+		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
+	{
+		mWarnOfExpirationMinutes = aLongValue;
+	}
+
+	// warnOfDisableMinutes
+	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_warnOfDisableMinutes), (const void **)&valueRef ) &&
+		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
+		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
+	{
+		mWarnOfDisableMinutes = aLongValue;
+	}
+	
+	// projectedPasswordExpireDate
+	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_projectedPasswordExpireDate), (const void **)&valueRef ) &&
+		CFGetTypeID(valueRef) == CFDateGetTypeID() )
+	{
+		this->ConvertCFDateToBSDTime( (CFDateRef)valueRef, &bsdTimeStruct );
+		mProjectedPasswordExpireDate = timegm( &bsdTimeStruct );
+	}
+	
+	// projectedAccountDisableDate
+	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_projectedAccountDisableDate), (const void **)&valueRef ) &&
+		CFGetTypeID(valueRef) == CFDateGetTypeID() )
+	{
+		this->ConvertCFDateToBSDTime( (CFDateRef)valueRef, &bsdTimeStruct );
+		mProjectedAccountDisableDate = timegm( &bsdTimeStruct );
+	}
 	
 	return result;
 }

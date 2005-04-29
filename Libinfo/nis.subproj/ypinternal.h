@@ -62,10 +62,10 @@ struct dom_binding {
 	struct dom_binding *dom_pnext;
 	char dom_domain[YPMAXDOMAIN + 1];
 	struct sockaddr_in dom_server_addr;
-	u_short dom_server_port;
+	unsigned short dom_server_port;
 	int dom_socket;
 	CLIENT *dom_client;
-	u_short dom_local_port;
+	unsigned short dom_local_port;
 	long dom_vers;
 };
 
@@ -82,9 +82,9 @@ int _yp_check __P((char **));
 #ifdef YPMATCHCACHE
 
 static bool_t ypmatch_add __P((const char *, const char *,
-    u_int, char *, u_int));
+    unsigned int, char *, unsigned int));
 static bool_t ypmatch_find __P((const char *, const char *,
-    u_int, char **, u_int *));
+    unsigned int, char **, unsigned int *));
 
 static struct ypmatch_ent {
 	struct ypmatch_ent 	*next;

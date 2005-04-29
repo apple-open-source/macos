@@ -1,29 +1,29 @@
 ;; Scheduling description for Motorola PowerPC 750 and PowerPC 7400 processors.
 ;;   Copyright (C) 2003 Free Software Foundation, Inc.
 ;;
-;; This file is part of GNU CC.
-;;
-;; GNU CC is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
-;; any later version.
-;;
-;; GNU CC is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-;;
-;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; This file is part of GCC.
 
-(define_automaton "ppc7xx,ppc7xxfp,ppc7xxother,ppc7xxvec")
+;; GCC is free software; you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published
+;; by the Free Software Foundation; either version 2, or (at your
+;; option) any later version.
+
+;; GCC is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+;; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+;; License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with GCC; see the file COPYING.  If not, write to the
+;; Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+;; MA 02111-1307, USA.
+
+(define_automaton "ppc7xx,ppc7xxfp")
 (define_cpu_unit "iu1_7xx,iu2_7xx" "ppc7xx")
 (define_cpu_unit "fpu_7xx" "ppc7xxfp")
-(define_cpu_unit "lsu_7xx,bpu_7xx,sru_7xx" "ppc7xxother")
+(define_cpu_unit "lsu_7xx,bpu_7xx,sru_7xx" "ppc7xx")
 (define_cpu_unit "du1_7xx,du2_7xx" "ppc7xx")
-(define_cpu_unit "veccmplx_7xx,vecperm_7xx,vdu_7xx" "ppc7xxvec")
+(define_cpu_unit "veccmplx_7xx,vecperm_7xx,vdu_7xx" "ppc7xx")
 
 ;; PPC740/PPC750/PPC7400  32-bit 2xIU, LSU, SRU, FPU, BPU
 ;; IU1 can perform all integer operations
@@ -38,7 +38,7 @@
 ;; the insn that sets CR bits should be separated from the branch insn
 ;; that evaluates them.  There is no advantage have more than 10 cycles
 ;; of separation.
-;; This could be artificially achieved by exagerating the latency of
+;; This could be artificially achieved by exaggerating the latency of
 ;; compare insns but at the expense of a poorer schedule.
 
 ;; Branches go straight to the BPU.  All other insns are handled
@@ -59,7 +59,7 @@
   "ppc750_du,lsu_7xx")
 
 (define_insn_reservation "ppc750-integer" 1
-  (and (eq_attr "type" "integer")
+  (and (eq_attr "type" "integer,insert_word")
        (eq_attr "cpu" "ppc750,ppc7400"))
   "ppc750_du,(iu1_7xx|iu2_7xx)")
 
@@ -134,14 +134,19 @@
        (eq_attr "cpu" "ppc750,ppc7400"))
   "nothing,sru_7xx*2")
 
+(define_insn_reservation "ppc750-mfjmpr" 3
+  (and (eq_attr "type" "mfjmpr")
+       (eq_attr "cpu" "ppc750,ppc7400"))
+  "nothing,sru_7xx*2")
+
 (define_insn_reservation "ppc750-jmpreg" 1
   (and (eq_attr "type" "jmpreg,branch")
        (eq_attr "cpu" "ppc750,ppc7400"))
   "nothing,bpu_7xx")
 
-; APPLE LOCAL add vec_easy
+;; Altivec
 (define_insn_reservation "ppc7400-vecsimple" 1
-  (and (eq_attr "type" "vecsimple,veccmp,vec_easy")
+  (and (eq_attr "type" "vecsimple,veccmp")
        (eq_attr "cpu" "ppc7400"))
   "ppc750_du,ppc7400_vec_du,veccmplx_7xx")
 

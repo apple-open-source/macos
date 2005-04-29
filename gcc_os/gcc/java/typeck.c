@@ -28,6 +28,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "tree.h"
+#include "real.h"
 #include "obstack.h"
 #include "flags.h"
 #include "java-tree.h"
@@ -43,7 +44,6 @@ static tree lookup_do PARAMS ((tree, tree, tree, tree, tree (*)(tree)));
 static tree build_null_signature PARAMS ((tree));
 
 tree * type_map;
-extern struct obstack permanent_obstack;
 
 /* Set the type of the local variable with index SLOT to TYPE. */
 
@@ -166,24 +166,12 @@ convert_to_boolean (type, expr)
   return build1 (NOP_EXPR, type, expr);
 }
 
-/* Print an error message for invalid use of an incomplete type.
-   VALUE is the expression that was used (or 0 if that isn't known)
-   and TYPE is the type that was invalid.  */
-
-void
-incomplete_type_error (value, type)
-  tree value ATTRIBUTE_UNUSED;
-  tree type ATTRIBUTE_UNUSED;
-{
-  error ("internal error - use of undefined type");
-}
-
 /* Return a data type that has machine mode MODE.
    If the mode is an integer,
    then UNSIGNEDP selects between signed and unsigned types.  */
 
 tree
-type_for_mode (mode, unsignedp)
+java_type_for_mode (mode, unsignedp)
      enum machine_mode mode;
      int unsignedp;
 {
@@ -207,7 +195,7 @@ type_for_mode (mode, unsignedp)
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
 tree
-type_for_size (bits, unsignedp)
+java_type_for_size (bits, unsignedp)
      unsigned bits;
      int unsignedp;
 {
@@ -226,7 +214,7 @@ type_for_size (bits, unsignedp)
    signed according to UNSIGNEDP.  */
 
 tree
-signed_or_unsigned_type (unsignedp, type)
+java_signed_or_unsigned_type (unsignedp, type)
      int unsignedp;
      tree type;
 {
@@ -246,28 +234,27 @@ signed_or_unsigned_type (unsignedp, type)
 /* Return a signed type the same as TYPE in other respects.  */
 
 tree
-signed_type (type)
+java_signed_type (type)
      tree type;
 {
-  return signed_or_unsigned_type (0, type);
+  return java_signed_or_unsigned_type (0, type);
 }
 
 /* Return an unsigned type the same as TYPE in other respects.  */
 
 tree
-unsigned_type (type)
+java_unsigned_type (type)
      tree type;
 {
-  return signed_or_unsigned_type (1, type);
-
+  return java_signed_or_unsigned_type (1, type);
 }
 
 /* Mark EXP saying that we need to be able to take the
    address of it; it should not be allocated in a register.
-   Value is 1 if successful.  */
+   Value is true if successful.  */
 
-int
-mark_addressable (exp)
+bool
+java_mark_addressable (exp)
      tree exp;
 {
   register tree x = exp;
@@ -289,12 +276,12 @@ mark_addressable (exp)
 	break;
 
       case COND_EXPR:
-	return mark_addressable (TREE_OPERAND (x, 1))
-	  & mark_addressable (TREE_OPERAND (x, 2));
+	return java_mark_addressable (TREE_OPERAND (x, 1))
+	  && java_mark_addressable (TREE_OPERAND (x, 2));
 
       case CONSTRUCTOR:
 	TREE_ADDRESSABLE (x) = 1;
-	return 1;
+	return true;
 
       case INDIRECT_REF:
 	/* We sometimes add a cast *(TYPE*)&FOO to handle type and mode
@@ -310,7 +297,7 @@ mark_addressable (exp)
 	    x = TREE_OPERAND (x, 0);
 	    break;
 	  }
-	return 1;
+	return true;
 
       case VAR_DECL:
       case CONST_DECL:
@@ -324,7 +311,7 @@ mark_addressable (exp)
 #endif
 	/* drops through */
       default:
-	return 1;
+	return true;
     }
 }
 
@@ -458,7 +445,7 @@ promote_type (type)
   switch (TREE_CODE (type))
     {
     case RECORD_TYPE:
-      return build_pointer_type (CLASS_TO_HANDLE_TYPE (type));
+      return build_pointer_type (type);
     case BOOLEAN_TYPE:
       if (type == boolean_type_node)
 	return promoted_boolean_type_node;

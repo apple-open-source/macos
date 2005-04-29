@@ -2,13 +2,16 @@ thisconfigdir=.
 myfulldir=util/profile
 mydir=.
 BUILDTOP=$(REL)..$(S)..
-PROG_LIBPATH=-L$(TOPLIBD)
-PROG_RPATH=$(KRB5_LIBDIR)
+PROG_LIBPATH=-L$(TOPLIBD) $(TCL_LIBPATH)
+PROG_RPATH=$(KRB5_LIBDIR)$(TCL_RPATH)
+KRB5_RUN_ENV=@KRB5_RUN_ENV@
 ##DOS##BUILDTOP = ..\..
 ##DOS##OBJFILE=$(OUTPRE)profile.lst
 ##DOS##LIBNAME=$(OUTPRE)profile.lib
 
-LOCALINCLUDES=-I.
+LOCALINCLUDES=-I. $(TCL_INCLUDES)
+# for tcl.h
+DEFINES=-DHAS_STDARG
 
 STLIBOBJS = \
 	prof_tree.o \
@@ -37,14 +40,14 @@ SRCS = $(srcdir)/prof_tree.c \
 
 EXTRADEPSRCS=$(srcdir)/test_parse.c $(srcdir)/test_profile.c
 
-DEPLIBS = $(COM_ERR_DEPLIB)
-MLIBS = -lcom_err
+DEPLIBS = $(COM_ERR_DEPLIB) $(SUPPORT_DEPLIB)
+MLIBS = -lcom_err $(SUPPORT_LIB) $(LIBS)
 
-LIB=profile
+LIBBASE=profile
 LIBMAJOR=1
 LIBMINOR=1
-SHLIB_EXPDEPS = $(COM_ERR_DEPLIB)
-SHLIB_EXPLIBS = -lcom_err
+SHLIB_EXPDEPS = $(COM_ERR_DEPLIB) $(SUPPORT_DEPLIB)
+SHLIB_EXPLIBS = -lcom_err $(SUPPORT_LIB) $(LIBS)
 SHLIB_DIRS = -L$(TOPLIBD)
 SHLIB_RDIRS=$(KRB5_LIBDIR)
 
@@ -109,14 +112,35 @@ prof_err.c: $(srcdir)/prof_err.et
 
 prof_err.o: prof_err.c
 
+# not built by default, but may be useful for testing
+$(srcdir)/profile_tcl.c: profile.swg
+	(cd $(srcdir) && swig -tcl8 -o profile_tcl.c profile.swg)
+profile_tcl.o: $(srcdir)/profile_tcl.c profile.h
+profile_tcl: profile_tcl.o libprofile.a
+	$(CC_LINK) -o profile_tcl profile_tcl.o \
+		$(TCL_MAYBE_RPATH) \
+		-L../et -L../.. libprofile.a $(DEPLIBS) $(TCL_LIBS)
+
 clean-unix:: clean-libs clean-libobjs
 	$(RM) $(PROGS) *.o *~ test_parse core prof_err.h \
-		prof_err.c test_profile profile.h
+		prof_err.c test_profile profile.h profile_tcl
 
 clean-windows::
 	$(RM) $(PROFILE_HDR)
 
 check-unix:: test_parse test_profile
+
+DO_TCL=@DO_TCL@
+check-unix:: check-unix-tcl-$(DO_TCL)
+
+check-unix-tcl-:
+	@echo "+++"
+	@echo "+++ Tcl not available, some profile tests not run."
+	@echo "+++"
+
+check-unix-tcl-ok: profile_tcl
+	cp $(srcdir)/test.ini test2.ini
+	$(KRB5_RUN_ENV) ./profile_tcl $(srcdir)/prof_test1
 
 check-windows:: $(OUTPRE)test_profile.exe $(OUTPRE)test_parse.exe
 	$(RM) $(OUTPRE)*.obj
@@ -132,20 +156,28 @@ check-windows:: $(OUTPRE)test_profile.exe $(OUTPRE)test_parse.exe
 # the Makefile.in file
 #
 prof_tree.so prof_tree.po $(OUTPRE)prof_tree.$(OBJEXT): prof_tree.c prof_int.h \
+  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h
 prof_file.so prof_file.po $(OUTPRE)prof_file.$(OBJEXT): prof_file.c prof_int.h \
-  $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h
+  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h $(SRCTOP)/include/k5-platform.h
 prof_parse.so prof_parse.po $(OUTPRE)prof_parse.$(OBJEXT): prof_parse.c prof_int.h \
+  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h
 prof_get.so prof_get.po $(OUTPRE)prof_get.$(OBJEXT): prof_get.c prof_int.h \
+  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h
 prof_set.so prof_set.po $(OUTPRE)prof_set.$(OBJEXT): prof_set.c prof_int.h \
+  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h
 prof_err.so prof_err.po $(OUTPRE)prof_err.$(OBJEXT): prof_err.c $(COM_ERR_DEPS)
 prof_init.so prof_init.po $(OUTPRE)prof_init.$(OBJEXT): prof_init.c prof_int.h \
+  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h
 test_parse.so test_parse.po $(OUTPRE)test_parse.$(OBJEXT): test_parse.c prof_int.h \
+  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h
 test_profile.so test_profile.po $(OUTPRE)test_profile.$(OBJEXT): test_profile.c prof_int.h \
+  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h argv_parse.h
 

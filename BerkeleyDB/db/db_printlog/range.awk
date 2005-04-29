@@ -1,4 +1,4 @@
-# $Id: range.awk,v 1.1.1.1 2003/02/15 04:55:41 zarzycki Exp $
+# $Id: range.awk,v 1.2 2004/03/30 01:21:27 jtownsen Exp $
 #
 # Print out a range of the log
 

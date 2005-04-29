@@ -1,98 +1,246 @@
-#!/bin/sh
+#!/usr/bin/perl
 
-[ -d patches ] && cd patches
+use strict;
 
-if [ ! -f verify-patches ]; then
-    echo "Please run this script from the root of the rsync dir"
-    echo "or from inside the patches subdir."
-    exit 1
-fi
+chdir('patches') if -d 'patches';
 
-root=`cat ../CVS/Root`
-tmpdir=,tmp-for-patch-tests
+if (!-f 'verify-patches') {
+    die <<EOT;
+Please run this script from the root of the rsync dir or
+from inside the patches subdir.
+EOT
+}
 
-[ -d $tmpdir ] || mkdir $tmpdir
-cd $tmpdir || exit 1
+$| = 1;
+$ENV{'TZ'} = 'UTC';
+my $CONF_OPTS = '-C';
 
-[ -d workdir ] || mkdir workdir
-echo "Using CVS to update the $tmpdir/cvsdir copy of the source."
-cvs -d "$root" co -d cvsdir rsync
+my($has_dependencies, @new, @rejects);
 
-cd workdir || exit 1
+END {
+    &restore_cvsdir;
+    system "rsync -a --delete cvsdir/ workdir/" if -d 'cvsdir';
+};
 
-if [ -z "$1" ]; then
-    set -- ../../*.diff
-fi
+my $root;
+open(IN, '../CVS/Root') or die $!;
+chomp($root = <IN>);
+close IN;
 
-for xx in "${@}"; do
-    case "$xx" in
-    *gzip-rsyncable.diff) continue ;;
-    patches/*) xx=`echo $xx | sed 's:patches:../..:'` ;;
-    */*.diff) ;;
-    *.diff) xx=../../$xx ;;
-    *) continue ;;
-    esac
-    apply=y
-    while : ; do
-	echo -e "\n----------- $xx ------------"
-	if [ $apply = y ]; then
-	    rsync -a --delete ../cvsdir/ .
-	    patch -p0 <$xx | tee ,patch.output
-	    new=''
-	    for nn in `sed -n 's/^patching file //p' ,patch.output`; do
-		[ -f ../cvsdir/$nn ] || new="$new $nn"
-	    done
-	    if grep "^Hunk #[0-9]* FAILED" ,patch.output >/dev/null; then
-		default=F
-	    elif grep "^Hunk #[0-9]* succeeded" ,patch.output >/dev/null; then
-		default=E
-	    else
-		default=N
-	    fi
-	    apply=n
-	fi
-	echo -e "\nFix rejects, Make proto, Edit both diffs, Update patch,"
-	echo -n "Apply patch again, Next, Quit: [$default] "
-	read ans
-	[ -z "$ans" ] && ans=$default
-	case "$ans" in
-	[Ee]*)
-	    [ ! -z "$new" ] && cvs add $new
-	    new=''
-	    rm -f *.rej *.orig
-	    sed '/^--- /,$ d' $xx >,new.patch
-	    cvs diff -N | egrep -v '^(diff -|===============|RCS file: |retrieving revision |Index: )' >>,new.patch
-	    vim -d $xx ,new.patch
-	    default=U
-	    ;;
-	[Ff]*)
-	    vim *.rej
-	    default=E
-	    ;;
-	[Mm]*)
-	    cat *.c lib/compat.c | awk -f mkproto.awk >proto.h
-	    echo -e "\nRegenerated proto.h"
-	    default=E
-	    ;;
-	[Uu]*)
-	    if [ -f ,new.patch ]; then
-		cp -p ,new.patch $xx
-		echo -e "\nCopied ,new.patch to $xx"
-		default=A
-	    else
-		echo -e "\n*** Edit the diffs first. ***"
-		default=E
-	    fi
-	    ;;
-	[Aa]*)
-	    apply=y
-	    ;;
-	[Nn]*)
-	    break
-	    ;;
-	[Qq]*)
-	    exit 0
-	    ;;
-	esac
-    done
-done
+mkdir('tmp', 0777) unless -d 'tmp';
+chdir('tmp') or die "Unable to chdir to 'tmp'";
+
+mkdir('workdir') unless -d 'workdir';
+open(OUT, '>exclude') or die $!;
+print OUT <<EOT;
+CVS
+proto.h
+configure
+config.h.in
+rsync.1
+rsyncd.conf.5
+EOT
+close OUT;
+
+print "Using CVS to update the tmp/cvsdir copy of the source.\n";
+system qq|cvs -d "$root" co -d cvsdir rsync|;
+
+@ARGV = glob('../*.diff') unless @ARGV;
+
+DIFF:
+foreach my $diff (@ARGV) {
+    next unless $diff =~ /\.diff$/;
+    next if $diff =~ /gzip-rsyncable\.diff$/;
+    $diff =~ s#^(patches|\.\.)/##;
+
+    open(IN, "../$diff") or die $!;
+    while (<IN>) {
+	last if /^--- /;
+	if (/^Depends-On-Patch: (\S+.diff)$/) {
+	    my $dep = $1;
+	    $has_dependencies = 1;
+	    print "\nApplying dependency patch $dep...\n";
+	    if (system("patch -d cvsdir -p0 -b -Vt -Zf <../$dep") != 0) {
+		print "Unable to cleanly apply dependency patch -- skipping $diff\n";
+		system "rm -f cvsdir/*.rej cvsdir/*/*.rej";
+		&restore_cvsdir;
+		next DIFF;
+	    }
+	}
+    }
+    close IN;
+
+    my $default = apply_patch($diff);
+    if ($default =~ s/^D,// || $default eq 'N') {
+	my $def = generate_new_patch($diff);
+	$default = 'U,N' if $default eq 'N' && $def eq 'E';
+    }
+
+    PROMPT:
+    while (1) {
+	print "\n----------- $diff ------------\n",
+	    "\nFix rejects, Diff create, Edit both diffs, Update patch,\n",
+	    "Apply patch again, !(CMD), Build rsync, Next, Quit: [$default] ";
+	my $ans = <STDIN>;
+	chomp $ans;
+	$ans = $default if $ans eq '';
+	while ($ans =~ s/^\s*(!|\w)((?<!!)[^;,]*|[^;]*)[;,]?//) {
+	    my $cmd = "\U$1\E";
+	    if ($cmd eq '!') {
+		$cmd = $2 || $ENV{'SHELL'};
+		chdir('workdir') or die $!;
+		system $cmd;
+		chdir('..') or die $!;
+		$default = 'D';
+		next;
+	    }
+	    if ($cmd eq 'A') {
+		$default = apply_patch($diff);
+		next;
+	    }
+	    if ($cmd eq 'B') {
+		if (!-f 'workdir/Makefile') {
+		    open(IN, '../../Makefile') or die $!;
+		    open(OUT, '>workdir/Makefile') or die $!;
+		    print OUT "srcdir=.\n\n";
+		    while (<IN>) {
+			last if /^gen:/;
+		    }
+		    print OUT $_;
+		    while (<IN>) {
+			last if /^clean:/;
+			print OUT $_;
+		    }
+		    close IN;
+		    close OUT;
+		}
+		chdir('workdir') or die $!;
+		system "make gen; ./configure $CONF_OPTS; make";
+		chdir('..') or die $!;
+		$default = '!make test';
+		next;
+	    }
+	    if ($cmd eq 'D') {
+		$default = generate_new_patch($diff);
+		next;
+	    }
+	    if ($cmd eq 'E') {
+		chdir('workdir') or die $!;
+		system "vim -d ../../$diff ../new.patch";
+		chdir('..') or die $!;
+		$default = 'U,A,D';
+		next;
+	    }
+	    if ($cmd eq 'F') {
+		chdir('workdir') or die $!;
+		system "vim @rejects";
+		chdir('..') or die $!;
+		$default = 'D,E';
+		next;
+	    }
+	    if ($cmd eq 'N') {
+		last PROMPT;
+	    }
+	    if ($cmd eq 'Q') {
+		exit;
+	    }
+	    if ($cmd eq 'U') {
+		system "cp -p new.patch ../$diff";
+		print "\nUpdated $diff from new.patch\n";
+		$default = 'A';
+		next;
+	    }
+	}
+    }
+
+    &restore_cvsdir;
+}
+
+exit;
+
+
+sub apply_patch
+{
+    my($diff) = @_;
+
+    undef @new;
+    system "rsync -a --delete --exclude='*~' cvsdir/ workdir/";
+    print "\nApplying patch $diff...\n";
+    undef @rejects;
+    my($saw_failure, $saw_offset, $saw_fuzz);
+    open(IN, "patch -d workdir -p0 --no-backup-if-mismatch -Zf <../$diff |") or die $!;
+    while (<IN>) {
+	print $_;
+	chomp;
+	if (s/^patching file //) {
+	    push(@new, $_) unless -f "cvsdir/$_";
+	} elsif (s/.* saving rejects to file //) {
+	    push(@rejects, $_);
+	} elsif (/^Hunk #\d+ FAILED/) {
+	    $saw_failure = 1;
+	} elsif (/^Hunk #\d+ succeeded at \d+( with fuzz )?/) {
+	    $saw_fuzz ||= defined $1;
+	    $saw_offset = 1;
+	}
+    }
+    close IN;
+    return 'F,D,E' if $saw_failure;
+    return 'D,E' if $saw_fuzz;
+    return 'D,U,N' if $saw_offset;
+    'N';
+}
+
+sub generate_new_patch
+{
+    my($diff) = @_;
+
+    foreach (@new) {
+	system "touch -r workdir/$_ cvsdir/$_";
+    }
+    open(IN, "../$diff") or die $!;
+    open(OUT, '>new.patch') or die $!;
+    while (<IN>) {
+	last if /^--- /;
+	print OUT $_;
+    }
+    close IN;
+    open(IN, 'diff --exclude-from=exclude -upr cvsdir workdir |') or die $!;
+    while (<IN>) {
+	next if /^(diff -|Index: |Only in )/;
+	s#^\Q--- cvsdir/\E#--- orig/#;
+	s#^\Q+++ workdir/\E#+++ #;
+	s#(\.000000000)? \+0000$##;
+	print OUT $_;
+    }
+    close IN;
+    close OUT;
+    foreach (@new) {
+	unlink("cvsdir/$_");
+    }
+    print "\nDiffing... ";
+    if (system("diff ../$diff new.patch >/dev/null") == 0) {
+	print "new patch is identical to old.\n";
+	return 'N';
+    }
+    print "New patch DIFFERS from old.\n";
+    'E';
+}
+
+sub restore_cvsdir
+{
+    return unless $has_dependencies;
+    $has_dependencies = 0;
+
+    foreach (glob('*.~[1-9]~'), glob('*/*.~[1-9]~')) {
+	my $fn;
+	($fn = $_) =~ s/\.~1~$//;
+	if ($fn eq $_) {
+	    unlink($_);
+	} elsif (-r $fn) {
+	    rename($_,  $fn);
+	} else {
+	    unlink($_);
+	    unlink($fn);
+	}
+    }
+}

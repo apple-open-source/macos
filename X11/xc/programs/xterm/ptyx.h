@@ -2,10 +2,10 @@
  *	$Xorg: ptyx.h,v 1.3 2000/08/17 19:55:09 cpqbld Exp $
  */
 
-/* $XFree86: xc/programs/xterm/ptyx.h,v 3.100 2003/02/25 23:36:55 dickey Exp $ */
+/* $XFree86: xc/programs/xterm/ptyx.h,v 3.111 2003/12/31 17:12:28 dickey Exp $ */
 
 /*
- * Copyright 1999,2000,2001,2002 by Thomas E. Dickey
+ * Copyright 1999-2002,2003 by Thomas E. Dickey
  *
  *                         All Rights Reserved
  *
@@ -110,6 +110,15 @@
 #endif /* SYSV */
 
 /*
+ * Newer versions of <X11/Xft/Xft.h> have a version number.  We use certain
+ * features from that.
+ */
+#if defined(XRENDERFONT) && defined(XFT_VERSION) && XFT_VERSION >= 20100
+#define HAVE_TYPE_FCCHAR32	1	/* compatible: XftChar16 */
+#define HAVE_TYPE_XFTCHARSPEC	1	/* new type XftCharSpec */
+#endif
+
+/*
 ** Definitions to simplify ifdef's for pty's.
 */
 #define USE_PTY_DEVICE 1
@@ -128,14 +137,24 @@
 
 #if defined(SYSV) && defined(i386) && !defined(SVR4)
 #define ATT
-#define USE_HANDSHAKE
+#define USE_HANDSHAKE 1
 #define USE_ISPTS_FLAG 1
 #endif
 
-#if (defined(ATT) && !defined(__sgi)) || defined(__MVS__) || (defined(SYSV) && defined(i386)) || (defined (__GLIBC__) && ((__GLIBC__ > 2) || (__GLIBC__ == 2) && (__GLIBC_MINOR__ >= 1)))
+#if (defined (__GLIBC__) && ((__GLIBC__ > 2) || (__GLIBC__ == 2) && (__GLIBC_MINOR__ >= 1)))
+#define USE_USG_PTYS
+#define USE_HANDSHAKE 0	/* "recent" Linux systems do not require handshaking */
+#elif (defined(ATT) && !defined(__sgi)) || defined(__MVS__) || (defined(SYSV) && defined(i386))
 #define USE_USG_PTYS
 #else
-#define USE_HANDSHAKE
+#define USE_HANDSHAKE 1
+#endif
+
+/*
+ * More systems than not require pty-handshaking.
+ */
+#ifndef USE_HANDSHAKE
+#define USE_HANDSHAKE 1
 #endif
 
 /*
@@ -319,7 +338,7 @@ typedef struct {
 	int	x;
 	int	y;
 	int	fontsize;
-	int	linetype;
+	unsigned linetype;
 } Tmodes;
 
 typedef struct {
@@ -380,7 +399,11 @@ typedef struct {
 
 #define Cres(name,class,offset,value) \
 	{RES_NAME(name), RES_CLASS(class), XtRPixel, sizeof(Pixel), \
-	 RES_OFFSET(offset), XtRString, value}
+	 RES_OFFSET(offset), XtRString, (XtPointer) value}
+
+#define Fres(name,class,offset,value) \
+	{RES_NAME(name), RES_CLASS(class), XtRFontStruct, sizeof(XFontStruct *), \
+	 RES_OFFSET(offset), XtRString, (XtPointer) value}
 
 #define Ires(name,class,offset,value) \
 	{RES_NAME(name), RES_CLASS(class), XtRInt, sizeof(int), \
@@ -408,6 +431,22 @@ typedef struct {
 
 #ifndef OPT_BOX_CHARS
 #define OPT_BOX_CHARS	1 /* true if xterm can simulate box-characters */
+#endif
+
+#ifndef OPT_BROKEN_OSC
+#ifdef linux
+#define OPT_BROKEN_OSC	1 /* man console_codes, 1st paragraph - cf: ECMA-48 */
+#else
+#define OPT_BROKEN_OSC	0 /* true if xterm allows Linux's broken OSC parsing */
+#endif
+#endif
+
+#ifndef OPT_BROKEN_ST
+#define OPT_BROKEN_ST	1 /* true if xterm allows old/broken OSC parsing */
+#endif
+
+#ifndef OPT_C1_PRINT
+#define OPT_C1_PRINT	1 /* true if xterm allows C1 controls to be printable */
 #endif
 
 #ifndef OPT_CLIP_BOLD
@@ -482,6 +521,10 @@ typedef struct {
 #define OPT_HIGHLIGHT_COLOR 1 /* true if xterm supports color highlighting */
 #endif
 
+#ifndef OPT_LOAD_VTFONTS
+#define OPT_LOAD_VTFONTS 0 /* true if xterm has load-vt-fonts() action */
+#endif
+
 #ifndef OPT_LUIT_PROG
 #define OPT_LUIT_PROG   0 /* true if xterm supports luit */
 #endif
@@ -500,6 +543,10 @@ typedef struct {
 
 #ifndef OPT_PC_COLORS
 #define OPT_PC_COLORS   1 /* true if xterm supports PC-style (bold) colors */
+#endif
+
+#ifndef OPT_PTY_HANDSHAKE
+#define OPT_PTY_HANDSHAKE USE_HANDSHAKE	/* avoid pty races on older systems */
 #endif
 
 #ifndef OPT_PRINT_COLORS
@@ -788,7 +835,7 @@ extern int A2E(int);
 /***====================================================================***/
 
 #if OPT_VT52_MODE
-#define if_OPT_VT52_MODE(screen, code) if(screen->ansi_level == 0) code
+#define if_OPT_VT52_MODE(screen, code) if(screen->vtXX_level == 0) code
 #else
 #define if_OPT_VT52_MODE(screen, code) /* nothing */
 #endif
@@ -844,6 +891,9 @@ typedef struct {
 #endif
 #ifndef TRACE_CHILD
 #define TRACE_CHILD /*nothing*/
+#endif
+#ifndef TRACE_HINTS
+#define TRACE_HINTS(hints) /*nothing*/
 #endif
 #ifndef TRACE_OPTS
 #define TRACE_OPTS(opts,ress,lens) /*nothing*/
@@ -918,27 +968,33 @@ typedef struct {
 
 	/* indices into save_modes[] */
 typedef enum {
-	DP_DECCKM,
+	DP_CRS_VISIBLE,
 	DP_DECANM,
+	DP_DECARM,
+	DP_DECAWM,
+	DP_DECBKM,
+	DP_DECCKM,
 	DP_DECCOLM,	/* IN132COLUMNS */
+	DP_DECOM,
+	DP_DECPEX,
+	DP_DECPFF,
 	DP_DECSCLM,
 	DP_DECSCNM,
-	DP_DECOM,
-	DP_DECAWM,
-	DP_DECARM,
-	DP_X_X10MSE,
-	DP_DECPFF,
-	DP_DECPEX,
 	DP_DECTCEM,
 	DP_DECTEK,
-	DP_X_DECCOLM,
-	DP_X_MORE,
-	DP_X_MARGIN,
-	DP_X_REVWRAP,
-	DP_X_LOGGING,
+	DP_PRN_EXTENT,
+	DP_PRN_FORMFEED,
 	DP_X_ALTSCRN,
-	DP_DECBKM,
+	DP_X_DECCOLM,
+	DP_X_LOGGING,
+	DP_X_MARGIN,
+	DP_X_MORE,
 	DP_X_MOUSE,
+	DP_X_REVWRAP,
+	DP_X_X10MSE,
+#if OPT_BLINK_CURS
+	DP_CRS_BLINK,
+#endif
 	DP_LAST
 	} SaveModes;
 
@@ -947,6 +1003,7 @@ typedef enum {
 
 	/* index into vt_shell[] or tek_shell[] */
 typedef enum {
+	noMenu = -1,
 	mainMenu,
 	vtMenu,
 	fontMenu,
@@ -1076,6 +1133,15 @@ typedef struct {
 	int		utf_count;	/* state of utf_char */
 	IChar		utf_char;	/* in-progress character */
 #endif
+#if OPT_BROKEN_OSC
+	Boolean		brokenLinuxOSC; /* true to ignore Linux palette ctls */
+#endif
+#if OPT_BROKEN_ST
+	Boolean		brokenStringTerm; /* true to match old OSC parse */
+#endif
+#if OPT_C1_PRINT
+	Boolean		c1_printable;	/* true if we treat C1 as print	*/
+#endif
 	int		border;		/* inner border			*/
 	Cursor		arrow;		/* arrow cursor			*/
 	unsigned long	event_mask;
@@ -1138,7 +1204,9 @@ typedef struct {
 
 	Boolean		fnt_prop;	/* true if proportional fonts	*/
 	Boolean		fnt_boxes;	/* true if font has box-chars	*/
+#if OPT_BOX_CHARS
 	Boolean		force_box_chars;/* true if we assume that	*/
+#endif
 	Dimension	fnt_wide;
 	Dimension	fnt_high;
 	XFontStruct	*fnt_norm;	/* normal font of terminal	*/
@@ -1208,7 +1276,7 @@ typedef struct {
 	int		scrolls;	/* outstanding scroll count,
 					    used only with multiscroll	*/
 	SavedCursor	sc[2];		/* data for restore cursor	*/
-	int		save_modes[24];	/* save dec/xterm private modes	*/
+	int		save_modes[DP_LAST]; /* save dec/xterm private modes */
 
 	/* Improved VT100 emulation stuff.				*/
 	String		keyboard_dialect; /* default keyboard dialect	*/
@@ -1218,7 +1286,8 @@ typedef struct {
 	char		curss;		/* Current single shift.	*/
 	String		term_id;	/* resource for terminal_id	*/
 	int		terminal_id;	/* 100=vt100, 220=vt220, etc.	*/
-	int		ansi_level;	/* 0=vt100, 1,2,3 = vt100 ... vt320 */
+	int		vtXX_level;	/* 0=vt52, 1,2,3 = vt100 ... vt320 */
+	int		ansi_level;	/* levels 1,2,3			*/
 	int		scroll_amt;	/* amount to scroll		*/
 	int		refresh_amt;	/* amount to refresh		*/
 	int		protected_mode;	/* 0=off, 1=DEC, 2=ISO		*/
@@ -1235,6 +1304,14 @@ typedef struct {
 	unsigned	restore_y;
 	unsigned	restore_width;
 	unsigned	restore_height;
+#endif
+
+#if OPT_VT52_MODE
+	int		vt52_save_level; /* save-area for DECANM	*/
+	char		vt52_save_curgl;
+	char		vt52_save_curgr;
+	char		vt52_save_curss;
+	char		vt52_save_gsets[4];
 #endif
 	/* Testing */
 #if OPT_XMC_GLITCH
@@ -1275,6 +1352,7 @@ typedef struct {
 #endif /* OPT_TEK4014 */
 
 	int		multiClickTime;	 /* time between multiclick selects */
+	int		visualBellDelay; /* msecs to delay for visibleBell */
 	int		bellSuppressTime; /* msecs after Bell before another allowed */
 	Boolean		bellInProgress; /* still ringing/flashing prev bell? */
 	char		*charClass;	/* for overriding word selection */
@@ -1284,7 +1362,7 @@ typedef struct {
 	Boolean		trim_selection; /* controls trimming of selection */
 	Boolean		i18nSelections;
 	Boolean		brokenSelections;
-	char		*selection_data; /* the current selection */
+	Char		*selection_data; /* the current selection */
 	int		selection_size; /* size of allocated buffer */
 	int		selection_length; /* number of significant bytes */
 	Time		selection_time;	/* latest event timestamp */
@@ -1301,7 +1379,7 @@ typedef struct {
 	Boolean		meta_sends_esc;		/* Meta-key sends ESC prefix */
 	Pixmap		menu_item_bitmap;	/* mask for checking items */
 	String		menu_font_names[NMENUFONTS];
-	unsigned long	menu_font_sizes[NMENUFONTS];
+	long		menu_font_sizes[NMENUFONTS];
 	int		menu_font_number;
 	XIC		xic;
 #ifdef XRENDERFONT
@@ -1362,14 +1440,20 @@ typedef struct
     int modify_cursor_keys;	/* how to handle modifiers */
 } TKeyboard;
 
+typedef struct {
+    char *f_n;			/* the normal font */
+    char *f_b;			/* the bold font */
+#if OPT_WIDE_CHARS
+    char *f_w;			/* the normal wide font */
+    char *f_wb;			/* the bold wide font */
+#endif
+} VTFontNames;
+
 typedef struct _Misc {
+    VTFontNames default_font;
     char *geo_metry;
     char *T_geometry;
-    char *f_n;
-    char *f_b;
 #if OPT_WIDE_CHARS
-    char *f_w;
-    char *f_wb;
     Boolean	cjk_width;	/* true when CJK width convention is turned on */
 #endif
 #if OPT_LUIT_PROG
@@ -1379,7 +1463,7 @@ typedef struct _Misc {
     char *localefilter;		/* path for luit */
 #endif
 #if OPT_INPUT_METHOD
-    char *f_x;
+    char *f_x;			/* font for XIM */
 #endif
     int limit_resize;
 #ifdef ALLOWLOGGING
@@ -1387,7 +1471,7 @@ typedef struct _Misc {
 #endif
     Boolean login_shell;
     Boolean re_verse;
-    Boolean re_verse0;	/* initial value of "-rv" */
+    Boolean re_verse0;		/* initial value of "-rv" */
     XtGravity resizeGravity;
     Boolean reverseWrap;
     Boolean autoWrap;
@@ -1395,7 +1479,7 @@ typedef struct _Misc {
     Boolean signalInhibit;
 #if OPT_TEK4014
     Boolean tekInhibit;
-    Boolean tekSmall;	/* start tek window in small size */
+    Boolean tekSmall;		/* start tek window in small size */
 #endif
     Boolean scrollbar;
 #ifdef SCROLLBAR_RIGHT
@@ -1529,6 +1613,20 @@ typedef struct _TekWidgetRec {
 #define CHARDRAWN	0x80    /* a character has been drawn here on the
 				   screen.  Used to distinguish blanks from
 				   empty parts of the screen when selecting */
+
+/* The following attributes make sense in the argument of drawXtermText()  */
+#define NOBACKGROUND	0x100	/* Used for overstrike */
+#define NOTRANSLATION	0x200	/* No scan for chars missing in font */
+#define NATIVEENCODING	0x400	/* strings are in the font encoding */
+#define DOUBLEWFONT	0x800	/* The actual X-font is double-width */
+#define DOUBLEHFONT	0x1000	/* The actual X-font is double-height */
+#define CHARBYCHAR	0x2000	/* Draw chars one-by-one */
+
+/* The toplevel-call to drawXtermText() should have text-attributes guarded: */
+#define DRAWX_MASK	0xff	/* text flags should be bitand'ed */
+
+/* The following attribute makes sense in the argument of xtermSpecialFont etc */
+#define NORESOLUTION	0x800000	/* find the font without resolution */
 
 			/* mask: user-visible attributes */
 #define	ATTRIBUTES	(INVERSE|UNDERLINE|BOLD|BLINK|BG_COLOR|FG_COLOR|INVISIBLE|PROTECTED)

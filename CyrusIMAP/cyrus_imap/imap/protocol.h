@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: protocol.h,v 1.5 2004/05/06 18:52:07 ken3 Exp $ */
+/* $Id: protocol.h,v 1.4 2005/03/05 00:37:02 dasenbro Exp $ */
 
 #ifndef _INCLUDED_PROTOCOL_H
 #define _INCLUDED_PROTOCOL_H

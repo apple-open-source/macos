@@ -1,5 +1,5 @@
 /********************************************************************
- * Copyright (c) 2001-2003 International Business Machines 
+ * Copyright (c) 2001-2004 International Business Machines 
  * Corporation and others. All Rights Reserved.
  ********************************************************************
  * File usrchtst.c
@@ -141,20 +141,8 @@ static char *toCharString(const UChar* unichars)
             *temp ++ = (char)ch;
         }
         else {
-            char digit[5];
-            int  zerosize;
-            *temp = 0;
-            strcat(temp, "\\u");
-            temp = temp + 2;
-            sprintf(digit, "%x", ch);
-            zerosize = 4 - strlen(digit);
-            while (zerosize != 0) {
-                *temp ++ = '0';
-                zerosize --;
-            }
-            *temp = 0;
-            strcat(temp, digit);
-            temp = temp + strlen(digit);
+            sprintf(temp, "\\u%04x", ch);
+            temp += 6; /* \uxxxx */
         }
     }
     *temp = 0;
@@ -2081,10 +2069,10 @@ static void TestContractionCanonical(void)
     UChar          rules[128];
     UChar          pattern[128];
     UChar          text[128];
-    UCollator     *collator;
+    UCollator     *collator = NULL;
     UErrorCode     status = U_ZERO_ERROR;
     int            count = 0;
-    UStringSearch *strsrch;
+    UStringSearch *strsrch = NULL;
     memset(rules, 0, 128*sizeof(UChar));
     memset(pattern, 0, 128*sizeof(UChar));
     memset(text, 0, 128*sizeof(UChar));
@@ -2120,6 +2108,37 @@ static void TestContractionCanonical(void)
     }
     usearch_close(strsrch);
     ucol_close(collator);
+}
+
+static void TestNumeric(void) {
+    UCollator     *coll = NULL;
+    UStringSearch *strsrch = NULL;
+    UErrorCode     status = U_ZERO_ERROR;
+
+    UChar          pattern[128];
+    UChar          text[128];
+    memset(pattern, 0, 128*sizeof(UChar));
+    memset(text, 0, 128*sizeof(UChar));
+
+    coll = ucol_open("", &status);
+    if(U_FAILURE(status)) {
+        log_data_err("Could not open UCA. Is your data around?\n");
+        return;
+    }
+
+    ucol_setAttribute(coll, UCOL_NUMERIC_COLLATION, UCOL_ON, &status);
+
+    strsrch = usearch_openFromCollator(pattern, 1, text, 1, coll, NULL, &status);
+
+    if(status != U_UNSUPPORTED_ERROR || U_SUCCESS(status)) {
+        log_err("Expected U_UNSUPPORTED_ERROR when trying to instantiate a search object from a CODAN collator, got %s instead\n", u_errorName(status));
+        if(strsrch) {
+            usearch_close(strsrch);
+        }
+    }
+
+    ucol_close(coll);
+
 }
 
 void addSearchTest(TestNode** root)
@@ -2171,6 +2190,7 @@ void addSearchTest(TestNode** root)
     addTest(root, &TestContractionCanonical, 
                                  "tscoll/usrchtst/TestContractionCanonical");
     addTest(root, &TestEnd, "tscoll/usrchtst/TestEnd");
+    addTest(root, &TestNumeric, "tscoll/usrchtst/TestNumeric");
 }
 
 #endif /* #if !UCONFIG_NO_COLLATION */

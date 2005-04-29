@@ -70,7 +70,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_send.c	8.1 (Berkeley) 6/4/93";
-static const char rcsid[] = "$Id: res_send.c,v 1.5.140.1 2005/02/22 00:32:19 majka Exp $";
+static const char rcsid[] = "$Id: res_send.c,v 1.9 2004/11/19 19:43:41 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 /*
@@ -98,6 +98,8 @@ static const char rcsid[] = "$Id: res_send.c,v 1.5.140.1 2005/02/22 00:32:19 maj
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <notify.h>
+#include <pthread.h>
 #include <string.h>
 #include <unistd.h>
 #include <ifaddrs.h>
@@ -371,124 +373,13 @@ res_queriesmatch(const u_char *buf1, const u_char *eom1,
 	return (1);
 }
 
-#ifdef MULTI_SEND
-/* XXX */
-
-static int
-res_multi_send(res_state statp, int *nsl, int count, const u_char *buf, int buflen, u_char *ans, int anssiz, struct sockaddr *from, int *fromlen)
-{
-	struct sockaddr *nsap;
-	int i, ns;
-	int nsaplen, done, loops;
-	res_sendhookact act;
-
-	nsap = get_nsaddr(statp, nsl[0]);
-	nsaplen = get_salen(nsap);
-
-	if (statp->qhook)
-	{
-		do
-		{
-			done = 0;
-			loops = 0;
-
-			act = (*statp->qhook)(&nsap, &buf, &buflen, ans, anssiz, &resplen);
-			switch (act)
-			{
-				case res_goahead:
-					done = 1;
-					break;
-				case res_done:
-					return resplen;
-				case res_modified:
-					/* give the hook another try */
-					if (++loops < 42) break;
-					/*FALLTHROUGH*/
-				case res_error:
-				case res_nextns:
-				default:
-					res_nclose(statp);
-					return -1;
-			}
-		} while (!done);
-	}
-
-	Dprint((statp->options & RES_DEBUG), (stdout, ";; Multi query\n"));
-
-	n = -1;
-
-	if (v_circuit)
-	{
-		/* Use VC; at most one attempt per server. */
-		try = statp->retry;
-		n = multi_send_vc(statp, buf, buflen, ans, anssiz, &terrno, nsl, count, from, fromlen);
-	}
-	else
-	{
-		/* Use datagrams. */
-		n = multi_send_dg(statp, buf, buflen, ans, anssiz, &terrno, nsl, count, &v_circuit, &gotsomewhere, from, fromlen);
-	}
-
-	if (n <= 0)
-	{
-		res_nclose(statp);
-		return -1;
-	}
-
-	resplen = n;
-
-	Dprint((statp->options & RES_DEBUG) || ((statp->pfcode & RES_PRF_REPLY) && (statp->pfcode & RES_PRF_HEAD1)), (stdout, ";; got answer:\n"));
-	DprintQ((statp->options & RES_DEBUG) || (statp->pfcode & RES_PRF_REPLY), (stdout, "%s", ""), ans, (resplen > anssiz) ? anssiz : resplen);
-
-	/*
-	 * If we have temporarily opened a virtual circuit,
-	 * or if we haven't been asked to keep a socket open,
-	 * close the socket.
-	 */
-	if ((v_circuit && (statp->options & RES_USEVC) == 0) || (statp->options & RES_STAYOPEN) == 0)
-	{
-		res_nclose(statp);
-	}
-
-	if (statp->rhook)
-	{
-		done = 0;
-		loops = 0;
-
-		do {
-			act = (*statp->rhook)(nsap, buf, buflen, ans, anssiz, &resplen);
-			switch (act)
-			{
-				case res_goahead:
-				case res_done:
-					done = 1;
-					break;
-				case res_modified:
-					/* give the hook another try */
-					if (++loops < 42) /*doug adams*/
-						break;
-					/*FALLTHROUGH*/
-				case res_error:
-					/*FALLTHROUGH*/
-				case res_nextns:
-				default:
-					res_nclose(statp);
-					return -1;
-			}
-		} while (!done);
-
-	}
-
-	return resplen;
-}
-#endif MULTI_SEND
-
-
 int
 res_nsend_2(res_state statp, const u_char *buf, int buflen, u_char *ans, int anssiz, struct sockaddr *from, int *fromlen)
 {
 	int gotsomewhere, terrno, try, v_circuit, resplen, ns, n;
 	char abuf[NI_MAXHOST];
+	char *notify_name;
+	int notify_token, exit_requested, status;
 
 	if (statp->nscount == 0) {
 		errno = ESRCH;
@@ -508,37 +399,47 @@ res_nsend_2(res_state statp, const u_char *buf, int buflen, u_char *ans, int ans
 	 * If the ns_addr_list in the resolver context has changed, then
 	 * invalidate our cached copy and the associated timing data.
 	 */
-	if (EXT(statp).nscount != 0) {
+	if (EXT(statp).nscount != 0)
+	{
 		int needclose = 0;
 		struct sockaddr_storage peer;
 		ISC_SOCKLEN_T peerlen;
 
 		if (EXT(statp).nscount != statp->nscount)
+		{
 			needclose++;
+		}
 		else
-			for (ns = 0; ns < statp->nscount; ns++) {
-				if (statp->nsaddr_list[ns].sin_family &&
-				    !sock_eq((struct sockaddr *)&statp->nsaddr_list[ns],
-					     (struct sockaddr *)&EXT(statp).ext->nsaddrs[ns])) {
+		{
+			for (ns = 0; ns < statp->nscount; ns++)
+			{
+				if ((statp->nsaddr_list[ns].sin_family) &&
+					(EXT(statp).ext != NULL) &&
+					(!sock_eq((struct sockaddr *)&statp->nsaddr_list[ns], (struct sockaddr *)&EXT(statp).ext->nsaddrs[ns])))
+				{
 					needclose++;
 					break;
 				}
 
-				if (EXT(statp).nssocks[ns] == -1)
-					continue;
+				if (EXT(statp).nssocks[ns] == -1) continue;
+
 				peerlen = sizeof(peer);
-				if (getsockname(EXT(statp).nssocks[ns],
-				    (struct sockaddr *)&peer, &peerlen) < 0) {
+				if (getsockname(EXT(statp).nssocks[ns], (struct sockaddr *)&peer, &peerlen) < 0)
+				{
 					needclose++;
 					break;
 				}
-				if (!sock_eq((struct sockaddr *)&peer,
-				    get_nsaddr(statp, ns))) {
+
+				if (!sock_eq((struct sockaddr *)&peer, get_nsaddr(statp, ns)))
+				{
 					needclose++;
 					break;
 				}
 			}
-		if (needclose) {
+		}
+
+		if (needclose)
+		{
 			res_nclose(statp);
 			EXT(statp).nscount = 0;
 		}
@@ -547,15 +448,19 @@ res_nsend_2(res_state statp, const u_char *buf, int buflen, u_char *ans, int ans
 	/*
 	 * Maybe initialize our private copy of the ns_addr_list.
 	 */
-	if (EXT(statp).nscount == 0) {
-		for (ns = 0; ns < statp->nscount; ns++) {
+	if (EXT(statp).nscount == 0)
+	{
+		for (ns = 0; ns < statp->nscount; ns++)
+		{
 			EXT(statp).nstimes[ns] = RES_MAXTIME;
 			EXT(statp).nssocks[ns] = -1;
-			if (!statp->nsaddr_list[ns].sin_family)
-				continue;
-			EXT(statp).ext->nsaddrs[ns].sin =
-				 statp->nsaddr_list[ns];
+			if (!statp->nsaddr_list[ns].sin_family) continue;
+			if (EXT(statp).ext != NULL) 
+			{
+				EXT(statp).ext->nsaddrs[ns].sin = statp->nsaddr_list[ns];
+			}
 		}
+
 		EXT(statp).nscount = statp->nscount;
 	}
 
@@ -571,24 +476,41 @@ res_nsend_2(res_state statp, const u_char *buf, int buflen, u_char *ans, int ans
 		int fd;
 		u_int16_t nstime;
 
-		if (EXT(statp).ext != NULL)
-			inu = EXT(statp).ext->nsaddrs[0];
+		if (EXT(statp).ext != NULL) inu = EXT(statp).ext->nsaddrs[0];
 		ina = statp->nsaddr_list[0];
 		fd = EXT(statp).nssocks[0];
 		nstime = EXT(statp).nstimes[0];
-		for (ns = 0; ns < lastns; ns++) {
+		for (ns = 0; ns < lastns; ns++)
+		{
 			if (EXT(statp).ext != NULL)
-                                EXT(statp).ext->nsaddrs[ns] = 
-					EXT(statp).ext->nsaddrs[ns + 1];
+			{
+				EXT(statp).ext->nsaddrs[ns] =EXT(statp).ext->nsaddrs[ns + 1];
+			}
+
 			statp->nsaddr_list[ns] = statp->nsaddr_list[ns + 1];
 			EXT(statp).nssocks[ns] = EXT(statp).nssocks[ns + 1];
 			EXT(statp).nstimes[ns] = EXT(statp).nstimes[ns + 1];
 		}
-		if (EXT(statp).ext != NULL)
-			EXT(statp).ext->nsaddrs[lastns] = inu;
+
+		if (EXT(statp).ext != NULL) EXT(statp).ext->nsaddrs[lastns] = inu;
 		statp->nsaddr_list[lastns] = ina;
 		EXT(statp).nssocks[lastns] = fd;
 		EXT(statp).nstimes[lastns] = nstime;
+	}
+
+	/*
+	 * Get notification token
+	 * we use a self-notification token to allow a caller
+	 * to signal the thread doing this DNS query to quit.
+	 */
+	notify_name = NULL;
+	notify_token = -1;
+
+	asprintf(&notify_name, "self.thread.%lu", (unsigned long)pthread_self());
+	if (notify_name != NULL) 
+	{
+		status = notify_register_plain(notify_name, &notify_token);
+		free(notify_name);
 	}
 
 	/*
@@ -600,7 +522,15 @@ res_nsend_2(res_state statp, const u_char *buf, int buflen, u_char *ans, int ans
 		int nsaplen;
 		nsap = get_nsaddr(statp, ns);
 		nsaplen = get_salen(nsap);
+
  same_ns:
+		if (notify_token != -1)
+		{
+			exit_requested = 0;
+			status = notify_get_state(notify_token, &exit_requested);
+			if (exit_requested == ThreadStateExitRequested) goto fail;
+		}
+
 		if (statp->qhook) {
 			int done = 0, loops = 0;
 
@@ -617,6 +547,7 @@ res_nsend_2(res_state statp, const u_char *buf, int buflen, u_char *ans, int ans
 					res_nclose(statp);
 					goto next_ns;
 				case res_done:
+					if (notify_token != -1) notify_cancel(notify_token);
 					return (resplen);
 				case res_modified:
 					/* give the hook another try */
@@ -641,6 +572,12 @@ res_nsend_2(res_state statp, const u_char *buf, int buflen, u_char *ans, int ans
 		if (v_circuit) {
 			/* Use VC; at most one attempt per server. */
 			try = statp->retry;
+			if (notify_token != -1)
+			{
+				exit_requested = 0;
+				status = notify_get_state(notify_token, &exit_requested);
+				if (exit_requested == ThreadStateExitRequested) goto fail;
+			}
 			n = send_vc(statp, buf, buflen, ans, anssiz, &terrno, ns, from, fromlen);
 			if (n < 0)
 				goto fail;
@@ -649,6 +586,12 @@ res_nsend_2(res_state statp, const u_char *buf, int buflen, u_char *ans, int ans
 			resplen = n;
 		} else {
 			/* Use datagrams. */
+			if (notify_token != -1)
+			{
+				exit_requested = 0;
+				status = notify_get_state(notify_token, &exit_requested);
+				if (exit_requested == ThreadStateExitRequested) goto fail;
+			}
 			n = send_dg(statp, buf, buflen, ans, anssiz, &terrno,
 				    ns, &v_circuit, &gotsomewhere, from, fromlen);
 			if (n < 0)
@@ -708,6 +651,7 @@ res_nsend_2(res_state statp, const u_char *buf, int buflen, u_char *ans, int ans
 			} while (!done);
 
 		}
+		if (notify_token != -1) notify_cancel(notify_token);
 		return (resplen);
  next_ns: ;
 	   } /*foreach ns*/
@@ -720,9 +664,13 @@ res_nsend_2(res_state statp, const u_char *buf, int buflen, u_char *ans, int ans
 			errno = ETIMEDOUT;	/* no answer obtained */
 	} else
 		errno = terrno;
+
+	if (notify_token != -1) notify_cancel(notify_token);
 	return (-1);
+
  fail:
 	res_nclose(statp);
+	if (notify_token != -1) notify_cancel(notify_token);
 	return (-1);
 }
 
@@ -764,15 +712,17 @@ get_nsaddr(statp, n)
 	res_state statp;
 	size_t n;
 {
-
-	if (!statp->nsaddr_list[n].sin_family && EXT(statp).ext) {
+	if ((!statp->nsaddr_list[n].sin_family) && (EXT(statp).ext != NULL))
+	{
 		/*
 		 * - EXT(statp).ext->nsaddrs[n] holds an address that is larger
 		 *   than struct sockaddr, and
 		 * - user code did not update statp->nsaddr_list[n].
 		 */
 		return (struct sockaddr *)(void *)&EXT(statp).ext->nsaddrs[n];
-	} else {
+	}
+	else
+	{
 		/*
 		 * - user code updated statp->nsaddr_list[n], or
 		 * - statp->nsaddr_list[n] has the same content as
@@ -1171,10 +1121,10 @@ send_dg(res_state statp,
 #ifdef __APPLE__
 	ntry = statp->nscount * statp->retry;
 	seconds = statp->retrans / ntry;
+	if (seconds <= 0) seconds = 1;
 	timeout.tv_sec = seconds;
 	timeout.tv_nsec = ((statp->retrans - (seconds * ntry)) * 1000) / ntry;
 	timeout.tv_nsec *= 1000000;
-
 	now = evNowTime();
 	finish = evAddTime(now, timeout);
 #else
@@ -1297,7 +1247,8 @@ send_dg(res_state statp,
 			(statp->pfcode & RES_PRF_REPLY),
 			(stdout, ";; wrong query name:\n"),
 			ans, (resplen > anssiz) ? anssiz : resplen);
-		goto wait;
+		res_nclose(statp);
+		return (0);
 	}
 	if (anhp->rcode == ns_r_servfail ||
 	    anhp->rcode == ns_r_notimpl ||

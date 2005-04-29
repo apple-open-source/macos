@@ -12,8 +12,8 @@ NAME = text_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = banner cat cksum col colrm column comm cut ed expand fmt\
-        fold head join lam look md5 paste pr rev rs sed sort split\
+TOOLS = banner cat cksum col colrm column comm csplit cut ed expand fmt\
+        fold head join lam look md5 nl paste pr rev rs sed sort split\
         tail tr ul unexpand uniq unvis vis wc
 
 OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
@@ -26,7 +26,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -Wall -no-cpp-precomp
+NEXTSTEP_PB_CFLAGS = -Wall -no-cpp-precomp -mdynamic-no-pic
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

@@ -34,8 +34,6 @@
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommand.h>
 
-#define kDefaultRetries 3
-
 #pragma mark -
 
 OSDefineMetaClass( IOFWAsyncCommand, IOFWCommand )
@@ -88,7 +86,7 @@ bool IOFWAsyncCommand::initAll(IOFireWireNub *device, FWAddress devAddress,
 	
 	if( success )
 	{
-		fMaxRetries = kDefaultRetries;
+		fMaxRetries = kFWCmdDefaultRetries;
 		fCurRetries = fMaxRetries;
 		fMemDesc = hostMem;
 		fComplete = completion;
@@ -139,7 +137,7 @@ bool IOFWAsyncCommand::initAll(IOFireWireController *control,
 		
 	if( success )
 	{	
-		fMaxRetries = kDefaultRetries;
+		fMaxRetries = kFWCmdDefaultRetries;
 		fCurRetries = fMaxRetries;
 		fMemDesc = hostMem;
 		fComplete = completion;
@@ -239,8 +237,8 @@ void IOFWAsyncCommand::free()
 IOReturn IOFWAsyncCommand::reinit(FWAddress devAddress, IOMemoryDescriptor *hostMem,
 			FWDeviceCallback completion, void *refcon, bool failOnReset)
 {
-    if(fStatus == kIOReturnBusy || fStatus == kIOFireWirePending)
-	return fStatus;
+    if(fStatus == kIOReturnBusy || fStatus == kIOFireWirePending || fStatus == kIOFireWireCompleting)
+		return fStatus;
 
     fComplete = completion;
     fRefCon = refcon;
@@ -277,7 +275,7 @@ IOReturn IOFWAsyncCommand::reinit(FWAddress devAddress, IOMemoryDescriptor *host
 IOReturn IOFWAsyncCommand::reinit(UInt32 generation, FWAddress devAddress, IOMemoryDescriptor *hostMem,
                         FWDeviceCallback completion, void *refcon)
 {
-    if(fStatus == kIOReturnBusy || fStatus == kIOFireWirePending)
+    if(fStatus == kIOReturnBusy || fStatus == kIOFireWirePending || fStatus == kIOFireWireCompleting)
         return fStatus;
     if(fDevice)
         return kIOReturnBadArgument;
@@ -344,41 +342,85 @@ IOReturn IOFWAsyncCommand::updateNodeID(UInt32 generation, UInt16 nodeID)
 
 IOReturn IOFWAsyncCommand::complete(IOReturn status)
 {
+	// latch the most recent completion status
+	IOFWCommand::fMembers->fCompletionStatus = status; 
+	
+	if( fStatus == kIOFireWireCompleting )
+	{
+		// prevent double completion
+		return kIOReturnSuccess;
+	}
+	
+	// tell the fwim we're completing
+	// this could cause this routine to be reentered, hence the protection above
+	
+	fStatus = kIOFireWireCompleting;
+	fControl->handleAsyncCompletion( this, status );
+	
+	// we're back - actually complete the command
+	IOReturn completion_status = IOFWCommand::fMembers->fCompletionStatus;
+	
     removeFromQ();	// Remove from current queue
-    if(fTrans) {
+    if(fTrans) 
+	{
         fControl->freeTrans(fTrans);
         fTrans = NULL;
     }
+	
     // If we're in the middle of processing a bus reset and
     // the command should be retried after a bus reset, put it on the
     // 'after reset queue'
     // If we aren't still scanning the bus, and we're supposed to retry after bus resets, turn it into device offline 
-    if((status == kIOFireWireBusReset) && !fFailOnReset) {
-        if(fControl->scanningBus()) {
+    if((completion_status == kIOFireWireBusReset) && !fFailOnReset) 
+	{
+        if(fControl->scanningBus()) 
+		{
             setHead(fControl->getAfterResetHandledQ());
             return fStatus = kIOFireWirePending;	// On a queue waiting to execute
         }
-        else if(fDevice) {
+        else if(fDevice) 
+		{
             IOLog("Command for device %p that's gone away\n", fDevice);
-            status = kIOReturnOffline;	// device must have gone.
+            completion_status = kIOReturnOffline;	// device must have gone.
         }
     }
+	
     // First check for retriable error
-    if(status == kIOReturnTimeout) {
-        if(fCurRetries--) {
-            bool tryAgain = kIOFireWireResponseBase+kFWResponseConflictError == fStatus;
-            if(!tryAgain) {
+    if(completion_status == kIOReturnTimeout) 
+	{
+        if(fCurRetries--) 
+		{
+			bool tryAgain = false;
+			int ack = getAckCode();
+			if( (ack == kFWAckBusyX) || (ack == kFWAckBusyA) || (ack == kFWAckBusyB) )
+			{
+				tryAgain = true;
+			}
+			
+            if(!tryAgain) 
+			{
                 // Some devices just don't handle block requests properly.
                 // Only retry as Quads for ROM area
-                if(fMaxPack > 4 && fAddressHi == kCSRRegisterSpaceBaseAddressHi &&
-                    fAddressLo >= kConfigROMBaseAddress && fAddressLo < kConfigROMBaseAddress + 1024) {
+                if( fMaxPack > 4 && 
+					fAddressHi == kCSRRegisterSpaceBaseAddressHi &&
+                    fAddressLo >= kConfigROMBaseAddress && 
+					fAddressLo < kConfigROMBaseAddress + 1024) 
+				{
                     fMaxPack = 4;
                     tryAgain = true;
                 }
                 else
                     tryAgain = kIOReturnSuccess == fControl->handleAsyncTimeout(this);
             }
-            if(tryAgain) {
+            
+			if( fNodeID == 0x4242 )
+			{
+				// never retry FireBug packets
+				tryAgain = false;
+			}
+                
+			if(tryAgain) 
+			{
 				IOReturn result;
 				
 				// startExecution() may release this command so retain it
@@ -391,13 +433,14 @@ IOReturn IOFWAsyncCommand::complete(IOReturn status)
             }
         }
     }
-    fStatus = status;
+	
+    fStatus = completion_status;
     if(fSync)
-        fSyncWakeup->signal(status);
+        fSyncWakeup->signal(completion_status);
     else if(fComplete)
-		(*fComplete)(fRefCon, status, fDevice, this);
+		(*fComplete)(fRefCon, completion_status, fDevice, this);
 
-    return status;
+    return completion_status;
 }
 
 // gotAck
@@ -413,8 +456,8 @@ void IOFWAsyncCommand::gotAck(int ackCode)
 	switch( ackCode ) 
 	{
 		case kFWAckPending:
-			// This shouldn't happen.
-			IOLog("Command 0x%p received Ack code %d\n", this, ackCode);
+			// This has been turned on in the FWIM
+			//IOLog("Command 0x%p received Ack code %d\n", this, ackCode);
 			return;
     
 		case kFWAckComplete:
@@ -426,7 +469,6 @@ void IOFWAsyncCommand::gotAck(int ackCode)
 		case kFWAckBusyX:
 		case kFWAckBusyA:
 		case kFWAckBusyB:
-			fStatus = kIOFireWireResponseBase+kFWResponseConflictError;
 			return;	// Retry after command times out
 			
 		// Device isn't acking at all

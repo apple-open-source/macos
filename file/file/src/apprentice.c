@@ -50,7 +50,7 @@
 #endif
 
 #ifndef	lint
-FILE_RCSID("@(#)$Id: apprentice.c,v 1.1 2003/07/02 18:01:22 eseidel Exp $")
+FILE_RCSID("@(#)$Id: apprentice.c,v 1.78 2004/07/24 20:38:56 christos Exp $")
 #endif	/* lint */
 
 #define	EATAB {while (isascii((unsigned char) *l) && \
@@ -75,12 +75,9 @@ FILE_RCSID("@(#)$Id: apprentice.c,v 1.1 2003/07/02 18:01:22 eseidel Exp $")
 #define MAP_FILE 0
 #endif
 
-#ifdef __EMX__
-  char PATHSEP=';';
-#else
-  char PATHSEP=':';
+#ifndef MAXPATHLEN
+#define MAXPATHLEN	1024
 #endif
-
 
 private int getvalue(struct magic_set *ms, struct magic *, char **);
 private int hextoint(int);
@@ -99,13 +96,12 @@ private int apprentice_map(struct magic_set *, struct magic **, uint32_t *,
     const char *);
 private int apprentice_compile(struct magic_set *, struct magic **, uint32_t *,
     const char *);
+private int check_format(struct magic *);
 
 private size_t maxmagic = 0;
+private size_t magicsize = sizeof(struct magic);
 
 #ifdef COMPILE_ONLY
-const char *magicfile;
-char *progname;
-int lineno;
 
 int main(int, char *[]);
 
@@ -113,6 +109,8 @@ int
 main(int argc, char *argv[])
 {
 	int ret;
+	struct magic_set *ms;
+	char *progname;
 
 	if ((progname = strrchr(argv[0], '/')) != NULL)
 		progname++;
@@ -120,12 +118,19 @@ main(int argc, char *argv[])
 		progname = argv[0];
 
 	if (argc != 2) {
-		(void)fprintf(stderr, "usage: %s file\n", progname);
-		exit(1);
+		(void)fprintf(stderr, "Usage: %s file\n", progname);
+		return 1;
 	}
-	magicfile = argv[1];
 
-	exit(apprentice(magicfile, COMPILE, MAGIC_CHECK));
+	if ((ms = magic_open(MAGIC_CHECK)) == NULL) {
+		(void)fprintf(stderr, "%s: %s\n", progname, strerror(errno));
+		return 1;
+	}
+	ret = magic_compile(ms, argv[1]) == -1 ? 1 : 0;
+	if (ret == 1)
+		(void)fprintf(stderr, "%s: %s\n", progname, magic_error(ms));
+	magic_close(ms);
+	return ret;
 }
 #endif /* COMPILE_ONLY */
 
@@ -143,8 +148,8 @@ apprentice_1(struct magic_set *ms, const char *fn, int action,
 	int rv = -1;
 	int mapped;
 
-	if (sizeof(*magic) != FILE_MAGICSIZE) {
-		file_error(ms, "Magic element size %lu != %lu",
+	if (magicsize != FILE_MAGICSIZE) {
+		file_error(ms, 0, "magic element size %lu != %lu",
 		    (unsigned long)sizeof(*magic),
 		    (unsigned long)FILE_MAGICSIZE);
 		return -1;
@@ -152,17 +157,19 @@ apprentice_1(struct magic_set *ms, const char *fn, int action,
 
 	if (action == FILE_COMPILE) {
 		rv = apprentice_file(ms, &magic, &nmagic, fn, action);
-		if (rv == 0) {
-			rv = apprentice_compile(ms, &magic, &nmagic, fn);
-			free(magic);
-		}
+		if (rv != 0)
+			return -1;
+		rv = apprentice_compile(ms, &magic, &nmagic, fn);
+		free(magic);
 		return rv;
 	}
 #ifndef COMPILE_ONLY
 	if ((rv = apprentice_map(ms, &magic, &nmagic, fn)) == -1) {
 		if (ms->flags & MAGIC_CHECK)
-			file_magwarn("Using regular magic file `%s'", fn);
+			file_magwarn("using regular magic file `%s'", fn);
 		rv = apprentice_file(ms, &magic, &nmagic, fn, action);
+		if (rv != 0)
+			return -1;
 		mapped = 0;
 	}
 
@@ -170,13 +177,16 @@ apprentice_1(struct magic_set *ms, const char *fn, int action,
 		return rv;
 	mapped = rv;
 	     
-	if ((ml = malloc(sizeof(*ml))) == NULL) {
-		file_oomem(ms);
+	if (magic == NULL || nmagic == 0) {
+		file_delmagic(magic, mapped, nmagic);
 		return -1;
 	}
 
-	if (magic == NULL || nmagic == 0)
+	if ((ml = malloc(sizeof(*ml))) == NULL) {
+		file_delmagic(magic, mapped, nmagic);
+		file_oomem(ms);
 		return -1;
+	}
 
 	ml->magic = magic;
 	ml->nmagic = nmagic;
@@ -191,19 +201,46 @@ apprentice_1(struct magic_set *ms, const char *fn, int action,
 #endif /* COMPILE_ONLY */
 }
 
+protected void
+file_delmagic(struct magic *p, int type, size_t entries)
+{
+	if (p == NULL)
+		return;
+	switch (type) {
+	case 2:
+		p--;
+		(void)munmap((void *)p, sizeof(*p) * (entries + 1));
+		break;
+	case 1:
+		p--;
+		/*FALLTHROUGH*/
+	case 0:
+		free(p);
+		break;
+	default:
+		abort();
+	}
+}
+
 
 /* const char *fn: list of magic files */
 protected struct mlist *
 file_apprentice(struct magic_set *ms, const char *fn, int action)
 {
-	char *p, *mfn;
+	char *p, *mfn, *afn = NULL;
 	int file_err, errs = -1;
 	struct mlist *mlist;
+
+	if (fn == NULL)
+		fn = getenv("MAGIC");
+	if (fn == NULL)
+		fn = MAGIC;
 
 	if ((fn = mfn = strdup(fn)) == NULL) {
 		file_oomem(ms);
 		return NULL;
 	}
+
 	if ((mlist = malloc(sizeof(*mlist))) == NULL) {
 		free(mfn);
 		file_oomem(ms);
@@ -215,16 +252,33 @@ file_apprentice(struct magic_set *ms, const char *fn, int action)
 		p = strchr(fn, PATHSEP);
 		if (p)
 			*p++ = '\0';
+		if (*fn == '\0')
+			break;
+		if (ms->flags & MAGIC_MIME) {
+			if ((afn = malloc(strlen(fn) + 5 + 1)) == NULL) {
+				free(mfn);
+				free(mlist);
+				file_oomem(ms);
+				return NULL;
+			}
+			(void)strcpy(afn, fn);
+			(void)strcat(afn, ".mime");
+			fn = afn;
+		}
 		file_err = apprentice_1(ms, fn, action, mlist);
 		if (file_err > errs)
 			errs = file_err;
+		if (afn) {
+			free(afn);
+			afn = NULL;
+		}
 		fn = p;
 	}
 	if (errs == -1) {
 		free(mfn);
 		free(mlist);
 		mlist = NULL;
-		file_error(ms, "Couldn't find any magic files!");
+		file_error(ms, 0, "could not find any magic files!");
 		return NULL;
 	}
 	free(mfn);
@@ -249,8 +303,8 @@ apprentice_file(struct magic_set *ms, struct magic **magicp, uint32_t *nmagicp,
 	f = fopen(fn, "r");
 	if (f == NULL) {
 		if (errno != ENOENT)
-			file_error(ms, "Can't read magic file %s (%s)",
-			    fn, strerror(errno));
+			file_error(ms, errno, "cannot read magic file `%s'",
+			    fn);
 		return -1;
 	}
 
@@ -262,10 +316,11 @@ apprentice_file(struct magic_set *ms, struct magic **magicp, uint32_t *nmagicp,
 		return -1;
 	}
 
-	/* parse it */
-	if (action == FILE_CHECK)	/* print silly verbose header for USG compat. */
-		(void) printf("%s\n", hdr);
+	/* print silly verbose header for USG compat. */
+	if (action == FILE_CHECK)
+		(void)fprintf(stderr, "%s\n", hdr);
 
+	/* parse it */
 	for (lineno = 1; fgets(line, BUFSIZ, f) != NULL; lineno++) {
 		if (line[0]=='#')	/* comment, do not parse */
 			continue;
@@ -324,7 +379,7 @@ file_signextend(struct magic_set *ms, struct magic *m, uint32_t v)
 			break;
 		default:
 			if (ms->flags & MAGIC_CHECK)
-			    file_magwarn("can't happen: m->type=%d\n",
+			    file_magwarn("cannot happen: m->type=%d\n",
 				    m->type);
 			return ~0U;
 		}
@@ -377,7 +432,7 @@ parse(struct magic_set *ms, struct magic **magicp, uint32_t *nmagicp, char *l,
         }
 
 	/* get offset, then skip over it */
-	m->offset = (int) strtoul(l, &t, 0);
+	m->offset = (uint32_t)strtoul(l, &t, 0);
         if (l == t)
 		if (ms->flags & MAGIC_CHECK)
 			file_magwarn("offset %s invalid", l);
@@ -571,7 +626,7 @@ parse(struct magic_set *ms, struct magic **magicp, uint32_t *nmagicp, char *l,
 			eatsize(&l);
 		} else {
 			m->mask = 0L;
-			while (!isspace(*++l)) {
+			while (!isspace((unsigned char)*++l)) {
 				switch (*l) {
 				case CHAR_IGNORE_LOWERCASE:
 					m->mask |= STRING_IGNORE_LOWERCASE;
@@ -657,6 +712,10 @@ GetDesc:
 	while ((m->desc[i++] = *l++) != '\0' && i < MAXDESC)
 		/* NULLBODY */;
 
+	if (ms->flags & MAGIC_CHECK) {
+		if (!check_format(m))
+			return -1;
+	}
 #ifndef COMPILE_ONLY
 	if (action == FILE_CHECK) {
 		file_mdump(m);
@@ -664,6 +723,57 @@ GetDesc:
 #endif
 	++(*nmagicp);		/* make room for next */
 	return 0;
+}
+
+/*
+ * Check that the optional printf format in description matches
+ * the type of the magic.
+ */
+private int
+check_format(struct magic *m)
+{
+	static const char *formats[] = { FILE_FORMAT_STRING };
+	static const char *names[] = { FILE_FORMAT_NAME };
+	char *ptr;
+
+	for (ptr = m->desc; *ptr; ptr++)
+		if (*ptr == '%')
+			break;
+	if (*ptr == '\0') {
+		/* No format string; ok */
+		return 1;
+	}
+	if (m->type >= sizeof(formats)/sizeof(formats[0])) {
+		file_magwarn("Internal error inconsistency between m->type"
+		    " and format strings");
+		return 0;
+	}
+	if (formats[m->type] == NULL) {
+		file_magwarn("No format string for `%s' with description `%s'",
+		    m->desc, names[m->type]);
+		return 0;
+	}
+	for (; *ptr; ptr++) {
+		if (*ptr == 'l' || *ptr == 'h') {
+			/* XXX: we should really fix this one day */
+			continue;
+		}
+		if (islower((unsigned char)*ptr) || *ptr == 'X')
+			break;
+	}
+	if (*ptr == '\0') {
+		/* Missing format string; bad */
+		file_magwarn("Invalid format `%s' for type `%s'",
+			m->desc, names[m->type]);
+		return 0;
+	}
+	if (strchr(formats[m->type], *ptr) == NULL) {
+		file_magwarn("Printf format `%c' is not valid for type `%s'"
+		    " in description `%s'",
+			*ptr, names[m->type], m->desc);
+		return 0;
+	}
+	return 1;
 }
 
 /* 
@@ -681,8 +791,12 @@ getvalue(struct magic_set *ms, struct magic *m, char **p)
 	case FILE_PSTRING:
 	case FILE_REGEX:
 		*p = getstr(ms, *p, m->value.s, sizeof(m->value.s), &slen);
-		if (*p == NULL)
+		if (*p == NULL) {
+			if (ms->flags & MAGIC_CHECK)
+				file_magwarn("cannot get string from `%s'",
+				    m->value.s);
 			return -1;
+		}
 		m->vallen = slen;
 		return 0;
 	default:
@@ -713,7 +827,7 @@ getstr(struct magic_set *ms, char *s, char *p, int plen, int *slen)
 		if (isspace((unsigned char) c))
 			break;
 		if (p >= pmax) {
-			file_error(ms, "String too long: `%s'", origs);
+			file_error(ms, 0, "string too long: `%s'", origs);
 			return NULL;
 		}
 		if(c == '\\') {
@@ -912,7 +1026,7 @@ apprentice_map(struct magic_set *ms, struct magic **magicp, uint32_t *nmagicp,
 	int needsbyteswap;
 	char buf[MAXPATHLEN];
 	char *dbname = mkdbname(fn, buf, sizeof(buf));
-	void *mm;
+	void *mm = NULL;
 
 	if (dbname == NULL)
 		return -1;
@@ -921,26 +1035,31 @@ apprentice_map(struct magic_set *ms, struct magic **magicp, uint32_t *nmagicp,
 		return -1;
 
 	if (fstat(fd, &st) == -1) {
-		file_error(ms, "Cannot stat `%s' (%s)", dbname,
-		    strerror(errno));
+		file_error(ms, errno, "cannot stat `%s'", dbname);
+		goto error;
+	}
+	if (st.st_size < 16) {
+		file_error(ms, 0, "file `%s' is too small", dbname);
 		goto error;
 	}
 
 #ifdef QUICK
 	if ((mm = mmap(0, (size_t)st.st_size, PROT_READ|PROT_WRITE,
 	    MAP_PRIVATE|MAP_FILE, fd, (off_t)0)) == MAP_FAILED) {
-		file_error(ms, "Cannot map `%s' (%s)", dbname, strerror(errno));
+		file_error(ms, errno, "cannot map `%s'", dbname);
 		goto error;
 	}
+#define RET	2
 #else
 	if ((mm = malloc((size_t)st.st_size)) == NULL) {
 		file_oomem(ms);
 		goto error;
 	}
 	if (read(fd, mm, (size_t)st.st_size) != (size_t)st.st_size) {
-		file_error(ms, "Read failed (%s)", strerror(errno));
+		file_badread(ms);
 		goto error;
 	}
+#define RET	1
 #endif
 	*magicp = mm;
 	(void)close(fd);
@@ -948,7 +1067,7 @@ apprentice_map(struct magic_set *ms, struct magic **magicp, uint32_t *nmagicp,
 	ptr = (uint32_t *)(void *)*magicp;
 	if (*ptr != MAGICNO) {
 		if (swap4(*ptr) != MAGICNO) {
-			file_error(ms, "Bad magic in `%s'", dbname);
+			file_error(ms, 0, "bad magic in `%s'");
 			goto error;
 		}
 		needsbyteswap = 1;
@@ -959,7 +1078,7 @@ apprentice_map(struct magic_set *ms, struct magic **magicp, uint32_t *nmagicp,
 	else
 		version = ptr[1];
 	if (version != VERSIONNO) {
-		file_error(ms, "version mismatch (%d != %d) in `%s'",
+		file_error(ms, 0, "version mismatch (%d != %d) in `%s'",
 		    version, VERSIONNO, dbname);
 		goto error;
 	}
@@ -967,14 +1086,14 @@ apprentice_map(struct magic_set *ms, struct magic **magicp, uint32_t *nmagicp,
 	(*magicp)++;
 	if (needsbyteswap)
 		byteswap(*magicp, *nmagicp);
-	return 0;
+	return RET;
 
 error:
 	if (fd != -1)
 		(void)close(fd);
 	if (mm) {
 #ifdef QUICK
-		(void)munmap(mm, (size_t)st.st_size);
+		(void)munmap((void *)mm, (size_t)st.st_size);
 #else
 		free(mm);
 #endif
@@ -1003,27 +1122,24 @@ apprentice_compile(struct magic_set *ms, struct magic **magicp,
 		return -1;
 
 	if ((fd = open(dbname, O_WRONLY|O_CREAT|O_TRUNC, 0644)) == -1) {
-		file_error(ms, "Cannot open `%s' (%s)", dbname, strerror(errno));
+		file_error(ms, errno, "cannot open `%s'", dbname);
 		return -1;
 	}
 
-	if (write(fd, ar, sizeof(ar)) != sizeof(ar)) {
-		file_error(ms, "Error writing `%s' (%s)", dbname,
-		    strerror(errno));
+	if (write(fd, ar, sizeof(ar)) != (ssize_t)sizeof(ar)) {
+		file_error(ms, errno, "error writing `%s'", dbname);
 		return -1;
 	}
 
 	if (lseek(fd, (off_t)sizeof(struct magic), SEEK_SET)
 	    != sizeof(struct magic)) {
-		file_error(ms, "Error seeking `%s' (%s)", dbname,
-		    strerror(errno));
+		file_error(ms, errno, "error seeking `%s'", dbname);
 		return -1;
 	}
 
-	if (write(fd, *magicp,  sizeof(struct magic) * *nmagicp) 
-	    != sizeof(struct magic) * *nmagicp) {
-		file_error(ms, "Error writing `%s' (%s)", dbname,
-		    strerror(errno));
+	if (write(fd, *magicp, (sizeof(struct magic) * *nmagicp)) 
+	    != (ssize_t)(sizeof(struct magic) * *nmagicp)) {
+		file_error(ms, errno, "error writing `%s'", dbname);
 		return -1;
 	}
 
@@ -1038,12 +1154,12 @@ private const char ext[] = ".mgc";
 private char *
 mkdbname(const char *fn, char *buf, size_t bufsiz)
 {
+#ifdef notdef
 	const char *p;
 	if ((p = strrchr(fn, '/')) != NULL)
-		p++;
-	else
-		p = fn;
-	(void)snprintf(buf, bufsiz, "%s%s", p, ext);
+		fn = ++p;
+#endif
+	(void)snprintf(buf, bufsiz, "%s%s", fn, ext);
 	return buf;
 }
 

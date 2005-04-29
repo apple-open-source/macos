@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1996-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +30,6 @@
 
 with Types; use Types;
 with Uintp; use Uintp;
-with Get_Targ; use Get_Targ;
 
 package Exp_Dbug is
 
@@ -101,23 +99,19 @@ package Exp_Dbug is
       --  subprograms, since overloading can legitimately result in a
       --  case of two entities with exactly the same fully qualified names.
       --  To distinguish between entries in a set of overloaded subprograms,
-      --  the encoded names are serialized by adding one of the suffixes:
+      --  the encoded names are serialized by adding the suffix:
 
-      --    $n    (dollar sign)
       --    __nn  (two underscores)
 
       --  where nn is a serial number (2 for the second overloaded function,
-      --  2 for the third, etc.). We use $ if this symbol is allowed, and
-      --  double underscore if it is not. In the remaining examples in this
-      --  section, we use a $ sign, but the $ is replaced by __ throughout
-      --  these examples if $ sign is not available. A suffix of $1 is
-      --  always omitted (i.e. no suffix implies the first instance).
+      --  3 for the third, etc.). A suffix of __1 is always omitted (i.e. no
+      --  suffix implies the first instance).
 
       --  These names are prefixed by the normal full qualification. So
       --  for example, the third instance of the subprogram qrs in package
       --  yz would have the name:
 
-      --    yz__qrs$3
+      --    yz__qrs__3
 
       --  A more subtle case arises with entities declared within overloaded
       --  subprograms. If we have two overloaded subprograms, and both declare
@@ -130,7 +124,7 @@ package Exp_Dbug is
       --  we are talking about. For this purpose, we use a more complex suffix
       --  which has the form:
 
-      --    $nn_nn_nn ...
+      --    __nn_nn_nn ...
 
       --  where the nn values are the homonym numbers as needed for any of
       --  the qualifying entities, separated by a single underscore. If all
@@ -143,13 +137,13 @@ package Exp_Dbug is
       --        procedure Tuv is ... end;    -- Name is yz__qrs__tuv
       --      begin ... end Qrs;
 
-      --      procedure Qrs (X: Int) is      -- Name is yz__qrs$2
-      --        procedure Tuv is ... end;    -- Name is yz__qrs__tuv$2_1
-      --        procedure Tuv (X: Int) is    -- Name is yz__qrs__tuv$2_2
+      --      procedure Qrs (X: Int) is      -- Name is yz__qrs__2
+      --        procedure Tuv is ... end;    -- Name is yz__qrs__tuv__2_1
+      --        procedure Tuv (X: Int) is    -- Name is yz__qrs__tuv__2_2
       --        begin ... end Tuv;
 
-      --        procedure Tuv (X: Float) is  -- Name is yz__qrs__tuv$2_3
-      --          type m is new float;       -- Name is yz__qrs__tuv__m$2_3
+      --        procedure Tuv (X: Float) is  -- Name is yz__qrs__tuv__2_3
+      --          type m is new float;       -- Name is yz__qrs__tuv__m__2_3
       --        begin ... end Tuv;
       --      begin ... end Qrs;
       --    end Yz;
@@ -363,28 +357,46 @@ package Exp_Dbug is
       --  the type, the string "PT", and a suffix which is P or N, depending on
       --  whether this is the protected/non-locking version of the operation.
 
+      --  Operations generated for protected entries follow the same encoding.
+      --  Each entry results in two suprograms: a procedure that holds the
+      --  entry body, and a function that holds the evaluation of the barrier.
+      --  The names of these subprograms include the prefix 'E' or 'B' res-
+      --  pectively. The names also include a numeric suffix to render them
+      --  unique in the presence of overloaded entries.
+
       --  Given the declaration:
 
-      --    protected type lock is
-      --       function get return integer;
-      --       procedure set (x: integer);
+      --    protected type Lock is
+      --       function  Get return Integer;
+      --       procedure Set (X: Integer);
+      --       entry Update  (Val : Integer);
       --    private
-      --       value : integer := 0;
-      --    end lock;
+      --       Value : Integer := 0;
+      --    end Lock;
 
       --  the following operations are created:
 
       --    lockPT_getN
       --    lockPT_getP,
+
       --    lockPT_setN
       --    lockPT_setP
+
+      --    lockPT_update1sE
+      --    lockPT_udpate2sB
 
    ----------------------------------------------------
    -- Conversion between Entities and External Names --
    ----------------------------------------------------
 
-   No_Dollar_In_Label : constant Boolean := Get_No_Dollar_In_Label;
-   --  True iff the target allows dollar signs ("$") in external names
+   No_Dollar_In_Label : constant Boolean := True;
+   --  True iff the target does not allow dollar signs ("$") in external names
+   --  ??? We want to migrate all platforms to use the same convention.
+   --  As a first step, we force this constant to always be True. This
+   --  constant will eventually be deleted after we have verified that
+   --  the migration does not cause any unforseen adverse impact.
+   --  We chose "__" because it is supported on all platforms, which is
+   --  not the case of "$".
 
    procedure Get_External_Name
      (Entity     : Entity_Id;
@@ -419,55 +431,9 @@ package Exp_Dbug is
    --        by homonym suffix, if the entity is an overloaded subprogram
    --        or is defined within an overloaded subprogram.
    --    - the string "___" followed by Suffix
-
-   ----------------------------
-   -- Debug Name Compression --
-   ----------------------------
-
-   --  The full qualification of names can lead to long names, and this
-   --  section describes the method used to compress these names. Such
-   --  compression is attempted if one of the following holds:
-
-   --    The length exceeds a maximum set in hostparm, currently set
-   --    to 128, but can be changed as needed.
-
-   --    The compiler switch -gnatC is set, setting the Compress_Debug_Names
-   --    switch in Opt to True.
-
-   --  If either of these conditions holds, name compression is attempted
-   --  by replacing the qualifying section as follows.
-
-   --    Given a name of the form
-
-   --       a__b__c__d
-
-   --    where a,b,c,d are arbitrary strings not containing a sequence
-   --    of exactly two underscores, the name is rewritten as:
-
-   --       XC????????_d
-
-   --    where ???????? are 8 hex digits representing a 32-bit checksum
-   --    value that identifies the sequence of compressed names. In
-   --    addition a dummy type declaration is generated as shown by
-   --    the following example. Supposed we have three compression
-   --    sequences
-
-   --      XC1234abcd  corresponding to a__b__c__ prefix
-   --      XCabcd1234  corresponding to a__b__ prefix
-   --      XCab1234cd  corresponding to a__ prefix
-
-   --    then an enumeration type declaration is generated:
-
-   --       type XC is
-   --         (XC1234abcdXnn, aXnn, bXnn, cXnn,
-   --          XCabcd1234Xnn, aXnn, bXnn,
-   --          XCab1234cdXnn, aXnn);
-
-   --    showing the meaning of each compressed prefix, so the debugger
-   --    can interpret the exact sequence of names that correspond to the
-   --    compressed sequence. The Xnn suffixes in the above are simply
-   --    serial numbers that are guaranteed to be different to ensure
-   --    that all names are unique, and are otherwise ignored.
+   --
+   --  If this procedure is called in the ASIS mode, it does nothing. See the
+   --  comments in the body for more details.
 
    --------------------------------------------
    -- Subprograms for Handling Qualification --
@@ -497,11 +463,6 @@ package Exp_Dbug is
    --  Note: the routines Get_Unqualified_[Decoded]_Name_String in Namet
    --  are useful to remove qualification from a name qualified by the
    --  call to Qualify_All_Entity_Names.
-
-   procedure Generate_Auxiliary_Types;
-   --  The process of qualifying names may result in name compression which
-   --  requires dummy enumeration types to be generated. This subprogram
-   --  ensures that these types are appropriately included in the tree.
 
    --------------------------------
    -- Handling of Numeric Values --
@@ -533,18 +494,26 @@ package Exp_Dbug is
 
       --  In this case the compile generates a structure type y___PAD, which
       --  has a single field whose name is F. This single field is 64 bits
-      --  long and contains the actual value.
+      --  long and contains the actual value. This kind of padding is used
+      --  when the logical value to be stored is shorter than the object in
+      --  which it is allocated. For example if a size clause is used to set
+      --  a size of 256 for a signed integer value, then a typical choice is
+      --  to wrap a 64-bit integer in a 256 bit PAD structure.
 
       --  A similar encapsulation is done for some packed array types,
-      --  in which case the structure type is y___LJM and the field name
-      --  is OBJECT.
+      --  in which case the structure type is y___JM and the field name
+      --  is OBJECT. This is used in the case of a packed array stored
+      --  in modular representation (see section on representation of
+      --  packed array objects). In this case the JM wrapping is used to
+      --  achieve correct positioning of the packed array value (left or
+      --  right justified in its field depending on endianness.
 
       --  When the debugger sees an object of a type whose name has a
-      --  suffix not otherwise mentioned in this specification, the type
-      --  is a record containing a single field, and the name of that field
-      --  is all upper-case letters, it should look inside to get the value
-      --  of the field, and neither the outer structure name, nor the
-      --  field name should appear when the value is printed.
+      --  suffix of ___PAD or ___JM, the type will be a record containing
+      --  a single field, and the name of that field will be all upper case.
+      --  In this case, it should look inside to get the value of the inner
+      --  field, and neither the outer structure name, nor the field name
+      --  should appear when the value is printed.
 
       -----------------------
       -- Fixed-Point Types --
@@ -598,13 +567,14 @@ package Exp_Dbug is
       --   the case where one or both of the bounds are discriminants or
       --   variable.
 
-      --   Note: at the current time, we also encode static bounds if they
-      --   do not match the natural machine type bounds, but this may be
-      --   removed in the future, since it is redundant for most debugging
-      --   formats. However, we do not ever need XD encoding for enumeration
-      --   base types, since here it is always clear what the bounds are
-      --   from the number of enumeration literals, and of course we do
-      --   not need to encode the dummy XR types generated for renamings.
+      --   Note: at the current time, we also encode compile time known
+      --   bounds if they do not match the natural machine type bounds,
+      --   but this may be removed in the future, since it is redundant
+      --   for most debugging formats. However, we do not ever need XD
+      --   encoding for enumeration base types, since here it is always
+      --   clear what the bounds are from the total number of enumeration
+      --   literals, and of course we do not need to encode the dummy XR
+      --   types generated for renamings.
 
       --     typ___XD
       --     typ___XDL_lowerbound
@@ -615,7 +585,7 @@ package Exp_Dbug is
       --   correspond in a natural manner to its size), then it is left
       --   unencoded. The above encoding forms are used when there is a
       --   constrained range that does not correspond to the size or that
-      --   has discriminant references or other non-static bounds.
+      --   has discriminant references or other compile time known bounds.
 
       --   The first form is used if both bounds are dynamic, in which case
       --   two constant objects are present whose names are typ___L and
@@ -633,14 +603,15 @@ package Exp_Dbug is
       --   name as either a decimal integer, or as the discriminant name.
 
       --   The third form is similarly used if the lower bound is dynamic,
-      --   but the upper bound is static or a discriminant reference, in
-      --   which case the lower bound is stored in a constant object of
-      --   name typ___L, and the upper bound is encoded directly into the
-      --   name as either a decimal integer, or as the discriminant name.
+      --   but the upper bound is compile time known or a discriminant
+      --   reference, in which case the lower bound is stored in a constant
+      --   object of name typ___L, and the upper bound is encoded directly
+      --   into the name as either a decimal integer, or as the discriminant
+      --   name.
 
       --   The fourth form is used if both bounds are discriminant references
-      --   or static values, with the encoding first for the lower bound,
-      --   then for the upper bound, as previously described.
+      --   or compile time known values, with the encoding first for the lower
+      --   bound, then for the upper bound, as previously described.
 
       -------------------
       -- Modular Types --
@@ -669,9 +640,9 @@ package Exp_Dbug is
 
       --   Here lowerbound and upperbound are decimal integers, with the
       --   usual (postfix "m") encoding for negative numbers. Biased
-      --   types are only possible where the bounds are static, and the
-      --   values are represented as unsigned offsets from the lower
-      --   bound given. For example:
+      --   types are only possible where the bounds are compile time
+      --   known, and the values are represented as unsigned offsets
+      --   from the lower bound given. For example:
 
       --     type Q is range 10 .. 15;
       --     for Q'size use 3;
@@ -693,9 +664,10 @@ package Exp_Dbug is
       --    type___XVU
 
       --  The former name is used for a record and the latter for the union
-      --  that is made for a variant record (see below) if that union has
-      --  variable size. These encodings suffix any other encodings that
-      --  might be suffixed to the type name.
+      --  that is made for a variant record (see below) if that record or
+      --  union has a field of variable size or if the record or union itself
+      --  has a variable size. These encodings suffix any other encodings that
+      --  that might be suffixed to the type name.
 
       --  The idea here is to provide all the needed information to interpret
       --  objects of the original type in the form of a "fixed up" type, which
@@ -983,7 +955,10 @@ package Exp_Dbug is
    --    x___XRP   for a package renaming
 
    --  The name is fully qualified in the usual manner, i.e. qualified in
-   --  the same manner as the entity x would be.
+   --  the same manner as the entity x would be. In the case of a package
+   --  renaming where x is a child unit, the qualification includes the
+   --  name of the parent unit, to disambiguate child units with the same
+   --  simple name and (of necessity) different parents.
 
    --  Note: subprogram renamings are not encoded at the present time.
 
@@ -1068,7 +1043,7 @@ package Exp_Dbug is
 
    --       type p__z___XR is
    --         (p__g___XEXS1XS5XRmXL2XS3);
-   --          p__q___XE--------------------outer entity is g
+   --          p__g___XE--------------------outer entity is g
    --                   XS1-----------------first subscript for g
    --                      XS5--------------second subscript for g
    --                         XRm-----------select field m
@@ -1107,6 +1082,10 @@ package Exp_Dbug is
    --  in this manner, it can use the original type to determine the bounds,
    --  and the component size to determine the packing details.
 
+   -------------------------------------------
+   -- Packed Array Representation in Memory --
+   -------------------------------------------
+
    --  Packed arrays are represented in tightly packed form, with no extra
    --  bits between components. This is true even when the component size
    --  is not a factor of the storage unit size, so that as a result it is
@@ -1133,7 +1112,7 @@ package Exp_Dbug is
 
    --        BV'Address + 2   BV'Address + 1    BV'Address + 0
    --     +-----------------+-----------------+-----------------+
-   --     | 0 0 0 0 0 0 1 1 | 0 1 0 1 1 0 0 0 | 1 1 0 1 0 0 0 1 |
+   --     | ? ? ? ? ? ? 1 1 | 0 1 0 1 1 0 0 0 | 1 1 0 1 0 0 0 1 |
    --     +-----------------+-----------------+-----------------+
    --       <---------> <-----> <---> <---> <-----> <---> <--->
    --       unused bits  BV(5)  BV(4) BV(3)  BV(2)  BV(1) BV(0)
@@ -1142,10 +1121,67 @@ package Exp_Dbug is
    --
    --        BV'Address + 0  BV'Address + 1    BV'Address + 2
    --     +-----------------+-----------------+-----------------+
-   --     | 0 0 1 0 1 0 0 1 | 1 1 0 0 1 0 1 1 | 1 0 0 0 0 0 0 0 |
+   --     | 0 0 1 0 1 0 0 1 | 1 1 0 0 1 0 1 1 | 1 0 ? ? ? ? ? ? |
    --     +-----------------+-----------------+-----------------+
    --       <---> <---> <-----> <---> <---> <-----> <--------->
    --       BV(0) BV(1)  BV(2)  BV(3) BV(4)  BV(5)  unused bits
+
+   --  Note that if a modular type is used to represent the array, the
+   --  allocation in memory is not the same as a normal modular type.
+   --  The difference occurs when the allocated object is larger than
+   --  the size of the array. For a normal modular type, we extend the
+   --  value on the left with zeroes.
+
+   --  For example, in the normal modular case, if we have a 6-bit
+   --  modular type, declared as mod 2**6, and we allocate an 8-bit
+   --  object for this type, then we extend the value with two bits
+   --  on the most significant end, and in either the little-endian
+   --  or big-endian case, the value 63 is represented as 00111111
+   --  in binary in memory.
+
+   --  For a modular type used to represent a packed array, the rule is
+   --  different. In this case, if we have to extend the value, then we
+   --  do it with undefined bits (which are not initialized and whose value
+   --  is irrelevant to any generated code). Furthermore these bits are on
+   --  the right (least significant bits) in the big-endian case, and on the
+   --  left (most significant bits) in the little-endian case.
+
+   --  For example, if we have a packed boolean array of 6 bits, all set
+   --  to True, stored in an 8-bit object, then the value in memory in
+   --  binary is ??111111 in the little-endian case, and 111111?? in the
+   --  big-endian case.
+
+   --  This is done so that the representation of packed arrays does not
+   --  depend on whether we use a modular representation or array of bytes
+   --  as previously described. This ensures that we can pass such values
+   --  by reference in the case where a subprogram has to be able to handle
+   --  values stored in either form.
+
+   --  Note that when we extract the value of such a modular packed array,
+   --  we expect to retrieve only the relevant bits, so in this same example,
+   --  when we extract the value, we get 111111 in both cases, and the code
+   --  generated by the front end assumes this, although it does not assume
+   --  that any high order bits are defined.
+
+   --  There are opportunities for optimization based on the knowledge that
+   --  the unused bits are irrelevant for these type of packed arrays. For
+   --  example if we have two such 6-bit-in-8-bit values and we do an
+   --  assignment:
+
+   --     a := b;
+
+   --  Then logically, we extract the 6 bits and store only 6 bits in the
+   --  result, but the back end is free to simply assign the entire 8-bits
+   --  in this case, since we don't actually care about the undefined bits.
+   --  However, in the equality case, it is important to ensure that the
+   --  undefined bits do not participate in an equality test.
+
+   --  If a modular packed array value is assigned to a register, then
+   --  logically it could always be held right justified, to avoid any
+   --  need to shift, e.g. when doing comparisons. But probably this is
+   --  a bad choice, as it would mean that an assignment such as a := b
+   --  above would require shifts when one value is in a register and the
+   --  other value is in memory.
 
    ------------------------------------------------------
    -- Subprograms for Handling Packed Array Type Names --
@@ -1194,16 +1230,26 @@ package Exp_Dbug is
 
    --    Thin Pointers
 
-   --      Thin pointers are represented as a pointer to the ARRAY field of
-   --      a structure with two fields. The name of the structure type is
-   --      that of the unconstrained array followed by "___XUT".
+   --      The value of a thin pointer is a pointer to the second field
+   --      of a structure with two fields. The name of this structure's
+   --      type is "arr___XUT", where "arr" is the name of the
+   --      unconstrained array type. Even though it actually points into
+   --      middle of this structure, the thin pointer's type in debugging
+   --      information is pointer-to-arr___XUT.
 
-   --      The field ARRAY contains the array value. This array field is
-   --      typically a variable-length array, and consequently the entire
-   --      record structure will be encoded as previously described,
-   --      resulting in a type with suffix "___XUT___XVE".
+   --      The first field of arr___XUT is named BOUNDS, and has a type
+   --      named arr___XUB, with the structure described for such types
+   --      in fat pointers, as described above.
 
-   --      The field BOUNDS is a struct containing the bounds as above.
+   --      The second field of arr___XUT is named ARRAY, and contains
+   --      the actual array. Because this array has a dynamic size,
+   --      determined by the BOUNDS field that precedes it, all of the
+   --      information about arr___XUT is encoded in a parallel type named
+   --      arr___XUT___XVE, with fields BOUNDS and ARRAY___XVL. As for
+   --      previously described ___XVE types, ARRAY___XVL has
+   --      a pointer-to-array type. However, the array type in this case
+   --      is named arr___XUA and only its element type is meaningful,
+   --      just as described for fat pointers.
 
    --------------------------------------
    -- Tagged Types and Type Extensions --
@@ -1360,5 +1406,20 @@ package Exp_Dbug is
 
    --  the second enumeration literal would be named QU43 and the
    --  value assigned to it would be 1.
+
+   ----------------------------
+   -- Effect of Optimization --
+   ----------------------------
+
+   --  If the program is compiled with optimization on (e.g. -O1 switch
+   --  specified), then there may be variations in the output from the
+   --  above specification. In particular, objects may disappear from
+   --  the output. This includes not only constants and variables that
+   --  the program declares at the source level, but also the x___L and
+   --  x___U constants created to describe the lower and upper bounds of
+   --  subtypes with dynamic bounds. This means for example, that array
+   --  bounds may disappear if optimization is turned on. The debugger
+   --  is expected to recognize that these constants are missing and
+   --  deal as best as it can with the limited information available.
 
 end Exp_Dbug;

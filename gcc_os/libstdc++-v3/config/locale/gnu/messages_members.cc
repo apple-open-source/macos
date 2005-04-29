@@ -34,6 +34,7 @@
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
 #include <locale>
+#include <bits/c++locale_internal.h>
 
 namespace std
 {
@@ -48,10 +49,33 @@ namespace std
       __uselocale(__old);
       return string(__msg);
 #else
-      const char* __old = setlocale(LC_ALL, _M_name_messages);
+      char* __old = strdup(setlocale(LC_ALL, NULL));
+      setlocale(LC_ALL, _M_name_messages);
       const char* __msg = gettext(__dfault.c_str());
       setlocale(LC_ALL, __old);
+      free(__old);
       return string(__msg);
 #endif
     }
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template<>
+    wstring
+    messages<wchar_t>::do_get(catalog, int, int, const wstring& __dfault) const
+    {
+# if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+      __c_locale __old = __uselocale(_M_c_locale_messages);
+      char* __msg = gettext(_M_convert_to_char(__dfault));
+      __uselocale(__old);
+      return _M_convert_from_char(__msg);
+# else
+      char* __old = strdup(setlocale(LC_ALL, NULL));
+      setlocale(LC_ALL, _M_name_messages);
+      char* __msg = gettext(_M_convert_to_char(__dfault));
+      setlocale(LC_ALL, __old);
+      free(__old);
+      return _M_convert_from_char(__msg);
+# endif
+    }
+#endif
 }

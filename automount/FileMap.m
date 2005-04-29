@@ -84,6 +84,7 @@
 	[v setSource:serversrc];
 	[v setVfsType:type];
 	[v setupOptions:opts];
+	[v setServerDepth:0];
 	[v addMntArg:MNT_DONTBROWSE];
 	[servername release];
 	[serversrc release];

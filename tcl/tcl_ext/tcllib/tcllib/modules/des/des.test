@@ -1,0 +1,170 @@
+# -*- tcl -*-
+# Commands covered:	DES (Data Encryption Standard)
+#
+# This file contains a collection of tests for one or more of the commands
+# the BLOB-X extension. Sourcing this file into Tcl runs the
+# tests and generates output for errors.  No output means no errors were
+# found.
+#
+# Original      Copyright (c) 1996 Andreas Kupries (a.kupries@westend.com)
+# Modifications Copyright (c) 2003 Patrick Thoyts <patthoyts@users.sf.net>
+#
+# Modified from TrfCrypt tests
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: des.test,v 1.2 2004/01/15 06:36:12 andreas_kupries Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+package require des
+
+# -------------------------------------------------------------------------
+
+catch {unset in out key}
+
+array set key {
+    1	0000000000000000
+    2	FFFFFFFFFFFFFFFF
+    3	3000000000000000
+    4	1111111111111111
+    5	0123456789ABCDEF
+    6	1111111111111111
+    7	0000000000000000
+    8	FEDCBA9876543210
+    9	7CA110454A1A6E57
+    10	0131D9619DC1376E
+    11	07A1133E4A0B2686
+    12	3849674C2602319E
+    13	04B915BA43FEB5B6
+    14	0113B970FD34F2CE
+    15	0170F175468FB5E6
+    16	43297FAD38E373FE
+    17	07A7137045DA2A16
+    18	04689104C2FD3B2F
+    19	37D06BB516CB7546
+    20	1F08260D1AC2465E
+    21	584023641ABA6176
+    22	025816164629B007
+    23	49793EBC79B3258F
+    24	4FB05E1515AB73A7
+    25	49E95D6D4CA229BF
+    26	018310DC409B26D6
+    27	1C587F1C13924FEF
+    28	0101010101010101
+    29	1F1F1F1F0E0E0E0E
+    30	E0FEE0FEF1FEF1FE
+    31	0000000000000000
+    32	FFFFFFFFFFFFFFFF
+    33	0123456789ABCDEF
+    34	FEDCBA9876543210
+}
+
+array set in {
+    1	0000000000000000
+    2	FFFFFFFFFFFFFFFF
+    3	1000000000000001
+    4	1111111111111111
+    5	1111111111111111
+    6	0123456789ABCDEF
+    7	0000000000000000
+    8	0123456789ABCDEF
+    9	01A1D6D039776742
+    10	5CD54CA83DEF57DA
+    11	0248D43806F67172
+    12	51454B582DDF440A
+    13	42FD443059577FA2
+    14	059B5E0851CF143A
+    15	0756D8E0774761D2
+    16	762514B829BF486A
+    17	3BDD119049372802
+    18	26955F6835AF609A
+    19	164D5E404F275232
+    20	6B056E18759F5CCA
+    21	004BD6EF09176062
+    22	480D39006EE762F2
+    23	437540C8698F3CFA
+    24	072D43A077075292
+    25	02FE55778117F12A
+    26	1D9D5C5018F728C2
+    27	305532286D6F295A
+    28	0123456789ABCDEF
+    29	0123456789ABCDEF
+    30	0123456789ABCDEF
+    31	FFFFFFFFFFFFFFFF
+    32	0000000000000000
+    33	0000000000000000
+    34	FFFFFFFFFFFFFFFF
+}
+
+array set out {
+    1	8CA64DE9C1B123A7
+    2	7359B2163E4EDC58
+    3	958E6E627A05557B
+    4	F40379AB9E0EC533
+    5	17668DFC7292532D
+    6	8A5AE1F81AB8F2DD
+    7	8CA64DE9C1B123A7
+    8	ED39D950FA74BCC4
+    9	690F5B0D9A26939B
+    10	7A389D10354BD271
+    11	868EBB51CAB4599A
+    12	7178876E01F19B2A
+    13	AF37FB421F8C4095
+    14	86A560F10EC6D85B
+    15	0CD3DA020021DC09
+    16	EA676B2CB7DB2B7A
+    17	DFD64A815CAF1A0F
+    18	5C513C9C4886C088
+    19	0A2AEEAE3FF4AB77
+    20	EF1BF03E5DFA575A
+    21	88BF0DB6D70DEE56
+    22	A1F9915541020B56
+    23	6FBF1CAFCFFD0556
+    24	2F22E49BAB7CA1AC
+    25	5A6B612CC26CCE4A
+    26	5F4C038ED12B2E41
+    27	63FAC0D034D9F793
+    28	617B3A0CE8F07100
+    29	DB958605F8C8C606
+    30	EDBFD1C66C29CCC7
+    31	355550B2150E2451
+    32	CAAAAF4DEAF1DBAE
+    33	D5D44FF720683D0D
+    34	2A2BB008DF97C2F2
+}
+
+
+foreach i [lsort [array names key]] {
+    test des-1.$i {des encryption (ECB)} {
+        set k [binary format H* $key($i)]
+        set p [binary format H* $in($i)]
+        set s [DES::des -mode encode -key $k $p]
+        binary scan $s H* h
+        string toupper $h
+    } $out($i)
+}
+
+foreach i [lsort [array names key]] {
+    test des-2.$i {des decryption (ECB)} {
+        set k [binary format H* $key($i)]
+        set p [binary format H* $out($i)]
+        set s [DES::des -mode decode -key $k $p]
+        binary scan $s H* h
+        string toupper $h
+    } $in($i)
+}
+
+# -------------------------------------------------------------------------
+
+#catch {unset in out key}
+::tcltest::cleanupTests
+
+# Local Variables:
+#  mode: tcl
+#  indent-tabs-mode: nil
+# End:

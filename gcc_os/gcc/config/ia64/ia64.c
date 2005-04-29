@@ -35,7 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "expr.h"
 #include "optabs.h"
-#include "obstack.h"
 #include "except.h"
 #include "function.h"
 #include "ggc.h"
@@ -95,6 +94,13 @@ static const char * const ia64_output_reg_names[8] =
 /* String used with the -mfixed-range= option.  */
 const char *ia64_fixed_range_string;
 
+/* Determines whether we use adds, addl, or movl to generate our
+   TLS immediate offsets.  */
+int ia64_tls_size = 22;
+
+/* String used with the -mtls-size= option.  */
+const char *ia64_tls_size_string;
+
 /* Determines whether we run our final scheduling pass or not.  We always
    avoid the normal second scheduling pass.  */
 static int ia64_flag_schedule_insns2;
@@ -104,6 +110,8 @@ static int ia64_flag_schedule_insns2;
 
 unsigned int ia64_section_threshold;
 
+static rtx gen_tls_get_addr PARAMS ((void));
+static rtx gen_thread_pointer PARAMS ((void));
 static int find_gr_spill PARAMS ((int));
 static int next_scratch_gr_reg PARAMS ((void));
 static void mark_reg_gr_used_mask PARAMS ((rtx, void *));
@@ -119,13 +127,13 @@ static rtx gen_fr_restore_x PARAMS ((rtx, rtx, rtx));
 
 static enum machine_mode hfa_element_mode PARAMS ((tree, int));
 static void fix_range PARAMS ((const char *));
-static void ia64_add_gc_roots PARAMS ((void));
-static void ia64_init_machine_status PARAMS ((struct function *));
-static void ia64_mark_machine_status PARAMS ((struct function *));
-static void ia64_free_machine_status PARAMS ((struct function *));
+static struct machine_function * ia64_init_machine_status PARAMS ((void));
 static void emit_insn_group_barriers PARAMS ((FILE *, rtx));
 static void emit_all_insn_group_barriers PARAMS ((FILE *, rtx));
 static void emit_predicate_relation_info PARAMS ((void));
+static bool ia64_in_small_data_p PARAMS ((tree));
+static void ia64_encode_section_info PARAMS ((tree, int));
+static const char *ia64_strip_name_encoding PARAMS ((const char *));
 static void process_epilogue PARAMS ((void));
 static int process_set PARAMS ((FILE *, rtx));
 
@@ -152,8 +160,26 @@ static int ia64_internal_sched_reorder PARAMS ((FILE *, int, rtx *,
 static int ia64_sched_reorder PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_sched_reorder2 PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_variable_issue PARAMS ((FILE *, int, rtx, int));
-static rtx ia64_cycle_display PARAMS ((int, rtx));
 
+static void ia64_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					  HOST_WIDE_INT, tree));
+
+static void ia64_select_rtx_section PARAMS ((enum machine_mode, rtx,
+					     unsigned HOST_WIDE_INT));
+static void ia64_rwreloc_select_section PARAMS ((tree, int,
+					         unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void ia64_rwreloc_unique_section PARAMS ((tree, int))
+     ATTRIBUTE_UNUSED;
+static void ia64_rwreloc_select_rtx_section PARAMS ((enum machine_mode, rtx,
+					             unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static unsigned int ia64_rwreloc_section_type_flags
+     PARAMS ((tree, const char *, int))
+     ATTRIBUTE_UNUSED;
+
+static void ia64_hpux_add_extern_decl PARAMS ((const char *name))
+     ATTRIBUTE_UNUSED;
 
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ia64_attribute_table[] =
@@ -197,6 +223,13 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ia64_output_function_epilogue
 
+#undef TARGET_IN_SMALL_DATA_P
+#define TARGET_IN_SMALL_DATA_P  ia64_in_small_data_p
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO ia64_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING ia64_strip_name_encoding
+
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST ia64_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
@@ -211,8 +244,16 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_SCHED_REORDER ia64_sched_reorder
 #undef TARGET_SCHED_REORDER2
 #define TARGET_SCHED_REORDER2 ia64_sched_reorder2
-#undef TARGET_SCHED_CYCLE_DISPLAY
-#define TARGET_SCHED_CYCLE_DISPLAY ia64_cycle_display
+
+#ifdef HAVE_AS_TLS
+#undef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS true
+#endif
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK ia64_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -223,7 +264,7 @@ call_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (mode != GET_MODE (op))
+  if (mode != GET_MODE (op) && mode != VOIDmode)
     return 0;
 
   return (GET_CODE (op) == SYMBOL_REF || GET_CODE (op) == REG
@@ -250,7 +291,10 @@ sdata_symbolic_operand (op, mode)
       if (CONSTANT_POOL_ADDRESS_P (op))
 	return GET_MODE_SIZE (get_pool_mode (op)) <= ia64_section_threshold;
       else
-        return XSTR (op, 0)[0] == SDATA_NAME_FLAG_CHAR;
+	{
+	  const char *str = XSTR (op, 0);
+          return (str[0] == ENCODE_SECTION_INFO_CHAR && str[1] == 's');
+	}
 
     default:
       break;
@@ -323,6 +367,35 @@ symbolic_operand (op, mode)
     }
   return 0;
 }
+
+/* Return tls_model if OP refers to a TLS symbol.  */
+
+int
+tls_symbolic_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  const char *str;
+
+  if (GET_CODE (op) != SYMBOL_REF)
+    return 0;
+  str = XSTR (op, 0);
+  if (str[0] != ENCODE_SECTION_INFO_CHAR)
+    return 0;
+  switch (str[1])
+    {
+    case 'G':
+      return TLS_MODEL_GLOBAL_DYNAMIC;
+    case 'L':
+      return TLS_MODEL_LOCAL_DYNAMIC;
+    case 'i':
+      return TLS_MODEL_INITIAL_EXEC;
+    case 'l':
+      return TLS_MODEL_LOCAL_EXEC;
+    }
+  return 0;
+}
+
 
 /* Return 1 if OP refers to a function.  */
 
@@ -864,6 +937,21 @@ tfreg_or_fp01_operand (op, mode)
     return 0;
   return fr_reg_or_fp01_operand (op, mode);
 }
+
+/* Return 1 if OP is valid as a base register in a reg + offset address.  */
+
+int
+basereg_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  /* ??? Should I copy the flag_omit_frame_pointer and cse_not_expected
+     checks from pa.c basereg_operand as well?  Seems to be OK without them
+     in test runs.  */
+
+  return (register_operand (op, mode) &&
+	  REG_POINTER ((GET_CODE (op) == SUBREG) ? SUBREG_REG (op) : op));
+}
 
 /* Return 1 if the operands of a move are ok.  */
 
@@ -918,15 +1006,22 @@ ia64_expand_load_address (dest, src, scratch)
   /* The destination could be a MEM during initial rtl generation,
      which isn't a valid destination for the PIC load address patterns.  */
   if (! register_operand (dest, DImode))
-    temp = gen_reg_rtx (DImode);
+    if (! scratch || ! register_operand (scratch, DImode))
+      temp = gen_reg_rtx (DImode);
+    else
+      temp = scratch;
   else
     temp = dest;
+
+  if (tls_symbolic_operand (src, Pmode))
+    abort ();
 
   if (TARGET_AUTO_PIC)
     emit_insn (gen_load_gprel64 (temp, src));
   else if (GET_CODE (src) == SYMBOL_REF && SYMBOL_REF_FLAG (src))
     emit_insn (gen_load_fptr (temp, src));
-  else if (sdata_symbolic_operand (src, DImode))
+  else if ((GET_MODE (src) == Pmode || GET_MODE (src) == ptr_mode)
+           && sdata_symbolic_operand (src, VOIDmode))
     emit_insn (gen_load_gprel (temp, src));
   else if (GET_CODE (src) == CONST
 	   && GET_CODE (XEXP (src, 0)) == PLUS
@@ -957,11 +1052,201 @@ ia64_expand_load_address (dest, src, scratch)
 	scratch = no_new_pseudos ? temp : gen_reg_rtx (DImode);
 
       insn = emit_insn (gen_load_symptr (temp, src, scratch));
+#ifdef POINTERS_EXTEND_UNSIGNED
+      if (GET_MODE (temp) != GET_MODE (src))
+	src = convert_memory_address (GET_MODE (temp), src);
+#endif
       REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, src, REG_NOTES (insn));
     }
 
   if (temp != dest)
-    emit_move_insn (dest, temp);
+    {
+      if (GET_MODE (dest) != GET_MODE (temp))
+	temp = convert_to_mode (GET_MODE (dest), temp, 0);
+      emit_move_insn (dest, temp);
+    }
+}
+
+static GTY(()) rtx gen_tls_tga;
+static rtx
+gen_tls_get_addr ()
+{
+  if (!gen_tls_tga)
+    {
+      gen_tls_tga = init_one_libfunc ("__tls_get_addr");
+     }
+  return gen_tls_tga;
+}
+
+static GTY(()) rtx thread_pointer_rtx;
+static rtx
+gen_thread_pointer ()
+{
+  if (!thread_pointer_rtx)
+    {
+      thread_pointer_rtx = gen_rtx_REG (Pmode, 13);
+      RTX_UNCHANGING_P (thread_pointer_rtx) = 1;
+    }
+  return thread_pointer_rtx;
+}
+
+rtx
+ia64_expand_move (op0, op1)
+     rtx op0, op1;
+{
+  enum machine_mode mode = GET_MODE (op0);
+
+  if (!reload_in_progress && !reload_completed && !ia64_move_ok (op0, op1))
+    op1 = force_reg (mode, op1);
+
+  if (mode == Pmode || mode == ptr_mode)
+    {
+      enum tls_model tls_kind;
+      if ((tls_kind = tls_symbolic_operand (op1, Pmode)))
+	{
+	  rtx tga_op1, tga_op2, tga_ret, tga_eqv, tmp, insns;
+
+	  switch (tls_kind)
+	    {
+	    case TLS_MODEL_GLOBAL_DYNAMIC:
+	      start_sequence ();
+
+	      tga_op1 = gen_reg_rtx (Pmode);
+	      emit_insn (gen_load_ltoff_dtpmod (tga_op1, op1));
+	      tga_op1 = gen_rtx_MEM (Pmode, tga_op1);
+	      RTX_UNCHANGING_P (tga_op1) = 1;
+
+	      tga_op2 = gen_reg_rtx (Pmode);
+	      emit_insn (gen_load_ltoff_dtprel (tga_op2, op1));
+	      tga_op2 = gen_rtx_MEM (Pmode, tga_op2);
+	      RTX_UNCHANGING_P (tga_op2) = 1;
+	      
+	      tga_ret = emit_library_call_value (gen_tls_get_addr (), NULL_RTX,
+						 LCT_CONST, Pmode, 2, tga_op1,
+						 Pmode, tga_op2, Pmode);
+
+	      insns = get_insns ();
+	      end_sequence ();
+
+	      emit_libcall_block (insns, op0, tga_ret, op1);
+	      return NULL_RTX;
+
+	    case TLS_MODEL_LOCAL_DYNAMIC:
+	      /* ??? This isn't the completely proper way to do local-dynamic
+		 If the call to __tls_get_addr is used only by a single symbol,
+		 then we should (somehow) move the dtprel to the second arg
+		 to avoid the extra add.  */
+	      start_sequence ();
+
+	      tga_op1 = gen_reg_rtx (Pmode);
+	      emit_insn (gen_load_ltoff_dtpmod (tga_op1, op1));
+	      tga_op1 = gen_rtx_MEM (Pmode, tga_op1);
+	      RTX_UNCHANGING_P (tga_op1) = 1;
+
+	      tga_op2 = const0_rtx;
+
+	      tga_ret = emit_library_call_value (gen_tls_get_addr (), NULL_RTX,
+						 LCT_CONST, Pmode, 2, tga_op1,
+						 Pmode, tga_op2, Pmode);
+
+	      insns = get_insns ();
+	      end_sequence ();
+
+	      tga_eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
+					UNSPEC_LD_BASE);
+	      tmp = gen_reg_rtx (Pmode);
+	      emit_libcall_block (insns, tmp, tga_ret, tga_eqv);
+
+	      if (register_operand (op0, Pmode))
+		tga_ret = op0;
+	      else
+		tga_ret = gen_reg_rtx (Pmode);
+	      if (TARGET_TLS64)
+		{
+		  emit_insn (gen_load_dtprel (tga_ret, op1));
+		  emit_insn (gen_adddi3 (tga_ret, tmp, tga_ret));
+		}
+	      else
+		emit_insn (gen_add_dtprel (tga_ret, tmp, op1));
+	      if (tga_ret == op0)
+		return NULL_RTX;
+	      op1 = tga_ret;
+	      break;
+
+	    case TLS_MODEL_INITIAL_EXEC:
+	      tmp = gen_reg_rtx (Pmode);
+	      emit_insn (gen_load_ltoff_tprel (tmp, op1));
+	      tmp = gen_rtx_MEM (Pmode, tmp);
+	      RTX_UNCHANGING_P (tmp) = 1;
+	      tmp = force_reg (Pmode, tmp);
+
+	      if (register_operand (op0, Pmode))
+		op1 = op0;
+	      else
+		op1 = gen_reg_rtx (Pmode);
+	      emit_insn (gen_adddi3 (op1, tmp, gen_thread_pointer ()));
+	      if (op1 == op0)
+		return NULL_RTX;
+	      break;
+
+	    case TLS_MODEL_LOCAL_EXEC:
+	      if (register_operand (op0, Pmode))
+		tmp = op0;
+	      else
+		tmp = gen_reg_rtx (Pmode);
+	      if (TARGET_TLS64)
+		{
+		  emit_insn (gen_load_tprel (tmp, op1));
+		  emit_insn (gen_adddi3 (tmp, gen_thread_pointer (), tmp));
+		}
+	      else
+		emit_insn (gen_add_tprel (tmp, gen_thread_pointer (), op1));
+	      if (tmp == op0)
+		return NULL_RTX;
+	      op1 = tmp;
+	      break;
+
+	    default:
+	      abort ();
+	    }
+	}
+      else if (!TARGET_NO_PIC &&
+	       (symbolic_operand (op1, Pmode) ||
+		symbolic_operand (op1, ptr_mode)))
+	{
+	  /* Before optimization starts, delay committing to any particular
+	     type of PIC address load.  If this function gets deferred, we
+	     may acquire information that changes the value of the
+	     sdata_symbolic_operand predicate.
+
+	     But don't delay for function pointers.  Loading a function address
+	     actually loads the address of the descriptor not the function.
+	     If we represent these as SYMBOL_REFs, then they get cse'd with
+	     calls, and we end up with calls to the descriptor address instead
+	     of calls to the function address.  Functions are not candidates
+	     for sdata anyways.
+
+	     Don't delay for LABEL_REF because the splitter loses REG_LABEL
+	     notes.  Don't delay for pool addresses on general principals;
+	     they'll never become non-local behind our back.  */
+
+	  if (rtx_equal_function_value_matters
+	      && GET_CODE (op1) != LABEL_REF
+	      && ! (GET_CODE (op1) == SYMBOL_REF
+		    && (SYMBOL_REF_FLAG (op1)
+			|| CONSTANT_POOL_ADDRESS_P (op1)
+			|| STRING_POOL_ADDRESS_P (op1))))
+	    if (GET_MODE (op1) == DImode)
+	      emit_insn (gen_movdi_symbolic (op0, op1));
+	    else
+	      emit_insn (gen_movsi_symbolic (op0, op1));
+	  else
+	    ia64_expand_load_address (op0, op1, NULL_RTX);
+	  return NULL_RTX;
+	}
+    }
+
+  return op1;
 }
 
 rtx
@@ -1796,7 +2081,7 @@ spill_restore_mem (reg, cfa_off)
 				 spill_fill_data.init_reg[iter],
 				 disp_rtx));
 
-	  seq = gen_sequence ();
+	  seq = get_insns ();
 	  end_sequence ();
 	}
 
@@ -2603,12 +2888,16 @@ ia64_assemble_integer (x, size, aligned_p)
      unsigned int size;
      int aligned_p;
 {
-  if (size == UNITS_PER_WORD && aligned_p
+  if (size == (TARGET_ILP32 ? 4 : 8)
+      && aligned_p
       && !(TARGET_NO_PIC || TARGET_AUTO_PIC)
       && GET_CODE (x) == SYMBOL_REF
       && SYMBOL_REF_FLAG (x))
     {
-      fputs ("\tdata8\t@fptr(", asm_out_file);
+      if (TARGET_ILP32)
+	fputs ("\tdata4\t@fptr(", asm_out_file);
+      else
+	fputs ("\tdata8\t@fptr(", asm_out_file);
       output_addr_const (asm_out_file, x);
       fputs (")\n", asm_out_file);
       return true;
@@ -2796,9 +3085,8 @@ ia64_setup_incoming_varargs (cum, int_mode, type, pretend_size, second_time)
      int *           pretend_size;
      int	     second_time ATTRIBUTE_UNUSED;
 {
-  /* If this is a stdarg function, then skip the current argument.  */
-  if (! current_function_varargs)
-    ia64_function_arg_advance (&cum, int_mode, type, 1);
+  /* Skip the current argument.  */
+  ia64_function_arg_advance (&cum, int_mode, type, 1);
 
   if (cum.words < MAX_ARGUMENT_SLOTS)
     {
@@ -2840,17 +3128,17 @@ hfa_element_mode (type, nested)
 	 gcc's COMPLEX_TYPEs as HFAs.  We need to exclude the integral complex
 	 types though.  */
     case COMPLEX_TYPE:
-      if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_COMPLEX_FLOAT)
+      if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_COMPLEX_FLOAT
+	  && (TYPE_MODE (type) != TCmode || INTEL_EXTENDED_IEEE_FORMAT))
 	return mode_for_size (GET_MODE_UNIT_SIZE (TYPE_MODE (type))
 			      * BITS_PER_UNIT, MODE_FLOAT, 0);
       else
 	return VOIDmode;
 
     case REAL_TYPE:
-      /* ??? Should exclude 128-bit long double here.  */
       /* We want to return VOIDmode for raw REAL_TYPEs, but the actual
 	 mode if this is contained within an aggregate.  */
-      if (nested)
+      if (nested && (TYPE_MODE (type) != TFmode || INTEL_EXTENDED_IEEE_FORMAT))
 	return TYPE_MODE (type);
       else
 	return VOIDmode;
@@ -3024,7 +3312,25 @@ ia64_function_arg (cum, mode, type, named, incoming)
      happen when we have a SFmode HFA.  */
   else if (((mode == TFmode) && ! INTEL_EXTENDED_IEEE_FORMAT)
           || (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS))
-    return gen_rtx_REG (mode, basereg + cum->words + offset);
+    {
+      int byte_size = ((mode == BLKmode)
+                       ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
+      if (BYTES_BIG_ENDIAN
+	&& (mode == BLKmode || (type && AGGREGATE_TYPE_P (type)))
+	&& byte_size < UNITS_PER_WORD
+	&& byte_size > 0)
+	{
+	  rtx gr_reg = gen_rtx_EXPR_LIST (VOIDmode,
+					  gen_rtx_REG (DImode,
+						       (basereg + cum->words
+							+ offset)),
+					  const0_rtx);
+	  return gen_rtx_PARALLEL (mode, gen_rtvec (1, gr_reg));
+	}
+      else
+	return gen_rtx_REG (mode, basereg + cum->words + offset);
+
+    }
 
   /* If there is a prototype, then FP values go in a FR register when
      named, and in a GR registeer when unnamed.  */
@@ -3199,27 +3505,6 @@ ia64_function_arg_pass_by_reference (cum, mode, type, named)
   return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
 
-/* Implement va_start.  */
-
-void
-ia64_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
-     tree valist;
-     rtx nextarg;
-{
-  int arg_words;
-  int ofs;
-
-  arg_words = current_function_args_info.words;
-
-  if (stdarg_p)
-    ofs = 0;
-  else
-    ofs = (arg_words >= MAX_ARGUMENT_SLOTS ? -UNITS_PER_WORD : 0);
-
-  nextarg = plus_constant (nextarg, ofs);
-  std_expand_builtin_va_start (1, valist, nextarg);
-}
 
 /* Implement va_arg.  */
 
@@ -3332,7 +3617,30 @@ ia64_function_value (valtype, func)
            ((mode != TFmode) || INTEL_EXTENDED_IEEE_FORMAT))
     return gen_rtx_REG (mode, FR_ARG_FIRST);
   else
-    return gen_rtx_REG (mode, GR_RET_FIRST);
+    {
+      if (BYTES_BIG_ENDIAN
+	  && (mode == BLKmode || (valtype && AGGREGATE_TYPE_P (valtype))))
+	{
+	  rtx loc[8];
+	  int offset;
+	  int bytesize;
+	  int i;
+
+	  offset = 0;
+	  bytesize = int_size_in_bytes (valtype);
+	  for (i = 0; offset < bytesize; i++)
+	    {
+	      loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
+					  gen_rtx_REG (DImode,
+						       GR_RET_FIRST + i),
+					  GEN_INT (offset));
+	      offset += UNITS_PER_WORD;
+	    }
+	  return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
+	}
+      else
+	return gen_rtx_REG (mode, GR_RET_FIRST);
+    }
 }
 
 /* Print a memory address as an operand to reference that memory location.  */
@@ -3790,8 +4098,13 @@ ia64_asm_output_external (file, decl, name)
 {
   int save_referenced;
 
-  /* GNU as does not need anything here.  */
-  if (TARGET_GNU_AS)
+  /* GNU as does not need anything here, but the HP linker does need
+     something for external functions.  */
+
+  if (TARGET_GNU_AS
+      && (!TARGET_HPUX_LD
+	  || TREE_CODE (decl) != FUNCTION_DECL
+	  || strstr(name, "__builtin_") == name))
     return;
 
   /* ??? The Intel assembler creates a reference that needs to be satisfied by
@@ -3806,19 +4119,18 @@ ia64_asm_output_external (file, decl, name)
       || ! strcmp (name, "__builtin_args_info"))
     return;
 
-  /* assemble_name will set TREE_SYMBOL_REFERENCED, so we must save and
-     restore it.  */
-  save_referenced = TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl));
-  if (TREE_CODE (decl) == FUNCTION_DECL)
+  if (TARGET_HPUX_LD)
+    ia64_hpux_add_extern_decl (name);
+  else
     {
-      fprintf (file, "%s", TYPE_ASM_OP);
-      assemble_name (file, name);
-      putc (',', file);
-      fprintf (file, TYPE_OPERAND_FMT, "function");
-      putc ('\n', file);
+      /* assemble_name will set TREE_SYMBOL_REFERENCED, so we must save and
+         restore it.  */
+      save_referenced = TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl));
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+        ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
+      (*targetm.asm_out.globalize_label) (file, name);
+      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)) = save_referenced;
     }
-  ASM_GLOBALIZE_LABEL (file, name);
-  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)) = save_referenced;
 }
 
 /* Parse the -mfixed-range= option string.  */
@@ -3887,44 +4199,10 @@ fix_range (const_str)
     }
 }
 
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-ia64_add_gc_roots ()
+static struct machine_function *
+ia64_init_machine_status ()
 {
-  ggc_add_rtx_root (&ia64_compare_op0, 1);
-  ggc_add_rtx_root (&ia64_compare_op1, 1);
-}
-
-static void
-ia64_init_machine_status (p)
-     struct function *p;
-{
-  p->machine =
-    (struct machine_function *) xcalloc (1, sizeof (struct machine_function));
-}
-
-static void
-ia64_mark_machine_status (p)
-     struct function *p;
-{
-  struct machine_function *machine = p->machine;
-
-  if (machine)
-    {
-      ggc_mark_rtx (machine->ia64_eh_epilogue_sp);
-      ggc_mark_rtx (machine->ia64_eh_epilogue_bsp);
-      ggc_mark_rtx (machine->ia64_gp_save);
-    }
-}
-
-static void
-ia64_free_machine_status (p)
-     struct function *p;
-{
-  free (p->machine);
-  p->machine = NULL;
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 /* Handle TARGET_OPTIONS switches.  */
@@ -3935,14 +4213,30 @@ ia64_override_options ()
   if (TARGET_AUTO_PIC)
     target_flags |= MASK_CONST_GP;
 
-  if (TARGET_INLINE_DIV_LAT && TARGET_INLINE_DIV_THR)
+  if (TARGET_INLINE_FLOAT_DIV_LAT && TARGET_INLINE_FLOAT_DIV_THR)
     {
-      warning ("cannot optimize division for both latency and throughput");
-      target_flags &= ~MASK_INLINE_DIV_THR;
+      warning ("cannot optimize floating point division for both latency and throughput");
+      target_flags &= ~MASK_INLINE_FLOAT_DIV_THR;
+    }
+
+  if (TARGET_INLINE_INT_DIV_LAT && TARGET_INLINE_INT_DIV_THR)
+    {
+      warning ("cannot optimize integer division for both latency and throughput");
+      target_flags &= ~MASK_INLINE_INT_DIV_THR;
     }
 
   if (ia64_fixed_range_string)
     fix_range (ia64_fixed_range_string);
+
+  if (ia64_tls_size_string)
+    {
+      char *end;
+      unsigned long tmp = strtoul (ia64_tls_size_string, &end, 10);
+      if (*end || (tmp != 14 && tmp != 22 && tmp != 64))
+	error ("bad value (%s) for -mtls-size= switch", ia64_tls_size_string);
+      else
+	ia64_tls_size = tmp;
+    }
 
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
@@ -3950,10 +4244,10 @@ ia64_override_options ()
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 
   init_machine_status = ia64_init_machine_status;
-  mark_machine_status = ia64_mark_machine_status;
-  free_machine_status = ia64_free_machine_status;
 
-  ia64_add_gc_roots ();
+  /* Tell the compiler which flavor of TFmode we're using.  */
+  if (INTEL_EXTENDED_IEEE_FORMAT)
+    real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
 }
 
 static enum attr_itanium_requires_unit0 ia64_safe_itanium_requires_unit0 PARAMS((rtx));
@@ -4564,8 +4858,22 @@ rtx_needs_barrier (x, flags, pred)
     case UNSPEC:
       switch (XINT (x, 1))
 	{
-	case 1: /* st8.spill */
-	case 2: /* ld8.fill */
+	case UNSPEC_LTOFF_DTPMOD:
+	case UNSPEC_LTOFF_DTPREL:
+	case UNSPEC_DTPREL:
+	case UNSPEC_LTOFF_TPREL:
+	case UNSPEC_TPREL:
+	case UNSPEC_PRED_REL_MUTEX:
+	case UNSPEC_PIC_CALL:
+        case UNSPEC_MF:
+        case UNSPEC_FETCHADD_ACQ:
+	case UNSPEC_BSP_VALUE:
+	case UNSPEC_FLUSHRS:
+	case UNSPEC_BUNDLE_SELECTOR:
+          break;
+
+	case UNSPEC_GR_SPILL:
+	case UNSPEC_GR_RESTORE:
 	  {
 	    HOST_WIDE_INT offset = INTVAL (XVECEXP (x, 0, 1));
 	    HOST_WIDE_INT bit = (offset >> 3) & 63;
@@ -4577,32 +4885,22 @@ rtx_needs_barrier (x, flags, pred)
 	    break;
 	  }
 	  
-	case 3: /* stf.spill */
-	case 4: /* ldf.spill */
-	case 8: /* popcnt */
+	case UNSPEC_FR_SPILL:
+	case UNSPEC_FR_RESTORE:
+	case UNSPEC_POPCNT:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  break;
 
-	case 7: /* pred_rel_mutex */
-	case 9: /* pic call */
-        case 12: /* mf */
-        case 19: /* fetchadd_acq */
-	case 20: /* mov = ar.bsp */
-	case 21: /* flushrs */
-	case 22: /* bundle selector */
-	case 23: /* cycle display */
-          break;
-
-        case 24: /* addp4 */
+        case UNSPEC_ADDP4:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  break;
 
-	case 5: /* recip_approx */
+	case UNSPEC_FR_RECIP_APPROX:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  break;
 
-        case 13: /* cmpxchg_acq */
+        case UNSPEC_CMPXCHG_ACQ:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 2), flags, pred);
 	  break;
@@ -4615,7 +4913,7 @@ rtx_needs_barrier (x, flags, pred)
     case UNSPEC_VOLATILE:
       switch (XINT (x, 1))
 	{
-	case 0: /* alloc */
+	case UNSPECV_ALLOC:
 	  /* Alloc must always be the first instruction of a group.
 	     We force this by always returning true.  */
 	  /* ??? We might get better scheduling if we explicitly check for
@@ -4629,17 +4927,15 @@ rtx_needs_barrier (x, flags, pred)
 	  rws_access_regno (REG_AR_CFM, new_flags, pred);
 	  return 1;
 
-	case 1: /* blockage */
-	case 2: /* insn group barrier */
-	  return 0;
-
-	case 5: /* set_bsp  */
+	case UNSPECV_SET_BSP:
 	  need_barrier = 1;
           break;
 
-	case 7: /* pred.rel.mutex */
-	case 8: /* safe_across_calls all */
-	case 9: /* safe_across_calls normal */
+	case UNSPECV_BLOCKAGE:
+	case UNSPECV_INSN_GROUP_BARRIER:
+	case UNSPECV_BREAK:
+	case UNSPECV_PSAC_ALL:
+	case UNSPECV_PSAC_NORMAL:
 	  return 0;
 
 	default:
@@ -4866,7 +5162,7 @@ emit_insn_group_barriers (dump, insns)
 	}
       else if (GET_CODE (insn) == INSN
 	       && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
-	       && XINT (PATTERN (insn), 1) == 2)
+	       && XINT (PATTERN (insn), 1) == UNSPECV_INSN_GROUP_BARRIER)
 	{
 	  init_insn_group_barriers ();
 	  last_label = 0;
@@ -5328,7 +5624,9 @@ ia64_adjust_cost (insn, link, dep_insn, cost)
 	    addr = XVECEXP (addr, 0, 0);
 	  while (GET_CODE (addr) == SUBREG || GET_CODE (addr) == ZERO_EXTEND)
 	    addr = XEXP (addr, 0);
-	  if (GET_CODE (addr) == MEM)
+
+	  /* Note that LO_SUM is used for GOT loads.  */
+	  if (GET_CODE (addr) == MEM || GET_CODE (addr) == LO_SUM)
 	    addr = XEXP (addr, 0);
 	  else
 	    addr = 0;
@@ -5470,18 +5768,13 @@ insn_matches_slot (p, itype, slot, insn)
   return 0;
 }
 
-/* Like emit_insn_before, but skip cycle_display insns.  This makes the
-   assembly output a bit prettier.  */
+/* Like emit_insn_before, but skip cycle_display notes.
+   ??? When cycle display notes are implemented, update this.  */
 
 static void
 ia64_emit_insn_before (insn, before)
      rtx insn, before;
 {
-  rtx prev = PREV_INSN (before);
-  if (prev && GET_CODE (prev) == INSN
-      && GET_CODE (PATTERN (prev)) == UNSPEC
-      && XINT (PATTERN (prev), 1) == 23)
-    before = prev;
   emit_insn_before (insn, before);
 }
 
@@ -6376,9 +6669,11 @@ ia64_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
 	    abort ();
 	  insn_code = recog_memoized (stop);
 
-	  /* Ignore cycle displays and .pred.rel.mutex.  */
-	  if (insn_code == CODE_FOR_cycle_display
-	      || insn_code == CODE_FOR_pred_rel_mutex
+	  /* Ignore .pred.rel.mutex.
+
+	     ??? Update this to ignore cycle display notes too
+	     ??? once those are implemented  */
+	  if (insn_code == CODE_FOR_pred_rel_mutex
 	      || insn_code == CODE_FOR_prologue_use)
 	    continue;
 
@@ -6532,17 +6827,6 @@ ia64_sched_finish (dump, sched_verbose)
   free (sched_types);
   free (sched_ready);
 }
-
-static rtx
-ia64_cycle_display (clock, last)
-     int clock;
-     rtx last;
-{
-  if (ia64_final_schedule)
-    return emit_insn_after (gen_cycle_display (GEN_INT (clock)), last);
-  else
-    return last;
-}
 
 /* Emit pseudo-ops for the assembler to describe predicate relations.
    At present this assumes that we only consider predicate pairs to
@@ -6552,11 +6836,10 @@ ia64_cycle_display (clock, last)
 static void
 emit_predicate_relation_info ()
 {
-  int i;
+  basic_block bb;
 
-  for (i = n_basic_blocks - 1; i >= 0; --i)
+  FOR_EACH_BB_REVERSE (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       int r;
       rtx head = bb->head;
 
@@ -6582,9 +6865,8 @@ emit_predicate_relation_info ()
      relations around them.  Otherwise the assembler will assume the call
      returns, and complain about uses of call-clobbered predicates after
      the call.  */
-  for (i = n_basic_blocks - 1; i >= 0; --i)
+  FOR_EACH_BB_REVERSE (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       rtx insn = bb->head;
       
       while (1)
@@ -6649,7 +6931,7 @@ ia64_emit_nops ()
       pat = INSN_P (insn) ? PATTERN (insn) : const0_rtx;
       if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER)
 	continue;
-      if ((GET_CODE (pat) == UNSPEC && XINT (pat, 1) == 22)
+      if ((GET_CODE (pat) == UNSPEC && XINT (pat, 1) == UNSPEC_BUNDLE_SELECTOR)
 	  || GET_CODE (insn) == CODE_LABEL)
 	{
 	  if (b)
@@ -6665,7 +6947,8 @@ ia64_emit_nops ()
 	  bundle_pos = 0;
 	  continue;
 	}
-      else if (GET_CODE (pat) == UNSPEC_VOLATILE && XINT (pat, 1) == 2)
+      else if (GET_CODE (pat) == UNSPEC_VOLATILE
+	       && XINT (pat, 1) == UNSPECV_INSN_GROUP_BARRIER)
 	{
 	  int t = INTVAL (XVECEXP (pat, 0, 0));
 	  if (b)
@@ -6718,14 +7001,17 @@ void
 ia64_reorg (insns)
      rtx insns;
 {
+  /* We are freeing block_for_insn in the toplev to keep compatibility
+     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
+  compute_bb_for_insn ();
+
   /* If optimizing, we'll have split before scheduling.  */
   if (optimize == 0)
-    split_all_insns_noflow ();
+    split_all_insns (0);
 
-  /* Make sure the CFG and global_live_at_start are correct
-     for emit_predicate_relation_info.  */
-  find_basic_blocks (insns, max_reg_num (), NULL);
-  life_analysis (insns, NULL, PROP_DEATH_NOTES);
+  /* ??? update_life_info_in_dirty_blocks fails to terminate during
+     non-optimizing bootstrap.  */
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
 
   if (ia64_flag_schedule_insns2)
     {
@@ -6756,7 +7042,7 @@ ia64_reorg (insns)
         insn = prev_active_insn (insn);
       if (GET_CODE (insn) == INSN
 	  && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
-	  && XINT (PATTERN (insn), 1) == 2)
+	  && XINT (PATTERN (insn), 1) == UNSPECV_INSN_GROUP_BARRIER)
 	{
 	  saw_stop = 1;
 	  insn = prev_active_insn (insn);
@@ -6861,17 +7147,42 @@ ia64_eh_uses (regno)
    code faster because there is one less load.  This also includes incomplete
    types which can't go in sdata/sbss.  */
 
-/* ??? See select_section.  We must put short own readonly variables in
-   sdata/sbss instead of the more natural rodata, because we can't perform
-   the DECL_READONLY_SECTION test here.  */
+static bool
+ia64_in_small_data_p (exp)
+     tree exp;
+{
+  if (TARGET_NO_SDATA)
+    return false;
 
-extern struct obstack * saveable_obstack;
+  if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
+    {
+      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+      if (strcmp (section, ".sdata") == 0
+	  || strcmp (section, ".sbss") == 0)
+	return true;
+    }
+  else
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 
-void
-ia64_encode_section_info (decl)
+      /* If this is an incomplete type with size 0, then we can't put it
+	 in sdata because it might be too big when completed.  */
+      if (size > 0 && size <= ia64_section_threshold)
+	return true;
+    }
+
+  return false;
+}
+
+static void
+ia64_encode_section_info (decl, first)
      tree decl;
+     int first ATTRIBUTE_UNUSED;
 {
   const char *symbol_str;
+  bool is_local;
+  rtx symbol;
+  char encoding = 0;
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
@@ -6884,83 +7195,69 @@ ia64_encode_section_info (decl)
       || GET_CODE (DECL_RTL (decl)) != MEM
       || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
     return;
-    
-  symbol_str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
 
-  /* We assume that -fpic is used only to create a shared library (dso).
-     With -fpic, no global data can ever be sdata.
-     Without -fpic, global common uninitialized data can never be sdata, since
-     it can unify with a real definition in a dso.  */
-  /* ??? Actually, we can put globals in sdata, as long as we don't use gprel
-     to access them.  The linker may then be able to do linker relaxation to
-     optimize references to them.  Currently sdata implies use of gprel.  */
-  /* We need the DECL_EXTERNAL check for C++.  static class data members get
-     both TREE_STATIC and DECL_EXTERNAL set, to indicate that they are
-     statically allocated, but the space is allocated somewhere else.  Such
-     decls can not be own data.  */
-  if (! TARGET_NO_SDATA
-      && TREE_STATIC (decl) && ! DECL_EXTERNAL (decl)
-      && ! (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
-      && ! (TREE_PUBLIC (decl)
-	    && (flag_pic
-		|| (DECL_COMMON (decl)
-		    && (DECL_INITIAL (decl) == 0
-			|| DECL_INITIAL (decl) == error_mark_node))))
-      /* Either the variable must be declared without a section attribute,
-	 or the section must be sdata or sbss.  */
-      && (DECL_SECTION_NAME (decl) == 0
-	  || ! strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
-		       ".sdata")
-	  || ! strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
-		       ".sbss")))
+  symbol = XEXP (DECL_RTL (decl), 0);
+  symbol_str = XSTR (symbol, 0);
+
+  is_local = (*targetm.binds_local_p) (decl);
+
+  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    encoding = " GLil"[decl_tls_model (decl)];
+  /* Determine if DECL will wind up in .sdata/.sbss.  */
+  else if (is_local && ia64_in_small_data_p (decl))
+    encoding = 's';
+
+  /* Finally, encode this into the symbol string.  */
+  if (encoding)
     {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
+      char *newstr;
+      size_t len;
 
-      /* If the variable has already been defined in the output file, then it
-	 is too late to put it in sdata if it wasn't put there in the first
-	 place.  The test is here rather than above, because if it is already
-	 in sdata, then it can stay there.  */
-
-      if (TREE_ASM_WRITTEN (decl))
-	;
-
-      /* If this is an incomplete type with size 0, then we can't put it in
-	 sdata because it might be too big when completed.  */
-      else if (size > 0
-	       && size <= (HOST_WIDE_INT) ia64_section_threshold
-	       && symbol_str[0] != SDATA_NAME_FLAG_CHAR)
+      if (symbol_str[0] == ENCODE_SECTION_INFO_CHAR)
 	{
-	  size_t len = strlen (symbol_str);
-	  char *newstr = alloca (len + 1);
-	  const char *string;
-
-	  *newstr = SDATA_NAME_FLAG_CHAR;
-	  memcpy (newstr + 1, symbol_str, len + 1);
-	  
-	  string = ggc_alloc_string (newstr, len + 1);
-	  XSTR (XEXP (DECL_RTL (decl), 0), 0) = string;
+	  if (encoding == symbol_str[1])
+	    return;
+	  /* ??? Sdata became thread or thread becaome not thread.  Lose.  */
+	  abort ();
 	}
+
+      len = strlen (symbol_str);
+      newstr = alloca (len + 3);
+      newstr[0] = ENCODE_SECTION_INFO_CHAR;
+      newstr[1] = encoding;
+      memcpy (newstr + 2, symbol_str, len + 1);
+
+      XSTR (symbol, 0) = ggc_alloc_string (newstr, len + 2);
     }
-  /* This decl is marked as being in small data/bss but it shouldn't
-     be; one likely explanation for this is that the decl has been
-     moved into a different section from the one it was in when
-     ENCODE_SECTION_INFO was first called.  Remove the '@'.  */
-  else if (symbol_str[0] == SDATA_NAME_FLAG_CHAR)
-    {
-      XSTR (XEXP (DECL_RTL (decl), 0), 0)
-	= ggc_strdup (symbol_str + 1);
-    }
+
+  /* This decl is marked as being in small data/bss but it shouldn't be;
+     one likely explanation for this is that the decl has been moved into
+     a different section from the one it was in when encode_section_info
+     was first called.  Remove the encoding.  */
+  else if (symbol_str[0] == ENCODE_SECTION_INFO_CHAR)
+    XSTR (symbol, 0) = ggc_strdup (symbol_str + 2);
+}
+
+static const char *
+ia64_strip_name_encoding (str)
+     const char *str;
+{
+  if (str[0] == ENCODE_SECTION_INFO_CHAR)
+    str += 2;
+  if (str[0] == '*')
+    str++;
+  return str;
 }
 
 /* Output assembly directives for prologue regions.  */
 
 /* The current basic block number.  */
 
-static int block_num;
+static bool last_block;
 
 /* True if we need a copy_state command at the start of the next block.  */
 
-static int need_copy_state;
+static bool need_copy_state;
 
 /* The function emits unwind directives for the start of an epilogue.  */
 
@@ -6970,10 +7267,10 @@ process_epilogue ()
   /* If this isn't the last block of the function, then we need to label the
      current state, and copy it back in at the start of the next block.  */
 
-  if (block_num != n_basic_blocks - 1)
+  if (!last_block)
     {
       fprintf (asm_out_file, "\t.label_state 1\n");
-      need_copy_state = 1;
+      need_copy_state = true;
     }
 
   fprintf (asm_out_file, "\t.restore sp\n");
@@ -6993,7 +7290,7 @@ process_set (asm_out_file, pat)
 
   /* Look for the ALLOC insn.  */
   if (GET_CODE (src) == UNSPEC_VOLATILE
-      && XINT (src, 1) == 0
+      && XINT (src, 1) == UNSPECV_ALLOC
       && GET_CODE (dest) == REG)
     {
       dest_regno = REGNO (dest);
@@ -7211,18 +7508,18 @@ process_for_unwind_directive (asm_out_file, insn)
       if (GET_CODE (insn) == NOTE
 	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BASIC_BLOCK)
 	{
-	  block_num = NOTE_BASIC_BLOCK (insn)->index;
+	  last_block = NOTE_BASIC_BLOCK (insn)->next_bb == EXIT_BLOCK_PTR;
 
 	  /* Restore unwind state from immediately before the epilogue.  */
 	  if (need_copy_state)
 	    {
 	      fprintf (asm_out_file, "\t.body\n");
 	      fprintf (asm_out_file, "\t.copy_state 1\n");
-	      need_copy_state = 0;
+	      need_copy_state = false;
 	    }
 	}
 
-      if (! RTX_FRAME_RELATED_P (insn))
+      if (GET_CODE (insn) == NOTE || ! RTX_FRAME_RELATED_P (insn))
 	return;
 
       pat = find_reg_note (insn, REG_FRAME_RELATED_EXPR, NULL_RTX);
@@ -7262,55 +7559,43 @@ ia64_init_builtins ()
 {
   tree psi_type_node = build_pointer_type (integer_type_node);
   tree pdi_type_node = build_pointer_type (long_integer_type_node);
-  tree endlink = void_list_node;
 
   /* __sync_val_compare_and_swap_si, __sync_bool_compare_and_swap_si */
   tree si_ftype_psi_si_si
-    = build_function_type (integer_type_node,
-                           tree_cons (NULL_TREE, psi_type_node,
-                                      tree_cons (NULL_TREE, integer_type_node,
-                                                 tree_cons (NULL_TREE,
-							    integer_type_node,
-                                                            endlink))));
+    = build_function_type_list (integer_type_node,
+				psi_type_node, integer_type_node,
+				integer_type_node, NULL_TREE);
 
   /* __sync_val_compare_and_swap_di, __sync_bool_compare_and_swap_di */
   tree di_ftype_pdi_di_di
-    = build_function_type (long_integer_type_node,
-                           tree_cons (NULL_TREE, pdi_type_node,
-                                      tree_cons (NULL_TREE,
-						 long_integer_type_node,
-                                                 tree_cons (NULL_TREE,
-							long_integer_type_node,
-							endlink))));
+    = build_function_type_list (long_integer_type_node,
+				pdi_type_node, long_integer_type_node,
+				long_integer_type_node, NULL_TREE);
   /* __sync_synchronize */
   tree void_ftype_void
-    = build_function_type (void_type_node, endlink);
+    = build_function_type (void_type_node, void_list_node);
 
   /* __sync_lock_test_and_set_si */
   tree si_ftype_psi_si
-    = build_function_type (integer_type_node,
-                           tree_cons (NULL_TREE, psi_type_node,
-                           tree_cons (NULL_TREE, integer_type_node, endlink)));
+    = build_function_type_list (integer_type_node,
+				psi_type_node, integer_type_node, NULL_TREE);
 
   /* __sync_lock_test_and_set_di */
   tree di_ftype_pdi_di
-    = build_function_type (long_integer_type_node,
-                           tree_cons (NULL_TREE, pdi_type_node,
-                           tree_cons (NULL_TREE, long_integer_type_node,
-				      endlink)));
+    = build_function_type_list (long_integer_type_node,
+				pdi_type_node, long_integer_type_node,
+				NULL_TREE);
 
   /* __sync_lock_release_si */
   tree void_ftype_psi
-    = build_function_type (void_type_node, tree_cons (NULL_TREE, psi_type_node,
-						      endlink));
+    = build_function_type_list (void_type_node, psi_type_node, NULL_TREE);
 
   /* __sync_lock_release_di */
   tree void_ftype_pdi
-    = build_function_type (void_type_node, tree_cons (NULL_TREE, pdi_type_node,
-						      endlink));
+    = build_function_type_list (void_type_node, pdi_type_node, NULL_TREE);
 
 #define def_builtin(name, type, code) \
-  builtin_function ((name), (type), (code), BUILT_IN_MD, NULL)
+  builtin_function ((name), (type), (code), BUILT_IN_MD, NULL, NULL_TREE)
 
   def_builtin ("__sync_val_compare_and_swap_si", si_ftype_psi_si_si,
 	       IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI);
@@ -7334,11 +7619,11 @@ ia64_init_builtins ()
 	       IA64_BUILTIN_LOCK_RELEASE_DI);
 
   def_builtin ("__builtin_ia64_bsp",
-	       build_function_type (ptr_type_node, endlink),
+	       build_function_type (ptr_type_node, void_list_node),
 	       IA64_BUILTIN_BSP);
 
   def_builtin ("__builtin_ia64_flushrs", 
-	       build_function_type (void_type_node, endlink), 
+	       build_function_type (void_type_node, void_list_node), 
 	       IA64_BUILTIN_FLUSHRS);
 
   def_builtin ("__sync_fetch_and_add_si", si_ftype_psi_si,
@@ -7421,6 +7706,10 @@ ia64_expand_fetch_and_op (binoptab, mode, arglist, target)
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
   mem = expand_expr (arg0, NULL_RTX, Pmode, 0);
+#ifdef POINTERS_EXTEND_UNSIGNED
+  if (GET_MODE(mem) != Pmode)
+    mem = convert_memory_address (Pmode, mem);
+#endif
   value = expand_expr (arg1, NULL_RTX, mode, 0);
 
   mem = gen_rtx_MEM (mode, force_reg (Pmode, mem));
@@ -7498,6 +7787,11 @@ ia64_expand_op_and_fetch (binoptab, mode, arglist, target)
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
   mem = expand_expr (arg0, NULL_RTX, Pmode, 0);
+#ifdef POINTERS_EXTEND_UNSIGNED
+  if (GET_MODE(mem) != Pmode)
+    mem = convert_memory_address (Pmode, mem);
+#endif
+
   value = expand_expr (arg1, NULL_RTX, mode, 0);
 
   mem = gen_rtx_MEM (mode, force_reg (Pmode, mem));
@@ -7561,11 +7855,11 @@ ia64_expand_compare_and_swap (mode, boolp, arglist, target)
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
   arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-  mem = expand_expr (arg0, NULL_RTX, Pmode, 0);
+  mem = expand_expr (arg0, NULL_RTX, ptr_mode, 0);
   old = expand_expr (arg1, NULL_RTX, mode, 0);
   new = expand_expr (arg2, NULL_RTX, mode, 0);
 
-  mem = gen_rtx_MEM (mode, force_reg (Pmode, mem));
+  mem = gen_rtx_MEM (mode, force_reg (ptr_mode, mem));
   MEM_VOLATILE_P (mem) = 1;
 
   if (! register_operand (old, mode))
@@ -7610,10 +7904,10 @@ ia64_expand_lock_test_and_set (mode, arglist, target)
 
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  mem = expand_expr (arg0, NULL_RTX, Pmode, 0);
+  mem = expand_expr (arg0, NULL_RTX, ptr_mode, 0);
   new = expand_expr (arg1, NULL_RTX, mode, 0);
 
-  mem = gen_rtx_MEM (mode, force_reg (Pmode, mem));
+  mem = gen_rtx_MEM (mode, force_reg (ptr_mode, mem));
   MEM_VOLATILE_P (mem) = 1;
   if (! register_operand (new, mode))
     new = copy_to_mode_reg (mode, new);
@@ -7644,9 +7938,9 @@ ia64_expand_lock_release (mode, arglist, target)
   rtx mem;
 
   arg0 = TREE_VALUE (arglist);
-  mem = expand_expr (arg0, NULL_RTX, Pmode, 0);
+  mem = expand_expr (arg0, NULL_RTX, ptr_mode, 0);
 
-  mem = gen_rtx_MEM (mode, force_reg (Pmode, mem));
+  mem = gen_rtx_MEM (mode, force_reg (ptr_mode, mem));
   MEM_VOLATILE_P (mem) = 1;
 
   emit_move_insn (mem, const0_rtx);
@@ -7820,3 +8114,209 @@ ia64_hpux_function_arg_padding (mode, type)
        : GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
       ? downward : upward);
 }
+
+/* Linked list of all external functions that are to be emitted by GCC.
+   We output the name if and only if TREE_SYMBOL_REFERENCED is set in
+   order to avoid putting out names that are never really used.  */
+
+struct extern_func_list
+{
+  struct extern_func_list *next; /* next external */
+  char *name;                    /* name of the external */
+} *extern_func_head = 0;
+
+static void
+ia64_hpux_add_extern_decl (name)
+        const char *name;
+{
+  struct extern_func_list *p;
+
+  p = (struct extern_func_list *) xmalloc (sizeof (struct extern_func_list));
+  p->name = xmalloc (strlen (name) + 1);
+  strcpy(p->name, name);
+  p->next = extern_func_head;
+  extern_func_head = p;
+}
+
+/* Print out the list of used global functions.  */
+
+void
+ia64_hpux_asm_file_end (file)
+	FILE *file;
+{
+  while (extern_func_head)
+    {
+      const char *real_name;
+      tree decl;
+
+      real_name = (* targetm.strip_name_encoding) (extern_func_head->name);
+      decl = maybe_get_identifier (real_name);
+
+      if (!decl
+	  || (! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl)))
+        {
+	  if (decl)
+	    TREE_ASM_WRITTEN (decl) = 1;
+	  (*targetm.asm_out.globalize_label) (file, extern_func_head->name);
+	  fprintf (file, "%s", TYPE_ASM_OP);
+	  assemble_name (file, extern_func_head->name);
+	  putc (',', file);
+	  fprintf (file, TYPE_OPERAND_FMT, "function");
+	  putc ('\n', file);
+        }
+      extern_func_head = extern_func_head->next;
+    }
+}
+
+
+/* Switch to the section to which we should output X.  The only thing
+   special we do here is to honor small data.  */
+
+static void
+ia64_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
+{
+  if (GET_MODE_SIZE (mode) > 0
+      && GET_MODE_SIZE (mode) <= ia64_section_threshold)
+    sdata_section ();
+  else
+    default_elf_select_rtx_section (mode, x, align);
+}
+
+/* It is illegal to have relocations in shared segments on AIX and HPUX.
+   Pretend flag_pic is always set.  */
+
+static void
+ia64_rwreloc_select_section (exp, reloc, align)
+     tree exp;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+{
+  default_elf_select_section_1 (exp, reloc, align, true);
+}
+
+static void
+ia64_rwreloc_unique_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  default_unique_section_1 (decl, reloc, true);
+}
+
+static void
+ia64_rwreloc_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
+{
+  int save_pic = flag_pic;
+  flag_pic = 1;
+  ia64_select_rtx_section (mode, x, align);
+  flag_pic = save_pic;
+}
+
+static unsigned int
+ia64_rwreloc_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  return default_section_type_flags_1 (decl, name, reloc, true);
+}
+
+
+/* Output the assembler code for a thunk function.  THUNK_DECL is the
+   declaration for the thunk function itself, FUNCTION is the decl for
+   the target function.  DELTA is an immediate constant offset to be
+   added to THIS.  If VCALL_OFFSET is non-zero, the word at
+   *(*this + vcall_offset) should be added to THIS.  */
+
+static void
+ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset;
+     tree function;
+{
+  rtx this, insn, funexp;
+
+  /* Set things up as ia64_expand_prologue might.  */
+  last_scratch_gr_reg = 15;
+
+  memset (&current_frame_info, 0, sizeof (current_frame_info));
+  current_frame_info.spill_cfa_off = -16;
+  current_frame_info.n_input_regs = 1;
+  current_frame_info.need_regstk = (TARGET_REG_NAMES != 0);
+
+  if (!TARGET_REG_NAMES)
+    reg_names[IN_REG (0)] = ia64_reg_numbers[0];
+
+  /* Mark the end of the (empty) prologue.  */
+  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+
+  this = gen_rtx_REG (Pmode, IN_REG (0));
+
+  /* Apply the constant offset, if required.  */
+  if (delta)
+    {
+      rtx delta_rtx = GEN_INT (delta);
+
+      if (!CONST_OK_FOR_I (delta))
+	{
+	  rtx tmp = gen_rtx_REG (Pmode, 2);
+	  emit_move_insn (tmp, delta_rtx);
+	  delta_rtx = tmp;
+	}
+      emit_insn (gen_adddi3 (this, this, delta_rtx));
+    }
+
+  /* Apply the offset from the vtable, if required.  */
+  if (vcall_offset)
+    {
+      rtx vcall_offset_rtx = GEN_INT (vcall_offset);
+      rtx tmp = gen_rtx_REG (Pmode, 2);
+
+      emit_move_insn (tmp, gen_rtx_MEM (Pmode, this));
+
+      if (!CONST_OK_FOR_J (vcall_offset))
+	{
+	  rtx tmp2 = gen_rtx_REG (Pmode, next_scratch_gr_reg ());
+	  emit_move_insn (tmp2, vcall_offset_rtx);
+	  vcall_offset_rtx = tmp2;
+	}
+      emit_insn (gen_adddi3 (tmp, tmp, vcall_offset_rtx));
+
+      emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
+
+      emit_insn (gen_adddi3 (this, this, tmp));
+    }
+
+  /* Generate a tail call to the target function.  */
+  if (! TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
+  ia64_expand_call (NULL_RTX, funexp, NULL_RTX, 1);
+  insn = get_last_insn ();
+  SIBLING_CALL_P (insn) = 1;
+  emit_barrier ();
+
+  /* Run just enough of rest_of_compilation to get the insns emitted.
+     There's not really enough bulk here to make other passes such as
+     instruction scheduling worth while.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insn = get_insns ();
+  emit_all_insn_group_barriers (NULL, insn);
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1, 0);
+  final_end_function ();
+}
+
+#include "gt-ia64.h"

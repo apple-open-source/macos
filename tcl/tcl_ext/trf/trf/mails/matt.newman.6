@@ -1,0 +1,404 @@
+MIME-Version: 1.0
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m11Ue2L-00027cC; Sat, 25 Sep 1999 00:41:53 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Sat Sep 25 00:36:27 1999
+Received: from ficus.frogspace.net (root@[216.65.97.3] (may be forged))
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id XAA03108
+	for <a.kupries@westend.com>; Fri, 24 Sep 1999 23:34:39 +0200 (MET DST)
+Received: from [208.244.224.65] (helo=host65.novadigm.com)
+	by ficus.frogspace.net with smtp (Exim 3.02 #1)
+	id 11UckH-0006S7-00
+	for a.kupries@westend.com; Fri, 24 Sep 1999 17:19:10 -0400
+Received: from LAPCAT by host65.novadigm.com
+          via smtpd (for [216.65.97.216]) with SMTP; 24 Sep 1999 21:43:38 UT
+X-From_: matt@sensus.org  Fri Sep 24 23:34:42 1999
+Message-ID: <014301bf06d4$921d2440$b3e6f4d0@lapcat>
+From: "Matt Newman" <matt@sensus.org>
+To: "Andreas Kupries" <a.kupries@westend.com>
+Subject: Re: [trf1.8] Tcl 8.2 UNSTACK causes GPF
+Date: Fri, 24 Sep 1999 17:34:11 -0400
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 4.72.2106.4
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.2106.4
+Content-Type: multipart/mixed;
+              boundary="----=_NextPart_000_0140_01BF06B3.03AF8390"
+
+------=_NextPart_000_0140_01BF06B3.03AF8390
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+              charset="iso-8859-1"
+
+I have attached all the patches I made (excluding the ones you sent me)
+
+You will probably want to review this by hand before applying.
+
+tclLoadWin.c -
+    - don't unload otherwise you can get GPF because zlib gets unloaded
+before your channels get flushed (if you forgot to close them - like in the
+case of errors)
+registry.c
+     - disable down-channel seeks, and instead return position
+     - don't call convertBufProc with zero bytes
+zlib.c
+     - support for STATIC builds.
+haval.1996/haval.c -
+    undef VERSION if pre-defined (avoid compile-time warning under certain
+situations.
+sha/sha.h
+   - avoid redefine-type warning on windows.
+
+Let me know which of these you do and don't apply - thanks.
+
+Matt Newman
+-----Original Message-----
+From: Andreas Kupries <a.kupries@westend.com>
+To: Matt Newman <matt@sensus.org>
+Cc: Jean-Claude Wippler <jcw@equi4.com>
+Date: Friday, September 24, 1999 3:17 PM
+Subject: Re: [trf1.8] Tcl 8.2 UNSTACK causes GPF
+
+
+>
+>> >A big ummph. My own documentation for the integrated/rewritten patch
+>> >clearly states that inside the Close procedure the pointer to the
+>> >channel itself already refers to the parent channel. gIOT behaves
+>> >correctly but Trf erroneously uses 'DownChannel' to search although it
+>> >doesn't have to. Enclosed a patch which should correct that
+>> >problem. To much CCP.
+>
+>> Thanks, but unfortunately this doesn't quite get us there.
+>
+>> In the core patch for Unstack it doesn't call Flush, just Close.
+>
+>> Now Close does call flush, but if data is pending then you run into
+>> the same DownChannel NULL-DEREF because Unstack has already switched
+>> the pointers.  It's safe if you call flush explicitly first though.
+>
+>> You could view this as a problem in registry.c or a problem in
+>> Unstack - personally I think the problem is in unstack - it should
+>> explicitly call flush *before* unlinking the channel and closing it.
+>
+>> What are your thoughts on this?
+>
+>I took a look at the various pieces of code (registry.c, unstack.c,
+>tclIO.c), made a drawing of the structures and pointers and you are
+>right, a flush during the unstack will not find its own channel
+>anymore and jump through a NULL while searching it.
+>
+>I see it more as a problem of registry.c. The unstack should not know
+>nothing about flushing and all that, this part should be done by the
+>machinery below, i.e. the driver.
+>
+>I would say simply having 'DownChannel' returning ctrl->self in that
+>situation should solve the problem.
+>
+>Enclosed a patch doing just that.
+>
+>Remarks: Marshall Rose reported a problem that he had to explicitly
+>flush before unstack to have some of his code worki right, but his
+>machine did not crash, and I was unable to reproduce the problem on my
+>machine. I really wonder how that worked out.
+>
+>My thanks for tracking down this problem.
+>
+>If this patch solves your problem I will update all relevant code and
+>websites (Trf 1.8 and 2.0 [*], gIOT)
+>
+>[*] Trf 2.0 is already on my website, but not officially announced, so
+>although I am not happy about error in itself I am very happy that it
+>turned up now with me able to correct it before the official release.
+>
+>--
+>So long,
+> Andreas Kupries <a.kupries@westend.com>
+> <http://www.westend.com/~kupries/>
+>---------------------------------------------------------------------------
+----
+>
+>
+>
+>
+
+------=_NextPart_000_0140_01BF06B3.03AF8390
+Content-Disposition: attachment;
+	filename="trf-patch1"
+Content-Transfer-Encoding: quoted-printable
+Content-Type: application/octet-stream;
+              name="trf-patch1"
+
+Index: compat/tclLoadWin.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvs/tcl/trf/compat/tclLoadWin.c,v
+retrieving revision 1.2
+diff -c -w -b -r1.2 tclLoadWin.c
+*** tclLoadWin.c	1999/06/27 16:40:22	1.2
+--- tclLoadWin.c	1999/09/24 21:27:08
+***************
+*** 209,215 ****
+--- 209,217 ----
+      LibraryList *list =3D *((LibraryList **) clientData);
+ =20
+      while (list !=3D NULL) {
++ #ifdef BUGS_ON_EXIT
+  	FreeLibrary(list->handle);
++ #endif
+  	ptr =3D list->nextPtr;
+  	ckfree((char*) list);
+  	list =3D ptr;
+Index: generic/registry.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvs/tcl/trf/generic/registry.c,v
+retrieving revision 1.5
+diff -c -w -b -r1.5 registry.c
+*** registry.c	1999/09/22 20:57:25	1.5
+--- registry.c	1999/09/24 21:27:11
+***************
+*** 121,126 ****
+--- 121,127 ----
+    Tcl_TimerToken timer;
+  #endif
+ =20
++   int	position;	/* Keep track of the upstream logical file position */
+  } TrfTransformationInstance;
+ =20
+ =20
+***************
+*** 1190,1195 ****
+--- 1191,1197 ----
+  	gotBytes    +=3D toRead;
+  	toRead =3D 0;
+ =20
++ 	trans->position +=3D gotBytes;
+  	return gotBytes;
+ =20
+        } else {
+***************
+*** 1242,1247 ****
+--- 1244,1250 ----
+  	  *errorCodePtr =3D EWOULDBLOCK;
+  	  return -1;
+  	} else {
++ 	  trans->position +=3D gotBytes;
+  	  return gotBytes;
+  	}
+        } else {
+***************
+*** 1256,1261 ****
+--- 1259,1265 ----
+  					    trans->clientData);
+  	if (trans->result.used =3D=3D 0) {
+  	  /* we had nothing to flush */
++ 	  trans->position +=3D gotBytes;
+  	  return gotBytes;
+  	}
+  	continue; /* at: while (toRead > 0) */
+***************
+*** 1287,1292 ****
+--- 1291,1297 ----
+      }
+    } /* while toRead > 0 */
+ =20
++   trans->position +=3D gotBytes;
+    return gotBytes;
+  }
+  =0C
+***************
+*** 1327,1332 ****
+--- 1332,1342 ----
+     * as write procedure in 'AttachTransformation').
+     */
+ =20
++   if (toWrite =3D=3D 0) {
++     /* Don't call convertBufProc with zero bytes - causes zlib to =
+fail! */
++     return 0;
++   }
++=20
+      if (trans->out.vectors->convertBufProc){=20
+        res =3D trans->out.vectors->convertBufProc (trans->out.control,
+  					       (unsigned char*) buf, toWrite,
+***************
+*** 1349,1354 ****
+--- 1359,1365 ----
+      return -1;
+    }
+ =20
++   trans->position +=3D toWrite;
+    return toWrite;
+  }
+  =0C
+***************
+*** 1395,1418 ****
+    Tcl_Channel parent =3D trans->parent;
+  #endif
+ =20
+!   /*
+!    * Flush data waiting for output, discard everything in the input =
+buffers.
+!    */
+!=20
+!   if (trans->mode & TCL_WRITABLE) {
+!     trans->out.vectors->flushProc (trans->out.control,
+! 				   (Tcl_Interp*) NULL,
+! 				   trans->clientData);
+!   }
+!=20
+!   if (trans->mode & TCL_READABLE) {
+!     trans->in.vectors->clearProc  (trans->in.control, =
+trans->clientData);
+!     trans->readIsFlushed =3D 0;
+    }
+-=20
+-   result =3D Tcl_Seek (parent, offset, mode);
+-   *errorCodePtr =3D (result =3D=3D -1) ? Tcl_GetErrno ():0;
+-   return result;
+  }
+  =0C
+  /*
+--- 1406,1417 ----
+    Tcl_Channel parent =3D trans->parent;
+  #endif
+ =20
+!   if (offset !=3D 0 || mode =3D=3D SEEK_SET) {
+!     *errorCodePtr =3D EFAULT;
+!     return -1;
+!   } else {
+!     return trans->position;
+    }
+  }
+  =0C
+  /*
+***************
+*** 1846,1851 ****
+--- 1845,1851 ----
+ =20
+    trans->mode             =3D Tcl_GetChannelMode (attach);
+    trans->timer            =3D (Tcl_TimerToken) NULL;
++   trans->position	  =3D 0;
+ =20
+    if (ENCODE_REQUEST (entry, optInfo)) {
+      /* ENCODE on write
+Index: generic/zlib.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvs/tcl/trf/generic/zlib.c,v
+retrieving revision 1.1.1.2
+diff -c -w -b -r1.1.1.2 zlib.c
+*** zlib.c	1999/06/27 15:25:14	1.1.1.2
+--- zlib.c	1999/09/24 21:27:11
+***************
+*** 39,57 ****
+   * Global variable containing the vectors into the 'zlib'-library.
+   */
+ =20
+  zFunctions zf =3D {0}; /* THREADING: serialize initialization */
+!=20
+ =20
+  int
+  TrfLoadZlib (interp)
+      Tcl_Interp* interp;
+  {
+    int res;
+ =20
+    TrfLock; /* THREADING: serialize initialization */
+ =20
+    res =3D Trf_LoadLibrary (interp, Z_LIB_NAME, (VOID**) &zf, symbols, =
+10);
+    TrfUnlock;
+-=20
+    return res;
+  }
+--- 39,75 ----
+   * Global variable containing the vectors into the 'zlib'-library.
+   */
+ =20
++ #if STATIC_BUILD
++ zFunctions zf =3D {
++   0,
++   deflate,
++   deflateEnd,
++   deflateInit_,
++   deflateReset,
++   inflate,
++   inflateEnd,
++   inflateInit_,
++   inflateReset,
++   adler32,
++   crc32,
++ };
++ #else
+  zFunctions zf =3D {0}; /* THREADING: serialize initialization */
+! #endif
+ =20
+  int
+  TrfLoadZlib (interp)
+      Tcl_Interp* interp;
+  {
++ #if STATIC_BUILD !=3D 1
+    int res;
+ =20
+    TrfLock; /* THREADING: serialize initialization */
+ =20
+    res =3D Trf_LoadLibrary (interp, Z_LIB_NAME, (VOID**) &zf, symbols, =
+10);
+    TrfUnlock;
+    return res;
++ #else
++   return TCL_OK;
++ #endif
+  }
+Index: generic/haval.1996/haval.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvs/tcl/trf/generic/haval.1996/haval.c,v
+retrieving revision 1.2
+diff -c -w -b -r1.2 haval.c
+*** haval.c	1999/09/22 20:57:26	1.2
+--- haval.c	1999/09/24 21:27:12
+***************
+*** 65,70 ****
+--- 65,73 ----
+  #include "havalapp.h"
+  #include "haval.h"
+ =20
++ #ifdef VERSION
++ #undef VERSION
++ #endif
+  #define VERSION    1                         /* current version number =
+*/
+ =20
+  void haval_string _ANSI_ARGS_((char *, unsigned char *)); /* hash a =
+string */
+Index: generic/sha/sha.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvs/tcl/trf/generic/sha/sha.h,v
+retrieving revision 1.1.1.1
+diff -c -w -b -r1.1.1.1 sha.h
+*** sha.h	1999/04/11 16:52:54	1.1.1.1
+--- sha.h	1999/09/24 21:27:12
+***************
+*** 12,18 ****
+--- 12,20 ----
+  #ifdef __alpha
+  typedef unsigned int  UINT32;
+  #else
++ #ifndef _WIN32
+  typedef unsigned long UINT32;
++ #endif
+  #endif
+ =20
+ =20
+
+------=_NextPart_000_0140_01BF06B3.03AF8390--

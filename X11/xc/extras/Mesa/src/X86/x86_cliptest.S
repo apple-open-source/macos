@@ -22,7 +22,6 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $XFree86: xc/extras/Mesa/src/X86/x86_cliptest.S,v 1.4 2002/03/05 20:27:24 dawes Exp $ */
 
 /*
  * NOTE: Avoid using spaces in between '(' ')' and arguments, especially
@@ -95,7 +94,7 @@ clip_table:
  *   EBP: temp2
  */
 
-#if defined(__ELF__) && defined(__PIC__) && !defined(ELFPIC)
+#if defined(__ELF__) && defined(__PIC__) && defined(GNU_ASSEMBLER) && !defined(ELFPIC)
 #define ELFPIC
 #endif
 

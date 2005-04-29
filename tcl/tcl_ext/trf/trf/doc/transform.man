@@ -1,0 +1,232 @@
+[include common/trf_version.inc]
+[manpage_begin transform n [vset trf_version]]
+[titledesc "Tcl level transformations"]
+[include common/trf_header.inc]
+[description]
+
+The command [cmd transform] reflects the API for a stack channel
+transformation into the tcl level, thus enabling the writing of
+transformations in tcl.
+
+[para]
+[list_begin definitions]
+
+[call [cmd transform] [opt [arg options...]] [opt [arg data]]]
+
+[list_begin definitions]
+
+[lst_item "[option -mode] [const read]|[const write]"]
+
+This option is accepted by the command if and only if it is used in
+[term immediate] mode.  See section
+[sectref {IMMEDIATE versus ATTACHED}] for an explanation of the term.
+
+[nl]
+
+The argument value specifies whether to run the read or the write part
+of the transformation specified via option [option -command] on the
+immediate data.
+
+[nl]
+
+Beyond the argument values listed above all unique abbreviations are
+recognized too.
+
+
+[lst_item "[option -command] [arg cmd]"]
+
+This option has to be present and is always understood. Its argument
+is a command prefix. This command prefix will be called by internally
+whenever some operation of the transformation has to be executed. An
+empty [arg cmd] is not allowed.
+
+[nl]
+
+The exact nature of the various possible calls and their expected
+results is described later, in section [sectref {CALLBACK API}].
+
+
+[include common/options.inc]
+[list_end]
+[list_end]
+
+[include common/sections.inc]
+
+[section {CALLBACK API}]
+
+Here we describe the API of the callback command implementing the
+actual transformation.
+
+[para]
+
+[list_begin definitions]
+[call [cmd callback] [arg operation] [arg data]]
+
+The callback is always called with two arguments, first an operation
+code followed by data. The latter will be empty for some operations.
+
+[nl]
+
+The known operations are listed below, together with an explanation of
+the arguments, what is expected of them, and how their results are
+handled.
+
+[list_begin definitions]
+
+[lst_item [const create/write]]
+
+When called [arg data] is empty. The result of the call is ignored.
+
+[nl]
+
+This is the first operation executed for the write side of the
+transformation. It has to initialize the internals of this part of the
+transformation and ready it for future calls.
+
+
+[lst_item [const delete/write]]
+
+When called [arg data] is empty. The result of the call is ignored.
+
+[nl]
+
+This is the last operation executed for the write side of the
+transformation. It has to shutdown the internals of this part of the
+transformation and release any resources which were acquired over the
+lifetime of the transformation.
+
+
+[lst_item [const write]]
+
+The operation is called whenever data is written to the channel.
+
+[nl]
+
+At the time of the call the argument [arg data] will contain the bytes
+to transform. The result of the call is taken as the result of the
+transformation and handed to the next stage down in the stack of
+transformation associated with the channel.
+
+[nl]
+
+This operation has to transform the contents of [arg data], using
+whatever data was left over from the last call of the operation. The
+transformation is allowed to buffer incomplete data.
+
+
+[lst_item [const flush/write]]
+
+When called [arg data] is empty. The operation has to transform any
+incomplete data it has buffered internally on the write side. The
+result of the call is taken as the result of the transformation and
+handed to the next stage down in the stack of transformation
+associated with the channel.
+
+
+[lst_item [const clear/write]]
+
+When called [arg data] is empty. The result of the call is ignored.
+
+[nl]
+
+The write side of the transformation has to clear its internal
+buffers. This operation is called when the user seeks on the channel,
+thus invalidating any incomplete transformation.
+
+
+[lst_item [const create/read]]
+
+When called [arg data] is empty. The result of the call is ignored.
+
+[nl]
+
+This is the first operation executed for the read side of the
+transformation. It has to initialize the internals of this part of the
+transformation and ready it for future calls.
+
+
+[lst_item [const delete/read]]
+
+When called [arg data] is empty. The result of the call is ignored.
+
+[nl]
+
+This is the last operation executed for the write side of the
+transformation. It has to shutdown the internals of this part of the
+transformation and release any resources which were acquired over the
+lifetime of the transformation.
+
+
+[lst_item [const read]]
+
+The operation is called whenever data is read from the channel.
+
+[nl]
+
+At the time of the call the argument [arg data] will contain the bytes
+to transform. The result of the call is taken as the result of the
+transformation and posted to the next stage up in the stack of
+transformation associated with the channel.
+
+[nl]
+
+This operation has to transform the contents of [arg data], using
+whatever data was left over from the last call of the operation. The
+transformation is allowed to buffer incomplete data.
+
+
+
+[lst_item [const flush/read]]
+
+When called [arg data] is empty. The operation has to transform any
+incomplete data it has buffered internally on the read side. The
+result of the call is taken as the result of the transformation and
+posted to the next stage up in the stack of transformation associated
+with the channel.
+
+
+[lst_item [const clear/read]]
+
+When called [arg data] is empty. The result of the call is ignored.
+
+[nl]
+
+The read side of the transformation has to clear its internal
+buffers. This operation is called when the user seeks on the channel,
+thus invalidating any incomplete transformation.
+
+
+[lst_item [const query/maxRead]]
+
+When called [arg data] is empty. The result of the call is interpreted
+as integer number. This operation is used by the generic layer to
+determine if the transformation establishes a limit on the number of
+bytes it (the generic layer) is allowed read from the transformations
+lower in the stack. A negative result unsets any limit.
+
+[nl]
+
+This has to be used if a transformation employs some kind of
+end-of-data marker. We cannot allow the generic layer to overshoot
+this marker because any data read after it cannot be stuffed back into
+the core buffers, causing the I/O system to loose data if the
+transformation is unstacked after it recognized the end of its
+data. This is a limitation of the I/O system in the tcl core.
+
+[nl]
+
+Returning a positive value will cause the I/O system to slow down, but
+also ensures that no data is lost.
+
+[nl]
+
+Two examples for such transformations are the data decompressors for
+[cmd zip] and [cmd bz2]. They use the C-level equivalent of this
+operation to prevent the overshooting.
+
+[list_end]
+[list_end]
+
+[see_also  trf-intro]
+[keywords {general transform}]
+[manpage_end]

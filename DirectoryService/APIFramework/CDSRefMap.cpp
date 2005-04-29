@@ -955,8 +955,6 @@ tDirStatus CDSRefMap::RemoveRef ( uInt32 inRefNum, uInt32 inType, sInt32 inPID )
 
 			if ( pCurrRef->fChildren != nil )
 			{
-				// Its ok to keep the mutex when calling RemoveChildren, it also calls Wait but we are on the same thread
-// KA - Need to revisit, commenting these out seems to have caused a regression and more deadlocking.
 				gFWRefMapMutex->Signal();
 				RemoveChildren( pCurrRef->fChildren, inPID );
 				gFWRefMapMutex->Wait();
@@ -1079,8 +1077,6 @@ void CDSRefMap::RemoveChildren ( sListFWInfo *inChildList, sInt32 inPID )
 			//remove ref if it matches the inPID
 			if ( pCurrChild->fPID == inPID )
 			{
-				// Its ok to keep the mutex when calling RemoveRef, it also calls Wait but we are on the same thread
-// KA - Need to revisit, commenting these out seems to have caused a regression and more deadlocking.
 				gFWRefMapMutex->Signal();
 				RemoveRef( pCurrChild->fRefNum, pCurrChild->fType, inPID );
 				gFWRefMapMutex->Wait();

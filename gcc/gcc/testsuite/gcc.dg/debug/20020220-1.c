@@ -3,8 +3,6 @@
    constant -4.0 in constant pool was never referenced by anything
    but Dwarf-2 location descriptor.  */
 /* { dg-do run } */
-/* APPLE LOCAL -Wlong-double */
-/* { dg-options "-Wno-long-double" } */
 
 void __attribute__((noinline))
 foo (const char *x __attribute__((unused)),

@@ -1,0 +1,95 @@
+[manpage_begin crc32 n 1.1.1]
+[copyright {2002, Pat Thoyts}]
+[moddesc   {Cyclic Redundancy Check (crc32)}]
+[titledesc {Perform a 32bit Cyclic Redundancy Check}]
+[require Tcl 8.2]
+[require crc32 [opt 1.1.1]]
+[description]
+[para]
+
+This package provides a Tcl-only implementation of the CRC-32
+algorithm based upon information provided at
+http://www.naaccr.org/standard/crc32/document.html
+
+If the [package Trf] package is available then the [cmd crc-zlib]
+command is used to perform the calculation.
+
+[section COMMANDS]
+
+[list_begin definitions]
+
+[call [cmd ::crc::crc32] [opt "-format [arg format]"] [opt "-seed [arg value]"] [opt "-implementation [arg procname]"] [arg message]]
+[call [cmd ::crc::crc32] [opt "-format [arg format]"] [opt "-seed [arg value]"] [opt "-implementation [arg procname]"] "-filename [arg file]"]
+
+The command takes string data or a file name and returns a checksum
+value calculated using the CRC-32 algorithm. The result is formatted
+using the [arg format](n) specifier provided or as an unsigned integer
+(%u) by default.
+
+[list_end]
+
+[section OPTIONS]
+
+[list_begin definitions]
+
+[lst_item "-filename [arg name]"]
+
+Return a checksum for the file contents instead of for parameter data.
+
+[lst_item "-format [arg string]"]
+
+Return the checksum using an alternative format template.
+
+[lst_item "-seed [arg value]"]
+
+Select an alternative seed value for the CRC calculation. The default
+is 0xffffffff. This can be useful for calculating the CRC for data
+structures without first converting the whole structure into a
+string. The CRC of the previous member can be used as the seed for
+calculating the CRC of the next member.
+
+[nl]
+
+Note that as the [package Trf] command [cmd crc-zlib] cannot accept a
+seed value, use of this option will force the use of the Tcl only
+implementation.
+
+[lst_item "-implementation [arg procname]"]
+
+This hook is provided to allow users to provide their own
+implementation (perhaps a C compiled extension) or to explicitly
+request use of the Tcl only implementation when [package Trf] is
+installed (by setting [arg "-implementation crc::Crc32_tcl"]. The
+procedure specfied is called with two parameters. The first is the
+data to be checksummed and the second is the seed value. A 32bit
+integer is expected as the result.
+
+[list_end]
+
+[section EXAMPLES]
+
+[para]
+[example {
+% crc::crc32 "Hello, World!"
+3964322768
+}]
+
+[para]
+[example {
+% crc::crc32 -format 0x%X "Hello, World!"
+0xEC4AC3D0
+}]
+
+[para]
+[example {
+% crc::crc32 -file crc32.tcl
+483919716
+}]
+
+[see_also sum(n) cksum(n) crc16(n)]
+[section AUTHORS]
+Pat Thoyts
+
+[keywords cksum checksum crc crc32 {cyclic redundancy check} {data integrity} security]
+[manpage_end]
+

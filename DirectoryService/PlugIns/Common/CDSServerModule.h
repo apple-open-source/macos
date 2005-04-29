@@ -29,8 +29,7 @@
 #ifndef __CDSServerModule_H__
 #define __CDSServerModule_H__	1
 
-#include "PluginData.h"
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PluginData.h>
 
 // ============================================================================
 //	* CDSServerModule Abstract Base Class

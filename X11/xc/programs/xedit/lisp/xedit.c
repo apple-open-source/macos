@@ -27,14 +27,14 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/xedit.c,v 1.24 2003/01/13 03:57:59 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/xedit.c,v 1.26 2003/05/20 21:44:48 tsi Exp $ */
 
-#include "../xedit.h"
+#include "xedit/xedit.h"
 #include <X11/Xaw/TextSrcP.h>	/* Needs some private definitions */
 #include <X11/Xaw/TextSinkP.h>	/* Also needs private definitions... */
 #include <X11/Xmu/Xmu.h>
 #define XEDIT_LISP_PRIVATE
-#include "xedit.h"
+#include "lisp/xedit.h"
 #include <signal.h>
 
 /* Initialize to enter lisp */

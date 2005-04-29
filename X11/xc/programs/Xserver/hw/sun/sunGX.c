@@ -27,7 +27,7 @@ in this Software without prior written authorization from The Open Group.
  * Author:  Keith Packard, MIT X Consortium
  */
 
-/* $XFree86: xc/programs/Xserver/hw/sun/sunGX.c,v 1.7 2001/12/14 19:59:43 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sun/sunGX.c,v 1.9 2003/11/17 22:20:36 dawes Exp $ */
 
 #include	"sun.h"
 
@@ -576,7 +576,7 @@ RegionPtr sunGXCopyPlane(pSrcDrawable, pDstDrawable,
 	    pGC->alu = InverseAlu[pGC->alu];
     	else if ((pGC->fgPixel & 1) == (pGC->bgPixel & 1))
 	    pGC->alu = mfbReduceRop(pGC->alu, pGC->fgPixel);
-	ret = cfbBitBlt (pSrcDrawable, pDstDrawable,
+	ret = cfbCopyPlaneReduce (pSrcDrawable, pDstDrawable,
 		    pGC, srcx, srcy, width, height, dstx, dsty, cfbCopyPlane8to1, bitPlane);
 	pGC->alu = oldalu;
     }
@@ -602,7 +602,7 @@ RegionPtr sunGXCopyPlane(pSrcDrawable, pDstDrawable,
 	 */
 	ValidateGC ((DrawablePtr) pBitmap, pGC1);
 	/* no exposures here, scratch GC's don't get graphics expose */
-	(void) cfbBitBlt (pSrcDrawable, (DrawablePtr) pBitmap,
+	(void) cfbCopyPlaneReduce (pSrcDrawable, (DrawablePtr) pBitmap,
 			    pGC1, srcx, srcy, width, height, 0, 0, cfbCopyPlane8to1, bitPlane);
 	copyPlaneFG = pGC->fgPixel;
 	copyPlaneBG = pGC->bgPixel;
@@ -2845,15 +2845,9 @@ sunGXCopyWindow(pWin, ptOldOrg, prgnSrc)
 }
 
 Bool
-#if NeedFunctionPrototypes
 sunGXInit (
     ScreenPtr	pScreen,
     fbFd	*fb)
-#else
-sunGXInit (pScreen, fb)
-    ScreenPtr	pScreen;
-    fbFd	*fb;
-#endif
 {
     sunGXPtr	    gx;
     Uint	    mode;

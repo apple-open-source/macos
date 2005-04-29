@@ -1,26 +1,13 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/es_CR.xml
 // *
 // ***************************************************************************
-
-es_CR {
-    Version { "2.0" }
-    DateTimePatterns { 
-        "hh:mm:ss a z",
-        "hh:mm:ss a z",
-        "hh:mm:ss a",
-        "hh:mm a",
-        "EEEE d' de 'MMMM' de 'yyyy",
-        "d' de 'MMMM' de 'yyyy",
-        "dd/MM/yyyy",
-        "dd/MM/yy",
-        "{1} {0}",
-    }
-    LocaleID:int { 0x140a }
-//    LocaleString { "es_CR" }
-    NumberElements { 
+es_CR{
+    NumberElements{
         ",",
         ".",
         ";",
@@ -29,10 +16,25 @@ es_CR {
         "#",
         "-",
         "E",
-        "\u2030",
-        "\u221E",
-        "\uFFFD",
-        ",",
+        "‰",
+        "∞",
+        "�",
+        "+",
     }
-//    ShortCountry { "CRI" }
+    Version{"1.2"}
+    calendar{
+        gregorian{
+            DateTimePatterns{
+                "hh:mm:ss a z",
+                "hh:mm:ss a z",
+                "hh:mm:ss a",
+                "hh:mm a",
+                "EEEE d' de 'MMMM' de 'yyyy",
+                "d' de 'MMMM' de 'yyyy",
+                "dd/MM/yyyy",
+                "dd/MM/yy",
+                "{1} {0}",
+            }
+        }
+    }
 }

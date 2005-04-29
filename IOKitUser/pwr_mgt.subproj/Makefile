@@ -12,11 +12,11 @@ NAME = pwr_mgt
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = IOPMLib.h IOPMLibPrivate.h IOPMUPSPrivate.h IOPMKeys.h
+HFILES = IOPMLib.h IOPMLibPrivate.h IOPMUPSPrivate.h IOPMKeys.h powermanagement_mig.h
 
-CFILES = IOPMLib.c IOPMEnergyPrefs.c IOPMAutoWake.c IOPMRepeatingPower.c IOPMUPSPrefs.c
+CFILES = IOPMLib.c IOPMEnergyPrefs.c IOPMAutoWake.c IOPMRepeatingPower.c IOPMUPSPrefs.c IOPMLibPrivate.c
 
-OTHERSRCS = Makefile.preamble Makefile pma.c sleep.c
+OTHERSRCS = Makefile.preamble Makefile pma.c sleep.c powermanagement.defs
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -27,7 +27,7 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-PRIVATE_HEADERS = IOPMLibPrivate.h IOPMUPSPrivate.h
+PRIVATE_HEADERS = IOPMLibPrivate.h IOPMUPSPrivate.h powermanagement.defs powermanagement_mig.h
 
 PUBLIC_HEADERS = IOPMLib.h IOPMKeys.h
 

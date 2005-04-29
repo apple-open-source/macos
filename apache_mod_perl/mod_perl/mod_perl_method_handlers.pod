@@ -53,7 +53,22 @@ classes:
 
 In this case, the 'My' class inherits this method from 'BaseClass'.
 
-To build in this feature, configure with:
+In Perl 5.6.0 or later, you can use subroutine attributes in place
+of subroutine prototypes:
+
+ package My;
+ @ISA = qw(BaseClass);
+
+ sub handler : method {
+     my($class, $r) = @_;
+     ...;
+ }
+
+see the L<attributes> manpage for additional information on 
+subroutine attributes.
+
+To build in the ability to specify Perl*Handlers as method handlers,
+configure mod_perl with:
 
  % perl Makefile.PL PERL_METHOD_HANDLERS=1 [PERL_FOO_HOOK=1,etc]
 
@@ -169,8 +184,8 @@ yourself, like this:
 
 =head1 AUTHOR
 
-This document is written by Ask Bjoern Hansen <ask@netcetera.dk> or
-<ask@apache.org>.  Corrections and suggestions are most
+This document is written by Ask Bjoern Hansen E<lt>ask@netcetera.dkE<gt> or
+E<lt>ask@apache.orgE<gt>.  Corrections and suggestions are most
 welcome. In particular would more examples be appreciated, most of my
 own code is way too integrated with our system, which isn't suitable
 for public release.

@@ -11,6 +11,16 @@
 			<key>FSName</key>
 			<string>ISO 9660 File System</string>
 		</dict>
+		<key>ISO Joliet</key>
+		<dict>
+			<key>FSName</key>
+			<string>ISO 9660 File System (Joliet)</string>
+		</dict>
+		<key>ISO Rockridge</key>
+		<dict>
+			<key>FSName</key>
+			<string>ISO 9660 File System (Rockridge)</string>
+		</dict>
 	</dict>
 </dict>
 </plist>

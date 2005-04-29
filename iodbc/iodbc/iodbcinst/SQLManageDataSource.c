@@ -1,7 +1,7 @@
 /*
  *  SQLManageDataSource.c
  *
- *  $Id: SQLManageDataSource.c,v 1.1.1.2 2002/04/30 00:40:25 miner Exp $
+ *  $Id: SQLManageDataSource.c,v 1.3 2004/08/24 21:14:59 luesang Exp $
  *
  *  Add, modify or delete datasources
  *
@@ -72,18 +72,63 @@
 
 #include <iodbc.h>
 #include <iodbcinst.h>
+#include <iodbcadm.h>
 
 #include "iodbc_error.h"
+#include "dlf.h"
 
-extern SQLRETURN _iodbcdm_admin_dialbox(HWND);
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
+#define CALL_ADMIN_DIALBOX(path) \
+	if ((handle = DLL_OPEN(path)) != NULL) \
+	{ \
+		if ((pAdminBox = (pAdminBoxFunc)DLL_PROC(handle, "_iodbcdm_admin_dialbox")) != NULL) \
+		  if( pAdminBox(hwndParent) == SQL_SUCCESS) \
+		    retcode = TRUE; \
+		DLL_CLOSE(handle); \
+	} \
 
 BOOL
 ManageDataSources (HWND hwndParent)
 {
-#ifdef GUI
-  _iodbcdm_admin_dialbox (hwndParent);
+  void *handle;
+  pAdminBoxFunc pAdminBox;
+  BOOL retcode = FALSE;
+#ifdef __APPLE__
+  CFStringRef libname = NULL;
+  CFBundleRef bundle;
+  CFURLRef liburl;
+  char name[1024] = { 0 };
 #endif
-  return TRUE;
+
+  /* Load the Admin dialbox function */
+#ifdef __APPLE__
+  bundle = CFBundleGetBundleWithIdentifier (CFSTR ("org.iodbc.adm"));
+  if (bundle)
+    {
+      /* Search for the drvproxy library */
+      liburl = CFBundleCopyExecutableURL (bundle);
+      if (liburl
+	  && (libname =
+	      CFURLCopyFileSystemPath (liburl, kCFURLPOSIXPathStyle)))
+	{
+	  CFStringGetCString (libname, name, sizeof (name),
+	      kCFStringEncodingASCII);
+	  CALL_ADMIN_DIALBOX (name);
+	}
+      if (liburl)
+	CFRelease (liburl);
+      if (libname)
+	CFRelease (libname);
+      CFRelease (bundle);
+    }
+#else
+  CALL_ADMIN_DIALBOX ("libiodbcadm.so");
+#endif
+
+  return retcode;
 }
 
 

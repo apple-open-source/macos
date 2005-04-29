@@ -1,0 +1,120 @@
+<?xml version="1.0"?>
+
+<!--
+Skin configuration file. This file contains details of your project, which will
+be used to configure the chosen Forrest skin.
+-->
+
+<!DOCTYPE skinconfig [
+
+  <!ENTITY % links.att 'name CDATA #REQUIRED'>
+  <!ENTITY % link.att 'name CDATA #REQUIRED href CDATA #REQUIRED'>
+  <!ELEMENT skinconfig (disable-search?, disable-print-link?, disable-pdf-link?,
+  disable-xml-link?, disable-compliance-links?, searchsite-domain?, searchsite-name?,
+  project-name, project-url, project-logo, group-name?, group-url?, group-logo?,
+  host-url?, host-logo?, year?, vendor?, trail?, credits?)*>
+  <!ELEMENT credits (credit*)>
+  <!ELEMENT credit (name, url, image?, width?, height?)>
+  <!-- id uniquely identifies the tool, and role indicates its function -->
+  <!ATTLIST credit id   CDATA #IMPLIED
+                   role CDATA #IMPLIED>
+  <!ELEMENT disable-search (#PCDATA)>
+  <!ELEMENT disable-print-link (#PCDATA)>
+  <!ELEMENT disable-pdf-link (#PCDATA)>
+  <!ELEMENT disable-xml-link (#PCDATA)>
+  <!ELEMENT disable-compliance-links (#PCDATA)>
+  <!ELEMENT searchsite-domain (#PCDATA)>
+  <!ELEMENT searchsite-name (#PCDATA)>
+  <!ELEMENT project-name (#PCDATA)>
+  <!ELEMENT project-url (#PCDATA)>
+  <!ELEMENT project-logo (#PCDATA)>
+  <!ELEMENT group-name (#PCDATA)>
+  <!ELEMENT group-url (#PCDATA)>
+  <!ELEMENT group-logo (#PCDATA)>
+  <!ELEMENT host-url (#PCDATA)>
+  <!ELEMENT host-logo (#PCDATA)>
+  <!ELEMENT year (#PCDATA)>
+  <!ELEMENT vendor (#PCDATA)>
+  <!ELEMENT trail (link1, link2, link3)>
+  <!ELEMENT link1 EMPTY>
+  <!-- Seems we can't use param entity refs until this is DTDified -->
+  <!ATTLIST link1 name CDATA #REQUIRED href CDATA #IMPLIED>
+  <!ELEMENT link2 EMPTY>
+  <!ATTLIST link2 name CDATA #REQUIRED href CDATA #IMPLIED>
+  <!ELEMENT link3 EMPTY>
+  <!ATTLIST link3 name CDATA #REQUIRED href CDATA #IMPLIED>
+  <!ELEMENT name (#PCDATA)>
+  <!ELEMENT url (#PCDATA)>
+  <!ELEMENT image (#PCDATA)>
+  <!ELEMENT width (#PCDATA)>
+  <!ELEMENT height (#PCDATA)>
+  ]>
+
+<skinconfig>
+    <!-- Do we want to disable the Google search box? -->
+    <disable-search>false</disable-search>
+    <!-- Do we want to disable the print link? -->
+    <disable-print-link>true</disable-print-link>
+    <!-- Do we want to disable the PDF link? -->
+    <disable-pdf-link>true</disable-pdf-link>
+    <!-- Do we want to disable the xml source link? -->
+    <disable-xml-link>true</disable-xml-link>
+    <!-- Do we want to disable w3c compliance links? -->
+    <disable-compliance-links>false</disable-compliance-links>
+
+    <searchsite-name>blojsom</searchsite-name>
+
+    <!-- mandatory project logo
+         skin: forrest-site renders it at the top -->
+    <project-name>blojsom</project-name>
+    <project-url>http://blojsom.sourceforge.net/</project-url>
+    <project-logo>images/blojsom-logo.jpg</project-logo>
+    <!-- Alternative static image:
+    <project-logo>images/project-logo.gif</project-logo> -->
+
+    <!-- optional group logo
+         skin: forrest-site renders it at the top-left corner -->
+    <group-name></group-name>
+    <group-url></group-url>
+    <group-logo></group-logo>
+    <!-- Alternative static image:
+    <group-logo>images/group-logo.gif</group-logo> -->
+
+    <!-- optional host logo (e.g. sourceforge logo)
+         skin: forrest-site renders it at the bottom-left corner -->
+    <!-- <host-url>http://sourceforge.net</host-url> -->
+    <!-- <host-logo>http://sourceforge.net/sflogo.php?group_id=72754&amp;type=1</host-logo> -->
+
+    <!-- The following are used to construct a copyright statement -->
+    <year>2003-2004</year>
+    <vendor>David Czarnecki</vendor>
+
+    <!-- Some skins use this to form a 'breadcrumb trail' of links. If you don't
+    want these, set the attributes to blank. The DTD purposefully requires them.
+    -->
+    <trail>
+        <link1 name="blojsom" href="http://blojsom.sourceforge.net/"/>
+        <link2 name="" href=""/>
+        <link3 name="" href=""/>
+    </trail>
+
+    <!-- Credits are typically rendered as a set of small clickable images in the
+    page footer -->
+    <credits>
+        <credit>
+            <name>Built with Apache Forrest</name>
+            <url>http://xml.apache.org/forrest/</url>
+            <image>images/built-with-forrest-button.png</image>
+            <width>88</width>
+            <height>31</height>
+        </credit>
+        <credit>
+            <name>blojsom SourceForge site</name>
+            <url>http://sourceforge.net/projects/blojsom/  </url>
+            <image>images/sflogo.png</image>
+            <width>88</width>
+            <height>31</height>
+        </credit>
+    </credits>
+
+</skinconfig>

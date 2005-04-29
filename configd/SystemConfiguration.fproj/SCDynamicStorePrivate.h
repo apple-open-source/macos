@@ -25,17 +25,19 @@
 #define _SCDYNAMICSTOREPRIVATE_H
 
 #include <sys/cdefs.h>
-#include <sys/types.h>
-#include <regex.h>
+#include <mach/message.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDynamicStore.h>
+
+/*!
+	@header SCDynamicStorePrivate
+ */
 
 /*!
 	@typedef SCDynamicStoreCallBack
 	@discussion Type of the callback function used when a
 		dynamic store change is delivered.
 	@param store The "dynamic store" session.
-	@param changedKeys The list of changed keys.
 	@param info ....
  */
 typedef boolean_t (*SCDynamicStoreCallBack_v1)	(
@@ -138,7 +140,7 @@ SCDynamicStoreRemoveWatchedKey		(SCDynamicStoreRef		store,
 
 	@param store The "dynamic store" session.
 	@param runLoop A pointer to the run loop.
-	@param funct The callback function to call for each notification.
+	@param func The callback function to call for each notification.
 		If this parameter is not a pointer to a function of the
 		correct prototype, the behavior is undefined.
 	@param context A pointer-sized user-defined value, that is passed as

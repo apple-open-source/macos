@@ -8,7 +8,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: acommon.c,v 1.1.1.2 2001/07/20 19:38:14 bbraun Exp $";
+ "$Id: acommon.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
 #endif
 #include "includes.h"
 #include "acommon.h"
@@ -49,14 +49,15 @@ char*ultoan(val,dest)unsigned long val;char*dest;     /* convert to a number */
   return dest;
 }
 
-void ultstr(minwidth,val,dest)int minwidth;unsigned long val;char*dest;
-{ int i;unsigned long j;
+char*ultstr(minwidth,val,dest)int minwidth;unsigned long val;char*dest;
+{ int i;unsigned long j;char*ret;
   j=val;i=0;					   /* a beauty, isn't it :-) */
   do i++;					   /* determine needed width */
   while(j/=10);
   while(--minwidth>=i)				 /* fill up any excess width */
      *dest++=' ';
-  *(dest+=i)='\0';
+  *(ret=dest+=i)='\0';
   do *--dest='0'+val%10;			  /* display value backwards */
   while(val/=10);
+  return ret;
 }

@@ -1,25 +1,25 @@
-/* BFD back-end for Hitachi Super-H COFF binaries.
-   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+/* BFD back-end for Renesas Super-H COFF binaries.
+   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by Cygnus Support.
    Written by Steve Chamberlain, <sac@cygnus.com>.
    Relaxing code written by Ian Lance Taylor, <ian@cygnus.com>.
 
-This file is part of BFD, the Binary File Descriptor library.
+   This file is part of BFD, the Binary File Descriptor library.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -706,7 +706,7 @@ sh_relax_section (abfd, sec, link_info, again)
 
   *again = FALSE;
 
-  if (link_info->relocateable
+  if (link_info->relocatable
       || (sec->flags & SEC_RELOC) == 0
       || sec->reloc_count == 0)
     return TRUE;
@@ -1647,6 +1647,8 @@ struct sh_opcode
 #define SETSAS (0x40000)
 #define SETSAS_REG(x) USESAS_REG (x)
 
+#define MAP(a) a, sizeof a / sizeof a[0]
+
 #ifndef COFF_IMAGE_WITH_PE
 static bfd_boolean sh_insn_uses_reg
   PARAMS ((unsigned int, const struct sh_opcode *, unsigned int));
@@ -1666,10 +1668,8 @@ static bfd_boolean sh_insns_conflict
 static bfd_boolean sh_load_use
   PARAMS ((unsigned int, const struct sh_opcode *, unsigned int,
 	   const struct sh_opcode *));
-#endif
-/* The opcode maps.  */
 
-#define MAP(a) a, sizeof a / sizeof a[0]
+/* The opcode maps.  */
 
 static const struct sh_opcode sh_opcode00[] =
 {
@@ -2089,7 +2089,6 @@ static const struct sh_minor_opcode sh_opcodef[] =
   { MAP (sh_opcodef1), 0xf0ff }
 };
 
-#ifndef COFF_IMAGE_WITH_PE
 static struct sh_major_opcode sh_opcodes[] =
 {
   { MAP (sh_opcode0) },
@@ -2109,7 +2108,6 @@ static struct sh_major_opcode sh_opcodes[] =
   { MAP (sh_opcodee) },
   { MAP (sh_opcodef) }
 };
-#endif
 
 /* The double data transfer / parallel processing insns are not
    described here.  This will cause sh_align_load_span to leave them alone.  */
@@ -2131,7 +2129,6 @@ static const struct sh_minor_opcode sh_dsp_opcodef[] =
   { MAP (sh_dsp_opcodef0), 0xfc0d }
 };
 
-#ifndef COFF_IMAGE_WITH_PE
 /* Given an instruction, return a pointer to the corresponding
    sh_opcode structure.  Return NULL if the instruction is not
    recognized.  */
@@ -2969,7 +2966,7 @@ sh_relocate_section (output_bfd, info, input_bfd, input_section, contents,
 		     + sec->output_section->vma
 		     + sec->output_offset);
 	    }
-	  else if (! info->relocateable)
+	  else if (! info->relocatable)
 	    {
 	      if (! ((*info->callbacks->undefined_symbol)
 		     (info, h->root.root.string, input_bfd, input_section,
@@ -3024,12 +3021,12 @@ sh_relocate_section (output_bfd, info, input_bfd, input_section, contents,
 
 static bfd_byte *
 sh_coff_get_relocated_section_contents (output_bfd, link_info, link_order,
-					data, relocateable, symbols)
+					data, relocatable, symbols)
      bfd *output_bfd;
      struct bfd_link_info *link_info;
      struct bfd_link_order *link_order;
      bfd_byte *data;
-     bfd_boolean relocateable;
+     bfd_boolean relocatable;
      asymbol **symbols;
 {
   asection *input_section = link_order->u.indirect.section;
@@ -3040,12 +3037,12 @@ sh_coff_get_relocated_section_contents (output_bfd, link_info, link_order,
 
   /* We only need to handle the case of relaxing, or of having a
      particular set of section contents, specially.  */
-  if (relocateable
+  if (relocatable
       || coff_section_data (input_bfd, input_section) == NULL
       || coff_section_data (input_bfd, input_section)->contents == NULL)
     return bfd_generic_get_relocated_section_contents (output_bfd, link_info,
 						       link_order, data,
-						       relocateable,
+						       relocatable,
 						       symbols);
 
   memcpy (data, coff_section_data (input_bfd, input_section)->contents,
@@ -3132,7 +3129,7 @@ sh_coff_get_relocated_section_contents (output_bfd, link_info, link_order,
 /* The target vectors.  */
 
 #ifndef TARGET_SHL_SYM
-CREATE_BIG_COFF_TARGET_VEC (shcoff_vec, "coff-sh", BFD_IS_RELAXABLE, 0, '_', NULL)
+CREATE_BIG_COFF_TARGET_VEC (shcoff_vec, "coff-sh", BFD_IS_RELAXABLE, 0, '_', NULL, COFF_SWAP_TABLE)
 #endif
 
 #ifdef TARGET_SHL_SYM
@@ -3147,10 +3144,10 @@ CREATE_BIG_COFF_TARGET_VEC (shcoff_vec, "coff-sh", BFD_IS_RELAXABLE, 0, '_', NUL
 
 #ifdef COFF_WITH_PE
 CREATE_LITTLE_COFF_TARGET_VEC (TARGET_SYM, TARGET_SHL_NAME, BFD_IS_RELAXABLE,
-			       SEC_CODE | SEC_DATA, '_', NULL);
+			       SEC_CODE | SEC_DATA, '_', NULL, COFF_SWAP_TABLE);
 #else
 CREATE_LITTLE_COFF_TARGET_VEC (TARGET_SYM, TARGET_SHL_NAME, BFD_IS_RELAXABLE,
-			       0, '_', NULL)
+			       0, '_', NULL, COFF_SWAP_TABLE)
 #endif
 
 #ifndef TARGET_SHL_SYM

@@ -45,11 +45,11 @@ static char sccsid[] = "@(#)clnt_generic.c 1.4 87/08/11 (C) 1987 SMI";
  * change using the rpc equivalent of ioctl()'s.
  */
 CLIENT *
-clnt_create(hostname, prog, vers, proto)
-	char *hostname;
-	unsigned prog;
-	unsigned vers;
-	char *proto;
+clnt_create(
+	char *hostname,
+	rpcprog_t prog,
+	rpcvers_t vers,
+	char *proto)
 {
 	struct hostent *h;
 	struct protoent *p;
@@ -71,9 +71,12 @@ clnt_create(hostname, prog, vers, proto)
 		rpc_createerr.cf_error.re_errno = EAFNOSUPPORT; 
 		return (NULL);
 	}
+	memset(&sockin, 0, sizeof(sockin));
+#if HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+	sockin.sin_len = sizeof(sockin);
+#endif
 	sockin.sin_family = h->h_addrtype;
 	sockin.sin_port = 0;
-	memset(sockin.sin_zero, 0, sizeof(sockin.sin_zero));
 	memmove((char*)&sockin.sin_addr, h->h_addr, sizeof(sockin.sin_addr));
 	p = getprotobyname(proto);
 	if (p == NULL) {

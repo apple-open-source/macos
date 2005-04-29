@@ -1,4 +1,4 @@
-use Apache::test;
+use Apache::testold;
 
 skip_test unless $net::callback_hooks{PERL_STACKED_HANDLERS} and
     $net::callback_hooks{PERL_FIXUP};

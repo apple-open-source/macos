@@ -1,3 +1,41 @@
+2004-09-22  Tom Yu  <tlyu@mit.edu>
+
+	* pty-int.h: Include util.h if present.
+
+2004-07-30  Tom Yu  <tlyu@mit.edu>
+
+	* configure.in: Only sanity-check setutent() API if there is no
+	utmpx.h, since some setutent() implementations aren't sysV-derived,
+	e.g., NetBSD.
+
+2004-07-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* pty-int.h: Include port-sockets.h instead of netdb.h and
+	netinet/in.h.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (clean-mac): Target deleted.
+
+2004-06-11  Ken Raeburn  <raeburn@mit.edu>
+
+	* pty-int.h (_AIX && _THREAD_SAFE): Undefine _THREAD_SAFE.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBBASE): Renamed from LIB.
+
+2004-04-12  Ezra Peisach  <epeisach@mit.edu>
+
+	* configure.in: Remove tests for strsave, sys_errlist,
+	krb5_sigtype, setjmp, dirent, F_SETOWN. These are left over from
+	the split from appl/bsd.
+
+2004-02-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* cleanup.c, init.c, init_slave.c, vhangup.c: Use ANSI style
+	function definitions.
+
 2003-03-03  Tom Yu  <tlyu@mit.edu>
 
 	* configure.in: Delete unused ADD_DEF, probably left over from

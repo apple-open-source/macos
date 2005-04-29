@@ -189,7 +189,12 @@ test04()
   CompLastLt::reset();
   list0401.merge(list0402, lt);
   VERIFY(list0401 == list0404);
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifndef _GLIBCXX_DEBUG
+  // Extra checks in merge() perform more comparisons
   VERIFY(lt.count() <= (N + M - 1));
+#endif /* _GLIBCXX_DEBUG */
+/* APPLE LOCAL end libstdc++ debug mode */
 
   CompLastEq eq;
 

@@ -62,7 +62,8 @@ enum
     kErrataLucentSuspendResume		= (1 << 5),		// Don't allow port suspend at the root hub
     kErrataNeedsWatchdogTimer		= (1 << 6),		// Use Watchdog timer to reset confused controllers
     kErrataNeedsPortPowerOff		= (1 << 7),		// Power off the ports and back on again to clear weird status.
-    kErrataAgereEHCIAsyncSched		= (1 << 8)		// needs workaround for Async Sched bug
+    kErrataAgereEHCIAsyncSched		= (1 << 8),		// needs workaround for Async Sched bug
+    kErrataNECOHCIIsochWraparound	= (1 << 9)		// needs workaround for NEC isoch buffer wraparound problem
 };
 
 enum
@@ -306,11 +307,20 @@ protected:
     // Invokes the specified completion action of the request.  If
     // the completion action is unspecified, no action is taken.
     void 			Complete(
-                                            IOUSBCompletion	completion,
-                                            IOReturn		status,
-                                            UInt32		actualByteCount = 0 );
+                     IOUSBCompletion	completion,
+                     IOReturn		status,
+                     UInt32		actualByteCount = 0 );
 
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Invokes the specified completion action of the request.  If
+    // the completion action is unspecified, no action is taken.
+    void	CompleteWithTimeStamp (
+                                IOUSBCompletionWithTimeStamp		completion,
+                                IOReturn				status,
+                                UInt32					actualByteCount,
+                                AbsoluteTime				timeStamp);
 
+    
 
     //
     // UIM methods
@@ -1054,7 +1064,9 @@ public:
                                                         UInt32			updateFrequency);
 
 
-    OSMetaClassDeclareReservedUnused(IOUSBController,  17);
+    OSMetaClassDeclareReservedUsed(IOUSBController,  17);
+    virtual IOReturn 		CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPacketSize);
+    
     OSMetaClassDeclareReservedUnused(IOUSBController,  18);
     OSMetaClassDeclareReservedUnused(IOUSBController,  19);
     

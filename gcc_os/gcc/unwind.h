@@ -31,7 +31,12 @@ extern "C" {
    inefficient for 32-bit and smaller machines.  */
 typedef unsigned _Unwind_Word __attribute__((__mode__(__word__)));
 typedef signed _Unwind_Sword __attribute__((__mode__(__word__)));
+#if defined(__ia64__) && defined(__hpux__)
+typedef unsigned _Unwind_Ptr __attribute__((__mode__(__word__)));
+#else
 typedef unsigned _Unwind_Ptr __attribute__((__mode__(__pointer__)));
+#endif
+typedef unsigned _Unwind_Internal_Ptr __attribute__((__mode__(__pointer__)));
 
 /* @@@ The IA-64 ABI uses a 64-bit word to identify the producer and
    consumer of an exception.  We'll go along with this for now even on
@@ -136,15 +141,15 @@ extern _Unwind_Ptr _Unwind_GetRegionStart (struct _Unwind_Context *);
    library and language-specific exception handling semantics.  It is
    specific to the code fragment described by an unwind info block, and
    it is always referenced via the pointer in the unwind info block, and
-   hence it has no ABI-specified name. 
+   hence it has no ABI-specified name.
 
    Note that this implies that two different C++ implementations can
    use different names, and have different contents in the language
-   specific data area.  Moreover, that the language specific data 
+   specific data area.  Moreover, that the language specific data
    area contains no version info because name of the function invoked
    provides more effective versioning by detecting at link time the
    lack of code to handle the different data format.  */
-   
+
 typedef _Unwind_Reason_Code (*_Unwind_Personality_Fn)
      (int, _Unwind_Action, _Unwind_Exception_Class,
       struct _Unwind_Exception *, struct _Unwind_Context *);
@@ -186,6 +191,10 @@ _Unwind_GetTextRelBase (struct _Unwind_Context *_C)
 extern _Unwind_Ptr _Unwind_GetDataRelBase (struct _Unwind_Context *);
 extern _Unwind_Ptr _Unwind_GetTextRelBase (struct _Unwind_Context *);
 #endif
+
+/* @@@ Given an address, return the entry point of the function that
+   contains it.  */
+extern void * _Unwind_FindEnclosingFunction (void *pc);
 
 #ifdef __cplusplus
 }

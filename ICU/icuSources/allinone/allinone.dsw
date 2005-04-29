@@ -54,16 +54,10 @@ Package=<4>
     Project_Dep_Name gentest
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name gentz
-    End Project Dependency
-    Begin Project Dependency
     Project_Dep_Name genuca
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name i18n
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name ieeetest
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name intltest
@@ -90,16 +84,25 @@ Package=<4>
     Project_Dep_Name uconv
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name ustdio
+    Project_Dep_Name io
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name genbrk
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name genidna
+    Project_Dep_Name layoutex
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name layoutex
+    Project_Dep_Name gensprep
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name icuswap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name iotest
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name gencase
     End Project Dependency
 }}}
 
@@ -213,6 +216,24 @@ Package=<4>
 
 ###############################################################################
 
+Project: "gencase"=..\tools\gencase\gencase.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name common
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name toolutil
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "genccode"=..\tools\genccode\genccode.dsp - Package Owner=<4>
 
 Package=<5>
@@ -250,24 +271,6 @@ Package=<4>
 ###############################################################################
 
 Project: "gencnval"=..\tools\gencnval\gencnval.dsp - Package Owner=<4>
-
-Package=<5>
-{{{
-}}}
-
-Package=<4>
-{{{
-    Begin Project Dependency
-    Project_Dep_Name common
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name toolutil
-    End Project Dependency
-}}}
-
-###############################################################################
-
-Project: "genidna"=..\tools\genidna\genidna.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -381,7 +384,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "gentest"=..\tools\gentest\gentest.dsp - Package Owner=<4>
+Project: "gensprep"=..\tools\gensprep\gensprep.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -389,17 +392,11 @@ Package=<5>
 
 Package=<4>
 {{{
-    Begin Project Dependency
-    Project_Dep_Name common
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name toolutil
-    End Project Dependency
 }}}
 
 ###############################################################################
 
-Project: "gentz"=..\tools\gentz\gentz.dsp - Package Owner=<4>
+Project: "gentest"=..\tools\gentest\gentest.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -453,7 +450,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "ieeetest"=..\test\ieeetest\ieeetest.dsp - Package Owner=<4>
+Project: "icuswap"=..\tools\icuswap\icuswap.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -463,6 +460,12 @@ Package=<4>
 {{{
     Begin Project Dependency
     Project_Dep_Name common
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name i18n
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name toolutil
     End Project Dependency
 }}}
 
@@ -484,6 +487,51 @@ Package=<4>
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name toolutil
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name ctestfw
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "io"=..\io\io.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name common
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name i18n
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "iotest"=..\test\iotest\iotest.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name common
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name ctestfw
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name i18n
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name io
     End Project Dependency
 }}}
 
@@ -582,9 +630,6 @@ Package=<4>
     Project_Dep_Name gentest
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name gentz
-    End Project Dependency
-    Begin Project Dependency
     Project_Dep_Name genuca
     End Project Dependency
     Begin Project Dependency
@@ -606,7 +651,10 @@ Package=<4>
     Project_Dep_Name genbrk
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name genidna
+    Project_Dep_Name gensprep
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name gencase
     End Project Dependency
 }}}
 
@@ -676,24 +724,6 @@ Package=<4>
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name pkgdata
-    End Project Dependency
-}}}
-
-###############################################################################
-
-Project: "ustdio"=..\extra\ustdio\ustdio.dsp - Package Owner=<4>
-
-Package=<5>
-{{{
-}}}
-
-Package=<4>
-{{{
-    Begin Project Dependency
-    Project_Dep_Name common
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name i18n
     End Project Dependency
 }}}
 

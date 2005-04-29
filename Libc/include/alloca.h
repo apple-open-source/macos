@@ -25,11 +25,11 @@
 #define _ALLOCA_H_
 
 #include <sys/cdefs.h>
-#include <machine/ansi.h>
+#include <_types.h>
 
-#ifndef	_BSD_SIZE_T_DEFINED_
-#define	_BSD_SIZE_T_DEFINED_
-typedef	_BSD_SIZE_T_	size_t;
+#ifndef	_SIZE_T
+#define	_SIZE_T
+typedef	__darwin_size_t	size_t;
 #endif
 
 __BEGIN_DECLS

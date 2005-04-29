@@ -28,7 +28,7 @@
 #ifndef __DSLogException_h__
 #define __DSLogException_h__	1
 
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
 
 // Log macros
 
@@ -68,7 +68,7 @@
 	if ( aDSError != eDSNoErr )																													\
 	{																																			\
 		LOG4( kStdErr, "*** DS Error: File: %s. Line: %d. Error = %d. Thrown Error = %d\n", __FILE__, __LINE__, aDSError, inThrowThisError );	\
-		throw( inThrowThisError );																												\
+		throw( (sInt32)inThrowThisError );																												\
 	}																																			\
 } if (true)
 

@@ -1,19 +1,24 @@
 #############################################################
-# $Id: Makefile.m32,v 1.1.1.2 2002/11/26 19:08:05 zarzycki Exp $
+# $Id: Makefile.m32,v 1.18 2004/11/13 15:47:17 giva Exp $
 #
 ## Makefile for building curl.exe with MingW32 (GCC-3.2) and
-## optionally OpenSSL (0.9.6)
+## optionally OpenSSL (0.9.7)
 ##
 ## Use: make -f Makefile.m32 [SSL=1] [DYN=1]
 ##
 ## Comments to: Troy Engel <tengel@sonic.net> or
 ##              Joern Hartroth <hartroth@acm.org>
 
+ifndef OPENSSL_PATH
+OPENSSL_PATH = ../../openssl-0.9.7d
+endif
+ifndef ZLIB_PATH
+ZLIB_PATH = ../../zlib-1.2.1
+endif
+
 CC = gcc
 RM = rm -f
 STRIP = strip -s
-OPENSSL_PATH = ../../openssl-0.9.6g
-ZLIB_PATH = ../../zlib-1.1.3
 
 # We may need these someday
 # PERL = perl
@@ -22,36 +27,36 @@ ZLIB_PATH = ../../zlib-1.1.3
 ########################################################
 ## Nothing more to do below this line!
 
-INCLUDES = -I. -I.. -I../include
+INCLUDES = -I. -I.. -I../include -I../lib -I$(ZLIB_PATH)
 CFLAGS = -g -O2 -DMINGW32
 ifdef SSL
-  CFLAGS += -DUSE_SSLEAY
+  CFLAGS += -DUSE_SSLEAY -DHAVE_OPENSSL_ENGINE_H
 endif
-LDFLAGS = 
+LDFLAGS =
 COMPILE = $(CC) $(INCLUDES) $(CFLAGS)
 LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 
 curl_PROGRAMS = curl.exe
-curl_OBJECTS = main.o hugehelp.o urlglob.o writeout.o
-curl_SOURCES = main.c hugehelp.c urlglob.c writeout.c
 ifdef DYN
   curl_DEPENDENCIES = ../lib/libcurldll.a ../lib/libcurl.dll
   curl_LDADD = -L../lib -lcurldll
 else
   curl_DEPENDENCIES = ../lib/libcurl.a
   curl_LDADD = -L../lib -lcurl
+  COMPILE += -DCURL_STATICLIB
 endif
-curl_LDADD += -lwsock32 -lws2_32 -lwinmm
+curl_LDADD += -lwsock32 -lws2_32 -lwinmm -L$(ZLIB_PATH) -lz
 ifdef SSL
-  curl_LDADD += -L$(OPENSSL_PATH)/out -leay32 -lssl32 -lRSAglue
-endif
-ifdef ZLIB
-  curl_LDADD += -L$(ZLIB_PATH) -lz
+  curl_LDADD += -L$(OPENSSL_PATH)/out -leay32 -lssl32
 endif
 
-PROGRAMS = $(curl_PROGRAMS)
-SOURCES = $(curl_SOURCES)
-OBJECTS = $(curl_OBJECTS)
+# Makefile.inc provides the CSOURCES and HHEADERS defines
+include Makefile.inc
+
+curl_OBJECTS := $(patsubst %.c,%.o,$(notdir $(strip $(CURL_SOURCES) ../lib/timeval.c)))
+# curlx_OBJECTS := $(patsubst %.c,%.o,$(notdir $(strip $(CURLX_ONES))))
+# vpath %.c ../lib
+
 
 all: curl.exe
 
@@ -59,6 +64,9 @@ curl.exe: $(curl_OBJECTS) $(curl_DEPENDENCIES)
 	$(RM) $@
 	$(LINK) $(curl_OBJECTS) $(curl_LDADD)
 	$(STRIP) $@
+
+timeval.o: ../lib/timeval.c
+	$(COMPILE) -c $<
 
 # We don't have nroff normally under win32
 # hugehelp.c: ../README.curl ../curl.1 mkhelp.pl
@@ -75,7 +83,7 @@ curl.exe: $(curl_OBJECTS) $(curl_DEPENDENCIES)
 	$(COMPILE) -c $<
 
 clean:
-	$(RM) $(curl_OBJECTS)
+	$(RM) $(curl_OBJECTS) curl.exe
 
 distrib: clean
 	$(RM) $(curl_PROGRAMS)

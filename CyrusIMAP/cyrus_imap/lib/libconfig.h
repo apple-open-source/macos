@@ -1,5 +1,5 @@
 /* libconfig.h -- Header for imapd.conf processing
- * $Id: libconfig.h,v 1.4 2003/12/29 20:22:55 ken3 Exp $
+ * $Id: libconfig.h,v 1.4 2005/03/05 00:37:15 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

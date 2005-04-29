@@ -31,7 +31,7 @@
 .\"
 .\"     @(#)mountd.8	8.4 (Berkeley) 4/28/95
 .\"
-.Dd April 28, 1995
+.Dd March 8, 2005
 .Dt MOUNTD 8
 .Os
 .Sh NAME
@@ -41,17 +41,18 @@
 mount requests
 .Sh SYNOPSIS
 .Nm /sbin/mountd
-.Op Fl nr
+.Op Fl nrDd
 .Op Ar exportsfile
 .Sh DESCRIPTION
 .Xr Mountd
 is the server for
 .Tn NFS
-mount requests from other client machines.
+mount requests from NFS clients.
 .Xr Mountd
-listens for service requests at the port indicated in the
-.Tn NFS
-server specification; see
+listens for service requests at a port registered with
+.Xr portmap 8 .
+.Pp
+For a definition of the MOUNT protocol see
 .%T "Network File System Protocol Specification" ,
 RFC1094, Appendix A and
 .%T "NFS: Network File System Version 3 Protocol Specification" ,
@@ -79,6 +80,20 @@ the entire file system in which the swapfiles resides
 will have to be exported with the
 .Fl alldirs
 flag.
+.It Fl D
+The
+.Fl D
+option will cause mountd to log lots of information about its
+inner-workings via
+.Xr syslog 3
+using the LOG_DAEMON facility and the LOG_DEBUG priority.
+.It Fl d
+The
+.Fl d
+option will cause mountd to not daemonize itself and it will
+log lots of information about its inner-workings to stderr
+instead of
+.Xr syslog 3 .
 .It Ar exportsfile
 The
 .Ar exportsfile
@@ -88,20 +103,29 @@ for the exports file.
 .Pp
 When mountd is started,
 it loads the export host addresses and options into the kernel
-using the mount(2) system call.
-After changing the exports file,
-a hangup signal should be sent to the mountd daemon
-to get it to reload the export information.
-After sending the SIGHUP
-(kill \-s HUP `cat /var/run/mountd.pid`),
-check the syslog output to see if mountd logged any parsing
-errors in the exports file.
+using the
+.Xr nfssvc 2
+system call.
+After changing the list of exports (either directly or indirectly
+via a change in netgroup membership), a hangup signal should be
+sent to the mountd daemon to get it to reload the export information:
+.Pp
+.Dl "kill \-s HUP `cat /var/run/mountd.pid`
+.Pp
+Any errors encountered while processing the export entries will
+be logged via
+.Xr syslog 3 .
 .Sh FILES
 .Bl -tag -width /var/run/mountd.pid -compact
 .It Pa /etc/exports
 the list of exported filesystems
 .It Pa /var/run/mountd.pid
 the pid of the currently running mountd
+.It Pa /var/run/mountdtab
+the current list of outstanding mounts served
+.It Pa /var/run/mountdexptab
+information about exported file systems
+and directories (UUIDs, handles, ...)
 .El
 .Sh SEE ALSO
 .Xr nfsstat 1 ,

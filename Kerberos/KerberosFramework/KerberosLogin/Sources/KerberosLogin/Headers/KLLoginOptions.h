@@ -1,7 +1,7 @@
 /*
  * KLLoginOptions.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLLoginOptions.h,v 1.1 2003/04/14 17:14:35 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLLoginOptions.h,v 1.2 2004/10/22 20:52:04 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -29,4 +29,3 @@
 krb5_get_init_creds_opt *__KLLoginOptionsGetKerberos5Options (KLLoginOptions ioOptions);
 KLTime __KLLoginOptionsGetStartTime (KLLoginOptions ioOptions);
 char * __KLLoginOptionsGetServiceName (KLLoginOptions ioOptions);
-    

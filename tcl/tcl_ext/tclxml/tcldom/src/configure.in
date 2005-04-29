@@ -1,0 +1,100 @@
+# 
+# $Id: configure.in,v 1.7 2003/04/02 22:48:13 jenglish Exp $
+#
+
+AC_REVISION($Revision: 1.7 $)
+AC_INIT(tcldompro.c)
+AC_CONFIG_AUX_DIR(../tclconfig)
+
+# Package identification:
+#
+PACKAGE=tcldom
+MAJOR_VERSION=2
+MINOR_VERSION=0
+PATCHLEVEL=2
+VERSION=${MAJOR_VERSION}.${MINOR_VERSION}
+NODOT_VERSION=${MAJOR_VERSION}${MINOR_VERSION}
+
+AC_SUBST(PACKAGE)
+AC_SUBST(VERSION)
+AC_SUBST(PATCHLEVEL)
+AC_DEFINE_UNQUOTED(PACKAGE_NAME,"${PACKAGE}")
+AC_DEFINE_UNQUOTED(VERSION,"${VERSION}")
+AC_DEFINE_UNQUOTED(PATCHLEVEL,"${PATCHLEVEL}")
+
+
+# Programs we need:
+#
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_OBJEXT
+AC_EXEEXT
+
+# Usual Tcl stuff:
+#
+TEA_INIT
+TEA_PATH_TCLCONFIG
+TEA_LOAD_TCLCONFIG
+TEA_PUBLIC_TCL_HEADERS
+TEA_PREFIX
+TEA_PROG_TCLSH
+
+TEA_CONFIG_CFLAGS
+TEA_ENABLE_THREADS
+TEA_ENABLE_SHARED
+TEA_ENABLE_SYMBOLS
+TEA_MAKE_LIB
+
+if test "$GCC" = "yes" ; then
+    # I don't like TEA_CONFIG_CFLAGS' default CFLAGS_WARNING
+    CFLAGS_WARNING="-Wall -ansi"
+fi
+
+# Extra libraries needed by this extension:
+#
+AC_ARG_WITH(expat-include,
+    [  --with-expat-include=<directory>   directory containing expat.h],
+    [expat_INCLUDES="-I\"$withval\""],
+    [expat_INCLUDES=""])
+AC_ARG_WITH(expat-lib,
+    [  --with-expat-lib=<directory>   full path to expat library],
+    [expat_LIB_SPEC="\"$withval\""],
+    [expat_LIB_SPEC="-lexpat"])
+
+AC_SUBST(expat_INCLUDES)
+AC_SUBST(expat_LIB_SPEC)
+
+# Windows-specific stuff:
+#
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_DEFINE_UNQUOTED(BUILD_${PACKAGE})
+    CONFIG_CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc50.pch"
+else
+    CONFIG_CLEANFILES=
+fi
+AC_SUBST(CONFIG_CLEANFILES)
+
+#--------------------------------------------------------------------
+AC_DEFINE(USE_TCL_STUBS)
+
+# Same test as in tcl.m4 for MSVC "link" vs. ld/cc/etc.
+if test "${TEA_PLATFORM}" = "windows" -a "$GCC" != "yes"; then
+    SHLIB_LD_OUT="/out:"
+else
+    SHLIB_LD_OUT="-o "
+fi
+AC_SUBST(SHLIB_LD_OUT)
+
+if test "${SHARED_BUILD}" = "1" ; then
+    eval "${PACKAGE}_LIB_FILE=${PACKAGE}${TCL_SHARED_LIB_SUFFIX}"
+else
+    eval "${PACKAGE}_LIB_FILE=${PACKAGE}${TCL_UNSHARED_LIB_SUFFIX}"
+fi
+AC_SUBST(tcldom_LIB_FILE)
+
+CONFIGURE_OUTPUTS="Makefile pkgIndex.tcl config.cache config.log config.status"
+AC_SUBST(CONFIGURE_OUTPUTS)
+
+AC_OUTPUT([Makefile pkgIndex.tcl])
+
+#*EOF*

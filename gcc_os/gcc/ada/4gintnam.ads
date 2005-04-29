@@ -6,9 +6,8 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---                             $Revision: 1.1.1.3 $
 --                                                                          --
---             Copyright (C) 1997-2001, Florida State University            --
+--             Copyright (C) 1997-2002, Florida State University            --
 --                                                                          --
 -- GNARL is free software; you can redistribute it  and/or modify it  under --
 -- terms  of  the  GNU  Library General Public License  as published by the --
@@ -50,7 +49,6 @@
 --  (Pthread library):
 --
 --  SIGINT: made available for Ada handler
---  SIGILL, SIGBUS, SIGSEGV: disconnected from runtime exception mapping
 
 --  This target-dependent package spec contains names of interrupts
 --  supported by the local system.

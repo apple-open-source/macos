@@ -1,5 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2004
+   Free Software Foundation, Inc.
    Contributed by Axis Communications.
 
 This file is part of GCC.
@@ -25,44 +26,38 @@ Boston, MA 02111-1307, USA.  */
 #define STDIO_INCLUDED
 #endif
 
-extern void cris_conditional_register_usage PARAMS ((void));
-extern int cris_simple_epilogue PARAMS ((void));
+extern void cris_conditional_register_usage (void);
+extern int cris_simple_epilogue (void);
 #ifdef RTX_CODE
-extern const char *cris_op_str PARAMS ((rtx));
-extern int cris_eligible_for_epilogue_delay PARAMS ((rtx));
-extern void cris_notice_update_cc PARAMS ((rtx, rtx));
-extern int cris_address_cost PARAMS ((rtx));
-extern void cris_print_operand PARAMS ((FILE *, rtx, int));
-extern void cris_print_operand_address PARAMS ((FILE *, rtx));
-extern int cris_side_effect_mode_ok PARAMS ((enum rtx_code, rtx *, int, int,
-                                             int, int, int));
-extern rtx cris_return_addr_rtx PARAMS ((int, rtx));
-extern rtx cris_split_movdx PARAMS ((rtx *));
-extern int cris_legitimate_pic_operand PARAMS ((rtx));
-extern int cris_gotless_symbol PARAMS ((rtx));
-extern int cris_got_symbol PARAMS ((rtx));
-extern int cris_symbol PARAMS ((rtx));
-extern void cris_output_addr_const PARAMS ((FILE *, rtx));
-extern int cris_cfun_uses_pic_table PARAMS ((void));
-extern void cris_target_asm_named_section
-  PARAMS ((const char *, unsigned int));
-
-# ifdef TREE_CODE
-extern rtx cris_expand_builtin_va_arg PARAMS ((tree, tree));
-# endif
+extern const char *cris_op_str (rtx);
+extern int cris_eligible_for_epilogue_delay (rtx);
+extern void cris_notice_update_cc (rtx, rtx);
+extern void cris_print_operand (FILE *, rtx, int);
+extern void cris_print_operand_address (FILE *, rtx);
+extern int cris_side_effect_mode_ok (enum rtx_code, rtx *, int, int,
+                                     int, int, int);
+extern rtx cris_return_addr_rtx (int, rtx);
+extern rtx cris_split_movdx (rtx *);
+extern int cris_legitimate_pic_operand (rtx);
+extern int cris_gotless_symbol (rtx);
+extern int cris_got_symbol (rtx);
+extern int cris_symbol (rtx);
+extern void cris_output_addr_const (FILE *, rtx);
+extern int cris_cfun_uses_pic_table (void);
 #endif /* RTX_CODE */
+extern void cris_target_asm_named_section (const char *, unsigned int, tree);
 
-#ifdef GCC_C_PRAGMA_H
-extern void cris_pragma_expand_mul PARAMS ((cpp_reader *));
-#endif
+extern int cris_return_address_on_stack (void);
 
-/* Need one that returns an int; usable in expressions. */
-extern int cris_fatal PARAMS ((char *));
+extern void cris_pragma_expand_mul (struct cpp_reader *);
 
-extern void cris_override_options PARAMS ((void));
+/* Need one that returns an int; usable in expressions.  */
+extern int cris_fatal (char *);
 
-extern int cris_initial_elimination_offset PARAMS ((int, int));
+extern void cris_override_options (void);
 
-extern void cris_init_expanders PARAMS ((void));
+extern int cris_initial_elimination_offset (int, int);
 
-extern int cris_delay_slots_for_epilogue PARAMS ((void));
+extern void cris_init_expanders (void);
+
+extern int cris_delay_slots_for_epilogue (void);

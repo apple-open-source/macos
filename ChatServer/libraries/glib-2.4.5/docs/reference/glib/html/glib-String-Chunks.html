@@ -1,0 +1,106 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>String Chunks</title><meta name="generator" content="DocBook XSL Stylesheets V1.65.1"><link rel="home" href="index.html" title="GLib Reference Manual"><link rel="up" href="glib-data-types.html" title="GLib Data Types"><link rel="previous" href="glib-Strings.html" title="Strings"><link rel="next" href="glib-Arrays.html" title="Arrays"><link rel="chapter" href="glib.html" title="GLib Overview"><link rel="refentry" href="glib-building.html" title="Compiling the GLib package"><link rel="refentry" href="glib-cross-compiling.html" title="Cross-compiling the GLib package"><link rel="refentry" href="glib-compiling.html" title="Compiling GLib Applications"><link rel="refentry" href="glib-running.html" title="Running GLib Applications"><link rel="refentry" href="glib-changes.html" title="Changes to GLib"><link rel="refentry" href="glib-resources.html" title="Mailing lists and bug reports"><link rel="chapter" href="glib-fundamentals.html" title="GLib Fundamentals"><link rel="refentry" href="glib-Basic-Types.html" title="Basic Types"><link rel="refentry" href="glib-Limits-of-Basic-Types.html" title="Limits of Basic Types"><link rel="refentry" href="glib-Standard-Macros.html" title="Standard Macros"><link rel="refentry" href="glib-Type-Conversion-Macros.html" title="Type Conversion Macros"><link rel="refentry" href="glib-Byte-Order-Macros.html" title="Byte Order Macros"><link rel="refentry" href="glib-Numerical-Definitions.html" title="Numerical Definitions"><link rel="refentry" href="glib-Miscellaneous-Macros.html" title="Miscellaneous Macros"><link rel="refentry" href="glib-Atomic-Operations.html" title="Atomic Operations"><link rel="chapter" href="glib-core.html" title="GLib Core Application Support"><link rel="refentry" href="glib-The-Main-Event-Loop.html" title="The Main Event Loop"><link rel="refentry" href="glib-Threads.html" title="
+Threads"><link rel="refentry" href="glib-Thread-Pools.html" title="Thread Pools"><link rel="refentry" href="glib-Asynchronous-Queues.html" title="Asynchronous Queues"><link rel="refentry" href="glib-Dynamic-Loading-of-Modules.html" title="Dynamic Loading of Modules"><link rel="refentry" href="glib-Memory-Allocation.html" title="Memory Allocation"><link rel="refentry" href="glib-IO-Channels.html" title="IO Channels"><link rel="refentry" href="glib-Error-Reporting.html" title="Error Reporting"><link rel="refentry" href="glib-Warnings-and-Assertions.html" title="Message Output and Debugging Functions"><link rel="refentry" href="glib-Message-Logging.html" title="Message Logging"><link rel="chapter" href="glib-utilities.html" title="GLib Utilities"><link rel="refentry" href="glib-String-Utility-Functions.html" title="String Utility Functions"><link rel="refentry" href="glib-Character-Set-Conversion.html" title="Character Set Conversion"><link rel="refentry" href="glib-Unicode-Manipulation.html" title="Unicode Manipulation"><link rel="refentry" href="glib-I18N.html" title="Internationalization"><link rel="refentry" href="glib-Date-and-Time-Functions.html" title="Date and Time Functions"><link rel="refentry" href="glib-Random-Numbers.html" title="Random Numbers"><link rel="refentry" href="glib-Hook-Functions.html" title="Hook Functions"><link rel="refentry" href="glib-Miscellaneous-Utility-Functions.html" title="Miscellaneous Utility Functions"><link rel="refentry" href="glib-Lexical-Scanner.html" title="Lexical Scanner"><link rel="refentry" href="glib-Automatic-String-Completion.html" title="Automatic String Completion"><link rel="refentry" href="glib-Timers.html" title="Timers"><link rel="refentry" href="glib-Spawning-Processes.html" title="Spawning Processes"><link rel="refentry" href="glib-File-Utilities.html" title="File Utilities"><link rel="refentry" href="glib-Shell-related-Utilities.html" title="Shell-related Utilities"><link rel="refentry" href="glib-Glob-style-pattern-matching.html" title="Glob-style pattern matching"><link rel="refentry" href="glib-Simple-XML-Subset-Parser.html" title="Simple XML Subset Parser"><link rel="refentry" href="glib-Windows-Compatability-Functions.html" title="Windows Compatibility Functions"><link rel="chapter" href="glib-data-types.html" title="GLib Data Types"><link rel="refentry" href="glib-Memory-Chunks.html" title="Memory Chunks"><link rel="refentry" href="glib-Doubly-Linked-Lists.html" title="Doubly-Linked Lists"><link rel="refentry" href="glib-Singly-Linked-Lists.html" title="Singly-Linked Lists"><link rel="refentry" href="glib-Double-ended-Queues.html" title="Double-ended Queues"><link rel="refentry" href="glib-Trash-Stacks.html" title="Trash Stacks"><link rel="refentry" href="glib-Hash-Tables.html" title="Hash Tables"><link rel="refentry" href="glib-Strings.html" title="Strings"><link rel="refentry" href="glib-String-Chunks.html" title="String Chunks"><link rel="refentry" href="glib-Arrays.html" title="Arrays"><link rel="refentry" href="glib-Pointer-Arrays.html" title="Pointer Arrays"><link rel="refentry" href="glib-Byte-Arrays.html" title="Byte Arrays"><link rel="refentry" href="glib-Balanced-Binary-Trees.html" title="Balanced Binary Trees"><link rel="refentry" href="glib-N-ary-Trees.html" title="N-ary Trees"><link rel="refentry" href="glib-Quarks.html" title="Quarks"><link rel="refentry" href="glib-Keyed-Data-Lists.html" title="Keyed Data Lists"><link rel="refentry" href="glib-Datasets.html" title="Datasets"><link rel="refentry" href="glib-Relations-and-Tuples.html" title="Relations and Tuples"><link rel="refentry" href="glib-Caches.html" title="Caches"><link rel="refentry" href="glib-Memory-Allocators.html" title="Memory Allocators"><link rel="chapter" href="tools.html" title="GLib Tools"><link rel="refentry" href="glib-gettextize.html" title="glib-gettextize"><link rel="index" href="ix01.html" title="Index"><link rel="section" href="glib-String-Chunks.html#id3287721" title="Description"><link rel="section" href="glib-String-Chunks.html#id3287890" title="Details"><meta name="generator" content="GTK-Doc V1.2 (XML mode)"><link rel="stylesheet" href="style.css" type="text/css"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><table class="navigation" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2"><tr valign="middle"><td><a accesskey="p" href="glib-Strings.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td><td><a accesskey="u" href="glib-data-types.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td><td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td><th width="100%" align="center">GLib Reference Manual</th><td><a accesskey="n" href="glib-Arrays.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td></tr></table><div class="refentry" lang="en"><a name="glib-String-Chunks"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2><span class="refentrytitle">String Chunks</span></h2><p>String Chunks &#8212; efficient storage of groups of strings.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><pre class="synopsis">
+
+#include &lt;glib.h&gt;
+
+
+struct      <a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a>;
+<a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a>* <a href="glib-String-Chunks.html#g-string-chunk-new">g_string_chunk_new</a>            (<a href="glib-Basic-Types.html#gsize">gsize</a> size);
+<a href="glib-Basic-Types.html#gchar">gchar</a>*      <a href="glib-String-Chunks.html#g-string-chunk-insert">g_string_chunk_insert</a>           (<a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a> *chunk,
+                                             const <a href="glib-Basic-Types.html#gchar">gchar</a> *string);
+<a href="glib-Basic-Types.html#gchar">gchar</a>*      <a href="glib-String-Chunks.html#g-string-chunk-insert-const">g_string_chunk_insert_const</a>     (<a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a> *chunk,
+                                             const <a href="glib-Basic-Types.html#gchar">gchar</a> *string);
+<a href="glib-Basic-Types.html#gchar">gchar</a>*      <a href="glib-String-Chunks.html#g-string-chunk-insert-len">g_string_chunk_insert_len</a>       (<a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a> *chunk,
+                                             const <a href="glib-Basic-Types.html#gchar">gchar</a> *string,
+                                             <a href="glib-Basic-Types.html#gssize">gssize</a> len);
+void        <a href="glib-String-Chunks.html#g-string-chunk-free">g_string_chunk_free</a>             (<a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a> *chunk);
+</pre></div><div class="refsect1" lang="en"><a name="id3287721"></a><h2>Description</h2><p>
+String chunks are used to store groups of strings.
+Memory is allocated in blocks, and as strings are added to the <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>
+they are copied into the next free position in a block. When a block is
+full a new block is allocated.
+</p><p>
+When storing a large number of strings, string chunks are more efficient
+than using <a href="glib-String-Utility-Functions.html#g-strdup"><tt class="function">g_strdup()</tt></a> since fewer calls to <tt class="function"><tt class="function">malloc()</tt></tt>
+are needed, and less memory is wasted in memory allocation overheads.
+</p><p>
+By adding strings with <a href="glib-String-Chunks.html#g-string-chunk-insert-const"><tt class="function">g_string_chunk_insert_const()</tt></a> it is also possible
+to remove duplicates.
+</p><p>
+To create a new <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a> use <a href="glib-String-Chunks.html#g-string-chunk-new"><tt class="function">g_string_chunk_new()</tt></a>.
+</p><p>
+To add strings to a <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a> use <a href="glib-String-Chunks.html#g-string-chunk-insert"><tt class="function">g_string_chunk_insert()</tt></a>.
+</p><p>
+To add strings to a <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>, but without duplicating strings which are
+already in the <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>, use <a href="glib-String-Chunks.html#g-string-chunk-insert-const"><tt class="function">g_string_chunk_insert_const()</tt></a>.
+</p><p>
+To free the entire <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a> use <a href="glib-String-Chunks.html#g-string-chunk-free"><tt class="function">g_string_chunk_free()</tt></a>.
+It is not possible to free individual strings.
+</p></div><div class="refsect1" lang="en"><a name="id3287890"></a><h2>Details</h2><div class="refsect2" lang="en"><a name="id3287896"></a><h3><a name="GStringChunk"></a>struct GStringChunk</h3><a class="indexterm" name="id3287906"></a><pre class="programlisting">struct GStringChunk;</pre><p>
+An opaque data structure representing String Chunks.
+It should only be accessed by using the following functions.
+</p></div><hr><div class="refsect2" lang="en"><a name="id3287923"></a><h3><a name="g-string-chunk-new"></a>g_string_chunk_new ()</h3><a class="indexterm" name="id3287935"></a><pre class="programlisting"><a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a>* g_string_chunk_new            (<a href="glib-Basic-Types.html#gsize">gsize</a> size);</pre><p>
+Creates a new <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>size</tt></i> :</span></td><td>the default size of the blocks of memory which are allocated to store
+the strings. If a particular string is larger than this default size, a larger
+block of memory will be allocated for it.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>a new <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3288011"></a><h3><a name="g-string-chunk-insert"></a>g_string_chunk_insert ()</h3><a class="indexterm" name="id3288023"></a><pre class="programlisting"><a href="glib-Basic-Types.html#gchar">gchar</a>*      g_string_chunk_insert           (<a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a> *chunk,
+                                             const <a href="glib-Basic-Types.html#gchar">gchar</a> *string);</pre><p>
+Adds a copy of <i class="parameter"><tt>string</tt></i> to the <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>.
+It returns a pointer to the new copy of the string in the <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>.
+The characters in the string can be changed, if necessary, though you
+should not change anything after the end of the string.
+</p><p>
+Unlike <a href="glib-String-Chunks.html#g-string-chunk-insert-const"><tt class="function">g_string_chunk_insert_const()</tt></a>, this function does not check for
+duplicates. Also strings added with <a href="glib-String-Chunks.html#g-string-chunk-insert"><tt class="function">g_string_chunk_insert()</tt></a> will not be
+searched by <a href="glib-String-Chunks.html#g-string-chunk-insert-const"><tt class="function">g_string_chunk_insert_const()</tt></a> when looking for duplicates.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>chunk</tt></i> :</span></td><td>a <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>string</tt></i> :</span></td><td>the string to add.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>a pointer to the copy of <i class="parameter"><tt>string</tt></i> within the <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3288189"></a><h3><a name="g-string-chunk-insert-const"></a>g_string_chunk_insert_const ()</h3><a class="indexterm" name="id3288200"></a><pre class="programlisting"><a href="glib-Basic-Types.html#gchar">gchar</a>*      g_string_chunk_insert_const     (<a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a> *chunk,
+                                             const <a href="glib-Basic-Types.html#gchar">gchar</a> *string);</pre><p>
+Adds a copy of <i class="parameter"><tt>string</tt></i> to the <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>, unless the same string has
+already been added to the <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a> with <a href="glib-String-Chunks.html#g-string-chunk-insert-const"><tt class="function">g_string_chunk_insert_const()</tt></a>.
+</p><p>
+This function is useful if you need to copy a large number of strings
+but do not want to waste space storing duplicates. But you must remember
+that there may be several pointers to the same string, and so any changes
+made to the strings should be done very carefully.
+</p><p>
+Note that <a href="glib-String-Chunks.html#g-string-chunk-insert-const"><tt class="function">g_string_chunk_insert_const()</tt></a> will not return a pointer to a string
+added with <a href="glib-String-Chunks.html#g-string-chunk-insert"><tt class="function">g_string_chunk_insert()</tt></a>, even if they do match.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>chunk</tt></i> :</span></td><td>a <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>string</tt></i> :</span></td><td>the string to add.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>a pointer to the new or existing copy of <i class="parameter"><tt>string</tt></i> within the
+<a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3288371"></a><h3><a name="g-string-chunk-insert-len"></a>g_string_chunk_insert_len ()</h3><a class="indexterm" name="id3288383"></a><pre class="programlisting"><a href="glib-Basic-Types.html#gchar">gchar</a>*      g_string_chunk_insert_len       (<a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a> *chunk,
+                                             const <a href="glib-Basic-Types.html#gchar">gchar</a> *string,
+                                             <a href="glib-Basic-Types.html#gssize">gssize</a> len);</pre><p>
+Adds a copy of the first <i class="parameter"><tt>len</tt></i> bytes of <i class="parameter"><tt>string</tt></i> to the <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>. The
+copy is nul-terminated.
+</p><p>
+The characters in the string can be changed, if necessary, though you
+should not change anything after the end of the string.</p><p>
+
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>chunk</tt></i> :</span></td><td> a <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>string</tt></i> :</span></td><td> bytes to insert
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>len</tt></i> :</span></td><td> number of bytes of <i class="parameter"><tt>string</tt></i> to insert, or -1 to insert a 
+    nul-terminated string. 
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td> a pointer to the copy of <i class="parameter"><tt>string</tt></i> within the <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>
+
+</td></tr></tbody></table></div><p>Since  2.4
+</p></div><hr><div class="refsect2" lang="en"><a name="id3288545"></a><h3><a name="g-string-chunk-free"></a>g_string_chunk_free ()</h3><a class="indexterm" name="id3288557"></a><pre class="programlisting">void        g_string_chunk_free             (<a href="glib-String-Chunks.html#GStringChunk">GStringChunk</a> *chunk);</pre><p>
+Frees all memory allocated by the <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>.
+After calling <a href="glib-String-Chunks.html#g-string-chunk-free"><tt class="function">g_string_chunk_free()</tt></a> it is not safe to
+access any of the strings which were contained within it.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>chunk</tt></i> :</span></td><td>a <a href="glib-String-Chunks.html#GStringChunk"><span class="type">GStringChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div></div></div><table class="navigation" width="100%" summary="Navigation footer" cellpadding="2" cellspacing="0"><tr valign="middle"><td align="left"><a accesskey="p" href="glib-Strings.html"><b>&lt;&lt; Strings</b></a></td><td align="right"><a accesskey="n" href="glib-Arrays.html"><b>Arrays &gt;&gt;</b></a></td></tr></table></body></html>

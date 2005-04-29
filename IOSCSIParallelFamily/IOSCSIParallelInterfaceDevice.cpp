@@ -121,6 +121,7 @@ IOSCSIParallelInterfaceDevice::SetInitialTargetProperties (
 	
 	setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
 	protocolDict->release ( );
+	protocolDict = NULL;
 	
 	// Set the properties from the dictionary
 	value = properties->getObject ( kIOPropertyFibreChannelNodeWorldWideNameKey );
@@ -178,6 +179,7 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
 	InitializePowerManagement ( provider );
 	
 	protocolDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );	
+	protocolDict = OSDictionary::withDictionary ( protocolDict );
 	if ( protocolDict != NULL )
 	{
 		
@@ -196,7 +198,11 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
 			targetID->release ( );
 			
 		}
-			
+		
+		setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
+		protocolDict->release ( );
+		protocolDict = NULL;
+		
 	}
 	
 	// Set the location to allow booting 
@@ -610,8 +616,6 @@ IOSCSIParallelInterfaceDevice::DetermineParallelFeatures ( UInt8 * inqData )
 	UInt8			inqSCSIVersion	= 0;
 	UInt8			inqDataLength	= 0;
 	
-	dict = ( OSDictionary * ) getProperty ( kIOPropertyProtocolCharacteristicsKey );
-	
 	inqSCSIVersion = ( ( SCSICmd_INQUIRY_StandardData * ) inqData )->VERSION & kINQUIRY_ANSI_VERSION_Mask;
 	inqDataLength = ( ( SCSICmd_INQUIRY_StandardData * ) inqData )->ADDITIONAL_LENGTH + 5;
 	
@@ -706,24 +710,35 @@ IOSCSIParallelInterfaceDevice::DetermineParallelFeatures ( UInt8 * inqData )
 		}
 		
 	}
-	
-	features = OSNumber::withNumber ( deviceFeatures, 64 );
-	if ( features != NULL )
+
+	dict = ( OSDictionary * ) getProperty ( kIOPropertyProtocolCharacteristicsKey );
+	dict = OSDictionary::withDictionary ( dict );
+	if ( dict != NULL )
 	{
 		
-		dict->setObject ( kIOPropertySCSIDeviceFeaturesKey, features );
-		features->release ( );
-		features = NULL;
+		features = OSNumber::withNumber ( deviceFeatures, 64 );
+		if ( features != NULL )
+		{
+			
+			dict->setObject ( kIOPropertySCSIDeviceFeaturesKey, features );
+			features->release ( );
+			features = NULL;
+			
+		}
 		
-	}
-	
-	features = OSNumber::withNumber ( ITNexusFeatures, 64 );
-	if ( features != NULL )
-	{
+		features = OSNumber::withNumber ( ITNexusFeatures, 64 );
+		if ( features != NULL )
+		{
+			
+			dict->setObject ( kIOPropertySCSI_I_T_NexusFeaturesKey, features );
+			features->release ( );
+			features = NULL;
+			
+		}
 		
-		dict->setObject ( kIOPropertySCSI_I_T_NexusFeaturesKey, features );
-		features->release ( );
-		features = NULL;
+		setProperty ( kIOPropertyProtocolCharacteristicsKey, dict );
+		dict->release ( );
+		dict = NULL;
 		
 	}
 	
@@ -891,6 +906,8 @@ IOSCSIParallelInterfaceDevice::SetTargetProperty (
 	require_nonzero ( value, ErrorExit );
 	
 	protocolDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+	protocolDict = OSDictionary::withDictionary ( protocolDict );
+	require_nonzero ( protocolDict, ErrorExit );
 	
 	if ( strcmp ( key, kIOPropertyFibreChannelPortWorldWideNameKey ) == 0 )
 	{
@@ -936,6 +953,10 @@ IOSCSIParallelInterfaceDevice::SetTargetProperty (
 		
 	}
 	
+	setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
+	protocolDict->release ( );
+	protocolDict = NULL;
+	
 	
 ErrorExit:
 	
@@ -958,6 +979,7 @@ IOSCSIParallelInterfaceDevice::RemoveTargetProperty ( const char * key )
 	require_nonzero ( key, ErrorExit );
 	
 	protocolDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+	protocolDict = OSDictionary::withDictionary ( protocolDict );
 	require_nonzero ( protocolDict, ErrorExit );
 	
 	if ( protocolDict->getObject ( key ) != NULL )
@@ -966,6 +988,10 @@ IOSCSIParallelInterfaceDevice::RemoveTargetProperty ( const char * key )
 		protocolDict->removeObject ( key );
 		
 	}
+	
+	setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
+	protocolDict->release ( );
+	protocolDict = NULL;
 	
 	
 ErrorExit:

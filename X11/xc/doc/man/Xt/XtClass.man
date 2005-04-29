@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtClass.man,v 1.2 2001/01/27 18:20:24 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtClass.man,v 1.3 2003/04/28 22:18:18 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,80 +131,41 @@
 .SH NAME
 XtClass, XtSuperclass, XtIsSubclass, XtCheckSubclass, XtIsObject, XtIsRectObj, XtIsWidget, XtIsComposite, XtIsConstraint, XtIsShell, XtIsOverrideShell, XtIsWMShell, XtIsVendorShell, XtIsTransientShell, XtIsTopLevelShell, XtIsApplicationShell, XtIsSessionShell \- obtain and verify a widget's class
 .SH SYNTAX
-WidgetClass XtClass(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-WidgetClass XtSuperclass(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsSubclass(\fIw\fP, \fIwidget_class\fP)
-.br
-      Widget \fIw\fP;
-.br
-      WidgetClass \fIwidget_class\fP;
-.LP
-void XtCheckSubclass(\fIwidget\fP, \fIwidget_class\fP, \fImessage\fP)
-.br
-      Widget \fIwidget\fP;
-.br
-      WidgetClass \fIwidget_class\fP;
-.br
-      String \fImessage\fP;
-.LP
-Boolean XtIsObject(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsRectObj(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsWidget(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsComposite(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsConstraint(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsShell(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsOverrideShell(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsWMShell(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsVendorShell(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsTransientShell(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsTopLevelShell(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsApplicationShell(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-Boolean XtIsSessionShell(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
+.HP
+WidgetClass XtClass(Widget \fIw\fP); 
+.HP
+WidgetClass XtSuperclass(Widget \fIw\fP); 
+.HP
+Boolean XtIsSubclass(Widget \fIw\fP, WidgetClass \fIwidget_class\fP); 
+.HP
+void XtCheckSubclass(Widget \fIwidget\fP, WidgetClass \fIwidget_class\fP,
+String \fImessage\fP); 
+.HP
+Boolean XtIsObject(Widget \fIw\fP); 
+.HP
+Boolean XtIsRectObj(Widget \fIw\fP); 
+.HP
+Boolean XtIsWidget(Widget \fIw\fP); 
+.HP
+Boolean XtIsComposite(Widget \fIw\fP); 
+.HP
+Boolean XtIsConstraint(Widget \fIw\fP, 
+.HP
+Boolean XtIsShell(Widget \fIw\fP); 
+.HP
+Boolean XtIsOverrideShell(Widget \fIw\fP); 
+.HP
+Boolean XtIsWMShell(Widget \fIw\fP); 
+.HP
+Boolean XtIsVendorShell(Widget \fIw\fP);
+.HP
+Boolean XtIsTransientShell(Widget \fIw\fP);
+.HP
+Boolean XtIsTopLevelShell(Widget \fIw\fP);
+.HP
+Boolean XtIsApplicationShell(Widget \fIw\fP);
+.HP
+Boolean XtIsSessionShell(Widget \fIw\fP);
 .SH ARGUMENTS
 .IP \fIw\fP 1i
 Specifies the widget.

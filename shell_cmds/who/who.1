@@ -1,5 +1,3 @@
-.\"	$NetBSD: who.1,v 1.9 1997/10/20 03:20:28 lukem Exp $
-.\"
 .\" Copyright (c) 1986, 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -32,57 +30,68 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)who.1	8.2 (Berkeley) 12/30/93
+.\" $FreeBSD: src/usr.bin/who/who.1,v 1.16 2004/07/02 22:22:34 ru Exp $
 .\"
-.Dd December 6, 1994
+.Dd May 8, 2002
 .Dt WHO 1
 .Os
 .Sh NAME
 .Nm who
-.Nd display who is logged in
+.Nd display who is on the system
 .Sh SYNOPSIS
 .Nm
-.Op Fl mTuH
-.Op Ar file 
-.Nm
-.Ar am i
+.Op Fl HmqsTu
+.Op Cm am I
+.Op Ar file
 .Sh DESCRIPTION
-The 
+The
 .Nm
-utility displays a list of all users currently logged on, showing for
-each user the login name, tty name, the date and time of login, and
-hostname if not local.
+utility displays information about currently logged in users.
+By default, this includes the login name, tty name, date and time of login and
+remote hostname if not local.
 .Pp
-Available options:
-.Pp
-.Bl -tag -width file
-.It Fl m
-Only print information about the current terminal.  This is the
-.Tn POSIX
-way of saying
-.Nm
-.Ar am i .
-.It Fl T
-Print a character after the user name indicating the state of the
-terminal line:
-.Sq + 
-if the terminal is writable;
-.Sq - 
-if it is not;
-and
-.Sq ?
-if a bad line is encountered.
-.It Fl u
-Print the idle time for each user.
+The options are as follows:
+.Bl -tag -width indent
 .It Fl H
-Write column headings above the regular output.
-.It Ar \&am I
-Returns the invoker's real user name. 
-.It Ar file
+Write column headings above the output.
+.It Fl m
+Show information about the terminal attached to standard input only.
+.It Fl q
+.Dq "Quick mode" :
+List the names and number of logged in users in columns.
+All other command line options are ignored.
+.It Fl s
+Show the name, line and time fields only.
+This is the default.
+.It Fl T
+Indicate whether each user is accepting messages.
+One of the following characters is written:
+.Pp
+.Bl -tag -width 1n -compact
+.It Li +
+User is accepting messages.
+.It Li \&-
+User is not accepting messages.
+.It Li \&?
+An error occurred.
+.El
+.It Fl u
+Show idle time for each user in hours and minutes as
+.Ar hh Ns : Ns Ar mm ,
+.Ql \&.
+if the user has been idle less that a minute, and
+.Dq Li old
+if the user has been idle more than 24 hours.
+.It Cm am I
+Equivalent to
+.Fl m .
+.El
+.Pp
 By default,
 .Nm
 gathers information from the file
 .Pa /var/run/utmp .
-An alternative
+An alternate
 .Ar file
 may be specified which is usually
 .Pa /var/log/wtmp
@@ -101,34 +110,45 @@ since
 .Pa wtmp
 was last truncated or
 created.
-.El
 .Pp
 If
 .Pa /var/log/wtmp
 is being used as the file, the user name may be empty
-or one of the special characters '|', '}' and '~'.  Logouts produce
-an output line without any user name.  For more information on the
+or one of the special characters '|', '}' and '~'.
+Logouts produce
+an output line without any user name.
+For more information on the
 special characters, see
 .Xr utmp 5 .
+.Sh ENVIRONMENT
+The
+.Ev COLUMNS , LANG , LC_ALL
+and
+.Ev LC_TIME
+environment variables affect the execution of
+.Nm
+as described in
+.Xr environ 7 .
 .Sh FILES
 .Bl -tag -width /var/log/wtmp.[0-6] -compact
 .It Pa /var/run/utmp
 .It Pa /var/log/wtmp
 .It Pa /var/log/wtmp.[0-6]
 .El
+.Sh DIAGNOSTICS
+.Ex -std
 .Sh SEE ALSO
 .Xr last 1 ,
-.Xr mesg 1 ,
 .Xr users 1 ,
-.Xr getuid 2 ,
+.Xr w 1 ,
 .Xr utmp 5
 .Sh STANDARDS
 The
 .Nm
-utility is expected to conform to
-.St -p1003.2-92 .
+utility conforms to
+.St -p1003.1-2001 .
 .Sh HISTORY
 A
 .Nm
-utility appeared in
-.At v6 .
+command appeared in
+.At v1 .

@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: disp_com_err_status.c,v 1.7 2003/03/06 20:26:28 lxs Exp $
+ * $Id: disp_com_err_status.c,v 1.8 2004/06/02 23:40:12 raeburn Exp $
  */
 
 #include "gssapiP_generic.h"
@@ -31,7 +31,6 @@
 
 /**/
 
-static int init_et = 0;
 static const char * const no_error = "No error";
 
 /**/
@@ -53,10 +52,7 @@ g_display_com_err_status(minor_status, status_value, status_string)
    status_string->length = 0;
    status_string->value = NULL;
 
-   if (!init_et) {
-      initialize_ggss_error_table();
-      init_et = 1;
-   }
+   (void) gssint_initialize_library();
 
    if (! g_make_string_buffer(((status_value == 0)?no_error:
 			       error_message(status_value)),

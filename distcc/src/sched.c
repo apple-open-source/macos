@@ -112,6 +112,7 @@ int main(int argc, char *argv[])
          * ready.  This is useful for testing -- when the daemon
          * detaches, we know we can go ahead and try to connect.  */
         dcc_detach();
+	chdir("/");
     }
  
     dcc_browse_for_zeroconfig(zcTxtRecord);

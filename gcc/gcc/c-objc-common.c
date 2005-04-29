@@ -1,5 +1,5 @@
 /* Some code common to C and ObjC front ends.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,12 +20,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "integrate.h"
-#include "expr.h"
 #include "c-tree.h"
+#include "c-pretty-print.h"
 #include "function.h"
 #include "flags.h"
 #include "toplev.h"
@@ -34,19 +36,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "tree-mudflap.h"
 #include "target.h"
+#include "c-objc-common.h"
 
-static bool c_tree_printer PARAMS ((output_buffer *, text_info *));
-static tree inline_forbidden_p PARAMS ((tree *, int *, void *));
-static void expand_deferred_fns PARAMS ((void));
-static tree start_cdtor	PARAMS ((int));
-static void finish_cdtor PARAMS ((tree));
+static bool c_tree_printer (pretty_printer *, text_info *);
 
-static GTY(()) varray_type deferred_fns;
-
-int
-c_missing_noreturn_ok_p (decl)
-     tree decl;
+bool
+c_missing_noreturn_ok_p (tree decl)
 {
   /* A missing noreturn is not ok for freestanding implementations and
      ok for the `main' function in hosted implementations.  */
@@ -58,123 +55,52 @@ c_missing_noreturn_ok_p (decl)
    such functions always being inlined when optimizing.  */
 
 int
-c_disregard_inline_limits (fn)
-     tree fn;
+c_disregard_inline_limits (tree fn)
 {
   if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
     return 1;
 
   /* APPLE LOCAL obey inline */
-  return DECL_DECLARED_INLINE_P (fn) && (DECL_EXTERNAL (fn) || flag_obey_inline);
-}
-
-static tree
-inline_forbidden_p (nodep, walk_subtrees, fn)
-     tree *nodep;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *fn;
-{
-  tree node = *nodep;
-  tree t;
-
-  switch (TREE_CODE (node))
-    {
-    case CALL_EXPR:
-      t = get_callee_fndecl (node);
-
-      if (! t)
-	break;
-
-      /* We cannot inline functions that call setjmp.  */
-      if (setjmp_call_p (t))
-	return node;
-
-      switch (DECL_FUNCTION_CODE (t))
-	{
-	  /* We cannot inline functions that take a variable number of
-	     arguments.  */
-	case BUILT_IN_VA_START:
-	case BUILT_IN_STDARG_START:
-#if 0
-	  /* Functions that need information about the address of the
-             caller can't (shouldn't?) be inlined.  */
-	case BUILT_IN_RETURN_ADDRESS:
-#endif
-	  return node;
-
-	default:
-	  break;
-	}
-
-      break;
-
-    case DECL_STMT:
-      /* We cannot inline functions that contain other functions.  */
-      if (TREE_CODE (TREE_OPERAND (node, 0)) == FUNCTION_DECL
-	  && DECL_INITIAL (TREE_OPERAND (node, 0)))
-	return node;
-      break;
-
-    case GOTO_STMT:
-    case GOTO_EXPR:
-      t = TREE_OPERAND (node, 0);
-
-      /* We will not inline a function which uses computed goto.  The
-	 addresses of its local labels, which may be tucked into
-	 global storage, are of course not constant across
-	 instantiations, which causes unexpected behavior.  */
-      if (TREE_CODE (t) != LABEL_DECL)
-	return node;
-
-      /* We cannot inline a nested function that jumps to a nonlocal
-         label.  */
-      if (TREE_CODE (t) == LABEL_DECL
-	  && DECL_CONTEXT (t) && DECL_CONTEXT (t) != fn)
-	return node;
-
-      break;
-
-    case RECORD_TYPE:
-    case UNION_TYPE:
-      /* We cannot inline a function of the form
-
-	   void F (int i) { struct S { int ar[i]; } s; }
-
-	 Attempting to do so produces a catch-22 in tree-inline.c.
-	 If walk_tree examines the TYPE_FIELDS chain of RECORD_TYPE/
-	 UNION_TYPE nodes, then it goes into infinite recursion on a
-	 structure containing a pointer to its own type.  If it doesn't,
-	 then the type node for S doesn't get adjusted properly when
-	 F is inlined, and we abort in find_function_data.  */
-      for (t = TYPE_FIELDS (node); t; t = TREE_CHAIN (t))
-	if (variably_modified_type_p (TREE_TYPE (t)))
-	  return node;
-
-    default:
-      break;
-    }
-
-  return NULL_TREE;
+  return (!flag_really_no_inline && DECL_DECLARED_INLINE_P (fn)
+	  && (DECL_EXTERNAL (fn) || flag_obey_inline));
 }
 
 int
-c_cannot_inline_tree_fn (fnp)
-     tree *fnp;
+c_cannot_inline_tree_fn (tree *fnp)
 {
   tree fn = *fnp;
   tree t;
+  bool do_warning = (warn_inline
+		     && DECL_INLINE (fn)
+		     && DECL_DECLARED_INLINE_P (fn)
+		     && !DECL_IN_SYSTEM_HEADER (fn));
 
   if (flag_really_no_inline
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
-    return 1;
+    {
+      if (do_warning)
+	warning ("%Jfunction %qF can never be inlined because it "
+		 "is suppressed using -fno-inline", fn, fn);
+      goto cannot_inline;
+    }
 
-  /* Don't auto-inline anything that might not be bound within 
+  /* Don't auto-inline anything that might not be bound within
      this unit of translation.  */
-  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
-    goto cannot_inline;
+  if (!DECL_DECLARED_INLINE_P (fn) && !targetm.binds_local_p (fn))
+    {
+      if (do_warning)
+	warning ("%Jfunction %qF can never be inlined because it might not "
+		 "be bound within this unit of translation", fn, fn);
+      goto cannot_inline;
+    }
 
-  if (! function_attribute_inlinable_p (fn))
-    goto cannot_inline;
+  if (!function_attribute_inlinable_p (fn))
+    {
+      if (do_warning)
+	warning ("%Jfunction %qF can never be inlined because it uses "
+		 "attributes conflicting with inlining", fn, fn);
+      goto cannot_inline;
+    }
 
   /* If a function has pending sizes, we must not defer its
      compilation, and we can't inline it as a tree.  */
@@ -184,38 +110,26 @@ c_cannot_inline_tree_fn (fnp)
       put_pending_sizes (t);
 
       if (t)
-	goto cannot_inline;
+	{
+	  if (do_warning)
+	    warning ("%Jfunction %qF can never be inlined because it has "
+		     "pending sizes", fn, fn);
+	  goto cannot_inline;
+	}
     }
 
-  if (DECL_CONTEXT (fn))
+  if (!DECL_FILE_SCOPE_P (fn))
     {
       /* If a nested function has pending sizes, we may have already
          saved them.  */
       if (DECL_LANG_SPECIFIC (fn)->pending_sizes)
-	goto cannot_inline;
+	{
+	  if (do_warning)
+	    warning ("%Jnested function %qF can never be inlined because it "
+		     "has possibly saved pending sizes", fn, fn);
+	  goto cannot_inline;
+	}
     }
-  else
-    {
-      /* We rely on the fact that this function is called upfront,
-	 just before we start expanding a function.  If FN is active
-	 (i.e., it's the current_function_decl or a parent thereof),
-	 we have to walk FN's saved tree.  Otherwise, we can safely
-	 assume we have done it before and, if we didn't mark it as
-	 uninlinable (in which case we wouldn't have been called), it
-	 is inlinable.  Unfortunately, this strategy doesn't work for
-	 nested functions, because they're only expanded as part of
-	 their enclosing functions, so the inlinability test comes in
-	 late.  */
-      t = current_function_decl;
-
-      while (t && t != fn)
-	t = DECL_CONTEXT (t);
-      if (! t)
-	return 0;
-    }
-    
-  if (walk_tree (&DECL_SAVED_TREE (fn), inline_forbidden_p, fn, NULL))
-    goto cannot_inline;
 
   return 0;
 
@@ -227,8 +141,7 @@ c_cannot_inline_tree_fn (fnp)
 /* Called from check_global_declarations.  */
 
 bool
-c_warn_unused_global_decl (decl)
-     tree decl;
+c_warn_unused_global_decl (tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl))
     return false;
@@ -239,23 +152,24 @@ c_warn_unused_global_decl (decl)
 }
 
 /* Initialization common to C and Objective-C front ends.  */
-const char *
-c_objc_common_init (filename)
-     const char *filename;
+bool
+c_objc_common_init (void)
 {
+  static const enum tree_code stmt_codes[] = {
+    c_common_stmt_codes
+  };
+
+  INIT_STATEMENT_CODES (stmt_codes);
+
   c_init_decl_processing ();
 
-  filename = c_common_init (filename);
-  if (filename == NULL)
-    return NULL;
-
-  lang_expand_decl_stmt = c_expand_decl_stmt;
+  if (c_common_init () == false)
+    return false;
 
   /* These were not defined in the Objective-C front end, but I'm
      putting them here anyway.  The diagnostic format decoder might
      want an enhanced ObjC implementation.  */
   diagnostic_format_decoder (global_dc) = &c_tree_printer;
-  lang_missing_noreturn_ok_p = &c_missing_noreturn_ok_p;
 
   /* If still unspecified, make it match -std=c99
      (allowing for -pedantic-errors).  */
@@ -267,151 +181,14 @@ c_objc_common_init (filename)
 	mesg_implicit_function_declaration = 0;
     }
 
-  VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
-
-/* APPLE LOCAL gdb only used symbols */
-#ifdef DBX_ONLY_USED_SYMBOLS
-  /* By default we want to use -gused for C and Objective-C.  */
-  if (flag_debug_only_used_symbols == -1)
-    flag_debug_only_used_symbols = 1;
-#endif
-
-  return filename;
-}
-
-/* Register a function tree, so that its optimization and conversion
-   to RTL is only done at the end of the compilation.  */
-
-int
-defer_fn (fn)
-     tree fn;
-{
-  VARRAY_PUSH_TREE (deferred_fns, fn);
-
-  return 1;
-}
-
-/* Expand deferred functions for C and ObjC.  */
-
-static void
-expand_deferred_fns ()
-{
-  unsigned int i;
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_fns); i++)
-    {
-      tree decl = VARRAY_TREE (deferred_fns, i);
-
-      if (! TREE_ASM_WRITTEN (decl))
-	{
-	  /* For static inline functions, delay the decision whether to
-	     emit them or not until wrapup_global_declarations.  */
-	  if (! TREE_PUBLIC (decl))
-	    DECL_DEFER_OUTPUT (decl) = 1;
-	  c_expand_deferred_function (decl);
-	}
-    }
-
-  deferred_fns = 0;
-}
-
-static tree
-start_cdtor (method_type)
-     int method_type;
-{
-  tree fnname = get_file_function_name (method_type);
-  tree void_list_node_1 = build_tree_list (NULL_TREE, void_type_node);
-  tree body;
-
-  start_function (void_list_node_1,
-		  build_nt (CALL_EXPR, fnname,
-			    tree_cons (NULL_TREE, NULL_TREE, void_list_node_1),
-			    NULL_TREE),
-		  NULL_TREE);
-  store_parm_decls ();
-
-  current_function_cannot_inline
-    = "static constructors and destructors cannot be inlined";
-
-  body = c_begin_compound_stmt ();
-
-  pushlevel (0);
-  clear_last_expr ();
-  add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
-
-  return body;
-}
-
-static void
-finish_cdtor (body)
-     tree body;
-{
-  tree scope;
-  tree block;
-
-  scope = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-  block = poplevel (0, 0, 0);
-  SCOPE_STMT_BLOCK (TREE_PURPOSE (scope)) = block;
-  SCOPE_STMT_BLOCK (TREE_VALUE (scope)) = block;
-
-  RECHAIN_STMTS (body, COMPOUND_BODY (body));
-
-  finish_function (0, 0);
-}
-
-/* Called at end of parsing, but before end-of-file processing.  */
-
-void
-c_objc_common_finish_file ()
-{
-  if (pch_file)
-    c_common_write_pch ();
-
-  /* APPLE LOCAL Symbol Separation */
-  /* Write context information.  */
-  if (dbg_dir)
-    c_common_write_context ();
-
-  expand_deferred_fns ();
-
-  if (static_ctors)
-    {
-      tree body = start_cdtor ('I');
-
-      for (; static_ctors; static_ctors = TREE_CHAIN (static_ctors))
-	c_expand_expr_stmt (build_function_call (TREE_VALUE (static_ctors),
-						 NULL_TREE));
-
-      finish_cdtor (body);
-    }
-
-  if (static_dtors)
-    {
-      tree body = start_cdtor ('D');
-
-      for (; static_dtors; static_dtors = TREE_CHAIN (static_dtors))
-	c_expand_expr_stmt (build_function_call (TREE_VALUE (static_dtors),
-						 NULL_TREE));
-
-      finish_cdtor (body);
-    }
-
-  {
-    int flags;
-    FILE *stream = dump_begin (TDI_all, &flags);
-
-    if (stream)
-      {
-	dump_node (getdecls (), flags & ~TDF_SLIM, stream);
-	dump_end (TDI_all, stream);
-      }
-  }
+  return true;
 }
 
 /* Called during diagnostic message formatting process to print a
    source-level entity onto BUFFER.  The meaning of the format specifiers
    is as follows:
    %D: a general decl,
+   %E: an identifier or expression,
    %F: a function declaration,
    %T: a type.
 
@@ -420,28 +197,109 @@ c_objc_common_finish_file ()
    Please notice when called, the `%' part was already skipped by the
    diagnostic machinery.  */
 static bool
-c_tree_printer (buffer, text)
-     output_buffer *buffer;
-     text_info *text;
+c_tree_printer (pretty_printer *pp, text_info *text)
 {
   tree t = va_arg (*text->args_ptr, tree);
+  tree name;
+  const char *n = "({anonymous})";
+  c_pretty_printer *cpp = (c_pretty_printer *) pp;
+  pp->padding = pp_none;
 
   switch (*text->format_spec)
     {
     case 'D':
     case 'F':
+      if (DECL_NAME (t))
+	n = lang_hooks.decl_printable_name (t, 2);
+      break;
+
     case 'T':
-      {
-        const char *n = DECL_NAME (t)
-          ? (*lang_hooks.decl_printable_name) (t, 2)
-          : "({anonymous})";
-        output_add_string (buffer, n);
-      }
-      return true;
+      gcc_assert (TYPE_P (t));
+      name = TYPE_NAME (t);
+      
+      if (name && TREE_CODE (name) == TYPE_DECL)
+	{
+	  if (DECL_NAME (name))
+	    pp_string (cpp, lang_hooks.decl_printable_name (name, 2));
+	  else
+	    pp_type_id (cpp, t);
+	  return true;
+	}
+      else
+	{
+	  pp_type_id (cpp, t);
+	  return true;
+	}
+      break;
+
+    case 'E':
+      if (TREE_CODE (t) == IDENTIFIER_NODE)
+	n = IDENTIFIER_POINTER (t);
+      else
+	{
+	  pp_expression (cpp, t);
+	  return true;
+	}
+      break;
 
     default:
       return false;
     }
+
+  pp_string (cpp, n);
+  return true;
 }
 
-#include "gt-c-objc-common.h"
+tree
+c_objc_common_truthvalue_conversion (tree expr)
+{
+ retry:
+  switch (TREE_CODE (TREE_TYPE (expr)))
+    {
+    case ARRAY_TYPE:
+      expr = default_conversion (expr);
+      if (TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
+	goto retry;
+
+      error ("used array that cannot be converted to pointer where scalar is required");
+      return error_mark_node;
+
+    case RECORD_TYPE:
+      error ("used struct type value where scalar is required");
+      return error_mark_node;
+
+    case UNION_TYPE:
+      error ("used union type value where scalar is required");
+      return error_mark_node;
+    default:
+      break;
+    }
+
+  return c_common_truthvalue_conversion (expr);
+}
+
+/* In C and ObjC, all decls have "C" linkage.  */
+bool
+has_c_linkage (tree decl ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
+void
+c_initialize_diagnostics (diagnostic_context *context)
+{
+  pretty_printer *base = context->printer;
+  c_pretty_printer *pp = XNEW (c_pretty_printer);
+  memcpy (pp_base (pp), base, sizeof (pretty_printer));
+  pp_c_pretty_printer_init (pp);
+  context->printer = (pretty_printer *) pp;
+
+  /* It is safe to free this object because it was previously XNEW()'d.  */
+  XDELETE (base);
+}
+
+int
+c_types_compatible_p (tree x, tree y)
+{
+    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y));
+}

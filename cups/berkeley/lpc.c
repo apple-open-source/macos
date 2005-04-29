@@ -1,9 +1,9 @@
 /*
- * "$Id: lpc.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $"
+ * "$Id: lpc.c,v 1.1.1.12 2005/01/04 19:15:03 jlovell Exp $"
  *
  *   "lpc" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -99,18 +99,18 @@ main(int  argc,		/* I - Number of command-line arguments */
       * Find any options in the string...
       */
 
-      while (isspace(line[0]))
+      while (isspace(line[0] & 255))
         cups_strcpy(line, line + 1);
 
       for (params = line; *params != '\0'; params ++)
-        if (isspace(*params))
+        if (isspace(*params & 255))
 	  break;
 
      /*
       * Remove whitespace between the command and parameters...
       */
 
-      while (isspace(*params))
+      while (isspace(*params & 255))
         *params++ = '\0';
 
      /*
@@ -221,7 +221,8 @@ show_status(http_t *http,	/* I - HTTP connection to server */
 		*jattr;		/* Current job attribute */
   cups_lang_t	*language;	/* Default language */
   char		*printer,	/* Printer name */
-		*device;	/* Device URI */
+		*device,	/* Device URI */
+                *delimiter;     /* Char search result */
   ipp_pstate_t	pstate;		/* Printer state */
   int		accepting;	/* Is printer accepting jobs? */
   int		jobcount;	/* Count of current jobs */
@@ -273,7 +274,7 @@ show_status(http_t *http,	/* I - HTTP connection to server */
   * Do the request and get back a response...
   */
 
-  if ((response = cupsDoRequest(http, request, "/printers/")) != NULL)
+  if ((response = cupsDoRequest(http, request, "/")) != NULL)
   {
     DEBUG_puts("show_status: request succeeded...");
 
@@ -351,7 +352,7 @@ show_status(http_t *http,	/* I - HTTP connection to server */
 	  * Skip leading whitespace and commas...
 	  */
 
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -365,7 +366,7 @@ show_status(http_t *http,	/* I - HTTP connection to server */
 	       *ptr != '\0' && *dptr != '\0' && *ptr == *dptr;
 	       ptr ++, dptr ++);
 
-          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
+          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr & 255)))
 	  {
 	    match = 1;
 	    break;
@@ -375,9 +376,9 @@ show_status(http_t *http,	/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != '\0')
+          while (!isspace(*dptr & 255) && *dptr != '\0')
 	    dptr ++;
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -431,7 +432,7 @@ show_status(http_t *http,	/* I - HTTP connection to server */
 	  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
 	               "requested-attributes", NULL, "job-id");
 
-          if ((jobs = cupsDoRequest(http, request, "/jobs/")) != NULL)
+          if ((jobs = cupsDoRequest(http, request, "/")) != NULL)
 	  {
 	    for (jattr = jobs->attrs; jattr != NULL; jattr = jattr->next)
 	      if (jattr->name && strcmp(jattr->name, "job-id") == 0)
@@ -454,8 +455,11 @@ show_status(http_t *http,	/* I - HTTP connection to server */
 	  * Just show the method...
 	  */
 
-	  *strchr(device, ':') = '\0';
-	  printf("\tprinter is on device \'%s\' speed -1\n", device);
+	  if ((delimiter = strchr(device, ':')) != NULL )
+	  {
+	      *delimiter = '\0';
+	      printf("\tprinter is on device \'%s\' speed -1\n", device);
+	  }
 	}
 
 	printf("\tqueuing is %sabled\n", accepting ? "en" : "dis");
@@ -478,5 +482,5 @@ show_status(http_t *http,	/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: lpc.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $".
+ * End of "$Id: lpc.c,v 1.1.1.12 2005/01/04 19:15:03 jlovell Exp $".
  */

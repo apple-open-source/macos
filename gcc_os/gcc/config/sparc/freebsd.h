@@ -1,4 +1,4 @@
-/* Definitions for Sun Sparc64 running FreeBSD using the ELF format
+/* Definitions for Sun SPARC64 running FreeBSD using the ELF format
    Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by David E. O'Brien <obrien@FreeBSD.org> and BSDi.
 
@@ -18,11 +18,13 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* FreeBSD needs's the platform name (sparc64) defined.  */
+/* FreeBSD needs the platform name (sparc64) defined.
+   Emacs needs to know if the arch is 64 or 32-bits.  */
 
 #undef  CPP_CPU64_DEFAULT_SPEC
-#define CPP_CPU64_DEFAULT_SPEC "-D__sparc64__ -D__sparc_v9__"
+#define CPP_CPU64_DEFAULT_SPEC "-D__sparc64__ -D__sparc_v9__ -D__arch64__"
 
+/* Because we include sparc/sysv4.h.  */
 #undef  CPP_PREDEFINES
 #define CPP_PREDEFINES FBSD_CPP_PREDEFINES
 
@@ -50,14 +52,11 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    We use the GCC defaults instead.  */
 #undef WCHAR_TYPE
 
-#undef  WCHAR_UNSIGNED
-#define WCHAR_UNSIGNED 0
-
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
 
-/* Define for support of TFmode long double and REAL_ARITHMETIC.
-   Sparc ABI says that long double is 4 words.  */
+/* Define for support of TFmode long double.
+   SPARC ABI says that long double is 4 words.  */
 #undef  LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
 
@@ -98,6 +97,31 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* The default code model.  */
 #undef  SPARC_DEFAULT_CMODEL
 #define SPARC_DEFAULT_CMODEL	CM_MEDLOW
+
+#define TRANSFER_FROM_TRAMPOLINE					\
+  static int need_enable_exec_stack;					\
+  static void check_enabling(void) __attribute__ ((constructor));	\
+  static void check_enabling(void)					\
+  {									\
+    extern int sysctlbyname(const char *, void *, size_t *, void *, size_t);\
+    int prot = 0;							\
+    size_t len = sizeof(prot);						\
+									\
+    sysctlbyname ("kern.stackprot", &prot, &len, NULL, 0);		\
+    if (prot != 7)							\
+      need_enable_exec_stack = 1;					\
+  }									\
+  extern void __enable_execute_stack (void *);				\
+  void __enable_execute_stack (void *addr)				\
+  {									\
+    if (!need_enable_exec_stack)					\
+      return;								\
+    else {								\
+      /* 7 is PROT_READ | PROT_WRITE | PROT_EXEC */ 			\
+      if (mprotect (addr, TRAMPOLINE_SIZE, 7) < 0)			\
+        perror ("mprotect of trampoline code");				\
+    }									\
+  }
 
 
 /************************[  Assembler stuff  ]********************************/

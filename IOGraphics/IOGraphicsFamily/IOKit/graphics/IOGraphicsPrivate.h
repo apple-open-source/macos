@@ -58,12 +58,6 @@ do { 					\
 #define DEBG(idx, fmt, args...)  {}
 #endif
 
-#ifndef sub_iokit_graphics
-#define sub_iokit_graphics           err_sub(5)
-#endif
-
-#define kIOFBLowPowerAggressiveness	iokit_family_err(sub_iokit_graphics, 1)
-
 #define kIOFBBootGrayValue		0x00648cc3
 // blue actual:0x00426bad gamma:0x00648cc3 bootx:0x00bfbfbf
 #define kIOFBGrayValue			0x00648cc3

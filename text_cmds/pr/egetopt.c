@@ -1,5 +1,3 @@
-/*	$NetBSD: egetopt.c,v 1.3 1997/10/19 12:41:58 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1991 Keith Muller.
  * Copyright (c) 1993
@@ -37,14 +35,14 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
 #if 0
-from: static char sccsid[] = "@(#)egetopt.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: egetopt.c,v 1.3 1997/10/19 12:41:58 lukem Exp $");
-#endif
+#ifndef lint
+static char sccsid[] = "@(#)egetopt.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/pr/egetopt.c,v 1.3 2002/06/23 20:42:30 charnier Exp $");
 
 #include <ctype.h>
 #include <stdio.h>
@@ -71,15 +69,13 @@ int	eoptopt;		/* character checked for validity */
 char	*eoptarg;		/* argument associated with option */
 
 #define	BADCH	(int)'?'
-#define	EMSG	""
+
+static char	emsg[] = "";
 
 int
-egetopt(nargc, nargv, ostr)
-	int nargc;
-	char * const *nargv;
-	const char *ostr;
+egetopt(int nargc, char * const *nargv, const char *ostr)
 {
-	static char *place = EMSG;	/* option letter processing */
+	static char *place = emsg;	/* option letter processing */
 	char *oli;			/* option letter list index */
 	static int delim;		/* which option delimeter */
 	char *p;
@@ -96,7 +92,7 @@ egetopt(nargc, nargv, ostr)
 		 */
 		if ((eoptind >= nargc) ||
 		    ((*(place = nargv[eoptind]) != '-') && (*place != '+'))) {
-			place = EMSG;
+			place = emsg;
 			return (-1);
 		}
 
@@ -106,7 +102,7 @@ egetopt(nargc, nargv, ostr)
 			 * found "--"
 			 */
 			++eoptind;
-			place = EMSG;
+			place = emsg;
 			return (-1);
 		}
 	}
@@ -135,7 +131,7 @@ egetopt(nargc, nargv, ostr)
 			eoptarg = place-1;
 
 			if (*p == '\0') {
-				place = EMSG;
+				place = emsg;
 				++eoptind;
 			} else {
 				place = p;
@@ -199,7 +195,7 @@ egetopt(nargc, nargv, ostr)
 		/*
 		 * no arg, but IS required
 		 */
-		place = EMSG;
+		place = emsg;
 		if (eopterr) {
 			if (!(p = strrchr(*nargv, '/')))
 				p = *nargv;
@@ -216,7 +212,7 @@ egetopt(nargc, nargv, ostr)
 		 */
 		eoptarg = nargv[eoptind];
 	}
-	place = EMSG;
+	place = emsg;
 	++eoptind;
 	return (eoptopt);
 }

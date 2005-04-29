@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>blojsom</title>
+        <authors>
+            <person id="czarneckid" name="David Czarnecki" email="czarneckid@users.sf.net"/>
+            <person id="intabulas" name="Mark Lussier" email="intabulas@users.sf.net"/>
+        </authors>
+    </header>
+    <body>
+        <section>
+            <title>About blojsom</title>
+            <p>A lightweight blog package written in Java that is inspired
+                by
+                <link href="http://www.raelity.org">blosxom</link>. blojsom aims to retain the simplicity in
+                design of its Perl-based "relative" while adding user flexibility in areas such as the flavors,
+                templating, plugins, and the ability to run a multi-user blog with a single blojsom installation.
+            </p>
+
+            <p>
+                So, "out of the box" what does it offer?</p>
+            <ul>
+                <li>
+                    <p>Uses the file system (folders and files) as its content database. blojsom can support
+                        any backend storage mechanism through a specific implementation of the
+                        <a href="javadoc/org/blojsom/fetcher/BlojsomFetcher.html">BlojsomFetcher</a> interface.
+                    </p>
+                </li>
+                <li>Allows you to configure the file types that blojsom treats as blog entries (defaults to .txt and .html).</li>
+                <li>Permalinks which point to individual blog entries.</li>
+                <li>Calendar-based (i.e. year, year/month, year/month/day) navigation of your blog.</li>
+                <li>Configurable set of blog directories (per flavor) that get "aggregated" for the default or "/" category.</li>
+                <li>Customizable flavors. blojsom, "out of the box" can generate html, rss, rss2, rdf, and text flavors.</li>
+                <li>Configurable comment support for users to leave comments on blog entries.</li>
+                <li>Plugin support so that you extend the capabilities of blojsom.</li>
+                <li>Remote posting via XML-RPC. Support for Blogger API and MetaWeblog API.</li>
+                <li>
+                    <p>Customizable template mechanism. blojsom is very powerful in this area in that you as a developer
+                        are allowed to decide what display technology is appropriate for the requested flavor. blojsom currently
+                        offers a JSP Dispatcher and a Velocity Dispatcher and .jsp and .vm templates are provided for the HTML
+                        and RSS flavors.</p>
+                    <p>
+                        This allows you to mix-and-match display technologies for your blog. For example, you might want to render
+                        HTML through the JSP for that flavor while you might want to render RSS through Velocity for that flavor.
+                    </p>
+                    <p>
+                        Have another display technology you'd like to use? Simply extend the
+                        <a href="javadoc/org/blojsom/dispatcher/BlojsomDispatcher.html">BlojsomDispatcher</a>
+                        interface and configure a mapping file so that blojsom knows how to map the template extension to the proper
+                        dispatcher. That's it!
+                    </p>
+                </li>
+                <li>
+                    <p>
+                        Multi-user support with a single blojsom installation. Multi-user options include:
+                        <ul>
+                            <li>Authorization properties for users who can post to an individual blog via XML-RPC.</li>
+                            <li>All the blog properties such as blog directory, description, owner, default category mappings, etc.</li>
+                            <li>Flavors supported.</li>
+                            <li>Flavor-based plugin chains.</li>
+                            <li>All the individual plugin configuration files are separate per-user.</li>
+                        </ul>
+                    </p>
+                </li>
+                <li>Web-based administration for blog functionality such as editing blog properties, categories, and templates.</li>
+            </ul>
+            <p>
+
+                Check out a
+                <link href="site:screenshots">screenshot</link> of blojsom in action.
+            </p>
+            <p>
+                Got an issue with blojsom? Write to
+                <link href="mailto:czarneckid@users.sourceforge.net">me</link>.
+                Or better yet, if it's a bug or request for enhancement, then file it on the
+                <link href="http://sourceforge.net/projects/blojsom">project</link> page.
+            </p>
+
+        </section>
+    </body>
+</document>

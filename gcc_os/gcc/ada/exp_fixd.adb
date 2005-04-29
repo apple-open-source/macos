@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -1960,6 +1959,13 @@ package body Exp_Fixd is
       Right : constant Node_Id := Right_Opnd (N);
 
    begin
+      --  Suppress expansion of a fixed-by-fixed division if the
+      --  operation is supported directly by the target.
+
+      if Target_Has_Fixed_Ops (Etype (Left), Etype (Right), Etype (N)) then
+         return;
+      end if;
+
       if Etype (Left) = Universal_Real then
          Do_Divide_Universal_Fixed (N);
 
@@ -2100,6 +2106,13 @@ package body Exp_Fixd is
       end Rewrite_Non_Static_Universal;
 
    begin
+      --  Suppress expansion of a fixed-by-fixed multiplication if the
+      --  operation is supported directly by the target.
+
+      if Target_Has_Fixed_Ops (Etype (Left), Etype (Right), Etype (N)) then
+         return;
+      end if;
+
       if Etype (Left) = Universal_Real then
          if Nkind (Left) = N_Real_Literal then
             Do_Multiply_Fixed_Universal (N, Right, Left);

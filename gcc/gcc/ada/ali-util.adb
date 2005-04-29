@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,43 +24,58 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Debug;   use Debug;
 with Binderr; use Binderr;
+with Lib;     use Lib;
 with Namet;   use Namet;
 with Opt;     use Opt;
+with Output;  use Output;
 with Osint;   use Osint;
-
-with System.CRC32;
-with System.Memory;
-with System.Address_To_Access_Conversions;
+with Scans;   use Scans;
+with Scng;
+with Sinput.C;
+with Snames;  use Snames;
+with Styleg;
 
 package body ALI.Util is
 
-   -----------------------
-   -- Local Subprograms --
-   -----------------------
+   --  Empty procedures needed to instantiate Scng. Error procedures are
+   --  empty, because we don't want to report any errors when computing
+   --  a source checksum.
 
-   procedure Accumulate_Checksum (C : Character; Csum : in out Word);
-   pragma Inline (Accumulate_Checksum);
-   --  This routine accumulates the checksum given character C. During the
-   --  scanning of a source file, this routine is called with every character
-   --  in the source, excluding blanks, and all control characters (except
-   --  that ESC is included in the checksum). Upper case letters not in string
-   --  literals are folded by the caller. See Sinput spec for the documentation
-   --  of the checksum algorithm. Note: checksum values are only used if we
-   --  generate code, so it is not necessary to worry about making the right
-   --  sequence of calls in any error situation.
+   procedure Post_Scan;
 
-   procedure Initialize_Checksum (Csum : out Word);
-   --  Sets initial value of Csum before any calls to Accumulate_Checksum
+   procedure Error_Msg (Msg : String; Flag_Location : Source_Ptr);
 
-   -------------------------
-   -- Accumulate_Checksum --
-   -------------------------
+   procedure Error_Msg_S (Msg : String);
 
-   procedure Accumulate_Checksum (C : Character; Csum : in out Word) is
-   begin
-      System.CRC32.Update (System.CRC32.CRC32 (Csum), C);
-   end Accumulate_Checksum;
+   procedure Error_Msg_SC (Msg : String);
+
+   procedure Error_Msg_SP (Msg : String);
+
+   --  Instantiation of Styleg, needed  to instantiate Scng
+
+   package Style is new Styleg
+     (Error_Msg, Error_Msg_S, Error_Msg_SC, Error_Msg_SP);
+
+   --  A Scanner is needed to get checksum of a source (procedure
+   --  Get_File_Checksum).
+
+   package Scanner is new Scng
+     (Post_Scan, Error_Msg, Error_Msg_S, Error_Msg_SC, Error_Msg_SP, Style);
+
+   type Header_Num is range 0 .. 1_000;
+
+   function Hash (F : File_Name_Type) return Header_Num;
+   --  Function used to compute hash of ALI file name
+
+   package Interfaces is new Simple_HTable (
+     Header_Num => Header_Num,
+     Element    => Boolean,
+     No_Element => False,
+     Key        => File_Name_Type,
+     Hash       => Hash,
+     Equal      => "=");
 
    ---------------------
    -- Checksums_Match --
@@ -72,198 +86,99 @@ package body ALI.Util is
       return Checksum1 = Checksum2 and then Checksum1 /= Checksum_Error;
    end Checksums_Match;
 
+   ---------------
+   -- Error_Msg --
+   ---------------
+
+   procedure Error_Msg (Msg : String; Flag_Location : Source_Ptr) is
+      pragma Warnings (Off, Msg);
+      pragma Warnings (Off, Flag_Location);
+   begin
+      null;
+   end Error_Msg;
+
+   -----------------
+   -- Error_Msg_S --
+   -----------------
+
+   procedure Error_Msg_S (Msg : String) is
+      pragma Warnings (Off, Msg);
+   begin
+      null;
+   end Error_Msg_S;
+
+   ------------------
+   -- Error_Msg_SC --
+   ------------------
+
+   procedure Error_Msg_SC (Msg : String) is
+      pragma Warnings (Off, Msg);
+   begin
+      null;
+   end Error_Msg_SC;
+
+   ------------------
+   -- Error_Msg_SP --
+   ------------------
+
+   procedure Error_Msg_SP (Msg : String) is
+      pragma Warnings (Off, Msg);
+   begin
+      null;
+   end Error_Msg_SP;
+
    -----------------------
    -- Get_File_Checksum --
    -----------------------
 
    function Get_File_Checksum (Fname : Name_Id) return Word is
-      Src  : Source_Buffer_Ptr;
-      Hi   : Source_Ptr;
-      Csum : Word;
-      Ptr  : Source_Ptr;
-
-      Bad : exception;
-      --  Raised if file not found, or file format error
-
-      use ASCII;
-      --  Make control characters visible
-
-      procedure Free_Source;
-      --  Free source file buffer
-
-      procedure Free_Source is
-
-         package SB is
-            new System.Address_To_Access_Conversions (Big_Source_Buffer);
-
-      begin
-         System.Memory.Free (SB.To_Address (SB.Object_Pointer (Src)));
-      end Free_Source;
-
-   --  Start of processing for Get_File_Checksum
-
+      Full_Name    : Name_Id;
+      Source_Index : Source_File_Index;
    begin
-      Read_Source_File (Fname, 0, Hi, Src);
+      Full_Name := Find_File (Fname, Osint.Source);
 
       --  If we cannot find the file, then return an impossible checksum,
       --  impossible becaues checksums have the high order bit zero, so
       --  that checksums do not match.
 
-      if Src = null then
-         raise Bad;
+      if Full_Name = No_File then
+         return Checksum_Error;
       end if;
 
-      Initialize_Checksum (Csum);
-      Ptr := 0;
+      Source_Index := Sinput.C.Load_File (Get_Name_String (Full_Name));
+
+      if Source_Index = No_Source_File then
+         return Checksum_Error;
+      end if;
+
+      Scanner.Initialize_Scanner (Types.No_Unit, Source_Index);
+
+      --  Make sure that the project language reserved words are not
+      --  recognized as reserved words, but as identifiers. The byte info for
+      --  those names have been set if we are in gnatmake.
+
+      Set_Name_Table_Byte (Name_Project,  0);
+      Set_Name_Table_Byte (Name_Extends,  0);
+      Set_Name_Table_Byte (Name_External, 0);
+
+      --  Scan the complete file to compute its checksum
 
       loop
-         case Src (Ptr) is
-
-            --  Spaces and formatting information are ignored in checksum
-
-            when ' ' | CR | LF | VT | FF | HT =>
-               Ptr := Ptr + 1;
-
-            --  EOF is ignored unless it is the last character
-
-            when EOF =>
-               if Ptr = Hi then
-                  Free_Source;
-                  return Csum;
-               else
-                  Ptr := Ptr + 1;
-               end if;
-
-            --  Non-blank characters that are included in the checksum
-
-            when '#' | '&' | '*' | ':' | '(' | ',' | '.' | '=' | '>' |
-                 '<' | ')' | '/' | ';' | '|' | '!' | '+' | '_' |
-                 '0' .. '9' | 'a' .. 'z'
-            =>
-               Accumulate_Checksum (Src (Ptr), Csum);
-               Ptr := Ptr + 1;
-
-            --  Upper case letters, fold to lower case
-
-            when 'A' .. 'Z' =>
-               Accumulate_Checksum
-                 (Character'Val (Character'Pos (Src (Ptr)) + 32), Csum);
-               Ptr := Ptr + 1;
-
-            --  Left bracket, really should do wide character thing here,
-            --  but for now, don't bother.
-
-            when '[' =>
-               raise Bad;
-
-            --  Minus, could be comment
-
-            when '-' =>
-               if Src (Ptr + 1) = '-' then
-                  Ptr := Ptr + 2;
-
-                  while Src (Ptr) >= ' ' or else Src (Ptr) = HT loop
-                     Ptr := Ptr + 1;
-                  end loop;
-
-               else
-                  Accumulate_Checksum ('-', Csum);
-                  Ptr := Ptr + 1;
-               end if;
-
-            --  String delimited by double quote
-
-            when '"' =>
-               Accumulate_Checksum ('"', Csum);
-
-               loop
-                  Ptr := Ptr + 1;
-                  exit when Src (Ptr) = '"';
-
-                  if Src (Ptr) < ' ' then
-                     raise Bad;
-                  end if;
-
-                  Accumulate_Checksum (Src (Ptr), Csum);
-               end loop;
-
-               Accumulate_Checksum ('"', Csum);
-               Ptr := Ptr + 1;
-
-            --  String delimited by percent
-
-            when '%' =>
-               Accumulate_Checksum ('%', Csum);
-
-               loop
-                  Ptr := Ptr + 1;
-                  exit when Src (Ptr) = '%';
-
-                  if Src (Ptr) < ' ' then
-                     raise Bad;
-                  end if;
-
-                  Accumulate_Checksum (Src (Ptr), Csum);
-               end loop;
-
-               Accumulate_Checksum ('%', Csum);
-               Ptr := Ptr + 1;
-
-            --  Quote, could be character constant
-
-            when ''' =>
-               Accumulate_Checksum (''', Csum);
-
-               if Src (Ptr + 2) = ''' then
-                  Accumulate_Checksum (Src (Ptr + 1), Csum);
-                  Accumulate_Checksum (''', Csum);
-                  Ptr := Ptr + 3;
-
-               --  Otherwise assume attribute char. We should deal with wide
-               --  character cases here, but that's hard, so forget it.
-
-               else
-                  Ptr := Ptr + 1;
-               end if;
-
-            --  Upper half character, more to be done here, we should worry
-            --  about folding Latin-1, folding other character sets, and
-            --  dealing with the nasty case of upper half wide encoding.
-
-            when Upper_Half_Character =>
-               Accumulate_Checksum (Src (Ptr), Csum);
-               Ptr := Ptr + 1;
-
-            --  Escape character, we should do the wide character thing here,
-            --  but for now, do not bother.
-
-            when ESC =>
-               raise Bad;
-
-            --  Invalid control characters
-
-            when NUL | SOH | STX | ETX | EOT | ENQ | ACK | BEL | BS  | SO  |
-                 SI  | DLE | DC1 | DC2 | DC3 | DC4 | NAK | SYN | ETB | CAN |
-                 EM  | FS  | GS  | RS  | US  | DEL
-            =>
-               raise Bad;
-
-            --  Invalid graphic characters
-
-            when '$' | '?' | '@' | '`' | '\' |
-                 '^' | '~' | ']' | '{' | '}'
-            =>
-               raise Bad;
-
-         end case;
+         Scanner.Scan;
+         exit when Token = Tok_EOF;
       end loop;
 
-   exception
-      when Bad =>
-         Free_Source;
-         return Checksum_Error;
-
+      return Scans.Checksum;
    end Get_File_Checksum;
+
+   ----------
+   -- Hash --
+   ----------
+
+   function Hash (F : File_Name_Type) return Header_Num is
+   begin
+      return Header_Num (Int (F) rem Header_Num'Range_Length);
+   end Hash;
 
    ---------------------------
    -- Initialize_ALI_Source --
@@ -282,16 +197,17 @@ package body ALI.Util is
       end loop;
 
       Source.Init;
+      Interfaces.Reset;
    end Initialize_ALI_Source;
 
-   -------------------------
-   -- Initialize_Checksum --
-   -------------------------
+   ---------------
+   -- Post_Scan --
+   ---------------
 
-   procedure Initialize_Checksum (Csum : out Word) is
+   procedure Post_Scan is
    begin
-      System.CRC32.Initialize (System.CRC32.CRC32 (Csum));
-   end Initialize_Checksum;
+      null;
+   end Post_Scan;
 
    --------------
    -- Read_ALI --
@@ -303,25 +219,40 @@ package body ALI.Util is
       Idread : ALI_Id;
 
    begin
-      for I in ALIs.Table (Id).First_Unit .. ALIs.Table (Id).Last_Unit loop
-         for J in Units.Table (I).First_With .. Units.Table (I).Last_With loop
+      --  Process all dependent units
 
-            Afile := Withs.Table (J).Afile;
+      for U in ALIs.Table (Id).First_Unit .. ALIs.Table (Id).Last_Unit loop
+         for
+           W in Units.Table (U).First_With .. Units.Table (U).Last_With
+         loop
+            Afile := Withs.Table (W).Afile;
 
             --  Only process if not a generic (Afile /= No_File) and if
             --  file has not been processed already.
 
-            if Afile /= No_File and then Get_Name_Table_Info (Afile) = 0 then
-
+            if Afile /= No_File
+              and then Get_Name_Table_Info (Afile) = 0
+            then
                Text := Read_Library_Info (Afile);
 
+               --  Return with an error if source cannot be found and if this
+               --  is not a library generic (now we can, but does not have to
+               --  compile library generics)
+
                if Text = null then
-                  Error_Msg_Name_1 := Afile;
-                  Error_Msg_Name_2 := Withs.Table (J).Sfile;
-                  Error_Msg ("% not found, % must be compiled");
-                  Set_Name_Table_Info (Afile, Int (No_Unit_Id));
-                  return;
+                  if Generic_Separately_Compiled (Withs.Table (W).Sfile) then
+                     Error_Msg_Name_1 := Afile;
+                     Error_Msg_Name_2 := Withs.Table (W).Sfile;
+                     Error_Msg ("% not found, % must be compiled");
+                     Set_Name_Table_Info (Afile, Int (No_Unit_Id));
+                     return;
+
+                  else
+                     goto Skip_Library_Generics;
+                  end if;
                end if;
+
+               --  Enter in ALIs table
 
                Idread :=
                  Scan_ALI
@@ -333,23 +264,46 @@ package body ALI.Util is
                Free (Text);
 
                if ALIs.Table (Idread).Compile_Errors then
-                  Error_Msg_Name_1 := Withs.Table (J).Sfile;
+                  Error_Msg_Name_1 := Withs.Table (W).Sfile;
                   Error_Msg ("% had errors, must be fixed, and recompiled");
                   Set_Name_Table_Info (Afile, Int (No_Unit_Id));
 
                elsif ALIs.Table (Idread).No_Object then
-                  Error_Msg_Name_1 := Withs.Table (J).Sfile;
+                  Error_Msg_Name_1 := Withs.Table (W).Sfile;
                   Error_Msg ("% must be recompiled");
                   Set_Name_Table_Info (Afile, Int (No_Unit_Id));
                end if;
 
-               --  Recurse to get new dependents
+               --  If the Unit is an Interface to a Stand-Alone Library,
+               --  set the Interface flag in the Withs table, so that its
+               --  dependant are not considered for elaboration order.
 
-               Read_ALI (Idread);
+               if ALIs.Table (Idread).Interface then
+                  Withs.Table (W).Interface := True;
+                  Interface_Library_Unit := True;
+
+                  --  Set the entry in the Interfaces hash table, so that other
+                  --  units that import this unit will set the flag in their
+                  --  entry in the Withs table.
+
+                  Interfaces.Set (Afile, True);
+
+               else
+                  --  Otherwise, recurse to get new dependents
+
+                  Read_ALI (Idread);
+               end if;
+
+               <<Skip_Library_Generics>> null;
+
+            --  If the ALI file has already been processed and is an interface,
+            --  set the flag in the entry of the Withs table.
+
+            elsif Interface_Library_Unit and then Interfaces.Get (Afile) then
+               Withs.Table (W).Interface := True;
             end if;
          end loop;
       end loop;
-
    end Read_ALI;
 
    ----------------------
@@ -367,118 +321,120 @@ package body ALI.Util is
       loop
          F := Sdep.Table (D).Sfile;
 
-         --  If this is the first time we are seeing this source file,
-         --  then make a new entry in the source table.
+         if F /= No_Name then
 
-         if Get_Name_Table_Info (F) = 0 then
-            Source.Increment_Last;
-            S := Source.Last;
-            Set_Name_Table_Info (F, Int (S));
-            Source.Table (S).Sfile := F;
-            Source.Table (S).All_Timestamps_Match := True;
+            --  If this is the first time we are seeing this source file,
+            --  then make a new entry in the source table.
 
-            --  Initialize checksum fields
+            if Get_Name_Table_Info (F) = 0 then
+               Source.Increment_Last;
+               S := Source.Last;
+               Set_Name_Table_Info (F, Int (S));
+               Source.Table (S).Sfile := F;
+               Source.Table (S).All_Timestamps_Match := True;
 
-            Source.Table (S).Checksum := Sdep.Table (D).Checksum;
-            Source.Table (S).All_Checksums_Match := True;
+               --  Initialize checksum fields
 
-            --  In check source files mode, try to get time stamp from file
+               Source.Table (S).Checksum := Sdep.Table (D).Checksum;
+               Source.Table (S).All_Checksums_Match := True;
 
-            if Opt.Check_Source_Files then
-               Stamp := Source_File_Stamp (F);
+               --  In check source files mode, try to get time stamp from file
 
-               --  If we got the stamp, then set the stamp in the source
-               --  table entry and mark it as set from the source so that
-               --  it does not get subsequently changed.
-
-               if Stamp (Stamp'First) /= ' ' then
-                  Source.Table (S).Stamp := Stamp;
-                  Source.Table (S).Source_Found := True;
-
-               --  If we could not find the file, then the stamp is set
-               --  from the dependency table entry (to be possibly reset
-               --  if we find a later stamp in subsequent processing)
-
-               else
-                  Source.Table (S).Stamp := Sdep.Table (D).Stamp;
-                  Source.Table (S).Source_Found := False;
-
-                  --  In All_Sources mode, flag error of file not found
-
-                  if Opt.All_Sources then
-                     Error_Msg_Name_1 := F;
-                     Error_Msg ("cannot locate %");
-                  end if;
-               end if;
-
-            --  First time for this source file, but Check_Source_Files
-            --  is off, so simply initialize the stamp from the Sdep entry
-
-            else
-               Source.Table (S).Source_Found := False;
-               Source.Table (S).Stamp := Sdep.Table (D).Stamp;
-            end if;
-
-         --  Here if this is not the first time for this source file,
-         --  so that the source table entry is already constructed.
-
-         else
-            S := Source_Id (Get_Name_Table_Info (F));
-
-            --  Update checksum flag
-
-            if not Checksums_Match
-                     (Sdep.Table (D).Checksum, Source.Table (S).Checksum)
-            then
-               Source.Table (S).All_Checksums_Match := False;
-            end if;
-
-            --  Check for time stamp mismatch
-
-            if Sdep.Table (D).Stamp /= Source.Table (S).Stamp then
-               Source.Table (S).All_Timestamps_Match := False;
-
-               --  When we have a time stamp mismatch, we go look for the
-               --  source file even if Check_Source_Files is false, since
-               --  if we find it, then we can use it to resolve which of the
-               --  two timestamps in the ALI files is likely to be correct.
-
-               if not Check_Source_Files then
+               if Opt.Check_Source_Files then
                   Stamp := Source_File_Stamp (F);
+
+                  --  If we got the stamp, then set the stamp in the source
+                  --  table entry and mark it as set from the source so that
+                  --  it does not get subsequently changed.
 
                   if Stamp (Stamp'First) /= ' ' then
                      Source.Table (S).Stamp := Stamp;
                      Source.Table (S).Source_Found := True;
+
+                  --  If we could not find the file, then the stamp is set
+                  --  from the dependency table entry (to be possibly reset
+                  --  if we find a later stamp in subsequent processing)
+
+                  else
+                     Source.Table (S).Stamp := Sdep.Table (D).Stamp;
+                     Source.Table (S).Source_Found := False;
+
+                     --  In All_Sources mode, flag error of file not found
+
+                     if Opt.All_Sources then
+                        Error_Msg_Name_1 := F;
+                        Error_Msg ("cannot locate %");
+                     end if;
                   end if;
-               end if;
 
-               --  If the stamp in the source table entry was set from the
-               --  source file, then we do not change it (the stamp in the
-               --  source file is always taken as the "right" one).
-
-               if Source.Table (S).Source_Found then
-                  null;
-
-               --  Otherwise, we have no source file available, so we guess
-               --  that the later of the two timestamps is the right one.
-               --  Note that this guess only affects which error messages
-               --  are issued later on, not correct functionality.
+               --  First time for this source file, but Check_Source_Files
+               --  is off, so simply initialize the stamp from the Sdep entry
 
                else
-                  if Sdep.Table (D).Stamp > Source.Table (S).Stamp then
-                     Source.Table (S).Stamp := Sdep.Table (D).Stamp;
+                  Source.Table (S).Source_Found := False;
+                  Source.Table (S).Stamp := Sdep.Table (D).Stamp;
+               end if;
+
+            --  Here if this is not the first time for this source file,
+            --  so that the source table entry is already constructed.
+
+            else
+               S := Source_Id (Get_Name_Table_Info (F));
+
+               --  Update checksum flag
+
+               if not Checksums_Match
+                        (Sdep.Table (D).Checksum, Source.Table (S).Checksum)
+               then
+                  Source.Table (S).All_Checksums_Match := False;
+               end if;
+
+               --  Check for time stamp mismatch
+
+               if Sdep.Table (D).Stamp /= Source.Table (S).Stamp then
+                  Source.Table (S).All_Timestamps_Match := False;
+
+                  --  When we have a time stamp mismatch, we go look for the
+                  --  source file even if Check_Source_Files is false, since
+                  --  if we find it, then we can use it to resolve which of the
+                  --  two timestamps in the ALI files is likely to be correct.
+
+                  if not Check_Source_Files then
+                     Stamp := Source_File_Stamp (F);
+
+                     if Stamp (Stamp'First) /= ' ' then
+                        Source.Table (S).Stamp := Stamp;
+                        Source.Table (S).Source_Found := True;
+                     end if;
+                  end if;
+
+                  --  If the stamp in the source table entry was set from the
+                  --  source file, then we do not change it (the stamp in the
+                  --  source file is always taken as the "right" one).
+
+                  if Source.Table (S).Source_Found then
+                     null;
+
+                  --  Otherwise, we have no source file available, so we guess
+                  --  that the later of the two timestamps is the right one.
+                  --  Note that this guess only affects which error messages
+                  --  are issued later on, not correct functionality.
+
+                  else
+                     if Sdep.Table (D).Stamp > Source.Table (S).Stamp then
+                        Source.Table (S).Stamp := Sdep.Table (D).Stamp;
+                     end if;
                   end if;
                end if;
             end if;
+
+            --  Set the checksum value in the source table
+
+            S := Source_Id (Get_Name_Table_Info (F));
+            Source.Table (S).Checksum := Sdep.Table (D).Checksum;
          end if;
 
-         --  Set the checksum value in the source table
-
-         S := Source_Id (Get_Name_Table_Info (F));
-         Source.Table (S).Checksum := Sdep.Table (D).Checksum;
-
       end loop Sdep_Loop;
-
    end Set_Source_Table;
 
    ----------------------
@@ -490,14 +446,17 @@ package body ALI.Util is
       for A in ALIs.First .. ALIs.Last loop
          Set_Source_Table (A);
       end loop;
-
    end Set_Source_Table;
 
    -------------------------
    -- Time_Stamp_Mismatch --
    -------------------------
 
-   function Time_Stamp_Mismatch (A : ALI_Id) return File_Name_Type is
+   function Time_Stamp_Mismatch
+     (A         : ALI_Id;
+      Read_Only : Boolean := False)
+      return      File_Name_Type
+   is
       Src : Source_Id;
       --  Source file Id for the current Sdep entry
 
@@ -508,7 +467,6 @@ package body ALI.Util is
          if Opt.Minimal_Recompilation
            and then Sdep.Table (D).Stamp /= Source.Table (Src).Stamp
          then
-
             --  If minimal recompilation is in action, replace the stamp
             --  of the source file in the table if checksums match.
 
@@ -524,15 +482,33 @@ package body ALI.Util is
 
          end if;
 
-         if not Source.Table (Src).Source_Found
-           or else Sdep.Table (D).Stamp /= Source.Table (Src).Stamp
-         then
-            return Source.Table (Src).Sfile;
+         if (not Read_Only) or else Source.Table (Src).Source_Found then
+            if not Source.Table (Src).Source_Found
+              or else Sdep.Table (D).Stamp /= Source.Table (Src).Stamp
+            then
+               --  If -t debug flag set, output time stamp found/expected
+
+               if Source.Table (Src).Source_Found and Debug_Flag_T then
+                  Write_Str ("Source: """);
+                  Get_Name_String (Sdep.Table (D).Sfile);
+                  Write_Str (Name_Buffer (1 .. Name_Len));
+                  Write_Line ("""");
+
+                  Write_Str ("   time stamp expected: ");
+                  Write_Line (String (Sdep.Table (D).Stamp));
+
+                  Write_Str ("      time stamp found: ");
+                  Write_Line (String (Source.Table (Src).Stamp));
+               end if;
+
+               --  Return the source file
+
+               return Source.Table (Src).Sfile;
+            end if;
          end if;
       end loop;
 
       return No_File;
-
    end Time_Stamp_Mismatch;
 
 end ALI.Util;

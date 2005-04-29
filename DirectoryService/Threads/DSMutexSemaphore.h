@@ -29,7 +29,7 @@
 #ifndef _DSMutexSemaphore_H_
 #define _DSMutexSemaphore_H_
 
-#include "DSSemaphore.h"
+#include <DirectoryServiceCore/DSSemaphore.h>
 
 /******************************************************************************
 	==>  DSMutexSemaphore class definition  <==

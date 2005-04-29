@@ -1,0 +1,26 @@
+<manpage>
+<docdate>August 28, 2002</docdate>
+<doctitle>XML2MAN</doctitle>
+<os>Darwin</os>
+<section>1</section>
+<names>
+	<name>xml2man<desc>MPGL to mdoc (man page) translator</desc></name>
+</names>
+
+<usage>
+	<arg>filename<desc>This is the filename</desc></arg>
+	<arg optional="1">output_filename<desc>This is the filename</desc></arg>
+</usage>
+
+<environment>
+	<p>This program was designed to convert Man Page Generation Language (MPGL) XML
+	files into mdoc-based manual pages.  The MPGL is a fairly direct translation
+	of mdoc to XML.</p>
+</environment>
+
+<seealso>
+	<p>For more information on hdxml2manxml, see</p>
+	<manpage>hdxml2manxml<section>1</section>, </manpage>
+</seealso>
+
+</manpage>

@@ -1,3 +1,4 @@
+// { dg-do run { xfail powerpc-ibm-aix* } }
 // GROUPS passed operator-new
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleUSBCDCECMData</string>
+	<key>CFBundleGetInfoString</key>
+	<string>3.1.4, USB CDC ECM driver Data Interface</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleUSBCDCECMData</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleUSBCDCECMData</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>3.1.4</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>3.1.3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleUSBCDCECMData</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBCDCECMData</string>
+			<key>IOClass</key>
+			<string>AppleUSBCDCECMData</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>InputBuffers</key>
+			<integer>8</integer>
+			<key>OutputBuffers</key>
+			<integer>4</integer>
+			<key>bInterfaceClass</key>
+			<integer>10</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>0</integer>
+		</dict>
+		<key>AppleUSBCDCECMData1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBCDCECMData</string>
+			<key>IOClass</key>
+			<string>AppleUSBCDCECMData</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>InputBuffers</key>
+			<integer>8</integer>
+			<key>OutputBuffers</key>
+			<integer>4</integer>
+			<key>bInterfaceClass</key>
+			<integer>10</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>6</integer>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IONetworkingFamily</key>
+		<string>1.1</string>
+		<key>com.apple.iokit.IOUSBFamily</key>
+		<string>1.9</string>
+	</dict>
+</dict>
+</plist>

@@ -1,10 +1,41 @@
 ==============================================================================
 KerberosWrappers Version History
 ==============================================================================
-Current version:	1.4fc2
-Date:				August 20, 2003
+Current version:	1.5fc2
+Date:				December 13, 2004
 Authors:			meeroh@mit.edu, lxs@mit.edu
 ==============================================================================
+
+KerberosWrappers 1.5
+Released with KfM 5.5
+
+========================================================================
+
+	KerberosWrappers 1.5fc2
+	December 13, 2004
+	
+	[RT 2800] Use Apple System Logger and set debugging at runtime
+	
+	========================================================================
+
+	KerberosWrappers 1.5fc1
+	December 6, 2004
+	
+	Moved to final candidate.
+	
+	========================================================================
+
+	KerberosWrappers 1.5b1
+	November 4, 2004
+	
+	[RT 2768] include errno.h if using errno errors 
+	
+	========================================================================
+
+KerberosWrappers 1.4
+September 18, 2003
+
+========================================================================
 
 	KerberosWrappers 1.4fc2
 	August 20, 2003

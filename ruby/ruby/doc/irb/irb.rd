@@ -1,9 +1,9 @@
 irb -- interactive ruby
-				$Release Version: 0.5 $
-			   	$Revision: 1.1.1.1 $
-			   	$Date: 2002/05/27 17:59:45 $
-			   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
-				translate from japanese by gotoken-san
+		$Release Version: 0.9 $
+		$Revision: 1.6 $
+		$Date: 2003/07/31 16:34:07 $
+		by Keiju ISHITSUKA(keiju@ishitsuka.com)
+		by gotoken-san who is original translater from japanese version
 
 =begin
 = What is irb?
@@ -13,13 +13,7 @@ ruby expressions read from stdin.
 
 = Invoking
 
-  % ruby -r irb -e0
   % irb
-
-Either of the aboves. In the former style, options can be specified
-as follows:
-
-  % ruby -r irb -e0 -- -v
 
 = Usage
 
@@ -48,7 +42,12 @@ is the standard default action if Readline is installed.
   -f		    suppress read ~/.irbrc 
   -m		    bc mode (fraction or matrix are available)
   -d                set $DEBUG  to true (same as `ruby -d')
+  -Kc		    same as `ruby -Kc'
   -r load-module    same as `ruby -r'
+  --verbose	    command input is echoed(default)
+  --noverbose	    command input isn't echoed
+  --echo	    commands are echoed immediately before execution(default)
+  --noecho	    commands aren't echoed immediately before execution
   --inspect	    uses `inspect' for output (the default except bc mode)
   --noinspect	    doesn't uses inspect for output
   --readline	    uses Readline extension module
@@ -68,8 +67,6 @@ is the standard default action if Readline is installed.
 		    value is 16. 
   --irb_debug n	    sets internal debug level to n (It shouldn't be used)
   -v, --version	    prints the version of irb
-
-
 
 = Configurations
 
@@ -160,11 +157,16 @@ For irb commands, both simple name and `irb_'-prefixed name are prepared.
 
 --- exit, quit, irb_exit	
     Quits (sub)irb. 
-    if you've done cb (see below), exit from the binding mode.
 
 --- conf, irb_context
     Displays current configuration. Modifing the configuration is
     achieved by sending message to `conf'. 
+
+--- conf.eval_history = N
+    Sets execution result history.
+    N is a integer or nil. If N > 0, the number of historys is N. 
+    If N == 0, the number of historys is unlimited. If N is nill,
+    execution result history isn't used(default).
 
 --- conf.back_trace_limit
     Sets display lines of backtrace as top n and tail n. 
@@ -193,9 +195,6 @@ For irb commands, both simple name and `irb_'-prefixed name are prepared.
     nil:   inspect mode in non math mode, 
            non inspect mode in math mode. 
 
---- conf.irb_level
-    The level of cb. 
-
 --- conf.math_mode
     Whether bc mode or not. 
 
@@ -222,14 +221,20 @@ For irb commands, both simple name and `irb_'-prefixed name are prepared.
     Whether readline is used or not. 
     true: uses 
     false: doen't use
-    nil: intends to use readline except for inf-reuby-mode (default)
+    nil: intends to use readline except for inf-ruby-mode (default)
+#
+#--- conf.verbose=T/F
+#    Whether verbose messages are display or not. 
 
---- conf.verbose=T/F
-    Whether verbose messages are display or not. 
+--- cws, chws, irb_change_workspace [obj]
+    obj will be self. If obj is omitted, self will be home-object, or
+    the main object of first started irb.
 
---- cb, irb_change_binding [obj]
-    Enter new binding which has a distinct scope of local variables. 
-    If obj is given, obj will be self. 
+--- pushws, irb_pushws, irb_push_workspace [obj]
+    same as UNIX-shell command pushd.
+
+--- popws, irb_popws, irb_pop_workspace
+    same as UNIX-shell command popd
 
 --- irb [obj]
     Invoke subirb. If obj is given, obj will be self. 
@@ -248,10 +253,20 @@ For irb commands, both simple name and `irb_'-prefixed name are prepared.
 --- kill n, irb_kill n
     Kill subirb. The means of n is as same as the case of irb_fg. 
 
+--- souce, irb_source  path
+    This is a like UNIX-shell command source. evaluate script in path
+    on current context.
+
+--- irb_load path, prev
+    irb-version of Ruby's load.
+
 = System variable
 
-   _  The latest value of evaluation (it is local)
-
+--- _  The latest value of evaluation (it is local)
+--- __ The history of evaluation values.
+    __[line_no] return an evaluation value of line number<line_no>. If
+    line_no is a negative, return value before -<line_no> from latest
+    value.
 
 = Session Example
 

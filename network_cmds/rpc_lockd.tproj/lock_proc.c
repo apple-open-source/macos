@@ -1011,7 +1011,7 @@ nlm_unshare_3_svc(arg, rqstp)
 	res.cookie = arg->cookie;
 	res.sequence = 0;	/* X/Open says this field is ignored? */
 
-	res.stat = unshare(arg, rqstp);
+	res.stat = unshare(arg, rqstp, 0);
 	return (&res);
 }
 
@@ -1559,7 +1559,7 @@ nlm4_unshare_4_svc(arg, rqstp)
 	res.cookie = arg->cookie;
 	res.sequence = 0;	/* X/Open says this field is ignored? */
 
-	res.stat = unshare((nlm_shareargs*)arg, rqstp);
+	res.stat = unshare((nlm_shareargs*)arg, rqstp, LOCK_V4);
 	return (&res);
 }
 

@@ -1,0 +1,37 @@
+// ***************************************************************************
+// *
+// *   Copyright (C) 2003-2004, International Business Machines
+// *   Corporation and others.  All Rights Reserved.
+// *
+// ***************************************************************************
+// Hawaiian language
+// Based on data from Keola Donaghy, University of Hawaii
+// Submitted by Deborah Goldsmith, Apple Computer, Inc.
+
+haw {
+    Version { "x0.2" } 
+    collations {
+        standard {
+            Version { "1.1" }
+            Sequence {
+                "&a < e < i < o < u < h < k < l < m < n < p < w < \u02bb"
+                "&a <<< A"
+                "&e <<< E"
+                "&i <<< I"
+                "&o <<< O"
+                "&u <<< U"
+                "&h <<< H"
+                "&k <<< K"
+                "&l <<< L"
+                "&m <<< M"
+                "&n <<< N"
+                "&p <<< P"
+                "&w <<< W"
+                // This is the real alphabet
+                //"&a < e < i < o < u < h < k < l < m < n < p < w < \u02bb"
+                // or maybe
+                //"&u < h < k < l < m < n < p < w < \u02bb < b < c < d < f < g < j < q < r < s < t < v < x < y < z"
+            }
+        }
+    }
+}

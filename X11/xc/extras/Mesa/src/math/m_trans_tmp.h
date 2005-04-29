@@ -59,6 +59,32 @@ static void DEST_4F( GLfloat (*t)[4],
 #endif
 
 
+
+#ifdef DEST_4FC
+static void DEST_4FC( GLfloat (*t)[4],
+		      CONST void *ptr,
+		      GLuint stride,
+		      ARGS )
+{
+   const GLubyte *f = (GLubyte *) ptr + SRC_START * stride;
+   const GLubyte *first = f;
+   GLuint i;
+
+   (void) first;
+   (void) start;
+   for (i = DST_START ; i < n ; i++, NEXT_F) {
+      CHECK {
+         NEXT_F2;
+	 if (SZ >= 1) t[i][0] = TRX_4FC(f, 0);
+	 if (SZ >= 2) t[i][1] = TRX_4FC(f, 1);
+	 if (SZ >= 3) t[i][2] = TRX_4FC(f, 2);
+	 if (SZ == 4) t[i][3] = TRX_4FC(f, 3); else t[i][3] = 1.0;
+      }
+   }
+}
+#endif
+
+
 #ifdef DEST_3F
 static void DEST_3F( GLfloat (*t)[3],
 		     CONST void *ptr,
@@ -219,17 +245,43 @@ static void INIT(void)
 #ifdef DEST_4F
    TAB(_4f)[SZ][SRC_IDX] = DEST_4F;
 #endif
+#ifdef DEST_4FC
+   TAB(_4fc)[SZ][SRC_IDX] = DEST_4FC;
+#endif
 
 }
 
 
+#ifdef INIT
 #undef INIT
+#endif
+#ifdef DEST_1UI
 #undef DEST_1UI
+#endif
+#ifdef DEST_1UB
 #undef DEST_1UB
+#endif
+#ifdef DEST_4UB
 #undef DEST_4UB
+#endif
+#ifdef DEST_4US
 #undef DEST_4US
+#endif
+#ifdef DEST_3F
 #undef DEST_3F
+#endif
+#ifdef DEST_4F
 #undef DEST_4F
+#endif
+#ifdef DEST_4FC
+#undef DEST_4FC
+#endif
+#ifdef DEST_1F
 #undef DEST_1F
+#endif
+#ifdef SZ
 #undef SZ
+#endif
+#ifdef TAG
 #undef TAG
+#endif

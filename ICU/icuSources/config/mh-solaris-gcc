@@ -1,9 +1,7 @@
 ## -*-makefile-*-
 ## Solaris-specific setup using gcc
-## Copyright (c) 1999-2000, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
-##
-## $Id: mh-solaris-gcc,v 1.1.1.1 2003/02/05 21:31:17 avery Exp $
 
 ## Flags for position independent code
 SHAREDLIBCFLAGS = -fPIC
@@ -14,16 +12,15 @@ SHAREDLIBCPPFLAGS = -DPIC
 GEN_DEPS.c= 	$(CC) -E -MM $(DEFS) $(CPPFLAGS)
 GEN_DEPS.cc=	$(CXX) -E -MM $(DEFS) $(CPPFLAGS)
 
-## Commands to make a shared library
-SHLIB.c=	$(CC) $(CFLAGS) $(LDFLAGS) -G
-SHLIB.cc=	$(CXX) $(CXXFLAGS) $(LDFLAGS) -G
-
 ## Compiler switch to embed a runtime search path
 LD_RPATH=	-R
 LD_RPATH_PRE=	
 
 ## Compiler switch to embed a library name
-LD_SONAME = -h $(MIDDLE_SO_TARGET)
+LD_SONAME = -h $(notdir $(MIDDLE_SO_TARGET))
+
+## The type of assembly needed when pkgdata is used for generating shared libraries.
+GENCCODE_ASSEMBLY=-a sun
 
 ## Shared object suffix
 SO=		so
@@ -41,8 +38,6 @@ STATIC_O = ao
 %.o: $(srcdir)/%.cpp
 	$(COMPILE.cc) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $<
 
-../data/%.o: ../data/%.c
-	$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCFLAGS) -o $@ $<
 
 ## Dependency rules
 %.d : $(srcdir)/%.c
@@ -60,8 +55,8 @@ STATIC_O = ao
 ## Versioned libraries rules
 
 %.$(SO).$(SO_TARGET_VERSION_MAJOR): %.$(SO).$(SO_TARGET_VERSION)
-	$(RM) $@ && ln -s $< $@
+	$(RM) $@ && ln -s ${<F} $@
 %.$(SO): %.$(SO).$(SO_TARGET_VERSION_MAJOR)
-	$(RM) $@ && ln -s $*.$(SO).$(SO_TARGET_VERSION) $@
+	$(RM) $@ && ln -s ${*F}.$(SO).$(SO_TARGET_VERSION) $@
 
 ## End Solaris-specific setup

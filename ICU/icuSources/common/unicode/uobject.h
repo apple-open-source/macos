@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2002-2003, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -34,7 +34,7 @@ U_NAMESPACE_BEGIN
  *         applications that statically link the C Runtime library, meaning that
  *         the app and ICU will be using different heaps.
  *
- * @draft ICU 2.2
+ * @stable ICU 2.2
  */                              
 #ifndef U_OVERRIDE_CXX_ALLOCATION
 #define U_OVERRIDE_CXX_ALLOCATION 1
@@ -43,7 +43,7 @@ U_NAMESPACE_BEGIN
 /**  U_HAVE_PLACEMENT_NEW - Define this to define the placement new and
  *                          delete in UMemory for STL.
  *
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */                              
 #ifndef U_HAVE_PLACEMENT_NEW
 #define U_HAVE_PLACEMENT_NEW 1
@@ -62,7 +62,7 @@ U_NAMESPACE_BEGIN
  * UMemory does not contain any virtual functions.
  * Common "boilerplate" functions are defined in UObject.
  *
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
 class U_COMMON_API UMemory {
 public:
@@ -74,16 +74,16 @@ public:
      * (uprv_malloc(), uprv_free(), uprv_realloc());
      * they or something else could be used here to implement C++ new/delete
      * for ICU4C C++ classes
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
-    static void *operator new(size_t size);
+    static void * U_EXPORT2 operator new(size_t size);
 
     /**
      * Override for ICU4C C++ memory management.
      * See new().
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
-    static void *operator new[](size_t size);
+    static void * U_EXPORT2 operator new[](size_t size);
 
     /**
      * Override for ICU4C C++ memory management.
@@ -91,31 +91,31 @@ public:
      * (uprv_malloc(), uprv_free(), uprv_realloc());
      * they or something else could be used here to implement C++ new/delete
      * for ICU4C C++ classes
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
-    static void operator delete(void *p);
+    static void U_EXPORT2 operator delete(void *p);
 
     /**
      * Override for ICU4C C++ memory management.
      * See delete().
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
-    static void operator delete[](void *p);
+    static void U_EXPORT2 operator delete[](void *p);
 
 #if U_HAVE_PLACEMENT_NEW
     /**
      * Override for ICU4C C++ memory management for STL.
      * See new().
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
-    static inline void * operator new(size_t, void *ptr) { return ptr; }
+    static inline void * U_EXPORT2 operator new(size_t, void *ptr) { return ptr; }
 
     /**
      * Override for ICU4C C++ memory management for STL.
      * See delete().
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
-    static inline void operator delete(void *, void *) {}
+    static inline void U_EXPORT2 operator delete(void *, void *) {}
 #endif /* U_HAVE_PLACEMENT_NEW */
 #endif /* U_OVERRIDE_CXX_ALLOCATION */
 
@@ -151,23 +151,23 @@ public:
  * This is because some compilers do not support covariant (same-as-this)
  * return types; cast to the appropriate subclass if necessary.
  *
- * @draft ICU 2.2
+ * @stable ICU 2.2
  */
 class U_COMMON_API UObject : public UMemory {
 public:
     /**
      * Destructor.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.2
      */
-    virtual inline ~UObject() {}
+    virtual ~UObject();
 
     /**
      * ICU4C "poor man's RTTI", returns a UClassID for the actual ICU class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.2
      */
-    virtual inline UClassID getDynamicClassID() const = 0;
+    virtual UClassID getDynamicClassID() const = 0;
 
 protected:
     // the following functions are protected to prevent instantiation and
@@ -181,8 +181,9 @@ protected:
     // commented out because UObject is abstract (see getDynamicClassID)
     // inline UObject(const UObject &other) {}
 
-#if U_ICU_VERSION_MAJOR_NUM>2 || (U_ICU_VERSION_MAJOR_NUM==2 && U_ICU_VERSION_MINOR_NUM>6)
-    // TODO post ICU 2.4  (This comment inserted in 2.2)
+#if 0
+    // TODO Sometime in the future. Implement operator==().
+    // (This comment inserted in 2.2)
     // some or all of the following "boilerplate" functions may be made public
     // in a future ICU4C release when all subclasses implement them
 
@@ -212,7 +213,67 @@ protected:
      * here would be to declare and empty-implement a protected or public one.
     UObject &UObject::operator=(const UObject &);
      */
+
+// Future implementation for RTTI that support subtyping. [alan]
+// 
+//  public:
+//     /**
+//      * @internal
+//      */
+//     static UClassID getStaticClassID();
+// 
+//     /**
+//      * @internal
+//      */
+//     UBool instanceOf(UClassID type) const;
 };
+
+/**
+ * This is a simple macro to add ICU RTTI to an ICU object implementation.
+ * This does not go into the header. This should only be used in *.cpp files.
+ *
+ * @param myClass The name of the class that needs RTTI defined.
+ * @internal
+ */
+#define UOBJECT_DEFINE_RTTI_IMPLEMENTATION(myClass) \
+    UClassID U_EXPORT2 myClass::getStaticClassID() { \
+        static const char classID = 0; \
+        return (UClassID)&classID; \
+    } \
+    UClassID myClass::getDynamicClassID() const \
+    { return myClass::getStaticClassID(); }
+
+
+/**
+ * This macro adds ICU RTTI to an ICU abstract class implementation.
+ * This macro should be invoked in *.cpp files.  The corresponding
+ * header should declare getStaticClassID.
+ *
+ * @param myClass The name of the class that needs RTTI defined.
+ * @internal
+ */
+#define UOBJECT_DEFINE_ABSTRACT_RTTI_IMPLEMENTATION(myClass) \
+    UClassID U_EXPORT2 myClass::getStaticClassID() { \
+        static const char classID = 0; \
+        return (UClassID)&classID; \
+    }
+
+// /**
+//  * This macro adds ICU RTTI to an ICU concrete class implementation.
+//  * This macro should be invoked in *.cpp files.  The corresponding
+//  * header should declare getDynamicClassID and getStaticClassID.
+//  *
+//  * @param myClass The name of the class that needs RTTI defined.
+//  * @param myParent The name of the myClass's parent.
+//  * @internal
+//  */
+/*#define UOBJECT_DEFINE_RTTI_IMPLEMENTATION(myClass, myParent) \
+    UOBJECT_DEFINE_ABSTRACT_RTTI_IMPLEMENTATION(myClass, myParent) \
+    UClassID myClass::getDynamicClassID() const { \
+        return myClass::getStaticClassID(); \
+    }
+*/
+
 
 U_NAMESPACE_END
 

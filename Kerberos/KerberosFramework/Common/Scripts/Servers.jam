@@ -1,7 +1,5 @@
 include "$(SRCROOT)/../../../Common/Scripts/BuildPBX.jam" ;
 
 # Build the servers
-PBX CCacheServer		:	"$(SRCROOT)/../../CredentialsCache/Projects/CredentialsCache.pbproj" ;
-PBX CCacheClassicServer	:	"$(SRCROOT)/../../CredentialsCache/Projects/CredentialsCache.pbproj" ;
-PBX KerberosLoginServer	:	"$(SRCROOT)/../../KerberosLogin/Projects/KerberosLogin.pbproj" ;
-PBX KerberosLoginHelper	:	"$(SRCROOT)/../../KerberosLogin/Projects/KerberosLogin.pbproj" ;
+PBX CCacheServer  : "$(SRCROOT)/../../CredentialsCache/Projects/CredentialsCache.pbproj" ;
+PBX KerberosAgent : "$(SRCROOT)/../../KerberosLogin/Projects/KerberosLogin.pbproj" ;

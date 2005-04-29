@@ -1,11 +1,11 @@
-; Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+; Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
 ;
 ; @APPLE_LICENSE_HEADER_START@
 ; 
-; Portions Copyright (c) 1999-2002 Apple Computer, Inc.  All Rights
+; Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
 ; Reserved.  This file contains Original Code and/or Modifications of
 ; Original Code as defined in and that are subject to the Apple Public
-; Source License Version 1.2 (the "License").  You may not use this file
+; Source License Version 2.0 (the "License").  You may not use this file
 ; except in compliance with the License.  Please obtain a copy of the
 ; License at http://www.apple.com/publicsource and read it before using
 ; this file.
@@ -50,6 +50,8 @@ DEBUG                EQU  0
 ; logical partition.
 ;
 EXT_PART_SUPPORT     EQU  1
+
+CHS_SUPPORT          EQU  1
 
 ;
 ; Various constants.
@@ -161,8 +163,6 @@ start_reloc:
 
     DebugChar('>')
 
-    mov     dl, kDriveNumber        ; starting BIOS drive number
-
 .loop:
 
 %if DEBUG
@@ -174,15 +174,17 @@ start_reloc:
     ; Clear various flags in memory.
     ;
     xor     eax, eax
-    mov     [ebios_lba], eax        ; clear EBIOS LBA offset
-    mov     [ebios_present], al     ; clear EBIOS support flag
+    mov     [first_part], eax        ; clear EBIOS LBA offset
+    mov     [this_part], eax
 
+%if CHS_SUPPORT
+    mov     [ebios_present], al     ; clear EBIOS support flag
+	
     ;
     ; Check if EBIOS is supported for this hard drive.
     ;
     mov     ah, 0x41                ; Function 0x41
     mov     bx, 0x55AA              ; check signature
-;   mov     dl, kDriveNumber        ; Drive number
     int     0x13
 
     ;
@@ -201,6 +203,10 @@ start_reloc:
     setnz   [ebios_present]         ; EBIOS supported, set flag
     DebugChar('E')                  ; EBIOS supported
 .ebios_check_done:
+%else
+    inc     al
+    mov     [ebios_present], al
+%endif
 
     ;
     ; Since this code may not always reside in the MBR, always start by
@@ -211,8 +217,11 @@ start_reloc:
     mov     es, bx                  ; MBR load segment = 0
     mov     bx, kMBRBuffer          ; MBR load address
     mov     si, bx                  ; pointer to fake partition entry
+%if CHS_SUPPORT
     mov     WORD [si], 0x0000       ; CHS DX: head = 0
     mov     WORD [si + 2], 0x0001   ; CHS CX: cylinder = 0, sector = 1
+%endif
+    mov     DWORD [si + part.lba], 0x00000000 ; LBA sector 0
 
     call    load
     jc      .next_drive             ; MBR load error
@@ -222,7 +231,6 @@ start_reloc:
     ; which is at offset kMBRPartTable.
     ;
     mov     di, kMBRPartTable       ; pointer to partition table
-    mov     ah, 0                   ; initial nesting level is 0
     call    find_boot               ; will not return on success
 
 .next_drive:
@@ -230,22 +238,23 @@ start_reloc:
     test    dl, 0x4                 ; went through all 4 drives?
     jz      .loop                   ; not yet, loop again
 
+error:
     mov     si, boot_error_str
     call    print_string
 
 hang:
+    hlt
     jmp     SHORT hang
 
 ;--------------------------------------------------------------------------
 ; Find the active (boot) partition and load the booter from the partition.
 ;
 ; Arguments:
-;   AH = recursion nesting level
 ;   DL = drive number (0x80 + unit number)
 ;   DI = pointer to fdisk partition table.
 ;
 ; Clobber list:
-;   AX, BX, EBP
+;   EAX, BX, EBP
 ;
 find_boot:
     push    cx                      ; preserve CX and SI
@@ -256,7 +265,7 @@ find_boot:
     ; entries.
     ;
     cmp     WORD [di + part_size * kPartCount], kBootSignature
-    jne     .exit                   ; boot signature not found
+    jne     NEAR .exit              ; boot signature not found
 
     mov     si, di                  ; make SI a pointer to partition table
     mov     cx, kPartCount          ; number of partition entries per table
@@ -269,17 +278,21 @@ find_boot:
     ; buffering scheme used to store extended partition tables.
     ;
 %if DEBUG
-    mov     al, ah                  ; indent based on nesting level
-    call    print_spaces
     mov     al, [si + part.type]    ; print partition type
     call    print_hex
 %endif
 
+    cmp     BYTE [si + part.type], 0
+    je      .continue
     cmp     BYTE [si + part.bootid], kPartActive
     jne     .continue
 
     DebugChar('*')
 
+    ; fix offset for load
+    mov     eax, [this_part]
+    mov     [first_part], eax
+	
     ;
     ; Found boot partition, read boot sector to memory.
     ;
@@ -288,15 +301,16 @@ find_boot:
     mov     es, bx
     mov     bx, kBoot0LoadAddr
     call    load                    ; will not return on success
-    jc      .continue               ; load error, keep looking?
+    jc      error                   ; load error, keep looking?
 
     ; 
     ; Fix up absolute block location in partition record.
     ;
     mov     eax, [si + part.lba]
-    add     eax, [ebios_lba]
+    add     eax, [this_part]
     mov     [si + part.lba], eax
-	
+
+    DebugChar('J')
     ;
     ; Jump to partition booter. The drive number is already in register DL.
     ; SI is pointing to the modified partition entry.
@@ -338,6 +352,14 @@ find_boot:
     jmp     .exit                   ; boot partition not found
 
 .ext_load:
+    DebugChar('L')
+
+    ; Save current partition offset, since for extended
+    ; partitions we will overwrite it when loading the new
+    ; table.
+    ; 
+    mov     ebp, [si + part.lba]
+	
     ;
     ; Setup the arguments for the load function call to bring the
     ; extended partition table into memory.
@@ -356,20 +378,31 @@ find_boot:
     ; the extended partition at the head of the chain. Thus it is
     ; necessary to save the LBA address of the first extended partition.
     ;
-    or      ah, ah
+	
+    DebugChar('+')	
+
+    add     ebp, [first_part]
+    mov     [this_part], ebp
+
+    mov     eax,[first_part]
+    or      eax, eax
     jnz     .ext_find_boot
-    mov     ebp, [si + part.lba]
-    mov     [ebios_lba], ebp
+    mov     [first_part], ebp
+	
+%if DEBUG
+        DebugChar('=')
+        mov eax, ebp
+        call print_hex
+%endif
 
 .ext_find_boot:
+	
     ;
     ; Call find_boot recursively to scan through the extended partition
     ; table. Load DI with a pointer to the extended table in memory.
     ;
-    inc     ah                      ; increment recursion level
     mov     di, kExtPartTable       ; partition table pointer
     call    find_boot               ; recursion...
-    ;dec    ah
 
     ;
     ; Since there is an "unwritten" rule that limits each partition table
@@ -404,8 +437,10 @@ find_boot:
 ;
 load:
     push    cx
+%if CHS_SUPPORT
     test    BYTE [ebios_present], 1
     jz      .chs
+%endif
 
 .ebios:
     mov     cx, 5                   ; load retry count
@@ -414,17 +449,20 @@ load:
     jnc     .exit
     loop    .ebios_loop
 
+%if CHS_SUPPORT
 .chs:
     mov     cx, 5                   ; load retry count
 .chs_loop:
     call    read_chs                ; use INT13/F2
     jnc     .exit
     loop    .chs_loop
+%endif
 
 .exit
     pop     cx
     ret
 
+%if CHS_SUPPORT
 ;--------------------------------------------------------------------------
 ; read_chs - Read sectors from a partition using CHS addressing.
 ;
@@ -466,7 +504,6 @@ read_chs:
     ;   carry = 0 success
     ;           1 error
     ;
-;   mov     dl, kDriveNumber
     mov     ah, 0x02                ; Func 2
     int     0x13                    ; INT 13
     jnc     .exit
@@ -485,6 +522,7 @@ read_chs:
 .exit:
     popa
     ret
+%endif
 
 ;--------------------------------------------------------------------------
 ; read_lba - Read sectors from a partition using LBA addressing.
@@ -512,7 +550,7 @@ read_lba:
     push    ds                      ; For sake of saving memory,
     push    ds                      ; push DS register, which is 0.
 
-    mov     ecx, [ebios_lba]        ; offset 8, lower 32-bit LBA
+    mov     ecx, [first_part]        ; offset 8, lower 32-bit LBA
     add     ecx, [si + part.lba]
     push    ecx
 
@@ -525,6 +563,12 @@ read_lba:
 
     push    WORD 16                 ; offset 0-1, packet size
 
+    DebugChar('<')
+%if DEBUG
+    mov  eax, ecx
+    call print_hex
+%endif
+        
     ;
     ; INT13 Func 42 - Extended Read Sectors
     ;
@@ -541,7 +585,6 @@ read_lba:
     ; Packet offset 2 indicates the number of sectors read
     ; successfully.
     ;
-;   mov     dl, kDriveNumber
     mov     si, sp
     mov     ah, 0x42
     int     0x13
@@ -587,8 +630,6 @@ print_string
     ret
 
 
-%if DEBUG
-	
 ;--------------------------------------------------------------------------
 ; Write a ASCII character to the console.
 ;
@@ -603,44 +644,34 @@ print_char
     popa
     ret
 
+%if DEBUG
+	
 ;--------------------------------------------------------------------------
-; Write a variable number of spaces to the console.
+; Write the 4-byte value to the console in hex.
 ;
 ; Arguments:
-;   AL = number to spaces.
-;
-print_spaces:
-    pusha
-    xor     cx, cx
-    mov     cl, al                  ; use CX as the loop counter
-    mov     al, ' '                 ; character to print
-.loop:
-    jcxz    .exit
-    call    print_char
-    loop    .loop
-.exit:
-    popa
-    ret
-
-;--------------------------------------------------------------------------
-; Write the byte value to the console in hex.
-;
-; Arguments:
-;   AL = Value to be displayed in hex.
+;   EAX = Value to be displayed in hex.
 ;
 print_hex:
+    pushad
+    mov     cx, WORD 4
+    bswap   eax
+.loop
     push    ax
     ror     al, 4
     call    print_nibble            ; display upper nibble
     pop     ax
     call    print_nibble            ; display lower nibble
+    ror     eax, 8
+    loop    .loop
 
     mov     al, 10                  ; carriage return
     call    print_char
     mov     al, 13
     call    print_char
+    popad
     ret
-
+	
 print_nibble:
     and     al, 0x0f
     add     al, '0'
@@ -657,13 +688,13 @@ getc:
     int    0x16
     popa
     ret
+%endif ;DEBUG
 	
-%endif ; DEBUG
 
 ;--------------------------------------------------------------------------
 ; NULL terminated strings.
 ;
-boot_error_str   db  10, 13, 'Error', 0
+boot_error_str   db  10, 13, 'b0 error', 0
 
 ;--------------------------------------------------------------------------
 ; Pad the rest of the 512 byte sized booter with zeroes. The last
@@ -671,12 +702,6 @@ boot_error_str   db  10, 13, 'Error', 0
 ;
 ; If the booter code becomes too large, then nasm will complain
 ; that the 'times' argument is negative.
-
-;
-; In memory variables.
-;
-ebios_lba       dd   0   ; starting LBA of the intial extended partition.
-ebios_present   db   0   ; 1 if EBIOS is supported, 0 otherwise.
 
 pad_boot
     times 446-($-$$) db 0
@@ -705,5 +730,15 @@ part2numsect    dd    0x000015fe    ; 2.88MB - 65K
 pad_table_and_sig
     times 510-($-$$) db 0
     dw    kBootSignature
+	
+	
+	ABSOLUTE 0xE400
 
+;
+; In memory variables.
+;
+first_part      resd   1   ; starting LBA of the intial extended partition.
+this_part       resd   1   ; starting LBA of the current extended partition. 
+ebios_present   resb   1   ; 1 if EBIOS is supported, 0 otherwise.
+        
     END

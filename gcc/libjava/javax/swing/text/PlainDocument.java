@@ -1,5 +1,5 @@
-/* PlainDocument.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* PlainDocument.java --
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,22 +37,45 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-
 public class PlainDocument extends AbstractDocument
 {
-    PlainDocument()
-    {
-	super(new GapContent());
-    }
+  private static final long serialVersionUID = 4758290289196893664L;
+    
+  public static final String lineLimitAttribute = "lineLimit";
+  public static final String tabSizeAttribute = "tabSize";
 
-    public Element getDefaultRootElement()
-    {
-	return null;
-    }
+  private Element rootElement;
+  private int tabSize;
+  
+  public PlainDocument()
+  {
+    this(new GapContent());
+  }
 
-    public Element getParagraphElement(int  pos)
-    {
-	return null;
-    }
+  public PlainDocument(AbstractDocument.Content content)
+  {
+    super(content);
+    tabSize = 8;
+    rootElement = createDefaultRoot();
+  }
+
+  protected AbstractDocument.AbstractElement createDefaultRoot()
+  {
+    BranchElement rootElement =
+      (BranchElement) createBranchElement(null, null);
+    Element[] lines = new Element[1];
+    lines[0] = createLeafElement(rootElement, null, 0, 1);
+    rootElement.replace(0, 0, lines);
+    return rootElement;
+  }
+
+  public Element getDefaultRootElement()
+  {
+    return rootElement;
+  }
+
+  public Element getParagraphElement(int pos)
+  {
+    return null;
+  }
 }
-

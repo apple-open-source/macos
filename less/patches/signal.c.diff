@@ -1,0 +1,19 @@
+--- signal.c.orig	2004-07-28 11:26:29.000000000 -0700
++++ signal.c	2004-07-28 11:26:54.000000000 -0700
+@@ -33,6 +33,7 @@
+ extern int linenums;
+ extern int wscroll;
+ extern int reading;
++extern int more_mode;
+ 
+ /*
+  * Interrupt signal handler.
+@@ -56,6 +57,8 @@
+ 	if (kbhit())
+ 		getkey();
+ #endif
++	if (more_mode)
++		quit(0);
+ 	if (reading)
+ 		intread();
+ }

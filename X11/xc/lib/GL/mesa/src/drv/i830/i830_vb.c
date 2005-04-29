@@ -23,14 +23,13 @@
  * Adapted for use on the I830M:
  *   Jeff Hartmann <jhartmann@2d3d.com>
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_vb.c,v 1.5 2002/12/10 01:26:54 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_vb.c,v 1.6 2003/09/28 20:15:15 alanh Exp $ */
 
 #include "glheader.h"
 #include "mtypes.h"
-#include "mem.h"
+#include "imports.h"
 #include "macros.h"
 #include "colormac.h"
-#include "mmath.h"
 
 #include "swrast_setup/swrast_setup.h"
 #include "tnl/t_context.h"
@@ -446,24 +445,24 @@ void i830BuildVertices( GLcontext *ctx,
    if (!newinputs)
       return;
 
-   if (newinputs & VERT_CLIP) {
+   if (newinputs & VERT_BIT_CLIP) {
       setup_tab[imesa->SetupIndex].emit( ctx, start, count, v, stride );
    } else {
       GLuint ind = 0;
 
-      if (newinputs & VERT_RGBA)
+      if (newinputs & VERT_BIT_COLOR0)
 	 ind |= I830_RGBA_BIT;
 
-      if (newinputs & VERT_SPEC_RGB)
+      if (newinputs & VERT_BIT_COLOR1)
 	 ind |= I830_SPEC_BIT;
 
-      if (newinputs & VERT_TEX0)
+      if (newinputs & VERT_BIT_TEX0)
 	 ind |= I830_TEX0_BIT;
 
-      if (newinputs & VERT_TEX1)
+      if (newinputs & VERT_BIT_TEX1)
 	 ind |= I830_TEX1_BIT;
 
-      if (newinputs & VERT_FOG_COORD)
+      if (newinputs & VERT_BIT_FOG)
 	 ind |= I830_FOG_BIT;
 
 #if 0
@@ -491,11 +490,11 @@ void i830ChooseVertexState( GLcontext *ctx )
    if (ctx->Fog.Enabled)
       ind |= I830_FOG_BIT;
 
-   /* unit 1 */
-   if (ctx->Texture._ReallyEnabled & TEXTURE1_ANY)
+   if (ctx->Texture._EnabledUnits & 0x2)
+      /* unit 1 enabled */
       ind |= I830_TEX1_BIT|I830_TEX0_BIT;
-   /* unit 0 */
-   else if (ctx->Texture._ReallyEnabled & TEXTURE0_ANY)
+   else if (ctx->Texture._EnabledUnits & 0x1)
+      /* unit 0 enabled */
       ind |= I830_TEX0_BIT;
 
    imesa->SetupIndex = ind;

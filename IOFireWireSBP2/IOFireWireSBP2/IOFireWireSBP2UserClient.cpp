@@ -1368,11 +1368,6 @@ IOReturn IOFireWireSBP2UserClient::setPassword( IOFireWireSBP2Login * loginRef, 
             status = kIOReturnNoMemory;
     }
 	
-	if( status == kIOReturnSuccess )
-	{
-		status = memory->prepare();
-	}
-
     if( status == kIOReturnSuccess )
     {
         login->setPassword( memory );
@@ -1380,7 +1375,6 @@ IOReturn IOFireWireSBP2UserClient::setPassword( IOFireWireSBP2Login * loginRef, 
 
     if( memory )
     {
-		memory->complete();
 	    memory->release();
 	}
 	

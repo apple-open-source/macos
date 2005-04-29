@@ -1,13 +1,11 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/ar_BH.xml
 // *
 // ***************************************************************************
-
-ar_BH {
-    Version{"2.0"}
-//    LocaleString { "ar_BH" }
-//    ShortCountry { "BHR" }
-    LocaleID:int { 0x3c01 }
+ar_BH{
+    Version{"1.2"}
 }

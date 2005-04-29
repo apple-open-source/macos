@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)exec.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/exec.c,v 1.20 2003/01/03 23:16:55 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/exec.c,v 1.22 2003/07/01 12:30:03 bde Exp $");
 
 #include "namespace.h"
 #include <sys/param.h>
@@ -142,15 +142,28 @@ execv(name, argv)
 }
 
 int
-execvp(name, argv)
+execvp(const char *name, char * const *argv)
+{
+	const char *path;
+
+	/* Get the path we're searching. */
+	if ((path = getenv("PATH")) == NULL)
+		path = _PATH_DEFPATH;
+
+	return (execvP(name, path, argv));
+}
+
+int
+execvP(name, path, argv)
 	const char *name;
+	const char *path;
 	char * const *argv;
 {
 	char **memp;
 	int cnt, lp, ln;
 	char *p;
 	int eacces, save_errno;
-	char *bp, *cur, *path, buf[MAXPATHLEN];
+	char *bp, *cur, buf[MAXPATHLEN];
 	struct stat sb;
 
 	eacces = 0;
@@ -158,7 +171,7 @@ execvp(name, argv)
 	/* If it's an absolute or relative path name, it's easy. */
 	if (index(name, '/')) {
 		bp = (char *)name;
-		cur = path = NULL;
+		cur = NULL;
 		goto retry;
 	}
 	bp = buf;
@@ -169,22 +182,18 @@ execvp(name, argv)
 		return (-1);
 	}
 
-	/* Get the path we're searching. */
-	if (!(path = getenv("PATH")))
-		path = _PATH_DEFPATH;
 	cur = alloca(strlen(path) + 1);
 	if (cur == NULL) {
 		errno = ENOMEM;
 		return (-1);
 	}
 	strcpy(cur, path);
-	path = cur;
-	while ( (p = strsep(&cur, ":")) ) {
+	while ((p = strsep(&cur, ":")) != NULL) {
 		/*
 		 * It's a SHELL path -- double, leading and trailing colons
 		 * mean the current directory.
 		 */
-		if (!*p) {
+		if (*p == '\0') {
 			p = ".";
 			lp = 1;
 		} else
@@ -197,7 +206,7 @@ execvp(name, argv)
 		 * the user may execute the wrong program.
 		 */
 		if (lp + ln + 2 > sizeof(buf)) {
-			(void)_write(STDERR_FILENO, "execvp: ", 8);
+			(void)_write(STDERR_FILENO, "execvP: ", 8);
 			(void)_write(STDERR_FILENO, p, lp);
 			(void)_write(STDERR_FILENO, ": path too long\n",
 			    16);
@@ -209,7 +218,7 @@ execvp(name, argv)
 		buf[lp + ln + 1] = '\0';
 
 retry:		(void)_execve(bp, argv, environ);
-		switch(errno) {
+		switch (errno) {
 		case E2BIG:
 			goto done;
 		case ELOOP:

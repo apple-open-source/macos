@@ -1,5 +1,5 @@
 ## Makefile.in for ICU - tools/genrb
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 ## Source directory information
@@ -12,25 +12,28 @@ include $(top_builddir)/icudefs.mk
 
 ##
 
+TARGET_STUB_NAME = genrb
+DERB_STUB_NAME = derb
+
 SECTION = 1
 
-MAN_FILES = $(TARGET:$(EXEEXT)=).$(SECTION) $(DERB:$(EXEEXT)=).$(SECTION)
+MAN_FILES = $(TARGET_STUB_NAME).$(SECTION) $(DERB_STUB_NAME).$(SECTION)
 
 ## Build directory information
 subdir = tools/genrb
 
 ## Extra files to remove for 'make clean'
-CLEANFILES = *~ $(MAN_FILES) $(DEPS) 
+CLEANFILES = *~ $(MAN_FILES) $(DEPS) $(DERB_DEPS)
 
 ## Target information
-TARGET = genrb$(EXEEXT)
-DERB = derb$(EXEEXT)
+TARGET = $(BINDIR)/$(TARGET_STUB_NAME)$(EXEEXT)
+DERB = $(BINDIR)/$(DERB_STUB_NAME)$(EXEEXT)
 
 CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(srcdir)/../toolutil
 LIBS = $(LIBICUI18N) $(LIBICUTOOLUTIL) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
 
 OBJECTS = errmsg.o genrb.o parse.o read.o reslist.o ustr.o util.o \
-wrtjava.o rle.o wrtxml.o
+wrtjava.o rle.o wrtxml.o prscmnts.o
 DERB_OBJ = derb.o
 
 DEPS = $(OBJECTS:.o=.d)
@@ -59,7 +62,7 @@ install-local: all-local install-man
 	$(INSTALL) $(TARGET) $(DESTDIR)$(bindir)
 	$(INSTALL) $(DERB) $(DESTDIR)$(bindir)
 
-<dist-local:
+dist-local:
 
 clean-local: 
 	test -z "$(CLEANFILES)" || $(RMV) $(CLEANFILES)
@@ -75,7 +78,7 @@ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
 	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 $(TARGET) : $(OBJECTS)
-	$(LINK.c) $(OUTOPT)$@ $^ $(LIBS) 
+	$(LINK.cc) $(OUTOPT)$@ $^ $(LIBS) 
 
 $(DERB) : $(DERB_OBJ)
 	$(LINK.c) $(OUTOPT)$@ $^ $(LIBS) 
@@ -86,7 +89,10 @@ $(DERB) : $(DERB_OBJ)
 # man page
 install-man: $(MAN_FILES)
 	$(MKINSTALLDIRS) $(DESTDIR)$(mandir)/man$(SECTION)
-	$(INSTALL_DATA) $< $(DESTDIR)$(mandir)/man$(SECTION)
+	$(INSTALL_DATA) $? $(DESTDIR)$(mandir)/man$(SECTION)
+
+# This line is needed to serialize builds when the gmake -j option is used.
+$(TARGET_STUB_NAME).$(SECTION): $(DERB_STUB_NAME).$(SECTION)
 
 %.$(SECTION): $(srcdir)/%.$(SECTION).in
 	cd $(top_builddir) \

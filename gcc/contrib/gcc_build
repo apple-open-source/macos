@@ -9,22 +9,22 @@
 # Contents:
 #   Script to automatically download and build GCC.
 #
-# Copyright (c) 2000, 2001 Free Software Foundation.
+# Copyright (c) 2000, 2001, 2003 Free Software Foundation.
 #
-# This file is part of GNU CC.
+# This file is part of GCC.
 #
-# GNU CC is free software; you can redistribute it and/or modify
+# GCC is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2, or (at your option)
 # any later version.
 #
-# GNU CC is distributed in the hope that it will be useful,
+# GCC is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with GNU CC; see the file COPYING.  If not, write to
+# along with GCC; see the file COPYING.  If not, write to
 # the Free Software Foundation, 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 #
@@ -66,6 +66,7 @@ gcc_build        [-c configure_options]
 		 [-u username]
 		 [-p protocol]
 		 [-t tarfile]
+                 [-x make_check_options]
 		 [bootstrap]
 		 [build]
 		 [checkout]
@@ -110,7 +111,7 @@ checkout_gcc() {
     changedir ${DESTINATION_PARENT}
 
     # Checkout the tree
-    cvs -z 9 co -d `basename ${DESTINATION}` gcc || \
+    $GCC_CVS -z 9 co -d `basename ${DESTINATION}` gcc || \
 	error "Could not check out GCC"
 }
 
@@ -174,7 +175,7 @@ test_gcc() {
     changedir ${OBJDIR}
 
     echo "Running tests...  This will take a while."
-    ${MAKE} -k check
+    eval \${MAKE} -k ${MAKE_CHECK_OPTIONS} check
     ${DESTINATION}/contrib/test_summary
 }
 
@@ -209,6 +210,8 @@ install_gcc() {
 # Initialization
 ########################################################################
 
+# CVS command
+GCC_CVS=${GCC_CVS-${CVS-cvs}}
 # The CVS server containing the GCC repository.
 CVS_SERVER="gcc.gnu.org"
 # The path to the repository on that server.
@@ -231,8 +234,10 @@ TARFILE="${HOME}/dev/gcc.tgz"
 CONFIGURE_OPTIONS=
 # The `make' program.
 MAKE=${MAKE:-make}
-# Options to pass to make.
+# Options to pass to "make bootstrap".
 MAKE_BOOTSTRAP_OPTIONS=
+# Options to pass to "make check".
+MAKE_CHECK_OPTIONS=
 
 # Modes of operation
 BOOTSTRAP=0
@@ -248,14 +253,15 @@ UPDATE=0
 ########################################################################
 
 # Parse the options.
-while getopts "c:d:m:o:p:t:u:" ARG; do
+while getopts "c:d:m:o:p:t:u:x:" ARG; do
     case $ARG in
     c)    CONFIGURE_OPTIONS="${OPTARG}";;
     d)    DESTINATION="${OPTARG}";;
     m)    MAKE_BOOTSTRAP_OPTIONS="${OPTARG}";;
     o)    OBJDIR="${OPTARG}";;
     p)    CVS_PROTOCOL="${OPTARG}";;
-    t)    CVS_TARGFILE="${OPTARG}";;
+    t)    TARFILE="${OPTARG}";;
+    x)    MAKE_CHECK_OPTIONS="${OPTARG}";;
     u)    CVS_USERNAME="${OPTARG}";;
     \?)   usage;;
     esac

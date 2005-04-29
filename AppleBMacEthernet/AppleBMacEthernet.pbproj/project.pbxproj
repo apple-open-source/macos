@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		01833DA1FFD2F31611CA2B4D = {
 			fileRef = 020A3990FFB0FA9711CA2B4D;
@@ -12,25 +12,30 @@
 			};
 		};
 		01EE1BD3FFC9F1AA11CA2B4D = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleBMacEthernet.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		01FC073DFFB0F85611CA2B4D = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		01FC073EFFB0F85611CA2B4D = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -46,44 +51,68 @@
 //023
 //024
 		020A398BFFB0FA9711CA2B4D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = BMacEnetPrivate.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		020A398CFFB0FA9711CA2B4D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = BMacEnetPrivate.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		020A398DFFB0FA9711CA2B4D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = BMacEnetMII.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		020A398EFFB0FA9711CA2B4D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = BMacEnetMII.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		020A398FFFB0FA9711CA2B4D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = BMacEnetHW.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		020A3990FFB0FA9711CA2B4D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = BMacEnet.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		020A3991FFB0FA9711CA2B4D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = BMacEnet.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		020A3992FFB0FA9711CA2B4D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = BMacEnetRegisters.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		020A3993FFB0FA9711CA2B4D = {
 			fileRef = 020A3992FFB0FA9711CA2B4D;
@@ -146,15 +175,19 @@
 //083
 //084
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				01FC073DFFB0F85611CA2B4D,
 				01FC073EFFB0F85611CA2B4D,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
 			targets = (
 				089C1673FE841209C02AAC07,
+				7274D067056E8EE700B89ED0,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -166,6 +199,7 @@
 			isa = PBXGroup;
 			name = AppleBMacEthernet;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -184,7 +218,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleBMacEthernet;
-				MODULE_VERSION = "\U00011.1.3f1";
+				MODULE_VERSION = "\U00011.3.0f1";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -218,11 +252,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.3f1</string>
+	<string>1.3.0f1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Name Matching</key>
@@ -243,22 +277,23 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IONetworkingFamily</key>
-		<string>1.1</string>
+		<string>1.4.3</string>
 		<key>com.apple.kernel.bsd</key>
-		<string>1.1</string>
+		<string>6.9.9</string>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
+		<string>6.9.9</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
+		<string>6.9.9</string>
 		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
+		<string>6.9.9</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Network-Root</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -311,6 +346,7 @@
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167DFE841241C02AAC07 = {
 			children = (
@@ -319,13 +355,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167EFE841241C02AAC07 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1680FE841241C02AAC07 = {
 			fileRef = 089C167DFE841241C02AAC07;
@@ -350,6 +389,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -376,6 +416,38 @@
 			name = Source;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
+		};
+//240
+//241
+//242
+//243
+//244
+//720
+//721
+//722
+//723
+//724
+		7274D067056E8EE700B89ED0 = {
+			buildArgumentsString = $ACTION;
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Installer Package";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /usr/bin/gnumake;
+			buildWorkingDirectory = Package;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = "bmac-installer";
+			passBuildSettingsInEnvironment = 1;
+			productName = "bmac-installer";
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

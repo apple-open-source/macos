@@ -1,0 +1,32 @@
+--- mbstowcs.c.orig	Thu Nov 25 11:38:18 2004
++++ mbstowcs.c	Fri Feb 18 17:02:15 2005
+@@ -27,17 +27,27 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/mbstowcs.c,v 1.11 2004/07/21 10:54:57 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <limits.h>
+ #include <stdlib.h>
+ #include <wchar.h>
+ #include "mblocal.h"
+ 
+ size_t
+-mbstowcs(wchar_t * __restrict pwcs, const char * __restrict s, size_t n)
++mbstowcs_l(wchar_t * __restrict pwcs, const char * __restrict s, size_t n,
++    locale_t loc)
+ {
+ 	static const mbstate_t initial;
+ 	mbstate_t mbs;
+ 
++	NORMALIZE_LOCALE(loc);
+ 	mbs = initial;
+-	return (__mbsnrtowcs(pwcs, &s, SIZE_T_MAX, n, &mbs));
++	return (loc->__lc_ctype->__mbsnrtowcs(pwcs, &s, SIZE_T_MAX, n, &mbs, loc));
++}
++
++size_t
++mbstowcs(wchar_t * __restrict pwcs, const char * __restrict s, size_t n)
++{
++	return mbstowcs_l(pwcs, s, n, __current_locale());
+ }

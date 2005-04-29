@@ -1,0 +1,24 @@
+<manpage>
+<docdate>August 28, 2002</docdate>
+<doctitle>Document title</doctitle>
+<os>Darwin</os>
+<section>1</section>
+<names>
+	<name>hdxml2manxml<desc>HeaderDoc XML to MPGL translator</desc></name>
+</names>
+
+<usage>
+	<arg>filename [ filename ... ]<desc>the filename(s) to be processed</desc></arg>
+</usage>
+
+<environment>
+	This tool was designed to translate from headerdoc's XML output to an mxml
+	file for use with xml2man.
+</environment>
+
+<seealso>
+	<p>For more information on xml2man, see</p>
+	<manpage>xml2man<section>1</section>, </manpage>
+</seealso>
+
+</manpage>

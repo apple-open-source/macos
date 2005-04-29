@@ -101,6 +101,11 @@
 #if HAVE_GETSPNAM
 #include <shadow.h>
 #endif
+#ifdef __APPLE__
+#include <pam/pam_appl.h>
+#include <pam/pam_misc.h>
+#include <pam/pam_mod_misc.h>
+#endif
 
 #else	/* ! HAVE_TNFTPD_H */
 
@@ -3355,6 +3360,26 @@ logrusage(const struct rusage *rusage_before,
 	    rusage_after->ru_nswap - rusage_before->ru_nswap);
 }
 
+char *mystuff = NULL;
+/* This is an extremely limited pam conversation module.
+ * It is the bare minimum to get the password.
+ */
+int aapl_conv(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr)
+{
+	struct pam_response *reply;
+
+	if( msg[0]->msg_style != PAM_PROMPT_ECHO_OFF ) 
+		return PAM_CONV_ERR;
+
+	reply = calloc(num_msg, sizeof(struct pam_response));
+	if( reply == NULL )
+		return PAM_CONV_ERR;
+
+	reply[0].resp = xstrdup(mystuff);
+	*resp = reply;
+	return PAM_SUCCESS;
+}
+
 /*
  * Determine if `password' is valid for user given in `pw'.
  * Returns 2 if password expired, 1 if otherwise failed, 0 if ok
@@ -3366,6 +3391,11 @@ checkpassword(const struct passwd *pwent, const char *password)
 	time_t	 expire;
 #if HAVE_GETSPNAM
 	struct spwd *spw;
+#endif
+#ifdef __APPLE__
+	pam_handle_t *pamh = NULL;
+	struct pam_conv conv = {aapl_conv, NULL};
+	int rval;
 #endif
 
 	expire = 0;
@@ -3383,15 +3413,25 @@ checkpassword(const struct passwd *pwent, const char *password)
 #endif
 #endif
 
+#ifdef __APPLE__
+	mystuff = password;
+	rval = pam_start("ftpd", pw->pw_name, &conv, &pamh);
+	if( rval != PAM_SUCCESS )
+		return 1;
+	rval = pam_authenticate(pamh, 0);
+	if( rval != PAM_SUCCESS ) 
+		return 1;
+#else
+
 	if (orig[0] == '\0')		/* don't allow empty passwords */
 		return 1;
-
 	new = crypt(password, orig);	/* encrypt given password */
 	if (strcmp(new, orig) != 0)	/* compare */
 		return 1;
 
 	if (expire && time(NULL) >= expire)
 		return 2;		/* check if expired */
+#endif
 
 	return 0;			/* OK! */
 }

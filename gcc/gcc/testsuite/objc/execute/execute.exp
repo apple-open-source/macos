@@ -35,6 +35,5 @@ foreach src [lsort [glob -nocomplain $srcdir/$subdir/*.m]] {
 	continue
     }
 
-    # APPLE LOCAL objc test suite
-    objc-torture-execute $src "-framework Foundation"
+    objc-torture-execute $src
 }

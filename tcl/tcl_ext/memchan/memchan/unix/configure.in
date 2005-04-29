@@ -1,0 +1,416 @@
+dnl
+dnl Process this file with autoconf to produce a configure script.
+dnl
+AC_REVISION($Id: configure.in,v 1.15 2004/06/03 23:39:13 patthoyts Exp $)
+dnl
+AC_INIT(Makefile.in)
+
+MEMCHAN_VERSION=2.2.0
+MEMCHAN_MAJOR_VERSION=2
+MEMCHAN_MINOR_VERSION=2
+VERSION=${MEMCHAN_VERSION}
+
+TCL_REQ_MAJOR_VERSION=8
+TCL_REQ_MINOR_VERSION=0
+
+
+dnl
+dnl use location of tclsh (wish?) as default for prefix, exec-prefix
+dnl
+
+AC_PREFIX_PROGRAM(tclsh)
+
+if test "x${prefix}" = "xNONE"
+then
+    prefix=/usr/local
+fi
+if test "x${exec_prefix}" = "xNONE"
+then
+    exec_prefix="${prefix}"
+fi
+
+# -------------------------------------------------------------------
+
+BUILD_DIR=`pwd`
+cd ${srcdir}
+TOP_DIR=`pwd`
+cd ${BUILD_DIR}
+
+AC_SUBST(TOP_DIR)
+AC_SUBST(BUILD_DIR)
+
+dnl
+dnl ----------------------------------------------------------------
+dnl let configure understand more options.  they allow the caller to
+dnl specify library- and include-directory for Tcl more explicitly.
+dnl
+dnl '--with-tcl=DIR' is a shorthand to
+dnl '-with-tcl-include-dir=DIR/include --with-tcl-lib-dir=DIR/lib'
+dnl
+
+AC_ARG_WITH(tcl,
+	[  --with-tcl=DIR		tcl.h resides in DIR/include, libtcl resides in DIR/lib],
+	[TCL_LIB_DIR=$withval/lib; TCL_INCLUDE_DIR=$withval/include],
+	[])
+dnl
+AC_ARG_WITH(tcl-include-dir,
+	[  --with-tcl-include-dir=DIR	tcl.h resides in DIR],
+	[TCL_INCLUDE_DIR=$withval],
+	[])
+dnl
+AC_ARG_WITH(tcl-lib-dir,
+	[  --with-tcl-lib-dir=DIR	libtcl resides in DIR],
+	[TCL_LIB_DIR=$withval],
+	[])
+
+AC_ARG_ENABLE(shared,
+	[  --disable-shared		don't build memchan as a shared library],
+	[ok=$enableval], [ok=yes])
+
+dnl ----------------------------------------------------------------
+dnl
+dnl Crossover between --with-tcl-include-dir and --with-tcl-lib-dir
+dnl Setting one, but not the other will cause automatic definition
+dnl of the missing part.
+
+if test "X" = "X$TCL_LIB_DIR" -a "X" != "X$TCL_INCLUDE_DIR"
+then
+    TCL_LIB_DIR="$TCL_INCLUDE_DIR/../lib"
+fi
+
+if test "X" = "X$TCL_INCLUDE_DIR" -a "X" != "X$TCL_LIB_DIR"
+then
+    TCL_INCLUDE_DIR="$TCL_LIB_DIR/../include"
+fi
+
+dnl ----------------------------------------------------------------
+dnl
+dnl	checks for alternative programs:
+dnl		GNU cc, cpp, install, ranlib, makeinfo
+dnl
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_RANLIB
+dnl
+dnl ----------------------------------------------------------------
+dnl
+dnl	checks for typedefs
+dnl	checks for library functions
+dnl	checks for compiler characteristics
+dnl		ANSI 'const' available, correct ?
+dnl
+dnl
+dnl ----------------------------------------------------------------
+dnl
+dnl Locate tcl.h
+dnl Searches:
+dnl	TCL_INCLUDE_DIR		(--with-tcl, --with-tcl-include-dir)
+dnl	../../tcl8.2*/generic	(assume tcl source in sibling directory)
+dnl	../../tcl8.1*/generic	(assume tcl source in sibling directory)
+dnl	../../tcl8.0/generic	(assume tcl source in sibling directory)
+dnl	../../tcl/generic	(see above)
+dnl	../../tcl		(should be old version)
+dnl	$prefix/include		(--prefix)
+dnl	/usr/local/include
+dnl	/usr/include
+dnl
+
+AC_CACHE_CHECK(for directory with tcl.h,
+	memchan_cv_path_TCL_INCLUDE_DIR,
+	[memchan_cv_path_TCL_INCLUDE_DIR=""
+	 places="$TCL_INCLUDE_DIR \
+		../../tcl8.3.*/generic \
+		../../tcl8.3/generic \
+		../../tcl8.2.*/generic \
+		../../tcl8.2/generic \
+		../../tcl8.2b*/generic \
+		../../tcl8.2a*/generic \
+		../../tcl8.2.*/generic \
+		../../tcl8.1/generic \
+		../../tcl8.1b*/generic \
+		../../tcl8.1a*/generic \
+		../../tcl8.0.*/generic \
+		../../tcl8.0/generic \
+		../../tcl/generic \
+		../../tcl \
+		$prefix/include \
+		/usr/local/include \
+		/usr/include"
+     for dir in $places; do
+         if test -r $dir/tcl.h ; then
+            memchan_cv_path_TCL_INCLUDE_DIR=$dir
+            break
+         fi
+     done])
+dnl
+dnl verify success of search
+dnl
+TCL_INCLUDE_DIR=$memchan_cv_path_TCL_INCLUDE_DIR
+if test -z "$TCL_INCLUDE_DIR" ; then
+    AC_MSG_ERROR(not found; use --with-tcl=DIR or --with-tcl-include-dir=DIR)
+fi
+dnl
+dnl tcl.h found, now check for acceptable version of Tcl
+dnl
+AC_CACHE_CHECK(for up-to-date version of Tcl,
+    memchan_cv_vers_good_tcl_version,
+[AC_REQUIRE_CPP()
+    ac_save_cppflags="$CPPFLAGS"
+    CPPFLAGS="-I$TCL_INCLUDE_DIR $CPPFLAGS"
+    AC_EGREP_CPP(good_tcl_version,
+[#include <tcl.h>
+#if ((TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION >= 0))
+    good_tcl_version
+#endif
+#if (TCL_MAJOR_VERSION > 8)
+    good_tcl_version
+#endif],memchan_cv_vers_good_tcl_version=yes,memchan_cv_vers_good_tcl_version=no)
+    CPPFLAGS=$ac_save_cppflags])
+
+if test "$memchan_cv_vers_good_tcl_version" = "no"; then
+    AC_MSG_ERROR(Your Tcl must be at least version 8.0)
+fi
+
+AC_SUBST(TCL_INCLUDE_DIR)
+dnl
+dnl ----------------------------------------------------------------
+dnl
+dnl Locate tcl library
+dnl Searches:
+dnl	TCL_LIB_DIR		(--with-tcl, --with-tcl-lib-dir)
+dnl	../../tcl8.2*/unix	(assume tcl source in sibling directory)
+dnl	../../tcl8.1*/unix	(assume tcl source in sibling directory)
+dnl	../../tcl8.0/unix	(assume tcl source in sibling directory)
+dnl	../../tcl/unix		(see above)
+dnl	../../tcl			(should be old version)
+dnl	$exec_prefix/lib	(--exec-prefix)
+dnl	$prefix/lib		(--prefix)
+dnl	/usr/local/lib
+dnl	/usr/lib
+dnl
+AC_CACHE_CHECK(for tcl library,
+	memchan_cv_lib_TCL_LIB,
+	[memchan_cv_lib_TCL_LIB=""
+	 places="$TCL_LIB_DIR \
+	../../tcl8.2.*/unix \
+	../../tcl8.2/unix \
+	../../tcl8.3.*/unix \
+	../../tcl8.3/unix \
+	../../tcl8.2b*/unix \
+	../../tcl8.2a*/unix \
+	../../tcl8.1.*/unix \
+	../../tcl8.1/unix \
+	../../tcl8.1b*/unix \
+	../../tcl8.1a*/unix \
+	../../tcl8.0.*/unix \
+	../../tcl8.0/unix \
+	../../tcl/unix \
+	../../tcl \
+	 $exec_prefix/lib \
+	 $prefix/lib \
+	 /usr/local/lib \
+	 /usr/lib"
+    for dir in $places; do
+        if test -n "$memchan_cv_lib_TCL_LIB"; then
+            break
+        fi
+        for version in 8.3 8.2 8.1.1 8.1 8.0.5 8.0.4 8.0.3 8.0 83 82 811 81 805 804 803 80 ""; do
+            if test -n "$memchan_cv_lib_TCL_LIB"; then
+                break
+            fi
+            for libsuff in .so ".so.*" .sl .a; do
+                if test -n "$memchan_cv_lib_TCL_LIB"; then
+                    break
+                fi
+                if test -f $dir/libtcl$version$libsuff; then
+                    memchan_cv_lib_TCL_LIB="-L$dir -ltcl$version"
+		    TCL_LIB_DIR="$dir"
+                fi
+            done
+        done
+    done])
+
+TCL_LIB="$memchan_cv_lib_TCL_LIB"
+if test -z "$TCL_LIB" ; then
+    AC_MSG_ERROR(not found; use --with-tcl-lib-dir=path)
+fi
+
+AC_SUBST(TCL_LIB)
+
+AC_CACHE_VAL(memchan_cv_TCL_LIB_DIR, [memchan_cv_TCL_LIB_DIR="$TCL_LIB_DIR"])
+TCL_LIB_DIR="$memchan_cv_TCL_LIB_DIR"
+
+dnl
+dnl ----------------------------------------------------------------
+dnl
+dnl load 'tclConfig.sh' and integrate its information
+dnl
+
+#--------------------------------------------------------------------
+#	Read in configuration information generated by Tcl for shared
+#	libraries, and arrange for it to be substituted into our
+#	Makefile.
+#--------------------------------------------------------------------
+
+file=$TCL_LIB_DIR/tclConfig.sh
+. $file
+CC=$TCL_CC
+SHLIB_CFLAGS=$TCL_SHLIB_CFLAGS
+SHLIB_LD=$TCL_SHLIB_LD
+SHLIB_LD_LIBS=$TCL_SHLIB_LD_LIBS
+SHLIB_SUFFIX=$TCL_SHLIB_SUFFIX
+SHLIB_VERSION=$TCL_SHLIB_VERSION
+DL_LIBS=$TCL_DL_LIBS
+LD_FLAGS=$TCL_LD_FLAGS
+
+eval "MEMCHAN_CC_SEARCH_FLAGS=\"$TCL_LD_SEARCH_FLAGS\""
+
+case $SHLIB_LD in
+*ld*)
+      MEMCHAN_LD_SEARCH_FLAGS=`echo ${MEMCHAN_CC_SEARCH_FLAGS} |sed -e "s|-Wl,||g" -e "s|,| |g"`
+      ;;
+*)
+      MEMCHAN_LD_SEARCH_FLAGS="${MEMCHAN_CC_SEARCH_FLAGS}"
+      ;;
+esac
+
+
+TCL_BASE=`echo ${TCL_LIB_SPEC} |sed -e "s|^.*-l||"`
+TCL_STUB_BASE=`echo ${TCL_STUB_LIB_SPEC} |sed -e "s|^.*-l||"`
+
+
+TCL_LIB_SPEC="-L${TCL_LIB_DIR} -l${TCL_BASE}"
+TCL_STUB_LIB_SPEC="-L${TCL_LIB_DIR} -l${TCL_STUB_BASE}"
+VERSION=""
+eval "TCL_UNSHARED_LIB_FILE=lib${TCL_BASE}${TCL_UNSHARED_LIB_SUFFIX}"
+eval "TCL_SHARED_LIB_FILE=lib${TCL_BASE}${TCL_SHARED_LIB_SUFFIX}"
+
+
+#--------------------------------------------------------------------
+#	The statements below define a collection of symbols related to
+#	building libmemchan as a shared library instead of a static library.
+#--------------------------------------------------------------------
+
+TCL_SHARED_LIBS=""
+#--------------------------------------------------------------------
+
+# Use stubs <=> (((major == 8) && (minor > 0)) || (major > 8)) && 'memchan as shared library'
+
+AC_MSG_CHECKING(for stubs)
+
+if test \( \( $TCL_MAJOR_VERSION -eq 8 -a $TCL_MINOR_VERSION -gt 0 \) -o $TCL_MAJOR_VERSION -gt 8 \) -a "x$ok" = "xyes"
+then
+    AC_MSG_RESULT(yes)
+    MC_USING_STUBS=1
+    # Stubs
+    TCL_DEFS="$TCL_DEFS -DUSE_TCL_STUBS"
+    TCL_SHARED_LIBS="${TCL_STUB_LIB_SPEC}"
+else
+    AC_MSG_RESULT(no)
+    MC_USING_STUBS=0
+    # No stubs
+    case "$SHLIB_LD" in
+	*ldAix*)
+	TCL_SHARED_LIBS='${TCL_LIB_SPEC}'
+	;;
+    esac
+fi
+
+case "$SHLIB_LD" in
+    *ldAix*)
+    TCL_SHARED_LIBS="${TCL_SHARED_LIBS}"
+    ;;
+esac
+
+if test "x$ok" = "xyes" -a "x${SHLIB_SUFFIX}" != "x"; then
+    MEMCHAN_SHLIB_CFLAGS="${SHLIB_CFLAGS}"
+    eval "MEMCHAN_LIB_FILE=libmemchan${TCL_SHARED_LIB_SUFFIX}"
+    MAKE_LIB="\${SHLIB_LD} -o ${MEMCHAN_LIB_FILE} \${OBJECTS} ${TCL_SHARED_LIBS} ${SHLIB_LD_LIBS}"
+    RANLIB=":"
+
+    install_other=''
+else
+    MEMCHAN_SHLIB_CFLAGS=""
+    eval "MEMCHAN_LIB_FILE=libmemchan${TCL_UNSHARED_LIB_SUFFIX}"
+    MAKE_LIB="ar cr ${MEMCHAN_LIB_FILE} \${OBJECTS}"
+
+    install_other='install-bin'
+fi
+
+# Note:  in the following variable, it's important to use the absolute
+# path name of the Tcl directory rather than "..":  this is because
+# AIX remembers this path and will attempt to use it at run-time to look
+# up the Tcl library.
+
+if test "${TCL_LIB_VERSIONS_OK}" = "ok"; then
+    MEMCHAN_BUILD_LIB_SPEC="-L`pwd` -lmemchan${VERSION}"
+    MEMCHAN_LIB_SPEC="-L${exec_prefix}/lib -lmemchan${VERSION}"
+else
+    MEMCHAN_BUILD_LIB_SPEC="-L`pwd` -lmemchan`echo ${VERSION} | tr -d .`"
+    MEMCHAN_LIB_SPEC="-L${exec_prefix}/lib -lmemchan`echo ${VERSION} | tr -d .`"
+fi
+
+if test "x$exec_prefix" = "xNONE" ; then
+	MEMCHAN_LIB_DIR=${prefix}/lib
+else
+	MEMCHAN_LIB_DIR=${exec_prefix}/lib
+fi
+
+dnl
+dnl
+dnl  Check for some libraries we need for the tclsh application
+dnl
+dnl AC_CHECK_LIB(socket, main, [LIBS="$LIBS -lsocket"])
+dnl AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"])
+dnl AC_SUBST(LIBS)
+
+AC_CHECK_FUNCS(ltoa)
+
+dnl ----------------------------------------------------------------
+dnl non-standard substitutions
+dnl
+
+dnl don't bother with -ltclX.Y if not running under AIX
+if test "x${TCL_SHARED_LIB_SUFFIX}" != 'x${VERSION}.a' -o "x${SHLIB_SUFFIX}" != "x.so"; then
+	TCL_LIB_SPEC=""
+fi
+
+
+AC_SUBST(CC)
+AC_SUBST(DL_LIBS)
+AC_SUBST(LD_FLAGS)
+AC_SUBST(TCL_LIBS)
+AC_SUBST(MAKE_LIB)
+AC_SUBST(SHLIB_CFLAGS)
+AC_SUBST(SHLIB_LD)
+AC_SUBST(SHLIB_LD_LIBS)
+AC_SUBST(SHLIB_SUFFIX)
+AC_SUBST(SHLIB_VERSION)
+AC_SUBST(TCL_BUILD_LIB_SPEC)
+AC_SUBST(TCL_LIB_SPEC)
+AC_SUBST(TCL_SRC_DIR)
+AC_SUBST(TCL_LIB_DIR)
+AC_SUBST(TCL_INCLUDE_DIR)
+AC_SUBST(TCL_VERSION)
+AC_SUBST(TCL_DEFS)
+AC_SUBST(MC_USING_STUBS)
+AC_SUBST(MEMCHAN_BUILD_LIB_SPEC)
+AC_SUBST(MEMCHAN_LD_SEARCH_FLAGS)
+AC_SUBST(MEMCHAN_LIB_FILE)
+AC_SUBST(MEMCHAN_LIB_SPEC)
+AC_SUBST(MEMCHAN_LIB_DIR)
+AC_SUBST(MEMCHAN_SHLIB_CFLAGS)
+AC_SUBST(MEMCHAN_VERSION)
+AC_SUBST(MEMCHAN_MAJOR_VERSION)
+AC_SUBST(MEMCHAN_MINOR_VERSION)
+AC_SUBST(install_other)
+
+dnl for GCC activate -Wall
+if test ! -z "$GCC"; then
+	CC="$CC -Wall"
+fi
+
+
+dnl
+AC_OUTPUT(Makefile pkgIndex.tcl)
+

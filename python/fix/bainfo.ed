@@ -1,6 +1,2 @@
-/>CFBundleIdentifier</+1s/>/>org.python./
-/^<\/dict>/i
-	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
-.
+g/2\.3\.[0-9]/s//2.3.3/
 w

@@ -1,7 +1,7 @@
 /*
  *  SQLInstallDriverEx.c
  *
- *  $Id: SQLInstallDriverEx.c,v 1.1.1.2 2002/04/30 00:40:25 miner Exp $
+ *  $Id: SQLInstallDriverEx.c,v 1.3 2004/11/11 01:52:40 luesang Exp $
  *
  *  These functions intentionally left blank
  *
@@ -90,11 +90,11 @@
 #endif
 
 extern BOOL InstallDriverPath ( LPSTR lpszPath,WORD cbPathMax,
-    WORD FAR * pcbPathOut,LPSTR envname);
+    WORD * pcbPathOut,LPSTR envname);
 
 
 BOOL
-InstallDriverPathLength (WORD FAR *pcbPathOut, LPSTR envname)
+InstallDriverPathLength (WORD *pcbPathOut, LPSTR envname)
 {
 #ifdef _MAC
   OSErr result;
@@ -102,7 +102,7 @@ InstallDriverPathLength (WORD FAR *pcbPathOut, LPSTR envname)
   short fldrRef;
 #endif
   BOOL retcode = FALSE;
-  WORD len;
+  WORD len = 0;
   char path[1024];
   char *ptr;
 

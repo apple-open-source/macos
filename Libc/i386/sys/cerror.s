@@ -27,6 +27,10 @@
 
 	.globl	_errno
 
+LABEL(cerror_cvt)
+	cmpl	$102, %eax	/* EOPNOTSUPP? */
+	jnz	cerror
+	movl	$45, %eax	/* Yes; make ENOTSUP for compatibility */
 LABEL(cerror)
 	REG_TO_EXTERN(%eax, _errno)
 	pushl	%eax

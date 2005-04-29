@@ -1,5 +1,6 @@
 /* Native-dependent code for FreeBSD/i386.
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -26,6 +27,8 @@
 #include <sys/ptrace.h>
 #include <sys/sysctl.h>
 
+#include "i386-tdep.h"
+
 /* Prevent warning from -Wmissing-prototypes.  */
 void _initialize_i386fbsd_nat (void);
 
@@ -47,7 +50,7 @@ child_resume (ptid_t ptid, int step, enum target_signal signal)
 
   if (!step)
     {
-      unsigned int eflags;
+      ULONGEST eflags;
 
       /* Workaround for a bug in FreeBSD.  Make sure that the trace
  	 flag is off when doing a continue.  There is a code path
@@ -59,9 +62,11 @@ child_resume (ptid_t ptid, int step, enum target_signal signal)
  	 never goes through the kernel's trap() function which would
  	 normally clear it.  */
 
-      eflags = read_register (PS_REGNUM);
+      regcache_cooked_read_unsigned (current_regcache, I386_EFLAGS_REGNUM,
+				     &eflags);
       if (eflags & 0x0100)
-	write_register (PS_REGNUM, eflags & ~0x0100);
+	regcache_cooked_write_unsigned (current_regcache, I386_EFLAGS_REGNUM,
+					eflags & ~0x0100);
 
       request = PT_CONTINUE;
     }
@@ -89,16 +94,13 @@ _initialize_i386fbsd_nat (void)
     int ps_strings;
     size_t len;
 
-    extern CORE_ADDR i386fbsd_sigtramp_start;
-    extern CORE_ADDR i386fbsd_sigtramp_end;
-
     mib[0] = CTL_KERN;
     mib[1] = KERN_PS_STRINGS;
     len = sizeof (ps_strings);
     if (sysctl (mib, 2, &ps_strings, &len, NULL, 0) == 0)
       {
-	i386fbsd_sigtramp_start = ps_strings - 128;
-	i386fbsd_sigtramp_end = ps_strings;
+	i386fbsd_sigtramp_start_addr = ps_strings - 128;
+	i386fbsd_sigtramp_end_addr = ps_strings;
       }
   }
 #endif

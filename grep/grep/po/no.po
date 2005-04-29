@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: GNU grep 2.2\n"
-"POT-Creation-Date: 2000-03-01 22:44-0500\n"
+"POT-Creation-Date: 2001-07-31 16:17-0400\n"
 "PO-Revision-Date: 1998-08-01 13:45+0200\n"
 "Last-Translator: Eivind Tagseth <eivindt@multinet.no>\n"
 "Language-Team: Norwegian <no@li.org>\n"
@@ -15,11 +15,18 @@ msgstr ""
 "Content-Type: text/plain; charset=ISO-8859-1\n"
 "Content-Transfer-Encoding: 8-bit\n"
 
-#: src/dfa.c:163 src/dfa.c:174 src/dfa.c:185 src/grep.c:902
+#: src/dfa.c:136 src/dfa.c:147 src/dfa.c:158 src/search.c:689
 msgid "Memory exhausted"
 msgstr "Minnet oppbrukt"
 
-#: src/dfa.c:448
+#: src/dfa.c:489 src/dfa.c:492 src/dfa.c:510 src/dfa.c:521 src/dfa.c:545
+#: src/dfa.c:604 src/dfa.c:609 src/dfa.c:622 src/dfa.c:623 src/dfa.c:1001
+#: src/dfa.c:1004 src/dfa.c:1028 src/dfa.c:1032 src/dfa.c:1033 src/dfa.c:1036
+#: src/dfa.c:1048 src/dfa.c:1049
+msgid "Unbalanced ["
+msgstr "Ubalansert ["
+
+#: src/dfa.c:741
 msgid "Unfinished \\ escape"
 msgstr "Uferdig \\-beskyttelse"
 
@@ -27,137 +34,81 @@ msgstr "Uferdig \\-beskyttelse"
 #. {M} - exact count
 #. {M,} - minimum count, maximum is infinity
 #. {M,N} - M through N
-#: src/dfa.c:581 src/dfa.c:587 src/dfa.c:597 src/dfa.c:605 src/dfa.c:620
+#: src/dfa.c:874 src/dfa.c:880 src/dfa.c:890 src/dfa.c:898 src/dfa.c:913
 msgid "unfinished repeat count"
 msgstr "uferdig gjentagelsesantall"
 
-#: src/dfa.c:594 src/dfa.c:611 src/dfa.c:619 src/dfa.c:623
+#: src/dfa.c:887 src/dfa.c:904 src/dfa.c:912 src/dfa.c:916
 msgid "malformed repeat count"
 msgstr "feilaktig gjentagelsesantall"
 
-#: src/dfa.c:688 src/dfa.c:691 src/dfa.c:718 src/dfa.c:722 src/dfa.c:723
-#: src/dfa.c:726 src/dfa.c:739 src/dfa.c:740
-msgid "Unbalanced ["
-msgstr "Ubalansert ["
-
-#: src/dfa.c:886
+#: src/dfa.c:1239
 msgid "Unbalanced ("
 msgstr "Ubalansert ("
 
-#: src/dfa.c:1000
+#: src/dfa.c:1364
 msgid "No syntax specified"
 msgstr "Ingen syntaks spesifisert"
 
-#: src/dfa.c:1008
+#: src/dfa.c:1372
 msgid "Unbalanced )"
 msgstr "Ubalansert )"
 
-#: src/dfa.c:1994
+#: src/dfa.c:2942
 msgid "out of memory"
 msgstr "tomt for minne"
 
-#: src/getopt.c:675
-#, c-format
-msgid "%s: option `%s' is ambiguous\n"
-msgstr "%s: flagget «%s» er flertydig\n"
-
-#: src/getopt.c:700
-#, c-format
-msgid "%s: option `--%s' doesn't allow an argument\n"
-msgstr "%s: flagget «--%s» tar ikke argumenter\n"
-
-#: src/getopt.c:705
-#, c-format
-msgid "%s: option `%c%s' doesn't allow an argument\n"
-msgstr "%s: flagget «%c%s» tar ikke argumenter\n"
-
-#: src/getopt.c:723 src/getopt.c:896
-#, c-format
-msgid "%s: option `%s' requires an argument\n"
-msgstr "%s: flagget «%s» trenger et argument\n"
-
-#. --option
-#: src/getopt.c:752
-#, c-format
-msgid "%s: unrecognized option `--%s'\n"
-msgstr "%s: ukjent flagg «--%s»\n"
-
-#. +option or -option
-#: src/getopt.c:756
-#, c-format
-msgid "%s: unrecognized option `%c%s'\n"
-msgstr "%s: ukjent flagg «%c%s»\n"
-
-#. 1003.2 specifies the format of this message.
-#: src/getopt.c:782
-#, c-format
-msgid "%s: illegal option -- %c\n"
-msgstr "%s: ulovlig flagg -- %c\n"
-
-#: src/getopt.c:785
-#, c-format
-msgid "%s: invalid option -- %c\n"
-msgstr "%s: ugyldig flagg -- %c\n"
-
-#. 1003.2 specifies the format of this message.
-#: src/getopt.c:815 src/getopt.c:945
-#, c-format
-msgid "%s: option requires an argument -- %c\n"
-msgstr "%s: flagget behøver et argument -- %c\n"
-
-#: src/getopt.c:862
-#, c-format
-msgid "%s: option `-W %s' is ambiguous\n"
-msgstr "%s: flagget «-W %s» er flertydig\n"
-
-#: src/getopt.c:880
-#, c-format
-msgid "%s: option `-W %s' doesn't allow an argument\n"
-msgstr "%s: flagget «-W %s» tar ikke argumenter\n"
-
-#: src/grep.c:185 src/grep.c:200 src/grep.c:293 src/grep.c:399 src/kwset.c:180
-#: src/kwset.c:186 src/obstack.c:471
+#: lib/obstack.c:471 src/kwset.c:171 src/kwset.c:177 src/search.c:103
+#: src/search.c:209 src/search.c:293
 msgid "memory exhausted"
 msgstr "minnet oppbrukt"
 
-#: src/grep.c:550 src/grep.c:1441
+#: src/grep.c:191
+msgid "invalid context length argument"
+msgstr "ugyldig kontekstlengde"
+
+#: src/grep.c:458
+msgid "input is too large to count"
+msgstr ""
+
+#: src/grep.c:531
 msgid "writing output"
 msgstr "skriver utdata"
 
-#: src/grep.c:777
+#: src/grep.c:804
 #, c-format
 msgid "Binary file %s matches\n"
 msgstr ""
 
-#: src/grep.c:791
+#: src/grep.c:818
 msgid "(standard input)"
 msgstr "(standard inn)"
 
-#: src/grep.c:887
-#, c-format
-msgid "%s: warning: %s: %s\n"
+#: src/grep.c:923
+#, fuzzy, c-format
+msgid "warning: %s: %s\n"
 msgstr "%s: advarsel: %s: %s\n"
 
-#: src/grep.c:888
+#: src/grep.c:924
 msgid "recursive directory loop"
 msgstr ""
 
-#: src/grep.c:938
+#: src/grep.c:972
 #, c-format
 msgid "Usage: %s [OPTION]... PATTERN [FILE]...\n"
 msgstr "Bruk: %s [FLAGG]... MØNSTER [FIL]...\n"
 
-#: src/grep.c:939
+#: src/grep.c:974
 #, c-format
 msgid "Try `%s --help' for more information.\n"
 msgstr "Prøv «%s --help» for mer informasjon.\n"
 
-#: src/grep.c:943
+#: src/grep.c:979
 #, c-format
 msgid "Usage: %s [OPTION]... PATTERN [FILE] ...\n"
 msgstr "Bruk: %s [FLAGG]... MØNSTER [FIL] ...\n"
 
-#: src/grep.c:944
+#: src/grep.c:980
 #, c-format
 msgid ""
 "Search for PATTERN in each FILE or standard input.\n"
@@ -166,14 +117,15 @@ msgid ""
 "Regexp selection and interpretation:\n"
 msgstr ""
 
-#: src/grep.c:949
+#: src/grep.c:985
 msgid ""
 "  -E, --extended-regexp     PATTERN is an extended regular expression\n"
 "  -F, --fixed-strings       PATTERN is a set of newline-separated strings\n"
 "  -G, --basic-regexp        PATTERN is a basic regular expression\n"
+"  -P, --perl-regexp         PATTERN is a Perl regular expression\n"
 msgstr ""
 
-#: src/grep.c:953
+#: src/grep.c:990
 #, fuzzy
 msgid ""
 "  -e, --regexp=PATTERN      use PATTERN as a regular expression\n"
@@ -197,7 +149,7 @@ msgstr ""
 "  -w, --word-regexp         MØNSTER må stemme overens med hele ord\n"
 "  -x, --line-regexp         MØNSTER må stemme overens med hele linjer\n"
 
-#: src/grep.c:960
+#: src/grep.c:997
 #, fuzzy
 msgid ""
 "\n"
@@ -215,23 +167,29 @@ msgstr ""
 "  -V, --version             vis versioninformasjon og avslutt\n"
 "      --help                vis denne helpeteksten og avslutt\n"
 
-#: src/grep.c:968
+#: src/grep.c:1005
 #, fuzzy
 msgid ""
 "\n"
 "Output control:\n"
+"  -m, --max-count=NUM       stop after NUM matches\n"
 "  -b, --byte-offset         print the byte offset with output lines\n"
 "  -n, --line-number         print line number with output lines\n"
+"      --line-buffered       flush output on every line\n"
 "  -H, --with-filename       print the filename for each match\n"
 "  -h, --no-filename         suppress the prefixing filename on output\n"
 "  -q, --quiet, --silent     suppress all normal output\n"
 "      --binary-files=TYPE   assume that binary files are TYPE\n"
-"                            TYPE is 'binary', 'text', or 'without-match'.\n"
+"                            TYPE is 'binary', 'text', or 'without-match'\n"
 "  -a, --text                equivalent to --binary-files=text\n"
 "  -I                        equivalent to --binary-files=without-match\n"
 "  -d, --directories=ACTION  how to handle directories\n"
-"                            ACTION is 'read', 'recurse', or 'skip'.\n"
-"  -r, --recursive           equivalent to --directories=recurse.\n"
+"                            ACTION is 'read', 'recurse', or 'skip'\n"
+"  -R, -r, --recursive       equivalent to --directories=recurse\n"
+"      --include=PATTERN     files that match PATTERN will be examined\n"
+"      --exclude=PATTERN     files that match PATTERN will be skipped.\n"
+"      --exclude-from=FILE   files that match PATTERN in FILE will be "
+"skipped.\n"
 "  -L, --files-without-match only print FILE names containing no match\n"
 "  -l, --files-with-matches  only print FILE names containing matches\n"
 "  -c, --count               only print a count of matching lines per FILE\n"
@@ -252,16 +210,16 @@ msgstr ""
 "treff\n"
 "                            per FIL\n"
 
-#: src/grep.c:987
+#: src/grep.c:1029
 #, fuzzy
 msgid ""
 "\n"
 "Context control:\n"
 "  -B, --before-context=NUM  print NUM lines of leading context\n"
 "  -A, --after-context=NUM   print NUM lines of trailing context\n"
-"  -C, --context[=NUM]       print NUM (default 2) lines of output context\n"
-"                            unless overridden by -A or -B\n"
+"  -C, --context=NUM         print NUM lines of output context\n"
 "  -NUM                      same as --context=NUM\n"
+"      --color, --colour     use markers to distinguish the matching string\n"
 "  -U, --binary              do not strip CR characters at EOL (MSDOS)\n"
 "  -u, --unix-byte-offsets   report offsets as if CRs were not there (MSDOS)\n"
 "\n"
@@ -280,7 +238,7 @@ msgstr ""
 "  -u, --unix-byte-offsets   rapporter posisjoner som om CRene ikke var der\n"
 "                            (MSDOS)\n"
 
-#: src/grep.c:1002
+#: src/grep.c:1044
 msgid ""
 "\n"
 "Report bugs to <bug-gnu-utils@gnu.org>.\n"
@@ -288,35 +246,36 @@ msgstr ""
 "\n"
 "Rapportér feil til <bug-gnu-utils@prep.ai.mit.edu>.\n"
 
-#: src/grep.c:1012
+#: src/grep.c:1054
 #, fuzzy
 msgid "conflicting matchers specified"
 msgstr "søkeuttrykk er allerede spesifisert"
 
-#: src/grep.c:1203 src/grep.c:1210 src/grep.c:1219
-msgid "invalid context length argument"
-msgstr "ugyldig kontekstlengde"
-
-#: src/grep.c:1273
+#: src/grep.c:1347
 msgid "unknown directories method"
 msgstr ""
 
-#: src/grep.c:1358
+#: src/grep.c:1414
+#, fuzzy
+msgid "invalid max count"
+msgstr "uferdig gjentagelsesantall"
+
+#: src/grep.c:1464
 msgid "unknown binary-files type"
 msgstr ""
 
-#: src/grep.c:1378
+#: src/grep.c:1535
 #, fuzzy, c-format
 msgid "%s (GNU grep) %s\n"
 msgstr "grep (GNU grep) %s\n"
 
-#: src/grep.c:1380
+#: src/grep.c:1537
 #, fuzzy
-msgid "Copyright 1988, 1992-1999, 2000 Free Software Foundation, Inc.\n"
+msgid "Copyright 1988, 1992-1999, 2000, 2001 Free Software Foundation, Inc.\n"
 msgstr ""
 "Copyright (C) 1988, 92, 93, 94, 95, 96, 97 Free Software Foundation, Inc.\n"
 
-#: src/grep.c:1382
+#: src/grep.c:1539
 msgid ""
 "This is free software; see the source for copying conditions. There is NO\n"
 "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
@@ -324,6 +283,99 @@ msgstr ""
 "Dette er fri programvare, se kildekoden for kopieringsbetingelser.  Det\n"
 "er INGEN garanti, ikke en gang for SALGBARHET eller EGNETHET FOR NOEN \n"
 "SPESIELL OPPGAVE.\n"
+
+#: src/search.c:606
+msgid "The -P option is not supported"
+msgstr ""
+
+#: src/search.c:619
+msgid "The -P and -z options cannot be combined"
+msgstr ""
+
+#: lib/error.c:117
+msgid "Unknown system error"
+msgstr ""
+
+#: lib/getopt.c:675
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: flagget «%s» er flertydig\n"
+
+#: lib/getopt.c:700
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: flagget «--%s» tar ikke argumenter\n"
+
+#: lib/getopt.c:705
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: flagget «%c%s» tar ikke argumenter\n"
+
+#: lib/getopt.c:723 lib/getopt.c:896
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: flagget «%s» trenger et argument\n"
+
+#. --option
+#: lib/getopt.c:752
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: ukjent flagg «--%s»\n"
+
+#. +option or -option
+#: lib/getopt.c:756
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: ukjent flagg «%c%s»\n"
+
+#. 1003.2 specifies the format of this message.
+#: lib/getopt.c:782
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: ulovlig flagg -- %c\n"
+
+#: lib/getopt.c:785
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: ugyldig flagg -- %c\n"
+
+#. 1003.2 specifies the format of this message.
+#: lib/getopt.c:815 lib/getopt.c:945
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: flagget behøver et argument -- %c\n"
+
+#: lib/getopt.c:862
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: flagget «-W %s» er flertydig\n"
+
+#: lib/getopt.c:880
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: flagget «-W %s» tar ikke argumenter\n"
+
+#. Get translations for open and closing quotation marks.
+#.
+#. The message catalog should translate "`" to a left
+#. quotation mark suitable for the locale, and similarly for
+#. "'".  If the catalog has no translation,
+#. locale_quoting_style quotes `like this', and
+#. clocale_quoting_style quotes "like this".
+#.
+#. For example, an American English Unicode locale should
+#. translate "`" to U+201C (LEFT DOUBLE QUOTATION MARK), and
+#. should translate "'" to U+201D (RIGHT DOUBLE QUOTATION
+#. MARK).  A British English Unicode locale should instead
+#. translate these to U+2018 (LEFT SINGLE QUOTATION MARK) and
+#. U+2019 (RIGHT SINGLE QUOTATION MARK), respectively.
+#: lib/quotearg.c:259
+msgid "`"
+msgstr ""
+
+#: lib/quotearg.c:260
+msgid "'"
+msgstr ""
 
 #~ msgid "option %s"
 #~ msgstr "flagg %s"

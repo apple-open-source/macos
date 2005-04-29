@@ -166,10 +166,8 @@ Boston, MA 02111-1307, USA.  */
 */
   
 #include "config.h"
-
-#ifdef ENABLE_DMP_TREE
-
 #include "system.h"
+#include "coretypes.h"
 #include "tree.h"
 #include "real.h"
 #include "c-common.h"
@@ -402,6 +400,8 @@ print_type (file, annotation, node, indent)
     fputs (" const", file);
   if (TYPE_RESTRICT (node))
     fputs (" restrict", file);
+  if (TYPE_UNSIGNED (node))
+    fputs (" uns", file);
     
   if (TYPE_LANG_FLAG_0 (node)
       || TYPE_LANG_FLAG_1 (node)
@@ -437,8 +437,10 @@ print_type (file, annotation, node, indent)
     fprintf (file, " symtab=%d", TYPE_SYMTAB_ADDRESS (node));
   
   if (TYPE_ALIAS_SET (node) != -1)
-    fprintf (file, " alias-set="HOST_WIDE_INT_PRINT_DEC,
-  			TYPE_ALIAS_SET (node));
+    {
+      fprintf (file, " alias-set=");
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, TYPE_ALIAS_SET (node));
+    }
   
   if (TYPE_POINTER_TO (node))
     {
@@ -625,16 +627,6 @@ print_decl (file, annotation, node, indent)
 #endif
       if (DECL_WEAK (node))
         fputs (" weak", file);
-      /* APPLE LOCAL private extern */
-      if (DECL_PRIVATE_EXTERN (node))
-	fputs (" pvt-ext", file);
-      /* APPLE LOCAL coalescing */
-      if (DECL_COALESCED (node))
-	fputs (" coal", file);
-      /* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
-      if (DECL_WEAK_IMPORT (node))
-	fputs (" weak_import", file);
-      /* APPLE LOCAL end weak_import ilr */
       
       if (DECL_LANG_FLAG_0 (node)
           || DECL_LANG_FLAG_1 (node)
@@ -994,7 +986,7 @@ print_integer_constant (file, node, hex)
 	  else if (size == 4)
 	    fprintf (file, "0x%.8lX = ", (unsigned long)TREE_INT_CST_LOW (node));
 	  else
-	    fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX" = ",
+	    fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
 		     TREE_INT_CST_HIGH (node), TREE_INT_CST_LOW (node));
 	}
     }
@@ -1092,8 +1084,6 @@ print_tree_flags (file, node)
     fputs (" volatile", file);
   if (TREE_READONLY (node))
     fputs (" readonly", file);
-  if (TREE_UNSIGNED (node))
-    fputs (" uns", file);
   if (TREE_ASM_WRITTEN (node))
     fputs (" asm-written", file);
   if (TREE_USED (node))
@@ -1112,10 +1102,10 @@ print_tree_flags (file, node)
     fputs (" bounded", file);
   if (TREE_DEPRECATED (node))
     fputs (" deprecated", file);
-  /* APPLE LOCAL begin unavailable (Radar 2809697) ilr */
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
   if (TREE_UNAVAILABLE (node))
     fputs (" unavailable", file);
-  /* APPLE LOCAL end unavailable ilr */
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
  
   if (TREE_LANG_FLAG_0 (node)
       || TREE_LANG_FLAG_1 (node)
@@ -1332,7 +1322,7 @@ print_INTEGER_TYPE (file, annotation, node, indent)
 {
   if (TYPE_IS_SIZETYPE (node))
     fputs (" sizetype", file);
-  if (TREE_UNSIGNED (node))
+  if (TYPE_UNSIGNED (node))
     fputs (" uns", file);
     
   print_type (file, annotation, node, indent);
@@ -1375,7 +1365,7 @@ print_ENUMERAL_TYPE (file, annotation, node, indent)
      tree node;
      int indent;
 {
-  if (TREE_UNSIGNED (node))
+  if (TYPE_UNSIGNED (node))
     fputs (" uns", file);
     
   print_type (file, annotation, node, indent);
@@ -1651,8 +1641,10 @@ print_VECTOR_CST (file, annotation, node, indent)
      tree node;
      int indent;
 {
-  tree n, type = TREE_TYPE (node), t1;
-  int  i, ok, ok2, size = 0;
+  tree n, type = TREE_TYPE (node); 
+  tree t1 = NULL;
+  int  i, ok, size = 0;
+  int ok2 = 0;
   char *fmt = (char *)"this is just to stop compiler warning";
   
   union {
@@ -1674,7 +1666,7 @@ print_VECTOR_CST (file, annotation, node, indent)
       if (TREE_CODE (type) == INTEGER_TYPE
 	  && (size == 1 || size == 2 || size == 4))
 	{
-	  fmt = (char *) (TREE_UNSIGNED (type) ? "%u%s" : "%d%s");
+	  fmt = (char *) (TYPE_UNSIGNED (type) ? "%u%s" : "%d%s");
 	  if (TREE_CODE (TREE_VALUE (t1)) == INTEGER_CST)
 	    {
 	      vec_value.ul[0] = CST_VALUE (TREE_VALUE (t1), ok);
@@ -2038,13 +2030,14 @@ print_FIELD_DECL (file, annotation, node, indent)
     fputs (" virt", file);
   if (DECL_PACKED (node))
     fputs (" packed", file);
-  if (TREE_UNSIGNED (node))
+  if (DECL_UNSIGNED (node))
     fputs (" uns", file);
   if (DECL_BIT_FIELD (node))
     fputs (" bitfield", file);
   if (DECL_NONADDRESSABLE_P (node))
     fputs (" nonaddr", file);
-  fprintf (file, " off-align="HOST_WIDE_INT_PRINT_UNSIGNED,
+  fprintf (file, " off-align=");
+  fprintf (file, HOST_WIDE_INT_PRINT_UNSIGNED,
 	   DECL_OFFSET_ALIGN (node));
   print_decl (file, annotation, node, indent);
 }
@@ -3168,6 +3161,43 @@ print_EXC_PTR_EXPR (file, annotation, node, indent)
   print_operands (file, node, indent, TRUE, NULL);
 }
 
+static void
+print_CLZ_EXPR (file, annotation, node, indent)
+     FILE *file ATTRIBUTE_UNUSED;
+     const char *annotation ATTRIBUTE_UNUSED;
+     tree node ATTRIBUTE_UNUSED;
+     int indent ATTRIBUTE_UNUSED;
+{
+  /* TO DO */
+}
+static void
+print_CTZ_EXPR (file, annotation, node, indent)
+     FILE *file ATTRIBUTE_UNUSED;
+     const char *annotation ATTRIBUTE_UNUSED;
+     tree node ATTRIBUTE_UNUSED;
+     int indent ATTRIBUTE_UNUSED;
+{
+  /* TO DO */
+}
+static void
+print_PARITY_EXPR (file, annotation, node, indent)
+     FILE *file ATTRIBUTE_UNUSED;
+     const char *annotation ATTRIBUTE_UNUSED;
+     tree node ATTRIBUTE_UNUSED;
+     int indent ATTRIBUTE_UNUSED;
+{
+  /* TO DO */
+}
+static void
+print_POPCOUNT_EXPR (file, annotation, node, indent)
+     FILE *file ATTRIBUTE_UNUSED;
+     const char *annotation ATTRIBUTE_UNUSED;
+     tree node ATTRIBUTE_UNUSED;
+     int indent ATTRIBUTE_UNUSED;
+{
+  /* TO DO */
+}
+
 /*-------------------------------------------------------------------*/
 
 /* Alaways the last lang_dump_tree_p to keep lang_dump_tree_p from being
@@ -3656,4 +3686,3 @@ print_TREE_CHAIN (node)
     }
 }
 
-#endif /* ENABLE_DMP_TREE */

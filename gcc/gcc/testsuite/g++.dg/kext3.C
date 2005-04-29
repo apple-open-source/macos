@@ -1,4 +1,4 @@
-/* APPLE LOCAL file -findirect-virtual-calls 15 Oct 2002 */
+/* APPLE LOCAL file KEXT indirect-virtual-calls --sts */
 /* Radar 3008388: Negative C++ test case. */
 /* Origin: Matt Austern <austern@apple.com> */
 /* { dg-do compile } */

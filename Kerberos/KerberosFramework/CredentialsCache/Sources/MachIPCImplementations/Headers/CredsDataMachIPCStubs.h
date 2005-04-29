@@ -1,7 +1,7 @@
 /*
  * CCICredentialsDataMachIPCStub.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/Headers/CredsDataMachIPCStubs.h,v 1.7 2003/03/17 20:48:16 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/Headers/CredsDataMachIPCStubs.h,v 1.8 2004/10/22 20:48:28 lxs Exp $
  */
 
 #pragma once

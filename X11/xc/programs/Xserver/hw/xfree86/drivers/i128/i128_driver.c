@@ -22,7 +22,7 @@
  *
  */
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i128/i128_driver.c,v 1.29 2003/02/17 16:08:28 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i128/i128_driver.c,v 1.35 2003/11/06 18:38:03 tsi Exp $ */
 
 
 /* All drivers should typically include these */
@@ -84,8 +84,8 @@ static Bool	I128SaveScreen(ScreenPtr pScreen, int mode);
 
 /* Optional functions */
 static void	I128FreeScreen(int scrnIndex, int flags);
-static int	I128ValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose,
-			     int flags);
+static ModeStatus I128ValidMode(int scrnIndex, DisplayModePtr mode,
+				Bool verbose, int flags);
 static void	I128DisplayPowerManagementSet(ScrnInfoPtr pScrn,
 					     int PowerManagementMode,
 					     int flags);
@@ -521,7 +521,6 @@ I128PreInit(ScrnInfoPtr pScrn, int flags)
     I128Ptr pI128;
     vgaHWPtr hwp;
     int i;
-    int bytesPerPixel;
     ClockRangePtr clockRanges;
     MessageType from;
     IOADDRESS iobase;
@@ -581,7 +580,7 @@ I128PreInit(ScrnInfoPtr pScrn, int flags)
      * We support both 24bpp and 32bpp layouts, so indicate that.
      */
 
-    if (!xf86SetDepthBpp(pScrn, 8, 8, 8, Support32bppFb)) {
+    if (!xf86SetDepthBpp(pScrn, 0, 0, 0, Support32bppFb)) {
 	return FALSE;
     } else {
 	/* Check that the returned depth is one we support */
@@ -628,8 +627,6 @@ I128PreInit(ScrnInfoPtr pScrn, int flags)
 	    return FALSE;
 	}
     }
-
-    bytesPerPixel = pScrn->bitsPerPixel / 8;
 
     /* We use a programmable clock */
     pScrn->progClock = TRUE;
@@ -1740,7 +1737,7 @@ I128FreeScreen(int scrnIndex, int flags)
 /* Checks if a mode is suitable for the selected chipset. */
 
 /* Optional */
-static int
+static ModeStatus
 I128ValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     int lace;
@@ -1789,20 +1786,15 @@ I128SaveScreen(ScreenPtr pScreen, int mode)
 }
 
 
-static const int DDC_SDA_IN_SHIFT = 1;
-static const int DDC_SDA_OUT_SHIFT = 2;
-static const int DDC_SCL_IN_SHIFT = 3;
-static const int DDC_SCL_OUT_SHIFT = 0;
-
 static const int DDC_SDA_IN_MASK = 1 << 1;
 static const int DDC_SDA_OUT_MASK = 1 << 2;
 static const int DDC_SCL_IN_MASK = 1 << 3;
 static const int DDC_SCL_OUT_MASK = 1 << 0;
 
-static const int DDC_MODE_SHIFT = 8;
 static const int DDC_MODE_MASK = 3 << 8;
-static const int DDC_MODE_DIS  = 0;
+#if 0
 static const int DDC_MODE_DDC1 = 1 << 8;
+#endif
 static const int DDC_MODE_DDC2 = 2 << 8;
 
 #if 0
@@ -1949,7 +1941,8 @@ I128getDDC(ScrnInfoPtr pScrn)
   /* Read and output monitor info using DDC2 over I2C bus */
   if (pI128->I2C) {
     MonInfo = xf86DoEDID_DDC2(pScrn->scrnIndex, pI128->I2C);
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "I2C Monitor info: %p\n", MonInfo);
+    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "I2C Monitor info: %p\n",
+	       (void *)MonInfo);
     xf86PrintEDID(MonInfo);
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, "end of I2C Monitor info\n");
   }
@@ -1957,7 +1950,8 @@ I128getDDC(ScrnInfoPtr pScrn)
     /* Read and output monitor info using DDC1 */
     if (pI128->ddc1Read) {
       MonInfo = xf86DoEDID_DDC1(pScrn->scrnIndex, NULL, pI128->ddc1Read ) ;
-      xf86DrvMsg(pScrn->scrnIndex, X_INFO, "DDC Monitor info: %p\n", MonInfo);
+      xf86DrvMsg(pScrn->scrnIndex, X_INFO, "DDC Monitor info: %p\n",
+		 (void *)MonInfo);
       xf86PrintEDID(MonInfo);
       xf86DrvMsg(pScrn->scrnIndex, X_INFO, "end of DDC Monitor info\n");
     }
@@ -2019,29 +2013,29 @@ I128DumpBaseRegisters(ScrnInfoPtr pScrn)
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
 	"  PCI Registers\n");
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    MW0_AD    0x%08x  addr 0x%08x  %spre-fetchable\n",
+	"    MW0_AD    0x%08lx  addr 0x%08lx  %spre-fetchable\n",
 	    pI128->PciInfo->memBase[0],
 	    pI128->PciInfo->memBase[0] & 0xFFC00000,
 	    pI128->PciInfo->memBase[0] & 0x8 ? "" : "not-");
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    MW1_AD    0x%08x  addr 0x%08x  %spre-fetchable\n",
+	"    MW1_AD    0x%08lx  addr 0x%08lx  %spre-fetchable\n",
 	    pI128->PciInfo->memBase[1],
 	    pI128->PciInfo->memBase[1] & 0xFFC00000,
 	    pI128->PciInfo->memBase[1] & 0x8 ? "" : "not-");
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    XYW_AD(A) 0x%08x  addr 0x%08x\n",
+	"    XYW_AD(A) 0x%08lx  addr 0x%08lx\n",
 	    pI128->PciInfo->memBase[2],
 	    pI128->PciInfo->memBase[2] & 0xFFC00000);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    XYW_AD(B) 0x%08x  addr 0x%08x\n",
+	"    XYW_AD(B) 0x%08lx  addr 0x%08lx\n",
 	    pI128->PciInfo->memBase[3],
 	    pI128->PciInfo->memBase[3] & 0xFFC00000);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    RBASE_G   0x%08x  addr 0x%08x\n",
+	"    RBASE_G   0x%08lx  addr 0x%08lx\n",
 	    pI128->PciInfo->memBase[4],
 	    pI128->PciInfo->memBase[4] & 0xFFFF0000);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    IO        0x%08x  addr 0x%08x\n",
+	"    IO        0x%08lx  addr 0x%08lx\n",
 	    pI128->PciInfo->ioBase[5],
 	    pI128->PciInfo->ioBase[5] & 0xFFFFFF00);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
@@ -2053,7 +2047,7 @@ I128DumpBaseRegisters(ScrnInfoPtr pScrn)
     	    pI128->PciInfo->subsysVendor,
     	    pI128->PciInfo->subsysVendor & 0xFFFFFF00);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    RBASE_E   0x%08x  addr 0x%08x  %sdecode-enabled\n\n",
+	"    RBASE_E   0x%08lx  addr 0x%08lx  %sdecode-enabled\n\n",
     	    pI128->PciInfo->biosBase,
 	    pI128->PciInfo->biosBase & 0xFFFF8000,
 	    pI128->PciInfo->biosBase & 0x1 ? "" : "not-");
@@ -2066,39 +2060,39 @@ I128DumpBaseRegisters(ScrnInfoPtr pScrn)
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
 	"  IO Mapped Registers\n");
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    RBASE_G   0x%08x  addr 0x%08x\n",
-	    pI128->io.rbase_g, pI128->io.rbase_g & 0xFFFFFF00);
+	"    RBASE_G   0x%08lx  addr 0x%08lx\n",
+	    (unsigned long)pI128->io.rbase_g, pI128->io.rbase_g & 0xFFFFFF00UL);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    RBASE_W   0x%08x  addr 0x%08x\n",
-	    pI128->io.rbase_w, pI128->io.rbase_w & 0xFFFFFF00);
+	"    RBASE_W   0x%08lx  addr 0x%08lx\n",
+	    (unsigned long)pI128->io.rbase_w, pI128->io.rbase_w & 0xFFFFFF00UL);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    RBASE_A   0x%08x  addr 0x%08x\n",
-	    pI128->io.rbase_a, pI128->io.rbase_a & 0xFFFFFF00);
+	"    RBASE_A   0x%08lx  addr 0x%08lx\n",
+	    (unsigned long)pI128->io.rbase_a, pI128->io.rbase_a & 0xFFFFFF00UL);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    RBASE_B   0x%08x  addr 0x%08x\n",
-	    pI128->io.rbase_b, pI128->io.rbase_b & 0xFFFFFF00);
+	"    RBASE_B   0x%08lx  addr 0x%08lx\n",
+	    (unsigned long)pI128->io.rbase_b, pI128->io.rbase_b & 0xFFFFFF00UL);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    RBASE_I   0x%08x  addr 0x%08x\n",
-	    pI128->io.rbase_i, pI128->io.rbase_i & 0xFFFFFF00);
+	"    RBASE_I   0x%08lx  addr 0x%08lx\n",
+	    (unsigned long)pI128->io.rbase_i, pI128->io.rbase_i & 0xFFFFFF00UL);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    RBASE_E   0x%08x  addr 0x%08x  size 0x%x\n\n",
-	    pI128->io.rbase_e, pI128->io.rbase_e & 0xFFFF8000,
-	    pI128->io.rbase_e & 0x7);
+	"    RBASE_E   0x%08lx  addr 0x%08lx  size 0x%lx\n\n",
+	    (unsigned long)pI128->io.rbase_e, pI128->io.rbase_e & 0xFFFF8000UL,
+	    pI128->io.rbase_e & 0x7UL);
 
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
 	"  Miscellaneous IO Registers\n");
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    ID        0x%08x\n", pI128->io.id);
+	"    ID        0x%08lx\n", (unsigned long)pI128->io.id);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    CONFIG1   0x%08x\n", pI128->io.config1);
+	"    CONFIG1   0x%08lx\n", (unsigned long)pI128->io.config1);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    CONFIG2   0x%08x\n", pI128->io.config2);
+	"    CONFIG2   0x%08lx\n", (unsigned long)pI128->io.config2);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    SGRAM     0x%08x\n", pI128->io.sgram);
+	"    SGRAM     0x%08lx\n", (unsigned long)pI128->io.sgram);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    SOFT_SW   0x%08x\n", pI128->io.soft_sw);
+	"    SOFT_SW   0x%08lx\n", (unsigned long)pI128->io.soft_sw);
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-	"    VGA_CTL   0x%08x\n", pI128->io.vga_ctl);
+	"    VGA_CTL   0x%08lx\n", (unsigned long)pI128->io.vga_ctl);
 }
 
 
@@ -2131,194 +2125,243 @@ I128DumpActiveRegisters(ScrnInfoPtr pScrn)
     vga_ctl = inl(iobase + 0x30);
 
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "IO Mapped Registers\n");
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  RBASE_G   0x%08x  addr 0x%08x\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
+		"  RBASE_G   0x%08lx  addr 0x%08lx\n",
        		rbase_g, rbase_g & 0xFFFFFF00);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  RBASE_W   0x%08x  addr 0x%08x\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
+		"  RBASE_W   0x%08lx  addr 0x%08lx\n",
        		rbase_w, rbase_w & 0xFFFFFF00);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  RBASE_A   0x%08x  addr 0x%08x\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
+		"  RBASE_A   0x%08lx  addr 0x%08lx\n",
        		rbase_a, rbase_a & 0xFFFFFF00);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  RBASE_B   0x%08x  addr 0x%08x\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
+		"  RBASE_B   0x%08lx  addr 0x%08lx\n",
        		rbase_b, rbase_b & 0xFFFFFF00);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  RBASE_I   0x%08x  addr 0x%08x\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
+		"  RBASE_I   0x%08lx  addr 0x%08lx\n",
        		rbase_i, rbase_i & 0xFFFFFF00);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  RBASE_E   0x%08x  addr 0x%08x  size 0x%x\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
+		"  RBASE_E   0x%08lx  addr 0x%08lx  size 0x%lx\n",
        		rbase_e, rbase_e & 0xFFFF8000, rbase_e & 0x7);
 
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Miscellaneous IO Registers\n");
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  ID        0x%08x\n", id);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    REV  %d  HBT %d  BASE0 %d  VDEN %d  VB %d  BASE1 %d  BASE2 %d  DS %d\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  ID        0x%08lx\n", id);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    REV  %ld  HBT %ld  BASE0 %ld  VDEN %ld  VB %ld  BASE1 %ld  BASE2 %ld  DS %ld\n",
     	id&7, (id>>3)&3, (id>>6)&3, (id>>8)&3, (id>>10)&1,
     	(id>>11)&3, (id>>13)&3, (id>>15)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    DDEN %d  DB  %d  BASE3 %d  BASER %d  MDEN %d  TR %d  VS    %d\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    DDEN %ld  DB  %ld  BASE3 %ld  BASER %ld  MDEN %ld  TR %ld  VS    %ld\n",
     	(id>>16)&3, (id>>18)&1, (id>>19)&3, (id>>21)&7, (id>>24)&3,
 	(id>>26)&1, (id>>27)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    CLASS %d  EE %d\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    CLASS %ld  EE %ld\n",
 	(id>>28)&3, (id>>30)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CONFIG1   0x%08x\n", config1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    VE %d  SFT_RST %d  ONE28 %d  VS %d\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CONFIG1   0x%08lx\n", config1);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    VE %ld  SFT_RST %ld  ONE28 %ld  VS %ld\n",
     	config1&1, (config1>>1)&1,
     	(config1>>2)&1, (config1>>3)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    G %d  W %d  A %d  B %d  I %d  E %d  W0 %d  W1 %d  XA %d  XB %d\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    G %ld  W %ld  A %ld  B %ld  I %ld  E %ld  W0 %ld  W1 %ld  XA %ld  XB %ld\n",
     	(config1>>8)&1, (config1>>9)&1,
     	(config1>>10)&1, (config1>>11)&1,
     	(config1>>12)&1, (config1>>13)&1,
     	(config1>>16)&1, (config1>>17)&1,
     	(config1>>20)&1, (config1>>21)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    HBPRI %d  VBPRI %d  DE1PRI %d  ISAPRI %d\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    HBPRI %ld  VBPRI %ld  DE1PRI %ld  ISAPRI %ld\n",
     	(config1>>24)&3, (config1>>26)&3,
     	(config1>>28)&3, (config1>>30)&3);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CONFIG2   0x%08x\n", config2);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    DWT %x  EWS %x  DWS %x  MC %x  FBB %d  IOB %d  FST %d  CNT %d  DEC %d\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CONFIG2   0x%08lx\n", config2);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    DWT %lx  EWS %lx  DWS %lx  MC %lx  FBB %ld  IOB %ld  FST %ld  CNT %ld  DEC %ld\n",
     	config2&0x3, (config2>>8)&0xF,
     	(config2>>16)&0x7, (config2>>20)&0xF,
     	(config2>>24)&1, (config2>>25)&1,
     	(config2>>26)&1, (config2>>27)&1,
     	(config2>>28)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    PRE %d  RVD %d  SDAC %d\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    PRE %ld  RVD %ld  SDAC %ld\n",
 	(config2>>29)&1, (config2>>30)&1, (config2>>31)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  SGRAM     0x%08x\n", sgram);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  SOFT_SW   0x%08x\n", soft_sw);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DDC       0x%08x\n", ddc);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  VGA_CTL   0x%08x\n", vga_ctl);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    MEMMUX %d  VGADEC %d  VIDMUX %d  ENA %d  BUFSEL %d  STR %d\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  SGRAM     0x%08lx\n", sgram);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  SOFT_SW   0x%08lx\n", soft_sw);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DDC       0x%08lx\n", ddc);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  VGA_CTL   0x%08lx\n", vga_ctl);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    MEMMUX %ld  VGADEC %ld  VIDMUX %ld  ENA %ld  BUFSEL %ld  STR %ld\n",
     	vga_ctl&1, (vga_ctl>>1)&1,
     	(vga_ctl>>2)&1, (vga_ctl>>3)&1,
     	(vga_ctl>>4)&1, (vga_ctl>>5)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    3C2 %d  DACDEC %d  MSK 0x%02x\n",
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    3C2 %ld  DACDEC %ld  MSK 0x%02lx\n",
     	(vga_ctl>>6)&1,
     	(vga_ctl>>7)&1,
     	(vga_ctl>>8)&0xff);
 
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "CRT Registers\n");
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  INT_VCNT 0x%08x  (%d)\n",
-    	vrbg[0x20/4]&0xFF, vrbg[0x20/4]&0xFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  INT_HCNT 0x%08x  (%d)\n",
-    	vrbg[0x24/4]&0xFFF, vrbg[0x24/4]&0xFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DB_ADR   0x%08x  (%d)\n",
-    	vrbg[0x28/4]&0x01FFFFF0, vrbg[0x28/4]&0x01FFFFF0);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DB_PTCH  0x%08x  (%d)\n",
-    	vrbg[0x2C/4]&0xFFF0, vrbg[0x2C/4]&0xFFF0);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_HAC  0x%08x  (%d)\n",
-    	vrbg[0x30/4]&0x3FFF, vrbg[0x30/4]&0x3FFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_HBL  0x%08x  (%d)\n",
-    	vrbg[0x34/4]&0x3FFF, vrbg[0x34/4]&0x3FFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_HFP  0x%08x  (%d)\n",
-    	vrbg[0x38/4]&0x3FFF, vrbg[0x38/4]&0x3FFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_HS   0x%08x  (%d)\n",
-    	vrbg[0x3C/4]&0x3FFF, vrbg[0x3C/4]&0x3FFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_VAC  0x%08x  (%d)\n",
-    	vrbg[0x40/4]&0xFFF, vrbg[0x40/4]&0xFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_VBL  0x%08x  (%d)\n",
-    	vrbg[0x44/4]&0xFFF, vrbg[0x44/4]&0xFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_VFP  0x%08x  (%d)\n",
-    	vrbg[0x48/4]&0xFFF, vrbg[0x48/4]&0xFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_VS   0x%08x  (%d)\n",
-    	vrbg[0x4C/4]&0xFFF, vrbg[0x4C/4]&0xFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_LCNT 0x%08x\n", vrbg[0x50/4]&0x0FFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_ZOOM 0x%08x\n", vrbg[0x54/4]&0xF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_1CON 0x%08x  PH %d  PV %d  CS %d INL %d H/VSE %d/%d VE %d BTS %d\n",
-        vrbg[0x58/4],
-    	vrbg[0x58/4]&1, (vrbg[0x58/4]>>1)&1, (vrbg[0x58/4]>>2)&1,
-    	(vrbg[0x58/4]>>3)&1, (vrbg[0x58/4]>>4)&1, (vrbg[0x58/4]>>5)&1,
-    	(vrbg[0x58/4]>>6)&1, (vrbg[0x58/4]>>8)&1);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  INT_VCNT 0x%08lx  (%ld)\n",
+    	vrbg[0x20/4]&0x000000FFUL, vrbg[0x20/4]&0x000000FFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  INT_HCNT 0x%08lx  (%ld)\n",
+    	vrbg[0x24/4]&0x00000FFFUL, vrbg[0x24/4]&0x00000FFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DB_ADR   0x%08lx  (%ld)\n",
+    	vrbg[0x28/4]&0x01FFFFF0UL, vrbg[0x28/4]&0x01FFFFF0UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DB_PTCH  0x%08lx  (%ld)\n",
+    	vrbg[0x2C/4]&0x0000FFF0UL, vrbg[0x2C/4]&0x0000FFF0UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_HAC  0x%08lx  (%ld)\n",
+    	vrbg[0x30/4]&0x00003FFFUL, vrbg[0x30/4]&0x00003FFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_HBL  0x%08lx  (%ld)\n",
+    	vrbg[0x34/4]&0x00003FFFUL, vrbg[0x34/4]&0x00003FFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_HFP  0x%08lx  (%ld)\n",
+    	vrbg[0x38/4]&0x00003FFFUL, vrbg[0x38/4]&0x00003FFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_HS   0x%08lx  (%ld)\n",
+    	vrbg[0x3C/4]&0x00003FFFUL, vrbg[0x3C/4]&0x00003FFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_VAC  0x%08lx  (%ld)\n",
+    	vrbg[0x40/4]&0x00000FFFUL, vrbg[0x40/4]&0x00000FFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_VBL  0x%08lx  (%ld)\n",
+    	vrbg[0x44/4]&0x00000FFFUL, vrbg[0x44/4]&0x00000FFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_VFP  0x%08lx  (%ld)\n",
+    	vrbg[0x48/4]&0x00000FFFUL, vrbg[0x48/4]&0x00000FFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_VS   0x%08lx  (%ld)\n",
+    	vrbg[0x4C/4]&0x00000FFFUL, vrbg[0x4C/4]&0x00000FFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_LCNT 0x%08lx\n",
+	vrbg[0x50/4]&0x00000FFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_ZOOM 0x%08lx\n",
+	vrbg[0x54/4]&0x0000000FUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_1CON 0x%08lx  PH %ld  PV %ld  CS %ld INL %ld H/VSE %ld/%ld VE %ld BTS %ld\n",
+        (unsigned long)vrbg[0x58/4],
+    	vrbg[0x58/4]&1UL, (vrbg[0x58/4]>>1)&1UL, (vrbg[0x58/4]>>2)&1UL,
+    	(vrbg[0x58/4]>>3)&1UL, (vrbg[0x58/4]>>4)&1UL, (vrbg[0x58/4]>>5)&1UL,
+    	(vrbg[0x58/4]>>6)&1UL, (vrbg[0x58/4]>>8)&1UL);
     
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_2CON 0x%08x  MEM %d  RFR %d  TRD %d  SPL %d\n",
-        vrbg[0x5C/4],
-    	vrbg[0x5C/4]&7, (vrbg[0x5C/4]>>8)&1,
-    	(vrbg[0x5C/4]>>16)&7, (vrbg[0x5C/4]>>24)&1);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CRT_2CON 0x%08lx  MEM %ld  RFR %ld  TRD %ld  SPL %ld\n",
+        (unsigned long)vrbg[0x5C/4],
+    	vrbg[0x5C/4]&7UL, (vrbg[0x5C/4]>>8)&1UL,
+    	(vrbg[0x5C/4]>>16)&7UL, (vrbg[0x5C/4]>>24)&1UL);
     
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Memory Windows Registers\n");
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW0_CTRL 0x%08x\n", vrbw[0x00]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    AMV %d  MP %d  AMD %d  SEN %d  BSY %d  MDM %d  DEN %d  PSZ %d\n",
-    	(vrbw[0x00]>>1)&1, (vrbw[0x00]>>2)&1, (vrbw[0x00]>>3)&1,
-    	(vrbw[0x00]>>4)&3, (vrbw[0x00]>>8)&1, (vrbw[0x00]>>21)&3,
-    	(vrbw[0x00]>>24)&3, (vrbw[0x00]>>26)&3);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "M/V/DSE %d/%d/%d\n",
-	(vrbw[0x00]>>28)&1, (vrbw[0x00]>>29)&1, (vrbw[0x00]>>30)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW0_AD    0x%08x  MW0_SZ    0x%08x  MW0_PGE   0x%08x\n",
-    	vrbw[0x04/4]&0xFFFFF000, vrbw[0x08/4]&0x0000000F,
-    	vrbw[0x0C/4]&0x000F001F);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW0_ORG10 0x%08x  MW0_ORG14 0x%08x  MW0_MSRC  0x%08x\n",
-    	vrbw[0x10/4]&0x01FFF000, vrbw[0x14/4]&0x01FFF000,
-    	vrbw[0x18/4]&0x00FFFF00);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW0_WKEY  0x%08x  MW0_KYDAT 0x%08x  MW0_MASK  0x%08x\n",
-    	vrbw[0x1C/4], vrbw[0x20/4]&0x000F000F, vrbw[0x24/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW1_CTRL 0x%08x\n", vrbw[0x28/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    AMV %d  MP %d  AMD %d  SEN %d  BSY %d  MDM %d  DEN %d  PSZ %d\n",
-    	(vrbw[0x28/4]>>1)&1, (vrbw[0x28/4]>>2)&1, (vrbw[0x28/4]>>3)&1,
-    	(vrbw[0x28/4]>>4)&3, (vrbw[0x28/4]>>8)&1, (vrbw[0x28/4]>>21)&3,
-    	(vrbw[0x28/4]>>24)&3, (vrbw[0x28/4]>>26)&3);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "M/V/DSE %d/%d/%d\n",
-	(vrbw[0x28/4]>>28)&1, (vrbw[0x28/4]>>29)&1, (vrbw[0x28/4]>>30)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW1_AD    0x%08x  MW1_SZ    0x%08x  MW1_PGE   0x%08x\n",
-    	vrbw[0x2C/4]&0xFFFFF000, vrbw[0x30/4]&0x0000000F,
-    	vrbw[0x34/4]&0x000F001F);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW1_ORG10 0x%08x  MW1_ORG14 0x%08x  MW1_MSRC  0x%08x\n",
-    	vrbw[0x38/4]&0x01FFF000, vrbw[0x3c/4]&0x01FFF000,
-    	vrbw[0x40/4]&0x00FFFF00);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW1_WKEY  0x%08x  MW1_KYDAT 0x%08x  MW1_MASK  0x%08x\n",
-    	vrbw[0x44/4], vrbw[0x48/4]&0x000F000F, vrbw[0x4C/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW0_CTRL 0x%08lx\n",
+	(unsigned long)vrbw[0x00]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    AMV %ld  MP %ld  AMD %ld  SEN %ld  BSY %ld  MDM %ld  DEN %ld  PSZ %ld\n",
+    	(vrbw[0x00]>>1)&1UL, (vrbw[0x00]>>2)&1UL, (vrbw[0x00]>>3)&1UL,
+    	(vrbw[0x00]>>4)&3UL, (vrbw[0x00]>>8)&1UL, (vrbw[0x00]>>21)&3UL,
+    	(vrbw[0x00]>>24)&3UL, (vrbw[0x00]>>26)&3UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "M/V/DSE %ld/%ld/%ld\n",
+	(vrbw[0x00]>>28)&1UL, (vrbw[0x00]>>29)&1UL, (vrbw[0x00]>>30)&1UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW0_AD    0x%08lx  MW0_SZ    0x%08lx  MW0_PGE   0x%08lx\n",
+    	vrbw[0x04/4]&0xFFFFF000UL, vrbw[0x08/4]&0x0000000FUL,
+    	vrbw[0x0C/4]&0x000F001FUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW0_ORG10 0x%08lx  MW0_ORG14 0x%08lx  MW0_MSRC  0x%08lx\n",
+    	vrbw[0x10/4]&0x01FFF000UL, vrbw[0x14/4]&0x01FFF000UL,
+    	vrbw[0x18/4]&0x00FFFF00UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW0_WKEY  0x%08lx  MW0_KYDAT 0x%08lx  MW0_MASK  0x%08lx\n",
+    	(unsigned long)vrbw[0x1C/4], vrbw[0x20/4]&0x000F000FUL,
+	(unsigned long)vrbw[0x24/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW1_CTRL 0x%08lx\n",
+	(unsigned long)vrbw[0x28/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    AMV %ld  MP %ld  AMD %ld  SEN %ld  BSY %ld  MDM %ld  DEN %ld  PSZ %ld\n",
+    	(vrbw[0x28/4]>>1)&1UL, (vrbw[0x28/4]>>2)&1UL, (vrbw[0x28/4]>>3)&1UL,
+    	(vrbw[0x28/4]>>4)&3UL, (vrbw[0x28/4]>>8)&1UL, (vrbw[0x28/4]>>21)&3UL,
+    	(vrbw[0x28/4]>>24)&3UL, (vrbw[0x28/4]>>26)&3UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "M/V/DSE %ld/%ld/%ld\n",
+	(vrbw[0x28/4]>>28)&1UL, (vrbw[0x28/4]>>29)&1UL, (vrbw[0x28/4]>>30)&1UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW1_AD    0x%08lx  MW1_SZ    0x%08lx  MW1_PGE   0x%08lx\n",
+    	vrbw[0x2C/4]&0xFFFFF000UL, vrbw[0x30/4]&0x0000000FUL,
+    	vrbw[0x34/4]&0x000F001FUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW1_ORG10 0x%08lx  MW1_ORG14 0x%08lx  MW1_MSRC  0x%08lx\n",
+    	vrbw[0x38/4]&0x01FFF000UL, vrbw[0x3c/4]&0x01FFF000UL,
+    	vrbw[0x40/4]&0x00FFFF00UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MW1_WKEY  0x%08lx  MW1_KYDAT 0x%08lx  MW1_MASK  0x%08lx\n",
+    	(unsigned long)vrbw[0x44/4], vrbw[0x48/4]&0x000F000FUL,
+	(unsigned long)vrbw[0x4C/4]);
     
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Engine A Registers\n");
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  INTP      0x%08x\n", vrba[0x00/4]&0x03);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  INTM      0x%08x\n", vrba[0x04/4]&0x03);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  FLOW      0x%08x\n", vrba[0x08/4]&0x0F);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  BUSY      0x%08x\n", vrba[0x0C/4]&0x01);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XYW_AD    0x%08x  SIZE 0x%x  ADDR 0x%x\n",
-    	vrba[0x10/4]&0xFFFFFF00, (vrba[0x10/4]>>8)&0x0F,
-    	vrba[0x10/4]&0xFFFFF000);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  ZCTL      0x%08x\n", vrba[0x18/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  BUF_CTRL  0x%08x\n", vrba[0x20/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    AMV %d  MP %d  AMD %d  SEN %d  DEN %d  DSE %d  VSE %d  MSE %d\n",
-    	(vrba[0x20/4]>>1)&1, (vrba[0x20/4]>>2)&1, (vrba[0x20/4]>>3)&1,
-    	(vrba[0x20/4]>>8)&3, (vrba[0x20/4]>>10)&3, (vrba[0x20/4]>>12)&1,
-    	(vrba[0x20/4]>>13)&1, (vrba[0x20/4]>>14)&1);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    PS %d  MDM %d  PSIZE %d  CRCO %d\n",
-	(vrba[0x20/4]>>16)&0x1F,
-    	(vrba[0x20/4]>>21)&3, (vrba[0x20/4]>>24)&3, (vrba[0x20/4]>>30)&3);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_PGE    0x%08x  DVPGE 0x%x  MPGE 0x%x\n",
-    	vrba[0x24/4]&0x000F001F, (vrba[0x24/4]>>8)&0x01F,
-    	(vrba[0x24/4]&0x000F0000)>>16);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_SORG   0x%08x\n", vrba[0x28/4]&0x0FFFFFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_DORG   0x%08x\n", vrba[0x2C/4]&0x0FFFFFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_MSRC   0x%08x\n", vrba[0x30/4]&0x03FFFFF0);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_WKEY   0x%08x\n", vrba[0x38/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_ZPTCH  0x%08x\n", vrba[0x3C/4]&0x000FFFF0);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_SPTCH  0x%08x\n", vrba[0x40/4]&0x0000FFF0);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_DPTCH  0x%08x\n", vrba[0x44/4]&0x0000FFF0);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD       0x%08x\n", vrba[0x48/4]&0x7FFFFFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    OPC 0x%02x  ROP 0x%02x  STYLE 0x%02x  CLP 0x%x  PATRN 0x%x  HDF %d\n",
-    	vrba[0x48/4]&0xFF, (vrba[0x48/4]>>8)&0xFF, (vrba[0x48/4]>>16)&0x1F,
-    	(vrba[0x48/4]>>21)&7, (vrba[0x48/4]>>24)&0xF, (vrba[0x48/4]>>28)&7);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_SHADE 0x%02x\n", vrba[0x4C/4]&0xFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_OPC   0x%02x\n", vrba[0x50/4]&0xFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_ROP   0x%02x\n", vrba[0x54/4]&0xFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_STYLE 0x%02x\n", vrba[0x58/4]&0x1F);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_PATRN 0x%02x\n", vrba[0x5C/4]&0x0F);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_CLP   0x%02x\n", vrba[0x60/4]&0x07);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_HDF   0x%02x\n", vrba[0x64/4]&0x07);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  FORE      0x%08x\n", vrba[0x68/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  BACK      0x%08x\n", vrba[0x6C/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MASK      0x%08x\n", vrba[0x70/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  RMSK      0x%08x\n", vrba[0x74/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  LPAT      0x%08x\n", vrba[0x78/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  PCTRL     0x%08x\n", vrba[0x7C/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    PLEN 0x%02d  PSCL 0x%02d  SPTR 0x%02d  SSCL 0x%x  STATE 0x%04x\n",
-    	vrba[0x7C/4]&0x1F, (vrba[0x7C/4]>>5)&7, (vrba[0x7C/4]>>8)&0x1F,
-    	(vrba[0x7C/4]>>13)&7, (vrba[0x7C/4]>>16)&0xFFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CLPTL     0x%08x  CLPTLY 0x%04x  CLPTLX 0x%04x\n",
-    	vrba[0x80/4], vrba[0x80/4]&0xFFFF, (vrba[0x80/4]>>16)&0xFFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CLPBR     0x%08x  CLPBRY 0x%04x  CLPBRX 0x%04x\n",
-    	vrba[0x84/4], vrba[0x84/4]&0xFFFF, (vrba[0x84/4]>>16)&0xFFFF);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY0       0x%08x\n", vrba[0x88/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY1       0x%08x\n", vrba[0x8C/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY2       0x%08x\n", vrba[0x90/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY3       0x%08x\n", vrba[0x94/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY4       0x%08x\n", vrba[0x98/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY5       0x%08x\n", vrba[0x9C/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY6       0x%08x\n", vrba[0xA0/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY7       0x%08x\n", vrba[0xA4/4]);
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY8       0x%08x\n", vrba[0xA8/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  INTP      0x%08lx\n",
+	vrba[0x00/4]&0x03UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  INTM      0x%08lx\n",
+	vrba[0x04/4]&0x03UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  FLOW      0x%08lx\n",
+	vrba[0x08/4]&0x0FUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  BUSY      0x%08lx\n",
+	vrba[0x0C/4]&0x01UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XYW_AD    0x%08lx  SIZE 0x%lx  ADDR 0x%lx\n",
+    	vrba[0x10/4]&0xFFFFFF00UL, (vrba[0x10/4]>>8)&0x0000000FUL,
+    	vrba[0x10/4]&0xFFFFF000UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  ZCTL      0x%08lx\n",
+	(unsigned long)vrba[0x18/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  BUF_CTRL  0x%08lx\n",
+	(unsigned long)vrba[0x20/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    AMV %ld  MP %ld  AMD %ld  SEN %ld  DEN %ld  DSE %ld  VSE %ld  MSE %ld\n",
+    	(vrba[0x20/4]>>1)&1UL, (vrba[0x20/4]>>2)&1UL, (vrba[0x20/4]>>3)&1UL,
+    	(vrba[0x20/4]>>8)&3UL, (vrba[0x20/4]>>10)&3UL, (vrba[0x20/4]>>12)&1UL,
+    	(vrba[0x20/4]>>13)&1UL, (vrba[0x20/4]>>14)&1UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    PS %ld  MDM %ld  PSIZE %ld  CRCO %ld\n",
+	(vrba[0x20/4]>>16)&0x1FUL,
+    	(vrba[0x20/4]>>21)&3UL, (vrba[0x20/4]>>24)&3UL, (vrba[0x20/4]>>30)&3UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_PGE    0x%08lx  DVPGE 0x%lx  MPGE 0x%lx\n",
+    	vrba[0x24/4]&0x000F001FUL, (vrba[0x24/4]>>8)&0x01FUL,
+    	(vrba[0x24/4]&0x000F0000UL)>>16);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_SORG   0x%08lx\n",
+	vrba[0x28/4]&0x0FFFFFFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_DORG   0x%08lx\n",
+	vrba[0x2C/4]&0x0FFFFFFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_MSRC   0x%08lx\n",
+	vrba[0x30/4]&0x03FFFFF0UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_WKEY   0x%08lx\n",
+	(unsigned long)vrba[0x38/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_ZPTCH  0x%08lx\n",
+	vrba[0x3C/4]&0x000FFFF0UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_SPTCH  0x%08lx\n",
+	vrba[0x40/4]&0x0000FFF0UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  DE_DPTCH  0x%08lx\n",
+	vrba[0x44/4]&0x0000FFF0UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD       0x%08lx\n",
+	vrba[0x48/4]&0x7FFFFFFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    OPC 0x%02lx  ROP 0x%02lx  STYLE 0x%02lx  CLP 0x%lx  PATRN 0x%lx  HDF %ld\n",
+    	vrba[0x48/4]&0x00FFUL, (vrba[0x48/4]>>8)&0x00FFUL, (vrba[0x48/4]>>16)&0x001FUL,
+    	(vrba[0x48/4]>>21)&7UL, (vrba[0x48/4]>>24)&0x0FUL, (vrba[0x48/4]>>28)&7UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_SHADE 0x%02lx\n",
+	vrba[0x4C/4]&0x00FFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_OPC   0x%02lx\n",
+	vrba[0x50/4]&0x00FFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_ROP   0x%02lx\n",
+	vrba[0x54/4]&0x00FFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_STYLE 0x%02lx\n",
+	vrba[0x58/4]&0x001FUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_PATRN 0x%02lx\n",
+	vrba[0x5C/4]&0x000FUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_CLP   0x%02lx\n",
+	vrba[0x60/4]&0x0007UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CMD_HDF   0x%02lx\n",
+	vrba[0x64/4]&0x0007UL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  FORE      0x%08lx\n",
+	(unsigned long)vrba[0x68/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  BACK      0x%08lx\n",
+	(unsigned long)vrba[0x6C/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  MASK      0x%08lx\n",
+	(unsigned long)vrba[0x70/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  RMSK      0x%08lx\n",
+	(unsigned long)vrba[0x74/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  LPAT      0x%08lx\n",
+	(unsigned long)vrba[0x78/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  PCTRL     0x%08lx\n",
+	(unsigned long)vrba[0x7C/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "    PLEN 0x%02ld  PSCL 0x%02ld  SPTR 0x%02ld  SSCL 0x%lx  STATE 0x%04lx\n",
+    	vrba[0x7C/4]&0x1FUL, (vrba[0x7C/4]>>5)&7UL, (vrba[0x7C/4]>>8)&0x1FUL,
+    	(vrba[0x7C/4]>>13)&7UL, (vrba[0x7C/4]>>16)&0xFFFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CLPTL     0x%08lx  CLPTLY 0x%04lx  CLPTLX 0x%04lx\n",
+    	(unsigned long)vrba[0x80/4], vrba[0x80/4]&0x00FFFFUL, (vrba[0x80/4]>>16)&0x00FFFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  CLPBR     0x%08lx  CLPBRY 0x%04lx  CLPBRX 0x%04lx\n",
+    	(unsigned long)vrba[0x84/4],
+	vrba[0x84/4]&0x00FFFFUL, (vrba[0x84/4]>>16)&0x00FFFFUL);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY0       0x%08lx\n",
+	(unsigned long)vrba[0x88/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY1       0x%08lx\n",
+	(unsigned long)vrba[0x8C/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY2       0x%08lx\n",
+	(unsigned long)vrba[0x90/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY3       0x%08lx\n",
+	(unsigned long)vrba[0x94/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY4       0x%08lx\n",
+	(unsigned long)vrba[0x98/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY5       0x%08lx\n",
+	(unsigned long)vrba[0x9C/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY6       0x%08lx\n",
+	(unsigned long)vrba[0xA0/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY7       0x%08lx\n",
+	(unsigned long)vrba[0xA4/4]);
+    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "  XY8       0x%08lx\n",
+	(unsigned long)vrba[0xA8/4]);
     if (pI128->RamdacType != TI3025_DAC)
 	I128DumpIBMDACRegisters(pScrn, vrbg);
 }

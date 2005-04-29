@@ -1,0 +1,289 @@
+# Features covered:  Parser functions
+#
+# This file contains a collection of tests for the TclXML parser.
+# This file tests the parser's basic functions.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1999-2002 Zveno Pty Ltd.
+#
+# $Id: parser.test,v 1.8 2002/09/06 23:15:57 balls Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+lappend auto_path [file dirname [file dirname [file join [pwd] [info script]]]]
+
+if { ![llength [info commands ::xml::parser]] } {
+     catch {puts stderr "You havent loaded a valid parser class before running this test"}
+     return
+}
+
+
+proc parray arrayName {
+    upvar #0 $arrayName arr
+    foreach key [lsort [array names $arrayName]] {
+	lappend result $key $arr($key)
+    }
+    return $result
+}
+
+catch {unset started}
+proc Start {name atList args} {
+    array set opts $args
+    array set atts $atList
+
+    if {![info exists ::started($name)]} {
+	set ::started($name) 1
+    } else {
+	incr ::started($name)
+    }
+
+    if {[info exists atts(class)]} {
+	switch $atts(class) {
+	    continue {
+		return -code continue
+	    }
+	    break {
+		return -code break
+	    }
+	    error {
+		return -code error "error condition in callback"
+	    }
+	    default {
+		return -code $atts(class)
+	    }
+	}
+    }
+}
+catch {unset ended}
+proc End {name args} {
+    array set opts $args
+    if {![info exists ::ended($name)]} {
+	set ::ended($name) 1
+    } else {
+	incr ::ended($name)
+    }
+}
+proc PI {name args} {
+    return -code $name
+}
+
+catch {unset elList}
+proc ElStart {name atList args} {
+    array set opts {-empty 0}
+    array set opts $args
+    lappend ::elList start $name $opts(-empty)
+}
+proc ElEnd {name args} {
+    array set opts {-empty 0}
+    array set opts $args
+    lappend ::elList end $name $opts(-empty)
+}
+proc pcdata text {
+    append ::data $text
+}
+
+test parser-1.1 {parser creation} {
+    set p [::xml::parser]
+    regexp {^xmlparser[0-9]+$} $p
+} 1
+
+test parser-1.2 {parser creation, only options} {
+    set p [::xml::parser -elementstartcommand EStart]
+    regexp {^xmlparser[0-9]+$} $p
+} 1
+
+test parser-1.3 {parser creation, named} {
+    catch {rename testparser {}}
+    ::xml::parser testparser
+} testparser
+
+test parser-1.4 {parser creation, named with options} {
+    catch {rename testparser {}}
+    ::xml::parser testparser -elementstartcommand EStart
+} testparser
+
+# Test break return code from callback
+
+test parser-2.1 {break in callback} {
+    catch {unset ::started}
+
+    catch {rename parser-2.1 {}}
+    set p [::xml::parser parser-2.1 -elementstartcommand Start]
+    $p parse {<?xml version="1.0"?>
+<Test>
+<Element id="el1">Should see this data</Element>
+<Element class="break" id="el2">Should not see this data<Element id="el3"/></Element>
+<Element id='el4'>Should not see this data</Element>
+</Test>
+}
+    set ::started(Element)
+} 2
+
+test parser-2.2 {break in callback} {
+    catch {unset ::started}
+
+    catch {rename parser-2.2 {}}
+    set p [::xml::parser parser-2.2 -elementstartcommand Start]
+    $p parse {<?xml version="1.0"?>
+<Test>
+<Element>Should see this data</Element>
+<Element>Should see this data<Element class="break"/></Element>
+<Element>Should not see this data</Element>
+</Test>
+}
+    set ::started(Element)
+} 3
+
+test parser-2.3 {break in callback} {
+    catch {unset ::started}
+
+    catch {rename parser-2.3 {}}
+    set p [::xml::parser parser-2.3 -elementstartcommand Start]
+    $p parse {<?xml version="1.0"?>
+<Test>
+<Element>Should see this data</Element>
+<Element>Should see this data
+  <?break?>
+</Element>
+<Element>Should not see this data</Element>
+</Test>
+}
+    set ::started(Element)
+} 3
+
+test parser-3.1 {continue in callback} {
+    catch {unset ::started}
+
+    catch {rename parser-3.1 {}}
+    set p [::xml::parser parser-3.1 -elementstartcommand Start]
+    $p parse {<?xml version="1.0"?>
+<Test>
+<Element id='el1'>Should see this data</Element>
+<Element class="continue" id='el2'>Should not see this data
+  <Element id='el3'/>
+</Element>
+<Element id='el4'>Should see this data</Element>
+</Test>
+}
+    set ::started(Element)
+} 3
+
+test parser-3.2 {continue in callback} {
+    catch {unset ::started}
+
+    catch {rename parser-3.2 {}}
+    set p [::xml::parser parser-3.2 -elementstartcommand Start]
+    $p parse {<?xml version="1.0"?>
+<Test>
+<Element>Should see this data</Element>
+<Element>Should see this data
+  <Element class="continue">
+    Should not see this data
+    <Element/>
+  </Element>
+  Should see this data
+  <Element/>
+</Element>
+<Element>Should see this data</Element>
+</Test>
+}
+    set ::started(Element)
+} 5
+
+test parser-3.3 {continue in callback} {
+    catch {unset ::started}
+
+    catch {rename parser-3.3 {}}
+    set p [::xml::parser parser-3.3 -elementstartcommand Start]
+    $p parse {<?xml version="1.0"?>
+<Test>
+<Element>Should see this data</Element>
+<Element>Should see this data
+  <Element class="continue">
+    Should not see this data
+    <Element class="break"/>
+    break will have no effect
+  </Element>
+  Should see this data
+  <Element/>
+</Element>
+<Element>Should see this data</Element>
+</Test>
+}
+    set ::started(Element)
+} 5
+
+test parser-4.1 {error in callback} {
+    catch {unset ::started}
+
+    catch {rename parser-4.1 {}}
+    set p [::xml::parser parser-4.1 -elementstartcommand Start]
+    set errcode [catch {$p parse {<?xml version="1.0"?>
+<Test>
+<Element>Should see this data</Element>
+<Element class="error"/>
+<Element>Should not see this data</Element>
+</Test>
+}} result]
+    list $errcode $::started(Element)
+} {1 2}
+
+test parser-4.2 {error in callback} {
+    catch {unset ::started}
+
+    catch {rename parser-4.2 {}}
+    set p [::xml::parser parser-4.2 -elementstartcommand Start]
+    set errcode [catch {$p parse {<?xml version="1.0"?>
+<Test>
+<Element>Should see this data</Element>
+<Element class="13"/>
+<Element>Should not see this data</Element>
+</Test>
+}} result]
+    list $::errcode $::started(Element)
+} {13 2}
+
+# Test for bug #510418
+test parser-5.1 {free in namespace} {
+    namespace eval ::xmlparsertest {
+	set p [::xml::parser -elementstartcommand Foo]
+	$p free
+    }
+} {}
+
+# Test for bug #510419
+test parser-6.1 {reset parser instance} {
+    catch {unset ::started}
+    catch {rename parser-6.1 {}}
+
+    set p [::xml::parser parser-6.1 -elementstartcommand Start]
+    $p reset
+    $p parse {<Test/>}
+    set first $::started(Test)
+
+    catch {unset ::started}
+    $p reset
+    $p parse {<Test><Test/></Test>}
+
+    list $first $::started(Test)
+} [list 1 2]
+
+# Test for bug #579264
+test parser-7.1 {-ignorewhitespace option} {
+    catch {rename parser-7.1 {}}
+    set ::data {}
+
+    set p [::xml::parser parser-7.1 -characterdatacommand pcdata -ignorewhitespace 1]
+    $p parse {<Test>
+  <Value/>
+</Test>
+}
+    string length $::data
+} 0
+
+# cleanup
+::tcltest::cleanupTests
+return

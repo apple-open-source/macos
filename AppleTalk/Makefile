@@ -46,8 +46,7 @@ PROF_LIBS = $(LIBS)
 
 
 HEADER_PATHS =\
-               -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/bsd/netat\
-               -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/Headers/bsd/netat
+               -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/
 NEXTSTEP_PB_CFLAGS = -DNEXT
 
 

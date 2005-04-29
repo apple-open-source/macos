@@ -61,27 +61,29 @@
 #ifndef	_STDIO_H_
 #define	_STDIO_H_
 
-#if !defined(_ANSI_SOURCE) && !defined(__STRICT_ANSI__)
-#include <sys/types.h>
-#endif
-
+#include <_types.h>
 #include <sys/cdefs.h>
 
-#include <machine/ansi.h>
-#ifndef	_BSD_SIZE_T_DEFINED_
-#define	_BSD_SIZE_T_DEFINED_
-typedef	_BSD_SIZE_T_	size_t;
+#ifndef _VA_LIST
+#define _VA_LIST
+/* DO NOT REMOVE THIS COMMENT: fixincludes needs to see:
+ * __gnuc_va_list and include <stdarg.h> */
+typedef __darwin_va_list	va_list;
+#endif
+
+#ifndef	_SIZE_T
+#define	_SIZE_T
+typedef	__darwin_size_t		size_t;
 #endif
 
 #ifndef NULL
-#define	NULL	0
-#endif
+#define NULL __DARWIN_NULL
+#endif /* ! NULL */
 
 #if !defined(_ANSI_SOURCE) && !defined(__STRICT_ANSI__)
-typedef off_t fpos_t;
+typedef __darwin_off_t		fpos_t;
 #else
-#include <machine/types.h>
-typedef int64_t fpos_t;
+typedef __int64_t		fpos_t;
 #endif
 
 #define	_FSTDIO			/* Define for new stdio with functions. */
@@ -94,8 +96,8 @@ typedef int64_t fpos_t;
 
 /* stdio buffers */
 struct __sbuf {
-	unsigned char *_base;
-	int	_size;
+	unsigned char	*_base;
+	int		_size;
 };
 
 /* hold a buncha junk that would grow the ABI */
@@ -161,7 +163,13 @@ typedef	struct __sFILE {
 } FILE;
 
 __BEGIN_DECLS
+#if __DARWIN_UNIX03
+extern FILE *__stdinp;
+extern FILE *__stdoutp;
+extern FILE *__stderrp;
+#else /* !__DARWIN_UNIX03 */
 extern FILE __sF[];
+#endif /* __DARWIN_UNIX03 */
 __END_DECLS
 
 #define	__SLBF	0x0001		/* line buffered */
@@ -224,9 +232,15 @@ __END_DECLS
 #define	SEEK_END	2	/* set file offset to EOF plus offset */
 #endif
 
-#define	stdin	(&__sF[0])
-#define	stdout	(&__sF[1])
-#define	stderr	(&__sF[2])
+#if __DARWIN_UNIX03
+#define	stdin	__stdinp
+#define	stdout	__stdoutp
+#define	stderr	__stderrp
+#else /* !__DARWIN_UNIX03 */
+#define stdin	(&__sF[0])
+#define stdout	(&__sF[1])
+#define stderr	(&__sF[2])
+#endif /* __DARWIN_UNIX03 */
 
 /*
  * Functions defined in ANSI C standard.
@@ -238,47 +252,50 @@ int	 feof(FILE *);
 int	 ferror(FILE *);
 int	 fflush(FILE *);
 int	 fgetc(FILE *);
-int	 fgetpos(FILE *, fpos_t *);
-char	*fgets(char *, int, FILE *);
-FILE	*fopen(const char *, const char *);
-int	 fprintf(FILE *, const char *, ...);
+int	 fgetpos(FILE * __restrict, fpos_t *);
+char	*fgets(char * __restrict, int, FILE *);
+FILE	*fopen(const char * __restrict, const char * __restrict);
+int	 fprintf(FILE * __restrict, const char * __restrict, ...) __DARWIN_LDBL_COMPAT(fprintf);
 int	 fputc(int, FILE *);
-int	 fputs(const char *, FILE *);
-size_t	 fread(void *, size_t, size_t, FILE *);
-FILE	*freopen(const char *, const char *, FILE *);
-int	 fscanf(FILE *, const char *, ...);
+int	 fputs(const char * __restrict, FILE * __restrict);
+size_t	 fread(void * __restrict, size_t, size_t, FILE * __restrict);
+FILE	*freopen(const char * __restrict, const char * __restrict,
+	    FILE * __restrict) __DARWIN_ALIAS(freopen);
+int	 fscanf(FILE * __restrict, const char * __restrict, ...) __DARWIN_LDBL_COMPAT(fscanf);
 int	 fseek(FILE *, long, int);
 int	 fsetpos(FILE *, const fpos_t *);
 long	 ftell(FILE *);
-size_t	 fwrite(const void *, size_t, size_t, FILE *);
+size_t	 fwrite(const void * __restrict, size_t, size_t, FILE * __restrict) __DARWIN_ALIAS(fwrite);
 int	 getc(FILE *);
 int	 getchar(void);
 char	*gets(char *);
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_SOURCE)
+#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
 extern __const int sys_nerr;		/* perror(3) external variables */
 extern __const char *__const sys_errlist[];
 #endif
 void	 perror(const char *);
-int	 printf(const char *, ...);
+int	 printf(const char * __restrict, ...) __DARWIN_LDBL_COMPAT(printf);
 int	 putc(int, FILE *);
 int	 putchar(int);
 int	 puts(const char *);
 int	 remove(const char *);
 int	 rename (const char *, const char *);
 void	 rewind(FILE *);
-int	 scanf(const char *, ...);
-void	 setbuf(FILE *, char *);
-int	 setvbuf(FILE *, char *, int, size_t);
-int	 sprintf(char *, const char *, ...);
-int	 sscanf(const char *, const char *, ...);
+int	 scanf(const char * __restrict, ...) __DARWIN_LDBL_COMPAT(scanf);
+void	 setbuf(FILE * __restrict, char * __restrict);
+int	 setvbuf(FILE * __restrict, char * __restrict, int, size_t);
+int	 sprintf(char * __restrict, const char * __restrict, ...) __DARWIN_LDBL_COMPAT(sprintf);
+int	 sscanf(const char * __restrict, const char * __restrict, ...) __DARWIN_LDBL_COMPAT(sscanf);
 FILE	*tmpfile(void);
 char	*tmpnam(char *);
 int	 ungetc(int, FILE *);
-int	 vfprintf(FILE *, const char *, _BSD_VA_LIST_);
-int	 vprintf(const char *, _BSD_VA_LIST_);
-int	 vsprintf(char *, const char *, _BSD_VA_LIST_);
-int	 asprintf(char **, const char *, ...);
-int	 vasprintf(char **, const char *, _BSD_VA_LIST_);
+int	 vfprintf(FILE * __restrict, const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vfprintf);
+int	 vprintf(const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vprintf);
+int	 vsprintf(char * __restrict, const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vsprintf);
+#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+int	 asprintf(char **, const char *, ...) __DARWIN_LDBL_COMPAT(asprintf);
+int	 vasprintf(char **, const char *, va_list) __DARWIN_LDBL_COMPAT(vasprintf);
+#endif
 __END_DECLS
 
 /*
@@ -290,48 +307,53 @@ __END_DECLS
 
 __BEGIN_DECLS
 char	*ctermid(char *);
+#ifndef _POSIX_C_SOURCE
 char	*ctermid_r(char *);
+#endif /* not POSIX */
 FILE	*fdopen(int, const char *);
-int	 fileno(FILE *);
-__END_DECLS
-#endif /* not ANSI */
-
-/*
- * Routines that are purely local.
- */
-#if !defined (_ANSI_SOURCE) && !defined(_POSIX_SOURCE)
-__BEGIN_DECLS
+#ifndef _POSIX_C_SOURCE
 char	*fgetln(FILE *, size_t *);
+#endif /* not POSIX */
+int	 fileno(FILE *);
 void	 flockfile(FILE *);
+#ifndef _POSIX_C_SOURCE
 __const char 
 	*fmtcheck(const char *, const char *);
 int	 fpurge(FILE *);
+#endif /* not POSIX */
 int	 fseeko(FILE *, fpos_t, int);
 fpos_t	 ftello(FILE *);
 int	 ftrylockfile(FILE *);
 void	 funlockfile(FILE *);
 int	 getc_unlocked(FILE *);
 int	 getchar_unlocked(void);
+#ifndef _POSIX_C_SOURCE
 int	 getw(FILE *);
+#endif /* not POSIX */
 int	 pclose(FILE *);
 FILE	*popen(const char *, const char *);
 int	 putc_unlocked(int, FILE *);
 int	 putchar_unlocked(int);
+#ifndef _POSIX_C_SOURCE
 int	 putw(int, FILE *);
 void	 setbuffer(FILE *, char *, int);
 int	 setlinebuf(FILE *);
+#endif /* not POSIX */
+int	 snprintf(char * __restrict, size_t, const char * __restrict, ...) __DARWIN_LDBL_COMPAT(snprintf);
 char	*tempnam(const char *, const char *);
-int	 snprintf(char *, size_t, const char *, ...);
-int	 vfscanf(FILE *, const char *, _BSD_VA_LIST_);
-int	 vsnprintf(char *, size_t, const char *, _BSD_VA_LIST_);
-int	 vscanf(const char *, _BSD_VA_LIST_);
-int	 vsscanf(const char *, const char *, _BSD_VA_LIST_);
+int	 vfscanf(FILE * __restrict, const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vfscanf);
+int	 vscanf(const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vscanf);
+int	 vsnprintf(char * __restrict, size_t, const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vsnprintf);
+int	 vsscanf(const char * __restrict, const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vsscanf);
+#ifndef _POSIX_C_SOURCE
 FILE	*zopen(const char *, const char *, int);
+#endif /* not POSIX */
 __END_DECLS
 
 /*
  * Stdio function-access interface.
  */
+#ifndef _POSIX_C_SOURCE
 __BEGIN_DECLS
 FILE	*funopen(const void *,
 		int (*)(void *, char *, int),
@@ -341,14 +363,15 @@ FILE	*funopen(const void *,
 __END_DECLS
 #define	fropen(cookie, fn) funopen(cookie, fn, 0, 0, 0)
 #define	fwopen(cookie, fn) funopen(cookie, 0, fn, 0, 0)
-#endif /* !_ANSI_SOURCE && !_POSIX_SOURCE */
+#endif /* not POSIX */
+#endif /* not ANSI */
 
 /*
  * Functions internal to the implementation.
  */
 __BEGIN_DECLS
 int	__srget(FILE *);
-int	__svfscanf(FILE *, const char *, _BSD_VA_LIST_);
+int	__svfscanf(FILE *, const char *, va_list) __DARWIN_LDBL_COMPAT(__svfscanf);
 int	__swbuf(int, FILE *);
 __END_DECLS
 
@@ -383,13 +406,13 @@ static __inline int __sputc(int _c, FILE *_p) {
 #define	__sclearerr(p)	((void)((p)->_flags &= ~(__SERR|__SEOF)))
 #define	__sfileno(p)	((p)->_file)
 
+#ifndef _ANSI_SOURCE
+#ifndef _POSIX_C_SOURCE
 #define	feof_unlocked(p)	__sfeof(p)
 #define	ferror_unlocked(p)	__sferror(p)
 #define	clearerr_unlocked(p)	__sclearerr(p)
-
-#ifndef _ANSI_SOURCE
 #define	fileno_unlocked(p)	__sfileno(p)
-#endif
+#endif /* not POSIX */
 
 #ifndef lint
 #define	getc_unlocked(fp)	__sgetc(fp)
@@ -398,4 +421,10 @@ static __inline int __sputc(int _c, FILE *_p) {
 
 #define	getchar_unlocked()	getc_unlocked(stdin)
 #define	putchar_unlocked(x)	putc_unlocked(x, stdout)
+#endif /* not ANSI */
+
+#ifdef _USE_EXTENDED_LOCALES_
+#include <xlocale/_stdio.h>
+#endif /* _USE_EXTENDED_LOCALES_ */
+
 #endif /* _STDIO_H_ */

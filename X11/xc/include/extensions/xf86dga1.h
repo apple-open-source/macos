@@ -1,4 +1,4 @@
-/* $XFree86: xc/include/extensions/xf86dga1.h,v 1.2 1999/04/17 07:05:41 dawes Exp $ */
+/* $XFree86: xc/include/extensions/xf86dga1.h,v 1.3 2003/11/17 22:20:03 dawes Exp $ */
 /*
 
 Copyright (c) 1995  Jon Tombs
@@ -43,121 +43,93 @@ Copyright (c) 1995  XFree86 Inc
 _XFUNCPROTOBEGIN
 
 Bool XF86DGAQueryVersion(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int*		/* majorVersion */,
     int*		/* minorVersion */
-#endif
 );
 
 Bool XF86DGAQueryExtension(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int*		/* event_base */,
     int*		/* error_base */
-#endif
 );
 
 Status XF86DGAGetVideoLL(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int				/* screen */,
     int *			/* base addr */,
     int *			/* width */,
     int *			/* bank_size */,
     int *			/* ram_size */ 
-#endif
 );
 
 Status XF86DGAGetVideo(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int				/* screen */,
     char **			/* base addr */,
     int *			/* width */,
     int *			/* bank_size */,
     int *			/* ram_size */
-#endif
 );
 
 Status XF86DGADirectVideo(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int				/* screen */,
     int 			/* enable */
-#endif
 );
 
 Status XF86DGADirectVideoLL(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int				/* screen */,
     int 			/* enable */
-#endif
 );
 
 Status XF86DGAGetViewPortSize(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int				/* screen */,
     int *			/* width */,
     int *			/* height */
-#endif
 );
 
 Status XF86DGASetViewPort(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int				/* screen */,
     int x			/* X */,
     int y			/* Y */
-#endif
 );
 
 Status XF86DGAGetVidPage(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int				/* screen */,
     int *			/* vid page */
-#endif
 );
 
 Status XF86DGASetVidPage(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int				/* screen */,
     int				/* vid page */
-#endif
 );
 
 Status XF86DGAInstallColormap(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int				/* screen */,
     Colormap			/*Colormap */
-#endif
 );
 
 int XF86DGAForkApp(
-#if NeedFunctionPrototypes
     int screen
-#endif
 );
 
 Status XF86DGAQueryDirectVideo(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     int			/* screen */,
     int *		/* flags */
-#endif
 );
 
 Bool XF86DGAViewPortChanged(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     int			/* screen */,
     int			/* n */
-#endif
 );
 
 

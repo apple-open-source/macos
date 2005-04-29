@@ -1,7 +1,6 @@
-/* APPLE LOCAL objc method encoding */
 /* Make sure that array arguments to methods are given the size of pointers.  */
 /* As in the case of ivars, arrays without size (e.g., 'int []') are
-   encoded as pointers as well.  */
+   encoded as pointers.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-do run } */
 
@@ -23,13 +22,13 @@ extern void abort(void);
 enum Enum { one, two, three, four };
 
 @interface ArrayTest
-- (const char *)str:(BOOL [])arg1 with:(BOOL *)arg2 and:(enum Enum[4])en;
+- (const char *)str:(signed char [])arg1 with:(unsigned char *)arg2 and:(enum Enum[4])en;
 - (int)meth1:(int [])arg1 with:(int [0])arg2 with:(int [2])arg3;
 @end
 
 @implementation ArrayTest
 - (int)meth1:(int [])arg1 with:(int [0])arg2 with:(int [2])arg3 { return 0; }
-- (const char *)str:(BOOL [])arg1 with:(BOOL *)arg2 and:(enum Enum[4])en { return "str"; }
+- (const char *)str:(signed char [])arg1 with:(unsigned char *)arg2 and:(enum Enum[4])en { return "str"; }
 @end
 
 Class cls;
@@ -47,8 +46,8 @@ int main(void) {
   cls = OBJC_GETCLASS("ArrayTest");
 
   meth = CLASS_GETINSTANCEMETHOD(cls, @selector(str:with:and:));
-  scan_initial("r*%u@%u:%u^c%u^c%u[4i]%u");
-  CHECK_IF(offs3 == offs2 + sizeof(BOOL *) && offs4 == offs3 + sizeof(BOOL *));
+  scan_initial("r*%u@%u:%u*%u*%u[4i]%u");
+  CHECK_IF(offs3 == offs2 + sizeof(signed char *) && offs4 == offs3 + sizeof(unsigned char *));
   CHECK_IF(totsize == offs4 + sizeof(enum Enum *));
   meth = CLASS_GETINSTANCEMETHOD(cls, @selector(meth1:with:with:));
   scan_initial("i%u@%u:%u^i%u[0i]%u[2i]%u");

@@ -22,7 +22,7 @@ RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
 CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 **********************************************************************/
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/neomagic/neo.h,v 1.23 2002/10/30 12:52:21 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/neomagic/neo.h,v 1.24 2003/04/23 21:51:40 tsi Exp $ */
 
 /*
  * The original Precision Insight driver for
@@ -60,10 +60,8 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include "xf86i2c.h"
 
-#ifdef XvExtension
-# include "xf86xv.h"
-# include "Xv.h"
-#endif /* XvExtension */
+#include "xf86xv.h"
+#include "Xv.h"
 
 /*
  * Driver data structures.
@@ -263,7 +261,6 @@ typedef struct neoRec
     void	(*PointerMoved)(int index, int x, int y);
     int rotate;
     Bool showcache;
-#ifdef XvExtension
     Bool video;
     double videoHZoom;
     double videoVZoom;
@@ -272,7 +269,6 @@ typedef struct neoRec
     int overlay_offset;
     int videoKey;
     int interlace;
-#endif /* XvExtension */
 } NEORec, *NEOPtr;
 
 typedef struct {

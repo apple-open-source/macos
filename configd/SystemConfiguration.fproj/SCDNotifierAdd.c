@@ -49,13 +49,7 @@ SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean is
 	CFIndex				myKeyLen;
 	int				sc_status;
 
-	if (_sc_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreAddWatchedKey:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  key     = %@"), key);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  isRegex = %s"), isRegex ? "TRUE" : "FALSE");
-	}
-
-	if (!store) {
+	if (store == NULL) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;
@@ -84,8 +78,10 @@ SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean is
 	CFRelease(utfKey);
 
 	if (status != KERN_SUCCESS) {
+#ifdef	DEBUG
 		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyadd(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreAddWatchedKey notifyadd(): %s"), mach_error_string(status));
+#endif	/* DEBUG */
 		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);

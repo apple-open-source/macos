@@ -39,7 +39,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: add_tries.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: add_tries.c,v 1.4 2000/12/10 02:55:07 tom Exp $")
 
 #define SET_TRY(dst,src) if ((dst->ch = *src++) == 128) dst->ch = '\0'
 #define CMP_TRY(a,b) ((a)? (a == b) : (b == 128))

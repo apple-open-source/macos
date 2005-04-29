@@ -6,7 +6,7 @@
  * Internally, ccaches are kept in a linked list of cci_ccache_data
  * structures. 
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/CCache.cp,v 1.22 2003/03/17 20:46:12 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/CCache.cp,v 1.23 2004/10/04 17:41:26 lxs Exp $
  */
 
 #include <Kerberos/krb.h>  // For krb_life_to_time
@@ -348,6 +348,7 @@ cc_int32 CCECCache::Compare (
 	
 	CCIAssert_ ((result == ccNoError)
 	            || (result == ccErrInvalidContext)
+	            || (result == ccErrCCacheNotFound)
 	            || (result == ccErrNoMem)
 	            || (result == ccErrBadParam)
 	            || (result == ccErrServerUnavailable));

@@ -1,16 +1,17 @@
 /*
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,11 +19,9 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
  *
+ * @APPLE_LICENSE_HEADER_END@
  */
-
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/assert.h>
@@ -45,80 +44,96 @@
 OSDefineMetaClassAndStructors(IOUSBControllerUserClient, IOUserClient)
 
 enum {
-        kMethodObjectThis = 0,
-        kMethodObjectOwner
-    };
-    
+    kMethodObjectThis = 0,
+    kMethodObjectOwner
+};
+
 //================================================================================================
 //	Method Table
 //================================================================================================
 //
-const IOExternalMethod 
+const IOExternalMethod
 IOUSBControllerUserClient::sMethods[kNumUSBControllerMethods] =
-{	
-	{	// kUSBControllerUserClientOpen
-		(IOService*)kMethodObjectThis,				// object
-		( IOMethod ) &IOUSBControllerUserClient::open,		// func
-		kIOUCScalarIScalarO,					// flags
-		1,							// # of params in
-		0							// # of params out
-	},
-	{	// kUSBControllerUserClientClose
-		(IOService*)kMethodObjectThis,				// object
-		( IOMethod ) &IOUSBControllerUserClient::close,		// func
-		kIOUCScalarIScalarO,					// flags
-		0,							// # of params in
-		0							// # of params out
-	},
-	{	// kUSBControllerUserClientEnableLogger
-		(IOService*)kMethodObjectThis,				// object
-		( IOMethod ) &IOUSBControllerUserClient::EnableKernelLogger,	// func
-		kIOUCScalarIScalarO,					// flags
-		1,							// # of params in
-		0							// # of params out
-	},
-	{	// kUSBControllerUserClientSetDebuggingLevel
-		(IOService*)kMethodObjectThis,				// object
-		( IOMethod ) &IOUSBControllerUserClient::SetDebuggingLevel,// func
-		kIOUCScalarIScalarO,					// flags
-		1,							// # of params in
-		0							// # of params out
-	},
-	{	// kUSBControllerUserClientSetDebuggingType
-		(IOService*)kMethodObjectThis,				// object
-		( IOMethod ) &IOUSBControllerUserClient::SetDebuggingType,// func
-		kIOUCScalarIScalarO,					// flags
-		1,							// # of params in
-		0							// # of params out
-	},
-	{	// kUSBControllerUserClientGetDebuggingLevel
-		(IOService*)kMethodObjectThis,				// object
-		( IOMethod ) &IOUSBControllerUserClient::GetDebuggingLevel,// func
-		kIOUCScalarIScalarO,					// flags
-		0,							// # of params in
-		1							// # of params out
-	},
-	{	// kUSBControllerUserClientGetDebuggingType
-		(IOService*)kMethodObjectThis,				// object
-		( IOMethod ) &IOUSBControllerUserClient::GetDebuggingType,// func
-		kIOUCScalarIScalarO,					// flags
-		0,							// # of params in
-		1							// # of params out
-	},
-	{	// kUSBControllerUserClientSetTestMode
-		(IOService*)kMethodObjectThis,				// object
-		( IOMethod )&IOUSBControllerUserClient::SetTestMode,	// func
-		kIOUCScalarIScalarO,					// flags
-		2,							// # of params in
-		0							// # of params out
-	}
+{
+    {	// kUSBControllerUserClientOpen
+        (IOService*)kMethodObjectThis,				// object
+        ( IOMethod ) &IOUSBControllerUserClient::open,		// func
+        kIOUCScalarIScalarO,					// flags
+        1,							// # of params in
+        0							// # of params out
+    },
+    {	// kUSBControllerUserClientClose
+        (IOService*)kMethodObjectThis,				// object
+        ( IOMethod ) &IOUSBControllerUserClient::close,		// func
+        kIOUCScalarIScalarO,					// flags
+        0,							// # of params in
+        0							// # of params out
+    },
+    {	// kUSBControllerUserClientEnableLogger
+        (IOService*)kMethodObjectThis,				// object
+        ( IOMethod ) &IOUSBControllerUserClient::EnableKernelLogger,	// func
+        kIOUCScalarIScalarO,					// flags
+        1,							// # of params in
+        0							// # of params out
+    },
+    {	// kUSBControllerUserClientSetDebuggingLevel
+        (IOService*)kMethodObjectThis,				// object
+        ( IOMethod ) &IOUSBControllerUserClient::SetDebuggingLevel,// func
+        kIOUCScalarIScalarO,					// flags
+        1,							// # of params in
+        0							// # of params out
+    },
+    {	// kUSBControllerUserClientSetDebuggingType
+        (IOService*)kMethodObjectThis,				// object
+        ( IOMethod ) &IOUSBControllerUserClient::SetDebuggingType,// func
+        kIOUCScalarIScalarO,					// flags
+        1,							// # of params in
+        0							// # of params out
+    },
+    {	// kUSBControllerUserClientGetDebuggingLevel
+        (IOService*)kMethodObjectThis,				// object
+        ( IOMethod ) &IOUSBControllerUserClient::GetDebuggingLevel,// func
+        kIOUCScalarIScalarO,					// flags
+        0,							// # of params in
+        1							// # of params out
+    },
+    {	// kUSBControllerUserClientGetDebuggingType
+        (IOService*)kMethodObjectThis,				// object
+        ( IOMethod ) &IOUSBControllerUserClient::GetDebuggingType,// func
+        kIOUCScalarIScalarO,					// flags
+        0,							// # of params in
+        1							// # of params out
+    },
+    {	// kUSBControllerUserClientSetTestMode
+        (IOService*)kMethodObjectThis,				// object
+        ( IOMethod )&IOUSBControllerUserClient::SetTestMode,	// func
+        kIOUCScalarIScalarO,					// flags
+        2,							// # of params in
+        0							// # of params out
+    }
+    ,
+    {	// kUSBControllerUserClientReadRegister
+        (IOService*)kMethodObjectThis,				// object
+        ( IOMethod )&IOUSBControllerUserClient::ReadRegister,	// func
+        kIOUCScalarIScalarO,					// flags
+        2,							// # of params in
+        1							// # of params out
+    }
+    ,
+    {	// kUSBControllerUserClientWriteRegister
+        (IOService*)kMethodObjectThis,				// object
+        ( IOMethod )&IOUSBControllerUserClient::WriteRegister,	// func
+        kIOUCScalarIScalarO,					// flags
+        3,							// # of params in
+        0							// # of params out
+    }
 };
 
-const IOItemCount 
-IOUSBControllerUserClient::sMethodCount = sizeof( IOUSBControllerUserClient::sMethods ) / 
-							sizeof( IOUSBControllerUserClient::sMethods[ 0 ] );
+const IOItemCount
+IOUSBControllerUserClient::sMethodCount = sizeof( IOUSBControllerUserClient::sMethods ) /
+sizeof( IOUSBControllerUserClient::sMethods[ 0 ] );
 
-void 
+void
 IOUSBControllerUserClient::SetExternalMethodVectors()
 {
     fMethods = sMethods;
@@ -130,7 +145,7 @@ IOUSBControllerUserClient::SetExternalMethodVectors()
 IOExternalMethod *
 IOUSBControllerUserClient::getTargetAndMethodForIndex(IOService **target, UInt32 index)
 {
-    if (index < (UInt32)fNumMethods) 
+    if (index < (UInt32)fNumMethods)
     {
         if ((IOService*)kMethodObjectThis == fMethods[index].object)
             *target = this;
@@ -138,10 +153,10 @@ IOUSBControllerUserClient::getTargetAndMethodForIndex(IOService **target, UInt32
             *target = fOwner;
         else
             return NULL;
-	return (IOExternalMethod *) &fMethods[index];
+        return (IOExternalMethod *) &fMethods[index];
     }
     else
-	return NULL;
+        return NULL;
 }
 
 
@@ -152,55 +167,62 @@ bool
 IOUSBControllerUserClient::initWithTask(task_t owningTask, void *security_id, UInt32 type, OSDictionary * properties)
 {
     IOLog("IOUSBControllerUserClient::initWithTask(type %ld)\n", type);
-    
+
     if (!owningTask)
-	return false;
-	
+        return false;
+
     fTask = owningTask;
     fOwner = NULL;
     fGate = NULL;
     fDead = false;
-    
+
     SetExternalMethodVectors();
-    
+
     return (super::initWithTask(owningTask, security_id , type, properties));
 }
 
 
 
-bool 
+bool
 IOUSBControllerUserClient::start( IOService * provider )
 {
     fOwner = OSDynamicCast(IOUSBController, provider);
     IOLog("+IOUSBControllerUserClient::start (%p)\n", fOwner);
     if (!fOwner)
-	return false;
-    
+        return false;
+
     if(!super::start(provider))
         return false;
+
+    fMemMap = fOwner->getProvider()->mapDeviceMemoryWithIndex(0);
+    if (!fMemMap)
+    {
+        USBLog(1, "IOUSBControllerUserClient::start - unable to get a memory map");
+        return kIOReturnNoResources;
+    }
 
     return true;
 }
 
 
-IOReturn 
+IOReturn
 IOUSBControllerUserClient::open(bool seize)
 {
     IOOptionBits	options = seize ? (IOOptionBits) kIOServiceSeize : 0;
 
-    IOLog("+IOUSBControllerUserClient::open\n");
+    USBLog(1, "+IOUSBControllerUserClient::open");
     if (!fOwner)
         return kIOReturnNotAttached;
 
     if (!fOwner->open(this, options))
-	return kIOReturnExclusiveAccess;
+        return kIOReturnExclusiveAccess;
 
     return kIOReturnSuccess;
 }
 
 
 
-IOReturn 
+IOReturn
 IOUSBControllerUserClient::close()
 {
     IOLog("+IOUSBControllerUserClient::close\n");
@@ -208,7 +230,7 @@ IOUSBControllerUserClient::close()
         return kIOReturnNotAttached;
 
     if (fOwner && (fOwner->isOpen(this)))
-	fOwner->close(this);
+        fOwner->close(this);
 
     return kIOReturnSuccess;
 }
@@ -219,9 +241,9 @@ IOUSBControllerUserClient::EnableKernelLogger(bool enable)
     IOLog("+IOUSBControllerUserClient::EnableKernelLogger\n");
     if (!fOwner)
         return kIOReturnNotAttached;
-    
+
     KernelDebugEnable(enable);
-    
+
     return kIOReturnSuccess;
 }
 
@@ -231,9 +253,9 @@ IOUSBControllerUserClient::SetDebuggingLevel(KernelDebugLevel inLevel)
     IOLog("+IOUSBControllerUserClient::SetDebuggingLevel\n");
     if (!fOwner)
         return kIOReturnNotAttached;
-    
+
     KernelDebugSetLevel(inLevel);
-    
+
     return kIOReturnSuccess;
 }
 
@@ -243,7 +265,7 @@ IOUSBControllerUserClient::SetDebuggingType(KernelDebuggingOutputType inType)
     IOLog("+IOUSBControllerUserClient::SetDebuggingType\n");
     if (!fOwner)
         return kIOReturnNotAttached;
-    
+
     KernelDebugSetOutputType(inType);
 
     return kIOReturnSuccess;
@@ -252,10 +274,10 @@ IOUSBControllerUserClient::SetDebuggingType(KernelDebuggingOutputType inType)
 IOReturn
 IOUSBControllerUserClient::GetDebuggingLevel(KernelDebugLevel * inLevel)
 {
-     IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
-   if (!fOwner)
+    IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
+    if (!fOwner)
         return kIOReturnNotAttached;
-    
+
     *inLevel = KernelDebugGetLevel();
 
     return kIOReturnSuccess;
@@ -267,7 +289,7 @@ IOUSBControllerUserClient::GetDebuggingType(KernelDebuggingOutputType * inType)
     IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
     if (!fOwner)
         return kIOReturnNotAttached;
-    
+
     *inType = KernelDebugGetOutputType();
 
     return kIOReturnSuccess;
@@ -283,20 +305,79 @@ IOUSBControllerUserClient::SetTestMode(UInt32 mode, UInt32 port)
     IOLog("+IOUSBControllerUserClient::SetTestMode");
     if (!v2)
         return kIOReturnNotAttached;
-    
+
     return v2->SetTestMode(mode, port);
 }
 
 
-void 
+IOReturn
+IOUSBControllerUserClient::ReadRegister(UInt32 offset, UInt32 size, void *value)
+{
+    UInt8	bVal;
+    UInt16	wVal;
+    UInt32	lVal;
+
+    USBLog(1, "+IOUSBControllerUserClient::ReadRegister Offset(0x%x), Size (%d)", (int)offset, (int)size);
+    if (!fOwner)
+        return kIOReturnNotAttached;
+
+    if (!fMemMap)
+        return kIOReturnNoResources;
+
+    switch (size)
+    {
+        case 8:
+            bVal = *((UInt8 *)fMemMap->getVirtualAddress() + offset);
+            *(UInt8*)value = bVal;
+            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got byte value %p", bVal);
+            break;
+
+        case 16:
+            wVal = OSReadLittleInt16((void*)(fMemMap->getVirtualAddress()), offset);
+            *(UInt16*)value = wVal;
+            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got word value %p", wVal);
+            break;
+
+        case 32:
+            lVal = OSReadLittleInt32((void*)(fMemMap->getVirtualAddress()), offset);
+            *(UInt32*)value = lVal;
+            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got long value %p", lVal);
+            break;
+
+        default:
+            USBLog(1, "IOUSBControllerUserClient::ReadRegister - invalid size");
+            return kIOReturnBadArgument;
+    }
+    return kIOReturnSuccess;
+}
+
+
+IOReturn
+IOUSBControllerUserClient::WriteRegister(UInt32 offset, UInt32 size, UInt32 value)
+{
+    USBLog(1, "+IOUSBControllerUserClient::WriteRegister Offset(0x%x), Size (%d) Value (0x%x)", (int)offset, (int)size, (int)value);
+
+    if (!fOwner)
+        return kIOReturnNotAttached;
+
+    return kIOReturnSuccess;
+}
+
+void
 IOUSBControllerUserClient::stop( IOService * provider )
 {
     IOLog("IOUSBControllerUserClient::stop\n");
 
-    super::stop( provider );
+super::stop( provider );
+
+    if (fMemMap)
+    {
+        fMemMap->release();
+        fMemMap = NULL;
+    }
 }
 
-IOReturn 
+IOReturn
 IOUSBControllerUserClient::clientClose( void )
 {
     /*

@@ -1,63 +1,61 @@
 /* Definitions of target machine for GNU compiler. Matsushita MN10300 series
-   Copyright (C) 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #ifdef RTX_CODE
 
 #ifdef TREE_CODE
-extern void mn10300_va_start PARAMS ((tree, rtx));
+extern void mn10300_va_start (tree, rtx);
 #endif /* TREE_CODE */
 
-extern struct rtx_def *legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
-extern void print_operand PARAMS ((FILE *, rtx, int));
-extern void print_operand_address PARAMS ((FILE *, rtx));
-extern void mn10300_print_reg_list PARAMS ((FILE *, int));
-extern int mn10300_get_live_callee_saved_regs PARAMS ((void));
-extern void mn10300_gen_multiple_store PARAMS ((int));
-extern void notice_update_cc PARAMS ((rtx, rtx));
-extern enum reg_class secondary_reload_class PARAMS ((enum reg_class,
-						      enum machine_mode, rtx));
-extern const char *output_tst PARAMS ((rtx, rtx));
-extern int store_multiple_operation PARAMS ((rtx, enum machine_mode));
-extern int symbolic_operand PARAMS ((rtx, enum machine_mode));
-extern int call_address_operand PARAMS ((rtx, enum machine_mode));
-extern int impossible_plus_operand PARAMS ((rtx, enum machine_mode));
-extern int const_8bit_operand PARAMS ((rtx, enum machine_mode));
+extern struct rtx_def *legitimize_address (rtx, rtx, enum machine_mode);
+extern rtx legitimize_pic_address (rtx, rtx);
+extern int legitimate_pic_operand_p (rtx);
+extern bool legitimate_address_p (enum machine_mode, rtx, int);
+extern void print_operand (FILE *, rtx, int);
+extern void print_operand_address (FILE *, rtx);
+extern void mn10300_print_reg_list (FILE *, int);
+extern int mn10300_get_live_callee_saved_regs (void);
+extern void mn10300_gen_multiple_store (int);
+extern void notice_update_cc (rtx, rtx);
+extern enum reg_class secondary_reload_class (enum reg_class,
+					      enum machine_mode, rtx);
+extern const char *output_tst (rtx, rtx);
+extern int store_multiple_operation (rtx, enum machine_mode);
+extern int symbolic_operand (rtx, enum machine_mode);
+extern int call_address_operand (rtx, enum machine_mode);
+extern int impossible_plus_operand (rtx, enum machine_mode);
+extern int const_8bit_operand (rtx, enum machine_mode);
 
-extern int mn10300_address_cost PARAMS ((rtx, int *));
-
-extern bool mn10300_wide_const_load_uses_clr PARAMS ((rtx operands[2]));
+extern bool mn10300_wide_const_load_uses_clr (rtx operands[2]);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
-extern struct rtx_def *function_arg PARAMS ((CUMULATIVE_ARGS *,
-					     enum machine_mode, tree, int));
-extern int function_arg_partial_nregs PARAMS ((CUMULATIVE_ARGS *,
-					       enum machine_mode, tree, int));
-extern struct rtx_def *mn10300_va_arg PARAMS ((tree, tree));
+extern struct rtx_def *function_arg (CUMULATIVE_ARGS *,
+				     enum machine_mode, tree, int);
+extern int function_arg_partial_nregs (CUMULATIVE_ARGS *,
+				       enum machine_mode, tree, int);
 #endif /* TREE_CODE */
 
-extern struct rtx_def *mn10300_builtin_saveregs PARAMS ((void));
-extern void asm_file_start PARAMS ((FILE *));
-extern void expand_prologue PARAMS ((void));
-extern void expand_epilogue PARAMS ((void));
-extern int initial_offset PARAMS ((int, int));
-extern int can_use_return_insn PARAMS ((void));
-extern int mask_ok_for_mem_btst PARAMS ((int, int));
+extern void expand_prologue (void);
+extern void expand_epilogue (void);
+extern int initial_offset (int, int);
+extern int can_use_return_insn (void);
+extern int mask_ok_for_mem_btst (int, int);

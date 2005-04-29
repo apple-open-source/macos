@@ -209,6 +209,7 @@ static void __driMesaCollectCallback (void *k, void *v, void *data)
     }
 }
 
+/* psp->mutex is held. */
 static void __driMesaGarbageCollectDrawables(void *drawHash)
 {
     __DRIdrawable *pdraw;
@@ -258,7 +259,7 @@ driMesaFindDrawableByUID (Display *dpy,unsigned int uid,
 	    return FALSE;
 	}
 
-	xmutex_lock (psp->mutex);
+	pthread_mutex_lock (&psp->mutex);
 
 	pdraw = __driMesaFindDrawableByUID (psp->drawHash, uid);
 	if (pdraw != NULL) {
@@ -267,7 +268,7 @@ driMesaFindDrawableByUID (Display *dpy,unsigned int uid,
 	    return TRUE;
 	};
 
-	xmutex_unlock (psp->mutex);
+	pthread_mutex_unlock (&psp->mutex);
     }
 
     return FALSE;
@@ -355,14 +356,14 @@ static Bool driMesaUnbindContext(Display *dpy, int scrn,
 	return GL_FALSE;
     }
 
-    xmutex_lock (psp->mutex);
+    pthread_mutex_lock (&psp->mutex);
 
     pcp = (__DRIcontextPrivate *)gc->driContext.private;
 
     pdp = pcp->driDrawablePriv;
     if (pdp == NULL) {
 	/* ERROR!!! */
-	xmutex_unlock (psp->mutex);
+	pthread_mutex_unlock (&psp->mutex);
 	return GL_FALSE;
     }
 
@@ -375,7 +376,7 @@ static Bool driMesaUnbindContext(Display *dpy, int scrn,
 
     if (pdp->refcount == 0) {
 	/* ERROR!!! */
-	xmutex_unlock (psp->mutex);
+	pthread_mutex_unlock (&psp->mutex);
 	return GL_FALSE;
     } else if (--pdp->refcount == 0) {
 #if 0
@@ -405,7 +406,7 @@ static Bool driMesaUnbindContext(Display *dpy, int scrn,
 #endif
     }
 
-    xmutex_unlock (psp->mutex);
+    pthread_mutex_unlock (&psp->mutex);
     return GL_TRUE;
 }
 
@@ -436,7 +437,7 @@ static Bool driMesaBindContext(Display *dpy, int scrn,
 	return GL_FALSE;
     }
 
-    xmutex_lock (psp->mutex);
+    pthread_mutex_lock (&psp->mutex);
 
     pdraw = __driMesaFindDrawable(psp->drawHash, draw);
     if (!pdraw) {
@@ -444,7 +445,7 @@ static Bool driMesaBindContext(Display *dpy, int scrn,
 	pdraw = (__DRIdrawable *)Xmalloc(sizeof(__DRIdrawable));
 	if (!pdraw) {
 	    /* ERROR!!! */
-	    xmutex_unlock (psp->mutex);
+	    pthread_mutex_unlock (&psp->mutex);
 	    return GL_FALSE;
 	}
 
@@ -454,7 +455,7 @@ static Bool driMesaBindContext(Display *dpy, int scrn,
 	if (!pdraw->private) {
 	    /* ERROR!!! */
 	    Xfree(pdraw);
-	    xmutex_unlock (psp->mutex);
+	    pthread_mutex_unlock (&psp->mutex);
 	    return GL_FALSE;
 	}
 
@@ -463,7 +464,7 @@ static Bool driMesaBindContext(Display *dpy, int scrn,
 	    /* ERROR!!! */
 	    (*pdraw->destroyDrawable)(dpy, pdraw->private);
 	    Xfree(pdraw);
-	    xmutex_unlock (psp->mutex);
+	    pthread_mutex_unlock (&psp->mutex);
 	    return GL_FALSE;
 	}
     }
@@ -518,7 +519,7 @@ static Bool driMesaBindContext(Display *dpy, int scrn,
     CGLSetCurrentContext (pcp->ctx);
     pcp->thread_id = xthread_self ();
 
-    xmutex_unlock (psp->mutex);
+    pthread_mutex_unlock (&psp->mutex);
     return GL_TRUE;
 }
 
@@ -607,7 +608,7 @@ static __DRIdrawable *driMesaGetDrawable(Display *dpy, GLXDrawable draw,
     __DRIscreenPrivate *psp = (__DRIscreenPrivate *) screenPrivate;
     __DRIdrawable *dri_draw;
 
-    xmutex_lock (psp->mutex);
+    pthread_mutex_lock (&psp->mutex);
 
     /*
     ** Make sure this routine returns NULL if the drawable is not bound
@@ -615,7 +616,7 @@ static __DRIdrawable *driMesaGetDrawable(Display *dpy, GLXDrawable draw,
     */
     dri_draw = __driMesaFindDrawable(psp->drawHash, draw);
 
-    xmutex_unlock (psp->mutex);
+    pthread_mutex_unlock (&psp->mutex);
     return dri_draw;
 }
 
@@ -626,7 +627,7 @@ static void driMesaSwapBuffers(Display *dpy, void *drawPrivate)
     xthread_t self = xthread_self ();
     static Bool warned;
 
-    xmutex_lock (pdp->driScreenPriv->mutex);
+    pthread_mutex_lock (&pdp->driScreenPriv->mutex);
 
     /* FIXME: this is sub-optimal, since we may not always find a context
        bound to the given drawable on this thread. */
@@ -649,18 +650,16 @@ static void driMesaSwapBuffers(Display *dpy, void *drawPrivate)
 	}
     }
 
-
-    xmutex_unlock (pdp->driScreenPriv->mutex);
+    pthread_mutex_unlock (&pdp->driScreenPriv->mutex);
 }
 
+/* psp->mutex is held. */
 static void driMesaDestroyDrawable(Display *dpy, void *drawPrivate)
 {
     __DRIdrawablePrivate *pdp = (__DRIdrawablePrivate *)drawPrivate;
 
     if (pdp) {
-	xmutex_lock (pdp->driScreenPriv->mutex);
 	unbind_drawable (pdp);
-	xmutex_unlock (pdp->driScreenPriv->mutex);
 	if (pdp->surface_id != 0) {
 	    xp_destroy_surface (pdp->surface_id);
 	    pdp->surface_id = 0;
@@ -753,10 +752,10 @@ static void *driMesaCreateContext(Display *dpy, XVisualInfo *vis, void *shared,
 
     /* Create the hash table */
     if (!psp->drawHash) {
-	xmutex_lock (psp->mutex);
+	pthread_mutex_lock (&psp->mutex);
 	if (!psp->drawHash)
 	    psp->drawHash = x_hash_table_new (NULL, NULL, NULL, NULL);
-	xmutex_unlock (psp->mutex);
+	pthread_mutex_unlock (&psp->mutex);
     }
 
     pcp = (__DRIcontextPrivate *)Xmalloc(sizeof(__DRIcontextPrivate));
@@ -793,9 +792,9 @@ static void *driMesaCreateContext(Display *dpy, XVisualInfo *vis, void *shared,
 
     wrap_context (pcp);
 
-    xmutex_lock (psp->mutex);
+    pthread_mutex_lock (&psp->mutex);
     __driMesaGarbageCollectDrawables(pcp->driScreenPriv->drawHash);
-    xmutex_unlock (psp->mutex);
+    pthread_mutex_unlock (&psp->mutex);
 
     return pcp;
 }
@@ -805,10 +804,10 @@ static void driMesaDestroyContext(Display *dpy, int scrn, void *contextPrivate)
     __DRIcontextPrivate  *pcp   = (__DRIcontextPrivate *) contextPrivate;
 
     if (pcp) {
-	xmutex_lock (pcp->driScreenPriv->mutex);
+	pthread_mutex_lock (&pcp->driScreenPriv->mutex);
 	unbind_context (pcp);
 	__driMesaGarbageCollectDrawables(pcp->driScreenPriv->drawHash);
-	xmutex_unlock (pcp->driScreenPriv->mutex);
+	pthread_mutex_unlock (&pcp->driScreenPriv->mutex);
 	CGLDestroyContext (pcp->ctx);
 	Xfree(pcp);
     }
@@ -822,6 +821,7 @@ static void *driMesaCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
     int directCapable, i, n;
     __DRIscreenPrivate *psp;
     XVisualInfo visTmpl, *visinfo;
+    pthread_mutexattr_t attr;
 
     if (!XAppleDRIQueryDirectRenderingCapable(dpy, scrn, &directCapable)) {
 	return NULL;
@@ -836,7 +836,12 @@ static void *driMesaCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
 	return NULL;
     }
 
-    psp->mutex = xmutex_malloc ();
+    /* Need a recursive lock here. */
+    pthread_mutexattr_init (&attr);
+    pthread_mutexattr_settype (&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init (&psp->mutex, &attr);
+    pthread_mutexattr_destroy (&attr);
+
     psp->display = dpy;
     psp->myNum = scrn;
 
@@ -958,7 +963,7 @@ static void driAppleSurfaceNotify (Display *dpy, unsigned int uid, int kind)
 	    break;
 	}
 
-	xmutex_unlock (psp->mutex);
+	pthread_mutex_unlock (&psp->mutex);
     }
 }
 
@@ -1028,9 +1033,9 @@ static void viewport_callback (GLIContext ctx, GLint x, GLint y,
 {
     WRAP_BOILERPLATE
 
-    xmutex_lock (pcp->driScreenPriv->mutex);
+    pthread_mutex_lock (&pcp->driScreenPriv->mutex);
     update_context (pcp);
-    xmutex_unlock (pcp->driScreenPriv->mutex);
+    pthread_mutex_unlock (&pcp->driScreenPriv->mutex);
 
     (*pcp->disp.viewport) (ctx, x, y, width, height);
 }

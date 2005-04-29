@@ -199,13 +199,6 @@ case "${SYSTEM}:${RELEASE}:${VERSION}:${MACHINE}" in
     OpenBSD:*)
 	echo "${MACHINE}-whatever-openbsd"; exit 0
 	;;
-    Rhapsody:*)
-	case ${MACHINE} in
-	    Power*) MACH="powerpc"    ;;
-	    *     ) MACH="${MACHINE}" ;;
-	esac
-	echo "${MACH}-apple-rhapsody${RELEASE}"; exit 0
-	;;
 
     OpenUNIX:*)
 	echo "${MACHINE}-unknown-OpenUNIX${VERSION}"; exit 0
@@ -250,7 +243,7 @@ case "${SYSTEM}:${RELEASE}:${VERSION}:${MACHINE}" in
 	;;
 
     Darwin:*)
-	echo "$(uname -p)-apple-darwin"; exit 0
+	echo "ppc-apple-darwin"; exit 0
 	;;
 
     SunOS:5.*)
@@ -601,8 +594,6 @@ EOF
   alpha*-*-openbsd) OUT="OpenBSD-alpha" ;;
   pmax*-*-openbsd) OUT="OpenBSD-mips" ;;
   *-*-openbsd) OUT="OpenBSD" ;;
-  *-*-rhapsody*) OUT="Rhapsody" ;;
-  *-*-darwin*) OUT="Darwin" ;;
   *86*-*-bsdi4) OUT="bsdi-elf-gcc" ;;
   *-*-osf) OUT="alphaold-cc" ;;
   *-*-tru64) OUT="alpha-cc" ;;

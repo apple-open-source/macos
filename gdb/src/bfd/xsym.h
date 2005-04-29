@@ -1,5 +1,5 @@
 /* xSYM symbol-file support for BFD.
-   Copyright 1999, 2000, 2001, 2002
+   Copyright 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -27,15 +27,19 @@
 #define BFD_SYM_VERSION_STR_3_1 	"\013Version 3.1"
 #define BFD_SYM_VERSION_STR_3_2 	"\013Version 3.2"
 #define BFD_SYM_VERSION_STR_3_3 	"\013Version 3.3"
+#define BFD_SYM_VERSION_STR_3_3R0	"\017Version 3.3.3R0" /* CW 9.0 xSYM */
 #define BFD_SYM_VERSION_STR_3_4 	"\013Version 3.4"
 #define BFD_SYM_VERSION_STR_3_5 	"\013Version 3.5"
 #define BFD_SYM_END_OF_LIST_3_2		0xffff
+#define BFD_SYM_END_OF_LIST_3_3R0	0xffffffff
 #define BFD_SYM_END_OF_LIST_3_4		0xffffffff
 #define BFD_SYM_END_OF_LIST 		BFD_SYM_END_OF_LIST_3_4
 #define BFD_SYM_FILE_NAME_INDEX_3_2	0xfffe
+#define BFD_SYM_FILE_NAME_INDEX_3_3R0	0xfffffffe
 #define BFD_SYM_FILE_NAME_INDEX_3_4	0xfffffffe
 #define BFD_SYM_FILE_NAME_INDEX		BFD_SYM_FILE_NAME_INDEX_3_4
 #define BFD_SYM_SOURCE_FILE_CHANGE_3_2	0xfffe
+#define BFD_SYM_SOURCE_FILE_CHANGE_3_3R0 0xfffffffe
 #define BFD_SYM_SOURCE_FILE_CHANGE_3_4	0xfffffffe
 #define BFD_SYM_SOURCE_FILE_CHANGE	BFD_SYM_SOURCE_FILE_CHANGE_3_4
 #define BFD_SYM_MAXIMUM_LEGAL_INDEX_3_2 0xfffd
@@ -69,6 +73,7 @@ enum bfd_sym_version
   BFD_SYM_VERSION_3_1,
   BFD_SYM_VERSION_3_2,
   BFD_SYM_VERSION_3_3,
+  BFD_SYM_VERSION_3_3R0,
   BFD_SYM_VERSION_3_4,
   BFD_SYM_VERSION_3_5
 };
@@ -133,7 +138,7 @@ typedef struct bfd_sym_resources_table_entry bfd_sym_resources_table_entry;
    (Note that having a single module copied into two resources is not
    possible).  Modules map back to their resource via an index into the
    resource table and an offset into the resource.  Modules also point
-   to their source files, both the definition module and implemention
+   to their source files, both the definition module and implementation
    module.  Because modules can be textually nested within other
    modules, a link to the parent (containing) module is required.  This
    module can textually contain other modules.  A link to the contiguous
@@ -546,156 +551,183 @@ struct bfd_sym_data_struct
 typedef struct bfd_sym_data_struct bfd_sym_data_struct;
 
 extern bfd_boolean bfd_sym_mkobject
-  PARAMS ((bfd *));
+  (bfd *);
 extern void bfd_sym_print_symbol
-  PARAMS ((bfd *, PTR, asymbol *, bfd_print_symbol_type));
+  (bfd *, PTR, asymbol *, bfd_print_symbol_type);
 extern bfd_boolean bfd_sym_valid
-  PARAMS ((bfd *));
+  (bfd *);
 extern unsigned char * bfd_sym_read_name_table
-  PARAMS ((bfd *, bfd_sym_header_block *));
+  (bfd *, bfd_sym_header_block *);
 extern void bfd_sym_parse_file_reference_v32
-  PARAMS ((unsigned char *, size_t, bfd_sym_file_reference *));
+  (unsigned char *, size_t, bfd_sym_file_reference *);
+extern void bfd_sym_parse_file_reference_v331
+  (unsigned char *, size_t, bfd_sym_file_reference *);
 extern void bfd_sym_parse_disk_table_v32
-  PARAMS ((unsigned char *, size_t, bfd_sym_table_info *));
+  (unsigned char *, size_t, bfd_sym_table_info *);
 extern void bfd_sym_parse_header_v32
-  PARAMS ((unsigned char *, size_t, bfd_sym_header_block *));
+  (unsigned char *, size_t, bfd_sym_header_block *);
 extern int bfd_sym_read_header_v32
-  PARAMS ((bfd *, bfd_sym_header_block *));
+  (bfd *, bfd_sym_header_block *);
 extern int bfd_sym_read_header_v34
-  PARAMS ((bfd *, bfd_sym_header_block *));
+  (bfd *, bfd_sym_header_block *);
 extern int bfd_sym_read_header
-  PARAMS ((bfd *, bfd_sym_header_block *, bfd_sym_version));
+  (bfd *, bfd_sym_header_block *, bfd_sym_version);
 extern int bfd_sym_read_version
-  PARAMS ((bfd *, bfd_sym_version *));
+  (bfd *, bfd_sym_version *);
 extern void bfd_sym_display_table_summary
-  PARAMS ((FILE *, bfd_sym_table_info *, const char *));
+  (FILE *, bfd_sym_table_info *, const char *);
 extern void bfd_sym_display_header
-  PARAMS ((FILE *, bfd_sym_header_block *));
+  (FILE *, bfd_sym_header_block *);
 extern void bfd_sym_parse_resources_table_entry_v32
-  PARAMS ((unsigned char *, size_t, bfd_sym_resources_table_entry *));
+  (unsigned char *, size_t, bfd_sym_resources_table_entry *);
 extern void bfd_sym_parse_modules_table_entry_v33
-  PARAMS ((unsigned char *, size_t, bfd_sym_modules_table_entry *));
+  (unsigned char *, size_t, bfd_sym_modules_table_entry *);
 extern void bfd_sym_parse_file_references_table_entry_v32
-  PARAMS ((unsigned char *, size_t, bfd_sym_file_references_table_entry *));
+  (unsigned char *, size_t, bfd_sym_file_references_table_entry *);
 extern void bfd_sym_parse_contained_modules_table_entry_v32
-  PARAMS ((unsigned char *, size_t, bfd_sym_contained_modules_table_entry *));
+  (unsigned char *, size_t, bfd_sym_contained_modules_table_entry *);
 extern void bfd_sym_parse_contained_variables_table_entry_v32
-  PARAMS ((unsigned char *, size_t, bfd_sym_contained_variables_table_entry *));
+  (unsigned char *, size_t, bfd_sym_contained_variables_table_entry *);
 extern void bfd_sym_parse_contained_statements_table_entry_v32
-  PARAMS ((unsigned char *, size_t, bfd_sym_contained_statements_table_entry *));
+  (unsigned char *, size_t, bfd_sym_contained_statements_table_entry *);
 extern void bfd_sym_parse_contained_labels_table_entry_v32
-  PARAMS ((unsigned char *, size_t, bfd_sym_contained_labels_table_entry *));
+  (unsigned char *, size_t, bfd_sym_contained_labels_table_entry *);
 extern void bfd_sym_parse_type_table_entry_v32
-  PARAMS ((unsigned char *, size_t, bfd_sym_type_table_entry *));
+  (unsigned char *, size_t, bfd_sym_type_table_entry *);
 extern int bfd_sym_fetch_resources_table_entry
-  PARAMS ((bfd *, bfd_sym_resources_table_entry *, unsigned long));
+  (bfd *, bfd_sym_resources_table_entry *, unsigned long);
 extern int bfd_sym_fetch_modules_table_entry
-  PARAMS ((bfd *, bfd_sym_modules_table_entry *, unsigned long));
+  (bfd *, bfd_sym_modules_table_entry *, unsigned long);
 extern int bfd_sym_fetch_file_references_table_entry
-  PARAMS ((bfd *, bfd_sym_file_references_table_entry *, unsigned long));
+  (bfd *, bfd_sym_file_references_table_entry *, unsigned long);
 extern int bfd_sym_fetch_contained_modules_table_entry
-  PARAMS ((bfd *, bfd_sym_contained_modules_table_entry *, unsigned long));
+  (bfd *, bfd_sym_contained_modules_table_entry *, unsigned long);
 extern int bfd_sym_fetch_contained_variables_table_entry
-  PARAMS ((bfd *, bfd_sym_contained_variables_table_entry *, unsigned long));
+  (bfd *, bfd_sym_contained_variables_table_entry *, unsigned long);
 extern int bfd_sym_fetch_contained_statements_table_entry
-  PARAMS ((bfd *, bfd_sym_contained_statements_table_entry *, unsigned long));
+  (bfd *, bfd_sym_contained_statements_table_entry *, unsigned long);
 extern int bfd_sym_fetch_contained_labels_table_entry
-  PARAMS ((bfd *, bfd_sym_contained_labels_table_entry *, unsigned long));
+  (bfd *, bfd_sym_contained_labels_table_entry *, unsigned long);
 extern int bfd_sym_fetch_contained_types_table_entry
-  PARAMS ((bfd *, bfd_sym_contained_types_table_entry *, unsigned long));
+  (bfd *, bfd_sym_contained_types_table_entry *, unsigned long);
 extern int bfd_sym_fetch_file_references_index_table_entry
-  PARAMS ((bfd *, bfd_sym_file_references_index_table_entry *, unsigned long));
+  (bfd *, bfd_sym_file_references_index_table_entry *, unsigned long);
 extern int bfd_sym_fetch_constant_pool_entry
-  PARAMS ((bfd *, bfd_sym_constant_pool_entry *, unsigned long));
+  (bfd *, bfd_sym_constant_pool_entry *, unsigned long);
 extern int bfd_sym_fetch_type_table_entry
-  PARAMS ((bfd *, bfd_sym_type_table_entry *, unsigned long));
+  (bfd *, bfd_sym_type_table_entry *, unsigned long);
 extern int bfd_sym_fetch_type_information_table_entry
-  PARAMS ((bfd *, bfd_sym_type_information_table_entry *, unsigned long));
+  (bfd *, bfd_sym_type_information_table_entry *, unsigned long);
 extern int bfd_sym_fetch_type_table_information
-  PARAMS ((bfd *, bfd_sym_type_information_table_entry *, unsigned long));
+  (bfd *, bfd_sym_type_information_table_entry *, unsigned long);
 extern const unsigned char * bfd_sym_symbol_name
-  PARAMS ((bfd *, unsigned long));
+  (bfd *, unsigned long);
 extern const unsigned char * bfd_sym_module_name
-  PARAMS ((bfd *, unsigned long));
+  (bfd *, unsigned long);
 extern const char * bfd_sym_unparse_storage_kind
-  PARAMS ((enum bfd_sym_storage_kind));
+  (enum bfd_sym_storage_kind);
 extern const char * bfd_sym_unparse_storage_class
-  PARAMS ((enum bfd_sym_storage_class));
+  (enum bfd_sym_storage_class);
 extern const char * bfd_sym_unparse_module_kind
-  PARAMS ((enum bfd_sym_module_kind));
+  (enum bfd_sym_module_kind);
 extern const char * bfd_sym_unparse_symbol_scope
-  PARAMS ((enum bfd_sym_symbol_scope));
+  (enum bfd_sym_symbol_scope);
 extern void bfd_sym_print_file_reference
-  PARAMS ((bfd *, FILE *, bfd_sym_file_reference *));
+  (bfd *, FILE *, bfd_sym_file_reference *);
 extern void bfd_sym_print_resources_table_entry
-  PARAMS ((bfd *, FILE *, bfd_sym_resources_table_entry *));
+  (bfd *, FILE *, bfd_sym_resources_table_entry *);
 extern void bfd_sym_print_modules_table_entry
-  PARAMS ((bfd *, FILE *, bfd_sym_modules_table_entry *));
+  (bfd *, FILE *, bfd_sym_modules_table_entry *);
 extern void bfd_sym_print_file_references_table_entry
-  PARAMS ((bfd *, FILE *, bfd_sym_file_references_table_entry *));
+  (bfd *, FILE *, bfd_sym_file_references_table_entry *);
 extern void bfd_sym_print_contained_modules_table_entry
-  PARAMS ((bfd *, FILE *, bfd_sym_contained_modules_table_entry *));
+  (bfd *, FILE *, bfd_sym_contained_modules_table_entry *);
 extern void bfd_sym_print_contained_variables_table_entry
-  PARAMS ((bfd *, FILE *f, bfd_sym_contained_variables_table_entry *));
+  (bfd *, FILE *f, bfd_sym_contained_variables_table_entry *);
 extern void bfd_sym_print_contained_statements_table_entry
-  PARAMS ((bfd *, FILE *, bfd_sym_contained_statements_table_entry *));
+  (bfd *, FILE *, bfd_sym_contained_statements_table_entry *);
 extern void bfd_sym_print_contained_labels_table_entry
-  PARAMS ((bfd *, FILE *, bfd_sym_contained_labels_table_entry *));
+  (bfd *, FILE *, bfd_sym_contained_labels_table_entry *);
 extern void bfd_sym_print_contained_types_table_entry
-  PARAMS ((bfd *, FILE *, bfd_sym_contained_types_table_entry *));
+  (bfd *, FILE *, bfd_sym_contained_types_table_entry *);
 extern const char * bfd_sym_type_operator_name
-  PARAMS ((unsigned char));
+  (unsigned char);
 extern const char * bfd_sym_type_basic_name
-  PARAMS ((unsigned char));
+  (unsigned char);
 extern int bfd_sym_fetch_long
-  PARAMS ((unsigned char *, unsigned long, unsigned long, unsigned long *, long *));
+  (unsigned char *, unsigned long, unsigned long, unsigned long *, long *);
 extern void bfd_sym_print_type_information
-  PARAMS ((bfd *, FILE *, unsigned char *, unsigned long, unsigned long, unsigned long *));
+  (bfd *, FILE *, unsigned char *, unsigned long, unsigned long, unsigned long *);
 extern void bfd_sym_print_type_information_table_entry
-  PARAMS ((bfd *, FILE *, bfd_sym_type_information_table_entry *));
+  (bfd *, FILE *, bfd_sym_type_information_table_entry *);
 extern void bfd_sym_print_file_references_index_table_entry
-  PARAMS ((bfd *, FILE *, bfd_sym_file_references_index_table_entry *));
+  (bfd *, FILE *, bfd_sym_file_references_index_table_entry *);
 extern void bfd_sym_print_constant_pool_entry
-  PARAMS ((bfd *, FILE *, bfd_sym_constant_pool_entry *));
+  (bfd *, FILE *, bfd_sym_constant_pool_entry *);
 extern unsigned char * bfd_sym_display_name_table_entry
-  PARAMS ((bfd *, FILE *, unsigned char *));
+  (bfd *, FILE *, unsigned char *);
 extern void bfd_sym_display_name_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_resources_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_modules_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_file_references_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_contained_modules_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_contained_variables_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_contained_statements_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_contained_labels_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_contained_types_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_file_references_index_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_constant_pool
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern void bfd_sym_display_type_information_table
-  PARAMS ((bfd *, FILE *));
+  (bfd *, FILE *);
 extern int bfd_sym_scan
-  PARAMS ((bfd *, bfd_sym_version, bfd_sym_data_struct *));
+  (bfd *, bfd_sym_version, bfd_sym_data_struct *);
 extern const bfd_target * bfd_sym_object_p
-  PARAMS ((bfd *));
+  (bfd *);
 extern asymbol * bfd_sym_make_empty_symbol
-  PARAMS ((bfd *));
+  (bfd *);
 extern void bfd_sym_get_symbol_info
-  PARAMS ((bfd *, asymbol *, symbol_info *));
+  (bfd *, asymbol *, symbol_info *);
 extern long bfd_sym_get_symtab_upper_bound
-  PARAMS ((bfd *));
-extern long bfd_sym_get_symtab
-  PARAMS ((bfd *, asymbol **));
+  (bfd *);
+extern long bfd_sym_canonicalize_symtab
+  (bfd *, asymbol **);
 extern int bfd_sym_sizeof_headers
-  PARAMS ((bfd *, bfd_boolean));
+  (bfd *, bfd_boolean);
+
+extern void
+bfd_sym_parse_file_reference_v33r0 (unsigned char *buf, size_t len, bfd_sym_file_reference *entry);
+
+extern void
+bfd_sym_parse_file_references_index_table_entry_v33r0
+(unsigned char *buf, size_t len, bfd_sym_file_references_index_table_entry *entry);
+
+extern void
+bfd_sym_parse_modules_table_entry_v33r0 (unsigned char *buf, size_t len, bfd_sym_modules_table_entry *entry);
+
+extern void
+bfd_sym_parse_contained_statements_table_entry_v33r0 (unsigned char *buf, size_t len, bfd_sym_contained_statements_table_entry *entry);
+
+extern void
+bfd_sym_parse_contained_variables_table_entry_v33r0 (unsigned char *buf, size_t len, bfd_sym_contained_variables_table_entry *entry);
+
+extern void
+bfd_sym_parse_contained_modules_table_entry_v33r0 (unsigned char *buf, size_t len, bfd_sym_contained_modules_table_entry *entry);
+
+extern void
+bfd_sym_parse_file_references_table_entry_v33r0 (unsigned char *buf, size_t len, bfd_sym_file_references_table_entry *entry);
+
+extern void
+bfd_sym_parse_resources_table_entry_v33r0 (unsigned char *buf, size_t len, bfd_sym_resources_table_entry *entry);
 
 #endif /* __xSYM_H__ */

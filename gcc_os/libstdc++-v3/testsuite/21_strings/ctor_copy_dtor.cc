@@ -1,6 +1,6 @@
 // 1999-06-04 bkoz
 
-// Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -22,6 +22,7 @@
 
 #include <new>
 #include <string>
+#include <vector>
 #include <stdexcept>
 #include <testsuite_hooks.h>
 
@@ -201,11 +202,39 @@ void test03()
     }
 }
 
+// http://gcc.gnu.org/ml/libstdc++/2002-06/msg00025.html
+void test04()
+{
+  bool test = true;
+
+  std::string str01("portofino");
+
+  std::string::reverse_iterator i1 = str01.rbegin();
+  std::string::reverse_iterator i2 = str01.rend();
+  std::string str02(i1, i2);
+  VERIFY( str02 == "onifotrop" );
+}
+
+// libstdc++/8347
+void test05()
+{
+  bool test = true;
+
+  std::vector<char> empty;
+  std::string empty2(empty.begin(), empty.end());
+
+  // libstdc++/8716 (same underlying situation, same fix)
+  char const * s = NULL;
+  std::string zero_length_built_with_NULL(s,0);
+}
+
 int main()
 { 
-  __set_testsuite_memlimit();
+  __gnu_cxx_test::set_memory_limits();
   test01();
   test02();
   test03();
+  test04();
+  test05();
   return 0;
 }

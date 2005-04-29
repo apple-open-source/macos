@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1998-2003, International Business Machines Corporation and
+ * Copyright (c) 1998-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*
@@ -19,6 +19,7 @@
 #include "unicode/putil.h"
 #include "unicode/ustring.h"
 #include "cstring.h"
+#include "putilimp.h"
 
 static UBool compareWithNAN(double x, double y);
 static void doAssert(double expect, double got, const char *message);
@@ -112,6 +113,7 @@ static void TestPUtilAPI(void){
         log_err("ERROR: uprv_isInfinite failed.\n");
     }
 
+#if 0
     log_verbose("Testing the API uprv_digitsAfterDecimal()....\n");
     doAssert(uprv_digitsAfterDecimal(value1), 3, "uprv_digitsAfterDecimal() failed.");
     doAssert(uprv_digitsAfterDecimal(1.2345E2), 2, "uprv_digitsAfterDecimal(1.2345E2) failed.");
@@ -122,6 +124,7 @@ static void TestPUtilAPI(void){
     doAssert(uprv_digitsAfterDecimal(-0.021), 3, "uprv_digitsAfterDecimal(-0.021) failed.");
     doAssert(uprv_digitsAfterDecimal(23.0), 0, "uprv_digitsAfterDecimal(23.0) failed.");
     doAssert(uprv_digitsAfterDecimal(0.022223333321), 9, "uprv_digitsAfterDecimal(0.022223333321) failed.");
+#endif
 
 
     log_verbose("Testing the API u_versionToString().....\n");
@@ -205,6 +208,7 @@ static void TestPUtilAPI(void){
 
     {
         const char* dataDirectory;
+        int32_t dataDirectoryLen;
         UChar *udataDir=0;
         UChar temp[100];
         char *charvalue=0;
@@ -215,8 +219,9 @@ static void TestPUtilAPI(void){
         /*dataDirectory=u_getDataDirectory();*/
 
         dataDirectory="directory1";  /*no backslashes*/
-        udataDir=(UChar*)malloc(sizeof(UChar) * (strlen(dataDirectory) + 1));
-        u_charsToUChars(dataDirectory, udataDir, (strlen(dataDirectory)+1));
+        dataDirectoryLen=(int32_t)strlen(dataDirectory);
+        udataDir=(UChar*)malloc(sizeof(UChar) * (dataDirectoryLen + 1));
+        u_charsToUChars(dataDirectory, udataDir, (dataDirectoryLen + 1));
         u_uastrcpy(temp, dataDirectory);
        
         if(u_strcmp(temp, udataDir) != 0){
@@ -243,7 +248,7 @@ static void TestPUtilAPI(void){
         if ((tzoffset % 1800 != 0)) {
             log_err("FAIL: t_timezone may be incorrect. It is not a multiple of 30min.");
         }
-        tzoffset=uprv_getUTCtime();
+        /*tzoffset=uprv_getUTCtime();*/
 
     }
 }

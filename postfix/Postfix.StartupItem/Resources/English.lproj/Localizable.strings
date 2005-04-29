@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Reloading Postfix Configuration</key>
+	<string>Reloading Postfix Configuration</string>
+	<key>Starting Postfix</key>
+	<string>Starting Postfix</string>
+	<key>Stopping Postfix</key>
+	<string>Stopping Postfix</string>
+</dict>
+</plist>

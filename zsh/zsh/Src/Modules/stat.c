@@ -341,7 +341,7 @@ statprint(struct stat *sbuf, char *outbuf, char *fname, int iwhich, int flags)
  */
 /**/
 static int
-bin_stat(char *name, char **args, Options ops, int func)
+bin_stat(char *name, char **args, Options ops, UNUSED(int func))
 {
     char **aptr, *arrnam = NULL, **array = NULL, **arrptr = NULL;
     char *hashnam = NULL, **hash = NULL, **hashptr = NULL;
@@ -518,7 +518,7 @@ bin_stat(char *name, char **args, Options ops, int func)
 	arrsize = (flags & STF_PICK) ? 1 : ST_COUNT;
 	if (flags & STF_FILE)
 	    arrsize++;
-	hashptr = hash = (char **)zcalloc((arrsize+1)*2*sizeof(char *));
+	hashptr = hash = (char **)zshcalloc((arrsize+1)*2*sizeof(char *));
     }
 
     if (arrnam) {
@@ -526,7 +526,7 @@ bin_stat(char *name, char **args, Options ops, int func)
 	if (flags & STF_FILE)
 	    arrsize++;
 	arrsize *= nargs;
-	arrptr = array = (char **)zcalloc((arrsize+1)*sizeof(char *));
+	arrptr = array = (char **)zshcalloc((arrsize+1)*sizeof(char *));
     }
 
     for (; OPT_ISSET(ops,'f') || *args; args++) {
@@ -615,7 +615,7 @@ static struct builtin bintab[] = {
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
@@ -637,7 +637,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

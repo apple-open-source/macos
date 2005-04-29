@@ -1,5 +1,5 @@
+// { dg-do assemble  }
 // PRMS Id: 7128
-// Build don't link:
 
 class B {};
 
@@ -16,4 +16,4 @@ void f( const D & );
 void g( const X & x )
 {
    f( x );
-};
+}

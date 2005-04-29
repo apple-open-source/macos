@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <!-- 
   ****************************************************************************
-  * Copyright (c) 1999 Free Software Foundation, Inc.                        *
+  * Copyright (c) 1999-2002,2003 Free Software Foundation, Inc.              *
   *                                                                          *
   * Permission is hereby granted, free of charge, to any person obtaining a  *
   * copy of this software and associated documentation files (the            *
@@ -27,18 +27,24 @@
   * sale, use or other dealings in this Software without prior written       *
   * authorization.                                                           *
   ****************************************************************************
-  * Author: Thomas E. Dickey &lt;dickey@clark.net&gt; 1999
-  * @Id: keybound.3x,v 1.1 1999/02/19 11:59:24 tom Exp @
+  * Author: Thomas E. Dickey 1999
+  * @Id: keybound.3x,v 1.5 2003/10/25 20:33:16 tom Exp @
 -->
 <HTML>
 <HEAD>
-<TITLE>keyok 3x</TITLE><link rev=made href="mailto:bug-ncurses@gnu.org">
+<TITLE>keyok 3x</TITLE>
+<link rev=made href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY>
 <H1>keyok 3x</H1>
 <HR>
 <PRE>
 <!-- Manpage converted by man2html 3.0.1 -->
+<STRONG><A HREF="keyok.3x.html">keyok(3x)</A></STRONG>                                               <STRONG><A HREF="keyok.3x.html">keyok(3x)</A></STRONG>
+
+
+
 
 </PRE>
 <H2>NAME</H2><PRE>
@@ -49,7 +55,7 @@
 <H2>SYNOPSIS</H2><PRE>
        <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
 
-       <STRONG>int</STRONG> <STRONG>keybound(int</STRONG> <STRONG>keycode,</STRONG> <STRONG>int</STRONG> <STRONG>count);</STRONG>
+       <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>keybound(int</STRONG> <STRONG>keycode,</STRONG> <STRONG>int</STRONG> <STRONG>count);</STRONG>
 
 
 </PRE>
@@ -61,10 +67,12 @@
 
 </PRE>
 <H2>RETURN VALUE</H2><PRE>
-       The  keycode  must  be  greater  than  zero,  else NULL is
-       returned.  If it does not correspond  to  a  defined  key,
-       then  NULL is returned.  Otherwise, the function returns a
-       string, which must be freed by the caller.
+       The <EM>keycode</EM> parameter must be greater than zero, else NULL
+       is returned.  If it does not correspond to a defined  key,
+       then  NULL  is  returned.   The <EM>count</EM> parameter is used to
+       allow the application to iterate through multiple  defini-
+       tions,  counting from zero.  When successful, the function
+       returns a string which must be freed by the caller.
 
 
 </PRE>
@@ -86,27 +94,7 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                                                        <STRONG><A HREF="keyok.3x.html">keyok(3x)</A></STRONG>
 </PRE>
 <HR>
 <ADDRESS>

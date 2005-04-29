@@ -1,3 +1,6 @@
+; NB: This file was obsoleted by the -freplace-objc-classes flag added
+;     to gcc.
+
 ;
 ; This is a special section of flags to the ObjC runtime.
 ; The structure the objc runtime expects to see is this:

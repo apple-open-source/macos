@@ -1,9 +1,13 @@
 XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:49 cpqbld Exp $
 
+
+
+XCOMM $XFree86: xc/programs/xkbprint/Imakefile,v 1.2 2003/05/27 17:58:25 tsi Exp $
+
           SRCS = xkbprint.c utils.c psgeom.c
           OBJS = xkbprint.o utils.o psgeom.o
-        DEPLIBS = $(DEPXKBFILELIB) $(DEPXLIBONLY)
-LOCAL_LIBRARIES = $(XKBFILELIB) $(XLIB)
+        DEPLIBS = $(DEPXKBFILELIB) $(DEPXONLYLIB)
+LOCAL_LIBRARIES = $(XKBFILELIB) $(XONLYLIB)
 
 EXTRA_INCLUDES = -I$(EXTINCSRC)
 

@@ -57,10 +57,10 @@ static struct clntraw_private {
 	  struct rpc_msg    mashl_rpcmsg;
 	  char	            mashl_callmsg[MCALL_MSG_SIZE];
 	} u;
-	unsigned int	mcnt;
+	u_int	mcnt;
 } *clntraw_private;
 
-static enum clnt_stat	clntraw_call(CLIENT *, rpc_u_int32, xdrproc_t, 
+static enum clnt_stat	clntraw_call(CLIENT *, rpcproc_t, xdrproc_t, 
 				     void *, xdrproc_t, void *, 
 				     struct timeval);
 static void		clntraw_abort(CLIENT *);
@@ -84,9 +84,9 @@ void	svc_getreq();
  * Create a client handle for memory based rpc.
  */
 CLIENT *
-clntraw_create(prog, vers)
-	rpc_u_int32 prog;
-	rpc_u_int32 vers;
+clntraw_create(
+	rpcprog_t prog,
+	rpcvers_t vers)
 {
 	register struct clntraw_private *clp = clntraw_private;
 	struct rpc_msg call_msg;
@@ -127,14 +127,14 @@ clntraw_create(prog, vers)
 }
 
 static enum clnt_stat 
-clntraw_call(h, proc, xargs, argsp, xresults, resultsp, timeout)
-	CLIENT *h;
-	rpc_u_int32 proc;
-	xdrproc_t xargs;
-	void * argsp;
-	xdrproc_t xresults;
-	void * resultsp;
-	struct timeval timeout;
+clntraw_call(
+	CLIENT *h,
+	rpcproc_t proc,
+	xdrproc_t xargs,
+	void * argsp,
+	xdrproc_t xresults,
+	void * resultsp,
+	struct timeval timeout)
 {
 	register struct clntraw_private *clp = clntraw_private;
 	register XDR *xdrs = &clp->xdr_stream;
@@ -171,7 +171,7 @@ call_again:
 	 */
 	xdrs->x_op = XDR_DECODE;
 	XDR_SETPOS(xdrs, 0);
-	msg.acpted_rply.ar_verf = _null_auth;
+	msg.acpted_rply.ar_verf = gssrpc__null_auth;
 	msg.acpted_rply.ar_results.where = resultsp;
 	msg.acpted_rply.ar_results.proc = xresults;
 	if (! xdr_replymsg(xdrs, &msg)) {
@@ -191,7 +191,7 @@ call_again:
 		xdrs->x_op = op;
 		return (RPC_CANTDECODERES);
 	}
-	sunrpc_seterr_reply(&msg, &error);
+	gssrpc__seterr_reply(&msg, &error);
 	status = error.re_status;
 
 	if (status == RPC_SUCCESS) {
@@ -210,7 +210,7 @@ call_again:
 		}
 		if (msg.acpted_rply.ar_verf.oa_base != NULL) {
 			xdrs->x_op = XDR_FREE;
-			(void)gssrpc_xdr_opaque_auth(xdrs, &(msg.acpted_rply.ar_verf));
+			(void)xdr_opaque_auth(xdrs, &(msg.acpted_rply.ar_verf));
 		}
 	}
 
@@ -219,18 +219,18 @@ call_again:
 
 /*ARGSUSED*/
 static void
-clntraw_geterr(cl, err)
-     CLIENT *cl;
-     struct rpc_err *err;
+clntraw_geterr(
+	CLIENT *cl,
+	struct rpc_err *err)
 {
 }
 
 
 static bool_t
-clntraw_freeres(cl, xdr_res, res_ptr)
-	CLIENT *cl;
-	xdrproc_t xdr_res;
-	void *res_ptr;
+clntraw_freeres(
+	CLIENT *cl,
+	xdrproc_t xdr_res,
+	void *res_ptr)
 {
 	register struct clntraw_private *clp = clntraw_private;
 	register XDR *xdrs = &clp->xdr_stream;
@@ -247,24 +247,22 @@ clntraw_freeres(cl, xdr_res, res_ptr)
 
 /*ARGSUSED*/
 static void
-clntraw_abort(cl)
-	CLIENT *cl;
+clntraw_abort(CLIENT *cl)
 {
 }
 
 /*ARGSUSED*/
 static bool_t
-clntraw_control(cl, request, info)
-	CLIENT *cl;
-	int request;
-	void *info;
+clntraw_control(
+	CLIENT *cl,
+	int request,
+	void *info)
 {
 	return (FALSE);
 }
 
 /*ARGSUSED*/
 static void
-clntraw_destroy(cl)
-     CLIENT *cl;
+clntraw_destroy(CLIENT *cl)
 {
 }

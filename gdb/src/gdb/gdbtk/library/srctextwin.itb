@@ -1043,8 +1043,7 @@ itcl::body SrcTextWin::FillAssembly {w tagname filename funcname line addr pc_ad
 	  $itk_interior.p show $pane
 	}
       } else {
-	foreach {asm_lo_addr asm_hi_addr} $mess {break}
-        debug "Got low address: $asm_lo_addr and high: $asm_hi_addr"
+        debug "address range is $mess"
       }
     } elseif {$result == 0} {
       debug "LoadFromCache returned 0"
@@ -1073,8 +1072,6 @@ itcl::body SrcTextWin::FillMixed {w tagname filename funcname line addr pc_addr 
   upvar _${w}pane pane
 #  debug "$win $tagname $filename $funcname $line $addr $pc_addr"  
 
-  set asm_lo_addr ""
-  
   if {$funcname == ""} {
     set oldpane $pane
     set pane $Stwc(gdbtk_scratch_widget:pane)
@@ -1107,8 +1104,7 @@ itcl::body SrcTextWin::FillMixed {w tagname filename funcname line addr pc_addr 
 	$parent mode "" ASSEMBLY
 	return
       } else {
-	foreach {asm_lo_addr asm_hi_addr} $mess {break}
-        debug "Got low address: $asm_lo_addr and high: $asm_hi_addr"
+        debug "address range is $mess"
       }
     }
     set current(filename) $filename

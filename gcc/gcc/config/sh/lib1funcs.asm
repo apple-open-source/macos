@@ -1,4 +1,4 @@
-/* Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
+/* Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
@@ -25,7 +25,7 @@ along with this program; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-!! libgcc routines for the Hitachi / SuperH SH CPUs.
+!! libgcc routines for the Renesas / SuperH SH CPUs.
 !! Contributed by Steve Chamberlain.
 !! sac@cygnus.com
 
@@ -38,16 +38,28 @@ Boston, MA 02111-1307, USA.  */
    amylaar@cygnus.com  */
 
 #ifdef __ELF__
-#define LOCAL(X) .L_##X
+#define LOCAL(X)	.L_##X
+#define FUNC(X)		.type X,@function
+#define ENDFUNC0(X)	.Lfe_##X: .size X,.Lfe_##X-X
+#define ENDFUNC(X)	ENDFUNC0(X)
 #else
-#define LOCAL(X) L_##X
+#define LOCAL(X)	L_##X
+#define FUNC(X)
+#define ENDFUNC(X)
 #endif
 
 #define	CONCAT(A,B)	A##B
 #define	GLOBAL0(U,X)	CONCAT(U,__##X)
 #define	GLOBAL(X)	GLOBAL0(__USER_LABEL_PREFIX__,X)
 
+#define ALIAS(X,Y)	.global GLOBAL(X); .set GLOBAL(X),GLOBAL(Y)
+
 #if defined __SH5__ && ! defined __SH4_NOFPU__ && ! defined (__LITTLE_ENDIAN__)
+#define FMOVD_WORKS
+#endif
+
+#ifdef __SH2A__
+#undef FMOVD_WORKS
 #define FMOVD_WORKS
 #endif
 
@@ -86,6 +98,40 @@ Boston, MA 02111-1307, USA.  */
 	.global	GLOBAL(ashiftrt_r4_30)
 	.global	GLOBAL(ashiftrt_r4_31)
 	.global	GLOBAL(ashiftrt_r4_32)
+
+	FUNC(GLOBAL(ashiftrt_r4_0))
+	FUNC(GLOBAL(ashiftrt_r4_1))
+	FUNC(GLOBAL(ashiftrt_r4_2))
+	FUNC(GLOBAL(ashiftrt_r4_3))
+	FUNC(GLOBAL(ashiftrt_r4_4))
+	FUNC(GLOBAL(ashiftrt_r4_5))
+	FUNC(GLOBAL(ashiftrt_r4_6))
+	FUNC(GLOBAL(ashiftrt_r4_7))
+	FUNC(GLOBAL(ashiftrt_r4_8))
+	FUNC(GLOBAL(ashiftrt_r4_9))
+	FUNC(GLOBAL(ashiftrt_r4_10))
+	FUNC(GLOBAL(ashiftrt_r4_11))
+	FUNC(GLOBAL(ashiftrt_r4_12))
+	FUNC(GLOBAL(ashiftrt_r4_13))
+	FUNC(GLOBAL(ashiftrt_r4_14))
+	FUNC(GLOBAL(ashiftrt_r4_15))
+	FUNC(GLOBAL(ashiftrt_r4_16))
+	FUNC(GLOBAL(ashiftrt_r4_17))
+	FUNC(GLOBAL(ashiftrt_r4_18))
+	FUNC(GLOBAL(ashiftrt_r4_19))
+	FUNC(GLOBAL(ashiftrt_r4_20))
+	FUNC(GLOBAL(ashiftrt_r4_21))
+	FUNC(GLOBAL(ashiftrt_r4_22))
+	FUNC(GLOBAL(ashiftrt_r4_23))
+	FUNC(GLOBAL(ashiftrt_r4_24))
+	FUNC(GLOBAL(ashiftrt_r4_25))
+	FUNC(GLOBAL(ashiftrt_r4_26))
+	FUNC(GLOBAL(ashiftrt_r4_27))
+	FUNC(GLOBAL(ashiftrt_r4_28))
+	FUNC(GLOBAL(ashiftrt_r4_29))
+	FUNC(GLOBAL(ashiftrt_r4_30))
+	FUNC(GLOBAL(ashiftrt_r4_31))
+	FUNC(GLOBAL(ashiftrt_r4_32))
 
 	.align	1
 GLOBAL(ashiftrt_r4_32):
@@ -166,6 +212,40 @@ GLOBAL(ashiftrt_r4_1):
 GLOBAL(ashiftrt_r4_0):
 	rts
 	nop
+
+	ENDFUNC(GLOBAL(ashiftrt_r4_0))
+	ENDFUNC(GLOBAL(ashiftrt_r4_1))
+	ENDFUNC(GLOBAL(ashiftrt_r4_2))
+	ENDFUNC(GLOBAL(ashiftrt_r4_3))
+	ENDFUNC(GLOBAL(ashiftrt_r4_4))
+	ENDFUNC(GLOBAL(ashiftrt_r4_5))
+	ENDFUNC(GLOBAL(ashiftrt_r4_6))
+	ENDFUNC(GLOBAL(ashiftrt_r4_7))
+	ENDFUNC(GLOBAL(ashiftrt_r4_8))
+	ENDFUNC(GLOBAL(ashiftrt_r4_9))
+	ENDFUNC(GLOBAL(ashiftrt_r4_10))
+	ENDFUNC(GLOBAL(ashiftrt_r4_11))
+	ENDFUNC(GLOBAL(ashiftrt_r4_12))
+	ENDFUNC(GLOBAL(ashiftrt_r4_13))
+	ENDFUNC(GLOBAL(ashiftrt_r4_14))
+	ENDFUNC(GLOBAL(ashiftrt_r4_15))
+	ENDFUNC(GLOBAL(ashiftrt_r4_16))
+	ENDFUNC(GLOBAL(ashiftrt_r4_17))
+	ENDFUNC(GLOBAL(ashiftrt_r4_18))
+	ENDFUNC(GLOBAL(ashiftrt_r4_19))
+	ENDFUNC(GLOBAL(ashiftrt_r4_20))
+	ENDFUNC(GLOBAL(ashiftrt_r4_21))
+	ENDFUNC(GLOBAL(ashiftrt_r4_22))
+	ENDFUNC(GLOBAL(ashiftrt_r4_23))
+	ENDFUNC(GLOBAL(ashiftrt_r4_24))
+	ENDFUNC(GLOBAL(ashiftrt_r4_25))
+	ENDFUNC(GLOBAL(ashiftrt_r4_26))
+	ENDFUNC(GLOBAL(ashiftrt_r4_27))
+	ENDFUNC(GLOBAL(ashiftrt_r4_28))
+	ENDFUNC(GLOBAL(ashiftrt_r4_29))
+	ENDFUNC(GLOBAL(ashiftrt_r4_30))
+	ENDFUNC(GLOBAL(ashiftrt_r4_31))
+	ENDFUNC(GLOBAL(ashiftrt_r4_32))
 #endif
 
 #ifdef L_ashiftrt_n
@@ -188,6 +268,7 @@ GLOBAL(ashiftrt_r4_0):
 !
 
 	.global	GLOBAL(ashrsi3)
+	FUNC(GLOBAL(ashrsi3))
 	.align	2
 GLOBAL(ashrsi3):
 	mov	#31,r0
@@ -315,6 +396,7 @@ LOCAL(ashrsi3_0):
 	rts
 	nop
 
+	ENDFUNC(GLOBAL(ashrsi3))
 #endif
 
 #ifdef L_ashiftlt
@@ -336,6 +418,7 @@ LOCAL(ashrsi3_0):
 ! (none)
 !
 	.global	GLOBAL(ashlsi3)
+	FUNC(GLOBAL(ashlsi3))
 	.align	2
 GLOBAL(ashlsi3):
 	mov	#31,r0
@@ -472,6 +555,7 @@ LOCAL(ashlsi3_0):
 	rts
 	nop
 
+	ENDFUNC(GLOBAL(ashlsi3))
 #endif
 
 #ifdef L_lshiftrt
@@ -493,6 +577,7 @@ LOCAL(ashlsi3_0):
 ! (none)
 !
 	.global	GLOBAL(lshrsi3)
+	FUNC(GLOBAL(lshrsi3))
 	.align	2
 GLOBAL(lshrsi3):
 	mov	#31,r0
@@ -629,93 +714,151 @@ LOCAL(lshrsi3_0):
 	rts
 	nop
 
+	ENDFUNC(GLOBAL(lshrsi3))
 #endif
 
-#ifdef L_movstr
+#ifdef L_movmem
 	.text
 ! done all the large groups, do the remainder
 
-! jump to movstr+
+! jump to movmem+
 done:
 	add	#64,r5
-	mova	GLOBAL(movstrSI0),r0
+	mova	GLOBAL(movmemSI0),r0
 	shll2	r6
 	add	r6,r0
 	jmp	@r0
 	add	#64,r4
 	.align	4
-	.global	GLOBAL(movstrSI64)
-GLOBAL(movstrSI64):
+! ??? We need aliases movstr* for movmem* for the older libraries.  These
+! aliases will be removed at the some point in the future.
+	.global	GLOBAL(movmemSI64)
+	FUNC(GLOBAL(movmemSI64))
+	ALIAS(movstrSI64,movmemSI64)
+GLOBAL(movmemSI64):
 	mov.l	@(60,r5),r0
 	mov.l	r0,@(60,r4)
-	.global	GLOBAL(movstrSI60)
-GLOBAL(movstrSI60):
+	.global	GLOBAL(movmemSI60)
+	FUNC(GLOBAL(movmemSI60))
+	ALIAS(movstrSI60,movmemSI60)
+GLOBAL(movmemSI60):
 	mov.l	@(56,r5),r0
 	mov.l	r0,@(56,r4)
-	.global	GLOBAL(movstrSI56)
-GLOBAL(movstrSI56):
+	.global	GLOBAL(movmemSI56)
+	FUNC(GLOBAL(movmemSI56))
+	ALIAS(movstrSI56,movmemSI56)
+GLOBAL(movmemSI56):
 	mov.l	@(52,r5),r0
 	mov.l	r0,@(52,r4)
-	.global	GLOBAL(movstrSI52)
-GLOBAL(movstrSI52):
+	.global	GLOBAL(movmemSI52)
+	FUNC(GLOBAL(movmemSI52))
+	ALIAS(movstrSI52,movmemSI52)
+GLOBAL(movmemSI52):
 	mov.l	@(48,r5),r0
 	mov.l	r0,@(48,r4)
-	.global	GLOBAL(movstrSI48)
-GLOBAL(movstrSI48):
+	.global	GLOBAL(movmemSI48)
+	FUNC(GLOBAL(movmemSI48))
+	ALIAS(movstrSI48,movmemSI48)
+GLOBAL(movmemSI48):
 	mov.l	@(44,r5),r0
 	mov.l	r0,@(44,r4)
-	.global	GLOBAL(movstrSI44)
-GLOBAL(movstrSI44):
+	.global	GLOBAL(movmemSI44)
+	FUNC(GLOBAL(movmemSI44))
+	ALIAS(movstrSI44,movmemSI44)
+GLOBAL(movmemSI44):
 	mov.l	@(40,r5),r0
 	mov.l	r0,@(40,r4)
-	.global	GLOBAL(movstrSI40)
-GLOBAL(movstrSI40):
+	.global	GLOBAL(movmemSI40)
+	FUNC(GLOBAL(movmemSI40))
+	ALIAS(movstrSI40,movmemSI40)
+GLOBAL(movmemSI40):
 	mov.l	@(36,r5),r0
 	mov.l	r0,@(36,r4)
-	.global	GLOBAL(movstrSI36)
-GLOBAL(movstrSI36):
+	.global	GLOBAL(movmemSI36)
+	FUNC(GLOBAL(movmemSI36))
+	ALIAS(movstrSI36,movmemSI36)
+GLOBAL(movmemSI36):
 	mov.l	@(32,r5),r0
 	mov.l	r0,@(32,r4)
-	.global	GLOBAL(movstrSI32)
-GLOBAL(movstrSI32):
+	.global	GLOBAL(movmemSI32)
+	FUNC(GLOBAL(movmemSI32))
+	ALIAS(movstrSI32,movmemSI32)
+GLOBAL(movmemSI32):
 	mov.l	@(28,r5),r0
 	mov.l	r0,@(28,r4)
-	.global	GLOBAL(movstrSI28)
-GLOBAL(movstrSI28):
+	.global	GLOBAL(movmemSI28)
+	FUNC(GLOBAL(movmemSI28))
+	ALIAS(movstrSI28,movmemSI28)
+GLOBAL(movmemSI28):
 	mov.l	@(24,r5),r0
 	mov.l	r0,@(24,r4)
-	.global	GLOBAL(movstrSI24)
-GLOBAL(movstrSI24):
+	.global	GLOBAL(movmemSI24)
+	FUNC(GLOBAL(movmemSI24))
+	ALIAS(movstrSI24,movmemSI24)
+GLOBAL(movmemSI24):
 	mov.l	@(20,r5),r0
 	mov.l	r0,@(20,r4)
-	.global	GLOBAL(movstrSI20)
-GLOBAL(movstrSI20):
+	.global	GLOBAL(movmemSI20)
+	FUNC(GLOBAL(movmemSI20))
+	ALIAS(movstrSI20,movmemSI20)
+GLOBAL(movmemSI20):
 	mov.l	@(16,r5),r0
 	mov.l	r0,@(16,r4)
-	.global	GLOBAL(movstrSI16)
-GLOBAL(movstrSI16):
+	.global	GLOBAL(movmemSI16)
+	FUNC(GLOBAL(movmemSI16))
+	ALIAS(movstrSI16,movmemSI16)
+GLOBAL(movmemSI16):
 	mov.l	@(12,r5),r0
 	mov.l	r0,@(12,r4)
-	.global	GLOBAL(movstrSI12)
-GLOBAL(movstrSI12):
+	.global	GLOBAL(movmemSI12)
+	FUNC(GLOBAL(movmemSI12))
+	ALIAS(movstrSI12,movmemSI12)
+GLOBAL(movmemSI12):
 	mov.l	@(8,r5),r0
 	mov.l	r0,@(8,r4)
-	.global	GLOBAL(movstrSI8)
-GLOBAL(movstrSI8):
+	.global	GLOBAL(movmemSI8)
+	FUNC(GLOBAL(movmemSI8))
+	ALIAS(movstrSI8,movmemSI8)
+GLOBAL(movmemSI8):
 	mov.l	@(4,r5),r0
 	mov.l	r0,@(4,r4)
-	.global	GLOBAL(movstrSI4)
-GLOBAL(movstrSI4):
+	.global	GLOBAL(movmemSI4)
+	FUNC(GLOBAL(movmemSI4))
+	ALIAS(movstrSI4,movmemSI4)
+GLOBAL(movmemSI4):
 	mov.l	@(0,r5),r0
 	mov.l	r0,@(0,r4)
-GLOBAL(movstrSI0):
+	.global	GLOBAL(movmemSI0)
+	FUNC(GLOBAL(movmemSI0))
+	ALIAS(movstrSI0,movmemSI0)
+GLOBAL(movmemSI0):
 	rts
 	nop
 
+	ENDFUNC(GLOBAL(movmemSI64))
+	ENDFUNC(GLOBAL(movmemSI60))
+	ENDFUNC(GLOBAL(movmemSI56))
+	ENDFUNC(GLOBAL(movmemSI52))
+	ENDFUNC(GLOBAL(movmemSI48))
+	ENDFUNC(GLOBAL(movmemSI44))
+	ENDFUNC(GLOBAL(movmemSI40))
+	ENDFUNC(GLOBAL(movmemSI36))
+	ENDFUNC(GLOBAL(movmemSI32))
+	ENDFUNC(GLOBAL(movmemSI28))
+	ENDFUNC(GLOBAL(movmemSI24))
+	ENDFUNC(GLOBAL(movmemSI20))
+	ENDFUNC(GLOBAL(movmemSI16))
+	ENDFUNC(GLOBAL(movmemSI12))
+	ENDFUNC(GLOBAL(movmemSI8))
+	ENDFUNC(GLOBAL(movmemSI4))
+	ENDFUNC(GLOBAL(movmemSI0))
+
 	.align	4
 
-	.global	GLOBAL(movstr)
-GLOBAL(movstr):
+	.global	GLOBAL(movmem)
+	FUNC(GLOBAL(movmem))
+	ALIAS(movstr,movmem)
+GLOBAL(movmem):
 	mov.l	@(60,r5),r0
 	mov.l	r0,@(60,r4)
 
@@ -769,25 +912,40 @@ GLOBAL(movstr):
 	bf	done
 
 	add	#64,r5
-	bra	GLOBAL(movstr)
+	bra	GLOBAL(movmem)
 	add	#64,r4
+
+	FUNC(GLOBAL(movmem))
 #endif
 
-#ifdef L_movstr_i4
+#ifdef L_movmem_i4
 	.text
-	.global	GLOBAL(movstr_i4_even)
-	.global	GLOBAL(movstr_i4_odd)
-	.global	GLOBAL(movstrSI12_i4)
+	.global	GLOBAL(movmem_i4_even)
+	.global	GLOBAL(movmem_i4_odd)
+	.global	GLOBAL(movmemSI12_i4)
+
+	FUNC(GLOBAL(movmem_i4_even))
+	FUNC(GLOBAL(movmem_i4_odd))
+	FUNC(GLOBAL(movmemSI12_i4))
+
+	ALIAS(movstr_i4_even,movmem_i4_even)
+	ALIAS(movstr_i4_odd,movmem_i4_odd)
+	ALIAS(movstrSI12_i4,movmemSI12_i4)
 
 	.p2align	5
-L_movstr_2mod4_end:
+L_movmem_2mod4_end:
 	mov.l	r0,@(16,r4)
 	rts
 	mov.l	r1,@(20,r4)
 
 	.p2align	2
 
-GLOBAL(movstr_i4_odd):
+GLOBAL(movmem_i4_even):
+	mov.l	@r5+,r0
+	bra	L_movmem_start_even
+	mov.l	@r5+,r1
+
+GLOBAL(movmem_i4_odd):
 	mov.l	@r5+,r1
 	add	#-4,r4
 	mov.l	@r5+,r2
@@ -795,31 +953,29 @@ GLOBAL(movstr_i4_odd):
 	mov.l	r1,@(4,r4)
 	mov.l	r2,@(8,r4)
 
-L_movstr_loop:
+L_movmem_loop:
 	mov.l	r3,@(12,r4)
 	dt	r6
 	mov.l	@r5+,r0
-	bt/s	L_movstr_2mod4_end
+	bt/s	L_movmem_2mod4_end
 	mov.l	@r5+,r1
 	add	#16,r4
-L_movstr_start_even:
+L_movmem_start_even:
 	mov.l	@r5+,r2
 	mov.l	@r5+,r3
 	mov.l	r0,@r4
 	dt	r6
 	mov.l	r1,@(4,r4)
-	bf/s	L_movstr_loop
+	bf/s	L_movmem_loop
 	mov.l	r2,@(8,r4)
 	rts
 	mov.l	r3,@(12,r4)
 
-GLOBAL(movstr_i4_even):
-	mov.l	@r5+,r0
-	bra	L_movstr_start_even
-	mov.l	@r5+,r1
+	ENDFUNC(GLOBAL(movmem_i4_even))
+	ENDFUNC(GLOBAL(movmem_i4_odd))
 
 	.p2align	4
-GLOBAL(movstrSI12_i4):
+GLOBAL(movmemSI12_i4):
 	mov.l	@r5,r0
 	mov.l	@(4,r5),r1
 	mov.l	@(8,r5),r2
@@ -827,12 +983,15 @@ GLOBAL(movstrSI12_i4):
 	mov.l	r1,@(4,r4)
 	rts
 	mov.l	r2,@(8,r4)
+
+	ENDFUNC(GLOBAL(movmemSI12_i4))
 #endif
 
 #ifdef L_mulsi3
 
 
 	.global	GLOBAL(mulsi3)
+	FUNC(GLOBAL(mulsi3))
 
 ! r4 =       aabb
 ! r5 =       ccdd
@@ -865,16 +1024,17 @@ hiset:	sts	macl,r0		! r0 = bb*dd
 	rts
 	add	r2,r0
 
-
+	FUNC(GLOBAL(mulsi3))
 #endif
 #endif /* ! __SH5__ */
 #ifdef L_sdivsi3_i4
 	.title "SH DIVIDE"
-!! 4 byte integer Divide code for the Hitachi SH
+!! 4 byte integer Divide code for the Renesas SH
 #ifdef __SH4__
 !! args in r4 and r5, result in fpul, clobber dr0, dr2
 
 	.global	GLOBAL(sdivsi3_i4)
+	FUNC(GLOBAL(sdivsi3_i4))
 GLOBAL(sdivsi3_i4):
 	lds r4,fpul
 	float fpul,dr0
@@ -884,6 +1044,7 @@ GLOBAL(sdivsi3_i4):
 	rts
 	ftrc dr0,fpul
 
+	ENDFUNC(GLOBAL(sdivsi3_i4))
 #elif defined(__SH4_SINGLE__) || defined(__SH4_SINGLE_ONLY__) || (defined (__SH5__) && ! defined __SH4_NOFPU__)
 !! args in r4 and r5, result in fpul, clobber r2, dr0, dr2
 
@@ -892,6 +1053,7 @@ GLOBAL(sdivsi3_i4):
 	.mode	SHcompact
 #endif
 	.global	GLOBAL(sdivsi3_i4)
+	FUNC(GLOBAL(sdivsi3_i4))
 GLOBAL(sdivsi3_i4):
 	sts.l fpscr,@-r15
 	mov #8,r2
@@ -906,13 +1068,14 @@ GLOBAL(sdivsi3_i4):
 	rts
 	lds.l @r15+,fpscr
 
+	ENDFUNC(GLOBAL(sdivsi3_i4))
 #endif /* ! __SH5__ || __SH5__ == 32 */
 #endif /* ! __SH4__ */
 #endif
 
 #ifdef L_sdivsi3
 /* __SH4_SINGLE_ONLY__ keeps this part for link compatibility with
-   sh3e code.  */
+   sh2e/sh3e code.  */
 #if (! defined(__SH4__) && ! defined (__SH4_SINGLE__)) || defined (__linux__)
 !!
 !! Steve Chamberlain
@@ -920,9 +1083,10 @@ GLOBAL(sdivsi3_i4):
 !!
 !!
 
-!! args in r4 and r5, result in r0 clobber r1,r2,r3
+!! args in r4 and r5, result in r0 clobber r1, r2, r3, and t bit
 
 	.global	GLOBAL(sdivsi3)
+	FUNC(GLOBAL(sdivsi3))
 #if __SHMEDIA__
 #if __SH5__ == 32
 	.section	.text..SHmedia32,"ax"
@@ -1166,17 +1330,20 @@ GLOBAL(sdivsi3):
 div0:	rts
 	mov	#0,r0
 
+	ENDFUNC(GLOBAL(sdivsi3))
 #endif /* ! __SHMEDIA__ */
 #endif /* ! __SH4__ */
 #endif
 #ifdef L_udivsi3_i4
 
 	.title "SH DIVIDE"
-!! 4 byte integer Divide code for the Hitachi SH
+!! 4 byte integer Divide code for the Renesas SH
 #ifdef __SH4__
-!! args in r4 and r5, result in fpul, clobber r0, r1, r4, r5, dr0, dr2, dr4
+!! args in r4 and r5, result in fpul, clobber r0, r1, r4, r5, dr0, dr2, dr4,
+!! and t bit
 
 	.global	GLOBAL(udivsi3_i4)
+	FUNC(GLOBAL(udivsi3_i4))
 GLOBAL(udivsi3_i4):
 	mov #1,r1
 	cmp/hi r1,r5
@@ -1217,11 +1384,13 @@ trivial:
 L1:
 	.double 2147483648
 
+	ENDFUNC(GLOBAL(udivsi3_i4))
 #elif defined (__SH5__) && ! defined (__SH4_NOFPU__)
 #if ! __SH5__ || __SH5__ == 32
 !! args in r4 and r5, result in fpul, clobber r20, r21, dr0, fr33
 	.mode	SHmedia
 	.global	GLOBAL(udivsi3_i4)
+	FUNC(GLOBAL(udivsi3_i4))
 GLOBAL(udivsi3_i4):
 	addz.l	r4,r63,r20
 	addz.l	r5,r63,r21
@@ -1234,6 +1403,8 @@ GLOBAL(udivsi3_i4):
 	ftrc.dq dr0,dr32
 	fmov.s fr33,fr32
 	blink tr0,r63
+
+	ENDFUNC(GLOBAL(udivsi3_i4))
 #endif /* ! __SH5__ || __SH5__ == 32 */
 #elif defined(__SH4_SINGLE__) || defined(__SH4_SINGLE_ONLY__)
 !! args in r4 and r5, result in fpul, clobber r0, r1, r4, r5, dr0, dr2, dr4
@@ -1287,16 +1458,18 @@ L1:
 #endif
 	.double 2147483648
 
+	ENDFUNC(GLOBAL(udivsi3_i4))
 #endif /* ! __SH4__ */
 #endif
 
 #ifdef L_udivsi3
 /* __SH4_SINGLE_ONLY__ keeps this part for link compatibility with
-   sh3e code.  */
+   sh2e/sh3e code.  */
 #if (! defined(__SH4__) && ! defined (__SH4_SINGLE__)) || defined (__linux__)
 
 !! args in r4 and r5, result in r0, clobbers r4, pr, and t bit
 	.global	GLOBAL(udivsi3)
+	FUNC(GLOBAL(udivsi3))
 
 #if __SHMEDIA__
 #if __SH5__ == 32
@@ -1485,6 +1658,7 @@ LOCAL(large_divisor):
  rts
  rotcl r0
 
+	ENDFUNC(GLOBAL(udivsi3))
 #endif /* ! __SHMEDIA__ */
 #endif /* __SH4__ */
 #endif /* L_udivsi3 */
@@ -1495,6 +1669,7 @@ LOCAL(large_divisor):
 	.section	.text..SHmedia32,"ax"
 	.align	2
 	.global	GLOBAL(udivdi3)
+	FUNC(GLOBAL(udivdi3))
 GLOBAL(udivdi3):
 	shlri r3,1,r4
 	nsb r4,r22
@@ -1602,6 +1777,7 @@ LOCAL(no_lo_adj):
 	cmpgtu r5,r2,r5
 	sub r8,r5,r2
 	blink tr0,r63
+	ENDFUNC(GLOBAL(udivdi3))
 /* Note 1: To shift the result of the second divide stage so that the result
    always fits into 32 bits, yet we still reduce the rest sufficiently
    would require a lot of instructions to do the shifts just right.  Using
@@ -1620,6 +1796,7 @@ LOCAL(no_lo_adj):
 	.section	.text..SHmedia32,"ax"
 	.align	2
 	.global	GLOBAL(divdi3)
+	FUNC(GLOBAL(divdi3))
 GLOBAL(divdi3):
 	pta GLOBAL(udivdi3),tr0
 	shari r2,63,r22
@@ -1633,6 +1810,7 @@ GLOBAL(divdi3):
 	blink tr0,r18
 	sub r63,r2,r2
 	blink tr1,r63
+	ENDFUNC(GLOBAL(divdi3))
 #endif /* __SHMEDIA__ */
 #endif /* L_divdi3 */
 
@@ -1642,6 +1820,7 @@ GLOBAL(divdi3):
 	.section	.text..SHmedia32,"ax"
 	.align	2
 	.global	GLOBAL(umoddi3)
+	FUNC(GLOBAL(umoddi3))
 GLOBAL(umoddi3):
 	shlri r3,1,r4
 	nsb r4,r22
@@ -1750,6 +1929,7 @@ LOCAL(no_lo_adj):
 	sub r2,r5,r2
 	shlrd r2,r22,r2
 	blink tr0,r63
+	ENDFUNC(GLOBAL(umoddi3))
 /* Note 1: To shift the result of the second divide stage so that the result
    always fits into 32 bits, yet we still reduce the rest sufficiently
    would require a lot of instructions to do the shifts just right.  Using
@@ -1768,6 +1948,7 @@ LOCAL(no_lo_adj):
 	.section	.text..SHmedia32,"ax"
 	.align	2
 	.global	GLOBAL(moddi3)
+	FUNC(GLOBAL(moddi3))
 GLOBAL(moddi3):
 	pta GLOBAL(umoddi3),tr0
 	shari r2,63,r22
@@ -1781,27 +1962,40 @@ GLOBAL(moddi3):
 	blink tr0,r18
 	sub r63,r2,r2
 	blink tr1,r63
+	ENDFUNC(GLOBAL(moddi3))
 #endif /* __SHMEDIA__ */
 #endif /* L_moddi3 */
 
 #ifdef L_set_fpscr
-#if defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__) || __SH5__ == 32
+#if !defined (__SH2A_NOFPU__)
+#if defined (__SH2E__) || defined (__SH2A__) || defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__) || __SH5__ == 32
 #ifdef __SH5__
 	.mode	SHcompact
 #endif
 	.global GLOBAL(set_fpscr)
+	FUNC(GLOBAL(set_fpscr))
 GLOBAL(set_fpscr):
 	lds r4,fpscr
+#ifdef __PIC__
+	mov.l	r12,@-r15
+	mova	LOCAL(set_fpscr_L0),r0
+	mov.l	LOCAL(set_fpscr_L0),r12
+	add	r0,r12
+	mov.l	LOCAL(set_fpscr_L1),r0
+	mov.l	@(r0,r12),r1
+	mov.l	@r15+,r12
+#else
 	mov.l LOCAL(set_fpscr_L1),r1
+#endif
 	swap.w r4,r0
 	or #24,r0
 #ifndef FMOVD_WORKS
 	xor #16,r0
 #endif
-#if defined(__SH4__)
+#if defined(__SH4__) || defined (__SH2A_DOUBLE__)
 	swap.w r0,r3
 	mov.l r3,@(4,r1)
-#else /* defined(__SH3E__) || defined(__SH4_SINGLE*__) */
+#else /* defined (__SH2E__) || defined(__SH3E__) || defined(__SH4_SINGLE*__) */
 	swap.w r0,r2
 	mov.l r2,@r1
 #endif
@@ -1810,24 +2004,36 @@ GLOBAL(set_fpscr):
 #else
 	xor #24,r0
 #endif
-#if defined(__SH4__)
+#if defined(__SH4__) || defined (__SH2A_DOUBLE__)
 	swap.w r0,r2
 	rts
 	mov.l r2,@r1
-#else /* defined(__SH3E__) || defined(__SH4_SINGLE*__) */
+#else /* defined(__SH2E__) || defined(__SH3E__) || defined(__SH4_SINGLE*__) */
 	swap.w r0,r3
 	rts
 	mov.l r3,@(4,r1)
 #endif
 	.align 2
+#ifdef __PIC__
+LOCAL(set_fpscr_L0):
+	.long _GLOBAL_OFFSET_TABLE_
+LOCAL(set_fpscr_L1):
+	.long GLOBAL(fpscr_values@GOT)
+#else
 LOCAL(set_fpscr_L1):
 	.long GLOBAL(fpscr_values)
+#endif
+
+	ENDFUNC(GLOBAL(set_fpscr))
+#ifndef NO_FPSCR_VALUES
 #ifdef __ELF__
         .comm   GLOBAL(fpscr_values),8,4
 #else
         .comm   GLOBAL(fpscr_values),8
 #endif /* ELF */
-#endif /* SH3E / SH4 */
+#endif /* NO_FPSCR_VALUES */
+#endif /* SH2E / SH3E / SH4 */
+#endif /* __SH2A_NOFPU__ */
 #endif /* L_set_fpscr */
 #ifdef L_ic_invalidate
 #if __SH5__ == 32
@@ -1835,6 +2041,7 @@ LOCAL(set_fpscr_L1):
 	.section	.text..SHmedia32,"ax"
 	.align	2
 	.global	GLOBAL(init_trampoline)
+	FUNC(GLOBAL(init_trampoline))
 GLOBAL(init_trampoline):
 	st.l	r0,8,r2
 #ifdef __LITTLE_ENDIAN__
@@ -1851,6 +2058,7 @@ GLOBAL(init_trampoline):
 	st.q	r0,0,r20
 	st.l	r0,12,r3
 	.global	GLOBAL(ic_invalidate)
+	FUNC(GLOBAL(ic_invalidate))
 GLOBAL(ic_invalidate):
 	ocbwb	r0,0
 	synco
@@ -1858,8 +2066,39 @@ GLOBAL(ic_invalidate):
 	ptabs	r18, tr0
 	synci
 	blink	tr0, r63
-#elif defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__)
+
+	ENDFUNC(GLOBAL(ic_invalidate))
+	ENDFUNC(GLOBAL(init_trampoline))
+#elif defined(__SH4A__)
 	.global GLOBAL(ic_invalidate)
+	FUNC(GLOBAL(ic_invalidate))
+GLOBAL(ic_invalidate):
+	ocbwb	@r4
+	synco
+	rts
+	icbi	@r4
+	ENDFUNC(GLOBAL(ic_invalidate))
+#elif defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__)
+	/* This assumes a direct-mapped cache, which is the case for
+	the first SH4, but not for the second version of SH4, that
+	uses a 2-way set-associative cache, nor SH4a, that is 4-way.
+	SH4a fortunately offers an instruction to invalidate the
+	instruction cache, and we use it above, but SH4 doesn't.
+	However, since the libraries don't contain any nested
+	functions (the only case in which GCC would emit this pattern)
+	and we actually emit the ic_invalidate_line_i pattern for
+	cache invalidation on all SH4 multilibs (even 4-nofpu, that
+	isn't even corevered here), and pre-SH4 cores don't have
+	caches, it seems like this code is pointless, unless it's
+	meant for backward binary compatibility or for userland-only
+	cache invalidation for say sh4-*-linux-gnu.  Such a feature
+	should probably be moved into a system call, such that the
+	kernel could do whatever it takes to invalidate a cache line
+	on the core it's actually running on.  I.e., this hideous :-)
+	piece of code should go away at some point.  */
+
+	.global GLOBAL(ic_invalidate)
+	FUNC(GLOBAL(ic_invalidate))
 GLOBAL(ic_invalidate):
 	ocbwb	@r4
 	mova	0f,r0
@@ -1882,6 +2121,8 @@ GLOBAL(ic_invalidate):
 	nop
 	.endr
 	.endr
+
+	ENDFUNC(GLOBAL(ic_invalidate))
 #endif /* SH4 */
 #endif /* L_ic_invalidate */
 
@@ -1940,6 +2181,7 @@ LOCAL(ct_main_table):
 	will be expanded into r2/r3 upon return.  */
 	
 	.global	GLOBAL(GCC_shcompact_call_trampoline)
+	FUNC(GLOBAL(GCC_shcompact_call_trampoline))
 GLOBAL(GCC_shcompact_call_trampoline):
 	ptabs/l	r0, tr0	/* Prepare to call the actual function.  */
 	movi	((datalabel LOCAL(ct_main_table) - 31 * 2) >> 16) & 65535, r0
@@ -2290,6 +2532,8 @@ LOCAL(ct_ret_wide):	/* Call the function, so that we can unpack its
 	shari	r2, 32, r2
 #endif
 	blink	tr0, r63
+
+	ENDFUNC(GLOBAL(GCC_shcompact_call_trampoline))
 #endif /* L_shcompact_call_trampoline */
 
 #ifdef L_shcompact_return_trampoline
@@ -2302,6 +2546,7 @@ LOCAL(ct_ret_wide):	/* Call the function, so that we can unpack its
 	.section	.text..SHmedia32, "ax"
 	.align	2
 	.global	GLOBAL(GCC_shcompact_return_trampoline)
+	FUNC(GLOBAL(GCC_shcompact_return_trampoline))
 GLOBAL(GCC_shcompact_return_trampoline):
 	ptabs/l	r18, tr0
 #if __LITTLE_ENDIAN__
@@ -2313,6 +2558,8 @@ GLOBAL(GCC_shcompact_return_trampoline):
 #endif
 	or	r3, r2, r2
 	blink	tr0, r63
+
+	ENDFUNC(GLOBAL(GCC_shcompact_return_trampoline))
 #endif /* L_shcompact_return_trampoline */
 
 #ifdef L_shcompact_incoming_args
@@ -2363,10 +2610,11 @@ LOCAL(ia_main_table):
 	Its execution time is linear on the
 	number of registers that actually have to be copied, and it is
 	optimized for structures larger than 64 bits, as opposed to
-	invidivual `long long' arguments.  See sh.h for details on the
+	individual `long long' arguments.  See sh.h for details on the
 	actual bit pattern.  */
 	
 	.global	GLOBAL(GCC_shcompact_incoming_args)
+	FUNC(GLOBAL(GCC_shcompact_incoming_args))
 GLOBAL(GCC_shcompact_incoming_args):
 	ptabs/l	r18, tr0	/* Prepare to return.  */
 	shlri	r17, 32, r0	/* Load the cookie.  */
@@ -2519,6 +2767,7 @@ LOCAL(ia_r9_push):	/* Push r9 onto the stack.  */
 LOCAL(ia_return):	/* Return.  */
 	blink	tr0, r63
 LOCAL(ia_end_of_push_seq): /* Label used to compute the first push instruction.  */
+	ENDFUNC(GLOBAL(GCC_shcompact_incoming_args))
 #endif /* L_shcompact_incoming_args */
 #endif
 #if __SH5__
@@ -2530,6 +2779,7 @@ LOCAL(ia_end_of_push_seq): /* Label used to compute the first push instruction. 
 #endif
 	.align	3 /* It is copied in units of 8 bytes in SHmedia mode.  */
 	.global	GLOBAL(GCC_nested_trampoline)
+	FUNC(GLOBAL(GCC_nested_trampoline))
 GLOBAL(GCC_nested_trampoline):
 	.mode	SHmedia
 	ptrel/u	r63, tr0
@@ -2546,6 +2796,8 @@ GLOBAL(GCC_nested_trampoline):
 	ld.l	r0, 28, r1
 #endif
 	blink	tr1, r63
+
+	ENDFUNC(GLOBAL(GCC_nested_trampoline))
 #endif /* L_nested_trampoline */
 #endif /* __SH5__ */
 #if __SH5__ == 32
@@ -2555,6 +2807,7 @@ GLOBAL(GCC_nested_trampoline):
 	.align	2
 #ifndef __SH4_NOFPU__	
 	.global	GLOBAL(GCC_push_shmedia_regs)
+	FUNC(GLOBAL(GCC_push_shmedia_regs))
 GLOBAL(GCC_push_shmedia_regs):
 	addi.l	r15, -14*8, r15
 	fst.d	r15, 13*8, dr62
@@ -2573,6 +2826,7 @@ GLOBAL(GCC_push_shmedia_regs):
 	fst.d	r15,  0*8, dr36
 #endif
 	.global	GLOBAL(GCC_push_shmedia_regs_nofpu)
+	FUNC(GLOBAL(GCC_push_shmedia_regs_nofpu))
 GLOBAL(GCC_push_shmedia_regs_nofpu):
 	ptabs/l	r18, tr0
 	addi.l	r15, -27*8, r15
@@ -2608,8 +2862,13 @@ GLOBAL(GCC_push_shmedia_regs_nofpu):
 	st.q	r15,  0*8, r28
 	blink	tr0, r63
 
+#ifndef __SH4_NOFPU__	
+	ENDFUNC(GLOBAL(GCC_push_shmedia_regs))
+#endif
+	ENDFUNC(GLOBAL(GCC_push_shmedia_regs_nofpu))
 #ifndef __SH4_NOFPU__
 	.global	GLOBAL(GCC_pop_shmedia_regs)
+	FUNC(GLOBAL(GCC_pop_shmedia_regs))
 GLOBAL(GCC_pop_shmedia_regs):
 	pt	.L0, tr1
 	movi	41*8, r0
@@ -2630,6 +2889,7 @@ GLOBAL(GCC_pop_shmedia_regs):
 	blink	tr1, r63
 #endif
 	.global	GLOBAL(GCC_pop_shmedia_regs_nofpu)
+	FUNC(GLOBAL(GCC_pop_shmedia_regs_nofpu))
 GLOBAL(GCC_pop_shmedia_regs_nofpu):
 	movi	27*8, r0
 .L0:
@@ -2666,5 +2926,10 @@ GLOBAL(GCC_pop_shmedia_regs_nofpu):
 	ld.q	r15,  0*8, r28
 	add.l	r15, r0, r15
 	blink	tr0, r63
+
+#ifndef __SH4_NOFPU__
+	ENDFUNC(GLOBAL(GCC_pop_shmedia_regs))
+#endif
+	ENDFUNC(GLOBAL(GCC_pop_shmedia_regs_nofpu))
 #endif /* __SH5__ == 32 */
 #endif /* L_push_pop_shmedia_regs */

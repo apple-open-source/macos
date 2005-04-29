@@ -1,0 +1,848 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.ftp.FTPClient</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.protocols.html">Package&nbsp;protocols</a> ::
+        <a href="twisted.protocols.ftp.html">Module&nbsp;ftp</a> ::
+        Class&nbsp;FTPClient
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.protocols.ftp.FTPClient.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class FTPClient</h2>
+
+<pre class="base-tree">
+<a href="twisted.internet.protocol.BaseProtocol.html"><code>BaseProtocol</code></a> --+        
+               |        
+        <a href="twisted.internet.protocol.Protocol.html"><code>Protocol</code></a> --+    
+                   |    
+        <a href="twisted.protocols.basic.LineReceiver.html"><code>LineReceiver</code></a> --+
+                       |
+                      <b>FTPClient</b>
+</pre><br />
+
+<hr/>
+
+<p>A Twisted FTP Client</p>
+<p>Supports active and passive transfers.</p>
+This class is semi-stable.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>username</span>,
+          <span class=summary-sig-arg>password</span>,
+          <span class=summary-sig-arg>passive</span>)</span></code>
+<br />
+Constructor.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#_fail" class="summary-sig-name"><code>_fail</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Errback all queued deferreds.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#_openDataConnection" class="summary-sig-name"><code>_openDataConnection</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>commands</span>,
+          <span class=summary-sig-arg>protocol</span>)</span></code>
+<br />
+This method returns a DeferredList.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#cdup" class="summary-sig-name"><code>cdup</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Issues the CDUP (Change Directory UP) command.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="connectionLost"></a><span class="summary-sig"><span class="summary-sig-name">connectionLost</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#cwd" class="summary-sig-name"><code>cwd</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>)</span></code>
+<br />
+Issues the CWD (Change Working Directory) command.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#escapePath" class="summary-sig-name"><code>escapePath</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>)</span></code>
+<br />
+Returns a FTP escaped path (replace newlines with nulls)</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#fail" class="summary-sig-name"><code>fail</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Disconnect, and also give an error to any queued deferreds.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#generatePortCommand" class="summary-sig-name"><code>generatePortCommand</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>portCmd</span>)</span></code>
+<br />
+(Private) Generates the text of a given PORT command</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#lineReceived" class="summary-sig-name"><code>lineReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+(Private) Parses the response messages from the FTP server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#list" class="summary-sig-name"><code>list</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>protocol</span>)</span></code>
+<br />
+Retrieve a file listing into the given protocol instance.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#nlst" class="summary-sig-name"><code>nlst</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>protocol</span>)</span></code>
+<br />
+Retrieve a short file listing into the given protocol instance.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#popCommandQueue" class="summary-sig-name"><code>popCommandQueue</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Return the front element of the command queue, or None if empty.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#pwd" class="summary-sig-name"><code>pwd</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Issues the PWD (Print Working Directory) command.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#queueCommand" class="summary-sig-name"><code>queueCommand</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>ftpCommand</span>)</span></code>
+<br />
+Add an FTPCommand object to the queue.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#queueLogin" class="summary-sig-name"><code>queueLogin</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Initialise the connection.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#queueStringCommand" class="summary-sig-name"><code>queueStringCommand</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>command</span>,
+          <span class=summary-sig-arg>public</span>)</span></code>
+<br />
+Queues a string to be issued as an FTP command</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#quit" class="summary-sig-name"><code>quit</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Issues the QUIT command.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#receiveFromConnection" class="summary-sig-name"><code>receiveFromConnection</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>commands</span>,
+          <span class=summary-sig-arg>protocol</span>)</span></code>
+<br />
+Retrieves a file or listing generated by the given command, feeding it 
+to the given protocol.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#retrieveFile" class="summary-sig-name"><code>retr</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>offset</span>)</span></code>
+<br />
+Retrieve a file from the given path</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#retrieveFile" class="summary-sig-name"><code>retrieveFile</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>offset</span>)</span></code>
+<br />
+Retrieve a file from the given path</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#sendLine" class="summary-sig-name"><code>sendLine</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+(Private) Sends a line, unless line is None.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#sendNextCommand" class="summary-sig-name"><code>sendNextCommand</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(Private) Processes the next command in the queue.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#sendToConnection" class="summary-sig-name"><code>sendToConnection</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>commands</span>)</span></code>
+<br />
+XXX</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#storeFile" class="summary-sig-name"><code>stor</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>offset</span>)</span></code>
+<br />
+Store a file at the given path.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.ftp.FTPClient.html#storeFile" class="summary-sig-name"><code>storeFile</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>offset</span>)</span></code>
+<br />
+Store a file at the given path.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from LineReceiver</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#clearLineBuffer" class="summary-sig-name"><code>clearLineBuffer</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Clear buffered data.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#dataReceived" class="summary-sig-name"><code>dataReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Protocol.dataReceived.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#lineLengthExceeded" class="summary-sig-name"><code>lineLengthExceeded</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Called when the maximum line length has been reached.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#rawDataReceived" class="summary-sig-name"><code>rawDataReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Override this for when raw data is received.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#setLineMode" class="summary-sig-name"><code>setLineMode</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>extra</span>)</span></code>
+<br />
+Sets the line-mode of this receiver.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#setRawMode" class="summary-sig-name"><code>setRawMode</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Sets the raw mode of this receiver.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Protocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Protocol.html#connectionFailed" class="summary-sig-name"><code>connectionFailed</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(Deprecated)</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.BaseProtocol.html#connectionMade" class="summary-sig-name"><code>connectionMade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when a connection is made.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.BaseProtocol.html#makeConnection" class="summary-sig-name"><code>makeConnection</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>transport</span>)</span></code>
+<br />
+Make a connection to a transport and a server.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF INSTANCE VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Instance Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+<td><b><a href="twisted.protocols.ftp.FTPClient.html#passive"><code>passive</code></a></b>: See description in __init__.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.ftp.FTPClient.html#debug"><code>debug</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from LineReceiver</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#__buffer"><code>_LineReceiver__buffer</code></a></b> = <span title="''"><code><span class="variable-quote">'</span><span class="variable-quote">'</span>                               </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#delimiter"><code>delimiter</code></a></b>: The line-ending delimiter to use.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#line_mode"><code>line_mode</code></a></b> = <span title="1">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#MAX_LENGTH"><code>MAX_LENGTH</code></a></b>: The maximum length of a line to allow (If a sent line is longer than 
+this, the connection is dropped).</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Protocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.internet.protocol.Protocol.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class twisted.internet.interfaces.IProtocol at 0x8278f0c&gt;,)"><code>(&lt;class&nbsp;twisted.internet.interfaces.IPr<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#connected"><code>connected</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#transport"><code>transport</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="__init__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__init__</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>username</span>=<span class=sig-default>'anonymous'</span>,
+          <span class=sig-arg>password</span>=<span class=sig-default>'twisted&#64;twistedmatrix.com'</span>,
+          <span class=sig-arg>passive</span>=<span class=sig-default>1</span>)</span>
+    <br /><i>(Constructor)</i>
+  </h3>
+  <p>Constructor.</p>
+  I will login as soon as I receive the welcome message from the 
+  server.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>username</b></code> -
+         FTP username
+      <dd><code><b>password</b></code> -
+         FTP password
+      <dd><code><b>passive</b></code> -
+         flag that controls if I use active or passive data 
+        connections. You can also change this after construction by 
+        assigning to self.passive.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_fail"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_fail</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>error</span>)</span>
+  </h3>
+  Errback all queued deferreds.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_openDataConnection"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_openDataConnection</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>commands</span>,
+          <span class=sig-arg>protocol</span>)</span>
+  </h3>
+  This method returns a DeferredList.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="cdup"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">cdup</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Issues the CDUP (Change Directory UP) command.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        a <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a> that will be called when 
+        done.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="cwd"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">cwd</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>path</span>)</span>
+  </h3>
+  Issues the CWD (Change Working Directory) command.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        a <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a> that will be called when 
+        done.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="escapePath"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">escapePath</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>path</span>)</span>
+  </h3>
+  Returns a FTP escaped path (replace newlines with nulls)
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="fail"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">fail</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>error</span>)</span>
+  </h3>
+  Disconnect, and also give an error to any queued deferreds.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="generatePortCommand"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">generatePortCommand</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>portCmd</span>)</span>
+  </h3>
+  (Private) Generates the text of a given PORT command
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="lineReceived"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">lineReceived</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  (Private) Parses the response messages from the FTP server.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.basic.LineReceiver.html#lineReceived"><code>twisted.protocols.basic.LineReceiver.lineReceived</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="list"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">list</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>path</span>,
+          <span class=sig-arg>protocol</span>)</span>
+  </h3>
+  <p>Retrieve a file listing into the given protocol instance.</p>
+  This method issues the 'LIST' FTP command.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>path</b></code> -
+         path to get a file listing for.
+      <dd><code><b>protocol</b></code> -
+         a <a href="twisted.internet.protocol.Protocol.html" 
+        class="link"><code>Protocol</code></a> instance, probably a <a 
+        href="twisted.protocols.ftp.FTPFileListProtocol.html" 
+        class="link"><code>FTPFileListProtocol</code></a> instance. It 
+        can cope with most common file listing formats.
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="nlst"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">nlst</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>path</span>,
+          <span class=sig-arg>protocol</span>)</span>
+  </h3>
+  <p>Retrieve a short file listing into the given protocol instance.</p>
+  <p>This method issues the 'NLST' FTP command.</p>
+  NLST (should) return a list of filenames, one per line.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>path</b></code> -
+         path to get short file listing for.
+      <dd><code><b>protocol</b></code> -
+         a <a href="twisted.internet.protocol.Protocol.html" 
+        class="link"><code>Protocol</code></a> instance.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="popCommandQueue"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">popCommandQueue</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Return the front element of the command queue, or None if empty.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="pwd"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">pwd</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Issues the PWD (Print Working Directory) command.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        a <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a> that will be called when 
+        done. It is up to the caller to interpret the response, but the 
+        <a href="twisted.protocols.ftp.html#parsePWDResponse" 
+        class="link"><code>parsePWDResponse</code></a> method in this 
+        module should work.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="queueCommand"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">queueCommand</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>ftpCommand</span>)</span>
+  </h3>
+  <p>Add an FTPCommand object to the queue.</p>
+  If it's the only thing in the queue, and we are connected and we 
+  aren't waiting for a response of an earlier command, the command will 
+  be sent immediately.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>ftpCommand</b></code> -
+         an <a href="twisted.protocols.ftp.FTPCommand.html" 
+        class="link"><code>FTPCommand</code></a>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="queueLogin"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">queueLogin</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>Initialise the connection.</p>
+  Login, send the password, set retrieval mode to binary
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="queueStringCommand"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">queueStringCommand</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>command</span>,
+          <span class=sig-arg>public</span>=<span class=sig-default>1</span>)</span>
+  </h3>
+  Queues a string to be issued as an FTP command
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>command</b></code> -
+         string of an FTP command to queue
+      <dd><code><b>public</b></code> -
+         a flag intended for internal use by FTPClient. Don't change it 
+        unless you know what you're doing.
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        a <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a> that will be called when 
+        the response to the command has been received.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="quit"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">quit</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Issues the QUIT command.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="receiveFromConnection"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">receiveFromConnection</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>commands</span>,
+          <span class=sig-arg>protocol</span>)</span>
+  </h3>
+  Retrieves a file or listing generated by the given command, feeding 
+  it to the given protocol.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>protocol</b></code> -
+         A <a href="twisted.internet.protocol.Protocol.html" 
+        class="link"><code>Protocol</code></a> *instance* e.g. an <a 
+        href="twisted.protocols.ftp.FTPFileListProtocol.html" 
+        class="link"><code>FTPFileListProtocol</code></a>, or something 
+        that can be adapted to one. Typically this will be an <a 
+        href="twisted.internet.interfaces.IConsumer.html" 
+        class="link"><code>IConsumer</code></a> implemenation.
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a>.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="retrieveFile"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">retr</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>path</span>,
+          <span class=sig-arg>protocol</span>,
+          <span class=sig-arg>offset</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  <p>Retrieve a file from the given path</p>
+  <p>This method issues the 'RETR' FTP command.</p>
+  The file is fed into the given Protocol instance. The data 
+  connection will be passive if self.passive is set.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>path</b></code> -
+         path to file that you wish to receive.
+      <dd><code><b>protocol</b></code> -
+         a <a href="twisted.internet.protocol.Protocol.html" 
+        class="link"><code>Protocol</code></a> instance.
+      <dd><code><b>offset</b></code> -
+         offset to start downloading from
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="retrieveFile"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">retrieveFile</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>path</span>,
+          <span class=sig-arg>protocol</span>,
+          <span class=sig-arg>offset</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  <p>Retrieve a file from the given path</p>
+  <p>This method issues the 'RETR' FTP command.</p>
+  The file is fed into the given Protocol instance. The data 
+  connection will be passive if self.passive is set.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>path</b></code> -
+         path to file that you wish to receive.
+      <dd><code><b>protocol</b></code> -
+         a <a href="twisted.internet.protocol.Protocol.html" 
+        class="link"><code>Protocol</code></a> instance.
+      <dd><code><b>offset</b></code> -
+         offset to start downloading from
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendLine"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendLine</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  (Private) Sends a line, unless line is None.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.basic.LineReceiver.html#sendLine"><code>twisted.protocols.basic.LineReceiver.sendLine</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendNextCommand"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendNextCommand</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  (Private) Processes the next command in the queue.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendToConnection"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendToConnection</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>commands</span>)</span>
+  </h3>
+  XXX
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A tuple of two <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a>s:
+        <ul>
+          <li>
+            <a href="twisted.internet.defer.Deferred.html" 
+            class="link"><code>Deferred</code></a> <a 
+            href="twisted.internet.interfaces.IFinishableConsumer.html" 
+            class="link"><code>IFinishableConsumer</code></a>. You must 
+            call the <code>finish</code> method on the 
+            IFinishableConsumer when the file is completely 
+            transferred.
+          </li>
+          <li>
+            <a href="twisted.internet.defer.Deferred.html" 
+            class="link"><code>Deferred</code></a> list of 
+            control-connection responses.
+          </li>
+        </ul>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="storeFile"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">stor</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>path</span>,
+          <span class=sig-arg>offset</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  <p>Store a file at the given path.</p>
+  This method issues the 'STOR' FTP command.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A tuple of two <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a>s:
+        <ul>
+          <li>
+            <a href="twisted.internet.defer.Deferred.html" 
+            class="link"><code>Deferred</code></a> <a 
+            href="twisted.internet.interfaces.IFinishableConsumer.html" 
+            class="link"><code>IFinishableConsumer</code></a>. You must 
+            call the <code>finish</code> method on the 
+            IFinishableConsumer when the file is completely 
+            transferred.
+          </li>
+          <li>
+            <a href="twisted.internet.defer.Deferred.html" 
+            class="link"><code>Deferred</code></a> list of 
+            control-connection responses.
+          </li>
+        </ul>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="storeFile"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">storeFile</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>path</span>,
+          <span class=sig-arg>offset</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  <p>Store a file at the given path.</p>
+  This method issues the 'STOR' FTP command.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A tuple of two <a href="twisted.internet.defer.Deferred.html" 
+        class="link"><code>Deferred</code></a>s:
+        <ul>
+          <li>
+            <a href="twisted.internet.defer.Deferred.html" 
+            class="link"><code>Deferred</code></a> <a 
+            href="twisted.internet.interfaces.IFinishableConsumer.html" 
+            class="link"><code>IFinishableConsumer</code></a>. You must 
+            call the <code>finish</code> method on the 
+            IFinishableConsumer when the file is completely 
+            transferred.
+          </li>
+          <li>
+            <a href="twisted.internet.defer.Deferred.html" 
+            class="link"><code>Deferred</code></a> list of 
+            control-connection responses.
+          </li>
+        </ul>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF INSTANCE VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Instance Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="passive"></a>
+<h3>passive</h3>
+See description in __init__.
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="debug"></a>
+<h3>debug</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="0">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:49 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

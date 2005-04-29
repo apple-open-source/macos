@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000 Free Software Foundation, Inc.                   *
+ * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -27,7 +27,7 @@
  ****************************************************************************/
 
 /****************************************************************************
- *   Author: Juergen Pfeifer <juergen.pfeifer@gmx.net> 1995,1997            *
+ *   Author:  Juergen Pfeifer, 1995,1997                                    *
  ****************************************************************************/
 
 /***************************************************************************
@@ -37,7 +37,7 @@
 
 #include "menu.priv.h"
 
-MODULE_ID("$Id: m_spacing.c,v 1.1.1.1 2001/11/29 20:40:55 jevans Exp $")
+MODULE_ID("$Id: m_spacing.c,v 1.15 2003/11/08 20:49:06 tom Exp $")
 
 #define MAX_SPC_DESC ((TABSIZE) ? (TABSIZE) : 8)
 #define MAX_SPC_COLS ((TABSIZE) ? (TABSIZE) : 8)
@@ -47,7 +47,7 @@ MODULE_ID("$Id: m_spacing.c,v 1.1.1.1 2001/11/29 20:40:55 jevans Exp $")
 |   Facility      :  libnmenu
 |   Function      :  int set_menu_spacing(MENU *menu,int desc, int r, int c);
 |
-|   Description   :  Set the spacing between entried
+|   Description   :  Set the spacing between entries
 |
 |   Return Values :  E_OK                 - on success
 +--------------------------------------------------------------------------*/

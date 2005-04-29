@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/glxcmds.c,v 1.19 2003/01/20 21:37:18 tsi Exp $ */
+/* $XFree86: xc/lib/GL/glx/glxcmds.c,v 1.31 2004/02/09 23:46:31 alanh Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -38,60 +38,313 @@
 #include "glxclient.h"
 #include <extutil.h>
 #include <Xext.h>
+#include <assert.h>
 #include <string.h>
 #include "glapi.h"
 #ifdef GLX_DIRECT_RENDERING
 #include "indirect_init.h"
+#include <extensions/xf86vmode.h>
 #endif
+#include "glxextensions.h"
+#include "glcontextmodes.h"
+#include <sys/time.h>
 
-static const char __glXGLClientExtensions[] = 
+const char __glXGLClientExtensions[] = 
+			"GL_ARB_depth_texture "
 			"GL_ARB_imaging "
+			"GL_ARB_multisample "
 			"GL_ARB_multitexture "
+			"GL_ARB_point_parameters "
+			"GL_ARB_point_sprite "
+			"GL_ARB_shadow "
+			"GL_ARB_shadow_ambient "
 			"GL_ARB_texture_border_clamp "
 			"GL_ARB_texture_cube_map "
 			"GL_ARB_texture_env_add "
 			"GL_ARB_texture_env_combine "
+			"GL_ARB_texture_env_crossbar "
 			"GL_ARB_texture_env_dot3 "
+			"GL_ARB_texture_mirrored_repeat "
+			"GL_ARB_texture_non_power_of_two "
 			"GL_ARB_transpose_matrix "
+			"GL_ARB_window_pos "
 			"GL_EXT_abgr "
-			"GL_EXT_blend_color "
-			"GL_EXT_blend_minmax "
-			"GL_EXT_blend_subtract "
-			"GL_EXT_texture_env_add "
-			"GL_EXT_texture_env_combine "
-			"GL_EXT_texture_env_dot3 "
-			"GL_EXT_texture_lod_bias "
+			"GL_EXT_bgra "
+ 			"GL_EXT_blend_color "
+			"GL_EXT_blend_func_separate "
+			"GL_EXT_blend_logic_op "
+ 			"GL_EXT_blend_minmax "
+ 			"GL_EXT_blend_subtract "
+			"GL_EXT_clip_volume_hint "
+			"GL_EXT_copy_texture "
+			"GL_EXT_draw_range_elements "
+			"GL_EXT_fog_coord "
+			"GL_EXT_multi_draw_arrays "
+			"GL_EXT_packed_pixels "
+			"GL_EXT_polygon_offset "
+			"GL_EXT_rescale_normal "
+			"GL_EXT_secondary_color "
+			"GL_EXT_separate_specular_color "
+			"GL_EXT_shadow_funcs "
+ 			"GL_EXT_stencil_two_side "
+			"GL_EXT_stencil_wrap "
+			"GL_EXT_subtexture "
+			"GL_EXT_texture "
+			"GL_EXT_texture3D "
+			"GL_EXT_texture_edge_clamp "
+ 			"GL_EXT_texture_env_add "
+ 			"GL_EXT_texture_env_combine "
+ 			"GL_EXT_texture_env_dot3 "
+			"GL_EXT_texture_filter_anisotropic "
+ 			"GL_EXT_texture_lod "
+ 			"GL_EXT_texture_lod_bias "
+			"GL_EXT_texture_object "
+			"GL_EXT_texture_rectangle "
+			"GL_EXT_vertex_array "
+ 			"GL_APPLE_packed_pixels "
+ 			"GL_APPLE_ycbcr_422 "
+ 			"GL_ATI_texture_env_combine3 "
+ 			"GL_ATI_texture_float "
+ 			"GL_ATI_texture_mirror_once "
+ 			"GL_ATIX_texture_env_combine3 "
+			"GL_HP_convolution_border_modes "
+#if 0
+    /* This is currently removed because there seem to be some problems with
+     * it and the software-only indirect rendering path.  At this point, I'm
+     * not sure which side (client or server) has the problem. - idr
+     */
+ 			"GL_HP_occlusion_test "
+#endif
+			"GL_IBM_cull_vertex "
+			"GL_IBM_pixel_filter_hint "
+			"GL_IBM_rasterpos_clip "
+			"GL_IBM_texture_clamp_nodraw "
+			"GL_IBM_texture_mirrored_repeat "
+			"GL_INGR_interlace_read "
+ 			"GL_MESA_pack_invert "
+ 			"GL_MESA_ycbcr_texture "
+			"GL_NV_blend_square "
+			"GL_NV_copy_depth_to_color "
+			"GL_NV_depth_clamp "
+			"GL_NV_fog_distance "
+			"GL_NV_light_max_exponent "
+			"GL_NV_multisample_filter_hint "
+			"GL_NV_point_sprite "
+			"GL_NV_texgen_reflection "
+			"GL_NV_texture_rectangle "
+			"GL_SGIS_generate_mipmap "
+			"GL_SGIS_multisample "
+			"GL_SGIS_texture_border_clamp "
+			"GL_SGIS_texture_edge_clamp "
+			"GL_SGIS_texture_lod "
+			"GL_SGIX_blend_alpha_minmax "
+			"GL_SGIX_clipmap "
+			"GL_SGIX_depth_texture "
+			"GL_SGIX_fog_offset "
+			"GL_SGIX_shadow "
+			"GL_SGIX_shadow_ambient "
+			"GL_SGIX_texture_coordinate_clamp "
+			"GL_SGIX_texture_lod_bias "
+			"GL_SGIX_texture_range "
+			"GL_SGIX_texture_scale_bias "
+			"GL_SGIX_vertex_preclip "
+			"GL_SGIX_vertex_preclip_hint "
+			"GL_SGIX_ycrcb "
+			"GL_SUN_convolution_border_modes "
+			"GL_SUN_slice_accum "
 			;
 
 static const char __glXGLXClientVendorName[] = "SGI";
 static const char __glXGLXClientVersion[] = "1.2";
-static const char __glXGLXDefaultClientExtensions[] = 
-			"GLX_EXT_visual_info "
-			"GLX_EXT_visual_rating "
-			"GLX_EXT_import_context "
-			;
 
-static const char *__glXGLXClientExtensions = __glXGLXDefaultClientExtensions;
+/**
+ * Textual version of the client-side GL core version.  This version is
+ * primarilly determined by what functionality has implemented protocol.
+ */
+const char __glXGLClientVersion[] = "1.2";
 
-
-/*
-** Create a new context.
-*/
-static
-GLXContext CreateContext(Display *dpy, XVisualInfo *vis,
-				GLXContext shareList, 
-				Bool allowDirect, GLXContextID contextID)
-{
-    xGLXCreateContextReq *req;
-    GLXContext gc;
-    int bufSize = XMaxRequestSize(dpy) * 4;
-    CARD8 opcode;
 #ifdef GLX_DIRECT_RENDERING
-    __GLXdisplayPrivate *priv;
+static void * DriverCreateContextWrapper( __GLXscreenConfigs *psc,
+    Display *dpy, XVisualInfo *vis, void *shared, __DRIcontext *ctx,
+    __GLcontextModes *fbconfig );
+
+static Bool dummyBindContext2( Display *dpy, int scrn,
+    GLXDrawable draw, GLXDrawable read, GLXContext gc );
+
+static Bool dummyUnbindContext2( Display *dpy, int scrn,
+    GLXDrawable draw, GLXDrawable read, GLXContext gc );
+
+/****************************************************************************/
+
+static Bool dummyBindContext2( Display *dpy, int scrn,
+			       GLXDrawable draw, GLXDrawable read,
+			       GLXContext gc )
+{
+    assert( draw == read );
+    return (*gc->driContext.bindContext)( dpy, scrn, draw, gc );
+}
+
+static Bool dummyUnbindContext2( Display *dpy, int scrn,
+				 GLXDrawable draw, GLXDrawable read,
+				 GLXContext gc )
+{
+    assert( draw == read );
+    return (*gc->driContext.unbindContext)( dpy, scrn, draw, gc, GL_FALSE );
+}
+
+
+/****************************************************************************/
+/**
+ * Wrap the call to the driver's \c createContext function.
+ *
+ * The \c createContext function is wrapped because not all drivers support
+ * the "new" \c unbindContext2 and \c bindContext2 interfaces.  libGL should
+ * not have to check to see which functions the driver supports.  Instead,
+ * if either function is not supported it is wrapped.  The wrappers test to
+ * make sure that both drawables are the same and pass control to the old
+ * interface.
+ */
+
+static void * DriverCreateContextWrapper( __GLXscreenConfigs *psc,
+					  Display *dpy, XVisualInfo *vis,
+					  void *shared,
+					  __DRIcontext *ctx,
+					  __GLcontextModes *fbconfig )
+{
+    void * ctx_priv;
+
+    (void) fbconfig;
+    ctx_priv = (*psc->driScreen.createContext)(dpy, vis, shared, ctx);
+    if ( ctx_priv != NULL ) {
+	if ( ctx->unbindContext2 == NULL ) {
+	    ctx->unbindContext2 = dummyUnbindContext2;
+	}
+
+	if ( ctx->bindContext2 == NULL ) {
+	    ctx->bindContext2 = dummyBindContext2;
+	}
+    }
+    
+    return ctx_priv;
+}
 #endif
 
-    if (!dpy || !vis)
-       return NULL;
+
+/****************************************************************************/
+/**
+ * Get the __DRIdrawable for the drawable associated with a GLXContext
+ * 
+ * \param dpy       The display associated with \c drawable.
+ * \param drawable  GLXDrawable whose __DRIdrawable part is to be retrieved.
+ * \returns  A pointer to the context's __DRIdrawable on success, or NULL if
+ *           the drawable is not associated with a direct-rendering context.
+ */
+
+#ifdef GLX_DIRECT_RENDERING
+static __DRIdrawable *
+GetDRIDrawable( Display *dpy, GLXDrawable drawable, int * const scrn_num )
+{
+    __GLXdisplayPrivate * const priv = __glXInitialize(dpy);
+
+    if ( (priv != NULL) && (priv->driDisplay.private != NULL) ) {
+	const unsigned  screen_count = ScreenCount(dpy);
+	unsigned   i;
+
+	for ( i = 0 ; i < screen_count ; i++ ) {
+	    __DRIscreen * const psc = &priv->screenConfigs[i].driScreen;
+	    __DRIdrawable * const pdraw = (psc->private != NULL)
+	       ? (*psc->getDrawable)(dpy, drawable, psc->private) : NULL;
+
+	    if ( pdraw != NULL ) {
+		if ( scrn_num != NULL ) {
+		    *scrn_num = i;
+		}
+		return pdraw;
+	    }
+	}
+    }
+
+    return NULL;
+}
+#endif
+
+
+/**
+ * Get the GLX per-screen data structure associated with a GLX context.
+ * 
+ * \param dpy   Display for which the GLX per-screen information is to be
+ *              retrieved.
+ * \param scrn  Screen on \c dpy for which the GLX per-screen information is
+ *              to be retrieved.
+ * \returns A pointer to the GLX per-screen data if \c dpy and \c scrn
+ *          specify a valid GLX screen, or NULL otherwise.
+ * 
+ * \todo Should this function validate that \c scrn is within the screen
+ *       number range for \c dpy?
+ */
+
+static __GLXscreenConfigs *
+GetGLXScreenConfigs(Display *dpy, int scrn)
+{
+    __GLXdisplayPrivate * const priv = __glXInitialize(dpy);
+
+    return (priv->screenConfigs != NULL) ? &priv->screenConfigs[scrn] : NULL;
+}
+
+
+static int
+GetGLXPrivScreenConfig( Display *dpy, int scrn, __GLXdisplayPrivate ** ppriv,
+			__GLXscreenConfigs ** ppsc )
+{
+    /* Initialize the extension, if needed .  This has the added value
+     * of initializing/allocating the display private 
+     */
+    
+    if ( dpy == NULL ) {
+	return GLX_NO_EXTENSION;
+    }
+
+    *ppriv = __glXInitialize(dpy);
+    if ( *ppriv == NULL ) {
+	return GLX_NO_EXTENSION;
+    }
+
+    /* Check screen number to see if its valid */
+    if ((scrn < 0) || (scrn >= ScreenCount(dpy))) {
+	return GLX_BAD_SCREEN;
+    }
+
+    /* Check to see if the GL is supported on this screen */
+    *ppsc = &((*ppriv)->screenConfigs[scrn]);
+    if ( ((*ppsc)->configs == NULL) || ((*ppsc)->numConfigs <= 0) ) {
+	/* No support for GL on this screen regardless of visual */
+	return GLX_BAD_VISUAL;
+    }
+
+    return Success;
+}
+
+
+/**
+ * \todo It should be possible to move the allocate of \c client_state_private
+ * later in the function for direct-rendering contexts.  Direct-rendering
+ * contexts don't need to track client state, so they don't need that memory
+ * at all.
+ * 
+ * \todo Eliminate \c __glXInitVertexArrayState.  Replace it with a new
+ * function called \c __glXAllocateClientState that allocates the memory and
+ * does all the initialization (including the pixel pack / unpack).
+ */
+static
+GLXContext AllocateGLXContext( Display *dpy )
+{
+     GLXContext gc;
+     int bufSize;
+     CARD8 opcode;
+    __GLXattribute *state;
+
+    if (!dpy)
+        return NULL;
 
     opcode = __glXSetupForCommand(dpy);
     if (!opcode) {
@@ -106,9 +359,26 @@ GLXContext CreateContext(Display *dpy, XVisualInfo *vis,
     }
     memset(gc, 0, sizeof(struct __GLXcontextRec));
 
-    /* Allocate transport buffer */
+    state = Xmalloc(sizeof(struct __GLXattributeRec));
+    if (state == NULL) {
+	/* Out of memory */
+	Xfree(gc);
+	return NULL;
+    }
+    gc->client_state_private = state;
+    memset(gc->client_state_private, 0, sizeof(struct __GLXattributeRec));
+
+    /*
+    ** Create a temporary buffer to hold GLX rendering commands.  The size
+    ** of the buffer is selected so that the maximum number of GLX rendering
+    ** commands can fit in a single X packet and still have room in the X
+    ** packet for the GLXRenderReq header.
+    */
+
+    bufSize = (XMaxRequestSize(dpy) * 4) - sz_xGLXRenderReq;
     gc->buf = (GLubyte *) Xmalloc(bufSize);
     if (!gc->buf) {
+	Xfree(gc->client_state_private);
 	Xfree(gc);
 	return NULL;
     }
@@ -117,8 +387,8 @@ GLXContext CreateContext(Display *dpy, XVisualInfo *vis,
     /* Fill in the new context */
     gc->renderMode = GL_RENDER;
 
-    gc->state.storePack.alignment = 4;
-    gc->state.storeUnpack.alignment = 4;
+    state->storePack.alignment = 4;
+    state->storeUnpack.alignment = 4;
 
     __glXInitVertexArrayState(gc);
 
@@ -158,42 +428,111 @@ GLXContext CreateContext(Display *dpy, XVisualInfo *vis,
         bufSize = __GLX_MAX_RENDER_CMD_SIZE;
     }
     gc->maxSmallRenderCommandSize = bufSize;
+    return gc;
+}
 
+
+/**
+ * Create a new context.  Exactly one of \c vis and \c fbconfig should be
+ * non-NULL.
+ * 
+ * \param use_glx_1_3  For FBConfigs, should GLX 1.3 protocol or
+ *                     SGIX_fbconfig protocol be used?
+ * \param renderType   For FBConfigs, what is the rendering type?
+ */
+
+static
+GLXContext CreateContext(Display *dpy, XVisualInfo *vis,
+			 __GLcontextModes * fbconfig, GLXContext shareList,
+			 Bool allowDirect, GLXContextID contextID,
+			 Bool use_glx_1_3, int renderType)
+{
+    GLXContext gc;
+
+    if ( dpy == NULL )
+       return NULL;
+
+    gc = AllocateGLXContext(dpy);
+    if (!gc)
+	return NULL;
 
     if (None == contextID) {
+	if ( (vis == NULL) && (fbconfig == NULL) )
+	    return NULL;
+
 #ifdef GLX_DIRECT_RENDERING
-	/*
-	** Create the direct rendering context, if requested and
-	** available.
-	*/
-	priv = __glXInitialize(dpy);
-	if (allowDirect && priv->driDisplay.private) {
-	    __GLXscreenConfigs *psc = &priv->screenConfigs[vis->screen];
+	if (allowDirect) {
+	    int screen = (fbconfig == NULL) ? vis->screen : fbconfig->screen;
+	    __GLXscreenConfigs * const psc = GetGLXScreenConfigs(dpy, screen);
+
 	    if (psc && psc->driScreen.private) {
-		void *shared = (shareList ?
-				shareList->driContext.private : NULL);
+		void * const shared = (shareList != NULL)
+		    ? shareList->driContext.private : NULL;
 		gc->driContext.private =
-		    (*psc->driScreen.createContext)(dpy, vis, shared,
-						    &gc->driContext);
+		    DriverCreateContextWrapper( psc, dpy, vis, shared,
+						&gc->driContext, fbconfig );
 		if (gc->driContext.private) {
 		    gc->isDirect = GL_TRUE;
-		    gc->screen = vis->screen;
-		    gc->vid = vis->visualid;
+		    gc->screen = screen;
+		    if ( fbconfig == NULL ) {
+			gc->vid = vis->visualid;
+			gc->fbconfigID = None;
+		    }
+		    else {
+			gc->vid = fbconfig->visualID;
+			gc->fbconfigID = fbconfig->fbconfigID;
+		    }
 		}
 	    }
 	}
 #endif
 
-	/* Send the glXCreateContext request */
 	LockDisplay(dpy);
-	GetReq(GLXCreateContext,req);
-	req->reqType = gc->majorOpcode;
-	req->glxCode = X_GLXCreateContext;
-	req->context = gc->xid = XAllocID(dpy);
-	req->visual = vis->visualid;
-	req->screen = vis->screen;
-	req->shareList = shareList ? shareList->xid : None;
-	req->isDirect = gc->isDirect;
+	if ( fbconfig == NULL ) {
+	    xGLXCreateContextReq *req;
+
+	    /* Send the glXCreateContext request */
+	    GetReq(GLXCreateContext,req);
+	    req->reqType = gc->majorOpcode;
+	    req->glxCode = X_GLXCreateContext;
+	    req->context = gc->xid = XAllocID(dpy);
+	    req->visual = vis->visualid;
+	    req->screen = vis->screen;
+	    req->shareList = shareList ? shareList->xid : None;
+	    req->isDirect = gc->isDirect;
+	}
+	else if ( use_glx_1_3 ) {
+	    xGLXCreateNewContextReq *req;
+
+	    /* Send the glXCreateNewContext request */
+	    GetReq(GLXCreateNewContext,req);
+	    req->reqType = gc->majorOpcode;
+	    req->glxCode = X_GLXCreateNewContext;
+	    req->context = gc->xid = XAllocID(dpy);
+	    req->fbconfig = fbconfig->fbconfigID;
+	    req->screen = fbconfig->screen;
+	    req->renderType = renderType;
+	    req->shareList = shareList ? shareList->xid : None;
+	    req->isDirect = gc->isDirect;
+	}
+	else {
+	    xGLXVendorPrivateReq *vpreq;
+	    xGLXCreateContextWithConfigSGIXReq *req;
+
+	    /* Send the glXCreateNewContext request */
+	    GetReqExtra(GLXVendorPrivate,
+			sz_xGLXCreateContextWithConfigSGIXReq-sz_xGLXVendorPrivateReq,vpreq);
+	    req = (xGLXCreateContextWithConfigSGIXReq *)vpreq;
+	    req->reqType = gc->majorOpcode;
+	    req->vendorCode = X_GLXvop_CreateContextWithConfigSGIX;
+	    req->context = gc->xid = XAllocID(dpy);
+	    req->fbconfig = fbconfig->fbconfigID;
+	    req->screen = fbconfig->screen;
+	    req->renderType = renderType;
+	    req->shareList = shareList ? shareList->xid : None;
+	    req->isDirect = gc->isDirect;
+	}
+
 	UnlockDisplay(dpy);
 	SyncHandle();
 	gc->imported = GL_FALSE;
@@ -206,10 +545,12 @@ GLXContext CreateContext(Display *dpy, XVisualInfo *vis,
     return gc;
 }
 
+
 GLXContext GLX_PREFIX(glXCreateContext)(Display *dpy, XVisualInfo *vis,
 			    GLXContext shareList, Bool allowDirect)
 {
-   return CreateContext(dpy, vis, shareList, allowDirect, None);
+   return CreateContext(dpy, vis, NULL, shareList, allowDirect, None,
+			False, 0);
 }
 
 void __glXFreeContext(__GLXcontext *gc)
@@ -220,6 +561,7 @@ void __glXFreeContext(__GLXcontext *gc)
     if (gc->extensions) XFree((char *) gc->extensions);
     __glFreeAttributeState(gc);
     XFree((char *) gc->buf);
+    XFree((char *) gc->client_state_private);
     XFree((char *) gc);
     
 }
@@ -557,28 +899,15 @@ void GLX_PREFIX(glXDestroyGLXPixmap)(Display *dpy, GLXPixmap glxpixmap)
 void GLX_PREFIX(glXSwapBuffers)(Display *dpy, GLXDrawable drawable)
 {
     xGLXSwapBuffersReq *req;
-    GLXContext gc = __glXGetCurrentContext();
+    GLXContext gc;
     GLXContextTag tag;
     CARD8 opcode;
 #ifdef GLX_DIRECT_RENDERING
-    __GLXdisplayPrivate *priv;
-    __DRIdrawable *pdraw;
+    __DRIdrawable *pdraw = GetDRIDrawable( dpy, drawable, NULL );
 
-    priv = __glXInitialize(dpy);
-    if (priv->driDisplay.private) {
-	__GLXscreenConfigs *psc = &priv->screenConfigs[gc->screen];
-	if (psc && psc->driScreen.private) {
-	    /*
-	    ** getDrawable returning NULL implies that the drawable is
-	    ** not bound to a direct rendering context.
-	    */
-	    pdraw = (*psc->driScreen.getDrawable)(dpy, drawable,
-						  psc->driScreen.private);
-	    if (pdraw) {
-		(*pdraw->swapBuffers)(dpy, pdraw->private);
-		return;
-	    }
-	}
+    if ( pdraw != NULL ) {
+	(*pdraw->swapBuffers)(dpy, pdraw->private);
+	return;
     }
 #endif
 
@@ -591,7 +920,9 @@ void GLX_PREFIX(glXSwapBuffers)(Display *dpy, GLXDrawable drawable)
     ** The calling thread may or may not have a current context.  If it
     ** does, send the context tag so the server can do a flush.
     */
-    if ((dpy == gc->currentDpy) && (drawable == gc->currentDrawable)) {
+    gc = __glXGetCurrentContext();
+    if ((gc != NULL) && (dpy == gc->currentDpy) && 
+ 	((drawable == gc->currentDrawable) || (drawable == gc->currentReadable)) ) {
 	tag = gc->currentContextTag;
     } else {
 	tag = 0;
@@ -609,6 +940,7 @@ void GLX_PREFIX(glXSwapBuffers)(Display *dpy, GLXDrawable drawable)
     XFlush(dpy);
 }
 
+
 /*
 ** Return configuration information for the given display, screen and
 ** visual combination.
@@ -616,219 +948,289 @@ void GLX_PREFIX(glXSwapBuffers)(Display *dpy, GLXDrawable drawable)
 int GLX_PREFIX(glXGetConfig)(Display *dpy, XVisualInfo *vis, int attribute,
 		 int *value_return)
 {
-    __GLXvisualConfig *pConfig;
-    __GLXscreenConfigs *psc;
     __GLXdisplayPrivate *priv;
-    GLint i;
+    __GLXscreenConfigs *psc;
+    int   status;
 
-    /* Initialize the extension, if needed */
-    priv = __glXInitialize(dpy);
-    if (!priv) {
-	/* No extension */
-	return GLX_NO_EXTENSION;
-    }
+    status = GetGLXPrivScreenConfig( dpy, vis->screen, & priv, & psc );
+    if ( status == Success ) {
+	unsigned  i;
 
-    /* Check screen number to see if its valid */
-    if ((vis->screen < 0) || (vis->screen >= ScreenCount(dpy))) {
-	return GLX_BAD_SCREEN;
-    }
-
-    /* Check to see if the GL is supported on this screen */
-    psc = &priv->screenConfigs[vis->screen];
-    pConfig = psc->configs;
-    if (!pConfig) {
-	/* No support for GL on this screen regardless of visual */
-	if (attribute == GLX_USE_GL) {
-	    *value_return = GL_FALSE;
-	    return Success;
-	}
-	return GLX_BAD_VISUAL;
-    }
-
-    /* Lookup attribute after first finding a match on the visual */
-    for (i = psc->numConfigs; --i >= 0; pConfig++) {
-	if (pConfig->vid == vis->visualid) {
-	    switch (attribute) {
-	      case GLX_USE_GL:
-		*value_return = GL_TRUE;
-		return Success;
-	      case GLX_BUFFER_SIZE:
-		*value_return =  pConfig->bufferSize;
-		return Success;
-	      case GLX_RGBA:
-		*value_return = pConfig->rgba;
-		return Success;
-	      case GLX_RED_SIZE:
-		*value_return =  pConfig->redSize;
-		return Success;
-	      case GLX_GREEN_SIZE:
-		*value_return =  pConfig->greenSize;
-		return Success;
-	      case GLX_BLUE_SIZE:
-		*value_return =  pConfig->blueSize;
-		return Success;
-	      case GLX_ALPHA_SIZE:
-		*value_return =  pConfig->alphaSize;
-		return Success;
-	      case GLX_DOUBLEBUFFER:
-		*value_return =  pConfig->doubleBuffer;
-		return Success;
-	      case GLX_STEREO:
-		*value_return =  pConfig->stereo;
-		return Success;
-	      case GLX_AUX_BUFFERS:
-		*value_return =  pConfig->auxBuffers;
-		return Success;
-	      case GLX_DEPTH_SIZE:
-		*value_return =  pConfig->depthSize;
-		return Success;
-	      case GLX_STENCIL_SIZE:
-		*value_return =  pConfig->stencilSize;
-		return Success;
-	      case GLX_ACCUM_RED_SIZE:
-		*value_return =  pConfig->accumRedSize;
-		return Success;
-	      case GLX_ACCUM_GREEN_SIZE:
-		*value_return =  pConfig->accumGreenSize;
-		return Success;
-	      case GLX_ACCUM_BLUE_SIZE:
-		*value_return =  pConfig->accumBlueSize;
-		return Success;
-	      case GLX_ACCUM_ALPHA_SIZE:
-		*value_return =  pConfig->accumAlphaSize;
-		return Success;
-	      case GLX_LEVEL:
-		*value_return =  pConfig->level;
-		return Success;
-	      case GLX_TRANSPARENT_TYPE_EXT:
-		*value_return = pConfig->transparentPixel;
-		return Success;
-	      case GLX_TRANSPARENT_RED_VALUE_EXT:
-		*value_return = pConfig->transparentRed;
-		return Success;
-	      case GLX_TRANSPARENT_GREEN_VALUE_EXT:
-		*value_return = pConfig->transparentGreen;
-		return Success;
-	      case GLX_TRANSPARENT_BLUE_VALUE_EXT:
-		*value_return = pConfig->transparentBlue;
-		return Success;
-	      case GLX_TRANSPARENT_ALPHA_VALUE_EXT:
-		*value_return = pConfig->transparentAlpha;
-		return Success;
-	      case GLX_TRANSPARENT_INDEX_VALUE_EXT:
-		*value_return = pConfig->transparentIndex;
-		return Success;
-	      case GLX_X_VISUAL_TYPE_EXT:
-		switch(pConfig->class) {
-		    case TrueColor:    
-		      *value_return = GLX_TRUE_COLOR_EXT;   break;
-		    case DirectColor:  
-		      *value_return = GLX_DIRECT_COLOR_EXT; break;
-		    case PseudoColor:  
-		      *value_return = GLX_PSEUDO_COLOR_EXT; break;
-		    case StaticColor:  
-		      *value_return = GLX_STATIC_COLOR_EXT; break;
-		    case GrayScale:    
-		      *value_return = GLX_GRAY_SCALE_EXT;   break;
-		    case StaticGray:   
-		      *value_return = GLX_STATIC_GRAY_EXT;  break;
-		}
-		return Success;
-	      case GLX_VISUAL_CAVEAT_EXT:
-		*value_return = pConfig->visualRating;
-		return Success;
-	      default:
-		return GLX_BAD_ATTRIBUTE;
+	/* Lookup attribute after first finding a match on the visual */
+	for ( i = 0 ; i < psc->numConfigs ; i++ ) {
+	    if (psc->configs[i].visualID == vis->visualid) {
+		return _gl_get_context_mode_data( & psc->configs[i], 
+						  attribute,
+						  value_return );
 	    }
 	}
+	
+	status = GLX_BAD_VISUAL;
     }
 
     /*
     ** If we can't find the config for this visual, this visual is not
     ** supported by the OpenGL implementation on the server.
     */
-    if (attribute == GLX_USE_GL) {
+    if ( (status == GLX_BAD_VISUAL) && (attribute == GLX_USE_GL) ) {
 	*value_return = GL_FALSE;
-	return Success;
+	status = Success;
     }
-    return GLX_BAD_VISUAL;
+
+    return status;
 }
 
 /************************************************************************/
 
-/*
-** Penalize for more auxiliary buffers than requested
-*/
-static int AuxScore(int minAux, int aux)
+#define MATCH_DONT_CARE( param ) \
+	do { \
+	    if ( (a-> param != GLX_DONT_CARE) \
+		 && (a-> param != b-> param) ) { \
+		return False; \
+	    } \
+	} while ( 0 )
+
+#define MATCH_MINIMUM( param ) \
+	do { \
+	    if ( (a-> param != GLX_DONT_CARE) \
+		 && (a-> param > b-> param) ) { \
+		return False; \
+	    } \
+	} while ( 0 )
+
+#define MATCH_EXACT( param ) \
+	do { \
+	    if ( a-> param != b-> param) { \
+		return False; \
+	    } \
+	} while ( 0 )
+
+/**
+ * Determine if two GLXFBConfigs are compatible.
+ *
+ * \param a  Application specified config to test.
+ * \param b  Server specified config to test against \c a.
+ */
+static Bool
+fbconfigs_compatible( const __GLcontextModes * const a,
+		      const __GLcontextModes * const b )
 {
-    return minAux - aux;
-}
+    MATCH_DONT_CARE( doubleBufferMode );
+    MATCH_DONT_CARE( visualType );
+    MATCH_DONT_CARE( visualRating );
+    MATCH_DONT_CARE( xRenderable );
+    MATCH_DONT_CARE( fbconfigID );
+    MATCH_DONT_CARE( swapMethod );
 
-/*
-** If color is desired, give increasing score for amount available.
-** Scale this score by a multiplier to make color differences more
-** important than other differences.  Otherwise give decreasing score for
-** amount available.
-*/
-static int ColorScore(int minColor, int color)
-{
-    if (minColor)
-	return 4 * (color - minColor);
-    else
-	return -color;
-}
+    MATCH_MINIMUM( rgbBits );
+    MATCH_MINIMUM( numAuxBuffers );
+    MATCH_MINIMUM( redBits );
+    MATCH_MINIMUM( greenBits );
+    MATCH_MINIMUM( blueBits );
+    MATCH_MINIMUM( alphaBits );
+    MATCH_MINIMUM( depthBits );
+    MATCH_MINIMUM( stencilBits );
+    MATCH_MINIMUM( accumRedBits );
+    MATCH_MINIMUM( accumGreenBits );
+    MATCH_MINIMUM( accumBlueBits );
+    MATCH_MINIMUM( accumAlphaBits );
+    MATCH_MINIMUM( sampleBuffers );
+    MATCH_MINIMUM( maxPbufferWidth );
+    MATCH_MINIMUM( maxPbufferHeight );
+    MATCH_MINIMUM( maxPbufferPixels );
+    MATCH_MINIMUM( samples );
 
-/*
-** If accum buffer is desired, give increasing score for amount
-** available.  Otherwise give decreasing score for amount available.
-*/
-static int AccumScore(int minAccum, int accum)
-{
-    if (minAccum)
-	return accum - minAccum;
-    else
-	return -accum;
-}
+    MATCH_DONT_CARE( stereoMode );
+    MATCH_EXACT( level );
 
-/*
-** Penalize for indexes larger than requested
-*/
-static int IndexScore(int minIndex, int ix)
-{
-    return minIndex - ix;
-}
-
-/*
-** If depth buffer is desired, give increasing score for amount
-** available.  Scale this score by a multiplier to make depth differences
-** more important than other non-color differences.  Otherwise give
-** decreasing score for amount available.
-*/
-static int DepthScore(int minDepth, int depth)
-{
-    if (minDepth)
-	return 2 * (depth - minDepth);
-    else
-	return -depth;
-}
-
-/*
-** Penalize for stencil buffer larger than requested
-*/
-static int StencilScore(int minStencil, int stencil)
-{
-    return minStencil - stencil;
-}
-
-/* "Logical" xor - like && or ||; would be ^^ */
-#define __GLX_XOR(a,b) (((a) && !(b)) || (!(a) && (b)))
-
-/* Fetch a configuration value */
-#define __GLX_GCONF(attrib)				    \
-    if (GLX_PREFIX(glXGetConfig)(dpy, thisVis, attrib, &val)) { 	    \
-	XFree((char *)visualList);			    \
-	return NULL;					    \
+    if ( ((a->drawableType & b->drawableType) == 0)
+	 || ((a->renderType & b->renderType) == 0) ) {
+	return False;
     }
+
+
+    /* There is a bug in a few of the XFree86 DDX drivers.  They contain
+     * visuals with a "transparent type" of 0 when they really mean GLX_NONE.
+     * Technically speaking, it is a bug in the DDX driver, but there is
+     * enough of an installed base to work around the problem here.  In any
+     * case, 0 is not a valid value of the transparent type, so we'll treat 0 
+     * from the app as GLX_DONT_CARE. We'll consider GLX_NONE from the app and
+     * 0 from the server to be a match to maintain backward compatibility with
+     * the (broken) drivers.
+     */
+
+    if ( a->transparentPixel != GLX_DONT_CARE
+         && a->transparentPixel != 0 ) {
+        if ( a->transparentPixel == GLX_NONE ) {
+            if ( b->transparentPixel != GLX_NONE && b->transparentPixel != 0 )
+                return False;
+        } else {
+            MATCH_EXACT( transparentPixel );
+        }
+
+	switch ( a->transparentPixel ) {
+	  case GLX_TRANSPARENT_RGB:
+	    MATCH_DONT_CARE( transparentRed );
+	    MATCH_DONT_CARE( transparentGreen );
+	    MATCH_DONT_CARE( transparentBlue );
+	    MATCH_DONT_CARE( transparentAlpha );
+	    break;
+
+	  case GLX_TRANSPARENT_INDEX:
+	    MATCH_DONT_CARE( transparentIndex );
+	    break;
+
+	  default:
+	    break;
+	}
+    }
+
+    return True;
+}
+
+
+#define PREFER_LARGER(comp) \
+    do { \
+	if ( ((*a)-> comp) != ((*b)-> comp) ) { \
+	    return ((*b)-> comp) - ((*a)-> comp) ; \
+	} \
+    } while( 0 )
+
+#define PREFER_SMALLER(comp) \
+    do { \
+	if ( ((*a)-> comp) != ((*b)-> comp) ) { \
+	    return ((*a)-> comp) - ((*b)-> comp) ; \
+	} \
+    } while( 0 )
+
+/**
+ * Compare two GLXFBConfigs.  This function is intended to be used as the
+ * compare function passed in to qsort.
+ * 
+ * \returns If \c a is a "better" config, according to the specification of
+ *          SGIX_fbconfig, a number less than zero is returned.  If \c b is
+ *          better, then a number greater than zero is return.  If both are
+ *          equal, zero is returned.
+ * \sa qsort, glXChooseVisual, glXChooseFBConfig, glXChooseFBConfigSGIX
+ */
+static int
+fbconfig_compare( const __GLcontextModes * const * const a,
+		  const __GLcontextModes * const * const b )
+{
+    /* The order of these comparisons must NOT change.  It is defined by
+     * SGIX_fbconfig, SGIX_pbuffer, and ARB_multisample.
+     */
+
+    PREFER_SMALLER( visualSelectGroup );
+
+    /* The sort order for the visualRating is GLX_NONE, GLX_SLOW, and
+     * GLX_NON_CONFORMANT_CONFIG.  It just so happens that this is the
+     * numerical sort order of the enums (0x8000, 0x8001, and 0x800D).
+     */
+    PREFER_SMALLER( visualRating );
+
+    PREFER_SMALLER( rgbBits );
+
+    if ( ((*a)->doubleBufferMode != (*b)->doubleBufferMode) ) {
+	/* Prefer single-buffer.
+	 */
+	return ( !(*a)->doubleBufferMode ) ? -1 : 1;
+    }
+
+    PREFER_SMALLER( numAuxBuffers );
+
+    PREFER_LARGER( redBits );
+    PREFER_LARGER( greenBits );
+    PREFER_LARGER( blueBits );
+    PREFER_LARGER( alphaBits );
+    PREFER_LARGER( stencilBits );
+    PREFER_LARGER( accumRedBits );
+    PREFER_LARGER( accumGreenBits );
+    PREFER_LARGER( accumBlueBits );
+    PREFER_LARGER( accumAlphaBits );
+
+    PREFER_SMALLER( sampleBuffers );
+    PREFER_SMALLER( samples );
+
+    PREFER_LARGER( maxPbufferWidth );
+    PREFER_LARGER( maxPbufferHeight );
+    PREFER_LARGER( maxPbufferPixels );
+
+    PREFER_LARGER( drawableType );
+    PREFER_LARGER( renderType );
+
+    return 0;
+}
+
+
+/**
+ * Selects and sorts a subset of the supplied configs based on the attributes.
+ * This function forms to basis of \c glXChooseVisual, \c glXChooseFBConfig,
+ * and \c glXChooseFBConfigSGIX.
+ * 
+ * \param configs   Array of pointers to possible configs.  The elements of
+ *                  this array that do not meet the criteria will be set to
+ *                  NULL.  The remaining elements will be sorted according to
+ *                  the various visual / FBConfig selection rules.
+ * \param num_configs  Number of elements in the \c configs array.
+ * \param attribList   Attributes used select from \c configs.  This array is
+ *                     terminated by a \c None tag.  The array can either take
+ *                     the form expected by \c glXChooseVisual (where boolean
+ *                     tags do not have a value) or by \c glXChooseFBConfig
+ *                     (where every tag has a value).
+ * \param fbconfig_style_tags  Selects whether \c attribList is in
+ *                             \c glXChooseVisual style or
+ *                             \c glXChooseFBConfig style.
+ * \returns The number of valid elements left in \c configs.
+ * 
+ * \sa glXChooseVisual, glXChooseFBConfig, glXChooseFBConfigSGIX
+ */
+static int
+choose_visual( __GLcontextModes ** configs, int num_configs,
+	       const int *attribList, GLboolean fbconfig_style_tags )
+{
+    __GLcontextModes    test_config;
+    int   base;
+    int   i;
+
+    /* This is a fairly direct implementation of the selection method
+     * described by GLX_SGIX_fbconfig.  Start by culling out all the
+     * configs that are not compatible with the selected parameter
+     * list.
+     */
+
+    __glXInitializeVisualConfigFromTags( & test_config, 512, 
+					 (const INT32 *) attribList,
+					 GL_TRUE, fbconfig_style_tags );
+
+    base = 0;
+    for ( i = 0 ; i < num_configs ; i++ ) {
+	if ( fbconfigs_compatible( & test_config, configs[i] ) ) {
+	    configs[ base ] = configs[ i ];
+	    base++;
+	}
+    }
+
+    if ( base == 0 ) {
+	return 0;
+    }
+ 
+    if ( base < num_configs ) {
+	(void) memset( & configs[ base ], 0, 
+		       sizeof( void * ) * (num_configs - base) );
+    }
+
+    /* After the incompatible configs are removed, the resulting
+     * list is sorted according to the rules set out in the various
+     * specifications.
+     */
+    
+    qsort( configs, base, sizeof( __GLcontextModes * ),
+	   (int (*)(const void*, const void*)) fbconfig_compare );
+    return base;
+}
+
+
 
 
 /*
@@ -839,312 +1241,40 @@ XVisualInfo *GLX_PREFIX(glXChooseVisual)(Display *dpy, int screen, int *attribLi
 {
     XVisualInfo visualTemplate;
     XVisualInfo *visualList;
-    XVisualInfo *thisVis;
-    int count, i, maxscore = 0, maxi, score, val, thisVisRating, maxRating = 0;
-
-    /*
-    ** Declare and initialize template variables
-    */
-    int bufferSize = 0;
-    int level = 0;
-    int rgba = 0;
-    int doublebuffer = 0;
-    int stereo = 0;
-    int auxBuffers = 0;
-    int redSize = 0;
-    int greenSize = 0;
-    int blueSize = 0;
-    int alphaSize = 0;
-    int depthSize = 0;
-    int stencilSize = 0;
-    int accumRedSize = 0;
-    int accumGreenSize = 0;
-    int accumBlueSize = 0;
-    int accumAlphaSize = 0;
-    /* for visual_info extension */
-    int visualType = 0;		
-    int visualTypeValue = 0;
-    int transparentPixel = 0;
-    int transparentPixelValue = GLX_NONE_EXT; 
-    int transparentIndex = 0;
-    int transparentIndexValue = 0; 
-    int transparentRed = 0;	
-    int transparentRedValue = 0;
-    int transparentGreen = 0;
-    int transparentGreenValue = 0; 
-    int transparentBlue = 0;
-    int transparentBlueValue = 0; 
-    int transparentAlpha = 0;	
-    int transparentAlphaValue = 0; 
-    /* for visual_rating extension */
-    int visualRating = 0; 
-    int visualRatingValue = GLX_NONE_EXT; 
+    __GLXdisplayPrivate *priv;
+    __GLXscreenConfigs *psc;
+    __GLcontextModes  test_config;
+    const __GLcontextModes *best_config = NULL;
+    int i;
 
     /*
     ** Get a list of all visuals, return if list is empty
     */
-    visualTemplate.screen = screen;
-    visualList = XGetVisualInfo(dpy,VisualScreenMask,&visualTemplate,&count);
-    if (visualList == NULL)
+    if ( GetGLXPrivScreenConfig( dpy, screen, & priv, & psc ) != Success ) {
 	return None;
+    }
+   
 
     /*
     ** Build a template from the defaults and the attribute list
     ** Free visual list and return if an unexpected token is encountered
     */
-    while (*attribList != None) {
-	switch (*attribList++) {
-	  case GLX_USE_GL:
-	    break;
-	  case GLX_BUFFER_SIZE:
-	    bufferSize = *attribList++;
-	    break;
-	  case GLX_LEVEL:
-	    level = *attribList++;
-	    break;
-	  case GLX_RGBA:
-	    rgba = 1;
-	    break;
-	  case GLX_DOUBLEBUFFER:
-	    doublebuffer = 1;
-	    break;
-	  case GLX_STEREO:
-	    stereo = 1;
-	    break;
-	  case GLX_AUX_BUFFERS:
-	    auxBuffers = *attribList++;
-	    break;
-	  case GLX_RED_SIZE:
-	    redSize = *attribList++;
-	    break;
-	  case GLX_GREEN_SIZE:
-	    greenSize = *attribList++;
-	    break;
-	  case GLX_BLUE_SIZE:
-	    blueSize = *attribList++;
-	    break;
-	  case GLX_ALPHA_SIZE:
-	    alphaSize = *attribList++;
-	    break;
-	  case GLX_DEPTH_SIZE:
-	    depthSize = *attribList++;
-	    break;
-	  case GLX_STENCIL_SIZE:
-	    stencilSize = *attribList++;
-	    break;
-	  case GLX_ACCUM_RED_SIZE:
-	    accumRedSize = *attribList++;
-	    break;
-	  case GLX_ACCUM_GREEN_SIZE:
-	    accumGreenSize = *attribList++;
-	    break;
-	  case GLX_ACCUM_BLUE_SIZE:
-	    accumBlueSize = *attribList++;
-	    break;
-	  case GLX_ACCUM_ALPHA_SIZE:
-	    accumAlphaSize = *attribList++;
-	    break;
-	  case GLX_X_VISUAL_TYPE_EXT:
-	    visualType = 1;
-	    visualTypeValue = *attribList++;
-	    break;
-	  case GLX_TRANSPARENT_TYPE_EXT:
-	    transparentPixel = 1;
-	    transparentPixelValue = *attribList++;
-	    break;
-	  case GLX_TRANSPARENT_INDEX_VALUE_EXT:
-	    transparentIndex= 1;
-	    transparentIndexValue = *attribList++;
-	    break;
-	  case GLX_TRANSPARENT_RED_VALUE_EXT:
-	    transparentRed = 1;
-	    transparentRedValue = *attribList++;
-	    break;
-	  case GLX_TRANSPARENT_GREEN_VALUE_EXT:
-	    transparentGreen = 1;
-	    transparentGreenValue = *attribList++;
-	    break;
-	  case GLX_TRANSPARENT_BLUE_VALUE_EXT:
-	    transparentBlue = 1;
-	    transparentBlueValue = *attribList++;
-	    break;
-	  case GLX_TRANSPARENT_ALPHA_VALUE_EXT:
-	    transparentAlpha = 1;
-	    transparentAlphaValue = *attribList++;
-	    break;
-	  case GLX_VISUAL_CAVEAT_EXT:
-	    visualRating = 1;
-	    visualRatingValue = *attribList++;
-	    break;
-	  default:
-	    XFree((char *)visualList);
-	    return None;
-	}
-    }
+    __glXInitializeVisualConfigFromTags( & test_config, 512, 
+					 (const INT32 *) attribList,
+					 GL_TRUE, GL_FALSE );
 
     /*
     ** Eliminate visuals that don't meet minimum requirements
     ** Compute a score for those that do
     ** Remember which visual, if any, got the highest score
     */
-    maxi = -1;
-    for (i = 0; i < count; i++) {
-	score = 0;
-	thisVis = &visualList[i];	/* NOTE: used by __GLX_GCONF */
+    for (i = 0; i < psc->numConfigs; i++) {
+	if ( fbconfigs_compatible( & test_config, &psc->configs[i] ) ) {
+	    const __GLcontextModes * const temp = &psc->configs[i];
 
-	if (thisVis->class == TrueColor || thisVis->class == PseudoColor) {
-	    /* Bump score by one for TrueColor and PseudoColor visuals. */
-	    score++;
-	}
-	
-	__GLX_GCONF(GLX_USE_GL);
-	if (! val)
-	    continue;
-	__GLX_GCONF(GLX_LEVEL);
-	if (level != val)
-	    continue;
-	__GLX_GCONF(GLX_RGBA);
-	if (__GLX_XOR(rgba, val))
-	    continue;
-	__GLX_GCONF(GLX_DOUBLEBUFFER);
-	if (__GLX_XOR(doublebuffer, val))
-	    continue;
-	__GLX_GCONF(GLX_STEREO);
-	if (__GLX_XOR(stereo, val))
-	    continue;
-	__GLX_GCONF(GLX_AUX_BUFFERS);
-	if (auxBuffers > val)
-	    continue;
-	else
-	    score += AuxScore(auxBuffers, val);
-	if (transparentPixel) {
-	    __GLX_GCONF(GLX_TRANSPARENT_TYPE_EXT);
-	    if (transparentPixelValue != val)
-		continue;
-	    if (transparentPixelValue == GLX_TRANSPARENT_TYPE_EXT) {
-		if (rgba) {
-		    __GLX_GCONF(GLX_TRANSPARENT_RGB_EXT);
-		    if (transparentRed) {
-			__GLX_GCONF(GLX_TRANSPARENT_RED_VALUE_EXT);
-			if (transparentRedValue != val)
-			    continue;
-		    }
-		    if (transparentGreen) {
-			__GLX_GCONF(GLX_TRANSPARENT_GREEN_VALUE_EXT);
-			if (transparentGreenValue != val)
-			    continue;
-		    }
-		    if (transparentBlue) {
-			__GLX_GCONF(GLX_TRANSPARENT_BLUE_VALUE_EXT);
-			if (transparentBlueValue != val)
-		    continue;
-		    }
-		    /* Transparent Alpha ignored for now */
-		} else {
-		    __GLX_GCONF(GLX_TRANSPARENT_INDEX_EXT);
-		    if (transparentIndex) {
-			__GLX_GCONF(GLX_TRANSPARENT_INDEX_VALUE_EXT);
-			if (transparentIndexValue != val)
-			    continue;
-		    }
-		}
-	    }
-	}
-	if (visualType) {
-	    __GLX_GCONF(GLX_X_VISUAL_TYPE_EXT);
-	    if (visualTypeValue != val)
-		continue;
-	} else if (rgba) {
-	    /* If the extension isn't specified then insure that rgba
-	    ** and ci return the usual visual types.
-	    */
-	    if (!(thisVis->class == TrueColor || thisVis->class == DirectColor))
-		continue;
-	} else {
-	    if (!(thisVis->class == PseudoColor 
-			|| thisVis->class == StaticColor))
-		continue;
-	}
-	    
-	__GLX_GCONF(GLX_VISUAL_CAVEAT_EXT);
-	/** 
-	** Unrated visuals are given rating GLX_NONE.
-	*/
-	thisVisRating = val ? val : GLX_NONE_EXT;
-	if (visualRating && (visualRatingValue != val))
-	    continue;
-	if (rgba) {
-	    __GLX_GCONF(GLX_RED_SIZE);
-	    if (redSize > val)
-		continue;
-	    else 
-		score += ColorScore(redSize,val);
-	    __GLX_GCONF(GLX_GREEN_SIZE);
-	    if (greenSize > val)
-		continue;
-	    else 
-		score += ColorScore(greenSize, val);
-	    __GLX_GCONF(GLX_BLUE_SIZE);
-	    if (blueSize > val)
-		continue;
-	    else 
-		score += ColorScore(blueSize, val);
-	    __GLX_GCONF(GLX_ALPHA_SIZE);
-	    if (alphaSize > val)
-		continue;
-	    else 
-		score += ColorScore(alphaSize, val);
-	    __GLX_GCONF(GLX_ACCUM_RED_SIZE);
-	    if (accumRedSize > val)
-		continue;
-	    else 
-		score += AccumScore(accumRedSize, val);
-	    __GLX_GCONF(GLX_ACCUM_GREEN_SIZE);
-	    if (accumGreenSize > val)
-		continue;
-	    else 
-		score += AccumScore(accumGreenSize, val);
-	    __GLX_GCONF(GLX_ACCUM_BLUE_SIZE);
-	    if (accumBlueSize > val)
-		continue;
-	    else 
-		score += AccumScore(accumBlueSize, val);
-	    __GLX_GCONF(GLX_ACCUM_ALPHA_SIZE);
-	    if (accumAlphaSize > val)
-		continue;
-	    else 
-		score += AccumScore(accumAlphaSize, val);
-	} else {
-	    __GLX_GCONF(GLX_BUFFER_SIZE);
-	    if (bufferSize > val)
-		continue;
-	    else
-		score += IndexScore(bufferSize, val);
-	}
-	__GLX_GCONF(GLX_DEPTH_SIZE);
-	if (depthSize > val)
-	    continue;
-	else
-	    score += DepthScore(depthSize, val);
-	__GLX_GCONF(GLX_STENCIL_SIZE);
-	if (stencilSize > val)
-	    continue;
-	else
-	    score += StencilScore(stencilSize, val);
-
-	/*
-	** The visual_rating extension indicates that a NONE visual
-	** is always returned in preference to a SLOW one.
-	** Note that enum values are in increasing order (NONE < SLOW).
-	*/
-	if (maxi < 0 || maxRating > thisVisRating) {
-	    maxi = i;
-	    maxscore = score;
-	    maxRating = thisVisRating;
-	} else {
-	    if (score > maxscore) {
-		maxi = i;
-		maxscore = score;
+	    if ( (best_config == None)
+		 || (fbconfig_compare( &temp, &best_config ) > 0) ) {
+		best_config = &psc->configs[i];
 	    }
 	}
     }
@@ -1154,23 +1284,23 @@ XVisualInfo *GLX_PREFIX(glXChooseVisual)(Display *dpy, int screen, int *attribLi
     ** Otherwise, create an XVisualInfo list with just the selected X visual
     **   and return this after freeing the original list
     */
-    if (maxi < 0) {
-	XFree((char *)visualList);
-	return None;
-    } else {
-	visualTemplate.visualid = visualList[maxi].visualid;
-	XFree((char *)visualList);
-	visualList = XGetVisualInfo(dpy,VisualScreenMask|VisualIDMask,&visualTemplate,&count);
-	return visualList;
+    visualList = NULL;
+    if (best_config != NULL) {
+	visualTemplate.screen = screen;
+	visualTemplate.visualid = best_config->visualID;
+	visualList = XGetVisualInfo( dpy, VisualScreenMask|VisualIDMask,
+				     &visualTemplate, &i );
     }
+
+    return visualList;
 }
 
 /*
 ** Query the Server GLX string and cache it in the display private.
 ** This routine will allocate the necessay space for the string.
 */
-static char *QueryServerString( Display *dpy, int opcode,
-                                        int screen, int name )
+char *__glXInternalQueryServerString( Display *dpy, int opcode,
+				      int screen, int name )
 {
     xGLXQueryServerStringReq *req;
     xGLXQueryServerStringReply reply;
@@ -1204,7 +1334,7 @@ static char *QueryServerString( Display *dpy, int opcode,
 
 #define SEPARATOR " "
 
-static char *combine_strings( const char *cext_string, const char *sext_string )
+char *__glXCombineExtensionStrings( const char *cext_string, const char *sext_string )
 {
    int clen, slen;
    char *combo_string, *token, *s1;
@@ -1259,37 +1389,26 @@ static char *combine_strings( const char *cext_string, const char *sext_string )
 
 const char *GLX_PREFIX(glXQueryExtensionsString)( Display *dpy, int screen )
 {
-    __GLXvisualConfig *pConfig;
     __GLXscreenConfigs *psc;
     __GLXdisplayPrivate *priv;
 
-    /* Initialize the extension, if needed .  This has the added value
-       of initializing/allocating the display private */
-    priv = __glXInitialize(dpy);
-    if (!priv) {
+    if ( GetGLXPrivScreenConfig( dpy, screen, & priv, & psc ) != Success ) {
 	return NULL;
     }
 
-    /* Check screen number to see if its valid */
-    if ((screen < 0) || (screen >= ScreenCount(dpy))) {
-	return NULL;
-    }
-
-    /* Check to see if the GL is supported on this screen */
-    psc = &priv->screenConfigs[screen];
-    pConfig = psc->configs;
-    if (!pConfig) {
-	/* No support for GL on this screen regardless of visual */
-	return NULL;
-    }
-   
     if (!psc->effectiveGLXexts) {
         if (!psc->serverGLXexts) {
-	    psc->serverGLXexts = QueryServerString(dpy, priv->majorOpcode,
+	    psc->serverGLXexts = __glXInternalQueryServerString(dpy, priv->majorOpcode,
 					  	   screen, GLX_EXTENSIONS);
 	}
-	psc->effectiveGLXexts = combine_strings(__glXGLXClientExtensions,
-						psc->serverGLXexts);
+
+	__glXCalculateUsableExtensions(psc,
+#ifdef GLX_DIRECT_RENDERING
+				       (priv->driDisplay.private != NULL),
+#else
+				       GL_FALSE,
+#endif
+				       priv->minorVersion);
     }
 
     return psc->effectiveGLXexts;
@@ -1303,7 +1422,7 @@ const char *GLX_PREFIX(glXGetClientString)( Display *dpy, int name )
 	case GLX_VERSION:
 	    return (__glXGLXClientVersion);
 	case GLX_EXTENSIONS:
-	    return (__glXGLXClientExtensions);
+	    return (__glXGetClientExtensions());
 	default:
 	    return NULL;
     }
@@ -1311,50 +1430,33 @@ const char *GLX_PREFIX(glXGetClientString)( Display *dpy, int name )
 
 const char *GLX_PREFIX(glXQueryServerString)( Display *dpy, int screen, int name )
 {
-    __GLXvisualConfig *pConfig;
     __GLXscreenConfigs *psc;
     __GLXdisplayPrivate *priv;
 
-    /* Initialize the extension, if needed .  This has the added value
-       of initializing/allocating the display private */
-    priv = __glXInitialize(dpy);
-    if (!priv) {
-	/* No extension */
+
+    if ( GetGLXPrivScreenConfig( dpy, screen, & priv, & psc ) != Success ) {
 	return NULL;
     }
 
-    /* Check screen number to see if its valid */
-    if ((screen < 0) || (screen >= ScreenCount(dpy))) {
-	return NULL;
-    }
-
-    /* Check to see if the GL is supported on this screen */
-    psc = &priv->screenConfigs[screen];
-    pConfig = psc->configs;
-    if (!pConfig) {
-	/* No support for GL on this screen regardless of visual */
-	return NULL;
-    }
- 
     switch(name) {
 	case GLX_VENDOR:
 	    if (!priv->serverGLXvendor) {
 	 	priv->serverGLXvendor = 
-			QueryServerString(dpy, priv->majorOpcode,
+			__glXInternalQueryServerString(dpy, priv->majorOpcode,
 					  screen, GLX_VENDOR);
 	    }
 	    return(priv->serverGLXvendor);
 	case GLX_VERSION:
 	    if (!priv->serverGLXversion) {
 	 	priv->serverGLXversion = 
-			QueryServerString(dpy, priv->majorOpcode,
+			__glXInternalQueryServerString(dpy, priv->majorOpcode,
 					  screen, GLX_VERSION);
 	    }
 	    return(priv->serverGLXversion);
 	case GLX_EXTENSIONS:
 	    if (!psc->serverGLXexts) {
 	 	psc->serverGLXexts = 
-			QueryServerString(dpy, priv->majorOpcode,
+			__glXInternalQueryServerString(dpy, priv->majorOpcode,
 					  screen, GLX_EXTENSIONS);
 	    }
 	    return(psc->serverGLXexts);
@@ -1385,11 +1487,10 @@ void __glXClientInfo (  Display *dpy, int opcode  )
     SyncHandle();
 }
 
-/************************************************************************/
+
 /*
-** EXT_import_context entry points
+** EXT_import_context
 */
-/************************************************************************/
 
 Display *glXGetCurrentDisplay(void)
 {
@@ -1398,14 +1499,8 @@ Display *glXGetCurrentDisplay(void)
     return gc->currentDpy;
 }
 
-
-Display *glXGetCurrentDisplayEXT(void)
-{
-    GLXContext gc = __glXGetCurrentContext();
-    if (NULL == gc) return NULL;
-    return gc->currentDpy;
-}
-
+GLX_ALIAS(Display *, glXGetCurrentDisplayEXT, (void), (),
+	  glXGetCurrentDisplay)
 
 static int __glXQueryContextInfo(Display *dpy, GLXContext ctx)
 {
@@ -1464,6 +1559,9 @@ static int __glXQueryContextInfo(Display *dpy, GLXContext ctx)
 		case GLX_SCREEN_EXT:
 		    ctx->screen = *pProp++;
 		    break;
+		case GLX_FBCONFIG_ID_SGIX:
+		    ctx->fbconfigID = *pProp++;
+		    break;
 		default:
 		    pProp++;
 		    continue;
@@ -1498,6 +1596,9 @@ int GLX_PREFIX(glXQueryContextInfoEXT)(Display *dpy, GLXContext ctx,
     case GLX_SCREEN_EXT:
 	*value = (int)(ctx->screen);
 	break;
+    case GLX_FBCONFIG_ID_SGIX:
+	*value = (int)(ctx->fbconfigID);
+	break;
     default:
 	return GLX_BAD_ATTRIBUTE;
     }
@@ -1520,7 +1621,7 @@ GLXContext GLX_PREFIX(glXImportContextEXT)(Display *dpy, GLXContextID contextID)
 	return NULL;
     }
 
-    ctx = CreateContext(dpy, NULL, NULL, GL_FALSE, contextID);
+    ctx = CreateContext(dpy, NULL, NULL, NULL, False, contextID, False, 0);
     if (NULL != ctx) {
 	if (Success != __glXQueryContextInfo(dpy, ctx)) {
 	   return NULL;
@@ -1542,22 +1643,31 @@ void GLX_PREFIX(glXFreeContextEXT)(Display *dpy, GLXContext ctx)
 
 GLXFBConfig *GLX_PREFIX(glXChooseFBConfig)(Display *dpy, int screen, const int *attribList, int *nitems)
 {
-    (void) dpy;
-    (void) screen;
-    (void) attribList;
-    (void) nitems;
-    return 0;
+    __GLcontextModes ** config_list;
+    int   list_size;
+
+
+    config_list = (__GLcontextModes **) 
+	GLX_PREFIX(glXGetFBConfigs)( dpy, screen, & list_size );
+
+    if ( (config_list != NULL) && (list_size > 0) ) {
+	list_size = choose_visual( config_list, list_size, attribList,
+				   GL_TRUE );
+	if ( list_size == 0 ) {
+	    XFree( config_list );
+	    config_list = NULL;
+	}
+    }
+
+    *nitems = list_size;
+    return (GLXFBConfig *) config_list;
 }
 
 
-GLXContext GLX_PREFIX(glXCreateNewContext)(Display *dpy, GLXFBConfig config, int renderType, GLXContext shareList, Bool direct)
+GLXContext GLX_PREFIX(glXCreateNewContext)(Display *dpy, GLXFBConfig config, int renderType, GLXContext shareList, Bool allowDirect)
 {
-    (void) dpy;
-    (void) config;
-    (void) renderType;
-    (void) shareList;
-    (void) direct;
-    return 0;
+    return CreateContext( dpy, NULL, (__GLcontextModes *) config, shareList,
+			  allowDirect, None, True, renderType );
 }
 
 
@@ -1611,29 +1721,57 @@ void GLX_PREFIX(glXDestroyWindow)(Display *dpy, GLXWindow window)
 }
 
 
-GLXDrawable glXGetCurrentReadDrawable(void)
+GLXDrawable GLX_PREFIX(glXGetCurrentReadDrawable)(void)
 {
     GLXContext gc = __glXGetCurrentContext();
-    return gc->currentDrawable;
+    return gc->currentReadable;
 }
 
 
 GLXFBConfig *GLX_PREFIX(glXGetFBConfigs)(Display *dpy, int screen, int *nelements)
 {
-   (void) dpy;
-   (void) screen;
-   (void) nelements;
-   return 0;
+    __GLXdisplayPrivate *priv = __glXInitialize(dpy);
+    __GLcontextModes ** config = NULL;
+    int   i;
+
+    if ( (priv->screenConfigs != NULL)
+	 && (screen >= 0) && (screen <= ScreenCount(dpy))
+	 && (priv->screenConfigs[screen].numConfigs > 0)
+	 && (priv->screenConfigs[screen].configs->fbconfigID != ((XID)-1)) ) {
+	config = (__GLcontextModes **) Xmalloc( sizeof(__GLcontextModes *)
+				 * priv->screenConfigs[screen].numConfigs );
+	if ( config != NULL ) {
+	    *nelements = priv->screenConfigs[screen].numConfigs;
+	    for ( i = 0 ; i < *nelements ; i++ ) {
+		config[i] = & priv->screenConfigs[screen].configs[i];
+	    }
+	}
+    }
+    return (GLXFBConfig *) config;
 }
 
 
 int GLX_PREFIX(glXGetFBConfigAttrib)(Display *dpy, GLXFBConfig config, int attribute, int *value)
 {
-    (void) dpy;
-    (void) config;
-    (void) attribute;
-    (void) value;
-    return 0;
+    __GLXdisplayPrivate *priv = __glXInitialize(dpy);
+    __GLcontextModes * fbconfig = (__GLcontextModes *) config;
+    const int screen_count = ScreenCount(dpy);
+    int  i;
+
+
+    if ( priv->screenConfigs != NULL ) {
+	for ( i = 0 ; i < screen_count ; i++ ) {
+	    const int numConfigs = priv->screenConfigs[i].numConfigs;
+	    if ( ( numConfigs > 0)
+		 && (priv->screenConfigs[i].configs->fbconfigID != ((XID)-1))
+		 && (fbconfig >= & priv->screenConfigs[i].configs[0])
+		 && (fbconfig < & priv->screenConfigs[i].configs[numConfigs]) ) {
+		return _gl_get_context_mode_data(fbconfig, attribute, value);
+	    }
+	}
+    }
+
+    return GLXBadFBConfig;
 }
 
 
@@ -1647,19 +1785,15 @@ void GLX_PREFIX(glXGetSelectedEvent)(Display *dpy, GLXDrawable drawable, unsigne
 
 XVisualInfo *GLX_PREFIX(glXGetVisualFromFBConfig)(Display *dpy, GLXFBConfig config)
 {
-    (void) dpy;
-    (void) config;
-    return 0;
-}
+    XVisualInfo visualTemplate;
+    __GLcontextModes * fbconfig = (__GLcontextModes *) config;
+    int  count;
 
-
-Bool GLX_PREFIX(glXMakeContextCurrent)(Display *dpy, GLXDrawable draw, GLXDrawable read, GLXContext ctx)
-{
-    (void) dpy;
-    (void) draw;
-    (void) read;
-    (void) ctx;
-    return 0;
+    /*
+    ** Get a list of all visuals, return if list is empty
+    */
+    visualTemplate.visualid = fbconfig->visualID;
+    return XGetVisualInfo(dpy,VisualIDMask,&visualTemplate,&count);
 }
 
 
@@ -1691,21 +1825,11 @@ void GLX_PREFIX(glXSelectEvent)(Display *dpy, GLXDrawable drawable, unsigned lon
 
 
 /*
-** GLX_SGIS_make_current_read
+** GLX_SGI_make_current_read
 */
-Bool GLX_PREFIX(glXMakeCurrentReadSGI)(Display *dpy, GLXDrawable draw, GLXDrawable read, GLXContext ctx)
-{
-   (void) dpy;
-   (void) draw;
-   (void) read;
-   (void) ctx;
-   return False;
-}
 
-GLXDrawable glXGetCurrentReadDrawableSGI(void)
-{
-   return 0;
-}
+GLX_ALIAS(GLXDrawable, glXGetCurrentReadDrawableSGI, (void), (),
+	  glXGetCurrentReadDrawable)
 
 
 /*
@@ -1713,8 +1837,220 @@ GLXDrawable glXGetCurrentReadDrawableSGI(void)
 */
 int GLX_PREFIX(glXSwapIntervalSGI)(int interval)
 {
-   (void) interval;
+   xGLXVendorPrivateReq *req;
+   GLXContext gc = __glXGetCurrentContext();
+   Display * dpy;
+   CARD32 * interval_ptr;
+   CARD8 opcode;
+
+   if ( gc == NULL ) {
+      return GLX_BAD_CONTEXT;
+   }
+   
+   if ( interval <= 0 ) {
+      return GLX_BAD_VALUE;
+   }
+
+#ifdef GLX_DIRECT_RENDERING
+   if ( gc->isDirect ) {
+       __GLXscreenConfigs * const psc = GetGLXScreenConfigs( gc->currentDpy,
+							     gc->screen );
+       __DRIdrawable * const pdraw = GetDRIDrawable( gc->currentDpy,
+						     gc->currentDrawable,
+						     NULL );
+       if ( __glXExtensionBitIsEnabled( psc, SGI_swap_control_bit )
+	    && (pdraw != NULL) ) {
+	   pdraw->swap_interval = interval;
+	   return 0;
+       }
+       else {
+	   return GLX_BAD_CONTEXT;
+       }
+   }
+#endif
+   dpy = gc->currentDpy;
+   opcode = __glXSetupForCommand(dpy);
+   if (!opcode) {
+      return 0;
+   }
+
+   /* Send the glXSwapIntervalSGI request */
+   LockDisplay(dpy);
+   GetReqExtra(GLXVendorPrivate,sizeof(CARD32),req);
+   req->reqType = opcode;
+   req->glxCode = X_GLXVendorPrivate;
+   req->vendorCode = X_GLXvop_SwapIntervalSGI;
+   req->contextTag = gc->currentContextTag;
+
+   interval_ptr = (CARD32 *) req + 1;
+   *interval_ptr = interval;
+
+   UnlockDisplay(dpy);
+   SyncHandle();
+   XFlush(dpy);
+
    return 0;
+}
+
+
+/*
+** GLX_MESA_swap_control
+*/
+GLint GLX_PREFIX(glXSwapIntervalMESA)(unsigned interval)
+{
+#ifdef GLX_DIRECT_RENDERING
+   GLXContext gc = __glXGetCurrentContext();
+
+   if ( interval < 0 ) {
+      return GLX_BAD_VALUE;
+   }
+
+   if ( (gc != NULL) && gc->isDirect ) {
+      __GLXscreenConfigs * const psc = GetGLXScreenConfigs( gc->currentDpy,
+							    gc->screen );
+      
+      if ( (psc != NULL) && (psc->driScreen.private != NULL)
+	   && __glXExtensionBitIsEnabled( psc, MESA_swap_control_bit ) ) {
+	 __DRIdrawable * const pdraw = 
+	     (*psc->driScreen.getDrawable)(gc->currentDpy,
+					   gc->currentDrawable,
+					   psc->driScreen.private);
+	 if ( pdraw != NULL ) {
+	    pdraw->swap_interval = interval;
+	    return 0;
+	 }
+      }
+   }
+#else
+   (void) interval;
+#endif
+
+   return GLX_BAD_CONTEXT;
+}
+ 
+GLint GLX_PREFIX(glXGetSwapIntervalMESA)( void )
+{
+#ifdef GLX_DIRECT_RENDERING
+   GLXContext gc = __glXGetCurrentContext();
+
+   if ( (gc != NULL) && gc->isDirect ) {
+      __GLXscreenConfigs * const psc = GetGLXScreenConfigs( gc->currentDpy,
+							    gc->screen );
+      
+      if ( (psc != NULL) && (psc->driScreen.private != NULL)
+	   && __glXExtensionBitIsEnabled( psc, MESA_swap_control_bit ) ) {
+	 __DRIdrawable * const pdraw = 
+	     (*psc->driScreen.getDrawable)(gc->currentDpy,
+					   gc->currentDrawable,
+					   psc->driScreen.private);
+	 if ( pdraw != NULL ) {
+	    return pdraw->swap_interval;
+	 }
+      }
+   }
+#endif
+
+   return 0;
+}
+
+
+/*
+** GLX_MESA_swap_frame_usage
+*/
+
+GLint GLX_PREFIX(glXBeginFrameTrackingMESA)(Display *dpy, GLXDrawable drawable)
+{
+   int   status = GLX_BAD_CONTEXT;
+#ifdef GLX_DIRECT_RENDERING
+   int screen;
+   __DRIdrawable * const pdraw = GetDRIDrawable(dpy, drawable, & screen);
+   __GLXscreenConfigs * const psc = GetGLXScreenConfigs(dpy, screen);
+
+   if ( (pdraw != NULL) && (pdraw->frameTracking != NULL)
+	&& __glXExtensionBitIsEnabled( psc, MESA_swap_frame_usage_bit ) ) {
+      status = pdraw->frameTracking( dpy, pdraw->private, GL_TRUE );
+   }
+#else
+   (void) dpy;
+   (void) drawable;
+#endif
+   return status;
+}
+
+    
+GLint GLX_PREFIX(glXEndFrameTrackingMESA)(Display *dpy, GLXDrawable drawable)
+{
+   int   status = GLX_BAD_CONTEXT;
+#ifdef GLX_DIRECT_RENDERING
+   int screen;
+   __DRIdrawable * const pdraw = GetDRIDrawable(dpy, drawable, & screen);
+   __GLXscreenConfigs * const psc = GetGLXScreenConfigs(dpy, screen);
+
+   if ( (pdraw != NULL) && (pdraw->frameTracking != NULL)
+	&& __glXExtensionBitIsEnabled( psc, MESA_swap_frame_usage_bit ) ) {
+      status = pdraw->frameTracking( dpy, pdraw->private, GL_FALSE );
+   }
+#else
+   (void) dpy;
+   (void) drawable;
+#endif
+   return status;
+}
+
+
+GLint GLX_PREFIX(glXGetFrameUsageMESA)(Display *dpy, GLXDrawable drawable,
+				       GLfloat *usage)
+{
+   int   status = GLX_BAD_CONTEXT;
+#ifdef GLX_DIRECT_RENDERING
+   int screen;
+   __DRIdrawable * const pdraw = GetDRIDrawable(dpy, drawable, & screen);
+   __GLXscreenConfigs * const psc = GetGLXScreenConfigs(dpy, screen);
+
+   if ( (pdraw != NULL ) && (pdraw->queryFrameTracking != NULL)
+	&& __glXExtensionBitIsEnabled( psc, MESA_swap_frame_usage_bit ) ) {
+      int64_t sbc, missedFrames;
+      float   lastMissedUsage;
+
+      status = pdraw->queryFrameTracking( dpy, pdraw->private, &sbc,
+					  &missedFrames, &lastMissedUsage,
+					  usage );
+   }
+#else
+   (void) dpy;
+   (void) drawable;
+   (void) usage;
+#endif
+   return status;
+}
+
+
+GLint GLX_PREFIX(glXQueryFrameTrackingMESA)(Display *dpy, GLXDrawable drawable,
+					    int64_t *sbc, int64_t *missedFrames,
+					    GLfloat *lastMissedUsage)
+{
+   int   status = GLX_BAD_CONTEXT;
+#ifdef GLX_DIRECT_RENDERING
+   int screen;
+   __DRIdrawable * const pdraw = GetDRIDrawable(dpy, drawable, & screen);
+   __GLXscreenConfigs * const psc = GetGLXScreenConfigs(dpy, screen);
+
+   if ( (pdraw != NULL ) && (pdraw->queryFrameTracking != NULL)
+	&& __glXExtensionBitIsEnabled( psc, MESA_swap_frame_usage_bit ) ) {
+      float   usage;
+
+      status = pdraw->queryFrameTracking( dpy, pdraw->private, sbc,
+					  missedFrames, lastMissedUsage,
+					  & usage );
+   }
+#else
+   (void) dpy;
+   (void) drawable;
+   (void) sbc;
+   (void) missedFrames;
+   (void) lastMissedUsage;
+#endif
+   return status;
 }
 
 
@@ -1723,16 +2059,67 @@ int GLX_PREFIX(glXSwapIntervalSGI)(int interval)
 */
 int GLX_PREFIX(glXGetVideoSyncSGI)(unsigned int *count)
 {
-   (void) count;
-   return 0;
+   /* FIXME: Looking at the GLX_SGI_video_sync spec in the extension registry,
+    * FIXME: there should be a GLX encoding for this call.  I can find no
+    * FIXME: documentation for the GLX encoding.
+    */
+#ifdef GLX_DIRECT_RENDERING
+   GLXContext gc = __glXGetCurrentContext();
+
+
+   if ( (gc != NULL) && gc->isDirect ) {
+      __GLXscreenConfigs * const psc = GetGLXScreenConfigs( gc->currentDpy,
+							    gc->screen );
+      if ( __glXExtensionBitIsEnabled( psc, SGI_video_sync_bit )
+	   && psc->driScreen.private && psc->driScreen.getMSC) {
+	 int       ret;
+	 int64_t   temp;
+
+	 ret = psc->driScreen.getMSC( psc->driScreen.private, & temp );
+	 *count = (unsigned) temp;
+	 return (ret == 0) ? 0 : GLX_BAD_CONTEXT;
+      }
+   }
+#else
+    (void) count;
+#endif
+   return GLX_BAD_CONTEXT;
 }
 
 int GLX_PREFIX(glXWaitVideoSyncSGI)(int divisor, int remainder, unsigned int *count)
 {
-   (void) divisor;
-   (void) remainder;
+#ifdef GLX_DIRECT_RENDERING
+   GLXContext gc = __glXGetCurrentContext();
+
+   if ( divisor <= 0 || remainder < 0 )
+     return GLX_BAD_VALUE;
+
+   if ( (gc != NULL) && gc->isDirect ) {
+      __GLXscreenConfigs * const psc = GetGLXScreenConfigs( gc->currentDpy,
+							    gc->screen );
+      if ( __glXExtensionBitIsEnabled( psc, SGI_video_sync_bit )
+	   && psc->driScreen.private ) {
+	 __DRIdrawable * const pdraw = 
+	     (*psc->driScreen.getDrawable)(gc->currentDpy,
+					   gc->currentDrawable,
+					   psc->driScreen.private);
+	 if ( (pdraw != NULL) && (pdraw->waitForMSC != NULL) ) {
+	    int       ret;
+	    int64_t   msc;
+	    int64_t   sbc;
+
+	    ret = (*pdraw->waitForMSC)( gc->currentDpy, pdraw->private,
+					0, divisor, remainder,
+					& msc, & sbc );
+	    *count = (unsigned) msc;
+	    return (ret == 0) ? 0 : GLX_BAD_CONTEXT;
+	 }
+      }
+   }
+#else
    (void) count;
-   return 0;
+#endif
+   return GLX_BAD_CONTEXT;
 }
 
 
@@ -1763,55 +2150,104 @@ void GLX_PREFIX(glXDestroyGLXVideoSourceSGIX)(Display *dpy, GLXVideoSourceSGIX s
 
 /*
 ** GLX_SGIX_fbconfig
+** Many of these functions are aliased to GLX 1.3 entry points in the 
+** GLX_functions table.
 */
-int GLX_PREFIX(glXGetFBConfigAttribSGIX)(Display *dpy, GLXFBConfigSGIX config, int attribute, int *value)
-{
-   (void) dpy;
-   (void) config;
-   (void) attribute;
-   (void) value;
-   return 0;
-}
 
-GLXFBConfigSGIX * GLX_PREFIX(glXChooseFBConfigSGIX)(Display *dpy, int screen, int *attrib_list, int *nelements)
-{
-   (void) dpy;
-   (void) screen;
-   (void) attrib_list;
-   (void) nelements;
-   return 0;
-}
+GLX_ALIAS(int, glXGetFBConfigAttribSGIX,
+	  (Display *dpy, GLXFBConfigSGIX config, int attribute, int *value),
+	  (dpy, config, attribute, value),
+	  glXGetFBConfigAttrib)
+
+GLX_ALIAS(GLXFBConfigSGIX *, glXChooseFBConfigSGIX,
+	  (Display *dpy, int screen, int *attrib_list, int *nelements),
+	  (dpy, screen, attrib_list, nelements),
+	  glXChooseFBConfig)
+
+GLX_ALIAS(XVisualInfo *, glXGetVisualFromFBConfigSGIX,
+	  (Display * dpy, GLXFBConfigSGIX config),
+	  (dpy, config),
+	  glXGetVisualFromFBConfig)
 
 GLXPixmap GLX_PREFIX(glXCreateGLXPixmapWithConfigSGIX)(Display *dpy, GLXFBConfigSGIX config, Pixmap pixmap)
 {
-   (void) dpy;
-   (void) config;
-   (void) pixmap;
-   return 0;
+    xGLXVendorPrivateReq *vpreq;
+    xGLXCreateGLXPixmapWithConfigSGIXReq *req;
+    GLXPixmap xid = None;
+    CARD8 opcode;
+    const __GLcontextModes * const fbconfig = (__GLcontextModes *) config;
+    __GLXscreenConfigs * psc;
+
+
+    if ( (dpy == NULL) || (config == NULL) ) {
+	return None;
+    }
+
+    psc = GetGLXScreenConfigs( dpy, fbconfig->screen );
+    if ( (psc != NULL) 
+	 && __glXExtensionBitIsEnabled( psc, SGIX_fbconfig_bit ) ) {
+	opcode = __glXSetupForCommand(dpy);
+	if (!opcode) {
+	    return None;
+	}
+
+	/* Send the glXCreateGLXPixmapWithConfigSGIX request */
+	LockDisplay(dpy);
+	GetReqExtra(GLXVendorPrivate,
+		    sz_xGLXCreateGLXPixmapWithConfigSGIXReq-sz_xGLXVendorPrivateReq,vpreq);
+	req = (xGLXCreateGLXPixmapWithConfigSGIXReq *)vpreq;
+	req->reqType = opcode;
+	req->vendorCode = X_GLXvop_CreateGLXPixmapWithConfigSGIX;
+	req->screen = fbconfig->screen;
+	req->fbconfig = fbconfig->fbconfigID;
+	req->pixmap = pixmap;
+	req->glxpixmap = xid = XAllocID(dpy);
+	UnlockDisplay(dpy);
+	SyncHandle();
+    }
+
+    return xid;
 }
 
-GLXContext GLX_PREFIX(glXCreateContextWithConfigSGIX)(Display *dpy, GLXFBConfigSGIX config, int render_type, GLXContext share_list, Bool direct)
+GLXContext GLX_PREFIX(glXCreateContextWithConfigSGIX)(Display *dpy, GLXFBConfigSGIX config, int renderType, GLXContext shareList, Bool allowDirect)
 {
-   (void) dpy;
-   (void) config;
-   (void) render_type;
-   (void) share_list;
-   (void) direct;
-   return 0;
+    GLXContext gc = NULL;
+    const __GLcontextModes * const fbconfig = (__GLcontextModes *) config;
+    __GLXscreenConfigs * psc;
+
+
+    if ( (dpy == NULL) || (config == NULL) ) {
+	return None;
+    }
+
+    psc = GetGLXScreenConfigs( dpy, fbconfig->screen );
+    if ( (psc != NULL) 
+	 && __glXExtensionBitIsEnabled( psc, SGIX_fbconfig_bit ) ) {
+	gc = CreateContext( dpy, NULL, (__GLcontextModes *) config, shareList,
+			    allowDirect, None, False, renderType );
+    }
+
+    return gc;
 }
 
-XVisualInfo * GLX_PREFIX(glXGetVisualFromFBConfigSGIX)(Display *dpy, GLXFBConfigSGIX config)
-{
-   (void) dpy;
-   (void) config;
-   return NULL;
-}
 
 GLXFBConfigSGIX GLX_PREFIX(glXGetFBConfigFromVisualSGIX)(Display *dpy, XVisualInfo *vis)
 {
-   (void) dpy;
-   (void) vis;
-   return 0;
+    __GLXdisplayPrivate *priv;
+    __GLXscreenConfigs *psc;
+    int   i;
+
+    if ( (GetGLXPrivScreenConfig( dpy, vis->screen, & priv, & psc ) != Success)
+	 && __glXExtensionBitIsEnabled( psc, SGIX_fbconfig_bit )
+	 && (psc->configs[0].fbconfigID != ((XID)-1)) ) {
+	for ( i = 0 ; i < psc->numConfigs ; i++ ) {
+	    if ( psc->configs[i].visualID == vis->visualid ) {
+		return (GLXFBConfigSGIX) & (psc->configs[i]);
+	    }
+	}
+    }
+
+    return NULL;
 }
 
 
@@ -1984,6 +2420,314 @@ Status GLX_PREFIX(glXGetTransparentIndexSUN)(Display *dpy, Window overlay, Windo
 }
 
 
+/*
+** GLX_OML_sync_control
+*/
+Bool GLX_PREFIX(glXGetSyncValuesOML)(Display *dpy, GLXDrawable drawable,
+				     int64_t *ust, int64_t *msc, int64_t *sbc)
+{
+#ifdef GLX_DIRECT_RENDERING
+    __GLXdisplayPrivate * const priv = __glXInitialize(dpy);
+
+    if ( priv != NULL ) {
+	int   i;
+	__DRIdrawable * const pdraw = GetDRIDrawable( dpy, drawable, & i );
+	__GLXscreenConfigs * const psc = &priv->screenConfigs[i];
+
+	assert( (pdraw == NULL) || (i != -1) );
+	return ( (pdraw && pdraw->getSBC && psc->driScreen.getMSC)
+		 && __glXExtensionBitIsEnabled( psc, OML_sync_control_bit )
+		 && ((*psc->driScreen.getMSC)( psc->driScreen.private, msc ) == 0)
+		 && ((*pdraw->getSBC)( dpy, psc->driScreen.private, sbc ) == 0)
+		 && (__glXGetUST( ust ) == 0) );
+    }
+#else
+   (void) dpy;
+   (void) drawable;
+   (void) ust;
+   (void) msc;
+   (void) sbc;
+#endif
+   return False;
+}
+
+
+/**
+ * Determine the refresh rate of the specified drawable and display.
+ * 
+ * \param dpy          Display whose refresh rate is to be determined.
+ * \param drawable     Drawable whose refresh rate is to be determined.
+ * \param numerator    Numerator of the refresh rate.
+ * \param demoninator  Denominator of the refresh rate.
+ * \return  If the refresh rate for the specified display and drawable could
+ *          be calculated, True is returned.  Otherwise False is returned.
+ * 
+ * \note This function is implemented entirely client-side.  A lot of other
+ *       functionality is required to export GLX_OML_sync_control, so on
+ *       XFree86 this function can be called for direct-rendering contexts
+ *       when GLX_OML_sync_control appears in the client extension string.
+ */
+
+Bool GLX_PREFIX(glXGetMscRateOML)(Display * dpy, GLXDrawable drawable,
+				  int32_t * numerator, int32_t * denominator)
+{
+#if defined( GLX_DIRECT_RENDERING ) && defined( XF86VIDMODE )
+   __GLXdisplayPrivate * const priv = __glXInitialize(dpy);
+
+
+   if ( priv != NULL ) {
+      XF86VidModeModeLine   mode_line;
+      int   dot_clock;
+      int   screen_num;
+      int   i;
+
+
+      GetDRIDrawable( dpy, drawable, & screen_num );
+      if ( (screen_num != -1)
+	   && XF86VidModeQueryVersion( dpy, & i, & i )
+	   && XF86VidModeGetModeLine( dpy, screen_num, & dot_clock,
+				      & mode_line ) ) {
+	 unsigned   n = dot_clock * 1000;
+	 unsigned   d = mode_line.vtotal * mode_line.htotal;
+
+# define V_INTERLACE 0x010
+# define V_DBLSCAN   0x020
+
+	 if ( (mode_line.flags & V_INTERLACE) ) {
+	    n *= 2;
+	 }
+	 else if ( (mode_line.flags & V_DBLSCAN) ) {
+	    d *= 2;
+	 }
+
+	 /* The OML_sync_control spec requires that if the refresh rate is a
+	  * whole number, that the returned numerator be equal to the refresh
+	  * rate and the denominator be 1.
+	  */
+
+	 if ( (n % d) == 0 ) {
+	    n /= d;
+	    d = 1;
+	 }
+	 else {
+	    static const unsigned f[] = { 13, 11, 7, 5, 3, 2, 0 };
+
+
+	    /* This is a poor man's way to reduce a fraction.  It's far from
+	     * perfect, but it will work well enough for this situation.
+	     */
+
+	    for ( i = 0 ; f[i] != 0 ; i++ ) {
+	       while ( ((n % f[i]) == 0) && ((d % f[i]) == 0) ) {
+		  d /= f[i];
+		  n /= f[i];
+	       }
+	    }
+	 }
+
+	 *numerator = n;
+	 *denominator = d;
+
+	 (void) drawable;
+	 return True;
+      }
+   }
+#else
+   (void) dpy;
+   (void) drawable;
+   (void) numerator;
+   (void) denominator;
+#endif
+   return False;
+}
+
+
+int64_t GLX_PREFIX(glXSwapBuffersMscOML)(Display *dpy, GLXDrawable drawable,
+					 int64_t target_msc,
+					 int64_t divisor, int64_t remainder)
+{
+#ifdef GLX_DIRECT_RENDERING
+   int screen;
+   __DRIdrawable *pdraw = GetDRIDrawable( dpy, drawable, & screen );
+   __GLXscreenConfigs * const psc = GetGLXScreenConfigs( dpy, screen );
+
+   /* The OML_sync_control spec says these should "generate a GLX_BAD_VALUE
+    * error", but it also says "It [glXSwapBuffersMscOML] will return a value
+    * of -1 if the function failed because of errors detected in the input
+    * parameters"
+    */
+   if ( divisor < 0 || remainder < 0 || target_msc < 0 )
+      return -1;
+   if ( divisor > 0 && remainder >= divisor )
+      return -1;
+
+   if ( (pdraw != NULL) && (pdraw->swapBuffersMSC != NULL)
+       && __glXExtensionBitIsEnabled( psc, OML_sync_control_bit ) ) {
+      return (*pdraw->swapBuffersMSC)(dpy, pdraw->private, target_msc,
+				      divisor, remainder);
+   }
+#else
+   (void) dpy;
+   (void) drawable;
+   (void) target_msc;
+   (void) divisor;
+   (void) remainder;
+#endif
+   return 0;
+}
+
+
+Bool GLX_PREFIX(glXWaitForMscOML)(Display * dpy, GLXDrawable drawable,
+				  int64_t target_msc,
+				  int64_t divisor, int64_t remainder,
+				  int64_t *ust, int64_t *msc, int64_t *sbc)
+{
+#ifdef GLX_DIRECT_RENDERING
+   int screen;
+   __DRIdrawable *pdraw = GetDRIDrawable( dpy, drawable, & screen );
+   __GLXscreenConfigs * const psc = GetGLXScreenConfigs( dpy, screen );
+   int  ret;
+
+   /* The OML_sync_control spec says these should "generate a GLX_BAD_VALUE
+    * error", but the return type in the spec is Bool.
+    */
+   if ( divisor < 0 || remainder < 0 || target_msc < 0 )
+      return False;
+   if ( divisor > 0 && remainder >= divisor )
+      return False;
+
+   if ( (pdraw != NULL) && (pdraw->waitForMSC != NULL)
+	&& __glXExtensionBitIsEnabled( psc, OML_sync_control_bit ) ) {
+      ret = (*pdraw->waitForMSC)( dpy, pdraw->private, target_msc,
+				  divisor, remainder, msc, sbc );
+
+      /* __glXGetUST returns zero on success and non-zero on failure.
+       * This function returns True on success and False on failure.
+       */
+      return ( (ret == 0) && (__glXGetUST( ust ) == 0) );
+   }
+#else
+   (void) dpy;
+   (void) drawable;
+   (void) target_msc;
+   (void) divisor;
+   (void) remainder;
+   (void) ust;
+   (void) msc;
+   (void) sbc;
+#endif
+   return False;
+}
+
+
+Bool GLX_PREFIX(glXWaitForSbcOML)(Display * dpy, GLXDrawable drawable,
+				  int64_t target_sbc,
+				  int64_t *ust, int64_t *msc, int64_t *sbc )
+{
+#ifdef GLX_DIRECT_RENDERING
+   int screen;
+   __DRIdrawable *pdraw = GetDRIDrawable( dpy, drawable, & screen );
+   __GLXscreenConfigs * const psc = GetGLXScreenConfigs( dpy, screen );
+   int  ret;
+
+   /* The OML_sync_control spec says this should "generate a GLX_BAD_VALUE
+    * error", but the return type in the spec is Bool.
+    */
+   if ( target_sbc < 0 )
+      return False;
+
+   if ( (pdraw != NULL) && (pdraw->waitForSBC != NULL)
+	&& __glXExtensionBitIsEnabled( psc, OML_sync_control_bit )) {
+      ret = (*pdraw->waitForSBC)( dpy, pdraw->private, target_sbc, msc, sbc );
+
+      /* __glXGetUST returns zero on success and non-zero on failure.
+       * This function returns True on success and False on failure.
+       */
+      return( (ret == 0) && (__glXGetUST( ust ) == 0) );
+   }
+#else
+   (void) dpy;
+   (void) drawable;
+   (void) target_sbc;
+   (void) ust;
+   (void) msc;
+   (void) sbc;
+#endif
+   return False;
+}
+
+
+/*
+** GLX_MESA_allocate_memory
+*/
+
+void *GLX_PREFIX(glXAllocateMemoryMESA)(Display *dpy, int scrn,
+					size_t size,
+					float readFreq,
+					float writeFreq,
+					float priority)
+{
+#ifdef GLX_DIRECT_RENDERING
+   __GLXscreenConfigs * const psc = GetGLXScreenConfigs( dpy, scrn );
+
+   if ( __glXExtensionBitIsEnabled( psc, MESA_allocate_memory_bit ) ) {
+      if (psc && psc->driScreen.private && psc->driScreen.allocateMemory) {
+	 return (*psc->driScreen.allocateMemory)( dpy, scrn, size,
+						  readFreq, writeFreq,
+						  priority );
+      }
+   }
+#else
+   (void) dpy;
+   (void) scrn;
+   (void) size;
+   (void) readFreq;
+   (void) writeFreq;
+   (void) priority;
+#endif /* GLX_DIRECT_RENDERING */
+
+   return NULL;
+}
+
+
+void GLX_PREFIX(glXFreeMemoryMESA)(Display *dpy, int scrn, void *pointer)
+{
+#ifdef GLX_DIRECT_RENDERING
+   __GLXscreenConfigs * const psc = GetGLXScreenConfigs( dpy, scrn );
+
+   if ( __glXExtensionBitIsEnabled( psc, MESA_allocate_memory_bit ) ) {
+      if (psc && psc->driScreen.private && psc->driScreen.freeMemory) {
+	 (*psc->driScreen.freeMemory)( dpy, scrn, pointer );
+      }
+   }
+#else
+   (void) dpy;
+   (void) scrn;
+   (void) pointer;
+#endif /* GLX_DIRECT_RENDERING */
+}
+
+
+GLuint GLX_PREFIX(glXGetMemoryOffsetMESA)( Display *dpy, int scrn,
+					   const void *pointer )
+{
+#ifdef GLX_DIRECT_RENDERING
+   __GLXscreenConfigs * const psc = GetGLXScreenConfigs( dpy, scrn );
+
+   if ( __glXExtensionBitIsEnabled( psc, MESA_allocate_memory_bit ) ) {
+      if (psc && psc->driScreen.private && psc->driScreen.memoryOffset) {
+	 return (*psc->driScreen.memoryOffset)( dpy, scrn, pointer );
+      }
+   }
+#else
+   (void) dpy;
+   (void) scrn;
+   (void) pointer;
+#endif /* GLX_DIRECT_RENDERING */
+
+   return ~0L;
+}
+
 
 /*
 ** Mesa extension stubs.  These will help reduce portability problems.
@@ -2050,237 +2794,193 @@ __glXstrdup(const char *str)
 struct name_address_pair {
    const char *Name;
    GLvoid *Address;
-   struct name_address_pair *Next;
 };
 
-static struct name_address_pair GLX_functions[] = {
+#define GLX_FUNCTION(f) { # f, (GLvoid *) f }
+#define GLX_FUNCTION2(n,f) { # n, (GLvoid *) f }
+
+static const struct name_address_pair GLX_functions[] = {
    /*** GLX_VERSION_1_0 ***/
-   { "glXChooseVisual", (GLvoid *) glXChooseVisual, NULL },
-   { "glXCopyContext", (GLvoid *) glXCopyContext, NULL },
-   { "glXCreateContext", (GLvoid *) glXCreateContext, NULL },
-   { "glXCreateGLXPixmap", (GLvoid *) glXCreateGLXPixmap, NULL },
-   { "glXDestroyContext", (GLvoid *) glXDestroyContext, NULL },
-   { "glXDestroyGLXPixmap", (GLvoid *) glXDestroyGLXPixmap, NULL },
-   { "glXGetConfig", (GLvoid *) glXGetConfig, NULL },
-   { "glXGetCurrentContext", (GLvoid *) glXGetCurrentContext, NULL },
-   { "glXGetCurrentDrawable", (GLvoid *) glXGetCurrentDrawable, NULL },
-   { "glXIsDirect", (GLvoid *) glXIsDirect, NULL },
-   { "glXMakeCurrent", (GLvoid *) glXMakeCurrent, NULL },
-   { "glXQueryExtension", (GLvoid *) glXQueryExtension, NULL },
-   { "glXQueryVersion", (GLvoid *) glXQueryVersion, NULL },
-   { "glXSwapBuffers", (GLvoid *) glXSwapBuffers, NULL },
-   { "glXUseXFont", (GLvoid *) glXUseXFont, NULL },
-   { "glXWaitGL", (GLvoid *) glXWaitGL, NULL },
-   { "glXWaitX", (GLvoid *) glXWaitX, NULL },
+   GLX_FUNCTION( glXChooseVisual ),
+   GLX_FUNCTION( glXCopyContext ),
+   GLX_FUNCTION( glXCreateContext ),
+   GLX_FUNCTION( glXCreateGLXPixmap ),
+   GLX_FUNCTION( glXDestroyContext ),
+   GLX_FUNCTION( glXDestroyGLXPixmap ),
+   GLX_FUNCTION( glXGetConfig ),
+   GLX_FUNCTION( glXGetCurrentContext ),
+   GLX_FUNCTION( glXGetCurrentDrawable ),
+   GLX_FUNCTION( glXIsDirect ),
+   GLX_FUNCTION( glXMakeCurrent ),
+   GLX_FUNCTION( glXQueryExtension ),
+   GLX_FUNCTION( glXQueryVersion ),
+   GLX_FUNCTION( glXSwapBuffers ),
+   GLX_FUNCTION( glXUseXFont ),
+   GLX_FUNCTION( glXWaitGL ),
+   GLX_FUNCTION( glXWaitX ),
 
    /*** GLX_VERSION_1_1 ***/
-   { "glXGetClientString", (GLvoid *) glXGetClientString, NULL },
-   { "glXQueryExtensionsString", (GLvoid *) glXQueryExtensionsString, NULL },
-   { "glXQueryServerString", (GLvoid *) glXQueryServerString, NULL },
+   GLX_FUNCTION( glXGetClientString ),
+   GLX_FUNCTION( glXQueryExtensionsString ),
+   GLX_FUNCTION( glXQueryServerString ),
 
    /*** GLX_VERSION_1_2 ***/
-   { "glXGetCurrentDisplay", (GLvoid *) glXGetCurrentDisplay, NULL },
+   GLX_FUNCTION( glXGetCurrentDisplay ),
 
    /*** GLX_VERSION_1_3 ***/
-   { "glXChooseFBConfig", (GLvoid *) glXChooseFBConfig, NULL },
-   { "glXCreateNewContext", (GLvoid *) glXCreateNewContext, NULL },
-   { "glXCreatePbuffer", (GLvoid *) glXCreatePbuffer, NULL },
-   { "glXCreatePixmap", (GLvoid *) glXCreatePixmap, NULL },
-   { "glXCreateWindow", (GLvoid *) glXCreateWindow, NULL },
-   { "glXDestroyPbuffer", (GLvoid *) glXDestroyPbuffer, NULL },
-   { "glXDestroyPixmap", (GLvoid *) glXDestroyPixmap, NULL },
-   { "glXDestroyWindow", (GLvoid *) glXDestroyWindow, NULL },
-   { "glXGetCurrentReadDrawable", (GLvoid *) glXGetCurrentReadDrawable, NULL },
-   { "glXGetFBConfigAttrib", (GLvoid *) glXGetFBConfigAttrib, NULL },
-   { "glXGetFBConfigs", (GLvoid *) glXGetFBConfigs, NULL },
-   { "glXGetSelectedEvent", (GLvoid *) glXGetSelectedEvent, NULL },
-   { "glXGetVisualFromFBConfig", (GLvoid *) glXGetVisualFromFBConfig, NULL },
-   { "glXMakeContextCurrent", (GLvoid *) glXMakeContextCurrent, NULL },
-   { "glXQueryContext", (GLvoid *) glXQueryContext, NULL },
-   { "glXQueryDrawable", (GLvoid *) glXQueryDrawable, NULL },
-   { "glXSelectEvent", (GLvoid *) glXSelectEvent, NULL },
+   GLX_FUNCTION( glXChooseFBConfig ),
+   GLX_FUNCTION( glXCreateNewContext ),
+   GLX_FUNCTION( glXCreatePbuffer ),
+   GLX_FUNCTION( glXCreatePixmap ),
+   GLX_FUNCTION( glXCreateWindow ),
+   GLX_FUNCTION( glXDestroyPbuffer ),
+   GLX_FUNCTION( glXDestroyPixmap ),
+   GLX_FUNCTION( glXDestroyWindow ),
+   GLX_FUNCTION( glXGetCurrentReadDrawable ),
+   GLX_FUNCTION( glXGetFBConfigAttrib ),
+   GLX_FUNCTION( glXGetFBConfigs ),
+   GLX_FUNCTION( glXGetSelectedEvent ),
+   GLX_FUNCTION( glXGetVisualFromFBConfig ),
+   GLX_FUNCTION( glXMakeContextCurrent ),
+   GLX_FUNCTION( glXQueryContext ),
+   GLX_FUNCTION( glXQueryDrawable ),
+   GLX_FUNCTION( glXSelectEvent ),
 
    /*** GLX_SGI_swap_control ***/
-   { "glXSwapIntervalSGI", (GLvoid *) glXSwapIntervalSGI, NULL },
+   GLX_FUNCTION( glXSwapIntervalSGI ),
 
    /*** GLX_SGI_video_sync ***/
-   { "glXGetVideoSyncSGI", (GLvoid *) glXGetVideoSyncSGI, NULL },
-   { "glXWaitVideoSyncSGI", (GLvoid *) glXWaitVideoSyncSGI, NULL },
+   GLX_FUNCTION( glXGetVideoSyncSGI ),
+   GLX_FUNCTION( glXWaitVideoSyncSGI ),
 
    /*** GLX_SGI_make_current_read ***/
-   { "glXMakeCurrentReadSGI", (GLvoid *) glXMakeCurrentReadSGI, NULL },
-   { "glXGetCurrentReadDrawableSGI", (GLvoid *) glXGetCurrentReadDrawableSGI, NULL },
+   GLX_FUNCTION2( glXMakeCurrentReadSGI, glXMakeContextCurrent ),
+   GLX_FUNCTION2( glXGetCurrentReadDrawableSGI, glXGetCurrentReadDrawable ),
 
    /*** GLX_SGIX_video_source ***/
 #if defined(_VL_H)
-   { "glXCreateGLXVideoSourceSGIX", (GLvoid *) glXCreateGLXVideoSourceSGIX, NULL },
-   { "glXDestroyGLXVideoSourceSGIX", (GLvoid *) glXDestroyGLXVideoSourceSGIX, NULL },
+   GLX_FUNCTION( glXCreateGLXVideoSourceSGIX ),
+   GLX_FUNCTION( glXDestroyGLXVideoSourceSGIX ),
 #endif
 
    /*** GLX_EXT_import_context ***/
-   { "glXFreeContextEXT", (GLvoid *) glXFreeContextEXT, NULL },
-   { "glXGetContextIDEXT", (GLvoid *) glXGetContextIDEXT, NULL },
-   { "glXGetCurrentDisplayEXT", (GLvoid *) glXGetCurrentDisplayEXT, NULL },
-   { "glXImportContextEXT", (GLvoid *) glXImportContextEXT, NULL },
-   { "glXQueryContextInfoEXT", (GLvoid *) glXQueryContextInfoEXT, NULL },
+   GLX_FUNCTION( glXFreeContextEXT ),
+   GLX_FUNCTION( glXGetContextIDEXT ),
+   GLX_FUNCTION2( glXGetCurrentDisplayEXT, glXGetCurrentDisplay ),
+   GLX_FUNCTION( glXImportContextEXT ),
+   GLX_FUNCTION( glXQueryContextInfoEXT ),
 
    /*** GLX_SGIX_fbconfig ***/
-   { "glXGetFBConfigAttribSGIX", (GLvoid *) glXGetFBConfigAttribSGIX, NULL },
-   { "glXChooseFBConfigSGIX", (GLvoid *) glXChooseFBConfigSGIX, NULL },
-   { "glXCreateGLXPixmapWithConfigSGIX", (GLvoid *) glXCreateGLXPixmapWithConfigSGIX, NULL },
-   { "glXCreateContextWithConfigSGIX", (GLvoid *) glXCreateContextWithConfigSGIX, NULL },
-   { "glXGetVisualFromFBConfigSGIX", (GLvoid *) glXGetVisualFromFBConfigSGIX, NULL },
-   { "glXGetFBConfigFromVisualSGIX", (GLvoid *) glXGetFBConfigFromVisualSGIX, NULL },
+   GLX_FUNCTION2( glXGetFBConfigAttribSGIX, glXGetFBConfigAttrib ),
+   GLX_FUNCTION2( glXChooseFBConfigSGIX, glXChooseFBConfig ),
+   GLX_FUNCTION( glXCreateGLXPixmapWithConfigSGIX ),
+   GLX_FUNCTION( glXCreateContextWithConfigSGIX ),
+   GLX_FUNCTION2( glXGetVisualFromFBConfigSGIX, glXGetVisualFromFBConfig ),
+   GLX_FUNCTION( glXGetFBConfigFromVisualSGIX ),
 
    /*** GLX_SGIX_pbuffer ***/
-   { "glXCreateGLXPbufferSGIX", (GLvoid *) glXCreateGLXPbufferSGIX, NULL },
-   { "glXDestroyGLXPbufferSGIX", (GLvoid *) glXDestroyGLXPbufferSGIX, NULL },
-   { "glXQueryGLXPbufferSGIX", (GLvoid *) glXQueryGLXPbufferSGIX, NULL },
-   { "glXSelectEventSGIX", (GLvoid *) glXSelectEventSGIX, NULL },
-   { "glXGetSelectedEventSGIX", (GLvoid *) glXGetSelectedEventSGIX, NULL },
+   GLX_FUNCTION( glXCreateGLXPbufferSGIX ),
+   GLX_FUNCTION( glXDestroyGLXPbufferSGIX ),
+   GLX_FUNCTION( glXQueryGLXPbufferSGIX ),
+   GLX_FUNCTION( glXSelectEventSGIX ),
+   GLX_FUNCTION( glXGetSelectedEventSGIX ),
 
    /*** GLX_SGI_cushion ***/
-   { "glXCushionSGI", (GLvoid *) glXCushionSGI, NULL },
+   GLX_FUNCTION( glXCushionSGI ),
 
    /*** GLX_SGIX_video_resize ***/
-   { "glXBindChannelToWindowSGIX", (GLvoid *) glXBindChannelToWindowSGIX, NULL },
-   { "glXChannelRectSGIX", (GLvoid *) glXChannelRectSGIX, NULL },
-   { "glXQueryChannelRectSGIX", (GLvoid *) glXQueryChannelRectSGIX, NULL },
-   { "glXQueryChannelDeltasSGIX", (GLvoid *) glXQueryChannelDeltasSGIX, NULL },
-   { "glXChannelRectSyncSGIX", (GLvoid *) glXChannelRectSyncSGIX, NULL },
+   GLX_FUNCTION( glXBindChannelToWindowSGIX ),
+   GLX_FUNCTION( glXChannelRectSGIX ),
+   GLX_FUNCTION( glXQueryChannelRectSGIX ),
+   GLX_FUNCTION( glXQueryChannelDeltasSGIX ),
+   GLX_FUNCTION( glXChannelRectSyncSGIX ),
 
    /*** GLX_SGIX_dmbuffer **/
 #if defined(_DM_BUFFER_H_)
-   { "glXAssociateDMPbufferSGIX", (GLvoid *) glXAssociateDMPbufferSGIX, NULL },
+   GLX_FUNCTION( glXAssociateDMPbufferSGIX ),
 #endif
 
    /*** GLX_SGIX_swap_group ***/
-   { "glXJoinSwapGroupSGIX", (GLvoid *) glXJoinSwapGroupSGIX, NULL },
+   GLX_FUNCTION( glXJoinSwapGroupSGIX ),
 
    /*** GLX_SGIX_swap_barrier ***/
-   { "glXBindSwapBarrierSGIX", (GLvoid *) glXBindSwapBarrierSGIX, NULL },
-   { "glXQueryMaxSwapBarriersSGIX", (GLvoid *) glXQueryMaxSwapBarriersSGIX, NULL },
+   GLX_FUNCTION( glXBindSwapBarrierSGIX ),
+   GLX_FUNCTION( glXQueryMaxSwapBarriersSGIX ),
 
    /*** GLX_SUN_get_transparent_index ***/
-   { "glXGetTransparentIndexSUN", (GLvoid *) glXGetTransparentIndexSUN, NULL },
+   GLX_FUNCTION( glXGetTransparentIndexSUN ),
+
+   /*** GLX_MESA_allocate_memory ***/
+   GLX_FUNCTION( glXAllocateMemoryMESA ),
+   GLX_FUNCTION( glXFreeMemoryMESA ),
+   GLX_FUNCTION( glXGetMemoryOffsetMESA ),
 
    /*** GLX_MESA_copy_sub_buffer ***/
-   { "glXCopySubBufferMESA", (GLvoid *) glXCopySubBufferMESA, NULL },
+   GLX_FUNCTION( glXCopySubBufferMESA ),
 
    /*** GLX_MESA_pixmap_colormap ***/
-   { "glXCreateGLXPixmapMESA", (GLvoid *) glXCreateGLXPixmapMESA, NULL },
+   GLX_FUNCTION( glXCreateGLXPixmapMESA ),
 
    /*** GLX_MESA_release_buffers ***/
-   { "glXReleaseBuffersMESA", (GLvoid *) glXReleaseBuffersMESA, NULL },
+   GLX_FUNCTION( glXReleaseBuffersMESA ),
 
    /*** GLX_MESA_set_3dfx_mode ***/
-   { "glXSet3DfxModeMESA", (GLvoid *) glXSet3DfxModeMESA, NULL },
+   GLX_FUNCTION( glXSet3DfxModeMESA ),
+
+   /*** GLX_MESA_swap_control ***/
+   GLX_FUNCTION( glXSwapIntervalMESA ),
+   GLX_FUNCTION( glXGetSwapIntervalMESA ),
+
+   /*** GLX_MESA_swap_frame_usage ***/
+   GLX_FUNCTION( glXBeginFrameTrackingMESA ),
+   GLX_FUNCTION( glXEndFrameTrackingMESA ),
+   GLX_FUNCTION( glXGetFrameUsageMESA ),
+   GLX_FUNCTION( glXQueryFrameTrackingMESA ),
 
    /*** GLX_ARB_get_proc_address ***/
-   { "glXGetProcAddressARB", (GLvoid *) glXGetProcAddressARB, NULL },
+   GLX_FUNCTION( glXGetProcAddressARB ),
 
    /*** GLX 1.4 ***/
-   { "glXGetProcAddress", (GLvoid *) glXGetProcAddress, NULL },
+   GLX_FUNCTION2( glXGetProcAddress, glXGetProcAddressARB ),
 
-   /*** GLX_???_allocate_memory ***/
-   { "glXAllocateMemoryNV", (GLvoid *) glXAllocateMemoryNV, NULL },
-   { "glXFreeMemoryNV", (GLvoid *) glXFreeMemoryNV, NULL },
+   /*** GLX_OML_sync_control ***/
+   GLX_FUNCTION( glXWaitForSbcOML ),
+   GLX_FUNCTION( glXWaitForMscOML ),
+   GLX_FUNCTION( glXSwapBuffersMscOML ),
+   GLX_FUNCTION( glXGetMscRateOML ),
+   GLX_FUNCTION( glXGetSyncValuesOML ),
 
-   /*** GLX_MESA_agp_pointer ***/
-   { "glXGetAGPOffsetMESA", (GLvoid *) glXGetAGPOffsetMESA, NULL },
+#ifdef GLX_DIRECT_RENDERING
+   /***
+    *** Internal functions useful to DRI drivers
+    *** With this, the DRI drivers shouldn't need dlopen()/dlsym() to
+    *** access internal libGL functions which may or may not exist.
+    ***/
+   GLX_FUNCTION( __glXInitialize ),
+   GLX_FUNCTION( __glXFindDRIScreen ),
+   GLX_FUNCTION( __glXGetInternalVersion ),
+   GLX_FUNCTION( __glXWindowExists ),
+#endif
 
-   { NULL, NULL, NULL }   /* end of list */
+   GLX_FUNCTION( __glXScrEnableExtension ),
+
+   GLX_FUNCTION( __glXGetUST ),
+
+   { NULL, NULL }   /* end of list */
 };
-
-
-static struct name_address_pair *Dynamic_GLX_functions = NULL;
-
-
-/*
- * Drivers can call this function to append the name of a new GLX
- * extension string to __glXGLXClientExtensions.  Then, when the user
- * calls glXGetClientString() they'll see it listed.
- * This is a companion to __glXRegisterGLXFunction().
- */
-void
-__glXRegisterGLXExtensionString(const char *extName)
-{
-   char *newList;
-   if (!extName)
-      return;
-   newList = Xmalloc(strlen(__glXGLXClientExtensions) +
-                     strlen(extName) + 2); /* 2 for ' ' and '\0' */
-   if (!newList)
-      return;
-   strcpy(newList, __glXGLXClientExtensions);
-   strcat(newList, " ");
-   strcat(newList, extName);
-   if (__glXGLXClientExtensions != __glXGLXDefaultClientExtensions)
-      Xfree((void *) __glXGLXClientExtensions);
-   __glXGLXClientExtensions = newList;
-}
-
-
-/*
- * DRI drivers should call this function if they want to extend
- * the GLX API.  After registering a new GLX function, the user
- * can query and use it by calling glXGetProcAddress().
- * Input: funcName - name of new GLX function
- *        funcAddr - pointer to the function.
- * Return: address of previously registered function with this
- *         name, or NULL.
- */
-void *
-__glXRegisterGLXFunction(const char *funcName, void *funcAddr)
-{
-   struct name_address_pair *ext;
-
-   /* look if the function is already registered */
-   for (ext = Dynamic_GLX_functions; ext; ext = ext->Next) {
-      if (strcmp(ext->Name, funcName) == 0) {
-	 /* It's up the caller to use this return value if he wants
-	  * to chain-call or wrap the previously registered function.
-	  */
-         void *prevAddr = ext->Address;
-	 ext->Address = funcAddr;
-	 return prevAddr;
-      }
-   }
-
-   /* add new function */
-   ext = Xmalloc(sizeof(struct name_address_pair));
-   if (!ext)
-      return NULL;
-   ext->Name = __glXstrdup(funcName);
-   if (!ext->Name) {
-      Xfree(ext);
-      return NULL;
-   }
-   ext->Address = funcAddr;
-   ext->Next = Dynamic_GLX_functions;
-   Dynamic_GLX_functions = ext;
-   return NULL;
-}
 
 
 static const GLvoid *
 get_glx_proc_address(const char *funcName)
 {
-   const struct name_address_pair *ext;
    GLuint i;
-
-   /* try dynamic functions */
-   for (ext = Dynamic_GLX_functions; ext; ext = ext->Next) {
-      if (strcmp(ext->Name, funcName) == 0) {
-	 return ext->Address;
-      }
-   }
 
    /* try static functions */
    for (i = 0; GLX_functions[i].Name; i++) {
       if (strcmp(GLX_functions[i].Name, funcName) == 0)
-         return GLX_functions[i].Address;
+	 return GLX_functions[i].Address;
    }
+
    return NULL;
 }
 
@@ -2291,106 +2991,111 @@ void (*glXGetProcAddressARB(const GLubyte *procName))( void )
    typedef void (*gl_function)( void );
    gl_function f;
 
-#if defined(GLX_DIRECT_RENDERING)
-   __glXRegisterExtensions();
-#endif
+
+   /* Search the table of GLX and internal functions first.  If that
+    * fails and the supplied name could be a valid core GL name, try
+    * searching the core GL function table.  This check is done to prevent
+    * DRI based drivers from searching the core GL function table for
+    * internal API functions.
+    */
 
    f = (gl_function) get_glx_proc_address((const char *) procName);
-   if (f) {
-      return f;
+   if ( (f == NULL) && (procName[0] == 'g') && (procName[1] == 'l')
+	&& (procName[2] != 'X') ) {
+      f = (gl_function) _glapi_get_proc_address((const char *) procName);
    }
 
-   f = (gl_function) _glapi_get_proc_address((const char *) procName);
    return f;
 }
 
 /* GLX 1.4 */
 void (*glXGetProcAddress(const GLubyte *procName))( void )
+#if defined(__GNUC__) && !defined(GLX_ALIAS_UNSUPPORTED)
+    __attribute__ ((alias ("glXGetProcAddressARB")));
+#else
 {
    return glXGetProcAddressARB(procName);
 }
-#endif
+#endif /* __GNUC__ */
+#endif /* GLX_BUILT_IN_XMESA */
 
 
 /*
- * AGP memory allocation
+ * Return our version number (YYYYMMDD format).  This might be used by
+ * the DRI drivers to determine how new libGL is at runtime.
  */
-void *GLX_PREFIX(glXAllocateMemoryNV)(GLsizei size,
-				      GLfloat readFrequency,
-				      GLfloat writeFrequency,
-				      GLfloat priority)
+int __glXGetInternalVersion(void)
 {
-   /* This is special - search the list of dynamically-added functions
-    * and call the allocator if present.
-    * More typically, the user will have gotten a pointer to
-    * glXAllocateMemoryNV() via glXGetProcAddress() so we won't be
-    * doing this.
-    */
-   typedef void * (*allocFunc)(GLsizei size, GLfloat readFrequency, GLfloat writeFrequency, GLfloat priority);
-   const struct name_address_pair *ext;
-   static allocFunc f = (allocFunc) NULL;
-
-   if (!f) {
-      for (ext = Dynamic_GLX_functions; ext; ext = ext->Next) {
-	 if (strcmp(ext->Name, "glXAllocateMemoryNV") == 0) {
-	    f = (allocFunc) ext->Address;
-	    break;
-	 }
-      }
-   }
-   if (f)
-      return (*f)(size, readFrequency, writeFrequency, priority);
-   return NULL;
+    /* History:
+     * 20021121 - Initial version
+     * 20021128 - Added __glXWindowExists() function
+     * 20021207 - Added support for dynamic GLX extensions,
+     *            GLX_SGI_swap_control, GLX_SGI_video_sync,
+     *            GLX_OML_sync_control, and GLX_MESA_swap_control.
+     *            Never officially released.  Do NOT test against
+     *            this version.  Use 20030317 instead.
+     * 20030317 - Added support GLX_SGIX_fbconfig,
+     *            GLX_MESA_swap_frame_usage, GLX_OML_swap_method,
+     *            GLX_{ARB,SGIS}_multisample, and
+     *            GLX_SGIX_visual_select_group.
+     * 20030606 - Added support for GLX_SGI_make_current_read.
+     * 20030813 - Made support for dynamic extensions multi-head aware.
+     * 20030818 - Added support for GLX_MESA_allocate_memory in place of the
+     *            deprecated GLX_NV_vertex_array_range & GLX_MESA_agp_offset
+     *            interfaces.
+     */
+    return 20030818;
 }
 
 
-void GLX_PREFIX(glXFreeMemoryNV)(GLvoid *pointer)
-{
-   /* This is special - search the list of dynamically-added functions
-    * and call the free func if present.
-    * More typically, the user will have gotten a pointer to
-    * glXFreeMemoryNV() via glXGetProcAddress() so we won't be
-    * doing this.
-    */
-   typedef void * (*freeFunc)(GLvoid *pointer);
-   const struct name_address_pair *ext;
-   static freeFunc f = (freeFunc) NULL;
 
-   if (!f) {
-      for (ext = Dynamic_GLX_functions; ext; ext = ext->Next) {
-	 if (strcmp(ext->Name, "glXFreeMemoryNV") == 0) {
-	    f = (freeFunc) ext->Address;
-	    break;
-	 }
-      }
-   }
-   if (f)
-      (*f)(pointer);
+static Bool windowExistsFlag;
+
+static int windowExistsErrorHandler(Display *dpy, XErrorEvent *xerr)
+{
+    if (xerr->error_code == BadWindow) {
+        windowExistsFlag = GL_FALSE;
+    }
+    return 0;
+}
+
+/*
+ * Utility function useful to DRI drivers.
+ */
+Bool __glXWindowExists(Display *dpy, GLXDrawable draw)
+{
+    XWindowAttributes xwa;
+    int (*oldXErrorHandler)(Display *, XErrorEvent *);
+
+    XSync(dpy, GL_FALSE);
+    windowExistsFlag = GL_TRUE;
+    oldXErrorHandler = XSetErrorHandler(windowExistsErrorHandler);
+    XGetWindowAttributes(dpy, draw, &xwa); /* dummy request */
+    XSetErrorHandler(oldXErrorHandler);
+    return windowExistsFlag;
 }
 
 
-GLuint GLX_PREFIX(glXGetAGPOffsetMESA)( const GLvoid *pointer )
+/**
+ * Get the unadjusted system time (UST).  Currently, the UST is measured in
+ * microseconds since Epoc.  The actual resolution of the UST may vary from
+ * system to system, and the units may vary from release to release.
+ *
+ * \param ust Location to store the 64-bit UST
+ * \returns Zero on success or a negative errno value on failure.
+ */
+int __glXGetUST( int64_t * ust )
 {
-   /* This is special - search the list of dynamically-added functions
-    * and call the free func if present.
-    * More typically, the user will have gotten a pointer to
-    * glXGetAGPOffsetMESA() via glXGetProcAddress() so we won't be
-    * doing this.
-    */
-   typedef GLuint (*getAGPOffsetFunc)(const GLvoid *pointer);
-   const struct name_address_pair *ext;
-   static getAGPOffsetFunc f = (getAGPOffsetFunc) NULL;
+    struct timeval  tv;
+    
+    if ( ust == NULL ) {
+	return -EFAULT;
+    }
 
-   if (!f) {
-      for (ext = Dynamic_GLX_functions; ext; ext = ext->Next) {
-	 if (strcmp(ext->Name, "glXGetAGPOffsetMESA") == 0) {
-	    f = (getAGPOffsetFunc) ext->Address;
-	    break;
-	 }
-      }
-   }
-   if (f)
-      return (*f)(pointer);
-   else
-      return ~0;
+    if ( gettimeofday( & tv, NULL ) == 0 ) {
+	ust[0] = (tv.tv_sec * 1000000) + tv.tv_usec;
+	return 0;
+    } else {
+	return -errno;
+    }
 }

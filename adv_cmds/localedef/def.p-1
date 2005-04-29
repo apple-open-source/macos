@@ -1,0 +1,157 @@
+#
+LC_CTYPE
+lower   <a>;<b>;<c>;<c-cedilla>;<d>;...;<z>
+upper   A;B;C;C;...;Z
+space   \x20;\x09;\x0a;\x0b;\x0c;\x0d
+blank   \040;\011
+toupper (<a>,<A>);(b,B);(c,C);(c,C);(d,D);(z,Z)
+digit 3;2
+END LC_CTYPE
+#
+LC_COLLATE
+#
+# The following example of collation is based on the proposed
+# Canadian standard Z243.4.1-1990, "Canadian Alphanumeric
+# Ordering Standard For Character sets of CSA Z234.4 Standard".
+# (Other parts of this example locale definition file do not
+# purport to relate to Canada, or to any other real culture.)
+# The proposed standard defines a 4-weight collation, such that
+# in the first pass, characters are compared without regard to
+# case or accents; in second pass, backwards compare without
+# regard to case; in the third pass, forward compare without
+# regard to diacriticals.  In the 3 first passes, non-alphabetic
+# characters are ignored; in the fourth pass, only special
+# characters are considered, such that "The string that has a
+# special character in the lowest position comes first.  If two
+# strings have a special character in the same position, the
+# collation value of the special character determines ordering.
+#
+# Only a subset of the character set is used here; mostly to
+# illustrate the set-up.
+#
+#
+collating-symbol <LOW_VALUE>
+collating-symbol <LOWER-CASE>
+collating-symbol <SUBSCRIPT-LOWER>
+collating-symbol <SUPERSCRIPT-LOWER>
+collating-symbol <UPPER-CASE>
+collating-symbol <NO-ACCENT>
+collating-symbol <PECULIAR>
+collating-symbol <LIGATURE>
+collating-symbol <ACUTE>
+collating-symbol <GRAVE>
+collating-symbol <RING-ABOVE>
+collating-symbol <DIAERESIS>
+collating-symbol <TILDE>
+# Further collating-symbols follow.
+#
+# Properly, the standard does not include any multi-character
+# collating elements; the one below is added for completeness.
+#
+collating_element <ch> from "<c><h>"
+collating_element <CH> from "<C><H>"
+collating_element <Ch> from "<C><h>"
+collating_element <AE> from "<A><E>"
+collating_element <ae> from "<a><e>"
+#
+order_start forward;backward;forward;forward,position
+#
+# Collating symbols are specified first in the sequence to allocate
+# basic collation values to them, lower than that of any character.
+<LOW_VALUE>
+<LOWER-CASE>
+<SUBSCRIPT-LOWER>
+<SUPERSCRIPT-LOWER>
+<UPPER-CASE>
+<NO-ACCENT>
+<PECULIAR>
+<LIGATURE>
+<ACUTE>
+<GRAVE>
+<RING-ABOVE>
+<DIAERESIS>
+<TILDE>
+# Further collating symbols are given a basic collating value here.
+#
+# Here follow special characters.
+<space>        IGNORE;IGNORE;IGNORE;<space>
+# Other special characters follow here.
+#
+# Here follow the regular characters.
+<a>        <a>;<NO-ACCENT>;<LOWER-CASE>;IGNORE
+<A>        <a>;<NO-ACCENT>;<UPPER-CASE>;IGNORE
+<a-acute>  <a>;<ACUTE>;<LOWER-CASE>;IGNORE
+<A-acute>  <a>;<ACUTE>;<UPPER-CASE>;IGNORE
+<a-grave>  <a>;<GRAVE>;<LOWER-CASE>;IGNORE
+<A-grave>  <a>;<GRAVE>;<UPPER-CASE>;IGNORE
+<ae>      "<a><e>";"<LIGATURE><LIGATURE>";\
+          "<LOWER-CASE><LOWER-CASE>";IGNORE
+<AE>      "<a><e>";"<LIGATURE><LIGATURE>";\
+          "<UPPER-CASE><UPPER-CASE>";IGNORE
+<b>        <b>;<NO-ACCENT>;<LOWER-CASE>;IGNORE
+...        ...;<NO-ACCENT>;<LOWER-CASE>;IGNORE
+<z>        ...;<NO-ACCENT>;<LOWER-CASE>;IGNORE
+<B>        <b>;<NO-ACCENT>;<UPPER-CASE>;IGNORE
+<c>        <c>;<NO-ACCENT>;<LOWER-CASE>;IGNORE
+<C>        <c>;<NO-ACCENT>;<UPPER-CASE>;IGNORE
+<ch>       <ch>;<NO-ACCENT>;<LOWER-CASE>;IGNORE
+<Ch>       <ch>;<NO-ACCENT>;<PECULIAR>;IGNORE
+<CH>       <ch>;<NO-ACCENT>;<UPPER-CASE>;IGNORE
+#
+# As an example, the strings "Bach" and "bach" could be encoded (for
+# compare purposes) as:
+# "Bach"  <b>;<a>;<ch>;<LOW_VALUE>;<NO_ACCENT>;<NO_ACCENT>;\
+#            <NO_ACCENT>;<LOW_VALUE>;<UPPER>;<LOWER>;<LOWER>;<NULL>
+# "bach"  <b>;<a>;<ch>;<LOW_VALUE>;<NO_ACCENT>;<NO_ACCENT>;\
+#            <NO_ACCENT>;<LOW_VALUE>;<LOWER>;<LOWER>;<LOWER>;<NULL>
+#
+# The two strings are equal in pass 1 and 2, but differ in pass 3.
+#
+# Further characters follow.
+#
+UNDEFINED    IGNORE;IGNORE;IGNORE;IGNORE
+#
+order_end
+#
+END LC_COLLATE
+#
+LC_MONETARY
+int_curr_symbol    "USD "
+currency_symbol    "$"
+mon_decimal_point  "."
+mon_grouping       3;0
+positive_sign      ""
+negative_sign      "-"
+p_cs_precedes      1
+n_sign_posn        0
+END LC_MONETARY
+#
+LC_NUMERIC
+copy "US_en.ASCII"
+decimal_point .
+thousands_sep \,
+grouping 3;3
+END LC_NUMERIC
+#
+LC_TIME
+abday   "Sun";"Mon";"Tue";"Wed";"Thu";"Fri";"Sat"
+#
+day     "Sunday";"Monday";"Tuesday";"Wednesday";\
+        "Thursday";"Friday";"Saturday"
+#
+abmon   "Jan";"Feb";"Mar";"Apr";"May";"Jun";\
+         "Jul";"Aug";"Sep";"Oct";"Nov";"Dec"
+#
+mon     "January";"February";"March";"April";\
+        "May";"June";"July";"August";"September";\
+        "October";"November";"December"
+#
+d_t_fmt "%a %b %d %T %Z %Y\n"
+am_pm	"Am";"Pm"
+END LC_TIME
+#
+LC_MESSAGES
+yesexpr "^([yY][[:alpha:]]*)|(OK)"
+#
+noexpr  "^[nN][[:alpha:]]*"
+END LC_MESSAGES

@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:53:40 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/Xserver/os/Imakefile,v 3.38 2002/11/14 21:01:21 tsi Exp $
+XCOMM $XFree86: xc/programs/Xserver/os/Imakefile,v 3.41 2003/10/26 12:17:18 herrb Exp $
 
 #include <Server.tmpl>
 
@@ -79,19 +79,31 @@ MALLOC_SRCS=xalloc.c
 MALLOC_OBJS=xalloc.o
 #endif
 
+#if !HasSnprintf
+SNPRINTF_SRCS = snprintf.c
+SNPRINTF_OBJS = snprintf.o
+#endif
+
+#if !HasStrlcat
+STRLCAT_SRCS = strlcat.c strlcpy.c
+STRLCAT_OBJS = strlcat.o strlcpy.o
+#endif
+
 #if HasGetpeereid
 GETPEEREID_DEFINES = -DHAS_GETPEEREID
 #endif
 
 BOOTSTRAPCFLAGS = 
            SRCS = WaitFor.c access.c connection.c io.c $(COLOR_SRCS) \
-                  osinit.c utils.c auth.c mitauth.c secauth.c $(XDMAUTHSRCS) \
-                  $(RPCSRCS) $(KRB5SRCS) xdmcp.c decompress.c OtherSources \
-                  transport.c $(MALLOC_SRCS) $(LBX_SRCS)
+                  osinit.c utils.c log.c auth.c mitauth.c secauth.c \
+                  $(XDMAUTHSRCS) $(RPCSRCS) $(KRB5SRCS) xdmcp.c OtherSources \
+                  transport.c $(SNPRINTF_SRCS) $(STRLCAT_SRCS) \
+		  $(MALLOC_SRCS) $(LBX_SRCS)
            OBJS = WaitFor.o access.o connection.o io.o $(COLOR_OBJS) \
-                  osinit.o utils.o auth.o mitauth.o secauth.o $(XDMAUTHOBJS) \
-                  $(RPCOBJS) $(KRB5OBJS) xdmcp.o decompress.o OtherObjects \
-                  transport.o $(MALLOC_OBJS) $(LBX_OBJS)
+                  osinit.o utils.o log.o auth.o mitauth.o secauth.o \
+                  $(XDMAUTHOBJS) $(RPCOBJS) $(KRB5OBJS) xdmcp.o OtherObjects \
+                  transport.o $(SNPRINTF_OBJS) $(STRLCAT_OBJS) \
+		  $(MALLOC_OBJS) $(LBX_OBJS)
 
 #if SpecialMalloc
      MEM_DEFINES = -DSPECIAL_MALLOC
@@ -116,7 +128,8 @@ BOOTSTRAPCFLAGS =
 #endif
         DEFINES = -DXSERV_t -DTRANS_SERVER $(CONNECTION_FLAGS) $(MEM_DEFINES) \
 		  $(XDMAUTHDEFS) $(RPCDEFS) $(SIGNAL_DEFINES) $(OS_DEFINES) \
-		  $(KRB5_DEFINES) $(RGB_DEFINES) $(GETPEEREID_DEFINES)
+		  $(KRB5_DEFINES) $(RGB_DEFINES) $(GETPEEREID_DEFINES) \
+		  $(RANDOM_DEFINES)
        INCLUDES = -I. -I../include -I$(XINCLUDESRC) -I$(EXTINCSRC) \
 		  -I$(SERVERSRC)/Xext -I$(FONTINCSRC) -I$(SERVERSRC)/render \
 		  -I$(TOP)/lib/Xau -I../lbx Krb5Includes
@@ -170,12 +183,18 @@ SpecialCObjectRule(oscolor,$(ICONFIGFILES),$(DBM_DEFINES))
 LinkSourceFile(k5encode.c,$(XAUTHSRC))
 #endif
 
-#if DoLoadableServer
-AllTarget(libcwrapper.o)
-ObjectFromSpecialSource(libcwrapper,$(XF86OSSRC)/shared/libc_wrapper,-DSELF_CONTAINED_WRAPPER)
 #if !HasSnprintf
 LinkSourceFile(snprintf.c,$(LIBSRC)/misc)
 #endif
+
+#if !HasStrlcat
+LinkSourceFile(strlcat.c,$(LIBSRC)/misc)
+LinkSourceFile(strlcpy.c,$(LIBSRC)/misc)
+#endif
+
+#if DoLoadableServer
+AllTarget(libcwrapper.o)
+ObjectFromSpecialSource(libcwrapper,$(XF86OSSRC)/shared/libc_wrapper,-DSELF_CONTAINED_WRAPPER)
 #endif
 
 DependTarget()

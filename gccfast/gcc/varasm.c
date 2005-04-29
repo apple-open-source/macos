@@ -1273,6 +1273,13 @@ assemble_start_function (decl, fnname)
 
   /* APPLE LOCAL end - rarely executed bb optimization */
 
+  /* APPLE LOCAL begin dead code strip.  */
+#ifdef ASM_DECL_MARK_LIVE
+  if (TREE_LIVE (decl))
+    ASM_DECL_MARK_LIVE (fnname);
+#endif
+  /* APPLE LOCAL end dead code strip.  */
+
   /* Do any machine/system dependent processing of the function name */
 #ifdef ASM_DECLARE_FUNCTION_NAME
   ASM_DECLARE_FUNCTION_NAME (asm_out_file, fnname, current_function_decl);
@@ -1633,6 +1640,14 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 
   if (TREE_PUBLIC (decl))
     maybe_assemble_visibility (decl);
+
+  /* APPLE LOCAL begin dead code strip.  */
+#ifdef ASM_DECL_MARK_LIVE
+  if (TREE_LIVE (decl))
+    ASM_DECL_MARK_LIVE (name);
+#endif
+  /* APPLE LOCAL end dead code strip.  */
+
 
   /* Output any data that we will need to use the address of.  */
   if (DECL_INITIAL (decl) == error_mark_node)

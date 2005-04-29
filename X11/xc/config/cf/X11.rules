@@ -1,7 +1,7 @@
 XCOMM $Xorg: X11.rules,v 1.4 2000/08/17 19:41:46 cpqbld Exp $
 
 
-XCOMM $XFree86: xc/config/cf/X11.rules,v 1.6 2001/01/17 16:22:31 dawes Exp $
+XCOMM $XFree86: xc/config/cf/X11.rules,v 1.7 2003/11/05 18:15:51 dawes Exp $
 
 /* Note whether we are the top level project. */
 #ifndef SeenTopLevelProject
@@ -43,7 +43,11 @@ XCOMM $XFree86: xc/config/cf/X11.rules,v 1.6 2001/01/17 16:22:31 dawes Exp $
 #ifdef UsrLibDirPath
 # undef UsrLibDirPath
 #endif
+#ifdef ExtraLibDirPath
+#define UsrLibDirPath	XUsrLibDirPath:ExtraLibDirPath
+#else
 #define UsrLibDirPath	XUsrLibDirPath
+#endif
 
 #if ImportX11
 # define XLdPreLibs	-L$(LIBSRC)

@@ -30,14 +30,15 @@
 #import <objc/zone.h>
 #import <malloc/malloc.h>
 #import <fcntl.h>
-#include <crt_externs.h>
+#import <crt_externs.h>
+#import <errno.h>
+#import <pthread_internals.h>
 
 #import "scalable_malloc.h"
 #import "stack_logging.h"
 
 #define USE_SLEEP_RATHER_THAN_ABORT	0
 
-#define MAX_ALLOCATION 0xc0000000 // beyond this, assume a programming error
 #define INITIAL_ZONES	8  // After this number, we reallocate for new zones
 
 typedef void (malloc_logger_t)(unsigned type, unsigned arg1, unsigned arg2, unsigned arg3, unsigned result, unsigned num_hot_frames_to_skip);
@@ -61,7 +62,7 @@ static int malloc_check_abort = 0; // default is to sleep, not abort
 
 static int malloc_free_abort = 0; // default is not to abort
 
-static int logfd = 2;	// malloc_printf file descriptor
+static int malloc_debug_file;
 
 #define MALLOC_LOCK()		LOCK(_malloc_lock)
 #define MALLOC_UNLOCK()		UNLOCK(_malloc_lock)
@@ -73,6 +74,7 @@ static int logfd = 2;	// malloc_printf file descriptor
 
 /*********	Utilities	************/
 
+static inline malloc_zone_t * find_registered_zone(const void *, size_t *) __attribute__((always_inline));
 static inline malloc_zone_t *
 find_registered_zone(const void *ptr, size_t *returned_size) {
     // locates the proper zone
@@ -101,10 +103,11 @@ _malloc_initialize(void) {
     (void)malloc_create_zone(0, 0);
     malloc_set_zone_name(malloc_zones[0], "DefaultMallocZone");
     LOCK_INIT(_malloc_lock);
-    // malloc_printf("Malloc: %d registered zones\n", malloc_num_zones);
-    // malloc_printf("malloc: malloc_zones is at %p; malloc_num_zones is at %p\n", (unsigned)&malloc_zones, (unsigned)&malloc_num_zones);
+    // malloc_printf("%d registered zones\n", malloc_num_zones);
+    // malloc_printf("malloc_zones is at %p; malloc_num_zones is at %p\n", (unsigned)&malloc_zones, (unsigned)&malloc_num_zones);
 }
 
+static inline malloc_zone_t *inline_malloc_default_zone(void) __attribute__((always_inline));
 static inline malloc_zone_t *
 inline_malloc_default_zone(void) {
     if (!malloc_num_zones) _malloc_initialize();
@@ -120,26 +123,28 @@ malloc_default_zone(void) {
 static void
 set_flags_from_environment(void) {
     const char *flag;
+    int fd;
+
     flag = getenv("MallocLogFile");
     if (flag) {
-	int fd = open(flag, O_WRONLY|O_APPEND|O_CREAT, 0644);
+	fd = open(flag, O_WRONLY|O_APPEND|O_CREAT, 0644);
 	if (fd >= 0) {
-	    logfd = fd;
-	    fcntl(fd, F_SETFD, 0); // clear close-on-exec flag
-	} else
-	    malloc_printf("malloc[%d]: Could not open %s, using stderr\n",
-		getpid(), flag);
+	    malloc_debug_file = fd;
+	    fcntl(fd, F_SETFD, 0); // clear close-on-exec flag  XXX why?
+	} else {
+	    malloc_printf("Could not open %s, using stderr\n", flag);
+	}
     }
     if (getenv("MallocGuardEdges")) {
 	malloc_debug_flags = SCALABLE_MALLOC_ADD_GUARD_PAGES;
-	malloc_printf("malloc[%d]: protecting edges\n", getpid());
+	malloc_printf("protecting edges\n");
 	if (getenv("MallocDoNotProtectPrelude")) {
 	    malloc_debug_flags |= SCALABLE_MALLOC_DONT_PROTECT_PRELUDE;
-	    malloc_printf("malloc[%d]: ... but not protecting prelude guard page\n", getpid());
+	    malloc_printf("... but not protecting prelude guard page\n");
 	}
 	if (getenv("MallocDoNotProtectPostlude")) {
 	    malloc_debug_flags |= SCALABLE_MALLOC_DONT_PROTECT_POSTLUDE;
-	    malloc_printf("malloc[%d]: ... but not protecting postlude guard page\n", getpid());
+	    malloc_printf("... but not protecting postlude guard page\n");
 	}
     }
     flag = getenv("MallocStackLogging");
@@ -154,15 +159,15 @@ set_flags_from_environment(void) {
 	malloc_logger = (val) ? (void *)val : stack_logging_log_stack;
 	stack_logging_enable_logging = 1;
 	if (malloc_logger == stack_logging_log_stack) {
-	    malloc_printf("malloc[%d]: recording stacks using standard recorder\n", getpid());
+	    malloc_printf("recording stacks using standard recorder\n");
 	} else {
-	    malloc_printf("malloc[%d]: recording stacks using recorder %p\n", getpid(), malloc_logger);
+	    malloc_printf("recording stacks using recorder %p\n", malloc_logger);
 	}
-	if (stack_logging_dontcompact) malloc_printf("malloc[%d]: stack logging compaction turned off; VM can increase rapidly\n", getpid());
+	if (stack_logging_dontcompact) malloc_printf("stack logging compaction turned off; VM can increase rapidly\n");
     }
     if (getenv("MallocScribble")) {
 	malloc_debug_flags |= SCALABLE_MALLOC_DO_SCRIBBLE;
-	malloc_printf("malloc[%d]: enabling scribbling to detect mods to free blocks\n", getpid());
+	malloc_printf("enabling scribbling to detect mods to free blocks\n");
     }
     flag = getenv("MallocCheckHeapStart");
     if (flag) {
@@ -175,26 +180,22 @@ set_flags_from_environment(void) {
 	    if (malloc_check_each == 0) malloc_check_each = 1;
 	    if (malloc_check_each == -1) malloc_check_each = 1;
 	}
-	malloc_printf("malloc[%d]: checks heap after %dth operation and each %d operations\n", getpid(), malloc_check_start, malloc_check_each);
+	malloc_printf("checks heap after %dth operation and each %d operations\n", malloc_check_start, malloc_check_each);
 	flag = getenv("MallocCheckHeapAbort");
 	if (flag)
 	    malloc_check_abort = strtol(flag, NULL, 0);
 	if (malloc_check_abort)
-	    malloc_printf("malloc[%d]: will abort on heap corruption\n",
-		getpid());
+	    malloc_printf("will abort on heap corruption\n");
 	else {
 	    flag = getenv("MallocCheckHeapSleep");
 	    if (flag)
 		malloc_check_sleep = strtol(flag, NULL, 0);
 	    if (malloc_check_sleep > 0)
-		malloc_printf("malloc[%d]: will sleep for %d seconds on heap corruption\n",
-		    getpid(), malloc_check_sleep);
+		malloc_printf("will sleep for %d seconds on heap corruption\n", malloc_check_sleep);
 	    else if (malloc_check_sleep < 0)
-		malloc_printf("malloc[%d]: will sleep once for %d seconds on heap corruption\n",
-		    getpid(), -malloc_check_sleep);
+		malloc_printf("will sleep once for %d seconds on heap corruption\n", -malloc_check_sleep);
 	    else
-		malloc_printf("malloc[%d]: no sleep on heap corruption\n",
-		    getpid());
+		malloc_printf("no sleep on heap corruption\n");
 	}
     }
     flag = getenv("MallocBadFreeAbort");
@@ -202,20 +203,21 @@ set_flags_from_environment(void) {
 	malloc_free_abort = strtol(flag, NULL, 0);
     if (getenv("MallocHelp")) {
 	malloc_printf(
-	    "malloc[%d]: environment variables that can be set for debug:\n"
+	    "environment variables that can be set for debug:\n"
 	    "- MallocLogFile <f> to create/append messages to file <f> instead of stderr\n"
 	    "- MallocGuardEdges to add 2 guard pages for each large block\n"
 	    "- MallocDoNotProtectPrelude to disable protection (when previous flag set)\n"
 	    "- MallocDoNotProtectPostlude to disable protection (when previous flag set)\n"
 	    "- MallocStackLogging to record all stacks.  Tools like leaks can then be applied\n"
 	    "- MallocStackLoggingNoCompact to record all stacks.  Needed for malloc_history\n"
-	    "- MallocScribble to detect writing on free blocks: 0x55 is written upon free\n"
+	    "- MallocScribble to detect writing on free blocks and missing initializers:\n"
+	    "  0x55 is written upon free and 0xaa is written on allocation\n"
 	    "- MallocCheckHeapStart <n> to start checking the heap after <n> operations\n"
 	    "- MallocCheckHeapEach <s> to repeat the checking of the heap after <s> operations\n"
 	    "- MallocCheckHeapSleep <t> to sleep <t> seconds on heap corruption\n"
 	    "- MallocCheckHeapAbort <b> to abort on heap corruption if <b> is non-zero\n"
 	    "- MallocBadFreeAbort <b> to abort on a bad free if <b> is non-zero\n"
-	    "- MallocHelp - this help!\n", getpid());
+	    "- MallocHelp - this help!\n");
     }
 }
 
@@ -227,6 +229,7 @@ malloc_create_zone(vm_size_t start_size, unsigned flags) {
 	char	**p;
 	char	*c;
 	/* Given that all environment variables start with "Malloc" we optimize by scanning quickly first the environment, therefore avoiding repeated calls to getenv() */
+	malloc_debug_file = STDERR_FILENO;
 	for (p = env; (c = *p) != NULL; ++p) {
 	    if (!strncmp(c, "Malloc", 6)) {
 		set_flags_from_environment(); 
@@ -288,11 +291,6 @@ internal_check(void) {
 void *
 malloc_zone_malloc(malloc_zone_t *zone, size_t size) {
     void	*ptr;
-    if ((unsigned)size >= MAX_ALLOCATION) {
-        /* Probably a programming error */
-        malloc_printf("*** malloc_zone_malloc[%d]: argument too large: %d\n", getpid(), size);
-        return NULL;
-    }
     if (malloc_check_start && (malloc_check_counter++ >= malloc_check_start)) {
 	internal_check();
     }
@@ -307,11 +305,6 @@ malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size) {
     if (malloc_check_start && (malloc_check_counter++ >= malloc_check_start)) {
 	internal_check();
     }
-    if (((unsigned)num_items >= MAX_ALLOCATION) || ((unsigned)size >= MAX_ALLOCATION) || ((long long)size * num_items >= (long long) MAX_ALLOCATION)) {
-        /* Probably a programming error */
-        malloc_printf("*** malloc_zone_calloc[%d]: arguments too large: %d,%d\n", getpid(), num_items, size);
-        return NULL;
-    }
     ptr = zone->calloc(zone, num_items, size);
     if (malloc_logger) malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE | MALLOC_LOG_TYPE_CLEARED, (unsigned)zone, num_items * size, 0, (unsigned)ptr, 0);
     return ptr;
@@ -320,11 +313,6 @@ malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size) {
 void *
 malloc_zone_valloc(malloc_zone_t *zone, size_t size) {
     void	*ptr;
-    if ((unsigned)size >= MAX_ALLOCATION) {
-        /* Probably a programming error */
-        malloc_printf("*** malloc_zone_valloc[%d]: argument too large: %d\n", getpid(), size);
-        return NULL;
-    }
     if (malloc_check_start && (malloc_check_counter++ >= malloc_check_start)) {
 	internal_check();
     }
@@ -398,7 +386,7 @@ malloc_zone_unregister(malloc_zone_t *z) {
         }
     }
     MALLOC_UNLOCK();
-    malloc_printf("*** malloc[%d]: malloc_zone_unregister() failed for %p\n", getpid(), z);
+    malloc_printf("*** malloc_zone_unregister() failed for %p\n", z);
 }
 
 void
@@ -418,67 +406,27 @@ malloc_get_zone_name(malloc_zone_t *zone) {
     return zone->zone_name;
 }
 
-static char *
-_malloc_append_unsigned(unsigned value, unsigned base, char *head) {
-    if (!value) {
-        head[0] = '0';
-    } else {
-        if (value >= base) head = _malloc_append_unsigned(value / base, base, head);
-        value = value % base;
-        head[0] = (value < 10) ? '0' + value : 'a' + value - 10;
-    }
-    return head+1;
-}
+/*
+ * XXX malloc_printf now uses _simple_{,v}dprintf.  It only deals with a
+ * subset of printf format specifiers, but it doesn't call malloc.
+ */
+void _simple_dprintf(int, const char *, ...);
+void _simple_vdprintf(int, const char *, va_list);
 
 void
-malloc_printf(const char *format, ...) {
-    va_list	args;
-    char	buf[1024];
-    char	*head = buf;
-    char	ch;
-    unsigned	*nums;
-    va_start(args, format);
-#if LOG_THREAD
-    head = _malloc_append_unsigned(((unsigned)&args) >> 12, 16, head);
-    *head++ = ' ';
-#endif
-    nums = (void *)args;
-    while (ch = *format++) {
-        if (ch == '%') {
-            ch = *format++;
-            if (ch == 's') {
-                char	*str = (char *)(*nums++);
-                write(logfd, buf, head - buf);
-                head = buf;
-                write(logfd, str, strlen(str));
-	    } else if (ch == 'y') {
-		unsigned	num = *nums++;
-		if (num == 0) {
-		    *head++ = '0';
-		} else if (num >= 10 * 1024 *1024) {
-		    // use a round number of MB
-		    head = _malloc_append_unsigned(num >> 20, 10, head);
-                    *head++ = 'M'; *head++ = 'B';
-		} else if (num >= 10 * 1024) {
-		    // use a round amount of KB
-		    head = _malloc_append_unsigned(num >> 10, 10, head);
-                    *head++ = 'K'; *head++ = 'B';
-		} else {
-		    head = _malloc_append_unsigned(num, 10, head);
-                    *head++ = 'b';
-		}
-            } else {
-                if (ch == 'p') {
-                    *head++ = '0'; *head++ = 'x';
-                }
-                head = _malloc_append_unsigned(*nums++, (ch == 'd') ? 10 : 16, head);
-            }
-        } else {
-            *head++ = ch;
-        }
+malloc_printf(const char *format, ...)
+{
+    va_list ap;
+
+    if (__is_threaded) {
+	/* XXX somewhat rude 'knowing' that pthread_t is a pointer */
+	_simple_dprintf(malloc_debug_file, "%s(%d,%p) malloc: ", getprogname(), getpid(), (void *)pthread_self());
+    } else {
+	_simple_dprintf(malloc_debug_file, "%s(%d) malloc: ", getprogname(), getpid());
     }
-    write(logfd, buf, head - buf); fflush(stderr);
-    va_end(args);
+    va_start(ap, format);
+    _simple_vdprintf(malloc_debug_file, format, ap);
+    va_end(ap);
 }
 
 /*********	Generic ANSI callouts	************/
@@ -511,7 +459,9 @@ free(void *ptr) {
     if (zone) {
         malloc_zone_free(zone, ptr);
     } else {
-        malloc_printf("*** malloc[%d]: Deallocation of a pointer not malloced: %p; This could be a double free(), or free() called with the middle of an allocated block; Try setting environment variable MallocHelp to see tools to help debug\n", getpid(), ptr);
+        malloc_printf("***  Deallocation of a pointer not malloced: %p; "
+	  "This could be a double free(), or free() called with the middle of an allocated block; "
+	  "Try setting environment variable MallocHelp to see tools to help debug\n", ptr);
 	if (malloc_free_abort)
 	    abort();
     }
@@ -633,14 +583,14 @@ malloc_get_all_zones(task_t task, memory_reader_t reader, vm_address_t **address
     err = reader(task, remote_malloc_zones, sizeof(void *), (void **)&zones_address_ref);
     // printf("Read malloc_zones[%p]=%p\n", remote_malloc_zones, *zones_address_ref);
     if (err) {
-        malloc_printf("*** malloc[%d]: malloc_get_all_zones: error reading zones_address at %p\n", getpid(), (unsigned)remote_malloc_zones);
+        malloc_printf("*** malloc_get_all_zones: error reading zones_address at %p\n", (unsigned)remote_malloc_zones);
         return err;
     }
     zones_address = *zones_address_ref;
     // printf("Reading num_zones at address %p\n", remote_malloc_num_zones);
     err = reader(task, remote_malloc_num_zones, sizeof(unsigned), (void **)&num_zones_ref);
     if (err) {
-        malloc_printf("*** malloc[%d]: malloc_get_all_zones: error reading num_zones at %p\n",  getpid(), (unsigned)remote_malloc_num_zones);
+        malloc_printf("*** malloc_get_all_zones: error reading num_zones at %p\n", (unsigned)remote_malloc_num_zones);
         return err;
     }
     num_zones = *num_zones_ref;
@@ -649,7 +599,7 @@ malloc_get_all_zones(task_t task, memory_reader_t reader, vm_address_t **address
     // printf("malloc_get_all_zones succesfully found %d zones\n", num_zones);
     err = reader(task, zones_address, sizeof(malloc_zone_t *) * num_zones, (void **)addresses);
     if (err) {
-        malloc_printf("*** malloc[%d]: malloc_get_all_zones: error reading zones at %p\n", getpid(), (unsigned)&zones_address);
+        malloc_printf("*** malloc_get_all_zones: error reading zones at %p\n", (unsigned)&zones_address);
         return err;
     }
     // printf("malloc_get_all_zones succesfully read %d zones\n", num_zones);
@@ -734,7 +684,7 @@ malloc_zone_log(malloc_zone_t *zone, void *address) {
 
 static void
 DefaultMallocError(int x) {
-    malloc_printf("*** malloc[%d]: error %d\n", getpid(), x);
+    malloc_printf("*** error %d\n", x);
 #if USE_SLEEP_RATHER_THAN_ABORT
     sleep(3600);
 #else
@@ -780,10 +730,27 @@ _malloc_fork_child() {
     }
 }
 
-size_t
-mstats(void) {
-    malloc_zone_print(NULL, 0);
-    return 1;
+/*
+ * A Glibc-like mstats() interface.
+ *
+ * Note that this interface really isn't very good, as it doesn't understand
+ * that we may have multiple allocators running at once.  We just massage
+ * the result from malloc_zone_statistics in any case.
+ */
+struct mstats
+mstats(void)
+{
+    malloc_statistics_t s;
+    struct mstats m;
+
+    malloc_zone_statistics(NULL, &s);
+    m.bytes_total = s.size_allocated;
+    m.chunks_used = s.blocks_in_use;
+    m.bytes_used = s.size_in_use;
+    m.chunks_free = 0;
+    m.bytes_free = m.bytes_total - m.bytes_used;	/* isn't this somewhat obvious? */
+
+    return(m);
 }
 
 /*****************	OBSOLETE ENTRY POINTS	********************/
@@ -799,7 +766,7 @@ set_malloc_singlethreaded(boolean_t single) {
     static boolean_t warned = 0;
     if (!warned) {
 #if PHASE_OUT_OLD_MALLOC
-        malloc_printf("*** malloc[%d]: OBSOLETE: set_malloc_singlethreaded(%d)\n", getpid(), single);
+        malloc_printf("*** OBSOLETE: set_malloc_singlethreaded(%d)\n", single);
 #endif
         warned = 1;
     }
@@ -809,13 +776,13 @@ void
 malloc_singlethreaded() {
     static boolean_t warned = 0;
     if (!warned) {
-        malloc_printf("*** malloc[%d]: OBSOLETE: malloc_singlethreaded()\n", getpid());
+        malloc_printf("*** OBSOLETE: malloc_singlethreaded()\n");
         warned = 1;
     }
 }
 
 int
 malloc_debug(int level) {
-    malloc_printf("*** malloc[%d]: OBSOLETE: malloc_debug()\n", getpid());
+    malloc_printf("*** OBSOLETE: malloc_debug()\n");
     return 0;
 }

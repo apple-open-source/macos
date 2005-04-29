@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeWMCMac.man,v 1.2 2001/01/27 18:20:05 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeWMCMac.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,21 +144,12 @@
 .SH NAME
 XSetWMClientMachine, XGetWMClientMachine \- set or read a window's WM_CLIENT_MACHINE property
 .SH SYNTAX
-void XSetWMClientMachine\^(\^\fIdisplay\fP, \fIw\fP, \fItext_prop\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XTextProperty *\fItext_prop\fP\^;
-.LP
-Status XGetWMClientMachine\^(\^\fIdisplay\fP, \fIw\fP, \fItext_prop_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XTextProperty *\fItext_prop_return\fP\^;
+.HP
+void XSetWMClientMachine\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^,
+XTextProperty *\fItext_prop\fP\^); 
+.HP
+Status XGetWMClientMachine\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^,
+XTextProperty *\fItext_prop_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

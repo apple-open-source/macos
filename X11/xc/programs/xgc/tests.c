@@ -1,6 +1,6 @@
 /*
 ** $XConsortium: tests.c,v 1.20 91/06/08 18:57:07 rws Exp $
-** $XFree86: xc/programs/xgc/tests.c,v 1.10 2002/05/31 18:46:13 dawes Exp $
+** $XFree86: xc/programs/xgc/tests.c,v 1.12 2003/10/24 20:38:18 tsi Exp $
 **
 */
 
@@ -28,12 +28,6 @@
 #define random lrand48
 #endif
 
-extern XStuff X;
-extern Widget result;
-
-extern void GC_change_font();
-extern void print_if_recording();
-void show_result();
 
 /* timer(flag)
 ** -----------
@@ -46,8 +40,7 @@ void show_result();
 */
 
 static long
-timer(flag)
-     int flag;
+timer(int flag)
 {
 #if !defined(SYSV)
   static struct timeval starttime;  /* starting time for gettimeofday() */
@@ -96,7 +89,7 @@ timer(flag)
       return((long) NULL);
     }
 #else
-  static long starttime;
+  static time_t starttime;
   
   switch (flag) {
     case StartTimer:
@@ -113,7 +106,7 @@ timer(flag)
 
 
 void
-copyarea_test()
+copyarea_test(void)
 {
   int num_copies = 200;
   int i;
@@ -133,12 +126,12 @@ copyarea_test()
   XSync(X.dpy,0);
   totaltime = timer(EndTimer);
 
-  sprintf(buf,"%.2f seconds.",(double)totaltime/1000000.);
+  snprintf(buf,sizeof buf,"%.2f seconds.",(double)totaltime/1000000.);
   show_result(buf);
 }
 
 void
-copyplane_test()
+copyplane_test(void)
 {
   int num_copies = 200;
   int i;
@@ -166,13 +159,12 @@ copyplane_test()
   totaltime = timer(EndTimer);
   XSetPlaneMask(X.dpy, X.gc, X.gcv.plane_mask);
 
-  sprintf(buf,"%.2f seconds.",(double)totaltime/1000000.);
+  snprintf(buf,sizeof buf,"%.2f seconds.",(double)totaltime/1000000.);
   show_result(buf);
 }
 
 void
-circle_line_test(num_vertices,radius)
-     int num_vertices,radius;
+circle_line_test(int num_vertices, int radius)
 {
   double theta, delta;
   int length, centerx, centery, i;
@@ -201,7 +193,7 @@ circle_line_test(num_vertices,radius)
   XSync(X.dpy,0);
   totaltime = timer(EndTimer);
 
-  sprintf(buf,"%d lines of length %d in %.3f seconds.",num_vertices,
+  snprintf(buf,sizeof buf,"%d lines of length %d in %.3f seconds.",num_vertices,
 	  length,(double)totaltime/1000000.);
   show_result(buf);
 
@@ -211,13 +203,13 @@ circle_line_test(num_vertices,radius)
 
 
 void
-polyline_test()
+polyline_test(void)
 {
   circle_line_test((int)(601*X.percent),190);
 }
 
 void
-polysegment_test()
+polysegment_test(void)
 {
   XSegment *segments;
   int num_segments = 600;
@@ -245,7 +237,7 @@ polysegment_test()
   XSync(X.dpy,0);
   totaltime = end_timer();
   
-  sprintf(buf,"%d segments in %.3f seconds.",num_segments,
+  snprintf(buf,sizeof buf,"%d segments in %.3f seconds.",num_segments,
 	  (double)totaltime/1000000.);
   show_result(buf);
 
@@ -253,7 +245,7 @@ polysegment_test()
 }
 
 void
-polypoint_test()
+polypoint_test(void)
 {
   XPoint *points;
   int num_points = 100000;
@@ -279,7 +271,7 @@ polypoint_test()
   XSync(X.dpy,0);
   totaltime = end_timer();
 
-  sprintf(buf,"%d points in %.3f seconds.",num_points,
+  snprintf(buf,sizeof buf,"%d points in %.3f seconds.",num_points,
 	  (double)totaltime/1000000.);
   show_result(buf);
 
@@ -287,8 +279,7 @@ polypoint_test()
 }
 
 void
-genericrectangle_test(fill)
-     Boolean fill;
+genericrectangle_test(Boolean fill)
 {
   XRectangle *rects;
   int num_rects = 200;
@@ -316,9 +307,9 @@ genericrectangle_test(fill)
   totaltime = end_timer();
 
   if (fill)
-    sprintf(buf,"%d pixels in %.2f seconds.",area,(double)totaltime/1000000.);
+    snprintf(buf,sizeof buf,"%d pixels in %.2f seconds.",area,(double)totaltime/1000000.);
   else
-    sprintf(buf,"Total line length %d in %.3f seconds.",perimeter,
+    snprintf(buf,sizeof buf,"Total line length %d in %.3f seconds.",perimeter,
 	    (double)totaltime/1000000.);
   show_result(buf);
 
@@ -326,13 +317,13 @@ genericrectangle_test(fill)
 }
 
 void
-polyrectangle_test()
+polyrectangle_test(void)
 {
   genericrectangle_test(FALSE);
 }
 
 void
-polyfillrectangle_test()
+polyfillrectangle_test(void)
 {
   genericrectangle_test(TRUE);
 }
@@ -340,7 +331,7 @@ polyfillrectangle_test()
 /*****************************/
 
 void
-fillpolygon_test()
+fillpolygon_test(void)
 {
   int i;
   int points_per_side = 40;
@@ -383,8 +374,7 @@ fillpolygon_test()
 /*****************************/
 
 void
-genericarc_test(fill)
-     Boolean fill;
+genericarc_test(Boolean fill)
 {
   XArc *arcs;
   int num_arcs = 180;
@@ -412,7 +402,7 @@ genericarc_test(fill)
   XSync(X.dpy,0);
   totaltime = end_timer();
 
-  sprintf(buf,"An uncounted number of pixels in %.3f seconds.",
+  snprintf(buf,sizeof buf,"An uncounted number of pixels in %.3f seconds.",
 	  (double)totaltime/1000000.);
   show_result(buf);
 
@@ -420,13 +410,13 @@ genericarc_test(fill)
 }
 
 void
-polyarc_test()
+polyarc_test(void)
 {
   genericarc_test(FALSE);
 }
 
 void
-polyfillarc_test()
+polyfillarc_test(void)
 {
   genericarc_test(TRUE);
 }
@@ -434,7 +424,7 @@ polyfillarc_test()
 static const char string8[] = "pack my box with five dozen liquor jugs";
 
 void
-polytext8_test()
+polytext8_test(void)
 {
   int num_strings = 200;
   int i;
@@ -452,13 +442,13 @@ polytext8_test()
   XSync(X.dpy,0);
   totaltime = end_timer();
 
-  sprintf(buf,"%d strings in %.2f seconds.",num_strings,
+  snprintf(buf,sizeof buf,"%d strings in %.2f seconds.",num_strings,
 	  (double) totaltime/1000000.);
   show_result(buf);
 }
 
 void
-imagetext8_test()
+imagetext8_test(void)
 {
   int num_strings = 200;
   int i;
@@ -476,12 +466,12 @@ imagetext8_test()
   XSync(X.dpy,0);
   totaltime = end_timer();
 
-  sprintf(buf,"%d strings in %.2f seconds.",num_strings,
+  snprintf(buf,sizeof buf,"%d strings in %.2f seconds.",num_strings,
 	  (double) totaltime/1000000.);
   show_result(buf);
 }
 
-static const char unicode_font[] =
+static char unicode_font[] =
   "-misc-fixed-medium-r-semicondensed--13-120-75-75-c-60-iso10646-1";
 
 static const XChar2b string16[] = {
@@ -508,7 +498,7 @@ static const XChar2b string16[] = {
 };
 
 void
-polytext16_test()
+polytext16_test(void)
 {
   int num_strings = 50;
   int i;
@@ -530,13 +520,13 @@ polytext16_test()
 
   GC_change_font(X.fontname,FALSE);
 
-  sprintf(buf,"%d strings in %.2f seconds.",num_strings,
+  snprintf(buf,sizeof buf,"%d strings in %.2f seconds.",num_strings,
 	  (double) totaltime/1000000.);
   show_result(buf);
 }
 
 void
-imagetext16_test()
+imagetext16_test(void)
 {
   int num_strings = 50;
   int i;
@@ -558,13 +548,13 @@ imagetext16_test()
 
   GC_change_font(X.fontname,FALSE);
 
-  sprintf(buf,"%d strings in %.2f seconds.",num_strings,
+  snprintf(buf,sizeof buf,"%d strings in %.2f seconds.",num_strings,
 	  (double) totaltime/1000000.);
   show_result(buf);
 }
 
 void
-putimage_test()
+putimage_test(void)
 {
   int num_copies = 200;
   int i;
@@ -585,7 +575,7 @@ putimage_test()
   XSync(X.dpy,0);
   totaltime = timer(EndTimer);
 
-  sprintf(buf,"%.2f seconds.",(double)totaltime/1000000.);
+  snprintf(buf,sizeof buf,"%.2f seconds.",(double)totaltime/1000000.);
   show_result(buf);
 }
 
@@ -594,7 +584,7 @@ putimage_test()
 /*****************************/
 
 void
-run_test()
+run_test(void)
 {
   XClearWindow(X.dpy,X.win);
 
@@ -628,9 +618,7 @@ run_test()
 */
 
 void
-set_text(w,string)
-     Widget w;
-     char *string;
+set_text(Widget w, char *string)
 {
   static Arg args[2];
 
@@ -640,8 +628,7 @@ set_text(w,string)
 }
 
 void
-show_result(string)
-     char *string;
+show_result(char *string)
 {
   char buf[80];
 

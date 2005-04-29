@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bus/Pci.h,v 1.36 2002/12/23 15:37:26 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bus/Pci.h,v 1.46 2004/02/13 23:58:47 dawes Exp $ */
 /*
  * Copyright 1998 by Concurrent Computer Corporation
  *
@@ -69,6 +69,53 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+/*
+ * Copyright (c) 1999-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 
 /*
  * This file has the private Pci definitions.  The public ones are imported
@@ -97,10 +144,8 @@
 # define MAX_PCI_BUSES   256	/* Max number of PCI buses           */
 #endif
 
-#define PCI_NOT_FOUND   0xffffffff
-
 #define DEVID(vendor, device) \
-    ((CARD32)((PCI_CHIP_##device << 16) | PCI_VENDOR_##vendor))
+    ((CARD32)((PCI_##device << 16) | PCI_##vendor))
 
 #ifndef PCI_DOM_MASK
 # define PCI_DOM_MASK 0x0ffu
@@ -230,11 +275,14 @@
 #  define ARCH_PCI_INIT linuxPciInit
 #  define INCLUDE_XF86_MAP_PCI_MEM
 #  define INCLUDE_XF86_NO_DOMAIN
+# elif defined(FreeBSD)
+#  define ARCH_PCI_INIT freebsdPciInit
+#  define INCLUDE_XF86_MAP_PCI_MEM
+#  define INCLUDE_XF86_NO_DOMAIN
 # endif
 # define XF86SCANPCI_WRAPPER ia64ScanPCIWrapper
-#elif defined(__i386__)
+#elif defined(__i386__) || defined(i386)
 # define ARCH_PCI_INIT ix86PciInit
-# define ARCH_PCI_HOST_BRIDGE ix86PciHostBridge
 # define INCLUDE_XF86_MAP_PCI_MEM
 # define INCLUDE_XF86_NO_DOMAIN
 # if defined(linux)
@@ -291,14 +339,20 @@
 # elif defined(sun)
 #  define ARCH_PCI_INIT sparcPciInit
 #  define INCLUDE_XF86_MAP_PCI_MEM
-# elif defined(__OpenBSD__) && defined(__sparc64__)
+# elif (defined(__OpenBSD__) || defined(__FreeBSD__)) && defined(__sparc64__)
 #  define  ARCH_PCI_INIT freebsdPciInit
 #  define INCLUDE_XF86_MAP_PCI_MEM
 #  define INCLUDE_XF86_NO_DOMAIN
 # endif
-# define ARCH_PCI_PCI_BRIDGE sparcPciPciBridge
-#elif defined(__x86_64__)
-# define ARCH_PCI_INIT ix86PciInit
+# if !defined(__FreeBSD__)
+#  define ARCH_PCI_PCI_BRIDGE sparcPciPciBridge
+# endif
+#elif defined(__AMD64__)
+# if defined(__FreeBSD__)
+#  define ARCH_PCI_INIT freebsdPciInit
+# else
+#  define ARCH_PCI_INIT ix86PciInit
+# endif
 # define INCLUDE_XF86_MAP_PCI_MEM
 # define INCLUDE_XF86_NO_DOMAIN
 # if defined(linux)
@@ -313,10 +367,6 @@
 extern void ARCH_PCI_INIT(void);
 #if defined(ARCH_PCI_OS_INIT)
 extern void ARCH_PCI_OS_INIT(void);
-#endif
-
-#if defined(ARCH_PCI_HOST_BRIDGE)
-extern void ARCH_PCI_HOST_BRIDGE(pciConfigPtr pPCI);
 #endif
 
 #if defined(ARCH_PCI_PCI_BRIDGE)
@@ -346,7 +396,7 @@ typedef struct pci_bus_funcs {
 	 * to be performed generically.
 	 */
 	CARD16  (*pciControlBridge)(int, CARD16, CARD16);
-	void    (*pciGetBridgeBusses)(int, int *, int *, int *);
+	void    (*pciGetBridgeBuses)(int, int *, int *, int *);
 	/* Use pointer's to avoid #include recursion */
 	void    (*pciGetBridgeResources)(int, pointer *, pointer *, pointer *);
 } pciBusFuncs_t, *pciBusFuncs_p;

@@ -26,11 +26,9 @@
  */
 
 #include "CContinue.h"
-#include "DirServicesTypes.h"
 
 #include <stdlib.h>
 #include <string.h>
-
 
 //------------------------------------------------------------------------------------
 //	* CContinue
@@ -38,7 +36,18 @@
 
 CContinue::CContinue ( DeallocateProc *inProcPtr )
 {
-	::memset( fLookupTable, 0, sizeof( fLookupTable ) );
+	fHashArrayLength = 32;
+	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
+
+	fDeallocProcPtr = inProcPtr;
+
+} // CContinue
+
+
+CContinue::CContinue ( DeallocateProc *inProcPtr, uInt32 inHashArrayLength )
+{
+	fHashArrayLength = inHashArrayLength;
+	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
 
 	fDeallocProcPtr = inProcPtr;
 
@@ -66,8 +75,8 @@ sInt32 CContinue::AddItem ( void *inData, uInt32 inRefNum )
 	sInt32			siResult	= eDSNoErr;
 	uInt32			uiSlot		= 0;
 	uInt32			uiTmpRef	= 0;
-	sTableEntry	   *pNewEntry	= nil;
-	sTableEntry	   *pCurrEntry	= nil;
+	sDSTableEntry	   *pNewEntry	= nil;
+	sDSTableEntry	   *pCurrEntry	= nil;
 
 	fMutex.Wait();
 
@@ -75,13 +84,12 @@ sInt32 CContinue::AddItem ( void *inData, uInt32 inRefNum )
 	uiTmpRef = (uInt32)inData;
 
 	// Create the new entry object
-	pNewEntry = (sTableEntry *)::malloc( sizeof( sTableEntry ) );
+	pNewEntry = (sDSTableEntry *)::malloc( sizeof( sDSTableEntry ) );
 	if ( pNewEntry != nil )
 	{
-		::memset( pNewEntry, 0, sizeof( sTableEntry ) );
+		::memset( pNewEntry, 0, sizeof( sDSTableEntry ) );
 		pNewEntry->fRefNum		= inRefNum;
 		pNewEntry->fData		= inData;
-		pNewEntry->fTimeStamp	= ::time( nil );
 	}
 	else
 	{
@@ -91,7 +99,7 @@ sInt32 CContinue::AddItem ( void *inData, uInt32 inRefNum )
 	if ( siResult == eDSNoErr )
 	{
 		// Calculate where we are going to put this entry
-		uiSlot = uiTmpRef % kTableSize;
+		uiSlot = uiTmpRef % fHashArrayLength;
 
 		if ( fLookupTable[ uiSlot ] == nil )
 		{
@@ -107,7 +115,7 @@ sInt32 CContinue::AddItem ( void *inData, uInt32 inRefNum )
 				if ( pCurrEntry->fData == inData )
 				{
 					// We found a duplicate.
-					siResult = kErrDuplicateFound;
+					siResult = eDSInvalidIndex;
 					free( pNewEntry );
 					pNewEntry = nil;
 					break;
@@ -143,7 +151,7 @@ bool CContinue::VerifyItem ( void *inData )
 	bool			bResult		= false;
 	uInt32			uiTmpRef	= 0;
 	uInt32			uiSlot		= 0;
-	sTableEntry	   *pEntry		= nil;
+	sDSTableEntry	   *pEntry		= nil;
 
 	fMutex.Wait();
 
@@ -151,7 +159,7 @@ bool CContinue::VerifyItem ( void *inData )
 	uiTmpRef = (uInt32)inData;
 
 	// Calculate where we thought we put it last
-	uiSlot = uiTmpRef % kTableSize;
+	uiSlot = uiTmpRef % fHashArrayLength;
 
 	// Look across all entries at this position
 	pEntry = fLookupTable[ uiSlot ];
@@ -184,11 +192,11 @@ bool CContinue::VerifyItem ( void *inData )
 
 sInt32 CContinue::RemoveItem ( void *inData )
 {
-	sInt32			siResult	= kErrItemNotFound;
+	sInt32			siResult	= eDSIndexNotFound;
 	uInt32			uiTmpRef	= 0;
 	uInt32			uiSlot		= 0;
-	sTableEntry	   *pCurrEntry	= nil;
-	sTableEntry	   *pPrevEntry	= nil;
+	sDSTableEntry	   *pCurrEntry	= nil;
+	sDSTableEntry	   *pPrevEntry	= nil;
 
 	fMutex.Wait();
 
@@ -196,7 +204,7 @@ sInt32 CContinue::RemoveItem ( void *inData )
 	uiTmpRef = (uInt32)inData;
 
 	// Calculate where we thought we put it last
-	uiSlot = uiTmpRef % kTableSize;
+	uiSlot = uiTmpRef % fHashArrayLength;
 
 	// Look across all entries at this position
 	pCurrEntry = fLookupTable[ uiSlot ];
@@ -257,14 +265,14 @@ sInt32 CContinue::RemoveItems ( uInt32 inRefNum )
 {
 	bool			bGetNext	= true;
 	uInt32			i			= 0;
-	sInt32			siResult	= kErrItemNotFound;
-	sTableEntry	   *pCurrEntry	= nil;
-	sTableEntry	   *pPrevEntry	= nil;
-	sTableEntry	   *pDeadEntry	= nil;
+	sInt32			siResult	= eDSIndexNotFound;
+	sDSTableEntry	   *pCurrEntry	= nil;
+	sDSTableEntry	   *pPrevEntry	= nil;
+	sDSTableEntry	   *pDeadEntry	= nil;
 
 	fMutex.Wait();
 
-	for ( i = 0; i < kTableSize; i++ )
+	for ( i = 0; i < fHashArrayLength; i++ )
 	{
 		pCurrEntry = fLookupTable[ i ];
 		pPrevEntry = fLookupTable[ i ];
@@ -324,3 +332,44 @@ sInt32 CContinue::RemoveItems ( uInt32 inRefNum )
 	return( siResult );
 
 } // RemoveItems
+
+
+//------------------------------------------------------------------------------------
+//	* GetRefNumForItem
+//------------------------------------------------------------------------------------
+
+uInt32 CContinue::GetRefNumForItem ( void *inData )
+{
+	uInt32			uiResult	= 0;
+	uInt32			uiTmpRef	= 0;
+	uInt32			uiSlot		= 0;
+	sDSTableEntry	   *pEntry		= nil;
+
+	fMutex.Wait();
+
+	// Change the pointer into a long.
+	uiTmpRef = (uInt32)inData;
+
+	// Calculate where we thought we put it last
+	uiSlot = uiTmpRef % fHashArrayLength;
+
+	// Look across all entries at this position
+	pEntry = fLookupTable[ uiSlot ];
+	while ( pEntry != nil )
+	{
+		// Is it the one we want
+		if ( pEntry->fData == inData )
+		{
+			uiResult = pEntry->fRefNum;
+
+			break;
+		}
+		pEntry = pEntry->fNext;
+	}
+
+	fMutex.Signal();
+
+	// A return of 0 means that we did not find the item
+	return( uiResult );
+
+} // GetRefNumForItem

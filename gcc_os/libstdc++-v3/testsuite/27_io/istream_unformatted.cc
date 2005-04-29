@@ -1,6 +1,6 @@
 // 1999-08-11 bkoz
 
-// Copyright (C) 1999, 2000, 2001 Free Software Foundation
+// Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -463,7 +463,7 @@ test06()
 
 // bug reported by bgarcia@laurelnetworks.com
 // http://gcc.gnu.org/ml/libstdc++-prs/2000-q3/msg00041.html
-int
+void
 test07()
 {
   bool test = true;
@@ -481,7 +481,140 @@ test07()
       line = line_ss.str();
       VERIFY( line == "1234567890" || line == "" );
     }
-  return 0;
+}
+
+// 2002-04-19 PR libstdc++ 6360
+void
+test08()
+{
+  using namespace std;
+  bool test = true;
+
+  stringstream ss("abcd" "\xFF" "1234ina donna coolbrith");  
+  char c;
+  ss >> c;
+  VERIFY( c == 'a' );
+  ss.ignore(8);
+  ss >> c;
+  VERIFY( c == 'i' );
+}
+    
+// Theodore Papadopoulo 
+void 
+test09()
+{
+  using namespace std;
+  bool test = true;
+
+  istringstream iss("Juana Briones");
+  char tab[13];
+  iss.read(tab, 13);
+  if (!iss)
+    test = false;
+  VERIFY( test );
+}
+
+// libstdc++/70220
+void
+test10()
+{
+  using namespace std;
+  bool test = true;
+  typedef string string_type;
+  typedef stringbuf stringbuf_type;
+  typedef istream istream_type;
+
+  int res = 0;
+  streamsize n;
+  string_type  input("abcdefg\n");
+  stringbuf_type sbuf(input);
+  istream_type  istr(&sbuf);
+  
+  istr.ignore(0);
+  if (istr.gcount() != 0) 
+    test = false;
+  VERIFY( test );
+  
+  istr.ignore(0, 'b');
+  if (istr.gcount() != 0) 
+    test = false;
+  VERIFY( test );
+  
+  istr.ignore();	// Advance to next position.
+  istr.ignore(0, 'b');
+  if ((n=istr.gcount()) != 0) 
+    test = false;
+  VERIFY( test );
+  
+  if (istr.peek() != 'b')
+    test = false;
+  VERIFY( test );
+}
+
+
+// libstdc++/8258
+class mybuf : public std::basic_streambuf<char> 
+{ };
+
+void test11()
+{
+  bool test = true;
+  using namespace std;
+  char arr[10];
+  mybuf sbuf;
+  basic_istream<char, char_traits<char> > istr(&sbuf);
+  
+  VERIFY(istr.rdstate() == ios_base::goodbit);
+  VERIFY(istr.readsome(arr, 10) == 0);
+  VERIFY(istr.rdstate() == ios_base::goodbit);
+}
+
+// libstdc++/6746   
+void test12()
+{
+  using namespace std;
+  bool test = true;
+  streamsize sum = 0;
+  istringstream iss("shamma shamma");
+      
+  // test01
+  size_t i = iss.rdbuf()->in_avail();
+  VERIFY( i != 0 );
+    
+  // test02
+  streamsize extracted;
+  do
+    {
+      char buf[1024];
+      extracted = iss.readsome(buf, sizeof buf);
+      sum += extracted;
+    }
+  while (iss.good() && extracted);
+  VERIFY( sum != 0 );  
+}
+    
+// libstdc++/6746   
+void test13()
+{
+  using namespace std;
+  bool test = true;
+  streamsize sum = 0;
+  ifstream ifs("istream_unformatted-1.tst");
+      
+  // test01
+  size_t i = ifs.rdbuf()->in_avail();
+  VERIFY( i != 0 );
+    
+  // test02
+  streamsize extracted;
+  do
+    {
+      char buf[1024];
+      extracted = ifs.readsome(buf, sizeof buf);
+      sum += extracted;
+    }
+  while (ifs.good() && extracted);
+  VERIFY( sum != 0 );  
 }
  
 int 
@@ -494,6 +627,13 @@ main()
   test05();
   test06();
   test07();
+  test08();
+  test09();
+  test10();
+  test11();
+
+  test12();
+  test13();
 
   return 0;
 }

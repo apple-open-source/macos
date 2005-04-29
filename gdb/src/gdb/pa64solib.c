@@ -1,6 +1,7 @@
 /* Handle HP ELF shared libraries for GDB, the GNU Debugger.
 
-   Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
 
    This file is part of GDB.
 
@@ -50,15 +51,13 @@
 #include "gdbcmd.h"
 #include "language.h"
 #include "regcache.h"
+#include "exec.h"
 
 #include <fcntl.h>
 
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
-
-/* Defined in exec.c; used to prevent dangling pointer bug.  */
-extern struct target_ops exec_ops;
 
 static CORE_ADDR bfd_lookup_symbol (bfd *, char *);
 /* This lives in hppa-tdep.c. */
@@ -110,7 +109,7 @@ typedef struct
   {
     CORE_ADDR dld_flags_addr;
     LONGEST dld_flags;
-    sec_ptr dyninfo_sect;
+    struct bfd_section *dyninfo_sect;
     int have_read_dld_descriptor;
     int is_valid;
     CORE_ADDR load_map;
@@ -222,9 +221,9 @@ pa64_solib_add_solib_objfile (struct so_list *so, char *name, int from_tty,
   bfd *tmp_bfd;
   asection *sec;
   obj_private_data_t *obj_private;
-  struct section_addr_info section_addrs;
+  struct section_addr_info *section_addrs;
+  struct cleanup *my_cleanups;
 
-  memset (&section_addrs, 0, sizeof (section_addrs));
   /* We need the BFD so that we can look at its sections.  We open up the
      file temporarily, then close it when we are done.  */
   tmp_bfd = bfd_openr (name, gnutarget);
@@ -262,15 +261,18 @@ pa64_solib_add_solib_objfile (struct so_list *so, char *name, int from_tty,
       text_addr += sec->filepos;
     }
 
+  section_addrs = alloc_section_addr_info (bfd_count_sections (tmp_bfd));
+  my_cleanups = make_cleanup (xfree, section_addrs);
+
   /* We are done with the temporary bfd.  Get rid of it and make sure
      nobody else can us it.  */
   bfd_close (tmp_bfd);
   tmp_bfd = NULL;
 
   /* Now let the generic code load up symbols for this library.  */
-  section_addrs.other[0].addr = text_addr;
-  section_addrs.other[0].name = ".text";
-  so->objfile = symbol_file_add (name, from_tty, &section_addrs, 0, OBJF_SHARED);
+  section_addrs->other[0].addr = text_addr;
+  section_addrs->other[0].name = ".text";
+  so->objfile = symbol_file_add (name, from_tty, section_addrs, 0, OBJF_SHARED);
   so->abfd = so->objfile->obfd;
 
   /* Mark this as a shared library and save private data.  */
@@ -279,7 +281,7 @@ pa64_solib_add_solib_objfile (struct so_list *so, char *name, int from_tty,
   if (so->objfile->obj_private == NULL)
     {
       obj_private = (obj_private_data_t *)
-	obstack_alloc (&so->objfile->psymbol_obstack,
+	obstack_alloc (&so->objfile->objfile_obstack,
 		       sizeof (obj_private_data_t));
       obj_private->unwind_info = NULL;
       obj_private->so_info = NULL;
@@ -289,6 +291,7 @@ pa64_solib_add_solib_objfile (struct so_list *so, char *name, int from_tty,
   obj_private = (obj_private_data_t *) so->objfile->obj_private;
   obj_private->so_info = so;
   obj_private->dp = so->pa64_solib_desc.linkage_ptr;
+  do_cleanups (my_cleanups);
 }
 
 /* Load debugging information for a shared library.  TARGET may be
@@ -1158,7 +1161,7 @@ add_to_solist (int from_tty, char *dll_path, int readsyms,
   new_so->pa64_solib_desc_addr = load_module_desc_addr;
   new_so->loaded = 1;
   new_so->name = obsavestring (dll_path, strlen(dll_path),
-			       &symfile_objfile->symbol_obstack);
+			       &symfile_objfile->objfile_obstack);
 
   /* If we are not going to load the library, tell the user if we
      haven't already and return.  */

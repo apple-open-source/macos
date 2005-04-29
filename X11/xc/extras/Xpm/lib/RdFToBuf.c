@@ -37,6 +37,8 @@
  * HeDu (hedu@cul-ipn.uni-kiel.de) 4/94
  */
 
+/* October 2004, source code review by Thomas Biege <thomas@suse.de> */
+
 #include "XpmI.h"
 #include <sys/stat.h>
 #if !defined(FOR_MSW) && !defined(WIN32)
@@ -58,7 +60,8 @@ XpmReadFileToBuffer(filename, buffer_return)
     char *filename;
     char **buffer_return;
 {
-    int fd, fcheck, len;
+    int fd, fcheck;
+    off_t len;
     char *ptr;
     struct stat stats;
     FILE *fp;
@@ -82,7 +85,7 @@ XpmReadFileToBuffer(filename, buffer_return)
 	close(fd);
 	return XpmOpenFailed;
     }
-    len = (int) stats.st_size;
+    len = stats.st_size;
     ptr = (char *) XpmMalloc(len + 1);
     if (!ptr) {
 	fclose(fp);

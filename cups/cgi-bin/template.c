@@ -1,9 +1,9 @@
 /*
- * "$Id: template.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $"
+ * "$Id: template.c,v 1.1.1.12 2005/01/04 19:15:04 jlovell Exp $"
  *
  *   CGI template function.
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the Free
@@ -96,7 +96,7 @@ cgiCopyTemplateLang(FILE       *out,		/* I - Output file */
   if (lang != NULL)
   {
     for (i = 0; lang[i] && i < 15; i ++)
-      if (isalnum(lang[i]))
+      if (isalnum(lang[i] & 255))
         locale[i] = tolower(lang[i]);
       else
         locale[i] = '_';
@@ -189,7 +189,7 @@ cgi_copy(FILE *out,		/* I - Output file */
 
       *s = '\0';
 
-      if (s == name && isspace(ch))
+      if (s == name && isspace(ch & 255))
       {
         if (out)
 	{
@@ -210,7 +210,7 @@ cgi_copy(FILE *out,		/* I - Output file */
         * Insert value only if it exists...
 	*/
 
-	if ((nameptr = strrchr(name, '-')) != NULL && isdigit(nameptr[1]))
+	if ((nameptr = strrchr(name, '-')) != NULL && isdigit(nameptr[1] & 255))
 	{
 	  *nameptr++ = '\0';
 
@@ -254,7 +254,7 @@ cgi_copy(FILE *out,		/* I - Output file */
 	int  count;	/* Number of elements */
 
 
-        if (isdigit(name[1]))
+        if (isdigit(name[1] & 255))
 	  count = atoi(name + 1);
 	else
           count = cgiGetSize(name + 1);
@@ -280,7 +280,7 @@ cgi_copy(FILE *out,		/* I - Output file */
         * Insert variable or variable name (if element is NULL)...
 	*/
 
-	if ((nameptr = strrchr(name, '-')) != NULL && isdigit(nameptr[1]))
+	if ((nameptr = strrchr(name, '-')) != NULL && isdigit(nameptr[1] & 255))
 	{
 	  *nameptr++ = '\0';
 	  if ((value = cgiGetArray(name, atoi(nameptr) - 1)) == NULL)
@@ -367,7 +367,7 @@ cgi_copy(FILE *out,		/* I - Output file */
             if (innername[0] == '#')
 	      sprintf(s, "%d", cgiGetSize(innername + 1));
 	    else if ((innerptr = strrchr(innername, '-')) != NULL &&
-	             isdigit(innerptr[1]))
+	             isdigit(innerptr[1] & 255))
             {
 	      *innerptr++ = '\0';
 	      if ((innerval = cgiGetArray(innername, atoi(innerptr) - 1)) == NULL)
@@ -383,7 +383,7 @@ cgi_copy(FILE *out,		/* I - Output file */
 	        strlcpy(s, innerval, sizeof(compare) - (s - compare));
             }
 	    else if ((innerval = cgiGetArray(innername, element)) == NULL)
-	      snprintf(s, sizeof(s), "{%s}", innername);
+	      snprintf(s, sizeof(compare) - (s - compare), "{%s}", innername);
 	    else
 	      strlcpy(s, innerval, sizeof(compare) - (s - compare));
 
@@ -488,5 +488,5 @@ cgi_puts(const char *s,
 
 
 /*
- * End of "$Id: template.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $".
+ * End of "$Id: template.c,v 1.1.1.12 2005/01/04 19:15:04 jlovell Exp $".
  */

@@ -1,7 +1,11 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/acecad/Imakefile,v 1.5 2001/08/13 19:35:00 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/acecad/Imakefile,v 1.6 2003/10/29 11:42:11 alanh Exp $
 
 #define IHaveModules
 #include <Server.tmpl>
+
+#if HasLinuxInput
+DEFINES = -DLINUX_INPUT
+#endif
 
 SRCS = acecad.c
 OBJS = acecad.o

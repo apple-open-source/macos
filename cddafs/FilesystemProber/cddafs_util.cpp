@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -621,8 +619,7 @@ MountMain ( int argc, const char * argv[] )
 	
 	// mount_cddafs must return 0 for successful mounts
 	if ( error == FSUR_IO_SUCCESS )
-		error = 0;
-	
+		error = 0;	
 	
 Exit:
 	
@@ -759,29 +756,29 @@ Mount ( const char * 	deviceNamePtr,
 	require ( ( mountPointPtr != NULL ), Exit );
 	require ( ( *mountPointPtr != '\0' ), Exit );
 	
-	args.device 		= ( char * ) deviceNamePtr;
-	args.fileType		= ( UInt32 ) 'AIFC';
-	args.fileCreator	= ( UInt32 ) '????';
+	args.device			= ( char * ) deviceNamePtr;
+	args.fileType		= 0x41494643; // 'AIFC'
+	args.fileCreator	= 0x3F3F3F3F; // '????'
+	
 	
 	// Check if we're loaded into vfs or not.
-	error = GetVFSConfigurationByName ( gAppleCDDAName, &vfc );
+	error = getvfsbyname ( gAppleCDDAName, &vfc );
 	if ( error != 0 )
 	{
-		
 		// Kernel extension wasn't loaded, so try to load it...
 		error = LoadKernelExtension ( );
 		require ( ( error == 0 ), Exit );
 		
 		// Now try again since we loaded our extension
-		error = GetVFSConfigurationByName ( gAppleCDDAName, &vfc );
+		error = getvfsbyname ( gAppleCDDAName, &vfc );
 		require ( ( error == 0 ), Exit );
 		
 	}
 	
-	TOCDataPtr = ( QTOCDataFormat10Ptr ) GetTOCDataPtr ( args.device );
+	TOCDataPtr = ( QTOCDataFormat10Ptr ) GetTOCDataPtr ( deviceNamePtr );
 	require ( ( TOCDataPtr != NULL ), Exit );
 	
-	data = GetTrackData ( args.device, TOCDataPtr );
+	data = GetTrackData ( deviceNamePtr, TOCDataPtr );
 	require ( ( data != NULL ), ReleaseTOCData );
 	
 	size = CFDataGetLength ( data );
@@ -808,7 +805,7 @@ Mount ( const char * 	deviceNamePtr,
 	// Copy the raw data from the CFData object to our mount args
 	memcpy ( args.xmlData, xmlDataPtr, args.xmlFileSize );
 	
-	#if (DEBUG_LEVEL > 3)
+	#if ( DEBUG_LEVEL > 3 )
 	{
 		UInt32	count = 0;
 		
@@ -835,7 +832,7 @@ Mount ( const char * 	deviceNamePtr,
 	
 	
 	// Print out the device name for debug purposes
-	DebugLog ( ( "DeviceName = %s\n", args.device ) );
+	DebugLog ( ( "DeviceName = %s\n", deviceNamePtr ) );
 	DebugLog ( ( "numTracks = %d\n", args.numTracks ) );
 	
 	require ( ( args.nameData != NULL ), Exit );
@@ -918,70 +915,6 @@ ParseTOC ( UInt8 * TOCInfoPtr )
 		}
 		
 	}
-	
-	
-Exit:
-	
-	
-	return result;
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// GetVFSConfigurationByName - 	Given a filesystem name, determine if it is
-//								resident in the kernel, and if it is resident,
-//								return its vfsconf structure.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-int
-GetVFSConfigurationByName ( const char * fileSystemName, struct vfsconf * vfsConfPtr )
-{
-
-    int 		name[4];
-    int			maxTypeNum;
-    int			index;
-    int			error;
-	int			result;
-	size_t 		buflen;
-	
-	name[0] = CTL_VFS;
-	name[1] = VFS_GENERIC;
-	name[2] = VFS_MAXTYPENUM;
-	buflen 	= 4;
-	
-	error = sysctl ( name, 3, &maxTypeNum, &buflen, ( void * ) 0, ( size_t ) 0 );
-	require_action ( ( error >= 0 ), Exit, result = -1 );
-	
-	name[2] = VFS_CONF;
-	buflen = sizeof ( *vfsConfPtr );
-	
-	for ( index = 0; index < maxTypeNum; index++ )
-	{
-		
-		name[3] = index;
-		error = sysctl ( name, 4, vfsConfPtr, &buflen, ( void * ) 0, ( size_t ) 0 );
-		if ( error < 0 )
-		{
-			
-			require_action ( ( errno == EOPNOTSUPP ) || ( errno == ENOENT ), Exit, result = -1 );			
-			continue;
-			
-		}
-		
-		// If the names are same, return no error
-		if ( !strcmp ( fileSystemName, vfsConfPtr->vfc_name ) )
-		{
-			
-			result = 0;
-			goto Exit;
-			
-		}
-		
-	}
-	
-	errno	= ENOENT;
-	result	= -1;
 	
 	
 Exit:
@@ -1528,16 +1461,15 @@ DisplayUsage ( int usageType, const char * argv[] )
 UInt8 *
 GetTOCDataPtr ( const char * deviceNamePtr )
 {
-
+	
 	UInt8 *					ptr 			= NULL;
-	kern_return_t			error			= 0;
-	mach_port_t				masterPort		= 0;
-	io_iterator_t			iterator		= 0;
-	io_registry_entry_t		registryEntry	= 0;
+	IOReturn				error			= 0;
+	io_iterator_t			iterator		= MACH_PORT_NULL;
+	io_registry_entry_t		registryEntry	= MACH_PORT_NULL;
 	CFMutableDictionaryRef	properties 		= 0;
 	CFDataRef     			data			= 0;
 	char *					bsdName 		= NULL;
-		
+	
 	if ( !strncmp ( deviceNamePtr, "/dev/r", 6 ) )
 	{
 		
@@ -1562,18 +1494,15 @@ GetTOCDataPtr ( const char * deviceNamePtr )
 		
 	}
 	
-	error = IOMasterPort ( bootstrap_port, &masterPort );
-	require ( ( error == KERN_SUCCESS ), Exit );
-	
-	error = IOServiceGetMatchingServices ( 	masterPort,
-											IOBSDNameMatching ( masterPort, 0, bsdName ),
+	error = IOServiceGetMatchingServices ( 	kIOMasterPortDefault,
+											IOBSDNameMatching ( kIOMasterPortDefault, 0, bsdName ),
 											&iterator );
-	require ( ( error == KERN_SUCCESS ), Exit );
+	require ( ( error == kIOReturnSuccess ), Exit );
 	
 	// Only expect one entry since there is a 1:1 correspondence between bsd names
 	// and IOKit storage objects	
 	registryEntry = IOIteratorNext ( iterator );
-	require ( ( registryEntry != NULL ), ReleaseIterator );
+	require ( ( registryEntry != MACH_PORT_NULL ), ReleaseIterator );
 	
 	require ( IOObjectConformsTo ( registryEntry, kIOCDMediaString ), ReleaseEntry );
 	
@@ -1581,7 +1510,7 @@ GetTOCDataPtr ( const char * deviceNamePtr )
 												&properties,
 												kCFAllocatorDefault,
 												kNilOptions );
-	require ( ( error == KERN_SUCCESS ), ReleaseEntry );
+	require ( ( error == kIOReturnSuccess ), ReleaseEntry );
 	
 	// Get the TOCInfo
 	data = ( CFDataRef ) CFDictionaryGetValue ( properties, 

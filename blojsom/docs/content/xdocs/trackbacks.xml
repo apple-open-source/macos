@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Trackback</title>
+    </header>
+    <body>
+        <section>
+            <title>Trackback Support</title>
+            <p>
+                As of blojsom 1.6, trackback support has been added to blojsom. blojsom implements the
+                <link href="http://www.movabletype.org/docs/mttrackback.html">Movable Type Trackback
+                    Specification</link>.
+            </p>
+            <p>
+                As indicated in the
+                <link href="installation.html">installation</link> documentation, the
+                <em>blog-trackbacks-directory</em> parameter indicates the directory where blog trackbacks
+                will be written to under the blog category directories.  This directory is automatically
+                added to the list of directories that get filtered by blojsom.
+            </p>
+            <p>
+                The blog entry listing templates have been modified to show the number of trackbacks for
+                a particular blog entry alongside the number of comments. Clicking on the number of
+                trackbacks will bring the user to a page that lists the trackbacks for that particular
+                blog entry. There is also a link that you may cut and paste into your blogging tool so that
+                you can send a trackback ping to that particular blog entry. The following table lists the
+                URL parameters that must be supplied for a trackback.
+            </p>
+            <table>
+                <tr>
+                    <th>URL parameter</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>title</td>
+                    <td>The title of the entry.</td>
+                </tr>
+                <tr>
+                    <td>excerpt</td>
+                    <td>An excerpt of the entry. blojsom adheres to the Movable Type implementation, in that if this string is longer than 255 characters, it will be cropped to 252 characters, and ... will be added to the end.</td>
+                </tr>
+                <tr>
+                    <td>url</td>
+                    <td>The permalink for the entry. Like any permalink, this should point as closely as possible to the actual entry on the HTML page, as it will be used when linking to the entry in question.</td>
+                </tr>
+                <tr>
+                    <td>blog_name</td>
+                    <td>The name of the blog in which the entry is posted.</td>
+                </tr>
+            </table>
+        </section>
+        <section>
+            <title>Disabling trackbacks on individual entries</title>
+            <p>
+                If trackbacks are enabled on your blog, but you do not want to allow users to trackback on
+                an individual entry, you can do so by making that entry
+                <em>read-only</em>. blojsom uses
+                this to indicate whether or not it should allow users to trackback on an entry. If a blog
+                entry is writable, users may trackback on that entry.
+            </p>
+            <p>
+                Trackbacks can also be disabled on individual entries throug the web administration interface.
+                If you are adding or editing an entry, you can check a box to indicate that trackbacks are
+                not enabled on a single entry.
+            </p>
+            <p>
+                Finally, if you are running the Meta plugin before the Comments plugin, you can add metadata
+                to the entry to disable trackbacks. The metadata key to disable trackbacks
+                would be specified as "meta-blog-entry-trackbacks-disabled=y" in your blog entry. You would do
+                this if you were not editing your blog through the web administration interface or you edit
+                your blog entries from the command-line.
+            </p>
+        </section>
+        <section>
+            <title>Banning IP addresses from commenting and trackback throttling</title>
+            <p>
+                In blojsom 1.9.1, both the Comment and Trackback plugins can ban IP addresses from posting comments
+                and trackbacks by specifying regular expressions for banned IP addresses. The list of banned IP
+                addresses is controlled by the
+                <em>blog-banned-ip-addresses</em> parameter in your individual
+                <code>/WEB-INF/(user-id)/blog.properties</code>.
+                As an example, the following will ban you from posting locally.
+            </p>
+            <source>
+                blog-banned-ip-addresses=127\\.0\\.0\\.1
+            </source>
+            <p>
+                In blojsom 2.11, you can configure trackback throttling. If throttling is enabled,
+                trackbacks left from a particular IP address must wait a configurable number of
+                minutes before another trackback can be posted. The tackback throttle parameter is
+                controlled by the <em>plugin-trackback-throttle</em> parameter in your individual
+                <em>/WEB-INF/(user-id)/blog.properties</em>. The parameter is specified as minutes.
+            </p>
+            <source>
+                plugin-trackback-throttle=5
+            </source>
+        </section>
+        <section>
+            <title>Setting a prefix for trackback e-mail messages</title>
+            <p>
+                    The default subject prefix for trackback e-mails is set to
+                <em>[blojsom] Trackback on: </em>. If you
+                    would like to configure a different prefix for e-mail messages, set the
+                <em>plugin-trackback-email-prefix</em> property in your individual
+                <code>/WEB-INF/(user-id)/blog.properties</code>.
+                    For example:
+                <source>
+                        plugin-trackback-email-prefix=[your.blog.com] Trackback:
+                </source>
+            </p>
+        </section>
+    </body>
+</document>

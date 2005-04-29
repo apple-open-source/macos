@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tga/tga_accel.c,v 1.15 2001/11/21 22:32:59 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tga/tga_accel.c,v 1.16 2003/09/24 02:43:28 dawes Exp $ */
 
 /*
  * Copyright 1996,1997 by Alan Hourihane, Wigan, England.
@@ -507,7 +507,7 @@ TGASubsequentSolidFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h)
   TGA_FAST_WRITE_REG(pTga->current_planemask, TGA_PLANEMASK_REG);
 
   if(w > 2048) {
-    ErrorF("TGASubsequentSolidFillRect called with w = %d, truncating.\n");
+    ErrorF("TGASubsequentSolidFillRect called with w = %d, truncating.\n", w);
     w = 2048;
   }
   pixel_count = w - 1;

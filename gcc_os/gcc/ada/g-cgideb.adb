@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --            Copyright (C) 2000-2001 Ada Core Technologies, Inc.           --
 --                                                                          --
@@ -208,6 +207,8 @@ package body GNAT.CGI.Debug is
       ------------
 
       function Header (IO : in Format; Str : in String) return String is
+         pragma Warnings (Off, IO);
+
       begin
          return "<h2>" & Str & "</h2>" & NL;
       end Header;
@@ -226,6 +227,8 @@ package body GNAT.CGI.Debug is
       --------------
 
       function New_Line (IO : in Format) return String is
+         pragma Warnings (Off, IO);
+
       begin
          return "<br>" & NL;
       end New_Line;
@@ -235,6 +238,8 @@ package body GNAT.CGI.Debug is
       -----------
 
       function Title (IO : in Format; Str : in String) return String is
+         pragma Warnings (Off, IO);
+
       begin
          return "<p align=center><font size=+2>" & Str & "</font></p>" & NL;
       end Title;
@@ -249,6 +254,8 @@ package body GNAT.CGI.Debug is
          Value : String)
          return  String
       is
+         pragma Warnings (Off, IO);
+
       begin
          return Bold (Name) & " = " & Italic (Value);
       end Variable;
@@ -275,6 +282,8 @@ package body GNAT.CGI.Debug is
       --------------
 
       function New_Line (IO : in Format) return String is
+         pragma Warnings (Off, IO);
+
       begin
          return String'(1 => ASCII.LF);
       end New_Line;
@@ -301,6 +310,8 @@ package body GNAT.CGI.Debug is
          Value : String)
          return  String
       is
+         pragma Warnings (Off, IO);
+
       begin
          return "   " & Name & " = " & Value;
       end Variable;

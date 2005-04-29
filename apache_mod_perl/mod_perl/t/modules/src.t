@@ -1,6 +1,6 @@
 use ExtUtils::testlib;
 
-use Apache::test;
+use Apache::testold;
 use Apache::src;
 
 my $i = 0;

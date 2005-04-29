@@ -1,37 +1,48 @@
---- tolower.c.orig	Tue May 20 15:21:44 2003
-+++ tolower.c	Tue Jun 17 17:45:56 2003
-@@ -39,6 +39,10 @@
+--- tolower.c.orig	2004-11-25 11:38:19.000000000 -0800
++++ tolower.c	2005-02-17 16:43:19.000000000 -0800
+@@ -37,20 +37,32 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/tolower.c,v 1.11 2004/07/29 06:16:19 tjr Exp $");
  
- #include <stdio.h>
- #include <rune.h>
-+#include <stdlib.h>
++#include "xlocale_private.h"
 +
-+__private_extern__ int
-+__compRuneEntry(const void *, const void *); // from runetype.c
+ #include <stdio.h>
+ #include <runetype.h>
  
  __ct_rune_t
- ___tolower(c)
-@@ -46,17 +50,16 @@
+-___tolower(c)
++___tolower_l(c, loc)
+ 	__ct_rune_t c;
++	locale_t loc;
  {
- 	int x;
- 	_RuneRange *rr = &_CurrentRuneLocale->maplower_ext;
--	_RuneEntry *re = rr->ranges;
-+	_RuneEntry *re;
+ 	size_t lim;
+-	_RuneRange *rr = &_CurrentRuneLocale->__maplower_ext;
++	_RuneRange *rr;
+ 	_RuneEntry *base, *re;
  
  	if (c < 0 || c == EOF)
  		return(c);
  
--	for (x = 0; x < rr->nranges; ++x, ++re) {
--		if (c < re->min)
--			return(c);
--		if (c <= re->max)
--			return(re->map + c - re->min);
--	}
-+	re = (_RuneEntry *)bsearch(&c, rr->ranges, rr->nranges,
-+	    sizeof(_RuneEntry), __compRuneEntry);
-+
-+	if (re)
-+		return(re->map + c - re->min);
++	NORMALIZE_LOCALE(loc);
++	/*
++	 * the following is not used by tolower(), but can be used by
++	 * tolower_l().  This provides the oppurtunity to optimize tolower()
++	 * when compatibility for Panther and lower is no longer needed
++	 */
++	if (c < _CACHED_RUNES)
++		return loc->__lc_ctype->_CurrentRuneLocale.__maplower[c];
++	rr = &loc->__lc_ctype->_CurrentRuneLocale.__maplower_ext;
+ 	/* Binary search -- see bsearch.c for explanation. */
+ 	base = rr->__ranges;
+ 	for (lim = rr->__nranges; lim != 0; lim >>= 1) {
+@@ -65,3 +77,10 @@
  
  	return(c);
  }
++
++__ct_rune_t
++___tolower(c)
++	__ct_rune_t c;
++{
++	return ___tolower_l(c, __current_locale());
++}

@@ -1,5 +1,5 @@
 /* BreakIterator.java -- Breaks text into elements
-   Copyright (C) 1998, 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -49,6 +49,10 @@ import java.util.ResourceBundle;
  * type is created by calling one of the static factory methods, not
  * by directly calling a constructor.
  *
+ * The standard iterators created by the factory methods in this
+ * class will be valid upon creation.  That is, their methods will
+ * not cause exceptions if called before you call setText().
+ *
  * @author Tom Tromey <tromey@cygnus.com>
  * @author Aaron M. Renn (arenn@urbanophile.com)
  * @date March 19, 1999
@@ -76,6 +80,21 @@ public abstract class BreakIterator implements Cloneable
   {
   }
 
+  /**
+   * Create a clone of this object.
+   */
+  public Object clone ()
+  {
+    try
+      {
+        return super.clone();
+      }
+    catch (CloneNotSupportedException e)
+      {
+        return null;
+      }
+  }
+  
   /**
    * This method returns the index of the current text element boundary.
    *
@@ -121,7 +140,7 @@ public abstract class BreakIterator implements Cloneable
       {
 	ResourceBundle res
 	  = ResourceBundle.getBundle("gnu.java.locale.LocaleInformation",
-				     loc);
+				     loc, ClassLoader.getSystemClassLoader());
 	className = res.getString(type);
       }
     catch (MissingResourceException x)

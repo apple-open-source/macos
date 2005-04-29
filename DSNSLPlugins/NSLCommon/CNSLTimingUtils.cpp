@@ -28,6 +28,8 @@
  *  Copyright (c) 2003 __MyCompanyName__. All rights reserved.
  *
  */
+#include <mach/mach_time.h>	// for dsTimeStamp
+#include <syslog.h>
 
 #include "CNSLTimingUtils.h"
 
@@ -40,4 +42,33 @@ void SmartSleep( unsigned int microSeconds )
 	tval.tv_sec = microSeconds / 1000000;
 	tval.tv_usec = microSeconds % 1000000;
 	select(0, NULL, NULL, NULL, &tval);			// pass in zero descriptors, we are just interested in the timer
+}
+
+double dsTimestamp(void)
+{
+	static uint32_t	num		= 0;
+	static uint32_t	denom	= 0;
+	uint64_t		now;
+	
+	if (denom == 0) 
+	{
+		struct mach_timebase_info tbi;
+		kern_return_t r;
+		r = mach_timebase_info(&tbi);
+		if (r != KERN_SUCCESS) 
+		{
+			syslog( LOG_ALERT, "Warning: mach_timebase_info FAILED! - error = %u\n", r);
+			return 0;
+		}
+		else
+		{
+			num		= tbi.numer;
+			denom	= tbi.denom;
+		}
+	}
+	now = mach_absolute_time();
+	
+	return (double)(now * (double)num / denom / NSEC_PER_SEC);	// return seconds
+//	return (double)(now * (double)num / denom / NSEC_PER_USEC);	// return microsecs
+//	return (double)(now * (double)num / denom);	// return nanoseconds
 }

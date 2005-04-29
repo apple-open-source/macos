@@ -1,8 +1,17 @@
 /* modify.c - ldbm backend modify routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/modify.c,v 1.88.2.5 2003/02/09 17:41:28 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/modify.c,v 1.100.2.7 2004/09/23 22:32:13 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -23,16 +32,12 @@
  * Juan C. Gomez (gomez@engr.sgi.com) 05/18/99
  */ 
 int ldbm_modify_internal(
-    Backend	*be,
-    Connection	*conn,
     Operation	*op,
-    const char	*dn,
     Modifications	*modlist,
     Entry	*e,
 	const char **text,
 	char *textbuf,
-	size_t textlen
-)
+	size_t textlen )
 {
 	int rc = LDAP_SUCCESS;
 	Modification	*mod;
@@ -41,13 +46,20 @@ int ldbm_modify_internal(
 	Attribute 	*ap;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG( BACK_LDBM, ENTRY,  "ldbm_modify_internal: %s\n", dn, 0, 0 );
+	LDAP_LOG( BACK_LDBM, ENTRY,
+		"ldbm_modify_internal: %s\n",
+		e->e_name.bv_val,
+		get_permissiveModify(op) ? " (permissive)" : "",
+		0 );
 #else
-	Debug(LDAP_DEBUG_TRACE, "ldbm_modify_internal: %s\n", dn, 0, 0);
+	Debug(LDAP_DEBUG_TRACE,
+		"ldbm_modify_internal: %s\n",
+		e->e_name.bv_val,
+		get_permissiveModify(op) ? " (permissive)" : "",
+		0 );
 #endif
 
-
-	if ( !acl_check_modlist( be, conn, op, e, modlist )) {
+	if ( !acl_check_modlist( op, e, modlist )) {
 		return LDAP_INSUFFICIENT_ACCESS;
 	}
 
@@ -60,12 +72,14 @@ int ldbm_modify_internal(
 		switch ( mod->sm_op ) {
 		case LDAP_MOD_ADD:
 #ifdef NEW_LOGGING
-			LDAP_LOG( BACK_LDBM, DETAIL1, "ldbm_modify_internal: add\n", 0, 0, 0);
+			LDAP_LOG( BACK_LDBM, DETAIL1,
+				"ldbm_modify_internal: add\n", 0, 0, 0);
 #else
-			Debug(LDAP_DEBUG_ARGS, "ldbm_modify_internal: add\n", 0, 0, 0);
+			Debug(LDAP_DEBUG_ARGS,
+				"ldbm_modify_internal: add\n", 0, 0, 0);
 #endif
 
-			rc = modify_add_values( e, mod, get_permissiveModify(op),
+			rc = modify_add_values( e, mod, get_permissiveModify( op ),
 				text, textbuf, textlen );
 			if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
@@ -80,12 +94,14 @@ int ldbm_modify_internal(
 
 		case LDAP_MOD_DELETE:
 #ifdef NEW_LOGGING
-			LDAP_LOG( BACK_LDBM, DETAIL1, "ldbm_modify_internal: delete\n", 0,0,0);
+			LDAP_LOG( BACK_LDBM, DETAIL1,
+				"ldbm_modify_internal: delete\n", 0,0,0);
 #else
-			Debug(LDAP_DEBUG_ARGS, "ldbm_modify_internal: delete\n", 0, 0, 0);
+			Debug(LDAP_DEBUG_ARGS,
+				"ldbm_modify_internal: delete\n", 0, 0, 0);
 #endif
 
-			rc = modify_delete_values( e, mod, get_permissiveModify(op),
+			rc = modify_delete_values( e, mod, get_permissiveModify( op ),
 				text, textbuf, textlen );
 			assert( rc != LDAP_TYPE_OR_VALUE_EXISTS );
 			if( rc != LDAP_SUCCESS ) {
@@ -101,12 +117,36 @@ int ldbm_modify_internal(
 
 		case LDAP_MOD_REPLACE:
 #ifdef NEW_LOGGING
-			LDAP_LOG( BACK_LDBM, DETAIL1, "ldbm_modify_internal:  replace\n",0,0,0);
+			LDAP_LOG( BACK_LDBM, DETAIL1,
+				"ldbm_modify_internal:  replace\n",0,0,0);
 #else
-			Debug(LDAP_DEBUG_ARGS, "ldbm_modify_internal: replace\n", 0, 0, 0);
+			Debug(LDAP_DEBUG_ARGS,
+				"ldbm_modify_internal: replace\n", 0, 0, 0);
 #endif
 
-			rc = modify_replace_values( e, mod, get_permissiveModify(op),
+			rc = modify_replace_values( e, mod, get_permissiveModify( op ),
+				text, textbuf, textlen );
+			if( rc != LDAP_SUCCESS ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( BACK_LDBM, INFO, 
+					"ldbm_modify_internal: failed %d (%s)\n", rc, *text, 0 );
+#else
+				Debug(LDAP_DEBUG_ARGS, "ldbm_modify_internal: %d %s\n",
+					rc, *text, 0);
+#endif
+			}
+			break;
+
+		case LDAP_MOD_INCREMENT:
+#ifdef NEW_LOGGING
+			LDAP_LOG( BACK_LDBM, DETAIL1,
+				"ldbm_modify_internal:  increment\n",0,0,0);
+#else
+			Debug(LDAP_DEBUG_ARGS,
+				"ldbm_modify_internal:  increment\n",0,0,0);
+#endif
+
+			rc = modify_increment_values( e, mod, get_permissiveModify( op ),
 				text, textbuf, textlen );
 			if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
@@ -124,7 +164,8 @@ int ldbm_modify_internal(
 			LDAP_LOG( BACK_LDBM, DETAIL1, 
 				"ldbm_modify_internal: softadd\n", 0, 0, 0 );
 #else
-			Debug(LDAP_DEBUG_ARGS, "ldbm_modify_internal: softadd\n", 0, 0, 0);
+			Debug(LDAP_DEBUG_ARGS,
+				"ldbm_modify_internal: softadd\n", 0, 0, 0);
 #endif
 
 			/* Avoid problems in index_add_mods()
@@ -132,8 +173,9 @@ int ldbm_modify_internal(
 			 */
 			mod->sm_op = LDAP_MOD_ADD;
 
-			rc = modify_add_values( e, mod, get_permissiveModify(op),
+			rc = modify_add_values( e, mod, get_permissiveModify( op ),
 				text, textbuf, textlen );
+			mod->sm_op = SLAP_MOD_SOFTADD;
 			if ( rc == LDAP_TYPE_OR_VALUE_EXISTS ) {
 				rc = LDAP_SUCCESS;
 			}
@@ -141,7 +183,7 @@ int ldbm_modify_internal(
 			if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
 				LDAP_LOG( BACK_LDBM, INFO, 
-					   "ldbm_modify_internal: failed %d (%s)\n", rc, *text, 0 );
+				   "ldbm_modify_internal: failed %d (%s)\n", rc, *text, 0 );
 #else
 				Debug(LDAP_DEBUG_ARGS, "ldbm_modify_internal: %d %s\n",
 					rc, *text, 0);
@@ -179,7 +221,7 @@ int ldbm_modify_internal(
 		}
 
 		/* check if modified attribute was indexed */
-		rc = index_is_indexed( be, mod->sm_desc );
+		rc = index_is_indexed( op->o_bd, mod->sm_desc );
 		if ( rc == LDAP_SUCCESS ) {
 			ap = attr_find( save_attrs, mod->sm_desc );
 			if ( ap ) ap->a_flags |= SLAP_ATTR_IXDEL;
@@ -190,7 +232,8 @@ int ldbm_modify_internal(
 	}
 
 	/* check that the entry still obeys the schema */
-	rc = entry_schema_check( be, e, save_attrs, text, textbuf, textlen );
+	rc = entry_schema_check( op->o_bd, e, save_attrs, text, textbuf, textlen );
+
 	if ( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG( BACK_LDBM, ERR, 
@@ -215,8 +258,9 @@ int ldbm_modify_internal(
 	/* start with deleting the old index entries */
 	for ( ap = save_attrs; ap != NULL; ap = ap->a_next ) {
 		if ( ap->a_flags & SLAP_ATTR_IXDEL ) {
-			rc = index_values( be, ap->a_desc, ap->a_vals, e->e_id,
-				  	   SLAP_INDEX_DELETE_OP );
+			rc = index_values( op, ap->a_desc,
+				ap->a_nvals,
+				e->e_id, SLAP_INDEX_DELETE_OP );
 			if ( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
 				LDAP_LOG( BACK_LDBM, ERR,
@@ -224,8 +268,8 @@ int ldbm_modify_internal(
 					0, 0, 0	);
 #else
 				Debug( LDAP_DEBUG_ANY,
-				       "Attribute index delete failure",
-			               0, 0, 0 );
+					"ldbm_modify_internal: Attribute index delete failure\n",
+					0, 0, 0 );
 #endif
 				goto exit;
 			}
@@ -236,8 +280,9 @@ int ldbm_modify_internal(
 	/* add the new index entries */
 	for ( ap = e->e_attrs; ap != NULL; ap = ap->a_next ) {
 		if ( ap->a_flags & SLAP_ATTR_IXADD ) {
-			rc = index_values( be, ap->a_desc, ap->a_vals, e->e_id,
-				  	   SLAP_INDEX_ADD_OP );
+			rc = index_values( op, ap->a_desc,
+				ap->a_nvals,
+				e->e_id, SLAP_INDEX_ADD_OP );
 			if ( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
 				LDAP_LOG( BACK_LDBM, ERR,
@@ -245,8 +290,8 @@ int ldbm_modify_internal(
 					0, 0, 0 );
 #else
 				Debug( LDAP_DEBUG_ANY,
-				       "Attribute index add failure",
-			               0, 0, 0 );
+					"ldbm_modify_internal: Attribute index add failure\n",
+					0, 0, 0 );
 #endif
 				goto exit;
 			}
@@ -270,20 +315,13 @@ exit:
 
 int
 ldbm_back_modify(
-    Backend	*be,
-    Connection	*conn,
     Operation	*op,
-    struct berval	*dn,
-    struct berval	*ndn,
-    Modifications	*modlist
-)
+    SlapReply	*rs )
 {
-	int rc;
-	struct ldbminfo	*li = (struct ldbminfo *) be->be_private;
+	struct ldbminfo	*li = (struct ldbminfo *) op->o_bd->be_private;
 	Entry		*matched;
 	Entry		*e;
 	int		manageDSAit = get_manageDSAit( op );
-	const char *text = NULL;
 	char textbuf[SLAP_TEXT_BUFLEN];
 	size_t textlen = sizeof textbuf;
 
@@ -297,83 +335,103 @@ ldbm_back_modify(
 	ldap_pvt_thread_rdwr_wlock(&li->li_giant_rwlock);
 
 	/* acquire and lock entry */
-	if ( (e = dn2entry_w( be, ndn, &matched )) == NULL ) {
-		char* matched_dn = NULL;
-		BerVarray refs;
+	e = dn2entry_w( op->o_bd, &op->o_req_ndn, &matched );
 
+	/* FIXME: dn2entry() should return non-glue entry */
+	if (( e == NULL ) || ( !manageDSAit && e && is_entry_glue( e ))) {
+		BerVarray deref = NULL;
 		if ( matched != NULL ) {
-			matched_dn = ch_strdup( matched->e_dn );
-			refs = is_entry_referral( matched )
-				? get_entry_referrals( be, conn, op, matched )
+			rs->sr_matched = ch_strdup( matched->e_dn );
+			rs->sr_ref = is_entry_referral( matched )
+				? get_entry_referrals( op, matched )
 				: NULL;
 			cache_return_entry_r( &li->li_cache, matched );
 		} else {
-			refs = referral_rewrite( default_referral,
-				NULL, dn, LDAP_SCOPE_DEFAULT );
+			if ( !LDAP_STAILQ_EMPTY( &op->o_bd->be_syncinfo )) {
+				syncinfo_t *si;
+				LDAP_STAILQ_FOREACH( si, &op->o_bd->be_syncinfo, si_next ) {
+					struct berval tmpbv;
+					ber_dupbv( &tmpbv, &si->si_provideruri_bv[0] );
+					ber_bvarray_add( &deref, &tmpbv );
+				}
+			} else {
+				deref = default_referral;
+			}
+			rs->sr_ref = referral_rewrite( deref, NULL, &op->o_req_dn,
+						LDAP_SCOPE_DEFAULT );
 		}
 
 		ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
-		send_ldap_result( conn, op, LDAP_REFERRAL,
-			matched_dn, NULL, refs, NULL );
+		rs->sr_err = LDAP_REFERRAL;
+		send_ldap_result( op, rs );
 
-		if ( refs ) ber_bvarray_free( refs );
-		free( matched_dn );
+		if ( rs->sr_ref ) ber_bvarray_free( rs->sr_ref );
+		if ( deref != default_referral ) {
+			ber_bvarray_free( deref );
+		}
+		free( (char *)rs->sr_matched );
 
-		return( -1 );
+		rs->sr_ref = NULL;
+		rs->sr_matched = NULL;
+		return rs->sr_err;
 	}
 
-    if ( !manageDSAit && is_entry_referral( e ) ) {
+	if ( !manageDSAit && is_entry_referral( e ) )
+	{
 		/* parent is a referral, don't allow add */
 		/* parent is an alias, don't allow add */
-		BerVarray refs = get_entry_referrals( be,
-			conn, op, e );
+		rs->sr_ref = get_entry_referrals( op, e );
 
 #ifdef NEW_LOGGING
 		LDAP_LOG( BACK_LDBM, INFO, 
-			   "ldbm_back_modify: entry (%s) is referral\n", ndn->bv_val, 0, 0 );
+			   "ldbm_back_modify: entry (%s) is referral\n", op->o_req_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "entry is referral\n", 0,
 		    0, 0 );
 #endif
 
+		rs->sr_err = LDAP_REFERRAL;
+		rs->sr_matched = e->e_name.bv_val;
+		send_ldap_result( op, rs );
 
-		send_ldap_result( conn, op, LDAP_REFERRAL,
-		    e->e_dn, NULL, refs, NULL );
-
-		if ( refs ) ber_bvarray_free( refs );
-
+		if ( rs->sr_ref ) ber_bvarray_free( rs->sr_ref );
+		rs->sr_ref = NULL;
+		rs->sr_matched = NULL;
 		goto error_return;
 	}
 	
 	/* Modify the entry */
-	rc = ldbm_modify_internal( be, conn, op, ndn->bv_val, modlist, e,
-		&text, textbuf, textlen );
+	rs->sr_err = ldbm_modify_internal( op, op->oq_modify.rs_modlist, e,
+		&rs->sr_text, textbuf, textlen );
 
-	if( rc != LDAP_SUCCESS ) {
-		if( rc != SLAPD_ABANDON ) {
-			send_ldap_result( conn, op, rc,
-				NULL, text, NULL, NULL );
+	if( rs->sr_err != LDAP_SUCCESS ) {
+		if( rs->sr_err != SLAPD_ABANDON ) {
+			send_ldap_result( op, rs );
 		}
 
 		goto error_return;
 	}
 
 	/* change the entry itself */
-	if ( id2entry_add( be, e ) != 0 ) {
-		send_ldap_result( conn, op, LDAP_OTHER,
-			NULL, "id2entry failure", NULL, NULL );
+	if ( id2entry_add( op->o_bd, e ) != 0 ) {
+		send_ldap_error( op, rs, LDAP_OTHER,
+			"id2entry failure" );
+		rs->sr_err = LDAP_OTHER;
 		goto error_return;
 	}
 
-	send_ldap_result( conn, op, LDAP_SUCCESS,
-		NULL, NULL, NULL, NULL );
+	rs->sr_text = NULL;
+	send_ldap_error( op, rs, LDAP_SUCCESS,
+		NULL );
 
 	cache_return_entry_w( &li->li_cache, e );
 	ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
-	return( 0 );
+
+	return LDAP_SUCCESS;
 
 error_return:;
 	cache_return_entry_w( &li->li_cache, e );
 	ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
-	return( -1 );
+	rs->sr_text = NULL;
+	return rs->sr_err;
 }

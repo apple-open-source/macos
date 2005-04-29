@@ -1,0 +1,16 @@
+%(requestaddr)s adresine isteðiniz:
+
+    %(cmd)s
+
+listeyi yöneten kiþiye iletildi.
+
+Bunun nedeni büyük olasýlýkla 'kapalý' bir listeye üye olmaya çalýþýyor
+olmanýzdýr.
+
+Liste sahibinin, üyelik isteðinizle ilgili kararýný içeren bir e-posta
+bildirimi alacaksýnýz.
+
+Liste sahibinin ilkeleriyle ilgili her soru þu adrese yöneltilmelidir:
+
+    %(adminaddr)s
+

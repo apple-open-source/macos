@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,15 +25,17 @@
 #define _SCDYNAMICSTORECOPYSPECIFIC_H
 
 #include <sys/cdefs.h>
+#include <sys/types.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDynamicStore.h>
 
 
 /*!
 	@header SCDynamicStoreCopySpecific
-	The following APIs allow an application to determine specific
-	configuration information about the current system (e.g. the
-	computer/sharing name, the currently logged in user, etc).
+	@discussion The functions of the SCDynamicStoreCopySpecific API
+		allow an application to determine specific configuration
+		information about the current system (for example, the
+		computer or sharing name, the currently logged-in user, etc.).
  */
 
 
@@ -41,13 +43,14 @@ __BEGIN_DECLS
 
 /*!
 	@function SCDynamicStoreCopyComputerName
-	@discussion Gets the current computer/host name.
-	@param store An SCDynamicStoreRef that should be used for communication
-		with the server.
+	@discussion Gets the current computer name.
+	@param store An SCDynamicStoreRef representing the dynamic store
+		session that should be used for communication with the server.
 		If NULL, a temporary session will be used.
 	@param nameEncoding A pointer to memory that, if non-NULL, will be
-		filled with the encoding associated with the computer/host name.
-	@result The current computer/host name;
+		filled with the encoding associated with the computer or
+		host name.
+	@result Returns the current computer name;
 		NULL if the name has not been set or if an error was encountered.
 		You must release the returned value.
  */
@@ -60,17 +63,22 @@ SCDynamicStoreCopyComputerName		(
 /*!
 	@function SCDynamicStoreCopyConsoleUser
 	@discussion Gets the name, user ID, and group ID of the currently
-		logged in user.
-	@param store An SCDynamicStoreRef that should be used for communication
-		with the server.
+		logged-in user.
+
+		Note: this function only provides information about the
+		      primary console.  It does not provide any details
+		      about console sessions that have fast user switched
+		      out or about other consoles.
+	@param store An SCDynamicStoreRef representing the dynamic store
+		session that should be used for communication with the server.
 		If NULL, a temporary session will be used.
 	@param uid A pointer to memory that will be filled with the user ID
-		of the current "Console" user. If NULL, this value will not
+		of the current console user. If NULL, this value will not
 		be returned.
 	@param gid A pointer to memory that will be filled with the group ID
-		of the current "Console" user. If NULL, this value will not be
+		of the current console user. If NULL, this value will not be
 		returned.
-	@result The current user logged into the system;
+	@result Returns the user currently logged into the system;
 		NULL if no user is logged in or if an error was encountered.
 		You must release the returned value.
  */
@@ -84,13 +92,10 @@ SCDynamicStoreCopyConsoleUser		(
 /*!
 	@function SCDynamicStoreCopyLocalHostName
 	@discussion Gets the current local host name.
-
-		See SCDynamicStoreKeyCreateHostNames() for notification
-		key information.
-	@param store An SCDynamicStoreRef that should be used for communication
-		with the server.
+	@param store An SCDynamicStoreRef representing the dynamic store
+		session that should be used for communication with the server.
 		If NULL, a temporary session will be used.
-	@result The current local host name;
+	@result Returns the current local host name;
 		NULL if the name has not been set or if an error was encountered.
 		You must release the returned value.
  */
@@ -101,12 +106,12 @@ SCDynamicStoreCopyLocalHostName		(
 
 /*!
 	@function SCDynamicStoreCopyLocation
-	@discussion Gets the current "location" identifier.
-	@param store An SCDynamicStoreRef that should be used for communication
-		with the server.
+	@discussion Gets the current location identifier.
+	@param store An SCDynamicStoreRef representing the dynamic store
+		session that should be used for communication with the server.
 		If NULL, a temporary session will be used.
-	@result A string representing the current "location" identifier;
-		NULL if no "location" identifier has been defined or if an error
+	@result Returns a string representing the current location identifier;
+		NULL if no location identifier has been defined or if an error
 		was encountered.
 		You must release the returned value.
  */
@@ -118,12 +123,81 @@ SCDynamicStoreCopyLocation		(
 /*!
 	@function SCDynamicStoreCopyProxies
 	@discussion Gets the current internet proxy settings.
-	@param store An SCDynamicStoreRef that should be used for communication
-		with the server.
+		The returned proxy settings dictionary includes:
+
+		<TABLE BORDER>
+		<TR>
+			<TH>key</TD>
+			<TH>type</TD>
+			<TH>description</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesExceptionsList</TD>
+			<TD>CFArray[CFString]</TD>
+			<TD>Host name patterns which should bypass the proxy</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesHTTPEnable</TD>
+			<TD>CFNumber (0 or 1)</TD>
+			<TD>Enables/disables the use of an HTTP proxy</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesHTTPProxy</TD>
+			<TD>CFString</TD>
+			<TD>The proxy host</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesHTTPPort</TD>
+			<TD>CFNumber</TD>
+			<TD>The proxy port number</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesHTTPSEnable</TD>
+			<TD>CFNumber (0 or 1)</TD>
+			<TD>Enables/disables the use of an HTTPS proxy</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesHTTPSProxy</TD>
+			<TD>CFString</TD>
+			<TD>The proxy host</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesHTTPSPort</TD>
+			<TD>CFNumber</TD>
+			<TD>The proxy port number</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesFTPEnable</TD>
+			<TD>CFNumber (0 or 1)</TD>
+			<TD>Enables/disables the use of an FTP proxy</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesFTPProxy</TD>
+			<TD>CFString</TD>
+			<TD>The proxy host</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesFTPPort</TD>
+			<TD>CFNumber</TD>
+			<TD>The proxy port number</TD>
+		</TR>
+		<TR>
+			<TD>kSCPropNetProxiesFTPPassive</TD>
+			<TD>CFNumber (0 or 1)</TD>
+			<TD>Enable passive mode operation for use behind connection
+			filter-ing firewalls.</TD>
+		</TR>
+		</TABLE>
+
+		Other key-value pairs are defined in the SCSchemaDefinitions.h
+		header file.
+	@param store An SCDynamicStoreRef representing the dynamic store
+		session that should be used for communication with the server.
 		If NULL, a temporary session will be used.
-	@result A dictionary with key/value pairs representing the current
-		internet proxy settings (HTTP, FTP, etc);
-		NULL if no proxy settings have been defined or if an error was encountered.
+	@result Returns a dictionary containing key-value pairs that represent
+		the current internet proxy settings;
+		NULL if no proxy settings have been defined or if an error
+		was encountered.
 		You must release the returned value.
  */
 CFDictionaryRef

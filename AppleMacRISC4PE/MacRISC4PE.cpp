@@ -46,15 +46,12 @@ static unsigned long macRISC4Speed[] = { 0, 1 };
 #include <IOKit/pwr_mgt/RootDomain.h>
 //XXX-#include "IOPMSlotsMacRISC4.h"
 //XXX-#include "IOPMUSBMacRISC4.h"
-#include <IOKit/pwr_mgt/IOPMPagingPlexus.h>
+//#include <IOKit/pwr_mgt/IOPMPagingPlexus.h>
 #include <IOKit/pwr_mgt/IOPMPowerSource.h>
 #include <pexpert/pexpert.h>
 
 extern char *gIOMacRISC4PMTree;
 
-#ifndef kIOHibernateFeatureKey
-#define kIOHibernateFeatureKey	"Hibernation"
-#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -594,7 +591,6 @@ void MacRISC4PE::getDefaultBusSpeeds(long *numSpeeds, unsigned long **speedList)
 void MacRISC4PE::PMInstantiatePowerDomains ( void )
 {    
     IOPMUSBMacRISC4		*usbMacRISC4;
-	UInt32				hibEnable;
 
 	const OSSymbol *desc = OSSymbol::withCString("powertreedesc");
 
@@ -633,10 +629,6 @@ void MacRISC4PE::PMInstantiatePowerDomains ( void )
         return;
     }
 
-    if (PE_parse_boot_arg("hib", &hibEnable) && hibEnable)
-    {
-        root->publishFeature(kIOHibernateFeatureKey);
-    }
 
     PMRegisterDevice (NULL, root);
 

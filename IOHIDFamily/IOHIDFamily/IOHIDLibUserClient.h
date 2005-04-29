@@ -126,6 +126,8 @@ protected:
 
     IOHIDDevice *fNub;
     IOCommandGate *fGate;
+    
+    OSSet * fQueueSet;
 
     task_t fClient;
     mach_port_t fWakePort;

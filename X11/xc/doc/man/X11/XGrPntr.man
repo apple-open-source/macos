@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XGrPntr.man,v 1.2 2001/01/27 18:20:00 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XGrPntr.man,v 1.3 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,40 +144,16 @@
 .SH NAME
 XGrabPointer, XUngrabPointer, XChangeActivePointerGrab \- grab the pointer
 .SH SYNTAX
-int XGrabPointer\^(\^\fIdisplay\fP, \fIgrab_window\fP\^, \fIowner_events\fP\^, \fIevent_mask\fP\^, \fIpointer_mode\fP\^,
-               \fIkeyboard_mode\fP\^, \fIconfine_to\fP\^, \fIcursor\fP\^, \fItime\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIgrab_window\fP\^;
-.br
-      Bool \fIowner_events\fP\^;
-.br
-      unsigned int \fIevent_mask\fP\^;	
-.br
-      int \fIpointer_mode\fP\^, \fIkeyboard_mode\fP\^; 
-.br
-      Window \fIconfine_to\fP\^; 
-.br
-      Cursor \fIcursor\fP\^; 
-.br
-      Time \fItime\fP\^; 
-.LP
-XUngrabPointer\^(\^\fIdisplay\fP, \fItime\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Time \fItime\fP\^;
-.LP
-XChangeActivePointerGrab\^(\^\fIdisplay\fP, \fIevent_mask\fP\^, \fIcursor\fP\^, \fItime\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      unsigned int \fIevent_mask\fP\^;
-.br
-      Cursor \fIcursor\fP\^;
-.br
-      Time \fItime\fP\^;
+.HP
+int XGrabPointer\^(\^Display *\fIdisplay\fP\^, Window \fIgrab_window\fP\^,
+Bool \fIowner_events\fP\^, unsigned int \fIevent_mask\fP\^, int
+\fIpointer_mode\fP\^, int \fIkeyboard_mode\fP\^, Window \fIconfine_to\fP\^,
+Cursor \fIcursor\fP\^, Time \fItime\fP\^); 
+.HP
+int XUngrabPointer\^(\^Display *\fIdisplay\fP\^, Time \fItime\fP\^); 
+.HP
+int XChangeActivePointerGrab\^(\^Display *\fIdisplay\fP\^, unsigned int
+\fIevent_mask\fP\^, Cursor \fIcursor\fP\^, Time \fItime\fP\^); 
 .SH ARGUMENTS
 .IP \fIconfine_to\fP 1i
 Specifies the window to confine the pointer in or

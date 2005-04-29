@@ -34,102 +34,55 @@
  *		Created. Derived from setjmp.s
  */
 
+/* We use mode-independent "g" opcodes such as "stg", and/or
+ * mode-independent macros such as MI_GET_ADDRESS.  These expand
+ * into word operations when targeting __ppc__, and into doubleword
+ * operations when targeting __ppc64__.
+ */
+#include <architecture/ppc/mode_independent_asm.h>
 
-#include <architecture/ppc/asm_help.h>
+#define __APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+#undef  __APPLE_API_PRIVATE
+
 #include "_setjmp.h"
 
 #define	VRSave	256
 
-/* special flag bit definitions copied from /osfmk/ppc/thread_act.h */
 
-#define floatUsedbit	1
-#define vectorUsedbit	2
+MI_ENTRY_POINT(__setjmp)
+        lbz     r7, _COMM_PAGE_ALTIVEC(0)   ; get "AltiVec available" flag
 
-#define	FlagsFastTrap	0x7FF3
+        stg     r1, JMP_r1(r3)
+        stg     r2, JMP_r2(r3)
+        stg     r13, JMP_r13(r3)
+        stg     r14, JMP_r14(r3)
+        stg     r15, JMP_r15(r3)
+        stg     r16, JMP_r16(r3)
+        stg     r17, JMP_r17(r3)
+        stg     r18, JMP_r18(r3)
+        stg     r19, JMP_r19(r3)
+        mfcr    r0                      ; we only need to save cr2-cr4
+        stg     r20, JMP_r20(r3)
+        stg     r21, JMP_r21(r3)
+        stg     r22, JMP_r22(r3)
+        stg     r23, JMP_r23(r3)
+        stg     r24, JMP_r24(r3)
+        mflr    r5
+        stg     r25, JMP_r25(r3)
+        stg     r26, JMP_r26(r3)
+        stg     r27, JMP_r27(r3)
+        stg     r28, JMP_r28(r3)
+        stg     r29, JMP_r29(r3)
+        stg     r30, JMP_r30(r3)
+        stg     r31, JMP_r31(r3)
+        stg     r0, JMP_cr(r3)
+        stg     r5, JMP_lr(r3)
 
-
-LEAF(__setjmp)
-	stw r31, JMP_r31(r3)
-	/* r1, r2, r13-r30 */
-	stw r1, JMP_r1(r3)
-	stw r2, JMP_r2(r3)
-	stw r13, JMP_r13(r3)
-	stw r14, JMP_r14(r3)
-	stw r15, JMP_r15(r3)
-	stw r16, JMP_r16(r3)
-	stw r17, JMP_r17(r3)
-	stw r18, JMP_r18(r3)
-	stw r19, JMP_r19(r3)
-	stw r20, JMP_r20(r3)
-	stw r21, JMP_r21(r3)
-	stw r22, JMP_r22(r3)
-	mfcr r0
-	stw r23, JMP_r23(r3)
-	stw r24, JMP_r24(r3)
-	mflr r5
-	stw r25, JMP_r25(r3)
-	stw r26, JMP_r26(r3)
-	mfctr r6				; XXX	ctr is volatile
-	stw r27, JMP_r27(r3)
-	stw r28, JMP_r28(r3)
-	mfxer r7				; XXX	xer is volatile
-	stw r29, JMP_r29(r3)
-	stw r30, JMP_r30(r3)
-	stw r0, JMP_cr(r3)
-	stw r5, JMP_lr(r3)
-	stw r6, JMP_ctr(r3)
-	stw r7, JMP_xer(r3)
-        
-        mr	r31,r3				; save jmp_buf ptr
-        li	r0,FlagsFastTrap
-        sc					; get FPR-inuse and VR-inuse flags from kernel
-        rlwinm	r4,r3,0,floatUsedbit,floatUsedbit
-        rlwinm.	r5,r3,0,vectorUsedbit,vectorUsedbit
-        cmpwi	cr1,r4,0			; set CR1 bne iff FPRs in use
-        stw	r3,JMP_flags(r31)
-        stw	r31,JMP_addr_at_setjmp(r31)
-        mr	r3,r31				; restore jmp_buf ptr
-        lwz	r31,JMP_r31(r31)
-        beq	LSaveFPRsIfNecessary		; skip if vectorUsedbit was 0
-        
-        ; must save VRs and VRSAVE
-        
-        mfspr	r4,VRSave
-        andi.	r0,r4,0xFFF			; we only care about v20-v31
-        stw	r0,JMP_vrsave(r3)		; set up effective VRSAVE
-        beq	LSaveFPRsIfNecessary		; no live non-volatile VRs
-        addi	r6,r3,JMP_vr_base_addr
-        stvx	v20,0,r6
-        li	r4,16*1
-        stvx	v21,r4,r6
-        li	r4,16*2
-        stvx	v22,r4,r6
-        li	r4,16*3
-        stvx	v23,r4,r6
-        li	r4,16*4
-        stvx	v24,r4,r6
-        li	r4,16*5
-        stvx	v25,r4,r6
-        li	r4,16*6
-        stvx	v26,r4,r6
-        li	r4,16*7
-        stvx	v27,r4,r6
-        li	r4,16*8
-        stvx	v28,r4,r6
-        li	r4,16*9
-        stvx	v29,r4,r6
-        li	r4,16*10
-        stvx	v30,r4,r6
-        li	r4,16*11
-        stvx	v31,r4,r6
-        
-        ; must save FPRs if they are live in this thread
-        ;	CR1 = bne iff FPRs are in use
-        
-LSaveFPRsIfNecessary:
-        beq	cr1,LExit			; FPRs not in use
-        addi	r6,r3,JMP_fp_base_addr
-        rlwinm	r6,r6,0,0,27			; mask off low 4 bits to qw align
+        addi	r6,r3,JMP_fp_base_addr  ; point to base of FPR save area
+        stg     r3,JMP_addr_at_setjmp(r3)   ; remember original address of jmpbuf
+        clrrgi	r6,r6,4                 ; mask off low 4 bits to qw align
+        mffs    f0                      ; get FPSCR
         stfd	f14,0*8(r6)
         stfd	f15,1*8(r6)
         stfd	f16,2*8(r6)
@@ -148,8 +101,42 @@ LSaveFPRsIfNecessary:
         stfd	f29,15*8(r6)
         stfd	f30,16*8(r6)
         stfd	f31,17*8(r6)
+        stfd    f0,JMP_fpscr(r3)        ; save fpscr in non-sliding region of jmpbuf
+        
+        cmpwi   r7,0                    ; is AltiVec available? (test _COMM_PAGE_ALTIVEC)
+        addi	r6,r3,JMP_vr_base_addr  ; get base address of VR save area
+        addi    r8,r3,JMP_vrsave        ; we'll need this address below
+        li      r3,0                    ; set return value (always 0 on setjmp)
+        beqlr--                         ; exit if no Altivec
+        
+        mfspr	r4,VRSave               ; AltiVec available, so get VRSAVE mask
+        andi.	r0,r4,0xFFF             ; we only care about v20-v31
+        stg     r0,0(r8)                ; save effective VRSAVE in JMP_vrsave
+        beqlr++                         ; if no live non-volatile VRs, we're done
 
-LExit:
-	li 	r3, 0
-	blr
+        stvx	v20,0,r6
+        li      r4,16*1
+        stvx	v21,r4,r6
+        li      r4,16*2
+        stvx	v22,r4,r6
+        li      r4,16*3
+        stvx	v23,r4,r6
+        li      r4,16*4
+        stvx	v24,r4,r6
+        li      r4,16*5
+        stvx	v25,r4,r6
+        li      r4,16*6
+        stvx	v26,r4,r6
+        li      r4,16*7
+        stvx	v27,r4,r6
+        li      r4,16*8
+        stvx	v28,r4,r6
+        li      r4,16*9
+        stvx	v29,r4,r6
+        li      r4,16*10
+        stvx	v30,r4,r6
+        li      r4,16*11
+        stvx	v31,r4,r6
+
+        blr
 

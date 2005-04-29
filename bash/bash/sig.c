@@ -126,8 +126,10 @@ static struct termsig terminating_signals[] = {
 {  SIGEMT, NULL_HANDLER },
 #endif
 
+#ifndef __APPLE__      /* SIGFPE is bad for performance */
 #ifdef SIGFPE
 {  SIGFPE, NULL_HANDLER },
+#endif
 #endif
 
 #ifdef SIGBUS
@@ -222,7 +224,8 @@ initialize_terminating_signals ()
       /* If we've already trapped it, don't do anything. */
       if (signal_is_trapped (XSIG (i)))
 	continue;
-
+      sigaction (XSIG (i), 0, &oact);
+      act.sa_flags = oact.sa_flags; /* preserve sa_flags */
       sigaction (XSIG (i), &act, &oact);
       XHANDLER(i) = oact.sa_handler;
       /* Don't do anything with signals that are ignored at shell entry
@@ -303,7 +306,6 @@ reset_terminating_signals ()
     return;
 
 #if defined (HAVE_POSIX_SIGNALS)
-  act.sa_flags = 0;
   sigemptyset (&act.sa_mask);
   for (i = 0; i < TERMSIGS_LENGTH; i++)
     {
@@ -311,8 +313,9 @@ reset_terminating_signals ()
 	 trap code will restore the correct value. */
       if (signal_is_trapped (XSIG (i)) || signal_is_special (XSIG (i)))
 	continue;
-
+      sigaction(XSIG(i), 0, &act); /* set sa_flags */
       act.sa_handler = XHANDLER (i);
+      sigemptyset (&act.sa_mask);
       sigaction (XSIG (i), &act, (struct sigaction *) NULL);
     }
 #else /* !HAVE_POSIX_SIGNALS */
@@ -502,8 +505,8 @@ set_signal_handler (sig, handler)
 {
   struct sigaction act, oact;
 
+  sigaction(sig, 0, &act);	/* set sa_flags */
   act.sa_handler = handler;
-  act.sa_flags = 0;
 #if 0
   if (sig == SIGALRM)
     act.sa_flags |= SA_INTERRUPT;	/* XXX */

@@ -500,7 +500,7 @@ kload_error __kload_keep_symbols(dgraph_entry_t * entry)
 
     hdr                 = (struct mach_header *) mem;
     cmd->hdr.ncmds      = 2;
-    cmd->hdr.sizeofcmds = sizeof(struct load_cmds);
+    cmd->hdr.sizeofcmds = sizeof(struct load_cmds) - sizeof(struct mach_header);
     cmd->hdr.flags     &= ~MH_INCRLINK;
 
     cmd->symcmd.stroff -= (symcmd->symoff - sizeof(struct load_cmds));
@@ -521,7 +521,16 @@ kload_error __kload_keep_symbols(dgraph_entry_t * entry)
     sym = (struct nlist *) (cmd + 1);
     for (idx = 0; idx < symcmd->nsyms; idx++, sym++)
     {
-	if ( (sym->n_type & N_TYPE) == N_SECT) {
+	if ( (sym->n_type & N_STAB) != 0)
+	{
+	    sym->n_type = N_ABS;
+	    sym->n_desc  = 0;
+	    sym->n_value = sym->n_un.n_strx;
+	    sym->n_un.n_strx = 0;
+	    sym->n_sect = NO_SECT;
+	}
+	else if ( (sym->n_type & N_TYPE) == N_SECT)
+	{
 	    sym->n_sect = NO_SECT;
 	    sym->n_type = (sym->n_type & ~N_TYPE) | N_ABS;
 	}
@@ -763,14 +772,14 @@ kload_error __kload_load_modules(dgraph_t * dgraph
     }
 
     cleanup_kld_loader = true;
-    bool opaque_now = false;
+    char opaque_now = false;
 
     for (i = 0; i < dgraph->length; i++) {
         dgraph_entry_t * current_entry = dgraph->load_order[i];
 
 	opaque_now |= current_entry->opaque_link;
 
-	if (opaque_now)
+	if (kOpaqueLink & opaque_now)
 	{
 	    unsigned int k, j;
 
@@ -784,9 +793,17 @@ kload_error __kload_load_modules(dgraph_t * dgraph
 	    if (dgraph->have_loaded_symbols)
 	    {
 		kld_unload_all(1);
-		kld_result = kld_load_basefile_from_memory(kernel_file,
-						    (char *)  dgraph->opaque_base_image, 
-								dgraph->opaque_base_length);
+                if (kRawKernelLink & current_entry->opaque_link) {
+#ifndef KERNEL
+                    kld_result = kld_load_basefile_from_memory(kernel_file,
+                                                       (char *)  kernel_base_addr, kernel_size);
+#endif
+                } else {
+                    kld_result = kld_load_basefile_from_memory(kernel_file,
+                                                        (char *)  dgraph->opaque_base_image, 
+                                                                    dgraph->opaque_base_length);
+                    dgraph->have_loaded_symbols = false;
+                }
 		if (!kld_result) {
 		    kload_log_error("can't link base image %s" KNL, kernel_file);
 		    result = kload_error_link_load;
@@ -794,23 +811,37 @@ kload_error __kload_load_modules(dgraph_t * dgraph
 		}
 	    }
 
-	    dgraph->have_loaded_symbols = false;
-
-	    for (j = 0; j < dgraph->length; j++)
+	    for (j = 0; j < i; j++)
 	    {
-		for (k = 0;
-		    (k < current_entry->num_dependencies)
-		    && (current_entry->dependencies[k] != dgraph->load_order[j]);
-		    k++)	{}
 
-		if (k == current_entry->num_dependencies)
-		    continue;
+		dgraph_entry_t * image_dep = dgraph->load_order[j];
 
-		dgraph_entry_t * image_dep = current_entry->dependencies[k];
+                if (current_entry->opaque_link)
+                {
+                    for (k = 0;
+                        (k < current_entry->num_dependencies)
+                        && (current_entry->dependencies[k] != image_dep);
+                        k++)	{}
+    
+                    if (k == current_entry->num_dependencies)
+                        continue;
+                }
+
+                if (!current_entry->opaque_link && image_dep->opaques)
+                {
+                    // kpi not on direct dependency list
+                    continue;
+                }
+                if (kRawKernelLink & image_dep->opaques)
+                {
+                    // raw kernel already in base image
+                    continue;
+                }
+
 		if (!image_dep->symbols)
 		{
 		    kload_log_error("internal error; no dependent symbols" KNL);
-		    result = kload_error_link_load;
+                    result = kload_error_link_load;
 		    goto finish;
 		}
 		else
@@ -859,7 +890,9 @@ kload_error __kload_load_modules(dgraph_t * dgraph
 
 	if (dgraph->has_opaque_links && (current_entry != dgraph->root))
 	{
-	    result = __kload_keep_symbols(current_entry);
+            if (!(kRawKernelLink & current_entry->opaques)) {
+                result = __kload_keep_symbols(current_entry);
+            }
 	    if (result != kload_error_none) {
 		kload_log_error("__kload_keep_symbols() failed for module %s" KNL,
 		    current_entry->name);
@@ -883,7 +916,7 @@ kload_error __kload_load_modules(dgraph_t * dgraph
                  (interactive_level == 2) ) {
 
                 int approve = (*__kload_approve_func)(1,
-                    "\nStart module %s (ansering no will abort the load)",
+                    "\nStart module %s (answering no will abort the load)",
                     current_entry->name);
 
                 if (approve > 0) {
@@ -1505,6 +1538,7 @@ kload_error kload_map_entry(dgraph_entry_t * entry)
         if (log_level >= kload_log_level_load_details) {
             kload_log_message("module file %s is already mapped" KNL, entry->name);
         }
+		entry->is_mapped = true;
         result = kload_error_none;
         goto finish;
     }

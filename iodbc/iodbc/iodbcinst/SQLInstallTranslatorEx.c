@@ -1,7 +1,7 @@
 /*
  *  SQLInstallTranslatorEx.c
  *
- *  $Id: SQLInstallTranslatorEx.c,v 1.1.1.2 2002/04/30 00:40:25 miner Exp $
+ *  $Id: SQLInstallTranslatorEx.c,v 1.3 2004/11/11 01:52:40 luesang Exp $
  *
  *  These functions intentionally left blank
  *
@@ -84,8 +84,8 @@
 #endif
 
 extern BOOL InstallDriverPath ( LPSTR lpszPath,WORD cbPathMax,
-    WORD FAR *pcbPathOut,LPSTR envname);
-extern BOOL InstallDriverPathLength (WORD FAR * pcbPathOut,LPSTR envname);
+    WORD *pcbPathOut,LPSTR envname);
+extern BOOL InstallDriverPathLength (WORD * pcbPathOut,LPSTR envname);
 
 
 BOOL INSTAPI

@@ -71,18 +71,18 @@ using namespace std;
 dsBool	gServerOS		= false;	//indicates whether this is running on Server or not
 dsBool	gLogAPICalls	= false;
 dsBool	gDebugLogging	= false;
-time_t	gSunsetTime		= time( nil);
+dsBool	gDSFWCSBPDebugLogging   = false;
+CFAbsoluteTime	gSunsetTime		= 0;
 //Used for Power Management
 io_object_t			gPMDeregisterNotifier;
 io_connect_t		gPMKernelPort;
 CFRunLoopRef		gServerRunLoop = NULL;
-
-
-// Static ---------------------------------------------------------------------
+DSMutexSemaphore    *gKerberosMutex = NULL;
+mach_port_t			gServerMachPort = MACH_PORT_NULL;
 
 #warning VERIFY the version string before each distinct build submission
-static const char* strDaemonAppleVersion = "1.8.3";
-static const char* strDaemonBuildVersion = "258";
+const char* gStrDaemonAppleVersion = "1.8";
+const char* gStrDaemonBuildVersion = "346";
 
 enum
 {
@@ -94,8 +94,10 @@ typedef struct SignalMessage
 	mach_msg_header_t	header;
 	mach_msg_body_t		body;
 	int					signum;
-	mach_msg_trailer_t	trailer;
+	mach_msg_audit_trailer_t	trailer;
 } SignalMessage;
+
+void LoggingTimerCallBack( CFRunLoopTimerRef timer, void *info );
 
 static void SignalHandler(int signum);
 static void SignalMessageHandler(CFMachPortRef port,SignalMessage *msg,CFIndex size,void *info);
@@ -145,18 +147,9 @@ static void _HandleSigHup ( ... )
 // ---------------------------------------------------------------------------
 static void _HandleSIGUSR1 ( ... )
 {
-	//toggle the global
-	if (gDebugLogging)
+	if ( gSrvrCntl != nil )
 	{
-		gDebugLogging = false;
-		CLog::StopDebugLog();
-		syslog(LOG_INFO,"Debug Logging turned OFF after receiving USR1 signal.");
-	}
-	else
-	{
-		gDebugLogging = true;
-		CLog::StartDebugLog();
-		syslog(LOG_INFO,"Debug Logging turned ON after receiving USR1 signal.");
+		gSrvrCntl->ResetDebugging(); //ignore return status
 	}
 } // _HandleSIGUSR1
 
@@ -170,13 +163,24 @@ static void _HandleSIGUSR2 ( ... )
 	if (gLogAPICalls)
 	{
 		gLogAPICalls = false;
-		syslog(LOG_INFO,"Logging of API Calls turned OFF after receiving USR2 signal.");
+		syslog(LOG_ALERT,"Logging of API Calls turned OFF after receiving USR2 signal.");
 	}
 	else
 	{
 		gLogAPICalls = true;
-		gSunsetTime = time(nil) + 300;
-		syslog(LOG_INFO,"Logging of API Calls turned ON after receiving USR2 signal.");
+		gSunsetTime		= CFAbsoluteTimeGetCurrent() + 300;
+		CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	kCFAllocatorDefault,
+														gSunsetTime + 1, // set timer a little ahead
+														0,
+														0,
+														0,
+														LoggingTimerCallBack,
+														NULL );
+		
+		CFRunLoopAddTimer( gServerRunLoop, timer, kCFRunLoopDefaultMode );
+		CFRelease( timer );
+		timer = NULL;
+		syslog(LOG_ALERT,"Logging of API Calls turned ON after receiving USR2 signal.");
 	}
 } // _HandleSIGUSR2
 
@@ -231,7 +235,7 @@ static void _Version ( FILE *fp )
 {
 	static const char * const	_szpUsage =
 		"Apple Computer, Inc.  Version DirectoryService %s\n";
-	::fprintf( fp, _szpUsage, strDaemonAppleVersion );
+	::fprintf( fp, _szpUsage, gStrDaemonAppleVersion );
 
 } // _Version
 
@@ -245,7 +249,7 @@ static void _AppleVersion ( FILE *fp )
 {
 	static const char * const	_szpUsage =
 		"Apple Computer, Inc.  Version DirectoryService-%s\n";
-	::fprintf( fp, _szpUsage, strDaemonBuildVersion );
+	::fprintf( fp, _szpUsage, gStrDaemonBuildVersion );
 
 } // _AppleVersion
 
@@ -268,12 +272,33 @@ static void _AppleOptions ( FILE *fp, const char *argv0 )
 } // _AppleOptions
 
 // ---------------------------------------------------------------------------
+//	* LoggingTimerCallBack ()
+//
+// ---------------------------------------------------------------------------
+
+void LoggingTimerCallBack( CFRunLoopTimerRef timer, void *info )
+{
+	if ( gLogAPICalls && CFAbsoluteTimeGetCurrent() >= gSunsetTime )
+	{
+		gLogAPICalls	= false;
+		syslog(LOG_CRIT,"Logging of API Calls automatically turned OFF at reaching sunset duration of five minutes.");
+	}
+}
+
+// ---------------------------------------------------------------------------
 //	* NetworkChangeCallBack ()
 //
 // ---------------------------------------------------------------------------
 
 void NetworkChangeCallBack(SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *callback_argument)
 {                       
+	for( CFIndex i=0; i<CFArrayGetCount(changedKeys); i++ )
+	{
+		char		keyName[256];
+		CFStringGetCString( (CFStringRef)CFArrayGetValueAtIndex( changedKeys, i ), keyName, sizeof(keyName), kCFStringEncodingUTF8 );
+		DBGLOG1( kLogApplication, "NetworkChangeCallBack key: %s", keyName );
+	}
+	
 	if ( gSrvrCntl != nil )
 	{
 		gSrvrCntl->HandleNetworkTransition(); //ignore return status
@@ -291,16 +316,26 @@ void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t
         
 	switch (messageType)
 	{
+		case kIOMessageSystemHasPoweredOn:
+			DBGLOG( kLogApplication, "dsPMNotificationHandler(): kIOMessageSystemHasPoweredOn\n" );
+			break;
+		case kIOMessageSystemWillPowerOn:      
+			DBGLOG( kLogApplication, "dsPMNotificationHandler(): kIOMessageSystemWillPowerOn\n" );
+			gSrvrCntl->HandleSystemWillPowerOn();
+			break;
+
 		case kIOMessageSystemWillSleep:
+			DBGLOG( kLogApplication, "dsPMNotificationHandler(): kIOMessageSystemWillSleep\n" );
+			gSrvrCntl->HandleSystemWillSleep();
+
 		case kIOMessageSystemWillPowerOff:
-			//DBGLOG( kLogApplication, "dsPMNotificationHandler: kIOMessageSystemWillSleep OR kIOMessageSystemWillPowerOff" );
-			//KW have server control go into "sleep" mode 
+		case kIOMessageCanSystemSleep:
+		case kIOMessageCanSystemPowerOff:
+		case kIOMessageCanDevicePowerOff:
+            IOAllowPowerChange(gPMKernelPort, (long)notificationID);	// don't want to slow up machine from going to sleep
 		break;
 
 		case kIOMessageSystemWillNotSleep:
-		case kIOMessageSystemHasPoweredOn:      
-			//DBGLOG( kLogApplication, "dsPMNotificationHandler: kIOMessageSystemWillNotSleep OR kIOMessageSystemHasPoweredOn" );
-			//KW have server control go into "wake" mode 
 		break;
 
 #ifdef DEBUG
@@ -310,13 +345,9 @@ void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t
 		case kIOMessageServiceWasClosed:
 		case kIOMessageServiceIsResumed:        
 		case kIOMessageServiceBusyStateChange:
-		case kIOMessageCanDevicePowerOff:
 		case kIOMessageDeviceWillPowerOff:
 		case kIOMessageDeviceWillNotPowerOff:
-		case kIOMessageDeviceHasPoweredOn:
-		case kIOMessageCanSystemPowerOff:
 		case kIOMessageSystemWillNotPowerOff:
-		case kIOMessageCanSystemSleep:
 #endif
 
 		default:
@@ -359,8 +390,6 @@ int main ( int argc, char * const *argv )
 	bool				bFound			= false;
 	struct stat			statResult;
 	pid_t				ourUID			= ::getuid();
-	kern_return_t		machErr			= eDSNoErr;
-	mach_port_t			serverPort		= MACH_PORT_NULL;
 	bool				bDebugMode		= false;
 
 
@@ -369,6 +398,9 @@ int main ( int argc, char * const *argv )
 //	rlp.rlim_cur = RLIM_INFINITY;       /* current (soft) limit */
 //	rlp.rlim_max = RLIM_INFINITY;       /* hard limit */
 //	(void)setrlimit(RLIMIT_CORE, &rlp);
+    
+    // this changes the logging format to show the PID and to cause syslog to launch
+    openlog( "DirectoryService", LOG_PID | LOG_NOWAIT, LOG_DAEMON );
 
 	if ( argc > 1 )
 	{
@@ -430,31 +462,18 @@ int main ( int argc, char * const *argv )
 		}
 	}
 		
-	openlog("DirectoryService", LOG_NDELAY | LOG_PID, LOG_DAEMON);
-
         if ( ourUID != 0 )
         {
                 syslog(LOG_ALERT, "DirectoryService needs to be launched as root.\n");
                 ::exit( 1 );
         }
 
-	syslog(LOG_INFO,"Launched version %s (v%s)", strDaemonAppleVersion, strDaemonBuildVersion );
-
+	syslog(LOG_ALERT,"Launched version %s (v%s)", gStrDaemonAppleVersion, gStrDaemonBuildVersion );
+	
 	if (!bDebugMode)
 	{
-		mach_port_t			mach_init_port		= MACH_PORT_NULL;
 		mach_port_t			send_port			= MACH_PORT_NULL;
 		mach_port_t			priv_bootstrap_port	= MACH_PORT_NULL;
-		sIPCMsg				msg;
-
-		// Is the server already running? - check the server port that is used by the clients
-		machErr = ::bootstrap_look_up( bootstrap_port, kDSServiceName, &serverPort );
-		if ( machErr == eDSNoErr )
-		{
-			syslog(LOG_ALERT, "DirectoryService server is already running since its mach server port is already registered.\n");
-			syslog(LOG_ALERT, "Terminating this instantiated DirectoryService process.\n");
-			exit( 0 );
-		}
 
 		//check if mach_init has already launched DirectoryService
 		int status = sys_server_status(kDSStdMachPortName);
@@ -467,7 +486,7 @@ int main ( int argc, char * const *argv )
         /*
          * See if our service name is already registered and if we have privilege to check in.
          */
-		status = bootstrap_check_in(bootstrap_port, kDSStdMachPortName, &mach_init_port);
+		status = bootstrap_check_in(bootstrap_port, kDSStdMachPortName, &gServerMachPort);
 		if (status == BOOTSTRAP_SUCCESS)
 		{
 			/*
@@ -497,7 +516,7 @@ int main ( int argc, char * const *argv )
 				status = bootstrap_create_service(priv_bootstrap_port, kDSStdMachPortName, &send_port);
 				if (status == KERN_SUCCESS)
 				{
-					status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachPortName, &mach_init_port);
+					status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachPortName, &gServerMachPort);
 					if (status != KERN_SUCCESS)
 					{
 						syslog(LOG_ALERT, "unable to create our own portset - exiting" );
@@ -518,26 +537,19 @@ int main ( int argc, char * const *argv )
 		{
 			syslog(LOG_ALERT, "task_set_bootstrap_port() for bootstrap port did not return BOOTSTRAP_SUCCESS so forked processes may block restarts of DirectoryService" );
         }
-
-		// receive the kickoff message and promptly ignore it so that mach_init will not immediately restart
-		// the daemon unless a DS client actually requests it
-		status = mach_msg( (mach_msg_header_t *)&msg, MACH_RCV_MSG | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0), 0, sizeof( sIPCMsg ), mach_init_port, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL );
-		if ( status == MACH_MSG_SUCCESS )
+		
+		// we are the real daemon by now, let's set ourselves for delayed termination.
+		int		mib[6]		= { 0 };
+		int		oldstate	= 0;
+		size_t	oldsize		= 4;
+		int		newstate	= 1;
+		
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_PROCDELAYTERM;
+		
+		if (sysctl(mib, 2, &oldstate, &oldsize, &newstate, 4) < 0)
 		{
-			//success in receiving kicker message
-		}
-		else
-		{
-			//failure in receiving kicker message but should never get here anyways
-		}
-					
-        // We have no intention of responding to requests on the mach init port.
-		// We are just using this mechanism for relaunch facilities.
-        // So, we can dispose of all the rights we have for the mach init port.
-		if (mach_init_port != MACH_PORT_NULL)
-		{
-			mach_port_destroy(mach_task_self(), mach_init_port);
-			mach_init_port = MACH_PORT_NULL;
+			syslog(LOG_INFO, "cannot mark for delayed termination");
 		}
 	}
 
@@ -545,7 +557,7 @@ int main ( int argc, char * const *argv )
 	try
 	{
 		// need to make sure this file is not present yet
-		unlink( "/Library/Preferences/DirectoryService/.DSRunningSP4" );
+		unlink( "/var/run/.DSRunningSP4" );
 
 		//global set to determine different behavior dependant on server build versus desktop
 		if (stat( "/System/Library/CoreServices/ServerVersion.plist", &statResult ) == eDSNoErr)
@@ -556,7 +568,7 @@ int main ( int argc, char * const *argv )
 		if (!gDebugLogging && stat( "/Library/Preferences/DirectoryService/.DSLogDebugAtStart", &statResult ) == eDSNoErr)
 		{
 			gDebugLogging = true;
-			
+			debugOpts = kLogEverything;
 		}
 		
 		// Open the log files
@@ -564,8 +576,8 @@ int main ( int argc, char * const *argv )
 
 		SRVRLOG( kLogApplication, "\n\n" );
 		SRVRLOG2( kLogApplication,	"DirectoryService %s (v%s) starting up...",
-                                    strDaemonAppleVersion,
-                                    strDaemonBuildVersion );
+                                    gStrDaemonAppleVersion,
+                                    gStrDaemonBuildVersion );
 		
 		mach_port_limits_t	limits = { 1 };
 		CFMachPortRef		port;
@@ -594,14 +606,22 @@ int main ( int argc, char * const *argv )
 		//set the global for the CFRunLoopRef
 		gServerRunLoop = CFRunLoopGetCurrent();
 		
+		//set up a mutex semaphore for all plugins using Kerberos
+		gKerberosMutex = new DSMutexSemaphore();
+		
 		// Do setup after parent is removed if daemonizing
 		gSrvrCntl = new ServerControl();
 		if ( gSrvrCntl == nil ) throw( (sInt32)eMemoryAllocError );
 
+		if ( gDebugLogging )
+		{
+			gSrvrCntl->ResetDebugging(); //ignore return status
+		}
+
 		sInt32 startSrvr;
 		startSrvr = gSrvrCntl->StartUpServer();
 		if ( startSrvr != eDSNoErr ) throw( startSrvr );
-
+		
 		::CFRunLoopRun();
 		
 		if ( gSrvrCntl != NULL )

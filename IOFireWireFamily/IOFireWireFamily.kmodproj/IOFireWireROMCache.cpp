@@ -294,11 +294,11 @@ bool IOFireWireROMCache::hasROMChanged( const UInt32 * newBIB, UInt32 newBIBSize
 
 		//
 		// some devices are slow to publish their units
-		// always reconsider generation zero, unopened,
+		// always reconsider generation zero,
 		// unitless devices
 		//
 		
-		// is this a closed, generation zero device?
+		// is this a unit less, generation zero device?
 		
 		UInt32 romGeneration = (newBIB[2] & kFWBIBGeneration) >> kFWBIBGenerationPhase;
 		if( romGeneration == 0 )
@@ -308,7 +308,6 @@ bool IOFireWireROMCache::hasROMChanged( const UInt32 * newBIB, UInt32 newBIBSize
 				rom_changed = true;
 			}
 		}
-		
 	}
 	
 	// don't come back from an invalid state

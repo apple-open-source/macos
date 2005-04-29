@@ -1,0 +1,25 @@
+--- strtol.3.orig	Fri Mar 11 17:24:07 2005
++++ strtol.3	Fri Mar 11 17:25:18 2005
+@@ -159,6 +159,12 @@
+ is
+ .Ql \e0
+ on return, the entire string was valid.)
++.Pp
++Extended locale versions of these functions are documented in
++.Xr strtol_l 3 .
++See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn strtol ,
+@@ -203,7 +209,8 @@
+ .Xr atol 3 ,
+ .Xr strtod 3 ,
+ .Xr strtoul 3 ,
+-.Xr wcstol 3
++.Xr wcstol 3 ,
++.Xr strtol_l 3
+ .Sh STANDARDS
+ The
+ .Fn strtol

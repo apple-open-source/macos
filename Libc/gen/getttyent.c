@@ -53,6 +53,7 @@
  * SUCH DAMAGE.
  */
 
+#include "xlocale_private.h"
 
 #include <ttyent.h>
 #include <stdio.h>
@@ -77,6 +78,8 @@ getttynam(tty)
 	return (t);
 }
 
+static char *skip(), *value();
+
 struct ttyent *
 getttyent()
 {
@@ -85,7 +88,7 @@ getttyent()
 	register char *p;
 #define	MAXLINELENGTH	1024
 	static char *line = NULL;
-	static char *skip(), *value();
+	locale_t loc = __current_locale();
 
 	if ( line == NULL ) {
 		line = malloc(MAXLINELENGTH);
@@ -104,7 +107,7 @@ getttyent()
 				;
 			continue;
 		}
-		while (isspace(*p))
+		while (isspace_l(*p, loc))
 			++p;
 		if (*p && *p != '#')
 			break;
@@ -127,7 +130,7 @@ getttyent()
 	tty.ty_onerror = NULL;
 	tty.ty_onoption = NULL;
 
-#define	scmp(e)	!strncmp(p, e, sizeof(e) - 1) && isspace(p[sizeof(e) - 1])
+#define	scmp(e)	!strncmp(p, e, sizeof(e) - 1) && isspace_l(p[sizeof(e) - 1], loc)
 #define	vcmp(e)	!strncmp(p, e, sizeof(e) - 1) && p[sizeof(e) - 1] == '='
 	for (; *p; p = skip(p)) {
 		if (scmp(_TTYS_OFF))

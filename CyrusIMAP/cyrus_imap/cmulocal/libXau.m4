@@ -1,4 +1,4 @@
-dnl $Id: libXau.m4,v 1.4 2003/10/08 20:35:25 rjs3 Exp $
+dnl $Id: libXau.m4,v 1.5 2005/03/05 00:36:10 dasenbro Exp $
 
 AC_DEFUN([CMU_XAU_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS

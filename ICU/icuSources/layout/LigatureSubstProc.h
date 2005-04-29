@@ -1,7 +1,6 @@
 /*
- * @(#)LigatureSubstProc.h	1.6 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -21,6 +20,8 @@
 
 U_NAMESPACE_BEGIN
 
+class LEGlyphStorage;
+
 #define nComponents 16
 
 class LigatureSubstitutionProcessor : public StateTableProcessor
@@ -28,8 +29,7 @@ class LigatureSubstitutionProcessor : public StateTableProcessor
 public:
     virtual void beginStateTable();
 
-    virtual ByteOffset processStateEntry(LEGlyphID *glyphs, le_int32 *charIndices, le_int32 &currGlyph,
-        le_int32 glyphCount, EntryTableIndex index);
+    virtual ByteOffset processStateEntry(LEGlyphStorage &glyphStorage, le_int32 &currGlyph, EntryTableIndex index);
 
     virtual void endStateTable();
 
@@ -39,16 +39,16 @@ public:
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
-    virtual inline UClassID getDynamicClassID() const { return getStaticClassID(); }
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
-    static inline UClassID getStaticClassID() { return (UClassID)&fgClassID; }
+    static UClassID getStaticClassID();
 
 private:
     LigatureSubstitutionProcessor();
@@ -65,13 +65,6 @@ protected:
 
     const LigatureSubstitutionHeader *ligatureSubstitutionHeader;
 
-private:
-
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
 };
 
 U_NAMESPACE_END

@@ -49,4 +49,3 @@ KClientAddressPriv::operator sockaddr_in () const
     addr.sin_addr.s_addr = mAddress.address;
 	return addr;
 }
-	

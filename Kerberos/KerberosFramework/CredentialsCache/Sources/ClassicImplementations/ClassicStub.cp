@@ -355,13 +355,13 @@ void CCIClassicStub::SendMessage ()
 	}
 }
 
-#if MACDEV_DEBUG	
+#if CCI_DEBUG	
 static std::string	sSeqNos;
 #endif
 
 bool CCIClassicStub::ApplyCCacheDifferences ()
 {
-#if MACDEV_DEBUG	
+#if CCI_DEBUG	
 	sSeqNos.erase ();
 #endif
 	// Apply differences from the reply to the Classic copy of the cache
@@ -380,7 +380,7 @@ bool CCIClassicStub::ApplyCCacheDifferences ()
 		mReceiveBuffer.Get (blockType);
 	}
 	
-#if MACDEV_DEBUG	
+#if CCI_DEBUG	
 	if (!result) {
 		SignalPStr_ (LStr255 ("ApplyCCacheDifferences failed, ").Append (sSeqNos.c_str ()));
 	}
@@ -401,14 +401,14 @@ bool CCIClassicStub::ApplyOneCCacheDifference ()
 	
 	// If we already have this difference, don't apply it again, but return success
 	if (seqNo < sLastSeqNo) {
-#if MACDEV_DEBUG	
+#if CCI_DEBUG	
 		sSeqNos += LStr255 (static_cast <SInt16> (seqNo)).Append ('a').ConstTextPtr ();
 #endif
 		return true;
 	
 	// If this diff is in future, refuse it (can't apply diffs out of order)
 	} else if (seqNo != sLastSeqNo) {
-#if MACDEV_DEBUG	
+#if CCI_DEBUG	
 		sSeqNos += LStr255 (static_cast <SInt16> (seqNo)).Append ('f').ConstTextPtr ();
 #endif
 		return false;
@@ -602,7 +602,7 @@ bool CCIClassicStub::ApplyOneCCacheDifference ()
 	// Bump the sequence number
 	IncrementSeqNo ();
 	
-#if MACDEV_DEBUG	
+#if CCI_DEBUG	
 	sSeqNos += LStr255 (static_cast <SInt16> (seqNo)).Append ('t').ConstTextPtr ();
 #endif
 	return true;

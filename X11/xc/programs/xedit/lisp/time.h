@@ -27,12 +27,12 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/time.h,v 1.3 2002/11/08 08:00:57 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/time.h,v 1.4 2003/04/27 18:17:35 tsi Exp $ */
 
 #ifndef Lisp_time_h
 #define Lisp_time_h
 
-#include "private.h"
+#include "lisp/private.h"
 
 LispObj *Lisp_Time(LispBuiltin*);
 

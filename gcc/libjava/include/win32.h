@@ -11,40 +11,153 @@ details.  */
 #ifndef __JV_WIN32_H__
 #define __JV_WIN32_H__
 
+// Enable UNICODE Support.?
+
+#ifdef MINGW_LIBGCJ_UNICODE
+#define UNICODE
+#define _UNICODE
+#endif // MINGW_LIBGCJ_UNICODE
+
+#include <tchar.h>
+
+// Includes
+#define WIN32_LEAN_AND_MEAN
+// Force Winsock 2 interface.
+#include <winsock2.h>
 #include <windows.h>
+#undef WIN32_LEAN_AND_MEAN
 #undef STRICT
 
 #include <ws2tcpip.h>
 #include <gcj/cni.h>
+#include <jvm.h>
 #include <java/util/Properties.h>
 
 #include <io.h>
+
+/* Begin UNICODE Support Classes and Functions */
+
+/* Helper class which creates a temporary, null-terminated,
+   wide-character C string. */
+class _Jv_Win32TempString
+{
+public:
+  _Jv_Win32TempString(jstring jstr);
+  ~_Jv_Win32TempString();
+
+// Accessors
+  operator LPCTSTR() const
+  {
+    return buf_;
+  }
+  LPCTSTR buf() const
+  {
+    return buf_;
+  }
+  LPTSTR buf()
+  {
+    return buf_;
+  }
+
+private:
+  TCHAR stackbuf_[500];
+  LPTSTR buf_;
+};
+
+// Mimics the JV_TEMP_STRING_UTF macro in jvm.h
+#define JV_TEMP_STRING_WIN32(x,y) _Jv_Win32TempString x(y);
+
+// Creates a jstring from a LPCTSTR
+extern jstring _Jv_Win32NewString (LPCTSTR pcsz);
+
+/* End UNICODE Helpers */
 
 // Prefix and suffix for shared libraries.
 #define _Jv_platform_solib_prefix ""
 #define _Jv_platform_solib_suffix ".dll"
 
-#ifndef DISABLE_JAVA_NET
+// Separator for file name components.
+#define _Jv_platform_file_separator ((jchar) '\\')
+// Separator for path components.
+#define _Jv_platform_path_separator ((jchar) ';')
 
-// these errors cannot occur on Win32
-#define ENOTCONN 0
-#define ECONNRESET 0
+// List of names for `JNI_OnLoad'.  On Win32, JNI_OnLoad is an
+// "stdcall" function taking two pointers (8 bytes) as arguments.  It
+// could also have been exported as "JNI_OnLoad@8" (MinGW) or
+// "_JNI_OnLoad@8" (MSVC).
+#define _Jv_platform_onload_names \
+    { "JNI_OnLoad", "JNI_OnLoad@8", "_JNI_OnLoad@8", NULL }
 
-#ifndef ENOPROTOOPT
-#define ENOPROTOOPT 109
-#endif
+// Type of libffi ABI used by JNICALL methods.  NOTE: This must agree
+// with the JNICALL definition in jni.h
+#define _Jv_platform_ffi_abi FFI_STDCALL
 
-#endif // DISABLE_JAVA_NET
+/* Useful helper classes and methods. */
 
+/* A C++ wrapper around a WSAEVENT which closes the event
+   in its destructor. If dwSelFlags is non-zero, we also
+   issue an WSAEventSelect on the socket descriptor with
+   the given flags; this is undone by a corresponding call
+   to WSAEventSelect(fd, 0, 0) in our destructor. */
+class WSAEventWrapper
+{
+public:
+  // Default constructor. Call init() after this.
+  WSAEventWrapper();
+  WSAEventWrapper(int fd, DWORD dwSelFlags);
+  ~WSAEventWrapper();
+
+  // Used for two-step initialization after calling
+  // default constructor.
+  void init(int fd, DWORD dwSelFlags);
+
+  int getFD()
+  {
+    return m_fd;
+  }
+
+  WSAEVENT getEventHandle()
+  {
+    return m_hEvent;
+  }
+
+private:
+  WSAEVENT m_hEvent;
+  int m_fd;
+  DWORD m_dwSelFlags;
+};
+
+// Error string text. The int argument is compatible
+// with both int WSAGetLastError() and DWORD GetLastError()
+// I tried avoiding having to pass the error explicitly, but
+// it didn't work this was invoked with say
+// throw new SomeException(_Jv_WinStrError()).
+extern jstring
+_Jv_WinStrError (LPCTSTR lpszPrologue, int nErrorCode);
+
+extern jstring
+_Jv_WinStrError (int nErrorCode);
+
+extern void
+_Jv_ThrowIOException (DWORD dwErrorCode);
+
+extern void
+_Jv_ThrowIOException ();
+
+extern void
+_Jv_ThrowSocketException (DWORD dwErrorCode);
+
+extern void
+_Jv_ThrowSocketException ();
+
+// Platform implementation
 extern void _Jv_platform_initialize (void);
 extern void _Jv_platform_initProperties (java::util::Properties*);
 extern jlong _Jv_platform_gettimeofday ();
+extern int _Jv_pipe (int filedes[2]);
 
-inline void
-_Jv_platform_close_on_exec (jint)
-{
-  // Ignore.
-}
+extern void
+_Jv_platform_close_on_exec (HANDLE h);
 
 #ifdef JV_HASH_SYNCHRONIZATION
 /* Suspends the execution of the current thread for the specified
@@ -60,58 +173,6 @@ _Jv_platform_usleep (unsigned long usecs)
     }
 }
 #endif /* JV_HASH_SYNCHRONIZATION */
-
-#ifndef DISABLE_JAVA_NET
-
-static inline int
-_Jv_socket (int domain, int type, int protocol)
-{
-  return ::socket (domain, type, protocol);
-}
-
-inline int
-_Jv_connect (jint fd, sockaddr *ptr, int len)
-{
-  return ::connect (fd, ptr, len);
-}
-
-inline int
-_Jv_close (jint fd)
-{
-  return ::closesocket (fd);
-}
-
-inline int
-_Jv_bind (int fd, struct sockaddr *addr, int addrlen)
-{
-  return ::bind (fd, addr, addrlen);
-}
-
-inline int
-_Jv_accept (int fd, struct sockaddr *addr, socklen_t *addrlen)
-{
-  return ::accept (fd, addr, addrlen);
-}
-
-inline int
-_Jv_listen (int fd, int backlog)
-{
-  return ::listen (fd, backlog);
-}
-
-inline int
-_Jv_write(int s, void *buf, int len)
-{
-  return ::send (s, (char*) buf, len, 0);
-}
-
-inline int
-_Jv_read(int s, void *buf, int len)
-{
-  return ::recv (s, (char*) buf, len, 0);
-}
-
-#endif /* DISABLE_JAVA_NET */
 
 /* Store up to SIZE return address of the current program state in
    ARRAY and return the exact number of values stored.  */

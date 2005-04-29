@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ISAKMP_H__
+#define __ISAKMP_H__
+
 /* refer to RFC 2408 */
 
 /* must include <netinet/in.h> first. */
@@ -346,4 +349,7 @@ struct isakmp_pl_d {
 	u_int16_t num_spi;	/* # of SPIs */
 	/* SPI(es) */
 } __attribute__((__packed__));
+
+
+#endif /* __ISAKMP_H__ */
 

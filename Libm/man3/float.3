@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)floor.3	6.5 (Berkeley) 4/19/91
-.\"	$Id: float.3,v 1.2 2003/08/17 20:36:46 scp Exp $
+.\"	$Id: float.3,v 1.3 2004/12/02 18:29:12 scp Exp $
 .\"
 .Dd August 13, 2003
 .Dt FLOAT 3
@@ -45,9 +45,6 @@ functions (which have the same name, without the "f" at the end). The double-pre
 functions have their own pages. Wherever the double-precision functions use a double-precision
 floating-point value (as an argument or return value), these functions use a single-precision
 floating-point value.
-.Pp
-To use these functions you must add an additional flag to the link step that produces the
-executable binary. Specify "-lmx".
 .Pp
 .Fn acosf
 .Pp
@@ -100,8 +97,6 @@ functions conform to the ISO/IEC 9899:1999(E) standard. Each one has
 its own page, which it shares with its corresponding double-precision 
 function (which has the same name, without the "f" on the end). The page 
 can be found under both names.
-.Pp
-You do not need to specify the "-lmx" flag to use these functions.
 .Pp
 .Fn ceilf
 .Pp

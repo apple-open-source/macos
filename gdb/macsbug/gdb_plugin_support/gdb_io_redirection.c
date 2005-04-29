@@ -99,8 +99,6 @@ typedef struct UnknownRedirection {	  /* Redirection data for unknown streams:	*
     FILE	   *f;			  /* 	corresponds to stdout or stderr		*/
     
     struct ui_file *uiout;		  /*	associated redirection data...		*/
-    fprintf_ftype  *insn_printf;
-    struct ui_file *insn_stream;
     void (*completion_hook)(char **, int, int);
     int (*query_hook)(char *, va_list);
     void (*rl_startup_hook)();
@@ -488,8 +486,6 @@ GDB_FILE *gdb_open_output(FILE *f, gdb_output_filter_ftype filter, void *data)
 	unknown_redirections_tail = u;
 	
 	u->uiout		   = uiout;
-	u->insn_printf	       	   = TARGET_PRINT_INSN_INFO->fprintf_func;
-	u->insn_stream	           = TARGET_PRINT_INSN_INFO->stream;
 	u->completion_hook	   = rl_completion_display_matches_hook;
 	u->query_hook	           = query_hook;
 	u->rl_startup_hook	   = rl_startup_hook;
@@ -554,7 +550,11 @@ GDB_FILE *gdb_open_output(FILE *f, gdb_output_filter_ftype filter, void *data)
  An example illustrating a use for redirection is discussed in the comments for
  gdb_fprintf().
 */
- 
+
+static int my_disasm_fprintf(struct ui_file *stream, const char *fmt, ...);
+static int my_query_hook(char *format, va_list ap);
+static void my_rl_startup_hook(void);
+
 GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
 {
     struct gdb_file    *output;
@@ -562,35 +562,17 @@ GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
     UnknownRedirection *u;
     static int         firsttime = 1;
     
-    static fprintf_ftype  *default_gdb_insn_printf;
-    static struct ui_file *default_gdb_insn_stream;
     static struct ui_out  *default_gdb_uiout;
     static void (*default_gdb_completion_hook)(char **matches, int len, int max);
-    
-    static int my_disasm_fprintf(struct ui_file *stream, const char *fmt, ...);
-    static int my_query_hook(char *format, va_list ap);
-    static void my_rl_startup_hook(void);
-        
+            
     if (firsttime) {
-	#if 0
-	gdb_default_stdout	    = (GDB_FILE *)gdb_stdout;
-	gdb_default_stderr	    = (GDB_FILE *)gdb_stderr;
-	default_gdb_insn_stream     = TARGET_PRINT_INSN_INFO->stream;
-	default_gdb_insn_printf     = TARGET_PRINT_INSN_INFO->fprintf_func;
-	default_gdb_uiout	    = uiout;
-	default_gdb_completion_hook = rl_completion_display_matches_hook;
-	__default_gdb_query_hook    = query_hook;
-	default_rl_startup_hook	    = rl_startup_hook;
-	#else
+
 	gdb_default_stdout 	    = (GDB_FILE *)INITIAL_GDB_VALUE(gdb_stdout, gdb_stdout);
 	gdb_default_stderr 	    = (GDB_FILE *)INITIAL_GDB_VALUE(gdb_stderr, gdb_stderr);
-	default_gdb_insn_stream     = INITIAL_GDB_VALUE(insn_stream, TARGET_PRINT_INSN_INFO->stream);
-	default_gdb_insn_printf     = INITIAL_GDB_VALUE(insn_printf, TARGET_PRINT_INSN_INFO->fprintf_func);
 	default_gdb_uiout           = INITIAL_GDB_VALUE(uiout, uiout);
 	default_gdb_completion_hook = INITIAL_GDB_VALUE(rl_completion_display_matches_hook, rl_completion_display_matches_hook);
 	default_rl_startup_hook	    = INITIAL_GDB_VALUE(rl_startup_hook, rl_startup_hook);
 	__default_gdb_query_hook    = query_hook;
-	#endif
 	
 	firsttime = 0;
 	
@@ -613,8 +595,6 @@ GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
 	}
 	
 	uiout                                = default_gdb_uiout;
-	TARGET_PRINT_INSN_INFO->fprintf_func = default_gdb_insn_printf;
-	TARGET_PRINT_INSN_INFO->stream       = default_gdb_insn_stream;
 	rl_completion_display_matches_hook   = default_gdb_completion_hook;
 	query_hook			     = __default_gdb_query_hook;
 	rl_startup_hook			     = default_rl_startup_hook;
@@ -638,8 +618,6 @@ GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
 	    }
 	    
 	    uiout 				 = u->uiout;
-	    TARGET_PRINT_INSN_INFO->fprintf_func = u->insn_printf;
-	    TARGET_PRINT_INSN_INFO->stream       = u->insn_stream;
 	    rl_completion_display_matches_hook   = u->completion_hook;
 	    query_hook			     	 = u->query_hook;
 	    rl_startup_hook			 = u->rl_startup_hook;
@@ -684,8 +662,6 @@ GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
 	    }
 	    
 	    uiout 				 = output->uiout;
-	    TARGET_PRINT_INSN_INFO->fprintf_func = (fprintf_ftype)my_disasm_fprintf;
-	    TARGET_PRINT_INSN_INFO->stream       = (struct ui_file *)stream;
 	    rl_completion_display_matches_hook   = __cmd_completion_display_hook;
 	    query_hook			     	 = my_query_hook;
 	    rl_startup_hook			 = my_rl_startup_hook;
@@ -843,9 +819,10 @@ void gdb_fflush(GDB_FILE *stream)
 	  gdb_define_raw_input_handler() to reestablish your raw input handler.
 */
  
+static char *my_command_line_input_hook(char *, int , char *);
+
 void gdb_define_raw_input_handler(Gdb_Raw_Input_Handler theInputHandler)
 {
-    static char *my_command_line_input_hook(char *, int , char *);
     
     if (theInputHandler)
     	command_line_input_hook = my_command_line_input_hook;

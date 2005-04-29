@@ -143,9 +143,34 @@ AppleUSBEHCIHubInfo::NewHubInfo(USBDeviceAddress hubAddr, int hubPort)
 
 
 IOReturn
-AppleUSBEHCIHubInfo::DeleteHubInfoZero(AppleUSBEHCIHubInfo **hubList, USBDeviceAddress hubAddress)
+AppleUSBEHCIHubInfo::DeleteHubInfoZero(AppleUSBEHCIHubInfo **hubListPtr, USBDeviceAddress hubAddress)
 {
-	// remove the master hub info as well as any per-port ones if necessary
+    AppleUSBEHCIHubInfo 	*hiList = *hubListPtr;
+    AppleUSBEHCIHubInfo 	*hiPtr, *tempPtr;
+
+	// first remove any at the beginning
+	while (hiList && (hiList->hubAddr == hubAddress))
+	{
+		hiPtr = hiList;
+		hiList = hiList->next;
+		USBLog(5, "AppleUSBEHCIHubInfo::DeleteHubInfoZero- releasing %p from head of list", hiPtr);
+		hiPtr->release();
+	}
+
+	hiPtr = hiList;
+	while (hiPtr && (hiPtr->next))
+	{
+		if (hiPtr->next->hubAddr == hubAddress)
+		{
+			tempPtr = hiPtr->next;
+			hiPtr->next = tempPtr->next;
+			USBLog(5, "AppleUSBEHCIHubInfo::DeleteHubInfoZero- releasing %p from middle of list", tempPtr);
+			tempPtr->release();
+		}
+		else
+			hiPtr = hiPtr->next;
+	}
+	*hubListPtr = hiList;								// fix the master pointer
 	return kIOReturnSuccess;
 }
 
@@ -297,7 +322,7 @@ AppleUSBEHCIHubInfo::AvailableIsochBandwidth(UInt32 direction)
 IOReturn
 AppleUSBEHCIHubInfo::AllocateInterruptBandwidth(AppleEHCIQueueHead *pQH, UInt32 maxPacketSize)
 {
-	UInt32		mySMask;
+	UInt32		mySMask = 0;
 	UInt8		myStartFrame;			// microframe for the SS
 	int			i;
 	UInt32		thisFrameSize;

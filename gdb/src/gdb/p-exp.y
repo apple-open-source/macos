@@ -56,6 +56,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "bfd.h" /* Required by objfiles.h.  */
 #include "symfile.h" /* Required by objfiles.h.  */
 #include "objfiles.h" /* For have_full_symbols and have_partial_symbols */
+#include "block.h"
 #include "top.h"
 #include "completer.h"
 
@@ -159,8 +160,8 @@ parse_number (char *, int, int, YYSTYPE *);
 
 static struct type *current_type;
 
-static void push_current_type ();
-static void pop_current_type ();
+static void push_current_type (void);
+static void pop_current_type (void);
 static int search_field;
 %}
 
@@ -560,7 +561,7 @@ block	:	BLOCKNAME
 block	:	block COLONCOLON name
 			{ struct symbol *tem
 			    = lookup_symbol (copy_name ($3), $1,
-					     VAR_NAMESPACE, (int *) NULL,
+					     VAR_DOMAIN, (int *) NULL,
 					     (struct symtab **) NULL);
 			  if (!tem || SYMBOL_CLASS (tem) != LOC_BLOCK)
 			    error ("No function \"%s\" in specified context.",
@@ -571,7 +572,7 @@ block	:	block COLONCOLON name
 variable:	block COLONCOLON name
 			{ struct symbol *sym;
 			  sym = lookup_symbol (copy_name ($3), $1,
-					       VAR_NAMESPACE, (int *) NULL,
+					       VAR_DOMAIN, (int *) NULL,
 					       (struct symtab **) NULL);
 			  if (sym == 0)
 			    error ("No symbol \"%s\" in specified context.",
@@ -608,7 +609,7 @@ variable:	qualified_name
 
 			  sym =
 			    lookup_symbol (name, (const struct block *) NULL,
-					   VAR_NAMESPACE, (int *) NULL,
+					   VAR_DOMAIN, (int *) NULL,
 					   (struct symtab **) NULL);
 			  if (sym)
 			    {
@@ -686,7 +687,7 @@ variable:	name_not_typename
 			  else
 			    {
 			      struct minimal_symbol *msymbol;
-			      register char *arg = copy_name ($1.stoken);
+			      char *arg = copy_name ($1.stoken);
 
 			      msymbol =
 				lookup_minimal_symbol (arg, NULL, NULL);
@@ -765,20 +766,20 @@ name_not_typename :	NAME
 
 static int
 parse_number (p, len, parsed_float, putithere)
-     register char *p;
-     register int len;
+     char *p;
+     int len;
      int parsed_float;
      YYSTYPE *putithere;
 {
   /* FIXME: Shouldn't these be unsigned?  We don't deal with negative values
      here, and we do kind of silly things like cast to unsigned.  */
-  register LONGEST n = 0;
-  register LONGEST prevn = 0;
+  LONGEST n = 0;
+  LONGEST prevn = 0;
   ULONGEST un;
 
-  register int i = 0;
-  register int c;
-  register int base = input_radix;
+  int i = 0;
+  int c;
+  int base = input_radix;
   int unsigned_p = 0;
 
   /* Number of "L" suffixes encountered.  */
@@ -993,7 +994,8 @@ struct type_push
 
 static struct type_push *tp_top = NULL;
 
-static void push_current_type ()
+static void
+push_current_type (void)
 {
   struct type_push *tpnew;
   tpnew = (struct type_push *) malloc (sizeof (struct type_push));
@@ -1003,7 +1005,8 @@ static void push_current_type ()
   tp_top = tpnew; 
 }
 
-static void pop_current_type ()
+static void
+pop_current_type (void)
 {
   struct type_push *tp = tp_top;
   if (tp)
@@ -1188,7 +1191,7 @@ yylex ()
       {
 	/* It's a number.  */
 	int got_dot = 0, got_e = 0, toktype;
-	register char *p = tokstart;
+	char *p = tokstart;
 	int hex = input_radix > 10;
 
 	if (c == '0' && (p[1] == 'x' || p[1] == 'X'))
@@ -1368,36 +1371,36 @@ yylex ()
   switch (namelen)
     {
     case 6:
-      if (STREQ (uptokstart, "OBJECT"))
+      if (DEPRECATED_STREQ (uptokstart, "OBJECT"))
 	return CLASS;
-      if (STREQ (uptokstart, "RECORD"))
+      if (DEPRECATED_STREQ (uptokstart, "RECORD"))
 	return STRUCT;
-      if (STREQ (uptokstart, "SIZEOF"))
+      if (DEPRECATED_STREQ (uptokstart, "SIZEOF"))
 	return SIZEOF;
       break;
     case 5:
-      if (STREQ (uptokstart, "CLASS"))
+      if (DEPRECATED_STREQ (uptokstart, "CLASS"))
 	return CLASS;
-      if (STREQ (uptokstart, "FALSE"))
+      if (DEPRECATED_STREQ (uptokstart, "FALSE"))
 	{
           yylval.lval = 0;
           return FALSEKEYWORD;
         }
       break;
     case 4:
-      if (STREQ (uptokstart, "TRUE"))
+      if (DEPRECATED_STREQ (uptokstart, "TRUE"))
 	{
           yylval.lval = 1;
   	  return TRUEKEYWORD;
         }
-      if (STREQ (uptokstart, "SELF"))
+      if (DEPRECATED_STREQ (uptokstart, "SELF"))
         {
           /* here we search for 'this' like
              inserted in FPC stabs debug info */
 	  static const char this_name[] = "this";
 
 	  if (lookup_symbol (this_name, expression_context_block,
-			     VAR_NAMESPACE, (int *) NULL,
+			     VAR_DOMAIN, (int *) NULL,
 			     (struct symtab **) NULL))
 	    return THIS;
 	}
@@ -1438,7 +1441,7 @@ yylex ()
       sym = NULL;
     else
       sym = lookup_symbol (tmp, expression_context_block,
-			   VAR_NAMESPACE,
+			   VAR_DOMAIN,
 			   &is_a_field_of_this,
 			   (struct symtab **) NULL);
     /* second chance uppercased (as Free Pascal does).  */
@@ -1455,7 +1458,7 @@ yylex ()
 	 sym = NULL;
        else
 	 sym = lookup_symbol (tmp, expression_context_block,
-                        VAR_NAMESPACE,
+                        VAR_DOMAIN,
                         &is_a_field_of_this,
                         (struct symtab **) NULL);
        if (sym || is_a_field_of_this || is_a_field)
@@ -1485,7 +1488,7 @@ yylex ()
 	 sym = NULL;
        else
 	 sym = lookup_symbol (tmp, expression_context_block,
-                         VAR_NAMESPACE,
+                         VAR_DOMAIN,
                          &is_a_field_of_this,
                          (struct symtab **) NULL);
        if (sym || is_a_field_of_this || is_a_field)
@@ -1582,7 +1585,7 @@ yylex ()
 		      memcpy (tmp1, namestart, p - namestart);
 		      tmp1[p - namestart] = '\0';
 		      cur_sym = lookup_symbol (ncopy, expression_context_block,
-					       VAR_NAMESPACE, (int *) NULL,
+					       VAR_DOMAIN, (int *) NULL,
 					       (struct symtab **) NULL);
 		      if (cur_sym)
 			{

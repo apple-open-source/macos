@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstOpen.c,v 1.6 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -62,7 +61,7 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstOpen.c,v 1.6 2000/07/09 00:08:47 
  *	SUCCESS or FAILURE.
  *
  * Side Effects:
- *	isOpen is set TRUE and curPtr is set to NilListNode so the
+ *	isOpen is set TRUE and curPtr is set to NULL so the
  *	other sequential functions no it was just opened and can choose
  *	the first element accessed based on this.
  *
@@ -77,7 +76,7 @@ Lst_Open (l)
 	}
 	((List) l)->isOpen = TRUE;
 	((List) l)->atEnd = LstIsEmpty (l) ? Head : Unknown;
-	((List) l)->curPtr = NilListNode;
+	((List) l)->curPtr = NULL;
 
 	return (SUCCESS);
 }

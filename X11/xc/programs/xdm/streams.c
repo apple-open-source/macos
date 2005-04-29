@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xdm/streams.c,v 3.6 2001/12/14 20:01:24 dawes Exp $ */
+/* $XFree86: xc/programs/xdm/streams.c,v 3.8 2003/10/27 21:39:08 herrb Exp $ */
 
 /*
  * xdm - display manager daemon
@@ -53,7 +53,7 @@ extern FD_TYPE	WellKnownSocketsMask;
 extern int	WellKnownSocketsMax;
 
 void
-CreateWellKnownSockets ()
+CreateWellKnownSockets (void)
 {
     struct t_bind bind_addr;
     struct netconfig *nconf;
@@ -127,9 +127,9 @@ CreateWellKnownSockets ()
     FD_SET (chooserFd, &WellKnownSocketsMask);
 }
 
-GetChooserAddr (addr, lenp)
-    char	*addr;		/* return */
-    int		*lenp;		/* size of addr, returned as amt used */
+int
+GetChooserAddr (char *addr,	/* return */
+    int *lenp)			/* size of addr, returned as amt used */
 {
     struct netbuf nbuf;
     int retval;
@@ -144,6 +144,25 @@ GetChooserAddr (addr, lenp)
     }
     *lenp = nbuf.len;
     return retval;
+}
+
+/* TODO: Implement support for controlling which interfaces are listened on
+   and for listening to multicast addresses.  See the sockets equivalent in
+   sockets.c for details. */
+
+void UpdateListenSockets (void)
+{
+    return;
+}
+
+void CloseListenSockets (void)
+{
+    return;
+}
+
+void ProcessListenSockets (fd_set *readmask)
+{
+    return;
 }
 
 #endif /* STREAMSCONN */

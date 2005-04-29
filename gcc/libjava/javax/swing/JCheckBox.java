@@ -1,5 +1,5 @@
 /* JCheckBox.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,12 +35,10 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-import java.awt.*;
-import java.awt.event.*;
-import javax.swing.plaf.*;
-import javax.accessibility.*;
+import javax.accessibility.AccessibleContext;
 
 /**
  * An instance of JCheckbox can be added to a panel, frame etc
@@ -49,46 +47,94 @@ import javax.accessibility.*;
  */
 public class JCheckBox extends JToggleButton
 {
+  private static final long serialVersionUID = -5246739313864538930L;
+  
+  private boolean borderPaintedFlat;
+
+  private void init()
+  {
+    borderPainted = false;
+    contentAreaFilled = false;
+  }
+  
     public JCheckBox()
     {
-	this(null, null);
+    super();
+    init();
     }
-    public JCheckBox(Action a)
+
+  public JCheckBox(Action action)
     {
-	this();
-	setAction(a);
+    super(action);
+    init();
     }
 
     public JCheckBox(Icon icon)
     { 
-	this(null, icon);
+    super(icon);
+    init();
+  }    
+  
+  public JCheckBox(Icon icon, boolean selected)
+  { 
+    super(icon, selected);
+    init();
     }    
   
     public JCheckBox(String text)
     {
-	this(text, null);
+    super(text);
+    init();
+  }
+      
+  public JCheckBox(String text, boolean selected)
+  {
+    super(text, selected);
+    init();
     }
       
     public JCheckBox(String text, Icon icon)
     {
 	super(text, icon);
+    init();
     }
 
+  public JCheckBox(String text, Icon icon, boolean selected)
+  {
+    super(text, icon, selected);
+    init();
+  }
     
+  /**
+   * Gets the AccessibleContext associated with this JCheckBox.
+   */
     public AccessibleContext getAccessibleContext()
     {
-	//Gets the AccessibleContext associated with this JCheckBox. 
 	return null;
     }
   
+  /**
+   * Returns a string that specifies the name of the Look and Feel class
+   * that renders this component.
+   */
     public String getUIClassID()
     {
-	//Returns a string that specifies the name of the L&F class that renders this component.  
-	return "JCheckBox";
+	return "CheckBoxUI";
     }
   
     protected  String paramString()
     {
 	return "JCheckBox";
     }
+
+  public boolean isBorderPaintedFlat()
+  {
+    return borderPaintedFlat;
+  }
+
+  public void setBorderPaintedFlat(boolean newValue)
+  {
+    firePropertyChange("borderPaintedFlat", borderPaintedFlat, newValue);
+    borderPaintedFlat = newValue;
+  }
 }

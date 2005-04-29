@@ -1,5 +1,5 @@
 # Memory display preferences window for Insight.
-# Copyright 1998, 1999, 2002 Red Hat
+# Copyright 1998, 1999, 2002, 2003 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -153,7 +153,8 @@ itcl::body MemPref::build_win {} {
   label $fr.2.l -text "Bytes Per Row "
   set Widgets(b-bytes_per_row) [::combobox::combobox $fr.2.c \
 				  -command [code $this set_bytes_per_row]  \
-				  -width 4 -editable 0 -font global/fixed]
+				  -width 4 -editable 0 -font global/fixed \
+				  -bg $::Colors(textbg)]
   $fr.2.c list insert end 4
   $fr.2.c list insert end 8
   $fr.2.c list insert end 16

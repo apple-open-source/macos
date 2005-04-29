@@ -1,10 +1,5 @@
-Index: time.3
-===================================================================
-RCS file: /cvs/root/Libc/gen/FreeBSD/time.3,v
-retrieving revision 1.2
-diff -u -r1.2 time.3
---- time.3	2003/05/20 22:21:03	1.2
-+++ time.3	2003/07/08 23:12:00
+--- time.3.orig	2004-07-02 12:07:30.000000000 -0700
++++ time.3	2004-10-24 17:39:18.000000000 -0700
 @@ -53,7 +53,8 @@
  .Fn time
  function
@@ -12,6 +7,6 @@ diff -u -r1.2 time.3
 -0 seconds, January 1, 1970, Coordinated Universal Time.
 +0 seconds, January 1, 1970, Coordinated Universal Time,
 +without including leap seconds.
- .Pp
- A copy of the time value may be saved to the area indicated by the
- pointer
+ If an error occurs,
+ .Fn time
+ returns the value

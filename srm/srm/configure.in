@@ -1,0 +1,32 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT
+AC_CONFIG_SRCDIR([src/rename_unlink.c])
+AM_INIT_AUTOMAKE(srm, 1.2.8/Apple)
+AM_CONFIG_HEADER(config.h)
+
+dnl Checks for programs.
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_PROG_RANLIB
+
+dnl Checks for header files.
+AC_HEADER_STDC
+AC_CHECK_HEADERS(linux/ext2_fs.h sys/vfs.h sys/param.h sys/mount.h varargs.h stdarg.h)
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_DIAGNOSE([obsolete],[AC_STRUCT_ST_BLKSIZE:
+        your code should no longer depend upon `HAVE_ST_BLKSIZE', but
+        `HAVE_STRUCT_STAT_ST_BLKSIZE'.  Remove this warning and
+        the `AC_DEFINE' when you adjust the code.])
+AC_CHECK_MEMBERS([struct stat.st_blksize],[AC_DEFINE(HAVE_ST_BLKSIZE, 1,
+                            [Define to 1 if your `struct stat' has
+                             `st_blksize'.  Deprecated, use
+                             `HAVE_STRUCT_STAT_ST_BLKSIZE' instead.])])
+
+
+dnl Checks for library functions.
+AC_CHECK_FUNCS(fts_open nftw fdatasync chflags snprintf vsnprintf)
+
+AC_CONFIG_FILES([Makefile doc/Makefile src/Makefile lib/Makefile srm.spec])
+AC_OUTPUT

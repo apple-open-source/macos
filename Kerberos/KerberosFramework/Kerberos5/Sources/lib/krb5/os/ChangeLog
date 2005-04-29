@@ -1,12 +1,323 @@
+2005-01-12  Tom Yu  <tlyu@mit.edu>
+
+	* dnsglue.c (krb5int_dns_fini): Reorder to make more correct.
+	(krb5int_dns_init): Rework error handling.  Call res_ndestroy() or
+	res_nclose() as appropriate to avoid leaking resources allocated
+	by res_ninit().
+
+2005-01-03  Jeffrey Altman <jaltman@mit.edu>
+
+        * thread_safe.c: (new file) krb5_is_thread_safe()
+
+2004-12-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* accessor.c (krb5int_accessor): Set new field use_dns_kdc.
+
+2004-12-06  Tom Yu  <tlyu@mit.edu>
+
+	* locate_kdc.c (krb5_locate_srv_dns_1): Don't compile if
+	KRB5_DNS_LOOKUP is not defined.
+
+2004-11-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* locate_kdc.c (krb5int_add_host_to_list): If debugging, log the
+	requested family and socket type.  If AI_NUMERICSERV is defined,
+	set it in ai_flags.  If getaddrinfo returns an error with
+	debugging enabled, log the error.
+	(krb5_locate_srv_conf_1): When logging an error from
+	add_host_to_list, include the corresponding error string.
+
+	* t_locate_kdc.c: Include port-sockets.h, instead of sys/socket.h,
+	netdb.h, netinet/in.h, and arpa/inet.h.
+	* Makefile.in ($(OUTPRE)t_locate_kdc.exe): New target.
+
+2004-10-20  Ken Raeburn  <raeburn@mit.edu>
+
+	* locate_kdc.c: Include stdarg.h.
+	(Tprintf): New function, prints to stderr or not depending on TEST
+	macro.
+	(add_addrinfo_to_list, krb5int_add_host_to_list,
+	krb5_locate_srv_conf_1, krb5_locate_srv_dns_1,
+	krb5int_locate_server): Call it instead of conditionally calling
+	fprintf.
+
+2004-10-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* dnssrv.c (krb5int_make_srv_query_realm): Append a dot to the
+	hostname, if there's room in the buffer, to avoid domain search
+	paths.
+
+2004-10-19  Tom Yu  <tlyu@mit.edu>
+
+	* dnsglue.c (initparse): Skip query type and class when we lack
+	ns_initparse().
+	(krb5int_dns_nextans) [!HAVE_NS_INITPARSE]: Pass correct pointer
+	to dn_skipname().  Actually skip the RR name.
+
+2004-10-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (TEST_PROGS): Add t_locate_kdc.
+	(check-unix): Run t_locate_kdc to test fetching DNS SRV records.
+	(EXTRADEPSRCS): Define.
+
+2004-10-06  Ken Raeburn  <raeburn@mit.edu>
+
+	* localaddr.c (foreach_localaddr): Be more careful not to walk
+	past the end of the ifreq array.
+	(get_ifreq_array): Return 0 in success case, not errno.
+	(print_addr): If getnameinfo returns EAI_SYSTEM, report what the
+	system error is.
+
+	* localaddr.c (get_ifreq_array): Split out from foreach_localaddr
+	general version.
+	(foreach_localaddr): Call it.
+
+2004-10-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* localaddr.c (foreach_localaddr) [HAVE_STRUCT_IF_LADDRCONF && 0]:
+	Fix if_laddrreq.iflr_name field name not properly adjusted.  The
+	iflr_addr field is an HP-UX specific sockaddr_ext with sa_ field
+	name prefixes.
+
+2004-10-01  Ken Raeburn  <raeburn@mit.edu>
+
+	* localaddr.c (get_if_laddrconf, foreach_localaddr): New
+	implementation for HP-UX 11, based on Solaris support and
+	information from Doug Engert.  Disabled for now, until it can be
+	tested.
+
+2004-09-30  Jeffrey Altman <jaltman@mit.edu>
+
+        * hst_realm.c: provide definition for MAXDNAME if 
+          KRB5_DNS_LOOKUP is not defined.
+
+2004-09-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (T_STD_CONF_OBJS): Include dnsglue.o.
+
+2004-09-21  Tom Yu  <tlyu@mit.edu>
+
+	* dnsglue.c: Conditionalize some stuff on ns_initparse() instead
+	of assuming that the presence of res_nsearch() means
+	ns_initparse() is available.
+
+2004-09-20  Tom Yu  <tlyu@mit.edu>
+
+	* Makefile.in (STLIBOBJS, OBJS, SRCS): Add dnsglue.c.
+
+	* dnsglue.c: New file.  Implement resolver glue layer to abstract
+	away the details of calling res_search or res_nsearch, and of
+	parsing the reply packet.
+
+	* dnsglue.h: New file.
+
+	* dnssrv.c (krb5int_make_srv_query_realm): Use dnsglue.  Use
+	MAXDNAME from dnsglue.h or resolv.h instead of MAX_DNS_NAMELEN.
+
+	* hst_realm.c (krb5_try_realm_txt_rr): Use dnsglue.  Use MAXDNAME
+	from dnsglue.h or resolv.h instead of MAX_DNS_NAMELEN.
+
+2004-09-13  Tom Yu  <tlyu@mit.edu>
+
+	* dnssrv.c: 
+	* hst_realm.c: 
+	* locate_kdc.c: Include netinet/in.h as a prerequisite for
+	resolv.h.
+
+2004-08-27  Ken Raeburn  <raeburn@mit.edu>
+
+	* sendto_kdc.c (start_connection) [DEBUG]: Log the local socket
+	address.
+
+2004-08-12  Alexandra Ellwood  <lxs@mit.edu>
+
+        * ccdefname.c (krb5_cc_set_default_name, krb5_cc_default_name):
+        Look up the default ccache name in krb5_cc_default_name, not
+        krb5_cc_set_default_name so that krb5_init_context doesn't
+        have to do work it might never use.
+
+2004-07-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* localaddr.c (get_lifconf): Define only if "struct lifconf" is
+	available.
+	(foreach_localaddr): Use get_lifconf only if "struct lifconf" is
+	available.
+
+2004-07-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* genaddrs.c, localaddr.c, lock_file.c, mk_faddr.c: Don't check
+	for macsock.h.
+
+2004-07-15  Alexandra Ellwood  <lxs@mit.edu>
+
+	* init_os_ctx.c (krb5_os_init_context, krb5_os_free_context) 
+          ccdefname.c (krb5_cc_set_default_name):
+        Removed default_ccprincipal field from krb5_context
+
+2004-07-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* dnssrv.c (krb5int_make_srv_query_realm) [HAVE_RES_NSEARCH]: Use
+	res_nsearch instead of res_search.
+	* hst_realm.c (krb5_try_realm_txt_rr) [HAVE_RES_NSEARCH]:
+	Likewise.
+
+2004-07-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* an_to_ln.c: Include string.h.
+
+2004-06-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* an_to_ln.c (db_an_to_ln): Don't test macintosh.
+	* krbfileio.c (krb5_sync_disk_file): Likewise.
+	* kuserok.c: Likewise.
+	* prompter.c: Likewise.
+	* promptusr.c: Likewise.
+	* read_pwd.c: Likewise.
+
+2004-06-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* c_ustime.c: Include k5-thread.h.
+	(get_time_now): New function, holds system-dependent code.
+	(krb5int_us_time_mutex): New mutex.
+	(struct time_now): New type.
+	(last_time): New variable, replaces old last_tv, last_sec,
+	last_usec.
+	(krb5_crypto_us_timeofday): Rewrite.  Do locking around access to
+	previously returned value, and ensure that we don't return
+	duplicate values.
+	* os-proto.h: Include k5-thread.h.
+	(krb5int_us_time_mutex): Declare.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* kuserok.c (krb5_kuserok): Handle draft POSIX versions of
+	getpwnam_r.
+
+2004-06-02  Tom Yu  <tlyu@mit.edu>
+
+	* an_to_ln.c (do_replacement): Patch from Bill Dodd to fix missing
+	braces in previous security patch.
+
+2004-06-01  Sam Hartman  <hartmans@mit.edu>
+
+	* an_to_ln.c (rule_an_to_ln): Fix buffer overflow when parsing
+	principal names into components. 
+	(do_replacement): likewise
+	(aname_replacer): Support error return from do_replacement
+
+2004-05-07  Sam Hartman  <hartmans@mit.edu>
+
+	* an_to_ln.c: Patch from Matt Crawford  to allow matching on
+	realms of cross-realm principals.
+
+2004-05-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* localaddr.c: Incorporate foreach_localaddr implementation.
+	Export it as krb5int_foreach_localaddr.  Include foreachaddr.h,
+	not foreachaddr.c.
+
+2004-03-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* sendto_kdc.c (krb5int_sendto): Initialize select_state.end_time.
+	(get_so_error): New function.
+	(service_tcp_fd): Call it for write fds as well as exception fds.
+
+2004-03-18  Ezra Peisach  <epeisach@mit.edu>
+
+	* sendto_kdc.c (krb5_sendto_kdc): Change passing pointer to value of
+	use_master parameter to krb5_locate_kdc.
+
+2004-03-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* lock_file.c (krb5_lock_file): Initialize flock data on entry,
+	but don't bother with a static version to copy from.
+
+2004-02-26  Jeffrey Altman <jaltman@mit.edu>
+
+    * sendto_kdc.c, send524.c:
+      The use_master parameter of sendto_kdc is now an in/out 
+      parameter used to report to the caller whether or not
+      the responding KDC was in fact the master.  This is 
+      necessary to allow callers to prevent making an unnecessary
+      additional call to query the master if the original 
+      query did not explicitly state that the master should be 
+      queried.
+
+2004-02-25  Ken Raeburn  <raeburn@mit.edu>
+
+	* sendto_kdc.c (start_connection): Close socket if connect() call
+	fails for an unexpected reason.
+
+2004-02-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* genaddrs.c: Don't specify defaults for
+	GET{PEER,SOCK}NAME_ARG{2,3}_TYPE macros.
+
+2004-02-09  Sam Hartman  <hartmans@mit.edu>
+
+	* changepw.c (krb5_locate_kpasswd): Run htons on the default port
+
+2003-12-22  Jeffrey Altman <jaltman@mit.edu>
+
+    * dnssrv.c:  wrap within #ifdef KRB5_DNS_LOOKUP to prevent references
+      to resolver functions when DNS support is not being compiled 
+
+2003-12-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* realm_iter.c (krb5_realm_iterator_create): Array NAMES is now
+	const.
+
+	* prompter.c (catch_signals, restore_signals): Take pointer to old
+	signal handler info as new argument.
+	(osiginfo): New typedef.
+	(setup_tty, restore_tty): Take pointer to old signal handler info
+	and old termios settings as new arguments.
+	(krb5_prompter_posix): Pass the extra arguments, addresses of new
+	automatic variables.
+	(osigint, saveparm): Variables deleted.
+
+	* Makefile.in (STLIBOBJS, OBJS, SRCS): Don't build promptusr.c.
+
+	* sendto_kdc.c (default_debug_handler, put, putstr): Define only
+	if DEBUG is defined.
+	(DEBUG): Don't define.
+	(krb5int_sendtokdc_debug_handler): Initialize to null if DEBUG is
+	not defined.
+
+2003-12-18  Jeffrey Altman <jaltman@mit.edu>
+
+    * accessor.c: Add new functions for use by gssapi
+
+2003-12-12  Tom Yu  <tlyu@mit.edu>
+
+	* an_to_ln.c (krb5_aname_to_localname): Don't write one byte past
+	the end of a string.  Found by Christopher Nebergall.
+
+2003-10-27  Jeffrey Altman <jaltman@mit.edu>
+
+    * sendto_kdc.c: sockets must be closed with closesocket() and 
+      and not close() in order to ensure portability among different
+      operating systems.
+
+2003-08-21  Ken Raeburn  <raeburn@mit.edu>
+
+	* dnssrv.c: New file; split out DNS SRV RR query support...
+	* locate_kdc.c: ...from here.  Always compile in the calls.
+	* Makefile.in (STLIBOBJS, OBJS, SRCS): Add it.
+
 2003-07-25  Ken Raeburn  <raeburn@mit.edu>
 
 	* locate_kdc.c (krb5_locate_kdc): Always pass 0 to locate_server
 	as the get_masters argument.  Instead, if get_masters is set,
 	look up "master_kdc" in the config file instead of "kdc".
 
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
+
 2003-07-09  Alexandra Ellwood  <lxs@mit.edu>
 
-        * toffset.c: Export and krb5_set_real_time for Samba.
+        * toffset.c: Export krb5_set_real_time for Samba.
 
 2003-06-06  Ken Raeburn  <raeburn@mit.edu>
 
@@ -73,6 +384,12 @@
 	* changepw.c (krb5_change_set_password): Locate server in realm of
 	creds.server, not in realm of target principal because target
 	principal is null in the  changepw case.
+
+2003-04-28  Ken Raeburn  <raeburn@mit.edu>
+
+	* init_os_ctx.c (krb5_os_init_context, krb5_os_free_context):
+	Don't allocate or free the os_context, since it's now a direct
+	member of the krb5_context, not separately allocated storage.
 
 2003-04-27  Sam Hartman  <hartmans@mit.edu>
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2002  Free Software Foundation
+/* Copyright (C) 2000, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,12 +9,16 @@ details.  */
 package gnu.awt.xlib;
 
 import java.awt.*;
+import java.awt.dnd.*;
+import java.awt.dnd.peer.*;
+import java.awt.im.*;
 import java.awt.peer.*;
 import java.awt.image.ImageProducer;
 import java.awt.image.ImageObserver;
 import java.net.*;
 import java.awt.datatransfer.Clipboard;
 import java.util.Properties;
+import java.util.Map;
 
 import gnu.gcj.xlib.Display;
 import gnu.gcj.xlib.Screen;
@@ -169,7 +173,7 @@ public class XToolkit extends Toolkit
   
   public java.awt.image.ColorModel getColorModel()
   {
-    throw new UnsupportedOperationException("not implemented yet");
+    return getDefaultXGraphicsConfiguration().getColorModel();
   }
 
   public String[] getFontList()
@@ -318,22 +322,24 @@ public class XToolkit extends Toolkit
     return defaultConfig;
   }
 
+  public DragSourceContextPeer
+    createDragSourceContextPeer(DragGestureEvent dge)
+    throws InvalidDnDOperationException
+  {
+    throw new UnsupportedOperationException("not implemented");  
+  }
 
-    /*
-    public DragSourceContextPeer
-	createDragSourceContextPeer(DragGestureEvent dge)
-	throws InvalidDnDOperationException;
-
-    public DragGestureRecognizer
-	createDragGestureRecognizer(Class abstractRecognizerClass,
-				    DragSource ds, Component c,
-				    int srcActions, DragGestureListener dgl) {
-	throw new UnsupportedOperationException("not implemented");
-    }
-    */
+  public DragGestureRecognizer
+    createDragGestureRecognizer(Class abstractRecognizerClass,
+				DragSource ds, Component c,
+				int srcActions, DragGestureListener dgl)
+  {
+    throw new UnsupportedOperationException("not implemented");
+  }
 
     
-    /*
-    public Map mapInputMethodHighlight(InputMethodHighlight highlight);
-    */
+  public Map mapInputMethodHighlight(InputMethodHighlight highlight)
+  {
+    throw new UnsupportedOperationException("not implemented");
+  }
 }

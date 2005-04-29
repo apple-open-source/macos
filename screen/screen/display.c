@@ -21,12 +21,12 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: display.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
-
-
 #include <sys/types.h>
+#include <signal.h>
 #include <fcntl.h>
+#ifndef sun
+# include <sys/ioctl.h>
+#endif
 
 #include "config.h"
 #include "screen.h"
@@ -40,11 +40,19 @@ static int  CallRewrite __P((int, int, int, int));
 static void FreeCanvas __P((struct canvas *));
 static void disp_readev_fn __P((struct event *, char *));
 static void disp_writeev_fn __P((struct event *, char *));
+#ifdef linux
+static void disp_writeev_eagain __P((struct event *, char *));
+#endif
 static void disp_status_fn __P((struct event *, char *));
 static void disp_hstatus_fn __P((struct event *, char *));
+static void disp_blocked_fn __P((struct event *, char *));
 static void cv_winid_fn __P((struct event *, char *));
 #ifdef MAPKEYS
 static void disp_map_fn __P((struct event *, char *));
+#endif
+static void disp_idle_fn __P((struct event *, char *));
+#ifdef BLANKER_PRG
+static void disp_blanker_fn __P((struct event *, char *));
 #endif
 static void WriteLP __P((int, int));
 static void INSERTCHAR __P((int));
@@ -55,7 +63,7 @@ static void SetBackColor __P((int));
 
 
 extern struct layer *flayer;
-extern struct win *windows;
+extern struct win *windows, *fore;
 extern struct LayFuncs WinLf;
 
 extern int  use_hardstatus;
@@ -65,12 +73,23 @@ extern unsigned char *blank, *null;
 extern struct mline mline_blank, mline_null, mline_old;
 extern struct mchar mchar_null, mchar_blank, mchar_so;
 extern struct NewWindow nwin_default;
+extern struct action idleaction;
 
 /* XXX shouldn't be here */
 extern char *hstatusstring;
 extern char *captionstring;
 
 extern int pastefont;
+extern int idletimo;
+
+#ifdef BLANKER_PRG
+extern int pty_preopen;
+#if defined(TIOCSWINSZ) || defined(TIOCGWINSZ)
+extern struct winsize glwz;
+#endif
+extern char **NewEnv;
+extern int real_uid, real_gid;
+#endif
 
 /*
  * tputs needs this to calculate the padding
@@ -95,6 +114,7 @@ struct display TheDisplay;
  *  The default values
  */
 int defobuflimit = OBUF_MAX;
+int defnonblock = -1;
 #ifdef AUTO_NUKE
 int defautonuke = 0;
 #endif
@@ -215,7 +235,7 @@ struct mode *Mode;
   display->d_next = displays;
   displays = display;
   D_flow = 1;
-  D_nonblock = 0;
+  D_nonblock = defnonblock;
   D_userfd = fd;
   D_readev.fd = D_writeev.fd = fd;
   D_readev.type  = EV_READ;
@@ -233,10 +253,25 @@ struct mode *Mode;
   D_hstatusev.type = EV_TIMEOUT;
   D_hstatusev.data = (char *)display;
   D_hstatusev.handler = disp_hstatus_fn;
+  D_blockedev.type = EV_TIMEOUT;
+  D_blockedev.data = (char *)display;
+  D_blockedev.handler = disp_blocked_fn;
+  D_blockedev.condpos = &D_obuffree;
+  D_blockedev.condneg = &D_obuflenmax;
+  D_hstatusev.handler = disp_hstatus_fn;
 #ifdef MAPKEYS
   D_mapev.type = EV_TIMEOUT;
   D_mapev.data = (char *)display;
   D_mapev.handler = disp_map_fn;
+#endif
+  D_idleev.type = EV_TIMEOUT;
+  D_idleev.data = (char *)display;
+  D_idleev.handler = disp_idle_fn;
+#ifdef BLANKER_PRG
+  D_blankerev.type = EV_READ;
+  D_blankerev.data = (char *)display;
+  D_blankerev.handler = disp_blanker_fn;
+  D_blankerev.fd = -1;
 #endif
   D_OldMode = *Mode;
   D_status_obuffree = -1;
@@ -285,6 +320,9 @@ FreeDisplay()
 #ifdef FONT
   FreeTransTable();
 #endif
+#ifdef BLANKER_PRG
+  KillBlanker();
+#endif
   if (D_userfd >= 0)
     {
       Flush();
@@ -305,8 +343,23 @@ FreeDisplay()
   evdeq(&D_statusev);
   evdeq(&D_readev);
   evdeq(&D_writeev);
+  evdeq(&D_blockedev);
 #ifdef MAPKEYS
   evdeq(&D_mapev);
+  if (D_kmaps)
+    {
+      free(D_kmaps);
+      D_kmaps = 0;
+      D_aseqs = 0;
+      D_nseqs = 0;
+      D_seqp = 0;
+      D_seql = 0;
+      D_seqh = 0;
+    }
+#endif
+  evdeq(&D_idleev);
+#ifdef BLANKER_PRG
+  evdeq(&D_blankerev);
 #endif
 #ifdef HAVE_BRAILLE
   if (bd.bd_dpy == display)
@@ -339,6 +392,8 @@ FreeDisplay()
     {
       if (p->w_pdisplay == display)
 	p->w_pdisplay = 0;
+      if (p->w_lastdisp == display)
+	p->w_lastdisp = 0;
       if (p->w_readev.condneg == &D_status || p->w_readev.condneg == &D_obuflenmax)
 	p->w_readev.condpos = p->w_readev.condneg = 0;
     }
@@ -347,6 +402,11 @@ FreeDisplay()
       cvp = cv->c_next;
       FreeCanvas(cv);
     }
+#ifdef ZMODEM
+  for (p = windows; p; p = p->w_next)
+    if (p->w_zdisplay == display)
+      zmodem_abort(p, 0);
+#endif
 #ifdef MULTI
   free((char *)display);
 #endif
@@ -701,6 +761,9 @@ void
 FinitTerm()
 {
   ASSERT(display);
+#ifdef BLANKER_PRG
+  KillBlanker();
+#endif
   if (D_tcinited)
     {
       ResizeDisplay(D_defwidth, D_defheight);
@@ -1038,7 +1101,7 @@ int mode;
 	}
       if (mode)
         {
-          sprintf(mousebuf, "\033[?%dl", mode);
+          sprintf(mousebuf, "\033[?%dh", mode);
           AddStr(mousebuf);
 	}
       D_mouse = mode;
@@ -1765,6 +1828,7 @@ register int new;
       return;
     }
 #endif
+  D_rend.attr = new;
   typ = D_atyp;
   if ((new & old) != old)
     {
@@ -1806,7 +1870,6 @@ register int new;
 	  typ |= D_attrtyp[i];
 	}
     }
-  D_rend.attr = new;
   D_atyp = typ;
 }
 
@@ -2140,11 +2203,13 @@ MakeStatus(msg)
 char *msg;
 {
   register char *s, *t;
-  register int max, ti;
+  register int max;
 
   if (!display)
     return;
   
+  if (D_blocked)
+    return;
   if (!D_tcinited)
     {
       debug("tc not inited, just writing msg\n");
@@ -2169,14 +2234,17 @@ char *msg;
       if (strcmp(msg, D_status_lastmsg) == 0)
 	{
 	  debug("same message - increase timeout");
-	  SetTimeout(&D_statusev, MsgWait * 1000);
+	  SetTimeout(&D_statusev, MsgWait);
 	  return;
 	}
       if (!D_status_bell)
 	{
-	  ti = time((time_t *)0) - D_status_time;
+	  struct timeval now;
+	  int ti;
+	  gettimeofday(&now, NULL);
+	  ti = (now.tv_sec - D_status_time.tv_sec) * 1000 + (now.tv_usec - D_status_time.tv_usec) / 1000;
 	  if (ti < MsgMinWait)
-	    DisplaySleep(MsgMinWait - ti, 0);
+	    DisplaySleep1000(MsgMinWait - ti, 0);
 	}
       RemoveStatus();
     }
@@ -2259,8 +2327,8 @@ char *msg;
       D_obuffree = D_obuflen = 0;
       D_status = STATUS_ON_WIN;
     }
-  (void) time(&D_status_time);
-  SetTimeout(&D_statusev, MsgWait * 1000);
+  gettimeofday(&D_status_time, NULL);
+  SetTimeout(&D_statusev, MsgWait);
   evenq(&D_statusev);
 #ifdef HAVE_BRAILLE
   RefreshBraille();	/* let user see multiple Msg()s */
@@ -2319,6 +2387,8 @@ char *str;
 
   if (D_status == STATUS_ON_WIN && D_has_hstatus == HSTATUS_LASTLINE && STATLINE == D_height-1)
     return;	/* sorry, in use */
+  if (D_blocked)
+    return;
 
   if (D_HS && D_has_hstatus == HSTATUS_HS)
     {
@@ -2334,7 +2404,7 @@ char *str;
 	return;
       AddCStr2(D_TS, 0);
       max = D_WS > 0 ? D_WS : (D_width - !D_CLP);
-      if (strlen(str) > max)
+      if ((int)strlen(str) > max)
 	AddStrn(str, max);
       else
 	AddStr(str);
@@ -3102,10 +3172,11 @@ Flush()
     }
   D_obuffree += l;
   D_obufp = D_obuf;
-  if (D_nonblock > 1)
-    D_nonblock = 1;	/* reenable flow control for WriteString */
   if (fcntl(D_userfd, F_SETFL, FNBLOCK))
     debug1("Warning: NBLOCK fcntl failed: %d\n", errno);
+  if (D_blocked == 1)
+    D_blocked = 0;
+  D_blocked_fuzz = 0;
 }
 
 void
@@ -3122,6 +3193,8 @@ freetty()
   D_obuf = 0;
   D_obuflen = 0;
   D_obuflenmax = -D_obufmax;
+  D_blocked = 0;
+  D_blocked_fuzz = 0;
 }
 
 /*
@@ -3140,9 +3213,12 @@ Resize_obuf()
       ASSERT(D_obuffree == -1);
       if (!D_status_bell)
 	{
-	  int ti = time((time_t *)0) - D_status_time;
+	  struct timeval now;
+	  int ti;
+	  gettimeofday(&now, NULL);
+	  ti = (now.tv_sec - D_status_time.tv_sec) * 1000 + (now.tv_usec - D_status_time.tv_usec) / 1000;
 	  if (ti < MsgMinWait)
-	    DisplaySleep(MsgMinWait - ti, 0);
+	    DisplaySleep1000(MsgMinWait - ti, 0);
 	}
       RemoveStatus();
       if (--D_obuffree > 0)	/* redo AddChar decrement */
@@ -3167,6 +3243,36 @@ Resize_obuf()
   D_obufp = D_obuf + ind;
   D_obuflenmax = D_obuflen - D_obufmax;
   debug1("ResizeObuf: resized to %d\n", D_obuflen);
+}
+
+void
+DisplaySleep1000(n, eat)
+int n;
+int eat;
+{
+  char buf;
+  fd_set r;
+  struct timeval t;
+
+  if (n <= 0)
+    return;
+  if (!display)
+    {
+      debug("DisplaySleep has no display sigh\n");
+      sleep1000(n);
+      return;
+    }
+  t.tv_usec = (n % 1000) * 1000;
+  t.tv_sec = n / 1000;
+  FD_ZERO(&r);
+  FD_SET(D_userfd, &r);
+  if (select(FD_SETSIZE, &r, (fd_set *)0, (fd_set *)0, &t) > 0)
+    {
+      debug("display activity stopped sleep\n");
+      if (eat)
+        read(D_userfd, &buf, 1);
+    }
+  debug2("DisplaySleep(%d) ending, eat was %d\n", n, eat);
 }
 
 #ifdef AUTO_NUKE
@@ -3254,6 +3360,23 @@ NukePending()
 }
 #endif /* AUTO_NUKE */
 
+#ifdef linux
+/* linux' select can't handle flow control, so wait 100ms if
+ * we get EAGAIN
+ */
+static void
+disp_writeev_eagain(ev, data)
+struct event *ev;
+char *data;
+{
+  display = (struct display *)data;
+  evdeq(&D_writeev);
+  D_writeev.type = EV_WRITE;
+  D_writeev.handler = disp_writeev_fn;
+  evenq(&D_writeev);
+}
+#endif
+
 static void
 disp_writeev_fn(ev, data)
 struct event *ev;
@@ -3275,18 +3398,53 @@ char *data;
 	  bcopy(D_obuf + size, D_obuf, len);
 	  debug2("ASYNC: wrote %d - remaining %d\n", size, len);
 	}
-      /* Great, reenable flow control for WriteString now. */
-      if ((D_nonblock > 1) && (len < D_obufmax/2))
-	D_nonblock = 1;
       D_obufp -= size;
       D_obuffree += size;
+      if (D_blocked_fuzz)
+	{
+	  D_blocked_fuzz -= size;
+	  if (D_blocked_fuzz < 0)
+	    D_blocked_fuzz = 0;
+	}
+      if (D_blockedev.queued)
+	{
+	  if (D_obufp - D_obuf > D_obufmax / 2)
+	    {
+	      debug2("%s: resetting timeout to %g secs\n", D_usertty, D_nonblock/1000.);
+	      SetTimeout(&D_blockedev, D_nonblock);
+	    }
+	  else
+	    {
+	      debug1("%s: deleting blocked timeout\n", D_usertty);
+	      evdeq(&D_blockedev);
+	    }
+	}
+      if (D_blocked == 1 && D_obuf == D_obufp)
+	{
+	  /* empty again, restart output */
+          debug1("%s: buffer empty, unblocking\n", D_usertty);
+	  D_blocked = 0;
+	  Activate(D_fore ? D_fore->w_norefresh : 0);
+	  D_blocked_fuzz = D_obufp - D_obuf;
+	}
     } 
   else
     {
+#ifdef linux
+      /* linux flow control is badly broken */
+      if (errno == EAGAIN)
+	{
+	  evdeq(&D_writeev);
+	  D_writeev.type = EV_TIMEOUT;
+	  D_writeev.handler = disp_writeev_eagain;
+	  SetTimeout(&D_writeev, 100);
+	  evenq(&D_writeev);
+	}
+#endif
       if (errno != EINTR && errno != EAGAIN)
-# if defined(EWOULDBLOCK) && (EWOULDBLOCK != EAGAIN)
+#if defined(EWOULDBLOCK) && (EWOULDBLOCK != EAGAIN)
 	if (errno != EWOULDBLOCK)
-# endif
+#endif
 	  Msg(errno, "Error writing output to display");
     }
 }
@@ -3350,6 +3508,40 @@ char *data;
       sleep(1);
       return;
     }
+  if (D_blocked == 4)
+    {
+      D_blocked = 0;
+#ifdef BLANKER_PRG
+      KillBlanker();
+#endif
+      Activate(D_fore ? D_fore->w_norefresh : 0);
+      ResetIdle();
+      return;
+    }
+#ifdef ZMODEM
+  if (D_blocked > 1)	/* 2, 3 */
+    {
+      char *bufp;
+      struct win *p;
+
+      flayer = 0;
+      for (p = windows; p ; p = p->w_next)
+	if (p->w_zdisplay == display)
+	  {
+	    flayer = &p->w_layer;
+	    bufp = buf;
+	    while (size > 0)
+	      LayProcess(&bufp, &size);
+	    return;
+	  }
+      debug("zmodem window gone, deblocking display");
+      zmodem_abort(0, display);
+    }
+#endif
+  if (idletimo > 0)
+    ResetIdle();
+  if (D_fore)
+    D_fore->w_lastdisp = display;
   if (D_mouse && D_forecv)
     {
       unsigned char *bp = (unsigned char *)buf;
@@ -3415,7 +3607,7 @@ char *data;
 	    }
 	  else
 	    j += EncodeChar(buf2 + j, c, enc, 0);
-	  if (j > sizeof(buf2) - 10)	/* just in case... */
+	  if (j > (int)sizeof(buf2) - 10)	/* just in case... */
 	    break;
 	}
       (*D_processinput)(buf2, j);
@@ -3452,6 +3644,29 @@ char *data;
 }
 
 static void
+disp_blocked_fn(ev, data)
+struct event *ev;
+char *data;
+{
+  struct win *p;
+
+  display = (struct display *)data;
+  debug1("blocked timeout %s\n", D_usertty);
+  if (D_obufp - D_obuf > D_obufmax + D_blocked_fuzz)
+    {
+      debug("stopping output to display\n");
+      D_blocked = 1;
+      /* re-enable all windows */
+      for (p = windows; p; p = p->w_next)
+	if (p->w_readev.condneg == &D_obuflenmax)
+	  {
+	    debug1("freeing window #%d\n", p->w_number);
+	    p->w_readev.condpos = p->w_readev.condneg = 0;
+	  }
+    }
+}
+
+static void
 cv_winid_fn(ev, data)
 struct event *ev;
 char *data;
@@ -3481,14 +3696,227 @@ struct event *ev;
 char *data;
 {
   char *p;
-  int l;
+  int l, i;
+  unsigned char *q;
   display = (struct display *)data;
   debug("Flushing map sequence\n");
   if (!(l = D_seql))
     return;
-  p = D_seqp - l;
-  D_seqp = D_kmaps[0].seq;
+  p = (char *)D_seqp - l;
+  D_seqp = D_kmaps + 3;
   D_seql = 0;
-  ProcessInput2(p, l);
+  if ((q = D_seqh) != 0)
+    {
+      D_seqh = 0;
+      i = q[0] << 8 | q[1]; 
+      i &= ~KMAP_NOTIMEOUT;
+      debug1("Mapping former hit #%d - ", i);
+      debug2("%d(%s) - ", q[2], q + 3); 
+      if (StuffKey(i))
+	ProcessInput2((char *)q + 3, q[2]);
+      if (display == 0)
+	return;
+      l -= q[2];
+      p += q[2];
+    }
+  else
+    D_dontmap = 1;
+  ProcessInput(p, l);
 }
+#endif
+
+static void
+disp_idle_fn(ev, data)
+struct event *ev;
+char *data;
+{
+  struct display *olddisplay;
+  display = (struct display *)data;
+  debug("idle timeout\n");
+  if (idletimo <= 0 || idleaction.nr == RC_ILLEGAL)
+    return;
+  olddisplay = display;
+  flayer = D_forecv->c_layer;
+  fore = D_fore;
+  DoAction(&idleaction, -1);
+  if (idleaction.nr == RC_BLANKER)
+    return;
+  for (display = displays; display; display = display->d_next)
+    if (olddisplay == display)
+      break;
+  if (display)
+    ResetIdle();
+}
+
+void
+ResetIdle()
+{
+  if (idletimo > 0)
+    {
+      SetTimeout(&D_idleev, idletimo);
+      if (!D_idleev.queued)
+	evenq(&D_idleev);
+    }
+  else
+    evdeq(&D_idleev);
+}
+
+
+#ifdef BLANKER_PRG
+
+static void
+disp_blanker_fn(ev, data)
+struct event *ev;
+char *data;
+{
+  char buf[IOSIZE], *b;
+  int size;
+
+  display = (struct display *)data;
+  size = read(D_blankerev.fd, buf, IOSIZE);
+  if (size <= 0)
+    {
+      evdeq(&D_blankerev);
+      close(D_blankerev.fd);
+      D_blankerev.fd = -1;
+      return;
+    }
+  for (b = buf; size; size--)
+    AddChar(*b++);
+}
+
+void
+KillBlanker()
+{
+  int oldtop = D_top, oldbot = D_bot;
+  struct mchar oldrend;
+
+  if (D_blankerev.fd == -1)
+    return;
+  if (D_blocked == 4)
+    D_blocked = 0;
+  evdeq(&D_blankerev);
+  close(D_blankerev.fd);
+  D_blankerev.fd = -1;
+  Kill(D_blankerpid, SIGHUP);
+  D_top = D_bot = -1;
+  oldrend = D_rend;
+  if (D_ME)
+    {
+      AddCStr(D_ME);
+      AddCStr(D_ME);
+    }
+  else
+    {
+#ifdef COLOR
+      if (D_hascolor)
+	AddStr("\033[m\033[m");	/* why is D_ME not set? */
+#endif
+      AddCStr(D_SE);
+      AddCStr(D_UE);
+    }
+  AddCStr(D_VE);
+  AddCStr(D_CE0);
+  D_rend = mchar_null;
+  D_atyp = 0;
+  D_curvis = 0;
+  D_x = D_y = -1;
+  ChangeScrollRegion(oldtop, oldbot);
+  SetRendition(&oldrend);
+  ClearAll();
+}
+
+void
+RunBlanker(cmdv)
+char **cmdv;
+{
+  char *m;
+  int pid;
+  int slave = -1;
+  char termname[30];
+#ifndef TIOCSWINSZ
+  char libuf[20], cobuf[20];
+#endif
+  char **np;
+
+  strcpy(termname, "TERM=");
+  strncpy(termname + 5, D_termname, sizeof(termname) - 6);
+  termname[sizeof(termname) - 1] = 0;
+  KillBlanker();
+  D_blankerpid = -1;
+  if ((D_blankerev.fd = OpenPTY(&m)) == -1)
+    {
+      Msg(0, "OpenPty failed");
+      return;
+    }
+#ifdef O_NOCTTY
+  if (pty_preopen)
+    {
+      if ((slave = open(m, O_RDWR|O_NOCTTY)) == -1)
+	{
+	  Msg(errno, "%s", m);
+	  close(D_blankerev.fd);
+	  D_blankerev.fd = -1;
+	  return;
+	}
+    }
+#endif
+  switch (pid = (int)fork())
+    {
+    case -1:
+      Msg(errno, "fork");
+      close(D_blankerev.fd);
+      D_blankerev.fd = -1;
+      return;
+    case 0:
+      displays = 0;
+#ifdef DEBUG
+      if (dfp && dfp != stderr)
+        fclose(dfp);
+#endif
+      if (setgid(real_gid) || setuid(real_uid))
+        Panic(errno, "setuid/setgid");
+      brktty(D_userfd);
+      freetty();
+      close(0);
+      close(1);
+      close(2);
+      closeallfiles(slave);
+      if (open(m, O_RDWR))
+	Panic(errno, "Cannot open %s", m);
+      dup(0);
+      dup(0);
+      if (slave != -1)
+	close(slave);
+      InitPTY(0);
+      fgtty(0);
+      SetTTY(0, &D_OldMode);
+      np = NewEnv + 3;
+      *np++ = NewEnv[0];
+      *np++ = termname;
+#ifdef TIOCSWINSZ
+      glwz.ws_col = D_width;
+      glwz.ws_row = D_height;
+      (void)ioctl(0, TIOCSWINSZ, (char *)&glwz);
+#else
+      sprintf(libuf, "LINES=%d", D_height);
+      sprintf(libuf, "COLUMNS=%d", D_width);
+      *np++ = libuf;
+      *np++ = cobuf;
+#endif
+#ifdef SIGPIPE
+      signal(SIGPIPE, SIG_DFL);
+#endif
+      display = 0;
+      execvpe(*cmdv, cmdv, NewEnv + 3);
+      Panic(errno, *cmdv);
+    default:
+      break;
+    }
+  D_blankerpid = pid;
+  evenq(&D_blankerev);
+  D_blocked = 4;
+  ClearAll();
+}
+
 #endif

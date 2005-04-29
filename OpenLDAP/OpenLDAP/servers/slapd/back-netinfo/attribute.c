@@ -66,7 +66,7 @@ static int fetch_attribute(
 	}
 
 	if (conn != NULL && op != NULL &&
-		access_allowed(be, conn, op, target,
+		access_allowed(op, target,
 			slap_schema.si_ad_entry, NULL, ACL_READ, NULL) == 0)
 	{
 #ifdef NEW_LOGGING
@@ -89,7 +89,7 @@ static int fetch_attribute(
 	}
 
 	if (conn != NULL && op != NULL &&
-		access_allowed(be, conn, op, target,
+		access_allowed(op, target,
 			entry_at, NULL, ACL_READ, NULL) == 0)
 	{
 #ifdef NEW_LOGGING
@@ -109,7 +109,7 @@ static int fetch_attribute(
 	for (iv = attr->a_vals, jv = v; iv->bv_val != NULL; iv++)
 	{
 		if (conn != NULL && op != NULL &&
-			access_allowed(be, conn, op, target,
+			access_allowed(op, target,
 				entry_at, iv, ACL_READ, NULL) == 0) {
 			continue;
 		}
@@ -188,7 +188,7 @@ netinfo_back_attribute(
 		return dsstatus_to_ldap_err(status);
 	}
 
-	status = netinfo_back_access_allowed(be, conn, op, dsid, entry_at, NULL, ACL_READ);
+	status = netinfo_back_access_allowed(op, dsid, entry_at, NULL, ACL_READ);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);

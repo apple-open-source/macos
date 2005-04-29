@@ -39,7 +39,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: doalloc.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: doalloc.c,v 1.8 2002/08/31 21:48:11 Philippe.Blain Exp $")
 
 NCURSES_EXPORT(void *)
 _nc_doalloc(void *oldp, size_t amount)
@@ -52,7 +52,7 @@ _nc_doalloc(void *oldp, size_t amount)
 	    errno = ENOMEM;	/* just in case 'free' reset */
 	}
     } else {
-	newp = typeMalloc(char, amount);
+	newp = malloc(amount);
     }
     return newp;
 }

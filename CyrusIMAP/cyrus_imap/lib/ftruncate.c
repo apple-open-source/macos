@@ -1,6 +1,6 @@
 /* ftruncate -- Replacement ftruncate() function
  * Does nothing
- $Id: ftruncate.c,v 1.8 2003/02/13 20:15:39 rjs3 Exp $
+ $Id: ftruncate.c,v 1.5 2005/03/05 00:37:13 dasenbro Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

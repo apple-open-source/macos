@@ -1,7 +1,7 @@
 # Server-side
 <reply>
 <data>
-HTTP/1.1 200 OK
+HTTP/1.1 200 OK swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
 
@@ -10,11 +10,14 @@ Server: test-server/fake
 
 # Client-side
 <client>
+<server>
+http
+</server>
  <name>
 HTTP with cookie parsing from header file
  </name>
  <command>
-http://%HOSTIP:%HOSTPORT/we/want/8 -b log/heads8.txt
+http://%HOSTIP:%HTTPPORT/we/want/8 -b log/heads8.txt
 </command>
 
 # We create this file before the command is invoked!
@@ -29,7 +32,7 @@ Set-Cookie: mismatch=this; domain=127.0.0.1; path="/silly/";
 Set-Cookie: partmatch=present; domain=.0.0.1; path=/;
 
 </file>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -38,9 +41,9 @@ Set-Cookie: partmatch=present; domain=.0.0.1; path=/;
 </strip>
 <protocol>
 GET /we/want/8 HTTP/1.1
-Host: 127.0.0.1:8999
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
 Cookie: partmatch=present; foobar=name
 
 </protocol>

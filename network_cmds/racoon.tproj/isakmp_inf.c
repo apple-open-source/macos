@@ -34,7 +34,6 @@
 #include <sys/socket.h>
 
 #include <net/pfkeyv2.h>
-#include <netkey/keydb.h>
 #include <netkey/key_var.h>
 #include <netinet/in.h>
 #ifdef IPV6_INRIA_VERSION

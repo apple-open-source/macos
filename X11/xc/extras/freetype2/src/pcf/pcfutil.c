@@ -23,7 +23,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/extras/freetype2/src/pcf/pcfutil.c,v 1.4 2002/12/17 03:28:26 dawes Exp $ */
+/* $XFree86: xc/extras/freetype2/src/pcf/pcfutil.c,v 1.5 2003/12/22 17:48:01 tsi Exp $ */
 
 /*
  * Author:  Keith Packard, MIT X Consortium
@@ -131,6 +131,7 @@ in this Software without prior written authorization from The Open Group.
   }
 
 
+# ifdef UNUSED
   /*
    *  Repad a bitmap.
    */
@@ -214,6 +215,6 @@ in this Software without prior written authorization from The Open Group.
 
     return dstWidthBytes * height;
   }
-
+# endif
 
 /* END */

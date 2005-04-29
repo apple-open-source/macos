@@ -44,8 +44,6 @@ __SCDynamicStoreNotifyMachPort(SCDynamicStoreRef	store,
 	CFStringRef			sessionKey;
 	CFDictionaryRef			info;
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreNotifyMachPort:"));
-
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;		/* you must have an open session to play */
 	}
@@ -92,20 +90,13 @@ _notifyviaport(mach_port_t	server,
 	serverSessionRef		mySession = getSession(server);
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
 
-	if (_configd_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("Send mach message when a notification key changes."));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  server     = %d"), server);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  port       = %d"), port);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  message id = %d"), identifier);
-	}
-
 	if (!mySession) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
 	}
 
 	if (storePrivate->notifyPort != MACH_PORT_NULL) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  destroying old callback mach port %d"), storePrivate->notifyPort);
+		// destroying [old] callback mach port
 		(void) mach_port_destroy(mach_task_self(), storePrivate->notifyPort);
 	}
 

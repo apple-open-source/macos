@@ -1,6 +1,11 @@
 XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:53 cpqbld Exp $
-        DEPLIBS = $(DEPXLIB)
-LOCAL_LIBRARIES = $(XLIB)
+
+
+
+XCOMM $XFree86: xc/programs/xlsfonts/Imakefile,v 1.2 2003/05/27 17:58:25 tsi Exp $
+
+        DEPLIBS = $(DEPXONLYLIB)
+LOCAL_LIBRARIES = $(XONLYLIB)
            SRCS = xlsfonts.c dsimple.c
            OBJS = xlsfonts.o dsimple.o
 

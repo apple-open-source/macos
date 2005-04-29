@@ -35,4 +35,4 @@ class CCIAbstractFactory {
 		static	CCIAbstractFactory*			sTheFactory;
 
                 static CCIAbstractFactory*		MakeFactory ();
-};		
+};

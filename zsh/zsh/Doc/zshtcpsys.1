@@ -1,4 +1,4 @@
-.TH "ZSHTCPSYS" "1" "June 18, 2003" "zsh 4\&.1\&.1"
+.TH "ZSHTCPSYS" "1" "January 13, 2005" "zsh 4\&.2\&.3"
 .SH "NAME"
 zshtcpsys \- zsh tcp system
 .\" Yodl file: Zsh/tcpsys.yo
@@ -7,9 +7,9 @@ zshtcpsys \- zsh tcp system
 A module \fBzsh/net/tcp\fP is provided to provide network I/O over
 TCP/IP from within the shell; see its description in
 \fIzshmodules\fP(1)
-\&.  This manual page describes a function suite based on the module\&.  The
-functions will usually be installed at the same time as the module if that
-is present on your system, in which case they will be available for
+\&.  This manual page describes a function suite based on the module\&.  
+If the module is installed, the functions are usually installed at the
+same time, in which case they will be available for
 autoloading in the default function search path\&.  In addition to the
 \fBzsh/net/tcp\fP module, the \fBzsh/zselect\fP module is used to implement
 timeouts on read operations\&.  For troubleshooting tips, consult the
@@ -91,21 +91,21 @@ If the option \fB\-q\fP is given with any of the three forms, \fBtcp_open\fP
 will not print informational messages, although it will in any case exit
 with an appropriate status\&.
 .PP
-If the line editor (zle) is in use, which it usually is if and only if the
+If the line editor (zle) is in use, which is typically the case if the
 shell is interactive, \fBtcp_open\fP installs a handler inside \fBzle\fP which
 will check for new data at the same time as it checks for keyboard input\&.
 This is convenient as the shell consumes no CPU time while waiting; the
-test is performed by the operating systems\&.  However, if incoming data
-is only to be read explicitly, the option \fB\-z\fP to any of the forms of
-\fBtcp_open\fP prevents the handler from being installed\&.   Note this is not
+test is performed by the operating system\&.  Giving the option \fB\-z\fP to
+any of the forms of \fBtcp_open\fP prevents the handler from being
+installed, so data must be read explicitly\&.  Note, however, this is not
 necessary for executing complete sets of send and read commands from a
 function, as zle is not active at this point\&.  Generally speaking, the
 handler is only active when the shell is waiting for input at a command
 prompt or in the \fBvared\fP builtin\&.  The option has no effect if zle is not
 active; `\fB[[ \-o zle]]\fP' will test for this\&.
 .PP
-The first session to be opened becomes the current session; subsequent
-calls to \fBtcp_open\fP will not change this\&.  The current session is stored
+The first session to be opened becomes the current session and subsequent
+calls to \fBtcp_open\fP do not change it\&.  The current session is stored
 in the parameter \fB$TCP_SESS\fP; see below for more detail about the
 parameters used by the system\&.
 .RE
@@ -135,13 +135,13 @@ If the option \fB\-q\fP is given, no informational messages will be printed\&.
 .TP
 .PD
     \fB[ \-a | \-u\fP \fIfd\fP \fB\&.\&.\&. | \-l\fP \fIsess\fP\fB,\&.\&.\&. | \-s\fP \fIsess\fP \fB\&.\&.\&.]\fP
-Perform a read operation on the current session, or on a list of sessions
-if any are given (the first form), or all open sessions (the second form)\&.
-Any of the \fB\-u\fP, \fB\-l\fP or \fB\-s\fP options may be repeated or mixed
-together\&.  The \fB\-u\fP option specifies a file descriptor directly (only
-those managed by this system are useful), the other two specify sessions as
-described for \fBtcp_open\fP above\&.  If \fB\-a\fP is given, all sessions ares
-examined for new data\&.
+Perform a read operation on the current session, or on a list of
+sessions if any are given with \fB\-u\fP, \fB\-l\fP or \fB\-s\fP, or all open
+sessions if the option \fB\-a\fP is given\&.  Any of the \fB\-u\fP, \fB\-l\fP or
+\fB\-s\fP options may be repeated or mixed together\&.  The \fB\-u\fP option
+specifies a file descriptor directly (only those managed by this system
+are useful), the other two specify sessions as described for
+\fBtcp_open\fP above\&.
 .RS
 .PP
 The function checks for new data available on all the sessions listed\&.
@@ -367,7 +367,7 @@ The command is run in the background, so \fBtcp_proxy\fP can then accept new
 connections\&.  It continues to accept new connections until interrupted\&.
 .RE
 .TP
-\fBtcp_spam [\-rtv] [ \-a | \-s \fP \fIsess\fP \fB| \-l\fP \fIsess\fP\fB,\&.\&.\&. ]\fP \fIcmd\fP \fB\&.\&.\&.\fP
+\fBtcp_spam [\-ertv] [ \-a | \-s \fP \fIsess\fP \fB| \-l\fP \fIsess\fP\fB,\&.\&.\&. ]\fP \fIcmd\fP \fB\&.\&.\&.\fP
 Execute `\fIcmd\fP \fB\&.\&.\&.\fP' for each session in turn\&.  Note this executes
 the command and arguments; it does not send the command line as data
 unless the \fB\-t\fP (transmit) option is given\&.
@@ -389,6 +389,9 @@ The \fB\-v\fP flag specifies that a \fB$TCP_PROMPT\fP will be output before each
 session\&.  This is output after any modification to TCP_SESS by the
 user\-defined \fBtcp_on_spam\fP function described below\&.  (Obviously that
 function is able to generate its own output\&.)
+.PP
+If the option \fB\-e\fP is present, the line given as \fIcmd \&.\&.\&.\fP is executed
+using \fBeval\fP, otherwise it is executed without any further processing\&.
 .RE
 .TP
 \fBtcp_talk\fP
@@ -417,12 +420,51 @@ for input on all TCP sessions by calling \fBtcp_read \-a\fP\&.  This is similar
 to the interactive behaviour at the command prompt when zle handlers are
 installed\&.
 .PP
-.SH "TCP USER\-DEFINED FUNCTION"
+.SS "`One\-shot' file transfer"
+.PD 0
+.TP
+.PD 0
+\fBtcp_point\fP \fIport\fP
+.TP
+.PD
+\fBtcp_shoot\fP \fIhost\fP \fIport\fP
+This pair of functions provide a simple way to transfer a file between
+two hosts within the shell\&.  Note, however, that bulk data transfer is
+currently done using \fBcat\fP\&.  \fBtcp_point\fP reads any data arriving at
+\fIport\fP and sends it to standard output; \fBtcp_shoot\fP connects to
+\fIport\fP on \fIhost\fP and sends its standard input\&.  Any unused \fIport\fP
+may be used; the standard mechanism for picking a port is to think of a
+random four\-digit number above 1024 until one works\&.
+.RS
+.PP
+To transfer a file from host \fBwoodcock\fP to host \fBspringes\fP, on
+\fBspringes\fP:
+.PP
+.RS
+.nf
+\fBtcp_point 8091 >output_file\fP
+.fi
+.RE
+.PP
+and on \fBwoodcock\fP:
+.PP
+.RS
+.nf
+\fBtcp_shoot springes 8091 <input_file\fP
+.fi
+.RE
+.PP
+As these two functions do not require \fBtcp_open\fP to set up a TCP
+connection first, they may need to be autoloaded separately\&.
+.RE
+.RE
+.PP
+.SH "TCP USER\-DEFINED FUNCTIONS"
 .PP
 Certain functions, if defined by the user, will be called by the function
 system in certain contexts\&.  This facility depends on the module
 \fBzsh/parameter\fP, which is usually available in interactive shells as the
-completion system depends on it\&.  None of the functions need by defined;
+completion system depends on it\&.  None of the functions need be defined;
 they simply provide convenient hooks when necessary\&.
 .PP
 Typically, these are called after the requested action has been taken, so
@@ -484,6 +526,13 @@ within the line editor, if that is required\&.  It is in the format
 documented for the builtin `\fBzle \-F\fP' in
 \fIzshzle\fP(1)
 \&.
+.RS
+.PP
+While active, the function sets the parameter \fBTCP_HANDLER_ACTIVE\fP to 1\&.
+This allows shell code called internally (for example, by setting
+\fBtcp_on_read\fP) to tell if is being called when the shell is otherwise
+idle at the editor prompt\&.
+.RE
 .TP
 \fBtcp_output [ \-q ] \-P\fP \fIprompt\fP \fB\-F\fP \fIfd\fP \fB\-S\fP \fIsess\fP
 This function is used for both logging and handling output to standard
@@ -492,9 +541,23 @@ output, from within \fBtcp_read\fP and (if \fB$TCP_OUTPUT\fP is set)
 .RS
 .PP
 The \fIprompt\fP to use is specified by \fB\-P\fP; the default is the empty
-string\&.  It can contain `\fB%s\fP' which is replaced by the session name, or
-`\fB%f\fP' which is replaced by the session's file descriptor; `\fB%%\fP' is
-replaced by a single `\fB%\fP'\&.
+string\&.  It can contain:
+.PD 0
+.TP
+.PD
+\fB%c\fP
+Expands to 1 if the session is the current session, otherwise 0\&.  Used
+with ternary expresions such as `\fB%(c\&.\-\&.+)\fP' to
+output `\fB+\fP' for the current session and `\fB\-\fP' otherwise\&.
+.TP
+\fB%f\fP
+Replaced by the session's file descriptor\&.
+.TP
+\fB%s\fP
+Replaced by the session name\&.
+.TP
+\fB%%\fP
+Replaced by a single `\fB%\fP'\&.
 .PP
 The option \fB\-q\fP suppresses output to standard output, but not to any log
 files which are configured\&.
@@ -508,8 +571,8 @@ descriptor for possible replacement in the prompt\&.
 .PP
 Parameters follow the usual convention that uppercase is used for scalars
 and integers, while lowercase is used for normal and associative array\&.
-It is always safe for user code to read these parameters; some parameters
-may also be set, which are noted explicitly\&.  Other are included in this
+It is always safe for user code to read these parameters\&.  Some parameters
+may also be set; these are noted explicitly\&.  Others are included in this
 group as they are set by the function system for the user's benefit,
 i\&.e\&. setting them is typically not useful but is benign\&.
 .PP
@@ -517,7 +580,9 @@ It is often also useful to make settable parameters local to a function\&.
 For example, `\fBlocal TCP_SILENT=1\fP' specifies that data read during the
 function call will not be printed to standard output, regardless of the
 setting outside the function\&.  Likewise, `\fBlocal TCP_SESS=\fP\fIsess\fP'
-sets a session for the duration of a function\&.
+sets a session for the duration of a function, and `\fBlocal
+TCP_PROMPT=\fP' specifies that no prompt is used for input during the
+function\&.
 .PP
 .PD 0
 .TP
@@ -531,6 +596,11 @@ Array\&. May be set directly\&.  A set of extended globbing patterns which,
 if matched in \fBtcp_output\fP, will cause the line not to be printed to
 standard output\&.  The patterns should be defined as described for the
 arguments to \fBtcp_expect\fP\&.  Output of line to log files is not affected\&.
+.TP
+\fBTCP_HANDLER_ACTIVE\fP
+Scalar\&.  Set to 1 within \fBtcp_fd_handler\fP to indicate to functions
+called recursively that they have been called during an editor session\&.
+Otherwise unset\&.
 .TP
 \fBTCP_LINE\fP
 The last line read by \fBtcp_read\fP, and hence also \fBtcp_expect\fP\&.
@@ -556,26 +626,49 @@ will be sent; the full filename is \fB${TCP_LOG_SESS}\&.\fP\fIsess\fP\&.
 Output to each file is raw; no prompt is added\&.  If it is not an absolute
 path name, it will follow the user's current directory\&.
 .TP
-\fBtcp_nospam_list\fP
+\fBtcp_no_spam_list\fP
 Array\&.  May be set directly\&.  See \fBtcp_spam\fP for how this is used\&.
 .TP
 \fBTCP_OUTPUT\fP
 May be set directly\&.  If a non\-empty string, any data sent to a session by
-\fBtcp_send\fP will be logged\&.  The prompt has the same format as
-\fBTCP_PROMPT\fP and the same rules for its use apply:  it is used in a file
-specified by \fB$TCP_LOG\fP, but not in a file generated from
-\fB$TCP_LOG_SESS\fP\&.
+\fBtcp_send\fP will be logged\&.  This parameter gives the prompt to be used
+in a file specified by \fB$TCP_LOG\fP but not in a file generated from
+\fB$TCP_LOG_SESS\fP\&.  The prompt string has the same format as
+\fBTCP_PROMPT\fP and the same rules for its use apply\&.
 .TP
 \fBTCP_PROMPT\fP
 May be set directly\&.  Used as the prefix for data read by \fBtcp_read\fP
 which is printed to standard output or to the log file given by
 \fB$TCP_LOG\fP, if any\&.  Any `\fB%s\fP', `\fB%f\fP' or `\fB%%\fP' occurring in the
 string will be replaced by the name of the session, the session's
-underlying file descriptor, or a single `\fB%\fP', respectively\&.
+underlying file descriptor, or a single `\fB%\fP', respectively\&.  The
+expression `\fB%c\fP' expands to 1 if the session being read is the current
+session, else 0; this is most useful in ternary expressions such as
+`\fB%(c\&.\-\&.+)\fP' which outputs `\fB+\fP' if the session is
+the current one, else `\fB\-\fP'\&.
 .TP
 \fBTCP_READ_DEBUG\fP
 May be set directly\&.  If this has non\-zero length, \fBtcp_read\fP will give
 some limited diagnostics about data being read\&.
+.TP
+\fBTCP_SECONDS_START\fP
+This value is created and initialised to zero by tcp_open\&.
+.RS
+.PP
+The functions \fBtcp_read\fP and \fBtcp_expect\fP use the shell's
+\fBSECONDS\fP parameter for their own timing purposes\&.  If that parameter
+is not of floating point type on entry to one of the functions, it will
+create a local parameter \fBSECONDS\fP which is floating point and set the
+parameter \fBTCP_SECONDS_START\fP to the previous value of \fB$SECONDS\fP\&.
+If the parameter is already floating point, it is used without a local
+copy being created and \fBTCP_SECONDS_START\fP is not set\&.  As the global
+value is zero, the shell elapsed time is guaranteed to be the sum of
+\fB$SECONDS\fP and \fB$TCP_SECONDS_START\fP\&.
+.PP
+This can be avoided by setting \fBSECONDS\fP globally to a floating point
+value using `\fBtypeset \-F SECONDS\fP'; then the TCP functions will never
+make a local copy and never set \fBTCP_SECONDS_START\fP to a non\-zero value\&.
+.RE
 .TP
 \fBTCP_SESS\fP
 May be set directly\&.  The current session; must refer to one of the
@@ -597,6 +690,34 @@ how this is used\&.
 \fBTCP_TIMEOUT\fP
 May be set directly\&.  Currently this is only used by the function
 \fBtcp_command\fP, see above\&.
+.PP
+.SH "TCP USER\-DEFINED PARAMETERS"
+.PP
+The following parameters are not set by the function system, but have
+a special effect if set by the user\&.
+.PP
+.PD 0
+.TP
+.PD
+\fBtcp_on_read\fP
+This should be an associative array; if it is not, the behaviour is
+undefined\&.  Each key is the name of a shell function or other command,
+and the corresponding value is a shell pattern (using \fBEXTENDED_GLOB\fP)\&.
+Every line read from a TCP session directly or indirectly using
+\fBtcp_read\fP (which includes lines read by \fBtcp_expect\fP) is compared
+against the pattern\&.  If the line matches, the command given in the key is
+called with two arguments: the name of the session from which the line was
+read, and the line itself\&.
+.RS
+.PP
+If any function called to handle a line returns a non\-zero status, the
+line is not output\&.  Thus a \fBtcp_on_read\fP handler containing only
+the instruction `\fBreturn 1\fP' can be used to suppress output of
+particular lines (see, however, \fBtcp_filter\fP above)\&.  However, the line
+is still stored in \fBTCP_LINE\fP and \fBtcp_lines\fP; this occurs after all
+\fBtcp_on_read\fP processing\&.
+.RE
+.RE
 .PP
 .SH "TCP UTILITY PARAMETERS"
 .PP

@@ -11,9 +11,10 @@ static int foo(void)
 
 int bar(void)
 {
-  return foo() + 1;
+  /* Call twice to avoid bypassing the limit for functions called once.  */
+  return foo() + foo() + 1;
 }
 
-/* { dg-final { scan-assembler "bsr" { target alpha*-*-* } } } */
+/* { dg-final { scan-assembler-not "jsr" { target alpha*-*-* } } } */
 /* { dg-final { scan-assembler-not "PLT" { target i?86-*-* x86_64-*-* } } } */
 /* { dg-final { scan-assembler-not "plt" { target powerpc*-*-* } } } */

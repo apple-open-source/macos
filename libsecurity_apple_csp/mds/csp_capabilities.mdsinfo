@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>Capabilities</key>
+	<string>file:csp_capabilities_common.mds</string>
+	<key>MdsFileDescription</key>
+	<string>Built-in CSP Capabilities</string>
+	<key>MdsFileType</key>
+	<string>PluginSpecific</string>
+	<key>MdsRecordType</key>
+	<string>MDS_CDSADIR_CSP_CAPABILITY_RECORDTYPE</string>
+	<key>ModuleID</key>
+	<string>{87191ca2-0fc9-11d4-849a-000502b52122}</string>
+	<key>SSID</key>
+	<integer>0</integer>
+</dict>
+</plist>

@@ -24,7 +24,7 @@
  * used in advertising or publicity pertaining to distribution of the software
  * without specific, written prior permission.
  */
-/* $XFree86: xc/programs/xedit/util.c,v 1.25 2002/12/04 05:27:56 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/util.c,v 1.27 2003/05/23 14:58:02 tsi Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>		/* for realpath() */
@@ -234,7 +234,7 @@ KillTextSource(xedit_flist_item *item)
 	if (flist.itens[idx] == item) {
 	    if (idx + 1 < flist.num_itens)
 		nitem = flist.itens[idx + 1];
-	    else if (idx - 1 >= 0)
+	    else if (idx >= 1)
 		nitem = flist.itens[idx - 1];
 	    break;
 	}
@@ -858,7 +858,7 @@ DirWindow(Widget w, XEvent *event, String *params, Cardinal *num_params)
 	return;
 
     if (*num_params == 1) {
-	strncpy(path, params[0], sizeof(path - 2));
+	strncpy(path, params[0], sizeof(path) - 2);
 	path[sizeof(path) - 2] = '\0';
     }
     else {

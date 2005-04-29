@@ -51,11 +51,8 @@ createspecialhash(char *name, GetNodeFunc get, ScanTabFunc scan)
 	return NULL;
 
     pm->level = pm->old ? locallevel : 0;
-    pm->gets.hfn = hashgetfn;
-    pm->sets.hfn = hashsetfn;
-    pm->unsetfn = stdunsetfn;
+    pm->gsu.h = &stdhash_gsu;
     pm->u.hash = ht = newhashtable(0, name, NULL);
-    pm->ct = 0;
 
     ht->hash        = hasher;
     ht->emptytable  = (TableFunc) shempty;
@@ -96,22 +93,16 @@ widgetstr(Widget w)
 
 /**/
 static HashNode
-getpmwidgets(HashTable ht, char *name)
+getpmwidgets(UNUSED(HashTable ht), char *name)
 {
     Param pm = NULL;
     Thingy th;
 
-    pm = (Param) zhalloc(sizeof(struct param));
+    pm = (Param) hcalloc(sizeof(struct param));
     pm->nam = dupstring(name);
     pm->flags = PM_SCALAR | PM_READONLY;
-    pm->sets.cfn = NULL;
-    pm->gets.cfn = strgetfn;
-    pm->unsetfn = NULL;
-    pm->ct = 0;
-    pm->env = NULL;
-    pm->ename = NULL;
-    pm->old = NULL;
-    pm->level = 0;
+    pm->gsu.s = &nullsetscalar_gsu;
+
     if ((th = (Thingy) thingytab->getnode(thingytab, name)) &&
 	!(th->flags & DISABLED))
 	pm->u.str = widgetstr(th->widget);
@@ -124,21 +115,15 @@ getpmwidgets(HashTable ht, char *name)
 
 /**/
 static void
-scanpmwidgets(HashTable ht, ScanFunc func, int flags)
+scanpmwidgets(UNUSED(HashTable ht), ScanFunc func, int flags)
 {
     struct param pm;
     int i;
     HashNode hn;
 
+    memset((void *)&pm, 0, sizeof(struct param));
     pm.flags = PM_SCALAR | PM_READONLY;
-    pm.sets.cfn = NULL;
-    pm.gets.cfn = strgetfn;
-    pm.unsetfn = NULL;
-    pm.ct = 0;
-    pm.env = NULL;
-    pm.ename = NULL;
-    pm.old = NULL;
-    pm.level = 0;
+    pm.gsu.s = &nullsetscalar_gsu;
 
     for (i = 0; i < thingytab->hsize; i++)
 	for (hn = thingytab->nodes[i]; hn; hn = hn->next) {
@@ -154,7 +139,7 @@ scanpmwidgets(HashTable ht, ScanFunc func, int flags)
 /* Functions for the zlekeymaps special parameter. */
 
 static char **
-keymapsgetfn(Param pm)
+keymapsgetfn(UNUSED(Param pm))
 {
     int i;
     HashNode hn;
@@ -177,33 +162,41 @@ struct pardef {
     int flags;
     GetNodeFunc getnfn;
     ScanTabFunc scantfn;
-    void (*hsetfn) _((Param, HashTable));
-    void (*setfn) _((Param, char **));
-    char **(*getfn) _((Param));
-    void (*unsetfn) _((Param, int));
+    GsuHash hash_gsu;
+    GsuArray array_gsu;
     Param pm;
 };
 
+/*
+ * This is a duplicate of stdhash_gsu.  On some systems
+ * (such as Cygwin) we can't put a pointer to an imported variable
+ * in a compile-time initialiser, so we use this instead.
+ */
+static const struct gsu_hash zlestdhash_gsu =
+{ hashgetfn, hashsetfn, stdunsetfn };
+static const struct gsu_array keymaps_gsu =
+{ keymapsgetfn, arrsetfn, stdunsetfn };
+
 static struct pardef partab[] = {
     { "widgets", PM_READONLY,
-      getpmwidgets, scanpmwidgets, hashsetfn,
-      NULL, NULL, stdunsetfn, NULL },
+      getpmwidgets, scanpmwidgets, &zlestdhash_gsu,
+      NULL, NULL },
     { "keymaps", PM_ARRAY|PM_SPECIAL|PM_READONLY,
       NULL, NULL, NULL,
-      arrsetfn, keymapsgetfn, stdunsetfn, NULL },
-    { NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
+      &keymaps_gsu, NULL },
+    { NULL, 0, NULL, NULL, NULL, NULL, NULL }
 };
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
 
 /**/
 int
-boot_(Module m)
+boot_(UNUSED(Module m))
 {
     struct pardef *def;
 
@@ -215,14 +208,12 @@ boot_(Module m)
 					      def->scantfn)))
 		return 1;
 	    def->pm->flags |= def->flags;
-	    if (def->hsetfn)
-		def->pm->sets.hfn = def->hsetfn;
+	    if (def->hash_gsu)
+		def->pm->gsu.h = def->hash_gsu;
 	} else {
 	    if (!(def->pm = createparam(def->name, def->flags | PM_HIDE)))
 		return 1;
-	    def->pm->sets.afn = def->setfn;
-	    def->pm->gets.afn = def->getfn;
-	    def->pm->unsetfn = def->unsetfn;
+	    def->pm->gsu.a = def->array_gsu;
 	}
     }
     return 0;
@@ -230,7 +221,7 @@ boot_(Module m)
 
 /**/
 int
-cleanup_(Module m)
+cleanup_(UNUSED(Module m))
 {
     Param pm;
     struct pardef *def;
@@ -247,7 +238,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

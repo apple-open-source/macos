@@ -6,6 +6,9 @@
 
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 FTP PORT upload with CWD
  </name>
@@ -16,7 +19,7 @@ ftp://%HOSTIP:%FTPPORT/CWD/STOR/RETR/108 -T log/upload108 -P -
 Moooooooooooo
  upload this
 </file>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -29,10 +32,13 @@ Moooooooooooo
 USER anonymous
 PASS curl_by_daniel@haxx.se
 PWD
-CWD CWD/STOR/RETR
+CWD CWD
+CWD STOR
+CWD RETR
 PORT 127,0,0,1,5,109
 TYPE I
 STOR 108
+QUIT
 </protocol>
 <upload>
 Moooooooooooo

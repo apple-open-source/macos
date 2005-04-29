@@ -1,4 +1,4 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed old-abort
 typedef int _sigset_t;
 extern "C" {
@@ -6,7 +6,7 @@ extern "C" {
 }
 extern "C" {
         extern void foo();
-};
+}
 class SS {
         friend void foo();
 protected:

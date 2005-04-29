@@ -35,7 +35,7 @@
  * 
  * Author:  Adobe Systems Incorporated
  */
-/* $XFree86: xc/lib/dps/csfindNX.c,v 1.7 2001/10/28 03:32:42 tsi Exp $ */
+/* $XFree86: xc/lib/dps/csfindNX.c,v 1.8 2003/05/27 22:26:44 tsi Exp $ */
 
 #include <sys/param.h>				/* for MAXHOSTNAMELEN */
 #include <stdlib.h>
@@ -362,14 +362,14 @@ ParseAgentString(
   int dnet = 0;
   Bool transportSpecified = False;
   char namebuf[255];
-  char *lastp, *p;
+  char *p;
   
   (void) strncpy(namebuf, string, strlen(string)+1);
   p = &namebuf[0];
   /*
    * Step 1, find the hostname.  This is delimited by a required colon.
    */
-  for (lastp = p; *p && *p != ':'; p++);
+  for (; *p && *p != ':'; p++);
   if (!*p) return(!Success);	/* There must be a colon */
   
   if (*(p+1) == ':') {

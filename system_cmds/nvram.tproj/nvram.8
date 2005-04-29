@@ -1,7 +1,7 @@
 .\"
-.\" Copyright (c) 2000 Apple Computer, Inc.  All rights reserved.
+.\" Copyright (c) 2000-2003 Apple Computer, Inc.  All rights reserved.
 .\"
-.TH nvram 8 "December 12, 2000"
+.TH nvram 8 "October 28, 2003"
 .SH NAME
 nvram \- manipulate Open Firmware NVRAM variables
 .SH SYNOPSIS
@@ -12,10 +12,13 @@ nvram \- manipulate Open Firmware NVRAM variables
 .B -f 
 .IR filename
 ] [
+.B -d 
 .IR name
-] [=
+] [
+.IR name
+[=
 .IR value
-] ...
+]] ...
 .SH DESCRIPTION
 The
 .I nvram
@@ -46,6 +49,9 @@ Print all of the Open Firmware variables.
 Set Open Firmware variables from a text file.  The file must be a
 list name=value statements.  If the last character of a line is
 \\, the value will be continued to the next line.
+.TP
+.BI \-d " name"
+Deletes the named Open Firmware variable.
 .SH EXAMPLES
 .LP
 .RS
@@ -61,4 +67,10 @@ example% nvram my-variable="String One%00String Two%00%00"
 .LP
 Create a new variable, my-variable, containing a list of two
 C-strings that is terminated by a NUL.
+.LP
+.RS
+example% nvram -d my-variable
+.RE
+.LP
+Deletes the variable named my-variable.
 .PD

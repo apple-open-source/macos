@@ -58,7 +58,7 @@ if ![runto_main] then {
 }
 
 gdb_test "break f" ".*Breakpoint.*"
-gdb_test "continue" ".*Continuing.*Reading symbols for shared libraries.*Breakpoint 2, f.*"
+gdb_test "continue" ".*Continuing.*Breakpoint 2, f \\(\\) at .*"
 send_gdb "info sharedlibrary raw-cfm\n"
 
 # The following match string created with this:
@@ -92,7 +92,6 @@ gdb_expect {
 }
 
 set timeout $orig_timeout
-remote_exec build "rm -rf /tmp/cfm"
 
 gdb_exit
 return 0

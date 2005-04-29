@@ -1,0 +1,71 @@
+[comment {-*- tk -*- canvasLabel manpage}]
+[manpage_begin canvasLabel n 6.6]
+[copyright {1995-2004 Jean-Luc Fontaine <jfontain@free.fr>}]
+[moddesc   {canvasLabel class}]
+[titledesc {tkpiechart canvas label class}]
+
+[require stooop 4.1]
+[require switched 2.2]
+[require tkpiechart 6.6]
+[description]
+The canvasLabel class brings some Tk label widget functionality to the canvas text item, such as a background and a border.
+[para]The canvasLabel is built with a bullet rectangle on the left side of the text. The relief changes according to the select state, with a traditionally sunken relief when selected.
+[para]The label has a specific tag, which can be used to retrieve the coordinates of the object or move it, thanks to the canvas facilities.
+[list_begin definitions]
+[call [cmd stooop::new] [class canvasLabel] [arg canvas] [opt options]]
+Creates a canvasLabel object in the specified Tk canvas. The canvasLabel object identifier is returned (referred to as [emph canvasLabelObject] in this document).
+[call [cmd switched::configure] [arg canvasLabelObject] [opt options]]
+Configures a canvasLabel object or returns all the options with their current values if no options are passed as parameters.
+[call [cmd switched::cget] [arg canvasLabelObject] [arg option]]
+Returns an option value for the specified canvasLabel object.
+[call [cmd stooop::delete] [arg canvasLabelObject]]
+Deletes the specified canvasLabel object.
+[list_end]
+
+[section OPTIONS]
+[list_begin opt]
+[opt_def -anchor value]
+Specifies the anchor position of the rectangle and the text, relative to the positioning point. The behavior is similar to the [option -anchor] option of the [syscmd canvas] [emph text] item, except that the rectangle is taken into account. The default is [emph center].
+[opt_def -background color]
+Specifies the background color of the bullet rectangle, as in the [option -fill] option of the [syscmd canvas] [emph rectangle] item. The default is transparent (empty string).
+[opt_def -bordercolor color]
+Specifies the border color of the rectangle, as in the [option -outline] option of the [syscmd canvas] [emph rectangle] item. The default is black.
+[opt_def -borderwidth value]
+Specifies the border width of the rectangle, as in the [option -width] option of the [syscmd canvas] [emph rectangle] item. By default, the width is 1 pixel, which is the minimum width.
+[opt_def -bulletwidth value]
+Specifies the width of the rectangle placed to the left of the text. Defaults to [emph 10].
+[opt_def -font value]
+Specifies the font of the text, as in the [option -font] option of the [syscmd canvas] [emph text] item. The default is system dependent.
+[opt_def -foreground color]
+Specifies the color of the text, as in the [option -fill] option of the [syscmd canvas] [emph text] item. The default is black.
+[opt_def -justify value]
+Specifies how to justify the text, as in the [option -justify] option of the [syscmd canvas] [emph text] item. The default is [emph left].
+[opt_def -minimumwidth value]
+The total label width will not go below the specified value, but may be larger if the label text requires it.
+[opt_def -padding value]
+Specifies how much space to leave between the text and the closest rectangle edge. Units are identical to those specified in the [syscmd canvas] [emph COORDINATES] manual section.
+[opt_def -scale list]
+List of 2 floating point numbers used to set the scaling factor in the x and y axis. Scaling is applied immediately and defaults to 1.
+[opt_def -select boolean]
+Sets the label state.
+[opt_def -selectrelief value]
+Either [emph flat], [emph raised] or [emph sunken]. Specifies the 3D effect desired for the text area when the label is selected.
+[opt_def -stipple bitmap]
+Specifies the stipple pattern filling the rectangle, as in the [option -stipple] option of the [syscmd canvas] [emph rectangle] item. There is no bitmap by default.
+[opt_def -text text]
+Specifies the string to be displayed in the text area, as in the [option -text] option of the [syscmd canvas] [emph text] item. The default is an empty string.
+[opt_def -textbackground color]
+Specifies the color of the text area background.
+[opt_def -width value]
+Specifies a maximum line length for the text, as in the [option -width] option of the [syscmd canvas] [emph text] item. The default is [emph 0].
+[list_end]
+
+[section TAGS]
+The labeler has the following specific tag (see the [syscmd canvas] manual page [emph {ITEM IDS AND TAGS}] section for more information):
+[list_begin bullet]
+  [bullet]canvasLabel(canvasLabelObject)
+[list_end]
+
+[see_also pie pieBoxLabeler piePeripheralLabeler]
+[keywords pie slice labeler canvas]
+[manpage_end]

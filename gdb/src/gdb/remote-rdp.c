@@ -1,7 +1,7 @@
 /* Remote debugging for the ARM RDP interface.
 
-   Copyright 1994, 1995, 1998, 1999, 2000, 2001, 2002 Free Software
-   Foundation, Inc.
+   Copyright 1994, 1995, 1998, 1999, 2000, 2001, 2002, 2003 Free
+   Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -352,11 +352,29 @@ rdp_init (int cold, int tty)
 		  case SERIAL_TIMEOUT:
 		    break;
 		  case RDP_RES_VALUE_LITTLE_ENDIAN:
+#if 0
+		    /* FIXME: cagney/2003-11-22: Ever since the ARM
+                       was multi-arched (in 2002-02-08), this
+                       assignment has had no effect.  There needs to
+                       be some sort of check/decision based on the
+                       current architecture's byte-order vs the remote
+                       target's byte order.  For the moment disable
+                       the assignment to keep things building.  */
 		    target_byte_order = BFD_ENDIAN_LITTLE;
+#endif
 		    sync = 1;
 		    break;
 		  case RDP_RES_VALUE_BIG_ENDIAN:
+#if 0
+		    /* FIXME: cagney/2003-11-22: Ever since the ARM
+                       was multi-arched (in 2002-02-08), this
+                       assignment has had no effect.  There needs to
+                       be some sort of check/decision based on the
+                       current architecture's byte-order vs the remote
+                       target's byte order.  For the moment disable
+                       the assignment to keep things building.  */
 		    target_byte_order = BFD_ENDIAN_BIG;
+#endif
 		    sync = 1;
 		    break;
 		  default:
@@ -374,7 +392,7 @@ rdp_init (int cold, int tty)
 }
 
 
-void
+static void
 send_rdp (char *template,...)
 {
   char buf[200];
@@ -550,7 +568,7 @@ rdp_fetch_one_fpu_register (int mask, char *buf)
       send_rdp ("bbw-SWWWWZ", RDP_COPRO_READ, FPU_COPRO_NUMBER, mask, buf + 0, buf + 4, buf + 8, &dummy);
     }
 #endif
-  memset (buf, 0, MAX_REGISTER_RAW_SIZE);
+  memset (buf, 0, MAX_REGISTER_SIZE);
 }
 
 
@@ -1402,6 +1420,8 @@ init_remote_rdp_ops (void)
   remote_rdp_ops.to_has_execution = 1;
   remote_rdp_ops.to_magic = OPS_MAGIC;
 }
+
+extern initialize_file_ftype _initialize_remote_rdp; /* -Wmissing-prototypes */
 
 void
 _initialize_remote_rdp (void)

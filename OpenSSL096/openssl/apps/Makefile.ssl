@@ -81,6 +81,7 @@ all:	exe
 exe:	$(PROGRAM)
 
 req: sreq.o $(A_OBJ) $(DLIBCRYPTO)
+	LD_LIBRARY_PATH=..:$$LD_LIBRARY_PATH \
 	$(CC) -o req $(CFLAG) sreq.o $(A_OBJ) $(RAND_OBJ) $(PEX_LIBS) $(LIBCRYPTO) $(EX_LIBS)
 
 sreq.o: req.c 
@@ -93,8 +94,8 @@ install:
 	@for i in $(EXE); \
 	do  \
 	(echo installing $$i; \
-	 cp $$i $(INSTALL_PREFIX)$(BINDIR)/$$i; \
-	 chmod 755 $(INSTALL_PREFIX)$(BINDIR)/$$i ); \
+	 cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/bin/$$i; \
+	 chmod 755 $(INSTALL_PREFIX)$(INSTALLTOP)/bin/$$i ); \
 	 done;
 	@for i in $(SCRIPTS); \
 	do  \
@@ -135,7 +136,8 @@ $(DLIBCRYPTO):
 
 $(PROGRAM): progs.h $(E_OBJ) $(PROGRAM).o $(DLIBCRYPTO) $(DLIBSSL)
 	$(RM) $(PROGRAM)
-	$(CC) -o $(PROGRAM) $(CFLAGS) $(PROGRAM).o $(E_OBJ) $(PEX_LIBS) $(DLIBSSL) $(DLIBCRYPTO) $(EX_LIBS)
+	LD_LIBRARY_PATH=..:$$LD_LIBRARY_PATH \
+	$(CC) -o $(PROGRAM) $(CFLAGS) $(PROGRAM).o $(E_OBJ) $(PEX_LIBS) $(LIBSSL) $(LIBCRYPTO) $(EX_LIBS)
 	-(cd ..; OPENSSL="`pwd`/apps/openssl"; export OPENSSL; $(PERL) tools/c_rehash certs)
 
 progs.h: progs.pl

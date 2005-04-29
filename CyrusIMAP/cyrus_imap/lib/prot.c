@@ -41,7 +41,7 @@
  *
  */
 /*
- * $Id: prot.c,v 1.86 2004/02/27 22:08:56 rjs3 Exp $
+ * $Id: prot.c,v 1.5 2005/03/05 00:37:18 dasenbro Exp $
  */
 
 #include <config.h>

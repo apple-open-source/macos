@@ -1,0 +1,54 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {
+                cancel = id; 
+                changePassword = id; 
+                ok = id; 
+                optionsCancel = id; 
+                optionsOK = id; 
+                renewableCheckboxWasHit = id; 
+                showOptions = id; 
+            }; 
+            CLASS = AuthenticationController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                addresslessCheckbox = NSButton; 
+                bannerBox = NSBox; 
+                callerProvidedNameTextField = NSTextField; 
+                callerProvidedRealmTextField = NSTextField; 
+                cancelButton = NSButton; 
+                changePasswordMenuItem = NSMenuItem; 
+                forwardableCheckbox = NSButton; 
+                gearMenu = NSMenu; 
+                gearPopupButton = PopupButton; 
+                headerTextField = NSTextField; 
+                kerberosIconImageView = BadgedImageView; 
+                lifetimeSlider = NSSlider; 
+                lifetimeTextField = NSTextField; 
+                nameTextField = NSTextField; 
+                okButton = NSButton; 
+                optionsCancelButton = NSButton; 
+                optionsOKButton = NSButton; 
+                optionsSheet = NSWindow; 
+                passwordSecureTextField = NSSecureTextField; 
+                realmComboBox = NSComboBox; 
+                renewableCheckbox = NSButton; 
+                renewableSlider = NSSlider; 
+                renewableTextField = NSTextField; 
+                showOptionsMenuItem = NSMenuItem; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }, 
+        {CLASS = BadgedImageView; LANGUAGE = ObjC; SUPERCLASS = NSView; }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {CLASS = NSSegmentedControl; LANGUAGE = ObjC; SUPERCLASS = NSControl; }, 
+        {
+            CLASS = PopupButton; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {popupMenu = NSMenu; }; 
+            SUPERCLASS = NSButton; 
+        }
+    ); 
+    IBVersion = 1; 
+}

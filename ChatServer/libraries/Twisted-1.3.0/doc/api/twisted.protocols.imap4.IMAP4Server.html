@@ -1,0 +1,2905 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.imap4.IMAP4Server</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.protocols.html">Package&nbsp;protocols</a> ::
+        <a href="twisted.protocols.imap4.html">Module&nbsp;imap4</a> ::
+        Class&nbsp;IMAP4Server
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.protocols.imap4.IMAP4Server.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class IMAP4Server</h2>
+
+<pre class="base-tree">
+<a href="twisted.internet.protocol.BaseProtocol.html"><code>BaseProtocol</code></a> --+        
+               |        
+        <a href="twisted.internet.protocol.Protocol.html"><code>Protocol</code></a> --+    
+                   |    
+        <a href="twisted.protocols.basic.LineReceiver.html"><code>LineReceiver</code></a> --+
+                       |
+        <a href="twisted.protocols.policies.TimeoutMixin.html"><code>TimeoutMixin</code></a> --+
+                       |
+                      <b>IMAP4Server</b>
+</pre><br />
+
+<hr/>
+
+<p>Protocol implementation for an IMAP4rev1 server.</p>
+The server can be in any of four states:
+<ul>
+  <li>
+    Non-authenticated
+  </li>
+  <li>
+    Authenticated
+  </li>
+  <li>
+    Selected
+  </li>
+  <li>
+    Logout
+  </li>
+</ul>
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__init__"></a><span class="summary-sig"><span class="summary-sig-name">__init__</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>chal</span>,
+          <span class=summary-sig-arg>contextFactory</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbAppend"></a><span class="summary-sig"><span class="summary-sig-name">__cbAppend</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>mbox</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbAuthChunk"></a><span class="summary-sig"><span class="summary-sig-name">__cbAuthChunk</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>chal</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbAuthResp"></a><span class="summary-sig"><span class="summary-sig-name">__cbAuthResp</span>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>iface</span>,
+           <span class=summary-sig-arg>avatar</span>,
+           <span class=summary-sig-arg>logout</span>),
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbCheck"></a><span class="summary-sig"><span class="summary-sig-name">__cbCheck</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbClose"></a><span class="summary-sig"><span class="summary-sig-name">__cbClose</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbCopied"></a><span class="summary-sig"><span class="summary-sig-name">__cbCopied</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>deferredIds</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>mbox</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbCopy"></a><span class="summary-sig"><span class="summary-sig-name">__cbCopy</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>messages</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>mbox</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbDispatch"></a><span class="summary-sig"><span class="summary-sig-name">__cbDispatch</span>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>arg</span>,
+           <span class=summary-sig-arg>rest</span>),
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>fn</span>,
+          <span class=summary-sig-arg>args</span>,
+          <span class=summary-sig-arg>parseargs</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbExpunge"></a><span class="summary-sig"><span class="summary-sig-name">__cbExpunge</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbFetch"></a><span class="summary-sig"><span class="summary-sig-name">__cbFetch</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>results</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbLogin"></a><span class="summary-sig"><span class="summary-sig-name">__cbLogin</span>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>iface</span>,
+           <span class=summary-sig-arg>avatar</span>,
+           <span class=summary-sig-arg>logout</span>),
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbManualSearch"></a><span class="summary-sig"><span class="summary-sig-name">__cbManualSearch</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>mbox</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>uid</span>,
+          <span class=summary-sig-arg>searchResults</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbSearch"></a><span class="summary-sig"><span class="summary-sig-name">__cbSearch</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>mbox</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbStatus"></a><span class="summary-sig"><span class="summary-sig-name">__cbStatus</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>status</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>box</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__cbStore"></a><span class="summary-sig"><span class="summary-sig-name">__cbStore</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>mbox</span>,
+          <span class=summary-sig-arg>uid</span>,
+          <span class=summary-sig-arg>silent</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__doCommand"></a><span class="summary-sig"><span class="summary-sig-name">__doCommand</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>handler</span>,
+          <span class=summary-sig-arg>args</span>,
+          <span class=summary-sig-arg>parseargs</span>,
+          <span class=summary-sig-arg>line</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebAppend"></a><span class="summary-sig"><span class="summary-sig-name">__ebAppend</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebAuthChunk"></a><span class="summary-sig"><span class="summary-sig-name">__ebAuthChunk</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebAuthResp"></a><span class="summary-sig"><span class="summary-sig-name">__ebAuthResp</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebCheck"></a><span class="summary-sig"><span class="summary-sig-name">__ebCheck</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebClose"></a><span class="summary-sig"><span class="summary-sig-name">__ebClose</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebCopy"></a><span class="summary-sig"><span class="summary-sig-name">__ebCopy</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebDispatch"></a><span class="summary-sig"><span class="summary-sig-name">__ebDispatch</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebExpunge"></a><span class="summary-sig"><span class="summary-sig-name">__ebExpunge</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebFetch"></a><span class="summary-sig"><span class="summary-sig-name">__ebFetch</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebLogin"></a><span class="summary-sig"><span class="summary-sig-name">__ebLogin</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebSearch"></a><span class="summary-sig"><span class="summary-sig-name">__ebSearch</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebSpewMessage"></a><span class="summary-sig"><span class="summary-sig-name">__ebSpewMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebStatus"></a><span class="summary-sig"><span class="summary-sig-name">__ebStatus</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>box</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__ebStore"></a><span class="summary-sig"><span class="summary-sig-name">__ebStore</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbAppendGotMailbox"></a><span class="summary-sig"><span class="summary-sig-name">_cbAppendGotMailbox</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>mbox</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>flags</span>,
+          <span class=summary-sig-arg>date</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbCopySelectedMailbox"></a><span class="summary-sig"><span class="summary-sig-name">_cbCopySelectedMailbox</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>mbox</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>messages</span>,
+          <span class=summary-sig-arg>mailbox</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbListWork"></a><span class="summary-sig"><span class="summary-sig-name">_cbListWork</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>mailboxes</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>sub</span>,
+          <span class=summary-sig-arg>cmdName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbSelectWork"></a><span class="summary-sig"><span class="summary-sig-name">_cbSelectWork</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>mbox</span>,
+          <span class=summary-sig-arg>cmdName</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbStatusGotMailbox"></a><span class="summary-sig"><span class="summary-sig-name">_cbStatusGotMailbox</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>mbox</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>mailbox</span>,
+          <span class=summary-sig-arg>names</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_ebAppendGotMailbox"></a><span class="summary-sig"><span class="summary-sig-name">_ebAppendGotMailbox</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_ebCopySelectedMailbox"></a><span class="summary-sig"><span class="summary-sig-name">_ebCopySelectedMailbox</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_ebListWork"></a><span class="summary-sig"><span class="summary-sig-name">_ebListWork</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_ebSelectWork"></a><span class="summary-sig"><span class="summary-sig-name">_ebSelectWork</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>cmdName</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_ebStatusGotMailbox"></a><span class="summary-sig"><span class="summary-sig-name">_ebStatusGotMailbox</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_fileLiteral"></a><span class="summary-sig"><span class="summary-sig-name">_fileLiteral</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>size</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_listWork"></a><span class="summary-sig"><span class="summary-sig-name">_listWork</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>ref</span>,
+          <span class=summary-sig-arg>mbox</span>,
+          <span class=summary-sig-arg>sub</span>,
+          <span class=summary-sig-arg>cmdName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_parseMbox"></a><span class="summary-sig"><span class="summary-sig-name">_parseMbox</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_respond"></a><span class="summary-sig"><span class="summary-sig-name">_respond</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>state</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_selectWork"></a><span class="summary-sig"><span class="summary-sig-name">_selectWork</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>rw</span>,
+          <span class=summary-sig-arg>cmdName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_setupChallenge"></a><span class="summary-sig"><span class="summary-sig-name">_setupChallenge</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>chal</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_stringLiteral"></a><span class="summary-sig"><span class="summary-sig-name">_stringLiteral</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>size</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_unblock"></a><span class="summary-sig"><span class="summary-sig-name">_unblock</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#arg_astring" class="summary-sig-name"><code>arg_astring</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Parse an astring from the line, return (arg, rest), possibly via a 
+deferred (to handle literals)</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#arg_atom" class="summary-sig-name"><code>arg_atom</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Parse an atom from the line</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#arg_fetchatt" class="summary-sig-name"><code>arg_fetchatt</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+fetch-att</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#arg_flaglist" class="summary-sig-name"><code>arg_flaglist</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Flag part of store-att-flag</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#arg_line" class="summary-sig-name"><code>arg_line</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Command line of UID command</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#arg_literal" class="summary-sig-name"><code>arg_literal</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Parse a literal from the line</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#arg_plist" class="summary-sig-name"><code>arg_plist</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Parse a (non-nested) parenthesised list from the line</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#arg_searchkeys" class="summary-sig-name"><code>arg_searchkeys</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+searchkeys</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#arg_seqset" class="summary-sig-name"><code>arg_seqset</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+sequence-set</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="authenticate"></a><span class="summary-sig"><span class="summary-sig-name">authenticate</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>chal</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#authenticateLogin" class="summary-sig-name"><code>authenticateLogin</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>passwd</span>)</span></code>
+<br />
+Lookup the account associated with the given parameters</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="capabilities"></a><span class="summary-sig"><span class="summary-sig-name">capabilities</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#checkpoint" class="summary-sig-name"><code>checkpoint</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when the client issues a CHECK command.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="connectionLost"></a><span class="summary-sig"><span class="summary-sig-name">connectionLost</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#connectionMade" class="summary-sig-name"><code>connectionMade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when a connection is made.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="dispatchCommand"></a><span class="summary-sig"><span class="summary-sig-name">dispatchCommand</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>cmd</span>,
+          <span class=summary-sig-arg>rest</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_APPEND"></a><span class="summary-sig"><span class="summary-sig-name">do_APPEND</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>mailbox</span>,
+          <span class=summary-sig-arg>flags</span>,
+          <span class=summary-sig-arg>date</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_AUTHENTICATE"></a><span class="summary-sig"><span class="summary-sig-name">do_AUTHENTICATE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>args</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_CAPABILITY"></a><span class="summary-sig"><span class="summary-sig-name">do_CAPABILITY</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_CHECK"></a><span class="summary-sig"><span class="summary-sig-name">do_CHECK</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_CLOSE"></a><span class="summary-sig"><span class="summary-sig-name">do_CLOSE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_COPY"></a><span class="summary-sig"><span class="summary-sig-name">do_COPY</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>messages</span>,
+          <span class=summary-sig-arg>mailbox</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_CREATE"></a><span class="summary-sig"><span class="summary-sig-name">do_CREATE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_DELETE"></a><span class="summary-sig"><span class="summary-sig-name">do_DELETE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_EXPUNGE"></a><span class="summary-sig"><span class="summary-sig-name">do_EXPUNGE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_FETCH"></a><span class="summary-sig"><span class="summary-sig-name">do_FETCH</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>messages</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_IDLE"></a><span class="summary-sig"><span class="summary-sig-name">do_IDLE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_LOGIN"></a><span class="summary-sig"><span class="summary-sig-name">do_LOGIN</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>passwd</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_LOGOUT"></a><span class="summary-sig"><span class="summary-sig-name">do_LOGOUT</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_NAMESPACE"></a><span class="summary-sig"><span class="summary-sig-name">do_NAMESPACE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_NOOP"></a><span class="summary-sig"><span class="summary-sig-name">do_NOOP</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_RENAME"></a><span class="summary-sig"><span class="summary-sig-name">do_RENAME</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>oldname</span>,
+          <span class=summary-sig-arg>newname</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_SEARCH"></a><span class="summary-sig"><span class="summary-sig-name">do_SEARCH</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>charset</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_STARTTLS"></a><span class="summary-sig"><span class="summary-sig-name">do_STARTTLS</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_STATUS"></a><span class="summary-sig"><span class="summary-sig-name">do_STATUS</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>mailbox</span>,
+          <span class=summary-sig-arg>names</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_STORE"></a><span class="summary-sig"><span class="summary-sig-name">do_STORE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>messages</span>,
+          <span class=summary-sig-arg>mode</span>,
+          <span class=summary-sig-arg>flags</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_SUBSCRIBE"></a><span class="summary-sig"><span class="summary-sig-name">do_SUBSCRIBE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_UID"></a><span class="summary-sig"><span class="summary-sig-name">do_UID</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>command</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="do_UNSUBSCRIBE"></a><span class="summary-sig"><span class="summary-sig-name">do_UNSUBSCRIBE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="flagsChanged"></a><span class="summary-sig"><span class="summary-sig-name">flagsChanged</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>newFlags</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#lineReceived" class="summary-sig-name"><code>lineReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Override this for when each line is received.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="listCapabilities"></a><span class="summary-sig"><span class="summary-sig-name">listCapabilities</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="lookupCommand"></a><span class="summary-sig"><span class="summary-sig-name">lookupCommand</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>cmd</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="modeChanged"></a><span class="summary-sig"><span class="summary-sig-name">modeChanged</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>writeable</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="newMessages"></a><span class="summary-sig"><span class="summary-sig-name">newMessages</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>exists</span>,
+          <span class=summary-sig-arg>recent</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#opt_charset" class="summary-sig-name"><code>opt_charset</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Optional charset of SEARCH command</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#opt_datetime" class="summary-sig-name"><code>opt_datetime</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Optional date-time string</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#opt_plist" class="summary-sig-name"><code>opt_plist</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Optional parenthesised list</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="parse_command"></a><span class="summary-sig"><span class="summary-sig-name">parse_command</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="parse_idle"></a><span class="summary-sig"><span class="summary-sig-name">parse_idle</span>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*args</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="parse_pending"></a><span class="summary-sig"><span class="summary-sig-name">parse_pending</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#rawDataReceived" class="summary-sig-name"><code>rawDataReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Override this for when raw data is received.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_ALL"></a><span class="summary-sig"><span class="summary-sig-name">search_ALL</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_ANSWERED"></a><span class="summary-sig"><span class="summary-sig-name">search_ANSWERED</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_BCC"></a><span class="summary-sig"><span class="summary-sig-name">search_BCC</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_BEFORE"></a><span class="summary-sig"><span class="summary-sig-name">search_BEFORE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_BODY"></a><span class="summary-sig"><span class="summary-sig-name">search_BODY</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_CC"></a><span class="summary-sig"><span class="summary-sig-name">search_CC</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_DELETED"></a><span class="summary-sig"><span class="summary-sig-name">search_DELETED</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_DRAFT"></a><span class="summary-sig"><span class="summary-sig-name">search_DRAFT</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_FLAGGED"></a><span class="summary-sig"><span class="summary-sig-name">search_FLAGGED</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_FROM"></a><span class="summary-sig"><span class="summary-sig-name">search_FROM</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_HEADER"></a><span class="summary-sig"><span class="summary-sig-name">search_HEADER</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_KEYWORD"></a><span class="summary-sig"><span class="summary-sig-name">search_KEYWORD</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_LARGER"></a><span class="summary-sig"><span class="summary-sig-name">search_LARGER</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_NEW"></a><span class="summary-sig"><span class="summary-sig-name">search_NEW</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_NOT"></a><span class="summary-sig"><span class="summary-sig-name">search_NOT</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_OLD"></a><span class="summary-sig"><span class="summary-sig-name">search_OLD</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_ON"></a><span class="summary-sig"><span class="summary-sig-name">search_ON</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_OR"></a><span class="summary-sig"><span class="summary-sig-name">search_OR</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_RECENT"></a><span class="summary-sig"><span class="summary-sig-name">search_RECENT</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_SEEN"></a><span class="summary-sig"><span class="summary-sig-name">search_SEEN</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_SENTBEFORE"></a><span class="summary-sig"><span class="summary-sig-name">search_SENTBEFORE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_SENTON"></a><span class="summary-sig"><span class="summary-sig-name">search_SENTON</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_SENTSINCE"></a><span class="summary-sig"><span class="summary-sig-name">search_SENTSINCE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_SINCE"></a><span class="summary-sig"><span class="summary-sig-name">search_SINCE</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_SMALLER"></a><span class="summary-sig"><span class="summary-sig-name">search_SMALLER</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_SUBJECT"></a><span class="summary-sig"><span class="summary-sig-name">search_SUBJECT</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_TEXT"></a><span class="summary-sig"><span class="summary-sig-name">search_TEXT</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_TO"></a><span class="summary-sig"><span class="summary-sig-name">search_TO</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_UID"></a><span class="summary-sig"><span class="summary-sig-name">search_UID</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_UNANSWERED"></a><span class="summary-sig"><span class="summary-sig-name">search_UNANSWERED</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_UNDELETED"></a><span class="summary-sig"><span class="summary-sig-name">search_UNDELETED</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_UNDRAFT"></a><span class="summary-sig"><span class="summary-sig-name">search_UNDRAFT</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_UNFLAGGED"></a><span class="summary-sig"><span class="summary-sig-name">search_UNFLAGGED</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_UNKEYWORD"></a><span class="summary-sig"><span class="summary-sig-name">search_UNKEYWORD</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="search_UNSEEN"></a><span class="summary-sig"><span class="summary-sig-name">search_UNSEEN</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="searchFilter"></a><span class="summary-sig"><span class="summary-sig-name">searchFilter</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="sendBadResponse"></a><span class="summary-sig"><span class="summary-sig-name">sendBadResponse</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="sendContinuationRequest"></a><span class="summary-sig"><span class="summary-sig-name">sendContinuationRequest</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="sendNegativeResponse"></a><span class="summary-sig"><span class="summary-sig-name">sendNegativeResponse</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="sendPositiveResponse"></a><span class="summary-sig"><span class="summary-sig-name">sendPositiveResponse</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tag</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="sendServerGreeting"></a><span class="summary-sig"><span class="summary-sig-name">sendServerGreeting</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="sendUntaggedResponse"></a><span class="summary-sig"><span class="summary-sig-name">sendUntaggedResponse</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>async</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="singleSearchStep"></a><span class="summary-sig"><span class="summary-sig-name">singleSearchStep</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spew_body"></a><span class="summary-sig"><span class="summary-sig-name">spew_body</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>part</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>_w</span>,
+          <span class=summary-sig-arg>_f</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spew_bodystructure"></a><span class="summary-sig"><span class="summary-sig-name">spew_bodystructure</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>_w</span>,
+          <span class=summary-sig-arg>_f</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spew_envelope"></a><span class="summary-sig"><span class="summary-sig-name">spew_envelope</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>_w</span>,
+          <span class=summary-sig-arg>_f</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spew_flags"></a><span class="summary-sig"><span class="summary-sig-name">spew_flags</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>_w</span>,
+          <span class=summary-sig-arg>_f</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spew_internaldate"></a><span class="summary-sig"><span class="summary-sig-name">spew_internaldate</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>_w</span>,
+          <span class=summary-sig-arg>_f</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spew_rfc822"></a><span class="summary-sig"><span class="summary-sig-name">spew_rfc822</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>_w</span>,
+          <span class=summary-sig-arg>_f</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spew_rfc822header"></a><span class="summary-sig"><span class="summary-sig-name">spew_rfc822header</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>_w</span>,
+          <span class=summary-sig-arg>_f</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spew_rfc822size"></a><span class="summary-sig"><span class="summary-sig-name">spew_rfc822size</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>_w</span>,
+          <span class=summary-sig-arg>_f</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spew_rfc822text"></a><span class="summary-sig"><span class="summary-sig-name">spew_rfc822text</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>_w</span>,
+          <span class=summary-sig-arg>_f</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spew_uid"></a><span class="summary-sig"><span class="summary-sig-name">spew_uid</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>_w</span>,
+          <span class=summary-sig-arg>_f</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="spewMessage"></a><span class="summary-sig"><span class="summary-sig-name">spewMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>query</span>,
+          <span class=summary-sig-arg>uid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IMAP4Server.html#timeoutConnection" class="summary-sig-name"><code>timeoutConnection</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when the connection times out.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from LineReceiver</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#clearLineBuffer" class="summary-sig-name"><code>clearLineBuffer</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Clear buffered data.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#dataReceived" class="summary-sig-name"><code>dataReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Protocol.dataReceived.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#lineLengthExceeded" class="summary-sig-name"><code>lineLengthExceeded</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Called when the maximum line length has been reached.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#sendLine" class="summary-sig-name"><code>sendLine</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Sends a line to the other end of the connection.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#setLineMode" class="summary-sig-name"><code>setLineMode</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>extra</span>)</span></code>
+<br />
+Sets the line-mode of this receiver.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#setRawMode" class="summary-sig-name"><code>setRawMode</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Sets the raw mode of this receiver.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Protocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Protocol.html#connectionFailed" class="summary-sig-name"><code>connectionFailed</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(Deprecated)</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.BaseProtocol.html#makeConnection" class="summary-sig-name"><code>makeConnection</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>transport</span>)</span></code>
+<br />
+Make a connection to a transport and a server.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from TimeoutMixin</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.policies.TimeoutMixin.html#resetTimeout" class="summary-sig-name"><code>resetTimeout</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Reset the timeout count down</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.policies.TimeoutMixin.html#setTimeout" class="summary-sig-name"><code>setTimeout</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>period</span>)</span></code>
+<br />
+Change the timeout period</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class twisted.protocols.imap4.IMailboxListener at 0x8871e0c&gt;,)"><code>(&lt;class&nbsp;twisted.protocols.imap4.IMailbo<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#_literalStringLimit"><code>_literalStringLimit</code></a></b> = <span title="4096">4096&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#_onLogout"><code>_onLogout</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#_pendingLiteral"><code>_pendingLiteral</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#account"><code>account</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>SRE_Pattern</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#atomre"><code>atomre</code></a></b> = <span title="&lt;_sre.SRE_Pattern object at 0x890a4e8&gt;"><code><span class="re"><span class="re-group">(</span><span class="re-group">[</span><span class="re-group">^</span><span class="re-char">\]</span><span class="re-char">\(</span><span class="re-char">\)</span><span class="re-char">\{</span>%<span class="re-char">\*</span>"<span class="re-char">\\</span> <span class="re-group">-</span>&nbsp;€<span class="re-group">-</span>ÿ<span class="re-group">]</span><span class="re-op">+</span><span class="re-group">)</span><span class="re-group">(</span>&nbsp;<span class="re-group">(</span><span class="re-char">.</span><span class="re-op">*</span><span class="re-char">$</span><span class="re-group">)</span><span class="re-op">|</span><span class="re-char">$</span><span class="re-group">)</span></span>            </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_APPEND"><code>auth_APPEND</code></a></b> = <span title="(&lt;function do_APPEND at 0x87aa88c&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function opt_plist at 0x8c70e6c&gt;, &lt;function opt_datetime at 0x8c70ea4&gt;, &lt;function arg_literal at 0x8bb8c4c&gt;)"><code>(&lt;function&nbsp;do_APPEND&nbsp;at&nbsp;0x87aa88c&gt;,&nbsp;&lt;funct<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_CAPABILITY"><code>auth_CAPABILITY</code></a></b> = <span title="(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)"><code>(&lt;function&nbsp;do_CAPABILITY&nbsp;at&nbsp;0x8989cd4&gt;<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_CREATE"><code>auth_CREATE</code></a></b> = <span title="(&lt;function do_CREATE at 0x8692c54&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_CREATE&nbsp;at&nbsp;0x8692c54&gt;,&nbsp;&lt;funct<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_DELETE"><code>auth_DELETE</code></a></b> = <span title="(&lt;function do_DELETE at 0x8692c8c&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_DELETE&nbsp;at&nbsp;0x8692c8c&gt;,&nbsp;&lt;funct<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_EXAMINE"><code>auth_EXAMINE</code></a></b> = <span title="(&lt;function _selectWork at 0x86c8794&gt;, &lt;function arg_astring at 0x89619f4&gt;, 0, 'EXAMINE')"><code>(&lt;function&nbsp;_selectWork&nbsp;at&nbsp;0x86c8794&gt;,&nbsp;&lt;fu<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_IDLE"><code>auth_IDLE</code></a></b> = <span title="(&lt;function do_IDLE at 0x84d9384&gt;,)"><code>(&lt;function&nbsp;do_IDLE&nbsp;at&nbsp;0x84d9384&gt;,)           </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_LIST"><code>auth_LIST</code></a></b> = <span title="(&lt;function _listWork at 0x86accbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;, 0, 'LIST')"><code>(&lt;function&nbsp;_listWork&nbsp;at&nbsp;0x86accbc&gt;,&nbsp;&lt;functio<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_LOGOUT"><code>auth_LOGOUT</code></a></b> = <span title="(&lt;function do_LOGOUT at 0x8b43834&gt;,)"><code>(&lt;function&nbsp;do_LOGOUT&nbsp;at&nbsp;0x8b43834&gt;,)       </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_LSUB"><code>auth_LSUB</code></a></b> = <span title="(&lt;function _listWork at 0x86accbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;, 1, 'LSUB')"><code>(&lt;function&nbsp;_listWork&nbsp;at&nbsp;0x86accbc&gt;,&nbsp;&lt;functio<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_NAMESPACE"><code>auth_NAMESPACE</code></a></b> = <span title="(&lt;function do_NAMESPACE at 0x8b45734&gt;,)"><code>(&lt;function&nbsp;do_NAMESPACE&nbsp;at&nbsp;0x8b45734&gt;,) </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_NOOP"><code>auth_NOOP</code></a></b> = <span title="(&lt;function do_NOOP at 0x8b4386c&gt;,)"><code>(&lt;function&nbsp;do_NOOP&nbsp;at&nbsp;0x8b4386c&gt;,)           </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_RENAME"><code>auth_RENAME</code></a></b> = <span title="(&lt;function do_RENAME at 0x8692cc4&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_RENAME&nbsp;at&nbsp;0x8692cc4&gt;,&nbsp;&lt;funct<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_SELECT"><code>auth_SELECT</code></a></b> = <span title="(&lt;function _selectWork at 0x86c8794&gt;, &lt;function arg_astring at 0x89619f4&gt;, 1, 'SELECT')"><code>(&lt;function&nbsp;_selectWork&nbsp;at&nbsp;0x86c8794&gt;,&nbsp;&lt;fun<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_STATUS"><code>auth_STATUS</code></a></b> = <span title="(&lt;function do_STATUS at 0x88f8cbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_plist at 0x8bb8c14&gt;)"><code>(&lt;function&nbsp;do_STATUS&nbsp;at&nbsp;0x88f8cbc&gt;,&nbsp;&lt;funct<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_SUBSCRIBE"><code>auth_SUBSCRIBE</code></a></b> = <span title="(&lt;function do_SUBSCRIBE at 0x86acc4c&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_SUBSCRIBE&nbsp;at&nbsp;0x86acc4c&gt;,&nbsp;<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#auth_UNSUBSCRIBE"><code>auth_UNSUBSCRIBE</code></a></b> = <span title="(&lt;function do_UNSUBSCRIBE at 0x86acc84&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_UNSUBSCRIBE&nbsp;at&nbsp;0x86acc8<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#blocked"><code>blocked</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#canStartTLS"><code>canStartTLS</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#challengers"><code>challengers</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#IDENT"><code>IDENT</code></a></b> = <span title="'Twisted IMAP4rev1 Ready'"><code><span class="variable-quote">'</span>Twisted&nbsp;IMAP4rev1&nbsp;Ready<span class="variable-quote">'</span>                        </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#logout_CAPABILITY"><code>logout_CAPABILITY</code></a></b> = <span title="(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)"><code>(&lt;function&nbsp;do_CAPABILITY&nbsp;at&nbsp;0x8989cd<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#logout_LOGOUT"><code>logout_LOGOUT</code></a></b> = <span title="(&lt;function do_LOGOUT at 0x8b43834&gt;,)"><code>(&lt;function&nbsp;do_LOGOUT&nbsp;at&nbsp;0x8b43834&gt;,)     </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#logout_NOOP"><code>logout_NOOP</code></a></b> = <span title="(&lt;function do_NOOP at 0x8b4386c&gt;,)"><code>(&lt;function&nbsp;do_NOOP&nbsp;at&nbsp;0x8b4386c&gt;,)         </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#mbox"><code>mbox</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#parseState"><code>parseState</code></a></b> = <span title="'command'"><code><span class="variable-quote">'</span>command<span class="variable-quote">'</span>                                   </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#portal"><code>portal</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#POSTAUTH_TIMEOUT"><code>POSTAUTH_TIMEOUT</code></a></b> = <span title="1800">1800&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_APPEND"><code>select_APPEND</code></a></b> = <span title="(&lt;function do_APPEND at 0x87aa88c&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function opt_plist at 0x8c70e6c&gt;, &lt;function opt_datetime at 0x8c70ea4&gt;, &lt;function arg_literal at 0x8bb8c4c&gt;)"><code>(&lt;function&nbsp;do_APPEND&nbsp;at&nbsp;0x87aa88c&gt;,&nbsp;&lt;fun<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_CAPABILITY"><code>select_CAPABILITY</code></a></b> = <span title="(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)"><code>(&lt;function&nbsp;do_CAPABILITY&nbsp;at&nbsp;0x8989cd<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_CHECK"><code>select_CHECK</code></a></b> = <span title="(&lt;function do_CHECK at 0x856ade4&gt;,)"><code>(&lt;function&nbsp;do_CHECK&nbsp;at&nbsp;0x856ade4&gt;,)       </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_CLOSE"><code>select_CLOSE</code></a></b> = <span title="(&lt;function do_CLOSE at 0x856ca4c&gt;,)"><code>(&lt;function&nbsp;do_CLOSE&nbsp;at&nbsp;0x856ca4c&gt;,)       </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_COPY"><code>select_COPY</code></a></b> = <span title="(&lt;function do_COPY at 0x8404a44&gt;, &lt;function arg_seqset at 0x8bef2ec&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_COPY&nbsp;at&nbsp;0x8404a44&gt;,&nbsp;&lt;functio<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_CREATE"><code>select_CREATE</code></a></b> = <span title="(&lt;function do_CREATE at 0x8692c54&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_CREATE&nbsp;at&nbsp;0x8692c54&gt;,&nbsp;&lt;fun<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_DELETE"><code>select_DELETE</code></a></b> = <span title="(&lt;function do_DELETE at 0x8692c8c&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_DELETE&nbsp;at&nbsp;0x8692c8c&gt;,&nbsp;&lt;fun<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_EXAMINE"><code>select_EXAMINE</code></a></b> = <span title="(&lt;function _selectWork at 0x86c8794&gt;, &lt;function arg_astring at 0x89619f4&gt;, 0, 'EXAMINE')"><code>(&lt;function&nbsp;_selectWork&nbsp;at&nbsp;0x86c8794&gt;,&nbsp;&lt;<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_EXPUNGE"><code>select_EXPUNGE</code></a></b> = <span title="(&lt;function do_EXPUNGE at 0x876747c&gt;,)"><code>(&lt;function&nbsp;do_EXPUNGE&nbsp;at&nbsp;0x876747c&gt;,)   </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_FETCH"><code>select_FETCH</code></a></b> = <span title="(&lt;function do_FETCH at 0x88f3e04&gt;, &lt;function arg_seqset at 0x8bef2ec&gt;, &lt;function arg_fetchatt at 0x8bec21c&gt;)"><code>(&lt;function&nbsp;do_FETCH&nbsp;at&nbsp;0x88f3e04&gt;,&nbsp;&lt;funct<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_IDLE"><code>select_IDLE</code></a></b> = <span title="(&lt;function do_IDLE at 0x84d9384&gt;,)"><code>(&lt;function&nbsp;do_IDLE&nbsp;at&nbsp;0x84d9384&gt;,)         </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_LIST"><code>select_LIST</code></a></b> = <span title="(&lt;function _listWork at 0x86accbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;, 0, 'LIST')"><code>(&lt;function&nbsp;_listWork&nbsp;at&nbsp;0x86accbc&gt;,&nbsp;&lt;funct<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_LOGOUT"><code>select_LOGOUT</code></a></b> = <span title="(&lt;function do_LOGOUT at 0x8b43834&gt;,)"><code>(&lt;function&nbsp;do_LOGOUT&nbsp;at&nbsp;0x8b43834&gt;,)     </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_LSUB"><code>select_LSUB</code></a></b> = <span title="(&lt;function _listWork at 0x86accbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;, 1, 'LSUB')"><code>(&lt;function&nbsp;_listWork&nbsp;at&nbsp;0x86accbc&gt;,&nbsp;&lt;funct<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_NAMESPACE"><code>select_NAMESPACE</code></a></b> = <span title="(&lt;function do_NAMESPACE at 0x8b45734&gt;,)"><code>(&lt;function&nbsp;do_NAMESPACE&nbsp;at&nbsp;0x8b45734&gt;<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_NOOP"><code>select_NOOP</code></a></b> = <span title="(&lt;function do_NOOP at 0x8b4386c&gt;,)"><code>(&lt;function&nbsp;do_NOOP&nbsp;at&nbsp;0x8b4386c&gt;,)         </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_RENAME"><code>select_RENAME</code></a></b> = <span title="(&lt;function do_RENAME at 0x8692cc4&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_RENAME&nbsp;at&nbsp;0x8692cc4&gt;,&nbsp;&lt;fun<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_SEARCH"><code>select_SEARCH</code></a></b> = <span title="(&lt;function do_SEARCH at 0x851777c&gt;, &lt;function opt_charset at 0x8c70edc&gt;, &lt;function arg_searchkeys at 0x8bb8c84&gt;)"><code>(&lt;function&nbsp;do_SEARCH&nbsp;at&nbsp;0x851777c&gt;,&nbsp;&lt;fun<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_SELECT"><code>select_SELECT</code></a></b> = <span title="(&lt;function _selectWork at 0x86c8794&gt;, &lt;function arg_astring at 0x89619f4&gt;, 1, 'SELECT')"><code>(&lt;function&nbsp;_selectWork&nbsp;at&nbsp;0x86c8794&gt;,&nbsp;&lt;f<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_STATUS"><code>select_STATUS</code></a></b> = <span title="(&lt;function do_STATUS at 0x88f8cbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_plist at 0x8bb8c14&gt;)"><code>(&lt;function&nbsp;do_STATUS&nbsp;at&nbsp;0x88f8cbc&gt;,&nbsp;&lt;fun<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_STORE"><code>select_STORE</code></a></b> = <span title="(&lt;function do_STORE at 0x895902c&gt;, &lt;function arg_seqset at 0x8bef2ec&gt;, &lt;function arg_atom at 0x8bd06a4&gt;, &lt;function arg_flaglist at 0x8bef324&gt;)"><code>(&lt;function&nbsp;do_STORE&nbsp;at&nbsp;0x895902c&gt;,&nbsp;&lt;funct<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_SUBSCRIBE"><code>select_SUBSCRIBE</code></a></b> = <span title="(&lt;function do_SUBSCRIBE at 0x86acc4c&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_SUBSCRIBE&nbsp;at&nbsp;0x86acc4c&gt;<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_UID"><code>select_UID</code></a></b> = <span title="(&lt;function do_UID at 0x8884b74&gt;, &lt;function arg_atom at 0x8bd06a4&gt;, &lt;function arg_line at 0x8bef35c&gt;)"><code>(&lt;function&nbsp;do_UID&nbsp;at&nbsp;0x8884b74&gt;,&nbsp;&lt;function&nbsp;<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#select_UNSUBSCRIBE"><code>select_UNSUBSCRIBE</code></a></b> = <span title="(&lt;function do_UNSUBSCRIBE at 0x86acc84&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_UNSUBSCRIBE&nbsp;at&nbsp;0x86ac<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#startedTLS"><code>startedTLS</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#state"><code>state</code></a></b> = <span title="'unauth'"><code><span class="variable-quote">'</span>unauth<span class="variable-quote">'</span>                                         </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#tags"><code>tags</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#timeOut"><code>timeOut</code></a></b>: The number of seconds after which to timeout the connection.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#unauth_AUTHENTICATE"><code>unauth_AUTHENTICATE</code></a></b> = <span title="(&lt;function do_AUTHENTICATE at 0x8b438a4&gt;, &lt;function arg_atom at 0x8bd06a4&gt;)"><code>(&lt;function&nbsp;do_AUTHENTICATE&nbsp;at&nbsp;0x8b<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#unauth_CAPABILITY"><code>unauth_CAPABILITY</code></a></b> = <span title="(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)"><code>(&lt;function&nbsp;do_CAPABILITY&nbsp;at&nbsp;0x8989cd<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#unauth_LOGIN"><code>unauth_LOGIN</code></a></b> = <span title="(&lt;function do_LOGIN at 0x8bd0b5c&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;)"><code>(&lt;function&nbsp;do_LOGIN&nbsp;at&nbsp;0x8bd0b5c&gt;,&nbsp;&lt;funct<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#unauth_LOGOUT"><code>unauth_LOGOUT</code></a></b> = <span title="(&lt;function do_LOGOUT at 0x8b43834&gt;,)"><code>(&lt;function&nbsp;do_LOGOUT&nbsp;at&nbsp;0x8b43834&gt;,)     </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#unauth_NOOP"><code>unauth_NOOP</code></a></b> = <span title="(&lt;function do_NOOP at 0x8b4386c&gt;,)"><code>(&lt;function&nbsp;do_NOOP&nbsp;at&nbsp;0x8b4386c&gt;,)         </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.protocols.imap4.IMAP4Server.html#unauth_STARTTLS"><code>unauth_STARTTLS</code></a></b> = <span title="(&lt;function do_STARTTLS at 0x8bd0b24&gt;,)"><code>(&lt;function&nbsp;do_STARTTLS&nbsp;at&nbsp;0x8bd0b24&gt;,) </code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from LineReceiver</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#__buffer"><code>_LineReceiver__buffer</code></a></b> = <span title="''"><code><span class="variable-quote">'</span><span class="variable-quote">'</span>                               </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#delimiter"><code>delimiter</code></a></b>: The line-ending delimiter to use.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#line_mode"><code>line_mode</code></a></b> = <span title="1">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#MAX_LENGTH"><code>MAX_LENGTH</code></a></b>: The maximum length of a line to allow (If a sent line is longer than 
+this, the connection is dropped).</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#connected"><code>connected</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#transport"><code>transport</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from TimeoutMixin</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.policies.TimeoutMixin.html#__lastReceived"><code>_TimeoutMixin__lastReceived</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.policies.TimeoutMixin.html#__timeoutCall"><code>_TimeoutMixin__timeoutCall</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="arg_astring"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">arg_astring</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Parse an astring from the line, return (arg, rest), possibly via a 
+  deferred (to handle literals)
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="arg_atom"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">arg_atom</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Parse an atom from the line
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="arg_fetchatt"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">arg_fetchatt</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  fetch-att
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="arg_flaglist"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">arg_flaglist</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Flag part of store-att-flag
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="arg_line"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">arg_line</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Command line of UID command
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="arg_literal"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">arg_literal</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Parse a literal from the line
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="arg_plist"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">arg_plist</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Parse a (non-nested) parenthesised list from the line
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="arg_searchkeys"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">arg_searchkeys</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  searchkeys
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="arg_seqset"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">arg_seqset</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  sequence-set
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="authenticateLogin"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">authenticateLogin</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>user</span>,
+          <span class=sig-arg>passwd</span>)</span>
+  </h3>
+  <p>Lookup the account associated with the given parameters</p>
+  <p>Override this method to define the desired authentication 
+  behavior.</p>
+  The default behavior is to defer authentication to 
+  <code>self.portal</code> if it is not None, or to deny the login 
+  otherwise.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>user</b></code> -
+         The username to lookup
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>passwd</b></code> -
+         The password to login with
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="checkpoint"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">checkpoint</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>Called when the client issues a CHECK command.</p>
+  This should perform any checkpoint operations required by the 
+  server. It may be a long running operation, but may not block. If it 
+  returns a deferred, the client will only be informed of success (or 
+  failure) when the deferred's callback (or errback) is invoked.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="connectionMade"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">connectionMade</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>Called when a connection is made.</p>
+  This may be considered the initializer of the protocol, because it 
+  is called when the connection is completed. For clients, this is called 
+  once the connection to the server has been established; for servers, 
+  this is called after an accept() call stops blocking and a socket has 
+  been received. If you need to send any greeting or initial message, do 
+  it here.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.internet.protocol.BaseProtocol.html#connectionMade"><code>twisted.internet.protocol.BaseProtocol.connectionMade</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="lineReceived"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">lineReceived</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Override this for when each line is received.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.basic.LineReceiver.html#lineReceived"><code>twisted.protocols.basic.LineReceiver.lineReceived</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="opt_charset"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">opt_charset</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Optional charset of SEARCH command
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="opt_datetime"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">opt_datetime</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Optional date-time string
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="opt_plist"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">opt_plist</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>line</span>)</span>
+  </h3>
+  Optional parenthesised list
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="rawDataReceived"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">rawDataReceived</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>data</span>)</span>
+  </h3>
+  Override this for when raw data is received.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.basic.LineReceiver.html#rawDataReceived"><code>twisted.protocols.basic.LineReceiver.rawDataReceived</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="timeoutConnection"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">timeoutConnection</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Called when the connection times out. Override to define behavior 
+  other than dropping the connection.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.policies.TimeoutMixin.html#timeoutConnection"><code>twisted.protocols.policies.TimeoutMixin.timeoutConnection</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="__implements__"></a>
+<h3>__implements__</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;class twisted.protocols.imap4.IMailboxListener at 0x8871e0c&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;class twisted.protocols.imap4.IMailboxListener at 0x8871e0c&gt;,)       </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="_literalStringLimit"></a>
+<h3>_literalStringLimit</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="4096">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+4096&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="_onLogout"></a>
+<h3>_onLogout</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="_pendingLiteral"></a>
+<h3>_pendingLiteral</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="account"></a>
+<h3>account</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="atomre"></a>
+<h3>atomre</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>SRE_Pattern</code>
+
+      </dd>
+<span title="&lt;_sre.SRE_Pattern object at 0x890a4e8&gt;">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="re"><span class="re-group">(</span><span class="re-group">[</span><span class="re-group">^</span><span class="re-char">\]</span><span class="re-char">\(</span><span class="re-char">\)</span><span class="re-char">\{</span>%<span class="re-char">\*</span>"<span class="re-char">\\</span> <span class="re-group">-</span> €<span class="re-group">-</span>ÿ<span class="re-group">]</span><span class="re-op">+</span><span class="re-group">)</span><span class="re-group">(</span> <span class="re-group">(</span><span class="re-char">.</span><span class="re-op">*</span><span class="re-char">$</span><span class="re-group">)</span><span class="re-op">|</span><span class="re-char">$</span><span class="re-group">)</span></span>                                   </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_APPEND"></a>
+<h3>auth_APPEND</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_APPEND at 0x87aa88c&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function opt_plist at 0x8c70e6c&gt;, &lt;function opt_datetime at 0x8c70ea4&gt;, &lt;function arg_literal at 0x8bb8c4c&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_APPEND at 0x87aa88c&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function opt_plist at 0x8c70e6c&gt;,
+ &lt;function opt_datetime at 0x8c70ea4&gt;,
+ &lt;function arg_literal at 0x8bb8c4c&gt;)                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_CAPABILITY"></a>
+<h3>auth_CAPABILITY</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_CREATE"></a>
+<h3>auth_CREATE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_CREATE at 0x8692c54&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_CREATE at 0x8692c54&gt;, &lt;function arg_astring at 0x89619f4<span class="variable-linewrap">\</span>
+&gt;)                                                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_DELETE"></a>
+<h3>auth_DELETE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_DELETE at 0x8692c8c&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_DELETE at 0x8692c8c&gt;, &lt;function arg_astring at 0x89619f4<span class="variable-linewrap">\</span>
+&gt;)                                                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_EXAMINE"></a>
+<h3>auth_EXAMINE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function _selectWork at 0x86c8794&gt;, &lt;function arg_astring at 0x89619f4&gt;, 0, 'EXAMINE')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function _selectWork at 0x86c8794&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ 0,
+ 'EXAMINE')                                                            </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_IDLE"></a>
+<h3>auth_IDLE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_IDLE at 0x84d9384&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_IDLE at 0x84d9384&gt;,)                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_LIST"></a>
+<h3>auth_LIST</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function _listWork at 0x86accbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;, 0, 'LIST')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function _listWork at 0x86accbc&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ 0,
+ 'LIST')                                                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_LOGOUT"></a>
+<h3>auth_LOGOUT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_LOGOUT at 0x8b43834&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_LOGOUT at 0x8b43834&gt;,)                                   </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_LSUB"></a>
+<h3>auth_LSUB</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function _listWork at 0x86accbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;, 1, 'LSUB')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function _listWork at 0x86accbc&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ 1,
+ 'LSUB')                                                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_NAMESPACE"></a>
+<h3>auth_NAMESPACE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_NAMESPACE at 0x8b45734&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_NAMESPACE at 0x8b45734&gt;,)                                </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_NOOP"></a>
+<h3>auth_NOOP</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_NOOP at 0x8b4386c&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_NOOP at 0x8b4386c&gt;,)                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_RENAME"></a>
+<h3>auth_RENAME</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_RENAME at 0x8692cc4&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_RENAME at 0x8692cc4&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;)                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_SELECT"></a>
+<h3>auth_SELECT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function _selectWork at 0x86c8794&gt;, &lt;function arg_astring at 0x89619f4&gt;, 1, 'SELECT')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function _selectWork at 0x86c8794&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ 1,
+ 'SELECT')                                                             </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_STATUS"></a>
+<h3>auth_STATUS</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_STATUS at 0x88f8cbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_plist at 0x8bb8c14&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_STATUS at 0x88f8cbc&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function arg_plist at 0x8bb8c14&gt;)                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_SUBSCRIBE"></a>
+<h3>auth_SUBSCRIBE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_SUBSCRIBE at 0x86acc4c&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_SUBSCRIBE at 0x86acc4c&gt;, &lt;function arg_astring at 0x8961<span class="variable-linewrap">\</span>
+9f4&gt;)                                                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="auth_UNSUBSCRIBE"></a>
+<h3>auth_UNSUBSCRIBE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_UNSUBSCRIBE at 0x86acc84&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_UNSUBSCRIBE at 0x86acc84&gt;, &lt;function arg_astring at 0x89<span class="variable-linewrap">\</span>
+619f4&gt;)                                                                </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="blocked"></a>
+<h3>blocked</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="canStartTLS"></a>
+<h3>canStartTLS</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="0">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="challengers"></a>
+<h3>challengers</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="IDENT"></a>
+<h3>IDENT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'Twisted IMAP4rev1 Ready'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>Twisted IMAP4rev1 Ready<span class="variable-quote">'</span>                                              </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="logout_CAPABILITY"></a>
+<h3>logout_CAPABILITY</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="logout_LOGOUT"></a>
+<h3>logout_LOGOUT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_LOGOUT at 0x8b43834&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_LOGOUT at 0x8b43834&gt;,)                                   </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="logout_NOOP"></a>
+<h3>logout_NOOP</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_NOOP at 0x8b4386c&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_NOOP at 0x8b4386c&gt;,)                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="mbox"></a>
+<h3>mbox</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="parseState"></a>
+<h3>parseState</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'command'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>command<span class="variable-quote">'</span>                                                              </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="portal"></a>
+<h3>portal</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="POSTAUTH_TIMEOUT"></a>
+<h3>POSTAUTH_TIMEOUT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="1800">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+1800&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_APPEND"></a>
+<h3>select_APPEND</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_APPEND at 0x87aa88c&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function opt_plist at 0x8c70e6c&gt;, &lt;function opt_datetime at 0x8c70ea4&gt;, &lt;function arg_literal at 0x8bb8c4c&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_APPEND at 0x87aa88c&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function opt_plist at 0x8c70e6c&gt;,
+ &lt;function opt_datetime at 0x8c70ea4&gt;,
+ &lt;function arg_literal at 0x8bb8c4c&gt;)                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_CAPABILITY"></a>
+<h3>select_CAPABILITY</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_CHECK"></a>
+<h3>select_CHECK</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_CHECK at 0x856ade4&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_CHECK at 0x856ade4&gt;,)                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_CLOSE"></a>
+<h3>select_CLOSE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_CLOSE at 0x856ca4c&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_CLOSE at 0x856ca4c&gt;,)                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_COPY"></a>
+<h3>select_COPY</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_COPY at 0x8404a44&gt;, &lt;function arg_seqset at 0x8bef2ec&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_COPY at 0x8404a44&gt;,
+ &lt;function arg_seqset at 0x8bef2ec&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;)                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_CREATE"></a>
+<h3>select_CREATE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_CREATE at 0x8692c54&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_CREATE at 0x8692c54&gt;, &lt;function arg_astring at 0x89619f4<span class="variable-linewrap">\</span>
+&gt;)                                                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_DELETE"></a>
+<h3>select_DELETE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_DELETE at 0x8692c8c&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_DELETE at 0x8692c8c&gt;, &lt;function arg_astring at 0x89619f4<span class="variable-linewrap">\</span>
+&gt;)                                                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_EXAMINE"></a>
+<h3>select_EXAMINE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function _selectWork at 0x86c8794&gt;, &lt;function arg_astring at 0x89619f4&gt;, 0, 'EXAMINE')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function _selectWork at 0x86c8794&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ 0,
+ 'EXAMINE')                                                            </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_EXPUNGE"></a>
+<h3>select_EXPUNGE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_EXPUNGE at 0x876747c&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_EXPUNGE at 0x876747c&gt;,)                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_FETCH"></a>
+<h3>select_FETCH</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_FETCH at 0x88f3e04&gt;, &lt;function arg_seqset at 0x8bef2ec&gt;, &lt;function arg_fetchatt at 0x8bec21c&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_FETCH at 0x88f3e04&gt;,
+ &lt;function arg_seqset at 0x8bef2ec&gt;,
+ &lt;function arg_fetchatt at 0x8bec21c&gt;)                                 </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_IDLE"></a>
+<h3>select_IDLE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_IDLE at 0x84d9384&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_IDLE at 0x84d9384&gt;,)                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_LIST"></a>
+<h3>select_LIST</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function _listWork at 0x86accbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;, 0, 'LIST')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function _listWork at 0x86accbc&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ 0,
+ 'LIST')                                                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_LOGOUT"></a>
+<h3>select_LOGOUT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_LOGOUT at 0x8b43834&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_LOGOUT at 0x8b43834&gt;,)                                   </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_LSUB"></a>
+<h3>select_LSUB</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function _listWork at 0x86accbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;, 1, 'LSUB')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function _listWork at 0x86accbc&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ 1,
+ 'LSUB')                                                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_NAMESPACE"></a>
+<h3>select_NAMESPACE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_NAMESPACE at 0x8b45734&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_NAMESPACE at 0x8b45734&gt;,)                                </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_NOOP"></a>
+<h3>select_NOOP</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_NOOP at 0x8b4386c&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_NOOP at 0x8b4386c&gt;,)                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_RENAME"></a>
+<h3>select_RENAME</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_RENAME at 0x8692cc4&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_RENAME at 0x8692cc4&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;)                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_SEARCH"></a>
+<h3>select_SEARCH</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_SEARCH at 0x851777c&gt;, &lt;function opt_charset at 0x8c70edc&gt;, &lt;function arg_searchkeys at 0x8bb8c84&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_SEARCH at 0x851777c&gt;,
+ &lt;function opt_charset at 0x8c70edc&gt;,
+ &lt;function arg_searchkeys at 0x8bb8c84&gt;)                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_SELECT"></a>
+<h3>select_SELECT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function _selectWork at 0x86c8794&gt;, &lt;function arg_astring at 0x89619f4&gt;, 1, 'SELECT')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function _selectWork at 0x86c8794&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ 1,
+ 'SELECT')                                                             </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_STATUS"></a>
+<h3>select_STATUS</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_STATUS at 0x88f8cbc&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_plist at 0x8bb8c14&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_STATUS at 0x88f8cbc&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function arg_plist at 0x8bb8c14&gt;)                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_STORE"></a>
+<h3>select_STORE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_STORE at 0x895902c&gt;, &lt;function arg_seqset at 0x8bef2ec&gt;, &lt;function arg_atom at 0x8bd06a4&gt;, &lt;function arg_flaglist at 0x8bef324&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_STORE at 0x895902c&gt;,
+ &lt;function arg_seqset at 0x8bef2ec&gt;,
+ &lt;function arg_atom at 0x8bd06a4&gt;,
+ &lt;function arg_flaglist at 0x8bef324&gt;)                                 </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_SUBSCRIBE"></a>
+<h3>select_SUBSCRIBE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_SUBSCRIBE at 0x86acc4c&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_SUBSCRIBE at 0x86acc4c&gt;, &lt;function arg_astring at 0x8961<span class="variable-linewrap">\</span>
+9f4&gt;)                                                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_UID"></a>
+<h3>select_UID</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_UID at 0x8884b74&gt;, &lt;function arg_atom at 0x8bd06a4&gt;, &lt;function arg_line at 0x8bef35c&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_UID at 0x8884b74&gt;,
+ &lt;function arg_atom at 0x8bd06a4&gt;,
+ &lt;function arg_line at 0x8bef35c&gt;)                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="select_UNSUBSCRIBE"></a>
+<h3>select_UNSUBSCRIBE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_UNSUBSCRIBE at 0x86acc84&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_UNSUBSCRIBE at 0x86acc84&gt;, &lt;function arg_astring at 0x89<span class="variable-linewrap">\</span>
+619f4&gt;)                                                                </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="startedTLS"></a>
+<h3>startedTLS</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="0">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="state"></a>
+<h3>state</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'unauth'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>unauth<span class="variable-quote">'</span>                                                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="tags"></a>
+<h3>tags</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="timeOut"></a>
+<h3>timeOut</h3>
+The number of seconds after which to timeout the connection.
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="60">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+60&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="unauth_AUTHENTICATE"></a>
+<h3>unauth_AUTHENTICATE</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_AUTHENTICATE at 0x8b438a4&gt;, &lt;function arg_atom at 0x8bd06a4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_AUTHENTICATE at 0x8b438a4&gt;, &lt;function arg_atom at 0x8bd0<span class="variable-linewrap">\</span>
+6a4&gt;)                                                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="unauth_CAPABILITY"></a>
+<h3>unauth_CAPABILITY</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_CAPABILITY at 0x8989cd4&gt;,)                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="unauth_LOGIN"></a>
+<h3>unauth_LOGIN</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_LOGIN at 0x8bd0b5c&gt;, &lt;function arg_astring at 0x89619f4&gt;, &lt;function arg_astring at 0x89619f4&gt;)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_LOGIN at 0x8bd0b5c&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;,
+ &lt;function arg_astring at 0x89619f4&gt;)                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="unauth_LOGOUT"></a>
+<h3>unauth_LOGOUT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_LOGOUT at 0x8b43834&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_LOGOUT at 0x8b43834&gt;,)                                   </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="unauth_NOOP"></a>
+<h3>unauth_NOOP</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_NOOP at 0x8b4386c&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_NOOP at 0x8b4386c&gt;,)                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="unauth_STARTTLS"></a>
+<h3>unauth_STARTTLS</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;function do_STARTTLS at 0x8bd0b24&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;function do_STARTTLS at 0x8bd0b24&gt;,)                                 </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:29 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

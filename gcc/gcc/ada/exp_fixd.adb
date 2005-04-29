@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +30,6 @@ with Einfo;    use Einfo;
 with Exp_Util; use Exp_Util;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
-with Restrict; use Restrict;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Eval; use Sem_Eval;
@@ -40,7 +38,6 @@ with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Stand;    use Stand;
 with Tbuild;   use Tbuild;
-with Ttypes;   use Ttypes;
 with Uintp;    use Uintp;
 with Urealp;   use Urealp;
 
@@ -404,13 +401,6 @@ package body Exp_Fixd is
       Expr   : Node_Id;
 
    begin
-      if Y_Size > System_Word_Size
-           or else
-         Z_Size > System_Word_Size
-      then
-         Disallow_In_No_Run_Time_Mode (N);
-      end if;
-
       --  If denominator fits in 64 bits, we can build the operations directly
       --  without causing any intermediate overflow, so that's what we do!
 
@@ -571,11 +561,7 @@ package body Exp_Fixd is
       --  call the runtime routine to compute the quotient and remainder
 
       else
-         if Rounded_Result_Set (N) then
-            Rnd := Standard_True;
-         else
-            Rnd := Standard_False;
-         end if;
+         Rnd := Boolean_Literals (Rounded_Result_Set (N));
 
          Code := New_List (
            Make_Object_Declaration (Loc,
@@ -607,6 +593,8 @@ package body Exp_Fixd is
       Loc         : constant Source_Ptr := Sloc (N);
       Left_Type   : constant Entity_Id  := Etype (L);
       Right_Type  : constant Entity_Id  := Etype (R);
+      Left_Size   : Int;
+      Right_Size  : Int;
       Rsize       : Int;
       Result_Type : Entity_Id;
       Rnode       : Node_Id;
@@ -635,11 +623,54 @@ package body Exp_Fixd is
             return R;
          end if;
 
-         --  Otherwise we use a type that is at least twice the longer
-         --  of the two sizes.
+         --  Otherwise we need to figure out the correct result type size
+         --  First figure out the effective sizes of the operands. Normally
+         --  the effective size of an operand is the RM_Size of the operand.
+         --  But a special case arises with operands whose size is known at
+         --  compile time. In this case, we can use the actual value of the
+         --  operand to get its size if it would fit in 8 or 16 bits.
 
-         Rsize := 2 * Int'Max (UI_To_Int (Esize (Left_Type)),
-                               UI_To_Int (Esize (Right_Type)));
+         --  Note: if both operands are known at compile time (can that
+         --  happen?) and both were equal to the power of 2, then we would
+         --  be one bit off in this test, so for the left operand, we only
+         --  go up to the power of 2 - 1. This ensures that we do not get
+         --  this anomolous case, and in practice the right operand is by
+         --  far the more likely one to be the constant.
+
+         Left_Size := UI_To_Int (RM_Size (Left_Type));
+
+         if Compile_Time_Known_Value (L) then
+            declare
+               Val : constant Uint := Expr_Value (L);
+
+            begin
+               if Val < Int'(2 ** 8) then
+                  Left_Size := 8;
+               elsif Val < Int'(2 ** 16) then
+                  Left_Size := 16;
+               end if;
+            end;
+         end if;
+
+         Right_Size := UI_To_Int (RM_Size (Right_Type));
+
+         if Compile_Time_Known_Value (R) then
+            declare
+               Val : constant Uint := Expr_Value (R);
+
+            begin
+               if Val <= Int'(2 ** 8) then
+                  Right_Size := 8;
+               elsif Val <= Int'(2 ** 16) then
+                  Right_Size := 16;
+               end if;
+            end;
+         end if;
+
+         --  Now the result size must be at least twice the longer of
+         --  the two sizes, to accomodate all possible results.
+
+         Rsize := 2 * Int'Max (Left_Size, Right_Size);
 
          if Rsize <= 8 then
             Result_Type := Standard_Integer_8;
@@ -651,10 +682,6 @@ package body Exp_Fixd is
             Result_Type := Standard_Integer_32;
 
          else
-            if Rsize > System_Word_Size then
-               Disallow_In_No_Run_Time_Mode (N);
-            end if;
-
             Result_Type := Standard_Integer_64;
          end if;
 
@@ -916,11 +943,7 @@ package body Exp_Fixd is
       --  call the runtime routine to compute the quotient and remainder
 
       else
-         if Rounded_Result_Set (N) then
-            Rnd := Standard_True;
-         else
-            Rnd := Standard_False;
-         end if;
+         Rnd := Boolean_Literals (Rounded_Result_Set (N));
 
          Code := New_List (
            Make_Object_Declaration (Loc,
@@ -2310,7 +2333,6 @@ package body Exp_Fixd is
 
       Set_Analyzed (L);
       return L;
-
    end Integer_Literal;
 
    ------------------

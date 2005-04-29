@@ -59,8 +59,9 @@ int InitializeInternalProcessListener( SAState* psa )
 
     if ( !gIPL )
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "RunSLPInternalProcessListener is creating a new listener" );
-        
+#endif        
         gIPL = new SLPInternalProcessListener( psa, &status );
 	
         if ( !gIPL )
@@ -140,7 +141,7 @@ OSStatus SLPInternalProcessListener::Initialize()
         if ( status < 0 )
         {
             sprintf( tmp, "SLPInternalProcessListener: can't bind local IPC address: %s, %s", kSLPdPath, strerror(errno) );
-            LOG(SLP_LOG_FAIL, tmp);
+            SLPLOG(SLP_LOG_FAIL, tmp);
         }
         else
         {
@@ -161,7 +162,9 @@ void* SLPInternalProcessListener::Run()
     int					clientLen, newsockfd=0;
     struct 				sockaddr_un	cli_addr;
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "SLPInternalProcessListener::Run() calling listen for next control call" );
+#endif
     listen( mSockfd, 5 );
 
     for ( ; ; )
@@ -182,7 +185,9 @@ void* SLPInternalProcessListener::Run()
             }
             else if ( errno == EINTR )
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DROP, "slpd: accept received EINTR");
+#endif
                 continue;				// back to for
             }
             else
@@ -258,7 +263,9 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
     {
         if ( errno == EINTR )
         {
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DROP, "slpd: read received EINTR");
+#endif
         }
         else
         {
@@ -269,8 +276,9 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
     }
 
     messageType = GetSLPMessageType( internalBuffer );
+#ifdef ENABLE_SLP_LOGGING
     mslplog( SLP_LOG_DEBUG, "Received IPC message: ", PrintableHeaderType(internalBuffer) );
-    
+#endif    
     switch ( messageType )
     {
 #pragma mark case kSLPStartUp:
@@ -283,7 +291,9 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
 #pragma mark case kSLPShutDown:
 		case kSLPShutDown:
 		{
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_STATE, "slpd: received a quit command.");
+#endif
 			exit(0);
 		}
 		break;
@@ -303,7 +313,9 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
 
             if ( status )
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DEBUG, "SLPInternalProcessHandlerThread::HandleCommunication: error returned from GetSLPRegistrationDataFromBuffer!");
+#endif
             }
             else
             {
@@ -460,7 +472,9 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                 if ( !tempPtr )
                 {
                     free( newScopeList );
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_DROP, "we can't fit a single scope in our advertisement!" );			// bad error
+#endif
                     break;
                 }
                 
@@ -475,8 +489,9 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
 
             propertyListIsDirty = true;
             
+#ifdef ENABLE_SLP_LOGGING
             mslplog( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.daScopeList\" to", newScopeList );
-
+#endif
             SLPdMessageHeader		returnBuf;
             returnBuf.messageType = messageType;
             returnBuf.messageLength = sizeof(SLPdMessageHeader);
@@ -537,7 +552,9 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                             if ( !tempPtr )
                             {
                                 free( daScopeListTemp );
+#ifdef ENABLE_SLP_LOGGING
                                 SLP_LOG( SLP_LOG_DROP, "we can't fit a single scope in our advertisement!" );			// bad error
+#endif
                                 break;
                             }
                             
@@ -548,13 +565,16 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                         if ( needToSetOverflow == SLP_TRUE )
                         {
                             SLPSetProperty( "com.apple.slp.daPrunedScopeList", daScopeListTemp );
+#ifdef ENABLE_SLP_LOGGING
                             SLP_LOG( SLP_LOG_RADMIN, "We have a scope list that is longer than can be advertised via multicasting.  Some SLP implementations may see a truncated list." );
+#endif
                         }
                         else
                             SLPSetProperty( "com.apple.slp.daPrunedScopeList", NULL );
 
+#ifdef ENABLE_SLP_LOGGING
                         mslplog( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.daScopeList\" to", daScopeListTemp );
- 
+#endif 
                         propertyListIsDirty = true;
                    }
 
@@ -621,7 +641,9 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                         if ( !tempPtr )
                         {
                             free( daScopeListTemp );
+#ifdef ENABLE_SLP_LOGGING
                             SLP_LOG( SLP_LOG_DROP, "we can't fit a single scope in our advertisement!" );			// bad error
+#endif
                             break;
                         }
                         
@@ -632,16 +654,19 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                     if ( needToSetOverflow == SLP_TRUE )
                     {
                         SLPSetProperty( "com.apple.slp.daPrunedScopeList", daScopeListTemp );
+#ifdef ENABLE_SLP_LOGGING
                         SLP_LOG( SLP_LOG_RADMIN, "We have a scope list that is longer than can be advertised via multicasting.  Some SLP implementations may see a truncated list." );
+#endif
                     }
                     else
                         SLPSetProperty( "com.apple.slp.daPrunedScopeList", NULL );
 
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     mslplog( SLP_LOG_RADMIN, "Deleting Scope:", scopeToDelete );
                     mslplog( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.daScopeList\" to", SLPGetProperty("com.apple.slp.daScopeList") );
-                  
+#endif                  
                     SLPRegistrar::TheSLPR()->RemoveScope( scopeToDelete );
                }
                
@@ -723,14 +748,18 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                     SLPSetProperty( "com.apple.slp.traceRegistrations", "true" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceRegistrations\" to true" );
+#endif
                 }
                 else
                 {
                     SLPSetProperty( "com.apple.slp.traceRegistrations", "false" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceRegistrations\" to false" );
+#endif
                 }
                     
                 if ( newLogLevel & kLogOptionExpirations )
@@ -738,14 +767,18 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                     SLPSetProperty( "com.apple.slp.traceExpirations", "true" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceExpirations\" to true" );
+#endif
                 }
                 else
                 {
                     SLPSetProperty( "com.apple.slp.traceExpirations", "false" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceExpirations\" to false" );
+#endif
                 }
                     
                 if ( newLogLevel & kLogOptionServiceRequests )
@@ -753,14 +786,18 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                     SLPSetProperty( "com.apple.slp.traceServiceRequests", "true" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceServiceRequests\" to true" );
+#endif
                 }
                 else
                 {
                     SLPSetProperty( "com.apple.slp.traceServiceRequests", "false" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceServiceRequests\" to false" );
+#endif
                 }
                    
                 if ( newLogLevel & kLogOptionDAInfoRequests )
@@ -768,14 +805,18 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                     SLPSetProperty( "com.apple.slp.traceDAInfoRequests", "true" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceDAInfoRequests\" to true" );
+#endif
                 }
                 else
                 {
                     SLPSetProperty( "com.apple.slp.traceDAInfoRequests", "false" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceDAInfoRequests\" to false" );
+#endif
                 }
                    
                 if ( newLogLevel & kLogOptionErrors )
@@ -783,14 +824,18 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                     SLPSetProperty( "com.apple.slp.traceErrors", "true" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceErrors\" to true" );
+#endif
                 }
                 else
                 {
                     SLPSetProperty( "com.apple.slp.traceErrors", "false" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceErrors\" to false" );
+#endif
                 }
                    
                 if ( newLogLevel & kLogOptionDebuggingMessages )
@@ -798,14 +843,18 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                     SLPSetProperty( "com.apple.slp.traceDebug", "true" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceDebug\" to true" );
+#endif
                 }
                 else
                 {
                     SLPSetProperty( "com.apple.slp.traceDebug", "false" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.traceDebug\" to false" );
+#endif
                 }
                    
                 if ( newLogLevel & kLogOptionAllMessages )
@@ -813,14 +862,18 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                     SLPSetProperty( "com.apple.slp.logAll", "true" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.logAll\" to true" );
+#endif
                 }
                 else
                 {
                     SLPSetProperty( "com.apple.slp.logAll", "false" );
                     propertyListIsDirty = true;
                     
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.logAll\" to false" );
+#endif
                 }
             }
         }
@@ -836,7 +889,9 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
 
             write( mRequestSD, &returnBuf, returnBuf.messageLength );		// send back our result					
             
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_RADMIN, "Enabling ServerAdmin notifications" );
+#endif
             SLPRegistrar::TheSLPR()->EnableRAdminNotification();
         }
         break;
@@ -851,7 +906,9 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
 
             write( mRequestSD, &returnBuf, returnBuf.messageLength );		// send back our result					
             
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_RADMIN, "Disabling ServerAdmin notifications" );
+#endif
             SLPRegistrar::TheSLPR()->DisableRAdminNotification();
         }
         break;

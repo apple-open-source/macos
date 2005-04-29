@@ -6,7 +6,6 @@
  *                                                                          *
  *              Auxiliary C functions for Interfaces.C.Streams              *
  *                                                                          *
- *                              $Revision: 1.1.1.1 $
  *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -28,7 +27,7 @@
  * file might be covered by the  GNU Public License.                        *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -49,20 +48,11 @@
 
 #include "adaint.h"
 
-#ifdef __EMX__
-int max_path_len = _MAX_PATH;
-#elif defined (VMS)
+#ifdef VMS
 #include <unixlib.h>
-int max_path_len = 255; /* PATH_MAX */
-
-#elif defined (__vxworks) || defined (__OPENNT)
-
-int max_path_len = PATH_MAX;
-
-#else
+#endif
 
 #ifdef linux
-
 /* Don't use macros on GNU/Linux since they cause incompatible changes between
    glibc 2.0 and 2.1 */
 
@@ -75,12 +65,6 @@ int max_path_len = PATH_MAX;
 #ifdef stdout
 #  undef stdout
 #endif
-
-#endif
-
-#include <sys/param.h>
-
-int max_path_len = MAXPATHLEN;
 #endif
 
 /* The _IONBF value in CYGNUS or MINGW32 stdio.h is wrong.  */
@@ -182,11 +166,11 @@ __gnat_full_name (nam, buffer)
 #if defined(__EMX__) || defined (__MINGW32__)
   /* If this is a device file return it as is; under Windows NT and
      OS/2 a device file end with ":".  */
-  if (nam [strlen (nam) - 1] == ':')
+  if (nam[strlen (nam) - 1] == ':')
     strcpy (buffer, nam);
   else
     {
-      _fullpath (buffer, nam, max_path_len);
+      _fullpath (buffer, nam, __gnat_max_path_len);
 
       for (p = buffer; *p; p++)
 	if (*p == '/')
@@ -211,10 +195,10 @@ __gnat_full_name (nam, buffer)
     strcpy (buffer, __gnat_to_host_file_spec (buffer));
   else
     {
-      char nambuffer [MAXPATHLEN];
+      char *nambuffer = alloca (__gnat_max_path_len);
 
       strcpy (nambuffer, buffer);
-      strcpy (buffer, getcwd (buffer, max_path_len, 0));
+      strcpy (buffer, getcwd (buffer, __gnat_max_path_len, 0));
       strcat (buffer, "/");
       strcat (buffer, nambuffer);
       strcpy (buffer, __gnat_to_host_file_spec (buffer));
@@ -225,7 +209,7 @@ __gnat_full_name (nam, buffer)
 #else
   if (nam[0] != '/')
     {
-      p = getcwd (buffer, max_path_len);
+      p = getcwd (buffer, __gnat_max_path_len);
       if (p == 0)
 	{
 	  buffer[0] = '\0';

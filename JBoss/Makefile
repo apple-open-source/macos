@@ -49,6 +49,13 @@ install:
 	rm -rf $(DSTROOT)/Library/Tomcat/logs
 	mkdir $(DSTROOT)/Library/JBoss/3.2/run $(DSTROOT)/Library/JBoss/3.2/farm
 	ln -s "/Library/Logs/JBoss" $(DSTROOT)/Library/Tomcat/logs
+        # copying the "Open Source Property List and the license file to the right place."
+	mkdir $(DSTROOT)/usr
+	mkdir $(DSTROOT)/usr/local
+	mkdir $(DSTROOT)/usr/local/OpenSourceVersions
+	cp $(SRCROOT)/JBoss.plist $(DSTROOT)/usr/local/OpenSourceVersions/.
+	mkdir $(DSTROOT)/usr/local/OpenSourceLicenses
+	cp $(SRCROOT)/JBoss.txt $(DSTROOT)/usr/local/OpenSourceLicenses/. 
 
 magnum: install
 	cd $(TARGETDIR)/server; ln -s deploy-standalone default
@@ -59,7 +66,7 @@ devtools: install
 installhdrs: 
 
 installsrc:
-	gnutar cf - bin deploy lib server tomcat Makefile | (cd $(SRCROOT); gnutar xf -)
+	gnutar cf - bin deploy lib server tomcat Makefile JBoss.txt JBoss.plist | (cd $(SRCROOT); gnutar xf -)
 	gnutar -xz -C $(SRCROOT) -f jb.tar.gz
 	gnutar -xz -C $(SRCROOT) -f $(TOMCAT).tar.gz
 	cp local.properties $(SRCROOT)/jboss-all/build/etc/local.properties-example

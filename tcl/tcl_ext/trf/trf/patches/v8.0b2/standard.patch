@@ -1,0 +1,289 @@
+*** tcl.h.orig	Fri Jul  4 21:04:50 1997
+--- tcl.h	Fri Jul  4 21:05:05 1997
+***************
+*** 1462,1466 ****
+--- 1462,1476 ----
+  EXTERN void		Tcl_WrongNumArgs _ANSI_ARGS_((Tcl_Interp *interp,
+  			    int objc, Tcl_Obj *CONST objv[], char *message));
+  
++ /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++  * Support of Tcl-Trf.
++  */
++ EXTERN Tcl_Channel      Tcl_ReplaceChannel _ANSI_ARGS_ ((Tcl_Interp* interp,
++ 			    Tcl_ChannelType* typePtr, ClientData instanceData,
++ 			    int mask, Tcl_Channel prevChan));
++ 
++ EXTERN void             Tcl_UndoReplaceChannel _ANSI_ARGS_ ((Tcl_Interp* interp,
++ 			    Tcl_Channel chan));
++ 
+  #endif /* RESOURCE_INCLUDED */
+  #endif /* _TCL */
+*** tclIO.c.orig	Fri Jul  4 21:04:50 1997
+--- tclIO.c	Fri Jul  4 21:05:05 1997
+***************
+*** 169,174 ****
+--- 169,181 ----
+      int bufSize;		/* What size buffers to allocate? */
+      Tcl_TimerToken timer;	/* Handle to wakeup timer for this channel. */
+      CopyState *csPtr;		/* State of background copy, or NULL. */
++ 
++ 
++   /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++    * Support of Tcl-Trf.
++    */
++   struct Channel* supercedes; /* Refers to channel this one was stacked upon */
++ 
+  } Channel;
+      
+  /*
+***************
+*** 1066,1072 ****
+              if (chan == (Tcl_Channel) Tcl_GetHashValue(hPtr)) {
+                  return;
+              }
+!             panic("Tcl_RegisterChannel: duplicate channel names");
+          }
+          Tcl_SetHashValue(hPtr, (ClientData) chanPtr);
+      }
+--- 1073,1082 ----
+              if (chan == (Tcl_Channel) Tcl_GetHashValue(hPtr)) {
+                  return;
+              }
+! 	    /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
+! 	     * Support of Tcl-Trf.
+! 	     */
+!             /* panic("Tcl_RegisterChannel: duplicate channel names"); */
+          }
+          Tcl_SetHashValue(hPtr, (ClientData) chanPtr);
+      }
+***************
+*** 1217,1222 ****
+--- 1227,1237 ----
+      chanPtr->timer = NULL;
+      chanPtr->csPtr = NULL;
+  
++     /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++      * Support of Tcl-Trf.
++      */
++     chanPtr->supercedes = (Channel*) NULL;
++ 
+      /*
+       * Link the channel into the list of all channels; create an on-exit
+       * handler if there is not one already, to close off all the channels
+***************
+*** 1249,1254 ****
+--- 1264,1449 ----
+      return (Tcl_Channel) chanPtr;
+  }
+  
++ /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++  * Support of Tcl-Trf.
++  */
++ /*
++  *----------------------------------------------------------------------
++  *
++  * Tcl_ReplaceChannel --
++  *
++  *	Replaces an entry in the hash table for a Tcl_Channel
++  *	record.
++  *
++  * Results:
++  *	Returns the new Tcl_Channel.
++  *
++  * Side effects:
++  *	Replaces a Tcl_Channel instance into the hash table.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ Tcl_Channel
++ Tcl_ReplaceChannel(interp, typePtr, instanceData, mask, prevChan)
++     Tcl_Interp* interp; /* the interpreter we are working in */
++     Tcl_ChannelType *typePtr;	/* The channel type record. */
++     ClientData instanceData;	/* Instance specific data. */
++     int mask;			/* TCL_READABLE & TCL_WRITABLE to indicate
++                                  * if the channel is readable, writable. */
++     Tcl_Channel prevChan;	/* The channel structure that should
++ 				 * be replaced. */
++ {
++   Channel *chanPtr, *pt, *prevPt;
++ 
++   /*
++    * Replace the channel into the list of all channels;
++    */
++ 
++   prevPt = (Channel*) NULL;
++   pt     = (Channel*) firstChanPtr;
++ 
++   while (pt != (Channel *) prevChan) {
++     prevPt = pt;
++     pt     = pt->nextChanPtr;
++   }
++ 
++   if (!pt) {
++     return (Tcl_Channel) NULL;
++   }
++ 
++   /*
++    * Here we check if the "mask" matches the "flags"
++    * of the already existing channel.
++    *
++    *	  | - | R | W | RW |
++    *	--+---+---+---+----+	<=>  0 != (chan->mask & prevChan->mask)
++    *	- |   |   |   |    |
++    *	R |   | + |   | +  |	The superceding channel is allowed to
++    *	W |   |   | + | +  |	restrict the capabilities of the
++    *	RW|   | + | + | +  |	superceded one !
++    *	--+---+---+---+----+
++    */
++ 
++   if ((mask & Tcl_GetChannelMode (prevChan)) == 0) {
++     return (Tcl_Channel) NULL;
++   }
++ 
++ 
++   chanPtr = (Channel *) ckalloc((unsigned) sizeof(Channel));
++   chanPtr->flags = mask;
++ 
++   /*
++    * Set the channel up initially in no Input translation mode and
++    * no Output translation mode.
++    */
++ 
++   chanPtr->inputTranslation = TCL_TRANSLATE_LF;
++   chanPtr->outputTranslation = TCL_TRANSLATE_LF;
++   chanPtr->inEofChar = 0;
++   chanPtr->outEofChar = 0;
++ 
++   chanPtr->unreportedError = 0;
++   chanPtr->instanceData = instanceData;
++   chanPtr->typePtr = typePtr;
++   chanPtr->refCount = 0;
++   chanPtr->closeCbPtr = (CloseCallback *) NULL;
++   chanPtr->curOutPtr = (ChannelBuffer *) NULL;
++   chanPtr->outQueueHead = (ChannelBuffer *) NULL;
++   chanPtr->outQueueTail = (ChannelBuffer *) NULL;
++     chanPtr->saveInBufPtr = (ChannelBuffer *) NULL;
++   chanPtr->inQueueHead = (ChannelBuffer *) NULL;
++   chanPtr->inQueueTail = (ChannelBuffer *) NULL;
++   chanPtr->chPtr = (ChannelHandler *) NULL;
++   chanPtr->interestMask = 0;
++   chanPtr->scriptRecordPtr = (EventScriptRecord *) NULL;
++   chanPtr->bufSize = CHANNELBUFFER_DEFAULT_SIZE;
++   chanPtr->timer = NULL;
++   chanPtr->csPtr = NULL;
++ 
++   chanPtr->supercedes = (Channel*) prevChan;
++ 
++   chanPtr->channelName = (char *) ckalloc (strlen(pt->channelName)+1);
++   strcpy (chanPtr->channelName, pt->channelName);
++ 
++   if (prevPt) {
++     prevPt->nextChanPtr = chanPtr;
++   } else {
++     firstChanPtr = chanPtr;
++   }
++ 
++   chanPtr->nextChanPtr = pt->nextChanPtr;
++   
++ 
++   Tcl_RegisterChannel (interp, (Tcl_Channel) chanPtr);
++ 
++   /* The superceded channel is effectively unregistered */
++   chanPtr->supercedes->refCount --;
++ 
++   return (Tcl_Channel) chanPtr;
++ }
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * Tcl_UndoReplaceChannel --
++  *
++  *	Unstacks an entry in the hash table for a Tcl_Channel
++  *	record.
++  *
++  * Results:
++  *	Returns the old Tcl_Channel, i.e. the one which was stacked over.
++  *
++  * Side effects:
++  *	Replaces a Tcl_Channel instance into the hash table.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ void
++ Tcl_UndoReplaceChannel (interp, chan)
++ Tcl_Interp* interp; /* The interpreter we are working in */
++ Tcl_Channel chan;   /* The channel to unstack */
++ {
++   Channel* chanPtr = (Channel*) chan;
++ 
++   if (chanPtr->supercedes != (Channel*) NULL) {
++     Tcl_HashTable *hTblPtr;	/* Hash table of channels. */
++     Tcl_HashEntry *hPtr;	/* Search variable. */
++     int new;			/* Is the hash entry new or does it exist? */
++ 
++     /*
++      * Insert the channel we were stacked upon back into
++      * the list of open channels. Place it back into the hashtable too.
++      * Correct 'refCount', as this actually unregisters 'chan'.
++      */
++ 
++     chanPtr->supercedes->nextChanPtr = firstChanPtr;
++     firstChanPtr                     = chanPtr->supercedes;
++ 
++     hTblPtr = GetChannelTable (interp);
++     hPtr    = Tcl_CreateHashEntry (hTblPtr, chanPtr->channelName, &new);
++ 
++     Tcl_SetHashValue(hPtr, (ClientData) chanPtr->supercedes);
++     chanPtr->refCount --;
++ 
++     /* The superceded channel is effectively registered again */
++     chanPtr->supercedes->refCount ++;
++   }
++ 
++   /*
++    * Disconnect the channels, then do a regular close upon the
++    * stacked one. This may cause flushing of data into the
++    * superceded channel (if 'chan' remembered its parent in itself).
++    */
++ 
++   chanPtr->supercedes = NULL;
++ 
++   if (chanPtr->refCount == 0) {
++     Tcl_Close (interp, chan);
++   }
++ }
++ 
+  /*
+   *----------------------------------------------------------------------
+   *
+***************
+*** 1858,1863 ****
+--- 2053,2077 ----
+          if (errorCode != 0) {
+              Tcl_SetErrno(errorCode);
+          }
++     }
++ 
++     /* -- CloseChannel --
++      * Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++      * Support of Tcl-Trf.
++      *
++      * Handle stacking of channels. Must be done after 'closeProc'
++      * to allow for flushing of data into the underlying channel.
++      */
++ 
++     if (chanPtr->supercedes != (Channel*) NULL) {
++       /* Insert the channel we were stacked upon back into
++        * the list of open channels, then do a regular close.
++        */
++ 
++       chanPtr->supercedes->nextChanPtr = firstChanPtr;
++       firstChanPtr                     = chanPtr->supercedes;
++ 
++       Tcl_Close (interp, (Tcl_Channel) chanPtr->supercedes);
+      }
+  
+      /*

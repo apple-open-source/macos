@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XPolyReg.man,v 1.2 2001/01/27 18:20:02 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XPolyReg.man,v 1.3 2003/04/28 22:17:56 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,19 +144,11 @@
 .SH NAME
 XPolygonRegion, XClipBox \- generate regions
 .SH SYNTAX
-Region XPolygonRegion\^(\^\fIpoints\fP\^, \fIn\fP\^, \fIfill_rule\fP\^)
-.br
-      XPoint \fIpoints[]\fP\^;
-.br
-      int \fIn\fP\^;
-.br
-      int \fIfill_rule\fP\^;	
-.LP
-XClipBox\^(\^\fIr\fP\^, \fIrect_return\fP\^)
-.br
-      Region \fIr\fP\^;
-.br
-      XRectangle *\fIrect_return\fP\^;
+.HP
+Region XPolygonRegion\^(\^XPoint \fIpoints\fP[]\^, int \fIn\fP\^, int
+\fIfill_rule\fP\^); 
+.HP
+int XClipBox\^(\^Region \fIr\fP\^, XRectangle *\fIrect_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIfill_rule\fP 1i
 Specifies the fill-rule you want to set for the specified GC.

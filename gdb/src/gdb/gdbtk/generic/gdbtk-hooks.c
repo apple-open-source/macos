@@ -1,6 +1,7 @@
 /* Startup code for Insight.
-   Copyright 1994, 1995, 1996, 1997, 1998, 2000, 200, 2002
-   Free Software Foundation, Inc.
+
+   Copyright 1994, 1995, 1996, 1997, 1998, 2000, 200, 2002, 2003 Free
+   Software Foundation, Inc.
 
    Written by Stu Grossman <grossman@cygnus.com> of Cygnus Support.
 
@@ -84,7 +85,6 @@ static void gdbtk_attach (void);
 static void gdbtk_detach (void);
 static void gdbtk_file_changed (char *);
 static void gdbtk_exec_file_display (char *);
-static void tk_command_loop (void);
 static void gdbtk_call_command (struct cmd_list_element *, char *, int);
 static ptid_t gdbtk_wait (ptid_t, struct target_waitstatus *);
 int x_event (int);
@@ -134,7 +134,6 @@ gdbtk_add_hooks (void)
   set_gdb_event_hooks (&handlers);
 
   /* Hooks */
-  command_loop_hook = tk_command_loop;
   call_command_hook = gdbtk_call_command;
   set_hook = gdbtk_set_hook;
   readline_begin_hook = gdbtk_readline_begin;
@@ -359,40 +358,6 @@ gdbtk_memory_changed (CORE_ADDR addr, int len)
     report_error ();
 }
 
-
-/* This function is called instead of gdb's internal command loop.  This is the
-   last chance to do anything before entering the main Tk event loop. 
-   At the end of the command, we enter the main loop. */
-
-static void
-tk_command_loop ()
-{
-  extern FILE *instream;
-
-  /* We no longer want to use stdin as the command input stream */
-  instream = NULL;
-
-  if (Tcl_Eval (gdbtk_interp, "gdbtk_tcl_preloop") != TCL_OK)
-    {
-      char *msg;
-
-      /* Force errorInfo to be set up propertly.  */
-      Tcl_AddErrorInfo (gdbtk_interp, "");
-
-      msg = Tcl_GetVar (gdbtk_interp, "errorInfo", TCL_GLOBAL_ONLY);
-#ifdef _WIN32
-      MessageBox (NULL, msg, NULL, MB_OK | MB_ICONERROR | MB_TASKMODAL);
-#else
-      fputs_unfiltered (msg, gdb_stderr);
-#endif
-    }
-
-#ifdef _WIN32
-  close_bfds ();
-#endif
-
-  Tk_MainLoop ();
-}
 
 /* This hook is installed as the ui_loop_hook, which is used in several
  * places to keep the gui alive (x_event runs gdbtk's event loop). Users

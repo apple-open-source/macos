@@ -1,33 +1,201 @@
-Version: 3.0.5
---------------
-Added new iodbcinst code and iodbcadm GTK frontend
-iODBC released under both LGPL or BSD license
+Sep 29 2004, V3.52.1:
+    * Added support for new ODBC 3.52 specification for 64bit environments
+    * Added support for SQLGetEnvAttr(SQL_ATTR_WCHAR_SIZE extension
+    * Added missing Mac OS X build files
+    * Added script to symlink Mac OS X framework into /usr/local/iODBC
+      to allow traditional GNU configurable packages to use the same
+      version of iODBC
+    * Added new layer to driver loading to prevent memory leaks when
+      drivers cannot be physically unloaded
+    * Added man pages for iodbc-config, iodbctest and iodbcadm-gtk
+    * Added header file iodbcunix.h for portability
+    * Enhanced tracing for SQLGetFunctions, SQLColAttribute
+    * Fixed NULL pointer problem when connection failed
+    * Fixed initialization problem with SQLGetPrivateProfileString
+    * Fixed export Unicode and ANSI names of ODBC functions in libiodbc
+    * Fixed SQLSetScrollOption emulation
+    * Fixed tracing for SQLSetDescRec
+    * Fixed rpm build issue with RedHat 9
+    * Fixed MAC OS X install problem
+    * Fixed Mac OS X build dependency on Carbon libraries
+    * Fixed HP/UX shared library name handling
+    * Fixed handling of UTF-8 sequences
+    * Fixed compiler warnings
+    * Small code cleanups and fixes
+ 
 
-Version: 3.0.4
---------------
-Reworked CVS tree to use multiple directories
+Feb 24 2004, V3.51.2:
+    * Added support for installation layouts for different distributions
+      e.g. --with-layout=RedHat
+    * Added support for Mac OS X 10.3 (panther)
+    * Added support for creating libodbc.so symlink
+    * Added more ODBC 3.x calls to iodbctest.c program
+    * Added SQLRowCount for SQL UPDATE/DELETE statements in iodbctest.c
+    * Fixed build problem with older make programs
+    * Fixed bug in state handling SQLCloseCursor 
+    * Fixed driver statement allocation problem
+    * Fixed double free in statement handle
+    * Fixed problem tracing variable length strings and binary data
+    * Use snprintf when available to guard against buffer overruns
+    * Small documentation fixes
 
-Version: 3.0.3
---------------
-Minor bug fixes and security fix
+Sept 08 2003, V3.51.1:
+    * Fixed library dependency for PHP and other open source packages
+    * Fixed build problems on Mac OS X
+    * Fixed default compiler and flags for threaded builds
+    * Small bugfixes
 
-Version: 3.0.2
---------------
-Minor bug fixes
+Aug 22 2003, V3.51.0:
+    * Added Unicode support
+    * Added tracing functionality
+    * Minor cleanups and bugfixes
 
-Version: 3.0.1
---------------
-Added threadsafe code
+Apr 29 2002, V3.0.6:
+    * Added instructions for building MyODBC on Mac OS X
+    * Added support for building iODBC on Mac OS X as a framework
+    * Fixed creating new window handle
+    * Fixed portability issues
+    * Use the latest versions of autoconf, automake and libtool
+    * Updated all comments to reflect the new dual licensing policy
+    * Fixed bug in SQLError/SQLGetDiagRec
+    * Added support for driver specific connect options
+    * Fixed wrong argument to SQLEndTran
+    * Fixed handling statement descriptor
+    * Fixed DSN string handling
+    * Fixed mapping in SQLColumnAttributes
+    * Minor cleanups and bugfixes
 
-Version: 3.0.0
---------------
-Added ODBC 3.x support
+Jun 7 2001, V3.0.5:
+    * Added new iodbcinst code
+    * Added new drvproxy and iodbcadm GTK frontend
+    * iODBC released under LGPL or BSD license
+    * SQLMoreResults always returned SQL_NO_DATA_FOUND
 
-Version: 2.5
--------------
-Added OpenLink enhancements
+Jun 4 2001, V3.0.4:
+    * Reorganized source tree to use multiple subdirectories in 
+      preparation of adding the new iodbcinst code
+    * Use config.h instead of massive CFLAGS
+    * Generate libiodbc.spec with correct version number
 
+Jun 1 2001, V3.0.3:
+    * Added support for automake 1.4-p2, autoconf 2.50 and libtool 1.4
+    * Fixed problems with shl_unload on HP/UX
+    * Added support for MacOS X 1.2 (Darwin)
+    * Disallow root to start a debug session (security risk)
+    * SQLDatasources returns Driver Type instead of DSN Description
+    * Added checks for ODBC 3.x date, time and timestamp defines
+    * Fixed initialization of cip flag 
 
-Version: 2.12
--------------
-Original version of Ke Jin
+Feb 1 2000, V3.0.2:
+    * Fixed deadlock problem in SQLNumResultCols
+    * Small code fix in SQLDatasources
+
+Jan 28 2000, V3.0.1:
+    * Added thread support into Driver Manager
+    * Added code to allow Threaded application to call non-threaded driver
+    * Small code fixes and cleanups
+
+Dec 16 1999, V3.0.0:
+    * Added initial support for ODBC 3.x API and the ODBC 3.x to 2.x
+      translation layer
+    * Added --disable-odbc3 flag to configure.in for building ODBC 2.x 
+      compatible driver manager
+    * Added --enable-maintainer-mode flag to configure.in
+    * Rewrote dlopen and underscore checks in configure.in
+    * Default iodbc-inidir is set to /etc
+    * Clear error stack at the start of each ODBC function
+    * Imported libtool 1.3.4
+    * Small code cleanups
+    * Created iodbc-config script for other projects to find out how
+      to link with the iodbc libraries.
+    * Fixed bug in SQLDataSources 
+    * Added initial support for MacOS X (Rhapsody)
+    * Add some ODBC 3.x API calls to the odbctest program
+    
+June 25, 1999, V2.50.3:
+    * Renamed public header files to conform to ODBC standard 
+    * System wide iodbc.ini can now be set with --with-odbc-inidir=,
+      default is set to $sysconfdir/odbc.ini to comply with GNU 
+      standards
+    * Some small bug fixes
+    * Added AutoReqProv flag to RPM .spec file
+    * Changed types for SQLHENV, SQLHDBC, SQLHSTMT
+
+April 26, 1999, V2.50.2:
+    * Small code cleanups (pvk)
+    * Wrote new handle validation checks to make the driver manager more
+      resistant to handle misuse (pvk)
+    * Rewrote all function prototypes to conform to ODBC 2.51 standard (pvk)
+    * Use the internal form of the handle instead of the external
+      representation (pvk)
+    * Removed 2 copyright sccs stamps and comments as requested by Ke Jin (pvk)
+    * Added rudementary SQLGetPrivateProfileString call (pvk)
+    * Added support for VMS (ps)
+
+January 18, 1999, V2.50:
+    * Added autoconf/automake/libtool support
+    * Licensing moved to LGPL 
+    * Added OpenLink code enhancements and bug fixes
+
+------------------------------------------------------------------------
+Original Changelog from Ke Jin
+------------------------------------------------------------------------
+July 30, 1995, v2.00.beta: 
+	0. the first release and beta version. 
+
+Sep. 11, 1995, v2.10:
+	1. Porting to AIX 3.x and 4.x, by writing dlopen(),
+	   dlsym(), dlclose() interface. 
+	2. Tested on SCO OpenServer 5.x 
+	3. Awared of that, unlike s700/s800, exported function 
+	   symbols on HP9000 s300/s400 will be prepended with 
+	   a '_' prefix by compiler(and this '_' prefix is not
+	   automatically handled by shl_findsym()). Now, it works
+	   fine on s300/s400.
+	4. Support driver ODBC call tracing.
+
+Oct. 12, 1995, v2.11:
+	5. Driver's SQLNumResultCols() will automatically be 
+	   invoked in driver manager's SQLExecute(),
+	   SQLExecDirect() and SQLParamData() after successfully 
+	   (i.e. return SQL_SUCCESS or SQL_SUCCESS_WITH_INFO )
+	   calling of their correspondent driver functions. This 
+	   simplifies the state tracing/checking of the driver 
+	   manager a lot and allows store procedures to return 
+	   result set and also make iODBC driver manager work 
+	   properly with SELECT INTO statements which actually 
+	   don't return result sets.
+	6. Memory leaks are cleared.
+	7. Two bugs in dld.c for AIX are fixed 
+	8. A bug of setting tracing option is fixed.
+	9. The driver will not be unloaded by SQLDisconnect() 
+	   but by SQLFreeConnect() or next SQLConnect()/
+	   SQLDriverConnect()/SQLBrowsConnect() on a different 
+	   driver. This will save driver's loading time if it
+	   has been used by a previous connection(even there
+	   is no active connection on this driver).
+	10.Another three platforms are supported:
+		FreeBSD			2.x 
+		Concurrent Max/OS SVR4	1.x
+		DG/UX			5.x
+	11.autoconfig and build -- shell scripts to help modifying 
+	   Config.mk and building iodbc driver manager
+
+Nov. 12, 1995, v2.12
+	12.I realized that a driver manager doesn't aware of 
+	   difference between a C5 (i.e. hstmt) and a C6 
+	   (i.e. transaction) states. 
+	13.The link flags "-lc" has been droped from Linux ELF
+	   section of Config.mk to fix a segment fault problem.
+	   Now, it works fine on Slackware 2.3 and Red Hat 2.0
+	   (kernel version are 1.2.xx and 1.3.xx respectively).
+	14.On FreeBSD 2.x, dlsym() doesn't handle the '_' prefix 
+	   prepended to an exportting function symbol by compiler. 
+	   So, CLI_NAME_PREFIX needs to be defined as "_SQL" for 
+	   FreeBSD 2.x. 
+	15.Some files are renamed
+		dld.c	-> dlf.c
+		dld.h	-> dlf.h
+		confg.h -> config.h
+	16. Fix a bug on setting tracing options.
+

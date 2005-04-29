@@ -26,8 +26,7 @@
  */
 
 #include "CAttributeList.h"
-#include "PrivateTypes.h"
-
+#include "DSUtils.h"
 
 //------------------------------------------------------------------------------------
 //	* CAttributeList
@@ -36,6 +35,21 @@
 CAttributeList::CAttributeList ( tDataListPtr inNodeList )
 {
 	fNodeList = inNodeList;
+	bCleanData = false;
+} // CAttributeList
+
+
+//------------------------------------------------------------------------------------
+//	* CAttributeList
+//------------------------------------------------------------------------------------
+
+CAttributeList::CAttributeList ( char *inNode )
+{   
+	if (inNode != nil)
+	{
+		fNodeList = dsBuildListFromStringsPriv( inNode, nil );
+		bCleanData = true;
+	}
 } // CAttributeList
 
 
@@ -45,6 +59,13 @@ CAttributeList::CAttributeList ( tDataListPtr inNodeList )
 
 CAttributeList::~CAttributeList ( void )
 {
+	if ( (bCleanData) && (fNodeList != nil) )
+	{
+		dsDataListDeallocatePriv( fNodeList );
+		//need to free the header as well
+		free( fNodeList );
+		fNodeList = nil;
+	}
 } // ~CAttributeList
 
 
@@ -54,7 +75,7 @@ CAttributeList::~CAttributeList ( void )
 
 uInt32 CAttributeList::GetCount ( void )
 {
-	if ( fNodeList != 0 )
+	if ( fNodeList != nil )
 	{
 		return( fNodeList->fDataNodeCount );
 	}
@@ -73,10 +94,10 @@ sInt32 CAttributeList::GetAttribute ( uInt32 inIndex, char **outData )
 	sInt32				result		= eDSNoErr;
 	bool				done		= false;
 	uInt32				i			= 0;
-	tDataNodePtr		pCurrNode	= 0;
-	tDataBufferPriv	   *pPrivData	= 0;
+	tDataNodePtr		pCurrNode	= nil;
+	tDataBufferPriv	   *pPrivData	= nil;
 
-	if ( fNodeList == 0 )
+	if ( fNodeList == nil )
 	{
 		result = eDSNullAttributeTypeList;
 	}
@@ -89,7 +110,7 @@ sInt32 CAttributeList::GetAttribute ( uInt32 inIndex, char **outData )
 		}
 	}
 
-	if ( pCurrNode == 0 )
+	if ( pCurrNode == nil )
 	{
 		result = eDSAttrListError;
 	}
@@ -107,7 +128,7 @@ sInt32 CAttributeList::GetAttribute ( uInt32 inIndex, char **outData )
 
 		if ( !done )
 		{
-			if ( pPrivData->fNextPtr != 0 )
+			if ( pPrivData->fNextPtr != nil )
 			{
 				pCurrNode = pPrivData->fNextPtr;
 			}

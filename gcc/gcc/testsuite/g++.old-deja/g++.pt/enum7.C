@@ -1,3 +1,4 @@
+// { dg-do run  }
 template <int I>
 int f()
 {
@@ -8,7 +9,7 @@ int f()
       E e;
       e = a;
       return (int) e;
-    };
+    }
   };
 
   S s;

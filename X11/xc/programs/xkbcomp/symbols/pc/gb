@@ -1,7 +1,7 @@
 
 // based on a keyboard map from an 'xkb/symbols/gb' file
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/gb,v 1.4 2002/12/13 04:18:04 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/gb,v 1.7 2004/02/26 07:10:57 pascal Exp $
 
 partial default alphanumeric_keys
 xkb_symbols "basic" {
@@ -25,7 +25,37 @@ xkb_symbols "basic" {
     key <BKSL>	{ [numbersign, asciitilde,   dead_grave,   dead_breve ]	};
     key <LSGT>	{ [ backslash,        bar,          bar,    brokenbar ]	};
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    include "level3(ralt_switch_multikey)"
+};
+
+partial default alphanumeric_keys 
+xkb_symbols "intl" { 
+
+    // Describes the differences between a very simple en_US 
+    // keyboard and a very simple U.K. keyboard layout with 
+    // dead keys. By Phil Jones (philjones1@blueyonder.co.uk) 
+
+    // Includes the following keys: 
+    // dead_grave 
+    // dead_acute 
+    // dead_circumflex 
+    // dead_tilde 
+    // dead_diaeresis 
+
+    include "pc/latin" 
+
+    name[Group1]="Great Britain"; 
+
+    key <AE02>  { [   2,  dead_diaeresis,      twosuperior,     onehalf ] };
+    key <AE03>  { [   3,        sterling,    threesuperior,    onethird ] };
+    key <AE04>  { [   4,          dollar,         EuroSign,  onequarter ] };
+    key <AE06>  { [   6, dead_circumflex,         NoSymbol,    onesixth ] };
+
+    key <AC11>  { [ dead_acute,         at,     apostrophe,         bar ] };
+    key <TLDE>  { [ dead_grave,    notsign,            bar,         bar ] };
+
+    key <BKSL>  { [ numbersign, dead_tilde,            bar,         bar ] };
+    key <LSGT>  { [  backslash,        bar,            bar,         bar ] };
+
+    include "level3(ralt_switch_multikey)"
 };

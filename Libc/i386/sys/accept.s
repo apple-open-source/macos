@@ -25,5 +25,8 @@
  */
 #include "SYS.h"
 
-UNIX_SYSCALL(accept, 3)
+PSEUDO(accept$UNIX2003, accept, 3)
+	ret
+
+UNIX_SYSCALL_ERR(accept, 3, cerror_cvt)
 	ret

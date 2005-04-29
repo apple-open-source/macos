@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.python.text</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.python.html">Package&nbsp;python</a> ::
+        Module&nbsp;text
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.python.text.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.python.text</h2>
+
+Miscellany of text-munging functions.
+<hr/>
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.text.html#docstringLStrip" class="summary-sig-name"><code>docstringLStrip</code></a>(<span class=summary-sig-arg>docstring</span>)</span></code>
+<br />
+Gets rid of unsightly lefthand docstring whitespace residue.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.text.html#endsInNewline" class="summary-sig-name"><code>endsInNewline</code></a>(<span class=summary-sig-arg>s</span>)</span></code>
+<br />
+Returns True if this string ends in a newline.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.text.html#greedyWrap" class="summary-sig-name"><code>greedyWrap</code></a>(<span class=summary-sig-arg>inString</span>,
+          <span class=summary-sig-arg>width</span>)</span></code>
+<br />
+Given a string and a column width, return a list of lines.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.text.html#isMultiline" class="summary-sig-name"><code>isMultiline</code></a>(<span class=summary-sig-arg>s</span>)</span></code>
+<br />
+Returns True if this string has a newline in it.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="removeLeadingBlanks"></a><span class="summary-sig"><span class="summary-sig-name">removeLeadingBlanks</span>(<span class=summary-sig-arg>lines</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="removeLeadingTrailingBlanks"></a><span class="summary-sig"><span class="summary-sig-name">removeLeadingTrailingBlanks</span>(<span class=summary-sig-arg>s</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.text.html#splitQuoted" class="summary-sig-name"><code>splitQuoted</code></a>(<span class=summary-sig-arg>s</span>)</span></code>
+<br />
+Like string.split, but don't break substrings inside quotes.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>bool</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.text.html#strFile" class="summary-sig-name"><code>strFile</code></a>(<span class=summary-sig-arg>p</span>,
+          <span class=summary-sig-arg>f</span>,
+          <span class=summary-sig-arg>caseSensitive</span>)</span></code>
+<br />
+Find whether string p occurs in a read()able object f</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.text.html#stringyString" class="summary-sig-name"><code>stringyString</code></a>(<span class=summary-sig-arg>object</span>,
+          <span class=summary-sig-arg>indentation</span>)</span></code>
+<br />
+Expansive string formatting for sequence types.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.text.html#greedyWrap" class="summary-sig-name"><code>wordWrap</code></a>(<span class=summary-sig-arg>inString</span>,
+          <span class=summary-sig-arg>width</span>)</span></code>
+<br />
+Given a string and a column width, return a list of lines.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="docstringLStrip"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">docstringLStrip</span>(<span class=sig-arg>docstring</span>)</span>
+  </h3>
+  <p>Gets rid of unsightly lefthand docstring whitespace residue.</p>
+  <p>You'd think someone would have done this already, but apparently not 
+  in 1.5.2.</p>
+  BUT since we're all using Python 2.1 now, use 
+  <code>inspect.getdoc</code> instead. <i>This function should go away 
+  soon.</i>
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="endsInNewline"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">endsInNewline</span>(<span class=sig-arg>s</span>)</span>
+  </h3>
+  Returns True if this string ends in a newline.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="greedyWrap"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">greedyWrap</span>(<span class=sig-arg>inString</span>,
+          <span class=sig-arg>width</span>=<span class=sig-default>80</span>)</span>
+  </h3>
+  <p>Given a string and a column width, return a list of lines.</p>
+  Caveat: I'm use a stupid greedy word-wrapping algorythm. I won't put 
+  two spaces at the end of a sentence. I don't do full justification. And 
+  no, I've never even *heard* of hypenation.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="isMultiline"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">isMultiline</span>(<span class=sig-arg>s</span>)</span>
+  </h3>
+  Returns True if this string has a newline in it.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="splitQuoted"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">splitQuoted</span>(<span class=sig-arg>s</span>)</span>
+  </h3>
+  Like string.split, but don't break substrings inside quotes.
+<pre class="doctestblock">
+<span class="py-src"><span class="py-prompt">&gt;&gt;&gt; </span>splitQuoted(<span class="py-string">'the &quot;hairy monkey&quot; likes pie'</span>)</span>
+<span class="py-output">['the', 'hairy monkey', 'likes', 'pie']</span></pre>
+  Another one of those &quot;someone must have a better solution for 
+  this&quot; things. This implementation is a VERY DUMB hack done too 
+  quickly.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="strFile"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">strFile</span>(<span class=sig-arg>p</span>,
+          <span class=sig-arg>f</span>,
+          <span class=sig-arg>caseSensitive</span>=<span class=sig-default>1</span>)</span>
+  </h3>
+  Find whether string p occurs in a read()able object f
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <code>bool</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="stringyString"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">stringyString</span>(<span class=sig-arg>object</span>,
+          <span class=sig-arg>indentation</span>=<span class=sig-default>''</span>)</span>
+  </h3>
+  <p>Expansive string formatting for sequence types.</p>
+  <p>list.__str__ and dict.__str__ use repr() to display their elements. 
+  This function also turns these sequence types into strings, but uses 
+  str() on their elements instead.</p>
+  Sequence elements are also displayed on seperate lines, and nested 
+  sequences have nested indentation.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="greedyWrap"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">wordWrap</span>(<span class=sig-arg>inString</span>,
+          <span class=sig-arg>width</span>=<span class=sig-default>80</span>)</span>
+  </h3>
+  <p>Given a string and a column width, return a list of lines.</p>
+  Caveat: I'm use a stupid greedy word-wrapping algorythm. I won't put 
+  two spaces at the end of a sentence. I don't do full justification. And 
+  no, I've never even *heard* of hypenation.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:07:42 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

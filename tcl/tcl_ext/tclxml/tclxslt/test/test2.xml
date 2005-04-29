@@ -1,0 +1,7 @@
+<!DOCTYPE article [
+  <!ENTITY ext SYSTEM "test2-1.mod">
+]>
+<article>
+  &ext;
+</article>
+

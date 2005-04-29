@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: strtok.c,v 1.1.1.1 2002/11/26 19:08:01 zarzycki Exp $
+ * $Id: strtok.c,v 1.13 2004/01/29 13:56:45 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -26,6 +26,8 @@
 #ifndef HAVE_STRTOK_R
 #include <stddef.h>
 #include <string.h>
+
+#include "strtok.h"
 
 char *
 Curl_strtok_r(char *ptr, const char *sep, char **end)
@@ -64,11 +66,3 @@ Curl_strtok_r(char *ptr, const char *sep, char **end)
 }
 
 #endif /* this was only compiled if strtok_r wasn't present */
-
-/*
- * local variables:
- * eval: (load-file "../curl-mode.el")
- * end:
- * vim600: fdm=marker
- * vim: et sw=2 ts=2 sts=2 tw=78
- */

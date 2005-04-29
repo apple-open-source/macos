@@ -1,0 +1,64 @@
+.\"Modified from man(1) of FreeBSD, the NetBSD mdoc.template, and mdoc.samples.
+.\"See Also:
+.\"man mdoc.samples for a complete listing of options
+.\"man mdoc for the short list of editing options
+.\"/usr/share/misc/mdoc.template
+.Dd Feb 21, 2003       \" DATE 
+.Dt dirt 1       \" Program name and manual section number 
+.Os MacOSX
+.Sh NAME                 \" Section Header - required - don't modify 
+.Nm dirt 
+.\" The following lines are read in generating the apropos(man -k) database. Use only key
+.\" words here as the database is built based on the words here and in the .ND line. 
+.\" Use .Nm macro to designate other names for the documented program.
+.Nd A Directory Tool for testing Directory Services
+.Sh SYNOPSIS             \" Section Header - required - don't modify
+.Nm
+.Op Fl c         \" [options] 
+.Op Fl g         \" [options] 
+.Op Fl s         \" [options] 
+.Op Fl l | Fl m Ar path | Fl n        \" [options] 
+.Op Fl q Ar query_iterations Op Fl d Ar seconds         \" [options] 
+.Fl u Ar username
+.Op Fl p Ar password
+.Sh DESCRIPTION          \" Section Header - required - don't modify
+The dirt tool is a command line utility for testing Directory Services.  Common usages are to do simple authentication tests on various nodes (including search node) as well as repetitive stress testing.
+.Pp
+The options are as follows:
+.Pp
+.Nm options:
+.Bl -tag -width -indent  \" Differs from above in -compact tag removed 
+.It Fl l
+Search Local node only 
+.It Fl c
+Search the Contacts search path (default is to use the Authentication path)
+.It Fl m Ar path
+Search on node named path 
+.It Fl q Ar n
+Perform the specified query operation n times. (specify 0 to loop forever) 
+.It Fl d Ar n
+Sleep n seconds between each query iteration.  Default is 0. 
+.It Fl g
+Search for groups instead of users. 
+.It Fl a Ar auth_method
+Use specified authentication method. Available methods:
+.Dl nt --> SMB-NT
+.It Fl s
+Grep the DS headers for final status code. 
+.El                      \" Ends the list
+.\" The following are optional section headers. Remove the comment tag to use.
+.\" .Sh RETURN VALUES    \"Sections 2 and 3
+.\" .Sh ENVIRONMENT      \"Sections 1, 6, 7, and 8
+.\" .Sh FILES
+.\" .Sh EXAMPLES
+.\" .Ev PAGER
+.\" .Sh DIAGNOSTICS      \"Sections 1, 6, 7, and 8
+.\" .Sh ERRORS           \"Sections 2 and 3
+.Sh SEE ALSO 
+.\" List links in ascending order by section, alphabetically within a section.
+.\" Please do not reference files that do not exist without filing a bug report
+.Xr DirectoryService 8
+.Xr dscl 1
+.Xr DirectoryServiceAttributes 7
+.\" .Sh BUGS 
+.\" .Sh HISTORY 

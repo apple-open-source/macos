@@ -1,4 +1,4 @@
-/*	$NetBSD: el.c,v 1.19 2000/09/04 22:06:29 lukem Exp $	*/
+/*	$NetBSD: el.c,v 1.29 2002/03/18 16:00:52 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,10 +36,17 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * el.c: EditLine interface functions
  */
-#include "sys.h"
+#include <sys/types.h>
+#include <sys/param.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
 #include "el.h"
 
 /* el_init():
@@ -48,10 +55,8 @@
 public EditLine *
 el_init(const char *prog, FILE *fin, FILE *fout, FILE *ferr)
 {
+
 	EditLine *el = (EditLine *) el_malloc(sizeof(EditLine));
-#ifdef DEBUG
-	char *tty;
-#endif
 
 	if (el == NULL)
 		return (NULL);
@@ -68,7 +73,11 @@ el_init(const char *prog, FILE *fin, FILE *fout, FILE *ferr)
          */
 	el->el_flags = 0;
 
-	(void) term_init(el);
+	if (term_init(el) == -1) {
+		free(el->el_prog);
+		el_free(el);
+		return NULL;
+	}
 	(void) key_init(el);
 	(void) map_init(el);
 	if (tty_init(el) == -1)
@@ -78,6 +87,7 @@ el_init(const char *prog, FILE *fin, FILE *fout, FILE *ferr)
 	(void) hist_init(el);
 	(void) prompt_init(el);
 	(void) sig_init(el);
+	(void) read_init(el);
 
 	return (el);
 }
@@ -129,11 +139,12 @@ public int
 el_set(EditLine *el, int op, ...)
 {
 	va_list va;
-	int rv;
-	va_start(va, op);
+	int rv = 0;
 
 	if (el == NULL)
 		return (-1);
+	va_start(va, op);
+
 	switch (op) {
 	case EL_PROMPT:
 	case EL_RPROMPT:
@@ -153,7 +164,6 @@ el_set(EditLine *el, int op, ...)
 			el->el_flags |= HANDLE_SIGNALS;
 		else
 			el->el_flags &= ~HANDLE_SIGNALS;
-		rv = 0;
 		break;
 
 	case EL_BIND:
@@ -162,7 +172,7 @@ el_set(EditLine *el, int op, ...)
 	case EL_ECHOTC:
 	case EL_SETTY:
 	{
-		char *argv[20];
+		const char *argv[20];
 		int i;
 
 		for (i = 1; i < 20; i++)
@@ -197,7 +207,7 @@ el_set(EditLine *el, int op, ...)
 
 		default:
 			rv = -1;
-			abort();
+			EL_ABORT((el->el_errfile, "Bad op %d\n", op));
 			break;
 		}
 		break;
@@ -230,8 +240,20 @@ el_set(EditLine *el, int op, ...)
 		rv = 0;
 		break;
 
+	case EL_GETCFN:
+	{
+		el_rfunc_t rc = va_arg(va, el_rfunc_t);
+		rv = el_read_setfn(el, rc);
+		break;
+	}
+
+	case EL_CLIENTDATA:
+		el->el_data = va_arg(va, void *);
+		break;
+
 	default:
 		rv = -1;
+		break;
 	}
 
 	va_end(va);
@@ -315,7 +337,7 @@ el_get(EditLine *el, int op, void *ret)
 
 		default:
 			rv = -1;
-			abort();
+			EL_ABORT((el->errfile, "Bad op %d\n", op));
 			break;
 		}
 		break;
@@ -340,6 +362,16 @@ el_get(EditLine *el, int op, void *ret)
 		break;
 #endif /* XXX */
 
+	case EL_GETCFN:
+		*((el_rfunc_t *)ret) = el_read_getfn(el);
+		rv = 0;
+		break;
+
+	case EL_CLIENTDATA:
+		*((void **)ret) = el->el_data;
+		rv = 0;
+		break;
+
 	default:
 		rv = -1;
 	}
@@ -358,7 +390,6 @@ el_line(EditLine *el)
 	return (const LineInfo *) (void *) &el->el_line;
 }
 
-static const char elpath[] = "/.editrc";
 
 /* el_source():
  *	Source a file
@@ -368,14 +399,13 @@ el_source(EditLine *el, const char *fname)
 {
 	FILE *fp;
 	size_t len;
-	char *ptr, path[MAXPATHLEN];
+	char *ptr;
 
 	fp = NULL;
 	if (fname == NULL) {
-#if HAVE_ISSETUGID
-		if (issetugid())
-			return (-1);
-#endif
+		static const char elpath[] = "/.editrc";
+		char path[MAXPATHLEN];
+
 		if ((ptr = getenv("HOME")) == NULL)
 			return (-1);
 		if (strlcpy(path, ptr, sizeof(path)) >= sizeof(path))
@@ -441,7 +471,7 @@ el_beep(EditLine *el)
  */
 protected int
 /*ARGSUSED*/
-el_editmode(EditLine *el, int argc, char **argv)
+el_editmode(EditLine *el, int argc, const char **argv)
 {
 	const char *how;
 

@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -23,6 +23,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "toplev.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -35,141 +37,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 
 #ifdef INSN_SCHEDULING
-/* target_units bitmask has 1 for each unit in the cpu.  It should be
-   possible to compute this variable from the machine description.
-   But currently it is computed by examining the insn list.  Since
-   this is only needed for visualization, it seems an acceptable
-   solution.  (For understanding the mapping of bits to units, see
-   definition of function_units[] in "insn-attrtab.c".)  The scheduler
-   using only DFA description should never use the following variable.  */
 
-static int target_units = 0;
-
-static char *safe_concat PARAMS ((char *, char *, const char *));
-static int get_visual_tbl_length PARAMS ((void));
-static void print_exp PARAMS ((char *, rtx, int));
-static void print_value PARAMS ((char *, rtx, int));
-static void print_pattern PARAMS ((char *, rtx, int));
-
-/* Print names of units on which insn can/should execute, for debugging.  */
-
-void
-insn_print_units (insn)
-     rtx insn;
-{
-  int i;
-  int unit = insn_unit (insn);
-
-  if (unit == -1)
-    fprintf (sched_dump, "none");
-  else if (unit >= 0)
-    fprintf (sched_dump, "%s", function_units[unit].name);
-  else
-    {
-      fprintf (sched_dump, "[");
-      for (i = 0, unit = ~unit; unit; i++, unit >>= 1)
-	if (unit & 1)
-	  {
-	    fprintf (sched_dump, "%s", function_units[i].name);
-	    if (unit != 1)
-	      fprintf (sched_dump, " ");
-	  }
-      fprintf (sched_dump, "]");
-    }
-}
-
-/* MAX_VISUAL_LINES is the maximum number of lines in visualization table
-   of a basic block.  If more lines are needed, table is splitted to two.
-   n_visual_lines is the number of lines printed so far for a block.
-   visual_tbl contains the block visualization info.
-   vis_no_unit holds insns in a cycle that are not mapped to any unit.  */
-#define MAX_VISUAL_LINES 100
-#define INSN_LEN 30
-int n_visual_lines;
-static unsigned visual_tbl_line_length;
-char *visual_tbl;
-int n_vis_no_unit;
-#define MAX_VISUAL_NO_UNIT 20
-rtx vis_no_unit[MAX_VISUAL_NO_UNIT];
-
-/* Finds units that are in use in this function.  Required only
-   for visualization.  */
-
-void
-init_target_units ()
-{
-  rtx insn;
-  int unit;
-
-  for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
-    {
-      if (! INSN_P (insn))
-	continue;
-
-      unit = insn_unit (insn);
-
-      if (unit < 0)
-	target_units |= ~unit;
-      else
-	target_units |= (1 << unit);
-    }
-}
-
-/* Return the length of the visualization table.  */
-
-static int
-get_visual_tbl_length ()
-{
-  int unit, i;
-  int n, n1;
-  char *s;
-
-  if (targetm.sched.use_dfa_pipeline_interface
-      && (*targetm.sched.use_dfa_pipeline_interface) ())
-    {
-      visual_tbl_line_length = 1;
-      return 1; /* Can't return 0 because that will cause problems
-                   with alloca.  */
-    }
-
-  /* Compute length of one field in line.  */
-  s = (char *) alloca (INSN_LEN + 6);
-  sprintf (s, "  %33s", "uname");
-  n1 = strlen (s);
-
-  /* Compute length of one line.  */
-  n = strlen (";; ");
-  n += n1;
-  for (unit = 0; unit < FUNCTION_UNITS_SIZE; unit++)
-    if (function_units[unit].bitmask & target_units)
-      for (i = 0; i < function_units[unit].multiplicity; i++)
-	n += n1;
-  n += n1;
-  n += strlen ("\n") + 2;
-
-  visual_tbl_line_length = n;
-
-  /* Compute length of visualization string.  */
-  return (MAX_VISUAL_LINES * n);
-}
-
-/* Init block visualization debugging info.  */
-
-void
-init_block_visualization ()
-{
-  strcpy (visual_tbl, "");
-  n_visual_lines = 0;
-  n_vis_no_unit = 0;
-}
+static char *safe_concat (char *, char *, const char *);
+static void print_exp (char *, rtx, int);
+static void print_value (char *, rtx, int);
+static void print_pattern (char *, rtx, int);
 
 #define BUF_LEN 2048
 
 static char *
-safe_concat (buf, cur, str)
-     char *buf;
-     char *cur;
-     const char *str;
+safe_concat (char *buf, char *cur, const char *str)
 {
   char *end = buf + BUF_LEN - 2;	/* Leave room for null.  */
   int c;
@@ -192,10 +69,7 @@ safe_concat (buf, cur, str)
    may be stored in objects representing values.  */
 
 static void
-print_exp (buf, x, verbose)
-     char *buf;
-     rtx x;
-     int verbose;
+print_exp (char *buf, rtx x, int verbose)
 {
   char tmp[BUF_LEN];
   const char *st[4];
@@ -542,14 +416,11 @@ print_exp (buf, x, verbose)
     cur = safe_concat (buf, cur, ")");
 }		/* print_exp */
 
-/* Prints rtxes, I customly classified as values.  They're constants,
+/* Prints rtxes, I customarily classified as values.  They're constants,
    registers, labels, symbols and memory accesses.  */
 
 static void
-print_value (buf, x, verbose)
-     char *buf;
-     rtx x;
-     int verbose;
+print_value (char *buf, rtx x, int verbose)
 {
   char t[BUF_LEN];
   char *cur = buf;
@@ -639,10 +510,7 @@ print_value (buf, x, verbose)
 /* The next step in insn detalization, its pattern recognition.  */
 
 static void
-print_pattern (buf, x, verbose)
-     char *buf;
-     rtx x;
-     int verbose;
+print_pattern (char *buf, rtx x, int verbose)
 {
   char t1[BUF_LEN], t2[BUF_LEN], t3[BUF_LEN];
 
@@ -698,8 +566,7 @@ print_pattern (buf, x, verbose)
       break;
     case SEQUENCE:
       /* Should never see SEQUENCE codes until after reorg.  */
-      abort ();
-      break;
+      gcc_unreachable ();
     case ASM_INPUT:
       sprintf (buf, "asm {%s}", XSTR (x, 0));
       break;
@@ -753,10 +620,7 @@ print_pattern (buf, x, verbose)
    depends now on sched.c inner variables ...)  */
 
 void
-print_insn (buf, x, verbose)
-     char *buf;
-     rtx x;
-     int verbose;
+print_insn (char *buf, rtx x, int verbose)
 {
   char t[BUF_LEN];
   rtx insn = x;
@@ -801,8 +665,12 @@ print_insn (buf, x, verbose)
       break;
     case NOTE:
       if (NOTE_LINE_NUMBER (x) > 0)
-	sprintf (buf, "%4d note \"%s\" %d", INSN_UID (x),
-		 NOTE_SOURCE_FILE (x), NOTE_LINE_NUMBER (x));
+	{
+	  expanded_location xloc;
+	  NOTE_EXPANDED_LOCATION (xloc, x);
+	  sprintf (buf, "%4d note \"%s\" %d", INSN_UID (x),
+		   xloc.file, xloc.line);
+	}
       else
 	sprintf (buf, "%4d %s", INSN_UID (x),
 		 GET_NOTE_INSN_NAME (NOTE_LINE_NUMBER (x)));
@@ -818,146 +686,4 @@ print_insn (buf, x, verbose)
     }
 }				/* print_insn */
 
-/* Print visualization debugging info.  The scheduler using only DFA
-   description should never use the following function.  */
-
-void
-print_block_visualization (s)
-     const char *s;
-{
-  int unit, i;
-
-  /* Print header.  */
-  fprintf (sched_dump, "\n;;   ==================== scheduling visualization %s \n", s);
-
-  /* Print names of units.  */
-  fprintf (sched_dump, ";;   %-8s", "clock");
-  for (unit = 0; unit < FUNCTION_UNITS_SIZE; unit++)
-    if (function_units[unit].bitmask & target_units)
-      for (i = 0; i < function_units[unit].multiplicity; i++)
-	fprintf (sched_dump, "  %-33s", function_units[unit].name);
-  fprintf (sched_dump, "  %-8s\n", "no-unit");
-
-  fprintf (sched_dump, ";;   %-8s", "=====");
-  for (unit = 0; unit < FUNCTION_UNITS_SIZE; unit++)
-    if (function_units[unit].bitmask & target_units)
-      for (i = 0; i < function_units[unit].multiplicity; i++)
-	fprintf (sched_dump, "  %-33s", "==============================");
-  fprintf (sched_dump, "  %-8s\n", "=======");
-
-  /* Print insns in each cycle.  */
-  fprintf (sched_dump, "%s\n", visual_tbl);
-}
-
-/* Print insns in the 'no_unit' column of visualization.  */
-
-void
-visualize_no_unit (insn)
-     rtx insn;
-{
-  if (n_vis_no_unit < MAX_VISUAL_NO_UNIT)
-    {
-      vis_no_unit[n_vis_no_unit] = insn;
-      n_vis_no_unit++;
-    }
-}
-
-/* Print insns scheduled in clock, for visualization.  */
-
-void
-visualize_scheduled_insns (clock)
-     int clock;
-{
-  int i, unit;
-
-  /* If no more room, split table into two.  */
-  if (n_visual_lines >= MAX_VISUAL_LINES)
-    {
-      print_block_visualization ("(incomplete)");
-      init_block_visualization ();
-    }
-
-  n_visual_lines++;
-
-  sprintf (visual_tbl + strlen (visual_tbl), ";;   %-8d", clock);
-  for (unit = 0; unit < FUNCTION_UNITS_SIZE; unit++)
-    if (function_units[unit].bitmask & target_units)
-      for (i = 0; i < function_units[unit].multiplicity; i++)
-	{
-	  int instance = unit + i * FUNCTION_UNITS_SIZE;
-	  rtx insn = get_unit_last_insn (instance);
-
-	  /* Print insns that still keep the unit busy.  */
-	  if (insn
-	      && actual_hazard_this_instance (unit, instance, insn, clock, 0))
-	    {
-	      char str[BUF_LEN];
-	      print_insn (str, insn, 0);
-	      str[INSN_LEN] = '\0';
-	      sprintf (visual_tbl + strlen (visual_tbl), "  %-33s", str);
-	    }
-	  else
-	    sprintf (visual_tbl + strlen (visual_tbl), "  %-33s", "------------------------------");
-	}
-
-  /* Print insns that are not assigned to any unit.  */
-  for (i = 0; i < n_vis_no_unit; i++)
-    sprintf (visual_tbl + strlen (visual_tbl), "  %-8d",
-	     INSN_UID (vis_no_unit[i]));
-  n_vis_no_unit = 0;
-
-  sprintf (visual_tbl + strlen (visual_tbl), "\n");
-}
-
-/* Print stalled cycles.  */
-
-void
-visualize_stall_cycles (stalls)
-     int stalls;
-{
-  static const char *const prefix = ";;       ";
-  const char *suffix = "\n";
-  char *p;
-
-  /* If no more room, split table into two.  */
-  if (n_visual_lines >= MAX_VISUAL_LINES)
-    {
-      print_block_visualization ("(incomplete)");
-      init_block_visualization ();
-    }
-
-  n_visual_lines++;
-
-  p = visual_tbl + strlen (visual_tbl);
-  strcpy (p, prefix);
-  p += strlen (prefix);
-
-  if ((unsigned) stalls >
-      visual_tbl_line_length - strlen (prefix) - strlen (suffix))
-    {
-      suffix = "[...]\n";
-      stalls = visual_tbl_line_length - strlen (prefix) - strlen (suffix);
-    }
-
-  memset (p, '.', stalls);
-  p += stalls;
-
-  strcpy (p, suffix);
-}
-
-/* Allocate data used for visualization during scheduling.  */
-
-void
-visualize_alloc ()
-{
-  visual_tbl = xmalloc (get_visual_tbl_length ());
-}
-
-/* Free data used for visualization.  */
-
-void
-visualize_free ()
-{
-  free (visual_tbl);
-}
 #endif

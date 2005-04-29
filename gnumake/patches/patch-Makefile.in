@@ -1,0 +1,38 @@
+--- Makefile.in.orig	Fri Oct 29 18:06:55 2004
++++ Makefile.in	Fri Oct 29 19:50:44 2004
+@@ -155,7 +155,7 @@
+ make_SOURCES = ar.c arscan.c commands.c default.c dir.c expand.c file.c \
+ 		function.c getopt.c getopt1.c implicit.c job.c main.c \
+ 		misc.c read.c remake.c $(remote) rule.c signame.c \
+-		variable.c version.c vpath.c hash.c
++		variable.c version.c vpath.c hash.c next.c
+ 
+ 
+ EXTRA_make_SOURCES = remote-stub.c remote-cstms.c
+@@ -239,7 +239,7 @@
+ 	implicit.$(OBJEXT) job.$(OBJEXT) main.$(OBJEXT) misc.$(OBJEXT) \
+ 	read.$(OBJEXT) remake.$(OBJEXT) $(am__objects_1) rule.$(OBJEXT) \
+ 	signame.$(OBJEXT) variable.$(OBJEXT) version.$(OBJEXT) \
+-	vpath.$(OBJEXT) hash.$(OBJEXT)
++	vpath.$(OBJEXT) hash.$(OBJEXT) next.$(OBJEXT)
+ make_OBJECTS = $(am_make_OBJECTS)
+ make_DEPENDENCIES = @LIBOBJS@ @ALLOCA@
+ make_LDFLAGS =
+@@ -260,7 +260,8 @@
+ @AMDEP_TRUE@	./$(DEPDIR)/remote-cstms.Po \
+ @AMDEP_TRUE@	./$(DEPDIR)/remote-stub.Po ./$(DEPDIR)/rule.Po \
+ @AMDEP_TRUE@	./$(DEPDIR)/signame.Po ./$(DEPDIR)/variable.Po \
+-@AMDEP_TRUE@	./$(DEPDIR)/version.Po ./$(DEPDIR)/vpath.Po
++@AMDEP_TRUE@	./$(DEPDIR)/version.Po ./$(DEPDIR)/vpath.Po \
++@AMDEP_TRUE@	./$(DEPDIR)/next.Po
+ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+ 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+ CCLD = $(CC)
+@@ -392,6 +393,7 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/variable.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/version.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vpath.Po@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/next.Po@am__quote@
+ 
+ distclean-depend:
+ 	-rm -rf $(DEPDIR) ./$(DEPDIR)

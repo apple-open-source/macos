@@ -247,7 +247,7 @@ UPrincipal::GetInstance (
 		return std::string (instance);
 	} else {
 		if (static_cast<int32_t>(inIndex) < krb5_princ_size (mContext.Get (), Get ())) {
-			return std::string (krb5_princ_component (mContext.Get (), Get (), inIndex) -> data, krb5_princ_component (mContext.Get (), Get (), inIndex) -> length);
+			return std::string (krb5_princ_component (mContext.Get (), Get (), static_cast<int32_t>(inIndex)) -> data, krb5_princ_component (mContext.Get (), Get (), static_cast<int32_t>(inIndex)) -> length);
 		}
 		return std::string ("");
 	}

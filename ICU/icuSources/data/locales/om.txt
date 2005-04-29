@@ -1,87 +1,99 @@
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/om.xml
+// *
 // ***************************************************************************
-// *
-// *   Copyright (C) 2001-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
-// *
-// ***************************************************************************
-// * Oromo language locale.
-// * Contributed by Daniel Yacob <yacob@geez.org>
-// *
-// * Oromo terms are provided by Mahdi Hamid Muudee of Sagalee Oromoo
-// * Publishing Co. Inc and formatted in Posix format locale by Daniel Yacob of
-// * the Ge'ez Frontier Foundation.  The Oromo language terms used here
-// * are those considered to be canonical in the Oromo language under
-// * contemporary and progressive usage adopted by government bureaus
-// * across the Oromo region.  Regional synonyms naturally exist for many
-// * of the month and day names.
-
+/**
+ *  ICU <specials> source: ../../../locale/icu/main/om.xml
+ */
 om{
-    Version{ "2.0" }
-    DayAbbreviations {
-        "Dil",
-        "Wix",
-        "Qib",
-        "Rob",
-        "Kam",
-        "Jim",
-        "San",
+    Countries{
+        ET{"Itoophiyaa"}
+        KE{"Keeniyaa"}
     }
-    DayNames {
-        "Dilbata",
-        "Wiixata",
-        "Qibxata",
-        "Roobii",
-        "Kamiisa",
-        "Jimaata",
-        "Sanbata",
+    Currencies{
+        KES{
+            "Ksh",
+            "KES",
+        }
     }
-//    LanguageLibraryUse { "orm" }
-    MonthAbbreviations {
-        "Ama",
-        "Gur",
-        "Bit",
-        "Elb",
-        "Cam",
-        "Wax",
-        "Ado",
-        "Hag",
-        "Ful",
-        "Onk",
-        "Sad",
-        "Mud",
+    ExemplarCharacters{"[a-z]"}
+    Languages{
+        om{"Oromoo"}
     }
-    MonthNames {
-        "Amajjii",
-        "Guraandhala",
-        "Bitooteessa",
-        "Elba",
-        "Caamsa",
-        "Waxabajjii",
-        "Adooleessa",
-        "Hagayya",
-        "Fuulbana",
-        "Onkololeessa",
-        "Sadaasa",
-        "Muddee",
+    LocaleScript{
+        "Latn",
     }
-    Eras { 
-        "KD",  // KD = Kiristoos Dura = Before Christ
-        "KB",  // KB = Kiristoos Booda = After Christ
-    }
-    DateTimeElements:intvector { 
-        7,
-        1,
-    }
-    Languages { 
-        om { "Oromoo" }
-    }
-    Countries { 
-        ET { "Itoophiyaa" }
-        KE { "Keeniyaa" }
-    }
-
-    // Currency display names
-    Currencies {
-        KES { "Ksh", "KES" }
+    Version{"1.2"}
+    calendar{
+        gregorian{
+            DateTimeElements:intvector{
+                7,
+                1,
+            }
+            dayNames{
+                format{
+                    abbreviated{
+                        "Dil",
+                        "Wix",
+                        "Qib",
+                        "Rob",
+                        "Kam",
+                        "Jim",
+                        "San",
+                    }
+                    wide{
+                        "Dilbata",
+                        "Wiixata",
+                        "Qibxata",
+                        "Roobii",
+                        "Kamiisa",
+                        "Jimaata",
+                        "Sanbata",
+                    }
+                }
+            }
+            eras{
+                abbreviated{
+                    "KD",
+                    "KB",
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "Ama",
+                        "Gur",
+                        "Bit",
+                        "Elb",
+                        "Cam",
+                        "Wax",
+                        "Ado",
+                        "Hag",
+                        "Ful",
+                        "Onk",
+                        "Sad",
+                        "Mud",
+                    }
+                    wide{
+                        "Amajjii",
+                        "Guraandhala",
+                        "Bitooteessa",
+                        "Elba",
+                        "Caamsa",
+                        "Waxabajjii",
+                        "Adooleessa",
+                        "Hagayya",
+                        "Fuulbana",
+                        "Onkololeessa",
+                        "Sadaasa",
+                        "Muddee",
+                    }
+                }
+            }
+        }
     }
 }

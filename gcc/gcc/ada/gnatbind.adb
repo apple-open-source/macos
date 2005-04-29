@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,17 +32,24 @@ with Binderr;  use Binderr;
 with Bindgen;  use Bindgen;
 with Bindusg;
 with Butil;    use Butil;
+with Casing;   use Casing;
 with Csets;
+with Debug;    use Debug;
+with Fmap;
 with Gnatvsn;  use Gnatvsn;
 with Namet;    use Namet;
 with Opt;      use Opt;
 with Osint;    use Osint;
 with Osint.B;  use Osint.B;
 with Output;   use Output;
+with Rident;   use Rident;
+with Snames;
 with Switch;   use Switch;
 with Switch.B; use Switch.B;
 with Targparm; use Targparm;
 with Types;    use Types;
+
+with System.Case_Util; use System.Case_Util;
 
 procedure Gnatbind is
 
@@ -59,19 +65,111 @@ procedure Gnatbind is
    Std_Lib_File : File_Name_Type;
    --  Standard library
 
-   Text : Text_Buffer_Ptr;
-   Id   : ALI_Id;
-
+   Text     : Text_Buffer_Ptr;
    Next_Arg : Positive;
 
    Output_File_Name_Seen : Boolean := False;
+   Output_File_Name      : String_Ptr := new String'("");
 
-   Output_File_Name : String_Ptr := new String'("");
+   L_Switch_Seen : Boolean := False;
+
+   Mapping_File : String_Ptr := null;
+
+   procedure List_Applicable_Restrictions;
+   --  List restrictions that apply to this partition if option taken
 
    procedure Scan_Bind_Arg (Argv : String);
    --  Scan and process binder specific arguments. Argv is a single argument.
    --  All the one character arguments are still handled by Switch. This
    --  routine handles -aO -aI and -I-.
+
+   ----------------------------------
+   -- List_Applicable_Restrictions --
+   ----------------------------------
+
+   procedure List_Applicable_Restrictions is
+
+      --  Define those restrictions that should be output if the gnatbind
+      --  -r switch is used. Not all restrictions are output for the reasons
+      --  given above in the list, and this array is used to test whether
+      --  the corresponding pragma should be listed. True means that it
+      --  should not be listed.
+
+      No_Restriction_List : constant array (All_Restrictions) of Boolean :=
+        (No_Exceptions            => True,
+         --  Has unexpected Suppress (All_Checks) effect
+
+         No_Implicit_Conditionals => True,
+         --  This could modify and pessimize generated code
+
+         No_Implicit_Dynamic_Code => True,
+         --  This could modify and pessimize generated code
+
+         No_Implicit_Loops        => True,
+         --  This could modify and pessimize generated code
+
+         No_Recursion             => True,
+         --  Not checkable at compile time
+
+         No_Reentrancy            => True,
+         --  Not checkable at compile time
+
+         Max_Entry_Queue_Length    => True,
+         --  Not checkable at compile time
+
+         Max_Storage_At_Blocking  => True,
+         --  Not checkable at compile time
+
+         others                   => False);
+
+      Additional_Restrictions_Listed : Boolean := False;
+      --  Set True if we have listed header for restrictions
+
+   begin
+      --  Loop through restrictions
+
+      for R in All_Restrictions loop
+         if not No_Restriction_List (R) then
+
+            --  We list a restriction if it is not violated, or if
+            --  it is violated but the violation count is exactly known.
+
+            if Cumulative_Restrictions.Violated (R) = False
+              or else (R in All_Parameter_Restrictions
+                       and then
+                         Cumulative_Restrictions.Unknown (R) = False)
+            then
+               if not Additional_Restrictions_Listed then
+                  Write_Eol;
+                  Write_Line
+                    ("The following additional restrictions may be" &
+                     " applied to this partition:");
+                  Additional_Restrictions_Listed := True;
+               end if;
+
+               Write_Str ("pragma Restrictions (");
+
+               declare
+                  S : constant String := Restriction_Id'Image (R);
+               begin
+                  Name_Len := S'Length;
+                  Name_Buffer (1 .. Name_Len) := S;
+               end;
+
+               Set_Casing (Mixed_Case);
+               Write_Str (Name_Buffer (1 .. Name_Len));
+
+               if R in All_Parameter_Restrictions then
+                  Write_Str (" => ");
+                  Write_Int (Int (Cumulative_Restrictions.Count (R)));
+               end if;
+
+               Write_Str (");");
+               Write_Eol;
+            end if;
+         end if;
+      end loop;
+   end List_Applicable_Restrictions;
 
    -------------------
    -- Scan_Bind_Arg --
@@ -113,6 +211,13 @@ procedure Gnatbind is
 
          elsif Argv (2) = 'L' then
             if Argv'Length >= 3 then
+
+               --  Remember that the -L switch was specified, so that if this
+               --  is on OpenVMS, the export names are put in uppercase.
+               --  This is not known before the target parameters are read.
+
+               L_Switch_Seen := True;
+
                Opt.Bind_For_Library := True;
                Opt.Ada_Init_Name :=
                  new String'(Argv (3 .. Argv'Last) & Opt.Ada_Init_Suffix);
@@ -124,6 +229,7 @@ procedure Gnatbind is
                --  This option (-Lxxx) implies -n
 
                Opt.Bind_Main_Program := False;
+
             else
                Fail
                  ("Prefix of initialization and finalization " &
@@ -140,6 +246,8 @@ procedure Gnatbind is
                C2 : Character := Argv (4);
 
             begin
+               --  Fold to upper case
+
                if C1 in 'a' .. 'z' then
                   C1 := Character'Val (Character'Pos (C1) - 32);
                end if;
@@ -148,28 +256,36 @@ procedure Gnatbind is
                   C2 := Character'Val (Character'Pos (C2) - 32);
                end if;
 
-               if C1 = 'I' and then C2 = 'N' then
-                  Initialize_Scalars_Mode := 'I';
+               --  Test valid option and set mode accordingly
+
+               if C1 = 'E' and then C2 = 'V' then
+                  null;
+
+               elsif C1 = 'I' and then C2 = 'N' then
+                  null;
 
                elsif C1 = 'L' and then C2 = 'O' then
-                  Initialize_Scalars_Mode := 'L';
+                  null;
 
                elsif C1 = 'H' and then C2 = 'I' then
-                  Initialize_Scalars_Mode := 'H';
+                  null;
 
                elsif (C1 in '0' .. '9' or else C1 in 'A' .. 'F')
                        and then
                      (C2 in '0' .. '9' or else C2 in 'A' .. 'F')
                then
-                  Initialize_Scalars_Mode := 'X';
-                  Initialize_Scalars_Val (1) := C1;
-                  Initialize_Scalars_Val (2) := C2;
+                  null;
 
-               --  Invalid -S switch, let Switch give error
+               --  Invalid -S switch, let Switch give error, set defalut of IN
 
                else
                   Scan_Binder_Switches (Argv);
+                  C1 := 'I';
+                  C2 := 'N';
                end if;
+
+               Initialize_Scalars_Mode1 := C1;
+               Initialize_Scalars_Mode2 := C2;
             end;
 
          --  -aIdir
@@ -206,11 +322,20 @@ procedure Gnatbind is
          elsif Argv (2 .. Argv'Last) = "shared" then
             Opt.Shared_Libgnat := True;
 
+         --  -F=mapping_file
+
+         elsif Argv'Length >= 4 and then Argv (2 .. 3) = "F=" then
+            if Mapping_File /= null then
+               Fail ("cannot specify several mapping files");
+            end if;
+
+            Mapping_File := new String'(Argv (4 .. Argv'Last));
+
          --  -Mname
 
          elsif Argv'Length >= 3 and then Argv (2) = 'M' then
             Opt.Bind_Alternate_Main_Name := True;
-            Opt.Alternate_Main_Name := new String '(Argv (3 .. Argv'Last));
+            Opt.Alternate_Main_Name := new String'(Argv (3 .. Argv'Last));
 
          --  All other options are single character and are handled
          --  by Scan_Binder_Switches.
@@ -240,7 +365,8 @@ begin
 
    declare
       Shared_Libgnat_Default : Character;
-      pragma Import (C, Shared_Libgnat_Default, "shared_libgnat_default");
+      pragma Import
+        (C, Shared_Libgnat_Default, "__gnat_shared_libgnat_default");
 
       SHARED : constant Character := 'H';
       STATIC : constant Character := 'T';
@@ -311,19 +437,50 @@ begin
 
    Osint.Add_Default_Search_Dirs;
 
-   if Verbose_Mode then
-      Namet.Initialize;
-      Targparm.Get_Target_Parameters;
+   --  Carry out package initializations. These are initializations which
+   --  might logically be performed at elaboration time, but Namet at
+   --  least can't be done that way (because it is used in the Compiler),
+   --  and we decide to be consistent. Like elaboration, the order in
+   --  which these calls are made is in some cases important.
 
+   Csets.Initialize;
+   Namet.Initialize;
+   Snames.Initialize;
+
+   --  Acquire target parameters
+
+   Targparm.Get_Target_Parameters;
+
+   --  Initialize Cumulative_Restrictions with the restrictions on the target
+   --  scanned from the system.ads file. Then as we read ALI files, we will
+   --  accumulate additional restrictions specified in other files.
+
+   Cumulative_Restrictions := Targparm.Restrictions_On_Target;
+
+   --  On OpenVMS, when -L is used, all external names used in pragmas Export
+   --  are in upper case. The reason is that on OpenVMS, the macro-assembler
+   --  MACASM-32, used to build Stand-Alone Libraries, only understands
+   --  uppercase.
+
+   if L_Switch_Seen and then OpenVMS_On_Target then
+      To_Upper (Opt.Ada_Init_Name.all);
+      To_Upper (Opt.Ada_Final_Name.all);
+      To_Upper (Opt.Ada_Main_Name.all);
+   end if;
+
+   --  Acquire configurable run-time mode
+
+   if Configurable_Run_Time_On_Target then
+      Configurable_Run_Time_Mode := True;
+   end if;
+
+   --  Output copyright notice if in verbose mode
+
+   if Verbose_Mode then
       Write_Eol;
       Write_Str ("GNATBIND ");
-
-      if Targparm.High_Integrity_Mode_On_Target then
-         Write_Str ("Pro High Integrity ");
-      end if;
-
       Write_Str (Gnat_Version_String);
-      Write_Str (" Copyright 1995-2002 Free Software Foundation, Inc.");
+      Write_Str (" Copyright 1995-2004 Free Software Foundation, Inc.");
       Write_Eol;
    end if;
 
@@ -334,19 +491,19 @@ begin
       Exit_Program (E_Fatal);
    end if;
 
+   --  If a mapping file was specified, initialize the file mapping
+
+   if Mapping_File /= null then
+      Fmap.Initialize (Mapping_File.all);
+   end if;
+
    --  The block here is to catch the Unrecoverable_Error exception in the
    --  case where we exceed the maximum number of permissible errors or some
    --  other unrecoverable error occurs.
 
    begin
-      --  Carry out package initializations. These are initializations which
-      --  might logically be performed at elaboration time, but Namet at
-      --  least can't be done that way (because it is used in the Compiler),
-      --  and we decide to be consistent. Like elaboration, the order in
-      --  which these calls are made is in some cases important.
+      --  Initialize binder packages
 
-      Csets.Initialize;
-      Namet.Initialize;
       Initialize_Binderr;
       Initialize_ALI;
       Initialize_ALI_Source;
@@ -372,29 +529,65 @@ begin
          end if;
 
          Text := Read_Library_Info (Main_Lib_File, True);
-         Id := Scan_ALI
-                 (F         => Main_Lib_File,
-                  T         => Text,
-                  Ignore_ED => Force_RM_Elaboration_Order,
-                  Err       => False);
+
+         declare
+            Id : ALI_Id;
+            pragma Warnings (Off, Id);
+
+         begin
+            Id := Scan_ALI
+                    (F             => Main_Lib_File,
+                     T             => Text,
+                     Ignore_ED     => Force_RM_Elaboration_Order,
+                     Err           => False,
+                     Ignore_Errors => Debug_Flag_I);
+         end;
+
          Free (Text);
+      end loop;
+
+      --  No_Run_Time mode
+
+      if No_Run_Time_Mode then
+
+         --  Set standard configuration parameters
+
+         Suppress_Standard_Library_On_Target            := True;
+         Configurable_Run_Time_Mode                     := True;
+      end if;
+
+      --  For main ALI files, even if they are interfaces, we get their
+      --  dependencies. To be sure, we reset the Interface flag for all main
+      --  ALI files.
+
+      for Index in ALIs.First .. ALIs.Last loop
+         ALIs.Table (Index).Interface := False;
       end loop;
 
       --  Add System.Standard_Library to list to ensure that these files are
       --  included in the bind, even if not directly referenced from Ada code
-      --  This is of course omitted in No_Run_Time mode
+      --  This is suppressed if the appropriate targparm switch is set.
 
-      if not No_Run_Time_Specified then
+      if not Suppress_Standard_Library_On_Target then
          Name_Buffer (1 .. 12) := "s-stalib.ali";
          Name_Len := 12;
          Std_Lib_File := Name_Find;
          Text := Read_Library_Info (Std_Lib_File, True);
-         Id :=
-           Scan_ALI
-             (F         => Std_Lib_File,
-              T         => Text,
-              Ignore_ED => Force_RM_Elaboration_Order,
-              Err       => False);
+
+         declare
+            Id : ALI_Id;
+            pragma Warnings (Off, Id);
+
+         begin
+            Id :=
+              Scan_ALI
+                (F             => Std_Lib_File,
+                 T             => Text,
+                 Ignore_ED     => Force_RM_Elaboration_Order,
+                 Err           => False,
+                 Ignore_Errors => Debug_Flag_I);
+         end;
+
          Free (Text);
       end if;
 
@@ -412,7 +605,7 @@ begin
          Error_Msg
            ("?may result in missing run-time elaboration checks");
          Error_Msg
-           ("?use -gnatE, pragma Suppress (Elaboration_Checks) instead");
+           ("?use -gnatE, pragma Suppress (Elaboration_Check) instead");
       end if;
 
       --  Quit if some file needs compiling
@@ -442,6 +635,12 @@ begin
       Check_Consistency;
       Check_Configuration_Consistency;
 
+      --  List restrictions that could be applied to this partition
+
+      if List_Restrictions then
+         List_Applicable_Restrictions;
+      end if;
+
       --  Complete bind if no errors
 
       if Errors_Detected = 0 then
@@ -454,9 +653,12 @@ begin
                Write_Eol;
 
                for J in Elab_Order.First .. Elab_Order.Last loop
-                  Write_Str ("   ");
-                  Write_Unit_Name (Units.Table (Elab_Order.Table (J)).Uname);
-                  Write_Eol;
+                  if not Units.Table (Elab_Order.Table (J)).Interface then
+                     Write_Str ("   ");
+                     Write_Unit_Name
+                       (Units.Table (Elab_Order.Table (J)).Uname);
+                     Write_Eol;
+                  end if;
                end loop;
 
                Write_Eol;

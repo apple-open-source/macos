@@ -86,28 +86,12 @@
 emulate -L zsh
 setopt extendedglob
 
-# can't be local since required in EXIT trap
-zcalc_orighist=$HISTFILE 
-local temphist=${TMPPREFIX}hist SAVEHIST=$HISTSIZE
-HISTFILE=$temphist
-fc -W
-
-local HISTSIZE=0
-HISTSIZE=$SAVEHIST
-HISTFILE=~/.zcalc_history
-[[ -f $HISTFILE ]] && fc -R
-
-zcalc_restore() {
-    unfunction zcalc_restore
-    fc -W
-    HISTFILE=$zcalc_orighist
-    fc -R
-}
-trap zcalc_restore HUP INT QUIT EXIT
-
 local line ans base defbase forms match mbegin mend psvar optlist opt arg
 local compcontext="-math-"
 integer num outdigits outform=1
+
+# We use our own history file with an automatic pop on exit.
+history -ap ~/.zcalc_history
 
 forms=( '%2$g' '%.*g' '%.*f' '%.*E' )
 

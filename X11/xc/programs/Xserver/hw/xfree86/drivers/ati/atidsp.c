@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atidsp.c,v 1.19 2003/01/01 19:16:31 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atidsp.c,v 1.22 2004/01/05 16:42:02 tsi Exp $ */
 /*
- * Copyright 1997 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1997 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -51,7 +51,7 @@ ATIDSPPreInit
     pATI->ClockDescriptor.NumD = 8;
 
     /* Retrieve XCLK settings */
-    IOValue = ATIGetMach64PLLReg(PLL_XCLK_CNTL);
+    IOValue = ATIMach64GetPLLReg(PLL_XCLK_CNTL);
     pATI->XCLKPostDivider = GetBits(IOValue, PLL_XCLK_SRC_SEL);
     pATI->XCLKReferenceDivider = 1;
     switch (pATI->XCLKPostDivider)
@@ -71,10 +71,10 @@ ATIDSPPreInit
     }
 
     pATI->XCLKPostDivider -= GetBits(IOValue, PLL_MFB_TIMES_4_2B);
-    pATI->XCLKFeedbackDivider = ATIGetMach64PLLReg(PLL_MCLK_FB_DIV);
+    pATI->XCLKFeedbackDivider = ATIMach64GetPLLReg(PLL_MCLK_FB_DIV);
 
     xf86DrvMsgVerb(iScreen, X_INFO, 2,
-        "Engine XCLK %.3f MHz;  Refresh rate code %d.\n",
+        "Engine XCLK %.3f MHz;  Refresh rate code %ld.\n",
         ATIDivide(pATI->XCLKFeedbackDivider * pATI->ReferenceNumerator,
                   pATI->XCLKReferenceDivider * pATI->ClockDescriptor.MaxM *
                   pATI->ReferenceDenominator, 1 - pATI->XCLKPostDivider, 0) /
@@ -100,7 +100,9 @@ ATIDSPPreInit
     {
         case MEM_264_DRAM:
             if (pATI->VideoRAM <= 1024)
+            {
                 pATI->DisplayLoopLatency = 10;
+            }
             else
             {
                 pATI->DisplayLoopLatency = 8;
@@ -111,7 +113,9 @@ ATIDSPPreInit
         case MEM_264_EDO:
         case MEM_264_PSEUDO_EDO:
             if (pATI->VideoRAM <= 1024)
+            {
                 pATI->DisplayLoopLatency = 9;
+            }
             else
             {
                 pATI->DisplayLoopLatency = 8;
@@ -121,7 +125,9 @@ ATIDSPPreInit
 
         case MEM_264_SDRAM:
             if (pATI->VideoRAM <= 1024)
+            {
                 pATI->DisplayLoopLatency = 11;
+            }
             else
             {
                 pATI->DisplayLoopLatency = 10;

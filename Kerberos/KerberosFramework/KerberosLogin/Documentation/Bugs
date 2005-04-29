@@ -1,8 +1,8 @@
 ==============================================================================
 Kerberos Login Library Bug List
 ==============================================================================
-Current version: 1.7fc11
-Date           : September 18, 2003
+Current version: 1.8fc7
+Date           : March 1, 2005
 Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
 ==============================================================================
 
@@ -10,6 +10,43 @@ Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
 Bug #       Bug description                                           Fixed in
 ==============================================================================
 
+[RT 2947] Memory leaks in __KLGetCCacheByName                                   1.8fc7
+[RT 2946] Can't get tickets for v4-only realm                                   1.8fc7
+[RT 2900] incomplete ticket cache confuses KLL                                  1.8fc6
+[RT 2894] prompter dialog should support NULL banner or name                    1.8fc5
+[RT 2899] __KLGetCCAPICCacheForKrb5CCache() leaks the string "name"             1.8fc5
+[RT 2869] KLGetDefaultLoginOption (loginOption_LoginName) returns buffer, not string 1.8fc4
+[RT 2842] Use CopyProcessName instead of GetProcessInformation                  1.8fc4
+[RT 2860] KLChangePassword returns klParameterErr when server doesn't return strings 1.8fc4
+[RT 2809] use cc_ccache_destroy to destroy v4 CCAPI caches                      1.8fc3
+[RT 2827] __KLChangePasswordTerminal() shouldn't report klUserCanceledErr to the user 1.8fc3
+[RT 2828] export __KLCreatePrincipalFromKerberos5Principal as a private symbol  1.8fc3
+[RT 2829] __KLKrb5CCacheExists should use cc_ccache_release to free a ccache    1.8fc3
+[RT 2830] __KLGetSystemDefaultCCache should return an error if is no default ccache 1.8fc3
+[RT 2799] Use kCFPreferencesAnyUser, kCFPreferencesCurrentHost when writing prefs 1.8fc2
+[RT 2800] Use Apple System Logger and set debugging at runtime                  1.8fc2
+[RT 2801] _KLAcquireNewInitialTicketsTerminal should not return krb5 errors     1.8fc2
+[RT 2014] KLL should honor file based krb5 ticket caches                        1.8b9
+[RT 2787] KLL should not use CFPreferencesCopyAppValue                          1.8b9
+[RT 2788] alert sheets returning void should not run modal                      1.8b9
+[RT 2790] New Kerberos Authentication dialog HI                                 1.8b9
+[RT 2769] Narrow authentication dialogs to take up less space                   1.8b8
+[RT 2717] CFBundleGetValueForInfoDictionaryKey() accesses homedir!!             1.8b7
+[RT 2733] KLL should be thread-safe whereever possible                          1.8b7
+[RT 2737] KLL should get des ticket for krb524                                  1.8b7
+[RT 2680] Authenticate to Kerberos dialog should not minimize with error sheet  1.8b6
+[RT 2649] KLL should use session ID *and* UID to distinguish between users      1.8b5
+[RT 2650] KLL should return Kerberos default realm if no favorite default realm 1.8b5
+[RT 2651] KLL should return the short user name if no KLL name exists in prefs  1.8b5
+[RT 2673] Add more fine grained private APIs to control prompting behavior      1.8b5
+[RT 2672] KerberosAgent should use the new Kerberos logo                        1.8b5
+[RT 2575] KLL lock directory should use Session ID, not UID to distinguish between users 1.8b4 
+[RT 2634] Remove use of client principal from krb5_context (default_ccprincipal) 1.8b4
+
+[RT 2566] Kerberos authentication dialog should not steal focus                 1.8b3
+[RT 2567] KLL should support a global preference file                           1.8b3
+[RT 1661] KfM should use Panther mach init per user mechanism                   1.8b2
+[RT 2013] KLRenewInitialTickets and KLValidateInitialTickets leak a krb5_ccache 1.8b1
 [RT 1867] KLVerifyInitialTicket*() should not fail if hostname doesn't resolve  1.7fc11
 [RT 1840] KLL stores tickets with bogus string to key type                      1.7fc10
 [RT 1839] KLS has UI glitches when caller provides principal                    1.7fc10

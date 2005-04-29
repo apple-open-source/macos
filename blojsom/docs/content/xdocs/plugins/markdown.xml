@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Markdown plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The Markdown plugin uses the <a href="http://daringfireball.net/projects/markdown/">Markdown</a>
+                text-to-HTML conversion tool to allow you to use its syntax for writing blog entries. The Markdown
+                plugin calls out to the Markdown tool using Perl, so you will also need to be able to run Perl on
+                your blog server.
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                markdown=org.blojsom.plugin.markdown.MarkdownPlugin
+            </source>
+            <p>
+                You may then add "markdown" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=..., markdown
+            </source>
+            <p>
+                You will need to download the Markdown tool and have
+            </p>
+            <p>
+                In your individual
+                <code>blog.properties</code> file, be sure to add
+                <code>.*markdown</code> to the
+                <em>blog-file-extensions</em> value.
+                The Markdown plugin uses
+                <strong>.markdown</strong> to identify blog entries that should be passed through
+                the plugin for processing, so be sure your entries end with this extension if you want this
+                plugin to work correctly.
+            </p>
+            <p>
+                The Markdown plugin can also be run on entries not ending in a <strong>.markdown</strong> extension
+                by using the metadata plugin before the Markdown plugin in one of the flavor-based plugin chains.
+                The metadata key for the Markdown plugin would be specified as <em>meta-run-markdown=y</em> on a
+                separate line in your blog entry text.
+            </p>
+            <p>
+                You will also need to add the parameter <em>plugin-markdown-execution</em>, which must be set to
+                the command to properly run Perl and the Markdown tool. For example,
+                <code>plugin-markdown-execution=/usr/bin/perl /software/Markdown_1.0b3/Markdown.pl</code>
+            </p>
+        </section>
+        <section>
+            <title>context attributes and types</title>
+            <p>
+                No context attributes are made available or used by the Markdown plugin.
+            </p>
+        </section>
+    </body>
+</document>
+

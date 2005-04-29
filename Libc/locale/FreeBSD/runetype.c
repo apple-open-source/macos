@@ -35,30 +35,34 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/runetype.c,v 1.8 2002/08/21 16:19:56 mike Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/runetype.c,v 1.11 2004/07/29 06:16:19 tjr Exp $");
 
 #include <stdio.h>
-#include <rune.h>
+#include <runetype.h>
 
 unsigned long
 ___runetype(c)
 	__ct_rune_t c;
 {
-	int x;
-	_RuneRange *rr = &_CurrentRuneLocale->runetype_ext;
-	_RuneEntry *re = rr->ranges;
+	size_t lim;
+	_RuneRange *rr = &_CurrentRuneLocale->__runetype_ext;
+	_RuneEntry *base, *re;
 
 	if (c < 0 || c == EOF)
 		return(0L);
 
-	for (x = 0; x < rr->nranges; ++x, ++re) {
-		if (c < re->min)
-			return(0L);
-		if (c <= re->max) {
-			if (re->types)
-			    return(re->types[c - re->min]);
+	/* Binary search -- see bsearch.c for explanation. */
+	base = rr->__ranges;
+	for (lim = rr->__nranges; lim != 0; lim >>= 1) {
+		re = base + (lim >> 1);
+		if (re->__min <= c && c <= re->__max) {
+			if (re->__types)
+			    return(re->__types[c - re->__min]);
 			else
-			    return(re->map);
+			    return(re->__map);
+		} else if (c > re->__max) {
+			base = re + 1;
+			lim--;
 		}
 	}
 

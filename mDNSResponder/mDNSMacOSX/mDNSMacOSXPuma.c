@@ -22,7 +22,7 @@
  *
  * This file is not normally used.
  * It can be conditionally compiled in by defining RUN_ON_PUMA_WITHOUT_IFADDRS
- * in CFSocket.c. It is included mainly as sample code for people building
+ * in mDNSMacOSX.c. It is included mainly as sample code for people building
  * for other platforms that (like Puma) lack the getifaddrs() call.
  * NOTE: YOU CANNOT use this code to build an mDNSResponder daemon for Puma
  * that works just like the Jaguar one, because Puma lacks other necessary
@@ -31,6 +31,9 @@
     Change History (most recent first):
 
 $Log: mDNSMacOSXPuma.c,v $
+Revision 1.5  2004/09/20 23:52:02  cheshire
+CFSocket{Puma}.c renamed to mDNSMacOSX{Puma}.c
+
 Revision 1.4  2003/08/12 19:56:25  cheshire
 Update to APSL 2.0
 
@@ -41,7 +44,7 @@ Revision 1.2  2002/09/21 20:44:51  zarzycki
 Added APSL info
 
 Revision 1.1  2002/09/17 01:36:23  cheshire
-Move Puma support to CFSocketPuma.c
+Move Puma support to mDNSMacOSXPuma.c
 
  */
 

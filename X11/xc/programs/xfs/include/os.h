@@ -47,7 +47,7 @@ in this Software without prior written authorization from The Open Group.
  * $NCDXorg: @(#)os.h,v 4.2 1991/05/10 07:59:16 lemke Exp $
  *
  */
-/* $XFree86: xc/programs/xfs/include/os.h,v 3.14 2002/10/15 01:45:03 dawes Exp $ */
+/* $XFree86: xc/programs/xfs/include/os.h,v 3.15 2004/01/07 03:47:35 dawes Exp $ */
 
 #ifndef	_OS_H_
 #define	_OS_H_
@@ -105,7 +105,6 @@ extern	void	CloseSockets(void);
 extern	void	StopListening(void);
 
 /* os/daemon.c */
-extern	void	BecomeOrphan(void);
 extern	void	BecomeDaemon(void);
 
 /* os/error.c */

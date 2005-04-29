@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for MCore using COFF/PE.
-   Copyright (C) 1994, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1999, 2000, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
 
 This file is part of GNU CC.
@@ -33,7 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "dbxcoff.h"
 
 #undef  SDB_DEBUGGING_INFO
-#undef  DBX_DEBUGGING_INFO
 #define DBX_DEBUGGING_INFO 1
 
 /* Computed in toplev.c.  */
@@ -43,17 +42,15 @@ Boston, MA 02111-1307, USA.  */
    and readonly data. This gets them out of default places.  */
 
 #define SUBTARGET_SWITCH_SECTIONS 		\
-  case in_drectve: drectve_section (); break;	\
-  case in_rdata:   rdata_section (); break;
+  case in_drectve: drectve_section (); break;
 
 #define DRECTVE_SECTION_ASM_OP	"\t.section .drectve"
-#define RDATA_SECTION_ASM_OP	"\t.section .rdata"
+#define READONLY_DATA_SECTION_ASM_OP	"\t.section .rdata"
 
-#define SUBTARGET_EXTRA_SECTIONS in_drectve, in_rdata
+#define SUBTARGET_EXTRA_SECTIONS in_drectve
 
 #define SUBTARGET_EXTRA_SECTION_FUNCTIONS \
-  DRECTVE_SECTION_FUNCTION		  \
-  RDATA_SECTION_FUNCTION
+  DRECTVE_SECTION_FUNCTION
 
 #define DRECTVE_SECTION_FUNCTION 				\
 void								\
@@ -66,63 +63,12 @@ drectve_section ()						\
     }								\
 }
 
-#define RDATA_SECTION_FUNCTION 					\
-void								\
-rdata_section ()						\
-{								\
-  if (in_section != in_rdata)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", RDATA_SECTION_ASM_OP);	\
-      in_section = in_rdata;					\
-    }								\
-}
-
-#undef  READONLY_DATA_SECTION
-#define READONLY_DATA_SECTION() rdata_section ()
-
-/* A C statement or statements to switch to the appropriate
-   section for output of DECL.  DECL is either a `VAR_DECL' node
-   or a constant of some sort.  RELOC indicates whether forming
-   the initial value of DECL requires link-time relocations.  */
-#undef  SELECT_SECTION
-#define SELECT_SECTION(DECL, RELOC, ALIGN)				\
-{									\
-  if (TREE_CODE (DECL) == STRING_CST)					\
-    {									\
-      if (! flag_writable_strings)					\
-	rdata_section ();						\
-      else								\
-	data_section ();						\
-    }									\
-  else if (TREE_CODE (DECL) == VAR_DECL)				\
-    {									\
-      if ((0 && RELOC)	/* should be (flag_pic && RELOC) */		\
-	  || !TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)		\
-	  || !DECL_INITIAL (DECL)					\
-	  || (DECL_INITIAL (DECL) != error_mark_node			\
-	      && !TREE_CONSTANT (DECL_INITIAL (DECL))))			\
-	data_section ();						\
-      else								\
-	rdata_section ();						\
-    }									\
-  else									\
-    rdata_section ();							\
-}
-
-/* A C statement or statements to switch to the appropriate
-   section for output of RTX in mode MODE.  RTX is some kind
-   of constant in RTL.  The argument MODE is redundant except
-   in the case of a `const_int' rtx.  Currently, these always
-   go into the const section.  */
-#undef  SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) rdata_section ()
-
 #define MCORE_EXPORT_NAME(STREAM, NAME)			\
   do							\
     {							\
       drectve_section ();				\
       fprintf (STREAM, "\t.ascii \" -export:%s\"\n",	\
-	       MCORE_STRIP_NAME_ENCODING (NAME));	\
+	       (* targetm.strip_name_encoding) (NAME));	\
     }							\
   while (0);
 

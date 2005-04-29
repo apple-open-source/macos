@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<SOAP-ENV:Envelope SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/1999/XMLSchema" xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance">
+	<SOAP-ENV:Body>
+		<easyStructTest>
+			<stooges>
+				<curly xsi:type="xsd:int">-49</curly>
+				<larry xsi:type="xsd:int">85</larry>
+				<moe xsi:type="xsd:int">48</moe>
+				</stooges>
+			</easyStructTest>
+		</SOAP-ENV:Body>
+	</SOAP-ENV:Envelope>

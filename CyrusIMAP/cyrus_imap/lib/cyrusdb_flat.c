@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: cyrusdb_flat.c,v 1.35 2004/03/11 18:36:45 ken3 Exp $ */
+/* $Id: cyrusdb_flat.c,v 1.5 2005/03/05 00:37:13 dasenbro Exp $ */
 
 #include <config.h>
 

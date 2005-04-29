@@ -129,6 +129,111 @@ static IOPMPowerState ourPowerStates[number_of_power_states] =
 	{1,IOPMDeviceUsable,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0}
 };
 
+
+
+OSDefineMetaClassAndStructors(IOFireWireDuplicateGUIDList, OSObject);
+
+IOFireWireDuplicateGUIDList * IOFireWireDuplicateGUIDList::create( void )
+{
+    IOFireWireDuplicateGUIDList * me;
+	
+    me = new IOFireWireDuplicateGUIDList;
+	
+	return me;
+}
+
+void IOFireWireDuplicateGUIDList::free()
+{
+	IOFWDuplicateGUIDRec		*	GUIDRec;
+	IOFWDuplicateGUIDRec		*	GUIDtoFree;
+	
+	GUIDRec = fFirstGUID;
+	
+	while( GUIDRec )
+	{
+		GUIDtoFree = GUIDRec;
+		
+		GUIDRec = GUIDRec->fNextGUID;
+
+		IOFree( GUIDtoFree, sizeof( IOFWDuplicateGUIDRec ) );
+	}
+
+    OSObject::free();
+}
+
+void IOFireWireDuplicateGUIDList::addDuplicateGUID( CSRNodeUniqueID guid, UInt32 gen )
+{
+	IOFWDuplicateGUIDRec		* 	newGUID;
+	
+	if( !guid || findDuplicateGUID( guid, gen ) )
+		return;	// Already found this one.
+	
+	newGUID = (IOFWDuplicateGUIDRec *) IOMalloc( sizeof(IOFWDuplicateGUIDRec));
+	
+	FWKLOG(("addDuplicateGUID adding GUID %08x %08x.\n",(unsigned int )(guid >> 32),(unsigned int )(guid & 0xffffffff)));
+
+	IOLog("FireWire Error: Devices with identical unique ID: %08x %08x cannot be used.\n",(unsigned int )(guid >> 32),(unsigned int )(guid & 0xffffffff));
+
+	newGUID->fGUID = guid;
+	newGUID->fLastGenSeen = gen;
+	newGUID->fNextGUID = fFirstGUID;
+	fFirstGUID = newGUID;	
+}
+
+void IOFireWireDuplicateGUIDList::removeDuplicateGUID( CSRNodeUniqueID guid )
+{
+	IOFWDuplicateGUIDRec		*	GUIDRec;
+	IOFWDuplicateGUIDRec		*	prevGUID;
+	
+	GUIDRec = fFirstGUID;
+	prevGUID = NULL;
+	
+	while( GUIDRec )
+	{
+		if( GUIDRec->fGUID == guid )
+		{
+			if( prevGUID )
+				prevGUID->fNextGUID = GUIDRec->fNextGUID;
+			else
+				fFirstGUID = GUIDRec->fNextGUID;
+			
+			FWKLOG(("removeDuplicateGUID removing GUID %08x %08x.\n",(unsigned int )(guid >> 32),(unsigned int )(guid & 0xffffffff)));
+
+			IOFree( GUIDRec, sizeof( IOFWDuplicateGUIDRec ) );
+			
+			break;
+		}
+		prevGUID = GUIDRec;
+		GUIDRec = GUIDRec->fNextGUID;
+	}
+}
+
+bool IOFireWireDuplicateGUIDList::findDuplicateGUID( CSRNodeUniqueID guid, UInt32 gen )
+{
+	IOFWDuplicateGUIDRec		*	GUIDRec;
+	
+	//FWKLOG(("findDuplicateGUID looking for GUID %08x %08x.\n",(unsigned int )(guid >> 32),(unsigned int )(guid & 0xffffffff)));
+
+	GUIDRec = fFirstGUID;
+	while( GUIDRec )
+	{
+		if( GUIDRec->fGUID == guid )
+		{
+
+			FWKLOG(("findDuplicateGUID found GUID %08x %08x.\n",(unsigned int )(guid >> 32),(unsigned int )(guid & 0xffffffff)));
+
+
+			GUIDRec->fLastGenSeen = gen;
+			
+			return( true );
+		}
+		GUIDRec = GUIDRec->fNextGUID;			
+	}
+	
+	return( false );
+}
+
+
 OSDefineMetaClassAndStructors(IOFireWireControllerAux, IOFireWireBusAux);
 OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 0);
 OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 1);
@@ -166,10 +271,26 @@ void IOFireWireControllerAux::free()
 }
 
 IOFWDCLPool *
-IOFireWireControllerAux :: createDCLPool ( unsigned capacity ) const
+IOFireWireControllerAux::createDCLPool ( unsigned capacity ) const
 {
 	return fPrimary->getLink()->createDCLPool( capacity ) ;
 }
+
+// getMaxRec
+//
+//
+
+UInt8 IOFireWireControllerAux::getMaxRec( void )
+{
+	return fMaxRec;
+}
+
+IOFWBufferFillIsochPort *
+IOFireWireControllerAux :: createBufferFillIsochPort() const
+{
+	return fPrimary->getLink()->createBufferFillIsochPort() ;
+}
+
 
 #pragma mark -
 
@@ -239,6 +360,8 @@ bool IOFireWireController::init( IOFireWireLink *fwim )
     fDelayedStateChangeCmd = createDelayedCmd(1000 * kScanBusDelay, delayedStateChange, NULL);
 
 	fBusResetStateChangeCmd = createDelayedCmd(1000 * kRepeatResetDelay, resetStateChange, NULL);
+	
+	fGUIDDups = IOFireWireDuplicateGUIDList::create();
 
 	//
 	// create the bus power manager
@@ -367,6 +490,14 @@ void IOFireWireController::free()
 		fAuxiliary = NULL;
 	}
 	
+	if( fGUIDDups != NULL )
+	{
+		fGUIDDups->release();
+		fGUIDDups = NULL;
+	}
+	
+	
+	
     IOFireWireBus::free();
 }
 
@@ -384,6 +515,9 @@ bool IOFireWireController::start(IOService *provider)
     }
 	
     CSRNodeUniqueID guid = fFWIM->getGUID();
+    
+    if( provider->getProperty("DelegateCycleMaster") )
+    	fDelegateCycleMaster = true;
     
     // blow away device tree children from where we've taken over
     // Note we don't add ourself to the device tree.
@@ -438,6 +572,7 @@ bool IOFireWireController::start(IOService *provider)
     fROMHeader[2] &= ~kFWBIBGeneration;
 
     // Get max speed
+	((IOFireWireControllerAux*)fAuxiliary)->fMaxRec = ((fROMHeader[2] & kFWBIBMaxRec) >> kFWBIBMaxRecPhase);
     fMaxRecvLog = ((fROMHeader[2] & kFWBIBMaxRec) >> kFWBIBMaxRecPhase)+1;
     fMaxSendLog = fFWIM->getMaxSendLog();
     fROMHeader[3] = guid >> 32;
@@ -507,8 +642,7 @@ bool IOFireWireController::start(IOService *provider)
     
     // No idle sleep
     res = changePowerStateTo(1);
-    IOLog("Local FireWire GUID = 0x%lx:0x%lx\n", (UInt32)(guid >> 32), (UInt32)(guid & 0xffffffff));
-
+	
     registerService();			// Enable matching with this object
 	
     return res == kIOReturnSuccess;
@@ -578,7 +712,9 @@ bool IOFireWireController::requestTerminate( IOService * provider, IOOptionBits 
         while( (child = childIterator->getNextObject()) ) 
 		{
             IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-            if(found && !found->isTerminated() && found->isOpen()) 
+			
+			// don't need to sync with open/close routines when checking for kNotTerminated
+			if(found && (found->getTerminationState() == kNotTerminated) && found->isOpen()) 
 			{
                 // send our custom requesting close message
                 messageClient( kIOFWMessageServiceIsRequestingClose, found );
@@ -1044,7 +1180,9 @@ void IOFireWireController::processBusReset()
             while( (child = childIterator->getNextObject()) ) 
 			{
                 IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-                if( found && !found->isTerminated() )
+				
+                // don't need to sync with open/close routines when checking for kNotTerminated
+				if( found && (found->getTerminationState() == kNotTerminated) )
 				{
                     found->setNodeROM( oldgen, kFWBadNodeID, NULL );
                 }
@@ -1085,6 +1223,12 @@ void IOFireWireController::processBusReset()
 		
         for( i=0; i<=fRootNodeID; i++ ) 
 		{
+			if( fScans[i] )
+			{
+				fScans[i]->fCmd->release();
+				IOFree(fScans[i], sizeof(*fScans[i]));
+				fScans[i] = NULL;
+			}
             if(fNodes[i]) 
 			{
                 fNodes[i]->release();
@@ -1178,7 +1322,7 @@ for(i=0; i<numOwnIDs; i++)
     localNode = getLocalNode(this);
     if(localNode)
 	{
-        localNode->setNodeProperties(fBusGeneration, fLocalNodeID, ownIDs, numOwnIDs);
+        localNode->setNodeProperties(fBusGeneration, fLocalNodeID, ownIDs, numOwnIDs,fFWIM->getPhySpeed() );
         fNodes[ourID] = localNode;
         localNode->retain();
     }
@@ -1308,6 +1452,131 @@ for(i=0; i<numOwnIDs; i++)
 	FWKLOG(( "IOFireWireController::processSelfIDs exited\n" ));
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// AssignCycleMaster
+//
+//   
+//
+
+bool IOFireWireController::AssignCycleMaster( )
+{
+	IOReturn					status = kIOReturnSuccess;
+	int							i;
+	UInt32						contender, linkOn, otherContenderID = 0, newRoot = 0, data1;
+	Boolean						otherContender = false, localContender = false, needReset = false, badIRM = false;
+		
+	for( i = 0; i <= fRootNodeID; i++ ) {
+	
+		contender = (*fNodeIDs[i] >> 11) & 0x1;
+		linkOn = (*fNodeIDs[i] >> 22) & 0x1;
+			
+		if (contender && linkOn )
+		{
+			if ( i == (fLocalNodeID & 63) )
+			{
+				if (contender)
+					localContender = true;
+			}
+			else
+			{
+				if( fScans[i] )
+				{
+					otherContender = true;
+					otherContenderID = i;		// any one will do (use highest)
+				}
+			}
+		}
+	}
+
+	if (otherContender)
+	{
+		if( (fRootNodeID & 63) == (fLocalNodeID & 63) && fDelegateCycleMaster )
+		{
+			//IOLog("AssignCycleMaster making other contender %lx root\n", otherContenderID);
+			
+			// We are root, but we don't really want to be and somebody else can do the job.
+			// We're doing this in response to self-IDs, so we have not scanned
+			// the bus yet - presumably it is safe to use the asynch transmitter
+			// because nobody else could be using it.
+			
+			//zzz might want to wait for it to settle down in case it was running
+			// when the bus reset happened
+			
+			status = fFWIM->setContender( false );
+
+			if( status == kIOReturnSuccess )
+			{
+				data1 = 0x00800000 | (otherContenderID << 24);					// force root
+				
+        		fFWIM->sendPHYPacket( data1 );
+	
+				needReset = true;
+			}
+		}
+	}
+	
+	if( status == kIOReturnSuccess )
+	{	
+		// Check for unresponsive IRM
+		badIRM = (!fScans[fIRMNodeID & 63]) && ((fLocalNodeID & 63) != (fIRMNodeID & 63));
+		
+		// If Bad IRM or no IRM then find somebody to do the job
+		if( badIRM || (!localContender) && (!otherContender) )
+		{
+			if( otherContender )
+				newRoot = otherContenderID;
+			else
+			{
+				// Gonna be the Mac. Make sure C is set and set our RHB
+				newRoot = fLocalNodeID & 63;
+				fFWIM->setContender( true );
+          		fFWIM->setRootHoldOff(true);
+			}
+			
+			if( badIRM )
+				IOLog("IOFireWireController unresponsive IRM at node %lx, forcing root to node %lx\n", (UInt32) fIRMNodeID & 63, newRoot );
+			//else
+			//	IOLog("IOFireWireController no IRM, making Mac Root\n", fIRMNodeID & 63 );
+
+			// Set RHB for our soon to be root node and clear everyone else
+			fFWIM->sendPHYPacket((kFWConfigurationPacketID << kFWPhyPacketIDPhase) |
+                        ((newRoot & 63) << kFWPhyPacketPhyIDPhase) | kFWPhyConfigurationR );
+		
+			needReset = true;
+		}
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( needReset )
+		{
+		
+			//FWLogEvent ("HackAvoidBeingRoot Reset Bus\n");
+			/* zzzzzzzzz edit comment after checking where this gets called from */
+			//  It is important to re-enable bus reset interrupts when we issue a bus reset.
+			//  Otherwise if the PHY->Link interface is really confused about self-ID
+			//  streams we might never see the self ID interrupts. (LSI/Lucent problem).
+			//  By re-enabling bus reset interrupts we see the next interrupt and 
+			//  FWProcessBusReset will queue its selfID timer. If we don't get self
+			//  ids then FSL will reset the bus until we get real ones which should
+			//  happen eventually.
+			//
+			//  Since this function is always called from the SelfIDDeferredTask we know
+			//  that bus reset interrupts are enabled and thus don't have to do anything.
+			
+			// Cause bus reset
+			fFWIM->resetBus();
+		
+			IOSleep( 10 );												// sleep for 10 ms
+		}
+	}
+	
+	return( needReset );
+	
+}
+
+
 // startBusScan
 //
 //
@@ -1346,6 +1615,7 @@ void IOFireWireController::startBusScan()
             scan->fNumSelfIDs = fNodeIDs[i+1] - fNodeIDs[i];
             scan->fRead = 0;
             scan->generation = fBusGeneration;
+			scan->fRetriesBumped = 0;
             scan->fCmd = new IOFWReadQuadCommand;
  			FWKLOG(( "IOFireWireController::startBusScan node %lx speed was %lx\n",(UInt32)nodeID,(UInt32)FWSpeed( nodeID ) ));	
            	
@@ -1371,7 +1641,8 @@ void IOFireWireController::startBusScan()
             	scan->speedChecking = false;
             	FWKLOG(( "IOFireWireController::startBusScan not speedchecking\n" ));
             }	
-
+			
+			scan->fCmd->setRetries(kFWCmdZeroRetries);  // don't need to bump kRetriesBumped here
             scan->fCmd->submit();
         }
     }
@@ -1415,6 +1686,46 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 			return;
         }
         
+		
+		// "Naughty Camera Workaround"
+		// If a "slow" device responds AckPending to the first attempt of the first BIB ReadQuad during
+		// BusScan AND TIMES OUT (no ReadResp), we increase the number of times that ReadQuad may retry it's command
+		// because we know the device is there, but not ready to respond to ConfigROM reads.
+		
+		// This "if" should run after trying the command once, but before it retries.
+		// Check if command timed out and we haven't increased the retries for this speed
+		if( status == kIOReturnTimeout && scan->fRetriesBumped == 0 )
+		{
+			// Limit workaround to BIBHeaderAddress to avoid long delay caused by a really slow device
+			// (e.g. hung node) ackPending any attempt to read any address. This will make sure we don't wait
+			// "too" long while trying to collect all GUIDs, like lose our time to reconnect to an SBP2 device.
+			if ( scan->fCmd->getAckCode() == kFWAckPending && scan->fAddr.addressLo == kConfigBIBHeaderAddress )
+			{
+				FWKLOG(( "IOFireWireController::readDeviceROM Node 0x%x timed out on ack %d, setting setMaxRetries = %d\n", scan->fAddr.nodeID, scan->fCmd->getAckCode(), kFWCmdIncreasedRetries));
+				
+				// increase retries and set RetriesBumped flag
+				scan->fCmd->setRetries(kFWCmdIncreasedRetries);
+				scan->fRetriesBumped++;
+				
+				// re-submit command for increased number of retries
+				scan->fCmd->reinit(scan->fAddr, scan->fBuf, 1, &readROMGlue, scan, true);
+				scan->fCmd->submit();
+				return;
+			} else
+			{
+				// increase retries to normal-1 and set RetriesBumped flag
+				scan->fCmd->setRetries(kFWCmdReducedRetries);
+				scan->fRetriesBumped++;
+				
+				// re-submit command for the rest of the retries
+				scan->fCmd->reinit(scan->fAddr, scan->fBuf, 1, &readROMGlue, scan, true);
+				scan->fCmd->submit();
+				return;
+			}
+		}
+		
+		
+		// Speed checking for 1394b compatibility 
    		FWKLOG(( "IOFireWireController::readDeviceROM speedcheck %lx ; speed %lx\n", (UInt32)scan->speedChecking, (UInt32)FWSpeed( scan->fAddr.nodeID ) ));
         if( scan->speedChecking && FWSpeed( scan->fAddr.nodeID ) > kFWSpeed100MBit )
         {
@@ -1426,10 +1737,26 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
                
                	// Retry command at slower speed
 				scan->fCmd->reinit(scan->fAddr, scan->fBuf, 1, &readROMGlue, scan, true);
+				
+				if ( scan->fAddr.addressLo == kConfigBIBHeaderAddress )
+				{
+					// Reset to run Naughty Camera check on first try of QRead at next speed
+					scan->fCmd->setRetries(kFWCmdZeroRetries);
+					scan->fRetriesBumped = 0;
+				}
+				else
+				{
+					scan->fCmd->setRetries(kFWCmdDefaultRetries);
+					scan->fRetriesBumped = 0;
+				}
+				
               	scan->fCmd->submit();
   				return;
         	}
         }
+
+		if( (scan->fAddr.nodeID & 63) == (fIRMNodeID & 63) )
+			fBadIRMsKnown = true;	
 
 		UInt32 nodeID = FWAddressToID(scan->fAddr.nodeID);
         fNodes[nodeID] = createDummyRegistryEntry( scan );
@@ -1456,15 +1783,14 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 		}
 		else 
 		{
-            scan->fROMSize = 4*((scan->fBuf[0] & kConfigROMCRCLength) >> kConfigROMCRCLengthPhase) + 4;
-            if(scan->fROMSize > 20)
-                scan->fROMSize = 20;	// Just read bus info block
+            scan->fROMSize = 20;	// Just read bus info block
             scan->fRead = 8;
             scan->fBuf[1] = kFWBIBBusName;	// No point reading this!
             scan->fAddr.addressLo = kConfigROMBaseAddress+8;
             scan->fCmd->reinit(scan->fAddr, scan->fBuf+2, 1,
                                                         &readROMGlue, scan, true);
             scan->fCmd->setMaxSpeed( kFWSpeed100MBit );
+			scan->fCmd->setRetries(kFWCmdDefaultRetries);
 			scan->fCmd->submit();
             done = false;
 		}
@@ -1478,6 +1804,7 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
             scan->fCmd->reinit(scan->fAddr, scan->fBuf+scan->fRead/4, 1,
                                                         &readROMGlue, scan, true);
             scan->fCmd->setMaxSpeed( kFWSpeed100MBit );
+			scan->fCmd->setRetries(kFWCmdDefaultRetries);
 			scan->fCmd->submit();
             done = false;
         }
@@ -1487,120 +1814,14 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 	
     if( done ) 
 	{
-        // See if this is a bus manager
-        if(!fBusMgr)
-            fBusMgr = scan->fBuf[2] & kFWBIBBmc;
-        
-	// Check if node exists, if not create it
-#if (DEBUGGING_LEVEL > 0)
-        DEBUGLOG("Finished reading ROM for node 0x%x\n", scan->fAddr.nodeID);
-#endif
-        IOFireWireDevice *	newDevice = NULL;
-        do 
-		{
-            CSRNodeUniqueID guid;
-            OSIterator *childIterator;
-            if(scan->fROMSize >= 20)
-            	guid = *(CSRNodeUniqueID *)(scan->fBuf+3);
-            else
-                guid = scan->fBuf[0];	// Best we can do.
-
-			//
-			// GUID zero is not a valid GUID. Unfortunately some devices return this as
-			// their GUID until they're fully powered up.
-			//
-			
-			if( guid == 0 )
-			{
-				UInt32 nodeID = FWAddressToID(scan->fAddr.nodeID);
-				fNodes[nodeID] = createDummyRegistryEntry( scan );
-				OSObject * prop = OSNumber::withNumber( guid, 64 );
-				if( prop != NULL ) 
-				{
-					fNodes[nodeID]->setProperty( gFireWire_GUID, prop );
-					prop->release();
-				}
-				continue;
-			}
-			
-            childIterator = getClientIterator();
-            if( childIterator) 
-			{
-                OSObject *child;
-                while( (child = childIterator->getNextObject())) 
-				{
-                    IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-                    if(found && found->fUniqueID == guid && !found->isTerminated()) 
-					{
-                        newDevice = found;
-                        break;
-                    }
-                }
-                childIterator->release();
-            }
-
-            if(newDevice) 
-			{
-				// Just update device properties.
-				#if IOFIREWIREDEBUG > 0
-					IOLog("Found old device 0x%p\n", newDevice);
-				#endif
-				newDevice->setNodeROM(fBusGeneration, fLocalNodeID, scan);
-				newDevice->retain();	// match release, since not newly created.
-            }
-            else 
-			{
-                newDevice = fFWIM->createDeviceNub(guid, scan);
-                if (!newDevice)
-                    continue;
-					
-				#if IOFIREWIREDEBUG > 0
-					IOLog("Creating new device 0x%p\n", newDevice);
-				#endif
-				
-				// we must stay busy until we've called registerService on the device
-				// and all of its units
-				
-				newDevice->adjustBusy( 1 ); // device
-				adjustBusy( 1 );  // controller
-				
-				FWKLOG(( "IOFireWireController@0x%08lx::readDeviceROM adjustBusy(1)\n", (UInt32)this ));
-				
-				// hook this device into the device tree now
-				
-				// we won't rediscover this device after a bus reset if the device is
-				// not in the registry.  if we attached later and got a bus reset before
-				// we had attached the device we would leak the device object
-				
-				if( !newDevice->attach(this) )
-                {
-					// if we failed to attach, I guess we're not busy anymore
-					newDevice->adjustBusy( -1 );  // device
-					adjustBusy( -1 );  // controller
-					FWKLOG(( "IOFireWireController@0x%08lx::readDeviceROM adjustBusy(-1)\n", (UInt32)this ));
-					continue;
-                }
-				
-				// we will register this service once we finish reading the config rom
-				newDevice->setRegistrationState( IOFireWireDevice::kDeviceNeedsRegisterService );
-
-				// this will start the config ROM read
-				newDevice->setNodeROM( fBusGeneration, fLocalNodeID, scan );
-
-            }
-			
-            UInt32 nodeID = FWAddressToID(scan->fAddr.nodeID);
-            fNodes[nodeID] = newDevice;
-            fNodes[nodeID]->retain();
+		UInt32	nodeID = FWAddressToID(scan->fAddr.nodeID);
 		
-		} while (false);
-        
-		if (newDevice)
-            newDevice->release();
-        
-		scan->fCmd->release();
-        IOFree(scan, sizeof(*scan));
-        fNumROMReads--;
+		FWKLOG(( "IOFireWireController::readDeviceROM scan for ID %lx is %lx\n",nodeID,(long) scan ));
+		fScans[nodeID] = scan;
+		
+ 		updateDevice( scan );
+       	
+       	fNumROMReads--;
         if(fNumROMReads == 0)
 		{
             finishedBusScan();
@@ -1610,6 +1831,219 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 	
 	FWKLOG(( "IOFireWireController::readDeviceROM exited\n" ));
 }
+
+// checkForDuplicateGUID
+//
+//
+bool IOFireWireController::checkForDuplicateGUID(IOFWNodeScan *scan, CSRNodeUniqueID *currentGUIDs )
+{
+	CSRNodeUniqueID guid;
+	UInt32 nodeID;
+	UInt32 i;
+		
+	nodeID = FWAddressToID(scan->fAddr.nodeID);
+
+	if(scan->fROMSize >= 20)
+		guid = *(CSRNodeUniqueID *)(scan->fBuf+3);
+	else
+	{
+		currentGUIDs[nodeID] = 0;
+		return false;	// not a real ROM, don't care.
+	}
+
+	currentGUIDs[nodeID] = guid;
+	
+	if( !guid || fGUIDDups->findDuplicateGUID( guid, fBusGeneration ) )
+		return false;	// Already found or zero, don't add it. Return false so caller doesn't reset the bus again
+
+	for( i = 0; i< nodeID; i++ )
+	{
+		if( currentGUIDs[i] == guid )
+		{
+			fGUIDDups->addDuplicateGUID( guid, fBusGeneration );
+			return true;
+		}
+	}
+	return false;
+}
+
+// updateDevice
+//
+//
+
+void IOFireWireController::updateDevice(IOFWNodeScan *scan )
+{
+	// See if this is a bus manager
+	if(!fBusMgr)
+		fBusMgr = scan->fBuf[2] & kFWBIBBmc;
+	
+// Check if node exists, if not create it
+#if (DEBUGGING_LEVEL > 0)
+	IOLog("Update Device Finished reading ROM for node 0x%x\n", scan->fAddr.nodeID);
+#endif
+	IOFireWireDevice *	newDevice = NULL;
+	do 
+	{
+		CSRNodeUniqueID guid;
+		OSIterator *childIterator;
+		UInt32 nodeID;
+		bool duplicate;
+		bool minimal = false;
+		
+		nodeID = FWAddressToID(scan->fAddr.nodeID);
+	
+		if(scan->fROMSize >= 20)
+			guid = *(CSRNodeUniqueID *)(scan->fBuf+3);
+		else
+		{
+			minimal = true;
+			guid = 0;
+		}
+
+		//
+		// GUID zero is not a valid GUID. Unfortunately some devices return this as
+		// their GUID until they're fully powered up.
+		//
+		//
+
+		// Also check nodes for known bad GUIDs and don't bother with them
+		//
+		
+		duplicate = fGUIDDups->findDuplicateGUID( guid, fBusGeneration );
+				
+		if( (guid == 0) || duplicate )
+		{
+			fNodes[nodeID] = createDummyRegistryEntry( scan );
+			if( minimal )
+			{
+				OSObject * prop = OSData::withBytes( &scan->fBuf[0], scan->fROMSize );
+				if( prop != NULL ) 
+				{
+					fNodes[nodeID]->setProperty( gFireWireROM, prop );
+					prop->release();
+				}
+			}
+			else
+			{
+				OSObject * prop = OSNumber::withNumber( guid, 64 );
+				if( prop != NULL ) 
+				{
+					fNodes[nodeID]->setProperty( gFireWire_GUID, prop );
+					prop->release();
+					
+				}
+			}
+// 			if( duplicate )
+// 			{
+// 				
+// 				OSString * prop = OSString::withCString("Device with illegal duplicate GUID");
+// 				if( prop2 != NULL ) 
+// 				{				
+// 					fNodes[nodeID]->setProperty( gFireWireProduct_Name, prop );
+// 					prop->release();
+// 				}
+// 			}
+			continue;
+		}
+		
+		childIterator = getClientIterator();
+		if( childIterator) 
+		{
+			OSObject *child;
+			while( (child = childIterator->getNextObject())) 
+			{
+				IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
+				if( found ) 
+				{
+					// sync with open / close routines on device
+					found->lockForArbitration();
+					
+					if( found->fUniqueID == guid && (found->getTerminationState() != kTerminated) ) 
+					{
+						newDevice = found;
+						
+						// arbitration lock still held
+						
+						break;
+					}
+					
+					found->unlockForArbitration();
+				}
+			}
+			childIterator->release();
+		}
+
+		if(newDevice) 
+		{
+			// Just update device properties.
+			#if IOFIREWIREDEBUG > 0
+				IOLog("UpdateDevice Found old device 0x%p\n", newDevice);
+			#endif
+			
+			// arbitration lock still held
+			
+			if( newDevice->getTerminationState() == kNeedsTermination )
+			{
+				newDevice->setTerminationState( kNotTerminated );
+			}			
+			
+			newDevice->unlockForArbitration();
+			
+			newDevice->setNodeROM(fBusGeneration, fLocalNodeID, scan);
+			newDevice->retain();	// match release, since not newly created.
+		}
+		else 
+		{
+			newDevice = fFWIM->createDeviceNub(guid, scan);
+			if (!newDevice)
+				continue;
+				
+			#if IOFIREWIREDEBUG > 0
+				IOLog("Update Device Creating new device 0x%p\n", newDevice);
+			#endif
+			
+			// we must stay busy until we've called registerService on the device
+			// and all of its units
+			
+			newDevice->adjustBusy( 1 ); // device
+			adjustBusy( 1 );  // controller
+			
+			FWKLOG(( "IOFireWireController@0x%08lx::updateDevice adjustBusy(1)\n", (UInt32)this ));
+			
+			// hook this device into the device tree now
+			
+			// we won't rediscover this device after a bus reset if the device is
+			// not in the registry.  if we attached later and got a bus reset before
+			// we had attached the device we would leak the device object
+			
+			if( !newDevice->attach(this) )
+			{
+				// if we failed to attach, I guess we're not busy anymore
+				newDevice->adjustBusy( -1 );  // device
+				adjustBusy( -1 );  // controller
+				FWKLOG(( "IOFireWireController@0x%08lx::updateDevice adjustBusy(-1)\n", (UInt32)this ));
+				continue;
+			}
+			
+			// we will register this service once we finish reading the config rom
+			newDevice->setRegistrationState( IOFireWireDevice::kDeviceNeedsRegisterService );
+
+			// this will start the config ROM read
+			newDevice->setNodeROM( fBusGeneration, fLocalNodeID, scan );
+
+		}
+		
+		fNodes[nodeID] = newDevice;
+		fNodes[nodeID]->retain();
+	
+	} while (false);
+	
+	if (newDevice)
+		newDevice->release();
+	
+}
+
+
 
 // createDummyRegistryEntry
 //
@@ -1659,22 +2093,78 @@ IORegistryEntry * IOFireWireController::createDummyRegistryEntry( IOFWNodeScan *
 
 void IOFireWireController::finishedBusScan()
 {
-	FWKLOG(( "IOFireWireController::finishedBusScan entered\n" ));
-	
     // These magic numbers come from P1394a, draft 4, table C-2.
     // This works for cables up to 4.5 meters and PHYs with
     // PHY delay up to 144 nanoseconds.  Note that P1394a PHYs
     // are allowed to have delay >144nS; we don't cope yet.
-    static UInt32 gaps[17] = {63, 5, 7, 8, 10, 13, 16, 18, 21,
-                            24, 26, 29, 32, 35, 37, 40, 43};
+    static UInt32 gaps[26] = {63, 5, 7, 8, 10, 13, 16, 18, 21,
+                            24, 26, 29, 32, 35, 37, 40, 43, 
+                            46, 48, 51, 54, 57, 59, 62, 63};
+  	int		i;
+                            
+  	if( fDelegateCycleMaster || fBadIRMsKnown )
+  	{
+		if(	AssignCycleMaster() )
+			return;
+	}
+    
+    fBadIRMsKnown = false; 	// If we got here we're happy with the IRM/CycleMaster. No need to read the IRM registers for all nodes
+    
+    // Go update all the devices now that we've read their ROMs.
+    {
+ 		CSRNodeUniqueID			currentGUIDs[kFWMaxNodesPerBus];
+ 		
+ 		// First check for duplicate GUIDs   	
+		for( i=0; i<=fRootNodeID; i++ ) 
+		{
+			if( fScans[i] )
+			{
+				if( checkForDuplicateGUID( fScans[i], currentGUIDs ) )
+				{
+					// Whoops, duplicate GUID! Reset Bus and bail.
+					// From now on if UpdateDevice is called with this GUID we won't
+					// reconnect to it.
+				
+                	resetBus();
+					return;			// We'll be right back after these messages from our sponsor
+				}
+    			
+				fScans[i]->fCmd->release();
+				IOFree(fScans[i], sizeof(*fScans[i]));
+				fScans[i] = NULL;
+
+			}
+  			else
+  			{
+  				currentGUIDs[i] = 0;
+  			}
+  		}
+  	}
+                            
     
     // Now do simple bus manager stuff, if there isn't a better candidate.
     // This might cause us to issue a bus reset...
     // Skip if we're about to reset anyway, since we might be in the process of setting
     // another node to root.
     if( !fBusResetScheduled && !fBusMgr && fLocalNodeID == fIRMNodeID) {
+  		UInt32 * pingTimes;
         int maxHops;
-        int i;
+  	 	UInt32	maxPing = 0;
+ 		UInt32	pingGap, hopGap,newGap;
+ 		bool	retoolGap = false;
+
+        // Set the gap count based on maximum ping time. This assumes the Mac is not in the middle
+        // of a star with long haul's going out in two different directions from the Mac. To obtain
+        // the gap cound we use the following algorithm:
+        //
+        // 		Gap = GapTable[ (MaxPing - 20) / 9 ]
+        
+        // This result is then compared to the value arrived at with the standard hop count based
+        // table lookup. The higher value is used for the new gap.
+
+		// If we don't have ping time information (such as with a Lynx FWIM that doesn't support
+		// ping timimg) then we use the maximum hop count to index into the table.        
+         
         // Do lazy gap count optimization.  Assume the bus is a daisy-chain (worst
         // case) so hop count == root ID.
 
@@ -1682,9 +2172,39 @@ void IOFireWireController::finishedBusScan()
         // gap count and then reset the bus. my new soft bus reset code sets the gap count before resetting
         // the bus (for another reason) and I just rely on that fact.
 
+		pingTimes = fFWIM->getPingTimes();
+		fFWIM->setPingTransmits( false );
+	
+		for( i=0; i<=fRootNodeID; i++ ) 
+		{
+			//IOLog("IOFireWireController node 0x%lx ping 0x%lx\n",i,pingTimes[i]);
+		
+			if( pingTimes[i] > maxPing )
+				maxPing = pingTimes[i];
+		}
+		
         maxHops = fRootNodeID;
-        if (maxHops > 16) maxHops = 16;
-        fGapCount = gaps[maxHops] << kFWPhyConfigurationGapCntPhase;
+        if (maxHops > 25)
+        	maxHops = 25;
+       
+		if( maxPing > 245 )
+			maxPing = 245;
+       
+		if( maxPing >= 29 )
+			pingGap = gaps [(maxPing - 20) / 9];	// Assumes Mac is NOT in the middle of 2 long haul subnets
+		else
+			pingGap = 5;
+		
+		hopGap = gaps[maxHops];
+		
+		if( hopGap > pingGap )
+			newGap = hopGap;
+		else
+			newGap = pingGap;
+       	
+       	FWKLOG(("IOFireWireController MaxPingTime: 0x%lx PingGap: 0x%lx HopGap: 0x%lx Setting Gap to 0x%lx\n",maxPing, pingGap, hopGap, newGap));
+        
+        fGapCount = newGap << kFWPhyConfigurationGapCntPhase;
         if(fRootNodeID == 0) {
             // If we're the only node, clear root hold off.
             fFWIM->setRootHoldOff(false);
@@ -1711,19 +2231,54 @@ void IOFireWireController::finishedBusScan()
 
         // Finally set gap count if any nodes don't have the right gap.
         // Only bother if we aren't the only node on the bus.
-        if(fRootNodeID != 0) {
-            for( i = 0; i <= fRootNodeID; i++ ) {
-                // is the gap count set to what we want it to be?
-                if( (*fNodeIDs[i] & kFWSelfID0GapCnt) != fGapCount ) {
-                    // Nope, send phy config packet and do bus reset.
-					fDelayedPhyPacket = (kFWConfigurationPacketID << kFWPhyPacketIDPhase) | 
-										((fLocalNodeID & 63) << kFWPhyPacketPhyIDPhase) | 
-										kFWPhyConfigurationR | fGapCount | kFWPhyConfigurationT;
-				//	IOLog( "IOFireWireController::finishedBusScan - set gap count\n" );
-                    resetBus();
-					FWKLOG(( "IOFireWireController::finishedBusScan exited\n" ));
-                    return;			// We'll be back...
+        // To avoid changing the gap due to ping time jitter we check to see that the gaps
+        // are both consistent and either the same as we last set it or the same as the new gap.
+        
+        
+        if(fRootNodeID != 0)
+        {
+           	// is the gap count consistent?
+            for( i = 1; i <= fRootNodeID; i++ )
+            {
+                if( (*fNodeIDs[i] & kFWSelfID0GapCnt) != (*fNodeIDs[i - 1] & kFWSelfID0GapCnt) ) 
+                {
+                	//IOLog( "IOFireWireController::finishedBusScan inconsistent gaps!\n");
+                	retoolGap = true;
+                	break;
                 }
+            }
+            
+            if( !retoolGap )
+            {
+				// is the gap something we set?
+				for( i = 0; i <= fRootNodeID; i++ )
+				{
+					if( ((*fNodeIDs[i] & kFWSelfID0GapCnt) != fPreviousGap 
+									&& (*fNodeIDs[i] & kFWSelfID0GapCnt) != fGapCount)
+							|| ((*fNodeIDs[i] & kFWSelfID0GapCnt) == 0) ) 
+					{
+                		//IOLog( "IOFireWireController::finishedBusScan need new gap count\n");
+						retoolGap = true;
+						break;
+					}
+				}
+			}
+            
+            if( retoolGap )
+            {
+            
+            	//IOLog( "IOFireWireController::finishedBusScan prev: %08lx new: %08lx node: %08lx\n",fPreviousGap, fGapCount, (*fNodeIDs[i] & kFWSelfID0GapCnt) );
+
+            	fPreviousGap = fGapCount;
+            	
+				// send phy config packet and do bus reset.
+				fDelayedPhyPacket = (kFWConfigurationPacketID << kFWPhyPacketIDPhase) | 
+									((fLocalNodeID & 63) << kFWPhyPacketPhyIDPhase) | 
+									kFWPhyConfigurationR | fGapCount | kFWPhyConfigurationT;
+				//	IOLog( "IOFireWireController::finishedBusScan - set gap count\n" );
+				resetBus();
+				FWKLOG(( "IOFireWireController::finishedBusScan exited\n" ));
+				return;			// We'll be back...
             }
         }
     }
@@ -1749,7 +2304,9 @@ void IOFireWireController::finishedBusScan()
 			while( (child = childIterator->getNextObject())) 
 			{
 				IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-				if( found && !found->isTerminated() && found->fNodeID == kFWBadNodeID ) 
+				
+				// don't need to sync with open/close routines when checking for kNotTerminated
+				if( found && (found->getTerminationState() == kNotTerminated) && found->fNodeID == kFWBadNodeID ) 
 				{
 					wouldTerminateDevice = true;
 				}
@@ -2063,6 +2620,10 @@ void IOFireWireController::buildTopology(bool doFWPlane)
         }
     }
 
+	// Clear out the unknown speed mask for the local node. Not needed once we get here.
+	// Other nodes with this flag will get cleared once we've decided to speed scan them.
+	// We never speed scan the local node which means we'll never clear it otherwise.
+	fSpeedCodes[(kFWMaxNodesPerBus + 1)*(fLocalNodeID & 63) + (fLocalNodeID & 63)] &= ~kFWSpeedUnknownMask;
 
 #if (DEBUGGING_LEVEL > 0)
     if(doFWPlane) {
@@ -2109,20 +2670,30 @@ void IOFireWireController::updatePlane()
 	fDevicePruneDelay = kNormalDevicePruneDelay;
 
     childIterator = getClientIterator();
-    if( childIterator) {
+    if( childIterator ) 
+	{
         OSObject *child;
-        while( (child = childIterator->getNextObject())) {
+        while( (child = childIterator->getNextObject())) 
+		{
             IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-            if(found && !found->isTerminated() && found->fNodeID == kFWBadNodeID) {
+			
+            // don't need to sync with open/close routines when checking for kNotTerminated
+            if( found && (found->getTerminationState() == kNotTerminated) && found->fNodeID == kFWBadNodeID )  
+			{
                 if( found->isOpen() )
                 {
                     //IOLog( "IOFireWireController : message request close device object %p\n", found);
                     // send our custom requesting close message
+					found->lockForArbitration();
+					found->setTerminationState( kNeedsTermination );
+					found->unlockForArbitration();
                     messageClient( kIOFWMessageServiceIsRequestingClose, found );
                 }
                 else
                 {	
-					found->setTerminated( true );
+					found->lockForArbitration();
+					found->setTerminationState( kTerminated );
+					found->unlockForArbitration();
 					IOFireWireDevice::terminateDevice( found );
                 }
             }
@@ -2179,7 +2750,9 @@ void IOFireWireController::setPhysicalAccessMode( IOFWPhysicalAccessMode mode )
 		while( (child = iterator->getNextObject()) ) 
 		{
 			IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-			if( found && !found->isTerminated() )
+			
+			// don't need to sync with open/close routines when checking for kNotTerminated
+			if( found && (found->getTerminationState() == kNotTerminated) )
 			{
 				// if we found an active device, ask it to reconfigure it's
 				// physical filter settings
@@ -2544,7 +3117,8 @@ IOReturn IOFireWireController::UpdateROM()
     fROMHeader[2] = (fROMHeader[2] & ~kFWBIBGeneration) | generation;
     
     rom = OSData::withBytes(&fROMHeader, sizeof(fROMHeader));
-    fRootDir->compile(rom);
+	fRootDir->incrementGeneration();
+	fRootDir->compile(rom);
 
     // Now hack in correct CRC and length.
     hack = (UInt32 *)rom->getBytesNoCopy();
@@ -2938,6 +3512,16 @@ IOReturn IOFireWireController::asyncLock(	UInt32 					generation,
 IOReturn IOFireWireController::handleAsyncTimeout(IOFWAsyncCommand *cmd)
 {
     return fFWIM->handleAsyncTimeout(cmd);
+}
+
+
+// handleAsyncCompletion
+//
+//
+
+IOReturn IOFireWireController::handleAsyncCompletion( IOFWCommand *cmd, IOReturn status )
+{
+    return fFWIM->handleAsyncCompletion( cmd, status );
 }
 
 // asyncStreamWrite
@@ -3416,7 +4000,7 @@ void IOFireWireController::processWriteRequest(UInt16 sourceID, UInt32 tLabel,
     if ( ((hdr[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase) != 0xffff )	// we should not respond to broadcast writes
 		fFWIM->asyncWriteResponse(sourceID, speed, tLabel, ret, addr.addressHi);
 	else
-		DebugLog("Skipped asyncWriteResponse because destID=0x%x\n", ((hdr[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase));
+		DebugLog("Skipped asyncWriteResponse because destID=0x%lx\n", ((hdr[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase));
 }
 
 // processLockRequest
@@ -3442,7 +4026,7 @@ void IOFireWireController::processLockRequest(UInt16 sourceID, UInt32 tLabel,
         if ( ((hdr[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase) != 0xffff )	// we should not respond to broadcast locks
 			fFWIM->asyncLockResponse(sourceID, speed, tLabel, ret, type, oldVal, outLen);
 		else
-			DebugLog("Skipped asyncLockResponse because destID=0x%x\n", ((hdr[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase));
+			DebugLog("Skipped asyncLockResponse because destID=0x%lx\n", ((hdr[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase));
     }
 }
 
@@ -3841,11 +4425,15 @@ IOFireWireLink * IOFireWireController::getLink() const
 
 IOReturn IOFireWireController::getCycleTime(UInt32 &cycleTime)
 {
-    // No need to take workloop lock; FWIM is safe to call at any time
+    // Have to take workloop lock, in case the hardware is sleeping.
     
 	IOReturn res;
     
+	closeGate();
+    
 	res = fFWIM->getCycleTime(cycleTime);
+    
+	openGate();
     
 	return res;
 }
@@ -3856,11 +4444,15 @@ IOReturn IOFireWireController::getCycleTime(UInt32 &cycleTime)
 
 IOReturn IOFireWireController::getBusCycleTime(UInt32 &busTime, UInt32 &cycleTime)
 {
-    // No need to take workloop lock; FWIM is safe to call at any time
+    // Have to take workloop lock, in case the hardware is sleeping.
     IOReturn res;
     UInt32 cycleSecs;
     
+	closeGate();
+    
 	res = fFWIM->getBusCycleTime(busTime, cycleTime);
+    
+	openGate();
     
 	if(res == kIOReturnSuccess) {
         // Bottom 7 bits of busTime should be same as top 7 bits of cycle time.
@@ -4002,9 +4594,9 @@ IOFireWireDevice * IOFireWireController::nodeIDtoDevice(UInt32 generation, UInt1
         while( (child = childIterator->getNextObject())) 
 		{
             found = OSDynamicCast(IOFireWireDevice, child);
-            if( found && 
-				!found->isTerminated() && 
-				found->fNodeID == nodeID )
+			
+            // don't need to sync with open/close routines when checking for kNotTerminated
+			if( found && (found->getTerminationState() == kNotTerminated) && found->fNodeID == nodeID )
 			{
 				break;
 			}
@@ -4121,16 +4713,14 @@ void IOFireWireController::disablePhyPortOnSleepForNodeID( UInt32 nodeID )
 	UInt32					childNumber = 0;
 	UInt32					childPort;
 	
-	for( childNodeID = 0; childNodeID < fLocalNodeID; childNodeID++ )
+	for( childNodeID = 0; childNodeID < (UInt32)(fLocalNodeID & 63); childNodeID++ )
 	{
 		if( childNodeID == nodeID )
 		{
-			IOLog( "IOFireWireController::disablePhyPortOnSleepForNodeID found child %lx\n",childNodeID);
 			// Found it. Now, which port is it connected to?
 			childPort = getPortNumberFromIndex( childNumber );
 			
 			if( childPort != 0xFFFFFFFF ) {
-				IOLog( "IOFireWireController::disablePhyPortOnSleepForNodeID disable port %lx\n",childPort);
 				fFWIM->disablePHYPortOnSleep( 1 << childPort );
 				break;
 			}

@@ -7,6 +7,7 @@ Project           = flex
 UserType          = Developer
 ToolType          = Commands
 GnuAfterInstall   = after_install
+Extra_CC_Flags    = -mdynamic-no-pic
 Extra_Environment = FLEX=lex FLEXLIB=libl.a			\
 		    STRIP_LIB_FLAGS="-S"
 

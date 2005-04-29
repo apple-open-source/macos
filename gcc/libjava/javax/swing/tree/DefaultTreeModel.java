@@ -35,18 +35,24 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.tree;
 
-// Imports
-import java.io.*;
-import java.util.*;
-import javax.swing.event.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.EventListener;
+import javax.swing.event.EventListenerList;
+import javax.swing.event.TreeModelListener;
 
 /**
  * DefaultTreeModel
  * @author Andrew Selkirk
  */
-public class DefaultTreeModel implements Serializable, TreeModel {
+public class DefaultTreeModel implements Serializable, TreeModel
+{
+  static final long serialVersionUID = -2621068368932566998L;
 
 	//-------------------------------------------------------------
 	// Variables --------------------------------------------------

@@ -59,7 +59,6 @@
 #include <arpa/inet.h>
 #include <syslog.h>
 #include <sys/ioctl.h>
-#include <net/dlil.h>
 #include <sys/un.h>
 #include <sys/uio.h>                     /* struct iovec */
 
@@ -72,8 +71,10 @@
 #include "../../Helpers/pppd/pppd.h"
 #include "../../Helpers/pppd/fsm.h"
 #include "../../Helpers/pppd/lcp.h"
-#include "../../Helpers/pppd/chap.h"
+#include "../../Helpers/pppd/chap-new.h"
 #include "../../Helpers/pppd/chap_ms.h"
+#include "../../Helpers/pppd/md5.h"
+#include "../../Family/ppp_comp.h"
 
 #include "radlib.h"
 #include "radlib_vs.h"
@@ -92,16 +93,23 @@
 static int radius_papchap_check();
 static int radius_pap_auth(char *user, char *passwd, char **msgp,
 		struct wordlist **paddrs, struct wordlist **popts);
-static int radius_chap_auth(char *user,  u_char *remmd, int remmd_len,  chap_state *cstate);
+static int radius_chap_auth(char *name, char *ourname, int id,
+			struct chap_digest_type *digest,
+			unsigned char *challenge, unsigned char *response,
+			unsigned char *message, int message_space);
 static int radius_ip_allowed_address(u_int32_t addr);
 static void radius_ip_choose(u_int32_t *addr);
 static void radius_ip_up(void *arg, int p);
 static void radius_ip_down(void *arg, int p);
+static int radius_decryptmppekey(char *key, u_int8_t *attr_value, size_t attr_len, char *secret, char *authenticator);
 
 /* -----------------------------------------------------------------------------
  PPP globals
 ----------------------------------------------------------------------------- */
 
+extern u_char mppe_send_key[MPPE_MAX_KEY_LEN];
+extern u_char mppe_recv_key[MPPE_MAX_KEY_LEN];
+extern int mppe_keys_set;		/* Have the MPPE keys been set? */
 
 static CFBundleRef 	bundle = 0;		/* our bundle ref */
 
@@ -130,8 +138,10 @@ int (*old_pap_auth_hook) __P((char *user, char *passwd, char **msgp,
 				 struct wordlist **paddrs,
 				 struct wordlist **popts));
 
-int (*old_chap_auth_hook) __P((char *user, u_char *remmd,
-                                  int remmd_len, chap_state *cstate));
+int (*old_chap_verify_hook) __P((char *name, char *ourname, int id,
+			struct chap_digest_type *digest,
+			unsigned char *challenge, unsigned char *response,
+			unsigned char *message, int message_space));
 
 
 /* option descriptors */
@@ -164,7 +174,7 @@ option_t radius_options[] = {
     // shorter parameters...
     { "radius_primary", o_string, &pri_auth_server,
       "Primary radius server" },
-    { "radius_secondary", o_string, &pri_auth_secret,
+    { "radius_secondary", o_string, &sec_auth_server,
       "Secondary radius server" },
     { "radius_secret", o_string, &pri_auth_secret,
       "Radius server", OPT_HIDE},
@@ -197,8 +207,8 @@ int start(CFBundleRef ref)
     old_pap_auth_hook = pap_auth_hook;
     pap_auth_hook = radius_pap_auth;
 
-    old_chap_auth_hook = chap_auth_hook;
-    chap_auth_hook = radius_chap_auth;
+    old_chap_verify_hook = chap_verify_hook;
+    chap_verify_hook = radius_chap_auth;
 
     ip_choose_hook = radius_ip_choose;
     allowed_address_hook = radius_ip_allowed_address;
@@ -233,11 +243,15 @@ type :
 static 
 int radius_authenticate_user(char *user, char *passwd, int type, 
     char *challenge, int chal_len, int chal_id, 
-    void *remotemd, int remotemd_len)
+    void *remotemd, int remotemd_len, unsigned char *message, int message_space)
 {
     struct rad_handle *h;
-    int err, ret = 0;
+    int err, ret = 0, attr_type;
+	void *attr_value;
+	size_t attr_len;
+	u_int32_t attr_vendor;
     char buf[MS_CHAP_RESPONSE_LEN + 1];
+    char auth[MD4_SIGNATURE_SIZE + 1];
 
     // do some option checking in case not all the options are supplied
     if (sec_auth_server) {
@@ -281,18 +295,20 @@ int radius_authenticate_user(char *user, char *passwd, int type,
             rad_put_string(h, RAD_USER_PASSWORD, passwd);
             break;
             
-        case CHAP_DIGEST_MD5:
+        case CHAP_MD5:
         
+#define MD5_HASH_SIZE		16
+
             rad_put_attr(h, RAD_CHAP_CHALLENGE, challenge, chal_len);
             buf[0] = chal_id;
-            memcpy(&buf[1], remotemd, MD5_SIGNATURE_SIZE);
-            rad_put_attr(h, RAD_CHAP_PASSWORD, buf, MD5_SIGNATURE_SIZE + 1);
+            memcpy(&buf[1], remotemd, MD5_HASH_SIZE);
+            rad_put_attr(h, RAD_CHAP_PASSWORD, buf, MD5_HASH_SIZE + 1);
             break;
-    
-#if 0
+    			
         case CHAP_MICROSOFT:	   
+            break;
+
         case CHAP_MICROSOFT_V2:
-        
             rad_put_vendor_attr(h, RAD_VENDOR_MICROSOFT, RAD_MICROSOFT_MS_CHAP_CHALLENGE,
                         challenge, chal_len);
             /* 
@@ -308,7 +324,6 @@ int radius_authenticate_user(char *user, char *passwd, int type,
                         type == CHAP_MICROSOFT ? RAD_MICROSOFT_MS_CHAP_RESPONSE : RAD_MICROSOFT_MS_CHAP2_RESPONSE,
                         buf, MS_CHAP_RESPONSE_LEN + 1);
             break;
-#endif
     }
 
 #if 0
@@ -324,8 +339,69 @@ int radius_authenticate_user(char *user, char *passwd, int type,
         case RAD_ACCESS_ACCEPT: 
             /* TO DO: fetch interesting information from the response */
             ret = 1;
+            switch (type) {
+                
+                case 0: /* PAP, clear text */
+                    break;
+                    
+                case CHAP_MD5:
+                    slprintf(message, message_space, "Access granted");
+                    break;
+            
+                case CHAP_MICROSOFT:	   
+                case CHAP_MICROSOFT_V2:                
+
+					while ((attr_type = rad_get_attr(h, &attr_value, &attr_len)) > 0 ) {
+
+						switch (attr_type) {
+						
+							case RAD_VENDOR_SPECIFIC: 
+							
+								attr_type = rad_get_vendor_attr(&attr_vendor, &attr_value,  &attr_len);
+								switch (attr_type) {
+									case RAD_MICROSOFT_MS_MPPE_SEND_KEY:
+										rad_request_authenticator(h, auth, sizeof(auth));
+										radius_decryptmppekey(mppe_send_key, attr_value, attr_len, rad_server_secret(h), auth);
+										mppe_keys_set = 1;
+
+										break;
+									case RAD_MICROSOFT_MS_MPPE_RECV_KEY:
+										rad_request_authenticator(h, auth, sizeof(auth));
+										radius_decryptmppekey(mppe_recv_key, attr_value, attr_len, rad_server_secret(h), auth);
+										mppe_keys_set = 1;
+										break;
+
+									case RAD_MICROSOFT_MS_CHAP2_SUCCESS:
+										if ((attr_len - 1) < message_space) {
+											memcpy(message, attr_value + 1, attr_len - 1);
+											message[attr_len - 1] = 0;
+										}
+										break;
+								}
+								
+								break;
+						}
+					}
+
+                    break;
+            }
             break;
+
         case RAD_ACCESS_REJECT: 
+            switch (type) {
+                
+                case 0: /* PAP, clear text */
+                    break;
+                    
+                case CHAP_MD5:
+                    slprintf(message, message_space, "Access denied");
+                    break;
+            
+                case CHAP_MICROSOFT:	   
+                case CHAP_MICROSOFT_V2:
+                    break;
+            }
+
             break;
         case RAD_ACCESS_CHALLENGE: 
             error("Radius : Received Access Challenge\n");
@@ -348,20 +424,23 @@ radius_pap_auth(char *user, char *passwd, char **msgp,
 		struct wordlist **paddrs, struct wordlist **popts)
 {
    
-    return radius_authenticate_user(user, passwd, 0, 0, 0, 0, 0, 0);
+    return radius_authenticate_user(user, passwd, 0, 0, 0, 0, 0, 0, 0, 0);
     
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static int
-radius_chap_auth(char *user,  u_char *remmd, int remmd_len,
-		 chap_state *cstate)
+static int radius_chap_auth(char *user, char *ourname, int id,
+			struct chap_digest_type *digest,
+			unsigned char *challenge, unsigned char *response,
+			unsigned char *message, int message_space)
 {
+    int challenge_len = *challenge++;
+    int response_len = *response++;
 
-    return radius_authenticate_user(user, passwd, cstate->chal_type,  
-        cstate->challenge, cstate->chal_len, cstate->chal_id, 
-        remmd, remmd_len);
+    return radius_authenticate_user(user, 0, digest->code,  
+        challenge, challenge_len, id, 
+        response, response_len, message, message_space);
 }
 
 /* -----------------------------------------------------------------------------
@@ -400,4 +479,37 @@ static
 void radius_ip_down(void *arg, int p)
 {
     // need to implement accounting
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static int
+radius_decryptmppekey(char *key, u_int8_t *attr_value, size_t attr_len, char *secret, char *authenticator)
+{
+    int i;
+    u_char  plain[32];
+    u_char  buf[16];
+    MD5_CTX ctx;
+	
+    memcpy(plain, attr_value + 2, sizeof(plain)); /* key string */
+
+    MD5Init(&ctx);
+    MD5Update(&ctx, secret, strlen(secret));
+	MD5Update(&ctx, authenticator, strlen(authenticator));
+    MD5Update(&ctx, attr_value, 2); /* salt */
+    MD5Final(buf, &ctx);
+
+    for (i = 0; i < 16; i++)
+		plain[i] ^= buf[i];
+
+    MD5Init(&ctx);
+    MD5Update(&ctx, secret, strlen(secret));
+    MD5Update(&ctx, attr_value + 2, 16); /* key string */
+    MD5Final(buf, &ctx);
+
+    for (i = 0; i < 16; i++)
+		plain[16 + i] ^= buf[i];
+
+	memcpy(key, plain + 1, 16);
+    return 0;
 }

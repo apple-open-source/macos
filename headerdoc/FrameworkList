@@ -1,0 +1,8 @@
+/System/Library/Frameworks/Kernel.framework/Headers/IOKit kernel_iokit
+/System/Library/Frameworks/Kernel.framework/Headers/libkern libkern
+/System/Library/Frameworks/IOKit.framework/Versions/Current/Headers iokit_fw
+/System/Library/Frameworks/Security.framework/Headers/ SecurityFramework
+/System/Library/Frameworks/SystemConfiguration.framework/Headers/ sysconfig_fw
+/System/Library/Frameworks/ForceFeedback.framework/Headers/ force_feedback
+/usr/include/DNSServiceDiscovery/ DNSServiceDiscovery
+

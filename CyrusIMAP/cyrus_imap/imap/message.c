@@ -41,7 +41,7 @@
  */
 
 /*
- * $Id: message.c,v 1.99 2004/09/16 17:58:54 ken3 Exp $
+ * $Id: message.c,v 1.8 2005/03/05 00:36:59 dasenbro Exp $
  */
 
 #include <config.h>

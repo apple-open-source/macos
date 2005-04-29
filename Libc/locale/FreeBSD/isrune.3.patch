@@ -1,0 +1,12 @@
+--- isrune.3.orig	Fri Mar 11 19:25:22 2005
++++ isrune.3	Fri Mar 11 19:26:33 2005
+@@ -55,7 +55,8 @@
+ .Xr ctype 3 ,
+ .Xr isascii 3 ,
+ .Xr iswrune 3 ,
+-.Xr ascii 7
++.Xr ascii 7 ,
++.Xr isalnum_l
+ .Sh HISTORY
+ The
+ .Fn isrune

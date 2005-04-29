@@ -37,9 +37,9 @@
 <FONT COLOR=green><EM>-- sale, use or other dealings in this Software without prior written       --</EM></FONT>
 <FONT COLOR=green><EM>-- authorization.                                                           --</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-<FONT COLOR=green><EM>--  Author: <A HREF="http://home.t-online.de/home/Juergen.Pfeifer">J&uuml;rgen Pfeifer</A> &lt;<A HREF="mailto:juergen.pfeifer@gmx.net">&lt;juergen.pfeifer@gmx.net&gt;</A>&gt; 1996</EM></FONT>
+<FONT COLOR=green><EM>--  Author:  Juergen Pfeifer, 1996</EM></FONT>
 <FONT COLOR=green><EM>--  Version Control:</EM></FONT>
-<FONT COLOR=green><EM>--  @Revision: 1.20 @</EM></FONT>
+<FONT COLOR=green><EM>--  @Revision: 1.22 @</EM></FONT>
 <FONT COLOR=green><EM>--  Binding Version 01.00</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
 <b>with</b> Ada.Unchecked_Deallocation;
@@ -51,7 +51,7 @@
 
 <b>with</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#50_35">Aux</A>;
 
-<b>package</b> <b>body</b> Terminal_Interface.Curses.<A HREF="terminal_interface-curses-forms__ads.htm#48_35">Forms</A><FONT COLOR=red><A NAME="50_40"></A></FONT> <b>is</b>
+<b>package</b> <b>body</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-forms__ads.htm#48_35">Forms</A> <b>is</b>
 
    <b>use</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#50_35">Aux</A>;
 
@@ -87,16 +87,16 @@
       <b>function</b> <FONT COLOR=red><A NAME="83_16">Form_Request_Name</A></FONT> (<FONT COLOR=red><A NAME="83_35">Key</A></FONT> : <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>) <b>return</b> chars_ptr;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#83_16">Form_Request_Name</A>, "form_request_name");
    <b>begin</b>
-      <A HREF="terminal_interface-curses-aux__ads.htm#121_13">Fill_String</A> (<A HREF="terminal_interface-curses-forms__adb.htm#83_16">Form_Request_Name</A> (<A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#278_28">Key</A>)), <A HREF="terminal_interface-curses-forms__ads.htm#279_28">Name</A>);
-   <b>end</b> Request_Name;
+      <A HREF="terminal_interface-curses-aux__ads.htm#116_14">Fill_String</A> (<A HREF="terminal_interface-curses-forms__adb.htm#83_16">Form_Request_Name</A> (<A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#278_28">Key</A>)), <A HREF="terminal_interface-curses-forms__ads.htm#279_28">Name</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#278_14">Request_Name</A><A HREF="terminal_interface-curses-forms__ads.htm#278_14">;</A>
 
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#281_14">Request_Name</A><FONT COLOR=red><A NAME="89_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#281_28">Key</A> : <A HREF="terminal_interface-curses-forms__ads.htm#143_12">Form_Request_Code</A>) <b>return</b> String
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#281_14">Request_Name</A> (<A HREF="terminal_interface-curses-forms__ads.htm#281_28">Key</A> : <A HREF="terminal_interface-curses-forms__ads.htm#143_12">Form_Request_Code</A>) <b>return</b> String
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="91_16">Form_Request_Name</A></FONT> (<FONT COLOR=red><A NAME="91_35">Key</A></FONT> : <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>) <b>return</b> chars_ptr;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#91_16">Form_Request_Name</A>, "form_request_name");
    <b>begin</b>
       <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#121_13">Fill_String</A> (<A HREF="terminal_interface-curses-forms__adb.htm#91_16">Form_Request_Name</A> (<A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#281_28">Key</A>)));
-   <b>end</b> Request_Name;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#281_14">Request_Name</A><A HREF="terminal_interface-curses-forms__ads.htm#281_14">;</A>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -108,7 +108,7 @@
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#295_13">Create</A><FONT COLOR=red><A NAME="107_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#295_21">Height</A>       : <A HREF="terminal_interface-curses__ads.htm#62_12">Line_Count</A>;
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#295_13">Create</A> (<A HREF="terminal_interface-curses-forms__ads.htm#295_21">Height</A>       : <A HREF="terminal_interface-curses__ads.htm#62_12">Line_Count</A>;
                     <A HREF="terminal_interface-curses-forms__ads.htm#296_21">Width</A>        : <A HREF="terminal_interface-curses__ads.htm#64_12">Column_Count</A>;
                     <A HREF="terminal_interface-curses-forms__ads.htm#297_21">Top</A>          : <A HREF="terminal_interface-curses__ads.htm#59_9">Line_Position</A>;
                     <A HREF="terminal_interface-curses-forms__ads.htm#298_21">Left</A>         : <A HREF="terminal_interface-curses__ads.htm#60_9">Column_Position</A>;
@@ -127,7 +127,7 @@
          <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#288_4">Form_Exception</A>;
       <b>end</b> <b>if</b>;
       <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#117_7">Fld</A>;
-   <b>end</b> Create;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#295_13">Create</A><A HREF="terminal_interface-curses-forms__ads.htm#295_13">;</A>
 <FONT COLOR=green><EM>--  |</EM></FONT>
 <FONT COLOR=green><EM>--  |</EM></FONT>
 <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -143,11 +143,11 @@
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#135_7">Res</A>);
       <b>end</b> <b>if</b>;
       <A HREF="terminal_interface-curses-forms__ads.htm#317_22">Fld</A> := <A HREF="terminal_interface-curses-forms__ads.htm#58_4">Null_Field</A>;
-   <b>end</b> Delete;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#317_14">Delete</A><A HREF="terminal_interface-curses-forms__ads.htm#317_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#323_13">Duplicate</A><FONT COLOR=red><A NAME="146_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#323_24">Fld</A>  : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>;
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#323_13">Duplicate</A> (<A HREF="terminal_interface-curses-forms__ads.htm#323_24">Fld</A>  : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>;
                        <A HREF="terminal_interface-curses-forms__ads.htm#324_24">Top</A>  : <A HREF="terminal_interface-curses__ads.htm#59_9">Line_Position</A>;
                        <A HREF="terminal_interface-curses-forms__ads.htm#325_24">Left</A> : <A HREF="terminal_interface-curses__ads.htm#60_9">Column_Position</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>
    <b>is</b>
@@ -164,11 +164,11 @@
          <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#288_4">Form_Exception</A>;
       <b>end</b> <b>if</b>;
       <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#155_7">F</A>;
-   <b>end</b> Duplicate;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#323_13">Duplicate</A><A HREF="terminal_interface-curses-forms__ads.htm#323_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#330_13">Link</A><FONT COLOR=red><A NAME="167_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#330_19">Fld</A>  : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>;
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#330_13">Link</A> (<A HREF="terminal_interface-curses-forms__ads.htm#330_19">Fld</A>  : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>;
                   <A HREF="terminal_interface-curses-forms__ads.htm#331_19">Top</A>  : <A HREF="terminal_interface-curses__ads.htm#59_9">Line_Position</A>;
                   <A HREF="terminal_interface-curses-forms__ads.htm#332_19">Left</A> : <A HREF="terminal_interface-curses__ads.htm#60_9">Column_Position</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>
    <b>is</b>
@@ -185,7 +185,7 @@
          <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#288_4">Form_Exception</A>;
       <b>end</b> <b>if</b>;
       <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#176_7">F</A>;
-   <b>end</b> Link;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#330_13">Link</A><A HREF="terminal_interface-curses-forms__ads.htm#330_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_field_just.3x</EM></FONT>
@@ -207,17 +207,17 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#199_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#199_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Justification;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#341_14">Set_Justification</A><A HREF="terminal_interface-curses-forms__ads.htm#341_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#347_13">Get_Justification</A><FONT COLOR=red><A NAME="210_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#347_32">Fld</A> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#61_9">Field_Justification</A>
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#347_13">Get_Justification</A> (<A HREF="terminal_interface-curses-forms__ads.htm#347_32">Fld</A> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#61_9">Field_Justification</A>
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="212_16">Field_Just</A></FONT> (<FONT COLOR=red><A NAME="212_28">Fld</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#212_16">Field_Just</A>, "field_just");
    <b>begin</b>
       <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#61_9">Field_Justification</A>'Val (<A HREF="terminal_interface-curses-forms__adb.htm#212_16">Field_Just</A> (<A HREF="terminal_interface-curses-forms__ads.htm#347_32">Fld</A>));
-   <b>end</b> Get_Justification;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#347_13">Get_Justification</A><A HREF="terminal_interface-curses-forms__ads.htm#347_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_field_buffer.3x</EM></FONT>
@@ -230,10 +230,10 @@
       <A HREF="terminal_interface-curses-forms__ads.htm#358_7">Buffer</A> : <b>in</b> <A HREF="terminal_interface-curses-forms__ads.htm#130_9">Buffer_Number</A> := <A HREF="terminal_interface-curses-forms__ads.htm#130_9">Buffer_Number</A>'First;
       <A HREF="terminal_interface-curses-forms__ads.htm#359_7">Str</A>    : <b>in</b> String)
    <b>is</b>
-      <b>type</b> Char_Ptr <b>is</b> <b>access</b> <b>all</b> <A HREF="interfac__ads.htm#23_9">Interfaces</A>.C.char;
+      <b>type</b> <FONT COLOR=red><A NAME="229_12">Char_Ptr</A></FONT> <b>is</b> <b>access</b> <b>all</b> <A HREF="interfac__ads.htm#23_9">Interfaces</A>.C.char;
       <b>function</b> <FONT COLOR=red><A NAME="230_16">Set_Fld_Buffer</A></FONT> (<FONT COLOR=red><A NAME="230_32">Fld</A></FONT>    : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>;
                                  <FONT COLOR=red><A NAME="231_34">Bufnum</A></FONT> : <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
-                                 S      : Char_Ptr)
+                                 <FONT COLOR=red><A NAME="232_34">S</A></FONT>      : <A HREF="terminal_interface-curses-forms__adb.htm#229_12">Char_Ptr</A>)
         <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#230_16">Set_Fld_Buffer</A>, "set_field_buffer");
 
@@ -246,7 +246,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#238_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#238_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Buffer;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#356_14">Set_Buffer</A><A HREF="terminal_interface-curses-forms__ads.htm#356_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -259,10 +259,10 @@
                              <FONT COLOR=red><A NAME="255_30">B</A></FONT>   : <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>) <b>return</b> chars_ptr;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#254_16">Field_Buffer</A>, "field_buffer");
    <b>begin</b>
-      <A HREF="terminal_interface-curses-aux__ads.htm#121_13">Fill_String</A> (<A HREF="terminal_interface-curses-forms__adb.htm#254_16">Field_Buffer</A> (<A HREF="terminal_interface-curses-forms__ads.htm#365_7">Fld</A>, <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#366_7">Buffer</A>)), <A HREF="terminal_interface-curses-forms__ads.htm#367_7">Str</A>);
-   <b>end</b> Get_Buffer;
+      <A HREF="terminal_interface-curses-aux__ads.htm#116_14">Fill_String</A> (<A HREF="terminal_interface-curses-forms__adb.htm#254_16">Field_Buffer</A> (<A HREF="terminal_interface-curses-forms__ads.htm#365_7">Fld</A>, <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#366_7">Buffer</A>)), <A HREF="terminal_interface-curses-forms__ads.htm#367_7">Str</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#364_14">Get_Buffer</A><A HREF="terminal_interface-curses-forms__ads.htm#364_14">;</A>
 
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#370_13">Get_Buffer</A><FONT COLOR=red><A NAME="261_13"></A></FONT>
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#370_13">Get_Buffer</A>
      (<A HREF="terminal_interface-curses-forms__ads.htm#371_7">Fld</A>    : <b>in</b> <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>;
       <A HREF="terminal_interface-curses-forms__ads.htm#372_7">Buffer</A> : <b>in</b> <A HREF="terminal_interface-curses-forms__ads.htm#130_9">Buffer_Number</A> := <A HREF="terminal_interface-curses-forms__ads.htm#130_9">Buffer_Number</A>'First) <b>return</b> String
    <b>is</b>
@@ -271,7 +271,7 @@
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#265_16">Field_Buffer</A>, "field_buffer");
    <b>begin</b>
       <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#121_13">Fill_String</A> (<A HREF="terminal_interface-curses-forms__adb.htm#265_16">Field_Buffer</A> (<A HREF="terminal_interface-curses-forms__ads.htm#371_7">Fld</A>, <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#372_7">Buffer</A>)));
-   <b>end</b> Get_Buffer;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#370_13">Get_Buffer</A><A HREF="terminal_interface-curses-forms__ads.htm#370_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -287,11 +287,11 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#281_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#288_4">Form_Exception</A>;
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Status;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#378_14">Set_Status</A><A HREF="terminal_interface-curses-forms__ads.htm#378_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#384_13">Changed</A><FONT COLOR=red><A NAME="290_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#384_22">Fld</A> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> Boolean
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#384_13">Changed</A> (<A HREF="terminal_interface-curses-forms__ads.htm#384_22">Fld</A> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> Boolean
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="292_16">Field_Status</A></FONT> (<FONT COLOR=red><A NAME="292_30">Fld</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#292_16">Field_Status</A>, "field_status");
@@ -303,7 +303,7 @@
       <b>else</b>
          <b>return</b> True;
       <b>end</b> <b>if</b>;
-   <b>end</b> Changed;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#384_13">Changed</A><A HREF="terminal_interface-curses-forms__ads.htm#384_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -319,7 +319,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#313_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#313_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Maximum_Size;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#389_14">Set_Maximum_Size</A><A HREF="terminal_interface-curses-forms__ads.htm#389_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_field_opts.3x</EM></FONT>
@@ -341,7 +341,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#334_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#334_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Options;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#399_14">Set_Options</A><A HREF="terminal_interface-curses-forms__ads.htm#399_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -367,7 +367,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#355_7">Err</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#355_7">Err</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Switch_Options;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#405_14">Switch_Options</A><A HREF="terminal_interface-curses-forms__ads.htm#405_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -380,18 +380,18 @@
       <FONT COLOR=red><A NAME="376_7">Res</A></FONT> : <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A> := <A HREF="terminal_interface-curses-forms__adb.htm#373_16">Field_Opts</A> (<A HREF="terminal_interface-curses-forms__ads.htm#413_27">Fld</A>);
    <b>begin</b>
       <A HREF="terminal_interface-curses-forms__ads.htm#414_27">Options</A> := <A HREF="terminal_interface-curses-forms__adb.htm#68_13">CInt_2_FOS</A> (<A HREF="terminal_interface-curses-forms__adb.htm#376_7">Res</A>);
-   <b>end</b> Get_Options;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#413_14">Get_Options</A><A HREF="terminal_interface-curses-forms__ads.htm#413_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#418_13">Get_Options</A><FONT COLOR=red><A NAME="383_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#418_26">Fld</A> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A> := <A HREF="terminal_interface-curses-forms__ads.htm#58_4">Null_Field</A>)
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#418_13">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#418_26">Fld</A> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A> := <A HREF="terminal_interface-curses-forms__ads.htm#58_4">Null_Field</A>)
                          <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#67_9">Field_Option_Set</A>
    <b>is</b>
       <FONT COLOR=red><A NAME="386_7">Fos</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#67_9">Field_Option_Set</A>;
    <b>begin</b>
-      <A HREF="terminal_interface-curses-forms__ads.htm#418_13">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#418_26">Fld</A>, <A HREF="terminal_interface-curses-forms__adb.htm#386_7">Fos</A>);
+      <A HREF="terminal_interface-curses-forms__ads.htm#413_14">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#418_26">Fld</A>, <A HREF="terminal_interface-curses-forms__adb.htm#386_7">Fos</A>);
       <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#386_7">Fos</A>;
-   <b>end</b> Get_Options;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#418_13">Get_Options</A><A HREF="terminal_interface-curses-forms__ads.htm#418_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_field_attributes.3x</EM></FONT>
@@ -417,7 +417,7 @@
       <b>if</b>  <A HREF="terminal_interface-curses-forms__adb.htm#410_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#410_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Foreground;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#428_14">Set_Foreground</A><A HREF="terminal_interface-curses-forms__ads.htm#428_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -428,7 +428,7 @@
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#423_16">Field_Fore</A>, "field_fore");
    <b>begin</b>
       <A HREF="terminal_interface-curses-forms__ads.htm#437_26">Fore</A> := <A HREF="terminal_interface-curses-aux__ads.htm#101_13">Chtype_To_AttrChar</A> (<A HREF="terminal_interface-curses-forms__adb.htm#423_16">Field_Fore</A> (<A HREF="terminal_interface-curses-forms__ads.htm#436_26">Fld</A>)).<A HREF="terminal_interface-curses__ads.htm#353_10">Attr</A>;
-   <b>end</b> Foreground;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#436_14">Foreground</A><A HREF="terminal_interface-curses-forms__ads.htm#436_14">;</A>
 
    <b>procedure</b> <A HREF="terminal_interface-curses-forms__ads.htm#441_14">Foreground</A><FONT COLOR=red><A NAME="429_14"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#441_26">Fld</A>   : <b>in</b>  <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>;
                          <A HREF="terminal_interface-curses-forms__ads.htm#442_26">Fore</A>  : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#305_9">Character_Attribute_Set</A>;
@@ -439,7 +439,7 @@
    <b>begin</b>
       <A HREF="terminal_interface-curses-forms__ads.htm#442_26">Fore</A>  := <A HREF="terminal_interface-curses-aux__ads.htm#101_13">Chtype_To_AttrChar</A> (<A HREF="terminal_interface-curses-forms__adb.htm#433_16">Field_Fore</A> (<A HREF="terminal_interface-curses-forms__ads.htm#441_26">Fld</A>)).<A HREF="terminal_interface-curses__ads.htm#353_10">Attr</A>;
       <A HREF="terminal_interface-curses-forms__ads.htm#443_26">Color</A> := <A HREF="terminal_interface-curses-aux__ads.htm#101_13">Chtype_To_AttrChar</A> (<A HREF="terminal_interface-curses-forms__adb.htm#433_16">Field_Fore</A> (<A HREF="terminal_interface-curses-forms__ads.htm#441_26">Fld</A>)).<A HREF="terminal_interface-curses__ads.htm#354_10">Color</A>;
-   <b>end</b> Foreground;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#441_14">Foreground</A><A HREF="terminal_interface-curses-forms__ads.htm#441_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -461,7 +461,7 @@
       <b>if</b>  <A HREF="terminal_interface-curses-forms__adb.htm#454_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#454_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Background;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#448_14">Set_Background</A><A HREF="terminal_interface-curses-forms__ads.htm#448_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -472,7 +472,7 @@
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#467_16">Field_Back</A>, "field_back");
    <b>begin</b>
       <A HREF="terminal_interface-curses-forms__ads.htm#457_26">Back</A> := <A HREF="terminal_interface-curses-aux__ads.htm#101_13">Chtype_To_AttrChar</A> (<A HREF="terminal_interface-curses-forms__adb.htm#467_16">Field_Back</A> (<A HREF="terminal_interface-curses-forms__ads.htm#456_26">Fld</A>)).<A HREF="terminal_interface-curses__ads.htm#353_10">Attr</A>;
-   <b>end</b> Background;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#456_14">Background</A><A HREF="terminal_interface-curses-forms__ads.htm#456_14">;</A>
 
    <b>procedure</b> <A HREF="terminal_interface-curses-forms__ads.htm#461_14">Background</A><FONT COLOR=red><A NAME="473_14"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#461_26">Fld</A>   : <b>in</b>  <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>;
                          <A HREF="terminal_interface-curses-forms__ads.htm#462_26">Back</A>  : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#305_9">Character_Attribute_Set</A>;
@@ -483,7 +483,7 @@
    <b>begin</b>
       <A HREF="terminal_interface-curses-forms__ads.htm#462_26">Back</A>  := <A HREF="terminal_interface-curses-aux__ads.htm#101_13">Chtype_To_AttrChar</A> (<A HREF="terminal_interface-curses-forms__adb.htm#477_16">Field_Back</A> (<A HREF="terminal_interface-curses-forms__ads.htm#461_26">Fld</A>)).<A HREF="terminal_interface-curses__ads.htm#353_10">Attr</A>;
       <A HREF="terminal_interface-curses-forms__ads.htm#463_26">Color</A> := <A HREF="terminal_interface-curses-aux__ads.htm#101_13">Chtype_To_AttrChar</A> (<A HREF="terminal_interface-curses-forms__adb.htm#477_16">Field_Back</A> (<A HREF="terminal_interface-curses-forms__ads.htm#461_26">Fld</A>)).<A HREF="terminal_interface-curses__ads.htm#354_10">Color</A>;
-   <b>end</b> Background;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#461_14">Background</A><A HREF="terminal_interface-curses-forms__ads.htm#461_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -500,7 +500,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#493_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#493_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Pad_Character;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#468_14">Set_Pad_Character</A><A HREF="terminal_interface-curses-forms__ads.htm#468_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -511,7 +511,7 @@
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#506_16">Field_Pad</A>, "field_pad");
    <b>begin</b>
       <A HREF="terminal_interface-curses-forms__ads.htm#475_29">Pad</A> := Character'Val (<A HREF="terminal_interface-curses-forms__adb.htm#506_16">Field_Pad</A> (<A HREF="terminal_interface-curses-forms__ads.htm#474_29">Fld</A>));
-   <b>end</b> Pad_Character;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#474_14">Pad_Character</A><A HREF="terminal_interface-curses-forms__ads.htm#474_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_field_info.3x</EM></FONT>
@@ -527,9 +527,9 @@
                    <A HREF="terminal_interface-curses-forms__ads.htm#489_20">Off_Screen</A>         : <b>out</b> Natural;
                    <A HREF="terminal_interface-curses-forms__ads.htm#490_20">Additional_Buffers</A> : <b>out</b> <A HREF="terminal_interface-curses-forms__ads.htm#130_9">Buffer_Number</A>)
    <b>is</b>
-      <b>type</b> C_Int_Access <b>is</b> <b>access</b> <b>all</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
+      <b>type</b> <FONT COLOR=red><A NAME="526_12">C_Int_Access</A></FONT> <b>is</b> <b>access</b> <b>all</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>function</b> <FONT COLOR=red><A NAME="527_16">Fld_Info</A></FONT> (<FONT COLOR=red><A NAME="527_26">Fld</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>;
-                         L, C, Fr, Fc, Os, Ab : C_Int_Access)
+                         <FONT COLOR=red><A NAME="528_26">L</A></FONT>, <FONT COLOR=red><A NAME="528_29">C</A></FONT>, <FONT COLOR=red><A NAME="528_32">Fr</A></FONT>, <FONT COLOR=red><A NAME="528_36">Fc</A></FONT>, <FONT COLOR=red><A NAME="528_40">Os</A></FONT>, <FONT COLOR=red><A NAME="528_44">Ab</A></FONT> : <A HREF="terminal_interface-curses-forms__adb.htm#526_12">C_Int_Access</A>)
                          <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#527_16">Fld_Info</A>, "field_info");
 
@@ -549,7 +549,7 @@
          <A HREF="terminal_interface-curses-forms__ads.htm#489_20">Off_Screen</A>         := Natural (<A HREF="terminal_interface-curses-forms__adb.htm#532_21">Os</A>);
          <A HREF="terminal_interface-curses-forms__ads.htm#490_20">Additional_Buffers</A> := <A HREF="terminal_interface-curses-forms__ads.htm#130_9">Buffer_Number</A> (<A HREF="terminal_interface-curses-forms__adb.htm#532_25">Ab</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Info;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#484_14">Info</A><A HREF="terminal_interface-curses-forms__ads.htm#484_14">;</A>
 <FONT COLOR=green><EM>--  |</EM></FONT>
 <FONT COLOR=green><EM>--  |</EM></FONT>
 <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -558,8 +558,8 @@
                            <A HREF="terminal_interface-curses-forms__ads.htm#497_28">Columns</A> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#64_12">Column_Count</A>;
                            <A HREF="terminal_interface-curses-forms__ads.htm#498_28">Max</A>     : <b>out</b> Natural)
    <b>is</b>
-      <b>type</b> C_Int_Access <b>is</b> <b>access</b> <b>all</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
-      <b>function</b> <FONT COLOR=red><A NAME="558_16">Dyn_Info</A></FONT> (<FONT COLOR=red><A NAME="558_26">Fld</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>; L, C, M : C_Int_Access) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
+      <b>type</b> <FONT COLOR=red><A NAME="557_12">C_Int_Access</A></FONT> <b>is</b> <b>access</b> <b>all</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
+      <b>function</b> <FONT COLOR=red><A NAME="558_16">Dyn_Info</A></FONT> (<FONT COLOR=red><A NAME="558_26">Fld</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>; <FONT COLOR=red><A NAME="558_39">L</A></FONT>, <FONT COLOR=red><A NAME="558_42">C</A></FONT>, <FONT COLOR=red><A NAME="558_45">M</A></FONT> : <A HREF="terminal_interface-curses-forms__adb.htm#557_12">C_Int_Access</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#558_16">Dyn_Info</A>, "dynamic_field_info");
 
       <FONT COLOR=red><A NAME="561_7">L</A></FONT>, <FONT COLOR=red><A NAME="561_10">C</A></FONT>, <FONT COLOR=red><A NAME="561_13">M</A></FONT> : <b>aliased</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
@@ -574,7 +574,7 @@
          <A HREF="terminal_interface-curses-forms__ads.htm#497_28">Columns</A> := <A HREF="terminal_interface-curses__ads.htm#64_12">Column_Count</A> (<A HREF="terminal_interface-curses-forms__adb.htm#561_10">C</A>);
          <A HREF="terminal_interface-curses-forms__ads.htm#498_28">Max</A>     := Natural (<A HREF="terminal_interface-curses-forms__adb.htm#561_13">M</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Dynamic_Info;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#495_14">Dynamic_Info</A><A HREF="terminal_interface-curses-forms__ads.htm#495_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_win.3x</EM></FONT>
@@ -594,11 +594,11 @@
       <b>if</b>  <A HREF="terminal_interface-curses-forms__adb.htm#588_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#588_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Window;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#507_14">Set_Window</A><A HREF="terminal_interface-curses-forms__ads.htm#507_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#513_13">Get_Window</A><FONT COLOR=red><A NAME="597_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#513_25">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#513_13">Get_Window</A> (<A HREF="terminal_interface-curses-forms__ads.htm#513_25">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="599_16">Form_Win</A></FONT> (<FONT COLOR=red><A NAME="599_26">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#599_16">Form_Win</A>, "form_win");
@@ -606,7 +606,7 @@
       <FONT COLOR=red><A NAME="602_7">W</A></FONT> : <b>constant</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A> := <A HREF="terminal_interface-curses-forms__adb.htm#599_16">Form_Win</A> (<A HREF="terminal_interface-curses-forms__ads.htm#513_25">Frm</A>);
    <b>begin</b>
       <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#602_7">W</A>;
-   <b>end</b> Get_Window;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#513_13">Get_Window</A><A HREF="terminal_interface-curses-forms__ads.htm#513_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -622,11 +622,11 @@
       <b>if</b>  <A HREF="terminal_interface-curses-forms__adb.htm#616_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#616_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Sub_Window;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#518_14">Set_Sub_Window</A><A HREF="terminal_interface-curses-forms__ads.htm#518_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#524_13">Get_Sub_Window</A><FONT COLOR=red><A NAME="625_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#524_29">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#524_13">Get_Sub_Window</A> (<A HREF="terminal_interface-curses-forms__ads.htm#524_29">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="627_16">Form_Sub</A></FONT> (<FONT COLOR=red><A NAME="627_26">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#627_16">Form_Sub</A>, "form_sub");
@@ -634,7 +634,7 @@
       <FONT COLOR=red><A NAME="630_7">W</A></FONT> : <b>constant</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A> := <A HREF="terminal_interface-curses-forms__adb.htm#627_16">Form_Sub</A> (<A HREF="terminal_interface-curses-forms__ads.htm#524_29">Frm</A>);
    <b>begin</b>
       <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#630_7">W</A>;
-   <b>end</b> Get_Sub_Window;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#524_13">Get_Sub_Window</A><A HREF="terminal_interface-curses-forms__ads.htm#524_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -642,8 +642,8 @@
                     <A HREF="terminal_interface-curses-forms__ads.htm#530_21">Lines</A>   : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#62_12">Line_Count</A>;
                     <A HREF="terminal_interface-curses-forms__ads.htm#531_21">Columns</A> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#64_12">Column_Count</A>)
    <b>is</b>
-      <b>type</b> C_Int_Access <b>is</b> <b>access</b> <b>all</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
-      <b>function</b> <FONT COLOR=red><A NAME="642_16">M_Scale</A></FONT> (<FONT COLOR=red><A NAME="642_25">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>; Yp, Xp : C_Int_Access) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
+      <b>type</b> <FONT COLOR=red><A NAME="641_12">C_Int_Access</A></FONT> <b>is</b> <b>access</b> <b>all</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
+      <b>function</b> <FONT COLOR=red><A NAME="642_16">M_Scale</A></FONT> (<FONT COLOR=red><A NAME="642_25">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>; <FONT COLOR=red><A NAME="642_37">Yp</A></FONT>, <FONT COLOR=red><A NAME="642_41">Xp</A></FONT> : <A HREF="terminal_interface-curses-forms__adb.htm#641_12">C_Int_Access</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#642_16">M_Scale</A>, "scale_form");
 
       <FONT COLOR=red><A NAME="645_7">X</A></FONT>, <FONT COLOR=red><A NAME="645_10">Y</A></FONT> : <b>aliased</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
@@ -654,7 +654,7 @@
       <b>end</b> <b>if</b>;
       <A HREF="terminal_interface-curses-forms__ads.htm#530_21">Lines</A> := <A HREF="terminal_interface-curses__ads.htm#62_12">Line_Count</A> (<A HREF="terminal_interface-curses-forms__adb.htm#645_10">Y</A>);
       <A HREF="terminal_interface-curses-forms__ads.htm#531_21">Columns</A> := <A HREF="terminal_interface-curses__ads.htm#64_12">Column_Count</A> (<A HREF="terminal_interface-curses-forms__adb.htm#645_7">X</A>);
-   <b>end</b> Scale;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#529_14">Scale</A><A HREF="terminal_interface-curses-forms__ads.htm#529_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page menu_hook.3x</EM></FONT>
@@ -674,7 +674,7 @@
       <b>if</b>  <A HREF="terminal_interface-curses-forms__adb.htm#668_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#668_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Field_Init_Hook;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#543_14">Set_Field_Init_Hook</A><A HREF="terminal_interface-curses-forms__ads.htm#543_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -690,7 +690,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#684_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#684_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Field_Term_Hook;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#549_14">Set_Field_Term_Hook</A><A HREF="terminal_interface-curses-forms__ads.htm#549_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -706,7 +706,7 @@
       <b>if</b>  <A HREF="terminal_interface-curses-forms__adb.htm#700_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#700_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Form_Init_Hook;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#555_14">Set_Form_Init_Hook</A><A HREF="terminal_interface-curses-forms__ads.htm#555_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -722,7 +722,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#716_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#716_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Form_Term_Hook;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#561_14">Set_Form_Term_Hook</A><A HREF="terminal_interface-curses-forms__ads.htm#561_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_fields.3x</EM></FONT>
@@ -739,7 +739,7 @@
 
       <FONT COLOR=red><A NAME="736_7">Res</A></FONT> : <A HREF="terminal_interface-curses-aux__ads.htm#78_12">Eti_Error</A>;
    <b>begin</b>
-      <b>pragma</b> Assert (Flds (Flds'Last) = Null_Field);
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms__ads.htm#592_24">Flds</A> (<A HREF="terminal_interface-curses-forms__ads.htm#592_24">Flds</A>'Last) = <A HREF="terminal_interface-curses-forms__ads.htm#58_4">Null_Field</A>);
       <b>if</b> <A HREF="terminal_interface-curses-forms__ads.htm#592_24">Flds</A> (<A HREF="terminal_interface-curses-forms__ads.htm#592_24">Flds</A>'Last) /= <A HREF="terminal_interface-curses-forms__ads.htm#58_4">Null_Field</A> <b>then</b>
          <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#288_4">Form_Exception</A>;
       <b>else</b>
@@ -748,11 +748,11 @@
             <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#736_7">Res</A>);
          <b>end</b> <b>if</b>;
       <b>end</b> <b>if</b>;
-   <b>end</b> Redefine;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#591_14">Redefine</A><A HREF="terminal_interface-curses-forms__ads.htm#591_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#603_13">Fields</A><FONT COLOR=red><A NAME="751_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#603_21">Frm</A>   : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>;
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#603_13">Fields</A> (<A HREF="terminal_interface-curses-forms__ads.htm#603_21">Frm</A>   : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>;
                     <A HREF="terminal_interface-curses-forms__ads.htm#604_21">Index</A> : Positive) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>
    <b>is</b>
       <b>use</b> <A HREF="terminal_interface-curses-forms__adb.htm#55_12">F_Array</A>;
@@ -760,25 +760,25 @@
       <b>function</b> <FONT COLOR=red><A NAME="756_16">C_Fields</A></FONT> (<FONT COLOR=red><A NAME="756_26">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> Pointer;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#756_16">C_Fields</A>, "form_fields");
 
-      P : Pointer := <A HREF="terminal_interface-curses-forms__adb.htm#756_16">C_Fields</A> (<A HREF="terminal_interface-curses-forms__ads.htm#603_21">Frm</A>);
+      <FONT COLOR=red><A NAME="759_7">P</A></FONT> : Pointer := <A HREF="terminal_interface-curses-forms__adb.htm#756_16">C_Fields</A> (<A HREF="terminal_interface-curses-forms__ads.htm#603_21">Frm</A>);
    <b>begin</b>
-      <b>if</b> P = <b>null</b> <b>or</b> <b>else</b> <A HREF="terminal_interface-curses-forms__ads.htm#604_21">Index</A> <b>not</b> <b>in</b> 1 .. <A HREF="terminal_interface-curses-forms__ads.htm#609_13">Field_Count</A> (<A HREF="terminal_interface-curses-forms__ads.htm#603_21">Frm</A>) <b>then</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#759_7">P</A> = <b>null</b> <b>or</b> <b>else</b> <A HREF="terminal_interface-curses-forms__ads.htm#604_21">Index</A> <b>not</b> <b>in</b> 1 .. <A HREF="terminal_interface-curses-forms__ads.htm#609_13">Field_Count</A> (<A HREF="terminal_interface-curses-forms__ads.htm#603_21">Frm</A>) <b>then</b>
          <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#288_4">Form_Exception</A>;
       <b>else</b>
-         P := P + ptrdiff_t (<A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#604_21">Index</A>) - 1);
-         <b>return</b> P.<b>all</b>;
+         <A HREF="terminal_interface-curses-forms__adb.htm#759_7">P</A> := <A HREF="terminal_interface-curses-forms__adb.htm#759_7">P</A> + ptrdiff_t (<A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#604_21">Index</A>) - 1);
+         <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#759_7">P</A>.<b>all</b>;
       <b>end</b> <b>if</b>;
-   <b>end</b> Fields;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#603_13">Fields</A><A HREF="terminal_interface-curses-forms__ads.htm#603_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#609_13">Field_Count</A><FONT COLOR=red><A NAME="771_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#609_26">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> Natural
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#609_13">Field_Count</A> (<A HREF="terminal_interface-curses-forms__ads.htm#609_26">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> Natural
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="773_16">Count</A></FONT> (<FONT COLOR=red><A NAME="773_23">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#773_16">Count</A>, "field_count");
    <b>begin</b>
       <b>return</b> Natural (<A HREF="terminal_interface-curses-forms__adb.htm#773_16">Count</A> (<A HREF="terminal_interface-curses-forms__ads.htm#609_26">Frm</A>));
-   <b>end</b> Field_Count;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#609_13">Field_Count</A><A HREF="terminal_interface-curses-forms__ads.htm#609_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -794,7 +794,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#788_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#788_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Move;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#614_14">Move</A><A HREF="terminal_interface-curses-forms__ads.htm#614_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_new.3x</EM></FONT>
@@ -802,14 +802,14 @@
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#625_13">Create</A><FONT COLOR=red><A NAME="801_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#625_21">Fields</A> : <A HREF="terminal_interface-curses-forms__ads.htm#135_9">Field_Array_Access</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#625_13">Create</A> (<A HREF="terminal_interface-curses-forms__ads.htm#625_21">Fields</A> : <A HREF="terminal_interface-curses-forms__ads.htm#135_9">Field_Array_Access</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="803_16">NewForm</A></FONT> (<FONT COLOR=red><A NAME="803_25">Fields</A></FONT> : System.Address) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#803_16">NewForm</A>, "new_form");
 
       <FONT COLOR=red><A NAME="806_7">M</A></FONT>   : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>;
    <b>begin</b>
-      <b>pragma</b> Assert (Fields (Fields'Last) = Null_Field);
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms__ads.htm#625_21">Fields</A> (<A HREF="terminal_interface-curses-forms__ads.htm#625_21">Fields</A>'Last) = <A HREF="terminal_interface-curses-forms__ads.htm#58_4">Null_Field</A>);
       <b>if</b> <A HREF="terminal_interface-curses-forms__ads.htm#625_21">Fields</A> (<A HREF="terminal_interface-curses-forms__ads.htm#625_21">Fields</A>'Last) /= <A HREF="terminal_interface-curses-forms__ads.htm#58_4">Null_Field</A> <b>then</b>
          <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#288_4">Form_Exception</A>;
       <b>else</b>
@@ -819,7 +819,7 @@
          <b>end</b> <b>if</b>;
          <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#806_7">M</A>;
       <b>end</b> <b>if</b>;
-   <b>end</b> Create;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#625_13">Create</A><A HREF="terminal_interface-curses-forms__ads.htm#625_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -834,7 +834,7 @@
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#827_7">Res</A>);
       <b>end</b> <b>if</b>;
       <A HREF="terminal_interface-curses-forms__ads.htm#636_22">Frm</A> := <A HREF="terminal_interface-curses-forms__ads.htm#59_4">Null_Form</A>;
-   <b>end</b> Delete;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#636_14">Delete</A><A HREF="terminal_interface-curses-forms__ads.htm#636_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_opts.3x</EM></FONT>
@@ -856,7 +856,7 @@
       <b>if</b>  <A HREF="terminal_interface-curses-forms__adb.htm#849_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#849_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Options;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#646_14">Set_Options</A><A HREF="terminal_interface-curses-forms__ads.htm#646_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -882,7 +882,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#870_7">Err</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#870_7">Err</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Switch_Options;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#652_14">Switch_Options</A><A HREF="terminal_interface-curses-forms__ads.htm#652_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -895,17 +895,17 @@
       <FONT COLOR=red><A NAME="891_7">Res</A></FONT> : <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A> := <A HREF="terminal_interface-curses-forms__adb.htm#888_16">Form_Opts</A> (<A HREF="terminal_interface-curses-forms__ads.htm#660_27">Frm</A>);
    <b>begin</b>
       <A HREF="terminal_interface-curses-forms__ads.htm#661_27">Options</A> := <A HREF="terminal_interface-curses-forms__adb.htm#76_13">CInt_2_FrmOS</A> (<A HREF="terminal_interface-curses-forms__adb.htm#891_7">Res</A>);
-   <b>end</b> Get_Options;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#660_14">Get_Options</A><A HREF="terminal_interface-curses-forms__ads.htm#660_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#665_13">Get_Options</A><FONT COLOR=red><A NAME="898_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#665_26">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A> := <A HREF="terminal_interface-curses-forms__ads.htm#59_4">Null_Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#107_9">Form_Option_Set</A>
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#665_13">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#665_26">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A> := <A HREF="terminal_interface-curses-forms__ads.htm#59_4">Null_Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#107_9">Form_Option_Set</A>
    <b>is</b>
       <FONT COLOR=red><A NAME="900_7">Fos</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#107_9">Form_Option_Set</A>;
    <b>begin</b>
-      <A HREF="terminal_interface-curses-forms__ads.htm#665_13">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#665_26">Frm</A>, <A HREF="terminal_interface-curses-forms__adb.htm#900_7">Fos</A>);
+      <A HREF="terminal_interface-curses-forms__ads.htm#660_14">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#665_26">Frm</A>, <A HREF="terminal_interface-curses-forms__adb.htm#900_7">Fos</A>);
       <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#900_7">Fos</A>;
-   <b>end</b> Get_Options;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#665_13">Get_Options</A><A HREF="terminal_interface-curses-forms__ads.htm#665_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_post.3x</EM></FONT>
@@ -931,7 +931,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#920_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#920_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Post;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#674_14">Post</A><A HREF="terminal_interface-curses-forms__ads.htm#674_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_cursor.3x</EM></FONT>
@@ -949,7 +949,7 @@
       <b>if</b>  <A HREF="terminal_interface-curses-forms__adb.htm#943_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#943_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Position_Cursor;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#685_14">Position_Cursor</A><A HREF="terminal_interface-curses-forms__ads.htm#685_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_data.3x</EM></FONT>
@@ -957,7 +957,7 @@
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#694_13">Data_Ahead</A><FONT COLOR=red><A NAME="956_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#694_25">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> Boolean
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#694_13">Data_Ahead</A> (<A HREF="terminal_interface-curses-forms__ads.htm#694_25">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> Boolean
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="958_16">Ahead</A></FONT> (<FONT COLOR=red><A NAME="958_23">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#958_16">Ahead</A>, "data_ahead");
@@ -969,11 +969,11 @@
       <b>else</b>
          <b>return</b> True;
       <b>end</b> <b>if</b>;
-   <b>end</b> Data_Ahead;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#694_13">Data_Ahead</A><A HREF="terminal_interface-curses-forms__ads.htm#694_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#699_13">Data_Behind</A><FONT COLOR=red><A NAME="972_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#699_26">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> Boolean
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#699_13">Data_Behind</A> (<A HREF="terminal_interface-curses-forms__ads.htm#699_26">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> Boolean
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="974_16">Behind</A></FONT> (<FONT COLOR=red><A NAME="974_24">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#974_16">Behind</A>, "data_behind");
@@ -985,7 +985,7 @@
       <b>else</b>
          <b>return</b> True;
       <b>end</b> <b>if</b>;
-   <b>end</b> Data_Behind;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#699_13">Data_Behind</A><A HREF="terminal_interface-curses-forms__ads.htm#699_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_driver.3x</EM></FONT>
@@ -993,7 +993,7 @@
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#713_13">Driver</A><FONT COLOR=red><A NAME="992_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#713_21">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>;
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#713_13">Driver</A> (<A HREF="terminal_interface-curses-forms__ads.htm#713_21">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>;
                     <A HREF="terminal_interface-curses-forms__ads.htm#714_21">Key</A> : <A HREF="terminal_interface-curses__ads.htm#67_9">Key_Code</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#707_9">Driver_Result</A>
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="995_16">Frm_Driver</A></FONT> (<FONT COLOR=red><A NAME="995_28">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>; <FONT COLOR=red><A NAME="995_40">Key</A></FONT> : <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
@@ -1015,7 +1015,7 @@
       <b>else</b>
          <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#707_27">Form_Ok</A>;
       <b>end</b> <b>if</b>;
-   <b>end</b> Driver;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#713_13">Driver</A><A HREF="terminal_interface-curses-forms__ads.htm#713_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
    <FONT COLOR=green><EM>--  | man page form_page.3x</EM></FONT>
@@ -1034,11 +1034,11 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#1028_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#1028_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Current;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#725_14">Set_Current</A><A HREF="terminal_interface-curses-forms__ads.htm#725_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#731_13">Current</A><FONT COLOR=red><A NAME="1037_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#731_22">Frm</A> : <b>in</b> <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#731_13">Current</A> (<A HREF="terminal_interface-curses-forms__ads.htm#731_22">Frm</A> : <b>in</b> <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="1039_16">Current_Fld</A></FONT> (<FONT COLOR=red><A NAME="1039_29">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#1039_16">Current_Fld</A>, "current_field");
@@ -1049,7 +1049,7 @@
          <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#288_4">Form_Exception</A>;
       <b>end</b> <b>if</b>;
       <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#1042_7">Fld</A>;
-   <b>end</b> Current;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#731_13">Current</A><A HREF="terminal_interface-curses-forms__ads.htm#731_13">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
@@ -1064,11 +1064,11 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#1058_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#1058_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_Page;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#736_14">Set_Page</A><A HREF="terminal_interface-curses-forms__ads.htm#736_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#742_13">Page</A><FONT COLOR=red><A NAME="1067_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#742_19">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#722_9">Page_Number</A>
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#742_13">Page</A> (<A HREF="terminal_interface-curses-forms__ads.htm#742_19">Frm</A> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#722_9">Page_Number</A>
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="1069_16">Get_Page</A></FONT> (<FONT COLOR=red><A NAME="1069_26">Frm</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#1069_16">Get_Page</A>, "form_page");
@@ -1080,9 +1080,9 @@
       <b>else</b>
          <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#722_9">Page_Number</A> (<A HREF="terminal_interface-curses-forms__adb.htm#1072_7">P</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Page;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#742_13">Page</A><A HREF="terminal_interface-curses-forms__ads.htm#742_13">;</A>
 
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#747_13">Get_Index</A><FONT COLOR=red><A NAME="1081_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#747_24">Fld</A> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> Positive
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#747_13">Get_Index</A> (<A HREF="terminal_interface-curses-forms__ads.htm#747_24">Fld</A> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> Positive
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="1083_16">Get_Fieldindex</A></FONT> (<FONT COLOR=red><A NAME="1083_32">Fld</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#1083_16">Get_Fieldindex</A>, "field_index");
@@ -1093,7 +1093,7 @@
          <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#288_4">Form_Exception</A>;
       <b>end</b> <b>if</b>;
       <b>return</b> Positive (Natural (<A HREF="terminal_interface-curses-forms__adb.htm#1086_7">Res</A>) + Positive'First);
-   <b>end</b> Get_Index;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#747_13">Get_Index</A><A HREF="terminal_interface-curses-forms__ads.htm#747_13">;</A>
 
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
@@ -1113,11 +1113,11 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#1107_7">Res</A> /= <A HREF="terminal_interface-curses-aux__ads.htm#80_4">E_Ok</A> <b>then</b>
          <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#1107_7">Res</A>);
       <b>end</b> <b>if</b>;
-   <b>end</b> Set_New_Page;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#759_14">Set_New_Page</A><A HREF="terminal_interface-curses-forms__ads.htm#759_14">;</A>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#765_13">Is_New_Page</A><FONT COLOR=red><A NAME="1116_13"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#765_26">Fld</A> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> Boolean
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#765_13">Is_New_Page</A> (<A HREF="terminal_interface-curses-forms__ads.htm#765_26">Fld</A> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> Boolean
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="1118_16">Is_New</A></FONT> (<FONT COLOR=red><A NAME="1118_24">Fld</A></FONT> : <A HREF="terminal_interface-curses-forms__ads.htm#55_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-forms__adb.htm#1118_16">Is_New</A>, "new_page");
@@ -1129,7 +1129,7 @@
       <b>else</b>
          <b>return</b> True;
       <b>end</b> <b>if</b>;
-   <b>end</b> Is_New_Page;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#765_13">Is_New_Page</A><A HREF="terminal_interface-curses-forms__ads.htm#765_13">;</A>
 
    <b>procedure</b> <A HREF="terminal_interface-curses-forms__ads.htm#137_14">Free</A><FONT COLOR=red><A NAME="1130_14"></A></FONT> (<A HREF="terminal_interface-curses-forms__ads.htm#137_20">FA</A>          : <b>in</b> <b>out</b> <A HREF="terminal_interface-curses-forms__ads.htm#135_9">Field_Array_Access</A>;
                    <A HREF="terminal_interface-curses-forms__ads.htm#138_20">Free_Fields</A> : <b>in</b> Boolean := False)
@@ -1140,26 +1140,26 @@
       <b>if</b> <A HREF="terminal_interface-curses-forms__ads.htm#137_20">FA</A> /= <b>null</b> <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms__ads.htm#138_20">Free_Fields</A> <b>then</b>
          <b>for</b> <FONT COLOR=red><A NAME="1137_14">I</A></FONT> <b>in</b> <A HREF="terminal_interface-curses-forms__ads.htm#137_20">FA</A>'First .. (<A HREF="terminal_interface-curses-forms__ads.htm#137_20">FA</A>'Last - 1) <b>loop</b>
             <b>if</b> (<A HREF="terminal_interface-curses-forms__ads.htm#137_20">FA</A> (<A HREF="terminal_interface-curses-forms__adb.htm#1137_14">I</A>) /= <A HREF="terminal_interface-curses-forms__ads.htm#58_4">Null_Field</A>) <b>then</b>
-               <A HREF="terminal_interface-curses-forms__ads.htm#636_14">Delete</A> (<A HREF="terminal_interface-curses-forms__ads.htm#137_20">FA</A> (<A HREF="terminal_interface-curses-forms__adb.htm#1137_14">I</A>));
+               <A HREF="terminal_interface-curses-forms__ads.htm#317_14">Delete</A> (<A HREF="terminal_interface-curses-forms__ads.htm#137_20">FA</A> (<A HREF="terminal_interface-curses-forms__adb.htm#1137_14">I</A>));
             <b>end</b> <b>if</b>;
          <b>end</b> <b>loop</b>;
       <b>end</b> <b>if</b>;
       <A HREF="terminal_interface-curses-forms__adb.htm#1133_17">Release</A> (<A HREF="terminal_interface-curses-forms__ads.htm#137_20">FA</A>);
-   <b>end</b> Free;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#137_14">Free</A><A HREF="terminal_interface-curses-forms__ads.htm#137_14">;</A>
 
    <FONT COLOR=green><EM>--  |=====================================================================</EM></FONT>
 
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#102_13">Default_Field_Options</A><FONT COLOR=red><A NAME="1148_13"></A></FONT> <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#67_9">Field_Option_Set</A>
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#102_13">Default_Field_Options</A> <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#67_9">Field_Option_Set</A>
    <b>is</b>
    <b>begin</b>
-      <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#665_13">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#58_4">Null_Field</A>);
-   <b>end</b> Default_Field_Options;
+      <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#418_13">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#58_4">Null_Field</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#102_13">Default_Field_Options</A><A HREF="terminal_interface-curses-forms__ads.htm#102_13">;</A>
 
-   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#126_13">Default_Form_Options</A><FONT COLOR=red><A NAME="1154_13"></A></FONT> <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#107_9">Form_Option_Set</A>
+   <b>function</b> <A HREF="terminal_interface-curses-forms__ads.htm#126_13">Default_Form_Options</A> <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#107_9">Form_Option_Set</A>
    <b>is</b>
    <b>begin</b>
       <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#665_13">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#59_4">Null_Form</A>);
-   <b>end</b> Default_Form_Options;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#126_13">Default_Form_Options</A><A HREF="terminal_interface-curses-forms__ads.htm#126_13">;</A>
 
-<b>end</b> Terminal_Interface.Curses.Forms;
+<b>end</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-forms__ads.htm#48_35">Forms</A><A HREF="terminal_interface-curses-forms__ads.htm#48_35">;</A>
 </PRE></BODY></HTML>

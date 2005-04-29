@@ -13,6 +13,8 @@ install::
 
 install::
 	@echo "Installing $(Destination)"
-	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
+	$(_v) $(INSTALL_DIRECTORY) -m 1775 "$(Destination)"
 	@echo "Installing $(Destination)/Caches"
 	$(_v) $(INSTALL_DIRECTORY) -m 1777 "$(Destination)/Caches"
+	@echo "Installing $(Destination)/Frameworks"
+	$(_v) $(INSTALL_DIRECTORY) -m 775 "$(Destination)/Frameworks"

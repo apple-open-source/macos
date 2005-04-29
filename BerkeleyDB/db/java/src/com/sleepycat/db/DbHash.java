@@ -1,21 +1,30 @@
-/*-
- * See the file LICENSE for redistribution information.
+/*
+ *  -
+ *  See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2000-2002
- *      Sleepycat Software.  All rights reserved.
+ *  Copyright (c) 2000-2003
+ *  Sleepycat Software.  All rights reserved.
  *
- * $Id: DbHash.java,v 1.1.1.1 2003/02/15 04:56:07 zarzycki Exp $
+ *  $Id: DbHash.java,v 1.2 2004/03/30 01:23:37 jtownsen Exp $
  */
-
 package com.sleepycat.db;
 
-/*
- * This interface is used by DbEnv.set_bt_compare()
- *
+/**
+ *  An interface specifying a hashing function, which imposes a total
+ *  ordering on the Hash database.</p>
  */
-public interface DbHash
-{
+public interface DbHash {
+    /**
+     *  The DbHash interface is used by the Db.setHash method. This
+     *  interface defines the database-specific hash function. The
+     *  hash function must handle any key values used by the
+     *  application (possibly including zero-length keys).</p>
+     *
+     * @param  db    the enclosing database handle.
+     * @param  data  the byte string to be hashed.
+     * @param  len   the length of the byte string in bytes.
+     * @return       The DbHash interface returns a hash value of type
+     *      int.</p>
+     */
     public abstract int hash(Db db, byte[] data, int len);
 }
-
-// end of DbHash.java

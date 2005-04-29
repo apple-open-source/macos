@@ -1,5 +1,5 @@
 /* CharacterBreakIterator.java - Default character BreakIterator.
-   Copyright (C) 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,7 +38,6 @@ exception statement from your version. */
 
 package gnu.java.text;
 
-import java.text.BreakIterator;
 import java.text.CharacterIterator;
 
 /**
@@ -70,7 +69,6 @@ public class CharacterBreakIterator extends BaseBreakIterator
 
   public CharacterBreakIterator ()
   {
-    iter = null;		// FIXME?
   }
 
   private CharacterBreakIterator (CharacterBreakIterator other)
@@ -161,7 +159,6 @@ public class CharacterBreakIterator extends BaseBreakIterator
     if (iter.getIndex() == iter.getBeginIndex())
       return DONE;
 
-    int start = iter.getBeginIndex();
     while (iter.getIndex() >= iter.getBeginIndex())
       {
 	char c = iter.previous();

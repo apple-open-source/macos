@@ -60,7 +60,6 @@
 
 OSDefineMetaClassAndStructors( IOUSBMassStorageClass, IOSCSIProtocolServices )
 
-
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ init - Called at initialization time							   [PUBLIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -494,6 +493,7 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
 				if( maxLUN != NULL )
 				{
 					SetMaxLogicalUnitNumber( maxLUN->unsigned8BitValue() );
+					STATUS_LOG((4, "%s: Number of LUNs %u.", getName(), maxLUN->unsigned8BitValue() ));
 					maxLUNDetermined = true;
 				}
 			}
@@ -503,37 +503,75 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
 		{
 			// The device is a Bulk Only transport device, issue the
 			// GetMaxLUN call to determine what the maximum value is.
-	
-			// Build the USB command
-			fUSBDeviceRequest.bmRequestType 	= USBmakebmRequestType(kUSBIn, kUSBClass, kUSBInterface);
-			fUSBDeviceRequest.bRequest 			= 0xFE;
-			fUSBDeviceRequest.wValue			= 0;
-			fUSBDeviceRequest.wIndex			= GetInterfaceReference()->GetInterfaceNumber();
-			fUSBDeviceRequest.wLength			= 1;
-			fUSBDeviceRequest.pData				= &fMaxLogicalUnitNumber;
-			
-			STATUS_LOG((4, "%s: Issuing device request to find max LUN", getName() ));
-			
-			// Send the command over the control endpoint
-			status = GetInterfaceReference()->DeviceRequest( &fUSBDeviceRequest );
-			
-			STATUS_LOG((4, "%s: DeviceRequest returned status = %x", getName(), status ));
-			
-			if ( status != kIOReturnSuccess )
+			bool		triedReset = false;
+			UInt8		clearPipeAttempts = 0;		
+
+			// We want to loop until we get a satisfactory response to GetMaxLUN, either an answer or failure.
+			while ( status != kIOReturnSuccess )
 			{
-				SetMaxLogicalUnitNumber( 0 );
-				if( status == kIOUSBPipeStalled )
+				
+				// Build the USB command
+				fUSBDeviceRequest.bmRequestType 	= USBmakebmRequestType(kUSBIn, kUSBClass, kUSBInterface);
+				fUSBDeviceRequest.bRequest 			= 0xFE;
+				fUSBDeviceRequest.wValue			= 0;
+				fUSBDeviceRequest.wIndex			= GetInterfaceReference()->GetInterfaceNumber();
+				fUSBDeviceRequest.wLength			= 1;
+				fUSBDeviceRequest.pData				= &fMaxLogicalUnitNumber;
+				
+				STATUS_LOG((4, "%s: Issuing device request to find max LUN", getName() ));
+				
+				// Send the command over the control endpoint
+				status = GetInterfaceReference()->DeviceRequest( &fUSBDeviceRequest );
+				
+				STATUS_LOG((4, "%s: DeviceRequest returned status = %x", getName(), status ));
+				
+				if ( status != kIOReturnSuccess )
 				{
-					UInt8	eStatus[2];
 					
-					STATUS_LOG((4, "%s: calling GetStatusEndpointStatus to clear stall", getName()));
+					SetMaxLogicalUnitNumber( 0 );
+					if( ( status == kIOUSBPipeStalled ) && ( clearPipeAttempts < 3 ) )
+					{
+						UInt8		eStatus[2];
+						
+						STATUS_LOG((4, "%s: calling GetStatusEndpointStatus to clear stall", getName()));
+						
+						// Throw in an extra Get Status to clear up devices that stall the
+						// control pipe like the early Iomega devices.
+						GetStatusEndpointStatus( GetControlPipe(), &eStatus[0], NULL);
+						
+						clearPipeAttempts++;
+					}
+					else if ( ( status == kIOReturnNotResponding ) && ( triedReset == false ) )
+					{
+						// The device isn't responding. Let us reset the device, and try again.
+						
+						// We need to retain ourselves so we stick around after the bus reset.
+						retain();
+				
+						// The endpoint status could not be retrieved meaning that the device has
+						// stopped responding. Or this could be a device we know needs a reset.
+						// Begin the device reset sequence.
+						
+						STATUS_LOG((4, "%s: BeginProvidedServices: device not responding, reseting.", getName() ));
+						
+						// Reset the device on its own thread so we don't deadlock.
+						fResetInProgress = true;
+						
+						IOCreateThread( IOUSBMassStorageClass::sResetDevice, this );
+						fCommandGate->runAction ( ( IOCommandGate::Action ) &IOUSBMassStorageClass::sWaitForReset );
+						
+						triedReset = true;
+					}
+					else
+					{
+						break;
+					}
 					
-					// Throw in an extra Get Status to clear up devices that stall the
-					// control pipe like the early Iomega devices.
-					GetStatusEndpointStatus( GetControlPipe(), &eStatus[0], NULL);
 				}
+					
 			}
 		}
+			
     }
     else
     {
@@ -541,6 +579,7 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
     	// maximum LUN will always be zero.
         SetMaxLogicalUnitNumber( 0 );
     }
+    
 
     STATUS_LOG((5, "%s: Maximum supported LUN is: %d", 
     			getName(), 
@@ -554,7 +593,7 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
 	// register itself as the nub.  
  	if ( GetMaxLogicalUnitNumber() == 0 )
  	{    
-		registerService();
+		registerService(kIOServiceAsynchronous);
 		
 		fClients = NULL;
     }
@@ -598,7 +637,7 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
 			}
 			else
 			{
-				nub->registerService( kIOServiceSynchronous );
+				nub->registerService( kIOServiceAsynchronous );
 			}
 
 			nub->release();
@@ -645,12 +684,14 @@ IOUSBMassStorageClass::SendSCSICommand(
 	
    	STATUS_LOG((6, "%s: SendSCSICommand was called", getName()));
 
+	// Temporary work around for 3774063 since it will most likely not be 
+	// addressed in time for Tiger release.
+	// This work around needs to be removed once 3774063 is fixed.
 	if ( isInactive () )
 	{	
-		STATUS_LOG((6, "%s: SendSCSICommand returning false", getName()));
 		return false;
 	}
-
+	
 	// Verify that the SCSI Task to execute is valid.
   	if ( request == NULL )
  	{
@@ -1540,6 +1581,7 @@ IOUSBMassStorageClass::FinishDeviceRecovery( IOReturn status )
 	   			 		status));
 			if( status != kIOReturnSuccess)
 			{
+				STATUS_LOG((6, "%s: FinishDeviceRecovery SendSCSICommandforBulkOnlyProtocol status != kIOReturnSuccess ", getName() ));
 				goto ErrorExit;
 			}
 		}

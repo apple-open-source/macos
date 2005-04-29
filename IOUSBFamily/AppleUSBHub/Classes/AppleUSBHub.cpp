@@ -57,6 +57,19 @@ firmwarestatus will be higher than 05.
       {0x046a, 0x003, 0x0601, 0x0605, kErrataCaptiveOKBit}  // Cherry 4 port KB
 };
 
+// from the EHCI driver
+enum
+{
+    kEHCITestMode_Off		= 0,
+    kEHCITestMode_J_State	= 1,
+    kEHCITestMode_K_State 	= 2,
+    kEHCITestMode_SE0_NAK	= 3,
+    kEHCITestMode_Packet	= 4,
+    kEHCITestMode_ForceEnable	= 5,
+    kEHCITestMode_Start		= 10,
+    kEHCITestMode_End		= 11
+};
+
 #define errataListLength (sizeof(errataList)/sizeof(ErrataListEntry))
 
 OSDefineMetaClassAndStructors(AppleUSBHub, IOService)
@@ -191,9 +204,13 @@ AppleUSBHub::start(IOService * provider)
     
     if ( err == kIOReturnSuccess )
     {
+	if (_hsHub)
+	    registerService();					// for the benefit of a user client
+                                
         rootHub = OSDynamicCast(IOUSBRootHubDevice, provider);
         if (rootHub)
         {
+	    _isRootHub = true;
             // if my provider is an IOUSBRootHubDevice nub, then I should attach this hub device nub to the root.
             //
             usbPlane = getPlane(kIOUSBPlane);
@@ -210,9 +227,8 @@ AppleUSBHub::start(IOService * provider)
         _resetPortZeroThread = thread_call_allocate((thread_call_func_t)ResetPortZeroEntry, (thread_call_param_t)this);
         _hubDeadCheckThread = thread_call_allocate((thread_call_func_t)CheckForDeadHubEntry, (thread_call_param_t)this);
         _clearFeatureEndpointHaltThread = thread_call_allocate((thread_call_func_t)ClearFeatureEndpointHaltEntry, (thread_call_param_t)this);
-        _clearDevZeroLockThread = thread_call_allocate((thread_call_func_t)ClearDevZeroLockForPort, (thread_call_param_t)this);
         
-        if ( !_workThread || !_resetPortZeroThread || !_hubDeadCheckThread || !_clearFeatureEndpointHaltThread || !_clearDevZeroLockThread )
+        if ( !_workThread || !_resetPortZeroThread || !_hubDeadCheckThread || !_clearFeatureEndpointHaltThread )
         {
             USBError(1, "%s[%p] could not allocate all thread functions.  Aborting start", getName(), this);
             goto ErrorExit;
@@ -275,11 +291,21 @@ ErrorExit:
 void 
 AppleUSBHub::stop(IOService * provider)
 {
+    IOUSBControllerV2		*v2Bus;
+
     if (_buffer) 
     {
         _buffer->release();
-	_buffer = 0;
+		_buffer = NULL;
     }
+	
+	if (_hsHub)
+	{
+		v2Bus = OSDynamicCast(IOUSBControllerV2, _device->GetBus());
+		if (v2Bus)
+			v2Bus->RemoveHSHub(_address);
+	}
+	
     if(_hubInterface) 
     {
         _hubInterface->close(this);
@@ -307,7 +333,7 @@ AppleUSBHub::stop(IOService * provider)
         thread_call_cancel(_resetPortZeroThread);
         thread_call_free(_resetPortZeroThread);
     }
-    
+
     if (_hubDeadCheckThread)
     {
         thread_call_cancel(_hubDeadCheckThread);
@@ -319,12 +345,7 @@ AppleUSBHub::stop(IOService * provider)
         thread_call_cancel(_clearFeatureEndpointHaltThread);
         thread_call_free(_clearFeatureEndpointHaltThread);
     }
-    if (_clearDevZeroLockThread)
-    {
-        thread_call_cancel(_clearDevZeroLockThread);
-        thread_call_free(_clearDevZeroLockThread);
-    }
-    
+
     if (_device)
     {
         // Set it to NULL, since our provider will go away after this stop call
@@ -335,13 +356,15 @@ AppleUSBHub::stop(IOService * provider)
     super::stop(provider);
 }
 
+
+
 IOReturn
 AppleUSBHub::ConfigureHub()
 {
-    IOReturn 				err = kIOReturnSuccess;
-    IOUSBFindInterfaceRequest		req;
-    const IOUSBConfigurationDescriptor *cd;
-    IOUSBControllerV2			*v2Bus;
+    IOReturn							err = kIOReturnSuccess;
+    IOUSBFindInterfaceRequest			req;
+    const IOUSBConfigurationDescriptor	*cd;
+    IOUSBControllerV2					*v2Bus;
 
     // Reset some of our variables that so that when we reconfigure due to a reset
     // we don't reuse old values
@@ -445,44 +468,45 @@ AppleUSBHub::ConfigureHub()
     
     if (_device->GetbcdUSB() >= 0x200)
     {
-	v2Bus = OSDynamicCast(IOUSBControllerV2, _device->GetBus());
-	if (v2Bus)
-	{
-	    switch (_device->GetProtocol())
-	    {
-		case 0:
-                    USBLog(5, "%s[%p]::ConfigureHub - found FS/LS only hub", getName(), this);
-		    break;
-		    
-		case 1:
-                    USBLog(5, "%s[%p]::ConfigureHub - found single TT hub", getName(), this);
-		    v2Bus->AddHSHub(_address, 0);
-                    _hsHub = true;
-		    break;
-		    
-		case 2:
-                    USBLog(5, "%s[%p]::ConfigureHub - found multi TT hub", getName(), this);
-                    _hsHub = true;
+		v2Bus = OSDynamicCast(IOUSBControllerV2, _device->GetBus());
+		if (v2Bus)
+		{
+			switch (_device->GetProtocol())
+			{
+			case 0:
+				USBLog(5, "%s[%p]::ConfigureHub - found FS/LS only hub", getName(), this);
+				break;
+				
+			case 1:
+				USBLog(5, "%s[%p]::ConfigureHub - found single TT hub", getName(), this);
+				v2Bus->AddHSHub(_address, 0);
+				_hsHub = true;
+				break;
+				
+			case 2:
+				USBLog(5, "%s[%p]::ConfigureHub - found multi TT hub", getName(), this);
+				_hsHub = true;
 
-		    if ((err = _hubInterface->SetAlternateInterface(this, 1))) 		// pick the multi-TT setting
-		    {
-			USBError(1, "%s[%p]::ConfigureHub - err (%x) setting alt interface", getName(), this, err);
-			v2Bus->AddHSHub(_address, 0);
-		    }
-		    else
-			v2Bus->AddHSHub(_address, kUSBHSHubFlagsMultiTT);
-			_multiTTs = true;
-		    break;
-		    
-		default:
-		    USBError(1, "%s[%p]::ConfigureHub - unknown protocol (%d)", getName(), this, _device->GetProtocol());
-		    break;
-	    }
-	}
-	else
-	{
-            USBLog(5, "%s[%p]::ConfigureHub - not on a V2 controller", getName(), this);
-	}
+				if ((err = _hubInterface->SetAlternateInterface(this, 1))) 		// pick the multi-TT setting
+				{
+					USBError(1, "%s[%p]::ConfigureHub - err (%x) setting alt interface", getName(), this, err);
+					v2Bus->AddHSHub(_address, 0);
+				}
+				else
+					v2Bus->AddHSHub(_address, kUSBHSHubFlagsMultiTT);
+				
+				_multiTTs = true;
+				break;
+				
+			default:
+				USBError(1, "%s[%p]::ConfigureHub - unknown protocol (%d)", getName(), this, _device->GetProtocol());
+				break;
+			}
+		}
+		else
+		{
+			USBLog(5, "%s[%p]::ConfigureHub - not on a V2 controller", getName(), this);
+		}
     }
     
 
@@ -514,7 +538,19 @@ AppleUSBHub::ConfigureHub()
         USBError(1,"%s[%p]::ConfigureHub AllocatePortMemory failed with 0x%x", getName(), this, err);
         goto ErrorExit;
     }
-        
+    
+    if (_hsHub)
+    {
+		// with a HS hub, we will put a property in our own object specifying the number
+		// of TTs in the hub. We will also specify the name of the UserClient, which is only
+		// applicable to HS hubs
+		if (!_multiTTs)
+			setProperty("High Speed", (unsigned long long)1, 8);		// 8 bits
+		else
+			setProperty("High Speed", (unsigned long long)_hubDescriptor.numPorts, 8);	// 8 bits
+		setProperty("IOUserClientClass", "AppleUSBHSHubUserClient");
+    }
+    
     err = StartPorts();
     if ( err != kIOReturnSuccess )
     {
@@ -530,7 +566,7 @@ AppleUSBHub::ConfigureHub()
     // start an async read
     //
     _hubIsDead = FALSE;
-                                
+
 ErrorExit:
 
     return err;
@@ -818,6 +854,7 @@ AppleUSBHub::HubStatusChanged(void)
 {
     IOReturn	err = kIOReturnSuccess;
 
+	USBLog(6,"+%s[%p]::HubStatusChanged ", getName(), this);
     do
     {
         if ((err = GetHubStatus(&_hubStatus)))
@@ -828,11 +865,11 @@ AppleUSBHub::HubStatusChanged(void)
         _hubStatus.statusFlags = USBToHostWord(_hubStatus.statusFlags);
         _hubStatus.changeFlags = USBToHostWord(_hubStatus.changeFlags);
 
-        USBLog(3,"%s [%p]: hub status = %x/%x", getName(), this, _hubStatus.statusFlags, _hubStatus.changeFlags);
+        USBLog(3,"%s[%p]: hub status = %x/%x", getName(), this, _hubStatus.statusFlags, _hubStatus.changeFlags);
 
         if (_hubStatus.changeFlags & kHubLocalPowerStatusChange)
         {
-            USBLog(3, "%s [%p]: Hub Local Power Status Change detected", getName(), this);
+            USBLog(3, "%s[%p]: Hub Local Power Status Change detected", getName(), this);
             if ((err = ClearHubFeature(kUSBHubLocalPowerChangeFeature)))
             {
                 FatalError(err, "clear hub power status feature");
@@ -843,13 +880,17 @@ AppleUSBHub::HubStatusChanged(void)
                 FatalError(err, "get status (second in hub status change)");
                 break;
             }
-            _hubStatus.statusFlags = USBToHostWord(_hubStatus.statusFlags);
+            
+			_hubStatus.statusFlags = USBToHostWord(_hubStatus.statusFlags);
             _hubStatus.changeFlags = USBToHostWord(_hubStatus.changeFlags);
+			
+			USBLog(3,"%s[%p]: hub status after clearing LocalPowerChange = %x/%x", getName(), this, _hubStatus.statusFlags, _hubStatus.changeFlags);
+			// Need to check whether we successfully cleared the change
         }
 
         if (_hubStatus.changeFlags & kHubOverCurrentIndicatorChange)
         {
-            USBLog(3, "%s [%p]: Hub OverCurrent Indicator Change detected", getName(), this);
+            USBLog(3, "%s[%p]: Hub OverCurrent Indicator Change detected", getName(), this);
             if ((err =
                  ClearHubFeature(kUSBHubOverCurrentChangeFeature)))
             {
@@ -863,6 +904,7 @@ AppleUSBHub::HubStatusChanged(void)
             }
             _hubStatus.statusFlags = USBToHostWord(_hubStatus.statusFlags);
             _hubStatus.changeFlags = USBToHostWord(_hubStatus.changeFlags);
+			USBLog(3,"%s[%p]: hub status after clearing HubOvercurrent = %x/%x", getName(), this, _hubStatus.statusFlags, _hubStatus.changeFlags);
         }
 
         // See if we have the kResetOnPowerStatusChange errata. This means that upon getting a hub status change, we should do
@@ -872,19 +914,22 @@ AppleUSBHub::HubStatusChanged(void)
         if ( boolObj && boolObj->isTrue() )
         {
             // Set an error so that we cause our port to be reset. The overcurrent and power status changes might disable the ports downstream
-            // so we need a reset to recover.
+            // so we need a reset to recover. Do this ONLY if the change flag indicated that the status was a change to ON.
             //
-            if ( _hubStatus.statusFlags & ( kUSBHubLocalPowerChangeFeature || kHubOverCurrentIndicatorChange) )
-            {
-            USBLog(3, "%s [%p]: Hub status was a change to ON (0x%x)", getName(), this, _hubStatus.statusFlags);
-            err = kIOReturnBusy;
-            }
+			if ( _hubStatus.statusFlags & ( kUSBHubLocalPowerChangeFeature || kHubOverCurrentIndicatorChange ) )
+			{
+				USBLog(3,"%s[%p]: Hub status was a change to ON (0x%x)", getName(), this, _hubStatus.statusFlags);
+				err = kIOReturnBusy;
+			}
         }
 
     } while(false);
 
     if ( err == kIOReturnSuccess )
+	{
+		USBLog(6,"+%s[%p]::HubStatusChanged returning true", getName(), this);
         return true;
+	}
     else
     {
         // If we get an error, then we better reset our hub
@@ -898,6 +943,7 @@ AppleUSBHub::HubStatusChanged(void)
         // Return false, which will cause us to NOT rearm the interrupt thread.  The reset
         // will take care of reconfiguring the hub and rearming the interrupt.
         //
+		USBLog(6,"-%s[%p]::HubStatusChanged returning false", getName(), this);
         return false;
     }
 
@@ -1079,7 +1125,7 @@ AppleUSBHub::GetPortStatus(IOUSBHubPortStatus *status, UInt16 port)
 
     if ( err == kIOReturnSuccess)
     {
-        USBLog( 5, "%s[%p]::GetPortStatus for port %d, status: 0x%4.4x, change: 0x%4.4x - returning kIOReturnSuccess", getName(), this, port, status->statusFlags, status->changeFlags);
+        USBLog( 5, "%s[%p]::GetPortStatus for port %d, status: 0x%8x, change: 0x%8x - returning kIOReturnSuccess", getName(), this, port, status->statusFlags, status->changeFlags);
     }
     
     return(err);
@@ -1106,7 +1152,7 @@ AppleUSBHub::SetPortFeature(UInt16 feature, UInt16 port)
 
     if (err)
     {
-        USBLog(1, "%s[%p]::SetPortFeature got error (%x) to DoDeviceRequest", getName(), this, err);
+        USBLog(1, "%s[%p]::SetPortFeature (%d) to port %d got error (%x) from DoDeviceRequest", getName(), this, feature, port, err);
     }
 
     return(err);
@@ -1199,7 +1245,6 @@ void
 AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
 {
     bool		queueAnother = TRUE;
-    bool		timeToGoAway = false;
     IOReturn		err = kIOReturnSuccess;
     
     switch (status)
@@ -1207,24 +1252,24 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
         case kIOReturnOverrun:
             USBLog(3, "%s[%p]::InterruptReadHandler kIOReturnOverrun error", getName(), this);
             // This is an interesting error, as we have the data that we wanted and more...  We will use this
-            // data but first we need to clear the stall and reset the data toggle on the device.  We will not
-            // requeue another read because our _clearFeatureEndpointHaltThread will requeue it.  We then just 
+            // data but first we need to clear the stall and reset the data toggle on the device.  We then just 
             // fall through to the kIOReturnSuccess case.
             
 	    if (!isInactive())
-	    {
+            {
                 //
                 // First, clear the halted bit in the controller
                 //
-                _interruptPipe->ClearStall();
-                
-                // And call the device to reset the endpoint as well
-                //
-                IncrementOutstandingIO();
-                thread_call_enter(_clearFeatureEndpointHaltThread);
+		if ( _interruptPipe )
+		{
+		    _interruptPipe->ClearStall();
+
+		    // And call the device to reset the endpoint as well
+		    //
+		    IncrementOutstandingIO();
+		    thread_call_enter(_clearFeatureEndpointHaltThread);
+		}
             }
-            queueAnother = false;
-            timeToGoAway = false;
             
             // Fall through to process the data.
             
@@ -1256,7 +1301,6 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
             if ( _hubHasBeenDisconnected || isInactive() )
             {
                   queueAnother = false;
-                  timeToGoAway = true;
             }
             else
             {
@@ -1281,7 +1325,6 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
 	    {
                 USBLog(3, "%s[%p]::InterruptReadHandler error kIOReturnAborted (expected)", getName(), this);
 		queueAnother = false;
-                timeToGoAway = true;
 	    }
 	    else
             {
@@ -1302,26 +1345,27 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
         case kIOUSBBitstufErr:
         case kIOUSBCRCErr:
             // These errors will halt the endpoint, so before we requeue the interrupt read, we have
-            // to clear the stall at the controller and at the device.  We will not requeue the read
-            // until after we clear the ENDPOINT_HALT feature.  We need to do a callout thread because
-            // we are executing inside the gate here and we cannot issue a synchronous request.
-            USBLog(3, "%s[%p]::InterruptReadHandler error (0x%x) reading interrupt pipe", getName(), this, status);
+            // to clear the stall at the controller and at the device.
+            //
+            USBLog(3, "%s[%p]::InterruptReadHandler OHCI error (0x%x) reading interrupt pipe", getName(), this, status);
             
 	    // 01-28-02 JRH If we are inactive, then we can ignore this
+            //
 	    if (!isInactive())
-	    {
+            {
                 // First, clear the halted bit in the controller
                 //
-                _interruptPipe->ClearStall();
-                
-                // And call the device to reset the endpoint as well
-                //
-                IncrementOutstandingIO();
-                thread_call_enter(_clearFeatureEndpointHaltThread);
+		if ( _interruptPipe )
+		{
+		    _interruptPipe->ClearStall();
+		    
+		    // And call the device to reset the endpoint as well
+		    //
+		    IncrementOutstandingIO();
+		    thread_call_enter(_clearFeatureEndpointHaltThread);
+		}
             }
             
-            // We don't want to requeue the read here, AND we don't want to indicate that we are done
-            //
             queueAnother = false;
             break;
 
@@ -1334,9 +1378,10 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
             {
                 // Clear the halted bit in the controller
                 //
-                _interruptPipe->ClearStall();
+		if ( _interruptPipe )
+		    _interruptPipe->ClearStall();
             }
-            break;
+                break;
     }
 
     if ( queueAnother )
@@ -1425,7 +1470,7 @@ AppleUSBHub::ProcessStatusChanged()
     bool		portSuccess = false;
     bool		hubStatusSuccess = true;
 
-    if (isInactive() || !_buffer)
+    if (isInactive() || !_buffer || !_ports)
         return;
 
     portMask = 2;
@@ -1456,7 +1501,7 @@ AppleUSBHub::ProcessStatusChanged()
                     if ((statusChangedBitmapPtr[portByte] & portMask) != 0)
                     {
                         port = _ports[portIndex-1];
-                        USBLog(5,"%s[%p]::ProcessStatusChanged port number %d, calling port(%p)->StatusChanged", getName(), this, portIndex, port);
+                        USBLog(5,"%s[%p]::ProcessStatusChanged port number %d, calling port->StatusChanged", getName(), this, portIndex);
                         portSuccess = port->StatusChanged();
                         if (! portSuccess )
                         {
@@ -1486,15 +1531,12 @@ AppleUSBHub::RearmInterruptRead()
     IOReturn		err = kIOReturnSuccess;
     IOUSBCompletion	comp;
 
-    USBLog(5,"%s[%p]::RearmInterruptRead (%p, %p)", getName(), this, _buffer, _interruptPipe );
+	USBLog(5,"+%s[%p]::RearmInterruptRead", getName(), this);
+
+    if ( (_buffer == NULL) || ( _interruptPipe == NULL ) )
+        return err;
 
     IncrementOutstandingIO();			// retain myself for the callback
-    if ( (_buffer == NULL) || ( _interruptPipe == NULL ) )
-    {
-        DecrementOutstandingIO();
-        return err;
-    }
-
     comp.target = this;
     comp.action = (IOUSBCompletionAction) InterruptReadHandlerEntry;
     comp.parameter = NULL;
@@ -1505,7 +1547,7 @@ AppleUSBHub::RearmInterruptRead()
         USBError(1,"%s[%p]::RearmInterruptRead error %x reading interrupt pipe", getName(), this, err);
         DecrementOutstandingIO();
     }
-
+    
     return err;
 }
 
@@ -1658,6 +1700,7 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
                     err = RearmInterruptRead();
                 }
 	    }
+			USBLog(3, "-%s[%p]  Received kIOUSBMessagePortHasBeenReset -- finishded reconfiguring hub", getName(), this);
     
             break;
 
@@ -1838,6 +1881,7 @@ AppleUSBHub::CheckForDeadHub()
     }
 
 }
+ 
 
 //=============================================================================================
 //
@@ -1848,46 +1892,46 @@ AppleUSBHub::CheckForDeadHub()
 //
 //=============================================================================================
 //
-void 
+void
 AppleUSBHub::ClearFeatureEndpointHaltEntry(OSObject *target)
 {
     AppleUSBHub *	me = OSDynamicCast(AppleUSBHub, target);
-    
+
     if (!me)
         return;
-        
+
     me->ClearFeatureEndpointHalt();
     me->DecrementOutstandingIO();
 }
 
-void 
+void
 AppleUSBHub::ClearFeatureEndpointHalt( )
 {
     IOReturn			status = kIOReturnSuccess;
     IOUSBDevRequest		request;
     UInt32			retries = 2;
-
+    
     // Clear out the structure for the request
     //
     bzero( &request, sizeof(IOUSBDevRequest));
-
-    while ( retries > 0 )
+    
+    while ( (retries > 0) && (_interruptPipe) )
     {
         retries--;
-
+        
         // Build the USB command to clear the ENDPOINT_HALT feature for our interrupt endpoint
         //
         request.bmRequestType 	= USBmakebmRequestType(kUSBNone, kUSBStandard, kUSBEndpoint);
-        request.bRequest 		= kUSBRqClearFeature;
+        request.bRequest        = kUSBRqClearFeature;
         request.wValue		= kUSBFeatureEndpointStall;
         request.wIndex		= _interruptPipe->GetEndpointNumber() | 0x80 ; // bit 7 sets the direction of the endpoint to IN
         request.wLength		= 0;
         request.pData 		= NULL;
-
+        
         // Send the command over the control endpoint
         //
         status = _device->DeviceRequest(&request, 5000, 0);
-
+        
         if ( status != kIOReturnSuccess )
         {
             USBLog(3, "%s[%p]::ClearFeatureEndpointHalt -  DeviceRequest returned: 0x%x, retries = %d", getName(), this, status, retries);
@@ -1903,14 +1947,13 @@ AppleUSBHub::ClearFeatureEndpointHalt( )
     status = RearmInterruptRead();
 }
 
-
 void 
 AppleUSBHub::ResetMyPort()
 {
-    // Call willTerminate on ourselves
+    // Call willTerminate on ourselves (will abort the interrupt pipe)
     //
     willTerminate(this, 0);
-
+        
     // If our timerSource is going, cancel it, as we don't need to
     // timeout our ports anymore
     //
@@ -1940,19 +1983,20 @@ AppleUSBHub::requestTerminate( IOService * provider, IOOptionBits options )
 bool
 AppleUSBHub::willTerminate( IOService * provider, IOOptionBits options )
 {
-    int			currentPort;
-    AppleUSBHubPort * 	port;
     IOReturn		err;
+    int			currentPort;
+    AppleUSBHubPort *	port;
     
     USBLog(3, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
+
     if ( _interruptPipe )
     {
-	err = _interruptPipe->Abort();
+		err = _interruptPipe->Abort();
         if ( err != kIOReturnSuccess )
         {
             USBLog(1, "%s[%p]::willTerminate interruptPipe->Abort returned 0x%x", getName(), this, err);
         }
-           
+        _interruptPipe = NULL;
     }
 
     // JRH 09/19/2003 rdar://problem/3290312
@@ -1969,7 +2013,7 @@ AppleUSBHub::willTerminate( IOService * provider, IOOptionBits options )
                 {
                     USBLog(1, "%s[%p]::StopPorts - port %d had the dev zero lock", getName(), this, currentPort);
                 }
-                thread_call_enter1(_clearDevZeroLockThread, (thread_call_param_t) port);
+                port->willTerminate(this, 0);
             }
         }
     }
@@ -1979,8 +2023,7 @@ AppleUSBHub::willTerminate( IOService * provider, IOOptionBits options )
     //
     if (_timerSource) 
     {
-	_timerSource->cancelTimeout();
-	// release();
+		_timerSource->cancelTimeout();
     }
     
     return super::willTerminate(provider, options);
@@ -2115,27 +2158,6 @@ AppleUSBHub::ChangeOutstandingIO(OSObject *target, void *param1, void *param2, v
 }
 
 
-
-//=============================================================================================
-//
-//  ClearDevZeroLockForPort
-//
-//=============================================================================================
-//
-void
-AppleUSBHub::ClearDevZeroLockForPort(OSObject *target, thread_call_param_t thePort)
-{
-    AppleUSBHub *	me = OSDynamicCast(AppleUSBHub, target);
-    AppleUSBHubPort *	port = (AppleUSBHubPort *) thePort;
-
-    if (!me || !port)
-        return;
-
-    me->retain();
-    port->willTerminate(me, 0);
-    me->release();
-}
-
 //================================================================================================
 //
 //  MergeDictionaryIntoProvider
@@ -2153,7 +2175,7 @@ AppleUSBHub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary * di
     OSCollectionIterator * 	iter = NULL;
     bool			result = false;
 
-    USBLog(3,"+%s[%p]::MergeDictionary(%p)IntoProvider(%p)", getName(), this, dictionaryToMerge, provider);
+    USBLog(6,"+%s[%p]::MergeDictionary(%p)IntoProvider(%p)", getName(), this, dictionaryToMerge, provider);
 
     if (!provider || !dictionaryToMerge)
         return false;
@@ -2176,18 +2198,18 @@ AppleUSBHub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary * di
             // Get the symbol name for debugging
             //
             str = dictionaryEntry->getCStringNoCopy();
-            USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  merging \"%s\"", getName(), this, str);
+            USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  merging \"%s\"", getName(), this, str);
 
             // Check to see if our destination already has the same entry.
             //
             providerProperty = provider->getProperty(dictionaryEntry);
             if ( providerProperty )
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  provider already had property %s", getName(), this, str);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  provider already had property %s", getName(), this, str);
                 providerDictionary = OSDynamicCast(OSDictionary, providerProperty);
                 if ( providerDictionary )
                 {
-                    USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  provider's %s is also a dictionary (%p)", getName(), this, str, providerDictionary);
+                    USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  provider's %s is also a dictionary (%p)", getName(), this, str, providerDictionary);
                 }
             }
 
@@ -2196,7 +2218,7 @@ AppleUSBHub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary * di
             sourceDictionary = OSDynamicCast(OSDictionary, dictionaryToMerge->getObject(dictionaryEntry));
             if ( sourceDictionary )
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  source dictionary had %s as a dictionary (%p)", getName(), this, str, sourceDictionary);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  source dictionary had %s as a dictionary (%p)", getName(), this, str, sourceDictionary);
             }
 
             if ( providerDictionary &&  sourceDictionary )
@@ -2221,9 +2243,9 @@ AppleUSBHub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary * di
                 // Get the size of our provider's dictionary so that we can check later whether it changed
                 //
                 providerSize = providerDictionary->getCapacity();
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  Created a local copy(%p) of dictionary (%p), size %d", getName(), this, localCopyOfProvidersDictionary, providerDictionary, providerSize);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  Created a local copy(%p) of dictionary (%p), size %d", getName(), this, localCopyOfProvidersDictionary, providerDictionary, providerSize);
 
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  need to merge a dictionary (%s)", getName(), this, str);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  need to merge a dictionary (%s)", getName(), this, str);
 
                 // Recursively merge the two dictionaries
                 //
@@ -2240,14 +2262,14 @@ AppleUSBHub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary * di
                         USBError(1,"%s[%p]::MergeDictionaryIntoProvider  our provider's dictionary size changed (%d,%d)",getName(), this, providerSize, providerSizeAfterMerge);
                     }
 
-                    USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  setting  property %s from merged dictionary (%p)", getName(), this, str, providerDictionary);
+                    USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  setting  property %s from merged dictionary (%p)", getName(), this, str, providerDictionary);
 
                     // OK, now we can just set the property in our provider
                     //
                     result = provider->setProperty( dictionaryEntry, localCopyOfProvidersDictionary );
                     if ( !result )
                     {
-                        USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  setProperty %s , returned false", getName(), this, str);
+                        USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  setProperty %s , returned false", getName(), this, str);
                         break;
                     }
                 }
@@ -2255,7 +2277,7 @@ AppleUSBHub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary * di
                 {
                     // If we got an error merging dictionaries, then just bail out without doing anything
                     //
-                    USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  MergeDictionaryIntoDictionary(%p,%p) returned false", getName(), this, sourceDictionary, providerDictionary);
+                    USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  MergeDictionaryIntoDictionary(%p,%p) returned false", getName(), this, sourceDictionary, providerDictionary);
                     break;
                 }
             }
@@ -2263,18 +2285,18 @@ AppleUSBHub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary * di
             {
                 // Not a dictionary, so just set the property
                 //
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  setting property %s", getName(), this, str);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  setting property %s", getName(), this, str);
                 result = provider->setProperty(dictionaryEntry, dictionaryToMerge->getObject(dictionaryEntry));
                 if ( !result )
                 {
-                    USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  setProperty %s, returned false", getName(), this, str);
+                    USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  setProperty %s, returned false", getName(), this, str);
                     break;
                 }
             }
         }
         iter->release();
     }
-    USBLog(3,"-%s[%p]::MergeDictionaryIntoProvider(%p, %p)  result %d", getName(), this, provider, dictionaryToMerge, result);
+    USBLog(6,"-%s[%p]::MergeDictionaryIntoProvider(%p, %p)  result %d", getName(), this, provider, dictionaryToMerge, result);
 
     return result;
 }
@@ -2298,7 +2320,7 @@ AppleUSBHub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDictionary
     OSObject*			targetObject = NULL ;
     bool			result = false;
 
-    USBLog(3,"+%s[%p]::MergeDictionaryIntoDictionary(%p => %p)", getName(), this, parentSourceDictionary, parentTargetDictionary);
+    USBLog(6,"+%s[%p]::MergeDictionaryIntoDictionary(%p => %p)", getName(), this, parentSourceDictionary, parentTargetDictionary);
 
     if (!parentSourceDictionary || !parentTargetDictionary)
         return false ;
@@ -2317,7 +2339,7 @@ AppleUSBHub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDictionary
         // Get the symbol name for debugging
         //
         str = keyObject->getCStringNoCopy();
-        USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  merging \"%s\"", getName(), this, str);
+        USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  merging \"%s\"", getName(), this, str);
 
         // Check to see if our destination already has the same entry.
         //
@@ -2326,7 +2348,7 @@ AppleUSBHub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDictionary
         {
             childTargetDictionary = OSDynamicCast(OSDictionary, childTargetObject);
             if ( childTargetDictionary )
-                USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  target object %s is a dictionary (%p)", getName(), this, str, childTargetDictionary);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  target object %s is a dictionary (%p)", getName(), this, str, childTargetDictionary);
         }
 
         // See if our source entry is also a dictionary
@@ -2334,7 +2356,7 @@ AppleUSBHub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDictionary
         childSourceDictionary = OSDynamicCast(OSDictionary, parentSourceDictionary->getObject(keyObject));
         if ( childSourceDictionary )
         {
-            USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  source dictionary had %s as a dictionary (%p)", getName(), this, str, childSourceDictionary);
+            USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  source dictionary had %s as a dictionary (%p)", getName(), this, str, childSourceDictionary);
         }
 
         if ( childTargetDictionary && childSourceDictionary)
@@ -2342,11 +2364,11 @@ AppleUSBHub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDictionary
             // Our destination dictionary already has the entry for this same object AND our
             // source is also a dcitionary, so we need to recursively add it.
             //
-            USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  recursing(%p,%p)", getName(), this, childSourceDictionary, childTargetDictionary);
+            USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  recursing(%p,%p)", getName(), this, childSourceDictionary, childTargetDictionary);
             result = MergeDictionaryIntoDictionary(childSourceDictionary, childTargetDictionary) ;
             if ( !result )
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  recursing (%p,%p) failed", getName(), this, childSourceDictionary, childTargetDictionary);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  recursing (%p,%p) failed", getName(), this, childSourceDictionary, childTargetDictionary);
                 break;
             }
         }
@@ -2354,11 +2376,11 @@ AppleUSBHub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDictionary
         {
             // We have a property that we need to merge into our parent dictionary.
             //
-            USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  setting object %s into dictionary %p", getName(), this, str, parentTargetDictionary);
+            USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  setting object %s into dictionary %p", getName(), this, str, parentTargetDictionary);
             result = parentTargetDictionary->setObject(keyObject, parentSourceDictionary->getObject(keyObject)) ;
             if ( !result )
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  setObject %s, returned false", getName(), this, str);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  setObject %s, returned false", getName(), this, str);
                 break;
             }
         }
@@ -2367,6 +2389,104 @@ AppleUSBHub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDictionary
 
     srcIterator->release();
 
-    USBLog(3,"-%s[%p]::MergeDictionaryIntoDictionary(%p=>(%p)  result %d", getName(), this, parentSourceDictionary, parentTargetDictionary, result);
+    USBLog(6,"-%s[%p]::MergeDictionaryIntoDictionary(%p=>(%p)  result %d", getName(), this, parentSourceDictionary, parentTargetDictionary, result);
     return result;
 }
+
+
+IOReturn
+AppleUSBHub::EnterTestMode()
+{
+    IOUSBControllerV2 	*con;
+    int			currentPort;
+    AppleUSBHubPort	*port;
+    
+    if (!_hsHub)
+		return kIOReturnBadArgument;
+	
+    if (_isRootHub)
+    {
+	con = OSDynamicCast(IOUSBControllerV2, _bus);
+	if (!con)
+	    return kIOReturnBadArgument;
+	    
+	USBLog(1, "%s[%p]::EnterTestMode - root hub", getName(), this);    
+	_inTestMode = true;
+	return con->SetTestMode(kEHCITestMode_Start, 0);
+    }
+    // not a root hub
+    _inTestMode = true;
+    if ( _ports)
+    {
+	USBLog(1, "%s[%p]::EnterTestMode - external hub - suspending ports", getName(), this);    
+        for (currentPort = 0; currentPort < _hubDescriptor.numPorts; currentPort++)
+        {
+            port = _ports[currentPort];
+            if (port)
+            {
+		port->SuspendPort(true);
+            }
+        }
+    }
+    return kIOReturnSuccess;
+}
+
+
+IOReturn
+AppleUSBHub::LeaveTestMode()
+{
+    IOUSBControllerV2 	*con;
+
+    if (!_hsHub)
+		return kIOReturnBadArgument;
+
+    if (_isRootHub)
+    {
+		con = OSDynamicCast(IOUSBControllerV2, _bus);
+		if (!con)
+			return kIOReturnBadArgument;
+	    
+		USBLog(1, "%s[%p]::LeaveTestMode - root hub", getName(), this);    
+		return con->SetTestMode(kEHCITestMode_End, 0);
+    }
+    // not a root hub - just reset my port - this will terminate me
+    USBLog(1, "%s[%p]::LeaveTestMode - external hub", getName(), this);    
+    retain();
+    ResetMyPort();
+    release();
+    return kIOReturnSuccess;
+}
+
+
+bool
+AppleUSBHub::IsHSRootHub()
+{
+    if (_hsHub && _isRootHub)
+		return true;
+    else
+		return false;
+}
+
+
+IOReturn
+AppleUSBHub::PutPortIntoTestMode(UInt32 port, UInt32 mode)
+{
+    IOUSBControllerV2 	*con;
+    IOUSBDevRequest	request;
+
+    if (!_hsHub || !_inTestMode)
+		return kIOReturnBadArgument;
+
+    if (_isRootHub)
+    {
+		con = OSDynamicCast(IOUSBControllerV2, _bus);
+		if (!con)
+			return kIOReturnBadArgument;
+		USBLog(1, "%s[%p]::PutPortIntoTestMode - putting root hub port %d into mode %x", getName(), this, port, mode);    
+		return con->SetTestMode(mode, port);
+    }
+    
+    USBLog(1, "%s[%p]::PutPortIntoTestMode - putting external hub port %d into mode %x", getName(), this, port, mode);    
+    return SetPortFeature(kUSBHubPortTestFeature, (mode << 8) + port);
+}
+

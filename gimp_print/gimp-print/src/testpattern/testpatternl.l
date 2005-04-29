@@ -1,5 +1,5 @@
 /*
- * "$Id: testpatternl.l,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $"
+ * "$Id: testpatternl.l,v 1.1.1.2 2004/07/23 06:26:32 jlovell Exp $"
  *
  *   Test pattern generator for Gimp-Print
  *
@@ -35,11 +35,30 @@
 
 int mylineno = 1;
 
-#if 0
-#define DBG(x) fprintf(stderr, "'%s'%s\n", yytext, #x);
-#else
-#define DBG(x)
-#endif
+static char *
+c_strstrip(char *s)
+{
+  size_t len = strlen(s);
+  if (len >= 2 && ((s[0] == '"' && s[len - 1] == '"') ||
+		   (s[0] == '\'' && s[len - 1] == '\'')))
+    {
+      char *sn = malloc(len - 1);
+      memcpy(sn, s + 1, len - 2);
+      sn[len - 2] = '\0';
+      return sn;
+    }
+  else
+    return (char *) s;
+}
+
+#define DBG(x)						\
+do							\
+  {							\
+    if (getenv("STP_TESTPATTERN_DEBUG"))		\
+      fprintf(stderr, "'%s' => %s\n", yytext, #x);	\
+  }							\
+ while (0)
+
 
 %}
 
@@ -48,41 +67,58 @@ int mylineno = 1;
 digit		[0-9]
 integer		[-+]?{digit}+
 float		[-+]?{digit}+(\.{digit}+)?([eE][-+]?{digit}+)?
-string		([\"][^\"\n]+[\"])|([^ \t\n"]+)
+string		([\"][^\"]+[\"])|([a-zA-Z0-9_][-a-zA-Z0-9_]*)|([\'][^\']*[\'])
 ws		[ \t]+
 
 %%
 
-c_gamma			DBG(C_GAMMA) return C_GAMMA;
-m_gamma			DBG(M_GAMMA) return M_GAMMA;
-y_gamma			DBG(Y_GAMMA) return Y_GAMMA;
-k_gamma			DBG(K_GAMMA) return K_GAMMA;
-gamma			DBG(GAMMA) return GAMMA;
-c_level			DBG(C_LEVEL) return C_LEVEL;
-m_level			DBG(M_LEVEL) return M_LEVEL;
-y_level			DBG(Y_LEVEL) return Y_LEVEL;
-levels			DBG(LEVELS) return LEVELS;
-ink_limit		DBG(INK_LIMIT) return INK_LIMIT;
-width			DBG(WIDTH) return WIDTH;
-printer			DBG(PRINTER) return PRINTER;
-ink_type		DBG(INK_TYPE) return INK_TYPE;
-resolution		DBG(RESOLUTION) return RESOLUTION;
-media_source		DBG(MEDIA_SOURCE) return MEDIA_SOURCE;
-media_type		DBG(MEDIA_TYPE) return MEDIA_TYPE;
-media_size		DBG(MEDIA_SIZE) return MEDIA_SIZE;
-dither_algorithm	DBG(DITHER_ALGORITHM) return DITHER_ALGORITHM;
-density			DBG(DENSITY) return DENSITY;
-top			DBG(TOP) return TOP;
-left			DBG(LEFT) return LEFT;
-hsize			DBG(HSIZE) return HSIZE;
-vsize			DBG(VSIZE) return VSIZE;
-blackline		DBG(BLACKLINE) return BLACKLINE;
-pattern			DBG(PATTERN) return PATTERN;
-image			DBG(IMAGE) return IMAGE;
+cyan			yylval.sval = yytext;DBG(CYAN); return CYAN;
+l_cyan			yylval.sval = yytext;DBG(L_CYAN); return L_CYAN;
+magenta			yylval.sval = yytext;DBG(MAGENTA); return MAGENTA;
+l_magenta		yylval.sval = yytext;DBG(L_MAGENTA); return L_MAGENTA;
+yellow			yylval.sval = yytext;DBG(YELLOW); return YELLOW;
+d_yellow		yylval.sval = yytext;DBG(D_YELLOW); return D_YELLOW;
+black			yylval.sval = yytext;DBG(BLACK); return BLACK;
+l_black			yylval.sval = yytext;DBG(L_BLACK); return L_BLACK;
+gamma			DBG(GAMMA); return GAMMA;
+level			DBG(LEVEL); return LEVEL;
+steps			DBG(STEPS); return STEPS;
+ink_limit		DBG(INK_LIMIT); return INK_LIMIT;
+printer			DBG(PRINTER); return PRINTER;
+parameter		DBG(PARAMETER); return PARAMETER;
+parameter_int		DBG(PARAMETER_INT); return PARAMETER_INT;
+parameter_string	DBG(PARAMETER); return PARAMETER;
+parameter_float		DBG(PARAMETER_FLOAT); return PARAMETER_FLOAT;
+parameter_curve		DBG(PARAMETER_CURVE); return PARAMETER_CURVE;
+density			DBG(DENSITY); return DENSITY;
+top			DBG(TOP); return TOP;
+left			DBG(LEFT); return LEFT;
+hsize			DBG(HSIZE); return HSIZE;
+vsize			DBG(VSIZE); return VSIZE;
+blackline		DBG(BLACKLINE); return BLACKLINE;
+pattern			DBG(PATTERN); return PATTERN;
+xpattern		DBG(XPATTERN); return XPATTERN;
+image			DBG(IMAGE); return IMAGE;
+extended		DBG(EXTENDED); return EXTENDED;
+grid			DBG(GRID); return GRID;
+channel			DBG(CHANNEL); return CHANNEL;
+page_size		DBG(PAGESIZE); return PAGESIZE;
+;			DBG(SEMI); return SEMI;
+mode			DBG(MODE); return MODE;
+cmyk			yylval.ival = CMYK;DBG(CMYK); return CMYK;
+kcmy			yylval.ival = CMYK;DBG(KCMY); return KCMY;
+rgb			yylval.ival = RGB;DBG(RGB); return RGB;
+cmy			yylval.ival = RGB;DBG(CMY); return CMY;
+grey			yylval.ival = GRAY;DBG(GRAY); return GRAY;
+gray			yylval.ival = GRAY;DBG(GRAY); return GRAY;
+white			yylval.ival = WHITE;DBG(WHITE); return WHITE;
+message			DBG(MESSAGE); return MESSAGE;
+end			DBG(END); return END;
 
-{integer}		yylval.ival = atoi(yytext); DBG(tINT) return tINT;
-{float}			yylval.dval = strtod(yytext, NULL); DBG(tDOUBLE) return tDOUBLE;
-{string}		yylval.sval = c_strdup(yytext); DBG(tSTRING) return tSTRING;
-{ws}			DBG(whitespace1) 	/* Skip blanks/tabs */
-#[^\n]*			DBG(comment1) 	/* Skip comments */
-\n			DBG(newline) mylineno++;
+
+{integer}		yylval.ival = atoi(yytext); DBG(tINT); return tINT;
+{float}			yylval.dval = strtod(yytext, NULL); DBG(tDOUBLE); return tDOUBLE;
+{string}		yylval.sval = c_strstrip(yytext); DBG(tSTRING); return tSTRING;
+{ws}			DBG(whitespace); 	/* Skip blanks/tabs */
+#[^\n]*			DBG(comment); 	/* Skip comments */
+\n			DBG(newline); mylineno++;

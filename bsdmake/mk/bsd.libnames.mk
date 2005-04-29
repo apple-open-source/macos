@@ -1,95 +1,136 @@
-# $FreeBSD: src/share/mk/bsd.libnames.mk,v 1.29 2000/04/30 01:33:37 bde Exp $
-#
+# $FreeBSD: src/share/mk/bsd.libnames.mk,v 1.90 2004/09/24 22:10:34 trhodes Exp $
+
 # The include file <bsd.libnames.mk> define library names. 
 # Other include files (e.g. bsd.prog.mk, bsd.lib.mk) include this 
 # file where necessary.
 
+.if !target(__<bsd.init.mk>__)
+.error bsd.libnames.mk cannot be included directly.
+.endif
 
 LIBCRT0?=	${DESTDIR}${LIBDIR}/crt0.o
-LIBKZHEAD?=	${DESTDIR}${LIBDIR}/kzhead.o
-LIBKZTAIL?=	${DESTDIR}${LIBDIR}/kztail.o
 
 LIBALIAS?=	${DESTDIR}${LIBDIR}/libalias.a
+LIBARCHIVE?=	${DESTDIR}${LIBDIR}/libarchive.a
+LIBASN1?=	${DESTDIR}${LIBDIR}/libasn1.a
 LIBATM?=	${DESTDIR}${LIBDIR}/libatm.a
+LIBBEGEMOT?=	${DESTDIR}${LIBDIR}/libbegemot.a
+.if !defined(NO_BIND) && defined(WITH_BIND_LIBS)
+LIBBIND?=	${DESTDIR}${LIBDIR}/libbind.a
+LIBBIND9?=	${DESTDIR}${LIBDIR}/libbind9.a
+.endif
+LIBBLUETOOTH?=	${DESTDIR}${LIBDIR}/libbluetooth.a
+LIBBSDXML?=	${DESTDIR}${LIBDIR}/libbsdxml.a
+LIBBSNMP?=	${DESTDIR}${LIBDIR}/libbsnmp.a
+LIBBZ2?=	${DESTDIR}${LIBDIR}/libbz2.a
 LIBC?=		${DESTDIR}${LIBDIR}/libc.a
-LIBC_PIC=	${DESTDIR}${LIBDIR}/libc_pic.a
+LIBC_PIC?=	${DESTDIR}${LIBDIR}/libc_pic.a
+LIBC_R?=	${DESTDIR}${LIBDIR}/libc_r.a
 LIBCALENDAR?=	${DESTDIR}${LIBDIR}/libcalendar.a
 LIBCAM?=	${DESTDIR}${LIBDIR}/libcam.a
-LIBCIPHER?=	${DESTDIR}${LIBDIR}/libcipher.a	# XXX in secure dist, not base
-LIBCOM_ERR=	${DESTDIR}${LIBDIR}/libcom_err.a
+LIBCOM_ERR?=	${DESTDIR}${LIBDIR}/libcom_err.a
 LIBCOMPAT?=	${DESTDIR}${LIBDIR}/libcompat.a
 LIBCRYPT?=	${DESTDIR}${LIBDIR}/libcrypt.a
-LIBCRYPTO?=	${DESTDIR}${LIBDIR}/libcrypto.a	# XXX in secure dist, not base
+LIBCRYPTO?=	${DESTDIR}${LIBDIR}/libcrypto.a
 LIBCURSES?=	${DESTDIR}${LIBDIR}/libcurses.a
-LIBDES?=	${DESTDIR}${LIBDIR}/libdes.a	# XXX in secure dist, not base
+LIBDEVINFO?=	${DESTDIR}${LIBDIR}/libdevinfo.a
 LIBDEVSTAT?=	${DESTDIR}${LIBDIR}/libdevstat.a
 LIBDIALOG?=	${DESTDIR}${LIBDIR}/libdialog.a
 LIBDISK?=	${DESTDIR}${LIBDIR}/libdisk.a
+LIBDNS?=	${DESTDIR}${LIBDIR}/libdns.a
 LIBEDIT?=	${DESTDIR}${LIBDIR}/libedit.a
-LIBF2C?=	${DESTDIR}${LIBDIR}/libf2c.a
+LIBFETCH?=	${DESTDIR}${LIBDIR}/libfetch.a
 LIBFL?=		"don't use LIBFL, use LIBL"
-LIBFORMS?=	${DESTDIR}${LIBDIR}/libforms.a
+LIBFORM?=	${DESTDIR}${LIBDIR}/libform.a
 LIBFTPIO?=	${DESTDIR}${LIBDIR}/libftpio.a
-LIBGPLUSPLUS?=	${DESTDIR}${LIBDIR}/libg++.a
+LIBG2C?=	${DESTDIR}${LIBDIR}/libg2c.a
 LIBGCC?=	${DESTDIR}${LIBDIR}/libgcc.a
 LIBGCC_PIC?=	${DESTDIR}${LIBDIR}/libgcc_pic.a
-LIBGMP?=	${DESTDIR}${LIBDIR}/libgmp.a
+LIBGEOM?=	${DESTDIR}${LIBDIR}/libgeom.a
 LIBGNUREGEX?=	${DESTDIR}${LIBDIR}/libgnuregex.a
+LIBGSSAPI?=	${DESTDIR}${LIBDIR}/libgssapi.a
+LIBHDB?=	${DESTDIR}${LIBDIR}/libhdb.a
 LIBHISTORY?=	${DESTDIR}${LIBDIR}/libhistory.a
 LIBIPSEC?=	${DESTDIR}${LIBDIR}/libipsec.a
 LIBIPX?=	${DESTDIR}${LIBDIR}/libipx.a
-LIBKDB?=	${DESTDIR}${LIBDIR}/libkdb.a	# XXX in secure dist, not base
-LIBKRB?=	${DESTDIR}${LIBDIR}/libkrb.a	# XXX in secure dist, not base
+.if !defined(NO_BIND) && defined(WITH_BIND_LIBS)
+LIBISC?=	${DESTDIR}${LIBDIR}/libisc.a
+LIBISCCC?=	${DESTDIR}${LIBDIR}/libisccc.a
+LIBISCCFG?=	${DESTDIR}${LIBDIR}/libisccfg.a
+.endif
+LIBKADM5CLNT?=	${DESTDIR}${LIBDIR}/libkadm5clnt.a
+LIBKADM5SRV?=	${DESTDIR}${LIBDIR}/libkadm5srv.a
+LIBKAFS5?=	${DESTDIR}${LIBDIR}/libkafs5.a
 LIBKEYCAP?=	${DESTDIR}${LIBDIR}/libkeycap.a
+LIBKICONV?=	${DESTDIR}${LIBDIR}/libkiconv.a
+LIBKRB5?=	${DESTDIR}${LIBDIR}/libkrb5.a
 LIBKVM?=	${DESTDIR}${LIBDIR}/libkvm.a
 LIBL?=		${DESTDIR}${LIBDIR}/libl.a
-LIBLN?=		"don't use, LIBLN, use LIBL"
+LIBLN?=		"don't use LIBLN, use LIBL"
+.if !defined(NO_BIND)
+LIBLWRES?=	${DESTDIR}${LIBDIR}/liblwres.a
+.endif
 LIBM?=		${DESTDIR}${LIBDIR}/libm.a
+LIBMAGIC?=	${DESTDIR}${LIBDIR}/libmagic.a
 LIBMD?=		${DESTDIR}${LIBDIR}/libmd.a
+LIBMENU?=	${DESTDIR}${LIBDIR}/libmenu.a
+.if !defined(NO_SENDMAIL)
+LIBMILTER?=	${DESTDIR}${LIBDIR}/libmilter.a
+.endif
 LIBMP?=		${DESTDIR}${LIBDIR}/libmp.a
-LIBMYTINFO?=	${DESTDIR}${LIBDIR}/libmytinfo.a
+LIBMYTINFO?=	"don't use LIBMYTINFO, use LIBNCURSES"
 LIBNCP?=	${DESTDIR}${LIBDIR}/libncp.a
 LIBNCURSES?=	${DESTDIR}${LIBDIR}/libncurses.a
 LIBNETGRAPH?=	${DESTDIR}${LIBDIR}/libnetgraph.a
+LIBNGATM?=	${DESTDIR}${LIBDIR}/libngatm.a
 LIBOBJC?=	${DESTDIR}${LIBDIR}/libobjc.a
 LIBOPIE?=	${DESTDIR}${LIBDIR}/libopie.a
 
 # The static PAM library doesn't know its secondary dependencies,
-# so we have to specify them explictly.
+# so we have to specify them explicitly.
 LIBPAM?=	${DESTDIR}${LIBDIR}/libpam.a
-MINUSLPAM?=	-lpam
-.if defined(NOSHARED) && ${NOSHARED} != "no" && ${NOSHARED} != "NO"
-.ifdef MAKE_KERBEROS4
-LIBPAM+=	${LIBKRB} ${LIBCRYPTO} ${LIBCOM_ERR}
-MINUSLPAM+=	-lkrb -lcrypto -lcom_err
+MINUSLPAM=	-lpam
+.if defined(LDFLAGS) && !empty(LDFLAGS:M-static)
+.if !defined(NO_KERBEROS) && !defined(NOCRYPT) && !defined(NO_OPENSSL)
+LIBPAM+=	${LIBKRB5} ${LIBASN1} ${LIBCRYPTO} ${LIBCRYPT} \
+		${LIBROKEN} ${LIBCOM_ERR}
+MINUSLPAM+=	-lkrb5 -lasn1 -lcrypto -lcrypt -lroken -lcom_err
 .endif
-LIBPAM+=	${LIBRADIUS} ${LIBTACPLUS} ${LIBSKEY} ${LIBCRYPT} ${LIBMD} \
-		${LIBUTIL} ${LIBOPIE}
-MINUSLPAM+=	-lradius -ltacplus -lskey -lcrypt -lmd -lutil -lopie
+LIBPAM+=	${LIBRADIUS} ${LIBTACPLUS} ${LIBCRYPT} \
+		${LIBUTIL} ${LIBOPIE} ${LIBMD} ${LIBYPCLNT}
+MINUSLPAM+=	-lradius -ltacplus -lcrypt \
+		-lutil -lopie -lmd -lypclnt
+.if !defined(NO_OPENSSH) && !defined(NOCRYPT) && !defined(NO_OPENSSL)
+LIBPAM+=	${LIBSSH} ${LIBCRYPTO} ${LIBCRYPT}
+MINUSLPAM+=	-lssh -lcrypto -lcrypt
+.endif
 .endif
 
-LIBPC?=		${DESTDIR}${LIBDIR}/libpc.a	# XXX doesn't exist
+LIBPANEL?=	${DESTDIR}${LIBDIR}/libpanel.a
 LIBPCAP?=	${DESTDIR}${LIBDIR}/libpcap.a
-LIBPERL?=	${DESTDIR}${LIBDIR}/libperl.a
-LIBPLOT?=	${DESTDIR}${LIBDIR}/libplot.a	# XXX doesn't exist
+LIBPTHREAD?=	${DESTDIR}${LIBDIR}/libpthread.a
 LIBRADIUS?=	${DESTDIR}${LIBDIR}/libradius.a
 LIBREADLINE?=	${DESTDIR}${LIBDIR}/libreadline.a
-LIBRESOLV?=	${DESTDIR}${LIBDIR}/libresolv.a	# XXX doesn't exist
+LIBROKEN?=	${DESTDIR}${LIBDIR}/libroken.a
 LIBRPCSVC?=	${DESTDIR}${LIBDIR}/librpcsvc.a
-LIBRSAGLUE?=	${DESTDIR}${LIBDIR}/libRSAglue.a # XXX in US secure dist, not base
-LIBSCRYPT?=	"don't use LIBSCRYPT, use LIBCRYPT"
-LIBDESCRYPT?=	"don't use LIBDESCRYPT, use LIBCRYPT"
-LIBSCSI?=	${DESTDIR}${LIBDIR}/libscsi.a
-LIBSKEY?=	${DESTDIR}${LIBDIR}/libskey.a
-LIBSS?=		${DESTDIR}${LIBDIR}/libss.a
+LIBSBUF?=	${DESTDIR}${LIBDIR}/libsbuf.a
+LIBSDP?=	${DESTDIR}${LIBDIR}/libsdp.a
+LIBSMB?=	${DESTDIR}${LIBDIR}/libsmb.a
+LIBSSH?=	${DESTDIR}${LIBDIR}/libssh.a
+LIBSSL?=	${DESTDIR}${LIBDIR}/libssl.a
+LIBSTAND?=	${DESTDIR}${LIBDIR}/libstand.a
 LIBSTDCPLUSPLUS?= ${DESTDIR}${LIBDIR}/libstdc++.a
 LIBTACPLUS?=	${DESTDIR}${LIBDIR}/libtacplus.a
-LIBTCL?=	${DESTDIR}${LIBDIR}/libtcl.a
-LIBTELNET?=	${DESTDIR}${LIBDIR}/libtelnet.a
 LIBTERMCAP?=	${DESTDIR}${LIBDIR}/libtermcap.a
 LIBTERMLIB?=	"don't use LIBTERMLIB, use LIBTERMCAP"
+LIBTINFO?=	"don't use LIBTINFO, use LIBNCURSES"
+LIBUFS?=	${DESTDIR}${LIBDIR}/libufs.a
+LIBUGIDFW?=	${DESTDIR}${LIBDIR}/libugidfw.a
+LIBUSBHID?=	${DESTDIR}${LIBDIR}/libusbhid.a
 LIBUTIL?=	${DESTDIR}${LIBDIR}/libutil.a
+LIBVGL?=	${DESTDIR}${LIBDIR}/libvgl.a
 LIBWRAP?=	${DESTDIR}${LIBDIR}/libwrap.a
 LIBXPG4?=	${DESTDIR}${LIBDIR}/libxpg4.a
 LIBY?=		${DESTDIR}${LIBDIR}/liby.a
+LIBYPCLNT?=	${DESTDIR}${LIBDIR}/libypclnt.a
 LIBZ?=		${DESTDIR}${LIBDIR}/libz.a

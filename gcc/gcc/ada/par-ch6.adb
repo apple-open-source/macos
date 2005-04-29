@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -207,7 +206,7 @@ package body Ch6 is
 
          if Token = Tok_New then
             if not Pf_Flags.Gins then
-               Error_Msg_SC ("generic instantiation not allowed here!");
+               Error_Msg_SC ("generic instantation not allowed here!");
             end if;
 
             Scan; -- past NEW
@@ -594,6 +593,10 @@ package body Ch6 is
       --  True, a real dot has been scanned and we are positioned past it,
       --  if the result is False, the scan position is unchanged.
 
+      --------------
+      -- Real_Dot --
+      --------------
+
       function Real_Dot return Boolean is
          Scan_State  : Saved_Scan_State;
 
@@ -716,7 +719,7 @@ package body Ch6 is
          Set_Identifier_Casing (Current_Source_File, Determine_Token_Casing);
       end if;
 
-      Ident_Node := P_Identifier;
+      Ident_Node := P_Identifier (C_Dot);
       Merge_Identifier (Ident_Node, Tok_Return);
 
       --  Normal case (not child library unit name)
@@ -732,7 +735,7 @@ package body Ch6 is
             Error_Msg_SP ("child unit allowed only at library level");
             raise Error_Resync;
 
-         elsif Ada_83 then
+         elsif Ada_Version = Ada_83 then
             Error_Msg_SP ("(Ada 83) child unit not allowed!");
 
          end if;
@@ -747,7 +750,7 @@ package body Ch6 is
             Name_Node := New_Node (N_Selected_Component, Token_Ptr);
             Scan; -- past period
             Set_Prefix (Name_Node, Prefix_Node);
-            Ident_Node := P_Identifier;
+            Ident_Node := P_Identifier (C_Dot);
             Set_Selector_Name (Name_Node, Ident_Node);
             Prefix_Node := Name_Node;
          end loop;
@@ -836,7 +839,7 @@ package body Ch6 is
    --  FORMAL_PART ::= (PARAMETER_SPECIFICATION {; PARAMETER_SPECIFICATION})
 
    --  PARAMETER_SPECIFICATION ::=
-   --    DEFINING_IDENTIFIER_LIST : MODE SUBTYPE_MARK
+   --    DEFINING_IDENTIFIER_LIST : MODE [NULL_EXCLUSION] SUBTYPE_MARK
    --      [:= DEFAULT_EXPRESSION]
    --  | DEFINING_IDENTIFIER_LIST : ACCESS_DEFINITION
    --      [:= DEFAULT_EXPRESSION]
@@ -854,6 +857,7 @@ package body Ch6 is
       Num_Idents         : Nat;
       Ident              : Nat;
       Ident_Sloc         : Source_Ptr;
+      Not_Null_Present   : Boolean := False;
 
       Idents : array (Int range 1 .. 4096) of Entity_Id;
       --  This array holds the list of defining identifiers. The upper bound
@@ -862,7 +866,6 @@ package body Ch6 is
 
    begin
       Specification_List := New_List;
-
       Specification_Loop : loop
          begin
             if Token = Tok_Pragma then
@@ -871,7 +874,7 @@ package body Ch6 is
 
             Ignore (Tok_Left_Paren);
             Ident_Sloc := Token_Ptr;
-            Idents (1) := P_Defining_Identifier;
+            Idents (1) := P_Defining_Identifier (C_Comma_Colon);
             Num_Idents := 1;
 
             Ident_Loop : loop
@@ -925,7 +928,7 @@ package body Ch6 is
 
                T_Comma;
                Num_Idents := Num_Idents + 1;
-               Idents (Num_Idents) := P_Defining_Identifier;
+               Idents (Num_Idents) := P_Defining_Identifier (C_Comma_Colon);
             end loop Ident_Loop;
 
             --  Fall through the loop on encountering a colon, or deciding
@@ -950,17 +953,32 @@ package body Ch6 is
                Specification_Node :=
                  New_Node (N_Parameter_Specification, Ident_Sloc);
                Set_Defining_Identifier (Specification_Node, Idents (Ident));
+               Not_Null_Present := P_Null_Exclusion;     --  Ada 2005 (AI-231)
 
                if Token = Tok_Access then
-                  if Ada_83 then
+                  Set_Null_Exclusion_Present
+                    (Specification_Node, Not_Null_Present);
+
+                  if Ada_Version = Ada_83 then
                      Error_Msg_SC ("(Ada 83) access parameters not allowed");
                   end if;
 
-                  Set_Parameter_Type
-                    (Specification_Node, P_Access_Definition);
+                  Set_Parameter_Type (Specification_Node,
+                    P_Access_Definition (Not_Null_Present));
 
                else
-                  P_Mode (Specification_Node);
+                  if Token = Tok_In or else Token = Tok_Out then
+                     if Not_Null_Present then
+                        Error_Msg_SC
+                          ("ACCESS must be placed after the parameter mode");
+                     end if;
+
+                     P_Mode (Specification_Node);
+                     Not_Null_Present := P_Null_Exclusion; -- Ada 2005 (AI-231)
+                  end if;
+
+                  Set_Null_Exclusion_Present
+                    (Specification_Node, Not_Null_Present);
 
                   if Token = Tok_Procedure
                        or else
@@ -1008,6 +1026,7 @@ package body Ch6 is
          end;
 
          if Token = Tok_Semicolon then
+            Save_Scan_State (Scan_State);
             Scan; -- past semicolon
 
             --  If we have RETURN or IS after the semicolon, then assume
@@ -1015,6 +1034,15 @@ package body Ch6 is
 
             if Token = Tok_Is or else Token = Tok_Return then
                Error_Msg_SP ("expected "")"" in place of "";""");
+               exit Specification_Loop;
+            end if;
+
+            --  If we have a declaration keyword after the semicolon, then
+            --  assume we had a missing right parenthesis and terminate list
+
+            if Token in Token_Class_Declk then
+               Error_Msg_AP ("missing "")""");
+               Restore_Scan_State (Scan_State);
                exit Specification_Loop;
             end if;
 
@@ -1082,7 +1110,7 @@ package body Ch6 is
       end if;
 
       if Token = Tok_In then
-         Error_Msg_SC ("IN must precede OUT in parameter mode");
+         Error_Msg_SC ("IN must preceed OUT in parameter mode");
          Scan; -- past IN
          Set_In_Present (Node, True);
       end if;

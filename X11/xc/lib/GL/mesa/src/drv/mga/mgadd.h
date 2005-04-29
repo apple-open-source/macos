@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgadd.h,v 1.3 2002/10/30 12:51:35 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgadd.h,v 1.4 2003/09/28 20:15:16 alanh Exp $ */
 /*
  * Copyright 2000-2001 VA Linux Systems, Inc.
  * All Rights Reserved.
@@ -32,6 +32,5 @@
 #include "context.h"
 
 void mgaDDInitDriverFuncs( GLcontext *ctx );
-void mgaDDExtensionsInit( GLcontext *ctx );
 
 #endif

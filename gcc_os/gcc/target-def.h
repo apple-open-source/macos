@@ -1,5 +1,5 @@
 /* Default initializers for a generic GCC target.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -54,10 +54,35 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_ASM_INTEGER default_assemble_integer
 
+#ifndef TARGET_ASM_GLOBALIZE_LABEL
+#define TARGET_ASM_GLOBALIZE_LABEL default_globalize_label
+#endif
+/* APPLE LOCAL begin - 3.4 scheduler update */
+#ifndef TARGET_ASM_INTERNAL_LABEL
+#define TARGET_ASM_INTERNAL_LABEL default_internal_label
+#endif
+/* APPLE LOCAL end - 3.4 scheduler update */
+
+#ifndef TARGET_ASM_ASSEMBLE_VISIBILITY
+#define TARGET_ASM_ASSEMBLE_VISIBILITY default_assemble_visibility
+#endif
+
 #define TARGET_ASM_FUNCTION_PROLOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_EPILOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_END_PROLOGUE no_asm_to_stream
 #define TARGET_ASM_FUNCTION_BEGIN_EPILOGUE no_asm_to_stream
+
+#ifndef TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION default_select_section
+#endif
+
+#ifndef TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION default_unique_section
+#endif
+
+#ifndef TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION default_select_rtx_section
+#endif
 
 #if !defined(TARGET_ASM_CONSTRUCTOR) && !defined(USE_COLLECT2)
 # ifdef CTORS_SECTION_ASM_OP
@@ -83,6 +108,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 # endif
 #endif
 
+#define TARGET_ASM_OUTPUT_MI_THUNK NULL
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_false
+
 #if defined(TARGET_ASM_CONSTRUCTOR) && defined(TARGET_ASM_DESTRUCTOR)
 #define TARGET_HAVE_CTORS_DTORS true
 #else
@@ -98,6 +126,22 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_HAVE_NAMED_SECTIONS false
 #endif
 
+#ifndef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS false
+#endif
+
+#ifndef TARGET_HAVE_SRODATA_SECTION
+#define TARGET_HAVE_SRODATA_SECTION false
+#endif
+
+#ifndef TARGET_TERMINATE_DW2_EH_FRAME_INFO
+#ifdef EH_FRAME_SECTION_NAME
+#define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
+#else
+#define TARGET_TERMINATE_DW2_EH_FRAME_INFO true
+#endif
+#endif
+
 #ifndef TARGET_ASM_EXCEPTION_SECTION
 #define TARGET_ASM_EXCEPTION_SECTION default_exception_section
 #endif
@@ -105,6 +149,27 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef TARGET_ASM_EH_FRAME_SECTION
 #define TARGET_ASM_EH_FRAME_SECTION default_eh_frame_section
 #endif
+
+/* APPLE LOCAL begin deep branch prediction pic-base; copied from FSF mainline */
+#ifndef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START default_file_start
+#endif
+
+#ifndef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END hook_void_void
+#endif
+
+#ifndef TARGET_ASM_FILE_START_FILE_DIRECTIVE
+#define TARGET_ASM_FILE_START_FILE_DIRECTIVE false
+#endif
+
+#ifndef TARGET_ASM_EXTERNAL_LIBCALL
+/* APPLE LOCAL begin deep branch prediction pic-base; kludge: delete this when FSF merge supplies "targhooks.h".  */
+static void default_external_libcall (rtx KLUDGE_please_delete_me) {}
+/* APPLE LOCAL end deep branch prediction pic-base; kludge: delete this when FSF merge supplies "targhooks.h".  */
+#define TARGET_ASM_EXTERNAL_LIBCALL default_external_libcall
+#endif
+/* APPLE LOCAL end deep branch prediction pic-base; copied from FSF mainline */
 
 #define TARGET_ASM_ALIGNED_INT_OP				\
 		       {TARGET_ASM_ALIGNED_HI_OP,		\
@@ -124,6 +189,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_ALIGNED_INT_OP,		\
 			TARGET_ASM_UNALIGNED_INT_OP,		\
 			TARGET_ASM_INTEGER,			\
+			TARGET_ASM_GLOBALIZE_LABEL,		\
+/* APPLE LOCAL begin - 3.4 scheduler update */                  \
+			TARGET_ASM_INTERNAL_LABEL,		\
+/* APPLE LOCAL end - 3.4 scheduler update */                    \
+			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
 			TARGET_ASM_FUNCTION_BEGIN_EPILOGUE,	\
@@ -131,8 +201,18 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_NAMED_SECTION,		\
 			TARGET_ASM_EXCEPTION_SECTION,		\
 			TARGET_ASM_EH_FRAME_SECTION,		\
+			TARGET_ASM_SELECT_SECTION,		\
+			TARGET_ASM_SELECT_RTX_SECTION,		\
+			TARGET_ASM_UNIQUE_SECTION,		\
 			TARGET_ASM_CONSTRUCTOR,			\
-			TARGET_ASM_DESTRUCTOR}
+			TARGET_ASM_DESTRUCTOR,                  \
+                        TARGET_ASM_OUTPUT_MI_THUNK,             \
+/* APPLE LOCAL begin deep branch prediction pic-base; copied from FSF mainline */	\
+                        TARGET_ASM_CAN_OUTPUT_MI_THUNK,         \
+                        TARGET_ASM_FILE_START,                  \
+                        TARGET_ASM_FILE_END,			\
+			TARGET_ASM_EXTERNAL_LIBCALL}
+/* APPLE LOCAL end deep branch prediction pic-base; copied from FSF mainline */
 
 /* Scheduler hooks.  All of these default to null pointers, which
    haifa-sched.c looks for and handles.  */
@@ -144,27 +224,56 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SCHED_FINISH 0
 #define TARGET_SCHED_REORDER 0
 #define TARGET_SCHED_REORDER2 0
-#define TARGET_SCHED_CYCLE_DISPLAY 0
+/* APPLE LOCAL begin - 3.4 scheduler update */
+#define TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK 0
+/* APPLE LOCAL end - 3.4 scheduler update */
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 0
+#define TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN 0
+#define TARGET_SCHED_DFA_PRE_CYCLE_INSN 0
+#define TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN 0
+#define TARGET_SCHED_DFA_POST_CYCLE_INSN 0
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD 0
+/* APPLE LOCAL begin - 3.4 scheduler update */
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD 0
+#define TARGET_SCHED_DFA_NEW_CYCLE 0
+/* APPLE LOCAL end - 3.4 scheduler update */
+#define TARGET_SCHED_INIT_DFA_BUBBLES 0
+#define TARGET_SCHED_DFA_BUBBLE 0
 
-#define TARGET_SCHED	{TARGET_SCHED_ADJUST_COST,	\
-			 TARGET_SCHED_ADJUST_PRIORITY,	\
-			 TARGET_SCHED_ISSUE_RATE,	\
-			 TARGET_SCHED_VARIABLE_ISSUE,	\
-			 TARGET_SCHED_INIT,		\
-			 TARGET_SCHED_FINISH,		\
-			 TARGET_SCHED_REORDER,		\
-			 TARGET_SCHED_REORDER2,		\
-			 TARGET_SCHED_CYCLE_DISPLAY}
+#define TARGET_SCHED						\
+  {TARGET_SCHED_ADJUST_COST,					\
+   TARGET_SCHED_ADJUST_PRIORITY,				\
+   TARGET_SCHED_ISSUE_RATE,					\
+   TARGET_SCHED_VARIABLE_ISSUE,					\
+   TARGET_SCHED_INIT,						\
+   TARGET_SCHED_FINISH,						\
+   TARGET_SCHED_REORDER,					\
+   TARGET_SCHED_REORDER2,					\
+/* APPLE LOCAL begin - 3.4 scheduler update */                  \
+   TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK,			\
+/* APPLE LOCAL end - 3.4 scheduler update */                    \
+   TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE,			\
+   TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN,			\
+   TARGET_SCHED_DFA_PRE_CYCLE_INSN,				\
+   TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN,			\
+   TARGET_SCHED_DFA_POST_CYCLE_INSN,				\
+   TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD,		\
+/* APPLE LOCAL begin - 3.4 scheduler update */                  \
+   TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD,	\
+   TARGET_SCHED_DFA_NEW_CYCLE,					\
+/* APPLE LOCAL end - 3.4 scheduler update */                    \
+   TARGET_SCHED_INIT_DFA_BUBBLES,				\
+   TARGET_SCHED_DFA_BUBBLE}
 
-/* All in tree.c.  */
+/* In tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
 #define TARGET_MERGE_TYPE_ATTRIBUTES merge_type_attributes
-#define TARGET_ATTRIBUTE_TABLE default_target_attribute_table
-#define TARGET_COMP_TYPE_ATTRIBUTES default_comp_type_attributes
-#define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES default_set_default_type_attributes
-#define TARGET_INSERT_ATTRIBUTES default_insert_attributes
-#define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P default_function_attribute_inlinable_p
-#define TARGET_MS_BITFIELD_LAYOUT_P default_ms_bitfield_layout_p
+#define TARGET_ATTRIBUTE_TABLE NULL
+
+/* APPLE LOCAL begin - 3.4 scheduler update */
+/* In cse.c.  */
+#define TARGET_ADDRESS_COST default_address_cost
+/* APPLE LOCAL end - 3.4 scheduler update */
 
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS default_init_builtins
@@ -175,8 +284,43 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SECTION_TYPE_FLAGS default_section_type_flags
 #endif
 
+#ifndef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING default_strip_name_encoding
+#endif
+
+#ifndef TARGET_BINDS_LOCAL_P
+#define TARGET_BINDS_LOCAL_P default_binds_local_p
+#endif
+
+/* APPLE LOCAL begin - 3.4 scheduler update */
+#ifndef TARGET_VALID_POINTER_MODE
+#define TARGET_VALID_POINTER_MODE default_valid_pointer_mode
+#endif
+/* APPLE LOCAL end - 3.4 scheduler update */
+
 /* In hook.c.  */
-#define TARGET_CANNOT_MODIFY_JUMPS_P hook_void_bool_false
+#define TARGET_CANNOT_MODIFY_JUMPS_P hook_bool_void_false
+#define TARGET_CANNOT_FORCE_CONST_MEM hook_bool_rtx_false
+/* APPLE LOCAL begin - 3.4 scheduler update */
+#define TARGET_DELEGITIMIZE_ADDRESS hook_rtx_rtx_identity
+#define TARGET_FUNCTION_OK_FOR_SIBCALL hook_bool_tree_tree_false
+/* APPLE LOCAL end - 3.4 scheduler update */
+#define TARGET_COMP_TYPE_ATTRIBUTES hook_int_tree_tree_1
+#define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES hook_void_tree
+#define TARGET_INSERT_ATTRIBUTES hook_void_tree_treeptr
+#define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_tree_false
+#define TARGET_MS_BITFIELD_LAYOUT_P hook_bool_tree_false
+/* APPLE LOCAL begin - 3.4 scheduler update */
+#define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_false
+/* APPLE LOCAL end - 3.4 scheduler update */
+
+#ifndef TARGET_IN_SMALL_DATA_P
+#define TARGET_IN_SMALL_DATA_P hook_bool_tree_false
+#endif
+
+#ifndef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO hook_void_tree_int
+#endif
 
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
@@ -194,9 +338,26 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
   TARGET_SECTION_TYPE_FLAGS,			\
+  TARGET_CANNOT_MODIFY_JUMPS_P,			\
+  TARGET_CANNOT_FORCE_CONST_MEM,		\
+/* APPLE LOCAL begin - 3.4 scheduler update */  \
+  TARGET_DELEGITIMIZE_ADDRESS,			\
+  TARGET_FUNCTION_OK_FOR_SIBCALL,		\
+/* APPLE LOCAL end - 3.4 scheduler update */    \
+  TARGET_IN_SMALL_DATA_P,			\
+  TARGET_BINDS_LOCAL_P,				\
+  TARGET_ENCODE_SECTION_INFO,			\
+  TARGET_STRIP_NAME_ENCODING,			\
+/* APPLE LOCAL begin - 3.4 scheduler update */  \
+  TARGET_VALID_POINTER_MODE,                    \
+  TARGET_RTX_COSTS,				\
+  TARGET_ADDRESS_COST,				\
+/* APPLE LOCAL end - 3.4 scheduler update */    \
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
-  TARGET_CANNOT_MODIFY_JUMPS_P			\
+  TARGET_HAVE_TLS,				\
+  TARGET_HAVE_SRODATA_SECTION,			\
+  TARGET_TERMINATE_DW2_EH_FRAME_INFO		\
 }
 
 #include "hooks.h"

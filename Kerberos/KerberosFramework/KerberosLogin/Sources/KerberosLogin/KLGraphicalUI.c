@@ -1,9 +1,9 @@
 /*
  * KLGraphicalUI.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLGraphicalUI.c,v 1.7 2003/07/03 19:52:43 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLGraphicalUI.c,v 1.10 2004/06/17 22:26:18 lxs Exp $
  *
- * Copyright 2003 Massachusetts Institute of Technology.
+ * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
  *
  * Export of this software from the United States of America may
@@ -26,7 +26,7 @@
  * or implied warranty.
  */
 
-#include "KerberosLoginIPC.h"
+#include "KerberosAgentIPC.h"
 
 static pid_t		gServerPID = -1;
 static boolean_t	gServerKilled = false;
@@ -118,9 +118,8 @@ krb5_error_code __KLPrompterGUI (krb5_context  context,
         
     if ((result == klNoErr) && (err == KERN_SUCCESS)) {
         SafeIPCCallBegin_ (err, result);
-        err = KLIPCPrompter (machPort,
-                             applicationName, applicationNameLength,
-                             applicationIconPath, applicationIconPathLength,
+        err = KLIPCPrompter (machPort, applicationTask,
+                             applicationPath, applicationPathLength,
                              __KLAllowHomeDirectoryAccess (),
                              ipcInName, ipcInNameSize,
                              ipcInBanner, ipcInBannerSize,
@@ -239,9 +238,8 @@ KLStatus __KLAcquireNewInitialTicketsGUI (KLPrincipal      inPrincipal,
         
     if ((result == klNoErr) && (err == KERN_SUCCESS)) {
         SafeIPCCallBegin_ (err, result);
-        err = KLIPCAcquireNewInitialTickets (machPort,
-                                             applicationName, applicationNameLength,
-                                             applicationIconPath, applicationIconPathLength,
+        err = KLIPCAcquireNewInitialTickets (machPort, applicationTask,
+                                             applicationPath, applicationPathLength, 
                                              __KLAllowHomeDirectoryAccess (),
                                              ipcInPrincipal, ipcInPrincipalSize,
                                              ipcInFlags,
@@ -299,9 +297,8 @@ KLStatus __KLChangePasswordGUI (KLPrincipal inPrincipal)
     
     if ((result == klNoErr) && (err == KERN_SUCCESS)) {
         SafeIPCCallBegin_ (err, result);
-        err = KLIPCChangePassword (machPort, 
-                                   applicationName, applicationNameLength,
-                                   applicationIconPath, applicationIconPathLength,
+        err = KLIPCChangePassword (machPort, applicationTask,
+                                   applicationPath, applicationPathLength,
                                    __KLAllowHomeDirectoryAccess (),
                                    ipcInPrincipal, ipcInPrincipalSize, &result);
         SafeIPCCallEnd_ (err, result);
@@ -316,15 +313,16 @@ KLStatus __KLChangePasswordGUI (KLPrincipal inPrincipal)
 }    
 
 // ---------------------------------------------------------------------------
-KLStatus __KLHandleErrorGUI (KLStatus inError, KLDialogIdentifier inDialogIdentifier, KLBoolean inShowAlert)
+KLStatus __KLHandleErrorGUI (KLStatus inError, 
+                             KLDialogIdentifier inDialogIdentifier, 
+                             KLBoolean inShowAlert)
 {
     KLStatus      result = klNoErr;
     kern_return_t err = KERN_SUCCESS;
 
     SafeIPCCallBegin_ (err, result);
-    err = KLIPCHandleError (machPort, 
-                            applicationName, applicationNameLength,
-                            applicationIconPath, applicationIconPathLength,
+    err = KLIPCHandleError (machPort, applicationTask, 
+                            applicationPath, applicationPathLength,
                             __KLAllowHomeDirectoryAccess (),
                             inError, inDialogIdentifier, inShowAlert, &result);
     SafeIPCCallEnd_ (err, result);

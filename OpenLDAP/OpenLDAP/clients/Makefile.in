@@ -1,8 +1,15 @@
-# $OpenLDAP: pkg/ldap/clients/Makefile.in,v 1.9.2.3 2003/03/03 17:10:01 kurt Exp $
-## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
-## COPYING RESTRICTIONS APPLY, See COPYRIGHT file
+# Clients Makefile.in for OpenLDAP
+# $OpenLDAP: pkg/ldap/clients/Makefile.in,v 1.12.2.2 2004/01/01 18:16:26 kurt Exp $
+## Copyright 1998-2004 The OpenLDAP Foundation.
+## All rights reserved.
 ##
-## Clients Makefile.in for OpenLDAP
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted only as authorized by the OpenLDAP
+## Public License.
+##
+## A copy of this license is available in the file LICENSE in the
+## top-level directory of the distribution or, alternatively, at
+## <http://www.OpenLDAP.org/license.html>.
 
 SUBDIRS = tools
 

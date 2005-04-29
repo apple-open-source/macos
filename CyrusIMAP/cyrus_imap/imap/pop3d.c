@@ -40,7 +40,7 @@
  */
 
 /*
- * $Id: pop3d.c,v 1.166 2005/01/04 15:06:13 ken3 Exp $
+ * $Id: pop3d.c,v 1.7 2005/03/23 00:38:14 dasenbro Exp $
  */
 #include <config.h>
 
@@ -1034,13 +1034,13 @@ static void cmd_apop(char *response)
 		 */
 		sasl_result = sasl_getprop(popd_saslconn, SASL_USERNAME,
 					   (const void **) &canon_user);
-		popd_userid = xstrdup(canon_user);
 		if (sasl_result != SASL_OK) {
 		prot_printf(popd_out, 
 				"-ERR [AUTH] weird SASL error %d getting SASL_USERNAME\r\n", 
 				sasl_result);
 		return;
 		}
+		popd_userid = xstrdup(canon_user);
 	}
 	else
 	{
@@ -1486,13 +1486,13 @@ void cmd_auth(char *arg)
 		 */
 		sasl_result = sasl_getprop(popd_saslconn, SASL_USERNAME,
 					   (const void **) &canon_user);
-		popd_userid = xstrdup(canon_user);
 		if (sasl_result != SASL_OK) {
 		prot_printf(popd_out, 
 				"-ERR [AUTH] weird SASL error %d getting SASL_USERNAME\r\n", 
 				sasl_result);
 		return;
 		}
+		popd_userid = xstrdup(canon_user);
 	}
 	else
 	{

@@ -11,6 +11,9 @@ moo
 
 # Client-side
 <client>
+<server>
+none
+</server>
  <name>
 basic file:// file
  </name>
@@ -24,7 +27,7 @@ bar
    foo
 moo
 </file>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>

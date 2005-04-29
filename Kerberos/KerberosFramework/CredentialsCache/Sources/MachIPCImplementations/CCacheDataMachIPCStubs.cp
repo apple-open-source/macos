@@ -1,7 +1,7 @@
 /*
  * CCICCacheDataMachIPCStubs.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/CCacheDataMachIPCStubs.cp,v 1.13 2003/03/17 20:46:45 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/CCacheDataMachIPCStubs.cp,v 1.14 2004/09/08 20:48:30 lxs Exp $
  */
 
 #include "FlattenCredentials.h"
@@ -94,7 +94,9 @@ CCICCacheDataMachIPCStub::StoreConvertedCredentials (
         security_token_t	token;
         std::strstream		flatCredentials;
         
-        flatCredentials << *inCredentials << std::ends;
+        WriteCredentials (flatCredentials, *inCredentials);
+        //dprintf ("%s(): sending buffer:", __FUNCTION__);
+        //dprintmem (flatCredentials.str (), flatCredentials.pcount ());
         kern_return_t err = CCacheIPC_StoreCredentials (GetPort (), GetCCacheID ().object, flatCredentials.str (), flatCredentials.pcount (), &result, &token);
         if (!mach_client_allow_server (token)) {
             /* Warning!  This server is not who we think it is! */
@@ -110,6 +112,9 @@ CCICCacheDataMachIPCStub::StoreFlattenedCredentials (
 
         CCIResult			result;
         security_token_t	token;
+        
+        //dprintf ("%s(): sending buffer:", __FUNCTION__);
+        //dprintmem (inCredentials.str (), inCredentials.pcount ());
         
         kern_return_t err = CCacheIPC_StoreCredentials (GetPort (), GetCCacheID ().object, inCredentials.str (), inCredentials.pcount (), &result, &token);
         if (!mach_client_allow_server (token)) {
@@ -128,7 +133,10 @@ CCICCacheDataMachIPCStub::CompatStoreConvertedCredentials (
         security_token_t	token;
         std::strstream		flatCredentials;
 
-        flatCredentials << inCredentials << std::ends;        
+        WriteCompatCredentials (flatCredentials, inCredentials);
+        //dprintf ("%s(): sending buffer:", __FUNCTION__);
+        //dprintmem (flatCredentials.str (), flatCredentials.pcount ());
+
         kern_return_t err = CCacheIPC_StoreCredentials (GetPort (), GetCCacheID ().object, flatCredentials.str (), flatCredentials.pcount (), &result, &token);
         if (!mach_client_allow_server (token)) {
             /* Warning!  This server is not who we think it is! */

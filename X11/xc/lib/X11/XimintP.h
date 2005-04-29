@@ -35,7 +35,7 @@ PERFORMANCE OF THIS SOFTWARE.
                                  miyamoto@jrd.dec.com
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/XimintP.h,v 1.7 2001/01/17 19:41:49 dawes Exp $ */
+/* $XFree86: xc/lib/X11/XimintP.h,v 1.8 2003/11/17 22:20:10 dawes Exp $ */
 
 #ifndef _XIMINTP_H
 #define _XIMINTP_H
@@ -47,9 +47,7 @@ PERFORMANCE OF THIS SOFTWARE.
  * for protocol layer callback function
  */
 typedef Bool (*XimProtoIntrProc)(
-#if NeedFunctionPrototypes
 	Xim, INT16, XPointer, XPointer
-#endif
 );
 typedef struct _XimProtoIntrRec {
     XimProtoIntrProc		 func;
@@ -63,39 +61,25 @@ typedef struct _XimProtoIntrRec {
  * for transport layer methods
  */
 typedef Bool (*XimTransConnectProc)(
-#if NeedFunctionPrototypes
 	 Xim
-#endif
 );
 typedef Bool (*XimTransShutdownProc)(
-#if NeedFunctionPrototypes
 	 Xim
-#endif
 );
 typedef Bool (*XimTransWriteProc)(
-#if NeedFunctionPrototypes
 	 Xim, INT16, XPointer
-#endif
 );
 typedef Bool (*XimTransReadProc)(
-#if NeedFunctionPrototypes
 	 Xim, XPointer, int, int *
-#endif
 );
 typedef void (*XimTransFlushProc)(
-#if NeedFunctionPrototypes
 	 Xim
-#endif
 );
 typedef Bool (*XimTransRegDispatcher)(
-#if NeedNestedPrototypes
 	 Xim, Bool (*)(Xim, INT16, XPointer, XPointer), XPointer
-#endif
 );
 typedef Bool (*XimTransCallDispatcher)(
-#if NeedFunctionPrototypes
 	 Xim, INT16, XPointer
-#endif
 );
 
 /*

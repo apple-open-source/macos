@@ -2,7 +2,7 @@
 
 AT_BANNER([C low level compiling/preprocessing macros.])
 
-# Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -74,15 +74,16 @@ AT_CLEANUP
 ## C keywords.  ##
 ## ------------ ##
 
-# GCC supports `const', `volatile', and `inline'.
+# GCC supports `const', `inline', `restrict', and `volatile'.
 AT_CHECK_MACRO([C keywords],
 [[AC_PROG_CC
 AC_C_CONST
 AC_C_INLINE
+AC_C_RESTRICT
 AC_C_VOLATILE
-case $GCC,$ac_cv_c_const,$ac_cv_c_inline,$ac_cv_c_volatile in
+case $GCC,$ac_cv_c_const,$ac_cv_c_inline,$ac_cv_c_restrict,$ac_cv_c_volatile in
  yes,*no*)
-   AC_MSG_ERROR([failed to detect `const', `inline' or `volatile' support]);;
+   AC_MSG_ERROR([failed to detect `const', `inline', `restrict', or `volatile' support]);;
 esac
 ]])
 

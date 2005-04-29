@@ -24,7 +24,7 @@ OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
-/* $XFree86: xc/include/extensions/XKBgeom.h,v 3.9 2002/09/18 17:11:40 tsi Exp $ */
+/* $XFree86: xc/include/extensions/XKBgeom.h,v 3.10 2003/11/17 22:20:02 dawes Exp $ */
 
 #ifndef _XKBGEOM_H_
 #define	_XKBGEOM_H_
@@ -319,437 +319,339 @@ _XFUNCPROTOBEGIN
 
 extern	XkbPropertyPtr
 XkbAddGeomProperty(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     char *		/* name */,
     char *		/* value */
-#endif
 );
 
 extern	XkbKeyAliasPtr
 XkbAddGeomKeyAlias(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     char *		/* alias */,
     char *		/* real */
-#endif
 );
 
 extern	XkbColorPtr
 XkbAddGeomColor(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     char *		/* spec */,
     unsigned int	/* pixel */
-#endif
 );
 
 extern	XkbOutlinePtr
 XkbAddGeomOutline(
-#if NeedFunctionPrototypes
     XkbShapePtr		/* shape */,
     int			/* sz_points */
-#endif
 );
 
 extern XkbShapePtr
 XkbAddGeomShape(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     Atom		/* name */,
     int			/* sz_outlines */
-#endif
 );
 
 extern XkbKeyPtr
 XkbAddGeomKey(
-#if NeedFunctionPrototypes
     XkbRowPtr		/* row */
-#endif
 );
 
 extern XkbRowPtr
 XkbAddGeomRow(
-#if NeedFunctionPrototypes
     XkbSectionPtr	/* section */,
     int			/* sz_keys */
-#endif
 );
 
 extern XkbSectionPtr
 XkbAddGeomSection(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     Atom		/* name */,
     int			/* sz_rows */,
     int			/* sz_doodads */,
     int			/* sz_overlays */
-#endif
 );
 
 extern XkbOverlayPtr
 XkbAddGeomOverlay(
-#if NeedFunctionPrototypes
     XkbSectionPtr	/* section */,
     Atom		/* name */,
     int			/* sz_rows */
-#endif
 );
 
 extern XkbOverlayRowPtr
 XkbAddGeomOverlayRow(
-#if NeedFunctionPrototypes
     XkbOverlayPtr	/* overlay */,
     int			/* row_under */,
     int			/* sz_keys */
-#endif
 );
 
 extern XkbOverlayKeyPtr
 XkbAddGeomOverlayKey(
-#if NeedFunctionPrototypes
     XkbOverlayPtr	/* overlay */,
     XkbOverlayRowPtr	/* row */,
     char *		/* over */,
     char *		/* under */
-#endif
 );
 
 extern XkbDoodadPtr
 XkbAddGeomDoodad(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     XkbSectionPtr	/* section */,
     Atom		/* name */
-#endif
 );
 
 
 extern void
 XkbFreeGeomKeyAliases(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeomColors(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeomDoodads(
-#if NeedFunctionPrototypes
     XkbDoodadPtr	/* doodads */,
     int			/* nDoodads */,
     Bool		/* freeAll */
-#endif
 );
 
 
 extern void
 XkbFreeGeomProperties(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeomOverlayKeys(
-#if NeedFunctionPrototypes
     XkbOverlayRowPtr	/* row */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeomOverlayRows(
-#if NeedFunctionPrototypes
     XkbOverlayPtr	/* overlay */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeomOverlays(
-#if NeedFunctionPrototypes
     XkbSectionPtr	/* section */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeomKeys(
-#if NeedFunctionPrototypes
     XkbRowPtr		/* row */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeomRows(
-#if NeedFunctionPrototypes
     XkbSectionPtr	/* section */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeomSections(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 
 extern void
 XkbFreeGeomPoints(
-#if NeedFunctionPrototypes
     XkbOutlinePtr	/* outline */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeomOutlines(
-#if NeedFunctionPrototypes
     XkbShapePtr		/* shape */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeomShapes(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* first */,
     int			/* count */,
     Bool		/* freeAll */
-#endif
 );
 
 extern void
 XkbFreeGeometry(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     unsigned int	/* which */,
     Bool		/* freeMap */
-#endif
 );
 
 extern Status
 XkbAllocGeomProps(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* nProps */
-#endif
 );
 
 extern Status
 XkbAllocGeomKeyAliases(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* nAliases */
-#endif
 );
 
 extern Status
 XkbAllocGeomColors(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* nColors */
-#endif
 );
 
 extern Status
 XkbAllocGeomShapes(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* nShapes */
-#endif
 );
 
 extern Status
 XkbAllocGeomSections(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* nSections */
-#endif
 );
 
 extern Status
 XkbAllocGeomOverlays(
-#if NeedFunctionPrototypes
     XkbSectionPtr	/* section */,
     int			/* num_needed */
-#endif
 );
 
 extern Status
 XkbAllocGeomOverlayRows(
-#if NeedFunctionPrototypes
     XkbOverlayPtr	/* overlay */,
     int			/* num_needed */
-#endif
 );
 
 extern Status
 XkbAllocGeomOverlayKeys(
-#if NeedFunctionPrototypes
     XkbOverlayRowPtr	/* row */,
     int			/* num_needed */
-#endif
 );
 
 extern Status
 XkbAllocGeomDoodads(
-#if NeedFunctionPrototypes
     XkbGeometryPtr	/* geom */,
     int			/* nDoodads */
-#endif
 );
 
 extern Status
 XkbAllocGeomSectionDoodads(
-#if NeedFunctionPrototypes
     XkbSectionPtr	/* section */,
     int			/* nDoodads */
-#endif
 );
 
 extern Status
 XkbAllocGeomOutlines(
-#if NeedFunctionPrototypes
     XkbShapePtr		/* shape */,
     int			/* nOL */
-#endif
 );
 
 extern Status
 XkbAllocGeomRows(
-#if NeedFunctionPrototypes
     XkbSectionPtr	/* section */,
     int			/* nRows */
-#endif
 );
 
 extern Status
 XkbAllocGeomPoints(
-#if NeedFunctionPrototypes
     XkbOutlinePtr	/* ol */,
     int			/* nPts */
-#endif
 );
 
 extern Status
 XkbAllocGeomKeys(
-#if NeedFunctionPrototypes
     XkbRowPtr		/* row */,
     int			/* nKeys */
-#endif
 );
 
 extern	Status
 XkbAllocGeometry(
-#if NeedFunctionPrototypes
 	XkbDescPtr		/* xkb */,
 	XkbGeometrySizesPtr	/* sizes */
-#endif
 );
 
 extern	Status
 XkbSetGeometry(
-#if NeedFunctionPrototypes
 	Display *		/* dpy */,
 	unsigned		/* deviceSpec */,
 	XkbGeometryPtr		/* geom */
-#endif
 );
 
 extern	Bool
 XkbComputeShapeTop(
-#if NeedFunctionPrototypes
 	XkbShapePtr		/* shape */,
 	XkbBoundsPtr		/* bounds */
-#endif
 );
 
 extern	Bool
 XkbComputeShapeBounds(
-#if NeedFunctionPrototypes
 	XkbShapePtr		/* shape */
-#endif
 );
 
 extern	Bool
 XkbComputeRowBounds(
-#if NeedFunctionPrototypes
 	XkbGeometryPtr		/* geom */,
 	XkbSectionPtr		/* section */,
 	XkbRowPtr		/* row */
-#endif
 );
 
 extern	Bool
 XkbComputeSectionBounds(
-#if NeedFunctionPrototypes
 	XkbGeometryPtr		/* geom */,
 	XkbSectionPtr		/* section */
-#endif
 );
 
 extern	char *
 XkbFindOverlayForKey(
-#if NeedFunctionPrototypes
 	XkbGeometryPtr		/* geom */,
 	XkbSectionPtr		/* wanted */,
 	char *			/* under */
-#endif
 );
 
 extern	Status
 XkbGetGeometry(
-#if NeedFunctionPrototypes
     Display *			/* dpy */,
     XkbDescPtr			/* xkb */
-#endif
 );
 
 extern	Status
 XkbGetNamedGeometry(
-#if NeedFunctionPrototypes
     Display *			/* dpy */,
     XkbDescPtr			/* xkb */,
     Atom			/* name */
-#endif
 );
 
 _XFUNCPROTOEND

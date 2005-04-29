@@ -2,7 +2,7 @@
  * 
  * distcc -- A simple distributed compiler system
  *
- * Copyright (C) 2003 by Apple Computer, Inc.
+ * Copyright (C) 2003, 2005 by Apple Computer, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -28,7 +28,7 @@
 #define DISTCC_DEFAULT_ZC_LIST_LEN_TOKEN "ZCLL"
 
 #define ZC_ALL_INTERFACES      0
-#define ZC_DOMAIN              "local."
+#define ZC_DOMAIN              ""
 #define ZC_REG_TYPE            "_distcc._tcp"
 
 

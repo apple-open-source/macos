@@ -1,6 +1,6 @@
 /*  
 **********************************************************************
-*   Copyright (C) 2002-2003, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  ucnv_u7.c
@@ -15,14 +15,15 @@
 */
 
 #include "unicode/utypes.h"
+
+#if !UCONFIG_NO_CONVERSION
+
 #include "unicode/ucnv.h"
-#include "unicode/ucnv_err.h"
 #include "ucnv_bld.h"
 #include "ucnv_cnv.h"
 
 /* UTF-7 -------------------------------------------------------------------- */
 
-/* ### TODO: in user guide, document version option (=1 for escaping set O characters) */
 /*
  * UTF-7 is a stateful encoding of Unicode.
  * It is defined in RFC 2152. (http://www.ietf.org/rfc/rfc2152.txt)
@@ -247,7 +248,6 @@ _UTF7ToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
     sourceIndex=byteIndex==0 ? 0 : -1;
     nextSourceIndex=0;
 
-loop:
     if(inDirectMode) {
 directMode:
         /*
@@ -270,8 +270,8 @@ directMode:
                 /* illegal */
                 bytes[0]=b;
                 byteIndex=1;
-                nextSourceIndex=sourceIndex+1;
-                goto callback;
+                *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                break;
             } else if(b!=PLUS) {
                 /* write directly encoded character */
                 *target++=b;
@@ -312,7 +312,8 @@ unicodeMode:
                 if(b>=126) {
                     /* illegal - test other illegal US-ASCII values by base64Value==-3 */
                     inDirectMode=TRUE;
-                    goto callback;
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                    break;
                 } else if((base64Value=fromBase64[b])>=0) {
                     /* collect base64 bytes into UChars */
                     switch(base64Counter) {
@@ -377,7 +378,8 @@ unicodeMode:
                         /* absorb the minus and leave the Unicode Mode */
                         if(bits!=0) {
                             /* bits are illegally left over, a UChar is incomplete */
-                            goto callback;
+                            *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                            break;
                         }
                     }
                     sourceIndex=nextSourceIndex;
@@ -392,7 +394,8 @@ unicodeMode:
                         bytes[0]=PLUS;
                         bytes[1]=b;
                         byteIndex=2;
-                        goto callback;
+                        *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                        break;
                     } else if(bits==0) {
                         /* un-read the character in case it is a plus sign */
                         --source;
@@ -400,12 +403,14 @@ unicodeMode:
                         goto directMode;
                     } else {
                         /* bits are illegally left over, a UChar is incomplete */
-                        goto callback;
+                        *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                        break;
                     }
                 } else /* base64Value==-3 for illegal characters */ {
                     /* illegal */
                     inDirectMode=TRUE;
-                    goto callback;
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                    break;
                 }
             } else {
                 /* target is full */
@@ -414,91 +419,26 @@ unicodeMode:
             }
         }
     }
-endloop:
 
-    if(pArgs->flush && source>=sourceLimit) {
-        /* reset the state for the next conversion */
-        if(!inDirectMode && bits!=0 && U_SUCCESS(*pErrorCode)) {
-            /* a character byte sequence remains incomplete */
-            *pErrorCode=U_TRUNCATED_CHAR_FOUND;
-        }
-        cnv->toUnicodeStatus=0x1000000; /* inDirectMode=TRUE */
-        cnv->toULength=0;
-    } else {
-        /* set the converter state back into UConverter */
-        cnv->toUnicodeStatus=((uint32_t)inDirectMode<<24)|((uint32_t)((uint8_t)base64Counter)<<16)|(uint32_t)bits;
-        cnv->toULength=byteIndex;
+    if(U_SUCCESS(*pErrorCode) && pArgs->flush && source==sourceLimit && bits==0) {
+        /*
+         * if we are in Unicode mode, then the byteIndex might not be 0,
+         * but that is ok if bits==0
+         * -> we set byteIndex=0 at the end of the stream to avoid a truncated error
+         * (not true for IMAP-mailbox-name where we must end in direct mode)
+         */
+        byteIndex=0;
     }
 
-finish:
+    /* set the converter state back into UConverter */
+    cnv->toUnicodeStatus=((uint32_t)inDirectMode<<24)|((uint32_t)((uint8_t)base64Counter)<<16)|(uint32_t)bits;
+    cnv->toULength=byteIndex;
+
     /* write back the updated pointers */
     pArgs->source=(const char *)source;
     pArgs->target=target;
     pArgs->offsets=offsets;
     return;
-
-callback:
-    /* call the callback function with all the preparations and post-processing */
-    /* update the arguments structure */
-    pArgs->source=(const char *)source;
-    pArgs->target=target;
-    pArgs->offsets=offsets;
-
-    /* copy the current bytes to invalidCharBuffer */
-    for(b=0; b<(uint8_t)byteIndex; ++b) {
-        cnv->invalidCharBuffer[b]=(char)bytes[b];
-    }
-    cnv->invalidCharLength=byteIndex;
-
-    /* set the converter state in UConverter to deal with the next character */
-    cnv->toUnicodeStatus=(uint32_t)inDirectMode<<24;
-    cnv->toULength=0;
-
-    /* call the callback function */
-    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
-    cnv->fromCharErrorBehaviour(cnv->toUContext, pArgs, cnv->invalidCharBuffer, cnv->invalidCharLength, UCNV_ILLEGAL, pErrorCode);
-
-    /* get the converter state from UConverter */
-    {
-        uint32_t status=cnv->toUnicodeStatus;
-        inDirectMode=(UBool)((status>>24)&1);
-        base64Counter=(int8_t)(status>>16);
-        bits=(uint16_t)status;
-    }
-    byteIndex=cnv->toULength;
-
-    /* update target and deal with offsets if necessary */
-    offsets=ucnv_updateCallbackOffsets(offsets, pArgs->target-target, sourceIndex);
-    target=pArgs->target;
-
-    /* update the source pointer and index */
-    sourceIndex=nextSourceIndex+((const uint8_t *)pArgs->source-source);
-    source=(const uint8_t *)pArgs->source;
-
-    /*
-     * If the callback overflowed the target, then we need to
-     * stop here with an overflow indication.
-     */
-    if(*pErrorCode==U_BUFFER_OVERFLOW_ERROR) {
-        goto endloop;
-    } else if(cnv->UCharErrorBufferLength>0) {
-        /* target is full */
-        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
-        goto endloop;
-    } else if(U_FAILURE(*pErrorCode)) {
-        /* break on error */
-        cnv->toUnicodeStatus=0x1000000; /* inDirectMode=TRUE */
-        cnv->toULength=0;
-        goto finish;
-    } else {
-        goto loop;
-    }
-}
-
-static UChar32
-_UTF7GetNextUChar(UConverterToUnicodeArgs *pArgs,
-                  UErrorCode *pErrorCode) {
-    return ucnv_getNextUCharFromToUImpl(pArgs, pArgs->converter->sharedData->impl->toUnicode, TRUE, pErrorCode);
 }
 
 static void
@@ -788,7 +728,7 @@ static const UConverterImpl _UTF7Impl={
     _UTF7ToUnicodeWithOffsets,
     _UTF7FromUnicodeWithOffsets,
     _UTF7FromUnicodeWithOffsets,
-    _UTF7GetNextUChar,
+    NULL,
 
     NULL,
     _UTF7GetName,
@@ -967,7 +907,6 @@ _IMAPToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
     sourceIndex=byteIndex==0 ? 0 : -1;
     nextSourceIndex=0;
 
-loop:
     if(inDirectMode) {
 directMode:
         /*
@@ -989,8 +928,8 @@ directMode:
                 /* illegal */
                 bytes[0]=b;
                 byteIndex=1;
-                nextSourceIndex=sourceIndex+1;
-                goto callback;
+                *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                break;
             } else if(b!=AMPERSAND) {
                 /* write directly encoded character */
                 *target++=b;
@@ -1032,7 +971,8 @@ unicodeMode:
                 if(b>0x7e) {
                     /* illegal - test other illegal US-ASCII values by base64Value==-3 */
                     inDirectMode=TRUE;
-                    goto callback;
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                    break;
                 } else if((base64Value=FROM_BASE64_IMAP(b))>=0) {
                     /* collect base64 bytes into UChars */
                     switch(base64Counter) {
@@ -1053,7 +993,8 @@ unicodeMode:
                         if(isLegalIMAP(c)) {
                             /* illegal */
                             inDirectMode=TRUE;
-                            goto callback;
+                            *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                            goto endloop;
                         }
                         *target++=c;
                         if(offsets!=NULL) {
@@ -1070,7 +1011,8 @@ unicodeMode:
                         if(isLegalIMAP(c)) {
                             /* illegal */
                             inDirectMode=TRUE;
-                            goto callback;
+                            *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                            goto endloop;
                         }
                         *target++=c;
                         if(offsets!=NULL) {
@@ -1087,7 +1029,8 @@ unicodeMode:
                         if(isLegalIMAP(c)) {
                             /* illegal */
                             inDirectMode=TRUE;
-                            goto callback;
+                            *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                            goto endloop;
                         }
                         *target++=c;
                         if(offsets!=NULL) {
@@ -1116,7 +1059,8 @@ unicodeMode:
                         if(bits!=0 || (base64Counter!=0 && base64Counter!=3 && base64Counter!=6)) {
                             /* bits are illegally left over, a UChar is incomplete */
                             /* base64Counter other than 0, 3, 6 means non-minimal zero-padding, also illegal */
-                            goto callback;
+                            *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                            break;
                         }
                     }
                     sourceIndex=nextSourceIndex;
@@ -1134,7 +1078,8 @@ unicodeMode:
                     /* base64Value==-3 for illegal characters */
                     /* illegal */
                     inDirectMode=TRUE;
-                    goto callback;
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                    break;
                 }
             } else {
                 /* target is full */
@@ -1145,83 +1090,41 @@ unicodeMode:
     }
 endloop:
 
-    if(pArgs->flush && source>=sourceLimit) {
-        /* reset the state for the next conversion */
-        if(!inDirectMode && U_SUCCESS(*pErrorCode)) {
-            /* a character byte sequence remains incomplete - IMAP must end in ASCII/direct mode */
-            *pErrorCode=U_TRUNCATED_CHAR_FOUND;
+    /*
+     * the end of the input stream and detection of truncated input
+     * are handled by the framework, but here we must check if we are in Unicode
+     * mode and byteIndex==0 because we must end in direct mode
+     *
+     * conditions:
+     *   successful
+     *   in Unicode mode and byteIndex==0
+     *   end of input and no truncated input
+     */
+    if( U_SUCCESS(*pErrorCode) &&
+        !inDirectMode && byteIndex==0 &&
+        pArgs->flush && source>=sourceLimit
+    ) {
+        if(base64Counter==-1) {
+            /* & at the very end of the input */
+            /* make the ampersand the reported sequence */
+            bytes[0]=AMPERSAND;
+            byteIndex=1;
         }
-        cnv->toUnicodeStatus=0x1000000; /* inDirectMode=TRUE */
-        cnv->toULength=0;
-    } else {
-        /* set the converter state back into UConverter */
-        cnv->toUnicodeStatus=((uint32_t)inDirectMode<<24)|((uint32_t)((uint8_t)base64Counter)<<16)|(uint32_t)bits;
-        cnv->toULength=byteIndex;
+        /* else if(base64Counter!=-1) byteIndex remains 0 because there is no particular byte sequence */
+
+        inDirectMode=TRUE; /* avoid looping */
+        *pErrorCode=U_TRUNCATED_CHAR_FOUND;
     }
 
-finish:
+    /* set the converter state back into UConverter */
+    cnv->toUnicodeStatus=((uint32_t)inDirectMode<<24)|((uint32_t)((uint8_t)base64Counter)<<16)|(uint32_t)bits;
+    cnv->toULength=byteIndex;
+
     /* write back the updated pointers */
     pArgs->source=(const char *)source;
     pArgs->target=target;
     pArgs->offsets=offsets;
     return;
-
-callback:
-    /* call the callback function with all the preparations and post-processing */
-    /* update the arguments structure */
-    pArgs->source=(const char *)source;
-    pArgs->target=target;
-    pArgs->offsets=offsets;
-
-    /* copy the current bytes to invalidCharBuffer */
-    for(b=0; b<(uint8_t)byteIndex; ++b) {
-        cnv->invalidCharBuffer[b]=(char)bytes[b];
-    }
-    cnv->invalidCharLength=byteIndex;
-
-    /* set the converter state in UConverter to deal with the next character */
-    cnv->toUnicodeStatus=(uint32_t)inDirectMode<<24;
-    cnv->toULength=0;
-
-    /* call the callback function */
-    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
-    cnv->fromCharErrorBehaviour(cnv->toUContext, pArgs, cnv->invalidCharBuffer, cnv->invalidCharLength, UCNV_ILLEGAL, pErrorCode);
-
-    /* get the converter state from UConverter */
-    {
-        uint32_t status=cnv->toUnicodeStatus;
-        inDirectMode=(UBool)((status>>24)&1);
-        base64Counter=(int8_t)(status>>16);
-        bits=(uint16_t)status;
-    }
-    byteIndex=cnv->toULength;
-
-    /* update target and deal with offsets if necessary */
-    offsets=ucnv_updateCallbackOffsets(offsets, pArgs->target-target, sourceIndex);
-    target=pArgs->target;
-
-    /* update the source pointer and index */
-    sourceIndex=nextSourceIndex+((const uint8_t *)pArgs->source-source);
-    source=(const uint8_t *)pArgs->source;
-
-    /*
-     * If the callback overflowed the target, then we need to
-     * stop here with an overflow indication.
-     */
-    if(*pErrorCode==U_BUFFER_OVERFLOW_ERROR) {
-        goto endloop;
-    } else if(cnv->UCharErrorBufferLength>0) {
-        /* target is full */
-        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
-        goto endloop;
-    } else if(U_FAILURE(*pErrorCode)) {
-        /* break on error */
-        cnv->toUnicodeStatus=0x1000000; /* inDirectMode=TRUE */
-        cnv->toULength=0;
-        goto finish;
-    } else {
-        goto loop;
-    }
 }
 
 static void
@@ -1525,7 +1428,7 @@ static const UConverterImpl _IMAPImpl={
     _IMAPToUnicodeWithOffsets,
     _IMAPFromUnicodeWithOffsets,
     _IMAPFromUnicodeWithOffsets,
-    _UTF7GetNextUChar,
+    NULL,
 
     NULL,
     NULL,
@@ -1537,7 +1440,7 @@ static const UConverterImpl _IMAPImpl={
 static const UConverterStaticData _IMAPStaticData={
     sizeof(UConverterStaticData),
     "IMAP-mailbox-name",
-    0, /* TODO CCSID for UTF-7 */
+    0, /* TODO CCSID for IMAP-mailbox-name */
     UCNV_IBM, UCNV_IMAP_MAILBOX,
     1, 4,
     { 0x3f, 0, 0, 0 }, 1, /* the subchar is not used */
@@ -1552,3 +1455,5 @@ const UConverterSharedData _IMAPData={
     NULL, NULL, &_IMAPStaticData, FALSE, &_IMAPImpl,
     0
 };
+
+#endif

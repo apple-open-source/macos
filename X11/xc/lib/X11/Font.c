@@ -27,7 +27,7 @@ sale, use or other dealings in this Software without prior written
 authorization from the X Consortium and the XFree86 Project.
 
 */
-/* $XFree86: xc/lib/X11/Font.c,v 1.16 2002/12/14 01:55:57 dawes Exp $ */
+/* $XFree86: xc/lib/X11/Font.c,v 1.18 2003/11/17 22:20:06 dawes Exp $ */
 
 #define NEED_REPLIES
 #include "Xlibint.h"
@@ -52,11 +52,9 @@ authorization from the X Consortium and the XFree86 Project.
 
 
 static XFontStruct *_XQueryFont(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     Font		/* fid */,
     unsigned long	/* seq */
-#endif
 );
 
 #ifdef USE_XF86BIGFONT
@@ -72,38 +70,26 @@ typedef struct {
 #define CAP_VerifiedLocal 256
 
 static XF86BigfontCodes *_XF86BigfontCodes(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 static XFontStruct *_XF86BigfontQueryFont(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     XF86BigfontCodes*	/* extcodes */,
     Font		/* fid */,
     unsigned long	/* seq */
-#endif
 );
 
 void _XF86BigfontFreeFontMetrics(
-#if NeedFunctionPrototypes
     XFontStruct*	/* fs */
-#endif
 );
 
 #endif /* USE_XF86BIGFONT */
 
 
-#if NeedFunctionPrototypes
 XFontStruct *XLoadQueryFont(
    register Display *dpy,
    _Xconst char *name)
-#else
-XFontStruct *XLoadQueryFont(dpy, name)
-   register Display *dpy;
-   char *name;
-#endif
 {
     XFontStruct *font_result;
     register long nbytes;
@@ -338,8 +324,8 @@ _XQueryFont (dpy, fid, seq)
 static int XF86BigfontNumber = 1040697125;
 
 static int
-_XF86BigfontFreeCodes (extension)
-    XExtData *extension;
+_XF86BigfontFreeCodes (
+    XExtData *extension)
 {
     /* Don't Xfree(extension->private_data) because it is on the same malloc
        chunk as extension. */
@@ -349,8 +335,8 @@ _XF86BigfontFreeCodes (extension)
 }
 
 static XF86BigfontCodes *
-_XF86BigfontCodes (dpy)
-    register Display *dpy;
+_XF86BigfontCodes (
+    register Display *dpy)
 {
     XEDataObject dpy_union;
     XExtData *pData;
@@ -434,8 +420,8 @@ _XF86BigfontCodes (dpy)
 }
 
 static int
-_XF86BigfontFreeNop (extension)
-    XExtData *extension;
+_XF86BigfontFreeNop (
+    XExtData *extension)
 {
     return 0;
 }
@@ -683,19 +669,11 @@ _XF86BigfontFreeFontMetrics (fs)
 
 #endif /* USE_XF86BIGFONT */
 
-#if NeedFunctionPrototypes
 int _XF86LoadQueryLocaleFont(
    Display *dpy,
    _Xconst char *name,
    XFontStruct **xfp,
    Font *fidp)
-#else
-int _XF86LoadQueryLocaleFont(dpy, name)
-   Display *dpy;
-   char *name;
-   XFontStruct **xfp;
-   Font *fidp;
-#endif
 {
     int l;
     char *charset, *p;

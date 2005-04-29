@@ -81,6 +81,8 @@ static bool try_redirect_by_replacing_jump PARAMS ((edge, basic_block));
 static rtx last_loop_beg_note		PARAMS ((rtx));
 static bool back_edge_of_syntactic_loop_p PARAMS ((basic_block, basic_block));
 static basic_block force_nonfallthru_and_redirect PARAMS ((edge, basic_block));
+/* APPLE LOCAL tree based feedback */
+static void delete_insn_chain_1 PARAMS ((rtx, rtx, int));
 
 /* Return true if NOTE is not one of the ones that must be kept paired,
    so that we may simply delete it.  */
@@ -201,12 +203,17 @@ delete_insn_and_edges (insn)
   return x;
 }
 
+/* APPLE LOCAL begin tree-based feedback */
 /* Unlink a chain of insns between START and FINISH, leaving notes
-   that must be paired.  */
+   that must be paired.  If FIX_BLOCK_FOR_INSN is set, clobber the
+   BLOCK_FOR_INSN field of any retained notes.  (The expectation is
+   that we'll be deleting the entire block shortly, and such notes
+   will then be outside any block.)  */
 
-void
-delete_insn_chain (start, finish)
+static void
+delete_insn_chain_1 (start, finish, fix_block_for_insn)
      rtx start, finish;
+     int fix_block_for_insn;
 {
   rtx next;
 
@@ -217,7 +224,10 @@ delete_insn_chain (start, finish)
     {
       next = NEXT_INSN (start);
       if (GET_CODE (start) == NOTE && !can_delete_note_p (start))
-	;
+	{
+	  if (fix_block_for_insn)
+	    BLOCK_FOR_INSN (start) = 0;
+	}
       else
 	next = delete_insn (start);
 
@@ -226,6 +236,17 @@ delete_insn_chain (start, finish)
       start = next;
     }
 }
+
+/* Unlink a chain of insns between START and FINISH, leaving notes
+   that must be paired.  */
+
+void
+delete_insn_chain (start, finish)
+     rtx start, finish;
+{
+  delete_insn_chain_1 (start, finish, 0);
+}
+/* APPLE LOCAL end tree based feedback */
 
 /* Like delete_insn but also purge dead edges from BB.  */
 void
@@ -403,7 +424,8 @@ flow_delete_block_noexpunge (b)
 
   /* Selectively delete the entire chain.  */
   b->head = NULL;
-  delete_insn_chain (insn, end);
+  /* APPLE LOCAL tree based feedback. */
+  delete_insn_chain_1 (insn, end, 1);
 
   /* Remove the edges into and out of this block.  Note that there may
      indeed be edges in, if we are removing an unreachable loop.  */

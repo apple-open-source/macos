@@ -1,0 +1,920 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		050678EA064015C1001640AF = {
+			containerPortal = 054BBEA605F6A8DE00344873;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 050678E80640159F001640AF;
+			remoteInfo = commonCrypto_profile;
+		};
+		050678EB064015C1001640AF = {
+			isa = PBXTargetDependency;
+			target = 05067903064025BF001640AF;
+			targetProxy = 050678EA064015C1001640AF;
+		};
+		05067900064025BF001640AF = {
+			buildActionMask = 2147483647;
+			files = (
+				05067905064025DD001640AF,
+				05067906064025DE001640AF,
+				05067909064025E3001640AF,
+				0506790B064025E5001640AF,
+				0506790D064025E7001640AF,
+				05067910064025E9001640AF,
+				05067911064025EA001640AF,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		05067901064025BF001640AF = {
+			buildActionMask = 2147483647;
+			files = (
+				05067908064025E2001640AF,
+				0506790A064025E4001640AF,
+				0506790C064025E6001640AF,
+				0506790E064025E7001640AF,
+				0506790F064025E8001640AF,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		05067902064025BF001640AF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		05067903064025BF001640AF = {
+			buildPhases = (
+				05067900064025BF001640AF,
+				05067901064025BF001640AF,
+				05067902064025BF001640AF,
+			);
+			buildRules = (
+				B12526910713745B00BB8157,
+			);
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALL_PATH = /usr/local/lib/system;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "-pg";
+				OTHER_LDFLAGS = "-framework Carbon";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = commonCrypto_profile;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = commonCrypto_profile;
+			productName = commonCrypto_profile;
+			productReference = 05067904064025BF001640AF;
+			productType = "com.apple.product-type.library.static";
+		};
+		05067904064025BF001640AF = {
+			explicitFileType = archive.ar;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = libcommonCrypto_profile.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		05067905064025DD001640AF = {
+			fileRef = 054BBECD05F6AA7200344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05067906064025DE001640AF = {
+			fileRef = 054BBED205F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05067908064025E2001640AF = {
+			fileRef = 054BBED305F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05067909064025E3001640AF = {
+			fileRef = 054BBED805F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0506790A064025E4001640AF = {
+			fileRef = 054BBED405F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0506790B064025E5001640AF = {
+			fileRef = 054BBED505F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0506790C064025E6001640AF = {
+			fileRef = 054BBED605F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0506790D064025E7001640AF = {
+			fileRef = 054BBED705F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0506790E064025E7001640AF = {
+			fileRef = 054BBEDC05F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0506790F064025E8001640AF = {
+			fileRef = 05E319B7063890C100C4AD24;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05067910064025E9001640AF = {
+			fileRef = 05E319DC0638913700C4AD24;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05067911064025EA001640AF = {
+			fileRef = 054BBEDA05F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEA205F6A8DE00344873 = {
+			children = (
+				054BBEB105F6A90E00344873,
+				054BBEB405F6A91E00344873,
+				054BBEBF05F6A97700344873,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBEA405F6A8DE00344873 = {
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		054BBEA505F6A8DE00344873 = {
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		054BBEA605F6A8DE00344873 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				054BBEA405F6A8DE00344873,
+				054BBEA505F6A8DE00344873,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 054BBEA205F6A8DE00344873;
+			productRefGroup = 054BBEBF05F6A97700344873;
+			projectDirPath = "";
+			targets = (
+				054BBEB705F6A93300344873,
+				054BBEBD05F6A97700344873,
+				054BBEC505F6A98900344873,
+				055687FF064012D40048BE18,
+				05067903064025BF001640AF,
+			);
+		};
+		054BBEB105F6A90E00344873 = {
+			children = (
+				054BBECD05F6AA7200344873,
+			);
+			isa = PBXGroup;
+			path = CommonCrypto;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBEB405F6A91E00344873 = {
+			children = (
+				054BBED205F6AA8900344873,
+				054BBED305F6AA8900344873,
+				054BBED405F6AA8900344873,
+				054BBED505F6AA8900344873,
+				054BBED605F6AA8900344873,
+				054BBED705F6AA8900344873,
+				054BBED805F6AA8900344873,
+				054BBEDA05F6AA8900344873,
+				054BBEDC05F6AA8900344873,
+				05E319B7063890C100C4AD24,
+				05E319DC0638913700C4AD24,
+			);
+			isa = PBXGroup;
+			path = Source;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBEB705F6A93300344873 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = world;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				054BBEFB05F6AAC800344873,
+				054BBEFD05F6AAC800344873,
+				055688220640139D0048BE18,
+				050678EB064015C1001640AF,
+			);
+			isa = PBXAggregateTarget;
+			name = world;
+			productName = world;
+		};
+		054BBEBA05F6A97700344873 = {
+			buildActionMask = 2147483647;
+			files = (
+				054BBECE05F6AA7200344873,
+				054BBEDD05F6AA8900344873,
+				054BBEE005F6AA8900344873,
+				054BBEE205F6AA8900344873,
+				054BBEE305F6AA8900344873,
+				054BBEE505F6AA8900344873,
+				05E319DD0638913700C4AD24,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		054BBEBB05F6A97700344873 = {
+			buildActionMask = 2147483647;
+			files = (
+				054BBEDE05F6AA8900344873,
+				054BBEDF05F6AA8900344873,
+				054BBEE105F6AA8900344873,
+				054BBEE705F6AA8900344873,
+				05E319BD063890C100C4AD24,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		054BBEBC05F6A97700344873 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		054BBEBD05F6A97700344873 = {
+			buildPhases = (
+				054BBEBA05F6A97700344873,
+				054BBEBB05F6A97700344873,
+				05A376200612288F009C43A6,
+				4C0889E706EFE038009F3789,
+				054BBEBC05F6A97700344873,
+			);
+			buildRules = (
+				B125268E0713742A00BB8157,
+			);
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 6;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /usr/local/lib/system;
+				LIBRARY_STYLE = STATIC;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "-DNDEBUG";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = YES;
+				PRODUCT_NAME = commonCrypto;
+				PUBLIC_HEADERS_FOLDER_PATH = /;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall -Werror";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = commonCrypto;
+			productName = commonCrypto;
+			productReference = 054BBEBE05F6A97700344873;
+			productType = "com.apple.product-type.library.static";
+		};
+		054BBEBE05F6A97700344873 = {
+			explicitFileType = archive.ar;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = libcommonCrypto.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		054BBEBF05F6A97700344873 = {
+			children = (
+				054BBEBE05F6A97700344873,
+				054BBEC605F6A98900344873,
+				05568800064012D40048BE18,
+				05067904064025BF001640AF,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBEC205F6A98900344873 = {
+			buildActionMask = 2147483647;
+			files = (
+				054BBECF05F6AA7200344873,
+				054BBEE805F6AA8900344873,
+				054BBEEB05F6AA8900344873,
+				054BBEED05F6AA8900344873,
+				054BBEEE05F6AA8900344873,
+				054BBEF005F6AA8900344873,
+				05E319DE0638913700C4AD24,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		054BBEC305F6A98900344873 = {
+			buildActionMask = 2147483647;
+			files = (
+				054BBEE905F6AA8900344873,
+				054BBEEA05F6AA8900344873,
+				054BBEEC05F6AA8900344873,
+				054BBEF205F6AA8900344873,
+				05E319BA063890C100C4AD24,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		054BBEC405F6A98900344873 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		054BBEC505F6A98900344873 = {
+			buildPhases = (
+				054BBEC205F6A98900344873,
+				054BBEC305F6A98900344873,
+				054BBEC405F6A98900344873,
+			);
+			buildRules = (
+				B125268F0713744500BB8157,
+			);
+			buildSettings = {
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALL_PATH = /usr/local/lib/;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "-static";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = commonCryptoStatic;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = commonCryptoStatic;
+			productName = commonCryptoStatic;
+			productReference = 054BBEC605F6A98900344873;
+			productType = "com.apple.product-type.library.static";
+		};
+		054BBEC605F6A98900344873 = {
+			explicitFileType = archive.ar;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = libcommonCryptoStatic.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		054BBECD05F6AA7200344873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = CommonDigest.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBECE05F6AA7200344873 = {
+			fileRef = 054BBECD05F6AA7200344873;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		054BBECF05F6AA7200344873 = {
+			fileRef = 054BBECD05F6AA7200344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBED205F6AA8900344873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = CommonDigestPriv.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBED305F6AA8900344873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = md2_dgst.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBED405F6AA8900344873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = md4_dgst.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBED505F6AA8900344873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = md4_locl.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBED605F6AA8900344873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = md5_dgst.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBED705F6AA8900344873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = md5_locl.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBED805F6AA8900344873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = md32_common.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBEDA05F6AA8900344873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = sha_locl.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBEDC05F6AA8900344873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = sha1.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054BBEDD05F6AA8900344873 = {
+			fileRef = 054BBED205F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEDE05F6AA8900344873 = {
+			fileRef = 054BBED305F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEDF05F6AA8900344873 = {
+			fileRef = 054BBED405F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEE005F6AA8900344873 = {
+			fileRef = 054BBED505F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEE105F6AA8900344873 = {
+			fileRef = 054BBED605F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEE205F6AA8900344873 = {
+			fileRef = 054BBED705F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEE305F6AA8900344873 = {
+			fileRef = 054BBED805F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEE505F6AA8900344873 = {
+			fileRef = 054BBEDA05F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEE705F6AA8900344873 = {
+			fileRef = 054BBEDC05F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEE805F6AA8900344873 = {
+			fileRef = 054BBED205F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEE905F6AA8900344873 = {
+			fileRef = 054BBED305F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEEA05F6AA8900344873 = {
+			fileRef = 054BBED405F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEEB05F6AA8900344873 = {
+			fileRef = 054BBED505F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEEC05F6AA8900344873 = {
+			fileRef = 054BBED605F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEED05F6AA8900344873 = {
+			fileRef = 054BBED705F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEEE05F6AA8900344873 = {
+			fileRef = 054BBED805F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEF005F6AA8900344873 = {
+			fileRef = 054BBEDA05F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEF205F6AA8900344873 = {
+			fileRef = 054BBEDC05F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054BBEFA05F6AAC800344873 = {
+			containerPortal = 054BBEA605F6A8DE00344873;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 054BBEBD05F6A97700344873;
+			remoteInfo = commonCrypto;
+		};
+		054BBEFB05F6AAC800344873 = {
+			isa = PBXTargetDependency;
+			target = 054BBEBD05F6A97700344873;
+			targetProxy = 054BBEFA05F6AAC800344873;
+		};
+		054BBEFC05F6AAC800344873 = {
+			containerPortal = 054BBEA605F6A8DE00344873;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 054BBEC505F6A98900344873;
+			remoteInfo = commonCryptoStatic;
+		};
+		054BBEFD05F6AAC800344873 = {
+			isa = PBXTargetDependency;
+			target = 054BBEC505F6A98900344873;
+			targetProxy = 054BBEFC05F6AAC800344873;
+		};
+		055687FC064012D40048BE18 = {
+			buildActionMask = 2147483647;
+			files = (
+				05568801064012FF0048BE18,
+				05568802064012FF0048BE18,
+				05568804064013010048BE18,
+				05568806064013030048BE18,
+				05568808064013040048BE18,
+				0556880B064013060048BE18,
+				0556880C064013060048BE18,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055687FD064012D40048BE18 = {
+			buildActionMask = 2147483647;
+			files = (
+				05568803064013000048BE18,
+				05568805064013020048BE18,
+				05568807064013030048BE18,
+				05568809064013040048BE18,
+				0556880A064013050048BE18,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055687FE064012D40048BE18 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055687FF064012D40048BE18 = {
+			buildPhases = (
+				055687FC064012D40048BE18,
+				055687FD064012D40048BE18,
+				055687FE064012D40048BE18,
+			);
+			buildRules = (
+				B12526900713744F00BB8157,
+			);
+			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = 1;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALL_PATH = /usr/local/lib/system;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = commonCrypto_debug;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = commonCrypto_debug;
+			productName = commonCrypto_debug;
+			productReference = 05568800064012D40048BE18;
+			productType = "com.apple.product-type.library.static";
+		};
+		05568800064012D40048BE18 = {
+			explicitFileType = archive.ar;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = libcommonCrypto_debug.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		05568801064012FF0048BE18 = {
+			fileRef = 054BBECD05F6AA7200344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05568802064012FF0048BE18 = {
+			fileRef = 054BBED205F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05568803064013000048BE18 = {
+			fileRef = 054BBED305F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05568804064013010048BE18 = {
+			fileRef = 054BBED805F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05568805064013020048BE18 = {
+			fileRef = 054BBED405F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05568806064013030048BE18 = {
+			fileRef = 054BBED505F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05568807064013030048BE18 = {
+			fileRef = 054BBED605F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05568808064013040048BE18 = {
+			fileRef = 054BBED705F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05568809064013040048BE18 = {
+			fileRef = 054BBEDC05F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0556880A064013050048BE18 = {
+			fileRef = 05E319B7063890C100C4AD24;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0556880B064013060048BE18 = {
+			fileRef = 05E319DC0638913700C4AD24;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0556880C064013060048BE18 = {
+			fileRef = 054BBEDA05F6AA8900344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		055688210640139D0048BE18 = {
+			containerPortal = 054BBEA605F6A8DE00344873;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 055687FF064012D40048BE18;
+			remoteInfo = commonCrypto_debug;
+		};
+		055688220640139D0048BE18 = {
+			isa = PBXTargetDependency;
+			target = 055687FF064012D40048BE18;
+			targetProxy = 055688210640139D0048BE18;
+		};
+		05A376200612288F009C43A6 = {
+			buildActionMask = 8;
+			dstPath = /usr/include/CommonCrypto;
+			dstSubfolderSpec = 0;
+			files = (
+				05A3762A061228FA009C43A6,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		05A3762A061228FA009C43A6 = {
+			fileRef = 054BBECD05F6AA7200344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05E319B7063890C100C4AD24 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = sha2.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05E319BA063890C100C4AD24 = {
+			fileRef = 05E319B7063890C100C4AD24;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05E319BD063890C100C4AD24 = {
+			fileRef = 05E319B7063890C100C4AD24;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05E319DC0638913700C4AD24 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = sha2Priv.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05E319DD0638913700C4AD24 = {
+			fileRef = 05E319DC0638913700C4AD24;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05E319DE0638913700C4AD24 = {
+			fileRef = 05E319DC0638913700C4AD24;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//050
+//051
+//052
+//053
+//054
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+		4C0889E706EFE038009F3789 = {
+			buildActionMask = 2147483647;
+			dstPath = include/CommonCrypto;
+			dstSubfolderSpec = 16;
+			files = (
+				4C0889EA06EFE058009F3789,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C0889EA06EFE058009F3789 = {
+			fileRef = 054BBECD05F6AA7200344873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+//B10
+//B11
+//B12
+//B13
+//B14
+		B125268E0713742A00BB8157 = {
+			compilerSpec = com.apple.compilers.gcc.3_5;
+			fileType = sourcecode.c;
+			isEditable = 1;
+			isa = PBXBuildRule;
+			outputFiles = (
+			);
+		};
+		B125268F0713744500BB8157 = {
+			compilerSpec = com.apple.compilers.gcc.3_5;
+			fileType = sourcecode.c;
+			isEditable = 1;
+			isa = PBXBuildRule;
+			outputFiles = (
+			);
+		};
+		B12526900713744F00BB8157 = {
+			compilerSpec = com.apple.compilers.gcc.3_5;
+			fileType = sourcecode.c;
+			isEditable = 1;
+			isa = PBXBuildRule;
+			outputFiles = (
+			);
+		};
+		B12526910713745B00BB8157 = {
+			compilerSpec = com.apple.compilers.gcc.3_5;
+			fileType = sourcecode.c;
+			isEditable = 1;
+			isa = PBXBuildRule;
+			outputFiles = (
+			);
+		};
+	};
+	rootObject = 054BBEA605F6A8DE00344873;
+}

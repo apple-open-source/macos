@@ -3,9 +3,11 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		0352A9F90043263F11CA2A40 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				1F6FAB5A004352A611CA2A40,
 				1F6FAB5B004352A611CA2A40,
@@ -23,6 +25,7 @@
 				0352AA7D0043263F11CA2A40,
 				0352AA8B0043263F11CA2A40,
 				0352AA920043263F11CA2A40,
+				A4E64609075E444800FA0F9D,
 			);
 		};
 		0352A9FA0043263F11CA2A40 = {
@@ -35,6 +38,7 @@
 			isa = PBXGroup;
 			name = webdavfs;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352A9FB0043263F11CA2A40 = {
 			children = (
@@ -42,6 +46,7 @@
 			isa = PBXGroup;
 			name = "Supporting Files";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352A9FF0043263F11CA2A40 = {
 			children = (
@@ -49,10 +54,12 @@
 				0352AA240043263F11CA2A40,
 				0352AA380043263F11CA2A40,
 				0352AA3F0043263F11CA2A40,
+				A4E64A13075E471300FA0F9D,
 			);
 			isa = PBXGroup;
 			name = Subprojects;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA000043263F11CA2A40 = {
 			children = (
@@ -64,200 +71,131 @@
 			name = mount_webdav;
 			path = mount.tproj;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA010043263F11CA2A40 = {
 			children = (
-				0352AA020043263F11CA2A40,
 				0352AA030043263F11CA2A40,
-				0352AA040043263F11CA2A40,
 				0352AA050043263F11CA2A40,
-				0352AA070043263F11CA2A40,
 				0352AA080043263F11CA2A40,
-				0352AA090043263F11CA2A40,
-				0352AA0A0043263F11CA2A40,
 				0352AA0B0043263F11CA2A40,
-				0352AA0C0043263F11CA2A40,
 				0352AA0D0043263F11CA2A40,
-				0352AA0E0043263F11CA2A40,
-				D16EA8D1016932660BC915D5,
+				A44B35170675119100B71B67,
+				A47D116406C69C3600AB7660,
+				A485C6C007665F8900210409,
 			);
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
-		};
-		0352AA020043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = fetch.h;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA030043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = mntopts.h;
 			refType = 4;
-		};
-		0352AA040043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = pathnames.h;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA050043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = webdavd.h;
 			refType = 4;
-		};
-		0352AA070043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = webdav_mount.h;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA080043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = webdav_parse.h;
 			refType = 4;
-		};
-		0352AA090043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = http.h;
-			refType = 4;
-		};
-		0352AA0A0043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = webdav_memcache.h;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA0B0043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = webdav_authcache.h;
 			refType = 4;
-		};
-		0352AA0C0043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = webdav_authentication.h;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA0D0043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = webdav_requestqueue.h;
 			refType = 4;
-		};
-		0352AA0E0043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = webdav_inode.h;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA0F0043263F11CA2A40 = {
 			children = (
-				0352AA100043263F11CA2A40,
-				0352AA110043263F11CA2A40,
 				0352AA120043263F11CA2A40,
-				0352AA130043263F11CA2A40,
 				0352AA140043263F11CA2A40,
-				0352AA150043263F11CA2A40,
 				0352AA170043263F11CA2A40,
 				0352AA180043263F11CA2A40,
-				0352AA190043263F11CA2A40,
 				0352AA1A0043263F11CA2A40,
-				0352AA1B0043263F11CA2A40,
 				0352AA1C0043263F11CA2A40,
-				0352AA1D0043263F11CA2A40,
-				D16EA8D4016932C50BC915D5,
+				A44B3519067511A000B71B67,
+				A47D116506C69C3600AB7660,
+				A485C6BF07665F8900210409,
 			);
 			isa = PBXGroup;
 			name = "Other Sources";
 			refType = 4;
-		};
-		0352AA100043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = activate.c;
-			refType = 4;
-		};
-		0352AA110043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = fetch_util.c;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA120043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = getmntopts.c;
 			refType = 4;
-		};
-		0352AA130043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = http.c;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA140043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = mount_webdav.c;
 			refType = 4;
-		};
-		0352AA150043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = util.c;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA170043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = webdav_file.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA180043263F11CA2A40 = {
 			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = webdav_parse.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 4;
 			usesTabs = 1;
-		};
-		0352AA190043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = webdav_memcache.c;
-			refType = 4;
 		};
 		0352AA1A0043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = webdav_authcache.c;
 			refType = 4;
-		};
-		0352AA1B0043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = webdav_authentication.c;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA1C0043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = webdav_requestqueue.c;
 			refType = 4;
-		};
-		0352AA1D0043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = webdav_inode.c;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA1E0043263F11CA2A40 = {
 			children = (
@@ -266,6 +204,7 @@
 			isa = PBXGroup;
 			name = "Supporting Files";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA240043263F11CA2A40 = {
 			children = (
@@ -276,6 +215,7 @@
 			name = webdav_fs;
 			path = webdav_fs.kextproj;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA250043263F11CA2A40 = {
 			children = (
@@ -283,6 +223,7 @@
 			isa = PBXGroup;
 			name = "Supporting Files";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA2A0043263F11CA2A40 = {
 			children = (
@@ -291,6 +232,7 @@
 			isa = PBXGroup;
 			name = Subprojects;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA2B0043263F11CA2A40 = {
 			children = (
@@ -302,56 +244,59 @@
 			name = webdav_fs;
 			path = webdav_fs.kmodproj;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA2C0043263F11CA2A40 = {
 			children = (
-				0352AA2D0043263F11CA2A40,
 				0352AA2E0043263F11CA2A40,
 			);
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
-		};
-		0352AA2D0043263F11CA2A40 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = vnops.h;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA2E0043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = webdav.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA2F0043263F11CA2A40 = {
 			children = (
 				0352AA300043263F11CA2A40,
 				0352AA310043263F11CA2A40,
 				0352AA320043263F11CA2A40,
-				D14929C2043D054F0BCA2B4C,
 			);
 			isa = PBXGroup;
 			name = "Other Sources";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA300043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = webdav_nodehash.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA310043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = webdav_vfsops.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA320043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = webdav_vnops.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA330043263F11CA2A40 = {
 			children = (
@@ -359,6 +304,7 @@
 			isa = PBXGroup;
 			name = "Supporting Files";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA380043263F11CA2A40 = {
 			children = (
@@ -369,6 +315,7 @@
 			name = load_webdav;
 			path = load.tproj;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA390043263F11CA2A40 = {
 			children = (
@@ -377,12 +324,15 @@
 			isa = PBXGroup;
 			name = "Other Sources";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA3A0043263F11CA2A40 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = load.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA3B0043263F11CA2A40 = {
 			children = (
@@ -390,6 +340,7 @@
 			isa = PBXGroup;
 			name = "Supporting Files";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA3F0043263F11CA2A40 = {
 			children = (
@@ -400,14 +351,17 @@
 			name = webdavfs;
 			path = webdavfs.bproj;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA400043263F11CA2A40 = {
 			children = (
+				A4E6EE770753FD89002458F8,
 				0352AA410043263F11CA2A40,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA410043263F11CA2A40 = {
 			children = (
@@ -416,13 +370,16 @@
 			isa = PBXVariantGroup;
 			name = Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA420043263F11CA2A40 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA430043263F11CA2A40 = {
 			children = (
@@ -430,13 +387,18 @@
 			isa = PBXGroup;
 			name = "Supporting Files";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA4A0043263F11CA2A40 = {
 			children = (
+				A485C711076665F600210409,
+				A4E64AC7075E4E6800FA0F9D,
+				A4E64A2D075E488100FA0F9D,
+				A4E64A2B075E486700FA0F9D,
+				A48D59DE06CAE52100D38803,
 				0352AA4B0043263F11CA2A40,
 				D13962DF047451780BCA2B4C,
 				0352AA4C0043263F11CA2A40,
-				0352AA4D0043263F11CA2A40,
 				0352AA4E0043263F11CA2A40,
 				0352AA4F0043263F11CA2A40,
 				D16EA8D9016933140BC915D5,
@@ -444,36 +406,39 @@
 			isa = PBXGroup;
 			name = "External Frameworks and Libraries";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA4B0043263F11CA2A40 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		0352AA4C0043263F11CA2A40 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = System.framework;
 			path = /System/Library/Frameworks/System.framework;
 			refType = 0;
-		};
-		0352AA4D0043263F11CA2A40 = {
-			isa = PBXFrameworkReference;
-			name = DiskArbitration.framework;
-			path = /System/Library/PrivateFrameworks/DiskArbitration.framework;
-			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		0352AA4E0043263F11CA2A40 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		0352AA4F0043263F11CA2A40 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Foundation.framework;
 			path = /System/Library/Frameworks/Foundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		0352AA510043263F11CA2A40 = {
 			children = (
@@ -481,35 +446,43 @@
 				0352AA530043263F11CA2A40,
 				0352AA540043263F11CA2A40,
 				0352AA550043263F11CA2A40,
+				A4C348E4075E70F300A90178,
 			);
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0352AA520043263F11CA2A40 = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = mount_webdav;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0352AA530043263F11CA2A40 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = webdav_fs.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0352AA540043263F11CA2A40 = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = load_webdav;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0352AA550043263F11CA2A40 = {
-			isa = PBXBundleReference;
-			path = webdavfs.bundle;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = webdav.fs;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0352AA560043263F11CA2A40 = {
 			buildPhases = (
-				0352AA9A0043263F11CA2A40,
-				0352AA9E0043263F11CA2A40,
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = /Objects;
@@ -526,6 +499,7 @@
 				0352AA7C0043263F11CA2A40,
 				0352AA8A0043263F11CA2A40,
 				0352AA910043263F11CA2A40,
+				A4E64AAA075E4C5500FA0F9D,
 			);
 			isa = PBXAggregateTarget;
 			name = "webdavfs (Aggregate)";
@@ -534,6 +508,7 @@
 		0352AA570043263F11CA2A40 = {
 			isa = PBXTargetDependency;
 			target = 0352AA580043263F11CA2A40;
+			targetProxy = A4FD77F205B5A59800798919;
 		};
 		0352AA580043263F11CA2A40 = {
 			buildPhases = (
@@ -548,8 +523,8 @@
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "-no-cpp-precomp";
-				OTHER_LDFLAGS = "";
+				OTHER_CFLAGS = "-no-cpp-precomp -fconstant-cfstrings";
+				OTHER_LDFLAGS = "-bind_at_load";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = mount_webdav;
 				REZ_EXECUTABLE = YES;
@@ -567,37 +542,20 @@
 		0352AA590043263F11CA2A40 = {
 			buildActionMask = 2147483647;
 			files = (
-				0352AA5A0043263F11CA2A40,
 				0352AA5B0043263F11CA2A40,
-				0352AA5C0043263F11CA2A40,
 				0352AA5D0043263F11CA2A40,
-				0352AA5F0043263F11CA2A40,
 				0352AA600043263F11CA2A40,
-				0352AA610043263F11CA2A40,
-				0352AA620043263F11CA2A40,
 				0352AA630043263F11CA2A40,
-				0352AA640043263F11CA2A40,
 				0352AA650043263F11CA2A40,
-				0352AA660043263F11CA2A40,
-				D16EA8D3016932660BC915D5,
+				A44B35180675119100B71B67,
+				A47D116606C69C3600AB7660,
+				A485C6C207665F8900210409,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0352AA5A0043263F11CA2A40 = {
-			fileRef = 0352AA020043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		0352AA5B0043263F11CA2A40 = {
 			fileRef = 0352AA030043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0352AA5C0043263F11CA2A40 = {
-			fileRef = 0352AA040043263F11CA2A40;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -608,26 +566,8 @@
 			settings = {
 			};
 		};
-		0352AA5F0043263F11CA2A40 = {
-			fileRef = 0352AA070043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		0352AA600043263F11CA2A40 = {
 			fileRef = 0352AA080043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0352AA610043263F11CA2A40 = {
-			fileRef = 0352AA090043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0352AA620043263F11CA2A40 = {
-			fileRef = 0352AA0A0043263F11CA2A40;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -638,20 +578,8 @@
 			settings = {
 			};
 		};
-		0352AA640043263F11CA2A40 = {
-			fileRef = 0352AA0C0043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		0352AA650043263F11CA2A40 = {
 			fileRef = 0352AA0D0043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0352AA660043263F11CA2A40 = {
-			fileRef = 0352AA0E0043263F11CA2A40;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -659,39 +587,18 @@
 		0352AA670043263F11CA2A40 = {
 			buildActionMask = 2147483647;
 			files = (
-				0352AA680043263F11CA2A40,
-				0352AA690043263F11CA2A40,
 				0352AA6A0043263F11CA2A40,
-				0352AA6B0043263F11CA2A40,
 				0352AA6C0043263F11CA2A40,
-				0352AA6D0043263F11CA2A40,
 				0352AA6F0043263F11CA2A40,
 				0352AA700043263F11CA2A40,
-				0352AA710043263F11CA2A40,
 				0352AA720043263F11CA2A40,
-				0352AA730043263F11CA2A40,
 				0352AA740043263F11CA2A40,
-				0352AA750043263F11CA2A40,
-				D16EA8D5016932C50BC915D5,
+				A44B351A067511A000B71B67,
+				A47D116706C69C3600AB7660,
+				A485C6C107665F8900210409,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0352AA680043263F11CA2A40 = {
-			fileRef = 0352AA100043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		0352AA690043263F11CA2A40 = {
-			fileRef = 0352AA110043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
 		};
 		0352AA6A0043263F11CA2A40 = {
 			fileRef = 0352AA120043263F11CA2A40;
@@ -701,24 +608,8 @@
 				);
 			};
 		};
-		0352AA6B0043263F11CA2A40 = {
-			fileRef = 0352AA130043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
 		0352AA6C0043263F11CA2A40 = {
 			fileRef = 0352AA140043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		0352AA6D0043263F11CA2A40 = {
-			fileRef = 0352AA150043263F11CA2A40;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -741,24 +632,8 @@
 				);
 			};
 		};
-		0352AA710043263F11CA2A40 = {
-			fileRef = 0352AA190043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
 		0352AA720043263F11CA2A40 = {
 			fileRef = 0352AA1A0043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		0352AA730043263F11CA2A40 = {
-			fileRef = 0352AA1B0043263F11CA2A40;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -773,24 +648,17 @@
 				);
 			};
 		};
-		0352AA750043263F11CA2A40 = {
-			fileRef = 0352AA1D0043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
 		0352AA760043263F11CA2A40 = {
 			buildActionMask = 2147483647;
 			files = (
 				0352AA770043263F11CA2A40,
 				0352AA780043263F11CA2A40,
-				0352AA790043263F11CA2A40,
 				0352AA7A0043263F11CA2A40,
 				D16EA8DA016933140BC915D5,
 				D1396C88047560CD0BCA2B4C,
 				D1396C89047560D00BCA2B4C,
+				A48D59DF06CAE52100D38803,
+				A485C712076665F600210409,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -803,12 +671,6 @@
 		};
 		0352AA780043263F11CA2A40 = {
 			fileRef = 0352AA4C0043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0352AA790043263F11CA2A40 = {
-			fileRef = 0352AA4D0043263F11CA2A40;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -829,6 +691,7 @@
 		0352AA7C0043263F11CA2A40 = {
 			isa = PBXTargetDependency;
 			target = 0352AA7D0043263F11CA2A40;
+			targetProxy = A4FD77F105B5A59800798919;
 		};
 		0352AA7D0043263F11CA2A40 = {
 			buildPhases = (
@@ -843,14 +706,14 @@
 			buildSettings = {
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = /System/Library/Extensions;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_NAME = com.apple.filesystems.webdav;
 				MODULE_START = webdav_fs_module_start;
 				MODULE_STOP = webdav_fs_module_stop;
-				MODULE_VERSION = 1.2.8;
+				MODULE_VERSION = 1.3;
 				OTHER_CFLAGS = "-no-cpp-precomp -fno-builtin";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -863,7 +726,7 @@
 			);
 			isa = PBXBundleTarget;
 			name = "webdav_fs (Kernel Extension)";
-			productInstallPath = /System/Library/Extensions;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 			productName = "webdav_fs (Bundle)";
 			productReference = 0352AA530043263F11CA2A40;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -887,15 +750,19 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.8</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.8</string>
+	<string>1.3</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel.bsd</key>
-		<string>1.1</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b1</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b1</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b1</string>
 	</dict>
 </dict>
 </plist>
@@ -905,11 +772,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -917,17 +780,10 @@
 		0352AA7F0043263F11CA2A40 = {
 			buildActionMask = 2147483647;
 			files = (
-				0352AA800043263F11CA2A40,
 				0352AA810043263F11CA2A40,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0352AA800043263F11CA2A40 = {
-			fileRef = 0352AA2D0043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		0352AA810043263F11CA2A40 = {
 			fileRef = 0352AA2E0043263F11CA2A40;
@@ -948,7 +804,6 @@
 				0352AA840043263F11CA2A40,
 				0352AA850043263F11CA2A40,
 				0352AA860043263F11CA2A40,
-				D14929C4043D054F0BCA2B4C,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -995,11 +850,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -1007,6 +858,7 @@
 		0352AA8A0043263F11CA2A40 = {
 			isa = PBXTargetDependency;
 			target = 0352AA8B0043263F11CA2A40;
+			targetProxy = A4FD77EF05B5A59800798919;
 		};
 		0352AA8B0043263F11CA2A40 = {
 			buildPhases = (
@@ -1020,7 +872,7 @@
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_MODE_FLAG = 4555;
-				INSTALL_PATH = /usr/libexec;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/webdav_fs.kext/Contents/Resources";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "-no-cpp-precomp";
 				OTHER_LDFLAGS = "";
@@ -1034,7 +886,7 @@
 			);
 			isa = PBXToolTarget;
 			name = "load_webdav (Tool)";
-			productInstallPath = /usr/libexec;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/webdav_fs.kext/Contents/Resources";
 			productName = "load_webdav (Tool)";
 			productReference = 0352AA540043263F11CA2A40;
 		};
@@ -1078,6 +930,7 @@
 		0352AA910043263F11CA2A40 = {
 			isa = PBXTargetDependency;
 			target = 0352AA920043263F11CA2A40;
+			targetProxy = A4FD77F005B5A59800798919;
 		};
 		0352AA920043263F11CA2A40 = {
 			buildPhases = (
@@ -1090,21 +943,21 @@
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = /System/Library/CoreServices;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "-no-cpp-precomp";
 				OTHER_LDFLAGS = "-bundle -undefined suppress";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = webdavfs;
+				PRODUCT_NAME = webdav;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Werror -Wall -Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = bundle;
+				WRAPPER_EXTENSION = fs;
 			};
 			dependencies = (
 			);
 			isa = PBXBundleTarget;
-			name = "webdavfs (Bundle)";
-			productInstallPath = /System/Library/CoreServices;
+			name = "webdav.fs (Bundle)";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
 			productName = "webdavfs (Bundle)";
 			productReference = 0352AA550043263F11CA2A40;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -1135,15 +988,32 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>WebDAVFS</string>
+	<string>webdav</string>
 	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
+	<string>fs</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.8</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.8</string>
+	<string>1.3</string>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>WebDAV</key>
+		<dict>
+			<key>FSName</key>
+			<string>WebDAV</string>
+			<key>FSSubType</key>
+			<integer>0</integer>
+		</dict>
+		<key>WebDAV (Secure)</key>
+		<dict>
+			<key>FSName</key>
+			<string>WebDAV (Secure)</string>
+			<key>FSSubType</key>
+			<integer>1</integer>
+		</dict>
+	</dict>
 </dict>
 </plist>
 ";
@@ -1159,6 +1029,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0352AA950043263F11CA2A40,
+				A4E6EE790753FD89002458F8,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1179,16 +1050,9 @@
 		0352AA970043263F11CA2A40 = {
 			buildActionMask = 2147483647;
 			files = (
-				0352AA980043263F11CA2A40,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0352AA980043263F11CA2A40 = {
-			fileRef = 0352AA4F0043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		0352AA990043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -1196,52 +1060,6 @@
 			);
 			isa = PBXRezBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0352AA9A0043263F11CA2A40 = {
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 7;
-			files = (
-				0352AA9B0043263F11CA2A40,
-				0352AA9C0043263F11CA2A40,
-				0352AA9D0043263F11CA2A40,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0352AA9B0043263F11CA2A40 = {
-			fileRef = 0352AA520043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0352AA9C0043263F11CA2A40 = {
-			fileRef = 0352AA540043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0352AA9D0043263F11CA2A40 = {
-			fileRef = 0352AA550043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0352AA9E0043263F11CA2A40 = {
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				0352AA9F0043263F11CA2A40,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0352AA9F0043263F11CA2A40 = {
-			fileRef = 0352AA530043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //030
 //031
@@ -1254,21 +1072,24 @@
 //1F3
 //1F4
 		1F6FAB5A004352A611CA2A40 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		1F6FAB5B004352A611CA2A40 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -1284,16 +1105,12 @@
 //2C3
 //2C4
 		2C67210200C5D2B64ACA28A9 = {
-			buildRules = (
-			);
 			buildSettings = {
 			};
 			isa = PBXBuildStyle;
 			name = BuildStyle;
 		};
 		2C67210300C5D2B64ACA28A9 = {
-			buildRules = (
-			);
 			buildSettings = {
 			};
 			isa = PBXBuildStyle;
@@ -1304,16 +1121,522 @@
 //2C2
 //2C3
 //2C4
+//A40
+//A41
+//A42
+//A43
+//A44
+		A44B35170675119100B71B67 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = webdav_cache.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A44B35180675119100B71B67 = {
+			fileRef = A44B35170675119100B71B67;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A44B3519067511A000B71B67 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = webdav_cache.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A44B351A067511A000B71B67 = {
+			fileRef = A44B3519067511A000B71B67;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A47D116406C69C3600AB7660 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = webdav_network.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A47D116506C69C3600AB7660 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = webdav_network.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A47D116606C69C3600AB7660 = {
+			fileRef = A47D116406C69C3600AB7660;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A47D116706C69C3600AB7660 = {
+			fileRef = A47D116506C69C3600AB7660;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A485C6BF07665F8900210409 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = EncodedSourceID.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A485C6C007665F8900210409 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = EncodedSourceID.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A485C6C107665F8900210409 = {
+			fileRef = A485C6BF07665F8900210409;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A485C6C207665F8900210409 = {
+			fileRef = A485C6C007665F8900210409;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A485C711076665F600210409 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		A485C712076665F600210409 = {
+			fileRef = A485C711076665F600210409;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A48D59DE06CAE52100D38803 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreServices.framework;
+			path = /System/Library/Frameworks/CoreServices.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		A48D59DF06CAE52100D38803 = {
+			fileRef = A48D59DE06CAE52100D38803;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4C348E4075E70F300A90178 = {
+			explicitFileType = wrapper.application;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = webdav_cert_ui.app;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A4C35E42075E8A0300A90178 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = webdav_cert_ui_Prefix.pch;
+			path = webdav_cert_ui.tproj/webdav_cert_ui_Prefix.pch;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A4C35E63075E902E00A90178 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			name = Info.plist;
+			path = webdav_cert_ui.tproj/Info.plist;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A4C36647075E96FB00A90178 = {
+			children = (
+				A4C36648075E96FB00A90178,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A4C36648075E96FB00A90178 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = English;
+			path = webdav_cert_ui.tproj/English.lproj/Localizable.strings;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A4C36649075E96FB00A90178 = {
+			fileRef = A4C36647075E96FB00A90178;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4E64606075E444800FA0F9D = {
+			buildActionMask = 2147483647;
+			files = (
+				A4E64A28075E480A00FA0F9D,
+				A4E64A29075E480A00FA0F9D,
+				A4C36649075E96FB00A90178,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A4E64607075E444800FA0F9D = {
+			buildActionMask = 2147483647;
+			files = (
+				A4E64A20075E47B600FA0F9D,
+				A4E64A22075E47D900FA0F9D,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A4E64608075E444800FA0F9D = {
+			buildActionMask = 2147483647;
+			files = (
+				A4E64ADC075E4EE900FA0F9D,
+				A4E64AC8075E4E6800FA0F9D,
+				A4E64A2C075E486700FA0F9D,
+				A4E64A2E075E488100FA0F9D,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A4E64609075E444800FA0F9D = {
+			buildPhases = (
+				A4E64606075E444800FA0F9D,
+				A4E64607075E444800FA0F9D,
+				A4E64608075E444800FA0F9D,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G4;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = webdav_cert_ui.tproj/webdav_cert_ui_Prefix.pch;
+				INFOPLIST_FILE = webdav_cert_ui.tproj/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems/webdav.fs/Support";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-framework Foundation -framework AppKit";
+				OTHER_REZFLAGS = "";
+				PREBINDING = YES;
+				PRODUCT_NAME = webdav_cert_ui;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = "webdav_cert_ui (application)";
+			productName = "webdav_certificate_ui (application)";
+			productReference = A4C348E4075E70F300A90178;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>webdav_certificate_ui (application)</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.yourcompany.webdav_certificate_ui__application_</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>NSMainNibFile</key>
+	<string>MainMenu</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+</dict>
+</plist>
+";
+			productType = "com.apple.product-type.application";
+		};
+		A4E64A13075E471300FA0F9D = {
+			children = (
+				A4E64A1C075E475800FA0F9D,
+				A4E64A1B075E475500FA0F9D,
+				A4E64A19075E473F00FA0F9D,
+			);
+			isa = PBXGroup;
+			name = webdav_cert_ui;
+			path = webdavfs.bproj;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A4E64A19075E473F00FA0F9D = {
+			children = (
+				A4C36647075E96FB00A90178,
+				A4C35E63075E902E00A90178,
+				A4E64A23075E480A00FA0F9D,
+				A4E64A25075E480A00FA0F9D,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A4E64A1B075E475500FA0F9D = {
+			children = (
+				A4C35E42075E8A0300A90178,
+				A4E64A21075E47D900FA0F9D,
+			);
+			isa = PBXGroup;
+			name = "Other Sources";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A4E64A1C075E475800FA0F9D = {
+			children = (
+				A4E64A1E075E47B600FA0F9D,
+				A4E64A1F075E47B600FA0F9D,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A4E64A1E075E47B600FA0F9D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = Controller.h;
+			path = webdav_cert_ui.tproj/Controller.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A4E64A1F075E47B600FA0F9D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
+			name = Controller.m;
+			path = webdav_cert_ui.tproj/Controller.m;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A4E64A20075E47B600FA0F9D = {
+			fileRef = A4E64A1F075E47B600FA0F9D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4E64A21075E47D900FA0F9D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
+			name = main.m;
+			path = webdav_cert_ui.tproj/main.m;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A4E64A22075E47D900FA0F9D = {
+			fileRef = A4E64A21075E47D900FA0F9D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4E64A23075E480A00FA0F9D = {
+			children = (
+				A4E64A24075E480A00FA0F9D,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A4E64A24075E480A00FA0F9D = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = English;
+			path = webdav_cert_ui.tproj/English.lproj/InfoPlist.strings;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A4E64A25075E480A00FA0F9D = {
+			children = (
+				A4E64A26075E480A00FA0F9D,
+			);
+			isa = PBXVariantGroup;
+			name = MainMenu.nib;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A4E64A26075E480A00FA0F9D = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.nib;
+			name = English;
+			path = webdav_cert_ui.tproj/English.lproj/MainMenu.nib;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A4E64A28075E480A00FA0F9D = {
+			fileRef = A4E64A23075E480A00FA0F9D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4E64A29075E480A00FA0F9D = {
+			fileRef = A4E64A25075E480A00FA0F9D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4E64A2B075E486700FA0F9D = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = AppKit.framework;
+			path = /System/Library/Frameworks/AppKit.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		A4E64A2C075E486700FA0F9D = {
+			fileRef = A4E64A2B075E486700FA0F9D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4E64A2D075E488100FA0F9D = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = Cocoa.framework;
+			path = /System/Library/Frameworks/Cocoa.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		A4E64A2E075E488100FA0F9D = {
+			fileRef = A4E64A2D075E488100FA0F9D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4E64AA9075E4C5500FA0F9D = {
+			containerPortal = 0352A9F90043263F11CA2A40;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A4E64609075E444800FA0F9D;
+			remoteInfo = "webdav_cert_ui (application)";
+		};
+		A4E64AAA075E4C5500FA0F9D = {
+			isa = PBXTargetDependency;
+			target = A4E64609075E444800FA0F9D;
+			targetProxy = A4E64AA9075E4C5500FA0F9D;
+		};
+		A4E64AC7075E4E6800FA0F9D = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = SecurityInterface.framework;
+			path = /System/Library/Frameworks/SecurityInterface.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		A4E64AC8075E4E6800FA0F9D = {
+			fileRef = A4E64AC7075E4E6800FA0F9D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4E64ADC075E4EE900FA0F9D = {
+			fileRef = D13962DF047451780BCA2B4C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4E6EE770753FD89002458F8 = {
+			children = (
+				A4E6EE780753FD89002458F8,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = "";
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A4E6EE780753FD89002458F8 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A4E6EE790753FD89002458F8 = {
+			fileRef = A4E6EE770753FD89002458F8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4FD77EF05B5A59800798919 = {
+			containerPortal = 0352A9F90043263F11CA2A40;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0352AA8B0043263F11CA2A40;
+			remoteInfo = "load_webdav (Tool)";
+		};
+		A4FD77F005B5A59800798919 = {
+			containerPortal = 0352A9F90043263F11CA2A40;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0352AA920043263F11CA2A40;
+			remoteInfo = "webdavfs (Bundle)";
+		};
+		A4FD77F105B5A59800798919 = {
+			containerPortal = 0352A9F90043263F11CA2A40;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0352AA7D0043263F11CA2A40;
+			remoteInfo = "webdav_fs (Kernel Extension)";
+		};
+		A4FD77F205B5A59800798919 = {
+			containerPortal = 0352A9F90043263F11CA2A40;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0352AA580043263F11CA2A40;
+			remoteInfo = "mount_webdav (Tool)";
+		};
+//A40
+//A41
+//A42
+//A43
+//A44
 //D10
 //D11
 //D12
 //D13
 //D14
 		D13962DF047451780BCA2B4C = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		D1396C88047560CD0BCA2B4C = {
 			fileRef = D13962DF047451780BCA2B4C;
@@ -1327,23 +1650,13 @@
 			settings = {
 			};
 		};
-		D14929C2043D054F0BCA2B4C = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = webdav_attrlist.c;
-			refType = 4;
-		};
-		D14929C4043D054F0BCA2B4C = {
-			fileRef = D14929C2043D054F0BCA2B4C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		D15DE55D0242C7F30BC915D5 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = mount_webdav.8;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		D15DE55F0242C8440BC915D5 = {
 			buildActionMask = 8;
@@ -1361,35 +1674,13 @@
 			settings = {
 			};
 		};
-		D16EA8D1016932660BC915D5 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = digcalc.h;
-			refType = 4;
-		};
-		D16EA8D3016932660BC915D5 = {
-			fileRef = D16EA8D1016932660BC915D5;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		D16EA8D4016932C50BC915D5 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = digcalc.c;
-			refType = 4;
-		};
-		D16EA8D5016932C50BC915D5 = {
-			fileRef = D16EA8D4016932C50BC915D5;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		D16EA8D9016933140BC915D5 = {
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
+			lastKnownFileType = "compiled.mach-o.dylib";
 			name = libcrypto.dylib;
 			path = /usr/lib/libcrypto.dylib;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		D16EA8DA016933140BC915D5 = {
 			fileRef = D16EA8D9016933140BC915D5;

@@ -1,22 +1,17 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/sw_KE.xml
 // *
 // ***************************************************************************
-//  Date        Name        Description
-//  10/23/2000  grhoten     Initial version
-
-
-sw_KE {
-    Version { "2.0" }
-//    LocaleString { "sw_KE" }
-    NumberPatterns {
+sw_KE{
+    NumberPatterns{
         "#,##0.###;-#,##0.###",
-        "\u00A4#,##0.00;-\u00A4#,##0.00",
+        "¤#,##0.00;-¤#,##0.00",
         "#,##0%",
         "#E0",
     }
-//    ShortCountry { "KEN" }
-    LocaleID:int { 0x0441 }
+    Version{"1.2"}
 }

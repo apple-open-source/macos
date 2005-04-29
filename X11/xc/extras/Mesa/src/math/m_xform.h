@@ -154,9 +154,9 @@ typedef void (*vec_copy_func)( GLvector4f *to,
  */
 typedef void (_NORMAPIP normal_func)( CONST GLmatrix *mat,
 				      GLfloat scale,
-				      CONST GLvector3f *in,
+				      CONST GLvector4f *in,
 				      CONST GLfloat lengths[],
-				      GLvector3f *dest );
+				      GLvector4f *dest );
 
 
 /* Flags for selecting a normal transformation function.

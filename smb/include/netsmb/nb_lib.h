@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_lib.h,v 1.2 2001/08/18 05:44:48 conrad Exp $
+ * $Id: nb_lib.h,v 1.4 2004/12/11 05:23:58 lindak Exp $
  */
 #ifndef _NETSMB_NB_LIB_H_
 #define	_NETSMB_NB_LIB_H_
@@ -77,7 +77,6 @@ struct nbns_rr {
 	u_char *	rr_data;
 };
 
-#ifdef APPLE
 /*
  * NetBIOS name return
  */
@@ -85,13 +84,10 @@ struct nbns_nr {
 	char		nr_name[NB_NAMELEN];
 	u_int16_t	nr_flags;
 };
-#endif
 
 #define NBRQF_BROADCAST		0x0001
 
-#ifdef APPLE
 #define NBNS_GROUPFLG 0x8000
-#endif
 
 /*
  * nbns request
@@ -136,7 +132,8 @@ struct sockaddr;
 __BEGIN_DECLS
 
 int nb_name_len(struct nb_name *);
-int nb_name_encode(struct nb_name *, u_char *);
+/* new flag UCflag. 1=uppercase,0=don't */
+int nb_name_encode(struct nb_name *, u_char *, u_int8_t UCflag);
 int nb_encname_len(const char *);
 
 int  nb_snballoc(int namelen, struct sockaddr_nb **);
@@ -145,10 +142,8 @@ int  nb_sockaddr(struct sockaddr *, struct nb_name *, struct sockaddr_nb **);
 
 int  nb_resolvehost_in(const char *, struct sockaddr **);
 int  nbns_resolvename(const char *, struct nb_ctx *, struct sockaddr **);
-#ifdef APPLE
 int  nbns_getnodestatus(struct sockaddr *targethost,
 							struct nb_ctx *ctx, char *system, char *workgroup);
-#endif
 int  nb_getlocalname(char *name);
 int  nb_enum_if(struct nb_ifdesc **, int);
 

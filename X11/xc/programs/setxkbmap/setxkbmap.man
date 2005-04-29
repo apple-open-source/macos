@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/programs/setxkbmap/setxkbmap.man,v 3.6 2003/01/20 04:15:08 dawes Exp $
+.\" $XFree86: xc/programs/setxkbmap/setxkbmap.man,v 3.7 2003/05/29 22:16:23 herrb Exp $
 .\"
 .TH SETXKBMAP 1 __xorgversion__
 .SH NAME
@@ -94,7 +94,7 @@ Specifies which variant of the keyboard layout should be used to determine
 the components which make up the keyboard description.  Only one variant
 may be specified on the command line.
 .SH USING WITH xkbcomp
-If you have an Xserver and a client shell running on differnt computers and
+If you have an Xserver and a client shell running on different computers and
 XKB configuration files sets on those machines are different you can get
 problems specifying a keyboard map by model, layout, options names.
 The thing is the \fBsetxkbcomp\fP converts these names to names of XKB

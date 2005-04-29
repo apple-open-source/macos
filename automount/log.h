@@ -22,11 +22,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <syslog.h>
+#include "nfs_prot.h"
 
 #define DEBUG_NONE 0
 #define DEBUG_STDERR 1
 #define DEBUG_SYSLOG 2
 #define DEBUG_ALL (DEBUG_STDERR & DEBUG_SYSLOG)
 
+char *formattimevalue(struct nfstime *t, char *str, size_t stringlength);
 void sys_openlog(char *, int, int);
 void sys_msg(int, int, char *, ...);

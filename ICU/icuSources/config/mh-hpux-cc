@@ -1,9 +1,7 @@
 ## -*-makefile-*-
 ## HP/UX-specific setup using CC
-## Copyright (c) 1999-2000, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
-##
-## $Id: mh-hpux-cc,v 1.1.1.1 2003/02/05 21:31:17 avery Exp $
 
 
 ## This causes source/tools/pkgdata generated makefiles  to create and link
@@ -39,7 +37,7 @@ LD_RPATH_PRE=
 LDLIBRARYPATH_ENVVAR = SHLIB_PATH
 
 ## Compiler switch to embed a library name
-LD_SONAME = -Wl,+h,$(MIDDLE_SO_TARGET)
+LD_SONAME = -Wl,+h,$(notdir $(MIDDLE_SO_TARGET))
 
 ## Shared object suffix
 SO=		sl
@@ -57,8 +55,6 @@ STATIC_O = o
 %.o: $(srcdir)/%.cpp
 	$(COMPILE.cc) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $<
 
-../data/%.o: ../data/%.c
-	$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCFLAGS) -o $@ $<
 
 ## Dependency rules
 %.d : $(srcdir)/%.c
@@ -72,9 +68,9 @@ STATIC_O = o
 ## Versioned libraries rules
 
 %.$(SO).$(SO_TARGET_VERSION_MAJOR): %.$(SO).$(SO_TARGET_VERSION)
-	$(RM) $@ && ln -s $< $@
+	$(RM) $@ && ln -s ${<F} $@
 %.$(SO): %.$(SO).$(SO_TARGET_VERSION_MAJOR)
-	$(RM) $@ && ln -s $*.$(SO).$(SO_TARGET_VERSION) $@
+	$(RM) $@ && ln -s ${*F}.$(SO).$(SO_TARGET_VERSION) $@
 
 ## End HP/UX-specific setup
 

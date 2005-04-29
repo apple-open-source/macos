@@ -32,6 +32,7 @@
 
 #include <stdarg.h>
 
+#include <AvailabilityMacros.h>
 #include <DirectoryService/DirServicesTypes.h>
 
 #ifdef __cplusplus
@@ -120,6 +121,9 @@ tDirStatus		dsDataListDeAllocate		(	tDirReference	inDirReference,
 
 /*!
  * @function dsDataListDeallocate
+ * @discussion Note that if the tDataListPtr is a heap based tDataList rather than
+ *		stack based, that you must also call free() to release the memory for the
+ *		head of the list after calling dsDataListDeallocate().
  */
 tDirStatus		dsDataListDeallocate		(	tDirReference	inDirReference,
 												tDataListPtr	inDataList );
@@ -214,6 +218,13 @@ tDirStatus		dsAppendStringToListAlloc	(	tDirReference	inDirReferences,
 unsigned long	dsDataListGetNodeCount		(	const tDataList	*inDataList );
 
 /*!
+ * @function dsAllocStringsFromList
+ * @discussion Provides a char** of the strings contained within a tDataList.
+ */
+char** dsAllocStringsFromList( tDirReference inDirRef, const tDataList *inDataList )
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+/*!
  * @function dsGetDataLength
  */
 unsigned long	dsGetDataLength				(	const tDataList	*inDataList );
@@ -233,6 +244,8 @@ tDirStatus		dsDataListInsertNode		(	tDataListPtr	inDataList,
  * @function dsDataListInsertAfter
  * @param inNodeIndex One-based index of the existing node to insert the new node after.
  * 		If inNodeIndex is 0, then it is inserted at the head of the list.
+ * @discussion The datanode is copied into the datalist.  The caller owns the original
+ *		datanode, therefore must deallocate after adding to the list.
  */
 tDirStatus		dsDataListInsertAfter		(	tDirReference	inDirReferences,
 												tDataListPtr	inDataList,
@@ -360,7 +373,17 @@ tDirStatus		dsGetRecordTypeFromEntry	(	tRecordEntryPtr inRecEntryPtr, char **out
  * Memory for the char** parameters is the responsibility of the client
  * and can be cleaned up using free().
  */
-tDirStatus dsParseAuthAuthority( const char *inAuthAuthority, char **outVersion, char **outAuthTag, char **outAuthData );
+tDirStatus		dsParseAuthAuthority		(   const char *inAuthAuthority, char **outVersion, char **outAuthTag, char **outAuthData ) 
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+/*!
+ * @function dsCopyDirStatusName
+ * Pass in the tDirStatus enum and receive the string of the enum name.
+ * Memory for the char* is the responsibility of the client
+ * and can be cleaned up using free().
+ */
+char*			dsCopyDirStatusName			(   long inDirStatus ) 
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 #ifdef __cplusplus
 }

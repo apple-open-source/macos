@@ -1,0 +1,131 @@
+.TH NEATO 1 "12 August 1994"
+.SH NAME
+neato \- preprocessor for drawing undirected graphs
+.SH SYNOPSIS
+\fBneato\fR [\fB\-G\fIname=value\fR]
+[\fB\-N\fIname=value\fR]
+[\-E\fIname=value\fR]
+[\fB\-T\fIlang\fR]
+[\fB\-l \fIlibfile\fR]
+[\fB\-n\fI[1|2]\fR]
+[\fB\-o \fIoutfile\fR]
+[\fB\-v\fR]
+[files]
+.SH DESCRIPTION
+.I neato
+draws undirected graphs using ``spring'' models (see Kamada and Kawai,
+Information Processing Letters 31:1, April 1989).  Input files must be
+formatted in the
+.I dot
+attributed graph language.
+By default, the output of
+.I neato
+is the input graph with layout coordinates appended.
+To make Postscript, use the \fB\-Tps\fP option.
+FrameMaker MIF (\fB-Tmif\fP), HPGL (\fB-Thpgl\fP),
+and GIF (\fB-Tgif\fP) are other choices.
+.PP
+Here is a brief synopsis of the graph language.
+.PP
+\fBgraph \fIname\fP { \fIstatement-list\fP }\fR is the top level graph.
+Statements may be:
+.PP
+\fIname\fB=\fIval\fB;\fR
+.br
+\fBnode [\fIname\fB=\fIval\fB];\fR
+.br
+\fBedge [\fIname\fB=\fIval\fB];\fR
+Set the default graph, node, or edge attribute \fIname\fP to \fIval\fP.
+Any subgraph, node, or edge specified after one of these statements
+inherits these attributes.
+.PP
+\fBn0 [\fIname0=val0,name1=val1,...\fB];\fR
+Creates node \fBn0\fP if it does not exist,
+and sets its attributes according to the optional list. 
+.PP
+\fBn0 \-\- n1 \-\- \fI...\fB \-\- nn [\fIname0=val0,name1=val1,...\fB];\fR
+Creates edges between nodes \fBn0\fP, \fBn1\fP, ..., \fBnn\fP and optionally
+sets the given attributes.  Creates nodes as necessary.
+.PP
+\fBsubgraph \fIname\fB { \fIstatement-list \fB}\fR
+Creates a subgraph.  A subgraph may appear in place of
+an individual node within an edge statement.
+The \fBsubgraph \fIname\fR part is optional. If missing,
+the subgraph is given an internal name.
+.PP
+While attribute names and values may be arbitrary strings,
+certain fixed attributes control \fIneato\fP's layout algorithm,
+as next described.
+.SH "GRAPH ATTRIBUTES"
+Refer to \fIdot\fP(1) options to control the layout size.
+In addition, \fIneato\fP recognizes the following:
+.PP
+\fBstart=\fIval\fR.  Requests random initial placement and seeds
+the random number generator.  If \fIval\fP is not an integer,
+the process ID or current time is used as the seed.
+.PP
+\fBepsilon=\fIn\fR.  Sets the cutoff for the solver.
+The default is 0.1.
+.PP
+.SH "NODE ATTRIBUTES"
+Refer to \fIdot\fP(1) for options to control node labels, shapes,
+sizes, colors, fonts, etc.
+.SH "EDGE ATTRIBUTES"
+Refer to \fIdot\fP(1) for options to control edge line style
+and labels.  In addition \fIneato\fP recognizes the following:
+.PP
+\fBw=\fIf\fR sets the weight (spring constant) of an edge
+to the given floating point value.  The default is 1.0;
+greater values make the edge tend more toward its optimal length.
+.PP
+\fBlen=\fIf\fR sets the optimal length of an edge.
+The default is 1.0.
+.SH "COMMAND LINE OPTIONS"
+\fB-n\fI[1|2]\fR (no-op)
+If set, neato assumes nodes have already been positioned and all
+nodes have a pos attribute giving the positions.
+It then performs an optional adjustment to remove node-node overlap,
+depending on the value of the overlap attribute,
+computes the edge layouts, depending on the value of the splines attribute,
+and emits the graph in the appropriate format.
+If num is supplied, the following actions occur:
+.nf
+    num = 1
+.fi
+Equivalent to -n. 
+.nf
+    num > 1
+.fi
+Use node positions as specified, 
+with no adjustment to remove node-node overlaps,
+and use any edge layouts already specified by the pos attribute.
+neato computes an edge layout for any edge that does not have a pos attribute.
+As usual, edge layout is guided by the splines attribute. 
+.PP
+\fB\-v\fP (verbose) prints delta energy every 100th iteration.
+.PP
+Refer to \fIdot\fP(1) for a description of the other command-line options.
+.SH "EXAMPLE"
+.nf
+\f5graph test123 {
+        a \-\- b \-\- c;
+        a \-\- {x y};
+        x \-\- c [w=10.0];
+        x \-\- y [w=5.0,len=3];
+}\fP
+.fi
+.SH "CAVEATS"
+Because unconstrained optimization is employed, node boxes can
+possibly overlap or touch unrelated edges.  All existing
+spring embedders seem to have this limitation. 
+.PP
+Apparently reasonable attempts to pin nodes or adjust edge lengths
+and weights can cause instability.
+.SH "SEE ALSO"
+.BR dot (1)
+.BR circo (1)
+.BR twopi (1)
+.BR fdp (1)
+.br
+S. C. North, "NEATO User's Manual".
+Available on research.att.com in dist/drawdag/neatodoc.ps.Z.

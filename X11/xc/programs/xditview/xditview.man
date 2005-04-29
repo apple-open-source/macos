@@ -1,6 +1,6 @@
 .\" $XConsortium: xditview.man,v 1.10 94/04/17 20:43:37 gildea Exp $
 .\"
-.\" $XFree86: xc/programs/xditview/xditview.man,v 1.3 2001/01/27 18:21:10 dawes Exp $
+.\" $XFree86: xc/programs/xditview/xditview.man,v 1.5 2003/05/29 21:48:11 herrb Exp $
 .\"
 .TH XDITVIEW 1 __xorgversion__
 .SH NAME
@@ -43,7 +43,7 @@ requesting this resolution field in the XLFD names.
 .TP 8
 .B \-noPolyText
 Some X servers incorrectly implement PolyText with multiple strings
-per request.  This option suppesses the use of this feature in
+per request.  This option suppresses the use of this feature in
 .I xditview.
 .TP 8
 .B \-backingStore \fIbacking-store-type\fP
@@ -162,7 +162,7 @@ Portions of this program originated in
 from
 .I suntroff.  
 .SH COPYRIGHT
-Copyright ([\d,\s]*) X Consortium
+Copyright 1994 X Consortium
 .br
 See \fIX\fP(1) for a full statement of rights and permissions.
 .SH AUTHORS

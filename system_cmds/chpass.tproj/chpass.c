@@ -109,6 +109,7 @@ main(argc, argv)
 	char *arg;
 #ifdef DIRECTORY_SERVICE
 	struct passwd pworig;
+	char *task_argv[3] = { NULL };
 #endif /* DIRECTORY_SERVICE */
 
 	op = EDITENTRY;
@@ -268,10 +269,54 @@ main(argc, argv)
 			pw_error((char *)NULL, 0, 1);
 #ifdef DIRECTORY_SERVICE
 	}
-	system("/usr/sbin/lookupd -flushcache");
+	task_argv[0] = "/usr/sbin/lookupd";
+	task_argv[1] = "-flushcache";
+	task_argv[2] = NULL;
+	LaunchTaskWithPipes( task_argv[0], task_argv, NULL, NULL );
 #endif /* DIRECTORY_SERVICE */
 	exit(0);
 }
+
+#ifdef DIRECTORY_SERVICE
+// read from 0
+int LaunchTaskWithPipes(const char *path, char *const argv[], int *outPipe0, int *outPipe1)
+{
+	int outputPipe[2];
+	pid_t pid;
+	
+	if (outPipe0 != NULL)
+		pipe(outputPipe);
+	
+	pid = fork();
+	if (pid == -1)
+		return -1;
+	
+	/* Handle the child */
+	if (pid == 0)
+	{
+		int result = -1;
+	
+		if (outPipe0 != NULL)
+			dup2(outputPipe[1], fileno(stdout));
+		
+		result = execv(path, argv);
+		if (result == -1) {
+			_exit(1);
+		}
+		
+		/* This should never be reached */
+		_exit(1);
+	}
+	
+	/* Now the parent */
+	if ( outPipe0 != NULL )
+		*outPipe0 = outputPipe[0];
+	if ( outPipe1 != NULL )
+		*outPipe1 = outputPipe[1];
+
+	return 0;
+}
+#endif /* DIRECTORY_SERVICE */
 
 void
 baduser()

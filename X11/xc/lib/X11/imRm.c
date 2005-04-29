@@ -30,7 +30,7 @@ PERFORMANCE OF THIS SOFTWARE.
 			       makoto@sm.sony.co.jp
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/imRm.c,v 3.11 2001/01/22 21:32:32 dawes Exp $ */
+/* $XFree86: xc/lib/X11/imRm.c,v 3.13 2003/11/17 22:20:12 dawes Exp $ */
 
 #include <stdio.h>
 #include <X11/Xlib.h>
@@ -44,19 +44,13 @@ typedef struct _XimValueOffsetInfo {
     XrmQuark		 quark;
     unsigned int	 offset;
     Bool		 (*defaults)(
-#if NeedNestedPrototypes
 	struct _XimValueOffsetInfo *, XPointer, XPointer, unsigned long
-#endif
 			 );
     Bool		 (*encode)(
-#if NeedNestedPrototypes
 	struct _XimValueOffsetInfo *, XPointer, XPointer
-#endif
 			 );
     Bool		 (*decode)(
-#if NeedNestedPrototypes
 	struct _XimValueOffsetInfo *, XPointer, XPointer
-#endif
 			 );
 } XimValueOffsetInfoRec, *XimValueOffsetInfo;
 
@@ -266,11 +260,11 @@ static XIMStyle const supported_local_styles[] = {
 };
 
 Private  Bool
-_XimDefaultStyles(info, top, parm, mode)
-    XimValueOffsetInfo	  info;
-    XPointer	 	  top;
-    XPointer	 	  parm;			/* unused */
-    unsigned long	  mode;			/* unused */
+_XimDefaultStyles(
+    XimValueOffsetInfo	  info,
+    XPointer	 	  top,
+    XPointer	 	  parm,			/* unused */
+    unsigned long	  mode)			/* unused */
 {
     XIMStyles		 *styles;
     XIMStyles		**out;
@@ -302,11 +296,11 @@ _XimDefaultStyles(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultIMValues(info, top, parm, mode)
-    XimValueOffsetInfo	  info;
-    XPointer	 	  top;
-    XPointer	 	  parm;			/* unused */
-    unsigned long	  mode;			/* unused */
+_XimDefaultIMValues(
+    XimValueOffsetInfo	  info,
+    XPointer	 	  top,
+    XPointer	 	  parm,			/* unused */
+    unsigned long	  mode)			/* unused */
 {
     XIMValuesList	 *values_list;
     XIMValuesList	**out;
@@ -339,11 +333,11 @@ _XimDefaultIMValues(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultICValues(info, top, parm, mode)
-    XimValueOffsetInfo	  info;
-    XPointer	 	  top;
-    XPointer	 	  parm;			/* unused */
-    unsigned long	  mode;			/* unused */
+_XimDefaultICValues(
+    XimValueOffsetInfo	  info,
+    XPointer	 	  top,
+    XPointer	 	  parm,			/* unused */
+    unsigned long	  mode)			/* unused */
 {
     XIMValuesList	 *values_list;
     XIMValuesList	**out;
@@ -376,11 +370,11 @@ _XimDefaultICValues(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultVisiblePos(info, top, parm, mode)
-    XimValueOffsetInfo	  info;
-    XPointer	 	  top;
-    XPointer	 	  parm;			/* unused */
-    unsigned long	  mode;			/* unused */
+_XimDefaultVisiblePos(
+    XimValueOffsetInfo	  info,
+    XPointer	 	  top,
+    XPointer	 	  parm,			/* unused */
+    unsigned long	  mode)			/* unused */
 {
     Bool		*out;
 
@@ -390,11 +384,11 @@ _XimDefaultVisiblePos(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultFocusWindow(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultFocusWindow(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     Xic			 ic = (Xic)parm;
     Window		*out;
@@ -409,11 +403,11 @@ _XimDefaultFocusWindow(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultResName(info, top, parm, mode)
-    XimValueOffsetInfo	  info;
-    XPointer	 	  top;
-    XPointer	 	  parm;
-    unsigned long	  mode;
+_XimDefaultResName(
+    XimValueOffsetInfo	  info,
+    XPointer	 	  top,
+    XPointer	 	  parm,
+    unsigned long	  mode)
 {
     Xic			  ic = (Xic)parm;
     Xim			  im = (Xim)ic->core.im;
@@ -429,11 +423,11 @@ _XimDefaultResName(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultResClass(info, top, parm, mode)
-    XimValueOffsetInfo	   info;
-    XPointer	 	   top;
-    XPointer	 	   parm;
-    unsigned long	   mode;
+_XimDefaultResClass(
+    XimValueOffsetInfo	   info,
+    XPointer	 	   top,
+    XPointer	 	   parm,
+    unsigned long	   mode)
 {
     Xic			  ic = (Xic)parm;
     Xim			  im = (Xim)ic->core.im;
@@ -449,11 +443,11 @@ _XimDefaultResClass(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultDestroyCB(info, top, parm, mode)
-    XimValueOffsetInfo	  info;
-    XPointer	 	  top;
-    XPointer	 	  parm;
-    unsigned long	  mode;
+_XimDefaultDestroyCB(
+    XimValueOffsetInfo	  info,
+    XPointer	 	  top,
+    XPointer	 	  parm,
+    unsigned long	  mode)
 {
     Xic			 ic = (Xic)parm;
     Xim			 im = (Xim)ic->core.im;
@@ -465,11 +459,11 @@ _XimDefaultDestroyCB(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultResetState(info, top, parm, mode)
-    XimValueOffsetInfo	  info;
-    XPointer	 	  top;
-    XPointer	 	  parm;
-    unsigned long	  mode;
+_XimDefaultResetState(
+    XimValueOffsetInfo	  info,
+    XPointer	 	  top,
+    XPointer	 	  parm,
+    unsigned long	  mode)
 {
     XIMResetState	*out;
 
@@ -479,11 +473,11 @@ _XimDefaultResetState(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultHotKeyState(info, top, parm, mode)
-    XimValueOffsetInfo	  info;
-    XPointer	 	  top;
-    XPointer	 	  parm;
-    unsigned long	  mode;
+_XimDefaultHotKeyState(
+    XimValueOffsetInfo	  info,
+    XPointer	 	  top,
+    XPointer	 	  parm,
+    unsigned long	  mode)
 {
     XIMHotKeyState	*out;
 
@@ -493,11 +487,11 @@ _XimDefaultHotKeyState(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultArea(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultArea(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     Xic			 ic = (Xic)parm;
     Xim			 im = (Xim)ic->core.im;
@@ -529,11 +523,11 @@ _XimDefaultArea(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultColormap(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultColormap(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     Xic			 ic = (Xic)parm;
     Xim			 im = (Xim)ic->core.im;
@@ -554,11 +548,11 @@ _XimDefaultColormap(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultStdColormap(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultStdColormap(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     Atom		*out;
 
@@ -568,11 +562,11 @@ _XimDefaultStdColormap(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultFg(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultFg(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     Xic			 ic = (Xic)parm;
     Xim			 im = (Xim)ic->core.im;
@@ -586,11 +580,11 @@ _XimDefaultFg(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultBg(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultBg(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     Xic			 ic = (Xic)parm;
     Xim			 im = (Xim)ic->core.im;
@@ -604,11 +598,11 @@ _XimDefaultBg(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultBgPixmap(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultBgPixmap(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     Pixmap		*out;
 
@@ -618,11 +612,11 @@ _XimDefaultBgPixmap(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultFontSet(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultFontSet(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     XFontSet		*out;
 
@@ -632,11 +626,11 @@ _XimDefaultFontSet(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultLineSpace(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultLineSpace(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     Xic			 ic = (Xic)parm;
     XFontSet		 fontset;
@@ -661,11 +655,11 @@ _XimDefaultLineSpace(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultCursor(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultCursor(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     Cursor		*out;
 
@@ -675,11 +669,11 @@ _XimDefaultCursor(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultPreeditState(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultPreeditState(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     XIMPreeditState	*out;
 
@@ -689,20 +683,20 @@ _XimDefaultPreeditState(info, top, parm, mode)
 }
 
 Private  Bool
-_XimDefaultNest(info, top, parm, mode)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 parm;
-    unsigned long	 mode;
+_XimDefaultNest(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 parm,
+    unsigned long	 mode)
 {
     return True;
 }
 
 Private  Bool
-_XimEncodeCallback(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeCallback(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMCallback		*out;
 
@@ -712,10 +706,10 @@ _XimEncodeCallback(info, top, val)
 }
 
 Private  Bool
-_XimEncodeString(info, top, val)
-    XimValueOffsetInfo	  info;
-    XPointer	 	  top;
-    XPointer	 	  val;
+_XimEncodeString(
+    XimValueOffsetInfo	  info,
+    XPointer	 	  top,
+    XPointer	 	  val)
 {
     int			  len;
     char		 *string;
@@ -740,10 +734,10 @@ _XimEncodeString(info, top, val)
 }
 
 Private  Bool
-_XimEncodeStyle(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeStyle(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMStyle		*out;
 
@@ -753,10 +747,10 @@ _XimEncodeStyle(info, top, val)
 }
 
 Private  Bool
-_XimEncodeWindow(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeWindow(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Window		*out;
 
@@ -766,10 +760,10 @@ _XimEncodeWindow(info, top, val)
 }
 
 Private  Bool
-_XimEncodeStringConv(info, top, val)
-    XimValueOffsetInfo		 info;
-    XPointer		 	 top;
-    XPointer		 	 val;
+_XimEncodeStringConv(
+    XimValueOffsetInfo		 info,
+    XPointer		 	 top,
+    XPointer		 	 val)
 {
     /*
      * Not yet
@@ -778,10 +772,10 @@ _XimEncodeStringConv(info, top, val)
 }
 
 Private  Bool
-_XimEncodeResetState(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeResetState(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMResetState	*out;
 
@@ -791,10 +785,10 @@ _XimEncodeResetState(info, top, val)
 }
 
 Private  Bool
-_XimEncodeHotKey(info, top, val)
-    XimValueOffsetInfo	  info;
-    XPointer	 	  top;
-    XPointer	 	  val;
+_XimEncodeHotKey(
+    XimValueOffsetInfo	  info,
+    XPointer	 	  top,
+    XPointer	 	  val)
 {
     XIMHotKeyTriggers	 *hotkey = (XIMHotKeyTriggers *)val;
     XIMHotKeyTriggers	**out;
@@ -834,10 +828,10 @@ _XimEncodeHotKey(info, top, val)
 }
 
 Private  Bool
-_XimEncodeHotKetState(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeHotKetState(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMHotKeyState	*out;
 
@@ -847,10 +841,10 @@ _XimEncodeHotKetState(info, top, val)
 }
 
 Private  Bool
-_XimEncodeRectangle(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeRectangle(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XRectangle		*out;
 
@@ -860,10 +854,10 @@ _XimEncodeRectangle(info, top, val)
 }
 
 Private  Bool
-_XimEncodeSpot(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeSpot(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XPoint		*out;
 
@@ -873,10 +867,10 @@ _XimEncodeSpot(info, top, val)
 }
 
 Private  Bool
-_XimEncodeColormap(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeColormap(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Colormap		*out;
 
@@ -886,10 +880,10 @@ _XimEncodeColormap(info, top, val)
 }
 
 Private  Bool
-_XimEncodeStdColormap(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeStdColormap(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Atom		*out;
 
@@ -899,10 +893,10 @@ _XimEncodeStdColormap(info, top, val)
 }
 
 Private  Bool
-_XimEncodeLong(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeLong(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     unsigned long	*out;
 
@@ -912,10 +906,10 @@ _XimEncodeLong(info, top, val)
 }
 
 Private  Bool
-_XimEncodeBgPixmap(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeBgPixmap(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Pixmap		*out;
 
@@ -925,10 +919,10 @@ _XimEncodeBgPixmap(info, top, val)
 }
 
 Private  Bool
-_XimEncodeFontSet(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeFontSet(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XFontSet		*out;
 
@@ -938,10 +932,10 @@ _XimEncodeFontSet(info, top, val)
 }
 
 Private  Bool
-_XimEncodeLineSpace(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeLineSpace(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     int			*out;
 
@@ -951,10 +945,10 @@ _XimEncodeLineSpace(info, top, val)
 }
 
 Private  Bool
-_XimEncodeCursor(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeCursor(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Cursor		*out;
 
@@ -964,10 +958,10 @@ _XimEncodeCursor(info, top, val)
 }
 
 Private  Bool
-_XimEncodePreeditState(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodePreeditState(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMPreeditState	*out;
 
@@ -977,19 +971,19 @@ _XimEncodePreeditState(info, top, val)
 }
 
 Private  Bool
-_XimEncodeNest(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimEncodeNest(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     return True;
 }
 
 Private  Bool
-_XimDecodeStyles(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeStyles(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMStyles		*styles;
     XIMStyles		*out;
@@ -1025,10 +1019,10 @@ _XimDecodeStyles(info, top, val)
 }
 
 Private  Bool
-_XimDecodeValues(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeValues(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMValuesList	*values_list;
     XIMValuesList	*out;
@@ -1064,10 +1058,10 @@ _XimDecodeValues(info, top, val)
 }
 
 Private  Bool
-_XimDecodeCallback(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeCallback(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMCallback		*in;
     XIMCallback		*callback;
@@ -1084,10 +1078,10 @@ _XimDecodeCallback(info, top, val)
 }
 
 Private  Bool
-_XimDecodeString(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeString(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     int			 len = 0;
     char		*in;
@@ -1109,10 +1103,10 @@ _XimDecodeString(info, top, val)
 }
 
 Private  Bool
-_XimDecodeBool(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeBool(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Bool		*in;
 
@@ -1122,10 +1116,10 @@ _XimDecodeBool(info, top, val)
 }
 
 Private  Bool
-_XimDecodeStyle(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeStyle(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMStyle		*in;
 
@@ -1135,10 +1129,10 @@ _XimDecodeStyle(info, top, val)
 }
 
 Private  Bool
-_XimDecodeWindow(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeWindow(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Window		*in;
 
@@ -1148,10 +1142,10 @@ _XimDecodeWindow(info, top, val)
 }
 
 Private  Bool
-_XimDecodeStringConv(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeStringConv(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     /*
      * Not yet
@@ -1160,10 +1154,10 @@ _XimDecodeStringConv(info, top, val)
 }
 
 Private  Bool
-_XimDecodeResetState(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeResetState(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMResetState	*in;
 
@@ -1173,10 +1167,10 @@ _XimDecodeResetState(info, top, val)
 }
 
 Private  Bool
-_XimDecodeHotKey(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeHotKey(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMHotKeyTriggers	*in;
     XIMHotKeyTriggers	*hotkey;
@@ -1207,10 +1201,10 @@ _XimDecodeHotKey(info, top, val)
 }
 
 Private  Bool
-_XimDecodeHotKetState(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeHotKetState(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMHotKeyState	*in;
 
@@ -1220,10 +1214,10 @@ _XimDecodeHotKetState(info, top, val)
 }
 
 Private  Bool
-_XimDecodeRectangle(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeRectangle(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XRectangle		*in;
     XRectangle		*rect;
@@ -1238,10 +1232,10 @@ _XimDecodeRectangle(info, top, val)
 }
 
 Private  Bool
-_XimDecodeSpot(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeSpot(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XPoint		*in;
     XPoint		*spot;
@@ -1256,10 +1250,10 @@ _XimDecodeSpot(info, top, val)
 }
 
 Private  Bool
-_XimDecodeColormap(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeColormap(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Colormap		*in;
 
@@ -1269,10 +1263,10 @@ _XimDecodeColormap(info, top, val)
 }
 
 Private  Bool
-_XimDecodeStdColormap(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeStdColormap(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Atom		*in;
 
@@ -1282,10 +1276,10 @@ _XimDecodeStdColormap(info, top, val)
 }
 
 Private  Bool
-_XimDecodeLong(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeLong(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     unsigned long	*in;
 
@@ -1295,10 +1289,10 @@ _XimDecodeLong(info, top, val)
 }
 
 Private  Bool
-_XimDecodeBgPixmap(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeBgPixmap(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Pixmap		*in;
 
@@ -1308,10 +1302,10 @@ _XimDecodeBgPixmap(info, top, val)
 }
 
 Private  Bool
-_XimDecodeFontSet(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeFontSet(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XFontSet		*in;
 
@@ -1321,10 +1315,10 @@ _XimDecodeFontSet(info, top, val)
 }
 
 Private  Bool
-_XimDecodeLineSpace(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeLineSpace(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     int		*in;
 
@@ -1334,10 +1328,10 @@ _XimDecodeLineSpace(info, top, val)
 }
 
 Private  Bool
-_XimDecodeCursor(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeCursor(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     Cursor		*in;
 
@@ -1347,10 +1341,10 @@ _XimDecodeCursor(info, top, val)
 }
 
 Private  Bool
-_XimDecodePreeditState(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodePreeditState(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     XIMPreeditState	*in;
 
@@ -1360,10 +1354,10 @@ _XimDecodePreeditState(info, top, val)
 }
 
 Private  Bool
-_XimDecodeNest(info, top, val)
-    XimValueOffsetInfo	 info;
-    XPointer	 	 top;
-    XPointer	 	 val;
+_XimDecodeNest(
+    XimValueOffsetInfo	 info,
+    XPointer	 	 top,
+    XPointer	 	 val)
 {
     return True;
 }
@@ -2048,12 +2042,12 @@ static XimICMode	ic_mode[] = {
 };
 
 Private Bool
-_XimSetResourceList(res_list, list_num, resource, num_resource, id)
-    XIMResourceList	 *res_list;
-    unsigned int	 *list_num;
-    XIMResourceList	  resource;
-    unsigned int	  num_resource;
-    unsigned short	  id;
+_XimSetResourceList(
+    XIMResourceList	 *res_list,
+    unsigned int	 *list_num,
+    XIMResourceList	  resource,
+    unsigned int	  num_resource,
+    unsigned short	  id)
 {
     register int	  i;
     int			  len;
@@ -2077,46 +2071,46 @@ _XimSetResourceList(res_list, list_num, resource, num_resource, id)
 }
 
 Public Bool
-_XimSetIMResourceList(res_list, list_num)
-    XIMResourceList	*res_list;
-    unsigned int	*list_num;
+_XimSetIMResourceList(
+    XIMResourceList	*res_list,
+    unsigned int	*list_num)
 {
     return _XimSetResourceList(res_list, list_num,
 				im_resources, XIMNumber(im_resources), 100);
 }
 
 Public Bool
-_XimSetICResourceList(res_list, list_num)
-    XIMResourceList	*res_list;
-    unsigned int	*list_num;
+_XimSetICResourceList(
+    XIMResourceList	*res_list,
+    unsigned int	*list_num)
 {
     return _XimSetResourceList(res_list, list_num,
 				ic_resources, XIMNumber(ic_resources), 200);
 }
 
 Public Bool
-_XimSetInnerIMResourceList(res_list, list_num)
-    XIMResourceList	*res_list;
-    unsigned int	*list_num;
+_XimSetInnerIMResourceList(
+    XIMResourceList	*res_list,
+    unsigned int	*list_num)
 {
     return _XimSetResourceList(res_list, list_num,
 		im_inner_resources, XIMNumber(im_inner_resources), 100);
 }
 
 Public Bool
-_XimSetInnerICResourceList(res_list, list_num)
-    XIMResourceList	*res_list;
-    unsigned int	*list_num;
+_XimSetInnerICResourceList(
+    XIMResourceList	*res_list,
+    unsigned int	*list_num)
 {
     return _XimSetResourceList(res_list, list_num,
 		ic_inner_resources, XIMNumber(ic_inner_resources), 200);
 }
 
 Private XIMResourceList
-_XimGetResourceListRecByMode(res_list, list_num, mode)
-    XIMResourceList	 res_list;
-    unsigned int	 list_num;
-    unsigned short	 mode;
+_XimGetResourceListRecByMode(
+    XIMResourceList	 res_list,
+    unsigned int	 list_num,
+    unsigned short	 mode)
 {
     register int	 i;
 
@@ -2129,9 +2123,9 @@ _XimGetResourceListRecByMode(res_list, list_num, mode)
 }
 
 Public Bool
-_XimCheckCreateICValues(res_list, list_num)
-    XIMResourceList	 res_list;
-    unsigned int	 list_num;
+_XimCheckCreateICValues(
+    XIMResourceList	 res_list,
+    unsigned int	 list_num)
 {
     if (!_XimGetResourceListRecByMode(res_list, list_num, XIM_MODE_IC_CREATE)) {
 	return True;
@@ -2140,10 +2134,10 @@ _XimCheckCreateICValues(res_list, list_num)
 }
 
 Public XIMResourceList
-_XimGetResourceListRecByQuark(res_list, list_num, quark)
-    XIMResourceList	 res_list;
-    unsigned int	 list_num;
-    XrmQuark		 quark;
+_XimGetResourceListRecByQuark(
+    XIMResourceList	 res_list,
+    unsigned int	 list_num,
+    XrmQuark		 quark)
 {
     register int	 i;
 
@@ -2156,10 +2150,10 @@ _XimGetResourceListRecByQuark(res_list, list_num, quark)
 }
 
 Public XIMResourceList
-_XimGetResourceListRec(res_list, list_num, name)
-    XIMResourceList	 res_list;
-    unsigned int	 list_num;
-    char		*name;
+_XimGetResourceListRec(
+    XIMResourceList	 res_list,
+    unsigned int	 list_num,
+    char		*name)
 {
     XrmQuark		 quark = XrmStringToQuark(name);
 
@@ -2167,12 +2161,12 @@ _XimGetResourceListRec(res_list, list_num, name)
 }
 
 Public char *
-_XimSetIMValueData(im, top, values, res_list, list_num)
-    Xim			 im;
-    XPointer		 top;
-    XIMArg		*values;
-    XIMResourceList	 res_list;
-    unsigned int	 list_num;
+_XimSetIMValueData(
+    Xim			 im,
+    XPointer		 top,
+    XIMArg		*values,
+    XIMResourceList	 res_list,
+    unsigned int	 list_num)
 {
     register XIMArg	*p;
     XIMResourceList	 res;
@@ -2197,12 +2191,12 @@ _XimSetIMValueData(im, top, values, res_list, list_num)
 }
 
 Public char *
-_XimGetIMValueData(im, top, values, res_list, list_num)
-    Xim			 im;
-    XPointer		 top;
-    XIMArg		*values;
-    XIMResourceList	 res_list;
-    unsigned int	 list_num;
+_XimGetIMValueData(
+    Xim			 im,
+    XPointer		 top,
+    XIMArg		*values,
+    XIMResourceList	 res_list,
+    unsigned int	 list_num)
 {
     register XIMArg	*p;
     XIMResourceList	 res;
@@ -2227,9 +2221,9 @@ _XimGetIMValueData(im, top, values, res_list, list_num)
 }
 
 Public void
-_XimSetIMMode(res_list, list_num)
-    XIMResourceList	res_list;
-    unsigned int	list_num;
+_XimSetIMMode(
+    XIMResourceList	res_list,
+    unsigned int	list_num)
 {
     XIMResourceList	res;
     unsigned int	n = XIMNumber(im_mode);
@@ -2246,8 +2240,8 @@ _XimSetIMMode(res_list, list_num)
 }
 
 Private int
-_XimCheckSetIMDefaultsMode(res)
-    XIMResourceList	res;
+_XimCheckSetIMDefaultsMode(
+    XIMResourceList	res)
 {
     if(res->mode & XIM_MODE_IM_DEFAULT) {
 	return XIM_CHECK_VALID;
@@ -2256,8 +2250,8 @@ _XimCheckSetIMDefaultsMode(res)
 }
 
 Private int
-_XimCheckSetIMValuesMode(res)
-    XIMResourceList	res;
+_XimCheckSetIMValuesMode(
+    XIMResourceList	res)
 {
     if(res->mode & XIM_MODE_IM_SET) {
 	return XIM_CHECK_VALID;
@@ -2266,8 +2260,8 @@ _XimCheckSetIMValuesMode(res)
 }
 
 Private int
- _XimCheckGetIMValuesMode(res)
-    XIMResourceList	res;
+ _XimCheckGetIMValuesMode(
+    XIMResourceList	res)
 {
     if(res->mode & XIM_MODE_IM_GET) {
 	return XIM_CHECK_VALID;
@@ -2276,9 +2270,9 @@ Private int
 }
 
 Public int
- _XimCheckIMMode(res, mode)
-    XIMResourceList	res;
-    unsigned long	mode;
+ _XimCheckIMMode(
+    XIMResourceList	res,
+    unsigned long	mode)
 {
     if(res->mode == 0) {
 	return XIM_CHECK_INVALID;
@@ -2340,9 +2334,9 @@ _XimSetICMode(res_list, list_num, style)
 }
 
 Private int
-_XimCheckSetICDefaultsMode(res, mode)
-    XIMResourceList	res;
-    unsigned long	mode;
+_XimCheckSetICDefaultsMode(
+    XIMResourceList	res,
+    unsigned long	mode)
 {
     if(mode & XIM_PREEDIT_ATTR) {
 	if(!(res->mode & XIM_MODE_PRE_MASK)) {
@@ -2383,9 +2377,9 @@ _XimCheckSetICDefaultsMode(res, mode)
 }
 
 Private int
-_XimCheckCreateICMode(res, mode)
-    XIMResourceList	res;
-    unsigned long	mode;
+_XimCheckCreateICMode(
+    XIMResourceList	res,
+    unsigned long	mode)
 {
     if(mode & XIM_PREEDIT_ATTR) {
 	if(!(res->mode & XIM_MODE_PRE_MASK)) {
@@ -2436,9 +2430,9 @@ _XimCheckCreateICMode(res, mode)
 }
 
 Private int
-_XimCheckSetICValuesMode(res, mode)
-    XIMResourceList	res;
-    unsigned long	mode;
+_XimCheckSetICValuesMode(
+    XIMResourceList	res,
+    unsigned long	mode)
 {
     if(mode & XIM_PREEDIT_ATTR) {
 	if(!(res->mode & XIM_MODE_PRE_MASK)) {
@@ -2477,9 +2471,9 @@ _XimCheckSetICValuesMode(res, mode)
 }
 
 Private int
-_XimCheckGetICValuesMode(res, mode)
-    XIMResourceList	res;
-    unsigned long	mode;
+_XimCheckGetICValuesMode(
+    XIMResourceList	res,
+    unsigned long	mode)
 {
     if(mode & XIM_PREEDIT_ATTR) {
 	if(!(res->mode & XIM_MODE_PRE_MASK)) {
@@ -2512,9 +2506,9 @@ _XimCheckGetICValuesMode(res, mode)
 }
 
 Public int
- _XimCheckICMode(res, mode)
-    XIMResourceList	res;
-    unsigned long	 mode;
+ _XimCheckICMode(
+    XIMResourceList     res,
+    unsigned long       mode)
 {
     if(mode &XIM_SETICDEFAULTS) {
 	return _XimCheckSetICDefaultsMode(res, mode);
@@ -2530,11 +2524,11 @@ Public int
 }
 
 Public Bool
-_XimSetLocalIMDefaults(im, top, res_list, list_num)
-    Xim			 im;
-    XPointer		 top;
-    XIMResourceList	 res_list;
-    unsigned int	 list_num;
+_XimSetLocalIMDefaults(
+    Xim			 im,
+    XPointer		 top,
+    XIMResourceList	 res_list,
+    unsigned int	 list_num)
 {
     XimValueOffsetInfo	 info;
     unsigned int	 num;
@@ -2569,12 +2563,12 @@ _XimSetLocalIMDefaults(im, top, res_list, list_num)
 }
 
 Public Bool
-_XimSetICDefaults(ic, top, mode, res_list, list_num)
-    Xic			 ic;
-    XPointer		 top;
-    unsigned long	 mode;
-    XIMResourceList	 res_list;
-    unsigned int	 list_num;
+_XimSetICDefaults(
+    Xic			 ic,
+    XPointer		 top,
+    unsigned long	 mode,
+    XIMResourceList	 res_list,
+    unsigned int	 list_num)
 {
     unsigned int	 num;
     XimValueOffsetInfo	 info;
@@ -2634,12 +2628,12 @@ _XimSetICDefaults(ic, top, mode, res_list, list_num)
 }
 
 Private Bool
-_XimEncodeAttr(info, num, res, top, val)
-    XimValueOffsetInfo	 info;
-    unsigned int	 num;
-    XIMResourceList	 res;
-    XPointer		 top;
-    XPointer		 val;
+_XimEncodeAttr(
+    XimValueOffsetInfo	 info,
+    unsigned int	 num,
+    XIMResourceList	 res,
+    XPointer		 top,
+    XPointer		 val)
 {
     register int	 i;
 
@@ -2655,22 +2649,22 @@ _XimEncodeAttr(info, num, res, top, val)
 }
 
 Public Bool
-_XimEncodeLocalIMAttr(res, top, val)
-    XIMResourceList	 res;
-    XPointer		 top;
-    XPointer		 val;
+_XimEncodeLocalIMAttr(
+    XIMResourceList	 res,
+    XPointer		 top,
+    XPointer		 val)
 {
     return _XimEncodeAttr(im_attr_info, XIMNumber(im_attr_info),
 					res, top, val);
 }
 
 Public Bool
-_XimEncodeLocalICAttr(ic, res, top, arg, mode)
-    Xic			 ic;
-    XIMResourceList	 res;
-    XPointer		 top;
-    XIMArg		*arg;
-    unsigned long	 mode;
+_XimEncodeLocalICAttr(
+    Xic			 ic,
+    XIMResourceList	 res,
+    XPointer		 top,
+    XIMArg		*arg,
+    unsigned long	 mode)
 {
     unsigned int	 num;
     XimValueOffsetInfo	 info;
@@ -2690,11 +2684,11 @@ _XimEncodeLocalICAttr(ic, res, top, arg, mode)
 }
 
 Private Bool
-_XimEncodeLocalTopValue(ic, res, val, flag)
-    Xic			 ic;
-    XIMResourceList	 res;
-    XPointer		 val;
-    Bool		 flag;
+_XimEncodeLocalTopValue(
+    Xic			 ic,
+    XIMResourceList	 res,
+    XPointer		 val,
+    Bool		 flag)
 {
     XIMArg		*p = (XIMArg *)val;
 
@@ -2726,10 +2720,10 @@ _XimEncodeLocalTopValue(ic, res, val, flag)
 }
 
 Private Bool
-_XimEncodeLocalPreeditValue(ic, res, val)
-    Xic			 ic;
-    XIMResourceList	 res;
-    XPointer		 val;
+_XimEncodeLocalPreeditValue(
+    Xic			 ic,
+    XIMResourceList	 res,
+    XPointer		 val)
 {
     XIMArg		*p = (XIMArg *)val;
 
@@ -2746,10 +2740,10 @@ _XimEncodeLocalPreeditValue(ic, res, val)
 }
 
 Private Bool
-_XimEncodeLocalStatusValue(ic, res, val)
-    Xic			 ic;
-    XIMResourceList	 res;
-    XPointer		 val;
+_XimEncodeLocalStatusValue(
+    Xic			 ic,
+    XIMResourceList	 res,
+    XPointer		 val)
 {
     XIMArg		*p = (XIMArg *)val;
 
@@ -2766,14 +2760,14 @@ _XimEncodeLocalStatusValue(ic, res, val)
 }
 
 Public char *
-_XimSetICValueData(ic, top, res_list, list_num, values, mode, flag)
-    Xic			 ic;
-    XPointer		 top;
-    XIMResourceList	 res_list;
-    unsigned int	 list_num;
-    XIMArg		*values;
-    unsigned long	 mode;
-    Bool		 flag;
+_XimSetICValueData(
+    Xic			 ic,
+    XPointer		 top,
+    XIMResourceList	 res_list,
+    unsigned int	 list_num,
+    XIMArg		*values,
+    unsigned long	 mode,
+    Bool		 flag)
 {
     register  XIMArg	*p;
     XIMResourceList	 res;
@@ -2831,9 +2825,9 @@ _XimSetICValueData(ic, top, res_list, list_num, values, mode, flag)
 }
 
 Private Bool
-_XimCheckInputStyle(styles, style)
-    XIMStyles		*styles;
-    XIMStyle		 style;
+_XimCheckInputStyle(
+    XIMStyles		*styles,
+    XIMStyle		 style)
 {
     int			 num = styles->count_styles;
     register int	 i;
@@ -2847,13 +2841,13 @@ _XimCheckInputStyle(styles, style)
 }
 
 Public Bool
-_XimCheckLocalInputStyle(ic, top, values, styles, res_list, list_num)
-    Xic			 ic;
-    XPointer		 top;
-    XIMArg		*values;
-    XIMStyles		*styles;
-    XIMResourceList	 res_list;
-    unsigned int	 list_num;
+_XimCheckLocalInputStyle(
+    Xic			 ic,
+    XPointer		 top,
+    XIMArg		*values,
+    XIMStyles		*styles,
+    XIMResourceList	 res_list,
+    unsigned int	 list_num)
 {
     XrmQuark		 quark = XrmStringToQuark(XNInputStyle);
     register XIMArg	*p;
@@ -2878,12 +2872,12 @@ _XimCheckLocalInputStyle(ic, top, values, styles, res_list, list_num)
 }
 
 Private Bool
-_XimDecodeAttr(info, num, res, top, val)
-    XimValueOffsetInfo	 info;
-    unsigned int	 num;
-    XIMResourceList	 res;
-    XPointer		 top;
-    XPointer		 val;
+_XimDecodeAttr(
+    XimValueOffsetInfo	 info,
+    unsigned int	 num,
+    XIMResourceList	 res,
+    XPointer		 top,
+    XPointer		 val)
 {
     register int	 i;
 
@@ -2899,21 +2893,21 @@ _XimDecodeAttr(info, num, res, top, val)
 }
 
 Public Bool
-_XimDecodeLocalIMAttr(res, top, val)
-    XIMResourceList	 res;
-    XPointer		 top;
-    XPointer		 val;
+_XimDecodeLocalIMAttr(
+    XIMResourceList	 res,
+    XPointer		 top,
+    XPointer		 val)
 {
     return _XimDecodeAttr(im_attr_info, XIMNumber(im_attr_info),
 					res, top, val);
 }
 
 Public Bool
-_XimDecodeLocalICAttr(res, top, val, mode)
-    XIMResourceList	 res;
-    XPointer		 top;
-    XPointer		 val;
-    unsigned long	 mode;
+_XimDecodeLocalICAttr(
+    XIMResourceList	 res,
+    XPointer		 top,
+    XPointer		 val,
+    unsigned long	 mode)
 {
     unsigned int	 num;
     XimValueOffsetInfo	 info;
@@ -3042,9 +3036,9 @@ _XimGetCurrentICValues(ic, ic_values)
 }
 
 Public void
-_XimSetCurrentICValues(ic, ic_values)
-    Xic			 ic;
-    XimDefICValues	*ic_values;
+_XimSetCurrentICValues(
+    Xic			 ic,
+    XimDefICValues	*ic_values)
 {
     ic->core.input_style	= ic_values->input_style;
     ic->core.client_window	= ic_values->client_window;
@@ -3066,7 +3060,7 @@ _XimSetCurrentICValues(ic, ic_values)
 }
 
 Private void
-_XimInitialIMOffsetInfo()
+_XimInitialIMOffsetInfo(void)
 {
     unsigned int	 n = XIMNumber(im_attr_info);
     register int	 i;
@@ -3077,7 +3071,7 @@ _XimInitialIMOffsetInfo()
 }
 
 Private void
-_XimInitialICOffsetInfo()
+_XimInitialICOffsetInfo(void)
 {
     unsigned int	 n;
     register int	 i;
@@ -3099,7 +3093,7 @@ _XimInitialICOffsetInfo()
 }
 
 Private void
-_XimInitialIMMode()
+_XimInitialIMMode(void)
 {
     unsigned int	n = XIMNumber(im_mode);
     register int	i;
@@ -3110,7 +3104,7 @@ _XimInitialIMMode()
 }
 
 Private void
-_XimInitialICMode()
+_XimInitialICMode(void)
 {
     unsigned int	n = XIMNumber(ic_mode);
     register int	i;
@@ -3121,7 +3115,7 @@ _XimInitialICMode()
 }
 
 Public void
-_XimInitialResourceInfo()
+_XimInitialResourceInfo(void)
 {
     static Bool	init_flag = False;
 

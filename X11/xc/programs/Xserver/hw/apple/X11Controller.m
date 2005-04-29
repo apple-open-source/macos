@@ -1,5 +1,5 @@
 /* X11Controller.m -- connect the IB ui, also the NSApp delegate
-   $Id: X11Controller.m,v 1.36 2003/07/24 17:52:29 jharper Exp $
+   $Id: X11Controller.m,v 1.39 2005/01/05 07:49:25 jharper Exp $
 
    Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
 
@@ -292,7 +292,7 @@
 
 - (void) launch_client:(NSString *)command
 {
-    QuartzRunClient ([command cString]);
+    QuartzRunClient ([command cString], NO);
 }
 
 - (void) app_selected:sender
@@ -371,6 +371,8 @@
     if (i > [table_apps count])
 	return;				/* avoid exceptions */
 
+    [apps_table deselectAll:sender];
+
     item = [[NSMutableArray alloc] initWithCapacity:3];
     [item addObject:@""];
     [item addObject:@""];
@@ -379,14 +381,14 @@
     [table_apps insertObject:item atIndex:i];
     [item release];
 
-    [apps_table noteNumberOfRowsChanged];
+    [apps_table reloadData];
     [apps_table selectRow:row byExtendingSelection:NO];
 }
 
 - (IBAction) apps_table_duplicate:sender
 {
     int row = [apps_table selectedRow], i;
-    NSObject *a;
+    NSObject *item;
 
     if (row < 0)
     {
@@ -398,10 +400,13 @@
     if (i > [table_apps count] - 1)
 	return;				/* avoid exceptions */
 
-    a = [table_apps objectAtIndex:i];
-    [table_apps insertObject:[a copy] atIndex:i];
+    [apps_table deselectAll:sender];
 
-    [apps_table noteNumberOfRowsChanged];
+    item = [[table_apps objectAtIndex:i] mutableCopy];
+    [table_apps insertObject:item atIndex:i];
+    [item release];
+
+    [apps_table reloadData];
     [apps_table selectRow:row+1 byExtendingSelection:NO];
 }
 
@@ -416,10 +421,16 @@
 	if (i > [table_apps count] - 1)
 	    return;			/* avoid exceptions */
 
+	[apps_table deselectAll:sender];
+
 	[table_apps removeObjectAtIndex:i];
     }
 
-    [apps_table noteNumberOfRowsChanged];
+    [apps_table reloadData];
+
+    row = MIN (row, [table_apps count] - 1);
+    if (row >= 0)
+	[apps_table selectRow:row byExtendingSelection:NO];
 }
 
 - (int) numberOfRowsInTableView:(NSTableView *)tableView
@@ -460,6 +471,7 @@
     col = [[tableColumn identifier] intValue];
 
     item = [table_apps objectAtIndex:row];
+
     [item replaceObjectAtIndex:col withObject:object];
 }
 
@@ -623,7 +635,7 @@
 
     msg = NSLocalizedString (@"Are you sure you want to quit X11?\n\n\
 If you quit X11, any X11 applications you are running will stop immediately \
-and you will lose any changes you have not saved.", @"");
+and you will lose any changes you have not saved.", @"Dialog when quitting");
 
     /* FIXME: safe to run the alert in here? Or should we return Later
        and then run the alert on a timer? It seems to work here, so.. */
@@ -654,7 +666,7 @@ and you will lose any changes you have not saved.", @"");
     for (node = pending_apps; node != NULL; node = node->next)
     {
 	NSString *filename = node->data;
-	QuartzRunClient ([filename UTF8String]);
+	QuartzRunClient ([filename UTF8String], YES);
 	[filename release];
     }
 
@@ -667,7 +679,7 @@ and you will lose any changes you have not saved.", @"");
     const char *name = [filename UTF8String];
 
     if (finished_launching)
-	QuartzRunClient (name);
+	QuartzRunClient (name, YES);
     else if (name[0] != ':')		/* ignore display names */
 	pending_apps = x_list_prepend (pending_apps, [filename retain]);
 

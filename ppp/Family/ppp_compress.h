@@ -32,11 +32,11 @@ void ppp_comp_alloc(struct ppp_if *wan);
 void ppp_comp_dealloc(struct ppp_if *wan);
 int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp);
 void ppp_comp_getstats(struct ppp_if *wan, struct ppp_comp_stats *stats);
-void ppp_comp_ccp(struct ppp_if *wan, struct mbuf *m, int rcvd);
+void ppp_comp_ccp(struct ppp_if *wan, mbuf_t m, int rcvd);
 void ppp_comp_close(struct ppp_if *wan);
-int ppp_comp_compress(struct ppp_if *wan, struct mbuf **m);
-int ppp_comp_incompress(struct ppp_if *wan, struct mbuf *m);
-int ppp_comp_decompress(struct ppp_if *wan, struct mbuf **m);
+int ppp_comp_compress(struct ppp_if *wan, mbuf_t *m);
+int ppp_comp_incompress(struct ppp_if *wan, mbuf_t m);
+int ppp_comp_decompress(struct ppp_if *wan, mbuf_t *m);
 
 
 #endif

@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/xcursorgen/redglass/Imakefile,v 1.9 2003/01/07 02:26:11 dawes Exp $
+XCOMM $XFree86: xc/programs/xcursorgen/redglass/Imakefile,v 1.10 2003/03/26 20:43:59 tsi Exp $
 
 #define CursorSources(name) name-16.png name-24.png name-32.png name-48.png name-64.png
 
@@ -45,7 +45,7 @@ dst: src								@@\
 clean::									@@\
 	$(RM) dst							@@\
 									@@\
-install.link:: $(DESTDIR)$(THEMEDIR)/src				@@\
+install.link::								@@\
 	RemoveFile($(DESTDIR)$(THEMEDIR)/dst)				@@\
 	(set -x; cd $(DESTDIR)$(THEMEDIR) && $(LN) src dst)
 

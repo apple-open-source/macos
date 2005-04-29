@@ -843,7 +843,7 @@ dsstatus schemamap_validate_objectclass_mods(
 			mapped->soc_required[1] == NULL)
 			continue;
 
-		for (q = mod->sm_bvalues; q->bv_val != NULL; q++)
+		for (q = mod->sm_values; q->bv_val != NULL; q++)
 		{
 			real = oc_bvfind(q);
 
@@ -1012,7 +1012,7 @@ void schemamap_add_objectclasses(
 				bv[0].bv_len = strlen(bv[0].bv_val);
 				bv[1].bv_val = NULL;
 
-				attr_merge(ent, ad, bv);
+				attr_merge(ent, ad, bv, NULL);
 			}
 		}
 
@@ -1027,7 +1027,7 @@ void schemamap_add_objectclasses(
 			bv[0].bv_len = strlen(bv[0].bv_val);
 			bv[1].bv_val = NULL;
 
-			attr_merge(ent, ad, bv);
+			attr_merge(ent, ad, bv, NULL);
 		}
 	}
 

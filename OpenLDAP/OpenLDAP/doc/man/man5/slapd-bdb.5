@@ -1,7 +1,7 @@
 .TH SLAPD-BDB 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-bdb.5,v 1.3.2.4 2003/03/07 18:01:29 kurt Exp $
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-bdb.5,v 1.7.2.5 2004/01/01 18:16:27 kurt Exp $
 .SH NAME
 slapd-bdb \- BDB backend to slapd
 .SH SYNOPSIS
@@ -10,8 +10,20 @@ slapd-bdb \- BDB backend to slapd
 The BDB backend to
 .BR slapd (8)
 is the recommended backend for a normal slapd database.
-It uses the Sleepycat BerkelyDB package to store data.
+However, it takes more care than with the LDBM backend to configure
+it properly.
+It uses the Sleepycat Berkeley DB (BDB) package to store data.
 It makes extensive use of indexing and caching to speed data access.
+.LP
+It is noted that these options are intended to complement
+Berkeley DB configuration options set in the environment's
+.B DB_CONFIG
+file.  See Berkeley DB documentation for
+details on
+.B DB_CONFIG
+configuration options.  Where there is overlap, settings in
+.B DB_CONFIG
+take precedence.
 .SH CONFIGURATION
 These
 .B slapd.conf
@@ -58,6 +70,11 @@ results if the data comes from a transaction that is later aborted.
 In this case, the modified data is discarded and a subsequent search
 will return a different result.
 .TP
+.B idlcachesize <integer>
+Specify the size of the in-memory index cache, in index slots. The
+default is zero. A larger value will speed up frequent searches of
+indexed entries.
+.TP
 .B
 index {<attrlist>|default} [pres,eq,approx,sub,<special>]
 Specify the indexes to maintain for the given attribute (or
@@ -97,7 +114,7 @@ The default is 0600.
 .TP
 .B searchstack <depth>
 Specify the depth of the stack used for search filter evaluation.
-Search filters are evaluated on a stack to accomodate nested AND / OR
+Search filters are evaluated on a stack to accommodate nested AND / OR
 clauses. An individual stack is assigned to each server thread.
 The depth of the stack determines how complex a filter can be
 evaluated without requiring any additional memory allocation. Filters that
@@ -107,13 +124,43 @@ allocations can have a major negative impact on server performance,
 but specifying too much stack will also consume a great deal of memory.
 Each search stack uses 512K bytes per level. The default stack depth
 is 16, thus 8MB per thread is used.
+.TP
+.B shm_key <integer>
+Specify a key for a shared memory BDB environment. By default the
+BDB environment uses memory mapped files. If a non-zero value is
+specified, it will be used as the key to identify a shared memory
+region that will house the environment.
+.TP
+.B sessionlog <sid> <limit>
+Specify a session log store for the syncrepl replication provider
+server. The session log store contains information on the entries that
+have been scoped out of the provider replication content identified by
+.B <sid>.
+The number of entries in the session log store is limited by
+.B <limit>.
+Excessive entries are removed from the store in the FIFO order.
+Both
+.B <sid>
+and
+.B <limit>
+are non-negative integers.
+.B <sid>
+has no more than three decimal digits.
+Refer to the "OpenLDAP Administrator's Guide" for detailed information
+on setting up a replicated slapd directory service using the syncrepl
+replication engine and the session log store.
+.B
 .SH FILES
 .TP
 /etc/openldap/slapd.conf
 default slapd configuration file
+.TP
+DB_CONFIG
+Berkeley DB configuration file
 .SH SEE ALSO
 .BR slapd.conf (5),
 .BR slapd (8),
 .BR slapadd (8),
 .BR slapcat (8),
-.BR slapindex (8).
+.BR slapindex (8),
+Berkeley DB documentation.

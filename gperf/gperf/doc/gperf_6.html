@@ -1,28 +1,47 @@
 <HTML>
 <HEAD>
-<!-- This HTML file has been created by texi2html 1.51
-     from gperf.texi on 26 September 2000 -->
+<!-- Created by texi2html 1.56k from gperf.texi on 12 June 2003 -->
 
-<TITLE>Perfect Hash Function Generator - 4  Invoking gperf</TITLE>
+<TITLE>Perfect Hash Function Generator - 4. Invoking gperf</TITLE>
 </HEAD>
 <BODY>
-Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_5.html">previous</A>, <A HREF="gperf_7.html">next</A>, <A HREF="gperf_11.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
+Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_5.html">previous</A>, <A HREF="gperf_7.html">next</A>, <A HREF="gperf_10.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
 <P><HR><P>
 
 
-<H1><A NAME="SEC14" HREF="gperf_toc.html#TOC14">4  Invoking <CODE>gperf</CODE></A></H1>
+<H1><A NAME="SEC18" HREF="gperf_toc.html#TOC18">4. Invoking <CODE>gperf</CODE></A></H1>
 
 <P>
 There are <EM>many</EM> options to <CODE>gperf</CODE>.  They were added to make
 the program more convenient for use with real applications.  "On-line"
-help is readily available via the <SAMP>`-h'</SAMP> option.  Here is the
+help is readily available via the <SAMP>`--help'</SAMP> option.  Here is the
 complete list of options.
 
-</P>
 
 
 
-<H2><A NAME="SEC15" HREF="gperf_toc.html#TOC15">4.1  Options that affect Interpretation of the Input File</A></H2>
+<H2><A NAME="SEC19" HREF="gperf_toc.html#TOC19">4.1 Specifying the Location of the Output File</A></H2>
+
+<DL COMPACT>
+
+<DT><SAMP>`--output-file=<VAR>file</VAR>'</SAMP>
+<DD>
+Allows you to specify the name of the file to which the output is written to.
+</DL>
+
+<P>
+The results are written to standard output if no output file is specified
+or if it is <SAMP>`-'</SAMP>.
+
+
+
+
+<H2><A NAME="SEC20" HREF="gperf_toc.html#TOC20">4.2 Options that affect Interpretation of the Input File</A></H2>
+
+<P>
+These options are also available as declarations in the input file
+(see section <A HREF="gperf_5.html#SEC11">3.1.1.2 Gperf Declarations</A>).
+
 
 <DL COMPACT>
 
@@ -30,9 +49,9 @@ complete list of options.
 <DD>
 <DT><SAMP>`--delimiters=<VAR>keyword-delimiter-list</VAR>'</SAMP>
 <DD>
-<A NAME="IDX16"></A>
-Allows the user to provide a string containing delimiters used to
-separate keywords from their attributes.  The default is ",\n".  This
+<A NAME="IDX38"></A>
+Allows you to provide a string containing delimiters used to
+separate keywords from their attributes.  The default is ",".  This
 option is essential if you want to use keywords that have embedded
 commas or newlines.  One useful trick is to use -e'TAB', where TAB is
 the literal tab character.
@@ -47,11 +66,28 @@ part of the type declaration.  Keywords and additional fields may follow
 this, one group of fields per line.  A set of examples for generating
 perfect hash tables and functions for Ada, C, C++, Pascal, Modula 2,
 Modula 3 and JavaScript reserved words are distributed with this release.
+
+<DT><SAMP>`--ignore-case'</SAMP>
+<DD>
+Consider upper and lower case ASCII characters as equivalent.  The string
+comparison will use a case insignificant character comparison.  Note that
+locale dependent case mappings are ignored.  This option is therefore not
+suitable if a properly internationalized or locale aware case mapping
+should be used.  (For example, in a Turkish locale, the upper case equivalent
+of the lowercase ASCII letter <SAMP>`i'</SAMP> is the non-ASCII character
+<SAMP>`capital i with dot above'</SAMP>.)  For this case, it is better to apply
+an uppercase or lowercase conversion on the string before passing it to
+the <CODE>gperf</CODE> generated function.
 </DL>
 
 
 
-<H2><A NAME="SEC16" HREF="gperf_toc.html#TOC16">4.2  Options to specify the Language for the Output Code</A></H2>
+<H2><A NAME="SEC21" HREF="gperf_toc.html#TOC21">4.3 Options to specify the Language for the Output Code</A></H2>
+
+<P>
+These options are also available as declarations in the input file
+(see section <A HREF="gperf_5.html#SEC11">3.1.1.2 Gperf Declarations</A>).
+
 
 <DL COMPACT>
 
@@ -66,23 +102,23 @@ option's argument.  Languages handled are currently:
 
 <DT><SAMP>`KR-C'</SAMP>
 <DD>
-Old-style K&#38;R C. This language is understood by old-style C compilers and
+Old-style K&#38;R C.  This language is understood by old-style C compilers and
 ANSI C compilers, but ANSI C compilers may flag warnings (or even errors)
 because of lacking <SAMP>`const'</SAMP>.
 
 <DT><SAMP>`C'</SAMP>
 <DD>
-Common C. This language is understood by ANSI C compilers, and also by
+Common C.  This language is understood by ANSI C compilers, and also by
 old-style C compilers, provided that you <CODE>#define const</CODE> to empty
 for compilers which don't know about this keyword.
 
 <DT><SAMP>`ANSI-C'</SAMP>
 <DD>
-ANSI C. This language is understood by ANSI C compilers and C++ compilers.
+ANSI C.  This language is understood by ANSI C compilers and C++ compilers.
 
 <DT><SAMP>`C++'</SAMP>
 <DD>
-C++. This language is understood by C++ compilers.
+C++.  This language is understood by C++ compilers.
 </DL>
 
 The default is C.
@@ -90,26 +126,32 @@ The default is C.
 <DT><SAMP>`-a'</SAMP>
 <DD>
 This option is supported for compatibility with previous releases of
-<CODE>gperf</CODE>. It does not do anything.
+<CODE>gperf</CODE>.  It does not do anything.
 
 <DT><SAMP>`-g'</SAMP>
 <DD>
 This option is supported for compatibility with previous releases of
-<CODE>gperf</CODE>. It does not do anything.
+<CODE>gperf</CODE>.  It does not do anything.
 </DL>
 
 
 
-<H2><A NAME="SEC17" HREF="gperf_toc.html#TOC17">4.3  Options for fine tuning Details in the Output Code</A></H2>
+<H2><A NAME="SEC22" HREF="gperf_toc.html#TOC22">4.4 Options for fine tuning Details in the Output Code</A></H2>
+
+<P>
+Most of these options are also available as declarations in the input file
+(see section <A HREF="gperf_5.html#SEC11">3.1.1.2 Gperf Declarations</A>).
+
 
 <DL COMPACT>
 
-<DT><SAMP>`-K <VAR>key-name</VAR>'</SAMP>
+<DT><SAMP>`-K <VAR>slot-name</VAR>'</SAMP>
 <DD>
-<DT><SAMP>`--slot-name=<VAR>key-name</VAR>'</SAMP>
+<DT><SAMP>`--slot-name=<VAR>slot-name</VAR>'</SAMP>
 <DD>
-<A NAME="IDX17"></A>
-This option is only useful when option <SAMP>`-t'</SAMP> has been given.
+<A NAME="IDX39"></A>
+This option is only useful when option <SAMP>`-t'</SAMP> (or, equivalently, the
+<SAMP>`%struct-type'</SAMP> declaration) has been given.
 By default, the program assumes the structure component identifier for
 the keyword is <SAMP>`name'</SAMP>.  This option allows an arbitrary choice of
 identifier for this component, although it still must occur as the first
@@ -119,16 +161,17 @@ field in your supplied <CODE>struct</CODE>.
 <DD>
 <DT><SAMP>`--initializer-suffix=<VAR>initializers</VAR>'</SAMP>
 <DD>
-<A NAME="IDX18"></A>
-This option is only useful when option <SAMP>`-t'</SAMP> has been given.
+<A NAME="IDX40"></A>
+This option is only useful when option <SAMP>`-t'</SAMP> (or, equivalently, the
+<SAMP>`%struct-type'</SAMP> declaration) has been given.
 It permits to specify initializers for the structure members following
-<VAR>key name</VAR> in empty hash table entries.  The list of initializers
+<VAR>slot-name</VAR> in empty hash table entries.  The list of initializers
 should start with a comma.  By default, the emitted code will
-zero-initialize structure members following <VAR>key name</VAR>.
+zero-initialize structure members following <VAR>slot-name</VAR>.
 
 <DT><SAMP>`-H <VAR>hash-function-name</VAR>'</SAMP>
 <DD>
-<DT><SAMP>`--hash-fn-name=<VAR>hash-function-name</VAR>'</SAMP>
+<DT><SAMP>`--hash-function-name=<VAR>hash-function-name</VAR>'</SAMP>
 <DD>
 Allows you to specify the name for the generated hash function.  Default
 name is <SAMP>`hash'</SAMP>.  This option permits the use of two hash tables in
@@ -136,19 +179,19 @@ the same file.
 
 <DT><SAMP>`-N <VAR>lookup-function-name</VAR>'</SAMP>
 <DD>
-<DT><SAMP>`--lookup-fn-name=<VAR>lookup-function-name</VAR>'</SAMP>
+<DT><SAMP>`--lookup-function-name=<VAR>lookup-function-name</VAR>'</SAMP>
 <DD>
 Allows you to specify the name for the generated lookup function.
-Default name is <SAMP>`in_word_set'</SAMP>.  This option permits completely
-automatic generation of perfect hash functions, especially when multiple
-generated hash functions are used in the same application.
+Default name is <SAMP>`in_word_set'</SAMP>.  This option permits multiple
+generated hash functions to be used in the same application.
 
 <DT><SAMP>`-Z <VAR>class-name</VAR>'</SAMP>
 <DD>
 <DT><SAMP>`--class-name=<VAR>class-name</VAR>'</SAMP>
 <DD>
-<A NAME="IDX19"></A>
-This option is only useful when option <SAMP>`-L C++'</SAMP> has been given.  It
+<A NAME="IDX41"></A>
+This option is only useful when option <SAMP>`-L C++'</SAMP> (or, equivalently,
+the <SAMP>`%language=C++'</SAMP> declaration) has been given.  It
 allows you to specify the name of generated C++ class.  Default name is
 <CODE>Perfect_Hash</CODE>.
 
@@ -158,12 +201,25 @@ allows you to specify the name of generated C++ class.  Default name is
 <DD>
 This option specifies that all strings that will be passed as arguments
 to the generated hash function and the generated lookup function will
-solely consist of 7-bit ASCII characters (characters in the range 0..127).
+solely consist of 7-bit ASCII characters (bytes in the range 0..127).
 (Note that the ANSI C functions <CODE>isalnum</CODE> and <CODE>isgraph</CODE> do
-<EM>not</EM> guarantee that a character is in this range. Only an explicit
+<EM>not</EM> guarantee that a byte is in this range.  Only an explicit
 test like <SAMP>`c &#62;= 'A' &#38;&#38; c &#60;= 'Z''</SAMP> guarantees this.) This was the
 default in versions of <CODE>gperf</CODE> earlier than 2.7; now the default is
-to assume 8-bit characters.
+to support 8-bit and multibyte characters.
+
+<DT><SAMP>`-l'</SAMP>
+<DD>
+<DT><SAMP>`--compare-lengths'</SAMP>
+<DD>
+Compare keyword lengths before trying a string comparison.  This option
+is mandatory for binary comparisons (see section <A HREF="gperf_5.html#SEC17">3.3 Use of NUL bytes</A>).  It also might
+cut down on the number of string comparisons made during the lookup, since
+keywords with different lengths are never compared via <CODE>strcmp</CODE>.
+However, using <SAMP>`-l'</SAMP> might greatly increase the size of the
+generated C code if the lookup table range is large (which implies that
+the switch option <SAMP>`-S'</SAMP> or <SAMP>`%switch'</SAMP> is not enabled), since the length
+table contains as many elements as there are entries in the lookup table.
 
 <DT><SAMP>`-c'</SAMP>
 <DD>
@@ -198,35 +254,66 @@ include this header file himself to allow compilation of the code.
 
 <DT><SAMP>`-G'</SAMP>
 <DD>
-<DT><SAMP>`--global'</SAMP>
+<DT><SAMP>`--global-table'</SAMP>
 <DD>
 Generate the static table of keywords as a static global variable,
 rather than hiding it inside of the lookup function (which is the
 default behavior).
 
+<DT><SAMP>`-P'</SAMP>
+<DD>
+<DT><SAMP>`--pic'</SAMP>
+<DD>
+Optimize the generated table for inclusion in shared libraries.  This
+reduces the startup time of programs using a shared library containing
+the generated code.  If the option <SAMP>`-t'</SAMP> (or, equivalently, the
+<SAMP>`%struct-type'</SAMP> declaration) is also given, the first field of the
+user-defined struct must be of type <SAMP>`int'</SAMP>, not <SAMP>`char *'</SAMP>, because
+it will contain offsets into the string pool instead of actual strings.
+To convert such an offset to a string, you can use the expression
+<SAMP>`stringpool + <VAR>o</VAR>'</SAMP>, where <VAR>o</VAR> is the offset.  The string pool
+name can be changed through the option <SAMP>`--string-pool-name'</SAMP>.
+
+<DT><SAMP>`-Q <VAR>string-pool-name</VAR>'</SAMP>
+<DD>
+<DT><SAMP>`--string-pool-name=<VAR>string-pool-name</VAR>'</SAMP>
+<DD>
+Allows you to specify the name of the generated string pool created by
+option <SAMP>`-P'</SAMP>.  The default name is <SAMP>`stringpool'</SAMP>.  This option
+permits the use of two hash tables in the same file, with <SAMP>`-P'</SAMP> and
+even when the option <SAMP>`-G'</SAMP> (or, equivalently, the <SAMP>`%global-table'</SAMP>
+declaration) is given.
+
+<DT><SAMP>`--null-strings'</SAMP>
+<DD>
+Use NULL strings instead of empty strings for empty keyword table entries.
+This reduces the startup time of programs using a shared library containing
+the generated code (but not as much as option <SAMP>`-P'</SAMP>), at the expense
+of one more test-and-branch instruction at run time.
+
 <DT><SAMP>`-W <VAR>hash-table-array-name</VAR>'</SAMP>
 <DD>
 <DT><SAMP>`--word-array-name=<VAR>hash-table-array-name</VAR>'</SAMP>
 <DD>
-<A NAME="IDX20"></A>
+<A NAME="IDX42"></A>
 Allows you to specify the name for the generated array containing the
 hash table.  Default name is <SAMP>`wordlist'</SAMP>.  This option permits the
 use of two hash tables in the same file, even when the option <SAMP>`-G'</SAMP>
-is given.
+(or, equivalently, the <SAMP>`%global-table'</SAMP> declaration) is given.
 
 <DT><SAMP>`-S <VAR>total-switch-statements</VAR>'</SAMP>
 <DD>
 <DT><SAMP>`--switch=<VAR>total-switch-statements</VAR>'</SAMP>
 <DD>
-<A NAME="IDX21"></A>
+<A NAME="IDX43"></A>
 Causes the generated C code to use a <CODE>switch</CODE> statement scheme,
 rather than an array lookup table.  This can lead to a reduction in both
-time and space requirements for some keyfiles.  The argument to this
-option determines how many <CODE>switch</CODE> statements are generated. A
+time and space requirements for some input files.  The argument to this
+option determines how many <CODE>switch</CODE> statements are generated.  A
 value of 1 generates 1 <CODE>switch</CODE> containing all the elements, a
 value of 2 generates 2 tables with 1/2 the elements in each
 <CODE>switch</CODE>, etc.  This is useful since many C compilers cannot
-correctly generate code for large <CODE>switch</CODE> statements. This option
+correctly generate code for large <CODE>switch</CODE> statements.  This option
 was inspired in part by Keith Bostic's original C program.
 
 <DT><SAMP>`-T'</SAMP>
@@ -239,92 +326,66 @@ this option if the type is already defined elsewhere.
 <DT><SAMP>`-p'</SAMP>
 <DD>
 This option is supported for compatibility with previous releases of
-<CODE>gperf</CODE>. It does not do anything.
+<CODE>gperf</CODE>.  It does not do anything.
 </DL>
 
 
 
-<H2><A NAME="SEC18" HREF="gperf_toc.html#TOC18">4.4  Options for changing the Algorithms employed by <CODE>gperf</CODE></A></H2>
+<H2><A NAME="SEC23" HREF="gperf_toc.html#TOC23">4.5 Options for changing the Algorithms employed by <CODE>gperf</CODE></A></H2>
 
 <DL COMPACT>
 
-<DT><SAMP>`-k <VAR>keys</VAR>'</SAMP>
+<DT><SAMP>`-k <VAR>selected-byte-positions</VAR>'</SAMP>
 <DD>
-<DT><SAMP>`--key-positions=<VAR>keys</VAR>'</SAMP>
+<DT><SAMP>`--key-positions=<VAR>selected-byte-positions</VAR>'</SAMP>
 <DD>
-Allows selection of the character key positions used in the keywords'
-hash function. The allowable choices range between 1-126, inclusive.
+Allows selection of the byte positions used in the keywords'
+hash function.  The allowable choices range between 1-255, inclusive.
 The positions are separated by commas, e.g., <SAMP>`-k 9,4,13,14'</SAMP>;
 ranges may be used, e.g., <SAMP>`-k 2-7'</SAMP>; and positions may occur
-in any order.  Furthermore, the meta-character '*' causes the generated
-hash function to consider <STRONG>all</STRONG> character positions in each key,
-whereas '$' instructs the hash function to use the "final character"
-of a key (this is the only way to use a character position greater than
-126, incidentally).
+in any order.  Furthermore, the wildcard '*' causes the generated
+hash function to consider <STRONG>all</STRONG> byte positions in each keyword,
+whereas '$' instructs the hash function to use the "final byte"
+of a keyword (this is the only way to use a byte position greater than
+255, incidentally).
 
 For instance, the option <SAMP>`-k 1,2,4,6-10,'$''</SAMP> generates a hash
 function that considers positions 1,2,4,6,7,8,9,10, plus the last
-character in each key (which may differ for each key, obviously).  Keys
-with length less than the indicated key positions work properly, since
-selected key positions exceeding the key length are simply not
+byte in each keyword (which may be at a different position for each
+keyword, obviously).  Keywords
+with length less than the indicated byte positions work properly, since
+selected byte positions exceeding the keyword length are simply not
 referenced in the hash function.
 
-<DT><SAMP>`-l'</SAMP>
-<DD>
-<DT><SAMP>`--compare-strlen'</SAMP>
-<DD>
-Compare key lengths before trying a string comparison.  This might cut
-down on the number of string comparisons made during the lookup, since
-keys with different lengths are never compared via <CODE>strcmp</CODE>.
-However, using <SAMP>`-l'</SAMP> might greatly increase the size of the
-generated C code if the lookup table range is large (which implies that
-the switch option <SAMP>`-S'</SAMP> is not enabled), since the length table
-contains as many elements as there are entries in the lookup table.
-This option is mandatory for binary comparisons (see section <A HREF="gperf_5.html#SEC13">3.3  Use of NUL characters</A>).
+This option is not normally needed since version 2.8 of <CODE>gperf</CODE>;
+the default byte positions are computed depending on the keyword set,
+through a search that minimizes the number of byte positions.
 
 <DT><SAMP>`-D'</SAMP>
 <DD>
 <DT><SAMP>`--duplicates'</SAMP>
 <DD>
-<A NAME="IDX22"></A>
-Handle keywords whose key position sets hash to duplicate values.
-Duplicate hash values occur for two reasons:
-
-
-<UL>
-<LI>
-
-Since <CODE>gperf</CODE> does not backtrack it is possible for it to process
-all your input keywords without finding a unique mapping for each word.
-However, frequently only a very small number of duplicates occur, and 
-the majority of keys still require one probe into the table.
-
-<LI>
-
-Sometimes a set of keys may have the same names, but possess different
-attributes.  With the -D option <CODE>gperf</CODE> treats all these keys as
+<A NAME="IDX44"></A>
+Handle keywords whose selected byte sets hash to duplicate values.
+Duplicate hash values can occur if a set of keywords has the same names, but
+possesses different attributes, or if the selected byte positions are not well
+chosen.  With the -D option <CODE>gperf</CODE> treats all these keywords as
 part of an equivalence class and generates a perfect hash function with
-multiple comparisons for duplicate keys.  It is up to you to completely
+multiple comparisons for duplicate keywords.  It is up to you to completely
 disambiguate the keywords by modifying the generated C code.  However,
 <CODE>gperf</CODE> helps you out by organizing the output.
-</UL>
 
-Option <SAMP>`-D'</SAMP> is extremely useful for certain large or highly
-redundant keyword sets, e.g., assembler instruction opcodes.
 Using this option usually means that the generated hash function is no
 longer perfect.  On the other hand, it permits <CODE>gperf</CODE> to work on
 keyword sets that it otherwise could not handle.
 
-<DT><SAMP>`-f <VAR>iteration-amount</VAR>'</SAMP>
+<DT><SAMP>`-m <VAR>iterations</VAR>'</SAMP>
 <DD>
-<DT><SAMP>`--fast=<VAR>iteration-amount</VAR>'</SAMP>
+<DT><SAMP>`--multiple-iterations=<VAR>iterations</VAR>'</SAMP>
 <DD>
-Generate the perfect hash function "fast".  This decreases
-<CODE>gperf</CODE>'s running time at the cost of minimizing generated
-table-size.  The iteration amount represents the number of times to
-iterate when resolving a collision.  `0' means iterate by the number of
-keywords.  This option is probably most useful when used in conjunction
-with options <SAMP>`-D'</SAMP> and/or <SAMP>`-S'</SAMP> for <EM>large</EM> keyword sets.
+Perform multiple choices of the <SAMP>`-i'</SAMP> and <SAMP>`-j'</SAMP> values, and
+choose the best results.  This increases the running time by a factor of
+<VAR>iterations</VAR> but does a good job minimizing the generated table size.
 
 <DT><SAMP>`-i <VAR>initial-value</VAR>'</SAMP>
 <DD>
@@ -333,16 +394,17 @@ with options <SAMP>`-D'</SAMP> and/or <SAMP>`-S'</SAMP> for <EM>large</EM> keywo
 Provides an initial <VAR>value</VAR> for the associate values array.  Default
 is 0.  Increasing the initial value helps inflate the final table size,
 possibly leading to more time efficient keyword lookups.  Note that this
-option is not particularly useful when <SAMP>`-S'</SAMP> is used.  Also,
+option is not particularly useful when <SAMP>`-S'</SAMP> (or, equivalently,
+<SAMP>`%switch'</SAMP>) is used.  Also,
 <SAMP>`-i'</SAMP> is overridden when the <SAMP>`-r'</SAMP> option is used.
 
 <DT><SAMP>`-j <VAR>jump-value</VAR>'</SAMP>
 <DD>
 <DT><SAMP>`--jump=<VAR>jump-value</VAR>'</SAMP>
 <DD>
-<A NAME="IDX23"></A>
+<A NAME="IDX45"></A>
 Affects the "jump value", i.e., how far to advance the associated
-character value upon collisions.  <VAR>Jump-value</VAR> is rounded up to an
+byte value upon collisions.  <VAR>Jump-value</VAR> is rounded up to an
 odd number, the default is 5.  If the <VAR>jump-value</VAR> is 0 <CODE>gperf</CODE>
 jumps by random amounts.
 
@@ -354,24 +416,6 @@ Instructs the generator not to include the length of a keyword when
 computing its hash value.  This may save a few assembly instructions in
 the generated lookup table.
 
-<DT><SAMP>`-o'</SAMP>
-<DD>
-<DT><SAMP>`--occurrence-sort'</SAMP>
-<DD>
-Reorders the keywords by sorting the keywords so that frequently
-occuring key position set components appear first.  A second reordering
-pass follows so that keys with "already determined values" are placed
-towards the front of the keylist.  This may decrease the time required
-to generate a perfect hash function for many keyword sets, and also
-produce more minimal perfect hash functions.  The reason for this is
-that the reordering helps prune the search time by handling inevitable
-collisions early in the search process.  On the other hand, if the
-number of keywords is <EM>very</EM> large using <SAMP>`-o'</SAMP> may
-<EM>increase</EM> <CODE>gperf</CODE>'s execution time, since collisions will
-begin earlier and continue throughout the remainder of keyword
-processing.  See Cichelli's paper from the January 1980 Communications
-of the ACM for details.
-
 <DT><SAMP>`-r'</SAMP>
 <DD>
 <DT><SAMP>`--random'</SAMP>
@@ -380,8 +424,7 @@ Utilizes randomness to initialize the associated values table.  This
 frequently generates solutions faster than using deterministic
 initialization (which starts all associated values at 0).  Furthermore,
 using the randomization option generally increases the size of the
-table.  If <CODE>gperf</CODE> has difficultly with a certain keyword set try using
-<SAMP>`-r'</SAMP> or <SAMP>`-D'</SAMP>.
+table.
 
 <DT><SAMP>`-s <VAR>size-multiple</VAR>'</SAMP>
 <DD>
@@ -389,36 +432,31 @@ table.  If <CODE>gperf</CODE> has difficultly with a certain keyword set try usi
 <DD>
 Affects the size of the generated hash table.  The numeric argument for
 this option indicates "how many times larger or smaller" the maximum
-associated value range should be, in relationship to the number of keys.
-If the <VAR>size-multiple</VAR> is negative the maximum associated value is
-calculated by <EM>dividing</EM> it into the total number of keys.  For
-example, a value of 3 means "allow the maximum associated value to be
-about 3 times larger than the number of input keys".  
+associated value range should be, in relationship to the number of keywords.
+It can be written as an integer, a floating-point number or a fraction.
+For example, a value of 3 means "allow the maximum associated value to be
+about 3 times larger than the number of input keywords".
+Conversely, a value of 1/3 means "allow the maximum associated value to
+be about 3 times smaller than the number of input keywords".  Values
+smaller than 1 are useful for limiting the overall size of the generated hash
+table, though the option <SAMP>`-m'</SAMP> is better at this purpose.
 
-Conversely, a value of -3 means "allow the maximum associated value to
-be about 3 times smaller than the number of input keys".  Negative
-values are useful for limiting the overall size of the generated hash
-table, though this usually increases the number of duplicate hash
-values.
-
-If `generate switch' option <SAMP>`-S'</SAMP> is <EM>not</EM> enabled, the maximum
+If `generate switch' option <SAMP>`-S'</SAMP> (or, equivalently, <SAMP>`%switch'</SAMP>) is
+<EM>not</EM> enabled, the maximum
 associated value influences the static array table size, and a larger
 table should decrease the time required for an unsuccessful search, at
 the expense of extra table space.
 
 The default value is 1, thus the default maximum associated value about
-the same size as the number of keys (for efficiency, the maximum
+the same size as the number of keywords (for efficiency, the maximum
 associated value is always rounded up to a power of 2).  The actual
 table size may vary somewhat, since this technique is essentially a
-heuristic.  In particular, setting this value too high slows down
-<CODE>gperf</CODE>'s runtime, since it must search through a much larger range
-of values.  Judicious use of the <SAMP>`-f'</SAMP> option helps alleviate this
-overhead, however.
+heuristic.
 </DL>
 
 
 
-<H2><A NAME="SEC19" HREF="gperf_toc.html#TOC19">4.5  Informative Output</A></H2>
+<H2><A NAME="SEC24" HREF="gperf_toc.html#TOC24">4.6 Informative Output</A></H2>
 
 <DL COMPACT>
 
@@ -448,6 +486,6 @@ option is enabled.
 </DL>
 
 <P><HR><P>
-Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_5.html">previous</A>, <A HREF="gperf_7.html">next</A>, <A HREF="gperf_11.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
+Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_5.html">previous</A>, <A HREF="gperf_7.html">next</A>, <A HREF="gperf_10.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
 </BODY>
 </HTML>

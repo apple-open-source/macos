@@ -1,7 +1,7 @@
 /* APPLE LOCAL file AltiVec */
 /* Test for distinguishing 'vector bool ...' from 'vector unsigned ...'
    types by the front-end.  */
-/* { dg-do compile } */
+/* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-options "-faltivec" } */
 
 struct Foo1 {

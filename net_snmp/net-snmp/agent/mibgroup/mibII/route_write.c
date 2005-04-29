@@ -1,3 +1,13 @@
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
+ */
+/*
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
 #include <net-snmp/net-snmp-config.h>
 
 #include <sys/types.h>
@@ -83,19 +93,25 @@
 #define SIOCDELRT SIOCDELMULTI
 #endif
 
+#ifdef linux
+#define NETSNMP_ROUTE_WRITE_PROTOCOL PF_ROUTE
+#else
+#define NETSNMP_ROUTE_WRITE_PROTOCOL 0
+#endif
+
 int
 addRoute(u_long dstip, u_long gwip, u_long iff, u_short flags)
 {
-#ifndef dynix
+#if !(defined dynix || defined darwin)
     struct sockaddr_in dst;
     struct sockaddr_in gateway;
-    int             s;
+    int             s, rc;
     RTENTRY         route;
 
-    s = socket(AF_INET, SOCK_RAW, 0);
+    s = socket(AF_INET, SOCK_RAW, NETSNMP_ROUTE_WRITE_PROTOCOL);
     if (s < 0) {
         snmp_log_perror("socket");
-        return 0;
+        return -1;
     }
 
 
@@ -118,8 +134,63 @@ addRoute(u_long dstip, u_long gwip, u_long iff, u_short flags)
 #ifdef irix6
     return 0;
 #else
-    return (ioctl(s, SIOCADDRT, (caddr_t) & route));
+    rc = ioctl(s, SIOCADDRT, (caddr_t) & route);
+    close(s);
+    if (rc < 0)
+        snmp_log_perror("ioctl");
+    return rc;
 #endif
+
+#elif defined darwin
+
+	size_t sa_in_size = sizeof(struct sockaddr_in);
+	int	s, rc;
+	struct sockaddr_in dst;
+	struct sockaddr_in gateway;
+	struct {
+		struct	rt_msghdr hdr;
+		char	space[512];
+	} rtmsg;
+
+	s = socket(PF_ROUTE, SOCK_RAW, 0);
+    if (s < 0) {
+        snmp_log_perror("socket");
+        return -1;
+    }
+
+	shutdown(s, SHUT_RD);
+
+	/* possible panic otherwise */
+	flags |= (RTF_UP | RTF_GATEWAY);
+
+	bzero((char *)&dst, sa_in_size);
+	dst.sin_len = sa_in_size;
+	dst.sin_family = AF_INET;
+	dst.sin_addr.s_addr = htonl(dstip);
+
+	bzero((char *)&gateway, sa_in_size);
+	gateway.sin_len = sa_in_size;
+	gateway.sin_family = AF_INET;
+	gateway.sin_addr.s_addr = htonl(gwip);
+
+	bzero((char *)&rtmsg, sizeof(rtmsg));
+
+	rtmsg.hdr.rtm_type = RTM_ADD;
+	rtmsg.hdr.rtm_version = RTM_VERSION;
+	rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY;
+	rtmsg.hdr.rtm_flags = RTF_GATEWAY;
+
+	bcopy((char *)&dst, rtmsg.space, sa_in_size);
+	bcopy((char *)&gateway, (rtmsg.space+sa_in_size), sa_in_size);
+
+	rc = sizeof(struct rt_msghdr) + sa_in_size + sa_in_size;
+	rtmsg.hdr.rtm_msglen = rc;
+
+	if ((rc = write(s, (char *)&rtmsg, rc)) < 0) {
+		snmp_log_perror("writing to routing socket");
+		return -1;
+	}
+	return (rc);
 
 #else                           /* dynix */
     /*
@@ -136,7 +207,7 @@ addRoute(u_long dstip, u_long gwip, u_long iff, u_short flags)
      * "mibII/route_write.c", line 160: undefined struct/union member: rt_pad1
      * "mibII/route_write.c", line 166: undefined symbol: SIOCDELRT
      */
-    return 0;
+    return -1;
 #endif
 
 }
@@ -146,14 +217,14 @@ addRoute(u_long dstip, u_long gwip, u_long iff, u_short flags)
 int
 delRoute(u_long dstip, u_long gwip, u_long iff, u_short flags)
 {
-#ifndef dynix
+#if !(defined dynix || defined darwin)
 
     struct sockaddr_in dst;
     struct sockaddr_in gateway;
-    int             s;
+    int             s, rc;
     RTENTRY         route;
 
-    s = socket(AF_INET, SOCK_RAW, 0);
+    s = socket(AF_INET, SOCK_RAW, NETSNMP_ROUTE_WRITE_PROTOCOL);
     if (s < 0) {
         snmp_log_perror("socket");
         return 0;
@@ -180,8 +251,60 @@ delRoute(u_long dstip, u_long gwip, u_long iff, u_short flags)
 #ifdef irix6
     return 0;
 #else
-    return (ioctl(s, SIOCDELRT, (caddr_t) & route));
+    rc = ioctl(s, SIOCDELRT, (caddr_t) & route);
+    close(s);
+    return rc;
 #endif
+#elif defined darwin
+
+	size_t sa_in_size = sizeof(struct sockaddr_in);
+	int	s, rc;
+	struct sockaddr_in dst;
+	struct sockaddr_in gateway;
+	struct {
+		struct	rt_msghdr hdr;
+		char	space[512];
+	} rtmsg;
+
+	s = socket(PF_ROUTE, SOCK_RAW, 0);
+    if (s < 0) {
+        snmp_log_perror("socket");
+        return -1;
+    }
+
+	shutdown(s, SHUT_RD);
+
+	/* possible panic otherwise */
+	flags |= (RTF_UP | RTF_GATEWAY);
+
+	bzero((char *)&dst, sa_in_size);
+	dst.sin_len = sa_in_size;
+	dst.sin_family = AF_INET;
+	dst.sin_addr.s_addr = htonl(dstip);
+
+	bzero((char *)&gateway, sa_in_size);
+	gateway.sin_len = sa_in_size;
+	gateway.sin_family = AF_INET;
+	gateway.sin_addr.s_addr = htonl(gwip);
+
+	bzero((char *)&rtmsg, sizeof(rtmsg));
+
+	rtmsg.hdr.rtm_type = RTM_DELETE;
+	rtmsg.hdr.rtm_version = RTM_VERSION;
+	rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY;
+	rtmsg.hdr.rtm_flags = RTF_GATEWAY;
+
+	bcopy((char *)&dst, rtmsg.space, sa_in_size);
+	bcopy((char *)&gateway, (rtmsg.space+sa_in_size), sa_in_size);
+
+	rc = sizeof(struct rt_msghdr) + sa_in_size + sa_in_size;
+	rtmsg.hdr.rtm_msglen = rc;
+
+	if ((rc = write(s, (char *)&rtmsg, rc)) < 0) {
+		snmp_log_perror("writing to routing socket");
+		return -1;
+	}
+	return (rc);
 
 #else                           /* dynix */
     /*
@@ -311,6 +434,10 @@ write_rte(int action,
         return SNMP_ERR_NOCREATION;
     }
 
+#ifdef solaris2		/* not implemented */
+    return SNMP_ERR_NOTWRITABLE;
+#endif
+
     var = name[9];
 
     dst = *((u_long *) & name[10]);
@@ -329,18 +456,19 @@ write_rte(int action,
             snmp_log(LOG_ERR, "newCacheRTE");
             return SNMP_ERR_RESOURCEUNAVAILABLE;
         }
+        rp->rt_dst = dst;
         rp->rt_type = rp->xx_type = 2;
 
     } else if (action == COMMIT) {
 
 
     } else if (action == FREE) {
-        if (rp->rt_type == 2) { /* was invalid before */
+        if (rp && rp->rt_type == 2) { /* was invalid before */
             delCacheRTE(dst);
         }
     }
 
-
+    netsnmp_assert(NULL != rp); /* should have found or created rp */
 
 
     switch (var) {

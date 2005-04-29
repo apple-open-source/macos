@@ -349,7 +349,7 @@ rule ProcessHeaders
                     # use flag for picking up PFE
                     PREFIX_HEADER_CFLAGS_BASE default = --load-pch ;
                 }
-                if $(GCC_VERSION) = 3.3 {
+                if $(GCC_VERSION) = 3.3 || $(GCC_VERSION) = 3.5 || $(GCC_VERSION) = 4.0 {
                     # prefix file precompiled with PCH support
                     # precompile by dialect
                     for ARCH in $(ARCHS) {
@@ -548,7 +548,7 @@ rule PrecompileHeader
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_FRAMEWORK)/PrivateHeaders $(KERNEL_HEADERS) ;
         local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS_$(ARCH)) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
@@ -588,11 +588,20 @@ rule PrecompileHeader
     if $(PROFILING_CODE) = YES {
         FLAGS on $(1) += -pg ;
     }
-    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN {
+    if $(GCC_VERSION) != 3.3 && $(GCC_VERSION) != 3.5 && $(GCC_VERSION) != 4.0 && $(OS) in MACOS DARWIN {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
+    # Pass headermap and/or header symlinks directory.
     if $(CPP_HEADERMAP_FILE) {
-        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+        if $(GCC_VERSION) <= 3.3 {
+            CPP_HEADERMAP_FLAGS on $(1) = -Wp,-header-mapfile,$(CPP_HEADERMAP_FILE) ;
+        }
+        else if $(GCC_VERSION) >= 4.0 {
+            CPP_HEADERMAP_FLAGS on $(1) = -I$(CPP_HEADERMAP_FILE) ;
+        }
+        else {
+            ECHO jam: warning: GCC v$(GCC_VERSION) does not support headermaps ;
+        }
     }
     if $(1:S) = .pp {
             FLAGS on $(1) += -x objective-c++ ;
@@ -607,7 +616,7 @@ rule PrecompileHeader
 }
 actions PrecompileHeader
 {
-    $(CC) -precomp -o $(1:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(ARCH_FLAGS) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CFLAGS)" $(2:Q)
+    $(CC) -precomp -o $(1:Q) $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(ARCH_FLAGS) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CFLAGS)" $(2:Q)
 }
 
 rule MakePFEFile
@@ -616,7 +625,7 @@ rule MakePFEFile
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_FRAMEWORK)/PrivateHeaders $(KERNEL_HEADERS) ;
         local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
@@ -656,8 +665,17 @@ rule MakePFEFile
     if $(PROFILING_CODE) = YES {
         FLAGS on $(1) += -pg ;
     }
+    # Pass headermap and/or header symlinks directory.
     if $(CPP_HEADERMAP_FILE) {
-        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+        if $(GCC_VERSION) <= 3.3 {
+            CPP_HEADERMAP_FLAGS on $(1) = -Wp,-header-mapfile,$(CPP_HEADERMAP_FILE) ;
+        }
+        else if $(GCC_VERSION) >= 4.0 {
+            CPP_HEADERMAP_FLAGS on $(1) = -I$(CPP_HEADERMAP_FILE) ;
+        }
+        else {
+            ECHO jam: warning: GCC v$(GCC_VERSION) does not support headermaps ;
+        }
     }
     if YES in $(GENERATE_CPP_ILOG_FILES) {
         local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(2:DB).ilog ;
@@ -670,7 +688,7 @@ rule MakePFEFile
 }
 actions MakePFEFile
 {
-    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c -o ${_c_dialect} == objective-c ] ; then dummy_file=`mktemp /tmp/.null-XXXXXXXX`; $(CC) -c -x ${_c_dialect} -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CFLAGS)" $(2:Q) -o ${dummy_file} --dump-pch $(1:Q) ; exit_code=$? ; rm ${dummy_file} ; if [ ${exit_code} != 0 ] ; then rm -rf $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
+    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c -o ${_c_dialect} == objective-c ] ; then dummy_file=`mktemp /tmp/.null-XXXXXXXX`; $(CC) -c -x ${_c_dialect} $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CFLAGS)" $(2:Q) -o ${dummy_file} --dump-pch $(1:Q) ; exit_code=$? ; rm ${dummy_file} ; if [ ${exit_code} != 0 ] ; then rm -rf $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
 }
 
 rule MakePFEFile++
@@ -680,7 +698,7 @@ rule MakePFEFile++
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_FRAMEWORK)/PrivateHeaders $(KERNEL_HEADERS) ;
         local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
@@ -721,8 +739,17 @@ rule MakePFEFile++
     if $(PROFILING_CODE) = YES {
         FLAGS on $(1) += -pg ;
     }
+    # Pass headermap and/or header symlinks directory.
     if $(CPP_HEADERMAP_FILE) {
-        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+        if $(GCC_VERSION) <= 3.3 {
+            CPP_HEADERMAP_FLAGS on $(1) = -Wp,-header-mapfile,$(CPP_HEADERMAP_FILE) ;
+        }
+        else if $(GCC_VERSION) >= 4.0 {
+            CPP_HEADERMAP_FLAGS on $(1) = -I$(CPP_HEADERMAP_FILE) ;
+        }
+        else {
+            ECHO jam: warning: GCC v$(GCC_VERSION) does not support headermaps ;
+        }
     }
     if YES in $(GENERATE_CPP_ILOG_FILES) {
         local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(2:DB).ilog ;
@@ -735,7 +762,7 @@ rule MakePFEFile++
 }
 actions MakePFEFile++
 {
-    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c++ -o ${_c_dialect} == objective-c++ ] ; then dummy_file=`mktemp /tmp/.null-XXXXXXXX`; $(CC) -c -x ${_c_dialect} -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CPLUSPLUSFLAGS)" "$(OTHER_CPLUSPLUSFLAGS)" $(2:Q) -o ${dummy_file} --dump-pch $(1:Q) ; exit_code=$? ; rm ${dummy_file} ; if [ ${exit_code} != 0 ] ; then rm -rf $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
+    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c++ -o ${_c_dialect} == objective-c++ ] ; then dummy_file=`mktemp /tmp/.null-XXXXXXXX`; $(CC) -c -x ${_c_dialect} $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CPLUSPLUSFLAGS)" "$(OTHER_CPLUSPLUSFLAGS)" $(2:Q) -o ${dummy_file} --dump-pch $(1:Q) ; exit_code=$? ; rm ${dummy_file} ; if [ ${exit_code} != 0 ] ; then rm -rf $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
 }
 
 rule ProcessPCH
@@ -744,7 +771,7 @@ rule ProcessPCH
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_FRAMEWORK)/PrivateHeaders $(KERNEL_HEADERS) ;
         local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
@@ -784,8 +811,27 @@ rule ProcessPCH
     if $(PROFILING_CODE) = YES {
         FLAGS on $(1) += -pg ;
     }
+    OBJC_PCH_GC_FLAGS on $(1) = "" ;
+    if ( "objective-c" in $(PFE_FILE_C_DIALECTS) ) {
+        # DO NOT USE THE FOLLOWING BUILD SETTINGS!
+        if $(GCC_FAST_OBJC_DISPATCH) = YES {
+            OBJC_PCH_GC_FLAGS on $(1) += -fobjc-direct-dispatch ;
+        }
+        if $(GCC_ENABLE_OBJC_GC) = YES {
+            OBJC_PCH_GC_FLAGS on $(1) += -fobjc-gc ;
+        }
+    }
+    # Pass headermap and/or header symlinks directory.
     if $(CPP_HEADERMAP_FILE) {
-        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+        if $(GCC_VERSION) <= 3.3 {
+            CPP_HEADERMAP_FLAGS on $(1) = -Wp,-header-mapfile,$(CPP_HEADERMAP_FILE) ;
+        }
+        else if $(GCC_VERSION) >= 4.0 {
+            CPP_HEADERMAP_FLAGS on $(1) = -I$(CPP_HEADERMAP_FILE) ;
+        }
+        else {
+            ECHO jam: warning: GCC v$(GCC_VERSION) does not support headermaps ;
+        }
     }
     if YES in $(GENERATE_CPP_ILOG_FILES) {
         local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(2:DB).ilog ;
@@ -799,7 +845,7 @@ rule ProcessPCH
 actions ProcessPCH
 {
     mkdir -p $(1:Q)
-    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c -o ${_c_dialect} == objective-c ] ; then rm -f $(1:Q)$(/)${_c_dialect} ; $(CC) -c -x ${_c_dialect}-header -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CFLAGS)" $(2:Q) -o $(1:Q)$(/)${_c_dialect} ; exit_code=$? ; if [ ${exit_code} != 0 ] ; then rm -rf $(1:Q)$(/)${_c_dialect} ; touch $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
+    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c -o ${_c_dialect} == objective-c ] ; then rm -f $(1:Q)$(/)${_c_dialect} ; $(CC) -c -x ${_c_dialect}-header $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) `if [ ${_c_dialect} == objective-c ] ; then echo "$(OBJC_PCH_GC_FLAGS)" ; fi` $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CFLAGS)" $(2:Q) -o $(1:Q)$(/)${_c_dialect} ; exit_code=$? ; if [ ${exit_code} != 0 ] ; then rm -rf $(1:Q)$(/)${_c_dialect} ; touch $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
 }
  
 rule ProcessPCH++
@@ -809,7 +855,7 @@ rule ProcessPCH++
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_FRAMEWORK)/PrivateHeaders $(KERNEL_HEADERS) ;
         local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
@@ -850,8 +896,27 @@ rule ProcessPCH++
     if $(PROFILING_CODE) = YES {
         FLAGS on $(1) += -pg ;
     }
+    OBJCPLUSPLUS_PCH_GC_FLAGS on $(1) = "" ;
+    if ( "objective-c++" in $(PFE_FILE_C_DIALECTS) ) {
+        # DO NOT USE THE FOLLOWING BUILD SETTINGS!
+        if $(GCC_FAST_OBJC_DISPATCH) = YES {
+            OBJCPLUSPLUS_PCH_GC_FLAGS on $(1) += -fobjc-direct-dispatch ;
+        }
+        if $(GCC_ENABLE_OBJC_GC) = YES {
+            OBJCPLUSPLUS_PCH_GC_FLAGS on $(1) += -fobjc-gc ;
+        }
+    }
+    # Pass headermap and/or header symlinks directory.
     if $(CPP_HEADERMAP_FILE) {
-        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+        if $(GCC_VERSION) <= 3.3 {
+            CPP_HEADERMAP_FLAGS on $(1) = -Wp,-header-mapfile,$(CPP_HEADERMAP_FILE) ;
+        }
+        else if $(GCC_VERSION) >= 4.0 {
+            CPP_HEADERMAP_FLAGS on $(1) = -I$(CPP_HEADERMAP_FILE) ;
+        }
+        else {
+            ECHO jam: warning: GCC v$(GCC_VERSION) does not support headermaps ;
+        }
     }
     if YES in $(GENERATE_CPP_ILOG_FILES) {
         local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(2:DB).ilog ;
@@ -865,7 +930,7 @@ rule ProcessPCH++
 actions ProcessPCH++
 {
     mkdir -p $(1:Q)
-    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c++ -o ${_c_dialect} == objective-c++ ] ; then rm -f $(1:Q)$(/)${_c_dialect} ; $(CC) -c -x ${_c_dialect}-header -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CPLUSPLUSFLAGS)" $(2:Q) -o $(1:Q)$(/)${_c_dialect} ; exit_code=$? ; if [ ${exit_code} != 0 ] ; then rm -f $(1:Q)$(/)${_c_dialect} ; touch $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
+    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c++ -o ${_c_dialect} == objective-c++ ] ; then rm -f $(1:Q)$(/)${_c_dialect} ; $(CC) -c -x ${_c_dialect}-header $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) `if [ ${_c_dialect} == objective-c++ ] ; then echo "$(OBJCPLUSPLUS_PCH_GC_FLAGS)" ; fi` $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CPLUSPLUSFLAGS)" $(2:Q) -o $(1:Q)$(/)${_c_dialect} ; exit_code=$? ; if [ ${exit_code} != 0 ] ; then rm -f $(1:Q)$(/)${_c_dialect} ; touch $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
 }
 
 
@@ -1409,9 +1474,11 @@ rule ProcessFrameworksAndLibraries
                     INNER_PRODUCT default = $(1:G=)$(/)Versions$(/)$(FRAMEWORK_VERSION)$(/)$(1:BG=) ;
                     INNER_PRODUCT_$(VARIANT) default = $(INNER_PRODUCT)$(VARIANT_SUFFIX_$(VARIANT))$(DYNAMIC_LIBRARY_SUFFIX) ;
                     INNER_PRODUCT_LINK default = $(1:G=)$(/)$(1:BG=) ;
-                    INNER_PRODUCT_LINK_$(VARIANT) default = $(INNER_PRODUCT_LINK)$(VARIANT_SUFFIX_$(VARIANT))$(DYNAMIC_LIBRARY_SUFFIX) ;
-                    INNER_PRODUCT_LINK_PATH default = Versions$(/)Current$(/)$(1:BG=) ;
-                    INNER_PRODUCT_LINK_PATH_$(VARIANT) default = $(INNER_PRODUCT_LINK_PATH)$(VARIANT_SUFFIX_$(VARIANT))$(DYNAMIC_LIBRARY_SUFFIX) ;
+                    if $(VARIANT) = normal {
+                        INNER_PRODUCT_LINK_$(VARIANT) default = $(INNER_PRODUCT_LINK)$(VARIANT_SUFFIX_$(VARIANT))$(DYNAMIC_LIBRARY_SUFFIX) ;
+                        INNER_PRODUCT_LINK_PATH default = Versions$(/)Current$(/)$(1:BG=) ;
+                        INNER_PRODUCT_LINK_PATH_$(VARIANT) default = $(INNER_PRODUCT_LINK_PATH)$(VARIANT_SUFFIX_$(VARIANT))$(DYNAMIC_LIBRARY_SUFFIX) ;
+                    }
                 }
                 else {
                     # standard bundle
@@ -1501,6 +1568,9 @@ rule ProcessFrameworksAndLibraries
             if $(DEPLOYMENT_POSTPROCESSING) = YES && $(UNSTRIPPED_PRODUCT) != YES {
                 STRIPPED_PRODUCT_$(VARIANT) default = $(INNER_PRODUCT_$(VARIANT):G=strip) ;
                 DEPENDS $(STRIPPED_PRODUCT_$(VARIANT)) : $(INNER_PRODUCT_$(VARIANT)) ;
+                if $(ASIDE_INNER_PRODUCT_$(VARIANT)) {
+                    DEPENDS $(STRIPPED_PRODUCT_$(VARIANT)) : $(ASIDE_INNER_PRODUCT_$(VARIANT)) ;
+                }
                 if $(PRODUCT_TYPE) != Tool && $(PRODUCT_TYPE) != Application {
                     if ( $(PRODUCT_TYPE) = Bundle
                      || ( $(PRODUCT_TYPE) = Library && $(LIBRARY_STYLE) = BUNDLE ) )
@@ -1570,6 +1640,9 @@ rule ProcessFrameworksAndLibraries
                 RANLIB_INNER_PRODUCT_$(VARIANT) default = $(INNER_PRODUCT_$(VARIANT):G=ranlib) ;
                 # ranlib depends on link, strip, modeownergroup
                 DEPENDS $(RANLIB_INNER_PRODUCT_$(VARIANT)) : $(INNER_PRODUCT_$(VARIANT)) ;
+                if $(ASIDE_INNER_PRODUCT_$(VARIANT)) {
+                    DEPENDS $(RANLIB_INNER_PRODUCT_$(VARIANT)) : $(ASIDE_INNER_PRODUCT_$(VARIANT)) ;
+                }
                 if $(STRIPPED_PRODUCT_$(VARIANT)) {
                     DEPENDS $(RANLIB_INNER_PRODUCT_$(VARIANT)) : $(STRIPPED_PRODUCT_$(VARIANT)) ;
                 }
@@ -1593,6 +1666,9 @@ rule ProcessFrameworksAndLibraries
             if $(KERNEL_MODULE) = YES {
                 MODULE_OBJECT_PATH = $(OBJECT_FILE_DIR_$(VARIANT))$(/)$(MODULE_OBJECT_FILE_$(VARIANT)) ;
                 FLAGS.o on $(INNER_PRODUCT_$(VARIANT)) += -static -nostdlib -r -lkmodc++ "$(MODULE_OBJECT_PATH)" -lkmod -lcc_kext ;
+                if $(GCC_VERSION) = 4.0 {
+                    FLAGS.o on $(INNER_PRODUCT_$(VARIANT)) += -lcpp_kext ;
+                }
             }
             else {
                 # Options for products that are not bundles or static libraries
@@ -2263,6 +2339,10 @@ rule ProcessUsingJavaCompiler
         }
     }
     
+    if $(JAVA_COMPILER_SOURCE_VERSION) {
+        JAVAC_FLAGS += "-source "$(JAVA_COMPILER_SOURCE_VERSION) ;
+    }
+    
     if $(JAVA_COMPILER_DEBUGGING_SYMBOLS) = YES {
         JAVAC_FLAGS += "-g" ;
     }
@@ -2271,7 +2351,7 @@ rule ProcessUsingJavaCompiler
         JAVAC_FLAGS += -encoding "$(JAVAC_SOURCE_FILE_ENCODING)" ;
     }
 
-    if $(JAVA_USE_DEPENDENCIES) = "NO" || ( ! $($(2)_JAVA_IMPORTS) && empty$($(2)_JAVA_IMPORTS) != empty ) {
+    if $(JAVA_FORCE_FILE_LIST) = "NO" && ( $(JAVA_USE_DEPENDENCIES) = "NO" || ( ! $($(2)_JAVA_IMPORTS) && empty$($(2)_JAVA_IMPORTS) != empty ) ) {
         # With no dependence, or dependence info usage off
         # build with combinded compiler invocations but no file list
         DEPENDS $(JAVA_COMPILE_TARGET) : $(2) ;
@@ -2561,7 +2641,7 @@ rule CompileC
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_FRAMEWORK)/PrivateHeaders $(KERNEL_HEADERS) ;
         local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
@@ -2607,13 +2687,31 @@ rule CompileC
     if $(PROFILING_CODE) = YES {
         FLAGS on $(1) += -pg ;
     }
+    if $(2:S) = ".m" {
+	# DO NOT USE THE FOLLOWING BUILD SETTINGS!
+        if $(GCC_FAST_OBJC_DISPATCH) = YES {
+            FLAGS on $(1) += -fobjc-direct-dispatch ;
+        }
+        if $(GCC_ENABLE_OBJC_GC) = YES {
+            FLAGS on $(1) += -fobjc-gc ;
+        }
+    }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(GCC_VERSION) != 3.5 && $(GCC_VERSION) != 4.0 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
+    # Pass headermap and/or header symlinks directory.
     if $(CPP_HEADERMAP_FILE) {
-        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+        if $(GCC_VERSION) <= 3.3 {
+            CPP_HEADERMAP_FLAGS on $(1) = -Wp,-header-mapfile,$(CPP_HEADERMAP_FILE) ;
+        }
+        else if $(GCC_VERSION) >= 4.0 {
+            CPP_HEADERMAP_FLAGS on $(1) = -I$(CPP_HEADERMAP_FILE) ;
+        }
+        else {
+            ECHO jam: warning: GCC v$(GCC_VERSION) does not support headermaps ;
+        }
     }
     if YES in $(GENERATE_CPP_ILOG_FILES) {
         local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(1:DB).ilog ;
@@ -2629,7 +2727,7 @@ rule CompileC
         }
         else {
             if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
-                # GCC v3.3 PCH
+                # GCC v3.3 / v3.5 / v4.0 PCH
                 PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
             }
             else {
@@ -2658,7 +2756,7 @@ rule CompileC
 
 actions CompileC
 {
-    $(CC) -c -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_CFLAGS)" $($(2)_COMPILER_FLAGS) $(2:Q) -o $(1:Q)
+    $(CC) -c $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_CFLAGS)" $($(2)_COMPILER_FLAGS) $(2:Q) -o $(1:Q)
 }
 
 rule CompileCplusplus
@@ -2669,7 +2767,7 @@ rule CompileCplusplus
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_FRAMEWORK)/PrivateHeaders $(KERNEL_HEADERS) ;
         if $(GCC_VERSION) != 2.x {
             KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -fno-rtti -fno-exceptions -fcheck-new -msoft-float -fapple-kext ;
         }
@@ -2730,13 +2828,31 @@ rule CompileCplusplus
     if $(PROFILING_CODE) = YES {
         FLAGS on $(1) += -pg ;
     }
+    if $(2:S) = ".mm" || $(2:S) = ".M" {
+	# DO NOT USE THE FOLLOWING BUILD SETTINGS!
+        if $(GCC_FAST_OBJC_DISPATCH) = YES {
+            FLAGS on $(1) += -fobjc-direct-dispatch ;
+        }
+        if $(GCC_ENABLE_OBJC_GC) = YES {
+            FLAGS on $(1) += -fobjc-gc ;
+        }
+    }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(GCC_VERSION) != 3.5 && $(GCC_VERSION) != 4.0 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
+    # Pass headermap and/or header symlinks directory.
     if $(CPP_HEADERMAP_FILE) {
-        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+        if $(GCC_VERSION) <= 3.3 {
+            CPP_HEADERMAP_FLAGS on $(1) = -Wp,-header-mapfile,$(CPP_HEADERMAP_FILE) ;
+        }
+        else if $(GCC_VERSION) >= 4.0 {
+            CPP_HEADERMAP_FLAGS on $(1) = -I$(CPP_HEADERMAP_FILE) ;
+        }
+        else {
+            ECHO jam: warning: GCC v$(GCC_VERSION) does not support headermaps ;
+        }
     }
     if YES in $(GENERATE_CPP_ILOG_FILES) {
         local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(1:DB).ilog ;
@@ -2749,7 +2865,7 @@ rule CompileCplusplus
         }
         else {
             if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
-                # GCC v3.3 PCH
+                # GCC v3.3 / v3.5 / v4.0 PCH
                 PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
             }
             else {
@@ -2779,7 +2895,7 @@ rule CompileCplusplus
 
 actions CompileCplusplus
 {
-    $(CPLUSPLUS) -c -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_CPLUSPLUSFLAGS)" $($(2)_COMPILER_FLAGS) $(2:Q) -o $(1:Q)
+    $(CPLUSPLUS) -c $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_CPLUSPLUSFLAGS)" $($(2)_COMPILER_FLAGS) $(2:Q) -o $(1:Q)
 }
 
 rule ProcessAssembly
@@ -2844,7 +2960,7 @@ rule CompileAssembly
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_FRAMEWORK)/PrivateHeaders $(KERNEL_HEADERS) ;
         local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
@@ -2897,11 +3013,20 @@ rule CompileAssembly
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(GCC_VERSION) != 3.5 && $(GCC_VERSION) != 4.0 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
+    # Pass headermap and/or header symlinks directory.
     if $(CPP_HEADERMAP_FILE) {
-        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+        if $(GCC_VERSION) <= 3.3 {
+            CPP_HEADERMAP_FLAGS on $(1) = -Wp,-header-mapfile,$(CPP_HEADERMAP_FILE) ;
+        }
+        else if $(GCC_VERSION) >= 4.0 {
+            CPP_HEADERMAP_FLAGS on $(1) = -I$(CPP_HEADERMAP_FILE) ;
+        }
+        else {
+            ECHO jam: warning: GCC v$(GCC_VERSION) does not support headermaps ;
+        }
     }
     if YES in $(GENERATE_CPP_ILOG_FILES) {
         local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(1:DB).ilog ;
@@ -2917,7 +3042,7 @@ rule CompileAssembly
         }
         else {
             if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
-                # GCC v3.3 PCH
+                # GCC v3.3 / v3.5 / v4.0 PCH
                 PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
             }
             else {
@@ -2946,7 +3071,7 @@ rule CompileAssembly
 
 actions CompileAssembly
 {
-    $(CC) -c -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) $(PREFIX_HEADER_ASFLAGS:Q) "$(OTHER_ASFLAGS)" $($(2)_COMPILER_FLAGS) $(2:Q) -o $(1:Q)
+    $(CC) -c $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) $(PREFIX_HEADER_ASFLAGS:Q) "$(OTHER_ASFLAGS)" $($(2)_COMPILER_FLAGS) $(2:Q) -o $(1:Q)
 }
 
 
@@ -3012,7 +3137,7 @@ rule CompileFortran
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_FRAMEWORK)/PrivateHeaders $(KERNEL_HEADERS) ;
         local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
@@ -3060,11 +3185,20 @@ rule CompileFortran
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(GCC_VERSION) != 3.5 && $(GCC_VERSION) != 4.0 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
+    # Pass headermap and/or header symlinks directory.
     if $(CPP_HEADERMAP_FILE) {
-        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+        if $(GCC_VERSION) <= 3.3 {
+            CPP_HEADERMAP_FLAGS on $(1) = -Wp,-header-mapfile,$(CPP_HEADERMAP_FILE) ;
+        }
+        else if $(GCC_VERSION) >= 4.0 {
+            CPP_HEADERMAP_FLAGS on $(1) = -I$(CPP_HEADERMAP_FILE) ;
+        }
+        else {
+            ECHO jam: warning: GCC v$(GCC_VERSION) does not support headermaps ;
+        }
     }
     if YES in $(GENERATE_CPP_ILOG_FILES) {
         local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(1:DB).ilog ;
@@ -3080,7 +3214,7 @@ rule CompileFortran
         }
         else {
             if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
-                # GCC v3.3 PCH
+                # GCC v3.3 / v3.5 / v4.0 PCH
                 PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
             }
             else {
@@ -3109,7 +3243,7 @@ rule CompileFortran
 
 actions CompileFortran
 {
-    $(CC) -c -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) $(PREFIX_HEADER_FFLAGS:Q) "$(OTHER_FFLAGS)" $($(2)_COMPILER_FLAGS) $(2:Q) -o $(1:Q)
+    $(CC) -c $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) $(PREFIX_HEADER_FFLAGS:Q) "$(OTHER_FFLAGS)" $($(2)_COMPILER_FLAGS) $(2:Q) -o $(1:Q)
 }
 
 VECTOR_SUFFIX default = ;

@@ -26,7 +26,7 @@ in this Software without prior written authorization from The Open Group.
 
 Author: Ralph Mor, X Consortium
 ******************************************************************************/
-/* $XFree86: xc/lib/ICE/ICElibint.h,v 1.6 2001/12/14 19:53:35 dawes Exp $ */
+/* $XFree86: xc/lib/ICE/ICElibint.h,v 1.7 2003/11/17 22:20:05 dawes Exp $ */
 
 #ifndef _ICELIBINT_H_
 #define _ICELIBINT_H_
@@ -127,7 +127,6 @@ struct _IceListenObj {
  */
 
 typedef void (*_IceProcessCoreMsgProc) (
-#if NeedFunctionPrototypes
     IceConn 		/* iceConn */,
     int			/* opcode */,
     unsigned long	/* length */,
@@ -135,7 +134,6 @@ typedef void (*_IceProcessCoreMsgProc) (
     IceReplyWaitInfo *  /* replyWait */,
     Bool *		/* replyReadyRet */,
     Bool *		/* connectionClosedRet */
-#endif
 );
 
 typedef struct {
@@ -411,173 +409,129 @@ extern IceIOErrorHandler _IceIOErrorHandler;
 
 
 extern void _IceErrorBadMajor (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* offendingMajor */,
     int			/* offendingMinor */,
     int			/* severity */
-#endif
 );
 
 extern void _IceErrorNoAuthentication (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* offendingMinor */
-#endif
 );
 
 extern void _IceErrorNoVersion (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* offendingMinor */
-#endif
 );
 
 extern void _IceErrorSetupFailed (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* offendingMinor */,
     char *		/* reason */
-#endif
 );
 
 extern void _IceErrorAuthenticationRejected (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* offendingMinor */,
     char *		/* reason */
-#endif
 );
 
 extern void _IceErrorAuthenticationFailed (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* offendingMinor */,
     char *		/* reason */
-#endif
 );
 
 extern void _IceErrorProtocolDuplicate (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     char *		/* protocolName */
-#endif
 );
 
 extern void _IceErrorMajorOpcodeDuplicate (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* majorOpcode */
-#endif
 );
 
 extern void _IceErrorUnknownProtocol (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     char *		/* protocolName */
-#endif
 );
 
 extern void _IceAddOpcodeMapping (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* hisOpcode */,
     int			/* myOpcode */
-#endif
 );
 
 extern char *_IceGetPeerName (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern void _IceFreeConnection (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern void _IceAddReplyWait (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     IceReplyWaitInfo *	/* replyWait */
-#endif
 );
 
 extern IceReplyWaitInfo *_IceSearchReplyWaits (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* majorOpcode */
-#endif
 );
 
 extern void _IceSetReplyReady (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     IceReplyWaitInfo *	/* replyWait */
-#endif
 );
 
 extern Bool _IceCheckReplyReady (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     IceReplyWaitInfo *	/* replyWait */
-#endif
 );
 
 extern void _IceConnectionOpened (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern void _IceConnectionClosed (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern void _IceGetPoAuthData (
-#if NeedFunctionPrototypes
     char *		/* protocol_name */,
     char *		/* address */,
     char *		/* auth_name */,
     unsigned short *	/* auth_data_length_ret */,
     char **		/* auth_data_ret */
-#endif
 );
 
 extern void _IceGetPaAuthData (
-#if NeedFunctionPrototypes
     char *		/* protocol_name */,
     char *		/* address */,
     char *		/* auth_name */,
     unsigned short *	/* auth_data_length_ret */,
     char **		/* auth_data_ret */
-#endif
 );
 
 extern void _IceGetPoValidAuthIndices (
-#if NeedFunctionPrototypes
     char *		/* protocol_name */,
     char *		/* address */,
     int			/* num_auth_names */,
     char **		/* auth_names */,
     int	*		/* num_indices_ret */,
     int	*		/* indices_ret */
-#endif
 );
 
 extern void _IceGetPaValidAuthIndices (
-#if NeedFunctionPrototypes
     char *		/* protocol_name */,
     char *		/* address */,
     int			/* num_auth_names */,
     char **		/* auth_names */,
     int	*		/* num_indices_ret */,
     int	*		/* indices_ret */
-#endif
 );
 
 #endif /* _ICELIBINT_H_ */

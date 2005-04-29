@@ -1,0 +1,51 @@
+--- collate.h.orig	2003-05-20 15:21:44.000000000 -0700
++++ collate.h	2005-02-19 14:36:36.000000000 -0800
+@@ -31,7 +31,9 @@
+ #define	_COLLATE_H_
+ 
+ #include <sys/cdefs.h>
++#ifndef __LIBC__
+ #include <sys/types.h>
++#endif /* !__LIBC__ */
+ #include <limits.h>
+ 
+ #define STR_LEN 10
+@@ -43,24 +45,32 @@
+ 	int prim, sec;
+ };
+ struct __collate_st_chain_pri {
+-	u_char str[STR_LEN];
++	unsigned char str[STR_LEN];
+ 	int prim, sec;
+ };
+ 
++#ifndef __LIBC__
+ extern int __collate_load_error;
+ extern int __collate_substitute_nontrivial;
+ #define __collate_substitute_table (*__collate_substitute_table_ptr)
+-extern u_char __collate_substitute_table[UCHAR_MAX + 1][STR_LEN];
++extern unsigned char __collate_substitute_table[UCHAR_MAX + 1][STR_LEN];
+ #define __collate_char_pri_table (*__collate_char_pri_table_ptr)
+ extern struct __collate_st_char_pri __collate_char_pri_table[UCHAR_MAX + 1];
+ extern struct __collate_st_chain_pri *__collate_chain_pri_table;
++#endif /* !__LIBC__ */
+ 
+ __BEGIN_DECLS
+-u_char	*__collate_strdup(u_char *);
+-u_char	*__collate_substitute(const u_char *);
+-int	__collate_load_tables(const char *);
+-void	__collate_lookup(const u_char *, int *, int *, int *);
++unsigned char	*__collate_strdup(unsigned char *);
++#ifdef __LIBC__
++unsigned char	*__collate_substitute_l(const unsigned char *, locale_t);
++int	__collate_load_tables(const char *, locale_t);
++void	__collate_lookup_l(const unsigned char *, int *, int *, int *, locale_t);
++int	__collate_range_cmp(int, int, locale_t);
++#else /* !__LIBC__ */
++unsigned char	*__collate_substitute(const unsigned char *);
++void	__collate_lookup(const unsigned char *, int *, int *, int *);
+ int	__collate_range_cmp(int, int);
++#endif /* __LIBC__ */
+ #ifdef COLLATE_DEBUG
+ void	__collate_print_tables(void);
+ #endif

@@ -1,4 +1,4 @@
-## $Id: Makefile.am,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+## $Id: Makefile.am,v 1.1.1.2 2004/07/23 06:26:30 jlovell Exp $
 ## Copyright (C) 2000 Roger Leigh
 ##
 ## This program is free software; you can redistribute it and/or modify
@@ -23,10 +23,21 @@ AUTOMAKE_OPTIONS = 1.4 gnu
 
 MAINT_CHARSET = latin1
 
-NONGIMP_SUBDIRS =
-## @-@-@-@-@ NO-GIMP @-@-@-@-@
-NONGIMP_SUBDIRS = cups foomatic ghost testpattern
-## @-@-@-@-@ YES-GIMP @-@-@-@-@
-SUBDIRS = printdef main escputil gimp $(NONGIMP_SUBDIRS)
+include $(top_srcdir)/scripts/global.mk
+
+SUBDIRS = 					\
+	main					\
+	libgimpprintui				\
+	libgimpprintui2				\
+	escputil				\
+	gimp					\
+	gimp2					\
+	cups					\
+	foomatic				\
+	ghost					\
+	testpattern
+
+
+## Clean
 
 MAINTAINERCLEANFILES = Makefile.in

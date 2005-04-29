@@ -1,7 +1,7 @@
 /*
  *  SQLConfigDriver.c
  *
- *  $Id: SQLConfigDriver.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: SQLConfigDriver.c,v 1.4 2004/11/11 01:52:40 luesang Exp $
  *
  *  Load the appropriate driver setup DLL and calls the ConfigDriver
  *  function.
@@ -75,8 +75,8 @@
 #include <iodbc.h>
 #include <iodbcinst.h>
 
-#ifdef _MACX
-#  include <Carbon/Carbon.h>
+#ifdef __APPLE__
+#  include <CoreFoundation/CoreFoundation.h>
 #endif
 
 #include "dlf.h"
@@ -111,14 +111,14 @@
 
 BOOL INSTAPI
 SQLConfigDriver (HWND hwndParent, WORD fRequest, LPCSTR lpszDriver,
-    LPCSTR lpszArgs, LPSTR lpszMsg, WORD cbMsgMax, WORD FAR *pcbMsgOut)
+    LPCSTR lpszArgs, LPSTR lpszMsg, WORD cbMsgMax, WORD *pcbMsgOut)
 {
   PCONFIG pCfg;
   BOOL retcode = FALSE;
   void *handle;
   pConfigDriverFunc pConfigDriver;
-#ifdef _MACX
-  CFStringRef libname;
+#ifdef __APPLE__
+  CFStringRef libname = NULL;
   CFBundleRef bundle;
   CFURLRef liburl;
   char name[1024] = { 0 };
@@ -177,7 +177,7 @@ SQLConfigDriver (HWND hwndParent, WORD fRequest, LPCSTR lpszDriver,
     }
 
   /* The last ressort, a proxy driver */
-#ifdef _MACX
+#ifdef __APPLE__
   bundle = CFBundleGetBundleWithIdentifier (CFSTR ("org.iodbc.core"));
   if (bundle)
     {

@@ -1,21 +1,21 @@
 /* Handle types for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -27,6 +27,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "real.h"
 #include "obstack.h"
@@ -37,20 +39,18 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "ggc.h"
 
-static tree convert_ieee_real_to_integer PARAMS ((tree, tree));
-static tree parse_signature_type PARAMS ((const unsigned char **,
-					 const unsigned char *));
-static tree lookup_do PARAMS ((tree, tree, tree, tree, tree (*)(tree)));
-static tree build_null_signature PARAMS ((tree));
+static tree convert_ieee_real_to_integer (tree, tree);
+static tree parse_signature_type (const unsigned char **,
+				  const unsigned char *);
+static tree lookup_do (tree, int, tree, tree, tree (*)(tree));
+static tree build_null_signature (tree);
 
 tree * type_map;
 
 /* Set the type of the local variable with index SLOT to TYPE. */
 
 void
-set_local_type (slot, type)
-     int slot;
-     tree type;
+set_local_type (int slot, tree type)
 {
   int max_locals = DECL_MAX_LOCALS(current_function_decl);
   int nslots = TYPE_IS_WIDE (type) ? 2 : 1;
@@ -78,28 +78,29 @@ set_local_type (slot, type)
 	     : (int)expr))) */
 
 static tree
-convert_ieee_real_to_integer (type, expr)
-     tree type, expr;
+convert_ieee_real_to_integer (tree type, tree expr)
 {
   tree result;
   expr = save_expr (expr);
 
-  result = build (COND_EXPR, type,
-		  build (NE_EXPR, boolean_type_node, expr, expr),
-		  convert (type, integer_zero_node),
-		  convert_to_integer (type, expr));
-		  
-  result = build (COND_EXPR, type, 
-		  build (LE_EXPR, boolean_type_node, expr, 
-			 convert (TREE_TYPE (expr), TYPE_MIN_VALUE (type))),
-		  TYPE_MIN_VALUE (type),
-		  result);
-
-  result = build (COND_EXPR, type,
-		  build (GE_EXPR, boolean_type_node, expr, 
-			 convert (TREE_TYPE (expr), TYPE_MAX_VALUE (type))),	
-		  TYPE_MAX_VALUE (type),
-		  result);
+  result = fold (build3 (COND_EXPR, type,
+			 fold (build2 (NE_EXPR, boolean_type_node, expr, expr)),
+			 convert (type, integer_zero_node),
+			 convert_to_integer (type, expr)));
+  
+  result = fold (build3 (COND_EXPR, type, 
+			 fold (build2 (LE_EXPR, boolean_type_node, expr, 
+				       convert (TREE_TYPE (expr), 
+						TYPE_MIN_VALUE (type)))),
+			 TYPE_MIN_VALUE (type),
+			 result));
+  
+  result = fold (build3 (COND_EXPR, type,
+			 fold (build2 (GE_EXPR, boolean_type_node, expr, 
+				       convert (TREE_TYPE (expr), 
+						TYPE_MAX_VALUE (type)))),
+			 TYPE_MAX_VALUE (type),
+			 result));
 
   return result;
 }  
@@ -111,10 +112,9 @@ convert_ieee_real_to_integer (type, expr)
    not permitted by the language being compiled.  */
 
 tree
-convert (type, expr)
-     tree type, expr;
+convert (tree type, tree expr)
 {
-  register enum tree_code code = TREE_CODE (type);
+  enum tree_code code = TREE_CODE (type);
 
   if (!expr)
    return error_mark_node;
@@ -133,13 +133,21 @@ convert (type, expr)
     return fold (convert_to_boolean (type, expr));
   if (code == INTEGER_TYPE)
     {
-      if (! flag_unsafe_math_optimizations
-	  && ! flag_emit_class_files
+      if ((really_constant_p (expr)
+	   || (! flag_unsafe_math_optimizations
+	       && ! flag_emit_class_files))
 	  && TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
 	  && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
 	return fold (convert_ieee_real_to_integer (type, expr));
       else
-	return fold (convert_to_integer (type, expr));
+	{
+	  /* fold very helpfully sets the overflow status if a type
+	     overflows in a narrowing integer conversion, but Java
+	     doesn't care.  */
+	  tree tmp = fold (convert_to_integer (type, expr));
+	  TREE_OVERFLOW (tmp) = 0;
+	  return tmp;
+	}
     }	  
   if (code == REAL_TYPE)
     return fold (convert_to_real (type, expr));
@@ -153,15 +161,13 @@ convert (type, expr)
 
 
 tree
-convert_to_char (type, expr)
-    tree type, expr;
+convert_to_char (tree type, tree expr)
 {
   return build1 (NOP_EXPR, type, expr);
 }
 
 tree
-convert_to_boolean (type, expr)
-     tree type, expr;
+convert_to_boolean (tree type, tree expr)
 {
   return build1 (NOP_EXPR, type, expr);
 }
@@ -171,9 +177,7 @@ convert_to_boolean (type, expr)
    then UNSIGNEDP selects between signed and unsigned types.  */
 
 tree
-java_type_for_mode (mode, unsignedp)
-     enum machine_mode mode;
-     int unsignedp;
+java_type_for_mode (enum machine_mode mode, int unsignedp)
 {
   if (mode == TYPE_MODE (int_type_node))
     return unsignedp ? unsigned_int_type_node : int_type_node;
@@ -195,9 +199,7 @@ java_type_for_mode (mode, unsignedp)
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
 tree
-java_type_for_size (bits, unsignedp)
-     unsigned bits;
-     int unsignedp;
+java_type_for_size (unsigned bits, int unsignedp)
 {
   if (bits <= TYPE_PRECISION (byte_type_node))
     return unsignedp ? unsigned_byte_type_node : byte_type_node;
@@ -214,9 +216,7 @@ java_type_for_size (bits, unsignedp)
    signed according to UNSIGNEDP.  */
 
 tree
-java_signed_or_unsigned_type (unsignedp, type)
-     int unsignedp;
-     tree type;
+java_signed_or_unsigned_type (int unsignedp, tree type)
 {
   if (! INTEGRAL_TYPE_P (type))
     return type;
@@ -234,8 +234,7 @@ java_signed_or_unsigned_type (unsignedp, type)
 /* Return a signed type the same as TYPE in other respects.  */
 
 tree
-java_signed_type (type)
-     tree type;
+java_signed_type (tree type)
 {
   return java_signed_or_unsigned_type (0, type);
 }
@@ -243,8 +242,7 @@ java_signed_type (type)
 /* Return an unsigned type the same as TYPE in other respects.  */
 
 tree
-java_unsigned_type (type)
-     tree type;
+java_unsigned_type (tree type)
 {
   return java_signed_or_unsigned_type (1, type);
 }
@@ -254,10 +252,9 @@ java_unsigned_type (type)
    Value is true if successful.  */
 
 bool
-java_mark_addressable (exp)
-     tree exp;
+java_mark_addressable (tree exp)
 {
-  register tree x = exp;
+  tree x = exp;
   while (1)
     switch (TREE_CODE (x))
       {
@@ -318,8 +315,7 @@ java_mark_addressable (exp)
 /* Thorough checking of the arrayness of TYPE.  */
 
 int
-is_array_type_p (type)
-     tree type;
+is_array_type_p (tree type)
 {
   return TREE_CODE (type) == POINTER_TYPE
     && TREE_CODE (TREE_TYPE (type)) == RECORD_TYPE
@@ -330,8 +326,7 @@ is_array_type_p (type)
    Return -1 if the length is unknown or non-constant. */
 
 HOST_WIDE_INT
-java_array_type_length (array_type)
-     tree array_type;
+java_array_type_length (tree array_type)
 {
   tree arfld;
   if (TREE_CODE (array_type) == POINTER_TYPE)
@@ -352,20 +347,17 @@ java_array_type_length (array_type)
 
 /* An array of unknown length will be ultimately given an length of
    -2, so that we can still have `length' producing a negative value
-   even if found. This was part of an optimization amaing at removing
+   even if found. This was part of an optimization aiming at removing
    `length' from static arrays. We could restore it, FIXME.  */
 
 tree
-build_prim_array_type (element_type, length)
-     tree element_type;
-     HOST_WIDE_INT length;
+build_prim_array_type (tree element_type, HOST_WIDE_INT length)
 {
   tree index = NULL;
 
   if (length != -1)
     {
-      tree max_index = build_int_2 (length - 1, (0 == length ? -1 : 0));
-      TREE_TYPE (max_index) = sizetype;
+      tree max_index = build_int_cst (sizetype, length - 1);
       index = build_index_type (max_index);
     }
   return build_array_type (element_type, index);
@@ -376,9 +368,7 @@ build_prim_array_type (element_type, length)
    The LENGTH is -1 if the length is unknown. */
 
 tree
-build_java_array_type (element_type, length)
-     tree element_type;
-     HOST_WIDE_INT length;
+build_java_array_type (tree element_type, HOST_WIDE_INT length)
 {
   tree sig, t, fld, atype, arfld;
   char buf[12];
@@ -403,9 +393,17 @@ build_java_array_type (element_type, length)
   el_name = TYPE_NAME (el_name);
   if (TREE_CODE (el_name) == TYPE_DECL)
     el_name = DECL_NAME (el_name);
-  TYPE_NAME (t) = build_decl (TYPE_DECL,
-                             identifier_subst (el_name, "", '.', '.', "[]"),
+  {
+    char suffix[12];
+    if (length >= 0)
+      sprintf (suffix, "[%d]", (int)length); 
+    else
+      strcpy (suffix, "[]");
+    TYPE_NAME (t) 
+      = build_decl (TYPE_DECL,
+		    identifier_subst (el_name, "", '.', '.', suffix),
                              t);
+  }
 
   set_java_signature (t, sig);
   set_super_info (0, t, object_type_node, 0);
@@ -439,8 +437,7 @@ build_java_array_type (element_type, length)
 /* Promote TYPE to the type actually used for fields and parameters. */
 
 tree
-promote_type (type)
-     tree type;
+promote_type (tree type)
 {
   switch (TREE_CODE (type))
     {
@@ -474,8 +471,7 @@ promote_type (type)
    Return the seen TREE_TYPE, updating *PTR. */
 
 static tree
-parse_signature_type (ptr, limit)
-     const unsigned char **ptr, *limit;
+parse_signature_type (const unsigned char **ptr, const unsigned char *limit)
 {
   tree type;
 
@@ -501,7 +497,7 @@ parse_signature_type (ptr, limit)
     case 'L':
       {
 	const unsigned char *start = ++(*ptr);
-	register const unsigned char *str = start;
+	const unsigned char *str = start;
 	for ( ; ; str++)
 	  {
 	    if (str >= limit)
@@ -510,7 +506,7 @@ parse_signature_type (ptr, limit)
 	      break;
 	  }
 	*ptr = str+1;
-	type = lookup_class (unmangle_classname (start, str - start));
+	type = lookup_class (unmangle_classname ((const char *) start, str - start));
 	break;
       }
     default:
@@ -524,9 +520,7 @@ parse_signature_type (ptr, limit)
    Return a gcc type node. */
 
 tree
-parse_signature_string (sig_string, sig_length)
-     const unsigned char *sig_string;
-     int sig_length;
+parse_signature_string (const unsigned char *sig_string, int sig_length)
 {
   tree result_type;
   const unsigned char *str = sig_string;
@@ -579,8 +573,7 @@ get_type_from_signature (tree signature)
 /* Ignore signature and always return null.  Used by has_method. */
 
 static tree
-build_null_signature (type)
-     tree type ATTRIBUTE_UNUSED;
+build_null_signature (tree type ATTRIBUTE_UNUSED)
 {
   return NULL_TREE;
 }
@@ -588,8 +581,7 @@ build_null_signature (type)
 /* Return the signature string for the arguments of method type TYPE. */
 
 tree
-build_java_argument_signature (type)
-     tree type;
+build_java_argument_signature (tree type)
 {
   extern struct obstack temporary_obstack;
   tree sig = TYPE_ARGUMENT_SIGNATURE (type);
@@ -616,8 +608,7 @@ build_java_argument_signature (type)
 /* Return the signature of the given TYPE. */
 
 tree
-build_java_signature (type)
-     tree type;
+build_java_signature (tree type)
 {
   tree sig, t;
   while (TREE_CODE (type) == POINTER_TYPE)
@@ -697,9 +688,7 @@ build_java_signature (type)
 /* Save signature string SIG (an IDENTIFIER_NODE) in TYPE for future use. */
 
 void
-set_java_signature (type, sig)
-     tree type;
-     tree sig;
+set_java_signature (tree type, tree sig)
 {
   tree old_sig;
   while (TREE_CODE (type) == POINTER_TYPE)
@@ -715,142 +704,197 @@ set_java_signature (type, sig)
 #endif
 }
 
-/* Search in class SEARCHED_CLASS (and its superclasses) for a method
-   matching METHOD_NAME and signature SIGNATURE.  If SEARCHED_INTERFACE is
-   not NULL_TREE then first search its superinterfaces for a similar match.
-   Return the matched method DECL or NULL_TREE.  SIGNATURE_BUILDER is
-   used on method candidates to build their (sometimes partial)
-   signature.  */
-
+/* Search in SEARCHED_CLASS and its superclasses for a method matching
+   METHOD_NAME and signature METHOD_SIGNATURE.  This function will
+   only search for methods declared in the class hierarchy; interfaces
+   will not be considered.  Returns NULL_TREE if the method is not
+   found.  */
 tree
-lookup_argument_method (searched_class, method_name, method_signature)
-     tree searched_class, method_name, method_signature;
+lookup_argument_method (tree searched_class, tree method_name,
+			tree method_signature)
 {
-  return lookup_do (searched_class, NULL_TREE, method_name, method_signature, 
-		    build_java_argument_signature);
-}
-
-/* Search in class SEARCHED_CLASS (and its superclasses and
-   implemented interfaces) for a method matching METHOD_NAME and
-   argument signature METHOD_SIGNATURE.  Return a FUNCTION_DECL on
-   success, or NULL_TREE if none found.  (Contrast lookup_java_method,
-   which takes into account return type.) */
-
-tree
-lookup_argument_method2 (searched_class, method_name, method_signature)
-     tree searched_class, method_name, method_signature;
-{
-  return lookup_do (CLASSTYPE_SUPER (searched_class), searched_class,
+  return lookup_do (searched_class, 0,
 		    method_name, method_signature, 
 		    build_java_argument_signature);
 }
 
+/* Like lookup_argument_method, but lets the caller set any flags
+   desired.  */
+tree
+lookup_argument_method_generic (tree searched_class, tree method_name,
+				tree method_signature, int flags)
+{
+  return lookup_do (searched_class, flags,
+		    method_name, method_signature, 
+		    build_java_argument_signature);
+}
+
+
 /* Search in class SEARCHED_CLASS (and its superclasses) for a method
    matching METHOD_NAME and signature METHOD_SIGNATURE.  Return a
    FUNCTION_DECL on success, or NULL_TREE if none found.  (Contrast
-   lookup_argument_method, which ignores return type.) If
+   lookup_argument_method, which ignores return type.)  If
    SEARCHED_CLASS is an interface, search it too. */
-
 tree
-lookup_java_method (searched_class, method_name, method_signature)
-     tree searched_class, method_name, method_signature;
+lookup_java_method (tree searched_class, tree method_name,
+		    tree method_signature)
 {
-  tree searched_interface;
-  
-  /* If this class is an interface class, search its superinterfaces
-   * first. A superinterface is not an interface's superclass: a super
-   * interface is implemented by the interface.  */
-
-  searched_interface = (CLASS_INTERFACE (TYPE_NAME (searched_class)) ?
-			searched_class : NULL_TREE);
-  return lookup_do (searched_class, searched_interface, method_name, 
+  return lookup_do (searched_class, SEARCH_INTERFACE, method_name, 
 		    method_signature, build_java_signature);
 }
 
-/* Return true iff CLASS (or its ancestors) has a method METHOD_NAME. */
-
+/* Return true iff CLASS (or its ancestors) has a method METHOD_NAME.  */
 int
-has_method (class, method_name)
-     tree class;
-     tree method_name;
+has_method (tree class, tree method_name)
 {
-  return lookup_do (class, class,  method_name,
-		    NULL_TREE, build_null_signature) != NULL_TREE;
+  return lookup_do (class, SEARCH_INTERFACE,
+		    method_name, NULL_TREE,
+		    build_null_signature) != NULL_TREE;
 }
 
-/* Search in class SEARCHED_CLASS (and its superclasses) for a method
-   matching METHOD_NAME and signature SIGNATURE.  Also search in
-   SEARCHED_INTERFACE (and its superinterfaces) for a similar match.
-   Return the matched method DECL or NULL_TREE.  SIGNATURE_BUILDER is
-   used on method candidates to build their (sometimes partial)
-   signature.  */
-
+/* Search in class SEARCHED_CLASS, but not its superclasses, for a
+   method matching METHOD_NAME and signature SIGNATURE.  A private
+   helper for lookup_do.  */
 static tree
-lookup_do (searched_class, searched_interface, method_name, signature, signature_builder)
-     tree searched_class, searched_interface, method_name, signature;
-     tree (*signature_builder) PARAMS ((tree));
+shallow_find_method (tree searched_class, int flags, tree method_name, 
+	     tree signature, tree (*signature_builder) (tree))
 {
   tree method;
-  
-  if (searched_interface)
+  for (method = TYPE_METHODS (searched_class);
+       method != NULL_TREE;  method = TREE_CHAIN (method))
     {
-      int i;
-      int interface_len = 
-	TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (searched_interface)) - 1;
-
-      for (i = interface_len; i > 0; i--)
-       {
-         tree child = 
-	   TREE_VEC_ELT (TYPE_BINFO_BASETYPES (searched_interface), i);
-         tree iclass = BINFO_TYPE (child);
-
-         /* If the superinterface hasn't been loaded yet, do so now.  */
-	 if (CLASS_FROM_SOURCE_P (iclass))
-	   safe_layout_class (iclass);
-	 else if (!CLASS_LOADED_P (iclass))
-	   load_class (iclass, 1);
-
-         for (method = TYPE_METHODS (iclass);
-              method != NULL_TREE;  method = TREE_CHAIN (method))
-           {
-             tree method_sig = (*signature_builder) (TREE_TYPE (method));
-
-	     if (DECL_NAME (method) == method_name && method_sig == signature)
-               return method;
-           }
-
-         /* it could be defined in a supersuperinterface */
-         if (CLASS_INTERFACE (TYPE_NAME (iclass)))
-           {
-             method = lookup_do (iclass, iclass, method_name, 
-				 signature, signature_builder);
-             if (method != NULL_TREE) 
-	       return method;
-           }
-       }
-    }
-
-  while (searched_class != NULL_TREE)
-    {
-      for (method = TYPE_METHODS (searched_class);
-	   method != NULL_TREE;  method = TREE_CHAIN (method))
+      tree method_sig = (*signature_builder) (TREE_TYPE (method));
+      if (DECL_NAME (method) == method_name && method_sig == signature)
 	{
-	  tree method_sig = (*signature_builder) (TREE_TYPE (method));
-	  if (DECL_NAME (method) == method_name && method_sig == signature)
+	  /* If the caller requires a visible method, then we
+	     skip invisible methods here.  */
+	  if (! (flags & SEARCH_VISIBLE)
+	      || ! METHOD_INVISIBLE (method))
 	    return method;
 	}
-      searched_class = CLASSTYPE_SUPER (searched_class);
+    }
+  return NULL_TREE;
+}
+
+/* Search in the superclasses of SEARCHED_CLASS for a method matching
+   METHOD_NAME and signature SIGNATURE.  A private helper for
+   lookup_do.  */
+static tree
+find_method_in_superclasses (tree searched_class, int flags, 
+                             tree method_name, tree signature,
+                             tree (*signature_builder) (tree))
+{
+  tree klass;
+  for (klass = CLASSTYPE_SUPER (searched_class); klass != NULL_TREE;
+       klass = CLASSTYPE_SUPER (klass))
+    {
+      tree method;
+      method = shallow_find_method (klass, flags, method_name, 
+				    signature, signature_builder);
+      if (method != NULL_TREE)
+	return method;
     }
 
   return NULL_TREE;
+}
+
+/* Search in the interfaces of SEARCHED_CLASS and its superinterfaces
+   for a method matching METHOD_NAME and signature SIGNATURE.  A
+   private helper for lookup_do.  */
+static tree
+find_method_in_interfaces (tree searched_class, int flags, tree method_name,
+                           tree signature, tree (*signature_builder) (tree))
+{
+  int i;
+  tree binfo, base_binfo;
+
+  for (binfo = TYPE_BINFO (searched_class), i = 1;
+       BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+    {
+      tree iclass = BINFO_TYPE (base_binfo);
+      tree method;
+	  
+      /* If the superinterface hasn't been loaded yet, do so now.  */
+      if (CLASS_FROM_SOURCE_P (iclass))
+	safe_layout_class (iclass);
+      else if (!CLASS_LOADED_P (iclass))
+	load_class (iclass, 1);
+	  
+      /* First, we look in ICLASS.  If that doesn't work we'll
+	 recursively look through all its superinterfaces.  */
+      method = shallow_find_method (iclass, flags, method_name, 
+				    signature, signature_builder);      
+      if (method != NULL_TREE)
+	return method;
+  
+      method = find_method_in_interfaces 
+	(iclass, flags, method_name, signature, signature_builder);
+      if (method != NULL_TREE)
+	return method;
+    }
+  
+  return NULL_TREE;
+}
+
+
+/* Search in class SEARCHED_CLASS (and its superclasses) for a method
+   matching METHOD_NAME and signature SIGNATURE.  FLAGS control some
+   parameters of the search.
+   
+   SEARCH_INTERFACE means also search interfaces and superinterfaces
+   of SEARCHED_CLASS.
+   
+   SEARCH_SUPER means skip SEARCHED_CLASS and start with its
+   superclass.
+   
+   SEARCH_VISIBLE means skip methods for which METHOD_INVISIBLE is
+   set.
+
+   Return the matched method DECL or NULL_TREE.  SIGNATURE_BUILDER is
+   used on method candidates to build their (sometimes partial)
+   signature.  */
+static tree
+lookup_do (tree searched_class, int flags, tree method_name,
+	   tree signature, tree (*signature_builder) (tree))
+{
+  tree method;
+    
+  if (searched_class == NULL_TREE)
+    return NULL_TREE;
+
+  if (flags & SEARCH_SUPER)
+    {
+      searched_class = CLASSTYPE_SUPER (searched_class);
+      if (searched_class == NULL_TREE)
+	return NULL_TREE;
+    }
+
+  /* First look in our own methods.  */
+  method = shallow_find_method (searched_class, flags, method_name,
+				signature, signature_builder);  
+  if (method)
+    return method;
+
+  /* Then look in our superclasses.  */
+  if (! CLASS_INTERFACE (TYPE_NAME (searched_class)))
+    method = find_method_in_superclasses (searched_class, flags, method_name,
+					  signature, signature_builder);  
+  if (method)
+    return method;
+  
+  /* If that doesn't work, look in our interfaces.  */
+  if (flags & SEARCH_INTERFACE)
+    method = find_method_in_interfaces (searched_class, flags, method_name, 
+					signature, signature_builder);
+  
+  return method;
 }
 
 /* Search in class CLAS for a constructor matching METHOD_SIGNATURE.
    Return a FUNCTION_DECL on success, or NULL_TREE if none found. */
 
 tree
-lookup_java_constructor (clas, method_signature)
-     tree clas, method_signature;
+lookup_java_constructor (tree clas, tree method_signature)
 {
   tree method = TYPE_METHODS (clas);
   for ( ; method != NULL_TREE;  method = TREE_CHAIN (method))
@@ -867,11 +911,7 @@ lookup_java_constructor (clas, method_signature)
    Promotion. It assumes that both T1 and T2 are eligible to BNP. */
 
 tree
-binary_numeric_promotion (t1, t2, exp1, exp2)
-     tree t1;
-     tree t2;
-     tree *exp1;
-     tree *exp2;
+binary_numeric_promotion (tree t1, tree t2, tree *exp1, tree *exp2)
 {
   if (t1 == double_type_node || t2 == double_type_node)
     {

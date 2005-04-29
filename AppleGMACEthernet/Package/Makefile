@@ -19,4 +19,4 @@ clean:
 /tmp/AppleGMACEthernet.dst:
 	-chmod -R 777 /tmp/AppleGMACEthernet.dst
 	rm -rf /tmp/AppleGMACEthernet.dst
-	(cd .. ; pbxbuild install )
+	(cd .. ; xcodebuild install )

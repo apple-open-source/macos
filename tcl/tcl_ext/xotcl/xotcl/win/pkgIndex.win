@@ -1,0 +1,3 @@
+  package ifneeded XOTcl 1.1 [list load \
+    [file join $dir ../../bin xotcl1.1.dll] XOTcl]
+

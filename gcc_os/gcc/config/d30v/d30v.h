@@ -79,7 +79,13 @@
 
 /* Run-time target specifications */
 
-#define CPP_PREDEFINES "-D__D30V__ -Amachine=d30v"
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define ("__D30V__");		\
+      builtin_assert ("machine=d30v");		\
+    }						\
+  while (0)
 
 /* This declaration should be present.  */
 extern int target_flags;
@@ -161,13 +167,7 @@ extern int target_flags;
 
 #define WORDS_BIG_ENDIAN 1
 
-#define BITS_PER_UNIT 8
-
-#define BITS_PER_WORD 32
-
 #define UNITS_PER_WORD 4
-
-#define POINTER_SIZE 32
 
 #define PROMOTE_MODE(MODE,UNSIGNEDP,TYPE)				\
 do {									\
@@ -201,9 +201,6 @@ do {									\
 /* Defined in svr4.h.  */
 
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
 
 /* Layout of Source Language Data Types */
 
@@ -214,8 +211,6 @@ do {									\
 #define LONG_TYPE_SIZE 32
 
 #define LONG_LONG_TYPE_SIZE 64
-
-#define CHAR_TYPE_SIZE 8
 
 #define FLOAT_TYPE_SIZE 32
 
@@ -613,20 +608,6 @@ extern unsigned char modes_tieable_p[];
 /* #define LEAF_REG_REMAP(REGNO) */
 
 
-/* Registers That Form a Stack.  */
-
-/* Define this if the machine has any stack-like registers.  */
-/* #define STACK_REGS */
-
-/* The number of the first stack-like register.  This one is the top
-   of the stack.  */
-/* #define FIRST_STACK_REG */
-
-/* The number of the last stack-like register.  This one is the
-   bottom of the stack.  */
-/* #define LAST_STACK_REG */
-
-
 /* Register Classes */
 
 /* An enumeral type that must be defined with all the register class names as
@@ -839,7 +820,7 @@ extern enum reg_class reg_class_from_letter[256];
    registers, but not memory.  Some machines allow copying all registers to and
    from memory, but require a scratch register for stores to some memory
    locations (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In some cases,
+   certain symbolic address on the SPARC when compiling PIC).  In some cases,
    both an intermediate and a scratch register are required.
 
    You should define these macros to indicate to the reload phase that it may
@@ -896,7 +877,7 @@ extern enum reg_class reg_class_from_letter[256];
 
 /* Certain machines have the property that some registers cannot be copied to
    some other registers without using memory.  Define this macro on those
-   machines to be a C expression that is non-zero if objects of mode M in
+   machines to be a C expression that is nonzero if objects of mode M in
    registers of CLASS1 can only be copied to registers of class CLASS2 by
    storing a register of CLASS1 into memory and loading that memory location
    into a register of CLASS2.
@@ -939,15 +920,15 @@ extern enum reg_class reg_class_from_letter[256];
    few registers of certain classes that there would not be enough registers to
    use as spill registers if this were done.
 
-   Define `SMALL_REGISTER_CLASSES' to be an expression with a non-zero value on
-   these machines.  When this macro has a non-zero value, the compiler allows
+   Define `SMALL_REGISTER_CLASSES' to be an expression with a nonzero value on
+   these machines.  When this macro has a nonzero value, the compiler allows
    registers explicitly used in the rtl to be used as spill registers but
    avoids extending the lifetime of these registers.
 
-   It is always safe to define this macro with a non-zero value, but if you
+   It is always safe to define this macro with a nonzero value, but if you
    unnecessarily define it, you will reduce the amount of optimizations that
    can be performed in some cases.  If you do not define this macro with a
-   non-zero value when it is required, the compiler will run out of spill
+   nonzero value when it is required, the compiler will run out of spill
    registers and print a fatal error message.  For most machines, you should
    not define this macro at all.  */
 /* #define SMALL_REGISTER_CLASSES */
@@ -1125,7 +1106,7 @@ typedef struct d30v_stack {
 
 /* If defined, a C expression that produces the machine-specific code to setup
    the stack so that arbitrary frames can be accessed.  For example, on the
-   Sparc, we must flush all of the register windows to the stack before we can
+   SPARC, we must flush all of the register windows to the stack before we can
    access arbitrary stack frames.  This macro will seldom need to be defined.  */
 /* #define SETUP_FRAME_ADDRESSES() */
 
@@ -1371,7 +1352,7 @@ typedef struct d30v_stack {
   { FRAME_POINTER_REGNUM,	STACK_POINTER_REGNUM }			\
 }
 
-/* A C expression that returns non-zero if the compiler is allowed to try to
+/* A C expression that returns nonzero if the compiler is allowed to try to
    replace register number FROM-REG with register number TO-REG.  This macro
    need only be defined if `ELIMINABLE_REGS' is defined, and will usually be
    the constant 1, since most of the cases preventing register elimination are
@@ -1551,7 +1532,7 @@ typedef struct d30v_stack {
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the definition of
    this macro to determine if this argument is of a type that must be passed in
    the stack.  If `REG_PARM_STACK_SPACE' is not defined and `FUNCTION_ARG'
-   returns non-zero for such an argument, the compiler will abort.  If
+   returns nonzero for such an argument, the compiler will abort.  If
    `REG_PARM_STACK_SPACE' is defined, the argument will be computed in the
    stack and then loaded into a register.  */
 
@@ -1623,7 +1604,7 @@ typedef struct d30v_stack {
    on the stack, there is no need to store anything in `CUMULATIVE_ARGS';
    however, the data structure must exist and should not be empty, so use
    `int'.  */
-typedef int CUMULATIVE_ARGS;
+#define CUMULATIVE_ARGS int
 
 /* A C statement (sans semicolon) for initializing the variable CUM for the
    state at the beginning of the argument list.  The variable has type
@@ -1699,10 +1680,6 @@ typedef int CUMULATIVE_ARGS;
 
 
 /* How Scalar Function Values are Returned */
-
-/* Define this macro if `-traditional' should not cause functions declared to
-   return `float' to convert the value to `double'.  */ /* #define
-   TRADITIONAL_RETURN_FLOAT */
 
 /* A C expression to create an RTX representing the place where a function
    returns a value of data type VALTYPE.  VALTYPE is a tree node representing a
@@ -1902,43 +1879,12 @@ typedef int CUMULATIVE_ARGS;
    `DELAY_SLOTS_FOR_EPILOGUE'.  */
 /* #define ELIGIBLE_FOR_EPILOGUE_DELAY(INSN, N) */
 
-/* A C compound statement that outputs the assembler code for a thunk function,
-   used to implement C++ virtual function calls with multiple inheritance.  The
-   thunk acts as a wrapper around a virtual function, adjusting the implicit
-   object parameter before handing control off to the real function.
-
-   First, emit code to add the integer DELTA to the location that contains the
-   incoming first argument.  Assume that this argument contains a pointer, and
-   is the one used to pass the `this' pointer in C++.  This is the incoming
-   argument *before* the function prologue, e.g. `%o0' on a sparc.  The
-   addition must preserve the values of all other incoming arguments.
-
-   After the addition, emit code to jump to FUNCTION, which is a
-   `FUNCTION_DECL'.  This is a direct pure jump, not a call, and does not touch
-   the return address.  Hence returning from FUNCTION will return to whoever
-   called the current `thunk'.
-
-   The effect must be as if FUNCTION had been called directly with the
-   adjusted first argument.  This macro is responsible for emitting
-   all of the code for a thunk function; output_function_prologue()
-   and output_function_epilogue() are not invoked.
-
-   The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
-   extracted from it.)  It might possibly be useful on some targets, but
-   probably not.
-
-   If you do not define this macro, the target-independent code in the C++
-   frontend will generate a less efficient heavyweight thunk that calls
-   FUNCTION instead of jumping to it.  The generic approach does not support
-   varargs.  */
-/* #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) */
-
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
-typedef struct machine_function
+typedef struct machine_function GTY(())
 {
   /* Additionsl stack adjustment in __builtin_eh_throw.  */
-  struct rtx_def * eh_epilogue_sp_ofs;
+  rtx eh_epilogue_sp_ofs;
 } machine_function;
 
 
@@ -2027,14 +1973,14 @@ typedef struct machine_function
   (VALIST) = d30v_build_va_list ()
 
 
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is non-zero if this
+/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  If not defined, a standard
    implementation will be defined that works for arguments passed on the stack.  */
 
-#define EXPAND_BUILTIN_VA_START(STDARG_P, VALIST, NEXTARG)		\
-(d30v_expand_builtin_va_start(STDARG_P, VALIST, NEXTARG))
+#define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG)		\
+  d30v_expand_builtin_va_start(VALIST, NEXTARG)
 
 /* Implement the stdarg/varargs va_arg macro.  VALIST is the variable of type
    va_list as a tree, TYPE is the type passed to va_arg.  */
@@ -2245,7 +2191,7 @@ typedef struct machine_function
    Defined in svr4.h.  */
 /* #define TARGET_MEM_FUNCTIONS */
 
-/* Define this macro to generate code for Objective C message sending using the
+/* Define this macro to generate code for Objective-C message sending using the
    calling convention of the NeXT system.  This calling convention involves
    passing the object, the selector and the method arguments all at once to the
    method-lookup library function.
@@ -2282,60 +2228,7 @@ typedef struct machine_function
 
 /* A C compound statement with a conditional `goto LABEL;' executed if X (an
    RTX) is a legitimate memory address on the target machine for a memory
-   operand of mode MODE.
-
-   It usually pays to define several simpler macros to serve as subroutines for
-   this one.  Otherwise it may be too complicated to understand.
-
-   This macro must exist in two variants: a strict variant and a non-strict
-   one.  The strict variant is used in the reload pass.  It must be defined so
-   that any pseudo-register that has not been allocated a hard register is
-   considered a memory reference.  In contexts where some kind of register is
-   required, a pseudo-register with no hard register must be rejected.
-
-   The non-strict variant is used in other passes.  It must be defined to
-   accept all pseudo-registers in every context where some kind of register is
-   required.
-
-   Compiler source files that want to use the strict variant of this macro
-   define the macro `REG_OK_STRICT'.  You should use an `#ifdef REG_OK_STRICT'
-   conditional to define the strict variant in that case and the non-strict
-   variant otherwise.
-
-   Subroutines to check for acceptable registers for various purposes (one for
-   base registers, one for index registers, and so on) are typically among the
-   subroutines used to define `GO_IF_LEGITIMATE_ADDRESS'.  Then only these
-   subroutine macros need have two variants; the higher levels of macros may be
-   the same whether strict or not.
-
-   Normally, constant addresses which are the sum of a `symbol_ref' and an
-   integer are stored inside a `const' RTX to mark them as constant.
-   Therefore, there is no need to recognize such sums specifically as
-   legitimate addresses.  Normally you would simply recognize any `const' as
-   legitimate.
-
-   Usually `PRINT_OPERAND_ADDRESS' is not prepared to handle constant sums that
-   are not marked with `const'.  It assumes that a naked `plus' indicates
-   indexing.  If so, then you *must* reject such naked constant sums as
-   illegitimate addresses, so that none of them will be given to
-   `PRINT_OPERAND_ADDRESS'.
-
-   On some machines, whether a symbolic address is legitimate depends on the
-   section that the address refers to.  On these machines, define the macro
-   `ENCODE_SECTION_INFO' to store the information into the `symbol_ref', and
-   then check for it here.  When you see a `const', you will have to look
-   inside it to find the `symbol_ref' in order to determine the section.  *Note
-   Assembler Format::.
-
-   The best way to modify the name string is by adding text to the beginning,
-   with suitable punctuation to prevent any ambiguity.  Allocate the new name
-   in `saveable_obstack'.  You will have to modify `ASM_OUTPUT_LABELREF' to
-   remove and decode the added text and output the name accordingly, and define
-   `STRIP_NAME_ENCODING' to access the original name string.
-
-   You can check the information stored here into the `symbol_ref' in the
-   definitions of the macros `GO_IF_LEGITIMATE_ADDRESS' and
-   `PRINT_OPERAND_ADDRESS'.  */
+   operand of mode MODE.  */
 
 #ifdef	REG_OK_STRICT
 #define REG_OK_STRICT_P 1
@@ -2488,7 +2381,7 @@ do {									\
 /* #define EXTRA_CC_MODES */
 
 /* Returns a mode from class `MODE_CC' to be used when comparison operation
-   code OP is applied to rtx X and Y.  For example, on the Sparc,
+   code OP is applied to rtx X and Y.  For example, on the SPARC,
    `SELECT_CC_MODE' is defined as (see *note Jump Patterns::.  for a
    description of the reason for this definition)
 
@@ -2526,7 +2419,7 @@ do {									\
 
    You need not define this macro if it would always returns zero or if the
    floating-point format is anything other than `IEEE_FLOAT_FORMAT'.  For
-   example, here is the definition used on the Sparc, where floating-point
+   example, here is the definition used on the SPARC, where floating-point
    inequality comparisons are always given `CCFPEmode':
 
         #define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)  */
@@ -2683,10 +2576,10 @@ extern const char *d30v_branch_cost_string;
    times greater than aligned accesses, for example if they are emulated in a
    trap handler.
 
-   When this macro is non-zero, the compiler will act as if `STRICT_ALIGNMENT'
-   were non-zero when generating code for block moves.  This can cause
+   When this macro is nonzero, the compiler will act as if `STRICT_ALIGNMENT'
+   were nonzero when generating code for block moves.  This can cause
    significantly more instructions to be produced.  Therefore, do not set this
-   macro non-zero if unaligned accesses only add a cycle or two to the time for
+   macro nonzero if unaligned accesses only add a cycle or two to the time for
    a memory access.
 
    If the value of this macro is always zero, it need not be defined.  */
@@ -2736,7 +2629,7 @@ extern const char *d30v_branch_cost_string;
    uninitialized global data will be output in the data section if
    `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
    used.  */
-#define BSS_SECTION_ASM_OP "\t.bss"
+#define BSS_SECTION_ASM_OP "\t.section .bss"
 
 /* If defined, a C expression whose value is a string containing the
    assembler operation to identify the following data as
@@ -2759,74 +2652,12 @@ extern const char *d30v_branch_cost_string;
    Defined in svr4.h.  */
 /* #define EXTRA_SECTION_FUNCTIONS */
 
-/* On most machines, read-only variables, constants, and jump tables are placed
-   in the text section.  If this is not the case on your machine, this macro
-   should be defined to be the name of a function (either `data_section' or a
-   function defined in `EXTRA_SECTIONS') that switches to the section to be
-   used for read-only items.
-
-   If these items should be placed in the text section, this macro should not
-   be defined.  */
-/* #define READONLY_DATA_SECTION */
-
-/* A C statement or statements to switch to the appropriate section for output
-   of EXP.  You can assume that EXP is either a `VAR_DECL' node or a constant
-   of some sort.  RELOC indicates whether the initial value of EXP requires
-   link-time relocations.  Select the section by calling `text_section' or one
-   of the alternatives for other sections.
-
-   Do not define this macro if you put all read-only variables and constants in
-   the read-only data section (usually the text section).
-
-   Defined in svr4.h.  */
-/* #define SELECT_SECTION(EXP, RELOC, ALIGN) */
-
-/* A C statement or statements to switch to the appropriate section for output
-   of RTX in mode MODE.  You can assume that RTX is some kind of constant in
-   RTL.  The argument MODE is redundant except in the case of a `const_int'
-   rtx.  Select the section by calling `text_section' or one of the
-   alternatives for other sections.
-
-   Do not define this macro if you put all constants in the read-only data
-   section.
-
-   Defined in svr4.h.  */
-/* #define SELECT_RTX_SECTION(MODE, RTX, ALIGN) */
-
 /* Define this macro if jump tables (for `tablejump' insns) should be output in
    the text section, along with the assembler instructions.  Otherwise, the
    readonly data section is used.
 
    This macro is irrelevant if there is no separate readonly data section.  */
 /* #define JUMP_TABLES_IN_TEXT_SECTION */
-
-/* Define this macro if references to a symbol must be treated differently
-   depending on something about the variable or function named by the symbol
-   (such as what section it is in).
-
-   The macro definition, if any, is executed immediately after the rtl for DECL
-   has been created and stored in `DECL_RTL (DECL)'.  The value of the rtl will
-   be a `mem' whose address is a `symbol_ref'.
-
-   The usual thing for this macro to do is to record a flag in the `symbol_ref'
-   (such as `SYMBOL_REF_FLAG') or to store a modified name string in the
-   `symbol_ref' (if one bit is not enough information).  */
-/* #define ENCODE_SECTION_INFO(DECL) */
-
-/* Decode SYM_NAME and store the real name part in VAR, sans the characters
-   that encode section info.  Define this macro if `ENCODE_SECTION_INFO' alters
-   the symbol's name string.  */
-/* #define STRIP_NAME_ENCODING(VAR, SYM_NAME) */
-
-/* A C statement to build up a unique section name, expressed as a
-   STRING_CST node, and assign it to `DECL_SECTION_NAME (DECL)'.
-   RELOC indicates whether the initial value of EXP requires
-   link-time relocations.  If you do not define this macro, GNU CC
-   will use the symbol name prefixed by `.' as the section name.
-
-   Defined in svr4.h.  */
-/* #define UNIQUE_SECTION(DECL, RELOC) */
-
 
 /* Position Independent Code.  */
 
@@ -2938,8 +2769,8 @@ extern const char *d30v_branch_cost_string;
 /* #define ASM_OUTPUT_IDENT(STREAM, STRING) */
 
 /* A C statement to output any assembler statements which are required to
-   precede any Objective C object definitions or message sending.  The
-   statement is executed only when compiling an Objective C program.  */
+   precede any Objective-C object definitions or message sending.  The
+   statement is executed only when compiling an Objective-C program.  */
 /* #define OBJC_PROLOGUE */
 
 
@@ -2956,7 +2787,7 @@ extern const char *d30v_branch_cost_string;
 /* #define ASM_OUTPUT_ASCII(STREAM, PTR, LEN) */
 
 /* You may define this macro as a C expression.  You should define the
-   expression to have a non-zero value if GNU CC should output the
+   expression to have a nonzero value if GNU CC should output the
    constant pool for a function before the code for the function, or
    a zero value if GNU CC should output the constant pool after the
    function.  If you do not define this macro, the usual case, GNU CC
@@ -3022,27 +2853,6 @@ extern const char *d30v_branch_cost_string;
 
 /* These macros are provided by `real.h' for writing the definitions of
    `ASM_OUTPUT_DOUBLE' and the like: */
-
-/* These translate X, of type `REAL_VALUE_TYPE', to the target's floating point
-   representation, and store its bit pattern in the array of `long int' whose
-   address is L.  The number of elements in the output array is determined by
-   the size of the desired target floating point data type: 32 bits of it go in
-   each `long int' array element.  Each array element holds 32 bits of the
-   result, even if `long int' is wider than 32 bits on the host machine.
-
-   The array element values are designed so that you can print them out using
-   `fprintf' in the order they should appear in the target machine's memory.  */
-/* #define REAL_VALUE_TO_TARGET_SINGLE(X, L) */
-/* #define REAL_VALUE_TO_TARGET_DOUBLE(X, L) */
-/* #define REAL_VALUE_TO_TARGET_LONG_DOUBLE(X, L) */
-
-/* This macro converts X, of type `REAL_VALUE_TYPE', to a decimal number and
-   stores it as a string into STRING.  You must pass, as STRING, the address of
-   a long enough block of space to hold the result.
-
-   The argument FORMAT is a `printf'-specification that serves as a suggestion
-   for how to format the output string.  */
-/* #define REAL_VALUE_TO_DECIMAL(X, FORMAT, STRING) */
 
 
 /* Output of Uninitialized Variables.  */
@@ -3149,18 +2959,6 @@ extern const char *d30v_branch_cost_string;
 
 /* Output and Generation of Labels.  */
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM the
-   assembler definition of a label named NAME.  Use the expression
-   `assemble_name (STREAM, NAME)' to output the name itself; before and after
-   that, output the additional assembler syntax for defining the name, and a
-   newline.  */
-
-#define ASM_OUTPUT_LABEL(STREAM, NAME)					\
-do {									\
-  assemble_name (STREAM, NAME);						\
-  fputs (":\n", STREAM);						\
-} while (0)
-
 /* A C statement (sans semicolon) to output to the stdio stream STREAM any text
    necessary for declaring the name NAME of a function which is being defined.
    This macro is responsible for outputting the label definition (perhaps using
@@ -3207,18 +3005,8 @@ do {									\
    Defined in svr4.h.  */
 /* #define ASM_FINISH_DECLARE_OBJECT(STREAM, DECL, TOPLEVEL, ATEND) */
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM some
-   commands that will make the label NAME global; that is, available for
-   reference from other files.  Use the expression `assemble_name (STREAM,
-   NAME)' to output the name itself; before and after that, output the
-   additional assembler syntax for making that name global, and a newline.  */
-
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)				\
-do {									\
-  fputs ("\t.globl ", STREAM);						\
-  assemble_name (STREAM, NAME);						\
-  fputs ("\n", STREAM);							\
-} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* A C statement (sans semicolon) to output to the stdio stream STREAM some
    commands that will make the label NAME weak; that is, available for
@@ -3634,12 +3422,7 @@ do {									\
 
 /* A C compound statement to output to stdio stream STREAM the assembler syntax
    for an instruction operand that is a memory reference whose address is X.  X
-   is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on the section
-   that the address refers to.  On these machines, define the macro
-   `ENCODE_SECTION_INFO' to store the information into the `symbol_ref', and
-   then check for it here.  *Note Assembler Format::.  */
+   is an RTL expression.  */
 
 #define PRINT_OPERAND_ADDRESS(STREAM, X) d30v_print_operand_address (STREAM, X)
 
@@ -4161,144 +3944,6 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 /* #define SDB_ALLOW_FORWARD_REFERENCES */
 
 
-/* Cross Compilation and Floating Point.  */
-
-/* While all modern machines use 2's complement representation for integers,
-   there are a variety of representations for floating point numbers.  This
-   means that in a cross-compiler the representation of floating point numbers
-   in the compiled program may be different from that used in the machine doing
-   the compilation.
-
-   Because different representation systems may offer different amounts of
-   range and precision, the cross compiler cannot safely use the host machine's
-   floating point arithmetic.  Therefore, floating point constants must be
-   represented in the target machine's format.  This means that the cross
-   compiler cannot use `atof' to parse a floating point constant; it must have
-   its own special routine to use instead.  Also, constant folding must emulate
-   the target machine's arithmetic (or must not be done at all).
-
-   The macros in the following table should be defined only if you are cross
-   compiling between different floating point formats.
-
-   Otherwise, don't define them.  Then default definitions will be set up which
-   use `double' as the data type, `==' to test for equality, etc.
-
-   You don't need to worry about how many times you use an operand of any of
-   these macros.  The compiler never uses operands which have side effects.  */
-
-/* A macro for the C data type to be used to hold a floating point value in the
-   target machine's format.  Typically this would be a `struct' containing an
-   array of `int'.  */
-/* #define REAL_VALUE_TYPE */
-
-/* A macro for a C expression which compares for equality the two values, X and
-   Y, both of type `REAL_VALUE_TYPE'.  */
-/* #define REAL_VALUES_EQUAL(X, Y) */
-
-/* A macro for a C expression which tests whether X is less than Y, both values
-   being of type `REAL_VALUE_TYPE' and interpreted as floating point numbers in
-   the target machine's representation.  */
-/* #define REAL_VALUES_LESS(X, Y) */
-
-/* A macro for a C expression which performs the standard library function
-   `ldexp', but using the target machine's floating point representation.  Both
-   X and the value of the expression have type `REAL_VALUE_TYPE'.  The second
-   argument, SCALE, is an integer.  */
-/* #define REAL_VALUE_LDEXP(X, SCALE) */
-
-/* A macro whose definition is a C expression to convert the target-machine
-   floating point value X to a signed integer.  X has type `REAL_VALUE_TYPE'.  */
-/* #define REAL_VALUE_FIX(X) */
-
-/* A macro whose definition is a C expression to convert the target-machine
-   floating point value X to an unsigned integer.  X has type
-   `REAL_VALUE_TYPE'.  */
-/* #define REAL_VALUE_UNSIGNED_FIX(X) */
-
-/* A macro whose definition is a C expression to round the target-machine
-   floating point value X towards zero to an integer value (but still as a
-   floating point number).  X has type `REAL_VALUE_TYPE', and so does the
-   value.  */
-/* #define REAL_VALUE_RNDZINT(X) */
-
-/* A macro whose definition is a C expression to round the target-machine
-   floating point value X towards zero to an unsigned integer value (but still
-   represented as a floating point number).  X has type `REAL_VALUE_TYPE', and
-   so does the value.  */
-/* #define REAL_VALUE_UNSIGNED_RNDZINT(X) */
-
-/* A macro for a C expression which converts STRING, an expression of type
-   `char *', into a floating point number in the target machine's
-   representation for mode MODE.  The value has type `REAL_VALUE_TYPE'.  */
-/* #define REAL_VALUE_ATOF(STRING, MODE) */
-
-/* Define this macro if infinity is a possible floating point value, and
-   therefore division by 0 is legitimate.  */
-/* #define REAL_INFINITY */
-
-/* A macro for a C expression which determines whether X, a floating point
-   value, is infinity.  The value has type `int'.  By default, this is defined
-   to call `isinf'.  */
-/* #define REAL_VALUE_ISINF(X) */
-
-/* A macro for a C expression which determines whether X, a floating point
-   value, is a "nan" (not-a-number).  The value has type `int'.  By default,
-   this is defined to call `isnan'.  */
-/* #define REAL_VALUE_ISNAN(X) */
-
-/* Define the following additional macros if you want to make floating point
-   constant folding work while cross compiling.  If you don't define them,
-   cross compilation is still possible, but constant folding will not happen
-   for floating point values.  */
-
-/* A macro for a C statement which calculates an arithmetic operation of the
-   two floating point values X and Y, both of type `REAL_VALUE_TYPE' in the
-   target machine's representation, to produce a result of the same type and
-   representation which is stored in OUTPUT (which will be a variable).
-
-   The operation to be performed is specified by CODE, a tree code which will
-   always be one of the following: `PLUS_EXPR', `MINUS_EXPR', `MULT_EXPR',
-   `RDIV_EXPR', `MAX_EXPR', `MIN_EXPR'.
-
-   The expansion of this macro is responsible for checking for overflow.  If
-   overflow happens, the macro expansion should execute the statement `return
-   0;', which indicates the inability to perform the arithmetic operation
-   requested.  */
-/* #define REAL_ARITHMETIC(OUTPUT, CODE, X, Y) */
-
-/* The real.h file actually defines REAL_ARITHMETIC appropriately if it was
-   defined at all before entering into the code, by using #undef first.  */
-#define REAL_ARITHMETIC
-
-/* A macro for a C expression which returns the negative of the floating point
-   value X.  Both X and the value of the expression have type `REAL_VALUE_TYPE'
-   and are in the target machine's floating point representation.
-
-   There is no way for this macro to report overflow, since overflow can't
-   happen in the negation operation.  */
-/* #define REAL_VALUE_NEGATE(X) */
-
-/* A macro for a C expression which converts the floating point value X to mode
-   MODE.
-
-   Both X and the value of the expression are in the target machine's floating
-   point representation and have type `REAL_VALUE_TYPE'.  However, the value
-   should have an appropriate bit pattern to be output properly as a floating
-   constant whose precision accords with mode MODE.
-
-   There is no way for this macro to report overflow.  */
-/* #define REAL_VALUE_TRUNCATE(MODE, X) */
-
-/* A macro for a C expression which converts a floating point value X into a
-   double-precision integer which is then stored into LOW and HIGH, two
-   variables of type INT.  */
-/* #define REAL_VALUE_TO_INT(LOW, HIGH, X) */
-
-/* A macro for a C expression which converts a double-precision integer found
-   in LOW and HIGH, two variables of type INT, into a floating point value
-   which is then stored into X.  */
-/* #define REAL_VALUE_FROM_INT(X, LOW, HIGH) */
-
 
 /* Miscellaneous Parameters.  */
 
@@ -4444,7 +4089,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 /* A C expression that is nonzero if on this machine the number of bits
    actually used for the count of a shift operation is equal to the number of
    bits needed to represent the size of the object being shifted.  When this
-   macro is non-zero, the compiler will assume that it is safe to omit a
+   macro is nonzero, the compiler will assume that it is safe to omit a
    sign-extend, zero-extend, and certain bitwise `and' instructions that
    truncates the count of a shift operation.  On machines that have
    instructions that act on bitfields at variable positions, which may include
@@ -4453,7 +4098,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    instructions.
 
    If both types of instructions truncate the count (for shifts) and position
-   (for bitfield operations), or if no variable-position bitfield instructions
+   (for bit-field operations), or if no variable-position bit-field instructions
    exist, you should define this macro.
 
    However, on some machines, such as the 80386 and the 680x0, truncation only
@@ -4546,7 +4191,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    Some machines can also perform `and' or `plus' operations on condition code
    values with less instructions than the corresponding `sCOND' insn followed
    by `and' or `plus'.  On those machines, define the appropriate patterns.
-   Use the names `incscc' and `decscc', respectively, for the the patterns
+   Use the names `incscc' and `decscc', respectively, for the patterns
    which perform `plus' or `minus' operations on condition code values.  See
    `rs6000.md' for some examples.  The GNU Superoptizer can be used to find
    such instruction sequences on other machines.
@@ -4555,7 +4200,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    instructions.  */
 /* #define STORE_FLAG_VALUE */
 
-/* A C expression that gives a non-zero floating point value that is returned
+/* A C expression that gives a nonzero floating point value that is returned
    when comparison operators with floating-point results are true.  Define this
    macro on machine that have comparison operations that return floating-point
    values.  If there are no such operations, do not define this macro.  */
@@ -4585,12 +4230,6 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    should be used on RISC machines.  */
 /* #define INTEGRATE_THRESHOLD(DECL) */
 
-/* Define this if the preprocessor should ignore `#sccs' directives and print
-   no error message.
-
-   Defined in svr4.h.  */
-/* #define SCCS_DIRECTIVE */
-
 /* Define this macro if the system header files support C++ as well as C.  This
    macro inhibits the usual method of using system header files in C++, which
    is to pretend that the file's contents are enclosed in `extern "C" {...}'.  */
@@ -4599,18 +4238,11 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 /* Define this macro to handle System V style pragmas (particularly #pack).
 
    Defined in svr4.h.  */
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 
 /* Define this macro if you want to handle #pragma weak (HANDLE_SYSV_PRAGMA
    must also be defined).  */
 /* #define HANDLE_WEAK_PRAGMA */
-
-/* Define this macro to control use of the character `$' in identifier names.
-   The value should be 0, 1, or 2.  0 means `$' is not allowed by default; 1
-   means it is allowed by default if `-traditional' is used; 2 means it is
-   allowed by default provided `-ansi' is not used.  1 is the default; there is
-   no need to define this macro in that case.  */
-/* #define DOLLARS_IN_IDENTIFIERS */
 
 /* Define this macro if the assembler does not accept the character `$' in
    label names.  By default constructors and destructors in G++ have `$' in the

@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -157,9 +154,10 @@ bool Intel82557::initDriver(IOService * provider)
 	// Create and register an interrupt event source. The provider will
 	// take care of the low-level interrupt registration stuff.
 	//
-	interruptSrc = IOInterruptEventSource::interruptEventSource(
+	interruptSrc = IOFilterInterruptEventSource::filterInterruptEventSource(
                    this,
-                   (IOInterruptEventAction) &Intel82557::interruptOccurred,
+                   &Intel82557::interruptHandler,
+                   &Intel82557::interruptFilter,
                    provider);
 
 	if (!interruptSrc ||
@@ -177,7 +175,7 @@ bool Intel82557::initDriver(IOService * provider)
 	// Register a timer event source. This is used as a watchdog timer.
 	//
 	timerSrc = IOTimerEventSource::timerEventSource( this,
-               (IOTimerEventSource::Action) &Intel82557::timeoutOccurred );
+               &Intel82557::timeoutHandler );
 	if (!timerSrc ||
 		(myWorkLoop->addEventSource(timerSrc) != kIOReturnSuccess))
 		return false;
@@ -598,6 +596,8 @@ bool Intel82557::disableAdapter(UInt32 level)
 			packetsReceived    = true;	// assume we're getting packets
 			packetsTransmitted = false;
 			txCount = 0;
+			txPendingInterruptCount = 0;
+			txWatchdogArmed = false;
 		
 			// Reset the hardware engine.
 			//
@@ -640,6 +640,30 @@ bool Intel82557::disableAdapter(UInt32 level)
 		VPRINT("%s::%s error in level %ld\n", getName(), __FUNCTION__, level);
 
 	return ret;
+}
+
+//---------------------------------------------------------------------------
+
+bool Intel82557::resetAdapter( void )
+{
+	bool   success  = false;
+	UInt32 oldLevel = currentLevel;
+
+	etherStats->dot3RxExtraEntry.resets++;
+	etherStats->dot3TxExtraEntry.resets++;
+
+	setActivationLevel(0);
+	if (setActivationLevel(oldLevel))
+	{
+		// promiscuous setting, MAC address override, and media
+		// type are automatically restored when chip is brought
+		// back up, but not so for the hardware multicast hash.
+		success = mcSetup(0, 0, true);
+	}            
+
+	IOLog("%s: chip reset%s\n", getName(), success ? "" : " FAILED");
+
+	return success;
 }
 
 //---------------------------------------------------------------------------
@@ -747,7 +771,7 @@ IOReturn Intel82557::disable(IOKernelDebugger * /*debugger*/)
 // Periodic timer that monitors the receiver status, updates error
 // and collision statistics, and update the current link status.
 
-void Intel82557::timeoutOccurred(IOTimerEventSource * /*timer*/)
+void Intel82557::timeoutOccurred( IOTimerEventSource * /*timer*/ )
 {
 	if ( (packetsReceived == false) && (packetsTransmitted == true) )
     {
@@ -760,11 +784,29 @@ void Intel82557::timeoutOccurred(IOTimerEventSource * /*timer*/)
 	}
 	packetsReceived = packetsTransmitted = false;
 
+	if (txWatchdogArmed &&
+		etherStats->dot3TxExtraEntry.interrupts == txLastInterruptCount)
+	{
+		reserveDebuggerLock();
+		resetAdapter();
+		releaseDebuggerLock();
+	}
+
+	txWatchdogArmed = (txPendingInterruptCount > 0);
+	if (txWatchdogArmed)
+		txLastInterruptCount = etherStats->dot3TxExtraEntry.interrupts;
+
 	_updateStatistics();
 
     _phyReportLinkStatus();
 
 	timerSrc->setTimeoutMS(LOAD_STATISTICS_INTERVAL);
+}
+
+void Intel82557::timeoutHandler( OSObject * target, IOTimerEventSource * src )
+{
+	// C++ glue to eliminate compiler warnings
+	((Intel82557 *) target)->timeoutOccurred( src );
 }
 
 //---------------------------------------------------------------------------
@@ -785,7 +827,6 @@ IOReturn Intel82557::setPromiscuousMode( bool active )
 
 IOReturn Intel82557::setMulticastMode( bool active )
 {
-	multicastEnabled = active;
 	return kIOReturnSuccess;
 }
 
@@ -825,6 +866,28 @@ IOReturn Intel82557::getHardwareAddress(IOEthernetAddress * addrs)
 {
 	bcopy(&myAddress, addrs, sizeof(*addrs));
 	return kIOReturnSuccess;
+}
+
+//---------------------------------------------------------------------------
+// Function: setHardwareAddress <IOEthernetController>
+//
+// Change the address filtered by the unicast filter.
+
+IOReturn Intel82557::setHardwareAddress( const IOEthernetAddress * addr )
+{
+    IOReturn ior = kIOReturnSuccess;
+
+    memcpy( &myAddress, addr, sizeof(myAddress) );
+
+    if (currentLevel > kActivationLevel0)
+    {
+        // Adapter is up and running, setup the hardware IA filter.
+        
+        if (iaSetup() == false)
+            ior = kIOReturnIOError;
+    }
+    
+    return ior;
 }
 
 //---------------------------------------------------------------------------
@@ -909,10 +972,12 @@ const OSString * Intel82557::newModelString() const
 
 void Intel82557::sendPacket(void * pkt, UInt32 pkt_len)
 {
+	txWatchdogArmed = false;
 	_sendPacket(pkt, pkt_len);
 }
 
 void Intel82557::receivePacket(void * pkt, UInt32 * pkt_len, UInt32 timeout)
 {
+	txWatchdogArmed = false;
 	_receivePacket(pkt, (UInt *) pkt_len, timeout);
 }

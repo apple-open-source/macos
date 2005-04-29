@@ -55,7 +55,7 @@ static void TestCalendar()
 {
     UCalendar *caldef = 0, *caldef2 = 0, *calfr = 0, *calit = 0;
     UEnumeration* uenum = NULL;
-    int32_t count, count2, offset,i,j;
+    int32_t count, count2, i,j;
     UChar *tzID = 0;
     UChar *tzdname = 0;
     UErrorCode status = U_ZERO_ERROR;
@@ -66,8 +66,9 @@ static void TestCalendar()
     char tempMsgBuf[256];
     UChar zone1[32], zone2[32];
 
+#ifdef U_USE_UCAL_OBSOLETE_2_8
     /*Testing countAvailableTimeZones*/
-    offset=0;
+    int32_t offset=0;
     log_verbose("\nTesting ucal_countAvailableTZIDs\n");
     count=ucal_countAvailableTZIDs(offset);
     log_verbose("The number of timezone id's present with offset 0 are %d:\n", count);
@@ -89,6 +90,7 @@ static void TestCalendar()
         log_err("FAIL:for TZID index >= count Expected INDEX_OUTOFBOUNDS_ERROR Got %s\n", u_errorName(status));
     }
     status=U_ZERO_ERROR;
+#endif
     
     /*Test ucal_openTimeZones & ucal_openCountryTimeZones*/
     for (j=0; j<2; ++j) {
@@ -415,7 +417,8 @@ static void TestGetSetDateAPI()
     
     
     
-    
+    ctest_setTimeZone(NULL, &status);
+
     /*testing ucal_setTimeZone() function*/
     log_verbose("\nTesting if the function ucal_setTimeZone() works fine\n");
     ucal_setMillis(caldef2, d2, &status); 
@@ -474,6 +477,9 @@ static void TestGetSetDateAPI()
     else if (zoneOffset != -28800000) {
         log_err("Error in getting the time zone using ucal_get() after using ucal_setTimeZone() offset=%d\n", zoneOffset);
     }
+
+    ctest_resetTimeZone();
+
 /*----------------------------*     */
     
     

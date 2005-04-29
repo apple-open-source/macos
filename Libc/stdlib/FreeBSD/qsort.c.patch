@@ -1,0 +1,13 @@
+--- qsort.c.orig	2004-12-01 20:08:48.000000000 -0800
++++ qsort.c	2004-12-01 20:10:50.000000000 -0800
+@@ -44,8 +44,8 @@
+ #else
+ typedef int		 cmp_t(const void *, const void *);
+ #endif
+-static inline char	*med3(char *, char *, char *, cmp_t *, void *);
+-static inline void	 swapfunc(char *, char *, int, int);
++static inline char	*med3(char *, char *, char *, cmp_t *, void *) __attribute__((always_inline));
++static inline void	 swapfunc(char *, char *, int, int) __attribute__((always_inline));
+ 
+ #define min(a, b)	(a) < (b) ? a : b
+ 

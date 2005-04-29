@@ -61,6 +61,9 @@
 #include <winsock.h>
 #endif
 #if HAVE_SYS_STREAM_H
+#   ifdef sysv5UnixWare7
+#      define _KMEMUSER 1   /* <sys/stream.h> needs this for queue_t */
+#   endif
 #include <sys/stream.h>
 #endif
 #if HAVE_NET_ROUTE_H
@@ -106,6 +109,7 @@
 #include <net-snmp/agent/table_iterator.h>
 #include <net-snmp/agent/table_data.h>
 #include <net-snmp/agent/table_dataset.h>
+#include "agent_module_includes.h"
 #include "mib_module_includes.h"
 
 char            dontReadConfigFiles;
@@ -137,6 +141,7 @@ snmpd_set_agent_user(const char *token, char *cptr)
     } else {
         config_perror("User not found in passwd database");
     }
+    endpwent();
 #endif
 }
 
@@ -164,6 +169,7 @@ snmpd_set_agent_group(const char *token, char *cptr)
     } else {
         config_perror("Group not found in group database");
     }
+    endpwent();
 #endif
 }
 #endif
@@ -214,6 +220,7 @@ init_agent_read_config(const char *app)
 
     if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, 
 			       NETSNMP_DS_AGENT_ROLE) == MASTER_AGENT) {
+#if !defined(DISABLE_SNMPV1) || !defined(DISABLE_SNMPV2C)
         register_app_config_handler("trapsink",
                                     snmpd_parse_config_trapsink,
                                     snmpd_free_trapsinks,
@@ -224,14 +231,17 @@ init_agent_read_config(const char *app)
         register_app_config_handler("informsink",
                                     snmpd_parse_config_informsink, NULL,
                                     "host [community] [port]");
+#endif /* support for community based SNMP */
         register_app_config_handler("trapsess",
                                     snmpd_parse_config_trapsess, NULL,
                                     "[snmpcmdargs] host");
     }
+#if !defined(DISABLE_SNMPV1) || !defined(DISABLE_SNMPV2C)
     register_app_config_handler("trapcommunity",
                                 snmpd_parse_config_trapcommunity,
                                 snmpd_free_trapcommunity,
                                 "community-string");
+#endif /* support for community based SNMP */
 #ifdef HAVE_UNISTD_H
     register_app_config_handler("agentuser",
                                 snmpd_set_agent_user, NULL, "userid");
@@ -241,11 +251,6 @@ init_agent_read_config(const char *app)
     register_app_config_handler("agentaddress",
                                 snmpd_set_agent_address, NULL,
                                 "SNMP bind address");
-    register_app_config_handler("table",
-                                netsnmp_config_parse_table_set, NULL,
-                                "tableoid");
-    register_app_config_handler("add_row", netsnmp_config_parse_add_row,
-                                NULL, "indexes... values...");
     netsnmp_ds_register_config(ASN_BOOLEAN, app, "quit", 
 			       NETSNMP_DS_APPLICATION_ID,
 			       NETSNMP_DS_AGENT_QUIT_IMMEDIATELY);
@@ -254,6 +259,7 @@ init_agent_read_config(const char *app)
 			       NETSNMP_DS_AGENT_LEAVE_PIDFILE);
     netsnmp_init_handler_conf();
 
+#include "agent_module_dot_conf.h"
 #include "mib_module_dot_conf.h"
 #ifdef TESTING
     print_config_handlers();

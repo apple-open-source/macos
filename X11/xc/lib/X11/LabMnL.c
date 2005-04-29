@@ -31,11 +31,12 @@
  *		querying routine.
  *
  */
-/* $XFree86: xc/lib/X11/LabMnL.c,v 1.3 2001/01/17 19:41:39 dawes Exp $ */
+/* $XFree86: xc/lib/X11/LabMnL.c,v 1.4 2003/04/13 19:22:16 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
 #include <math.h>
+#include "Cv.h"
 
 /*
  *	DEFINES
@@ -43,14 +44,6 @@
 #define MAXBISECTCOUNT	100
 #define EPS		(XcmsFloat)0.001
 #define START_L_STAR	(XcmsFloat)40.0
-
-/*
- *	EXTERNS
- */
-extern Status _XcmsCIELabQueryMaxLCRGB();
-
-/* CvColW.c */
-extern Status _XcmsConvertColorsWithWhitePt();
 
 
 /************************************************************************

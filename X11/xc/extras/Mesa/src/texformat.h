@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.4
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -22,9 +22,8 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Authors:
- *    Gareth Hughes <gareth@valinux.com>
- *    Brian Paul
+ * Author:
+ *    Gareth Hughes
  */
 
 #ifndef TEXFORMAT_H
@@ -33,16 +32,20 @@
 #include "mtypes.h"
 
 
-/* The Mesa internal texture image types.
+/*
+ * The Mesa internal texture image types.
+ * All texture images must be stored in one of these formats.
  */
 enum _format {
    /* Hardware-friendly formats.  Drivers can override the default
     * formats and convert texture images to one of these as required.
+    * The driver's ChooseTextureFormat() function will choose one of
+    * these formats.
     * These formats are all little endian, as shown below.  They will be
     * most useful for x86-based PC graphics card drivers.
     *
     * NOTE: In the default case, some of these formats will be
-    * duplicates of the default formats listed above.  However, these
+    * duplicates of the generic formats listed below.  However, these
     * formats guarantee their internal component sizes, while GLchan may
     * vary betwen GLubyte, GLushort and GLfloat.
     */
@@ -60,8 +63,23 @@ enum _format {
    MESA_FORMAT_L8,		/*                               LLLL LLLL */
    MESA_FORMAT_I8,		/*                               IIII IIII */
    MESA_FORMAT_CI8,		/*                               CCCC CCCC */
-   MESA_FORMAT_YCBCR,           /*                     YYYY YYYY UorV UorV */
-   MESA_FORMAT_YCBCR_REV,       /*                     UorV UorV YYYY YYYY */
+   MESA_FORMAT_YCBCR,		/*                     YYYY YYYY UorV UorV */
+   MESA_FORMAT_YCBCR_REV,	/*                     UorV UorV YYYY YYYY */
+
+#if 0
+   /* upcoming little-endian formats: */
+
+				/* msb <------ TEXEL BITS -----------> lsb */
+				/* ---- ---- ---- ---- ---- ---- ---- ---- */
+   MESA_FORMAT_ABGR8888,	/* AAAA AAAA BBBB BBBB GGGG GGGG RRRR RRRR */
+   MESA_FORMAT_BGRA8888,	/* BBBB BBBB GGGG GGGG RRRR RRRR AAAA AAAA */
+   MESA_FORMAT_BGR888,		/*           BBBB BBBB GGGG GGGG RRRR RRRR */
+   MESA_FORMAT_BGR565,		/*                     BBBB BGGG GGGR RRRR */
+   MESA_FORMAT_BGRA4444,	/*                     BBBB GGGG RRRR AAAA */
+   MESA_FORMAT_BGRA5551,	/*                     BBBB BGGG GGRR RRRA */
+   MESA_FORMAT_LA88,		/*                     LLLL LLLL AAAA AAAA */
+   MESA_FORMAT_BGR233,		/*                               BBGG GRRR */
+#endif
 
    /* Generic GLchan-based formats.  These are the default formats used
     * by the software rasterizer and, unless the driver overrides the
@@ -71,7 +89,7 @@ enum _format {
     *
     * NOTE: Because these are based on the GLchan datatype, one cannot
     * assume 8 bits per channel with these formats.  If you require
-    * GLubyte per channel, use one of the hardware formats above.
+    * GLubyte channels, use one of the hardware formats above.
     */
    MESA_FORMAT_RGBA,
    MESA_FORMAT_RGB,
@@ -92,11 +110,7 @@ _mesa_choose_tex_format( GLcontext *ctx, GLint internalFormat,
                          GLenum format, GLenum type );
 
 extern GLint
-_mesa_base_compressed_texformat( GLcontext *ctx, GLint intFormat );
-
-extern GLint
-_mesa_compressed_texture_size( GLcontext *ctx,
-                               const struct gl_texture_image *texImage );
+_mesa_base_compressed_texformat(GLcontext *ctx, GLint intFormat);
 
 
 /* The default formats, GLchan per component:

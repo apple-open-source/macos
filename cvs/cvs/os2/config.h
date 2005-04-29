@@ -404,3 +404,113 @@ extern void init_sockets();
 #else
 #define KFF_DEBUG(call)
 #endif
+
+/*
+ * The following configuration options used to be defined in options.h.
+ */
+
+/*
+ * When committing a permanent change, CVS and RCS make a log entry of
+ * who committed the change.  If you are committing the change logged in
+ * as "root" (not under "su" or other root-priv giving program), CVS/RCS
+ * cannot determine who is actually making the change.
+ *
+ * As such, by default, CVS disallows changes to be committed by users
+ * logged in as "root".  You can disable this option by commenting
+ * out the lines below.
+ *
+ * Under Windows NT, privileges are associated with groups, not users,
+ * so the case in which someone has logged in as root does not occur.
+ * Thus, there is no need for this hack.
+ *
+ * todo: I don't know about OS/2 yet.  -kff
+ */
+#undef CVS_BADROOT
+
+/* This prototype is unique to OS2 */
+#ifdef AUTH_CLIENT_SUPPORT
+char *getpass (char *passbuf);
+#endif /* AUTH_CLIENT_SUPPORT */
+
+/*
+ * For portability and heterogeneity reasons, CVS is shipped by default using
+ * my own text-file version of the ndbm database library in the src/myndbm.c
+ * file.  If you want better performance and are not concerned about
+ * heterogeneous hosts accessing your modules file, turn this option off.
+ */
+#ifndef MY_NDBM
+#define	MY_NDBM
+#endif
+
+/* Directory used for storing temporary files, if not overridden by
+   environment variables or the -T global option.  There should be little
+   need to change this (-T is a better mechanism if you need to use a
+   different directory for temporary files).  */
+#ifndef TMPDIR_DFLT
+#define	TMPDIR_DFLT	"c:\\temp"
+#endif
+
+/*
+ * The default editor to use, if one does not specify the "-e" option to cvs,
+ * or does not have an EDITOR environment variable.  I set this to just "vi",
+ * and use the shell to find where "vi" actually is.  This allows sites with
+ * /usr/bin/vi or /usr/ucb/vi to work equally well (assuming that your PATH
+ * is reasonable).
+ *
+ * The notepad program seems to be Windows NT's bare-bones text editor.
+ */
+#ifndef EDITOR_DFLT
+#define	EDITOR_DFLT	"notepad"
+#endif
+
+/*
+ * The default umask to use when creating or otherwise setting file or
+ * directory permissions in the repository.  Must be a value in the
+ * range of 0 through 0777.  For example, a value of 002 allows group
+ * rwx access and world rx access; a value of 007 allows group rwx
+ * access but no world access.  This value is overridden by the value
+ * of the CVSUMASK environment variable, which is interpreted as an
+ * octal number.
+ */
+#ifndef UMASK_DFLT
+#define	UMASK_DFLT	002
+#endif
+
+/*
+ * The cvs admin command is restricted to the members of the group
+ * CVS_ADMIN_GROUP.  If this group does not exist, all users are
+ * allowed to run cvs admin.  To disable the cvs admin for all users,
+ * create an empty group CVS_ADMIN_GROUP.  To disable access control for
+ * cvs admin, comment out the define below.
+ *
+ * Under Windows NT and OS/2, this must not be used because it tries
+ * to include <grp.h>.
+ */
+#ifdef CVS_ADMIN_GROUP
+/* #define CVS_ADMIN_GROUP "cvsadmin" */
+#endif
+
+/*
+ * When committing or importing files, you must enter a log message.
+ * Normally, you can do this either via the -m flag on the command line or an
+ * editor will be started for you.  If you like to use logging templates (the
+ * rcsinfo file within the $CVSROOT/CVSROOT directory), you might want to
+ * force people to use the editor even if they specify a message with -m.
+ * Enabling FORCE_USE_EDITOR will cause the -m message to be appended to the
+ * temp file when the editor is started.
+ */
+#ifndef FORCE_USE_EDITOR
+/* #define 	FORCE_USE_EDITOR */
+#endif
+
+/*
+ * Under OS/2, we build the authenticated client by default.
+ */
+#define AUTH_CLIENT_SUPPORT 1
+
+/* End of CVS options.h section */
+
+/* FIXME: This is the same definition used for WOE32 in lib/system.h.  It
+ * should be consolidated.
+ */
+#define ISABSOLUTE(s) (ISDIRSEP(s[0]) || FOLD_FN_CHAR(s[0]) >= 'a' && FOLD_FN_CHAR(s[0]) <= 'z' && s[1] == ':' && ISDIRSEP(s[2]))

@@ -24,10 +24,17 @@
 #define _IO_ACCELERATOR_H
 
 #include <IOKit/IOService.h>
+#include <IOKit/graphics/IOAccelTypes.h>
 
 class IOAccelerator : public IOService
 {
     OSDeclareDefaultStructors(IOAccelerator)
+
+public:
+    static IOReturn createAccelID(IOOptionBits options, IOAccelID * identifier);
+    static IOReturn retainAccelID(IOOptionBits options, IOAccelID identifier);
+    static IOReturn releaseAccelID(IOOptionBits options, IOAccelID identifier);
+
 };
 
 

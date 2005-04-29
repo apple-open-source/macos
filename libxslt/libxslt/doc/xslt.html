@@ -297,10 +297,28 @@ to the <a href="http://cvs.gnome.org/viewcvs/libxslt/">CVS</a> code base.</p>
 
 <p>Those are the public releases made:</p>
 
+<h3>1.1.11: Sep 29 2004</h3>
+<ul>
+  <li>bug fixes: xsl:include problems (William Brack), UTF8 number pattern
+    (William), date-time validation (William), namespace fix (William),
+    various Exslt date fixes (William), error callback fixes, leak with
+    namespaced global variable, attempt to fix a weird problem #153137</li>
+  <li>improvements: exslt:date-sum tests (Derek Poon)</li>
+  <li>documentation: second tutorial by Panagiotis Lourida</li>
+</ul>
+
+<h3>1.1.10: Aug 31 2004</h3>
+<ul>
+  <li>build fix: NUL in c file blocking compilation on Solaris, Windows build
+    (Igor Zlatkovic)</li>
+  <li>fix: key initialization problem (William Brack)</li>
+  <li>documentation: fixed missing man page description for --path</li>
+</ul>
+
 <h3>1.1.9: Aug 22 2004</h3>
 <ul>
   <li>build fixes: missing tests (William Brack), Python dependancies, Python
-    on 64bits boxes, --with-crypto flag (Rob Richards), </li>
+    on 64bits boxes, --with-crypto flag (Rob Richards),</li>
   <li>fixes: RVT key handling (William), Python binding (William and Sitsofe
     Wheeler), key and XPath troubles (William), template priority on imports
     (William), str:tokenize with empty strings (William), #default namespace

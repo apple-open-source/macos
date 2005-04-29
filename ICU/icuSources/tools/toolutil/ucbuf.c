@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1998-2003, International Business Machines
+*   Copyright (C) 1998-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -16,6 +16,7 @@
 */
 
 #include "unicode/utypes.h"
+#include "unicode/putil.h"
 #include "unicode/ucnv.h"
 #include "unicode/ucnv_err.h"
 #include "filestrm.h"
@@ -76,7 +77,7 @@ ucbuf_autodetect_fs(FileStream* in, const char** cp, UConverter** conv, int32_t*
     pTarget = target;
     pStart = start;
     ucnv_toUnicode(*conv, &pTarget, target+1, &pStart, start+*signatureLength, NULL, FALSE, error);
-    *signatureLength = pStart - start;
+    *signatureLength = (int32_t)(pStart - start);
     if(*error==U_BUFFER_OVERFLOW_ERROR) {
         *error=U_ZERO_ERROR;
     }
@@ -85,7 +86,6 @@ ucbuf_autodetect_fs(FileStream* in, const char** cp, UConverter** conv, int32_t*
     if(U_SUCCESS(*error) && (pTarget!=(target+1) || target[0]!=0xfeff)) {
         *error=U_INTERNAL_PROGRAM_ERROR;
     }
-
 
 
     return TRUE; 
@@ -112,13 +112,10 @@ static UBool ucbuf_isCPKnown(const char* cp){
     if(ucnv_compareNames("UTF-32LE",cp)==0){
         return TRUE;
     }
-    if(ucnv_compareNames("UTF-32BE",cp)==0){
-        return TRUE;
-    }
     if(ucnv_compareNames("SCSU",cp)==0){
         return TRUE;
     }
-    if(ucnv_compareNames("BOCU",cp)==0){
+    if(ucnv_compareNames("BOCU-1",cp)==0){
         return TRUE;
     }
     if(ucnv_compareNames("UTF-7",cp)==0){
@@ -305,6 +302,7 @@ ucbuf_fillucbuf( UCHARBUF* buf,UErrorCode* error){
     }
     buf->currentPos = pTarget;
     buf->bufLimit=pTarget+outputWritten;
+    *buf->bufLimit=0; /*NUL terminate*/
     if(cbuf!=carr){
         uprv_free(cbuf);
     }
@@ -410,16 +408,16 @@ ucbuf_getcx32(UCHARBUF* buf,UErrorCode* error) {
      * to c32 or not
      */
     if(c32==0xFFFFFFFF){
-		if(buf->showWarning) {
-			char context[20];
-			int32_t len = 20;
-			if(length  < len) {
-			  len = length; 
-			}
-			context[len]= 0 ; /* null terminate the buffer */
-			u_UCharsToChars( buf->currentPos, context, len);
-			fprintf(stderr,"Bad escape: [%c%s]...\n", c1,context);
-		}
+        if(buf->showWarning) {
+            char context[20];
+            int32_t len = 20;
+            if(length  < len) {
+                len = length; 
+            }
+            context[len]= 0 ; /* null terminate the buffer */
+            u_UCharsToChars( buf->currentPos, context, len);
+            fprintf(stderr,"Bad escape: [%c%s]...\n", (int)c1, context);
+        }
         *error= U_ILLEGAL_ESCAPE_SEQUENCE;
         return c1;
     }else if(c32!=c2 || (c32==0x0075 && c2==0x0075 && c1==0x005C) /* for \u0075 c2=0x0075 and c32==0x0075*/){
@@ -487,12 +485,11 @@ ucbuf_open(const char* fileName,const char** cp,UBool showWarning, UBool buffere
             }
             buf->remaining=fileSize-buf->signatureLength;
             if(buf->isBuffered){
-                buf->buffer=(UChar*) uprv_malloc(U_SIZEOF_UCHAR* MAX_U_BUF);
                 buf->bufCapacity=MAX_U_BUF;
             }else{
-                buf->buffer=(UChar*) uprv_malloc(U_SIZEOF_UCHAR * (buf->remaining+buf->signatureLength));
-                buf->bufCapacity=buf->remaining+buf->signatureLength;
+                buf->bufCapacity=buf->remaining+buf->signatureLength+1/*for terminating nul*/;               
             }
+            buf->buffer=(UChar*) uprv_malloc(U_SIZEOF_UCHAR * buf->bufCapacity );
             if (buf->buffer == NULL) {
                 *error = U_MEMORY_ALLOCATION_ERROR;
                 return NULL;
@@ -611,7 +608,7 @@ ucbuf_size(UCHARBUF* buf){
         if(buf->isBuffered){
             return (T_FileStream_size(buf->in)-buf->signatureLength)/ucnv_getMinCharSize(buf->conv);
         }else{
-            return buf->bufLimit-buf->buffer;
+            return (int32_t)(buf->bufLimit - buf->buffer);
         }
     }
     return 0;
@@ -626,7 +623,7 @@ ucbuf_getBuffer(UCHARBUF* buf,int32_t* len,UErrorCode* error){
         *error = U_ILLEGAL_ARGUMENT_ERROR;
         return NULL;
     }
-    *len = buf->bufLimit-buf->buffer;
+    *len = (int32_t)(buf->bufLimit - buf->buffer);
     return buf->buffer;
 }
 
@@ -712,13 +709,13 @@ ucbuf_readline(UCHARBUF* buf,int32_t* len,UErrorCode* err){
     UChar* savePos =NULL;
     UChar c=0x0000;
     if(buf->isBuffered){
-    /* The input is buffered we have to do more 
-    * for returning a pointer U_TRUNCATED_CHAR_FOUND
+        /* The input is buffered we have to do more
+        * for returning a pointer U_TRUNCATED_CHAR_FOUND
         */
         for(;;){
             c = *temp++;
             if(buf->remaining==0){
-                *err = (UErrorCode) U_EOF;
+                return NULL; /* end of file is reached return NULL */
             }
             if(temp>=buf->bufLimit && buf->currentPos == buf->buffer){
                 *err= U_TRUNCATED_CHAR_FOUND;
@@ -726,7 +723,7 @@ ucbuf_readline(UCHARBUF* buf,int32_t* len,UErrorCode* err){
             }else{
                 ucbuf_fillucbuf(buf,err);
                 if(U_FAILURE(*err)){
-                    return NULL;
+                    return NULL; 
                 }
             }
             /*
@@ -735,7 +732,7 @@ ucbuf_readline(UCHARBUF* buf,int32_t* len,UErrorCode* err){
              */
             /* Windows CR LF */
             if(c ==0x0d && temp+1<=buf->bufLimit && *(temp+1) == 0x0a ){
-                *len = temp++ - buf->currentPos;
+                *len = (int32_t)(temp++ - buf->currentPos);
                 savePos = buf->currentPos;
                 buf->currentPos = temp;
                 return savePos;
@@ -743,7 +740,7 @@ ucbuf_readline(UCHARBUF* buf,int32_t* len,UErrorCode* err){
             /* else */
 
             if (temp>=buf->bufLimit|| ucbuf_isCharNewLine(c)){  /* Unipad inserts 2028 line separators! */
-                *len = temp - buf->currentPos;
+                *len = (int32_t)(temp - buf->currentPos);
                 savePos = buf->currentPos;
                 buf->currentPos = temp;
                 return savePos;
@@ -757,19 +754,18 @@ ucbuf_readline(UCHARBUF* buf,int32_t* len,UErrorCode* err){
             c = *temp++;
             
             if(buf->currentPos==buf->bufLimit){
-                *err = (UErrorCode) U_EOF;
-                return NULL;
+                return NULL; /* end of file is reached return NULL */
             }
             /* Windows CR LF */
             if(c ==0x0d && temp+1<=buf->bufLimit && *(temp+1) == 0x0a ){
-                *len = temp++ - buf->currentPos;
+                *len = (int32_t)(temp++ - buf->currentPos);
                 savePos = buf->currentPos;
                 buf->currentPos = temp;
                 return savePos;
             }
             /* else */
             if (temp>=buf->bufLimit|| ucbuf_isCharNewLine(c)) {  /* Unipad inserts 2028 line separators! */
-                *len = temp - buf->currentPos;
+                *len = (int32_t)(temp - buf->currentPos);
                 savePos = buf->currentPos;
                 buf->currentPos = temp;
                 return savePos;

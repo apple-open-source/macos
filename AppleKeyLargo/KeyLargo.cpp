@@ -90,6 +90,13 @@ bool KeyLargo::start(IOService *provider)
 	if (tmpData == 0) return false;
 	keyLargoVersion = *(long *)tmpData->getBytesNoCopy();
   
+	if ( ( tmpData = OSDynamicCast( OSData, entry->getProperty( "model" ) ) ) != NULL ) {
+		strcmp((const char *)tmpData->getBytesNoCopy(), "PowerBook5,8") == 0 ? changeModemReset = true : changeModemReset = false;
+  	}
+  	else {
+  		changeModemReset = false;
+	}
+  		  	
 	// Re-tune the clocks
 	AdjustBusSpeeds ( );
 	syncTimeBase();
@@ -144,49 +151,11 @@ bool KeyLargo::start(IOService *provider)
 	return true;
 }
 
-// Following routine should do nothing in Merlot.
+// Following routine should do nothing in Tiger.
 long long KeyLargo::syncTimeBase(void)
 {
-	UInt32			cnt;
-	UInt32			gtLow, gtHigh, gtHigh2;
-	UInt32			tbLow, tbHigh, tbHigh2;
-	long long       tmp, diffTicks, ratioLow, ratioHigh;
-  
-	tmp = gPEClockFrequencyInfo.timebase_frequency_hz;
-	ratioLow = (tmp << 32) / (kKeyLargoGTimerFreq);
-	ratioHigh = ratioLow >> 32;
-	ratioLow &= 0xFFFFFFFFULL;
-  
-	// Save the old time base.
-	do {
-		tbHigh  = mftbu();
-		tbLow   = mftb();
-		tbHigh2 = mftbu();
-	} while (tbHigh != tbHigh2);
-	diffTicks = ((long long)tbHigh << 32) | tbLow;
-
-	// Do the sync twice to make sure it is cached.
-	for (cnt = 0; cnt < 2; cnt++) {
-		// Read the Global Counter.
-		do {
-			gtHigh  = readRegUInt32(kKeyLargoCounterHiOffset);
-			gtLow   = readRegUInt32(kKeyLargoCounterLoOffset);
-			gtHigh2 = readRegUInt32(kKeyLargoCounterHiOffset);
-		} while (gtHigh != gtHigh2);
-    
-		tmp = gtHigh * ratioLow + gtLow * ratioHigh +
-			((gtLow * ratioLow + 0x080000000ULL) >> 32);
-		tbHigh = gtHigh * ratioHigh + (tmp >> 32);
-		tbLow = tmp & 0xFFFFFFFFULL;
-    
-		mttb(0);
-		mttbu(tbHigh);
-		mttb(tbLow);
-	}
-  
-	diffTicks = (((long long)tbHigh << 32) | tbLow) - diffTicks;
-  
-	return diffTicks;
+	/* not to be implemented */
+	return 0LL;
 }
 
 void KeyLargo::recalibrateBusSpeeds(void)

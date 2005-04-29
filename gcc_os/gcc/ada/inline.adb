@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -479,12 +478,12 @@ package body Inline is
    begin
       Analyzing_Inlined_Bodies := False;
 
-      if Errors_Detected = 0 then
+      if Serious_Errors_Detected = 0 then
          New_Scope (Standard_Standard);
 
          J := 0;
          while J <= Inlined_Bodies.Last
-           and then Errors_Detected = 0
+           and then Serious_Errors_Detected = 0
          loop
             Pack := Inlined_Bodies.Table (J);
 
@@ -503,9 +502,14 @@ package body Inline is
                Comp_Unit := Parent (Comp_Unit);
             end loop;
 
+            --  Load the body, unless it the main unit, or is an instance
+            --  whose body has already been analyzed.
+
             if Present (Comp_Unit)
               and then Comp_Unit /= Cunit (Main_Unit)
               and then Body_Required (Comp_Unit)
+              and then (Nkind (Unit (Comp_Unit)) /= N_Package_Declaration
+                         or else No (Corresponding_Body (Unit (Comp_Unit))))
             then
                declare
                   Bname : constant Unit_Name_Type :=
@@ -757,7 +761,7 @@ package body Inline is
       Info : Pending_Body_Info;
 
    begin
-      if Errors_Detected = 0 then
+      if Serious_Errors_Detected = 0 then
 
          Expander_Active :=  (Operating_Mode = Opt.Generate_Code);
          New_Scope (Standard_Standard);
@@ -774,7 +778,7 @@ package body Inline is
          J := 0;
 
          while J <= Pending_Instantiations.Last
-           and then Errors_Detected = 0
+           and then Serious_Errors_Detected = 0
          loop
 
             Info := Pending_Instantiations.Table (J);

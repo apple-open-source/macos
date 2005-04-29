@@ -1,7 +1,16 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/alias.c,v 1.43.2.1 2003/03/03 17:10:09 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/alias.c,v 1.45.2.2 2004/01/01 18:16:37 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -13,12 +22,6 @@
 #include "back-ldbm.h"
 #include "proto-back-ldbm.h"
 
-
-static int get_alias_dn(
-	Entry *e,
-	struct berval *al,
-	int *err,
-	const char **errmsg );
 
 static void new_superior(
 	struct berval *dn,
@@ -198,56 +201,6 @@ Entry *deref_internal_r(
 	return entry;
 }
 
-
-static int get_alias_dn(
-	Entry *e,
-	struct berval *ndn,
-	int *err,
-	const char **errmsg )
-{	
-	int rc;
-	Attribute *a;
-	AttributeDescription *aliasedObjectName
-		= slap_schema.si_ad_aliasedObjectName;
-
-	a = attr_find( e->e_attrs, aliasedObjectName );
-
-	if( a == NULL ) {
-		/*
-		 * there was an aliasedobjectname defined but no data.
-		 */
-		*err = LDAP_ALIAS_PROBLEM;
-		*errmsg = "alias missing aliasedObjectName attribute";
-		return -1;
-	}
-
-	/* 
-	 * aliasedObjectName should be SINGLE-VALUED with a single value. 
-	 */			
-	if ( a->a_vals[0].bv_val == NULL ) {
-		/*
-		 * there was an aliasedobjectname defined but no data.
-		 */
-		*err = LDAP_ALIAS_PROBLEM;
-		*errmsg = "alias missing aliasedObjectName value";
-		return -1;
-	}
-
-	if( a->a_vals[1].bv_val != NULL ) {
-		*err = LDAP_ALIAS_PROBLEM;
-		*errmsg = "alias has multivalued aliasedObjectName";
-		return -1;
-	}
-
-	rc = dnNormalize2( NULL, &a->a_vals[0], ndn );
-	if( rc != LDAP_SUCCESS ) {
-		*err = LDAP_ALIAS_PROBLEM;
-		*errmsg = "alias aliasedObjectName value is invalid";
-		return -1;
-	}
-
-	return 0;
-}
 
 static void new_superior(
 	struct berval *dn,

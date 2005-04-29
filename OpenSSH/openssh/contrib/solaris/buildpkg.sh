@@ -5,7 +5,7 @@
 # The following code has been provide under Public Domain License.  I really
 # don't care what you use it for.  Just as long as you don't complain to me
 # nor my employer if you break it. - Ben Lindstrom (mouring@eviladmin.org)
-# 
+#
 umask 022
 #
 # Options for building the package
@@ -13,7 +13,7 @@ umask 022
 #
 # uncommenting TEST_DIR and using
 # configure --prefix=/var/tmp --with-privsep-path=/var/tmp/empty
-# and 
+# and
 # PKGNAME=tOpenSSH should allow testing a package without interfering
 # with a real OpenSSH package on a system. This is not needed on systems
 # that support the -R option to pkgadd.
@@ -23,9 +23,10 @@ SYSVINIT_NAME=opensshd
 MAKE=${MAKE:="make"}
 SSHDUID=67	# Default privsep uid
 SSHDGID=67	# Default privsep gid
-# uncomment these next two as needed
+# uncomment these next three as needed
 #PERMIT_ROOT_LOGIN=no
 #X11_FORWARDING=yes
+#USR_LOCAL_IS_SYMLINK=yes
 # list of system directories we do NOT want to change owner/group/perms
 # when installing our package
 SYSTEM_DIR="/etc	\
@@ -81,7 +82,7 @@ export PATH
 # we will look for config.local to override the above options
 [ -s ./config.local ]  &&  . ./config.local
 
-## Start by faking root install 
+## Start by faking root install
 echo "Faking root install..."
 START=`pwd`
 OPENSSHD_IN=`dirname $0`/opensshd.in
@@ -98,20 +99,20 @@ fi
 ## Fill in some details, like prefix and sysconfdir
 for confvar in prefix exec_prefix bindir sbindir libexecdir datadir mandir sysconfdir piddir
 do
-        eval $confvar=`grep "^$confvar=" Makefile | cut -d = -f 2`
+	eval $confvar=`grep "^$confvar=" Makefile | cut -d = -f 2`
 done
 
 
 ## Collect value of privsep user
 for confvar in SSH_PRIVSEP_USER
 do
-        eval $confvar=`awk '/#define[ \t]'$confvar'/{print $3}' config.h`
+	eval $confvar=`awk '/#define[ \t]'$confvar'/{print $3}' config.h`
 done
 
 ## Set privsep defaults if not defined
 if [ -z "$SSH_PRIVSEP_USER" ]
 then
-        SSH_PRIVSEP_USER=sshd
+	SSH_PRIVSEP_USER=sshd
 fi
 
 ## Extract common info requires for the 'info' part of the package.
@@ -249,16 +250,16 @@ fi
 
 if egrep '^[ \t]*UsePrivilegeSeparation[ \t]+no' \${PKG_INSTALL_ROOT}/$sysconfdir/sshd_config >/dev/null
 then
-        echo "UsePrivilegeSeparation disabled in config, not creating PrivSep user"
-        echo "or group."
+	echo "UsePrivilegeSeparation disabled in config, not creating PrivSep user"
+	echo "or group."
 else
-        echo "UsePrivilegeSeparation enabled in config (or defaulting to on)."
+	echo "UsePrivilegeSeparation enabled in config (or defaulting to on)."
 
-        # create group if required
-        if cut -f1 -d: \${PKG_INSTALL_ROOT}/etc/group | egrep '^'$SSH_PRIVSEP_USER'\$' >/dev/null
-        then
-                echo "PrivSep group $SSH_PRIVSEP_USER already exists."
-        else
+	# create group if required
+	if cut -f1 -d: \${PKG_INSTALL_ROOT}/etc/group | egrep '^'$SSH_PRIVSEP_USER'\$' >/dev/null
+	then
+		echo "PrivSep group $SSH_PRIVSEP_USER already exists."
+	else
 		# Use gid of 67 if possible
 		if cut -f3 -d: \${PKG_INSTALL_ROOT}/etc/group | egrep '^'$SSHDGID'\$' >/dev/null
 		then
@@ -266,15 +267,15 @@ else
 		else
 			sshdgid="-g $SSHDGID"
 		fi
-                echo "Creating PrivSep group $SSH_PRIVSEP_USER."
-                \$chroot /usr/sbin/groupadd \$sshdgid $SSH_PRIVSEP_USER
-        fi
+		echo "Creating PrivSep group $SSH_PRIVSEP_USER."
+		\$chroot /usr/sbin/groupadd \$sshdgid $SSH_PRIVSEP_USER
+	fi
 
-        # Create user if required
-        if cut -f1 -d: \${PKG_INSTALL_ROOT}/etc/passwd | egrep '^'$SSH_PRIVSEP_USER'\$' >/dev/null
-        then
-                echo "PrivSep user $SSH_PRIVSEP_USER already exists."
-        else
+	# Create user if required
+	if cut -f1 -d: \${PKG_INSTALL_ROOT}/etc/passwd | egrep '^'$SSH_PRIVSEP_USER'\$' >/dev/null
+	then
+		echo "PrivSep user $SSH_PRIVSEP_USER already exists."
+	else
 		# Use uid of 67 if possible
 		if cut -f3 -d: \${PKG_INSTALL_ROOT}/etc/passwd | egrep '^'$SSHDGID'\$' >/dev/null
 		then
@@ -282,10 +283,10 @@ else
 		else
 			sshduid="-u $SSHDUID"
 		fi
-                echo "Creating PrivSep user $SSH_PRIVSEP_USER."
+		echo "Creating PrivSep user $SSH_PRIVSEP_USER."
 		\$chroot /usr/sbin/useradd -c 'SSHD PrivSep User' -s /bin/false -g $SSH_PRIVSEP_USER \$sshduid $SSH_PRIVSEP_USER
 		\$chroot /usr/bin/passwd -l $SSH_PRIVSEP_USER
-        fi
+	fi
 fi
 
 [ "\${POST_INS_START}" = "yes" ]  &&  ${TEST_DIR}/etc/init.d/${SYSVINIT_NAME} start
@@ -364,17 +365,23 @@ cat >mk-proto.awk << _EOF
 	    BEGIN { print "i pkginfo"; print "i preinstall"; \\
 		    print "i postinstall"; print "i preremove"; \\
 		    print "i request"; print "i space"; \\
-	            split("$SYSTEM_DIR",sys_files); }
+		    split("$SYSTEM_DIR",sys_files); }
 	    {
 	     for (dir in sys_files) { if ( \$3 != sys_files[dir] )
-	             { \$5="root"; \$6="sys"; }
-	        else
-	             { \$4="?"; \$5="?"; \$6="?"; break;}
+		     { \$5="root"; \$6="sys"; }
+		else
+		     { \$4="?"; \$5="?"; \$6="?"; break;}
 	    } }
 	    { print; }
 _EOF
 find . | egrep -v "prototype|pkginfo|mk-proto.awk" | sort | \
 	pkgproto $PROTO_ARGS | nawk -f mk-proto.awk > prototype
+
+# /usr/local is a symlink on some systems
+[ "${USR_LOCAL_IS_SYMLINK}" = yes ]  &&  {
+	grep -v "^d none /usr/local ? ? ?$" prototype > prototype.new
+	mv prototype.new prototype
+}
 
 ## Step back a directory and now build the package.
 echo "Building package.."

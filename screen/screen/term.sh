@@ -7,6 +7,9 @@ if test -z "$srcdir"; then
   srcdir=.
 fi
 
+LC_ALL=C
+export LC_ALL
+
 rm -f term.h
 cat << EOF > term.h
 /*

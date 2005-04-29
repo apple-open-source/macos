@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -26,8 +24,8 @@
  *  BLIsMountHFS.c
  *  bless
  *
- *  Created by shantonu on Mon Jul 16 2001.
- *  Copyright (c) 2001-2003 __CompanyName__. All rights reserved.
+ *  Created by Shantonu Sen <ssen@apple.com> on Mon Jul 16 2001.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  */
 
@@ -37,7 +35,7 @@
 #include "bless.h"
 #include "bless_private.h"
 
-int BLIsMountHFS(BLContextPtr context, unsigned char mountpt[], int *isHFS) {
+int BLIsMountHFS(BLContextPtr context, const unsigned char mountpt[], int *isHFS) {
   struct statfs sc;
 
     int err;

@@ -1,5 +1,5 @@
 /*
- * Copyright 1997,2000,2001 by Massachusetts Institute of Technology
+ * Copyright 1997,2000,2001,2004 by Massachusetts Institute of Technology
  * 
  * Copyright 1987, 1988 by MIT Student Information Processing Board
  *
@@ -19,6 +19,7 @@
  * provided "as is" without express or implied warranty.
  */
 
+#include "autoconf.h"
 #include <stdio.h>
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
@@ -26,26 +27,50 @@
 #include <string.h>
 #include "com_err.h"
 #include "error_table.h"
-
-#if defined(_WIN32)
-#define HAVE_STRERROR
-#endif
+#include "k5-platform.h"
 
 #if !defined(HAVE_STRERROR) && !defined(SYS_ERRLIST_DECLARED)
 extern char const * const sys_errlist[];
 extern const int sys_nerr;
 #endif
 
-static char buffer[ET_EBUFSIZ];
-
-#if (defined(_WIN32) || TARGET_OS_MAC)
 /*@null@*/ static struct et_list * _et_list = (struct et_list *) NULL;
-#else
-/* Old interface compatibility */
-/*@null@*/ struct et_list * _et_list = (struct et_list *) NULL;
-#endif
-
 /*@null@*//*@only@*/static struct dynamic_et_list * et_list_dynamic;
+static k5_mutex_t et_list_lock = K5_MUTEX_PARTIAL_INITIALIZER;
+
+MAKE_INIT_FUNCTION(com_err_initialize);
+MAKE_FINI_FUNCTION(com_err_terminate);
+
+int com_err_initialize(void)
+{
+    int err;
+    err = k5_mutex_finish_init(&et_list_lock);
+    if (err)
+	return err;
+    err = k5_mutex_finish_init(&com_err_hook_lock);
+    if (err)
+	return err;
+    err = k5_key_register(K5_KEY_COM_ERR, free);
+    if (err)
+	return err;
+    return 0;
+}
+
+static int terminated = 0;	/* for debugging shlib fini sequence errors */
+void com_err_terminate(void)
+{
+    struct dynamic_et_list *e, *enext;
+    if (! INITIALIZER_RAN(com_err_initialize) || PROGRAM_EXITING())
+	return;
+    k5_mutex_lock(&et_list_lock);
+    for (e = et_list_dynamic; e; e = enext) {
+	enext = e->next;
+	free(e);
+    }
+    k5_mutex_unlock(&et_list_lock);
+    k5_mutex_destroy(&et_list_lock);
+    terminated = 1;
+}
 
 #ifndef DEBUG_TABLE_LIST
 #define dprintf(X)
@@ -64,8 +89,9 @@ error_message(long code)
 	unsigned long table_num;
 	int started = 0;
 	unsigned int divisor = 100;
-	char *cp;
+	char *cp, *cp1;
 	const struct error_table *table;
+	int merr;
 
 	l_offset = (unsigned long)code & ((1<<ERRCODE_RANGE)-1);
 	offset = l_offset;
@@ -104,6 +130,11 @@ error_message(long code)
 	    goto system_error_code;
 #endif
 
+	if (CALL_INIT_FUNCTION(com_err_initialize))
+	    return 0;
+	merr = k5_mutex_lock(&et_list_lock);
+	if (merr)
+	    goto oops;
 	dprintf (("scanning static list for %x\n", table_num));
 	for (et = _et_list; et != NULL; et = et->next) {
 	    if (et->table == NULL)
@@ -127,6 +158,7 @@ error_message(long code)
 	goto no_table_found;
 
  found:
+	k5_mutex_unlock(&et_list_lock);
 	dprintf (("found it!\n"));
 	/* This is the right table */
 
@@ -140,15 +172,16 @@ error_message(long code)
 	return table->msgs[offset];
 
  no_table_found:
+	k5_mutex_unlock(&et_list_lock);
 #if defined(_WIN32)
 	/*
 	 * WinSock errors exist in the 10000 and 11000 ranges
 	 * but might not appear if WinSock is not initialized
 	 */
-	if (code < 12000) {
+	if (code >= WSABASEERR && code < WSABASEERR + 1100) {
 		table_num = 0;
 		offset = code;
-		divisor = 10000;
+		divisor = WSABASEERR;
 	}
 #endif
 #ifdef _WIN32	
@@ -166,7 +199,7 @@ error_message(long code)
 			 * WinSock errors exist in the 10000 and 11000 ranges
 			 * but might not appear if WinSock is not initialized
 			 */
-			if (code < 12000) {
+			if (code >= WSABASEERR && code < WSABASEERR + 1100) {
 			    table_num = 0;
 			    offset = code;
 			    divisor = 10000;
@@ -174,8 +207,22 @@ error_message(long code)
 
 			goto oops;
 		} else {
-			strncpy(buffer, msgbuf, sizeof(buffer));
-			buffer[sizeof(buffer)-1] = '\0';
+			char *buffer;
+			cp = k5_getspecific(K5_KEY_COM_ERR);
+			if (cp == NULL) {
+			    cp = malloc(ET_EBUFSIZ);
+			    if (cp == NULL) {
+			    win32_no_specific:
+				return "Unknown error code";
+			    }
+			    if (k5_setspecific(K5_KEY_COM_ERR, cp) != 0) {
+				free(cp);
+				goto win32_no_specific;
+			    }
+			}
+			buffer = cp;
+			strncpy(buffer, msgbuf, ET_EBUFSIZ);
+			buffer[ET_EBUFSIZ-1] = '\0';
 			cp = buffer + strlen(buffer) - 1;
 			if (*cp == '\n') *cp-- = '\0';
 			if (*cp == '\r') *cp-- = '\0';
@@ -196,8 +243,20 @@ oops:
 		return (strerror (code));
 	}
 #endif
-	
-	cp = buffer;
+
+	cp = k5_getspecific(K5_KEY_COM_ERR);
+	if (cp == NULL) {
+	    cp = malloc(ET_EBUFSIZ);
+	    if (cp == NULL) {
+	    no_specific:
+		return "Unknown error code";
+	    }
+	    if (k5_setspecific(K5_KEY_COM_ERR, cp) != 0) {
+		free(cp);
+		goto no_specific;
+	    }
+	}
+	cp1 = cp;
 	strcpy(cp, "Unknown code ");
 	cp += sizeof("Unknown code ") - 1;
 	if (table_num != 0L) {
@@ -216,7 +275,7 @@ oops:
 	}
 	*cp++ = '0' + offset;
 	*cp = '\0';
-	return(buffer);
+	return(cp1);
 }
 
 /*@-incondefs@*/ /* _et_list is global on unix but not in header annotations */
@@ -226,15 +285,25 @@ add_error_table(/*@dependent@*/ const struct error_table * et)
 /*@=incondefs@*/
 {
     struct dynamic_et_list *del;
+    int merr;
+
+    if (CALL_INIT_FUNCTION(com_err_initialize))
+	return 0;
 
     del = (struct dynamic_et_list *)malloc(sizeof(struct dynamic_et_list));
     if (del == NULL)
 	return errno;
 
     del->table = et;
+
+    merr = k5_mutex_lock(&et_list_lock);
+    if (merr) {
+	free(del);
+	return merr;
+    }
     del->next = et_list_dynamic;
     et_list_dynamic = del;
-    return 0;
+    return k5_mutex_unlock(&et_list_lock);
 }
 
 /*@-incondefs@*/ /* _et_list is global on unix but not in header annotations */
@@ -245,6 +314,19 @@ remove_error_table(const struct error_table * et)
 {
     struct dynamic_et_list **del;
     struct et_list **el;
+    int merr;
+
+    if (CALL_INIT_FUNCTION(com_err_initialize))
+	return 0;
+#if !defined(ENABLE_THREADS) && defined(DEBUG_THREADS)
+    if (et_list_lock.os.initialized == 0 && terminated != 0) {
+	fprintf(stderr, "\n\n *** Function remove_error_table called after com_err library termination. ***\n *** Shared library termination code executed in incorrect order?          ***\n\n");
+	abort();
+    }
+#endif
+    merr = k5_mutex_lock(&et_list_lock);
+    if (merr)
+	return merr;
 
     /* Remove the first occurrance we can find.  Prefer dynamic
        entries, but if there are none, check for a static one too.  */
@@ -253,7 +335,7 @@ remove_error_table(const struct error_table * et)
 	    /*@only@*/ struct dynamic_et_list *old = *del;
 	    *del = old->next;
 	    free (old);
-	    return 0;
+	    return k5_mutex_unlock(&et_list_lock);
 	}
     for (el = &_et_list; *el; el = &(*el)->next)
 	if ((*el)->table != NULL && (*el)->table->base == et->base) {
@@ -261,7 +343,13 @@ remove_error_table(const struct error_table * et)
 	    *el = old->next;
 	    old->next = NULL;
 	    old->table = NULL;
-	    return 0;
+	    return k5_mutex_unlock(&et_list_lock);
 	}
+    k5_mutex_unlock(&et_list_lock);
     return ENOENT;
+}
+
+int com_err_finish_init()
+{
+    return CALL_INIT_FUNCTION(com_err_initialize);
 }

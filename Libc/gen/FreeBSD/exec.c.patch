@@ -1,5 +1,5 @@
---- exec.c.orig	Fri Jan  3 15:16:55 2003
-+++ exec.c	Sat May  3 14:03:35 2003
+--- exec.c.orig	2004-11-24 00:12:00.000000000 -0800
++++ exec.c	2004-11-24 15:46:54.000000000 -0800
 @@ -51,7 +51,8 @@
  #include <stdarg.h>
  #include "un-namespace.h"
@@ -10,3 +10,14 @@
  
  int
  execl(const char *name, const char *arg, ...)
+@@ -268,8 +269,9 @@
+ 	}
+ 	if (eacces)
+ 		errno = EACCES;
+-	else
++	else if (cur)
+ 		errno = ENOENT;
++	/* else use existing errno from _execve */
+ done:
+ 	return (-1);
+ }

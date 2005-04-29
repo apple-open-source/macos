@@ -1,13 +1,12 @@
 thisconfigdir=.
 myfulldir=include
 mydir=.
-MY_SUBDIRS=krb5 @maybe_kerberosIV@
+LOCAL_SUBDIRS=krb5 @maybe_kerberosIV@
 BUILDTOP=$(REL)..
 ##DOSBUILDTOP = ..
 NO_OUTPRE=1
 
 all-unix:: krb5.h
-all-mac::
 
 all-windows::
 	@echo Making in include\krb5
@@ -24,11 +23,12 @@ maybe-make-db.h-sys:
 maybe-make-db.h-redirect:
 	test -r db.h || echo '#include <@DB_HEADER@>' > db.h
 
+all-recurse: krb5/autoconf.h
 krb5/autoconf.h: $(srcdir)/krb5/autoconf.h.in
 	(cd krb5; $(MAKE) autoconf.h)
-$(srcdir)/krb5/autoconf.h.in: $(srcdir)/krb5/autoconf.stmp
-$(srcdir)/krb5/autoconf.stmp: $(srcdir)/configure.in 
-	cd $(srcdir) && $(AUTOHEADER) --localdir=$(CONFIG_RELTOPDIR) $(AUTOHEADERFLAGS)
+$(srcdir)/krb5/autoconf.h.in: @MAINT@ $(srcdir)/krb5/autoconf.stmp
+$(srcdir)/krb5/autoconf.stmp: $(srcdir)/configure.in $(SRCTOP)/aclocal.m4
+	cd $(srcdir) && $(AUTOHEADER) --include=$(CONFIG_RELTOPDIR) $(AUTOHEADERFLAGS)
 	touch $(srcdir)/krb5/autoconf.stmp
 
 krb5.h: krb5/autoconf.h $(srcdir)/krb5.hin krb5_err.h kdb5_err.h kv5m_err.h krb524_err.h \
@@ -60,11 +60,9 @@ clean-unix::
 	$(RM) krb5.h krb5_err.h kdb5_err.h kv5m_err.h krb524_err.h \
 		asn1_err.h
 
-clean-mac::
-
 clean-windows::
 	$(RM) com_err.h profile.h
-	$(RM) gssapi\gssapi.h gssapi\gssapi_generic.h gssapi\gssapi_krb5.h
+	$(RM) gssapi\gssapi.h gssapi\gssapi_generic.h gssapi\gssapi_krb5.h gssapi\timestamp
 	if exist gssapi\nul rmdir gssapi
 	cd krb5
 	@echo Making clean in include\krb5

@@ -1,10 +1,10 @@
 /*
-*******************************************************************************
+******************************************************************************
 *
-*   Copyright (C) 1997-2003, International Business Machines
+*   Copyright (C) 1997-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
-*******************************************************************************
+******************************************************************************
 *
 *  FILE NAME : platform.h
 *
@@ -13,7 +13,7 @@
 *   03/02/99    stephen     Added AS400 support.
 *   03/30/99    stephen     Added Linux support.
 *   04/13/99    stephen     Reworked for autoconf.
-*******************************************************************************
+******************************************************************************
 */
 
 /* Define the platform we're on. */
@@ -77,53 +77,11 @@
 #define U_HAVE_UINT64_T @HAVE_UINT64_T@
 #endif
 
-
-/* Define whether namespace is supported */
-#ifndef U_HAVE_NAMESPACE
-#define U_HAVE_NAMESPACE @U_HAVE_NAMESPACE@
-#endif
-
-/* Determines the endianness of the platform */
-#define U_IS_BIG_ENDIAN @U_IS_BIG_ENDIAN@
-
-/* 1 or 0 to enable or disable threads.  If undefined, default is: enable threads. */
-#define ICU_USE_THREADS @ICU_USE_THREADS@
-
-/* Determine whether to disable renaming or not. This overrides the
-   setting in umachine.h which is for all platforms. */
-#ifndef U_DISABLE_RENAMING
-#define U_DISABLE_RENAMING @U_DISABLE_RENAMING@
-#endif
-
-/* Determine whether to override new and delete. */
-#ifndef U_OVERRIDE_CXX_ALLOCATION
-#define U_OVERRIDE_CXX_ALLOCATION @U_OVERRIDE_CXX_ALLOCATION@
-#endif
-/* Determine whether to override placement new and delete for STL. */
-#ifndef U_HAVE_PLACEMENT_NEW
-#define U_HAVE_PLACEMENT_NEW @U_HAVE_PLACEMENT_NEW@
-#endif
-
-/* Define the library suffix in a C syntax. */
-#define U_HAVE_LIB_SUFFIX @U_HAVE_LIB_SUFFIX@
-#define U_LIB_SUFFIX_C_NAME @ICULIBSUFFIXCNAME@
-#define U_LIB_SUFFIX_C_NAME_STRING "@ICULIBSUFFIXCNAME@"
-
-/*===========================================================================*/
-/* Platform/Language determination                                           */
-/*===========================================================================*/
-
-#ifdef macintosh
-#ifdef XP_MAC
-#undef XP_MAC
-#endif
-#define XP_MAC 1
-#include <string.h>
-#endif
-
 /*===========================================================================*/
 /* Generic data types                                                        */
 /*===========================================================================*/
+
+#include <sys/types.h>
 
 /* If your platform does not have the <inttypes.h> header, you may
    need to edit the typedefs below. */
@@ -149,12 +107,6 @@ typedef unsigned char uint8_t;
 
 #else /* U_HAVE_INTTYPES_H */
 
-#include <sys/types.h>
-#if STDC_HEADERS
-#include <stdlib.h>
-#include <stddef.h>
-#endif /* STDC_HEADERS */
-
 #if ! U_HAVE_INT8_T
 typedef signed char int8_t;
 #endif
@@ -172,19 +124,11 @@ typedef unsigned short uint16_t;
 #endif
 
 #if ! U_HAVE_INT32_T
-#   if defined(_LP64)
-      typedef signed int  int32_t;
-#   else
-      typedef signed long int32_t;
-#   endif
+typedef signed int int32_t;
 #endif
 
 #if ! U_HAVE_UINT32_T
-#   if defined(_LP64)
-      typedef unsigned int  uint32_t;
-#   else
-      typedef unsigned long uint32_t;
-#   endif
+typedef unsigned int uint32_t;
 #endif
 
 #if ! U_HAVE_INT64_T
@@ -200,10 +144,64 @@ typedef unsigned short uint16_t;
 #endif
 
 /*===========================================================================*/
+/* Compiler and environment features                                         */
+/*===========================================================================*/
+
+/* Define whether namespace is supported */
+#ifndef U_HAVE_NAMESPACE
+#define U_HAVE_NAMESPACE @U_HAVE_NAMESPACE@
+#endif
+
+/* Determines the endianness of the platform
+   It's done this way in case multiple architectures are being built at once.
+   For example, Darwin supports fat binaries, which can be both PPC and x86 based. */
+#if defined(BYTE_ORDER) && defined(BIG_ENDIAN)
+#define U_IS_BIG_ENDIAN (BYTE_ORDER == BIG_ENDIAN)
+#else
+#define U_IS_BIG_ENDIAN @U_IS_BIG_ENDIAN@
+#endif
+
+/* 1 or 0 to enable or disable threads.  If undefined, default is: enable threads. */
+#define ICU_USE_THREADS @ICU_USE_THREADS@
+
+#ifndef U_DEBUG
+#define U_DEBUG @ENABLE_DEBUG@
+#endif
+
+#ifndef U_RELEASE
+#define U_RELEASE @ENABLE_RELEASE@
+#endif
+
+/* Determine whether to disable renaming or not. This overrides the
+   setting in umachine.h which is for all platforms. */
+#ifndef U_DISABLE_RENAMING
+#define U_DISABLE_RENAMING @U_DISABLE_RENAMING@
+#endif
+
+/* Determine whether to override new and delete. */
+#ifndef U_OVERRIDE_CXX_ALLOCATION
+#define U_OVERRIDE_CXX_ALLOCATION @U_OVERRIDE_CXX_ALLOCATION@
+#endif
+/* Determine whether to override placement new and delete for STL. */
+#ifndef U_HAVE_PLACEMENT_NEW
+#define U_HAVE_PLACEMENT_NEW @U_HAVE_PLACEMENT_NEW@
+#endif
+
+/* Determine whether to enable tracing. */
+#ifndef U_ENABLE_TRACING
+#define U_ENABLE_TRACING @U_ENABLE_TRACING@
+#endif
+
+/* Define the library suffix in a C syntax. */
+#define U_HAVE_LIB_SUFFIX @U_HAVE_LIB_SUFFIX@
+#define U_LIB_SUFFIX_C_NAME @ICULIBSUFFIXCNAME@
+#define U_LIB_SUFFIX_C_NAME_STRING "@ICULIBSUFFIXCNAME@"
+
+/*===========================================================================*/
 /* Character data types                                                      */
 /*===========================================================================*/
 
-#ifdef OS390
+#if defined(OS390) || defined(OS400)
 #   define U_CHARSET_FAMILY 1
 #endif
 
@@ -224,12 +222,15 @@ typedef unsigned short uint16_t;
 #define U_HAVE_NL_LANGINFO_CODESET  @U_HAVE_NL_LANGINFO_CODESET@
 #define U_NL_LANGINFO_CODESET       @U_NL_LANGINFO_CODESET@
 
+#if @U_HAVE_TZSET@
 #define U_TZSET         @U_TZSET@
-#define U_HAVE_TIMEZONE @U_HAVE_TIMEZONE@
-#if U_HAVE_TIMEZONE
-#   define U_TIMEZONE   @U_TIMEZONE@
 #endif
+#if @U_HAVE_TIMEZONE@
+#define U_TIMEZONE      @U_TIMEZONE@
+#endif
+#if @U_HAVE_TZNAME@
 #define U_TZNAME        @U_TZNAME@
+#endif
 
 #define U_HAVE_MMAP     @HAVE_MMAP@
 #define U_HAVE_POPEN    @U_HAVE_POPEN@
@@ -264,4 +265,3 @@ typedef unsigned short uint16_t;
 /*===========================================================================*/
 
 #define U_MAKE  "@U_MAKE@"
-

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XUQuark.man,v 1.4 2001/02/09 03:47:47 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XUQuark.man,v 1.5 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,57 +144,47 @@
 .SH NAME
 XrmUniqueQuark, XrmStringToQuark, XrmPermStringToQuark, XrmQuarkToString, XrmStringToQuarkList, XrmStringToBindingQuarkList \- manipulate resource quarks
 .SH SYNTAX
-XrmQuark XrmUniqueQuark\^(\|)
+.HP
+XrmQuark XrmUniqueQuark\^(void); 
 .LP
 \&#define XrmStringToName(string) XrmStringToQuark(string)
+.br
 \&#define XrmStringToClass(string) XrmStringToQuark(string)
+.br
 \&#define XrmStringToRepresentation(string) XrmStringToQuark(string)
-.sp
-XrmQuark XrmStringToQuark\^(\^\fIstring\fP\^)
-.br
-     char *\fIstring\fP\^;
-.sp
-XrmQuark XrmPermStringToQuark\^(\^\fIstring\fP\^)
-.br
-     char *\fIstring\fP\^;
+.HP
+int XrmQuark XrmStringToQuark\^(\^char *\fIstring\fP\^); 
+.HP
+XrmQuark XrmPermStringToQuark\^(\^char *\fIstring\fP\^); 
 .LP
 \&#define XrmStringToName(string) XrmStringToQuark(string)
+.br
 \&#define XrmStringToClass(string) XrmStringToQuark(string)
+.br
 \&#define XrmStringToRepresentation(string) XrmStringToQuark(string)
-.sp
-XrmQuark XrmStringToQuark\^(\^\fIstring\fP\^)
-.br
-     char *\fIstring\fP\^;
-.sp
-XrmQuark XrmPermStringToQuark\^(\^\fIstring\fP\^)
-.br
-     char *\fIstring\fP\^;
+.HP
+XrmQuark XrmStringToQuark\^(\^char *\fIstring\fP\^); 
+.HP
+XrmQuark XrmPermStringToQuark\^(\^char *\fIstring\fP\^); 
 .LP
 \&#define XrmNameToString(name) XrmQuarkToString(name)
-\&#define XrmClassToString(class) XrmQuarkToString(class)
-\&#define XrmRepresentationToString(type) XrmQuarkToString(type)
-.sp
-char *XrmQuarkToString\^(\^\fIquark\fP\^)
 .br
-     XrmQuark \fIquark\fP\^;
+\&#define XrmClassToString(class) XrmQuarkToString(class)
+.br
+\&#define XrmRepresentationToString(type) XrmQuarkToString(type)
+.HP
+char *XrmQuarkToString\^(\^XrmQuark \fIquark\fP\^); 
 .LP
 \&#define XrmStringToNameList(str, name)  XrmStringToQuarkList((str), (name))
+.br
 \&#define XrmStringToClassList(str,class) XrmStringToQuarkList((str), (class))
 .sp
-void XrmStringToQuarkList\^(\^\fIstring\fP, \fIquarks_return\fP\^)
-.br
-     char *\fIstring\fP\^;
-.br
-     XrmQuarkList \fIquarks_return\fP\^;
-.LP
-XrmStringToBindingQuarkList\^(\^\fIstring\fP, \fIbindings_return\fP,
-\fIquarks_return\fP\^)
-.br
-     char *\fIstring\fP\^;
-.br
-     XrmBindingList \fIbindings_return\fP\^;
-.br
-     XrmQuarkList \fIquarks_return\fP\^;
+.HP
+void XrmStringToQuarkList\^(\^char *\fIstring\fP\^, XrmQuarkList
+\fIquarks_return\fP\^); 
+.HP
+XrmStringToBindingQuarkList\^(\^char *\fIstring\fP\^, XrmBindingList
+\fIbindings_return\fP\^, XrmQuarkList \fIquarks_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIbindings_return\fP 1i
 Returns the binding list.

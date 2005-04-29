@@ -14,7 +14,7 @@ m4 --version
 for file
 do
   echo "Checking $file"
-  m4 -d $file >$out 2>$err
+  LC_MESSAGES=C m4 -d $file >$out 2>$err
 
   sed -e '/^dnl @result{}/!d' -e 's///' $file > $xout
 

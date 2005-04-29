@@ -130,7 +130,7 @@ gdb_test "p (id)\[NSMutableDictionary dictionaryWithObject:@\"55\" forKey:@\"CAN
 gdb_test "print-object \$8" ".*CANREADTHIS = 55;.*"
 gdb_test "p (id)\[NSMutableDictionary dictionaryWithObject:@\"55\" forKey:@\"\^INVISIBLE!\"\]" "\\\$9 = .*$hex"
 gdb_test "print-object \$9" ".*\\\^INVISIBLE! = 55;.*"
-gdb_test "p (int)NSLog(@\"%@\", \$9)" ".*200\[0-9\]-\[0-9\]\[0-9\]-\[0-9\]\[0-9\] \[0-9\]\[0-9\]:\[0-9\]\[0-9\]:\[0-9\]\[0-9\].*type = mutable, count = 1,.*contents = \"\\\^INVISIBLE!\".*contents = \"55\".*"
+gdb_test "p (int)NSLog(@\"%@\", \$9)" ".*200\[0-9\]-\[0-9\]\[0-9\]-\[0-9\]\[0-9\] \[0-9\]\[0-9\]:\[0-9\]\[0-9\]:\[0-9\]\[0-9\].*\\\{\"\\\^INVISIBLE!\" = 55. \\\}.*"
 gdb_test "p (int)CFShow(\$9)" ".*type = mutable, count = 1,.*pairs =.*\\\^INVISIBLE!.*"
 gdb_test "po \[\$9 description\]" "\{\"\\\^INVISIBLE!\" = 55; \}"
 

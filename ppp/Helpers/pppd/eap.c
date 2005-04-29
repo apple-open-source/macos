@@ -37,14 +37,14 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: eap.c,v 1.11 2003/08/14 00:00:29 callie Exp $"
-
-#ifdef EAP
+#define RCSID	"$Id: eap.c,v 1.21 2005/01/21 01:36:19 lindak Exp $"
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include "pppd.h"
 #include "eap.h"
@@ -52,7 +52,9 @@
 #include "lcp.h"
 #include "chap_ms.h" // for mppe keys
 
+#ifndef lint
 static const char rcsid[] = RCSID;
+#endif
 
 
 static int eaploadplugin(char **argv);
@@ -69,7 +71,7 @@ static option_t eap_option_list[] = {
     { "eap-interval", o_int, &eap[0].req_interval,
       "Set interval for rechallenge" },
     { "eapplugin", o_special, (void *)eaploadplugin,
-      "Load an eap plug-in module into pppd", OPT_PRIV },
+      "Load an eap plug-in module into pppd", OPT_PRIV | OPT_A2LIST },
     { NULL }
 };
 
@@ -159,7 +161,22 @@ EapAuthWithPeer(unit, our_name)
 {
     eap_state *cstate = &eap[unit];
 
-    cstate->our_identity = user;
+
+	if (username[0] == 0) {
+		/*
+			no identity, get it from a plugin
+		*/
+
+		eap_ext 	*eap;
+
+		for (eap = eap_extensions; eap; eap = eap->next) {
+		   if (eap->identity
+				&& (eap->identity(username, sizeof(username)) == EAP_NO_ERROR))
+				break;
+		}
+	}
+	
+    cstate->our_identity = username;
     cstate->username = username;
     cstate->password = passwd;
 
@@ -260,6 +277,46 @@ EapRechallenge(arg)
     cstate->serverstate = EAPSS_RECHALLENGE;
 }
 
+/*
+ * EapLostSuccess - EAP success has been lost.
+ *
+ * Simulate an EAP success packet .
+ */
+void
+EapLostSuccess(unit)
+    int unit;
+{
+    eap_state *cstate = &eap[unit];
+    u_char inpacket[EAP_HEADERLEN];
+	u_char *inp = inpacket;
+
+    PUTCHAR(EAP_SUCCESS, inp);		/* simulate success */
+    PUTCHAR(cstate->resp_id, inp);  /* id must match the last response we sent */
+    PUTSHORT(EAP_HEADERLEN, inp);
+
+	EapReceiveSuccess(cstate, inpacket, EAP_HEADERLEN, inp, cstate->resp_id, 0);
+}
+
+/*
+ * EapLostFailure - EAP failure has been lost.
+ *
+ * Simulate an EAP failure packet .
+ */
+void
+EapLostFailure(unit)
+    int unit;
+{
+    eap_state *cstate = &eap[unit];
+    u_char inpacket[EAP_HEADERLEN];
+	u_char *inp = inpacket;
+	
+	MAKEHEADER(inp, PPP_EAP);		/* paste in a EAP header */
+    PUTCHAR(EAP_FAILURE, inp);		/* simulate failure */
+    PUTCHAR(cstate->resp_id, inp);  /* id must match the last response we sent */
+    PUTSHORT(EAP_HEADERLEN, inp);
+
+	EapReceiveFailure(cstate, inpacket, EAP_HEADERLEN, inp, cstate->resp_id, 0);
+}
 
 /*
  * EapLowerUp - The lower layer is up.
@@ -452,15 +509,18 @@ EAPAllowedAddr(unit, addr)
 int
 EapExtAdd(eap_ext *newext)
 {
-    eap_ext *eap;
+    eap_ext *eap, *last;
 
-    for (eap = eap_extensions; eap; eap = eap->next) {
+    for (last = eap = eap_extensions; eap; last = eap, eap = eap->next) {
         if (eap->type == newext->type)
             return 1; // already exists
     }
 
-    newext->next = eap_extensions;
-    eap_extensions = newext;
+	if (last) 
+		last->next = newext;
+	else 
+		eap_extensions = newext;
+	newext->next = NULL;
     return 0;
 }
 
@@ -529,6 +589,19 @@ EapReceiveRequest(cstate, inpacket, packet_len, inp, id, len)
             break;
             
         case EAP_TYPE_NOTIFICATION:
+			
+			/* print the remote message */
+			PRINTMSG(inp, len);
+			
+            /* send an empty response */
+			outlen = EAP_HEADERLEN;
+            outp = outpacket_buf;
+            MAKEHEADER(outp, PPP_EAP);
+            PUTCHAR(EAP_RESPONSE, outp);	/* we are a response */
+            PUTCHAR(id, outp);	/* copy id from request packet */
+            PUTSHORT(outlen, outp);	/* packet length */
+            /* send the packet */
+            output(cstate->unit, outpacket_buf, outlen + PPP_HDRLEN);
             break;
 
         case EAP_TYPE_NAK:
@@ -538,7 +611,7 @@ EapReceiveRequest(cstate, inpacket, packet_len, inp, id, len)
             if (cstate->client_ext) {
                 /* if a request was already received, check that we get the same type */
                 if (cstate->client_ext->type != req) {
-                    error("EAP received an unexpected request for %s (request type %d)", eap->name ? eap->name : "???", req);
+                    error("EAP received an unexpected request for type %d", req);
                     break;
                 }
             }
@@ -546,7 +619,23 @@ EapReceiveRequest(cstate, inpacket, packet_len, inp, id, len)
                 /* first time, create client eap extension context */
                 eap = EapSupportedType(req);
                 if (eap == NULL) {
-                    error("EAP refuse to authenticate using type %d", req);
+					error("EAP refuse to authenticate using type %d", req);
+
+					/* send a NAK with the type we support */
+					if (eap_extensions) {
+						error("EAP send NAK requesting type %d", eap_extensions->type);
+						outlen = EAP_HEADERLEN + sizeof(char) + sizeof(char);
+						outp = outpacket_buf;
+						MAKEHEADER(outp, PPP_EAP);
+						PUTCHAR(EAP_RESPONSE, outp);	/* we are a response */
+						PUTCHAR(id, outp);	/* copy id from request packet */
+						PUTSHORT(outlen, outp);	/* packet length */
+						PUTCHAR(EAP_TYPE_NAK, outp);		/* type NAK */
+						PUTCHAR(eap_extensions->type, outp);		/* copy the type we prefer */
+
+						/* send the packet */
+						output(cstate->unit, outpacket_buf, outlen + PPP_HDRLEN);
+					}
                     break;
                 }
 
@@ -564,7 +653,7 @@ EapReceiveRequest(cstate, inpacket, packet_len, inp, id, len)
                 cstate->client_ext_output->size = sizeof(EAP_Output);
                 cstate->client_ext_input->mode = 0; // client mode
                 cstate->client_ext_input->initial_id = 0; // no sense in client mode
-                cstate->client_ext_input->mtu = 0;
+                cstate->client_ext_input->mtu = netif_get_mtu(cstate->unit);
                 cstate->client_ext_input->identity = cstate->our_identity;
                 cstate->client_ext_input->username = cstate->username;
                 cstate->client_ext_input->password = cstate->password;
@@ -579,6 +668,7 @@ EapReceiveRequest(cstate, inpacket, packet_len, inp, id, len)
                 err = cstate->client_ext->init(cstate->client_ext_input, &cstate->client_ext_ctx);
                 if (err) {
                     error("EAP cannot initialize plugin for %s (request type %d)", eap->name ? eap->name : "???", req);
+					auth_withpeer_fail(cstate->unit, PPP_EAP);
                     break;
                 }
             }
@@ -602,9 +692,9 @@ EapReceiveResponse(cstate, inpacket, packet_len,  inp, id, len)
     int id;
     int len;
 {
-    u_char type;
+    u_char type, auth_type;
     int  err;
-    eap_ext	*eap;
+    eap_ext	*eap, *last_eap;
 
     if (cstate->serverstate == EAPSS_CLOSED ||
 	cstate->serverstate == EAPSS_PENDING) {
@@ -622,7 +712,8 @@ EapReceiveResponse(cstate, inpacket, packet_len,  inp, id, len)
 
     GETCHAR(type, inp);		/* get type */
     len -= 1;
-    if (type != cstate->req_type) {
+    if ((type != EAP_TYPE_NAK && type != cstate->req_type)
+		|| (type == EAP_TYPE_NAK && cstate->server_ext == 0)) {
 	EAPDEBUG(("EapReceiveResponse: type doesn't match our request."));
 	return;			/* doesn't match type of last challenge */
     }
@@ -641,15 +732,51 @@ EapReceiveResponse(cstate, inpacket, packet_len,  inp, id, len)
 
             /* XXX : Lookup to find out the protocol to use based on identity */
 
-            if (eap_extensions == NULL) {
+			/* use the first plugin available */
+			eap = eap_extensions; 
+
+            if (eap == NULL) {
                 error("No EAP server protocol available");
+				cstate->serverstate = EAPSS_BADAUTH;
+				auth_peer_fail(cstate->unit, PPP_EAP);
                 break;
             }
-                        
-            /* XXX : use the first plugin available */
-            
-            eap = eap_extensions;
-                        
+
+			/* no break */
+			
+        case EAP_TYPE_NAK:
+
+			if (type == EAP_TYPE_NAK) {
+								
+				GETCHAR(auth_type, inp);		/* get authentication type */
+				len -= 1;
+
+				last_eap = cstate->server_ext;
+
+				/* free previous selected eap module */ 
+				cstate->server_ext->dispose(cstate->server_ext_ctx);
+				free (cstate->server_ext_input);
+				free (cstate->server_ext_output);
+				cstate->server_ext = 0;
+				cstate->server_ext_ctx = 0;
+				cstate->server_ext_input = 0;
+				cstate->server_ext_output = 0;
+				
+                /* check if we support the type desired by the client */
+                eap = EapSupportedType(auth_type);
+                if (eap == NULL) {
+				
+					/* if not, then use next in list */
+					eap = last_eap->next; 
+					if (eap == NULL) {
+						error("Server and client disagree on EAP type");
+						cstate->serverstate = EAPSS_BADAUTH;
+						auth_peer_fail(cstate->unit, PPP_EAP);
+						break;
+					}
+                }
+			}
+                                   
             cstate->server_ext = eap;
             cstate->req_type = eap->type;
 
@@ -663,7 +790,7 @@ EapReceiveResponse(cstate, inpacket, packet_len,  inp, id, len)
             cstate->server_ext_output->size = sizeof(EAP_Output);
             cstate->server_ext_input->mode = 1; // server mode
             cstate->server_ext_input->initial_id = cstate->req_id + 1;
-            cstate->server_ext_input->mtu = 0;
+            cstate->server_ext_input->mtu = netif_get_mtu(cstate->unit);
             cstate->server_ext_input->identity = cstate->peer_identity;
             cstate->server_ext_input->username = 0; /* irrelevant in server mode */
             cstate->server_ext_input->password = 0; /* irrelevant in server mode */
@@ -800,8 +927,8 @@ EAPClientGetAttributes(cstate)
     return;
     
 bad:
-    error("EAP plugin %s (type %d) does not have %s attribute", 
-        cstate->client_ext->name ? cstate->client_ext->name : "???", cstate->client_ext->type);
+    dbglog("EAP plugin %s (type %d) does not have %s attribute", 
+        cstate->client_ext->name ? cstate->client_ext->name : "???", cstate->client_ext->type, str);
         
 }
 
@@ -916,6 +1043,8 @@ EAPClientAction(cstate)
             MAKEHEADER(outp, PPP_EAP);		/* paste in a EAP header */
             BCOPY(eap_out->data, outp, eap_out->data_len);
             
+			cstate->resp_id = outp[1]; 	/* let's copy the id for future use */
+			
             if (cstate->client_ext->free)
                 cstate->client_ext->free(cstate->client_ext_ctx, eap_out);
                 
@@ -1019,8 +1148,8 @@ EAPServerGetAttributes(cstate)
     return;
     
 bad:
-    error("EAP plugin %s (type %d) does not have %s attribute", 
-        cstate->server_ext->name ? cstate->server_ext->name : "???", cstate->server_ext->type);
+    dbglog("EAP plugin %s (type %d) does not have %s attribute", 
+        cstate->server_ext->name ? cstate->server_ext->name : "???", cstate->server_ext->type, str);
         
 }
 
@@ -1243,25 +1372,6 @@ EapGetServerSecret(void *cookie, u_char *our_name, u_char *peer_name, u_char *se
 }
 
 /*
- * functions called from config options
- */
-int 
-reqeap(char **argv)
-{
-    lcp_wantoptions[0].neg_eap = 1;
-    auth_required = 1;
-
-    return 1;
-}
-
-int 
-noeap(char **argv)
-{
-    lcp_wantoptions[0].use_eap = 0;
-    return 1;
-}
-
-/*
  * eaploadplugin - load the eap plugin
  */
 static int
@@ -1298,5 +1408,3 @@ eaploadplugin(argv)
     return 1;
 }
 
-
-#endif

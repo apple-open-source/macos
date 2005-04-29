@@ -7,7 +7,7 @@ my(@tests) = qw{
 my $num_tests = scalar @tests;
 print "1..$num_tests\n";
 
-use Apache::test;
+use Apache::testold;
 
 my $ua = new LWP::UserAgent;    # create a useragent to test
 

@@ -1,0 +1,112 @@
+Index: ttyname.c
+===================================================================
+RCS file: /cvs/root/Libc/gen/FreeBSD/ttyname.c,v
+retrieving revision 1.3
+diff -u -d -b -w -p -u -r1.3 ttyname.c
+--- ttyname.c	2004/11/25 19:38:02	1.3
++++ ttyname.c	2004/12/12 03:51:44
+@@ -48,10 +48,14 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/tty
+ #include <string.h>
+ #include <paths.h>
+ #include <pthread.h>
++#if __DARWIN_UNIX03
++#include <errno.h>
++#endif /* __DARWIN_UNIX03 */
+ #include "un-namespace.h"
+ 
+ #include "libc_private.h"
+ 
++#ifndef BUILDING_VARIANT
+ static char buf[sizeof(_PATH_DEV) + MAXNAMLEN];
+ static char *ttyname_threaded(int fd);
+ static char *ttyname_unthreaded(int fd);
+@@ -71,31 +75,54 @@ ttyname(int fd)
+ 		ret = ttyname_threaded(fd);
+ 	return (ret);
+ }
++#endif /* !BUILDING_VARIANT */
+ 
++#if __DARWIN_UNIX03
++int
++#else /* !__DARWIN_UNIX03 */
+ char *
+-ttyname_r(int fd, char *buf, size_t len)
++#endif /* __DARWIN_UNIX03 */
++ttyname_r(int fd, char *thrbuf, size_t len)
+ {
+ 	struct stat	sb;
+-	char		*rval;
+ 
+-	rval = NULL;
+-
++#if __DARWIN_UNIX03
++	if (_fstat(fd, &sb) < 0)
++		return (EBADF);
+ 	/* Must be a terminal. */
+ 	if (!isatty(fd))
+-		return (rval);
++		return (ENOTTY);
+ 	/* Must be a character device. */
++	if (!S_ISCHR(sb.st_mode))
++		return (ENOTTY);
++	/* Must have enough room */
++	if (len <= sizeof(_PATH_DEV))
++		return (ERANGE);
++#else /* !__DARWIN_UNIX03 */
++	/* Must be a terminal. */
++	if (!isatty(fd))
++		return (NULL);
++	/* Must be a character device. */
+ 	if (_fstat(fd, &sb) || !S_ISCHR(sb.st_mode))
+-		return (rval);
++		return (NULL);
+ 	/* Must have enough room */
+ 	if (len <= sizeof(_PATH_DEV))
+-		return (rval);
++		return (NULL);
++#endif /* __DARWIN_UNIX03 */
+ 
+-	strcpy(buf, _PATH_DEV);
+-	devname_r(sb.st_rdev, S_IFCHR,
+-	    buf + strlen(buf), sizeof(buf) - strlen(buf));
+-	return (buf);
++	strcpy(thrbuf, _PATH_DEV);
++	if (devname_r(sb.st_rdev, S_IFCHR,
++	    thrbuf + strlen(thrbuf), len - strlen(thrbuf)) == NULL)
++#if __DARWIN_UNIX03
++		return (ERANGE);
++	return (0);
++#else /* !__DARWIN_UNIX03 */
++		return (NULL);
++	return (thrbuf);
++#endif /* __DARWIN_UNIX03 */
+ }
+ 
++#ifndef BUILDING_VARIANT
+ static char *
+ ttyname_threaded(int fd)
+ {
+@@ -124,7 +151,11 @@ ttyname_threaded(int fd)
+ 			return (NULL);
+ 		}
+ 	}
++#if __DARWIN_UNIX03
++	return (ttyname_r(fd, buf, sizeof(_PATH_DEV) + MAXNAMLEN) == 0 ? buf : NULL);
++#else /* !__DARWIN_UNIX03 */
+ 	return (ttyname_r(fd, buf, sizeof(_PATH_DEV) + MAXNAMLEN));
++#endif /* __DARWIN_UNIX03 */
+ }
+ 
+ static char *
+@@ -141,7 +172,9 @@ ttyname_unthreaded(int fd)
+ 		return (NULL);
+ 
+ 	strcpy(buf, _PATH_DEV);
+-	devname_r(sb.st_rdev, S_IFCHR,
+-	    buf + strlen(buf), sizeof(buf) - strlen(buf));
++	if (devname_r(sb.st_rdev, S_IFCHR,
++	    buf + strlen(buf), sizeof(buf) - strlen(buf)) == NULL)
++		return (NULL);
+ 	return (buf);
+ }
++#endif /* !BUILDING_VARIANT */

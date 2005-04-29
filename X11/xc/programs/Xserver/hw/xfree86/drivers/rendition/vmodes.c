@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/rendition/vmodes.c,v 1.13 2002/12/11 17:23:33 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/rendition/vmodes.c,v 1.14 2004/02/24 01:13:10 dawes Exp $ */
 /*
  * file vmodes.c
  *
@@ -376,7 +376,16 @@ verite_restore(ScrnInfoPtr pScreenInfo, RenditionRegPtr reg)
     int iob=pRendition->board.io_base;
 
     verite_restoredac (pScreenInfo, reg);
-    verite_out32(iob+MODEREG,reg->mode);
+    /*
+     * If this is a Verite 1000, restore the MODEREG
+     * register now.  The MODEREG gets restored later
+     * for the Verite 2x00 because restoring it here
+     * has been confirmed to cause intermittent
+     * system locks.
+     */
+    if (pRendition->board.chip == V1000_DEVICE) {
+	verite_out32(iob+MODEREG,reg->mode);
+    }
     verite_out8(iob+MEMENDIAN,reg->memendian);
     verite_out32(iob+DRAMCTL,reg->dramctl);
     verite_out32(iob+SCLKPLL,reg->sclkpll);
@@ -397,6 +406,18 @@ verite_restore(ScrnInfoPtr pScreenInfo, RenditionRegPtr reg)
 	while ((verite_in32(iob+CRTCSTATUS)&CRTCSTATUS_VERT_MASK) ==
 	       CRTCSTATUS_VERT_ACTIVE);
     }
+
+    /*
+     * If this is a Verite 2x00, restore the MODEREG
+     * register now.  The MODEREG register is restored
+     * earlier for the Verite 1000, but is restored
+     * here for the Verite 2x00 to prevent system
+     * locks.
+     */
+    if (pRendition->board.chip != V1000_DEVICE) {
+	verite_out32(iob+MODEREG,reg->mode);
+    }
+
     verite_out32(iob+CRTCHORZ,reg->crtch);
     verite_out32(iob+CRTCVERT,reg->crtcv);
     verite_out32(iob+FRAMEBASEA, reg->vbasea);

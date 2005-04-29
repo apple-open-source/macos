@@ -1,0 +1,2 @@
+g/ $(libdir)$/s// $(DESTDIR)$(libdir)/
+w

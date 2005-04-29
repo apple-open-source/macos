@@ -1,0 +1,1277 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Free Software Foundation, Inc.
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: bug-tar@gnu.org\n"
+"POT-Creation-Date: 2004-05-10 14:53+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: lib/argmatch.c:133
+#, c-format
+msgid "invalid argument %s for %s"
+msgstr ""
+
+#: lib/argmatch.c:134
+#, c-format
+msgid "ambiguous argument %s for %s"
+msgstr ""
+
+#: lib/argmatch.c:153
+#, c-format
+msgid "Valid arguments are:"
+msgstr ""
+
+#: lib/error.c:127 src/rmt.c:92
+msgid "Unknown system error"
+msgstr ""
+
+#: lib/getopt.c:570 lib/getopt.c:589
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr ""
+
+#: lib/getopt.c:622 lib/getopt.c:626
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr ""
+
+#: lib/getopt.c:635 lib/getopt.c:640
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr ""
+
+#: lib/getopt.c:686 lib/getopt.c:708 lib/getopt.c:1039 lib/getopt.c:1061
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr ""
+
+#: lib/getopt.c:746 lib/getopt.c:749
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr ""
+
+#: lib/getopt.c:757 lib/getopt.c:760
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr ""
+
+#: lib/getopt.c:815 lib/getopt.c:818
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr ""
+
+#: lib/getopt.c:824 lib/getopt.c:827
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr ""
+
+#: lib/getopt.c:882 lib/getopt.c:901 lib/getopt.c:1114 lib/getopt.c:1135
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr ""
+
+#: lib/getopt.c:954 lib/getopt.c:973
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr ""
+
+#: lib/getopt.c:997 lib/getopt.c:1018
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr ""
+
+#: lib/human.c:483
+msgid "block size"
+msgstr ""
+
+#: lib/quotearg.c:238
+msgid "`"
+msgstr ""
+
+#: lib/quotearg.c:239
+msgid "'"
+msgstr ""
+
+#: lib/xmalloc.c:53
+msgid "memory exhausted"
+msgstr ""
+
+#: src/buffer.c:139
+#, c-format
+msgid "Total bytes written: %s (%s, %s/s)\n"
+msgstr ""
+
+#: src/buffer.c:216
+msgid "(pipe)"
+msgstr ""
+
+#: src/buffer.c:264
+msgid "Invalid value for record_size"
+msgstr ""
+
+#: src/buffer.c:267
+msgid "No archive name given"
+msgstr ""
+
+#: src/buffer.c:282
+#, c-format
+msgid "Cannot allocate memory for blocking factor %d"
+msgstr ""
+
+#: src/buffer.c:316
+msgid "Cannot verify stdin/stdout archive"
+msgstr ""
+
+#: src/buffer.c:392
+#, c-format
+msgid "Archive not labeled to match %s"
+msgstr ""
+
+#: src/buffer.c:395 src/buffer.c:752
+#, c-format
+msgid "Volume %s does not match %s"
+msgstr ""
+
+#: src/buffer.c:433
+#, c-format
+msgid "Write checkpoint %d"
+msgstr ""
+
+#: src/buffer.c:592
+msgid "At beginning of tape, quitting now"
+msgstr ""
+
+#: src/buffer.c:598
+msgid "Too many errors, quitting"
+msgstr ""
+
+#: src/buffer.c:622
+#, c-format
+msgid "Read %s bytes from %s"
+msgstr ""
+
+#: src/buffer.c:633
+#, c-format
+msgid "Unaligned block (%lu byte) in archive"
+msgid_plural "Unaligned block (%lu bytes) in archive"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/buffer.c:653
+#, c-format
+msgid "Record size = %lu block"
+msgid_plural "Record size = %lu blocks"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/buffer.c:670
+#, c-format
+msgid "Read checkpoint %d"
+msgstr ""
+
+#: src/buffer.c:761 src/extract.c:1082
+#, c-format
+msgid "Reading %s\n"
+msgstr ""
+
+#: src/buffer.c:765
+msgid "WARNING: No volume header"
+msgstr ""
+
+#: src/buffer.c:773
+#, c-format
+msgid "%s is not continued on this volume"
+msgstr ""
+
+#: src/buffer.c:787
+#, c-format
+msgid "%s is the wrong size (%s != %s + %s)"
+msgstr ""
+
+#: src/buffer.c:799
+msgid "This volume is out of sequence"
+msgstr ""
+
+#: src/buffer.c:881
+msgid "Cannot backspace archive file; it may be unreadable without -i"
+msgstr ""
+
+#: src/buffer.c:927
+#, c-format
+msgid "%s: contains invalid volume number"
+msgstr ""
+
+#: src/buffer.c:979
+msgid "Volume number overflow"
+msgstr ""
+
+#: src/buffer.c:998
+#, c-format
+msgid "`%s' command failed"
+msgstr ""
+
+#: src/buffer.c:1007
+#, c-format
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr ""
+
+#: src/buffer.c:1013
+msgid "EOF where user reply was expected"
+msgstr ""
+
+#: src/buffer.c:1018 src/buffer.c:1048
+msgid "WARNING: Archive is incomplete"
+msgstr ""
+
+#: src/buffer.c:1032
+#, c-format
+msgid ""
+" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
+" q          Abort tar\n"
+" !          Spawn a subshell\n"
+" ?          Print this list\n"
+msgstr ""
+
+#: src/buffer.c:1043
+msgid "No new volume; exiting.\n"
+msgstr ""
+
+#: src/compare.c:106
+#, c-format
+msgid "Could only read %lu of %lu byte"
+msgid_plural "Could only read %lu of %lu bytes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/compare.c:117 src/compare.c:133
+msgid "Contents differ"
+msgstr ""
+
+#: src/compare.c:159 src/extract.c:748 src/incremen.c:497 src/list.c:233
+#: src/list.c:398 src/list.c:1244
+msgid "Unexpected EOF in archive"
+msgstr ""
+
+#: src/compare.c:213
+#, c-format
+msgid "Verify "
+msgstr ""
+
+#: src/compare.c:220
+#, c-format
+msgid "%s: Unknown file type '%c', diffed as normal file"
+msgstr ""
+
+#: src/compare.c:243 src/compare.c:365 src/compare.c:417 src/compare.c:444
+msgid "File type differs"
+msgstr ""
+
+#: src/compare.c:250 src/compare.c:379 src/compare.c:423
+msgid "Mode differs"
+msgstr ""
+
+#: src/compare.c:253
+msgid "Uid differs"
+msgstr ""
+
+#: src/compare.c:255
+msgid "Gid differs"
+msgstr ""
+
+#: src/compare.c:258
+msgid "Mod time differs"
+msgstr ""
+
+#: src/compare.c:262 src/compare.c:452
+msgid "Size differs"
+msgstr ""
+
+#: src/compare.c:320
+#, c-format
+msgid "Not linked to %s"
+msgstr ""
+
+#: src/compare.c:343
+msgid "Symlink differs"
+msgstr ""
+
+#: src/compare.c:373
+msgid "Device number differs"
+msgstr ""
+
+#: src/compare.c:564
+#, c-format
+msgid "VERIFY FAILURE: %d invalid header detected"
+msgid_plural "VERIFY FAILURE: %d invalid headers detected"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/create.c:145
+msgid "Generating negative octal headers"
+msgstr ""
+
+#: src/create.c:196
+#, c-format
+msgid "value %s out of %s range %s..%s; substituting %s"
+msgstr ""
+
+#: src/create.c:202
+#, c-format
+msgid "value %s out of %s range %s..%s"
+msgstr ""
+
+#: src/create.c:462 src/create.c:525
+#, c-format
+msgid "%s: file name is too long (max %d); not dumped"
+msgstr ""
+
+#: src/create.c:472
+#, c-format
+msgid "%s: file name is too long (cannot be split); not dumped"
+msgstr ""
+
+#: src/create.c:499
+#, c-format
+msgid "%s: link name is too long; not dumped"
+msgstr ""
+
+#: src/create.c:865
+#, c-format
+msgid "%s: File shrank by %s byte; padding with zeros"
+msgid_plural "%s: File shrank by %s bytes; padding with zeros"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/create.c:891
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr ""
+
+#: src/create.c:991
+#, c-format
+msgid "%s: file is on a different filesystem; not dumped"
+msgstr ""
+
+#: src/create.c:1151
+#, c-format
+msgid "%s: Unknown file type; file ignored"
+msgstr ""
+
+#: src/create.c:1250
+#, c-format
+msgid "Missing links to '%s'.\n"
+msgstr ""
+
+#: src/create.c:1313
+#, c-format
+msgid "%s: file is unchanged; not dumped"
+msgstr ""
+
+#: src/create.c:1322
+#, c-format
+msgid "%s: file is the archive; not dumped"
+msgstr ""
+
+#: src/create.c:1357
+#, c-format
+msgid "%s: File removed before we read it"
+msgstr ""
+
+#: src/create.c:1450
+#, c-format
+msgid "%s: socket ignored"
+msgstr ""
+
+#: src/create.c:1455
+#, c-format
+msgid "%s: door ignored"
+msgstr ""
+
+#: src/delete.c:209 src/list.c:169 src/update.c:160
+msgid "This does not look like a tar archive"
+msgstr ""
+
+#: src/delete.c:215 src/list.c:183 src/update.c:165
+msgid "Skipping to next header"
+msgstr ""
+
+#: src/delete.c:280
+msgid "Deleting non-header from archive"
+msgstr ""
+
+#: src/extract.c:195
+#, c-format
+msgid "%s: implausibly old time stamp %s"
+msgstr ""
+
+#: src/extract.c:198
+#, c-format
+msgid "%s: time stamp %s is %lu s in the future"
+msgstr ""
+
+#: src/extract.c:346
+#, c-format
+msgid "%s: Unexpected inconsistency when making directory"
+msgstr ""
+
+#: src/extract.c:463
+#, c-format
+msgid "Current `%s' is newer"
+msgstr ""
+
+#: src/extract.c:575
+#, c-format
+msgid "%s: Directory renamed before its status could be extracted"
+msgstr ""
+
+#: src/extract.c:640
+#, c-format
+msgid "%s: Was unable to backup this file"
+msgstr ""
+
+#: src/extract.c:707
+msgid "Extracting contiguous files as regular files"
+msgstr ""
+
+#: src/extract.c:894
+msgid "Attempting extraction of symbolic links as hard links"
+msgstr ""
+
+#: src/extract.c:1091
+#, c-format
+msgid "%s: Cannot extract -- file is continued from another volume"
+msgstr ""
+
+#: src/extract.c:1100
+msgid "Visible long name error"
+msgstr ""
+
+#: src/extract.c:1108
+#, c-format
+msgid "%s: Unknown file type '%c', extracted as normal file"
+msgstr ""
+
+#: src/extract.c:1193
+msgid "Error is not recoverable: exiting now"
+msgstr ""
+
+#: src/incremen.c:193
+#, c-format
+msgid "%s: Directory has been renamed"
+msgstr ""
+
+#: src/incremen.c:205
+#, c-format
+msgid "%s: Directory is new"
+msgstr ""
+
+#: src/incremen.c:354
+msgid "Invalid time stamp"
+msgstr ""
+
+#: src/incremen.c:357
+msgid "Time stamp out of range"
+msgstr ""
+
+#: src/incremen.c:381
+msgid "Invalid device number"
+msgstr ""
+
+#: src/incremen.c:385
+msgid "Device number out of range"
+msgstr ""
+
+#: src/incremen.c:393
+msgid "Invalid inode number"
+msgstr ""
+
+#: src/incremen.c:397
+msgid "Inode number out of range"
+msgstr ""
+
+#: src/incremen.c:523
+#, c-format
+msgid "%s: Deleting %s\n"
+msgstr ""
+
+#: src/incremen.c:528
+#, c-format
+msgid "%s: Cannot remove"
+msgstr ""
+
+#: src/list.c:117
+#, c-format
+msgid "%s: Omitting"
+msgstr ""
+
+#: src/list.c:133
+#, c-format
+msgid "block %s: ** Block of NULs **\n"
+msgstr ""
+
+#: src/list.c:146
+#, c-format
+msgid "A lone zero block at %s"
+msgstr ""
+
+#: src/list.c:157
+#, c-format
+msgid "block %s: ** End of File **\n"
+msgstr ""
+
+#: src/list.c:180 src/list.c:994 src/list.c:1219
+#, c-format
+msgid "block %s: "
+msgstr ""
+
+#: src/list.c:625
+#, c-format
+msgid "Blanks in header where numeric %s value expected"
+msgstr ""
+
+#: src/list.c:678
+#, c-format
+msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
+msgstr ""
+
+#: src/list.c:688
+#, c-format
+msgid "Archive octal value %.*s is out of %s range"
+msgstr ""
+
+#: src/list.c:704
+msgid "Archive contains obsolescent base-64 headers"
+msgstr ""
+
+#: src/list.c:717
+#, c-format
+msgid "Archive signed base-64 string %s is out of %s range"
+msgstr ""
+
+#: src/list.c:748
+#, c-format
+msgid "Archive base-256 value is out of %s range"
+msgstr ""
+
+#: src/list.c:775
+#, c-format
+msgid "Archive contains %.*s where numeric %s value expected"
+msgstr ""
+
+#: src/list.c:796
+#, c-format
+msgid "Archive value %s is out of %s range %s.%s"
+msgstr ""
+
+#: src/list.c:1025
+msgid "Visible longname error"
+msgstr ""
+
+#: src/list.c:1150
+#, c-format
+msgid " link to %s\n"
+msgstr ""
+
+#: src/list.c:1158
+#, c-format
+msgid " unknown file type %s\n"
+msgstr ""
+
+#: src/list.c:1176
+#, c-format
+msgid "--Long Link--\n"
+msgstr ""
+
+#: src/list.c:1180
+#, c-format
+msgid "--Long Name--\n"
+msgstr ""
+
+#: src/list.c:1184
+#, c-format
+msgid "--Volume Header--\n"
+msgstr ""
+
+#: src/list.c:1192
+#, c-format
+msgid "--Continued at byte %s--\n"
+msgstr ""
+
+#: src/list.c:1196
+#, c-format
+msgid "--Mangled file names--\n"
+msgstr ""
+
+#: src/list.c:1224
+msgid "Creating directory:"
+msgstr ""
+
+#: src/mangle.c:54
+msgid "Unexpected EOF in mangled names"
+msgstr ""
+
+#: src/mangle.c:90 src/misc.c:387 src/misc.c:405
+#, c-format
+msgid "%s: Cannot rename to %s"
+msgstr ""
+
+#: src/mangle.c:93
+#, c-format
+msgid "Renamed %s to %s"
+msgstr ""
+
+#: src/mangle.c:110
+#, c-format
+msgid "%s: Cannot symlink to %s"
+msgstr ""
+
+#: src/mangle.c:113
+#, c-format
+msgid "Symlinked %s to %s"
+msgstr ""
+
+#: src/mangle.c:117
+#, c-format
+msgid "Unknown demangling command %s"
+msgstr ""
+
+#: src/misc.c:378
+#, c-format
+msgid "Renaming %s to %s\n"
+msgstr ""
+
+#: src/misc.c:410
+#, c-format
+msgid "Renaming %s back to %s\n"
+msgstr ""
+
+#: src/misc.c:490
+msgid "Cannot save working directory"
+msgstr ""
+
+#: src/misc.c:496
+msgid "Cannot change working directory"
+msgstr ""
+
+#: src/misc.c:540 src/misc.c:549
+#, c-format
+msgid "%s: Cannot %s"
+msgstr ""
+
+#: src/misc.c:558
+#, c-format
+msgid "%s: Warning: Cannot %s"
+msgstr ""
+
+#: src/misc.c:573
+#, c-format
+msgid "%s: Cannot change mode to %s"
+msgstr ""
+
+#: src/misc.c:581
+#, c-format
+msgid "%s: Cannot change ownership to uid %lu, gid %lu"
+msgstr ""
+
+#: src/misc.c:616
+#, c-format
+msgid "%s: Cannot hard link to %s"
+msgstr ""
+
+#: src/misc.c:677 src/misc.c:718
+#, c-format
+msgid "%s: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Read error at byte %s, reading %lu bytes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/misc.c:690
+#, c-format
+msgid "%s: Warning: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/misc.c:778
+#, c-format
+msgid "%s: Cannot seek to %s"
+msgstr ""
+
+#: src/misc.c:794
+#, c-format
+msgid "%s: Warning: Cannot seek to %s"
+msgstr ""
+
+#: src/misc.c:812
+#, c-format
+msgid "%s: Cannot create symlink to %s"
+msgstr ""
+
+#: src/misc.c:880
+#, c-format
+msgid "%s: Wrote only %lu of %lu byte"
+msgid_plural "%s: Wrote only %lu of %lu bytes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/misc.c:906
+msgid "child process"
+msgstr ""
+
+#: src/misc.c:915
+msgid "interprocess channel"
+msgstr ""
+
+#: src/names.c:368 src/names.c:417 src/names.c:461
+msgid "Missing file name after -C"
+msgstr ""
+
+#: src/names.c:638 src/names.c:654
+#, c-format
+msgid "%s: Not found in archive"
+msgstr ""
+
+#: src/names.c:641
+#, c-format
+msgid "%s: Required occurrence not found in archive"
+msgstr ""
+
+#: src/names.c:1053
+#, c-format
+msgid "Removing leading `%s' from member names"
+msgstr ""
+
+#: src/names.c:1054
+#, c-format
+msgid "Removing leading `%s' from hard link targets"
+msgstr ""
+
+#: src/names.c:1067
+msgid "Substituting `.' for empty member name"
+msgstr ""
+
+#: src/names.c:1068
+msgid "Substituting `.' for empty hard link target"
+msgstr ""
+
+#: src/rmt.c:144
+msgid "rmtd: Cannot allocate buffer space\n"
+msgstr ""
+
+#: src/rmt.c:146
+msgid "Cannot allocate buffer space"
+msgstr ""
+
+#: src/rmt.c:256 src/tar.c:349
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr ""
+
+#: src/rmt.c:260
+#, c-format
+msgid ""
+"Usage: %s [OPTION]\n"
+"Manipulate a tape drive, accepting commands from a remote process.\n"
+"\n"
+"  --version  Output version info.\n"
+"  --help  Output this help.\n"
+msgstr ""
+
+#: src/rmt.c:267 src/tar.c:542
+#, c-format
+msgid ""
+"\n"
+"Report bugs to <%s>.\n"
+msgstr ""
+
+#: src/rmt.c:300 src/tar.c:1300
+msgid ""
+"This program comes with NO WARRANTY, to the extent permitted by law.\n"
+"You may redistribute it under the terms of the GNU General Public License;\n"
+"see the file named COPYING for details."
+msgstr ""
+
+#: src/rmt.c:399 src/rmt.c:519 src/rmt.c:529
+msgid "Seek offset out of range"
+msgstr ""
+
+#: src/rmt.c:412
+msgid "Seek direction out of range"
+msgstr ""
+
+#: src/rmt.c:451
+msgid "rmtd: Premature eof\n"
+msgstr ""
+
+#: src/rmt.c:453
+msgid "Premature end of file"
+msgstr ""
+
+#: src/rmt.c:561
+#, c-format
+msgid "rmtd: Garbage command %c\n"
+msgstr ""
+
+#: src/rmt.c:563
+msgid "Garbage command"
+msgstr ""
+
+#: src/rtapelib.c:292
+msgid "exec/tcp: Service not available"
+msgstr ""
+
+#: src/rtapelib.c:296
+msgid "stdin"
+msgstr ""
+
+#: src/rtapelib.c:299
+msgid "stdout"
+msgstr ""
+
+#: src/rtapelib.c:506
+msgid "Cannot execute remote shell"
+msgstr ""
+
+#: src/tar.c:70
+#, c-format
+msgid "Options `-%s' and `-%s' both want standard input"
+msgstr ""
+
+#: src/tar.c:141
+#, c-format
+msgid "%s: Invalid archive format"
+msgstr ""
+
+#: src/tar.c:165
+msgid "GNU features wanted on incompatible archive format"
+msgstr ""
+
+#: src/tar.c:353
+msgid ""
+"GNU `tar' saves many files together into a single tape or disk archive, and\n"
+"can restore individual files from the archive.\n"
+msgstr ""
+
+#: src/tar.c:357
+#, c-format
+msgid ""
+"\n"
+"Usage: %s [OPTION]... [FILE]...\n"
+"\n"
+"Examples:\n"
+"  %s -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
+"  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n"
+"  %s -xf archive.tar          # Extract all files from archive.tar.\n"
+msgstr ""
+
+#: src/tar.c:364
+msgid ""
+"\n"
+"If a long option shows an argument as mandatory, then it is mandatory\n"
+"for the equivalent short option also.  Similarly for optional arguments.\n"
+msgstr ""
+
+#: src/tar.c:369
+msgid ""
+"\n"
+"Main operation mode:\n"
+"  -t, --list              list the contents of an archive\n"
+"  -x, --extract, --get    extract files from an archive\n"
+"  -c, --create            create a new archive\n"
+"  -d, --diff, --compare   find differences between archive and file system\n"
+"  -r, --append            append files to the end of an archive\n"
+"  -u, --update            only append files newer than copy in archive\n"
+"  -A, --catenate          append tar files to an archive\n"
+"      --concatenate       same as -A\n"
+"      --delete            delete from the archive (not on mag tapes!)\n"
+msgstr ""
+
+#: src/tar.c:382
+msgid ""
+"\n"
+"Operation modifiers:\n"
+"  -W, --verify               attempt to verify the archive after writing it\n"
+"      --remove-files         remove files after adding them to the archive\n"
+"  -k, --keep-old-files       don't replace existing files when extracting\n"
+"      --keep-newer-files     don't replace existing files that are newer\n"
+"                             than their archive copies\n"
+"      --overwrite            overwrite existing files when extracting\n"
+"      --no-overwrite-dir     preserve metadata of existing directories\n"
+"  -U, --unlink-first         remove each file prior to extracting over it\n"
+"      --recursive-unlink     empty hierarchies prior to extracting "
+"directory\n"
+"  -S, --sparse               handle sparse files efficiently\n"
+"  -O, --to-stdout            extract files to standard output\n"
+"  -G, --incremental          handle old GNU-format incremental backup\n"
+"  -g, --listed-incremental=FILE\n"
+"                             handle new GNU-format incremental backup\n"
+"      --ignore-failed-read   do not exit with nonzero on unreadable files\n"
+"      --occurrence[=NUM]     process only the NUMth occurrence of each file "
+"in\n"
+"                             the archive. This option is valid only in\n"
+"                             conjunction with one of the subcommands --"
+"delete,\n"
+"                             --diff, --extract or --list and when a list of\n"
+"                             files is given either on the command line or\n"
+"                             via -T option.\n"
+"                             NUM defaults to 1.\n"
+msgstr ""
+
+#: src/tar.c:408
+msgid ""
+"\n"
+"Handling of file attributes:\n"
+"      --owner=NAME             force NAME as owner for added files\n"
+"      --group=NAME             force NAME as group for added files\n"
+"      --mode=CHANGES           force (symbolic) mode CHANGES for added "
+"files\n"
+"      --atime-preserve         don't change access times on dumped files\n"
+"  -m, --modification-time      don't extract file modified time\n"
+"      --same-owner             try extracting files with the same ownership\n"
+"      --no-same-owner          extract files as yourself\n"
+"      --numeric-owner          always use numbers for user/group names\n"
+"  -p, --same-permissions       extract permissions information\n"
+"      --no-same-permissions    do not extract permissions information\n"
+"      --preserve-permissions   same as -p\n"
+"  -s, --same-order             sort names to extract to match archive\n"
+"      --preserve-order         same as -s\n"
+"      --preserve               same as both -p and -s\n"
+msgstr ""
+
+#: src/tar.c:426
+msgid ""
+"\n"
+"Device selection and switching:\n"
+"  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
+"      --force-local              archive file is local even if has a colon\n"
+"      --rmt-command=COMMAND      use given rmt COMMAND instead of /etc/rmt\n"
+"      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
+"  -[0-7][lmh]                    specify drive and density\n"
+"  -M, --multi-volume             create/list/extract multi-volume archive\n"
+"  -L, --tape-length=NUM          change tape after writing NUM x 1024 bytes\n"
+"  -F, --info-script=FILE         run script at end of each tape (implies -"
+"M)\n"
+"      --new-volume-script=FILE   same as -F FILE\n"
+"      --volno-file=FILE          use/update the volume number in FILE\n"
+msgstr ""
+
+#: src/tar.c:440
+msgid ""
+"\n"
+"Device blocking:\n"
+"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
+"      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
+"  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
+"EOF)\n"
+"  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
+msgstr ""
+
+#: src/tar.c:448
+msgid ""
+"\n"
+"Archive format selection:\n"
+"      --format=FMTNAME               create archive of the given format.\n"
+"                                     FMTNAME is one of the following:\n"
+"                                     v7        old V7 tar format\n"
+"                                     oldgnu    GNU format as per tar <= "
+"1.12\n"
+"                                     gnu       GNU tar 1.13 format\n"
+"                                     ustar     POSIX 1003.1-1988 (ustar) "
+"format\n"
+"                                     posix     POSIX 1003.1-2001 (pax) "
+"format\n"
+"      --old-archive, --portability   same as --format=v7\n"
+"      --posix                        same as --format=posix\n"
+"  --pax-option keyword[[:]=value][,keyword[[:]=value], ...]\n"
+"                                     control pax keywords\n"
+"  -V, --label=NAME                   create archive with volume name NAME\n"
+"              PATTERN                at list/extract time, a globbing "
+"PATTERN\n"
+"  -j, --bzip2                        filter the archive through bzip2\n"
+"  -z, --gzip, --ungzip               filter the archive through gzip\n"
+"  -Z, --compress, --uncompress       filter the archive through compress\n"
+"      --use-compress-program=PROG    filter through PROG (must accept -d)\n"
+msgstr ""
+
+#: src/tar.c:469
+msgid ""
+"\n"
+"Local file selection:\n"
+"  -C, --directory=DIR          change to directory DIR\n"
+"  -T, --files-from=NAME        get names to extract or create from file "
+"NAME\n"
+"      --null                   -T reads null-terminated names, disable -C\n"
+"      --exclude=PATTERN        exclude files, given as a PATTERN\n"
+"  -X, --exclude-from=FILE      exclude patterns listed in FILE\n"
+"      --anchored               exclude patterns match file name start "
+"(default)\n"
+"      --no-anchored            exclude patterns match after any /\n"
+"      --ignore-case            exclusion ignores case\n"
+"      --no-ignore-case         exclusion is case sensitive (default)\n"
+"      --wildcards              exclude patterns use wildcards (default)\n"
+"      --no-wildcards           exclude patterns are plain strings\n"
+"      --wildcards-match-slash  exclude pattern wildcards match "
+"'/' (default)\n"
+"      --no-wildcards-match-slash exclude pattern wildcards do not match '/'\n"
+"  -P, --absolute-names         don't strip leading `/'s from file names\n"
+"  -h, --dereference            dump instead the files symlinks point to\n"
+"      --no-recursion           avoid descending automatically in "
+"directories\n"
+"  -l, --one-file-system        stay in local file system when creating "
+"archive\n"
+"  -K, --starting-file=NAME     begin at file NAME in the archive\n"
+"      --strip-path=NUM         strip NUM leading components from file names\n"
+"                               before extraction\n"
+msgstr ""
+
+#: src/tar.c:494
+msgid ""
+"  -N, --newer=DATE-OR-FILE     only store files newer than DATE-OR-FILE\n"
+"      --newer-mtime=DATE       compare date and time when data changed only\n"
+"      --after-date=DATE        same as -N\n"
+msgstr ""
+
+#: src/tar.c:500
+msgid ""
+"      --backup[=CONTROL]       backup before removal, choose version "
+"control\n"
+"      --suffix=SUFFIX          backup before removal, override usual suffix\n"
+msgstr ""
+
+#: src/tar.c:504
+msgid ""
+"\n"
+"Informative output:\n"
+"      --help            print this help, then exit\n"
+"      --version         print tar program version number, then exit\n"
+"  -v, --verbose         verbosely list files processed\n"
+"      --checkpoint      print directory names while reading the archive\n"
+"      --check-links     print a message if not all links are dumped\n"
+"      --totals          print total bytes written while creating archive\n"
+"      --index-file=FILE send verbose output to FILE\n"
+"      --utc             print file modification dates in UTC\n"
+"  -R, --block-number    show block number within archive with each message\n"
+"  -w, --interactive     ask for confirmation for every action\n"
+"      --confirmation    same as -w\n"
+msgstr ""
+
+#: src/tar.c:519
+msgid ""
+"\n"
+"Compatibility options:\n"
+"  -o                                 when creating, same as --old-archive\n"
+"                                     when extracting, same as --no-same-"
+"owner\n"
+msgstr ""
+
+#: src/tar.c:526
+msgid ""
+"\n"
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+"The version control may be set with --backup or VERSION_CONTROL, values "
+"are:\n"
+"\n"
+"  t, numbered     make numbered backups\n"
+"  nil, existing   numbered if numbered backups exist, simple otherwise\n"
+"  never, simple   always make simple backups\n"
+msgstr ""
+
+#: src/tar.c:535
+#, c-format
+msgid ""
+"\n"
+"ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual "
+"date\n"
+"or a file name starting with `/' or `.', in which case the file's date is "
+"used.\n"
+"*This* `tar' defaults to `--format=%s -f%s -b%d'.\n"
+msgstr ""
+
+#: src/tar.c:568
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr ""
+
+#: src/tar.c:577
+msgid "Conflicting compression options"
+msgstr ""
+
+#: src/tar.c:649
+#, c-format
+msgid "Old option `%c' requires an argument."
+msgstr ""
+
+#: src/tar.c:702
+msgid "Invalid blocking factor"
+msgstr ""
+
+#: src/tar.c:777
+msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
+msgstr ""
+
+#: src/tar.c:807
+msgid "Invalid tape length"
+msgstr ""
+
+#: src/tar.c:831
+msgid "More than one threshold date"
+msgstr ""
+
+#: src/tar.c:841
+msgid "Date file not found"
+msgstr ""
+
+#: src/tar.c:850
+#, c-format
+msgid "Substituting %s for unknown date format %s"
+msgstr ""
+
+#: src/tar.c:955
+msgid "Warning: the -y option is not supported; perhaps you meant -j?"
+msgstr ""
+
+#: src/tar.c:1027
+#, c-format
+msgid "%s: Invalid group"
+msgstr ""
+
+#: src/tar.c:1036
+msgid "Invalid mode given on option"
+msgstr ""
+
+#: src/tar.c:1079
+msgid "Invalid number"
+msgstr ""
+
+#: src/tar.c:1097
+msgid "Invalid owner"
+msgstr ""
+
+#: src/tar.c:1121
+msgid "Invalid record size"
+msgstr ""
+
+#: src/tar.c:1124
+#, c-format
+msgid "Record size must be a multiple of %d."
+msgstr ""
+
+#: src/tar.c:1158
+msgid "Invalid number of elements"
+msgstr ""
+
+#: src/tar.c:1259
+msgid "Options `-[0-7][lmh]' not supported by *this* tar"
+msgstr ""
+
+#: src/tar.c:1305
+msgid "Written by John Gilmore and Jay Fenlason."
+msgstr ""
+
+#: src/tar.c:1340
+msgid "--occurrence is meaningless without a file list"
+msgstr ""
+
+#: src/tar.c:1346
+msgid "--occurrence cannot be used in the requested operation mode"
+msgstr ""
+
+#: src/tar.c:1364
+msgid "Multiple archive files require `-M' option"
+msgstr ""
+
+#: src/tar.c:1369
+msgid "Cannot combine --listed-incremental with --newer"
+msgstr ""
+
+#: src/tar.c:1384
+#, c-format
+msgid "%s: Volume label is too long (limit is %lu byte)"
+msgid_plural "%s: Volume label is too long (limit is %lu bytes)"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/tar.c:1394
+msgid "Cannot verify multi-volume archives"
+msgstr ""
+
+#: src/tar.c:1396
+msgid "Cannot verify compressed archives"
+msgstr ""
+
+#: src/tar.c:1402
+msgid "Cannot use multi-volume compressed archives"
+msgstr ""
+
+#: src/tar.c:1404
+msgid "Cannot update compressed archives"
+msgstr ""
+
+#: src/tar.c:1416
+msgid "--pax-option can be used only on POSIX archives"
+msgstr ""
+
+#: src/tar.c:1436
+msgid "Cowardly refusing to create an empty archive"
+msgstr ""
+
+#: src/tar.c:1457
+msgid "Options `-Aru' are incompatible with `-f -'"
+msgstr ""
+
+#: src/tar.c:1479
+#, c-format
+msgid "Treating date `%s' as %s + %ld nanoseconds"
+msgstr ""
+
+#: src/tar.c:1532
+msgid "You must specify one of the `-Acdtrux' options"
+msgstr ""
+
+#: src/tar.c:1584
+msgid "Error in writing to standard output"
+msgstr ""
+
+#: src/tar.c:1586
+msgid "Error exit delayed from previous errors"
+msgstr ""
+
+#: src/update.c:86
+#, c-format
+msgid "%s: File shrank by %s byte"
+msgid_plural "%s: File shrank by %s bytes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/xheader.c:140
+#, c-format
+msgid "Keyword %s is unknown or not yet imlemented"
+msgstr ""
+
+#: src/xheader.c:166
+#, c-format
+msgid "Pattern %s cannot be used"
+msgstr ""
+
+#: src/xheader.c:176
+#, c-format
+msgid "Keyword %s cannot be overridden"
+msgstr ""
+
+#: src/xheader.c:490
+msgid "Malformed extended header: missing whitespace after the length"
+msgstr ""
+
+#: src/xheader.c:501
+msgid "Malformed extended header: missing equal sign"
+msgstr ""

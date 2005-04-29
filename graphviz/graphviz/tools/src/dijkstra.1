@@ -1,0 +1,35 @@
+.TH NOP 1 "21 March 2001"
+.SH NAME
+dijkstra \- single-source distance filter
+.SH SYNOPSIS
+.B dijkstra
+[ 
+.I sourcenode file
+]
+.SH DESCRIPTION
+.B dijkstra
+reads a stream of graphs and for each computes the distance of every
+node from
+.I sourcenode.
+Edge length is given in the 
+.I len
+attribute, and the default is 1.  The 
+.I dist
+attribute of every node is set to its distance from
+.I sourcenode.
+The global variable
+.I maxdist
+is set to the maximum 
+.I dist
+of all nodes in the graph.
+Any number of
+.I sourcenode file
+pairs may be given.
+.P
+In a typical application,
+.I dist
+and 
+.I maxdist
+can drive a downstream calculation of color or some other attribute.
+.SH "SEE ALSO"
+gvpr(1), gvcolor(1), libgraph(3)

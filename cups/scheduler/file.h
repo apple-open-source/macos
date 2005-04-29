@@ -1,5 +1,5 @@
 /*
- * "$Id: file.h,v 1.1.1.1 2003/04/11 21:07:48 jlovell Exp $"
+ * "$Id: file.h,v 1.6 2005/01/04 22:10:45 jlovell Exp $"
  *
  *   File definitions for the Common UNIX Printing System (CUPS).
  *
@@ -8,7 +8,7 @@
  *   our own file functions allows us to provide transparent support of
  *   gzip'd print files, PPD files, etc.
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -20,9 +20,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  */
@@ -64,11 +64,11 @@ typedef struct
 {
   int		fd;			/* File descriptor */
   char		mode,			/* Mode ('r' or 'w') */
-		compressed,		/* Compression used? */
-		buf[2048],		/* Buffer */
+		compressed;		/* Compression used? */
+  unsigned char buf[4096],		/* Buffer */
 		*ptr,			/* Pointer into buffer */
 		*end;			/* End of buffer data */
-  int		pos;			/* File position for start of buffer */
+  off_t		pos;			/* File position for start of buffer */
 
 #  ifdef HAVE_LIBZ
   z_stream	stream;			/* Decompression stream */
@@ -93,7 +93,7 @@ extern int		cupsFilePrintf(cups_file_t *fp, const char *format, ...);
 extern int		cupsFilePutChar(cups_file_t *fp, int c);
 extern int		cupsFilePuts(cups_file_t *fp, const char *s);
 extern int		cupsFileRead(cups_file_t *fp, char *buf, int bytes);
-extern int		cupsFileSeek(cups_file_t *fp, int pos);
+extern off_t		cupsFileSeek(cups_file_t *fp, off_t pos);
 #define			cupsFileTell(fp) (fp)->pos
 extern int		cupsFileWrite(cups_file_t *fp, const char *buf, int bytes);
 
@@ -104,5 +104,5 @@ extern int		cupsFileWrite(cups_file_t *fp, const char *buf, int bytes);
 #endif /* !_CUPS_FILE_H_ */
 
 /*
- * End of "$Id: file.h,v 1.1.1.1 2003/04/11 21:07:48 jlovell Exp $".
+ * End of "$Id: file.h,v 1.6 2005/01/04 22:10:45 jlovell Exp $".
  */

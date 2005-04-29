@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-W -Wall" } */
 
-typedef unsigned long size_t;
+typedef __SIZE_TYPE__ size_t;
 extern void* malloc (size_t);
 extern void free (void*);
 extern void* realloc (void*, size_t);
@@ -16,7 +16,7 @@ struct vtable mtable = {
   malloc,
   free
 }; /* { dg-warning "missing initializer" "warning regression" { target *-*-* } {18} } */
-   /* { dg-warning "initialization for `mtable._realloc'" "warning regression" { target *-*-* } {18} } */
+   /* { dg-warning "initialization for 'mtable._realloc'" "warning regression" { target *-*-* } {18} } */
 
 /* With designated initializers, we assume you meant to leave out the
    initialization of any blank fields.  */

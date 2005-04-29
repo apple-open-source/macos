@@ -1,3 +1,4 @@
+// { dg-do run  }
 // PRMS Id: 5368
 // Bug: the X temporary in foo() is not destroyed.
 
@@ -14,7 +15,7 @@ struct Y {
 
 Y foo() { 
   return X(3); 
-};
+}
 
 int main()
 {

@@ -1,5 +1,5 @@
---- localtime.c.orig	Thu Aug  7 18:34:10 2003
-+++ localtime.c	Thu Aug  7 16:57:55 2003
+--- localtime.c.orig	2004-11-01 23:24:08.000000000 -0800
++++ localtime.c	2004-11-05 23:43:55.000000000 -0800
 @@ -24,6 +24,18 @@
  #include <sys/stat.h>
  #include <fcntl.h>
@@ -19,7 +19,7 @@
  #include "private.h"
  #include "un-namespace.h"
  
-@@ -119,6 +131,16 @@
+@@ -135,6 +147,16 @@
  #define DAY_OF_YEAR		1	/* n - day of year */
  #define MONTH_NTH_DAY_OF_WEEK	2	/* Mm.n.d - month, week, day of week */
  
@@ -36,7 +36,7 @@
  /*
  ** Prototypes for static functions.
  */
-@@ -138,6 +160,10 @@
+@@ -154,6 +176,10 @@
  static int		increment_overflow(int * number, int delta);
  static int		normalize_overflow(int * tensptr, int * unitsptr,
  				int base);
@@ -47,7 +47,7 @@
  static void		settzname(void);
  static time_t		time1(struct tm * tmp,
  				void(*funcp) (const time_t *,
-@@ -174,8 +200,13 @@
+@@ -194,8 +220,13 @@
  #endif /* !defined TZ_STRLEN_MAX */
  
  static char		lcl_TZname[TZ_STRLEN_MAX + 1];
@@ -61,8 +61,22 @@
  static pthread_mutex_t	lcl_mutex = PTHREAD_MUTEX_INITIALIZER;
  static pthread_mutex_t	gmt_mutex = PTHREAD_MUTEX_INITIALIZER;
  
-@@ -203,6 +234,50 @@
- time_t			altzone = 0;
+@@ -214,15 +245,62 @@
+ 
+ static struct tm	tm;
+ 
++#define USG_COMPAT
++#define ALTZONE
+ #ifdef USG_COMPAT
+-time_t			timezone = 0;
+ int			daylight = 0;
++__private_extern__ void _st_set_timezone(long);
+ #endif /* defined USG_COMPAT */
+ 
+ #ifdef ALTZONE
+-time_t			altzone = 0;
++__private_extern__ long		__darwin_altzone = 0;
++#define altzone __darwin_altzone
  #endif /* defined ALTZONE */
  
 +#ifdef NOTIFY_TZ
@@ -112,7 +126,15 @@
  static long
  detzcode(codep)
  const char * const	codep;
-@@ -233,7 +308,7 @@
+@@ -246,14 +324,14 @@
+ 	tzname[1] = wildabbr;
+ #ifdef USG_COMPAT
+ 	daylight = 0;
+-	timezone = 0;
++	_st_set_timezone(0);
+ #endif /* defined USG_COMPAT */
+ #ifdef ALTZONE
+ 	altzone = 0;
  #endif /* defined ALTZONE */
  #ifdef ALL_STATE
  	if (sp == NULL) {
@@ -121,7 +143,16 @@
  		return;
  	}
  #endif /* defined ALL_STATE */
-@@ -266,6 +341,117 @@
+@@ -266,7 +344,7 @@
+ 		if (ttisp->tt_isdst)
+ 			daylight = 1;
+ 		if (i == 0 || !ttisp->tt_isdst)
+-			timezone = -(ttisp->tt_gmtoff);
++			_st_set_timezone(-(ttisp->tt_gmtoff));
+ #endif /* defined USG_COMPAT */
+ #ifdef ALTZONE
+ 		if (i == 0 || ttisp->tt_isdst)
+@@ -286,6 +364,117 @@
  	}
  }
  
@@ -177,7 +208,7 @@
 +	 *----------------------------------------------------------------*/
 +	if (p->token >= 0)
 +		notify_cancel(p->token);
-+	if (*file == 0) {
++	if (!file || *file == 0) {
 +		/* no time zone file to monitor */
 +		p->token = -1;
 +		return;
@@ -239,7 +270,7 @@
  static int
  tzload(name, sp)
  const char *		name;
-@@ -275,6 +461,9 @@
+@@ -295,6 +484,9 @@
  	int		i;
  	int		fid;
  
@@ -249,7 +280,7 @@
  	/* XXX The following is from OpenBSD, and I'm not sure it is correct */
  	if (name != NULL && issetugid() != 0)
  		if ((name[0] == ':' && name[1] == '/') || 
-@@ -292,7 +481,15 @@
+@@ -312,7 +504,15 @@
  		** to hold the longest file name string that the implementation
  		** guarantees can be opened."
  		*/
@@ -265,7 +296,7 @@
  
  		if (name[0] == ':')
  			++name;
-@@ -300,7 +497,11 @@
+@@ -320,7 +520,11 @@
  		if (!doaccess) {
  			if ((p = TZDIR) == NULL)
  				return -1;
@@ -277,7 +308,7 @@
  				return -1;
  			(void) strcpy(fullname, p);
  			(void) strcat(fullname, "/");
-@@ -312,6 +513,10 @@
+@@ -332,6 +536,10 @@
  				doaccess = TRUE;
  			name = fullname;
  		}
@@ -288,17 +319,17 @@
  		if (doaccess && access(name, R_OK) != 0)
  		     	return -1;
  		if ((fid = _open(name, OPEN_MODE)) == -1)
-@@ -327,6 +532,9 @@
+@@ -350,6 +558,9 @@
  		int		ttisstdcnt;
  		int		ttisgmtcnt;
  
 +#ifdef NOTIFY_TZ_DEBUG
 +		NOTIFY_TZ_PRINTF("tzload: reading %s\n", name);
 +#endif /* NOTIFY_TZ_DEBUG */
- 		i = _read(fid, buf, sizeof buf);
+ 		i = _read(fid, u.buf, sizeof u.buf);
  		if (_close(fid) != 0)
  			return -1;
-@@ -748,6 +956,9 @@
+@@ -764,6 +975,9 @@
  		}
  	}
  	load_result = tzload(TZDEFRULES, sp);
@@ -308,7 +339,7 @@
  	if (load_result != 0)
  		sp->leapcnt = 0;		/* so, we're off a little */
  	if (*name != '\0') {
-@@ -934,8 +1145,19 @@
+@@ -951,8 +1165,19 @@
  static void
  tzsetwall_basic(void)
  {
@@ -328,7 +359,7 @@
  	lcl_is_set = -1;
  
  #ifdef ALL_STATE
-@@ -949,12 +1171,18 @@
+@@ -966,12 +1191,18 @@
  #endif /* defined ALL_STATE */
  	if (tzload((char *) NULL, lclptr) != 0)
  		gmtload(lclptr);
@@ -347,7 +378,7 @@
  	_MUTEX_LOCK(&lcl_mutex);
  	tzsetwall_basic();
  	_MUTEX_UNLOCK(&lcl_mutex);
-@@ -971,8 +1199,19 @@
+@@ -988,8 +1219,18 @@
  		return;
  	}
  
@@ -355,24 +386,24 @@
 +	notify_check_tz(&lcl_notify);
 +#endif /* NOTIFY_TZ */
 +#ifdef NOTIFY_TZ_DEBUG
-+	if (lcl_is_set > 0  &&  strcmp(lcl_TZname, name) == 0) {
++	if (lcl_is_set > 0 && strcmp(lcl_TZname, name) == 0) {
 +		NOTIFY_TZ_PRINTF("tzset_basic matched %s\n", lcl_TZname);
 +		return;
 +	}
-+	NOTIFY_TZ_PRINTF("tzset_basic didn't matched %s\n", lcl_TZname);
 +#else /* ! NOTIFY_TZ_DEBUG */
- 	if (lcl_is_set > 0  &&  strcmp(lcl_TZname, name) == 0)
+ 	if (lcl_is_set > 0 && strcmp(lcl_TZname, name) == 0)
  		return;
 +#endif /* NOTIFY_TZ_DEBUG */
- 	lcl_is_set = (strlen(name) < sizeof(lcl_TZname));
+ 	lcl_is_set = strlen(name) < sizeof lcl_TZname;
  	if (lcl_is_set)
  		(void) strcpy(lcl_TZname, name);
-@@ -995,15 +1234,24 @@
+@@ -1014,15 +1255,25 @@
  		lclptr->ttis[0].tt_gmtoff = 0;
  		lclptr->ttis[0].tt_abbrind = 0;
  		(void) strcpy(lclptr->chars, gmt);
 +#ifdef NOTIFY_TZ
-+		*fullname = 0;
++		if (fullname)
++			*fullname = 0;
 +#endif /* NOTIFY_TZ */
  	} else if (tzload(name, lclptr) != 0)
  		if (name[0] == ':' || tzparse(name, lclptr, FALSE) != 0)
@@ -392,7 +423,7 @@
  	_MUTEX_LOCK(&lcl_mutex);
  	tzset_basic();
  	_MUTEX_UNLOCK(&lcl_mutex);
-@@ -1030,6 +1278,9 @@
+@@ -1049,6 +1300,9 @@
  	int			i;
  	const time_t			t = *timep;
  
@@ -402,7 +433,7 @@
  	sp = lclptr;
  #ifdef ALL_STATE
  	if (sp == NULL) {
-@@ -1087,7 +1338,7 @@
+@@ -1094,7 +1348,7 @@
  
  	if (__isthreaded != 0) {
  		_pthread_mutex_lock(&localtime_mutex);
@@ -411,7 +442,7 @@
  			if (_pthread_key_create(&localtime_key, free) < 0) {
  				_pthread_mutex_unlock(&localtime_mutex);
  				return(NULL);
-@@ -1123,14 +1374,30 @@
+@@ -1146,14 +1400,30 @@
  const long		offset;
  struct tm * const	tmp;
  {
@@ -443,7 +474,7 @@
  	}
  	_MUTEX_UNLOCK(&gmt_mutex);
  	timesub(timep, offset, gmtptr, tmp);
-@@ -1145,7 +1412,7 @@
+@@ -1168,7 +1438,7 @@
  	else {
  #ifdef ALL_STATE
  		if (gmtptr == NULL)
@@ -452,7 +483,7 @@
  		else	tmp->TM_ZONE = gmtptr->chars;
  #endif /* defined ALL_STATE */
  #ifndef ALL_STATE
-@@ -1165,7 +1432,7 @@
+@@ -1188,7 +1458,7 @@
  
  	if (__isthreaded != 0) {
  		_pthread_mutex_lock(&gmtime_mutex);

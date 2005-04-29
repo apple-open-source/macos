@@ -1,9 +1,9 @@
 /*
- * "$Id: escputil.c,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $"
+ * "$Id: escputil.c,v 1.1.1.3 2004/07/23 06:26:31 jlovell Exp $"
  *
  *   Printer maintenance utility for EPSON Stylus (R) printers
  *
- *   Copyright 2000 Robert Krawitz (rlk@alum.mit.edu)
+ *   Copyright 2000-2003 Robert Krawitz (rlk@alum.mit.edu)
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the Free
@@ -23,22 +23,24 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-#include "../../lib/libprintut.h"
+#include <gimp-print/gimp-print.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <fcntl.h>
 #if defined(HAVE_VARARGS_H) && !defined(HAVE_STDARG_H)
 #include <varargs.h>
 #else
 #include <stdarg.h>
 #endif
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
 #ifdef HAVE_POLL
 #include <sys/poll.h>
 #endif
-#ifdef __GNU_LIBRARY__
+#ifdef HAVE_GETOPT_H
 #include <getopt.h>
 #endif
 #ifdef HAVE_READLINE_READLINE_H
@@ -50,7 +52,6 @@
 #include <gimp-print/gimp-print-intl-internal.h>
 
 void do_align(void);
-void do_align_color(void);
 char *do_get_input (const char *prompt);
 void do_head_clean(void);
 void do_help(int code);
@@ -62,7 +63,7 @@ int do_print_cmd(void);
 
 
 const char *banner = N_("\
-Escputil version " VERSION ", Copyright (C) 2000-2001 Robert Krawitz\n\
+Escputil version " VERSION ", Copyright (C) 2000-2003 Robert Krawitz\n\
 Escputil comes with ABSOLUTELY NO WARRANTY; for details type 'escputil -l'\n\
 This is free software, and you are welcome to redistribute it\n\
 under certain conditions; type 'escputil -l' for details.\n");
@@ -85,7 +86,7 @@ along with this program; if not, write to the Free Software\n\
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.\n");
 
 
-#ifdef __GNU_LIBRARY__
+#ifdef HAVE_GETOPT_H
 
 struct option optlist[] =
 {
@@ -95,7 +96,6 @@ struct option optlist[] =
   { "clean-head",	0,	NULL,	(int) 'c' },
   { "nozzle-check",	0,	NULL,	(int) 'n' },
   { "align-head",	0,	NULL,	(int) 'a' },
-  { "align-color",	0,	NULL,	(int) 'o' },
   { "status",           0,      NULL,   (int) 's' },
   { "new",		0,	NULL,	(int) 'u' },
   { "help",		0,	NULL,	(int) 'h' },
@@ -104,12 +104,13 @@ struct option optlist[] =
   { "quiet",		0,	NULL,	(int) 'q' },
   { "license",		0,	NULL,	(int) 'l' },
   { "list-models",	0,	NULL,	(int) 'M' },
+  { "short-name",	0,	NULL,	(int) 'S' },
   { NULL,		0,	NULL,	0 	  }
 };
 
 const char *help_msg = N_("\
-Usage: escputil [-c | -n | -a | -i | -o | -s | -d | -l | -M]\n\
-                [-P printer | -r device] [-u] [-q] [-m model]\n\
+Usage: escputil [-c | -n | -a | -i | -s | -d | -l | -M]\n\
+                [-P printer | -r device] [-u] [-q] [-m model] [ -S ]\n\
 Perform maintenance on EPSON Stylus (R) printers.\n\
 Examples: escputil --clean-head --printer stpex-on-third-floor\n\
           escputil --ink-level --new --raw-device /dev/lp0\n\
@@ -123,9 +124,6 @@ Examples: escputil --clean-head --printer stpex-on-third-floor\n\
     -a|--align-head    Align the print head.  CAUTION: Misuse of this\n\
                        utility may result in poor print quality and/or\n\
                        damage to the printer.\n\
-    -o|--align-color   Align the color print head (Stylus Color 480 and 580\n\
-                       only).  CAUTION: Misuse of this utility may result in\n\
-                       poor print quality and/or damage to the printer.\n\
     -s|--status        Retrieve printer status.\n\
     -i|--ink-level     Obtain the ink level from the printer.  This requires\n\
                        read/write access to the raw printer device.\n\
@@ -143,12 +141,13 @@ Examples: escputil --clean-head --printer stpex-on-third-floor\n\
     -u|--new           The printer is a new printer (Stylus Color 740 or\n\
                        newer).\n\
     -q|--quiet         Suppress the banner.\n\
+    -S|--short-name    Print the short name of the printer with --identify.\n\
     -m|--model         Specify the precise printer model for head alignment.\n");
 #else
 const char *help_msg = N_("\
 Usage: escputil [OPTIONS] [COMMAND]\n\
-Usage: escputil [-c | -n | -a | -i | -o | -s | -d | -l | -M]\n\
-                [-P printer | -r device] [-u] [-q] [-m model]\n\
+Usage: escputil [-c | -n | -a | -i | -s | -d | -l | -M]\n\
+                [-P printer | -r device] [-u] [-q] [-m model] [ -S ]\n\
 Perform maintenance on EPSON Stylus (R) printers.\n\
 Examples: escputil -c -P stpex-on-third-floor\n\
           escputil -i -u -r /dev/lp0\n\
@@ -162,9 +161,6 @@ Examples: escputil -c -P stpex-on-third-floor\n\
     -a Align the print head.  CAUTION: Misuse of this\n\
           utility may result in poor print quality and/or\n\
           damage to the printer.\n\
-    -o Align the color print head (Stylus Color 480 and 580\n\
-          only).  CAUTION: Misuse of this utility may result in\n\
-          poor print quality and/or damage to the printer.\n\
     -s Retrieve printer status.\n\
     -i Obtain the ink level from the printer.  This requires\n\
           read/write access to the raw printer device.\n\
@@ -180,119 +176,31 @@ Examples: escputil -c -P stpex-on-third-floor\n\
           rather than going through a printer queue.\n\
     -u The printer is a new printer (Stylus Color 740 or newer).\n\
     -q Suppress the banner.\n\
+    -S Print the short name of the printer with -d.\n\
     -m Specify the precise printer model for head alignment.\n");
 #endif
 
-typedef struct
-{
-  const char *short_name;
-  const char *long_name;
-  int passes;
-  int choices;
-  int ink_change;
-  int color_passes;
-  int color_choices;
-} stp_printer_t;
-
-stp_printer_t printer_list[] =
-{
-  { "C20sx",	N_("Stylus C20sx"),	3,	15,	0,	2,	9 },
-  { "C20ux",	N_("Stylus C20ux"),	3,	15,	0,	2,	9 },
-  { "C40sx",	N_("Stylus C40sx"),	3,	15,	0,	2,	9 },
-  { "C40ux",	N_("Stylus C40ux"),	3,	15,	0,	2,	9 },
-  { "C41sx",	N_("Stylus C41sx"),	3,	15,	0,	2,	9 },
-  { "C41ux",	N_("Stylus C41ux"),	3,	15,	0,	2,	9 },
-  { "C42sx",	N_("Stylus C42sx"),	3,	15,	0,	2,	9 },
-  { "C42ux",	N_("Stylus C42ux"),	3,	15,	0,	2,	9 },
-  { "C60",	N_("Stylus C60"),	3,	15,	0,	0,	0 },
-  { "C61",	N_("Stylus C61"),	3,	15,	0,	0,	0 },
-  { "C62",	N_("Stylus C62"),	3,	15,	0,	0,	0 },
-  { "C70",	N_("Stylus C70"),	4,	15,	0,	1,	7 },
-  { "C80",	N_("Stylus C80"),	4,	15,	0,	1,	7 },
-  { "C82",	N_("Stylus C82"),	4,	15,	0,	1,	7 },
-  { "color",	N_("Stylus Color"),	1,	7,	0,	0,	0 },
-  { "pro",	N_("Stylus Color Pro"),	1,	7,	0,	0,	0 },
-  { "pro-xl",	N_("Stylus Color Pro XL"),1,	7,	0,	0,	0 },
-  { "400",	N_("Stylus Color 400"),	1,	7,	0,	0,	0 },
-  { "440",	N_("Stylus Color 440"),	1,	15,	0,	0,	0 },
-  { "460",	N_("Stylus Color 460"),	1,	15,	0,	0,	0 },
-  { "480",	N_("Stylus Color 480"),	3,	15,	1,	2,	9 },
-  { "500",	N_("Stylus Color 500"),	1,	7,	0,	0,	0 },
-  { "580",	N_("Stylus Color 580"),	3,	15,	1,	2,	9 },
-  { "600",	N_("Stylus Color 600"),	1,	7,	0,	0,	0 },
-  { "640",	N_("Stylus Color 640"),	1,	15,	0,	0,	0 },
-  { "660",	N_("Stylus Color 660"),	1,	15,	0,	0,	0 },
-  { "670",	N_("Stylus Color 670"),	3,	15,	0,	0,	0 },
-  { "680",	N_("Stylus Color 680"),	3,	15,	0,	0,	0 },
-  { "740",	N_("Stylus Color 740"),	3,	15,	0,	0,	0 },
-  { "760",	N_("Stylus Color 760"),	3,	15,	0,	0,	0 },
-  { "777",	N_("Stylus Color 777"),	3,	15,	0,	0,	0 },
-  { "800",	N_("Stylus Color 800"),	1,	7,	0,	0,	0 },
-  { "850",	N_("Stylus Color 850"),	1,	7,	0,	0,	0 },
-  { "860",	N_("Stylus Color 860"),	3,	15,	0,	0,	0 },
-  { "880",	N_("Stylus Color 880"),	3,	15,	0,	0,	0 },
-  { "83",	N_("Stylus Color 83"),	3,	15,	0,	0,	0 },
-  { "900",	N_("Stylus Color 900"),	3,	15,	0,	0,	0 },
-  { "980",	N_("Stylus Color 980"),	3,	15,	0,	0,	0 },
-  { "1160",	N_("Stylus Color 1160"),3,	15,	0,	0,	0 },
-  { "1500",	N_("Stylus Color 1500"),1,	7,	0,	0,	0 },
-  { "1520",	N_("Stylus Color 1520"),1,	7,	0,	0,	0 },
-  { "3000",	N_("Stylus Color 3000"),1,	7,	0,	0,	0 },
-  { "photo",	N_("Stylus Photo"),	1,	7,	0,	0,	0 },
-  { "700",	N_("Stylus Photo 700"),	1,	7,	0,	0,	0 },
-  { "ex",	N_("Stylus Photo EX"),	1,	7,	0,	0,	0 },
-  { "720",	N_("Stylus Photo 720"),	3,	15,	0,	0,	0 },
-  { "750",	N_("Stylus Photo 750"),	3,	15,	0,	0,	0 },
-  { "780",	N_("Stylus Photo 780"),	3,	15,	0,	0,	0 },
-  { "785",	N_("Stylus Photo 785"),	3,	15,	0,	0,	0 },
-  { "790",	N_("Stylus Photo 790"),	3,	15,	0,	0,	0 },
-  { "810",	N_("Stylus Photo 810"),	3,	15,	0,	0,	0 },
-  { "820",	N_("Stylus Photo 820"),	3,	15,	0,	0,	0 },
-  { "830",	N_("Stylus Photo 830"),	3,	15,	0,	0,	0 },
-  { "870",	N_("Stylus Photo 870"),	3,	15,	0,	0,	0 },
-  { "875",	N_("Stylus Photo 875"),	3,	15,	0,	0,	0 },
-  { "890",	N_("Stylus Photo 890"),	3,	15,	0,	0,	0 },
-  { "895",	N_("Stylus Photo 895"),	3,	15,	0,	0,	0 },
-  { "915",	N_("Stylus Photo 915"),	3,	15,	0,	0,	0 },
-  { "925",	N_("Stylus Photo 925"),	3,	15,	0,	0,	0 },
-  { "950",	N_("Stylus Photo 950"),	4,	15,	0,	0,	0 },
-  { "960",	N_("Stylus Photo 960"),	4,	15,	0,	0,	0 },
-  { "1200",	N_("Stylus Photo 1200"),3,	15,	0,	0,	0 },
-  { "1270",	N_("Stylus Photo 1270"),3,	15,	0,	0,	0 },
-  { "1280",	N_("Stylus Photo 1280"),3,	15,	0,	0,	0 },
-  { "1290",	N_("Stylus Photo 1290"),3,	15,	0,	0,	0 },
-  { "2000",	N_("Stylus Photo 2000P"),2,	15,	0,	0,	0 },
-  { "2100",	N_("Stylus Photo 2100"),4,	15,	0,	0,	0 },
-  { "2200",	N_("Stylus Photo 2200"),4,	15,	0,	0,	0 },
-  { "5000",	N_("Stylus Pro 5000"),	1,	7,	0,	0,	0 },
-  { "5500",	N_("Stylus Pro 5500"),	1,	7,	0,	0,	0 },
-  { "7000",	N_("Stylus Pro 7000"),	1,	7,	0,	0,	0 },
-  { "7500",	N_("Stylus Pro 7500"),	1,	7,	0,	0,	0 },
-  { "7600",	N_("Stylus Pro 7600"),	3,	15,	0,	0,	0 },
-  { "9000",	N_("Stylus Pro 9000"),	1,	7,	0,	0,	0 },
-  { "9500",	N_("Stylus Pro 9500"),	1,	7,	0,	0,	0 },
-  { "9600",	N_("Stylus Pro 9600"),	3,	15,	0,	0,	0 },
-  { "10000",	N_("Stylus Pro 10000"),	3,	15,	0,	0,	0 },
-  { "scan2000",	N_("Stylus Scan 2000"),	3,	15,	0,	0,	0 },
-  { "scan2500",	N_("Stylus Scan 2500"),	3,	15,	0,	0,	0 },
-  { NULL,	NULL,			0,	0,	0,	0,	0 },
-};
-
-char *printer = NULL;
+char *the_printer = NULL;
 char *raw_device = NULL;
 char *printer_model = NULL;
 char printer_cmd[1025];
 int bufpos = 0;
 int isnew = 0;
+int print_short_name = 0;
 
 static void
 print_models(void)
 {
-  stp_printer_t *printer = &printer_list[0];
-  while (printer->short_name)
+  int printer_count = stp_printer_model_count();
+  int i;
+  for (i = 0; i < printer_count; i++)
     {
-      printf("%10s      %s\n", printer->short_name, _(printer->long_name));
-      printer++;
+      const stp_printer_t *printer = stp_get_printer_by_index(i);
+      if (strcmp(stp_printer_get_family(printer), "escp2") == 0)
+	{
+	  printf("%-15s %s\n", stp_printer_get_driver(printer),
+		 _(stp_printer_get_long_name(printer)));
+	}
     }
 }
 
@@ -331,14 +239,15 @@ main(int argc, char **argv)
   setlocale (LC_ALL, "");
   bindtextdomain (PACKAGE, PACKAGE_LOCALE_DIR);
 #endif
-  
+
+  stp_init();
   while (1)
     {
-#ifdef __GNU_LIBRARY__
+#if defined(HAVE_GETOPT_H) && defined(HAVE_GETOPT_LONG)
       int option_index = 0;
-      c = getopt_long(argc, argv, "P:r:icnaosduqm:hlM", optlist, &option_index);
+      c = getopt_long(argc, argv, "P:r:icnasduqm:hlMS", optlist, &option_index);
 #else
-      c = getopt(argc, argv, "P:r:icnaosduqm:hlM");
+      c = getopt(argc, argv, "P:r:icnasduqm:hlMS");
 #endif
       if (c == -1)
 	break;
@@ -359,21 +268,21 @@ main(int argc, char **argv)
 	  operation = c;
 	  break;
 	case 'P':
-	  if (printer || raw_device)
+	  if (the_printer || raw_device)
 	    {
 	      printf(_("You may only specify one printer or raw device."));
 	      do_help(1);
 	    }
-	  printer = xmalloc(strlen(optarg) + 1);
-	  strcpy(printer, optarg);
+	  the_printer = stp_malloc(strlen(optarg) + 1);
+	  strcpy(the_printer, optarg);
 	  break;
 	case 'r':
-	  if (printer || raw_device)
+	  if (the_printer || raw_device)
 	    {
 	      printf(_("You may only specify one printer or raw device."));
 	      do_help(1);
 	    }
-	  raw_device = xmalloc(strlen(optarg) + 1);
+	  raw_device = stp_malloc(strlen(optarg) + 1);
 	  strcpy(raw_device, optarg);
 	  break;
 	case 'm':
@@ -382,7 +291,7 @@ main(int argc, char **argv)
 	      printf(_("You may only specify one printer model."));
 	      do_help(1);
 	    }
-	  printer_model = xmalloc(strlen(optarg) + 1);
+	  printer_model = stp_malloc(strlen(optarg) + 1);
 	  strcpy(printer_model, optarg);
 	  break;
 	case 'u':
@@ -397,6 +306,9 @@ main(int argc, char **argv)
 	case 'M':
 	  print_models();
 	  exit(0);
+	case 'S':
+	  print_short_name = 1;
+	  break;
 	default:
 	  printf("%s\n", _(banner));
 	  fprintf(stderr, _("Unknown option %c\n"), c);
@@ -429,9 +341,6 @@ main(int argc, char **argv)
       break;
     case 'a':
       do_align();
-      break;
-    case 'o':
-      do_align_color();
       break;
     case 'd':
       do_identify();
@@ -470,20 +379,20 @@ do_print_cmd(void)
           !access("/usr/bin/lpr", X_OK) ||
           !access("/usr/bsd/lpr", X_OK))
         {
-        if (printer == NULL)
+        if (the_printer == NULL)
           strcpy(command, "lpr -l");
 	else
-          snprintf(command, 1023, "lpr -P%s -l", printer);
+          snprintf(command, 1023, "lpr -P%s -l", the_printer);
         }
-      else if (printer == NULL)
+      else if (the_printer == NULL)
 	strcpy(command, "lp -s -oraw");
       else
-	snprintf(command, 1023, "lp -s -oraw -d%s", printer);
+	snprintf(command, 1023, "lp -s -oraw -d%s", the_printer);
 
       if ((pfile = popen(command, "w")) == NULL)
 	{
-	  fprintf(stderr, _("Cannot print to printer %s with %s\n"), printer,
-		  command);
+	  fprintf(stderr, _("Cannot print to printer %s with %s\n"),
+		  the_printer, command);
 	  return 1;
 	}
     }
@@ -533,20 +442,36 @@ read_from_printer(int fd, char *buf, int bufsize)
 #endif
   int status;
   int retry = 5;
+
+#ifdef HAVE_FCNTL_H
+  fcntl(fd, F_SETFL,
+	O_NONBLOCK | fcntl(fd, F_GETFL));
+#endif
   memset(buf, 0, bufsize);
+
   do
     {
 #ifdef HAVE_POLL
       ufds.fd = fd;
       ufds.events = POLLIN;
       ufds.revents = 0;
-      (void) poll(&ufds, 1, 1000);
+      if ((status = poll(&ufds, 1, 1000)) < 0)
+	break;
 #endif
       status = read(fd, buf, bufsize - 1);
-      if (status <= 0)
-	sleep(1);
+      if (status == 0 || (status < 0 && errno == EAGAIN))
+	{
+	  sleep(1);
+	  status = 0; /* not an error (read would have blocked) */
+	}
     }
   while ((status == 0) && (--retry != 0));
+
+  if (status == 0 && retry == 0)
+    fprintf(stderr, _("Read from printer timed out\n"));
+  else if (status < 0)
+    fprintf(stderr, _("Cannot read from %s: %s\n"), raw_device, strerror(errno));
+
   return status;
 }
 
@@ -601,17 +526,103 @@ const char *colors[] =
   N_("Cyan"),
   N_("Magenta"),
   N_("Yellow"),
-  N_("Light Cyan"),
-  N_("Light Magenta"),
+  N_("Light Cyan/Red"),
+  N_("Light Magenta/Blue"),
   N_("Black/Dark Yellow"),
+  N_("Gloss Optimizer"),
   0
 };
+
+static const stp_printer_t *
+get_printer(int quiet)
+{
+  int printer_count = stp_printer_model_count();
+  int i;
+  if (!printer_model)
+    {
+      char buf[1024];
+      int fd;
+      int status;
+      char *pos = NULL;
+      char *spos = NULL;
+      if (!raw_device)
+	{
+	  fprintf(stderr,
+		  _("Printer alignment must be done with a raw device or else\n"
+		   "the -m option must be used to specify a printer.\n"));
+	  do_help(1);
+	}
+      if (!quiet)
+	{
+	  printf(_("Attempting to detect printer model..."));
+	  fflush(stdout);
+	}
+      fd = open(raw_device, O_RDWR, 0666);
+      if (fd == -1)
+	{
+	  printf(_("\nCannot open %s read/write: %s\n"), raw_device,
+		  strerror(errno));
+	  exit(1);
+	}
+      bufpos = 0;
+      sprintf(printer_cmd, "\033\001@EJL ID\r\n");
+      if (write(fd, printer_cmd, strlen(printer_cmd)) < strlen(printer_cmd))
+	{
+	  printf(_("\nCannot write to %s: %s\n"), raw_device, strerror(errno));
+	  exit(1);
+	}
+      status = read_from_printer(fd, buf, 1024);
+      if (status < 0)
+	exit(1);
+      (void) close(fd);
+      pos = strchr(buf, (int) ';');
+      if (pos)
+	pos = strchr(pos + 1, (int) ';');
+      if (pos)
+	pos = strchr(pos, (int) ':');
+      if (pos)
+	spos = strchr(pos, (int) ';');
+      if (!pos)
+	{
+	  printf(_("\nCannot detect printer type.\n"
+		   "Please use -m to specify your printer model.\n"));
+	  do_help(1);
+	}
+      if (spos)
+	*spos = '\000';
+      printer_model = pos + 1;
+      if (!quiet)
+	printf("%s\n\n", printer_model);
+    }
+  for (i = 0; i < printer_count; i++)
+    {
+      const stp_printer_t *printer = stp_get_printer_by_index(i);
+
+      if (strcmp(stp_printer_get_family(printer), "escp2") == 0)
+	{
+	  const char *short_name = stp_printer_get_driver(printer);
+	  const char *long_name = stp_printer_get_long_name(printer);
+	  if (!strcasecmp(printer_model, short_name) ||
+	      !strcasecmp(printer_model, long_name) ||
+	      (!strncmp(short_name, "escp2-", strlen("escp2-")) &&
+	       !strcasecmp(printer_model, short_name + strlen("escp2-"))) ||
+	      (!strncmp(long_name, "EPSON ", strlen("EPSON ")) &&
+	       !strcasecmp(printer_model, long_name + strlen("EPSON "))))
+	    return printer;
+	}
+    }
+  printf(_("Printer model %s is not known.\n"), printer_model);
+  if (!quiet)
+    do_help(1);
+  return NULL;
+}
 
 void
 do_ink_level(void)
 {
   int fd;
   int status;
+  int retry = 6;
   char buf[1024];
   char *ind;
   int i;
@@ -620,41 +631,55 @@ do_ink_level(void)
       fprintf(stderr,_("Obtaining ink levels requires using a raw device.\n"));
       exit(1);
     }
-  fd = open(raw_device, O_RDWR, 0666);
-  if (fd == -1)
-    {
-      fprintf(stderr, _("Cannot open %s read/write: %s\n"), raw_device,
-	      strerror(errno));
-      exit(1);
-    }
-  initialize_print_cmd();
-  do_remote_cmd("ST", 2, 0, 1);
-  add_resets(2);
-  if (write(fd, printer_cmd, bufpos) < bufpos)
-    {
-      fprintf(stderr, _("Cannot write to %s: %s\n"), raw_device,
-	      strerror(errno));
-      exit(1);
-    }
-  status = read_from_printer(fd, buf, 1024);
-  if (status < 0)
-    {
-      fprintf(stderr, _("Cannot read from %s: %s\n"),
-	      raw_device,strerror(errno));
-      exit(1);
-    }
-  ind = buf;
   do
-    ind = strchr(ind, 'I');
-  while (ind && ind[1] != 'Q' && (ind[1] != '\0' && ind[2] != ':'));
-  if (!ind || ind[1] != 'Q' || ind[2] != ':')
+    {
+      fd = open(raw_device, O_RDWR, 0666);
+      if (fd == -1)
+	{
+	  fprintf(stderr, _("Cannot open %s read/write: %s\n"), raw_device,
+		  strerror(errno));
+	  exit(1);
+	}
+      add_resets(2);
+      initialize_print_cmd();
+      /*
+       * Some new printers like IQ and others like ST for retrieving status.
+       * Some printers will take either, but not reliably in either
+       * case.  In some cases, alternating between the two works best.
+       * -- rlk 20040508
+       */
+      if (isnew && !(retry & 1))
+	do_remote_cmd("IQ", 1, 1);
+      else
+	do_remote_cmd("ST", 2, 0, 1);
+      add_resets(2);
+      if (write(fd, printer_cmd, bufpos) < bufpos)
+	{
+	  fprintf(stderr, _("Cannot write to %s: %s\n"), raw_device,
+		  strerror(errno));
+	  exit(1);
+	}
+      status = read_from_printer(fd, buf, 1024);
+      if (status < 0)
+	exit(1);
+      (void) close(fd);
+      ind = buf;
+      do
+	ind = strchr(ind, 'I');
+      while (ind && ind[1] != 'Q' && (ind[1] != '\0' && ind[2] != ':'));
+      if (!ind || ind[1] != 'Q' || ind[2] != ':' || ind[3] == ';')
+	{
+	  ind = NULL;
+	}
+    } while (--retry != 0 && !ind);
+  if (!ind)
     {
       fprintf(stderr, _("Cannot parse output from printer\n"));
       exit(1);
     }
   ind += 3;
   printf("%20s    %s\n", _("Ink color"), _("Percent remaining"));
-  for (i = 0; i < 7; i++)
+  for (i = 0; i < 8; i++)
     {
       int val, j;
       if (!ind[0] || ind[0] == ';')
@@ -674,54 +699,29 @@ do_ink_level(void)
       printf("%20s    %3d\n", _(colors[i]), val);
       ind += 2;
     }
-  initialize_print_cmd();
-  do_remote_cmd("ST", 2, 0, 0);
-  add_resets(2);
-  (void) write(fd, printer_cmd, bufpos);
-  (void) read(fd, buf, 1024);
-  (void) close(fd);
   exit(0);
 }
 
 void
 do_identify(void)
 {
-  int fd;
-  int status;
-  char buf[1024];
+  const stp_printer_t *printer;
   if (!raw_device)
     {
       fprintf(stderr,
 	      _("Printer identification requires using a raw device.\n"));
       exit(1);
     }
-  fd = open(raw_device, O_RDWR, 0666);
-  if (fd == -1)
+  if (printer_model)
+    printer_model = NULL;
+  printer = get_printer(1);
+  if (printer)
     {
-      fprintf(stderr, _("Cannot open %s read/write: %s\n"), raw_device,
-	      strerror(errno));
-      exit(1);
+      if (print_short_name)
+	printf("%s\n", stp_printer_get_driver(printer));
+      else
+	printf("%s\n", _(stp_printer_get_long_name(printer)));
     }
-  initialize_print_cmd();
-  add_resets(2);
-  (void) write(fd, printer_cmd, bufpos);
-  bufpos = 0;
-  sprintf(printer_cmd, "\033\001@EJL ID\r\n");
-  if (write(fd, printer_cmd, strlen(printer_cmd)) < strlen(printer_cmd))
-    {
-      fprintf(stderr, _("Cannot write to %s: %s\n"),
-	      raw_device, strerror(errno));
-      exit(1);
-    }
-  status = read_from_printer(fd, buf, 1024);
-  if (status < 0)
-    {
-      fprintf(stderr, _("Cannot read from %s: %s\n"),
-	      raw_device, strerror(errno));
-      exit(1);
-    }
-  printf("%s\n", buf);
-  (void) close(fd);
   exit(0);
 }
 
@@ -756,16 +756,12 @@ do_status(void)
     }
   status = read_from_printer(fd, buf, 1024);
   if (status < 0)
-    {
-      fprintf(stderr, _("Cannot read from %s: %s\n"),
-	      raw_device, strerror(errno));
-      exit(1);
-    }
+    exit(1);
   initialize_print_cmd();
   do_remote_cmd("ST", 2, 0, 0);
   add_resets(2);
   (void) write(fd, printer_cmd, bufpos);
-  (void) read(fd, buf, 1024);
+  (void) read_from_printer(fd, buf, 1024);
   while ((where = strchr(buf, ';')) != NULL)
     *where = '\n';
   printf("%s\n", buf);
@@ -874,78 +870,6 @@ printer_error(void)
   exit(1);
 }
 
-static stp_printer_t *
-get_printer(void)
-{
-  stp_printer_t *printer = &printer_list[0];
-  if (!printer_model)
-    {
-      char buf[1024];
-      int fd;
-      int status;
-      char *pos = NULL;
-      char *spos = NULL;
-      if (!raw_device)
-	{
-	  fprintf(stderr,
-		  _("Printer alignment must be done with a raw device or else\n"
-		   "the -m option must be used to specify a printer.\n"));
-	  do_help(1);
-	}
-      printf(_("Attempting to detect printer model..."));
-      fflush(stdout);
-      fd = open(raw_device, O_RDWR, 0666);
-      if (fd == -1)
-	{
-	  printf(_("\nCannot open %s read/write: %s\n"), raw_device,
-		  strerror(errno));
-	  exit(1);
-	}
-      bufpos = 0;
-      sprintf(printer_cmd, "\033\001@EJL ID\r\n");
-      if (write(fd, printer_cmd, strlen(printer_cmd)) < strlen(printer_cmd))
-	{
-	  printf(_("\nCannot write to %s: %s\n"), raw_device, strerror(errno));
-	  exit(1);
-	}
-      status = read_from_printer(fd, buf, 1024);
-      if (status < 0)
-	{
-	  printf(_("\nCannot read from %s: %s\n"), raw_device,strerror(errno));
-	  exit(1);
-	}
-      (void) close(fd);
-      pos = strchr(buf, (int) ';');
-      if (pos)
-	pos = strchr(pos + 1, (int) ';');
-      if (pos)
-	pos = strchr(pos, (int) ':');
-      if (pos)
-	spos = strchr(pos, (int) ';');
-      if (!pos)
-	{
-	  printf(_("\nCannot detect printer type.\n"
-		   "Please use -m to specify your printer model.\n"));
-	  do_help(1);
-	}
-      if (spos)
-	*spos = '\000';
-      printer_model = pos + 1;
-      printf("%s\n\n", printer_model);
-    }
-  while (printer->short_name)
-    {
-      if (!strcasecmp(printer_model, printer->short_name) ||
-	  !strcasecmp(printer_model, printer->long_name))
-	return printer;
-      else
-	printer++;
-    }
-  printf(_("Printer model %s is not known.\n"), printer_model);
-  do_help(1);
-  return 0;
-}
-
 static int
 do_final_alignment(void)
 {
@@ -1040,10 +964,45 @@ do_align(void)
   long answer;
   char *endptr;
   int curpass;
-  const stp_printer_t *printer = get_printer();
-  int passes = printer->passes;
-  int choices = printer->choices;
-  const char *printer_name = printer->long_name;
+  const stp_printer_t *printer = get_printer(0);
+  stp_parameter_t desc;
+  int passes = 0;
+  int choices = 0;
+  const char *printer_name;
+  stp_vars_t *v = stp_vars_create();
+
+  if (!printer)
+    return;
+
+  printer_name = stp_printer_get_long_name(printer);
+  stp_set_driver(v, stp_printer_get_driver(printer));
+
+  stp_describe_parameter(v, "AlignmentPasses", &desc);
+  if (desc.p_type != STP_PARAMETER_TYPE_INT)
+    {
+      fprintf(stderr,
+	      "Unable to retrieve number of alignment passes for printer %s\n",
+	      printer_name);
+      return;
+    }
+  passes = desc.deflt.integer;
+  stp_parameter_description_destroy(&desc);
+
+  stp_describe_parameter(v, "AlignmentChoices", &desc);
+  if (desc.p_type != STP_PARAMETER_TYPE_INT)
+    {
+      fprintf(stderr,
+	      "Unable to retrieve number of alignment choices for printer %s\n",
+	      printer_name);
+      return;
+    }
+  choices = desc.deflt.integer;
+  stp_parameter_description_destroy(&desc);
+  if (passes <= 0 || choices <= 0)
+    {
+      printf("No alignment required for printer %s\n", printer_name);
+      return;
+    }
 
   do
     {
@@ -1124,129 +1083,6 @@ do_align(void)
   exit(0);
 }
 
-const char *color_align_help = N_("\
-Please read these instructions very carefully before proceeding.\n\
-\n\
-This utility lets you align the color print head of your Epson Stylus inkjet\n\
-printer.  Misuse of this utility may cause your print quality to degrade\n\
-and possibly damage your printer.  This utility has not been reviewed by\n\
-Seiko Epson for correctness, and is offered with no warranty at all.  The\n\
-entire risk of using this utility lies with you.\n\
-\n\
-This utility prints %d overprinting test patterns on one piece of paper.\n\
-That is, it prints one pattern and ejects the page.  You must then reinsert\n\
-the same page, and it will print another pattern.  Each pattern consists of\n\
-a set of choices numbered between %d and %d.\n\
-\n\
-When you inspect the patterns, you should find one patch to have the\n\
-smoothest texture (least ``grain'').  You should inspect the patches very\n\
-carefully to choose the best one.  We suggest using Photo Quality Inkjet\n\
-Paper or a similar high quality paper for this test.  If you do not find\n\
-a smooth pattern, you should repeat the test.\n\
-\n\
-After you inspect the choices and select a patch, you will be offered the\n\
-choices of (s)aving the result in the printer, (r)epeating the process,\n\
-or (q)uitting without saving.  Quitting will not restore the previous\n\
-settings, but powering the printer off and back on will.  If you quit,\n\
-you must repeat the entire process if you wish to later save the results.\n\
-It is essential that you not turn your printer off during this procedure.\n\
-\n\
-WARNING: THIS FUNCTION IS NOT YET TESTED!  It may not work, and it may\n\
-damage your printer!\n");
-
-static void
-do_align_color_help(int passes, int choices)
-{
-  printf(color_align_help, 1, choices);
-  fflush(stdout);
-}
-
-void
-do_align_color(void)
-{
-  char *inbuf;
-  long answer;
-  char *endptr;
-  int curpass;
-  const stp_printer_t *printer = get_printer();
-  int passes = printer->color_passes;
-  int choices = printer->color_choices;
-  const char *printer_name = printer->long_name;
-  if (passes == 0)
-    {
-      printf(_("Printer %s does not require color head alignment.\n"),
-	     printer_model);
-      exit(0);
-    }
-
-  do
-    {
-      do_align_color_help(passes, choices);
-      printf(_(printer_msg), _(printer_name));
-      inbuf = do_get_input(_("Press enter to continue > "));
-      for (curpass = 1; curpass <= passes; curpass ++)
-	{
-	  initialize_print_cmd();
-	  do_remote_cmd("DU", 6, 0, curpass, 0, 9, 0, curpass - 1);
-	  if (do_print_cmd())
-	    printer_error();
-	  if (curpass < passes)
-	    {
-	      printf(_("Please re-insert the same alignment sheet in the printer when it is\n"
-		       "finished printing.\n"));
-	      (void) do_get_input(_("Press enter to continue > "));
-	    }
-	}
-    reread:
-      printf(_("Inspect the alignment sheet, and determine which pattern is the smoothest.\n"
-	       "This pattern will appear to have the least ``grain''.\n"
-	       "If you cannot find a smooth pattern, please select the number for the\n"
-	       "best pattern, and repeat the procedure.\n"
-	       "Type a pattern number, or '?' for help.\n"));
-      fflush(stdout);
-      inbuf = do_get_input(_("> "));
-      if (!inbuf)
-	exit(1);
-      switch (inbuf[0])
-	{
-	case 'h':
-	case '?':
-	  do_align_color_help(passes, choices);
-	  fflush(stdout);
-	  /* FALLTHROUGH */
-	case '\n':
-	case '\000':
-	  goto reread;
-	default:
-	  break;
-	}
-      answer = strtol(inbuf, &endptr, 10);
-      if (errno == ERANGE)
-	{
-	  printf(_("Number out of range!\n"));
-	  goto reread;
-	}
-      if (endptr == inbuf)
-	{
-	  printf(_("I cannot understand what you typed!\n"));
-	  fflush(stdout);
-	  goto reread;
-	}
-      if (answer < 1 || answer > choices)
-	{
-	  printf(_("The best pattern should be numbered between 1 and %d.\n"),
-		 choices);
-	  fflush(stdout);
-	  goto reread;
-	}
-      initialize_print_cmd();
-      do_remote_cmd("DA", 6, 0, 0, 0, answer, 9, 0);
-      if (do_print_cmd())
-	printer_error();
-    } while (!do_final_alignment());
-  exit (0);
-}
-
 char *
 do_get_input (const char *prompt)
 {
@@ -1257,12 +1093,12 @@ do_get_input (const char *prompt)
 	/* free only if previously allocated */
 	if (input)
 	{
-		free (input);
+		stp_free (input);
 		input = NULL;
 	}
 #if (HAVE_LIBREADLINE > 0 && defined HAVE_READLINE_READLINE_H)
 	/* get input with libreadline, if present */
-	input = readline ((char *) prompt);
+	input = readline (prompt);
 	/* if input, add to history list */
 #ifdef HAVE_READLINE_HISTORY_H
 	if (input && *input)
@@ -1272,7 +1108,7 @@ do_get_input (const char *prompt)
 #endif
 #else
 	/* no libreadline; use fgets instead */
-	input = xmalloc (sizeof (char) * BUFSIZ);
+	input = stp_malloc (sizeof (char) * BUFSIZ);
 	memset(input, 0, BUFSIZ);
 	printf ("%s", prompt);
 	fgets_status = fgets (input, BUFSIZ, stdin);

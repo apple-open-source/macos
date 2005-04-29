@@ -1,21 +1,22 @@
 /* Specific flags and argument handling of the front-end of the 
    GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA. 
 
@@ -25,6 +26,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "gcc.h"
 
 /* Name of spec file.  */
@@ -45,8 +48,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 /* True if this arg is a resource file.  */
 #define RESOURCE_FILE_ARG (1<<7)
 
-static char *find_spec_file	PARAMS ((const char *));
-static int verify_class_name    PARAMS ((const char *));
+static char *find_spec_file (const char *);
+static int verify_class_name (const char *);
 
 static const char *main_class_name = NULL;
 int lang_specific_extra_outfiles = 0;
@@ -55,34 +58,33 @@ int lang_specific_extra_outfiles = 0;
 int shared_libgcc = 1;
 
 static const char jvgenmain_spec[] =
-  "jvgenmain %{D*} %b %{!pipe:%u.i} |\n\
-   cc1 %{!pipe:%U.i} %1 \
+  "jvgenmain %{D*} %b %m.i |\n\
+   cc1 %m.i %1 \
 		   %{!Q:-quiet} -dumpbase %b.c %{d*} %{m*} %{a*}\
 		   %{g*} %{O*} \
 		   %{v:-version} %{pg:-p} %{p}\
-		   %{<fbounds-check} %{<fno-bounds-check}\
-		   %{<fassume-compiled} %{<fno-assume-compiled}\
-                   %{<fcompile-resource*} %{<fassert} %{<fno-assert} \
-		   %{<femit-class-file} %{<femit-class-files} %{<fencoding*}\
-		   %{<fuse-boehm-gc} %{<fhash-synchronization} %{<fjni}\
-		   %{<findirect-dispatch} \
-		   %{<fno-store-check} %{<foutput-class-dir}\
-		   %{<fclasspath*} %{<fCLASSPATH*} %{<fbootclasspath*}\
-		   %{<fextdirs*}\
-		   %{<fuse-divide-subroutine} %{<fno-use-divide-subroutine}\
-		   %{<fcheck-references} %{<fno-check-references}\
-		   %{<ffilelist-file}\
+		   %<fbounds-check %<fno-bounds-check\
+		   %<fassume-compiled* %<fno-assume-compiled*\
+		   %<fcompile-resource* %<fassert %<fno-assert \
+		   %<femit-class-file %<femit-class-files %<fencoding*\
+		   %<fuse-boehm-gc %<fhash-synchronization %<fjni\
+		   %<findirect-dispatch \
+		   %<fno-store-check %<foutput-class-dir\
+		   %<fclasspath* %<fCLASSPATH* %<fbootclasspath*\
+		   %<fextdirs*\
+		   %<fuse-divide-subroutine %<fno-use-divide-subroutine\
+		   %<fcheck-references %<fno-check-references\
+		   %<ffilelist-file\
 		   %{f*} -fdollars-in-identifiers\
 		   %{aux-info*}\
 		   %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
-		   %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}} |\n\
-              %{!S:as %a %Y -o %d%w%u%O %{!pipe:%g.s} %A\n }";
+		   %{S:%W{o*}%{!o*:-o %b.s}}\
+   %(invoke_as)";
 
 /* Return full path name of spec file if it is in DIR, or NULL if
    not.  */
 static char *
-find_spec_file (dir)
-     const char *dir;
+find_spec_file (const char *dir)
 {
   char *spec;
   int x;
@@ -113,8 +115,7 @@ find_spec_file (dir)
 /* Verify that NAME is a valid Java class name that might contain
    `main'.  Return 0 on failure.  */
 static int
-verify_class_name (name)
-     const char *name;
+verify_class_name (const char *name)
 {
   /* FIXME: what encoding do we use for command-line arguments?  For
      now we assume plain ASCII, which of course is wrong.  */
@@ -141,10 +142,8 @@ verify_class_name (name)
 }
 
 void
-lang_specific_driver (in_argc, in_argv, in_added_libraries)
-     int *in_argc;
-     const char *const **in_argv;
-     int *in_added_libraries;
+lang_specific_driver (int *in_argc, const char *const **in_argv,
+		      int *in_added_libraries)
 {
   int i, j;
 
@@ -160,9 +159,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   /* This will be 1 if multiple input files (.class and/or .java)
      should be passed to a single jc1 invocation. */
   int combine_inputs = 0;
-
-  /* Index of last .java or .class argument. */
-  int last_input_index;
 
   /* Number of .java and .class source file arguments seen. */
   int java_files_count = 0;
@@ -319,7 +315,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	  else if (argv[i][1] == 'O')
 	    saw_O = 1;
 	  else if ((argv[i][2] == '\0'
-		    && (char *)strchr ("bBVDUoeTuIYmLiA", argv[i][1]) != NULL)
+		    && strchr ("bBVDUoeTuIYmLiA", argv[i][1]) != NULL)
 		   || strcmp (argv[i], "-Tdata") == 0
 		   || strcmp (argv[i], "-MT") == 0
 		   || strcmp (argv[i], "-MF") == 0)
@@ -328,16 +324,18 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 		saw_o = 1;
 	      quote = argv[i];
 	    }
-	  else if (strcmp(argv[i], "-classpath") == 0
-		   || strcmp(argv[i], "-bootclasspath") == 0
-		   || strcmp(argv[i], "-CLASSPATH") == 0)
+	  else if (strcmp (argv[i], "-classpath") == 0
+		   || strcmp (argv[i], "-bootclasspath") == 0
+		   || strcmp (argv[i], "-CLASSPATH") == 0
+		   || strcmp (argv[i], "-encoding") == 0
+		   || strcmp (argv[i], "-extdirs") == 0)
 	    {
 	      quote = argv[i];
 	      added -= 1;
 	    }
 	  else if (library != 0 
 		   && ((argv[i][2] == '\0'
-			&& (char *) strchr ("cSEM", argv[i][1]) != NULL)
+			&& strchr ("cSEM", argv[i][1]) != NULL)
 		       || strcmp (argv[i], "-MM") == 0))
 	    {
 	      /* Don't specify libraries if we won't link, since that would
@@ -384,7 +382,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	  if (saw_resource)
 	    {
 	      args[i] |= RESOURCE_FILE_ARG;
-	      last_input_index = i;
 	      added += 2;  /* for -xjava and -xnone */
 	    }
 
@@ -400,13 +397,11 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	    {
 	      args[i] |= JAVA_FILE_ARG;
 	      java_files_count++;
-	      last_input_index = i;
 	    }
 	  if (len > 6 && strcmp (argv[i] + len - 6, ".class") == 0)
 	    {
 	      args[i] |= CLASS_FILE_ARG;
 	      class_files_count++;
-	      last_input_index = i;
 	    }
 	  if (len > 4
 	      && (strcmp (argv[i] + len - 4, ".zip") == 0
@@ -414,7 +409,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	    {
 	      args[i] |= ZIP_FILE_ARG;
 	      zip_files_count++;
-	      last_input_index = i;
 	    }
 	}
     }
@@ -515,7 +509,9 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 
       if (strcmp (argv[i], "-classpath") == 0
 	  || strcmp (argv[i], "-bootclasspath") == 0
-	  || strcmp (argv[i], "-CLASSPATH") == 0)
+	  || strcmp (argv[i], "-CLASSPATH") == 0
+	  || strcmp (argv[i], "-encoding") == 0
+	  || strcmp (argv[i], "-extdirs") == 0)
 	{
 	  arglist[j] = concat ("-f", argv[i]+1, "=", argv[i+1], NULL);
 	  i++;
@@ -604,7 +600,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 }
 
 int
-lang_specific_pre_link ()
+lang_specific_pre_link (void)
 {
   int err;
   if (main_class_name == NULL)

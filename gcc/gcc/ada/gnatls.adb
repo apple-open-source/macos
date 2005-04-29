@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---           Copyright (C) 1992-2002 Free Software Foundation, Inc.         --
+--           Copyright (C) 1992-2004 Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,6 +28,7 @@ with ALI;         use ALI;
 with ALI.Util;    use ALI.Util;
 with Binderr;     use Binderr;
 with Butil;       use Butil;
+with Csets;       use Csets;
 with Fname;       use Fname;
 with Gnatvsn;     use Gnatvsn;
 with GNAT.OS_Lib; use GNAT.OS_Lib;
@@ -37,12 +37,19 @@ with Opt;         use Opt;
 with Osint;       use Osint;
 with Osint.L;     use Osint.L;
 with Output;      use Output;
+with Rident;      use Rident;
+with Snames;
 with Targparm;    use Targparm;
 with Types;       use Types;
 
+with GNAT.Case_Util; use GNAT.Case_Util;
+
 procedure Gnatls is
+   pragma Ident (Gnat_Static_Version_String);
 
    Max_Column : constant := 80;
+
+   No_Obj : aliased String := "<no_obj>";
 
    type File_Status is (
      OK,                  --  matching timestamp
@@ -74,11 +81,8 @@ procedure Gnatls is
 
    Main_File : File_Name_Type;
    Ali_File  : File_Name_Type;
-
-   Text : Text_Buffer_Ptr;
-   Id   : ALI_Id;
-
-   Next_Arg : Positive;
+   Text      : Text_Buffer_Ptr;
+   Next_Arg  : Positive;
 
    Too_Long : Boolean := False;
    --  When True, lines are too long for multi-column output and each
@@ -89,10 +93,12 @@ procedure Gnatls is
    Print_Unit       : Boolean := True;
    Print_Source     : Boolean := True;
    Print_Object     : Boolean := True;
-   --  Flags controlling the form of the outpout
+   --  Flags controlling the form of the output
 
-   Dependable       : Boolean := False;  --  flag -d
-   Also_Predef      : Boolean := False;
+   Dependable  : Boolean := False;  --  flag -d
+   Also_Predef : Boolean := False;
+
+   Very_Verbose_Mode : Boolean := False; --  flag -V
 
    Unit_Start   : Integer;
    Unit_End     : Integer;
@@ -104,19 +110,18 @@ procedure Gnatls is
 
    Spaces : constant String (1 .. Max_Column) := (others => ' ');
 
+   RTS_Specified : String_Access := null;
+   --  Used to detect multiple use of --RTS= switch
+
    -----------------------
    -- Local Subprograms --
    -----------------------
 
-   procedure Add_Lib_Dir (Dir : String; And_Save : Boolean);
-   --  Add an object directory, using Osint.Add_Lib_Search_Dir
-   --  if And_Save is False or keeping in the list First_Lib_Dir,
-   --  Last_Lib_Dir if And_Save is True.
+   procedure Add_Lib_Dir (Dir : String);
+   --  Add an object directory in the list First_Lib_Dir-Last_Lib_Dir
 
-   procedure Add_Source_Dir (Dir : String; And_Save : Boolean);
-   --  Add a source directory, using Osint.Add_Src_Search_Dir
-   --  if And_Save is False or keeping in the list First_Source_Dir,
-   --  Last_Source_Dir if And_Save is True.
+   procedure Add_Source_Dir (Dir : String);
+   --  Add a source directory in the list First_Source_Dir-Last_Source_Dir
 
    procedure Find_General_Layout;
    --  Determine the structure of the output (multi columns or not, etc)
@@ -131,55 +136,67 @@ procedure Gnatls is
    --  updated to the full file name if available.
 
    function Corresponding_Sdep_Entry (A : ALI_Id; U : Unit_Id) return Sdep_Id;
-   --  Give the Sdep entry corresponding to the unit U in ali record A.
+   --  Give the Sdep entry corresponding to the unit U in ali record A
 
    procedure Output_Object (O : File_Name_Type);
    --  Print out the name of the object when requested
 
    procedure Output_Source (Sdep_I : Sdep_Id);
    --  Print out the name and status of the source corresponding to this
-   --  sdep entry
+   --  sdep entry.
 
    procedure Output_Status (FS : File_Status; Verbose : Boolean);
    --  Print out FS either in a coded form if verbose is false or in an
    --  expanded form otherwise.
 
-   procedure Output_Unit (U_Id : Unit_Id);
+   procedure Output_Unit (ALI : ALI_Id; U_Id : Unit_Id);
    --  Print out information on the unit when requested
 
    procedure Reset_Print;
    --  Reset Print flags properly when selective output is chosen
 
-   procedure Scan_Ls_Arg (Argv : String; And_Save : Boolean);
-   --  Scan and process lser specific arguments. Argv is a single argument.
+   procedure Scan_Ls_Arg (Argv : String);
+   --  Scan and process lser specific arguments. Argv is a single argument
 
    procedure Usage;
-   --  Print usage message.
+   --  Print usage message
+
+   function Image (Restriction : Restriction_Id) return String;
+   --  Returns the capitalized image of Restriction
+
+   ---------------------------------------
+   -- GLADE specific output subprograms --
+   ---------------------------------------
+
+   package GLADE is
+
+      --  Any modification to this subunit requires a synchronization
+      --  with the GLADE implementation.
+
+      procedure Output_ALI    (A : ALI_Id);
+      procedure Output_No_ALI (Afile : File_Name_Type);
+
+   end GLADE;
 
    -----------------
    -- Add_Lib_Dir --
    -----------------
 
-   procedure Add_Lib_Dir (Dir : String; And_Save : Boolean) is
+   procedure Add_Lib_Dir (Dir : String) is
    begin
-      if And_Save then
-         if First_Lib_Dir = null then
-            First_Lib_Dir :=
-              new Dir_Data'
-                (Value => new String'(Dir),
-                 Next => null);
-            Last_Lib_Dir := First_Lib_Dir;
-
-         else
-            Last_Lib_Dir.Next :=
-              new Dir_Data'
-                (Value => new String'(Dir),
-                 Next => null);
-            Last_Lib_Dir := Last_Lib_Dir.Next;
-         end if;
+      if First_Lib_Dir = null then
+         First_Lib_Dir :=
+           new Dir_Data'
+             (Value => new String'(Dir),
+              Next  => null);
+         Last_Lib_Dir := First_Lib_Dir;
 
       else
-         Add_Lib_Search_Dir (Dir);
+         Last_Lib_Dir.Next :=
+           new Dir_Data'
+             (Value => new String'(Dir),
+              Next  => null);
+         Last_Lib_Dir := Last_Lib_Dir.Next;
       end if;
    end Add_Lib_Dir;
 
@@ -187,26 +204,21 @@ procedure Gnatls is
    -- Add_Source_Dir --
    --------------------
 
-   procedure Add_Source_Dir (Dir : String; And_Save : Boolean) is
+   procedure Add_Source_Dir (Dir : String) is
    begin
-      if And_Save then
-         if First_Source_Dir = null then
-            First_Source_Dir :=
-              new Dir_Data'
-                (Value => new String'(Dir),
-                 Next => null);
-            Last_Source_Dir := First_Source_Dir;
-
-         else
-            Last_Source_Dir.Next :=
-              new Dir_Data'
-                (Value => new String'(Dir),
-                 Next => null);
-            Last_Source_Dir := Last_Source_Dir.Next;
-         end if;
+      if First_Source_Dir = null then
+         First_Source_Dir :=
+           new Dir_Data'
+             (Value => new String'(Dir),
+              Next  => null);
+         Last_Source_Dir := First_Source_Dir;
 
       else
-         Add_Src_Search_Dir (Dir);
+         Last_Source_Dir.Next :=
+           new Dir_Data'
+             (Value => new String'(Dir),
+              Next  => null);
+         Last_Source_Dir := Last_Source_Dir.Next;
       end if;
    end Add_Source_Dir;
 
@@ -215,9 +227,8 @@ procedure Gnatls is
    ------------------------------
 
    function Corresponding_Sdep_Entry
-     (A     : ALI_Id;
-      U     : Unit_Id)
-      return  Sdep_Id
+     (A : ALI_Id;
+      U : Unit_Id) return Sdep_Id
    is
    begin
       for D in ALIs.Table (A).First_Sdep .. ALIs.Table (A).Last_Sdep loop
@@ -249,7 +260,6 @@ procedure Gnatls is
       --  Compute maximum of each column
 
       for Id in ALIs.First .. ALIs.Last loop
-
          Get_Name_String (Units.Table (ALIs.Table (Id).First_Unit).Uname);
          if Also_Predef or else not Is_Internal_Unit then
 
@@ -272,18 +282,25 @@ procedure Gnatls is
             end if;
 
             if Print_Object then
-               Get_Name_String (ALIs.Table (Id).Ofile_Full_Name);
-               Max_Obj_Length := Integer'Max (Max_Obj_Length, Name_Len + 1);
+               if ALIs.Table (Id).No_Object then
+                  Max_Obj_Length :=
+                    Integer'Max (Max_Obj_Length, No_Obj'Length);
+               else
+                  Get_Name_String (ALIs.Table (Id).Ofile_Full_Name);
+                  Max_Obj_Length := Integer'Max (Max_Obj_Length, Name_Len + 1);
+               end if;
             end if;
          end if;
       end loop;
 
       --  Verify is output is not wider than maximum number of columns
 
-      Too_Long := Verbose_Mode or else
-        (Max_Unit_Length + Max_Src_Length + Max_Obj_Length) > Max_Column;
+      Too_Long :=
+        Verbose_Mode
+          or else
+            (Max_Unit_Length + Max_Src_Length + Max_Obj_Length) > Max_Column;
 
-      --  Set start and end of columns.
+      --  Set start and end of columns
 
       Object_Start := 1;
       Object_End   := Object_Start - 1;
@@ -353,6 +370,434 @@ procedure Gnatls is
       end if;
    end Find_Status;
 
+   -----------
+   -- GLADE --
+   -----------
+
+   package body GLADE is
+
+      N_Flags   : Natural;
+      N_Indents : Natural := 0;
+
+      type Token_Type is
+        (T_No_ALI,
+         T_ALI,
+         T_Unit,
+         T_With,
+         T_Source,
+         T_Afile,
+         T_Ofile,
+         T_Sfile,
+         T_Name,
+         T_Main,
+         T_Kind,
+         T_Flags,
+         T_Preelaborated,
+         T_Pure,
+         T_Has_RACW,
+         T_Remote_Types,
+         T_Shared_Passive,
+         T_RCI,
+         T_Predefined,
+         T_Internal,
+         T_Is_Generic,
+         T_Procedure,
+         T_Function,
+         T_Package,
+         T_Subprogram,
+         T_Spec,
+         T_Body);
+
+      Image : constant array (Token_Type) of String_Access :=
+        (T_No_ALI         => new String'("No_ALI"),
+         T_ALI            => new String'("ALI"),
+         T_Unit           => new String'("Unit"),
+         T_With           => new String'("With"),
+         T_Source         => new String'("Source"),
+         T_Afile          => new String'("Afile"),
+         T_Ofile          => new String'("Ofile"),
+         T_Sfile          => new String'("Sfile"),
+         T_Name           => new String'("Name"),
+         T_Main           => new String'("Main"),
+         T_Kind           => new String'("Kind"),
+         T_Flags          => new String'("Flags"),
+         T_Preelaborated  => new String'("Preelaborated"),
+         T_Pure           => new String'("Pure"),
+         T_Has_RACW       => new String'("Has_RACW"),
+         T_Remote_Types   => new String'("Remote_Types"),
+         T_Shared_Passive => new String'("Shared_Passive"),
+         T_RCI            => new String'("RCI"),
+         T_Predefined     => new String'("Predefined"),
+         T_Internal       => new String'("Internal"),
+         T_Is_Generic     => new String'("Is_Generic"),
+         T_Procedure      => new String'("procedure"),
+         T_Function       => new String'("function"),
+         T_Package        => new String'("package"),
+         T_Subprogram     => new String'("subprogram"),
+         T_Spec           => new String'("spec"),
+         T_Body           => new String'("body"));
+
+      procedure Output_Name  (N : Name_Id);
+      --  Remove any encoding info (%b and %s) and output N
+
+      procedure Output_Afile (A : File_Name_Type);
+      procedure Output_Ofile (O : File_Name_Type);
+      procedure Output_Sfile (S : File_Name_Type);
+      --  Output various names. Check that the name is different from
+      --  no name. Otherwise, skip the output.
+
+      procedure Output_Token (T : Token_Type);
+      --  Output token using a specific format. That is several
+      --  indentations and:
+      --
+      --  T_No_ALI  .. T_With : <token> & " =>" & NL
+      --  T_Source  .. T_Kind : <token> & " => "
+      --  T_Flags             : <token> & " =>"
+      --  T_Preelab .. T_Body : " " & <token>
+
+      procedure Output_Sdep  (S : Sdep_Id);
+      procedure Output_Unit  (U : Unit_Id);
+      procedure Output_With  (W : With_Id);
+      --  Output this entry as a global section (like ALIs)
+
+      ------------------
+      -- Output_Afile --
+      ------------------
+
+      procedure Output_Afile (A : File_Name_Type) is
+      begin
+         if A /= No_File then
+            Output_Token (T_Afile);
+            Write_Name (A);
+            Write_Eol;
+         end if;
+      end Output_Afile;
+
+      ----------------
+      -- Output_ALI --
+      ----------------
+
+      procedure Output_ALI (A : ALI_Id) is
+      begin
+         Output_Token (T_ALI);
+         N_Indents := N_Indents + 1;
+
+         Output_Afile (ALIs.Table (A).Afile);
+         Output_Ofile (ALIs.Table (A).Ofile_Full_Name);
+         Output_Sfile (ALIs.Table (A).Sfile);
+
+         --  Output Main
+
+         if ALIs.Table (A).Main_Program /= None then
+            Output_Token (T_Main);
+
+            if ALIs.Table (A).Main_Program = Proc then
+               Output_Token (T_Procedure);
+            else
+               Output_Token (T_Function);
+            end if;
+
+            Write_Eol;
+         end if;
+
+         --  Output Units
+
+         for U in ALIs.Table (A).First_Unit .. ALIs.Table (A).Last_Unit loop
+            Output_Unit (U);
+         end loop;
+
+         --  Output Sdeps
+
+         for S in ALIs.Table (A).First_Sdep .. ALIs.Table (A).Last_Sdep loop
+            Output_Sdep (S);
+         end loop;
+
+         N_Indents := N_Indents - 1;
+      end Output_ALI;
+
+      -------------------
+      -- Output_No_ALI --
+      -------------------
+
+      procedure Output_No_ALI (Afile : File_Name_Type) is
+      begin
+         Output_Token (T_No_ALI);
+         N_Indents := N_Indents + 1;
+         Output_Afile (Afile);
+         N_Indents := N_Indents - 1;
+      end Output_No_ALI;
+
+      -----------------
+      -- Output_Name --
+      -----------------
+
+      procedure Output_Name (N : Name_Id) is
+      begin
+         --  Remove any encoding info (%s or %b)
+
+         Get_Name_String (N);
+         if Name_Len > 2
+           and then Name_Buffer (Name_Len - 1) = '%'
+         then
+            Name_Len := Name_Len - 2;
+         end if;
+
+         Output_Token (T_Name);
+         Write_Str (Name_Buffer (1 .. Name_Len));
+         Write_Eol;
+      end Output_Name;
+
+      ------------------
+      -- Output_Ofile --
+      ------------------
+
+      procedure Output_Ofile (O : File_Name_Type) is
+      begin
+         if O /= No_File then
+            Output_Token (T_Ofile);
+            Write_Name (O);
+            Write_Eol;
+         end if;
+      end Output_Ofile;
+
+      -----------------
+      -- Output_Sdep --
+      -----------------
+
+      procedure Output_Sdep (S : Sdep_Id) is
+      begin
+         Output_Token (T_Source);
+         Write_Name (Sdep.Table (S).Sfile);
+         Write_Eol;
+      end Output_Sdep;
+
+      ------------------
+      -- Output_Sfile --
+      ------------------
+
+      procedure Output_Sfile (S : File_Name_Type) is
+         FS : File_Name_Type := S;
+
+      begin
+         if FS /= No_File then
+
+            --  We want to output the full source name
+
+            FS := Full_Source_Name (FS);
+
+            --  There is no full source name. This occurs for instance when a
+            --  withed unit has a spec file but no body file. This situation
+            --  is not a problem for GLADE since the unit may be located on
+            --  a partition we do not want to build. However, we need to
+            --  locate the spec file and to find its full source name.
+            --  Replace the body file name with the spec file name used to
+            --  compile the current unit when possible.
+
+            if FS = No_File then
+               Get_Name_String (S);
+
+               if Name_Len > 4
+                 and then Name_Buffer (Name_Len - 3 .. Name_Len) = ".adb"
+               then
+                  Name_Buffer (Name_Len) := 's';
+                  FS := Full_Source_Name (Name_Find);
+               end if;
+            end if;
+         end if;
+
+         if FS /= No_File then
+            Output_Token (T_Sfile);
+            Write_Name (FS);
+            Write_Eol;
+         end if;
+      end Output_Sfile;
+
+      ------------------
+      -- Output_Token --
+      ------------------
+
+      procedure Output_Token (T : Token_Type) is
+      begin
+         if T in T_No_ALI .. T_Flags then
+            for J in 1 .. N_Indents loop
+               Write_Str ("   ");
+            end loop;
+
+            Write_Str (Image (T).all);
+
+            for J in Image (T)'Length .. 12 loop
+               Write_Char (' ');
+            end loop;
+
+            Write_Str ("=>");
+
+            if T in T_No_ALI .. T_With then
+               Write_Eol;
+            elsif T in T_Source .. T_Name then
+               Write_Char (' ');
+            end if;
+
+         elsif T in T_Preelaborated .. T_Body then
+            if T in T_Preelaborated .. T_Is_Generic then
+               if N_Flags = 0 then
+                  Output_Token (T_Flags);
+               end if;
+
+               N_Flags := N_Flags + 1;
+            end if;
+
+            Write_Char (' ');
+            Write_Str  (Image (T).all);
+
+         else
+            Write_Str  (Image (T).all);
+         end if;
+      end Output_Token;
+
+      -----------------
+      -- Output_Unit --
+      -----------------
+
+      procedure Output_Unit (U : Unit_Id) is
+      begin
+         Output_Token (T_Unit);
+         N_Indents := N_Indents + 1;
+
+         --  Output Name
+
+         Output_Name (Units.Table (U).Uname);
+
+         --  Output Kind
+
+         Output_Token (T_Kind);
+
+         if Units.Table (U).Unit_Kind = 'p' then
+            Output_Token (T_Package);
+         else
+            Output_Token (T_Subprogram);
+         end if;
+
+         if Name_Buffer (Name_Len) = 's' then
+            Output_Token (T_Spec);
+         else
+            Output_Token (T_Body);
+         end if;
+
+         Write_Eol;
+
+         --  Output source file name
+
+         Output_Sfile (Units.Table (U).Sfile);
+
+         --  Output Flags
+
+         N_Flags := 0;
+
+         if Units.Table (U).Preelab then
+            Output_Token (T_Preelaborated);
+         end if;
+
+         if Units.Table (U).Pure then
+            Output_Token (T_Pure);
+         end if;
+
+         if Units.Table (U).Has_RACW then
+            Output_Token (T_Has_RACW);
+         end if;
+
+         if Units.Table (U).Remote_Types then
+            Output_Token (T_Remote_Types);
+         end if;
+
+         if Units.Table (U).Shared_Passive then
+            Output_Token (T_Shared_Passive);
+         end if;
+
+         if Units.Table (U).RCI then
+            Output_Token (T_RCI);
+         end if;
+
+         if Units.Table (U).Predefined then
+            Output_Token (T_Predefined);
+         end if;
+
+         if Units.Table (U).Internal then
+            Output_Token (T_Internal);
+         end if;
+
+         if Units.Table (U).Is_Generic then
+            Output_Token (T_Is_Generic);
+         end if;
+
+         if N_Flags > 0 then
+            Write_Eol;
+         end if;
+
+         --  Output Withs
+
+         for W in Units.Table (U).First_With .. Units.Table (U).Last_With loop
+            Output_With (W);
+         end loop;
+
+         N_Indents := N_Indents - 1;
+      end Output_Unit;
+
+      -----------------
+      -- Output_With --
+      -----------------
+
+      procedure Output_With (W : With_Id) is
+      begin
+         Output_Token (T_With);
+         N_Indents := N_Indents + 1;
+
+         Output_Name (Withs.Table (W).Uname);
+
+         --  Output Kind
+
+         Output_Token (T_Kind);
+
+         if Name_Buffer (Name_Len) = 's' then
+            Output_Token (T_Spec);
+         else
+            Output_Token (T_Body);
+         end if;
+
+         Write_Eol;
+
+         Output_Afile (Withs.Table (W).Afile);
+         Output_Sfile (Withs.Table (W).Sfile);
+
+         N_Indents := N_Indents - 1;
+      end Output_With;
+
+   end GLADE;
+
+   -----------
+   -- Image --
+   -----------
+
+   function Image (Restriction : Restriction_Id) return String is
+      Result : String := Restriction'Img;
+      Skip   : Boolean := True;
+
+   begin
+      for J in Result'Range loop
+         if Skip then
+            Skip := False;
+            Result (J) := To_Upper (Result (J));
+
+         elsif Result (J) = '_' then
+            Skip := True;
+
+         else
+            Result (J) := To_Lower (Result (J));
+         end if;
+      end loop;
+
+      return Result;
+   end Image;
+
    -------------------
    -- Output_Object --
    -------------------
@@ -362,8 +807,13 @@ procedure Gnatls is
 
    begin
       if Print_Object then
-         Get_Name_String (O);
-         Object_Name := To_Host_File_Spec (Name_Buffer (1 .. Name_Len));
+         if O /= No_File then
+            Get_Name_String (O);
+            Object_Name := To_Host_File_Spec (Name_Buffer (1 .. Name_Len));
+         else
+            Object_Name := No_Obj'Unchecked_Access;
+         end if;
+
          Write_Str (Object_Name.all);
 
          if Print_Source or else Print_Unit then
@@ -467,7 +917,7 @@ procedure Gnatls is
    -- Output_Unit --
    -----------------
 
-   procedure Output_Unit (U_Id : Unit_Id) is
+   procedure Output_Unit (ALI : ALI_Id; U_Id : Unit_Id) is
       Kind : Character;
       U    : Unit_Record renames Units.Table (U_Id);
 
@@ -482,9 +932,11 @@ procedure Gnatls is
 
          else
             Write_Str ("Unit => ");
-            Write_Eol; Write_Str ("     Name   => ");
+            Write_Eol;
+            Write_Str ("     Name   => ");
             Write_Str (Name_Buffer (1 .. Name_Len));
-            Write_Eol; Write_Str ("     Kind   => ");
+            Write_Eol;
+            Write_Str ("     Kind   => ");
 
             if Units.Table (U_Id).Unit_Kind = 'p' then
                Write_Str ("package ");
@@ -500,16 +952,24 @@ procedure Gnatls is
          end if;
 
          if Verbose_Mode then
-            if U.Preelab        or
-               U.No_Elab        or
-               U.Pure           or
-               U.Elaborate_Body or
-               U.Remote_Types   or
-               U.Shared_Passive or
-               U.RCI            or
-               U.Predefined
+            if U.Preelab             or
+               U.No_Elab             or
+               U.Pure                or
+               U.Dynamic_Elab        or
+               U.Has_RACW            or
+               U.Remote_Types        or
+               U.Shared_Passive      or
+               U.RCI                 or
+               U.Predefined          or
+               U.Internal            or
+               U.Is_Generic          or
+               U.Init_Scalars        or
+               U.Interface           or
+               U.Body_Needed_For_SAL or
+               U.Elaborate_Body
             then
-               Write_Eol; Write_Str ("     Flags  =>");
+               Write_Eol;
+               Write_Str ("     Flags  =>");
 
                if U.Preelab then
                   Write_Str (" Preelaborable");
@@ -521,6 +981,50 @@ procedure Gnatls is
 
                if U.Pure then
                   Write_Str (" Pure");
+               end if;
+
+               if U.Dynamic_Elab then
+                  Write_Str (" Dynamic_Elab");
+               end if;
+
+               if U.Has_RACW then
+                  Write_Str (" Has_RACW");
+               end if;
+
+               if U.Remote_Types then
+                  Write_Str (" Remote_Types");
+               end if;
+
+               if U.Shared_Passive then
+                  Write_Str (" Shared_Passive");
+               end if;
+
+               if U.RCI then
+                  Write_Str (" RCI");
+               end if;
+
+               if U.Predefined then
+                  Write_Str (" Predefined");
+               end if;
+
+               if U.Internal then
+                  Write_Str (" Internal");
+               end if;
+
+               if U.Is_Generic then
+                  Write_Str (" Is_Generic");
+               end if;
+
+               if U.Init_Scalars then
+                  Write_Str (" Init_Scalars");
+               end if;
+
+               if U.Interface then
+                  Write_Str (" Interface");
+               end if;
+
+               if U.Body_Needed_For_SAL then
+                  Write_Str (" Body_Needed_For_SAL");
                end if;
 
                if U.Elaborate_Body then
@@ -539,15 +1043,76 @@ procedure Gnatls is
                   Write_Str (" Predefined");
                end if;
 
-               if U.RCI then
-                  Write_Str (" Remote_Call_Interface");
-               end if;
             end if;
+
+            declare
+               Restrictions : constant Restrictions_Info :=
+                                ALIs.Table (ALI).Restrictions;
+
+            begin
+               --  If the source was compiled with pragmas Restrictions,
+               --  Display these restrictions.
+
+               if Restrictions.Set /= (All_Restrictions => False) then
+                  Write_Eol;
+                  Write_Str ("     pragma Restrictions  =>");
+
+                  --  For boolean restrictions, just display the name of the
+                  --  restriction; for valued restrictions, also display the
+                  --  restriction value.
+
+                  for Restriction in All_Restrictions loop
+                     if Restrictions.Set (Restriction) then
+                        Write_Eol;
+                        Write_Str ("       ");
+                        Write_Str (Image (Restriction));
+
+                        if Restriction in All_Parameter_Restrictions then
+                           Write_Str (" =>");
+                           Write_Str (Restrictions.Value (Restriction)'Img);
+                        end if;
+                     end if;
+                  end loop;
+               end if;
+
+               --  If the unit violates some Restrictions, display the list of
+               --  these restrictions.
+
+               if Restrictions.Violated /= (All_Restrictions => False) then
+                  Write_Eol;
+                  Write_Str ("     Restrictions violated =>");
+
+                  --  For boolean restrictions, just display the name of the
+                  --  restriction; for valued restrictions, also display the
+                  --  restriction value.
+
+                  for Restriction in All_Restrictions loop
+                     if Restrictions.Violated (Restriction) then
+                        Write_Eol;
+                        Write_Str ("       ");
+                        Write_Str (Image (Restriction));
+
+                        if Restriction in All_Parameter_Restrictions then
+                           if Restrictions.Count (Restriction) > 0 then
+                              Write_Str (" =>");
+
+                              if Restrictions.Unknown (Restriction) then
+                                 Write_Str (" at least");
+                              end if;
+
+                              Write_Str (Restrictions.Count (Restriction)'Img);
+                           end if;
+                        end if;
+                     end if;
+                  end loop;
+               end if;
+            end;
          end if;
 
          if Print_Source then
             if Too_Long then
-               Write_Eol; Write_Str ("   ");
+               Write_Eol;
+               Write_Str ("   ");
             else
                Write_Str (Spaces (Unit_Start + Name_Len + 1 .. Unit_End));
             end if;
@@ -573,7 +1138,10 @@ procedure Gnatls is
    -- Scan_Ls_Arg --
    -------------------
 
-   procedure Scan_Ls_Arg (Argv : String; And_Save : Boolean) is
+   procedure Scan_Ls_Arg (Argv : String) is
+      FD  : File_Descriptor;
+      Len : Integer;
+
    begin
       pragma Assert (Argv'First = 1);
 
@@ -582,7 +1150,6 @@ procedure Gnatls is
       end if;
 
       if Argv (1) = '-' then
-
          if Argv'Length = 1 then
             Fail ("switch character cannot be followed by a blank");
 
@@ -601,23 +1168,23 @@ procedure Gnatls is
          --  Processing for -Idir
 
          elsif Argv (2) = 'I' then
-            Add_Source_Dir (Argv (3 .. Argv'Last), And_Save);
-            Add_Lib_Dir (Argv (3 .. Argv'Last), And_Save);
+            Add_Source_Dir (Argv (3 .. Argv'Last));
+            Add_Lib_Dir (Argv (3 .. Argv'Last));
 
          --  Processing for -aIdir (to gcc this is like a -I switch)
 
          elsif Argv'Length >= 3 and then Argv (2 .. 3) = "aI" then
-            Add_Source_Dir (Argv (4 .. Argv'Last), And_Save);
+            Add_Source_Dir (Argv (4 .. Argv'Last));
 
          --  Processing for -aOdir
 
          elsif Argv'Length >= 3 and then Argv (2 .. 3) = "aO" then
-            Add_Lib_Dir (Argv (4 .. Argv'Last), And_Save);
+            Add_Lib_Dir (Argv (4 .. Argv'Last));
 
          --  Processing for -aLdir (to gnatbind this is like a -aO switch)
 
          elsif Argv'Length >= 3 and then Argv (2 .. 3) = "aL" then
-            Add_Lib_Dir (Argv (4 .. Argv'Last), And_Save);
+            Add_Lib_Dir (Argv (4 .. Argv'Last));
 
          --  Processing for -nostdinc
 
@@ -635,32 +1202,95 @@ procedure Gnatls is
                when 'o' => Reset_Print; Print_Object := True;
                when 'v' => Verbose_Mode              := True;
                when 'd' => Dependable                := True;
+               when 'V' => Very_Verbose_Mode         := True;
 
                when others => null;
             end case;
 
+         --  Processing for -files=file
+
+         elsif Argv'Length > 7 and then Argv (1 .. 7) = "-files=" then
+            FD := Open_Read (Argv (8 .. Argv'Last), GNAT.OS_Lib.Text);
+
+            if FD = Invalid_FD then
+               Osint.Fail ("could not find text file """ &
+                           Argv (8 .. Argv'Last) & '"');
+            end if;
+
+            Len := Integer (File_Length (FD));
+
+            declare
+               Buffer : String (1 .. Len + 1);
+               Index  : Positive := 1;
+               Last   : Positive;
+
+            begin
+               --  Read the file
+
+               Len := Read (FD, Buffer (1)'Address, Len);
+               Buffer (Buffer'Last) := ASCII.NUL;
+               Close (FD);
+
+               --  Scan the file line by line
+
+               while Index < Buffer'Last loop
+                  --  Find the end of line
+
+                  Last := Index;
+
+                  while Last <= Buffer'Last
+                    and then Buffer (Last) /= ASCII.LF
+                    and then Buffer (Last) /= ASCII.CR
+                  loop
+                     Last := Last + 1;
+                  end loop;
+
+                  --  Ignore empty lines
+
+                  if Last > Index then
+                     Add_File (Buffer (Index .. Last - 1));
+                  end if;
+
+                  Index := Last;
+
+                  --  Find the beginning of the next line
+
+                  while Buffer (Index) = ASCII.CR or else
+                        Buffer (Index) = ASCII.LF
+                  loop
+                     Index := Index + 1;
+                  end loop;
+               end loop;
+            end;
+
          --  Processing for --RTS=path
 
-         elsif Argv (1 .. 5) = "--RTS" then
-
-            if Argv (6) /= '=' or else
-              (Argv (6) = '='
-               and then Argv'Length = 6)
-            then
+         elsif Argv'Length >= 5 and then Argv (1 .. 5) = "--RTS" then
+            if Argv'Length <= 6 or else Argv (6) /= '='then
                Osint.Fail ("missing path for --RTS");
 
             else
+               --  Check that it is the first time we see this switch or, if
+               --  it is not the first time, the same path is specified.
+
+               if RTS_Specified = null then
+                  RTS_Specified := new String'(Argv (7 .. Argv'Last));
+
+               elsif RTS_Specified.all /= Argv (7 .. Argv'Last) then
+                  Osint.Fail ("--RTS cannot be specified multiple times");
+               end if;
+
                --  Valid --RTS switch
 
                Opt.No_Stdinc := True;
                Opt.RTS_Switch := True;
 
                declare
-                  Src_Path_Name : String_Ptr :=
+                  Src_Path_Name : constant String_Ptr :=
                                     String_Ptr
                                       (Get_RTS_Search_Dir
                                         (Argv (7 .. Argv'Last), Include));
-                  Lib_Path_Name : String_Ptr :=
+                  Lib_Path_Name : constant String_Ptr :=
                                     String_Ptr
                                       (Get_RTS_Search_Dir
                                         (Argv (7 .. Argv'Last), Objects));
@@ -702,9 +1332,6 @@ procedure Gnatls is
    -----------
 
    procedure Usage is
-
-   --  Start of processing for Usage
-
    begin
       --  Usage line
 
@@ -721,70 +1348,77 @@ procedure Gnatls is
 
       --  Line for -a
 
-      Write_Str ("  -a        also output relevant predefined units");
+      Write_Str ("  -a         also output relevant predefined units");
       Write_Eol;
 
       --  Line for -u
 
-      Write_Str ("  -u        output only relevant unit names");
+      Write_Str ("  -u         output only relevant unit names");
       Write_Eol;
 
       --  Line for -h
 
-      Write_Str ("  -h        output this help message");
+      Write_Str ("  -h         output this help message");
       Write_Eol;
 
       --  Line for -s
 
-      Write_Str ("  -s        output only relevant source names");
+      Write_Str ("  -s         output only relevant source names");
       Write_Eol;
 
       --  Line for -o
 
-      Write_Str ("  -o        output only relevant object names");
+      Write_Str ("  -o         output only relevant object names");
       Write_Eol;
 
       --  Line for -d
 
-      Write_Str ("  -d        output sources on which specified units depend");
+      Write_Str ("  -d         output sources on which specified units " &
+                               "depend");
       Write_Eol;
 
       --  Line for -v
 
-      Write_Str ("  -v        verbose output, full path and unit information");
+      Write_Str ("  -v         verbose output, full path and unit " &
+                               "information");
       Write_Eol;
+      Write_Eol;
+
+      --  Line for -files=
+
+      Write_Str ("  -files=fil files are listed in text file 'fil'");
       Write_Eol;
 
       --  Line for -aI switch
 
-      Write_Str ("  -aIdir    specify source files search path");
+      Write_Str ("  -aIdir     specify source files search path");
       Write_Eol;
 
       --  Line for -aO switch
 
-      Write_Str ("  -aOdir    specify object files search path");
+      Write_Str ("  -aOdir     specify object files search path");
       Write_Eol;
 
       --  Line for -I switch
 
-      Write_Str ("  -Idir     like -aIdir -aOdir");
+      Write_Str ("  -Idir      like -aIdir -aOdir");
       Write_Eol;
 
       --  Line for -I- switch
 
-      Write_Str ("  -I-       do not look for sources & object files");
+      Write_Str ("  -I-        do not look for sources & object files");
       Write_Str (" in the default directory");
       Write_Eol;
 
       --  Line for -nostdinc
 
-      Write_Str ("  -nostdinc do not look for source files");
+      Write_Str ("  -nostdinc  do not look for source files");
       Write_Str (" in the system default directory");
       Write_Eol;
 
       --  Line for --RTS
 
-      Write_Str ("  --RTS=dir specify the default source and object search"
+      Write_Str ("  --RTS=dir  specify the default source and object search"
                  & " path");
       Write_Eol;
 
@@ -804,21 +1438,24 @@ procedure Gnatls is
 
    end Usage;
 
-   --   Start of processing for Gnatls
+--   Start of processing for Gnatls
 
 begin
+   --  Initialize standard packages
 
-   --  Use low level argument routines to avoid dragging in the secondary stack
+   Namet.Initialize;
+   Csets.Initialize;
+   Snames.Initialize;
+
+   --  Loop to scan out arguments
 
    Next_Arg := 1;
-
    Scan_Args : while Next_Arg < Arg_Count loop
       declare
          Next_Argv : String (1 .. Len_Arg (Next_Arg));
-
       begin
          Fill_Arg (Next_Argv'Address, Next_Arg);
-         Scan_Ls_Arg (Next_Argv, And_Save => True);
+         Scan_Ls_Arg (Next_Argv);
       end;
 
       Next_Arg := Next_Arg + 1;
@@ -842,23 +1479,12 @@ begin
    Osint.Add_Default_Search_Dirs;
 
    if Verbose_Mode then
-      Namet.Initialize;
       Targparm.Get_Target_Parameters;
-
-      --  WARNING: the output of gnatls -v is used during the compilation
-      --  and installation of GLADE to recreate sdefault.adb and locate
-      --  the libgnat.a to use. Any change in the output of gnatls -v must
-      --  be synchronized with the GLADE Dist/config.sdefault shell script.
 
       Write_Eol;
       Write_Str ("GNATLS ");
-
-      if Targparm.High_Integrity_Mode_On_Target then
-         Write_Str ("Pro High Integrity ");
-      end if;
-
       Write_Str (Gnat_Version_String);
-      Write_Str (" Copyright 1997-2002 Free Software Foundation, Inc.");
+      Write_Str (" Copyright 1997-2004 Free Software Foundation, Inc.");
       Write_Eol;
       Write_Eol;
       Write_Str ("Source Search Path:");
@@ -912,7 +1538,6 @@ begin
       Exit_Program (E_Fatal);
    end if;
 
-   Namet.Initialize;
    Initialize_ALI;
    Initialize_ALI_Source;
 
@@ -920,30 +1545,55 @@ begin
 
    while More_Lib_Files loop
       Main_File := Next_Main_Lib_File;
-      Ali_File := Full_Lib_File_Name (Lib_File_Name (Main_File));
+      Ali_File  := Full_Lib_File_Name (Lib_File_Name (Main_File));
 
       if Ali_File = No_File then
-         Write_Str ("Can't find library info for ");
-         Get_Decoded_Name_String (Main_File);
-         Write_Char ('"');
-         Write_Str (Name_Buffer (1 .. Name_Len));
-         Write_Char ('"');
-         Write_Eol;
+         if Very_Verbose_Mode then
+            GLADE.Output_No_ALI (Lib_File_Name (Main_File));
+
+         else
+            Write_Str ("Can't find library info for ");
+            Get_Name_String (Main_File);
+            Write_Char ('"'); -- "
+            Write_Str (Name_Buffer (1 .. Name_Len));
+            Write_Char ('"'); -- "
+            Write_Eol;
+         end if;
 
       else
          Ali_File := Strip_Directory (Ali_File);
 
          if Get_Name_Table_Info (Ali_File) = 0 then
             Text := Read_Library_Info (Ali_File, True);
-            Id :=
-              Scan_ALI
-                (Ali_File, Text, Ignore_ED => False, Err => False);
+
+            declare
+               Discard : ALI_Id;
+               pragma Unreferenced (Discard);
+            begin
+               Discard :=
+                 Scan_ALI
+                   (Ali_File,
+                    Text,
+                    Ignore_ED     => False,
+                    Err           => False,
+                    Ignore_Errors => True);
+            end;
+
             Free (Text);
          end if;
       end if;
    end loop;
 
+   if Very_Verbose_Mode then
+      for A in ALIs.First .. ALIs.Last loop
+         GLADE.Output_ALI (A);
+      end loop;
+
+      return;
+   end if;
+
    Find_General_Layout;
+
    for Id in ALIs.First .. ALIs.Last loop
       declare
          Last_U : Unit_Id;
@@ -952,7 +1602,11 @@ begin
          Get_Name_String (Units.Table (ALIs.Table (Id).First_Unit).Uname);
 
          if Also_Predef or else not Is_Internal_Unit then
-            Output_Object (ALIs.Table (Id).Ofile_Full_Name);
+            if ALIs.Table (Id).No_Object then
+               Output_Object (No_File);
+            else
+               Output_Object (ALIs.Table (Id).Ofile_Full_Name);
+            end if;
 
             --  In verbose mode print all main units in the ALI file, otherwise
             --  just print the first one to ease columnwise printout
@@ -971,7 +1625,7 @@ begin
                   Write_Eol;
                end if;
 
-               Output_Unit (U);
+               Output_Unit (Id, U);
 
                --  Output source now, unless if it will be done as part of
                --  outputing dependencies.
@@ -981,7 +1635,7 @@ begin
                end if;
             end loop;
 
-            --  Print out list of dependable units
+            --  Print out list of units on which this unit depends (D lines)
 
             if Dependable and then Print_Source then
                if Verbose_Mode then
@@ -1022,9 +1676,8 @@ begin
       end;
    end loop;
 
-   --  All done. Set proper exit status.
+   --  All done. Set proper exit status
 
    Namet.Finalize;
    Exit_Program (E_Success);
-
 end Gnatls;

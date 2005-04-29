@@ -1,5 +1,3 @@
-/*	$NetBSD: pr.c,v 1.6 1998/04/02 10:42:51 kleink Exp $	*/
-
 /*-
  * Copyright (c) 1991 Keith Muller.
  * Copyright (c) 1993
@@ -37,19 +35,20 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
-#ifndef lint
 #if 0
-from: static char sccsid[] = "@(#)pr.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: pr.c,v 1.6 1998/04/02 10:42:51 kleink Exp $");
-#endif
+#ifndef lint
+static char sccsid[] = "@(#)pr.c	8.2 (Berkeley) 4/16/94";
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/pr/pr.c,v 1.18 2004/07/26 20:24:59 charnier Exp $");
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -57,11 +56,12 @@ __RCSID("$NetBSD: pr.c,v 1.6 1998/04/02 10:42:51 kleink Exp $");
 
 #include <ctype.h>
 #include <errno.h>
+#include <langinfo.h>
+#include <locale.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "pr.h"
@@ -70,7 +70,7 @@ __RCSID("$NetBSD: pr.c,v 1.6 1998/04/02 10:42:51 kleink Exp $");
 /*
  * pr:	a printing and pagination filter. If multiple input files
  *	are specified, each is read, formatted, and written to standard
- *	output. By default, input is seperated into 66-line pages, each
+ *	output. By default, input is separated into 66-line pages, each
  *	with a header that includes the page number, date, time and the
  *	files pathname.
  *
@@ -87,6 +87,8 @@ int	across;			/* mult col flag; write across page */
 int	dspace;			/* double space flag */
 char	inchar;			/* expand input char */
 int	ingap;			/* expand input gap */
+int	pausefst;		/* Pause before first page */
+int	pauseall;		/* Pause before each page */
 int	formfeed;		/* use formfeed as trailer */
 char	*header;		/* header name instead of file name */
 char	ochar;			/* contract output char */
@@ -101,7 +103,7 @@ char	schar;			/* text column separation character */
 int	sflag;			/* -s option for multiple columns */
 int	nohead;			/* do not write head and trailer */
 int	pgwd;			/* page width with multiple col output */
-char	*timefrmt;		/* time conversion string */
+const char *timefrmt;		/* time conversion string */
 
 /*
  * misc globals
@@ -111,12 +113,10 @@ int	addone;			/* page length is odd with double space */
 int	errcnt;			/* error count on file processing */
 char	digs[] = "0123456789";	/* page number translation map */
 
-int	main __P((int, char **));
+char	fnamedefault[] = FNAME;
 
 int
-main(argc, argv)
-        int argc;
-        char *argv[];
+main(int argc, char *argv[])
 {
 	int ret_val;
 
@@ -144,13 +144,32 @@ main(argc, argv)
 }
 
 /*
+ * Check if we should pause and write an alert character and wait for a
+ * carriage return on /dev/tty.
+ */
+static void
+ttypause(int pagecnt)
+{
+	int pch;
+	FILE *ttyfp;
+
+	if ((pauseall || (pausefst && pagecnt == 1)) &&
+	    isatty(STDOUT_FILENO)) {
+		if ((ttyfp = fopen("/dev/tty", "r")) != NULL) {
+			(void)putc('\a', stderr);
+			while ((pch = getc(ttyfp)) != '\n' && pch != EOF)
+				;
+			(void)fclose(ttyfp);
+		}
+	}
+}
+
+/*
  * onecol:	print files with only one column of output.
  *		Line length is unlimited.
  */
 int
-onecol(argc, argv)
-        int argc;
-        char *argv[];
+onecol(int argc, char *argv[])
 {
 	int cnt = -1;
 	int off;
@@ -168,7 +187,7 @@ onecol(argc, argv)
 	char *hbuf;
 	char *ohbuf;
 	FILE *inf;
-	char *fname;
+	const char *fname;
 	int mor;
 
 	if (nmwd)
@@ -226,6 +245,8 @@ onecol(argc, argv)
 			ops = 0;
 			ips = 0;
 			cps = 0;
+
+			ttypause(pagecnt);
 
 			/*
 			 * loop by line
@@ -293,9 +314,7 @@ onecol(argc, argv)
  * vertcol:	print files with more than one column of output down a page
  */
 int
-vertcol(argc, argv)
-        int argc;
-        char *argv[];
+vertcol(int argc, char *argv[])
 {
 	char *ptbf;
 	char **lstdat;
@@ -320,7 +339,7 @@ vertcol(argc, argv)
 	char *buf;
 	char *hbuf;
 	char *ohbuf;
-	char *fname;
+	const char *fname;
 	FILE *inf;
 	int ips = 0;
 	int cps = 0;
@@ -415,6 +434,8 @@ vertcol(argc, argv)
 		 * loop by page
 		 */
 		for(;;) {
+			ttypause(pagecnt);
+
 			/*
 			 * loop by column
 			 */
@@ -438,7 +459,7 @@ vertcol(argc, argv)
 					if (!i) {
 						ptbf = buf + indy[j];
 						lstdat[j] = ptbf;
-					} else 
+					} else
 						ptbf = lstdat[j];
 					vc[cvc].pt = ptbf;
 
@@ -614,9 +635,7 @@ vertcol(argc, argv)
  * horzcol:	print files with more than one column of output across a page
  */
 int
-horzcol(argc, argv)
-        int argc;
-        char *argv[];
+horzcol(int argc, char *argv[])
 {
 	char *ptbf;
 	int pln;
@@ -630,7 +649,7 @@ horzcol(argc, argv)
 	char *buf;
 	char *hbuf;
 	char *ohbuf;
-	char *fname;
+	const char *fname;
 	FILE *inf;
 	int ips = 0;
 	int cps = 0;
@@ -671,6 +690,8 @@ horzcol(argc, argv)
 		 * loop by page
 		 */
 		for(;;) {
+			ttypause(pagecnt);
+
 			/*
 			 * loop by line
 			 */
@@ -757,9 +778,7 @@ horzcol(argc, argv)
  *		more than one file concurrently
  */
 int
-mulfile(argc, argv)
-        int argc;
-        char *argv[];
+mulfile(int argc, char *argv[])
 {
 	char *ptbf;
 	int j;
@@ -776,7 +795,7 @@ mulfile(argc, argv)
 	char *buf;
 	char *hbuf;
 	char *ohbuf;
-	char *fname;
+	const char *fname;
 	int ips = 0;
 	int cps = 0;
 	int ops = 0;
@@ -861,6 +880,8 @@ mulfile(argc, argv)
 	 * continue to loop while any file still has data
 	 */
 	while (actf > 0) {
+		ttypause(pagecnt);
+
 		/*
 		 * loop by line
 		 */
@@ -967,17 +988,11 @@ mulfile(argc, argv)
  *	buf:	buffer
  *	lim:	buffer length
  *	cps:	column positon 1st char in buffer (large line support)
- *	trnc:	throw away data more than lim up to \n 
+ *	trnc:	throw away data more than lim up to \n
  *	mor:	set if more data in line (not truncated)
  */
 int
-inln(inf, buf, lim, cps, trnc, mor)
-	FILE *inf;
-	char *buf;
-	int lim;
-	int *cps;
-	int trnc;
-	int *mor;
+inln(FILE *inf, char *buf, int lim, int *cps, int trnc, int *mor)
 {
 	int col;
 	int gap = ingap;
@@ -1078,16 +1093,11 @@ inln(inf, buf, lim, cps, trnc, mor)
  *	cnt:	number of chars of valid data in buf
  *	svips:	buffer input column position (for large lines)
  *	svops:	buffer output column position (for large lines)
- *	mor:	output line not complete in this buf; more data to come.	
+ *	mor:	output line not complete in this buf; more data to come.
  *		1 is more, 0 is complete, -1 is no \n's
  */
 int
-otln(buf, cnt, svips, svops, mor)
-	char *buf;
-	int cnt;
-	int *svops;
-	int *svips;
-	int mor;
+otln(char *buf, int cnt, int *svips, int *svops, int mor)
 {
 	int ops;		/* last col output */
 	int ips;		/* last col in buf examined */
@@ -1124,13 +1134,15 @@ otln(buf, cnt, svips, svops, mor)
 			/*
 			 * got a non space char; contract out spaces
 			 */
-			while (ops < ips) {
+			while (ips - ops > 1) {
 				/*
 				 * use as many ochar as will fit
 				 */
 				if ((tbps = ops + gap - (ops % gap)) > ips)
 					break;
-				if (putchar(ochar) == EOF) {
+				if (gap-1 == (ops % gap)) /* use space to get to immediately following tab stop */
+					putchar(' ');
+				else if (putchar(ochar) == EOF) {
 					pfail();
 					return(1);
 				}
@@ -1169,7 +1181,7 @@ otln(buf, cnt, svips, svops, mor)
 		}
 
 		if (mor < 0) {
-			while (ops < ips) {
+			while (ips - ops > 1) {
 				/*
 				 * use as many ochar as will fit
 				 */
@@ -1224,10 +1236,7 @@ otln(buf, cnt, svips, svops, mor)
  *	lncnt	number of lines per page
  */
 int
-inskip(inf, pgcnt, lncnt)
-	FILE *inf;
-	int pgcnt;
-	int lncnt;
+inskip(FILE *inf, int pgcnt, int lncnt)
 {
 	int c;
 	int cnt;
@@ -1255,19 +1264,14 @@ inskip(inf, pgcnt, lncnt)
  *	dt	if set skips the date processing (used with -m)
  */
 FILE *
-nxtfile(argc, argv, fname, buf, dt)
-	int argc;
-	char **argv;
-	char **fname;
-	char *buf;
-	int dt;
+nxtfile(int argc, char **argv, const char **fname, char *buf, int dt)
 {
 	FILE *inf = NULL;
 	struct timeval tv;
+	time_t tv_sec;
 	struct timezone tz;
 	struct tm *timeptr = NULL;
 	struct stat statbuf;
-	time_t curtime;
 	static int twice = -1;
 
 	++twice;
@@ -1282,7 +1286,7 @@ nxtfile(argc, argv, fname, buf, dt)
 		if (header != NULL)
 			*fname = header;
 		else
-			*fname = FNAME;
+			*fname = fnamedefault;
 		if (nohead)
 			return(inf);
 		if (gettimeofday(&tv, &tz) < 0) {
@@ -1292,8 +1296,8 @@ nxtfile(argc, argv, fname, buf, dt)
 			eoptind = argc - 1;
 			return(NULL);
 		}
-		curtime = tv.tv_sec;
-		timeptr = localtime(&curtime);
+		tv_sec = tv.tv_sec;
+		timeptr = localtime(&tv_sec);
 	}
 	for (; eoptind < argc; ++eoptind) {
 		if (strcmp(argv[eoptind], "-") == 0) {
@@ -1305,7 +1309,7 @@ nxtfile(argc, argv, fname, buf, dt)
 			if (header != NULL)
 				*fname = header;
 			else
-				*fname = FNAME;
+				*fname = fnamedefault;
 			++eoptind;
 			if (nohead || (dt && twice))
 				return(inf);
@@ -1316,8 +1320,8 @@ nxtfile(argc, argv, fname, buf, dt)
 					strerror(errno));
 				return(NULL);
 			}
-			curtime = tv.tv_sec;
-			timeptr = localtime(&curtime);
+			tv_sec = tv.tv_sec;
+			timeptr = localtime(&tv_sec);
 		} else {
 			/*
 			 * normal file processing
@@ -1326,14 +1330,14 @@ nxtfile(argc, argv, fname, buf, dt)
 				++errcnt;
 				if (nodiag)
 					continue;
-				(void)fprintf(err, "pr: Cannot open %s, %s\n",
+				(void)fprintf(err, "pr: cannot open %s, %s\n",
 					argv[eoptind], strerror(errno));
 				continue;
 			}
 			if (header != NULL)
 				*fname = header;
 			else if (dt)
-				*fname = FNAME;
+				*fname = fnamedefault;
 			else
 				*fname = argv[eoptind];
 			++eoptind;
@@ -1348,22 +1352,18 @@ nxtfile(argc, argv, fname, buf, dt)
 					     strerror(errno));
 					return(NULL);
 				}
-				curtime = tv.tv_sec;
-				timeptr = localtime(&curtime);
+				tv_sec = tv.tv_sec;
+				timeptr = localtime(&tv_sec);
 			} else {
 				if (fstat(fileno(inf), &statbuf) < 0) {
 					++errcnt;
 					(void)fclose(inf);
-					(void)fprintf(err, 
-						"pr: Cannot stat %s, %s\n",
+					(void)fprintf(err,
+						"pr: cannot stat %s, %s\n",
 						argv[eoptind], strerror(errno));
 					return(NULL);
 				}
-#ifndef __APPLE__
 				timeptr = localtime(&(statbuf.st_mtime));
-#else
-				timeptr = localtime((time_t*)&(statbuf.st_mtimespec.tv_sec));
-#endif
 			}
 		}
 		break;
@@ -1400,10 +1400,7 @@ nxtfile(argc, argv, fname, buf, dt)
  *		numbers as part of the column so spaces may be replaced.
  */
 void
-addnum(buf, wdth, line)
-	char *buf;
-	int wdth;
-	int line;
+addnum(char *buf, int wdth, int line)
 {
 	char *pt = buf + wdth;
 
@@ -1428,10 +1425,7 @@ addnum(buf, wdth, line)
  *	pagcnt	page number
  */
 int
-prhead(buf, fname, pagcnt)
-	char *buf;
-	char *fname;
-	int pagcnt;
+prhead(char *buf, const char *fname, int pagcnt)
 {
 	int ips = 0;
 	int ops = 0;
@@ -1445,7 +1439,7 @@ prhead(buf, fname, pagcnt)
 	 * restrictions. The specification for header line format
 	 * in the spec clearly does not limit length. No pr currently
 	 * restricts header length. However if we need to truncate in
-	 * an reasonable way, adjust the length of the printf by
+	 * a reasonable way, adjust the length of the printf by
 	 * changing HDFMT to allow a length max as an arguement printf.
 	 * buf (which contains the offset spaces and time field could
 	 * also be trimmed
@@ -1466,24 +1460,29 @@ prhead(buf, fname, pagcnt)
  *	incomp	was a '\n' missing from last line output
  */
 int
-prtail(cnt, incomp)
-	int cnt;
-	int incomp;
+prtail(int cnt, int incomp)
 {
 	if (nohead) {
 		/*
 		 * only pad with no headers when incomplete last line
 		 */
-		if (!incomp)
-			return(0);
-		if ((dspace && (putchar('\n') == EOF)) ||
-		    (putchar('\n') == EOF)) {
+		if (incomp &&
+		    ((dspace && (putchar('\n') == EOF)) ||
+		     (putchar('\n') == EOF))) {
 			pfail();
 			return(1);
 		}
+		/*
+		 * but honor the formfeed request
+		 */
+		if (formfeed) {
+			if (putchar('\f') == EOF) {
+				pfail();
+				return(1);
+			}
+		}
 		return(0);
 	}
-
 	/*
 	 * if double space output two \n
 	 */
@@ -1500,13 +1499,13 @@ prtail(cnt, incomp)
 	 * pad page
 	 */
 	if (formfeed) {
-		if ((incomp && (putchar('\n') == EOF)) || 
+		if ((incomp && (putchar('\n') == EOF)) ||
 		    (putchar('\f') == EOF)) {
 			pfail();
 			return(1);
 		}
 		return(0);
-	} 
+	}
 	cnt += TAILLEN;
 	while (--cnt >= 0) {
 		if (putchar('\n') == EOF) {
@@ -1521,8 +1520,7 @@ prtail(cnt, incomp)
  * terminate():	when a SIGINT is recvd
  */
 void
-terminate(which_sig)
-	int which_sig;
+terminate(int which_sig __unused)
 {
 	flsh_errs();
 	exit(1);
@@ -1534,7 +1532,7 @@ terminate(which_sig)
  *		processing has completed
  */
 void
-flsh_errs()
+flsh_errs(void)
 {
 	char buf[BUFSIZ];
 
@@ -1548,54 +1546,56 @@ flsh_errs()
 }
 
 void
-mfail()
+mfail(void)
 {
 	(void)fputs("pr: memory allocation failed\n", err);
 }
 
 void
-pfail()
+pfail(void)
 {
 	(void)fprintf(err, "pr: write failure, %s\n", strerror(errno));
 }
 
 void
-usage()
+usage(void)
 {
 	(void)fputs(
-	 "usage: pr [+page] [-col] [-adFmrt] [-e[ch][gap]] [-h header]\n",err);
+	 "usage: pr [+page] [-col] [-adFfmprt] [-e[ch][gap]] [-h header]\n",
+	 err);
 	(void)fputs(
 	 "          [-i[ch][gap]] [-l line] [-n[ch][width]] [-o offset]\n",err);
 	(void)fputs(
-	 "          [-s[ch]] [-w width] [-] [file ...]\n", err);
+	 "          [-L locale] [-s[ch]] [-w width] [-] [file ...]\n", err);
 }
 
 /*
- * setup:	Validate command args, initialize and perform sanity 
+ * setup:	Validate command args, initialize and perform sanity
  *		checks on options
  */
 int
-setup(argc, argv)
-	int argc;
-	char **argv;
+setup(int argc, char *argv[])
 {
 	int c;
+	int d_first;
 	int eflag = 0;
 	int iflag = 0;
 	int wflag = 0;
 	int cflag = 0;
+	char *Lflag = NULL;
 
 	if (isatty(fileno(stdout))) {
 		/*
 		 * defer diagnostics until processing is done
 		 */
 		if ((err = tmpfile()) == NULL) {
+		       err = stderr;
 		       (void)fputs("Cannot defer diagnostic messages\n",stderr);
 		       return(1);
 		}
 	} else
 		err = stderr;
-	while ((c = egetopt(argc, argv, "#adFmrte?h:i?l:n?o:s?w:")) != -1) {
+	while ((c = egetopt(argc, argv, "#adFfmrte?h:i?L:l:n?o:ps?w:")) != -1) {
 		switch (c) {
 		case '+':
 			if ((pgnm = atoi(eoptarg)) < 1) {
@@ -1620,11 +1620,11 @@ setup(argc, argv)
 			break;
 		case 'e':
 			++eflag;
-			if ((eoptarg != NULL) && !isdigit(*eoptarg))
+			if ((eoptarg != NULL) && !isdigit((unsigned char)*eoptarg))
 				inchar = *eoptarg++;
 			else
 				inchar = INCHAR;
-			if ((eoptarg != NULL) && isdigit(*eoptarg)) {
+			if ((eoptarg != NULL) && isdigit((unsigned char)*eoptarg)) {
 				if ((ingap = atoi(eoptarg)) < 0) {
 					(void)fputs(
 					"pr: -e gap must be 0 or more\n", err);
@@ -1639,6 +1639,9 @@ setup(argc, argv)
 			} else
 				ingap = INGAP;
 			break;
+		case 'f':
+			++pausefst;
+			/*FALLTHROUGH*/
 		case 'F':
 			++formfeed;
 			break;
@@ -1647,11 +1650,11 @@ setup(argc, argv)
 			break;
 		case 'i':
 			++iflag;
-			if ((eoptarg != NULL) && !isdigit(*eoptarg))
+			if ((eoptarg != NULL) && !isdigit((unsigned char)*eoptarg))
 				ochar = *eoptarg++;
 			else
 				ochar = OCHAR;
-			if ((eoptarg != NULL) && isdigit(*eoptarg)) {
+			if ((eoptarg != NULL) && isdigit((unsigned char)*eoptarg)) {
 				if ((ogap = atoi(eoptarg)) < 0) {
 					(void)fputs(
 					"pr: -i gap must be 0 or more\n", err);
@@ -1666,10 +1669,13 @@ setup(argc, argv)
 			} else
 				ogap = OGAP;
 			break;
+		case 'L':
+			Lflag = eoptarg;
+			break;
 		case 'l':
-			if (!isdigit(*eoptarg) || ((lines=atoi(eoptarg)) < 1)) {
+			if (!isdigit((unsigned char)*eoptarg) || ((lines=atoi(eoptarg)) < 1)) {
 				(void)fputs(
-				 "pr: Number of lines must be 1 or more\n",err);
+				 "pr: number of lines must be 1 or more\n",err);
 				return(1);
 			}
 			break;
@@ -1677,11 +1683,11 @@ setup(argc, argv)
 			++merge;
 			break;
 		case 'n':
-			if ((eoptarg != NULL) && !isdigit(*eoptarg))
+			if ((eoptarg != NULL) && !isdigit((unsigned char)*eoptarg))
 				nmchar = *eoptarg++;
 			else
 				nmchar = NMCHAR;
-			if ((eoptarg != NULL) && isdigit(*eoptarg)) {
+			if ((eoptarg != NULL) && isdigit((unsigned char)*eoptarg)) {
 				if ((nmwd = atoi(eoptarg)) < 1) {
 					(void)fputs(
 					"pr: -n width must be 1 or more\n",err);
@@ -1695,11 +1701,14 @@ setup(argc, argv)
 				nmwd = NMWD;
 			break;
 		case 'o':
-			if (!isdigit(*eoptarg) || ((offst = atoi(eoptarg))< 1)){
+			if (!isdigit((unsigned char)*eoptarg) || ((offst = atoi(eoptarg))< 1)){
 				(void)fputs("pr: -o offset must be 1 or more\n",
 					err);
 				return(1);
 			}
+			break;
+		case 'p':
+			++pauseall;
 			break;
 		case 'r':
 			++nodiag;
@@ -1708,12 +1717,14 @@ setup(argc, argv)
 			++sflag;
 			if (eoptarg == NULL)
 				schar = SCHAR;
-			else
+			else {
 				schar = *eoptarg++;
-			if (*eoptarg != '\0') {
-				(void)fprintf(err,
-				      "pr: invalid value for -s %s\n", eoptarg);
-				return(1);
+				if (*eoptarg != '\0') {
+					(void)fprintf(err,
+					    "pr: invalid value for -s %s\n",
+					    eoptarg);
+					return(1);
+				}
 			}
 			break;
 		case 't':
@@ -1721,7 +1732,7 @@ setup(argc, argv)
 			break;
 		case 'w':
 			++wflag;
-			if (!isdigit(*eoptarg) || ((pgwd = atoi(eoptarg)) < 1)){
+			if (!isdigit((unsigned char)*eoptarg) || ((pgwd = atoi(eoptarg)) < 1)){
 				(void)fputs(
 				   "pr: -w width must be 1 or more \n",err);
 				return(1);
@@ -1798,7 +1809,7 @@ setup(argc, argv)
 	 * make sure long enough for headers. if not disable
 	 */
 	if (lines <= HEADLEN + TAILLEN)
-		++nohead;	
+		++nohead;
 	else if (!nohead)
 		lines -= HEADLEN + TAILLEN;
 
@@ -1815,7 +1826,10 @@ setup(argc, argv)
 		}
 	}
 
-	if ((timefrmt = getenv("LC_TIME")) == NULL)
-		timefrmt = TIMEFMT;
+	(void) setlocale(LC_TIME, (Lflag != NULL) ? Lflag : "");
+
+	d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
+	timefrmt = strdup(d_first ? TIMEFMTD : TIMEFMTM);
+
 	return(0);
 }

@@ -43,7 +43,7 @@
 
 #include "mslp_sd.h"
 #include "slp.h"
-#include "mslp.h"     /* all these includes are for the definition of LOG */
+#include "mslp.h"     /* all these includes are for the definition of SLPLOG */
 
 pthread_mutex_t		gClientMutex;
 pthread_mutex_t		gServerMutex;
@@ -123,7 +123,7 @@ EXPORT void * LinGetMutex(int iMode)
         if (iLockFileExists) {
         return OpenLockFile(MSLP_CLIENT);
         } else {
-        LOG(SLP_LOG_ERR,"LinGetMutex - lock file doesn't exist");
+        SLPLOG(SLP_LOG_ERR,"LinGetMutex - lock file doesn't exist");
         return NULL;
         }
     

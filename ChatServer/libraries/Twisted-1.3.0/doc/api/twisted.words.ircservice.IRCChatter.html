@@ -1,0 +1,1363 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.words.ircservice.IRCChatter</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.words.html">Package&nbsp;words</a> ::
+        <a href="twisted.words.ircservice.html">Module&nbsp;ircservice</a> ::
+        Class&nbsp;IRCChatter
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.words.ircservice.IRCChatter.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class IRCChatter</h2>
+
+<pre class="base-tree">
+<a href="twisted.internet.protocol.BaseProtocol.html"><code>BaseProtocol</code></a> --+        
+               |        
+        <a href="twisted.internet.protocol.Protocol.html"><code>Protocol</code></a> --+    
+                   |    
+                 <a href="twisted.protocols.irc.IRC.html"><code>IRC</code></a> --+
+                       |
+         <a href="twisted.words.service.WordsClient.html"><code>WordsClient</code></a> --+
+                       |
+                      <b>IRCChatter</b>
+</pre><br />
+
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="callRemote"></a><span class="summary-sig"><span class="summary-sig-name">callRemote</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>key</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="connectionLost"></a><span class="summary-sig"><span class="summary-sig-name">connectionLost</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="failedLogin"></a><span class="summary-sig"><span class="summary-sig-name">failedLogin</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_AWAY" class="summary-sig-name"><code>irc_AWAY</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Away</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_channelMODE" class="summary-sig-name"><code>irc_channelMODE</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Channel mode message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_CONNECT" class="summary-sig-name"><code>irc_CONNECT</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Connect message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_DIE" class="summary-sig-name"><code>irc_DIE</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Die message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_ERROR" class="summary-sig-name"><code>irc_ERROR</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Error</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_INFO" class="summary-sig-name"><code>irc_INFO</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Admin command</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_INVITE" class="summary-sig-name"><code>irc_INVITE</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Invite message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_ISON" class="summary-sig-name"><code>irc_ISON</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Ison message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_JOIN" class="summary-sig-name"><code>irc_JOIN</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Join message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_KICK" class="summary-sig-name"><code>irc_KICK</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Kick command</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_KILL" class="summary-sig-name"><code>irc_KILL</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Kill message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_LINKS" class="summary-sig-name"><code>irc_LINKS</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Links message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_LIST" class="summary-sig-name"><code>irc_LIST</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+List message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_LUSERS" class="summary-sig-name"><code>irc_LUSERS</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Lusers message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_MODE" class="summary-sig-name"><code>irc_MODE</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+User mode message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_MOTD" class="summary-sig-name"><code>irc_MOTD</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Motd message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_NAMES" class="summary-sig-name"><code>irc_NAMES</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Names message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_NICK" class="summary-sig-name"><code>irc_NICK</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Nick message -- Set your nickname.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_NOTICE" class="summary-sig-name"><code>irc_NOTICE</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Notice</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_OPER" class="summary-sig-name"><code>irc_OPER</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Oper message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_PART" class="summary-sig-name"><code>irc_PART</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Part message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_PASS" class="summary-sig-name"><code>irc_PASS</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Password message -- Register a password.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_PING" class="summary-sig-name"><code>irc_PING</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Ping message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_PONG" class="summary-sig-name"><code>irc_PONG</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Pong message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_PRIVMSG" class="summary-sig-name"><code>irc_PRIVMSG</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Send a (private) message.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_QUIT" class="summary-sig-name"><code>irc_QUIT</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Quit</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_REHASH" class="summary-sig-name"><code>irc_REHASH</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Rehash message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_RESTART" class="summary-sig-name"><code>irc_RESTART</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Restart message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_SERVICE" class="summary-sig-name"><code>irc_SERVICE</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Service message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_SERVLIST" class="summary-sig-name"><code>irc_SERVLIST</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Servlist message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_SQUERY" class="summary-sig-name"><code>irc_SQUERY</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Squery</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_SQUIT" class="summary-sig-name"><code>irc_SQUIT</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+SQuit</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_STATS" class="summary-sig-name"><code>irc_STATS</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Stats message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_SUMMON" class="summary-sig-name"><code>irc_SUMMON</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Summon message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_TIME" class="summary-sig-name"><code>irc_TIME</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Time message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_TOPIC" class="summary-sig-name"><code>irc_TOPIC</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Topic message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_TRACE" class="summary-sig-name"><code>irc_TRACE</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Trace message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_unknown" class="summary-sig-name"><code>irc_unknown</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>command</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Implement me!</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_USER" class="summary-sig-name"><code>irc_USER</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+User message -- Set your realname.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_USERHOST" class="summary-sig-name"><code>irc_USERHOST</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Userhost message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_USERS" class="summary-sig-name"><code>irc_USERS</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Users</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_VERSION" class="summary-sig-name"><code>irc_VERSION</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Version message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_WALLOPS" class="summary-sig-name"><code>irc_WALLOPS</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Operwall message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_WHO" class="summary-sig-name"><code>irc_WHO</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Who query</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_WHOIS" class="summary-sig-name"><code>irc_WHOIS</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Whois query</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#irc_WHOWAS" class="summary-sig-name"><code>irc_WHOWAS</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Whowas</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#loggedInAs" class="summary-sig-name"><code>loggedInAs</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>ident</span>)</span></code>
+<br />
+Successfully logged in.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#logInAs" class="summary-sig-name"><code>logInAs</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>participant</span>,
+          <span class=summary-sig-arg>password</span>)</span></code>
+<br />
+Spawn appropriate callbacks to log in as this participant.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="memberJoined"></a><span class="summary-sig"><span class="summary-sig-name">memberJoined</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>member</span>,
+          <span class=summary-sig-arg>group</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="memberLeft"></a><span class="summary-sig"><span class="summary-sig-name">memberLeft</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>member</span>,
+          <span class=summary-sig-arg>group</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="notifyStatusChanged"></a><span class="summary-sig"><span class="summary-sig-name">notifyStatusChanged</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>status</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.ircservice.IRCChatter.html#notLoggedIn" class="summary-sig-name"><code>notLoggedIn</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+<br />
+Login failed.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="receiveContactList"></a><span class="summary-sig"><span class="summary-sig-name">receiveContactList</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>contactList</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="receiveDirectMessage"></a><span class="summary-sig"><span class="summary-sig-name">receiveDirectMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>senderName</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="receiveGroupMessage"></a><span class="summary-sig"><span class="summary-sig-name">receiveGroupMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>sender</span>,
+          <span class=summary-sig-arg>group</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="sendMessage"></a><span class="summary-sig"><span class="summary-sig-name">sendMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>command</span>,
+          <span class="summary-sig-vararg">*parameter_list</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="setGroupMetadata"></a><span class="summary-sig"><span class="summary-sig-name">setGroupMetadata</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>metadata</span>,
+          <span class=summary-sig-arg>groupName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="successfulLogin"></a><span class="summary-sig"><span class="summary-sig-name">successfulLogin</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>msg</span>,
+          <span class=summary-sig-arg>ident</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from IRC</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#action" class="summary-sig-name"><code>action</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>sender</span>,
+          <span class=summary-sig-arg>recip</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+<br />
+Send an action to a channel or user.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#connectionMade" class="summary-sig-name"><code>connectionMade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when a connection is made.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#dataReceived" class="summary-sig-name"><code>dataReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+This hack is to support mIRC, which sends LF only, even though the RFC 
+says CRLF.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#handleCommand" class="summary-sig-name"><code>handleCommand</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>command</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>params</span>)</span></code>
+<br />
+Determine the function to call for the given command and call it with 
+the given arguments.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#join" class="summary-sig-name"><code>join</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>who</span>,
+          <span class=summary-sig-arg>where</span>)</span></code>
+<br />
+Send a join message.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#names" class="summary-sig-name"><code>names</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>channel</span>,
+          <span class=summary-sig-arg>names</span>)</span></code>
+<br />
+Send the names of a channel's participants to a user.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#notice" class="summary-sig-name"><code>notice</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>sender</span>,
+          <span class=summary-sig-arg>recip</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+<br />
+Send a &quot;notice&quot; to a channel or user.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#part" class="summary-sig-name"><code>part</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>who</span>,
+          <span class=summary-sig-arg>where</span>)</span></code>
+<br />
+Send a part message.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#privmsg" class="summary-sig-name"><code>privmsg</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>sender</span>,
+          <span class=summary-sig-arg>recip</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+<br />
+Send a message to a channel or user</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#sendLine" class="summary-sig-name"><code>sendLine</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.irc.IRC.html#topic" class="summary-sig-name"><code>topic</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>channel</span>,
+          <span class=summary-sig-arg>topic</span>,
+          <span class=summary-sig-arg>author</span>)</span></code>
+<br />
+Send the topic to a user.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Protocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Protocol.html#connectionFailed" class="summary-sig-name"><code>connectionFailed</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(Deprecated)</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.BaseProtocol.html#makeConnection" class="summary-sig-name"><code>makeConnection</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>transport</span>)</span></code>
+<br />
+Make a connection to a transport and a server.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from WordsClient</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.service.WordsClient.html#receiveGroupMembers" class="summary-sig-name"><code>receiveGroupMembers</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>names</span>,
+          <span class=summary-sig-arg>group</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.words.ircservice.IRCChatter.html#hostname"><code>hostname</code></a></b> = <span title="'nowhere'"><code><span class="variable-quote">'</span>nowhere<span class="variable-quote">'</span>                                     </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.words.ircservice.IRCChatter.html#nickname"><code>nickname</code></a></b> = <span title="'*'"><code><span class="variable-quote">'</span>*<span class="variable-quote">'</span>                                           </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.words.ircservice.IRCChatter.html#participant"><code>participant</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.words.ircservice.IRCChatter.html#passwd"><code>passwd</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.words.ircservice.IRCChatter.html#pendingLogin"><code>pendingLogin</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.words.ircservice.IRCChatter.html#servicename"><code>servicename</code></a></b> = <span title="'twisted.words'"><code><span class="variable-quote">'</span>twisted.words<span class="variable-quote">'</span>                            </code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from IRC</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.irc.IRC.html#buffer"><code>buffer</code></a></b> = <span title="''"><code><span class="variable-quote">'</span><span class="variable-quote">'</span>                                              </code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Protocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.internet.protocol.Protocol.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class twisted.internet.interfaces.IProtocol at 0x8278f0c&gt;,)"><code>(&lt;class&nbsp;twisted.internet.interfaces.IPr<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#connected"><code>connected</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#transport"><code>transport</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="irc_AWAY"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_AWAY</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Away</p>
+  <p>Parameters: [ &lt;text&gt; ]</p>
+  [Optional]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_channelMODE"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_channelMODE</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Channel mode message</p>
+  <p>Parameters: &lt;channel&gt; *( ( &quot;-&quot; / &quot;+&quot; ) 
+  *&lt;modes&gt; *&lt;modeparams&gt; )</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_CONNECT"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_CONNECT</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Connect message</p>
+  <p>Parameters: &lt;target server&gt; &lt;port&gt; [ &lt;remote 
+  server&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_DIE"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_DIE</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Die message</p>
+  <p>Parameters: None</p>
+  [Optional]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_ERROR"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_ERROR</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Error</p>
+  <p>Parameters: &lt;error message&gt;</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_INFO"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_INFO</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Admin command</p>
+  <p>Parameters: [ &lt;target&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_INVITE"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_INVITE</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Invite message</p>
+  <p>Parameters: &lt;nickname&gt; &lt;channel&gt;</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_ISON"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_ISON</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Ison message</p>
+  <p>Parameters: &lt;nickname&gt; *( SPACE &lt;nickname&gt; )</p>
+  [Optional]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_JOIN"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_JOIN</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Join message</p>
+  <p>Parameters: ( &lt;channel&gt; *( &quot;,&quot; &lt;channel&gt; ) [ 
+  &lt;key&gt; *( &quot;,&quot; &lt;key&gt; ) ] )</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_KICK"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_KICK</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Kick command</p>
+  <p>Parameters: &lt;channel&gt; *( &quot;,&quot; &lt;channel&gt; ) 
+  &lt;user&gt; *( &quot;,&quot; &lt;user&gt; )</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_KILL"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_KILL</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Kill message</p>
+  <p>Parameters: &lt;nickname&gt; &lt;comment&gt;</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_LINKS"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_LINKS</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Links message</p>
+  <p>Parameters: [ [ &lt;remote server&gt; ] &lt;server mask&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_LIST"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_LIST</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>List message</p>
+  <p>Parameters: [ &lt;channel&gt; *( &quot;,&quot; &lt;channel&gt; ) [ 
+  &lt;target&gt; ] ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_LUSERS"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_LUSERS</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Lusers message</p>
+  <p>Parameters: [ &lt;mask&gt; [ &lt;target&gt; ] ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_MODE"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_MODE</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>User mode message</p>
+  <p>Parameters: &lt;nickname&gt; *( ( &quot;+&quot; / &quot;-&quot; ) *( 
+  &quot;i&quot; / &quot;w&quot; / &quot;o&quot; / &quot;O&quot; / 
+  &quot;r&quot; ) )</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_MOTD"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_MOTD</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Motd message</p>
+  <p>Parameters: [ &lt;target&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_NAMES"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_NAMES</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Names message</p>
+  <p>Parameters: [ &lt;channel&gt; *( &quot;,&quot; &lt;channel&gt; ) [ 
+  &lt;target&gt; ] ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_NICK"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_NICK</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Nick message -- Set your nickname.</p>
+  <p>Parameters: &lt;nickname&gt;</p>
+  <p>[REQUIRED]</p>
+  This is also probably the first thing the client sends us (except 
+  possibly PASS), so the rest of the sign-on junk is in here.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_NOTICE"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_NOTICE</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Notice</p>
+  <p>Parameters: &lt;msgtarget&gt; &lt;text&gt;</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_OPER"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_OPER</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Oper message</p>
+  <p>Parameters: &lt;name&gt; &lt;password&gt;</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_PART"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_PART</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Part message</p>
+  <p>Parameters: &lt;channel&gt; *( &quot;,&quot; &lt;channel&gt; ) [ 
+  &lt;Part Message&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_PASS"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_PASS</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Password message -- Register a password.</p>
+  <p>Parameters: &lt;password&gt;</p>
+  <p>[REQUIRED]</p>
+  Note that IRC requires the client send this *before* NICK and 
+  USER.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_PING"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_PING</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Ping message</p>
+  <p>Parameters: &lt;server1&gt; [ &lt;server2&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_PONG"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_PONG</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Pong message</p>
+  <p>Parameters: &lt;server&gt; [ &lt;server2&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_PRIVMSG"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_PRIVMSG</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Send a (private) message.</p>
+  <p>Parameters: &lt;msgtarget&gt; &lt;text to be sent&gt;</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_QUIT"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_QUIT</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Quit</p>
+  <p>Parameters: [ &lt;Quit Message&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_REHASH"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_REHASH</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Rehash message</p>
+  <p>Parameters: None</p>
+  [Optional]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_RESTART"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_RESTART</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Restart message</p>
+  <p>Parameters: None</p>
+  [Optional]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_SERVICE"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_SERVICE</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Service message</p>
+  <p>Parameters: &lt;nickname&gt; &lt;reserved&gt; &lt;distribution&gt; 
+  &lt;type&gt;</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_SERVLIST"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_SERVLIST</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Servlist message</p>
+  <p>Parameters: [ &lt;mask&gt; [ &lt;type&gt; ] ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_SQUERY"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_SQUERY</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Squery</p>
+  <p>Parameters: &lt;servicename&gt; &lt;text&gt;</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_SQUIT"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_SQUIT</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>SQuit</p>
+  <p>Parameters: &lt;server&gt; &lt;comment&gt;</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_STATS"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_STATS</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Stats message</p>
+  <p>Parameters: [ &lt;query&gt; [ &lt;target&gt; ] ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_SUMMON"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_SUMMON</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Summon message</p>
+  <p>Parameters: &lt;user&gt; [ &lt;target&gt; [ &lt;channel&gt; ] ]</p>
+  [Optional]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_TIME"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_TIME</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Time message</p>
+  <p>Parameters: [ &lt;target&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_TOPIC"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_TOPIC</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Topic message</p>
+  <p>Parameters: &lt;channel&gt; [ &lt;topic&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_TRACE"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_TRACE</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Trace message</p>
+  <p>Parameters: [ &lt;target&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_unknown"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_unknown</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>command</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  Implement me!
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.irc.IRC.html#irc_unknown"><code>twisted.protocols.irc.IRC.irc_unknown</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_USER"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_USER</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>User message -- Set your realname.</p>
+  <p>Parameters: &lt;user&gt; &lt;mode&gt; &lt;unused&gt; 
+  &lt;realname&gt;</p>
+  [REQUIRED] for backwards compatibility to IRC clients.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_USERHOST"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_USERHOST</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Userhost message</p>
+  <p>Parameters: &lt;nickname&gt; *( SPACE &lt;nickname&gt; )</p>
+  [Optional]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_USERS"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_USERS</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Users</p>
+  <p>Parameters: [ &lt;target&gt; ]</p>
+  [Optional]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_VERSION"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_VERSION</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Version message</p>
+  <p>Parameters: [ &lt;target&gt; ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_WALLOPS"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_WALLOPS</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Operwall message</p>
+  <p>Parameters: &lt;Text to be sent&gt;</p>
+  [Optional]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_WHO"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_WHO</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Who query</p>
+  <p>Parameters: [ &lt;mask&gt; [ &quot;o&quot; ] ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_WHOIS"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_WHOIS</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Whois query</p>
+  <p>Parameters: [ &lt;target&gt; ] &lt;mask&gt; *( &quot;,&quot; 
+  &lt;mask&gt; )</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="irc_WHOWAS"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">irc_WHOWAS</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>params</span>)</span>
+  </h3>
+  <p>Whowas</p>
+  <p>Parameters: &lt;nickname&gt; *( &quot;,&quot; &lt;nickname&gt; ) [ 
+  &lt;count&gt; [ &lt;target&gt; ] ]</p>
+  [REQUIRED]
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="loggedInAs"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">loggedInAs</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>ident</span>)</span>
+  </h3>
+  Successfully logged in.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="logInAs"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">logInAs</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>participant</span>,
+          <span class=sig-arg>password</span>)</span>
+  </h3>
+  Spawn appropriate callbacks to log in as this participant.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="notLoggedIn"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">notLoggedIn</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>message</span>)</span>
+  </h3>
+  Login failed.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="hostname"></a>
+<h3>hostname</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'nowhere'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>nowhere<span class="variable-quote">'</span>                                                              </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="nickname"></a>
+<h3>nickname</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'*'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>*<span class="variable-quote">'</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="participant"></a>
+<h3>participant</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="passwd"></a>
+<h3>passwd</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="pendingLogin"></a>
+<h3>pendingLogin</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="servicename"></a>
+<h3>servicename</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'twisted.words'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>twisted.words<span class="variable-quote">'</span>                                                        </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:52 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

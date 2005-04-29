@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1996-2003, International Business Machines
+*   Copyright (C) 1996-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -21,15 +21,14 @@
 
 #include "unicode/utypes.h"
 #include "unicode/uchar.h"
+#include "unicode/uscript.h"
 #include "unicode/udata.h"
-#include "unicode/uloc.h"
-#include "unicode/uiter.h"
-#include "unicode/uset.h"
 #include "umutex.h"
 #include "cmemory.h"
 #include "ucln_cmn.h"
 #include "utrie.h"
-#include "ustr_imp.h"
+#include "udataswp.h"
+#include "unormimp.h" /* JAMO_L_BASE etc. */
 #include "uprops.h"
 
 #define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
@@ -54,7 +53,10 @@ static const uint32_t *pData32=NULL, *props32Table=NULL, *exceptionsTable=NULL, 
 static const UChar *ucharsTable=NULL;
 static int32_t countPropsVectors=0, propsVectorsColumns=0;
 
-static int8_t havePropsData=0;
+static int8_t havePropsData=0;     /*  == 0   ->  Data has not been loaded.
+                                    *   < 0   ->  Error occured attempting to load data.
+                                    *   > 0   ->  Data has been successfully loaded.
+                                    */
 
 /* index values loaded from uprops.dat */
 static int32_t indexes[UPROPS_INDEX_COUNT];
@@ -93,8 +95,7 @@ isAcceptable(void *context,
     }
 }
 
-UBool
-uchar_cleanup()
+static UBool U_CALLCONV uchar_cleanup(void)
 {
     if (propsData) {
         udata_close(propsData);
@@ -107,13 +108,55 @@ uchar_cleanup()
     propsVectors=NULL;
     countPropsVectors=0;
     dataErrorCode=U_ZERO_ERROR;
-    havePropsData=FALSE;
+    havePropsData=0;
 
     return TRUE;
 }
 
-static int8_t
-loadPropsData(void) {
+struct UCharProps {
+    UDataMemory *propsData;
+    UTrie propsTrie, propsVectorsTrie;
+    const uint32_t *pData32;
+};
+typedef struct UCharProps UCharProps;
+
+/* open uprops.icu */
+static void
+_openProps(UCharProps *ucp, UErrorCode *pErrorCode) {
+    const uint32_t *p;
+    int32_t length;
+
+    ucp->propsData=udata_openChoice(NULL, DATA_TYPE, DATA_NAME, isAcceptable, NULL, pErrorCode);
+    if(U_FAILURE(*pErrorCode)) {
+        return;
+    }
+
+    ucp->pData32=p=(const uint32_t *)udata_getMemory(ucp->propsData);
+
+    /* unserialize the trie; it is directly after the int32_t indexes[UPROPS_INDEX_COUNT] */
+    length=(int32_t)p[UPROPS_PROPS32_INDEX]*4;
+    length=utrie_unserialize(&ucp->propsTrie, (const uint8_t *)(p+UPROPS_INDEX_COUNT), length-64, pErrorCode);
+    if(U_FAILURE(*pErrorCode)) {
+        return;
+    }
+    ucp->propsTrie.getFoldingOffset=getFoldingPropsOffset;
+
+    /* unserialize the properties vectors trie, if any */
+    if( p[UPROPS_ADDITIONAL_TRIE_INDEX]!=0 &&
+        p[UPROPS_ADDITIONAL_VECTORS_INDEX]!=0
+    ) {
+        length=(int32_t)(p[UPROPS_ADDITIONAL_VECTORS_INDEX]-p[UPROPS_ADDITIONAL_TRIE_INDEX])*4;
+        length=utrie_unserialize(&ucp->propsVectorsTrie, (const uint8_t *)(p+p[UPROPS_ADDITIONAL_TRIE_INDEX]), length, pErrorCode);
+        if(U_FAILURE(*pErrorCode)) {
+            uprv_memset(&ucp->propsVectorsTrie, 0, sizeof(ucp->propsVectorsTrie));
+        } else {
+            ucp->propsVectorsTrie.getFoldingOffset=getFoldingPropsOffset;
+        }
+    }
+}
+
+U_CFUNC int8_t
+uprv_loadPropsData(UErrorCode *pErrorCode) {
     /* load Unicode character properties data from file if necessary */
 
     /*
@@ -122,84 +165,201 @@ loadPropsData(void) {
      * Check the readme and use u_init() if necessary.
      */
     if(havePropsData==0) {
-        UTrie trie={ 0 }, trie2={ 0 };
-        UErrorCode errorCode=U_ZERO_ERROR;
-        UDataMemory *data;
-        const uint32_t *p=NULL;
-        int32_t length;
+        UCharProps ucp={ NULL };
+        UCaseProps *csp;
+
+        if(U_FAILURE(*pErrorCode)) {
+            return havePropsData;
+        }
 
         /* open the data outside the mutex block */
-        data=udata_openChoice(NULL, DATA_TYPE, DATA_NAME, isAcceptable, NULL, &errorCode);
-        dataErrorCode=errorCode;
-        if(U_FAILURE(errorCode)) {
-            return havePropsData=-1;
-        }
+        _openProps(&ucp, pErrorCode);
 
-        p=(const uint32_t *)udata_getMemory(data);
-
-        /* unserialize the trie; it is directly after the int32_t indexes[UPROPS_INDEX_COUNT] */
-        length=(int32_t)p[UPROPS_PROPS32_INDEX]*4;
-        length=utrie_unserialize(&trie, (const uint8_t *)(p+UPROPS_INDEX_COUNT), length-64, &errorCode);
-        if(U_FAILURE(errorCode)) {
-            dataErrorCode=errorCode;
-            udata_close(data);
-            return havePropsData=-1;
-        }
-        trie.getFoldingOffset=getFoldingPropsOffset;
-
-        /* unserialize the properties vectors trie, if any */
-        if( p[UPROPS_ADDITIONAL_TRIE_INDEX]!=0 &&
-            p[UPROPS_ADDITIONAL_VECTORS_INDEX]!=0
-        ) {
-            length=(int32_t)(p[UPROPS_ADDITIONAL_VECTORS_INDEX]-p[UPROPS_ADDITIONAL_TRIE_INDEX])*4;
-            length=utrie_unserialize(&trie2, (const uint8_t *)(p+p[UPROPS_ADDITIONAL_TRIE_INDEX]), length, &errorCode);
-            if(U_FAILURE(errorCode)) {
-                uprv_memset(&trie2, 0, sizeof(trie2));
-            } else {
-                trie2.getFoldingOffset=getFoldingPropsOffset;
+        if(U_SUCCESS(*pErrorCode)) {
+            /* in the mutex block, set the data for this process */
+            umtx_lock(NULL);
+            if(propsData==NULL) {
+                propsData=ucp.propsData;
+                ucp.propsData=NULL;
+                pData32=ucp.pData32;
+                ucp.pData32=NULL;
+                uprv_memcpy(&propsTrie, &ucp.propsTrie, sizeof(propsTrie));
+                uprv_memcpy(&propsVectorsTrie, &ucp.propsVectorsTrie, sizeof(propsVectorsTrie));
+                csp=NULL;
             }
+
+            /* initialize some variables */
+            uprv_memcpy(indexes, pData32, sizeof(indexes));
+            props32Table=pData32+indexes[UPROPS_PROPS32_INDEX];
+            exceptionsTable=pData32+indexes[UPROPS_EXCEPTIONS_INDEX];
+            ucharsTable=(const UChar *)(pData32+indexes[UPROPS_EXCEPTIONS_TOP_INDEX]);
+
+            /* additional properties */
+            if(indexes[UPROPS_ADDITIONAL_VECTORS_INDEX]!=0) {
+                propsVectors=pData32+indexes[UPROPS_ADDITIONAL_VECTORS_INDEX];
+                countPropsVectors=indexes[UPROPS_RESERVED_INDEX]-indexes[UPROPS_ADDITIONAL_VECTORS_INDEX];
+                propsVectorsColumns=indexes[UPROPS_ADDITIONAL_VECTORS_COLUMNS_INDEX];
+            }
+
+            havePropsData=1;
+            umtx_unlock(NULL);
+        } else {
+            dataErrorCode=*pErrorCode;
+            havePropsData=-1;
         }
-
-        /* in the mutex block, set the data for this process */
-        umtx_lock(NULL);
-        if(propsData==NULL) {
-            propsData=data;
-            data=NULL;
-            pData32=p;
-            p=NULL;
-            uprv_memcpy(&propsTrie, &trie, sizeof(trie));
-            uprv_memcpy(&propsVectorsTrie, &trie2, sizeof(trie2));
-        }
-        umtx_unlock(NULL);
-
-        /* initialize some variables */
-        uprv_memcpy(indexes, pData32, sizeof(indexes));
-        props32Table=pData32+indexes[UPROPS_PROPS32_INDEX];
-        exceptionsTable=pData32+indexes[UPROPS_EXCEPTIONS_INDEX];
-        ucharsTable=(const UChar *)(pData32+indexes[UPROPS_EXCEPTIONS_TOP_INDEX]);
-
-        /* additional properties */
-        if(indexes[UPROPS_ADDITIONAL_VECTORS_INDEX]!=0) {
-            propsVectors=pData32+indexes[UPROPS_ADDITIONAL_VECTORS_INDEX];
-            countPropsVectors=indexes[UPROPS_RESERVED_INDEX]-indexes[UPROPS_ADDITIONAL_VECTORS_INDEX];
-            propsVectorsColumns=indexes[UPROPS_ADDITIONAL_VECTORS_COLUMNS_INDEX];
-        }
-
-        havePropsData=1;
+        ucln_common_registerCleanup(UCLN_COMMON_UCHAR, uchar_cleanup);
 
         /* if a different thread set it first, then close the extra data */
-        if(data!=NULL) {
-            udata_close(data); /* NULL if it was set correctly */
-        }
+        udata_close(ucp.propsData); /* NULL if it was set correctly */
     }
 
     return havePropsData;
 }
 
-/* constants and macros for access to the data */
+
+static int8_t 
+loadPropsData(void) {
+    UErrorCode   errorCode = U_ZERO_ERROR;
+    int8_t       retVal    = uprv_loadPropsData(&errorCode);
+    return retVal;
+}
+
+
+/* Unicode properties data swapping ----------------------------------------- */
+
+U_CAPI int32_t U_EXPORT2
+uprops_swap(const UDataSwapper *ds,
+            const void *inData, int32_t length, void *outData,
+            UErrorCode *pErrorCode) {
+    const UDataInfo *pInfo;
+    int32_t headerSize, i;
+
+    int32_t dataIndexes[UPROPS_INDEX_COUNT];
+    const int32_t *inData32;
+
+    /* udata_swapDataHeader checks the arguments */
+    headerSize=udata_swapDataHeader(ds, inData, length, outData, pErrorCode);
+    if(pErrorCode==NULL || U_FAILURE(*pErrorCode)) {
+        return 0;
+    }
+
+    /* check data format and format version */
+    pInfo=(const UDataInfo *)((const char *)inData+4);
+    if(!(
+        pInfo->dataFormat[0]==0x55 &&   /* dataFormat="UPro" */
+        pInfo->dataFormat[1]==0x50 &&
+        pInfo->dataFormat[2]==0x72 &&
+        pInfo->dataFormat[3]==0x6f &&
+        pInfo->formatVersion[0]==3 &&
+        pInfo->formatVersion[2]==UTRIE_SHIFT &&
+        pInfo->formatVersion[3]==UTRIE_INDEX_SHIFT
+    )) {
+        udata_printError(ds, "uprops_swap(): data format %02x.%02x.%02x.%02x (format version %02x) is not a Unicode properties file\n",
+                         pInfo->dataFormat[0], pInfo->dataFormat[1],
+                         pInfo->dataFormat[2], pInfo->dataFormat[3],
+                         pInfo->formatVersion[0]);
+        *pErrorCode=U_UNSUPPORTED_ERROR;
+        return 0;
+    }
+
+    /* the properties file must contain at least the indexes array */
+    if(length>=0 && (length-headerSize)<sizeof(dataIndexes)) {
+        udata_printError(ds, "uprops_swap(): too few bytes (%d after header) for a Unicode properties file\n",
+                         length-headerSize);
+        *pErrorCode=U_INDEX_OUTOFBOUNDS_ERROR;
+        return 0;
+    }
+
+    /* read the indexes */
+    inData32=(const int32_t *)((const char *)inData+headerSize);
+    for(i=0; i<UPROPS_INDEX_COUNT; ++i) {
+        dataIndexes[i]=udata_readInt32(ds, inData32[i]);
+    }
+
+    /*
+     * comments are copied from the data format description in genprops/store.c
+     * indexes[] constants are in uprops.h
+     */
+    if(length>=0) {
+        int32_t *outData32;
+
+        if((length-headerSize)<(4*dataIndexes[UPROPS_RESERVED_INDEX])) {
+            udata_printError(ds, "uprops_swap(): too few bytes (%d after header) for a Unicode properties file\n",
+                             length-headerSize);
+            *pErrorCode=U_INDEX_OUTOFBOUNDS_ERROR;
+            return 0;
+        }
+
+        outData32=(int32_t *)((char *)outData+headerSize);
+
+        /* copy everything for inaccessible data (padding) */
+        if(inData32!=outData32) {
+            uprv_memcpy(outData32, inData32, 4*dataIndexes[UPROPS_RESERVED_INDEX]);
+        }
+
+        /* swap the indexes[16] */
+        ds->swapArray32(ds, inData32, 4*UPROPS_INDEX_COUNT, outData32, pErrorCode);
+
+        /*
+         * swap the main properties UTrie
+         * PT serialized properties trie, see utrie.h (byte size: 4*(i0-16))
+         */
+        utrie_swap(ds,
+            inData32+UPROPS_INDEX_COUNT,
+            4*(dataIndexes[UPROPS_PROPS32_INDEX]-UPROPS_INDEX_COUNT),
+            outData32+UPROPS_INDEX_COUNT,
+            pErrorCode);
+
+        /*
+         * swap the properties and exceptions words
+         * P  const uint32_t props32[i1-i0];
+         * E  const uint32_t exceptions[i2-i1];
+         */
+        ds->swapArray32(ds,
+            inData32+dataIndexes[UPROPS_PROPS32_INDEX],
+            4*(dataIndexes[UPROPS_EXCEPTIONS_TOP_INDEX]-dataIndexes[UPROPS_PROPS32_INDEX]),
+            outData32+dataIndexes[UPROPS_PROPS32_INDEX],
+            pErrorCode);
+
+        /*
+         * swap the UChars
+         * U  const UChar uchars[2*(i3-i2)];
+         */
+        ds->swapArray16(ds,
+            inData32+dataIndexes[UPROPS_EXCEPTIONS_TOP_INDEX],
+            4*(dataIndexes[UPROPS_ADDITIONAL_TRIE_INDEX]-dataIndexes[UPROPS_EXCEPTIONS_TOP_INDEX]),
+            outData32+dataIndexes[UPROPS_EXCEPTIONS_TOP_INDEX],
+            pErrorCode);
+
+        /*
+         * swap the additional UTrie
+         * i3 additionalTrieIndex; -- 32-bit unit index to the additional trie for more properties
+         */
+        utrie_swap(ds,
+            inData32+dataIndexes[UPROPS_ADDITIONAL_TRIE_INDEX],
+            4*(dataIndexes[UPROPS_ADDITIONAL_VECTORS_INDEX]-dataIndexes[UPROPS_ADDITIONAL_TRIE_INDEX]),
+            outData32+dataIndexes[UPROPS_ADDITIONAL_TRIE_INDEX],
+            pErrorCode);
+
+        /*
+         * swap the properties vectors
+         * PV const uint32_t propsVectors[(i6-i4)/i5][i5]==uint32_t propsVectors[i6-i4];
+         */
+        ds->swapArray32(ds,
+            inData32+dataIndexes[UPROPS_ADDITIONAL_VECTORS_INDEX],
+            4*(dataIndexes[UPROPS_RESERVED_INDEX]-dataIndexes[UPROPS_ADDITIONAL_VECTORS_INDEX]),
+            outData32+dataIndexes[UPROPS_ADDITIONAL_VECTORS_INDEX],
+            pErrorCode);
+    }
+
+    /* i6 reservedItemIndex; -- 32-bit unit index to the top of the properties vectors table */
+    return headerSize+4*dataIndexes[UPROPS_RESERVED_INDEX];
+}
+
+/* constants and macros for access to the data ------------------------------ */
 
 /* getting a uint32_t properties word from the data */
-#define HAVE_DATA (havePropsData>0 || (havePropsData==0 && loadPropsData()>0))
+#define HAVE_DATA (havePropsData>0 || loadPropsData()>0)
 #define VALIDATE(c) (((uint32_t)(c))<=0x10ffff && HAVE_DATA)
 #define GET_PROPS_UNSAFE(c, result) \
     UTRIE_GET16(&propsTrie, c, result); \
@@ -246,12 +406,17 @@ static const uint8_t flagsOffset[256]={
 
 U_CFUNC UBool
 uprv_haveProperties(UErrorCode *pErrorCode) {
-    if(HAVE_DATA) {
-        return TRUE;
-    } else {
+    if(U_FAILURE(*pErrorCode)) {
+        return FALSE;
+    }
+    if(havePropsData==0) {
+        uprv_loadPropsData(pErrorCode);
+    }
+    if(havePropsData<0) {
         *pErrorCode=dataErrorCode;
         return FALSE;
     }
+    return TRUE;
 }
 
 /* API functions ------------------------------------------------------------ */
@@ -353,6 +518,11 @@ u_isalpha(UChar32 c) {
     return (UBool)((CAT_MASK(props)&U_GC_L_MASK)!=0);
 }
 
+U_CAPI UBool U_EXPORT2
+u_isUAlphabetic(UChar32 c) {
+    return (u_getUnicodeProperties(c, 1)&U_MASK(UPROPS_ALPHABETIC))!=0;
+}
+
 /* Checks if ch is a letter or a decimal digit */
 U_CAPI UBool U_EXPORT2
 u_isalnum(UChar32 c) {
@@ -429,6 +599,11 @@ u_isblank(UChar32 c) {
         /* White_Space but not LS (Zl) or PS (Zp) */
         return u_isUWhiteSpace(c) && ((c&0xfffffffe)!=0x2028);
     }
+}
+
+U_CAPI UBool U_EXPORT2
+u_isUWhiteSpace(UChar32 c) {
+    return (u_getUnicodeProperties(c, 1)&U_MASK(UPROPS_WHITE_SPACE))!=0;
 }
 
 /* Checks if the Unicode character is printable.*/
@@ -516,79 +691,6 @@ u_isJavaIDPart(UChar32 c) {
              U_GC_MC_MASK|U_GC_MN_MASK)
            )!=0 ||
            u_isIDIgnorable(c));
-}
-
-/* Transforms the Unicode character to its lower case equivalent.*/
-U_CAPI UChar32 U_EXPORT2
-u_tolower(UChar32 c) {
-    uint32_t props;
-    GET_PROPS(c, props);
-    if(!PROPS_VALUE_IS_EXCEPTION(props)) {
-        if(CAT_MASK(props)&(U_GC_LU_MASK|U_GC_LT_MASK)) {
-            return c+GET_SIGNED_VALUE(props);
-        }
-    } else {
-        const uint32_t *pe=GET_EXCEPTIONS(props);
-        uint32_t firstExceptionValue=*pe;
-        if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_LOWERCASE)) {
-            int i=EXC_LOWERCASE;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            return (UChar32)*pe;
-        }
-    }
-    return c; /* no mapping - return c itself */
-}
-    
-/* Transforms the Unicode character to its upper case equivalent.*/
-U_CAPI UChar32 U_EXPORT2
-u_toupper(UChar32 c) {
-    uint32_t props;
-    GET_PROPS(c, props);
-    if(!PROPS_VALUE_IS_EXCEPTION(props)) {
-        if(GET_CATEGORY(props)==U_LOWERCASE_LETTER) {
-            return c-GET_SIGNED_VALUE(props);
-        }
-    } else {
-        const uint32_t *pe=GET_EXCEPTIONS(props);
-        uint32_t firstExceptionValue=*pe;
-        if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_UPPERCASE)) {
-            int i=EXC_UPPERCASE;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            return (UChar32)*pe;
-        }
-    }
-    return c; /* no mapping - return c itself */
-}
-
-/* Transforms the Unicode character to its title case equivalent.*/
-U_CAPI UChar32 U_EXPORT2
-u_totitle(UChar32 c) {
-    uint32_t props;
-    GET_PROPS(c, props);
-    if(!PROPS_VALUE_IS_EXCEPTION(props)) {
-        if(GET_CATEGORY(props)==U_LOWERCASE_LETTER) {
-            /* here, titlecase is same as uppercase */
-            return c-GET_SIGNED_VALUE(props);
-        }
-    } else {
-        const uint32_t *pe=GET_EXCEPTIONS(props);
-        uint32_t firstExceptionValue=*pe;
-        if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_TITLECASE)) {
-            int i=EXC_TITLECASE;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            return (UChar32)*pe;
-        } else if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_UPPERCASE)) {
-            /* here, titlecase is same as uppercase */
-            int i=EXC_UPPERCASE;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            return (UChar32)*pe;
-        }
-    }
-    return c; /* no mapping - return c itself */
 }
 
 U_CAPI int32_t U_EXPORT2
@@ -826,82 +928,89 @@ uprv_getMaxValues(int32_t column) {
     }
 }
 
-static UBool U_CALLCONV
-_enumPropertyStartsRange(const void *context, UChar32 start, UChar32 limit, uint32_t value) {
-    /* add the start code point to the USet */
-    uset_add((USet *)context, start);
-    return TRUE;
+/*
+ * get Hangul Syllable Type
+ * implemented here so that uchar.c (uhst_addPropertyStarts())
+ * does not depend on uprops.c (u_getIntPropertyValue(c, UCHAR_HANGUL_SYLLABLE_TYPE))
+ */
+U_CFUNC UHangulSyllableType
+uchar_getHST(UChar32 c) {
+    /* purely algorithmic; hardcode known characters, check for assigned new ones */
+    if(c<JAMO_L_BASE) {
+        /* U_HST_NOT_APPLICABLE */
+    } else if(c<=0x11ff) {
+        /* Jamo range */
+        if(c<=0x115f) {
+            /* Jamo L range, HANGUL CHOSEONG ... */
+            if(c==0x115f || c<=0x1159 || u_charType(c)==U_OTHER_LETTER) {
+                return U_HST_LEADING_JAMO;
+            }
+        } else if(c<=0x11a7) {
+            /* Jamo V range, HANGUL JUNGSEONG ... */
+            if(c<=0x11a2 || u_charType(c)==U_OTHER_LETTER) {
+                return U_HST_VOWEL_JAMO;
+            }
+        } else {
+            /* Jamo T range */
+            if(c<=0x11f9 || u_charType(c)==U_OTHER_LETTER) {
+                return U_HST_TRAILING_JAMO;
+            }
+        }
+    } else if((c-=HANGUL_BASE)<0) {
+        /* U_HST_NOT_APPLICABLE */
+    } else if(c<HANGUL_COUNT) {
+        /* Hangul syllable */
+        return c%JAMO_T_COUNT==0 ? U_HST_LV_SYLLABLE : U_HST_LVT_SYLLABLE;
+    }
+    return U_HST_NOT_APPLICABLE;
 }
 
-#define USET_ADD_CP_AND_NEXT(set, cp) uset_add(set, cp); uset_add(set, cp+1)
-
 U_CAPI void U_EXPORT2
-uchar_addPropertyStarts(USet *set, UErrorCode *pErrorCode) {
+u_charAge(UChar32 c, UVersionInfo versionArray) {
+    if(versionArray!=NULL) {
+        uint32_t version=u_getUnicodeProperties(c, 0)>>UPROPS_AGE_SHIFT;
+        versionArray[0]=(uint8_t)(version>>4);
+        versionArray[1]=(uint8_t)(version&0xf);
+        versionArray[2]=versionArray[3]=0;
+    }
+}
+
+U_CAPI UScriptCode U_EXPORT2
+uscript_getScript(UChar32 c, UErrorCode *pErrorCode) {
+    if(pErrorCode==NULL || U_FAILURE(*pErrorCode)) {
+        return 0;
+    }
+    if((uint32_t)c>0x10ffff) {
+        *pErrorCode=U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+
+    return (UScriptCode)(u_getUnicodeProperties(c, 0)&UPROPS_SCRIPT_MASK);
+}
+
+U_CAPI UBlockCode U_EXPORT2
+ublock_getCode(UChar32 c) {
+    return (UBlockCode)((u_getUnicodeProperties(c, 0)&UPROPS_BLOCK_MASK)>>UPROPS_BLOCK_SHIFT);
+}
+
+/* property starts for UnicodeSet ------------------------------------------- */
+
+/* for Hangul_Syllable_Type */
+U_CAPI void U_EXPORT2
+uhst_addPropertyStarts(USetAdder *sa, UErrorCode *pErrorCode) {
     UChar32 c;
     int32_t value, value2;
+
+    if(U_FAILURE(*pErrorCode)) {
+        return;
+    }
 
     if(!HAVE_DATA) {
         *pErrorCode=dataErrorCode;
         return;
     }
 
-    /* add the start code point of each same-value range of each trie */
-    utrie_enum(&propsTrie, NULL, _enumPropertyStartsRange, set);
-    utrie_enum(&propsVectorsTrie, NULL, _enumPropertyStartsRange, set);
-
     /* add code points with hardcoded properties, plus the ones following them */
-
-    /* add for IS_THAT_CONTROL_SPACE() */
-    uset_add(set, TAB); /* range TAB..CR */
-    uset_add(set, CR+1);
-    uset_add(set, 0x1c);
-    uset_add(set, 0x1f+1);
-    USET_ADD_CP_AND_NEXT(set, NL);
-
-    /* add for u_isIDIgnorable() what was not added above */
-    uset_add(set, DEL); /* range DEL..NBSP-1, NBSP added below */
-    uset_add(set, HAIRSP);
-    uset_add(set, RLM+1);
-    uset_add(set, INHSWAP);
-    uset_add(set, NOMDIG+1);
-    USET_ADD_CP_AND_NEXT(set, ZWNBSP);
-
-    /* add no-break spaces for u_isWhitespace() what was not added above */
-    USET_ADD_CP_AND_NEXT(set, NBSP);
-    USET_ADD_CP_AND_NEXT(set, FIGURESP);
-    USET_ADD_CP_AND_NEXT(set, NNBSP);
-
-    /* add for u_charDigitValue() */
-    USET_ADD_CP_AND_NEXT(set, 0x3007);
-    USET_ADD_CP_AND_NEXT(set, 0x4e00);
-    USET_ADD_CP_AND_NEXT(set, 0x4e8c);
-    USET_ADD_CP_AND_NEXT(set, 0x4e09);
-    USET_ADD_CP_AND_NEXT(set, 0x56db);
-    USET_ADD_CP_AND_NEXT(set, 0x4e94);
-    USET_ADD_CP_AND_NEXT(set, 0x516d);
-    USET_ADD_CP_AND_NEXT(set, 0x4e03);
-    USET_ADD_CP_AND_NEXT(set, 0x516b);
-    USET_ADD_CP_AND_NEXT(set, 0x4e5d);
-
-    /* add for u_digit() */
-    uset_add(set, U_a);
-    uset_add(set, U_z+1);
-    uset_add(set, U_A);
-    uset_add(set, U_Z+1);
-
-    /* add for UCHAR_DEFAULT_IGNORABLE_CODE_POINT what was not added above */
-    uset_add(set, WJ); /* range WJ..NOMDIG */
-    uset_add(set, 0xfff0);
-    uset_add(set, 0xfffb+1);
-    uset_add(set, 0xe0000);
-    uset_add(set, 0xe0fff+1);
-
-    /* add for UCHAR_GRAPHEME_BASE and others */
-    USET_ADD_CP_AND_NEXT(set, CGJ);
-
-    /* add for UCHAR_JOINING_TYPE */
-    uset_add(set, ZWNJ); /* range ZWNJ..ZWJ */
-    uset_add(set, ZWJ+1);
 
     /*
      * Add Jamo type boundaries for UCHAR_HANGUL_SYLLABLE_TYPE.
@@ -911,1148 +1020,120 @@ uchar_addPropertyStarts(USet *set, UErrorCode *pErrorCode) {
      * at the end of the per-Jamo-block assignments in Unicode 4 or earlier.
      * (These have not changed since Unicode 2.)
      */
-    uset_add(set, 0x1100);
+    sa->add(sa->set, 0x1100);
     value=U_HST_LEADING_JAMO;
     for(c=0x115a; c<=0x115f; ++c) {
-        value2=u_getIntPropertyValue(c, UCHAR_HANGUL_SYLLABLE_TYPE);
+        value2=uchar_getHST(c);
         if(value!=value2) {
             value=value2;
-            uset_add(set, c);
+            sa->add(sa->set, c);
         }
     }
 
-    uset_add(set, 0x1160);
+    sa->add(sa->set, 0x1160);
     value=U_HST_VOWEL_JAMO;
     for(c=0x11a3; c<=0x11a7; ++c) {
-        value2=u_getIntPropertyValue(c, UCHAR_HANGUL_SYLLABLE_TYPE);
+        value2=uchar_getHST(c);
         if(value!=value2) {
             value=value2;
-            uset_add(set, c);
+            sa->add(sa->set, c);
         }
     }
 
-    uset_add(set, 0x11a8);
+    sa->add(sa->set, 0x11a8);
     value=U_HST_TRAILING_JAMO;
     for(c=0x11fa; c<=0x11ff; ++c) {
-        value2=u_getIntPropertyValue(c, UCHAR_HANGUL_SYLLABLE_TYPE);
+        value2=uchar_getHST(c);
         if(value!=value2) {
             value=value2;
-            uset_add(set, c);
+            sa->add(sa->set, c);
         }
     }
 
-
-    /*
-     * Omit code points with hardcoded specialcasing properties
-     * because we do not build property UnicodeSets for them right now.
-     */
+    /* Add Hangul type boundaries for UCHAR_HANGUL_SYLLABLE_TYPE. */
+    for(c=HANGUL_BASE; c<(HANGUL_BASE+HANGUL_COUNT); c+=JAMO_T_COUNT) {
+        sa->add(sa->set, c);
+        sa->add(sa->set, c+1);
+    }
+    sa->add(sa->set, c);
 }
 
-/* string casing ------------------------------------------------------------ */
-
-/*
- * These internal string case mapping functions are here instead of ustring.c
- * because we need efficient access to the character properties.
- *
- * This section contains helper functions that check for conditions
- * in the input text surrounding the current code point
- * according to SpecialCasing.txt.
- *
- * Starting with ICU 2.1, the "surrounding text" is passed in as an instance of
- * UCharIterator to allow the core case mapping functions to be used
- * inside transliterators (using Replaceable instead of UnicodeString/UChar *)
- * etc.
- *
- * Each helper function gets the index
- * - after the current code point if it looks at following text
- * - before the current code point if it looks at preceding text
- *
- * Unicode 3.2 UAX 21 "Case Mappings" defines the conditions as follows:
- *
- * Final_Sigma
- *   C is preceded by a sequence consisting of
- *     a cased letter and a case-ignorable sequence,
- *   and C is not followed by a sequence consisting of
- *     an ignorable sequence and then a cased letter.
- *
- * More_Above
- *   C is followed by one or more characters of combining class 230 (ABOVE)
- *   in the combining character sequence.
- *
- * After_Soft_Dotted
- *   The last preceding character with combining class of zero before C
- *   was Soft_Dotted,
- *   and there is no intervening combining character class 230 (ABOVE).
- *
- * Before_Dot
- *   C is followed by combining dot above (U+0307).
- *   Any sequence of characters with a combining class that is neither 0 nor 230
- *   may intervene between the current character and the combining dot above.
- *
- * The erratum from 2002-10-31 adds the condition
- *
- * After_I
- *   The last preceding base character was an uppercase I, and there is no
- *   intervening combining character class 230 (ABOVE).
- *
- *   (See Jitterbug 2344 and the comments on After_I below.)
- *
- * Helper definitions in Unicode 3.2 UAX 21:
- *
- * D1. A character C is defined to be cased
- *     if it meets any of the following criteria:
- *
- *   - The general category of C is Titlecase Letter (Lt)
- *   - In [CoreProps], C has one of the properties Uppercase, or Lowercase
- *   - Given D = NFD(C), then it is not the case that:
- *     D = UCD_lower(D) = UCD_upper(D) = UCD_title(D)
- *     (This third criterium does not add any characters to the list
- *      for Unicode 3.2. Ignored.)
- *
- * D2. A character C is defined to be case-ignorable
- *     if it meets either of the following criteria:
- *
- *   - The general category of C is
- *     Nonspacing Mark (Mn), or Enclosing Mark (Me), or Format Control (Cf), or
- *     Letter Modifier (Lm), or Symbol Modifier (Sk)
- *   - C is one of the following characters 
- *     U+0027 APOSTROPHE
- *     U+00AD SOFT HYPHEN (SHY)
- *     U+2019 RIGHT SINGLE QUOTATION MARK
- *            (the preferred character for apostrophe)
- *
- * D3. A case-ignorable sequence is a sequence of
- *     zero or more case-ignorable characters.
- */
-
-#if UCONFIG_NO_NORMALIZATION
-/* no normalization - no combining classes */
-static U_INLINE uint8_t
-u_getCombiningClass(UChar32 c) {
-    return 0;
-}
-#endif
-
-enum {
-    LOC_ROOT,
-    LOC_TURKISH,
-    LOC_LITHUANIAN
-};
-
-static int32_t
-getCaseLocale(const char *locale) {
-    char lang[32];
-    UErrorCode errorCode;
-    int32_t length;
-
-    errorCode=U_ZERO_ERROR;
-    length=uloc_getLanguage(locale, lang, sizeof(lang), &errorCode);
-    if(U_FAILURE(errorCode) || length!=2) {
-        return LOC_ROOT;
-    }
-
-    if( (lang[0]=='t' && lang[1]=='r') ||
-        (lang[0]=='a' && lang[1]=='z')
-    ) {
-        return LOC_TURKISH;
-    } else if(lang[0]=='l' && lang[1]=='t') {
-        return LOC_LITHUANIAN;
-    } else {
-        return LOC_ROOT;
-    }
+static UBool U_CALLCONV
+_enumPropertyStartsRange(const void *context, UChar32 start, UChar32 limit, uint32_t value) {
+    /* add the start code point to the USet */
+    USetAdder *sa=(USetAdder *)context;
+    sa->add(sa->set, start);
+    return TRUE;
 }
 
-/* Is case-ignorable? */
-static U_INLINE UBool
-isCaseIgnorable(UChar32 c, uint32_t category) {
-    return (FLAG(category)&(_Mn|_Me|_Cf|_Lm|_Sk))!=0 ||
-            c==0x27 || c==0xad || c==0x2019;
-}
+#define USET_ADD_CP_AND_NEXT(sa, cp) sa->add(sa->set, cp); sa->add(sa->set, cp+1)
 
-/* Is this a "cased" character? */
-static U_INLINE UBool
-isCased(UChar32 c, uint32_t category) {
-    /* Lt+Uppercase+Lowercase = Lt+Lu+Ll+Other_Uppercase+Other_Lowercase */
-    return (FLAG(category)&(_Lt|_Lu|_Ll))!=0 ||
-            (u_getUnicodeProperties(c, 1)&(FLAG(UPROPS_UPPERCASE)|FLAG(UPROPS_LOWERCASE)))!=0;
-}
-
-/* Is Soft_Dotted? */
-static U_INLINE UBool
-isSoftDotted(UChar32 c) {
-    return (u_getUnicodeProperties(c, 1)&FLAG(UPROPS_SOFT_DOTTED))!=0;
-}
-
-/* Is followed by {case-ignorable}* cased  ? */
-static UBool
-isFollowedByCasedLetter(UCharIterator *iter, int32_t index) {
-    /* This is volatile because AIX 5.1 Visual Age 5.0 in 32-bit mode can't
-        optimize this correctly. It couldn't optimize (1UL<<category)&0xE
-    */
-    volatile uint32_t category;
-    uint32_t props;
-    int32_t c;
-
-    if(iter==NULL) {
-        return FALSE;
+U_CAPI void U_EXPORT2
+uchar_addPropertyStarts(USetAdder *sa, UErrorCode *pErrorCode) {
+    if(U_FAILURE(*pErrorCode)) {
+        return;
     }
 
-    iter->move(iter, index, UITER_ZERO);
-    for(;;) {
-        c=uiter_next32(iter);
-        if(c<0) {
-            break;
-        }
-        GET_PROPS_UNSAFE(c, props);
-        category=GET_CATEGORY(props);
-        if(isCased(c, category)) {
-            return TRUE; /* followed by cased letter */
-        }
-        if(!isCaseIgnorable(c, category)) {
-            return FALSE; /* not ignorable */
-        }
-    }
-
-    return FALSE; /* not followed by cased letter */
-}
-
-/* Is preceded by cased {case-ignorable}*  ? */
-static UBool
-isPrecededByCasedLetter(UCharIterator *iter, int32_t index) {
-    /* This is volatile because AIX 5.1 Visual Age 5.0 in 32-bit mode can't
-        optimize this correctly. It couldn't optimize (1UL<<category)&0xE
-    */
-    volatile uint32_t category;
-    uint32_t props;
-    int32_t c;
-
-    if(iter==NULL) {
-        return FALSE;
-    }
-
-    iter->move(iter, index, UITER_ZERO);
-    for(;;) {
-        c=uiter_previous32(iter);
-        if(c<0) {
-            break;
-        }
-        GET_PROPS_UNSAFE(c, props);
-        category=GET_CATEGORY(props);
-        if(isCased(c, category)) {
-            return TRUE; /* preceded by cased letter */
-        }
-        if(!isCaseIgnorable(c, category)) {
-            return FALSE; /* not ignorable */
-        }
-    }
-
-    return FALSE; /* not followed by cased letter */
-}
-
-/* Is preceded by Soft_Dotted character with no intervening cc=230 ? */
-static UBool
-isPrecededBySoftDotted(UCharIterator *iter, int32_t index) {
-    int32_t c;
-    uint8_t cc;
-
-    if(iter==NULL) {
-        return FALSE;
-    }
-
-    iter->move(iter, index, UITER_ZERO);
-    for(;;) {
-        c=uiter_previous32(iter);
-        if(c<0) {
-            break;
-        }
-        if(isSoftDotted(c)) {
-            return TRUE; /* preceded by TYPE_i */
-        }
-
-        cc=u_getCombiningClass(c);
-        if(cc==0 || cc==230) {
-            return FALSE; /* preceded by different base character (not TYPE_i), or intervening cc==230 */
-        }
-    }
-
-    return FALSE; /* not preceded by TYPE_i */
-}
-
-/*
- * See Jitterbug 2344:
- * The condition After_I for Turkic-lowercasing of U+0307 combining dot above
- * is checked in ICU 2.0, 2.1, 2.6 but was not in 2.2 & 2.4 because
- * we made those releases compatible with Unicode 3.2 which had not fixed
- * a related but in SpecialCasing.txt.
- *
- * From the Jitterbug 2344 text:
- * ... this bug is listed as a Unicode erratum
- * from 2002-10-31 at http://www.unicode.org/uni2errata/UnicodeErrata.html
- * <quote>
- * There are two errors in SpecialCasing.txt.
- * 1. Missing semicolons on two lines. ... [irrelevant for ICU]
- * 2. An incorrect context definition. Correct as follows:
- * < 0307; ; 0307; 0307; tr After_Soft_Dotted; # COMBINING DOT ABOVE
- * < 0307; ; 0307; 0307; az After_Soft_Dotted; # COMBINING DOT ABOVE
- * ---
- * > 0307; ; 0307; 0307; tr After_I; # COMBINING DOT ABOVE
- * > 0307; ; 0307; 0307; az After_I; # COMBINING DOT ABOVE
- * where the context After_I is defined as:
- * The last preceding base character was an uppercase I, and there is no
- * intervening combining character class 230 (ABOVE).
- * </quote>
- *
- * Note that SpecialCasing.txt even in Unicode 3.2 described the condition as:
- *
- * # When lowercasing, remove dot_above in the sequence I + dot_above, which will turn into i.
- * # This matches the behavior of the canonically equivalent I-dot_above
- *
- * See also the description in this place in older versions of uchar.c (revision 1.100).
- *
- * Markus W. Scherer 2003-feb-15
- */
-
-/* Is preceded by base character 'I' with no intervening cc=230 ? */
-static UBool
-isPrecededBy_I(UCharIterator *iter, int32_t index) {
-    int32_t c;
-    uint8_t cc;
-
-    if(iter==NULL) {
-        return FALSE;
-    }
-
-    iter->move(iter, index, UITER_ZERO);
-    for(;;) {
-        c=uiter_previous32(iter);
-        if(c<0) {
-            break;
-        }
-        if(c==0x49) {
-            return TRUE; /* preceded by I */
-        }
-
-        cc=u_getCombiningClass(c);
-        if(cc==0 || cc==230) {
-            return FALSE; /* preceded by different base character (not I), or intervening cc==230 */
-        }
-    }
-
-    return FALSE; /* not preceded by I */
-}
-
-/* Is followed by one or more cc==230 ? */
-static UBool
-isFollowedByMoreAbove(UCharIterator *iter, int32_t index) {
-    int32_t c;
-    uint8_t cc;
-
-    if(iter==NULL) {
-        return FALSE;
-    }
-
-    iter->move(iter, index, UITER_ZERO);
-    for(;;) {
-        c=uiter_next32(iter);
-        if(c<0) {
-            break;
-        }
-        cc=u_getCombiningClass(c);
-        if(cc==230) {
-            return TRUE; /* at least one cc==230 following */
-        }
-        if(cc==0) {
-            return FALSE; /* next base character, no more cc==230 following */
-        }
-    }
-
-    return FALSE; /* no more cc==230 following */
-}
-
-/* Is followed by a dot above (without cc==230 in between) ? */
-static UBool
-isFollowedByDotAbove(UCharIterator *iter, int32_t index) {
-    int32_t c;
-    uint8_t cc;
-
-    if(iter==NULL) {
-        return FALSE;
-    }
-
-    iter->move(iter, index, UITER_ZERO);
-    for(;;) {
-        c=uiter_next32(iter);
-        if(c<0) {
-            break;
-        }
-        if(c==0x307) {
-            return TRUE;
-        }
-        cc=u_getCombiningClass(c);
-        if(cc==0 || cc==230) {
-            return FALSE; /* next base character or cc==230 in between */
-        }
-    }
-
-    return FALSE; /* no dot above following */
-}
-
-/* lowercasing -------------------------------------------------------------- */
-
-/* internal, see ustr_imp.h */
-U_CAPI int32_t U_EXPORT2
-u_internalToLower(UChar32 c, UCharIterator *iter,
-                  UChar *dest, int32_t destCapacity,
-                  const char *locale) {
-    UChar buffer[8];
-    uint32_t props;
-    UChar32 result;
-    int32_t i, length;
-
-    result=c;
-    GET_PROPS(c, props);
-    if(!PROPS_VALUE_IS_EXCEPTION(props)) {
-        if(CAT_MASK(props)&(U_GC_LU_MASK|U_GC_LT_MASK)) {
-            result=c+GET_SIGNED_VALUE(props);
-        }
-    } else {
-        const UChar *u;
-        const uint32_t *pe=GET_EXCEPTIONS(props);
-        uint32_t firstExceptionValue=*pe, specialCasing;
-        int32_t minLength;
-
-        if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_SPECIAL_CASING)) {
-            i=EXC_SPECIAL_CASING;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            specialCasing=*pe;
-            /* fill u and length with the case mapping result string */
-            if(specialCasing&0x80000000) {
-                /* use hardcoded conditions and mappings */
-                int32_t loc=getCaseLocale(locale),
-                        srcIndex= iter!=NULL ? iter->getIndex(iter, UITER_CURRENT) : 0;
-
-                /*
-                 * Test for conditional mappings first
-                 *   (otherwise the unconditional default mappings are always taken),
-                 * then test for characters that have unconditional mappings in SpecialCasing.txt,
-                 * then get the UnicodeData.txt mappings.
-                 */
-                if( loc==LOC_LITHUANIAN &&
-                        /* base characters, find accents above */
-                        (((c==0x49 || c==0x4a || c==0x12e) &&
-                            isFollowedByMoreAbove(iter, srcIndex)) ||
-                        /* precomposed with accent above, no need to find one */
-                        (c==0xcc || c==0xcd || c==0x128))
-                ) {
-                    /*
-                        # Lithuanian
-
-                        # Lithuanian retains the dot in a lowercase i when followed by accents.
-
-                        # Introduce an explicit dot above when lowercasing capital I's and J's
-                        # whenever there are more accents above.
-                        # (of the accents used in Lithuanian: grave, acute, tilde above, and ogonek)
-
-                        0049; 0069 0307; 0049; 0049; lt More_Above; # LATIN CAPITAL LETTER I
-                        004A; 006A 0307; 004A; 004A; lt More_Above; # LATIN CAPITAL LETTER J
-                        012E; 012F 0307; 012E; 012E; lt More_Above; # LATIN CAPITAL LETTER I WITH OGONEK
-                        00CC; 0069 0307 0300; 00CC; 00CC; lt; # LATIN CAPITAL LETTER I WITH GRAVE
-                        00CD; 0069 0307 0301; 00CD; 00CD; lt; # LATIN CAPITAL LETTER I WITH ACUTE
-                        0128; 0069 0307 0303; 0128; 0128; lt; # LATIN CAPITAL LETTER I WITH TILDE
-                     */
-                    u=buffer;
-                    buffer[1]=0x307;
-                    switch(c) {
-                    case 0x49:  /* LATIN CAPITAL LETTER I */
-                        buffer[0]=0x69;
-                        length=2;
-                        break;
-                    case 0x4a:  /* LATIN CAPITAL LETTER J */
-                        buffer[0]=0x6a;
-                        length=2;
-                        break;
-                    case 0x12e: /* LATIN CAPITAL LETTER I WITH OGONEK */
-                        buffer[0]=0x12f;
-                        length=2;
-                        break;
-                    case 0xcc:  /* LATIN CAPITAL LETTER I WITH GRAVE */
-                        buffer[0]=0x69;
-                        buffer[2]=0x300;
-                        length=3;
-                        break;
-                    case 0xcd:  /* LATIN CAPITAL LETTER I WITH ACUTE */
-                        buffer[0]=0x69;
-                        buffer[2]=0x301;
-                        length=3;
-                        break;
-                    case 0x128: /* LATIN CAPITAL LETTER I WITH TILDE */
-                        buffer[0]=0x69;
-                        buffer[2]=0x303;
-                        length=3;
-                        break;
-                    default:
-                        return 0; /* will not occur */
-                    }
-                /* # Turkish and Azeri */
-                } else if(loc==LOC_TURKISH && c==0x130) {
-                    /*
-                        # I and i-dotless; I-dot and i are case pairs in Turkish and Azeri
-                        # The following rules handle those cases.
-
-                        0130; 0069; 0130; 0130; tr # LATIN CAPITAL LETTER I WITH DOT ABOVE
-                        0130; 0069; 0130; 0130; az # LATIN CAPITAL LETTER I WITH DOT ABOVE
-                     */
-                    result=0x69;
-                    goto single;
-                } else if(loc==LOC_TURKISH && c==0x307 && isPrecededBy_I(iter, srcIndex-1)) {
-                    /*
-                        # When lowercasing, remove dot_above in the sequence I + dot_above, which will turn into i.
-                        # This matches the behavior of the canonically equivalent I-dot_above
-
-                        0307; ; 0307; 0307; tr After_I; # COMBINING DOT ABOVE
-                        0307; ; 0307; 0307; az After_I; # COMBINING DOT ABOVE
-                     */
-                    return 0; /* remove the dot (continue without output) */
-                } else if(loc==LOC_TURKISH && c==0x49 && !isFollowedByDotAbove(iter, srcIndex)) {
-                    /*
-                        # When lowercasing, unless an I is before a dot_above, it turns into a dotless i.
-
-                        0049; 0131; 0049; 0049; tr Not_Before_Dot; # LATIN CAPITAL LETTER I
-                        0049; 0131; 0049; 0049; az Not_Before_Dot; # LATIN CAPITAL LETTER I
-                     */
-                    result=0x131;
-                    goto single;
-                } else if(c==0x130) {
-                    /*
-                        # Preserve canonical equivalence for I with dot. Turkic is handled below.
-
-                        0130; 0069 0307; 0130; 0130; # LATIN CAPITAL LETTER I WITH DOT ABOVE
-                     */
-                    static const UChar iWithDot[2]={ 0x69, 0x307 };
-                    u=iWithDot;
-                    length=2;
-                } else if(  c==0x3a3 &&
-                            !isFollowedByCasedLetter(iter, srcIndex) &&
-                            isPrecededByCasedLetter(iter, srcIndex-1)
-                ) {
-                    /* greek capital sigma maps depending on surrounding cased letters (see SpecialCasing.txt) */
-                    /*
-                        # Special case for final form of sigma
-
-                        03A3; 03C2; 03A3; 03A3; Final_Sigma; # GREEK CAPITAL LETTER SIGMA
-                     */
-                    result=0x3c2; /* greek small final sigma */
-                    goto single;
-                } else {
-                    /* no known conditional special case mapping, use a normal mapping */
-                    pe=GET_EXCEPTIONS(props); /* restore the initial exception pointer */
-                    firstExceptionValue=*pe;
-                    goto notSpecial;
-                }
-            } else {
-                /* get the special case mapping string from the data file */
-                u=ucharsTable+(specialCasing&0xffff);
-                length=(int32_t)((*u++)&0x1f);
-            }
-
-            /* copy the result string */
-            minLength = (length < destCapacity) ? length : destCapacity;
-            i=0;
-            while(i<minLength) {
-                dest[i++]=*u++;
-            }
-            return length;
-        }
-
-notSpecial:
-        if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_LOWERCASE)) {
-            i=EXC_LOWERCASE;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            result=(UChar32)*pe;
-        }
-    }
-
-single:
-    length=UTF_CHAR_LENGTH(result);
-    if(length<=destCapacity) {
-        /* write result to dest */
-        i=0;
-        UTF_APPEND_CHAR_UNSAFE(dest, i, result);
-    }
-    return (result==c) ? -length : length;
-}
-
-/*
- * Lowercases [srcStart..srcLimit[ but takes
- * context [0..srcLength[ into account.
- */
-U_CFUNC int32_t
-u_internalStrToLower(UChar *dest, int32_t destCapacity,
-                     const UChar *src, int32_t srcLength,
-                     int32_t srcStart, int32_t srcLimit,
-                     const char *locale,
-                     UErrorCode *pErrorCode) {
-    UCharIterator iter;
-    uint32_t props;
-    int32_t srcIndex, destIndex;
-    UChar32 c;
-
-    /* test early, once, if there is a data file */
     if(!HAVE_DATA) {
-        *pErrorCode=U_FILE_ACCESS_ERROR;
-        return 0;
+        *pErrorCode=dataErrorCode;
+        return;
     }
 
-    /* set up local variables */
-    uiter_setString(&iter, src, srcLength);
+    /* add the start code point of each same-value range of each trie */
+    utrie_enum(&propsTrie, NULL, _enumPropertyStartsRange, sa);
+    utrie_enum(&propsVectorsTrie, NULL, _enumPropertyStartsRange, sa);
 
-    /* case mapping loop */
-    srcIndex=srcStart;
-    destIndex=0;
-    while(srcIndex<srcLimit) {
-        UTF_NEXT_CHAR(src, srcIndex, srcLimit, c);
-        GET_PROPS_UNSAFE(c, props);
-        if(!PROPS_VALUE_IS_EXCEPTION(props)) {
-            if(CAT_MASK(props)&(U_GC_LU_MASK|U_GC_LT_MASK)) {
-                c+=GET_SIGNED_VALUE(props);
-            }
+    /* add code points with hardcoded properties, plus the ones following them */
 
-            /* handle 1:1 code point mappings from UnicodeData.txt */
-            if(c<=0xffff) {
-                if(destIndex<destCapacity) {
-                    dest[destIndex++]=(UChar)c;
-                } else {
-                    /* buffer overflow */
-                    /* keep incrementing the destIndex for preflighting */
-                    ++destIndex;
-                }
-            } else {
-                if((destIndex+2)<=destCapacity) {
-                    dest[destIndex++]=UTF16_LEAD(c);
-                    dest[destIndex++]=UTF16_TRAIL(c);
-                } else {
-                    /* buffer overflow */
-                    /* write the first surrogate if possible */
-                    if(destIndex<destCapacity) {
-                        dest[destIndex]=UTF16_LEAD(c);
-                    }
-                    /* keep incrementing the destIndex for preflighting */
-                    destIndex+=2;
-                }
-            }
-        } else {
-            /* handle all exceptions in u_internalToLower() */
-            int32_t length;
+    /* add for IS_THAT_CONTROL_SPACE() */
+    sa->add(sa->set, TAB); /* range TAB..CR */
+    sa->add(sa->set, CR+1);
+    sa->add(sa->set, 0x1c);
+    sa->add(sa->set, 0x1f+1);
+    USET_ADD_CP_AND_NEXT(sa, NL);
 
-            iter.move(&iter, srcIndex, UITER_ZERO);
-            if(destIndex<destCapacity) {
-                length=u_internalToLower(c, &iter, dest+destIndex, destCapacity-destIndex, locale);
-            } else {
-                length=u_internalToLower(c, &iter, NULL, 0, locale);
-            }
-            if(length<0) {
-                length=-length;
-            }
-            destIndex+=length;
-        }
-    }
+    /* add for u_isIDIgnorable() what was not added above */
+    sa->add(sa->set, DEL); /* range DEL..NBSP-1, NBSP added below */
+    sa->add(sa->set, HAIRSP);
+    sa->add(sa->set, RLM+1);
+    sa->add(sa->set, INHSWAP);
+    sa->add(sa->set, NOMDIG+1);
+    USET_ADD_CP_AND_NEXT(sa, ZWNBSP);
 
-    if(destIndex>destCapacity) {
-        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
-    }
-    return destIndex;
-}
+    /* add no-break spaces for u_isWhitespace() what was not added above */
+    USET_ADD_CP_AND_NEXT(sa, NBSP);
+    USET_ADD_CP_AND_NEXT(sa, FIGURESP);
+    USET_ADD_CP_AND_NEXT(sa, NNBSP);
 
-/* uppercasing -------------------------------------------------------------- */
+    /* add for u_charDigitValue() */
+    USET_ADD_CP_AND_NEXT(sa, 0x3007);
+    USET_ADD_CP_AND_NEXT(sa, 0x4e00);
+    USET_ADD_CP_AND_NEXT(sa, 0x4e8c);
+    USET_ADD_CP_AND_NEXT(sa, 0x4e09);
+    USET_ADD_CP_AND_NEXT(sa, 0x56db);
+    USET_ADD_CP_AND_NEXT(sa, 0x4e94);
+    USET_ADD_CP_AND_NEXT(sa, 0x516d);
+    USET_ADD_CP_AND_NEXT(sa, 0x4e03);
+    USET_ADD_CP_AND_NEXT(sa, 0x516b);
+    USET_ADD_CP_AND_NEXT(sa, 0x4e5d);
 
-/* internal */
-static int32_t
-u_internalToUpperOrTitle(UChar32 c, UCharIterator *iter,
-                         UChar *dest, int32_t destCapacity,
-                         const char *locale,
-                         UBool upperNotTitle) {
-    uint32_t props;
-    UChar32 result;
-    int32_t i, length;
+    /* add for u_digit() */
+    sa->add(sa->set, U_a);
+    sa->add(sa->set, U_z+1);
+    sa->add(sa->set, U_A);
+    sa->add(sa->set, U_Z+1);
 
-    result=c;
-    GET_PROPS(c, props);
-    if(!PROPS_VALUE_IS_EXCEPTION(props)) {
-        if(GET_CATEGORY(props)==U_LOWERCASE_LETTER) {
-            result=c-GET_SIGNED_VALUE(props);
-        }
-    } else {
-        const UChar *u;
-        const uint32_t *pe=GET_EXCEPTIONS(props);
-        uint32_t firstExceptionValue=*pe, specialCasing;
-        if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_SPECIAL_CASING)) {
-            i=EXC_SPECIAL_CASING;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            specialCasing=*pe;
-            /* fill u and length with the case mapping result string */
-            if(specialCasing&0x80000000) {
-                /* use hardcoded conditions and mappings */
-                int32_t loc=getCaseLocale(locale),
-                        srcIndex= iter!=NULL ? iter->getIndex(iter, UITER_CURRENT) : 0;
+    /* add for UCHAR_DEFAULT_IGNORABLE_CODE_POINT what was not added above */
+    sa->add(sa->set, WJ); /* range WJ..NOMDIG */
+    sa->add(sa->set, 0xfff0);
+    sa->add(sa->set, 0xfffb+1);
+    sa->add(sa->set, 0xe0000);
+    sa->add(sa->set, 0xe0fff+1);
 
-                if(loc==LOC_TURKISH && c==0x69) {
-                    /*
-                        # Turkish and Azeri
+    /* add for UCHAR_GRAPHEME_BASE and others */
+    USET_ADD_CP_AND_NEXT(sa, CGJ);
 
-                        # I and i-dotless; I-dot and i are case pairs in Turkish and Azeri
-                        # The following rules handle those cases.
-
-                        # When uppercasing, i turns into a dotted capital I
-
-                        0069; 0069; 0130; 0130; tr; # LATIN SMALL LETTER I
-                        0069; 0069; 0130; 0130; az; # LATIN SMALL LETTER I
-                    */
-                    result=0x130;
-                    goto single;
-                } else if(loc==LOC_LITHUANIAN && c==0x307 && isPrecededBySoftDotted(iter, srcIndex-1)) {
-                    /*
-                        # Lithuanian
-
-                        # Lithuanian retains the dot in a lowercase i when followed by accents.
-
-                        # Remove DOT ABOVE after "i" with upper or titlecase
-
-                        0307; 0307; ; ; lt After_Soft_Dotted; # COMBINING DOT ABOVE
-                     */
-                    return 0; /* remove the dot (continue without output) */
-                } else {
-                    /* no known conditional special case mapping, use a normal mapping */
-                    pe=GET_EXCEPTIONS(props); /* restore the initial exception pointer */
-                    firstExceptionValue=*pe;
-                    goto notSpecial;
-                }
-            } else {
-                /* get the special case mapping string from the data file */
-                u=ucharsTable+(specialCasing&0xffff);
-                length=(int32_t)*u++;
-
-                /* skip the lowercase result string */
-                u+=length&0x1f;
-                if(upperNotTitle) {
-                    length=(length>>5)&0x1f;
-                } else {
-                    /* skip the uppercase result strings too */
-                    u+=(length>>5)&0x1f;
-                    length=(length>>10)&0x1f;
-                }
-            }
-
-            /* copy the result string */
-            i=0;
-            while(i<length && i<destCapacity) {
-                dest[i++]=*u++;
-            }
-            return length;
-        }
-
-notSpecial:
-        if(!upperNotTitle && HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_TITLECASE)) {
-            i=EXC_TITLECASE;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            result=(UChar32)*pe;
-        } else if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_UPPERCASE)) {
-            /* here, titlecase is same as uppercase */
-            i=EXC_UPPERCASE;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            result=(UChar32)*pe;
-        }
-    }
-
-single:
-    length=UTF_CHAR_LENGTH(result);
-    if(length<=destCapacity) {
-        /* write result to dest */
-        i=0;
-        UTF_APPEND_CHAR_UNSAFE(dest, i, result);
-    }
-    return (result==c) ? -length : length;
-}
-
-/* internal, see ustr_imp.h */
-U_CAPI int32_t U_EXPORT2
-u_internalToUpper(UChar32 c, UCharIterator *iter,
-                  UChar *dest, int32_t destCapacity,
-                  const char *locale) {
-    return u_internalToUpperOrTitle(c, iter, dest, destCapacity, locale, TRUE);
-}
-
-U_CFUNC int32_t
-u_internalStrToUpper(UChar *dest, int32_t destCapacity,
-                     const UChar *src, int32_t srcLength,
-                     const char *locale,
-                     UErrorCode *pErrorCode) {
-    UCharIterator iter;
-    uint32_t props;
-    int32_t srcIndex, destIndex;
-    UChar32 c;
-
-    /* test early, once, if there is a data file */
-    if(!HAVE_DATA) {
-        *pErrorCode=U_FILE_ACCESS_ERROR;
-        return 0;
-    }
-
-    /* set up local variables */
-    uiter_setString(&iter, src, srcLength);
-
-    /* case mapping loop */
-    srcIndex=destIndex=0;
-    while(srcIndex<srcLength) {
-        UTF_NEXT_CHAR(src, srcIndex, srcLength, c);
-        GET_PROPS_UNSAFE(c, props);
-        if(!PROPS_VALUE_IS_EXCEPTION(props)) {
-            if(GET_CATEGORY(props)==U_LOWERCASE_LETTER) {
-                c-=GET_SIGNED_VALUE(props);
-            }
-
-            /* handle 1:1 code point mappings from UnicodeData.txt */
-            if(c<=0xffff) {
-                if(destIndex<destCapacity) {
-                    dest[destIndex++]=(UChar)c;
-                } else {
-                    /* buffer overflow */
-                    /* keep incrementing the destIndex for preflighting */
-                    ++destIndex;
-                }
-            } else {
-                if((destIndex+2)<=destCapacity) {
-                    dest[destIndex++]=UTF16_LEAD(c);
-                    dest[destIndex++]=UTF16_TRAIL(c);
-                } else {
-                    /* buffer overflow */
-                    /* write the first surrogate if possible */
-                    if(destIndex<destCapacity) {
-                        dest[destIndex]=UTF16_LEAD(c);
-                    }
-                    /* keep incrementing the destIndex for preflighting */
-                    destIndex+=2;
-                }
-            }
-        } else {
-            /* handle all exceptions in u_internalToUpper() */
-            int32_t length;
-
-            iter.move(&iter, srcIndex, UITER_ZERO);
-            if(destIndex<destCapacity) {
-                length=u_internalToUpperOrTitle(c, &iter, dest+destIndex, destCapacity-destIndex, locale, TRUE);
-            } else {
-                length=u_internalToUpperOrTitle(c, &iter, NULL, 0, locale, TRUE);
-            }
-            if(length<0) {
-                length=-length;
-            }
-            destIndex+=length;
-        }
-    }
-
-    if(destIndex>destCapacity) {
-        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
-    }
-    return destIndex;
-}
-
-/* titlecasing -------------------------------------------------------------- */
-
-/* internal, see ustr_imp.h */
-U_CAPI int32_t U_EXPORT2
-u_internalToTitle(UChar32 c, UCharIterator *iter,
-                  UChar *dest, int32_t destCapacity,
-                  const char *locale) {
-    return u_internalToUpperOrTitle(c, iter, dest, destCapacity, locale, FALSE);
-}
-
-/* case folding ------------------------------------------------------------- */
-
-/*
- * Case folding is similar to lowercasing.
- * The result may be a simple mapping, i.e., a single code point, or
- * a full mapping, i.e., a string.
- * If the case folding for a code point is the same as its simple (1:1) lowercase mapping,
- * then only the lowercase mapping is stored.
- *
- * Some special cases are hardcoded because their conditions cannot be
- * parsed and processed from CaseFolding.txt.
- *
- * Unicode 3.2 CaseFolding.txt specifies for its status field:
-
-# C: common case folding, common mappings shared by both simple and full mappings.
-# F: full case folding, mappings that cause strings to grow in length. Multiple characters are separated by spaces.
-# S: simple case folding, mappings to single characters where different from F.
-# T: special case for uppercase I and dotted uppercase I
-#    - For non-Turkic languages, this mapping is normally not used.
-#    - For Turkic languages (tr, az), this mapping can be used instead of the normal mapping for these characters.
-#
-# Usage:
-#  A. To do a simple case folding, use the mappings with status C + S.
-#  B. To do a full case folding, use the mappings with status C + F.
-#
-#    The mappings with status T can be used or omitted depending on the desired case-folding
-#    behavior. (The default option is to exclude them.)
-
- * Unicode 3.2 has 'T' mappings as follows:
-
-0049; T; 0131; # LATIN CAPITAL LETTER I
-0130; T; 0069; # LATIN CAPITAL LETTER I WITH DOT ABOVE
-
- * while the default mappings for these code points are:
-
-0049; C; 0069; # LATIN CAPITAL LETTER I
-0130; F; 0069 0307; # LATIN CAPITAL LETTER I WITH DOT ABOVE
-
- * U+0130 is otherwise lowercased to U+0069 (UnicodeData.txt).
- *
- * In case this code is used with CaseFolding.txt from an older version of Unicode
- * where CaseFolding.txt contains mappings with a status of 'I' that
- * have the opposite polarity ('I' mappings are included by default but excluded for Turkic),
- * we must also hardcode the Unicode 3.2 mappings for the code points 
- * with 'I' mappings.
- * Unicode 3.1.1 has 'I' mappings for U+0130 and U+0131.
- * Unicode 3.2 has a 'T' mapping for U+0130, and lowercases U+0131 to itself (see UnicodeData.txt).
- */
-
-/* return the simple case folding mapping for c */
-U_CAPI UChar32 U_EXPORT2
-u_foldCase(UChar32 c, uint32_t options) {
-    uint32_t props;
-    GET_PROPS(c, props);
-    if(!PROPS_VALUE_IS_EXCEPTION(props)) {
-        if(CAT_MASK(props)&(U_GC_LU_MASK|U_GC_LT_MASK)) {
-            return c+GET_SIGNED_VALUE(props);
-        }
-    } else {
-        const uint32_t *pe=GET_EXCEPTIONS(props);
-        uint32_t firstExceptionValue=*pe;
-        if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_CASE_FOLDING)) {
-            const uint32_t *oldPE=pe;
-            int i=EXC_CASE_FOLDING;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            props=*pe;
-            if(props!=0) {
-                /* return the simple mapping, if there is one */
-                const UChar *uchars=ucharsTable+(props&0xffff);
-                UChar32 simple;
-                i=0;
-                UTF_NEXT_CHAR_UNSAFE(uchars, i, simple);
-                if(simple!=0) {
-                    return simple;
-                }
-                /* fall through to use the lowercase exception value if there is no simple mapping */
-                pe=oldPE;
-            } else {
-                /* special case folding mappings, hardcoded */
-                if((options&_FOLD_CASE_OPTIONS_MASK)==U_FOLD_CASE_DEFAULT) {
-                    /* default mappings */
-                    if(c==0x49) {
-                        /* 0049; C; 0069; # LATIN CAPITAL LETTER I */
-                        return 0x69;
-                    } else if(c==0x130) {
-                        /* no simple default mapping for U+0130, use UnicodeData.txt */
-                        return 0x69;
-                    }
-                } else {
-                    /* Turkic mappings */
-                    if(c==0x49) {
-                        /* 0049; T; 0131; # LATIN CAPITAL LETTER I */
-                        return 0x131;
-                    } else if(c==0x130) {
-                        /* 0130; T; 0069; # LATIN CAPITAL LETTER I WITH DOT ABOVE */
-                        return 0x69;
-                    }
-                }
-                /* return c itself because there is no special mapping for it */
-                return c;
-            }
-        }
-        /* not else! - allow to fall through from above */
-        if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_LOWERCASE)) {
-            int i=EXC_LOWERCASE;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            return (UChar32)*pe;
-        }
-    }
-    return c; /* no mapping - return c itself */
-}
-
-/*
- * Issue for canonical caseless match (UAX #21):
- * Turkic casefolding (using "T" mappings in CaseFolding.txt) does not preserve
- * canonical equivalence, unlike default-option casefolding.
- * For example, I-grave and I + grave fold to strings that are not canonically
- * equivalent.
- * For more details, see the comment in unorm_compare() in unorm.cpp
- * and the intermediate prototype changes for Jitterbug 2021.
- * (For example, revision 1.104 of uchar.c and 1.4 of CaseFolding.txt.)
- *
- * This did not get fixed because it appears that it is not possible to fix
- * it for uppercase and lowercase characters (I-grave vs. i-grave)
- * together in a way that they still fold to common result strings.
- */
-
-/* internal, see ustr_imp.h */
-U_CAPI int32_t U_EXPORT2
-u_internalFoldCase(UChar32 c,
-                   UChar *dest, int32_t destCapacity,
-                   uint32_t options) {
-    uint32_t props;
-    UChar32 result;
-    int32_t i, length;
-
-    result=c;
-    GET_PROPS_UNSAFE(c, props);
-    if(!PROPS_VALUE_IS_EXCEPTION(props)) {
-        if(CAT_MASK(props)&(U_GC_LU_MASK|U_GC_LT_MASK)) {
-            /* same as lowercase */
-            result=c+GET_SIGNED_VALUE(props);
-        }
-    } else {
-        const uint32_t *pe=GET_EXCEPTIONS(props);
-        uint32_t firstExceptionValue=*pe;
-        if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_CASE_FOLDING)) {
-            i=EXC_CASE_FOLDING;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            props=*pe;
-            if(props!=0) {
-                /* return the full mapping */
-                const UChar *uchars=ucharsTable+(props&0xffff)+2;
-                int32_t minLength;
-
-                length=props>>24;
-                minLength = (length < destCapacity) ? length : destCapacity;
-
-                /* copy the result string */
-                i=0;
-                while(i<minLength) {
-                    dest[i++]=*(uchars++);
-                }
-                return length;
-            } else {
-                /* special case folding mappings, hardcoded */
-                if((options&_FOLD_CASE_OPTIONS_MASK)==U_FOLD_CASE_DEFAULT) {
-                    /* default mappings */
-                    if(c==0x49) {
-                        /* 0049; C; 0069; # LATIN CAPITAL LETTER I */
-                        result=0x69;
-                    } else if(c==0x130) {
-                        /* 0130; F; 0069 0307; # LATIN CAPITAL LETTER I WITH DOT ABOVE */
-                        if(0<destCapacity) {
-                            dest[0]=0x69;
-                        }
-                        if(1<destCapacity) {
-                            dest[1]=0x307;
-                        }
-                        return 2;
-                    }
-                } else {
-                    /* Turkic mappings */
-                    if(c==0x49) {
-                        /* 0049; T; 0131; # LATIN CAPITAL LETTER I */
-                        result=0x131;
-                    } else if(c==0x130) {
-                        /* 0130; T; 0069; # LATIN CAPITAL LETTER I WITH DOT ABOVE */
-                        result=0x69;
-                    }
-                }
-                /* return c itself because there is no special mapping for it */
-                /* goto single; */
-            }
-        } else if(HAVE_EXCEPTION_VALUE(firstExceptionValue, EXC_LOWERCASE)) {
-            i=EXC_LOWERCASE;
-            ++pe;
-            ADD_EXCEPTION_OFFSET(firstExceptionValue, i, pe);
-            result=(UChar32)*pe;
-        }
-    }
-
-/* single: */
-    length=UTF_CHAR_LENGTH(result);
-    if(length<=destCapacity) {
-        /* write result to dest */
-        i=0;
-        UTF_APPEND_CHAR_UNSAFE(dest, i, result);
-    }
-    return (result==c) ? -length : length;
-}
-
-/* case-fold the source string using the full mappings */
-U_CFUNC int32_t
-u_internalStrFoldCase(UChar *dest, int32_t destCapacity,
-                      const UChar *src, int32_t srcLength,
-                      uint32_t options,
-                      UErrorCode *pErrorCode) {
-    uint32_t props;
-    int32_t srcIndex, destIndex;
-    UChar32 c;
-
-    /* test early, once, if there is a data file */
-    if(!HAVE_DATA) {
-        *pErrorCode=U_FILE_ACCESS_ERROR;
-        return 0;
-    }
-
-    /* case mapping loop */
-    srcIndex=destIndex=0;
-    while(srcIndex<srcLength) {
-        UTF_NEXT_CHAR(src, srcIndex, srcLength, c);
-        GET_PROPS_UNSAFE(c, props);
-        if(!PROPS_VALUE_IS_EXCEPTION(props)) {
-            if(CAT_MASK(props)&(U_GC_LU_MASK|U_GC_LT_MASK)) {
-                c+=GET_SIGNED_VALUE(props);
-            }
-
-            /* handle 1:1 code point mappings from UnicodeData.txt */
-            if(c<=0xffff) {
-                if(destIndex<destCapacity) {
-                    dest[destIndex++]=(UChar)c;
-                } else {
-                    /* buffer overflow */
-                    /* keep incrementing the destIndex for preflighting */
-                    ++destIndex;
-                }
-            } else {
-                if((destIndex+2)<=destCapacity) {
-                    dest[destIndex++]=UTF16_LEAD(c);
-                    dest[destIndex++]=UTF16_TRAIL(c);
-                } else {
-                    /* buffer overflow */
-                    /* write the first surrogate if possible */
-                    if(destIndex<destCapacity) {
-                        dest[destIndex]=UTF16_LEAD(c);
-                    }
-                    /* keep incrementing the destIndex for preflighting */
-                    destIndex+=2;
-                }
-            }
-        } else {
-            /* handle all exceptions in u_internalFoldCase() */
-            int32_t length;
-
-            if(destIndex<destCapacity) {
-                length=u_internalFoldCase(c, dest+destIndex, destCapacity-destIndex, options);
-            } else {
-                length=u_internalFoldCase(c, NULL, 0, options);
-            }
-            if(length<0) {
-                length=-length;
-            }
-            destIndex+=length;
-        }
-    }
-
-    if(destIndex>destCapacity) {
-        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
-    }
-    return destIndex;
+    /* add for UCHAR_JOINING_TYPE */
+    sa->add(sa->set, ZWNJ); /* range ZWNJ..ZWJ */
+    sa->add(sa->set, ZWJ+1);
 }

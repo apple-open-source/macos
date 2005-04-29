@@ -1,19 +1,21 @@
 /* Handle CLASSPATH, -classpath, and path searching.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation, Inc.
+This file is part of GCC.
 
-This program is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -25,19 +27,12 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include <dirent.h>
 
 #include "jcf.h"
-
-/* By default, colon separates directories in a path.  */
-#ifndef PATH_SEPARATOR
-#define PATH_SEPARATOR ':'
-#endif
-
-#ifndef DIR_SEPARATOR
-#define DIR_SEPARATOR '/'
-#endif
 
 #ifndef DIR_UP
 #define DIR_UP ".."
@@ -58,10 +53,10 @@ struct entry
   struct entry *next;
 };
 
-static void free_entry PARAMS ((struct entry **));
-static void append_entry PARAMS ((struct entry **, struct entry *));
-static void add_entry PARAMS ((struct entry **, const char *, int));
-static void add_path PARAMS ((struct entry **, const char *, int));
+static void free_entry (struct entry **);
+static void append_entry (struct entry **, struct entry *);
+static void add_entry (struct entry **, const char *, int);
+static void add_path (struct entry **, const char *, int);
 
 /* We support several different ways to set the class path.
 
@@ -101,8 +96,7 @@ static int longest_path = 0;
 
 
 static void
-free_entry (entp)
-     struct entry **entp;
+free_entry (struct entry **entp)
 {
   struct entry *e, *n;
 
@@ -116,9 +110,7 @@ free_entry (entp)
 }
 
 static void
-append_entry (entp, ent)
-     struct entry **entp;
-     struct entry *ent;
+append_entry (struct entry **entp, struct entry *ent)
 {
   /* It doesn't matter if this is slow, since it is run only at
      startup, and then infrequently.  */
@@ -135,10 +127,7 @@ append_entry (entp, ent)
 }
 
 static void
-add_entry (entp, filename, is_system)
-     struct entry **entp;
-     const char *filename;
-     int is_system;
+add_entry (struct entry **entp, const char *filename, int is_system)
 {
   int len;
   struct entry *n;
@@ -148,22 +137,23 @@ add_entry (entp, filename, is_system)
   n->next = NULL;
 
   len = strlen (filename);
-  if (len > 4 && (strcmp (filename + len - 4, ".zip") == 0
-		  || strcmp (filename + len - 4, ".jar") == 0))
+
+  if (len > 4 && (FILENAME_CMP (filename + len - 4, ".zip") == 0
+		  || FILENAME_CMP (filename + len - 4, ".jar") == 0))
     {
       n->flags |= FLAG_ZIP;
       /* If the user uses -classpath then he'll have to include
 	 libgcj.jar in the value.  We check for this in a simplistic
 	 way.  Symlinks will fool this test.  This is only used for
 	 -MM and -MMD, so it probably isn't terribly important.  */
-      if (! strcmp (filename, LIBGCJ_ZIP_FILE))
+      if (! FILENAME_CMP (filename, LIBGCJ_ZIP_FILE))
 	n->flags |= FLAG_SYSTEM;
     }
 
   /* Note that we add a trailing separator to `.zip' names as well.
      This is a little hack that lets the searching code in jcf-io.c
      work more easily.  Eww.  */
-  if (filename[len - 1] != '/' && filename[len - 1] != DIR_SEPARATOR)
+  if (! IS_DIR_SEPARATOR (filename[len - 1]))
     {
       char *f2 = alloca (len + 2);
       strcpy (f2, filename);
@@ -182,10 +172,7 @@ add_entry (entp, filename, is_system)
 }
 
 static void
-add_path (entp, cp, is_system)
-     struct entry **entp;
-     const char *cp;
-     int is_system;
+add_path (struct entry **entp, const char *cp, int is_system)
 {
   const char *startp, *endp;
 
@@ -224,7 +211,7 @@ static int init_done = 0;
 
 /* Initialize the path module.  */
 void
-jcf_path_init ()
+jcf_path_init (void)
 {
   char *cp;
   char *try, sep[2];
@@ -317,8 +304,7 @@ jcf_path_init ()
    This overrides only the $CLASSPATH environment variable.
  */
 void
-jcf_path_classpath_arg (path)
-     const char *path;
+jcf_path_classpath_arg (const char *path)
 {
   free_entry (&classpath_user);
   add_path (&classpath_user, path, 0);
@@ -327,8 +313,7 @@ jcf_path_classpath_arg (path)
 /* Call this when -bootclasspath is seen on the command line.
  */
 void
-jcf_path_bootclasspath_arg (path)
-     const char *path;
+jcf_path_bootclasspath_arg (const char *path)
 {
   free_entry (&sys_dirs);
   add_path (&sys_dirs, path, 1);
@@ -337,8 +322,7 @@ jcf_path_bootclasspath_arg (path)
 /* Call this when -extdirs is seen on the command line.
  */
 void
-jcf_path_extdirs_arg (cp)
-     const char *cp;
+jcf_path_extdirs_arg (const char *cp)
 {
   const char *startp, *endp;
 
@@ -378,7 +362,7 @@ jcf_path_extdirs_arg (cp)
 			char *name = alloca (dirname_length
 					     + strlen (direntp->d_name) + 2);
 			strcpy (name, buf);
-			if (name[dirname_length-1] != DIR_SEPARATOR)
+			if (! IS_DIR_SEPARATOR (name[dirname_length-1]))
 			  {
 			    name[dirname_length] = DIR_SEPARATOR;
 			    name[dirname_length+1] = 0;
@@ -387,6 +371,8 @@ jcf_path_extdirs_arg (cp)
 			add_entry (&extensions, name, 0);
 		      }
 		  }
+		if (dirp)
+		  closedir (dirp);
 	      }
 
 	      if (! *endp)
@@ -402,8 +388,7 @@ jcf_path_extdirs_arg (cp)
 
 /* Call this when -I is seen on the command line.  */
 void
-jcf_path_include_arg (path)
-     const char *path;
+jcf_path_include_arg (const char *path)
 {
   add_entry (&include_dirs, path, 0);
 }
@@ -412,8 +397,7 @@ jcf_path_include_arg (path)
    we provide a way to iterate through the sealed list.  If PRINT is
    true then we print the final class path to stderr.  */
 void
-jcf_path_seal (print)
-     int print;
+jcf_path_seal (int print)
 {
   struct entry *secondary;
 
@@ -461,14 +445,13 @@ jcf_path_seal (print)
 }
 
 void *
-jcf_path_start ()
+jcf_path_start (void)
 {
   return (void *) sealed;
 }
 
 void *
-jcf_path_next (x)
-     void *x;
+jcf_path_next (void *x)
 {
   struct entry *ent = (struct entry *) x;
   return (void *) ent->next;
@@ -477,31 +460,28 @@ jcf_path_next (x)
 /* We guarantee that the return path will either be a zip file, or it
    will end with a directory separator.  */
 char *
-jcf_path_name (x)
-     void *x;
+jcf_path_name (void *x)
 {
   struct entry *ent = (struct entry *) x;
   return ent->name;
 }
 
 int
-jcf_path_is_zipfile (x)
-     void *x;
+jcf_path_is_zipfile (void *x)
 {
   struct entry *ent = (struct entry *) x;
   return (ent->flags & FLAG_ZIP);
 }
 
 int
-jcf_path_is_system (x)
-     void *x;
+jcf_path_is_system (void *x)
 {
   struct entry *ent = (struct entry *) x;
   return (ent->flags & FLAG_SYSTEM);
 }
 
 int
-jcf_path_max_len ()
+jcf_path_max_len (void)
 {
   return longest_path;
 }

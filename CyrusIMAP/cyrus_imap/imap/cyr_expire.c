@@ -38,7 +38,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: cyr_expire.c,v 1.7 2004/05/22 03:45:48 rjs3 Exp $
+ * $Id: cyr_expire.c,v 1.4 2005/03/05 00:36:48 dasenbro Exp $
  */
 
 #include <config.h>

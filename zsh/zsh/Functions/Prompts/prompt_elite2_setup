@@ -25,13 +25,12 @@ prompt_elite2_setup () {
     : ${(P)varname=$(echo -n "\\0$code")}
   done
 
-  local tty=`tty|cut -d/ -f3`
   local text="%{$fg_no_bold[$text_col]%}"
   local parens="%{$fg_bold[$parens_col]%}"
   local punctuation_color="%{$fg_bold[grey]%}"
   local reset="%{$reset_color%}"
 
-  PS1="$punctuation_colorÚ$textÄ$parens($text%n$punctuation_color@$text%m$parens)$textÄ$parens($text%!$punctuation_color/$text$tty$parens)$textÄ$parens($text%D{%I:%M%P}$punctuation_color:$text%D{%m/%d/%y}$parens)$textÄ$punctuation_color-$reset$prompt_newline$punctuation_colorÀ$textÄ$parens($text%#$punctuation_color:$text%~$parens)$textÄ$punctuation_color-$reset " 
+  PS1="$punctuation_colorÚ$textÄ$parens($text%n$punctuation_color@$text%m$parens)$textÄ$parens($text%!$punctuation_color/$text%y$parens)$textÄ$parens($text%D{%I:%M%P}$punctuation_color:$text%D{%m/%d/%y}$parens)$textÄ$punctuation_color-$reset$prompt_newline$punctuation_colorÀ$textÄ$parens($text%#$punctuation_color:$text%~$parens)$textÄ$punctuation_color-$reset " 
 
   PS2="$parensÄ$textÄ$punctuation_color-$reset "
 

@@ -120,7 +120,7 @@ int size;
 }
 
 int
-acl_check_host(addr)
+yp_acl_check_host(addr)
 struct in_addr *addr;
 {
   struct aclent *p;
@@ -174,7 +174,7 @@ struct in_addr *addr;
 }
 
 int
-acl_init(file)
+yp_acl_init(file)
 char *file;
 {
   char	 data_line[1024];
@@ -476,7 +476,7 @@ char *file;
 }
 
 int
-acl_securenet(file)
+yp_acl_securenet(file)
 char *file;
 {
   char	 data_line[1024];
@@ -629,7 +629,7 @@ char *file;
 }
 
 void
-acl_reset()
+yp_acl_reset()
 {
 	struct aclent *p;
 

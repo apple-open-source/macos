@@ -1,0 +1,11 @@
+--- uuidP.h.orig	2004-04-29 15:33:29.000000000 -0700
++++ uuidP.h	2004-11-03 16:38:52.000000000 -0800
+@@ -41,7 +41,7 @@
+ #include <sys/time.h>
+ #include <time.h>
+ 
+-#include "uuid.h"
++#include <uuid/uuid.h>
+ 
+ /*
+  * Offset between 15-Oct-1582 and 1-Jan-70

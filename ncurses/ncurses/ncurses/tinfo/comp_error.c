@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,1999,2000,2001 Free Software Foundation, Inc.         *
+ * Copyright (c) 1998-2001,2002 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -40,7 +40,7 @@
 
 #include <tic.h>
 
-MODULE_ID("$Id: comp_error.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: comp_error.c,v 1.25 2002/09/07 20:05:07 tom Exp $")
 
 NCURSES_EXPORT_VAR(bool) _nc_suppress_warnings = FALSE;
 NCURSES_EXPORT_VAR(int) _nc_curr_line = 0; /* current line # in input */
@@ -59,10 +59,12 @@ NCURSES_EXPORT(void)
 _nc_set_type(const char *const name)
 {
     if (termtype == 0)
-	termtype = _nc_doalloc(termtype, MAX_NAME_SIZE + 1);
-    termtype[0] = '\0';
-    if (name)
-	strncat(termtype, name, MAX_NAME_SIZE);
+	termtype = typeMalloc(char, MAX_NAME_SIZE + 1);
+    if (termtype != 0) {
+	termtype[0] = '\0';
+	if (name)
+	    strncat(termtype, name, MAX_NAME_SIZE);
+    }
 }
 
 NCURSES_EXPORT(void)

@@ -1,0 +1,275 @@
+# -*-Mode:Tcl-*-
+
+catch {tk_getOpenFile -junk}
+
+namespace eval dataplot_v1 {
+    variable dataplot
+
+    set dataplot(fmtstr) "0:red"
+    set dataplot(max) 0
+    set dataplot(min) 0
+    set dataplot(ybase) [expr $::v(waveh) + $::v(spegh)]
+    set dataplot(height) $::v(spegh)
+    set dataplot(frametime) 0.01
+    set dataplot(offset) 0.0
+    set dataplot(skip) 0
+    set dataplot(lockmax) 0
+    set dataplot(lockmin) 0
+
+    lappend ::v(plugins) ::dataplot_v1
+    snack::menuCommand Tools {Plot Data} ::dataplot_v1::PlotDataWin
+
+    proc Describe {} {
+	return "This plug-in adds the capability to plot numerical ASCII data. It is also possible to modify the plot and save the changes."
+    }
+    
+    proc Unload {} {
+	snack::menuDelete Tools {Plot Data}
+    }
+    
+    proc Redraw y {
+	global c f v
+	variable dataplot
+	
+	set max -1000000
+	set min  1000000
+	if ![info exist dataplot(check)]      { return 0 }
+	if {$dataplot(check) != $f(sndfile)}  { return 0 }
+	$c delete plot
+	
+	foreach def [split $dataplot(fmtstr)] {
+	    scan $def "%d:%s" column color
+	    set plot($column) $color
+	}
+	
+	foreach column [array names plot] {
+	    if {!$dataplot(lockmax)} {
+		for {set i 0} {$i < $dataplot(rows)} {incr i} {
+		    set val $dataplot($i.$column)
+		    if {$val > $max} { set max $val }
+		}
+		set dataplot(max) $max
+	    } else {
+		set max $dataplot(max)
+	    }
+	    if {!$dataplot(lockmin)} {
+		for {set i 0} {$i < $dataplot(rows)} {incr i} {
+		    set val $dataplot($i.$column)
+		    if {$val < $min} { set min $val }
+		}
+		set dataplot(min) $min
+	    } else {
+		set min $dataplot(min)
+	    }
+	    set range [expr $max - $min]
+	    set data [ComputeCoords 0 [expr $dataplot(rows)-1] $column $range $min]
+	    eval $c create line $data -tags {[list col$column $column plot]} -fill $plot($column)
+	    set dataplot(data$column) $data
+	}
+	
+	$c bind plot <B1-Motion>      "::dataplot_v1::EditPlot %W %x %y draw"
+	$c bind plot <ButtonPress-1>  "::dataplot_v1::EditPlot %W %x %y set"
+	
+	set dataplot(min) $min
+	set dataplot(range) $range
+	return 0
+    }
+
+    proc Putmark m {
+    }
+    
+    proc ComputeCoords {start end column range min} {
+	global v
+	variable dataplot
+	
+	set t 0
+	set toff [expr $dataplot(offset) - double($v(startsmp))/$v(rate)] 
+	for {set i $start} {$i <= $end} {incr i} {
+	    set val $dataplot($i.$column)
+	    set yplot [expr $dataplot(ybase) - (($val - $min) * $dataplot(height) / $range)]
+	    set t [expr ($i * $dataplot(frametime) + $toff) * $v(pps)]
+	    lappend data $t $yplot
+	}
+	return $data
+    }
+    
+    proc PlotDataWin {} {
+	global v
+	variable dataplot
+
+	set w .plot
+	catch {destroy $w}
+	toplevel $w
+	wm title $w "Plot data"
+	wm geometry $w [xsGetGeometry]
+	
+	pack [ label $w.lFmt -text "Format example: 1:green 3:red"]
+	pack [ entry $w.eFmt -textvar ::dataplot_v1::dataplot(fmtstr) -wi 34]
+	
+	pack [ frame $w.f1]
+	pack [ label $w.f1.lFrameTime -text "Frame spacing (s):" -wi 26] -side left
+	pack [ entry $w.f1.eFrameTime -textvar ::dataplot_v1::dataplot(frametime) -wi 8] -side left
+	
+	pack [ frame $w.f11]
+	pack [ label $w.f11.lStartOffset -text "Start offset (s):" -wi 20] -side left
+	pack [ entry $w.f11.eStartOffset -textvar ::dataplot_v1::dataplot(offset) -wi 8] -side left
+	
+	pack [ frame $w.f2]
+	pack [ label $w.f2.lmax -text "Plot value at top:" -wi 26] -side left
+	pack [ entry $w.f2.emax -textvar ::dataplot_v1::dataplot(max) -wi 8] -side left
+	pack [ checkbutton $w.f2.rLock -text Lock -var ::dataplot_v1::dataplot(lockmax)]
+
+	pack [ frame $w.f21]
+	pack [ label $w.f21.lmin -text "Plot value at bottom:" -wi 26] -side left
+	pack [ entry $w.f21.emin -textvar ::dataplot_v1::dataplot(min) -wi 8] -side left
+	pack [ checkbutton $w.f21.rLock -text Lock -var ::dataplot_v1::dataplot(lockmin)]
+	
+	pack [ frame $w.f3]
+	pack [ label $w.f3.lYBase -text "Plot baseline at (pixels):" -wi 26] -side left
+	pack [ entry $w.f3.eYBase -textvar ::dataplot_v1::dataplot(ybase) -wi 8]
+	
+	pack [ frame $w.f4]
+	pack [ label $w.f4.lHeight -text "Plot height (pixels):" -wi 26] -side left
+	pack [ entry $w.f4.eHeight -textvar ::dataplot_v1::dataplot(height) -wi 8]
+	
+	pack [ frame $w.f5]
+	pack [ label $w.f5.lSkipHeader -text "Skip header (lines):" -wi 26] -side left
+	pack [ entry $w.f5.eSkipHeader -textvar ::dataplot_v1::dataplot(skip) -wi 8]
+	
+	pack [ frame $w.fb]
+	pack [ button $w.fb.bLoad -text Load -command ::dataplot_v1::PlotGetFile] -side left
+	pack [ button $w.fb.bSave -text Save -command ::dataplot_v1::SaveFile] -side left
+	pack [ button $w.fb.bPlot -text Plot -command ::Redraw] -side left
+	pack [ frame $w.f] -side bottom -fill x
+	label $w.f.lab -text "" -width 1 -relief sunken -bd 1 -anchor w
+	pack $w.f.lab -side left -expand yes -fill x
+	pack [ button $w.f.bExit -text Close -command "destroy $w"] -side left
+	bind $w <Key-Return> ::Redraw  
+    }
+    
+    proc PlotGetFile {} {
+	global f v
+	variable dataplot
+
+	set file [tk_getOpenFile -title "Open data file" -initialfile [file rootname $f(sndfile)]]
+	if {$file == ""} return
+	if {[PlotReadFile $file] == -1} return
+
+	set strip_fn [lindex [file split [file rootname $file]] end]
+	set ext [file extension $f(sndfile)]
+
+	if {[string compare $strip_fn$ext $f(sndfile)] != 0} {
+	    ::OpenFiles $f(spath)$strip_fn$ext
+	}
+
+	set dataplot(frametime) [expr [snd length -units seconds]/$dataplot(rows)]
+	set dataplot(check) $f(sndfile)
+	set v(msg) "Plotting data file: $file"
+	::Redraw
+    }
+    
+    proc PlotReadFile file {
+	global f v
+	variable dataplot
+
+	set dataplot(file) $file
+	if {$file != ""} {
+	    if [catch {open $file} in] {
+		SetMsg $in
+		return -1
+	    } else {
+		set row 0
+		for {set i 0} {$i < $dataplot(skip)} {incr i} {
+		    gets $in line
+		}
+		gets $in line
+		while ![eof $in] {
+		    set column 0
+		    foreach item [split $line] {
+			if {$item == ""} continue
+			if [catch {scan $item "%s" val} res] {
+			    SetMsg "Failed reading data at row: $row, col: $column"
+			    return
+			}
+			set dataplot($row.$column) $val
+			incr column
+		    }
+		    incr row
+		    gets $in line
+		}
+		close $in
+	    }
+	    set dataplot(rows) $row
+	    set dataplot(cols) $column
+	}
+    }
+    
+    proc SaveFile {} {
+	variable dataplot
+	
+	file copy -force $dataplot(file) $dataplot(file)~
+	if [catch {open $dataplot(file) w} out] {
+	    SetMsg $out
+	} else {
+	    for {set i 0} {$i < $dataplot(rows)} {incr i} {
+		set row ""
+		for {set j 0} {$j < $dataplot(cols)} {incr j} {
+		    if $j { append row " " }
+		    append row $dataplot($i.$j)
+		}
+		puts $out $row
+	    }
+	}
+	close $out
+    }
+    
+    
+    proc EditPlot {w x y flag} {
+	global c v
+	variable dataplot
+	
+	set xc [$c canvasx $x]
+	set yc [$c canvasy $y]
+	set tag [lindex [$c gettags current] 0]
+	set col [lindex [$c gettags current] 1]
+	set i [expr int(($v(startsmp)/$v(rate)+$xc*1.0/$v(pps)-$dataplot(offset)) / $dataplot(frametime))]
+	
+	if {$i < 0 || $i >= $dataplot(rows)} return
+	if {$flag == "set"} {
+	    set dataplot(orow) $i
+	    return
+	}
+	if {$yc > $dataplot(ybase)} {
+	    set yc $dataplot(ybase)
+	}
+	if {$yc < $dataplot(ybase) - $dataplot(height)} {
+	    set yc [expr $dataplot(ybase) - $dataplot(height)]
+	}
+	set val [expr -$dataplot(range) * ($yc - $dataplot(ybase)) / $dataplot(height) + $dataplot(min)]
+	set inc 0
+	if {$i > $dataplot(orow)} {
+	    set inc 1 
+	}
+	if {$i < $dataplot(orow)} {
+	    set inc -1
+	}
+	set start [expr $dataplot(orow) + $inc]
+	for {set j $start} {$j != $i} {incr j $inc} {
+	    set dataplot($j.$col) $val
+	}
+	set dataplot($i.$col) $val
+	SetMsg "Row: $i, Value: $val"
+	if {$start <= $i} {
+	    set end $i
+	} else {
+	    set end $start
+	    set start $i
+	}
+	set chgd [ComputeCoords $start $end $col $dataplot(range) $dataplot(min)]
+	set dataplot(data$col) [eval lreplace {$dataplot(data$col)} [expr 2*$start] [expr 2*$end+1] $chgd]
+	
+	eval $c coords $tag $dataplot(data$col)
+	set dataplot(orow) $i
+    }
+
+}

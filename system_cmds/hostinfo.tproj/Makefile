@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = hostinfo.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble hostinfo.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

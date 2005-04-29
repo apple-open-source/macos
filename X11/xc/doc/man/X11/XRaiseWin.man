@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XRaiseWin.man,v 1.2 2001/01/27 18:20:03 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XRaiseWin.man,v 1.3 2003/04/28 22:17:56 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,45 +144,20 @@
 .SH NAME
 XRaiseWindow, XLowerWindow, XCirculateSubwindows, XCirculateSubwindowsUp, XCirculateSubwindowsDown, XRestackWindows \- change window stacking order
 .SH SYNTAX
-XRaiseWindow\^(\^\fIdisplay\fP, \fIw\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.LP
-XLowerWindow\^(\^\fIdisplay\fP, \fIw\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.LP
-XCirculateSubwindows\^(\^\fIdisplay\fP, \fIw\fP\^, \fIdirection\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      int \fIdirection\fP\^;
-.LP
-XCirculateSubwindowsUp\^(\^\fIdisplay\fP, \fIw\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.LP
-XCirculateSubwindowsDown\^(\^\fIdisplay\fP, \fIw\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.LP
-XRestackWindows\^(\^\fIdisplay\fP, \fIwindows\fP\^, \^\fInwindows\fP\^);
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIwindows\fP\^[];
-.br
-      int \fInwindows\fP\^;
+.HP
+int XRaiseWindow\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^); 
+.HP
+int XLowerWindow\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^); 
+.HP
+int XCirculateSubwindows\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, int
+\fIdirection\fP\^); 
+.HP
+int XCirculateSubwindowsUp\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^); 
+.HP
+int XCirculateSubwindowsDown\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^); 
+.HP
+int XRestackWindows\^(\^Display *\fIdisplay\fP\^, Window \fIwindows\fP\^[], int
+\fInwindows\fP\^); 
 .SH ARGUMENTS
 .IP \fIdirection\fP 1i
 Specifies the direction (up or down) that you want to circulate

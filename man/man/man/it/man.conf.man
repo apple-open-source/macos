@@ -1,0 +1,45 @@
+.\" @(#)man.conf
+.\" Traduzione italiana by Michele Dalla Silvestra - dalla@maya.dei.unipd.it
+.\" Luglio 1996
+.\" Correzioni stilistiche di Daniele Giacomini <daniele@evo.it>
+.\" Gennaio 1999
+.\"
+.TH MAN.CONF 5 "30 marzo 1994"
+.SH NOME
+man.conf \- configurazione di man
+.SH DESCRIZIONE
+.LP
+Questo file è letto da
+.BR man (1)
+e contiene (a) informazioni su come costruire il percorso di ricerca per
+man, (b) percorso completo per vari programmi tipo nroff, eqn, tbl ecc.
+usati da man, e (c) una lista con programmi di dearchiviazione per file con una
+data estensione. Una versione alternativa di questo file può essere
+specificata con:
+.LP
+.RS
+man -C private_man.conf ...
+.RE
+.LP
+I nomi dei comandi possono essere forniti con opzioni.
+Opzioni utili a nroff possono essere trovati in grotty(1).
+Per esempio, invece della riga predefinita:
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+si potrebbe scrivere:
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+per eliminare la sottolineatura e la sovrascrittura.
+.SH "VEDERE ANCHE"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) e compress(1), gzip(1).

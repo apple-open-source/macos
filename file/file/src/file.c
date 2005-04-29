@@ -34,8 +34,8 @@
  * file - find type of a file or files - main program.
  */
 
-#include "magic.h"
 #include "file.h"
+#include "magic.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,9 +62,14 @@
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
 #endif
+#ifdef HAVE_WCHAR_H
+#include <wchar.h>
+#endif
 
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>	/* for long options (is this portable?)*/
+#else
+#undef HAVE_GETOPT_LONG
 #endif
 
 #include <netinet/in.h>		/* for byte swapping */
@@ -72,7 +77,7 @@
 #include "patchlevel.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$Id: file.c,v 1.1 2003/07/02 18:01:22 eseidel Exp $")
+FILE_RCSID("@(#)$Id: file.c,v 1.93 2004/04/07 14:23:55 christos Exp $")
 #endif	/* lint */
 
 
@@ -84,10 +89,6 @@ FILE_RCSID("@(#)$Id: file.c,v 1.1 2003/07/02 18:01:22 eseidel Exp $")
 
 # define USAGE  "Usage: %s [-bcik" SYMLINKFLAG "nNsvz] [-f namefile] [-F separator] [-m magicfiles] file...\n       %s -C -m magicfiles\n"
 
-#ifndef MAGIC
-# define MAGIC "/etc/magic"
-#endif
-
 #ifndef MAXPATHLEN
 #define	MAXPATHLEN	512
 #endif
@@ -95,8 +96,7 @@ FILE_RCSID("@(#)$Id: file.c,v 1.1 2003/07/02 18:01:22 eseidel Exp $")
 private int 		/* Global command-line options 		*/
 	bflag = 0,	/* brief output format	 		*/
 	nopad = 0,	/* Don't pad output			*/
-	nobuffer = 0,   /* Do not buffer stdout 		*/
-	kflag = 0;	/* Keep going after the first match	*/
+	nobuffer = 0;   /* Do not buffer stdout 		*/
 
 private const char *magicfile = 0;	/* where the magic is	*/
 private const char *default_magicfile = MAGIC;
@@ -108,7 +108,7 @@ private struct magic_set *magic;
 
 private void unwrap(char *);
 private void usage(void);
-#ifdef HAVE_GETOPT_H
+#ifdef HAVE_GETOPT_LONG
 private void help(void);
 #endif
 #if 0
@@ -130,9 +130,9 @@ main(int argc, char *argv[])
 	int c;
 	int action = 0, didsomefiles = 0, errflg = 0;
 	int flags = 0;
-	char *mime, *home, *usermagic;
+	char *home, *usermagic;
 	struct stat sb;
-#define OPTSTRING	"bcdf:F:ikm:nNsvzCL"
+#define OPTSTRING	"bcCdf:F:ikLm:nNprsvz"
 #ifdef HAVE_GETOPT_LONG
 	int longindex;
 	private struct option long_options[] =
@@ -150,7 +150,11 @@ main(int argc, char *argv[])
 		{"dereference", 0, 0, 'L'},
 #endif
 		{"magic-file", 1, 0, 'm'},
+#if defined(HAVE_UTIME) || defined(HAVE_UTIMES)
+		{"preserve-date", 0, 0, 'p'},
+#endif
 		{"uncompress", 0, 0, 'z'},
+		{"raw", 0, 0, 'r'},
 		{"no-buffer", 0, 0, 'n'},
 		{"no-pad", 0, 0, 'N'},
 		{"special-files", 0, 0, 's'},
@@ -211,7 +215,7 @@ main(int argc, char *argv[])
 			action = FILE_COMPILE;
 			break;
 		case 'd':
-			flags |= MAGIC_DEBUG;
+			flags |= MAGIC_DEBUG|MAGIC_CHECK;
 			break;
 		case 'f':
 			if(action)
@@ -225,14 +229,9 @@ main(int argc, char *argv[])
 			break;
 		case 'i':
 			flags |= MAGIC_MIME;
-			if ((mime = malloc(strlen(magicfile) + 6)) != NULL) {
-				(void)strcpy(mime, magicfile);
-				(void)strcat(mime, ".mime");
-				magicfile = mime;
-			}
 			break;
 		case 'k':
-			kflag = 1;
+			flags |= MAGIC_CONTINUE;
 			break;
 		case 'm':
 			magicfile = optarg;
@@ -242,6 +241,14 @@ main(int argc, char *argv[])
 			break;
 		case 'N':
 			++nopad;
+			break;
+#if defined(HAVE_UTIME) || defined(HAVE_UTIMES)
+		case 'p':
+			flags |= MAGIC_PRESERVE_ATIME;
+			break;
+#endif
+		case 'r':
+			flags |= MAGIC_RAW;
 			break;
 		case 's':
 			flags |= MAGIC_DEVICES;
@@ -273,14 +280,20 @@ main(int argc, char *argv[])
 	switch(action) {
 	case FILE_CHECK:
 	case FILE_COMPILE:
-		magic = magic_open(flags);
+		magic = magic_open(flags|MAGIC_CHECK);
 		if (magic == NULL) {
 			(void)fprintf(stderr, "%s: %s\n", progname,
 			    strerror(errno));
 			return 1;
 		}
-		return action == FILE_CHECK ? magic_check(magic, magicfile) :
+		c = action == FILE_CHECK ? magic_check(magic, magicfile) :
 		    magic_compile(magic, magicfile);
+		if (c == -1) {
+			(void)fprintf(stderr, "%s: %s\n", progname,
+			    magic_error(magic));
+			return -1;
+		}
+		return 0;
 	default:
 		load(magicfile, flags);
 		break;
@@ -294,7 +307,7 @@ main(int argc, char *argv[])
 	else {
 		int i, wid, nw;
 		for (wid = 0, i = optind; i < argc; i++) {
-			nw = strlen(argv[i]);
+			nw = file_mbswidth(argv[i]);
 			if (nw > wid)
 				wid = nw;
 		}
@@ -344,7 +357,7 @@ unwrap(char *fn)
 		}
 
 		while (fgets(buf, MAXPATHLEN, f) != NULL) {
-			cwid = strlen(buf) - 1;
+			cwid = file_mbswidth(buf) - 1;
 			if (cwid > wid)
 				wid = cwid;
 		}
@@ -353,7 +366,7 @@ unwrap(char *fn)
 	}
 
 	while (fgets(buf, MAXPATHLEN, f) != NULL) {
-		buf[strlen(buf)-1] = '\0';
+		buf[file_mbswidth(buf)-1] = '\0';
 		process(buf, wid);
 		if(nobuffer)
 			(void) fflush(stdout);
@@ -370,7 +383,7 @@ process(const char *inname, int wid)
 
 	if (wid > 0 && !bflag)
 		(void) printf("%s%s%*s ", std_in ? "/dev/stdin" : inname,
-		    separator, (int) (nopad ? 0 : (wid - strlen(inname))), "");
+		    separator, (int) (nopad ? 0 : (wid - file_mbswidth(inname))), "");
 
 	type = magic_file(magic, std_in ? NULL : inname);
 	if (type == NULL)
@@ -437,17 +450,51 @@ byteconv2(int from, int same, int big_endian)
 }
 #endif
 
+size_t
+file_mbswidth(const char *s)
+{
+#if defined(HAVE_WCHAR_H) && defined(HAVE_MBRTOWC) && defined(HAVE_WCWIDTH)
+	size_t bytesconsumed, old_n, n, width = 0;
+	mbstate_t state;
+	wchar_t nextchar;
+	(void)memset(&state, 0, sizeof(mbstate_t));
+	old_n = n = strlen(s);
+
+	while (n > 0) {
+		bytesconsumed = mbrtowc(&nextchar, s, n, &state);
+		if (bytesconsumed == (size_t)(-1) ||
+		    bytesconsumed == (size_t)(-2)) {
+			/* Something went wrong, return something reasonable */
+			return old_n;
+		}
+		if (s[0] == '\n') {
+			/*
+			 * do what strlen() would do, so that caller
+			 * is always right
+			 */
+			width++;
+		} else
+			width += wcwidth(nextchar);
+
+		s += bytesconsumed, n -= bytesconsumed;
+	}
+	return width;
+#else
+	return strlen(s);
+#endif
+}
+
 private void
 usage(void)
 {
 	(void)fprintf(stderr, USAGE, progname, progname);
-#ifdef HAVE_GETOPT_H
+#ifdef HAVE_GETOPT_LONG
 	(void)fputs("Try `file --help' for more information.\n", stderr);
 #endif
 	exit(1);
 }
 
-#ifdef HAVE_GETOPT_H
+#ifdef HAVE_GETOPT_LONG
 private void
 help(void)
 {
@@ -469,6 +516,8 @@ help(void)
 "  -L, --dereference          causes symlinks to be followed\n"
 "  -n, --no-buffer            do not buffer output\n"
 "  -N, --no-pad               do not pad output\n"
+"  -p, --preserve-date        preserve access times on files\n"
+"  -r, --raw                  don't translate unprintable chars to \\ooo\n"
 "  -s, --special-files        treat special (block/char devices) files as\n"
 "                             ordinary ones\n"
 "      --help                 display this help and exit\n"

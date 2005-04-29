@@ -21,7 +21,7 @@ then
 	cp "$UNDUMPED" "$DUMPDIR/src/temacs"
 else
 	# Fat binary, needs lipo
-	lipo -thin `arch` "$UNDUMPED" -output "$DUMPDIR/src/temacs"
+        lipo -extract_family `arch` "$UNDUMPED" -output "$DUMPDIR/src/temacs"
 fi
 
 cd "$DUMPDIR/src"

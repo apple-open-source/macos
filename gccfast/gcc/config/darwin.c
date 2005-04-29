@@ -96,6 +96,12 @@ make_decl_coalesced (decl, private_extern_p)
 }
 /* APPLE LOCAL end coalescing  */
 
+/* APPLE LOCAL begin backport 3721776 fix from FSF mainline. */
+/* Nonzero if the user passes the -mone-byte-bool switch, which forces
+   sizeof(bool) to be 1. */
+const char *darwin_one_byte_bool = 0;
+/* APPLE LOCAL end backport 3721776 fix from FSF mainline. */
+
 int
 name_needs_quotes (name)
      const char *name;
@@ -1685,6 +1691,20 @@ darwin_handle_odd_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 /* APPLE LOCAL end  double destructor turly 20020214  */
+
+/* APPLE LOCAL begin XJR */
+tree
+darwin_handle_objc_gc_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+
+  return NULL_TREE;
+}
+/* APPLE LOCAL end XJR */
 
 /* APPLE LOCAL begin darwin_set_section_for_var_p  turly 20020226  */
 

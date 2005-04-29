@@ -1,5 +1,5 @@
 /* seen_bigdb.c -- implementation of seen database using one big cyrusdb
- * $Id: seen_bigdb.c,v 1.10 2003/12/15 16:04:33 ken3 Exp $
+ * $Id: seen_bigdb.c,v 1.5 2005/03/05 00:37:04 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

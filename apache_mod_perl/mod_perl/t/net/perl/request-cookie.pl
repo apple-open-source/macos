@@ -1,6 +1,7 @@
+#!perl
 use strict;
 
-use Apache::test;
+use Apache::testold;
 
 eval {
   require Apache::Request;

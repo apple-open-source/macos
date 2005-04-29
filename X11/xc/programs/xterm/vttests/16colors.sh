@@ -1,5 +1,5 @@
 #!/bin/sh
-# $XFree86: xc/programs/xterm/vttests/16colors.sh,v 1.4 2002/09/30 00:39:08 dickey Exp $
+# $XFree86: xc/programs/xterm/vttests/16colors.sh,v 1.5 2003/05/19 00:52:30 dickey Exp $
 #
 # -- Thomas Dickey (1999/3/27)
 # Show a simple 16-color test pattern.  It is a little more confusing than
@@ -28,7 +28,13 @@ for verb in printf print ; do
 done
 rm -f $TMP
 
-trap '$CMD "[0m"; exit' 0 1 2 5 15
+if ( trap "echo exit" EXIT 2>/dev/null ) >/dev/null
+then
+    trap '$CMD "[0m"; exit' EXIT HUP INT TRAP TERM
+else
+    trap '$CMD "[0m"; exit' 0    1   2   5    15
+fi
+
 echo "[0m"
 while true
 do
@@ -59,8 +65,8 @@ do
 		else
 		    color="+$fcolor"
 		fi
-		$CMD $OPT "[0;${AT}m$attr"
-		$CMD $OPT "[${HI}${FG}m$color"
+		$CMD $OPT "[0;${AT}m$attr$SUF"
+		$CMD $OPT "[${HI}${FG}m$color$SUF"
 		for BG in 1 2 3 4 5 6 7
 		do
 		    case $BG in
@@ -73,8 +79,8 @@ do
 		    6) bcolor="CYN ";;
 		    7) bcolor="WHT ";;
 		    esac
-		    $CMD $OPT "[4${BG}m$bcolor"
-		    $CMD $OPT "[10${BG}m+$bcolor"
+		    $CMD $OPT "[4${BG}m$bcolor$SUF"
+		    $CMD $OPT "[10${BG}m+$bcolor$SUF"
 		done
 		echo "[0m"
 	    done

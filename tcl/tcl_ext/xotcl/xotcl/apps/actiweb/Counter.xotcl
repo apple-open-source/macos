@@ -1,0 +1,41 @@
+#!../../src/xotclsh
+# $Id: s.Counter.xotcl 1.8 01/03/23 22:00:32+01:00 neumann@somewhere.wu-wien.ac.at $
+array set opts {-pkgdir .}; array set opts $argv
+lappend auto_path $opts(-pkgdir)
+
+package require XOTcl; namespace import -force xotcl::*
+package require xotcl::actiweb::htmlPlace
+package require xotcl::actiweb::webDocument
+
+### Instantiate an Html place with the name receive and port 8090
+HtmlPlace ::receiver -port 8090 -allowExit exit
+
+### Define a class Counter as a special Html Document
+Class Counter -superclass HtmlDocument -parameter {{count 0}}
+
+Counter instproc init args {       ;### Constructor
+  next
+  my persistent count              ;### make count variable persistent
+  ::receiver exportObjs [self]     ;### export the counter object
+  my exportProcs increment         ;### export counter's  increment method
+}
+Counter instproc default {} {     ;### Method for updating HTML page
+  set objName [string trimleft [self] :]
+  return "<HTML>The value in $objName is now: [my set count].<p>
+	<A HREF='$objName+increment'>Increment Counter</a><p>
+	<HR>Last Update: [clock format [clock seconds]]
+	</HTML>\n"
+}
+Counter instproc increment {} {    ;### exported increment method
+  my incr count
+  return [my default]
+}
+
+### Create two counter instances with the names
+### counter-1.html and counter-2.html 
+Counter counter-1.html
+Counter counter-2.html
+
+### Start event loop and handle connections
+receiver startEventLoop 
+

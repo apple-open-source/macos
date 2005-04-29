@@ -1,4 +1,5 @@
 dnl Id: configure.in,v 1.1 1998/01/14 21:45:26 mleisher Exp $
+dnl $XFree86: xc/extras/FreeType/contrib/ttf2bdf/configure.in,v 1.3 2003/10/21 18:10:06 tsi Exp $
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(../../lib/freetype.h)

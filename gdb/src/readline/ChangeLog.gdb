@@ -1,7 +1,103 @@
+2004-02-19  Andrew Cagney  <cagney@redhat.com>
+
+	* config.guess: Update from version 2003-06-12 to 2004-02-16.
+	* config.sub: Update from version 2003-06-13 to 2004-02-16.
+
+2004-01-27  Elena Zannoni  <ezannoni@redhat.com>
+
+        Merge in official patches to readline-4.3 from
+	ftp://ftp.cwru.edu/pub/bash/readline-4.3-patches:
+	NOTE: Patch-ID readline-43-004 was already applied (see below).
+
+	* bind.c (rl_generic_bind): Pressing certain key sequences
+	causes an infinite loop in _rl_dispatch_subseq with the `key' argument
+	set to 256.  This eventually causes bash to exceed the stack size
+	limit and crash with a segmentation violation.
+	Patch-ID: readline43-001.
+
+	* readline.c (_rl_dispatch_subseq): Repeating an edit in
+	vi-mode with `.' does not work.
+	Patch-ID: readline43-002.
+
+	* mbutil.c (_rl_get_char_len, _rl_compare_chars,
+	_rl_adjust_point): When in a locale with multibyte characters, the
+	readline display updater will occasionally cause a
+	segmentation fault when attempting to compute the length of the first
+	multibyte character on the line.  
+	Patch-ID: readline43-003.
+
+	* vi_mode.c (_rl_vi_change_mbchar_case): Using the vi editing
+	mode's case-changing commands in a locale with multibyte characters
+	will cause garbage characters to be inserted into the editing buffer.
+	Patch-ID: readline43-005.
+
+2003-12-28  Eli Zaretskii  <eliz@elta.co.il>
+
+	* readline.c (rl_save_state, rl_restore_state): Support systems
+	that don't define SIGWINCH.
+
+2003-12-25  Eli Zaretskii  <eliz@elta.co.il>
+
+	* terminal.c (_rl_get_screen_size) [__DJGPP__]: Compute the
+	screen width and height using console I/O.
+	(_rl_init_terminal_io) [__MSDOS__]: Zero out all the _rl_term_*
+	variables.  Convert to _rl_* naming scheme.
+	(_rl_set_cursor) [__MSDOS__]: Ifdef away this function.
+
+2003-12-23  Eli Zaretskii  <eliz@elta.co.il>
+
+	* display.c (_rl_move_vert) [__MSDOS__]: Don't use undeclared
+	variable `l'.  Use `delta' instead recomputing its value anew.
+	Assign -delta to i instead of the other way around.
+
+2003-12-11  Michael Chastain  <mec.gnu@mindspring.com>
+
+	* rlmbutil.h: Require HAVE_MBSTATE_T for HANDLE_MULTIBYTE.
+	Revert requirement of HAVE_MBRTOWC.  Delete macro definitions
+	that attempted to fake mbstate_t if HAVE_MBSRTOCWS is defined
+	and HAVE_MBSTATE_T is not defined.
+
+2003-06-14  H.J. Lu <hongjiu.lu@intel.com>
+ 
+	* support/config.guess: Update to 2003-06-12 version.
+	* support/config.sub: Update to 2003-06-13 version.
+
+2003-05-25  Mark Kettenis  <kettenis@gnu.org>
+
+	* aclocal.m4: Don't add wcwidth.o if we don't have wchar.h.
+	* configure: Regenerate.
+
+2003-05-13  Andreas Jaeger  <aj@suse.de>
+
+        * support/config.guess: Update to 2003-05-09 version.
+        * support/config.sub: Update to 2003-05-09 version.
+
+2003-03-03  Joel Brobecker  <brobecker@gnat.com>
+
+	* aclocal.m4: Add check for mbrtowc.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* rlmbutil.h: Disable multi-byte if mbrtowc is not defined.
+
+2003-03-03  Kris Warkentin  <kewarken@qnx.com>
+
+	* aclocal.m4: Cause wcwidth check to substitute
+	HAVE_WCWIDTH for building.
+	* Makefile.in: Add wcwidth object to lib if required.
+	* shlib/Makefile.in: Likewise.
+	* configure: Regenerate.
+	
 2003-01-09  Michael Chastain  <mec@shout.net>
 
 	From Chet Ramey, <chet@po.cwru.edu>, the readline maintainer:
+	ftp://ftp.cwru.edu/pub/bash/readline-4.3-patches/readline43-004
+
 	* display.c: Fix perverse screen refresh with UTF-8.
+	When running in a locale with multibyte characters, the
+	readline display updater will use carriage returns when
+	drawing the line, overwriting any partial output already on
+	the screen and not terminated by a newline.
+	Patch-ID: readline43-004
 
 2003-01-08  Chris Demetriou  <cgd@broadcom.com>
 
@@ -20,7 +116,8 @@
 
 2002-12-06  Elena Zannoni  <ezannoni@redhat.com>
 
-        Import of readline 4.3:
+        Import of readline 4.3. NB: This import includes those gdb
+        local changes that aren't in the official readline sources.
 
         * compat.c, mbutil.c, misc.c, rlmbutil.h, rltypedefs.h,
         text.c, doc/history.0, doc/history.3, support/wcwidth.c,

@@ -1,4 +1,4 @@
-.\" Copyright (c) 2002 Tim J. Robbins
+.\" Copyright (c) 2002-2004 Tim J. Robbins
 .\" All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -22,12 +22,13 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc/locale/mbsrtowcs.3,v 1.3 2002/11/29 17:35:09 ru Exp $
-.Dd August 16, 2002
+.\" $FreeBSD: src/lib/libc/locale/mbsrtowcs.3,v 1.5 2004/07/21 10:54:57 tjr Exp $
+.Dd July 21, 2004
 .Dt MBSRTOWCS 3
 .Os
 .Sh NAME
-.Nm mbsrtowcs
+.Nm mbsrtowcs ,
+.Nm mbsnrtowcs
 .Nd "convert a character string to a wide-character string (restartable)"
 .Sh LIBRARY
 .Lb libc
@@ -37,6 +38,11 @@
 .Fo mbsrtowcs
 .Fa "wchar_t * restrict dst" "const char ** restrict src" "size_t len"
 .Fa "mbstate_t * restrict ps"
+.Fc
+.Ft size_t
+.Fo mbsnrtowcs
+.Fa "wchar_t * restrict dst" "const char ** restrict src" "size_t nms"
+.Fa "size_t len" "mbstate_t * restrict ps"
 .Fc
 .Sh DESCRIPTION
 The
@@ -80,11 +86,23 @@ If it is
 .Fn mbsrtowcs
 uses an internal, static
 .Vt mbstate_t
-object.
+object, which is initialized to the initial conversion state
+at program startup.
+.Pp
+The
+.Fn mbsnrtowcs
+function behaves identically to
+.Fn mbsrtowcs ,
+except that conversion stops after reading at most
+.Fa nms
+bytes from the buffer pointed to by 
+.Fa src .
 .Sh RETURN VALUES
 The
 .Fn mbsrtowcs
-function returns the number of wide characters stored in
+and
+.Fn mbsnrtowcs
+functions return the number of wide characters stored in
 the array pointed to by
 .Fa dst
 if successful, otherwise it returns
@@ -92,19 +110,26 @@ if successful, otherwise it returns
 .Sh ERRORS
 The
 .Fn mbsrtowcs
-function will fail if:
+and
+.Fn mbsnrtowcs
+functions will fail if:
 .Bl -tag -width Er
 .It Bq Er EILSEQ
 An invalid multibyte character sequence was encountered.
+.It Bq Er EINVAL
+The conversion state is invalid.
 .El
 .Sh SEE ALSO
 .Xr mbrtowc 3 ,
 .Xr mbstowcs 3 ,
+.Xr multibyte 3 ,
 .Xr wcsrtombs 3
 .Sh STANDARDS
 The
 .Fn mbsrtowcs
 function conforms to
 .St -isoC-99 .
-.Sh BUGS
-The current implementation does not support shift states.
+.Pp
+The
+.Fn mbsnrtowcs
+function is an extension to the standard.

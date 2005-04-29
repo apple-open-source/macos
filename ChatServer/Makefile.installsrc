@@ -1,0 +1,53 @@
+##
+# Apple wrapper Makefile for jabberd
+##
+
+PROJECT_NAME=jabberd
+PROJECT_VERSION=1.4.3
+PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
+
+#
+# Set up our variables
+#
+
+
+##
+# My GNU Make variables
+##
+
+ifndef Project
+Project = UNTITLED_PROJECT
+endif
+
+ifndef ProjectName
+ProjectName = $(Project)
+endif
+
+ifneq ($(RC_VERSION),unknown)
+Version = RC_VERSION
+else
+Version := $(shell $(VERS_STRING) -f $(Project) 2>/dev/null | cut -d - -f 2)
+ifeq ($(Version),)
+Version = 0
+endif
+endif
+
+
+
+#
+# Build rules
+#
+installsrc::  do_installsrc
+
+do_installsrc: 
+	env
+	echo "do_installsrc"
+	if test -n "$(SRCROOT)" ; then \
+		echo "found SRCROOT=$(SRCROOT)" ;\
+		rm -rf $(SRCROOT) ; \
+		mkdir -p $(SRCROOT) ; \
+		cp -R . $(SRCROOT) ; \
+	else \
+		echo "ERROR SRCROOT not found SRCROOT=$(SRCROOT)" ;\
+	fi
+	

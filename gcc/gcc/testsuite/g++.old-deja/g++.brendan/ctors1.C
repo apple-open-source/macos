@@ -1,3 +1,4 @@
+// { dg-do run  }
 // GROUPS passed constructors
 // Check that global level object constructors get called.
 
@@ -24,4 +25,4 @@ base::base(int arg1, int arg2)
 {
 	f1 = arg1;
 	f2 = arg2;
-};
+}

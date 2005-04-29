@@ -1,0 +1,672 @@
+#By George Peter Staplin
+
+namespace eval cscrollbar {
+	variable buttonPressed 0
+	variable lastX 0
+	variable lastY 0
+		
+variable up_xbm {
+#define up_width 18
+#define up_height 12
+static unsigned char up_bits[] = {
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x80, 0x07, 0x00,
+   0xc0, 0x0f, 0x00, 0xe0, 0x1f, 0x00, 0xf0, 0x3f, 0x00, 0xf8, 0x7f, 0x00,
+   0xfc, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+}
+
+variable down_xbm {
+#define down_width 18
+#define down_height 12
+static char down_bits[] = {
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc, 0xff, 0x00,
+   0xf8, 0x7f, 0x00, 0xf0, 0x3f, 0x00, 0xe0, 0x1f, 0x00, 0xc0, 0x0f, 0x00,
+   0x80, 0x07, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+}
+
+variable left_xbm {
+#define left_width 12
+#define left_height 18
+static char left_bits[] = {
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x80, 0x01, 0xc0, 0x01, 0xe0, 0x01,
+   0xf0, 0x01, 0xf8, 0x01, 0xfc, 0x01, 0xfc, 0x01, 0xf8, 0x01, 0xf0, 0x01,
+   0xe0, 0x01, 0xc0, 0x01, 0x80, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00 };
+}
+
+variable right_xbm {
+#define right_width 12
+#define right_height 18
+static char right_bits[] = {
+   0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x18, 0x00, 0x38, 0x00, 0x78, 0x00,
+   0xf8, 0x00, 0xf8, 0x01, 0xf8, 0x03, 0xf8, 0x03, 0xf8, 0x01, 0xf8, 0x00,
+   0x78, 0x00, 0x38, 0x00, 0x18, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00 };
+}
+}
+
+#This creates the scrollbar and an instance command for it.
+#cmdArgs represents the initial arguments.  cmdArgs becomes smaller
+#gradually as options/flags are processed, and if it contains
+#anything else afterward an error is reported.
+
+proc cscrollbar {win args} {
+	
+	if {[expr {[llength $args] & 1}] != 0} {
+		return -code error "Invalid number of arguments given to cscrollbar\
+(uneven number):	$args"				
+	}
+	
+	frame $win -class Cscrollbar
+	upvar #0 _cscrollbar$win ar 
+	button .__temp
+	set cmdArgs(-orient) vertical
+
+	set cmdArgs(-bg) [option get $win background Color1]
+	if {$cmdArgs(-bg) == ""} {
+		set cmdArgs(-bg) [.__temp cget -bg]
+	}
+
+	set cmdArgs(-fg) [option get $win foreground Color1]
+	if {$cmdArgs(-fg) == ""} {
+		set cmdArgs(-fg) [.__temp cget -fg]
+	}
+
+	set cmdArgs(-slidercolor) [option get $win sliderColor Color1]
+	if {$cmdArgs(-slidercolor) == ""} { 
+		set cmdArgs(-slidercolor) blue
+	}
+
+	set cmdArgs(-gradient1) [option get $win gradient1 Color1]
+	if {$cmdArgs(-gradient1) == ""} {
+		set cmdArgs(-gradient1) royalblue3
+	}
+
+	set cmdArgs(-gradient2) [option get $win gradient2 Color1]
+	if {$cmdArgs(-gradient2) == ""} {
+		set cmdArgs(-gradient2) gray90
+	}
+
+
+	set ar(sliderPressed) 0
+	destroy .__temp
+	
+	array set cmdArgs $args
+	array set ar [array get cmdArgs]
+	
+	unset cmdArgs(-slidercolor)
+	unset cmdArgs(-gradient1)
+	unset cmdArgs(-gradient2)
+					
+	#synonym flags
+	foreach long {background foreground} short {bg fg} {
+		if {[info exists cmdArgs(-$long)] == 1} {
+			set cmdArgs(-$short) $cmdArgs(-$long)	
+			unset cmdArgs(-long)
+		}
+	}
+
+	if {$cmdArgs(-orient) == "vertical"} {
+		cscrollbar::createVertical $win $cmdArgs(-bg) $cmdArgs(-fg)
+	} elseif {$cmdArgs(-orient) == "horizontal"} {
+		cscrollbar::createHorizontal $win $cmdArgs(-bg) $cmdArgs(-fg) 
+	} else {
+		return -code error {Invalid -orient option -- use vertical or horizontal}
+	}
+	
+	unset cmdArgs(-orient)
+	unset cmdArgs(-fg)
+	unset cmdArgs(-bg)
+
+	if {[info exists cmdArgs(-command)] == 1} {
+		bind $win.1 <ButtonPress-1> "set cscrollbar::buttonPressed 1; cscrollbar::moveUnit {$cmdArgs(-command)} -1 %W"
+		bind $win.1 <ButtonRelease-1> "set cscrollbar::buttonPressed 0; cscrollbar::moveUnit {$cmdArgs(-command)} -1 %W"
+		bind $win.c <ButtonRelease-1> "cscrollbar::sliderNotPressed $win" 
+		bind $win.2 <ButtonPress-1> "set cscrollbar::buttonPressed 1; cscrollbar::moveUnit {$cmdArgs(-command)} 1 %W"
+		bind $win.2 <ButtonRelease-1> "set cscrollbar::buttonPressed 0; cscrollbar::moveUnit {$cmdArgs(-command)} 1 %W"
+
+		bind $win.3 <ButtonPress-1> "set cscrollbar::buttonPressed 1; cscrollbar::moveUnit {$cmdArgs(-command)} -1 %W"
+		bind $win.3 <ButtonRelease-1> "set cscrollbar::buttonPressed 0; cscrollbar::moveUnit {$cmdArgs(-command)} -1 %W"
+		bind $win.4 <ButtonPress-1> "set cscrollbar::buttonPressed 1; cscrollbar::moveUnit {$cmdArgs(-command)} 1 %W"
+		bind $win.4 <ButtonRelease-1> "set cscrollbar::buttonPressed 0; cscrollbar::moveUnit {$cmdArgs(-command)} 1 %W"
+
+
+		bind $win <Configure> "after idle [list cscrollbar::updateView $win]"
+		unset cmdArgs(-command)
+	}
+	
+	
+	if {[llength [array names cmdArgs]] != 0} {
+		return -code error "Invalid argument sent to cscrollbar: [array get cmdArgs]"
+	}
+	
+	rename $win _cscrollbarJunk$win
+
+	bind $win <Destroy> "rename $win {};"
+	
+	proc $win {cmd args} "eval cscrollbar::instanceCmd $win \$cmd \$args"
+	return $win
+}
+
+proc cscrollbar::updateView {win} {
+	upvar #0 _cscrollbar$win ar
+	if {[catch $ar(-command) res] && $res != ""} {
+		$win set 0 1
+	}
+}
+
+proc cscrollbar::instanceCmd {self cmd args} {
+	upvar #0 _cscrollbar$self ar
+
+	switch -glob -- $cmd {
+		cget {
+			if {[info exists ar($args)] == 1} {
+				return $ar($args)
+			} else {
+				return -code error "unknown argument(s) to cget: $args"
+			}
+		}
+	
+		conf* {
+			if {[llength $args] == 0} {
+				foreach name [array names ar -*] {
+					append res "{$name $ar($name)} "		
+				}
+				
+				return $res					
+			}
+
+			array set cmdArgs $args
+			
+			foreach long {background foreground} short {bg fg} {
+				if {[info exists cmdArgs(-$long)] == 1} {
+					set cmdArgs(-$short) $cmdArgs(-$long)
+					unset cmdArgs(-$long)
+				}
+			}
+
+			if {[info exists cmdArgs(-gradient1)] == 1} {
+				set ar(-gradient1) $cmdArgs(-gradient1)
+				event generate $self <Configure>
+			}
+			
+			if {[info exists cmdArgs(-gradient2)] == 2} {
+				set ar(-gradient2) $cmdArgs(-gradient2)
+				event generate $self <Configure>
+			}
+
+			if {[info exists cmdArgs(-bg)] == 1} {
+				set ar(-bg) $cmdArgs(-bg)
+				$self.1 config -bg $ar(-bg)
+				$self.c config -bg $ar(-bg)
+				$self.2 config -bg $ar(-bg)
+				
+				if {$ar(-orient) == "vertical"} {
+					$ar(upImage) config -background $ar(-bg)
+					$ar(upDisabledImage) config -background $ar(-bg)
+					$ar(downImage) config -background $ar(-bg)
+					$ar(downDisabledImage) config -background $ar(-bg)
+				}
+			
+				if {$ar(-orient) == "horizontal"} {
+					$ar(leftImage) config -background $ar(-bg)
+					$ar(leftDisabledImage) config -background $ar(-bg)
+					$ar(rightImage) config -background $ar(-bg)
+					$ar(rightDisabledImage) config -background $ar(-bg)
+				}
+				unset cmdArgs(-bg)
+			}
+
+			if {[info exists cmdArgs(-fg)] == 1} {
+				set ar(-fg) $cmdArgs(-fg)
+				$self.1 config -fg $ar(-fg)
+				$self.2 config -fg $ar(-fg)
+				$self.3 config -fg $ar(-fg)
+				$self.4 config -fg $ar(-fg)
+
+				if {$ar(-orient) == "vertical"} {
+					$ar(upImage) config -foreground $ar(-fg)
+					$ar(downImage) config -foreground $ar(-fg)
+				}
+			
+				if {$ar(-orient) == "horizontal"} {
+					$ar(leftImage) config -foreground $ar(-fg)
+					$ar(rightImage) config -foreground $ar(-fg)
+				}
+				unset cmdArgs(-fg)
+			}
+
+			if {[info exists cmdArgs(-slidercolor)] == 1} {
+				set ar(-slidercolor) $cmdArgs(-slidercolor)
+				$self.c itemconfigure slider -fill $ar(-slidercolor)
+				unset cmdArgs(-slidercolor)
+			}
+
+			if {[info exists cmdArgs(-command)] == 1} {
+				set ar(-command) $cmdArgs(-command)
+				bind $self.1 <ButtonPress-1> "set cscrollbar::buttonPressed 1; cscrollbar::moveUnit {$ar(-command)} -1 %W"
+				bind $self.1 <ButtonRelease-1> "set cscrollbar::buttonPressed 0; cscrollbar::moveUnit {$ar(-command)} -1 %W"
+				bind $self.c <ButtonRelease-1> "cscrollbar::sliderNotPressed $self"
+				bind $self.2 <ButtonPress-1> "set cscrollbar::buttonPressed 1; cscrollbar::moveUnit {$ar(-command)} 1 %W"
+				bind $self.2 <ButtonRelease-1> "set cscrollbar::buttonPressed 0; cscrollbar::moveUnit {$ar(-command)} 1 %W"
+				
+				bind $self.3 <ButtonPress-1> "set cscrollbar::buttonPressed 1; cscrollbar::moveUnit {$ar(-command)} -1 %W"
+				bind $self.3 <ButtonRelease-1> "set cscrollbar::buttonPressed 0; cscrollbar::moveUnit {$ar(-command)} -1 %W"
+				bind $self.4 <ButtonPress-1> "set cscrollbar::buttonPressed 1; cscrollbar::moveUnit {$ar(-command)} 1 %W"
+				bind $self.4 <ButtonRelease-1> "set cscrollbar::buttonPressed 0; cscrollbar::moveUnit {$ar(-command)} 1 %W"
+				
+				bind $self <Configure> "
+					if {\[catch {$ar(-command)} res\] == 0 && \$res != \"\"} {
+						$self set \$res
+					}
+				"
+				unset cmdArgs(-command)
+			}
+			
+			set res [llength [array names cmdArgs]]
+			if {$res != 0} {
+				return -code error "The following options were not recognized\
+by cscrollbar: [array get cmdArgs]"
+			}
+		}
+
+		set {
+			set start [lindex $args 0]
+			set end [lindex $args 1]
+		
+			#somehow this becomes a list when I don't want it to be.
+			if {$end == ""} {
+				set end [lindex $start 1]
+				set start [lindex $start 0]
+			}
+			
+			if {$end <= 0} {
+				set end 1
+			}
+
+			update idletasks
+			
+			if {$ar(-orient) == "vertical"} {		
+				if {$start == 0} {
+					$self.1 config -image $ar(upDisabledImage)
+					$self.3 config -image $ar(upDisabledImage)
+				} else {
+					$self.1 config -image $ar(upImage)
+					$self.3 config -image $ar(upImage)
+				}
+
+				if {$end == 1} {
+					$self.2 config -image $ar(downDisabledImage)
+					$self.4 config -image $ar(downDisabledImage)
+				} else {
+					$self.2 config -image $ar(downImage)
+					$self.4 config -image $ar(downImage)
+				}
+
+				if {$ar(sliderPressed) == 1} {
+					return
+				}
+
+				#-2 is done for the border
+				set areaHeight [expr {([winfo height $self.c] - 2)}]
+				set startPos [expr {$start * $areaHeight}]
+				set endPos [expr {$end * $areaHeight}]
+
+				if {$endPos <= 0} {
+					set endPos $areaHeight
+				}
+
+				$self.c coords slider 0 $startPos [winfo width $self.c] $endPos 
+			}
+			if {$ar(-orient) == "horizontal"} {
+				if {$start == 0} {
+					$self.1 config -image $ar(leftDisabledImage)
+					$self.3 config -image $ar(leftDisabledImage)
+				} else {
+					$self.1 config -image $ar(leftImage)
+					$self.3 config -image $ar(leftImage)
+				}
+				if {$end == 1} {
+					$self.2 config -image $ar(rightDisabledImage)
+					$self.4 config -image $ar(rightDisabledImage)
+				} else {
+					$self.2 config -image $ar(rightImage)
+					$self.4 config -image $ar(rightImage)
+				}
+
+				if {$ar(sliderPressed) == 1} {
+					return
+				}
+				set areaWidth [expr {([winfo width $self.c] - 2)}]
+				set startPos [expr {$start * $areaWidth}]
+				set endPos [expr {$end * $areaWidth}]
+				
+				if {$endPos <= 0} {
+					set endPos $areaWidth
+				}
+
+				$self.c coords slider $startPos 0 $endPos [winfo height $self.c] 
+			}
+		} 
+		
+		default { 
+			#puts "$cmd $args" 
+		}
+	}
+}
+
+proc cscrollbar::createHorizontal {win bg fg} {
+	upvar #0 _cscrollbar$win ar 
+	
+	set bd 1
+	
+	set ar(leftImage) [image create bitmap -data $cscrollbar::left_xbm \
+		-foreground $fg -background $bg]
+	set ar(leftDisabledImage) [image create bitmap -data $cscrollbar::left_xbm \
+		-foreground gray50 -background $bg]
+	set ar(rightImage) [image create bitmap -data $cscrollbar::right_xbm \
+		-foreground $fg -background $bg]
+	set ar(rightDisabledImage) [image create bitmap -data $cscrollbar::right_xbm \
+		-foreground gray50 -background $bg]
+
+	grid [label $win.1 -image $ar(leftDisabledImage) -relief raised -bg $bg -fg $fg -bd $bd] \
+		-row 0 -column 0 -sticky w
+
+	grid [label $win.2 -image $ar(rightDisabledImage) -relief raised -bg $bg -fg $fg -bd $bd] \
+		-row 0 -column 1 -sticky w
+
+	grid [canvas $win.c -relief flat -highlightthickness 0 \
+		-height [winfo reqheight $win.1] -width 10 -bg $bg] \
+		-row 0 -column 2 -sticky ew
+	
+	grid columnconfigure $win 2 -weight 1
+
+	grid [label $win.3 -image $ar(leftDisabledImage) -relief raised -bg $bg -fg $fg -bd $bd] \
+		-row 0 -column 3 -sticky e
+
+	grid [label $win.4 -image $ar(rightDisabledImage) -relief raised -bg $bg -fg $fg -bd $bd] \
+		-row 0 -column 4 -sticky e
+	
+	cscrollbar::drawSlider $win 0 0 1 1 horizontal
+
+	$win.c bind slider <B1-Motion> "cscrollbar::moveSlider $win horizontal %x"
+	$win.c bind slider <ButtonPress-1> "
+		set cscrollbar::lastX \[$win.c canvasx %x\] 
+		set cscrollbar::lastY \[$win.c canvasy %y\] 
+	"
+	bind $win.c <Configure> "cscrollbar::drawBackground $win horizontal"
+}
+
+
+proc cscrollbar::createVertical {win bg fg} {
+	upvar #0 _cscrollbar$win ar 
+	
+	set bd 1
+	
+	set ar(upImage) [image create bitmap -data $cscrollbar::up_xbm \
+		-foreground $fg -background $bg]
+	set ar(upDisabledImage) [image create bitmap -data $cscrollbar::up_xbm \
+		-foreground gray50 -background $bg]
+	set ar(downImage) [image create bitmap -data $cscrollbar::down_xbm \
+		-foreground $fg -background $bg]
+	set ar(downDisabledImage) [image create bitmap -data $cscrollbar::down_xbm \
+		-foreground gray50 -background $bg]
+
+	grid [label $win.1 -image $ar(upDisabledImage) -relief raised -bg $bg -fg $fg -bd $bd] \
+		-row 0 -column 0 -sticky n
+
+	grid [label $win.2 -image $ar(downDisabledImage) -relief raised -bg $bg -fg $fg -bd $bd] \
+		-row 1 -column 0 -sticky n
+
+	grid [canvas $win.c -relief flat -highlightthickness 0 \
+		-width [winfo reqwidth $win.1] -height 10 -bg $bg] \
+		-row 2 -column 0 -sticky ns
+	
+	grid rowconfigure $win 2 -weight 1
+	grid [label $win.3 -image $ar(upDisabledImage) -relief raised -bg $bg -fg $fg -bd $bd] \
+		-row 3 -column 0 -sticky s
+	grid [label $win.4 -image $ar(downDisabledImage) -relief raised -bg $bg -fg $fg -bd $bd] \
+		-row 4 -column 0 -sticky s
+
+	
+	cscrollbar::drawSlider $win 0 0 1 1 vertical
+
+	$win.c bind slider <B1-Motion> "cscrollbar::moveSlider $win vertical %y"
+	$win.c bind slider <ButtonPress-1> "
+		set cscrollbar::lastX \[$win.c canvasx %x\]   
+		set cscrollbar::lastY \[$win.c canvasy %y\]
+	"
+	bind $win.c <Configure> "cscrollbar::drawBackground $win vertical"
+}
+
+	
+#Based on Richard Suchenwirth's gradient code from one of his train
+#projects. 	
+proc cscrollbar::drawBackground {win type} {
+	upvar #0 _cscrollbar$win ar 
+	set canv $win.c
+	set x1 0 
+	set y1 0
+	set x2 [expr {[winfo width $canv] + 8}]
+	set y2 [expr {[winfo height $canv] + 8}]
+	set c1 $ar(-gradient1)
+	set c2 $ar(-gradient2)
+
+	$canv delete background
+								 
+	foreach {r1 g1 b1} [winfo rgb $canv $c1] break
+	foreach {r2 g2 b2} [winfo rgb $canv $c2] break
+	set redDiff [expr {$r2 - $r1}]
+	set greenDiff [expr {$g2 - $g1}]
+	set blueDiff [expr {$b2 - $b1}]
+	switch $type {
+		horizontal {
+			set yDiff [expr {$y2 - $y1}]
+			set steps [expr {int(abs($yDiff))}]
+			if {$steps > 255} {
+				set steps 255
+			}
+			for {set i 2} {$i < $steps} {incr i} {
+				set p [expr {double($i) / $steps}]
+				set y [expr {$y1 + $yDiff * $p}]
+				set r [expr {int($r1 + $redDiff * $p)}]
+				set g [expr {int($g1 + $greenDiff * $p)}]
+				set b [expr {int($b1 + $blueDiff * $p)}]
+	
+				set fillColor "#"
+				foreach color {r g b} {
+					set preColor [format "%2.2x" [set $color]]
+					set color [format "%2.2s" $preColor]
+					append fillColor $color
+				}
+				
+				$canv create rectangle $x1 $y $x2 $y2 -outline {} -tag background \
+					-fill $fillColor
+			}
+		}
+				
+		vertical {
+			set xDiff [expr {$x2 - $x1}]
+			set steps [expr {int(abs($xDiff))}]
+	
+			if {$steps > 255} {
+				set steps 255
+			}
+			for {set i 2} {$i < $steps} {incr i} {
+				set p [expr {double($i) / $steps}]
+				set x [expr {$x1 + $xDiff * $p}]
+				set r [expr {int($r1 + $redDiff * $p)}]
+				set g [expr {int($g1 + $greenDiff * $p)}]
+				set b [expr {int($b1 + $blueDiff * $p)}]
+				
+				set fillColor "#"
+				foreach color {r g b} {
+					set preColor [format "%2.2x" [set $color]]
+					set color [format "%2.2s" $preColor]
+					append fillColor $color
+				}
+				
+				$canv create rectangle $x $y1 $x2 $y2 -outline {} -tag background \
+					-fill $fillColor
+			} 
+		}
+				
+		default {
+			return -code error "unknown direction \"$type\": must be one of horizontal or vertical"
+		}
+	}
+	
+	$win.c bind background <ButtonPress-1> "cscrollbar::scrollPages $win $type %x %y"
+	$win.c lower background
+}
+
+
+proc cscrollbar::drawSlider {win x1 y1 x2 y2 type} {
+	upvar #0 _cscrollbar$win ar 
+
+	#update idletasks
+	$win.c delete slider
+
+	if {$type == "vertical"} {
+		set canvasWidth [winfo width $win.c]
+		$win.c create rectangle 0 $y1 $canvasWidth $y2 \
+			-fill $ar(-slidercolor) -outline "" -tag slider -stipple gray50 
+		return
+	}
+
+	if {$type == "horizontal"} {
+		set canvasHeight [winfo height $win.c]
+		$win.c create rectangle $x1 0 $x2 $canvasHeight \
+			-fill $ar(-slidercolor) -outline "" -tag slider -stipple gray50
+		return
+	}
+}
+
+	
+proc cscrollbar::moveSlider {win type position} {
+	variable lastX
+	variable lastY
+	upvar #0 _cscrollbar$win ar 
+
+	if {$type == "vertical"} {
+		#move the slider y values which are 1 and 3 in the coords list
+		set sliderStartY [lindex [$win.c coords slider] 1]
+		set sliderEndY [lindex [$win.c coords slider] 3]
+		set sliderHeight [expr {$sliderEndY - $sliderStartY}]
+		set areaHeight [expr {[winfo height $win.c] - 1}]
+	
+			
+		set newY [expr {$position - $lastY}]
+		set upBoundResult [expr {($sliderStartY + $newY) < 0}] 
+		set downBoundResult [expr {($sliderEndY + $newY) > $areaHeight}]
+	
+		if {$upBoundResult != 1 && $downBoundResult != 1} {
+			$win.c move slider 0 $newY
+			set lastY $position
+		} elseif {$upBoundResult == 1} {
+			set lastY [expr {$lastY - $sliderStartY}]
+			$win.c move slider 0 [expr {-$sliderStartY}]
+		} elseif {$downBoundResult == 1} {
+			set amountToMove [expr {-$sliderStartY + ($areaHeight - $sliderHeight)}]
+			set lastY [expr {$lastY + $amountToMove}]
+			$win.c move slider 0 $amountToMove
+		}
+		
+		if {[info exists ar(-command)] == 1} {
+			set ar(sliderPressed) 1
+			eval $ar(-command) moveto [expr {$sliderStartY / $areaHeight}]
+		}
+		return
+	}
+
+	if {$type == "horizontal"} {
+		#move the slider x values which are 0 and 2 in the coords list
+		set sliderStartX [lindex [$win.c coords slider] 0] 
+		set sliderEndX [lindex [$win.c coords slider] 2] 
+		set sliderWidth [expr {$sliderEndX - $sliderStartX}] 
+		set areaWidth [expr {[winfo width $win.c] - 1}]
+				
+		set newX [expr {$position - $lastX}]
+		set leftBoundResult [expr {($sliderStartX + $newX) < 0}] 
+		set rightBoundResult [expr {($sliderEndX + $newX) > $areaWidth}]
+	
+		if {$leftBoundResult != 1 && $rightBoundResult != 1} {
+			$win.c move slider $newX 0
+			set lastX $position
+		} elseif {$leftBoundResult == 1} {
+			set lastX [expr {$lastX - $sliderStartX}]
+			$win.c move slider [expr {-$sliderStartX}] 0
+		} elseif {$rightBoundResult == 1} {
+			set amountToMove [expr {-$sliderStartX + ($areaWidth - $sliderWidth)}] 
+			set lastX [expr {$lastX + $amountToMove}]
+			$win.c move slider $amountToMove 0
+		}
+		
+		if {[info exists ar(-command)] == 1} {
+			set ar(sliderPressed) 1
+			eval $ar(-command) moveto [expr {$sliderStartX / $areaWidth}]
+		}
+		return
+	}
+}
+
+#This moves the widget being scrolled a unit at a time.
+#It is invoked by the arrow buttons.  The arrow buttons
+#are actually labels with bitmaps that have the -relief 
+#change.
+
+proc cscrollbar::moveUnit {cmd unit self} {
+	variable buttonPressed
+	
+	eval $cmd scroll $unit units
+
+	$self config -relief sunken								
+	if {$buttonPressed == 1} {
+		after 40 "cscrollbar::moveUnit {$cmd} $unit $self"
+	} else {
+		$self config -relief raised
+	}
+}
+
+#This means that someone has pressed the trough/background
+#of the scrollbar, so we should scroll a page at a time.
+#Unlike Tk's scrollbar I don't continue scrolling while
+#the mouse is held down.  Instead I chose to scroll once.
+#If the user wants it to continue they can press the mouse
+#again.
+proc cscrollbar::scrollPages {win type x y} {
+	upvar #0 _cscrollbar$win ar 
+
+	if {$type == "horizontal"} {
+		set sliderStartX [lindex [$win.c coords slider] 0] 
+		set sliderEndX [lindex [$win.c coords slider] 2]	
+
+		if {$x < $sliderStartX} { 
+			eval [concat $ar(-command) scroll -1 pages]
+		}
+		
+		if {$x > $sliderEndX} {
+			eval [concat $ar(-command) scroll 1 pages]
+		}
+	}
+
+	if {$type == "vertical"} {
+		set sliderStartY [lindex [$win.c coords slider] 1] 
+		set sliderEndY [lindex [$win.c coords slider] 3]	
+		
+		if {$y < $sliderStartY} {
+			eval [concat $ar(-command) scroll -1 pages]
+		}
+		
+		if {$y > $sliderEndY} {
+			eval [concat $ar(-command) scroll 1 pages]
+		}
+	}
+}
+
+
+proc cscrollbar::sliderNotPressed {win} {
+	upvar #0 _cscrollbar$win ar 
+	set ar(sliderPressed) 0
+
+	if {[catch {$ar(-command)} res] == 0 && $res != ""} {
+		$win set $res
+	}
+}

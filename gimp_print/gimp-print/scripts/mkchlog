@@ -72,14 +72,17 @@ sub compare_versions
     # see log messages from files that have been deleted.
 
     my ($vw, $vl) = @_;
+
     if ($vw eq "") {
 	return 2;
     }
+
     my (@vvw) = split /\./, $vw;
     my (@vvl) = split /\./, $vl;
     if ($#vvl > $#vvw) {
-	return 0;
+	return 3;
     }
+
     my ($i);
     for ($i = 0; $i < $#vvl; $i += 2) {
 	my ($bl) = $vvl[$i];
@@ -123,9 +126,9 @@ while (<>) {
     } elsif (/^date: /) {
 	($ignore, $date, $time, $ignore, $author, $ignore, $ignore,
 	 $ignore, $plus, $minus, $ignore) = split;
-	$time =~ s/:[0-9][0-9];$//;
+#	$time =~ s/[0-9]:[0-9][0-9];$//;
+#	$time =~ s/[0-9][0-9];$//;
 	$author =~ s/;$//;
-	$datetimeauthor = "$date $time $author";
 	$body = "";
 	$firstline = 1;
 	while (<>) {
@@ -140,27 +143,57 @@ while (<>) {
 		$firstline = 0;
 	    }
 	}
+	$junkbody = $body;
+	$junkbody =~ s/\s//g;
+	$junkbody .= "x";
+	$datetimeauthor = "$date $time $author $junkbody $currentfile $revision";
 	if ($skipme == 0) {
-	    if ($logmsgs{$datetimeauthor}) {
-		$stuff = $logmsgs{$datetimeauthor};
-		$stuff =~ s/\n\n/\n\t$currentfile ($revision) ($plus $minus)\n\n/;
-		$logmsgs{$datetimeauthor} = $stuff;
-	    } else {
-		$logmsgs{$datetimeauthor} = "Files:\t$currentfile ($revision) ($plus $minus)\n\n$body"
-		}
+	    $logmsgs{$datetimeauthor} = $body;
+	    $plus{$datetimeauthor} = $plus;
+	    $minus{$datetimeauthor} = $minus;
 	}
     }				# Other junk we ignore
 }
 
+$prevmsg="";
+$header="";
+@fileinfo = ();
+
 @chlog = reverse sort keys %logmsgs;
+
 foreach $_ (@chlog) {
-    ($date, $time, $author) = split;
+    ($date, $time, $author, $junk, $file, $revision) = split;
     $date =~ s,/,-,g;
     $msg = $logmsgs{$_};
+    if ($prevmsg eq $msg) {
+	push @fileinfo, "\t\t$file ($revision) ($plus{$_} $minus{$_})\n";
+    } else {
+	if ($prevmsg ne "" || $#fileinfo >= 0) {
+	    print $header;
+	    $filestuff = join "", sort @fileinfo;
+	    $filestuff =~ s/\t/\tFiles:/;
+	    print "$filestuff\n";
+	    $prevmsg =~ s/^/\t/g;
+	    $prevmsg =~ s/\n/\n\t/g;
+	    $prevmsg =~ s/[ \t]+\n/\n/g;
+	    $prevmsg =~ s/[ \t]+$//g;
+	    print "$prevmsg\n";
+	}
+	$header = "$date\t<$author\@sourceforge.net>\n\n";
+	$prevmsg = $msg;
+	@fileinfo = ();
+	push @fileinfo, "\t\t$file ($revision) ($plus{$_} $minus{$_})\n";
+    }
+}
+
+if ($prevmsg ne "" or $fileinfo ne "") {
     print "$date\t<$author\@sourceforge.net>\n\n";
-    $msg =~ s/^/\t/g;
-    $msg =~ s/\n/\n\t/g;
-    $msg =~ s/[ \t]+\n/\n/g;
-    $msg =~ s/[ \t]+$//g;
-    print "$msg\n";
+    $filestuff = join "", sort @fileinfo;
+    $filestuff =~ s/\t/\tFiles:/;
+    print "$filestuff\n";
+    $prevmsg =~ s/^/\t/g;
+    $prevmsg =~ s/\n/\n\t/g;
+    $prevmsg =~ s/[ \t]+\n/\n/g;
+    $prevmsg =~ s/[ \t]+$//g;
+    print "$prevmsg\n";
 }

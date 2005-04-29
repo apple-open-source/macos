@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Web-based Administration</title>
+    </header>
+
+    <body>
+        <section>
+            <title>Web-based Administration Overview</title>
+            <p>
+                blojsom uses a set of plugins to add web-based administration capabilities where you are able to
+                edit authorized users who can post to your blog, modify blog properties, add/edit/delete entries,
+                add/edit/delete blog categories, modify flavors, modify plugin chains, modify templates,
+                upload files to your blog, and modify users of your blojsom installation.
+            </p>
+        </section>
+        <section>
+            <title>Authorizing Users for the Administration Console</title>
+            <p>
+                Authorized users are added to the <code>/WEB-INF/(user-id)/authorization.properties</code> file.
+                The usernames and passwords in this file control the users that can access the individual blog
+                either via the administration console or XML-RPC. The format of this file is as follows.
+                <source>
+                    username=password
+                </source>
+                Each separate line represents an individual username and password combination.
+            </p>
+        </section>
+        <section>
+            <title>Accessing the Administration Console</title>
+            <p>
+                blojsom reserves one of the flavors defined in the individual user's <em>flavor.properties</em> file
+                for the administration functionality. The default administration flavor is <em>admin</em>. You can
+                access the administration console of your blog by adding <em>?flavor=admin</em> when accessing your blog.
+                At the login prompt for the administration console, use one of the authorized usernames and passwords
+                that you setup in the <code>/WEB-INF/(user-id)/authorization.properties</code> file.
+            </p>
+        </section>
+    </body>
+</document>

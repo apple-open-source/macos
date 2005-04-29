@@ -37,7 +37,7 @@
 #include "library.h"
 #include "global.h"
 
-static char const rcsid[] = "$Id: alloc.c,v 1.1.1.1 2001/02/07 01:24:31 wsanchez Exp $";
+static char const rcsid[] = "$Id: alloc.c,v 1.2 2004/07/09 21:34:44 nicolai Exp $";
 
 static	void	*alloctest(void *p);
 
@@ -47,7 +47,6 @@ static	void	*alloctest(void *p);
 #include <stdlib.h>
 # else
 char	*calloc(), *malloc(), *realloc(), *strcpy();
-void	exit();
 # endif
 
 /* allocate a string */
@@ -89,7 +88,7 @@ alloctest(void *p)
 {
 	if (p == NULL) {
 		(void) fprintf(stderr, "\n%s: out of storage\n", argv0);
-		exit(1);
+		myexit(1);
 	}
 	return(p);
 }

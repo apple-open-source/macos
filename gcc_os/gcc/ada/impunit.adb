@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.3 $
 --                                                                          --
---           Copyright (C) 2000-2001 Free Software Foundation, Inc.         --
+--           Copyright (C) 2000-2002 Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -138,8 +137,10 @@ package body Impunit is
    -- GNAT Defined Additions to Ada --
    -----------------------------------
 
+     "a-chlat9",    -- Ada.Characters.Latin_9
      "a-colire",    -- Ada.Command_Line.Remove
      "a-cwila1",    -- Ada.Characters.Wide_Latin_1
+     "a-cwila9",    -- Ada.Characters.Wide_Latin_9
      "a-diocst",    -- Ada.Direct_IO.C_Streams
      "a-einuoc",    -- Ada.Exceptions.Is_Null_Occurrence
      "a-siocst",    -- Ada.Sequential_IO.C_Streams
@@ -207,6 +208,7 @@ package body Impunit is
      "g-io    ",    -- GNAT.IO
      "g-io_aux",    -- GNAT.IO_Aux
      "g-locfil",    -- GNAT.Lock_Files
+     "g-md5   ",    -- GNAT.MD5
      "g-moreex",    -- GNAT.Most_Recent_Exception
      "g-os_lib",    -- GNAT.Os_Lib
      "g-regexp",    -- GNAT.Regexp
@@ -254,7 +256,8 @@ package body Impunit is
      "i-os2syn",    -- Interfaces.Os2lib.Synchronization
      "i-os2thr",    -- Interfaces.Os2lib.Threads
      "i-pacdec",    -- Interfaces.Packed_Decimal
-     "i-vxwork",    -- Interfaces.Vxworks
+     "i-vxwork",    -- Interfaces.VxWorks
+     "i-vxwoio",    -- Interfaces.VxWorks.IO
 
    --------------------------------------------------
    -- System Hierarchy Units from Reference Manual --

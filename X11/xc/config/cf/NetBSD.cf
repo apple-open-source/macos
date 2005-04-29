@@ -2,7 +2,7 @@ XCOMM platform:  $Xorg: NetBSD.cf,v 1.3 2000/08/17 19:41:46 cpqbld Exp $
 
 
 
-XCOMM platform:  $XFree86: xc/config/cf/NetBSD.cf,v 3.108 2002/12/14 22:36:03 dawes Exp $
+XCOMM platform:  $XFree86: xc/config/cf/NetBSD.cf,v 3.123 2003/11/20 16:18:18 dawes Exp $
 
 
 #ifndef OSName
@@ -34,6 +34,9 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #endif
 #define HasNdbm         	YES
 #define HasPutenv       	YES
+#if OSMajorVersion == 1 && OSMinorVersion > 4 || OSMajorVersion > 1
+# define HasStrlcat		YES
+#endif
 #define HasSnprintf		YES
 #define HasBSD44Sockets 	YES
 #define Malloc0ReturnsNull	NO
@@ -90,21 +93,38 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #define HasVarRun		YES
 #define HasVarDb		YES
 
+#define HasShadowPasswd		NO
+
 #define InstallXloadSetGID	NO
 
-/* Defines for using the GNU pth thread library -- experimental */
+#if OSMajorVersion < 1 || (OSMajorVersion == 1 && OSMinorVersion < 5)
+#define BuildIPv6		NO
+#endif
 
-#ifdef NetBSDPth
-#define PthreadHLocation	-I/usr/local/include /* where is pthread.h? */
-#define LibPthreadLocation	-L/usr/local/lib /* where is libpthread? */
-#define HasThreadSafeAPI	NO
-#define	HasPosixThreads		YES
-#define SystemMTDefines		-D_REENTRANT PthreadHLocation
-#define ThreadsLibraries	LibPthreadLocation -Wl,-rpath,/usr/local/lib -lpthread
-#define SharedX11Reqs		ThreadsLibraries
+#define IPv6SocketsAlsoIPv4	NO
+
+/*
+ * NetBSD 1.6M and newer supports POSIX Threads.
+ */
+
+#ifndef NetBSDThreads
+# define NetBSDThreads		YES
+#endif
+
+#if NetBSDThreads && \
+    ((OSMajorVersion > 1) || \
+     (OSMajorVersion == 1 && OSMinorVersion > 6) || \
+     (OSMajorVersion == 1 && OSMinorVersion == 6 && OSTeenyVersion >= 13))
+
+# define HasPosixThreads	YES
+# define ThreadedX		YES
+# define HasThreadSafeAPI	YES
+# define ThreadsLibraries	-lpthread
+# define LibraryMTDefines	-DUSE_NBSD_THREADLIB
+# define SystemMTDefines	-D_REENTRANT
+# define MTSafeAPIDefines	-DXUSE_MTSAFE_API -DXNO_MTSAFE_PWDAPI
 #else 
-#define HasPosixThreads		NO
-#define ThreadedX		NO
+# define ThreadedX		NO
 #endif
 
 /*
@@ -139,10 +159,6 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #endif
 #endif
 
-#ifndef UseGccMakeDepend
-#define UseGccMakeDepend	YES
-#endif
-
 #define CppCmd			cpp
 #define StandardCppOptions	-traditional
 #define StandardCppDefines	/**/
@@ -171,7 +187,8 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
  *
  * Disabled for NetBSD/vax until I figure out the scheme. --CS 
  */
-#if (OSMajorVersion > 0) && defined(i386Architecture)
+#if ((OSMajorVersion > 0) && defined(i386Architecture)) || \
+    defined(PpcArchitecture)
 #  ifndef DoLoadableServer
 #  define DoLoadableServer	YES
 #  endif
@@ -187,11 +204,14 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #define DlLibrary		/**/
 #endif
 
+/* All ELF NetBSD systems support Weak symbols */
+#define HasWeakSymbols		UseElfFormat 
+
 #ifdef i386Architecture
 # ifndef DefaultGcc2i386Opt
 #  if OSMajorVersion > 1 || (OSMajorVersion == 1 && OSMinorVersion > 2)
     /* The GCC strength-reduce bug is fixed for NetBSD 1.3 and later */
-#   define DefaultGcc2i386Opt -O2
+#   define DefaultGcc2i386Opt -O2 GccAliasingArgs
 #  endif
 # endif
 # define OptimizedCDebugFlags 	DefaultGcc2i386Opt
@@ -548,12 +568,22 @@ InstallManPageAliasesBase(file,destdir,aliases)
 #define HasSharedLibraries	NO
 #endif 
 
+/*
+ * Unresolved references are fatal on NetBSD 1.5 for libGL, which is
+ * built with -Bsymbolic.
+ */
+#if UseElfFormat && OSMajorVersion == 1 && OSMinorVersion == 5
+#define SharedGLReqs		$(LDPRELIBS) $(XLIB) -lc
+#endif
+
 #if HasSharedLibraries
 #include <bsdLib.rules>
 #endif /* HasSharedLibraries */
 
 /* Always build the XInput library, regardless of server support on this plattform */
-#define BuildXInputLib          YES
+#if !defined(BuildXInputLib) && !defined(BuildServersOnly)
+# define BuildXInputLib          YES
+#endif
 
 #if defined(i386Architecture) || defined(Arm32Architecture) || defined(AlphaArchitecture) || defined(PpcArchitecture)
 # include <xfree86.cf>
@@ -598,8 +628,8 @@ InstallManPageAliasesBase(file,destdir,aliases)
 #define PositionIndependentCFlags
 #define SharedLibraryLoadFlags -x -shared --whole-archive -soname `echo $@ |
 sed 's/\.[0-9]*$$//'`
-#define SharedXtReqs $(XLIBONLY) $(SMLIB) $(ICELIB)
-#define SharedXmuReqs $(LDPRELIB) $(XTOOLONLYLIB) $(XONLYLIB) $(EXTENSIONLIB)
+#define SharedXtReqs $(XONLYLIB) $(SMLIB) $(ICELIB)
+#define SharedXmuReqs $(LDPRELIB) $(XTOOLONLYLIB) $(XLIB)
 #endif
 
 /*
@@ -647,4 +677,11 @@ sed 's/\.[0-9]*$$//'`
 
 #ifndef UseSeparateConfDir
 #define UseSeparateConfDir NO	/* We don't want appdefs in "/etc/X11". */
+#endif
+
+#if defined(NetBSDArchitecture) && \
+     ((OSMajorVersion > 1) || \
+      (OSMajorVersion == 1 && OSMinorVersion > 3))
+#define HasDevRandom		YES
+#define RandomDeviceFile	/dev/urandom
 #endif

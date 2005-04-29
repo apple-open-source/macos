@@ -15,7 +15,7 @@ elif test -n "${BASH_VERSION+set}" && (set -o posix) >/dev/null 2>&1; then
 fi
 
 # Support unset when possible.
-if (FOO=FOO; unset FOO) >/dev/null 2>&1; then
+if ((MAIL=60; unset MAIL) || exit) >/dev/null 2>&1; then
   as_unset=unset
 else
   as_unset=false
@@ -34,7 +34,7 @@ for as_var in \
   LC_MEASUREMENT LC_MESSAGES LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER \
   LC_TELEPHONE LC_TIME
 do
-  if (set +x; test -n "`(eval $as_var=C; export $as_var) 2>&1`"); then
+  if (set +x; test -z "`(eval $as_var=C; export $as_var) 2>&1`"); then
     eval $as_var=C; export $as_var
   else
     $as_unset $as_var
@@ -68,12 +68,11 @@ echo X/"$0" |
   	  s/.*/./; q'`
 
 
-# @configure_input@
-# Running `$0' as if it were installed.
 
-AUTOCONF=@abs_top_builddir@/bin/autoconf
-AUTOHEADER=@abs_top_builddir@/bin/autoheader
-AUTOM4TE=@abs_top_builddir@/bin/autom4te
+testdir=@abs_top_builddir@/tests
+AUTOCONF=$testdir/autoconf
+AUTOHEADER=$testdir/autoheader
+AUTOM4TE=$testdir/autom4te
 AUTOM4TE_CFG=@abs_top_builddir@/lib/autom4te.cfg
 autom4te_perllibdir=@abs_top_srcdir@/lib
 export AUTOCONF AUTOHEADER AUTOM4TE AUTOM4TE_CFG autom4te_perllibdir

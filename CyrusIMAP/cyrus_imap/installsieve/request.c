@@ -42,7 +42,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: request.c,v 1.19 2003/02/13 20:15:37 rjs3 Exp $ */
+/* $Id: request.c,v 1.5 2005/03/05 00:37:10 dasenbro Exp $ */
 
 #include <sys/stat.h>
 #include <sys/types.h>

@@ -32,6 +32,6 @@ int NXIsXDigit(c)
 {
 	FIXSIGNEDCHAR(c);
 	if (c < 256)
-		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_D|_X)));
+		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_CTYPE_D|_CTYPE_X)));
 	return 0;
 }

@@ -1,5 +1,5 @@
 /* BFD back-end for TMS320C30 a.out binaries.
-   Copyright 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Steven Haworth (steve@pm.cse.rmit.edu.au)
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -21,7 +21,6 @@
 
 #define TARGET_IS_BIG_ENDIAN_P
 #define N_HEADER_IN_TEXT(x) 1
-#define BYTES_IN_WORD 4
 #define TEXT_START_ADDR 1024
 #define TARGET_PAGE_SIZE 128
 #define SEGMENT_SIZE TARGET_PAGE_SIZE
@@ -900,7 +899,7 @@ tic30_aout_set_arch_mach (abfd, arch, machine)
 #endif
 #ifndef MY_bfd_debug_info_accumulate
 #define MY_bfd_debug_info_accumulate	\
-			(void (*) PARAMS ((bfd*, struct sec *))) bfd_void
+		(void (*) PARAMS ((bfd*, struct bfd_section *))) bfd_void
 #endif
 
 #ifndef MY_core_file_failing_command
@@ -921,14 +920,17 @@ tic30_aout_set_arch_mach (abfd, arch, machine)
 #ifndef MY_get_section_contents_in_window
 #define MY_get_section_contents_in_window _bfd_generic_get_section_contents_in_window
 #endif
+#ifndef MY_get_section_contents_in_window_with_mode
+#define MY_get_section_contents_in_window_with_mode _bfd_generic_get_section_contents_in_window_with_mode
+#endif
 #ifndef MY_new_section_hook
 #define MY_new_section_hook NAME(aout,new_section_hook)
 #endif
 #ifndef MY_get_symtab_upper_bound
 #define MY_get_symtab_upper_bound NAME(aout,get_symtab_upper_bound)
 #endif
-#ifndef MY_get_symtab
-#define MY_get_symtab NAME(aout,get_symtab)
+#ifndef MY_canonicalize_symtab
+#define MY_canonicalize_symtab NAME(aout,canonicalize_symtab)
 #endif
 #ifndef MY_get_reloc_upper_bound
 #define MY_get_reloc_upper_bound NAME(aout,get_reloc_upper_bound)

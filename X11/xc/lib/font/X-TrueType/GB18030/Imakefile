@@ -1,0 +1,5 @@
+XCOMM $XFree86: xc/lib/font/X-TrueType/GB18030/Imakefile,v 1.2 2003/10/24 16:33:08 tsi Exp $
+
+XCOMM X-TrueType Server - TrueType rasterizer for X
+/*#include "Imakefile.inc"*/
+#include <xttMod.tmpl>

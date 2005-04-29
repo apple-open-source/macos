@@ -30,7 +30,8 @@
 
 #define kIOHIDAppleVendorID 1452
 typedef enum IOHIDTransport {
-    kIOHIDTransportUSB = 1,
+    kIOHIDTransportNone = 0,
+    kIOHIDTransportUSB,
     kIOHIDTransportADB,
     kIOHIDTransportPS2
 } IOHIDTransport;
@@ -43,6 +44,7 @@ private:
     IOService *			_device;
     IOHIDevice *		_hiDevice;
     IOHIDTransport		_transport;
+    UInt32              _location;
 
 protected:
 
@@ -51,7 +53,7 @@ protected:
 public:
     virtual IOReturn newReportDescriptor(
                         IOMemoryDescriptor ** descriptor ) const = 0;
-    virtual bool init( OSDictionary * dictionary = 0 );
+    virtual bool initWithLocation(UInt32 location = 0);
     
     virtual IOHIDTransport transport() {return _transport;};
     

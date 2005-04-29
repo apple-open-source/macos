@@ -3,8 +3,142 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
+		A11C069306C13CF400DB0199 = {
+			children = (
+				A11C069406C13CF400DB0199,
+				A11C069506C13CF400DB0199,
+				A11C069906C13CF400DB0199,
+				A11C069D06C13CF400DB0199,
+				A11C06A006C13CF400DB0199,
+				A11C06A106C13CF400DB0199,
+			);
+			isa = PBXGroup;
+			path = include;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069406C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = com_err.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069506C13CF400DB0199 = {
+			children = (
+				A11C069606C13CF400DB0199,
+				A11C069706C13CF400DB0199,
+				A11C069806C13CF400DB0199,
+			);
+			isa = PBXGroup;
+			path = gssapi;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069606C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = gssapi.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069706C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = gssapi_generic.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069806C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = gssapi_krb5.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069906C13CF400DB0199 = {
+			children = (
+				A11C069A06C13CF400DB0199,
+				A11C069B06C13CF400DB0199,
+				A11C069C06C13CF400DB0199,
+			);
+			isa = PBXGroup;
+			path = kerberosIV;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069A06C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = des.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069B06C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = krb.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069C06C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = krb_err.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069D06C13CF400DB0199 = {
+			children = (
+				A11C069E06C13CF400DB0199,
+				A11C069F06C13CF400DB0199,
+			);
+			isa = PBXGroup;
+			path = krb5;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069E06C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = autoconf.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C069F06C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = osconf.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C06A006C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = krb5.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A11C06A106C13CF400DB0199 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = profile.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
 		A1253823040C1783003D8244 = {
 			children = (
 				A1253824040C1783003D8244,
@@ -19,56 +153,691 @@
 			isa = PBXGroup;
 			path = Kerberos;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A1253824040C1783003D8244 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = des.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A1253825040C1783003D8244 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = gssapi.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A1253826040C1783003D8244 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = gssapi_generic.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A1253827040C1783003D8244 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = gssapi_krb5.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A1253828040C1783003D8244 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = krb.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A1253829040C1783003D8244 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = krb5.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A125382C040C1783003D8244 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = krb_err.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A125382D040C1783003D8244 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = profile.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
-		A125382E040C1783003D8244 = {
+		A14A313B06E3DAB500275124 = {
+			children = (
+				A14A314006E3DADD00275124,
+			);
+			isa = PBXGroup;
+			name = Kerberos5;
+			path = ../../Kerberos5;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A14A314006E3DADD00275124 = {
+			children = (
+				A14A314306E3DAF800275124,
+			);
+			isa = PBXGroup;
+			path = Sources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A14A314306E3DAF800275124 = {
+			children = (
+				A14A317C06E3DAF800275124,
+			);
+			isa = PBXGroup;
+			path = include;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A14A317C06E3DAF800275124 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = pkinit_cert_store.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A14BC515066E60160043C31C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.jam;
+			path = StaticLibraries.jam;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A14BC532066E60410043C31C = {
+			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/StaticLibraries.jam\" $(ACTION)";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = StaticLibraries;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /Developer/Private/jam;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = StaticLibraries;
+			passBuildSettingsInEnvironment = 1;
+			productName = StaticLibraries;
+		};
+		A14BC560066E60710043C31C = {
+			containerPortal = F5C9C2E1021AC35B01650119;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A14BC532066E60410043C31C;
+			remoteInfo = StaticLibraries;
+		};
+		A166318206ADA41500D660E0 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../KerberosErrors/Projects/KerberosErrors.pbexp",
+				"$(SRCROOT)/../../KerberosPreferences/Projects/KerberosPreferences.pbexp",
+				"$(SRCROOT)/../../CredentialsCache/Projects/CredentialsCache.pbexp",
+				"$(SRCROOT)/../../CredentialsCache/Projects/CCacheVector.pbexp",
+				"$(SRCROOT)/../../Kerberos5/Projects/KerberosDES.pbexp",
+				"$(SRCROOT)/../../Kerberos5/Projects/KerberosProfile.pbexp",
+				"$(SRCROOT)/../../Kerberos5/Projects/Kerberos5.pbexp",
+				"$(SRCROOT)/../../Kerberos5/Projects/GSS.pbexp",
+				"$(SRCROOT)/../../Kerberos5/Projects/Kerberos4.pbexp",
+				"$(SRCROOT)/../../KerberosLogin/Projects/KerberosLogin.pbexp",
+				"$(SRCROOT)/../../KerberosLogin/Projects/KerberosLoginPrivate.pbexp",
+				"$(SRCROOT)/../../KClient/Projects/KClient.pbexp",
+				"$(SRCROOT)/../../KClient/Projects/KClientCompat.pbexp",
+				"$(SRCROOT)/../../KClient/Projects/KClientDeprecated.pbexp",
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/Kerberos.intermediates/Kerberos.pbexp",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "INTERMEDIATES=${BUILT_PRODUCTS_DIR}/KerberosFramework.intermediates\n\n/bin/mkdir -p \"${INTERMEDIATES}\"\n/bin/cat \"${SRCROOT}/../../KerberosErrors/Projects/KerberosErrors.pbexp\" \\\n    \"${SRCROOT}/../../KerberosDebug/Projects/KerberosDebug.pbexp\" \\\n    \"${SRCROOT}/../../KerberosPreferences/Projects/KerberosPreferences.pbexp\" \\\n    \"${SRCROOT}/../../CredentialsCache/Projects/CredentialsCache.pbexp\" \\\n    \"${SRCROOT}/../../CredentialsCache/Projects/CCacheVector.pbexp\" \\\n    \"${SRCROOT}/../../Kerberos5/Projects/KerberosDES.pbexp\" \\\n    \"${SRCROOT}/../../Kerberos5/Projects/KerberosProfile.pbexp\" \\\n    \"${SRCROOT}/../../Kerberos5/Projects/Kerberos5.pbexp\" \\\n    \"${SRCROOT}/../../Kerberos5/Projects/GSS.pbexp\" \\\n    \"${SRCROOT}/../../Kerberos5/Projects/Kerberos4.pbexp\" \\\n    \"${SRCROOT}/../../KerberosLogin/Projects/KerberosLogin.pbexp\" \\\n    \"${SRCROOT}/../../KerberosLogin/Projects/KerberosLoginPrivate.pbexp\" \\\n    \"${SRCROOT}/../../KClient/Projects/KClient.pbexp\" \\\n    \"${SRCROOT}/../../KClient/Projects/KClientCompat.pbexp\" \\\n    \"${SRCROOT}/../../KClient/Projects/KClientDeprecated.pbexp\" \\\n    | /usr/bin/tr -d \" \\t\" | /usr/bin/sed -e \"s/^#.*//\" | /usr/bin/tr -s \"\\n\" | /usr/bin/sort | /usr/bin/uniq > \"${INTERMEDIATES}/Kerberos.pbexp\"\n\n";
+		};
+		A166318306ADA41500D660E0 = {
+			buildPhases = (
+				A166318206ADA41500D660E0,
+				A1E05B550762E17E002B8E8F,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Framework Export List";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXAggregateTarget;
+			name = "Framework Exports";
+			productName = "Framework Export List";
+		};
+		A166BCD2040E7048004AA618 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = FSpUtils.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A166BCD4040E70A6004AA618 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = FSpUtils.h;
+			path = Kerberos/FSpUtils.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A17E91D4069DD05800C6A7C1 = {
+			children = (
+				A17E91D5069DD05800C6A7C1,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			path = ../Resources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A17E91D5069DD05800C6A7C1 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = KerberosFrameworkInfo.plist;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A1A678F406C4114700EC826E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/CredentialsCache.intermediates/CredentialsCacheErrors.strings",
+				"$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Apple Event Manager.strings",
+				"$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Code Fragment Manager.strings",
+				"$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/File Manager.strings",
+				"$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Gestalt Manager.strings",
+				"$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Memory Manager.strings",
+				"$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Process Manager.strings",
+				"$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Resource Manager.strings",
+				"$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Thread Manager.strings",
+				"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/krb_err.strings",
+				"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/kadm_err.strings",
+				"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/prof_err.strings",
+				"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/asn1_err.strings",
+				"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/krb5_err.strings",
+				"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/kdb5_err.strings",
+				"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/kv5m_err.strings",
+				"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/krb524_err.strings",
+				"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/gssapi_err_generic.strings",
+				"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/gssapi_err_krb5.strings",
+				"$(BUILT_PRODUCTS_DIR)/KerberosLogin.intermediates/KerberosLoginErrors.strings",
+				"$(BUILT_PRODUCTS_DIR)/KClient.intermediates/KClientErrors.strings",
+				"$(BUILT_PRODUCTS_DIR)/KClient.intermediates/KClientCompatErrors.strings",
+				"$(BUILT_PRODUCTS_DIR)/KClient.intermediates/KClientCompatErrors.strings",
+				"$(SRCROOT)/../../KerberosLogin/Resources/KerberosLogin.strings",
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/Kerberos.intermediates/English.lproj/InfoPlist.strings",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "INTERMEDIATES=${BUILT_PRODUCTS_DIR}/KerberosFramework.intermediates\n\n/bin/mkdir -p \"${INTERMEDIATES}/English.lproj\"\ncat \"${BUILT_PRODUCTS_DIR}/CredentialsCache.intermediates/CredentialsCacheErrors.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KerberosErrors.intermediates/Apple Event Manager.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KerberosErrors.intermediates/Code Fragment Manager.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KerberosErrors.intermediates/File Manager.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KerberosErrors.intermediates/Gestalt Manager.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KerberosErrors.intermediates/Memory Manager.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KerberosErrors.intermediates/Process Manager.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KerberosErrors.intermediates/Resource Manager.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KerberosErrors.intermediates/Thread Manager.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/Kerberos5.intermediates/ErrorTables/krb_err.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/Kerberos5.intermediates/ErrorTables/kadm_err.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/Kerberos5.intermediates/ErrorTables/prof_err.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/Kerberos5.intermediates/ErrorTables/asn1_err.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/Kerberos5.intermediates/ErrorTables/krb5_err.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/Kerberos5.intermediates/ErrorTables/kdb5_err.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/Kerberos5.intermediates/ErrorTables/kv5m_err.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/Kerberos5.intermediates/ErrorTables/krb524_err.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/Kerberos5.intermediates/ErrorTables/gssapi_err_generic.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/Kerberos5.intermediates/ErrorTables/gssapi_err_krb5.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KerberosLogin.intermediates/KerberosLoginErrors.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KClient.intermediates/KClientErrors.strings\" \\\n    \"${BUILT_PRODUCTS_DIR}/KClient.intermediates/KClientCompatErrors.strings\" \\\n    \"${SRCROOT}/../../KerberosLogin/Resources/KerberosLogin.strings\" \\\n    | perl -e '{local $/; undef $/; $_ = <STDIN>;} s/(.)/\\0$1/sg; print chr(0xFE) . chr(0xFF) . $_;' \\\n    > \"${INTERMEDIATES}/English.lproj/InfoPlist.strings\"\n";
+		};
+		A1A678F506C4114700EC826E = {
+			buildPhases = (
+				A1A678F406C4114700EC826E,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = InfoPlistStrings;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXAggregateTarget;
+			name = InfoPlistStrings;
+			productName = InfoPlistStrings;
+		};
+		A1A678FB06C4139600EC826E = {
+			containerPortal = F5C9C2E1021AC35B01650119;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A1A678F506C4114700EC826E;
+			remoteInfo = InfoPlistStrings;
+		};
+		A1CA6040040F24280013F915 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = System.framework;
+			path = /System/Library/Frameworks/System.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		A1CD7CAE0769004D00266915 = {
+			children = (
+				A1CD7CB60769004E00266915,
+			);
+			isa = PBXGroup;
+			name = KerberosDebug;
+			path = ../../KerberosDebug;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A1CD7CB60769004E00266915 = {
+			children = (
+				A1CD7CB70769004E00266915,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			path = ../../KerberosDebug/Headers;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A1CD7CB70769004E00266915 = {
+			children = (
+				A1CD7CB80769004E00266915,
+			);
+			isa = PBXGroup;
+			name = Kerberos;
+			path = ../../KerberosDebug/Headers/Kerberos;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A1CD7CB80769004E00266915 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = KerberosDebug.h;
+			path = ../../KerberosDebug/Headers/Kerberos/KerberosDebug.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		A1D11B9304BB3CDE00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKerberosErrors.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9504BB422E00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libCredentialsCache.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9604BB422E00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libGSS.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9704BB422E00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKClient.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9804BB422E00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKerberos4.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9904BB422E00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKerberos5.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9A04BB422F00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKerberosDebug.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9B04BB422F00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKerberosDES.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9C04BB422F00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKerberosIPC.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9D04BB422F00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKerberosLogin.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9E04BB422F00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKerberosPreferences.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11B9F04BB422F00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKerberosProfile.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D11BA004BB422F00120112 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			path = libKerberosWrappers.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1D629AB070C8C800015C908 = {
+			isa = PBXFileReference;
+			lastKnownFileType = "compiled.mach-o.dylib";
+			name = libresolv.dylib;
+			path = /usr/lib/libresolv.dylib;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		A1E059B30762C1C8002B8E8F = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			name = "libstdc++.a";
+			path = "/usr/lib/gcc/darwin/3.3/libstdc++.a";
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		A1E05B550762E17E002B8E8F = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/KerberosFramework.intermediates/Kerberos.pbexp",
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/KerberosFramework.intermediates/ExportPointers.c",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "INTERMEDIATES=${BUILT_PRODUCTS_DIR}/KerberosFramework.intermediates\nEXPORTPOINTERS=${INTERMEDIATES}/ExportPointers.c\n\n/bin/mkdir -p \"${INTERMEDIATES}\"\n/bin/rm -f \"${EXPORTPOINTERS}\"\n\necho \"/*\"                                                                                             > \"${EXPORTPOINTERS}\"\necho \" * This file is autogenerated.  Please do not edit it.\"                                        >> \"${EXPORTPOINTERS}\"\necho \" *\"                                                                                            >> \"${EXPORTPOINTERS}\"\necho \" * This file points at all the exported APIs so they don't get dead stripped.\"                 >> \"${EXPORTPOINTERS}\"\necho \" * We don't use -all_load because then all of libstdc++.a would be loaded!\"                    >> \"${EXPORTPOINTERS}\"\necho \" */\"                                                                                           >> \"${EXPORTPOINTERS}\"\necho \"\"                                                                                              >> \"${EXPORTPOINTERS}\"\necho \"#include <stddef.h>\"                                                                           >> \"${EXPORTPOINTERS}\"\necho \"\"                                                                                              >> \"${EXPORTPOINTERS}\"\n/bin/cat \"${INTERMEDIATES}/Kerberos.pbexp\" | /usr/bin/sed -e 's/^_\\(.*\\)$/extern const void * \\1;/'  >> \"${EXPORTPOINTERS}\"\necho \"\"                                                                                              >> \"${EXPORTPOINTERS}\"\necho \"const void * const __KerberosExportPointers[] = {\"                                             >> \"${EXPORTPOINTERS}\"\n/bin/cat \"${INTERMEDIATES}/Kerberos.pbexp\" | /usr/bin/sed -e 's/^_\\(.*\\)$/    \\&\\1,/'                 >> \"${EXPORTPOINTERS}\"\necho \"    NULL\"                                                                                      >> \"${EXPORTPOINTERS}\"\necho \"};\"                                                                                            >> \"${EXPORTPOINTERS}\"\necho \"\"                                                                                              >> \"${EXPORTPOINTERS}\"\n";
+		};
+		A1E05CCF0762E2B8002B8E8F = {
+			containerPortal = F5C9C2E1021AC35B01650119;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A166318306ADA41500D660E0;
+			remoteInfo = "Framework Exports";
+		};
+		A1E05CD80762E341002B8E8F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = ExportPointers.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A1FBC4C807AAF63900872683 = {
+			buildPhases = (
+				A1FBC4CC07AAF63900872683,
+				A1FBC4E607AAF63900872683,
+				A1FBC4E907AAF63900872683,
+				A1FBC4EC07AAF63900872683,
+				A1FBC50007AAF63900872683,
+				A1FBC50107AAF63900872683,
+				A1FBC50207AAF63900872683,
+				A1FBC50807AAF63900872683,
+				A1FBC50C07AAF63900872683,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 5;
+				DYLIB_CURRENT_VERSION = 5;
+				EXPORTED_SYMBOLS_FILE = "$(BUILT_PRODUCTS_DIR)/KerberosFramework.intermediates/Kerberos.pbexp";
+				FRAMEWORK_VERSION = A;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/../../KerberosIPC/Headers\" \"$(SRCROOT)/../../KerberosDebug/Headers\" \"$(SRCROOT)/../../KerberosErrors/Headers\" \"$(SRCROOT)/../../KerberosPreferences/Headers\" \"$(SRCROOT)/../../KerberosDES/Headers\" \"$(SRCROOT)/../../CredentialsCache/Headers\" \"$(SRCROOT)/../../KerberosLogin/Headers\" \"$(SRCROOT)/../../KClient/Headers\" \"$(SRCROOT)/../../Kerberos5/Sources/lib/krb5\" \"$(SRCROOT)/../../Kerberos5/Sources/lib/crypto\" \"$(SRCROOT)/../../Kerberos5/Sources/lib/gssapi\" \"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables\" \"$(BUILT_PRODUCTS_DIR)/Kerberos4.intermediates/ErrorTables\" \"$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates\" \"$(BUILT_PRODUCTS_DIR)/KerberosLogin.intermediates\" \"$(BUILT_PRODUCTS_DIR)/KClient.intermediates\"";
+				INFOPLIST_FILE = ../Resources/KerberosFrameworkInfo.plist;
+				INSTALL_PATH = /System/Library/Frameworks;
+				OTHER_LDFLAGS = "-lstdc++ -seg1addr 0x20000000";
+				PRODUCT_NAME = Kerberos;
+				SECTORDER_FLAGS = "-sectorder __TEXT __text /AppleInternal/OrderFiles/Kerberos.order";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+				A1FBC4C907AAF63900872683,
+				A1FBC4CA07AAF63900872683,
+				A1FBC4CB07AAF63900872683,
+			);
+			isa = PBXNativeTarget;
+			name = KerberosFramework;
+			productInstallPath = /System/Library/Frameworks;
+			productName = Kerberos;
+			productReference = A1FBC51107AAF63900872683;
+			productType = "com.apple.product-type.framework";
+		};
+		A1FBC4C907AAF63900872683 = {
+			isa = PBXTargetDependency;
+			target = A166318306ADA41500D660E0;
+			targetProxy = A1E05CCF0762E2B8002B8E8F;
+		};
+		A1FBC4CA07AAF63900872683 = {
+			isa = PBXTargetDependency;
+			target = A14BC532066E60410043C31C;
+			targetProxy = A14BC560066E60710043C31C;
+		};
+		A1FBC4CB07AAF63900872683 = {
+			isa = PBXTargetDependency;
+			target = A1A678F506C4114700EC826E;
+			targetProxy = A1A678FB06C4139600EC826E;
+		};
+		A1FBC4CC07AAF63900872683 = {
+			buildActionMask = 2147483647;
+			files = (
+				A1FBC4CD07AAF63900872683,
+				A1FBC4CE07AAF63900872683,
+				A1FBC4CF07AAF63900872683,
+				A1FBC4D007AAF63900872683,
+				A1FBC4D107AAF63900872683,
+				A1FBC4D207AAF63900872683,
+				A1FBC4D307AAF63900872683,
+				A1FBC4D407AAF63900872683,
+				A1FBC4D507AAF63900872683,
+				A1FBC4D607AAF63900872683,
+				A1FBC4D707AAF63900872683,
+				A1FBC4D807AAF63900872683,
+				A1FBC4D907AAF63900872683,
+				A1FBC4DA07AAF63900872683,
+				A1FBC4DB07AAF63900872683,
+				A1FBC4DC07AAF63900872683,
+				A1FBC4DD07AAF63900872683,
+				A1FBC4DE07AAF63900872683,
+				A1FBC4DF07AAF63900872683,
+				A1FBC4E007AAF63900872683,
+				A1FBC4E107AAF63900872683,
+				A1FBC4E207AAF63900872683,
+				A1FBC4E307AAF63900872683,
+				A1FBC4E407AAF63900872683,
+				A1FBC4E507AAF63900872683,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1FBC4CD07AAF63900872683 = {
+			fileRef = F579A421021D6A7601650119;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4CE07AAF63900872683 = {
+			fileRef = A1CD7CB80769004E00266915;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		A1FBC4CF07AAF63900872683 = {
+			fileRef = F551B61B02245C1C01650119;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		A1FBC4D007AAF63900872683 = {
+			fileRef = F5CEF9B50229AED101583103;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4D107AAF63900872683 = {
+			fileRef = F5CEF9B60229AED101583103;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4D207AAF63900872683 = {
+			fileRef = F5CEF9B70229AED101583103;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		A1FBC4D307AAF63900872683 = {
+			fileRef = F5C44D460231516701120112;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4D407AAF63900872683 = {
+			fileRef = F5C44D490231516701120112;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4D507AAF63900872683 = {
+			fileRef = F5C44D470231516701120112;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		A1FBC4D607AAF63900872683 = {
+			fileRef = F5C44D6B0231625E01120112;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4D707AAF63900872683 = {
+			fileRef = F5385A0B0231F0A801120112;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4D807AAF63900872683 = {
+			fileRef = F5385A0C0231F0A801120112;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4D907AAF63900872683 = {
+			fileRef = F5385A0E0231F0A801120112;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4DA07AAF63900872683 = {
+			fileRef = F5385A0A0231F0A801120112;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4DB07AAF63900872683 = {
+			fileRef = F5EFFE4D029E7FFA012E678E;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		A1FBC4DC07AAF63900872683 = {
 			fileRef = A1253824040C1783003D8244;
 			isa = PBXBuildFile;
 			settings = {
@@ -77,7 +846,7 @@
 				);
 			};
 		};
-		A125382F040C1783003D8244 = {
+		A1FBC4DD07AAF63900872683 = {
 			fileRef = A1253825040C1783003D8244;
 			isa = PBXBuildFile;
 			settings = {
@@ -86,7 +855,7 @@
 				);
 			};
 		};
-		A1253830040C1783003D8244 = {
+		A1FBC4DE07AAF63900872683 = {
 			fileRef = A1253826040C1783003D8244;
 			isa = PBXBuildFile;
 			settings = {
@@ -95,7 +864,7 @@
 				);
 			};
 		};
-		A1253831040C1783003D8244 = {
+		A1FBC4DF07AAF63900872683 = {
 			fileRef = A1253827040C1783003D8244;
 			isa = PBXBuildFile;
 			settings = {
@@ -104,7 +873,7 @@
 				);
 			};
 		};
-		A1253832040C1783003D8244 = {
+		A1FBC4E007AAF63900872683 = {
 			fileRef = A1253828040C1783003D8244;
 			isa = PBXBuildFile;
 			settings = {
@@ -113,7 +882,7 @@
 				);
 			};
 		};
-		A1253833040C1783003D8244 = {
+		A1FBC4E107AAF63900872683 = {
 			fileRef = A1253829040C1783003D8244;
 			isa = PBXBuildFile;
 			settings = {
@@ -122,7 +891,7 @@
 				);
 			};
 		};
-		A1253836040C1783003D8244 = {
+		A1FBC4E207AAF63900872683 = {
 			fileRef = A125382C040C1783003D8244;
 			isa = PBXBuildFile;
 			settings = {
@@ -131,7 +900,16 @@
 				);
 			};
 		};
-		A1253837040C1783003D8244 = {
+		A1FBC4E307AAF63900872683 = {
+			fileRef = A14A317C06E3DAF800275124;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		A1FBC4E407AAF63900872683 = {
 			fileRef = A125382D040C1783003D8244;
 			isa = PBXBuildFile;
 			settings = {
@@ -140,221 +918,326 @@
 				);
 			};
 		};
-		A166BCD2040E7048004AA618 = {
-			fileEncoding = 4;
-			isa = PBXFileReference;
-			path = FSpUtils.c;
-			refType = 4;
-		};
-		A166BCD3040E7048004AA618 = {
-			fileRef = A166BCD2040E7048004AA618;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		A166BCD4040E70A6004AA618 = {
-			fileEncoding = 4;
-			isa = PBXFileReference;
-			name = FSpUtils.h;
-			path = Kerberos/FSpUtils.h;
-			refType = 4;
-		};
-		A166BCD5040E70A6004AA618 = {
+		A1FBC4E507AAF63900872683 = {
 			fileRef = A166BCD4040E70A6004AA618;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1CA6040040F24280013F915 = {
-			isa = PBXFrameworkReference;
-			name = System.framework;
-			path = /System/Library/Frameworks/System.framework;
-			refType = 0;
+		A1FBC4E607AAF63900872683 = {
+			buildActionMask = 2147483647;
+			files = (
+				A1FBC4E707AAF63900872683,
+				A1FBC4E807AAF63900872683,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A1CA6041040F24280013F915 = {
+		A1FBC4E707AAF63900872683 = {
+			fileRef = F59DBB3D0228A79901D5A565;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC4E807AAF63900872683 = {
+			fileRef = F52D5E62024BD4F601650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC4E907AAF63900872683 = {
+			buildActionMask = 2147483647;
+			files = (
+				A1FBC4EA07AAF63900872683,
+				A1FBC4EB07AAF63900872683,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1FBC4EA07AAF63900872683 = {
+			fileRef = A166BCD2040E7048004AA618;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC4EB07AAF63900872683 = {
+			fileRef = A1E05CD80762E341002B8E8F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC4EC07AAF63900872683 = {
+			buildActionMask = 2147483647;
+			files = (
+				A1FBC4ED07AAF63900872683,
+				A1FBC4EE07AAF63900872683,
+				A1FBC4EF07AAF63900872683,
+				A1FBC4F007AAF63900872683,
+				A1FBC4F107AAF63900872683,
+				A1FBC4F207AAF63900872683,
+				A1FBC4F307AAF63900872683,
+				A1FBC4F407AAF63900872683,
+				A1FBC4F507AAF63900872683,
+				A1FBC4F607AAF63900872683,
+				A1FBC4F707AAF63900872683,
+				A1FBC4F807AAF63900872683,
+				A1FBC4F907AAF63900872683,
+				A1FBC4FA07AAF63900872683,
+				A1FBC4FB07AAF63900872683,
+				A1FBC4FC07AAF63900872683,
+				A1FBC4FD07AAF63900872683,
+				A1FBC4FF07AAF63900872683,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1FBC4ED07AAF63900872683 = {
+			fileRef = F5C9C345021C489401650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC4EE07AAF63900872683 = {
+			fileRef = F5C9C347021C48C701650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC4EF07AAF63900872683 = {
+			fileRef = F5C9C349021C498801650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC4F007AAF63900872683 = {
 			fileRef = A1CA6040040F24280013F915;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1CA60A6040F26BC0013F915 = {
-			isa = PBXFileReference;
-			name = "libstdc++.a";
-			path = "/usr/lib/libstdc++.a";
-			refType = 0;
-		};
-		A1CA60A7040F26BC0013F915 = {
-			fileRef = A1CA60A6040F26BC0013F915;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		A1CA60A8040F29830013F915 = {
-			isa = PBXFileReference;
-			name = libgcc.a;
-			path = /usr/lib/libgcc.a;
-			refType = 0;
-		};
-		A1D11B9304BB3CDE00120112 = {
-			isa = PBXFileReference;
-			path = libKerberosErrors.a;
-			refType = 3;
-		};
-		A1D11B9404BB3CDE00120112 = {
+		A1FBC4F107AAF63900872683 = {
 			fileRef = A1D11B9304BB3CDE00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11B9504BB422E00120112 = {
-			isa = PBXFileReference;
-			path = libCredentialsCache.a;
-			refType = 3;
-		};
-		A1D11B9604BB422E00120112 = {
-			isa = PBXFileReference;
-			path = libGSS.a;
-			refType = 3;
-		};
-		A1D11B9704BB422E00120112 = {
-			isa = PBXFileReference;
-			path = libKClient.a;
-			refType = 3;
-		};
-		A1D11B9804BB422E00120112 = {
-			isa = PBXFileReference;
-			path = libKerberos4.a;
-			refType = 3;
-		};
-		A1D11B9904BB422E00120112 = {
-			isa = PBXFileReference;
-			path = libKerberos5.a;
-			refType = 3;
-		};
-		A1D11B9A04BB422F00120112 = {
-			isa = PBXFileReference;
-			path = libKerberosDebug.a;
-			refType = 3;
-		};
-		A1D11B9B04BB422F00120112 = {
-			isa = PBXFileReference;
-			path = libKerberosDES.a;
-			refType = 3;
-		};
-		A1D11B9C04BB422F00120112 = {
-			isa = PBXFileReference;
-			path = libKerberosIPC.a;
-			refType = 3;
-		};
-		A1D11B9D04BB422F00120112 = {
-			isa = PBXFileReference;
-			path = libKerberosLogin.a;
-			refType = 3;
-		};
-		A1D11B9E04BB422F00120112 = {
-			isa = PBXFileReference;
-			path = libKerberosPreferences.a;
-			refType = 3;
-		};
-		A1D11B9F04BB422F00120112 = {
-			isa = PBXFileReference;
-			path = libKerberosProfile.a;
-			refType = 3;
-		};
-		A1D11BA004BB422F00120112 = {
-			isa = PBXFileReference;
-			path = libKerberosWrappers.a;
-			refType = 3;
-		};
-		A1D11BA104BB422F00120112 = {
+		A1FBC4F207AAF63900872683 = {
 			fileRef = A1D11B9504BB422E00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BA204BB422F00120112 = {
+		A1FBC4F307AAF63900872683 = {
 			fileRef = A1D11B9604BB422E00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BA304BB422F00120112 = {
+		A1FBC4F407AAF63900872683 = {
 			fileRef = A1D11B9704BB422E00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BA404BB422F00120112 = {
+		A1FBC4F507AAF63900872683 = {
 			fileRef = A1D11B9804BB422E00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BA504BB422F00120112 = {
+		A1FBC4F607AAF63900872683 = {
 			fileRef = A1D11B9904BB422E00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BA604BB422F00120112 = {
+		A1FBC4F707AAF63900872683 = {
 			fileRef = A1D11B9A04BB422F00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BA704BB422F00120112 = {
+		A1FBC4F807AAF63900872683 = {
 			fileRef = A1D11B9B04BB422F00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BA804BB422F00120112 = {
+		A1FBC4F907AAF63900872683 = {
 			fileRef = A1D11B9C04BB422F00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BA904BB422F00120112 = {
+		A1FBC4FA07AAF63900872683 = {
 			fileRef = A1D11B9D04BB422F00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BAA04BB422F00120112 = {
+		A1FBC4FB07AAF63900872683 = {
 			fileRef = A1D11B9E04BB422F00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BAB04BB422F00120112 = {
+		A1FBC4FC07AAF63900872683 = {
 			fileRef = A1D11B9F04BB422F00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1D11BAC04BB422F00120112 = {
+		A1FBC4FD07AAF63900872683 = {
 			fileRef = A1D11BA004BB422F00120112;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1F9833B0469F9A300120112 = {
-			fileRef = A1CA60A8040F29830013F915;
+		A1FBC4FF07AAF63900872683 = {
+			fileRef = A1D629AB070C8C800015C908;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		A1FDA9BE0496615500120112 = {
-			isa = PBXFrameworkReference;
-			name = ApplicationServices.framework;
-			path = /System/Library/Frameworks/ApplicationServices.framework;
-			refType = 0;
+		A1FBC50007AAF63900872683 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A1FDA9BF0496615500120112 = {
-			fileRef = A1FDA9BE0496615500120112;
+		A1FBC50107AAF63900872683 = {
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(INSTALL_PATH)/$(PRODUCT_NAME).$(WRAPPER_EXTENSION)/$(PRODUCT_NAME)",
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+				"$(DSTROOT)/usr/lib/libcom_err.dylib",
+				"$(DSTROOT)/usr/lib/libdes425.dylib",
+				"$(DSTROOT)/usr/lib/libkrb4.dylib",
+				"$(DSTROOT)/usr/lib/libkrb5.dylib",
+				"$(DSTROOT)/usr/lib/libkrb524.dylib",
+				"$(DSTROOT)/usr/lib/libk5crypto.dylib",
+				"$(DSTROOT)/usr/lib/libgssapi_krb5.dylib",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "INSTALLED_EXECUTABLE=${INSTALL_PATH}/${PRODUCT_NAME}.${WRAPPER_EXTENSION}/${PRODUCT_NAME}\nUSRLIB=${DSTROOT}/usr/lib\n\n/bin/mkdir -p \"${USRLIB}\"\nfor LIBRARY in com_err des425 krb4 krb5 krb524 krb5support k5crypto gssapi_krb5\ndo\n\t/bin/rm -f \"${USRLIB}/lib${LIBRARY}.dylib\"\n\t/bin/ln -s \"${INSTALLED_EXECUTABLE}\" \"${USRLIB}/lib${LIBRARY}.dylib\"\ndone\n";
+		};
+		A1FBC50207AAF63900872683 = {
+			buildActionMask = 8;
+			dstPath = /usr/include;
+			dstSubfolderSpec = 0;
+			files = (
+				A1FBC50307AAF63900872683,
+				A1FBC50407AAF63900872683,
+				A1FBC50507AAF63900872683,
+				A1FBC50607AAF63900872683,
+				A1FBC50707AAF63900872683,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A1FBC50307AAF63900872683 = {
+			fileRef = A11C069406C13CF400DB0199;
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		A1FBC50407AAF63900872683 = {
+			fileRef = A11C069A06C13CF400DB0199;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC50507AAF63900872683 = {
+			fileRef = A11C069B06C13CF400DB0199;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC50607AAF63900872683 = {
+			fileRef = A11C06A006C13CF400DB0199;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC50707AAF63900872683 = {
+			fileRef = A11C06A106C13CF400DB0199;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC50807AAF63900872683 = {
+			buildActionMask = 8;
+			dstPath = /usr/include/kerberosIV;
+			dstSubfolderSpec = 0;
+			files = (
+				A1FBC50907AAF63900872683,
+				A1FBC50A07AAF63900872683,
+				A1FBC50B07AAF63900872683,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A1FBC50907AAF63900872683 = {
+			fileRef = A11C069A06C13CF400DB0199;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC50A07AAF63900872683 = {
+			fileRef = A11C069B06C13CF400DB0199;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC50B07AAF63900872683 = {
+			fileRef = A11C069C06C13CF400DB0199;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC50C07AAF63900872683 = {
+			buildActionMask = 8;
+			dstPath = /usr/include/gssapi;
+			dstSubfolderSpec = 0;
+			files = (
+				A1FBC50D07AAF63900872683,
+				A1FBC50E07AAF63900872683,
+				A1FBC50F07AAF63900872683,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A1FBC50D07AAF63900872683 = {
+			fileRef = A11C069606C13CF400DB0199;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC50E07AAF63900872683 = {
+			fileRef = A11C069706C13CF400DB0199;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC50F07AAF63900872683 = {
+			fileRef = A11C069806C13CF400DB0199;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1FBC51107AAF63900872683 = {
+			explicitFileType = wrapper.framework;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = Kerberos.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //A10
 //A11
@@ -366,13 +1249,6 @@
 //F52
 //F53
 //F54
-		F5005C6703CA2F3F0165011C = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			name = Kerberos.order;
-			path = "/Volumes/Xellos/KfM/Sources-4.5/KerberosFramework/Common/Scripts/Kerberos.order";
-			refType = 0;
-		};
 		F52D5E61024BD4F601650119 = {
 			children = (
 				F52D5E62024BD4F601650119,
@@ -381,65 +1257,15 @@
 			name = Preferences;
 			path = ../Preferences;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F52D5E62024BD4F601650119 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = edu.mit.Kerberos;
 			refType = 4;
-		};
-		F52D5E63024BD4F601650119 = {
-			fileRef = F52D5E62024BD4F601650119;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F535C0AE0233D4D701650119 = {
-			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/KerberosCFMGlue.jam\" $(ACTION)";
-			buildPhases = (
-			);
-			buildSettings = {
-				PRODUCT_NAME = VectorTool;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			buildToolPath = /Developer/Private/jam;
-			buildWorkingDirectory = "";
-			dependencies = (
-			);
-			isa = PBXLegacyTarget;
-			name = KerberosCFMGlue;
-			passBuildSettingsInEnvironment = 1;
-			productName = VectorTool;
-			settingsToExpand = 6;
-			settingsToPassInEnvironment = 287;
-			settingsToPassOnCommandLine = 280;
-		};
-		F535C0FD023462A501650119 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = KerberosCFMGlue.jam;
-			refType = 4;
-		};
-		F535C10302346A3601650119 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			name = KerberosCFMGlue.c;
-			path = Kerberos.intermediates/KerberosCFMGlue.c;
-			refType = 3;
-		};
-		F535C10402346A3601650119 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			name = KerberosCFMGlue.exp;
-			path = Kerberos.intermediates/KerberosCFMGlue.exp;
-			refType = 3;
-		};
-		F535C10502346A3601650119 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			name = KerberosCFMGlue.s;
-			path = Kerberos.intermediates/KerberosCFMGlue.s;
-			refType = 3;
+			sourceTree = "<group>";
 		};
 		F5385A070231F0A801120112 = {
 			children = (
@@ -449,6 +1275,7 @@
 			name = KClient;
 			path = ../../KClient;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F5385A080231F0A801120112 = {
 			children = (
@@ -457,6 +1284,7 @@
 			isa = PBXGroup;
 			path = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5385A090231F0A801120112 = {
 			children = (
@@ -468,106 +1296,39 @@
 			isa = PBXGroup;
 			path = Kerberos;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5385A0A0231F0A801120112 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = KClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5385A0B0231F0A801120112 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = KClientCompat.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5385A0C0231F0A801120112 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = KClientDeprecated.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5385A0E0231F0A801120112 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = KClientTypes.h;
 			refType = 4;
-		};
-		F5385A0F0231F0A801120112 = {
-			fileRef = F5385A0B0231F0A801120112;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
-		};
-		F5385A100231F0A801120112 = {
-			fileRef = F5385A0C0231F0A801120112;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
-		};
-		F5385A110231F0A801120112 = {
-			fileRef = F5385A0E0231F0A801120112;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
-		};
-		F5385A120231F0A801120112 = {
-			fileRef = F5385A0A0231F0A801120112;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
-		};
-		F5385A480232CEC501120112 = {
-			buildPhases = (
-			);
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = KerberosFramework;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-				F5385A490232CEC501120112,
-				F5C3A71E0236B16701650119,
-				F5385A4A0232CEC501120112,
-			);
-			isa = PBXAggregateTarget;
-			name = KerberosFramework;
-			productName = KerberosFramework;
-		};
-		F5385A490232CEC501120112 = {
-			isa = PBXTargetDependency;
-			target = F5C9C2E7021AC43D01650119;
-		};
-		F5385A4A0232CEC501120112 = {
-			isa = PBXTargetDependency;
-			target = F5CEFAC4022A033401583103;
-		};
-		F5385A4B0232D1FF01120112 = {
-			isa = PBXTargetDependency;
-			target = F5C9C33F021C405501650119;
-		};
-		F5385A4C0232D1FF01120112 = {
-			isa = PBXTargetDependency;
-			target = F5C9C2ED021AC45E01650119;
-		};
-		F5385A4D0232D1FF01120112 = {
-			isa = PBXTargetDependency;
-			target = F59DBB3B0228A47E01D5A565;
+			sourceTree = "<group>";
 		};
 		F551B5690224018D01650119 = {
 			children = (
@@ -577,42 +1338,27 @@
 			name = Sources;
 			path = ../Sources;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F551B56D022401BC01650119 = {
 			children = (
 				F551B572022401FA01650119,
-				F59DBB3A0228A47E01D5A565,
-				F551B56E022401BC01650119,
-				F551B56F022401BC01650119,
-				F5CEFAC2022A033401583103,
-				F535C0FD023462A501650119,
-				F5C3A5B80235C66A01650119,
-				F56966B3024A426601650119,
-				F5005C6703CA2F3F0165011C,
+				A14BC515066E60160043C31C,
 			);
 			isa = PBXGroup;
 			name = Scripts;
 			path = ../Scripts;
 			refType = 2;
-		};
-		F551B56E022401BC01650119 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = FrameworkExports.jam;
-			refType = 4;
-		};
-		F551B56F022401BC01650119 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = StaticLibraries.jam;
-			refType = 4;
+			sourceTree = SOURCE_ROOT;
 		};
 		F551B572022401FA01650119 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.jam;
 			name = BuildPBX.jam;
 			path = ../../../Common/Scripts/BuildPBX.jam;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F551B61802245C1C01650119 = {
 			children = (
@@ -622,6 +1368,7 @@
 			name = KerberosPreferences;
 			path = ../../KerberosPreferences;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F551B61902245C1C01650119 = {
 			children = (
@@ -630,6 +1377,7 @@
 			isa = PBXGroup;
 			path = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F551B61A02245C1C01650119 = {
 			children = (
@@ -638,27 +1386,15 @@
 			isa = PBXGroup;
 			path = Kerberos;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F551B61B02245C1C01650119 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = KerberosPreferences.h;
 			refType = 4;
-		};
-		F551B67602245C1C01650119 = {
-			fileRef = F551B61B02245C1C01650119;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Private,
-				);
-			};
-		};
-		F56966B3024A426601650119 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = KerberosPlistStrings.jam;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		F579A420021D6A6201650119 = {
 			children = (
@@ -669,22 +1405,16 @@
 			name = Headers;
 			path = ../Headers;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F579A421021D6A7601650119 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = Kerberos.h;
 			path = Kerberos/Kerberos.h;
 			refType = 4;
-		};
-		F579A422021D6A7601650119 = {
-			fileRef = F579A421021D6A7601650119;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
+			sourceTree = "<group>";
 		};
 		F59DBABA0227EE4701D5A565 = {
 			children = (
@@ -695,6 +1425,7 @@
 			name = KerberosErrors;
 			path = ../../KerberosErrors;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F59DBABB0227EE4701D5A565 = {
 			children = (
@@ -703,6 +1434,7 @@
 			isa = PBXGroup;
 			path = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F59DBABC0227EE4701D5A565 = {
 			children = (
@@ -712,49 +1444,26 @@
 			isa = PBXGroup;
 			path = Kerberos;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F59DBABE0227EE4701D5A565 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			path = KerberosErrors.h;
 			refType = 4;
-		};
-		F59DBB3A0228A47E01D5A565 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = InfoPlistStrings.jam;
-			refType = 4;
-		};
-		F59DBB3B0228A47E01D5A565 = {
-			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/KerberosPlistStrings.jam\" $(ACTION)";
-			buildPhases = (
-			);
-			buildSettings = {
-				PRODUCT_NAME = InfoPlist.strings;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			buildToolPath = /Developer/Private/jam;
-			dependencies = (
-			);
-			isa = PBXLegacyTarget;
-			name = InfoPlist.strings;
-			passBuildSettingsInEnvironment = 1;
-			productName = InfoPlist.strings;
-			settingsToExpand = 6;
-			settingsToPassInEnvironment = 287;
-			settingsToPassOnCommandLine = 280;
+			sourceTree = "<group>";
 		};
 		F59DBB3C0228A79901D5A565 = {
 			children = (
+				A1E05CD80762E341002B8E8F,
 				F59DBB3D0228A79901D5A565,
 				F59DBB3F0228A79901D5A565,
-				F535C10302346A3601650119,
-				F535C10402346A3601650119,
-				F535C10502346A3601650119,
 			);
 			isa = PBXGroup;
-			path = Kerberos.intermediates;
+			path = KerberosFramework.intermediates;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F59DBB3D0228A79901D5A565 = {
 			children = (
@@ -764,34 +1473,23 @@
 			name = InfoPlist.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F59DBB3E0228A79901D5A565 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F59DBB3F0228A79901D5A565 = {
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = Kerberos.pbexp;
 			refType = 4;
-		};
-		F59DBB400228A79901D5A565 = {
-			fileRef = F59DBB3D0228A79901D5A565;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5C3A5B80235C66A01650119 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = KerberosCFMGlue.pl;
-			refType = 4;
-		};
-		F5C3A71E0236B16701650119 = {
-			isa = PBXTargetDependency;
-			target = F535C0AE0233D4D701650119;
+			sourceTree = "<group>";
 		};
 		F5C44D430231516701120112 = {
 			children = (
@@ -801,6 +1499,7 @@
 			name = KerberosLogin;
 			path = ../../KerberosLogin;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F5C44D440231516701120112 = {
 			children = (
@@ -809,6 +1508,7 @@
 			isa = PBXGroup;
 			path = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5C44D450231516701120112 = {
 			children = (
@@ -820,76 +1520,53 @@
 			isa = PBXGroup;
 			path = Kerberos;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5C44D460231516701120112 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = KerberosLogin.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5C44D470231516701120112 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = KerberosLoginPrivate.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5C44D490231516701120112 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = KLPrincipalTranslation.h;
 			refType = 4;
-		};
-		F5C44D4A0231516701120112 = {
-			fileRef = F5C44D460231516701120112;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
-		};
-		F5C44D4B0231516701120112 = {
-			fileRef = F5C44D490231516701120112;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
-		};
-		F5C44D4C0231516701120112 = {
-			fileRef = F5C44D470231516701120112;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Private,
-				);
-			};
+			sourceTree = "<group>";
 		};
 		F5C44D50023151D701120112 = {
 			children = (
+				A11C069306C13CF400DB0199,
 				A1253823040C1783003D8244,
 			);
 			isa = PBXGroup;
 			path = Kerberos5.intermediates;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F5C44D6B0231625E01120112 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = com_err.h;
 			refType = 4;
-		};
-		F5C44D6D0231625E01120112 = {
-			fileRef = F5C44D6B0231625E01120112;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
+			sourceTree = "<group>";
 		};
 		F5C9C2E1021AC35B01650119 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				F5C9C2E3021AC35B01650119,
 				F5C9C2E4021AC35B01650119,
@@ -900,266 +1577,75 @@
 			productRefGroup = F5C9C2E5021AC43D01650119;
 			projectDirPath = "";
 			targets = (
-				F5C9C33F021C405501650119,
-				F535C0AE0233D4D701650119,
-				F5C9C2ED021AC45E01650119,
-				F59DBB3B0228A47E01D5A565,
-				F5C9C2E7021AC43D01650119,
-				F5CEFAC4022A033401583103,
-				F5385A480232CEC501120112,
+				A14BC532066E60410043C31C,
+				A166318306ADA41500D660E0,
+				A1A678F506C4114700EC826E,
+				A1FBC4C807AAF63900872683,
 			);
 		};
 		F5C9C2E2021AC35B01650119 = {
 			children = (
 				F551B61802245C1C01650119,
+				A1CD7CAE0769004D00266915,
 				F59DBABA0227EE4701D5A565,
 				F5CEF9B20229AED101583103,
 				F5C44D430231516701120112,
 				F5385A070231F0A801120112,
+				A14A313B06E3DAB500275124,
 				F5C44D50023151D701120112,
 				F59DBB3C0228A79901D5A565,
 				F579A420021D6A6201650119,
 				F52D5E61024BD4F601650119,
 				F551B5690224018D01650119,
 				F551B56D022401BC01650119,
+				A17E91D4069DD05800C6A7C1,
 				F5C9C344021C488201650119,
 				F5C9C2E5021AC43D01650119,
 			);
 			isa = PBXGroup;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5C9C2E3021AC35B01650119 = {
-			buildRules = (
-			);
 			buildSettings = {
-				BUILD_SETTING = "$(SRCROOT)/../Scripts/Kerberos.order";
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "-DMACDEV_DEBUG=1";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		F5C9C2E4021AC35B01650119 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OPTIMIZATION_CFLAGS = "-O3";
-				OTHER_CFLAGS = "-DMACDEV_DEBUG=0";
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
 		};
 		F5C9C2E5021AC43D01650119 = {
 			children = (
-				F5C9C2E6021AC43D01650119,
+				A1FBC51107AAF63900872683,
 			);
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
-		};
-		F5C9C2E6021AC43D01650119 = {
-			isa = PBXFrameworkReference;
-			path = Kerberos.framework;
-			refType = 3;
-		};
-		F5C9C2E7021AC43D01650119 = {
-			buildPhases = (
-				F5C9C2E8021AC43D01650119,
-				F5C9C2E9021AC43D01650119,
-				F5C9C2EA021AC43D01650119,
-				F5C9C2EB021AC43D01650119,
-				F5C9C2EC021AC43D01650119,
-				F5CEFACA022A06CB01583103,
-				F5CEFACB022A06CB01583103,
-				F5F5375D0275A34C018E346B,
-			);
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 5;
-				DYLIB_CURRENT_VERSION = 5;
-				EXPORTED_SYMBOLS_FILE = "$(BUILT_PRODUCTS_DIR)/Kerberos.intermediates/Kerberos.pbexp";
-				FRAMEWORK_VERSION = A;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/../../KerberosIPC/Headers\" \"$(SRCROOT)/../../KerberosDebug/Headers\" \"$(SRCROOT)/../../KerberosErrors/Headers\" \"$(SRCROOT)/../../KerberosPreferences/Headers\" \"$(SRCROOT)/../../KerberosDES/Headers\" \"$(SRCROOT)/../../CredentialsCache/Headers\" \"$(SRCROOT)/../../KerberosLogin/Headers\" \"$(SRCROOT)/../../KClient/Headers\" \"$(SRCROOT)/../../Kerberos5/Sources/lib/krb5\" \"$(SRCROOT)/../../Kerberos5/Sources/lib/crypto\" \"$(SRCROOT)/../../Kerberos5/Sources/lib/gssapi\" \"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables\" \"$(BUILT_PRODUCTS_DIR)/Kerberos4.intermediates/ErrorTables\" \"$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates\" \"$(BUILT_PRODUCTS_DIR)/KerberosLogin.intermediates\" \"$(BUILT_PRODUCTS_DIR)/KClient.intermediates\"";
-				INSTALL_PATH = /System/Library/Frameworks;
-				OTHER_LDFLAGS = "-seg1addr 0x20000000";
-				PRELINK_FLAGS = "-all_load -nostdlib";
-				PRODUCT_NAME = Kerberos;
-				SECTORDER_FLAGS = "-sectorder __TEXT __text /AppleInternal/OrderFiles/Kerberos.order";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = framework;
-			};
-			dependencies = (
-				F5385A4B0232D1FF01120112,
-				F5385A4C0232D1FF01120112,
-				F5385A4D0232D1FF01120112,
-			);
-			isa = PBXFrameworkTarget;
-			name = Kerberos.framework;
-			productInstallPath = /System/Library/Frameworks;
-			productName = Kerberos;
-			productReference = F5C9C2E6021AC43D01650119;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>Kerberos</string>
-	<key>CFBundleGetInfoString</key>
-	<string>4.1</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>edu.mit.Kerberos</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>Kerberos Framework</string>
-	<key>CFBundlePackageType</key>
-	<string>FMWK</string>
-	<key>CFBundleShortVersionString</key>
-	<string>0.0.1</string>
-	<key>CFBundleSignature</key>
-	<string>Krb </string>
-	<key>CFBundleVersion</key>
-	<string>0.0.1d1</string>
-	<key>CSResourcesFileMapped</key>
-	<true/>
-</dict>
-</plist>
-";
-		};
-		F5C9C2E8021AC43D01650119 = {
-			buildActionMask = 2147483647;
-			files = (
-				F579A422021D6A7601650119,
-				F551B67602245C1C01650119,
-				F5CEF9B80229AED101583103,
-				F5CEF9B90229AED101583103,
-				F5CEF9BA0229AED101583103,
-				F5C44D4A0231516701120112,
-				F5C44D4B0231516701120112,
-				F5C44D4C0231516701120112,
-				F5C44D6D0231625E01120112,
-				F5385A0F0231F0A801120112,
-				F5385A100231F0A801120112,
-				F5385A110231F0A801120112,
-				F5385A120231F0A801120112,
-				F5EFFE4E029E7FFA012E678E,
-				A125382E040C1783003D8244,
-				A125382F040C1783003D8244,
-				A1253830040C1783003D8244,
-				A1253831040C1783003D8244,
-				A1253832040C1783003D8244,
-				A1253833040C1783003D8244,
-				A1253836040C1783003D8244,
-				A1253837040C1783003D8244,
-				A166BCD5040E70A6004AA618,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5C9C2E9021AC43D01650119 = {
-			buildActionMask = 2147483647;
-			files = (
-				F59DBB400228A79901D5A565,
-				F52D5E63024BD4F601650119,
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5C9C2EA021AC43D01650119 = {
-			buildActionMask = 2147483647;
-			files = (
-				A166BCD3040E7048004AA618,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5C9C2EB021AC43D01650119 = {
-			buildActionMask = 2147483647;
-			files = (
-				F5C9C346021C489401650119,
-				F5C9C348021C48C701650119,
-				F5C9C34A021C498801650119,
-				A1CA6041040F24280013F915,
-				A1CA60A7040F26BC0013F915,
-				A1F9833B0469F9A300120112,
-				A1FDA9BF0496615500120112,
-				A1D11B9404BB3CDE00120112,
-				A1D11BA104BB422F00120112,
-				A1D11BA204BB422F00120112,
-				A1D11BA304BB422F00120112,
-				A1D11BA404BB422F00120112,
-				A1D11BA504BB422F00120112,
-				A1D11BA604BB422F00120112,
-				A1D11BA704BB422F00120112,
-				A1D11BA804BB422F00120112,
-				A1D11BA904BB422F00120112,
-				A1D11BAA04BB422F00120112,
-				A1D11BAB04BB422F00120112,
-				A1D11BAC04BB422F00120112,
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5C9C2EC021AC43D01650119 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5C9C2ED021AC45E01650119 = {
-			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/StaticLibraries.jam\" $(ACTION)";
-			buildPhases = (
-			);
-			buildSettings = {
-				PRODUCT_NAME = SubLibraries;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			buildToolPath = /Developer/Private/jam;
-			dependencies = (
-			);
-			isa = PBXLegacyTarget;
-			name = "Static Libraries";
-			passBuildSettingsInEnvironment = 1;
-			productName = SubLibraries;
-			settingsToExpand = 6;
-			settingsToPassInEnvironment = 287;
-			settingsToPassOnCommandLine = 280;
-		};
-		F5C9C33F021C405501650119 = {
-			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/FrameworkExports.jam\" $(ACTION)";
-			buildPhases = (
-			);
-			buildSettings = {
-				PRODUCT_NAME = "Export List";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			buildToolPath = /Developer/Private/jam;
-			buildWorkingDirectory = "";
-			dependencies = (
-			);
-			isa = PBXLegacyTarget;
-			name = "Export List";
-			passBuildSettingsInEnvironment = 1;
-			productName = "Export List";
-			settingsToExpand = 6;
-			settingsToPassInEnvironment = 287;
-			settingsToPassOnCommandLine = 280;
+			sourceTree = "<group>";
 		};
 		F5C9C344021C488201650119 = {
 			children = (
 				F5C9C345021C489401650119,
 				F5C9C349021C498801650119,
-				A1FDA9BE0496615500120112,
 				F5C9C347021C48C701650119,
 				A1CA6040040F24280013F915,
-				A1CA60A6040F26BC0013F915,
-				A1CA60A8040F29830013F915,
+				A1D629AB070C8C800015C908,
+				A1E059B30762C1C8002B8E8F,
 				A1D11B9504BB422E00120112,
 				A1D11B9604BB422E00120112,
 				A1D11B9704BB422E00120112,
@@ -1177,42 +1663,31 @@
 			isa = PBXGroup;
 			name = Frameworks;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5C9C345021C489401650119 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
-		};
-		F5C9C346021C489401650119 = {
-			fileRef = F5C9C345021C489401650119;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			sourceTree = "<absolute>";
 		};
 		F5C9C347021C48C701650119 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
 			refType = 0;
-		};
-		F5C9C348021C48C701650119 = {
-			fileRef = F5C9C347021C48C701650119;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			sourceTree = "<absolute>";
 		};
 		F5C9C349021C498801650119 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreServices.framework;
 			path = /System/Library/Frameworks/CoreServices.framework;
 			refType = 0;
-		};
-		F5C9C34A021C498801650119 = {
-			fileRef = F5C9C349021C498801650119;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			sourceTree = "<absolute>";
 		};
 		F5CEF9B20229AED101583103 = {
 			children = (
@@ -1222,6 +1697,7 @@
 			name = CredentialsCache;
 			path = ../../CredentialsCache;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F5CEF9B30229AED101583103 = {
 			children = (
@@ -1230,6 +1706,7 @@
 			isa = PBXGroup;
 			path = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5CEF9B40229AED101583103 = {
 			children = (
@@ -1240,117 +1717,39 @@
 			isa = PBXGroup;
 			path = Kerberos;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5CEF9B50229AED101583103 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = CredentialsCache.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5CEF9B60229AED101583103 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = CredentialsCache2.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5CEF9B70229AED101583103 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = CredentialsCacheInternal.h;
 			refType = 4;
-		};
-		F5CEF9B80229AED101583103 = {
-			fileRef = F5CEF9B50229AED101583103;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
-		};
-		F5CEF9B90229AED101583103 = {
-			fileRef = F5CEF9B60229AED101583103;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
-		};
-		F5CEF9BA0229AED101583103 = {
-			fileRef = F5CEF9B70229AED101583103;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Private,
-				);
-			};
-		};
-		F5CEFAC2022A033401583103 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = Servers.jam;
-			refType = 4;
-		};
-		F5CEFAC4022A033401583103 = {
-			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/Servers.jam\" $(ACTION)";
-			buildPhases = (
-			);
-			buildSettings = {
-				PRODUCT_NAME = Servers;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			buildToolPath = /Developer/Private/jam;
-			dependencies = (
-			);
-			isa = PBXLegacyTarget;
-			name = Servers;
-			passBuildSettingsInEnvironment = 1;
-			productName = Servers;
-			settingsToExpand = 6;
-			settingsToPassInEnvironment = 287;
-			settingsToPassOnCommandLine = 280;
-		};
-		F5CEFACA022A06CB01583103 = {
-			buildActionMask = 12;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ ! -d \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Versions/${FRAMEWORK_VERSION}/Servers\" ]\n    then mkdir -p \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Versions/${FRAMEWORK_VERSION}/Servers\"\nfi\n    \nif [ ! -L \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Servers\" ]\n    then ln -sf Versions/Current/Servers \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Servers\"\nfi\n";
-		};
-		F5CEFACB022A06CB01583103 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "echo -n \"4.5\" > \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Resources/ClassicVersion\"\n";
+			sourceTree = "<group>";
 		};
 		F5EFFE4D029E7FFA012E678E = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = KLLoginLogoutNotification.h;
 			refType = 4;
-		};
-		F5EFFE4E029E7FFA012E678E = {
-			fileRef = F5EFFE4D029E7FFA012E678E;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
+			sourceTree = "<group>";
 		};
 		F5F53720027598A8018E346B = {
 			children = (
@@ -1359,25 +1758,15 @@
 			isa = PBXGroup;
 			path = Scripts;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5F53721027598A8018E346B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.script.perl;
 			path = compile_et;
 			refType = 4;
-		};
-		F5F5375D0275A34C018E346B = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ ! -d \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Versions/${FRAMEWORK_VERSION}/Support\" ]\n    then mkdir -p \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Versions/${FRAMEWORK_VERSION}/Support\"\nfi\n\nif [ ! -L \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Support\" ]\n    then ln -sf Versions/Current/Support \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Support\"\nfi\n\ncp -p \"${SRCROOT}/../../KerberosErrors/Scripts/compile_et\" \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Support/compile_et\"\n\nchmod a+rx \"${TARGET_BUILD_DIR}/Kerberos.${WRAPPER_EXTENSION}/Support/compile_et\"";
+			sourceTree = "<group>";
 		};
 	};
 	rootObject = F5C9C2E1021AC35B01650119;

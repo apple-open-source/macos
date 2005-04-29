@@ -1,7 +1,7 @@
 /*
  * KLConfiguration.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLConfiguration.c,v 1.11 2003/08/08 21:34:45 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLConfiguration.c,v 1.16 2004/12/08 01:24:58 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -29,35 +29,55 @@
 /* Application Configuration functions */
 
 /* Initialize the (per-process) global options */
-static KLIdleCallback gIdleCallback = NULL;
-static KLRefCon       gIdleRefCon   = 0;
+static pthread_mutex_t gIdleCallbackMutex = PTHREAD_MUTEX_INITIALIZER;
+static KLIdleCallback  gIdleCallback = NULL;
+static KLRefCon        gIdleRefCon   = 0;
 
 // ---------------------------------------------------------------------------
 
 KLStatus KLSetIdleCallback (const KLIdleCallback inCallback, const KLRefCon inRefCon)
 {
-    gIdleCallback = inCallback;
-    gIdleRefCon = inRefCon;
+    KLStatus lockErr = pthread_mutex_lock (&gIdleCallbackMutex);
+    KLStatus err = lockErr;
     
-    return klNoErr;
+    if (err == klNoErr) {
+        gIdleCallback = inCallback;
+        gIdleRefCon = inRefCon;
+    }
+    
+    if (!lockErr) { pthread_mutex_unlock (&gIdleCallbackMutex); }
+    return KLError_ (err);
 }
 
 // ---------------------------------------------------------------------------
 
 KLStatus KLGetIdleCallback (KLIdleCallback* outCallback, KLRefCon* outRefCon)
 {
-    *outCallback = gIdleCallback;
-    *outRefCon = gIdleRefCon;
+    KLStatus lockErr = pthread_mutex_lock (&gIdleCallbackMutex);
+    KLStatus err = lockErr;
     
-    return klNoErr;
+    if (outCallback == NULL) { err = KLError_ (klParameterErr); }    
+    if (outRefCon   == NULL) { err = KLError_ (klParameterErr); }
+    
+    if (err == klNoErr) {
+        *outCallback = gIdleCallback;
+        *outRefCon = gIdleRefCon;
+    }
+    
+    if (!lockErr) { pthread_mutex_unlock (&gIdleCallbackMutex); }
+    return KLError_ (err);
 }
 
 // ---------------------------------------------------------------------------
 
 void __KLCallIdleCallback (void)
 {
-    if (gIdleCallback != NULL) {
-        CallKLIdleCallback (gIdleCallback, gIdleRefCon);
+    KLIdleCallback callback = NULL;
+    KLRefCon refCon = 0;
+    KLStatus err = KLGetIdleCallback (&callback, &refCon);
+    
+    if ((err == klNoErr) && (callback != NULL)) {
+        CallKLIdleCallback (callback, refCon);
     }
 }
 
@@ -65,18 +85,47 @@ void __KLCallIdleCallback (void)
 
 // ---------------------------------------------------------------------------
 
-KLPrompterProcPtr gApplicationPrompter = NULL;
+static pthread_mutex_t   gApplicationPrompterMutex = PTHREAD_MUTEX_INITIALIZER;
+static KLPrompterProcPtr gApplicationPrompter = NULL;
 
-void __KLSetApplicationPrompter (KLPrompterProcPtr inPrompter)
+KLStatus __KLSetApplicationPrompter (KLPrompterProcPtr inPrompter)
 {
-    gApplicationPrompter = inPrompter;
+    KLStatus lockErr = pthread_mutex_lock (&gApplicationPrompterMutex);
+    KLStatus err = lockErr;
+    
+    if (err == klNoErr) {
+        gApplicationPrompter = inPrompter;
+    }
+    
+    if (!lockErr) { pthread_mutex_unlock (&gApplicationPrompterMutex); }
+    return KLError_ (err);
+}
+
+// ---------------------------------------------------------------------------
+
+KLStatus __KLGetApplicationPrompter (KLPrompterProcPtr *outPrompter)
+{
+    KLStatus lockErr = pthread_mutex_lock (&gApplicationPrompterMutex);
+    KLStatus err = lockErr;
+    
+    if (outPrompter == NULL) { err = KLError_ (klParameterErr); }
+    
+    if (err == klNoErr) {
+        *outPrompter = gApplicationPrompter;
+    }
+    
+    if (!lockErr) { pthread_mutex_unlock (&gApplicationPrompterMutex); }
+    return KLError_ (err);
 }
 
 // ---------------------------------------------------------------------------
 
 KLBoolean __KLApplicationProvidedPrompter (void)
 {
-    return (gApplicationPrompter != NULL);
+    KLPrompterProcPtr applicationPrompter = NULL;
+    KLStatus err = __KLGetApplicationPrompter (&applicationPrompter);
+    
+    return ((err == klNoErr) && (applicationPrompter != NULL));
 }
 
 // ---------------------------------------------------------------------------
@@ -88,9 +137,12 @@ krb5_error_code __KLCallApplicationPrompter (krb5_context   context,
                                              int            num_prompts,
                                              krb5_prompt    prompts[])
 {
-    if (gApplicationPrompter == NULL) { return KLError_ (klParameterErr); }
+    KLPrompterProcPtr applicationPrompter = NULL;
+    KLStatus err = __KLGetApplicationPrompter (&applicationPrompter);
     
-    return gApplicationPrompter (context, data, name, banner, num_prompts, prompts);
+    if (applicationPrompter == NULL) { err = KLError_ (klParameterErr); }
+    
+    return applicationPrompter (context, data, name, banner, num_prompts, prompts);
 }
 
 #pragma mark -
@@ -115,82 +167,323 @@ KLStatus KLGetApplicationOptions (KLApplicationOptions *outAppOptions)
 
 // ---------------------------------------------------------------------------
 
-static KLBoolean gKLAllowHomeDirectoryAccess = true;
+static pthread_mutex_t gKLAllowHomeDirectoryAccessMutex = PTHREAD_MUTEX_INITIALIZER;
+static KLBoolean       gKLAllowHomeDirectoryAccess = true;
 
 // ---------------------------------------------------------------------------
 
-KLStatus  __KLSetHomeDirectoryAccess (KLBoolean inAllowHomeDirectoryAccess)
+KLStatus __KLSetHomeDirectoryAccess (KLBoolean inAllowHomeDirectoryAccess)
 {
-    gKLAllowHomeDirectoryAccess = inAllowHomeDirectoryAccess;
-    return KLError_ (klNoErr);
+    KLStatus lockErr = pthread_mutex_lock (&gKLAllowHomeDirectoryAccessMutex);
+    KLStatus err = lockErr;
+    
+    if (err == klNoErr) {
+        gKLAllowHomeDirectoryAccess = inAllowHomeDirectoryAccess;
+    }
+    
+    if (!lockErr) { pthread_mutex_unlock (&gKLAllowHomeDirectoryAccessMutex); }
+    return KLError_ (err);
+}
+
+// ---------------------------------------------------------------------------
+
+KLStatus __KLGetHomeDirectoryAccess (KLBoolean *outAllowHomeDirectoryAccess)
+{
+    KLStatus lockErr = pthread_mutex_lock (&gKLAllowHomeDirectoryAccessMutex);
+    KLStatus err = lockErr;
+    
+    if (outAllowHomeDirectoryAccess == NULL) { err = KLError_ (klParameterErr); }
+
+    if (err == klNoErr) {
+        *outAllowHomeDirectoryAccess = gKLAllowHomeDirectoryAccess;
+    }
+    
+    if (!lockErr) { pthread_mutex_unlock (&gKLAllowHomeDirectoryAccessMutex); }
+    return KLError_ (err);
 }
 
 // ---------------------------------------------------------------------------
 
 KLBoolean __KLAllowHomeDirectoryAccess (void)
 {
-    return gKLAllowHomeDirectoryAccess;
+    KLBoolean allowHomeDirectoryAccess = false;
+    KLStatus err = __KLGetHomeDirectoryAccess (&allowHomeDirectoryAccess);
+
+    return ((err == klNoErr) && allowHomeDirectoryAccess);
 }
 
 #pragma mark -
 
 // ---------------------------------------------------------------------------
 
-static KLBoolean gKLAllowAutomaticPrompting = true;
-static KLBoolean gKLPluginRefCount = 0;
+static pthread_once_t gKLPluginRefCountInitOnce = PTHREAD_ONCE_INIT;
+static pthread_key_t  gKLPluginRefCountKey;
+static KLStatus       gKLPluginRefCountOnceErr = 0;
 
 // ---------------------------------------------------------------------------
 
-void __KLBeginPlugin (void)
+static void __KLPluginRefCountInitOnceHook ()
 {
-    gKLPluginRefCount++;
+    KLStatus err = klNoErr;
+    
+    if (err == klNoErr) {
+        err = pthread_key_create (&gKLPluginRefCountKey, free);
+    }
+    
+    if (err != klNoErr) {
+        gKLPluginRefCountOnceErr = err;
+    }
 }
 
 // ---------------------------------------------------------------------------
 
-void __KLEndPlugin (void)
+static KLStatus __KLPluginRefCountInit ()
 {
-    gKLPluginRefCount--;
+    KLStatus err = klNoErr;
+    
+    if (err == klNoErr) {
+        err = pthread_once (&gKLPluginRefCountInitOnce, __KLPluginRefCountInitOnceHook);
+    }
+    
+    // If only pthread_once propagated an error from the initializer
+    return KLError_ (err ? err : gKLPluginRefCountOnceErr);
 }
 
 // ---------------------------------------------------------------------------
 
-KLStatus  __KLSetAutomaticPrompting (KLBoolean inAllowAutomaticPrompting)
+static KLStatus __KLPluginSetRefCount (KLIndex *inRefCount)
 {
-    gKLAllowAutomaticPrompting = inAllowAutomaticPrompting;
-    return KLError_ (klNoErr);
+    KLStatus err = __KLPluginRefCountInit ();
+    
+    if (err == klNoErr) {
+        err = pthread_setspecific (gKLPluginRefCountKey, inRefCount);
+    }
+    
+    return KLError_ (err);
+}
+
+// ---------------------------------------------------------------------------
+
+static KLStatus __KLPluginGetRefCount (KLIndex **outRefCount)
+{
+    KLStatus err = __KLPluginRefCountInit ();
+    KLIndex *refCount = NULL;
+    
+    if (outRefCount == NULL) { err = KLError_ (klParameterErr); }
+    
+    if (err == klNoErr) {
+        refCount = pthread_getspecific (gKLPluginRefCountKey);
+        if (refCount == NULL) {
+            refCount = (KLIndex *) calloc (1, sizeof (KLIndex));
+            if (refCount == NULL) { err = KLError_ (klMemFullErr); }
+        }
+    }
+    
+    if (err == klNoErr) {
+        *outRefCount = refCount;
+    }
+    
+    return KLError_ (err);
+}
+
+// ---------------------------------------------------------------------------
+
+KLStatus __KLBeginPlugin (void)
+{
+    KLIndex *refCount = NULL;
+    KLStatus err = __KLPluginGetRefCount (&refCount);
+    
+    if (err == klNoErr) {
+        refCount++;
+        err = __KLPluginSetRefCount (refCount);
+    }
+    
+    return KLError_ (err);
+}
+
+// ---------------------------------------------------------------------------
+
+KLStatus __KLEndPlugin (void)
+{
+    KLIndex *refCount = NULL;
+    KLStatus err = __KLPluginGetRefCount (&refCount);
+    
+    if (err == klNoErr) {
+        refCount--;
+        err = __KLPluginSetRefCount (refCount);
+    }
+    
+    return KLError_ (err);
+}
+
+#pragma mark -
+
+// ---------------------------------------------------------------------------
+
+static pthread_mutex_t   gKLPromptMechanismMutex = PTHREAD_MUTEX_INITIALIZER;
+static KLPromptMechanism gKLPromptMechanism = klPromptMechanism_Autodetect;
+
+// ---------------------------------------------------------------------------
+
+KLStatus __KLSetPromptMechanism (KLPromptMechanism inPromptMechanism)
+{
+    KLStatus lockErr = pthread_mutex_lock (&gKLPromptMechanismMutex);
+    KLStatus err = lockErr;
+    
+    if (err == klNoErr) {
+        gKLPromptMechanism = inPromptMechanism;
+    }
+    
+    if (!lockErr) { pthread_mutex_unlock (&gKLPromptMechanismMutex); }
+    return KLError_ (err);
+}
+
+// ---------------------------------------------------------------------------
+
+static KLStatus __KLGetPromptMechanism (KLPromptMechanism *outPromptMechanism)
+{
+    KLStatus lockErr = pthread_mutex_lock (&gKLPromptMechanismMutex);
+    KLStatus err = lockErr;
+    
+    if (outPromptMechanism == NULL) { err = KLError_ (klParameterErr); }
+    
+    if (err == klNoErr) {
+        *outPromptMechanism = gKLPromptMechanism;
+    }
+    
+    if (!lockErr) { pthread_mutex_unlock (&gKLPromptMechanismMutex); }
+    return KLError_ (err);
+}
+
+// ---------------------------------------------------------------------------
+
+KLPromptMechanism __KLPromptMechanism (void)
+{
+    KLStatus err = klNoErr;
+    LoginSessionAttributes attributes = LoginSessionGetSessionAttributes ();
+    KLPromptMechanism promptMechanism = klPromptMechanism_Autodetect;
+    
+    if (err == klNoErr) {
+        err = __KLGetPromptMechanism (&promptMechanism);
+    }
+    
+    if (err == klNoErr) {
+        if (promptMechanism == klPromptMechanism_Autodetect) {
+            if (attributes & loginSessionCallerUsesGUI) {
+                promptMechanism = klPromptMechanism_GUI;  // caller is a GUI app
+            } else if (attributes & loginSessionHasTerminalAccess) {
+                promptMechanism = klPromptMechanism_CLI;  // caller has a controlling terminal
+            } else if (attributes & loginSessionHasGraphicsAccess) {
+                promptMechanism = klPromptMechanism_GUI;  // we can talk to the window server
+            } else {
+                dprintf ("__KLPromptMechanism(): no way to talk to the user.");
+                promptMechanism = klPromptMechanism_None; // no way to talk to the user
+            }
+        }
+        
+        if ((promptMechanism == klPromptMechanism_GUI) && !(attributes & loginSessionHasGraphicsAccess)) {
+            dprintf ("__KLPromptMechanism(): caller asked for GUI prompt but we have no window server.");
+            promptMechanism = klPromptMechanism_None;
+        }
+        
+        if ((promptMechanism == klPromptMechanism_CLI) && !(attributes & loginSessionHasTerminalAccess)) {
+            dprintf ("__KLPromptMechanism(): caller asked for CLI prompt but we have no terminal.");
+            promptMechanism = klPromptMechanism_None;
+        }
+    }
+    
+    return promptMechanism;
+}
+
+#pragma mark -
+
+// ---------------------------------------------------------------------------
+
+static pthread_mutex_t gKLAllowAutomaticPromptingMutex = PTHREAD_MUTEX_INITIALIZER;
+static KLBoolean       gKLAllowAutomaticPrompting = true;
+
+// ---------------------------------------------------------------------------
+
+KLStatus __KLSetAutomaticPrompting (KLBoolean inAllowAutomaticPrompting)
+{
+    KLStatus lockErr = pthread_mutex_lock (&gKLAllowAutomaticPromptingMutex);
+    KLStatus err = lockErr;
+    
+    if (err == klNoErr) {
+        gKLAllowAutomaticPrompting = inAllowAutomaticPrompting;
+    }
+    
+    if (!lockErr) { pthread_mutex_unlock (&gKLAllowAutomaticPromptingMutex); }
+    return KLError_ (err);
+}
+
+// ---------------------------------------------------------------------------
+
+KLStatus __KLGetAutomaticPrompting (KLBoolean *outAllowAutomaticPrompting)
+{
+    KLStatus lockErr = pthread_mutex_lock (&gKLAllowAutomaticPromptingMutex);
+    KLStatus err = lockErr;
+    
+    if (outAllowAutomaticPrompting == NULL) { err = KLError_ (klParameterErr); }
+    
+    if (err == klNoErr) {
+        *outAllowAutomaticPrompting = gKLAllowAutomaticPrompting;
+    }
+    
+    if (!lockErr) { pthread_mutex_unlock (&gKLAllowAutomaticPromptingMutex); }
+    return KLError_ (err);
 }
 
 // ---------------------------------------------------------------------------
 
 KLBoolean __KLAllowAutomaticPrompting (void)
 {
-    KLBoolean hasKerberosConfig = false;
-
-    // Don't prompt if environment variable is set.
-    if (getenv ("KERBEROSLOGIN_NEVER_PROMPT") != NULL) {
-        dprintf ("__KLAllowAutomaticPrompting(): KERBEROSLOGIN_NEVER_PROMPT is set.\n");
-        return false;
-    }
-
-    // Don't prompt if we are in a plug-in because we will reenter KLL code
-    if (gKLPluginRefCount > 0) {
-        dprintf ("__KLAllowAutomaticPrompting(): We are in a plug-in!  Don't prompt.\n");
-        return false;
-    }
-
-    // Currently only prompt for GUI sessions
-    if (LoginSessionGetSessionUIType () != kLoginSessionWindowServer) {
-        dprintf ("__KLAllowAutomaticPrompting (): session is not GUI type.\n");
-        return false;
+    KLStatus err = klNoErr;
+    KLBoolean allowAutomaticPrompting = true;
+    KLPromptMechanism promptMechanism = klPromptMechanism_Autodetect;
+    KLIndex *refCount = NULL;
+    
+    if (err == klNoErr) {
+        err = __KLGetPromptMechanism (&promptMechanism);
     }
     
-    // Make sure there is at least 1 config file
-    // We don't support DNS domain-realm lookup, so if there is no
-    // config, Kerberos is guaranteed not to work.
+    if (err == klNoErr) {
+        err = __KLGetAutomaticPrompting (&allowAutomaticPrompting);
+    }
+    
+    if (err == klNoErr) {
+        err = __KLPluginGetRefCount (&refCount);
+    }
+    
+    if (err == klNoErr) {
+        // Don't prompt if environment variable is set.
+        if (getenv ("KERBEROSLOGIN_NEVER_PROMPT") != NULL) {
+            dprintf ("__KLAllowAutomaticPrompting(): KERBEROSLOGIN_NEVER_PROMPT is set.\n");
+            allowAutomaticPrompting = false;
+        }
+    }
+    
+    if (err == klNoErr) {
+        if (!(LoginSessionGetSessionAttributes () & loginSessionCallerUsesGUI) && (promptMechanism == klPromptMechanism_Autodetect)) {
+            dprintf ("__KLAllowAutomaticPrompting(): Prompt mechanism is autodetect and caller is not using a GUI.");
+            allowAutomaticPrompting = false;
+        }
+        
+        // Don't prompt if we are in a plug-in because we will reenter KLL code
+        if (*refCount > 0) {
+            dprintf ("__KLAllowAutomaticPrompting(): We are in a plug-in!  Don't prompt.\n");
+            allowAutomaticPrompting = false;
+        }
+        
+    }
+    
 #warning "__KLAllowAutomaticPrompting () doesn't support zero-config"
-
-    if (!hasKerberosConfig) {
+    if (err == klNoErr) {
+        // Make sure there is at least 1 config file
+        // We don't support DNS domain-realm lookup, so if there is no
+        // config, Kerberos is guaranteed not to work.
+        
+        KLBoolean hasKerberosConfig = false;
         char **files = NULL;
         profile_t profile = NULL;
         
@@ -199,24 +492,28 @@ KLBoolean __KLAllowAutomaticPrompting (void)
                 hasKerberosConfig = true;
             }
         }
-
-        if (profile != NULL) { profile_release (profile); }
-        if (files != NULL) { krb5_free_config_files (files); }
+        
+        // Krb4 traditional config files
+        if (!hasKerberosConfig) {
+            hasKerberosConfig = (krb__get_cnffile () != NULL);
+        }
+        
+        if (!hasKerberosConfig) {
+            dprintf ("__KLAllowAutomaticPrompting (): no valid config file.");
+            allowAutomaticPrompting = false;
+        }
+    
+        if (profile != NULL) { profile_abandon (profile); }
+        if (files   != NULL) { krb5_free_config_files (files); }
     }
     
-    // Krb4 traditional config files
-    if (!hasKerberosConfig) {
-        hasKerberosConfig = (krb__get_cnffile () != NULL);
+    if (err != klNoErr) {
+        // Fatal error, don't prompt because we don't know what's going on!
+        allowAutomaticPrompting = false;
     }
     
-    
-    if (hasKerberosConfig) {
-        dprintf ("LoginSessionGetSessionUIType (): will allow prompting.\n");
-        return gKLAllowAutomaticPrompting;
-    } else {
-        dprintf ("LoginSessionGetSessionUIType (): no valid config file.\n");
-        return false;
-    }
+    dprintf ("__KLAllowAutomaticPrompting (): will %sallow prompting.", allowAutomaticPrompting ? "" : "not ");
+    return allowAutomaticPrompting;
 }
 
 #pragma mark -

@@ -1,18 +1,5 @@
 KerberosIntermediates = "$(BUILT_PRODUCTS_DIR)/Kerberos.intermediates" ;
 KerberosPBExport = "$(KerberosIntermediates)/Kerberos.pbexp" ;
-KerberosCWExport = "$(KerberosIntermediates)/Kerberos.exp" ;
-
-rule ConvertPBToCWExport
-{
-    DEPENDS "$(1)" : "$(2)" ;
-    Clean.Remove clean : "$(1)" ;
-}
-
-actions ConvertPBToCWExport
-{
-    mkdir -p "$(1:D)"
-    cat "$(2)" | tr -d " \t" | sed -e "s/^_//" -e "s/^#.*//" | tr -s "\n" | sort | uniq > "$(1)" ; 
-}
 
 rule MakePBExport
 {
@@ -43,9 +30,7 @@ MakePBExport "$(KerberosPBExport)" :
     "$(SRCROOT)/../../KClient/Projects/KClientDeprecated.pbexp" 
     ;
 
-ConvertPBToCWExport "$(KerberosCWExport)" : "$(KerberosPBExport)" ;
-
-DEPENDS all : "$(KerberosPBExport)" "$(KerberosCWExport)" ;
+DEPENDS all : "$(KerberosPBExport)" ;
 DEPENDS install : all ;
 
 NOCARE installhdrs ;

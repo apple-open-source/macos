@@ -23,23 +23,39 @@
 /*
  * demand.c - Support routines for demand-dialling.
  *
- * Copyright (c) 1993 The Australian National University.
- * All rights reserved.
+ * Copyright (c) 1996-2002 Paul Mackerras. All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by the Australian National University.  The name of the University
- * may not be used to endorse or promote products derived from this
- * software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Paul Mackerras
+ *     <paulus@samba.org>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: demand.c,v 1.5 2003/08/14 00:00:29 callie Exp $"
+#define RCSID	"$Id: demand.c,v 1.7 2004/03/04 01:36:32 lindak Exp $"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,7 +81,9 @@
 #include "ipcp.h"
 #include "lcp.h"
 
+#ifndef lint
 static const char rcsid[] = RCSID;
+#endif
 
 char *frame;
 int framelen;
@@ -108,8 +126,9 @@ demand_conf()
     fcs = PPP_INITFCS;
 
     netif_set_mtu(0, MIN(lcp_allowoptions[0].mru, PPP_MRU));
-    ppp_send_config(0, PPP_MRU, (u_int32_t) 0, 0, 0);
-    ppp_recv_config(0, PPP_MRU, (u_int32_t) 0, 0, 0);
+    if (ppp_send_config(0, PPP_MRU, (u_int32_t) 0, 0, 0) < 0
+	|| ppp_recv_config(0, PPP_MRU, (u_int32_t) 0, 0, 0) < 0)
+	    fatal("Couldn't set up demand-dialled PPP interface: %m");
 
 #ifdef PPP_FILTER
     set_filters(&pass_filter, &active_filter);

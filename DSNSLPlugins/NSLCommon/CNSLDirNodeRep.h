@@ -53,14 +53,15 @@ public:
                                 ~CNSLDirNodeRep				( void );
             
 			void				DeleteSelf					( void );
-            void				Initialize					( CFStringRef nodeNameRef, uid_t uid, Boolean isTopLevelNode );
-            void				Initialize					( const char* nodeNamePtr, uid_t uid, Boolean isTopLevelNode );
+            void				Initialize					( CFStringRef nodeNameRef, uid_t uid, Boolean isTopLevelNode, CFStringRef nodePathRef );
+            void				Initialize					( const char* nodeNamePtr, uid_t uid, Boolean isTopLevelNode, const char* nodePathPtr = NULL );
             Boolean				IsInitialized				( void ) { return mInitialized; }	// returns whether this object has been initialized
             Boolean				IsLookupStarted				( void ) { return mLookupStarted; }
             void				LookupHasStarted			( void ) { mLookupStarted = true; }
             void				ResetLookupHasStarted		( void ) { mLookupStarted = false; }
             
             CFStringRef			GetNodeName					( void ) { return mNodeName; }
+            CFStringRef			GetNodePath					( void ) { return mNodePath; }
 			Boolean				IsTopLevelNode				( void ) { return mIsTopLevelNode; }
             uid_t				GetUID						( void ) { return mUID; }
             void				LimitRecSearch				( unsigned long searchLimit ) { mRecSearchLimit = searchLimit; }
@@ -72,6 +73,7 @@ public:
     const 	CNSLResult*			GetResult					( CFIndex index );		// 0 based
 
             void				AddService					( CNSLResult* newResult );
+			void				AddServices					( CFArrayRef newResults );
             
             void				StartingNewLookup			( CNSLServiceLookupThread* searchThread );
             // service lookup thread calls this when it finishes
@@ -89,6 +91,7 @@ private:
             pthread_mutex_t		mResultListQueueLock;
             pthread_mutex_t		mSearchListQueueLock;
             CFStringRef			mNodeName;
+            CFStringRef			mNodePath;
 			Boolean				mIsTopLevelNode;
             uid_t				mUID;
             CNSLPlugin*			mParentPlugin;

@@ -22,7 +22,7 @@
  * or implied warranty.
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Headers/Kerberos/CredentialsCache.h,v 1.40 2003/07/03 16:13:40 lxs Exp $ */
+/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Headers/Kerberos/CredentialsCache.h,v 1.41 2004/10/22 20:49:18 lxs Exp $ */
 
 /*
  * Declarations for Credentials Cache API Library
@@ -281,7 +281,7 @@ struct  cc_context_f {
                                 cc_context_t context);
     cc_int32    (*get_change_time) (
                                 cc_context_t context,
-                                cc_time_t* time);
+                                cc_time_t* change_time);
     cc_int32    (*get_default_ccache_name) (
                                 cc_context_t context,
                                 cc_string_t* name);
@@ -364,10 +364,10 @@ struct cc_ccache_f {
                                  cc_ccache_t ccache);
     cc_int32    (*get_last_default_time) (
                                  cc_ccache_t ccache,
-                                 cc_time_t* time);
+                                 cc_time_t* last_default_time);
     cc_int32    (*get_change_time) (
                                  cc_ccache_t ccache,
-                                 cc_time_t* time);
+                                 cc_time_t* change_time);
     cc_int32    (*compare) (
                                 cc_ccache_t ccache,
                                 cc_ccache_t compare_to,
@@ -433,8 +433,8 @@ cc_int32 cc_initialize (
  
 #define		cc_context_release(context)												\
 			((context) -> functions -> release (context))
-#define		cc_context_get_change_time(context, time)								\
-			((context) -> functions -> get_change_time (context, time))
+#define		cc_context_get_change_time(context, change_time)								\
+			((context) -> functions -> get_change_time (context, change_time))
 #define		cc_context_get_default_ccache_name(context, name)						\
 			((context) -> functions -> get_default_ccache_name (context, name))
 #define		cc_context_open_ccache(context, name, ccache)							\
@@ -480,18 +480,18 @@ cc_int32 cc_initialize (
 			((ccache) -> functions -> lock (ccache, lock))
 #define		cc_ccache_unlock(ccache, unlock)										\
 			((ccache) -> functions -> unlock (ccache, unlock))
-#define		cc_ccache_get_last_default_time(ccache, time)							\
-			((ccache) -> functions -> get_last_default_time (ccache, time))
-#define		cc_ccache_get_change_time(ccache, time)									\
-			((ccache) -> functions -> get_change_time (ccache, time))
+#define		cc_ccache_get_last_default_time(ccache, last_default_time)							\
+			((ccache) -> functions -> get_last_default_time (ccache, last_default_time))
+#define		cc_ccache_get_change_time(ccache, change_time)									\
+			((ccache) -> functions -> get_change_time (ccache, change_time))
 #define		cc_ccache_move(source, destination)										\
 			((source) -> functions -> move (source, destination))
 #define		cc_ccache_compare(ccache, compare_to, equal)							\
 			((ccache) -> functions -> compare (ccache, compare_to, equal))
-#define		cc_ccache_get_kdc_time_offset(ccache, version, time)					\
-            ((ccache) -> functions -> get_kdc_time_offset (version, time))
-#define		cc_ccache_set_kdc_time_offset(ccache, version, time)					\
-            ((ccache) -> functions -> set_kdc_time_offset (version, time))
+#define		cc_ccache_get_kdc_time_offset(ccache, version, time_offset)					\
+            ((ccache) -> functions -> get_kdc_time_offset (version, time_offset))
+#define		cc_ccache_set_kdc_time_offset(ccache, version, time_offset)					\
+            ((ccache) -> functions -> set_kdc_time_offset (version, time_offset))
 #define		cc_ccache_clear_kdc_time_offset(ccache, version)						\
             ((ccache) -> functions -> clear_kdc_time_offset (version))
 

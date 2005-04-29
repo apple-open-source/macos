@@ -62,7 +62,7 @@ gdb_test "next 6" ".*first_var says: hi v1.*Fix in class-bundlized.o version #2 
 
 # Build a new class.m
 
-gdb_test "shell make -C $objdir/$subdir stage2" ".*gcc.*reload-stub.o" "make version 2 of class.m"
+gdb_test "shell make -C $objdir/$subdir stage2" ".*gcc.*(reload-stub.o|f-replace-objc-classes).*" "make version 2 of class.m"
 
 send_gdb "fix $objdir/$subdir/class-bundlized.o$b2suffix $objdir/$subdir/class.m\n"
 gdb_expect {
@@ -84,7 +84,7 @@ gdb_test "n 10" "first_var says: hi v2.*second_var says: hi v2.*third_var says: 
 
 # Build a newer class.m
 
-gdb_test "shell make -C $objdir/$subdir stage3" ".*gcc.*reload-stub.o" "make version 3 of class.m"
+gdb_test "shell make -C $objdir/$subdir stage3" ".*gcc.*(reload-stub.o|f-replace-objc-classes).*" "make version 3 of class.m"
 
 send_gdb "fix $objdir/$subdir/class-bundlized.o$b3suffix $objdir/$subdir/class.m\n"
 gdb_expect {

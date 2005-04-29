@@ -46,8 +46,6 @@
 #import <string.h>
 #import <NetInfo/dsutil.h>
 
-extern struct ether_addr *ether_aton(char *);
-
 char *categoryName[] =
 {
 	"user",
@@ -303,16 +301,18 @@ char *categoryPathname[] =
 + (char *)canonicalEthernetAddress:(char *)addr
 {
 	char e[6][3];
-	static char str[64];
+	char *str;
 	struct ether_addr *ether;
 	int i, bit;
 
+	str = NULL;
 	ether = NULL;
+
 	if (addr != NULL) ether = ether_aton(addr);
 
 	if (ether == NULL)
 	{
-		sprintf(str, "00:00:00:00:00:00");
+		asprintf(&str, "00:00:00:00:00:00");
 		return str;
 	}
 
@@ -328,7 +328,7 @@ char *categoryPathname[] =
 		}
 	}
 
-	sprintf(str, "%s:%s:%s:%s:%s:%s", e[0],e[1],e[2],e[3],e[4],e[5]);
+	asprintf(&str, "%s:%s:%s:%s:%s:%s", e[0],e[1],e[2],e[3],e[4],e[5]);
 	return str;
 }
 
@@ -408,98 +408,7 @@ char *categoryPathname[] =
 
 - (LUDictionary *)netgroupWithName:(char *)name
 {
-	LUDictionary *q;
-	LUDictionary *item;
-	LUArray *all;
-	char str[16], **p;
-	int i, len;
-	BOOL found;
-
-	if (name == NULL) return nil;
-
-	item = [[LUDictionary alloc] initTimeStamped];
-	[item setValue:name forKey:"name"];
-	found = NO;
-
-	q = [[LUDictionary alloc] init];
-	sprintf(str, "%u", LUCategoryHost);
-	[q setValue:str forKey:"_lookup_category"];
-	[q setValue:name forKey:"netgroups"];
-
-	all = [self query:q];
-	[q release];
-
-	if (all != nil)
-	{
-		len = [all count];
-		for (i = 0; i < len; i++)
-		{
-			p = [[all objectAtIndex:i] valuesForKey:"name"];
-			if (p != NULL)
-			{
-				[item mergeValues:p forKey:"hosts"];
-				found = YES;
-			}
-		}
-
-		[all release];
-	}
-
-	q = [[LUDictionary alloc] init];
-	sprintf(str, "%u", LUCategoryUser);
-	[q setValue:str forKey:"_lookup_category"];
-	[q setValue:name forKey:"netgroups"];
-
-	all = [self query:q];
-	[q release];
-
-	if (all != nil)
-	{
-		len = [all count];
-		for (i = 0; i < len; i++)
-		{
-			p = [[all objectAtIndex:i] valuesForKey:"name"];
-			if (p != NULL)
-			{
-				[item mergeValues:p forKey:"users"];
-				found = YES;
-			}
-		}
-
-		[all release];
-	}
-
-	q = [[LUDictionary alloc] init];
-	sprintf(str, "%u", LUCategoryNetDomain);
-	[q setValue:str forKey:"_lookup_category"];
-	[q setValue:name forKey:"netgroups"];
-
-	all = [self query:q];
-	[q release];
-
-	if (all != nil)
-	{
-		len = [all count];
-		for (i = 0; i < len; i++)
-		{
-			p = [[all objectAtIndex:i] valuesForKey:"name"];
-			if (p != NULL)
-			{
-				[item mergeValues:p forKey:"domains"];
-				found = YES;
-			}
-		}
-
-		[all release];
-	}
-	
-	if (!found)
-	{
-		[item release];
-		return nil;
-	}
-
-	return item;
+	return [self itemWithKey:"name" value:name category:LUCategoryNetgroup];
 }
 
 - (LUDictionary *)serviceWithName:(char *)name protocol:(char *)prot

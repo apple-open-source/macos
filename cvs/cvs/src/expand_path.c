@@ -15,9 +15,11 @@
 #include "cvs.h"
 #include <sys/types.h>
 
-static char *expand_variable PROTO((char *env, char *file, int line));
+static char *expand_variable PROTO((const char *env, const char *file,
+                                    int line));
 
-
+
+
 /* User variables.  */
 
 List *variable_list = NULL;
@@ -43,7 +45,7 @@ variable_set (nameval)
     Node *node;
 
     p = nameval;
-    while (isalnum (*p) || *p == '_')
+    while (isalnum ((unsigned char) *p) || *p == '_')
 	++p;
     if (*p != '=')
 	error (1, 0, "illegal character in user variable name in %s", nameval);
@@ -79,7 +81,9 @@ variable_set (nameval)
 	free (name);
     }
 }
-
+
+
+
 /* This routine will expand the pathname to account for ~ and $
    characters as described above.  Returns a pointer to a newly
    malloc'd string.  If an error occurs, an error message is printed
@@ -89,11 +93,11 @@ variable_set (nameval)
    known.  */
 char *
 expand_path (name, file, line)
-    char *name;
-    char *file;
+    const char *name;
+    const char *file;
     int line;
 {
-    char *s;
+    const char *s;
     char *d;
 
     char *mybuf = NULL;
@@ -133,7 +137,7 @@ expand_path (name, file, line)
 	    {
 		if (flag
 		    ? *s =='}'
-		    : isalnum (*s) == 0 && *s != '_')
+		    : isalnum ((unsigned char) *s) == 0 && *s != '_')
 		    break;
 		doff = d - mybuf;
 		expand_string (&mybuf, &mybuf_size, doff + 1);
@@ -179,8 +183,9 @@ expand_path (name, file, line)
     if (*s++ == '~')
     {
 	char *t;
-	char *p=s;
-	if (*s=='/' || *s==0)
+	char *p, *pstart;
+	pstart = p = xstrdup (s);
+	if (*pstart=='/' || *pstart==0)
 	    t = get_homedir ();
 	else
 	{
@@ -201,19 +206,22 @@ expand_path (name, file, line)
 	    for (; *p!='/' && *p; p++)
 		;
 	    *p = 0;
-	    ps = getpwnam (s);
+	    ps = getpwnam (pstart);
 	    if (ps == 0)
 	    {
 		if (line != 0)
 		    error (0, 0, "%s:%d: no such user %s",
-			   file, line, s);
+			   file, line, pstart);
 		else
-		    error (0, 0, "%s: no such user %s", file, s);
+		    error (0, 0, "%s: no such user %s", file, pstart);
 		return NULL;
 	    }
 	    t = ps->pw_dir;
 #endif
 	}
+	if (t == NULL)
+	    error (1, 0, "cannot find home directory");
+
 	doff = d - buf;
 	expand_string (&buf, &buf_size, doff + 1);
 	d = buf + doff;
@@ -224,9 +232,8 @@ expand_path (name, file, line)
 	    d = buf + doff;
 	}
 	--d;
-	if (*p == 0)
-	    *p = '/';	       /* always add / */
-	s=p;
+	s+=p-pstart;
+	free (pstart);
     }
     else
 	--s;
@@ -264,12 +271,12 @@ expand_path (name, file, line)
 
 static char *
 expand_variable (name, file, line)
-    char *name;
-    char *file;
+    const char *name;
+    const char *file;
     int line;
 {
     if (strcmp (name, CVSROOT_ENV) == 0)
-	return CVSroot_original;
+	return current_parsed_root->directory;
     else if (strcmp (name, "RCSBIN") == 0)
     {
 	error (0, 0, "RCSBIN internal variable is no longer supported");
@@ -283,7 +290,7 @@ expand_variable (name, file, line)
 	return Editor;
     else if (strcmp (name, "USER") == 0)
 	return getcaller ();
-    else if (isalpha (name[0]))
+    else if (isalpha ((unsigned char) name[0]))
     {
 	/* These names are reserved for future versions of CVS,
 	   so that is why it is an error.  */

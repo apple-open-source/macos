@@ -1,7 +1,7 @@
 /* Not copyrighted 1990 Mark Adler */
 
 #ifndef lint
-static char rcsid[] = "$Id: makecrc.c,v 1.1.1.1 1999/04/23 01:05:59 wsanchez Exp $";
+static char rcsid[] = "$Id: makecrc.c,v 0.6 1993/05/28 07:42:59 jloup Exp $";
 #endif
 
 #include <stdio.h>

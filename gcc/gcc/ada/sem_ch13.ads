@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -47,9 +46,8 @@ package Sem_Ch13 is
 
    function Minimum_Size
      (T      : Entity_Id;
-      Biased : Boolean := False)
-      return   Nat;
-   --  Given a primitive type, determines the minimum number of bits required
+      Biased : Boolean := False) return Nat;
+   --  Given an elementary type, determines the minimum number of bits required
    --  to represent all values of the type. This function may not be called
    --  with any other types. If the flag Biased is set True, then the minimum
    --  size calculation that biased representation is used in the case of a
@@ -62,6 +60,17 @@ package Sem_Ch13 is
    --  regardless of the setting of Biased. Also, fixed-point types are never
    --  biased in the current implementation.
 
+   procedure Check_Constant_Address_Clause (Expr : Node_Id; U_Ent : Entity_Id);
+   --  Expr is an expression for an address clause. This procedure checks
+   --  that the expression is constant, in the limited sense that it is safe
+   --  to evaluate it at the point the object U_Ent is declared, rather than
+   --  at the point of the address clause. The condition for this to be true
+   --  is that the expression has no variables, no constants declared after
+   --  U_Ent, and no calls to non-pure functions. If this condition is not
+   --  met, then an appropriate error message is posted. This check is applied
+   --  at the point an object with an address clause is frozen, as well as for
+   --  address clauses for tasks and entries.
+
    procedure Check_Size
      (N      : Node_Id;
       T      : Entity_Id;
@@ -69,24 +78,24 @@ package Sem_Ch13 is
       Biased : out Boolean);
    --  Called when size Siz is specified for subtype T. This subprogram checks
    --  that the size is appropriate, posting errors on node N as required.
-   --  For non-elementary types, a check is only made if an explicit size
-   --  has been given for the type (and the specified size must match). The
-   --  parameter Biased is set False if the size specified did not require
+   --  This check is effective for elementary types and bit-packed arrays.
+   --  For other non-elementary types, a check is only made if an explicit
+   --  size has been given for the type (and the specified size must match).
+   --  The parameter Biased is set False if the size specified did not require
    --  the use of biased representation, and True if biased representation
    --  was required to meet the size requirement. Note that Biased is only
    --  set if the type is not currently biased, but biasing it is the only
    --  way to meet the requirement. If the type is currently biased, then
    --  this biased size is used in the initial check, and Biased is False.
+   --  If the size is too small, and an error message is given, then both
+   --  Esize and RM_Size are reset to the allowed minimum value in T.
 
    procedure Record_Rep_Item (T : Entity_Id; N : Node_Id);
    --  N is the node for either a representation pragma or an attribute
    --  definition clause that applies to type T. This procedure links
    --  the node N onto the Rep_Item chain for the type T.
 
-   function Rep_Item_Too_Early
-     (T     : Entity_Id;
-      N     : Node_Id)
-      return  Boolean;
+   function Rep_Item_Too_Early (T : Entity_Id; N : Node_Id) return Boolean;
    --  Called at the start of processing a representation clause or a
    --  representation pragma. Used to check that the representation item
    --  is not being applied to an incompleted type or to a generic formal
@@ -97,8 +106,7 @@ package Sem_Ch13 is
    function Rep_Item_Too_Late
      (T     : Entity_Id;
       N     : Node_Id;
-      FOnly : Boolean := False)
-      return  Boolean;
+      FOnly : Boolean := False) return Boolean;
    --  Called at the start of processing a representation clause or a
    --  representation pragma. Used to check that a representation item
    --  for entity T does not appear too late (according to the rules in

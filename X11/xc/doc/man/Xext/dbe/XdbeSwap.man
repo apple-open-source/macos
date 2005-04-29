@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" Hewlett-Packard Company.
 .\"
-.\" $XFree86: xc/doc/man/Xext/dbe/XdbeSwap.man,v 3.5 2001/02/07 22:35:22 tsi Exp $
+.\" $XFree86: xc/doc/man/Xext/dbe/XdbeSwap.man,v 3.6 2003/05/29 21:48:04 herrb Exp $
 .\"
 .TH XdbeSwapBuffers 3X11 __xorgversion__ "X FUNCTIONS"
 .SH NAME
@@ -82,7 +82,7 @@ The unobscured region of the new back buffer will be the contents of the old
 back buffer
 .SH ERRORS
 .IP BadMatch
-A non-double-buffered window was specififed or a window was specified twice.
+A non-double-buffered window was specified or a window was specified twice.
 .IP BadWindow
 An invalid window was specified.
 .IP BadValue

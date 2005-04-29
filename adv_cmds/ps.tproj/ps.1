@@ -40,7 +40,7 @@
 .Nd process status
 .Sh SYNOPSIS
 .Nm ps
-.Op Fl aCcefhjlMmrSTuvwx
+.Op Fl aACcefhjlMmrSTuvwx
 .Op Fl O Ar fmt
 .Op Fl o Ar fmt
 .Op Fl p Ar pid
@@ -76,6 +76,8 @@ The options are as follows:
 .Bl -tag -width indent
 .It Fl a
 Display information about other users' processes as well as your own.
+.It Fl A
+Display information about other users' processes including those without controlling terminals.
 .It Fl c
 Change the ``command'' column output to just contain the executable name,
 rather than the full command line.
@@ -85,9 +87,6 @@ cpu calculation that ignores ``resident'' time (this normally has
 no effect).
 .It Fl e
 Display the environment as well.
-.It Fl f
-Show commandline and environment information about swapped out processes.
-This option is honored only if the uid of the user is 0.
 .It Fl h
 Repeat the information header as often as necessary to guarantee one
 header per page of information.
@@ -229,8 +228,6 @@ The state is given by a sequence of letters, for example,
 The first letter indicates the run state of the process:
 .Pp
 .Bl -tag -width indent -compact
-.It D
-Marks a process in disk (or other short term, uninterruptible) wait.
 .It I
 Marks a process that is idle (sleeping for longer than about 20 seconds).
 .It R
@@ -239,6 +236,8 @@ Marks a runnable process.
 Marks a process that is sleeping for less than about 20 seconds.
 .It T
 Marks a stopped process.
+.It U
+Marks a process in uninterruptible wait.
 .It Z
 Marks a dead process (a ``zombie'').
 .El
@@ -337,8 +336,6 @@ command and arguments
 short-term cpu usage factor (for scheduling)
 .It flags
 the process flags, in hexadecimal (alias f)
-.It gid
-the effective gid
 .It inblk
 total blocks read (alias inblock)
 .It jobc

@@ -20,7 +20,6 @@ The allowed values for \fIformat\fR are
 .BR aliases ,
 .BR bootparams ,
 .BR bootptab ,
-.BR exports ,
 .BR fstab ,
 .BR group ,
 .BR hosts ,
@@ -92,6 +91,22 @@ the directory you specify may be renamed
 as a result of this operation.
 If the directory you specify does not exist,
 it will be created.
+.SH SYSTEM USAGE
+Most processes on Mac OS X access the information from the
+files in /etc and from NetInfo indirectly through the
+system library and the \fBlookupd\fR daemon.
+In some cases the files in /etc are consulted before
+NetInfo, making it unnecessary to copy information from
+these files into NetInfo.
+The files /etc/hosts, /etc/networks, /etc/services,
+/etc/protocols, and /etc/rpcs are consulted before NetInfo.
+.PP
+Additionally, the /etc/exports file is the primary source
+for NFS file share configuration.
+.I niload 
+no longer supports loading NFS file share information into NetInfo.
+.PP
+See lookupd(8) for more information.
 .SH EXAMPLES
 \*(lqniload passwd . < /etc/passwd\*(rq
 loads the local /etc/passwd file into
@@ -102,7 +117,7 @@ replaces the contents of /locations
 in the local domain with input
 given in \fInidump\fR \*(lqraw\*(rq format.
 .SH "SEE ALSO"
-nidump(8), niutil(8), netinfo(5),
-aliases(5), bootparams(5), bootptab(5), exports(5),
+lookupd(8), nidump(8), niutil(8), netinfo(5),
+aliases(5), bootparams(5), bootptab(5),
 fstab(5), group(5), hosts(5), networks(5), passwd(5),
 printcap(5), protocols(5), rpc(5), services(5)

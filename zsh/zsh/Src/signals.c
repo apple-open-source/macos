@@ -55,6 +55,13 @@ mod_export int signal_queue[MAX_QUEUE_SIZE];
 /**/
 mod_export sigset_t signal_mask_queue[MAX_QUEUE_SIZE];
 
+/* Variables used by trap queueing */
+
+/**/
+mod_export int trap_queueing_enabled, trap_queue_front, trap_queue_rear;
+/**/
+mod_export int trap_queue[MAX_QUEUE_SIZE];
+
 /* This is only used on machines that don't understand signal sets.  *
  * On SYSV machines this will represent the signals that are blocked *
  * (held) using sighold.  On machines which can't block signals at   *
@@ -343,11 +350,15 @@ signal_suspend(int sig, int sig2)
     sigset_t oset;
 #endif /* BROKEN_POSIX_SIGSUSPEND */
 
-    sigfillset(&set);
-    sigdelset(&set, sig);
-    sigdelset(&set, SIGHUP);  /* still don't know why we add this? */
-    if (sig2)
-        sigdelset(&set, sig2);
+    if (isset(TRAPSASYNC)) {
+	sigemptyset(&set);
+    } else {
+	sigfillset(&set);
+	sigdelset(&set, sig);
+	sigdelset(&set, SIGHUP);  /* still don't know why we add this? */
+	if (sig2)
+	    sigdelset(&set, sig2);
+    }
 #ifdef BROKEN_POSIX_SIGSUSPEND
     sigprocmask(SIG_SETMASK, &set, &oset);
     pause();
@@ -359,11 +370,15 @@ signal_suspend(int sig, int sig2)
 # ifdef BSD_SIGNALS
     sigset_t set;
 
-    sigfillset(&set);
-    sigdelset(&set, sig);
-    if (sig2)
-      sigdelset(&set, sig2);
-    ret = sigpause(set);
+    if (isset(TRAPSASYNC)) {
+	sigemptyset(&set);
+    } else {
+	sigfillset(&set);
+	sigdelset(&set, sig);
+	if (sig2)
+	    sigdelset(&set, sig2);
+	ret = sigpause(set);
+    }
 # else
 #  ifdef SYSV_SIGNALS
     ret = sigpause(sig);
@@ -384,18 +399,6 @@ signal_suspend(int sig, int sig2)
  
     return ret;
 }
-
-/* What flavor of waitpid/wait3/wait shall we use? */
- 
-#ifdef HAVE_WAITPID
-# define  WAIT(pid, statusp, options) waitpid(pid, statusp, options)
-#else
-# ifdef HAVE_WAIT3
-#  define WAIT(pid, statusp, options) wait3((void *) statusp, options, NULL)
-# else
-#  define WAIT(pid, statusp, options) wait(statusp)
-# endif
-#endif
 
 /* the signal handler */
  
@@ -419,13 +422,14 @@ zhandler(int sig)
     do_jump = suspend_longjmp;              /* do we need to longjmp to signal_suspend */
     suspend_longjmp = 0;                    /* In case a SIGCHLD somehow arrives       */
 
-    if (sig == SIGCHLD) {                   /* Traps can cause nested child_suspend()  */
+    if (sig == SIGCHLD) {                   /* Traps can cause nested signal_suspend()  */
         if (do_jump)
             jump_to = suspend_jmp_buf;      /* Copy suspend_jmp_buf                    */
     }
 #endif
 
-    if (queueing_enabled) {           /* Are we queueing signals now?      */
+    /* Are we queueing signals now?      */
+    if (queueing_enabled) {
         int temp_rear = ++queue_rear % MAX_QUEUE_SIZE;
 
 	DPUTS(temp_rear == queue_front, "BUG: signal queue full");
@@ -455,7 +459,25 @@ zhandler(int sig)
 	    int *procsubval = &cmdoutval;
 	    struct execstack *es = exstack;
 
-            pid = WAIT(-1, &status, WNOHANG|WUNTRACED);  /* reap the child process */
+	    /*
+	     * Reap the child process.
+	     * If we want usage information, we need to use wait3.
+	     */
+#ifdef HAVE_WAIT3
+# ifdef HAVE_GETRUSAGE
+	    struct rusage ru;
+
+	    pid = wait3((void *)&status, WNOHANG|WUNTRACED, &ru);
+# else
+	    pid = wait3((void *)&status, WNOHANG|WUNTRACED, NULL);
+# endif
+#else
+# ifdef HAVE_WAITPID
+	    pid = waitpid(-1, &status, WNOHANG|WUNTRACED);
+# else
+	    pid = wait(&status);
+# endif
+#endif
 
             if (!pid)  /* no more children to reap */
                 break;
@@ -468,7 +490,7 @@ zhandler(int sig)
 			*procsubval = (0200 | WTERMSIG(status));
 		    else
 			*procsubval = WEXITSTATUS(status);
-		    times(&shtms);
+		    get_usage();
 		    goto cont;
 		}
 		if (!es)
@@ -488,7 +510,14 @@ zhandler(int sig)
 
 	    /* Find the process and job containing this pid and update it. */
 	    if (findproc(pid, &jn, &pn, 0)) {
+#if defined(HAVE_WAIT3) && defined(HAVE_GETRUSAGE)
+		struct timezone dummy_tz;
+		gettimeofday(&pn->endtime, &dummy_tz);
+		pn->status = status;
+		pn->ti = ru;
+#else
 		update_process(pn, status);
+#endif
 		update_job(jn);
 	    } else if (findproc(pid, &jn, &pn, 1)) {
 		pn->status = status;
@@ -498,7 +527,7 @@ zhandler(int sig)
 		 * children in sub processes anyway:  otherwise, this
 		 * will get added on to the next found process that terminates.
 		 */
-		times(&shtms);
+		get_usage();
 	    }
         }
         break;
@@ -582,7 +611,7 @@ killrunjobs(int from_signal)
  
     if (unset(HUP))
         return;
-    for (i = 1; i < MAXJOB; i++)
+    for (i = 1; i <= maxjob; i++)
         if ((from_signal || i != thisjob) && (jobtab[i].stat & STAT_LOCKED) &&
             !(jobtab[i].stat & STAT_NOPRINT) &&
             !(jobtab[i].stat & STAT_STOPPED)) {
@@ -668,10 +697,8 @@ dosavetrap(int sig, int level)
 	 * Get the old function: this assumes we haven't added
 	 * the new one yet.
 	 */
-	char func[20];
 	Shfunc shf, newshf = NULL;
-	sprintf(func, "TRAP%s", sigs[sig]);
-	if ((shf = (Shfunc)shfunctab->getnode2(shfunctab, func))) {
+	if ((shf = (Shfunc)gettrapnode(sig, 1))) {
 	    /* Copy the node for saving */
 	    newshf = (Shfunc) zalloc(sizeof(*newshf));
 	    newshf->nam = ztrdup(shf->nam);
@@ -808,16 +835,15 @@ removetrap(int sig)
      * That causes a little inefficiency, but a good deal more reliability.
      */
     if (trapped & ZSIG_FUNC) {
-	char func[20];
-	HashNode node;
+	HashNode node = gettrapnode(sig, 1);
 
-	sprintf(func, "TRAP%s", sigs[sig]);
 	/*
 	 * As in dosavetrap(), don't call removeshfuncnode() because
 	 * that calls back into unsettrap();
 	 */
 	sigfuncs[sig] = NULL;
-	node = removehashnode(shfunctab, func);
+	if (node)
+	    removehashnode(shfunctab, node->nam);
 	unqueue_signals();
 
 	return node;
@@ -923,6 +949,15 @@ endtrapscope(void)
  * with non-standard sigtrapped & sigfuncs values
  */
 
+/* Are we already executing a trap? */
+/**/
+int intrap;
+
+/* Is the current trap a function? */
+
+/**/
+int trapisfunc;
+
 /**/
 void
 dotrapargs(int sig, int *sigtr, void *sigfn)
@@ -931,7 +966,8 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
     char *name, num[4];
     int trapret = 0;
     int obreaks = breaks;
- 
+    int isfunc;
+
     /* if signal is being ignored or the trap function		      *
      * is NULL, then return					      *
      *								      *
@@ -945,52 +981,98 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
     if ((*sigtr & ZSIG_IGNORED) || !sigfn || errflag)
         return;
 
+    /*
+     * Never execute special (synchronous) traps inside other traps.
+     * This can cause unexpected code execution when more than one
+     * of these is set.
+     *
+     * The down side is that it's harder to debug traps.  I don't think
+     * that's a big issue.
+     */
+    if (intrap) {
+	switch (sig) {
+	case SIGEXIT:
+	case SIGDEBUG:
+	case SIGZERR:
+	    return;
+	}
+    }
+
+    intrap++;
     *sigtr |= ZSIG_IGNORED;
 
     lexsave();
-    if (sig != SIGEXIT && sig != SIGDEBUG) {
-	/*
-	 * SIGEXIT and SIGDEBUG are always run synchronously, so we don't
-	 * need to save and restore the state.
-	 *
-	 * Do we actually need this at all now we queue signals
-	 * for handling in places where they won't cause trouble?
-	 */
-	execsave();
-    }
+    execsave();
     breaks = 0;
     runhookdef(BEFORETRAPHOOK, NULL);
     if (*sigtr & ZSIG_FUNC) {
 	int osc = sfcontext;
+	HashNode hn = gettrapnode(sig, 0);
 
 	args = znewlinklist();
-	name = (char *) zalloc(5 + strlen(sigs[sig]));
-	sprintf(name, "TRAP%s", sigs[sig]);
+	/*
+	 * In case of multiple names, try to get
+	 * a hint of the name in use from the function table.
+	 * In special cases, e.g. EXIT traps, the function
+	 * has already been removed.  Then it's OK to
+	 * use the standard name.
+	 */
+	if (hn) {
+	    name = ztrdup(hn->nam);
+	} else {
+	    name = (char *) zalloc(5 + strlen(sigs[sig]));
+	    sprintf(name, "TRAP%s", sigs[sig]);
+	}
 	zaddlinknode(args, name);
 	sprintf(num, "%d", sig);
 	zaddlinknode(args, num);
 
-	trapreturn = -1;
+	trapreturn = -1;	/* incremented by doshfunc */
+	trapisfunc = isfunc = 1;
+
 	sfcontext = SFC_SIGNAL;
 	doshfunc(name, sigfn, args, 0, 1);
 	sfcontext = osc;
 	freelinklist(args, (FreeFunc) NULL);
 	zsfree(name);
-    } else
+
+    } else {
+	trapreturn = -2;	/* not incremented, used at current level */
+	trapisfunc = isfunc = 0;
+
 	execode(sigfn, 1, 0);
+    }
     runhookdef(AFTERTRAPHOOK, NULL);
 
-    if (trapreturn > 0)
+    if (trapreturn > 0 && isfunc) {
+	/*
+	 * Context was its own function.  We propagate the return
+	 * value specially.  Return value zero means don't do
+	 * anything special, so don't handle it.
+	 */
 	trapret = trapreturn;
-    else if (errflag)
+    } else if (trapreturn >= 0 && !isfunc) {
+	/*
+	 * Context was an inline trap.  If an explicit return value
+	 * was used, we need to set `lastval'.  Otherwise we use the
+	 * value restored by execrestore.  In this case, all return
+	 * values indicate an explicit return from the current function,
+	 * so always handle specially.  trapreturn is always restored by
+	 * execrestore.
+	 */
+	trapret = trapreturn + 1;
+    } else if (errflag)
 	trapret = 1;
-    if (sig != SIGEXIT && sig != SIGDEBUG)
-	execrestore();
+    execrestore();
     lexrestore();
 
     if (trapret > 0) {
-	breaks = loops;
-	errflag = 1;
+	if (isfunc) {
+	    breaks = loops;
+	    errflag = 1;
+	} else {
+	    lastval = trapret-1;
+	}
     } else {
 	breaks += obreaks;
 	if (breaks > loops)
@@ -1006,6 +1088,7 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
 
     if (*sigtr != ZSIG_IGNORED)
 	*sigtr &= ~ZSIG_IGNORED;
+    intrap--;
 }
 
 /* Standard call to execute a trap for a given signal. */

@@ -19,13 +19,15 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+struct target_ops;
+
 #define U_REGS_OFFSET 0
 
 #define KERNEL_U_ADDR 0
 
 /* What a coincidence! */
 #define REGISTER_U_ADDR(addr, blockend, regno)				\
-{ addr = (int)(blockend) + REGISTER_BYTE (regno);}
+{ addr = (int)(blockend) + DEPRECATED_REGISTER_BYTE (regno);}
 
 /* This isn't really correct, because ptrace is actually a 32-bit
    interface.  However, the modern HP-UX targets all really use
@@ -44,19 +46,15 @@
 #define FIVE_ARG_PTRACE
 
 /* We need to figure out where the text region is so that we use the
-   appropriate ptrace operator to manipulate text.  Simply reading/writing
-   user space will crap out HPUX.  */
-#define NEED_TEXT_START_END 1
+   appropriate ptrace operator to manipulate text.  Simply
+   reading/writing user space will crap out HPUX.  */
+#define DEPRECATED_HPUX_TEXT_END deprecated_hpux_text_end
+extern void deprecated_hpux_text_end (struct target_ops *exec_ops);
 
 /* In hppah-nat.c: */
 #define FETCH_INFERIOR_REGISTERS
 #define CHILD_XFER_MEMORY
 #define CHILD_FOLLOW_FORK
-
-/* While this is for use by threaded programs, it doesn't appear
- * to hurt non-threaded ones.  This is used in infrun.c: */
-#define PREPARE_TO_PROCEED(select_it) hppa_prepare_to_proceed()
-extern int hppa_prepare_to_proceed (void);
 
 /* In infptrace.c or infttrace.c: */
 #define CHILD_PID_TO_EXEC_FILE
@@ -117,12 +115,14 @@ extern int hppa_require_detach (int, int);
 
 /* The PA can watch any number of locations (generic routines already check
    that all intermediates are in watchable memory locations). */
+extern int hppa_can_use_hw_watchpoint (int type, int cnt, int ot);
 #define TARGET_CAN_USE_HARDWARE_WATCHPOINT(type, cnt, ot) \
         hppa_can_use_hw_watchpoint(type, cnt, ot)
 
-/* The PA can also watch memory regions of arbitrary size, since we're using
-   a page-protection scheme.  (On some targets, apparently watch registers
-   are used, which can only accomodate regions of REGISTER_SIZE.) */
+/* The PA can also watch memory regions of arbitrary size, since we're
+   using a page-protection scheme.  (On some targets, apparently watch
+   registers are used, which can only accomodate regions of
+   DEPRECATED_REGISTER_SIZE.)  */
 #define TARGET_REGION_SIZE_OK_FOR_HW_WATCHPOINT(byte_count) \
         (1)
 
@@ -172,12 +172,6 @@ extern int hppa_require_detach (int, int);
          ! stepped_after_stopped_by_watchpoint && \
          bpstat_have_active_hw_watchpoints ())
 
-/* When a hardware watchpoint triggers, we'll move the inferior past it
-   by removing all eventpoints; stepping past the instruction that caused
-   the trigger; reinserting eventpoints; and checking whether any watched
-   location changed. */
-#define HAVE_NONSTEPPABLE_WATCHPOINT 1
-
 /* Our implementation of "hardware" watchpoints uses memory page-protection
    faults.  However, HP-UX has unfortunate interactions between these and
    system calls; basically, it's unsafe to have page protections on when a
@@ -198,9 +192,13 @@ extern void hppa_enable_page_protection_events (int);
 extern void hppa_disable_page_protection_events (int);
 
 /* Use these macros for watchpoint insertion/deletion.  */
+extern int hppa_insert_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len,
+				      int type);
 #define target_insert_watchpoint(addr, len, type) \
         hppa_insert_hw_watchpoint (PIDGET (inferior_ptid), addr, (LONGEST)(len), type)
 
+extern int hppa_remove_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len,
+				      int type);
 #define target_remove_watchpoint(addr, len, type) \
         hppa_remove_hw_watchpoint (PIDGET (inferior_ptid), addr, (LONGEST)(len), type)
 
@@ -265,3 +263,5 @@ extern int hppa_resume_execd_vforking_child_to_get_parent_vfork (void);
 #define MAY_FOLLOW_EXEC (1)
 
 #define USE_THREAD_STEP_NEEDED (1)
+
+#include "infttrace.h" /* For parent_attach_all.  */

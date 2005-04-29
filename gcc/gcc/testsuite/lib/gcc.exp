@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1993, 1994, 1996, 1997, 1999, 2000, 2001 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1993, 1994, 1996, 1997, 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -56,7 +56,7 @@ proc default_gcc_version { } {
 	set tmp [remote_exec host "$compiler -v"]
 	set status [lindex $tmp 0];
 	set output [lindex $tmp 1];
-	regexp "version.*$" $output version
+	regexp " version \[^\n\r\]*" $output version
 	if { $status == 0 && [info exists version] } then {
 	    clone_output "$compiler_name $version\n"
 	} else {
@@ -106,18 +106,8 @@ proc gcc_init { args } {
     if ![info exists tmpdir] then {
 	set tmpdir /tmp
     }
-    if {[target_info needs_status_wrapper] != "" && \
-	    [target_info needs_status_wrapper] != "0" && \
-	    ![info exists gluefile]} {
-	set gluefile ${tmpdir}/gcc-testglue.o;
-	set result [build_wrapper $gluefile];
-	if { $result != "" } {
-	    set gluefile [lindex $result 0];
-	    set wrap_flags [lindex $result 1];
-	} else {
-	    unset gluefile
-	}
-    }
+
+    gcc_maybe_build_wrapper "${tmpdir}/gcc-testglue.o"
 }
 
 #
@@ -143,11 +133,13 @@ proc gcc_target_compile { source dest type options } {
     if [target_info exists gcc,no_trampolines] {
 	lappend options "additional_flags=-DNO_TRAMPOLINES"
     }
-    if { 1 } {
+    if [target_info exists gcc,no_label_values] {
 	lappend options "additional_flags=-DNO_LABEL_VALUES"
     }
+    # TOOL_OPTIONS must come first, so that it doesn't override testcase
+    # specific options.
     if [info exists TOOL_OPTIONS] {
-	lappend options "additional_flags=$TOOL_OPTIONS"
+	set options [concat "additional_flags=$TOOL_OPTIONS" $options];
     }
     if [target_info exists gcc,timeout] {
 	lappend options "timeout=[target_info gcc,timeout]"
@@ -158,5 +150,6 @@ proc gcc_target_compile { source dest type options } {
     }
     # APPLE LOCAL end testsuite multiply defined
     lappend options "compiler=$GCC_UNDER_TEST"
+    set options [dg-additional-files-options $options $source]
     return [target_compile $source $dest $type $options]
 }

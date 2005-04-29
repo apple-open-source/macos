@@ -1,20 +1,20 @@
 /* GNU Objective C Runtime internal declarations
-   Copyright (C) 1993, 1995, 1996, 1997, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995, 1996, 1997, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Kresten Krab Thorup
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it under the
+GCC is free software; you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
 Foundation; either version 2, or (at your option) any later version.
 
-GNU CC is distributed in the hope that it will be useful, but WITHOUT ANY
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 details.
 
 You should have received a copy of the GNU General Public License along with
-GNU CC; see the file COPYING.  If not, write to the Free Software
+GCC; see the file COPYING.  If not, write to the Free Software
 Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* As a special exception, if you link this library with files compiled with
@@ -32,15 +32,19 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <ctype.h>
 
 #include <stddef.h>		/* so noone else will get system versions */
-#include "assert.h"
+#include <assert.h>
 
-#include "objc/objc.h"		/* core data types */
-#include "objc/objc-api.h"	/* runtime api functions */
+#include <objc/objc.h>		/* core data types */
+#include <objc/objc-api.h>	/* runtime api functions */
 
-#include "objc/thr.h"		/* thread and mutex support */
+#include <objc/thr.h>		/* thread and mutex support */
 
-#include "objc/hash.h"		/* hash structures */
-#include "objc/objc-list.h"	/* linear lists */
+#include <objc/hash.h>		/* hash structures */
+#include <objc/objc-list.h>	/* linear lists */
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 extern void __objc_add_class_to_hash(Class);   /* (objc-class.c) */
 extern void __objc_init_selector_tables(void); /* (objc-sel.c) */
@@ -49,6 +53,7 @@ extern void __objc_init_dispatch_tables(void); /* (objc-dispatch.c) */
 extern void __objc_install_premature_dtable(Class); /* (objc-dispatch.c) */
 extern void __objc_resolve_class_links(void);  /* (objc-class.c) */
 extern void __objc_register_selectors_from_class(Class); /* (objc-sel.c) */
+extern void __objc_register_selectors_from_list (MethodList_t); /* (selector.c) */
 extern void __objc_update_dispatch_table_for_class (Class);/* (objc-msg.c) */
 
 extern int  __objc_init_thread_system(void);    /* thread.c */
@@ -84,6 +89,8 @@ SEL  __sel_register_typed_name (const char*, const char*,
 				struct objc_selector*, BOOL is_const);
 extern void __objc_generate_gc_type_description (Class);
 
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
 #endif /* not __objc_runtime_INCLUDE_GNU */
-
-

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2003 IBM Corp. All rights reserved.
+*   Copyright (C) 1999-2004 IBM Corp. All rights reserved.
 **********************************************************************
 *   Date        Name        Description
 *   12/1/99    rgillam     Complete port from Java.
@@ -57,7 +57,7 @@ class DictionaryBasedBreakIteratorTables;
  * currently making it public.  Contact us for help.
  * <p>
  * <b> NOTE </b>  The DictionaryBasedIterator class is still under development.  The
- * APIs are not in stable condition yet.  
+ * APIs are not in stable condition yet.
  */
 class U_COMMON_API DictionaryBasedBreakIterator : public RuleBasedBreakIterator {
 
@@ -84,17 +84,12 @@ private:
 
     DictionaryBasedBreakIteratorTables  *fTables;
 
-    /**
-     * Class ID
-     */
-    static const char fgClassID;
-
     /**=======================================================================
-     * Create a dictionary based break boundary detection iterator.  
+     * Create a dictionary based break boundary detection iterator.
      * @param tablesImage The location for the dictionary to be loaded into memory
-     * @param dictionaryFilename The name of the dictionary file 
+     * @param dictionaryFilename The name of the dictionary file
      * @param status the error code status
-     * @return A dictionary based break detection iterator.  The UErrorCode& status 
+     * @return A dictionary based break detection iterator.  The UErrorCode& status
      * parameter is used to return status information to the user.
      * To check whether the construction succeeded or not, you should check
      * the value of U_SUCCESS(err).  If you wish more detailed information, you
@@ -132,7 +127,7 @@ public:
      DictionaryBasedBreakIterator(const DictionaryBasedBreakIterator &other);
 
     /**
-     * Assignment operator. 
+     * Assignment operator.
      * @param that The object to be copied.
      * @return the newly set DictionaryBasedBreakIterator.
      * @stable ICU 2.0
@@ -160,7 +155,7 @@ public:
     /**
      * Sets the iterator to refer to the first boundary position following
      * the specified position.
-     * @offset The position from which to begin searching for a break position.
+     * @param offset The position from which to begin searching for a break position.
      * @return The position of the first break after the current position.
      * @stable ICU 2.0
      */
@@ -169,11 +164,24 @@ public:
     /**
      * Sets the iterator to refer to the last boundary position before the
      * specified position.
-     * @offset The position to begin searching for a break from.
+     * @param offset The position to begin searching for a break from.
      * @return The position of the last boundary before the starting position.
      * @stable ICU 2.0
      */
     virtual int32_t preceding(int32_t offset);
+
+    /**
+     * Returns the class ID for this class.  This is useful only for
+     * comparing to a return value from getDynamicClassID().  For example:
+     *
+     *      Base* polymorphic_pointer = createPolymorphicObject();
+     *      if (polymorphic_pointer->getDynamicClassID() ==
+     *          Derived::getStaticClassID()) ...
+     *
+     * @return          The class ID for all objects of this class.
+     * @stable ICU 2.0
+     */
+    static UClassID U_EXPORT2 getStaticClassID(void);
 
     /**
      * Returns a unique class ID POLYMORPHICALLY.  Pure virtual override.
@@ -187,19 +195,6 @@ public:
      * @stable ICU 2.0
      */
     virtual UClassID getDynamicClassID(void) const;
-
-    /**
-     * Returns the class ID for this class.  This is useful only for
-     * comparing to a return value from getDynamicClassID().  For example:
-     *
-     *      Base* polymorphic_pointer = createPolymorphicObject();
-     *      if (polymorphic_pointer->getDynamicClassID() ==
-     *          Derived::getStaticClassID()) ...
-     *
-     * @return          The class ID for all objects of this class.
-     * @stable ICU 2.0
-     */
-    static inline UClassID getStaticClassID(void);
 
 protected:
     //=======================================================================
@@ -229,15 +224,15 @@ protected:
     void init();
 
     /**
-     * @param stackBuffer user allocated space for the new clone. If NULL new memory will be allocated. 
+     * @param stackBuffer user allocated space for the new clone. If NULL new memory will be allocated.
      * If buffer is not large enough, new memory will be allocated.
-     * @param BufferSize reference to size of allocated space. 
-     * If BufferSize == 0, a sufficient size for use in cloning will 
+     * @param BufferSize reference to size of allocated space.
+     * If BufferSize == 0, a sufficient size for use in cloning will
      * be returned ('pre-flighting')
-     * If BufferSize is not enough for a stack-based safe clone, 
+     * If BufferSize is not enough for a stack-based safe clone,
      * new memory will be allocated.
      * @param status to indicate whether the operation went on smoothly or there were errors
-     *  An informational status value, U_SAFECLONE_ALLOCATED_ERROR, is used if any allocations were 
+     *  An informational status value, U_SAFECLONE_ALLOCATED_ERROR, is used if any allocations were
      *  necessary.
      * @return pointer to the new clone
      * @internal
@@ -269,14 +264,6 @@ private:
     friend class DictionaryBasedBreakIteratorTables;
     friend class BreakIterator;
 };
-
-inline UClassID
-DictionaryBasedBreakIterator::getStaticClassID(void)
-{ return (UClassID)(&fgClassID); }
-
-inline UClassID
-DictionaryBasedBreakIterator::getDynamicClassID(void) const
-{ return DictionaryBasedBreakIterator::getStaticClassID(); }
 
 U_NAMESPACE_END
 

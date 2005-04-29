@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.2 $                             --
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -177,10 +176,9 @@ package Sem_Ch8 is
    --  re-installing use clauses of parent units. N is the use_clause that
    --  names P (and possibly other packages).
 
-   procedure Use_One_Type (Id : Node_Id; N : Node_Id);
+   procedure Use_One_Type (Id : Node_Id);
    --  Id is the subtype mark from a use type clause. This procedure makes
    --  the primitive operators of the type potentially use-visible.
-   --  N is the Use_Type_Clause that names Id.
 
    procedure Set_Use (L : List_Id);
    --  Find use clauses that are declarative items in a package declaration

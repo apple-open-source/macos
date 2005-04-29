@@ -25,7 +25,7 @@
 /* 
  * KClient 1.9 deprecated API
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Headers/Kerberos/KClientDeprecated.h,v 1.12 2003/07/03 16:13:49 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KClient/Headers/Kerberos/KClientDeprecated.h,v 1.13 2004/10/22 20:53:02 lxs Exp $
  */
 
 #ifndef	__KCLIENTDEPRECATED__

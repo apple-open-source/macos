@@ -8,7 +8,7 @@ load_generic_config "sim"
 # basic-sim.exp is a basic description for the standard Cygnus simulator.
 load_base_board_description "basic-sim"
 
-# "m32r" is the name of the sim subdir in devo/sim.
+# "m32r" is the name of the sim subdir.
 setup_sim m32r
 
 # No multilib options needed by default.

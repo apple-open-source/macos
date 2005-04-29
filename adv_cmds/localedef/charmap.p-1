@@ -1,0 +1,22 @@
+CHARMAP
+<space>      \x20
+<dollar>     \x24
+<A>          \101
+<a>          \141
+<A-acute>    \346
+<a-acute>    \365
+<A-grave>    \300
+<a-grave>    \366
+<b>          \142
+<B>          \102
+<C>          \103
+<c>          \143
+<c-cedilla>  \347
+<d>          \x64
+<H>          \110
+<h>          \150
+<eszet>      \xb7
+<s>          \x73
+<z>          \x7a
+<e>          \x65
+END CHARMAP

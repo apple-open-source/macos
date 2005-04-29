@@ -30,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)vis.3	8.1 (Berkeley) 6/9/93
-.\" $FreeBSD: src/lib/libc/gen/vis.3,v 1.20 2002/12/19 09:40:21 ru Exp $
+.\" $FreeBSD: src/lib/libc/gen/vis.3,v 1.26 2004/07/17 12:27:25 tjr Exp $
 .\"
-.Dd July 25, 1996
+.Dd March 21, 2004
 .Dt VIS 3
 .Os
 .Sh NAME
@@ -58,9 +58,11 @@ a string which represents the character
 .Fa c .
 If
 .Fa c
-needs no encoding, it is copied in unaltered.  The string is
+needs no encoding, it is copied in unaltered.
+The string is
 null terminated, and a pointer to the end of the string is
-returned.  The maximum length of any encoding is four
+returned.
+The maximum length of any encoding is four
 characters (not including the trailing
 .Dv NUL ) ;
 thus, when
@@ -137,6 +139,15 @@ except space, tab, and newline are encoded.
 The following flags
 alter this:
 .Bl -tag -width VIS_WHITEX
+.It Dv VIS_GLOB
+Also encode magic characters
+.Ql ( * ,
+.Ql \&? ,
+.Ql \&[
+and
+.Ql # )
+recognized by
+.Xr glob 3 .
 .It Dv VIS_SP
 Also encode space.
 .It Dv VIS_TAB
@@ -151,9 +162,11 @@ Synonym for
 \&|
 .Dv VIS_NL .
 .It Dv VIS_SAFE
-Only encode "unsafe" characters.  Unsafe means control
+Only encode "unsafe" characters.
+Unsafe means control
 characters which may cause common terminals to perform
-unexpected functions.  Currently this form allows space,
+unexpected functions.
+Currently this form allows space,
 tab, newline, backspace, bell, and return - in addition
 to all graphic characters - unencoded.
 .El
@@ -169,7 +182,7 @@ These are the visual formats:
 Use an
 .Ql M
 to represent meta characters (characters with the 8th
-bit set), and use carat
+bit set), and use caret
 .Ql ^
 to represent control characters see
 .Pf ( Xr iscntrl 3 ) .
@@ -250,7 +263,8 @@ where
 .Ar d
 represents a hexadecimal digit.
 .It Dv VIS_OCTAL
-Use a three digit octal sequence.  The form is
+Use a three digit octal sequence.
+The form is
 .Ql \eddd
 where
 .Ar d
@@ -279,3 +293,9 @@ ambiguous and non-invertible.
 .Sh HISTORY
 These functions first appeared in
 .Bx 4.4 .
+.Sh BUGS
+The
+.Nm
+family of functions do not recognize multibyte characters, and thus
+may consider them to be non-printable when they are in fact printable
+(and vice versa.)

@@ -413,13 +413,18 @@ int
 sh_count_procs(char *procname)
 {
     DIR *dir;
-    char cmdline[512];
+    char cmdline[512], *tmpc;
     struct dirent *ent;
-    int fd,len,plen=strlen(procname),total = 0;
+#ifdef USE_PROC_CMDLINE
+    int fd;
+#endif
+    int len,plen=strlen(procname),total = 0;
+    FILE *status;
 
     if ((dir = opendir("/proc")) == NULL) return -1;
     while (NULL != (ent = readdir(dir))) {
       if(!(ent->d_name[0] >= '0' && ent->d_name[0] <= '9')) continue;
+#ifdef USE_PROC_CMDLINE  /* old method */
       /* read /proc/XX/cmdline */
       sprintf(cmdline,"/proc/%s/cmdline",ent->d_name);
       if((fd = open(cmdline, O_RDONLY)) < 0) break;
@@ -430,6 +435,35 @@ sh_count_procs(char *procname)
       while(--len && !cmdline[len]);
       while(--len) if(!cmdline[len]) cmdline[len] = ' ';
       if(!strncmp(cmdline,procname,plen)) total++;
+#else
+      /* read /proc/XX/status */
+      sprintf(cmdline,"/proc/%s/status",ent->d_name);
+      if ((status = fopen(cmdline, "r")) == NULL)
+          break;
+      if (fgets(cmdline, sizeof(cmdline), status) == NULL) {
+          fclose(status);
+          break;
+      }
+      fclose(status);
+      cmdline[sizeof(cmdline)-1] = '\0';
+      /* XXX: assumes Name: is first */
+      if (strncmp("Name:",cmdline, 5) != 0)
+          break;
+      tmpc = skip_token(cmdline);
+      if (!tmpc)
+          break;
+      for (len=0;; len++) {
+	if (tmpc[len] && isgraph(tmpc[len])) continue;
+	tmpc[len]='\0';
+	break;
+      }
+      DEBUGMSGTL(("proc","Comparing wanted %s against %s\n",
+                  procname, tmpc));
+      if(len==plen && !strncmp(tmpc,procname,plen)) {
+          total++;
+          DEBUGMSGTL(("proc", " Matched.  total count now=%d\n", total));
+      }
+#endif      
     }
     closedir(dir);
     return total;
@@ -638,8 +672,10 @@ sh_count_procs(char *procname)
     struct dirent  *ent;
     DIR            *dir;
 
-    if (!(dir = opendir("/proc")))
+    if (!(dir = opendir("/proc"))) {
+        snmp_perror("/proc");
         return -1;
+    }
 
     while ((ent = readdir(dir))) {
         if (!strcmp(ent->d_name, "..") || !strcmp(ent->d_name, "."))
@@ -647,12 +683,13 @@ sh_count_procs(char *procname)
 
         snprintf(fbuf, sizeof fbuf, "/proc/%s/psinfo", ent->d_name);
         if ((fd = open(fbuf, O_RDONLY)) < 0) {  /* Continue or return error? */
-            closedir(dir);
-            return -1;
+            snmp_perror(fbuf);
+	    continue;
         }
 
         if (read(fd, (char *) &info, sizeof(struct psinfo)) !=
             sizeof(struct psinfo)) {
+            snmp_perror(fbuf);
             close(fd);
             closedir(dir);
             return -1;
@@ -662,8 +699,14 @@ sh_count_procs(char *procname)
             /*
              * Zombie process 
              */
-        } else if (!strcmp(procname, info.pr_fname))
-            total++;
+        } else {
+            DEBUGMSGTL(("proc","Comparing wanted %s against %s\n",
+                        procname, info.pr_fname));
+            if (!strcmp(procname, info.pr_fname)) {
+                total++;
+                DEBUGMSGTL(("proc", " Matched.  total count now=%d\n", total));
+            }
+        }
 
         close(fd);
     }

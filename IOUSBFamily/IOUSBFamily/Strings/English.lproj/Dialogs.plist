@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Low Power Dialog</key>
+	<dict>
+            <key>Header</key>
+            <string>USB Low Power Notice</string>
+            <key>Message</key>
+            <string>The USB device "%@" cannot operate because it needs more power than is available.
+To correct this problem you can:
+1) Plug the device into an electrical outlet if it has a power cord.
+2) Unplug the device and plug it into another USB port on your computer or other device that is plugged into a power cord.</string>
+            <key>OK Button Title</key>
+            <string>OK</string>
+            <key>Timeout</key>
+            <string>0</string>
+            <key>Alert Level</key>
+            <string>Alert</string>
+            <key>Blocking Message</key>
+            <string>1</string>
+        </dict>
+        <key>Overcurrent Dialog</key>
+	<dict>
+            <key>Header</key>
+            <string>USB Over Current Notice</string>
+            <key>Message</key>
+            <string>The USB device "%@" is currently drawing too much power.
+
+The port it is attached to will be deactivated.</string>
+            <key>OK Button Title</key>
+            <string>OK</string>
+            <key>Timeout</key>
+            <string>0</string>
+            <key>Alert Level</key>
+            <string>Alert</string>
+            <key>Blocking Message</key>
+            <string>1</string>
+        </dict>
+        <key>Gang Overcurrent Dialog</key>
+	<dict>
+            <key>Header</key>
+            <string>USB Over Current Notice</string>
+            <key>Message</key>
+            <string>A USB device is currently drawing too much power.
+
+The hub it is attached to will be deactivated.</string>
+            <key>OK Button Title</key>
+            <string>OK</string>
+            <key>Timeout</key>
+            <string>0</string>
+            <key>Alert Level</key>
+            <string>Alert</string>
+            <key>Blocking Message</key>
+            <string>1</string>
+        </dict>
+</dict>
+</plist>

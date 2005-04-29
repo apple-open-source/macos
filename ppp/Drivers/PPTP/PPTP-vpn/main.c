@@ -58,7 +58,6 @@
 #include <arpa/inet.h>
 #include <syslog.h>
 #include <sys/ioctl.h>
-#include <net/dlil.h>
 #include <net/if.h>
 #include <net/route.h>
 #include <pthread.h>
@@ -81,7 +80,7 @@
 static CFBundleRef 	bundle = 0;
 static int 		listen_sockfd = -1;
 
-int pptpvpn_get_pppd_args(struct vpn_params *params);
+int pptpvpn_get_pppd_args(struct vpn_params *params, int reload);
 int pptpvpn_listen(void);
 int pptpvpn_accept(void);
 int pptpvpn_refuse(void);
@@ -102,7 +101,7 @@ if a simple vpn bundle was used, pppref will be NULL.
 if a ppp bundle was used, the vpn plugin will be able to get access to the 
 Plugins directory and load the vpn kext.
 ----------------------------------------------------------------------------- */
-int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppref, int debug)
+int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppref, int debug, int log_verbose)
 {
     int 	s;
     char 	name[MAXPATHLEN]; 
@@ -128,7 +127,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
                 }	
             }
             if (s < 0) {
-                vpnlog(LOG_ERR, "VPND PPTP plugin: Unable to load PPTP kernel extension\n");
+                vpnlog(LOG_ERR, "PPTP plugin: Unable to load PPTP kernel extension\n");
                 return -1;
             }
         }
@@ -153,7 +152,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
 /* ----------------------------------------------------------------------------- 
     pptpvpn_get_pppd_args
 ----------------------------------------------------------------------------- */
-int pptpvpn_get_pppd_args(struct vpn_params *params)
+int pptpvpn_get_pppd_args(struct vpn_params *params, int reload)
 {
     if (params->serverRef)		
         /* arguments from the preferences file */
@@ -172,7 +171,7 @@ int pptp_sys_accept(int sockfd, struct sockaddr *cliaddr, int *addrlen)
     
     while ((fd = accept(sockfd, cliaddr, addrlen)) == -1)
         if (errno != EINTR) {
-            vpnlog(LOG_ERR, "VPND PPTP plugin: error calling accept = %s\n", strerror(errno));
+            vpnlog(LOG_ERR, "PPTP plugin: error calling accept = %s\n", strerror(errno));
             return -1;
         }
     return fd;
@@ -182,7 +181,7 @@ int pptp_sys_close(int sockfd)
 {
     while (close(sockfd) == -1)
         if (errno != EINTR) {
-            vpnlog(LOG_ERR, "VPND PPTP plugin: error calling close on socket = %s\n", strerror(errno));
+            vpnlog(LOG_ERR, "PPTP plugin: error calling close on socket = %s\n", strerror(errno));
             return -1;
         }
     return 0;
@@ -242,7 +241,7 @@ int pptpvpn_listen(void)
     // Create the requested socket
     while ((listen_sockfd = socket (AF_INET, SOCK_STREAM, 0)) < 0) 
         if (errno != EINTR) {
-            vpnlog(LOG_ERR, "VPND PPTP: Could not create socket - err = %s\n", strerror(errno));
+            vpnlog(LOG_ERR, "PPTP plugin: Could not create socket - err = %s\n", strerror(errno));
             return -1 ;
     }
     
@@ -262,14 +261,14 @@ int pptpvpn_listen(void)
     
     while (bind(listen_sockfd, (struct sockaddr *) &addrListener, sizeof (addrListener)) < 0) 
         if (errno != EINTR) {
-            vpnlog(LOG_ERR, "VPND PPTP plugin: Unable to bind socket to port %d - err = %s\n", 
+            vpnlog(LOG_ERR, "PPTP plugin: Unable to bind socket to port %d - err = %s\n", 
                         PPTP_TCP_PORT, strerror(errno));
             return -1;
         }
 
     while (listen(listen_sockfd, SOMAXCONN) < 0) 
         if (errno == EINTR) {
-            vpnlog(LOG_ERR, "VPND PPTP plugin: error calling listen = %s\n", strerror(errno));
+            vpnlog(LOG_ERR, "PPTP plugin: error calling listen = %s\n", strerror(errno));
             return -1;
         }
 
@@ -291,7 +290,7 @@ int pptpvpn_accept(void)
     if ((fdConn = pptp_sys_accept(listen_sockfd, sapSender, &nSize)) < 0)
             return -1;
     if (sapSender->sa_family != AF_INET) {
-        vpnlog(LOG_ERR, "VPND PPTP plugin: Unexpected protocol family!\n");
+        vpnlog(LOG_ERR, "PPTP plugin: Unexpected protocol family!\n");
         if (pptp_sys_close(fdConn) < 0)
             return -1;
         return 0;

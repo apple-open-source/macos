@@ -12,6 +12,8 @@
             df, 
             du, 
             install, 
+            ipcrm, 
+            ipcs, 
             ln, 
             ls, 
             mkdir, 

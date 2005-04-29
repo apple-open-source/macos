@@ -32,7 +32,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/Shell.c,v 3.15 2001/12/14 19:56:30 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Shell.c,v 3.17 2003/05/27 22:26:43 tsi Exp $ */
 
 /*
 
@@ -2897,9 +2897,7 @@ static SmProp * CardPack(name, closure)
     return p;
 }
 
-static SmProp * ArrayPack(name, closure)
-    char *name;
-    XtPointer closure;
+static SmProp * ArrayPack(char *name, XtPointer closure)
 {
     String prop = *(String *) closure;
     SmProp *p;
@@ -3241,12 +3239,7 @@ static XtCheckpointToken GetToken(widget, type)
     return token;
 }
 
-#if NeedFunctionPrototypes
 XtCheckpointToken XtSessionGetToken(Widget widget)
-#else
-XtCheckpointToken XtSessionGetToken(widget)
-    Widget	widget;
-#endif
 {
     SessionShellWidget w = (SessionShellWidget) widget;
     XtCheckpointToken token = NULL;
@@ -3281,12 +3274,7 @@ static Boolean ExamineToken(call_data)
     return True;
 }
 
-#if NeedFunctionPrototypes
 void XtSessionReturnToken(XtCheckpointToken token)
-#else
-void XtSessionReturnToken(token)
-    XtCheckpointToken	token;
-#endif
 {
     SessionShellWidget w = (SessionShellWidget) token->widget;
     Boolean has_some;

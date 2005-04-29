@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/fonts/bdf/75dpi/Imakefile.inc,v 1.6 2001/07/04 16:44:29 tsi Exp $
+XCOMM $XFree86: xc/fonts/bdf/75dpi/Imakefile.inc,v 1.7 2003/06/18 16:17:34 eich Exp $
 
 
 #if BuildUCSFonts
@@ -157,7 +157,7 @@ DERIVED_8859_1_OBJS2 = \
 	FontObj(luRS24-ISO8859-1) \
 	FontObj(lubB08-ISO8859-1) FontObj(lubB10-ISO8859-1) \
 	FontObj(lubB12-ISO8859-1) FontObj(lubB14-ISO8859-1) \
-	FontObj(lubB18-ISO8859-1) FontObj(lubR19-ISO8859-1) \
+	FontObj(lubB18-ISO8859-1) FontObj(lubB19-ISO8859-1) \
 	FontObj(lubB24-ISO8859-1) \
 	FontObj(lubBI08-ISO8859-1) FontObj(lubBI10-ISO8859-1) \
 	FontObj(lubBI12-ISO8859-1) FontObj(lubBI14-ISO8859-1) \
@@ -267,7 +267,7 @@ DERIVED_8859_2_OBJS2 = \
 	FontObj(luRS24-ISO8859-2) \
 	FontObj(lubB08-ISO8859-2) FontObj(lubB10-ISO8859-2) \
 	FontObj(lubB12-ISO8859-2) FontObj(lubB14-ISO8859-2) \
-	FontObj(lubB18-ISO8859-2) FontObj(lubR19-ISO8859-2) \
+	FontObj(lubB18-ISO8859-2) FontObj(lubB19-ISO8859-2) \
 	FontObj(lubB24-ISO8859-2) \
 	FontObj(lubBI08-ISO8859-2) FontObj(lubBI10-ISO8859-2) \
 	FontObj(lubBI12-ISO8859-2) FontObj(lubBI14-ISO8859-2) \
@@ -375,7 +375,7 @@ DERIVED_8859_3_OBJS2 = \
 	FontObj(luRS24-ISO8859-3) \
 	FontObj(lubB08-ISO8859-3) FontObj(lubB10-ISO8859-3) \
 	FontObj(lubB12-ISO8859-3) FontObj(lubB14-ISO8859-3) \
-	FontObj(lubB18-ISO8859-3) FontObj(lubR19-ISO8859-3) \
+	FontObj(lubB18-ISO8859-3) FontObj(lubB19-ISO8859-3) \
 	FontObj(lubB24-ISO8859-3) \
 	FontObj(lubBI08-ISO8859-3) FontObj(lubBI10-ISO8859-3) \
 	FontObj(lubBI12-ISO8859-3) FontObj(lubBI14-ISO8859-3) \
@@ -483,7 +483,7 @@ DERIVED_8859_4_OBJS2 = \
 	FontObj(luRS24-ISO8859-4) \
 	FontObj(lubB08-ISO8859-4) FontObj(lubB10-ISO8859-4) \
 	FontObj(lubB12-ISO8859-4) FontObj(lubB14-ISO8859-4) \
-	FontObj(lubB18-ISO8859-4) FontObj(lubR19-ISO8859-4) \
+	FontObj(lubB18-ISO8859-4) FontObj(lubB19-ISO8859-4) \
 	FontObj(lubB24-ISO8859-4) \
 	FontObj(lubBI08-ISO8859-4) FontObj(lubBI10-ISO8859-4) \
 	FontObj(lubBI12-ISO8859-4) FontObj(lubBI14-ISO8859-4) \
@@ -591,7 +591,7 @@ DERIVED_8859_9_OBJS2 = \
 	FontObj(luRS24-ISO8859-9) \
 	FontObj(lubB08-ISO8859-9) FontObj(lubB10-ISO8859-9) \
 	FontObj(lubB12-ISO8859-9) FontObj(lubB14-ISO8859-9) \
-	FontObj(lubB18-ISO8859-9) FontObj(lubR19-ISO8859-9) \
+	FontObj(lubB18-ISO8859-9) FontObj(lubB19-ISO8859-9) \
 	FontObj(lubB24-ISO8859-9) \
 	FontObj(lubBI08-ISO8859-9) FontObj(lubBI10-ISO8859-9) \
 	FontObj(lubBI12-ISO8859-9) FontObj(lubBI14-ISO8859-9) \
@@ -699,7 +699,7 @@ DERIVED_8859_10_OBJS2 = \
 	FontObj(luRS24-ISO8859-10) \
 	FontObj(lubB08-ISO8859-10) FontObj(lubB10-ISO8859-10) \
 	FontObj(lubB12-ISO8859-10) FontObj(lubB14-ISO8859-10) \
-	FontObj(lubB18-ISO8859-10) FontObj(lubR19-ISO8859-10) \
+	FontObj(lubB18-ISO8859-10) FontObj(lubB19-ISO8859-10) \
 	FontObj(lubB24-ISO8859-10) \
 	FontObj(lubBI08-ISO8859-10) FontObj(lubBI10-ISO8859-10) \
 	FontObj(lubBI12-ISO8859-10) FontObj(lubBI14-ISO8859-10) \
@@ -807,7 +807,7 @@ DERIVED_8859_13_OBJS2 = \
 	FontObj(luRS24-ISO8859-13) \
 	FontObj(lubB08-ISO8859-13) FontObj(lubB10-ISO8859-13) \
 	FontObj(lubB12-ISO8859-13) FontObj(lubB14-ISO8859-13) \
-	FontObj(lubB18-ISO8859-13) FontObj(lubR19-ISO8859-13) \
+	FontObj(lubB18-ISO8859-13) FontObj(lubB19-ISO8859-13) \
 	FontObj(lubB24-ISO8859-13) \
 	FontObj(lubBI08-ISO8859-13) FontObj(lubBI10-ISO8859-13) \
 	FontObj(lubBI12-ISO8859-13) FontObj(lubBI14-ISO8859-13) \
@@ -915,7 +915,7 @@ DERIVED_8859_14_OBJS2 = \
 	FontObj(luRS24-ISO8859-14) \
 	FontObj(lubB08-ISO8859-14) FontObj(lubB10-ISO8859-14) \
 	FontObj(lubB12-ISO8859-14) FontObj(lubB14-ISO8859-14) \
-	FontObj(lubB18-ISO8859-14) FontObj(lubR19-ISO8859-14) \
+	FontObj(lubB18-ISO8859-14) FontObj(lubB19-ISO8859-14) \
 	FontObj(lubB24-ISO8859-14) \
 	FontObj(lubBI08-ISO8859-14) FontObj(lubBI10-ISO8859-14) \
 	FontObj(lubBI12-ISO8859-14) FontObj(lubBI14-ISO8859-14) \
@@ -1023,7 +1023,7 @@ DERIVED_8859_15_OBJS2 = \
 	FontObj(luRS24-ISO8859-15) \
 	FontObj(lubB08-ISO8859-15) FontObj(lubB10-ISO8859-15) \
 	FontObj(lubB12-ISO8859-15) FontObj(lubB14-ISO8859-15) \
-	FontObj(lubB18-ISO8859-15) FontObj(lubR19-ISO8859-15) \
+	FontObj(lubB18-ISO8859-15) FontObj(lubB19-ISO8859-15) \
 	FontObj(lubB24-ISO8859-15) \
 	FontObj(lubBI08-ISO8859-15) FontObj(lubBI10-ISO8859-15) \
 	FontObj(lubBI12-ISO8859-15) FontObj(lubBI14-ISO8859-15) \

@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:2302: Origin of test
+dnl ../doc/m4.texinfo:2303: Origin of test
 define(`bar', `BAR')
 dnl @result{}
 undivert(`foo')

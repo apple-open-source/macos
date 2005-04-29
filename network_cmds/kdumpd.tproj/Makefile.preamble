@@ -119,3 +119,5 @@ OTHER_HELP_DIRS =
 OTHER_OFILES =
 
 -include ../Makefile.include
+
+AFTER_INSTALL = after_install

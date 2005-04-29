@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -51,6 +52,12 @@ static syslock *rpcLock = NULL;
 #define DEFAULT_LATENCY 30
 
 #define CLIMB_TO_ROOT 0x00000001
+
+#define HOST_LUCATEGORY_STRING "2"
+#define USER_LUCATEGORY_STRING "0"
+#define NETDOMAIN_LUCATEGORY_STRING "12"
+
+u_int32_t NI_query(void *c, dsrecord *pattern, dsrecord **list);
 
 typedef struct
 {
@@ -199,6 +206,8 @@ NI_climb_to_root(agent_private *ap)
 		NI_add_domain(ap, h0, CLIMB_TO_ROOT);
 	}
 
+	if (ap->domain_count == 0) return;
+
 	h0 = ap->domain[ap->domain_count - 1].handle;
 
 	if (ap->domain_count > 1)
@@ -262,6 +271,8 @@ NI_new(void **c, char *args, dynainfo *d)
 	if (c == NULL) return 1;
 	ap = (agent_private *)calloc(1, sizeof(agent_private));
 
+	system_log(LOG_DEBUG, "Allocated NI 0x%08x", (int)ap);
+
 	*c = ap;
 	ap->dyna = d;
 
@@ -277,20 +288,16 @@ u_int32_t
 NI_free(void *c)
 {
 	agent_private *ap;
-	u_int32_t i;
 
 	if (c == NULL) return 0;
 
 	ap = (agent_private *)c;
 
-	syslock_lock(rpcLock);
-	for (i = 0; i < ap->domain_count; i++) ni_shared_release(ap->domain[i].handle);
-	syslock_unlock(rpcLock);
 	free(ap->domain);
 	ap->domain = NULL;
 	ap->domain_count = 0;
 
-	system_log(LOG_DEBUG, "Deallocated NI 0x%08x\n", (int)ap);
+	system_log(LOG_DEBUG, "Deallocated NI 0x%08x", (int)ap);
 
 	free(ap);
 	c = NULL;
@@ -618,6 +625,178 @@ NI_query_lookup(agent_private *ap, char *path, int single_item, u_int32_t where,
 	return 0;
 }
 
+static u_int32_t
+NI_query_netgroup(void *c, dsrecord *pattern, dsrecord **list)
+{
+	u_int32_t status;
+	dsattribute *a, *res_ha, *res_ua, *res_da;
+	dsdata *k;
+	int stamp, i, count;
+	dsrecord *ngquery, *res, *hostres, *userres, *domainres, *r;
+
+	if (c == NULL) return 1;
+	if (pattern == NULL) return 1;
+	if (list == NULL) return 1;
+
+	*list = NULL;
+	stamp = 0;
+
+	k = cstring_to_dsdata(SINGLE_KEY);
+	a = dsrecord_attribute(pattern, k, SELECT_META_ATTRIBUTE);
+	dsdata_release(k);
+	if (a != NULL)
+	{
+		dsrecord_remove_attribute(pattern, a, SELECT_META_ATTRIBUTE);
+	}
+	dsattribute_release(a);
+
+	/* Check if the caller desires a validation stamp */
+	k = cstring_to_dsdata(STAMP_KEY);
+	a = dsrecord_attribute(pattern, k, SELECT_META_ATTRIBUTE);
+	dsdata_release(k);
+	if (a != NULL)
+	{
+		dsrecord_remove_attribute(pattern, a, SELECT_META_ATTRIBUTE);
+		stamp = 1;
+	}
+	dsattribute_release(a);
+
+	if (stamp == 1)
+	{
+		ngquery = dsrecord_new();
+
+		a = dsattribute_from_cstrings(CATEGORY_KEY, HOST_LUCATEGORY_STRING, NULL);
+		dsrecord_append_attribute(ngquery, a, SELECT_META_ATTRIBUTE);
+		dsattribute_release(a);
+
+		a = dsattribute_from_cstrings(STAMP_KEY, "1", NULL);
+		dsrecord_append_attribute(ngquery, a, SELECT_META_ATTRIBUTE);
+		dsattribute_release(a);
+
+		status = NI_query(c, ngquery, list);
+		dsrecord_release(ngquery);
+		return status;
+	}
+
+	count = 0;
+	res = dsrecord_new();
+	res_ha = dsattribute_from_cstrings("hosts", NULL);
+	dsrecord_append_attribute(res, res_ha, SELECT_ATTRIBUTE);
+	res_ua = dsattribute_from_cstrings("users", NULL);
+	dsrecord_append_attribute(res, res_ua, SELECT_ATTRIBUTE);
+	res_da = dsattribute_from_cstrings("domains", NULL);
+	dsrecord_append_attribute(res, res_da, SELECT_ATTRIBUTE);
+
+	/* Find hosts with netgroups=<val> */
+	ngquery = dsrecord_copy(pattern);
+
+	a = dsattribute_from_cstrings(CATEGORY_KEY, HOST_LUCATEGORY_STRING, NULL);
+	dsrecord_append_attribute(ngquery, a, SELECT_META_ATTRIBUTE);
+
+	k = cstring_to_dsdata("name");
+	a = dsrecord_attribute(ngquery, k, SELECT_ATTRIBUTE);
+	dsdata_release(k);
+	k = cstring_to_dsdata("netgroups");
+	dsattribute_setkey(a, k);
+	dsdata_release(k);
+	dsattribute_release(a);
+
+	hostres = NULL;
+	status = NI_query(c, ngquery, &hostres);
+	dsrecord_release(ngquery);
+
+	/* Find users with netgroups=<val> */
+	ngquery = dsrecord_copy(pattern);
+	
+	a = dsattribute_from_cstrings(CATEGORY_KEY, USER_LUCATEGORY_STRING, NULL);
+	dsrecord_append_attribute(ngquery, a, SELECT_META_ATTRIBUTE);
+	
+	k = cstring_to_dsdata("name");
+	a = dsrecord_attribute(ngquery, k, SELECT_ATTRIBUTE);
+	dsdata_release(k);
+	k = cstring_to_dsdata("netgroups");
+	dsattribute_setkey(a, k);
+	dsdata_release(k);
+	dsattribute_release(a);
+
+	userres = NULL;
+	status = NI_query(c, ngquery, &userres);
+	dsrecord_release(ngquery);
+	
+	/* Find netdomains with netgroups=<val> */
+	ngquery = dsrecord_copy(pattern);
+	
+	a = dsattribute_from_cstrings(CATEGORY_KEY, NETDOMAIN_LUCATEGORY_STRING, NULL);
+	dsrecord_append_attribute(ngquery, a, SELECT_META_ATTRIBUTE);
+	
+	k = cstring_to_dsdata("name");
+	a = dsrecord_attribute(ngquery, k, SELECT_ATTRIBUTE);
+	dsdata_release(k);
+	k = cstring_to_dsdata("netgroups");
+	dsattribute_setkey(a, k);
+	dsdata_release(k);
+	dsattribute_release(a);
+	domainres = NULL;
+	status = NI_query(c, ngquery, &domainres);
+	dsrecord_release(ngquery);
+
+	k = cstring_to_dsdata("name");
+
+	/* Merge host names */
+	for (r = hostres; r != NULL; r = r->next)
+	{
+		a = dsrecord_attribute(r, k, SELECT_ATTRIBUTE);
+		if (a == NULL) continue;
+		for (i = 0; i < a->count; i++) dsattribute_merge(res_ha, a->value[i]);
+		count += a->count;
+		dsattribute_release(a);
+	}	
+	
+	dsrecord_release(hostres);
+	dsattribute_release(res_ha);
+	
+	/* Merge user names */
+	for (r = userres; r != NULL; r = r->next)
+	{
+		a = dsrecord_attribute(r, k, SELECT_ATTRIBUTE);
+		if (a == NULL) continue;
+		for (i = 0; i < a->count; i++) dsattribute_merge(res_ua, a->value[i]);
+		count += a->count;
+		dsattribute_release(a);
+	}	
+	
+	dsrecord_release(userres);
+	dsattribute_release(res_ua);
+	
+	/* Merge netdomain names */
+	for (r = domainres; r != NULL; r = r->next)
+	{
+		a = dsrecord_attribute(r, k, SELECT_ATTRIBUTE);
+		if (a == NULL) continue;
+		for (i = 0; i < a->count; i++) dsattribute_merge(res_da, a->value[i]);
+		count += a->count;
+		dsattribute_release(a);
+	}	
+	
+	dsrecord_release(domainres);
+	dsattribute_release(res_da);
+
+	dsdata_release(k);
+
+	if (count > 0)
+	{
+		*list = res;
+		status = 0;
+	}
+	else
+	{
+		dsrecord_release(res);
+		status = 1;
+	}
+
+	return status;
+}
+
 u_int32_t
 NI_query(void *c, dsrecord *pattern, dsrecord **list)
 {
@@ -659,6 +838,11 @@ NI_query(void *c, dsrecord *pattern, dsrecord **list)
 	else
 	{
 		cat = atoi(catname);
+		if (cat == LUCategoryNetgroup)
+		{
+			dsattribute_release(a);
+			return NI_query_netgroup(c, pattern, list);
+		}
 
 		str = pathForCategory[cat];
 		if (str == NULL)

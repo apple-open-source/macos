@@ -1,13 +1,17 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/ar_KW.xml
 // *
 // ***************************************************************************
-
-ar_KW {
-    Version{ "2.0" }
-//    LocaleString { "ar_KW" }
-//    ShortCountry { "KWT" }
-    LocaleID:int { 0x3401 }
+ar_KW{
+    NumberPatterns{
+        "#,##0.###;#,##0.###-",
+        "¤ #,##0.000;¤ #,##0.000-",
+        "#,##0%",
+        "#E0",
+    }
+    Version{"1.2"}
 }

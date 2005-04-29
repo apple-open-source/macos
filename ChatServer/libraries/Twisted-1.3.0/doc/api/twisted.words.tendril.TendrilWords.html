@@ -1,0 +1,533 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.words.tendril.TendrilWords</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.words.html">Package&nbsp;words</a> ::
+        <a href="twisted.words.tendril.html">Module&nbsp;tendril</a> ::
+        Class&nbsp;TendrilWords
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.words.tendril.TendrilWords.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class TendrilWords</h2>
+
+<pre class="base-tree">
+<a href="twisted.words.service.WordsClient.html"><code>WordsClient</code></a> --+
+              |
+             <b>TendrilWords</b>
+</pre><br />
+
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.tendril.TendrilWords.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>service</span>,
+          <span class=summary-sig-arg>ircFactory</span>,
+          <span class=summary-sig-arg>nickname</span>,
+          <span class=summary-sig-arg>networkSuffix</span>,
+          <span class=summary-sig-arg>perspectiveName</span>,
+          <span class=summary-sig-arg>groupList</span>,
+          <span class=summary-sig-arg>errorGroup</span>)</span></code>
+<br />
+service -- a twisted.words.service.Service, or at least something with 
+a 'serviceName' attribute and 'createParticipant' and 
+'getPerspectiveNamed' methods which work like a words..Service.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_getClient"></a><span class="summary-sig"><span class="summary-sig-name">_getClient</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>nick</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.tendril.TendrilWords.html#_getParticipant" class="summary-sig-name"><code>_getParticipant</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>nick</span>)</span></code>
+<br />
+Get a Perspective (words.service.Participant) for a IRC user.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_newParticipant"></a><span class="summary-sig"><span class="summary-sig-name">_newParticipant</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>nick</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="attach"></a><span class="summary-sig"><span class="summary-sig-name">attach</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.tendril.TendrilWords.html#attachToWords" class="summary-sig-name"><code>attachToWords</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Get my perspective on the Words service; attach as a client.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="changeParticipantNick"></a><span class="summary-sig"><span class="summary-sig-name">changeParticipantNick</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>old_nick</span>,
+          <span class=summary-sig-arg>new_nick</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.tendril.TendrilWords.html#detach" class="summary-sig-name"><code>detach</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Pull everyone off Words, sign off, cut the IRC connection.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="directMessage"></a><span class="summary-sig"><span class="summary-sig-name">directMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>recipientName</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.tendril.TendrilWords.html#evacuateGroup" class="summary-sig-name"><code>evacuateGroup</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groupName</span>)</span></code>
+<br />
+Pull all of my Participants out of this group.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="groupMessage"></a><span class="summary-sig"><span class="summary-sig-name">groupMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groupName</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ircConnectionLost"></a><span class="summary-sig"><span class="summary-sig-name">ircConnectionLost</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ircParticipantMsg"></a><span class="summary-sig"><span class="summary-sig-name">ircParticipantMsg</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>nick</span>,
+          <span class=summary-sig-arg>groupName</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>emote</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="ircPartParticipant"></a><span class="summary-sig"><span class="summary-sig-name">ircPartParticipant</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>nick</span>,
+          <span class=summary-sig-arg>groupName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.tendril.TendrilWords.html#isThisMine" class="summary-sig-name"><code>isThisMine</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>sender</span>)</span></code>
+<br />
+Returns true if 'sender' is the name of a perspective I'm 
+providing.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="joinGroup"></a><span class="summary-sig"><span class="summary-sig-name">joinGroup</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groupName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="leaveGroup"></a><span class="summary-sig"><span class="summary-sig-name">leaveGroup</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groupName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="logoutParticipant"></a><span class="summary-sig"><span class="summary-sig-name">logoutParticipant</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>nick</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.tendril.TendrilWords.html#memberJoined" class="summary-sig-name"><code>memberJoined</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>member</span>,
+          <span class=summary-sig-arg>group</span>)</span></code>
+<br />
+Tell the IRC Channel when someone joins the Words group.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.tendril.TendrilWords.html#memberLeft" class="summary-sig-name"><code>memberLeft</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>member</span>,
+          <span class=summary-sig-arg>group</span>)</span></code>
+<br />
+Tell the IRC Channel when someone leaves the Words group.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.tendril.TendrilWords.html#msgFromWords" class="summary-sig-name"><code>msgFromWords</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>toNick</span>,
+          <span class=summary-sig-arg>sender</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+<br />
+Deliver a directMessage as a privmsg over IRC.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.tendril.TendrilWords.html#receiveGroupMessage" class="summary-sig-name"><code>receiveGroupMessage</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>sender</span>,
+          <span class=summary-sig-arg>group</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+<br />
+Pass a message from the Words group on to IRC.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="setIrc"></a><span class="summary-sig"><span class="summary-sig-name">setIrc</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>ircProtocol</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="setupBot"></a><span class="summary-sig"><span class="summary-sig-name">setupBot</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>perspective</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from WordsClient</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.service.WordsClient.html#notifyStatusChanged" class="summary-sig-name"><code>notifyStatusChanged</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>status</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.service.WordsClient.html#receiveContactList" class="summary-sig-name"><code>receiveContactList</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>contactList</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.service.WordsClient.html#receiveDirectMessage" class="summary-sig-name"><code>receiveDirectMessage</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>sender</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.service.WordsClient.html#receiveGroupMembers" class="summary-sig-name"><code>receiveGroupMembers</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>names</span>,
+          <span class=summary-sig-arg>group</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.service.WordsClient.html#setGroupMetadata" class="summary-sig-name"><code>setGroupMetadata</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>metadata</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.words.tendril.TendrilWords.html#irc"><code>irc</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.words.tendril.TendrilWords.html#ircFactory"><code>ircFactory</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.words.tendril.TendrilWords.html#networkSuffix"><code>networkSuffix</code></a></b> = <span title="'@opn'"><code><span class="variable-quote">'</span>&#64;opn<span class="variable-quote">'</span>                                   </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.words.tendril.TendrilWords.html#nickname"><code>nickname</code></a></b> = <span title="'tl'"><code><span class="variable-quote">'</span>tl<span class="variable-quote">'</span>                                          </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.words.tendril.TendrilWords.html#participants"><code>participants</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.words.tendril.TendrilWords.html#perspectiveName"><code>perspectiveName</code></a></b> = <span title="'tl@opn'"><code><span class="variable-quote">'</span>tl&#64;opn<span class="variable-quote">'</span>                               </code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="__init__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__init__</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>service</span>,
+          <span class=sig-arg>ircFactory</span>,
+          <span class=sig-arg>nickname</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>networkSuffix</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>perspectiveName</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>groupList</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>errorGroup</span>=<span class=sig-default>None</span>)</span>
+    <br /><i>(Constructor)</i>
+  </h3>
+  <p>service -- a twisted.words.service.Service, or at least something 
+  with a 'serviceName' attribute and 'createParticipant' and 
+  'getPerspectiveNamed' methods which work like a words..Service.</p>
+  <p>groupList -- a list of strings naming groups on the Words service to 
+  join and bridge to their counterparts on the IRC server.</p>
+  <p>nickname -- a string to use as my nickname on the IRC network.</p>
+  <p>networkSuffix -- a string to append to the nickname of the 
+  Participants I bring in through IRC, e.g. &quot;&#64;opn&quot;.</p>
+  perspectiveName -- the name of my perspective with this service. 
+  Defaults to nickname + networkSuffix.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_getParticipant"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_getParticipant</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>nick</span>)</span>
+  </h3>
+  <p>Get a Perspective (words.service.Participant) for a IRC user.</p>
+  And if I don't have one around, I'll make one.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="attachToWords"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">attachToWords</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Get my perspective on the Words service; attach as a client.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="detach"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">detach</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Pull everyone off Words, sign off, cut the IRC connection.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="evacuateGroup"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">evacuateGroup</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>groupName</span>)</span>
+  </h3>
+  Pull all of my Participants out of this group.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="isThisMine"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">isThisMine</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>sender</span>)</span>
+  </h3>
+  Returns true if 'sender' is the name of a perspective I'm 
+  providing.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="memberJoined"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">memberJoined</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>member</span>,
+          <span class=sig-arg>group</span>)</span>
+  </h3>
+  Tell the IRC Channel when someone joins the Words group.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.words.service.WordsClient.html#memberJoined"><code>twisted.words.service.WordsClient.memberJoined</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="memberLeft"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">memberLeft</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>member</span>,
+          <span class=sig-arg>group</span>)</span>
+  </h3>
+  Tell the IRC Channel when someone leaves the Words group.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.words.service.WordsClient.html#memberLeft"><code>twisted.words.service.WordsClient.memberLeft</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="msgFromWords"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">msgFromWords</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>toNick</span>,
+          <span class=sig-arg>sender</span>,
+          <span class=sig-arg>message</span>,
+          <span class=sig-arg>metadata</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  Deliver a directMessage as a privmsg over IRC.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="receiveGroupMessage"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">receiveGroupMessage</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>sender</span>,
+          <span class=sig-arg>group</span>,
+          <span class=sig-arg>message</span>,
+          <span class=sig-arg>metadata</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Pass a message from the Words group on to IRC.</p>
+  Or, if it's in our errorGroup, recognize some debugging 
+  commands.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.words.service.WordsClient.html#receiveGroupMessage"><code>twisted.words.service.WordsClient.receiveGroupMessage</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="irc"></a>
+<h3>irc</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="ircFactory"></a>
+<h3>ircFactory</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="networkSuffix"></a>
+<h3>networkSuffix</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'@opn'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>&#64;opn<span class="variable-quote">'</span>                                                                 </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="nickname"></a>
+<h3>nickname</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'tl'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>tl<span class="variable-quote">'</span>                                                                   </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="participants"></a>
+<h3>participants</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="perspectiveName"></a>
+<h3>perspectiveName</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'tl@opn'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>tl&#64;opn<span class="variable-quote">'</span>                                                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:40 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

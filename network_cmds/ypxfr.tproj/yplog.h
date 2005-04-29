@@ -55,9 +55,11 @@
 #ifndef _YPLOG_H_
 #define _YPLOG_H_
 
+#include <stdarg.h>
+
 __BEGIN_DECLS
 void    yplog __P((const char *, ...));
-void    vyplog __P((const char *, _BSD_VA_LIST_));
+void    vyplog __P((const char *, va_list));
 void	ypopenlog __P((void));
 void	ypcloselog __P((void));
 __END_DECLS

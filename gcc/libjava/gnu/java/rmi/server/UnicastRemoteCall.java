@@ -1,5 +1,5 @@
 /* UnicastRemoteCall.java
-  Copyright (c) 1996, 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
+  Copyright (c) 1996, 1997, 1998, 1999, 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,23 +35,21 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package gnu.java.rmi.server;
 
-import java.lang.Exception;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutput;
 import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.io.StreamCorruptedException;
-import java.rmi.server.RemoteCall;
 import java.rmi.RemoteException;
 import java.rmi.MarshalException;
 import java.rmi.UnmarshalException;
-import java.rmi.server.UID;
+import java.rmi.server.RemoteCall;
 import java.rmi.server.ObjID;
-import java.rmi.server.RemoteObject;
-
+import java.rmi.server.UID;
 import java.util.Vector;
 
 public class UnicastRemoteCall
@@ -65,6 +63,7 @@ public class UnicastRemoteCall
   private long hash;
   private Vector vec;
   private int ptr;
+  private ObjID objid;
 
   private ObjectOutput oout;
   private ObjectInput oin;
@@ -86,22 +85,7 @@ public class UnicastRemoteCall
     this.conn = conn;
     this.opnum = opnum;
     this.hash = hash;
-    
-    // signal the call when constructing
-    try
-      {
-	DataOutputStream dout = conn.getDataOutputStream();
-	dout.write(MESSAGE_CALL);
-	
-	oout = conn.getObjectOutputStream();
-	objid.write(oout);
-	oout.writeInt(opnum);
-	oout.writeLong(hash);
-      }
-    catch(IOException ex)
-      {
-	throw new MarshalException("Try to write header but failed.", ex);
-      }
+    this.objid = objid;
   }
   
   UnicastConnection getConnection()
@@ -111,24 +95,60 @@ public class UnicastRemoteCall
   
   public ObjectOutput getOutputStream() throws IOException
   {
-    if (conn != null)
-      {
-	if(oout == null)
-	  return (oout = conn.getObjectOutputStream());
-	else
-	  return oout;
-      }
-    else
-      {
-	vec = new Vector();
-	return (new DummyObjectOutputStream());
-      }
+    if (vec == null)
+      vec = new Vector();
+    return (new DummyObjectOutputStream());
   }
 
   public void releaseOutputStream() throws IOException
   {
+    if (vec != null)
+      {
+	oout = conn.getObjectOutputStream();
+	
+	for (int i = 0; i < vec.size(); i += 2)
+	  {
+	    boolean primitive = ((Boolean)vec.elementAt(i)).booleanValue();
+	    Object data = vec.elementAt(i+1);
+
+	    // No type, this is
+	    if (!primitive)
+	      oout.writeObject(data);
+	    else
+	      {
+		if (data instanceof Boolean)
+		  oout.writeBoolean(((Boolean)data).booleanValue());
+		else if (data instanceof Character)
+		  oout.writeChar(((Character)data).charValue());
+		else if (data instanceof Byte)
+		  oout.writeByte(((Byte)data).byteValue());
+		else if (data instanceof Short)
+		  oout.writeShort(((Short)data).shortValue());
+		else if (data instanceof Integer)
+		  oout.writeInt(((Integer)data).intValue());
+		else if (data instanceof Long)
+		  oout.writeLong(((Long)data).longValue());
+	      }
+	  }
+	vec = null;
+      }
     if(oout != null)
       oout.flush();
+  }
+
+  /**
+  *
+  * (re)starts ObjectInputStream
+  *
+  */ 
+  public ObjectInput startInputStream() throws IOException
+  {
+	if (conn != null) {
+		return (oin = conn.startObjectInputStream());
+	} else {
+		return getInputStream(); // dummy Input Stream
+	}
+
   }
 
   public ObjectInput getInputStream() throws IOException
@@ -163,6 +183,23 @@ public class UnicastRemoteCall
   {
     byte returncode;
     ObjectInput oin;
+    
+    // signal the call when constructing
+    try
+      {
+	DataOutputStream dout = conn.getDataOutputStream();
+	dout.write(MESSAGE_CALL);
+	
+	oout = conn.startObjectOutputStream(); // (re)start ObjectOutputStream
+	objid.write(oout);
+	oout.writeInt(opnum);
+	oout.writeLong(hash);
+      }
+    catch(IOException ex)
+      {
+	throw new MarshalException("Try to write header but failed.", ex);
+      }
+
     try
       {
 	releaseOutputStream();
@@ -170,7 +207,7 @@ public class UnicastRemoteCall
         if (din.readByte() != MESSAGE_CALL_ACK)
 	    throw new RemoteException("Call not acked");
 
-        oin = getInputStream();
+        oin = startInputStream();
         returncode = oin.readByte();
         UID.read(oin);
       }
@@ -211,9 +248,15 @@ public class UnicastRemoteCall
     // conn.disconnect();
   }
 
+  boolean isReturnValue()
+  {
+    return vec.size() > 0;
+  }
+  
   Object returnValue()
   {
-    return vec.elementAt(0);
+    // This is not the first one (Boolean) but the second.
+    return vec.elementAt(1);
   }
 
   Object[] getArguments()
@@ -256,46 +299,55 @@ public class UnicastRemoteCall
 
     public void writeBoolean(boolean v) throws IOException
     {
-      vec.addElement(new Boolean(v));
+      vec.addElement(Boolean.TRUE);
+      vec.addElement(Boolean.valueOf(v));
     }
 
     public void writeByte(int v) throws IOException
     {
+      vec.addElement(Boolean.TRUE);
       vec.addElement(new Byte((byte) v));
     }
 
     public void writeChar(int v) throws IOException
     {
+      vec.addElement(Boolean.TRUE);
       vec.addElement(new Character((char) v));
     }
 
     public void writeDouble(double v) throws IOException
     {
+      vec.addElement(Boolean.TRUE);
       vec.addElement(new Double(v));
     }
 
     public void writeFloat(float v) throws IOException
     {
+      vec.addElement(Boolean.TRUE);
       vec.addElement(new Float(v));
     }
 
     public void writeInt(int v) throws IOException
     {
+      vec.addElement(Boolean.TRUE);
       vec.addElement(new Integer(v));
     }
 
     public void writeLong(long v) throws IOException
     {
+      vec.addElement(Boolean.TRUE);
       vec.addElement(new Long(v));
     }
 
     public void writeShort(int v) throws IOException
     {
+      vec.addElement(Boolean.TRUE);
       vec.addElement(new Short((short) v));
     }
 
     public void writeObject(Object obj) throws IOException
     {
+      vec.addElement(Boolean.FALSE);
       vec.addElement(obj);
     }
 

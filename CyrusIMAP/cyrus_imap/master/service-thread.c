@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: service-thread.c,v 1.18 2004/06/02 17:26:38 rjs3 Exp $ */
+/* $Id: service-thread.c,v 1.5 2005/03/05 00:37:29 dasenbro Exp $ */
 #include <config.h>
 
 #include <stdio.h>

@@ -1,0 +1,33 @@
+diff -rup orig/tclresource/Source/tclResource.pbproj/project.pbxproj tclresource/Source/tclResource.pbproj/project.pbxproj
+--- Source/tclResource.pbproj/project.pbxproj	Thu Dec 11 20:44:59 2003
++++ Source/tclResource.pbproj/project.pbxproj	Wed Jul 21 16:23:44 2004
+@@ -136,7 +136,6 @@
+ 			buildActionMask = 2147483647;
+ 			files = (
+ 				F5509190036C35B40130931B,
+-				F5A272830377DE8E01FEA954,
+ 			);
+ 			isa = PBXFrameworksBuildPhase;
+ 			runOnlyForDeploymentPostprocessing = 0;
+@@ -164,7 +163,7 @@
+ 				LIBRARY_STYLE = DYNAMIC;
+ 				OPTIMIZATION_CFLAGS = "-O0";
+ 				OTHER_CFLAGS = "";
+-				OTHER_LDFLAGS = "";
++				OTHER_LDFLAGS = "-ltclstub8.4";
+ 				OTHER_LIBTOOL_FLAGS = "";
+ 				OTHER_REZFLAGS = "";
+ 				PRECOMPILE_PREFIX_HEADER = NO;
+@@ -198,12 +197,6 @@
+ 			name = libtclstub8.4.a;
+ 			path = /Library/Frameworks/Tcl.framework/libtclstub8.4.a;
+ 			refType = 0;
+-		};
+-		F5A272830377DE8E01FEA954 = {
+-			fileRef = F5A272820377DE8D01FEA954;
+-			isa = PBXBuildFile;
+-			settings = {
+-			};
+ 		};
+ //F50
+ //F51

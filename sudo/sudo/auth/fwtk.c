@@ -1,35 +1,21 @@
 /*
- * Copyright (c) 1999-2001 Todd C. Miller <Todd.Miller@courtesan.com>
- * All rights reserved.
+ * Copyright (c) 1999-2003 Todd C. Miller <Todd.Miller@courtesan.com>
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
- *
- * 4. Products derived from this software may not be called "Sudo" nor
- *    may "Sudo" appear in their names without specific prior written
- *    permission from the author.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL
- * THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Sponsored in part by the Defense Advanced Research Projects
+ * Agency (DARPA) and Air Force Research Laboratory, Air Force
+ * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
 #include "config.h"
@@ -55,6 +41,11 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
+#ifdef HAVE_ERR_H
+# include <err.h>
+#else
+# include "emul/err.h"
+#endif /* HAVE_ERR_H */
 #include <pwd.h>
 
 #include <auth.h>
@@ -64,7 +55,7 @@
 #include "sudo_auth.h"
 
 #ifndef lint
-static const char rcsid[] = "$Sudo: fwtk.c,v 1.15 2002/01/21 22:25:14 millert Exp $";
+static const char rcsid[] = "$Sudo: fwtk.c,v 1.23 2004/02/13 21:36:47 millert Exp $";
 #endif /* lint */
 
 int
@@ -77,25 +68,22 @@ fwtk_init(pw, promptp, auth)
     char resp[128];			/* Response from the server */
 
     if ((confp = cfg_read("sudo")) == (Cfg *)-1) {
-	(void) fprintf(stderr, "%s: cannot read fwtk config.\n", Argv[0]);
+	warnx("cannot read fwtk config");
 	return(AUTH_FATAL);
     }
 
     if (auth_open(confp)) {
-	(void) fprintf(stderr, "%s: cannot connect to authentication server.\n",
-	    Argv[0]);
+	warnx("cannot connect to authentication server");
 	return(AUTH_FATAL);
     }
 
     /* Get welcome message from auth server */
     if (auth_recv(resp, sizeof(resp))) {
-	(void) fprintf(stderr,
-	    "%s: lost connection to authentication server.\n", Argv[0]);
+	warnx("lost connection to authentication server");
 	return(AUTH_FATAL);
     }
     if (strncmp(resp, "Authsrv ready", 13) != 0) {
-	(void) fprintf(stderr,
-	    "%s: authentication server error.\n%s\n", Argv[0], resp);
+	warnx("authentication server error:\n%s", resp);
 	return(AUTH_FATAL);
     }
 
@@ -116,25 +104,31 @@ fwtk_verify(pw, prompt, auth)
 
     /* Send username to authentication server. */
     (void) snprintf(buf, sizeof(buf), "authorize %s 'sudo'", pw->pw_name);
+restart:
     if (auth_send(buf) || auth_recv(resp, sizeof(resp))) {
-	(void) fprintf(stderr,
-	    "%s: lost connection to authentication server.\n", Argv[0]);
+	warnx("lost connection to authentication server");
 	return(AUTH_FATAL);
     }
 
     /* Get the password/response from the user. */
     if (strncmp(resp, "challenge ", 10) == 0) {
 	(void) snprintf(buf, sizeof(buf), "%s\nResponse: ", &resp[10]);
-	pass = tgetpass(buf, def_ival(I_PASSWD_TIMEOUT) * 60, tgetpass_flags);
+	pass = tgetpass(buf, def_passwd_timeout * 60, tgetpass_flags);
 	if (pass && *pass == '\0') {
 	    pass = tgetpass("Response [echo on]: ",
-		def_ival(I_PASSWD_TIMEOUT) * 60, tgetpass_flags | TGP_ECHO);
+		def_passwd_timeout * 60, tgetpass_flags | TGP_ECHO);
 	}
+    } else if (strncmp(resp, "chalnecho ", 10) == 0) {
+	pass = tgetpass(&resp[10], def_passwd_timeout * 60, tgetpass_flags);
     } else if (strncmp(resp, "password", 8) == 0) {
-	pass = tgetpass(prompt, def_ival(I_PASSWD_TIMEOUT) * 60,
+	pass = tgetpass(prompt, def_passwd_timeout * 60,
 	    tgetpass_flags);
+    } else if (strncmp(resp, "display ", 8) == 0) {
+	fprintf(stderr, "%s\n", &resp[8]);
+	strlcpy(buf, "response dummy", sizeof(buf));
+	goto restart;
     } else {
-	(void) fprintf(stderr, "%s: %s\n", Argv[0], resp);
+	warnx("%s", resp);
 	return(AUTH_FATAL);
     }
     if (!pass) {			/* ^C or error */
@@ -146,8 +140,7 @@ fwtk_verify(pw, prompt, auth)
     /* Send the user's response to the server */
     (void) snprintf(buf, sizeof(buf), "response '%s'", pass);
     if (auth_send(buf) || auth_recv(resp, sizeof(resp))) {
-	(void) fprintf(stderr,
-	    "%s: lost connection to authentication server.\n", Argv[0]);
+	warnx("lost connection to authentication server");
 	error = AUTH_FATAL;
 	goto done;
     }
@@ -159,11 +152,11 @@ fwtk_verify(pw, prompt, auth)
 
     /* Main loop prints "Permission Denied" or insult. */
     if (strcmp(resp, "Permission Denied.") != 0)
-	fprintf(stderr, "%s: %s\n", Argv[0], resp);
+	warnx("%s", resp);
     error = AUTH_FAILURE;
 done:
-    memset(pass, 0, strlen(pass));
-    memset(buf, 0, strlen(buf));
+    zero_bytes(pass, strlen(pass));
+    zero_bytes(buf, strlen(buf));
     return(error);
 }
 

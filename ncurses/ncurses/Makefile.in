@@ -1,4 +1,4 @@
-# $Id: Makefile.in,v 1.1.1.1 2001/11/29 20:40:46 jevans Exp $
+# $Id: Makefile.in,v 1.22 2001/10/27 18:17:22 tom Exp $
 ##############################################################################
 # Copyright (c) 1998 Free Software Foundation, Inc.                          #
 #                                                                            #
@@ -79,6 +79,15 @@ preinstall :
 	@ test ! -f $(includedir)/curses.h || \
 		fgrep NCURSES_VERSION $(includedir)/curses.h >/dev/null || \
 		echo '** Will overwrite non-ncurses curses.h'
+
+install-strip: install
+	-mkdir -p $(SYMROOT)/usr/lib $(SYMROOT)/usr/bin
+	cp -r $(DSTROOT)/usr/lib $(SYMROOT)/usr/lib
+	cp -r $(DSTROOT)/usr/bin $(SYMROOT)/usr/bin
+	-find $(DSTROOT)/usr/lib -type f -print0 | xargs -0 strip -S
+	-find $(DSTROOT)/usr/bin -type f -print0 | xargs -0 strip
+	find $(DSTROOT) -group apple_sw -print0 | xargs -0 chgrp -h wheel
+	-rm -f $(DSTROOT)/usr/lib/*.a
 
 # Put the common rules here so that we can easily construct the list of
 # directories to visit.

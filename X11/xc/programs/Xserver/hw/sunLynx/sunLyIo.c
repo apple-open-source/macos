@@ -22,7 +22,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/sunLynx/sunLyIo.c,v 3.5 2001/05/25 18:40:59 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sunLynx/sunLyIo.c,v 3.6 2003/11/17 22:20:37 dawes Exp $ */
 
  /*
  *
@@ -102,9 +102,7 @@ ProcessInputEvents ()
  */
 
 void sunEnqueueEvents (
-#if NeedFunctionPrototypes
     void
-#endif
 )
 {
     Firm_event	*ptrEvents,    	/* Current pointer event */
@@ -179,9 +177,7 @@ void sunEnqueueEvents (
 }
 
 void sunEnqueueKbdEvents (
-#if NeedFunctionPrototypes
     void
-#endif
 )
 {
     Firm_event	*kbdEvents;    	/* Current keyboard event */
@@ -225,9 +221,7 @@ void sunEnqueueKbdEvents (
 }
 
 void sunEnqueueMseEvents (
-#if NeedFunctionPrototypes
     void
-#endif
 )
 {
     Firm_event	*ptrEvents;    	/* Current pointer event */

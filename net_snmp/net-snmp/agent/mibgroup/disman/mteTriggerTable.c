@@ -145,6 +145,11 @@ init_mteTriggerTable(void)
 {
     DEBUGMSGTL(("mteTriggerTable", "initializing...  "));
 
+#ifndef SNMP_TRANSPORT_CALLBACK_DOMAIN
+    snmp_log(LOG_WARNING,"mteTriggerTable has been disabled because "
+               "the callback transport is not available.\n");
+    return;
+#endif
 
     /*
      * register ourselves with the agent to handle our mib tree 
@@ -189,6 +194,7 @@ init_mteTriggerTable(void)
     se_add_pair_to_slist("mteBooleanOperators", strdup(">="),
                          MTETRIGGERBOOLEANCOMPARISON_GREATEROREQUAL);
 
+#ifdef SNMP_TRANSPORT_CALLBACK_DOMAIN
     /*
      * open a 'callback' session to the main agent 
      */
@@ -198,6 +204,7 @@ init_mteTriggerTable(void)
         DEBUGMSGTL(("mteTriggerTable", "created callback session = %08x\n",
                     mte_callback_sess));
     }
+#endif
     DEBUGMSGTL(("mteTriggerTable", "done.\n"));
 }
 
@@ -363,12 +370,14 @@ static int      monitor_call_count = 0;
 void
 parse_simple_monitor(const char *token, char *line)
 {
-    char            buf[SPRINT_MAX_LEN], *cp, ebuf[SPRINT_MAX_LEN];
+    char            buf[SPRINT_MAX_LEN], *cp, ebuf[SPRINT_MAX_LEN],
+                    eventname[64];
     oid             obuf[MAX_OID_LEN];
     size_t          obufLen;
     struct mteTriggerTable_data *StorageNew;
 
     monitor_call_count++;
+    eventname[0] = '\0';
 
     StorageNew = create_mteTriggerTable_data();
     StorageNew->storageType = ST_READONLY;
@@ -378,6 +387,8 @@ parse_simple_monitor(const char *token, char *line)
     StorageNew->mteTriggerBooleanStartup = MTETRIGGERBOOLEANSTARTUP_TRUE;
     StorageNew->mteTriggerThresholdStartup =
         MTETRIGGERTHRESHOLDSTARTUP_RISINGORFALLING;
+    StorageNew->mteTriggerExistenceTest[0] = 0;
+
     /*
      * owner = snmpd.conf, why not? 
      */
@@ -392,6 +403,18 @@ parse_simple_monitor(const char *token, char *line)
     while (cp && *cp == '-') {
         cp = copy_nword(cp, buf, sizeof(buf));
         switch (buf[1]) {
+        case 't':
+           /*
+            * Threshold toggle
+            */
+           StorageNew->mteTriggerTest[0] = MTETRIGGERTEST_THRESHOLD;
+           break;
+        case 'i':
+           /*
+            * Single instance
+            */
+           StorageNew->mteTriggerValueIDWildcard = MTETRIGGERVALUEIDWILDCARD_FALSE;
+           break;
         case 'r':
             if (cp) {
                 cp = copy_nword(cp, buf, sizeof(buf));
@@ -411,6 +434,17 @@ parse_simple_monitor(const char *token, char *line)
                 StorageNew->pdu_securityNameLen = strlen(buf);
             } else {
                 config_perror("No parameter after -u given\n");
+                /*
+                 * XXX: free StorageNew 
+                 */
+                return;
+            }
+            break;
+        case 'e':
+            if (cp) {
+                cp = copy_nword(cp, eventname, sizeof(eventname));
+            } else {
+                config_perror("No parameter after -e given\n");
                 /*
                  * XXX: free StorageNew 
                  */
@@ -498,11 +532,38 @@ parse_simple_monitor(const char *token, char *line)
     StorageNew->mteTriggerValueID = snmp_duplicate_objid(obuf, obufLen);
     StorageNew->mteTriggerValueIDLen = obufLen;
 
+    if (StorageNew->mteTriggerTest[0] == MTETRIGGERTEST_THRESHOLD) {
+       /*
+        * it's a threshold
+        * grab 'low' and 'high' params
+        */
+        if (!cp) {
+            config_perror("no lower threshold value specified");
+       }
+       cp = copy_nword(cp, buf, sizeof(buf));
+       StorageNew->mteTriggerThresholdFalling = strtol(buf, NULL, 0);
+
+        if (!cp) {
+            config_perror("no upper threshold value specified");
+       }
+       cp = copy_nword(cp, buf, sizeof(buf));
+       StorageNew->mteTriggerThresholdRising = strtol(buf, NULL, 0);
+    } else {
         /*
          * if nothing beyond here, it's an existence test 
          */
         if (!cp) {
-            StorageNew->mteTriggerTest[0] = MTETRIGGERTEST_EXISTENCE;
+            StorageNew->mteTriggerTest[0] = (u_char)MTETRIGGERTEST_EXISTENCE;
+            if (eventname[0] != '\0') {
+                StorageNew->mteTriggerExistenceEventOwner =
+                    strdup("snmpd.conf");
+                StorageNew->mteTriggerExistenceEventOwnerLen =
+                    strlen(StorageNew->mteTriggerExistenceEventOwner);
+                StorageNew->mteTriggerExistenceEvent =
+                    strdup(eventname);
+                StorageNew->mteTriggerExistenceEventLen =
+                    strlen(eventname);
+            }
             mteTriggerTable_add(StorageNew);
             return;
         }
@@ -532,6 +593,17 @@ parse_simple_monitor(const char *token, char *line)
         cp = copy_nword(cp, buf, sizeof(buf));
         StorageNew->mteTriggerBooleanValue = strtol(buf, NULL, 0);
 
+        if (eventname[0] != '\0') {
+            StorageNew->mteTriggerBooleanEventOwner =
+                strdup("snmpd.conf");
+            StorageNew->mteTriggerBooleanEventOwnerLen =
+                strlen(StorageNew->mteTriggerBooleanEventOwner);
+            StorageNew->mteTriggerBooleanEvent =
+                strdup(eventname);
+            StorageNew->mteTriggerBooleanEventLen =
+                strlen(eventname);
+        }
+    }
     mteTriggerTable_add(StorageNew);
     mte_enable_trigger(StorageNew);
 
@@ -1327,7 +1399,7 @@ store_mteTriggerTable(int majorID, int minorID, void *serverarg,
                                            &tmpint);
                 cptr =
                     read_config_store_data(ASN_OBJECT_ID, cptr,
-                                           &StorageTmp->pdu_tDomain,
+                                           (void *)(&StorageTmp->pdu_tDomain),
                                            &StorageTmp->pdu_tDomainLen);
                 cptr =
                     read_config_store_data(ASN_OCTET_STR, cptr,
@@ -3439,7 +3511,7 @@ mte_run_trigger(unsigned int clientreg, void *clientarg)
             if (boolresult &&
                 ((item->mteTriggerBooleanStartup ==
                   MTETRIGGERBOOLEANSTARTUP_TRUE
-                  && lastbool == -1) || lastbool != boolresult)) {
+                  && lastbool == (char)-1) || lastbool != boolresult)) {
                 send_mte_trap(item, mteTriggerFired,
                               sizeof(mteTriggerFired) / sizeof(oid),
                               next_oid, next_oid_len,

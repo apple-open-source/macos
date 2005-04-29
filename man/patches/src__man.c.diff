@@ -1,0 +1,41 @@
+--- src/man.c.orig	Sun Aug 22 20:18:06 2004
++++ src/man.c	Sun Nov 14 15:53:53 2004
+@@ -137,6 +137,9 @@
+ 
+ static int
+ setll(void) {
++     /* Short-circuit bogus behavior (3828722). */
++     return 0;
++
+      return
+ 	  (!do_troff && (line_length < 66 || line_length > 80)) ?
+ 	  line_length*9/10 : 0;
+@@ -150,6 +153,10 @@
+ static char *
+ setpl(void) {
+      char *pl;
++
++     /* Short-circuit bogus behavior (3828722). */
++     return NULL;
++
+      if (do_troff)
+ 	  return NULL;
+      if (preformat)
+@@ -1169,7 +1176,7 @@
+ do_apropos (char *name) {
+      char *command;
+ 
+-     command = my_xsprintf("%s %S", getval("APROPOS"), name);
++     command = my_xsprintf("%s %Q", getval("APROPOS"), name);
+      (void) do_system_command (command, 0);
+      free (command);
+ }
+@@ -1181,7 +1188,7 @@
+ do_whatis (char *name) {
+      char *command;
+ 
+-     command = my_xsprintf("%s %S", getval("WHATIS"), name);
++     command = my_xsprintf("%s %Q", getval("WHATIS"), name);
+      (void) do_system_command (command, 0);
+      free (command);
+ }

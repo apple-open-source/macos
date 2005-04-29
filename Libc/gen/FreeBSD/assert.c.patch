@@ -1,0 +1,11 @@
+--- assert.c.orig	2004-09-20 17:32:51.000000000 -0700
++++ assert.c	2004-11-17 15:56:24.000000000 -0800
+@@ -42,7 +42,7 @@
+ #include <stdlib.h>
+ 
+ void
+-__assert(func, file, line, failedexpr)
++__assert_rtn(func, file, line, failedexpr)
+ 	const char *func, *file;
+ 	int line;
+ 	const char *failedexpr;

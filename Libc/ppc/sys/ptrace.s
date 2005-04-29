@@ -24,8 +24,9 @@
 
 #import "SYS.h"
 
-LEAF(_ptrace)
-	li	r7,0
-	REG_TO_EXTERN(r7,_errno)
-SYSCALL_NONAME(ptrace, 4)
+MI_ENTRY_POINT(_ptrace)
+	li      r7,0
+    MI_GET_ADDRESS(r8,_errno)
+    stw     r7,0(r8)
+    SYSCALL_NONAME(ptrace, 4)
 	blr

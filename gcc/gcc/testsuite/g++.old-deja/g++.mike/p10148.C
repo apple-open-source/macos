@@ -1,3 +1,4 @@
+// { dg-do run  }
 // prms-id: 10148
 
 int fail = 1;
@@ -22,7 +23,7 @@ public:
 };
 
 void TCRCB::eat () {
- void *vp = (TIRD*)this->itc;
+ void *vp = (void *)((TIRD*)this)->itc;
  this->itc();
 }
 

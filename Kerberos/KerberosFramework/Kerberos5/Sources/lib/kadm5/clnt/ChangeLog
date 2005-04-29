@@ -1,3 +1,45 @@
+2004-10-25  Tom Yu  <tlyu@mit.edu>
+
+	* client_init.c (_kadm5_init_any): Pass req_flags and cred to
+	auth_gss_create().
+
+2004-08-20  Tom Yu  <tlyu@mit.edu>
+
+	* client_init.c (_kadm5_init_any): Remove INIT_TEST ifdefs.  Use
+	KADM5_CONFIG_NO_AUTH to request no auth (for testing).
+
+2004-06-30  Ken Raeburn  <raeburn@mit.edu>
+
+	* libkadm5clnt.exports: Export kadm5_get_admin_service_name.
+
+2004-06-24  Tom Yu  <tlyu@mit.edu>
+
+	* client_init.c (_kadm5_init_any)[DEBUG]: Print error from
+	clnttcp_create().
+	(_kadm5_init_any): Use kadm5_get_admin_service_name() if null
+	pointer passed in for service_name.
+
+2004-06-15  Tom Yu  <tlyu@mit.edu>
+
+	* client_principal.c (eret): Add some debugging messages for some
+	RPC errors.
+
+	* client_init.c (_kadm5_init_any): Add support for RPCSEC_GSS.
+	Default to using AUTH_GSSAPI for ovsec.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBBASE): Renamed from LIB.
+
+2004-04-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* libkadm5clnt.exports: New file.
+
+2003-12-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* client_init.c (enctypes): Variable deleted.
+	(_kadm5_init_any): Pass a null pointer instead of enctypes.
+
 2003-01-10  Ken Raeburn  <raeburn@mit.edu>
 
 	* Makefile.in: Add AC_SUBST_FILE marker for lib_frag and libobj_frag.

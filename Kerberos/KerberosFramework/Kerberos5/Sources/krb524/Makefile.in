@@ -1,6 +1,6 @@
-thisconfigdir=.
+thisconfigdir=..
 myfulldir=krb524
-mydir=.
+mydir=krb524
 BUILDTOP=$(REL)..
 # Copyright 1994 by OpenVision Technologies, Inc.
 # 
@@ -77,8 +77,8 @@ krb524test: test.o $(KRB5_DEPLIB) $(KRB4COMPAT_DEPLIBS)
 SERVER_OBJS= krb524d.o cnv_tkt_skey.o conv_princ.o
 CLIENT_OBJS= $(OUTPRE)k524init.$(OBJEXT)
 
-krb524d: $(SERVER_OBJS) $(KADMSRV_DEPLIBS) $(KRB5_DEPLIB) $(KRB4COMPAT_DEPLIBS)
-	$(CC_LINK) -o krb524d $(SERVER_OBJS) $(KADMSRV_LIBS) $(KRB5_LIB) $(KRB4COMPAT_LIBS)
+krb524d: $(SERVER_OBJS) $(KADMSRV_DEPLIBS) $(KRB5_DEPLIB) $(KRB4COMPAT_DEPLIBS) $(APPUTILS_DEPLIB)
+	$(CC_LINK) -o krb524d $(SERVER_OBJS) $(KADMSRV_LIBS) $(KRB5_LIB) $(KRB4COMPAT_LIBS) $(APPUTILS_LIB)
 
 k524init: $(CLIENT_OBJS) $(KRB5_DEPLIB) $(KRB4COMPAT_DEPLIBS)
 	$(CC_LINK) -o k524init $(CLIENT_OBJS) $(KRB5_LIB) $(KRB4COMPAT_LIBS)
@@ -92,10 +92,12 @@ $(OUTPRE)k524init.exe: $(OUTPRE)k524init.$(OBJEXT) $(KLIB) $(K4LIB) $(CLIB) $(BU
 install-unix::
 	$(INSTALL_PROGRAM) krb524d $(DESTDIR)$(SERVER_BINDIR)/krb524d
 	$(INSTALL_PROGRAM) k524init $(DESTDIR)$(CLIENT_BINDIR)/krb524init
+	$(INSTALL_DATA) $(srcdir)/krb524d.M $(DESTDIR)$(SERVER_MANDIR)/krb524d.8
 
 clean-unix::
 	$(RM) $(OBJS) core *~ *.bak #*
-	$(RM) krb524test krb524d k524init test.o krb524d.o k524init.o
+	$(RM) krb524test krb524d k524init test.o $(CLIENT_OBJS) $(SERVER_OBJS)
+
 
 # +++ Dependency line eater +++
 # 
@@ -108,6 +110,7 @@ $(OUTPRE)conv_princ.$(OBJEXT): conv_princ.c $(BUILDTOP)/include/krb5.h \
   $(BUILDTOP)/include/profile.h
 $(OUTPRE)cnv_tkt_skey.$(OBJEXT): cnv_tkt_skey.c $(SRCTOP)/include/k5-int.h \
   $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
   $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
   $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
   $(SRCTOP)/include/krb5/kdb.h $(SRCTOP)/include/kerberosIV/krb.h \
@@ -117,6 +120,7 @@ $(OUTPRE)libinit.$(OBJEXT): libinit.c
 $(OUTPRE)krb524.$(OBJEXT): krb524.c
 $(OUTPRE)test.$(OBJEXT): test.c $(SRCTOP)/include/k5-int.h \
   $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
   $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
   $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
   $(SRCTOP)/include/krb5/kdb.h $(SRCTOP)/include/kerberosIV/des.h \
@@ -127,16 +131,18 @@ $(OUTPRE)k524init.$(OBJEXT): k524init.c $(BUILDTOP)/include/krb5.h \
   $(BUILDTOP)/include/profile.h
 $(OUTPRE)krb524d.$(OBJEXT): krb524d.c $(BUILDTOP)/include/krb5.h \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/gssrpc/rpc.h \
-  $(BUILDTOP)/include/gssrpc/types.h $(BUILDTOP)/include/gssrpc/xdr.h \
-  $(BUILDTOP)/include/gssrpc/auth.h $(BUILDTOP)/include/gssrpc/clnt.h \
-  $(BUILDTOP)/include/gssrpc/rpc_msg.h $(BUILDTOP)/include/gssrpc/auth_unix.h \
-  $(BUILDTOP)/include/gssrpc/svc_auth.h $(BUILDTOP)/include/gssrpc/svc.h \
-  $(SRCTOP)/include/k5-int.h $(BUILDTOP)/include/krb5/osconf.h \
-  $(BUILDTOP)/include/krb5/autoconf.h $(BUILDTOP)/include/profile.h \
-  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
-  $(SRCTOP)/include/krb5/kdb.h $(BUILDTOP)/include/kadm5/kadm_err.h \
-  $(BUILDTOP)/include/kadm5/adb_err.h $(BUILDTOP)/include/kadm5/chpass_util_strings.h \
-  $(SRCTOP)/include/krb5/adm_proto.h $(SRCTOP)/include/kerberosIV/krb.h \
-  $(SRCTOP)/include/kerberosIV/des.h $(KRB_ERR_H_DEP) \
-  krb524d.h
+  $(BUILDTOP)/include/gssrpc/types.h $(BUILDTOP)/include/gssrpc/rename.h \
+  $(BUILDTOP)/include/gssrpc/xdr.h $(BUILDTOP)/include/gssrpc/auth.h \
+  $(BUILDTOP)/include/gssrpc/clnt.h $(BUILDTOP)/include/gssrpc/rpc_msg.h \
+  $(BUILDTOP)/include/gssrpc/auth_unix.h $(BUILDTOP)/include/gssrpc/auth_gss.h \
+  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/svc_auth.h \
+  $(BUILDTOP)/include/gssrpc/svc.h $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  $(BUILDTOP)/include/profile.h $(SRCTOP)/include/port-sockets.h \
+  $(SRCTOP)/include/socket-utils.h $(SRCTOP)/include/krb5/kdb.h \
+  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/kadm5/adb_err.h \
+  $(BUILDTOP)/include/kadm5/chpass_util_strings.h $(SRCTOP)/include/krb5/adm_proto.h \
+  $(SRCTOP)/include/kerberosIV/krb.h $(SRCTOP)/include/kerberosIV/des.h \
+  $(KRB_ERR_H_DEP) krb524d.h
 

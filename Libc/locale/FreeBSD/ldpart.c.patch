@@ -1,35 +1,54 @@
---- ldpart.c.orig	Tue May 20 15:21:44 2003
-+++ ldpart.c	Wed Jun 11 13:11:52 2003
-@@ -47,7 +47,7 @@
- int
+--- ldpart.c.orig	2004-11-25 11:38:17.000000000 -0800
++++ ldpart.c	2005-02-13 01:59:35.000000000 -0800
+@@ -27,6 +27,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/ldpart.c,v 1.15 2004/04/25 19:56:50 ache Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include "namespace.h"
+ #include <sys/types.h>
+ #include <sys/stat.h>
+@@ -44,9 +46,9 @@
+ 
+ static int split_lines(char *, const char *);
+ 
+-int
++__private_extern__ int
  __part_load_locale(const char *name,
- 		int *using_locale,
--		char *locale_buf,
-+		char **locale_buf,
+-		int *using_locale,
++		unsigned char *using_locale,
+ 		char **locale_buf,
  		const char *category_filename,
  		int locale_buf_size_max,
- 		int locale_buf_size_min,
-@@ -69,7 +69,7 @@
+@@ -60,20 +62,6 @@
+ 	struct stat	st;
+ 	size_t		namesize, bufsize;
+ 
+-	/* 'name' must be already checked. */
+-	if (strcmp(name, "C") == 0 || strcmp(name, "POSIX") == 0) {
+-		*using_locale = 0;
+-		return (_LDP_CACHE);
+-	}
+-
+-	/*
+-	 * If the locale name is the same as our cache, use the cache.
+-	 */
+-	if (*locale_buf != NULL && strcmp(name, *locale_buf) == 0) {
+-		*using_locale = 1;
+-		return (_LDP_CACHE);
+-	}
+-
  	/*
- 	 * If the locale name is the same as our cache, use the cache.
+ 	 * Slurp the locale file into the cache.
  	 */
--	if (locale_buf != NULL && strcmp(name, locale_buf) == 0) {
-+	if (*locale_buf != NULL && strcmp(name, *locale_buf) == 0) {
- 		*using_locale = 1;
- 		return (_LDP_CACHE);
- 	}
-@@ -124,10 +124,10 @@
- 	/*
- 	 * Record the successful parse in the cache.
- 	 */
--	if (locale_buf != NULL)
--		free(locale_buf);
--	locale_buf = lbuf;
--	for (p = locale_buf, i = 0; i < num_lines; i++)
-+	if (*locale_buf != NULL)
-+		free(*locale_buf);
-+	*locale_buf = lbuf;
-+	for (p = *locale_buf, i = 0; i < num_lines; i++)
- 		dst_localebuf[i] = (p += strlen(p) + 1);
- 	for (i = num_lines; i < locale_buf_size_max; i++)
- 		dst_localebuf[i] = NULL;
+@@ -164,3 +152,9 @@
+ 	return (i);
+ }
+ 
++__private_extern__ void
++__ldpart_free_extra(struct __xlocale_st_ldpart *lp)
++{
++	if (lp)
++		free(lp->_locale_buf);
++}

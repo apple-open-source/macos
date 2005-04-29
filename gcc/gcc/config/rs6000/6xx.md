@@ -1,8 +1,29 @@
-(define_automaton "ppc6xx,ppc6xxfp,ppc6xxfp2,ppc6xxother")
+;; Scheduling description for PowerPC 604, PowerPC 604e, PowerPC 620,
+;; and PowerPC 630 processors.
+;;   Copyright (C) 2003 Free Software Foundation, Inc.
+;;
+;; This file is part of GCC.
+
+;; GCC is free software; you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published
+;; by the Free Software Foundation; either version 2, or (at your
+;; option) any later version.
+
+;; GCC is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+;; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+;; License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with GCC; see the file COPYING.  If not, write to the
+;; Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+;; MA 02111-1307, USA.
+
+(define_automaton "ppc6xx,ppc6xxfp,ppc6xxfp2")
 (define_cpu_unit "iu1_6xx,iu2_6xx,mciu_6xx" "ppc6xx")
 (define_cpu_unit "fpu_6xx" "ppc6xxfp")
 (define_cpu_unit "fpu1_6xx,fpu2_6xx" "ppc6xxfp2")
-(define_cpu_unit "lsu_6xx,bpu_6xx,cru_6xx" "ppc6xxother")
+(define_cpu_unit "lsu_6xx,bpu_6xx,cru_6xx" "ppc6xx")
 
 ;; PPC604  32-bit 2xSCIU, MCIU, LSU, FPU, BPU
 ;; PPC604e  32-bit 2xSCIU, MCIU, LSU, FPU, BPU, CRU
@@ -43,7 +64,7 @@
   "lsu_6xx")
 
 (define_insn_reservation "ppc604-integer" 1
-  (and (eq_attr "type" "integer")
+  (and (eq_attr "type" "integer,insert_word")
        (eq_attr "cpu" "ppc604,ppc604e,ppc620,ppc630"))
   "iu1_6xx|iu2_6xx")
 
@@ -144,7 +165,7 @@
 (define_insn_reservation "ppc630-fpcompare" 5
   (and (eq_attr "type" "fpcompare")
        (eq_attr "cpu" "ppc630"))
-  "(fpu1_6xx|fpu2_6xx)")
+  "fpu1_6xx|fpu2_6xx")
 
 (define_insn_reservation "ppc630-fp" 3
   (and (eq_attr "type" "fp,dmul")
@@ -179,22 +200,32 @@
 (define_insn_reservation "ppc604-mtcr" 2
   (and (eq_attr "type" "mtcr")
        (eq_attr "cpu" "ppc604,ppc604e,ppc620,ppc630"))
-  "mciu_6xx")
+  "iu1_6xx|iu2_6xx")
 
-(define_insn_reservation "ppc604-crlogical" 1
+(define_insn_reservation "ppc604-crlogical" 2
   (and (eq_attr "type" "cr_logical,delayed_cr")
        (eq_attr "cpu" "ppc604"))
   "bpu_6xx")
 
-(define_insn_reservation "ppc604e-crlogical" 1
+(define_insn_reservation "ppc604e-crlogical" 2
   (and (eq_attr "type" "cr_logical,delayed_cr")
        (eq_attr "cpu" "ppc604e,ppc620,ppc630"))
   "cru_6xx")
 
-(define_insn_reservation "ppc604-mtjmpr" 4
+(define_insn_reservation "ppc604-mtjmpr" 2
   (and (eq_attr "type" "mtjmpr")
        (eq_attr "cpu" "ppc604,ppc604e,ppc620,ppc630"))
-  "bpu_6xx")
+  "mciu_6xx")
+
+(define_insn_reservation "ppc604-mfjmpr" 3
+  (and (eq_attr "type" "mfjmpr")
+       (eq_attr "cpu" "ppc604,ppc604e,ppc620"))
+  "mciu_6xx")
+
+(define_insn_reservation "ppc630-mfjmpr" 2
+  (and (eq_attr "type" "mfjmpr")
+       (eq_attr "cpu" "ppc630"))
+  "mciu_6xx")
 
 (define_insn_reservation "ppc604-jmpreg" 1
   (and (eq_attr "type" "jmpreg,branch")

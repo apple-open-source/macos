@@ -75,6 +75,11 @@ __RCSID("$FreeBSD: src/bin/cp/cp.c,v 1.42 2002/09/22 11:15:56 mckay Exp $");
 #include <string.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <copyfile.h>
+#endif
+
+#include "get_compat.h"
 #include "extern.h"
 
 #define	STRIP_TRAILING_SLASH(p) {					\
@@ -122,7 +127,11 @@ main(int argc, char *argv[])
 			break;
 		case 'f':
 			fflag = 1;
-			iflag = nflag = 0;
+			/* Determine if the STD is SUSv3 or Legacy */
+			if (compat_mode("bin/cp", "unix2003"))
+				nflag = 0;	/* reset nflag, but not iflag */
+			else
+				iflag = nflag = 0;	/* reset both */
 			break;
 		case 'i':
 			iflag = 1;
@@ -362,6 +371,9 @@ copy(char *argv[], enum op type, int fts_options)
 			 * normally want to preserve them on directories.
 			 */
 			if (pflag) {
+#ifdef __APPLE__
+				copyfile(curr->fts_path, to.p_path, 0, COPYFILE_ACL);
+#endif
 				if (setfile(curr->fts_statp, 0))
 				    rval = 1;
 			} else {
@@ -415,9 +427,8 @@ copy(char *argv[], enum op type, int fts_options)
 			break;
 		case S_IFDIR:
 			if (!Rflag && !rflag) {
-				if (curr->fts_info == FTS_DP)
-					warnx("%s is a directory (not copied).",
-					    curr->fts_path);
+				warnx("%s is a directory (not copied).",
+					 curr->fts_path);
 				(void)fts_set(ftsp, curr, FTS_SKIP);
 				badcp = rval = 1;
 				break;
@@ -444,6 +455,9 @@ copy(char *argv[], enum op type, int fts_options)
 			 * directory, or if the -p flag is in effect.
 			 */
 			curr->fts_number = pflag || dne;
+#ifdef __APPLE__
+			copyfile(curr->fts_path, to.p_path, 0, COPYFILE_XATTR);
+#endif
 			break;
 		case S_IFBLK:
 		case S_IFCHR:

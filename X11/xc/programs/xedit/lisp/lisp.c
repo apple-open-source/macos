@@ -27,7 +27,7 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/lisp.c,v 1.85 2003/01/29 03:05:53 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/lisp.c,v 1.89 2003/10/02 13:30:13 eich Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -67,20 +67,20 @@
 #define HAS_SC_PAGESIZE
 #endif
 
-#include "bytecode.h"
+#include "lisp/bytecode.h"
 
-#include "read.h"
-#include "format.h"
-#include "math.h"
-#include "hash.h"
-#include "package.h"
-#include "pathname.h"
-#include "regex.h"
-#include "require.h"
-#include "stream.h"
-#include "struct.h"
-#include "time.h"
-#include "write.h"
+#include "lisp/read.h"
+#include "lisp/format.h"
+#include "lisp/math.h"
+#include "lisp/hash.h"
+#include "lisp/package.h"
+#include "lisp/pathname.h"
+#include "lisp/regex.h"
+#include "lisp/require.h"
+#include "lisp/stream.h"
+#include "lisp/struct.h"
+#include "lisp/time.h"
+#include "lisp/write.h"
 #include <math.h>
 
 typedef struct {
@@ -1415,10 +1415,10 @@ LispDecrementAtomReference(LispAtom *atom)
 	/* if atom->property is NOPROPERTY, this is an unbound symbol */
 	return;
 
-    --atom->property->refcount;
-
-    if (atom->property->refcount < 0)
+    if (atom->property->refcount <= 0)
 	LispDestroy("internal error at DECREMENT-ATOM-REFERENCE");
+
+    --atom->property->refcount;
 
     if (atom->property->refcount == 0) {
 	LispRemAtomAllProperties(atom);
@@ -2630,7 +2630,8 @@ Lisp__New(LispObj *car, LispObj *cdr)
 
     obj = objseg.freeobj;
     objseg.freeobj = CDR(obj);
-
+    --objseg.nfree;
+    
     return (obj);
 }
 
@@ -2641,9 +2642,11 @@ LispNew(LispObj *car, LispObj *cdr)
 
     if (obj == NIL)
 	obj = Lisp__New(car, cdr);
-    else
+    else {
 	objseg.freeobj = CDR(obj);
-
+	--objseg.nfree;
+    }
+    
     return (obj);
 }
 
@@ -2782,9 +2785,10 @@ LispNewDFloat(double value)
 
     if (dfloat == NIL)
 	dfloat = Lisp__New(NIL, NIL);
-    else
+    else {
 	objseg.freeobj = CDR(dfloat);
-
+	--objseg.nfree;
+    }
     dfloat->type = LispDFloat_t;
     dfloat->data.dfloat = value;
 
@@ -2799,9 +2803,10 @@ LispNewString(char *str, long length, int alloced)
 
     if (string == NIL)
 	string = Lisp__New(NIL, NIL);
-    else
+    else {
 	objseg.freeobj = CDR(string);
-
+	--objseg.nfree;
+    }
     if (alloced)
 	cstring = str;
     else {
@@ -2825,9 +2830,10 @@ LispNewComplex(LispObj *realpart, LispObj *imagpart)
 
     if (complexp == NIL)
 	complexp = Lisp__New(realpart, imagpart);
-    else
+    else {
 	objseg.freeobj = CDR(complexp);
-
+	--objseg.nfree;
+    }
     complexp->type = LispComplex_t;
     complexp->data.complex.real = realpart;
     complexp->data.complex.imag = imagpart;
@@ -2843,9 +2849,10 @@ LispNewInteger(long integer)
 
 	if (object == NIL)
 	    object = Lisp__New(NIL, NIL);
-	else
+	else {
 	    objseg.freeobj = CDR(object);
-
+	    --objseg.nfree;
+	}
 	object->type = LispInteger_t;
 	object->data.integer = integer;
 
@@ -2861,9 +2868,10 @@ LispNewRatio(long num, long den)
 
     if (ratio == NIL)
 	ratio = Lisp__New(NIL, NIL);
-    else
+    else {
 	objseg.freeobj = CDR(ratio);
-
+	--objseg.nfree;
+    }
     ratio->type = LispRatio_t;
     ratio->data.ratio.numerator = num;
     ratio->data.ratio.denominator = den;
@@ -2936,9 +2944,10 @@ LispNewCons(LispObj *car, LispObj *cdr)
 
     if (cons == NIL)
 	cons = Lisp__New(car, cdr);
-    else
+    else {
 	objseg.freeobj = CDR(cons);
-
+	--objseg.nfree;
+    }
     CAR(cons) = car;
     CDR(cons) = cdr;
 
@@ -3180,10 +3189,8 @@ LispGetVarPack(LispObj *symbol)
     int ii;
     char *string;
     LispAtom *atom;
-    LispProperty *property;
 
     string = ATOMID(symbol);
-    property = symbol->data.atom->property;
     ii = STRHASH(string);
 
     atom = lisp__data.pack->atoms[ii];
@@ -4860,15 +4867,13 @@ LispRunFunMac(LispObj *name, LispObj *code, int macro, int base)
 
     if (!macro) {
 	int lex = lisp__data.env.lex;
-	int did_jump = 1, *pdid_jump;
-	LispObj **pcode, **presult;
+	int did_jump = 1;
 	LispBlock *block;
 
 	block = LispBeginBlock(name, LispBlockClosure);
 	lisp__data.env.lex = base;
 	if (setjmp(block->jmp) == 0) {
-	    for (pcode = &code, presult = &result, pdid_jump = &did_jump;
-		 CONSP(code); code = CDR(code))
+	    for (; CONSP(code); code = CDR(code))
 		result = EVAL(CAR(code));
 	    did_jump = 0;
 	}

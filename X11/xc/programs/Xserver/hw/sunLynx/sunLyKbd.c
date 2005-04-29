@@ -22,7 +22,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/sunLynx/sunLyKbd.c,v 3.6 2001/08/01 00:44:49 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sunLynx/sunLyKbd.c,v 3.7 2003/11/17 22:20:37 dawes Exp $ */
 
 /*-
  * Copyright 1987 by the Regents of the University of California
@@ -232,15 +232,9 @@ static void ModLight (device, on, led)
  *-----------------------------------------------------------------------
  */
 
-#if NeedFunctionPrototypes
 static void bell (
     int fd,
     int duration)
-#else
-static void bell (fd, duration)
-    int fd;
-    int duration;
-#endif
 {
 #if defined(PATCHED_CONSOLE)
     int		    kbdCmd;   	    /* Command to give keyboard */
@@ -257,19 +251,11 @@ static void bell (fd, duration)
 #endif
 }
 
-#if NeedFunctionPrototypes
 static void sunBell (
     int		    percent,
     DeviceIntPtr    device,
     pointer	    ctrl,
     int		    unused)
-#else
-static void sunBell (percent, device, ctrl, unused)
-    int		    percent;	    /* Percentage of full volume */
-    DeviceIntPtr    device;	    /* Keyboard to ring */
-    pointer	    ctrl;
-    int		    unused;
-#endif
 {
     KeybdCtrl*      kctrl = (KeybdCtrl*) ctrl;
     sunKbdPrivPtr   pPriv = (sunKbdPrivPtr) device->public.devicePrivate;
@@ -412,15 +398,9 @@ static void DoLEDs(device, ctrl, pPriv)
  *-----------------------------------------------------------------------
  */
 
-#if NeedFunctionPrototypes
 static void sunKbdCtrl (
     DeviceIntPtr    device,
     KeybdCtrl*	    ctrl)
-#else
-static void sunKbdCtrl (device, ctrl)
-    DeviceIntPtr    device;	    /* Keyboard to alter */
-    KeybdCtrl*	    ctrl;
-#endif
 {
     sunKbdPrivPtr pPriv = (sunKbdPrivPtr) device->public.devicePrivate;
 
@@ -458,15 +438,9 @@ static void sunKbdCtrl (device, ctrl)
  *-----------------------------------------------------------------------
  */
 #ifdef XKB
-#if NeedFunctionPrototypes
 static void sunInitKbdNames (
     XkbComponentNamesRec* names,
     sunKbdPrivPtr pKbd)
-#else
-static void sunInitKbdNames (names, pKbd)
-    XkbComponentNamesRec* names;
-    sunKbdPrivPtr pKbd;
-#endif
 {
 #ifndef XKBBUFSIZE
 #define XKBBUFSIZE 64
@@ -598,15 +572,9 @@ static void sunInitKbdNames (names, pKbd)
  *-----------------------------------------------------------------------
  */
 
-#if NeedFunctionPrototypes
 int sunKbdProc (
     DeviceIntPtr  device,
     int	    	  what)
-#else
-int sunKbdProc (device, what)
-    DeviceIntPtr  device;	/* Keyboard to manipulate */
-    int	    	  what;	    	/* What to do to it */
-#endif
 {
     static int once;
     static struct termio kbdtty;
@@ -752,19 +720,11 @@ int sunKbdProc (device, what)
  *-----------------------------------------------------------------------
  */
 
-#if NeedFunctionPrototypes
 Firm_event* sunKbdGetEvents (
     int		fd,
     Bool	on,
     int*	pNumEvents,
     Bool*	pAgain)
-#else
-Firm_event* sunKbdGetEvents (fd, on, pNumEvents, pAgain)
-    int		fd;
-    Bool	on;
-    int*	pNumEvents;
-    Bool*	pAgain;
-#endif
 {
     int	    	  nBytes;	    /* number of bytes of events available. */
     static Firm_event	evBuf[MAXEVENTS];   /* Buffer for Firm_events */
@@ -887,15 +847,9 @@ static Bool DoSpecialKeys(device, xE, fe)
     return FALSE;
 }
 
-#if NeedFunctionPrototypes
 void sunKbdEnqueueEvent (
     DeviceIntPtr  device,
     Firm_event	  *fe)
-#else
-void sunKbdEnqueueEvent (device, fe)
-    DeviceIntPtr  device;
-    Firm_event	  *fe;
-#endif
 {
     xEvent		xE;
     BYTE		keycode;
@@ -993,16 +947,9 @@ void sunEnqueueAutoRepeat ()
  *
  *-----------------------------------------------------------------------
  */
-#if NeedFunctionPrototypes
 int sunChangeKbdTranslation(
     int fd,
     Bool makeTranslated)
-
-#else
-int sunChangeKbdTranslation(fd, makeTranslated)
-    int fd;
-    Bool makeTranslated;
-#endif
 {   
     int 	tmp;
     sigset_t	hold_mask, old_mask;

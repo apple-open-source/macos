@@ -4,6 +4,9 @@
 
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 FTP download, failed login: PASS not valid
  </name>
@@ -13,12 +16,12 @@ ftp://%HOSTIP:%FTPPORT/114
 <file name="log/ftpserver.cmd">
 REPLY PASS 314 bluah you f00l!
 </file>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
 <errorcode>
-11
+67
 </errorcode>
 <protocol>
 USER anonymous

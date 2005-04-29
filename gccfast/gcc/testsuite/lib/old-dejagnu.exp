@@ -432,9 +432,6 @@ proc old-dejagnu { compiler prog name cflagsx default_cflags libs } {
 	}
     }
 
-    # APPLE LOCAL testsuite OS flush bug workaround
-    lappend cflags "additional_flags=-fslow-exit"
-
     # Since we don't check return status of the compiler, make sure
     # we can't run a.out when the compilation fails.
     remote_file build delete $output

@@ -1,27 +1,89 @@
 # -*- makefile -*-
 
-!IF "$(WIN32DIR)" == "win32"
+!if "$(srcdir)" != ""
+WIN32DIR = $(srcdir)/win32
+!elseif "$(WIN32DIR)" == "win32"
 srcdir = .
-!ELSEIF "$(WIN32DIR)" == "$(WIN32DIR:/win32=)/win32"
+!elseif "$(WIN32DIR)" == "$(WIN32DIR:/win32=)/win32"
 srcdir = $(WIN32DIR:/win32=)
-!ELSE
+!else
 srcdir = $(WIN32DIR)/..
-!ENDIF
+!endif
 OS = mswin32
+RT = msvcrt
+INCLUDE = !include
+APPEND = echo>>$(MAKEFILE)
+!ifdef MAKEFILE
+MAKE = $(MAKE) -f $(MAKEFILE)
+!else
+MAKEFILE = Makefile
+!endif
+ARCH = PROCESSOR_ARCHITECTURE
+CPU = PROCESSOR_LEVEL
 
-all: config.h config.status
-all: ext
-all: Makefile
-all:; @echo type `nmake' to make ruby for mswin32.
+all: -prologue- -generic- -epilogue-
+i386-$(OS): -prologue- -i386- -epilogue-
+i486-$(OS): -prologue- -i486- -epilogue-
+i586-$(OS): -prologue- -i586- -epilogue-
+i686-$(OS): -prologue- -i686- -epilogue-
+alpha-$(OS): -prologue- -alpha- -epilogue-
 
-Makefile:
-	@echo ### makefile for ruby $(OS) ###> $@
-	@echo srcdir = $(srcdir:\=/)>> $@
-	@echo RUBY_INSTALL_NAME = ruby>> $@
-	@echo RUBY_SO_NAME = $(OS)-$$(RUBY_INSTALL_NAME)16>> $@
-	@echo !INCLUDE $$(srcdir)/win32/Makefile.sub>> $@
+-prologue-: nul
+	@type << > $(MAKEFILE)
+### Makefile for ruby $(OS) ###
+srcdir = $(srcdir:\=/)
+<<
+	@cl -nologo -EP -I$(srcdir) -DRUBY_EXTERN="//" <<"Creating $(MAKEFILE)" >> $(MAKEFILE)
+#include "version.h"
+MAJOR = RUBY_VERSION_MAJOR
+MINOR = RUBY_VERSION_MINOR
+TEENY = RUBY_VERSION_TEENY
+<<
 
-config.h config.status: $(srcdir)/win32/$$@.in
-	@copy $(srcdir:/=\)\win32\$@.in $@ > nul
+-generic-: nul
+!if defined($(ARCH)) || defined($(CPU))
+	@type << >>$(MAKEFILE)
+!if defined($(ARCH))
+$(ARCH) = $(PROCESSOR_ARCHITECTURE)
+!endif
+!if defined($(CPU))
+$(CPU) = $(PROCESSOR_LEVEL)
+!endif
 
-ext:;	@if not exist $@\* mkdir $@
+<<
+!endif
+
+-alpha-: nul
+	@$(APPEND) $(ARCH) = alpha
+-ix86-: nul
+	@$(APPEND) $(ARCH) = x86
+
+-i386-: -ix86-
+	@$(APPEND) $(CPU) = 3
+-i486-: -ix86-
+	@$(APPEND) $(CPU) = 4
+-i586-: -ix86-
+	@$(APPEND) $(CPU) = 5
+-i686-: -ix86-
+	@$(APPEND) $(CPU) = 6
+
+-epilogue-: nul
+	@type << >>$(MAKEFILE)
+# OS = $(OS)
+# RT = $(RT)
+# RUBY_INSTALL_NAME = ruby
+# RUBY_SO_NAME = $$(RT)-$$(RUBY_INSTALL_NAME)$$(MAJOR)$$(MINOR)
+# prefix = /usr
+# CFLAGS = -nologo -MD $$(DEBUGFLAGS) $$(OPTFLAGS) $$(PROCESSOR_FLAG)
+# CPPFLAGS = -I. -I$$(srcdir) -I$$(srcdir)/missing -DLIBRUBY_SO=\"$$(LIBRUBY_SO)\"
+# STACK = 0x2000000
+# LDFLAGS = $$(CFLAGS) -Fm
+# XLDFLAGS = 
+# RFLAGS = -r
+# EXTLIBS =
+
+$(INCLUDE) $$(srcdir)/win32/Makefile.sub
+<<
+	@if exist config.h del config.h
+	@if exist config.status del config.status
+	@echo type `$(MAKE)' to make ruby for $(OS).

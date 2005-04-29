@@ -1,0 +1,19 @@
+<p class=""><a href="$entry.getLink()&amp;tb=y"><img src="$BLOJSOM_SITE_URL/trackback.gif" border="0"/></a>&nbsp;$entry.getLink()&amp;tb=y</p>
+
+<div id="comments">
+#foreach ($entryTrackback in $entry.getTrackbacks())
+  Trackback for this entry:
+  <div id="comment">
+    <div id="commentHeader">
+      <span id="commentAuthor"><a href="$entryTrackback.getUrl()">#if ($entryTrackback.getBlogName()) $entryTrackback.getBlogName() #else $entryTrackback.getUrl() #end</a></span>
+      <span id="commentDate">Left on: $entryTrackback.getTrackbackDate().</span>
+    </div>
+  #if ($entryTrackback.getTitle())
+    <div id="trackbackTitle">$entryTrackback.getTitle()</div>
+  #end
+  #if ($entryTrackback.getExcerpt())
+    <div id="commentText"> $entryTrackback.getExcerpt()</div>
+  #end
+  </div>
+#end
+</div>

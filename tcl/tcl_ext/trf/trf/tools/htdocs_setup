@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# Called in response to changes in the cvs repository of trf
+# Assumes that the changed files were already retrieved. Uses them to
+# regenerate the whole website.
+
+# pwd = /home/groups/t/tc/tcltrf/
+
+# Remove old temporary information.
+
+rm -rf doc 
+mkdir  doc
+
+cp -r trf/doc/*    doc/
+cp -r trf/htdocs/* htdocs/
+
+# Regenerate the external representatons of all manpages, and the site
+# itself. At last generate bundles of the documentation for download.
+
+out=$HOME/logs/crontab.trf
+mkdir -p `dirname $out`
+rm $out ; touch $out
+
+cd doc    ; ../tools/manpage_regen  >>$out ; cd ..
+cd htdocs ; ../tools/htdocs_refresh        ; cd ..
+
+tar cf -  doc/*.n    | gzip -9 > trf.nroff.tar.gz
+tar cf -  doc/*.n    | bzip2   > trf.nroff.tar.bz2
+zip                              trf.nroff.tar.zip  doc/*.n	> /dev/null
+tar cf -  doc/*.html | gzip -9 > trf.html.tar.gz
+tar cf -  doc/*.html | bzip2   > trf.html.tar.bz2
+zip                               trf.html.tar.zip  doc/*.html	> /dev/null
+tar cf -  doc/*.tmml | gzip -9 > trf.tmml.tar.gz
+tar cf -  doc/*.tmml | bzip2   > trf.tmml.tar.bz2
+zip                              trf.tmml.tar.zip   doc/*.tmml	> /dev/null
+
+mkdir -p htdocs/doc
+mv trf.* htdocs/doc/
+
+(sleep 5 ; cp -r trf/tools/*  tools/) &
+
+exit

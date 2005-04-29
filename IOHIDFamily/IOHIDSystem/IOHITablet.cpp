@@ -21,14 +21,14 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include <IOKit/hidsystem/IOHITablet.h>
-#include <IOKit/hidsystem/IOHITabletPointer.h>
+#include "IOHITablet.h"
+#include "IOHITabletPointer.h"
 
 OSDefineMetaClassAndStructors(IOHITablet, IOHIPointing);
 
 UInt16 IOHITablet::generateTabletID()
 {
-    static UInt16 _nextTabletID = 0;
+    static UInt16 _nextTabletID = 0x8000;
     return _nextTabletID++;
 }
 
@@ -38,8 +38,7 @@ bool IOHITablet::init(OSDictionary *propTable)
         return false;
     }
 
-    _systemTabletID = generateTabletID();
-    setProperty(kIOHISystemTabletID, (unsigned long long)_systemTabletID, 16);
+    _systemTabletID = 0;
 
     return true;
 }
@@ -86,9 +85,9 @@ bool IOHITablet::open(IOService *			client,
     }
 
     _tabletEventTarget = client;
-    _tabletEventAction = tabletCallback;
+    _tabletEventAction = (TabletEventAction)tabletCallback;
     _proximityEventTarget = client;
-    _proximityEventAction = proximityCallback;
+    _proximityEventAction = (ProximityEventAction)proximityCallback;
 
     return open(this, 
                 options, 
@@ -103,7 +102,7 @@ bool IOHITablet::open(IOService *			client,
 void IOHITablet::dispatchTabletEvent(NXEventData *tabletEvent,
                                      AbsoluteTime ts)
 {
-    _tabletEvent(   _tabletEventTarget,
+    _tabletEvent(   this,
                     tabletEvent,
                     ts);
 }
@@ -111,7 +110,7 @@ void IOHITablet::dispatchTabletEvent(NXEventData *tabletEvent,
 void IOHITablet::dispatchProximityEvent(NXEventData *proximityEvent,
                                         AbsoluteTime ts)
 {
-    _proximityEvent(_proximityEventTarget,
+    _proximityEvent(this,
                     proximityEvent,
                     ts);
 }
@@ -145,7 +144,8 @@ void IOHITablet::_tabletEvent(IOHITablet *self,
 {
     TabletEventCallback teCallback;
     
-    if (!(teCallback = (TabletEventCallback)self->_tabletEventAction))
+    if (!(teCallback = (TabletEventCallback)self->_tabletEventAction) ||
+        !tabletData)
         return;
         
     (*teCallback)(
@@ -162,9 +162,18 @@ void IOHITablet::_proximityEvent(IOHITablet *self,
 {
     ProximityEventCallback peCallback;
     
-    if (!(peCallback = (ProximityEventCallback)self->_proximityEventAction))
+    if (!(peCallback = (ProximityEventCallback)self->_proximityEventAction) ||
+        !proximityData)
         return;
-        
+            
+    if (self->_systemTabletID == 0)
+    {
+        self->_systemTabletID = IOHITablet::generateTabletID();
+        self->setProperty(kIOHISystemTabletID, (unsigned long long)self->_systemTabletID, 16);
+    }
+
+    proximityData->proximity.systemTabletID = self->_systemTabletID;
+
     (*peCallback)(  
                     self->_proximityEventTarget,
                     proximityData,

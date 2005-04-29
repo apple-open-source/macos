@@ -465,7 +465,7 @@ gai_lookupd_process_dictionary(XDR *inxdr)
 static int
 gai_make_query(const char *nodename, const char *servname, const struct addrinfo *hints, char *buf, uint32_t *len)
 {
-	int32_t numerichost, family, proto, socktype, canonname, passive;
+	int32_t numerichost, family, proto, socktype, canonname, passive, parallel;
 	uint32_t na;
 	XDR outxdr;
 	char str[64], *cname;
@@ -476,6 +476,7 @@ gai_make_query(const char *nodename, const char *servname, const struct addrinfo
 	socktype = SOCK_UNSPEC;
 	canonname = 0;
 	passive = 0;
+	parallel = 0;
 	cname = NULL;
 
 	if (hints != NULL)
@@ -483,7 +484,8 @@ gai_make_query(const char *nodename, const char *servname, const struct addrinfo
 		family = hints->ai_family;
 		if (hints->ai_flags & AI_NUMERICHOST) numerichost = 1;
 		if (hints->ai_flags & AI_CANONNAME) canonname = 1;
-		if ((hints->ai_flags & AI_PASSIVE) == 1) passive = 1;
+		if (hints->ai_flags & AI_PASSIVE) passive = 1;
+		if (hints->ai_flags & AI_PARALLEL) parallel = 1;
 
 		proto = hints->ai_protocol;
 		if (hints->ai_socktype == SOCK_DGRAM)
@@ -509,9 +511,10 @@ gai_make_query(const char *nodename, const char *servname, const struct addrinfo
 	if (family != PF_UNSPEC) na++;
 	if (canonname != 0) na++;
 	if (passive != 0) na++;
+	if (parallel != 0) na++;
 	if (numerichost != 0) na++;
 
-	if (!xdr_int(&outxdr, &na))
+	if (!xdr_int(&outxdr, (int32_t *)&na))
 	{
 		xdr_destroy(&outxdr);
 		return EAI_SYSTEM;
@@ -577,6 +580,15 @@ gai_make_query(const char *nodename, const char *servname, const struct addrinfo
 	if (passive != 0)
 	{
 		if (encode_kv(&outxdr, "passive", "1") != 0)
+		{
+			xdr_destroy(&outxdr);
+			return EAI_SYSTEM;
+		}
+	}
+	
+	if (parallel != 0)
+	{
+		if (encode_kv(&outxdr, "parallel", "1") != 0)
 		{
 			xdr_destroy(&outxdr);
 			return EAI_SYSTEM;
@@ -812,7 +824,7 @@ gai_lookupd(const char *nodename, const char *servname, const struct addrinfo *h
 
 	xdrmem_create(&inxdr, rbuf, rlen, XDR_DECODE);
 
-	if (!xdr_int(&inxdr, &n))
+	if (!xdr_int(&inxdr, (int32_t *)&n))
 	{
 		xdr_destroy(&inxdr);
 		return EAI_SYSTEM;
@@ -862,7 +874,7 @@ gai_checkhints(const struct addrinfo *hints)
 }
 
 int
-getaddrinfo(const char *nodename, const char *servname, const struct addrinfo *hints, struct addrinfo **res)
+getaddrinfo(const char * __restrict nodename, const char * __restrict servname, const struct addrinfo * __restrict hints, struct addrinfo ** __restrict res)
 {
 	int32_t status, nodenull, servnull;
 
@@ -944,7 +956,7 @@ gai_extract_data(char *buf, uint32_t len, struct addrinfo **res)
 
 	xdrmem_create(&xdr, buf, len, XDR_DECODE);
 
-	if (!xdr_int(&xdr, &n))
+	if (!xdr_int(&xdr, (int32_t *)&n))
 	{
 		xdr_destroy(&xdr);
 		return EAI_SYSTEM;
@@ -1016,8 +1028,8 @@ getaddrinfo_async_handle_reply(void *msg)
 	if (status != KERN_SUCCESS)
 	{
 		if (status == MIG_REPLY_MISMATCH) return 0;
-		if (callback != NULL) callback(EAI_SYSTEM, NULL, context);
-		return EAI_SYSTEM;
+		if (callback != NULL) callback(EAI_NODATA, NULL, context);
+		return EAI_NODATA;
 	}
 
 	status = gai_extract_data(buf, len, &res);
@@ -1065,50 +1077,45 @@ getaddrinfo_async_handle_reply(void *msg)
 static int
 gni_lookupd_process_dictionary(XDR *inxdr, char **host, char **serv)
 {
-	int32_t i, nkeys, nvals;
-	char *key, *val;
+	int32_t i, j, nkeys, nvals, status;
+	char *key, **vals;
 
 	if ((host == NULL) || (serv == NULL)) return EAI_SYSTEM;
+
 	if (!xdr_int(inxdr, &nkeys)) return EAI_SYSTEM;
+
+	*host = NULL;
+	*serv = NULL;
 
 	for (i = 0; i < nkeys; i++)
 	{
 		key = NULL;
-		val = NULL;
+		vals = NULL;
+		nvals = 0;
+		
+		status = _lu_xdr_attribute(inxdr, &key, &vals, (uint32_t *)&nvals);
+		if (status < 0) return EAI_SYSTEM;
 
-		if (!xdr_string(inxdr, &key, LONG_STRING_LENGTH)) return EAI_SYSTEM;
-		if (!xdr_int(inxdr, &nvals)) 
+		if (nvals == 0)
 		{
 			free(key);
-			return EAI_SYSTEM;
+			continue;
 		}
 
-		if (nvals != 1)
+		if ((*host == NULL) && (!strcmp("name", key)))
 		{
-			free(key);
-			return EAI_SYSTEM;
+			*host = vals[0];
+			for (j = 1; j < nvals; j++) free(vals[j]);
 		}
 
-		if (!xdr_string(inxdr, &val, LONG_STRING_LENGTH))
+		else if ((*serv == NULL) && (!strcmp(key, "service")))
 		{
-			free(key);
-			return EAI_SYSTEM;
-		}
-
-		if (!strcmp(key, "name"))
-		{
-			*host = val;
-			val = NULL;
-		}
-
-		else if (!strcmp(key, "service"))
-		{
-			*serv = val;
-			val = NULL;
+			*serv = vals[0];
+			for (j = 1; j < nvals; j++) free(vals[j]);
 		}
 
 		if (key != NULL) free(key);
-		if (val != NULL) free(val);
+		free(vals);
 	}
 
 	return 0;
@@ -1120,7 +1127,7 @@ gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantse
 	XDR outxdr;
 	uint16_t port;
 	char str[_LU_MAXLUSTRLEN], *key, ifname[IF_NAMESIZE];
-	uint32_t a4, ifnum, offset, na, proto, fqdn, numerichost, numericserv, name_req;
+	uint32_t a4, ifnum, offset, na, proto, fqdn, numerichost, numericserv, name_req, isll, issl;
 	struct sockaddr_in6 *s6;
 
 	if (sa == NULL) return EAI_FAIL;
@@ -1131,6 +1138,8 @@ gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantse
 	numerichost = 0;
 	numericserv = 0;
 	name_req = 0;
+	isll = 0;
+	issl = 0;
 
 	offset = INET_NTOP_AF_INET_OFFSET;
 	key = "ip_address";
@@ -1165,13 +1174,28 @@ gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantse
 			default:
 				if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
 				{
-					flags |= NI_NUMERICHOST;
+					isll = 1;
+				}
+				else if (IN6_IS_ADDR_SITELOCAL(&s6->sin6_addr))
+				{
+					issl = 1;
 				}
 				else if (IN6_IS_ADDR_MULTICAST(&s6->sin6_addr))
 				{
 					flags |= NI_NUMERICHOST;
 				}
 				break;
+		}
+
+		if ((isll != 0) || (issl != 0))
+		{
+			ifnum = s6->sin6_addr.__u6_addr.__u6_addr16[1];
+			if (ifnum == 0) ifnum = s6->sin6_scope_id;
+			else if ((s6->sin6_scope_id != 0) && (ifnum != s6->sin6_scope_id)) return EAI_FAIL;
+			
+			s6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
+			s6->sin6_scope_id = ifnum;
+			if ((ifnum != 0) && (flags & NI_NUMERICHOST)) flags |= NI_WITHSCOPEID;
 		}
 
 		offset = INET_NTOP_AF_INET6_OFFSET;
@@ -1220,7 +1244,7 @@ gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantse
 
 	xdrmem_create(&outxdr, buf, *len, XDR_ENCODE);
 
-	if (!xdr_int(&outxdr, &na))
+	if (!xdr_int(&outxdr, (int32_t *)&na))
 	{
 		xdr_destroy(&outxdr);
 		return EAI_SYSTEM;
@@ -1310,12 +1334,13 @@ gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantse
 }
 
 int
-getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen, char *serv, size_t servlen, int flags)
+getnameinfo(const struct sockaddr * __restrict sa, socklen_t salen, char * __restrict host, socklen_t hostlen, char * __restrict serv, socklen_t servlen, int flags)
 {
 	uint32_t n, i, qlen, rlen;
-	int wanth, wants;
+	uint32_t ifnum;
+	int wanth, wants, isll, issl;
 	XDR inxdr;
-	char qbuf[LU_QBUF_SIZE];
+	char qbuf[LU_QBUF_SIZE], ifname[IF_NAMESIZE];
 	char *rbuf, *hval, *sval;
 	mach_port_t server_port;
 	kern_return_t status;
@@ -1325,10 +1350,34 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostl
 	/* Check input */
 	if (sa == NULL) return EAI_FAIL;
 
-	/* V4 mapped and compat addresses are converted to plain V4 */
+	isll = 0;
+	issl = 0;
+	ifnum = 0;
+
 	if (sa->sa_family == AF_INET6)
 	{
 		s6 = (struct sockaddr_in6 *)sa;
+
+		if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr)) isll = 1;
+		if (IN6_IS_ADDR_SITELOCAL(&s6->sin6_addr)) issl = 1;
+
+		/*
+		 * Link-local and site-local IPv6 addresses may have a scope id 
+		 * in s6->sin6_addr.__u6_addr.__u6_addr16[1] as well as in s6->sin6_scope_id.
+		 * If they are both non-zero, they must be equal.
+		 * We zero s6->sin6_addr.__u6_addr.__u6_addr16[1] and set s6->sin6_scope_id.
+		 */
+		if ((isll != 0) || (issl != 0))
+		{
+			ifnum = s6->sin6_addr.__u6_addr.__u6_addr16[1];
+			if (ifnum == 0) ifnum = s6->sin6_scope_id;
+			else if ((s6->sin6_scope_id != 0) && (ifnum != s6->sin6_scope_id)) return EAI_FAIL;
+
+			s6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
+			s6->sin6_scope_id = ifnum;
+		}
+
+		/* V4 mapped and compat addresses are converted to plain V4 */
 		if ((IN6_IS_ADDR_V4MAPPED(&s6->sin6_addr)) || (IN6_IS_ADDR_V4COMPAT(&s6->sin6_addr)))
 		{
 			s4 = (struct sockaddr_in *)calloc(1, sizeof(struct sockaddr_in));
@@ -1342,7 +1391,7 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostl
 			return i;
 		}
 	}
-
+		
 	wanth = 0;
 	if ((host != NULL) && (hostlen != 0)) wanth = 1;
 
@@ -1359,6 +1408,16 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostl
 		i = INET_NTOP_AF_INET_OFFSET;
 		if (sa->sa_family == PF_INET6) i = INET_NTOP_AF_INET6_OFFSET;
 		if (inet_ntop(sa->sa_family, (char *)(sa) + i, host, hostlen) == NULL) return EAI_FAIL;
+
+		if (((isll != 0) || (issl != 0)) && (ifnum != 0))
+		{
+			/* append interface name */
+			if (if_indextoname(ifnum, ifname) != NULL)
+			{
+				strcat(host, "%");
+				strcat(host, ifname);
+			}
+		}
 
 		if (wants == 0) return 0;
 	}
@@ -1399,7 +1458,7 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostl
 
 	qlen = LU_QBUF_SIZE;
 	i = gni_make_query(sa, salen, wanth, wants, flags, qbuf, &qlen);
-	if (i != 0) return EAI_SYSTEM;
+	if (i != 0) return i;
 
 	qlen /= BYTES_PER_XDR_UNIT;
 
@@ -1412,7 +1471,7 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostl
 
 	xdrmem_create(&inxdr, rbuf, rlen, XDR_DECODE);
 
-	if (!xdr_int(&inxdr, &n))
+	if (!xdr_int(&inxdr, (int32_t *)&n))
 	{
 		xdr_destroy(&inxdr);
 		return EAI_SYSTEM;
@@ -1478,7 +1537,7 @@ getnameinfo_async_start(mach_port_t *p, const struct sockaddr *sa, size_t salen,
 
 	qlen = LU_QBUF_SIZE;
 	i = gni_make_query(sa, salen, 1, 1, flags, qbuf, &qlen);
-	if (i != 0) return EAI_SYSTEM;
+	if (i != 0) return i;
 
 	qlen /= BYTES_PER_XDR_UNIT;
 
@@ -1496,6 +1555,7 @@ gni_extract_data(char *buf, uint32_t len, char **host, char **serv)
 {
 	XDR xdr;
 	uint32_t n;
+	int i;
 
 	*host = NULL;
 	*serv = NULL;
@@ -1505,7 +1565,7 @@ gni_extract_data(char *buf, uint32_t len, char **host, char **serv)
 
 	xdrmem_create(&xdr, buf, len, XDR_DECODE);
 
-	if (!xdr_int(&xdr, &n))
+	if (!xdr_int(&xdr, (int32_t *)&n))
 	{
 		xdr_destroy(&xdr);
 		return EAI_SYSTEM;
@@ -1517,7 +1577,9 @@ gni_extract_data(char *buf, uint32_t len, char **host, char **serv)
 		return EAI_NONAME;
 	}
 
-	return gni_lookupd_process_dictionary(&xdr, host, serv);
+	i = gni_lookupd_process_dictionary(&xdr, host, serv);
+	xdr_destroy(&xdr);
+	return i;
 }
 
 int32_t
@@ -1558,8 +1620,8 @@ getnameinfo_async_handle_reply(void *msg)
 	if (status != KERN_SUCCESS)
 	{
 		if (status == MIG_REPLY_MISMATCH) return 0;
-		if (callback != NULL) callback(EAI_SYSTEM, NULL, NULL, context);
-		return EAI_SYSTEM;
+		if (callback != NULL) callback(EAI_NONAME, NULL, NULL, context);
+		return EAI_NONAME;
 	}
 
 	hval = NULL;

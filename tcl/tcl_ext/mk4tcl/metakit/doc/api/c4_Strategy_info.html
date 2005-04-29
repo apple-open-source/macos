@@ -1,0 +1,200 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_Strategy_DataCommit_t4_i32__"><dt>
+	  <nobr>
+	  virtual void 
+	  <b>DataCommit</b> (t4_i32 newSize_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Flush and truncate file</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy_DataLoad_void_int__"><dt>
+	  <nobr>
+	  void 
+	  <b>DataLoad</b> (void* buffer_, int length_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Read an exact number of bytes</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy_DataRead_void_int__"><dt>
+	  <nobr>
+	  virtual int 
+	  <b>DataRead</b> (void* buffer_, int length_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Read a number of bytes</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy_DataSeek_t4_i32__"><dt>
+	  <nobr>
+	  virtual void 
+	  <b>DataSeek</b> (t4_i32 position_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Set file position</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy_DataWrite_constint__"><dt>
+	  <nobr>
+	  virtual bool 
+	  <b>DataWrite</b> (const void* buffer_, int length_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Write a number of bytes, return true if successful</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy_IsValid___const"><dt>
+	  <nobr>
+	  virtual bool 
+	  <b>IsValid</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>True if we can do I/O with this object</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy_ResetFileMapping___"><dt>
+	  <nobr>
+	  virtual void 
+	  <b>ResetFileMapping</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Override to support memory-mapped files</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy__bytesFlipped"><dt>
+	  <nobr>
+	  bool 
+	  <b>_bytesFlipped</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>True if the storage format is not native (default is false)</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy__failure"><dt>
+	  <nobr>
+	  int 
+	  <b>_failure</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Error code of last failed I/O operation, zero if I/O was ok</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy__keepAfterCommit"><dt>
+	  <nobr>
+	  bool 
+	  <b>_keepAfterCommit</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Keep data in memory after each commit (default is false)</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy__mapLimit"><dt>
+	  <nobr>
+	  const t4_byte* 
+	  <b>_mapLimit</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Past last byte in file mapping, zero if not active</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy__mapStart"><dt>
+	  <nobr>
+	  const t4_byte* 
+	  <b>_mapStart</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>First byte in file mapping, zero if not active</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy_c4_Strategy__"><dt>
+	  <nobr>
+	  
+	  <b>c4_Strategy</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Strategy__c4_Strategy___"><dt>
+	  <nobr>
+	  virtual 
+	  <b>~c4_Strategy</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_Strategy</b>
+</font>
+
+</body></html>

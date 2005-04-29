@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstLast.c,v 1.6 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -54,7 +53,7 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstLast.c,v 1.6 2000/07/09 00:08:47 
  *	Return the last node on the list l.
  *
  * Results:
- *	The requested node or NILLNODE if the list is empty.
+ *	The requested node or NULL if the list is empty.
  *
  * Side Effects:
  *	None.
@@ -66,7 +65,7 @@ Lst_Last (l)
     Lst	    l;
 {
     if (!LstValid(l) || LstIsEmpty (l)) {
-	return (NILLNODE);
+	return (NULL);
     } else {
 	return ((LstNode)((List)l)->lastPtr);
     }

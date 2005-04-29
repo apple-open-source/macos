@@ -61,6 +61,14 @@
 #ifndef __GLIBCPP_INTERNAL_BVECTOR_H
 #define __GLIBCPP_INTERNAL_BVECTOR_H
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define vector _Release_vector
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 { 
   typedef unsigned long _Bit_type;
@@ -90,13 +98,6 @@ public:
     { return !bool(*this) && bool(__x); }
   void flip() { *_M_p ^= _M_mask; }
 };
-
-inline void swap(_Bit_reference __x, _Bit_reference __y)
-{
-  bool __tmp = __x;
-  __x = __y;
-  __y = __tmp;
-}
 
 struct _Bit_iterator_base : public iterator<random_access_iterator_tag, bool>
 {
@@ -166,7 +167,7 @@ struct _Bit_iterator : public _Bit_iterator_base
   _Bit_iterator(_Bit_type * __x, unsigned int __y) 
     : _Bit_iterator_base(__x, __y) {}
 
-  reference operator*() const { return reference(_M_p, 1U << _M_offset); }
+  reference operator*() const { return reference(_M_p, 1UL << _M_offset); }
   iterator& operator++() {
     _M_bump_up();
     return *this;
@@ -223,7 +224,7 @@ struct _Bit_const_iterator : public _Bit_iterator_base
     : _Bit_iterator_base(__x._M_p, __x._M_offset) {}
 
   const_reference operator*() const {
-    return _Bit_reference(_M_p, 1U << _M_offset);
+    return _Bit_reference(_M_p, 1UL << _M_offset);
   }
   const_iterator& operator++() {
     _M_bump_up();
@@ -347,9 +348,10 @@ public:
 #include <bits/stl_vector.h>
 namespace std
 {
-
+/* APPLE LOCAL libstdc++ debug mode */
 template <typename _Alloc> 
-  class vector<bool, _Alloc> : public _Bvector_base<_Alloc> 
+  class _GLIBCXX_RELEASE_CLASS(vector) vector<bool, _Alloc>
+  : public _Bvector_base<_Alloc> 
   {
   public:
     typedef bool value_type;
@@ -363,8 +365,8 @@ template <typename _Alloc>
     typedef _Bit_iterator                iterator;
     typedef _Bit_const_iterator          const_iterator;
   
-    typedef reverse_iterator<const_iterator> const_reverse_iterator;
-    typedef reverse_iterator<iterator> reverse_iterator;
+    typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
+    typedef std::reverse_iterator<iterator> reverse_iterator;
   
     typedef typename _Bvector_base<_Alloc>::allocator_type allocator_type;
     allocator_type get_allocator() const {
@@ -611,7 +613,9 @@ template <typename _Alloc>
     }    
   
     void reserve(size_type __n) {
-      if (capacity() < __n) {
+      if (__n > this->max_size())
+	__throw_length_error("vector::reserve");
+      if (this->capacity() < __n) {
         _Bit_type * __q = _M_bit_alloc(__n);
         _M_finish = copy(begin(), end(), iterator(__q, 0));
         _M_deallocate();
@@ -635,6 +639,14 @@ template <typename _Alloc>
       std::swap(_M_finish, __x._M_finish);
       std::swap(_M_end_of_storage, __x._M_end_of_storage);
     }
+
+    // [23.2.5]/1, third-to-last entry in synopsis listing
+    static void swap(reference __x, reference __y) {
+      bool __tmp = __x;
+      __x = __y;
+      __y = __tmp;
+    }
+
     iterator insert(iterator __position, bool __x = bool()) {
       difference_type __n = __position - begin();
       if (_M_finish._M_p != _M_end_of_storage && __position == end())
@@ -718,6 +730,12 @@ template <typename _Alloc>
 typedef vector<bool, __alloc> bit_vector;
 
 } // namespace std 
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef vector
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #endif /* __GLIBCPP_INTERNAL_BVECTOR_H */
 

@@ -25,6 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
+/* $XFree86: xc/lib/SM/sm_auth.c,v 1.4 2003/10/23 21:38:22 tsi Exp $ */
 
 /*
  * Author: Ralph Mor, X Consortium
@@ -32,6 +33,10 @@ in this Software without prior written authorization from The Open Group.
 
 #include <X11/SM/SMlib.h>
 #include "SMlibint.h"
+
+#ifdef __UNIXOS2__
+static char dummy;
+#endif
 
 /*
  * For now, SMlib just supports MIT-MAGIC-COOKIE-1 (defined in ICElib).

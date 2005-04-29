@@ -458,7 +458,7 @@ cd_init(char *nam, char *hide, char *mlen, char *sep,
         grp = 1;
     }
     while (*args) {
-	*setp = set = (Cdset) zcalloc(sizeof(*set));
+	*setp = set = (Cdset) zshcalloc(sizeof(*set));
 	setp = &(set->next);
         *setp = NULL;
         set->opts = NULL;
@@ -690,8 +690,8 @@ cd_get(char **params)
                     strcpy(dbuf, cd_state.sep);
                     memcpy(dbuf + cd_state.slen,
                            str->desc,
-                           (strlen(str->desc) >= dlen ? dlen - 1 :
-                            strlen(str->desc)));
+                           ((int)strlen(str->desc) >= dlen ? dlen - 1 :
+                            (int)strlen(str->desc)));
                     *dp++ = ztrdup(dbuf);
                 }
                 mats[0] = *dp = NULL;
@@ -717,7 +717,7 @@ cd_get(char **params)
 
 /**/
 static int
-bin_compdescribe(char *nam, char **args, Options ops, int func)
+bin_compdescribe(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
     int n = arrlen(args);
 
@@ -1640,7 +1640,7 @@ ca_inactive(Cadef d, char **xor, int cur, int opts, char *optname)
     if ((xor || opts) && cur <= compcurrent) {
 	Caopt opt;
 	char *x;
-	int sl = (d->set ? strlen(d->set) : -1), set = 0;
+	int sl = (d->set ? (int)strlen(d->set) : -1), set = 0;
 
 	for (; (x = (opts ? "-" : *xor)); xor++) {
             if (optname && optname[0] == x[0] && strcmp(optname, x))
@@ -2259,7 +2259,7 @@ ca_set_data(LinkList descr, LinkList act, LinkList subc,
 }
 
 static int
-bin_comparguments(char *nam, char **args, Options ops, int func)
+bin_comparguments(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
     int min, max, n;
     Castate lstate = &ca_laststate;
@@ -3136,7 +3136,7 @@ cv_parse_word(Cvdef d)
 }
 
 static int
-bin_compvalues(char *nam, char **args, Options ops, int func)
+bin_compvalues(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
     int min, max, n;
 
@@ -3349,7 +3349,7 @@ comp_quote(char *str, int prefix)
 }
 
 static int
-bin_compquote(char *nam, char **args, Options ops, int func)
+bin_compquote(char *nam, char **args, Options ops, UNUSED(int func))
 {
     char *name;
     struct value vbuf;
@@ -3377,7 +3377,7 @@ bin_compquote(char *nam, char **args, Options ops, int func)
 		break;
 	    case PM_ARRAY:
 		{
-		    char **val = v->pm->gets.afn(v->pm);
+		    char **val = v->pm->gsu.a->getfn(v->pm);
 		    char **new = (char **) zalloc((arrlen(val) + 1) *
 						  sizeof(char *));
 		    char **p = new;
@@ -3500,7 +3500,7 @@ arrcontains(char **a, char *s, int colon)
 }
 
 static int
-bin_comptags(char *nam, char **args, Options ops, int func)
+bin_comptags(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
     int min, max, n, level;
 
@@ -3630,7 +3630,7 @@ bin_comptags(char *nam, char **args, Options ops, int func)
 }
 
 static int
-bin_comptry(char *nam, char **args, Options ops, int func)
+bin_comptry(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
     if (incompfunc != 1) {
 	zwarnnam(nam, "can only be called from completion function", NULL, 0);
@@ -4092,7 +4092,7 @@ cfp_opt_pats(char **pats, char *matcher)
 }
 
 static LinkList
-cfp_bld_pats(int dirs, LinkList names, char *skipped, char **pats)
+cfp_bld_pats(UNUSED(int dirs), LinkList names, char *skipped, char **pats)
 {
     LinkList ret = newlinklist();
     LinkNode node;
@@ -4322,7 +4322,7 @@ cf_remove_other(char **names, char *pre, int *amb)
 }
 
 static int
-bin_compfiles(char *nam, char **args, Options ops, int func)
+bin_compfiles(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
     if (incompfunc != 1) {
 	zwarnnam(nam, "can only be called from completion function", NULL, 0);
@@ -4424,7 +4424,7 @@ bin_compfiles(char *nam, char **args, Options ops, int func)
 }
 
 static int
-bin_compgroups(char *nam, char **args, Options ops, int func)
+bin_compgroups(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
     Heap oldheap;
     char *n;
@@ -4467,7 +4467,7 @@ static struct builtin bintab[] = {
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     memset(cadef_cache, 0, sizeof(cadef_cache));
     memset(cvdef_cache, 0, sizeof(cvdef_cache));
@@ -4496,7 +4496,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     int i;
 

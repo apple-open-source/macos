@@ -1,0 +1,23 @@
+times (microseconds):	old	new	speedup
+------------------------------------------------
+f(adler,1000)       =    12250     2756   4.44485	/speedup was limited by fops in 1/
+f(adler,1000000)    = 12857176   280553  45.828
+
+f(crc,1000)         =     2235     2481   0.900846	/speedup was due to less fops in 1/
+f(crc,1000000)      =     1614     1916   0.84238	/implementation problematic/
+
+f(crc-zlib,1000)    =    11026     2575   4.28194	/speedup limited due to calc. complexity/
+f(crc-zlib,1000000) = 10529406   488414  21.5584	/but better than 'crc'/
+
+f(haval,1000)       =    13159     3502   3.75757	/speedup limited due to calc. complexity/
+f(haval,1000000)    = 11995250   749558  16.0031	/speedup limited due to calc. complexity/
+
+f(md5,1000)         =    12657     3436   3.68364	/see haval/
+f(md5,1000000)      = 11666631   878137  13.2857	/see haval/
+
+f(sha,1000)         =    12334     4494   2.74455	/see haval/
+f(sha,1000000)      = 13223823  1948148   6.78789	/see haval/
+------------------------------------------------
+1000, 1000000: memchan! containing that many characters
+
+=>	test.2	with old/new implementation.

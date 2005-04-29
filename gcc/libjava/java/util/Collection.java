@@ -94,6 +94,8 @@ public interface Collection
    *   support the add operation.
    * @throws ClassCastException if o cannot be added to this collection due
    *   to its type.
+   * @throws NullPointerException if o is null and this collection doesn't
+   *   support the addition of null values.
    * @throws IllegalArgumentException if o cannot be added to this
    *   collection for some other reason.
    */
@@ -108,6 +110,9 @@ public interface Collection
    *   support the addAll operation.
    * @throws ClassCastException if some element of c cannot be added to this
    *   collection due to its type.
+   * @throws NullPointerException if some element of c is null and this
+   *   collection does not support the addition of null values.
+   * @throws NullPointerException if c itself is null.
    * @throws IllegalArgumentException if some element of c cannot be added
    *   to this collection for some other reason.
    */
@@ -129,6 +134,10 @@ public interface Collection
    * @param o the element to look for.
    * @return true if this collection contains at least one element e such that
    *   <code>o == null ? e == null : o.equals(e)</code>.
+   * @throws ClassCastException if the type of o is not a valid type for this
+   *   collection.
+   * @throws NullPointerException if o is null and this collection doesn't
+   *   support null values.
    */
   boolean contains(Object o);
 
@@ -137,6 +146,11 @@ public interface Collection
    *
    * @param c the collection to test for.
    * @return true if for every element o in c, contains(o) would return true.
+   * @throws ClassCastException if the type of any element in c is not a valid
+   *   type for this collection.
+   * @throws NullPointerException if some element of c is null and this
+   *   collection does not support null values.
+   * @throws NullPointerException if c itself is null.
    */
   boolean containsAll(Collection c);
 
@@ -198,6 +212,10 @@ public interface Collection
    *   if the collection contained at least one occurrence of o.
    * @throws UnsupportedOperationException if this collection does not
    *   support the remove operation.
+   * @throws ClassCastException if the type of o is not a valid type
+   *   for this collection.
+   * @throws NullPointerException if o is null and the collection doesn't
+   *   support null values.
    */
   boolean remove(Object o);
 
@@ -205,9 +223,15 @@ public interface Collection
    * Remove all elements of a given collection from this collection. That is,
    * remove every element e such that c.contains(e).
    *
+   * @param c The collection of objects to be removed.
    * @return true if this collection was modified as a result of this call.
    * @throws UnsupportedOperationException if this collection does not
    *   support the removeAll operation.
+   * @throws ClassCastException if the type of any element in c is not a valid
+   *   type for this collection.
+   * @throws NullPointerException if some element of c is null and this
+   *   collection does not support removing null values.
+   * @throws NullPointerException if c itself is null.
    */
   boolean removeAll(Collection c);
 
@@ -215,9 +239,15 @@ public interface Collection
    * Remove all elements of this collection that are not contained in a given
    * collection. That is, remove every element e such that !c.contains(e).
    *
+   * @param c The collection of objects to be retained.
    * @return true if this collection was modified as a result of this call.
    * @throws UnsupportedOperationException if this collection does not
    *   support the retainAll operation.
+   * @throws ClassCastException if the type of any element in c is not a valid
+   *   type for this collection.
+   * @throws NullPointerException if some element of c is null and this
+   *   collection does not support retaining null values.
+   * @throws NullPointerException if c itself is null.
    */
   boolean retainAll(Collection c);
 

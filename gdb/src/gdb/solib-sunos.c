@@ -1,6 +1,6 @@
 /* Handle SunOS shared libraries for GDB, the GNU Debugger.
    Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000,
-   2001
+   2001, 2004
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -68,14 +68,16 @@ static char *main_name_list[] =
   NULL
 };
 
-/* Macro to extract an address from a solib structure.
-   When GDB is configured for some 32-bit targets (e.g. Solaris 2.7
-   sparc), BFD is configured to handle 64-bit targets, so CORE_ADDR is
-   64 bits.  We have to extract only the significant bits of addresses
-   to get the right address when accessing the core file BFD.  */
+/* Macro to extract an address from a solib structure.  When GDB is
+   configured for some 32-bit targets (e.g. Solaris 2.7 sparc), BFD is
+   configured to handle 64-bit targets, so CORE_ADDR is 64 bits.  We
+   have to extract only the significant bits of addresses to get the
+   right address when accessing the core file BFD.
+
+   Assume that the address is unsigned.  */
 
 #define SOLIB_EXTRACT_ADDRESS(MEMBER) \
-	extract_address (&(MEMBER), sizeof (MEMBER))
+	extract_unsigned_integer (&(MEMBER), sizeof (MEMBER))
 
 /* local data declarations */
 
@@ -108,7 +110,9 @@ LM_NEXT (struct so_list *so)
   int lm_next_offset = offsetof (struct link_map, lm_next);
   int lm_next_size = fieldsize (struct link_map, lm_next);
 
-  return extract_address (so->lm_info->lm + lm_next_offset, lm_next_size);
+  /* Assume that the address is unsigned.  */
+  return extract_unsigned_integer (so->lm_info->lm + lm_next_offset,
+				   lm_next_size);
 }
 
 static CORE_ADDR
@@ -117,7 +121,9 @@ LM_NAME (struct so_list *so)
   int lm_name_offset = offsetof (struct link_map, lm_name);
   int lm_name_size = fieldsize (struct link_map, lm_name);
 
-  return extract_address (so->lm_info->lm + lm_name_offset, lm_name_size);
+  /* Assume that the address is unsigned.  */
+  return extract_unsigned_integer (so->lm_info->lm + lm_name_offset,
+				   lm_name_size);
 }
 
 static CORE_ADDR debug_base;	/* Base of dynamic linker structures */
@@ -139,12 +145,7 @@ allocate_rt_common_objfile (void)
   objfile->md = NULL;
   objfile->psymbol_cache = bcache_xmalloc ();
   objfile->macro_cache = bcache_xmalloc ();
-  obstack_specify_allocation (&objfile->psymbol_obstack, 0, 0, xmalloc,
-			      xfree);
-  obstack_specify_allocation (&objfile->symbol_obstack, 0, 0, xmalloc,
-			      xfree);
-  obstack_specify_allocation (&objfile->type_obstack, 0, 0, xmalloc,
-			      xfree);
+  obstack_init (&objfile->objfile_obstack);
   objfile->name = mstrsave (objfile->md, "rt_common");
 
   /* Add this file onto the tail of the linked list of other such files. */
@@ -179,11 +180,11 @@ solib_add_common_symbols (CORE_ADDR rtc_symp)
 
   if (rt_common_objfile != NULL && rt_common_objfile->minimal_symbol_count)
     {
-      obstack_free (&rt_common_objfile->symbol_obstack, 0);
-      obstack_specify_allocation (&rt_common_objfile->symbol_obstack, 0, 0,
-				  xmalloc, xfree);
+      obstack_free (&rt_common_objfile->objfile_obstack, 0);
+      obstack_init (&rt_common_objfile->objfile_obstack);
       rt_common_objfile->minimal_symbol_count = 0;
       rt_common_objfile->msymbols = NULL;
+      terminate_minimal_symbol_table (rt_common_objfile);
     }
 
   init_minimal_symbol_collection ();
@@ -828,7 +829,7 @@ sunos_solib_create_inferior_hook (void)
      out what we need to know about them. */
 
   clear_proceed_status ();
-  stop_soon_quietly = 1;
+  stop_soon = STOP_QUIETLY;
   stop_signal = TARGET_SIGNAL_0;
   do
     {
@@ -836,7 +837,7 @@ sunos_solib_create_inferior_hook (void)
       wait_for_inferior ();
     }
   while (stop_signal != TARGET_SIGNAL_TRAP);
-  stop_soon_quietly = 0;
+  stop_soon = NO_STOP_QUIETLY;
 
   /* We are now either at the "mapping complete" breakpoint (or somewhere
      else, a condition we aren't prepared to deal with anyway), so adjust

@@ -3,7 +3,7 @@ XCOMM platform:  $Xorg: sun.cf,v 1.4 2000/08/17 19:41:48 cpqbld Exp $
 
 
 
-XCOMM platform:  $XFree86: xc/config/cf/sun.cf,v 3.67 2002/11/22 22:55:56 tsi Exp $
+XCOMM platform:  $XFree86: xc/config/cf/sun.cf,v 3.71 2004/02/02 03:55:26 dawes Exp $
 
 #ifndef OSName
 # define OSName		DefaultOSName
@@ -240,7 +240,12 @@ XCOMM SunPro C++ CplusplusCompilerMajorVersion./**/CplusplusCompilerMinorVersion
 #  define InstallCmd	    /usr/ucb/install
 # endif
 # ifdef i386Architecture
-#  define StandardDefines	  -Dsun -Di386 -DSVR4 -D__EXTENSIONS__ -D__i386
+#  if (OSMajorVersion < 4) || ((OSMajorVersion == 5) && (OSMinorVersion <= 5))
+#   define StandardDefines	-Dsun -Di386 -DSVR4 -D__EXTENSIONS__ -D__i386 \
+				-D__SOL64__
+#  else
+#   define StandardDefines	-Dsun -Di386 -DSVR4 -D__EXTENSIONS__ -D__i386
+#  endif
 #  define ToolkitStringsABIOptions	-intelabi
 # else
 #  define StandardDefines	  -Dsun -Dsparc -DSVR4 -D__EXTENSIONS__
@@ -275,6 +280,9 @@ XCOMM SunPro C++ CplusplusCompilerMajorVersion./**/CplusplusCompilerMinorVersion
 # if OSMinorVersion > 5
 #  define HasSnprintf YES
 # endif
+# if OSMinorVersion > 7
+#  define HasStrlcat YES
+# endif
 # define HasVFork          NO
 # define HasDlopen         YES
 # define InstKmemFlags	  -g sys -m 2711
@@ -302,6 +310,10 @@ XCOMM SunPro C++ CplusplusCompilerMajorVersion./**/CplusplusCompilerMinorVersion
 #define HasSecureRPC	  YES
 #define SetTtyGroup	  YES
 #define HasPutenv	  YES
+#if (OSMajorVersion > 5) || ((OSMajorVersion == 5) && (OSMinorVersion >= 8))
+#define HasDevRandom	  YES	/* /dev/random is in Solaris 8 patches 	*/
+#define PollDevRandom	  YES	/* /dev/random is poll()able on Solaris */
+#endif
 #if (OSMajorVersion > 5) || ((OSMajorVersion == 5) && (OSMinorVersion >= 9))
 # define HasIssetugid	  YES
 #endif
@@ -406,7 +418,7 @@ XCOMM SunPro C++ CplusplusCompilerMajorVersion./**/CplusplusCompilerMinorVersion
 #    endif
 #   else /* OSMajorVersion >= 5*/
 #    ifndef DefaultCCOptions
-#     define DefaultCCOptions -Xa
+#     define DefaultCCOptions -Xa -v
 #    endif
 #   endif	
 #  endif	
@@ -518,3 +530,8 @@ man_keywords::								@@\
 #define	UseSeparateConfDir	NO
 #endif
 
+#ifndef BuildGLULibrary
+#if HasSunC
+#define BuildGLULibrary NO
+#endif
+#endif

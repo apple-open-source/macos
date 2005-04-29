@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/Imakefile,v 1.31 2003/02/17 17:06:44 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/Imakefile,v 1.33 2003/04/21 12:32:11 sven Exp $
 XCOMM
 XCOMM This is an Imakefile for the TRIDENT driver.  
 XCOMM
@@ -9,11 +9,11 @@ XCOMM
 SRCS = trident_driver.c trident_dac.c tridenthelper.c \
        trident_accel.c trident_i2c.c trident_bank.c \
        image_accel.c blade_accel.c tvga_dac.c trident_dga.c \
-       trident_shadow.c trident_video.c xp_accel.c
+       trident_shadow.c trident_video.c xp_accel.c trident_tv.c
 OBJS = trident_driver.o trident_dac.o tridenthelper.o \
        trident_accel.o trident_i2c.o trident_bank.o \
        image_accel.o blade_accel.o tvga_dac.o trident_dga.o \
-       trident_shadow.o trident_video.o xp_accel.o
+       trident_shadow.o trident_video.o xp_accel.o trident_tv.o
 
 #if defined(XF86DriverSDK)
 INCLUDES = -I. -I../../include
@@ -62,5 +62,7 @@ InstallDriverSDKNonExecFile(tridenthelper.c,$(DRIVERSDKDIR)/drivers/trident)
 InstallDriverSDKNonExecFile(tridentramdac.c,$(DRIVERSDKDIR)/drivers/trident)
 InstallDriverSDKNonExecFile(trident_video.c,$(DRIVERSDKDIR)/drivers/trident)
 InstallDriverSDKNonExecFile(tvga_dac.c,$(DRIVERSDKDIR)/drivers/trident)
+InstallDriverSDKNonExecFile(trident_tv.c,$(DRIVERSDKDIR)/drivers/trident)
+InstallDriverSDKNonExecFile(xp_accel.c,$(DRIVERSDKDIR)/drivers/trident)
 
 InstallDriverSDKObjectModule(trident,$(DRIVERSDKMODULEDIR),drivers)

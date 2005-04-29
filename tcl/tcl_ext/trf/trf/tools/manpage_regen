@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# Assume call with pwd = 'doc'.
+
+# Phase I ... List known manpages ...
+
+rm    ../tools/rules/manpages
+touch ../tools/rules/manpages
+
+for i in `ls *.man`
+do
+	echo $i '-->' manpages
+	../tools/mpexpand list $i - | \
+	    awk "{ print \$2 }" | \
+	    sed -e 's|^\(.*\)$|manpage mem/mp/\1 \1 mp.\1.html|' |
+	    cat >> ../tools/rules/manpages
+done
+
+# Phase II .. Generate true output ...
+
+for i in `ls *.man`
+do
+	echo $i '-->' `basename $i .man`.n
+	../tools/mpexpand nroff $i `basename $i .man`.n
+
+	echo $i '-->' `basename $i .man`.html
+	../tools/mpexpand html $i  `basename $i .man`.html
+
+	echo $i '-->' `basename $i .man`.tmml
+	../tools/mpexpand tmml $i  `basename $i .man`.tmml
+
+	## We need a true formatting engine for this one.
+
+	echo $i '-->' `basename $i .man`.html
+	../tools/expand -rules ../tools/rules/manpage.html.site $i  > ../htdocs/mp.`basename $i .man`.html
+done

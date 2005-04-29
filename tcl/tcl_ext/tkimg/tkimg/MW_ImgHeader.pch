@@ -1,0 +1,135 @@
+/*
+ * MW_ImgHeader.pch --
+ *
+ *  This file is the source for a pre-compilied header that gets used
+ *  for all files in the Img project.  This make compilies go a bit
+ *  faster.  This file is only intended to be used in the MetroWerks
+ *  CodeWarrior environment.  It essentially acts as a place to set 
+ *  compiler flags.  See MetroWerks documention for more details.
+ *
+ * Copyright (c) 1995-1997 Sun Microsystems, Inc.
+ *
+ * Adapted for use in the Img package by Jan Nijtmans.
+ *
+ * See the file "license.terms" for information on usage and redistribution
+ * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * SCCS: @(#) MW_ImgHeader.pch 1.1 98/1/1 19:19:37
+ */
+
+/*
+ * To use the compilied header you need to set the "Prefix file" in
+ * the "C/C++ Language" preference panel to point to the created
+ * compilied header.  The name of the header depends on the
+ * architecture we are compiling for (see the code below).  For
+ * example, for a 68k app the prefix file should be: MW_ImgHeader68K.
+ */
+
+#if __POWERPC__
+#pragma precompile_target "MW_ImgHeaderPPC"
+#elif __CFM68K__
+#pragma precompile_target "MW_ImgHeaderCFM68K"
+#else
+#pragma precompile_target "MW_ImgHeader68K"
+#endif
+
+/*
+ * Macintosh Tcl must be compiled with certain compiler options to
+ * ensure that it will work correctly.  The following pragmas are 
+ * used to ensure that those options are set correctly.  An error
+ * will occur at compile time if they are not set correctly.
+ */
+
+#if !__option(enumsalwaysint)
+#error Tcl requires the Metrowerks setting "Enums always ints".
+#endif
+
+#if !defined(__POWERPC__)
+#if !__option(far_data)
+#error Tcl requires the Metrowerks setting "Far data".
+#endif
+#endif
+
+#if !defined(__POWERPC__)
+#if !__option(fourbyteints)
+#error Tcl requires the Metrowerks setting "4 byte ints".
+#endif
+#endif
+
+#if !defined(__POWERPC__)
+#if !__option(IEEEdoubles)
+#error Tcl requires the Metrowerks setting "8 byte doubles".
+#endif
+#endif
+
+/*
+ * The define is used most everywhere to tell Tk (or any Tk
+ * extensions) that we are compiling for the Macintosh platform.
+ */
+#define MAC_TCL
+
+/*
+ * The following defines are for the Xlib.h file to force 
+ * it to generate prototypes in the way we need it.  This is
+ * defined here in case X.h & company are ever included before
+ * tk.h.
+ */
+
+#define NeedFunctionPrototypes 1
+#define NeedWidePrototypes 0
+
+/*
+ * The following defines control the behavior of the Macintosh
+ * Universial Headers.
+ */
+
+#define SystemSevenOrLater 1
+#define STRICT_CONTROLS 0
+#define STRICT_WINDOWS  0
+
+/*
+ * Define the following symbol if you want
+ * comprehensive debugging turned on.
+ */
+
+/* #define TCL_DEBUG */
+
+#ifdef TCL_DEBUG
+#   define TCL_MEM_DEBUG
+#   define TK_TEST
+#   define TCL_TEST
+#endif
+
+/*
+ * We don't want to use the functions dlopen, dlclose, dlsym and dlerror
+ * because they may be provided in a future version of the Mac OS or in
+ * a future version of Tcl/Tk (Hopefully). Better rename them to prevent
+ * the possibility of any future conflict.
+ */
+
+#define dlopen imgDlopen
+#define dlclose imgDlclose
+#define dlsym imgDlsym
+#define dlerror imgDlerror
+
+/*
+ * The names of the other shared libraries.
+ */
+
+#define Z_LIB_NAME libz.shlb
+#define PNG_LIB_NAME png.shlb
+#define JPEG_LIB_NAME jpeg.shlb
+#define TIFF_LIB_NAME tiff.shlb
+#define TTF_LIB_NAME ttf.shlb
+
+/*
+ * Place any includes below that will be needed by the majority
+ * of the files and is OK to be in any file in the system.
+ */
+
+#include <tcl.h>
+#include <tk.h>
+#include "imgInt.h"
+#pragma export on
+#include "img.h"
+#pragma export off

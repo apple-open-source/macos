@@ -1,20 +1,20 @@
 /* Base configuration file for all FreeBSD targets.
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2004 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -48,37 +48,37 @@ Boston, MA 02111-1307, USA.  */
    || !strcmp ((STR), "soname") || !strcmp ((STR), "defsym") 		\
    || !strcmp ((STR), "assert") || !strcmp ((STR), "dynamic-linker"))
 
-#if FBSD_MAJOR == 6
-#define FBSD_CPP_PREDEFINES \
-  "-D__FreeBSD__=6 -Dunix -D__ELF__ -D__KPRINTF_ATTRIBUTE__ -Asystem=unix -Asystem=bsd -Asystem=FreeBSD"
-#endif
+#define FBSD_TARGET_OS_CPP_BUILTINS()					\
+  do									\
+    {									\
+	if (FBSD_MAJOR == 6)						\
+	  builtin_define ("__FreeBSD__=6");			       	\
+	else if (FBSD_MAJOR == 5)	       				\
+	  builtin_define ("__FreeBSD__=5");			       	\
+	else if (FBSD_MAJOR == 4)			       		\
+	  builtin_define ("__FreeBSD__=4");			       	\
+	else if (FBSD_MAJOR == 3)	       				\
+	  builtin_define ("__FreeBSD__=3");			       	\
+	else								\
+	  builtin_define ("__FreeBSD__");			       	\
+	builtin_define_std ("unix");					\
+	builtin_define ("__KPRINTF_ATTRIBUTE__");		       	\
+	builtin_assert ("system=unix");					\
+	builtin_assert ("system=bsd");					\
+	builtin_assert ("system=FreeBSD");				\
+	FBSD_TARGET_CPU_CPP_BUILTINS();					\
+    }									\
+  while (0)
 
-#if FBSD_MAJOR == 5
-#define FBSD_CPP_PREDEFINES \
-  "-D__FreeBSD__=5 -Dunix -D__ELF__ -D__KPRINTF_ATTRIBUTE__ -Asystem=unix -Asystem=bsd -Asystem=FreeBSD"
-#endif
-
-#if FBSD_MAJOR == 4
-#define FBSD_CPP_PREDEFINES \
-  "-D__FreeBSD__=4 -Dunix -D__ELF__ -D__KPRINTF_ATTRIBUTE__ -Asystem=unix -Asystem=bsd -Asystem=FreeBSD"
-#endif
-
-#if FBSD_MAJOR == 3
-#define FBSD_CPP_PREDEFINES \
-  "-D__FreeBSD__=3 -Dunix -D__ELF__ -D__KPRINTF_ATTRIBUTE__ -Asystem=unix -Asystem=bsd -Asystem=FreeBSD"
-#endif
-
-#ifndef FBSD_CPP_PREDEFINES
-#define FBSD_CPP_PREDEFINES \
-  "-D__FreeBSD__   -Dunix -D__ELF__ -D__KPRINTF_ATTRIBUTE__ -Asystem=unix -Asystem=bsd -Asystem=FreeBSD"
-#endif
+/* Define the default FreeBSD-specific per-CPU hook code.  */
+#define FBSD_TARGET_CPU_CPP_BUILTINS() do {} while (0)
 
 /* Provide a CPP_SPEC appropriate for FreeBSD.  We just deal with the GCC 
    option `-posix', and PIC issues.  */
 
 #define FBSD_CPP_SPEC "							\
   %(cpp_cpu)								\
-  %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__}		\
+  %{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__}				\
   %{posix:-D_POSIX_SOURCE}"
 
 /* Provide a STARTFILE_SPEC appropriate for FreeBSD.  Here we add
@@ -146,4 +146,10 @@ is built with the --enable-threads configure-time option.}		\
       %{pthread:-lc_r_p}}						\
   }"
 #endif
+#endif
+
+#if FBSD_MAJOR < 6
+#define FBSD_DYNAMIC_LINKER "/usr/libexec/ld-elf.so.1"
+#else
+#define FBSD_DYNAMIC_LINKER "/libexec/ld-elf.so.1"
 #endif

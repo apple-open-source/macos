@@ -40,7 +40,7 @@
 .Os
 .Sh NAME
 .Nm nanosleep
-.Nd suspend process execution for an interval measured in nanoseconds
+.Nd suspend thread execution for an interval measured in nanoseconds
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
@@ -49,7 +49,10 @@
 .Fn nanosleep "const struct timespec *rqtp" "struct timespec *rmtp"
 .Sh DESCRIPTION
 .Fn Nanosleep
-causes the process to sleep for the specified time.  An unmasked signal will
+causes the calling thread to sleep for the specified time
+(the actual time slept may be longer, due to system latencies
+and possible limitations in the timer resolution of the hardware).
+An unmasked signal will
 cause it to terminate the sleep early, regardless of the
 .Dv SA_RESTART
 value on the interrupting signal.

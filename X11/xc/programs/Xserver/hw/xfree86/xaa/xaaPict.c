@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/programs/Xserver/hw/xfree86/xaa/xaaPict.c,v 1.17 2002/12/10 04:17:21 dawes Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/xaa/xaaPict.c,v 1.19 2004/01/26 18:54:55 mvojkovi Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
@@ -219,6 +219,9 @@ XAADoComposite (
     ySrc += pSrc->pDrawable->y;
 
     if(pMask) {
+	if(pMask->componentAlpha)
+	    return FALSE;
+ 
 	/* for now we only do it if there is a 1x1 (solid) source */
 
 	if((pSrc->pDrawable->width == 1) && (pSrc->pDrawable->height == 1)) {
@@ -432,10 +435,11 @@ XAAComposite (CARD8      op,
                        xSrc, ySrc, xMask, yMask, xDst, yDst,
                        width, height))
     {
-        if(pSrc->pDrawable->type == DRAWABLE_WINDOW ||
+        if((pSrc->pDrawable->type == DRAWABLE_WINDOW ||
            pDst->pDrawable->type == DRAWABLE_WINDOW ||
            IS_OFFSCREEN_PIXMAP(pSrc->pDrawable) ||
-           IS_OFFSCREEN_PIXMAP(pDst->pDrawable)) {
+           IS_OFFSCREEN_PIXMAP(pDst->pDrawable))
+	   && infoRec->pScrn->vtSema) {
             SYNC_CHECK(pDst->pDrawable);
         }
         (*GetPictureScreen(pScreen)->Composite) (op,
@@ -666,10 +670,11 @@ XAAGlyphs (CARD8         op,
        !(*infoRec->Glyphs)(op, pSrc, pDst, maskFormat,
                                           xSrc, ySrc, nlist, list, glyphs))
     {
-       if((pSrc->pDrawable->type == DRAWABLE_WINDOW) ||
+       if(((pSrc->pDrawable->type == DRAWABLE_WINDOW) ||
           (pDst->pDrawable->type == DRAWABLE_WINDOW) ||
           IS_OFFSCREEN_PIXMAP(pSrc->pDrawable) ||
-          IS_OFFSCREEN_PIXMAP(pDst->pDrawable)) {
+          IS_OFFSCREEN_PIXMAP(pDst->pDrawable))
+	  && infoRec->pScrn->vtSema) {
            SYNC_CHECK(pDst->pDrawable);
        }
        (*GetPictureScreen(pScreen)->Glyphs) (op, pSrc, pDst, maskFormat,

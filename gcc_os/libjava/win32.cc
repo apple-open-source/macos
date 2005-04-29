@@ -1,6 +1,6 @@
 // win32.cc - Helper functions for Microsoft-flavored OSs.
 
-/* Copyright (C) 2002  Free Software Foundation
+/* Copyright (C) 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,11 +9,11 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
+#include <platform.h>
 #include <jvm.h>
 #include <sys/timeb.h>
 #include <stdlib.h>
 
-#include "platform.h"
 #include <java/lang/ArithmeticException.h>
 #include <java/util/Properties.h>
 
@@ -194,4 +194,26 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
         SET ("os.arch", "unknown");
         break;
     }
+}
+
+/* Store up to SIZE return address of the current program state in
+   ARRAY and return the exact number of values stored.  */
+int
+backtrace (void **__array, int __size)
+{
+  register void *_ebp __asm__ ("ebp");
+  register void *_esp __asm__ ("esp");
+  unsigned int *rfp;
+
+  int i=0;
+  for (rfp = *(unsigned int**)_ebp;
+       rfp && i < __size;
+       rfp = *(unsigned int **)rfp)
+    {
+      int diff = *rfp - (unsigned int)rfp;
+      if ((void*)rfp < _esp || diff > 4 * 1024 || diff < 0) break;
+
+    __array[i++] = (void*)(rfp[1]-4);
+  }
+  return i;
 }

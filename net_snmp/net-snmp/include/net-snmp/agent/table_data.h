@@ -17,6 +17,8 @@ extern          "C" {
      */
 
 #define TABLE_DATA_NAME "table_data"
+#define TABLE_DATA_ROW  "table_data"
+#define TABLE_DATA_TABLE "table_data_table"
 
     typedef struct netsnmp_table_row_s {
         netsnmp_variable_list *indexes; /* stored permanently if store_indexes = 1 */
@@ -33,6 +35,7 @@ extern          "C" {
         int             flags;  /* not currently used */
         int             store_indexes;
         netsnmp_table_row *first_row;
+        netsnmp_table_row *last_row;
     } netsnmp_table_data;
 
     netsnmp_mib_handler *netsnmp_get_table_data_handler(netsnmp_table_data
@@ -73,18 +76,18 @@ extern          "C" {
                                               netsnmp_table_registration_info
                                               *table_info);
 
-    netsnmp_table_row *netsnmp_extract_table_row(netsnmp_request_info *);
+    netsnmp_table_row  *netsnmp_extract_table_row(netsnmp_request_info *);
+    netsnmp_table_data *netsnmp_extract_table(    netsnmp_request_info *);
     void           *netsnmp_extract_table_row_data(netsnmp_request_info *);
+    void netsnmp_insert_table_row(netsnmp_request_info *, netsnmp_table_row *);
     netsnmp_table_data *netsnmp_create_table_data(const char *name);
     netsnmp_table_row *netsnmp_create_table_data_row(void);
     netsnmp_table_row *netsnmp_table_data_clone_row(netsnmp_table_row
                                                     *row);
-    NETSNMP_INLINE void     netsnmp_table_data_replace_row(netsnmp_table_data
-                                                   *table,
-                                                   netsnmp_table_row
-                                                   *origrow,
-                                                   netsnmp_table_row
-                                                   *newrow);
+    NETSNMP_INLINE void
+       netsnmp_table_data_replace_row(netsnmp_table_data *table,
+                                      netsnmp_table_row *origrow,
+                                      netsnmp_table_row *newrow);
 
     int            
         netsnmp_table_data_build_result(netsnmp_handler_registration
@@ -95,6 +98,7 @@ extern          "C" {
                                         netsnmp_table_row *row, int column,
                                         u_char type, u_char * result_data,
                                         size_t result_data_len);
+    int netsnmp_table_data_num_rows(netsnmp_table_data *table);
 
 
 #define netsnmp_table_data_add_index(thetable, type) snmp_varlist_add_variable(&thetable->indexes_template, NULL, 0, type, NULL, 0)
@@ -104,7 +108,7 @@ extern          "C" {
     Netsnmp_Node_Handler netsnmp_table_data_helper_handler;
 
 #ifdef __cplusplus
-};
+}
 #endif
 
 #endif                          /* _TABLE_DATA_HANDLER_H_ */

@@ -1,4 +1,4 @@
-
+/* $XFree86: xc/extras/Mesa/src/tnl/t_pipeline.c,v 1.4 2003/10/22 15:27:45 tsi Exp $ */
 /*
  * Mesa 3-D graphics library
  * Version:  3.5
@@ -23,12 +23,12 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 #include "glheader.h"
 #include "context.h"
-#include "mem.h"
+#include "imports.h"
 #include "mmath.h"
 #include "state.h"
 #include "mtypes.h"
@@ -125,7 +125,9 @@ void _tnl_run_pipeline( GLcontext *ctx )
    GLuint changed_state = pipe->run_state_changes;
    GLuint changed_inputs = pipe->run_input_changes;
    GLboolean running = GL_TRUE;
+#ifdef HAVE_FAST_MATH
    unsigned short __tmp;
+#endif
 
    pipe->run_state_changes = 0;
    pipe->run_input_changes = 0;
@@ -134,7 +136,9 @@ void _tnl_run_pipeline( GLcontext *ctx )
     */
    ASSERT(pipe->build_state_changes == 0);
 
+#ifdef HAVE_FAST_MATH
    START_FAST_MATH(__tmp);
+#endif
 
    /* If something changes in the pipeline, tag all subsequent stages
     * using this value for recalculation.  Inactive stages have their
@@ -158,7 +162,9 @@ void _tnl_run_pipeline( GLcontext *ctx )
       }
    }
 
+#ifdef HAVE_FAST_MATH
    END_FAST_MATH(__tmp);
+#endif
 }
 
 
@@ -185,7 +191,7 @@ void _tnl_run_pipeline( GLcontext *ctx )
  *
  * - inserting optimized (but specialized) stages ahead of the
  *   general-purpose fallback implementation.  For example, the old
- *   fastpath mechanism, which only works when the VERT_ELT input is
+ *   fastpath mechanism, which only works when the VERT_BIT_ELT input is
  *   available, can be duplicated by placing the fastpath stage at the
  *   head of this pipeline.  Such specialized stages are currently
  *   constrained to have no outputs (ie. they must either finish the *
@@ -202,6 +208,9 @@ const struct gl_pipeline_stage *_tnl_default_pipeline[] = {
    &_tnl_texgen_stage,
    &_tnl_texture_transform_stage,
    &_tnl_point_attenuation_stage,
+#if FEATURE_NV_vertex_program
+   &_tnl_vertex_program_stage,
+#endif
    &_tnl_render_stage,
    0
 };

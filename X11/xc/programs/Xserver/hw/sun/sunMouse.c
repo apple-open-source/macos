@@ -50,7 +50,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
  * any purpose.  It is provided "as is" without express or 
  * implied warranty.
  */
-/* $XFree86: xc/programs/Xserver/hw/sun/sunMouse.c,v 1.3 2001/10/28 03:33:12 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sun/sunMouse.c,v 1.4 2003/11/17 22:20:36 dawes Exp $ */
 
 #define NEED_EVENTS
 #include    "sun.h"
@@ -85,15 +85,9 @@ miPointerScreenFuncRec sunPointerScreenFuncs = {
  */
 /*ARGSUSED*/
 static 
-#if NeedFunctionPrototypes
 void sunMouseCtrl (
     DeviceIntPtr    device,
     PtrCtrl*	    ctrl)
-#else
-void sunMouseCtrl (device, ctrl)
-    DeviceIntPtr    device;
-    PtrCtrl*	    ctrl;
-#endif
 {
 }
 
@@ -116,15 +110,9 @@ void sunMouseCtrl (device, ctrl)
  *
  *-----------------------------------------------------------------------
  */
-#if NeedFunctionPrototypes
 int sunMouseProc (
     DeviceIntPtr  device,
     int	    	  what)
-#else
-int sunMouseProc (device, what)
-    DeviceIntPtr  device;   	/* Mouse to play with */
-    int	    	  what;	    	/* What to do with it */
-#endif
 {
     DevicePtr	  pMouse = (DevicePtr) device;
     int	    	  format;
@@ -193,19 +181,11 @@ int sunMouseProc (device, what)
  *-----------------------------------------------------------------------
  */
 
-#if NeedFunctionPrototypes
 Firm_event* sunMouseGetEvents (
     int		fd,
     Bool	on,
     int*	pNumEvents,
     Bool*	pAgain)
-#else
-Firm_event* sunMouseGetEvents (fd, on, pNumEvents, pAgain)
-    int		fd;
-    Bool	on;
-    int*	pNumEvents;
-    Bool*	pAgain;
-#endif
 {
     int	    	  nBytes;	    /* number of bytes of events available. */
     static Firm_event	evBuf[MAXEVENTS];   /* Buffer for Firm_events */
@@ -281,15 +261,9 @@ MouseAccelerate (device, delta)
  *-----------------------------------------------------------------------
  */
 
-#if NeedFunctionPrototypes
 void sunMouseEnqueueEvent (
     DeviceIntPtr  device,
     Firm_event	  *fe)
-#else
-void sunMouseEnqueueEvent (device, fe)
-    DeviceIntPtr  device;   	/* Mouse from which the event came */
-    Firm_event	  *fe;	    	/* Event to process */
-#endif
 {
     xEvent		xE;
     sunPtrPrivPtr	pPriv;	/* Private data for pointer */

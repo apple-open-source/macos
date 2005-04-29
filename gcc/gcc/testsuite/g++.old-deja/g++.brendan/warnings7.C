@@ -1,5 +1,5 @@
-// Build don't link: 
-// Special g++ Options: -O2 -Wall
+// { dg-do assemble  }
+// { dg-options "-O2 -Wall" }
 // GROUPS passed warnings
 template<class T>
 class X {
@@ -18,4 +18,4 @@ x()
     x.kill(0);
     X<Y> y;
     y.kill(0);
-};
+}

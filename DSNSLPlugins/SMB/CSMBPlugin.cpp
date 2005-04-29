@@ -31,6 +31,9 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/termios.h>
+#include <sys/signal.h>
+#include <sys/sysctl.h>
 
 #include <Security/Authorization.h>
 
@@ -38,20 +41,35 @@
 #include "CSMBPlugin.h"
 #include "CSMBNodeLookupThread.h"
 #include "CSMBServiceLookupThread.h"
+#include "LMBDiscoverer.h"
 #include "CommandLineUtilities.h"
 #include "CNSLTimingUtils.h"
 
-#define kDefaultGroupName			"WORKGROUP"
+#define kDefaultGroupName			"Workgroup"
+#define kDefaultAllCapsGroupName	"WORKGROUP"
+#define	kNMBDProcessName			"nmbd"
+#define	kMaxWorkgroupLen			16			// 15 characters, one null terminator
+#define	kMaxNetBIOSNameLen			16			// 15 characters, one null terminator
+
+#define	kNativeSMBUseComputerName	"dsAttrTypeNative:UseComputerNameForNetBIOSName"
+#define	kUseComputerNameComment		"; Using the Computer Name to compute the NetBIOS name.  Remove this comment to override"
 
 #define	kMaxNumLMBsForAggressiveSearch	0		// more than 10 LMBs in your subnet, we take it easy.
 #define	kInitialTimeBetweenNodeLookups	60		// look again in a minute if we haven't found any LMBs
 
-const char* GetCodePageStringForCurrentSystem( void );
+#pragma mark -
+boolean_t SMBHandleSystemConfigChangedCallBack(SCDynamicStoreRef session, void *callback_argument);
+CFStringRef	CreateNetBIOSNameFromComputerName( void );
+int signalProcessByName(const char *name, int signal);
+
+#pragma mark -
 
 static Boolean			sNMBLookupToolIsAvailable = false;
 static CSMBPlugin*		gPluginInstance = NULL;
 const CFStringRef	gBundleIdentifier = CFSTR("com.apple.DirectoryService.SMB");
 const char*			gProtocolPrefixString = "SMB";
+Boolean	gUseCapitalization = true;
+
 
 #pragma warning "Need to get our default Node String from our resource"
 
@@ -71,9 +89,23 @@ static CDSServerModule* _Creator ( void )
 
 CDSServerModule::tCreator CDSServerModule::sCreator = _Creator;
 
-void AddNode( CFStringRef nodeNameRef )
+Boolean UseCapitalization( void )
 {
-	gPluginInstance->AddNode( nodeNameRef );
+	return gUseCapitalization;
+}
+
+void AddWorkgroup( CFStringRef nodeNameRef )
+{
+	if ( gUseCapitalization )
+	{
+		CFMutableStringRef		modNode = CFStringCreateMutableCopy( NULL, 0, nodeNameRef );
+
+		CFStringCapitalize( modNode, 0 );
+		gPluginInstance->AddNode( modNode );
+		CFRelease( modNode );
+	}
+	else
+		gPluginInstance->AddNode( nodeNameRef );
 }
 
 CSMBPlugin::CSMBPlugin( void )
@@ -84,14 +116,18 @@ CSMBPlugin::CSMBPlugin( void )
 	mNodeSearchInProgress = false;
 	mLocalNodeString = NULL;
 	mWINSServer = NULL;
-	mBroadcastAddr = NULL;
-	mOurLMBs = NULL;
-	mAllKnownLMBs = NULL;
-	mListOfLMBsInProgress = NULL;
+	mNetBIOSName = NULL;
+	mCommentFieldString = NULL;
 	mInitialSearch = true;
 	mNeedFreshLookup = true;
 	mCurrentSearchCanceled = false;
 	mTimeBetweenLookups = kInitialTimeBetweenNodeLookups;
+	mConfFileModTime = 0;
+	mSCRef = NULL;
+	mComputerNameChangeKey = NULL;
+	mRunningOnXServer = false;
+	mUseWINSURL = false;
+	mBroadcastThrottler = NULL;
 }
 
 CSMBPlugin::~CSMBPlugin( void )
@@ -106,21 +142,13 @@ CSMBPlugin::~CSMBPlugin( void )
 		free( mWINSServer );
 	mWINSServer = NULL;
 	
-	if ( mBroadcastAddr )
-		free( mBroadcastAddr );
-	mBroadcastAddr = NULL;
+	if ( mSCRef )
+		CFRelease( mSCRef );
+	mSCRef = NULL;
 	
-	if ( mOurLMBs )
-		CFRelease( mOurLMBs );
-	mOurLMBs = NULL;
-	
-	if ( mAllKnownLMBs )
-		CFRelease( mAllKnownLMBs );
-	mAllKnownLMBs = NULL;
-	
-	if ( mListOfLMBsInProgress )
-		CFRelease( mListOfLMBsInProgress );
-	mListOfLMBsInProgress = NULL;
+	if ( mComputerNameChangeKey )
+		CFRelease( mComputerNameChangeKey );
+	mComputerNameChangeKey = NULL;
 }
 
 sInt32 CSMBPlugin::InitPlugin( void )
@@ -130,11 +158,14 @@ sInt32 CSMBPlugin::InitPlugin( void )
     struct stat			data;
     int 				result = eDSNoErr;
 	
+	gUseCapitalization = strcmp( GetCodePageStringForCurrentSystem(), "CP437" ) == 0;		// ok to do capitalization	
 
 	mLMBDiscoverer	= new LMBDiscoverer();
 	mLMBDiscoverer->Initialize();
 	
 	pthread_mutex_init( &mNodeStateLock, NULL );
+	pthread_mutex_init( &mBroadcastThrottlerLock, NULL );
+	
 	DBGLOG( "CSMBPlugin::InitPlugin\n" );
 	
     if ( siResult == eDSNoErr )
@@ -148,20 +179,38 @@ sInt32 CSMBPlugin::InitPlugin( void )
             sNMBLookupToolIsAvailable = true;
     }
     
+	if (stat( "/System/Library/CoreServices/ServerVersion.plist", &data ) == eDSNoErr)
+		mRunningOnXServer = true;
+		
     if ( siResult == eDSNoErr )
 		ReadConfigFile();
+	
+	struct stat				statResult;
+
+	// ok, let's stat the file
+	if ( stat( kConfFilePath, &statResult ) == 0 )
+		mConfFileModTime = statResult.st_mtimespec.tv_sec;
 	
     if ( siResult == eDSNoErr )
 	{
 		if ( !mLocalNodeString )
 		{
-			mLocalNodeString = (char *) malloc( strlen(kDefaultGroupName) + 1 );
+			if ( UseCapitalization() )
+				mLocalNodeString = (char *) malloc( strlen(kDefaultGroupName) + 1 );
+			else
+				mLocalNodeString = (char *) malloc( strlen(kDefaultAllCapsGroupName) + 1 );
+
 			if ( mLocalNodeString )
 			{
-				strcpy( mLocalNodeString, kDefaultGroupName );
+				if ( UseCapitalization() )
+					strcpy( mLocalNodeString, kDefaultGroupName );
+				else
+					strcpy( mLocalNodeString, kDefaultAllCapsGroupName );
 			}
 		}
     }
+	
+	mUseWINSURL = (stat( kUseWINSURLFilePath, &statResult ) == 0 );
 	
     return siResult;
 }
@@ -171,7 +220,9 @@ void CSMBPlugin::ActivateSelf( void )
     DBGLOG( "CSMBPlugin::ActivateSelf called\n" );
 
 	OurLMBDiscoverer()->EnableSearches();
-
+	if ( !AreWeRunningOnXServer() )
+		RegisterForComputerNameChanges();
+	
 	CNSLPlugin::ActivateSelf();
 }
 
@@ -186,6 +237,9 @@ void CSMBPlugin::DeActivateSelf( void )
 	OurLMBDiscoverer()->ResetOurBroadcastAddress();	
 	OurLMBDiscoverer()->ClearBadLMBList();
 	
+	if ( !AreWeRunningOnXServer() )
+		DeregisterForComputerNameChanges();
+	
 	mInitialSearch = true;	// starting from scratch
 	mNeedFreshLookup = true;
 	mCurrentSearchCanceled = true;
@@ -195,6 +249,137 @@ void CSMBPlugin::DeActivateSelf( void )
 	CNSLPlugin::DeActivateSelf();
 }
 
+Boolean CSMBPlugin::PluginSupportsServiceType( const char* serviceType )
+{
+	Boolean		serviceTypeSupported = false;		// only support smb or cifs
+	
+	if ( serviceType && strcmp( serviceType, kDSStdRecordTypeSMBServer ) == 0 )
+		serviceTypeSupported = true;
+		
+	return serviceTypeSupported;
+}
+
+void CSMBPlugin::RegisterForComputerNameChanges( void )
+{
+    CFMutableArrayRef	notifyKeys			= CFArrayCreateMutable(	kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    CFMutableArrayRef	notifyPatterns		= CFArrayCreateMutable(	kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+	Boolean				setStatus			= FALSE;
+	SInt32				scdStatus			= 0;
+
+    DBGLOG( "CSMBPlugin::RegisterForComputerNameChanges for SCDynamicStoreKeyCreateComputerName:\n" );
+    if ( !mComputerNameChangeKey )
+		mComputerNameChangeKey = SCDynamicStoreKeyCreateComputerName(NULL);
+
+    CFArrayAppendValue(notifyKeys, mComputerNameChangeKey);
+
+    if ( !mSCRef )
+		mSCRef = ::SCDynamicStoreCreate(NULL, gBundleIdentifier, NULL, NULL);
+
+    setStatus = SCDynamicStoreSetNotificationKeys(mSCRef, notifyKeys, notifyPatterns);
+
+    CFRelease(notifyKeys);
+    CFRelease(notifyPatterns);
+
+    if ( GetRunLoopRef() && mSCRef && setStatus )
+    {
+        ::CFRunLoopAddCommonMode( GetRunLoopRef(), kCFRunLoopDefaultMode );
+        scdStatus = ::SCDynamicStoreNotifyCallback( mSCRef, GetRunLoopRef(), SMBHandleSystemConfigChangedCallBack, this );
+        DBGLOG( "CSMBPlugin::RegisterForComputerNameChanges, SCDynamicStoreNotifyCallback returned %ld\n", scdStatus );
+    }
+    else
+        DBGLOG( "CSMBPlugin::RegisterForComputerNameChanges, No Current Run Loop or setStatus returned false, couldn't store Notify callback\n" );
+}
+
+void CSMBPlugin::DeregisterForComputerNameChanges( void )
+{
+	if ( GetRunLoopRef() && mSCRef )
+		SCDynamicStoreNotifyCancel( mSCRef );
+}
+
+void CSMBPlugin::HandleComputerNameChange( void )
+{
+	DBGLOG( "CSMBPlugin::HandleComputerNameChange\n" );
+	
+	if ( mUseComputerNameTracking )
+	{
+		// if no NetBIOS name is provided, we will utilize the zero conf host name.  We will want to keep track any changes
+		// to the Computer Name so that we can update this value.  If a value has been manually entered into the config
+		// file, we want to honor that and ignore any system wide changes to the Computer Name
+		if ( mNetBIOSName )
+		{
+			free( mNetBIOSName );
+			mNetBIOSName = NULL;
+		}					
+
+		if ( mCommentFieldString )
+		{
+			free( mCommentFieldString );
+			mCommentFieldString = NULL;
+		}					
+		
+		CFStringRef netBIOSNameRef = CreateNetBIOSNameFromComputerName();
+	
+		if ( netBIOSNameRef )
+		{
+			mNetBIOSName = (char*)malloc(kMaxNetBIOSNameLen);
+			
+			CFStringGetCString( netBIOSNameRef, mNetBIOSName, kMaxNetBIOSNameLen, kCFStringEncodingUTF8 );
+			
+			CFRelease( netBIOSNameRef );
+		}
+
+		CFStringEncoding	encoding;
+		CFStringRef			computerNameRef = SCDynamicStoreCopyComputerName(NULL, &encoding);
+	
+		if ( computerNameRef )
+		{
+			char*		comment = (char*)malloc(CFStringGetMaximumSizeForEncoding(CFStringGetLength(computerNameRef), encoding)+1);
+			 
+			CFStringGetCString( computerNameRef, comment, CFStringGetMaximumSizeForEncoding(CFStringGetLength(computerNameRef), encoding)+1, encoding );
+			
+			CFRelease( computerNameRef );
+			computerNameRef = NULL;
+
+			mCommentFieldString = comment;
+		}
+		
+		WriteToConfigFile( kConfFilePath );
+		CheckAndHandleIfConfigFileChanged();			// this will update our mod file time and hup nmbd
+	}
+	else
+		DBGLOG( "CSMBPlugin::HandleComputerNameChange, we are not tracking computer name, ignore\n" );
+	
+}
+
+boolean_t SMBHandleSystemConfigChangedCallBack(SCDynamicStoreRef session, void *callback_argument)
+{                       
+	DBGLOG( "***** SMB Detecting System Configuration Change ******\n" );
+
+	CSMBPlugin*					pluginPtr = (CSMBPlugin*)callback_argument;
+	CFArrayRef					changedKeys = NULL;
+	CFStringRef					currentKey = NULL;
+	CFIndex 					i;
+	CFIndex						numChangedKeys = 0;
+	
+	changedKeys = SCDynamicStoreCopyNotifiedKeys(session);
+
+	if ( changedKeys )
+	{
+		numChangedKeys = CFArrayGetCount(changedKeys);
+		
+		for ( i = 0; i < numChangedKeys; i++ )
+		{
+			currentKey = (CFStringRef)CFArrayGetValueAtIndex( changedKeys, i );
+			
+			if ( currentKey && CFGetTypeID(currentKey) == CFStringGetTypeID() && CFStringHasSuffix( currentKey, pluginPtr->GetComputerNameChangeKey() ) )
+			{
+				pluginPtr->HandleComputerNameChange();
+			}
+		}
+	}
+	
+	return true;				// return whether there everything went ok
+}
 
 #pragma mark -
 #define kMaxSizeOfParam 1024
@@ -202,8 +387,9 @@ void CSMBPlugin::ReadConfigFile( void )
 {
 	// we can see if there is a config file, if so then see if they have a WINS server specified
 	DBGLOG( "CSMBPlugin::ReadConfigFile\n" );
-    FILE *	fp;
-    char 	buf[kMaxSizeOfParam];
+    FILE *		fp;
+    char 		buf[kMaxSizeOfParam];
+	Boolean		needToUpdateConfFile = false;
 	
 	fp = fopen(kConfFilePath,"r");
 	
@@ -222,11 +408,32 @@ void CSMBPlugin::ReadConfigFile( void )
 			return;
     }
     
+	if ( mLocalNodeString )
+		free( mLocalNodeString );
+	mLocalNodeString = NULL;
+	
+	if ( mWINSServer )
+		free( mWINSServer );
+	mWINSServer = NULL;
+	
+	mUseComputerNameTracking = false;
+	
+	if ( mNetBIOSName )
+		free( mNetBIOSName );
+	mNetBIOSName = NULL;
+	
+	if ( mCommentFieldString )
+		free( mCommentFieldString );
+	mCommentFieldString = NULL;
+	
     while (fgets(buf,kMaxSizeOfParam,fp) != NULL) 
 	{
         char *pcKey;
         
-        if (buf[0] == '\n' || buf[0] == '\0' || buf[0] == '#' || buf[0] == ';')
+        if (buf[0] == '\n' || buf[0] == '\0' || buf[0] == '#')
+			continue;
+			
+		if (buf[0] == ';' && strncmp( kUseComputerNameComment, buf, strlen(kUseComputerNameComment) ) != 0 )
 			continue;
     
 		if ( buf[strlen(buf)-1] == '\n' )
@@ -272,7 +479,62 @@ void CSMBPlugin::ReadConfigFile( void )
 			
 				mLocalNodeString = (char*)malloc(strlen(pcKey)+1);
 				strcpy( mLocalNodeString, pcKey );
+
 				DBGLOG( "CSMBPlugin::ReadConfigFile, Workgroup is %s\n", mLocalNodeString );
+			}
+			
+			continue;
+		}
+
+        pcKey = strstr( buf, kUseComputerNameComment );		// we will base whether we are tieing the netBIOS name to the
+															// computer name dependant on whether this comment is in the conf file
+        if ( pcKey )
+		{
+			DBGLOG( "CSMBPlugin::ReadConfigFile, we are going to tie the netbios name to the Computer Name\n" );
+			mUseComputerNameTracking = true;
+			
+			continue;
+		}
+
+        pcKey = strstr( buf, "netbios name" );
+
+        if ( pcKey )
+		{
+			pcKey = strstr( pcKey, "=" );
+
+			if ( pcKey )
+			{
+				pcKey++;
+				
+				while ( isspace( *pcKey ) )
+					pcKey++;
+			
+				mNetBIOSName = (char*)malloc(strlen(pcKey)+1);
+				strcpy( mNetBIOSName, pcKey );
+
+				DBGLOG( "CSMBPlugin::ReadConfigFile, netbios name is %s\n", mNetBIOSName );
+			}
+			
+			continue;
+		}
+
+        pcKey = strstr( buf, "server string" );
+
+        if ( pcKey )
+		{
+			pcKey = strstr( pcKey, "=" );
+
+			if ( pcKey )
+			{
+				pcKey++;
+				
+				while ( isspace( *pcKey ) )
+					pcKey++;
+			
+				mCommentFieldString = (char*)malloc(strlen(pcKey)+1);
+				strcpy( mCommentFieldString, pcKey );
+
+				DBGLOG( "CSMBPlugin::ReadConfigFile, comment is %s\n", mCommentFieldString );
 			}
 			
 			continue;
@@ -280,6 +542,100 @@ void CSMBPlugin::ReadConfigFile( void )
     }
 
     fclose(fp);
+
+	if ( mUseComputerNameTracking || !mNetBIOSName )
+	{
+		// if no NetBIOS name is provided, we will utilize the zero conf host name.  We will want to keep track any changes
+		// to the Computer Name so that we can update this value.  If a value has been manually entered into the config
+		// file, we want to honor that and ignore any system wide changes to the Computer Name
+		
+		CFStringRef netBIOSNameRef = CreateNetBIOSNameFromComputerName();
+	
+		if ( netBIOSNameRef )
+		{
+			char*		netBIOSName = (char*)malloc(kMaxNetBIOSNameLen);
+			 
+			CFStringGetCString( netBIOSNameRef, netBIOSName, kMaxNetBIOSNameLen, kCFStringEncodingUTF8 );
+			
+			CFRelease( netBIOSNameRef );
+			netBIOSNameRef = NULL;
+
+			if ( mNetBIOSName && strcmp( netBIOSName, mNetBIOSName ) != 0 )
+			{
+				// the computed name is different from what we've read from the file, we want to update it
+				free( mNetBIOSName );
+				needToUpdateConfFile = true;
+			}
+			else if ( mNetBIOSName )
+			{
+				free( mNetBIOSName );
+			}
+			else
+				needToUpdateConfFile = true;			// if there is no net bios name, we need to add it
+			
+			mNetBIOSName = netBIOSName;
+			mUseComputerNameTracking = true;			// if we have to create the netBIOS name the first time, set tracking to true
+		}
+	}
+
+	if ( mUseComputerNameTracking || !mCommentFieldString )
+	{
+		// if no comment is provided, we will set this as the computer's name.  We will want to keep track any changes
+		// to the Computer Name so that we can update this value.  If a value has been manually entered into the config
+		// file, we want to honor that and ignore any system wide changes to the Computer Name
+		
+		CFStringEncoding	encoding;
+		CFStringRef			computerNameRef = SCDynamicStoreCopyComputerName(NULL, &encoding);
+	
+		if ( computerNameRef )
+		{
+			char*		comment = (char*)malloc(CFStringGetMaximumSizeForEncoding(CFStringGetLength(computerNameRef), encoding)+1);
+			 
+			CFStringGetCString( computerNameRef, comment, CFStringGetMaximumSizeForEncoding(CFStringGetLength(computerNameRef), encoding)+1, encoding );
+			
+			CFRelease( computerNameRef );
+			computerNameRef = NULL;
+
+			if ( mCommentFieldString && strcmp( comment, mCommentFieldString ) != 0 )
+			{
+				// the computed name is different from what we've read from the file, we want to update it
+				free( mCommentFieldString );
+				needToUpdateConfFile = true;
+			}
+			else if ( mCommentFieldString )
+			{
+				free( mCommentFieldString );
+			}
+			else
+				needToUpdateConfFile = true;			// if there is no comment, we need to add it
+			
+			mCommentFieldString = comment;
+			mUseComputerNameTracking = true;			// if we have to create the comment the first time, set tracking to true
+		}
+	}
+
+	if ( !mLocalNodeString )
+	{
+		if ( UseCapitalization() )
+			mLocalNodeString = (char *) malloc( strlen(kDefaultGroupName) + 1 );
+		else
+			mLocalNodeString = (char *) malloc( strlen(kDefaultAllCapsGroupName) + 1 );
+			
+		if ( mLocalNodeString )
+		{
+			if ( UseCapitalization() )
+				strcpy( mLocalNodeString, kDefaultGroupName );
+			else
+				strcpy( mLocalNodeString, kDefaultAllCapsGroupName );
+			needToUpdateConfFile = true;				// need to write this back out
+		}
+	}
+
+	if ( needToUpdateConfFile )
+	{
+		WriteToConfigFile( kConfFilePath );
+		CheckAndHandleIfConfigFileChanged();			// this will update our mod file time and hup nmbd
+	}
 	
 	WriteToConfigFile(kBrowsingConfFilePath);			// need to update the browsing config file with the appropriate codepage
 }
@@ -290,9 +646,45 @@ void CSMBPlugin::WriteWorkgroupToFile( FILE* fp )
 	{
 		char	workgroupLine[kMaxSizeOfParam];
 		
-		sprintf( workgroupLine, "  workgroup = %s\n", mLocalNodeString );
+		snprintf( workgroupLine, sizeof(workgroupLine), "  workgroup = %s\n", mLocalNodeString );
 		
+		DBGLOG( "CSMBPlugin::WriteWorkgroupToFile writing line: [%s]\n", workgroupLine );
 		fputs( workgroupLine, fp );
+	}
+}
+
+void CSMBPlugin::WriteNetBIOSTrackingCommentToFile( FILE* fp )
+{
+	char	netBIOSCommentLine[kMaxSizeOfParam];
+	snprintf( netBIOSCommentLine, sizeof(netBIOSCommentLine), "%s\n", kUseComputerNameComment );
+
+	DBGLOG( "CSMBPlugin::WriteNetBIOSTrackingCommentToFile writing line: [%s]\n", netBIOSCommentLine );
+	fputs( netBIOSCommentLine, fp );
+}
+
+void CSMBPlugin::WriteNetBIOSNameToFile( FILE* fp )
+{
+	if ( mNetBIOSName )
+	{
+		char	netBIOSNameLine[kMaxSizeOfParam];
+		
+		snprintf( netBIOSNameLine, sizeof(netBIOSNameLine), "  netbios name = %s\n", mNetBIOSName );
+		
+		DBGLOG( "CSMBPlugin::WriteNetBIOSNameToFile writing line: [%s]\n", netBIOSNameLine );
+		fputs( netBIOSNameLine, fp );
+	}
+}
+
+void CSMBPlugin::WriteCommentToFile( FILE* fp )
+{
+	if ( mCommentFieldString )
+	{
+		char	comment[kMaxSizeOfParam];
+		
+		snprintf( comment, sizeof(comment), "  server string = %s\n", mCommentFieldString );
+		
+		DBGLOG( "CSMBPlugin::WriteCommentToFile writing line: [%s]\n", comment );
+		fputs( comment, fp );
 	}
 }
 
@@ -302,8 +694,9 @@ void CSMBPlugin::WriteWINSToFile( FILE* fp )
 	{
 		char	winsLine[kMaxSizeOfParam];
 		
-		sprintf( winsLine, "  wins server = %s\n", mWINSServer );
+		snprintf( winsLine, sizeof(winsLine), "  wins server = %s\n", mWINSServer );
 		
+		DBGLOG( "CSMBPlugin::WriteWINSToFile writing line: [%s]\n", winsLine );
 		fputs( winsLine, fp );
 	}
 }
@@ -312,8 +705,9 @@ void CSMBPlugin::WriteCodePageToFile( FILE* fp )
 {
 	char	winsLine[kMaxSizeOfParam];
 	
-	sprintf( winsLine, "  dos charset = %s\n", GetCodePageStringForCurrentSystem() );
+	snprintf( winsLine, sizeof(winsLine), "  dos charset = %s\n", GetCodePageStringForCurrentSystem() );
 	
+	DBGLOG( "CSMBPlugin::WriteCodePageToFile writing line: [%s]\n", winsLine );
 	fputs( winsLine, fp );
 }
 
@@ -321,8 +715,9 @@ void CSMBPlugin::WriteUnixCharsetToFile( FILE* fp )
 {
 	char	winsLine[kMaxSizeOfParam];
 		
-	sprintf( winsLine, "  unix charset = %s\n", GetCodePageStringForCurrentSystem() );
+	snprintf( winsLine, sizeof(winsLine), "  unix charset = %s\n", GetCodePageStringForCurrentSystem() );
 	
+	DBGLOG( "CSMBPlugin::WriteUnixCharsetToFile writing line: [%s]\n", winsLine );
 	fputs( winsLine, fp );
 }
 
@@ -330,8 +725,9 @@ void CSMBPlugin::WriteDisplayCharsetToFile( FILE* fp )
 {
 	char	winsLine[kMaxSizeOfParam];
 	
-	sprintf( winsLine, "  display charset = %s\n", GetCodePageStringForCurrentSystem() );
+	snprintf( winsLine, sizeof(winsLine), "  display charset = %s\n", GetCodePageStringForCurrentSystem() );
 	
+	DBGLOG( "CSMBPlugin::WriteDisplayCharsetToFile writing line: [%s]\n", winsLine );
 	fputs( winsLine, fp );
 }
 
@@ -339,10 +735,14 @@ void CSMBPlugin::WriteToConfigFile( const char* pathToConfigFile )
 {
 	// we can see if there is a config file, if so then see if they have a WINS server specified
 	DBGLOG( "CSMBPlugin::WriteToConfigFile [%s]\n", pathToConfigFile );
+	
     FILE		*sourceFP = NULL, *destFP = NULL;
     char		buf[kMaxSizeOfParam];
     Boolean		writtenWINS = false;
 	Boolean		writtenWorkgroup = false;
+	Boolean		writtenNetBIOSName = false;
+	Boolean		writtenComment = false;
+	Boolean		writtenNetBIOSTrackingComment = !mUseComputerNameTracking;
 	Boolean		writeCodePage = (strcmp( kBrowsingConfFilePath, pathToConfigFile ) == 0);	// only update the browsing config's code page
 	Boolean		writeUnixCharset = writeCodePage;
 	Boolean		writeDisplayCharset = writeCodePage;
@@ -367,7 +767,9 @@ void CSMBPlugin::WriteToConfigFile( const char* pathToConfigFile )
 	if ( strcmp( kConfFilePath, pathToConfigFile ) == 0 )
 		destFP = fopen( kTempConfFilePath, "w" );		// if we are writing to the config file, need to modify the temp and copy over
 	else
+	{
 		destFP = fopen( pathToConfigFile, "w" );			// otherwise we'll just copy and modify straight into the new file
+	}
 	
 	if ( !destFP )
 	{
@@ -382,8 +784,17 @@ void CSMBPlugin::WriteToConfigFile( const char* pathToConfigFile )
 	{
         char *pcKey = NULL;
         
-        if (buf[0] == '\n' || buf[0] == '\0' || buf[0] == '#' || buf[0] == ';' || (writtenWorkgroup && writtenWINS && !writeCodePage && !writeUnixCharset && !writeDisplayCharset) )
+        if (buf[0] == '\n' || buf[0] == '\0' || buf[0] == '#' || (writtenWorkgroup && writtenWINS && writtenNetBIOSName && writtenNetBIOSTrackingComment && !writeCodePage && !writeUnixCharset && !writeDisplayCharset) )
 		{
+			fputs( buf, destFP );
+			continue;
+		}
+		
+		if ( buf[0] == ';' )
+		{
+			if ( !writtenNetBIOSTrackingComment && strncmp( kUseComputerNameComment, buf, strlen(kUseComputerNameComment) ) == 0 )
+				writtenNetBIOSTrackingComment = true;
+			
 			fputs( buf, destFP );
 			continue;
 		}
@@ -420,7 +831,25 @@ void CSMBPlugin::WriteToConfigFile( const char* pathToConfigFile )
 				WriteWINSToFile( destFP );
 				writtenWINS = true;
 			}
-				
+			
+			if ( !writtenNetBIOSTrackingComment )
+			{
+				WriteNetBIOSTrackingCommentToFile( destFP );
+				writtenNetBIOSTrackingComment = true;
+			}
+			
+			if ( !writtenNetBIOSName )
+			{
+				WriteNetBIOSNameToFile( destFP );
+				writtenNetBIOSName = true;
+			}
+			
+			if ( !writtenComment )
+			{
+				WriteCommentToFile( destFP );
+				writtenComment = true;			
+			}
+			
 			fputs( buf, destFP );			// now add the line we read
 			
 			continue;
@@ -440,6 +869,27 @@ void CSMBPlugin::WriteToConfigFile( const char* pathToConfigFile )
         {
 			WriteWorkgroupToFile( destFP );
 			writtenWorkgroup = true;
+
+			continue;
+		}
+		else if ( !writtenNetBIOSTrackingComment && (pcKey = strstr( buf, kUseComputerNameComment )) != NULL )
+        {
+			WriteNetBIOSTrackingCommentToFile( destFP );
+			writtenNetBIOSTrackingComment = true;
+
+			continue;
+		}
+		else if ( !writtenNetBIOSName && (pcKey = strstr( buf, "netbios name" )) != NULL )
+        {
+			WriteNetBIOSNameToFile( destFP );
+			writtenNetBIOSName = true;
+
+			continue;
+		}
+		else if ( !writtenComment && (pcKey = strstr( buf, "server string" )) != NULL )
+        {
+			WriteCommentToFile( destFP );
+			writtenComment = true;
 
 			continue;
 		}
@@ -475,12 +925,42 @@ void CSMBPlugin::WriteToConfigFile( const char* pathToConfigFile )
 	}
 }
 
-#pragma mark -
-sInt32 CSMBPlugin::GetDirNodeInfo( sGetDirNodeInfo *inData )
+void CSMBPlugin::CheckAndHandleIfConfigFileChanged( void )
 {
-    sInt32				siResult			= eNotHandledByThisNode;	// plugins can override
+	time_t					modTimeOfFile = 0;
+	struct stat				statResult;
+	int						statErr = stat( kConfFilePath, &statResult );
 	
-	return siResult;		
+	if ( statErr != 0 )
+	{
+		ReadConfigFile();		// call this and it will copy the file from the template if it isn't there and try again.
+		statErr = stat( kConfFilePath, &statResult );
+	}
+	
+	// ok, let's stat the file		
+	if ( statErr == 0 )
+	{
+		modTimeOfFile = statResult.st_mtimespec.tv_sec;
+		if ( modTimeOfFile > mConfFileModTime )
+		{
+			// what we would like to do is have nmbd respond to a SIGHUP.  But until it does, we'll terminate it
+			// and let it get relaunced via xinetd
+
+			if ( mConfFileModTime > 0 )
+			{
+				ReadConfigFile();									// re-read the config file as it has changed on us
+				signalProcessByName( kNMBDProcessName, SIGTERM );	// if this has changed since the last time we checked, signal nmbd
+			}
+			
+			mConfFileModTime = modTimeOfFile;
+		}
+	}
+}
+
+#pragma mark -
+Boolean CSMBPlugin::AreWeRunningOnXServer( void )
+{
+	return mRunningOnXServer;
 }
 
 sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
@@ -513,7 +993,7 @@ sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 		{
 			aRequest = inData->fInRequestCode;
 
-			if ( aRequest != kReadSMBConfigData )
+			if ( aRequest != kReadSMBConfigData && aRequest != kReadSMBConfigXMLData && aRequest != kReadSMBConfigXMLDataSize )
 			{
 				if ( inData->fInRequestData == nil ) throw( (sInt32)eDSNullDataBuff );
 				if ( inData->fInRequestData->fBufferData == nil ) throw( (sInt32)eDSEmptyBuffer );
@@ -546,11 +1026,39 @@ sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 			
 			switch( aRequest )
 			{
+				case kReadSMBConfigXMLDataSize:
+				case kReadSMBConfigXMLData:
+				{
+					// using the more extensible xml based config data
+					// check config
+					CheckAndHandleIfConfigFileChanged();
+						
+					siResult = FillOutCurrentStateWithXML( inData, (aRequest == kReadSMBConfigXMLDataSize) );
+
+					if ( !(mState & kActive) || (mState & kInactive) )
+					{
+						ClearOutAllNodes();					// clear these out
+						mNodeListIsCurrent = false;			// this is no longer current
+						DBGLOG( "CSMBPlugin::DoPlugInCustomCall cleared out all our registered nodes as we are inactive\n" );
+					}
+				}
+				break;
+				
+				case kWriteSMBConfigXMLData:
+				{
+					DBGLOG( "CSMBPlugin::DoPlugInCustomCall kWriteSMBConfigXMLData\n" );
+					// using the more extensible xml based config data
+					siResult = SaveNewStateFromXML( inData );
+				}
+				break;
+				
 				case kReadSMBConfigData:
 				{
 					DBGLOG( "CSMBPlugin::DoPlugInCustomCall kReadSMBConfigData\n" );
 
-					// read config
+					// check config
+					CheckAndHandleIfConfigFileChanged();
+						
 					siResult = FillOutCurrentState( inData );
 
 					if ( !(mState & kActive) || (mState & kInactive) )
@@ -566,105 +1074,10 @@ sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				{
 					DBGLOG( "CSMBPlugin::DoPlugInCustomCall kWriteSMBConfigData\n" );
 
-					sInt32		dataLength = (sInt32) bufLen - sizeof( AuthorizationExternalForm );
-					Boolean		configChanged = false;
-					
-					if ( dataLength <= 0 ) throw( (sInt32)eDSInvalidBuffFormat );
-					
-					UInt8*		curPtr =(UInt8 *)(inData->fInRequestData->fBufferData + sizeof( AuthorizationExternalForm ));
-					UInt32		curDataLen;
-					char*		newWorkgroupString = NULL;
-					char*		newWINSServer = NULL;
-					
-					curDataLen = *((UInt32*)curPtr);
-					curPtr += 4;
-					
-					if ( curDataLen > 0 )
-					{
-						newWorkgroupString = (char*)malloc(curDataLen+1);
-						memcpy( newWorkgroupString, curPtr, curDataLen );
-						newWorkgroupString[curDataLen] = '\0';
-						curPtr += curDataLen;
-					}
-					
-					curDataLen = *((UInt32*)curPtr);
-					curPtr += 4;
-
-					if ( curDataLen > 0 )
-					{
-						newWINSServer = (char*)malloc(curDataLen+1);
-						memcpy( newWINSServer, curPtr, curDataLen );
-						newWINSServer[curDataLen] = '\0';
-					}
-
-					if ( mLocalNodeString && newWorkgroupString )
-					{
-						if ( strcmp( mLocalNodeString, newWorkgroupString ) != 0 )
-						{
-							free( mLocalNodeString );
-							mLocalNodeString = newWorkgroupString;
-							
-							configChanged = true;
-						} else {
-							// if we are the same string, we need to free it
-							free( newWorkgroupString );
-						}
-					}
-					else if ( newWorkgroupString )
-					{
-						// we shouldn't be called if we don't have a mLocalNodeString!
-						mLocalNodeString = newWorkgroupString;
-							
-						configChanged = true;
-					}
-					
-					if ( mWINSServer && newWINSServer )
-					{
-						if ( strcmp( mWINSServer, newWINSServer ) != 0 )
-						{
-							free( mWINSServer );
-							mWINSServer = newWINSServer;
-							mLMBDiscoverer->SetWinsServer(mWINSServer);
-							
-							configChanged = true;
-						}
-					}
-					else if ( newWINSServer )
-					{
-						mWINSServer = newWINSServer;
-						mLMBDiscoverer->SetWinsServer(mWINSServer);
-							
-						configChanged = true;
-					}
-					else if ( mWINSServer )
-					{
-						free( mWINSServer );
-						mWINSServer = NULL;
-						mLMBDiscoverer->SetWinsServer(mWINSServer);
-
-						configChanged = true;
-					}
-
-					if ( configChanged )
-					{
-						WriteToConfigFile(kConfFilePath);
-						WriteToConfigFile(kBrowsingConfFilePath);
-
-						if ( !(mState & kActive) || (mState & kInactive) )
-						{
-							ClearOutAllNodes();					// clear these out
-							mNodeListIsCurrent = false;			// this is no longer current
-							DBGLOG( "CSMBPlugin::DoPlugInCustomCall cleared out all our registered nodes after writing config changes as we are inactive\n" );
-						}
-						
-						if ( (mState & kActive) && mActivatedByNSL )
-						{
-							DBGLOG( "CSMBPlugin::DoPlugInCustomCall (mState & kActive) && mActivatedByNSL so starting a new fresh node lookup.\n" );
-							mNeedFreshLookup = true;
-							OurLMBDiscoverer()->ClearLMBCache();
-							StartNodeLookup();					// and then start all over
-						}
-					}
+					if ( AreWeRunningOnXServer() )
+						siResult = eDSReadOnly;			// can't modify server
+					else
+						siResult = SaveNewState( inData );
 				}
 				break;
 					
@@ -699,13 +1112,11 @@ sInt32 CSMBPlugin::HandleNetworkTransition( sHeader *inData )
 	{
 		DBGLOG( "CSMBPlugin::HandleNetworkTransition cleaning up data and calling CNSLPlugin::HandleNetworkTransition\n" );
 
-		if ( mBroadcastAddr )
-			free( mBroadcastAddr );
-		mBroadcastAddr = NULL;
-		
 		OurLMBDiscoverer()->ClearLMBCache();				// no longer valid
 		OurLMBDiscoverer()->ResetOurBroadcastAddress();	
 		OurLMBDiscoverer()->ClearBadLMBList();
+		
+		ResetBroadcastThrottle();
 		
 		mInitialSearch = true;	// starting from scratch
 		mNeedFreshLookup = true;
@@ -723,6 +1134,384 @@ sInt32 CSMBPlugin::HandleNetworkTransition( sHeader *inData )
 
 #pragma mark -
 #define kMaxTimeToWait	10	// in seconds
+sInt32 CSMBPlugin::FillOutCurrentStateWithXML( sDoPlugInCustomCall *inData, Boolean sizeOnly )
+{
+	sInt32					siResult					= eDSNoErr;
+	CFMutableDictionaryRef	currentStateRef				= CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+	CFStringRef				winsServerRef				= NULL;
+	CFStringRef				workgroupRef				= NULL;
+	CFStringRef				newBIOSNameRef				= NULL;
+	CFStringRef				newCommentRef				= NULL;
+	CFRange					aRange;
+	CFDataRef   			xmlData						= NULL;
+	
+	try
+	{
+		if ( !currentStateRef )
+			throw( eMemoryError );
+		
+		if ( mLocalNodeString )
+		{
+			DBGLOG( "CSMBPlugin::FillOutCurrentStateWithXML: mLocalNodeString is %s\n", mLocalNodeString );
+			workgroupRef = CFStringCreateWithCString( NULL, mLocalNodeString, kCFStringEncodingUTF8 );
+			
+			if ( workgroupRef )
+				CFDictionaryAddValue( currentStateRef, CFSTR(kDS1AttrLocation), workgroupRef );
+		}
+		
+		if ( mWINSServer )
+		{
+			DBGLOG( "CSMBPlugin::FillOutCurrentStateWithXML: mWINSServer is %s\n", mWINSServer );
+			winsServerRef = CFStringCreateWithCString( NULL, mWINSServer, kCFStringEncodingUTF8 );
+			
+			if ( winsServerRef )
+				CFDictionaryAddValue( currentStateRef, CFSTR(kDSStdRecordTypeServer), winsServerRef );
+		}
+		
+		if ( mNetBIOSName )
+		{
+			DBGLOG( "CSMBPlugin::FillOutCurrentStateWithXML: mNetBIOSName is %s\n", mNetBIOSName );
+			newBIOSNameRef = CFStringCreateWithCString( NULL, mNetBIOSName, kCFStringEncodingUTF8 );
+			
+			if ( newBIOSNameRef )
+				CFDictionaryAddValue( currentStateRef, CFSTR(kDS1AttrLocation), newBIOSNameRef );
+		}
+		
+		if ( mCommentFieldString )
+		{
+			DBGLOG( "CSMBPlugin::FillOutCurrentStateWithXML: mCommentFieldString is %s\n", mCommentFieldString );
+			newCommentRef = CFStringCreateWithCString( NULL, mCommentFieldString, kCFStringEncodingUTF8 );
+			
+			if ( newCommentRef )
+				CFDictionaryAddValue( currentStateRef, CFSTR(kDS1AttrComment), newCommentRef );
+		}
+		
+		CFDictionaryAddValue( currentStateRef, CFSTR(kNativeSMBUseComputerName), (mUseComputerNameTracking)?CFSTR("YES"):CFSTR("NO") );			
+		
+		// are we running as a server?
+		if ( AreWeRunningOnXServer() )
+		{
+			CFDictionaryAddValue( currentStateRef, CFSTR(kDS1AttrReadOnlyNode), CFSTR("YES") );
+		}
+		else
+		{
+			CFArrayRef		listOfWorkgroups = CreateListOfWorkgroups();
+			
+			if ( listOfWorkgroups )
+			{
+				CFDictionaryAddValue( currentStateRef, CFSTR(kDSNAttrSubNodes), listOfWorkgroups );
+				CFRelease( listOfWorkgroups );
+			}
+		}
+		
+		//convert the dict into a XML blob
+		xmlData = CFPropertyListCreateXMLData( kCFAllocatorDefault, currentStateRef );
+
+		if (xmlData != 0)
+		{
+			if ( sizeOnly )		// they just want to know how much to allocate
+			{
+				CFIndex		xmlSize = CFDataGetLength(xmlData);
+				
+				inData->fOutRequestResponse->fBufferLength = sizeof(xmlSize);
+				memcpy( inData->fOutRequestResponse->fBufferData, &xmlSize, sizeof(xmlSize) );
+			}
+			else
+			{
+				aRange.location = 0;
+				aRange.length = CFDataGetLength(xmlData);
+				if ( inData->fOutRequestResponse->fBufferSize < (unsigned int)aRange.length ) throw( (sInt32)eDSBufferTooSmall );
+				CFDataGetBytes( xmlData, aRange, (UInt8*)(inData->fOutRequestResponse->fBufferData) );
+				inData->fOutRequestResponse->fBufferLength = aRange.length;
+			}
+		}
+	}
+
+	catch ( sInt32 err )
+	{
+		DBGLOG( "CSMBPlugin::FillOutCurrentState: Caught error: %ld\n", err );
+		siResult = err;
+	}
+	
+	if ( currentStateRef )
+		CFRelease( currentStateRef );
+	
+	if ( winsServerRef )
+		CFRelease( winsServerRef );
+	
+	if ( workgroupRef )
+		CFRelease( workgroupRef );
+		
+	if ( newBIOSNameRef )
+		CFRelease( newBIOSNameRef );
+		
+	if ( newCommentRef )
+		CFRelease( newCommentRef );
+		
+	if ( xmlData )
+		CFRelease( xmlData );
+
+	return siResult;
+}
+
+sInt32 CSMBPlugin::SaveNewStateFromXML( sDoPlugInCustomCall *inData )
+{
+	sInt32					siResult					= eDSNoErr;
+	sInt32					xmlDataLength				= 0;
+	CFDataRef   			xmlData						= NULL;
+	CFDictionaryRef			newStateRef					= NULL;
+	CFStringRef				workgroupRef				= NULL;
+	CFStringRef				winsServerRef				= NULL;
+	CFStringRef				netBIOSNameRef				= NULL;
+	CFStringRef				useComputerNameTrackingRef	= NULL;
+	CFStringRef				errorString					= NULL;
+	Boolean					configChanged				= false;
+	char*					newWorkgroupString			= NULL;
+	char*					newWINSServer				= NULL;
+	char*					newNetBIOSName				= NULL;
+	char*					newComment					= NULL;
+	
+	DBGLOG( "CSMBPlugin::SaveNewStateFromXML called\n" );
+	
+	xmlDataLength = (sInt32) inData->fInRequestData->fBufferLength - sizeof( AuthorizationExternalForm );
+	
+	if ( xmlDataLength <= 0 )
+		return (sInt32)eDSInvalidBuffFormat;
+	
+	xmlData = CFDataCreate(NULL,(UInt8 *)(inData->fInRequestData->fBufferData + sizeof( AuthorizationExternalForm )), xmlDataLength);
+	
+	if ( !xmlData )
+	{
+		DBGLOG( "CSMBPlugin::SaveNewStateFromXML, couldn't create xmlData from buffer!!\n" );
+		siResult = (sInt32)eDSInvalidBuffFormat;
+	}
+	else
+		newStateRef = (CFDictionaryRef)CFPropertyListCreateFromXMLData(	NULL,
+																		xmlData,
+																		kCFPropertyListImmutable,
+																		&errorString);
+																		
+	if ( newStateRef && CFGetTypeID( newStateRef ) != CFDictionaryGetTypeID() )
+	{
+		DBGLOG( "CSMBPlugin::SaveNewStateFromXML, XML Data wasn't a CFDictionary!\n" );
+		siResult = (sInt32)eDSInvalidBuffFormat;
+	}
+	else
+	{
+		workgroupRef = (CFStringRef)CFDictionaryGetValue( newStateRef, CFSTR(kDS1AttrLocation) );
+		
+		if ( workgroupRef && CFGetTypeID( workgroupRef ) == CFStringGetTypeID() )
+		{
+			newWorkgroupString = (char*)malloc(kMaxWorkgroupLen);
+			CFStringGetCString( workgroupRef, newWorkgroupString, kMaxWorkgroupLen, kCFStringEncodingUTF8 );
+		}
+		else if ( !workgroupRef )
+		{
+			DBGLOG( "CSMBPlugin::SaveNewStateFromXML, we received no domain name so we are basically being turned off\n" );
+			if ( mLocalNodeString )
+				configChanged = true;
+		}
+		else
+		{
+			DBGLOG( "CSMBPlugin::SaveNewStateFromXML, the domain name is of the wrong type! (%ld)\n", CFGetTypeID( workgroupRef ) );
+			siResult = (sInt32)eDSInvalidBuffFormat;
+		}
+		
+		winsServerRef = (CFStringRef)CFDictionaryGetValue( newStateRef, CFSTR(kDSStdRecordTypeServer) );
+
+		if ( winsServerRef && CFGetTypeID( winsServerRef ) != CFStringGetTypeID() )
+		{
+			DBGLOG( "CSMBPlugin::SaveNewStateFromXML, the wins server is of the wrong type! (%ld)\n", CFGetTypeID( winsServerRef ) );
+			siResult = (sInt32)eDSInvalidBuffFormat;
+		}
+		else if ( winsServerRef )
+		{
+			long	winsServerLen = CFStringGetLength(winsServerRef)+1;
+			
+			newWINSServer = (char*)malloc(winsServerLen);
+			CFStringGetCString( winsServerRef, newWINSServer, winsServerLen, kCFStringEncodingASCII );	// this is an IPAddress or hostname
+		}
+		
+		useComputerNameTrackingRef = (CFStringRef)CFDictionaryGetValue( newStateRef, CFSTR(kNativeSMBUseComputerName) );
+
+		if ( useComputerNameTrackingRef && CFGetTypeID( netBIOSNameRef ) != CFStringGetTypeID() )
+		{
+			DBGLOG( "CSMBPlugin::SaveNewStateFromXML, kNativeSMBUseComputerName is of the wrong type! (%ld)\n", CFGetTypeID( useComputerNameTrackingRef ) );
+			siResult = (sInt32)eDSInvalidBuffFormat;
+		}
+		else if ( useComputerNameTrackingRef )
+		{
+			Boolean useComputerNameTracking = CFStringCompare( useComputerNameTrackingRef, CFSTR("YES"), 0 ) == kCFCompareEqualTo;
+			
+			if ( useComputerNameTracking != mUseComputerNameTracking )
+				configChanged = true;
+				
+			mUseComputerNameTracking = useComputerNameTracking;
+		}
+		
+		if ( mUseComputerNameTracking )
+		{
+			netBIOSNameRef = CreateNetBIOSNameFromComputerName();
+
+			if ( netBIOSNameRef )
+			{
+				newNetBIOSName = (char*)malloc(kMaxNetBIOSNameLen);
+				CFStringGetCString( netBIOSNameRef, newNetBIOSName, kMaxNetBIOSNameLen, kCFStringEncodingUTF8 );
+				
+				CFRelease( netBIOSNameRef );
+				netBIOSNameRef = NULL;
+			}
+
+			CFStringEncoding	encoding;
+			CFStringRef			computerNameRef = SCDynamicStoreCopyComputerName(NULL, &encoding);
+		
+			if ( computerNameRef )
+			{
+				newComment = (char*)malloc(CFStringGetMaximumSizeForEncoding(CFStringGetLength(computerNameRef), encoding)+1);
+				 
+				CFStringGetCString( computerNameRef, newComment, CFStringGetMaximumSizeForEncoding(CFStringGetLength(computerNameRef), encoding)+1, encoding );
+				
+				CFRelease( computerNameRef );
+				computerNameRef = NULL;
+			}
+		}
+		else
+		{
+			netBIOSNameRef = (CFStringRef)CFDictionaryGetValue( newStateRef, CFSTR(kDSStdRecordTypeServer) );
+	
+			if ( netBIOSNameRef && CFGetTypeID( netBIOSNameRef ) != CFStringGetTypeID() )
+			{
+				DBGLOG( "CSMBPlugin::SaveNewStateFromXML, the NetBIOS name is of the wrong type! (%ld)\n", CFGetTypeID( netBIOSNameRef ) );
+				siResult = (sInt32)eDSInvalidBuffFormat;
+			}
+			else if ( netBIOSNameRef )
+			{
+				newNetBIOSName = (char*)malloc(kMaxNetBIOSNameLen);
+				CFStringGetCString( netBIOSNameRef, newNetBIOSName, kMaxNetBIOSNameLen, kCFStringEncodingUTF8 );
+			}
+		}
+	}
+	
+	if ( mLocalNodeString && newWorkgroupString )
+	{
+		if ( strcmp( mLocalNodeString, newWorkgroupString ) != 0 )
+		{
+			free( mLocalNodeString );
+			mLocalNodeString = newWorkgroupString;
+			
+			configChanged = true;
+		}
+		else
+		{
+			free( newWorkgroupString );
+			newWorkgroupString = NULL;
+		}
+	}
+	else if ( newWorkgroupString )
+	{
+		mLocalNodeString = newWorkgroupString;
+			
+		configChanged = true;
+	}
+		
+	if ( mWINSServer && newWINSServer )
+	{
+		if ( strcmp( mWINSServer, newWINSServer ) != 0 )
+		{
+			free( mWINSServer );
+			mWINSServer = newWINSServer;
+			
+			configChanged = true;
+		}
+		else
+		{
+			free( newWINSServer );
+			newWINSServer = NULL;
+		}
+	}
+	else if ( newWINSServer )
+	{
+		mWINSServer = newWINSServer;
+			
+		configChanged = true;
+	}
+		
+	if ( mNetBIOSName && newNetBIOSName )
+	{
+		if ( strcmp( mNetBIOSName, newNetBIOSName ) != 0 )
+		{
+			free( mNetBIOSName );
+			mNetBIOSName = newNetBIOSName;
+			
+			configChanged = true;
+		}
+		else
+		{
+			free( newNetBIOSName );
+			newNetBIOSName = NULL;
+		}
+	}
+	else if ( newNetBIOSName )
+	{
+		mNetBIOSName = newNetBIOSName;
+			
+		configChanged = true;
+	}
+		
+	if ( mCommentFieldString && newComment )
+	{
+		if ( strcmp( mCommentFieldString, newComment ) != 0 )
+		{
+			free( mCommentFieldString );
+			mCommentFieldString = newComment;
+			
+			configChanged = true;
+		}
+		else
+		{
+			free( newComment );
+			newComment = NULL;
+		}
+	}
+	else if ( newComment )
+	{
+		mCommentFieldString = newComment;
+			
+		configChanged = true;
+	}
+		
+	if ( xmlData )
+		CFRelease( xmlData );
+		
+	if ( newStateRef )
+		CFRelease( newStateRef );
+
+	if ( configChanged )
+	{
+		WriteToConfigFile(kConfFilePath);
+		WriteToConfigFile(kBrowsingConfFilePath);
+
+		if ( !(mState & kActive) || (mState & kInactive) )
+		{
+			ClearOutAllNodes();					// clear these out
+			mNodeListIsCurrent = false;			// this is no longer current
+			DBGLOG( "CSMBPlugin::DoPlugInCustomCall cleared out all our registered nodes after writing config changes as we are inactive\n" );
+		}
+		
+		if ( (mState & kActive) && mActivatedByNSL )
+		{
+			DBGLOG( "CSMBPlugin::DoPlugInCustomCall (mState & kActive) && mActivatedByNSL so starting a new fresh node lookup.\n" );
+			mNeedFreshLookup = true;
+			OurLMBDiscoverer()->ClearLMBCache();
+			StartNodeLookup();					// and then start all over
+		}
+		
+		CheckAndHandleIfConfigFileChanged();
+	}
+
+	return siResult;
+}
+
 sInt32 CSMBPlugin::FillOutCurrentState( sDoPlugInCustomCall *inData )
 {
 	sInt32					siResult	= eDSNoErr;
@@ -809,6 +1598,115 @@ sInt32 CSMBPlugin::FillOutCurrentState( sDoPlugInCustomCall *inData )
 	return siResult;
 }
 
+sInt32 CSMBPlugin::SaveNewState( sDoPlugInCustomCall *inData )
+{
+	sInt32					siResult					= eDSNoErr;
+	sInt32					dataLength					= (sInt32) inData->fInRequestData->fBufferLength - sizeof( AuthorizationExternalForm );
+	Boolean					configChanged				= false;
+	
+	if ( dataLength <= 0 ) throw( (sInt32)eDSInvalidBuffFormat );
+	
+	UInt8*		curPtr =(UInt8 *)(inData->fInRequestData->fBufferData + sizeof( AuthorizationExternalForm ));
+	UInt32		curDataLen;
+	char*		newWorkgroupString = NULL;
+	char*		newWINSServer = NULL;
+	
+	curDataLen = *((UInt32*)curPtr);
+	curPtr += 4;
+	
+	if ( curDataLen > 0 )
+	{
+		newWorkgroupString = (char*)malloc(curDataLen+1);
+		memcpy( newWorkgroupString, curPtr, curDataLen );
+		newWorkgroupString[curDataLen] = '\0';
+
+		curPtr += curDataLen;
+	}
+	
+	curDataLen = *((UInt32*)curPtr);
+	curPtr += 4;
+
+	if ( curDataLen > 0 )
+	{
+		newWINSServer = (char*)malloc(curDataLen+1);
+		memcpy( newWINSServer, curPtr, curDataLen );
+		newWINSServer[curDataLen] = '\0';
+	}
+
+	if ( mLocalNodeString && newWorkgroupString )
+	{
+		if ( strcmp( mLocalNodeString, newWorkgroupString ) != 0 )
+		{
+			free( mLocalNodeString );
+			mLocalNodeString = newWorkgroupString;
+			
+			configChanged = true;
+		} else {
+			// if we are the same string, we need to free it
+			free( newWorkgroupString );
+		}
+	}
+	else if ( newWorkgroupString )
+	{
+		// we shouldn't be called if we don't have a mLocalNodeString!
+		mLocalNodeString = newWorkgroupString;
+			
+		configChanged = true;
+	}
+	
+	if ( mWINSServer && newWINSServer )
+	{
+		if ( strcmp( mWINSServer, newWINSServer ) != 0 )
+		{
+			free( mWINSServer );
+			mWINSServer = newWINSServer;
+			mLMBDiscoverer->SetWinsServer(mWINSServer);
+			
+			configChanged = true;
+		}
+	}
+	else if ( newWINSServer )
+	{
+		mWINSServer = newWINSServer;
+		mLMBDiscoverer->SetWinsServer(mWINSServer);
+			
+		configChanged = true;
+	}
+	else if ( mWINSServer )
+	{
+		free( mWINSServer );
+		mWINSServer = NULL;
+		mLMBDiscoverer->SetWinsServer(mWINSServer);
+
+		configChanged = true;
+	}
+
+	if ( configChanged )
+	{
+		WriteToConfigFile(kConfFilePath);
+		WriteToConfigFile(kBrowsingConfFilePath);
+
+		if ( !(mState & kActive) || (mState & kInactive) )
+		{
+			ClearOutAllNodes();					// clear these out
+			mNodeListIsCurrent = false;			// this is no longer current
+			DBGLOG( "CSMBPlugin::DoPlugInCustomCall cleared out all our registered nodes after writing config changes as we are inactive\n" );
+		}
+		
+		if ( (mState & kActive) && mActivatedByNSL )
+		{
+			DBGLOG( "CSMBPlugin::DoPlugInCustomCall (mState & kActive) && mActivatedByNSL so starting a new fresh node lookup.\n" );
+			mNeedFreshLookup = true;
+			OurLMBDiscoverer()->ClearLMBCache();
+			StartNodeLookup();					// and then start all over
+		}
+		
+		CheckAndHandleIfConfigFileChanged();
+	}
+	
+	return siResult;
+}
+
 typedef char	SMBNodeName[16];
 typedef struct NSLPackedNodeList {
 	UInt32						fBufLen;
@@ -819,7 +1717,7 @@ typedef struct NSLPackedNodeList {
 void SMBNodeHandlerFunction(const void *inKey, const void *inValue, void *inContext);
 void SMBNodeHandlerFunction(const void *inKey, const void *inValue, void *inContext)
 {
-	DBGLOG( "SMBNodeHandlerFunction SMBNodeHandlerFunction\n" );
+	DBGLOG( "SMBNodeHandlerFunction\n" );
 	CFShow( inKey );
 
     NodeData*					curNodeData = (NodeData*)inValue;
@@ -853,6 +1751,34 @@ void SMBNodeHandlerFunction(const void *inKey, const void *inValue, void *inCont
 	}
 	
 	context->fDataPtr = nodeListData;
+}
+
+void SMBNodeListCreationFunction(const void *inKey, const void *inValue, void *inContext);
+void SMBNodeListCreationFunction(const void *inKey, const void *inValue, void *inContext)
+{
+	DBGLOG( "SMBNodeListCreationFunction\n" );
+	CFShow( inKey );
+
+    NodeData*					curNodeData = (NodeData*)inValue;
+    CFMutableArrayRef			context = (CFMutableArrayRef)inContext;
+	CFStringRef					workgroupName = CFStringCreateWithSubstring( NULL, curNodeData->fNodeName, CFRangeMake(4,CFStringGetLength(curNodeData->fNodeName)-4) );
+
+	CFArrayAppendValue( context, workgroupName );
+	
+	CFRelease( workgroupName );
+}
+
+CFArrayRef	CSMBPlugin::CreateListOfWorkgroups( void )
+{
+	DBGLOG( "CSMBPlugin::CreateListOfWorkgroups called\n" );
+	// need to fill out all the currently found workgroups
+	CFMutableArrayRef		listToReturn = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
+	
+    LockPublishedNodes();
+	CFDictionaryApplyFunction( mPublishedNodes, SMBNodeListCreationFunction, listToReturn );
+    UnlockPublishedNodes();
+	
+	return listToReturn;
 }
 
 void* CSMBPlugin::MakeDataBufferOfWorkgroups( UInt32* dataLen )
@@ -942,12 +1868,20 @@ void CSMBPlugin::NewNodeLookup( void )
 	LockNodeState();
 	if ( !mNodeSearchInProgress )
 	{
+		CheckAndHandleIfConfigFileChanged();
+		
 		mNodeListIsCurrent = false;
 		mNodeSearchInProgress = true;
 		mNeedFreshLookup = false;
 		mCurrentSearchCanceled = false;
 		// First add our local scope
-		AddNode( GetLocalNodeString() );		// always register the default registration node
+		CFStringRef		nodeString = CFStringCreateWithCString( NULL, GetLocalNodeString(), NSLGetSystemEncoding() );
+		
+		if ( nodeString )
+		{
+			AddWorkgroup( nodeString );		// always register the default registration node
+			CFRelease( nodeString );
+		}
 		
 		if ( sNMBLookupToolIsAvailable )
 		{
@@ -976,17 +1910,30 @@ void CSMBPlugin::NewServiceLookup( char* serviceType, CNSLDirNodeRep* nodeDirRep
     {
         if ( serviceType && strcmp( serviceType, kServiceTypeString ) == 0 )
         {
+			CheckAndHandleIfConfigFileChanged();
+			
 			CFStringRef	workgroupRef = nodeDirRep->GetNodeName();
 			
+			if ( !workgroupRef )
+			{
+				DBGLOG( "CSMBPlugin::NewServiceLookup failed to get workgroup ref from node name!\n" );
+				return;
+			}
+			
+			if ( !OKToDoServiceLookupInWorkgroup( workgroupRef ) )
+			{
+				DBGLOG( "CSMBPlugin::NewServiceLookup skipping lookup as we are throttling lookups\n" );
+				return;
+			}
 			CFArrayRef listOfLMBs = OurLMBDiscoverer()->CopyBroadcastResultsForLMB( workgroupRef );
 			
 			if ( listOfLMBs || !GetWinsServer() )
 			{
 				char	workgroup[256];
-				CFStringGetCString( nodeDirRep->GetNodeName(), workgroup, sizeof(workgroup), kCFStringEncodingUTF8 );
+				CFStringGetCString( workgroupRef, workgroup, sizeof(workgroup), kCFStringEncodingUTF8 );
 				DBGLOG( "CSMBPlugin::NewServiceLookup doing lookup on %ld LMBs responsible for %s\n", (listOfLMBs)?CFArrayGetCount(listOfLMBs):0, workgroup );
 
-				CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep, listOfLMBs );
+				CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep, listOfLMBs, (mUseWINSURL)?GetWinsServer():NULL );
 				
 						// if we have too many threads running, just queue this search object and run it later
 						if ( OKToStartNewSearch() )
@@ -1003,11 +1950,11 @@ void CSMBPlugin::NewServiceLookup( char* serviceType, CNSLDirNodeRep* nodeDirRep
 
 				if ( cachedLMB )
 				{
-					CFArrayRef listOfLMBs = CFArrayCreate( NULL, &cachedLMB, 1, &kCFTypeArrayCallBacks );
+					CFArrayRef listOfLMBs = CFArrayCreate( NULL, (const void**)(&cachedLMB), 1, &kCFTypeArrayCallBacks );
 					
 					if ( listOfLMBs )
 					{
-						CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep, listOfLMBs );
+						CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep, listOfLMBs, (mUseWINSURL)?GetWinsServer():NULL );
 			
 					// if we have too many threads running, just queue this search object and run it later
 					if ( OKToStartNewSearch() )
@@ -1034,9 +1981,138 @@ Boolean CSMBPlugin::OKToOpenUnPublishedNode( const char* parentNodeName )
 	return false;
 }
 
+#define kTimeToWaitBetweenFailedBroadcasts	1*60		// one minute
+
+void CSMBPlugin::ResetBroadcastThrottle( void )
+{
+	LockBroadcastThrottler();
+
+	if ( mBroadcastThrottler )
+		CFDictionaryRemoveAllValues( mBroadcastThrottler );
+	
+	UnLockBroadcastThrottler();
+}
+
+Boolean CSMBPlugin::OKToDoServiceLookupInWorkgroup( CFStringRef workgroupRef )
+{
+	Boolean		okToDoServiceLookup = true;
+	
+	LockBroadcastThrottler();
+
+	if ( mBroadcastThrottler )
+	{
+		CFAbsoluteTime	timeToWaitForNextBroadcastCF = 0;
+		CFNumberRef		timeToWaitForNextBroadcast = (CFNumberRef)CFDictionaryGetValue( mBroadcastThrottler, workgroupRef );
+		
+		if ( timeToWaitForNextBroadcast && CFNumberGetValue( timeToWaitForNextBroadcast, kCFNumberDoubleType, &timeToWaitForNextBroadcastCF ) )
+		{
+			if ( timeToWaitForNextBroadcastCF < CFAbsoluteTimeGetCurrent() )
+			{
+				// we've past the time limit, go ahead and remove this
+				CFDictionaryRemoveValue( mBroadcastThrottler, workgroupRef );
+			}
+			else
+			{
+				DBGLOG( "CSMBPlugin::OKToDoServiceLookupInWorkgroup returning false for lookup as it isn't time yet\n" );
+				okToDoServiceLookup = false;
+			}
+		}
+	}
+	
+	UnLockBroadcastThrottler();
+	
+	return okToDoServiceLookup;
+}
+
+void CSMBPlugin::BroadcastServiceLookupFailedInWorkgroup( CFStringRef workgroupRef )
+{
+	// if we failed to find any servers in this workgroup, don't try again for at least a minute to prevent spamming
+	
+	LockBroadcastThrottler();
+	
+	if ( !mBroadcastThrottler )
+		mBroadcastThrottler = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+
+	CFAbsoluteTime	timeToWaitTill = CFAbsoluteTimeGetCurrent()+kTimeToWaitBetweenFailedBroadcasts;
+	CFNumberRef		timeToWaitForNextBroadcast = CFNumberCreate( NULL, kCFNumberDoubleType, &timeToWaitTill );
+	
+	if ( timeToWaitForNextBroadcast )
+	{
+		CFDictionarySetValue( mBroadcastThrottler, workgroupRef, timeToWaitForNextBroadcast );
+		CFRelease( timeToWaitForNextBroadcast );
+	}
+	
+	UnLockBroadcastThrottler();
+}
+
+void CSMBPlugin::BroadcastServiceLookupSucceededInWorkgroup( CFStringRef workgroupRef )
+{
+	LockBroadcastThrottler();
+
+	if ( mBroadcastThrottler && CFDictionaryContainsValue( mBroadcastThrottler, workgroupRef ) )
+		CFDictionaryRemoveValue( mBroadcastThrottler, workgroupRef );
+	
+	UnLockBroadcastThrottler();
+}
+
+
 #pragma mark -
 void CSMBPlugin::ClearLMBForWorkgroup( CFStringRef workgroupRef, CFStringRef lmbNameRef )
 {
 	OurLMBDiscoverer()->ClearLMBForWorkgroup( workgroupRef, lmbNameRef );
+}
+
+#pragma mark -
+CFStringRef	CreateNetBIOSNameFromComputerName( void )
+{
+	CFStringEncoding	encoding;
+	CFStringRef			netBIOSName = NULL;
+	CFStringRef			computerNameRef = SCDynamicStoreCopyComputerName(NULL, &encoding);
+
+	if ( computerNameRef )
+	{
+		netBIOSName = CreateRFC1034HostLabelFromUTF8Name( computerNameRef, kMaxNetBIOSNameLen-1 );
+		
+		CFRelease( computerNameRef );
+	}
+	
+	return netBIOSName;
+}
+
+/*-----------------------------------------------------------------------------
+ *	signalProcessByName
+ *	Signal asked process.
+ *  Taken from slapconfig's utilities.c
+ *---------------------------------------------------------------------------*/
+int signalProcessByName(const char *name, int signal) 
+{
+	int			mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0};
+	size_t		buf_size;
+	int			result;
+
+	errno = 0;
+	result = sysctl(mib, 4, NULL, &buf_size, NULL, 0);
+	if (result >= 0) 
+	{
+		struct kinfo_proc	*processes = NULL;
+		int					i,nb_entries;
+		nb_entries = buf_size / sizeof(struct kinfo_proc);
+		processes = (struct kinfo_proc*) malloc(buf_size);
+		if (processes != NULL) 
+		{
+			result = sysctl(mib, 4, processes, &buf_size, NULL, 0);
+			if (result >= 0) 
+			{
+				for (i = 0; i < nb_entries; i++) 
+				{
+					if (processes[i].kp_proc.p_comm == NULL ||
+						strcmp(processes[i].kp_proc.p_comm, name) != 0) continue;
+					(void) kill(processes[i].kp_proc.p_pid, signal);
+				}
+			}
+			free(processes);
+		}
+	}
+	return errno;
 }
 

@@ -29,7 +29,7 @@ in this Software without prior written authorization from The Open Group.
  * Author:  Jim Fulton, MIT X Consortium
  */
 
-/* $XFree86: xc/programs/xauth/parsedpy.c,v 3.6 2001/12/14 20:01:15 dawes Exp $ */
+/* $XFree86: xc/programs/xauth/parsedpy.c,v 3.8 2003/07/18 15:53:28 tsi Exp $ */
 
 #include <stdio.h>			/* for NULL */
 #include <ctype.h>			/* for isascii() and isdigit() */
@@ -111,10 +111,10 @@ parse_displayname (char *displayname,
     if (!displayname || !displayname[0]) return False;
 
 					/* must have at least :number */
-    ptr = strchr(displayname, ':');
+    ptr = strrchr(displayname, ':');
     if (!ptr || !ptr[1]) return False;
-    if (ptr[1] == ':') {
-	if (ptr[2] == '\0') return False;
+    if ((ptr != displayname) && (*(ptr - 1) == ':')) {
+	ptr--;
 	dnet = True;
     }
 
@@ -137,6 +137,10 @@ parse_displayname (char *displayname,
 	    family = FamilyInternet;
 	}
 #endif
+    } else if (!dnet && (*displayname == '[') && (*(ptr - 1) == ']')) {
+	/* Allow RFC2732-like [<IPv6NumericAddress>]:display syntax */
+	family = FamilyInternet6;
+	host = copystring (displayname + 1, len - 2);
     } else {
 	host = copystring (displayname, len);
 	if (dnet) {

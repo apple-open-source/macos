@@ -1,4 +1,3 @@
-/* APPLE LOCAL file type size */
 /* Test for graceful handling of anonymous ivars.  */
 /* { dg-do compile } */
 

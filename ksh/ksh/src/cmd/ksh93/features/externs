@@ -1,0 +1,15 @@
+hdr	nc,exec_attr
+mem	exception.name,_exception.name math.h
+lib	setreuid,setregid,nice,confstr,sigflag,fork,spawnveg
+lib	pathnative,pathposix,uwin_path,uwin_unpath,fts_notify
+lib	attropen,fchdir
+lib  attropen64 -D_LARGEFILE64_SOURCE
+cat{
+     #if _lib_attropen64
+     #define attropen	attropen64
+     #ifndef __USE_LARGEFILE64
+	extern int	attropen64(const char*, const char*, int, ...);
+     #endif
+     #endif
+}end
+

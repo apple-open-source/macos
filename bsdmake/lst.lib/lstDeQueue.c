@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstDeQueue.c,v 1.7 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -54,7 +53,7 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstDeQueue.c,v 1.7 2000/07/09 00:08:
  *	Remove and return the datum at the head of the given list.
  *
  * Results:
- *	The datum in the node at the head or (ick) NIL if the list
+ *	The datum in the node at the head or (ick) NULL if the list
  *	is empty.
  *
  * Side Effects:
@@ -62,21 +61,21 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstDeQueue.c,v 1.7 2000/07/09 00:08:
  *
  *-----------------------------------------------------------------------
  */
-ClientData
+void *
 Lst_DeQueue (l)
     Lst	    	  l;
 {
-    ClientData	  rd;
+    void *	  rd;
     register ListNode	tln;
 
     tln = (ListNode) Lst_First (l);
-    if (tln == NilListNode) {
-	return ((ClientData) NIL);
+    if (tln == NULL) {
+	return ((void *) NULL);
     }
 
     rd = tln->datum;
     if (Lst_Remove (l, (LstNode)tln) == FAILURE) {
-	return ((ClientData) NIL);
+	return ((void *) NULL);
     } else {
 	return (rd);
     }

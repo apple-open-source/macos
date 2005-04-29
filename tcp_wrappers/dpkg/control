@@ -1,7 +1,0 @@
-Package: tcp-wrappers
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Vendor: Eindhoven University of Technology
-Version: 7.6
-URL: ftp://ftp.porcupine.org/pub/security/
-Description: TCP security wrappers
-Build-Depends: build-base

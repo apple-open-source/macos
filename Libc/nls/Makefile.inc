@@ -4,12 +4,12 @@
 .PATH: ${.CURDIR}/nls
 
 .include "Makefile.fbsd_begin"
-FBSDSRCS= msgcat.c
-FBSDORIGHDRS= msgcat.h
+FBSDMISRCS= msgcat.c
+FBSDHDRS= msgcat.h
 .include "Makefile.fbsd_end"
 
 # Install msgcat.h for usage by gencat (in adv_cmds)
-LOCALHDRS+=	msgcat.h
+LOCALHDRS+=	${SYMROOT}/msgcat.h
 
 .if ${LIB} == "c"
 .include "Makefile.fbsd_begin"

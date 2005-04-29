@@ -10,7 +10,7 @@
 # Test some of the more obscure wildcard handling of exclude/include
 # processing.
 
-. $srcdir/testsuite/rsync.fns
+. "$suitedir/rsync.fns"
 
 set -x
 
@@ -20,33 +20,28 @@ export HOME CVSIGNORE
 
 # Build some files/dirs/links to copy
 
-fromdir="$scratchdir/from"
-todir="$scratchdir/to"
-chkdir="$scratchdir/chk"
-
-echo home-cvs-exclude >"$scratchdir"/.cvsignore
 makepath "$fromdir/foo/down/to/you"
 makepath "$fromdir/bar/down/to/foo/too"
 makepath "$fromdir/mid/for/foo/and/that/is/who"
 echo kept >"$fromdir/foo/file1"
 echo removed >"$fromdir/foo/file2"
 echo cvsout >"$fromdir/foo/file2.old"
+echo cvsout >"$fromdir/bar/down/to/home-cvs-exclude"
 echo keeper >"$fromdir/bar/down/to/foo/file1"
 echo cvsout >"$fromdir/bar/down/to/foo/file1.bak"
 echo gone >"$fromdir/bar/down/to/foo/file3"
 echo lost >"$fromdir/bar/down/to/foo/file4"
 echo cvsout >"$fromdir/bar/down/to/foo/file4.junk"
 echo smashed >"$fromdir/bar/down/to/foo/to"
-echo cvsout >"$fromdir/bar/down/to/home-cvs-exclude"
 echo cvsout >"$fromdir/mid/one-in-one-out"
 echo one-in-one-out >"$fromdir/mid/.cvsignore"
 echo cvsin >"$fromdir/mid/one-for-all"
+echo cvsin >"$fromdir/mid/for/one-in-one-out"
 echo expunged >"$fromdir/mid/for/foo/extra"
 echo retained >"$fromdir/mid/for/foo/keep"
-echo cvsin >"$fromdir/mid/for/one-in-one-out"
 ln -s too "$fromdir/bar/down/to/foo/sym"
 
-# Setup our test exclude/include file.
+# Setup our test exclude/include files.
 
 excl="$scratchdir/exclude-from"
 cat >"$excl" <<EOF
@@ -63,6 +58,10 @@ cat >"$excl" <<EOF
 + file4
 - file[2-9]
 - /mid/for/foo/extra
+EOF
+
+cat >"$scratchdir/.cvsignore" <<EOF
+home-cvs-exclude
 EOF
 
 # Create the chk dir with what we expect to be excluded
@@ -83,7 +82,7 @@ $RSYNC -av --existing --include='*/' --exclude='*' "$fromdir/" "$chkdir/"
 
 # Now, test if rsync excludes the same files.
 
-checkit "$RSYNC -avv --exclude-from=$excl \"$fromdir/\" \"$todir/\"" "$chkdir" "$todir"
+checkit "$RSYNC -avv --exclude-from=\"$excl\" \"$fromdir/\" \"$todir/\"" "$chkdir" "$todir"
 
 # Modify the chk dir by removing cvs-ignored files and then tweaking the dir times.
 
@@ -98,8 +97,8 @@ $RSYNC -av --existing --include='*/' --exclude='*' "$fromdir/" "$chkdir/"
 # Now, test if rsync excludes the same files, this time with --cvs-exclude
 # and --delete-excluded.
 
-checkit "$RSYNC -avvC --delete-excluded --exclude-from=$excl \
-    \"$fromdir/\" \"$todir/\"" "$chkdir" "$todir"
+checkit "$RSYNC -avvC --exclude-from=\"$excl\" \
+    --delete-excluded \"$fromdir/\" \"$todir/\"" "$chkdir" "$todir"
 
 # The script would have aborted on error, so getting here means we've won.
 exit 0

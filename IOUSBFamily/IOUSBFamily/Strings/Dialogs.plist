@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Low Power Dialog</key>
+	<dict>
+		<key>Alert Level</key>
+		<string>Alert</string>
+		<key>Blocking Message</key>
+		<string>1</string>
+		<key>Header</key>
+		<string>USB Low Power Notice</string>
+		<key>Message</key>
+		<array>
+			<string>Low Power Dialog 1</string>
+			<string>%@</string>
+			<string>Low Power Dialog 2</string>
+		</array>
+		<key>OK Button Title</key>
+		<string>OK</string>
+		<key>Timeout</key>
+		<string>0</string>
+	</dict>
+	<key>Gang Overcurrent Dialog</key>
+	<dict>
+		<key>Alert Level</key>
+		<string>Alert</string>
+		<key>Blocking Message</key>
+		<string>1</string>
+		<key>Header</key>
+		<string>USB Over Current Notice</string>
+		<key>Message</key>
+		<string>Gang Overcurrent Dialog</string>
+		<key>OK Button Title</key>
+		<string>OK</string>
+		<key>Timeout</key>
+		<string>0</string>
+	</dict>
+	<key>Overcurrent Dialog</key>
+	<dict>
+		<key>Alert Level</key>
+		<string>Alert</string>
+		<key>Blocking Message</key>
+		<string>1</string>
+		<key>Header</key>
+		<string>USB Over Current Notice</string>
+		<key>Message</key>
+		<array>
+			<string>Overcurrent Dialog 1</string>
+			<string>%@</string>
+			<string>Overcurrent Dialog 2</string>
+		</array>
+		<key>OK Button Title</key>
+		<string>OK</string>
+		<key>Timeout</key>
+		<string>0</string>
+	</dict>
+</dict>
+</plist>

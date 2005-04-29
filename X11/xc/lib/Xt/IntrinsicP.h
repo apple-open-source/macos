@@ -46,6 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
+/* $XFree86: xc/lib/Xt/IntrinsicP.h,v 1.4 2003/10/24 15:47:35 tsi Exp $ */
 
 #ifndef _XtintrinsicP_h
 #define _XtintrinsicP_h
@@ -77,80 +78,60 @@ typedef unsigned long XtVersionType;
 #define XtVersionDontCheck 0
 
 typedef void (*XtProc)(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 typedef void (*XtWidgetClassProc)(
-#if NeedFunctionPrototypes
     WidgetClass /* class */
-#endif
 );
 
 typedef void (*XtWidgetProc)(
-#if NeedFunctionPrototypes
     Widget	/* widget */
-#endif
 );
 
 typedef Boolean (*XtAcceptFocusProc)(
-#if NeedFunctionPrototypes
     Widget	/* widget */,
     Time*	/* time */
-#endif
 );
 
 typedef void (*XtArgsProc)(
-#if NeedFunctionPrototypes
     Widget	/* widget */,
     ArgList	/* args */,
     Cardinal*	/* num_args */
-#endif
 );
 
 typedef void (*XtInitProc)(
-#if NeedFunctionPrototypes
     Widget	/* request */,
     Widget	/* new */,
     ArgList	/* args */,
     Cardinal*	/* num_args */
-#endif
 );
 
 typedef Boolean (*XtSetValuesFunc)(
-#if NeedFunctionPrototypes
     Widget 	/* old */,
     Widget 	/* request */,
     Widget 	/* new */,
     ArgList 	/* args */,
     Cardinal*	/* num_args */
-#endif
 );
 
 typedef Boolean (*XtArgsFunc)(
-#if NeedFunctionPrototypes
     Widget	/* widget */,
     ArgList	/* args */,
     Cardinal*	/* num_args */
-#endif
 );
 
 typedef void (*XtAlmostProc)(
-#if NeedFunctionPrototypes
     Widget		/* old */,
     Widget		/* new */,
     XtWidgetGeometry*	/* request */,
     XtWidgetGeometry*	/* reply */
-#endif
 );
 
 typedef void (*XtExposeProc)(
-#if NeedFunctionPrototypes
     Widget	/* widget */,
     XEvent*	/* event */,
     Region	/* region */
-#endif
 );
 
 /* compress_exposure options*/
@@ -166,26 +147,20 @@ typedef void (*XtExposeProc)(
 #define XtExposeNoRegion		0x80
 
 typedef void (*XtRealizeProc)(
-#if NeedFunctionPrototypes
     Widget 		  /* widget */,
     XtValueMask* 	  /* mask */,
     XSetWindowAttributes* /* attributes */
-#endif
 );
 
 typedef XtGeometryResult (*XtGeometryHandler)(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XtWidgetGeometry*	/* request */,
     XtWidgetGeometry*	/* reply */
-#endif
 );
 
 typedef void (*XtStringProc)(
-#if NeedFunctionPrototypes
     Widget	/* widget */,
     String	/* str */
-#endif
 );
 
 typedef struct {
@@ -196,7 +171,6 @@ typedef struct {
 } XtTypedArg, *XtTypedArgList;
 
 typedef void (*XtAllocateProc)(
-#if NeedFunctionPrototypes
     WidgetClass		/* widget_class */,
     Cardinal *		/* constraint_size */,
     Cardinal *		/* more_bytes */,
@@ -206,14 +180,11 @@ typedef void (*XtAllocateProc)(
     Cardinal *		/* num_typed_args */,
     Widget *		/* widget_return */,
     XtPointer *		/* more_bytes_return */
-#endif
 );
 
 typedef void (*XtDeallocateProc)(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XtPointer		/* more_bytes */
-#endif
 );
 
 struct _XtStateRec;	/* Forward declare before use for C++ */
@@ -288,71 +259,53 @@ typedef struct _XtTMRec {
 _XFUNCPROTOBEGIN
 
 extern Widget _XtWindowedAncestor( /* internal; implementation-dependent */
-#if NeedFunctionPrototypes
     Widget 		/* object */
-#endif
 );
 
 extern void _XtInherit(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void XtCreateWindow(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     unsigned int 	/* window_class */,
     Visual*		/* visual */,
     XtValueMask		/* value_mask */,
     XSetWindowAttributes* /* attributes */
-#endif
 );
 
 extern void XtResizeWidget(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtDimension	/* width */,
     _XtDimension	/* height */,
     _XtDimension	/* border_width */
-#endif
 );
 
 extern void XtMoveWidget(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtPosition		/* x */,
     _XtPosition		/* y */
-#endif
 );
 
 extern void XtConfigureWidget(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtPosition		/* x */,
     _XtPosition		/* y */,
     _XtDimension	/* width */,
     _XtDimension	/* height */,
     _XtDimension	/* border_width */
-#endif
 );
 
 extern void XtResizeWindow(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern void XtProcessLock(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void XtProcessUnlock(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 _XFUNCPROTOEND

@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 
@@ -31,7 +31,7 @@
 #include "colormac.h"
 #include "context.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 #include "mmath.h"
 #include "mtypes.h"
 
@@ -59,12 +59,12 @@ static void check_texmat( GLcontext *ctx, struct gl_pipeline_stage *stage )
    GLuint i;
    stage->active = 0;
 
-   if (ctx->Texture._TexMatEnabled) {
+   if (ctx->Texture._TexMatEnabled && !ctx->VertexProgram.Enabled) {
       GLuint flags = 0;
 
       for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++)
 	 if (ctx->Texture._TexMatEnabled & ENABLE_TEXMAT(i))
-	    flags |= VERT_TEX(i);
+	    flags |= VERT_BIT_TEX(i);
 
       stage->active = 1;
       stage->inputs = flags;
@@ -84,8 +84,9 @@ static GLboolean run_texmat_stage( GLcontext *ctx,
     */
    for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++)
       if (ctx->Texture._TexMatEnabled & ENABLE_TEXMAT(i)) {
-	 if (stage->changed_inputs & VERT_TEX(i))
-	    (void) TransformRaw( &store->texcoord[i], &ctx->TextureMatrix[i],
+	 if (stage->changed_inputs & VERT_BIT_TEX(i))
+	    (void) TransformRaw( &store->texcoord[i],
+                                 ctx->TextureMatrixStack[i].Top,
 				 VB->TexCoordPtr[i]);
 
 	 VB->TexCoordPtr[i] = &store->texcoord[i];
@@ -136,12 +137,15 @@ static void free_texmat_data( struct gl_pipeline_stage *stage )
 
 const struct gl_pipeline_stage _tnl_texture_transform_stage =
 {
-   "texture transform",
-   _NEW_TEXTURE|_NEW_TEXTURE_MATRIX,
-   _NEW_TEXTURE|_NEW_TEXTURE_MATRIX,
-   0,0,0,			/* active, inputs, outputs */
-   0,0,				/* changed_inputs, private */
-   free_texmat_data,		/* destructor */
-   check_texmat,		/* check */
-   alloc_texmat_data,		/* run -- initially set to init */
+   "texture transform",			/* name */
+   _NEW_TEXTURE|_NEW_TEXTURE_MATRIX,	/* check_state */
+   _NEW_TEXTURE|_NEW_TEXTURE_MATRIX,	/* run_state */
+   GL_FALSE,				/* active? */
+   0,					/* inputs */
+   0,					/* outputs */
+   0,					/* changed_inputs */
+   NULL,				/* private data */
+   free_texmat_data,			/* destructor */
+   check_texmat,			/* check */
+   alloc_texmat_data,			/* run -- initially set to init */
 };

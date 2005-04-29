@@ -1,7 +1,7 @@
 #! /bin/sh
 :
 # Copyright (c) 1990-1997, S.R. van den Berg, The Netherlands
-#$Id: autoconf,v 1.2 2003/03/14 11:04:12 zarzycki Exp $
+#$Id: autoconf,v 1.3 2003/10/14 23:14:48 rbraun Exp $
 
 # All possible entries in autoconf.h:
 
@@ -1123,6 +1123,7 @@ if test $NOstrerror = yes
 then
   cat >_autotst.c <<HERE
 #include "includes.h"
+extern int sys_nerr;extern char*sys_errlist[];
 int main(){
  return puts(sys_errlist[sys_nerr-1]);}
 HERE
@@ -1491,7 +1492,7 @@ do
 done
 
 echo "#define defPATH \"PATH=\$HOME/bin:$lpath\"" >>$ACONF
-echo "#define defSPATH \"SPATH=$lpath\"" >>$ACONF
+echo "#define defSPATH \"PATH=$lpath\"" >>$ACONF
 
 sed -n -e 's/^ v\([^ ]*\) .*$/#define PM_VERSION "\1"/p' \
  ../patchlevel.h >>$ACONF

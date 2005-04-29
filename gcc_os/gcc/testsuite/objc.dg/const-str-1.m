@@ -1,6 +1,13 @@
 /* Test errors for constant strings.  */
 /* { dg-do compile } */
-/* { dg-options "-fgnu-runtime" } */
+/* APPLE LOCAL constant cfstrings */
+/* { dg-options "-fno-constant-cfstrings -fgnu-runtime" } */
+
+/* APPLE LOCAL begin Objective-C++ */
+#ifdef __cplusplus
+extern void baz(...);
+#endif
+/* APPLE LOCAL end Objective-C++ */
 
 void foo()
 {

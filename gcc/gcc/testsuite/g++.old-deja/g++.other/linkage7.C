@@ -1,4 +1,4 @@
-// Build don't run:
+// { dg-do link  }
 // Origin: Mark Mitchell <mark@codesourcery.com>
 
 namespace N {
@@ -7,7 +7,7 @@ namespace N {
   void f () {
     i = 3;
   }
-};
+}
 
 int i;
 

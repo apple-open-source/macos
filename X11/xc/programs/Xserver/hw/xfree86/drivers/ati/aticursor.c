@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/aticursor.c,v 1.3 2003/01/01 19:16:31 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/aticursor.c,v 1.5 2004/01/05 16:42:01 tsi Exp $ */
 /*
- * Copyright 2001 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 2001 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -23,7 +23,7 @@
 
 #include "atiadapter.h"
 #include "aticursor.h"
-#include "atimach64.h"
+#include "atimach64cursor.h"
 #include "atistruct.h"
 
 #include "xf86.h"

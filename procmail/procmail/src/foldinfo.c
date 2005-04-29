@@ -8,7 +8,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: foldinfo.c,v 1.1.1.1 2001/07/20 19:38:16 bbraun Exp $";
+ "$Id: foldinfo.c,v 1.1.1.2 2003/10/14 23:13:23 rbraun Exp $";
 #endif
 #include "procmail.h"
 #include "misc.h"
@@ -101,7 +101,7 @@ static int mkmaildir(buffer,chp,paranoid)char*const buffer,*const chp;
  const int paranoid;
 { mode_t mode;int i;
   if(paranoid)
-     strncpy(buf2,buffer,i=chp-buffer+1),buf2[i-1]= *MCDIRSEP_,buf2[i]='\0';
+     memcpy(buf2,buffer,i=chp-buffer+1),buf2[i-1]= *MCDIRSEP_,buf2[i]='\0';
   return
    (strcpy(chp,maildirnew),mode=trymkdir(buffer,paranoid,i),S_ISDIR(mode))&&
    (strcpy(chp,maildircur),mode=trymkdir(buffer,paranoid,i),S_ISDIR(mode))&&
@@ -145,7 +145,7 @@ int foldertype(type,forcedir,modep,paranoid)int type,forcedir;
   if(type==ft_DIR&&!forcedir)		  /* we've already checked this case */
      goto done;
   if(paranoid)
-     strncpy(buf2,buf,i=lastdirsep(buf)-buf),buf2[i]='\0';
+     memcpy(buf2,buf,i=lastdirsep(buf)-buf),buf2[i]='\0';
   mode=trymkdir(buf,paranoid!=0,i);
   if(!S_ISDIR(mode)||(type==ft_MAILDIR&&
    (forcedir=1,!mkmaildir(buf,chp,paranoid!=0))))
@@ -250,7 +250,7 @@ keepgid:			   /* keep the gid from the parent directory */
 		 suspend();		 /* close eyes, and hope it improves */
 	      else			/* can't deliver to this contraption */
 	       { int i=lastdirsep(buf)-buf;
-		 strncpy(buf2,buf,i);buf2[i]='\0';
+		 memcpy(buf2,buf,i);buf2[i]='\0';
 		 if(rnmbogus(buf,&stbuf,i,1))
 		    goto fishy;
 		 goto nobox;
@@ -301,7 +301,7 @@ fishy:
      if(!isgrpwrite&&!lstat(defdeflock,&stbuf)&&stbuf.st_uid!=uid&&
       stbuf.st_uid!=ROOT_uid)
       { int i=lastdirsep(buf)-buf;
-	strncpy(buf2,buf,i);buf2[i]='\0';     /* try & rename bogus lockfile */
+	memcpy(buf2,buf,i);buf2[i]='\0';      /* try & rename bogus lockfile */
 	rnmbogus(defdeflock,&stbuf,i,0);		   /* out of the way */
       }
      *chp='\0';

@@ -3,7 +3,7 @@
 # xversion.sh: extract the timestamp from the $Id: string
 # in every source file and use the most recent as the CYRUS_CVSDATE
 #
-# $Id: xversion.sh,v 1.7 2003/10/22 18:03:00 rjs3 Exp $
+# $Id: xversion.sh,v 1.5 2005/03/05 00:37:08 dasenbro Exp $
 
 if [ "$AWK" = "" ]; then
     AWK=awk

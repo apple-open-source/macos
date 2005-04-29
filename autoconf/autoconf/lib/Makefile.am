@@ -35,11 +35,12 @@ edit = sed \
 	-e 's,@VERSION\@,$(VERSION),g' \
 	-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g'
 
-# All the files below depend on configure.ac so that they are rebuilt
-# when the Autoconf version changes. Unfortunately, suffix rules
+# All the files below depend on Makefile so that they are rebuilt
+# when the prefix, etc. changes. Unfortunately, suffix rules
 # cannot have additional dependencies, so we have to use explicit rules.
 CLEANFILES = autom4te.cfg
-autom4te.cfg: $(top_srcdir)/configure.ac $(srcdir)/autom4te.in
+autom4te.cfg: $(srcdir)/autom4te.in Makefile
 	rm -f autom4te.cfg autom4te.tmp
 	$(edit) $(srcdir)/autom4te.in >autom4te.tmp
+	chmod -w autom4te.tmp
 	mv autom4te.tmp autom4te.cfg

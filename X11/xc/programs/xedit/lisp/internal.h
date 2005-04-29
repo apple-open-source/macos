@@ -27,13 +27,13 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/internal.h,v 1.49 2002/12/11 04:44:27 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/internal.h,v 1.51 2003/05/27 22:27:03 tsi Exp $ */
 
 #ifndef Lisp_internal_h
 #define Lisp_internal_h
 
 #include <stdio.h>
-#include "lisp.h"
+#include "lisp/lisp.h"
 
 #include "mp.h"
 #include "re.h"
@@ -144,8 +144,9 @@ typedef struct _LispMac LispMac;
 		    STRFUN(builtin), STROBJ(object))
 
 #define XOBJECT_TYPE(object)	((object)->type)
-#define OBJECT_TYPE(object)						\
-    (POINTERP(object) ? XOBJECT_TYPE(object) : (long)(object) & BIT_MASK)
+#define OBJECT_TYPE(object)	(POINTERP(object) ?			\
+				XOBJECT_TYPE(object) :			\
+				(LispType)((long)(object) & BIT_MASK))
 
 
 #define NIL			(LispObj*)0x00000001
@@ -558,7 +559,7 @@ struct _LispObj {
 	struct {
 	    char *string;
 	    long length;
-	    int writable : 1;
+	    unsigned int writable : 1;
 	} string;
 	long integer;
 	double dfloat;
@@ -608,8 +609,8 @@ struct _LispObj {
 	    } source;
 	    LispObj *pathname;
 	    LispStreamType type : 6;
-	    int readable : 1;
-	    int writable : 1;
+	    unsigned int readable : 1;
+	    unsigned int writable : 1;
 	} stream;
 	struct {
 	    void *data;

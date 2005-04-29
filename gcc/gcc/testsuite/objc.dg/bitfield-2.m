@@ -2,9 +2,9 @@
    the NeXT runtime is used.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-fnext-runtime -fsigned-char" } */
-/* { dg-do run } */
+/* { dg-do run { target *-*-darwin* } } */
 
-struct objc_object { struct objc_class *class_pointer; } *id;
+typedef struct objc_object { struct objc_class *class_pointer; } *id;
 
 extern void abort(void);
 extern int strcmp(const char *, const char *);

@@ -32,7 +32,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/Convert.c,v 3.7 2001/12/14 19:56:09 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Convert.c,v 3.8 2003/04/21 16:34:26 herrb Exp $ */
 
 /*
 
@@ -171,7 +171,6 @@ typedef CachePtr CacheHashTable[CACHEHASHSIZE];
 
 static CacheHashTable	cacheHashTable;
 
-#if NeedFunctionPrototypes
 void _XtTableAddConverter(
     ConverterTable	table,
     XrmRepresentation   from_type,
@@ -183,19 +182,6 @@ void _XtTableAddConverter(
     XtCacheType		cache_type,
     XtDestructor	destructor,
     _XtBoolean		global)
-#else    			  
-void _XtTableAddConverter(table, from_type, to_type, converter, convert_args, 
-			  num_args, new_style, cache_type, destructor, global)
-    ConverterTable	table;
-    XrmRepresentation   from_type, to_type;
-    XtTypeConverter	converter;
-    XtConvertArgList    convert_args;
-    Cardinal		num_args;
-    Boolean		new_style;
-    XtCacheType		cache_type;
-    XtDestructor	destructor;
-    Boolean		global;
-#endif
 {
     register ConverterPtr	*pp;
     register ConverterPtr	p;
@@ -234,7 +220,6 @@ void _XtTableAddConverter(table, from_type, to_type, converter, convert_args,
     }
 }
 
-#if NeedFunctionPrototypes
 void XtSetTypeConverter(
     register _Xconst char* from_type,
     register _Xconst char* to_type,
@@ -244,15 +229,6 @@ void XtSetTypeConverter(
     XtCacheType		cache_type,
     XtDestructor	destructor
     )
-#else
-void XtSetTypeConverter(from_type, to_type, converter, convert_args, num_args, cache_type, destructor)
-    register String	from_type, to_type;
-    XtTypeConverter	converter;
-    XtConvertArgList    convert_args;
-    Cardinal		num_args;
-    XtCacheType		cache_type;
-    XtDestructor	destructor;
-#endif
 {
     ProcessContext process;
     XtAppContext app;
@@ -281,7 +257,6 @@ void XtSetTypeConverter(from_type, to_type, converter, convert_args, num_args, c
     UNLOCK_PROCESS;
 }
 
-#if NeedFunctionPrototypes
 void XtAppSetTypeConverter(
     XtAppContext	app,
     register _Xconst char* from_type,
@@ -292,16 +267,6 @@ void XtAppSetTypeConverter(
     XtCacheType		cache_type,
     XtDestructor	destructor
     )
-#else
-void XtAppSetTypeConverter(app, from_type, to_type, converter, convert_args, num_args, cache_type, destructor)
-    XtAppContext	app;
-    register String	from_type, to_type;
-    XtTypeConverter	converter;
-    XtConvertArgList    convert_args;
-    Cardinal		num_args;
-    XtCacheType		cache_type;
-    XtDestructor	destructor;
-#endif
 {
     LOCK_PROCESS;
     _XtTableAddConverter(app->converterTable,
@@ -313,7 +278,6 @@ void XtAppSetTypeConverter(app, from_type, to_type, converter, convert_args, num
 }
 
 /* old interface */
-#if NeedFunctionPrototypes
 void XtAddConverter(
     register _Xconst char* from_type,
     register _Xconst char* to_type,
@@ -321,13 +285,6 @@ void XtAddConverter(
     XtConvertArgList    convert_args,
     Cardinal		num_args
     )
-#else
-void XtAddConverter(from_type, to_type, converter, convert_args, num_args)
-    register String	from_type, to_type;
-    XtConverter		converter;
-    XtConvertArgList    convert_args;
-    Cardinal		num_args;
-#endif
 {
     ProcessContext process;
     XtAppContext app;
@@ -358,7 +315,6 @@ void XtAddConverter(from_type, to_type, converter, convert_args, num_args)
 }
 
 /* old interface */
-#if NeedFunctionPrototypes
 void XtAppAddConverter(
     XtAppContext	app,
     register _Xconst char* from_type,
@@ -367,14 +323,6 @@ void XtAppAddConverter(
     XtConvertArgList    convert_args,
     Cardinal		num_args
     )
-#else
-void XtAppAddConverter(app, from_type, to_type, converter, convert_args, num_args)
-    XtAppContext	app;
-    register String	from_type, to_type;
-    XtConverter		converter;
-    XtConvertArgList    convert_args;
-    Cardinal		num_args;
-#endif
 {
     LOCK_PROCESS;
     _XtTableAddConverter(app->converterTable,
@@ -992,7 +940,6 @@ Boolean _XtConvert(widget, from_type, from, to_type, to, cache_ref_return)
     return False;
 }
 
-#if NeedFunctionPrototypes
 void XtConvert(
     Widget	widget,
     _Xconst char* from_type_str,
@@ -1000,14 +947,6 @@ void XtConvert(
     _Xconst char* to_type_str,
     XrmValuePtr	to
     )
-#else
-void XtConvert(widget, from_type_str, from, to_type_str, to)
-    Widget	widget;
-    String	from_type_str;
-    XrmValuePtr	from;
-    String	to_type_str;
-    XrmValuePtr	to;
-#endif
 {
     XrmQuark    from_type, to_type;
     WIDGET_TO_APPCON(widget);
@@ -1036,7 +975,6 @@ void XtConvert(widget, from_type_str, from, to_type_str, to)
     UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 Boolean XtConvertAndStore(
     Widget	object,
     _Xconst char* from_type_str,
@@ -1044,14 +982,6 @@ Boolean XtConvertAndStore(
     _Xconst char* to_type_str,
     XrmValuePtr	to
     )
-#else
-Boolean XtConvertAndStore(object, from_type_str, from, to_type_str, to)
-    Widget	object;
-    String	from_type_str;
-    XrmValuePtr	from;
-    String	to_type_str;
-    XrmValuePtr	to;
-#endif
 {
     XrmQuark    from_type, to_type;
     WIDGET_TO_APPCON(object);

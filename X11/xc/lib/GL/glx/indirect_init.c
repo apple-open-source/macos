@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/indirect_init.c,v 1.7 2002/02/22 21:32:54 dawes Exp $ */
+/* $XFree86: xc/lib/GL/glx/indirect_init.c,v 1.10 2004/01/31 09:29:32 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.
@@ -45,18 +45,58 @@ static int NoOp(void)
     return 0;
 }
 
+/**
+ * \name Vertex array pointer bridge functions
+ *
+ * When EXT_vertex_array was moved into the core GL spec, the \c count
+ * parameter was lost.  This libGL really only wants to implement the GL 1.1
+ * version, but we need to support applications that were written to the old
+ * interface.  These bridge functions are part of the glue that makes this
+ * happen.
+ */
+/*@{*/
+static void ColorPointerEXT(GLint size, GLenum type, GLsizei stride,
+			    GLsizei count, const GLvoid * pointer )
+{
+    (void) count; __indirect_glColorPointer( size, type, stride, pointer );
+}
+
+static void EdgeFlagPointerEXT(GLsizei stride,
+			       GLsizei count, const GLboolean * pointer )
+{
+    (void) count; __indirect_glEdgeFlagPointer( stride, pointer );
+}
+
+static void IndexPointerEXT(GLenum type, GLsizei stride,
+			    GLsizei count, const GLvoid * pointer )
+{
+    (void) count; __indirect_glIndexPointer( type, stride, pointer );
+}
+
+static void NormalPointerEXT(GLenum type, GLsizei stride, GLsizei count,
+			     const GLvoid * pointer )
+{
+    (void) count; __indirect_glNormalPointer( type, stride, pointer );
+}
+
+static void TexCoordPointerEXT(GLint size, GLenum type, GLsizei stride,
+			       GLsizei count, const GLvoid * pointer )
+{
+    (void) count; __indirect_glTexCoordPointer( size, type, stride, pointer );
+}
+
+static void VertexPointerEXT(GLint size, GLenum type, GLsizei stride,
+			    GLsizei count, const GLvoid * pointer )
+{
+    (void) count; __indirect_glVertexPointer( size, type, stride, pointer );
+}
+/*@}*/
+
 
 __GLapi *__glXNewIndirectAPI(void)
 {
     __GLapi *glAPI;
     GLuint entries;
-
-    /* Have to register dynamic extensions before allocating any
-     * dispatch tables.
-     */
-#if defined(GLX_DIRECT_RENDERING)
-    __glXRegisterExtensions();
-#endif
 
     entries = _glapi_get_dispatch_table_size();
     glAPI = (__GLapi *) Xmalloc(entries * sizeof(void *));
@@ -451,6 +491,10 @@ __GLapi *__glXNewIndirectAPI(void)
     glAPI->ResetMinmax = __indirect_glResetMinmax;
     glAPI->SeparableFilter2D = __indirect_glSeparableFilter2D;
 
+    /* 1.4 */
+    glAPI->MultiDrawArraysEXT = __indirect_glMultiDrawArrays;
+    glAPI->MultiDrawElementsEXT = __indirect_glMultiDrawElements;
+
     /* ARB 1. GL_ARB_multitexture */
     glAPI->ActiveTextureARB = __indirect_glActiveTextureARB;
     glAPI->ClientActiveTextureARB = __indirect_glClientActiveTextureARB;
@@ -492,6 +536,80 @@ __GLapi *__glXNewIndirectAPI(void)
     glAPI->LoadTransposeMatrixfARB = __indirect_glLoadTransposeMatrixfARB;
     glAPI->MultTransposeMatrixdARB = __indirect_glMultTransposeMatrixdARB;
     glAPI->MultTransposeMatrixfARB = __indirect_glMultTransposeMatrixfARB;
+
+    /* ARB 5. GL_ARB_multisample */
+    glAPI->SampleCoverageARB = __indirect_glSampleCoverageARB;
+
+    /* ARB 14. GL_ARB_point_parameters */
+    glAPI->PointParameterfEXT = __indirect_glPointParameterfARB;
+    glAPI->PointParameterfvEXT = __indirect_glPointParameterfvARB;
+
+    /* ARB 15. GL_ARB_window_pos */
+    glAPI->WindowPos2dMESA = __indirect_glWindowPos2dARB;
+    glAPI->WindowPos2iMESA = __indirect_glWindowPos2iARB;
+    glAPI->WindowPos2fMESA = __indirect_glWindowPos2fARB;
+    glAPI->WindowPos2iMESA = __indirect_glWindowPos2iARB;
+    glAPI->WindowPos2sMESA = __indirect_glWindowPos2sARB;
+    glAPI->WindowPos2dvMESA = __indirect_glWindowPos2dvARB;
+    glAPI->WindowPos2fvMESA = __indirect_glWindowPos2fvARB;
+    glAPI->WindowPos2ivMESA = __indirect_glWindowPos2ivARB;
+    glAPI->WindowPos2svMESA = __indirect_glWindowPos2svARB;
+    glAPI->WindowPos3dMESA = __indirect_glWindowPos3dARB;
+    glAPI->WindowPos3fMESA = __indirect_glWindowPos3fARB;
+    glAPI->WindowPos3iMESA = __indirect_glWindowPos3iARB;
+    glAPI->WindowPos3sMESA = __indirect_glWindowPos3sARB;
+    glAPI->WindowPos3dvMESA = __indirect_glWindowPos3dvARB;
+    glAPI->WindowPos3fvMESA = __indirect_glWindowPos3fvARB;
+    glAPI->WindowPos3ivMESA = __indirect_glWindowPos3ivARB;
+    glAPI->WindowPos3svMESA = __indirect_glWindowPos3svARB;
+
+    /* 25. GL_SGIS_multisample */
+    glAPI->SampleMaskSGIS = __indirect_glSampleMaskSGIS;
+    glAPI->SamplePatternSGIS = __indirect_glSamplePatternSGIS;
+
+    /* 30. GL_EXT_vertex_array */
+    glAPI->ColorPointerEXT    = ColorPointerEXT;
+    glAPI->EdgeFlagPointerEXT = EdgeFlagPointerEXT;
+    glAPI->IndexPointerEXT    = IndexPointerEXT;
+    glAPI->NormalPointerEXT   = NormalPointerEXT;
+    glAPI->TexCoordPointerEXT = TexCoordPointerEXT;
+    glAPI->VertexPointerEXT   = VertexPointerEXT;
+
+    /* 145. GL_EXT_secondary_color / GL 1.4 */
+    glAPI->SecondaryColor3bEXT       = __indirect_glSecondaryColor3b;
+    glAPI->SecondaryColor3bvEXT      = __indirect_glSecondaryColor3bv;
+    glAPI->SecondaryColor3sEXT       = __indirect_glSecondaryColor3s;
+    glAPI->SecondaryColor3svEXT      = __indirect_glSecondaryColor3sv;
+    glAPI->SecondaryColor3iEXT       = __indirect_glSecondaryColor3i;
+    glAPI->SecondaryColor3ivEXT      = __indirect_glSecondaryColor3iv;
+    glAPI->SecondaryColor3ubEXT      = __indirect_glSecondaryColor3ub;
+    glAPI->SecondaryColor3ubvEXT     = __indirect_glSecondaryColor3ubv;
+    glAPI->SecondaryColor3usEXT      = __indirect_glSecondaryColor3us;
+    glAPI->SecondaryColor3usvEXT     = __indirect_glSecondaryColor3usv;
+    glAPI->SecondaryColor3uiEXT      = __indirect_glSecondaryColor3ui;
+    glAPI->SecondaryColor3uivEXT     = __indirect_glSecondaryColor3uiv;
+    glAPI->SecondaryColor3fEXT       = __indirect_glSecondaryColor3f;
+    glAPI->SecondaryColor3fvEXT      = __indirect_glSecondaryColor3fv;
+    glAPI->SecondaryColor3dEXT       = __indirect_glSecondaryColor3d;
+    glAPI->SecondaryColor3dvEXT      = __indirect_glSecondaryColor3dv;
+    glAPI->SecondaryColorPointerEXT  = __indirect_glSecondaryColorPointer;
+
+    /* 149. GL_EXT_fog_coord / GL 1.4 */
+    glAPI->FogCoordfEXT       = __indirect_glFogCoordf;
+    glAPI->FogCoordfvEXT      = __indirect_glFogCoordfv;
+    glAPI->FogCoorddEXT       = __indirect_glFogCoordd;
+    glAPI->FogCoorddvEXT      = __indirect_glFogCoorddv;
+    glAPI->FogCoordPointerEXT = __indirect_glFogCoordPointer;
+
+    /* 173. GL_EXT_blend_func_separate / GL 1.4 */
+    glAPI->BlendFuncSeparateEXT = __indirect_glBlendFuncSeparate;
+
+    /* 262. GL_NV_point_sprite / GL 1.4 */
+    glAPI->PointParameteriNV = __indirect_glPointParameteri;
+    glAPI->PointParameterivNV = __indirect_glPointParameteriv;
+
+    /* 268. GL_EXT_stencil_two_side */
+    glAPI->ActiveStencilFaceEXT = __indirect_glActiveStencilFaceEXT;
 
     return glAPI;
 }

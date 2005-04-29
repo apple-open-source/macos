@@ -7,13 +7,16 @@ moooooooo
 
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 FTP --disable-epsv
  </name>
  <command>
 ftp://%HOSTIP:%FTPPORT/path/to/file/127 --disable-epsv
 </command>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -21,10 +24,13 @@ ftp://%HOSTIP:%FTPPORT/path/to/file/127 --disable-epsv
 USER anonymous
 PASS curl_by_daniel@haxx.se
 PWD
-CWD path/to/file
+CWD path
+CWD to
+CWD file
 PASV
 TYPE I
 SIZE 127
 RETR 127
+QUIT
 </protocol>
 </verify>

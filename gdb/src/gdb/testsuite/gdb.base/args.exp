@@ -26,6 +26,20 @@ if $tracelevel then {
 
 global GDBFLAGS
 
+# Skip test if target does not support argument passing.
+if [target_info exists noargs] {
+    return;
+}
+
+# No loading needs to be done when the target is `exec'.  Some targets
+# require that the program be loaded, however.
+proc args_load {} {
+    global binfile
+    if [target_info exists is_simulator] {
+	gdb_load ${binfile}
+    }
+}
+
 set testfile "args"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
@@ -42,8 +56,9 @@ set GDBFLAGS "--args $binfile 1 3"
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
+args_load
 gdb_test "run" \
-	"Starting program.*args 1 3.*3\r\n.*args\r\n1\r\n3.*Program exited normally." \
+	"Starting program.*args(\\.exe)? 1 3.*3\r\n.*args\r\n1\r\n3.*Program exited normally." \
 	"correct args printed"
 
 #
@@ -53,8 +68,9 @@ set GDBFLAGS "--args $binfile 1 '' 3"
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
+args_load
 gdb_test "run" \
-	"Starting program.*args 1 \\\\'\\\\' 3.*4\r\n.*args\r\n1\r\n''\r\n3.*Program exited normally." \
+	"Starting program.*args(\\.exe)? 1 \\\\'\\\\' 3.*4\r\n.*args\r\n1\r\n''\r\n3.*Program exited normally." \
 	"correct args printed, one empty"
 
 #
@@ -64,8 +80,9 @@ set GDBFLAGS "--args $binfile 1 '' '' 3"
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
+args_load
 gdb_test "run" \
-	"Starting program.*args 1 \\\\'\\\\' \\\\'\\\\' 3.*5\r\n.*args\r\n1\r\n''\r\n''\r\n3.*Program exited normally." \
+	"Starting program.*args(\\.exe)? 1 \\\\'\\\\' \\\\'\\\\' 3.*5\r\n.*args\r\n1\r\n''\r\n''\r\n3.*Program exited normally." \
 	"correct args printed, two empty"
 
 set GDBFLAGS $old_gdbflags

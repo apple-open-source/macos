@@ -1,14 +1,6 @@
-/* $Id: jartool.h,v 1.3 2001/09/17 20:35:55 zlaski Exp $
+/* $Id: jartool.h,v 1.4 2000/08/24 15:23:35 cory Exp $
 
    $Log: jartool.h,v $
-   Revision 1.3  2001/09/17 20:35:55  zlaski
-   Resolve conflicts due to 2001-09-12 FSF import.
-
-   Revision 1.1  2000/12/09 03:08:23  apbianco
-   2000-12-08  Alexandre Petit-Bianco  <apbianco@cygnus.com>
-
-           * fastjar: Imported.
-
    Revision 1.4  2000/08/24 15:23:35  cory
    Set version number since I think we can let this one out.
 
@@ -60,6 +52,10 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#ifndef __FASTJAR_JARTOOL_H__
+#define __FASTJAR_JARTOOL_H__
+
+#include <sys/types.h>
 #include "config.h"
 
 #define ACTION_NONE 0
@@ -98,7 +94,7 @@ typedef u_int16_t ub2;
 typedef unsigned int ub4;
 #elif SIZEOF_LONG == 4
 typedef unsigned long ub4;
-#elif SIZEOF_LONG_LONG == 4
+#elif defined(HAVE_LONG_LONG) && SIZEOF_LONG_LONG == 4
 typedef unsigned long long ub4;
 #else
 typedef u_int32_t ub4;
@@ -112,9 +108,12 @@ struct zipentry {
   ub4 usize;
   ub4 offset;
   ub1 compressed;
+  ub2 flags;
   char *filename;
   
   struct zipentry *next_entry;
 };
 
 typedef struct zipentry zipentry;
+
+#endif /* __FASTJAR_JARTOOL_H__ */

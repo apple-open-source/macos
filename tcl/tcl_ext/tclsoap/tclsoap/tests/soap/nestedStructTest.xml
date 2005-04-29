@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<SOAP-ENV:Envelope SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/1999/XMLSchema" xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance">
+	<SOAP-ENV:Body>
+		<nestedStructTest>
+			<myStruct>
+				<year2000>
+					<month03>
+						<day10></day10>
+						<day11></day11>
+						<day12></day12>
+						<day13></day13>
+						<day14></day14>
+						<day15></day15>
+						<day16></day16>
+						<day17></day17>
+						<day18></day18>
+						<day19></day19>
+						<day20></day20>
+						<day21></day21>
+						<day22></day22>
+						<day23></day23>
+						<day24></day24>
+						<day25></day25>
+						<day26></day26>
+						<day27></day27>
+						<day28></day28>
+						<day29></day29>
+						<day30></day30>
+						<day31></day31>
+					</month03>
+					<month04>
+						<day01>
+						       <curly xsi:type="xsd:int">-82</curly>
+							<larry xsi:type="xsd:int">92</larry>
+							<moe xsi:type="xsd:int">73</moe>
+						</day01>
+						<day02></day02>
+						<day03></day03>
+						<day04></day04>
+						<day05></day05>
+						<day06></day06>
+						<day07></day07>
+						<day08></day08>
+						<day09></day09>
+						<day10></day10>
+						<day11></day11>
+						<day12></day12>
+						<day13></day13>
+						<day14></day14>
+						<day15></day15>
+						<day16></day16>
+						<day17></day17>
+						<day18></day18>
+						<day19></day19>
+						<day20></day20>
+						<day21></day21>
+						<day22></day22>
+						<day23></day23>
+					</month04>
+				</year2000>
+			</myStruct>
+		</nestedStructTest>
+	</SOAP-ENV:Body>
+</SOAP-ENV:Envelope>

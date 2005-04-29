@@ -32,10 +32,8 @@ if ![info exists TORTURE_OPTIONS] {
     # Also note that -finline-functions is explicitly included in one of the
     # items below, even though -O3 is also specified, because some ports may
     # choose to disable inlining functions by default, even when optimizing.
-    # APPLE LOCAL debugging
     set TORTURE_OPTIONS [list \
 	{ -O0 } \
-	{ -gfull } \
 	{ -O1 } \
 	{ -O2 } \
 	{ -O3 -fomit-frame-pointer } \

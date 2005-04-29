@@ -1,4 +1,4 @@
-/* $XFree86: xc/include/extensions/shape.h,v 1.3 2001/12/14 19:53:29 dawes Exp $ */
+/* $XFree86: xc/include/extensions/shape.h,v 1.4 2003/11/17 22:20:03 dawes Exp $ */
 /************************************************************
 
 Copyright 1989, 1998  The Open Group
@@ -76,23 +76,18 @@ typedef struct {
 _XFUNCPROTOBEGIN
 
 extern Bool XShapeQueryExtension (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     int*	/* event_base */,
     int*	/* error_base */
-#endif
 );
 
 extern Status XShapeQueryVersion (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     int*	/* major_version */,
     int*	/* minor_version */
-#endif
 );
 
 extern void XShapeCombineRegion (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     Window	/* dest */,
     int		/* dest_kind */,
@@ -100,11 +95,9 @@ extern void XShapeCombineRegion (
     int		/* y_off */,
     Region	/* region */,
     int		/* op */
-#endif
 );
 
 extern void XShapeCombineRectangles (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     Window	/* dest */,
     int		/* dest_kind */,
@@ -114,11 +107,9 @@ extern void XShapeCombineRectangles (
     int		/* n_rects */,
     int		/* op */,
     int		/* ordering */
-#endif
 );
 
 extern void XShapeCombineMask (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     Window	/* dest */,
     int		/* dest_kind */,
@@ -126,11 +117,9 @@ extern void XShapeCombineMask (
     int		/* y_off */,
     Pixmap	/* src */,
     int		/* op */
-#endif
 );
 
 extern void XShapeCombineShape (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     Window	/* dest */,
     int		/* dest_kind */,
@@ -139,21 +128,17 @@ extern void XShapeCombineShape (
     Window	/* src */,
     int		/* src_kind */,
     int		/* op */
-#endif
 );
 
 extern void XShapeOffsetShape (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     Window	/* dest */,
     int		/* dest_kind */,
     int		/* x_off */,
     int		/* y_off */
-#endif
 );
 
 extern Status XShapeQueryExtents (
-#if NeedFunctionPrototypes
     Display*		/* display */,
     Window		/* window */,
     Bool*		/* bounding_shaped */,
@@ -166,32 +151,25 @@ extern Status XShapeQueryExtents (
     int*		/* y_clip */,
     unsigned int*	/* w_clip */,
     unsigned int*	/* h_clip */
-#endif
 );
 
 extern void XShapeSelectInput (
-#if NeedFunctionPrototypes
     Display*		/* display */,
     Window		/* window */,
     unsigned long	/* mask */
-#endif
 );
 
 extern unsigned long XShapeInputSelected (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     Window	/* window */
-#endif
 );
 
 extern XRectangle *XShapeGetRectangles (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     Window	/* window */,
     int		/* kind */,
     int*	/* count */,
     int*	/* ordering */
-#endif
 );
 
 _XFUNCPROTOEND

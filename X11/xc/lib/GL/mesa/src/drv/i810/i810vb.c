@@ -22,14 +22,14 @@
  *
  *
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810vb.c,v 1.12 2002/10/30 12:51:34 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810vb.c,v 1.14 2003/09/28 20:15:12 alanh Exp $ */
+ 
 
 #include "glheader.h"
 #include "mtypes.h"
-#include "mem.h"
+#include "imports.h"
 #include "macros.h"
 #include "colormac.h"
-#include "mmath.h"
 
 #include "swrast_setup/swrast_setup.h"
 #include "tnl/t_context.h"
@@ -360,6 +360,9 @@ void i810CheckTexSizes( GLcontext *ctx )
 	 tnl->Driver.Render.Interp = setup_tab[imesa->SetupIndex].interp;
 	 tnl->Driver.Render.CopyPV = setup_tab[imesa->SetupIndex].copy_pv;
       }
+      if (imesa->Fallback) {
+         tnl->Driver.Render.Start(ctx);
+      }
    }
 }
 
@@ -380,24 +383,24 @@ void i810BuildVertices( GLcontext *ctx,
    if (!newinputs)
       return;
 
-   if (newinputs & VERT_CLIP) {
+   if (newinputs & VERT_BIT_CLIP) {
       setup_tab[imesa->SetupIndex].emit( ctx, start, count, v, stride );
    } else {
       GLuint ind = 0;
 
-      if (newinputs & VERT_RGBA)
+      if (newinputs & VERT_BIT_COLOR0)
 	 ind |= I810_RGBA_BIT;
 
-      if (newinputs & VERT_SPEC_RGB)
+      if (newinputs & VERT_BIT_COLOR1)
 	 ind |= I810_SPEC_BIT;
 
-      if (newinputs & VERT_TEX0)
+      if (newinputs & VERT_BIT_TEX0)
 	 ind |= I810_TEX0_BIT;
 
-      if (newinputs & VERT_TEX1)
+      if (newinputs & VERT_BIT_TEX1)
 	 ind |= I810_TEX1_BIT;
 
-      if (newinputs & VERT_FOG_COORD)
+      if (newinputs & VERT_BIT_FOG)
 	 ind |= I810_FOG_BIT;
 
       if (imesa->SetupIndex & I810_PTEX_BIT)
@@ -423,12 +426,17 @@ void i810ChooseVertexState( GLcontext *ctx )
    if (ctx->Fog.Enabled)
       ind |= I810_FOG_BIT;
 
-   if (ctx->Texture._ReallyEnabled & TEXTURE1_ANY)
+   if (ctx->Texture._EnabledUnits & 0x2)
+      /* unit 1 enabled */
       ind |= I810_TEX1_BIT|I810_TEX0_BIT;
-   else if (ctx->Texture._ReallyEnabled & TEXTURE0_ANY)
+   else if (ctx->Texture._EnabledUnits & 0x1)
+      /* unit 0 enabled */
       ind |= I810_TEX0_BIT;
 
    imesa->SetupIndex = ind;
+
+   if (I810_DEBUG & (DEBUG_VERTS|DEBUG_STATE))
+      i810PrintSetupFlags( __FUNCTION__, ind );
 
    if (ctx->_TriangleCaps & (DD_TRI_LIGHT_TWOSIDE|DD_TRI_UNFILLED)) {
       tnl->Driver.Render.Interp = i810_interp_extras;
@@ -465,7 +473,7 @@ void i810InitVB( GLcontext *ctx )
    i810ContextPtr imesa = I810_CONTEXT(ctx);
    GLuint size = TNL_CONTEXT(ctx)->vb.Size;
 
-   imesa->verts = (char *)ALIGN_MALLOC(size * 4 * 16, 32);
+   imesa->verts = (GLubyte *)ALIGN_MALLOC(size * 4 * 16, 32);
 
    {
       static int firsttime = 1;

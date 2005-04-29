@@ -1,0 +1,281 @@
+<refentry id="glib-Caches">
+<refmeta>
+<refentrytitle>Caches</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Caches</refname><refpurpose>caches allow sharing of complex data structures to save resources.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+struct      <link linkend="GCache">GCache</link>;
+<link linkend="GCache">GCache</link>*     <link linkend="g-cache-new">g_cache_new</link>                     (<link linkend="GCacheNewFunc">GCacheNewFunc</link> value_new_func,
+                                             <link linkend="GCacheDestroyFunc">GCacheDestroyFunc</link> value_destroy_func,
+                                             <link linkend="GCacheDupFunc">GCacheDupFunc</link> key_dup_func,
+                                             <link linkend="GCacheDestroyFunc">GCacheDestroyFunc</link> key_destroy_func,
+                                             <link linkend="GHashFunc">GHashFunc</link> hash_key_func,
+                                             <link linkend="GHashFunc">GHashFunc</link> hash_value_func,
+                                             <link linkend="GEqualFunc">GEqualFunc</link> key_equal_func);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-cache-insert">g_cache_insert</link>                  (<link linkend="GCache">GCache</link> *cache,
+                                             <link linkend="gpointer">gpointer</link> key);
+<link linkend="void">void</link>        <link linkend="g-cache-remove">g_cache_remove</link>                  (<link linkend="GCache">GCache</link> *cache,
+                                             <link linkend="gconstpointer">gconstpointer</link> value);
+<link linkend="void">void</link>        <link linkend="g-cache-destroy">g_cache_destroy</link>                 (<link linkend="GCache">GCache</link> *cache);
+
+<link linkend="void">void</link>        <link linkend="g-cache-key-foreach">g_cache_key_foreach</link>             (<link linkend="GCache">GCache</link> *cache,
+                                             <link linkend="GHFunc">GHFunc</link> func,
+                                             <link linkend="gpointer">gpointer</link> user_data);
+<link linkend="void">void</link>        <link linkend="g-cache-value-foreach">g_cache_value_foreach</link>           (<link linkend="GCache">GCache</link> *cache,
+                                             <link linkend="GHFunc">GHFunc</link> func,
+                                             <link linkend="gpointer">gpointer</link> user_data);
+
+<link linkend="void">void</link>        (<link linkend="GCacheDestroyFunc">*GCacheDestroyFunc</link>)            (<link linkend="gpointer">gpointer</link> value);
+<link linkend="gpointer">gpointer</link>    (<link linkend="GCacheDupFunc">*GCacheDupFunc</link>)                (<link linkend="gpointer">gpointer</link> value);
+<link linkend="gpointer">gpointer</link>    (<link linkend="GCacheNewFunc">*GCacheNewFunc</link>)                (<link linkend="gpointer">gpointer</link> key);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+A <link linkend="GCache"><type>GCache</type></link> allows sharing of complex data structures, in order to save
+system resources.
+</para>
+<para>
+GTK+ uses caches for <link linkend="GtkStyles"><type>GtkStyles</type></link> and <link linkend="GdkGCs"><type>GdkGCs</type></link>. These consume a lot of
+resources, so a <link linkend="GCache"><type>GCache</type></link> is used to see if a <link linkend="GtkStyle"><type>GtkStyle</type></link> or <link linkend="GdkGC"><type>GdkGC</type></link> with the
+required properties already exists. If it does, then the existing
+object is used instead of creating a new one.
+</para>
+<para>
+<link linkend="GCache"><type>GCache</type></link> uses keys and values.
+A <link linkend="GCache"><type>GCache</type></link> key describes the properties of a particular resource.
+A <link linkend="GCache"><type>GCache</type></link> value is the actual resource.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GCache"/>struct GCache</title>
+<indexterm><primary>GCache</primary></indexterm><programlisting>struct GCache;</programlisting>
+<para>
+The <link linkend="GCache"><type>GCache</type></link> struct is an opaque data structure containing information about
+a <link linkend="GCache"><type>GCache</type></link>. It should only be accessed via the following functions.
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-cache-new"/>g_cache_new ()</title>
+<indexterm><primary>g_cache_new</primary></indexterm><programlisting><link linkend="GCache">GCache</link>*     g_cache_new                     (<link linkend="GCacheNewFunc">GCacheNewFunc</link> value_new_func,
+                                             <link linkend="GCacheDestroyFunc">GCacheDestroyFunc</link> value_destroy_func,
+                                             <link linkend="GCacheDupFunc">GCacheDupFunc</link> key_dup_func,
+                                             <link linkend="GCacheDestroyFunc">GCacheDestroyFunc</link> key_destroy_func,
+                                             <link linkend="GHashFunc">GHashFunc</link> hash_key_func,
+                                             <link linkend="GHashFunc">GHashFunc</link> hash_value_func,
+                                             <link linkend="GEqualFunc">GEqualFunc</link> key_equal_func);</programlisting>
+<para>
+Creates a new <link linkend="GCache"><type>GCache</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>value_new_func</parameter>&nbsp;:</term>
+<listitem><simpara>a function to create a new object given a key.
+This is called by <link linkend="g-cache-insert"><function>g_cache_insert()</function></link> if an object with the given key
+does not already exist.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value_destroy_func</parameter>&nbsp;:</term>
+<listitem><simpara>a function to destroy an object. It is
+called by <link linkend="g-cache-remove"><function>g_cache_remove()</function></link> when the object is no longer needed (i.e. its
+reference count drops to 0).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>key_dup_func</parameter>&nbsp;:</term>
+<listitem><simpara>a function to copy a key. It is called by
+<link linkend="g-cache-insert"><function>g_cache_insert()</function></link> if the key does not already exist in the <link linkend="GCache"><type>GCache</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>key_destroy_func</parameter>&nbsp;:</term>
+<listitem><simpara>a function to destroy a key. It is
+called by <link linkend="g-cache-remove"><function>g_cache_remove()</function></link> when the object is no longer needed (i.e. its
+reference count drops to 0).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>hash_key_func</parameter>&nbsp;:</term>
+<listitem><simpara>a function to create a hash value from a key.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>hash_value_func</parameter>&nbsp;:</term>
+<listitem><simpara>a function to create a hash value from a value.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>key_equal_func</parameter>&nbsp;:</term>
+<listitem><simpara>a function to compare two keys. It should return <literal>TRUE</literal> if
+the two keys are equivalent.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a new <link linkend="GCache"><type>GCache</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-cache-insert"/>g_cache_insert ()</title>
+<indexterm><primary>g_cache_insert</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_cache_insert                  (<link linkend="GCache">GCache</link> *cache,
+                                             <link linkend="gpointer">gpointer</link> key);</programlisting>
+<para>
+Gets the value corresponding to the given key, creating it if necessary.
+It first checks if the value already exists in the <link linkend="GCache"><type>GCache</type></link>, by using
+the <parameter>key_equal_func</parameter> function passed to <link linkend="g-cache-new"><function>g_cache_new()</function></link>.
+If it does already exist it is returned, and its reference count is increased
+by one.
+If the value does not currently exist, if is created by calling the
+<parameter>value_new_func</parameter>. The key is duplicated by calling
+<parameter>key_dup_func</parameter> and the duplicated key and value are inserted
+into the <link linkend="GCache"><type>GCache</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>cache</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GCache"><type>GCache</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>key</parameter>&nbsp;:</term>
+<listitem><simpara>a key describing a <link linkend="GCache"><type>GCache</type></link> object.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a pointer to a <link linkend="GCache"><type>GCache</type></link> value.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-cache-remove"/>g_cache_remove ()</title>
+<indexterm><primary>g_cache_remove</primary></indexterm><programlisting><link linkend="void">void</link>        g_cache_remove                  (<link linkend="GCache">GCache</link> *cache,
+                                             <link linkend="gconstpointer">gconstpointer</link> value);</programlisting>
+<para>
+Decreases the reference count of the given value.
+If it drops to 0 then the value and its corresponding key are destroyed,
+using the <parameter>value_destroy_func</parameter> and <parameter>key_destroy_func</parameter> passed to <link linkend="g-cache-new"><function>g_cache_new()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>cache</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GCache"><type>GCache</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara>the value to remove.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-cache-destroy"/>g_cache_destroy ()</title>
+<indexterm><primary>g_cache_destroy</primary></indexterm><programlisting><link linkend="void">void</link>        g_cache_destroy                 (<link linkend="GCache">GCache</link> *cache);</programlisting>
+<para>
+Frees the memory allocated for the <link linkend="GCache"><type>GCache</type></link>.
+</para>
+<para>
+Note that it does not destroy the keys and values which were contained in the
+<link linkend="GCache"><type>GCache</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>cache</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GCache"><type>GCache</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-cache-key-foreach"/>g_cache_key_foreach ()</title>
+<indexterm><primary>g_cache_key_foreach</primary></indexterm><programlisting><link linkend="void">void</link>        g_cache_key_foreach             (<link linkend="GCache">GCache</link> *cache,
+                                             <link linkend="GHFunc">GHFunc</link> func,
+                                             <link linkend="gpointer">gpointer</link> user_data);</programlisting>
+<para>
+Calls the given function for each of the keys in the <link linkend="GCache"><type>GCache</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>cache</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GCache"><type>GCache</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>the function to call with each <link linkend="GCache"><type>GCache</type></link> key.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data</parameter>&nbsp;:</term>
+<listitem><simpara>user data to pass to the function.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-cache-value-foreach"/>g_cache_value_foreach ()</title>
+<indexterm><primary>g_cache_value_foreach</primary></indexterm><programlisting><link linkend="void">void</link>        g_cache_value_foreach           (<link linkend="GCache">GCache</link> *cache,
+                                             <link linkend="GHFunc">GHFunc</link> func,
+                                             <link linkend="gpointer">gpointer</link> user_data);</programlisting>
+<para>
+Calls the given function for each of the values in the <link linkend="GCache"><type>GCache</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>cache</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GCache"><type>GCache</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>the function to call with each <link linkend="GCache"><type>GCache</type></link> value.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data</parameter>&nbsp;:</term>
+<listitem><simpara>user data to pass to the function.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GCacheDestroyFunc"/>GCacheDestroyFunc ()</title>
+<indexterm><primary>GCacheDestroyFunc</primary></indexterm><programlisting><link linkend="void">void</link>        (*GCacheDestroyFunc)            (<link linkend="gpointer">gpointer</link> value);</programlisting>
+<para>
+Specifies the type of the <parameter>value_destroy_func</parameter> and <parameter>key_destroy_func</parameter> functions
+passed to <link linkend="g-cache-new"><function>g_cache_new()</function></link>.
+The functions are passed a pointer to the <link linkend="GCache"><type>GCache</type></link> key or <link linkend="GCache"><type>GCache</type></link> value and
+should free any memory and other resources associated with it.
+</para><variablelist role="params">
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GCache"><type>GCache</type></link> value to destroy.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GCacheDupFunc"/>GCacheDupFunc ()</title>
+<indexterm><primary>GCacheDupFunc</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    (*GCacheDupFunc)                (<link linkend="gpointer">gpointer</link> value);</programlisting>
+<para>
+Specifies the type of the <parameter>key_dup_func</parameter> function passed to <link linkend="g-cache-new"><function>g_cache_new()</function></link>.
+The function is passed a key (<emphasis>not</emphasis> a value as the prototype implies) and
+should return a duplicate of the key.
+</para><variablelist role="params">
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GCache"><type>GCache</type></link> key to destroy (<emphasis>not</emphasis> a <link linkend="GCache"><type>GCache</type></link> value as it seems).
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a copy of the <link linkend="GCache"><type>GCache</type></link> key.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GCacheNewFunc"/>GCacheNewFunc ()</title>
+<indexterm><primary>GCacheNewFunc</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    (*GCacheNewFunc)                (<link linkend="gpointer">gpointer</link> key);</programlisting>
+<para>
+Specifies the type of the <parameter>value_new_func</parameter> function passed to <link linkend="g-cache-new"><function>g_cache_new()</function></link>.
+It is passed a <link linkend="GCache"><type>GCache</type></link> key and should create the value corresponding to the
+key.
+</para><variablelist role="params">
+<varlistentry><term><parameter>key</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GCache"><type>GCache</type></link> key.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a new <link linkend="GCache"><type>GCache</type></link> value corresponding to the key.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

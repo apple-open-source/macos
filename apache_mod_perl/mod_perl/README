@@ -61,38 +61,45 @@ mod_include gives an extra speed boost and allows Perl code to be
 directly inside SSI files. 
 
 For comments, questions, bug-reports, etc., join the Apache/Perl
-mailing list by sending mail to modperl-subscribe@apache.org.
+mailing list by sending mail to modperl-subscribe@perl.apache.org.
 sending mail to announce-subscribe@perl.apache.org
 will subscribe you to the very low-traffic announcements list.
 
 Here is an important list of links to follow:
 
-Ken Williams' Epigone mail list archive:
-http://forum.swarthmore.edu/epigone/modperl
-
-Frank Cringle's mod_perl FAQ:
-http://perl.apache.org/faq/
-
-Stas Bekman's "mod_perl Developer's Mini Guide":
-http://perl.apache.org/guide/
-
-Lincoln Stein and Doug MacEachern's book
- "Writing Apache Modules with Perl and C":
-http://www.modperl.com/
-
-Andrew Ford's mod_perl quick reference card:
-http://www.refcards.com/
-
-Vivek Khera's mod_perl performance tuning guide:
-http://perl.apache.org/tuning/ 
-
-The Apache/Perl module list:
-http://www.perl.com/CPAN/modules/by-module/Apache/apache-modlist.html
-
 The Apache/Perl homepage:
 http://perl.apache.org/ 
  or
 http://apache.perl.org/
+
+Mailing list archives:
+http://perl.apache.org/maillist/modperl.html#Searchable_Archives
+
+Documentation:
+http://perl.apache.org/docs/index.html
+
+Books:
+
+  "Practical mod_perl"
+  By Stas Bekman and Eric Cholet
+  http://www.modperlbook.org/
+
+  "The mod_perl Developer's Cookbook"
+  By Geoffrey Young; Paul Lindner; Randy Kobes
+  http://www.modperlcookbook.org/
+
+  "mod_perl quick reference card"
+  By Andrew Ford
+  http://www.refcards.com/
+
+  "Writing Apache Modules with Perl and C":
+  By Lincoln Stein and Doug MacEachern
+  http://www.modperl.com/
+
+The Apache/Perl module list:
+http://perl.apache.org/products/apache-modules.html
+
+
 
 Enjoy,
 -Doug MacEachern (dougm@perl.apache.org)

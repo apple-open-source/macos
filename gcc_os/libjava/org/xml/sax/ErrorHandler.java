@@ -1,6 +1,7 @@
 // SAX error handler.
+// http://www.saxproject.org
 // No warranty; no copyright -- use this as you will.
-// $Id: ErrorHandler.java,v 1.3 2001/09/17 20:38:08 zlaski Exp $
+// $Id: ErrorHandler.java,v 1.1.1.2 2003/01/21 21:21:11 gkeating Exp $
 
 package org.xml.sax;
 
@@ -11,6 +12,8 @@ package org.xml.sax;
  * <blockquote>
  * <em>This module, both source code and documentation, is in the
  * Public Domain, and comes with <strong>NO WARRANTY</strong>.</em>
+ * See <a href='http://www.saxproject.org'>http://www.saxproject.org</a>
+ * for further information.
  * </blockquote>
  *
  * <p>If a SAX application needs to implement customized error
@@ -33,10 +36,9 @@ package org.xml.sax;
  * could catch an exception and report a fatalError).</p>
  *
  * @since SAX 1.0
- * @author David Megginson, 
- *         <a href="mailto:sax@megginson.com">sax@megginson.com</a>
- * @version 2.0
- * @see org.xml.sax.Parser#setErrorHandler
+ * @author David Megginson
+ * @version 2.0.1 (sax2r2)
+ * @see org.xml.sax.XMLReader#setErrorHandler
  * @see org.xml.sax.SAXParseException 
  */
 public interface ErrorHandler {

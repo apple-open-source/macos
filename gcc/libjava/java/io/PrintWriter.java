@@ -37,29 +37,27 @@ exception statement from your version. */
 
 package java.io;
 
-/**
-  * This class prints Java primitive values and objects to a stream as
-  * text.  None of the methods in this class throw an exception.  However,
-  * errors can be detected by calling the <code>checkError()</code> method.
-  * Additionally, this stream can be designated as "autoflush" when 
-  * created so that any writes are automatically flushed to the underlying
-  * output sink whenever one of the <code>println</code> methods is
-  * called.  (Note that this differs from the <code>PrintStream</code>
-  * class which also auto-flushes when it encounters a newline character
-  * in the chars written).
-  *
-  * @version 0.0
-  *
-  * @author Per Bothner <bothner@cygnus.com>
-  * @author Aaron M. Renn (arenn@urbanophile.com)
-  * @date April 17, 1998.  
-  */
 /* Written using "Java Class Libraries", 2nd edition, plus online
  * API docs for JDK 1.2 beta from http://www.javasoft.com.
  * Status:  Believed complete and correct.
  * However, should use native methods for conversion.
  */
 
+/**
+ * This class prints Java primitive values and objects to a stream as
+ * text.  None of the methods in this class throw an exception.  However,
+ * errors can be detected by calling the <code>checkError()</code> method.
+ * Additionally, this stream can be designated as "autoflush" when 
+ * created so that any writes are automatically flushed to the underlying
+ * output sink whenever one of the <code>println</code> methods is
+ * called.  (Note that this differs from the <code>PrintStream</code>
+ * class which also auto-flushes when it encounters a newline character
+ * in the chars written).
+ *
+ * @author Per Bothner <bothner@cygnus.com>
+ * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @date April 17, 1998.  
+ */
 public class PrintWriter extends Writer
 {
   /**
@@ -88,7 +86,7 @@ public class PrintWriter extends Writer
    */
   public PrintWriter(Writer wr)
   {
-    super(wr);
+    super(wr.lock);
     this.out = wr;
   }
 
@@ -99,11 +97,12 @@ public class PrintWriter extends Writer
    * every line is terminated or newline character is written.
    *
    * @param wr The <code>Writer</code> to write to.
-   * @param autoflush <code>true</code> to flush the stream after every line, <code>false</code> otherwise
+   * @param autoflush <code>true</code> to flush the stream after every 
+   * line, <code>false</code> otherwise
    */
   public PrintWriter(Writer wr, boolean autoflush)
   {
-    super(wr);
+    super(wr.lock);
     this.out = wr;
     this.autoflush = autoflush;
   }
@@ -130,7 +129,8 @@ public class PrintWriter extends Writer
    * constructor allows auto-flush functionality to be enabled if desired
    *
    * @param out The <code>OutputStream</code> to write to
-   * @param autoflush <code>true</code> to flush the stream after every <code>println</code> call, <code>false</code> otherwise.
+   * @param autoflush <code>true</code> to flush the stream after every 
+   * <code>println</code> call, <code>false</code> otherwise.
    */
   public PrintWriter(OutputStream out, boolean autoflush)
   {
@@ -153,7 +153,8 @@ public class PrintWriter extends Writer
    * <code>true</code> forever for this stream.  Before checking for an
    * error condition, this method flushes the stream.
    *
-   * @return <code>true</code> if an error has occurred, <code>false</code> otherwise
+   * @return <code>true</code> if an error has occurred, 
+   * <code>false</code> otherwise
    */
   public boolean checkError()
   {
@@ -309,7 +310,7 @@ public class PrintWriter extends Writer
    * This is the system dependent line separator
    */
   private static final char[] line_separator
-  = System.getProperty("line.separator").toCharArray();
+    = System.getProperty("line.separator").toCharArray();
 
   /**
    * This method prints a line separator sequence to the stream.  The value
@@ -567,3 +568,4 @@ public class PrintWriter extends Writer
     write(str, 0, str.length());
   }  
 }
+

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgacontext.h,v 1.7 2002/12/16 16:18:52 dawes Exp $*/
+/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgacontext.h,v 1.12 2004/01/23 19:09:31 dawes Exp $*/
 /*
  * Copyright 2000-2001 VA Linux Systems, Inc.
  * All Rights Reserved.
@@ -29,14 +29,13 @@
 #ifndef MGALIB_INC
 #define MGALIB_INC
 
-#include <X11/Xlibint.h>
 #include "dri_util.h"
 #include "mtypes.h"
 #include "xf86drm.h"
 #include "mm.h"
-#include "mem.h"
 #include "mga_sarea.h"
-
+#include "texmem.h"
+#include "macros.h"
 
 #define MGA_SET_FIELD(reg,mask,val)  reg = ((reg) & (mask)) | ((val) & ~(mask))
 #define MGA_FIELD(field,val) (((val) << (field ## _SHIFT)) & ~(field ## _MASK))
@@ -55,22 +54,12 @@
 #define MGA_FALLBACK_TEXTURE        0x1
 #define MGA_FALLBACK_DRAW_BUFFER    0x2
 #define MGA_FALLBACK_READ_BUFFER    0x4
-#define MGA_FALLBACK_LOGICOP        0x8
+#define MGA_FALLBACK_BLEND          0x8
 #define MGA_FALLBACK_RENDERMODE     0x10
 #define MGA_FALLBACK_STENCIL        0x20
 #define MGA_FALLBACK_DEPTH          0x40
+#define MGA_FALLBACK_BORDER_MODE    0x80
 
-
-/* For mgaCtx->new_state.
- */
-#define MGA_NEW_DEPTH   0x1
-#define MGA_NEW_ALPHA   0x2
-#define MGA_NEW_CLIP    0x8
-#define MGA_NEW_TEXTURE 0x20
-#define MGA_NEW_CULL    0x40
-#define MGA_NEW_WARP    0x80
-#define MGA_NEW_STENCIL 0x100
-#define MGA_NEW_CONTEXT 0x200
 
 /* Use the templated vertex formats:
  */
@@ -88,51 +77,119 @@ typedef void (*mga_point_func)( mgaContextPtr, mgaVertex * );
 
 
 
-/* Reasons why the GL_BLEND fallback mightn't work:
+/* Texture environment color
  */
-#define MGA_BLEND_ENV_COLOR 0x1
-#define MGA_BLEND_MULTITEX  0x2
+#define RGB_ZERO(c)   (((c) & 0xffffff) == 0x000000)
+#define RGB_ONE(c)    (((c) & 0xffffff) == 0xffffff)
+#define ALPHA_ZERO(c) (((c) >> 24) == 0x00)
+#define ALPHA_ONE(c)  (((c) >> 24) == 0xff)
+#define RGBA_EQUAL(c) ((c) == PACK_COLOR_8888( (c) & 0xff, (c) & 0xff, \
+                                               (c) & 0xff, (c) & 0xff ))
 
 struct mga_texture_object_s;
 struct mga_screen_private_s;
 
-#define MGA_TEX_MAXLEVELS 5
+#define G200_TEX_MAXLEVELS 5
+#define G400_TEX_MAXLEVELS 11
 
 typedef struct mga_texture_object_s
 {
-   struct mga_texture_object_s *next;
-   struct mga_texture_object_s *prev;
-   struct gl_texture_object *tObj;
-   struct mga_context_t *ctx;
-   PMemBlock	MemBlock;
-   GLuint		offsets[MGA_TEX_MAXLEVELS];
-   int             lastLevel;
-   GLuint         dirty_images;
-   GLuint		totalSize;
-   int		texelBytes;
-   GLuint 	age;
-   int             bound;
-   int             heap;	/* agp or card */
+   driTextureObject   base;
+
+   /* The G200 only has the ability to use 5 mipmap levels (including the
+    * base level).  The G400 does not have this restriction, but it still
+    * only has 5 offset pointers in the hardware.  The trick on the G400 is
+    * upto the first 4 offset pointers point to mipmap levels.  The last
+    * offset pointer tells how large the preceeding mipmap is.  This value is
+    * then used to determine where the remaining mipmaps are.
+    * 
+    * For example, if the first offsets[0] through offsets[2] are used as
+    * pointers, then offset[3] will be the size of the mipmap pointed to by
+    * offsets[2].  So mipmap level 3 will be at (offsets[2]+offsets[3]).  For
+    * each successive mipmap level, offsets[3] is divided by 4 and added to
+    * the previous address.  So mipmap level 4 will be at 
+    * (offsets[2]+offsets[3]+(offsets[3] / 4)).
+    * 
+    * The last pointer is selected by setting TO_texorgoffsetsel in its
+    * pointer.  In the previous example, offset[2] would have
+    * TO_texorgoffsetsel or'ed in before writing it to the hardware.
+    * 
+    * In the current driver all of the mipmaps are packed together linearly
+    * with mipmap level 0.  Therefore offsets[0] points to the base of the
+    * texture (and has TO_texorgoffsetsel or'ed in), and offsets[1] is the
+    * size of the base texture.
+    *
+    * There is a possible optimization available here.  At times the driver
+    * may not be able to allocate a single block of memory for the complete
+    * texture without ejecting some other textures from memory.  It may be
+    * possible to put some of the lower mipmap levels (i.e., the larger
+    * mipmaps) in memory separate from the higher levels.
+    *
+    * The implementation should be fairly obvious, but getting "right" would
+    * likely be non-trivial.  A first allocation for the entire texture would
+    * be attempted with a flag that says "don't eject other textures."  If
+    * that failed, an additional allocation would be attmpted for just the
+    * base map.  The process would repeat with the block of lower maps.  The
+    * tricky parts would be in detecting when some of the levels had been
+    * ejected from texture memory by other textures and preventing the
+    * 4th allocation (for all the smallest mipmap levels) from kicking out
+    * any of the first three.
+    * 
+    * This array holds G400_TEX_MAXLEVELS pointers to remove an if-statement
+    * in a loop in mgaSetTexImages.  Values past G200_TEX_MAXLEVELS are not
+    * used.
+    */
+   GLuint             offsets[G400_TEX_MAXLEVELS];
+
+   int                texelBytes;
+   GLuint             age;
 
    mga_texture_regs_t setup;
+
+   /* If one texture dimension wraps with GL_CLAMP and the other with
+    * GL_CLAMP_TO_EDGE, we have to fallback to software.  We would also have
+    * to fallback for GL_CLAMP_TO_BORDER.
+    */
+   GLboolean          border_fallback;
+   /* Depending on multitxturing and environment color
+    * GL_BLEND may have to be a software fallback.
+    */
+   GLboolean texenv_fallback;
 } mgaTextureObject_t;
+
+struct mga_hw_state {
+   GLuint   specen;
+   GLuint   cull;
+   GLuint   cull_dualtex;
+   GLuint   stencil;
+   GLuint   stencilctl;
+   GLuint   stencil_enable;
+   GLuint   zmode;
+   GLuint   rop;
+   GLuint   alpha_func;
+   GLuint   alpha_func_enable;
+   GLuint   blend_func;
+   GLuint   blend_func_enable;
+   GLuint   alpha_sel;
+};
 
 struct mga_context_t {
 
    GLcontext *glCtx;
-   unsigned int lastStamp;	/* fullscreen breaks dpriv->laststamp,
-				 * need to shadow it here. */
+   unsigned int lastStamp;		/* fullscreen breaks dpriv->laststamp,
+					 * need to shadow it here. */
+
+   /* Hardware state management
+    */
+   struct mga_hw_state hw;
 
    /* Bookkeeping for texturing
     */
-   int lastTexHeap;
-   struct mga_texture_object_s TexObjList[MGA_NR_TEX_HEAPS];
-   struct mga_texture_object_s SwappedOut;
+   unsigned           nr_heaps;
+   driTexHeap       * texture_heaps[ MGA_NR_TEX_HEAPS ];
+   driTextureObject   swapped;
+
    struct mga_texture_object_s *CurrentTexObj[2];
-   memHeap_t *texHeap[MGA_NR_TEX_HEAPS];
-   int c_texupload;
-   int c_texusage;
-   int tex_thrash;
 
 
    /* Map GL texture units onto hardware.
@@ -151,10 +208,11 @@ struct mga_context_t {
    struct gl_client_array UbyteColor;
    struct gl_client_array UbyteSecondaryColor;
 
-   /* Support for limited GL_BLEND fallback
+   /* Texture environment color.
     */
-   unsigned int blend_flags;
-   unsigned int envcolor;
+   unsigned int envcolor[2];
+   GLboolean fcol_used;
+   GLboolean force_dualtex;
 
    /* Rasterization state 
     */
@@ -166,7 +224,7 @@ struct mga_context_t {
    GLenum raster_primitive;
    GLenum render_primitive;
 
-   char *verts;
+   GLubyte *verts;
    GLint vertex_stride_shift;
    GLuint vertex_format;		
    GLuint vertex_size;
@@ -180,8 +238,7 @@ struct mga_context_t {
 
    /* Manage driver and hardware state
     */
-   GLuint        new_gl_state; 
-   GLuint        new_state; 
+   GLuint        NewGLState; 
    GLuint        dirty;
 
    mga_context_regs_t setup;
@@ -205,13 +262,21 @@ struct mga_context_t {
    /* VBI
     */
    GLuint vbl_seq;
+   GLuint vblank_flags;
+
+   int64_t swap_ust;
+   int64_t swap_missed_ust;
+
+   GLuint swap_count;
+   GLuint swap_missed_count;
+
+   PFNGLXGETUSTPROC get_ust;
 
    /* Drawable, cliprect and scissor information
     */
    int dirty_cliprects;		/* which sets of cliprects are uptodate? */
    int draw_buffer;		/* which buffer are we rendering to */
    unsigned int drawOffset;		/* draw buffer address in  space */
-   int read_buffer;
    int readOffset;
    int drawX, drawY;		/* origin of drawable in draw buffer */
    int lastX, lastY;		/* detect DSTORG bug */
@@ -237,7 +302,6 @@ struct mga_context_t {
    drmContext hHWContext;
    drmLock *driHwLock;
    int driFd;
-   Display *display;
    __DRIdrawablePrivate *driDrawable;
    __DRIscreenPrivate *driScreen;
    struct mga_screen_private_s *mgaScreen;
@@ -246,51 +310,38 @@ struct mga_context_t {
 
 #define MGA_CONTEXT(ctx) ((mgaContextPtr)(ctx->DriverCtx))
 
-#define MGAPACKCOLOR555(r,g,b,a) \
-  ((((r) & 0xf8) << 7) | (((g) & 0xf8) << 2) | (((b) & 0xf8) >> 3) | \
-    ((a) ? 0x8000 : 0))
-
-#define MGAPACKCOLOR565(r,g,b) \
-  ((((r) & 0xf8) << 8) | (((g) & 0xfc) << 3) | (((b) & 0xf8) >> 3))
-
-#define MGAPACKCOLOR88(l, a) \
-  (((l) << 8) | (a))
-
-#define MGAPACKCOLOR888(r,g,b) \
-  (((r) << 16) | ((g) << 8) | (b))
-
-#define MGAPACKCOLOR8888(r,g,b,a) \
-  (((a) << 24) | ((r) << 16) | ((g) << 8) | (b))
-
-#define MGAPACKCOLOR4444(r,g,b,a) \
-  ((((a) & 0xf0) << 8) | (((r) & 0xf0) << 4) | ((g) & 0xf0) | ((b) >> 4))
 
 
-#define MGA_DEBUG 0
-#ifndef MGA_DEBUG
+
+/* ================================================================
+ * Debugging:
+ */
+#define DO_DEBUG		1
+
+#if DO_DEBUG
 extern int MGA_DEBUG;
+#else
+#define MGA_DEBUG		0
 #endif
 
-#define DEBUG_ALWAYS_SYNC	0x1
-#define DEBUG_VERBOSE_MSG	0x2
-#define DEBUG_VERBOSE_LRU	0x4
-#define DEBUG_VERBOSE_DRI	0x8
-#define DEBUG_VERBOSE_IOCTL	0x10
-#define DEBUG_VERBOSE_2D	0x20
-#define DEBUG_VERBOSE_FALLBACK	0x40
+#define DEBUG_VERBOSE_MSG	0x01
+#define DEBUG_VERBOSE_DRI	0x02
+#define DEBUG_VERBOSE_IOCTL	0x04
+#define DEBUG_VERBOSE_TEXTURE   0x08
+#define DEBUG_VERBOSE_FALLBACK	0x10
 
 static __inline__ GLuint mgaPackColor(GLuint cpp,
 				      GLubyte r, GLubyte g,
 				      GLubyte b, GLubyte a)
 {
-  switch (cpp) {
-  case 2:
-    return MGAPACKCOLOR565(r,g,b);
-  case 4:
-    return MGAPACKCOLOR8888(r,g,b,a);
-  default:
-    return 0;
-  }
+   switch (cpp) {
+   case 2:
+      return PACK_COLOR_565( r, g, b );
+   case 4:
+      return PACK_COLOR_8888( a, r, g, b );
+   default:
+      return 0;
+   }
 }
 
 

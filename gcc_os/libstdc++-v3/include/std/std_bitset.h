@@ -58,10 +58,17 @@
 #include <ostream>     // for ostream (operator<<)
 #include <istream>     // for istream (operator>>)
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define bitset _Release_bitset
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #define _GLIBCPP_BITSET_BITS_PER_WORD (CHAR_BIT*sizeof(unsigned long))
 #define _GLIBCPP_BITSET_WORDS(__n) \
- ((__n) < 1 ? 1 : ((__n) + _GLIBCPP_BITSET_BITS_PER_WORD - 1)/_GLIBCPP_BITSET_BITS_PER_WORD)
+ ((__n) < 1 ? 0 : ((__n) + _GLIBCPP_BITSET_BITS_PER_WORD - 1)/_GLIBCPP_BITSET_BITS_PER_WORD)
 
 namespace std
 {
@@ -219,7 +226,7 @@ namespace std
     void
     _Base_bitset<_Nw>::_M_do_left_shift(size_t __shift)
     {
-      if (__shift != 0)
+      if (__builtin_expect(__shift != 0, 1))
 	{
 	  const size_t __wshift = __shift / _GLIBCPP_BITSET_BITS_PER_WORD;
 	  const size_t __offset = __shift % _GLIBCPP_BITSET_BITS_PER_WORD;
@@ -244,7 +251,7 @@ namespace std
     void
     _Base_bitset<_Nw>::_M_do_right_shift(size_t __shift)
     {
-      if (__shift != 0)
+      if (__builtin_expect(__shift != 0, 1))
 	{
 	  const size_t __wshift = __shift / _GLIBCPP_BITSET_BITS_PER_WORD;
 	  const size_t __offset = __shift % _GLIBCPP_BITSET_BITS_PER_WORD;
@@ -463,6 +470,101 @@ namespace std
       _M_do_find_next(size_t __prev, size_t __not_found) const;
     };
 
+
+  /**
+   *  @if maint
+   *  Base class, specialization for no storage (zero-length %bitset).
+   *
+   *  See documentation for bitset.
+   *  @endif
+  */
+  template<>
+    struct _Base_bitset<0>
+    {
+      typedef unsigned long _WordT;
+
+      _Base_bitset() {}
+      _Base_bitset(unsigned long) {}
+
+      static size_t
+      _S_whichword(size_t __pos )
+      { return __pos / _GLIBCPP_BITSET_BITS_PER_WORD; }
+
+      static size_t
+      _S_whichbyte(size_t __pos )
+      { return (__pos % _GLIBCPP_BITSET_BITS_PER_WORD) / CHAR_BIT; }
+
+      static size_t
+      _S_whichbit(size_t __pos )
+      {  return __pos % _GLIBCPP_BITSET_BITS_PER_WORD; }
+
+      static _WordT
+      _S_maskbit(size_t __pos )
+      { return (static_cast<_WordT>(1)) << _S_whichbit(__pos); }
+
+      // This would normally give access to the data.  The bounds-checking
+      // in the bitset class will prevent the user from getting this far,
+      // but (1) it must still return an lvalue to compile, and (2) the
+      // user might call _Unchecked_set directly, in which case this /needs/
+      // to fail.  Let's not penalize zero-length users unless they actually
+      // make an unchecked call; all the memory ugliness is therefore
+      // localized to this single should-never-get-this-far function.
+      _WordT&
+      _M_getword(size_t) const
+      { __throw_out_of_range("bitset -- zero-length"); return *new _WordT; }
+
+      _WordT
+      _M_hiword() const { return 0; }
+
+      void
+      _M_do_and(const _Base_bitset<0>&) { }
+
+      void
+      _M_do_or(const _Base_bitset<0>&)  { }
+
+      void
+      _M_do_xor(const _Base_bitset<0>&) { }
+
+      void
+      _M_do_left_shift(size_t) { }
+
+      void
+      _M_do_right_shift(size_t) { }
+
+      void
+      _M_do_flip() { }
+
+      void
+      _M_do_set() { }
+
+      void
+      _M_do_reset() { }
+
+      // Are all empty bitsets equal to each other?  Are they equal to
+      // themselves?  How to compare a thing which has no state?  What is
+      // the sound of one zero-length bitset clapping?
+      bool
+      _M_is_equal(const _Base_bitset<0>&) const { return true; }
+
+      bool
+      _M_is_any() const { return false; }
+
+      size_t
+      _M_do_count() const { return 0; }
+
+      unsigned long
+      _M_do_to_ulong() const { return 0; }
+
+      // Normally "not found" is the size, but that could also be
+      // misinterpreted as an index in this corner case.  Oh well.
+      size_t
+      _M_do_find_first(size_t) const { return 0; }
+
+      size_t
+      _M_do_find_next(size_t, size_t) const { return 0; }
+    };
+
+
   // Helper class to zero out the unused high-order bits in the highest word.
   template<size_t _Extrabits>
     struct _Sanitize
@@ -475,24 +577,28 @@ namespace std
     struct _Sanitize<0>
     { static void _S_do_sanitize(unsigned long) { } };
 
+
   /**
    *  @brief  The %bitset class represents a @e fixed-size sequence of bits.
    *
    *  @ingroup Containers
    *
-   *  Meets the requirements of a <a href="tables.html#65">container</a>.
+   *  (Note that %bitset does @e not meet the formal requirements of a
+   *  <a href="tables.html#65">container</a>.  Mainly, it lacks iterators.)
    *
-   *  The template argument, @a _Nb, may be any nonzero number of type
-   *  size_t.
+   *  The template argument, @a Nb, may be any non-negative number,
+   *  specifying the number of bits (e.g., "0", "12", "1024*1024").
    *
-   *  A %bitset of size N has N % (sizeof(unsigned long) * CHAR_BIT) unused
-   *  bits.  (They are the high-order bits in the highest word.)  It is
-   *  a class invariant that those unused bits are always zero.
+   *  In the general unoptimized case, storage is allocated in word-sized
+   *  blocks.  Let B be the number of bits in a word, then (Nb+(B-1))/B
+   *  words will be used for storage.  B - Nb%B bits are unused.  (They are
+   *  the high-order bits in the highest word.)  It is a class invariant
+   *  that those unused bits are always zero.
    *
    *  If you think of %bitset as "a simple array of bits," be aware that
    *  your mental picture is reversed:  a %bitset behaves the same way as
    *  bits in integers do, with the bit at index 0 in the "least significant
-   *  / right-hand" position, and the bit at index N-1 in the "most
+   *  / right-hand" position, and the bit at index Nb-1 in the "most
    *  significant / left-hand" position.  Thus, unlike other containers, a
    *  %bitset's index "counts from right to left," to put it very loosely.
    *
@@ -523,6 +629,7 @@ namespace std
    *  @endcode
    *
    *  Also see http://gcc.gnu.org/onlinedocs/libstdc++/ext/sgiexts.html#ch23
+   *  for a description of extensions.
    *
    *  @if maint
    *  Most of the actual code isn't contained in %bitset<> itself, but in the
@@ -535,8 +642,10 @@ namespace std
    *  carefully encapsulated.
    *  @endif
   */
+  /* APPLE LOCAL libstdc++ debug mode */
   template<size_t _Nb>
-    class bitset : private _Base_bitset<_GLIBCPP_BITSET_WORDS(_Nb)>
+    class _GLIBCXX_RELEASE_CLASS(bitset) bitset
+    : private _Base_bitset<_GLIBCPP_BITSET_WORDS(_Nb)>
   {
   private:
     typedef _Base_bitset<_GLIBCPP_BITSET_WORDS(_Nb)> _Base;
@@ -709,16 +818,26 @@ namespace std
     bitset<_Nb>&
     operator<<=(size_t __pos)
     {
-      this->_M_do_left_shift(__pos);
-      this->_M_do_sanitize();
+      if (__builtin_expect(__pos < _Nb, 1))
+        {
+          this->_M_do_left_shift(__pos);
+          this->_M_do_sanitize();
+        }
+      else
+	this->_M_do_reset();
       return *this;
     }
 
     bitset<_Nb>&
     operator>>=(size_t __pos)
     {
-      this->_M_do_right_shift(__pos);
-      this->_M_do_sanitize();
+      if (__builtin_expect(__pos < _Nb, 1))
+        {
+          this->_M_do_right_shift(__pos);
+          this->_M_do_sanitize();
+        }
+      else
+	this->_M_do_reset();
       return *this;
     }
     //@}
@@ -973,6 +1092,7 @@ namespace std
 
     /**
      *  @brief  Finds the index of the first "on" bit.
+     *  @return  The index of the first bit set, or size() if not found.
      *  @ingroup SGIextensions
      *  @sa  _Find_next
     */
@@ -982,6 +1102,7 @@ namespace std
 
     /**
      *  @brief  Finds the index of the next "on" bit after prev.
+     *  @return  The index of the next bit set, or size() if not found.
      *  @param  prev  Where to start searching.
      *  @ingroup SGIextensions
      *  @sa  _Find_first
@@ -1085,6 +1206,7 @@ namespace std
       typename basic_istream<_CharT, _Traits>::sentry __sentry(__is);
       if (__sentry)
 	{
+	  ios_base::iostate  __state = ios_base::goodbit;
 	  basic_streambuf<_CharT, _Traits>* __buf = __is.rdbuf();
 	  for (size_t __i = 0; __i < _Nb; ++__i)
 	    {
@@ -1093,7 +1215,7 @@ namespace std
 	      typename _Traits::int_type __c1 = __buf->sbumpc();
 	      if (_Traits::eq_int_type(__c1, __eof))
 		{
-		  __is.setstate(ios_base::eofbit);
+		  __state |= ios_base::eofbit;
 		  break;
 		}
 	      else
@@ -1103,19 +1225,21 @@ namespace std
 
 		  if (__c == '0' || __c == '1')
 		    __tmp.push_back(__c);
-		  else if (_Traits::eq_int_type(__buf->sputbackc(__c2),
-						__eof))
+		  else if (_Traits::eq_int_type(__buf->sputbackc(__c2), __eof))
 		    {
-		      __is.setstate(ios_base::failbit);
+		      __state |= ios_base::failbit;
 		      break;
 		    }
 		}
 	    }
 
-	  if (__tmp.empty())
-	    __is.setstate(ios_base::failbit);
+	  if (__tmp.empty() && !_Nb)
+	    __state |= ios_base::failbit;
 	  else
 	    __x._M_copy_from_string(__tmp, static_cast<size_t>(0), _Nb);
+
+	  if (__state != ios_base::goodbit)
+	    __is.setstate(__state);    // may throw an exception
 	}
 
       return __is;
@@ -1133,5 +1257,12 @@ namespace std
 } // namespace std
 
 #undef _GLIBCPP_BITSET_WORDS
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef bitset
+#  include <debug/dbg_bitset.h>
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #endif /* _GLIBCPP_BITSET_H */

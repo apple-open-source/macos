@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: saslserver.c,v 1.9 2004/08/04 13:03:17 ken3 Exp $ */
+/* $Id: saslserver.c,v 1.5 2005/03/05 00:37:04 dasenbro Exp $ */
 
 #include <config.h>
 

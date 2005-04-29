@@ -44,10 +44,6 @@
 #   include "../gc_mark.h"
 # endif
 
-# ifndef GCCONFIG_H
-#   include "gcconfig.h"
-# endif
-
 typedef GC_word word;
 typedef GC_signed_word signed_word;
 
@@ -60,6 +56,10 @@ typedef char * ptr_t;	/* A generic pointer to which we can add	*/
 			/* Preferably identical to caddr_t, if it 	*/
 			/* exists.					*/
 			
+# ifndef GCCONFIG_H
+#   include "gcconfig.h"
+# endif
+
 # ifndef HEADERS_H
 #   include "gc_hdrs.h"
 # endif
@@ -1462,6 +1462,11 @@ GC_bool GC_is_tmp_root GC_PROTO((ptr_t p));
 # endif
 void GC_register_dynamic_libraries GC_PROTO((void));
   		/* Add dynamic library data sections to the root set. */
+
+GC_bool GC_register_main_static_data GC_PROTO((void));
+               /* We need to register the main data segment.  Returns  */
+               /* TRUE unless this is done implicitly as part of       */
+               /* dynamic library registration.                        */
   
 /* Machine dependent startup routines */
 ptr_t GC_get_stack_base GC_PROTO((void));	/* Cold end of stack */
@@ -1916,7 +1921,11 @@ void GC_err_puts GC_PROTO((GC_CONST char *s));
 #      define SIG_SUSPEND SIGPWR
 #    endif
 #   else  /* !GC_LINUX_THREADS */
-#    define SIG_SUSPEND _SIGRTMIN + 6
+#     if defined(_SIGRTMIN)
+#       define SIG_SUSPEND _SIGRTMIN + 6
+#     else
+#       define SIG_SUSPEND SIGRTMIN + 6
+#     endif       
 #   endif
 #  endif /* !SIG_SUSPEND */
   

@@ -32,6 +32,6 @@ int NXIsLower(c)
 {
 	FIXSIGNEDCHAR(c);
 	if (c < 256)
-		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_L)));
+		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_CTYPE_L)));
 	return 0;
 }

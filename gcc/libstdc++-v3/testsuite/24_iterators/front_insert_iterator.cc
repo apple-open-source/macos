@@ -1,6 +1,6 @@
 // 2001-06-21  Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,7 +32,7 @@ void test01()
   typedef front_insert_iterator<list<int> > test_iterator;
   typedef iterator<output_iterator_tag, void, void, void, void> base_iterator;
   test_iterator  r_it(l);
-  base_iterator* base = &r_it;
+  base_iterator* base __attribute__((unused)) = &r_it;
 
   // Check for required typedefs
   typedef test_iterator::value_type value_type;
@@ -61,6 +61,11 @@ class test_dm : public std::front_insert_iterator<std::list<int> >
 public:
   test_dm(): std::front_insert_iterator<std::list<int> >(l), p(container) { }
 };
+
+#if !__GXX_WEAK__ && _MT_ALLOCATOR_H
+// Explicitly instantiate for systems with no COMDAT or weak support.
+template class __gnu_cxx::__mt_alloc<std::_List_node<int> >;
+#endif
 
 int main() 
 { 

@@ -1,7 +1,7 @@
 /*
  *  messagebox.c
  *
- *  $Id: messagebox.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: messagebox.c,v 1.2 2004/08/10 22:20:28 luesang Exp $
  *
  *  The iODBC driver manager.
  *  

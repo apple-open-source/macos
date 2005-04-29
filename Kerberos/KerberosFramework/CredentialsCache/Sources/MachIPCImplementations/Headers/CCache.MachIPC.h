@@ -6,6 +6,9 @@
 #include <syslog.h>
 #include <mach/mach_error.h>
 
+#define kCCacheServerBundleID "edu.mit.Kerberos.CCacheServer"
+#define kCCacheServerPath     "/System/Library/CoreServices/CCacheServer.app/Contents/MacOS/CCacheServer"
+
 #define __AfterRcvRpc(num, name)														\
     if (OutP->outResult != 0) { dprintf ("Handled IPC request %d (%s) --> %d\n", num, name, OutP->outResult); }
 /*#define __BeforeRcvRpc(num, name)														\
@@ -62,7 +65,6 @@ typedef		char*				FlattenedOutCredentials;
 
 typedef		char*				CCacheDiffs;
 
-#define		CCacheMachIPCServiceName	"CredentialsCacheServer"
 
 extern Boolean gDone;
 

@@ -23,7 +23,7 @@
  * used in advertising or otherwise to promote the sale, use or other dealings
  * in this Software without prior written authorization from Sebastien Marineau.
  *
- * $XFree86: xc/programs/Xserver/hw/xfree86/os-support/nto/nto_video.c,v 1.3 2001/11/16 16:47:56 dawes Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/os-support/nto/nto_video.c,v 1.4 2003/03/14 13:46:07 tsi Exp $
  */
 
 /* This module contains the NTO-specific functions to deal with video 
@@ -73,7 +73,7 @@ pointer
 xf86MapVidMem(int ScreenNum, int Flags, unsigned long Base, unsigned long Size)
 {
     int fd;
-    unsigned char *base;
+    pointer base;
 
     if(NTO_PhMem_fd < 0) {
         if ((fd = open("/dev/mem", O_RDWR, 0777)) < 0) {
@@ -82,7 +82,8 @@ xf86MapVidMem(int ScreenNum, int Flags, unsigned long Base, unsigned long Size)
         NTO_PhMem_fd = fd;
     }
 
-    base = (unsigned char *) mmap((caddr_t)0, Size, PROT_READ|PROT_WRITE,
+    base = mmap((caddr_t)0, Size,
+	     (Flags & VIDMEM_READONLY) ? PROT_READ : (PROT_READ | PROT_WRITE),
              MAP_SHARED, NTO_PhMem_fd, (off_t)Base);
 
 	ErrorF("MapVidMem: addr %08x size %08x addr %08x\n", Base, Size, base);

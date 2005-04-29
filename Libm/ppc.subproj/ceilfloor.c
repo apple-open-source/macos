@@ -63,282 +63,16 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
+#include      "math.h"
 #include      "fp_private.h"
 #include      "fenv_private.h"
 
-static const double        twoTo52  = 4503599627370496.0;
-static const float         twoTo23  = 8388608.0;
+static const double        twoTo52  = 0x1.0p+52; // 4503599627370496.0;
+static const float         twoTo23  = 0x1.0p+23; // 8388608.0;
 
 /*******************************************************************************
 *      Ceil(x) returns the smallest integer not less than x.                   *
 *******************************************************************************/
-
-#ifdef notdef
-double ceil ( double x )
-      {
-      hexdouble xInHex, OldEnvironment;
-      register double y;
-      register unsigned long int xhi;
-      register int target;
-      
-      xInHex.d = x;
-      xhi = xInHex.i.hi & 0x7fffffff;        // xhi is the high half of |x|
-      target = ( xInHex.i.hi < 0x80000000 );
-      
-      if ( xhi < 0x43300000ul ) 
-/*******************************************************************************
-*      Is |x| < 2.0^52?                                                        *
-*******************************************************************************/
-            {
-            if ( xhi < 0x3ff00000 ) 
-/*******************************************************************************
-*      Is |x| < 1.0?                                                           *
-*******************************************************************************/
-                  {
-                  if ( ( xhi | xInHex.i.lo ) == 0ul )  // zero x is exact case
-                        return ( x );
-                  else 
-                        {                                  // inexact case
-                        FEGETENVD( OldEnvironment.d );
-                        OldEnvironment.i.lo |= FE_INEXACT;
-                        FESETENVD( OldEnvironment.d );
-                        if ( target )
-                              return ( 1.0 );
-                        else
-                              return ( -0.0 );
-                        }
-                  }
-/*******************************************************************************
-*      Is 1.0 < |x| < 2.0^52?                                                  *
-*******************************************************************************/
-            if ( target ) 
-                  {
-                  y = ( x + twoTo52 ) - twoTo52;          // round at binary pt.
-                  if ( y < x )
-                        return ( y + 1.0 );
-                  else
-                        return ( y );
-                  }
-            
-            else 
-                  {
-                  y = ( x - twoTo52 ) + twoTo52;          // round at binary pt.
-                  if ( y < x )
-                        return ( y + 1.0 );
-                  else
-                        return ( y );
-                  }
-            }
-/*******************************************************************************
-*      |x| >= 2.0^52 or x is a NaN.                                            *
-*******************************************************************************/
-      return ( x );
-      }
-
-float ceilf ( float x )
-      {
-      hexdouble OldEnvironment;
-      hexsingle xInHex;
-      register float y;
-      register unsigned long int xhi;
-      register int target;
-      
-      xInHex.fval = x;
-      xhi = xInHex.lval & 0x7fffffff;        // xhi is |x|
-      target = ( xInHex.lval < 0x80000000 );
-
-      if ( xhi < 0x4b000000ul ) 
-/*******************************************************************************
-*      Is |x| < 2.0^23?                                                        *
-*******************************************************************************/
-            {
-            if ( xhi < 0x3f800000 ) 
-/*******************************************************************************
-*      Is |x| < 1.0?                                                           *
-*******************************************************************************/
-                  {
-                  if ( xhi == 0ul )  // zero x is exact case
-                        return ( x );
-                  else 
-                        {                                  // inexact case
-                        FEGETENVD( OldEnvironment.d );
-                        OldEnvironment.i.lo |= FE_INEXACT;
-                        FESETENVD( OldEnvironment.d );
-                        if ( target )
-                              return ( 1.0 );
-                        else
-#if (__GNUC__>=3)
-                              return ( -0.0 );
-#else /* workaround gcc 2.x botch of -0 return. */
-                              {
-                              volatile hexsingle zInHex;
-                              zInHex.lval = 0x80000000;
-                              return zInHex.fval;
-                              }
-#endif
-                        }
-                  }
-/*******************************************************************************
-*      Is 1.0 < |x| < 2.0^23?                                                  *
-*******************************************************************************/
-            if ( target ) 
-                  {
-                  y = ( x + twoTo23 ) - twoTo23;          // round at binary pt.
-                  if ( y < x )
-                        return ( y + 1.0 );
-                  else
-                        return ( y );
-                  }
-            
-            else 
-                  {
-                  y = ( x - twoTo23 ) + twoTo23;          // round at binary pt.
-                  if ( y < x )
-                        return ( y + 1.0 );
-                  else
-                        return ( y );
-                  }
-            }
-/*******************************************************************************
-*      |x| >= 2.0^23 or x is a NaN.                                            *
-*******************************************************************************/
-      return ( x );
-      }
-      
-
-
-
-/*******************************************************************************
-*      Floor(x) returns the largest integer not greater than x.                *
-*******************************************************************************/
-
-double floor ( double x )
-      {
-      hexdouble xInHex, OldEnvironment;
-      register double y;
-      register unsigned long int xhi;
-      register long int target;
-      
-      xInHex.d = x;
-      xhi = xInHex.i.hi & 0x7fffffff;        // xhi is the high half of |x|
-      target = ( xInHex.i.hi < 0x80000000 );
-      
-      if ( xhi < 0x43300000ul ) 
-/*******************************************************************************
-*      Is |x| < 2.0^52?                                                        *
-*******************************************************************************/
-            {
-            if ( xhi < 0x3ff00000 ) 
-/*******************************************************************************
-*      Is |x| < 1.0?                                                           *
-*******************************************************************************/
-                  {
-                  if ( ( xhi | xInHex.i.lo ) == 0ul )  // zero x is exact case
-                        return ( x );
-                  else 
-                        {                                  // inexact case
-                        FEGETENVD( OldEnvironment.d );
-                        OldEnvironment.i.lo |= FE_INEXACT;
-                        FESETENVD( OldEnvironment.d );
-                        if ( target )
-                              return ( 0.0 );
-                        else
-                              return ( -1.0 );
-                        }
-                  }
-/*******************************************************************************
-*      Is 1.0 < |x| < 2.0^52?                                                  *
-*******************************************************************************/
-            if ( target ) 
-                  {
-                  y = ( x + twoTo52 ) - twoTo52;          // round at binary pt.
-                  if ( y > x )
-                        return ( y - 1.0 );
-                  else
-                        return ( y );
-                  }
-            
-            else 
-                  {
-                  y = ( x - twoTo52 ) + twoTo52;          // round at binary pt.
-                  if ( y > x )
-                        return ( y - 1.0 );
-                  else
-                        return ( y );
-                  }
-            }
-/*******************************************************************************
-*      |x| >= 2.0^52 or x is a NaN.                                            *
-*******************************************************************************/
-      return ( x );
-      }
-
-float floorf ( float x )
-      {
-      hexdouble OldEnvironment;
-      hexsingle xInHex;
-      register float y;
-      register unsigned long int xhi;
-      register long int target;
-      
-      xInHex.fval = x;
-      xhi = xInHex.lval & 0x7fffffff;        // xhi is |x|
-      target = ( xInHex.lval < 0x80000000 );
-      
-      if ( xhi < 0x4b000000ul ) 
-/*******************************************************************************
-*      Is |x| < 2.0^23?                                                        *
-*******************************************************************************/
-            {
-            if ( xhi < 0x3f800000 ) 
-/*******************************************************************************
-*      Is |x| < 1.0?                                                           *
-*******************************************************************************/
-                  {
-                  if ( xhi == 0ul )  // zero x is exact case
-                        return ( x );
-                  else 
-                        {                                  // inexact case
-                        FEGETENVD( OldEnvironment.d );
-                        OldEnvironment.i.lo |= FE_INEXACT;
-                        FESETENVD( OldEnvironment.d );
-                        if ( target )
-                              return ( 0.0 );
-                        else
-                              return ( -1.0 );
-                        }
-                  }
-/*******************************************************************************
-*      Is 1.0 < |x| < 2.0^23?                                                  *
-*******************************************************************************/
-            if ( target ) 
-                  {
-                  y = ( x + twoTo23 ) - twoTo23;          // round at binary pt.
-                  if ( y > x )
-                        return ( y - 1.0 );
-                  else
-                        return ( y );
-                  }
-            
-            else 
-                  {
-                  y = ( x - twoTo23 ) + twoTo23;          // round at binary pt.
-                  if ( y > x )
-                        return ( y - 1.0 );
-                  else
-                        return ( y );
-                  }
-            }
-/*******************************************************************************
-*      |x| >= 2.0^23 or x is a NaN.                                            *
-*******************************************************************************/
-      return ( x );
-      }
-#else
-static const double piOver4 = 0.785398163397448390;        // 0x1.921fb54442d19p-1
 
 double ceil ( double x )
 {
@@ -350,10 +84,10 @@ double ceil ( double x )
       FPR_absx = __FABS( x );				FPR_zero = 0.0;
       FPR_Two52 = twoTo52;				FPR_one = 1.0;
       __ENSURE( FPR_zero, FPR_Two52, FPR_one );
-      FPR_pi4 = piOver4;				FPR_Mzero = -0.0;
+      FPR_pi4 = M_PI_4;				FPR_Mzero = -0.0;
       target = ( x > FPR_zero ); 			__ENSURE( FPR_Mzero, FPR_Two52, FPR_pi4 );
            
-      if ( FPR_absx < FPR_Two52 ) 
+      if (likely( FPR_absx < FPR_Two52 )) 
 /*******************************************************************************
 *      Is |x| < 2.0^52?                                                        *
 *******************************************************************************/
@@ -406,15 +140,16 @@ float ceilf ( float x )
       register float y;
       register int target;
       
-      register float FPR_absx, FPR_Two23, FPR_one, FPR_zero, FPR_Mzero, FPR_pi4;
+      register float FPR_absx, FPR_Two23, FPR_one, FPR_zero, FPR_Mzero;
+      register double FPR_pi4;
       
       FPR_absx = __FABS( x );				FPR_zero = 0.0f;
       FPR_Two23 = twoTo23;				FPR_one = 1.0;
       __ENSURE( FPR_zero, FPR_Two23, FPR_one );
-      FPR_pi4 = piOver4;				FPR_Mzero = -0.0f;
+      FPR_pi4 = M_PI_4;				FPR_Mzero = -0.0f;
       target = ( x > FPR_zero ); 			__ENSURE( FPR_Mzero, FPR_Two23, FPR_pi4 );
            
-      if ( FPR_absx < FPR_Two23 ) 
+      if (likely( FPR_absx < FPR_Two23 ))
 /*******************************************************************************
 *      Is |x| < 2.0^23?                                                        *
 *******************************************************************************/
@@ -476,10 +211,10 @@ double floor ( double x )
       FPR_absx = __FABS( x );				FPR_zero = 0.0;
       FPR_Two52 = twoTo52;				FPR_one = 1.0;
       __ENSURE( FPR_zero, FPR_Two52, FPR_one );
-      FPR_pi4 = piOver4;				FPR_Mone = -1.0;
+      FPR_pi4 = M_PI_4;				FPR_Mone = -1.0;
       target = ( x > FPR_zero ); 			__ENSURE( FPR_Mone, FPR_zero, FPR_pi4 );
            
-      if ( FPR_absx < FPR_Two52 ) 
+      if (likely( FPR_absx < FPR_Two52 ))
 /*******************************************************************************
 *      Is |x| < 2.0^52?                                                        *
 *******************************************************************************/
@@ -532,15 +267,16 @@ float floorf ( float x )
       register float y;
       register int target;
       
-      register float FPR_absx, FPR_Two23, FPR_one, FPR_zero, FPR_Mone, FPR_pi4;
+      register float FPR_absx, FPR_Two23, FPR_one, FPR_zero, FPR_Mone;
+      register double FPR_pi4;
       
       FPR_absx = __FABS( x );				FPR_zero = 0.0f;
       FPR_Two23 = twoTo23;				FPR_one = 1.0f;
       __ENSURE( FPR_zero, FPR_Two23, FPR_one );
-      FPR_pi4 = piOver4;				FPR_Mone = -1.0f;
+      FPR_pi4 = M_PI_4;				FPR_Mone = -1.0f;
       target = ( x > FPR_zero ); 			__ENSURE( FPR_Mone, FPR_zero, FPR_pi4 );
            
-      if ( FPR_absx < FPR_Two23 ) 
+      if (likely( FPR_absx < FPR_Two23 ))
 /*******************************************************************************
 *      Is |x| < 2.0^23?                                                        *
 *******************************************************************************/
@@ -587,9 +323,3 @@ float floorf ( float x )
 *******************************************************************************/
       return ( x );
 }
-#endif
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

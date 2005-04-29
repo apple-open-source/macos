@@ -29,29 +29,25 @@ extern "C" {
 }
 
 struct IOMbufQueue {
-    struct mbuf *  head;
-    struct mbuf *  tail;
+    mbuf_t  head;
+    mbuf_t  tail;
     UInt32         size;
     UInt32         capacity;
 };
 
 static __inline__
-UInt32 IOMbufFree(struct mbuf * m)
+UInt32 IOMbufFree(mbuf_t m)
 {
-/*LD####
     UInt32 count = 0;
-    struct mbuf * mn;
+    mbuf_t tempmb = m;
 
-    while (( mn = m ))
-    {
-        m = mn->m_nextpkt;
-        mn->m_nextpkt = 0;
-        m_freem(mn);
-        count++;
-    }
+	while (tempmb) // FIXME if 3730918 is implemented, mbuf_freem_list() will return the free count for us.
+	{
+		tempmb = mbuf_nextpkt( tempmb );
+		count++;
+	}
+	mbuf_freem_list(m);
     return count;
-*/
-    return m_freem_list(m);
 }
 
 static __inline__
@@ -63,18 +59,18 @@ void IOMbufQueueInit(IOMbufQueue * q, UInt32 capacity)
 }
 
 static __inline__
-bool IOMbufQueueEnqueue(IOMbufQueue * q, struct mbuf * m)
+bool IOMbufQueueEnqueue(IOMbufQueue * q, mbuf_t m)
 {
     if (q->size >= q->capacity) return false;
 
     if (q->size++ > 0)
-        q->tail->m_nextpkt = m;
+        mbuf_setnextpkt(q->tail , m );
     else
         q->head = m;
 
     for (q->tail = m;
-         q->tail->m_nextpkt;
-         q->tail = q->tail->m_nextpkt, q->size++)
+         mbuf_nextpkt(q->tail);
+         q->tail = mbuf_nextpkt(q->tail), q->size++)
         ;
 
     return true;
@@ -88,7 +84,7 @@ bool IOMbufQueueEnqueue(IOMbufQueue * q, IOMbufQueue * qe)
         if (q->size == 0)
             q->head = qe->head;
         else
-            q->tail->m_nextpkt = qe->head;
+            mbuf_setnextpkt(q->tail , qe->head);
         q->tail  = qe->tail;
         q->size += qe->size;
 
@@ -99,16 +95,16 @@ bool IOMbufQueueEnqueue(IOMbufQueue * q, IOMbufQueue * qe)
 }
 
 static __inline__
-void IOMbufQueuePrepend(IOMbufQueue * q, struct mbuf * m)
+void IOMbufQueuePrepend(IOMbufQueue * q, mbuf_t m)
 {
-    struct mbuf * tail;
+    mbuf_t tail;
 
     for (tail = m, q->size++;
-         tail->m_nextpkt;
-         tail = tail->m_nextpkt, q->size++)
+         mbuf_nextpkt(tail);
+         tail = mbuf_nextpkt(tail), q->size++)
         ;
 
-    tail->m_nextpkt = q->head;
+    mbuf_setnextpkt(tail , q->head);
     if (q->tail == 0)
         q->tail = tail;
     q->head = m;
@@ -119,7 +115,7 @@ void IOMbufQueuePrepend(IOMbufQueue * q, IOMbufQueue * qp)
 {
     if (qp->size)
     {
-        qp->tail->m_nextpkt = q->head;
+        mbuf_setnextpkt(qp->tail , q->head);
         if (q->tail == 0)
             q->tail = qp->tail;
         q->head  = qp->head;
@@ -131,30 +127,30 @@ void IOMbufQueuePrepend(IOMbufQueue * q, IOMbufQueue * qp)
 }
 
 static __inline__
-struct mbuf * IOMbufQueueDequeue(IOMbufQueue * q)
+mbuf_t IOMbufQueueDequeue(IOMbufQueue * q)
 {   
-    struct mbuf * m = q->head;
+    mbuf_t m = q->head;
     if (m)
     {
-        if ((q->head = m->m_nextpkt) == 0)
+        if ((q->head = mbuf_nextpkt(m)) == 0)
             q->tail = 0;
-        m->m_nextpkt = 0;
+        mbuf_setnextpkt(m , 0);
         q->size--;
     }
     return m;
 }
 
 static __inline__
-struct mbuf * IOMbufQueueDequeueAll(IOMbufQueue * q)
+mbuf_t IOMbufQueueDequeueAll(IOMbufQueue * q)
 {
-    struct mbuf * m = q->head;
+    mbuf_t m = q->head;
     q->head = q->tail = 0;
     q->size = 0;
     return m;
 }
 
 static __inline__
-struct mbuf * IOMbufQueuePeek(IOMbufQueue * q)
+mbuf_t IOMbufQueuePeek(IOMbufQueue * q)
 {
     return q->head;
 }

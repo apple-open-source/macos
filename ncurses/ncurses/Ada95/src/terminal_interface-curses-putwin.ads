@@ -33,9 +33,9 @@
 -- sale, use or other dealings in this Software without prior written       --
 -- authorization.                                                           --
 ------------------------------------------------------------------------------
---  Author: Eugene V. Melaragno <aldomel@ix.netcom.com> 2000
+--  Author:  Juergen Pfeifer, 1996
 --  Version Control:
---  $Revision: 1.1.1.1 $
+--  $Revision: 1.3 $
 --  Binding Version 01.00
 
 with Ada.Streams.Stream_IO;

@@ -3,7 +3,7 @@
 !
 !
 !
-! $XFree86: xc/programs/xdm/config/Xres.cpp,v 1.6 2003/01/04 03:11:31 dawes Exp $
+! $XFree86: xc/programs/xdm/config/Xres.cpp,v 1.7 2003/11/15 03:25:22 dawes Exp $
 !
 #define BS \ /* cpp can be trickier than m4 */
 #define NLBS \n\ /* don't remove these comments */
@@ -28,19 +28,19 @@ xlogin*namePrompt: \040\040\040\040\040\040\040Login:
 #endif /* XPM */
 xlogin*fail: Login incorrect
 #ifdef XPM
-/**/#if WIDTH > 800
+XHASHif WIDTH > 800
 xlogin*greetFont: -adobe-helvetica-bold-o-normal--24-240-75-75-p-138-iso8859-1
 xlogin*font: -adobe-helvetica-medium-r-normal--18-180-75-75-p-98-iso8859-1
 xlogin*promptFont: -adobe-helvetica-bold-r-normal--18-180-75-75-p-103-iso8859-1
 xlogin*failFont: -adobe-helvetica-bold-r-normal--18-180-75-75-p-103-iso8859-1
-/**/#else
+XHASHelse
 xlogin*greetFont: -adobe-helvetica-bold-o-normal--17-120-100-100-p-92-iso8859-1
 xlogin*font: -adobe-helvetica-medium-r-normal--12-120-75-75-p-67-iso8859-1
 xlogin*promptFont: -adobe-helvetica-bold-r-normal--12-120-75-75-p-70-iso8859-1
 xlogin*failFont: -adobe-helvetica-bold-o-normal--14-140-75-75-p-82-iso8859-1
-/**/#endif
+XHASHendif
 #endif /* XPM */
-/**/#ifdef COLOR
+XHASHifdef COLOR
 #ifndef XPM
 xlogin*greetColor: CadetBlue
 #else
@@ -56,7 +56,7 @@ xlogin*greetColor: Blue3
 xlogin*failColor: red
 *Foreground: black
 *Background: #fffff0
-/**/#else
+XHASHelse
 #ifdef XPM
 xlogin*borderWidth: 3
 xlogin*frameWidth: 0
@@ -68,13 +68,13 @@ xlogin*borderWidth: 3
 xlogin*Foreground: black
 xlogin*Background: white
 #endif /* XPM */
-/**/#endif
+XHASHendif
 #ifdef XPM
-/**/#if PLANES >= 8
+XHASHif PLANES >= 8
 xlogin*logoFileName: BITMAPDIR/**//XDM_PIXMAP
-/**/#else
+XHASHelse
 xlogin*logoFileName: BITMAPDIR/**//XDM_BWPIXMAP
-/**/#endif
+XHASHendif
 xlogin*useShape: true
 xlogin*logoPadding: 10
 #endif /* XPM */

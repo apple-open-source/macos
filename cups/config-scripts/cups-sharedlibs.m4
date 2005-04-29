@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-sharedlibs.m4,v 1.1.1.13 2003/08/03 06:18:39 jlovell Exp $"
+dnl "$Id: cups-sharedlibs.m4,v 1.14 2005/01/04 22:10:38 jlovell Exp $"
 dnl
 dnl   Shared library support for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@ dnl
 dnl       Attn: CUPS Licensing Information
 dnl       Easy Software Products
 dnl       44141 Airport View Drive, Suite 204
-dnl       Hollywood, Maryland 20636-3111 USA
+dnl       Hollywood, Maryland 20636 USA
 dnl
-dnl       Voice: (301) 373-9603
+dnl       Voice: (301) 373-9600
 dnl       EMail: cups-info@cups.org
 dnl         WWW: http://www.cups.org
 dnl
@@ -41,13 +41,13 @@ if test x$enable_shared != xno; then
 			DSO="ld"
 			DSOFLAGS="$DSOFLAGS -b -z +h \$@"
 			;;
-		IRIX*)
+		IRIX)
 			LIBCUPS="libcups.so.2"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			DSO="\$(CC)"
 			DSOFLAGS="$DSOFLAGS -Wl,-rpath,\$(libdir),-set_version,sgi2.5,-soname,\$@ -shared \$(OPTIM)"
 			;;
-		OSF1* | Linux* | *BSD*)
+		OSF1* | Linux | GNU | *BSD*)
 			LIBCUPS="libcups.so.2"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			DSO="\$(CC)"
@@ -57,7 +57,7 @@ if test x$enable_shared != xno; then
 			LIBCUPS="libcups.2.dylib"
 			LIBCUPSIMAGE="libcupsimage.2.dylib"
 			DSO="\$(CC)"
-			DSOFLAGS="$DSOFLAGS \$(RC_CFLAGS) -dynamiclib -lc"
+			DSOFLAGS="$DSOFLAGS \$(RC_CFLAGS) -dynamiclib -single_module -lc"
 			;;
 		AIX*)
 			LIBCUPS="libcups_s.a"
@@ -135,8 +135,8 @@ if test "$DSO" != ":"; then
                         LDFLAGS="$LDFLAGS -Wl,-R$libdir"
                         EXPORT_LDFLAGS="-Wl,-R$libdir"
                         ;;
-                Linux*)
-                        # Linux
+                Linux | GNU)
+                        # Linux and HURD
                 	DSOFLAGS="-Wl,-rpath,$libdir $DSOFLAGS"
                         LDFLAGS="$LDFLAGS -Wl,-rpath,$libdir"
                         EXPORT_LDFLAGS="-Wl,-rpath,$libdir"
@@ -152,5 +152,5 @@ AC_SUBST(IMGLIBS)
 AC_SUBST(EXPORT_LDFLAGS)
 
 dnl
-dnl End of "$Id: cups-sharedlibs.m4,v 1.1.1.13 2003/08/03 06:18:39 jlovell Exp $".
+dnl End of "$Id: cups-sharedlibs.m4,v 1.14 2005/01/04 22:10:38 jlovell Exp $".
 dnl

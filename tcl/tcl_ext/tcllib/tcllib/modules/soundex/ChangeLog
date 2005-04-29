@@ -1,0 +1,24 @@
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-04-01  Andreas Kupries  <andreask@activestate.com>
+
+	* soundex.tcl: New module for soundex algorithms.
+	* soundex.man:
+	* soundex.test:
+	* pkgIndex.tcl:

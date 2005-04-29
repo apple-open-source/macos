@@ -25,7 +25,7 @@
 			<corcoran@linuxnet.com>
 	Purpose: This is the main pcscd daemon.
 
-$Id: pcscdaemon.c,v 1.2.22.1 2004/12/10 01:06:37 mb Exp $
+$Id: pcscdaemon.c,v 1.4 2004/12/07 01:15:43 mb Exp $
 
 ********************************************************************/
 
@@ -70,7 +70,7 @@ extern int errno;
  */
 
 void SVCServiceRunLoop();
-void SVCClientCleanup(psharedSegmentMsg);
+void SVCClientCleanup(request_object *msgStruct);
 void at_exit(void);
 void clean_temp_files(void);
 void signal_trap(int);
@@ -82,7 +82,7 @@ PCSCLITE_MUTEX usbNotifierMutex;
 /*
  * Cleans up messages still on the queue when a client dies 
  */
-void SVCClientCleanup(psharedSegmentMsg msgStruct)
+void SVCClientCleanup(request_object *msgStruct)
 {
 	/*
 	 * May be implemented in future releases 
@@ -96,7 +96,7 @@ void SVCServiceRunLoop()
 {
 
 	char errMessage[200];
-	sharedSegmentMsg msgStruct;
+	request_object request;
 	int currHandle, rsp;
 
 	currHandle = 0, rsp = 0;
@@ -104,7 +104,7 @@ void SVCServiceRunLoop()
 	/*
 	 * Initialize the comm structure 
 	 */
-	rsp = SHMInitializeCommonSegment();
+	rsp = MSGServerSetupCommonChannel();
 
 	if (rsp == -1)
 	{
@@ -130,33 +130,31 @@ void SVCServiceRunLoop()
 	 * Set up the search for USB/PCMCIA devices 
 	 */
 	HPSearchHotPluggables();
-        HPRegisterForHotplugEvents();
+	HPRegisterForHotplugEvents();
 
-        /*
-         * Set up the power management callback routine for OS X
-         */
-         
 #ifdef PCSC_TARGET_OSX
-        PMRegisterForPowerEvents();
+	/*
+	 * Set up the power management callback routine for OS X
+	 */
+	PMRegisterForPowerEvents();
 #endif
 
 	while (1)
 	{
-
-		switch (rsp = SHMProcessEvents(&msgStruct, 0))
+		switch (rsp = MSGServerProcessEvents(&request, 0))
 		{
 
 		case 0:
-			if (msgStruct.mtype == CMD_CLIENT_DIED)
+			if (request.mtype == CMD_CLIENT_DIED)
 			{
 				/*
 				 * Clean up the dead client 
 				 */
 				SYS_MutexLock(&usbNotifierMutex);
-				MSGCleanupClient(&msgStruct);
+				MSGCleanupClient(&request);
 				SYS_MutexUnLock(&usbNotifierMutex);
 				snprintf(errMessage, sizeof(errMessage), "%s%d%s",
-					"SVCServiceRun: Client ", msgStruct.request_id,
+					"SVCServiceRun: Client ", request.socket,
 					" has disappeared.");
 				DebugLogB("%s", errMessage);
 			} else
@@ -167,15 +165,41 @@ void SVCServiceRunLoop()
 			break;
 
 		case 1:
-			if (msgStruct.mtype == CMD_FUNCTION)
+			if (request.mtype == CMD_FUNCTION)
 			{
+				reply_object reply;
+				reply_header *replyh = &reply.message.header;
+
+				reply.additional_data = NULL;
+
 				/*
 				 * Command must be found 
 				 */
 				SYS_MutexLock(&usbNotifierMutex);
-				MSGFunctionDemarshall(&msgStruct);
-				rsp = SHMMessageSend(&msgStruct, msgStruct.request_id,
-					PCSCLITE_SERVER_ATTEMPTS);
+				rsp = MSGFunctionDemarshall(&request, &reply);
+				/* Command is bogus, ignore it, we should probably
+				   also get rid of this client. */
+				if (rsp)
+					continue;
+
+				if (!reply.additional_data)
+					replyh->additional_data_size = 0;
+				rsp = MSGSendData(request.socket, PCSCLITE_SERVER_ATTEMPTS,
+					replyh, replyh->size);
+				if (!rsp && replyh->additional_data_size)
+				{
+					rsp = MSGSendData(request.socket, PCSCLITE_SERVER_ATTEMPTS,
+						reply.additional_data, replyh->additional_data_size);
+				}
+
+				if (reply.additional_data)
+				{
+					if (replyh->additional_data_size)
+						memset(reply.additional_data, 0,
+							replyh->additional_data_size);
+					free(reply.additional_data);
+				}
+
 				SYS_MutexUnLock(&usbNotifierMutex);
 			} else
 			{
@@ -185,19 +209,28 @@ void SVCServiceRunLoop()
 			break;
 
 		case 2:
-			// timeout in SHMProcessEvents(): do nothing
+			// timeout in MSGServerProcessEvents(): do nothing
 			// this is used to catch the Ctrl-C signal at some time when
 			// nothing else happens
 			break;
 
 		case -1:
-			DebugLogA("SVCServiceRun: Error in SHMProcessEvents");
+			DebugLogA("SVCServiceRun: Error in MSGServerProcessEvents");
 			break;
 
 		default:
-			DebugLogB("SVCServiceRun: SHMProcessEvents unknown retval: %d",
+			DebugLogB("SVCServiceRun: MSGServerProcessEvents returned: %d",
 				rsp);
 			break;
+		}
+
+		if (request.additional_data)
+		{
+			if (request.message.header.additional_data_size)
+				memset(request.additional_data, 0,
+					request.message.header.additional_data_size);
+			free(request.additional_data);
+			request.additional_data = NULL;
 		}
 
 		if (AraKiri)
@@ -252,7 +285,8 @@ int main(int argc, char **argv)
 	 * Handle any command line arguments 
 	 */
 #ifdef  HAVE_GETOPT_LONG
-	while ((opt = getopt_long (argc, argv, "c:fd:hva", long_options, &option_index)) != -1) {
+	while ((opt = getopt_long (argc, argv, "c:fd:hva", long_options,
+		&option_index)) != -1) {
 #else
 	while ((opt = getopt (argc, argv, "c:fd:hva")) != -1) {
 #endif

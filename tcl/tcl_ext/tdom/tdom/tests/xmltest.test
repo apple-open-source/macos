@@ -1,0 +1,52 @@
+# Features covered:  Conformance
+#
+# This file tests the parser's performance on conformance to the 
+# XML specification.  As such it is crude and does not test callback
+# features.
+#
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1999-2000 Zveno Pty Ltd.
+#
+# $Id: xmltest.test,v 1.3 2002/07/28 23:20:37 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+proc xmltest {expect dir subdir f} {
+
+    set ch [open $f]
+    set data [read $ch]
+    close $ch
+
+    test xmltest-$dir-$subdir-[file rootname [file tail $f]] "Document $dir $subdir [file tail $f]" {
+	set parser [xml::parser xmltest]
+	set code [catch {$parser parse $data}]
+	rename $parser {}
+	set code
+    } $expect
+}
+
+# NB. Uses James Clark's test suite for WFF checking.
+# Need a framework to test against each file: it's too time-
+# consuming to setup a test proc for each one.
+
+set testDir [file join [pwd] xmltest]
+
+# These documents should fail
+foreach dir {not-wf} {
+    foreach file [glob -nocomplain [file join $testDir $dir sa *.xml]] {
+	xmltest 1 $dir sa $file
+    }
+}
+
+# These documents should pass
+foreach dir {invalid valid} {
+    foreach file [glob -nocomplain [file join $testDir $dir sa *.xml]] {
+	xmltest 0 $dir sa $file
+    }
+}
+
+# cleanup
+::tcltest::cleanupTests
+return

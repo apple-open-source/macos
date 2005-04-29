@@ -740,7 +740,7 @@ IOService* AppleUSBCDCECMData::probe(IOService *provider, SInt32 *score)
     OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface"));
     if (boolObj && boolObj->isTrue())
     {
-        ALERT(0, 0, "probe - provider doesn't want us to match");
+        XTRACE(this, 0, 0, "probe - provider doesn't want us to match");
         return NULL;
     }
 
@@ -817,40 +817,85 @@ bool AppleUSBCDCECMData::start(IOService *provider)
         return false;
     }
     
-        // Set up the values for the input buffer pool
-    
-    bufNumber = (OSNumber *)getProperty(inputTag);
+		// Check for an input buffer pool override first
+	
+	fInBufPool = 0;
+	fOutBufPool = 0;
+		
+	bufNumber = (OSNumber *)provider->getProperty(inputTag);
     if (bufNumber)
     {
-        bufValue = bufNumber->unsigned16BitValue();
-        XTRACE(this, 0, bufValue, "start - Number of input buffers requested");
+		bufValue = bufNumber->unsigned16BitValue();
+		XTRACE(this, 0, bufValue, "start - Number of input buffers override value");
         if (bufValue <= kMaxInBufPool)
         {
             fInBufPool = bufValue;
         } else {
             fInBufPool = kMaxInBufPool;
         }
-    } else {
-        fInBufPool = kInBufPool;
+	} else {
+		fInBufPool = 0;
+	}
+    
+		// Now set up the real input buffer pool values (only if not overridden)
+    
+	if (fInBufPool == 0)
+	{
+		bufNumber = NULL;
+		bufNumber = (OSNumber *)getProperty(inputTag);
+		if (bufNumber)
+		{
+			bufValue = bufNumber->unsigned16BitValue();
+			XTRACE(this, 0, bufValue, "start - Number of input buffers requested");
+			if (bufValue <= kMaxInBufPool)
+			{
+				fInBufPool = bufValue;
+			} else {
+				fInBufPool = kMaxInBufPool;
+			}
+		} else {
+			fInBufPool = kInBufPool;
+		}
     }
-    
-        // Set up the values for the output buffer pool
-    
-    bufNumber = NULL;
-    bufNumber = (OSNumber *)getProperty(outputTag);
+	
+		// Check for an output buffer pool override
+		
+	bufNumber = NULL;
+	bufNumber = (OSNumber *)provider->getProperty(outputTag);
     if (bufNumber)
     {
-        bufValue = bufNumber->unsigned16BitValue();
-        XTRACE(this, 0, bufValue, "start - Number of output buffers requested");
-        if (bufValue <= kMaxOutBufPool)
+		bufValue = bufNumber->unsigned16BitValue();
+		XTRACE(this, 0, bufValue, "start - Number of output buffers override value");
+        if (bufValue <= kMaxInBufPool)
         {
             fOutBufPool = bufValue;
         } else {
             fOutBufPool = kMaxOutBufPool;
         }
-    } else {
-        fOutBufPool = kOutBufPool;
-    }
+	} else {
+		fOutBufPool = 0;
+	}
+    
+        // Now set up the real output buffer pool values (only if not overridden)
+    
+	if (fOutBufPool == 0)
+	{
+		bufNumber = NULL;
+		bufNumber = (OSNumber *)getProperty(outputTag);
+		if (bufNumber)
+		{
+			bufValue = bufNumber->unsigned16BitValue();
+			XTRACE(this, 0, bufValue, "start - Number of output buffers requested");
+			if (bufValue <= kMaxOutBufPool)
+			{
+				fOutBufPool = bufValue;
+			} else {
+				fOutBufPool = kMaxOutBufPool;
+			}
+		} else {
+			fOutBufPool = kOutBufPool;
+		}
+	}
     
     XTRACE(this, fInBufPool, fOutBufPool, "start - Buffer pools (input, output)");
     
@@ -876,7 +921,8 @@ bool AppleUSBCDCECMData::start(IOService *provider)
     fNetworkInterface->registerService();
         
     XTRACE(this, 0, 0, "start - successful");
-    
+	IOLog(DEBUG_NAME ": Version number - %s, Input buffers %d, Output buffers %d\n", VersionNumber, fInBufPool, fOutBufPool);
+
     return true;
     	
 }/* end start */
@@ -1747,6 +1793,13 @@ void AppleUSBCDCECMData::putToSleep()
     XTRACE(this, 0, 0, "putToSleep");
         
     fReady = false;
+	
+		// Abort any outstanding I/O
+			
+	if (fInPipe)
+		fInPipe->Abort();
+	if (fOutPipe)
+		fOutPipe->Abort();
 
     if (fTimerSource)
     { 
@@ -2240,6 +2293,13 @@ IOReturn AppleUSBCDCECMData::message(UInt32 type, IOService *provider, void *arg
         case kIOMessageServiceIsTerminated:
             XTRACE(this, fReady, type, "message - kIOMessageServiceIsTerminated");
 			
+				// As a precaution abort any outstanding I/O
+			
+			if (fInPipe)
+				fInPipe->Abort();
+			if (fOutPipe)
+				fOutPipe->Abort();
+			
             if (fReady)
             {
                 if (!fTerminate)		// Check if we're already being terminated
@@ -2247,7 +2307,7 @@ IOReturn AppleUSBCDCECMData::message(UInt32 type, IOService *provider, void *arg
 		    // NOTE! This call below depends on the hard coded path of this KEXT. Make sure
 		    // that if the KEXT moves, this path is changed!
 		    KUNCUserNotificationDisplayNotice(
-			0,		// Timeout in seconds
+			10,		// Timeout in seconds
 			0,		// Flags (for later usage)
 			"",		// iconPath (not supported yet)
 			"",		// soundPath (not supported yet)

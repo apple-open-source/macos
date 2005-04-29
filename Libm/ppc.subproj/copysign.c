@@ -65,9 +65,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include    "fp_private.h"
 
 /*******************************************************************************
@@ -77,45 +74,11 @@
 *      recommendation of the IEEE-754 floating-point standard,  which is the   *
 *      opposite from SANE's copysign function.                                 *
 *******************************************************************************/
-#ifdef notdef
-double copysign ( double x, double y )
+
+static inline double __copysign_MEM ( double x, double y )
 {
       hexdouble hx, hy;
-
-/*******************************************************************************
-*     No need to flush NaNs out.                                               *
-*******************************************************************************/
-      
-      hx.d = x;
-      hy.d = y;
-      
-      hx.i.hi &= 0x7fffffff;
-      hx.i.hi |= hy.i.hi & 0x80000000;
-      
-      return hx.d;
-}
-
-float copysignf ( float x, float y )
-{
-      hexsingle hx, hy;
-
-/*******************************************************************************
-*     No need to flush NaNs out.                                               *
-*******************************************************************************/
-      
-      hx.fval = x;
-      hy.fval = y;
-      
-      hx.lval &= 0x7fffffff;
-      hx.lval |= hy.lval & 0x80000000;
-      
-      return hx.fval;
-}
-#else
-double copysign ( double x, double y )
-{
-      hexdouble hx, hy;
-      register unsigned long GPR_7f, GPR_80, GPR_x, GPR_y;
+      register uint32_t GPR_7f, GPR_80, GPR_x, GPR_y;
       register double result;
 
 /*******************************************************************************
@@ -124,25 +87,47 @@ double copysign ( double x, double y )
       
       hx.d = x;					hy.d = y;
       GPR_7f = 0x7fffffff;			GPR_80 = 0x80000000;
-      __ORI_NOOP; // gaurantees next instruction is in different issue group, so allows store-fwd.
+      __NOOP;
+      __NOOP;
+      __NOOP; // gaurantees next instruction is in different issue group, so allows store-fwd.
 
       GPR_x = hx.i.hi;
       GPR_x &= GPR_7f;
       GPR_y = hy.i.hi;
       GPR_x |= GPR_y & GPR_80;
       hx.i.hi = GPR_x;
-      __ORI_NOOP;
-      __ORI_NOOP;
-      __ORI_NOOP;
+      __NOOP;
+      __NOOP;
+      __NOOP;
       
       result = hx.d;
       return result;
 }
 
-float copysignf ( float x, float y )
+double copysign ( double x, double y )
+{
+        double pos_x, neg_x;
+        double pos_y, neg_y, t;
+		
+        pos_x = __fabs(x);
+        neg_x = __fnabs(x);
+        pos_y = __fabs(y);
+        neg_y = __fnabs(y);
+
+        if (unlikely(pos_y == neg_y)) 
+			return __copysign_MEM(x, y);
+			
+        if (unlikely(y != y)) 
+			return __copysign_MEM(x, y);
+			
+		t = __fsel(y, pos_x, neg_x);
+        return t;
+}
+
+static inline float __copysignf_MEM ( float x, float y )
 {
       hexsingle hx, hy;
-      register unsigned long GPR_7f, GPR_80, GPR_x, GPR_y;
+      register uint32_t GPR_7f, GPR_80, GPR_x, GPR_y;
       register float result;
 
 /*******************************************************************************
@@ -151,24 +136,40 @@ float copysignf ( float x, float y )
       
       hx.fval = x;				hy.fval = y;
       GPR_7f = 0x7fffffff;			GPR_80 = 0x80000000;
-      __ORI_NOOP; // gaurantees next instruction is in different issue group, so allows store-fwd.
+      __NOOP;
+      __NOOP;
+      __NOOP; // gaurantees next instruction is in different issue group, so allows store-fwd.
       
       GPR_x = hx.lval;
       GPR_x &= GPR_7f;
       GPR_y = hy.lval;
       GPR_x |= GPR_y & GPR_80;
       hx.lval = GPR_x;
-      __ORI_NOOP;
-      __ORI_NOOP;
-      __ORI_NOOP;
+      __NOOP;
+      __NOOP;
+      __NOOP;
       
       result = hx.fval;
       return result;
 }
-#endif
 
-    
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */
+float copysignf ( float x, float y )
+{
+        double pos_x, neg_x;
+        double pos_y, neg_y;
+		float t;
+		
+        pos_x = __fabs(x);
+        neg_x = __fnabs(x);
+        pos_y = __fabs(y);
+        neg_y = __fnabs(y);
+
+        if (unlikely(pos_y == neg_y)) 
+			return __copysignf_MEM(x, y);
+			
+        if (unlikely(y != y)) 
+			return __copysignf_MEM(x, y);
+			
+		t = __fsels(y, pos_x, neg_x);
+        return t;
+}

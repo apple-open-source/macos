@@ -1,12 +1,13 @@
+// { dg-do assemble  }
 class A
 {
 public:
     A (const A& ccref);
-    friend A const re (const A& v1); // ERROR - 
+    friend A const re (const A& v1); // { dg-error "ambiguates" } 
 };
 
 A // const
-re (const A& ref)
-{				// ERROR - mismatched decls
+re (const A& ref) // { dg-error "new declaration" }
+{
     return A (ref);
 }

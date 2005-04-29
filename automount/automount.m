@@ -32,10 +32,13 @@
 #import <errno.h>
 #import <err.h>
 #import <sys/types.h>
+#import <sys/attr.h>
+#import <sys/event.h>
 #import <sys/stat.h>
 #import <sys/wait.h>
 #import <sys/time.h>
 #import <sys/resource.h>
+#import <sys/vnode.h>
 #import "automount.h"
 #import "AMVnode.h"
 #import "Controller.h"
@@ -45,12 +48,17 @@
 #import "systhread.h"
 #import "NSLMap.h"
 #import "NSLVnode.h"
+#import "vfs_sysctl.h"
 #ifndef __APPLE__
 #import <libc.h>
 extern int getppid(void);
 #endif
 
+#import <CoreServices/CoreServices.h>
+
 #define forever for(;;)
+
+#define SEPARATE_VFSEVENT_THREAD 1
 
 int debug_select = 0;
 int debug_mount = DEBUG_SYSLOG;
@@ -72,12 +80,17 @@ unsigned int GlobalTimeToLive = 10000;
 
 int run_select_loop = 0;
 int running_select_loop = 0;
+#if SEPARATE_VFSEVENT_THREAD
+int run_vfseventwait_loop = 0;
+int running_vfseventwait_loop = 0;
+#endif
 CFRunLoopRef gMainRunLoop;
 CFRunLoopTimerRef gRunLoopTimer;
 int runloop_prepared = 0;
 
-
 int gWakeupFDs[2] = { -1, -1 };
+
+int gVFSEventKQueue = -1;
 
 static BOOL gReinitializationSuspended = FALSE;
 static BOOL gReinitDeferred = FALSE;
@@ -89,6 +102,8 @@ static struct timeval last_timeout;
 int osType;
 
 BOOL doServerMounts = YES;
+
+BOOL gUIAllowed = NO;
 
 NSLMap *GlobalTargetNSLMap;
 
@@ -110,6 +125,8 @@ NSLMapList gNSLMapList = LIST_HEAD_INITIALIZER(gNSLMapList);
 
 AMIMsgList gAMIMsgList = STAILQ_HEAD_INITIALIZER(gAMIMsgList);
 
+#define AUTOMOUNTDIRECTORYPATH "/automount"
+
 #define DefaultMountDir "/private/var/automount"
 
 static char gForkedExecutionFlag[] = "-f";
@@ -127,7 +144,33 @@ struct AMIQueueEntry {
 	struct AMIMsgListEntry AMIListEntry;
 	char msgcopy[0];
 };
-	
+
+struct directory_finder_info {
+    struct FolderInfo di;
+    struct ExtendedFolderInfo xdi;
+};
+
+struct catalog_finder_info {
+	struct directory_finder_info d;
+    unsigned long flags;
+};
+
+struct catalog_object_info {
+    fsobj_type_t objtype;
+};
+
+struct cataloginfo_attribute_buffer {
+    unsigned long length;
+	union {
+		struct catalog_finder_info cfi;
+		struct catalog_object_info coi;
+	} i;
+};
+
+#if SEPARATE_VFSEVENT_THREAD
+void handle_vfsevent(int kq);
+#endif
+
 #ifndef __APPLE__ 
 int
 setsid(void)
@@ -141,6 +184,9 @@ setsid(void)
 #else
 #define PID_FILE "/etc/automount.pid"
 #endif
+
+char gNoLookupTarget[] = "[ other source ]";
+char *gLookupTarget = gNoLookupTarget;
 
 static void
 writepid(void)
@@ -194,17 +240,17 @@ post_AMInfoServiceRequest(mach_port_t port, Map *map, mach_msg_header_t *msg, si
 	bcopy(msg, msgcopy, size);
 	
 	entry->AMIListEntry.iml_port = port;
-	entry->AMIListEntry.iml_map = map;
+	entry->AMIListEntry.iml_map = [map retain];
 	entry->AMIListEntry.iml_size = size;
 	entry->AMIListEntry.iml_msg = msgcopy;
 	
 #if 0
-	sys_msg(debug, LOG_ERR, "post_AMInfoServiceRequest: entry->port = 0x%08lx", (unsigned long)entry->AMIListEntry.iml_port);
-	sys_msg(debug, LOG_ERR, "post_AMInfoServiceRequest: entry->msg->remote_port = 0x%08lx",
+	sys_msg(debug, LOG_DEBUG, "post_AMInfoServiceRequest: entry->port = 0x%08lx", (unsigned long)entry->AMIListEntry.iml_port);
+	sys_msg(debug, LOG_DEBUG, "post_AMInfoServiceRequest: entry->msg->remote_port = 0x%08lx",
 								(unsigned long)entry->AMIListEntry.iml_msg->msgh_remote_port);
-	sys_msg(debug, LOG_ERR, "post_AMInfoServiceRequest: entry->msg->local_port = 0x%08lx",
+	sys_msg(debug, LOG_DEBUG, "post_AMInfoServiceRequest: entry->msg->local_port = 0x%08lx",
 								(unsigned long)entry->AMIListEntry.iml_msg->msgh_local_port);
-	sys_msg(debug, LOG_ERR, "post_AMInfoServiceRequest: entry->msg->bits = 0x%08lx",
+	sys_msg(debug, LOG_DEBUG, "post_AMInfoServiceRequest: entry->msg->bits = 0x%08lx",
 								(unsigned long)entry->AMIListEntry.iml_msg->msgh_bits);
 #endif
 	STAILQ_INSERT_TAIL(&gAMIMsgList, &entry->AMIListEntry, iml_link);
@@ -223,17 +269,32 @@ process_AMInfoServiceRequests(void) {
 		sys_msg(debug, LOG_DEBUG, "\tDispatching %ld-byte message for %s...", entry->iml_size, [[entry->iml_map name] value]);
 #endif
 		[entry->iml_map handleAMInfoRequest:entry->iml_msg ofSize:entry->iml_size onPort:entry->iml_port];
+		[entry->iml_map release];
 		STAILQ_REMOVE_HEAD(&gAMIMsgList, iml_link);
 		free(entry);
 	};
 };
+
+#if SEPARATE_VFSEVENT_THREAD
+void
+enqueue_vfsevent_notification(void) {
+	char request_code[1] ={  REQ_VFSEVENT };
+
+	if (gWakeupFDs[1] != -1) {
+		(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+	} else {
+		sys_msg(debug, LOG_ERR, "enqueue_vfsevent_notification: gWakeupFDs[1] uninitialized.");
+	};
+
+}
+#endif
 
 void
 enqueue_reinit_request(void) {
 	char request_code[1] ={  REQ_REINIT };
 
 	if (gReinitializationSuspended) {
-		sys_msg(debug, LOG_ERR, "deferring re-init while init is in progress...");
+		sys_msg(debug, LOG_NOTICE, "deferring re-initialization while initialization is in progress...");
 		gReinitDeferred = TRUE;
 	} else {
 		if (gWakeupFDs[1] != -1) {
@@ -249,7 +310,7 @@ enqueue_networkchange_notification(void) {
 	char request_code[1] ={  REQ_NETWORKCHANGE };
 
 	if (gReinitializationSuspended) {
-		sys_msg(debug, LOG_ERR, "deferring network change notification while init is in progress...");
+		sys_msg(debug, LOG_NOTICE, "deferring network change notification while initialization is in progress...");
 		gNetworkChangeDeferred = TRUE;
 	} else {
 		if (gWakeupFDs[1] != -1) {
@@ -264,13 +325,13 @@ void
 enqueue_userlogout_notification(void) {
 	char request_code[1] ={  REQ_USERLOGOUT };
 
-	sys_msg(debug, LOG_ERR, "logout notification received.");
+	sys_msg(debug, LOG_INFO, "logout notification received.");
 	if (gReinitializationSuspended) {
-		sys_msg(debug, LOG_ERR, "deferring user logout notification while init is in progress...");
+		sys_msg(debug, LOG_NOTICE, "deferring user logout notification while init is in progress...");
 		gUserLogoutDeferred = TRUE;
 	} else {
 		if (gWakeupFDs[1] != -1) {
-			sys_msg(debug, LOG_ERR, "requesting logout processing.");
+			sys_msg(debug, LOG_INFO, "requesting logout processing.");
 			(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
 		} else {
 			sys_msg(debug, LOG_ERR, "enqueue_userlogout_notification: gWakeupFDs[1] uninitialized.");
@@ -303,7 +364,7 @@ reenable_reinitialization(void) {
 	
 	/* Deferred user logout? */
 	if (gUserLogoutDeferred) {
-		sys_msg(debug, LOG_ERR, "reposting deferred logout notification.");
+		sys_msg(debug, LOG_NOTICE, "reposting deferred logout notification.");
 		enqueue_userlogout_notification();
 		gUserLogoutDeferred = FALSE;
 	};
@@ -343,7 +404,7 @@ handle_enqueued_requests(char request_code) {
 		break;
 	  
 	  case REQ_USERLOGOUT:
-		sys_msg(debug, LOG_ERR, "handle_deferred_requests: user logged out.");
+		sys_msg(debug, LOG_INFO, "handle_deferred_requests: user logged out.");
 	    // unmount (no force)
 	    [controller unmountAutomounts:0];
 		break;
@@ -374,8 +435,15 @@ handle_enqueued_requests(char request_code) {
       case REQ_AMINFOREQ:
 		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: processing pending AM info requests...");
 		process_AMInfoServiceRequests();
-        break;
+		break;
       
+#if SEPARATE_VFSEVENT_THREAD
+	  case REQ_VFSEVENT:
+		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: processing pending VFS Event...");
+		handle_vfsevent(gVFSEventKQueue);
+		break;
+#endif
+
 	  case REQ_USR2:
 #if 0
 		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: triggering timeout on SIGUSR2.");
@@ -392,7 +460,91 @@ handle_enqueued_requests(char request_code) {
 	    sys_msg(debug, LOG_DEBUG, "handle_enqueued_requests: Unknown request code '%c'?!", request_code);
 		break;
 	};
-};
+}
+
+void handle_vfsevent(int kq) {
+	int result;
+	struct timespec to;
+	struct kevent vfsevent;
+	int vers = AUTOFS_PROTOVERS;
+	fsid_t *fsid_list;
+	int fs_count, fs, req;
+	size_t reqlen;
+	int reqcnt;
+	struct vfsquery vq;
+	struct autofs_userreq *reqs;
+
+	to.tv_sec = 0;
+	to.tv_nsec = 0;
+	do {
+		result = kevent(kq, NULL, 0, &vfsevent, 1, &to);
+	} while ((result == -1) && (result == EINTR));
+	
+#if 0
+	if (result) {
+		sys_msg(debug_select, LOG_DEBUG, "handle_vfsevent: kevent returned %d (errno = %d, %s)?", result, errno, strerror(errno));
+	} else {
+		if (vfsevent.fflags & VQ_ASSIST) {
+#endif
+			result = create_vfslist(&fsid_list, &fs_count);
+			if (fs_count > 0) {
+				for (fs = 0; fs < fs_count; ++fs) {
+					bzero(&vq, sizeof(vq));
+					result = sysctl_queryfs(&fsid_list[fs], &vq);
+					if (result == 0) {
+						if ((vq.vq_flags & VQ_ASSIST) == 0) continue;
+						
+						sys_msg(debug_select, LOG_DEBUG, "checking for autofs reqs for fs #%d...", fs);
+						reqlen = 0;
+						result = sysctl_fsid(AUTOFS_CTL_GETREQS, &fsid_list[fs], NULL, &reqlen, &vers, sizeof(vers));
+						if (result == -1) continue;
+						sys_msg(debug_select, LOG_DEBUG, "request size = %ld.", reqlen);
+
+						reqs = malloc(reqlen);
+						if (reqs == NULL) continue;
+						result = sysctl_fsid(AUTOFS_CTL_GETREQS, &fsid_list[fs], reqs, &reqlen, &vers, sizeof(vers));
+						if (result == -1) {
+							free(reqs);
+							continue;
+						}
+						reqcnt = reqlen / sizeof(*reqs);
+						sys_msg(debug_select, LOG_DEBUG, "processing %d requests...", reqcnt);
+						for (req = 0; req < reqcnt; req++) {
+							sys_msg(debug_select, LOG_DEBUG, "Request #%d: mount node %ld (%s) for process %d (uid=%d)...",
+										req + 1, reqs[req].au_ino, reqs[req].au_name, reqs[req].au_pid, reqs[req].au_uid);
+							result = [controller dispatch_autofsreq:&reqs[req] forFSID:&fsid_list[fs]];
+							if (result == -1)
+								continue;		/* Request was not for one of our maps; ignore it */
+							reqs[req].au_errno = result;
+							reqs[req].au_flags = 1;
+							if (gForkedMountInProgress || gBlockedMountDependency) {
+								/* Leave it to the child process to coordinate with autofs (AUTOFS_CTL_SERVREQ) */
+								gForkedMountInProgress = NO;
+								gBlockedMountDependency = NO;
+								continue;
+							} else {
+								/* This process has been running as the child of a forked mount (gForkedMount or gSubMounter must be set) */
+								sys_msg(debug_select, LOG_DEBUG, "request #%d: errno = %d ('%s')...", req + 1, reqs[req].au_errno, strerror(reqs[req].au_errno));
+								result = sysctl_fsid(AUTOFS_CTL_SERVREQ, &fsid_list[fs], NULL, NULL, &reqs[req], sizeof(reqs[req]));
+								if (result) {
+									sys_msg(debug_select, LOG_DEBUG, "request #%d: AUTOFS_CTL_SERVREQ sysctl returned error %d ('%s')...", req + 1, errno, strerror(errno));
+								};
+								if (gForkedMount || gSubMounter) {
+									/* Only the parent process should continue in the loop: */
+									exit((gMountResult < 128) ? gMountResult : ECANCELED);
+								};
+							};
+						}
+						free(reqs);
+					}
+				}
+			}
+			free_vfslist(fsid_list);
+#if 0
+		}
+	}
+#endif
+}
 
 /*
  * Check that a proposed value to load into the .tv_sec or
@@ -407,6 +559,8 @@ void
 cleanuptimeout(tv)
 	struct timeval *tv;
 {
+	if (tv == NULL) return;
+	
 	if (tv->tv_sec < 0) tv->tv_sec = 0;
 	if (tv->tv_usec != 0) {
 		if (tv->tv_usec < TIMEQUANTUM) tv->tv_usec = TIMEQUANTUM;
@@ -428,6 +582,11 @@ do_select(struct timeval *tv)
 	if (gWakeupFDs[0] != -1) {
 		FD_SET(gWakeupFDs[0], &x);	/* This allows writing to gWakeupFDs[1] to wake up the select() */
 	};
+#if ! SEPARATE_VFSEVENT_THREAD
+	if (gVFSEventKQueue != -1) {
+		FD_SET(gVFSEventKQueue, &x);	/* This allows incoming VFS events to wake up the select() */
+	};
+#endif
 
 	if (tv) {
 		sys_msg(debug_select, LOG_DEBUG, "select timeout %d %d", tv->tv_sec, tv->tv_usec);
@@ -438,7 +597,7 @@ do_select(struct timeval *tv)
 
 	if (n != 0)
 		sys_msg(debug_select, LOG_DEBUG, "select(%s, %d) --> %d",
-			fdtoc(&x), tv->tv_sec, n);
+			fdtoc(&x), tv ? tv->tv_sec : 0, n);
 	if (n < 0)
 		sys_msg(debug_select, LOG_DEBUG, "select: %s", strerror(errno));
 
@@ -450,6 +609,13 @@ do_select(struct timeval *tv)
 			handle_enqueued_requests(request_code[0]);
 			return 0;
 		};
+		
+#if ! SEPARATE_VFSEVENT_THREAD
+		if ((gVFSEventKQueue != -1) && FD_ISSET(gVFSEventKQueue, &x)) {
+			handle_vfsevent(gVFSEventKQueue);
+			return 0;
+		};
+#endif
 
 		svc_getreqset(&x);
 	};
@@ -529,6 +695,29 @@ auto_run(struct timeval *t)
 	}
 }
 
+
+#if SEPARATE_VFSEVENT_THREAD
+void
+vfseventwait_loop(void *x)
+{
+	u_int waitret;
+
+	running_vfseventwait_loop = 1;
+	sys_msg(debug_select, LOG_DEBUG, "--> vfseventwait loop");
+
+	while (run_vfseventwait_loop != 0)
+	{
+		waitret = vfsevent_wait(gVFSEventKQueue, 0);
+		if (waitret) enqueue_vfsevent_notification();
+		systhread_yield();
+	}
+
+	sys_msg(debug_select, LOG_DEBUG, "<-- vfseventwait loop");
+	running_vfseventwait_loop = 0;
+	systhread_exit();
+}
+#endif
+
 void
 usage(void)
 {
@@ -536,15 +725,21 @@ usage(void)
 	fprintf(stderr, "options:\n");
 	fprintf(stderr, "\n");
 
+	fprintf(stderr, "  -help         ");
+	fprintf(stderr, "Print this message.\n");
+	fprintf(stderr, "\n");
+	
 	fprintf(stderr, "  -V            ");
 	fprintf(stderr, "Print version and host information, then quit.\n");
 	fprintf(stderr, "\n");
 
+#if 0
 	fprintf(stderr, "  -a dir        ");
 	fprintf(stderr, "Set mount directory to dir.\n");
 	fprintf(stderr, "                ");
 	fprintf(stderr, "Default value is \"%s\".\n", DefaultMountDir);
 	fprintf(stderr, "\n");
+#endif
 
 	fprintf(stderr, "  -tm n         ");
 	fprintf(stderr, "Set default mount timeout to n seconds.\n");
@@ -590,15 +785,27 @@ usage(void)
 	fprintf(stderr, "Multiple -D options may be specified.\n");
 	fprintf(stderr, "\n");
 
-	fprintf(stderr, "  -m dir map [-mnt dir]");
-	fprintf(stderr, "Mount map on directory dir.\n");
-	fprintf(stderr, "Optionally followed by specification of private mount dir.\n");
+	fprintf(stderr, "  -tcp          ");
+	fprintf(stderr, "Mount NFS servers using TCP if possible, otherwise UDP.\n");
 	fprintf(stderr, "                ");
-	fprintf(stderr, "map may be a file (must be an absolute path),\n");
+	fprintf(stderr, "(the default is to try UDP first, then TCP).\n");
 	fprintf(stderr, "                ");
-	fprintf(stderr, "a NetInfo mountmap name,\n");
+	fprintf(stderr, "'-T', 'TCP', or 'tcp' mount option has the same effect\n");
 	fprintf(stderr, "                ");
-	fprintf(stderr, "\"-fstab\", or \"-null\".\n");
+	fprintf(stderr, "as specifying -tcp; '-U', 'UDP', or 'udp' mount option\n");
+	fprintf(stderr, "                ");
+	fprintf(stderr, "forces the default behavior despite -tcp.\n");
+	fprintf(stderr, "\n");
+
+	fprintf(stderr, "  -m dir <map> -mnt dir\n");
+	fprintf(stderr, "                ");
+	fprintf(stderr, "Mount <map> on directory dir.\n");
+	fprintf(stderr, "                ");
+	fprintf(stderr, "Followed by specification of private mount dir.\n");
+	fprintf(stderr, "                ");
+	fprintf(stderr, "<map> may be a file (must be an absolute path),\n");
+	fprintf(stderr, "                ");
+	fprintf(stderr, "\"-fstab\", \"-static\", \"-nsl\", or \"-null\".\n");
 	fprintf(stderr, "\n");
 }
 
@@ -621,7 +828,7 @@ parentexit(int x)
 static void
 shutdown_server(void)
 {
-	sys_msg(debug, LOG_ERR, "Shutting down.");
+	sys_msg(debug, LOG_NOTICE, "Shutting down.");
 
 	gTerminating = TRUE;
 
@@ -652,6 +859,7 @@ child_exit(void)
 
 	while ((((pid = wait4((pid_t)-1, &result, WNOHANG, NULL)) != 0) && (pid != -1)) ||
            ((pid == -1) && (errno == EINTR))) {
+		sys_msg(debug_mount, LOG_DEBUG, "child_exit: wait4() returned pid = %d, status = 0x%08x, errno = %d...", pid, result, errno);
 		if ((pid != 0) && (pid != -1)) {
 			[controller completeMountInProgressBy:pid exitStatus:result];
 		};
@@ -751,28 +959,28 @@ systemConfigHasChanged(SCDynamicStoreRef store, CFArrayRef changedKeys, void *in
 	    if (CFStringCompare(key, userChangedKey, 0) == kCFCompareEqualTo) {
 			user = SCDynamicStoreCopyConsoleUser(store, NULL, NULL);
 			if (user) {
-				sys_msg(debug, LOG_DEBUG, "the console user is logged in\n");
+				sys_msg(debug, LOG_DEBUG, "the console user is logged in");
 				gUserLoggedIn = YES;		/* One-shot, never cleared */
 				if (gUserLogoutDeferred) {
-					sys_msg(debug, LOG_ERR, "canceling deferred logout notification...");
+					sys_msg(debug, LOG_NOTICE, "canceling deferred logout notification...");
 					gUserLogoutDeferred = NO;
 				};
 				CFRelease(user);
 			} else {
-				sys_msg(debug, LOG_DEBUG, "the console user has logged out\n");
+				sys_msg(debug, LOG_DEBUG, "the console user has logged out");
 				enqueue_userlogout_notification();
 			}
 			continue;
 		}
 
 	    if (CFStringCompare(key, netinfoChangedKey, 0) == kCFCompareEqualTo) {
-		sys_msg(debug, LOG_DEBUG, "the netinfo configuration has changed\n");
+		sys_msg(debug, LOG_DEBUG, "the netinfo configuration has changed");
 		networkChanged = YES;
 		continue;
 	    }
 	    
 	    if (CFStringCompare(key, searchPolicyChangedKey, 0) == kCFCompareEqualTo) {
-		sys_msg(debug, LOG_DEBUG, "directory services search policy changed\n");
+		sys_msg(debug, LOG_DEBUG, "directory services search policy changed");
 		networkChanged = YES;
 		continue;
 	    }
@@ -791,8 +999,8 @@ watchForSystemConfigChanges()
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("automount"), systemConfigHasChanged, NULL);
 	if (!store) {
-		sys_msg(debug, LOG_ERR, "could not open session with configd\n");
-		sys_msg(debug, LOG_ERR, "error = %s\n", SCErrorString(SCError()));
+		sys_msg(debug, LOG_ERR, "could not open session with configd");
+		sys_msg(debug, LOG_ERR, "error = %s", SCErrorString(SCError()));
 		return;
 	}
 
@@ -819,8 +1027,8 @@ watchForSystemConfigChanges()
 	CFArrayAppendValue(keys, userChangedKey);
 
 	if (!SCDynamicStoreSetNotificationKeys(store, keys, NULL)) {
-		sys_msg(debug, LOG_ERR, "could not register notification keys\n");
-		sys_msg(debug, LOG_ERR, "error = %s\n", SCErrorString(SCError()));
+		sys_msg(debug, LOG_ERR, "could not register notification keys");
+		sys_msg(debug, LOG_ERR, "error = %s", SCErrorString(SCError()));
 		CFRelease(store);
 		CFRelease(keys);
 		return;
@@ -830,8 +1038,8 @@ watchForSystemConfigChanges()
 	/* add a callback */
 	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
 	if (!rls) {
-		sys_msg(debug, LOG_ERR, "could not create runloop source\n");
-		sys_msg(debug, LOG_ERR, "error = %s\n", SCErrorString(SCError()));
+		sys_msg(debug, LOG_ERR, "could not create runloop source");
+		sys_msg(debug, LOG_ERR, "error = %s", SCErrorString(SCError()));
 		CFRelease(store);
 		return;
 	}
@@ -844,6 +1052,8 @@ void VolumeUnmounted(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	char request_code[1];
 	sys_msg(debug, LOG_DEBUG, "Volume unmounted notification");
 
+	invalidate_fsstat_array();
+	
 	request_code[0] = REQ_UNMOUNT;
 	if (gWakeupFDs[1] != -1) {
 		(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
@@ -900,6 +1110,59 @@ TimerExpired(CFRunLoopTimerRef timer, void *info)
 	enqueue_networkchange_notification();
 }
 
+static int
+MarkDirectoryInvisible(const char *target)
+{
+    int result;
+    struct attrlist alist;
+    struct cataloginfo_attribute_buffer abuf;
+
+	/* Prepare a minimal attribute list: */
+    alist.bitmapcount = 5;
+    alist.reserved = 0;
+    alist.commonattr = ATTR_CMN_OBJTYPE;
+    alist.volattr = 0;
+    alist.dirattr = 0;
+    alist.fileattr = 0;
+    alist.forkattr = 0;
+    
+	/* Verify that the target is a directory: */
+    result = getattrlist(target, &alist, &abuf, sizeof(abuf), 0);
+    if (result != 0) return ((result == -1) ? (errno ? errno : 1) : result);
+	if (abuf.i.coi.objtype != VDIR) {
+		sys_msg(debug, LOG_ERR, "MarkDirectoryInvisible: '%s' is not a directory.", target);
+		return ENOTDIR;
+	}
+	
+	/* Get the basic catalog information for the specified directory: */
+    alist.commonattr = ATTR_CMN_FNDRINFO | ATTR_CMN_FLAGS;
+    result = getattrlist(target, &alist, &abuf, sizeof(abuf), 0);
+    if (result != 0) return ((result == -1) ? (errno ? errno : 1) : result);
+    
+	/* Initialize the Finder info if it hasn't been already: */
+	if ((abuf.i.cfi.d.di.finderFlags & kHasBeenInited) == 0) {
+		sys_msg(debug, LOG_DEBUG, "MarkDirectoryInvisible: initializing Finder Info for '%s'...", target);
+		bzero(&abuf.i.cfi.d.di, sizeof(abuf.i.cfi.d.di));
+		bzero(&abuf.i.cfi.d.xdi, sizeof(abuf.i.cfi.d.xdi));
+		abuf.i.cfi.d.di.finderFlags |= kHasBeenInited;
+	};
+	
+	/* Set the 'invisible' bit if necessary: */
+	if (abuf.i.cfi.d.di.finderFlags & kIsInvisible) {
+		sys_msg(debug, LOG_DEBUG, "MarkDirectoryInvisible: '%s' is already marked invisible.", target);
+		return 0;
+	}
+	sys_msg(debug, LOG_DEBUG, "MarkDirectoryInvisible: marking '%s' as invisible...", target);
+	abuf.i.cfi.d.di.finderFlags |= kIsInvisible;
+	
+	/* Update the Finder info: */
+	result = setattrlist(target, &alist, &abuf.i.cfi, sizeof(abuf.i.cfi), 0);
+	if (result) {
+		sys_msg(debug, LOG_ERR, "MarkDirectoryInvisible: setattrlist('%s', ... ) failed: %s", target, strerror(errno));
+	}
+    return ((result == -1) ? (errno ? errno : 1) : result);
+}
+
 static void
 mainRunLoop() {
 	CFTimeInterval longTime = 10000000000.0;	// About 300 years, in seconds
@@ -917,6 +1180,8 @@ mainRunLoop() {
 		TimerExpired,
 		&context);
 	CFRunLoopAddTimer(gMainRunLoop, gRunLoopTimer, kCFRunLoopCommonModes);
+	/* Request Carbon do its DiskArb notification processing on this thread's CFRunLoop: */
+	_FSScheduleFileVolumeOperations(gMainRunLoop, kCFRunLoopDefaultMode);
 	runloop_prepared = 1;
 	CFRunLoopRun();
 }
@@ -929,15 +1194,20 @@ main(int argc, char *argv[])
 	String *mapName;
 	String *mapDir;
 	char *mntdir;
+	char mountPathPrefix[PATH_MAX];
+	size_t mountPathPrefixLength;
 	String *mountDir;
 	int pid, i, nmaps, result;
 	struct timeval timeout;
 	BOOL becomeDaemon, forkedExecution, printVers, staticMode;
 	struct rlimit rlim;
 	systhread *rpcLoop, *runLoop;
+#if SEPARATE_VFSEVENT_THREAD
+	systhread *vfseventLoop;
+#endif
 	struct stat sb;
 	
-	if ((argc > 1) && (strcmp(argv[1], gForkedExecutionFlag))) {
+	if ((argc <= 1) || (strcmp(argv[1], gForkedExecutionFlag) != 0)) {
 		daemon_argc = argc + 1;
 		daemon_argv = malloc((daemon_argc + 1) * sizeof(char *));
 		if (daemon_argv) {
@@ -995,6 +1265,10 @@ main(int argc, char *argv[])
 		{
 			protocol_1 = IPPROTO_TCP;
 			protocol_2 = IPPROTO_UDP;
+		}
+		else if (!strcmp(argv[i], "-u"))
+		{
+			gUIAllowed = YES;
 		}
 		else if (!strcmp(argv[i], "-D"))
 		{
@@ -1086,6 +1360,7 @@ main(int argc, char *argv[])
 		if (debug_mount != 0) debug_mount = DEBUG_STDERR;
 		if (debug_select != 0) debug_select = DEBUG_STDERR;
 		if (debug_options != 0) debug_options = DEBUG_STDERR;
+		if (debug_nsl != 0) debug_nsl = DEBUG_STDERR;
 	}
 
 	timeout.tv_sec = GlobalTimeToLive;
@@ -1132,14 +1407,22 @@ main(int argc, char *argv[])
 	setrlimit(RLIMIT_CORE, &rlim);
 
 	sys_openlog("automount", LOG_NDELAY | LOG_PID, LOG_DAEMON);
-	sys_msg(debug, LOG_ERR, "automount version %s", version);
+	sys_msg(debug, LOG_INFO, "automount version %s", version);
 
+	/* Disable the Carbon File Manager's use of DiskArb,
+	   since the automounter never actually runs the main thread's CFRunLoop: */
+	(void)_FSDisableAutoDiskArbHandling(0);
+
+	MarkDirectoryInvisible(AUTOMOUNTDIRECTORYPATH);
+	
 	result = pipe(gWakeupFDs);
 	if (result) {
 		sys_msg(debug, LOG_ERR, "Couldn't open internal wakeup pipe: %s?!", strerror(errno));
 		gWakeupFDs[0] = -1;
 		gWakeupFDs[1] = -1;
 	};
+	
+	gVFSEventKQueue = vfsevent_init();			/* Set up to wait for VFS events */
 	
 	signal(SIGHUP, reinit_sighandler);
 	signal(SIGUSR1, usr1_signhandler);
@@ -1176,6 +1459,13 @@ main(int argc, char *argv[])
 	systhread_run(rpcLoop, select_loop, NULL);
 	systhread_yield();
 
+#if SEPARATE_VFSEVENT_THREAD
+	run_vfseventwait_loop = 1;
+	vfseventLoop = systhread_new();
+	systhread_run(vfseventLoop, vfseventwait_loop, NULL);
+	systhread_yield();
+#endif
+
 	/* Wait to make sure the main event loop is prepared in case some maps
 	   use CFRunLoop event sources, like NSLMap */
 	while (!runloop_prepared) {
@@ -1208,7 +1498,14 @@ main(int argc, char *argv[])
 			i += 2;
 			if ((argc > (i+1)) && !strcmp(argv[i+1], "-mnt"))
 			{
-				mountDir = [String uniqueString:argv[i+2]];
+				strncpy(mountPathPrefix, argv[i+2], sizeof(mountPathPrefix));	/* Careful of possible overruns */
+				mountPathPrefix[sizeof(mountPathPrefix)-1] = '\000';			/* Ensure proper termination */
+				mountPathPrefixLength = strlen(mountPathPrefix);
+				while ((mountPathPrefixLength > 1) && (mountPathPrefix[mountPathPrefixLength-1] == '/')) {
+					mountPathPrefix[mountPathPrefixLength-1] = '\000';	/* Strip off trailing slash */
+					--mountPathPrefixLength;
+				};
+				mountDir = [String uniqueString:mountPathPrefix];
 				i += 2;
 			} else {
 				mountDir = nil;
@@ -1224,7 +1521,6 @@ main(int argc, char *argv[])
 		[[controller rootMap] mount:[[controller rootMap] root] withUid:0];
  	
 	run_select_loop = 0;
-
 	while (running_select_loop)
 	{
 		usleep(1000*100);
@@ -1235,12 +1531,15 @@ main(int argc, char *argv[])
 	   handled on this main thread: */
 	reenable_reinitialization();
 	
+	MarkDirectoryInvisible(AUTOMOUNTDIRECTORYPATH);
+
 	sys_msg(debug, LOG_DEBUG, "Starting service");
 	if (becomeDaemon || forkedExecution) kill(getppid(), SIGTERM);
 
-	if (staticMode) auto_run_no_timeout(NULL);
+	if (staticMode || (GlobalTimeToLive == 0)) auto_run_no_timeout(NULL);
 	else auto_run(&timeout);
 
 	shutdown_server();
+	
 	exit(0);
 }

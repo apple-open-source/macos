@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: MKncurses_def.sh,v 1.1.1.1 2001/11/29 20:40:53 jevans Exp $
+# $Id: MKncurses_def.sh,v 1.2 2003/10/25 16:19:46 tom Exp $
 ##############################################################################
 # Copyright (c) 2000 Free Software Foundation, Inc.                          #
 #                                                                            #
@@ -30,7 +30,7 @@
 #
 # MKncurses_def.sh -- generate fallback definitions for ncurses_cfg.h
 #
-# Author: Thomas E. Dickey <dickey@herndon4.his.com> 2000
+# Author: Thomas E. Dickey 2000
 #
 # Given the choice between constructs such as
 #

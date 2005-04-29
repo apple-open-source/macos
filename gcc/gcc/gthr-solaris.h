@@ -1,6 +1,6 @@
 /* Threads compatibility routines for libgcc2 and libobjc.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1999, 2000 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1999, 2000, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -44,9 +44,11 @@ typedef struct {
   int once;
 } __gthread_once_t;
 typedef mutex_t __gthread_mutex_t;
+typedef mutex_t __gthread_recursive_mutex_t;
 
 #define __GTHREAD_ONCE_INIT { DEFAULTMUTEX, 0 }
 #define __GTHREAD_MUTEX_INIT DEFAULTMUTEX
+#define __GTHREAD_RECURSIVE_MUTEX_INIT RECURSIVE_ERRORCHECKMUTEX
 
 #if SUPPORTS_WEAK && GTHREAD_USE_WEAK
 
@@ -111,7 +113,7 @@ static void *thread_local_storage = NULL;
 static inline int
 __gthread_objc_init_thread_system (void)
 {
-  /* Initialize the thread storage key */
+  /* Initialize the thread storage key.  */
   if (__gthread_active_p ()
       && thr_keycreate (&_objc_thread_storage, NULL) == 0)
     return 0;
@@ -417,13 +419,6 @@ __gthread_key_create (__gthread_key_t *key, void (*dtor) (void *))
 }
 
 static inline int
-__gthread_key_dtor (__gthread_key_t key, void *ptr)
-{
-  /* Nothing needed.  */
-  return 0;
-}
-
-static inline int
 __gthread_key_delete (__gthread_key_t key)
 {
   /* Not possible.  */
@@ -471,6 +466,24 @@ __gthread_mutex_unlock (__gthread_mutex_t *mutex)
     return mutex_unlock (mutex);
   else
     return 0;
+}
+
+static inline int
+__gthread_recursive_mutex_lock (__gthread_recursive_mutex_t *mutex)
+{
+  return __gthread_mutex_lock (mutex);
+}
+
+static inline int
+__gthread_recursive_mutex_trylock (__gthread_recursive_mutex_t *mutex)
+{
+  return __gthread_mutex_trylock (mutex);
+}
+
+static inline int
+__gthread_recursive_mutex_unlock (__gthread_recursive_mutex_t *mutex)
+{
+  return __gthread_mutex_unlock (mutex);
 }
 
 #endif /* _LIBOBJC */

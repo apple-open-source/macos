@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_video.c,v 1.29 2001/12/26 14:54:04 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_video.c,v 1.34 2004/02/20 16:59:49 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -31,10 +31,6 @@
 #define TIMER_MASK      (OFF_TIMER | FREE_TIMER)
 
 #define MGA_MAX_PORTS	32
-
-#ifndef XvExtension
-void MGAInitVideo(ScreenPtr pScreen) {}
-#else
 
 static void MGAInitOffscreenImages(ScreenPtr);
 
@@ -272,7 +268,7 @@ MGASetupImageVideoOverlay(ScreenPtr pScreen)
     adapt->QueryImageAttributes = MGAQueryImageAttributes;
 
     /* gotta uninit this someplace */
-    REGION_INIT(pScreen, &(pMga->portPrivate->clip), NullBox, 0); 
+    REGION_NULL(pScreen, &(pMga->portPrivate->clip));
 
     MGAResetVideoOverlay(pScrn);
 
@@ -319,127 +315,6 @@ MGASetupImageVideoTexture(ScreenPtr pScreen)
     return adapt;
 }
 
-
-
-static Bool
-RegionsEqual(RegionPtr A, RegionPtr B)
-{
-    int *dataA, *dataB;
-    int num;
-
-    num = REGION_NUM_RECTS(A);
-    if(num != REGION_NUM_RECTS(B))
-	return FALSE;
-
-    if((A->extents.x1 != B->extents.x1) ||
-       (A->extents.x2 != B->extents.x2) ||
-       (A->extents.y1 != B->extents.y1) ||
-       (A->extents.y2 != B->extents.y2))
-	return FALSE;
-
-    dataA = (int*)REGION_RECTS(A);
-    dataB = (int*)REGION_RECTS(B);
-
-    while(num--) {
-	if((dataA[0] != dataB[0]) || (dataA[1] != dataB[1]))
-	   return FALSE;
-	dataA += 2; 
-	dataB += 2;
-    }
-
-    return TRUE;
-}
-
-
-/* MGAClipVideo -  
-
-   Takes the dst box in standard X BoxRec form (top and left
-   edges inclusive, bottom and right exclusive).  The new dst
-   box is returned.  The source boundaries are given (x1, y1 
-   inclusive, x2, y2 exclusive) and returned are the new source 
-   boundaries in 16.16 fixed point. 
-*/
-
-#define DummyScreen screenInfo.screens[0]
-
-static Bool
-MGAClipVideo(
-  BoxPtr dst, 
-  INT32 *x1, 
-  INT32 *x2, 
-  INT32 *y1, 
-  INT32 *y2,
-  RegionPtr reg,
-  INT32 width, 
-  INT32 height
-){
-    INT32 vscale, hscale, delta;
-    BoxPtr extents = REGION_EXTENTS(DummyScreen, reg);
-    int diff;
-
-    hscale = ((*x2 - *x1) << 16) / (dst->x2 - dst->x1);
-    vscale = ((*y2 - *y1) << 16) / (dst->y2 - dst->y1);
-
-    *x1 <<= 16; *x2 <<= 16;
-    *y1 <<= 16; *y2 <<= 16;
-
-    diff = extents->x1 - dst->x1;
-    if(diff > 0) {
-	dst->x1 = extents->x1;
-	*x1 += diff * hscale;     
-    }
-    diff = dst->x2 - extents->x2;
-    if(diff > 0) {
-	dst->x2 = extents->x2;
-	*x2 -= diff * hscale;     
-    }
-    diff = extents->y1 - dst->y1;
-    if(diff > 0) {
-	dst->y1 = extents->y1;
-	*y1 += diff * vscale;     
-    }
-    diff = dst->y2 - extents->y2;
-    if(diff > 0) {
-	dst->y2 = extents->y2;
-	*y2 -= diff * vscale;     
-    }
-
-    if(*x1 < 0) {
-	diff =  (- *x1 + hscale - 1)/ hscale;
-	dst->x1 += diff;
-	*x1 += diff * hscale;
-    }
-    delta = *x2 - (width << 16);
-    if(delta > 0) {
-	diff = (delta + hscale - 1)/ hscale;
-	dst->x2 -= diff;
-	*x2 -= diff * hscale;
-    }
-    if(*x1 >= *x2) return FALSE;
-
-    if(*y1 < 0) {
-	diff =  (- *y1 + vscale - 1)/ vscale;
-	dst->y1 += diff;
-	*y1 += diff * vscale;
-    }
-    delta = *y2 - (height << 16);
-    if(delta > 0) {
-	diff = (delta + vscale - 1)/ vscale;
-	dst->y2 -= diff;
-	*y2 -= diff * vscale;
-    }
-    if(*y1 >= *y2) return FALSE;
-
-    if((dst->x1 != extents->x1) || (dst->x2 != extents->x2) ||
-       (dst->y1 != extents->y1) || (dst->y2 != extents->y2))
-    {
-	RegionRec clipReg;
-	REGION_INIT(DummyScreen, &clipReg, dst, 1);
-	REGION_INTERSECT(DummyScreen, reg, reg, &clipReg);
-	REGION_UNINIT(DummyScreen, &clipReg);
-    }
-    return TRUE;
-} 
 
 static void 
 MGAStopVideo(ScrnInfoPtr pScrn, pointer data, Bool shutdown)
@@ -585,6 +460,7 @@ MGACopyData(
 ){
     w <<= 1;
     while(h--) {
+	/* XXX Maybe this one needs big-endian fixes, too? -ReneR */
 	memcpy(dst, src, w);
 	src += srcPitch;
 	dst += dstPitch;
@@ -614,16 +490,27 @@ MGACopyMungedData(
         s1 = src1;  s2 = src2;  s3 = src3;
         i = w;
         while(i > 4) {
+#if X_BYTE_ORDER == X_LITTLE_ENDIAN
            dst[0] = s1[0] | (s1[1] << 16) | (s3[0] << 8) | (s2[0] << 24);
            dst[1] = s1[2] | (s1[3] << 16) | (s3[1] << 8) | (s2[1] << 24);
            dst[2] = s1[4] | (s1[5] << 16) | (s3[2] << 8) | (s2[2] << 24);
            dst[3] = s1[6] | (s1[7] << 16) | (s3[3] << 8) | (s2[3] << 24);
+#else
+           dst[0] = (s1[0] << 16) | s1[1] | (s3[0] << 24) | (s2[0] << 8);
+           dst[1] = (s1[2] << 16) | s1[3] | (s3[1] << 24) | (s2[1] << 8);
+           dst[2] = (s1[4] << 16) | s1[5] | (s3[2] << 24) | (s2[2] << 8);
+           dst[3] = (s1[6] << 16) | s1[7] | (s3[3] << 24) | (s2[3] << 8);
+#endif
            dst += 4; s2 += 4; s3 += 4; s1 += 8;
            i -= 4;
         }
 
         while(i--) {
+#if X_BYTE_ORDER == X_LITTLE_ENDIAN
            dst[0] = s1[0] | (s1[1] << 16) | (s3[0] << 8) | (s2[0] << 24);
+#else
+           dst[0] = (s1[0] << 16) | s1[1] | (s3[0] << 24) | (s2[0] << 8);
+#endif
            dst++; s2++; s3++;
            s1 += 2;
         }
@@ -693,6 +580,7 @@ MGADisplayVideoOverlay(
 ){
     MGAPtr pMga = MGAPTR(pScrn);
     int tmp, hzoom, intrep;
+    int maxOverlayClock;
 
     CHECK_DMA_QUIESCENT(pMga, pScrn);
 
@@ -706,7 +594,15 @@ MGADisplayVideoOverlay(
 
     tmp = pScrn->currentMode->VDisplay +1;
     /* enable accelerated 2x horizontal zoom when pixelclock >135MHz */
-    hzoom = (pScrn->currentMode->Clock > 135000) ? 1 : 0;
+
+    if ((pMga->ChipRev >= 0x80) || (pMga->Chipset == PCI_CHIP_MGAG550)) {
+	/* G450, G550 */
+	maxOverlayClock = 234000;
+    } else {
+	maxOverlayClock = 135000;
+    }
+
+    hzoom = (pScrn->currentMode->Clock > maxOverlayClock) ? 1 : 0;
 
     switch(id) {
     case FOURCC_UYVY:
@@ -854,7 +750,7 @@ MGAPutImage(
    MGAPortPrivPtr pPriv = pMga->portPrivate;
    INT32 x1, x2, y1, y2;
    unsigned char *dst_start;
-   int pitch, new_size, offset, offset2 = 0, offset3 = 0;
+   int new_size, offset, offset2 = 0, offset3 = 0;
    int srcPitch, srcPitch2 = 0, dstPitch;
    int top, left, npixels, nlines, bpp;
    BoxRec dstBox;
@@ -871,7 +767,8 @@ MGAPutImage(
    dstBox.y1 = drw_y;
    dstBox.y2 = drw_y + drw_h;
 
-   if(!MGAClipVideo(&dstBox, &x1, &x2, &y1, &y2, clipBoxes, width, height))
+   if(!xf86XVClipVideoHelper(&dstBox, &x1, &x2, &y1, &y2,
+			     clipBoxes, width, height))
 	return Success;
 
    if(!pMga->TexturedVideo) {
@@ -882,7 +779,6 @@ MGAPutImage(
    }
 
    bpp = pScrn->bitsPerPixel >> 3;
-   pitch = bpp * pScrn->displayWidth;
 
    dstPitch = ((width << 1) + 15) & ~15;
    new_size = ((dstPitch * height) + bpp - 1) / bpp;
@@ -962,12 +858,10 @@ MGAPutImage(
 	pPriv->freeTime = currentTime.milliseconds + FREE_DELAY;
     } else {
     /* update cliplist */
-	if(!RegionsEqual(&pPriv->clip, clipBoxes)) {
-	    REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
+	if(!REGION_EQUAL(pScrn->pScreen, &pPriv->clip, clipBoxes)) {
+	    REGION_COPY(pScrn->pScreen, &pPriv->clip, clipBoxes);
 	    /* draw these */
-	    XAAFillSolidRects(pScrn, pPriv->colorKey, GXcopy, ~0, 
-					REGION_NUM_RECTS(clipBoxes),
-					REGION_RECTS(clipBoxes));
+	    xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes);
 	}
 
 	offset += top * dstPitch;
@@ -1074,7 +968,7 @@ MGAAllocateSurface(
     XF86SurfacePtr surface
 ){
     FBLinearPtr linear;
-    int pitch, fbpitch, size, bpp;
+    int pitch, size, bpp;
     OffscreenPrivPtr pPriv;
 
     if((w > 1024) || (h > 1024))
@@ -1083,7 +977,6 @@ MGAAllocateSurface(
     w = (w + 1) & ~1;
     pitch = ((w << 1) + 15) & ~15;
     bpp = pScrn->bitsPerPixel >> 3;
-    fbpitch = bpp * pScrn->displayWidth;
     size = ((pitch * h) + bpp - 1) / bpp;
 
     if(!(linear = MGAAllocateMemory(pScrn, NULL, size)))
@@ -1127,7 +1020,8 @@ MGAStopSurface(
     OffscreenPrivPtr pPriv = (OffscreenPrivPtr)surface->devPrivate.ptr;
 
     if(pPriv->isOn) {
-	MGAPtr pMga = MGAPTR(surface->pScrn);
+	ScrnInfoPtr pScrn = surface->pScrn;
+	MGAPtr pMga = MGAPTR(pScrn);
 	OUTREG(MGAREG_BESCTL, 0);
 	pPriv->isOn = FALSE;
     }
@@ -1197,8 +1091,8 @@ MGADisplaySurface(
     dstBox.y1 = drw_y;
     dstBox.y2 = drw_y + drw_h;
 
-    if(!MGAClipVideo(&dstBox, &x1, &x2, &y1, &y2, clipBoxes, 
-			surface->width, surface->height))
+    if(!xf86XVClipVideoHelper(&dstBox, &x1, &x2, &y1, &y2, clipBoxes, 
+			      surface->width, surface->height))
     {
 	return Success;
     }
@@ -1214,9 +1108,7 @@ MGADisplaySurface(
 	     surface->width, surface->height, surface->pitches[0],
 	     x1, y1, x2, y2, &dstBox, src_w, src_h, drw_w, drw_h);
 
-    XAAFillSolidRects(pScrn, portPriv->colorKey, GXcopy, ~0, 
-                                        REGION_NUM_RECTS(clipBoxes),
-                                        REGION_RECTS(clipBoxes));
+    xf86XVFillKeyHelper(pScrn->pScreen, portPriv->colorKey, clipBoxes);
 
     pPriv->isOn = TRUE;
     /* we've prempted the XvImage stream so set its free timer */
@@ -1276,5 +1168,3 @@ MGAInitOffscreenImages(ScreenPtr pScreen)
 
     xf86XVRegisterOffscreenImages(pScreen, offscreenImages, num);
 }
-
-#endif  /* !XvExtension */

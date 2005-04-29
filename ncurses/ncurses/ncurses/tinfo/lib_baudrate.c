@@ -76,7 +76,7 @@
 #undef USE_OLD_TTY
 #endif /* USE_OLD_TTY */
 
-MODULE_ID("$Id: lib_baudrate.c,v 1.1.1.2 2002/02/15 21:55:47 jevans Exp $")
+MODULE_ID("$Id: lib_baudrate.c,v 1.22 2002/01/19 23:07:53 Andrey.A.Chernov Exp $")
 
 /*
  *	int

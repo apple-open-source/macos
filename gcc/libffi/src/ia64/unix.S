@@ -1,5 +1,5 @@
 /* -----------------------------------------------------------------------
-   unix.S - Copyright (c) 1998 Cygnus Solutions
+   unix.S - Copyright (c) 1998 Red Hat, Inc.
             Copyright (c) 2000 Hewlett Packard Company
    
    IA64/unix Foreign Function Interface 
@@ -29,6 +29,7 @@
    ----------------------------------------------------------------------- */
 
 #define LIBFFI_ASM	
+#include <fficonfig.h>
 #include <ffi.h>
 #include "ia64_flags.h"
 
@@ -90,6 +91,7 @@ ffi_call_unix:
 	;;
 	ldfd	f14=[loc2],2*FLOAT_SZ
 	ldfd	f15=[loc3]
+	;;
 fp_done:
 	add	r9=16,sp	/* Pointer to r8_contents	*/
 	/* loc2 points at first integer register value.  */
@@ -296,8 +298,8 @@ ffi_closure_UNIX:
 	stfd	[r14]=f12,2*FLOAT_SZ
 	stfd	[r15]=f13,2*FLOAT_SZ
 	;;
-	stfd	[r14]=f14,FLOAT_SZ+8
-	stfd	[r15]=f15,2*8
+	stfd	[r14]=f14,2*FLOAT_SZ
+	stfd	[r15]=f15,FLOAT_SZ+8
 	;;
 	/* r14 points to first parameter register area, r15 to second. */
 	st8	[r14]=in0,2*8

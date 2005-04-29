@@ -1,3 +1,4 @@
+#include <sys/syslog.h>
 /* 
 		efaxos.c - O/S-dependent routines
 		    Copyright 1995, Ed Casas
@@ -12,6 +13,8 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/times.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #ifndef FD_SET
@@ -39,16 +42,113 @@
 #include <sys/ioctl.h>
 #endif
 
-#if defined(__APPLE__)
+#ifdef __APPLE__
 #include <sys/ioctl.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOMessage.h>
 #include <IOKit/serial/IOSerialKeys.h>
 #include <IOKit/serial/ioss.h>
-#endif
+#include <pthread.h>
+
+/*
+ * Constants...
+ */
+
+#define SYSEVENT_CANSLEEP	0x1	/* Decide whether to allow sleep or not */
+#define SYSEVENT_WILLSLEEP	0x2	/* Computer will go to sleep */
+#define SYSEVENT_WOKE		0x4	/* Computer woke from sleep */
+
+
+/* 
+ * Structures... 
+ */
+
+typedef struct threaddatastruct		/*** Thread context data  ****/
+{
+  sysevent_t		sysevent;	/* Sys event */
+} threaddata_t;
+
+
+/* 
+ * Globals... 
+ */
+
+static pthread_t	sysEventThread = NULL;		/* Thread to host a runloop */
+static pthread_mutex_t	sysEventThreadMutex = { 0 };	/* Coordinates access to shared gloabals */ 
+static pthread_cond_t	sysEventThreadCond = { 0 };	/* Thread initialization complete condition */
+static CFRunLoopRef	sysEventRunloop = NULL;		/* The runloop. Access must be protected! */
+static int		sysEventPipes[2] = { -1, -1 };	/* Pipes for system event notifications */
+sysevent_t		sysevent;			/* The system event */
+
+static int		clientEventFd = -1;		/* Listening socket for client commands */
+static char		clientSocketName[] = "/var/run/efax"; 
+							/* Listener's domain socket name */
+
+/* 
+ * Prototypes... 
+ */
+
+static int  sysEventMonitorUpdate(TFILE *f);
+static void *sysEventThreadEntry();
+static void sysEventPowerNotifier(void *context, io_service_t service, natural_t messageType, void *messageArgument);
+static int clientEventUpdate();
+
+#endif	/* __APPLE__ */
+
+static int  ttlock ( char *fname, int log );
+static int  ckfld ( char *field, int set, int get );
+static int  checktermio ( struct termios *t, TFILE *f );
+static void tinit ( TFILE *f, int fd, int reverse, int hwfc );
+static int  ttlocked ( char *fname, int log );
+static int  ttunlock ( char *fname );
+
 
 #ifndef CRTSCTS
 #define CRTSCTS 0
 #endif
 
+
+#if defined(__APPLE__)
+/* Send Mac OS X notification */
+void notify(CFStringRef status, CFTypeRef value)
+{
+  CFMutableDictionaryRef notification;
+  int i;
+  static CFNumberRef pid = NULL;
+
+  if (!pid)
+  {
+    i = getpid();
+    pid = CFNumberCreate(kCFAllocatorDefault,
+		kCFNumberSInt32Type, &i);
+  }
+
+  notification = CFDictionaryCreateMutable(kCFAllocatorDefault, 3,
+				&kCFTypeDictionaryKeyCallBacks, 
+				&kCFTypeDictionaryValueCallBacks);
+
+  CFDictionaryAddValue(notification, CFSTR("pid"), pid);
+  CFDictionaryAddValue(notification, CFSTR("status"), status);
+
+  if (value)
+    CFDictionaryAddValue(notification, CFSTR("value"), value);
+
+#if 0
+#pragma warn debugging code!
+  char buf[1024];
+  CFStringGetCString(status, buf, sizeof(buf), kCFStringEncodingUTF8);
+  syslog(LOG_ERR, buf);
+#endif
+
+  CFNotificationCenterPostNotificationWithOptions(
+	CFNotificationCenterGetDistributedCenter(),
+	status,
+	CFSTR("com.apple.efax"),
+	notification, kCFNotificationDeliverImmediately | kCFNotificationPostToAllSessions);
+
+  CFRelease(notification);
+}
+#endif
 
 /* The milliseconds portion of the current time.  If your system
    does not provide gettimeofday(3) you can safely substitute a
@@ -100,29 +200,81 @@ int tdata ( TFILE *f, int t )
 {
   int n, err=0 ;
   fd_set fds ;
-
+  int maxfd;
   struct timeval timeout ;
-
-  if ( f->fd < 0 ) msg ( "Ecan't happen (faxdata)" ) ;
 
   timeout.tv_sec  = t / 10 ; 
   timeout.tv_usec = ( t % 10 ) * 100000 ;
 
-  FD_ZERO ( &fds ) ;
-  FD_SET ( f->fd, &fds ) ;
+  FD_ZERO (&fds);
 
-  do { 
-    n = select ( f->fd + 1, &fds, 0, 0, t<0 ? 0 : &timeout ) ;
-    if ( n < 0 ) {
-      if ( errno == EINTR ) {
-	msg ( "W0  select() interrupted in tdata()" ) ;
-      } else {
-	err = msg ( "ES2 select() failed in tdata():" ) ;
+  if (f->fd != -1)
+    FD_SET(f->fd, &fds);
+
+  maxfd = f->fd;
+
+#ifdef __APPLE__
+  if ( sysEventPipes[0] != -1)
+  {
+    FD_SET(sysEventPipes[0], &fds);
+
+    if (sysEventPipes[0] > maxfd)
+      maxfd = sysEventPipes[0];
+  }
+
+  if ( clientEventFd != -1)
+  {
+    FD_SET(clientEventFd, &fds);
+
+    if (clientEventFd > maxfd)
+      maxfd = clientEventFd;
+  }
+#endif
+
+  for (;;)
+  {
+    n = select ( maxfd + 1, &fds, 0, 0, t<0 ? 0 : &timeout ) ;
+
+    if (n == 0)
+      break;		/* timeout */
+
+    if (n < 0)
+    {
+      if (errno == EINTR)
+      {
+	msg("Wselect() interrupted in tdata()");
+	continue;
       }
-    }
-  } while ( n < 0 && ! err ) ;
 
-  return n ;
+      msg("Eselect() failed in tdata():");
+      err = -2;
+      break;
+    }
+
+    /* else n > 0 */
+
+#ifdef __APPLE__
+    if (sysEventPipes[0] != -1 && FD_ISSET(sysEventPipes[0], &fds))
+    {
+      if ((err = sysEventMonitorUpdate(f)))
+	break;
+    }
+
+    if (clientEventFd != -1 && FD_ISSET(clientEventFd, &fds))
+    {
+      if ((err = clientEventUpdate()) != 0)
+	break;
+    }
+#endif
+
+    if (f->fd != -1 && FD_ISSET(f->fd, &fds))
+    {
+      err = 1;
+      break;
+    }
+  }
+
+  return err ;
 }
 
 
@@ -196,13 +348,13 @@ int tput ( TFILE *f, uchar *p, int n )
 /* Compare current termios state with termios struct t. Returns 0 if equal,
    1 otherwise. */
 
-int ckfld ( char *field, int set, int get )
+static int ckfld ( char *field, int set, int get )
 {
   return set == get ?
     0 : msg ( "W1 termios.%s is 0%08o, not 0%08o", field, get, set ) ;
 }
 
-int checktermio ( struct termios *t, TFILE *f )
+static int checktermio ( struct termios *t, TFILE *f )
 {
   struct termios s ;
   int err=0 ;
@@ -214,7 +366,7 @@ int checktermio ( struct termios *t, TFILE *f )
    ckfld ( "iflag" , t->c_iflag, s.c_iflag ) ||
      ckfld ( "oflag" , t->c_oflag , s.c_oflag ) ||
        ckfld ( "lflag" , t->c_lflag , s.c_lflag ) ||
-	 ckfld ( "cflag" , t->c_cflag , s.c_cflag ) ||
+	 ckfld ( "cflag" , t->c_cflag & 0xFFFF , s.c_cflag & 0xFFFF) ||
 	   ckfld ( "START" , t->c_cc[VSTART] , s.c_cc[VSTART] ) ||
 	     ckfld ( "STOP" , t->c_cc[VSTOP] , s.c_cc[VSTOP] ) ||
 	       ckfld ( "MIN" , t->c_cc[VMIN] , s.c_cc[VMIN] ) ||
@@ -298,7 +450,7 @@ int ttymode ( TFILE *f, enum ttymodes mode )
    transmit LS bit first.  T.4/T.30 says MS bit is sent
    first. `Normal' order therefore reverses bit order.  */
 
-void tinit ( TFILE *f, int fd, int reverse, int hwfc )
+static void tinit ( TFILE *f, int fd, int reverse, int hwfc )
 {
   f->ip = f->iq = f->ibuf ;
   f->obitorder = normalbits ;
@@ -329,20 +481,48 @@ int ttyopen ( TFILE *f, char *fname, int reverse, int hwfc )
     {
       close(fd);
       fd = -1;
-      msg ( "ES2failed to get exclusive lock") ;
+      err = 1;
     }
     else
-      msg ( "Ihave exclusive use") ;
+    {
+      /*
+       * Use a domain socket to receive commands from client applications.
+       */
 
-    int mics;
+      if ((clientEventFd = socket(AF_LOCAL, SOCK_STREAM, 0)) == -1)
+	msg ( "W socket returned error %d - %s", (int)errno, strerror(errno));
+      else
+      {
+	struct sockaddr_un laddr;
+	mode_t mask;
 
-    /*
-     * Reduce the buffering of received characters so that we're better able to 
-     * respond within T30 time constraints (bugs 3555657 & 2884777).
-     */
-    mics = 500;
-    if (ioctl(fd, IOSSDATALAT, &mics) == -1)
-      msg ( "W0ioctl(IOSSDATALAT, %d) returned error - %s(%d)\n", mics, strerror(errno), errno);
+	bzero(&laddr, sizeof(laddr));
+	laddr.sun_family = AF_LOCAL;
+	strlcpy(laddr.sun_path, clientSocketName, sizeof(laddr.sun_path));
+	unlink(laddr.sun_path);
+	mask = umask(0);
+	err = bind(clientEventFd, (struct sockaddr *)&laddr, SUN_LEN(&laddr));
+	umask(mask);
+
+	if (err < 0)
+	{
+	  msg ( "W bind returned error %d - %s", (int)errno, strerror(errno));
+	  close(clientEventFd);
+	  clientEventFd = -1;
+	}
+	else
+	{
+	  if (listen(clientEventFd, 2) < 0)
+	  {
+	    msg ( "W listen returned error %d - %s(%d)", (int)errno, strerror(errno));
+	    unlink(clientSocketName);
+	    close(clientEventFd);
+	    clientEventFd = -1;
+	  }
+	}
+      }
+      err = 0;
+    }
   }
 
   tinit ( f, fd, reverse, hwfc ) ;
@@ -376,13 +556,35 @@ int ttyopen ( TFILE *f, char *fname, int reverse, int hwfc )
   return err ;
 }
 
+/* Close a serial fax device.  Returns 0 if OK. */
+
+int ttyclose ( TFILE *f )
+{
+  /*
+   * Close the listener first so the next efax process can use the same domain socket...
+   */
+
+  if ( clientEventFd != -1 ) {
+    unlink(clientSocketName);
+    close(clientEventFd);
+    clientEventFd = -1;
+  }
+
+  if ( f->fd != -1 ) {
+    close(f->fd);
+    f->fd = -1;
+  }
+
+  return 0 ;
+}
+
 	/* UUCP-style device locking using lock files */
 
 /* Test for UUCP lock file & remove stale locks. Returns 0 on null file
    name or if no longer locked, 1 if locked by another pid, 2 on error, 3
    if locked by us. */
 
-int ttlocked ( char *fname, int log )
+static int ttlocked ( char *fname, int log )
 {
   int err=0, ipid ;
   FILE *f ;
@@ -433,7 +635,7 @@ int ttlocked ( char *fname, int log )
    file name or if created, 1 if locked by another pid, 2 on
    error, 3 if locked by us. */
 
-int ttlock ( char *fname, int log )
+static int ttlock ( char *fname, int log )
 {
   int err=0, dirlen, bin=0 ;    
   FILE *f=0 ;    
@@ -459,7 +661,7 @@ int ttlock ( char *fname, int log )
       if ( fwrite ( &pid, sizeof(pid_t), 1, f ) < 1 ) 
 	err = msg ( "ES2can't write pre-lock file %s:", buf ) ;
     } else {
-      if ( fprintf ( f, "%10d\n", (int) pid ) < 0 )
+      if ( fprintf ( f, "%10d", (int) pid ) < 0 )
 	err = msg ( "ES2can't write pre-lock file %s:", buf ) ;
     }
   }
@@ -487,7 +689,7 @@ int ttlock ( char *fname, int log )
 /* Remove lock file.  Returns 0 on null file name, doesn't exist, or was
    removed, 1 if the lock is to another pid, 2 on errors. */
 
-int ttunlock ( char *fname )
+static int ttunlock ( char *fname )
 {
   int err = 0 ;
 
@@ -526,12 +728,9 @@ int lockall ( TFILE *f, char **lkfiles, int log )
   {
     int allowPremption = 0;
     if ((err = ioctl(f->fd, IOSSPREEMPT, &allowPremption)) != 0)
-    {
-      msg ( "ES2failed to get exclusive lock") ;
-      return 2;
-    }
-    msg ( "Ihave exclusive use") ;
+      err = 1;
   }
+
 #endif	/* __APPLE__ */
 
   while ( *p && ! err ) 
@@ -554,7 +753,6 @@ int unlockall (TFILE *f, char **lkfiles )
 #if defined(__APPLE__)
   int allowPremption = 1;
   ioctl(f->fd, IOSSPREEMPT, &allowPremption);
-  msg ( "Irelease exclusive use") ;
 #endif	/* __APPLE__ */
 
   return err ; 
@@ -568,3 +766,338 @@ char *efaxbasename ( char *p )
   return strrchr ( p , '/' ) ? strrchr ( p , '/' ) + 1 : p ;
 }
 
+
+#ifdef __APPLE__
+
+/*
+ * 'sysEventMonitorStart()' - Start system event notifications
+ */
+
+void sysEventMonitorStart(void)
+{
+  int flags;
+
+  pipe(sysEventPipes);
+
+ /*
+  * Set non-blocking mode on the descriptor we will be receiving notification events on.
+  */
+
+  flags = fcntl(sysEventPipes[0], F_GETFL, 0);
+  fcntl(sysEventPipes[0], F_SETFL, flags | O_NONBLOCK);
+
+ /*
+  * Start the thread that runs the runloop...
+  */
+
+  pthread_mutex_init(&sysEventThreadMutex, NULL);
+  pthread_cond_init(&sysEventThreadCond, NULL);
+  pthread_create(&sysEventThread, NULL, sysEventThreadEntry, NULL);
+}
+
+
+/*
+ * 'sysEventMonitorStop()' - Stop system event notifications
+ */
+
+void sysEventMonitorStop(void)
+{
+  CFRunLoopRef	rl;		/* The runloop */
+
+
+  if (sysEventThread)
+  {
+   /*
+    * Make sure the thread has completed it's initialization and
+    * stored it's runloop reference in the shared global.
+    */
+		
+    pthread_mutex_lock(&sysEventThreadMutex);
+		
+    if (sysEventRunloop == NULL)
+      pthread_cond_wait(&sysEventThreadCond, &sysEventThreadMutex);
+		
+    rl = sysEventRunloop;
+    sysEventRunloop = NULL;
+
+    pthread_mutex_unlock(&sysEventThreadMutex);
+		
+    if (rl)
+      CFRunLoopStop(rl);
+		
+    pthread_join(sysEventThread, NULL);
+    pthread_mutex_destroy(&sysEventThreadMutex);
+    pthread_cond_destroy(&sysEventThreadCond);
+  }
+
+
+  if (sysEventPipes[0] >= 0)
+  {
+    close(sysEventPipes[0]);
+    close(sysEventPipes[1]);
+
+    sysEventPipes[0] = -1;
+    sysEventPipes[1] = -1;
+  }
+}
+
+
+/*
+ * 'sysEventMonitorUpdate()' - Handle power & network system events.
+ *
+ *  Returns non-zero if a higher level event needs to be handeled.
+ */
+
+static int sysEventMonitorUpdate(TFILE *f)
+{
+  int		err = 0;
+
+ /*
+  * Drain the event pipe...
+  */
+
+  if (read((int)sysEventPipes[0], &sysevent, sizeof(sysevent)) == sizeof(sysevent))
+  {
+    if ((sysevent.event & SYSEVENT_CANSLEEP))
+    {
+     /*
+      * If we're waiting for the phone to ring allow the idle sleep, otherwise
+      * block it so we can finish the current session.
+      */
+      if (waiting)
+        IOAllowPowerChange(sysevent.powerKernelPort, sysevent.powerNotificationID);
+      else
+      {
+        msg("Isleep canceled because of active job");
+        IOCancelPowerChange(sysevent.powerKernelPort, sysevent.powerNotificationID);
+      }
+    }
+
+    if ((sysevent.event & SYSEVENT_WILLSLEEP))
+    {
+     /*
+      * If we're waiting return an error so answer can reset the modem and close the port,
+      * otherwise cancel the current session right here.
+      */
+      if (waiting)
+      {
+	msg("Ipreparing to sleep...");
+	err = -6;
+      }
+      else
+      {
+	cleanup(6);
+	IOAllowPowerChange(sysevent.powerKernelPort, sysevent.powerNotificationID);
+	exit(6);
+      }
+    }
+
+    if ((sysevent.event & SYSEVENT_WOKE))
+    {
+      IOAllowPowerChange(sysevent.powerKernelPort, sysevent.powerNotificationID);
+      if (waiting)
+	err = -7;
+    }
+  }
+
+  return err;
+}
+
+
+/*
+ * 'sysEventThreadEntry()' - A thread to run a runloop on. 
+ *		       Receives power & network change notifications.
+ */
+
+static void *sysEventThreadEntry()
+{
+  io_object_t		powerNotifierObj;	/* Power notifier object */
+  IONotificationPortRef powerNotifierPort;	/* Power notifier port */
+  CFRunLoopSourceRef	powerRLS = NULL;	/* Power runloop source */
+  threaddata_t		threadData;		/* Thread context data for the runloop notifiers */
+
+
+  bzero(&threadData, sizeof(threadData));
+
+ /*
+  * Register for power state change notifications
+  */
+
+  threadData.sysevent.powerKernelPort = IORegisterForSystemPower(&threadData, &powerNotifierPort, sysEventPowerNotifier, &powerNotifierObj);
+  if (threadData.sysevent.powerKernelPort)
+  {
+    powerRLS = IONotificationPortGetRunLoopSource(powerNotifierPort);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), powerRLS, kCFRunLoopDefaultMode);
+  }
+
+ /*
+  * Store our runloop in a global so the main thread can
+  * use it to stop us.
+  */
+
+  pthread_mutex_lock(&sysEventThreadMutex);
+
+  sysEventRunloop = CFRunLoopGetCurrent();
+
+  pthread_cond_signal(&sysEventThreadCond);
+  pthread_mutex_unlock(&sysEventThreadMutex);
+
+
+ /*
+  * Disappear into the runloop until it's stopped by the main thread.
+  */
+
+  CFRunLoopRun();
+
+
+ /*
+  * Clean up before exiting.
+  */
+
+  if (powerRLS)
+  {
+    CFRunLoopRemoveSource(CFRunLoopGetCurrent(), powerRLS, kCFRunLoopDefaultMode);
+    CFRunLoopSourceInvalidate(powerRLS);
+    CFRelease(powerRLS);
+  }
+
+  if (threadData.sysevent.powerKernelPort)
+    IODeregisterForSystemPower(&powerNotifierObj);
+
+  pthread_exit(NULL);
+}
+
+
+/*
+ * 'sysEventPowerNotifier()' - .
+ */
+
+static void sysEventPowerNotifier(void *context, io_service_t service, natural_t messageType, void *messageArgument)
+{
+  threaddata_t	*threadData = (threaddata_t *)context;	/* Thread context data */
+  (void)service;					/* anti-compiler-warning-code */
+
+  threadData->sysevent.event = 0;
+
+  switch (messageType)
+  {
+  case kIOMessageCanSystemPowerOff:
+  case kIOMessageCanSystemSleep:
+    threadData->sysevent.event = SYSEVENT_CANSLEEP;
+    break;
+
+  case kIOMessageSystemWillRestart:
+  case kIOMessageSystemWillPowerOff:
+  case kIOMessageSystemWillSleep:
+    threadData->sysevent.event = SYSEVENT_WILLSLEEP;
+    break;
+
+  case kIOMessageSystemHasPoweredOn:
+    threadData->sysevent.event = SYSEVENT_WOKE;
+    break;
+
+  case kIOMessageSystemWillNotPowerOff:
+  case kIOMessageSystemWillNotSleep:
+  case kIOMessageSystemWillPowerOn:
+  default:
+    IOAllowPowerChange(threadData->sysevent.powerKernelPort, (long)messageArgument);
+    break;
+  }
+
+  if (threadData->sysevent.event)
+  {
+   /* 
+    * Send the event to the main thread.
+    */
+    threadData->sysevent.powerNotificationID = (long)messageArgument;
+    write((int)sysEventPipes[1], &threadData->sysevent, sizeof(threadData->sysevent));
+  }
+}
+
+
+/*
+ * 'clientEventUpdate()' - Read process a command from an incoming client connection.
+ */
+
+static int clientEventUpdate()
+{
+  int n, err = 0;
+  int client_fd;
+  fd_set client_fds ;
+  struct timeval client_timeout ;
+  struct sockaddr_un client_addr;
+  char client_buf[255];
+
+  /*
+   * Accept the incomming connection request...
+   */
+
+  if ((client_fd = accept(clientEventFd, (struct sockaddr *)&client_addr, &n)) < 0)
+    msg ( "W0client accept error %d - %s", (int)errno, strerror(errno));
+  else
+  {
+    /* 
+     * Give the client 1 second to send us a command...
+     */
+
+    client_timeout.tv_sec  = 1; 
+    client_timeout.tv_usec = 0 ;
+
+    FD_ZERO (&client_fds);
+    FD_SET(client_fd, &client_fds);
+
+    n = select ( client_fd + 1, &client_fds, 0, 0, &client_timeout);
+
+    if (n <= 0)
+      msg ( "W0client select error %d - %s", (int)errno, strerror(errno));
+    else	/* (n > 0) */
+    {
+      n = recv(client_fd, client_buf, sizeof(client_buf)-1, 0);
+      if (n < 0)
+	msg ( "W0client recv error %d - %s", (int)errno, strerror(errno));
+      else if (n > 0)
+      {
+	client_buf[n-1] = '\0';
+
+	switch (client_buf[0])
+	{
+	case 'a':			/* Manual answer... */
+	  msg ( "l manual answer");
+	  manual_answer = 1;
+
+	  if (answer_wait)		/* Only return an error if we're waiting for activity... */
+	    err = -7;
+	  break;
+
+	case 'c':			/* Cancel current session... */
+	  msg ( "l cancel session");
+	  err = -8;
+
+	  /*
+	   * Close the listen socket so we're not interupped while cleaning up...
+	   */
+
+	  unlink(clientSocketName);
+	  close(clientEventFd);
+	  clientEventFd = -1;
+	  close(client_fd);
+
+#if defined(__APPLE__)
+	  notify(CFSTR("disconnecting"), NULL);
+#endif
+	  exit ( cleanup ( 5 ) ) ;
+	  break;			/* anti-compiler warning */
+
+	default:
+	  msg ( "W unknown client command \"%s\"", client_buf);
+	  break;
+	}
+      }
+
+      close(client_fd);
+    }
+  }
+  return err;
+}
+
+#endif	/* __APPLE__ */

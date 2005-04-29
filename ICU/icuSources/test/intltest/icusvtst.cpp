@@ -1,6 +1,6 @@
 /**
  *******************************************************************************
- * Copyright (C) 2001-2002, International Business Machines Corporation and    *
+ * Copyright (C) 2001-2004, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  *
@@ -12,8 +12,8 @@
 #if !UCONFIG_NO_SERVICE
 
 #include "icusvtst.h"
-
 #include "iculserv.h"
+#include <stdio.h>
 
 
 class MyListener : public EventListener {
@@ -34,20 +34,20 @@ class ICUNSubclass : public ICUNotifier {
 };
 
 class LKFSubclass : public LocaleKeyFactory {
-	Hashtable table;
+    Hashtable table;
 
     public:
     LKFSubclass(UBool visible) 
         : LocaleKeyFactory(visible ? VISIBLE : INVISIBLE, "LKFSubclass")
     {
-		UErrorCode status = U_ZERO_ERROR;
-		table.put("en_US", this, status);
+        UErrorCode status = U_ZERO_ERROR;
+        table.put("en_US", this, status);
     }
 
     protected:
-	virtual const Hashtable* getSupportedIDs(UErrorCode &/*status*/) const {
-		return &table;
-	}
+    virtual const Hashtable* getSupportedIDs(UErrorCode &/*status*/) const {
+        return &table;
+    }
 };
 
 class Integer : public UObject {
@@ -153,7 +153,7 @@ UnicodeString append(UnicodeString& result, const UObject* obj)
         } else if (id == Locale::getStaticClassID()) {
             result.append(((Locale*)obj)->getName());
         } else if (id == Integer::getStaticClassID()) {
-            sprintf(buffer, "%d", ((Integer*)obj)->_val);
+            sprintf(buffer, "%d", (int)((Integer*)obj)->_val);
             result.append(buffer);
         } else {
             sprintf(buffer, "%p", (const void*)obj);
@@ -300,7 +300,7 @@ void
 ICUServiceTest::msgstr(const UnicodeString& message, UObject* obj, UBool err)
 {
     if (obj) {
-	UnicodeString* str = (UnicodeString*)obj;
+    UnicodeString* str = (UnicodeString*)obj;
         logln(message + *str);
         delete str;
     } else if (err) {
@@ -317,7 +317,7 @@ ICUServiceTest::testAPI_One()
     // register an object with one locale, 
     // search for an object with a more specific locale
     // should return the original object
-	UErrorCode status = U_ZERO_ERROR;
+    UErrorCode status = U_ZERO_ERROR;
     Integer* singleton0 = new Integer(0);
     service.registerInstance(singleton0, "en_US", status);
     {
@@ -442,7 +442,7 @@ ICUServiceTest::testAPI_One()
         confirmEqual("17) get invisible", result, singleton5);
         delete result;
     }
-	
+    
     // should not be able to locate invisible services
     {
         UErrorCode status = U_ZERO_ERROR;
@@ -467,7 +467,7 @@ class TestStringService : public ICUService {
         return LocaleKey::createWithCanonicalFallback(id, NULL, status); // no fallback locale
     }
 
-    virtual ICUServiceFactory* createSimpleFactory(UObject* obj, const UnicodeString& id, UBool visible, UErrorCode& status) 
+  virtual ICUServiceFactory* createSimpleFactory(UObject* obj, const UnicodeString& id, UBool visible, UErrorCode& /* status */) 
     {
         if (obj && obj->getDynamicClassID() == UnicodeString::getStaticClassID()) {
             return new SimpleFactory((UnicodeString*)obj, id, visible);
@@ -484,7 +484,7 @@ class TestStringService : public ICUService {
 class AnonymousStringFactory : public ICUServiceFactory
 {
     public:
-    virtual UObject* create(const ICUServiceKey& key, const ICUService* service, UErrorCode& status) const {
+    virtual UObject* create(const ICUServiceKey& key, const ICUService* /* service */, UErrorCode& /* status */) const {
         return new UnicodeString(key.getID());
     }
 
@@ -530,12 +530,19 @@ class TestMultipleKeyStringFactory : public ICUServiceFactory {
     ~TestMultipleKeyStringFactory() {
     }
 
-    UObject* create(const ICUServiceKey& key, const ICUService* service, UErrorCode& status) const {
+    UObject* create(const ICUServiceKey& key, const ICUService* /* service */, UErrorCode& status) const {
+        if (U_FAILURE(status)) {
+        return NULL;
+        }
         UnicodeString temp;
         key.currentID(temp);
-        if (U_SUCCESS(_status) && _ids.contains(&temp)) {
-            return new UnicodeString(_factoryID + temp);
+        if (U_SUCCESS(_status)) {
+        if (_ids.contains(&temp)) {
+                return new UnicodeString(_factoryID + temp);
         }
+        } else {
+        status = _status;
+    }
         return NULL;
     }
 
@@ -583,7 +590,7 @@ const char TestMultipleKeyStringFactory::fgClassID = '\0';
 void 
 ICUServiceTest::testAPI_Two()
 {
-	UErrorCode status = U_ZERO_ERROR;
+    UErrorCode status = U_ZERO_ERROR;
     TestStringService service;
     service.registerFactory(new AnonymousStringFactory(), status);
 
@@ -660,7 +667,7 @@ ICUServiceTest::testAPI_Two()
     // iterate over the display names
     {
         UErrorCode status = U_ZERO_ERROR;
-        UVector names(deleteStringPair, NULL, status);
+        UVector names(userv_deleteStringPair, NULL, status);
         service.getDisplayNames(names, Locale::getGerman(), status);
         for (int i = 0; i < names.size(); ++i) {
             const StringPair* pair = (const StringPair*)names[i];
@@ -700,7 +707,7 @@ ICUServiceTest::testAPI_Two()
     // Rad dude's surfer gal 'replaces' Later's surfer gal
     {
         UErrorCode status = U_ZERO_ERROR;
-        UVector names(deleteStringPair, NULL, status);
+        UVector names(userv_deleteStringPair, NULL, status);
         service.getDisplayNames(names, Locale("es"), status);
         for (int i = 0; i < names.size(); ++i) {
             const StringPair* pair = (const StringPair*)names[i];
@@ -851,7 +858,7 @@ void
 ICUServiceTest::testRBF()
 {
     // resource bundle factory.
-	UErrorCode status = U_ZERO_ERROR;
+    UErrorCode status = U_ZERO_ERROR;
     TestStringService service;
     service.registerFactory(new ICUResourceBundleFactory(), status);
 
@@ -871,7 +878,7 @@ ICUServiceTest::testRBF()
     // this should be fast since the display names were cached.
     {
         UErrorCode status = U_ZERO_ERROR;
-        UVector names(deleteStringPair, NULL, status);
+        UVector names(userv_deleteStringPair, NULL, status);
         service.getDisplayNames(names, Locale::getGermany(), status);
         logln("service display names for de_DE");
         for (int i = 0; i < names.size(); ++i) {
@@ -897,7 +904,7 @@ ICUServiceTest::testRBF()
             logln(UnicodeString("\n  --- ") + idNames[i] + " ---");
             {
                 UErrorCode status = U_ZERO_ERROR;
-                UVector names(deleteStringPair, NULL, status);
+                UVector names(userv_deleteStringPair, NULL, status);
                 service.getDisplayNames(names, idNames[i], status);
                 for (int i = 0; i < names.size(); ++i) {
                     const StringPair* pair = (const StringPair*)names[i];
@@ -995,7 +1002,7 @@ class TestStringLocaleService : public ICULocaleService {
 };
 
 void ICUServiceTest::testLocale() {
-	UErrorCode status = U_ZERO_ERROR;
+    UErrorCode status = U_ZERO_ERROR;
     TestStringLocaleService service;
 
     UnicodeString* root = new UnicodeString("root");
@@ -1085,7 +1092,7 @@ void ICUServiceTest::testLocale() {
     }
 
     {
-		UErrorCode status = U_ZERO_ERROR;
+        UErrorCode status = U_ZERO_ERROR;
         UnicodeString english = "en";
         Locale localeResult;
         UnicodeString result;
@@ -1157,7 +1164,7 @@ void ICUServiceTest::testLocale() {
         UErrorCode status = U_ZERO_ERROR;
         StringEnumeration* locales = service.getAvailableLocales();
         if (locales) {
-            confirmIdentical("test available locales", locales->count(status), 5);
+            confirmIdentical("test available locales", locales->count(status), 6);
             logln("locales: ");
             {
                 const char* p;
@@ -1177,7 +1184,7 @@ class WrapFactory : public ICUServiceFactory {
     public:
     static const UnicodeString& getGreetingID() {
       if (greetingID == NULL) {
-	greetingID = new UnicodeString("greeting");
+    greetingID = new UnicodeString("greeting");
       }
       return *greetingID;
     }
@@ -1208,7 +1215,7 @@ class WrapFactory : public ICUServiceFactory {
         }
     }
 
-    UnicodeString& getDisplayName(const UnicodeString& id, const Locale& locale, UnicodeString& result) const {
+    UnicodeString& getDisplayName(const UnicodeString& id, const Locale& /* locale */, UnicodeString& result) const {
         result.append("wrap '");
         result.append(id);
         result.append("'");
@@ -1239,7 +1246,7 @@ ICUServiceTest::testWrapFactory()
 {
     UnicodeString* greeting = new UnicodeString("Hello There");
     UnicodeString greetingID = "greeting";
-	UErrorCode status = U_ZERO_ERROR;
+    UErrorCode status = U_ZERO_ERROR;
     TestStringService service;
     service.registerInstance(greeting, greetingID, status);
 
@@ -1302,10 +1309,10 @@ void ICUServiceTest::testCoverage()
     {
       UnicodeString* result = (UnicodeString*)service.get("object", status);
       if (result) {
-	logln("object is: " + *result);
-	delete result;
+    logln("object is: " + *result);
+    delete result;
       } else {
-	errln("could not get object");
+    errln("could not get object");
       }
     }
   }

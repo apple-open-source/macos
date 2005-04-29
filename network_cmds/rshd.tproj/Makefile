@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = rshd.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble rshd.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble rshd.8 shell.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

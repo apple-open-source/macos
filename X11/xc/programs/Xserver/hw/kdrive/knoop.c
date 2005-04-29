@@ -21,7 +21,7 @@
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-/* $XFree86: xc/programs/Xserver/hw/kdrive/knoop.c,v 1.2 2000/02/23 20:29:55 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/kdrive/knoop.c,v 1.3 2003/11/17 22:20:36 dawes Exp $ */
 
 /*
  * GC ops that don't do anything
@@ -31,18 +31,15 @@
 #include <gcstruct.h>
 
 typedef void	(* typeFillSpans)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*nInit*/,
 		DDXPointPtr /*pptInit*/,
 		int * /*pwidthInit*/,
 		int /*fSorted*/
-#endif
 );
 
 typedef void	(* typeSetSpans)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		char * /*psrc*/,
@@ -50,11 +47,9 @@ typedef void	(* typeSetSpans)(
 		int * /*pwidth*/,
 		int /*nspans*/,
 		int /*fSorted*/
-#endif
 );
 
 typedef void	(* typePutImage)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*depth*/,
@@ -65,11 +60,9 @@ typedef void	(* typePutImage)(
 		int /*leftPad*/,
 		int /*format*/,
 		char * /*pBits*/
-#endif
 );
 
 typedef RegionPtr	(* typeCopyArea)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pSrc*/,
 		DrawablePtr /*pDst*/,
 		GCPtr /*pGC*/,
@@ -79,11 +72,9 @@ typedef RegionPtr	(* typeCopyArea)(
 		int /*h*/,
 		int /*dstx*/,
 		int /*dsty*/
-#endif
 );
 
 typedef RegionPtr	(* typeCopyPlane)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pSrcDrawable*/,
 		DrawablePtr /*pDstDrawable*/,
 		GCPtr /*pGC*/,
@@ -94,130 +85,104 @@ typedef RegionPtr	(* typeCopyPlane)(
 		int /*dstx*/,
 		int /*dsty*/,
 		unsigned long /*bitPlane*/
-#endif
 );
 typedef void	(* typePolyPoint)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*mode*/,
 		int /*npt*/,
 		DDXPointPtr /*pptInit*/
-#endif
 );
 
 typedef void	(* typePolylines)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*mode*/,
 		int /*npt*/,
 		DDXPointPtr /*pptInit*/
-#endif
 );
 
 typedef void	(* typePolySegment)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*nseg*/,
 		xSegment * /*pSegs*/
-#endif
 );
 
 typedef void	(* typePolyRectangle)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*nrects*/,
 		xRectangle * /*pRects*/
-#endif
 );
 
 typedef void	(* typePolyArc)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*narcs*/,
 		xArc * /*parcs*/
-#endif
 );
 
 typedef void	(* typeFillPolygon)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*shape*/,
 		int /*mode*/,
 		int /*count*/,
 		DDXPointPtr /*pPts*/
-#endif
 );
 
 typedef void	(* typePolyFillRect)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*nrectFill*/,
 		xRectangle * /*prectInit*/
-#endif
 );
 
 typedef void	(* typePolyFillArc)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*narcs*/,
 		xArc * /*parcs*/
-#endif
 );
 
 typedef int		(* typePolyText8)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*x*/,
 		int /*y*/,
 		int /*count*/,
 		char * /*chars*/
-#endif
 );
 
 typedef int		(* typePolyText16)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*x*/,
 		int /*y*/,
 		int /*count*/,
 		unsigned short * /*chars*/
-#endif
 );
 
 typedef void	(* typeImageText8)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*x*/,
 		int /*y*/,
 		int /*count*/,
 		char * /*chars*/
-#endif
 );
 
 typedef void	(* typeImageText16)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*x*/,
 		int /*y*/,
 		int /*count*/,
 		unsigned short * /*chars*/
-#endif
 );
 
 typedef void	(* typeImageGlyphBlt)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*x*/,
@@ -225,11 +190,9 @@ typedef void	(* typeImageGlyphBlt)(
 		unsigned int /*nglyph*/,
 		CharInfoPtr * /*ppci*/,
 		pointer /*pglyphBase*/
-#endif
 );
 
 typedef void	(* typePolyGlyphBlt)(
-#if NeedNestedPrototypes
 		DrawablePtr /*pDrawable*/,
 		GCPtr /*pGC*/,
 		int /*x*/,
@@ -237,11 +200,9 @@ typedef void	(* typePolyGlyphBlt)(
 		unsigned int /*nglyph*/,
 		CharInfoPtr * /*ppci*/,
 		pointer /*pglyphBase*/
-#endif
 );
 
 typedef void	(* typePushPixels)(
-#if NeedNestedPrototypes
 		GCPtr /*pGC*/,
 		PixmapPtr /*pBitMap*/,
 		DrawablePtr /*pDst*/,
@@ -249,7 +210,6 @@ typedef void	(* typePushPixels)(
 		int /*h*/,
 		int /*x*/,
 		int /*y*/
-#endif
 );
 
 RegionPtr

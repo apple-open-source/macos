@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_macros.h,v 1.1 2002/12/16 16:19:14 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_macros.h,v 1.3 2003/07/08 16:55:35 tsi Exp $ */
 /*
  * Copyright 2000 ATI Technologies Inc., Markham, Ontario, and
  *                VA Linux Systems Inc., Fremont, California.
@@ -85,10 +85,10 @@ do {									\
 
 #define OUTPLLP(pScrn, addr, val, mask)					\
 do {									\
-    CARD32 tmp = INPLL(pScrn, addr);					\
-    tmp &= (mask);							\
-    tmp |= (val);							\
-    OUTPLL(addr, tmp);							\
+    CARD32 tmp_ = INPLL(pScrn, addr);					\
+    tmp_ &= (mask);							\
+    tmp_ |= (val);							\
+    OUTPLL(addr, tmp_);							\
 } while (0)
 
 #define OUTPAL_START(idx)						\

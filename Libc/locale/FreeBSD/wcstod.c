@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wcstod.c,v 1.2 2003/02/22 00:06:05 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wcstod.c,v 1.4 2004/04/07 09:47:56 tjr Exp $");
 
 #include <stdlib.h>
 #include <wchar.h>
@@ -44,11 +44,11 @@ double
 wcstod(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr)
 {
 	static const mbstate_t initial;
-	mbstate_t state;
+	mbstate_t mbs;
 	double val;
-	char *buf, *end, *p;
+	char *buf, *end;
 	const wchar_t *wcp;
-	size_t clen, len;
+	size_t len;
 
 	while (iswspace(*nptr))
 		nptr++;
@@ -63,17 +63,17 @@ wcstod(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr)
 	 * duplicates a lot of strtod()'s functionality and slows down the
 	 * most common cases.
 	 */
-	state = initial;
 	wcp = nptr;
-	if ((len = wcsrtombs(NULL, &wcp, 0, &state)) == (size_t)-1) {
+	mbs = initial;
+	if ((len = wcsrtombs(NULL, &wcp, 0, &mbs)) == (size_t)-1) {
 		if (endptr != NULL)
 			*endptr = (wchar_t *)nptr;
 		return (0.0);
 	}
 	if ((buf = malloc(len + 1)) == NULL)
 		return (0.0);
-	state = initial;
-	wcsrtombs(buf, &wcp, len + 1, &state);
+	mbs = initial;
+	wcsrtombs(buf, &wcp, len + 1, &mbs);
 
 	/* Let strtod() do most of the work for us. */
 	val = strtod(buf, &end);
@@ -84,22 +84,9 @@ wcstod(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr)
 	 * where it ended, count multibyte characters to find the
 	 * corresponding position in the wide char string.
 	 */
-	if (endptr != NULL) {
-#if 1					/* Fast, assume 1:1 WC:MBS mapping. */
+	if (endptr != NULL)
+		/* XXX Assume each wide char is one byte. */
 		*endptr = (wchar_t *)nptr + (end - buf);
-		(void)clen;
-		(void)p;
-#else					/* Slow, conservative approach. */
-		state = initial;
-		*endptr = (wchar_t *)nptr;
-		p = buf;
-		while (p < end &&
-		    (clen = mbrlen(p, end - p, &state)) > 0) {
-			p += clen;
-			(*endptr)++;
-		}
-#endif
-	}
 
 	free(buf);
 

@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/RdBitF.c,v 3.5 2002/05/31 18:45:41 dawes Exp $ */
+/* $XFree86: xc/lib/X11/RdBitF.c,v 3.7 2003/11/17 22:20:08 dawes Exp $ */
 
 /*
  *	Code to read bitmaps from disk files. Interprets 
@@ -61,7 +61,7 @@ static Bool initialized = False;	/* easier to fill in at run time */
  *	Table index for the hex values. Initialized once, first time.
  *	Used for translation value or delimiter significance lookup.
  */
-static void initHexTable()
+static void initHexTable(void)
 {
     /*
      * We build the table at run time for several reasons:
@@ -95,8 +95,8 @@ static void initHexTable()
  *	read next hex value in the input stream, return -1 if EOF
  */
 static int
-NextInt (fstream)
-    FILE *fstream;
+NextInt (
+    FILE *fstream)
 {
     int	ch;
     int	value = 0;
@@ -124,21 +124,14 @@ NextInt (fstream)
     return value;
 }
 
-#if NeedFunctionPrototypes
-int XReadBitmapFileData (
+int
+XReadBitmapFileData (
     _Xconst char *filename,
     unsigned int *width,                /* RETURNED */
     unsigned int *height,               /* RETURNED */
     unsigned char **data,               /* RETURNED */
     int *x_hot,                         /* RETURNED */
     int *y_hot)                         /* RETURNED */
-#else
-int XReadBitmapFileData (filename, width, height, data, x_hot, y_hot)
-    char *filename;
-    unsigned int *width, *height;       /* RETURNED */
-    unsigned char **data;               /* RETURNED */
-    int *x_hot, *y_hot;                 /* RETURNED */
-#endif
 {
     FILE *fstream;			/* handle on file  */
     unsigned char *bits = NULL;		/* working variable */
@@ -260,8 +253,8 @@ int XReadBitmapFileData (filename, width, height, data, x_hot, y_hot)
     return (BitmapSuccess);
 }
 
-#if NeedFunctionPrototypes
-int XReadBitmapFile (
+int
+XReadBitmapFile (
     Display *display,
     Drawable d,
     _Xconst char *filename,
@@ -270,15 +263,6 @@ int XReadBitmapFile (
     Pixmap *pixmap,                     /* RETURNED */
     int *x_hot,                         /* RETURNED */
     int *y_hot)                         /* RETURNED */
-#else
-int XReadBitmapFile (display, d, filename, width, height, pixmap, x_hot, y_hot)
-    Display *display;
-    Drawable d;
-    char *filename;
-    unsigned int *width, *height;       /* RETURNED */
-    Pixmap *pixmap;                     /* RETURNED */
-    int *x_hot, *y_hot;                 /* RETURNED */
-#endif
 {
     unsigned char *data;
     int res;

@@ -1,7 +1,7 @@
 /*
  * KLPreferences.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLPreferences.c,v 1.11 2003/08/10 20:21:26 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLPreferences.c,v 1.19 2004/12/10 21:18:07 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -110,6 +110,8 @@ static KLStatus __KLPreferencesEnsureKerberosDefaultRealmIsInFavorites (KLString
 
 #pragma mark -
 
+// ---------------------------------------------------------------------------
+
 static KLStatus __KLPreferencesCopyValue (CFStringRef inKey, CFTypeID inValueType, CFPropertyListRef *outValue)
 {
     KLStatus err = klNoErr;
@@ -119,24 +121,42 @@ static KLStatus __KLPreferencesCopyValue (CFStringRef inKey, CFTypeID inValueTyp
     if (outValue == NULL) { err = KLError_ (klParameterErr); }
 
     if (err == klNoErr) {
-        // Currently just do nothing if we are not allowed to touch to the user's homedir
         if (__KLAllowHomeDirectoryAccess()) {
-            value = CFPreferencesCopyValue (inKey, kLoginLibraryPreferences, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-            if ((value != NULL) && (CFGetTypeID (value) != inValueType)) {
-                err = KLError_ (klPreferencesReadErr);  // Preferences contain bogus value for this key
+            if (value == NULL) {
+                value = CFPreferencesCopyValue (inKey, kLoginLibraryPreferences,
+                                                kCFPreferencesCurrentUser, kCFPreferencesCurrentHost);
+            }
+            if (value == NULL) {
+                value = CFPreferencesCopyValue (inKey, kLoginLibraryPreferences,
+                                                kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
             }
         }
+        if (value == NULL) {
+            value = CFPreferencesCopyValue (inKey, kLoginLibraryPreferences,
+                                            kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+        }
+        if (value == NULL) {
+            value = CFPreferencesCopyValue (inKey, kLoginLibraryPreferences,
+                                            kCFPreferencesAnyUser, kCFPreferencesAnyHost);
+        }
+        
+        if ((value != NULL) && (CFGetTypeID (value) != inValueType)) {
+            err = KLError_ (klPreferencesReadErr);  // prefs contain bogus value for this key
+        }
+
     }
     
     if (err == klNoErr) {
         *outValue = (void *) value;
-    } else {
-        if (value != NULL) { CFRelease (value); }
+        value = NULL;
     }
+    
+    if (value != NULL) { CFRelease (value); }
     
     return KLError_ (err);
 }
 
+// ---------------------------------------------------------------------------
 
 static KLStatus __KLPreferencesSetValue (CFStringRef inKey, CFPropertyListRef inValue)
 {
@@ -148,8 +168,17 @@ static KLStatus __KLPreferencesSetValue (CFStringRef inKey, CFPropertyListRef in
     if (err == klNoErr) {
         // Currently just do nothing if we are not allowed to touch to the user's homedir
         if (__KLAllowHomeDirectoryAccess()) {
-            CFPreferencesSetValue (inKey, inValue, kLoginLibraryPreferences, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-            if (CFPreferencesSynchronize (kLoginLibraryPreferences, kCFPreferencesCurrentUser, kCFPreferencesAnyHost) == false) {
+            CFPreferencesSetValue (inKey, inValue, kLoginLibraryPreferences, 
+                                   kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+            if (CFPreferencesSynchronize (kLoginLibraryPreferences,
+                                          kCFPreferencesCurrentUser, kCFPreferencesAnyHost) == false) {
+                err = KLError_ (klPreferencesWriteErr);
+            }
+        } else {
+            CFPreferencesSetValue (inKey, inValue, kLoginLibraryPreferences, 
+                                   kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+            if (CFPreferencesSynchronize (kLoginLibraryPreferences,
+                                          kCFPreferencesAnyUser, kCFPreferencesCurrentHost) == false) {
                 err = KLError_ (klPreferencesWriteErr);
             }
         }
@@ -159,6 +188,8 @@ static KLStatus __KLPreferencesSetValue (CFStringRef inKey, CFPropertyListRef in
 }
 
 #pragma mark -
+
+// ---------------------------------------------------------------------------
 
 static KLStatus __KLPreferencesGetStringWithKey (const CFStringRef inKey, const char *inDefaultString, char **outString)
 {
@@ -177,7 +208,7 @@ static KLStatus __KLPreferencesGetStringWithKey (const CFStringRef inKey, const 
         if ((value == NULL) || (CFGetTypeID (value) != CFStringGetTypeID ())) {
             err = __KLCreateString (inDefaultString, outString);
         } else {
-            err = __KLCreateStringFromCFString (value, outString);
+            err = __KLCreateStringFromCFString (value, __KLApplicationGetTextEncoding(), outString);
         }
     }
     
@@ -352,7 +383,7 @@ static KLBoolean __KLPreferencesGetStringArrayWithKey (const CFStringRef inKey, 
                     }
                     
                     if (err == klNoErr) {
-                        err = __KLCreateStringFromCFString (valueString, &string);
+                        err = __KLCreateStringFromCFString (valueString, __KLApplicationGetTextEncoding(), &string);
                     }
                     
                     if (err == klNoErr) {
@@ -496,7 +527,7 @@ static KLTime __KLPreferencesGetLibDefaultTime (const char *inLibDefaultName, KL
         }
     }
 
-    if (values  != NULL) { profile_free_list(values); }
+    if (values  != NULL) { profile_free_list (values); }
     if (profile != NULL) { profile_abandon (profile); }
     if (context != NULL) { krb5_free_context (context); }
     
@@ -509,7 +540,25 @@ static KLTime __KLPreferencesGetLibDefaultTime (const char *inLibDefaultName, KL
 
 KLStatus __KLPreferencesGetKerberosLoginName (char **outName)
 {
-    return __KLPreferencesGetStringWithKey (kKLName, kDefaultLoginName, outName);
+    KLStatus err = klNoErr;
+    char *osName = NULL;
+    
+    if (outName == NULL) { err = KLError_ (klParameterErr); }
+    
+    if (err == klNoErr) {
+        struct passwd *pw = getpwuid (LoginSessionGetSessionUID ());
+        if (pw != NULL) {
+            err = __KLCreateString (pw->pw_name, &osName);
+        }
+    }
+    
+    if (err == klNoErr) {
+        err = __KLPreferencesGetStringWithKey (kKLName, osName ? osName : kDefaultLoginName, outName);
+    }
+
+    if (osName != NULL) { KLDisposeString (osName); }
+
+    return KLError_ (err);
 }
 
 // ---------------------------------------------------------------------------
@@ -933,6 +982,7 @@ KLStatus __KLPreferencesGetKerberosLoginRealmByName (const char *inName, KLIndex
     KLStatus err = klNoErr;
     KLStringArray realmList = NULL;
     
+    if (inName   == NULL) { err = KLError_ (klParameterErr); }
     if (outIndex == NULL) { err = KLError_ (klParameterErr); }
     
     if (err == klNoErr) {
@@ -1180,7 +1230,22 @@ KLStatus __KLPreferencesGetKerberosLoginDefaultRealm (KLIndex *outIndex)
 
 KLStatus __KLPreferencesGetKerberosLoginDefaultRealmByName (char **outDefaultRealm)
 {
-    return __KLPreferencesGetStringWithKey (kKLDefaultRealm, kNoDefaultRealm, outDefaultRealm);
+    KLStatus err = klNoErr;
+    char *kerberosDefaultRealm = NULL;
+    
+    if (outDefaultRealm == NULL) { err = KLError_ (klParameterErr); }
+    
+    if (err == klNoErr) {
+        err = __KLPreferencesGetKerberosDefaultRealm (&kerberosDefaultRealm);
+    }
+    
+    if (err == klNoErr) {
+        err = __KLPreferencesGetStringWithKey (kKLDefaultRealm, kerberosDefaultRealm, outDefaultRealm);
+    }
+    
+    if (kerberosDefaultRealm != NULL) { KLDisposeString (kerberosDefaultRealm); }
+    
+    return KLError_ (err);
 }
 
 // ---------------------------------------------------------------------------

@@ -23,9 +23,9 @@
  */
 
 
-#include <IOKit/usb/IOUSBLog.h>
+#include <sys/systm.h>
 
-#include </usr/include/stdio.h>
+#include <IOKit/usb/IOUSBLog.h>
 
 #ifdef	__cplusplus
 	extern "C" {

@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,9 +29,10 @@
 --  gives the individual routines for performing such tasks as well as
 --  the routine gnatmake below that puts it all together.
 
-with GNAT.OS_Lib; use GNAT.OS_Lib;  --  defines Argument_List
 with Table;
-with Types;       use Types;
+with Types; use Types;
+
+with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 package Make is
 
@@ -112,6 +112,7 @@ package Make is
       Most_Recent_Obj_Stamp : out Time_Stamp_Type;
       Main_Unit             : out Boolean;
       Compilation_Failures  : out Natural;
+      Main_Index            : Int      := 0;
       Check_Readonly_Files  : Boolean  := False;
       Do_Not_Execute        : Boolean  := False;
       Force_Compilations    : Boolean  := False;
@@ -147,6 +148,10 @@ package Make is
    --
    --    Compilation_Failures is a count of compilation failures. This count
    --    is used to extract compilation failure reports with Extract_Failure.
+   --
+   --    Main_Index, when not zero, is the index of the main unit in source
+   --    file Main_Source which is a multi-unit source.
+   --    Zero indicates that Main_Source is a single unit source file.
    --
    --    Check_Readonly_Files set it to True to compile source files
    --    which library files are read-only. When compiling GNAT predefined

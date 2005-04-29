@@ -1,0 +1,2 @@
+<!ENTITY % content "(#PCDATA)">
+<!ELEMENT Test %content;>

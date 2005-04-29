@@ -1,4 +1,4 @@
 STARTDEF()
-def(version)(0)(4.1.1)
-def(date)(0)(June 18, 2003)
+def(version)(0)(4.2.3)
+def(date)(0)(January 13, 2005)
 ENDDEF()\

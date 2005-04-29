@@ -1,4 +1,4 @@
-use Apache::test;
+use Apache::testold;
 
 my $ua = Apache::UserAgent->new;
 my $url = URI::URL->new("http://$net::httpserver/auth/.htaccess");

@@ -1,8 +1,8 @@
 ========================================================================
 KerberosIPC Bug List
 ========================================================================
-Current version: 1.1fc2
-Date:            August 22, 2003
+Current version: 1.2fc3
+Date:            January 28, 2005
 Author:          lxs@mit.edu
 ========================================================================
 
@@ -10,6 +10,15 @@ Author:          lxs@mit.edu
 Bug #       Bug description                                     Fixed in
 ========================================================================
 
+[RT 2895] clients should not register mach servers in the root bootstrap 
+          (fixed bug in original patch)                                 1.2fc3
+[RT 2895] clients should not register mach servers in the root bootstrap 1.2fc2
+[RT 2669] CCacheServer and KerberosAgent should quit on logout          1.2b2
+[RT 2670] Clients should register on-demand servers if they get 
+          unregistered                                                  1.2b2
+[RT 2671] Login session API should return session attributes, not 
+          prompt type                                                   1.2b2
+[RT 1661] KfM should use Panther mach init per user mechanism           1.2b1
 [RT 1764] Framework should use CFStringGetMaximumSizeForEncoding()      1.1fc2
 [RT 1670] Use AppKit and HIToolbox to determine if process is a GUI app 1.1fc1
 [RT 1638] KfM should use CoreGraphics to determine if GUI is available  1.1a6

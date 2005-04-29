@@ -1,5 +1,5 @@
 /* JPanel.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,20 +37,19 @@ exception statement from your version. */
 
 package javax.swing;
 
-import java.awt.*;
-import javax.swing.plaf.*;
-
+import java.awt.FlowLayout;
+import java.awt.LayoutManager;
+import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
-import javax.accessibility.AccessibleRole;
-import javax.accessibility.AccessibleState;
-import javax.accessibility.AccessibleStateSet;
+import javax.swing.plaf.PanelUI;
+
 
 /**
  * An instance of JPanel can be added to a panel, frame etc
  *
  * @author Ronald Veldema (rveldema@cs.vu.nl)
  */
-public class JPanel extends JComponent
+public class JPanel extends JComponent implements Accessible
 {
     public JPanel()
     {
@@ -86,7 +85,7 @@ public class JPanel extends JComponent
     } 
 
     public String getUIClassID()
-    {	return "JPanel";    }
+    {	return "PanelUI";    }
 
 
     public void setUI(PanelUI ui) {

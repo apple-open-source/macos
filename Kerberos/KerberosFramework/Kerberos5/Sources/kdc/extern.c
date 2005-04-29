@@ -38,5 +38,10 @@ krb5_timestamp kdc_infinity = KRB5_INT32_MAX; /* XXX */
 krb5_rcache	kdc_rcache = (krb5_rcache) NULL;
 krb5_keyblock	psr_key;
 
+#ifdef APPLE_KDC_MODS
+extern int    kdc_notify_pws_apple = 0;       /* flag for apple password server integration   */
+#endif
+
 volatile int signal_requests_exit = 0;	/* gets set when signal hits */
 volatile int signal_requests_hup = 0;   /* ditto */
+volatile int signal_requests_network = 0;   /* ditto (SIGUSR1) */

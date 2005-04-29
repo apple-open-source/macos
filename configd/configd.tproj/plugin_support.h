@@ -37,6 +37,7 @@ __BEGIN_DECLS
 
 void	plugin_init	();
 void	plugin_exec	(void	*arg);
+Boolean	plugin_term	(int	*status);
 
 __END_DECLS
 

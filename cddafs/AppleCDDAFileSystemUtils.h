@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -32,6 +30,7 @@
 #include "AppleCDDAFileSystemDefines.h"
 #endif
 
+#include <sys/vnode.h>
 #include <sys/attr.h>
 
 #ifdef __cplusplus
@@ -44,44 +43,42 @@ extern "C" {
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int				InsertCDDANode 				( AppleCDDANodePtr newNodePtr,
-											  struct vnode * parentVNodePtr,
+											  vnode_t parentVNodePtr,
 											  struct proc * theProcPtr );
-int				CreateNewCDDANode 			( struct mount * mountPtr,
+int				CreateNewCDDANode 			( mount_t mountPtr,
 											  UInt32 nodeID,
-											  struct proc * procPtr,
-											  struct vnode ** vNodeHandle );
-int				DisposeCDDANode 			( struct vnode * vNodePtr,
-											  struct proc * theProcPtr );
-int				CreateNewCDDAFile 			( struct mount * mountPtr,
+											  enum vtype vNodeType,
+											  vnode_t parentVNodePtr,
+											  struct componentname * compNamePtr,
+											  vnode_t * vNodeHandle );
+int				DisposeCDDANode 			( vnode_t vNodePtr );
+int				CreateNewCDDAFile 			( mount_t mountPtr,
 											  UInt32 nodeID,
 											  AppleCDDANodeInfoPtr nodeInfoPtr,
-											  struct proc * procPtr,
-											  struct vnode ** vNodeHandle );
-int				CreateNewXMLFile 			( struct mount * mountPtr,
-											  struct proc * procPtr,
+											  vnode_t parentVNodePtr,
+											  struct componentname * compNamePtr,
+											  vnode_t * vNodeHandle );
+int				CreateNewXMLFile 			( mount_t mountPtr,
 											  UInt32 xmlFileSize,
 											  UInt8 * xmlData,
-											  struct vnode ** vNodeHandle );
-int				CreateNewCDDADirectory 		( struct mount * mountPtr,
-											  const char * name,
+											  vnode_t parentVNodePtr,
+											  struct componentname * compNamePtr,
+											  vnode_t * vNodeHandle );
+int				CreateNewCDDADirectory 		( mount_t mountPtr,
 											  UInt32 nodeID,
-											  struct proc * procPtr,
-											  struct vnode ** vNodeHandle );
+											  vnode_t * vNodeHandle );
 boolean_t		IsAudioTrack 				( const SubQTOCInfoPtr trackDescriptorPtr );
 UInt32			CalculateSize 				( const QTOCDataFormat10Ptr TOCDataPtr,
 											  UInt32 trackDescriptorOffset,
 											  UInt32 currentA2Offset );
-SInt32			ParseTOC 					( struct mount * mountPtr,
-											  UInt32 numTracks,
-											  UInt32 xmlFileSize,
-											  UInt8 * xmlData,
-											  struct proc * theProc );
+SInt32			ParseTOC 					( mount_t mountPtr,
+											  UInt32 numTracks );
 int				GetTrackNumberFromName 		( const char * name,
 											  UInt32 * trackNumber );
 
 int				CalculateAttributeBlockSize	( struct attrlist * attrlist );
 void			PackAttributesBlock			( struct attrlist * attrListPtr,
-											  struct vnode * vNodePtr,
+											  vnode_t vNodePtr,
 											  void ** attrbufHandle,
 											  void ** varbufHandle );
 
@@ -91,7 +88,7 @@ void			PackAttributesBlock			( struct attrlist * attrListPtr,
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 
-QTOCDataFormat10Ptr		CreateBufferFromIORegistry 	( struct mount * mountPtr );
+QTOCDataFormat10Ptr		CreateBufferFromIORegistry 	( mount_t mountPtr );
 void					DisposeBufferFromIORegistry	( QTOCDataFormat10Ptr TOCDataPtr );
 
 

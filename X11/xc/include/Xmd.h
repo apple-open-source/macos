@@ -1,4 +1,4 @@
-/* $XFree86: xc/include/Xmd.h,v 3.16 2002/05/31 18:45:39 dawes Exp $ */
+/* $XFree86: xc/include/Xmd.h,v 3.19 2003/10/23 15:19:01 tsi Exp $ */
 /***********************************************************
 
 Copyright 1987, 1998  The Open Group
@@ -28,13 +28,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -58,18 +58,15 @@ SOFTWARE.
 #ifdef CRAY
 #define WORD64				/* 64-bit architecture */
 #endif
-#if defined(__alpha) || defined(__alpha__) || \
+#if defined (_LP64) || \
+    defined(__alpha) || defined(__alpha__) || \
     defined(__ia64__) || defined(ia64) || \
     defined(__sparc64__) || \
     defined(__s390x__) || \
     (defined(__hppa__) && defined(__LP64__)) || \
-    defined(__x86_64__) || defined(x86_64)
+    defined(__AMD64__) || defined(AMD64) || \
+    (defined(sgi) && (_MIPS_SZLONG == 64))
 #define LONG64				/* 32/64-bit architecture */
-#endif
-#ifdef __sgi
-#if (_MIPS_SZLONG == 64)
-#define LONG64
-#endif
 #endif
 
 /*
@@ -85,7 +82,7 @@ SOFTWARE.
  * Definition of macro used to set constants for size of network structures;
  * machines with preprocessors that can't handle all of the sz_ symbols
  * can define this macro to be sizeof(x) if and only if their compiler doesn't
- * pad out structures (esp. the xTextElt structure which contains only two 
+ * pad out structures (esp. the xTextElt structure which contains only two
  * one-byte fields).  Network structures should always define sz_symbols.
  *
  * The sz_ prefix is used instead of something more descriptive so that the
@@ -196,9 +193,9 @@ typedef CARD8		BOOL;
 #define NEXTPTR(p,t)  (((char *) p) + SIZEOF(t))
 #else /* else not MUSTCOPY, this is used for 32-bit machines */
 /*
- * this version should leave result of type (t *), but that should only be 
+ * this version should leave result of type (t *), but that should only be
  * used when not in MUSTCOPY
- */  
+ */
 #define NEXTPTR(p,t) (((t *)(p)) + 1)
 #endif /* MUSTCOPY - used machines whose C structs don't line up with proto */
 

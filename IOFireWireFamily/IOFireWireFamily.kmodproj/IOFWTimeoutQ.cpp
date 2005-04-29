@@ -82,8 +82,8 @@ void IOFireWireController::timeoutQ::headChanged(IOFWCommand *oldHead)
             
         while(t) {
             AbsoluteTime d = t->getDeadline();
-            IOLog("%s:%p deadline %lx:%lx\n",
-                t->getMetaClass()->getClassName(), t, d.hi, d.lo);
+            IOLog("%s:%p deadline %llx\n",
+                t->getMetaClass()->getClassName(), t, AbsoluteTime_to_scalar(&d));
             t = t->getNext();
         }
     }
@@ -171,13 +171,13 @@ void IOFireWireController::processTimeout(IOTimerEventSource *src)
         clock_get_uptime(&now);
 
 #if 0
-        IOLog("processTimeout, time is %lx:%lx\n", now.hi, now.lo);
+        IOLog("processTimeout, time is %llx\n", AbsoluteTime_to_scalar(&now));
         {
             IOFWCommand *t = fTimeoutQ.fHead;
             while(t) {
                 AbsoluteTime d = t->getDeadline();
                 IOLog("%s:%p deadline %lx:%lx\n",
-                    t->getMetaClass()->getClassName(), t, d.hi, d.lo);
+                    t->getMetaClass()->getClassName(), t, AbsoluteTime_to_scalar(&d));
                 t = t->getNext();
             }
         }
@@ -187,7 +187,7 @@ void IOFireWireController::processTimeout(IOTimerEventSource *src)
             break;	// Command with earliest deadline is OK.
 
         // Make sure there isn't a packet waiting.
-        fFWIM->handleInterrupts(1);
+        fFWIM->handleInterrupts( NULL, 1 );
 		fFWIM->flushWaitingPackets();
 
         // Which may have changed the queue - see if earliest deadline has changed.
@@ -207,8 +207,8 @@ void IOFireWireController::processTimeout(IOTimerEventSource *src)
         src->wakeAtTime(fTimeoutQ.fHead->getDeadline());
         //AbsoluteTime now;
         //clock_get_uptime(&now);
-        //IOLog("processTimeout, timeoutQ waketime %lx:%lx (now %lx:%lx)\n",
-        //        fTimeoutQ.fHead->getDeadline().hi, fTimeoutQ.fHead->getDeadline().lo, now.hi, now.lo);
+        //IOLog("processTimeout, timeoutQ waketime %lx:%lx (now %llx)\n",
+        //        fTimeoutQ.fHead->getDeadline().hi, fTimeoutQ.fHead->getDeadline().lo, AbsoluteTime_to_scalar(&now));
     }
     else 
 	{

@@ -44,6 +44,9 @@
 #include <netinfo/ni.h>
 #include <histedit.h>
 
+#ifndef streq
+#define streq(A,B) (strcmp(A,B) == 0)
+#endif
 #define forever for(;;)
 
 #define PROMPT_NONE 0
@@ -67,6 +70,7 @@ static int mode = 0;
 static int raw = 0;
 static char *term_bold = NULL;
 static char *term_norm = NULL;
+static int rm_inquire = 0;
 
 #define INPUT_LENGTH 4096
 
@@ -163,6 +167,7 @@ void usage()
 	fprintf(stderr, "    -raw           datasource is a NetInfo directory\n");
 	fprintf(stderr, "    -t             datasource is <host>/<tag>\n");
 	fprintf(stderr, "    -q             quiet - no interactive prompt\n");
+	fprintf(stderr, "    -i             ask for confirmation before deleting directories\n");
 	fprintf(stderr, "    -x500          X.500 names\n");
 	fprintf(stderr, "commands:\n");
 	fprintf(stderr, "    -read    <path> [<key>...]\n");
@@ -600,36 +605,70 @@ nifty_delete(u_int32_t dsid, int argc, char *argv[])
 	dsdata *d;
 	dsattribute *a;
 	dsstatus status;
-
-	if (argc == 0)
-	{
-		if (dsid == 0)
-		{
-			fprintf(stderr, "Can't delete root!\n");
-			return DSStatusInvalidRecordID;
-		}
-
-		/* remove the whole record */
-		status = dsengine_record_super(engine, dsid, &super);
-		if (status != DSStatusOK) 
-		{
-			fprintf(stderr, "Remove: %s\n", dsstatus_message(status));
-			return status;
-		}
-
-		if (dsid == current_dir) current_dir = super;
-	
-		status = dsengine_remove(engine, dsid);
-		if (status != DSStatusOK) 
-			fprintf(stderr, "Remove: %s\n", dsstatus_message(status));
-		return status;
-	}
+	char answer[256];
 
 	status = dsengine_fetch(engine, dsid, &r);
 	if (status != DSStatusOK)
 	{
 		fprintf(stderr, "Fetch record %u failed: %s\n",
-			dsid, dsstatus_message(status));
+		  dsid, dsstatus_message(status));
+		return status;
+	}
+	
+	if (argc == 0)
+	{
+		if (dsid == 0)
+		{
+			fprintf(stderr, "Can't delete root!\n");
+			dsrecord_release(r);
+			return DSStatusInvalidRecordID;
+		}
+
+		/* remove the whole record */
+		if (rm_inquire == 1)
+		{
+			if (interactive == 0)
+			{
+				fprintf(stderr, "Can't delete directory %u in non-interactive mode with \"-i\" option\n", dsid);
+				status = DSStatusFailed;
+				dsrecord_release(r);
+				return status;
+			}
+
+			if (r->sub_count == 0) fprintf(stdout, "Delete directory %u? ", dsid);
+			else fprintf(stdout, "Directory %u has subdirectories.  Delete the whole subtree? ", dsid);
+			fflush(stdout);
+
+			memset(answer, 0, sizeof(answer));
+			i = fscanf(stdin, "%s", answer);
+			if (i > 0)
+			{
+				i = 0;
+				if ((strncasecmp(answer, "y", sizeof(answer)) == 0) || (strncasecmp(answer, "yes", sizeof(answer)) == 0)) i = 1;
+			}
+
+			if (i <= 0)
+			{
+				fprintf(stderr, "Not deleted\n");
+				status = DSStatusFailed;
+				dsrecord_release(r);
+				return status;
+			}
+		}
+
+		status = dsengine_record_super(engine, dsid, &super);
+		if (status != DSStatusOK) 
+		{
+			fprintf(stderr, "Delete: %s\n", dsstatus_message(status));
+			dsrecord_release(r);
+			return status;
+		}
+
+		if (dsid == current_dir) current_dir = super;
+
+		dsrecord_release(r);
+		status = dsengine_remove(engine, dsid);
+		if (status != DSStatusOK) fprintf(stderr, "Delete: %s\n", dsstatus_message(status));
 		return status;
 	}
 
@@ -649,7 +688,7 @@ nifty_delete(u_int32_t dsid, int argc, char *argv[])
 
 		status = dsengine_save(engine, r);
 		if (status != DSStatusOK) 
-			fprintf(stderr, "Remove: %s\n", dsstatus_message(status));
+			fprintf(stderr, "Delete: %s\n", dsstatus_message(status));
 
 		dsrecord_release(r);
 		return status;
@@ -677,7 +716,7 @@ nifty_delete(u_int32_t dsid, int argc, char *argv[])
 	status = dsengine_save(engine, r);
 	if (status != DSStatusOK) 
 	{
-		fprintf(stderr, "Remove: %s\n", dsstatus_message(status));
+		fprintf(stderr, "Delete: %s\n", dsstatus_message(status));
 		return status;
 	}
 
@@ -1580,7 +1619,7 @@ int
 nifty_source(int argc, char *argv[])
 {
 	FILE *f;
-	int status;
+	int status, savei;
 
 	f = fopen(argv[0], "r");
 	if (f == NULL)
@@ -1589,7 +1628,13 @@ nifty_source(int argc, char *argv[])
 		return DSStatusFailed;
 	}
 
+	savei = interactive;
+	interactive = 0;
+
 	status = nifty_interactive(f, PROMPT_NONE);
+
+	interactive = savei;
+
 	fclose(f);
 	return status;
 }
@@ -2017,7 +2062,6 @@ nifty_interactive(FILE *in, int pmt)
 	HistEvent hev;
 
 	iargv = NULL;
-	interactive = 1;
 
 	el = NULL;
 	h = NULL;
@@ -2139,6 +2183,7 @@ main(int argc, char *argv[])
 		else if (streq(argv[i], "-raw")) raw = 1;
 		else if (streq(argv[i], "-p")) opt_promptpw = 1;
 		else if (streq(argv[i], "-c")) opt_create = 1;
+		else if (streq(argv[i], "-i")) rm_inquire = 1;
 		else if (streq(argv[i], "-x500"))
 		{
 			prompt = PROMPT_X500;
@@ -2236,7 +2281,14 @@ main(int argc, char *argv[])
 	i++;
 	if (i >= argc)
 	{
-		if (isatty(fileno(stdin)) == 0) prompt = PROMPT_NONE;
+		if (isatty(fileno(stdin)) == 0)
+		{
+			prompt = PROMPT_NONE;
+		}
+		else 
+		{
+			interactive = 1;
+		}
 
 		status = nifty_interactive(stdin, prompt);
 		if (prompt != PROMPT_NONE) printf("Goodbye\n");

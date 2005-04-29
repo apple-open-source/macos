@@ -3,7 +3,7 @@ datadir=@datadir@
 thisconfigdir=.
 myfulldir=.
 mydir=.
-MY_SUBDIRS=util include lib @krb524@ kdc kadmin slave clients appl tests \
+SUBDIRS=util include lib @krb524@ kdc kadmin slave clients appl tests \
 	config-files gen-manpages
 BUILDTOP=$(REL)$(C)
 LOCALINCLUDES = -I$(srcdir) 
@@ -15,11 +15,20 @@ DISTFILES = $(SRCS) $(HDRS) COPYING COPYING.LIB ChangeLog Makefile.in
 
 all-unix:: krb5-config
 
-all-mac::
+# Lots of things will start to depend on the thread support, which
+# needs autoconf.h, but building "all" in include requires that util/et
+# have been built first.  Until we can untangle this, let's just check
+# that autoconf.h is up to date before going into any of the subdirectories.
+all-prerecurse: update-autoconf-h
+update-autoconf-h:
+	(cd include && $(MAKE) krb5/autoconf.h)
 
 all-windows:: maybe-awk Makefile-windows
+	@echo Making autoconf.h in include\krb5
+	cd include\krb5
+	$(MAKE) -$(MFLAGS) autoconf.h
 	@echo Making in util
-	cd util
+	cd ..\..\util
 	$(MAKE) -$(MFLAGS)
 	@echo Making in include
 	cd ..\include
@@ -50,7 +59,7 @@ INSTALLMKDIRS = $(KRB5ROOT) $(KRB5MANROOT) $(KRB5OTHERMKDIRS) \
 		$(ADMIN_BINDIR) $(SERVER_BINDIR) $(CLIENT_BINDIR) \
 		$(ADMIN_MANDIR) $(SERVER_MANDIR) $(CLIENT_MANDIR) \
 		$(FILE_MANDIR) $(KRB5_LIBDIR) $(KRB5_INCDIR) \
-		$(KRB5_INCSUBDIRS) $(datadir)
+		$(KRB5_INCSUBDIRS) $(datadir) $(EXAMPLEDIR)
 
 install-strip:
 	$(MAKE) install INSTALL_STRIP=-s
@@ -65,6 +74,7 @@ install-mkdirs:
 install-headers-mkdirs:
 	$(srcdir)/config/mkinstalldirs $(DESTDIR)$(KRB5_INCDIR)
 	$(srcdir)/config/mkinstalldirs $(DESTDIR)$(KRB5_INCDIR)/gssapi
+	$(srcdir)/config/mkinstalldirs $(DESTDIR)$(KRB5_INCDIR)/gssrpc
 	$(srcdir)/config/mkinstalldirs $(DESTDIR)$(KRB5_INCDIR)/kerberosIV
 install-headers-prerecurse: install-headers-mkdirs
 
@@ -75,7 +85,6 @@ TAGS: $(SRCS)
 	etags $(SRCS)
 
 clean-:: clean-windows
-clean-mac:: clean-unix
 clean-unix::
 	$(RM) *.o core krb5-config
 
@@ -137,6 +146,7 @@ WINMAKEFILES=Makefile \
 	clients\Makefile clients\kdestroy\Makefile \
 	clients\kinit\Makefile clients\klist\Makefile \
 	clients\kpasswd\Makefile clients\kvno\Makefile \
+	clients\kcpytkt\Makefile clients\kdeltkt\Makefile \
 	include\Makefile include\krb5\Makefile \
 	krb524\Makefile \
 	lib\Makefile lib\crypto\Makefile \
@@ -161,6 +171,7 @@ WINMAKEFILES=Makefile \
 	lib\krb5\rcache\Makefile \
 	util\Makefile \
 	util\et\Makefile util\profile\Makefile \
+	util\support\Makefile \
 	util\windows\Makefile \
 	windows\Makefile windows\lib\Makefile \
 	windows\cns\Makefile windows\gina\Makefile \
@@ -186,6 +197,10 @@ WINMAKEFILES=Makefile \
 ##DOS##clients\kpasswd\Makefile: clients\kpasswd\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##clients\kvno\Makefile: clients\kvno\Makefile.in $(MKFDEP)
+##DOS##	$(WCONFIG) config < $@.in > $@
+##DOS##clients\kcpytkt\Makefile: clients\kcpytkt\Makefile.in $(MKFDEP)
+##DOS##	$(WCONFIG) config < $@.in > $@
+##DOS##clients\kdeltkt\Makefile: clients\kdeltkt\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##include\Makefile: include\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
@@ -263,6 +278,8 @@ WINMAKEFILES=Makefile \
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##util\profile\Makefile: util\profile\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
+##DOS##util\support\Makefile: util\support\Makefile.in $(MKFDEP)
+##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##util\windows\Makefile: util\windows\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##windows\Makefile: windows\Makefile.in $(MKFDEP)
@@ -318,7 +335,7 @@ ren2long:
 ZIP=zip
 FILES= ./* \
 	clients/* clients/kdestroy/* clients/kinit/* clients/klist/* \
-	clients/kpasswd/* \
+	clients/kpasswd/* clients/kcpytkt/* clients/kdeltkt/* \
 	config/* include/* include/kerberosIV/* \
 	include/krb5/* include/krb5/stock/* include/sys/* krb524/* lib/* \
 	lib/crypto/* lib/crypto/crc32/* lib/crypto/des/* lib/crypto/dk/* \
@@ -338,10 +355,6 @@ FILES= ./* \
 WINFILES= util/windows/* windows/* windows/lib/* windows/cns/* \
 	windows/wintel/* windows/gss/* windows/gina/* windows/ms2mit/*
 
-MACFILES= mac/* mac/libraries/* config/* include/* \
-	include/krb5/* include/krb5/stock/* include/sys/* \
-	./patchlevel.h
-
 WINBINARYFILES=	windows/*/*.ico windows/*/*.doc windows/*/*.hlp \
 	windows/*/*.hpj windows/lib/*.lib
 
@@ -357,6 +370,7 @@ ET  = lib/krb5/error_tables/
 GG  = lib/gssapi/generic/
 GK  = lib/gssapi/krb5/
 PR  = util/profile/
+CE  = util/et/
 
 ETOUT =	\
 	$(INC)asn1_err.h $(ET)asn1_err.c \
@@ -375,7 +389,7 @@ HOUT =	$(INC)krb5.h $(GG)gssapi.h $(PR)profile.h
 
 CLEANUP= Makefile $(ETOUT) $(HOUT) \
 	include/profile.h include/krb5/osconf.h \
-	winfile.list macfile.list
+	winfile.list
 
 
 kerbsrc.win: kerbsrc.zip
@@ -383,12 +397,6 @@ kerbsrc.win: kerbsrc.zip
 winfile.list:
 	echo $(FILES) $(WINFILES) | tr ' ' \\012 | \
 		sed -f config/winexclude.sed > winfile.list
-
-MAC_SUBDIRS = lib util
-macfile.list:
-	/bin/sh mac/macfiles.sh $(MAC_SUBDIRS) > macfile.list
-	find $(MACFILES) -prune -type f -print | \
-		sed -f config/winexclude.sed >> macfile.list
 
 dos-Makefile:
 	cat config/win-pre.in Makefile.in config/win-post.in | \
@@ -420,45 +428,6 @@ kerbsrc-nt-is-obsolete:
 	@echo "anymore, so what was kerbsrc-nt.zip is now kerbsrc.zip."
 	@echo " "
 
-Macfile: macfile.list 
-	rm -f Macfile
-	sed -e 's|/|:|g' -e 's/^/:/' -e '/:.:/d' -e '/:mac:/d' macfile.list > macfile.maclist
-	grep '\.c$$' macfile.maclist > macsrcsgss
-	grep -v ':gssapi:' macsrcsgss > macsrcsk5
-	echo SRCS = `cat macsrcsgss` >> Macfile
-	echo SRCDIRS = `sed -n -e 's/\(.*:\)[^:]*\.c$$/ \1/p' macfile.maclist | sort -u` >> Macfile
-	echo GSSOBJS68K = `sed -e 's/$$/.68K.o/' -e 's/.*://' \
-		-e 's/^/:bin:68K:/' macsrcsgss` >> Macfile
-	echo GSSOBJS68KCFM = `sed -e 's/$$/.CFM68.o/' -e 's/.*://' \
-		-e 's/^/:bin:CFM-68K:/' macsrcsgss` >> Macfile
-	echo GSSOBJSPPC = `sed -e 's/$$/.PPC.o/' -e 's/.*://' \
-		-e 's/^/:bin:PPC:/' macsrcsgss` >> Macfile
-	echo K5OBJS68K = `sed -e 's/$$/.68K.o/' -e 's/.*://' \
-		-e 's/^/:bin:68K:/' macsrcsk5` >> Macfile
-	echo K5OBJS68KCFM = `sed -e 's/$$/.CFM68.o/' -e 's/.*://' \
-		-e 's/^/:bin:CFM-68K:/' macsrcsk5` >> Macfile
-	echo K5OBJSPPC = `sed -e 's/$$/.PPC.o/' -e 's/.*://' \
-		-e 's/^/:bin:PPC:/' macsrcsk5` >> Macfile
-	echo INCLUDES = `sed -n -e 's/\(.*:\)[^:]*\.h$$/-i \1/p' macfile.maclist | sort -u` >> Macfile
-	echo "" >> Macfile
-	tr '@/:\\' '\245:\304\266'< mac/Makefile.tmpl >> Macfile
-
-mac-bin-dirs:
-	rm -rf bin
-	mkdir bin bin/68K bin/CFM-68K bin/PPC
-	sh mac/mkbindirs.sh bin/68K $(MAC_SUBDIRS)
-	sh mac/mkbindirs.sh bin/CFM-68K $(MAC_SUBDIRS)
-	sh mac/mkbindirs.sh bin/PPC $(MAC_SUBDIRS)
-
-kerbsrc.mac.tar: awk-windows-mac macfile.list mac-bin-dirs Macfile
-	cp mac/libraries/autoconf.h include/autoconf.h
-	mv Macfile Makefile
-	tar cvf kerbsrc.mac.tar Makefile include/autoconf.h bin \
-		`cat macfile.list`
-	rm -f $(CLEANUP)
-	rm -rf bin
-	rm -f include/autoconf.h Makefile macsrc* macfile.maclist
-
 $(INC)asn1_err.h: $(AH) $(ET)asn1_err.et
 	$(AWK) -f $(AH) outfile=$@ $(ET)asn1_err.et
 $(INC)kdb5_err.h: $(AH) $(ET)kdb5_err.et
@@ -479,6 +448,10 @@ $(GG)gssapi_err_generic.h: $(AH) $(GG)gssapi_err_generic.et
 	$(AWK) -f $(AH) outfile=$@ $(GG)gssapi_err_generic.et
 $(GK)gssapi_err_krb5.h: $(AH) $(GK)gssapi_err_krb5.et
 	$(AWK) -f $(AH) outfile=$@ $(GK)gssapi_err_krb5.et
+$(CE)test1.h: $(AH) $(CE)test1.et
+	$(AWK) -f $(AH) outfile=$@ $(CE)test1.et
+$(CE)test2.h: $(AH) $(CE)test2.et
+	$(AWK) -f $(AH) outfile=$@ $(CE)test2.et
 
 $(ET)asn1_err.c: $(AC) $(ET)asn1_err.et
 	$(AWK) -f $(AC) outfile=$@ $(ET)asn1_err.et
@@ -500,6 +473,10 @@ $(GG)gssapi_err_generic.c: $(AC) $(GG)gssapi_err_generic.et
 	$(AWK) -f $(AC) outfile=$@ $(GG)gssapi_err_generic.et
 $(GK)gssapi_err_krb5.c: $(AC) $(GK)gssapi_err_krb5.et
 	$(AWK) -f $(AC) outfile=$@ $(GK)gssapi_err_krb5.et
+$(CE)test1.c: $(AC) $(CE)test1.et
+	$(AWK) -f $(AC) outfile=$@ $(CE)test1.et
+$(CE)test2.c: $(AC) $(CE)test2.et
+	$(AWK) -f $(AC) outfile=$@ $(CE)test2.et
 
 lib/krb4/krb_err_txt.c: lib/krb4/krb_err.et
 	$(AWK) -f lib/krb4/et_errtxt.awk outfile=$@ \
@@ -560,16 +537,24 @@ install-windows::
 	$(CP) windows\cns\$(OUTPRE)krb5.exe "$(KRB_INSTALL_DIR)\bin\."
 	$(CP) windows\wintel\$(OUTPRE)telnet.exe "$(KRB_INSTALL_DIR)\bin\."
 	$(CP) windows\gss\$(OUTPRE)gss.exe "$(KRB_INSTALL_DIR)\bin\."
+	$(CP) appl\gss-sample\$(OUTPRE)gss-server.exe "$(KRB_INSTALL_DIR)\bin\."
+	$(CP) appl\gss-sample\$(OUTPRE)gss-client.exe "$(KRB_INSTALL_DIR)\bin\."
+	$(CP) windows\ms2mit\$(OUTPRE)ms2mit.exe "$(KRB_INSTALL_DIR)\bin\."
+	$(CP) appl\gssftp\ftp\$(OUTPRE)ftp.exe "$(KRB_INSTALL_DIR)\bin\."
+	$(CP) clients\kvno\$(OUTPRE)kvno.exe "$(KRB_INSTALL_DIR)\bin\."
 	$(CP) clients\klist\$(OUTPRE)klist.exe "$(KRB_INSTALL_DIR)\bin\."
 	$(CP) clients\kinit\$(OUTPRE)kinit.exe "$(KRB_INSTALL_DIR)\bin\."
 	$(CP) clients\kdestroy\$(OUTPRE)kdestroy.exe "$(KRB_INSTALL_DIR)\bin\."
+	$(CP) clients\kcpytkt\$(OUTPRE)kcpytkt.exe "$(KRB_INSTALL_DIR)\bin\."
+	$(CP) clients\kdeltkt\$(OUTPRE)kdeltkt.exe "$(KRB_INSTALL_DIR)\bin\."
 	$(CP) clients\kpasswd\$(OUTPRE)kpasswd.exe "$(KRB_INSTALL_DIR)\bin\."
 	@if exist "$(KRB_INSTALL_DIR)\bin\krb4_32.dll" del "$(KRB_INSTALL_DIR)\bin\krb4_32.dll"
 	@if exist "$(KRB_INSTALL_DIR)\lib\krb4_32.lib" del "$(KRB_INSTALL_DIR)\lib\krb4_32.lib"
 
 install-unix:: 
-	$(INSTALL) krb5-config \
+	$(INSTALL_SCRIPT) krb5-config \
 		$(DESTDIR)$(CLIENT_BINDIR)/krb5-config
+	$(INSTALL_DATA) $(srcdir)/krb5-config.M $(DESTDIR)$(CLIENT_MANDIR)/krb5-config.1
 
 krb5-config: $(srcdir)/krb5-config.in $(thisconfigdir)/config.status
 	cd $(thisconfigdir) && $(SHELL) config.status krb5-config

@@ -1,0 +1,230 @@
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Writing Clients</title>
+  </head>
+  
+  <body>
+    <h1>Writing Clients</h1>
+    
+    <h2>Overview</h2>
+    <p>Twisted is a framework designed to be very flexible, and let you write
+    powerful clients.  The cost of this flexibility is a few layers in the way
+    to writing your client. This document covers creating clients that can
+    be used for TCP, SSL and Unix sockets, UDP is covered <a href="udp.xhtml">in
+    a different document</a>.</p>
+    
+    <p>At the base, the place where you actually implement the protocol parsing
+    and handling, is the Protocol class. This class will usually be decended
+    from <code class="API">twisted.internet.protocol.Protocol</code>. Most
+    protocol handlers inherit either from this class or from one of its
+    convenience children. An instance of the protocol class will be
+    instantiated when you connect to the server, and will go away when the
+    connection is finished.  This means that persistent configuration is not
+    saved in the Protocol.</p>
+    
+    <p>The persistent configuration is kept in a Factory class, which usually
+    inherits from <code
+	    class="API">twisted.internet.protocol.ClientFactory</code>. The
+    default factory class just instantiate the Protocol, and then sets on it an
+    attribute called <code>factory</code> which points to itself. This let the
+    Protocol access, and possibly modify, the persistent configuration.</p>
+    
+    <h2>Protocol</h2>
+    
+    <p>As mentioned above, this, and auxiliary classes and functions, is where
+    most of the code is. A Twisted protocol handles data in an asynchronous
+    manner. What this means is that the protocol never waits for an event, but
+    rather responds to events as they arrive from the network.</p>
+    
+    <p>Here is a simple example:</p>
+    <pre class="python">
+from twisted.internet.protocol import Protocol
+from sys import stdout
+class Echo(Protocol):
+    
+    def dataReceived(self, data):
+        stdout.write(data)
+    </pre>
+    
+    <p>This is one of the simplest protocols.  It simply writes to standard
+    output whatever it reads from the connection.  There are many events it
+    does not respond to.  Here is an example of a Protocol responding to
+    another event.</p>
+    <pre class="python">
+from twisted.internet.protocol import Protocol
+class WelcomeMessage(Protocol):
+    
+    def connectionMade(self):
+        self.transport.write("Hello server, I am the client!\r\n")
+        self.transport.loseConnection()
+    </pre>
+    
+    <p>This protocol connects to the server, sends it a welcome message, and
+    then terminates the connection.</p>
+    
+    <p>The connectionMade event is usually where set up of the Protocol object
+    happens, as well as any initial greetings (as in the WelcomeMessage
+    protocol above).  Any tearing down of Protocol-specific objects is done in
+    connectionLost.</p>
+    
+    <h2>ClientFactory</h2>
+    <p>We use reactor.connect* and a ClientFactory.
+    The ClientFactory is in charge of creating the Protocol, and also receives
+    events relating to the connection state.  This allows it to do things like
+    reconnect on the event of a connection error.  Here is an example of a
+    simple ClientFactory that uses the Echo protocol (above) and also prints
+    what state the connection is in.</p>
+    <pre class="python">
+from twisted.internet.protocol import Protocol, ClientFactory
+from sys import stdout
+class Echo(Protocol):
+
+    def dataReceived(self, data):
+        stdout.write(data)
+
+class EchoClientFactory(ClientFactory):
+    
+    def startedConnecting(self, connector):
+        print 'Started to connect.'
+    
+    def buildProtocol(self, addr):
+        print 'Connected.'
+        return Echo()
+    
+    def clientConnectionLost(self, connector, reason):
+        print 'Lost connection.  Reason:', reason
+    
+    def clientConnectionFailed(self, connector, reason):
+        print 'Connection failed. Reason:', reason
+    </pre>
+    
+    <p>To connect this EchoClientFactory to a server, you could use this code:</p>
+    <pre class="python">
+from twisted.internet import reactor
+reactor.connectTCP(host, port, EchoClientFactory())
+reactor.run()
+    </pre>
+
+    <p>Note that <code class="API"
+    base="twisted.internet.protocol.ClientFactory">clientConnectionFailed</code>
+    is called when a connection could not be established, and that <code
+    class="API"
+    base="twisted.internet.protocol.ClientFactory">clientConnectionLost</code>
+    is called when a connection was made and then disconnected.</p>
+    
+    <h3>Reconnection</h3>
+    <p>Many times, the connection of a client will be lost unintentionally due
+    to network errors. One way to reconnect after a disconnection would be to
+    call <code class="python">connector.connect()</code> when the
+    connection is lost:
+    </p>
+    <pre class="python">
+from twisted.internet.protocol import ClientFactory
+class EchoClientFactory(ClientFactory):
+    
+    def clientConnectionLost(self, connector, reason):
+        connector.connect()
+    </pre>
+    <p>The connector passed as the first
+    argument is the interface between a connection and a protocol.  When the
+    connection fails and the factory receives the clientConnectionLost event,
+    the factory can call <code class="python">connector.connect()</code> to
+    start the connection over again from scratch.</p>
+
+    <p>
+    However, most programs that want this functionality should implement <code
+    class="API"
+    base="twisted.internet.protocol">ReconnectingClientFactory</code> instead,
+    which tries to reconnect if a connection is lost or fails, and which
+    exponentially delays repeated reconnect attempts.
+    </p>
+
+    <p>
+    Here is the Echo protocol implemented with a ReconnectingClientFactory:
+    </p>
+
+    <pre class="python">
+from twisted.internet.protocol import Protocol, ReconnectingClientFactory
+from sys import stdout
+class Echo(Protocol):
+                                                                                                                                                            
+    def dataReceived(self, data):
+        stdout.write(data)
+                                                                                                                                                            
+class EchoClientFactory(ReconnectingClientFactory):
+                                                                                                                                                            
+    def startedConnecting(self, connector):
+        print 'Started to connect.'
+                                                                                                                                                            
+    def buildProtocol(self, addr):
+        print 'Connected.'
+        print 'Resetting reconnection delay'
+        self.resetDelay()
+        return Echo()
+                                                                                                                                                            
+    def clientConnectionLost(self, connector, reason):
+        print 'Lost connection.  Reason:', reason
+        ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
+                                                                                                                                                            
+    def clientConnectionFailed(self, connector, reason):
+        print 'Connection failed. Reason:', reason
+        ReconnectingClientFactory.clientConnectionFailed(self,
+                connector, reason)
+</pre>
+    
+    <h2>A Higher-Level Example: ircLogBot</h2>
+    
+    <h3>Overview of ircLogBot</h3>
+
+    <p>The clients so far have been fairly simple.  A more complicated
+    example comes with Twisted in the doc/examples directory.</p>
+    
+    <a href="../examples/ircLogBot.py" class="py-listing" skipLines="15">ircLogBot.py</a>
+    
+    <p>ircLogBot.py connects to an IRC server, joins a channel, and logs all
+    traffic on it to a file.  It demonstrates some of the connection-level logic
+    of reconnecting on a lost connection, as well as storing persistent data in
+    the Factory.</p>
+    
+    <h3>Persistent Data in the Factory</h3>
+
+    <p>Since the Protocol instance is recreated each time the connection is
+    made, the client needs some way to keep track of data that should be
+    persisted.  In the case of the logging bot, it needs to know which channel
+    it is logging, and where to log it to.</p>
+
+    <pre class="python">
+from twisted.internet import protocol
+from twisted.protocols import irc
+class LogBot(irc.IRCClient):
+    
+    def connectionMade(self):
+        irc.IRCClient.connectionMade(self)
+        self.logger = MessageLogger(open(self.factory.filename, "a"))
+        self.logger.log("[connected at %s]" %
+                        time.asctime(time.localtime(time.time())))
+    
+    def signedOn(self):
+        self.join(self.factory.channel)
+
+    
+class LogBotFactory(protocol.ClientFactory):
+    
+    protocol = LogBot
+    
+    def __init__(self, channel, filename):
+        self.channel = channel
+        self.filename = filename
+    </pre>
+    
+    <p>When the protocol is created, it gets a reference to the factory as
+    self.factory.  It can then access attributes of the factory in its logic.
+    In the case of LogBot, it opens the file and connects to the channel stored
+    in the factory.</p>
+    
+  </body>
+</html>

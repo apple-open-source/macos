@@ -12,91 +12,18 @@
 </head>
 <body>
 
-
-<p><strong>All of these documents</strong> (in fact, this entire homepage set)
-   are bundled with the library source, under the <code>docs</code>
-   subdirectory, for releases and snapshots.  The sole exception is the
-   automatically-generated source documentation, available separately.
+<!-- APPLE LOCAL begin libstdc++ documentation -->
+<h2><a name="3">The GNU C++ Standard Library</a></h2>
+<p>This documentation describes Apple's version of the GNU C++
+  Standard Library implementation, libstdc++. Information about using
+  libstdc++, including GNU- and Apple-specific extensions,
+  implementation capabilities, or known weaknesses in implementation
+  are described here. This documentation is organized by chapters,
+  where the chapter number references the associated chapter of the
+  ANSI/ISO C++ standard.
 </p>
+<!-- APPLE LOCAL end libstdc++ documentation -->
 
-<hr />
-<br />
-<h2><a name="1">Introduction</a></h2>
-   <p>This is a short list of text files pertaining to this implementation of
-      ISO 14882.  A brief description may follow the name of the file.
-   </p>
-      <ul>
-         <li><a href="17_intro/COPYING">License</a>
-         - GPL v2 license terms</li>
-         <li><a href="abi.txt">ABI Policy and Guidelines</a></li>
-         <li><a href="17_intro/BUGS">BUGS</a></li>
-         <li><a href="17_intro/PROBLEMS">PROBLEMS</a>
-         - target-specific known issues</li>
-         <!-- Linking to "../README" doesn't work; we are at the top level
-              of the web pages.  Punt.  -->
-         <li>README - directory structure</li>
-         <li><a href="17_intro/RELEASE-NOTES">RELEASE-NOTES</a>
-         - latest version info, recent changes and news</li>
-         <li><a href="17_intro/TODO">TODO</a>
-         - tasks yet undone</li>
-         <li><a href="faq/index.html">FAQ (HTML)</a>, 
-             <a href="faq/index.txt">FAQ (text)</a></li>
-      </ul>
-
-<hr />
-<br />
-<h2><a name="2">Configuring, Building, Installing</a></h2>
-<ul>
-   <li><a href="configopts.html">Configure options</a></li>
-   <li><a href="install.html">Getting started: configure, build, install</a>
-   <li><a href="debug.html">Debugging schemes and strategies</a>
-   </li>
-</ul>
-
-
-<hr />
-<br />
-<h2><a name="4">Source-Level Documentation</a></h2>
-<p>The library sources have been specially formatted so that with the
-   proper invocation of another tool (Doxygen), a set of HTML pages
-   are generated from the sources files themselves.  The resultant
-   documentation is referred to as Source-Level Documentation, and is
-   useful for examining the signatures of public member functions for
-   the library classes, finding out what is in a particular include
-   file, looking at inheritance diagrams, etc.
-</p>
-<p>The Source-Level documentation can be viewed online:</p>
-<ul>
-   <li><a href="libstdc++-html-USERS-3.1/index.html">for the 3.1 release</a>
-   </li>
-   <li><a href="libstdc++-html-USERS-3.2.1/index.html">for the 3.2.1 release</a>
-   </li>
-   <li><a href="latest-doxygen/index.html">&quot;the latest collection&quot;</a>
-       (for the snapshot or later; see the date on the first page)
-   </li>
-</ul>
-<p>This generated HTML collection, as above, is also available for download in
-   the libstdc++ snapshots directory at
-   <code>&lt;URL:ftp://gcc.gnu.org/pub/gcc/libstdc++/doxygen/&gt;</code>.
-   You will almost certainly need to use one of the <a
-   href="http://gcc.gnu.org/mirrors.html">mirror sites</a> to download
-   the tarball.  After unpacking, simply load
-   libstdc++-html-*/index.html into a browser.  Feedback (and
-   additional documentation!) is welcome.
-</p>
-<p>
- In addition, an initial set of man pages are also available in the
- same place as the HTML collections.  Start with Intro(3).
-</p>
-
-
-<hr />
-<br />
-<h2><a name="3">Chapter-Specific Documentation</a></h2>
-<p>Information, extensions, notes and advice on specific implementation 
-   capabilites and/or liabilities broken down into chapter names based on the 
-   C++ standard.
-</p>
 <!--
   The list below is automatically generated.  To make changes in the text,
   edit the appropriate HOWTO file and run "make" in this directory.  In
@@ -107,7 +34,12 @@
   <ul>
    <li>Library Introduction (Chapter 17)
    <ul>
-     <li><a href="17_intro/howto.html#2">The Standard C++ header files</a></li>
+     <!-- APPLE LOCAL begin libstdc++ documentation -->
+     <li><a href="17_intro/howto.html#2">The Standard C++ header
+     files</a></li>
+     <li><a href="debug.html">Debugging uses of the standard
+     library</a></li>
+     <!-- APPLE LOCAL end libstdc++ documentation -->
      <li><a href="17_intro/howto.html#3">The Standard C++ library and multithreading</a></li>
      <li><a href="17_intro/howto.html#4"><code>&lt;foo&gt;</code> vs <code>&lt;foo.h&gt;</code></a></li>
      <li><a href="17_intro/porting-howto.html">Porting HOWTO</a></li>
@@ -223,39 +155,18 @@
      <li><a href="ext/howto.html#6">Allocators (version 3.3)</a></li>
      <li><a href="ext/howto.html#4">Compile-time checks</a></li>
      <li><a href="ext/howto.html#5">LWG Issues</a></li>
+     <!-- APPLE LOCAL begin libstdc++ documentation -->
+     <li><a href="ext/howto.html#7">Debugging containers</a></li>
+     <!-- APPLE LOCAL end libstdc++ documentation -->
    </ul>
    </li>
 
   </ul>
 <!-- endlist -->
-
-<hr />
-<br />
-<h2><a name="5">Contributor-Specific Information</a></h2>
-<ul>
-   <li><a href="17_intro/contribute.html">Contributor checklist</a></li>
-   <li><a href="17_intro/libstdc++-assign.txt">Copyright assignment form for libstdc++-v3</a></li>
-   <li><a href="17_intro/BADNAMES">BADNAMES</a>
-       - names to avoid because of potential collisions</li>
-   <li><a href="17_intro/C++STYLE">C++STYLE</a>
-       - coding style by example</li>
-   <li><a href="17_intro/CHECKLIST">CHECKLIST</a>
-       - a list of required features and their status.</li>
-   <li><a href="17_intro/DESIGN">DESIGN</a>
-       - overview of the implementation plan</li>
-   <li><a href="17_intro/HEADER_POLICY">HEADER_POLICY</a>
-       - header naming and sub-include structure</li>
-</ul>
-
 <!-- ####################################################### -->
-
-<p>Return <a href="http://gcc.gnu.org/libstdc++/">to the libstdc++ homepage</a>.</p>
-
 <hr />
 <p class="fineprint"><em>
 See <a href="17_intro/license.html">license.html</a> for copying conditions.
-Comments and suggestions are welcome, and may be sent to
-<a href="mailto:libstdc++@gcc.gnu.org">the libstdc++ mailing list</a>.
 </em></p>
 
 </body>

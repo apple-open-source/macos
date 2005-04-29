@@ -28,38 +28,6 @@
 #ifndef __NiLib2_h__
 #define	__NiLib2_h__		1
 
-enum ni_parse_status {
-	NI_PARSE_OK = 0,
-	NI_PARSE_BADFORMAT = 1,
-	NI_PARSE_NOHOST = 2,
-	NI_PARSE_NOTAG = 3,
-	NI_PARSE_BADADDR = 4,
-	NI_PARSE_HOSTNOTFOUND = 5
-};
-
-// first arg is input, second two args are output address and tag
-extern enum ni_parse_status
-ni_parse_server_tag(char *, struct sockaddr_in *, char **);
-
-// returns an error string for the input status
-extern const char *ni_parse_error_string(enum ni_parse_status);
-
-// first arg is the name of the calling program (argv[0])
-// second arg is the domain name (input)
-// third arg is output domain handle
-// fourth arg is TRUE if open by tag
-// fifth arg is read & write timeout in seconds
-// sixth arg is user name (NULL for no user)
-// seventh arg is password (NULL for no password)
-/*
- * returns 0			on success
- * returns 0<x<10000 (extern ni_status) for NetInfo errors
- * returns x=10000   (NI_FAILED+1) for ni_connect() errors
- * returns x>10000   (NI_FAILED+1+ni_parse_status) for error in NetInfo tag
- */
-extern int do_open(char *, char *, void **, bool, int, char *, char *);
-
-
 class NiLib2 {
 public:
 	static ni_status	Create					( void *domain, char *pathname );

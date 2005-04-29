@@ -29,8 +29,31 @@
 #define	__SharedConsts_h__	1
 
 #include <mach/message.h>
+#include <bsm/audit.h>
 
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
+
+//Auth methods used for SPI support of enabling Windows sharing authentication
+/*!
+ * @defined kDSStdAuthSetShadowHashSecure
+ * @discussion Auth method that allows a user to self opt out of windows sharing authentication.
+ * NT hash and Lan Manager authentication are disabled
+ */
+#define		kDSStdAuthSetShadowHashSecure				"dsAuthMethodStandard:dsAuthSetShadowHashSecure"
+
+/*!
+ * @defined kDSStdAuthSetShadowHashWindows
+ * @discussion Auth method that allows a user to self opt in to windows sharing authentication.
+ * NT hash and Lan Manager authentication are enabled
+ */
+#define		kDSStdAuthSetShadowHashWindows				"dsAuthMethodStandard:dsAuthSetShadowHashWindows"
+
+typedef struct sDSTableEntry {
+	uInt32			fRefNum;
+	uInt32			fTimeStamp;
+	void			*fData;
+	struct sDSTableEntry  *fNext;
+} sDSTableEntry;							// used by CContinue and CPluginRef classes
 
 typedef struct {
 	unsigned int	msgt_name : 8,
@@ -61,7 +84,15 @@ typedef struct sComData
 	uInt32				fPID;
 	uInt32				fPort;
 	uInt32				fIPAddress;
-	mach_msg_audit_trailer_t fTail;
+	// ---- when adding new items to this structure, add after this comment
+	uInt32				fUID;
+	uInt32				fEffectiveUID;
+	uid_t				fAuditUID;
+	gid_t				fEffectiveGID;
+	gid_t				fGID;
+	au_asid_t			fAuditSID;
+	au_tid_t			fTerminalID;
+	// ----
 	sObject				obj[ 10 ];
 	char				data[ 1 ];
 } sComData;
@@ -80,10 +111,24 @@ typedef struct sComProxyData
 	char				data[ 1 ];
 } sComProxyData;
 
-const uInt32 kMsgBlockSize	= 1024 * 4;					// Set to average of 4k
-const uInt32 kObjSize		= sizeof( sObject ) * 10;	// size of object struct
-//const uInt32 kIPCMsgLen		= kMsgBlockSize + kObjSize;	// IPC message block size
-const uInt32 kIPCMsgLen		= kMsgBlockSize;	// IPC message block size
+#ifdef __cplusplus
+	const uInt32 kMsgBlockSize	= 1024 * 4;					// Set to average of 4k
+	const uInt32 kObjSize		= sizeof( sObject ) * 10;	// size of object struct
+	//const uInt32 kIPCMsgLen		= kMsgBlockSize + kObjSize;	// IPC message block size
+	const uInt32 kIPCMsgLen		= kMsgBlockSize;	// IPC message block size
+
+	// data should be OOL, may need to be increased if we create more MIG definitions that require more inline data
+    const uInt32 kMaxFixedMsg       = 16384;
+    const uInt32 kMaxFixedMsgData	= kMaxFixedMsg - sizeof(sComData);  // this is the max fixed data we'll send..
+    const uInt32 kMaxMIGMsg         = kMaxFixedMsg + 256;               // padding for any additional data
+#else
+	#define kMsgBlockSize		1024 * 4
+	#define kObjSize			sizeof(sObject) * 10
+	#define kIPCMsgLen			kMsgBlockSize
+	#define kMaxFixedMsg        16384
+	#define kMaxFixedMsgData    kMaxFixedMsg - sizeof(sComData)
+    #define kMaxMIGMsg          16384 + 256
+#endif
 
 typedef struct sIPCMsg
 {
@@ -97,7 +142,8 @@ typedef struct sIPCMsg
 	sObject				obj[ 10 ];
 	char				fData[ kIPCMsgLen ];
 	mach_msg_audit_trailer_t	fTail;	//this is the largest trailer struct
-										//we have the bucket large enough to receive it
+										//we never set this and we never send it
+										//but we have the bucket large enough to receive it
 } sIPCMsg;
 
 
@@ -163,6 +209,9 @@ typedef enum {
 	kNodeChangeToken		= 4516,
 	ktEffectiveUID			= 4517,
 	ktUID					= 4518,
+	
+	kAttrMatches			= 4519,
+	kAttrValueList			= 4520,
 	kEnd					= 0xFFFFFFFF
 } eValueType;
 
@@ -224,11 +273,18 @@ enum eDSPluginCalls {
 	/*     */ kDoPlugInCustomCall,
 	/*     */ kCloseAttributeList,
 	/*     */ kCloseAttributeValueList,
-	/*     */ kHandleNetworkTransition,
+	/* 160 */ kHandleNetworkTransition,
 	/*     */ kServerRunLoop,
 	/*     */ kDoDirNodeAuthOnRecordType,
 	/*     */ kCheckNIAutoSwitch,
-	/* 164 */ kDSPlugInCallsEnd
+	/*     */ kGetRecordAttributeValueByValue,
+	/* 165 */ kDoMultipleAttributeValueSearch,
+	/*     */ kDoMultipleAttributeValueSearchWithData,
+	/*     */ kSetAttributeValues,
+	/*     */ kKerberosMutex,
+	/*     */ kHandleSystemWillSleep,
+	/* 170 */ kHandleSystemWillPowerOn,
+	/* 171 */ kDSPlugInCallsEnd
 };
 
 

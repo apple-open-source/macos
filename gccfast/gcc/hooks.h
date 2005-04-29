@@ -50,5 +50,10 @@ bool hook_bool_tree_tree_false PARAMS ((tree, tree));
 
 rtx hook_rtx_rtx_identity PARAMS ((rtx));
 /* APPLE LOCAL end - 3.4 scheduler update */
+/* APPLE LOCAL begin pch */
+
+void * hook_voidp_size_t_null (size_t);
+bool hook_bool_voidp_size_t_false (void *, size_t);
+/* APPLE LOCAL end pch */
 
 #endif

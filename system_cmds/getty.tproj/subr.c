@@ -56,13 +56,13 @@
 
 #ifndef lint
 /*static char sccsid[] = "from: @(#)subr.c	8.1 (Berkeley) 6/4/93";*/
-static char rcsid[] = "$Id: subr.c,v 1.1.1.2 2000/01/11 02:10:15 wsanchez Exp $";
+static char rcsid[] = "$Id: subr.c,v 1.2 2004/09/30 22:57:04 lindak Exp $";
 #endif /* not lint */
 
 /*
  * Melbourne getty.
  */
-#define COMPAT_43 1
+#define COMPAT_43_TTY 1
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>

@@ -16,9 +16,9 @@
  */
 /* Boehm, September 14, 1994 4:44 pm PDT */
 
-# if defined(GC_SOLARIS_THREADS) || defined(GC_SOLARIS_PTHREADS)
+#include "private/gc_priv.h"
 
-# include "private/gc_priv.h"
+# if defined(GC_SOLARIS_THREADS) || defined(GC_SOLARIS_PTHREADS)
 # include "private/solaris_threads.h"
 # include <thread.h>
 # include <synch.h>
@@ -36,6 +36,10 @@
 # define _CLASSIC_XOPEN_TYPES
 # include <unistd.h>
 # include <errno.h>
+
+#ifdef HANDLE_FORK
+  --> Not yet supported.  Try porting the code from linux_threads.c.
+#endif
 
 /*
  * This is the default size of the LWP arrays. If there are more LWPs
@@ -361,7 +365,7 @@ static void restart_all_lwps()
 		       sizeof (prgregset_t)) != 0) {
 		    int j;
 
-		    for(j = 0; j < NGREG; j++)
+		    for(j = 0; j < NPRGREG; j++)
 		    {
 			    GC_printf3("%i: %x -> %x\n", j,
 				       GC_lwp_registers[i][j],
@@ -782,6 +786,7 @@ void GC_thr_init(void)
 {
     GC_thread t;
     thread_t tid;
+    int ret;
 
     if (GC_thr_initialized)
 	    return;
@@ -799,9 +804,11 @@ void GC_thr_init(void)
       t = GC_new_thread(thr_self());
       t -> stack_size = 0;
       t -> flags = DETACHED | CLIENT_OWNS_STACK;
-    if (thr_create(0 /* stack */, 0 /* stack_size */, GC_thr_daemon,
-    		   0 /* arg */, THR_DETACHED | THR_DAEMON,
-    		   &tid /* thread_id */) != 0) {
+    ret = thr_create(0 /* stack */, 0 /* stack_size */, GC_thr_daemon,
+    		     0 /* arg */, THR_DETACHED | THR_DAEMON,
+    		     &tid /* thread_id */);
+    if (ret != 0) {
+	GC_err_printf1("Thr_create returned %ld\n", ret);
     	ABORT("Cant fork daemon");
     }
     thr_setprio(tid, 126);
@@ -821,7 +828,7 @@ int GC_thr_suspend(thread_t target_thread)
     if (result == 0) {
     	t = GC_lookup_thread(target_thread);
     	if (t == 0) ABORT("thread unknown to GC");
-        t -> flags |= SUSPENDED;
+        t -> flags |= SUSPNDED;
     }
     UNLOCK();
     return(result);
@@ -837,7 +844,7 @@ int GC_thr_continue(thread_t target_thread)
     if (result == 0) {
     	t = GC_lookup_thread(target_thread);
     	if (t == 0) ABORT("thread unknown to GC");
-        t -> flags &= ~SUSPENDED;
+        t -> flags &= ~SUSPNDED;
     }
     UNLOCK();
     return(result);
@@ -923,7 +930,7 @@ GC_thr_create(void *stack_base, size_t stack_size,
     	my_flags |= CLIENT_OWNS_STACK;
     }
     if (flags & THR_DETACHED) my_flags |= DETACHED;
-    if (flags & THR_SUSPENDED) my_flags |= SUSPENDED;
+    if (flags & THR_SUSPENDED) my_flags |= SUSPNDED;
     result = thr_create(stack, stack_size, start_routine,
    		        arg, flags & ~THR_DETACHED, &my_new_thread);
     if (result == 0) {

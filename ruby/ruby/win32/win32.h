@@ -9,62 +9,10 @@
  *
  */
 
-#undef EXTERN
-#if defined(IMPORT)
-#define EXTERN extern __declspec(dllimport)
-#elif defined(EXPORT)
-#define EXTERN extern __declspec(dllexport)
-#endif
-
 //
 // Definitions for NT port of Perl
 //
 
-//
-// GRRRR!!!!  Windows Nonsense.
-// Define the following so we don't get tons of extra stuff
-// when we include windows.h 
-//
-#if 0
-#define NOGDICAPMASKS     
-#define NOVIRTUALKEYCODES 
-#define NOWINMESSAGES     
-#define NOWINSTYLES       
-#define NOSYSMETRICS      
-#define NOMENUS           
-#define NOICONS           
-#define NOKEYSTATES       
-#define NOSYSCOMMANDS     
-#define NORASTEROPS       
-#define NOSHOWWINDOW      
-#define OEMRESOURCE       
-#define NOATOM            
-#define NOCLIPBOARD       
-#define NOCOLOR           
-#define NOCTLMGR          
-#define NODRAWTEXT        
-#define NOGDI             
-//#define NOKERNEL        
-//#define NOUSER          
-#define NONLS             
-#define NOMB              
-#define NOMEMMGR          
-#define NOMETAFILE        
-#define NOMINMAX          
-#define NOMSG             
-#define NOOPENFILE        
-#define NOSCROLL          
-#define NOSERVICE         
-#define NOSOUND           
-#define NOTEXTMETRIC      
-#define NOWH              
-#define NOWINOFFSETS      
-#define NOCOMM            
-#define NOKANJI           
-#define NOHELP            
-#define NOPROFILER        
-#define NODEFERWINDOWPOS  
-#endif
 
 //
 // Ok now we can include the normal include files.
@@ -78,8 +26,16 @@
 #include <winsock.h>
 #undef OpenFile
 #endif
+
+#define NT 1			/* deprecated */
+
+#ifdef _WIN32_WCE
+#undef CharNext
+#define CharNext CharNextA
+#endif
+
 //
-// We\'re not using Microsoft\'s "extensions" to C for
+// We're not using Microsoft's "extensions" to C for
 // Structured Exception Handling (SEH) so we can nuke these
 //
 #undef try
@@ -98,6 +54,8 @@ extern "C++" {
 #include <process.h>
 #include <time.h>
 #include <math.h>
+#include <signal.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #if !defined(__BORLANDC__)
 # include <sys/utime.h>
@@ -116,60 +74,59 @@ extern "C++" {
 #define pid_t   int
 #define WNOHANG -1
 
-#define access	   _access
-#define chmod	   _chmod
-#define chsize	   _chsize
-#define close	   win32_close
-#define fclose	   win32_fclose
-#define creat	   _creat
-#define dup	   _dup
-#define dup2	   _dup2
-#define eof	   _eof
-#define filelength _filelength
-#define isatty	   _isatty
-#define locking    _locking
-#define lseek	   _lseek
-#define mktemp	   _mktemp
-#define open	   _open
-#define perror     _perror
-#define read	   _read
-#define setmode    _setmode
-#define sopen	   _sopen
-#define tell	   _tell
-#define umask	   _umask
-#define unlink	   _unlink
-#define write	   _write
-#define execl	   _execl
-#define execle	   _execle
-#define execlp	   _execlp
-#define execlpe    _execlpe
-#define execv	   _execv
-#define execve	   _execve
-#define execvp	   _execvp
-#define execvpe    _execvpe
-#define getpid	   _getpid
-#define sleep(x)   win32_sleep((x)*1000)
-#define spawnl	   _spawnl
-#define spawnle    _spawnle
-#define spawnlp    _spawnlp
-#define spawnlpe   _spawnlpe
-#define spawnv	   _spawnv
-#define spawnve    _spawnve
-#define spawnvp    _spawnvp
-#define spawnvpe   _spawnvpe
-#if _MSC_VER < 800
-#define fileno	   _fileno
+#undef getc
+#undef putc
+#undef fgetc
+#undef fputc
+#undef getchar
+#undef putchar
+#undef fgetchar
+#undef fputchar
+#undef utime
+#define getc(_stream)		rb_w32_getc(_stream)
+#define putc(_c, _stream)	rb_w32_putc(_c, _stream)
+#define fgetc(_stream)		getc(_stream)
+#define fputc(_c, _stream)	putc(_c, _stream)
+#define getchar()		rb_w32_getc(stdin)
+#define putchar(_c)		rb_w32_putc(_c, stdout)
+#define fgetchar()		getchar()
+#define fputchar(_c)		putchar(_c)
+#define utime(_p, _t)		rb_w32_utime(_p, _t)
+
+#define strcasecmp(s1, s2)	stricmp(s1, s2)
+#define strncasecmp(s1, s2, n)	strnicmp(s1, s2, n)
+
+#define close(h)		rb_w32_close(h)
+#define fclose(f)		rb_w32_fclose(f)
+#define getpid()		rb_w32_getpid()
+#define sleep(x)		rb_w32_sleep((x)*1000)
+#ifdef __BORLANDC__
+#define creat(p, m)		_creat(p, m)
+#define eof()			_eof()
+#define filelength(h)		_filelength(h)
+#define mktemp(t)		_mktemp(t)
+#define read(h, b, l)		_read(h, b, l)
+#define tell(h)			_tell(h)
+#define unlink(p)		_unlink(p)
+#define write(h, b, l)		_write(h, b, l)
+#define _open			_sopen
+#define sopen			_sopen
+#undef fopen
+#define fopen(p, m)		rb_w32_fopen(p, m)
+#undef fdopen
+#define fdopen(h, m)		rb_w32_fdopen(h, m)
+#undef fsopen
+#define fsopen(p, m, sh)	rb_w32_fsopen(p, m, sh)
 #endif
-#define utime      _utime
-#define vsnprintf  _vsnprintf
-#define snprintf   _snprintf
-#define popen      _popen
-#define pclose     _pclose
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
-#undef rb_sys_stat
-#define rb_sys_stat win32_stat
-/* these are defined in nt.c */
+#define fsync(h)		_commit(h)
+#undef stat
+#define stat(path,st)		rb_w32_stat(path,st)
+#undef execv
+#define execv(path,argv)	do_aspawn(P_OVERLAY,path,argv)
+#if !defined(__BORLANDC__) && !defined(_WIN32_WCE)
+#undef isatty
+#define isatty(h)		rb_w32_isatty(h)
+#endif
 
 #ifdef __MINGW32__
 struct timezone {
@@ -177,54 +134,88 @@ struct timezone {
   int tz_dsttime;
 };
 #endif
-extern int NtMakeCmdVector(char *, char ***, int);
-extern void NtInitialize(int *, char ***);
-extern char *NtGetLib(void);
-extern char *NtGetBin(void);
-extern FILE *mypopen(char *, char *);
-extern int   mypclose(FILE *);
-extern int  flock(int fd, int oper);
-extern SOCKET  myaccept(SOCKET, struct sockaddr *, int *);
-extern int  mybind(SOCKET, struct sockaddr *, int);
-extern int  myconnect(SOCKET, struct sockaddr *, int);
-extern void myfdset(int, fd_set*);
-extern void myfdclr(int, fd_set*);
-extern int  myfdisset(int, fd_set*);
-extern long myselect(int, fd_set *, fd_set *, fd_set *, struct timeval *);
-extern int  mygetpeername(SOCKET, struct sockaddr *, int *);
-extern int  mygetsockname(SOCKET, struct sockaddr *, int *);
-extern int  mygetsockopt(SOCKET, int, int, char *, int *);
-extern int  myioctlsocket(SOCKET, long, u_long *);
-extern int  mylisten(SOCKET, int);
-extern int  myrecv(SOCKET, char *, int, int);
-extern int  myrecvfrom(SOCKET, char *, int, int, struct sockaddr *, int *);
-extern int  mysend(SOCKET, char *, int, int);
-extern int  mysendto(SOCKET, char *, int, int, struct sockaddr *, int);
-extern int  mysetsockopt(SOCKET, int, int, char *, int);
-extern int  myshutdown(SOCKET, int);
-extern SOCKET  mysocket(int, int, int);
-extern SOCKET  myget_osfhandle(int);
-extern struct hostent *  mygethostbyaddr(char *, int, int);
-extern struct hostent *  mygethostbyname(char *);
-extern int  mygethostname(char *, int);
-extern struct protoent *  mygetprotobyname(char *);
-extern struct protoent *  mygetprotobynumber(int);
-extern struct servent *  mygetservbyname(char *, char *);
-extern struct servent * mygetservbyport(int, char *);
-extern char *win32_getenv(const char *);
-extern int myrename(const char *, const char *);
-extern char **win32_get_environ(void);
-extern void win32_free_environ(char **);
+extern void   NtInitialize(int *, char ***);
+extern int    rb_w32_cmdvector(const char *, char ***);
+extern pid_t  pipe_exec(char *, int, FILE **, FILE **);
+extern int    flock(int fd, int oper);
+extern int    rb_w32_accept(int, struct sockaddr *, int *);
+extern int    rb_w32_bind(int, struct sockaddr *, int);
+extern int    rb_w32_connect(int, struct sockaddr *, int);
+extern void   rb_w32_fdset(int, fd_set*);
+extern void   rb_w32_fdclr(int, fd_set*);
+extern int    rb_w32_fdisset(int, fd_set*);
+extern long   rb_w32_select(int, fd_set *, fd_set *, fd_set *, struct timeval *);
+extern int    rb_w32_getpeername(int, struct sockaddr *, int *);
+extern int    rb_w32_getsockname(int, struct sockaddr *, int *);
+extern int    rb_w32_getsockopt(int, int, int, char *, int *);
+extern int    rb_w32_ioctlsocket(int, long, u_long *);
+extern int    rb_w32_listen(int, int);
+extern int    rb_w32_recv(int, char *, int, int);
+extern int    rb_w32_recvfrom(int, char *, int, int, struct sockaddr *, int *);
+extern int    rb_w32_send(int, char *, int, int);
+extern int    rb_w32_sendto(int, char *, int, int, struct sockaddr *, int);
+extern int    rb_w32_setsockopt(int, int, int, char *, int);
+extern int    rb_w32_shutdown(int, int);
+extern int    rb_w32_socket(int, int, int);
+extern SOCKET rb_w32_get_osfhandle(int);
+extern struct hostent * rb_w32_gethostbyaddr(char *, int, int);
+extern struct hostent * rb_w32_gethostbyname(char *);
+extern int    rb_w32_gethostname(char *, int);
+extern struct protoent * rb_w32_getprotobyname(char *);
+extern struct protoent * rb_w32_getprotobynumber(int);
+extern struct servent  * rb_w32_getservbyname(char *, char *);
+extern struct servent  * rb_w32_getservbyport(int, char *);
+extern char * rb_w32_getenv(const char *);
+extern int    rb_w32_rename(const char *, const char *);
+extern char **rb_w32_get_environ(void);
+extern void   rb_w32_free_environ(char **);
+
+#define vsnprintf(s,n,f,l) rb_w32_vsnprintf(s,n,f,l)
+#define snprintf   rb_w32_snprintf
+extern int rb_w32_vsnprintf(char *, size_t, const char *, va_list);
+extern int rb_w32_snprintf(char *, size_t, const char *, ...);
 
 extern int chown(const char *, int, int);
 extern int link(char *, char *);
 extern int gettimeofday(struct timeval *, struct timezone *);
 extern pid_t waitpid (pid_t, int *, int);
-extern int do_spawn(char *);
+extern int do_spawn(int, char *);
+extern int do_aspawn(int, char *, char **);
 extern int kill(int, int);
-extern int isinf(double);
-extern int isnan(double);
+extern pid_t rb_w32_getpid(void);
 
+#if !defined(__BORLANDC__) && !defined(_WIN32_WCE)
+extern int rb_w32_isatty(int);
+#endif
+
+#ifdef __BORLANDC__
+extern FILE *rb_w32_fopen(const char *, const char *);
+extern FILE *rb_w32_fdopen(int, char *);
+extern FILE *rb_w32_fsopen(const char *, const char *, int);
+#endif
+
+#include <float.h>
+#if !defined __MINGW32__ || defined __NO_ISOCEXT
+#ifndef isnan
+#define isnan(x) _isnan(x)
+#endif
+#ifndef finite
+#define finite(x) _finite(x)
+#endif
+#endif
+
+#ifdef __BORLANDC__
+#undef S_ISDIR
+#undef S_ISFIFO
+#undef S_ISBLK
+#undef S_ISCHR
+#undef S_ISREG
+#define S_ISDIR(m)  (((unsigned short)(m) & S_IFMT) == S_IFDIR)
+#define S_ISFIFO(m) (((unsigned short)(m) & S_IFMT) == S_IFIFO)
+#define S_ISBLK(m)  (((unsigned short)(m) & S_IFMT) == S_IFBLK)
+#define S_ISCHR(m)  (((unsigned short)(m) & S_IFMT) == S_IFCHR)
+#define S_ISREG(m)  (((unsigned short)(m) & S_IFMT) == S_IFREG)
+#endif
 
 #if !defined S_IRUSR && !defined __MINGW32__
 #define S_IRUSR 0400
@@ -275,14 +266,9 @@ extern GIDTYPE   getegid (void);
 extern int       setuid (int);
 extern int       setgid (int);
 
-
-#if 0
-extern int sys_nerr;
-extern char *sys_errlist[];
-#endif
-extern char *mystrerror(int);
+extern char *rb_w32_strerror(int);
 
-#define strerror(e) mystrerror(e)
+#define strerror(e) rb_w32_strerror(e)
 
 #define PIPE_BUF 1024
 
@@ -290,163 +276,199 @@ extern char *mystrerror(int);
 #define LOCK_EX 2
 #define LOCK_NB 4
 #define LOCK_UN 8
-#ifndef EWOULDBLOCK
-#define EWOULDBLOCK 10035 /* EBASEERR + 35 (winsock.h) */
+
+
+#ifndef SIGINT
+#define SIGINT 2
+#endif
+#ifndef SIGKILL
+#define SIGKILL	9
 #endif
 
-#ifdef popen
-#undef popen
-#define popen    mypopen
-#endif
-#ifdef pclose
-#undef pclose
-#define pclose   mypclose
-#endif
 
 /* #undef va_start */
 /* #undef va_end */
 
+/* winsock error map */
+#define EWOULDBLOCK	WSAEWOULDBLOCK
+#define EINPROGRESS	WSAEINPROGRESS
+#define EALREADY	WSAEALREADY
+#define ENOTSOCK	WSAENOTSOCK
+#define EDESTADDRREQ	WSAEDESTADDRREQ
+#define EMSGSIZE	WSAEMSGSIZE
+#define EPROTOTYPE	WSAEPROTOTYPE
+#define ENOPROTOOPT	WSAENOPROTOOPT
+#define EPROTONOSUPPORT	WSAEPROTONOSUPPORT
+#define ESOCKTNOSUPPORT	WSAESOCKTNOSUPPORT
+#define EOPNOTSUPP	WSAEOPNOTSUPP
+#define EPFNOSUPPORT	WSAEPFNOSUPPORT
+#define EAFNOSUPPORT	WSAEAFNOSUPPORT
+#define EADDRINUSE	WSAEADDRINUSE
+#define EADDRNOTAVAIL	WSAEADDRNOTAVAIL
+#define ENETDOWN	WSAENETDOWN
+#define ENETUNREACH	WSAENETUNREACH
+#define ENETRESET	WSAENETRESET
+#define ECONNABORTED	WSAECONNABORTED
+#define ECONNRESET	WSAECONNRESET
+#define ENOBUFS		WSAENOBUFS
+#define EISCONN		WSAEISCONN
+#define ENOTCONN	WSAENOTCONN
+#define ESHUTDOWN	WSAESHUTDOWN
+#define ETOOMANYREFS	WSAETOOMANYREFS
+#define ETIMEDOUT	WSAETIMEDOUT
+#define ECONNREFUSED	WSAECONNREFUSED
+#define ELOOP		WSAELOOP
+/*#define ENAMETOOLONG	WSAENAMETOOLONG*/
+#define EHOSTDOWN	WSAEHOSTDOWN
+#define EHOSTUNREACH	WSAEHOSTUNREACH
+/*#define ENOTEMPTY	WSAENOTEMPTY*/
+#define EPROCLIM	WSAEPROCLIM
+#define EUSERS		WSAEUSERS
+#define EDQUOT		WSAEDQUOT
+#define ESTALE		WSAESTALE
+#define EREMOTE		WSAEREMOTE
+
 #ifdef accept
 #undef accept
 #endif
-#define accept myaccept
+#define accept(s, a, l)		rb_w32_accept(s, a, l)
 
 #ifdef bind
 #undef bind
 #endif
-#define bind mybind
+#define bind(s, a, l)		rb_w32_bind(s, a, l)
 
 #ifdef connect
 #undef connect
 #endif
-#define connect myconnect
+#define connect(s, a, l)	rb_w32_connect(s, a, l)
 
 #undef FD_SET
-#define FD_SET myfdset
+#define FD_SET(f, s)		rb_w32_fdset(f, s)
 
 #undef FD_CLR
-#define FD_CLR myfdclr
+#define FD_CLR(f, s)		rb_w32_fdclr(f, s)
 
 #undef FD_ISSET
-#define FD_ISSET myfdisset
+#define FD_ISSET(f, s)		rb_w32_fdisset(f, s)
 
 #undef select
-#define select myselect
+#define select(n, r, w, e, t)	rb_w32_select(n, r, w, e, t)
 
 #ifdef getpeername
 #undef getpeername
 #endif
-#define getpeername mygetpeername
+#define getpeername(s, a, l)	rb_w32_getpeername(s, a, l)
 
 #ifdef getsockname
 #undef getsockname
 #endif
-#define getsockname mygetsockname
+#define getsockname(s, a, l)	rb_w32_getsockname(s, a, l)
 
 #ifdef getsockopt
 #undef getsockopt
 #endif
-#define getsockopt mygetsockopt
+#define getsockopt(s, v, n, o, l) rb_w32_getsockopt(s, v, n, o, l)
 
 #ifdef ioctlsocket
 #undef ioctlsocket
 #endif
-#define ioctlsocket myioctlsocket
+#define ioctlsocket(s, c, a)	rb_w32_ioctlsocket(s, c, a)
 
 #ifdef listen
 #undef listen
 #endif
-#define listen mylisten
+#define listen(s, b)		rb_w32_listen(s, b)
 
 #ifdef recv
 #undef recv
 #endif
-#define recv myrecv
+#define recv(s, b, l, f)	rb_w32_recv(s, b, l, f)
 
 #ifdef recvfrom
 #undef recvfrom
 #endif
-#define recvfrom myrecvfrom
+#define recvfrom(s, b, l, f, fr, frl) rb_w32_recvfrom(s, b, l, f, fr, frl)
 
 #ifdef send
 #undef send
 #endif
-#define send mysend
+#define send(s, b, l, f)	rb_w32_send(s, b, l, f)
 
 #ifdef sendto
 #undef sendto
 #endif
-#define sendto mysendto
+#define sendto(s, b, l, f, t, tl) rb_w32_sendto(s, b, l, f, t, tl)
 
 #ifdef setsockopt
 #undef setsockopt
 #endif
-#define setsockopt mysetsockopt
+#define setsockopt(s, v, n, o, l) rb_w32_setsockopt(s, v, n, o, l)
 
 #ifdef shutdown
 #undef shutdown
 #endif
-#define shutdown myshutdown
+#define shutdown(s, h)		rb_w32_shutdown(s, h)
 
 #ifdef socket
 #undef socket
 #endif
-#define socket mysocket
+#define socket(s, t, p)		rb_w32_socket(s, t, p)
 
 #ifdef gethostbyaddr
 #undef gethostbyaddr
 #endif
-#define gethostbyaddr mygethostbyaddr
+#define gethostbyaddr(a, l, t)	rb_w32_gethostbyaddr(a, l, t)
 
 #ifdef gethostbyname
 #undef gethostbyname
 #endif
-#define gethostbyname mygethostbyname
+#define gethostbyname(n)	rb_w32_gethostbyname(n)
 
 #ifdef gethostname
 #undef gethostname
 #endif
-#define gethostname mygethostname
+#define gethostname(n, l)	rb_w32_gethostname(n, l)
 
 #ifdef getprotobyname
 #undef getprotobyname
 #endif
-#define getprotobyname mygetprotobyname
+#define getprotobyname(n)	rb_w32_getprotobyname(n)
 
 #ifdef getprotobynumber
 #undef getprotobynumber
 #endif
-#define getprotobynumber mygetprotobynumber
+#define getprotobynumber(n)	rb_w32_getprotobynumber(n)
 
 #ifdef getservbyname
 #undef getservbyname
 #endif
-#define getservbyname mygetservbyname
+#define getservbyname(n, p)	rb_w32_getservbyname(n, p)
 
 #ifdef getservbyport
 #undef getservbyport
 #endif
-#define getservbyport mygetservbyport
+#define getservbyport(p, pr)	rb_w32_getservbyport(p, pr)
 
 #ifdef get_osfhandle
 #undef get_osfhandle
 #endif
-#define get_osfhandle myget_osfhandle
+#define get_osfhandle(h)	rb_w32_get_osfhandle(h)
 
 #ifdef getcwd
 #undef getcwd
 #endif
-#define getcwd win32_getcwd
+#define getcwd(b, s)		rb_w32_getcwd(b, s)
 
 #ifdef getenv
 #undef getenv
 #endif
-#define getenv win32_getenv
+#define getenv(n)		rb_w32_getenv(n)
 
 #ifdef rename
 #undef rename
 #endif
-#define rename myrename
+#define rename(o, n)		rb_w32_rename(o, n)
 
 struct tms {
 	long	tms_utime;
@@ -458,19 +480,21 @@ struct tms {
 #ifdef times
 #undef times
 #endif
-#define times mytimes
+#define times(t) rb_w32_times(t)
+int rb_w32_times(struct tms *);
 
 /* thread stuff */
 HANDLE GetCurrentThreadHandle(void);
-int win32_main_context(int arg, void (*handler)(int));
-int win32_sleep(unsigned long msec);
-void win32_enter_syscall(void);
-void win32_leave_syscall(void);
-void win32_disable_interrupt(void);
-void win32_enable_interrupt(void);
-int  win32_close(int);
-int  win32_fclose(FILE*);
-#define Sleep(msec) (void)win32_sleep(msec)
+int  rb_w32_main_context(int arg, void (*handler)(int));
+int  rb_w32_sleep(unsigned long msec);
+void rb_w32_enter_critical(void);
+void rb_w32_leave_critical(void);
+int  rb_w32_putc(int, FILE*);
+int  rb_w32_getc(FILE*);
+int  rb_w32_close(int);
+int  rb_w32_fclose(FILE*);
+int  rb_w32_utime(const char *, struct utimbuf *);
+#define Sleep(msec) (void)rb_w32_sleep(msec)
 
 /*
 == ***CAUTION***
@@ -480,6 +504,6 @@ Since this function is very dangerous, ((*NEVER*))
 in asynchronous_func_t.
 */
 typedef DWORD (*asynchronous_func_t)(DWORD self, int argc, DWORD* argv);
-DWORD win32_asynchronize(asynchronous_func_t func, DWORD self, int argc, DWORD* argv, DWORD intrval);
+DWORD rb_w32_asynchronize(asynchronous_func_t func, DWORD self, int argc, DWORD* argv, DWORD intrval);
 
 #endif

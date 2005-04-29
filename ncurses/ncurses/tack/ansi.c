@@ -21,7 +21,7 @@
 
 #include <tack.h>
 
-MODULE_ID("$Id: ansi.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $")
+MODULE_ID("$Id: ansi.c,v 1.9 2001/06/18 18:44:17 tom Exp $")
 
 /*
  * Standalone tests for ANSI terminals.  Three entry points:

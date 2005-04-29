@@ -1,0 +1,42 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (X11; I; HP-UX B.10.20 9000/770) [Netscape]">
+   <meta name="Author" content="Kåre Sjölander">
+   <title>SampConv</title>
+</head>
+<body>
+
+<h3>
+NAME</h3>
+Snack_Mulaw2Lin, Snack_Alaw2Lin, Snack_Lin2Mulaw, Snack_Lin2Alaw, Snack_SwapShort
+- convert samples
+<h3>
+SYNOPSIS</h3>
+#include &lt;snack.h>
+<br><b>Snack_Mulaw2Lin</b>(u_val)
+<br><b>Snack_Lin2Mulaw</b>(pcm_val)
+<br><b>Snack_Alaw2Lin</b>(a_val)
+<br><b>Snack_Lin2Alaw</b>(pcm_val)
+<br><b>Snack_SwapShort</b>(short_val)
+<h3>
+ARGUMENTS</h3>
+unsigned char u_val (in)
+<br>unsigned char a_val (in)
+<br>int pcm_val (in)
+<br>short short_val (in)
+<h3>
+DESCRIPTION</h3>
+<b>Snack_Mulaw2Lin</b> converts an 8-bit MULAW sample into a 16-bit linear
+value (LIN16).
+<br><b>Snack_Lin2Mulaw</b> converts a 16-bit linear value (LIN16) into
+an 8-bit MULAW sample.
+<br><b>Snack_Alaw2Lin</b> converts an 8-bit ALAW sample into a 16-bit linear
+value (LIN16).
+<br><b>Snack_Lin2Alaw</b> converts a 16-bit linear value (LIN16) into an
+8-bit ALAW sample.
+<br><b>Snack_SwapShort</b> swaps the high and low bytes of a 16-bit linear
+sample.
+</body>
+</html>

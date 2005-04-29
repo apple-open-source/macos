@@ -26,7 +26,7 @@ in this Software without prior written authorization from The Open Group.
 
 Author: Ralph Mor, X Consortium
 ******************************************************************************/
-/* $XFree86: xc/lib/ICE/ICElib.h,v 3.4 2001/12/14 19:53:35 dawes Exp $ */
+/* $XFree86: xc/lib/ICE/ICElib.h,v 3.5 2003/11/17 22:20:05 dawes Exp $ */
 
 #ifndef _ICELIB_H_
 #define _ICELIB_H_
@@ -39,11 +39,7 @@ Author: Ralph Mor, X Consortium
 #define True 1
 #define False 0
 
-#if NeedFunctionPrototypes
 typedef void *IcePointer;
-#else
-typedef char *IcePointer;
-#endif
 
 typedef enum {
     IcePoAuthHaveReply,
@@ -103,16 +99,13 @@ typedef struct _IceConn *IceConn;
 typedef struct _IceListenObj *IceListenObj;
 
 typedef void (*IceWatchProc) (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     IcePointer		/* clientData */,
     Bool		/* opening */,
     IcePointer *	/* watchData */
-#endif
 );
 
 typedef void (*IcePoProcessMsgProc) (
-#if NeedFunctionPrototypes
     IceConn 		/* iceConn */,
     IcePointer		/* clientData */,
     int			/* opcode */,
@@ -120,17 +113,14 @@ typedef void (*IcePoProcessMsgProc) (
     Bool		/* swap */,
     IceReplyWaitInfo *  /* replyWait */,
     Bool *		/* replyReadyRet */
-#endif
 );
 
 typedef void (*IcePaProcessMsgProc) (
-#if NeedFunctionPrototypes
     IceConn 		/* iceConn */,
     IcePointer		/* clientData */,
     int			/* opcode */,
     unsigned long	/* length */,
     Bool		/* swap */
-#endif
 );
 
 typedef struct {
@@ -146,7 +136,6 @@ typedef struct {
 } IcePaVersionRec;
 
 typedef IcePoAuthStatus (*IcePoAuthProc) (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     IcePointer *	/* authStatePtr */,
     Bool		/* cleanUp */,
@@ -156,11 +145,9 @@ typedef IcePoAuthStatus (*IcePoAuthProc) (
     int *		/* replyDataLenRet */,
     IcePointer *	/* replyDataRet */,
     char **		/* errorStringRet */
-#endif
 );
 
 typedef IcePaAuthStatus (*IcePaAuthProc) (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     IcePointer *	/* authStatePtr */,
     Bool		/* swap */,
@@ -169,17 +156,13 @@ typedef IcePaAuthStatus (*IcePaAuthProc) (
     int *		/* replyDataLenRet */,
     IcePointer *	/* replyDataRet */,
     char **		/* errorStringRet */
-#endif
 );
 
 typedef Bool (*IceHostBasedAuthProc) (
-#if NeedFunctionPrototypes
     char *		/* hostName */
-#endif
 );
 
 typedef Status (*IceProtocolSetupProc) (
-#if NeedFunctionPrototypes
     IceConn 		/* iceConn */,
     int			/* majorVersion */,
     int			/* minorVersion */,
@@ -187,31 +170,23 @@ typedef Status (*IceProtocolSetupProc) (
     char *		/* release */,
     IcePointer *	/* clientDataRet */,
     char **		/* failureReasonRet */
-#endif
 );
 
 typedef void (*IceProtocolActivateProc) (
-#if NeedFunctionPrototypes
     IceConn 		/* iceConn */,
     IcePointer		/* clientData */
-#endif
 );
 
 typedef void (*IceIOErrorProc) (
-#if NeedFunctionPrototypes
     IceConn 		/* iceConn */
-#endif
 );
 
 typedef void (*IcePingReplyProc) (
-#if NeedFunctionPrototypes
     IceConn 		/* iceConn */,
     IcePointer		/* clientData */
-#endif
 );
 
 typedef void (*IceErrorHandler) (
-#if NeedFunctionPrototypes
     IceConn 		/* iceConn */,
     Bool		/* swap */,
     int			/* offendingMinorOpcode */,
@@ -219,13 +194,10 @@ typedef void (*IceErrorHandler) (
     int 		/* errorClass */,
     int			/* severity */,
     IcePointer		/* values */
-#endif
 );
 
 typedef void (*IceIOErrorHandler) (
-#if NeedFunctionPrototypes
     IceConn 		/* iceConn */
-#endif
 );
 
 
@@ -236,7 +208,6 @@ typedef void (*IceIOErrorHandler) (
 _XFUNCPROTOBEGIN
 
 extern int IceRegisterForProtocolSetup (
-#if NeedFunctionPrototypes
     char *			/* protocolName */,
     char *			/* vendor */,
     char *			/* release */,
@@ -246,11 +217,9 @@ extern int IceRegisterForProtocolSetup (
     char **			/* authNames */,
     IcePoAuthProc *		/* authProcs */,
     IceIOErrorProc		/* IOErrorProc */
-#endif
 );
 
 extern int IceRegisterForProtocolReply (
-#if NeedFunctionPrototypes
     char *			/* protocolName */,
     char *			/* vendor */,
     char *			/* release */,
@@ -263,120 +232,88 @@ extern int IceRegisterForProtocolReply (
     IceProtocolSetupProc	/* protocolSetupProc */,
     IceProtocolActivateProc	/* protocolActivateProc */,
     IceIOErrorProc		/* IOErrorProc */
-#endif
 );
 
 extern IceConn IceOpenConnection (
-#if NeedFunctionPrototypes
     char *		/* networkIdsList */,
     IcePointer		/* context */,
     Bool		/* mustAuthenticate */,
     int			/* majorOpcodeCheck */,
     int			/* errorLength */,
     char *		/* errorStringRet */
-#endif
 );
 
 extern IcePointer IceGetConnectionContext (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern Status IceListenForConnections (
-#if NeedFunctionPrototypes
     int *		/* countRet */,
     IceListenObj **	/* listenObjsRet */,
     int			/* errorLength */,
     char *		/* errorStringRet */
-#endif
 );
 
 extern Status IceListenForWellKnownConnections (
-#if NeedFunctionPrototypes
     char *		/* port */,
     int *		/* countRet */,
     IceListenObj **	/* listenObjsRet */,
     int			/* errorLength */,
     char *		/* errorStringRet */
-#endif
 );
 
 extern int IceGetListenConnectionNumber (
-#if NeedFunctionPrototypes
     IceListenObj	/* listenObj */
-#endif
 );
 
 extern char *IceGetListenConnectionString (
-#if NeedFunctionPrototypes
     IceListenObj	/* listenObj */
-#endif
 );
 
 extern char *IceComposeNetworkIdList (
-#if NeedFunctionPrototypes
     int			/* count */,
     IceListenObj *	/* listenObjs */
-#endif
 );
 
 extern void IceFreeListenObjs (
-#if NeedFunctionPrototypes
     int			/* count */,
     IceListenObj *	/* listenObjs */
-#endif
 );
 
 extern void IceSetHostBasedAuthProc (
-#if NeedFunctionPrototypes
     IceListenObj		/* listenObj */,
     IceHostBasedAuthProc   	/* hostBasedAuthProc */
-#endif
 );
 
 extern IceConn IceAcceptConnection (
-#if NeedFunctionPrototypes
     IceListenObj	/* listenObj */,
     IceAcceptStatus *	/* statusRet */
-#endif
 );
 
 extern void IceSetShutdownNegotiation (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     Bool		/* negotiate */
-#endif
 );
 
 extern Bool IceCheckShutdownNegotiation (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern IceCloseStatus IceCloseConnection (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern Status IceAddConnectionWatch (
-#if NeedFunctionPrototypes
     IceWatchProc		/* watchProc */,
     IcePointer			/* clientData */
-#endif
 );
 
 extern void IceRemoveConnectionWatch (
-#if NeedFunctionPrototypes
     IceWatchProc		/* watchProc */,
     IcePointer			/* clientData */
-#endif
 );
 
 extern IceProtocolSetupStatus IceProtocolSetup (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int 		/* myOpcode */,
     IcePointer		/* clientData */,
@@ -387,127 +324,88 @@ extern IceProtocolSetupStatus IceProtocolSetup (
     char **		/* releaseRet */,
     int			/* errorLength */,
     char *		/* errorStringRet */
-#endif
 );
 
 extern Status IceProtocolShutdown (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* majorOpcode */
-#endif
 );
 
 extern IceProcessMessagesStatus IceProcessMessages (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     IceReplyWaitInfo *	/* replyWait */,
     Bool *		/* replyReadyRet */
-#endif
 );
 
 extern Status IcePing (
-#if NeedFunctionPrototypes
    IceConn		/* iceConn */,
    IcePingReplyProc	/* pingReplyProc */,
    IcePointer		/* clientData */
-#endif
 );
 
 extern char *IceAllocScratch (
-#if NeedFunctionPrototypes
    IceConn		/* iceConn */,
    unsigned long	/* size */
-#endif
 );
 
 extern int IceFlush (
-#if NeedFunctionPrototypes
    IceConn		/* iceConn */
-#endif
 );
 
 extern int IceGetOutBufSize (
-#if NeedFunctionPrototypes
    IceConn		/* iceConn */
-#endif
 );
 
 extern int IceGetInBufSize (
-#if NeedFunctionPrototypes
    IceConn		/* iceConn */
-#endif
 );
 
 extern IceConnectStatus IceConnectionStatus (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern char *IceVendor (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern char *IceRelease (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern int IceProtocolVersion (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern int IceProtocolRevision (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern int IceConnectionNumber (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern char *IceConnectionString (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern unsigned long IceLastSentSequenceNumber (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern unsigned long IceLastReceivedSequenceNumber (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern Bool IceSwapping (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern IceErrorHandler IceSetErrorHandler (
-#if NeedFunctionPrototypes
     IceErrorHandler 	/* handler */
-#endif
 );
 
 extern IceIOErrorHandler IceSetIOErrorHandler (
-#if NeedFunctionPrototypes
     IceIOErrorHandler 	/* handler */
-#endif
 );
 
 
@@ -516,21 +414,15 @@ extern IceIOErrorHandler IceSetIOErrorHandler (
  */
 
 extern Status IceInitThreads (
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void IceAppLockConn (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 extern void IceAppUnlockConn (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */
-#endif
 );
 
 _XFUNCPROTOEND

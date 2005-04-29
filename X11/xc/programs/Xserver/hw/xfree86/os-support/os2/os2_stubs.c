@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/os2_stubs.c,v 3.4 2002/05/31 18:46:02 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/os2_stubs.c,v 3.5 2003/11/06 03:25:46 dawes Exp $ */
 /*
  * (c) Copyright 1996 by Holger Veit
  *			<Holger.Veit@gmd.de>
@@ -121,7 +121,7 @@ if(FirstTime){
              }
     rc = DosResetEventSem(hPipeSem, &postCount); */ /* Done in xtrans code for servers*/
 
-fprintf(stderr, "Client select() done first-time stuff, sem handle %d.\n",hPipeSem);
+	/*fprintf(stderr, "Client select() done first-time stuff, sem handle %d.\n",hPipeSem);*/
 
    FirstTime = FALSE;
 }
@@ -163,7 +163,7 @@ fprintf(stderr, "Client select() done first-time stuff, sem handle %d.\n",hPipeS
                }
             else if (np == -1) { return(-1); }
             while(!any_ready){
-                 rc = DosWaitEventSem(hPipeSem, timeout_ms);
+                 rc = DosWaitEventSem(hPipeSem, 1L);
                  /* if(rc) fprintf(stderr,"Sem-wait timeout, rc = %d\n",rc); */
                  if(rc == 640)  {
                      return(0);
@@ -201,7 +201,8 @@ fprintf(stderr, "Client select() done first-time stuff, sem handle %d.\n",hPipeS
 
            while (!any_ready && timeout_ms){
 
-                rc = DosWaitEventSem(hPipeSem, 10L);
+                rc = DosWaitEventSem(hPipeSem, 1L);
+		if (rc=640) return(0);
                 if(rc == 0){
                         np = os2_check_pipes(&sd,readfds,writefds);
                         if(np > 0){

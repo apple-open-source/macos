@@ -27,7 +27,7 @@ int main (int argc, char *argv[])
 
     sprintf (buf, "/tmp/cfm/%d.cfm", i);
 
-    ret = FSPathMakeRef (buf, &ref, &isdir);
+    ret = FSPathMakeRef ((const UInt8 *)buf, &ref, &isdir);
     assert (ret == noErr); 
 
     ret = FSGetCatalogInfo (&ref, kFSCatInfoNone, NULL, NULL, &spec, NULL);

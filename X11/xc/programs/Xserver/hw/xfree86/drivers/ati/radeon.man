@@ -1,22 +1,22 @@
-.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon.man,v 1.0 2003/01/31 23:04:50
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon.man,v 1.9 2004/01/26 21:05:43 tsi Exp $
 .ds q \N'34'
 .TH RADEON __drivermansuffix__ __vendorversion__
 .SH NAME
 radeon \- ATI RADEON video driver
 .SH SYNOPSIS
-.nf 
+.nf
 .B "Section \*qDevice\*q"
 .BI "  Identifier \*q"  devname \*q
 .B  "  Driver \*qradeon\*q"
 \ \ ...
 .B EndSection
-.fi 
+.fi
 .SH DESCRIPTION
 .B radeon
 is a XFree86 driver for ATI RADEON based video cards.  It contains
-full support for 8, 15, 16 and 24 bit pixel depths, dual-head setup, 
-flat panel, hardware 2D acceleration, hardware 3D acceleration 
-(except R300 cards), hardware cursor, XV extension, Xinerama extension.
+full support for 8, 15, 16 and 24 bit pixel depths, dual-head setup,
+flat panel, hardware 2D acceleration, hardware 3D acceleration
+(except R300 and IGP series cards), hardware cursor, XV extension, Xinerama extension.
 .SH SUPPORTED HARDWARE
 The
 .B radeon
@@ -28,74 +28,101 @@ Radeon 7200
 .B RV100
 Radeon 7000(VE), M6
 .TP 12
+.B RS100
+Radeon IGP320(M) (2D only)
+.TP 12
 .B RV200
-Radeon 7500, M7
+Radeon 7500, M7, FireGL 7800
+.TP 12
+.B RS200
+Radeon IGP330(M)/IGP340(M) (2D only)
+.TP 12
+.B RS250
+Radeon Mobility 7000 IGP (2D only)
 .TP 12
 .B R200
 Radeon 8500, 9100, FireGL 8800/8700
 .TP 12
 .B RV250
-Radeon 9000, M9
+Radeon 9000PRO/9000, M9
+.TP 12
+.B RS300
+Radeon 9100 IGP (2D only)
+.TP 12
+.B RV280
+Radeon 9200PRO/9200/9200SE, M9+
 .TP 12
 .B R300
-Radeon 9700PRO/9700/9500PRO/9500, FireGL X1/Z1
+Radeon 9700PRO/9700/9500PRO/9500/9600TX, FireGL X1/Z1 (2D only)
+.TP 12
+.B R350
+Radeon 9800PRO/9800SE/9800, FireGL X2 (2D only)
+.TP 12
+.B R360
+Radeon 9800XT (2d only)
+.TP 12
+.B RV350
+Radeon 9600PRO/9600SE/9600, M10/M11, FireGL T2 (2D only)
+.TP 12
+.B RV360
+Radeon 9600XT (2d only)
 
 .SH CONFIGURATION DETAILS
 Please refer to XF86Config(__filemansuffix__) for general configuration
 details.  This section only covers configuration details specific to this
 driver.
-.PP 
+.PP
 The driver auto\-detects all device information necessary to initialize
 the card.  However, if you have problems with auto\-detection, you can
 specify:
-.PP 
+.PP
 .RS 4
 VideoRam \- in kilobytes
-.br 
+.br
 MemBase  \- physical address of the linear framebuffer
-.br 
+.br
 IOBase   \- physical address of the MMIO registers
-.br 
+.br
 ChipID   \- PCI DEVICE ID
 .RE
-.PP 
+.PP
 In addition, the following driver
 .B Options
 are supported:
-.TP 
+.TP
 .BI "Option \*qSWcursor\*q \*q" boolean \*q
 Selects software cursor.  The default is
 .B off.
-.TP 
+.TP
 .BI "Option \*qNoAccel\*q \*q" boolean \*q
-Enables or disables all hardware acceleration.  
+Enables or disables all hardware acceleration.
 .br
 The default is to
 .B enable
 hardware acceleration.
-.TP 
+.TP
 .BI "Option \*qDac6Bit\*q \*q" boolean \*q
 Enables or disables the use of 6 bits per color component when in 8 bpp
 mode (emulates VGA mode).  By default, all 8 bits per color component
-are used.  
+are used.
 .br
 The default is
 .B off.
-.TP 
+.TP
 .BI "Option \*qVideoKey\*q \*q" integer \*q
 This overrides the default pixel value for the YUV video overlay key.
 .br
 The default value is
-.B undefined.
-.TP 
+.B 0x1E.
+.TP
 .BI "Option \*qUseFBDev\*q \*q" boolean \*q
 Enable or disable use of an OS\-specific framebuffer device interface
 (which is not supported on all OSs).  See fbdevhw(__drivermansuffix__)
-for further information. 
+for further information.
 .br
 The default is
 .B off.
-.TP 
+.TP
 .BI "Option \*qAGPMode\*q \*q" integer \*q
 Set AGP data transfer rate.
 (used only when DRI is enabled)
@@ -107,7 +134,7 @@ Set AGP data transfer rate.
 4      \-\- x4
 .br
 others \-\- invalid
-.TP 
+.TP
 .BI "Option \*qAGPFastWrite\*q \*q" boolean \*q
 Enable AGP fast write.
 .br
@@ -115,104 +142,176 @@ Enable AGP fast write.
 .br
 The default is
 .B off.
-.TP 
-.BI "Option \*qForcePCIMode\*q \*q" boolean \*q
-Force to use PCI GART for DRI acceleration.
+.TP
+.BI "Option \*qBusType\*q \*q" string \*q
+Used to replace previous ForcePCIMode option.
+Should only be used when driver's bus detection is incorrect
+or you want to force a AGP card to PCI mode. Should NEVER force
+a PCI card to AGP bus.
+.br
+PCI    \-\- PCI bus
+.br
+AGP    \-\- AGP bus
+.br
+PCIE   \-\- PCI Express (falls back to PCI at present)
 .br
 (used only when DRI is enabled)
 .br
 The default is
-.B off.
+.B auto detect.
+.TP
+.BI "Option \*qForcePCIMode\*q \*q" boolean \*q
+Force to use PCI GART for DRI acceleration.
+This option is deprecated in favor of the
+.BI BusType
+option above and will be removed in the next release.
 .TP 
 .BI "Option \*qDDCMode\*q \*q" boolean \*q
 Force to use the modes queried from the connected monitor.
 .br
 The default is
 .B off.
-.TP 
-.BI "Option \*qCloneDisplay\*q \*q" integer \*q
-.br 
-This option is only used for dual\-head cards with only single 
-screen section specified in the configuration file.
-
-0      \-\- disable
-.br 
-1      \-\- auto\-detect (default)
-.br 
-2      \-\- force on
-.br 
-3      \-\- auto\-detect + 2nd head overlay
-.br 
-4      \-\- force on + 2nd head overlay
-.br 
-others \-\- auto\-detect
-
-.B disable 
-means only one CRTC is used for both heads.
-.B auto\-detect 
-means the secondary head will be driven by CRTC2 
-if a monitor is detected there.
-.B force on
-means the secondary head will be driven by CRTC2
-even no monitor is detected there.
-.B 2nd-head overlay 
-means the only hardware overlay will be placed to the secondary head.
+.TP
+.BI "Option \*qDisplayPriority\*q \*q" string \*q
+.br
+Used to prevent flickering or tearing problem caused by display buffer underflow.
+.br
+AUTO   \-\- Driver calculated (default).
+.br
+BIOS   \-\- Remain unchanged from BIOS setting.
+          Use this if the calculation is not correct
+          for your card.
+.br
+HIGH   \-\- Force to the highest priority.
+          Use this if you have problem with above options.
+          This may affect performence slightly.
+.br
+The default value is
+.B AUTO.
+.TP
+.BI "Option \*qMonitorLayout\*q \*q" string \*q
+.br
+This option is used to overwrite the detected monitor types.
+This is only required when driver makes a false detection.
+The possible monitor types are:
+.br
+NONE   \-\- Not connected
+.br
+CRT    \-\- Analog CRT monitor
+.br
+TMDS   \-\- Desktop flat panel
+.br
+LVDS   \-\- Laptop flat panel
+.br
+This option can be used in following format:
+.br
+Option "MonitorLayout" "[type on primary], [type on secondary]"
+.br
+For example, Option "MonitorLayout" "CRT, TMDS"
 
 Primary/Secondary head for dual\-head cards:
-.br 
+.br
 (when only one port is used, it will be treated as the primary regardless)
-.br 
+.br
 .B Primary head:
-.br 
+.br
 DVI port on DVI+VGA cards
-.br 
+.br
 LCD output on laptops
-.br 
+.br
 Internal TMDS prot on DVI+DVI cards
-.br 
+.br
 .B Secondary head:
-.br 
+.br
 VGA port on DVI+VGA cards
-.br 
+.br
 VGA port on laptops
-.br 
+.br
 External TMDS port on DVI+DVI cards
- 
-.TP 
+
+The default value is
+.B undefined.
+.TP
 .BI "Option \*qCloneMode\*q \*q" "string" \*q
 Set the first mode for the secondary head.
 It can be different from the modes used for the primary head. If you don't
 have this line while clone is on, the modes specified for the primary head
 will be used for the secondary head.
-.TP 
+.br
+For example, Option "CloneMode" "1024x768"
+.br
+The default value is
+.B undefined.
+.TP
 .BI "Option \*qCloneHSync\*q \*q" "string" \*q
-Set the horizontal sync range for the secondary  monitor. 
+Set the horizontal sync range for the secondary  monitor.
 It is not required if a DDC\-capable monitor is connected.
+.br
+For example, Option "CloneHSync" "30.0-86.0"
 .br
 The default value is
 .B undefined.
-.TP 
+.TP
 .BI "Option \*qCloneVRefresh\*q \*q" "string" \*q
-Set the vertical refresh range for the secondary monitor. 
+Set the vertical refresh range for the secondary monitor.
 It is not required if a DDC\-capable monitor is connected.
+.br
+For example, Option "CloneVRefresh" "50.0-120.0"
 .br
 The default value is
 .B undefined.
-.TP 
+.TP
+.BI "Option \*qOverlayOnCRTC2\*q \*q" boolean \*q
+Force hardware overlay to clone head.
+.br
+The default value is
+.B off.
+.TP
+.BI "Option \*qIgnoreEDID\*q \*q" boolean \*q
+Do not use EDID data for mode validation, but DDC is still used
+for monitor detection. This is different from NoDDC option.
+.br
+The default value is
+.B off.
+.TP
+.BI "Option \*qPanelSize\*q \*q" "string" \*q
+Should only be used when driver cannot detect the correct panel size.
+Apply to both desktop (TMDS) and laptop (LVDS) digital panels.
+When a valid panel size is specified, the timings collected from
+DDC and BIOS will not be used. If you have a panel with timings
+different from that of a standard VESA mode, you have to provide
+this information through the Modeline.
+.br
+For example, Option "PanelSize" "1400x1050"
+.br
+The default value is
+.B none.
+.TP
 .BI "Option \*qPanelOff\*q \*q" boolean \*q
 Disable panel output. Only used when clone is enabled.
 .br
 The default value is
 .B off.
-.TP 
+.TP
 .BI "Option \*qEnablePageFlip\*q \*q" boolean \*q
 Enable page flipping for 3D acceleration. This will increase performance
 but not work correctly in some rare cases, hence the default is
 .B off.
 
+.TP
+.BI "Option \*qForceMinDotClock\*q \*q" frequency \*q
+Override minimum dot clock. Some Radeon BIOSes report a minimum dot
+clock unsuitable (too high) for use with television sets even when they
+actually can produce lower dot clocks. If this is the case you can
+override the value here.
+.B Note that using this option may damage your hardware.
+You have been warned. The
+.B frequency
+parameter may be specified as a float value with standard suffixes like
+"k", "kHz", "M", "MHz".
 
 .SH SEE ALSO
 XFree86(1), XF86Config(__filemansuffix__), xf86config(1), Xserver(1), X(__miscmansuffix__)
 .SH AUTHORS
-.nf 
+.nf
 Authors include: ...

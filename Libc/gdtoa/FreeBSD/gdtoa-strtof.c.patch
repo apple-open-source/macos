@@ -1,0 +1,44 @@
+--- gdtoa-strtof.c.orig	2005-01-20 20:12:37.000000000 -0800
++++ gdtoa-strtof.c	2005-02-17 12:49:28.000000000 -0800
+@@ -29,13 +29,15 @@
+ /* Please send bug reports to David M. Gay (dmg at acm dot org,
+  * with " at " changed at "@" and " dot " changed to ".").	*/
+ 
++#include "xlocale_private.h"
++
+ #include "gdtoaimp.h"
+ 
+  float
+ #ifdef KR_headers
+-strtof(s, sp) CONST char *s; char **sp;
++strtof_l(s, sp, loc) CONST char *s; char **sp; locale_t loc;
+ #else
+-strtof(CONST char *s, char **sp)
++strtof_l(CONST char *s, char **sp, locale_t loc)
+ #endif
+ {
+ 	static FPI fpi = { 24, 1-127-24+1,  254-127-24+1, 1, SI };
+@@ -44,7 +46,8 @@
+ 	int k;
+ 	union { ULong L[1]; float f; } u;
+ 
+-	k = strtodg(s, sp, &fpi, &exp, bits);
++	NORMALIZE_LOCALE(loc);
++	k = strtodg(s, sp, &fpi, &exp, bits, loc);
+ 	switch(k & STRTOG_Retmask) {
+ 	  case STRTOG_NoNumber:
+ 	  case STRTOG_Zero:
+@@ -71,3 +74,13 @@
+ 		u.L[0] |= 0x80000000L;
+ 	return u.f;
+ 	}
++
++ float
++#ifdef KR_headers
++strtof(s, sp) CONST char *s; char **sp;
++#else
++strtof(CONST char *s, char **sp)
++#endif
++{
++	return strtof_l(s, sp, __current_locale());
++}

@@ -154,14 +154,17 @@ protected:
     // Reserve space for future expansion.
     struct ExpansionData
 	{
-		bool	fResetInProgress;
-		OSSet *	fClients;
+		bool		fResetInProgress;
+		OSSet *		fClients;
+		IOUSBPipe * fPotentiallyStalledPipe;
+		
 	};
     ExpansionData *				reserved;
 	
-	#define fResetInProgress	reserved->fResetInProgress
-	#define fClients			reserved->fClients
-
+	#define fResetInProgress		reserved->fResetInProgress
+	#define fClients				reserved->fClients
+	#define fPotentiallyStalledPipe	reserved->fPotentiallyStalledPipe
+	
 	// Enumerated constants used to control various aspects of this
 	// driver.
 	
@@ -319,7 +322,7 @@ protected:
 	enum
 	{
 		// CSW general struture definitions
-		kCommandStatusWrapperSingature	= OSSwapHostToBigConstInt32 ( 'USBS' ),
+		kCommandStatusWrapperSignature	= OSSwapHostToBigConstInt32 ( 'USBS' ),
 		kByteCountOfCSW					= 13,
 
 		// CSW status definitions

@@ -1,7 +1,7 @@
 /*
  *  hstmt.c
  *
- *  $Id: hstmt.c,v 1.1.1.2 2002/04/30 00:40:23 miner Exp $
+ *  $Id: hstmt.c,v 1.3 2004/11/11 01:52:37 luesang Exp $
  *
  *  Query statement object management functions
  *
@@ -76,6 +76,8 @@
 #include <sql.h>
 #include <sqlext.h>
 
+#include <unicode.h>
+
 #include <dlproc.h>
 
 #include <herr.h>
@@ -99,50 +101,49 @@ static const SQLINTEGER desc_attrs[4] =
 #endif
 
 
-SQLRETURN SQL_API 
-SQLAllocStmt (
+SQLRETURN
+SQLAllocStmt_Internal (
     SQLHDBC hdbc,
-    SQLHSTMT FAR * phstmt)
+    SQLHSTMT * phstmt)
 {
   CONN (pdbc, hdbc);
-  STMT_t FAR *pstmt = NULL;
+  STMT (pstmt, NULL);
   HPROC hproc = SQL_NULL_HPROC;
   SQLRETURN retcode = SQL_SUCCESS;
-
-  ENTER_HDBC (pdbc);
+  int i;
 
   if (phstmt == NULL)
     {
       PUSHSQLERR (pdbc->herr, en_S1009);
-
-      LEAVE_HDBC (pdbc, SQL_ERROR);
+      return SQL_ERROR;
     }
 
   /* check state */
   switch (pdbc->state)
-     {
-     case en_dbc_connected:
-     case en_dbc_hstmt:
-       break;
+    {
+    case en_dbc_connected:
+    case en_dbc_hstmt:
+      break;
 
-     case en_dbc_allocated:
-     case en_dbc_needdata:
-       PUSHSQLERR (pdbc->herr, en_08003);
-       *phstmt = SQL_NULL_HSTMT;
-       LEAVE_HDBC (pdbc, SQL_ERROR);
+    case en_dbc_allocated:
+    case en_dbc_needdata:
+      PUSHSQLERR (pdbc->herr, en_08003);
+      *phstmt = SQL_NULL_HSTMT;
 
-     default:
-       LEAVE_HDBC (pdbc, SQL_INVALID_HANDLE);
-     }
+      return SQL_ERROR;
 
-  pstmt = (STMT_t FAR *) MEM_ALLOC (sizeof (STMT_t));
+    default:
+      return SQL_INVALID_HANDLE;
+    }
+
+  pstmt = (STMT_t *) MEM_ALLOC (sizeof (STMT_t));
 
   if (pstmt == NULL)
     {
       PUSHSQLERR (pdbc->herr, en_S1001);
       *phstmt = SQL_NULL_HSTMT;
 
-      LEAVE_HDBC (pdbc, SQL_ERROR);
+      return SQL_ERROR;
     }
   pstmt->rc = 0;
 
@@ -162,26 +163,31 @@ SQLAllocStmt (
   pstmt->stmt_cip = 0;
   pstmt->err_rec = 0;
 
-  /* call driver's function */
+  memset (pstmt->params, 0, sizeof (PARAM_t) * STMT_PARAMS_MAX);
+  pstmt->params_inserted = 0;
 
+  /* call driver's function */
+  pstmt->rowset_size = 1;
+  pstmt->bind_type = SQL_BIND_BY_COLUMN;
+  pstmt->st_pbinding = NULL;
 #if (ODBCVER >= 0x0300)
   pstmt->row_array_size = 1;
-  pstmt->rowset_size = 1;
   pstmt->fetch_bookmark_ptr = NULL;
   pstmt->params_processed_ptr = NULL;
   pstmt->paramset_size = 0;
   pstmt->rows_fetched_ptr = NULL;
-  if (((ENV_t FAR *)((DBC_t FAR *)pstmt->hdbc)->henv)->dodbc_ver == SQL_OV_ODBC2 && 
-      ((GENV_t FAR *)((DBC_t FAR *)pstmt->hdbc)->genv)->odbc_ver == SQL_OV_ODBC3)
-    { /* if it's a odbc3 app calling odbc2 driver */
-      pstmt->row_status_ptr = MEM_ALLOC(sizeof(SQLUINTEGER) * pstmt->row_array_size);
+  if (((ENV_t *) ((DBC_t *) pstmt->hdbc)->henv)->dodbc_ver == SQL_OV_ODBC2 && 
+     ((GENV_t *) ((DBC_t *) pstmt->hdbc)->genv)->odbc_ver == SQL_OV_ODBC3)
+    {				/* if it's a odbc3 app calling odbc2 driver */
+      pstmt->row_status_ptr =
+	  MEM_ALLOC (sizeof (SQLUINTEGER) * pstmt->row_array_size);
       if (!pstmt->row_status_ptr)
 	{
-	  PUSHSQLERR(pstmt->herr, en_HY001);
+	  PUSHSQLERR (pstmt->herr, en_HY001);
 	  *phstmt = SQL_NULL_HSTMT;
 	  pstmt->type = 0;
 	  MEM_FREE (pstmt);
-	  LEAVE_HDBC (pdbc, SQL_ERROR);
+	  return SQL_ERROR;
 	}
       pstmt->row_status_allocated = SQL_TRUE;
     }
@@ -195,12 +201,11 @@ SQLAllocStmt (
 
   if (hproc)
     {
-      CALL_DRIVER (pstmt->hdbc, pdbc, retcode, hproc, en_AllocHandle, 
-        (SQL_HANDLE_STMT, pdbc->dhdbc, &(pstmt->dhstmt)));
+      CALL_DRIVER (pstmt->hdbc, pdbc, retcode, hproc, en_AllocHandle,
+	  (SQL_HANDLE_STMT, pdbc->dhdbc, &(pstmt->dhstmt)));
     }
   else
 #endif
-
     {
       hproc = _iodbcdm_getproc (pdbc, en_AllocStmt);
 
@@ -211,11 +216,11 @@ SQLAllocStmt (
 	  pstmt->type = 0;
 	  MEM_FREE (pstmt);
 
-	  LEAVE_HDBC (pdbc, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      CALL_DRIVER (hdbc, pdbc, retcode, hproc, en_AllocStmt, 
-        (pdbc->dhdbc, &(pstmt->dhstmt)));
+      CALL_DRIVER (hdbc, pdbc, retcode, hproc, en_AllocStmt,
+	  (pdbc->dhdbc, &(pstmt->dhstmt)));
     }
 
   if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO)
@@ -224,38 +229,30 @@ SQLAllocStmt (
       pstmt->type = 0;
       MEM_FREE (pstmt);
 
-      LEAVE_HDBC (pdbc, retcode);
+      return retcode;
     }
 
-#if (ODBCVER >= 0x0300)  
+#if (ODBCVER >= 0x0300)
   /* get the descriptors */
-  memset(&pstmt->imp_desc, 0, sizeof(pstmt->imp_desc));
-  memset(&pstmt->desc, 0, sizeof(pstmt->desc));
+  memset (&pstmt->imp_desc, 0, sizeof (pstmt->imp_desc));
+  memset (&pstmt->desc, 0, sizeof (pstmt->desc));
 
-  if (((ENV_t *)pdbc->henv)->dodbc_ver == SQL_OV_ODBC2)
-    {	
+  if (((ENV_t *) pdbc->henv)->dodbc_ver == SQL_OV_ODBC2)
+    {
       /* 
        *  this is an ODBC2 driver - so alloc dummy implicit desc handles  
        *  (dhdesc = NULL) 
        */
-      int i, i1;
-
       for (i = 0; i < 4; i++)
 	{
-	  pstmt->imp_desc[i] = (DESC_t FAR *) MEM_ALLOC (sizeof (DESC_t));
-	  memset(pstmt->imp_desc[i], 0, sizeof(DESC_t));
+	  pstmt->imp_desc[i] = (DESC_t *) MEM_ALLOC (sizeof (DESC_t));
 	  if (pstmt->imp_desc[i] == NULL)
 	    {
-	      for (i1 = 0; i1 < i; i1++)
-		{
-		  pstmt->imp_desc[i1]->type = 0;
-		  MEM_FREE(pstmt->imp_desc[i1]);
-		}
-	      PUSHSQLERR(pdbc->herr, en_HY001);
-	      pstmt->type = 0;
-	      MEM_FREE(pstmt);
-	      LEAVE_HDBC (pdbc, SQL_ERROR);
+	      PUSHSQLERR (pdbc->herr, en_HY001);
+
+	      goto alloc_stmt_failed;
 	    }
+	  memset (pstmt->imp_desc[i], 0, sizeof (DESC_t));
 	  pstmt->imp_desc[i]->type = SQL_HANDLE_DESC;
 	  pstmt->imp_desc[i]->hstmt = pstmt;
 	  pstmt->imp_desc[i]->dhdesc = NULL;
@@ -264,23 +261,25 @@ SQLAllocStmt (
 	}
     }
   else
-    { /* the ODBC3 driver */
-      hproc = _iodbcdm_getproc(pdbc, en_GetStmtAttr);
+    {				/* the ODBC3 driver */
+      if (((ENV_t *) pdbc->henv)->unicode_driver)
+	hproc = _iodbcdm_getproc (pdbc, en_GetStmtAttrW);
+      else
+	hproc = _iodbcdm_getproc (pdbc, en_GetStmtAttr);
+
       if (hproc == SQL_NULL_HPROC)
-	{  /* with no GetStmtAttr ! */
-	  PUSHSQLERR(pdbc->herr, en_HYC00);
-	  pstmt->type = 0;
-	  MEM_FREE(pstmt);
-	  LEAVE_HDBC (pdbc, SQL_ERROR);
+	{			/* with no GetStmtAttr ! */
+	  PUSHSQLERR (pdbc->herr, en_HYC00);
+
+	  goto alloc_stmt_failed;
 	}
       else
-	{ /* get the implicit descriptors */
-	  int i, i1;
+	{			/* get the implicit descriptors */
 	  RETCODE rc1;
 
 	  for (i = 0; i < 4; i++)
 	    {
-	      int desc_type;
+	      int desc_type = 0;
 
 	      switch (i)
 		{
@@ -298,48 +297,34 @@ SQLAllocStmt (
 		  break;
 		}
 
-	      pstmt->imp_desc[i] = (DESC_t FAR *) MEM_ALLOC (sizeof (DESC_t));
-	      memset(pstmt->imp_desc[i], 0, sizeof(DESC_t));
+	      pstmt->imp_desc[i] = (DESC_t *) MEM_ALLOC (sizeof (DESC_t));
 	      if (pstmt->imp_desc[i] == NULL)
-		{ /* memory allocation error */
-		  PUSHSQLERR(pdbc->herr, en_HY001);
-		  for (i1 = 0; i1 < i; i1++)
-		    {
-		      pstmt->imp_desc[i1]->type = 0;
-		      MEM_FREE(pstmt->imp_desc[i1]);
-		    }
-		  pstmt->type = 0;
-		  MEM_FREE(pstmt);
-		  LEAVE_HDBC (pdbc, SQL_ERROR);
+		{		/* memory allocation error */
+		  PUSHSQLERR (pdbc->herr, en_HY001);
+
+		  goto alloc_stmt_failed;
 		}
+	      memset (pstmt->imp_desc[i], 0, sizeof (DESC_t));
 	      pstmt->imp_desc[i]->type = SQL_HANDLE_DESC;
 	      pstmt->imp_desc[i]->hdbc = hdbc;
 	      pstmt->imp_desc[i]->hstmt = *phstmt;
 	      pstmt->imp_desc[i]->herr = NULL;
-	      CALL_DRIVER(hdbc, pstmt, rc1, hproc, en_GetStmtAttr,
+	      CALL_DRIVER (hdbc, pstmt, rc1, hproc, en_GetStmtAttr,
 		  (pstmt->dhstmt, desc_type, &pstmt->imp_desc[i]->dhdesc, 0,
 		      NULL));
 	      if (rc1 != SQL_SUCCESS && rc1 != SQL_SUCCESS_WITH_INFO)
-		{ /* no descriptor returned from the driver */
-		  pstmt->type = 0;
-		  MEM_FREE(pstmt);
-		  for (i1 = 0; i1 < i + 1; i++)
-		    {
-		      pstmt->imp_desc[i1]->type = 0;
-		      MEM_FREE(pstmt->imp_desc[i1]);
-		    }
-		  pstmt->type = 0;
-		  MEM_FREE(pstmt);
+		{		/* no descriptor returned from the driver */
 		  pdbc->rc = SQL_ERROR;
-		  LEAVE_HDBC (pdbc, SQL_ERROR);
+
+		  goto alloc_stmt_failed;
 		}
 	    }
 	}
     }
-#endif  
-  
+#endif
+
   /* insert into list */
-  pstmt->next = pdbc->hstmt;
+  pstmt->next = (STMT_t *) pdbc->hstmt;
   pdbc->hstmt = pstmt;
 
   *phstmt = (SQLHSTMT) pstmt;
@@ -347,7 +332,69 @@ SQLAllocStmt (
   /* state transition */
   pdbc->state = en_dbc_hstmt;
 
-  LEAVE_HDBC (pdbc, SQL_SUCCESS);
+  return SQL_SUCCESS;
+
+  /*
+   *  If statement allocation has failed, we need to make sure the driver
+   *  handle is also destroyed
+   */
+alloc_stmt_failed:
+
+  /*
+   *  Deallocate any descriptors
+   */
+  for (i = 0; i < 4; i++)
+    {
+      if (pstmt->imp_desc[i])
+       {
+	  pstmt->imp_desc[i]->type = 0;
+	  MEM_FREE (pstmt->imp_desc[i]);
+       }
+    }
+
+  /*
+   *  Tell the driver to remove the statement handle
+   */
+  hproc = SQL_NULL_HPROC;
+#if (ODBCVER >= 0x0300)
+  hproc = _iodbcdm_getproc (pstmt->hdbc, en_FreeHandle);
+
+  if (hproc)
+    {
+      CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_FreeHandle,
+	  (SQL_HANDLE_STMT, pstmt->dhstmt));
+    }
+  else
+#endif
+    {
+      hproc = _iodbcdm_getproc (pstmt->hdbc, en_FreeStmt);
+
+      CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_FreeStmt,
+	  (pstmt->dhstmt, SQL_DROP));
+    }
+
+  /*
+   *  Invalidate and free the statement handle
+   */
+  pstmt->type = 0;
+  MEM_FREE (pstmt);
+
+  return SQL_ERROR;
+}
+
+
+SQLRETURN SQL_API 
+SQLAllocStmt (
+    SQLHDBC hdbc,
+    SQLHSTMT * phstmt)
+{
+  ENTER_HDBC (hdbc, 1,
+    trace_SQLAllocStmt (TRACE_ENTER, hdbc, phstmt));
+
+  retcode = SQLAllocStmt_Internal (hdbc, phstmt);
+
+  LEAVE_HDBC (hdbc, 1,
+    trace_SQLAllocStmt (TRACE_LEAVE, hdbc, phstmt));
 }
 
 
@@ -355,8 +402,8 @@ SQLRETURN
 _iodbcdm_dropstmt (HSTMT hstmt)
 {
   STMT (pstmt, hstmt);
-  STMT_t FAR *tpstmt;
-  DBC_t FAR *pdbc;
+  STMT (tpstmt, NULL);
+  CONN (pdbc, NULL);
 
   if (!IS_VALID_HSTMT (pstmt))
     {
@@ -364,9 +411,9 @@ _iodbcdm_dropstmt (HSTMT hstmt)
     }
   CLEAR_ERRORS (pstmt);
 
-  pdbc = (DBC_t FAR *) (pstmt->hdbc);
+  pdbc = (DBC_t *) (pstmt->hdbc);
 
-  for (tpstmt = (STMT_t FAR *) pdbc->hstmt;
+  for (tpstmt = (STMT_t *) pdbc->hstmt;
       tpstmt != NULL;
       tpstmt = tpstmt->next)
     {
@@ -405,6 +452,9 @@ _iodbcdm_dropstmt (HSTMT hstmt)
     }
 #endif   
 
+  if (pstmt->params_inserted > 0)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   /*
    *  Invalidate this handle
    */
@@ -416,26 +466,18 @@ _iodbcdm_dropstmt (HSTMT hstmt)
 }
 
 
-SQLRETURN SQL_API 
-SQLFreeStmt (
+SQLRETURN
+SQLFreeStmt_Internal (
     SQLHSTMT hstmt,
     SQLUSMALLINT fOption)
 {
   STMT (pstmt, hstmt);
-  DBC_t FAR *pdbc;
+  CONN (pdbc, NULL);
 
   HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
+  SQLRETURN retcode = SQL_SUCCESS;
 
-  ODBC_LOCK ();
-  if (!IS_VALID_HSTMT (pstmt))
-    {
-      ODBC_UNLOCK ();
-      return SQL_INVALID_HANDLE;
-    }
-  CLEAR_ERRORS (pstmt);
-
-  pdbc = (DBC_t FAR *) (pstmt->hdbc);
+  pdbc = (DBC_t *) (pstmt->hdbc);
 
   /* check option */
   switch (fOption)
@@ -448,7 +490,6 @@ SQLFreeStmt (
 
     default:
       PUSHSQLERR (pstmt->herr, en_S1092);
-      ODBC_UNLOCK ();
       return SQL_ERROR;
     }
 
@@ -456,7 +497,6 @@ SQLFreeStmt (
   if (pstmt->state >= en_stmt_needdata || pstmt->asyn_on != en_NullProc)
     {
       PUSHSQLERR (pstmt->herr, en_S1010);
-      ODBC_UNLOCK ();
       return SQL_ERROR;
     }
 
@@ -482,7 +522,6 @@ SQLFreeStmt (
       if (hproc == SQL_NULL_HPROC)
 	{
 	  PUSHSQLERR (pstmt->herr, en_IM001);
-	  ODBC_UNLOCK ();
 	  return SQL_ERROR;
 	}
 
@@ -492,7 +531,6 @@ SQLFreeStmt (
 
   if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO)
     {
-      ODBC_UNLOCK ();
       return retcode;
     }
 
@@ -501,7 +539,10 @@ SQLFreeStmt (
     {
     case SQL_DROP:
       /* delete this object (ignore return) */
-      _iodbcdm_dropstmt (pstmt);
+      _iodbcdm_RemoveBind (pstmt);
+#if 0
+      _iodbcdm_dropstmt (pstmt);	/* Delayed until last moment */
+#endif
       break;
 
     case SQL_CLOSE:
@@ -517,6 +558,7 @@ SQLFreeStmt (
 	case en_stmt_prepared:
 	  break;
 
+	case en_stmt_executed_with_info:
 	case en_stmt_executed:
 	case en_stmt_cursoropen:
 	case en_stmt_fetched:
@@ -537,28 +579,45 @@ SQLFreeStmt (
       break;
 
     case SQL_UNBIND:
+      _iodbcdm_RemoveBind (pstmt);
+      break;
     case SQL_RESET_PARAMS:
     default:
       break;
     }
 
-  ODBC_UNLOCK ();
   return retcode;
 }
 
 
-SQLRETURN SQL_API 
-SQLSetStmtOption (
+SQLRETURN SQL_API
+SQLFreeStmt (
+    SQLHSTMT hstmt,
+    SQLUSMALLINT fOption)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLFreeStmt (TRACE_ENTER, hstmt, fOption));
+
+  retcode = SQLFreeStmt_Internal (hstmt, fOption);
+
+  LEAVE_STMT (hstmt,
+    trace_SQLFreeStmt (TRACE_LEAVE, hstmt, fOption);
+    if (fOption == SQL_DROP)
+	_iodbcdm_dropstmt (hstmt);
+  );
+}
+
+
+static SQLRETURN
+SQLSetStmtOption_Internal (
     SQLHSTMT hstmt,
     SQLUSMALLINT fOption,
     SQLUINTEGER vParam)
 {
   STMT (pstmt, hstmt);
   HPROC hproc;
-  int sqlstat = en_00000;
+  sqlstcode_t sqlstat = en_00000;
   SQLRETURN retcode;
-
-  ENTER_STMT (pstmt);
 
 #if (ODBCVER < 0x0300)
   /* check option */
@@ -567,7 +626,7 @@ SQLSetStmtOption (
     {
       PUSHSQLERR (pstmt->herr, en_S1092);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 #endif	/* ODBCVER < 0x0300 */
 
@@ -591,6 +650,7 @@ SQLSetStmtOption (
 	       sqlstat = en_S1011;
 	       break;
 
+	     case en_stmt_executed_with_info:
 	     case en_stmt_executed:
 	     case en_stmt_cursoropen:
 	     case en_stmt_fetched:
@@ -634,7 +694,7 @@ SQLSetStmtOption (
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 #if (ODBCVER >= 0x0300)
 
@@ -683,7 +743,7 @@ SQLSetStmtOption (
 	  case SQL_ATTR_ROW_STATUS_PTR:
 	  case SQL_ATTR_ROWS_FETCHED_PTR:
 	      PUSHSQLERR (pstmt->herr, en_IM001);
-	      LEAVE_STMT (pstmt, SQL_ERROR);
+	      return SQL_ERROR;
 
 	  default:
 	      CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_SetStmtAttr,
@@ -699,29 +759,75 @@ SQLSetStmtOption (
 	{
 	  PUSHSQLERR (pstmt->herr, en_IM001);
 
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
       CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_SetStmtOption,
 	  (pstmt->dhstmt, fOption, vParam));
     }
 
-  LEAVE_STMT (pstmt, retcode);
+  if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+    {
+      if (fOption == SQL_ROWSET_SIZE || fOption == SQL_ATTR_ROW_ARRAY_SIZE)
+        {
+          pstmt->rowset_size = vParam;
+          if (retcode == SQL_SUCCESS_WITH_INFO)
+            {
+              SQLUINTEGER data;
+              if (SQLGetStmtOption_Internal (hstmt, SQL_ROWSET_SIZE, &data) 
+                   == SQL_SUCCESS)
+                pstmt->rowset_size = data;
+            }
+        }
+      if (fOption == SQL_BIND_TYPE)
+        pstmt->bind_type = vParam;
+    }
+  return retcode;
 }
 
 
 SQLRETURN SQL_API 
-SQLGetStmtOption (
+SQLSetStmtOption (
+  SQLHSTMT		  hstmt,
+  SQLUSMALLINT		  fOption,
+  SQLULEN		  vParam)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLSetStmtOption (TRACE_ENTER, hstmt, fOption, vParam));
+
+  retcode = SQLSetStmtOption_Internal (hstmt, fOption, vParam);
+
+  LEAVE_STMT (hstmt,
+    trace_SQLSetStmtOption (TRACE_LEAVE, hstmt, fOption, vParam));
+}
+
+
+SQLRETURN SQL_API 
+SQLSetStmtOptionA (
+  SQLHSTMT		  hstmt,
+  SQLUSMALLINT		  fOption,
+  SQLULEN		  vParam)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLSetStmtOption (TRACE_ENTER, hstmt, fOption, vParam));
+
+  retcode = SQLSetStmtOption_Internal (hstmt, fOption, vParam);
+
+  LEAVE_STMT (hstmt,
+    trace_SQLSetStmtOption (TRACE_LEAVE, hstmt, fOption, vParam));
+}
+
+
+SQLRETURN
+SQLGetStmtOption_Internal (
     SQLHSTMT hstmt,
     SQLUSMALLINT fOption,
     SQLPOINTER pvParam)
 {
   STMT (pstmt, hstmt);
   HPROC hproc;
-  int sqlstat = en_00000;
+  sqlstcode_t sqlstat = en_00000;
   SQLRETURN retcode;
-
-  ENTER_STMT (pstmt);
 
 #if (ODBCVER < 0x0300)
   /* check option */
@@ -730,7 +836,7 @@ SQLGetStmtOption (
     {
       PUSHSQLERR (pstmt->herr, en_S1092);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 #endif /* ODBCVER < 0x0300 */
 
@@ -745,6 +851,7 @@ SQLGetStmtOption (
 	{
 	case en_stmt_allocated:
 	case en_stmt_prepared:
+	case en_stmt_executed_with_info:
 	case en_stmt_executed:
 	case en_stmt_cursoropen:
 	  if (fOption == SQL_ROW_NUMBER || fOption == SQL_GET_BOOKMARK)
@@ -762,7 +869,7 @@ SQLGetStmtOption (
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
 #if (ODBCVER >= 0x0300)
@@ -812,7 +919,7 @@ SQLGetStmtOption (
 	case SQL_ATTR_ROW_STATUS_PTR:
 	case SQL_ATTR_ROWS_FETCHED_PTR:
 	  PUSHSQLERR (pstmt->herr, en_IM001);
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 
 	default:
 	  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_GetStmtAttr,
@@ -829,26 +936,56 @@ SQLGetStmtOption (
       if (hproc == SQL_NULL_HPROC)
 	{
 	  PUSHSQLERR (pstmt->herr, en_IM001);
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
       CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_GetStmtOption,
 	  (pstmt->dhstmt, fOption, pvParam));
     }
 
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API 
-SQLCancel (SQLHSTMT hstmt)
+SQLGetStmtOption (
+    SQLHSTMT hstmt,
+    SQLUSMALLINT fOption,
+    SQLPOINTER pvParam)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLGetStmtOption (TRACE_ENTER, hstmt, fOption, pvParam));
+
+  retcode = SQLGetStmtOption_Internal (hstmt, fOption, pvParam);
+
+  LEAVE_STMT (hstmt,
+    trace_SQLGetStmtOption (TRACE_LEAVE, hstmt, fOption, pvParam));
+}
+
+
+SQLRETURN SQL_API 
+SQLGetStmtOptionA (
+    SQLHSTMT hstmt,
+    SQLUSMALLINT fOption,
+    SQLPOINTER pvParam)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLGetStmtOption (TRACE_ENTER, hstmt, fOption, pvParam));
+
+  retcode = SQLGetStmtOption_Internal (hstmt, fOption, pvParam);
+
+  LEAVE_STMT (hstmt,
+    trace_SQLGetStmtOption (TRACE_LEAVE, hstmt, fOption, pvParam));
+}
+
+
+static SQLRETURN 
+SQLCancel_Internal (SQLHSTMT hstmt)
 {
   STMT (pstmt, hstmt);
   HPROC hproc;
   SQLRETURN retcode;
 
-
-  ENTER_STMT (pstmt);
 
   /* check argument */
   /* check state */
@@ -860,7 +997,7 @@ SQLCancel (SQLHSTMT hstmt)
     {
       PUSHSQLERR (pstmt->herr, en_IM001);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
   CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_Cancel,
@@ -869,7 +1006,7 @@ SQLCancel (SQLHSTMT hstmt)
   /* state transition */
   if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO)
     {
-      LEAVE_STMT (pstmt, retcode);
+      return retcode;
     }
 
   switch (pstmt->state)
@@ -878,6 +1015,7 @@ SQLCancel (SQLHSTMT hstmt)
     case en_stmt_prepared:
       break;
 
+    case en_stmt_executed_with_info:
     case en_stmt_executed:
       if (pstmt->prep_state)
 	{
@@ -929,5 +1067,338 @@ SQLCancel (SQLHSTMT hstmt)
       break;
     }
 
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
+}
+
+
+SQLRETURN SQL_API 
+SQLCancel (SQLHSTMT hstmt)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLCancel (TRACE_ENTER, hstmt));
+
+  retcode = SQLCancel_Internal (hstmt);
+
+  LEAVE_STMT (hstmt,
+    trace_SQLCancel (TRACE_LEAVE, hstmt));
+}
+
+
+void
+_iodbcdm_FreeStmtParams(STMT_t *pstmt)
+{
+  int i;
+  PARAM_t *p;
+
+  for(i= 0; i < STMT_PARAMS_MAX; i++)
+    {
+      p = &pstmt->params[i];
+      if (p->data)
+        {
+          free(p->data);
+          p->data = NULL;
+        }
+      p->length = 0;
+    }
+  pstmt->params_inserted = 0;
+}
+
+
+void *
+_iodbcdm_alloc_param(STMT_t *pstmt, int i, int size)
+{
+  PARAM_t *param;
+
+  if (i > STMT_PARAMS_MAX - 1)
+    return NULL;
+
+  param = &pstmt->params[i];
+  pstmt->params_inserted = 1;
+
+  if (size == 0)
+    {
+      MEM_FREE(param->data);
+      param->data = NULL;
+      param->length = 0;
+      return NULL;
+    }
+
+  if (param->data == NULL || param->length < size)
+    {
+      MEM_FREE(param->data);
+      param->length = 0;
+      if ((param->data = MEM_ALLOC(size)) != NULL)
+         param->length = size;
+    }
+
+  return param->data;
+}
+
+
+wchar_t *
+_iodbcdm_conv_param_A2W(STMT_t *pstmt, int i, SQLCHAR *pData, int pDataLength)
+{
+  PARAM_t *param;
+  size_t size = 0;
+  int count_alloc = 0;
+
+  if (i > STMT_PARAMS_MAX - 1)
+    return NULL;
+
+  param = &pstmt->params[i];
+  pstmt->params_inserted = 1;
+
+  if (pData == NULL)
+    {
+      MEM_FREE(param->data);
+      param->data = NULL;
+      param->length = 0;
+      return NULL;
+    }
+
+  if (pDataLength == SQL_NTS)
+    size = strlen((char *) pData);
+  else
+    size = pDataLength;
+
+  count_alloc = (size + 1) * sizeof(wchar_t);
+
+  if (param->data != NULL && param->length >= count_alloc)
+    {
+      if (size > 0)
+	OPL_A2W(pData, param->data, size);
+      ((wchar_t*)param->data)[size] = L'\0';
+    }
+  else
+    {
+      MEM_FREE(param->data);
+      param->length = 0;
+      if ((param->data = MEM_ALLOC(count_alloc)) != NULL)
+        {
+          param->length = count_alloc;
+	  if (size > 0)
+	    OPL_A2W(pData, param->data, size);
+          ((wchar_t*)param->data)[size] = L'\0';
+        }      
+    }
+
+  return (wchar_t *) param->data;
+}
+
+
+char *
+_iodbcdm_conv_param_W2A(STMT_t *pstmt, int i, SQLWCHAR *pData, int pDataLength)
+{
+  PARAM_t *param;
+  size_t size = 0;
+  int count_alloc = 0;
+
+  if (i > STMT_PARAMS_MAX - 1)
+    return NULL;
+
+  param = &pstmt->params[i];
+  pstmt->params_inserted = 1;
+
+  if (pData == NULL)
+    {
+      MEM_FREE(param->data);
+      param->data = NULL;
+      param->length = 0;
+      return NULL;
+    }
+
+  if (pDataLength == SQL_NTS)
+    size = WCSLEN(pData);
+  else
+    size = pDataLength;
+
+  count_alloc = size + 1;
+
+  if (param->data != NULL && param->length >= count_alloc)
+    {
+      if (size > 0)
+	OPL_W2A(pData, param->data, size);
+      ((char*)param->data)[size] = '\0';
+    }
+  else
+    {
+      MEM_FREE(param->data);
+      param->length = 0;
+      if ((param->data = MEM_ALLOC(count_alloc)) != NULL)
+        {
+          param->length = count_alloc;
+	  if (size > 0)
+	    OPL_W2A(pData, param->data, size);
+          ((char*)param->data)[size] = '\0';
+        }      
+    }
+
+  return (char *) param->data;
+}
+
+
+SQLRETURN
+_iodbcdm_BindColumn (STMT_t *pstmt, BIND_t *pbind)
+{
+  PBLST pblst;
+  PBLST prev;
+
+  /*
+   *  Initialize the cell
+   */
+  if ((pblst = (PBLST) calloc (1, sizeof (TBLST))) == NULL)
+    {
+      return SQL_ERROR;
+    }
+  pblst->bl_bind = *pbind;
+
+  /*
+   *  First on the list?
+   */
+  if (pstmt->st_pbinding == NULL)
+    {
+      pstmt->st_pbinding = pblst;
+      return SQL_SUCCESS;
+    }
+
+  for (prev = pstmt->st_pbinding; ; prev = prev->bl_nextBind)
+    {
+      /*
+       *  Column already on the linked list?
+       */
+      if (prev->bl_bind.bn_col == pbind->bn_col)
+	{
+	  prev->bl_bind = *pbind;
+	  MEM_FREE (pblst);
+	  return SQL_SUCCESS;
+	}
+      if (prev->bl_nextBind == NULL)
+        break;
+    }
+  prev->bl_nextBind = pblst;
+
+  return SQL_SUCCESS;
+}
+
+
+/*
+ *  Remove a binding from the linked list
+ */
+int
+_iodbcdm_UnBindColumn (STMT_t *pstmt, BIND_t *pbind)
+{
+  PBLST pNewNextBind;
+  PBLST *pBindHistory;
+
+  /*
+   *  Anything on the list? No? Nothing to do.
+   */
+  if (pstmt->st_pbinding == NULL)
+    return 0;
+
+  for (pBindHistory = &pstmt->st_pbinding; (*pBindHistory);
+      pBindHistory = &(*pBindHistory)->bl_nextBind)
+    {
+      /*
+       *  Column already on the linked list?
+       */
+      if ((*pBindHistory)->bl_bind.bn_col == pbind->bn_col)
+	{
+	  pNewNextBind = (*pBindHistory)->bl_nextBind;
+	  free (*pBindHistory);
+	  (*pBindHistory) = pNewNextBind;
+	  return 0;
+	}
+    }
+  return 0;
+}
+
+
+/*
+ *  Remove all bindings
+ */
+void
+_iodbcdm_RemoveBind (STMT_t *pstmt)
+{
+  PBLST pblst, pnext;
+
+  if (pstmt->st_pbinding)
+    {
+      for (pblst = pstmt->st_pbinding; pblst; pblst = pnext)
+	{
+	  pnext = pblst->bl_nextBind;
+	  free (pblst);
+	}
+      pstmt->st_pbinding = NULL;
+    }
+}
+
+
+static void 
+_iodbcdm_bindConv_A2W(char *data, SQLLEN *pInd, UDWORD size)
+{
+  wchar_t *wdata = (wchar_t *) data;
+
+  size=size; /*UNUSED*/
+
+  if (*pInd != SQL_NULL_DATA)
+    {
+      wchar_t *buf = dm_SQL_A2W ((SQLCHAR *) data, SQL_NTS);
+
+      if (buf != NULL)
+	WCSCPY (wdata, buf);
+
+      MEM_FREE (buf);
+
+      if (pInd)
+	*pInd *= sizeof (wchar_t);
+    }
+}
+
+
+void
+_iodbcdm_ConvBindData (STMT_t *pstmt)
+{
+  PBLST ptr;
+  BIND_t *col;
+  UDWORD i, size, row_size;
+  SQLLEN *pInd;
+  char *data;
+
+  /*
+   *  Anything on the list? No? Nothing to do.
+   */
+  if (pstmt->st_pbinding == NULL)
+    return ;
+
+  for (ptr = pstmt->st_pbinding; ptr; ptr = ptr->bl_nextBind)
+    {
+      col = &(ptr->bl_bind);
+
+      if (pstmt->bind_type == SQL_BIND_BY_COLUMN)
+        {
+          size = col->bn_size;
+          data = (char *) col->bn_data;
+          pInd = col->bn_pInd;
+          for (i = 0; i < pstmt->rowset_size; i++)
+            {
+              _iodbcdm_bindConv_A2W(data, pInd, size);
+              data += size;
+              pInd++;
+            }
+        }
+      else /* Row Binding*/
+        {
+          row_size = pstmt->bind_type;
+          size = col->bn_size;
+          data = (char *) col->bn_data;
+          pInd = col->bn_pInd;
+          for (i = 0; i < pstmt->rowset_size; i++)
+            {
+              _iodbcdm_bindConv_A2W(data, pInd, size);
+              data += row_size;
+              pInd += row_size;
+            }
+        }
+    }
 }

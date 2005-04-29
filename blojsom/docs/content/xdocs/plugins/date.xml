@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Date Format plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The date format plugin allows the blog owner to configure the running blog's time zone as well as
+                to provide a custom format when outputting dates for blog entries.
+            </p>
+
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                date-format=org.blojsom.plugin.date.DateFormatPlugin
+            </source>
+            <p>
+                You may then add "date-format" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=date-format
+            </source>
+
+            <p>
+                The date format plugin has two properties that are added to the
+                <code>/WEB-INF/(user-id)/blog.properties</code>
+                file:
+            </p>
+            <source>
+                blog-timezone-id=America/New_York
+                blog-dateformat-pattern=hh 'o''clock' a, zzzz
+            </source>
+            <p>
+                <em>blog-timezone-id</em> sets the time zone identifier for the running blog
+                <br/>
+                <em>blog-dateformat-pattern</em> controls the pattern used to output blog entry dates displayed
+                in one or more of the flavor-based templates
+
+            </p>
+            <p>
+                You can find more information on valid date time patterns by looking at the javadocs for the
+                <link href="http://java.sun.com/j2se/1.4.2/docs/api/java/text/SimpleDateFormat.html">SimpleDateFormat</link> class.
+            </p>
+        </section>
+        <section>
+            <title>usage</title>
+            <p>
+                You can use this in, for example, the Velocity templates by changing the following from:
+            </p>
+            <source>
+                &lt;p class="weblogdateline"&gt;$entry.getDate()&lt;br /&gt;
+            </source>
+            <p>to</p>
+            <source>
+                &lt;p class="weblogdateline"&gt;$BLOJSOM_DATE_FORMAT.format( $entry.getDate() )&lt;br /&gt;
+            </source>
+
+        </section>
+        <section>
+            <title>context attributes and types</title>
+            <p>
+                The following table describes the context attributes that are available and their associated type.
+            </p>
+            <table>
+                <tr>
+                    <th>Context key</th>
+                    <th>Input or Output</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>BLOJSOM_DATE_FORMAT</td>
+                    <td>Output</td>
+                    <td>
+                        <code>java.text.DateFormat</code>
+                    </td>
+                    <td>Object appropriate for formatting
+                        <code>java.util.Date</code> objects using the
+                        <code>format(Date date)</code> method
+                    </td>
+                </tr>
+            </table>
+        </section>
+    </body>
+</document>
+

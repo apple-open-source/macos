@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2002-2003, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -14,10 +14,13 @@
 *   created by: Markus W. Scherer
 *
 *   This is an implementation of the Binary Ordered Compression for Unicode,
-*   in its MIME-friendly form as defined in ### TODO http://... 1. doc/papers 2. design
+*   in its MIME-friendly form as defined in http://www.unicode.org/notes/tn6/
 */
 
 #include "unicode/utypes.h"
+
+#if !UCONFIG_NO_CONVERSION
+
 #include "unicode/ucnv.h"
 #include "unicode/ucnv_cb.h"
 #include "ucnv_bld.h"
@@ -402,7 +405,7 @@ U_ALIGN_CODE(16)
     offsets=pArgs->offsets;
 
     /* get the converter state from UConverter */
-    c=cnv->fromUSurrogateLead;
+    c=cnv->fromUChar32;
     prev=(int32_t)cnv->fromUnicodeStatus;
     if(prev==0) {
         prev=BOCU1_ASCII_PREV;
@@ -424,47 +427,25 @@ fastSingle:
     if(targetCapacity>diff) {
         targetCapacity=diff;
     }
-    /* ### TODO if WithOffsets is never used without offsets, then remove all offsets==NULL branches and checks */
-    if(offsets==NULL) {
-        while(targetCapacity>0 && (c=*source)<0x3000) {
-            if(c<=0x20) {
-                if(c!=0x20) {
-                    prev=BOCU1_ASCII_PREV;
-                }
-                *target++=(uint8_t)c;
-            } else {
-                diff=c-prev;
-                if(DIFF_IS_SINGLE(diff)) {
-                    prev=BOCU1_SIMPLE_PREV(c);
-                    *target++=(uint8_t)PACK_SINGLE_DIFF(diff);
-                } else {
-                    break;
-                }
+    while(targetCapacity>0 && (c=*source)<0x3000) {
+        if(c<=0x20) {
+            if(c!=0x20) {
+                prev=BOCU1_ASCII_PREV;
             }
+            *target++=(uint8_t)c;
+            *offsets++=nextSourceIndex++;
             ++source;
             --targetCapacity;
-        }
-    } else {
-        while(targetCapacity>0 && (c=*source)<0x3000) {
-            if(c<=0x20) {
-                if(c!=0x20) {
-                    prev=BOCU1_ASCII_PREV;
-                }
-                *target++=(uint8_t)c;
+        } else {
+            diff=c-prev;
+            if(DIFF_IS_SINGLE(diff)) {
+                prev=BOCU1_SIMPLE_PREV(c);
+                *target++=(uint8_t)PACK_SINGLE_DIFF(diff);
                 *offsets++=nextSourceIndex++;
                 ++source;
                 --targetCapacity;
             } else {
-                diff=c-prev;
-                if(DIFF_IS_SINGLE(diff)) {
-                    prev=BOCU1_SIMPLE_PREV(c);
-                    *target++=(uint8_t)PACK_SINGLE_DIFF(diff);
-                    *offsets++=nextSourceIndex++;
-                    ++source;
-                    --targetCapacity;
-                } else {
-                    break;
-                }
+                break;
             }
         }
     }
@@ -488,9 +469,7 @@ fastSingle:
                     prev=BOCU1_ASCII_PREV;
                 }
                 *target++=(uint8_t)c;
-                if(offsets!=NULL) {
-                    *offsets++=sourceIndex;
-                }
+                *offsets++=sourceIndex;
                 --targetCapacity;
 
                 sourceIndex=nextSourceIndex;
@@ -527,9 +506,7 @@ getTrail:
             prev=BOCU1_PREV(c);
             if(DIFF_IS_SINGLE(diff)) {
                 *target++=(uint8_t)PACK_SINGLE_DIFF(diff);
-                if(offsets!=NULL) {
-                    *offsets++=sourceIndex;
-                }
+                *offsets++=sourceIndex;
                 --targetCapacity;
                 sourceIndex=nextSourceIndex;
                 if(c<0x3000) {
@@ -551,10 +528,8 @@ getTrail:
                 }
                 *target++=(uint8_t)diff;
                 *target++=(uint8_t)BOCU1_TRAIL_TO_BYTE(m);
-                if(offsets!=NULL) {
-                    *offsets++=sourceIndex;
-                    *offsets++=sourceIndex;
-                }
+                *offsets++=sourceIndex;
+                *offsets++=sourceIndex;
                 targetCapacity-=2;
                 sourceIndex=nextSourceIndex;
             } else {
@@ -566,40 +541,23 @@ getTrail:
                 /* write the output character bytes from diff and length */
                 /* from the first if in the loop we know that targetCapacity>0 */
                 if(length<=targetCapacity) {
-                    if(offsets==NULL) {
-                        switch(length) {
-                            /* each branch falls through to the next one */
-                        case 4:
-                            *target++=(uint8_t)(diff>>24);
-                        case 3:
-                            *target++=(uint8_t)(diff>>16);
-                        /* case 2: handled above */
-                            *target++=(uint8_t)(diff>>8);
-                        /* case 1: handled above */
-                            *target++=(uint8_t)diff;
-                        default:
-                            /* will never occur */
-                            break;
-                        }
-                    } else {
-                        switch(length) {
-                            /* each branch falls through to the next one */
-                        case 4:
-                            *target++=(uint8_t)(diff>>24);
-                            *offsets++=sourceIndex;
-                        case 3:
-                            *target++=(uint8_t)(diff>>16);
-                            *offsets++=sourceIndex;
-                        case 2:
-                            *target++=(uint8_t)(diff>>8);
-                            *offsets++=sourceIndex;
-                        /* case 1: handled above */
-                            *target++=(uint8_t)diff;
-                            *offsets++=sourceIndex;
-                        default:
-                            /* will never occur */
-                            break;
-                        }
+                    switch(length) {
+                        /* each branch falls through to the next one */
+                    case 4:
+                        *target++=(uint8_t)(diff>>24);
+                        *offsets++=sourceIndex;
+                    case 3:
+                        *target++=(uint8_t)(diff>>16);
+                        *offsets++=sourceIndex;
+                    case 2:
+                        *target++=(uint8_t)(diff>>8);
+                        *offsets++=sourceIndex;
+                    /* case 1: handled above */
+                        *target++=(uint8_t)diff;
+                        *offsets++=sourceIndex;
+                    default:
+                        /* will never occur */
+                        break;
                     }
                     targetCapacity-=length;
                     sourceIndex=nextSourceIndex;
@@ -635,19 +593,13 @@ getTrail:
                         /* each branch falls through to the next one */
                     case 3:
                         *target++=(uint8_t)(diff>>16);
-                        if(offsets!=NULL) {
-                            *offsets++=sourceIndex;
-                        }
+                        *offsets++=sourceIndex;
                     case 2:
                         *target++=(uint8_t)(diff>>8);
-                        if(offsets!=NULL) {
-                            *offsets++=sourceIndex;
-                        }
+                        *offsets++=sourceIndex;
                     case 1:
                         *target++=(uint8_t)diff;
-                        if(offsets!=NULL) {
-                            *offsets++=sourceIndex;
-                        }
+                        *offsets++=sourceIndex;
                     default:
                         /* will never occur */
                         break;
@@ -666,19 +618,9 @@ getTrail:
         }
     }
 
-    if(pArgs->flush && source>=sourceLimit) {
-        /* reset the state for the next conversion */
-        if(c<0 && U_SUCCESS(*pErrorCode)) {
-            /* a Unicode code point remains incomplete (only a first surrogate) */
-            *pErrorCode=U_TRUNCATED_CHAR_FOUND;
-        }
-        cnv->fromUSurrogateLead=0;
-        cnv->fromUnicodeStatus=BOCU1_ASCII_PREV;
-    } else {
-        /* set the converter state back into UConverter */
-        cnv->fromUSurrogateLead= c<0 ? (UChar)-c : 0;
-        cnv->fromUnicodeStatus=(uint32_t)prev;
-    }
+    /* set the converter state back into UConverter */
+    cnv->fromUChar32= c<0 ? -c : 0;
+    cnv->fromUnicodeStatus=(uint32_t)prev;
 
     /* write back the updated pointers */
     pArgs->source=source;
@@ -711,7 +653,7 @@ _Bocu1FromUnicode(UConverterFromUnicodeArgs *pArgs,
     targetCapacity=pArgs->targetLimit-pArgs->target;
 
     /* get the converter state from UConverter */
-    c=cnv->fromUSurrogateLead;
+    c=cnv->fromUChar32;
     prev=(int32_t)cnv->fromUnicodeStatus;
     if(prev==0) {
         prev=BOCU1_ASCII_PREV;
@@ -897,19 +839,9 @@ getTrail:
         }
     }
 
-    if(pArgs->flush && source>=sourceLimit) {
-        /* reset the state for the next conversion */
-        if(c<0 && U_SUCCESS(*pErrorCode)) {
-            /* a Unicode code point remains incomplete (only a first surrogate) */
-            *pErrorCode=U_TRUNCATED_CHAR_FOUND;
-        }
-        cnv->fromUSurrogateLead=0;
-        cnv->fromUnicodeStatus=BOCU1_ASCII_PREV;
-    } else {
-        /* set the converter state back into UConverter */
-        cnv->fromUSurrogateLead= c<0 ? (UChar)-c : 0;
-        cnv->fromUnicodeStatus=(uint32_t)prev;
-    }
+    /* set the converter state back into UConverter */
+    cnv->fromUChar32= c<0 ? -c : 0;
+    cnv->fromUnicodeStatus=(uint32_t)prev;
 
     /* write back the updated pointers */
     pArgs->source=source;
@@ -1039,7 +971,6 @@ _Bocu1ToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
     nextSourceIndex=0;
 
     /* conversion "loop" similar to _SCSUToUnicodeWithOffsets() */
-loop:
     if(count>0 && byteIndex>0 && target<targetLimit) {
         goto getTrail;
     }
@@ -1052,53 +983,29 @@ fastSingle:
     if(count>diff) {
         count=diff;
     }
-    if(offsets==NULL) {
-        while(count>0) {
-            if(BOCU1_START_NEG_2<=(c=*source) && c<BOCU1_START_POS_2) {
-                c=prev+(c-BOCU1_MIDDLE);
-                if(c<0x3000) {
-                    *target++=(UChar)c;
-                    prev=BOCU1_SIMPLE_PREV(c);
-                } else {
-                    break;
-                }
-            } else if(c<=0x20) {
-                if(c!=0x20) {
-                    prev=BOCU1_ASCII_PREV;
-                }
-                *target++=(UChar)c;
-            } else {
-                break;
-            }
-            ++source;
-            --count;
-        }
-        /* sourceIndex and nextSourceIndex are wrong but does not matter */
-    } else {
-        while(count>0) {
-            if(BOCU1_START_NEG_2<=(c=*source) && c<BOCU1_START_POS_2) {
-                c=prev+(c-BOCU1_MIDDLE);
-                if(c<0x3000) {
-                    *target++=(UChar)c;
-                    *offsets++=nextSourceIndex++;
-                    prev=BOCU1_SIMPLE_PREV(c);
-                } else {
-                    break;
-                }
-            } else if(c<=0x20) {
-                if(c!=0x20) {
-                    prev=BOCU1_ASCII_PREV;
-                }
+    while(count>0) {
+        if(BOCU1_START_NEG_2<=(c=*source) && c<BOCU1_START_POS_2) {
+            c=prev+(c-BOCU1_MIDDLE);
+            if(c<0x3000) {
                 *target++=(UChar)c;
                 *offsets++=nextSourceIndex++;
+                prev=BOCU1_SIMPLE_PREV(c);
             } else {
                 break;
             }
-            ++source;
-            --count;
+        } else if(c<=0x20) {
+            if(c!=0x20) {
+                prev=BOCU1_ASCII_PREV;
+            }
+            *target++=(UChar)c;
+            *offsets++=nextSourceIndex++;
+        } else {
+            break;
         }
-        sourceIndex=nextSourceIndex; /* wrong if offsets==NULL but does not matter */
+        ++source;
+        --count;
     }
+    sourceIndex=nextSourceIndex; /* wrong if offsets==NULL but does not matter */
 
     /* decode a sequence of single and lead bytes */
     while(source<sourceLimit) {
@@ -1115,9 +1022,7 @@ fastSingle:
             c=prev+(c-BOCU1_MIDDLE);
             if(c<0x3000) {
                 *target++=(UChar)c;
-                if(offsets!=NULL) {
-                    *offsets++=sourceIndex;
-                }
+                *offsets++=sourceIndex;
                 prev=BOCU1_SIMPLE_PREV(c);
                 sourceIndex=nextSourceIndex;
                 goto fastSingle;
@@ -1131,9 +1036,7 @@ fastSingle:
                 prev=BOCU1_ASCII_PREV;
             }
             *target++=(UChar)c;
-            if(offsets!=NULL) {
-                *offsets++=sourceIndex;
-            }
+            *offsets++=sourceIndex;
             sourceIndex=nextSourceIndex;
             continue;
         } else if(BOCU1_START_NEG_3<=c && c<BOCU1_START_POS_3 && source<sourceLimit) {
@@ -1151,7 +1054,8 @@ fastSingle:
                 bytes[0]=source[-2];
                 bytes[1]=source[-1];
                 byteIndex=2;
-                goto callback;
+                *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                break;
             }
         } else if(c==BOCU1_RESET) {
             /* only reset the state, no code point */
@@ -1181,7 +1085,8 @@ getTrail:
                 /* trail byte in any position */
                 c=decodeBocu1TrailByte(count, c);
                 if(c<0) {
-                    goto callback;
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                    goto endloop;
                 }
 
                 diff+=c;
@@ -1190,7 +1095,8 @@ getTrail:
                     byteIndex=0;
                     c=prev+diff;
                     if((uint32_t)c>0x10ffff) {
-                        goto callback;
+                        *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                        goto endloop;
                     }
                     break;
                 }
@@ -1201,23 +1107,17 @@ getTrail:
         prev=BOCU1_PREV(c);
         if(c<=0xffff) {
             *target++=(UChar)c;
-            if(offsets!=NULL) {
-                *offsets++=sourceIndex;
-            }
+            *offsets++=sourceIndex;
         } else {
             /* output surrogate pair */
             *target++=UTF16_LEAD(c);
             if(target<targetLimit) {
                 *target++=UTF16_TRAIL(c);
-                if(offsets!=NULL) {
-                    *offsets++=sourceIndex;
-                    *offsets++=sourceIndex;
-                }
+                *offsets++=sourceIndex;
+                *offsets++=sourceIndex;
             } else {
                 /* target overflow */
-                if(offsets!=NULL) {
-                    *offsets++=sourceIndex;
-                }
+                *offsets++=sourceIndex;
                 cnv->UCharErrorBuffer[0]=UTF16_TRAIL(c);
                 cnv->UCharErrorBufferLength=1;
                 *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
@@ -1228,90 +1128,22 @@ getTrail:
     }
 endloop:
 
-    if(pArgs->flush && source>=sourceLimit) {
-        /* reset the state for the next conversion */
-        if(byteIndex>0 && U_SUCCESS(*pErrorCode)) {
-            /* a character byte sequence remains incomplete */
-            *pErrorCode=U_TRUNCATED_CHAR_FOUND;
-        }
+    if(*pErrorCode==U_ILLEGAL_CHAR_FOUND) {
+        /* set the converter state in UConverter to deal with the next character */
         cnv->toUnicodeStatus=BOCU1_ASCII_PREV;
         cnv->mode=0;
-        cnv->toULength=0;
     } else {
         /* set the converter state back into UConverter */
         cnv->toUnicodeStatus=(uint32_t)prev;
         cnv->mode=(diff<<2)|count;
-        cnv->toULength=byteIndex;
     }
+    cnv->toULength=byteIndex;
 
-finish:
     /* write back the updated pointers */
     pArgs->source=(const char *)source;
     pArgs->target=target;
     pArgs->offsets=offsets;
     return;
-
-callback:
-    /* call the callback function with all the preparations and post-processing */
-    /* update the arguments structure */
-    pArgs->source=(const char *)source;
-    pArgs->target=target;
-    pArgs->offsets=offsets;
-
-    /* copy the current bytes to invalidCharBuffer */
-    cnv->invalidCharBuffer[0]=bytes[0];
-    cnv->invalidCharBuffer[1]=bytes[1];
-    cnv->invalidCharBuffer[2]=bytes[2];
-    cnv->invalidCharBuffer[3]=bytes[3];
-    cnv->invalidCharLength=(int8_t)byteIndex;
-
-    /* set the converter state in UConverter to deal with the next character */
-    cnv->toUnicodeStatus=BOCU1_ASCII_PREV;
-    cnv->mode=0;
-    cnv->toULength=0;
-
-    /* call the callback function */
-    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
-    cnv->fromCharErrorBehaviour(cnv->toUContext, pArgs, (const char *)bytes, byteIndex, UCNV_ILLEGAL, pErrorCode);
-
-    /* get the converter state from UConverter */
-    prev=(int32_t)cnv->toUnicodeStatus;
-    if(prev==0) {
-        prev=BOCU1_ASCII_PREV;
-    }
-    diff=cnv->mode;
-    count=diff&3;
-    diff>>=2;
-
-    byteIndex=cnv->toULength;
-
-    /* update target and deal with offsets if necessary */
-    offsets=ucnv_updateCallbackOffsets(offsets, pArgs->target-target, sourceIndex);
-    target=pArgs->target;
-
-    /* update the source pointer and index */
-    sourceIndex=nextSourceIndex+((const uint8_t *)pArgs->source-source);
-    source=(const uint8_t *)pArgs->source;
-
-    /*
-     * If the callback overflowed the target, then we need to
-     * stop here with an overflow indication.
-     */
-    if(*pErrorCode==U_BUFFER_OVERFLOW_ERROR) {
-        goto endloop;
-    } else if(cnv->UCharErrorBufferLength>0) {
-        /* target is full */
-        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
-        goto endloop;
-    } else if(U_FAILURE(*pErrorCode)) {
-        /* reset and break on error */
-        cnv->toUnicodeStatus=BOCU1_ASCII_PREV;
-        cnv->mode=0;
-        cnv->toULength=0;
-        goto finish;
-    } else {
-        goto loop;
-    }
 }
 
 /*
@@ -1356,7 +1188,6 @@ U_ALIGN_CODE(16)
     bytes=cnv->toUBytes;
 
     /* conversion "loop" similar to _SCSUToUnicodeWithOffsets() */
-loop:
     if(count>0 && byteIndex>0 && target<targetLimit) {
         goto getTrail;
     }
@@ -1431,7 +1262,8 @@ fastSingle:
                 bytes[0]=source[-2];
                 bytes[1]=source[-1];
                 byteIndex=2;
-                goto callback;
+                *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                break;
             }
         } else if(c==BOCU1_RESET) {
             /* only reset the state, no code point */
@@ -1459,7 +1291,8 @@ getTrail:
                 /* trail byte in any position */
                 c=decodeBocu1TrailByte(count, c);
                 if(c<0) {
-                    goto callback;
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                    goto endloop;
                 }
 
                 diff+=c;
@@ -1468,7 +1301,8 @@ getTrail:
                     byteIndex=0;
                     c=prev+diff;
                     if((uint32_t)c>0x10ffff) {
-                        goto callback;
+                        *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                        goto endloop;
                     }
                     break;
                 }
@@ -1495,85 +1329,21 @@ getTrail:
     }
 endloop:
 
-    if(pArgs->flush && source>=sourceLimit) {
-        /* reset the state for the next conversion */
-        if(byteIndex>0 && U_SUCCESS(*pErrorCode)) {
-            /* a character byte sequence remains incomplete */
-            *pErrorCode=U_TRUNCATED_CHAR_FOUND;
-        }
+    if(*pErrorCode==U_ILLEGAL_CHAR_FOUND) {
+        /* set the converter state in UConverter to deal with the next character */
         cnv->toUnicodeStatus=BOCU1_ASCII_PREV;
         cnv->mode=0;
-        cnv->toULength=0;
     } else {
         /* set the converter state back into UConverter */
         cnv->toUnicodeStatus=(uint32_t)prev;
         cnv->mode=(diff<<2)|count;
-        cnv->toULength=byteIndex;
     }
+    cnv->toULength=byteIndex;
 
-finish:
     /* write back the updated pointers */
     pArgs->source=(const char *)source;
     pArgs->target=target;
     return;
-
-callback:
-    /* call the callback function with all the preparations and post-processing */
-    /* update the arguments structure */
-    pArgs->source=(const char *)source;
-    pArgs->target=target;
-
-    /* copy the current bytes to invalidCharBuffer */
-    cnv->invalidCharBuffer[0]=bytes[0];
-    cnv->invalidCharBuffer[1]=bytes[1];
-    cnv->invalidCharBuffer[2]=bytes[2];
-    cnv->invalidCharBuffer[3]=bytes[3];
-    cnv->invalidCharLength=(int8_t)byteIndex;
-
-    /* set the converter state in UConverter to deal with the next character */
-    cnv->toUnicodeStatus=BOCU1_ASCII_PREV;
-    cnv->mode=0;
-    cnv->toULength=0;
-
-    /* call the callback function */
-    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
-    cnv->fromCharErrorBehaviour(cnv->toUContext, pArgs, (const char *)bytes, byteIndex, UCNV_ILLEGAL, pErrorCode);
-
-    /* get the converter state from UConverter */
-    prev=(int32_t)cnv->toUnicodeStatus;
-    if(prev==0) {
-        prev=BOCU1_ASCII_PREV;
-    }
-    diff=cnv->mode;
-    count=diff&3;
-    diff>>=2;
-
-    byteIndex=cnv->toULength;
-
-    target=pArgs->target;
-
-    /* update the source pointer and index */
-    source=(const uint8_t *)pArgs->source;
-
-    /*
-     * If the callback overflowed the target, then we need to
-     * stop here with an overflow indication.
-     */
-    if(*pErrorCode==U_BUFFER_OVERFLOW_ERROR) {
-        goto endloop;
-    } else if(cnv->UCharErrorBufferLength>0) {
-        /* target is full */
-        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
-        goto endloop;
-    } else if(U_FAILURE(*pErrorCode)) {
-        /* reset and break on error */
-        cnv->toUnicodeStatus=BOCU1_ASCII_PREV;
-        cnv->mode=0;
-        cnv->toULength=0;
-        goto finish;
-    } else {
-        goto loop;
-    }
 }
 
 /* miscellaneous ------------------------------------------------------------ */
@@ -1619,3 +1389,5 @@ const UConverterSharedData _Bocu1Data={
     NULL, NULL, &_Bocu1StaticData, FALSE, &_Bocu1Impl,
     0
 };
+
+#endif

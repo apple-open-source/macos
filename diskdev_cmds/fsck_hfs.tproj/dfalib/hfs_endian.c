@@ -471,16 +471,67 @@ hfs_swap_HFSPlusBTInternalNode (
                 if (unswap) srcRec->nodeName.length		= SWAP_BE16 (srcRec->nodeName.length);
 
             } else {
-                printf ("%s unrecognized catalog record type", "hfs_swap_BTNode:");
+                printf ("hfs_swap_BTNode: unrecognized catalog record type\n");
                 exit(99);
             }
     
             /* If unswapping, we can safely unswap type field now */
             if (unswap) srcPtr[0] = SWAP_BE16 (srcPtr[0]);
         }
-        
+    } else if (fileID == kHFSAttributesFileID) {
+    	HFSPlusAttrKey *srcKey;
+    	HFSPlusAttrRecord *srcRec;
+    	
+    	for (i = 0; i < srcDesc->numRecords; i++) {
+    		srcKey = (HFSPlusAttrKey *)((char *)src->buffer + srcOffs[i]);
+    		
+    		if (!unswap) srcKey->keyLength = SWAP_BE16(srcKey->keyLength);
+    		srcRec = (HFSPlusAttrRecord *)((char *)srcKey + srcKey->keyLength + 2);
+    		if (unswap) srcKey->keyLength = SWAP_BE16(srcKey->keyLength);
+    		
+    		srcKey->fileID = SWAP_BE32(srcKey->fileID);
+    		srcKey->startBlock = SWAP_BE32(srcKey->startBlock);
+    		
+    		if (!unswap) srcKey->attrNameLen = SWAP_BE16(srcKey->attrNameLen);
+    		for (j = 0; j < srcKey->attrNameLen; j++)
+    			srcKey->attrName[j] = SWAP_BE16(srcKey->attrName[j]);
+    		if (unswap) srcKey->attrNameLen = SWAP_BE16(srcKey->attrNameLen);
+    		
+    		/* If this is an index node, just swap the child node number */
+            if (srcDesc->kind == kBTIndexNode) {
+                *((UInt32 *)srcRec) = SWAP_BE32 (*((UInt32 *)srcRec));
+                continue;
+            }
+            
+            /* Swap the data record */
+            if (!unswap) srcRec->recordType = SWAP_BE32(srcRec->recordType);
+            switch (srcRec->recordType) {
+            	case kHFSPlusAttrInlineData:
+            		/* We're not swapping the reserved fields */
+            		srcRec->attrData.attrSize = SWAP_BE32(srcRec->attrData.attrSize);
+            		/* Not swapping the attrData */
+            		break;
+            	case kHFSPlusAttrForkData:
+            		/* We're not swapping the reserved field */
+            		hfs_swap_HFSPlusForkData(&srcRec->forkData.theFork);
+            		break;
+            	case kHFSPlusAttrExtents:
+            		/* We're not swapping the reserved field */
+            		for (j = 0; j<kHFSPlusExtentDensity; j++) {
+            			srcRec->overflowExtents.extents[j].startBlock =
+            				SWAP_BE32(srcRec->overflowExtents.extents[j].startBlock);
+            			srcRec->overflowExtents.extents[j].blockCount =
+            				SWAP_BE32(srcRec->overflowExtents.extents[j].blockCount);
+            		}
+            		break;
+            	default:
+					printf ("hfs_swap_BTNode: unrecognized attribute record type\n");
+					exit(99);
+            }
+            if (unswap) srcRec->recordType = SWAP_BE32(srcRec->recordType);
+    	}
     } else {
-        printf ("%s unrecognized B-Tree type", "hfs_swap_BTNode:");
+        printf ("hfs_swap_BTNode: unrecognized B-Tree type\n");
         exit(99);
     }
 

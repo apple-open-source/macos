@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000,2001 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2001,2002 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -39,7 +39,7 @@
 #include <curses.priv.h>
 #include <ctype.h>
 
-MODULE_ID("$Id: lib_tracedmp.c,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $")
+MODULE_ID("$Id: lib_tracedmp.c,v 1.25 2002/09/22 22:21:38 tom Exp $")
 
 #ifdef TRACE
 NCURSES_EXPORT(void)
@@ -54,7 +54,8 @@ _tracedump(const char *name, WINDOW *win)
     for (width = i = 0; i <= win->_maxy; ++i) {
 	n = 0;
 	for (j = 0; j <= win->_maxx; ++j)
-	    if (CharOf(win->_line[i].text[j]) != L(' '))
+	    if (CharOf(win->_line[i].text[j]) != L(' ')
+		|| AttrOf(win->_line[i].text[j]) != A_NORMAL)
 		n = j;
 
 	if (n > width)
@@ -64,7 +65,7 @@ _tracedump(const char *name, WINDOW *win)
 	++width;
     if (++width + 1 > (int) used) {
 	used = 2 * (width + 1);
-	buf = _nc_doalloc(buf, used);
+	buf = typeRealloc(char, used, buf);
     }
 
     for (n = 0; n <= win->_maxy; ++n) {
@@ -105,7 +106,7 @@ _tracedump(const char *name, WINDOW *win)
 	if (havecolors) {
 	    ep = buf;
 	    for (j = 0; j < width; ++j)
-		ep[j] = UChar(CharOf(win->_line[n].text[j]) >>
+		ep[j] = UChar(AttrOf(win->_line[n].text[j]) >>
 			      NCURSES_ATTR_SHIFT) + ' ';
 	    ep[j] = '\0';
 	    _tracef("%*s[%2d]%*s='%s'", (int) strlen(name),
@@ -135,6 +136,7 @@ _tracedump(const char *name, WINDOW *win)
     }
 #if NO_LEAKS
     free(buf);
+    buf = 0;
     used = 0;
 #endif
 }

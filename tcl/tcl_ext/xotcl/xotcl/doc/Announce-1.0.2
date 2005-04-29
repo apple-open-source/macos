@@ -1,0 +1,76 @@
+Announcing XOTcl 1.0.2
+**********************
+
+WHAT IS XOTCL?
+
+  XOTcl is an object-oriented extension of Tcl that was derived from
+  OTcl. In short, XOTcl tries to provide a highly flexible,
+  reflective, component-based, and object-oriented environment. It
+  integrates language support for high level concepts which are not
+  found in other languages, with reasonable performance. It prevails
+  the Tcl programming style and the dynamic/introspective nature of
+  the language, rather than introducing other language's styles and
+  rigidness (such as C++) into Tcl.
+
+
+CHANGES relative to 1.0.1 are:
+
+  - fixes:
+ 
+     * fixes for copying/moving objects to same name
+
+     * works out of the box with AOL-server 4.0
+       (no patch for AOL-server needed)
+
+     * various small fixes and code cleanup
+
+     * new directory structure (no nested version numbers)
+
+     * improved object and class serializer 
+
+  - new functionality and improvements:
+
+     * new method "ismixin": Test whether the argument is a 
+       mixin or instmixin of the object.
+
+     * new method "hasclass": Test whether the argument is either 
+       a mixin or instmixin of the object or if it is on the class
+       hierarchy of the object.  This method combines the
+       functionalities of istype and ismixin.
+
+     * arguments of configure methods can start now
+       with a leading "-" without ambiguity. In previous versions
+
+         Class C -parameter {name counter}
+         C c1 -name -x -counter 123
+
+       the configuration of c1 was interpreted as follows
+
+          method argc 
+          name    0
+          x       0 
+          counter 1
+
+       Starting with XOTcl 1.0.2 arguments can be protected
+       by putting it into a list:
+
+         C c1 [list -name -x] -counter 123
+
+       which is interpreted as follows:
+
+          method argc 
+          name    1
+          counter 1
+
+ For more details, please consult the ChangeLog    
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+

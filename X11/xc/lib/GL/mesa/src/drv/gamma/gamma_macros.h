@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_macros.h,v 1.5 2002/02/22 21:33:02 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_macros.h,v 1.6 2003/09/28 20:15:09 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.
@@ -246,15 +246,15 @@ do {                                                                       \
 } while (0)
 
 #ifdef DO_VALIDATE
-#define VALIDATE_DRAWABLE_INFO_NO_LOCK(gcp)                            \
+#define VALIDATE_DRAWABLE_INFO_NO_LOCK(gcp)                                \
 do {                                                                       \
-    __DRIscreenPrivate *psp = gcp->driScreen;                          \
-    __DRIdrawablePrivate *pdp = gcp->driDrawable;                      \
+    /*__DRIscreenPrivate *psp = gcp->driScreen;*/                          \
+    __DRIdrawablePrivate *pdp = gcp->driDrawable;                          \
                                                                            \
     if (*(pdp->pStamp) != pdp->lastStamp) {                                \
 	int old_index = pdp->index;                                        \
 	while (*(pdp->pStamp) != pdp->lastStamp) {                         \
-	    DRI_VALIDATE_DRAWABLE_INFO_ONCE(gcp->display, psp->myNum, pdp);\
+	    DRI_VALIDATE_DRAWABLE_INFO_ONCE(pdp);                          \
         }                                                                  \
 	if (pdp->index != old_index) {                                     \
 	    gcp->Window &= ~W_GIDMask;                                     \
@@ -262,8 +262,8 @@ do {                                                                       \
 	    CHECK_WC_DMA_BUFFER(gcp, 1);                                   \
 	    WRITE(gcp->WCbuf, GLINTWindow, gcp->Window|(gcp->FrameCount<<9));\
 	}                                                                  \
-									\
-	gammaUpdateViewportOffset( gcp->glCtx);				\
+									   \
+	gammaUpdateViewportOffset( gcp->glCtx);				   \
                                                                            \
 	if (pdp->numClipRects == 1 &&                                      \
 	    pdp->pClipRects->x1 ==  pdp->x &&                              \

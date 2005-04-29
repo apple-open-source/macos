@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_state.c,v 1.5 2002/10/30 12:51:27 alanh Exp $
+/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_state.c,v 1.6 2003/09/28 20:15:08 alanh Exp $
  *
  * GLX Hardware Device Driver for Sun Creator/Creator3D
  * Copyright (C) 2000, 2001 David S. Miller
@@ -26,10 +26,7 @@
  */
 
 #include "mtypes.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-
+#include "colormac.h"
 #include "mm.h"
 #include "ffb_dd.h"
 #include "ffb_span.h"
@@ -37,8 +34,6 @@
 #include "ffb_context.h"
 #include "ffb_vb.h"
 #include "ffb_tris.h"
-#include "ffb_lines.h"
-#include "ffb_points.h"
 #include "ffb_state.h"
 #include "ffb_lock.h"
 #include "extensions.h"
@@ -56,6 +51,7 @@
 static unsigned int ffbComputeAlphaFunc(GLcontext *ctx)
 {
 	unsigned int xclip;
+	GLubyte alphaRef;
 
 #ifdef STATE_TRACE
 	fprintf(stderr, "ffbDDAlphaFunc: func(%s) ref(%02x)\n",
@@ -77,12 +73,13 @@ static unsigned int ffbComputeAlphaFunc(GLcontext *ctx)
 		return FFB_XCLIP_TEST_ALWAYS | 0x00;
 	}
 
-	xclip |= (ctx->Color.AlphaRef & 0xff);
+	CLAMPED_FLOAT_TO_UBYTE(alphaRef, ctx->Color.AlphaRef);
+	xclip |= (alphaRef & 0xff);
 
 	return xclip;
 }
 
-static void ffbDDAlphaFunc(GLcontext *ctx, GLenum func, GLchan ref)
+static void ffbDDAlphaFunc(GLcontext *ctx, GLenum func, GLfloat ref)
 {
 	ffbContextPtr fmesa = FFB_CONTEXT(ctx);
 
@@ -448,7 +445,7 @@ void ffbCalcViewport(GLcontext *ctx)
 
 	ffbCalcViewportRegs(ctx);
 
-	fmesa->setupnewinputs |= VERT_CLIP;
+	fmesa->setupnewinputs |= VERT_BIT_CLIP;
 }
 
 static void ffbDDViewport(GLcontext *ctx, GLint x, GLint y,
@@ -468,32 +465,32 @@ static void ffbDDScissor(GLcontext *ctx, GLint cx, GLint cy,
 	ffbCalcViewport(ctx);
 }
 
-static void ffbDDSetDrawBuffer(GLcontext *ctx, GLenum buffer)
+static void ffbDDDrawBuffer(GLcontext *ctx, GLenum buffer)
 {
 	ffbContextPtr fmesa = FFB_CONTEXT(ctx);
 	unsigned int fbc = fmesa->fbc;
 
 #ifdef STATE_TRACE
-	fprintf(stderr, "ffbDDSetDrawBuffer: mode(%s)\n",
+	fprintf(stderr, "ffbDDDrawBuffer: mode(%s)\n",
 		_mesa_lookup_enum_by_nr(buffer));
 #endif
 	fbc &= ~(FFB_FBC_WB_AB | FFB_FBC_RB_MASK);
 	switch (buffer) {
-	case GL_FRONT_LEFT:
+	case FRONT_LEFT_BIT:
 		if (fmesa->back_buffer == 0)
 			fbc |= FFB_FBC_WB_B | FFB_FBC_RB_B;
 		else
 			fbc |= FFB_FBC_WB_A | FFB_FBC_RB_A;
 		break;
 
-	case GL_BACK_LEFT:
+	case BACK_LEFT_BIT:
 		if (fmesa->back_buffer == 0)
 			fbc |= FFB_FBC_WB_A | FFB_FBC_RB_A;
 		else
 			fbc |= FFB_FBC_WB_B | FFB_FBC_RB_B;
 		break;
 
-	case GL_FRONT_AND_BACK:
+	case BACK_LEFT_BIT | FRONT_LEFT_BIT:
 		fbc |= FFB_FBC_WB_AB;
 		break;
 
@@ -507,8 +504,18 @@ static void ffbDDSetDrawBuffer(GLcontext *ctx, GLenum buffer)
 	}
 }
 
-static void ffbDDSetReadBuffer(GLcontext *ctx, GLframebuffer *colorBuffer,
-			       GLenum buffer)
+
+static void ffbDDReadBuffer(GLcontext *ctx, GLenum buffer)
+{
+   /* no-op, unless you implement h/w glRead/CopyPixels */
+}
+
+
+/*
+ * Specifies buffer for sw fallbacks (spans)
+ */
+static void ffbDDSetBuffer(GLcontext *ctx, GLframebuffer *colorBuffer,
+			   GLuint bufferBit)
 {
 	ffbContextPtr fmesa = FFB_CONTEXT(ctx);
 	unsigned int fbc = fmesa->fbc;
@@ -518,15 +525,15 @@ static void ffbDDSetReadBuffer(GLcontext *ctx, GLframebuffer *colorBuffer,
 		_mesa_lookup_enum_by_nr(buffer));
 #endif
 	fbc &= ~(FFB_FBC_RB_MASK);
-	switch (buffer) {
-	case GL_FRONT_LEFT:
+	switch (bufferBit) {
+	case FRONT_LEFT_BIT:
 		if (fmesa->back_buffer == 0)
 			fbc |= FFB_FBC_RB_B;
 		else
 			fbc |= FFB_FBC_RB_A;
 		break;
 
-	case GL_BACK_LEFT:
+	case BACK_LEFT_BIT:
 		if (fmesa->back_buffer == 0)
 			fbc |= FFB_FBC_RB_A;
 		else
@@ -543,13 +550,17 @@ static void ffbDDSetReadBuffer(GLcontext *ctx, GLframebuffer *colorBuffer,
 	}
 }
 
-static void ffbDDClearColor(GLcontext *ctx, const GLchan color[4])
+static void ffbDDClearColor(GLcontext *ctx, const GLfloat color[4])
 {
 	ffbContextPtr fmesa = FFB_CONTEXT(ctx);
+	GLubyte c[4];
+	CLAMPED_FLOAT_TO_UBYTE(c[0], color[0]);
+	CLAMPED_FLOAT_TO_UBYTE(c[1], color[1]);
+	CLAMPED_FLOAT_TO_UBYTE(c[2], color[2]);
 
-	fmesa->clear_pixel = ((color[0] << 0) |
-			      (color[1] << 8) |
-			      (color[2] << 16));
+	fmesa->clear_pixel = ((c[0] << 0) |
+			      (c[1] << 8) |
+			      (c[2] << 16));
 }
 
 static void ffbDDClearDepth(GLcontext *ctx, GLclampd depth)
@@ -842,14 +853,14 @@ static void ffbDDEnable(GLcontext *ctx, GLenum cap, GLboolean state)
 		tmp = fmesa->fbc & ~FFB_FBC_YE_MASK;
 		if (state) {
 			ffbDDStencilFunc(ctx,
-					 ctx->Stencil.Function,
-					 ctx->Stencil.Ref,
-					 ctx->Stencil.ValueMask);
-			ffbDDStencilMask(ctx, ctx->Stencil.WriteMask);
+					 ctx->Stencil.Function[0],
+					 ctx->Stencil.Ref[0],
+					 ctx->Stencil.ValueMask[0]);
+			ffbDDStencilMask(ctx, ctx->Stencil.WriteMask[0]);
 			ffbDDStencilOp(ctx,
-				       ctx->Stencil.FailFunc,
-				       ctx->Stencil.ZFailFunc,
-				       ctx->Stencil.ZPassFunc);
+				       ctx->Stencil.FailFunc[0],
+				       ctx->Stencil.ZFailFunc[0],
+				       ctx->Stencil.ZPassFunc[0]);
 			tmp |= FFB_FBC_YE_MASK;
 		} else {
 			fmesa->stencil		= 0xf0000000;
@@ -1017,7 +1028,7 @@ static void ffbDDUpdateState(GLcontext *ctx, GLuint newstate)
 
 	if (newstate & _NEW_TEXTURE)
 	   FALLBACK( ctx, FFB_BADATTR_TEXTURE, 
-		     (ctx->Texture._ReallyEnabled != 0));
+		     (ctx->Texture._EnabledUnits != 0));
 
 #ifdef STATE_TRACE
 	fprintf(stderr, "ffbDDUpdateState: newstate(%08x)\n", newstate);
@@ -1078,7 +1089,8 @@ void ffbDDInitStateFuncs(GLcontext *ctx)
 		ctx->Driver.StencilOp = NULL;
 	}
 
-	ctx->Driver.SetDrawBuffer = ffbDDSetDrawBuffer;
+	ctx->Driver.DrawBuffer = ffbDDDrawBuffer;
+	ctx->Driver.ReadBuffer = ffbDDReadBuffer;
 	ctx->Driver.ClearColor = ffbDDClearColor;
 	ctx->Driver.ClearDepth = ffbDDClearDepth;
 	ctx->Driver.ClearStencil = ffbDDClearStencil;
@@ -1107,7 +1119,7 @@ void ffbDDInitStateFuncs(GLcontext *ctx)
 	{
 		struct swrast_device_driver *swdd = 
 			_swrast_GetDeviceDriverReference(ctx);
-		swdd->SetReadBuffer = ffbDDSetReadBuffer;
+		swdd->SetBuffer = ffbDDSetBuffer;
 	}
    
 

@@ -1,5 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
-
-after_install::
-	/bin/ln $(DSTROOT)/usr/bin/apropos $(DSTROOT)/usr/bin/whatis
-	/bin/ln $(DSTROOT)/usr/share/man/man1/apropos.1 $(DSTROOT)/usr/share/man/man1/whatis.1

@@ -2071,7 +2071,9 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 	UInt16 selCode;		/* select access pattern for BTree */
 	UInt32 hint;
 
-	AttributeKey attrKey;
+	HFSPlusAttrRecord attrRecord;
+	HFSPlusAttrKey attrKey;
+	UInt16 attrRecordSize;
 	CatalogRecord catRecord; 
 	CatalogKey catKey;
 	UInt16 catRecordSize;
@@ -2088,7 +2090,7 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 	lastID.hasSecurity = false;
 	
 	selCode = 0x8001;	/* Get first record from BTree */
-	err = GetBTreeRecord(GPtr->calculatedAttributesFCB, selCode, &attrKey, NULL, NULL, &hint);
+	err = GetBTreeRecord(GPtr->calculatedAttributesFCB, selCode, &attrKey, &attrRecord, &attrRecordSize, &hint);
 	if (err != noErr) goto out; 
 
 	selCode = 1;	/* Get next record */
@@ -2097,10 +2099,10 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 		/* Convert unicode attribute name to char for ACL check */
 		(void) utf_encodestr(attrKey.attrName, attrKey.attrNameLen * 2, attrName, &len);
 		attrName[len] = '\0';
-		printf ("%s(%s,%d): Found attrName=%s for fileID=%d\n", __FUNCTION__, __FILE__, __LINE__, attrName, attrKey.cnid);
+		printf ("%s(%s,%d): Found attrName=%s for fileID=%d\n", __FUNCTION__, __FILE__, __LINE__, attrName, attrKey.fileID);
 #endif
 	
-		if (attrKey.cnid != lastID.fileID) {
+		if (attrKey.fileID != lastID.fileID) {
 			/* We found an attribute with new file ID */
 			
 			/* Replace the previous catalog record only if we updated the flags */
@@ -2117,7 +2119,7 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 			didRecordChange = false; /* reset to indicate new record has not changed */
 
 			/* Get the catalog record for the new fileID */
-			err = GetCatalogRecord(GPtr, attrKey.cnid, isHFSPlus, &catKey, &catRecord, &catRecordSize);
+			err = GetCatalogRecord(GPtr, attrKey.fileID, isHFSPlus, &catKey, &catRecord, &catRecordSize);
 			if (err) {
 				/* No catalog record was found for this fileID. */
 #if DEBUG_XATTR
@@ -2128,10 +2130,10 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 	 			 * in prime modulus checksum.  These file IDs do not have 
 	 			 * any catalog record
 	 			 */
-				if ((attrKey.cnid < kHFSFirstUserCatalogNodeID) && 
-	    			    (attrKey.cnid != kHFSRootFolderID)) { 
+				if ((attrKey.fileID < kHFSFirstUserCatalogNodeID) && 
+	    			    (attrKey.fileID != kHFSRootFolderID)) { 
 #if DEBUG_XATTR
-					printf ("%s: Ignore catalog check for fileID=%d for attribute=%s\n", __FUNCTION__, attrKey.cnid, attrName); 
+					printf ("%s: Ignore catalog check for fileID=%d for attribute=%s\n", __FUNCTION__, attrKey.fileID, attrName); 
 #endif
 					goto getnext;
 				}
@@ -2145,14 +2147,14 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 					goto out;
 				}
 #if DEBUG_XATTR
-				printf ("%s: Deleted attribute=%s for fileID=%d\n", __FUNCTION__, attrName, attrKey.cnid);
+				printf ("%s: Deleted attribute=%s for fileID=%d\n", __FUNCTION__, attrName, attrKey.fileID);
 #endif
 				/* set flags to write back header and map */
 				GPtr->ABTStat |= S_BTH + S_BTM;	
 				goto getnext;
 			} 
 
-			lastID.fileID = attrKey.cnid;	/* set last fileID to the new ID */
+			lastID.fileID = attrKey.fileID;	/* set last fileID to the new ID */
 			lastID.hasSecurity = false; /* reset to indicate new fileID does not have security */
 				
 			/* Check the Attribute bit */
@@ -2192,7 +2194,7 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 		
 getnext:
 		/* Access the next record */
-		err = GetBTreeRecord(GPtr->calculatedAttributesFCB, selCode, &attrKey, NULL, NULL, &hint);
+		err = GetBTreeRecord(GPtr->calculatedAttributesFCB, selCode, &attrKey, &attrRecord, &attrRecordSize, &hint);
 	} while (err == noErr);
 
 	err = noErr;
@@ -2244,7 +2246,7 @@ static OSErr RepairAttributesCheckCBT(SGlobPtr GPtr, Boolean isHFSPlus)
 	UInt16 recordSize;
 	UInt32 hint;
 
-	AttributeKey *attrKey;
+	HFSPlusAttrKey *attrKey;
 	CatalogRecord catRecord; 
 	CatalogKey catKey;
 
@@ -2286,9 +2288,9 @@ static OSErr RepairAttributesCheckCBT(SGlobPtr GPtr, Boolean isHFSPlus)
 
 		/* Initialize the iterator and attribute key */
 		ClearMemory(&iterator, sizeof(BTreeIterator));
-		attrKey = (AttributeKey *)&iterator.key;
-		attrKey->keyLength = kAttributeKeyMinimumLength;
-		attrKey->cnid = curFileID;
+		attrKey = (HFSPlusAttrKey *)&iterator.key;
+		attrKey->keyLength = kHFSPlusAttrKeyMinimumLength;
+		attrKey->fileID = curFileID;
 
 		/* Search for attribute with NULL name.  This will place the iterator at correct fileID location in BTree */	
 		err = BTSearchRecord(GPtr->calculatedAttributesFCB, &iterator, kInvalidMRUCacheKey, NULL, NULL, &iterator);
@@ -2303,7 +2305,7 @@ static OSErr RepairAttributesCheckCBT(SGlobPtr GPtr, Boolean isHFSPlus)
 		err = BTIterateRecord(GPtr->calculatedAttributesFCB, kBTreeNextRecord, &iterator, NULL, NULL);
 
 		/* Check only if we did _find_ an attribute record for the current fileID */
-		while ((err == noErr) && (attrKey->cnid == curFileID)) {
+		while ((err == noErr) && (attrKey->fileID == curFileID)) {
 			/* Current record should have attribute bit set */
 			curRecordHasAttributes = true;
 
@@ -2508,7 +2510,7 @@ int cmpLongs ( const void *a, const void *b )
 //
 static	OSErr	FixOverlappingExtents( SGlobPtr GPtr )
 {
-	OSErr			err = noErr;
+	OSErr			err = R_RFail;
 #if 0
 	UInt32			i;
 	UInt32			numInitialExtents;
@@ -2747,9 +2749,6 @@ FixMissingDirectory( SGlob *GPtr, UInt32 theObjID, UInt32 theParID )
 
 	/* update our header node on disk from our BTreeControlBlock */
 	UpdateBTreeHeader( GPtr->calculatedCatalogFCB );
-
-	if ( result == 0 )
-		GPtr->scanAgain = true;
 		
 	return( result );
 	

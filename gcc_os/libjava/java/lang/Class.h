@@ -1,6 +1,6 @@
 // Class.h - Header file for java.lang.Class.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -19,6 +19,8 @@ details.  */
 #include <java/net/URL.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/security/ProtectionDomain.h>
+#include <java/lang/Package.h>
+#include <gnu/gcj/runtime/StackTrace.h>
 
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
@@ -45,9 +47,10 @@ enum
   JV_STATE_LINKED = 9,		// Strings interned.
 
   JV_STATE_IN_PROGRESS = 10,	// <Clinit> running.
-  JV_STATE_DONE = 12,		// 
 
-  JV_STATE_ERROR = 14		// must be last.
+  JV_STATE_ERROR = 12,
+
+  JV_STATE_DONE = 14		// Must be last.
 };
 
 struct _Jv_Field;
@@ -136,6 +139,13 @@ public:
 
   java::lang::ClassLoader *getClassLoader (void);
 
+  // This is an internal method that circumvents the usual security
+  // checks when getting the class loader.
+  java::lang::ClassLoader *getClassLoaderInternal (void)
+  {
+    return loader;
+  }
+
   java::lang::reflect::Constructor *getConstructor (JArray<jclass> *);
   JArray<java::lang::reflect::Constructor *> *getConstructors (void);
   java::lang::reflect::Constructor *getDeclaredConstructor (JArray<jclass> *);
@@ -159,6 +169,9 @@ private:
   java::lang::reflect::Method *getPrivateMethod (jstring, JArray<jclass> *);
   java::security::ProtectionDomain *getProtectionDomain0 ();
 
+  java::lang::reflect::Method *_getMethod (jstring, JArray<jclass> *);
+  java::lang::reflect::Method *_getDeclaredMethod (jstring, JArray<jclass> *);
+
 public:
   JArray<java::lang::reflect::Field *> *getFields (void);
 
@@ -166,13 +179,12 @@ public:
 
   void getSignature (java::lang::StringBuffer *buffer);
   static jstring getSignature (JArray<jclass> *, jboolean is_constructor);
-  java::lang::reflect::Method *getMethod (jstring, JArray<jclass> *);
   JArray<java::lang::reflect::Method *> *getMethods (void);
 
   inline jint getModifiers (void)
-    {
-      return accflags;
-    }
+  {
+    return accflags & java::lang::reflect::Modifier::ALL_FLAGS;
+  }
 
   jstring getName (void);
 
@@ -209,7 +221,10 @@ public:
     }
 
   jobject newInstance (void);
+  java::security::ProtectionDomain *getProtectionDomain (void);
+  java::lang::Package *getPackage (void);
   jstring toString (void);
+  jboolean desiredAssertionStatus (void);
 
   // FIXME: this probably shouldn't be public.
   jint size (void)
@@ -231,6 +246,8 @@ private:
   void checkMemberAccess (jint flags);
 
   void initializeClass (void);
+
+  static jstring getPackagePortion (jstring);
 
   // Friend functions implemented in natClass.cc.
   friend _Jv_Method *_Jv_GetMethodLocal (jclass klass, _Jv_Utf8Const *name,
@@ -287,6 +304,8 @@ private:
 			       java::lang::ClassLoader *loader);
   friend jclass _Jv_FindClassInCache (_Jv_Utf8Const *name,
 				      java::lang::ClassLoader *loader);
+  friend jclass _Jv_PopClass (void);
+  friend void _Jv_PushClass (jclass k);
   friend void _Jv_NewArrayClass (jclass element,
 				 java::lang::ClassLoader *loader,
 				 _Jv_VTable *array_vtable = 0);
@@ -306,7 +325,7 @@ private:
   friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
   friend void _Jv_LinkOffsetTable (jclass);
   friend void _Jv_LayoutVTableMethods (jclass klass);
-  friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *);
+  friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
   friend void _Jv_MakeVTable (jclass);
 
   // Return array class corresponding to element type KLASS, creating it if
@@ -322,8 +341,6 @@ private:
 #ifdef INTERPRETER
   friend jboolean _Jv_IsInterpretedClass (jclass);
   friend void _Jv_InitField (jobject, jclass, _Jv_Field*);
-  friend int _Jv_DetermineVTableIndex (jclass, _Jv_Utf8Const *, 
-				       _Jv_Utf8Const*);
   friend void _Jv_InitField (jobject, jclass, int);
   friend _Jv_word _Jv_ResolvePoolEntry (jclass, int);
   friend _Jv_Method *_Jv_SearchMethodInClass (jclass cls, jclass klass, 
@@ -331,11 +348,11 @@ private:
 					      _Jv_Utf8Const *method_signature);
 
   friend void _Jv_PrepareClass (jclass);
+  friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
 
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;
   friend class _Jv_InterpMethod;
-  friend class _Jv_InterpMethodInvocation;
 #endif
 
 #ifdef JV_MARKOBJ_DECL
@@ -343,6 +360,8 @@ private:
 #endif
 
   friend class _Jv_BytecodeVerifier;
+  friend class gnu::gcj::runtime::StackTrace;
+  friend class java::io::VMObjectStreamClass;
 
   // Chain for class pool.
   jclass next;
@@ -397,6 +416,8 @@ private:
   jclass arrayclass;
   // Security Domain to which this class belongs (or null).
   java::security::ProtectionDomain *protectionDomain;
+  // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.
+  jclass chain;
 };
 
 #endif /* __JAVA_LANG_CLASS_H__ */

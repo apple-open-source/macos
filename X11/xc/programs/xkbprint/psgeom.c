@@ -24,7 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/programs/xkbprint/psgeom.c,v 1.5 2001/07/25 15:05:25 dawes Exp $ */
+/* $XFree86: xc/programs/xkbprint/psgeom.c,v 1.6 2003/04/22 14:01:49 pascal Exp $ */
 
 #define	XK_TECHNICAL
 #define	XK_PUBLISHING
@@ -807,7 +807,7 @@ int		p,baseline;
 	    PSSetFont(out,state,FONT_LATIN1,14,False);
 	}
 	if (state->args->label==LABEL_SYMBOLS) {
-	    char buf[40],*sName= NULL;
+	    char buf[40],*sName= NULL, *lbuf;
 	    Atom sAtom;
 
 	    if (state->args->nLabelGroups==1)
@@ -827,12 +827,17 @@ int		p,baseline;
 	    if (sName==NULL)
 		sName= "(unknown)";
 
-	    sprintf(buf,"Layout: %s",sName);
-	    fprintf(out,"kbx kbdscalewidth 0 (%s) centeroffset pop add\n",buf);
+	    lbuf = uAlloc(10+strlen(sName));
+	    if (!lbuf) {
+	    	uFatalError("Can't allocate memory for string\n");
+	    }
+	    sprintf(lbuf,"Layout: %s",sName);
+	    fprintf(out,"kbx kbdscalewidth 0 (%s) centeroffset pop add\n",lbuf);
 	    fprintf(out,"    kby kbdscaleheight add %d add\n",baseline);
 	    fprintf(out,"    moveto\n");
-	    fprintf(out,"1 -1 scale (%s) show 1 -1 scale\n",buf);
+	    fprintf(out,"1 -1 scale (%s) show 1 -1 scale\n",lbuf);
 	    baseline+= 16;
+	    free(lbuf);
 	}
 	if (name!=NULL) {
 	    fprintf(out,"kbx kbdscalewidth 0 (%s) centeroffset pop add\n",name);
@@ -842,7 +847,7 @@ int		p,baseline;
 	    baseline+= 16;
 	}
 	if (state->args->label==LABEL_KEYCODE) {
-	    char buf[40],*sName= NULL;
+	    char *sName= NULL, *lbuf;
 	    Atom sAtom;
 
 	    if (xkb->names!=NULL)	sAtom= xkb->names->keycodes;
@@ -852,12 +857,17 @@ int		p,baseline;
 	    if (sName==NULL)
 		sName= "(unknown)";
 
-	    sprintf(buf,"Keycodes: %s",sName);
-	    fprintf(out,"kbx kbdscalewidth 0 (%s) centeroffset pop add\n",buf);
+	    lbuf = uAlloc(12+strlen(sName));
+	    if (!lbuf) {
+	    	uFatalError("Can't allocate memory for string\n");
+	    }
+	    sprintf(lbuf,"Keycodes: %s",sName);
+	    fprintf(out,"kbx kbdscalewidth 0 (%s) centeroffset pop add\n",lbuf);
 	    fprintf(out,"    kby kbdscaleheight add %d add\n",baseline);
 	    fprintf(out,"    moveto\n");
-	    fprintf(out,"1 -1 scale (%s) show 1 -1 scale\n",buf);
+	    fprintf(out,"1 -1 scale (%s) show 1 -1 scale\n",lbuf);
 	    baseline+= 16;
+	    free(lbuf);
 	}
 	if (state->args->copies>1) {
 	    for (p=1;p<state->args->copies;p++)

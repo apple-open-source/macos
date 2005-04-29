@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_xmesa.c,v 1.14 2002/10/30 12:51:30 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_xmesa.c,v 1.15 2003/09/28 20:15:10 alanh Exp $ */
 /*
  * Copyright 2001 by Alan Hourihane.
  *
@@ -28,7 +28,6 @@
 #include "gamma_context.h"
 #include "gamma_vb.h"
 #include "context.h"
-#include "mmath.h"
 #include "matrix.h"
 #include "glint_dri.h"
 
@@ -74,8 +73,7 @@ gammaDestroyContext(__DRIcontextPrivate *driContextPriv)
 
 
 static GLboolean
-gammaCreateBuffer( Display *dpy,
-                   __DRIscreenPrivate *driScrnPriv,
+gammaCreateBuffer( __DRIscreenPrivate *driScrnPriv,
                    __DRIdrawablePrivate *driDrawPriv,
                    const __GLcontextModes *mesaVis,
                    GLboolean isPixmap )
@@ -103,11 +101,8 @@ gammaDestroyBuffer(__DRIdrawablePrivate *driDrawPriv)
 }
 
 static void
-gammaSwapBuffers(Display *dpy, void *drawablePrivate)
+gammaSwapBuffers( __DRIdrawablePrivate *dPriv )
 {
-   __DRIdrawablePrivate *dPriv = (__DRIdrawablePrivate *) drawablePrivate;
-   (void) dpy;
-
    if (dPriv->driContextPriv && dPriv->driContextPriv->driverPrivate) {
     gammaContextPtr gmesa;
     __DRIscreenPrivate *driScrnPriv;
@@ -116,6 +111,8 @@ gammaSwapBuffers(Display *dpy, void *drawablePrivate)
     gmesa = (gammaContextPtr) dPriv->driContextPriv->driverPrivate;
     ctx = gmesa->glCtx;
     driScrnPriv = gmesa->driScreen;
+
+    _mesa_notifySwapBuffers(ctx);
 
     VALIDATE_DRAWABLE_INFO(gmesa);
 
@@ -287,10 +284,3 @@ void *__driCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
    psp = __driUtilCreateScreen(dpy, scrn, psc, numConfigs, config, &gammaAPI);
    return (void *) psp;
 }
-
-void __driRegisterExtensions(void)
-{
-   /* No extensions */
-}
-
-

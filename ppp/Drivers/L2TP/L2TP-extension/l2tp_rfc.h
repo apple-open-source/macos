@@ -55,10 +55,13 @@ enum {
     L2TP_CMD_SETMAXRETRIES,	// set max retries	
     L2TP_CMD_ACCEPT,		// accept connection request and xfer to new socket
     L2TP_CMD_SETOURADDR,	// set our IP address
-    L2TP_CMD_GETOURADDR		// get our IP address
+    L2TP_CMD_GETOURADDR,	// get our IP address
+    L2TP_CMD_SETBAUDRATE,	// set tunnel baud rate
+    L2TP_CMD_GETBAUDRATE,	// get tunnel baud rate
+    L2TP_CMD_SETRELIABILITY	// turn on/off the reliability layer
 };
 
-typedef int (*l2tp_rfc_input_callback)(void *data, struct mbuf *m, struct sockaddr *from, int more);
+typedef int (*l2tp_rfc_input_callback)(void *data, mbuf_t m, struct sockaddr *from, int more);
 typedef void (*l2tp_rfc_event_callback)(void *data, u_int32_t evt, void *msg);
 
 u_int16_t l2tp_rfc_init();
@@ -73,9 +76,9 @@ void l2tp_rfc_free_client(void *data);
 void l2tp_rfc_fasttimer();
 void l2tp_rfc_slowtimer();
 u_int16_t l2tp_rfc_command(void *userdata, u_int32_t cmd, void *cmddata);
-u_int16_t l2tp_rfc_output(void *data, struct mbuf *m, struct sockaddr *to);
+u_int16_t l2tp_rfc_output(void *data, mbuf_t m, struct sockaddr *to);
 
 // callback from dlil layer
-int l2tp_rfc_lower_input(struct socket *so, struct mbuf *m, struct sockaddr *from);
+int l2tp_rfc_lower_input(socket_t so, mbuf_t m, struct sockaddr *from);
 
 #endif

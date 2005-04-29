@@ -75,15 +75,15 @@ static const struct arg {
 	void (*f)(char *);
 	u_int set, noset;
 } args[] = {
-	{ "bs",		f_bs,		C_BS,	 C_BS|C_IBS|C_OBS|C_OSYNC },
+	{ "bs",		f_bs,		C_BS,	 C_BS|C_OSYNC },
 	{ "cbs",	f_cbs,		C_CBS,	 C_CBS },
 	{ "conv",	f_conv,		0,	 0 },
 	{ "count",	f_count,	C_COUNT, C_COUNT },
 	{ "files",	f_files,	C_FILES, C_FILES },
-	{ "ibs",	f_ibs,		C_IBS,	 C_BS|C_IBS },
+	{ "ibs",	f_ibs,		C_IBS,	 C_IBS },
 	{ "if",		f_if,		C_IF,	 C_IF },
 	{ "iseek",	f_skip,		C_SKIP,	 C_SKIP },
-	{ "obs",	f_obs,		C_OBS,	 C_BS|C_OBS },
+	{ "obs",	f_obs,		C_OBS,	 C_OBS },
 	{ "of",		f_of,		C_OF,	 C_OF },
 	{ "oseek",	f_seek,		C_SEEK,	 C_SEEK },
 	{ "seek",	f_seek,		C_SEEK,	 C_SEEK },
@@ -103,6 +103,8 @@ jcl(char **argv)
 
 	in.dbsz = out.dbsz = 512;
 
+	if (argv[1] && !strcmp(argv[1], "--")) /* skip delimiter before operands */
+		argv++;
 	while ((oper = *++argv) != NULL) {
 		if ((oper = strdup(oper)) == NULL)
 			errx(1, "unable to allocate space for the argument \"%s\"", *argv);

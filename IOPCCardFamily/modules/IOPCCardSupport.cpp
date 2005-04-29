@@ -216,7 +216,7 @@ IOPCCardAddTimer(struct timer_list * timer)
 {
     AbsoluteTime                    deadline;
 
-    clock_interval_to_deadline(timer->expires, NSEC_PER_SEC / hz, &deadline);
+    clock_interval_to_deadline(timer->expires, NSEC_PER_SEC / HZ, &deadline);
     thread_call_func_delayed(timerFunnel, (void *)timer, deadline);
 }
 

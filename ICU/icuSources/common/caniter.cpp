@@ -1,6 +1,6 @@
 /*
  *****************************************************************************
- * Copyright (C) 1996-2003, International Business Machines Corporation and  *
+ * Copyright (C) 1996-2004, International Business Machines Corporation and  *
  * others. All Rights Reserved.                                              *
  *****************************************************************************
  */
@@ -80,7 +80,7 @@ U_NAMESPACE_BEGIN
 
 // TODO: add boilerplate methods.
 
-const char CanonicalIterator::fgClassID=0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(CanonicalIterator)
 
 /**
  *@param source string to get results for
@@ -216,7 +216,7 @@ void CanonicalIterator::setSource(const UnicodeString &newSource, UErrorCode &st
             uprv_free(current);
             return;
         }
-        pieces[0][0] = UnicodeString("");
+        pieces[0][0] = UnicodeString();
         pieces_lengths = (int32_t*)uprv_malloc(1 * sizeof(int32_t));
         /* test for NULL */
         if (pieces_lengths == 0) {
@@ -309,7 +309,7 @@ void CanonicalIterator::setSource(const UnicodeString &newSource, UErrorCode &st
  * @param source the string to find permutations for
  * @return the results in a set.
  */
-void CanonicalIterator::permute(UnicodeString &source, UBool skipZeros, Hashtable *result, UErrorCode &status) {
+void U_EXPORT2 CanonicalIterator::permute(UnicodeString &source, UBool skipZeros, Hashtable *result, UErrorCode &status) {
     if(U_FAILURE(status)) {
       return;
     }
@@ -332,7 +332,7 @@ void CanonicalIterator::permute(UnicodeString &source, UBool skipZeros, Hashtabl
 
     // otherwise iterate through the string, and recursively permute all the other characters
     UChar32 cp;
-    Hashtable *subpermute = new Hashtable(FALSE, status);
+    Hashtable *subpermute = new Hashtable(status);
     /* test for NULL */
     if (subpermute == 0) {
         status = U_MEMORY_ALLOCATION_ERROR;
@@ -396,7 +396,7 @@ void CanonicalIterator::permute(UnicodeString &source, UBool skipZeros, Hashtabl
 UnicodeString* CanonicalIterator::getEquivalents(const UnicodeString &segment, int32_t &result_len, UErrorCode &status) {
     //private String[] getEquivalents(String segment)
 
-    Hashtable *result = new Hashtable(FALSE, status);
+    Hashtable *result = new Hashtable(status);
     /* test for NULL */
     if (result == 0) {
         status = U_MEMORY_ALLOCATION_ERROR;
@@ -414,7 +414,7 @@ UnicodeString* CanonicalIterator::getEquivalents(const UnicodeString &segment, i
     // add only the ones that are canonically equivalent
     // TODO: optimize by not permuting any class zero.
 
-    Hashtable *permutations = new Hashtable(FALSE, status);
+    Hashtable *permutations = new Hashtable(status);
     /* test for NULL */
     if (permutations == 0) {
         status = U_MEMORY_ALLOCATION_ERROR;
@@ -509,7 +509,7 @@ UnicodeString* CanonicalIterator::getEquivalents(const UnicodeString &segment, i
 Hashtable *CanonicalIterator::getEquivalents2(const UChar *segment, int32_t segLen, UErrorCode &status) {
 //Hashtable *CanonicalIterator::getEquivalents2(const UnicodeString &segment, int32_t segLen, UErrorCode &status) {
 
-    Hashtable *result = new Hashtable(FALSE, status);
+    Hashtable *result = new Hashtable(status);
     /* test for NULL */
     if (result == 0) {
         status = U_MEMORY_ALLOCATION_ERROR;
@@ -592,14 +592,20 @@ Hashtable *CanonicalIterator::extract(UChar32 comp, const UChar *segment, int32_
     int32_t bufLen = 0;
     UChar temp[bufSize];
 
-    const int32_t decompSize = 64;
-    int32_t inputLen = 0;
-    UChar decomp[decompSize];
+    int32_t inputLen = 0, decompLen;
+    UChar stackBuffer[4];
+    const UChar *decomp;
 
     U16_APPEND_UNSAFE(temp, inputLen, comp);
-    int32_t decompLen = unorm_getDecomposition(comp, FALSE, decomp, decompSize);
-    if(decompLen < 0) {
-        decompLen = -decompLen;
+    decomp = unorm_getCanonicalDecomposition(comp, stackBuffer, &decompLen);
+    if(decomp == NULL) {
+        /* copy temp */
+        stackBuffer[0] = temp[0];
+        if(inputLen > 1) {
+            stackBuffer[1] = temp[1];
+        }
+        decomp = stackBuffer;
+        decompLen = inputLen;
     }
 
     UChar *buff = temp+inputLen;
@@ -668,7 +674,7 @@ Hashtable *CanonicalIterator::extract(UChar32 comp, const UChar *segment, int32_
     //if (PROGRESS) printf("Matches\n");
 
     if (bufLen == 0) {
-      Hashtable *result = new Hashtable(FALSE, status);
+      Hashtable *result = new Hashtable(status);
       /* test for NULL */
       if (result == 0) {
           status = U_MEMORY_ALLOCATION_ERROR;

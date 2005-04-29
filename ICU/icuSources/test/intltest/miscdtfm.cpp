@@ -1,8 +1,8 @@
-/********************************************************************
+/***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2001, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
+ * Copyright (c) 1997-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
+ ***********************************************************************/
  
 #include "unicode/utypes.h"
 
@@ -338,23 +338,23 @@ DateFormatMiscTests::test4117335()
 
     int32_t rowCount, colCount;
     const UnicodeString **zones = symbols->getZoneStrings(rowCount, colCount);
-    logln(UnicodeString("Long zone name = ") + zones[0][1]);
-    if (zones[0][1] != jstLong) {
-        errln("*** Should have been " + jstLong);
+    logln(UnicodeString("Long zone name = ") + zones[rowCount-3][1]);
+    if (zones[rowCount-3][1] != jstLong) {
+        errln("*** Should have been " + prettify(jstLong));
         //throw new Exception("Error in long TZ name");
     }
-    logln(UnicodeString("Short zone name = ") + zones[0][2]);
-    if (zones[0][2] != jstShort) {
+    logln(UnicodeString("Short zone name = ") + zones[rowCount-3][2]);
+    if (zones[rowCount-3][2] != jstShort) {
         errln("*** Should have been " + jstShort);
         //throw new Exception("Error in short TZ name");
     }
-    logln(UnicodeString("Long zone name = ") + zones[0][3]);
-    if (zones[0][3] != jstLong) {
+    logln(UnicodeString("Long zone name = ") + zones[rowCount-3][3]);
+    if (zones[rowCount-3][3] != jstLong) {
         errln("*** Should have been " + jstLong);
         //throw new Exception("Error in long TZ name");
     }
-    logln(UnicodeString("SHORT zone name = ") + zones[0][4]);
-    if (zones[0][4] != jstShort) {
+    logln(UnicodeString("SHORT zone name = ") + zones[rowCount-3][4]);
+    if (zones[rowCount-3][4] != jstShort) {
         errln("*** Should have been " + jstShort);
         //throw new Exception("Error in short TZ name");
     }

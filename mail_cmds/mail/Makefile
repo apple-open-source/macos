@@ -19,7 +19,7 @@ CFILES = aux.c cmd1.c cmd2.c cmd3.c cmdtab.c collect.c \
          popen.c quit.c send.c strings.c temp.c tty.c v7.local.c\
          vars.c version.c
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble mail.1
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble mail.1 mailx.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

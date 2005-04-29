@@ -26,7 +26,6 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) -m 1775 -g admin "$(Destination)/cores"
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)/dev"
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)/System"
-	$(_v) $(INSTALL_FILE) -c .hidden "$(Destination)/.hidden"
 	$(_v) $(LN) -fs private/etc      "$(Destination)/etc"
 	$(_v) $(LN) -fs mach_kernel      "$(Destination)/mach"
 	$(_v) $(LN) -fs private/tmp      "$(Destination)/tmp"

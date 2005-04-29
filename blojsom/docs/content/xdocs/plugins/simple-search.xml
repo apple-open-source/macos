@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Simple Search plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The simple search plugin looks for a user's query in either the blog entry title or blog
+                entry description.
+
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                simple-search=org.blojsom.plugin.search.SimpleSearchPlugin
+            </source>
+            <p>
+
+                You may then add "simple-search" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=simple-search
+            </source>
+        </section>
+        <section>
+            <title>usage and URL parameters</title>
+
+
+        </section>
+        <section>
+            <title>URL parameters</title>
+            <p>
+                The following table describes the URL parameters that affect the output of the simple search plugin.
+            </p>
+            <table>
+                <tr>
+                    <th>URL parameter</th>
+                    <th>Accepted values</th>
+                    <th>Usage</th>
+                </tr>
+                <tr>
+                    <td>query</td>
+                    <td>Contains the query text to look for in the blog entry title or blog entry description.</td>
+                    <td>/blog/?query=blojsom</td>
+                </tr>
+            </table>
+
+
+        </section>
+    </body>
+</document>
+

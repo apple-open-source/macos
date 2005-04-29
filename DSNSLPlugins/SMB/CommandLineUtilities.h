@@ -70,7 +70,7 @@ int 							executecommand(
 int								myexecutecommandas(
                                     const char *command, 
 									const char* path,
-									const char * argv[],
+									char *const argv[],
 									Boolean useSHELL, 
                                     size_t timeout_delay, 
                                     char **output, 
@@ -81,7 +81,7 @@ int								myexecutecommandas(
 FILE 							*ec_popen(
 									const char *cmdstring,
 									const char* path,
-									const char* argv[],
+									char *const argv[],
 									Boolean useSHELL, 
 									uid_t uid,
 									gid_t gid);

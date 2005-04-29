@@ -1,4 +1,4 @@
-# $Id: Makefile.dist,v 1.8 2004/03/01 19:47:35 ken3 Exp $
+# $Id: Makefile.dist,v 1.5 2005/03/05 00:36:41 dasenbro Exp $
 # it would be nice to figure out how to make "Makefile" do an
 # 'include' of this file.
 # we'd have to make this use srcdir and only define COMPILE_ET if it wasn't

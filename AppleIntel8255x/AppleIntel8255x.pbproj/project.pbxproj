@@ -97,13 +97,13 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				I386 = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleIntel8255x;
-				MODULE_VERSION = 1.3.2;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.4;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPC = YES;
@@ -116,7 +116,7 @@
 			);
 			isa = PBXBundleTarget;
 			name = AppleIntel8255x;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
 			productName = AppleIntel8255x;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -128,7 +128,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleIntel8255x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.2, Copyright Apple Computer, Inc. 2001-2003</string>
+	<string>1.4, Copyright Apple Computer, Inc. 2001-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -136,15 +136,15 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Apple Intel 8255x Ethernet Driver</string>
+	<string>Intel 8255x Ethernet Driver</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.2</string>
+	<string>1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.2</string>
+	<string>1.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>8255x</key>
@@ -160,7 +160,7 @@
 			<key>IOPCIClassMatch</key>
 			<string>0x02000000&amp;0xffff0000</string>
 			<key>IOPCIMatch</key>
-			<string>0x10508086 0x10298086 0x10308086&amp;0xfff0ffff 0x12098086 0x12278086 0x12288086 0x12298086 0x24498086 0x24598086 0x245d8086</string>
+			<string>0x10518086 0x10508086 0x10298086 0x10308086&amp;0xfff0ffff 0x12098086 0x12278086 0x12288086 0x12298086 0x24498086 0x24598086 0x245d8086 0x10608086&amp;0xfff0ffff</string>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
 			<key>Transmit Threshold</key>
@@ -172,13 +172,17 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IONetworkingFamily</key>
-		<string>1.0.0b1</string>
+		<string>1.4</string>
 		<key>com.apple.iokit.IOPCIFamily</key>
-		<string>1.0.0b1</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.0.0b1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.0.0b1</string>
+		<string>1.6</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b2</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Network-Root</string>

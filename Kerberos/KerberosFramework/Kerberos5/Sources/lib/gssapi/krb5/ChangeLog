@@ -1,3 +1,385 @@
+2005-01-13 Jeffrey Altman <jaltman@mit.edu>
+
+        * init_sec_context.c, acquire_cred.c: fix calls to 
+          krb5_gss_release_cred() to pass in the correct type.
+          This fixes a mutex leak.
+
+2004-08-27  Tom Yu  <tlyu@mit.edu>
+
+	* init_sec_context.c (make_ap_req_v1): Free checksum data
+	allocated by make_gss_checksum() to avoid leak.
+
+	* k5sealv3.c (gss_krb5int_unseal_token_v3): Free plain.data after
+	checksum is verified, to avoid leak.
+
+2004-08-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* acquire_cred.c (krb5_gss_acquire_cred): Call
+	gssint_initialize_library.  Return correct error code on mutex
+	initialization failure.
+
+2004-07-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* gssapi_krb5.c (kg_ccache_name): Variable deleted.
+	(kg_sync_ccache_name, kg_get_ccache_name, kg_set_ccache_name): Get
+	and set thread-specific values instead.
+
+2004-07-28  Ken Raeburn  <raeburn@mit.edu>
+
+	* gssapiP_krb5.h (struct _krb5_gss_cred_id_rec): Add a mutex.
+	(krb5_gss_validate_cred_1): Declare.
+	* accept_sec_context.c (rd_and_store_for_creds): Initialize mutex.
+	* acquire_cred.c (krb5_gss_acquire_cred): Initialize mutex.
+	* add_cred.c (krb5_gss_add_cred): Create the krb5 context
+	earlier.  Call krb5_gss_validate_cred_1.  Make sure the mutex is
+	locked.
+	* copy_ccache.c (gss_krb5_copy_ccache): Lock the mutex in the
+	source credential.
+	* init_sec_context.c (get_credentials, new_connection): Check that
+	the mutex is locked.
+	(mutual_auth): Delete unused credential argument.
+	(krb5_gss_init_sec_context): Lock the mutex.
+	* inq_cred.c (krb5_gss_inquire_cred): Lock the mutex.
+	* rel_cred.c (krb5_gss_release_cred): Destroy the mutex.
+	* set_allowable_enctypes.c (gss_krb5_set_allowable_enctypes): Lock
+	the mutex.
+	* val_cred.c (krb5_gss_validate_cred_1): New function, most of old
+	krb5_gss_validate_cred but requires that the krb5 context be
+	supplied, and returns with the credential mutex still locked if
+	successful, so the caller needn't re-lock it.
+	(krb5_gss_validate_cred): Use it.
+
+	* set_ccache.c (gss_krb5_ccache_name): Don't make a copy of the
+	string returned by kg_get_ccache_name.  Simplify some calls using
+	a temporary error code variable.
+
+	* gssapi_krb5.c (kg_get_ccache_name): Make a copy of the default
+	ccache name, because calling krb5_free_context will destroy it.
+	Make the copy always, not just in the local-context case.  Check
+	for errors in making the copy.
+
+2004-07-14  Ken Raeburn  <raeburn@mit.edu>
+
+	* gssapi_krb5.c (kg_sync_ccache_name): Add context argument
+	instead of calling kg_get_context.
+	(kg_get_ccache_name): Use a locally created krb5 context instead
+	of calling kg_get_context.
+	(kg_get_context): Deleted.
+	* acquire_cred.c (acquire_init_cred): Pass current context.
+	(krb5_gss_acquire_cred): Use a locally created krb5 context
+	instead of calling kg_get_context.
+	* add_cred.c (krb5_gss_add_cred): Call kg_sync_ccache_name.
+	* init_sec_context.c (krb5_gss_init_sec_context): Likewise.
+	* gssapiP_krb5.h (kg_sync_ccache_name): Update prototype.
+	(kg_get_context): Delete declaration.
+
+2004-07-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* acquire_cred.c: Include gss_libinit.h.
+	(gssint_krb5_keytab_lock): New mutex.
+	(krb5_gss_register_acceptor_identity, acquire_accept_cred): Lock
+	the mutex while manipulating krb5_gss_keytab.
+	* gssapiP_krb5.h (gssint_krb5_keytab_lock): Declare.
+
+	* set_ccache.c (gss_krb5_ccache_name): Check thread-specific data
+	for the saved "old" name to free.  Save the new old name in
+	thread-specific data.
+
+2004-07-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LOCALINCLUDES): Add $(srcdir)/.. to the list.
+
+2004-07-07  Ken Raeburn  <raeburn@mit.edu>
+
+	* disp_status.c: Include gss_libinit.h.
+	(init_et): Variable deleted.
+	(krb5_gss_display_status): Don't use init_et; instead, call
+	gssint_initialize_library.
+
+2004-07-06  Ken Raeburn  <raeburn@mit.edu>
+
+	* import_name.c [HAVE_GETPWUID_R]: Include stdio.h.
+	(krb5_gss_import_name) [HAVE_GETPWUID_R]: Use getpwuid_r instead
+	of getpwuid, for thread safety.
+
+2004-06-17  Tom Yu  <tlyu@mit.edu>
+
+	* ser_sctx.c (kg_ctx_size, kg_ctx_externalize):
+	(kg_ctx_internalize): Adjust for new field cred_rcache.
+
+2004-06-15  Tom Yu  <tlyu@mit.edu>
+
+	* accept_sec_context.c (krb5_gss_accept_sec_context): Only null
+	out the auth_context's rcache if it was provided by acceptor
+	creds; this prevents a leak.
+
+	* delete_sec_context.c (krb5_gss_delete_sec_context): Only null
+	out the auth_context's rcache if it was provided by acceptor
+	creds; this prevents a leak.
+
+	* gssapiP_krb5.h (krb5_gss_ctx_id_rec): Add cred_rcache to track
+	whether acceptor creds provided an rcache.
+
+2004-06-14  Tom Yu  <tlyu@mit.edu>
+
+	* init_sec_context.c (krb5_gss_init_sec_context): Fix pointer
+	assignment when retrieving k5_context from existing
+	context_handle.
+
+2004-06-10  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (gssapi_krb5.h): Add Windows version of generation
+	rule.
+
+2004-06-09  Sam Hartman  <hartmans@mit.edu>
+
+	* Makefile.in (install-headers-unix install): install
+	gssapi_krb5.h from build directory not source directory 
+
+	* accept_sec_context.c (krb5_gss_accept_sec_context): If the
+	server provides channel bindings, these channel bindings must be
+	matched.  Thus clients can only provide null channel bindings if
+	the server provides no channel bindings. 
+
+2004-06-08  Sam Hartman  <hartmans@mit.edu>
+
+	* set_allowable_enctypes.c lucid_context.c:  new file
+
+	* gssapi_krb5.hin: Made file autogenerated; support  gss_uint64 type
+
+	* Makefile.in (gssapi_krb5.h): Include code to pull in stdint.h if available.
+
+	* gssapi_krb5.h: Add declarations for lucid_context support
+
+2004-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* gssapi_krb5.c (kg_get_ccache_name): Don't test err while it's
+	still known to be 0.
+	(kg_set_ccache_name): Likewise.  Return after an error rather
+	than continuing.
+
+	* krb5_gss_glue.c (gss_import_name): Call
+	gssint_initialize_library and check the return status.
+
+2004-04-13  Jeffrey Altman <jaltman@mit.edu>
+ 
+    * k5unseal.c: gss_krb5int_unseal_token_v3() takes a pointer to 
+      krb5_context
+    * import_sec_context.c: krb5_gss_ser_init() contains a function
+      pointer table.  this table must use pointers to functions of
+      type KRB5_CALLCONV.
+
+2004-03-20  Ken Raeburn  <raeburn@mit.edu>
+
+	* rel_cred.c (krb5_gss_release_cred): Create and destroy a local
+	krb5 context.
+	* rel_name.c (krb5_gss_release_name): Likewise.
+	* val_cred.c (krb5_gss_validate_cred): Likewise.
+
+2004-03-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* add_cred.c (krb5_gss_add_cred): Create and destroy a local krb5
+	context.
+	* compare_name.c (krb5_gss_compare_name): Likewise.
+	* copy_ccache.c (gss_krb5_copy_ccache): Likewise.
+	* disp_name.c (krb5_gss_display_name): Likewise.
+	* duplicate_name.c (krb5_gss_duplicate_name): Likewise.
+	* inq_cred.c (krb5_gss_inquire_cred): Likewise.
+	* export_name.c (krb5_gss_export_name): Likewise.
+	* import_name.c (krb5_gss_import_name): Likewise.
+
+	* context_time.c (krb5_gss_context_time): Use the krb5 context in
+	the GSS security context.
+
+2004-03-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5seal.c (kg_seal): Extract the krb5 context from the security
+	context instead of requiring it be passed in as an argument.
+	* k5unseal.c (kg_unseal): Likewise.
+	* gssapiP_krb5.h (kg_seal, kg_unseal): Declarations updated.
+	* delete_sec_context.c, process_context_token.c, seal.c, sign.c,
+	unseal.c, verify.c: Callers changed.
+	* inq_context.c (krb5_gss_inquire_context): Use krb5 context
+	contained in security context instead of calling kg_get_context.
+	* wrap_size_limit.c (krb5_gss_wrap_size_limit): Likewise.
+
+	* import_sec_context.c (krb5_gss_ser_init): New function.
+	(krb5_gss_import_sec_context): Create a krb5 context locally to
+	use for the import.
+	* export_sec_context.c (krb5_gss_export_sec_context): Use the
+	krb5 context in the security context.
+	* gssapiP_krb5.h (krb5_gss_ser_init): Declare.
+	* gssapi_krb5.c (kg_get_context): Don't call krb5 serialization
+	initialization code here.
+
+	* accept_sec_context.c (krb5_gss_accept_sec_context): Free the
+	new krb5 context in an error case not caught before.
+
+2004-03-14  Ken Raeburn  <raeburn@mit.edu>
+
+	* gssapiP_krb5.h (struct _krb5_gss_ctx_id_rec): Add a krb5
+	context object.
+	* init_sec_context.c (krb5_gss_init_sec_context): Create a new
+	krb5 context, and store it in the security context if
+	successful.  If there's already a security context, use the krb5
+	context in it.
+	* accept_sec_context.c (krb5_gss_accept_sec_context): Create a
+	new krb5 context, and store it in the security context if
+	successful.
+	* delete_sec_context.c (krb5_gss_delete_sec_context): If the
+	security context has a krb5 context, free it.
+
+	* gssapi_krb5.c (kg_vdb): Change type to g_set and initialize.
+	* gssapiP_krb5.h (kg_vdb): Declaration updated.
+
+	* gssapiP_krb5.h (struct _krb5_gss_ctx_id_rec): Delete fields
+	init_token and testing_unknown_tokid.
+	* init_sec_context.c (new_connection): Drop support (already
+	inside "#if 0") for them.
+	(krb5_gss_init_sec_context): Drop support for
+	testing_unknown_tokid.
+	(mutual_auth): Don't let major_status be used uninitialized.
+
+2004-03-08  Ezra Peisach  <epeisach@mit.edu>
+
+	* gssapiP_krb5.h: Add prototype for gss_krb5int_unseal_token_v3.
+
+2004-03-03  Ken Raeburn  <raeburn@mit.edu>
+
+	* disp_status.c (krb5_gss_display_status): Don't call
+	kg_get_context; delete local krb5_context variable.
+	* inq_cred.c (krb5_gss_inquire_cred_by_mech): Likewise.
+	* inq_names.c (krb5_gss_inquire_names_for_mech): Likewise.
+
+2004-02-26  Sam Hartman  <hartmans@avalanche-breakdown.mit.edu>
+
+	* accept_sec_context.c (krb5_gss_accept_sec_context): Don't clear
+	the DO_TIME flag until after rd_req is called so a replay cache is
+	set up  even in the no_credential case. 
+
+2004-02-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* wrap_size_limit.c (krb5_gss_wrap_size_limit): Fix calculation
+	for confidential CFX tokens.
+
+2004-02-09  Ken Raeburn  <raeburn@mit.edu>
+
+	* ser_sctx.c (kg_oid_externalize): Check for errors.
+	(kg_oid_internalize): Check for errors.  Free allocated storage on
+	error.
+	(kg_queue_externalize): Check for errors.
+	(kg_queue_internalize): Check for errors.  Free allocated storage
+	on error.
+	(kg_ctx_size): Update for new context data.
+	(kg_ctx_externalize): Update for new context data.  Check for
+	error storing trailer.
+	(kg_ctx_internalize): Update for new context data.  Check for
+	errors in a few more cases.
+
+2004-02-05  Jeffrey Altman <jaltman@mit.edu>
+
+    * gssapiP_krb5.h:  remove KG_IMPLFLAGS macro
+
+    * init_sec_context.c (init_sec_context): Expand KG_IMPLFLAGS
+      macro with previous macro definition
+
+    * accept_sec_context.c (accept_sec_context): Replace KG_IMPLFLAGS
+      macro with new definition.  As per 1964 the INTEG and CONF flags
+      are supposed to indicate the availability of the services in 
+      the client.  By applying the previous definition of KG_IMPLFLAGS
+      the INTEG and CONF flags are always on.  This can be a problem
+      because some clients such as Microsoft's Kerberos SSPI allow
+      CONF and INTEG to be used independently.  By forcing the flags
+      on, we would end up with inconsist state with the client.
+
+2004-01-27  Ken Raeburn  <raeburn@mit.edu>
+
+	* init_sec_context.c (make_gss_checksum) [CFX_EXERCISE]: Don't
+	crash on null pointer in debugging code.
+	(new_connection): Disable CFX_EXERCISE unknown-token-id case
+	detection.
+
+	* accept_sec_context.c (krb5_gss_accept_sec_context)
+	[CFX_EXERCISE]: Log to /tmp/gsslog whether delegation or extra
+	option bytes were present.
+
+2004-01-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* init_sec_context.c: Include auth_con.h if CFX_EXERCISE is
+	defined.
+	(make_gss_checksum) [CFX_EXERCISE]: If the key enctype is aes256,
+	insert some stuff after the delegation slot.
+	(new_connection) [CFX_EXERCISE]: Don't send messages with bogus
+	token ids.
+
+	* accept_sec_context.c (krb5_gss_accept_sec_context): Don't
+	discard the delegation flag; only look for a delegation if the
+	flag is set, and only look for delegation, not other options.
+	Ignore any other data there.
+
+2003-12-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* util_crypt.c (kg_encrypt, kg_decrypt): Input pointer now points
+	to const.
+	* gssapiP_krb5.h: Declarations updated.
+	* util_seed.c (zeros): Now const.
+
+2003-12-19  Tom Yu  <tlyu@mit.edu>
+
+	* init_sec_context.c: Include k5-int.h for accessor.
+
+2003-12-18  Jeffrey Altman <jaltman@mit.edu>
+
+   * accept_sec_context.c, init_sec_context.c, ser_sctx.c:
+     Implement use of krb5int_accessor() for krb5int_c_mandatory_cksumtype,
+     krb5_ser_pack_int64, and krb5_ser_unpack_int64
+
+2003-12-13  Ken Raeburn  <raeburn@mit.edu>
+	    Sam Hartman  <hartmans@avalanche-breakdown.mit.edu>
+
+	* k5sealv3.c: New file, implements Wrap and MIC tokens for CFX
+	extensions.
+	* gssapiP_krb5.h (struct _krb5_gss_ctx_id_rec): Added acceptor
+	subkey, 64-bit sequence numbers, checksum type, and hooks for
+	sending a bogus initial token for CFX testing.  Changed some flags
+	into bitfields.
+	(gss_krb5int_make_seal_token_v3): Declare.
+	* Makefile.in (SRCS, OBJS, STLIBOBJS): Build it.
+	* accept_sec_context.c (krb5_gss_accept_sec_context): Add CFX
+	support.  For G_WRONG_TOKID, send back an error token with
+	AP_ERR_MSG_TYPE code and return a CONTINUE_NEEDED indication.
+	Initialize new fields in context.
+	* delete_sec_context.c (krb5_gss_delete_sec_context): Free
+	acceptor subkey field.
+	* init_sec_context.c (get_credentials): Drop enctypes argument;
+	callers changed.
+	(get_requested_enctypes): Deleted.
+	(setup_enc): Combine some common sections.  Do CFX initialization
+	for newer enctypes.
+	(new_connection) [CFX_EXERCISE]: If doing CFX, send a bogus
+	token.  Delete the enctype list manipulation.
+	(mutual_auth): If CFX, save acceptor's subkey.
+	* k5seal.c (make_seal_token_v1): Sequence number is now 64 bits.
+	(kg_seal): Call out to _v3 code for CFX.
+	* k5unseal.c (kg_unseal): For CFX, adjust token id numbers and
+	call out to _v3 code.
+	* wrap_size_limit.c (krb5_gss_wrap_size_limit): Implement CFX
+	support.
+
+	* gssapiP_krb5.h (struct _krb5_gss_ctx_id_rec): Deleted fields
+	ctypes and nctypes.
+	* delete_sec_context.c, init_sec_context.c, ser_sctx.c: Removed
+	references.
+
+2003-12-11  Alexandra Ellwood <lxs@mit.edu>
+
+	* acquire_cred.c, gssapi_krb5.c, gssapiP_krb5.h, set_ccache.c:
+        Added kg_sync_ccache_name(), kg_get_ccache_name, and 
+        kg_set_ccache_name() and rewrote gss_krb5_ccache_name() and
+        added a call to kg_sync_ccache_name() to acquire_init_cred()
+        to fix a bug where on systems with multiple ccaches that GSSAPI
+        gets stuck on the ccache that was default when it launched.
+
 2003-07-19  Ezra Peisach  <epeisach@mit.edu>
 
 	* acquire_cred.c (krb5_gss_register_acceptor_identity): Allocate
@@ -39,6 +421,10 @@
 
 	* set_ccache.c (gss_krb5_ccache_name): Remove call to
 	kg_release_defcred().
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
 
 2003-07-14  Tom Yu  <tlyu@mit.edu>
 

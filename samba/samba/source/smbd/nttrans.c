@@ -972,7 +972,13 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 	p += 4;
 	
 	/* Create time. */  
+	#if defined(ATTR_CMN_CRTIME)
+		if (!(get_creation_time_attr(fname, &c_time, 1) == 0))  {
+	#endif
 	c_time = get_create_time(&sbuf,lp_fake_dir_create_times(SNUM(conn)));
+	#if defined(ATTR_CMN_CRTIME)
+		}
+	#endif
 
 	if (lp_dos_filetime_resolution(SNUM(conn))) {
 		c_time &= ~1;
@@ -1468,7 +1474,13 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 	p += 8;
 
 	/* Create time. */
+	#if defined(ATTR_CMN_CRTIME)
+		if (!(get_creation_time_attr(fname, &c_time, 1) == 0))  {
+	#endif
 	c_time = get_create_time(&sbuf,lp_fake_dir_create_times(SNUM(conn)));
+	#if defined(ATTR_CMN_CRTIME)
+		}
+	#endif
 
 	if (lp_dos_filetime_resolution(SNUM(conn))) {
 		c_time &= ~1;

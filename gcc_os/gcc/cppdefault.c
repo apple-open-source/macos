@@ -29,7 +29,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* APPLE LOCAL begin fat builds  ilr */
 #ifdef PHAT
 #undef GPLUSPLUS_INCLUDE_DIR
-#define GPLUSPLUS_INCLUDE_DIR "/usr/include/gcc/darwin/" VERSION "/g++-v3"
+#define GPLUSPLUS_INCLUDE_DIR "/usr/include/gcc/darwin/" VERSION "/c++"
 
 #undef GPLUSPLUS_TOOL_INCLUDE_DIR
 #define GPLUSPLUS_TOOL_INCLUDE_DIR GPLUSPLUS_INCLUDE_DIR "/" DEFAULT_TARGET_ARCH "-darwin"

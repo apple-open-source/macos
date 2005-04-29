@@ -6,56 +6,60 @@
 #define GDB_PPC_THREAD_VPSTATE 4
 #define GDB_PPC_THREAD_STATE_64 5
 
-struct gdb_ppc_thread_state {
+struct gdb_ppc_thread_state
+{
 
-  unsigned int srr0;		/* program counter */
-  unsigned int srr1;		/* machine state register */
+  unsigned int srr0;            /* program counter */
+  unsigned int srr1;            /* machine state register */
 
   unsigned int gpregs[32];
 
-  unsigned int cr;		/* condition register */
-  unsigned int xer;		/* integer exception register */
-  unsigned int lr;		/* link register */
+  unsigned int cr;              /* condition register */
+  unsigned int xer;             /* integer exception register */
+  unsigned int lr;              /* link register */
   unsigned int ctr;
   unsigned int mq;
 
-  unsigned int vrsave;		/* vector save register */
+  unsigned int vrsave;          /* vector save register */
 };
 
 typedef struct gdb_ppc_thread_state gdb_ppc_thread_state_t;
 
-struct gdb_ppc_thread_state_64 {
+struct gdb_ppc_thread_state_64
+{
 
-  unsigned long long srr0;	/* program counter */
-  unsigned long long srr1;	/* machine state register */
+  unsigned long long srr0;      /* program counter */
+  unsigned long long srr1;      /* machine state register */
 
   unsigned long long gpregs[32];
 
-  unsigned int cr;		/* condition register */
-  unsigned long long xer;	/* integer exception register */
-  unsigned long long lr;	/* link register */
+  unsigned int cr;              /* condition register */
+  unsigned long long xer;       /* integer exception register */
+  unsigned long long lr;        /* link register */
   unsigned long long ctr;
 
-  unsigned int vrsave;		/* vector save register */
+  unsigned int vrsave;          /* vector save register */
 };
 
 typedef struct gdb_ppc_thread_state_64 gdb_ppc_thread_state_64_t;
 
-struct gdb_ppc_thread_fpstate {
+struct gdb_ppc_thread_fpstate
+{
 
   double fpregs[32];
 
-  unsigned int fpscr_pad;	/* fpscr is 64 bits; first 32 are unused */
-  unsigned int fpscr;		/* floating point status register */
+  unsigned int fpscr_pad;       /* fpscr is 64 bits; first 32 are unused */
+  unsigned int fpscr;           /* floating point status register */
 };
 
 typedef struct gdb_ppc_thread_fpstate gdb_ppc_thread_fpstate_t;
 
-struct gdb_ppc_thread_vpstate {
+struct gdb_ppc_thread_vpstate
+{
   unsigned long save_vr[32][4];
   unsigned long save_vscr[4];
   unsigned int save_pad5[4];
-  unsigned int save_vrvalid;	/* vrs that have been saved */
+  unsigned int save_vrvalid;    /* vrs that have been saved */
   unsigned int save_pad6[7];
 };
 

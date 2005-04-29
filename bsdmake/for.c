@@ -1,6 +1,9 @@
 /*
- * Copyright (c) 1992, The Regents of the University of California.
- * All rights reserved.
+ * Copyright (c) 1993
+ *	The Regents of the University of California.  All rights reserved.
+ *
+ * This code is derived from software contributed to Berkeley by
+ * Christos Zoulas.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,16 +32,11 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * @(#)for.c	8.1 (Berkeley) 6/6/93
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)for.c	8.1 (Berkeley) 6/6/93";
-#else
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/make/for.c,v 1.10 1999/09/11 13:08:01 hoek Exp $";
-#endif
-#endif /* not lint */
+#include <sys/cdefs.h>
 
 /*-
  * for.c --
@@ -82,9 +80,10 @@ typedef struct _For {
     Buffer	  buf;			/* Unexpanded buffer	*/
     char*	  var;			/* Index name		*/
     Lst  	  lst;			/* List of variables	*/
+    int  	  lineno;		/* Line #		*/
 } For;
 
-static int ForExec	__P((ClientData, ClientData));
+static int ForExec(void *, void *);
 
 
 
@@ -107,8 +106,7 @@ static int ForExec	__P((ClientData, ClientData));
  *-----------------------------------------------------------------------
  */
 int
-For_Eval (line)
-    char    	    *line;    /* Line to parse */
+For_Eval (char *line)
 {
     char	    *ptr = line, *sub, *wrd;
     int	    	    level;  	/* Level at which to report errors. */
@@ -174,12 +172,12 @@ For_Eval (line)
 	 */
 	forLst = Lst_Init(FALSE);
 	buf = Buf_Init(0);
-	sub = Var_Subst(NULL, ptr, VAR_GLOBAL, FALSE);
+	sub = Var_Subst(NULL, ptr, VAR_CMD, FALSE);
 
-#define ADDWORD() \
+#define	ADDWORD() \
 	Buf_AddBytes(buf, ptr - wrd, (Byte *) wrd), \
 	Buf_AddByte(buf, (Byte) '\0'), \
-	Lst_AtFront(forLst, (ClientData) Buf_GetAll(buf, &varlen)), \
+	Lst_AtFront(forLst, (void *) Buf_GetAll(buf, &varlen)), \
 	Buf_Destroy(buf, FALSE)
 
 	for (ptr = sub; *ptr && isspace((unsigned char) *ptr); ptr++)
@@ -193,13 +191,12 @@ For_Eval (line)
 		    ptr++;
 		wrd = ptr--;
 	    }
-	if (DEBUG(FOR))
-	    (void) fprintf(stderr, "For: Iterator %s List %s\n", forVar, sub);
+	DEBUGF(FOR, ("For: Iterator %s List %s\n", forVar, sub));
 	if (ptr - wrd > 0)
 	    ADDWORD();
 	else
 	    Buf_Destroy(buf, TRUE);
-	free((Address) sub);
+	free(sub);
 
 	forBuf = Buf_Init(0);
 	forLevel++;
@@ -212,8 +209,7 @@ For_Eval (line)
 
 	if (strncmp(ptr, "endfor", 6) == 0 &&
 	    (isspace((unsigned char) ptr[6]) || !ptr[6])) {
-	    if (DEBUG(FOR))
-		(void) fprintf(stderr, "For: end for %d\n", forLevel);
+	    DEBUGF(FOR, ("For: end for %d\n", forLevel));
 	    if (--forLevel < 0) {
 		Parse_Error (level, "for-less endfor");
 		return 0;
@@ -222,8 +218,7 @@ For_Eval (line)
 	else if (strncmp(ptr, "for", 3) == 0 &&
 		 isspace((unsigned char) ptr[3])) {
 	    forLevel++;
-	    if (DEBUG(FOR))
-		(void) fprintf(stderr, "For: new loop %d\n", forLevel);
+	    DEBUGF(FOR, ("For: new loop %d\n", forLevel));
 	}
     }
 
@@ -251,18 +246,15 @@ For_Eval (line)
  *-----------------------------------------------------------------------
  */
 static int
-ForExec(namep, argp)
-    ClientData namep;
-    ClientData argp;
+ForExec(void *namep, void *argp)
 {
     char *name = (char *) namep;
     For *arg = (For *) argp;
     int len;
     Var_Set(arg->var, name, VAR_GLOBAL);
-    if (DEBUG(FOR))
-	(void) fprintf(stderr, "--- %s = %s\n", arg->var, name);
+    DEBUGF(FOR, ("--- %s = %s\n", arg->var, name));
     Parse_FromString(Var_Subst(arg->var, (char *) Buf_GetAll(arg->buf, &len),
-			       VAR_GLOBAL, FALSE));
+			       VAR_GLOBAL, FALSE), arg->lineno);
     Var_Delete(arg->var, VAR_GLOBAL);
 
     return 0;
@@ -283,7 +275,7 @@ ForExec(namep, argp)
  *-----------------------------------------------------------------------
  */
 void
-For_Run()
+For_Run(int lineno)
 {
     For arg;
 
@@ -292,13 +284,14 @@ For_Run()
     arg.var = forVar;
     arg.buf = forBuf;
     arg.lst = forLst;
+    arg.lineno = lineno;
     forVar = NULL;
     forBuf = NULL;
     forLst = NULL;
 
-    Lst_ForEach(arg.lst, ForExec, (ClientData) &arg);
+    Lst_ForEach(arg.lst, ForExec, (void *) &arg);
 
-    free((Address)arg.var);
-    Lst_Destroy(arg.lst, (void (*) __P((ClientData))) free);
+    free(arg.var);
+    Lst_Destroy(arg.lst, (void (*)(void *)) free);
     Buf_Destroy(arg.buf, TRUE);
 }

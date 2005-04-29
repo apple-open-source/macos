@@ -25,6 +25,7 @@
 #ifndef BACK_NETINFO_H
 #define BACK_NETINFO_H
 
+#include <mach/boolean.h>
 #include <NetInfo/dsengine.h>
 #include <NetInfo/dsindex.h>
 #include <NetInfo/dsutil.h>

@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# Comment-out next line if building with GCC compiler.
+# This is mostly the case, therefore the default.
+#
+ CC=gcc; export CC
+
+#
+# Tcl on Unix (uses public Tcl library)
+# ----------------------------------------------------
+# 
+ ../configure --enable-threads --enable-symbols
+
+#
+# As of 2.6, the threading extension supports persistent
+# shared variables. As an working example of this, there
+# is a simple wrapper for the popular Gdbm library.
+# Uncomment the following line if you like to compile the
+# Gdbm wrapper for persistent shared variables.
+# 
+# ../configure --enable-threads --enable-symbols --enable-gdbm
+#
+#
+# AOLserver 3.X. It delivers its own patched Tcl lib.
+# ----------------------------------------------------
+# Change the "aolsrc" below to point to the source
+# distribution of the AOLserver.
+# Please do not use "make install" after doing "make".
+# You have to manually adjust AOLserver config file
+# to load this module.
+#
+# aolsrc="/usr/src/aolserver-3.4"
+# ../configure --enable-threads \
+#   --with-aolserver=$aolsrc \
+#   --with-tcl=$aolsrc/tcl8.3.4/unix 
+#
+#
+# AOLserver 4.X. It uses public Tcl library.
+# ----------------------------------------------------
+# Just do "make" and "make install". 
+# To use, just do "ns_eval package require Thread"
+# at the AOLserver startup or later from any thread.
+# connection thread.
+#
+# ../configure --enable-threads \
+#   --prefix=/usr/local/aolserver \
+#   --with-aolserver=/usr/local/aolserver
+#
+#
+# Mac OS X. Uses public Tcl library.
+# ----------------------------------------------------
+# ../configure --enable-threads \
+#   --mandir=/usr/local/share/man \
+#   --libdir=/Library/Tcl \
+#   --with-tcl=/Library/Frameworks/Tcl.framework \
+#   --with-tclinclude=/Library/Frameworks/Tcl.framework/Headers
+#
+# EOF

@@ -1,0 +1,225 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin doctools_api n 1.0]
+[copyright {2002 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[copyright {2003 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Documentation tools}]
+[titledesc {Interface specification for formatter code}]
+[description]
+[para]
+
+This manpage specifies the interface between formatting engines for
+data in the [syscmd doctools] format as specified in
+[syscmd doctools_fmt], and [package doctools], the package for the
+generic handling of such data, as described in [syscmd doctools].
+
+[para]
+
+Each formatting engine has to implement the conversion of input in
+[syscmd doctools] format to one particular output format as chosen by
+the author of the formatting engine.
+
+[section INTERFACE]
+
+Each formatting engine has to provide
+
+[list_begin enum]
+[enum]
+
+Implementations of all the formatting commands as specified in
+
+[syscmd doctools_fmt], using the defined names, but prefixed with the
+string [const fmt_]. The sole exceptions to this are the formatting
+commands [cmd vset] and [cmd include]. These two commands are
+processed by the generic layer and will never be seen by the
+formatting engine.
+
+[enum]
+and additionally implementations for
+
+[list_begin definitions]
+
+[lst_item "[cmd fmt_numpasses]"]
+
+This command is called immediately after the formatter is loaded and
+has to return the number of passes required by this formatter to
+process a manpage. This information has to be an integer number
+greater or equal to one.
+
+[lst_item "[cmd fmt_initialize]"]
+
+This command is called at the beginning of every conversion run and is
+responsible for initializing the general state of the formatting
+engine.
+
+[lst_item "[cmd fmt_setup] [arg n]"]
+
+This command is called at the beginning of each pass over the input
+and is given the id of the current pass as its first argument. It is
+responsible for setting up the internal state of the formatting for
+this particular pass.
+
+[lst_item "[cmd fmt_postprocess] [arg text]"]
+
+This command is called immediately after the last pass, with the
+expansion result of that pass as argument, and can do any last-ditch
+modifications of the generated result.  Its result will be the final
+result of the conversion.
+
+[nl]
+
+Most formats will use [emph identity] here.
+
+[lst_item "[cmd fmt_shutdown]"]
+
+This command is called at the end of every conversion run and is
+responsible for cleaning up of all the state in the formatting engine.
+
+[lst_item "[cmd fmt_plain_text] [arg text]"]
+
+This command is called for any plain text encountered by the processor
+in the input and can do any special processing required for plain
+text. Its result is the string written into the expansion.
+
+[nl]
+
+Most formats will use [emph identity] here.
+
+
+[lst_item [cmd fmt_listvariables]]
+
+The command is called after loading a formatting engine to determine
+which parameters are supported by that engine. The return value is a
+list containing the names of these parameters.
+
+[lst_item "[cmd fmt_varset] [arg varname] [arg text]"]
+
+The command is called by the generic layer to set the value of an
+engine specific parameter. The parameter to change is specified by
+[arg varname], and the value to set is given in [arg text].
+
+[nl]
+
+The command will throw an error if an unknown [arg varname] is
+used. Only the names returned by [cmd fmt_listvariables] are
+considered known.
+
+[list_end]
+[list_end]
+
+[para]
+
+The tcl code of a formatting engine implementing all of the above can
+make the following assumptions about its environment
+
+[list_begin enum]
+[enum]
+
+It has full access to its own safe interpreter.  In other words, the
+engine cannot damage the other parts of the processor, nor can it
+damage the filesystem.
+
+[enum]
+
+The surrounding system provides the engine with the following
+commands:
+
+[list_begin definitions]
+
+[lst_item "Doctools commands"]
+[list_begin definitions]
+[lst_item [cmd dt_file]]
+Returns the full name of the file currently processed by the engine.
+[lst_item [cmd dt_fileid]]
+Returns the name of the file currently processed by the engine,
+without path, nor extension
+[lst_item [cmd dt_format]]
+Returns the name of format loaded into the engine
+[lst_item [cmd dt_lnesting]]
+Returns the number lists currently open
+[lst_item [cmd dt_module]]
+Returns the name of the module the file currently processed belongs to.
+[lst_item "[cmd dt_source] [arg file]"]
+This command allows the engine to load additional tcl code. The file
+being loaded has to be in the same directory as the file the format
+engine was loaded from. Any path specified for [arg file] is ignored.
+[list_end]
+
+[lst_item "Expander commands"]
+
+All of the commands below are methods of the expander object (without
+the prefix [const ex_]) handling the input. Their arguments and
+results are described in [package expander(n)].
+
+
+[list_begin definitions]
+[lst_item [cmd ex_cappend]]
+[lst_item [cmd ex_cget]]
+[lst_item [cmd ex_cis]]
+[lst_item [cmd ex_cname]]
+[lst_item [cmd ex_cpop]]
+[lst_item [cmd ex_cpush]]
+[lst_item [cmd ex_cset]]
+[lst_item [cmd ex_lb]]
+[lst_item [cmd ex_rb]]
+[list_end]
+
+[lst_item "_common.tcl commands"]
+
+Any engine loading ([cmd dt_source]) the file [file _common.tcl] has
+default implementations of the [const fmt_] commands explicitly
+listed in this document, and can additionally use
+
+[list_begin definitions]
+[lst_item [cmd c_inpass]]
+Returns the id of the pass currently executing
+[lst_item [cmd c_begin]]
+Use this to mark that processing of the text after [cmd manpage_begin]
+has begun.
+[lst_item [cmd c_begun]]
+Checks the flag set by [cmd c_begin].
+[lst_item "[cmd c_set_module] [arg text]"]
+Remember [arg text] as module information.
+[lst_item [cmd c_get_module]]
+Retrieve module information stored by [cmd c_set_module].
+[lst_item "[cmd c_set_title] [arg text]"]
+Remember [arg text] as title.
+[lst_item [cmd c_get_title]]
+Retrieve title stored by [cmd c_set_title].
+[lst_item [cmd c_provenance]]
+Returns a string describing how the input was processed.
+[lst_item "[cmd c_pass] [arg {pass proc arguments body}]"]
+Define a procedure which is valid when pass [arg pass] of the engine
+is executed.
+[lst_item "[cmd c_holdBuffers] [arg args]"]
+Define one or more buffers for holding data between passes.
+[lst_item "[cmd c_hold] [arg {buffer entry}]"]
+Add an entry to the specified buffer. The buffer has to be defined by
+an earlier invocation of the command [cmd c_holdBuffers].
+[lst_item "[cmd c_held] [arg buffer]"]
+Retrieves the contents of the specified buffer. The buffer is empty
+afterwards. All entries in the buffer are joined by newlines.
+[lst_item [cmd c_cnext]]
+Increment the counter and return its current value.
+[lst_item [cmd c_cinit]]
+Push the current counter on the stack and reinitialize the counter to zero.
+[lst_item [cmd c_creset]]
+Reinitialize the counter with the value on the counter stack and
+remove that value from the stack.
+[lst_item "[cmd NOP] [arg args]"]
+Do nothing command. Can be used in conjunction with [cmd c_pass] to
+visibly declare in which passes a formatting command has nothing to do.
+[lst_item "[cmd NYI] [opt [arg message]]"]
+Throws the error "[arg message] [const {Not yet implemented}]".
+[lst_item "[cmd c_sectionId] [arg name]"]
+Remembers the name of the section for later cross-referencing
+[lst_item "[cmd c_possibleReference] [arg {text gi}]"]
+Checks if a section is available for [arg text]. This command is
+currently tuned for use by engines like HTML and TMML.
+[list_end]
+
+[list_end]
+[list_end]
+
+[see_also doctools_fmt doctools]
+[keywords markup {generic markup} manpage TMML HTML nroff LaTeX]
+[manpage_end]

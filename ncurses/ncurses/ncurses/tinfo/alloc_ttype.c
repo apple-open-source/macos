@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1999,2000 Free Software Foundation, Inc.                   *
+ * Copyright (c) 1999-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -43,7 +43,7 @@
 #include <tic.h>
 #include <term_entry.h>
 
-MODULE_ID("$Id: alloc_ttype.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: alloc_ttype.c,v 1.14 2003/05/24 21:10:28 tom Exp $")
 
 #if NCURSES_XNAMES
 /*
@@ -92,8 +92,10 @@ find_name(char **table, int length, char *name)
 }
 
 static void
-realign_data(TERMTYPE * to, char **ext_Names, int ext_Booleans, int
-	     ext_Numbers, int ext_Strings)
+realign_data(TERMTYPE * to, char **ext_Names,
+	     int ext_Booleans,
+	     int ext_Numbers,
+	     int ext_Strings)
 {
     int n, m, base;
     int limit = (to->ext_Booleans + to->ext_Numbers + to->ext_Strings);
@@ -291,7 +293,7 @@ _nc_ins_ext_name(TERMTYPE * tp, char *name, int token_type)
 	int cmp = strcmp(name, tp->ext_Names[j]);
 	if (cmp == 0)
 	    /* already present */
-	    return _nc_ext_data_index(tp, j, token_type);
+	    return _nc_ext_data_index(tp, (int) j, token_type);
 	if (cmp < 0) {
 	    break;
 	}
@@ -301,7 +303,7 @@ _nc_ins_ext_name(TERMTYPE * tp, char *name, int token_type)
     for (k = total - 1; k > j; k--)
 	tp->ext_Names[k] = tp->ext_Names[k - 1];
     tp->ext_Names[j] = name;
-    j = _nc_ext_data_index(tp, j, token_type);
+    j = _nc_ext_data_index(tp, (int) j, token_type);
 
     switch (token_type) {
     case BOOLEAN:
@@ -371,8 +373,7 @@ adjust_cancels(TERMTYPE * to, TERMTYPE * from)
 }
 
 NCURSES_EXPORT(void)
-_nc_align_termtype
-(TERMTYPE * to, TERMTYPE * from)
+_nc_align_termtype(TERMTYPE * to, TERMTYPE * from)
 {
     int na = NUM_EXT_NAMES(to);
     int nb = NUM_EXT_NAMES(from);
@@ -457,10 +458,9 @@ _nc_align_termtype
 #endif
 
 NCURSES_EXPORT(void)
-_nc_copy_termtype
-(TERMTYPE * dst, TERMTYPE * src)
+_nc_copy_termtype(TERMTYPE * dst, TERMTYPE * src)
 {
-    int i;
+    unsigned i;
 
     *dst = *src;		/* ...to copy the sizes and string-tables */
     dst->Booleans = typeMalloc(char, NUM_BOOLEANS(dst));

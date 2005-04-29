@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,24 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Feb 28 2002.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLLoadXCOFFLoader.c,v 1.12 2003/07/22 15:58:31 ssen Exp $
+ *  $Id: BLLoadXCOFFLoader.c,v 1.16 2005/02/03 00:42:25 ssen Exp $
  *
  *  $Log: BLLoadXCOFFLoader.c,v $
+ *  Revision 1.16  2005/02/03 00:42:25  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.15  2004/04/20 21:40:42  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.14  2004/03/17 01:21:53  ssen
+ *  Initialize a uint32_t explicitly with 0xFFFFFFFF
+ *
+ *  Revision 1.13  2003/10/16 23:50:05  ssen
+ *  Partially finish cleanup of headers to add "const" to char[] arguments
+ *  that won't be modified.
+ *
  *  Revision 1.12  2003/07/22 15:58:31  ssen
  *  APSL 2.0
  *
@@ -95,7 +106,7 @@
 static CFDataRef convertXCOFFImage (BLContextPtr context, CFDataRef rawImage, uint32_t *entryP,
 			     uint32_t *loadBaseP, uint32_t *loadSizeP);
 
-int BLLoadXCOFFLoader(BLContextPtr context, unsigned char xcoff[],
+int BLLoadXCOFFLoader(BLContextPtr context, const unsigned char xcoff[],
                             uint32_t *entrypoint, uint32_t *loadbase,
                             uint32_t *size, uint32_t *checksum,
                             CFDataRef *data) {
@@ -220,8 +231,8 @@ static CFDataRef convertXCOFFImage (BLContextPtr context, CFDataRef rawImage, ui
   XSection                *sectionP;
   uint8_t                  *partImageP;
   uint32_t                  partImageSize;
-  uint32_t                  lowestAddress   = ~0ul;
-  uint32_t                  highestAddress  = 0ul;
+  uint32_t                  lowestAddress   = 0xFFFFFFFF;
+  uint32_t                  highestAddress  = 0x00000000;
   const uint32_t    kPageSize               = 4096;
 
   _swapXFileHeader(fileP);

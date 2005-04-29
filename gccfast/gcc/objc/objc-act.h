@@ -54,10 +54,14 @@ tree objc_build_finally_prologue		PARAMS ((void));
 tree objc_build_finally_epilogue		PARAMS ((void));
 /* APPLE LOCAL end Panther ObjC enhancements */
 
+/* APPLE LOCAL begin XJR */
+int objc_is_object_ptr_type			PARAMS ((tree, int));
+/* APPLE LOCAL end XJR */
+
 tree is_ivar					PARAMS ((tree, tree));
 int is_private					PARAMS ((tree));
 int is_public					PARAMS ((tree, tree));
-tree add_instance_variable			PARAMS ((tree, int, tree, tree, tree));
+tree add_instance_variable			PARAMS ((tree, int, tree, tree, tree, tree));
 tree add_class_method				PARAMS ((tree, tree));
 tree add_instance_method			PARAMS ((tree, tree));
 tree get_super_receiver				PARAMS ((void));
@@ -118,6 +122,8 @@ tree build_encode_expr				PARAMS ((tree));
 #define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 3)
 #define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 4)
 #define CLASS_OWN_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 5)
+/* APPLE LOCAL XJR */
+#define CLASS_USES_GC(CLASS) TREE_LANG_FLAG_0 (CLASS)
 #define PROTOCOL_NAME(CLASS) ((CLASS)->type.name)
 #define PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 0)
 #define PROTOCOL_NST_METHODS(CLASS) ((CLASS)->type.minval)
@@ -205,6 +211,8 @@ enum objc_tree_index
 
     OCTI_SELF_DECL,
     OCTI_UMSG_DECL,
+    /* APPLE LOCAL XJR */
+    OCTI_UMSG_FAST_DECL,
     OCTI_UMSG_SUPER_DECL,
     /* APPLE LOCAL begin objc stret methods */
     OCTI_UMSG_STRET_DECL,
@@ -294,6 +302,13 @@ enum objc_tree_index
     OCTI_CATCH_TYPE,
     /* APPLE LOCAL end Panther ObjC enhancements */
 
+    /* APPLE LOCAL begin XJR */
+    OCTI_ASSIGN_IVAR_DECL,
+    OCTI_ASSIGN_IVAR_FAST_DECL,
+    OCTI_ASSIGN_GLOBAL_DECL,
+    OCTI_ASSIGN_STRONGCAST_DECL,
+    /* APPLE LOCAL end XJR */
+
     OCTI_MAX
 };
 
@@ -314,6 +329,8 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 #define self_decl		objc_global_trees[OCTI_SELF_DECL]
 #define umsg_decl		objc_global_trees[OCTI_UMSG_DECL]
+/* APPLE LOCAL XJR */
+#define umsg_fast_decl		objc_global_trees[OCTI_UMSG_FAST_DECL]
 #define umsg_super_decl		objc_global_trees[OCTI_UMSG_SUPER_DECL]
 /* APPLE LOCAL begin objc stret methods */
 #define umsg_stret_decl		objc_global_trees[OCTI_UMSG_STRET_DECL]
@@ -332,14 +349,16 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 /* Type checking macros.  */
 
+/* APPLE LOCAL begin XJR */
 #define IS_ID(TYPE) \
-  (TYPE_MAIN_VARIANT (TYPE) == TYPE_MAIN_VARIANT (id_type))
+  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == TREE_TYPE (id_type))
+#define IS_CLASS(TYPE) \
+  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == TREE_TYPE (objc_class_type))
 #define IS_PROTOCOL_QUALIFIED_ID(TYPE) \
   (IS_ID (TYPE) && TYPE_PROTOCOL_LIST (TYPE))
-/* APPLE LOCAL begin msg send super */  
 #define IS_SUPER(TYPE) \
-  (TREE_CODE (TYPE) == POINTER_TYPE && TREE_TYPE (TYPE) == objc_super_template)
-/* APPLE LOCAL end msg send super */  
+  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == objc_super_template)
+/* APPLE LOCAL end XJR */
 
 #define class_chain		objc_global_trees[OCTI_CLS_CHAIN]
 #define alias_chain		objc_global_trees[OCTI_ALIAS_CHAIN]
@@ -421,6 +440,15 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 				objc_global_trees[OCTI_EXCEPTION_BLK_STACK]
 #define objc_catch_type		objc_global_trees[OCTI_CATCH_TYPE]
 /* APPLE LOCAL end Panther ObjC enhancements */
+
+/* APPLE LOCAL begin XJR */
+#define objc_assign_ivar_decl	objc_global_trees[OCTI_ASSIGN_IVAR_DECL]
+#define objc_assign_ivar_fast_decl		\
+				objc_global_trees[OCTI_ASSIGN_IVAR_FAST_DECL]
+#define objc_assign_global_decl	objc_global_trees[OCTI_ASSIGN_GLOBAL_DECL]
+#define objc_assign_strong_cast_decl		\
+				objc_global_trees[OCTI_ASSIGN_STRONGCAST_DECL]
+/* APPLE LOCAL end XJR */
 
 #define objc_method_template	objc_global_trees[OCTI_METH_TEMPL]
 #define objc_ivar_template	objc_global_trees[OCTI_IVAR_TEMPL]

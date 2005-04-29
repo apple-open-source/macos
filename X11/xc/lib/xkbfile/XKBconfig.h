@@ -27,7 +27,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/lib/xkbfile/XKBconfig.h,v 3.5 2001/01/17 19:43:39 dawes Exp $ */
+/* $XFree86: xc/lib/xkbfile/XKBconfig.h,v 3.6 2003/11/17 22:20:23 dawes Exp $ */
 
 
 typedef struct _XkbConfigRtrn	*XkbConfigRtrnPtr;
@@ -35,13 +35,11 @@ typedef struct _XkbConfigField	*XkbConfigFieldPtr;
 typedef struct _XkbConfigFields	*XkbConfigFieldsPtr;
 
 typedef Bool (*XkbConfigParseFunc)(
-#if NeedFunctionPrototypes
 	FILE *				/* file */,
 	XkbConfigFieldsPtr		/* fields */,
 	XkbConfigFieldPtr		/* field */,
 	XkbDescPtr			/* xkb */,
 	XkbConfigRtrnPtr		/* rtrn */
-#endif
 );
 
 #define	XkbCF_Check	0
@@ -50,12 +48,10 @@ typedef Bool (*XkbConfigParseFunc)(
 #define	XkbCF_Destroy	3
 
 typedef	Bool (*XkbConfigFinishFunc)(
-#if NeedFunctionPrototypes
 	XkbConfigFieldsPtr		/* fields */,
 	XkbDescPtr			/* xkb */,
 	XkbConfigRtrnPtr		/* rtrn */,
 	int				/* what */
-#endif
 );
 
 typedef struct _XkbConfigRtrnPriv {
@@ -214,91 +210,69 @@ extern	XkbConfigFieldsPtr	XkbCFDflts;
 _XFUNCPROTOBEGIN
 
 extern int XkbCFScan(
-#if NeedFunctionPrototypes
 	FILE *			/* file */,
 	XkbCFScanResultPtr	/* val_rtrn */,
 	XkbConfigRtrnPtr	/* rtrn */
-#endif
 );
 
 extern XkbConfigFieldsPtr XkbCFDup(
-#if NeedFunctionPrototypes
 	XkbConfigFieldsPtr	/* fields */
-#endif
 );
 
 extern XkbConfigFieldsPtr XkbCFFree(
-#if NeedFunctionPrototypes
 	XkbConfigFieldsPtr	/* fields */,
 	Bool			/* all */
-#endif
 );
 
 extern	XkbConfigUnboundModPtr XkbCFAddModByName(
-#if NeedFunctionPrototypes
 	XkbConfigRtrnPtr	/* rtrn */,
 	int			/* what */,
 	char *			/* name */,
 	Bool			/* merge */,
 	XkbConfigUnboundModPtr	/* last */
-#endif
 );
 
 extern	Bool XkbCFBindMods(
-#if NeedFunctionPrototypes
 	XkbConfigRtrnPtr	/* rtrn */,
 	XkbDescPtr		/* xkb */
-#endif
 );
 
 extern	Bool XkbCFApplyMods(
-#if NeedFunctionPrototypes
 	XkbConfigRtrnPtr	/* rtrn */,
 	int			/* what */,
 	XkbConfigModInfoPtr	/* info */
-#endif
 );
 
 extern	Bool XkbCFApplyRtrnValues(
-#if NeedFunctionPrototypes
 	XkbConfigRtrnPtr	/* rtrn */,
 	XkbConfigFieldsPtr	/* fields */,
 	XkbDescPtr		/* xkb */
-#endif
 );
 
 extern	XkbConfigRtrnPrivPtr XkbCFAddPrivate(
-#if NeedFunctionPrototypes
 	XkbConfigRtrnPtr	/* rtrn */,
 	XkbConfigFieldsPtr	/* fields */,
 	XPointer		/* ptr */
-#endif
 );
 
 extern void XkbCFFreeRtrn(
-#if NeedFunctionPrototypes
 	XkbConfigRtrnPtr	/* rtrn */,
 	XkbConfigFieldsPtr	/* fields */,
 	XkbDescPtr		/* xkb */
-#endif
 );
 
 extern Bool XkbCFParse(
-#if NeedFunctionPrototypes
 	FILE *			/* file */,
 	XkbConfigFieldsPtr	/* fields */,
 	XkbDescPtr		/* xkb */,
 	XkbConfigRtrnPtr	/* rtrn */
-#endif
 );
 
 extern	void XkbCFReportError(
-#if NeedFunctionPrototypes
 	FILE *			/* file */,
 	char *			/* name */,
 	int			/* error */,
 	int			/* line */
-#endif
 );
 
 _XFUNCPROTOEND

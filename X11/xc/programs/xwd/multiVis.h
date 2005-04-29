@@ -34,27 +34,22 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
  ------------------------------------------------------------------------ **/
+/* $XFree86: xc/programs/xwd/multiVis.h,v 1.3 2003/11/17 22:20:54 dawes Exp $ */
 
 extern int GetMultiVisualRegions(
-#if NeedFunctionPrototypes
     Display *, Window, int, int, unsigned int,
     unsigned int, int *, int *, XVisualInfo **, int *,
     OverlayInfo  **, int *, XVisualInfo ***, list_ptr *,
     list_ptr *, int *
-#endif
 ); 
 
 extern XImage *ReadAreaToImage(
-#if NeedFunctionPrototypes
     Display *, Window, int, int, unsigned int,
     unsigned int, int, XVisualInfo *, int,
     OverlayInfo	*, int, XVisualInfo **, list_ptr,
     list_ptr, int, int
-#endif
 );
 
 extern void initFakeVisual(
-#if NeedFunctionPrototypes
     Visual *
-#endif
 );

@@ -4,7 +4,7 @@
 // and by David Brownell
 // NO WARRANTY!  This class is in the Public Domain.
 
-// $Id: XMLReaderFactory.java,v 1.4 2003/01/22 06:04:38 gkeating Exp $
+// $Id: XMLReaderFactory.java,v 1.1.1.2 2003/01/21 21:21:38 gkeating Exp $
 
 package org.xml.sax.helpers;
 import java.io.BufferedReader;

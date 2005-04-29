@@ -2,6 +2,21 @@
 #ifndef __PTY_INT_H__
 #include <pty_err.h>
 #include <sys/types.h>
+
+#if defined(_AIX) && defined(_THREAD_SAFE)
+/* On AIX 4.3.3, both utmp.h and utmpx.h will define struct utmp_data,
+   and they'll define them differently, if _THREAD_SAFE is defined.
+
+   We don't actually care about this library being thread-safe, but
+   for various reasons we do use both versions of the interface at the
+   moment.
+
+   So trick the system headers into not "helping" us in that area.
+
+   This is an ugly hack, and shouldn't be needed.  Bleah.  */
+# undef _THREAD_SAFE
+#endif
+
 #ifdef HAVE_UTMP_H
 #include <utmp.h>
 #endif
@@ -30,7 +45,6 @@
 #include <sys/time.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <netinet/in.h>
 #include <errno.h>
 #include <pwd.h>
      
@@ -65,10 +79,13 @@
 #include <sgtty.h>
 #endif
      
-#include <netdb.h>
+#include "port-sockets.h"
 #include <string.h>
 #include <sys/param.h>
 
+#ifdef HAVE_UTIL_H
+#include <util.h>
+#endif
 
 #ifdef HAVE_STREAMS
 /* krlogin doesn't test sys/tty... */

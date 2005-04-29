@@ -28,7 +28,8 @@ if ![info exists DEFAULT_CFLAGS] then {
 dg-init
 
 # Main loop.
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.\[m\]]] \
+# APPLE LOCAL -ObjC
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.\[mc\]]] \
 	"" $DEFAULT_CFLAGS
 
 # All done.

@@ -46,9 +46,6 @@
 // --------------------------------------------------------------------------------
 
 //API logging
-extern dsBool				gLogAPICalls;
-extern time_t				gSunsetTime;
-extern uInt32				gDaemonPID;
 extern uInt32				gAPICallCount;
 
 
@@ -79,7 +76,7 @@ DSTCPConnection::~DSTCPConnection()
 {
 	if ( fTCPEndPt != nil )
 	{
-		CRefTable::CheckClientPIDs(false, fTCPEndPt->GetRemoteHostIPAddress(), (uInt32)fTCPEndPt );
+		CRefTable::CleanClientRefs(fTCPEndPt->GetRemoteHostIPAddress(), (uInt32)fTCPEndPt );
 		delete( fTCPEndPt );
 		fTCPEndPt = nil;
 	}
@@ -167,16 +164,6 @@ long DSTCPConnection::ThreadMain ( void )
 					//QueueMessage();//don't use the queue anymore since using direct dispatch
 				}
 
-				//sunset value on the looging of API calls if it accidentally gets turned on or never turned off
-				if ( gLogAPICalls )
-				{
-					if (::time( nil ) > gSunsetTime)
-					{
-						gLogAPICalls	= false;
-						syslog(LOG_INFO,"Logging of API Calls automatically turned OFF at reaching sunset duration of five minutes.");
-					}
-				}
-				
 				if ( GetThreadRunState() == kThreadStop )
 				{
 					done = true;

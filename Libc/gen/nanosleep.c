@@ -23,46 +23,106 @@
 
 #include <errno.h>
 #include <sys/time.h>
-#include <mach/message.h>
 #include <mach/mach_error.h>
-#include <mach/mach_syscalls.h>
-#include <mach/clock.h>
-#include <mach/clock_types.h>
+#include <mach/mach_time.h>
 #include <stdio.h>
 
+
+#ifdef BUILDING_VARIANT
+#include "pthread_internals.h"
+
+extern int __unix_conforming;
 extern mach_port_t clock_port;
+extern semaphore_t clock_sem;
 
 int
 nanosleep(const struct timespec *requested_time, struct timespec *remaining_time) {
-    kern_return_t ret;
+    kern_return_t kret;
+    int ret;
     mach_timespec_t remain;
     mach_timespec_t current;
-    
-    if ((requested_time == NULL) || (requested_time->tv_sec < 0) || (requested_time->tv_nsec > NSEC_PER_SEC)) {
+   
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+	 
+    if ((requested_time == NULL) || (requested_time->tv_sec < 0) || (requested_time->tv_nsec >= NSEC_PER_SEC)) {
         errno = EINVAL;
         return -1;
     }
 
-    ret = clock_get_time(clock_port, &current);
-    if (ret != KERN_SUCCESS) {
-        fprintf(stderr, "clock_get_time() failed: %s\n", mach_error_string(ret));
-        return -1;
+    if (remaining_time != NULL) {
+        kret = clock_get_time(clock_port, &current);
+        if (kret != KERN_SUCCESS) {
+            fprintf(stderr, "clock_get_time() failed: %s\n", mach_error_string(ret));
+            return -1;
+        }
     }
-    /* This depends on the layout of a mach_timespec_t and timespec_t being equivalent */
-    ret = clock_sleep_trap(clock_port, TIME_RELATIVE, requested_time->tv_sec, requested_time->tv_nsec, &remain);
-    if (ret != KERN_SUCCESS) {
-        if (ret == KERN_ABORTED) {
-            errno = EINTR;
+    ret = __semwait_signal(clock_sem, MACH_PORT_NULL, 1, 1, requested_time->tv_sec, requested_time->tv_nsec);
+    if (ret < 0) {
+        if (errno == ETIMEDOUT) {
+		return 0;
+        } else if (errno == EINTR) {
             if (remaining_time != NULL) {
                 ret = clock_get_time(clock_port, &remain);
                 if (ret != KERN_SUCCESS) {
                     fprintf(stderr, "clock_get_time() failed: %s\n", mach_error_string(ret));
                     return -1;
                 }
+                /* This depends on the layout of a mach_timespec_t and timespec_t being equivalent */
                 ADD_MACH_TIMESPEC(&current, requested_time);
                 SUB_MACH_TIMESPEC(&current, &remain);
                 remaining_time->tv_sec = current.tv_sec;
                 remaining_time->tv_nsec = current.tv_nsec;
+            }
+        } else {
+            errno = EINVAL;
+	}
+    }
+    return -1;
+}
+
+
+#else /* BUILDING_VARIANT */
+
+int
+nanosleep(const struct timespec *requested_time, struct timespec *remaining_time) {
+    kern_return_t ret;
+    mach_timespec_t remain;
+    mach_timespec_t current;
+    uint64_t end;
+    static double ratio = 0.0, rratio;
+    
+    if ((requested_time == NULL) || (requested_time->tv_sec < 0) || (requested_time->tv_nsec > NSEC_PER_SEC)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (ratio == 0.0) {
+        struct mach_timebase_info info;
+        ret = mach_timebase_info(&info);
+        if (ret != KERN_SUCCESS) {
+            fprintf(stderr, "mach_timebase_info() failed: %s\n", mach_error_string(ret));
+            errno = EAGAIN;
+            return -1;
+        }
+        ratio = (double)info.numer / ((double)info.denom * NSEC_PER_SEC);
+        rratio = (double)info.denom / (double)info.numer;
+    }
+
+    /* use rratio to avoid division */
+    end = mach_absolute_time() + (uint64_t)(((double)requested_time->tv_sec * NSEC_PER_SEC + (double)requested_time->tv_nsec) * rratio);
+    ret = mach_wait_until(end);
+    if (ret != KERN_SUCCESS) {
+        if (ret == KERN_ABORTED) {
+            errno = EINTR;
+            if (remaining_time != NULL) {
+                uint64_t now = mach_absolute_time();
+                double delta;
+                if (now > end)
+                    now = end;
+                delta = (end - now) * ratio;
+                remaining_time->tv_sec = delta;
+                remaining_time->tv_nsec = NSEC_PER_SEC * (delta - remaining_time->tv_sec);
             }
         } else {
             errno = EINVAL;
@@ -71,3 +131,6 @@ nanosleep(const struct timespec *requested_time, struct timespec *remaining_time
     }
     return 0;
 }
+
+
+#endif /* BUILDING_VARIANT */

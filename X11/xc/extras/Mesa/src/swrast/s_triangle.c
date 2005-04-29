@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.2
+ * Version:  5.0
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,8 +33,8 @@
 #include "glheader.h"
 #include "context.h"
 #include "colormac.h"
+#include "imports.h"
 #include "macros.h"
-#include "mem.h"
 #include "mmath.h"
 #include "texformat.h"
 #include "teximage.h"
@@ -46,10 +46,11 @@
 #include "s_feedback.h"
 #include "s_span.h"
 #include "s_triangle.h"
-#include "s_trispan.h"
 
 
-
+/*
+ * Just used for feedback mode.
+ */
 GLboolean _mesa_cull_triangle( GLcontext *ctx,
 			    const SWvertex *v0,
 			    const SWvertex *v1,
@@ -80,18 +81,12 @@ static void flat_ci_triangle( GLcontext *ctx,
 #define INTERP_Z 1
 #define INTERP_FOG 1
 
-#define RENDER_SPAN( span )						\
-   GLdepth zSpan[MAX_WIDTH];						\
-   GLfloat fogSpan[MAX_WIDTH];						\
-   GLuint i;								\
-   for (i = 0; i < span.count; i++) {					\
-      zSpan[i] = FixedToDepth(span.z);					\
-      span.z += span.zStep;						\
-      fogSpan[i] = span.fog;						\
-      span.fog += span.fogStep;						\
-   }									\
-   _mesa_write_monoindex_span(ctx, span.count, span.x, span.y,		\
-	                      zSpan, fogSpan, v2->index, NULL, GL_POLYGON );
+#define SETUP_CODE					\
+   span.interpMask |= SPAN_INDEX;			\
+   span.index = IntToFixed(v2->index);			\
+   span.indexStep = 0;
+
+#define RENDER_SPAN( span )  _mesa_write_index_span(ctx, &span);
 
 #include "s_tritemp.h"
 }
@@ -110,21 +105,7 @@ static void smooth_ci_triangle( GLcontext *ctx,
 #define INTERP_FOG 1
 #define INTERP_INDEX 1
 
-#define RENDER_SPAN( span )						\
-   GLdepth zSpan[MAX_WIDTH];						\
-   GLfloat fogSpan[MAX_WIDTH];						\
-   GLuint indexSpan[MAX_WIDTH];						\
-   GLuint i;						                \
-   for (i = 0; i < span.count; i++) {					\
-      zSpan[i] = FixedToDepth(span.z);					\
-      span.z += span.zStep;						\
-      indexSpan[i] = FixedToInt(span.index);				\
-      span.index += span.indexStep;					\
-      fogSpan[i] = span.fog;						\
-      span.fog += span.fogStep;						\
-   }									\
-   _mesa_write_index_span(ctx, span.count, span.x, span.y,		\
-                          zSpan, fogSpan, indexSpan, NULL, GL_POLYGON);
+#define RENDER_SPAN( span )  _mesa_write_index_span(ctx, &span);
 
 #include "s_tritemp.h"
 }
@@ -143,23 +124,22 @@ static void flat_rgba_triangle( GLcontext *ctx,
 #define INTERP_FOG 1
 #define DEPTH_TYPE DEFAULT_SOFTWARE_DEPTH_TYPE
 
-#define RENDER_SPAN( span )						\
-   GLdepth zSpan[MAX_WIDTH];						\
-   GLfloat fogSpan[MAX_WIDTH];						\
-   GLuint i;								\
-   for (i = 0; i < span.count; i++) {					\
-      zSpan[i] = FixedToDepth(span.z);					\
-      span.z += span.zStep;						\
-      fogSpan[i] = span.fog;						\
-      span.fog += span.fogStep;						\
-   }									\
-   _mesa_write_monocolor_span(ctx, span.count, span.x, span.y, zSpan,	\
-                              fogSpan, v2->color, NULL, GL_POLYGON );
+#define SETUP_CODE				\
+   ASSERT(ctx->Texture._EnabledUnits == 0);	\
+   ASSERT(ctx->Light.ShadeModel==GL_FLAT);	\
+   span.interpMask |= SPAN_RGBA;		\
+   span.red = ChanToFixed(v2->color[0]);	\
+   span.green = ChanToFixed(v2->color[1]);	\
+   span.blue = ChanToFixed(v2->color[2]);	\
+   span.alpha = ChanToFixed(v2->color[3]);	\
+   span.redStep = 0;				\
+   span.greenStep = 0;				\
+   span.blueStep = 0;				\
+   span.alphaStep = 0;
+
+#define RENDER_SPAN( span )  _mesa_write_rgba_span(ctx, &span);
 
 #include "s_tritemp.h"
-
-   ASSERT(!ctx->Texture._ReallyEnabled);  /* texturing must be off */
-   ASSERT(ctx->Light.ShadeModel==GL_FLAT);
 }
 
 
@@ -179,33 +159,17 @@ static void smooth_rgba_triangle( GLcontext *ctx,
 #define INTERP_RGB 1
 #define INTERP_ALPHA 1
 
-#define RENDER_SPAN( span )					\
-   GLdepth zSpan[MAX_WIDTH];					\
-   GLchan rgbaSpan[MAX_WIDTH][4];				\
-   GLfloat fogSpan[MAX_WIDTH];					\
-   GLuint i;				        	        \
-   for (i = 0; i < span.count; i++) {				\
-      rgbaSpan[i][RCOMP] = FixedToChan(span.red);		\
-      rgbaSpan[i][GCOMP] = FixedToChan(span.green);		\
-      rgbaSpan[i][BCOMP] = FixedToChan(span.blue);		\
-      rgbaSpan[i][ACOMP] = FixedToChan(span.alpha);		\
-      span.red += span.redStep;					\
-      span.green += span.greenStep;				\
-      span.blue += span.blueStep;				\
-      span.alpha += span.alphaStep;				\
-      zSpan[i] = FixedToDepth(span.z);				\
-      span.z += span.zStep;					\
-      fogSpan[i] = span.fog;					\
-      span.fog += span.fogStep;					\
-   }								\
-   _mesa_write_rgba_span(ctx, span.count, span.x, span.y,	\
-                         (CONST GLdepth *) zSpan,		\
-                         fogSpan, rgbaSpan, NULL, GL_POLYGON);
+#define SETUP_CODE				\
+   {						\
+      /* texturing must be off */		\
+      ASSERT(ctx->Texture._EnabledUnits == 0);	\
+      ASSERT(ctx->Light.ShadeModel==GL_SMOOTH);	\
+   }
+
+#define RENDER_SPAN( span )  _mesa_write_rgba_span(ctx, &span);
 
 #include "s_tritemp.h"
 
-   ASSERT(!ctx->Texture._ReallyEnabled);  /* texturing must be off */
-   ASSERT(ctx->Light.ShadeModel==GL_SMOOTH);
 }
 
 
@@ -227,7 +191,7 @@ static void simple_textured_triangle( GLcontext *ctx,
 #define SETUP_CODE							\
    SWcontext *swrast = SWRAST_CONTEXT(ctx);                             \
    struct gl_texture_object *obj = ctx->Texture.Unit[0].Current2D;	\
-   GLint b = obj->BaseLevel;						\
+   const GLint b = obj->BaseLevel;					\
    const GLfloat twidth = (GLfloat) obj->Image[b]->Width;		\
    const GLfloat theight = (GLfloat) obj->Image[b]->Height;		\
    const GLint twidth_log2 = obj->Image[b]->WidthLog2;			\
@@ -240,23 +204,23 @@ static void simple_textured_triangle( GLcontext *ctx,
    }
 
 #define RENDER_SPAN( span  )						\
-   GLchan rgbSpan[MAX_WIDTH][3];					\
    GLuint i;								\
    span.intTex[0] -= FIXED_HALF; /* off-by-one error? */		\
    span.intTex[1] -= FIXED_HALF;					\
-   for (i = 0; i < span.count; i++) {					\
+   for (i = 0; i < span.end; i++) {					\
       GLint s = FixedToInt(span.intTex[0]) & smask;			\
       GLint t = FixedToInt(span.intTex[1]) & tmask;			\
       GLint pos = (t << twidth_log2) + s;				\
       pos = pos + pos + pos;  /* multiply by 3 */			\
-      rgbSpan[i][RCOMP] = texture[pos];					\
-      rgbSpan[i][GCOMP] = texture[pos+1];				\
-      rgbSpan[i][BCOMP] = texture[pos+2];				\
+      span.array->rgb[i][RCOMP] = texture[pos];				\
+      span.array->rgb[i][GCOMP] = texture[pos+1];			\
+      span.array->rgb[i][BCOMP] = texture[pos+2];			\
       span.intTex[0] += span.intTexStep[0];				\
       span.intTex[1] += span.intTexStep[1];				\
    }									\
-   (*swrast->Driver.WriteRGBSpan)(ctx, span.count, span.x, span.y,	\
-                                  (CONST GLchan (*)[3]) rgbSpan, NULL );
+   (*swrast->Driver.WriteRGBSpan)(ctx, span.end, span.x, span.y,	\
+                                  (CONST GLchan (*)[3]) span.array->rgb,\
+                                  NULL );
 
 #include "s_tritemp.h"
 }
@@ -283,46 +247,45 @@ static void simple_z_textured_triangle( GLcontext *ctx,
 #define SETUP_CODE							\
    SWcontext *swrast = SWRAST_CONTEXT(ctx);                             \
    struct gl_texture_object *obj = ctx->Texture.Unit[0].Current2D;	\
-   GLint b = obj->BaseLevel;						\
-   GLfloat twidth = (GLfloat) obj->Image[b]->Width;			\
-   GLfloat theight = (GLfloat) obj->Image[b]->Height;			\
-   GLint twidth_log2 = obj->Image[b]->WidthLog2;			\
+   const GLint b = obj->BaseLevel;					\
+   const GLfloat twidth = (GLfloat) obj->Image[b]->Width;		\
+   const GLfloat theight = (GLfloat) obj->Image[b]->Height;		\
+   const GLint twidth_log2 = obj->Image[b]->WidthLog2;			\
    const GLchan *texture = (const GLchan *) obj->Image[b]->Data;	\
-   GLint smask = obj->Image[b]->Width - 1;				\
-   GLint tmask = obj->Image[b]->Height - 1;				\
+   const GLint smask = obj->Image[b]->Width - 1;			\
+   const GLint tmask = obj->Image[b]->Height - 1;			\
    if (!texture) {							\
       /* this shouldn't happen */					\
       return;								\
    }
 
 #define RENDER_SPAN( span )						\
-   GLchan rgbSpan[MAX_WIDTH][3];					\
-   GLubyte mask[MAX_WIDTH];						\
    GLuint i;				    				\
    span.intTex[0] -= FIXED_HALF; /* off-by-one error? */		\
    span.intTex[1] -= FIXED_HALF;					\
-   for (i = 0; i < span.count; i++) {					\
+   for (i = 0; i < span.end; i++) {					\
       const GLdepth z = FixedToDepth(span.z);				\
       if (z < zRow[i]) {						\
          GLint s = FixedToInt(span.intTex[0]) & smask;			\
          GLint t = FixedToInt(span.intTex[1]) & tmask;			\
          GLint pos = (t << twidth_log2) + s;				\
          pos = pos + pos + pos;  /* multiply by 3 */			\
-         rgbSpan[i][RCOMP] = texture[pos];				\
-         rgbSpan[i][GCOMP] = texture[pos+1];				\
-         rgbSpan[i][BCOMP] = texture[pos+2];				\
+         span.array->rgb[i][RCOMP] = texture[pos];			\
+         span.array->rgb[i][GCOMP] = texture[pos+1];			\
+         span.array->rgb[i][BCOMP] = texture[pos+2];			\
          zRow[i] = z;							\
-         mask[i] = 1;							\
+         span.array->mask[i] = 1;					\
       }									\
       else {								\
-         mask[i] = 0;							\
+         span.array->mask[i] = 0;					\
       }									\
       span.intTex[0] += span.intTexStep[0];				\
       span.intTex[1] += span.intTexStep[1];				\
       span.z += span.zStep;						\
    }									\
-   (*swrast->Driver.WriteRGBSpan)(ctx, span.count, span.x, span.y,	\
-                                  (CONST GLchan (*)[3]) rgbSpan, mask );
+   (*swrast->Driver.WriteRGBSpan)(ctx, span.end, span.x, span.y,	\
+                                  (CONST GLchan (*)[3]) span.array->rgb,\
+                                  span.array->mask );
 
 #include "s_tritemp.h"
 }
@@ -340,7 +303,6 @@ struct affine_info
    const GLchan *texture;
    GLfixed er, eg, eb, ea;
    GLint tbytesline, tsize;
-   GLint fixedToDepthShift;
 };
 
 
@@ -348,8 +310,8 @@ struct affine_info
  * textures with GL_REPLACE, GL_MODULATE, GL_BLEND, GL_DECAL or GL_ADD
  * texture env modes.
  */
-static void
-affine_span(GLcontext *ctx, struct triangle_span *span,
+static INLINE void
+affine_span(GLcontext *ctx, struct sw_span *span,
             struct affine_info *info)
 {
    GLchan sample[4];  /* the filtered texture sample */
@@ -387,7 +349,7 @@ affine_span(GLcontext *ctx, struct triangle_span *span,
    sample[ACOMP] = (ti * (si * tex00[3] + sf * tex01[3]) +		\
                tf * (si * tex10[3] + sf * tex11[3])) >> 2 * FIXED_SHIFT
 
-#define MODULATE							   \
+#define MODULATE							  \
    dest[RCOMP] = span->red   * (sample[RCOMP] + 1u) >> (FIXED_SHIFT + 8); \
    dest[GCOMP] = span->green * (sample[GCOMP] + 1u) >> (FIXED_SHIFT + 8); \
    dest[BCOMP] = span->blue  * (sample[BCOMP] + 1u) >> (FIXED_SHIFT + 8); \
@@ -439,17 +401,13 @@ affine_span(GLcontext *ctx, struct triangle_span *span,
 #define NEAREST_RGBA_REPLACE  COPY_CHAN4(dest, tex00)
 
 #define SPAN_NEAREST(DO_TEX,COMP)					\
-	for (i = 0; i < span->count; i++) {				\
+	for (i = 0; i < span->end; i++) {				\
            /* Isn't it necessary to use FixedFloor below?? */		\
            GLint s = FixedToInt(span->intTex[0]) & info->smask;		\
            GLint t = FixedToInt(span->intTex[1]) & info->tmask;		\
            GLint pos = (t << info->twidth_log2) + s;			\
            const GLchan *tex00 = info->texture + COMP * pos;		\
-	   zspan[i] = FixedToDepth(span->z);				\
-	   fogspan[i] = span->fog;					\
            DO_TEX;							\
-	   span->fog += span->fogStep;					\
-	   span->z += span->zStep;					\
            span->red += span->redStep;					\
 	   span->green += span->greenStep;				\
            span->blue += span->blueStep;				\
@@ -460,7 +418,7 @@ affine_span(GLcontext *ctx, struct triangle_span *span,
 	}
 
 #define SPAN_LINEAR(DO_TEX,COMP)					\
-	for (i = 0; i < span->count; i++) {				\
+	for (i = 0; i < span->end; i++) {				\
            /* Isn't it necessary to use FixedFloor below?? */		\
            GLint s = FixedToInt(span->intTex[0]) & info->smask;		\
            GLint t = FixedToInt(span->intTex[1]) & info->tmask;		\
@@ -483,11 +441,7 @@ affine_span(GLcontext *ctx, struct triangle_span *span,
               tex01 -= info->tbytesline;				\
               tex11 -= info->tbytesline;				\
            }								\
-	   zspan[i] = FixedToDepth(span->z);				\
-	   fogspan[i] = span->fog;					\
            DO_TEX;							\
-	   span->fog += span->fogStep;					\
-	   span->z += span->zStep;					\
            span->red += span->redStep;					\
 	   span->green += span->greenStep;				\
            span->blue += span->blueStep;				\
@@ -497,14 +451,9 @@ affine_span(GLcontext *ctx, struct triangle_span *span,
            dest += 4;							\
 	}
 
-#define FixedToDepth(F)  ((F) >> fixedToDepthShift)
 
    GLuint i;
-   GLdepth zspan[MAX_WIDTH];
-   GLfloat fogspan[MAX_WIDTH];
-   GLchan rgba[MAX_WIDTH][4];
-   GLchan *dest = rgba[0];
-   const GLint fixedToDepthShift = info->fixedToDepthShift;
+   GLchan *dest = span->array->rgba[0];
 
    span->intTex[0] -= FIXED_HALF;
    span->intTex[1] -= FIXED_HALF;
@@ -527,7 +476,8 @@ affine_span(GLcontext *ctx, struct triangle_span *span,
             SPAN_NEAREST(NEAREST_RGB;ADD,3);
             break;
          default:
-            abort();
+            _mesa_problem(ctx, "bad tex env mode in SPAN_LINEAR");
+            return;
          }
          break;
       case GL_RGBA:
@@ -548,7 +498,8 @@ affine_span(GLcontext *ctx, struct triangle_span *span,
             SPAN_NEAREST(NEAREST_RGBA_REPLACE,4);
             break;
          default:
-            abort();
+            _mesa_problem(ctx, "bad tex env mode (2) in SPAN_LINEAR");
+            return;
          }
          break;
       }
@@ -574,7 +525,8 @@ affine_span(GLcontext *ctx, struct triangle_span *span,
             SPAN_LINEAR(LINEAR_RGB;ADD,3);
             break;
          default:
-            abort();
+            _mesa_problem(ctx, "bad tex env mode (3) in SPAN_LINEAR");
+            return;
          }
          break;
       case GL_RGBA:
@@ -595,17 +547,19 @@ affine_span(GLcontext *ctx, struct triangle_span *span,
             SPAN_LINEAR(LINEAR_RGBA;REPLACE,4);
             break;
          default:
-            abort();
-         }		    break;
+            _mesa_problem(ctx, "bad tex env mode (4) in SPAN_LINEAR");
+            return;
+         }
+         break;
       }
       break;
    }
-   _mesa_write_rgba_span(ctx, span->count, span->x, span->y,
-                         zspan, fogspan, rgba, NULL, GL_POLYGON);
+   span->interpMask &= ~SPAN_RGBA;
+   ASSERT(span->arrayMask & SPAN_RGBA);
+   _mesa_write_rgba_span(ctx, span);
 
 #undef SPAN_NEAREST
 #undef SPAN_LINEAR
-#undef FixedToDepth
 }
 
 
@@ -631,10 +585,9 @@ static void affine_textured_triangle( GLcontext *ctx,
    struct affine_info info;						\
    struct gl_texture_unit *unit = ctx->Texture.Unit+0;			\
    struct gl_texture_object *obj = unit->Current2D;			\
-   GLint b = obj->BaseLevel;						\
-   GLfloat twidth = (GLfloat) obj->Image[b]->Width;			\
-   GLfloat theight = (GLfloat) obj->Image[b]->Height;			\
-   info.fixedToDepthShift = ctx->Visual.depthBits <= 16 ? FIXED_SHIFT : 0;\
+   const GLint b = obj->BaseLevel;					\
+   const GLfloat twidth = (GLfloat) obj->Image[b]->Width;		\
+   const GLfloat theight = (GLfloat) obj->Image[b]->Height;		\
    info.texture = (const GLchan *) obj->Image[b]->Data;			\
    info.twidth_log2 = obj->Image[b]->WidthLog2;				\
    info.smask = obj->Image[b]->Width - 1;				\
@@ -642,6 +595,7 @@ static void affine_textured_triangle( GLcontext *ctx,
    info.format = obj->Image[b]->Format;					\
    info.filter = obj->MinFilter;					\
    info.envmode = unit->EnvMode;					\
+   span.arrayMask |= SPAN_RGBA;						\
 									\
    if (info.envmode == GL_BLEND) {					\
       /* potential off-by-one error here? (1.0f -> 2048 -> 0) */	\
@@ -694,12 +648,11 @@ struct persp_info
    const GLchan *texture;
    GLfixed er, eg, eb, ea;   /* texture env color */
    GLint tbytesline, tsize;
-   GLint fixedToDepthShift;
 };
 
 
-static void
-fast_persp_span(GLcontext *ctx, struct triangle_span *span,
+static INLINE void
+fast_persp_span(GLcontext *ctx, struct sw_span *span,
 		struct persp_info *info)
 {
    GLchan sample[4];  /* the filtered texture sample */
@@ -710,7 +663,7 @@ fast_persp_span(GLcontext *ctx, struct triangle_span *span,
    * unused variables (for instance tf,sf,ti,si in case of GL_NEAREST).
    */
 #define SPAN_NEAREST(DO_TEX,COMP)					\
-	for (i = 0; i < span->count; i++) {				\
+	for (i = 0; i < span->end; i++) {				\
            GLdouble invQ = tex_coord[2] ?				\
                                  (1.0 / tex_coord[2]) : 1.0;            \
            GLfloat s_tmp = (GLfloat) (tex_coord[0] * invQ);		\
@@ -719,11 +672,7 @@ fast_persp_span(GLcontext *ctx, struct triangle_span *span,
            GLint t = IFLOOR(t_tmp) & info->tmask;	        	\
            GLint pos = (t << info->twidth_log2) + s;			\
            const GLchan *tex00 = info->texture + COMP * pos;		\
-	   zspan[i] = FixedToDepth(span->z);				\
-	   fogspan[i] = span->fog;					\
            DO_TEX;							\
-	   span->fog += span->fogStep;					\
-	   span->z += span->zStep;					\
            span->red += span->redStep;					\
 	   span->green += span->greenStep;				\
            span->blue += span->blueStep;				\
@@ -735,7 +684,7 @@ fast_persp_span(GLcontext *ctx, struct triangle_span *span,
 	}
 
 #define SPAN_LINEAR(DO_TEX,COMP)					\
-	for (i = 0; i < span->count; i++) {				\
+	for (i = 0; i < span->end; i++) {				\
            GLdouble invQ = tex_coord[2] ?				\
                                  (1.0 / tex_coord[2]) : 1.0;            \
            GLfloat s_tmp = (GLfloat) (tex_coord[0] * invQ);		\
@@ -763,11 +712,7 @@ fast_persp_span(GLcontext *ctx, struct triangle_span *span,
               tex01 -= info->tbytesline;				\
               tex11 -= info->tbytesline;				\
            }								\
-	   zspan[i] = FixedToDepth(span->z);				\
-	   fogspan[i] = span->fog;					\
            DO_TEX;							\
-	   span->fog += span->fogStep;					\
-	   span->z += span->zStep;					\
            span->red   += span->redStep;				\
 	   span->green += span->greenStep;				\
            span->blue  += span->blueStep;				\
@@ -778,23 +723,17 @@ fast_persp_span(GLcontext *ctx, struct triangle_span *span,
            dest += 4;							\
 	}
 
-#define FixedToDepth(F)  ((F) >> fixedToDepthShift)
-
    GLuint i;
-   GLdepth zspan[MAX_WIDTH];
    GLfloat tex_coord[3], tex_step[3];
-   GLfloat fogspan[MAX_WIDTH];
-   GLchan rgba[MAX_WIDTH][4];
-   GLchan *dest = rgba[0];
-   const GLint fixedToDepthShift = info->fixedToDepthShift;
+   GLchan *dest = span->array->rgba[0];
 
-   tex_coord[0] = span->tex[0][0]  * (info->smask + 1),
-     tex_step[0] = span->texStep[0][0] * (info->smask + 1);
-   tex_coord[1] = span->tex[0][1] * (info->tmask + 1),
-     tex_step[1] = span->texStep[0][1] * (info->tmask + 1);
+   tex_coord[0] = span->tex[0][0]  * (info->smask + 1);
+   tex_step[0] = span->texStepX[0][0] * (info->smask + 1);
+   tex_coord[1] = span->tex[0][1] * (info->tmask + 1);
+   tex_step[1] = span->texStepX[0][1] * (info->tmask + 1);
    /* span->tex[0][2] only if 3D-texturing, here only 2D */
-   tex_coord[2] = span->tex[0][3],
-     tex_step[2] = span->texStep[0][3];
+   tex_coord[2] = span->tex[0][3];
+   tex_step[2] = span->texStepX[0][3];
 
    switch (info->filter) {
    case GL_NEAREST:
@@ -815,7 +754,8 @@ fast_persp_span(GLcontext *ctx, struct triangle_span *span,
             SPAN_NEAREST(NEAREST_RGB;ADD,3);
             break;
          default:
-            abort();
+            _mesa_problem(ctx, "bad tex env mode (5) in SPAN_LINEAR");
+            return;
          }
          break;
       case GL_RGBA:
@@ -836,7 +776,8 @@ fast_persp_span(GLcontext *ctx, struct triangle_span *span,
             SPAN_NEAREST(NEAREST_RGBA_REPLACE,4);
             break;
          default:
-            abort();
+            _mesa_problem(ctx, "bad tex env mode (6) in SPAN_LINEAR");
+            return;
          }
          break;
       }
@@ -860,7 +801,8 @@ fast_persp_span(GLcontext *ctx, struct triangle_span *span,
             SPAN_LINEAR(LINEAR_RGB;ADD,3);
             break;
          default:
-            abort();
+            _mesa_problem(ctx, "bad tex env mode (7) in SPAN_LINEAR");
+            return;
          }
          break;
       case GL_RGBA:
@@ -881,25 +823,19 @@ fast_persp_span(GLcontext *ctx, struct triangle_span *span,
             SPAN_LINEAR(LINEAR_RGBA;REPLACE,4);
             break;
          default:
-            abort();
+            _mesa_problem(ctx, "bad tex env mode (8) in SPAN_LINEAR");
+            return;
          }
          break;
       }
       break;
    }
-   /* This does not seem to be necessary, but I don't know !! */
-   /* span->tex[0][0] = tex_coord[0] / (info->smask + 1),
-      span->tex[0][1] = tex_coord[1] / (info->tmask + 1),*/
-   /* span->tex[0][2] only if 3D-texturing, here only 2D */
-   /* span->tex[0][3] = tex_coord[2]; */
    
-   _mesa_write_rgba_span(ctx, span->count, span->x, span->y,
-                         zspan, fogspan, rgba, NULL, GL_POLYGON);
-
+   ASSERT(span->arrayMask & SPAN_RGBA);
+   _mesa_write_rgba_span(ctx, span);
 
 #undef SPAN_NEAREST
 #undef SPAN_LINEAR
-#undef FixedToDepth
 }
 
 
@@ -923,10 +859,9 @@ static void persp_textured_triangle( GLcontext *ctx,
 
 #define SETUP_CODE							\
    struct persp_info info;						\
-   struct gl_texture_unit *unit = ctx->Texture.Unit+0;			\
-   struct gl_texture_object *obj = unit->Current2D;			\
-   GLint b = obj->BaseLevel;						\
-   info.fixedToDepthShift = ctx->Visual.depthBits <= 16 ? FIXED_SHIFT : 0;\
+   const struct gl_texture_unit *unit = ctx->Texture.Unit+0;		\
+   const struct gl_texture_object *obj = unit->Current2D;		\
+   const GLint b = obj->BaseLevel;					\
    info.texture = (const GLchan *) obj->Image[b]->Data;			\
    info.twidth_log2 = obj->Image[b]->WidthLog2;				\
    info.smask = obj->Image[b]->Width - 1;				\
@@ -968,7 +903,10 @@ static void persp_textured_triangle( GLcontext *ctx,
    }									\
    info.tsize = obj->Image[b]->Height * info.tbytesline;
 
-#define RENDER_SPAN( span )   fast_persp_span(ctx, &span, &info);
+#define RENDER_SPAN( span )			\
+   span.interpMask &= ~SPAN_RGBA;		\
+   span.arrayMask |= SPAN_RGBA;			\
+   fast_persp_span(ctx, &span, &info);
 
 #include "s_tritemp.h"
 
@@ -976,335 +914,6 @@ static void persp_textured_triangle( GLcontext *ctx,
 
 
 #endif /* CHAN_BITS != GL_FLOAT */
-
-
-/*
- * Generate arrays of fragment colors, z, fog, texcoords, etc from a
- * triangle span object.  Then call the span/fragment processsing
- * functions in s_span.[ch].  This is used by a bunch of the textured
- * triangle functions.
- */
-static void
-rasterize_span(GLcontext *ctx, const struct triangle_span *span)
-{
-   DEFMARRAY(GLchan, rgba, MAX_WIDTH, 4);
-   DEFMARRAY(GLchan, spec, MAX_WIDTH, 4);
-   DEFARRAY(GLuint, index, MAX_WIDTH);
-   DEFARRAY(GLuint, z, MAX_WIDTH);
-   DEFARRAY(GLfloat, fog, MAX_WIDTH);
-   DEFARRAY(GLfloat, sTex, MAX_WIDTH);
-   DEFARRAY(GLfloat, tTex, MAX_WIDTH);
-   DEFARRAY(GLfloat, rTex, MAX_WIDTH);
-   DEFARRAY(GLfloat, lambda, MAX_WIDTH);
-   DEFMARRAY(GLfloat, msTex, MAX_TEXTURE_UNITS, MAX_WIDTH);
-   DEFMARRAY(GLfloat, mtTex, MAX_TEXTURE_UNITS, MAX_WIDTH);
-   DEFMARRAY(GLfloat, mrTex, MAX_TEXTURE_UNITS, MAX_WIDTH);
-   DEFMARRAY(GLfloat, mLambda, MAX_TEXTURE_UNITS, MAX_WIDTH);
-
-   CHECKARRAY(rgba, return);
-   CHECKARRAY(spec, return);
-   CHECKARRAY(index, return);
-   CHECKARRAY(z, return);
-   CHECKARRAY(fog, return);
-   CHECKARRAY(sTex, return);
-   CHECKARRAY(tTex, return);
-   CHECKARRAY(rTex, return);
-   CHECKARRAY(lambda, return);
-   CHECKARRAY(msTex, return);
-   CHECKARRAY(mtTex, return);
-   CHECKARRAY(mrTex, return);
-   CHECKARRAY(mLambda, return);
-
-   if (span->activeMask & SPAN_RGBA) {
-      if (span->activeMask & SPAN_FLAT) {
-         GLuint i;
-         GLchan color[4];
-         color[RCOMP] = FixedToChan(span->red);
-         color[GCOMP] = FixedToChan(span->green);
-         color[BCOMP] = FixedToChan(span->blue);
-         color[ACOMP] = FixedToChan(span->alpha);
-         for (i = 0; i < span->count; i++) {
-            COPY_CHAN4(rgba[i], color);
-         }
-      }
-      else {
-         /* smooth interpolation */
-#if CHAN_TYPE == GL_FLOAT
-         GLfloat r = span->red;
-         GLfloat g = span->green;
-         GLfloat b = span->blue;
-         GLfloat a = span->alpha;
-#else
-         GLfixed r = span->red;
-         GLfixed g = span->green;
-         GLfixed b = span->blue;
-         GLfixed a = span->alpha;
-#endif
-         GLuint i;
-         for (i = 0; i < span->count; i++) {
-            rgba[i][RCOMP] = FixedToChan(r);
-            rgba[i][GCOMP] = FixedToChan(g);
-            rgba[i][BCOMP] = FixedToChan(b);
-            rgba[i][ACOMP] = FixedToChan(a);
-            r += span->redStep;
-            g += span->greenStep;
-            b += span->blueStep;
-            a += span->alphaStep;
-         }
-      }
-   }
-
-   if (span->activeMask & SPAN_SPEC) {
-      if (span->activeMask & SPAN_FLAT) {
-         const GLchan r = FixedToChan(span->specRed);
-         const GLchan g = FixedToChan(span->specGreen);
-         const GLchan b = FixedToChan(span->specBlue);
-         GLuint i;
-         for (i = 0; i < span->count; i++) {
-            spec[i][RCOMP] = r;
-            spec[i][GCOMP] = g;
-            spec[i][BCOMP] = b;
-         }
-      }
-      else {
-         /* smooth interpolation */
-#if CHAN_TYPE == GL_FLOAT
-         GLfloat r = span->specRed;
-         GLfloat g = span->specGreen;
-         GLfloat b = span->specBlue;
-#else
-         GLfixed r = span->specRed;
-         GLfixed g = span->specGreen;
-         GLfixed b = span->specBlue;
-#endif
-         GLuint i;
-         for (i = 0; i < span->count; i++) {
-            spec[i][RCOMP] = FixedToChan(r);
-            spec[i][GCOMP] = FixedToChan(g);
-            spec[i][BCOMP] = FixedToChan(b);
-            r += span->specRedStep;
-            g += span->specGreenStep;
-            b += span->specBlueStep;
-         }
-      }
-   }
-
-   if (span->activeMask & SPAN_INDEX) {
-      if (span->activeMask & SPAN_FLAT) {
-         GLuint i;
-         const GLint indx = FixedToInt(span->index);
-         for (i = 0; i < span->count; i++) {
-            index[i] = indx;
-         }
-      }
-      else {
-         /* smooth interpolation */
-         GLuint i;
-         GLfixed ind = span->index;
-         for (i = 0; i < span->count; i++) {
-            index[i] = FixedToInt(ind);
-            ind += span->indexStep;
-         }
-      }
-   }
-
-   if (span->activeMask & SPAN_Z) {
-      if (ctx->Visual.depthBits <= 16) {
-         GLuint i;
-         GLfixed zval = span->z;
-         for (i = 0; i < span->count; i++) {
-            z[i] = FixedToInt(zval);
-            zval += span->zStep;
-         }
-      }
-      else {
-         /* Deep Z buffer, no fixed->int shift */
-         GLuint i;
-         GLfixed zval = span->z;
-         for (i = 0; i < span->count; i++) {
-            z[i] = zval;
-            zval += span->zStep;
-         }
-      }
-   }
-   if (span->activeMask & SPAN_FOG) {
-      GLuint i;
-      GLfloat f = span->fog;
-      for (i = 0; i < span->count; i++) {
-         fog[i] = f;
-         f += span->fogStep;
-      }
-   }
-   if (span->activeMask & SPAN_TEXTURE) {
-      if (ctx->Texture._ReallyEnabled & ~TEXTURE0_ANY) {
-         /* multitexture */
-         if (span->activeMask & SPAN_LAMBDA) {
-            /* with lambda */
-            GLuint u;
-            for (u = 0; u < MAX_TEXTURE_UNITS; u++) {
-               if (ctx->Texture.Unit[u]._ReallyEnabled) {
-                  GLfloat s = span->tex[u][0];
-                  GLfloat t = span->tex[u][1];
-                  GLfloat r = span->tex[u][2];
-                  GLfloat q = span->tex[u][3];
-                  GLuint i;
-                  for (i = 0; i < span->count; i++) {
-                     const GLfloat invQ = (q == 0.0F) ? 1.0F : (1.0F / q);
-                     msTex[u][i] = s * invQ;
-                     mtTex[u][i] = t * invQ;
-                     mrTex[u][i] = r * invQ;
-                     mLambda[u][i] = (GLfloat) 
-			 (log(span->rho[u] * invQ * invQ) * 1.442695F * 0.5F);
-                     s += span->texStep[u][0];
-                     t += span->texStep[u][1];
-                     r += span->texStep[u][2];
-                     q += span->texStep[u][3];
-                  }
-               }
-            }
-         }
-         else {
-            /* without lambda */
-            GLuint u;
-            for (u = 0; u < MAX_TEXTURE_UNITS; u++) {
-               if (ctx->Texture.Unit[u]._ReallyEnabled) {
-                  GLfloat s = span->tex[u][0];
-                  GLfloat t = span->tex[u][1];
-                  GLfloat r = span->tex[u][2];
-                  GLfloat q = span->tex[u][3];
-                  GLuint i;
-                  for (i = 0; i < span->count; i++) {
-                     const GLfloat invQ = (q == 0.0F) ? 1.0F : (1.0F / q);
-                     msTex[u][i] = s * invQ;
-                     mtTex[u][i] = t * invQ;
-                     mrTex[u][i] = r * invQ;
-                     s += span->texStep[u][0];
-                     t += span->texStep[u][1];
-                     r += span->texStep[u][2];
-                     q += span->texStep[u][3];
-                  }
-               }
-            }
-         }
-      }
-      else {
-         /* just texture unit 0 */
-         if (span->activeMask & SPAN_LAMBDA) {
-            /* with lambda */
-            GLfloat s = span->tex[0][0];
-            GLfloat t = span->tex[0][1];
-            GLfloat r = span->tex[0][2];
-            GLfloat q = span->tex[0][3];
-            GLuint i;
-            for (i = 0; i < span->count; i++) {
-               const GLfloat invQ = (q == 0.0F) ? 1.0F : (1.0F / q);
-               sTex[i] = s * invQ;
-               tTex[i] = t * invQ;
-               rTex[i] = r * invQ;
-               lambda[i] = (GLfloat)
-		   (log(span->rho[0] * invQ * invQ) * 1.442695F * 0.5F);
-               s += span->texStep[0][0];
-               t += span->texStep[0][1];
-               r += span->texStep[0][2];
-               q += span->texStep[0][3];
-            }
-         }
-         else {
-            /* without lambda */
-            GLfloat s = span->tex[0][0];
-            GLfloat t = span->tex[0][1];
-            GLfloat r = span->tex[0][2];
-            GLfloat q = span->tex[0][3];
-            GLuint i;
-            for (i = 0; i < span->count; i++) {
-               const GLfloat invQ = (q == 0.0F) ? 1.0F : (1.0F / q);
-               sTex[i] = s * invQ;
-               tTex[i] = t * invQ;
-               rTex[i] = r * invQ;
-               s += span->texStep[0][0];
-               t += span->texStep[0][1];
-               r += span->texStep[0][2];
-               q += span->texStep[0][3];
-            }
-         }
-      }
-   }
-   /* XXX keep this? */
-   if (span->activeMask & SPAN_INT_TEXTURE) {
-      GLint intTexcoord[MAX_WIDTH][2];
-      GLfixed s = span->intTex[0];
-      GLfixed t = span->intTex[1];
-      GLuint i;
-      for (i = 0; i < span->count; i++) {
-         intTexcoord[i][0] = FixedToInt(s);
-         intTexcoord[i][1] = FixedToInt(t);
-         s += span->intTexStep[0];
-         t += span->intTexStep[1];
-      }
-   }
-
-   /* examine activeMask and call a s_span.c function */
-   if (span->activeMask & SPAN_TEXTURE) {
-      const GLfloat *fogPtr;
-      if (span->activeMask & SPAN_FOG)
-         fogPtr = fog;
-      else
-         fogPtr = NULL;
-
-      if (ctx->Texture._ReallyEnabled & ~TEXTURE0_ANY) {
-         if (span->activeMask & SPAN_SPEC) {
-            _mesa_write_multitexture_span(ctx, span->count, span->x, span->y,
-                                          z, fogPtr,
-                                          (const GLfloat (*)[MAX_WIDTH]) msTex,
-                                          (const GLfloat (*)[MAX_WIDTH]) mtTex,
-                                          (const GLfloat (*)[MAX_WIDTH]) mrTex,
-                                          (GLfloat (*)[MAX_WIDTH]) mLambda,
-                                          rgba, (CONST GLchan (*)[4]) spec,
-                                          NULL, GL_POLYGON );
-         }
-         else {
-            _mesa_write_multitexture_span(ctx, span->count, span->x, span->y,
-                                          z, fogPtr,
-                                          (const GLfloat (*)[MAX_WIDTH]) msTex,
-                                          (const GLfloat (*)[MAX_WIDTH]) mtTex,
-                                          (const GLfloat (*)[MAX_WIDTH]) mrTex,
-                                          (GLfloat (*)[MAX_WIDTH]) mLambda,
-                                          rgba, NULL, NULL, GL_POLYGON);
-         }
-      }
-      else {
-         /* single texture */
-         if (span->activeMask & SPAN_SPEC) {
-            _mesa_write_texture_span(ctx, span->count, span->x, span->y,
-                                     z, fogPtr, sTex, tTex, rTex, lambda,
-                                     rgba, (CONST GLchan (*)[4]) spec,
-                                     NULL, GL_POLYGON);
-         }
-         else {
-            _mesa_write_texture_span(ctx, span->count, span->x, span->y,
-                                     z, fogPtr, sTex, tTex, rTex, lambda,
-                                     rgba, NULL, NULL, GL_POLYGON);
-         }
-      }
-   }
-   else {
-      _mesa_problem(ctx, "rasterize_span() should only be used for texturing");
-   }
-
-   UNDEFARRAY(rgba);
-   UNDEFARRAY(spec);
-   UNDEFARRAY(index);
-   UNDEFARRAY(z);
-   UNDEFARRAY(fog);
-   UNDEFARRAY(sTex);
-   UNDEFARRAY(tTex);
-   UNDEFARRAY(rTex);
-   UNDEFARRAY(lambda);
-   UNDEFARRAY(msTex);
-   UNDEFARRAY(mtTex);
-   UNDEFARRAY(mrTex);
-   UNDEFARRAY(mLambda);
-}
 
                 
 
@@ -1322,173 +931,27 @@ static void general_textured_triangle( GLcontext *ctx,
 #define INTERP_FOG 1
 #define DEPTH_TYPE DEFAULT_SOFTWARE_DEPTH_TYPE
 #define INTERP_RGB 1
-#define INTERP_ALPHA 1
-#define INTERP_TEX 1
-
-#define SETUP_CODE							\
-   const struct gl_texture_object *obj = ctx->Texture.Unit[0]._Current;	\
-   const struct gl_texture_image *texImage = obj->Image[obj->BaseLevel];\
-   DEFARRAY(GLfloat, sSpan, MAX_WIDTH);  /* mac 32k limitation */	\
-   DEFARRAY(GLfloat, tSpan, MAX_WIDTH);  /* mac 32k limitation */	\
-   DEFARRAY(GLfloat, uSpan, MAX_WIDTH);  /* mac 32k limitation */	\
-   CHECKARRAY(sSpan, return);  /* mac 32k limitation */			\
-   CHECKARRAY(tSpan, return);  /* mac 32k limitation */			\
-   CHECKARRAY(uSpan, return);  /* mac 32k limitation */			\
-   span.texWidth[0] = (GLfloat) texImage->Width;			\
-   span.texHeight[0] = (GLfloat) texImage->Height;			\
-   (void) fixedToDepthShift;
-
-#define RENDER_SPAN( span )						\
-   GLdepth zSpan[MAX_WIDTH];						\
-   GLfloat fogSpan[MAX_WIDTH];						\
-   GLchan rgbaSpan[MAX_WIDTH][4];					\
-   GLuint i;								\
-   /* NOTE: we could just call rasterize_span() here instead */		\
-   for (i = 0; i < span.count; i++) {					\
-      GLdouble invQ = span.tex[0][3] ? (1.0 / span.tex[0][3]) : 1.0;	\
-      zSpan[i] = FixedToDepth(span.z);					\
-      span.z += span.zStep;						\
-      fogSpan[i] = span.fog;			          		\
-      span.fog += span.fogStep;						\
-      rgbaSpan[i][RCOMP] = FixedToChan(span.red);			\
-      rgbaSpan[i][GCOMP] = FixedToChan(span.green);			\
-      rgbaSpan[i][BCOMP] = FixedToChan(span.blue);			\
-      rgbaSpan[i][ACOMP] = FixedToChan(span.alpha);			\
-      span.red += span.redStep;						\
-      span.green += span.greenStep;					\
-      span.blue += span.blueStep;					\
-      span.alpha += span.alphaStep;					\
-      sSpan[i] = (GLfloat) (span.tex[0][0] * invQ);			\
-      tSpan[i] = (GLfloat) (span.tex[0][1] * invQ);			\
-      uSpan[i] = (GLfloat) (span.tex[0][2] * invQ);			\
-      span.tex[0][0] += span.texStep[0][0];				\
-      span.tex[0][1] += span.texStep[0][1];				\
-      span.tex[0][2] += span.texStep[0][2];				\
-      span.tex[0][3] += span.texStep[0][3];				\
-   }									\
-   _mesa_write_texture_span(ctx, span.count, span.x, span.y,		\
-                            zSpan, fogSpan, sSpan, tSpan, uSpan,	\
-                            NULL, rgbaSpan, NULL, NULL, GL_POLYGON );
-
-#define CLEANUP_CODE				\
-   UNDEFARRAY(sSpan);  /* mac 32k limitation */	\
-   UNDEFARRAY(tSpan);				\
-   UNDEFARRAY(uSpan);
-
-#include "s_tritemp.h"
-}
-
-
-/*
- * Render a smooth-shaded, textured, RGBA triangle with separate specular
- * color interpolation.
- * Interpolate texcoords with perspective correction, w/out mipmapping.
- */
-static void general_textured_spec_triangle( GLcontext *ctx,
-					    const SWvertex *v0,
-					    const SWvertex *v1,
-					    const SWvertex *v2 )
-{
-#define INTERP_Z 1
-#define INTERP_FOG 1
-#define DEPTH_TYPE DEFAULT_SOFTWARE_DEPTH_TYPE
-#define INTERP_RGB 1
 #define INTERP_SPEC 1
 #define INTERP_ALPHA 1
 #define INTERP_TEX 1
 
-#define SETUP_CODE							\
-   const struct gl_texture_object *obj = ctx->Texture.Unit[0]._Current;	\
-   const struct gl_texture_image *texImage = obj->Image[obj->BaseLevel];\
-   span.texWidth[0] = (GLfloat) texImage->Width;			\
-   span.texHeight[0] = (GLfloat) texImage->Height;			\
-   (void) fixedToDepthShift;
-
-#define RENDER_SPAN( span )   rasterize_span(ctx, &span);
+#define RENDER_SPAN( span )   _mesa_write_texture_span(ctx, &span);
 
 #include "s_tritemp.h"
 }
 
-
-/*
- * Render a smooth-shaded, textured, RGBA triangle.
- * Interpolate S,T,R with perspective correction and compute lambda for
- * each fragment.  Lambda is used to determine whether to use the
- * minification or magnification filter.  If minification and using
- * mipmaps, lambda is also used to select the texture level of detail.
- */
-static void lambda_textured_triangle( GLcontext *ctx,
-				      const SWvertex *v0,
-				      const SWvertex *v1,
-				      const SWvertex *v2 )
-{
-#define INTERP_Z 1
-#define INTERP_FOG 1
-#define DEPTH_TYPE DEFAULT_SOFTWARE_DEPTH_TYPE
-#define INTERP_RGB 1
-#define INTERP_ALPHA 1
-#define INTERP_TEX 1
-#define INTERP_LAMBDA 1
-
-#define SETUP_CODE							\
-   const struct gl_texture_object *obj = ctx->Texture.Unit[0]._Current;	\
-   const struct gl_texture_image *texImage = obj->Image[obj->BaseLevel];\
-   span.texWidth[0] = (GLfloat) texImage->Width;			\
-   span.texHeight[0] = (GLfloat) texImage->Height;			\
-   (void) fixedToDepthShift;
-
-#define RENDER_SPAN( span )   rasterize_span(ctx, &span);
-
-#include "s_tritemp.h"
-}
-
-
-/*
- * Render a smooth-shaded, textured, RGBA triangle with separate specular
- * interpolation.
- * Interpolate S,T,R with perspective correction and compute lambda for
- * each fragment.  Lambda is used to determine whether to use the
- * minification or magnification filter.  If minification and using
- * mipmaps, lambda is also used to select the texture level of detail.
- */
-static void lambda_textured_spec_triangle( GLcontext *ctx,
-					   const SWvertex *v0,
-					   const SWvertex *v1,
-					   const SWvertex *v2 )
-{
-#define INTERP_Z 1
-#define INTERP_FOG 1
-#define DEPTH_TYPE DEFAULT_SOFTWARE_DEPTH_TYPE
-#define INTERP_RGB 1
-#define INTERP_SPEC 1
-#define INTERP_ALPHA 1
-#define INTERP_TEX 1
-#define INTERP_LAMBDA 1
-
-#define SETUP_CODE							\
-   const struct gl_texture_object *obj = ctx->Texture.Unit[0]._Current;	\
-   const struct gl_texture_image *texImage = obj->Image[obj->BaseLevel];\
-   span.texWidth[0] = (GLfloat) texImage->Width;			\
-   span.texHeight[0] = (GLfloat) texImage->Height;			\
-   (void) fixedToDepthShift;
-
-#define RENDER_SPAN( span )   rasterize_span(ctx, &span);
-
-#include "s_tritemp.h"
-}
 
 
 /*
  * This is the big one!
- * Interpolate Z, RGB, Alpha, specular, fog, and N sets of texture coordinates
- * with lambda (LOD).
+ * Interpolate Z, RGB, Alpha, specular, fog, and N sets of texture coordinates.
  * Yup, it's slow.
  */
 static void
-lambda_multitextured_triangle( GLcontext *ctx,
-                               const SWvertex *v0,
-                               const SWvertex *v1,
-                               const SWvertex *v2 )
+multitextured_triangle( GLcontext *ctx,
+                        const SWvertex *v0,
+                        const SWvertex *v1,
+                        const SWvertex *v2 )
 {
 
 #define INTERP_Z 1
@@ -1498,23 +961,8 @@ lambda_multitextured_triangle( GLcontext *ctx,
 #define INTERP_ALPHA 1
 #define INTERP_SPEC 1
 #define INTERP_MULTITEX 1
-#define INTERP_LAMBDA 1
 
-#define SETUP_CODE							\
-   GLuint u;								\
-   for (u = 0; u < ctx->Const.MaxTextureUnits; u++) {			\
-      if (ctx->Texture.Unit[u]._ReallyEnabled) {			\
-         const struct gl_texture_object *texObj;			\
-         const struct gl_texture_image *texImage;			\
-         texObj = ctx->Texture.Unit[u]._Current;			\
-         texImage = texObj->Image[texObj->BaseLevel];			\
-         span.texWidth[u] = (GLfloat) texImage->Width;			\
-         span.texHeight[u] = (GLfloat) texImage->Height;		\
-      }									\
-   }									\
-   (void) fixedToDepthShift;
-
-#define RENDER_SPAN( span )   rasterize_span(ctx, &span);
+#define RENDER_SPAN( span )   _mesa_write_texture_span(ctx, &span);
 
 #include "s_tritemp.h"
 
@@ -1536,7 +984,7 @@ static void occlusion_zless_triangle( GLcontext *ctx,
 
 #define RENDER_SPAN( span )				\
    GLuint i;						\
-   for (i = 0; i < span.count; i++) {			\
+   for (i = 0; i < span.end; i++) {			\
       GLdepth z = FixedToDepth(span.z);			\
       if (z < zRow[i]) {				\
          ctx->OcclusionResult = GL_TRUE;		\
@@ -1615,13 +1063,13 @@ void _swrast_add_spec_terms_triangle( GLcontext *ctx,
 #ifdef DEBUG
 
 /* record the current triangle function name */
-static const char *triFuncName = NULL;
+const char *_mesa_triFuncName = NULL;
 
-#define USE(triFunc)                   \
-do {                                   \
-    triFuncName = #triFunc;            \
-    /*printf("%s\n", triFuncName);*/   \
-    swrast->Triangle = triFunc;        \
+#define USE(triFunc)				\
+do {						\
+    _mesa_triFuncName = #triFunc;		\
+    /*printf("%s\n", _mesa_triFuncName);*/	\
+    swrast->Triangle = triFunc;			\
 } while (0)
 
 #else
@@ -1677,7 +1125,7 @@ _swrast_choose_triangle( GLcontext *ctx )
          }
       }
 
-      if (ctx->Texture._ReallyEnabled) {
+      if (ctx->Texture._EnabledUnits) {
          /* Ugh, we do a _lot_ of tests to pick the best textured tri func */
 	 const struct gl_texture_object *texObj2D;
          const struct gl_texture_image *texImg;
@@ -1691,11 +1139,12 @@ _swrast_choose_triangle( GLcontext *ctx )
          envMode = ctx->Texture.Unit[0].EnvMode;
 
          /* First see if we can used an optimized 2-D texture function */
-         if (ctx->Texture._ReallyEnabled==TEXTURE0_2D
+         if (ctx->Texture._EnabledUnits == 1
+             && ctx->Texture.Unit[0]._ReallyEnabled == TEXTURE_2D_BIT
              && texObj2D->WrapS==GL_REPEAT
 	     && texObj2D->WrapT==GL_REPEAT
              && texImg->Border==0
-             && texImg->Width==texImg->RowStride
+             && texImg->Width == texImg->RowStride
              && (format == MESA_FORMAT_RGB || format == MESA_FORMAT_RGBA)
 	     && minFilter == magFilter
 	     && ctx->Light.Model.ColorControl == GL_SINGLE_COLOR
@@ -1733,38 +1182,17 @@ _swrast_choose_triangle( GLcontext *ctx )
 	    }
 	 }
          else {
-            /* More complicated textures (mipmap, multi-tex, sep specular) */
-            GLboolean needLambda;
-            /* if mag filter != min filter we need to compute lambda */
-            const struct gl_texture_object *obj = ctx->Texture.Unit[0]._Current;
-            if (obj && obj->MinFilter != obj->MagFilter)
-               needLambda = GL_TRUE;
-            else
-               needLambda = GL_FALSE;
-            if (ctx->Texture._ReallyEnabled > TEXTURE0_ANY) {
-               USE(lambda_multitextured_triangle);
-            }
-            else if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR) {
-               /* separate specular color interpolation */
-               if (needLambda) {
-                  USE(lambda_textured_spec_triangle);
-	       }
-               else {
-                  USE(general_textured_spec_triangle);
-	       }
+            /* general case textured triangles */
+            if (ctx->Texture._EnabledUnits > 1) {
+               USE(multitextured_triangle);
             }
             else {
-               if (needLambda) {
-		  USE(lambda_textured_triangle);
-	       }
-               else {
-                  USE(general_textured_triangle);
-	       }
+               USE(general_textured_triangle);
             }
          }
       }
       else {
-         ASSERT(!ctx->Texture._ReallyEnabled);
+         ASSERT(!ctx->Texture._EnabledUnits);
 	 if (ctx->Light.ShadeModel==GL_SMOOTH) {
 	    /* smooth shaded, no texturing, stippled or some raster ops */
             if (rgbmode) {

@@ -1,0 +1,146 @@
+<!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
+  <head>
+    <link href="tclsoap.css" rel="stylesheet" type="text/css">
+    <title>XML-RPC URL Domain Package for TclHTTPD</title>
+    <meta http-equiv="Description" name="Description"
+      content="XML-RPC package for Tcl. Provides remote procedure calls
+      using the XML-RPC protocol over HTTP." />
+    <meta http-equiv="Keywords" name="Keywords"
+      content="Tcl,XML-RPC,SOAP,Simple Object Access Protocol,XML,tclHTTPD" />
+  </head>
+
+  <!-- --------------------------------------------------------------------- -->
+
+  <body>
+  <table class="globaltable">
+  <tr><td class="header" width="15%">
+      <a href="http://sourceforge.net">
+         <img align="middle" alt="SourceForge Logo" border="0" height="31" 
+             src="http://sourceforge.net/sflogo.php?group_id=25970"
+             width="88"></a>
+      </td>
+      <td class="header" width="70%">
+           <h1>Tcl XML-RPC Server Utility Package</h1>
+      </td>
+      <td class="logo" width="15%">
+        <img src="tclsoap.gif" alt="TclSOAP Logo" align="middle"
+        border="0" height="84" width="57" />
+      </td>
+  </tr>
+
+  <tr><td class="sidebar">
+    <table>
+<tr><td class="sidehead">Project</td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/projects/tclsoap">Project Page</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/project/showfiles.php?group_id=25970">File Releases</A></td></tr>
+<tr><td class="sideelt"><A href="TclSOAP.html">WebPage</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/docman/?group_id=25970">Documentation</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/forum/?group_id=25970">Forums</A></td></tr>
+<tr><td class="sideelt"><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap">Browse CVS</a></td></tr>
+
+<tr><td class="sidehead">Interop</td></tr>
+<tr><td class="sideelt"><a href="silab/round1.html">Round 1 Tests</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2base.html">Round 2 Base</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2B.html">Round 2B</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2C.html">Round 2C</a></td></tr>
+
+<tr><td class="sidehead">Support</td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385859&group_id=25970&func=browse">Bugs</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385860&group_id=25970&func=browse">Support Requests</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385861&group_id=25970&func=browse">Patches</A></td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/tracker/?aid=385862&group_id=25970&func=browse">Feature Requests</A></td></tr>
+    </table></td>
+
+<td class="body" colspan="2">
+<div class="body">
+
+  <!-- ----------------------------------------------------------------- -->
+  <h1><font color="red">This code has been superceeded as of version
+  1.6</font></h1>
+
+      <p>The <tt>XMLRPC::Domain</tt> package provides a wrapper enabling the
+	simple use of Tcl procedures as XML-RPC methods. This package is
+	almost identical to the 
+	<a href="SOAPURLDomain.html"><tt>SOAP::Domain</tt></a>
+	package as can be seen by the following example of the
+	<tt>square</tt> method, here implemented over XML-RPC instead
+	of SOAP:</p>
+
+<pre>package require XMLRPC::Domain
+XMLRPC::Domain::register -prefix /rpc -namespace zsplat::RPC
+
+proc zsplat::RPC::/square {num} {
+    if { [catch {expr $num + 0}] } {
+        error "parameter num must be a number"
+    }
+    return [expr $num * $num]
+}
+  </pre>
+
+  <p>The only significant difference between the XMLRPC and the SOAP
+    Domain packages is that the XML-RPC version supports a method for
+    providing hints to the framework about the type of the result of
+    the users procedure. Here is an example of a procedure that
+    returns an XML-RPC dateTime.iso8601 result:
+
+<pre>package require XMLRPC::TypedVariable
+
+proc zsplat::RPC::/time {} {
+    set result [clock format [clock seconds] -format {%Y%m%dT%H:%M:%S}]
+    set result [XMLRPC::TypedVariable::create dateTime.iso8601 $result]
+    return $result
+}
+  </pre>
+
+    The result here is initially a string formatted in the iso8601
+    point in time format. As there is no real way for Tcl to distinguish
+    between this string and a non-date string we have to provide a
+    hint so that the XML-RPC reply has the correct type
+    information.</p>
+
+  <p>For simple types: int, double, string the framework can guess the 
+    correct type. For other types, you will need to return a
+    TypedVariable as the result.</p>
+
+  <p>A more significant example of this is a method returning an
+    array:</p>
+
+<pre>proc zsplat::RPC::/sort {args} {
+    eval set n $args
+    set result [lsort $n]
+    set result [XMLRPC::TypedVariable::create array $result]
+    return $result
+}
+  </pre>
+ 
+    Here, we are returning an array of sorted elements. The type of
+    each element will have to be guessed by the framework as the
+    elements themselves are not TypedVariables.</p>
+
+  <p>XML-RPC supports <tt>struct</tt> results as well as arrays. This
+    is supported from Tcl as Tcl arrays. The struct element name is
+    set from the array element name.</p>
+
+  <p>For more details about writing services look at the
+    <a href="SOAPURLDomain.html"><tt>SOAP::Domain</tt></a>
+    documentation.</p>
+
+  <br>
+  <br>
+  <!-- ----------------------------------------------------------------- -->
+
+</div>
+</td></tr>
+<tr class="footer">
+<td class="footer" colspan="2">
+$Id: XMLRPCDomain.html,v 1.3 2001/10/11 22:40:37 patthoyts Exp $
+</td></tr>
+
+    </table>
+  </body>
+</html>
+
+<!-- Local variables:           -->
+<!--   truncate-lines: "t"      -->
+<!--   indent-tabs-mode: nil    -->
+<!-- End:                       -->

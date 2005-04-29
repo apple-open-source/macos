@@ -310,15 +310,24 @@ EXPORTS
 ;	glBlendEquationEXT @ 307 
 ;	glBlendColorEXT @ 308 
 	glPolygonOffset @ 309 
+#ifndef __UNIXOS2__
 ;	glVertexPointerEXT @ 310 
 ;	glNormalPointerEXT @ 311 
+#else
+	glVertexPointerEXT @ 310 
+	glNormalPointerEXT @ 311 
+#endif
 ;	glColorPointerEXT @ 312 
 ;	glIndexPointerEXT @ 313 
 ;	glTexCoordPointerEXT @ 314 
 ;	glEdgeFlagPointerEXT @ 315 
 ;	glGetPointervEXT @ 316 
 ;	glArrayElementEXT @ 317 
+#ifndef __UNIXOS2__
 ;	glDrawArraysEXT @ 318 
+#else
+	glDrawArraysEXT @ 318 
+#endif
 ;	OSMesaCreateContext @ 319 
 ;	OSMesaDestroyContext @ 320 
 ;	OSMesaMakeCurrent @ 321 
@@ -377,7 +386,11 @@ EXPORTS
 	glCopyTexSubImage2D @ 376 
 ;	glWindowPos2iMESA @ 377 
 ;	glWindowPos2sMESA @ 378 
+#ifndef __UNIXOS2__
 ;	glWindowPos2fMESA @ 379 
+#else
+	glWindowPos2fMESA @ 379 
+#endif
 ;	glWindowPos2dMESA @ 380 
 ;	glWindowPos2ivMESA @ 381 
 ;	glWindowPos2svMESA @ 382 
@@ -399,7 +412,11 @@ EXPORTS
 ;	glWindowPos4svMESA @ 398 
 ;	glWindowPos4fvMESA @ 399 
 ;	glWindowPos4dvMESA @ 400 
+#ifndef __UNIXOS2__
 ;	glXCreateGLXPixmapMESA @ 401 
+#else
+	glXCreateGLXPixmapMESA @ 401 
+#endif
 ;	glXReleaseBuffersMESA @ 402 
 ;	OSMesaGetCurrentContext @ 403 
 ;	OSMesaPixelStore @ 404 
@@ -420,12 +437,59 @@ EXPORTS
 	glXGetCurrentDisplay @ 454
 	glXImportContextEXT @ 455
 	glXQueryContextInfoEXT @ 456
+#ifndef __UNIXOS2__
 	glXGetCurrentDrawableEXT @ 457
+#endif
 	glCopyTexSubImage3D @ 458
 	glDrawRangeElements @ 459
 	glTexSubImage3D @ 460
 	glBlendColorEXT @ 461
 	glBlendEquationEXT @ 462
 	glTexImage3D @ 463
+#ifdef __UNIXOS2__
+	_glapi_Context @ 500
+	_glapi_Dispatch @ 501
+	glMultiTexCoord1svARB @ 502
+	glMultiTexCoord1ivARB @ 503
+	glMultiTexCoord1fvARB @ 504
+	glMultiTexCoord1dvARB @ 505
+	glMultiTexCoord2svARB @ 506
+	glMultiTexCoord2ivARB @ 507
+	glMultiTexCoord2fvARB @ 508
+	glMultiTexCoord2dvARB @ 509
+	glMultiTexCoord3svARB @ 510
+	glMultiTexCoord3ivARB @ 511
+	glMultiTexCoord3fvARB @ 512
+	glMultiTexCoord3dvARB @ 513
+	glMultiTexCoord4svARB @ 514
+	glMultiTexCoord4ivARB @ 515
+	glMultiTexCoord4fvARB @ 516
+	glMultiTexCoord4dvARB @ 517
+	glMultiTexCoord1fARB @ 518
+	glMultiTexCoord2fARB @ 519
+	glMultiTexCoord3fARB @ 520
+	glMultiTexCoord4fARB @ 521
+	_glapi_set_dispatch @ 522
+	_glapi_noop_enable_warnings @ 523
+	_glapi_add_entrypoint @ 524
+	_glapi_get_dispatch_table_size @ 525
+	_glapi_check_multithread @ 526
+	_glapi_set_context @ 527
+	_glapi_get_context @ 528
+	glColorTable @ 529
+	glColorSubTable @ 530
+	glConvolutionFilter1D @ 531
+	glConvolutionFilter2D @ 532
+	glXGetProcAddressARB @ 533
+	glLockArraysEXT @ 534
+	glUnlockArraysEXT @ 535
+	glActiveTextureARB @ 536
+	glColorTableEXT @ 537
+	glPointParameterfEXT @ 538
+	glPointParameterfvEXT @ 539
+	glXMakeContextCurrent @ 540
+	_glapi_get_proc_address
+	_glapi_set_warning_func
+#endif
 
-/* $XFree86: xc/lib/GL/GL/GL-def.cpp,v 1.1 2001/03/22 21:47:56 dawes Exp $ */
+/* $XFree86: xc/lib/GL/GL/GL-def.cpp,v 1.3 2003/11/12 00:10:24 dawes Exp $ */

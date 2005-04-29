@@ -1,0 +1,53 @@
+# This file is a Tcl script to test out BMP reading and writing.
+# It is organized in the standard fashion for Tcl tests.
+#
+
+puts "img::bmp [package require img::bmp]"
+
+set bmpdata \
+{Qk12AgAAAAAAADYAAAAoAAAAEAAAAAwAAAABABgAAAAAAEACAABtCwAAbQsAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2dnZ2dnZ2dnZAAAAgP/w
+gP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wAAAA2dnZ2dnZ2dnZAAAAgP/wgP/wgP/w
+gP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wAAAA2dnZ2dnZ2dnZAAAAgP/wgP/wgP/wgP/wgP/w
+gP/wgP/wgP/wgP/wgP/wgP/wAAAA2dnZ2dnZ2dnZAAAAgP/wgP/wgP/wgP/wgP/wgP/wgP/w
+gP/wgP/wgP/wgP/wAAAA2dnZ2dnZ2dnZAAAAgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/w
+gP/wgP/wAAAA2dnZ2dnZ2dnZAAAAgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/w
+AAAA2dnZ2dnZ2dnZAAAAgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wgP/wAAAA2dnZ
+2dnZ2dnZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2dnZ2dnZ2dnZ
+2dnZAAAAgP/wgP/wgP/wgP/wgP/wgP/wAAAA2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ
+AAAAgP/wgP/wgP/wgP/wAAAA2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZAAAA
+AAAAAAAAAAAA2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ}
+
+
+test bmp-1.1 {} {
+    catch {image delete i}
+    image create photo i -file [file join $tcltest::testsDirectory folder.bmp]
+    i data -format bmp
+} $bmpdata
+test bmp-1.2 {} {
+    catch {image delete i}
+    image create photo i -data $bmpdata
+    set data [i data -format bmp]
+} $bmpdata
+test bmp-1.3 {} {
+    i blank
+    i put $bmpdata
+    set data [i data -format bmp]
+} $bmpdata
+test bmp-1.4 {} {
+    i blank
+    i put $bmpdata -format bmp
+    set data [i data -format bmp]
+} $bmpdata
+if {[info tclversion] < 8.0} {
+    return
+}
+
+test bmp-2.0 {Binary I/O with BMP images} {
+    i blank
+    set f [open [file join $tcltest::testsDirectory folder.bmp] r]
+    fconfigure $f -translation binary
+    set return [catch {i put [read $f]} msg]
+    close $f
+    lappend return $msg
+} {0 {}}

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_context.h,v 1.2 2002/12/16 16:18:54 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_context.h,v 1.6 2004/01/23 19:09:33 dawes Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,7 +25,8 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
@@ -37,14 +38,16 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef GLX_DIRECT_RENDERING
 
-#include <X11/Xlibint.h>
 #include "dri_util.h"
-#include "xf86drm.h"
 #include "radeon_common.h"
+#include "texmem.h"
 
 #include "macros.h"
 #include "mtypes.h"
+#include "colormac.h"
 #include "r200_reg.h"
+
+#define ENABLE_HW_3D_TEXTURE 0  /* XXX this is temporary! */
 
 struct r200_context;
 typedef struct r200_context r200ContextRec;
@@ -63,6 +66,11 @@ typedef struct r200_context *r200ContextPtr;
 #define R200_FALLBACK_BLEND_EQ          0x10
 #define R200_FALLBACK_BLEND_FUNC        0x20
 #define R200_FALLBACK_DISABLE           0x40
+#define R200_FALLBACK_BORDER_MODE       0x80
+
+/* The blit width for texture uploads
+ */
+#define BLIT_WIDTH_BYTES 1024
 
 /* Use the templated vertex format:
  */
@@ -127,17 +135,10 @@ typedef struct r200_tex_obj r200TexObj, *r200TexObjPtr;
 /* Texture object in locally shared texture space.
  */
 struct r200_tex_obj {
-   r200TexObjPtr next, prev;
+   driTextureObject   base;
 
-   struct gl_texture_object *tObj;	/* Mesa texture object */
-
-   PMemBlock memBlock;			/* Memory block containing texture */
    GLuint bufAddr;			/* Offset to start of locally
 					   shared texture block */
-
-   GLuint dirty_images;			/* Flags for whether or not
-					   images need to be uploaded to
-					   local or AGP texture space */
 
    GLuint dirty_state;		        /* Flags (1 per texunit) for
 					   whether or not this texobj
@@ -146,25 +147,20 @@ struct r200_tex_obj {
 					   brought into the
 					   texunit. */
 
-   GLint heap;				/* Texture heap currently stored in */
-
-   drmRadeonTexImage image[RADEON_MAX_TEXTURE_LEVELS];
-
-   GLint totalSize;			/* Total size of the texture
-					   including all mipmap levels */
+   drmRadeonTexImage image[6][RADEON_MAX_TEXTURE_LEVELS];
+					/* Six, for the cube faces */
 
    GLuint pp_txfilter;		        /* hardware register values */
    GLuint pp_txformat;
-   GLuint pp_txoffset;
+   GLuint pp_txformat_x;
+   GLuint pp_txoffset;		        /* Image location in texmem.
+					   All cube faces follow. */
    GLuint pp_txsize;		        /* npot only */
    GLuint pp_txpitch;		        /* npot only */
    GLuint pp_border_color;
+   GLuint pp_cubic_faces;	        /* cube face 1,2,3,4 log2 sizes */
 
-   /* texObj->Image[firstLevel] through texObj->Image[lastLevel] are the
-    * images to upload.
-    */
-   GLint firstLevel;     
-   GLint lastLevel;      
+   GLboolean  border_fallback;
 };
 
 
@@ -194,8 +190,8 @@ struct r200_state_atom {
 
 
 /* Trying to keep these relatively short as the variables are becoming
- * extravagently long.  Drop the R200_ off the front of everything -
- * I think we know we're in the r200 driver by now, and keep the
+ * extravagently long.  Drop the driver name prefix off the front of
+ * everything - I think we know which driver we're in by now, and keep the
  * prefix to 3 letters unless absolutely impossible.  
  */
 
@@ -246,10 +242,10 @@ struct r200_state_atom {
 #define VPT_SE_VPORT_ZOFFSET         6
 #define VPT_STATE_SIZE      7
 
-#define ZBS_CMD_0              0
-#define ZBS_SE_ZBIAS_FACTOR             1
-#define ZBS_SE_ZBIAS_CONSTANT           2
-#define ZBS_STATE_SIZE         3
+#define ZBS_CMD_0               0
+#define ZBS_SE_ZBIAS_FACTOR     1
+#define ZBS_SE_ZBIAS_CONSTANT   2
+#define ZBS_STATE_SIZE          3
 
 #define MSC_CMD_0               0
 #define MSC_RE_MISC             1
@@ -260,15 +256,25 @@ struct r200_state_atom {
 #define TAM_STATE_SIZE          2
 
 #define TEX_CMD_0                   0
-#define TEX_PP_TXFILTER             1
-#define TEX_PP_TXFORMAT             2
-#define TEX_PP_TXFORMAT_X           3
-#define TEX_PP_TXSIZE               4
-#define TEX_PP_TXPITCH              5
-#define TEX_PP_BORDER_COLOR         6
+#define TEX_PP_TXFILTER             1  /*2c00*/
+#define TEX_PP_TXFORMAT             2  /*2c04*/
+#define TEX_PP_TXFORMAT_X           3  /*2c08*/
+#define TEX_PP_TXSIZE               4  /*2c0c*/
+#define TEX_PP_TXPITCH              5  /*2c10*/
+#define TEX_PP_BORDER_COLOR         6  /*2c14*/
 #define TEX_CMD_1                   7
-#define TEX_PP_TXOFFSET             8
+#define TEX_PP_TXOFFSET             8  /*2d00 */
 #define TEX_STATE_SIZE              9
+
+#define CUBE_CMD_0                  0  /* 1 register follows */
+#define CUBE_PP_CUBIC_FACES         1  /* 0x2c18 */
+#define CUBE_CMD_1                  2  /* 5 registers follow */
+#define CUBE_PP_CUBIC_OFFSET_F1     3  /* 0x2d04 */
+#define CUBE_PP_CUBIC_OFFSET_F2     4  /* 0x2d08 */
+#define CUBE_PP_CUBIC_OFFSET_F3     5  /* 0x2d0c */
+#define CUBE_PP_CUBIC_OFFSET_F4     6  /* 0x2d10 */
+#define CUBE_PP_CUBIC_OFFSET_F5     7  /* 0x2d14 */
+#define CUBE_STATE_SIZE             8
 
 #define PIX_CMD_0                   0
 #define PIX_PP_TXCBLEND             1
@@ -492,6 +498,7 @@ struct r200_hw_state {
    struct r200_state_atom tam;
    struct r200_state_atom tf;
    struct r200_state_atom tex[2];
+   struct r200_state_atom cube[2];
    struct r200_state_atom zbs;
    struct r200_state_atom mtl[2]; 
    struct r200_state_atom mat[5]; 
@@ -516,16 +523,6 @@ struct r200_state {
    struct r200_texture_state texture;
 };
 
-struct r200_texture {
-   r200TexObj objects[R200_NR_TEX_HEAPS];
-   r200TexObj swapped;
-
-   memHeap_t *heap[R200_NR_TEX_HEAPS];
-   GLint age[R200_NR_TEX_HEAPS];
-
-   GLint numHeaps;
-};
-
 /* Need refcounting on dma buffers:
  */
 struct r200_dma_buffer {
@@ -533,7 +530,7 @@ struct r200_dma_buffer {
    drmBufPtr buf;
 };
 
-#define GET_START(rvb) (rmesa->r200Screen->agp_buffer_offset +		\
+#define GET_START(rvb) (rmesa->r200Screen->gart_buffer_offset +		\
 			(rvb)->address - rmesa->dma.buf0_address +	\
 			(rvb)->start)
 
@@ -563,8 +560,6 @@ struct r200_dma {
 };
 
 struct r200_dri_mirror {
-   Display *display;			/* X server display */
-
    __DRIcontextPrivate	*context;	/* DRI context */
    __DRIscreenPrivate	*screen;	/* DRI screen */
    __DRIdrawablePrivate	*drawable;	/* DRI drawable bound to this ctx */
@@ -618,7 +613,7 @@ struct r200_swtcl_info {
    GLuint vertex_size;
    GLuint vertex_stride_shift;
    GLuint vertex_format;
-   char *verts;
+   GLubyte *verts;
 
    /* Fallback rasterization functions
     */
@@ -683,8 +678,6 @@ struct dfn_lists {
    struct dynfn MultiTexCoord1fvARB;
 };
 
-struct _vb;
-
 struct dfn_generators {
    struct dynfn *(*Vertex2f)( GLcontext *, const int * );
    struct dynfn *(*Vertex2fv)( GLcontext *, const int * );
@@ -715,9 +708,14 @@ struct dfn_generators {
 };
 
 
-struct r200_vb {
-   /* Keep these first: referenced from codegen templates:
-    */
+
+struct r200_prim {
+   GLuint start;
+   GLuint end;
+   GLuint prim;
+};
+
+struct r200_vbinfo {
    GLint counter, initial_counter;
    GLint *dmaptr;
    void (*notify)( void );
@@ -742,23 +740,13 @@ struct r200_vb {
    r200_color_t *specptr;
    GLfloat *texcoordptr[2];
 
-   GLcontext *context;		/* current context : Single thread only! */
-};
 
-struct r200_prim {
-   GLuint start;
-   GLuint end;
-   GLuint prim;
-};
-
-struct r200_vbinfo {
    GLenum *prim;		/* &ctx->Driver.CurrentExecPrimitive */
    GLuint primflags;
-   GLboolean enabled;		/* R200_NO_VTXFMT//R200_NO_TCL env vars */
+   GLboolean enabled;		/* *_NO_VTXFMT / *_NO_TCL env vars */
    GLboolean installed;
    GLboolean fell_back;
    GLboolean recheck;
-   GLint initial_counter;
    GLint nrverts;
    GLuint vtxfmt_0, vtxfmt_1;
 
@@ -786,7 +774,9 @@ struct r200_context {
 
    /* Texture object bookkeeping
     */
-   struct r200_texture texture;
+   unsigned              nr_heaps;
+   driTexHeap          * texture_heaps[ R200_NR_TEX_HEAPS ];
+   driTextureObject      swapped;
 
 
    /* Rasterization and vertex state:
@@ -820,7 +810,7 @@ struct r200_context {
 
    /* Clientdata textures;
     */
-   GLuint prefer_agp_client_texturing;
+   GLuint prefer_gart_client_texturing;
 
    /* Drawable, cliprect and scissor information
     */
@@ -843,9 +833,18 @@ struct r200_context {
    GLuint TexGenCompSel;
    GLmatrix tmpmat;
 
-   /* VBI
+   /* VBI / buffer swap
     */
    GLuint vbl_seq;
+   GLuint vblank_flags;
+
+   int64_t swap_ust;
+   int64_t swap_missed_ust;
+
+   GLuint swap_count;
+   GLuint swap_missed_count;
+
+   PFNGLXGETUSTPROC get_ust;
 
    /* r200_tcl.c
     */
@@ -885,11 +884,10 @@ static __inline GLuint r200PackColor( GLuint cpp,
 
 
 extern void r200DestroyContext( __DRIcontextPrivate *driContextPriv );
-extern GLboolean r200CreateContext( Display *dpy, 
-				    const __GLcontextModes *glVisual,
+extern GLboolean r200CreateContext( const __GLcontextModes *glVisual,
 				    __DRIcontextPrivate *driContextPriv,
 				    void *sharedContextPrivate);
-extern void r200SwapBuffers(Display *dpy, void *drawablePrivate);
+extern void r200SwapBuffers( __DRIdrawablePrivate *dPriv );
 extern GLboolean r200MakeCurrent( __DRIcontextPrivate *driContextPriv,
 				  __DRIdrawablePrivate *driDrawPriv,
 				  __DRIdrawablePrivate *driReadPriv );
@@ -920,6 +918,7 @@ extern int R200_DEBUG;
 #define DEBUG_SANITY    0x800
 #define DEBUG_SYNC      0x1000
 #define DEBUG_PIXEL     0x2000
+#define DEBUG_MEMORY    0x4000
 
 #endif
 #endif /* __R200_CONTEXT_H__ */

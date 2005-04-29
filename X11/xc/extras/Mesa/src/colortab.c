@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -24,20 +24,14 @@
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
+#include "imports.h"
 #include "colortab.h"
 #include "context.h"
 #include "image.h"
 #include "macros.h"
-#include "mem.h"
 #include "mmath.h"
 #include "state.h"
-#include "swrast/s_span.h" /* XXX SWRAST hack */
-#endif
-
 
 
 /*
@@ -321,9 +315,7 @@ _mesa_ColorTable( GLenum target, GLenum internalFormat,
          table->Format = (GLenum) 0;
       }
       else {
-         char msg[100];
-         sprintf(msg, "glColorTable(width=%d)", width);
-         _mesa_error(ctx, GL_INVALID_VALUE, msg);
+         _mesa_error(ctx, GL_INVALID_VALUE, "glColorTable(width=%d)", width);
       }
       return;
    }

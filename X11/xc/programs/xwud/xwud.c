@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xwud/xwud.c,v 3.7 2001/12/14 20:02:35 dawes Exp $ */
+/* $XFree86: xc/programs/xwud/xwud.c,v 3.11 2003/11/17 15:18:08 tsi Exp $ */
 
 /* xwud - marginally useful raster image undumper */
 
@@ -70,11 +70,12 @@ static void Do_Pseudo(Display *dpy, Colormap *colormap, int ncolors,
 		      XColor *colors, XImage *in_image, XImage *out_image);
 static void Do_Direct(Display *dpy, XWDFileHeader *header, Colormap *colormap, 
 		      int ncolors, XColor *colors, 
-		      XImage *in_image, XImage *out_image);
+		      XImage *in_image, XImage *out_image, XVisualInfo *vinfo);
 static unsigned int Image_Size(XImage *image);
 static void Error(char *string);
 static void _swapshort(char *bp, unsigned int n);
 static void _swaplong(char *bp, unsigned int n);
+static void DumpHeader(const XWDFileHeader *header, const char *win_name);
 
 static void
 usage(void)
@@ -148,6 +149,7 @@ main(int argc, char *argv[])
     XStandardColormap *stdmaps, *stdmap = NULL;
     char c;
     int win_width, win_height;
+    Bool dump_header = False;
 
     progname = argv[0];
 
@@ -160,6 +162,10 @@ main(int argc, char *argv[])
 	if (strcmp(argv[i], "-display") == 0) {
 	    if (++i >= argc) usage();
 	    display_name = argv[i];
+	    continue;
+	}
+	if (strcmp(argv[i], "-dumpheader") == 0) {
+	    dump_header = True;
 	    continue;
 	}
 	if (strcmp(argv[i], "-fg") == 0) {
@@ -276,6 +282,11 @@ main(int argc, char *argv[])
     if(!Read(win_name + 6, sizeof(char), win_name_size, in_file))
       Error("Unable to read window name from dump file.");
 
+    if (dump_header) {
+	DumpHeader(&header, win_name);
+	exit(0);
+    }
+   
     /* initialize the input image */
 
     in_image = &in_image_struct;
@@ -397,7 +408,7 @@ main(int argc, char *argv[])
 	    mask |= VisualIDMask;
 	    sscanf(vis, "0x%lx", &vinfo.visualid);
 	    if (!vinfo.visualid)
-	      sscanf(vis, "%ld", &vinfo.visualid);
+	      sscanf(vis, "%lu", &vinfo.visualid);
 	    if (!vinfo.visualid)
 	      Error("invalid visual specifier");
 	}
@@ -530,7 +541,7 @@ main(int argc, char *argv[])
 	} else if ((header.visual_class == TrueColor) ||
 		   (header.visual_class == DirectColor))
 	    Do_Direct(dpy, &header, &colormap, ncolors, colors,
-		      in_image, out_image);
+		      in_image, out_image, &vinfo);
 	else
 	    Do_Pseudo(dpy, &colormap, ncolors, colors, in_image, out_image);
     }
@@ -871,9 +882,9 @@ VisualRank(int class)
     switch (class) {
     case PseudoColor:
 	return 5;
-    case DirectColor:
-	return 4;
     case TrueColor:
+	return 4;
+    case DirectColor:
 	return 3;
     case StaticColor:
 	return 2;
@@ -981,12 +992,15 @@ Do_Pseudo(Display *dpy, Colormap *colormap,
 
 static void
 Do_Direct(Display *dpy, XWDFileHeader *header, Colormap *colormap, 
-	  int ncolors, XColor *colors, XImage *in_image, XImage *out_image)
+	  int ncolors, XColor *colors, XImage *in_image, XImage *out_image,
+          XVisualInfo *vinfo)
 {
     register int x, y;
     XColor color;
     unsigned long rmask, gmask, bmask;
-    int rshift = 0, gshift = 0, bshift = 0;
+    unsigned long ormask, ogmask, obmask;
+    unsigned long  rshift = 0, gshift = 0, bshift = 0;
+    unsigned long  orshift = 0, ogshift = 0, obshift = 0;
     int i;
     unsigned long pix, xpix;
     unsigned long *pixels, *rpixels;
@@ -1040,7 +1054,38 @@ Do_Direct(Display *dpy, XWDFileHeader *header, Colormap *colormap,
 		XPutPixel(out_image, x, y, color.pixel);
 	    }
 	}
+    } else if (header->visual_class == TrueColor &&
+	       vinfo->class == TrueColor) {
+	ormask = vinfo->red_mask;
+	while (!(ormask & 1)) {
+	    ormask >>= 1;
+	    orshift++;
+	}
+	ogmask = vinfo->green_mask;
+	while (!(ogmask & 1)) {
+	    ogmask >>= 1;
+	    ogshift++;
+	}
+	obmask = vinfo->blue_mask;
+	while (!(obmask & 1)) {
+	    obmask >>= 1;
+	    obshift++;
+	}
+	for (y = 0; y < in_image->height; y++) {
+	    for (x = 0; x < in_image->width; x++) {
+		pix = XGetPixel(in_image, x, y);
+		xpix = (((((pix >> rshift) & rmask) * 65535 / rmask)
+			 * ormask / 65535) << orshift) |
+		       (((((pix >> gshift) & gmask) * 65535 / gmask)
+			 * ogmask / 65535) << ogshift) |
+		       (((((pix >> bshift) & bmask) * 65535 / bmask)
+			 * obmask / 65535) << obshift);
+		XPutPixel(out_image, x, y, xpix);
+	    }
+	}
     } else {
+	if (header->visual_class == TrueColor)
+	    ncolors = 0;
 	pix = 1 << 12;
 	pixels = (unsigned long *)malloc(sizeof(unsigned long) * pix);
 	rpixels = (unsigned long *)malloc(sizeof(unsigned long) * pix);
@@ -1136,3 +1181,36 @@ _swaplong(char *bp, unsigned int n)
 	bp += 2;
     }
 }
+
+static void
+DumpHeader(const XWDFileHeader *header, const char *win_name)
+{
+	printf("window name:        %s\n", win_name);
+	printf("sizeof(XWDheader):  %d\n", (int)sizeof(*header));
+	printf("header size:        %d\n", (int)header->header_size);
+	printf("file version:       %d\n", (int)header->file_version);
+	printf("pixmap format:      %d\n", (int)header->pixmap_format);
+	printf("pixmap depth:       %d\n", (int)header->pixmap_depth);
+	printf("pixmap width:       %d\n", (int)header->pixmap_width);
+	printf("pixmap height:      %d\n", (int)header->pixmap_height);
+	printf("x offset:           %d\n", (int)header->xoffset);
+	printf("byte order:         %d\n", (int)header->byte_order);
+	printf("bitmap unit:        %d\n", (int)header->bitmap_unit);
+	printf("bitmap bit order:   %d\n", (int)header->bitmap_bit_order);
+	printf("bitmap pad:         %d\n", (int)header->bitmap_pad);
+	printf("bits per pixel:     %d\n", (int)header->bits_per_pixel);
+	printf("bytes per line:     %d\n", (int)header->bytes_per_line);
+	printf("visual class:       %d\n", (int)header->visual_class);
+	printf("red mask:           %d\n", (int)header->red_mask);
+	printf("green mask:         %d\n", (int)header->green_mask);
+	printf("blue mask:          %d\n", (int)header->blue_mask);
+	printf("bits per rgb:       %d\n", (int)header->bits_per_rgb);
+	printf("colormap entries:   %d\n", (int)header->colormap_entries);
+	printf("num colors:         %d\n", (int)header->ncolors);
+	printf("window width:       %d\n", (int)header->window_width);
+	printf("window height:      %d\n", (int)header->window_height);
+	printf("window x:           %d\n", (int)header->window_x);
+	printf("window y:           %d\n", (int)header->window_y);
+	printf("border width:       %d\n", (int)header->window_bdrwidth);
+}
+

@@ -43,7 +43,7 @@ in this Software without prior written authorization from The Open Group.
  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
  * THIS SOFTWARE.
  */
-/* $XFree86: xc/programs/xfs/os/access.c,v 3.7 2001/12/14 20:01:40 dawes Exp $ */
+/* $XFree86: xc/programs/xfs/os/access.c,v 3.8 2003/07/09 15:27:40 tsi Exp $ */
 
 #include	<X11/Xos.h>
 #ifndef Lynx
@@ -76,10 +76,12 @@ AccessSetConnectionLimit(int num)
     MaxClients = num;
 }
 
+#ifdef NOTDEF
 /*
  * XXX
  *
  * needs massive amounts of OS-dependent work (big surprise)
+ * needs IPv6 support as well
  */
 int
 GetHostAddress(HostAddress *addr)
@@ -102,6 +104,7 @@ GetHostAddress(HostAddress *addr)
     }
     return FSSuccess;
 }
+#endif
 
 /* ARGSUSED */
 int

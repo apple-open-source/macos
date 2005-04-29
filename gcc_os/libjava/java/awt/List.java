@@ -46,13 +46,15 @@ import java.awt.event.ItemListener;
 import java.awt.peer.ListPeer;
 import java.awt.peer.ComponentPeer;
 import java.util.Vector;
+import javax.accessibility.Accessible;
 
 /**
   * Class that implements a listbox widget
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
-public class List extends Component implements ItemSelectable, Serializable
+public class List extends Component
+  implements ItemSelectable, Serializable, Accessible
 {
 
 /*
@@ -113,6 +115,8 @@ private ActionListener action_listeners;
 /**
   * Initializes a new instance of <code>List</code> with no visible lines
   * and multi-select disabled.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 List()
@@ -127,6 +131,8 @@ List()
   * number of visible lines and multi-select disabled.
   *
   * @param lines The number of visible lines in the list.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 List(int rows)
@@ -143,12 +149,17 @@ List(int rows)
   * @param lines The number of visible lines in the list.
   * @param multipleMode <code>true</code> if multiple lines can be selected
   * simultaneously, <code>false</code> otherwise.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public 
 List(int rows, boolean multipleMode)
 {
   this.rows = rows;
   this.multipleMode = multipleMode;
+
+  if (GraphicsEnvironment.isHeadless())
+    throw new HeadlessException ();
 }
 
 /*************************************************************************/
@@ -947,10 +958,10 @@ processEvent(AWTEvent event)
 {
   if (event instanceof ActionEvent)
     processActionEvent((ActionEvent)event);
-  if (event instanceof ItemEvent)
+  else if (event instanceof ItemEvent)
     processItemEvent((ItemEvent)event);
-
-  super.processEvent(event);
+  else
+    super.processEvent(event);
 }
 
 /*************************************************************************/
@@ -987,6 +998,23 @@ processItemEvent(ItemEvent event)
 {
   if (item_listeners != null)
     item_listeners.itemStateChanged(event);
+}
+
+void
+dispatchEventImpl(AWTEvent e)
+{
+  if (e.id <= ItemEvent.ITEM_LAST
+      && e.id >= ItemEvent.ITEM_FIRST
+      && (item_listeners != null 
+	  || (eventMask & AWTEvent.ITEM_EVENT_MASK) != 0))
+    processEvent(e);
+  else if (e.id <= ActionEvent.ACTION_LAST 
+	   && e.id >= ActionEvent.ACTION_FIRST
+	   && (action_listeners != null 
+	       || (eventMask & AWTEvent.ACTION_EVENT_MASK) != 0))
+    processEvent(e);
+  else
+    super.dispatchEventImpl(e);
 }
 
 /*************************************************************************/

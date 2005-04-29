@@ -1,3 +1,76 @@
+2005-01-19  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (GDB_VERSION): Update to reflect the actual date of the
+	last FSF merge.
+
+2004-12-06  Jason Molenda  (jmolenda@apple.com)
+
+	* Info-template.plist: It looks like CFBundleDevelopmentRegion needs
+	to be defined; whatever.  Looking at two installed frameworks I see 
+	English is an acceptable setting, so there we go.  These are just 
+	private framework header files used for building gdb plug-ins anyway.
+
+2004-08-09  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile: Post-process the man page to refer to
+	$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR) instead of hard-coding (see
+	change to gdb/gdb.1).
+
+2004-06-16  Jason Molenda  (jmolenda@apple.com)
+
+	* ntbuild.sh, ntconfig.sh: Removed.
+	* dpkg/control: Removed.
+	* ChangeLog.binutils: Removed.
+
+2004-06-16  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Don't install binutils, unnecessary frameworks.
+	Don't create /usr/lib, /usr/libexec/binutils directories.
+
+2004-06-11  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Quote documentation directory pathnames in case
+	a space character is added.
+
+2004-06-08  Jim Ingham  <jingham@apple.com>
+
+        * cache-symfiles.sh: For now, don't emit cached symfiles
+        if the original library has any stabs.  gdb crashes when
+        these are present (Radar 3418798)
+        Also deleted the setting of "name" in the second (library)
+        search, since we don't actually use it.
+	Also, run the script far enough to delete the old symfile
+	directory, since then gdb won't bother to look at a bunch
+	of symfiles which it surely can't use.
+	
+2004-06-08  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (SYSTEM_DEVELOPER_TOOLS_DOC_DIR): Set from
+	pb_makefiles' plaform-variables.make if possible. 
+
+2004-06-07  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Move GDB_RC_VERSION up where I can see it.
+	(SYSTEM_DEVELOPER_TOOLS_DOC_DIR): New variable to hold the location
+	of the installed documentation, cf r. 3678942.
+	(install-binutils-common): Don't install binutils docs.
+	(install-binutils-macosx): Don't install binutils docs.
+	(install-chmod-macosx): Update chmod call to avoid deprecation warning.
+
+2004-05-17  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Bump GDB_RC_VERSION to new range.
+
+2004-05-13  Jason Molenda  (jmolenda@apple.com)
+
+	* cached-symfiles.sh: Suppress cacheing of symfiles until Klee
+	has a chance to make it work again in the newly merged sources.
+
+2003-10-03  Jason Molenda  (jmolenda@apple.com)
+
+        * cache-symfiles.sh: Run nm on dylibs to ensure they're well formed
+        before feeding them to gdb.
+
 2003-07-24  Klee Dienes <kdienes@apple.com>
 
 	* cache-symfiles.sh: Use the proper prefix for dyld; no longer

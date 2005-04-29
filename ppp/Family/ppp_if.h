@@ -24,7 +24,6 @@
 #ifndef _PPP_IF_H_
 #define _PPP_IF_H_
 
-
 /*
  * Network protocols we support.
  */
@@ -34,32 +33,49 @@
 //#define NP_AT	3		/* Appletalk protocol */
 #define NUM_NP	2		/* Number of NPs. */
 
+/*
+ * State of the interface.
+ */
+#define PPP_IF_STATE_DETACHING	1
+
 struct ppp_if {
     /* first, the ifnet structure... */
-    struct ifnet 	*net;		/* network-visible interface */
+    ifnet_t				net;		/* network-visible interface */
 
     /* administrative info */
     TAILQ_ENTRY(ppp_if) next;
-    void 		*host;		/* first client structure */
-    u_int8_t 		nbclients;	/* nb clients attached */
-
+    void				*host;		/* first client structure */
+    u_int8_t			nbclients;	/* nb clients attached */
+	u_int8_t			state;		/* state of the interface */
+	lck_mtx_t			*mtx;		/* interface mutex */
+	
     /* ppp data */
-    u_int16_t		mru;		/* max receive unit */
+    u_int16_t			mru;		/* max receive unit */
     TAILQ_HEAD(, ppp_link)  link_head; 	/* list of links attached to this interface */
-    u_int8_t		nblinks;	/* # links currently attached */
-    struct mbuf 	*outm;		/* mbuf currently being output */
-    time_t		last_xmit; 	/* last proto packet sent on this interface */
-    time_t		last_recv; 	/* last proto packet received on this interface */
-    u_int32_t		sc_flags;	/* ppp private flags */
+    u_int8_t			nblinks;	/* # links currently attached */
+    mbuf_t				outm;		/* mbuf currently being output */
+    time_t				last_xmit; 	/* last proto packet sent on this interface */
+    time_t				last_recv; 	/* last proto packet received on this interface */
+    u_int32_t			sc_flags;	/* ppp private flags */
     struct slcompress	*vjcomp; 	/* vjc control buffer */
-    enum NPmode		npmode[NUM_NP];	/* what to do with each net proto */
-    enum NPAFmode	npafmode[NUM_NP];/* address filtering for each net proto */
-
+    enum NPmode			npmode[NUM_NP];	/* what to do with each net proto */
+    enum NPAFmode		npafmode[NUM_NP];/* address filtering for each net proto */
+	struct pppqueue		sndq;		/* send queue */
+	bpf_packet_func		bpf_input;	/* bpf input function */
+	bpf_packet_func		bpf_output;	/* bpf output function */
+	
     /* data compression */
-    void 		*xc_state;	/* send compressor state */
-    struct ppp_comp	*xcomp;		/* send compressor structure */
-    void 		*rc_state;	/* send compressor state */
-    struct ppp_comp	*rcomp;		/* send compressor structure */
+    void				*xc_state;	/* send compressor state */
+    struct ppp_comp		*xcomp;		/* send compressor structure */
+    void				*rc_state;	/* send compressor state */
+    struct ppp_comp		*rcomp;		/* send compressor structure */
+
+	/* network protocols data */
+    int					ip_attached;
+    struct in_addr		ip_src;
+    struct in_addr		ip_dst;
+    int					ipv6_attached;
+    ifnet_t				lo_ifp;		/* loopback interface */
 };
 
 
@@ -75,16 +91,16 @@ struct ppp_if {
 int ppp_if_init();
 int ppp_if_dispose();
 int ppp_if_attach(u_short *unit);
-int ppp_if_attachclient(u_short unit, void *host, struct ifnet **ifp);
-void ppp_if_detachclient(struct ifnet *ifp, void *host);
+int ppp_if_attachclient(u_short unit, void *host, ifnet_t *ifp);
+void ppp_if_detachclient(ifnet_t ifp, void *host);
 
-int ppp_if_input(struct ifnet *ifp, struct mbuf *m, u_int16_t proto, u_int16_t hdrlen);
-int ppp_if_control(struct ifnet *ifp, u_long cmd, void *data);
+int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen);
+int ppp_if_control(ifnet_t ifp, u_long cmd, void *data);
 int ppp_if_attachlink(struct ppp_link *link, int unit);
 int ppp_if_detachlink(struct ppp_link *link);
-int ppp_if_send(struct ifnet *ifp, struct mbuf *m);
-void ppp_if_error(struct ifnet *ifp);
-int ppp_if_xmit(struct ifnet *ifp, struct mbuf *m);
+int ppp_if_send(ifnet_t ifp, mbuf_t m);
+void ppp_if_error(ifnet_t ifp);
+int ppp_if_xmit(ifnet_t ifp, mbuf_t m);
 
 
 

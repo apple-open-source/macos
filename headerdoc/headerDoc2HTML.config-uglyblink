@@ -1,0 +1,23 @@
+# Configuration file for HeaderDoc
+# $Revision: 1.1.2.2 $
+###########################################################
+copyrightOwner =>
+defaultFrameName => index.html
+masterTOCName => masterTOC.html
+apiUIDPrefix => apple_ref
+ignorePrefixes =>
+htmlHeader => 
+dateFormat => %A, %B %d, %Y
+textStyle =>
+commentStyle => background:#ff00ff; color:#236e25; text-decoration:blink;
+preprocessorStyle => background:#ffffff; color:#236e25; text-decoration:blink;
+funcNameStyle => background:#ffff80; color:#000080; text-decoration:blink;
+stringStyle => background: #ffffff; color:#60ffff; text-decoration:blink;
+charStyle => background: #ffffff; color:#ff6060; text-decoration:blink;
+numberStyle => background: #303030; color:#6060ff; text-decoration:blink;
+keywordStyle => background:#ff8080; color:#008080; text-decoration:blink;
+typeStyle => background:#000000; color:#ffffff; text-decoration:blink;
+paramStyle => background:#808080; color:#00ff00; text-decoration:blink;
+varStyle => background:#ffffff; color:#ff0000; text-decoration:blink;
+templateStyle => background:#ccccff; color:#008000; font-family: sand, comic sans ms, comic sans, script; font-weight: bold; text-decoration: underline;
+

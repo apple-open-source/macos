@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001-2002
+ * Copyright (c) 2001-2003
  *	Sleepycat Software.  All rights reserved.
  *
  *
@@ -12,7 +12,7 @@
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: aes_method.c,v 1.1.1.1 2003/02/15 04:55:40 zarzycki Exp $";
+static const char revid[] = "$Id: aes_method.c,v 1.2 2004/03/30 01:21:23 jtownsen Exp $";
 #endif /* not lint */
 
 #ifndef NO_SYSTEM_INCLUDES
@@ -56,15 +56,15 @@ __aes_setup(dbenv, db_cipher)
  *	Given a size, return an addition amount needed to meet the
  *	"chunk" needs of the algorithm.
  *
- * PUBLIC: int __aes_adj_size __P((size_t));
+ * PUBLIC: u_int __aes_adj_size __P((size_t));
  */
-int
+u_int
 __aes_adj_size(len)
 	size_t len;
 {
 	if (len % DB_AES_CHUNK == 0)
 		return (0);
-	return ((int)(DB_AES_CHUNK - (len % DB_AES_CHUNK)));
+	return (DB_AES_CHUNK - (len % DB_AES_CHUNK));
 }
 
 /*

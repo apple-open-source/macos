@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = msdosfs ;
-export deferred SRCROOT = /sources/msdosfs-wheat ;
+export deferred SRCROOT = /Volumes/Speedy/sources/msdosfs ;
 
 # User-defined project-wide settings for project
 

@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: reconstruct.c,v 1.88 2004/10/11 14:01:24 ken3 Exp $ */
+/* $Id: reconstruct.c,v 1.9 2005/03/05 00:37:03 dasenbro Exp $ */
 
 #include <config.h>
 

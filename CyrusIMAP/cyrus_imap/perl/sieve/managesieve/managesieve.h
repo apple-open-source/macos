@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: managesieve.h,v 1.5 2003/02/13 20:15:55 rjs3 Exp $ */
+/* $Id: managesieve.h,v 1.5 2005/03/05 00:37:34 dasenbro Exp $ */
 
 #include "isieve.h"
 

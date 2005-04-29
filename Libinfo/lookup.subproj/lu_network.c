@@ -486,7 +486,7 @@ getnet(const char *name, long addr, int type, int source)
 }
 
 struct netent *
-getnetbyaddr(long addr, int type)
+getnetbyaddr(uint32_t addr, int type)
 {
 	return getnet(NULL, addr, type, N_GET_ADDR);
 }

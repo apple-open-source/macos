@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xau/AuLock.c,v 3.6 2002/05/31 18:45:43 dawes Exp $ */
+/* $XFree86: xc/lib/Xau/AuLock.c,v 3.7 2003/11/17 22:20:21 dawes Exp $ */
 
 #include <X11/Xauth.h>
 #include <X11/Xos.h>
@@ -46,21 +46,12 @@ extern unsigned	sleep ();
 #define link rename
 #endif
 
-#if NeedFunctionPrototypes
 int
 XauLockAuth (
 _Xconst char *file_name,
 int	retries,
 int	timeout,
 long	dead)
-#else
-int
-XauLockAuth (file_name, retries, timeout, dead)
-char	*file_name;
-int	retries;
-int	timeout;
-long	dead;
-#endif
 {
     char	creat_name[1025], link_name[1025];
     struct stat	statb;

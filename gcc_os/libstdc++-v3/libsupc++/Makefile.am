@@ -1,6 +1,6 @@
 ## Makefile for the GNU C++ Support library.
 ##
-## Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+## Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 ##
 ## Process this file with automake to produce Makefile.in.
 ##
@@ -47,9 +47,8 @@ OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 
 # These bits are all figured out from configure. Look in acinclude.m4
 # or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
-# NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
 CONFIG_CXXFLAGS = \
-	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @CSHADOW_FLAGS@ @DEBUG_FLAGS@ 
+	@SECTION_FLAGS@ @EXTRA_CXX_FLAGS@ 
 
 # Warning flags to use.
 WARN_CXXFLAGS = \
@@ -58,21 +57,23 @@ WARN_CXXFLAGS = \
 # Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
 GLIBCPP_INCLUDES = @GLIBCPP_INCLUDES@
 LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
+GCC_INCLUDES = -I$(toplevel_srcdir)/gcc -I$(toplevel_srcdir)/include
 
 INCLUDES = \
-	-I$(toplevel_srcdir)/gcc -I$(toplevel_srcdir)/include \
-	$(GLIBCPP_INCLUDES) $(LIBSUPCXX_INCLUDES)
+	$(GCC_INCLUDES) $(GLIBCPP_INCLUDES) $(LIBSUPCXX_INCLUDES)
 
 headers = \
 	exception new typeinfo cxxabi.h exception_defines.h 
 
-sources = \
+c_sources = \
 	cxa_demangle.c \
+	dyn-string.c 
+
+sources = \
 	del_op.cc \
 	del_opnt.cc \
 	del_opv.cc \
 	del_opvnt.cc \
-	dyn-string.c \
 	eh_alloc.cc \
 	eh_aux_runtime.cc \
 	eh_catch.cc \
@@ -82,6 +83,7 @@ sources = \
 	eh_terminate.cc \
 	eh_throw.cc \
 	eh_type.cc \
+	guard.cc \
 	new_handler.cc \
 	new_op.cc \
 	new_opnt.cc \
@@ -92,34 +94,40 @@ sources = \
 	tinfo2.cc \
 	vec.cc
 
-libsupc___la_SOURCES = $(sources)
-libsupc__convenience_la_SOURCES = $(sources)
+libsupc___la_SOURCES = $(sources) $(c_sources)
+libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
 
 glibcppinstalldir = @gxx_include_dir@
 glibcppinstall_HEADERS = $(headers)
 
 LIBSUPCXX_CXXFLAGS = $(LIBSUPCXX_PICFLAGS)
 
-# Use special rules for pulling things out of libiberty.
+# Use special rules for pulling things out of libiberty.  These
+# objects should be compiled with the "C" compiler, not the C++
+# compiler, and also should not use the C++ includes.
+C_COMPILE = \
+	$(CC) $(DEFS) $(GCC_INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+
 cxa_demangle.c:
 	rm -f $@
 	$(LN_S) $(toplevel_srcdir)/libiberty/cp-demangle.c $@
 cxa_demangle.lo: cxa_demangle.c
 	$(LTCOMPILE) -DIN_GLIBCPP_V3 -Wno-error -c $<
 cxa_demangle.o: cxa_demangle.c
-	$(COMPILE) -DIN_GLIBCPP_V3 -Wno-error -c $<
+	$(C_COMPILE) -DIN_GLIBCPP_V3 -Wno-error -c $<
 dyn-string.c:
 	rm -f $@
 	$(LN_S) $(toplevel_srcdir)/libiberty/dyn-string.c $@
 dyn-string.lo: dyn-string.c
 	$(LTCOMPILE) -DIN_GLIBCPP_V3 -Wno-error -c $<
 dyn-string.o: dyn-string.c
-	$(COMPILE) -DIN_GLIBCPP_V3 -Wno-error -c $<
+	$(C_COMPILE) -DIN_GLIBCPP_V3 -Wno-error -c $<
 
 # LTCOMPILE is copied from LTCXXCOMPILE below.
-LTCOMPILE = $(LIBTOOL) --tag CC --tag disable-shared \
-               --mode=compile $(CC) $(INCLUDES) \
-               $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS) 
+LTCOMPILE = $(LIBTOOL) --tag CC --tag disable-shared --mode=compile $(CC) \
+	    $(DEFS) $(GCC_INCLUDES) $(LIBSUPCXX_PICFLAGS) \
+            $(AM_CPPFLAGS) $(CPPFLAGS)
 
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be

@@ -1,0 +1,50 @@
+Requirements
+
+  Python 2.2 or later.
+
+  SSL/TLS: PyOpenSSL 0.5.1 or later (http://pyopenssl.sf.net)
+  Serial: PySerial (http://pyserial.sf.net)
+  SSH: PyCrypto (http://pycrypto.sf.net, recommended version at least 1.9a6)
+       PyPAM (optional - http://www.tummy.com/Software/PyPam/index.html)
+        GMPy (optional - http://gmpy.sf.net)
+        PyShadow (optional -
+            http://www.twistedmatrix.com/users/z3p/files/pyshadow-0.1.tar.gz)
+  On Windows win32all is recommended (or ActivePython)
+      http://starship.python.net/crew/mhammond/win32/Downloads.html
+
+
+Installation
+
+  * Debian 
+    packages are available with these sources - for woody:
+
+      deb http://twisted.sourceforge.net/debian/woody/ ./
+
+    and for sarge/sid:
+
+      deb http://twisted.sourceforge.net/debian/ ./
+
+    Sid and sarge both have Twisted as well, but not necessarily the latest
+    version.
+
+  * FreeBSD, Gentoo 
+    Twisted is in their package repositories.
+
+  * Mac OS X 
+    packages and dependences can be obtained from:
+
+      http://undefined.org/python/pimp/
+  
+  * Win32 
+    EXEs are available from http://twisted.sf.net, as well as tarballs
+    for other platforms. 
+  
+  * Other
+    As with other Python packages, the standard way of installing from source 
+    is:
+
+      python setup.py install
+  
+  * RPM (Redhat, Mandrake, SuSE, etc)
+    For RPM based platforms there is a spec file in the admin/ folder in the
+    tarball.

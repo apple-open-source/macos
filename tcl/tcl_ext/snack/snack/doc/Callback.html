@@ -1,0 +1,52 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (X11; I; HP-UX B.10.20 9000/770) [Netscape]">
+   <meta name="Author" content="Kåre Sjölander">
+   <title>Callback</title>
+</head>
+<body>
+
+<h3>
+NAME</h3>
+Snack_AddCallback, Snack_RemoveCallback, Snack_ExecCallbacks - track changes
+to Snack sound objects
+<h3>
+SYNOPSIS</h3>
+#include &lt;snack.h>
+<br><b>Snack_AddCallback</b>(sound, procedure, clientData)
+<br><b>Snack_RemoveCallback</b>(sound, id)
+<br><b>Snack_ExecCallbacks</b>(sound, flag)
+<h3>
+ARGUMENTS</h3>
+Sound *sound (in)
+<br>&nbsp;&nbsp;&nbsp; Sound object to attach the callback to.
+<br>updateProc *procedure (in)
+<br>&nbsp;&nbsp;&nbsp; Procedure to invoke when the sound data changes.
+<br>ClientData *clientData (in)
+<br>&nbsp;&nbsp;&nbsp; Arbitrary one-word value to pass to <i>procedure</i>.
+<br>int id (in)
+<br>&nbsp;&nbsp;&nbsp; Unique identifer for the callback.
+<br>int flag (in)
+<br>&nbsp;&nbsp;&nbsp; Flag which specifies how the sound changed.
+<h3>
+DESCRIPTION</h3>
+<b>Snack_AddCallback</b> adds a callback <i>procedure</i> to <i>sound</i>,
+that will be called whenever its content changes. It returns an <i>id</i>
+number that can be used by <b>Snack_RemoveCallback</b> to remove the callback.
+The <i>clientData</i> parameter to <i>procedure</i> is a copy of the <i>clientData</i>
+argument given to <b>Snack_AddCallback</b> when
+<br>the callback was created. Typically, <i>clientData</i> points to a
+data structure containing application-specific
+<br>information about what to do in <i>procedure</i>.
+<br>
+<b>Snack_ExecCallbacks</b> is used in sub-commands so that changes
+to a sound can be tracked for example Snack&acute;s canvas item types.
+The <i>flag</i> specifies whether all sound data has changed (SNACK_NEW_SOUND)
+or if new data has been appended (SNACK_MORE_DATA).
+<br>&nbsp;
+<br>&nbsp;
+<br>&nbsp;
+</body>
+</html>

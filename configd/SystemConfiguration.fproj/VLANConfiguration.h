@@ -24,6 +24,9 @@
 #ifndef _VLANCONFIGURATION_H
 #define _VLANCONFIGURATION_H
 
+/*!
+	@header VLANConfiguration
+*/
 
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>

@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/dix/globals.c,v 1.10 2002/10/08 23:55:18 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/dix/globals.c,v 1.13 2003/12/03 17:11:29 tsi Exp $ */
 /************************************************************
 
 Copyright 1987, 1998  The Open Group
@@ -79,6 +79,7 @@ PtrCtrl defaultPointerControl = {
 ClientPtr *clients;
 ClientPtr  serverClient;
 int  currentMaxClients;   /* current size of clients array */
+long maxBigRequestSize = MAX_BIG_REQUEST_SIZE;
 
 WindowPtr *WindowTable;
 

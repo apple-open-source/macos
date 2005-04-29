@@ -4,22 +4,28 @@
 <dict>
 	<key>BlackAlpha</key>
 	<real>1</real>
+	<key>BlackDiffuse</key>
+	<real>0.61842107772827148</real>
 	<key>BlackShininess</key>
 	<real>5</real>
 	<key>BlackSpecular</key>
-	<real>0.14473684132099152</real>
+	<real>0.17982456088066101</real>
 	<key>BorderAlpha</key>
 	<real>1</real>
+	<key>BorderDiffuse</key>
+	<real>0.6798245906829834</real>
 	<key>BorderShininess</key>
 	<real>36.491226196289062</real>
 	<key>BorderSpecular</key>
 	<real>0.20000000298023224</real>
 	<key>LabelIntensity</key>
-	<real>0.53947371244430542</real>
+	<real>0.89912283420562744</real>
 	<key>Reflectivity</key>
-	<real>0.53947371244430542</real>
+	<real>0.48684209585189819</real>
 	<key>WhiteAlpha</key>
 	<real>1</real>
+	<key>WhiteDiffuse</key>
+	<real>0.75</real>
 	<key>WhiteShininess</key>
 	<real>5</real>
 	<key>WhiteSpecular</key>

@@ -103,8 +103,6 @@
 *      erf(x)  and  erfc(x)  to at least 18 significant decimal digits.        *
 *                                                                              *
 *******************************************************************************/
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
 
 #include      "math.h"
 #include      "fenv.h"
@@ -394,8 +392,3 @@ static double ErrFunApprox ( double arg, double result, int which )
 	
 	return ( which ) ? result : ( 0.5 - result ) + 0.5;
       }
-
-#else       /* __APPLE_CC__ version */
-#error Version gcc-932 or higher required.  Compilation terminated.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

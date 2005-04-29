@@ -3,12 +3,12 @@
  *
  * Abstraction for a KClient session
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/KClient/Headers/KClientSession.h,v 1.20 2003/02/26 04:09:25 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/KClient/Headers/KClientSession.h,v 1.21 2004/10/22 20:53:06 lxs Exp $
  */
  
 #pragma once
 
-#include "KClientTypes.h"
+#include <Kerberos/KClientTypes.h>
 #include "KClientCCacheIntf.h"
 #include "KClientAddress.h"
 #include "KClientFile.h"

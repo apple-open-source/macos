@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/renderpix.c,v 1.4 2002/02/22 21:32:54 dawes Exp $ */
+/* $XFree86: xc/lib/GL/glx/renderpix.c,v 1.6 2003/11/14 16:20:59 dawes Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -113,9 +113,9 @@ void glPolygonStipple(const GLubyte *mask)
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     compsize = __glImageSize(32, 32, 1, GL_COLOR_INDEX, GL_BITMAP);
     cmdlen = __GLX_PAD(__GLX_POLYGONSTIPPLE_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     __GLX_BEGIN(X_GLrop_PolygonStipple,cmdlen);
@@ -132,9 +132,9 @@ void glBitmap(GLsizei width, GLsizei height, GLfloat xorig, GLfloat yorig,
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     compsize = __glImageSize(width, height, 1, GL_COLOR_INDEX, GL_BITMAP);
     cmdlen = __GLX_PAD(__GLX_BITMAP_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     if (cmdlen <= gc->maxSmallRenderCommandSize) {
@@ -184,13 +184,13 @@ void glTexImage1D(GLenum target, GLint level, GLint components,
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     if (target == GL_PROXY_TEXTURE_1D) {
 	compsize = 0;
     } else {
 	compsize = __glImageSize(width, 1, 1, format, type);
     }
     cmdlen = __GLX_PAD(__GLX_TEXIMAGE_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     if (cmdlen <= gc->maxSmallRenderCommandSize) {
@@ -260,6 +260,7 @@ void glTexImage2D(GLenum target, GLint level, GLint components,
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     if (target == GL_PROXY_TEXTURE_2D ||
         target == GL_PROXY_TEXTURE_CUBE_MAP_ARB) {
 	compsize = 0;
@@ -267,7 +268,6 @@ void glTexImage2D(GLenum target, GLint level, GLint components,
 	compsize = __glImageSize(width, height, 1, format, type);
     }
     cmdlen = __GLX_PAD(__GLX_TEXIMAGE_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     if (cmdlen <= gc->maxSmallRenderCommandSize) {
@@ -337,9 +337,9 @@ void glDrawPixels(GLsizei width, GLsizei height, GLenum format, GLenum type,
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     compsize = __glImageSize(width, height, 1, format, type);
     cmdlen = __GLX_PAD(__GLX_DRAWPIXELS_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     if (cmdlen <= gc->maxSmallRenderCommandSize) {
@@ -386,6 +386,7 @@ static void __glx_TexSubImage1D2D(GLshort opcode, GLenum target, GLint level,
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     if (image == NULL) {
 	compsize = 0;
     } else {
@@ -393,7 +394,6 @@ static void __glx_TexSubImage1D2D(GLshort opcode, GLenum target, GLint level,
     }
 
     cmdlen = __GLX_PAD(__GLX_TEXSUBIMAGE_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     if (cmdlen <= gc->maxSmallRenderCommandSize) {
@@ -472,6 +472,7 @@ void glColorTable(GLenum target, GLenum internalformat, GLsizei width,
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     switch (target) {
 	case GL_PROXY_TEXTURE_1D:
 	case GL_PROXY_TEXTURE_2D:
@@ -487,7 +488,6 @@ void glColorTable(GLenum target, GLenum internalformat, GLsizei width,
 	    break;
     }
     cmdlen = __GLX_PAD(__GLX_COLOR_TABLE_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) {
 	 return;
     }
@@ -536,9 +536,9 @@ void glColorSubTable(GLenum target, GLsizei start, GLsizei count,
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     compsize = __glImageSize(count, 1, 1, format, type);
     cmdlen = __GLX_PAD(__GLX_COLOR_SUBTABLE_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) {
 	 return;
     }
@@ -590,9 +590,9 @@ static void __glx_ConvolutionFilter1D2D(GLshort opcode, GLint dim,
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     compsize = __glImageSize(width, height, 1, format, type);
     cmdlen = __GLX_PAD(__GLX_CONV_FILT_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     if (cmdlen <= gc->maxSmallRenderCommandSize) {
@@ -662,6 +662,7 @@ void glSeparableFilter2D(GLenum target, GLenum internalformat,
     __GLX_DECLARE_VARIABLES();
     GLuint compsize2, hdrlen, totalhdrlen, image1len, image2len;
 
+    __GLX_LOAD_VARIABLES();
     compsize = __glImageSize(width, 1, 1, format, type);
     compsize2 = __glImageSize(height, 1, 1, format, type);
     totalhdrlen = __GLX_PAD(__GLX_CONV_FILT_CMD_HDR_SIZE);
@@ -669,7 +670,6 @@ void glSeparableFilter2D(GLenum target, GLenum internalformat,
     image1len = __GLX_PAD(compsize);
     image2len = __GLX_PAD(compsize2);
     cmdlen = totalhdrlen + image1len + image2len;
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     if (cmdlen <= gc->maxSmallRenderCommandSize) {
@@ -743,19 +743,19 @@ void glSeparableFilter2D(GLenum target, GLenum internalformat,
     }
 }
 
-void glTexImage3D(GLenum target, GLint level, GLenum internalformat,
+void glTexImage3D(GLenum target, GLint level, GLint internalformat,
 		  GLsizei width, GLsizei height, GLsizei depth, GLint border,
 		  GLenum format, GLenum type, const GLvoid *image)
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     if ((target == GL_PROXY_TEXTURE_3D) || (image == NULL)) {
 	compsize = 0;
     } else {
 	compsize = __glImageSize(width, height, depth, format, type);
     }
     cmdlen = __GLX_PAD(__GLX_TEXIMAGE_3D_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     if (cmdlen <= gc->maxSmallRenderCommandSize) {
@@ -828,13 +828,13 @@ void glTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint yoffset,
 {
     __GLX_DECLARE_VARIABLES();
 
+    __GLX_LOAD_VARIABLES();
     if (image == NULL) {
 	compsize = 0;
     } else {
         compsize = __glImageSize(width, height, depth, format, type);
     }
     cmdlen = __GLX_PAD(__GLX_TEXSUBIMAGE_3D_CMD_HDR_SIZE + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     if (cmdlen <= gc->maxSmallRenderCommandSize) {

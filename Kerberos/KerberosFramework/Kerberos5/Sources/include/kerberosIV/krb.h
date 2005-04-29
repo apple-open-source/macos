@@ -34,7 +34,7 @@
  * For MacOS, don't expose prototypes of various private functions.
  * Unfortuantely, they've leaked out everywhere else.
  */
-#if defined(macintosh) || (defined(__MACH__) && defined(__APPLE__))
+#if defined(__MACH__) && defined(__APPLE__)
 #	include <TargetConditionals.h>
 #	if TARGET_RT_MAC_CFM
 #		error "Use KfM 4.0 SDK headers for CFM compilation."
@@ -73,10 +73,6 @@
 KRBINT_BEGIN_DECLS
 
 #if TARGET_OS_MAC
-#	if defined(__MWERKS__)
-#		pragma import on
-#		pragma enumsalwaysint on
-#	endif
 #	pragma options align=mac68k
 #endif
 
@@ -122,6 +118,7 @@ extern const char * const krb_err_txt[MAX_KRB_ERRORS];
 #define		REALM_SZ	40
 #define		SNAME_SZ	40
 #define		INST_SZ		40
+#define     ADDR_SZ     40
 /*
  * NB: This overcounts due to NULs.
  */
@@ -208,6 +205,9 @@ struct credentials {
 #if TARGET_OS_MAC
     KRB_UINT32 address;			/* Address in ticket */
     KRB_UINT32 stk_type;		/* string_to_key function needed */
+#endif
+#ifdef _WIN32
+    char    address[ADDR_SZ];   /* Address in ticket */
 #endif
 };
 
@@ -779,9 +779,6 @@ long win_time_get_epoch(void);
 #endif
 
 #if TARGET_OS_MAC
-#	if defined(__MWERKS__)
-#		pragma import reset
-#	endif
 #	pragma options align=reset
 #endif
 

@@ -38,7 +38,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: search_engines.c,v 1.5 2003/04/23 18:07:48 rjs3 Exp $
+ * $Id: search_engines.c,v 1.5 2005/03/05 00:37:04 dasenbro Exp $
  */
 
 #include <config.h>

@@ -1652,8 +1652,15 @@ AC_CHECK_HEADERS(wctype.h)
 AC_CHECK_HEADERS(wchar.h)
 AC_CHECK_HEADERS(langinfo.h)
 
+AC_CHECK_FUNC(mbrtowc, AC_DEFINE(HAVE_MBRTOWC))
 AC_CHECK_FUNC(mbsrtowcs, AC_DEFINE(HAVE_MBSRTOWCS))
 AC_CHECK_FUNC(wcwidth, AC_DEFINE(HAVE_WCWIDTH))
+if test "$ac_cv_func_wcwidth" = no && test "$ac_cv_header_wchar_h" = yes; then
+  WCWIDTH_OBJ=wcwidth.o
+else
+  WCWIDTH_OBJ=
+fi
+AC_SUBST(WCWIDTH_OBJ)
 
 AC_CACHE_CHECK([for mbstate_t], bash_cv_have_mbstate_t,
 [AC_TRY_RUN([

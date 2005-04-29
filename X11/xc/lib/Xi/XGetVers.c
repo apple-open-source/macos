@@ -45,7 +45,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ********************************************************/
-/* $XFree86: xc/lib/Xi/XGetVers.c,v 3.4 2002/10/16 00:37:29 dawes Exp $ */
+/* $XFree86: xc/lib/Xi/XGetVers.c,v 3.7 2003/11/17 22:20:21 dawes Exp $ */
 
 /***********************************************************************
  *
@@ -60,23 +60,32 @@ SOFTWARE.
 #include <X11/extensions/extutil.h>
 #include "XIint.h"
 
-XExtensionVersion
-#if NeedFunctionPrototypes
-*XGetExtensionVersion (
+XExtensionVersion *
+XGetExtensionVersion (
     register Display 	*dpy,
     _Xconst char	*name)
-#else
-*XGetExtensionVersion (dpy, name)
-    register Display 	*dpy;
-    char		*name;
-#endif
+    {       
+    XExtensionVersion		*ext;
+
+    LockDisplay (dpy);
+    ext = _XiGetExtensionVersion (dpy, name);
+    if (ext != (XExtensionVersion *) NoSuchExtension) {
+	UnlockDisplay (dpy);
+	SyncHandle();
+    }
+    return (ext);
+    }
+
+XExtensionVersion *
+_XiGetExtensionVersion (
+    register Display 	*dpy,
+    _Xconst char	*name)
     {       
     xGetExtensionVersionReq 	*req;
     xGetExtensionVersionReply 	rep;
     XExtensionVersion		*ext;
     XExtDisplayInfo *info = XInput_find_display (dpy);
 
-    LockDisplay (dpy);
     if (_XiCheckExtInit(dpy, Dont_Check) == -1)
 	return ((XExtensionVersion *) NoSuchExtension);
 
@@ -89,8 +98,6 @@ XExtensionVersion
 
     if (! _XReply (dpy, (xReply *) &rep, 0, xTrue)) 
 	{
-	UnlockDisplay(dpy);
-	SyncHandle();
 	return (XExtensionVersion *) NULL;
 	}
     ext = (XExtensionVersion *) Xmalloc (sizeof (XExtensionVersion));
@@ -103,8 +110,6 @@ XExtensionVersion
 	    ext->minor_version = rep.minor_version;
 	    }
 	}
-    UnlockDisplay(dpy);
-    SyncHandle();
     return (ext);
     }
 

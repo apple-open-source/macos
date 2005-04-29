@@ -1,4 +1,4 @@
-.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/trident.man,v 1.12 2003/01/06 10:15:26 alanh Exp $ 
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/trident.man,v 1.15 2003/07/03 07:52:46 alanh Exp $ 
 .\" shorthand for double quote that works everywhere.
 .ds q \N'34'
 .TH TRIDENT __drivermansuffix__ __vendorversion__
@@ -39,7 +39,7 @@ CyberBlade/e4, CyberBladeXP, CyberBladeAi1/XP, BladeXP
 .TP 12
 .B ISA/VLBus
 8900C, 8900D, 9000, 9200CXr, Cyber9320, 9400CXi, 9440AGi
-These cards have been ported but need furthur testing and may not work.
+These cards have been ported but need further testing and may not work.
 .SH CONFIGURATION DETAILS
 Please refer to XF86Config(__filemansuffix__) for general configuration
 details.  This section only covers configuration details specific to this
@@ -72,6 +72,14 @@ Enable or disable use of the shadow framebuffer layer.  Default: off.
 .TP
 .BI "Option \*qVideoKey\*q \*q" integer \*q
 This sets the default pixel value for the YUV video overlay key.
+Default: undefined.
+.TP
+.BI "Option \*qTVChipset\*q \*q" string \*q
+This sets the TV chipset. Options are CH7005 or VT1621.
+Default: off.
+.TP
+.BI "Option \*qTVSignal\*q \*q" integer \*q
+This sets the TV signalling. Options are 0 for NTSC or 1 for PAL.
 Default: undefined.
 .TP
 .BI "Option \*qNoPciBurst\*q \*q" boolean \*q

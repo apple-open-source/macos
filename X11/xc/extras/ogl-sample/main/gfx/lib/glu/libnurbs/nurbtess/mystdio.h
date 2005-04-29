@@ -38,12 +38,13 @@
  * $Date$ $Revision$
  * $Header: //depot/main/gfx/lib/glu/include/mystdio.h#1 $
  */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/nurbtess/mystdio.h,v 1.2 2003/10/22 19:20:57 tsi Exp $ */
 
 #ifndef __glumystdio_h_
 #define __glumystdio_h_
 
 #ifdef STANDALONE
-inline void dprintf( char *, ... ) { }
+static inline void dprintf( char *fmt, ... ) { }
 #endif
 
 #ifdef LIBRARYBUILD
@@ -51,12 +52,12 @@ inline void dprintf( char *, ... ) { }
 #include <stdio.h>
 #define dprintf printf
 #else
-inline void dprintf( char *, ... ) { }
+static inline void dprintf( char *fmt, ... ) { }
 #endif
 #endif
 
 #ifdef GLBUILD
-inline void dprintf( char *, ... ) { }
+static inline void dprintf( char *fmt, ... ) { }
 #endif
 
 #ifndef NULL

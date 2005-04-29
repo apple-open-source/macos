@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.application.compat</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.application.html">Package&nbsp;application</a> ::
+        Module&nbsp;compat
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.application.compat.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.application.compat</h2>
+
+<p>Backwards compatibility module</p>
+<p>This module allows Applications to behave (partially) like old 
+Application objects, and converts olds Applications to new ones.</p>
+<p>API Stability: unstable</p>
+Maintainer: <a href="mailto:moshez&#64;twistedmatrix.com">Moshe 
+Zadka</a>
+<hr/>
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.application.compat._NewService.html"><code>_NewService</code></a></b></td>
+  <td>Wrap a twisted.internet.app.ApplicationService in new service API.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.application.compat._ServiceNetwork.html"><code>_ServiceNetwork</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.application.compat.IOldApplication.html"><code>IOldApplication</code></a></b></td>
+  <td>A subset of the interface old Application objects had implicitly</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.application.compat.html#convert" class="summary-sig-name"><code>convert</code></a>(<span class=summary-sig-arg>oldApp</span>)</span></code>
+<br />
+Convert an <code>i.app.Application</code> to a 
+<code>application.service.Application</code></td></tr>
+</table><br />
+
+
+<!-- =========== START OF VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>list</code></font></td>
+<td><b><a href="twisted.application.compat.html#_mapping"><code>_mapping</code></a></b> = <span title="[('tcpPorts', &lt;class twisted.application.internet.TCPServer at 0x8668ffc&gt;), ('tcpConnectors', &lt;class twisted.application.internet.TCPClient at 0x84c7b14&gt;), ('unixPorts', &lt;class twisted.application.internet.UNIXServer at 0x83e3f0c&gt;), ('unixConnectors', &lt;class twisted.application.internet.UNIXClient at 0x870dcbc&gt;), ('udpPorts', &lt;class twisted.application.internet.UDPServer at 0x858e404&gt;), ('udpConnectors', &lt;class twisted.application.internet.UDPClient at 0x8525e3c&gt;), ('sslPorts', &lt;class twisted.application.internet.SSLServer at 0x851cbfc&gt;), ('sslConnectors', &lt;class twisted.application.interne..."><code>[('tcpPorts',&nbsp;&lt;class&nbsp;twisted.application.inte<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="convert"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">convert</span>(<span class=sig-arg>oldApp</span>)</span>
+  </h3>
+  Convert an <code>i.app.Application</code> to a 
+  <code>application.service.Application</code>
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>oldApp</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<p><code>twisted.internet.app.Application</code> &#64;rtype 
+              <code>twisted.application.service.Application</code></p>
+              This function might damage oldApp beyond repair: 
+              services that other parts might be depending on might be 
+              missing. It is not safe to use oldApp after it has been 
+              converted. In case this behaviour is not desirable, pass a 
+              deep copy of the old application)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="_mapping"></a>
+<h3>_mapping</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>list</code>
+
+      </dd>
+<span title="[('tcpPorts', &lt;class twisted.application.internet.TCPServer at 0x8668ffc&gt;), ('tcpConnectors', &lt;class twisted.application.internet.TCPClient at 0x84c7b14&gt;), ('unixPorts', &lt;class twisted.application.internet.UNIXServer at 0x83e3f0c&gt;), ('unixConnectors', &lt;class twisted.application.internet.UNIXClient at 0x870dcbc&gt;), ('udpPorts', &lt;class twisted.application.internet.UDPServer at 0x858e404&gt;), ('udpConnectors', &lt;class twisted.application.internet.UDPClient at 0x8525e3c&gt;), ('sslPorts', &lt;class twisted.application.internet.SSLServer at 0x851cbfc&gt;), ('sslConnectors', &lt;class twisted.application.interne...">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+[('tcpPorts', &lt;class twisted.application.internet.TCPServer at 0x8668f<span class="variable-linewrap">\</span>
+fc&gt;),
+ ('tcpConnectors',
+  &lt;class twisted.application.internet.TCPClient at 0x84c7b14&gt;),
+ ('unixPorts', &lt;class twisted.application.internet.UNIXServer at 0x83e<span class="variable-linewrap">\</span>
+3f0c&gt;),
+ ('unixConnectors',
+  &lt;class twisted.application.internet.UNIXClient at 0x870dcbc&gt;),
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:28 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

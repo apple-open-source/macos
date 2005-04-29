@@ -1,7 +1,7 @@
 // 1999-08-16 bkoz
 // 1999-11-01 bkoz
 
-// Copyright (C) 1999, 2000, 2001 Free Software Foundation
+// Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -67,7 +67,7 @@ test02()
   f_out1 << strbuf01;
   state02 = f_out1.rdstate();
   VERIFY( state01 != state02 );
-  VERIFY( (state02 & std::ios_base::failbit) != 0 );
+  VERIFY( (state02 & std::ios_base::badbit) != 0 );
 
   // filebuf->filebuf
   std::ifstream f_in(name_01);
@@ -149,6 +149,125 @@ void test04()
   VERIFY( test );
 }
 
+
+class test_buffer_1 : public std::streambuf 
+{
+public:
+  test_buffer_1(const std::string& s) : str(s), it(str.begin()) { }
+  
+protected:
+  virtual int underflow() { return (it != str.end() ? *it : EOF); }
+  virtual int uflow() { return (it != str.end() ? *it++ : EOF); }
+
+private:
+  const std::string str;
+  std::string::const_iterator it;
+};
+
+
+class test_buffer_2 : public std::streambuf 
+{
+public:
+  test_buffer_2(const std::string& s) : str(s), it(str.begin()) { }
+  
+protected:
+  virtual int underflow() { return (it != str.end() ? *it : EOF); }
+  virtual int uflow() { return (it != str.end() ? *it++ : EOF); }
+  virtual std::streamsize showmanyc() { return std::distance(it, str.end()); }
+private:
+  const std::string str;
+  std::string::const_iterator it;
+};
+
+
+class test_buffer_3 : public std::streambuf 
+{
+public:
+  test_buffer_3(const std::string& s) : str(s), it(str.begin()) { }
+
+protected:
+  virtual int underflow() { return (it != str.end() ? *it : EOF); }
+  virtual int uflow() { return (it != str.end() ? *it++ : EOF); }
+  virtual std::streamsize showmanyc() 
+  {
+    std::streamsize ret = std::distance(it, str.end());
+    return ret > 0 ? ret : -1;
+  }
+private:
+  const std::string str;
+  std::string::const_iterator it;
+};
+
+class test_buffer_4 : public std::streambuf {
+public:
+  test_buffer_4(const std::string& s) : str(s), it(str.begin())
+  {
+    if (it != str.end()) {
+      buf[0] = *it++;
+      setg(buf, buf, buf+1);
+    }
+  }
+
+protected:
+  virtual int underflow() { return (it != str.end() ? *it : EOF); }
+  virtual int uflow() { return (it != str.end() ? *it++ : EOF); }
+  virtual std::streamsize showmanyc() {
+    std::streamsize ret = std::distance(it, str.end());
+    return ret > 0 ? ret : -1;
+  }
+private:
+  const std::string str;
+  std::string::const_iterator it;
+  char buf[1];
+};
+
+void test(const std::string& str, std::streambuf& buf)
+{
+  bool test = true;
+
+  std::ostringstream out;
+  std::istream in(&buf);
+
+  out << in.rdbuf();
+
+  if (out.str() != str) 
+    VERIFY( false );
+}
+
+// libstdc++/6745
+// libstdc++/8071
+// libstdc++/8127
+// Jonathan Lennox  <lennox@cs.columbia.edu>
+void test05()
+{
+  std::string string_a("Hello, world!");
+  std::string string_b("");
+
+  test_buffer_1 buf1a(string_a);
+  test_buffer_1 buf1b(string_b);
+
+  test_buffer_2 buf2a(string_a);
+  test_buffer_2 buf2b(string_b);
+
+  test_buffer_3 buf3a(string_a);
+  test_buffer_3 buf3b(string_b);
+
+  test_buffer_4 buf4a(string_a);
+  test_buffer_4 buf4b(string_b);
+
+  test(string_a, buf1a);
+  test(string_b, buf1b);
+
+  test(string_a, buf2a);
+  test(string_b, buf2b);
+
+  test(string_a, buf3a);
+  test(string_b, buf3b);
+
+  test(string_a, buf4a);
+  test(string_b, buf4b);
+}
+
 int 
 main()
 {
@@ -156,6 +275,7 @@ main()
   test02();
   test03();
   test04();
-
+  
+  test05();
   return 0;
 }

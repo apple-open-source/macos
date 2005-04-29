@@ -1,0 +1,247 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Memory Chunks</title><meta name="generator" content="DocBook XSL Stylesheets V1.65.1"><link rel="home" href="index.html" title="GLib Reference Manual"><link rel="up" href="glib-data-types.html" title="GLib Data Types"><link rel="previous" href="glib-data-types.html" title="GLib Data Types"><link rel="next" href="glib-Doubly-Linked-Lists.html" title="Doubly-Linked Lists"><link rel="chapter" href="glib.html" title="GLib Overview"><link rel="refentry" href="glib-building.html" title="Compiling the GLib package"><link rel="refentry" href="glib-cross-compiling.html" title="Cross-compiling the GLib package"><link rel="refentry" href="glib-compiling.html" title="Compiling GLib Applications"><link rel="refentry" href="glib-running.html" title="Running GLib Applications"><link rel="refentry" href="glib-changes.html" title="Changes to GLib"><link rel="refentry" href="glib-resources.html" title="Mailing lists and bug reports"><link rel="chapter" href="glib-fundamentals.html" title="GLib Fundamentals"><link rel="refentry" href="glib-Basic-Types.html" title="Basic Types"><link rel="refentry" href="glib-Limits-of-Basic-Types.html" title="Limits of Basic Types"><link rel="refentry" href="glib-Standard-Macros.html" title="Standard Macros"><link rel="refentry" href="glib-Type-Conversion-Macros.html" title="Type Conversion Macros"><link rel="refentry" href="glib-Byte-Order-Macros.html" title="Byte Order Macros"><link rel="refentry" href="glib-Numerical-Definitions.html" title="Numerical Definitions"><link rel="refentry" href="glib-Miscellaneous-Macros.html" title="Miscellaneous Macros"><link rel="refentry" href="glib-Atomic-Operations.html" title="Atomic Operations"><link rel="chapter" href="glib-core.html" title="GLib Core Application Support"><link rel="refentry" href="glib-The-Main-Event-Loop.html" title="The Main Event Loop"><link rel="refentry" href="glib-Threads.html" title="
+Threads"><link rel="refentry" href="glib-Thread-Pools.html" title="Thread Pools"><link rel="refentry" href="glib-Asynchronous-Queues.html" title="Asynchronous Queues"><link rel="refentry" href="glib-Dynamic-Loading-of-Modules.html" title="Dynamic Loading of Modules"><link rel="refentry" href="glib-Memory-Allocation.html" title="Memory Allocation"><link rel="refentry" href="glib-IO-Channels.html" title="IO Channels"><link rel="refentry" href="glib-Error-Reporting.html" title="Error Reporting"><link rel="refentry" href="glib-Warnings-and-Assertions.html" title="Message Output and Debugging Functions"><link rel="refentry" href="glib-Message-Logging.html" title="Message Logging"><link rel="chapter" href="glib-utilities.html" title="GLib Utilities"><link rel="refentry" href="glib-String-Utility-Functions.html" title="String Utility Functions"><link rel="refentry" href="glib-Character-Set-Conversion.html" title="Character Set Conversion"><link rel="refentry" href="glib-Unicode-Manipulation.html" title="Unicode Manipulation"><link rel="refentry" href="glib-I18N.html" title="Internationalization"><link rel="refentry" href="glib-Date-and-Time-Functions.html" title="Date and Time Functions"><link rel="refentry" href="glib-Random-Numbers.html" title="Random Numbers"><link rel="refentry" href="glib-Hook-Functions.html" title="Hook Functions"><link rel="refentry" href="glib-Miscellaneous-Utility-Functions.html" title="Miscellaneous Utility Functions"><link rel="refentry" href="glib-Lexical-Scanner.html" title="Lexical Scanner"><link rel="refentry" href="glib-Automatic-String-Completion.html" title="Automatic String Completion"><link rel="refentry" href="glib-Timers.html" title="Timers"><link rel="refentry" href="glib-Spawning-Processes.html" title="Spawning Processes"><link rel="refentry" href="glib-File-Utilities.html" title="File Utilities"><link rel="refentry" href="glib-Shell-related-Utilities.html" title="Shell-related Utilities"><link rel="refentry" href="glib-Glob-style-pattern-matching.html" title="Glob-style pattern matching"><link rel="refentry" href="glib-Simple-XML-Subset-Parser.html" title="Simple XML Subset Parser"><link rel="refentry" href="glib-Windows-Compatability-Functions.html" title="Windows Compatibility Functions"><link rel="chapter" href="glib-data-types.html" title="GLib Data Types"><link rel="refentry" href="glib-Memory-Chunks.html" title="Memory Chunks"><link rel="refentry" href="glib-Doubly-Linked-Lists.html" title="Doubly-Linked Lists"><link rel="refentry" href="glib-Singly-Linked-Lists.html" title="Singly-Linked Lists"><link rel="refentry" href="glib-Double-ended-Queues.html" title="Double-ended Queues"><link rel="refentry" href="glib-Trash-Stacks.html" title="Trash Stacks"><link rel="refentry" href="glib-Hash-Tables.html" title="Hash Tables"><link rel="refentry" href="glib-Strings.html" title="Strings"><link rel="refentry" href="glib-String-Chunks.html" title="String Chunks"><link rel="refentry" href="glib-Arrays.html" title="Arrays"><link rel="refentry" href="glib-Pointer-Arrays.html" title="Pointer Arrays"><link rel="refentry" href="glib-Byte-Arrays.html" title="Byte Arrays"><link rel="refentry" href="glib-Balanced-Binary-Trees.html" title="Balanced Binary Trees"><link rel="refentry" href="glib-N-ary-Trees.html" title="N-ary Trees"><link rel="refentry" href="glib-Quarks.html" title="Quarks"><link rel="refentry" href="glib-Keyed-Data-Lists.html" title="Keyed Data Lists"><link rel="refentry" href="glib-Datasets.html" title="Datasets"><link rel="refentry" href="glib-Relations-and-Tuples.html" title="Relations and Tuples"><link rel="refentry" href="glib-Caches.html" title="Caches"><link rel="refentry" href="glib-Memory-Allocators.html" title="Memory Allocators"><link rel="chapter" href="tools.html" title="GLib Tools"><link rel="refentry" href="glib-gettextize.html" title="glib-gettextize"><link rel="index" href="ix01.html" title="Index"><link rel="section" href="glib-Memory-Chunks.html#id3230143" title="Description"><link rel="section" href="glib-Memory-Chunks.html#id3229685" title="Details"><meta name="generator" content="GTK-Doc V1.2 (XML mode)"><link rel="stylesheet" href="style.css" type="text/css"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><table class="navigation" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2"><tr valign="middle"><td><a accesskey="p" href="glib-data-types.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td><td><a accesskey="u" href="glib-data-types.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td><td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td><th width="100%" align="center">GLib Reference Manual</th><td><a accesskey="n" href="glib-Doubly-Linked-Lists.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td></tr></table><div class="refentry" lang="en"><a name="glib-Memory-Chunks"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2><span class="refentrytitle">Memory Chunks</span></h2><p>Memory Chunks &#8212; efficient way to allocate groups of equal-sized chunks of memory.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><pre class="synopsis">
+
+#include &lt;glib.h&gt;
+
+
+struct      <a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a>;
+#define     <a href="glib-Memory-Chunks.html#G-ALLOC-AND-FREE-CAPS">G_ALLOC_AND_FREE</a>
+#define     <a href="glib-Memory-Chunks.html#G-ALLOC-ONLY-CAPS">G_ALLOC_ONLY</a>
+
+<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a>*  <a href="glib-Memory-Chunks.html#g-mem-chunk-new">g_mem_chunk_new</a>                 (const <a href="glib-Basic-Types.html#gchar">gchar</a> *name,
+                                             <a href="glib-Basic-Types.html#gint">gint</a> atom_size,
+                                             <a href="glib-Basic-Types.html#gulong">gulong</a> area_size,
+                                             <a href="glib-Basic-Types.html#gint">gint</a> type);
+<a href="glib-Basic-Types.html#gpointer">gpointer</a>    <a href="glib-Memory-Chunks.html#g-mem-chunk-alloc">g_mem_chunk_alloc</a>               (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);
+<a href="glib-Basic-Types.html#gpointer">gpointer</a>    <a href="glib-Memory-Chunks.html#g-mem-chunk-alloc0">g_mem_chunk_alloc0</a>              (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);
+void        <a href="glib-Memory-Chunks.html#g-mem-chunk-free">g_mem_chunk_free</a>                (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk,
+                                             <a href="glib-Basic-Types.html#gpointer">gpointer</a> mem);
+void        <a href="glib-Memory-Chunks.html#g-mem-chunk-destroy">g_mem_chunk_destroy</a>             (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);
+
+#define     <a href="glib-Memory-Chunks.html#g-mem-chunk-create">g_mem_chunk_create</a>              (type, pre_alloc, alloc_type)
+#define     <a href="glib-Memory-Chunks.html#g-chunk-new">g_chunk_new</a>                     (type, chunk)
+#define     <a href="glib-Memory-Chunks.html#g-chunk-new0">g_chunk_new0</a>                    (type, chunk)
+#define     <a href="glib-Memory-Chunks.html#g-chunk-free">g_chunk_free</a>                    (mem, mem_chunk)
+
+void        <a href="glib-Memory-Chunks.html#g-mem-chunk-reset">g_mem_chunk_reset</a>               (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);
+void        <a href="glib-Memory-Chunks.html#g-mem-chunk-clean">g_mem_chunk_clean</a>               (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);
+void        <a href="glib-Memory-Chunks.html#g-blow-chunks">g_blow_chunks</a>                   (void);
+
+void        <a href="glib-Memory-Chunks.html#g-mem-chunk-info">g_mem_chunk_info</a>                (void);
+void        <a href="glib-Memory-Chunks.html#g-mem-chunk-print">g_mem_chunk_print</a>               (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);
+</pre></div><div class="refsect1" lang="en"><a name="id3230143"></a><h2>Description</h2><p>
+Memory chunks provide an efficient way to allocate equal-sized pieces of
+memory, called atoms. They are used extensively within GLib itself.
+For example, the
+Doubly Linked Lists
+use memory chunks to allocate space for elements of the lists.
+</p><p>
+There are two types of memory chunks, <a href="glib-Memory-Chunks.html#G-ALLOC-ONLY-CAPS"><span class="type">G_ALLOC_ONLY</span></a>, and <a href="glib-Memory-Chunks.html#G-ALLOC-AND-FREE-CAPS"><span class="type">G_ALLOC_AND_FREE</span></a>.
+</p><div class="itemizedlist"><ul type="disc"><li><p>
+<a href="glib-Memory-Chunks.html#G-ALLOC-ONLY-CAPS"><span class="type">G_ALLOC_ONLY</span></a> chunks only allow allocation of atoms. The atoms can never
+be freed individually. The memory chunk can only be free in its entirety.
+</p></li><li><p>
+<a href="glib-Memory-Chunks.html#G-ALLOC-AND-FREE-CAPS"><span class="type">G_ALLOC_AND_FREE</span></a> chunks do allow atoms to be freed individually.
+The disadvantage of this is that the memory chunk has to keep track of which
+atoms have been freed. This results in more memory being used and a slight
+degradation in performance.
+</p></li></ul></div><p>
+</p><p>
+To create a memory chunk use <a href="glib-Memory-Chunks.html#g-mem-chunk-new"><tt class="function">g_mem_chunk_new()</tt></a> or the convenience macro
+<a href="glib-Memory-Chunks.html#g-mem-chunk-create"><tt class="function">g_mem_chunk_create()</tt></a>.
+</p><p>
+To allocate a new atom use <a href="glib-Memory-Chunks.html#g-mem-chunk-alloc"><tt class="function">g_mem_chunk_alloc()</tt></a>, <a href="glib-Memory-Chunks.html#g-mem-chunk-alloc0"><tt class="function">g_mem_chunk_alloc0()</tt></a>,
+or the convenience macros <a href="glib-Memory-Chunks.html#g-chunk-new"><tt class="function">g_chunk_new()</tt></a> or <a href="glib-Memory-Chunks.html#g-chunk-new0"><tt class="function">g_chunk_new0()</tt></a>. 
+</p><p>
+To free an atom use <a href="glib-Memory-Chunks.html#g-mem-chunk-free"><tt class="function">g_mem_chunk_free()</tt></a>, or the convenience macro
+<a href="glib-Memory-Chunks.html#g-chunk-free"><tt class="function">g_chunk_free()</tt></a>. (Atoms can only be freed if the memory chunk is created
+with the type set to <a href="glib-Memory-Chunks.html#G-ALLOC-AND-FREE-CAPS"><span class="type">G_ALLOC_AND_FREE</span></a>.)
+</p><p>
+To free any blocks of memory which are no longer being used, use
+<a href="glib-Memory-Chunks.html#g-mem-chunk-clean"><tt class="function">g_mem_chunk_clean()</tt></a>. To clean all memory chunks, use <a href="glib-Memory-Chunks.html#g-blow-chunks"><tt class="function">g_blow_chunks()</tt></a>.
+</p><p>
+To reset the memory chunk, freeing all of the atoms, use <a href="glib-Memory-Chunks.html#g-mem-chunk-reset"><tt class="function">g_mem_chunk_reset()</tt></a>.
+</p><p>
+To destroy a memory chunk, use <a href="glib-Memory-Chunks.html#g-mem-chunk-destroy"><tt class="function">g_mem_chunk_destroy()</tt></a>.
+</p><p>
+To help debug memory chunks, use <a href="glib-Memory-Chunks.html#g-mem-chunk-info"><tt class="function">g_mem_chunk_info()</tt></a> and <a href="glib-Memory-Chunks.html#g-mem-chunk-print"><tt class="function">g_mem_chunk_print()</tt></a>.
+</p><div class="example"><a name="id3230407"></a><p class="title"><b>Example 1. Using a <span class="structname">GMemChunk</span></b></p><pre class="programlisting">
+  GMemChunk *mem_chunk;
+  gchar *mem[10000];
+  gint i;
+
+  /* Create a GMemChunk with atoms 50 bytes long, and memory blocks holding
+     100 bytes. Note that this means that only 2 atoms fit into each memory
+     block and so isn't very efficient. */
+  mem_chunk = g_mem_chunk_new ("test mem chunk", 50, 100, G_ALLOC_AND_FREE);
+
+  /* Now allocate 10000 atoms. */
+  for (i = 0; i &lt; 10000; i++)
+    {
+      mem[i] = g_chunk_new (gchar, mem_chunk);
+
+      /* Fill in the atom memory with some junk. */
+      for (j = 0; j &lt; 50; j++)
+	mem[i][j] = i * j;
+    }
+
+  /* Now free all of the atoms. Note that since we are going to destroy the
+     GMemChunk, this wouldn't normally be used. */
+  for (i = 0; i &lt; 10000; i++)
+    {
+      g_mem_chunk_free (mem_chunk, mem[i]);
+    }
+
+  /* We are finished with the GMemChunk, so we destroy it. */
+  g_mem_chunk_destroy (mem_chunk);
+</pre></div><div class="example"><a name="id3230452"></a><p class="title"><b>Example 2. Using a <span class="structname">GMemChunk</span> with data structures</b></p><pre class="programlisting">
+  GMemChunk *array_mem_chunk;
+  GRealArray *array;
+
+  /* Create a GMemChunk to hold GRealArray structures, using the
+     g_mem_chunk_create() convenience macro. We want 1024 atoms in each
+     memory block, and we want to be able to free individual atoms. */
+  array_mem_chunk = g_mem_chunk_create (GRealArray, 1024, G_ALLOC_AND_FREE);
+
+  /* Allocate one atom, using the g_chunk_new() convenience macro. */
+  array = g_chunk_new (GRealArray, array_mem_chunk);
+
+  /* We can now use array just like a normal pointer to a structure. */
+  array-&gt;data            = NULL;
+  array-&gt;len             = 0;
+  array-&gt;alloc           = 0;
+  array-&gt;zero_terminated = (zero_terminated ? 1 : 0);
+  array-&gt;clear           = (clear ? 1 : 0);
+  array-&gt;elt_size        = elt_size;
+
+  /* We can free the element, so it can be reused. */
+  g_chunk_free (array, array_mem_chunk);
+
+  /* We destroy the GMemChunk when we are finished with it. */
+  g_mem_chunk_destroy (array_mem_chunk);
+</pre></div></div><div class="refsect1" lang="en"><a name="id3229685"></a><h2>Details</h2><div class="refsect2" lang="en"><a name="id3229691"></a><h3><a name="GMemChunk"></a>struct GMemChunk</h3><a class="indexterm" name="id2919283"></a><pre class="programlisting">struct GMemChunk;</pre><p>
+The <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a> struct is an opaque data structure representing a memory
+chunk. It should be accessed only through the use of the following functions.
+</p></div><hr><div class="refsect2" lang="en"><a name="id2919308"></a><h3><a name="G-ALLOC-AND-FREE-CAPS"></a>G_ALLOC_AND_FREE</h3><a class="indexterm" name="id2919317"></a><pre class="programlisting">#define G_ALLOC_AND_FREE  2
+</pre><p>
+Specifies the type of a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+Used in <a href="glib-Memory-Chunks.html#g-mem-chunk-new"><tt class="function">g_mem_chunk_new()</tt></a> and <a href="glib-Memory-Chunks.html#g-mem-chunk-create"><tt class="function">g_mem_chunk_create()</tt></a> to specify that atoms
+will be freed individually.
+</p></div><hr><div class="refsect2" lang="en"><a name="id2919362"></a><h3><a name="G-ALLOC-ONLY-CAPS"></a>G_ALLOC_ONLY</h3><a class="indexterm" name="id2919371"></a><pre class="programlisting">#define G_ALLOC_ONLY	  1
+</pre><p>
+Specifies the type of a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+Used in <a href="glib-Memory-Chunks.html#g-mem-chunk-new"><tt class="function">g_mem_chunk_new()</tt></a> and <a href="glib-Memory-Chunks.html#g-mem-chunk-create"><tt class="function">g_mem_chunk_create()</tt></a> to specify that atoms
+will never be freed individually.
+</p></div><hr><div class="refsect2" lang="en"><a name="id3229733"></a><h3><a name="g-mem-chunk-new"></a>g_mem_chunk_new ()</h3><a class="indexterm" name="id3229742"></a><pre class="programlisting"><a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a>*  g_mem_chunk_new                 (const <a href="glib-Basic-Types.html#gchar">gchar</a> *name,
+                                             <a href="glib-Basic-Types.html#gint">gint</a> atom_size,
+                                             <a href="glib-Basic-Types.html#gulong">gulong</a> area_size,
+                                             <a href="glib-Basic-Types.html#gint">gint</a> type);</pre><p>
+Creates a new <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>name</tt></i> :</span></td><td>a string to identify the <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>. It is not copied so it
+should be valid for the lifetime of the <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>. It is only used in
+<a href="glib-Memory-Chunks.html#g-mem-chunk-print"><tt class="function">g_mem_chunk_print()</tt></a>, which is used for debugging.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>atom_size</tt></i> :</span></td><td>the size, in bytes, of each element in the <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>area_size</tt></i> :</span></td><td>the size, in bytes, of each block of memory allocated to contain
+the atoms.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>type</tt></i> :</span></td><td>the type of the <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+<a href="glib-Memory-Chunks.html#G-ALLOC-AND-FREE-CAPS"><span class="type">G_ALLOC_AND_FREE</span></a> is used if the atoms will be freed individually.
+<a href="glib-Memory-Chunks.html#G-ALLOC-ONLY-CAPS"><span class="type">G_ALLOC_ONLY</span></a> should be used if atoms will never be freed individually.
+<a href="glib-Memory-Chunks.html#G-ALLOC-ONLY-CAPS"><span class="type">G_ALLOC_ONLY</span></a> is quicker, since it does not need to track free atoms,
+but it obviously wastes memory if you no longer need many of the atoms.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>the new <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3231712"></a><h3><a name="g-mem-chunk-alloc"></a>g_mem_chunk_alloc ()</h3><a class="indexterm" name="id3231722"></a><pre class="programlisting"><a href="glib-Basic-Types.html#gpointer">gpointer</a>    g_mem_chunk_alloc               (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);</pre><p>
+Allocates an atom of memory from a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>mem_chunk</tt></i> :</span></td><td>a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>a pointer to the allocated atom.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3231794"></a><h3><a name="g-mem-chunk-alloc0"></a>g_mem_chunk_alloc0 ()</h3><a class="indexterm" name="id3231804"></a><pre class="programlisting"><a href="glib-Basic-Types.html#gpointer">gpointer</a>    g_mem_chunk_alloc0              (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);</pre><p>
+Allocates an atom of memory from a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>, setting the memory to 0.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>mem_chunk</tt></i> :</span></td><td>a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>a pointer to the allocated atom.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3231877"></a><h3><a name="g-mem-chunk-free"></a>g_mem_chunk_free ()</h3><a class="indexterm" name="id3231887"></a><pre class="programlisting">void        g_mem_chunk_free                (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk,
+                                             <a href="glib-Basic-Types.html#gpointer">gpointer</a> mem);</pre><p>
+Frees an atom in a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+This should only be called if the <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a> was created with
+<a href="glib-Memory-Chunks.html#G-ALLOC-AND-FREE-CAPS"><span class="type">G_ALLOC_AND_FREE</span></a>. Otherwise it will simply return.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>mem_chunk</tt></i> :</span></td><td>a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>mem</tt></i> :</span></td><td>a pointer to the atom to free.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3231986"></a><h3><a name="g-mem-chunk-destroy"></a>g_mem_chunk_destroy ()</h3><a class="indexterm" name="id3231996"></a><pre class="programlisting">void        g_mem_chunk_destroy             (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);</pre><p>
+Frees all of the memory allocated for a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>mem_chunk</tt></i> :</span></td><td>a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3232059"></a><h3><a name="g-mem-chunk-create"></a>g_mem_chunk_create()</h3><a class="indexterm" name="id3232069"></a><pre class="programlisting">#define     g_mem_chunk_create(type, pre_alloc, alloc_type)</pre><p>
+A convenience macro for creating a new <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+It calls <a href="glib-Memory-Chunks.html#g-mem-chunk-new"><tt class="function">g_mem_chunk_new()</tt></a>, using the given type to create the <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>
+name. The atom size is determined using <tt class="function"><tt class="function">sizeof()</tt></tt>, and the
+area size is calculated by multiplying the <i class="parameter"><tt>pre_alloc</tt></i> parameter with
+the atom size.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>type</tt></i> :</span></td><td>the type of the atoms, typically a structure name.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>pre_alloc</tt></i> :</span></td><td>the number of atoms to store in each block of memory.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>alloc_type</tt></i> :</span></td><td>the type of the <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+<a href="glib-Memory-Chunks.html#G-ALLOC-AND-FREE-CAPS"><span class="type">G_ALLOC_AND_FREE</span></a> is used if the atoms will be freed individually.
+<a href="glib-Memory-Chunks.html#G-ALLOC-ONLY-CAPS"><span class="type">G_ALLOC_ONLY</span></a> should be used if atoms will never be freed individually.
+<a href="glib-Memory-Chunks.html#G-ALLOC-ONLY-CAPS"><span class="type">G_ALLOC_ONLY</span></a> is quicker, since it does not need to track free atoms,
+but it obviously wastes memory if you no longer need many of the atoms.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>the new <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3232235"></a><h3><a name="g-chunk-new"></a>g_chunk_new()</h3><a class="indexterm" name="id3232245"></a><pre class="programlisting">#define     g_chunk_new(type, chunk)</pre><p>
+A convenience macro to allocate an atom of memory from a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+It calls <a href="glib-Memory-Chunks.html#g-mem-chunk-alloc"><tt class="function">g_mem_chunk_alloc()</tt></a> and casts the returned atom to a pointer to
+the given type, avoiding a type cast in the source code.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>type</tt></i> :</span></td><td>the type of the <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a> atoms, typically a structure name.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>chunk</tt></i> :</span></td><td>a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>a pointer to the allocated atom, cast to a pointer to <i class="parameter"><tt>type</tt></i>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3232346"></a><h3><a name="g-chunk-new0"></a>g_chunk_new0()</h3><a class="indexterm" name="id3232356"></a><pre class="programlisting">#define     g_chunk_new0(type, chunk)</pre><p>
+A convenience macro to allocate an atom of memory from a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+It calls <a href="glib-Memory-Chunks.html#g-mem-chunk-alloc0"><tt class="function">g_mem_chunk_alloc0()</tt></a> and casts the returned atom to a pointer to
+the given type, avoiding a type cast in the source code.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>type</tt></i> :</span></td><td>the type of the <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a> atoms, typically a structure name.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>chunk</tt></i> :</span></td><td>a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>a pointer to the allocated atom, cast to a pointer to <i class="parameter"><tt>type</tt></i>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3232458"></a><h3><a name="g-chunk-free"></a>g_chunk_free()</h3><a class="indexterm" name="id3232468"></a><pre class="programlisting">#define     g_chunk_free(mem, mem_chunk)</pre><p>
+A convenience macro to free an atom of memory from a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+It simply switches the arguments and calls <a href="glib-Memory-Chunks.html#g-mem-chunk-free"><tt class="function">g_mem_chunk_free()</tt></a>
+It is included simply to complement the other convenience macros, <a href="glib-Memory-Chunks.html#g-chunk-new"><tt class="function">g_chunk_new()</tt></a>
+and <a href="glib-Memory-Chunks.html#g-chunk-new0"><tt class="function">g_chunk_new0()</tt></a>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>mem</tt></i> :</span></td><td>a pointer to the atom to be freed.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>mem_chunk</tt></i> :</span></td><td>a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3232565"></a><h3><a name="g-mem-chunk-reset"></a>g_mem_chunk_reset ()</h3><a class="indexterm" name="id3232575"></a><pre class="programlisting">void        g_mem_chunk_reset               (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);</pre><p>
+Resets a GMemChunk to its initial state.
+It frees all of the currently allocated blocks of memory.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>mem_chunk</tt></i> :</span></td><td>a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3232630"></a><h3><a name="g-mem-chunk-clean"></a>g_mem_chunk_clean ()</h3><a class="indexterm" name="id3232640"></a><pre class="programlisting">void        g_mem_chunk_clean               (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);</pre><p>
+Frees any blocks in a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a> which are no longer being used.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>mem_chunk</tt></i> :</span></td><td>a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3232702"></a><h3><a name="g-blow-chunks"></a>g_blow_chunks ()</h3><a class="indexterm" name="id3232712"></a><pre class="programlisting">void        g_blow_chunks                   (void);</pre><p>
+Calls <a href="glib-Memory-Chunks.html#g-mem-chunk-clean"><tt class="function">g_mem_chunk_clean()</tt></a> on all <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a> objects.
+</p></div><hr><div class="refsect2" lang="en"><a name="id3232752"></a><h3><a name="g-mem-chunk-info"></a>g_mem_chunk_info ()</h3><a class="indexterm" name="id3232762"></a><pre class="programlisting">void        g_mem_chunk_info                (void);</pre><p>
+Outputs debugging information for all <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a> objects currently in use.
+It outputs the number of <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a> objects currently allocated,
+and calls <a href="glib-Memory-Chunks.html#g-mem-chunk-print"><tt class="function">g_mem_chunk_print()</tt></a> to output information on each one.
+</p></div><hr><div class="refsect2" lang="en"><a name="id3232813"></a><h3><a name="g-mem-chunk-print"></a>g_mem_chunk_print ()</h3><a class="indexterm" name="id3232823"></a><pre class="programlisting">void        g_mem_chunk_print               (<a href="glib-Memory-Chunks.html#GMemChunk">GMemChunk</a> *mem_chunk);</pre><p>
+Outputs debugging information for a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+It outputs the name of the <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a> (set with <a href="glib-Memory-Chunks.html#g-mem-chunk-new"><tt class="function">g_mem_chunk_new()</tt></a>),
+the number of bytes used, and the number of blocks of memory allocated.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>mem_chunk</tt></i> :</span></td><td>a <a href="glib-Memory-Chunks.html#GMemChunk"><span class="type">GMemChunk</span></a>.
+
+
+</td></tr></tbody></table></div></div></div></div><table class="navigation" width="100%" summary="Navigation footer" cellpadding="2" cellspacing="0"><tr valign="middle"><td align="left"><a accesskey="p" href="glib-data-types.html"><b>&lt;&lt; GLib Data Types</b></a></td><td align="right"><a accesskey="n" href="glib-Doubly-Linked-Lists.html"><b>Doubly-Linked Lists &gt;&gt;</b></a></td></tr></table></body></html>

@@ -31,6 +31,7 @@ up-to-date.  Many thanks.
 ******************************************************************/
 
 #include <sys/cdefs.h>
+#include "fbsdcompat.h"
 __FBSDID("$FreeBSD: src/usr.bin/gencat/genlib.c,v 1.13 2002/12/24 07:40:10 davidxu Exp $");
 
 #include <ctype.h>

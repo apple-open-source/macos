@@ -43,12 +43,11 @@ extern int am_server;
  **/
 char *client_addr(int fd)
 {
-	struct sockaddr_storage ss;
-	socklen_t length = sizeof ss;
-	char *ssh_client, *p;
-	int len;
 	static char addr_buf[100];
 	static int initialised;
+	struct sockaddr_storage ss;
+	socklen_t length = sizeof ss;
+	char *ssh_info, *p;
 
 	if (initialised)
 		return addr_buf;
@@ -57,14 +56,13 @@ char *client_addr(int fd)
 
 	if (am_server) {	/* daemon over --rsh mode */
 		strcpy(addr_buf, "0.0.0.0");
-		if ((ssh_client = getenv("SSH_CLIENT")) != NULL) {
-			/* truncate SSH_CLIENT to just IP address */
-			if ((p = strchr(ssh_client, ' ')) != NULL) {
-				len = MIN((unsigned int) (p - ssh_client),
-				    sizeof addr_buf - 1);
-				strncpy(addr_buf, ssh_client, len);
-				*(addr_buf + len) = '\0';
-			}
+		if ((ssh_info = getenv("SSH_CONNECTION")) != NULL
+		    || (ssh_info = getenv("SSH_CLIENT")) != NULL
+		    || (ssh_info = getenv("SSH2_CLIENT")) != NULL) {
+			strlcpy(addr_buf, ssh_info, sizeof addr_buf);
+			/* Truncate the value to just the IP address. */
+			if ((p = strchr(addr_buf, ' ')) != NULL)
+				*p = '\0';
 		}
 	} else {
 		client_sockaddr(fd, &ss, &length);
@@ -124,7 +122,7 @@ char *client_name(int fd)
 		hint.ai_socktype = SOCK_STREAM;
 
 		if ((err = getaddrinfo(addr, NULL, &hint, &answer)) != 0) {
-			rprintf(FERROR, RSYNC_NAME ": malformed address %s: %s\n",
+			rprintf(FLOG, "malformed address %s: %s\n",
 			        addr, gai_strerror(err));
 			return name_buf;
 		}
@@ -147,8 +145,8 @@ char *client_name(int fd)
 		client_sockaddr(fd, &ss, &ss_len);
 	}
 
-	if (!lookup_name(fd, &ss, ss_len, name_buf, sizeof name_buf,
-			port_buf, sizeof port_buf))
+	if (lookup_name(fd, &ss, ss_len, name_buf, sizeof name_buf,
+			port_buf, sizeof port_buf) == 0)
 		check_name(fd, &ss, name_buf);
 
 	return name_buf;
@@ -170,8 +168,7 @@ void client_sockaddr(int fd,
 
 	if (getpeername(fd, (struct sockaddr *) ss, ss_len)) {
 		/* FIXME: Can we really not continue? */
-		rprintf(FERROR, RSYNC_NAME ": getpeername on fd%d failed: %s\n",
-			fd, strerror(errno));
+		rsyserr(FLOG, errno, "getpeername on fd%d failed", fd);
 		exit_cleanup(RERR_SOCKETIO);
 	}
 
@@ -226,9 +223,8 @@ int lookup_name(int fd, const struct sockaddr_storage *ss,
 			       NI_NAMEREQD | NI_NUMERICSERV);
 	if (name_err != 0) {
 		strcpy(name_buf, default_name);
-		rprintf(FERROR, RSYNC_NAME ": name lookup failed for %s: %s\n",
-			client_addr(fd),
-			gai_strerror(name_err));
+		rprintf(FLOG, "name lookup failed for %s: %s\n",
+			client_addr(fd), gai_strerror(name_err));
 		return name_err;
 	}
 
@@ -249,8 +245,7 @@ int compare_addrinfo_sockaddr(const struct addrinfo *ai,
 	const char fn[] = "compare_addrinfo_sockaddr";
 
 	if (ai->ai_family != ss_family) {
-		rprintf(FERROR,
-			"%s: response family %d != %d\n",
+		rprintf(FLOG, "%s: response family %d != %d\n",
 			fn, ai->ai_family, ss_family);
 		return 1;
 	}
@@ -274,8 +269,7 @@ int compare_addrinfo_sockaddr(const struct addrinfo *ai,
 		sin2 = (const struct sockaddr_in6 *) ai->ai_addr;
 
 		if (ai->ai_addrlen < sizeof (struct sockaddr_in6)) {
-			rprintf(FERROR,
-				"%s: too short sockaddr_in6; length=%d\n",
+			rprintf(FLOG, "%s: too short sockaddr_in6; length=%d\n",
 				fn, ai->ai_addrlen);
 			return 1;
 		}
@@ -321,8 +315,7 @@ int check_name(int fd,
 	hints.ai_socktype = SOCK_STREAM;
 	error = getaddrinfo(name_buf, NULL, &hints, &res0);
 	if (error) {
-		rprintf(FERROR,
-			RSYNC_NAME ": forward name lookup for %s failed: %s\n",
+		rprintf(FLOG, "forward name lookup for %s failed: %s\n",
 			name_buf, gai_strerror(error));
 		strcpy(name_buf, default_name);
 		return error;
@@ -339,23 +332,17 @@ int check_name(int fd,
 	if (!res0) {
 		/* We hit the end of the list without finding an
 		 * address that was the same as ss. */
-		rprintf(FERROR, RSYNC_NAME
-			": no known address for \"%s\": "
-			"spoofed address?\n",
-			name_buf);
+		rprintf(FLOG, "no known address for \"%s\": "
+			"spoofed address?\n", name_buf);
 		strcpy(name_buf, default_name);
 	} else if (res == NULL) {
 		/* We hit the end of the list without finding an
 		 * address that was the same as ss. */
-		rprintf(FERROR, RSYNC_NAME
-			": %s is not a known address for \"%s\": "
-			"spoofed address?\n",
-			client_addr(fd),
-			name_buf);
+		rprintf(FLOG, "%s is not a known address for \"%s\": "
+			"spoofed address?\n", client_addr(fd), name_buf);
 		strcpy(name_buf, default_name);
 	}
 
 	freeaddrinfo(res0);
 	return 0;
 }
-

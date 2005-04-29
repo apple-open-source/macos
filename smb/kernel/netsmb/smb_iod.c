@@ -29,24 +29,24 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_iod.c,v 1.15 2003/09/23 21:00:02 lindak Exp $
+ * $Id: smb_iod.c,v 1.32 2005/02/12 00:17:09 lindak Exp $
  */
  
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/proc.h>
 #include <sys/kernel.h>
-#ifndef APPLE
-#include <sys/kthread.h>
-#endif
 #include <sys/malloc.h>
 #include <sys/mbuf.h>
 #include <sys/unistd.h>
 #include <sys/mount.h>
+#include <sys/vnode.h>
 
-#ifdef APPLE
+#include <sys/kauth.h>
+
+#include <IOKit/IOLib.h>
+
 #include <sys/smb_apple.h>
-#endif
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
@@ -80,6 +80,10 @@
 #define	SMB_IOD_RQLOCK(iod)	smb_sl_lock(&((iod)->iod_rqlock))
 #define	SMB_IOD_RQUNLOCK(iod)	smb_sl_unlock(&((iod)->iod_rqlock))
 
+#define	SMB_IOD_FLAGSLOCKPTR(iod)	(&((iod)->iod_flagslock))
+#define	SMB_IOD_FLAGSLOCK(iod)		smb_sl_lock(&((iod)->iod_flagslock))
+#define	SMB_IOD_FLAGSUNLOCK(iod)	smb_sl_unlock(&((iod)->iod_flagslock))
+
 #define	smb_iod_wakeup(iod)	wakeup(&(iod)->iod_flags)
 
 
@@ -93,9 +97,10 @@ static int  smb_iod_disconnect(struct smbiod *iod);
 static void smb_iod_thread(void *);
 
 static __inline void
-smb_iod_rqprocessed(struct smb_rq *rqp, int error)
+smb_iod_rqprocessed(struct smb_rq *rqp, int error, int flags)
 {
 	SMBRQ_SLOCK(rqp);
+	rqp->sr_flags |= flags;
 	rqp->sr_lerror = error;
 	rqp->sr_rpgen++;
 	rqp->sr_state = SMBRQ_NOTIFIED;
@@ -113,10 +118,7 @@ smb_iod_invrq(struct smbiod *iod)
 	 */
 	SMB_IOD_RQLOCK(iod);
 	TAILQ_FOREACH(rqp, &iod->iod_rqlist, sr_link) {
-		if (rqp->sr_flags & SMBR_INTERNAL)
-			SMBRQ_SUNLOCK(rqp);
-		rqp->sr_flags |= SMBR_RESTART;
-		smb_iod_rqprocessed(rqp, ENOTCONN);
+		smb_iod_rqprocessed(rqp, ENOTCONN, SMBR_RESTART);
 	}
 	SMB_IOD_RQUNLOCK(iod);
 }
@@ -200,9 +202,9 @@ smb_iod_negotiate(struct smbiod *iod)
 			ithrow(SMB_TRAN_BIND(vcp, vcp->vc_laddr, p));
 		}
 		SMBIODEBUG("tbind\n");
-		ithrow(SMB_TRAN_CONNECT(vcp, vcp->vc_paddr, p));
 		SMB_TRAN_SETPARAM(vcp, SMBTP_SELECTID, iod);
 		SMB_TRAN_SETPARAM(vcp, SMBTP_UPCALL, smb_iod_sockwakeup);
+		ithrow(SMB_TRAN_CONNECT(vcp, vcp->vc_paddr, p));
 		iod->iod_state = SMBIOD_ST_TRANACTIVE;
 		SMBIODEBUG("tconnect\n");
 /*		vcp->vc_mid = 0;*/
@@ -308,15 +310,11 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 	SMBIODEBUG("iod_state = %d\n", iod->iod_state);
 	switch (iod->iod_state) {
 	    case SMBIOD_ST_NOTCONN:
-		smb_iod_rqprocessed(rqp, ENOTCONN);
+		smb_iod_rqprocessed(rqp, ENOTCONN, 0);
 		return 0;
 	    case SMBIOD_ST_DEAD:
-#ifdef APPLE
 		/* This is what keeps the iod itself from sending more */
-		smb_iod_rqprocessed(rqp, ENOTCONN);
-#else
-		iod->iod_state = SMBIOD_ST_RECONNECT; /* XXX */
-#endif
+		smb_iod_rqprocessed(rqp, ENOTCONN, 0);
 		return 0;
 	    case SMBIOD_ST_RECONNECT:
 		return 0;
@@ -361,8 +359,7 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 		mb_fixhdr(&rqp->sr_rq);
 	}
 	if (rqp->sr_sendcnt++ >= 60/SMBSBTIMO) { /* one minute */
-		rqp->sr_flags |= SMBR_RESTART;
-		smb_iod_rqprocessed(rqp, rqp->sr_lerror);
+		smb_iod_rqprocessed(rqp, rqp->sr_lerror, SMBR_RESTART);
 		/*
 		 * If all attempts to send a request failed, then
 		 * something is seriously hosed.
@@ -374,7 +371,7 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 	m = m_copym(rqp->sr_rq.mb_top, 0, M_COPYALL, M_WAIT);
 	error = rqp->sr_lerror = m ? SMB_TRAN_SEND(vcp, m, p) : ENOBUFS;
 	if (error == 0) {
-		getnanotime(&rqp->sr_timesent);
+		nanotime(&rqp->sr_timesent);
 		iod->iod_lastrqsent = rqp->sr_timesent;
 		rqp->sr_flags |= SMBR_SENT;
 		rqp->sr_state = SMBRQ_SENT;
@@ -393,7 +390,7 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 	if (error)
 		SMBERROR("TRAN_SEND returned non-fatal error %d\n", error);
 	if (smb_rq_intr(rqp))
-		smb_iod_rqprocessed(rqp, EINTR);
+		smb_iod_rqprocessed(rqp, EINTR, 0);
 	return 0;
 }
 
@@ -451,7 +448,7 @@ smb_iod_recvall(struct smbiod *iod)
 		mid = SMB_HDRMID(hp);
 		SMBSDEBUG("mid %04x\n", (u_int)mid);
 		SMB_IOD_RQLOCK(iod);
-		getnanotime(&iod->iod_lastrecv);
+		nanotime(&iod->iod_lastrecv);
 		TAILQ_FOREACH(rqp, &iod->iod_rqlist, sr_link) {
 			if (rqp->sr_mid != mid)
 				continue;
@@ -470,7 +467,7 @@ smb_iod_recvall(struct smbiod *iod)
 				}
 			}
 			SMBRQ_SUNLOCK(rqp);
-			smb_iod_rqprocessed(rqp, 0);
+			smb_iod_rqprocessed(rqp, 0, 0);
 			break;
 		}
 		SMB_IOD_RQUNLOCK(iod);
@@ -489,9 +486,8 @@ smb_iod_recvall(struct smbiod *iod)
 	 */
 	SMB_IOD_RQLOCK(iod);
 	TAILQ_FOREACH(rqp, &iod->iod_rqlist, sr_link) {
-		if (smb_proc_intr(rqp->sr_cred->scr_p)) {
-			smb_iod_rqprocessed(rqp, EINTR);
-		}
+		if (smb_sigintr(rqp->sr_cred->scr_vfsctx))
+			smb_iod_rqprocessed(rqp, EINTR, 0);
 	}
 	SMB_IOD_RQUNLOCK(iod);
 	return 0;
@@ -515,7 +511,7 @@ smb_iod_request(struct smbiod *iod, int event, void *ident)
 		return 0;
 	}
 	smb_iod_wakeup(iod);
-	msleep(evp, SMB_IOD_EVLOCKPTR(iod), PWAIT | PDROP, "90evw", 0);
+	msleep(evp, SMB_IOD_EVLOCKPTR(iod), PWAIT | PDROP, "iod-ev", 0);
 	error = evp->ev_error;
 	free(evp, M_SMBIOD);
 	return error;
@@ -530,6 +526,7 @@ smb_iod_addrq(struct smb_rq *rqp)
 {
 	struct smb_vc *vcp = rqp->sr_vc;
 	struct smbiod *iod = vcp->vc_iod;
+	struct timespec ts;
 
 	SMBIODEBUG("\n");
 	if (rqp->sr_cred == &iod->iod_scred) {
@@ -547,7 +544,9 @@ smb_iod_addrq(struct smb_rq *rqp)
 			 */
 			if (rqp->sr_state != SMBRQ_NOTSENT)
 				break;
-			tsleep(&iod->iod_flags, PWAIT, "90sndw", hz);
+			ts.tv_sec = 1;
+			ts.tv_nsec = 0;
+			msleep(&iod->iod_flags, 0, PWAIT, "90sndw", &ts);
 		}
 		if (rqp->sr_lerror)
 			smb_iod_removerq(rqp);
@@ -584,8 +583,8 @@ smb_iod_addrq(struct smb_rq *rqp)
 		if (iod->iod_muxcnt < vcp->vc_maxmux)
 			break;
 		iod->iod_muxwant++;
-		msleep(&iod->iod_muxwant, SMB_IOD_RQLOCKPTR(iod),
-		    PWAIT, "90mux", 0);
+		msleep(&iod->iod_muxwant, SMB_IOD_RQLOCKPTR(iod), PWAIT,
+		       "iod-rq-mux", 0);
 	}
 	iod->iod_muxcnt++;
 	TAILQ_INSERT_TAIL(&iod->iod_rqlist, rqp, sr_link);
@@ -602,16 +601,15 @@ smb_iod_removerq(struct smb_rq *rqp)
 	struct smbiod *iod = vcp->vc_iod;
 
 	SMBIODEBUG("\n");
+	SMB_IOD_RQLOCK(iod);
 	if (rqp->sr_flags & SMBR_INTERNAL) {
-		SMB_IOD_RQLOCK(iod);
 		TAILQ_REMOVE(&iod->iod_rqlist, rqp, sr_link);
 		SMB_IOD_RQUNLOCK(iod);
 		return 0;
 	}
-	SMB_IOD_RQLOCK(iod);
 	while (rqp->sr_flags & SMBR_XLOCK) {
 		rqp->sr_flags |= SMBR_XLOCKWANT;
-		msleep(rqp, SMB_IOD_RQLOCKPTR(iod), PWAIT, "90xrm", 0);
+		msleep(rqp, SMB_IOD_RQLOCKPTR(iod), PWAIT, "iod-rq-rm", 0);
 	}
 	TAILQ_REMOVE(&iod->iod_rqlist, rqp, sr_link);
 	iod->iod_muxcnt--;
@@ -628,6 +626,7 @@ smb_iod_waitrq(struct smb_rq *rqp)
 {
 	struct smbiod *iod = rqp->sr_vc->vc_iod;
 	int error;
+	struct timespec ts;
 
 	SMBIODEBUG("\n");
 	if (rqp->sr_flags & SMBR_INTERNAL) {
@@ -636,21 +635,18 @@ smb_iod_waitrq(struct smb_rq *rqp)
 			smb_iod_recvall(iod);
 			if (rqp->sr_rpgen != rqp->sr_rplast)
 				break;
-			tsleep(&iod->iod_flags, PWAIT, "90irq", hz);
+			ts.tv_sec = 1;
+			ts.tv_nsec = 0;
+			msleep(&iod->iod_flags, 0, PWAIT, "90irq", &ts);
 		}
 		smb_iod_removerq(rqp);
 		return rqp->sr_lerror;
 
 	}
-	/*
-	 * XXX APPLE
-	 *
-	 * Since the SLOCK here is a no-op, there is a race here, and we may end
-	 * up sleeping forever waiting for this request.
-	 */
 	SMBRQ_SLOCK(rqp);
 	if (rqp->sr_rpgen == rqp->sr_rplast)
-		msleep(&rqp->sr_state, SMBRQ_SLOCKPTR(rqp), PWAIT, "90wrq", 0);
+		msleep(&rqp->sr_state, SMBRQ_SLOCKPTR(rqp), PWAIT, "srs-rq",
+			   0);
 	rqp->sr_rplast++;
 	SMBRQ_SUNLOCK(rqp);
 	error = rqp->sr_lerror;
@@ -687,7 +683,7 @@ smb_iod_shutdown_share(struct smb_share *ssp)
 	SMB_IOD_RQLOCK(iod);
 	TAILQ_FOREACH(rqp, &iod->iod_rqlist, sr_link) {
 		if (rqp->sr_state != SMBRQ_NOTIFIED && rqp->sr_share == ssp)
-			smb_iod_rqprocessed(rqp, ENXIO);
+			smb_iod_rqprocessed(rqp, ENXIO, 0);
 	}
 	SMB_IOD_RQUNLOCK(iod);
 }
@@ -740,7 +736,7 @@ smb_iod_sendall(struct smbiod *iod)
 					ts.tv_sec = -rqp->sr_timo;
 				tstimeout = ts;
 			}
-			getnanotime(&now);
+			nanotime(&now);
 			if (rqp->sr_share) {
 				ts = now;
 				uetimeout.tv_sec = SMBUETIMEOUT;
@@ -752,7 +748,7 @@ smb_iod_sendall(struct smbiod *iod)
 			}
 			timespecadd(&tstimeout, &rqp->sr_timesent);
 			if (timespeccmp(&now, &tstimeout, >)) {
-				smb_iod_rqprocessed(rqp, ETIMEDOUT);
+				smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
 			} else if (rqp->sr_cmd != SMB_COM_ECHO) {
 				ts = now;
 				uetimeout.tv_sec = SMBUETIMEOUT/2;
@@ -778,7 +774,7 @@ smb_iod_sendall(struct smbiod *iod)
 		 * responds iod_lastrecv gets set so
 		 * we'll avoid doing another smbfs_down above.
 		 */
-		getnanotime(&ts);
+		nanotime(&ts);
 		uetimeout.tv_sec = SMBUETIMEOUT/2;
 		uetimeout.tv_nsec = 0;
 		timespecsub(&ts, &uetimeout);
@@ -795,7 +791,6 @@ smb_tickle(struct smbiod *iod)
 {
 	struct smb_vc *vcp = iod->iod_vc;
 	struct smb_share *ssp = NULL;
-	struct proc *p = iod->iod_p;
 	int error;
 
 	/*
@@ -808,7 +803,7 @@ smb_tickle(struct smbiod *iod)
 		 * Make sure nobody deletes the share out from under
 		 * us.
 		 */
-		smb_share_ref(ssp, p);
+		smb_share_ref(ssp);
 		error = smb_smb_checkdir(ssp, NULL, "", 0, &iod->iod_scred);
 		smb_share_rele(ssp, &iod->iod_scred);
 		if (!error)
@@ -859,6 +854,14 @@ smb_iod_main(struct smbiod *iod)
 			evp->ev_error = smb_iod_treeconnect(iod, evp->ev_ident);
 			break;
 		    case SMBIOD_EV_SHUTDOWN:
+			/*
+			 * Flags in iod_flags are only set within the iod,
+			 * so we don't need the mutex to protect
+			 * setting or clearing them, and SMBIOD_SHUTDOWN
+			 * is only tested within the iod, so we don't
+			 * need the mutex to protect against other
+			 * threads testing it.
+			 */
 			iod->iod_flags |= SMBIOD_SHUTDOWN;
 			break;
 		    case SMBIOD_EV_NEWRQ:
@@ -872,7 +875,7 @@ smb_iod_main(struct smbiod *iod)
 			free(evp, M_SMBIOD);
 	}
 	if (iod->iod_state == SMBIOD_ST_VCACTIVE) {
-		getnanotime(&tsnow);
+		nanotime(&tsnow);
 		timespecsub(&tsnow, &iod->iod_pingtimo);
 		if (timespeccmp(&tsnow, &iod->iod_lastrqsent, >))
 			smb_tickle(iod);
@@ -882,77 +885,127 @@ smb_iod_main(struct smbiod *iod)
 	return;
 }
 
-#define	kthread_create_compat	kthread_create2
-
 
 void
 smb_iod_thread(void *arg)
 {
 	struct smbiod *iod = arg;
-#ifdef APPLE
-	boolean_t funnel_state;
+	vfs_context_t      vfsctx;
+	boolean_t	funnel_state;
 
 	funnel_state = thread_funnel_set(kernel_flock, TRUE);
+
+#if 0
+	vfsctx.vc_proc = iod->iod_p;
+	vfsctx.vc_ucred = vfsctx.vc_proc->p_ucred;
+#else
+	/* the iod sets the iod_p to kernproc when launching smb_iod_thread in 
+	 * smb_iod_create. Current kpis to cvfscontext support to build a 
+	 * context from the current context or from some other context and
+	 * not from proc only. So Since the kernel threads run under kernel 
+	 * task and kernproc it should be fine to create the context from \
+	 * from current thread 
+	 */
+	
+	vfsctx = vfs_context_create((vfs_context_t)0);
+
 #endif
-	smb_makescred(&iod->iod_scred, iod->iod_p, NULL);
+	smb_scred_init(&iod->iod_scred, vfsctx);
+
+	SMB_IOD_FLAGSLOCK(iod);
+	iod->iod_flags |= SMBIOD_RUNNING;
+	SMB_IOD_FLAGSUNLOCK(iod);
+
+	/*
+	 * SMBIOD_SHUTDOWN is only set within the iod, so we don't need
+	 * the mutex to protect testing it.
+	 */
 	while ((iod->iod_flags & SMBIOD_SHUTDOWN) == 0) {
 		iod->iod_workflag = 0;
 		smb_iod_main(iod);
-		SMBIODEBUG("going to sleep for %d ticks\n", iod->iod_sleeptimo);
 		if (iod->iod_flags & SMBIOD_SHUTDOWN)
 			break;
 		/*
 		 * In order to prevent a race here, this should really be locked
-		 * with a mutex on which we would subsequently msleep, and which
-		 * should be acquired before changing the flag.
+		 * with a mutex on which we would subsequently msleep, and
+		 * which should be acquired before changing the flag.
+		 * Or should this be another flag in iod_flags, using its
+		 * mutex?
 		 */
 		if (iod->iod_workflag)
 			continue;
-		tsleep(&iod->iod_flags, PWAIT, "90idle", iod->iod_sleeptimo);
+		SMBIODEBUG("going to sleep for %d secs %d nsecs\n", iod->iod_sleeptimespec.tv_sec,
+				iod->iod_sleeptimespec.tv_nsec);
+		msleep(&iod->iod_flags, 0, PWAIT, "90idle", &iod->iod_sleeptimespec);
 	}
-	kthread_exit(0);
-#ifdef APPLE
-	(void) thread_funnel_set(kernel_flock, FALSE);
-#if APPLE_USE_CALLOUT_THREAD	/* XXX bad idea */
-	thread_call_free(iod->iod_tc);
-#endif
-#endif
+
+	/*
+	 * Clear the running flag, and wake up anybody waiting for us to quit.
+	 */
+	SMB_IOD_FLAGSLOCK(iod);
+	iod->iod_flags &= ~SMBIOD_RUNNING;
+	wakeup(iod);
+	SMB_IOD_FLAGSUNLOCK(iod);
+
+	vfs_context_rele(vfsctx);
+	(void) thread_funnel_set(kernel_flock, funnel_state);
 }
 
 int
 smb_iod_create(struct smb_vc *vcp)
 {
 	struct smbiod *iod;
-	int error;
 
 	iod = smb_zmalloc(sizeof(*iod), M_SMBIOD, M_WAITOK);
 	iod->iod_id = smb_iod_next++;
 	iod->iod_state = SMBIOD_ST_NOTCONN;
+	smb_sl_init(&iod->iod_flagslock, iodflags_lck_group, iodflags_lck_attr);
 	iod->iod_vc = vcp;
-	iod->iod_sleeptimo = hz * SMBIOD_SLEEP_TIMO;
+	iod->iod_sleeptimespec.tv_sec = SMBIOD_SLEEP_TIMO;
+	iod->iod_sleeptimespec.tv_nsec = 0;
 	iod->iod_pingtimo.tv_sec = SMBIOD_PING_TIMO;
-	getnanotime(&iod->iod_lastrqsent);
+	iod->iod_p = kernproc;
+	nanotime(&iod->iod_lastrqsent);
 	vcp->vc_iod = iod;
-	smb_sl_init(&iod->iod_rqlock, "90rql");
+	smb_sl_init(&iod->iod_rqlock, iodrq_lck_group, iodrq_lck_attr);
 	TAILQ_INIT(&iod->iod_rqlist);
-	smb_sl_init(&iod->iod_evlock, "90evl");
+	smb_sl_init(&iod->iod_evlock, iodev_lck_group, iodev_lck_attr);
 	STAILQ_INIT(&iod->iod_evlist);
-	error = kthread_create_compat(smb_iod_thread, iod, &iod->iod_p,
-	    RFNOWAIT, "smbiod%d", iod->iod_id);
-	if (error) {
-		SMBERROR("can't start smbiod: %d", error);
+	if (IOCreateThread(smb_iod_thread, iod) == NULL) {
+		SMBERROR("can't start smbiod\n");
 		free(iod, M_SMBIOD);
-		return error;
+		return (ENOMEM); /* true cause lost in mach interfaces */
 	}
-	return 0;
+	return (0);
 }
 
 int
 smb_iod_destroy(struct smbiod *iod)
 {
-	smb_iod_request(iod, SMBIOD_EV_SHUTDOWN | SMBIOD_EV_SYNC, NULL);
-	smb_sl_destroy(&iod->iod_rqlock);
-	smb_sl_destroy(&iod->iod_evlock);
+	/*
+	 * We don't post this synchronously, as that causes a wakeup
+	 * when the SMBIOD_SHUTDOWN flag is set, but that happens
+	 * before the iod actually terminates, and we have to wait
+	 * until it terminates before we can free its locks and
+	 * its data structure.
+	 */
+	smb_iod_request(iod, SMBIOD_EV_SHUTDOWN, NULL);
+
+	/*
+	 * Wait for the iod to exit.
+	 */
+	for (;;) {
+		SMB_IOD_FLAGSLOCK(iod);
+		if (!(iod->iod_flags & SMBIOD_RUNNING)) {
+			SMB_IOD_FLAGSUNLOCK(iod);
+			break;
+		}
+		msleep(iod, SMB_IOD_FLAGSLOCKPTR(iod), PWAIT | PDROP,
+		    "iod-exit", 0);
+	}
+	smb_sl_destroy(&iod->iod_flagslock, iodflags_lck_group);
+	smb_sl_destroy(&iod->iod_rqlock, iodrq_lck_group);
+	smb_sl_destroy(&iod->iod_evlock, iodev_lck_group);
 	free(iod, M_SMBIOD);
 	return 0;
 }

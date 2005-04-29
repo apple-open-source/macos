@@ -1,6 +1,6 @@
 .TH LDAPMODRDN 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodrdn.1,v 1.26.2.6 2003/03/03 17:10:02 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodrdn.1,v 1.31.2.3 2004/03/06 15:06:48 ando Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapmodrdn \- LDAP rename entry tool
@@ -97,7 +97,7 @@ when connecting to a slapd and there is no x500dsa.hostname principal
 registered with your Kerberos Domain Controller(s).
 .TP
 .B \-c
-Continuous operation mode.  Errors  are  reported,  but ldapmodify
+Continuous operation mode.  Errors  are  reported,  but ldapmodrdn
 will  continue  with  modifications.   The default is to exit after
 reporting an error.
 .TP
@@ -166,7 +166,7 @@ Specify the realm of authentication ID for SASL bind. The form of the realm
 depends on the actual SASL mechanism used.
 .TP
 .BI \-X \ authzid
-Specify the proxy authorization ID for SASL bind.
+Specify the requested authorization ID for SASL bind.
 .I authzid
 must be one of the following formats:
 .B dn:\c
@@ -211,7 +211,7 @@ exists and has the contents:
 the command:
 .LP
 .nf
-    ldapmodify -r -f /tmp/entrymods
+    ldapmodrdn -r -f /tmp/entrymods
 .fi
 .LP
 will change the RDN of the "Modify Me" entry from "Modify Me" to
@@ -231,7 +231,7 @@ status and a diagnostic message being written to standard error.
 .SH AUTHOR
 The OpenLDAP Project <http://www.openldap.org/>
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

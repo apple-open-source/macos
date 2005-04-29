@@ -38,12 +38,15 @@ extern "C"
 
 #ifndef WIN32
 #ifndef MSC_SVC_DROPDIR
-#define MSC_SVC_DROPDIR                     "/usr/libexec/SmartCardServices/services/"
+#define MSC_SVC_DROPDIR                     TPSvcDropdir()
+#define MSC_SVC_DROPDIR_DEFAULT             "/usr/libexec/SmartCardServices/services/"
+#define MSC_SVC_DROPDIR_ENV                 "MSC_SVC_DROPDIR"
 #endif
 #else
 #define MSC_SVC_DROPDIR                     "C:\\Program Files\\Muscle\\Services\\"
 #endif
 
+	const char *TPSvcDropdir(void);
 	MSCLong32 TPLoadToken(MSCLPTokenConnection);
 	MSCLong32 TPUnloadToken(MSCLPTokenConnection);
 	MSCLong32 TPBindFunctions(MSCLPTokenConnection);

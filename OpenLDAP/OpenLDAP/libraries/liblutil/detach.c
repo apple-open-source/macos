@@ -1,4 +1,18 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/detach.c,v 1.12.2.1 2003/02/07 16:55:58 kurt Exp $ */
+/* detach.c -- routines to daemonize a process */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/detach.c,v 1.14.2.2 2004/01/01 18:16:31 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
 /*
  * Copyright (c) 1990, 1994 Regents of the University of Michigan.
  * All rights reserved.
@@ -9,6 +23,9 @@
  * may not be used to endorse or promote products derived from this
  * software without specific prior written permission. This software
  * is provided ``as is'' without express or implied warranty.
+ */
+/* This work was originally developed by the University of Michigan
+ * and distributed as part of U-MICH LDAP.
  */
 
 #include "portable.h"

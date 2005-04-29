@@ -1,0 +1,18 @@
+# $Id: s.printVisitor.xotcl 1.10 01/03/23 21:55:32+01:00 neumann@somewhere.wu-wien.ac.at $
+package provide xotcl::xml::printVisitor 0.9
+package require xotcl::xml::parser
+
+##############################################################################
+#
+# Small debugging visitor that just uses node's print method to print the 
+# node tree
+#
+##############################################################################
+
+Class PrintVisitor -superclass NodeTreeVisitor -parameter parser
+PrintVisitor instproc visit objName {
+  puts [$objName print]
+}
+PrintVisitor instproc interpretNodeTree node {
+  $node accept [self]
+}

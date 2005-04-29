@@ -1,7 +1,12 @@
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+After applying this patch, run these commands for a successful build:
 
-Hi.
+    autoconf
+    autoheader
+    ./configure
+    make proto
+    make
+
+Casey Marshall writes:
 
 I've been hacking together a way to use rsync with OpenSSL, and have
 attached my current patch against a recent CVS tree. The details of
@@ -31,24 +36,9 @@ this implementation are:
 All warnings apply; I don't do C programming all that often, so I
 can't say if I've left any cleanup/compatibility errors in the code.
 
-Also: <http://rsync.samba.org/lists.html> refers to the (now gone)
-smart-questions document on tuxedo.org, which should now be catb.org.
 
-Cheers,
-
-- -- 
-Casey Marshall || rsdio@metastatic.org
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.1 (GNU/Linux)
-Comment: Processed by Mailcrypt 3.5.7 <http://mailcrypt.sourceforge.net/>
-
-iD8DBQE/ih9xgAuWMgRGsWsRAp8RAJ0XyONLiOSDgHHAOBRNO6sZ/P2dRwCeKfu8
-LEvhhkUglOm3xMyrdJT4u9Q=
-=aT/N
------END PGP SIGNATURE-----
-
---- Makefile.in	10 Feb 2004 17:06:11 -0000	1.98
-+++ Makefile.in	25 Apr 2004 18:37:22 -0000
+--- orig/Makefile.in	2004-08-13 07:18:58
++++ Makefile.in	2004-07-03 20:22:28
 @@ -39,7 +39,7 @@ OBJS3=progress.o pipe.o
  DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
  popt_OBJS=popt/findme.o  popt/popt.o  popt/poptconfig.o \
@@ -58,32 +48,32 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  
  TLS_OBJ = tls.o syscall.o lib/permstring.o
  
---- cleanup.c	27 Jan 2004 08:14:33 -0000	1.21
-+++ cleanup.c	25 Apr 2004 18:37:22 -0000
-@@ -87,6 +87,9 @@ void _exit_cleanup(int code, const char 
- 	int ocode = code;
- 	extern int keep_partial;
- 	extern int log_got_error;
+--- orig/cleanup.c	2004-07-29 16:08:03
++++ cleanup.c	2004-07-03 20:22:28
+@@ -24,6 +24,9 @@
+ extern int io_error;
+ extern int keep_partial;
+ extern int log_got_error;
 +#ifdef HAVE_OPENSSL
-+	extern int use_ssl;
++extern int use_ssl;
 +#endif
- 	static int inside_cleanup = 0;
  
- 	if (inside_cleanup > 10) {
+ /**
+  * Close all open sockets and files, allowing a (somewhat) graceful
 @@ -97,6 +100,11 @@ void _exit_cleanup(int code, const char 
- 
  	signal(SIGUSR1, SIG_IGN);
  	signal(SIGUSR2, SIG_IGN);
-+
+ 
 +#ifdef HAVE_OPENSSL
 +	if (use_ssl)
 +		end_tls();
 +#endif
- 
- 	if (verbose > 3)
- 		rprintf(FINFO,"_exit_cleanup(code=%d, file=%s, line=%d): entered\n", 
---- clientserver.c	14 Apr 2004 23:33:34 -0000	1.121
-+++ clientserver.c	25 Apr 2004 18:37:23 -0000
++
+ 	if (verbose > 3) {
+ 		rprintf(FINFO,"_exit_cleanup(code=%d, file=%s, line=%d): entered\n",
+ 			code, file, line);
+--- orig/clientserver.c	2004-08-02 02:29:16
++++ clientserver.c	2004-07-03 20:22:28
 @@ -46,6 +46,9 @@ extern int io_timeout;
  extern int orig_umask;
  extern int no_detach;
@@ -94,7 +84,7 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  extern char *bind_address;
  extern struct exclude_list_struct server_exclude_list;
  extern char *exclude_path_prefix;
-@@ -93,8 +96,18 @@ int start_socket_client(char *host, char
+@@ -94,8 +97,18 @@ int start_socket_client(char *host, char
  		exit_cleanup(RERR_SOCKETIO);
  
  	ret = start_inband_exchange(user, path, fd, fd, argc);
@@ -113,8 +103,8 @@ LEvhhkUglOm3xMyrdJT4u9Q=
 +	return client_run(fd, fd, -1, argc, argv);
  }
  
- int start_inband_exchange(char *user, char *path, int f_in, int f_out, int argc)
-@@ -145,6 +158,33 @@ int start_inband_exchange(char *user, ch
+ int start_inband_exchange(char *user, char *path, int f_in, int f_out, 
+@@ -150,6 +163,33 @@ int start_inband_exchange(char *user, ch
  	if (protocol_version > remote_protocol)
  		protocol_version = remote_protocol;
  
@@ -148,7 +138,7 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  	p = strchr(path,'/');
  	if (p) *p = 0;
  	io_printf(f_out, "%s\n", path);
-@@ -172,6 +212,10 @@ int start_inband_exchange(char *user, ch
+@@ -178,6 +218,10 @@ int start_inband_exchange(char *user, ch
  			 * server to terminate the listing of modules.
  			 * We don't want to go on and transfer
  			 * anything; just exit. */
@@ -159,8 +149,8 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  			exit(0);
  		}
  
-@@ -179,6 +223,10 @@ int start_inband_exchange(char *user, ch
- 			rprintf(FERROR,"%s\n", line);
+@@ -185,6 +229,10 @@ int start_inband_exchange(char *user, ch
+ 			rprintf(FERROR, "%s\n", line);
  			/* This is always fatal; the server will now
  			 * close the socket. */
 +#ifdef HAVE_OPENSSL
@@ -170,7 +160,7 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  			return RERR_STARTCLIENT;
  		} else {
  			rprintf(FINFO,"%s\n", line);
-@@ -485,6 +533,7 @@ static void send_listing(int fd)
+@@ -497,6 +545,7 @@ static void send_listing(int fd)
  		io_printf(fd,"@RSYNCD: EXIT\n");
  }
  
@@ -178,42 +168,30 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  /* this is called when a connection is established to a client
     and we want to start talking. The setup of the system is done from
     here */
-@@ -543,6 +592,20 @@ int start_daemon(int f_in, int f_out)
- 			send_listing(f_out);
- 			return -1;
- 		}
-+
+@@ -555,6 +604,20 @@ int start_daemon(int f_in, int f_out)
+ 		return -1;
+ 	}
+ 
 +#if HAVE_OPENSSL
-+		if (use_ssl && strcmp(line, "#starttls") == 0) {
-+			io_printf(f_out, "@RSYNCD: starttls\n");
-+			if (start_tls(f_in, f_out)) {
-+				rprintf(FLOG, "SSL connection failed: %s\n",
-+					get_ssl_error());
-+				return -1;
-+			}
-+			f_in = get_tls_rfd();
-+			f_out = get_tls_wfd();
-+			continue;
++	if (use_ssl && strcmp(line, "#starttls") == 0) {
++		io_printf(f_out, "@RSYNCD: starttls\n");
++		if (start_tls(f_in, f_out)) {
++			rprintf(FLOG, "SSL connection failed: %s\n",
++				get_ssl_error());
++			return -1;
 +		}
++		f_in = get_tls_rfd();
++		f_out = get_tls_wfd();
++		continue;
++	}
 +#endif
- 
- 		if (*line == '#') {
- 			/* it's some sort of command that I don't understand */
---- config.h.in	9 Apr 2004 18:09:30 -0000	1.89
-+++ config.h.in	25 Apr 2004 18:37:23 -0000
-@@ -167,6 +167,9 @@
- /* */
- #undef HAVE_OFF64_T
- 
-+/* true if you want to use SSL. */
-+#undef HAVE_OPENSSL
 +
- /* Define to 1 if you have the `readlink' function. */
- #undef HAVE_READLINK
- 
---- configure.in	17 Apr 2004 18:40:16 -0000	1.191
-+++ configure.in	25 Apr 2004 18:37:23 -0000
-@@ -266,6 +266,21 @@ yes
+ 	if (*line == '#') {
+ 		/* it's some sort of command that I don't understand */
+ 		io_printf(f_out, "@ERROR: Unknown command '%s'\n", line);
+--- orig/configure.in	2004-09-23 17:42:07
++++ configure.in	2004-07-03 20:22:28
+@@ -271,6 +271,21 @@ yes
  	AC_SEARCH_LIBS(getaddrinfo, inet6)
  fi
  
@@ -235,11 +213,11 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  AC_MSG_CHECKING([whether to call shutdown on all sockets])
  case $host_os in
  	*cygwin* ) AC_MSG_RESULT(yes)
---- main.c	10 Feb 2004 03:54:47 -0000	1.192
-+++ main.c	25 Apr 2004 18:37:23 -0000
-@@ -51,6 +51,9 @@ extern int rsync_port;
- extern int read_batch;
- extern int write_batch;
+--- orig/main.c	2004-09-29 17:58:26
++++ main.c	2004-07-15 02:40:51
+@@ -56,6 +56,9 @@ extern int write_batch;
+ extern int batch_fd;
+ extern int batch_gen_fd;
  extern int filesfrom_fd;
 +#ifdef HAVE_OPENSSL
 +extern int use_ssl;
@@ -247,7 +225,7 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  extern pid_t cleanup_child_pid;
  extern char *files_from;
  extern char *remote_filesfrom_file;
-@@ -701,17 +704,32 @@ static int start_client(int argc, char *
+@@ -771,18 +774,32 @@ static int start_client(int argc, char *
  	pid_t pid;
  	int f_in,f_out;
  	int rc;
@@ -258,7 +236,7 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  	if ((rc = copy_argv(argv)))
  		return rc;
  
-+	if (strncasecmp(URL_PREFIX, argv[0], url_prefix) != 0) {
++	if (strncasecmp(URL_PREFIX, argv[0], url_prefix) != 0 && !read_batch) {
 +#ifdef HAVE_OPENSSL
 +		url_prefix = strlen(SSL_URL_PREFIX);
 +		if (strncasecmp(SSL_URL_PREFIX, argv[0], url_prefix) != 0)
@@ -273,7 +251,8 @@ LEvhhkUglOm3xMyrdJT4u9Q=
 +#endif
 +	}
  	/* rsync:// always uses rsync server over direct socket connection */
--	if (strncasecmp(URL_PREFIX, argv[0], strlen(URL_PREFIX)) == 0) {
+-	if (strncasecmp(URL_PREFIX, argv[0], strlen(URL_PREFIX)) == 0
+-	    && !read_batch) {
 +	if (url_prefix) {
  		char *host, *path;
  
@@ -281,10 +260,10 @@ LEvhhkUglOm3xMyrdJT4u9Q=
 +		host = argv[0] + url_prefix;
  		p = strchr(host,'/');
  		if (p) {
- 			*p = 0;
-@@ -760,12 +778,27 @@ static int start_client(int argc, char *
+ 			*p = '\0';
+@@ -835,12 +852,27 @@ static int start_client(int argc, char *
  			argv++;
- 		} else {
+ 		} else { /* source is local */
  			am_sender = 1;
 +			url_prefix = strlen(URL_PREFIX);
 +			if (strncasecmp(URL_PREFIX, argv[0], url_prefix) != 0) {
@@ -311,10 +290,10 @@ LEvhhkUglOm3xMyrdJT4u9Q=
 +				host = argv[argc-1] + url_prefix;
  				p = strchr(host,'/');
  				if (p) {
- 					*p = 0;
---- options.c	17 Apr 2004 17:07:23 -0000	1.147
-+++ options.c	25 Apr 2004 18:37:24 -0000
-@@ -130,6 +130,14 @@ int quiet = 0;
+ 					*p = '\0';
+--- orig/options.c	2004-09-23 17:42:07
++++ options.c	2004-07-16 20:19:50
+@@ -135,6 +135,14 @@ int quiet = 0;
  int always_checksum = 0;
  int list_only = 0;
  
@@ -326,17 +305,10 @@ LEvhhkUglOm3xMyrdJT4u9Q=
 +char *ssl_ca_path = NULL;
 +#endif
 +
- #define FIXED_CHECKSUM_SEED 32761
- #define MAX_BATCH_PREFIX_LEN 256	/* Must be less than MAXPATHLEN-13 */
- char *batch_prefix = NULL;
-@@ -142,13 +150,13 @@ static int modify_window_set;
-  * address, or a hostname. **/
- char *bind_address;
+ #define MAX_BATCH_NAME_LEN 256	/* Must be less than MAXPATHLEN-13 */
+ char *batch_name = NULL;
  
--
- static void print_rsync_version(enum logcode f)
- {
- 	char const *got_socketpair = "no ";
+@@ -154,6 +162,7 @@ static void print_rsync_version(enum log
  	char const *hardlinks = "no ";
  	char const *links = "no ";
  	char const *ipv6 = "no ";
@@ -344,7 +316,7 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  	STRUCT_STAT *dumstat;
  
  #ifdef HAVE_SOCKETPAIR
-@@ -167,6 +175,10 @@ static void print_rsync_version(enum log
+@@ -176,6 +185,10 @@ static void print_rsync_version(enum log
  	ipv6 = "";
  #endif
  
@@ -355,22 +327,22 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  	rprintf(f, "%s  version %s  protocol version %d\n",
  		RSYNC_NAME, RSYNC_VERSION, PROTOCOL_VERSION);
  	rprintf(f,
-@@ -180,10 +192,10 @@ static void print_rsync_version(enum log
+@@ -189,10 +202,10 @@ static void print_rsync_version(enum log
  	/* Note that this field may not have type ino_t.  It depends
  	 * on the complicated interaction between largefile feature
  	 * macros. */
--	rprintf(f, "              %sIPv6, %d-bit system inums, %d-bit internal inums\n",
-+	rprintf(f, "              %sIPv6, %d-bit system inums, %d-bit internal inums, %sssl\n",
- 		ipv6,
+-	rprintf(f, "              %sinplace, %sIPv6, %d-bit system inums, %d-bit internal inums\n",
++	rprintf(f, "              %sinplace, %sIPv6, %d-bit system inums, %d-bit internal inums, %sssl\n",
+ 		have_inplace, ipv6,
  		(int) (sizeof dumstat->st_ino * 8),
 -		(int) (sizeof (uint64) * 8));
 +		(int) (sizeof (uint64) * 8), ssl);
  #ifdef MAINTAINER_MODE
  	rprintf(f, "              panic action: \"%s\"\n",
  		get_panic_action());
-@@ -295,6 +307,13 @@ void usage(enum logcode F)
-   rprintf(F," -4                          prefer IPv4\n");
-   rprintf(F," -6                          prefer IPv6\n");
+@@ -308,6 +321,13 @@ void usage(enum logcode F)
+   rprintf(F," -4, --ipv4                  prefer IPv4\n");
+   rprintf(F," -6, --ipv6                  prefer IPv6\n");
  #endif
 +#ifdef HAVE_OPENSSL
 +  rprintf(F,"     --ssl                   allow socket connections to use SSL\n");
@@ -379,21 +351,21 @@ LEvhhkUglOm3xMyrdJT4u9Q=
 +  rprintf(F,"     --ssl-key-passwd=PASS   password for PEM-encoded private key\n");
 +  rprintf(F,"     --ssl-ca-certs=FILE     path to trusted CA certificates\n");
 +#endif
+   rprintf(F," -h, --help                  show this help screen\n");
  
    rprintf(F,"\n");
- 
-@@ -305,7 +324,7 @@ void usage(enum logcode F)
+@@ -319,7 +339,7 @@ void usage(enum logcode F)
  enum {OPT_VERSION = 1000, OPT_SENDER, OPT_EXCLUDE, OPT_EXCLUDE_FROM,
        OPT_DELETE_AFTER, OPT_DELETE_EXCLUDED, OPT_LINK_DEST,
        OPT_INCLUDE, OPT_INCLUDE_FROM, OPT_MODIFY_WINDOW,
--      OPT_READ_BATCH, OPT_WRITE_BATCH,
-+      OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_USE_SSL,
+-      OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_TIMEOUT,
++      OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_TIMEOUT, OPT_USE_SSL,
        OPT_REFUSED_BASE = 9000};
  
  static struct poptOption long_options[] = {
-@@ -390,6 +409,13 @@ static struct poptOption long_options[] 
-   {0,		      '4', POPT_ARG_VAL,    &default_af_hint, AF_INET, 0, 0 },
-   {0,		      '6', POPT_ARG_VAL,    &default_af_hint, AF_INET6, 0, 0 },
+@@ -408,6 +428,13 @@ static struct poptOption long_options[] 
+   {"ipv4",            '4', POPT_ARG_VAL,    &default_af_hint, AF_INET, 0, 0 },
+   {"ipv6",            '6', POPT_ARG_VAL,    &default_af_hint, AF_INET6, 0, 0 },
  #endif
 +#ifdef HAVE_OPENSSL
 +  {"ssl",              0,  POPT_ARG_NONE,   0,               OPT_USE_SSL, 0, 0},
@@ -405,7 +377,7 @@ LEvhhkUglOm3xMyrdJT4u9Q=
    {0,0,0,0, 0, 0, 0}
  };
  
-@@ -584,6 +610,12 @@ int parse_arguments(int *argc, const cha
+@@ -616,6 +643,12 @@ int parse_arguments(int *argc, const cha
  			return 0;
  #endif
  
@@ -418,11 +390,10 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  		default:
  			/* A large opt value means that set_refuse_options()
  			 * turned this option off (opt-BASE is its index). */
-@@ -722,6 +754,17 @@ int parse_arguments(int *argc, const cha
- 
+@@ -807,6 +840,17 @@ int parse_arguments(int *argc, const cha
  	if (do_progress && !verbose)
  		verbose = 1;
-+
+ 
 +#ifdef HAVE_OPENSSL
 +	if (use_ssl) {
 +		if (init_tls()) {
@@ -433,26 +404,12 @@ LEvhhkUglOm3xMyrdJT4u9Q=
 +		}
 +	}
 +#endif
- 
- 	if (files_from) {
- 		char *colon;
---- proto.h	22 Apr 2004 09:58:09 -0000	1.189
-+++ proto.h	25 Apr 2004 18:37:24 -0000
-@@ -209,6 +209,12 @@ void start_accept_loop(int port, int (*f
- void set_socket_options(int fd, char *options);
- void become_daemon(void);
- int sock_exec(const char *prog);
-+int init_tls(void);
-+char *get_ssl_error(void);
-+int get_tls_rfd(void);
-+int get_tls_wfd(void);
-+int start_tls(int f_in, int f_out);
-+void end_tls(void);
- int do_unlink(char *fname);
- int do_symlink(char *fname1, char *fname2);
- int do_link(char *fname1, char *fname2);
---- rsync.h	22 Apr 2004 09:58:24 -0000	1.198
-+++ rsync.h	25 Apr 2004 18:37:24 -0000
++
+ 	if (bwlimit) {
+ 		bwlimit_writemax = (size_t)bwlimit * 128;
+ 		if (bwlimit_writemax < 512)
+--- orig/rsync.h	2004-09-22 08:47:31
++++ rsync.h	2004-07-03 20:22:28
 @@ -32,6 +32,7 @@
  
  #define DEFAULT_LOCK_FILE "/var/run/rsyncd.lock"
@@ -461,20 +418,20 @@ LEvhhkUglOm3xMyrdJT4u9Q=
  
  #define BACKUP_SUFFIX "~"
  
-@@ -321,6 +322,11 @@ enum msgcode {
- #else
- /* As long as it gets... */
+@@ -330,6 +331,11 @@ enum msgcode {
  #define uint64 unsigned off_t
-+#endif
-+
+ #endif
+ 
 +#if HAVE_OPENSSL
 +#include <openssl/ssl.h>
 +#include <openssl/err.h>
- #endif
- 
++#endif
++
  /* Starting from protocol version 26, we always use 64-bit
---- /dev/null	1 Jan 1970 00:00:00 -0000
-+++ ssl.c	25 Apr 2004 18:37:24 -0000
+  * ino_t and dev_t internally, even if this platform does not
+  * allow files to have 64-bit inums.  That's because the
+--- orig/ssl.c	2004-07-02 21:44:19
++++ ssl.c	2004-07-02 21:44:19
 @@ -0,0 +1,366 @@
 +/* -*- c-file-style: "linux" -*-
 + * ssl.c: operations for negotiating SSL rsync connections. 

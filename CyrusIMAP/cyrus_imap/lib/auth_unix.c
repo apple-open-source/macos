@@ -41,7 +41,7 @@
  */
 
 /*
- * $Id: auth_unix.c,v 1.38 2004/09/13 22:49:29 shadow Exp $
+ * $Id: auth_unix.c,v 1.5 2005/03/05 00:37:11 dasenbro Exp $
  */
 
 #include <config.h>

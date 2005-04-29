@@ -15,6 +15,7 @@ block=1024
 
 warn="(does not preserve modes and timestamp)"
 tmp=/tmp/zfoo.$$
+set -C
 echo hi > $tmp.1
 echo hi > $tmp.2
 if test -z "`(${CPMOD-cpmod} $tmp.1 $tmp.2) 2>&1`"; then
@@ -119,8 +120,8 @@ for i do
     fi
   fi
   test $keep -eq 1 && new=`wc -c < "$n$ext"`
-  if test $keep -eq 1 -a `expr \( $old + $block - 1 \) / $block` -lt \
-                         `expr \( $new + $block - 1 \) / $block`; then
+  if test $keep -eq 1 && test `expr \( $old + $block - 1 \) / $block` -lt \
+			      `expr \( $new + $block - 1 \) / $block`; then
     if test $pipe -eq 1; then
       rm -f "$n$ext"
     elif test $check -eq 1; then

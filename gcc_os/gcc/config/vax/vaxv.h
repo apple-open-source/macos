@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  VAX sysV version.
-   Copyright (C) 1988, 1993, 1996, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1993, 1996, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,19 +18,24 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Cope with these under SysV */
-
-#define SCCS_DIRECTIVE
-
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-Dvax -Dunix -Asystem=unix -Asystem=svr3 -Acpu=vax -Amachine=vax"
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("unix");		\
+      builtin_assert ("system=svr3");		\
+						\
+      builtin_define_std ("vax");		\
+      if (TARGET_G_FLOAT)			\
+	builtin_define_std ("GFLOAT");		\
+    }						\
+  while (0)
 
 /* Output #ident as a .ident.  */
 
 #define ASM_OUTPUT_IDENT(FILE, NAME) fprintf (FILE, "\t.ident \"%s\"\n", NAME);
 
 #undef DBX_DEBUGGING_INFO
-#define SDB_DEBUGGING_INFO
+#define SDB_DEBUGGING_INFO 1
 
 #undef LIB_SPEC
 

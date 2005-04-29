@@ -22,8 +22,24 @@ Boston, MA 02111-1307, USA.  */
 
 /* Names to predefine in the preprocessor for this target machine. */
 
-#define CPP_PREDEFINES "-DAVR"
-
+#define TARGET_CPU_CPP_BUILTINS() 		\
+  do						\
+    {						\
+      builtin_define_std ("AVR");		\
+      if (avr_base_arch_macro)			\
+	builtin_define (avr_base_arch_macro);	\
+      if (avr_extra_arch_macro)			\
+	builtin_define (avr_extra_arch_macro);	\
+      if (avr_asm_only_p)			\
+	builtin_define ("__AVR_ASM_ONLY__");	\
+      if (avr_enhanced_p)			\
+	builtin_define ("__AVR_ENHANCED__");	\
+      if (avr_mega_p)				\
+	builtin_define ("__AVR_MEGA__");	\
+      if (TARGET_NO_INTERRUPTS)			\
+	builtin_define ("__NO_INTERRUPTS__");	\
+    }						\
+  while (0)
 
 /* This declaration should be present. */
 extern int target_flags;
@@ -38,6 +54,7 @@ extern int target_flags;
 #define MASK_NO_INTERRUPTS	0x00020000
 #define MASK_CALL_PROLOGUES	0x00040000
 #define MASK_TINY_STACK		0x00080000
+#define MASK_SHORT_CALLS	0x00100000
 
 #define TARGET_ORDER_1		(target_flags & MASK_ORDER_1)
 #define TARGET_ORDER_2		(target_flags & MASK_ORDER_2)
@@ -47,15 +64,13 @@ extern int target_flags;
 #define TARGET_CALL_PROLOGUES	(target_flags & MASK_CALL_PROLOGUES)
 #define TARGET_TINY_STACK	(target_flags & MASK_TINY_STACK)
 #define TARGET_NO_TABLEJUMP	(target_flags & MASK_NO_TABLEJUMP)
+#define TARGET_SHORT_CALLS	(target_flags & MASK_SHORT_CALLS)
 
 /* Dump each assembler insn's rtl into the output file.
    This is for debugging the compiler itself.  */
 
 #define TARGET_RTL_DUMP		(target_flags & MASK_RTL_DUMP)
 #define TARGET_ALL_DEBUG 	(target_flags & MASK_ALL_DEBUG)
-
-
-
 
 #define TARGET_SWITCHES {						\
   { "order1", MASK_ORDER_1, NULL },					\
@@ -69,6 +84,8 @@ extern int target_flags;
     N_("Change only the low 8 bits of the stack pointer") },		\
   { "no-tablejump", MASK_NO_TABLEJUMP,					\
     N_("Do not generate tablejump insns") },				\
+  { "short-calls", MASK_SHORT_CALLS,					\
+    N_("Use rjmp/rcall (limited range) on >8K devices") },		\
   { "rtl", MASK_RTL_DUMP, NULL },					\
   { "size", MASK_INSN_SIZE_DUMP,					\
     N_("Output instruction sizes to the asm file") },			\
@@ -77,10 +94,14 @@ extern int target_flags;
 
 extern const char *avr_init_stack;
 extern const char *avr_mcu_name;
+
+extern const char *avr_base_arch_macro;
+extern const char *avr_extra_arch_macro;
 extern int avr_mega_p;
 extern int avr_enhanced_p;
+extern int avr_asm_only_p;
 
-#define AVR_MEGA (avr_mega_p)
+#define AVR_MEGA (avr_mega_p && !TARGET_SHORT_CALLS)
 #define AVR_ENHANCED (avr_enhanced_p)
 
 #define TARGET_OPTIONS {						      \
@@ -100,7 +121,7 @@ extern int avr_enhanced_p;
    fprintf (stderr, " (68k, MIT syntax)");
    #endif  */
 
-#define OVERRIDE_OPTIONS avr_override_options()
+#define OVERRIDE_OPTIONS avr_override_options ()
 /* `OVERRIDE_OPTIONS'
    Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
@@ -125,13 +146,6 @@ extern int avr_enhanced_p;
 /* Define this if most significant word of a multiword number is the lowest
    numbered.  */
 #define WORDS_BIG_ENDIAN 0
-
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';  */
-#define BITS_PER_WORD 8
 
 #ifdef IN_LIBGCC2
 /* This is to get correct SI and DI modes in libgcc2.c (32 and 64 bits).  */
@@ -196,12 +210,6 @@ extern int avr_enhanced_p;
    words.  If you want to support GNU Ada on your machine, the value
    of macro must be at least 64.  */
 
-
-#define  CHAR_TYPE_SIZE 8
-/* A C expression for the size in bits of the type `char' on the
-   target machine.  If you don't define this, the default is one
-   quarter of a word.  (If this would be less than one storage unit,
-   it is rounded up to one unit.)  */
 
 #define FLOAT_TYPE_SIZE 32
 /* A C expression for the size in bits of the type `float' on the
@@ -667,7 +675,7 @@ enum reg_class {
    machines allow copying all registers to and from memory, but
    require a scratch register for stores to some memory locations
    (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In
+   certain symbolic address on the SPARC when compiling PIC).  In
    some cases, both an intermediate and a scratch register are
    required.
 
@@ -723,7 +731,7 @@ enum reg_class {
 /* `SECONDARY_MEMORY_NEEDED (CLASS1, CLASS2, M)'
    Certain machines have the property that some registers cannot be
    copied to some other registers without using memory.  Define this
-   macro on those machines to be a C expression that is non-zero if
+   macro on those machines to be a C expression that is nonzero if
    objects of mode M in registers of CLASS1 can only be copied to
    registers of class CLASS2 by storing a register of CLASS1 into
    memory and loading that memory location into a register of CLASS2.
@@ -747,16 +755,16 @@ enum reg_class {
    classes that there would not be enough registers to use as spill
    registers if this were done.
 
-   Define `SMALL_REGISTER_CLASSES' to be an expression with a non-zero
-   value on these machines.  When this macro has a non-zero value, the
+   Define `SMALL_REGISTER_CLASSES' to be an expression with a nonzero
+   value on these machines.  When this macro has a nonzero value, the
    compiler allows registers explicitly used in the rtl to be used as
    spill registers but avoids extending the lifetime of these
    registers.
 
-   It is always safe to define this macro with a non-zero value, but
+   It is always safe to define this macro with a nonzero value, but
    if you unnecessarily define it, you will reduce the amount of
    optimizations that can be performed in some cases.  If you do not
-   define this macro with a non-zero value when it is required, the
+   define this macro with a nonzero value when it is required, the
    compiler will run out of spill registers and print a fatal error
    message.  For most machines, you should not define this macro at
    all.  */
@@ -991,7 +999,7 @@ enum reg_class {
 				      || (FROM) == FRAME_POINTER_REGNUM+1) \
 				     && ! FRAME_POINTER_REQUIRED	   \
 				     ))
-/* A C expression that returns non-zero if the compiler is allowed to
+/* A C expression that returns nonzero if the compiler is allowed to
    try to replace register number FROM-REG with register number
    TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
    defined, and will usually be the constant 1, since most of the
@@ -1107,7 +1115,7 @@ enum reg_class {
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the
    definition of this macro to determine if this argument is of a
    type that must be passed in the stack.  If `REG_PARM_STACK_SPACE'
-   is not defined and `FUNCTION_ARG' returns non-zero for such an
+   is not defined and `FUNCTION_ARG' returns nonzero for such an
    argument, the compiler will abort.  If `REG_PARM_STACK_SPACE' is
    defined, the argument will be computed in the stack and then
    loaded into a register.  */
@@ -1335,64 +1343,7 @@ extern int avr_reg_order[];
 #endif
 /* A C compound statement with a conditional `goto LABEL;' executed
    if X (an RTX) is a legitimate memory address on the target machine
-   for a memory operand of mode MODE.
-
-   It usually pays to define several simpler macros to serve as
-   subroutines for this one.  Otherwise it may be too complicated to
-   understand.
-
-   This macro must exist in two variants: a strict variant and a
-   non-strict one.  The strict variant is used in the reload pass.  It
-   must be defined so that any pseudo-register that has not been
-   allocated a hard register is considered a memory reference.  In
-   contexts where some kind of register is required, a pseudo-register
-   with no hard register must be rejected.
-
-   The non-strict variant is used in other passes.  It must be
-   defined to accept all pseudo-registers in every context where some
-   kind of register is required.
-
-   Compiler source files that want to use the strict variant of this
-   macro define the macro `REG_OK_STRICT'.  You should use an `#ifdef
-   REG_OK_STRICT' conditional to define the strict variant in that
-   case and the non-strict variant otherwise.
-
-   Subroutines to check for acceptable registers for various purposes
-   (one for base registers, one for index registers, and so on) are
-   typically among the subroutines used to define
-   `GO_IF_LEGITIMATE_ADDRESS'.  Then only these subroutine macros
-   need have two variants; the higher levels of macros may be the
-   same whether strict or not.
-
-   Normally, constant addresses which are the sum of a `symbol_ref'
-   and an integer are stored inside a `const' RTX to mark them as
-   constant.  Therefore, there is no need to recognize such sums
-   specifically as legitimate addresses.  Normally you would simply
-   recognize any `const' as legitimate.
-
-   Usually `PRINT_OPERAND_ADDRESS' is not prepared to handle constant
-   sums that are not marked with  `const'.  It assumes that a naked
-   `plus' indicates indexing.  If so, then you *must* reject such
-   naked constant sums as illegitimate addresses, so that none of
-   them will be given to `PRINT_OPERAND_ADDRESS'.
-
-   On some machines, whether a symbolic address is legitimate depends
-   on the section that the address refers to.  On these machines,
-   define the macro `ENCODE_SECTION_INFO' to store the information
-   into the `symbol_ref', and then check for it here.  When you see a
-   `const', you will have to look inside it to find the `symbol_ref'
-   in order to determine the section.  *Note Assembler Format::.
-
-   The best way to modify the name string is by adding text to the
-   beginning, with suitable punctuation to prevent any ambiguity.
-   Allocate the new name in `saveable_obstack'.  You will have to
-   modify `ASM_OUTPUT_LABELREF' to remove and decode the added text
-   and output the name accordingly, and define `STRIP_NAME_ENCODING'
-   to access the original name string.
-
-   You can check the information stored here into the `symbol_ref' in
-   the definitions of the macros `GO_IF_LEGITIMATE_ADDRESS' and
-   `PRINT_OPERAND_ADDRESS'. */
+   for a memory operand of mode MODE.  */
 
 /* `REG_OK_FOR_BASE_P (X)'
    A C expression that is nonzero if X (assumed to be a `reg' RTX) is
@@ -1728,10 +1679,10 @@ do {									    \
    cost many times greater than aligned accesses, for example if they
    are emulated in a trap handler.
 
-   When this macro is non-zero, the compiler will act as if
-   `STRICT_ALIGNMENT' were non-zero when generating code for block
+   When this macro is nonzero, the compiler will act as if
+   `STRICT_ALIGNMENT' were nonzero when generating code for block
    moves.  This can cause significantly more instructions to be
-   produced.  Therefore, do not set this macro non-zero if unaligned
+   produced.  Therefore, do not set this macro nonzero if unaligned
    accesses only add a cycle or two to the time for a memory access.
 
    If the value of this macro is always zero, it need not be defined.
@@ -1768,6 +1719,33 @@ do {									    \
    operation to identify the following data as writable initialized
    data.  Normally `"\t.data"' is right.  */
 
+#define BSS_SECTION_ASM_OP "\t.section .bss"
+/* If defined, a C expression whose value is a string, including
+   spacing, containing the assembler operation to identify the
+   following data as uninitialized global data.  If not defined, and
+   neither `ASM_OUTPUT_BSS' nor `ASM_OUTPUT_ALIGNED_BSS' are defined,
+   uninitialized global data will be output in the data section if
+   `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
+   used.  */
+
+/* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
+   There are no shared libraries on this target, and these sections are
+   placed in the read-only program memory, so they are not writable.  */
+
+#undef CTORS_SECTION_ASM_OP
+#define CTORS_SECTION_ASM_OP "\t.section .ctors,\"a\",@progbits"
+
+#undef DTORS_SECTION_ASM_OP
+#define DTORS_SECTION_ASM_OP "\t.section .dtors,\"a\",@progbits"
+
+#define TARGET_ASM_CONSTRUCTOR avr_asm_out_ctor
+/* If defined, a function that outputs assembler code to arrange to
+   call the function referenced by SYMBOL at initialization time.  */
+
+#define TARGET_ASM_DESTRUCTOR avr_asm_out_dtor
+/* This is like `TARGET_ASM_CONSTRUCTOR' but used for termination
+   functions rather than initialization functions.  */
+
 #define EXTRA_SECTIONS in_progmem
 /* A list of names for sections other than the standard two, which are
    `in_text' and `in_data'.  You need not define this macro on a
@@ -1776,7 +1754,7 @@ do {									    \
 #define EXTRA_SECTION_FUNCTIONS						      \
 									      \
 void									      \
-progmem_section (void)							      \
+progmem_section ()							      \
 {									      \
   if (in_section != in_progmem)						      \
     {									      \
@@ -1804,27 +1782,6 @@ progmem_section (void)							      \
    If these items should be placed in the text section, this macro
    should not be defined.  */
 
-/* `SELECT_SECTION (EXP, RELOC, ALIGN)'
-   A C statement or statements to switch to the appropriate section
-   for output of EXP.  You can assume that EXP is either a `VAR_DECL'
-   node or a constant of some sort.  RELOC indicates whether the
-   initial value of EXP requires link-time relocations.  Select the
-   section by calling `text_section' or one of the alternatives for
-   other sections.
-
-   Do not define this macro if you put all read-only variables and
-   constants in the read-only data section (usually the text section).  */
-
-/* `SELECT_RTX_SECTION (MODE, RTX, ALIGN)'
-   A C statement or statements to switch to the appropriate section
-   for output of RTX in mode MODE.  You can assume that RTX is some
-   kind of constant in RTL.  The argument MODE is redundant except in
-   the case of a `const_int' rtx.  Select the section by calling
-   `text_section' or one of the alternatives for other sections.
-
-   Do not define this macro if you put all constants in the read-only
-   data section.  */
-
 #define JUMP_TABLES_IN_TEXT_SECTION 0
 /* Define this macro if jump tables (for `tablejump' insns) should be
    output in the text section, along with the assembler instructions.
@@ -1832,36 +1789,6 @@ progmem_section (void)							      \
 
    This macro is irrelevant if there is no separate readonly data
    section.  */
-
-#define ENCODE_SECTION_INFO(DECL)  encode_section_info(DECL)
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or function
-   named by the symbol (such as what section it is in).
-
-   The macro definition, if any, is executed immediately after the
-   rtl for DECL has been created and stored in `DECL_RTL (DECL)'.
-   The value of the rtl will be a `mem' whose address is a
-   `symbol_ref'.
-
-   The usual thing for this macro to do is to record a flag in the
-   `symbol_ref' (such as `SYMBOL_REF_FLAG') or to store a modified
-   name string in the `symbol_ref' (if one bit is not enough
-   information).  */
-
-#define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME) \
-  (VAR) = (SYMBOL_NAME) + ((SYMBOL_NAME)[0] == '*' || (SYMBOL_NAME)[0] == '@');
-/* `STRIP_NAME_ENCODING (VAR, SYM_NAME)'
-   Decode SYM_NAME and store the real name part in VAR, sans the
-   characters that encode section info.  Define this macro if
-   `ENCODE_SECTION_INFO' alters the symbol's name string.  */
-
-#define UNIQUE_SECTION(DECL, RELOC) unique_section (DECL, RELOC)
-/* `UNIQUE_SECTION (DECL, RELOC)'
-   A C statement to build up a unique section name, expressed as a
-   STRING_CST node, and assign it to `DECL_SECTION_NAME (DECL)'.
-   RELOC indicates whether the initial value of EXP requires
-   link-time relocations.  If you do not define this macro, GNU CC
-   will use the symbol name prefixed by `.' as the section name.  */
 
 #define ASM_FILE_START(STREAM) asm_file_start (STREAM)
 /* A C expression which outputs to the stdio stream STREAM some
@@ -1918,9 +1845,9 @@ progmem_section (void)							      \
 
 #define OBJC_PROLOGUE {}
 /* A C statement to output any assembler statements which are
-   required to precede any Objective C object definitions or message
+   required to precede any Objective-C object definitions or message
    sending.  The statement is executed only when compiling an
-   Objective C program.  */
+   Objective-C program.  */
 
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)	 gas_output_ascii (FILE,P,SIZE)
@@ -1963,6 +1890,13 @@ do {									   \
    This macro controls how the assembler definitions of uninitialized
    common global variables are output.  */
 
+#define ASM_OUTPUT_BSS(FILE, DECL, NAME, SIZE, ROUNDED)			\
+  asm_output_bss ((FILE), (DECL), (NAME), (SIZE), (ROUNDED))
+/* A C statement (sans semicolon) to output to the stdio stream
+   STREAM the assembler definition of uninitialized global DECL named
+   NAME whose size is SIZE bytes.  The variable ROUNDED is the size
+   rounded up to whatever alignment the caller wants.  */
+
 #define ASM_OUTPUT_LOCAL(STREAM, NAME, SIZE, ROUNDED)			\
 do {									\
      fputs ("\t.lcomm ", (STREAM));					\
@@ -1980,17 +1914,6 @@ do {									\
 
    This macro controls how the assembler definitions of uninitialized
    static variables are output.  */
-
-#define ASM_OUTPUT_LABEL(STREAM, NAME)		\
-{						\
-  assemble_name (STREAM, NAME);			\
-  fprintf (STREAM, ":\n");			\
-}
-/* A C statement (sans semicolon) to output to the stdio stream
-   STREAM the assembler definition of a label named NAME.  Use the
-   expression `assemble_name (STREAM, NAME)' to output the name
-   itself; before and after that, output the additional assembler
-   syntax for defining the name, and a newline.  */
 
 #undef TYPE_ASM_OP
 #undef SIZE_ASM_OP
@@ -2013,16 +1936,12 @@ do {									\
    is just a default.  You may need to override it in your machine-
    specific tm.h file (depending upon the particulars of your assembler).  */
 
-
-#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)	\
-do {						   	\
-     fprintf (FILE, "%s", TYPE_ASM_OP);	   		\
-     assemble_name (FILE, NAME);		   	\
-     putc (',', FILE);				   	\
-     fprintf (FILE, TYPE_OPERAND_FMT, "function");	\
-     putc ('\n', FILE);				   	\
-     ASM_OUTPUT_LABEL (FILE, NAME);		   	\
+#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)		\
+do {								\
+     ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");	\
+     ASM_OUTPUT_LABEL (FILE, NAME);				\
 } while (0)
+
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM any text necessary for declaring the name NAME of a
    function which is being defined.  This macro is responsible for
@@ -2036,20 +1955,7 @@ do {						   	\
 #define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)			\
   do {									\
     if (!flag_inhibit_size_directive)					\
-      {									\
-        char label[256];						\
-	static int labelno;						\
-	labelno++;							\
-	ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);		\
-	ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);		\
-	fprintf (FILE, "%s", SIZE_ASM_OP);				\
-	assemble_name (FILE, (FNAME));					\
-        fprintf (FILE, ",");						\
-	assemble_name (FILE, label);					\
-        fprintf (FILE, "-");						\
-	assemble_name (FILE, (FNAME));					\
-	putc ('\n', FILE);						\
-      }									\
+      ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);				\
   } while (0)
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM any text necessary for declaring the size of a function
@@ -2060,22 +1966,17 @@ do {						   	\
    If this macro is not defined, then the function size is not
    defined.  */
 
-#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			  \
-do {									  \
-      fprintf (FILE, "%s", TYPE_ASM_OP);				  \
-      assemble_name (FILE, NAME);					  \
-      putc (',', FILE);							  \
-      fprintf (FILE, TYPE_OPERAND_FMT, "object");			  \
-      putc ('\n', FILE);						  \
-      size_directive_output = 0;					  \
-      if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		  \
-	{								  \
-	  size_directive_output = 1;					  \
-	  fprintf (FILE, "%s", SIZE_ASM_OP);				  \
-	  assemble_name (FILE, NAME);					  \
-	  fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
-    }									  \
-  ASM_OUTPUT_LABEL(FILE, NAME);						  \
+#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
+do {									\
+  ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
+  size_directive_output = 0;						\
+  if (!flag_inhibit_size_directive && DECL_SIZE (DECL))			\
+    {									\
+      size_directive_output = 1;					\
+      ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME,				\
+				 int_size_in_bytes (TREE_TYPE (DECL)));	\
+    }									\
+  ASM_OUTPUT_LABEL(FILE, NAME);						\
 } while (0)
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM any text necessary for declaring the name NAME of an
@@ -2090,17 +1991,18 @@ do {									  \
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
      const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
+     HOST_WIDE_INT size;						 \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
          && ! AT_END && TOP_LEVEL					 \
 	 && DECL_INITIAL (DECL) == error_mark_node			 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
-	 assemble_name (FILE, name);					 \
-	 fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
+	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
+	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
        }								 \
    } while (0)
+
 /* A C statement (sans semicolon) to finish up declaring a variable
    name once the compiler has processed its initializer fully and
    thus has had a chance to determine the size of an array when
@@ -2147,20 +2049,8 @@ do {									 \
    If your target assembler doesn't support the .string directive, you
    should define this to zero.  */
 
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME)	\
-do {						\
-  fprintf (STREAM, ".global\t");		\
-  assemble_name (STREAM, NAME);			\
-  fprintf (STREAM, "\n");			\
-}						\
-while (0)
-     
-/* A C statement (sans semicolon) to output to the stdio stream
-   STREAM some commands that will make the label NAME global; that
-   is, available for reference from other files.  Use the expression
-   `assemble_name (STREAM, NAME)' to output the name itself; before
-   and after that, output the additional assembler syntax for making
-   that name global, and a newline.  */
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".global\t"
 
 #define ASM_WEAKEN_LABEL(FILE, NAME) 	\
   do					\
@@ -2349,13 +2239,7 @@ sprintf (STRING, "*.%s%d", PREFIX, NUM)
 #define PRINT_OPERAND_ADDRESS(STREAM, X) print_operand_address(STREAM, X)
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
-   reference whose address is X.  X is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on the
-   section that the address refers to.  On these machines, define the
-   macro `ENCODE_SECTION_INFO' to store the information into the
-   `symbol_ref', and then check for it here.  *Note Assembler
-   Format::.  */
+   reference whose address is X.  X is an RTL expression.  */
 
 #define USER_LABEL_PREFIX ""
 /* `LOCAL_LABEL_PREFIX'
@@ -2624,71 +2508,13 @@ extern int avr_case_values_threshold;
    (and ANSI C) library functions `memcpy' and `memset' rather than
    the BSD functions `bcopy' and `bzero'.  */
 
-#define CPP_SPEC "\
-%{!mmcu*|mmcu=avr2:%(cpp_avr2)} \
-%{mmcu=at90s2313:%(cpp_avr2) -D__AVR_AT90S2313__} \
-%{mmcu=at90s2323:%(cpp_avr2) -D__AVR_AT90S2323__} \
-%{mmcu=at90s2333:%(cpp_avr2) -D__AVR_AT90S2333__} \
-%{mmcu=at90s2343:%(cpp_avr2) -D__AVR_AT90S2343__} \
-%{mmcu=attiny22: %(cpp_avr2) -D__AVR_ATtiny22__} \
-%{mmcu=at90s4433:%(cpp_avr2) -D__AVR_AT90S4433__} \
-%{mmcu=at90s4414:%(cpp_avr2) -D__AVR_AT90S4414__} \
-%{mmcu=at90s4434:%(cpp_avr2) -D__AVR_AT90S4434__} \
-%{mmcu=at90s8515:%(cpp_avr2) -D__AVR_AT90S8515__} \
-%{mmcu=at90s8535:%(cpp_avr2) -D__AVR_AT90S8535__} \
-%{mmcu=at90c8534:%(cpp_avr2) -D__AVR_AT90C8534__} \
-%{mmcu=avr3:%(cpp_avr3)} \
-%{mmcu=atmega603:%(cpp_avr3) -D__AVR_ATmega603__} \
-%{mmcu=atmega103:%(cpp_avr3) -D__AVR_ATmega103__} \
-%{mmcu=at43usb320:%(cpp_avr3) -D__AVR_AT43USB320__} \
-%{mmcu=at76c711: %(cpp_avr3) -D__AVR_AT76C711__} \
-%{mmcu=avr4:%(cpp_avr4)} \
-%{mmcu=atmega8:  %(cpp_avr4) -D__AVR_ATmega8__} \
-%{mmcu=atmega83: %(cpp_avr4) -D__AVR_ATmega83__} \
-%{mmcu=atmega85: %(cpp_avr4) -D__AVR_ATmega85__} \
-%{mmcu=avr5:%(cpp_avr5)} \
-%{mmcu=atmega16: %(cpp_avr5) -D__AVR_ATmega16__} \
-%{mmcu=atmega161:%(cpp_avr5) -D__AVR_ATmega161__} \
-%{mmcu=atmega163:%(cpp_avr5) -D__AVR_ATmega163__} \
-%{mmcu=atmega32: %(cpp_avr5) -D__AVR_ATmega32__} \
-%{mmcu=atmega323:%(cpp_avr5) -D__AVR_ATmega323__} \
-%{mmcu=atmega64: %(cpp_avr5) -D__AVR_ATmega64__} \
-%{mmcu=atmega128:%(cpp_avr5) -D__AVR_ATmega128__} \
-%{mmcu=at43usb355:%(cpp_avr5) -D__AVR_AT43USB355__} \
-%{mmcu=at94k:    %(cpp_avr5) -D__AVR_AT94K__} \
-%{mmcu=avr1:%(cpp_avr1)} \
-%{mmcu=at90s1200:%(cpp_avr1) -D__AVR_AT90S1200__} \
-%{mmcu=attiny10|mmcu=attiny11: %(cpp_avr1) -D__AVR_ATtiny11__} \
-%{mmcu=attiny12: %(cpp_avr1) -D__AVR_ATtiny12__} \
-%{mmcu=attiny15: %(cpp_avr1) -D__AVR_ATtiny15__} \
-%{mmcu=attiny28: %(cpp_avr1) -D__AVR_ATtiny28__} \
-%{mno-interrupts:-D__NO_INTERRUPTS__} \
-%{mint8:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long -D__INT_MAX__=127} \
-%{!mint*:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int -D__INT_MAX__=32767} \
-%{posix:-D_POSIX_SOURCE}"
+#define CPP_SPEC "%{posix:-D_POSIX_SOURCE}"
+
 /* A C string constant that tells the GNU CC driver program options to
    pass to CPP.  It can also specify how to translate options you
    give to GNU CC into options for GNU CC to pass to the CPP.
 
    Do not define this macro if it does not need to do anything.  */
-
-#define NO_BUILTIN_SIZE_TYPE
-/* If this macro is defined, the preprocessor will not define the
-   builtin macro `__SIZE_TYPE__'.  The macro `__SIZE_TYPE__' must
-   then be defined by `CPP_SPEC' instead.
-
-   This should be defined if `SIZE_TYPE' depends on target dependent
-   flags which are not accessible to the preprocessor.  Otherwise, it
-   should not be defined.  */
-
-#define NO_BUILTIN_PTRDIFF_TYPE
-/* If this macro is defined, the preprocessor will not define the
-   builtin macro `__PTRDIFF_TYPE__'.  The macro `__PTRDIFF_TYPE__'
-   must then be defined by `CPP_SPEC' instead.
-
-   This should be defined if `PTRDIFF_TYPE' depends on target
-   dependent flags which are not accessible to the preprocessor.
-   Otherwise, it should not be defined.  */
 
 #define CC1_SPEC "%{profile:-p}"
 /* A C string constant that tells the GNU CC driver program options to
@@ -2696,6 +2522,12 @@ extern int avr_case_values_threshold;
    give to GNU CC into options for GNU CC to pass to the `cc1'.
 
    Do not define this macro if it does not need to do anything.  */
+
+#define CC1PLUS_SPEC "%{!frtti:-fno-rtti} \
+    %{!fenforce-eh-specs:-fno-enforce-eh-specs} \
+    %{!fexceptions:-fno-exceptions}"
+/* A C string constant that tells the GNU CC drvier program options to
+   pass to `cc1plus'.  */
 
 #define ASM_SPEC "%{mmcu=*:-mmcu=%*}"
 /* A C string constant that tells the GNU CC driver program options to
@@ -2713,37 +2545,13 @@ extern int avr_case_values_threshold;
 
    Do not define this macro if it does not need to do anything.  */
 
-#define LINK_SPEC "\
-%{!mmcu*:-m avr85xx} \
-%{mmcu=atmega603:-m avrmega603} \
-%{mmcu=atmega103:-m avrmega103} \
-%{mmcu=at43usb320:-m avr3} \
-%{mmcu=at76c711:-m avr3} \
-%{mmcu=atmega16:-m avrmega161} \
-%{mmcu=atmega161:-m avrmega161} \
-%{mmcu=atmega163:-m avrmega161} \
-%{mmcu=atmega32:-m avr5} \
-%{mmcu=atmega323:-m avr5} \
-%{mmcu=atmega64:-m avr5} \
-%{mmcu=atmega128:-m avr5} \
-%{mmcu=at43usb355:-m avr5} \
-%{mmcu=at94k:-m avr5} \
-%{mmcu=atmega8:-m avr4} \
-%{mmcu=atmega83:-m avr4} \
-%{mmcu=atmega85:-m avr4} \
-%{mmcu=at90s1200|mmcu=attiny1*:-m avr1200} \
-%{mmcu=attiny28:-m avr1} \
-%{mmcu=at90s2313:-m avr23xx} \
-%{mmcu=at90s2323:-m avr23xx} \
-%{mmcu=attiny22:-m avr23xx} \
-%{mmcu=at90s2333:-m avr23xx} \
-%{mmcu=at90s2343:-m avr23xx} \
-%{mmcu=at90s4433:-m avr4433} \
-%{mmcu=at90s4414:-m avr44x4} \
-%{mmcu=at90s4434:-m avr44x4} \
-%{mmcu=at90c8534:-m avr85xx} \
-%{mmcu=at90s8535:-m avr85xx} \
-%{mmcu=at90s8515:-m avr85xx}"
+#define LINK_SPEC " %{!mmcu*:-m avr2}\
+%{mmcu=at90s1200|mmcu=attiny1*|mmcu=attiny28:-m avr1} \
+%{mmcu=attiny22|mmcu=attiny26|mmcu=at90s2*|mmcu=at90s4*|mmcu=at90s8*|mmcu=at90c8*|mmcu=at86rf401:-m avr2}\
+%{mmcu=atmega103|mmcu=atmega603|mmcu=at43*|mmcu=at76*:-m avr3}\
+%{mmcu=atmega8*:-m avr4}\
+%{mmcu=atmega16*|mmcu=atmega32*|mmcu=atmega64|mmcu=atmega128|mmcu=at94k:-m avr5}\
+%{mmcu=atmega64|mmcu=atmega128|mmcu=atmega162|mmcu=atmega169: -Tdata 0x800100} "
 
 /* A C string constant that tells the GNU CC driver program options to
    pass to the linker.  It can also specify how to translate options
@@ -2759,6 +2567,9 @@ extern int avr_case_values_threshold;
 
    If this macro is not defined, a default is provided that loads the
    standard C library from the usual place.  See `gcc.c'.  */
+
+#define LIBSTDCXX "-lgcc"
+/* No libstdc++ for now.  Empty string doesn't work.  */
 
 #define LIBGCC_SPEC \
   "%{!mmcu=at90s1*:%{!mmcu=attiny1*:%{!mmcu=attiny28: -lgcc }}}"
@@ -2788,94 +2599,47 @@ extern int avr_case_values_threshold;
 
 #define CRT_BINUTILS_SPECS "\
 %{mmcu=at90s1200|mmcu=avr1:crts1200.o%s} \
-%{mmcu=attiny10|mmcu=attiny11:crttn11.o%s} \
+%{mmcu=attiny11:crttn11.o%s} \
 %{mmcu=attiny12:crttn12.o%s} \
 %{mmcu=attiny15:crttn15.o%s} \
 %{mmcu=attiny28:crttn28.o%s} \
 %{!mmcu*|mmcu=at90s8515|mmcu=avr2:crts8515.o%s} \
 %{mmcu=at90s2313:crts2313.o%s} \
 %{mmcu=at90s2323:crts2323.o%s} \
-%{mmcu=attiny22:crttn22.o%s} \
 %{mmcu=at90s2333:crts2333.o%s} \
 %{mmcu=at90s2343:crts2343.o%s} \
+%{mmcu=attiny22:crttn22.o%s} \
+%{mmcu=attiny26:crttn26.o%s} \
 %{mmcu=at90s4433:crts4433.o%s} \
 %{mmcu=at90s4414:crts4414.o%s} \
 %{mmcu=at90s4434:crts4434.o%s} \
 %{mmcu=at90c8534:crtc8534.o%s} \
 %{mmcu=at90s8535:crts8535.o%s} \
+%{mmcu=at86rf401:crt86401.o%s} \
 %{mmcu=atmega103|mmcu=avr3:crtm103.o%s} \
 %{mmcu=atmega603:crtm603.o%s} \
 %{mmcu=at43usb320:crt43320.o%s} \
-%{mmcu=at76c711:crt76711.o%s } \
-%{mmcu=atmega8:crtm8.o%s} \
-%{mmcu=atmega83|mmcu=avr4:crtm83.o%s} \
-%{mmcu=atmega85:crtm85.o%s} \
+%{mmcu=at43usb355:crt43355.o%s} \
+%{mmcu=at76c711:crt76711.o%s} \
+%{mmcu=atmega8|mmcu=avr4:crtm8.o%s} \
+%{mmcu=atmega8515:crtm8515.o%s} \
+%{mmcu=atmega8535:crtm8535.o%s} \
 %{mmcu=atmega16:crtm16.o%s} \
 %{mmcu=atmega161|mmcu=avr5:crtm161.o%s} \
+%{mmcu=atmega162:crtm162.o%s} \
 %{mmcu=atmega163:crtm163.o%s} \
+%{mmcu=atmega169:crtm169.o%s} \
 %{mmcu=atmega32:crtm32.o%s} \
 %{mmcu=atmega323:crtm323.o%s} \
 %{mmcu=atmega64:crtm64.o%s} \
 %{mmcu=atmega128:crtm128.o%s} \
-%{mmcu=at43usb355:crt43355.o%s} \
 %{mmcu=at94k:crtat94k.o%s}"
 
-#define CPP_AVR1_SPEC "-D__AVR_ARCH__=1 -D__AVR_ASM_ONLY__ "
-#define CPP_AVR2_SPEC "-D__AVR_ARCH__=2 "
-#define CPP_AVR3_SPEC "-D__AVR_ARCH__=3 -D__AVR_MEGA__ "
-#define CPP_AVR4_SPEC "-D__AVR_ARCH__=4 -D__AVR_ENHANCED__ "
-#define CPP_AVR5_SPEC "-D__AVR_ARCH__=5 -D__AVR_ENHANCED__ -D__AVR_MEGA__ "
+#define EXTRA_SPECS {"crt_binutils", CRT_BINUTILS_SPECS},
 
-#define EXTRA_SPECS                           \
-{"cpp_avr1", CPP_AVR1_SPEC},                  \
-{"cpp_avr2", CPP_AVR2_SPEC},                  \
-{"cpp_avr3", CPP_AVR3_SPEC},                  \
-{"cpp_avr4", CPP_AVR4_SPEC},                  \
-{"cpp_avr5", CPP_AVR5_SPEC},                  \
-{"crt_binutils", CRT_BINUTILS_SPECS},
 /* Define this macro to provide additional specifications to put in
    the `specs' file that can be used in various specifications like
-   `CC1_SPEC'.
-
-   The definition should be an initializer for an array of structures,
-   containing a string constant, that defines the specification name,
-   and a string constant that provides the specification.
-
-   Do not define this macro if it does not need to do anything.
-
-   `EXTRA_SPECS' is useful when an architecture contains several
-   related targets, which have various `..._SPECS' which are similar
-   to each other, and the maintainer would like one central place to
-   keep these definitions.
-
-   For example, the PowerPC System V.4 targets use `EXTRA_SPECS' to
-   define either `_CALL_SYSV' when the System V calling sequence is
-   used or `_CALL_AIX' when the older AIX-based calling sequence is
-   used.
-
-   The `config/rs6000/rs6000.h' target file defines:
-
-   #define EXTRA_SPECS \
-   { "cpp_sysv_default", CPP_SYSV_DEFAULT },
-
-   #define CPP_SYS_DEFAULT ""
-
-   The `config/rs6000/sysv.h' target file defines:
-   #undef CPP_SPEC
-   #define CPP_SPEC \
-   "%{posix: -D_POSIX_SOURCE } \
-   %{mcall-sysv: -D_CALL_SYSV } %{mcall-aix: -D_CALL_AIX } \
-   %{!mcall-sysv: %{!mcall-aix: %(cpp_sysv_default) }} \
-   %{msoft-float: -D_SOFT_FLOAT} %{mcpu=403: -D_SOFT_FLOAT}"
-
-   #undef CPP_SYSV_DEFAULT
-   #define CPP_SYSV_DEFAULT "-D_CALL_SYSV"
-
-   while the `config/rs6000/eabiaix.h' target file defines
-   `CPP_SYSV_DEFAULT' as:
-
-   #undef CPP_SYSV_DEFAULT
-   #define CPP_SYSV_DEFAULT "-D_CALL_AIX"  */
+   `CC1_SPEC'.  */
 
 /* This is the default without any -mmcu=* option (AT90S*).  */
 #define MULTILIB_DEFAULTS { "mmcu=avr2" }
@@ -2925,12 +2689,6 @@ extern int avr_case_values_threshold;
 extern struct rtx_def *tmp_reg_rtx;
 extern struct rtx_def *zero_reg_rtx;
 extern struct rtx_def *ldi_reg_rtx;
-
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC
 
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 

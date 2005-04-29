@@ -1,0 +1,96 @@
+# This file is a Tcl script to test out PPM reading and writing.
+# It is organized in the standard fashion for Tcl tests.
+#
+
+puts "img::ppm [package require img::ppm]"
+
+set ppmdata \
+{UDYKODIgMTIKMjU1Ct/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b
+39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b
+39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b
+39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b
+39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b3wAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////wAAAP8A
+AP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8AAAAAAAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/
+AAAAAAAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAAAAD//wD//wD//wD//wD//wD//wD/
+/wD//wD//wAAAP8A//8A//8A//8A//8A//8A//8A//8A//8A/wAAAP//AP//AP//AP//AP//
+AP//AP//AP//AP//AAAAAN/b39/b3wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//
+/////////////////////////////////wAAAP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8A
+AAAAAAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAAAAAAA/wAA/wAA/wAA/wAA/wAA/wAA
+/wAA/wAA/wAAAAD//wD//wD//wD//wD//wD//wD//wD//wD//wAAAP8A//8A//8A//8A//8A
+//8A//8A//8A//8A/wAAAP//AP//AP//AP//AP//AP//AP//AP//AP//AAAAAN/b39/b3wAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////////////////////////////
+/wAAAP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8AAAAAAAD/AAD/AAD/AAD/AAD/AAD/AAD/
+AAD/AAD/AAAAAAAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAAAAD//wD//wD//wD//wD/
+/wD//wD//wD//wD//wAAAP8A//8A//8A//8A//8A//8A//8A//8A//8A/wAAAP//AP//AP//
+AP//AP//AP//AP//AP//AP//AAAAAN/b39/b3wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAP///////////////////////////////////wAAAP8AAP8AAP8AAP8AAP8AAP8AAP8A
+AP8AAP8AAAAAAAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAAAAAAA/wAA/wAA/wAA/wAA
+/wAA/wAA/wAA/wAA/wAAAAD//wD//wD//wD//wD//wD//wD//wD//wD//wAAAP8A//8A//8A
+//8A//8A//8A//8A//8A//8A/wAAAP//AP//AP//AP//AP//AP//AP//AP//AP//AAAAAN/b
+39/b3wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////////////////////
+/////////wAAAP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8AAAAAAAD/AAD/AAD/AAD/AAD/
+AAD/AAD/AAD/AAD/AAAAAAAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAAAAD//wD//wD/
+/wD//wD//wD//wD//wD//wD//wAAAP8A//8A//8A//8A//8A//8A//8A//8A//8A/wAAAP//
+AP//AP//AP//AP//AP//AP//AP//AP//AAAAAN/b39/b3wAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAP///////////////////////////////////wAAAP8AAP8AAP8AAP8AAP8A
+AP8AAP8AAP8AAP8AAAAAAAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAAAAAAA/wAA/wAA
+/wAA/wAA/wAA/wAA/wAA/wAA/wAAAAD//wD//wD//wD//wD//wD//wD//wD//wD//wAAAP8A
+//8A//8A//8A//8A//8A//8A//8A//8A/wAAAP//AP//AP//AP//AP//AP//AP//AP//AP//
+AAAAAN/b39/b3wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////////////
+/////////////////wAAAP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8AAAAAAAD/AAD/AAD/
+AAD/AAD/AAD/AAD/AAD/AAD/AAAAAAAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAAAAD/
+/wD//wD//wD//wD//wD//wD//wD//wD//wAAAP8A//8A//8A//8A//8A//8A//8A//8A//8A
+/wAAAP//AP//AP//AP//AP//AP//AP//AP//AP//AAAAAN/b39/b3wAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////wAAAP8AAP8AAP8A
+AP8AAP8AAP8AAP8AAP8AAP8AAAAAAAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAAAAAAA
+/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAAAAD//wD//wD//wD//wD//wD//wD//wD//wD/
+/wAAAP8A//8A//8A//8A//8A//8A//8A//8A//8A/wAAAP//AP//AP//AP//AP//AP//AP//
+AP//AP//AAAAAN/b39/b3wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////
+/////////////////////////wAAAP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8AAP8AAAAAAAD/
+AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAD/AAAAAAAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA/wAA
+/wAAAAD//wD//wD//wD//wD//wD//wD//wD//wD//wAAAP8A//8A//8A//8A//8A//8A//8A
+//8A//8A/wAAAP//AP//AP//AP//AP//AP//AP//AP//AP//AAAAAN/b39/b3wAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAN/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b
+39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b
+39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b
+39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b
+39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b39/b3w==}
+
+
+test ppm-1.1 {} {
+    catch {image delete i}
+    image create photo i -file [file join $tcltest::testsDirectory hori_raw.ppm]
+    i data -format ppm
+} $ppmdata
+test ppm-1.2 {} {
+    catch {image delete i}
+    image create photo i -data $ppmdata
+    set data [i data -format ppm]
+} $ppmdata
+test ppm-1.3 {} {
+    i blank
+    i put $ppmdata
+    set data [i data -format ppm]
+} $ppmdata
+test ppm-1.4 {} {
+    i blank
+    i put $ppmdata -format ppm
+    set data [i data -format ppm]
+} $ppmdata
+if {[info tclversion] < 8.0} {
+    return
+}
+
+test ppm-2.0 {Binary I/O with PPM images} {
+    i blank
+    set f [open [file join $tcltest::testsDirectory hori_raw.ppm] r]
+    fconfigure $f -translation binary
+    set return [catch {i put [read $f]} msg]
+    close $f
+    lappend return $msg
+} {0 {}}

@@ -1,3 +1,56 @@
+2004-12-28  Ezra Peisach  <epeisach@mit.edu>
+
+	* asn1_decode.c (asn1_decode_generaltime): Fix memory leak when
+	time sent is "19700101000000Z".
+
+2004-08-31  Tom Yu  <tlyu@mit.edu>
+
+	* asn1buf.c: Fix denial-of-service bug.
+
+	* asn1buf.c:
+	* krb5_decode.c: Fix double-free vulnerabilities.
+
+2004-06-10  Ken Raeburn  <raeburn@mit.edu>
+
+	* asn1_encode.c (asn1_encode_generaltime): Fix memcpy argument to
+	actually be a pointer.
+	(asn1_encode_enumerated): Drop "const" from scalar argument type.
+	* asn1_encode.h (asn1_encode_integer, asn1_encode_enumerated,
+	asn1_encode_unsigned_integer, asn1_encode_octetstring,
+	asn1_encode_charstring, asn1_encode_printablestring,
+	asn1_encode_ia5string, asn1_encode_generaltime,
+	asn1_encode_generalstring): Drop "const" from scalar argument
+	types.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* asn1_encode.c (asn1_encode_generaltime): Use gmtime_r if
+	available.
+
+2004-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* asn1_decode.c (asn1_decode_generaltime): If the input string is
+	the magic UNIX time zero, bypass all the arithmetic and return 0.
+	* asn1_encode.c (asn1_encode_generaltime): If the input time
+	value is the UNIX epoch, use a hardcoded string instead of doing
+	the math.
+
+2003-10-08  Tom Yu  <tlyu@mit.edu>
+
+	* asn1_k_encode.c (asn1_encode_krb_saved_safe_body): New function;
+	kludge to insert a raw pre-encoded KRB-SAFE-BODY.
+
+	* asn1_k_encode.h (asn1_encode_krb_saved_safe_body): Add
+	prototype.
+
+	* krb5_decode.c (decode_krb5_safe_with_body): New function; saves
+	a copy of the encoding of the KRB-SAFE-BODY to avoid problems
+	caused by re-encoding it during verification.
+
+	* krb5_encode.c (encode_krb5_safe_with_body): New function;
+	re-encode a KRB-SAFE using a saved KRB-SAFE-BODY encoding, to
+	avoid trouble with re-encoding a KRB-SAFE-BODY.
+
 2003-07-22  Sam Hartman  <hartmans@avalanche-breakdown.mit.edu>
 
 	* asn1_k_decode.c (asn1_decode_etype_info2_entry_1_3): Decoder for
@@ -8,6 +61,10 @@
 	instead of generalString
 
 	* asn1_k_decode.c (asn1_decode_etype_info2_entry):  Expect etype_info2 as generalstring not octetstring
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
 
 2003-06-20  Sam Hartman  <hartmans@mit.edu>
 

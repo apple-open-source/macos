@@ -19,10 +19,12 @@
 #if !defined (LINESPEC_H)
 #define LINESPEC_H 1
 
+struct symtab;
+
 extern struct symtabs_and_lines
 	decode_line_1 (char **argptr, int funfirstline,
 		       struct symtab *default_symtab, int default_line,
-		       char ***canonical);
+		       char ***canonical, int *not_found_ptr);
 
 /* APPLE LOCAL: A flag to control whether decode_line_1* will look for
    ObjC selectors in the expression, and a function to reset that

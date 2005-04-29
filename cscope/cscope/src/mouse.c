@@ -45,7 +45,7 @@ BOOL	unixpcmouse = NO;	/* running with a mouse on the Unix PC? */
 static int uw_hs, uw_vs;	/* character height and width */
 #endif
 
-static char const rcsid[] = "$Id: mouse.c,v 1.1.1.1 2001/02/07 01:24:31 wsanchez Exp $";
+static char const rcsid[] = "$Id: mouse.c,v 1.2 2004/07/09 21:34:45 nicolai Exp $";
 
 typedef	struct {			/* menu */
 	char	*text;
@@ -88,7 +88,6 @@ void
 mouseinit(void)
 {
 	char	*term;
-	char	*mygetenv();
 
 	/* see if this is emacsterm or viterm */
 	term = mygetenv("TERM", "");

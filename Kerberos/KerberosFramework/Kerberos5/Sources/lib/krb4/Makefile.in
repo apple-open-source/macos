@@ -9,7 +9,7 @@ DEFINES= -DKRB4_USE_KEYTAB
 ##DOS##LIBNAME=$(OUTPRE)krb4.lib
 ##DOS##OBJFILE=$(OUTPRE)krb4.lst
 
-LIB=krb4
+LIBBASE=krb4
 LIBMAJOR=2
 LIBMINOR=0
 RELDIR=krb4
@@ -258,7 +258,6 @@ clean-unix:: clean-liblinks clean-libs clean-libobjs
 
 
 check-unix:: $(TEST_PROGS)
-check-mac:: $(TEST_PROGS)
 check-windows::
 
 
@@ -346,6 +345,7 @@ lifetime.so lifetime.po $(OUTPRE)lifetime.$(OBJEXT): lifetime.c $(SRCTOP)/includ
   $(SRCTOP)/include/kerberosIV/des.h $(KRB_ERR_H_DEP) \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h $(SRCTOP)/include/k5-int.h \
   $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
   $(BUILDTOP)/include/krb5.h $(SRCTOP)/include/port-sockets.h \
   $(SRCTOP)/include/socket-utils.h $(SRCTOP)/include/krb5/kdb.h
 g_in_tkt.so g_in_tkt.po $(OUTPRE)g_in_tkt.$(OBJEXT): g_in_tkt.c $(SRCTOP)/include/kerberosIV/krb.h \
@@ -417,7 +417,8 @@ send_to_kdc.so send_to_kdc.po $(OUTPRE)send_to_kdc.$(OBJEXT): send_to_kdc.c $(SR
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h $(SRCTOP)/include/kerberosIV/krbports.h \
   $(SRCTOP)/include/kerberosIV/prot.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/fake-addrinfo.h \
-  $(SRCTOP)/include/socket-utils.h $(SRCTOP)/include/k5-int.h \
+  $(SRCTOP)/include/socket-utils.h $(SRCTOP)/include/k5-platform.h \
+  $(SRCTOP)/include/k5-thread.h $(SRCTOP)/include/k5-int.h \
   $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5.h \
   $(SRCTOP)/include/krb5/kdb.h krb4int.h
 stime.so stime.po $(OUTPRE)stime.$(OBJEXT): stime.c $(SRCTOP)/include/kerberosIV/krb.h \
@@ -442,6 +443,7 @@ tf_util.so tf_util.po $(OUTPRE)tf_util.$(OBJEXT): tf_util.c $(SRCTOP)/include/ke
   $(SRCTOP)/include/kerberosIV/des.h $(KRB_ERR_H_DEP) \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h $(SRCTOP)/include/k5-int.h \
   $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
   $(BUILDTOP)/include/krb5.h $(SRCTOP)/include/port-sockets.h \
   $(SRCTOP)/include/socket-utils.h $(SRCTOP)/include/krb5/kdb.h \
   krb4int.h
@@ -497,6 +499,7 @@ rd_svc_key.so rd_svc_key.po $(OUTPRE)rd_svc_key.$(OBJEXT): rd_svc_key.c $(SRCTOP
   $(KRB_ERR_H_DEP) $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
   krb4int.h $(SRCTOP)/include/port-sockets.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(SRCTOP)/include/k5-int.h $(BUILDTOP)/include/krb5/osconf.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
   $(BUILDTOP)/include/krb5.h $(SRCTOP)/include/socket-utils.h \
   $(SRCTOP)/include/krb5/kdb.h $(SRCTOP)/include/krb54proto.h \
   $(SRCTOP)/include/kerberosIV/prot.h
@@ -546,6 +549,7 @@ g_cnffile.so g_cnffile.po $(OUTPRE)g_cnffile.$(OBJEXT): g_cnffile.c $(SRCTOP)/in
   $(SRCTOP)/include/kerberosIV/des.h $(KRB_ERR_H_DEP) \
   $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h $(SRCTOP)/include/k5-int.h \
   $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
   $(BUILDTOP)/include/krb5.h $(SRCTOP)/include/port-sockets.h \
   $(SRCTOP)/include/socket-utils.h $(SRCTOP)/include/krb5/kdb.h \
   krb4int.h
@@ -554,6 +558,7 @@ RealmsConfig-glue.so RealmsConfig-glue.po $(OUTPRE)RealmsConfig-glue.$(OBJEXT): 
   $(SRCTOP)/include/kerberosIV/des.h $(KRB_ERR_H_DEP) \
   krb4int.h $(SRCTOP)/include/port-sockets.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(SRCTOP)/include/k5-int.h $(BUILDTOP)/include/krb5/osconf.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
   $(BUILDTOP)/include/krb5.h $(SRCTOP)/include/socket-utils.h \
   $(SRCTOP)/include/krb5/kdb.h
 

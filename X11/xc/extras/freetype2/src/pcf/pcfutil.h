@@ -23,7 +23,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-
+/* $XFree86: xc/extras/freetype2/src/pcf/pcfutil.h,v 1.4 2003/12/22 17:48:01 tsi Exp $ */
 
 #ifndef __PCFUTIL_H__
 #define __PCFUTIL_H__
@@ -44,6 +44,7 @@ THE SOFTWARE.
   FourByteSwap( unsigned char*  buf,
                 int             nbytes);
 
+# ifdef UNUSED
   static int
   RepadBitmap( char*           pSrc,
                char*           pDst,
@@ -51,6 +52,7 @@ THE SOFTWARE.
                unsigned int    dstPad,
                int             width,
                int             height);
+# endif
 
 #endif /* __PCFUTIL_H__ */
 

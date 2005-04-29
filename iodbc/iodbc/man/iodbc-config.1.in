@@ -1,0 +1,85 @@
+.nh
+.TH iodbc\-config 1 "16 June 2004" "@VERSION@" "@PACKAGE_NAME@"
+
+.SH NAME
+iodbc-config - script to get information about the installed version of iODBC
+
+.SH SYNOPSIS
+.B iodbc-config 
+.RB [ \-\-prefix\fI[=DIR]\fR ] 
+.RB [ \-\-exec\-prefix\fI[=DIR]\fR ] 
+.RB [ \-\-version ]
+.RB [ \-\-cflags ] 
+.RB [ \-\-libs ] 
+.RB [ \-\-static\-libs ] 
+.RB [ \-\-libtool\-libs ]
+.RB [ \-\-odbcini ] 
+.RB [ \-\-odbcinstini ]
+
+.SH DESCRIPTION
+\fBiodbc-config\fR is a tool that is used to configure to determine
+the compiler and linker flags that should be used to compile
+and link programs that use \fRiODBC\fR. 
+.
+.SH OPTIONS
+\fBiodbc-config\fR accepts the following options:
+.TP 8
+.B  \-\-version
+Print the currently installed version of \fBiODBC\fR on the standard output.
+.TP 8
+.B  \-\-cflags
+Print the compiler flags that are necessary to compile an \fBiODBC\fR program.
+.TP 8
+.B  \-\-libs
+Print the linker flags that are necessary to link an \fBiODBC\fR program using
+dynamic libraries (if supported).
+.TP 8
+.B  \-\-static\-libs
+Print the linker flags that are necessary to link an \fBiODBC\fR program using 
+static libraries.
+.TP 8
+.B  \-\-libtool\-libs
+Print the linker flags that are necessary to link an \fBiODBC\fR program in a
+libtool environment.
+.TP 8
+.B \-\-odbcini
+Print the path of the system wide odbc.ini file.
+.TP 8
+.B \-\-odbcinstini
+Print the path of the system wide odbcinst.ini file.
+.TP 8
+.B  \-\-prefix\fI[=PREFIX]\fR
+If specified, use PREFIX instead of the installation prefix that \fBiODBC\fR
+was built with when computing the output for the \-\-cflags and
+\-\-libs options. This option is also used for the exec prefix
+if \-\-exec\-prefix was not specified. This option must be specified
+before any \-\-libs or \-\-cflags options.
+
+If PREFIX is not specified, the \fB\-\-prefix\fR flag shows where \fBiODBC\fR
+is currently installed.
+.TP 8
+.B  \-\-exec\-prefix=PREFIX
+If specified, use PREFIX instead of the installation exec prefix that
+\fBiODBC\fR was built with when computing the output for the \-\-cflags
+and \-\-libs options.  This option must be specified before any
+\-\-libs or \-\-cflags options.
+
+.SH EXAMPLES
+To compile a program that calls the \fBiODBC\fR API, make sure the
+\fBiodbc\-config\fR program can be found in the \fBPATH\fR environment
+variable, before using the following Makefile fragment:
+
+.nf
+    CFLAGS=\`iodbc-config \-\-cflags\`
+    LDLIBS=\`iodbc-config \-\-libs\`
+
+    iodbctest: iodbctest.c
+	    cc $(CFLAGS) \-o iodbctest iodbctest.c $(LDLIBS)
+
+.fi
+
+.SH COPYRIGHT
+Copyright \(co 1996-2004 by OpenLink Software
+
+.SH AUTHOR
+iODBC Administrator <iodbc@openlinksw.com>

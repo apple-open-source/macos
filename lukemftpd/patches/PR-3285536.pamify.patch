@@ -53,7 +53,7 @@ diff -u -d -b -w -u -d -r1.4 ftpd.c
 +	if( reply == NULL )
 +		return PAM_CONV_ERR;
 +
-+	reply[0].resp = mystuff;
++	reply[0].resp = xstrdup(mystuff);
 +	*resp = reply;
 +	return PAM_SUCCESS;
 +}

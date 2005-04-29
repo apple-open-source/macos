@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.h,v 1.16 2003/09/21 20:53:11 lindak Exp $
+ * $Id: smbfs_node.h,v 1.31 2005/03/09 16:51:59 lindak Exp $
  */
 #ifndef _FS_SMBFS_NODE_H_
 #define _FS_SMBFS_NODE_H_
@@ -37,25 +37,29 @@
 #define	SMBFS_ROOT_INO		2	/* just like in UFS */
 
 /* Bits for smbnode.n_flag */
-#define	NFLUSHINPROG		0x0001
-#define	NFLUSHWANT		0x0002	/* they should gone ... */
-#define	NMODIFIED		0x0004	/* bogus, until async IO implemented */
-/*efine	NNEW			0x0008*//* smb/vnode has been allocated */
-#define	NREFPARENT		0x0010	/* node holds parent from recycling */
-#define	NFLUSHWIRE		0x1000
-#define	NATTRCHANGED	0x2000	/* use smbfs_attr_cacheremove at close */
+#define	NFLUSHINPROG	0x00001
+#define	NFLUSHWANT	0x00002	/* they should gone ... */
+#define	NMODIFIED	0x00004	/* bogus, until async IO implemented */
+/*efine	NNEW		0x00008*//* smb/vnode has been allocated */
+#define	NREFPARENT	0x00010	/* node holds parent from recycling */
+#define	NGOTIDS		0x00020
+#define	NISMAPPED	0x00800
+#define	NFLUSHWIRE	0x01000
+#define	NATTRCHANGED	0x02000	/* use smbfs_attr_cacheremove at close */
+#define	NALLOC		0x04000	/* being created */
+#define	NWALLOC		0x08000	/* awaiting creation */
+#define	NTRANSIT	0x10000	/* being reclaimed */
+#define	NWTRANSIT	0x20000	/* awaiting reclaim */
 
 struct smbfs_fctx;
 
 struct smbnode {
-#ifdef APPLE
-	struct lock__bsd__	n_lock;		/* smbnode lock. (mbf) */
-#else
-	struct lock	n_lock;		/* smbnode lock. (mbf) */
+#if 0
+	lck_mtx_t 		*n_lock;	
 #endif
-	int			n_flag;
+	u_int32_t		n_flag;
 	struct smbnode *	n_parent;
-	struct vnode *		n_vnode;
+	vnode_t 		n_vnode;
 	struct smbmount *	n_mount;
 	time_t			n_attrage;	/* attributes cache time */
 /*	time_t			n_ctime;*/
@@ -64,9 +68,10 @@ struct smbnode {
 	u_quad_t		n_size;
 	long			n_ino;
 	int			n_dosattr;
-	int 			n_opencount;
+	int 			n_dirrefs;
+	int 			n_fidrefs;
 	u_int16_t		n_fid;		/* file handle */
-	int			n_rwstate;	/* granted access mode */
+	u_int32_t		n_rights;	/* granted rights */
 	u_char			n_nmlen;
 	u_char *		n_name;
 	struct smbfs_fctx *	n_dirseq;	/* ff context */
@@ -75,45 +80,44 @@ struct smbnode {
 	LIST_ENTRY(smbnode)	n_hash;
 	struct timespec		n_sizetime;
 	struct smbfs_lockf *smb_lockf; /* Head of byte-level lock list. */
+	uid_t			n_uid;
+	gid_t			n_gid;
+	mode_t			n_mode;
 };
 
 /* Attribute cache timeouts in seconds */
 #define	SMB_MINATTRTIMO 2
 #define	SMB_MAXATTRTIMO 30
 
-#define VTOSMB(vp)	((struct smbnode *)(vp)->v_data)
-#define SMBTOV(np)	((struct vnode *)(np)->n_vnode)
+#define VTOSMB(vp)	((struct smbnode *)vnode_fsnode(vp))
+#define SMBTOV(np)	((vnode_t )(np)->n_vnode)
 
-struct vop_getpages_args;
-struct vop_inactive_args;
-struct vop_putpages_args;
-struct vop_reclaim_args;
+struct vnop_getpages_args;
+struct vnop_inactive_args;
+struct vnop_putpages_args;
+struct vnop_reclaim_args;
 struct ucred;
-struct uio;
 struct smbfattr;
 
-int  smbfs_inactive(struct vop_inactive_args *);
-int  smbfs_reclaim(struct vop_reclaim_args *);
-int smbfs_nget(struct mount *mp, struct vnode *dvp, const char *name, int nmlen,
-	struct smbfattr *fap, struct vnode **vpp);
+int  smbfs_inactive(struct vnop_inactive_args *);
+int  smbfs_reclaim(struct vnop_reclaim_args *);
+int smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
+	struct smbfattr *fap, vnode_t *vpp, u_long makeentry, enum vtype vt);
 u_int32_t smbfs_hash(const u_char *name, int nmlen);
 
-int  smbfs_getpages(struct vop_getpages_args *);
-int  smbfs_putpages(struct vop_putpages_args *);
-int  smbfs_readvnode(struct vnode *vp, struct uio *uiop, struct ucred *cred);
-int  smbfs_writevnode(struct vnode *vp, struct uio *uiop, struct ucred *cred, int ioflag, int timo);
-void smbfs_attr_cacheenter(struct vnode *vp, struct smbfattr *fap);
-int  smbfs_attr_cachelookup(struct vnode *vp ,struct vattr *va);
-#ifdef APPLE
+int  smbfs_getpages(struct vnop_getpages_args *);
+int  smbfs_putpages(struct vnop_putpages_args *);
+int  smbfs_readvnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx);
+int  smbfs_writevnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx, int ioflag, int timo);
+void smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap);
+int  smbfs_attr_cachelookup(vnode_t, struct vnode_attr *, struct smb_cred *);
 void smbfs_attr_touchdir(struct smbnode *dnp);
-#endif
 char	*smbfs_name_alloc(const u_char *name, int nmlen);
 void	smbfs_name_free(const u_char *name);
-void	smbfs_setsize(struct vnode *, off_t);
+void	smbfs_setsize(vnode_t , off_t);
 
 #define smbfs_attr_cacheremove(np)	(np)->n_attrage = 0
 
-#define SMB_STALEVP(p, id) ((p)->v_type == VBAD || !VTOSMB(p) || \
-			    ((id) && (p)->v_id != (id)))
+#define smb_ubc_getsize(v) (vnode_vtype(v) == VREG ? ubc_getsize(v) : (off_t)0)
 
 #endif /* _FS_SMBFS_NODE_H_ */

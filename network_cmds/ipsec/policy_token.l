@@ -36,7 +36,6 @@
 #include <sys/socket.h>
 #include <net/route.h>
 #include <net/pfkeyv2.h>
-#include <netkey/keydb.h>
 #include <netinet/in.h>
 #include <netinet6/ipsec.h>
 

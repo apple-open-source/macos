@@ -21,6 +21,7 @@
 #include <netinet/in.h> /* For struct sockaddr_in */
 #include <pwd.h> /* For struct pw */
 #include <stdarg.h> /* For va_list */
+#include <sys/types.h>		/* for u_short */
 #include <sys/socket.h> /* For struct sockaddr_storage */
 //#include "fake-socket.h" /* For struct sockaddr_storage */
 #ifdef HAVE_SYS_SELECT_H

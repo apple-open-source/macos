@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  5.0.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,11 +26,12 @@
 
 #include "glheader.h"
 #include "swrast/s_aaline.h"
-#include "swrast/s_pb.h"
 #include "swrast/s_context.h"
+#include "swrast/s_span.h"
 #include "swrast/swrast.h"
 #include "mtypes.h"
 #include "mmath.h"
+#include "macros.h"
 
 
 #define SUB_PIXEL 4
@@ -74,6 +75,8 @@ struct LineInfo
    GLfloat vPlane[MAX_TEXTURE_UNITS][4];
    GLfloat lambda[MAX_TEXTURE_UNITS];
    GLfloat texWidth[MAX_TEXTURE_UNITS], texHeight[MAX_TEXTURE_UNITS];
+
+   struct sw_span span;
 };
 
 
@@ -176,12 +179,16 @@ solve_plane_recip(GLfloat x, GLfloat y, const GLfloat plane[4])
 static INLINE GLchan
 solve_plane_chan(GLfloat x, GLfloat y, const GLfloat plane[4])
 {
-   GLfloat z = (plane[3] + plane[0] * x + plane[1] * y) / -plane[2] + 0.5F;
-   if (z < 0.0F)
+   const GLfloat z = (plane[3] + plane[0] * x + plane[1] * y) / -plane[2];
+#if CHAN_TYPE == GL_FLOAT
+   return CLAMP(z, 0.0F, CHAN_MAXF);
+#else
+   if (z < 0)
       return 0;
-   else if (z > CHAN_MAXF)
-      return (GLchan) CHAN_MAXF;
-   return (GLchan) (GLint) z;
+   else if (z > CHAN_MAX)
+      return CHAN_MAX;
+   return (GLchan) IROUND_POS(z);
+#endif
 }
 
 
@@ -325,8 +332,9 @@ compute_coveragef(const struct LineInfo *info,
 
 
 
-typedef void (*plot_func)(GLcontext *ctx, const struct LineInfo *line,
-                          struct pixel_buffer *pb, int ix, int iy);
+typedef void (*plot_func)(GLcontext *ctx, struct LineInfo *line,
+                          int ix, int iy);
+                         
 
 
 /*
@@ -336,7 +344,6 @@ static void
 segment(GLcontext *ctx,
         struct LineInfo *line,
         plot_func plot,
-        struct pixel_buffer *pb,
         GLfloat t0, GLfloat t1)
 {
    const GLfloat absDx = (line->dx < 0.0F) ? -line->dx : line->dx;
@@ -406,7 +413,7 @@ segment(GLcontext *ctx,
          GLint iy;
          /* scan across the line, bottom-to-top */
          for (iy = iyBot; iy < iyTop; iy++) {
-            (*plot)(ctx, line, pb, ix, iy);
+            (*plot)(ctx, line, ix, iy);
          }
          yBot += dydx;
          yTop += dydx;
@@ -452,7 +459,7 @@ segment(GLcontext *ctx,
          GLint ix;
          /* scan across the line, left-to-right */
          for (ix = ixLeft; ix < ixRight; ix++) {
-            (*plot)(ctx, line, pb, ix, iy);
+            (*plot)(ctx, line, ix, iy);
          }
          xLeft += dxdy;
          xRight += dxdy;
@@ -485,6 +492,7 @@ segment(GLcontext *ctx,
 
 #define NAME(x)  aa_multitex_rgba_##x
 #define DO_Z
+#define DO_FOG
 #define DO_RGBA
 #define DO_MULTITEX
 #include "s_aalinetemp.h"
@@ -492,6 +500,7 @@ segment(GLcontext *ctx,
 
 #define NAME(x)  aa_multitex_spec_##x
 #define DO_Z
+#define DO_FOG
 #define DO_RGBA
 #define DO_MULTITEX
 #define DO_SPEC
@@ -508,8 +517,8 @@ _swrast_choose_aa_line_function(GLcontext *ctx)
 
    if (ctx->Visual.rgbMode) {
       /* RGBA */
-      if (ctx->Texture._ReallyEnabled) {
-         if (ctx->Texture._ReallyEnabled > TEXTURE0_ANY) {
+      if (ctx->Texture._EnabledUnits != 0) {
+         if (ctx->Texture._EnabledUnits > 1) {
             /* Multitextured! */
             if (ctx->Light.Model.ColorControl==GL_SEPARATE_SPECULAR_COLOR || 
                 ctx->Fog.ColorSumEnabled)

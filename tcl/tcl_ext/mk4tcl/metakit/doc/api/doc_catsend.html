@@ -1,0 +1,70 @@
+<html><head>
+	<title>Metakit sample code - CatSend</title>
+</head><body bgcolor=white>
+
+<font face=Helvetica size=3>
+
+<!--begin-->
+<h2><img src="e4app.gif" alt="App Icon" border=0 align=left>
+Metakit sample code - CatSend</h2><br clear=left>
+
+<p>This application is a simple TCP/IP client based on Winsock. </p>
+
+<p><b>What it does</b>: CatSend allows you to select a datafile and to
+transmit its contents over a TCP/IP connection. Although CatSend can handle
+any Metakit datafile, only the catalog files created by DisCat will make
+sense to the receiving program called &quot;CatRecv&quot; (see below).
+By altering the address shown on the screen, you can transfer the data
+across the network to any other machine on Internet running CatRecv...
+this is only a demonstration of what can be done, this serves no useful
+purpose whatsoever. </p>
+
+<p><b>What it illustrates</b>: CatSend illustrates how to work with Metakit
+datafiles of which the structure is unknown or only partially known. Since
+CatSend doesn't care, this program will continue to work even if DisCat
+and CatRecv are modified to use a different data structure on file. </p>
+
+<p><b>How to use it</b>: CatSend only makes sense in combination with Catrecv
+and DisCat. To try it out, you should first create a catalog file with
+DisCat which you can then pick up with CatSend. Note that like any typical
+client-server application, the CatRecv server application must be running
+before using CatSend to open a connection. Apart from selecting a datafile
+and transmitting it to CatRecv, the CatSend application is pretty boring.
+The &quot;interesting&quot; source code is less than 10 lines long... </p>
+
+<p><b>Known problems</b>: None, but since CatSend uses Winsock, you need
+to have a correctly installed version of the TCP/IP protocol stack (such
+as the one that comes with Windows 95). </p>
+
+<p>You do not need an active network connection or any network hardware,
+since every TCP/IP installation can select local communication by using
+&quot;localhost&quot; as a host name (i.e. IP address 127.0.0.1). If you
+obtained this package from Internet via FTP, then you should be all set,
+since FTP access implies that you have a properly working TCP/IP configuration.
+</p>
+
+<p><b>Files in EXAMPLES\CATSEND</b>: </p>
+
+<p>CATSEND.H, CATSEND.CPP - Main MFC application code 
+<br>CATSEND.MAK, CATSEND.MDP - MSVC 4.2 project makefiles for Win32 
+<br>CATSEND.RC - Application resources 
+<br>MYDLG.H, MYDLG.CPP - Main dialog 
+<br>RESOURCE.H - Resource symbol definitions 
+<br>STDAFX.H, STDAFX.CPP - Used for precompiled headers 
+<br>RES\*.* - Application resources </p>
+<!--end-->
+
+<center><p><hr size=1>
+||
+&nbsp; <a href="index.html" target="_top">Roadmap</a>
+&nbsp; <a href="classes.html">Class Index</a>
+&nbsp; <a href="samples.html">Sample Index</a>
+&nbsp; ||
+&nbsp; <a href="intro.html">Introduction</a>
+&nbsp; <a href="tips.html">Tips and Tricks</a>
+&nbsp; || 
+
+</center>
+</font>
+
+</body></html>

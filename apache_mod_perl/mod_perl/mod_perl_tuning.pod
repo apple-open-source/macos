@@ -414,10 +414,10 @@ If you have contributions for this document, please post them to the
 mailing list.  Perl POD format is best, but plain text will do, too.
 
 If you need assistance, contact the mod_perl mailing list at
-modperl@apache.org first (send 'subscribe' to modperl-request@apache.org
+modperl@perl.apache.org first (send 'subscribe' to modperl-request@apache.org
 to subscribe). There are lots of people there that can help. Also, 
 check the web pages http://perl.apache.org/ and http://www.apache.org/
 for explanations of the configuration options.
 
-$Revision: 1.1.1.1 $
-$Date: 2000/03/31 05:26:38 $
+$Revision: 1.1.1.2 $
+$Date: 2003/10/08 21:31:40 $

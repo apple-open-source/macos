@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html
+     PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+
+<head>
+<title>$BLOJSOM_BLOG.getBlogName()</title>
+<link rel="stylesheet" type="text/css" href="$BLOJSOM_SITE_URL/blojsom-shrubbery.css" />
+<link rel="SHORTCUT ICON" type="image/gif" href="$BLOJSOM_SITE_URL/favicon.ico" />
+<link rel="alternate" type="application/rss+xml" title="RSS" href="$BLOJSOM_BLOG.getBlogURL()?flavor=rss" />
+</head>
+
+<body>
+
+#parse( "shrubbery-header.vm" )
+#parse( "shrubbery-categories.vm" )
+
+#set( $totalEntries = 0)
+#foreach ($entry in $BLOJSOM_ENTRIES)
+    <div class="es">
+    <p class="wlt">$entry.getTitle() <span class="st">[<a href="$entry.getLink()">Permalink</a>]</span> </p>
+    <p class="wldl">$entry.getDate()</p>
+    $entry.getDescription()
+    </div>
+    <p class="wlt">Comments on this entry</p>
+    #foreach ($entryComment in $entry.getComments())
+        <div class="cs">
+            Comment by: 
+            #if ($entryComment.getAuthorEmail().length() > 0)
+            	<a href="mailto:$entryComment.getAuthorEmail()">
+            #end
+            $entryComment.getAuthor()
+            #if ($entryComment.getAuthorEmail().length() > 0)
+	            </a>
+	        #end
+            #if ($entryComment.getAuthorURL().length() > 0)
+            - <a href="$entryComment.getAuthorURL()">$entryComment.getAuthorURL()</a>
+            #end
+            <div class="wldl">Left on: $entryComment.getCommentDate()</div><br/>
+            $entryComment.getComment()
+            <br />
+        </div>
+    #end
+
+    #set( $totalEntries = $totalEntries + 1)
+    #if ($BLOJSOM_COMMENTS_ENABLED.booleanValue() && $entry.supportsComments())
+
+    <form id="commentform" method="post" action=".">
+	    <table summary="Add Your Comments" class="ce">
+	    	<tr>
+ 	    		<td colspan="2">
+					<input type="hidden" name="comment" value="y" />
+					<input type="hidden" name="page" value="comments" />
+					<input type="hidden" name="category" value="$BLOJSOM_REQUESTED_CATEGORY.getCategory()" />
+					<input type="hidden" name="permalink" value="$entry.getPermalink()" />
+	    		</td>
+	    	</tr>
+            <tr>
+                <td>Author:</td><td><input type="text" name="author" value="#if ($BLOJSOM_COMMENT_PLUGIN_AUTHOR)$BLOJSOM_COMMENT_PLUGIN_AUTHOR#end" /></td>
+            </tr>
+            <tr>
+                <td>E-mail (optional):</td><td><input type="text" name="authorEmail" value="#if ($BLOJSOM_COMMENT_PLUGIN_AUTHOR_EMAIL)$BLOJSOM_COMMENT_PLUGIN_AUTHOR_EMAIL#end" /></td>
+            </tr>
+            <tr>
+                <td>URL: (optional)</td><td><input type="text" name="authorURL" value="#if ($BLOJSOM_COMMENT_PLUGIN_AUTHOR_URL)$BLOJSOM_COMMENT_PLUGIN_AUTHOR_URL#end" /></td>
+            </tr>
+            <tr valign="top">
+                <td>Comment:</td><td><textarea name="commentText" class="tx" rows="7" cols="55"></textarea></td>
+            </tr>
+            <tr>
+                <td>Remember me?</td><td><input type="checkbox" name="remember" #if ($BLOJSOM_COMMENT_PLUGIN_REMEMBER_ME)CHECKED#end/></td>
+            </tr>
+            <tr>
+                <td colspan="2"><input type="submit" name="submit" value="Submit Comment" />
+                <input type="reset" name="reset" value="Reset" />
+                 </td>
+           </tr>
+	    </table>
+    </form>
+    #end
+#end
+#if ($totalEntries > 0)
+	#parse( "shrubbery-categories.vm" )
+#end
+
+#parse( "shrubbery-pbb.vm" )
+</body>
+
+</html>

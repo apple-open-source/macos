@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,13 @@
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <net/if_dl.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include <mach/mach.h>
 #include <mach/notify.h>
 #include <mach/mach_error.h>
@@ -59,16 +66,18 @@ _SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, int bufLen, CFStringEncodi
 			       0,
 			       &len);
 
-	if (!buf) {
+	if (buf) {
+		/* check the size of the provided buffer */
+		if (bufLen < (len + 1)) {
+			return NULL;	/* if too small */
+		}
+	} else {
+		/* allocate a buffer */
 		bufLen = len + 1;
 		buf = CFAllocatorAllocate(NULL, bufLen, 0);
 		if (!buf) {
 			return NULL;
 		}
-	}
-
-	if (len >= bufLen) {
-		len = bufLen - 1;
 	}
 
 	(void)CFStringGetBytes(cfstr,
@@ -85,19 +94,70 @@ _SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, int bufLen, CFStringEncodi
 }
 
 
+void
+_SC_sockaddr_to_string(const struct sockaddr *address, char *buf, size_t bufLen)
+{
+	bzero(buf, bufLen);
+	switch (address->sa_family) {
+		case AF_INET :
+			(void)inet_ntop(((struct sockaddr_in *)address)->sin_family,
+					&((struct sockaddr_in *)address)->sin_addr,
+					buf,
+					bufLen);
+			break;
+		case AF_INET6 : {
+			(void)inet_ntop(((struct sockaddr_in6 *)address)->sin6_family,
+					&((struct sockaddr_in6 *)address)->sin6_addr,
+					buf,
+					bufLen);
+			if (((struct sockaddr_in6 *)address)->sin6_scope_id != 0) {
+				int	n;
+
+				n = strlen(buf);
+				if ((n+IF_NAMESIZE+1) <= (int)bufLen) {
+					buf[n++] = '%';
+					if_indextoname(((struct sockaddr_in6 *)address)->sin6_scope_id, &buf[n]);
+				}
+			}
+			break;
+		}
+		case AF_LINK :
+			if (((struct sockaddr_dl *)address)->sdl_len < bufLen) {
+				bufLen = ((struct sockaddr_dl *)address)->sdl_len;
+			} else {
+				bufLen = bufLen - 1;
+			}
+
+			bcopy(((struct sockaddr_dl *)address)->sdl_data, buf, bufLen);
+			break;
+		default :
+			snprintf(buf, bufLen, "unexpected address family %d", address->sa_family);
+			break;
+	}
+
+	return;
+}
+
+
 Boolean
 _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dataLen)
 {
 	CFDataRef	myXml;
+	CFWriteStreamRef	stream;
 
 	if (!xml && !(dataRef && dataLen)) {
 		/* if not keeping track of allocated space */
 		return FALSE;
 	}
 
-	myXml = CFPropertyListCreateXMLData(NULL, obj);
+	stream = CFWriteStreamCreateWithAllocatedBuffers(NULL, NULL);
+	CFWriteStreamOpen(stream);
+	CFPropertyListWriteToStream(obj, stream, kCFPropertyListBinaryFormat_v1_0, NULL);
+	CFWriteStreamClose(stream);
+	myXml = CFWriteStreamCopyProperty(stream, kCFStreamPropertyDataWritten);
+	CFRelease(stream);
 	if (!myXml) {
-		SCLog(TRUE, LOG_ERR, CFSTR("CFPropertyListCreateXMLData() failed"));
+		SCLog(TRUE, LOG_ERR, CFSTR("_SCSerialize() failed"));
 		if (xml)	*xml     = NULL;
 		if (dataRef)	*dataRef = NULL;
 		if (dataLen)	*dataLen = 0;
@@ -118,10 +178,7 @@ _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dat
 		*dataLen = CFDataGetLength(myXml);
 		status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE,
-			      LOG_ERR,
-			      CFSTR("vm_allocate(): %s"),
-			      mach_error_string(status));
+			SCLog(TRUE, LOG_ERR, CFSTR("_SCSerialize(): %s"), mach_error_string(status));
 			CFRelease(myXml);
 			*dataRef = NULL;
 			*dataLen = 0;
@@ -153,7 +210,7 @@ _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dat
 
 		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
 		if (status != KERN_SUCCESS) {
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("_SCUnserialize(): %s"), mach_error_string(status));
 			/* non-fatal???, proceed */
 		}
 	} else {
@@ -165,10 +222,7 @@ _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dat
 
 	if (*obj == NULL) {
 		if (xmlError) {
-			SCLog(TRUE,
-			      LOG_ERR,
-			      CFSTR("CFPropertyListCreateFromXMLData() failed: %@"),
-			      xmlError);
+			SCLog(TRUE, LOG_ERR, CFSTR("_SCUnserialize(): %@"), xmlError);
 			CFRelease(xmlError);
 		}
 		_SCErrorSet(kSCStatusFailed);
@@ -196,7 +250,7 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 
 	myData = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
 	if (!myData) {
-		SCLog(TRUE, LOG_ERR, CFSTR("CFStringCreateExternalRepresentation() failed"));
+		SCLog(TRUE, LOG_ERR, CFSTR("_SCSerializeString() failed"));
 		if (data)	*data    = NULL;
 		if (dataRef)	*dataRef = NULL;
 		if (dataLen)	*dataLen = 0;
@@ -217,10 +271,7 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 		*dataLen = CFDataGetLength(myData);
 		status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE,
-			      LOG_ERR,
-			      CFSTR("vm_allocate(): %s"),
-			      mach_error_string(status));
+			SCLog(TRUE, LOG_ERR, CFSTR("_SCSerializeString(): %s"), mach_error_string(status));
 			CFRelease(myData);
 			*dataRef = NULL;
 			*dataLen = 0;
@@ -247,7 +298,7 @@ _SCUnserializeString(CFStringRef *str, CFDataRef utf8, void *dataRef, CFIndex da
 
 		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
 		if (status != KERN_SUCCESS) {
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("_SCUnserializeString(): %s"), mach_error_string(status));
 			/* non-fatal???, proceed */
 		}
 	} else {
@@ -255,7 +306,7 @@ _SCUnserializeString(CFStringRef *str, CFDataRef utf8, void *dataRef, CFIndex da
 	}
 
 	if (*str == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("CFStringCreateFromExternalRepresentation() failed"));
+		SCLog(TRUE, LOG_ERR, CFSTR("_SCUnserializeString() failed"));
 		return FALSE;
 	}
 
@@ -276,10 +327,7 @@ _SCSerializeData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 	*dataLen = CFDataGetLength(data);
 	status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
 	if (status != KERN_SUCCESS) {
-		SCLog(TRUE,
-		      LOG_ERR,
-		      CFSTR("vm_allocate(): %s"),
-		      mach_error_string(status));
+		SCLog(TRUE, LOG_ERR, CFSTR("_SCSerializeData(): %s"), mach_error_string(status));
 		*dataRef = NULL;
 		*dataLen = 0;
 		return FALSE;
@@ -299,7 +347,7 @@ _SCUnserializeData(CFDataRef *data, void *dataRef, CFIndex dataLen)
 	*data = CFDataCreate(NULL, dataRef, dataLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("_SCUnserializeData(): %s"), mach_error_string(status));
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}
@@ -391,7 +439,7 @@ _SCUnserializeMultiple(CFDictionaryRef dict)
 
 		CFDictionaryGetKeysAndValues(dict, keys, values);
 		for (i = 0; i < nElements; i++) {
-			if (!_SCUnserialize((CFPropertyListRef *)&pLists[i], values[i], NULL, NULL)) {
+			if (!_SCUnserialize((CFPropertyListRef *)&pLists[i], values[i], NULL, 0)) {
 				goto done;
 			}
 		}
@@ -421,6 +469,153 @@ _SCUnserializeMultiple(CFDictionaryRef dict)
 	}
 
 	return newDict;
+}
+
+
+__private_extern__ void
+_SC_signalRunLoop(CFTypeRef obj, CFRunLoopSourceRef rls, CFArrayRef rlList)
+{
+	CFRunLoopRef	rl	= NULL;
+	CFRunLoopRef	rl1	= NULL;
+	CFIndex		i;
+	CFIndex		n	= CFArrayGetCount(rlList);
+
+	if (n == 0) {
+		return;
+	}
+
+	/* get first runLoop for this object */
+	for (i = 0; i < n; i += 3) {
+		if (!CFEqual(obj, CFArrayGetValueAtIndex(rlList, i))) {
+			continue;
+		}
+
+		rl1 = (CFRunLoopRef)CFArrayGetValueAtIndex(rlList, i+1);
+		break;
+	}
+
+	if (!rl1) {
+		/* if not scheduled */
+		return;
+	}
+
+	/* check if we have another runLoop for this object */
+	rl = rl1;
+	for (i = i+3; i < n; i += 3) {
+		CFRunLoopRef	rl2;
+
+		if (!CFEqual(obj, CFArrayGetValueAtIndex(rlList, i))) {
+			continue;
+		}
+
+		rl2 = (CFRunLoopRef)CFArrayGetValueAtIndex(rlList, i+1);
+		if (!CFEqual(rl1, rl2)) {
+			/* we've got more than one runLoop */
+			rl = NULL;
+			break;
+		}
+	}
+
+	if (rl) {
+		/* if we only have one runLoop */
+		CFRunLoopWakeUp(rl);
+		return;
+	}
+
+	/* more than one different runLoop, so we must pick one */
+	for (i = 0; i < n; i+=3) {
+		CFStringRef	rlMode;
+
+		if (!CFEqual(obj, CFArrayGetValueAtIndex(rlList, i))) {
+			continue;
+		}
+
+		rl     = (CFRunLoopRef)CFArrayGetValueAtIndex(rlList, i+1);
+		rlMode = CFRunLoopCopyCurrentMode(rl);
+		if (rlMode && CFRunLoopIsWaiting(rl) && CFRunLoopContainsSource(rl, rls, rlMode)) {
+			/* we've found a runLoop that's "ready" */
+			CFRelease(rlMode);
+			CFRunLoopWakeUp(rl);
+			return;
+		}
+		if (rlMode) CFRelease(rlMode);
+	}
+
+	/* didn't choose one above, so choose first */
+	CFRunLoopWakeUp(rl1);
+	return;
+}
+
+
+__private_extern__ Boolean
+_SC_isScheduled(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFMutableArrayRef rlList)
+{
+	CFIndex	i;
+	CFIndex	n	= CFArrayGetCount(rlList);
+
+	for (i = 0; i < n; i += 3) {
+		if (obj         && !CFEqual(obj,         CFArrayGetValueAtIndex(rlList, i))) {
+			continue;
+		}
+		if (runLoop     && !CFEqual(runLoop,     CFArrayGetValueAtIndex(rlList, i+1))) {
+			continue;
+		}
+		if (runLoopMode && !CFEqual(runLoopMode, CFArrayGetValueAtIndex(rlList, i+2))) {
+			continue;
+		}
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+
+__private_extern__ void
+_SC_schedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFMutableArrayRef rlList)
+{
+	CFArrayAppendValue(rlList, obj);
+	CFArrayAppendValue(rlList, runLoop);
+	CFArrayAppendValue(rlList, runLoopMode);
+
+	return;
+}
+
+
+__private_extern__ Boolean
+_SC_unschedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFMutableArrayRef rlList, Boolean all)
+{
+	CFIndex	i	= 0;
+	Boolean	found	= FALSE;
+	CFIndex	n	= CFArrayGetCount(rlList);
+
+	while (i < n) {
+		if (obj         && !CFEqual(obj,         CFArrayGetValueAtIndex(rlList, i))) {
+			i += 3;
+			continue;
+		}
+		if (runLoop     && !CFEqual(runLoop,     CFArrayGetValueAtIndex(rlList, i+1))) {
+			i += 3;
+			continue;
+		}
+		if (runLoopMode && !CFEqual(runLoopMode, CFArrayGetValueAtIndex(rlList, i+2))) {
+			i += 3;
+			continue;
+		}
+
+		found = TRUE;
+
+		CFArrayRemoveValueAtIndex(rlList, i + 2);
+		CFArrayRemoveValueAtIndex(rlList, i + 1);
+		CFArrayRemoveValueAtIndex(rlList, i);
+
+		if (!all) {
+			return found;
+		}
+
+		n -= 3;
+	}
+
+	return found;
 }
 
 

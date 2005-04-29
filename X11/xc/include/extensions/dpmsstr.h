@@ -26,6 +26,7 @@ dealings in this Software without prior written authorization from Digital
 Equipment Corporation.
 
 ******************************************************************/
+/* $XFree86: xc/include/extensions/dpmsstr.h,v 3.4 2003/07/16 01:38:24 dawes Exp $ */
 
 /*
  * HISTORY
@@ -34,6 +35,8 @@ Equipment Corporation.
  * @(#)RCSfile: dpmsstr.h,v Revision: 1.1.4.2  (DEC) Date: 1995/11/21 19:34:19
  */
 
+#ifndef _DPMSSTR_H_
+#define _DPMSSTR_H_
 
 #define X_DPMSGetVersion	0
 #define X_DPMSCapable		1
@@ -180,7 +183,4 @@ typedef struct {
 } xDPMSInfoReply;
 #define sz_xDPMSInfoReply 32
 
-
-
-
-
+#endif /* _DPMSSTR_H_ */

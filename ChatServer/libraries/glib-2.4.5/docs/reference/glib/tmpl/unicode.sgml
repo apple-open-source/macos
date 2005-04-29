@@ -1,0 +1,682 @@
+<!-- ##### SECTION Title ##### -->
+Unicode Manipulation
+
+<!-- ##### SECTION Short_Description ##### -->
+functions operating on Unicode characters and UTF-8 strings.
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+This section describes a number of functions for dealing with
+Unicode characters and strings.  There are analogues of the
+traditional <filename>ctype.h</filename> character classification
+and case conversion functions, UTF-8 analogues of some string utility 
+functions, functions to perform normalization, case conversion and
+collation on UTF-8 strings and finally functions to convert between
+the UTF-8, UTF-16 and UCS-4 encodings of Unicode.
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+<variablelist>
+
+<varlistentry>
+<term>g_locale_to_utf8(), g_locale_from_utf8()</term>
+<listitem><para>
+Convenience functions for converting between UTF-8 and the locale encoding. 
+</para></listitem>
+</varlistentry>
+
+</variablelist>
+</para>
+
+<!-- ##### TYPEDEF gunichar ##### -->
+<para>
+A type which can hold any UCS-4 character code. 
+</para>
+
+
+<!-- ##### TYPEDEF gunichar2 ##### -->
+<para>
+A type which can hold any UTF-16 character code. 
+</para>
+
+
+<!-- ##### FUNCTION g_unichar_validate ##### -->
+<para>
+
+</para>
+
+@ch: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_isalnum ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_isalpha ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_iscntrl ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_isdigit ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_isgraph ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_islower ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_isprint ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_ispunct ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_isspace ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_isupper ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_isxdigit ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_istitle ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_isdefined ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_iswide ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_toupper ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_tolower ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_totitle ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_digit_value ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_xdigit_value ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### ENUM GUnicodeType ##### -->
+<para>
+These are the possible character classifications.
+See <ulink url="http://www.unicode.org/Public/UNIDATA/UnicodeData.html"
+>http://www.unicode.org/Public/UNIDATA/UnicodeData.html</ulink>.
+</para>
+
+@G_UNICODE_CONTROL: 
+@G_UNICODE_FORMAT: 
+@G_UNICODE_UNASSIGNED: 
+@G_UNICODE_PRIVATE_USE: 
+@G_UNICODE_SURROGATE: 
+@G_UNICODE_LOWERCASE_LETTER: 
+@G_UNICODE_MODIFIER_LETTER: 
+@G_UNICODE_OTHER_LETTER: 
+@G_UNICODE_TITLECASE_LETTER: 
+@G_UNICODE_UPPERCASE_LETTER: 
+@G_UNICODE_COMBINING_MARK: 
+@G_UNICODE_ENCLOSING_MARK: 
+@G_UNICODE_NON_SPACING_MARK: 
+@G_UNICODE_DECIMAL_NUMBER: 
+@G_UNICODE_LETTER_NUMBER: 
+@G_UNICODE_OTHER_NUMBER: 
+@G_UNICODE_CONNECT_PUNCTUATION: 
+@G_UNICODE_DASH_PUNCTUATION: 
+@G_UNICODE_CLOSE_PUNCTUATION: 
+@G_UNICODE_FINAL_PUNCTUATION: 
+@G_UNICODE_INITIAL_PUNCTUATION: 
+@G_UNICODE_OTHER_PUNCTUATION: 
+@G_UNICODE_OPEN_PUNCTUATION: 
+@G_UNICODE_CURRENCY_SYMBOL: 
+@G_UNICODE_MODIFIER_SYMBOL: 
+@G_UNICODE_MATH_SYMBOL: 
+@G_UNICODE_OTHER_SYMBOL: 
+@G_UNICODE_LINE_SEPARATOR: 
+@G_UNICODE_PARAGRAPH_SEPARATOR: 
+@G_UNICODE_SPACE_SEPARATOR: 
+
+<!-- ##### FUNCTION g_unichar_type ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### ENUM GUnicodeBreakType ##### -->
+<para>
+These are the possible line break classifications.
+See <ulink url="http://www.unicode.org/unicode/reports/tr14/"
+>http://www.unicode.org/unicode/reports/tr14/</ulink>.
+</para>
+
+@G_UNICODE_BREAK_MANDATORY: 
+@G_UNICODE_BREAK_CARRIAGE_RETURN: 
+@G_UNICODE_BREAK_LINE_FEED: 
+@G_UNICODE_BREAK_COMBINING_MARK: 
+@G_UNICODE_BREAK_SURROGATE: 
+@G_UNICODE_BREAK_ZERO_WIDTH_SPACE: 
+@G_UNICODE_BREAK_INSEPARABLE: 
+@G_UNICODE_BREAK_NON_BREAKING_GLUE: 
+@G_UNICODE_BREAK_CONTINGENT: 
+@G_UNICODE_BREAK_SPACE: 
+@G_UNICODE_BREAK_AFTER: 
+@G_UNICODE_BREAK_BEFORE: 
+@G_UNICODE_BREAK_BEFORE_AND_AFTER: 
+@G_UNICODE_BREAK_HYPHEN: 
+@G_UNICODE_BREAK_NON_STARTER: 
+@G_UNICODE_BREAK_OPEN_PUNCTUATION: 
+@G_UNICODE_BREAK_CLOSE_PUNCTUATION: 
+@G_UNICODE_BREAK_QUOTATION: 
+@G_UNICODE_BREAK_EXCLAMATION: 
+@G_UNICODE_BREAK_IDEOGRAPHIC: 
+@G_UNICODE_BREAK_NUMERIC: 
+@G_UNICODE_BREAK_INFIX_SEPARATOR: 
+@G_UNICODE_BREAK_SYMBOL: 
+@G_UNICODE_BREAK_ALPHABETIC: 
+@G_UNICODE_BREAK_PREFIX: 
+@G_UNICODE_BREAK_POSTFIX: 
+@G_UNICODE_BREAK_COMPLEX_CONTEXT: 
+@G_UNICODE_BREAK_AMBIGUOUS: 
+@G_UNICODE_BREAK_UNKNOWN: 
+@G_UNICODE_BREAK_NEXT_LINE: 
+@G_UNICODE_BREAK_WORD_JOINER: 
+
+<!-- ##### FUNCTION g_unichar_break_type ##### -->
+<para>
+
+</para>
+
+@c: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unicode_canonical_ordering ##### -->
+<para>
+
+</para>
+
+@string: 
+@len: 
+
+
+<!-- ##### FUNCTION g_unicode_canonical_decomposition ##### -->
+<para>
+
+</para>
+
+@ch: 
+@result_len: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_get_mirror_char ##### -->
+<para>
+
+</para>
+
+@ch: 
+@mirrored_ch: 
+@Returns: 
+
+
+<!-- ##### MACRO g_utf8_next_char ##### -->
+<para>
+Skips to the next character in a UTF-8 string. The string must be
+valid; this macro is as fast as possible, and has no error-checking.
+You would use this macro to iterate over a string character by
+character. The macro returns the start of the next UTF-8 character.
+Before using this macro, use g_utf8_validate() to validate strings
+that may contain invalid UTF-8.
+</para>
+
+@p: Pointer to the start of a valid UTF-8 character.
+
+
+<!-- ##### FUNCTION g_utf8_get_char ##### -->
+<para>
+
+</para>
+
+@p: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_get_char_validated ##### -->
+<para>
+
+</para>
+
+@p: 
+@max_len: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_offset_to_pointer ##### -->
+<para>
+
+</para>
+
+@str: 
+@offset: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_pointer_to_offset ##### -->
+<para>
+
+</para>
+
+@str: 
+@pos: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_prev_char ##### -->
+<para>
+
+</para>
+
+@p: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_find_next_char ##### -->
+<para>
+
+</para>
+
+@p: 
+@end: 
+@Returns: 
+<!-- # Unused Parameters # -->
+@bound: 
+
+
+<!-- ##### FUNCTION g_utf8_find_prev_char ##### -->
+<para>
+
+</para>
+
+@str: 
+@p: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_strlen ##### -->
+<para>
+
+</para>
+
+@p: 
+@max: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_strncpy ##### -->
+<para>
+
+</para>
+
+@dest: 
+@src: 
+@n: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_strchr ##### -->
+<para>
+
+</para>
+
+@p: 
+@len: 
+@c: 
+@Returns: 
+<!-- # Unused Parameters # -->
+@ch: 
+
+
+<!-- ##### FUNCTION g_utf8_strrchr ##### -->
+<para>
+
+</para>
+
+@p: 
+@len: 
+@c: 
+@Returns: 
+<!-- # Unused Parameters # -->
+@ch: 
+
+
+<!-- ##### FUNCTION g_utf8_strreverse ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_validate ##### -->
+<para>
+
+</para>
+
+@str: 
+@max_len: 
+@end: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_strup ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_strdown ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_casefold ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_normalize ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@mode: 
+@Returns: 
+
+
+<!-- ##### ENUM GNormalizeMode ##### -->
+<para>
+Defines how a Unicode string is transformed in a canonical 
+form, standardizing such issues as whether a character with an accent is 
+represented as a base character and combining accent or as a single precomposed
+character. Unicode strings should generally be normalized before comparing them.
+</para>
+
+@G_NORMALIZE_DEFAULT: standardize differences that do not affect the
+  text content, such as the above-mentioned accent representation.
+@G_NORMALIZE_NFD: another name for %G_NORMALIZE_DEFAULT.
+@G_NORMALIZE_DEFAULT_COMPOSE: like %G_NORMALIZE_DEFAULT, but with composed
+  forms rather than a maximally decomposed form.
+@G_NORMALIZE_NFC: another name for %G_NORMALIZE_DEFAULT_COMPOSE.
+@G_NORMALIZE_ALL: beyond %G_NORMALIZE_DEFAULT also standardize the 
+  "compatibility" characters in Unicode, such as SUPERSCRIPT THREE to the 
+  standard forms (in this case DIGIT THREE). Formatting information may be 
+  lost but for most text operations such characters should be considered the 
+  same.
+@G_NORMALIZE_NFKD: another name for %G_NORMALIZE_ALL.
+@G_NORMALIZE_ALL_COMPOSE: like %G_NORMALIZE_ALL, but with composed
+  forms rather than a maximally decomposed form.
+@G_NORMALIZE_NFKC: another name for %G_NORMALIZE_ALL_COMPOSE.
+
+<!-- ##### FUNCTION g_utf8_collate ##### -->
+<para>
+
+</para>
+
+@str1: 
+@str2: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_collate_key ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_to_utf16 ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@items_read: 
+@items_written: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_to_ucs4 ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@items_read: 
+@items_written: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf8_to_ucs4_fast ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@items_written: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf16_to_ucs4 ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@items_read: 
+@items_written: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_utf16_to_utf8 ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@items_read: 
+@items_written: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_ucs4_to_utf16 ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@items_read: 
+@items_written: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_ucs4_to_utf8 ##### -->
+<para>
+
+</para>
+
+@str: 
+@len: 
+@items_read: 
+@items_written: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unichar_to_utf8 ##### -->
+<para>
+
+</para>
+
+@c: 
+@outbuf: 
+@Returns: 
+
+

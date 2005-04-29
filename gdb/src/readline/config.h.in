@@ -38,9 +38,11 @@
 
 #undef MUST_REINSTALL_SIGHANDLERS
 
-#undef SPEED_T_IN_SYS_TYPES
+/* Define if you have the mbrtowc function. */
+#undef HAVE_MBRTOWC
 
-#undef STRCOLL_BROKEN
+/* Define if you have the mbsrtowcs function. */
+#undef HAVE_MBSRTOWCS
 
 #undef STRUCT_DIRENT_HAS_D_FILENO
 

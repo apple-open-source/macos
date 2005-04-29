@@ -28,7 +28,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: memmove.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: memmove.c,v 1.4 2000/12/10 02:43:28 tom Exp $")
 
 /****************************************************************************
  *  Author: Thomas E. Dickey <dickey@clark.net> 1998                        *

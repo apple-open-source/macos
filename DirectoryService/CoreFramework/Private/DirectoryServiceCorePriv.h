@@ -37,6 +37,7 @@
 #include <DirectoryServiceCore/COSUtils.h>
 #include <DirectoryServiceCore/CRCCalc.h>
 #include <DirectoryServiceCore/CString.h>
+#include <DirectoryServiceCore/DNSLookups.h>
 #include <DirectoryServiceCore/DSCThread.h>
 #include <DirectoryServiceCore/DSEventSemaphore.h>
 #include <DirectoryServiceCore/DSLThread.h>
@@ -44,6 +45,7 @@
 #include <DirectoryServiceCore/DSMutexSemaphore.h>
 #include <DirectoryServiceCore/DSSemaphore.h>
 #include <DirectoryServiceCore/DSUtils.h>
+#include <DirectoryServiceCore/GetMACAddress.h>
 #include <DirectoryServiceCore/PrivateTypes.h>
 #include <DirectoryServiceCore/ServerModule.h>
 #include <DirectoryServiceCore/ServerModuleLib.h>

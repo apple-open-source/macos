@@ -1,0 +1,23 @@
+--- strcat.3.orig	Fri May 28 16:23:18 2004
++++ strcat.3	Fri May 28 16:23:32 2004
+@@ -114,7 +114,7 @@
+ void
+ foo(const char *arbitrary_string)
+ {
+-	char onstack[8];
++	char onstack[8] = "";
+ 
+ #if defined(BAD)
+ 	/*
+@@ -149,11 +149,6 @@
+ .Xr strcpy 3 ,
+ .Xr strlcat 3 ,
+ .Xr strlcpy 3
+-.Rs
+-.%T "The FreeBSD Security Architecture"
+-.Re
+-(See
+-.Pa "/usr/share/doc/{to be decided}" . )
+ .Sh STANDARDS
+ The
+ .Fn strcat

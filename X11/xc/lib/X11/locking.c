@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/locking.c,v 1.4 2001/12/14 19:54:10 dawes Exp $ */
+/* $XFree86: xc/lib/X11/locking.c,v 1.6 2003/11/17 22:20:12 dawes Exp $ */
 
 /*
  * Author: Stephen Gildea, MIT X Consortium
@@ -74,7 +74,7 @@ _Xthread_waiter()
 }
 #endif /* WIN32 */
 
-static xthread_t _Xthread_self()
+static xthread_t _Xthread_self(void)
 {
     return xthread_self();
 }
@@ -88,28 +88,28 @@ static void _XLockMutex(lip,file,line)
     char* file;
     int line;
 #else
-static void _XLockMutex(lip)
-    LockInfoPtr lip;
+static void _XLockMutex(
+    LockInfoPtr lip)
 #endif
 {
     xmutex_lock(lip->lock);
 }
 
 #if defined(XTHREADS_WARN) || defined(XTHREADS_FILE_LINE)
-static void _XUnlockMutex(lip,file,line)
-    LockInfoPtr lip;
-    char* file;
-    int line;
+static void _XUnlockMutex(
+    LockInfoPtr lip,
+    char* file,
+    int line)
 #else
-static void _XUnlockMutex(lip)
-    LockInfoPtr lip;
+static void _XUnlockMutex(
+    LockInfoPtr lip)
 #endif
 {
     xmutex_unlock(lip->lock);
 }
 
-static void _XCreateMutex(lip)
-    LockInfoPtr lip;
+static void _XCreateMutex(
+    LockInfoPtr lip)
 {
     lip->lock = xmutex_malloc();
     if (lip->lock) {
@@ -118,8 +118,8 @@ static void _XCreateMutex(lip)
     }
 }
 
-static void _XFreeMutex(lip)
-    LockInfoPtr lip;
+static void _XFreeMutex(
+    LockInfoPtr lip)
 {
     xmutex_clear(lip->lock);
     xmutex_free(lip->lock);
@@ -143,10 +143,10 @@ static struct {
 
 int lock_hist_loc = 0;		/* next slot to fill */
 
-static void _XLockDisplayWarn(dpy,file,line)
-    Display *dpy;
-    char *file;			/* source file, from macro */
-    int line;
+static void _XLockDisplayWarn(
+    Display *dpy,
+    char *file,			/* source file, from macro */
+    int line)
 {
     xthread_t self;
     xthread_t old_locker;
@@ -201,8 +201,8 @@ static void _XUnlockDisplay(dpy,file,line)
     char *file;
     int line;
 #else
-static void _XUnlockDisplay(dpy)
-    Display *dpy;
+static void _XUnlockDisplay(
+    Display *dpy)
 #endif
 {
 #ifdef XTHREADS_WARN
@@ -238,8 +238,8 @@ static void _XUnlockDisplay(dpy)
 }
 
 
-static struct _XCVList *_XCreateCVL(dpy)
-    Display *dpy;
+static struct _XCVList *_XCreateCVL(
+    Display *dpy)
 {
     struct _XCVList *cvl;
 
@@ -266,9 +266,9 @@ static struct _XCVList *_XCreateCVL(dpy)
    Allocates and returns a queue element. */
 
 static struct _XCVList *
-_XPushReader(dpy, tail)
-    Display *dpy;
-    struct _XCVList ***tail;
+_XPushReader(
+    Display *dpy,
+    struct _XCVList ***tail)
 {
     struct _XCVList *cvl;
 
@@ -284,10 +284,10 @@ _XPushReader(dpy, tail)
 
 /* signal the next thread waiting to read the connection */
 
-static void _XPopReader(dpy, list, tail)
-    Display *dpy;
-    struct _XCVList **list;
-    struct _XCVList ***tail;
+static void _XPopReader(
+    Display *dpy,
+    struct _XCVList **list,
+    struct _XCVList ***tail)
 {
     register struct _XCVList *front = *list;
 
@@ -330,9 +330,9 @@ static void _XConditionWait(cv, mutex,file,line)
     char *file;
     int line;
 #else
-static void _XConditionWait(cv, mutex)
-    xcondition_t cv;
-    xmutex_t mutex;
+static void _XConditionWait(
+    xcondition_t cv,
+    xmutex_t mutex)
 #endif
 {
 #ifdef XTHREADS_WARN
@@ -380,8 +380,8 @@ static void _XConditionSignal(cv,file,line)
     char *file;
     int line;
 #else
-static void _XConditionSignal(cv)
-    xcondition_t cv;
+static void _XConditionSignal(
+    xcondition_t cv)
 #endif
 {
 #ifdef XTHREADS_WARN
@@ -399,8 +399,8 @@ static void _XConditionBroadcast(cv,file,line)
     char *file;
     int line;
 #else
-static void _XConditionBroadcast(cv)
-    xcondition_t cv;
+static void _XConditionBroadcast(
+    xcondition_t cv)
 #endif
 {
 #ifdef XTHREADS_WARN
@@ -412,8 +412,8 @@ static void _XConditionBroadcast(cv)
 }
     
 
-static void _XFreeDisplayLock(dpy)
-    Display *dpy;
+static void _XFreeDisplayLock(
+    Display *dpy)
 {
     struct _XCVList *cvl;
 
@@ -449,8 +449,8 @@ static void _XFreeDisplayLock(dpy)
  * wait for thread with user-level display lock to release it.
  */
 
-static void _XDisplayLockWait(dpy)
-    Display *dpy;
+static void _XDisplayLockWait(
+    Display *dpy)
 {
     xthread_t self;
 
@@ -468,8 +468,8 @@ static void _XLockDisplay(dpy, file, line)
     char *file;			/* source file, from macro */
     int line;
 #else
-static void _XLockDisplay(dpy)
-    Display *dpy;
+static void _XLockDisplay(
+    Display *dpy)
 #endif
 {
 #ifdef XTHREADS_WARN
@@ -492,9 +492,9 @@ static void _XInternalLockDisplay(dpy, wskip, file, line)
     char *file;			/* source file, from macro */
     int line;
 #else
-static void _XInternalLockDisplay(dpy, wskip)
-    Display *dpy;
-    Bool wskip;
+static void _XInternalLockDisplay(
+    Display *dpy,
+    Bool wskip)
 #endif
 {
 #ifdef XTHREADS_WARN
@@ -506,13 +506,8 @@ static void _XInternalLockDisplay(dpy, wskip)
 	_XDisplayLockWait(dpy);
 }
 
-#if NeedFunctionPrototypes
 static void _XUserLockDisplay(
     register Display* dpy)
-#else
-static void _XUserLockDisplay(dpy)
-    register Display* dpy;
-#endif
 {
     if (++dpy->lock->locking_level == 1) {
 	dpy->lock->lock_wait = _XDisplayLockWait;
@@ -520,13 +515,9 @@ static void _XUserLockDisplay(dpy)
     }
 }
 
-#if NeedFunctionPrototypes
+static
 void _XUserUnlockDisplay(
     register Display* dpy)
-#else
-void _XUserUnlockDisplay(dpy)
-    register Display* dpy;
-#endif
 {
     if (dpy->lock->locking_level > 0 && --dpy->lock->locking_level == 0) {
 	/* signal other threads that might be waiting in XLockDisplay */
@@ -539,8 +530,8 @@ void _XUserUnlockDisplay(dpy)
 /* returns 0 if initialized ok, -1 if unable to allocate
    a mutex or other memory */
 
-static int _XInitDisplayLock(dpy)
-    Display *dpy;
+static int _XInitDisplayLock(
+    Display *dpy)
 {
     dpy->lock_fns = (struct _XLockPtrs*)Xmalloc(sizeof(struct _XLockPtrs));
     if (dpy->lock_fns == NULL)

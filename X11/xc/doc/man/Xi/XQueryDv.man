@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XQueryDv.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XQueryDv.man,v 1.3 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,11 +17,8 @@
 .SH NAME
 XQueryDeviceState \- query the state of an extension input device.
 .SH SYNTAX
-XQueryDeviceState\^(\^\fIdisplay\fP, \fIdevice\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^; 
+.HP
+int XQueryDeviceState\^(\^Display *\fIdisplay\fP\^, XDevice *\fIdevice\fP\^); 
 .SH ARGUMENTS
 .TP 12
 .I display

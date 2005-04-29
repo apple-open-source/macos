@@ -1,7 +1,8 @@
 /* Copyright (C) 2001 Free Software Foundation, Inc.  */
 
 /* { dg-do compile } */
-/* { dg-options "-std=gnu99 -pedantic -Wtraditional" } */
+/* APPLE LOCAL -Wlong-double */
+/* { dg-options "-std=gnu99 -pedantic -Wtraditional -fno-show-column -Wno-long-double" } */
 
 /* Tests diagnostics are suppressed for some macros defined in system
    headers.  */

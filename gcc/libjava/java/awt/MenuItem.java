@@ -1,5 +1,5 @@
 /* MenuItem.java -- An item in a menu
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,10 +38,10 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.peer.MenuItemPeer;
-import java.awt.peer.MenuComponentPeer;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.peer.MenuItemPeer;
+import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.EventListener;
 
@@ -50,7 +50,8 @@ import java.util.EventListener;
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
-public class MenuItem extends MenuComponent implements java.io.Serializable
+public class MenuItem extends MenuComponent
+  implements Serializable
 {
 
 // FIXME: The enabled event mask is not used at this time.
@@ -76,7 +77,7 @@ private String actionCommand;
 /**
   * @serial Indicates whether or not this menu item is enabled.
   */
-private boolean enabled;
+private boolean enabled = true;
 
 /**
   * @serial The mask of events that are enabled for this menu item.
@@ -201,15 +202,7 @@ isEnabled()
 public synchronized void
 setEnabled(boolean enabled)
 {
-  if (enabled == this.enabled)
-    return;
-
-  this.enabled = enabled;
-  if (peer != null)
-    {
-      MenuItemPeer mp = (MenuItemPeer) peer;
-      mp.setEnabled (enabled);
-    }
+  enable (enabled);
 }
 
 /*************************************************************************/
@@ -225,7 +218,10 @@ setEnabled(boolean enabled)
 public void
 enable(boolean enabled)
 {
-  setEnabled(enabled);
+  if (enabled)
+    enable ();
+  else
+    disable ();
 }
 
 /*************************************************************************/
@@ -238,7 +234,12 @@ enable(boolean enabled)
 public void
 enable()
 {
-  setEnabled(true);
+  if (enabled)
+    return;
+
+  this.enabled = true;
+  if (peer != null)
+    ((MenuItemPeer) peer).setEnabled (true);
 }
 
 /*************************************************************************/
@@ -251,7 +252,12 @@ enable()
 public void
 disable()
 {
-  setEnabled(false);
+  if (!enabled)
+    return;
+
+  this.enabled = false;
+  if (peer != null)
+    ((MenuItemPeer) peer).setEnabled (false);
 }
 
 /*************************************************************************/
@@ -304,7 +310,10 @@ deleteShortcut()
 public String
 getActionCommand()
 {
-  return(actionCommand);
+  if (actionCommand == null)
+    return label;
+  else
+    return actionCommand;
 }
 
 /*************************************************************************/
@@ -360,7 +369,7 @@ disableEvents(long events)
 public void
 addNotify()
 {
-  if (peer != null)
+  if (peer == null)
     peer = getToolkit ().createMenuItem (this);
 }
 
@@ -415,6 +424,11 @@ dispatchEventImpl(AWTEvent e)
       && (action_listeners != null
 	  || (eventMask & AWTEvent.ACTION_EVENT_MASK) != 0))
     processEvent(e);
+
+  // Send the event to the parent menu if it has not yet been
+  // consumed.
+  if (!e.isConsumed ())
+    ((Menu) getParent ()).processEvent (e);
 }
 
 /**

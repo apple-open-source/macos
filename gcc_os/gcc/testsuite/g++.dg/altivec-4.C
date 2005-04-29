@@ -116,11 +116,11 @@ int main(void)
     CHECK_INVARIANT (sizeof(struct foo) == 8 && sizeof(struct vfoo) == 48);
 
     bar(i_1, x_g, (short)i_2, (float)d_2, ld_1, (char)i_1, d_3);
-    baz(i_1, v_g,     /* { dg-bogus "non-POD type" { target *-*-* } 122 } */
-	i_1, vx_g,    /* { dg-bogus "non-POD type" { target *-*-* } 122 } */
-	i_1, v2_g,    /* { dg-bogus "non-POD type" { target *-*-* } 122 } */
+    baz(i_1, v_g,     /* { dg-bogus "non-POD type" "" { target *-*-* } 122 } */
+	i_1, vx_g,    /* { dg-bogus "non-POD type" "" { target *-*-* } 122 } */
+	i_1, v2_g,    /* { dg-bogus "non-POD type" "" { target *-*-* } 122 } */
 	i_1, vx2_g);  /* { dg-bogus "non-POD type" } */
-    quux(i_1, v_g,    /* { dg-bogus "non-POD type" { target *-*-* } 124 } */
+    quux(i_1, v_g,    /* { dg-bogus "non-POD type" "" { target *-*-* } 124 } */
 	v_g);         /* { dg-bogus "non-POD type" } */
     baz2(i_1, vx_g);  /* { dg-bogus "non-POD type" } */
     

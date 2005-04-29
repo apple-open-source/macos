@@ -1,5 +1,5 @@
 /*
- * Copyright 1992-2002 by Alan Hourihane, Sychdyn, North Wales, UK.
+ * Copyright 1992-2003 by Alan Hourihane, North Wales, UK.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -23,7 +23,7 @@
  * 
  * BladeXP accelerated options.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/xp_accel.c,v 1.4 2002/10/09 16:38:20 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/xp_accel.c,v 1.8 2004/02/20 23:34:12 alanh Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -120,17 +120,6 @@ XPAccelInit(ScreenPtr pScreen)
     XAAInfoRecPtr infoPtr;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     TRIDENTPtr pTrident = TRIDENTPTR(pScrn);
-    BoxRec AvailFBArea;
-
-    AvailFBArea.x1 = 0;
-    AvailFBArea.y1 = 0;
-    AvailFBArea.x2 = pScrn->displayWidth;
-    AvailFBArea.y2 = (pTrident->FbMapSize - 4096) / (pScrn->displayWidth *
-					    pScrn->bitsPerPixel / 8);
-
-    if (AvailFBArea.y2 > 2047) AvailFBArea.y2 = 2047;
-
-    xf86InitFBManager(pScreen, &AvailFBArea);
 
     if (pTrident->NoAccel)
 	return FALSE;

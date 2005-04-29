@@ -1,4 +1,4 @@
-dnl $Id: configure.in,v 1.1.1.1 2003/01/27 19:05:31 jlovell Exp $
+dnl $Id: configure.in,v 1.2 2004/05/13 19:39:50 jlovell Exp $
 dnl Copyright (C) 2000 Roger Leigh
 dnl
 dnl This program is free software; you can redistribute it and/or modify
@@ -59,10 +59,10 @@ dnl For more detailed information, see the libtool info documentation.
 dnl
 GIMPPRINT_MAJOR_VERSION=4
 GIMPPRINT_MINOR_VERSION=2
-GIMPPRINT_MICRO_VERSION=5
-GIMPPRINT_EXTRA_VERSION=
+GIMPPRINT_MICRO_VERSION=6
+GIMPPRINT_EXTRA_VERSION=-1
 GIMPPRINT_CURRENT_INTERFACE=2
-GIMPPRINT_INTERFACE_AGE=0
+GIMPPRINT_INTERFACE_AGE=1
 GIMPPRINT_BINARY_AGE=1
 GIMPPRINT_VERSION=$GIMPPRINT_MAJOR_VERSION.$GIMPPRINT_MINOR_VERSION.$GIMPPRINT_MICRO_VERSION$GIMPPRINT_EXTRA_VERSION
 dnl
@@ -94,7 +94,7 @@ dnl Specify a configuration file.
 AM_CONFIG_HEADER(config.h)
 
 dnl Available languages (translations)
-ALL_LINGUAS="en_GB sv no fr da pl sk el nl es pt de ja"
+ALL_LINGUAS="en_GB sv no fr da pl sk el nl es pt de ja cs"
 AC_SUBST(ALL_LINGUAS)
 
 dnl Compiler options and definitions
@@ -106,35 +106,21 @@ AC_DIVERT_PUSH(AC_DIVERSION_NOTICE)dnl
 BUILD_GIMP='(automatic)'
 USE_READLINE='yes'
 EXTRA_LIBREADLINE_DEPS=''
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 BUILD_CUPS='(automatic)'
 BUILD_TRANSLATED_PPDS='yes'
 USE_LEVEL3_PS='no'
 BUILD_GHOST='no'
 BUILD_FOOMATIC='(automatic)'
 BUILD_FOOMATIC_3='(automatic)'
+BUILD_FOOMATIC_OLDIDS='(automatic)'
 BUILD_IJS='(automatic)'
 BUILD_TEST='no'
 BUILD_TESTPATTERN='no'
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 BUILD_ESCPUTIL='yes'
-BUILD_LIBGIMPPRINT='yes'
 INSTALL_SAMPLES='yes'
 INSTALL_USER_GUIDE='yes'
 PLUG_IN_PATH='admin-bin'
 AC_DIVERT_POP()dnl
-
-dnl Check if we are a part of the GIMP source tree, or independent
-dnl and adjust defaults accordingly
-AC_MSG_CHECKING([for the presence of the GIMP source tree])
-if test -f ../../gimptool.1.in ; then
-  AC_MSG_RESULT([yes])
-  GIMP_SOURCE_TREE_SUBDIR=yes
-  BUILD_LIBGIMPPRINT=no
-else
-  AC_MSG_RESULT([no])
-  GIMP_SOURCE_TREE_SUBDIR=no
-fi
 
 AM_MAINTAINER_MODE
 if test x${USE_MAINTAINER_MODE} = xyes ; then
@@ -151,13 +137,20 @@ elif test "`echo ${host_os} | sed 's/^\(linux\).*$/\1/'`" = "linux" ; then
   OSTYPE="linux"
 elif test "`echo ${host_os} | sed 's/^\(irix\).*$/\1/'`" = "irix" ; then
   OSTYPE="irix"
+elif test "`echo ${host_os} | sed 's/^\(darwin\).*$/\1/'`" = "darwin" ; then
+  OSTYPE="darwin"
 else
   OSTYPE="${host_os}"
 fi
 AC_DEFINE(OSTYPE, ["${OSTYPE}"], [The operating system to build for])
 
+if test x${host_os} = xdarwin; then
+  LIBM=""
+else
+  LIBM="-lm"
+fi
+
 dnl Command line options.
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 AC_PATH_PROG(CUPS_CONFIG, cups-config)
 if test -z "${CUPS_CONFIG}" ; then
   BUILD_CUPS="no"
@@ -179,6 +172,8 @@ AC_ARG_WITH(cups,
          AC_MSG_ERROR([${withval}: no such directory for --with-cups])
        fi ;;
   esac],[AC_MSG_RESULT([${BUILD_CUPS}]) ; cups_prefix="${prefix}"])
+
+
 
 AC_MSG_CHECKING([whether to build translated CUPS PPD files])
 AC_ARG_WITH(translated-ppds,
@@ -242,6 +237,40 @@ AC_ARG_WITH(foomatic3,
        AC_MSG_ERROR([bad value ${withval} for --with-foomatic3]) ;;
   esac],[AC_MSG_RESULT([${BUILD_FOOMATIC_3}])])
 
+if test "${FOOMATIC_CONFIGURE}" ; then
+  AC_MSG_CHECKING([Foomatic printer IDs])
+  foomatic_libdir=`perl -e 'use Foomatic::Defaults; print "$libdir\n";';`
+  if [[ -d $foomatic_libdir/db/source/printer/ ]]; then
+    for file in `ls -1 $foomatic_libdir/db/source/printer/`; do
+      if ( grep -q ^${file%.xml} ${srcdir}/src/foomatic/oldprinterids ); then
+        oldids=1
+	AC_MSG_RESULT([Found entry with old Foomatic printer ID!])
+        break
+      fi
+      echo -en .
+    done
+    if test -z "${oldids}" ; then
+      AC_MSG_RESULT([No entry with old Foomatic printer ID found!])
+    fi
+  else
+    AC_MSG_RESULT([Could't find Foomatic database!])
+  fi
+fi
+if test -z "${oldids}" ; then
+  BUILD_FOOMATIC_OLDIDS="no"
+else
+  BUILD_FOOMATIC_OLDIDS="yes"
+fi
+AC_MSG_CHECKING([whether to use the old numerical Foomatic printer IDs])
+AC_ARG_WITH(foomatic-oldids,
+[  --with-foomatic-oldids  use old Foomatic printer IDs [default=${BUILD_FOOMATIC_OLDIDS}]],
+  [case "${withval}" in
+    yes) BUILD_FOOMATIC="yes" ; BUILD_FOOMATIC_OLDIDS="yes" ; AC_MSG_RESULT([yes]) ;;
+    no) BUILD_FOOMATIC_OLDIDS="no" ; AC_MSG_RESULT([no]) ;;
+    *) AC_MSG_RESULT([unknown])
+       AC_MSG_ERROR([bad value ${withval} for --with-foomatic3]) ;;
+  esac],[AC_MSG_RESULT([${BUILD_FOOMATIC_OLDIDS}])])
+
 AC_PATH_PROG(IJS_CONFIG, ijs-config)
 if test -z "${IJS_CONFIG}" ; then
   BUILD_IJS="no"
@@ -257,7 +286,6 @@ AC_ARG_WITH(ijs,
     *) AC_MSG_RESULT([unknown])
        AC_MSG_ERROR([bad value ${withval} for --with-ijs]) ;;
   esac],[AC_MSG_RESULT([${BUILD_IJS}])])
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 
 AC_MSG_CHECKING([whether to turn on debugging in build])
 AC_ARG_ENABLE(debug,
@@ -329,17 +357,6 @@ AC_ARG_ENABLE(escputil,
        AC_MSG_ERROR([bad value ${enableval} for --enable-escputil]) ;;
   esac],[AC_MSG_RESULT([${BUILD_ESCPUTIL}])])
 
-AC_MSG_CHECKING([whether to build libgimpprint])
-AC_ARG_ENABLE(libgimpprint,
-[  --enable-libgimpprint   build libgimpprint [default=${BUILD_LIBGIMPPRINT}]],
-  [case "${enableval}" in
-    yes) BUILD_LIBGIMPPRINT="yes" ; AC_MSG_RESULT([yes]) ;;
-    no) BUILD_LIBGIMPPRINT="no" ; AC_MSG_RESULT([no]) ;;
-    *) AC_MSG_RESULT([unknown])
-       AC_MSG_ERROR([bad value ${enableval} for --enable-libgimpprint]) ;;
-  esac],[AC_MSG_RESULT([${BUILD_LIBGIMPPRINT}])])
-
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 AC_MSG_CHECKING([whether to build testpattern generator])
 AC_ARG_WITH(testpattern,
 [  --with-testpattern      build testpattern generator [default=${BUILD_TESTPATTERN}]],
@@ -359,7 +376,6 @@ AC_ARG_ENABLE(test,
     *) AC_MSG_RESULT([unknown])
        AC_MSG_ERROR([bad value ${enableval} for --enable-test]) ;;
   esac],[AC_MSG_RESULT([${BUILD_TEST}])])
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 
 AC_MSG_CHECKING([if user install is enabled])
 AC_ARG_ENABLE(user-install,
@@ -428,7 +444,6 @@ if test x${USE_MAINTAINER_MODE} = xyes ; then
     AC_MSG_WARN([HTML user's guide cannot be regenerated!])
   fi
 fi
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 dnl foomatic checks
 if test x${BUILD_FOOMATIC} = xyes ; then
   AC_PATH_PROG(FOOMATIC_KITLOAD, foomatic-kitload,,$PATH:/usr/sbin:/usr/local/sbin)
@@ -445,7 +460,6 @@ if test x${BUILD_IJS} = xyes ; then
   IJS_CFLAGS=`$IJS_CONFIG --cflags`
   IJS_LIBS=`$IJS_CONFIG --libs`
 fi
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 
 dnl Set up libtool scripts.
 dnl Disable static library building to speed up the build
@@ -457,7 +471,14 @@ dnl define HAVE_GNU_LD if GNU ld is present
 if test "$ac_cv_prog_gnu_ld" = "yes" ; then
   AC_DEFINE(HAVE_GNU_LD,, [Define if GNU ld is present.])
 fi
-  
+
+AM_CONDITIONAL(BUILD_GENPPD_STATIC, test x"$enable_static" = xyes)
+
+if test "$enable_static" = no -a "$BUILD_CUPS" = yes ; then
+  AC_MSG_WARN([--enable-static is disabled, but CUPS is being built.])
+  AC_MSG_WARN([This may result in a *SILENTLY* incorrect build.])
+  AC_MSG_WARN([Please read the release notes carefully!])
+fi
 
 dnl GNU gettext checks.
 AM_GNU_GETTEXT
@@ -541,11 +562,10 @@ else
   AC_DEFINE(HAVE_LIBREADLINE, [0])
 fi
 
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 dnl check for libm, and also add to CUPS LIBS
 AC_CHECK_LIB(m,pow,
-  GIMPPRINT_DEPLIBS="${GIMPPRINT_DEPLIBS} -lm"
-  CUPS_LIBS="${CUPS_LIBS} -lm")
+  GIMPPRINT_DEPLIBS="${GIMPPRINT_DEPLIBS} ${LIBM}"
+  CUPS_LIBS="${CUPS_LIBS} ${LIBM}")
 dnl CUPS library checks
 if test x${BUILD_CUPS} = xyes ; then
   AC_CHECK_LIB(z,gzgets,
@@ -621,21 +641,13 @@ if test x${BUILD_CUPS} = xyes ; then
     fi
   fi
 fi
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 
 dnl GIMP library checks
 if test x${BUILD_GIMP} = xyes -o -n "${BUILD_PACKAGE}" ; then
-  if test x$GIMP_SOURCE_TREE_SUBDIR = xyes ; then
-    AM_PATH_GTK
-    AM_PATH_GLIB
-    GIMP_CFLAGS="-I\$(top_srcdir)/../.. \$(GTK_CFLAGS) \$(GLIB_CFLAGS)"
-    GIMP_LIBS="\$(GTK_LIBS) \$(GLIB_LIBS) \$(top_builddir)/../../libgimp/libgimp.la  \$(top_builddir)/../../libgimp/libgimpui.la"
-  else
-    AM_PATH_GIMP(1.2.0,
-                 [SAVE_GTK_LIBS="$GIMP_LIBS"
-                  SAVE_GTK_CFLAGS="$GIMP_CFLAGS"],
-                  AC_MSG_ERROR(Cannot find GIMP libraries: Please run ldconfig as root, make sure gimptool is on your PATH, and if applicable ensure that you have the GIMP, GTK, and GLIB development packages installed.))
-  fi
+  AM_PATH_GIMP(1.2.0,
+               [SAVE_GTK_LIBS="$GIMP_LIBS"
+                SAVE_GTK_CFLAGS="$GIMP_CFLAGS"],
+                AC_MSG_ERROR(Cannot find GIMP libraries: Please run ldconfig as root, make sure gimptool is on your PATH, and if applicable ensure that you have the GIMP, GTK, and GLIB development packages installed.))
 fi
 
 # Locate the GIMP plugin directory using libtool
@@ -699,7 +711,6 @@ AC_CHECK_FUNC(getopt_long,
   LIBOBJS="${LIBOBJS} getopt.o getopt1.o")
 
 dnl Define what has to be built
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 if test x${BUILD_FOOMATIC} = xyes ; then
   FOOMATIC_NOINST_BIN='$(FOOMATIC_NOINST_BIN)'
 fi
@@ -709,6 +720,11 @@ if test x${BUILD_FOOMATIC_3} = xyes ; then
   FOOMATIC_3_NOINST_BIN='$(FOOMATIC_3_NOINST_BIN)'
 fi
 AM_CONDITIONAL(BUILD_FOOMATIC_3, test x${BUILD_FOOMATIC_3} = xyes)
+
+if test x${BUILD_FOOMATIC_OLDIDS} = xyes ; then
+  FOOMATIC_OLDIDS_NOINST_BIN='$(FOOMATIC_OLDIDS_NOINST_BIN)'
+fi
+AM_CONDITIONAL(BUILD_FOOMATIC_OLDIDS, test x${BUILD_FOOMATIC_OLDIDS} = xyes)
 
 if test x${BUILD_IJS} = xyes ; then
   IJS_BIN='$(IJS_BIN)'
@@ -753,38 +769,14 @@ if test x${BUILD_TESTPATTERN} = xyes ; then
   TESTPATTERN_BIN='$(TESTPATTERN_BIN)'
 fi
 AM_CONDITIONAL(BUILD_TESTPATTERN, test x${BUILD_TESTPATTERN} = xyes)
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 
 if test x${BUILD_GIMP} = xyes ; then
   GIMP_BIN='$(GIMP_BIN)'
 fi
 AM_CONDITIONAL(BUILD_GIMP, test x${BUILD_GIMP} = xyes)
 
-if test x${BUILD_LIBGIMPPRINT} = xyes ; then
-  MAIN_BIN='$(MAIN_BIN)'
-  MAIN_DAT='$(MAIN_DAT)'
-  MAIN_MAN='$(MAIN_MAN)'
-  MAIN_SCR='$(MAIN_SCR)'
-  LIBGIMPPRINT_LIBS="\$(top_builddir)/src/main/libgimpprint.la"
-  GIMP_PRINT_H="gimp-print.h"
-  INCLUDE_GIMP_PRINT_H="\"gimp-print/gimp-print.h\""
-else
-  AM_PATH_GIMPPRINT(
-    $GIMPPRINT_VERSION,
-    [LIBGIMPPRINT_CFLAGS="${GIMPPRINT_CFLAGS}"
-      LIBGIMPPRINT_LIBS="${GIMPPRINT_LIBS}"
-      INCLUDE_GIMP_PRINT_H="<gimp-print/gimp-print.h>"],
-    [AC_MSG_WARN([Cannot find current GIMP-PRINT library: building included libgimpprint])
-      MAIN_BIN='$(MAIN_BIN)'
-      MAIN_DAT='$(MAIN_DAT)'
-      MAIN_MAN='$(MAIN_MAN)'
-      MAIN_SCR='$(MAIN_SCR)'
-      LIBGIMPPRINT_LIBS="\$(top_builddir)/src/main/libgimpprint.la"
-      GIMP_PRINT_H="gimp-print/gimp-print.h"
-      INCLUDE_GIMP_PRINT_H="\"gimp-print/gimp-print.h\""]
-  )
-fi
-AM_CONDITIONAL(BUILD_LIBGIMPPRINT, test x${BUILD_LIBGIMPPRINT} = xyes)
+LIBGIMPPRINT_LIBS="\$(top_builddir)/src/main/libgimpprint.la"
+INCLUDE_GIMP_PRINT_H="\"gimp-print/gimp-print.h\""
 
 if test x${INSTALL_SAMPLES} = xyes ; then
   SAMPLE_IMAGES='$(SAMPLE_IMAGES)'
@@ -796,7 +788,6 @@ if test x${INSTALL_USER_GUIDE} = xyes ; then
 fi
 AM_CONDITIONAL(INSTALL_USER_GUIDE, test x${INSTALL_USER_GUIDE} = xyes)
 
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 
 dnl CUPS path setup
 dnl Fix "prefix" variable if it hasn't been specified...
@@ -847,27 +838,23 @@ fi
 
 AM_CONDITIONAL(USE_NLS, test x${USE_NLS} = xyes)
 
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 
 dnl Define LTLIBOBJS
 LTLIBOBJS=`echo "$LIBOBJS" | sed 's/\.o/.lo/g'`
 LTALLOCA=`echo "$ALLOCA" | sed 's/\.o/.lo/g'`
 
 dnl Definitions
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 AC_DEFINE_UNQUOTED(CUPS_DATADIR, "$cups_conf_datadir", [CUPS data directory.])
 AC_DEFINE_UNQUOTED(CUPS_PPD_PS_LEVEL, ${CUPS_PPD_PS_LEVEL}, [CUPS PPD PostScript level])
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 
 AC_DEFINE_UNQUOTED(INCLUDE_GIMP_PRINT_H, ${INCLUDE_GIMP_PRINT_H}, [GIMP-Print header to include.])
-RELEASE_DATE="24 Jan 2003"
+RELEASE_DATE="11 Jan 2004"
 AC_DEFINE_UNQUOTED(RELEASE_DATE, "${RELEASE_DATE}", [Package release date.])
 
 dnl Some versions of make get very grouchy about $(RM)
 RM='rm'
 
 dnl Substitutions
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 AC_SUBST(cups_prefix)
 AC_SUBST(cups_exec_prefix)
 AC_SUBST(cups_bindir)
@@ -887,6 +874,7 @@ AC_SUBST(CUPS_PPD_PS_LEVEL)
 AC_SUBST(CUPS_NOINST_BIN)
 AC_SUBST(FOOMATIC_NOINST_BIN)
 AC_SUBST(FOOMATIC_3_NOINST_BIN)
+AC_SUBST(FOOMATIC_OLDIDS_NOINST_BIN)
 AC_SUBST(FOOMATIC_INSTALL)
 AC_SUBST(IJS_BIN)
 AC_SUBST(IJS_INSTALL)
@@ -894,7 +882,6 @@ AC_SUBST(IJS_CFLAGS)
 AC_SUBST(IJS_LIBS)
 AC_SUBST(TEST_BIN)
 AC_SUBST(TESTPATTERN_BIN)
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 AC_SUBST(RM)
 AC_SUBST(ESCPUTIL_BIN)
 AC_SUBST(ESCPUTIL_MAN)
@@ -902,7 +889,6 @@ AC_SUBST(GIMP_BIN)
 AC_SUBST(GIMP_CFLAGS)
 AC_SUBST(GIMP_LIBS)
 AC_SUBST(gimp_plug_indir)
-AC_SUBST(GIMP_PRINT_H)
 AC_SUBST(GIMPPRINT_CFLAGS)
 AC_SUBST(GIMPPRINT_LIBS)
 AC_SUBST(GIMPPRINT_DEPLIBS)
@@ -911,7 +897,8 @@ AC_SUBST(gimpprint_cflags)
 gimpprint_libs="${GIMPPRINT_LIBS} ${GIMPPRINT_DEPLIBS}"
 AC_SUBST(gimpprint_libs)
 AC_SUBST(INCLUDES)
-LIBGIMPPRINT_LIBS="${LIBGIMPPRINT_LIBS} ${GIMPPRINT_DEPLIBS}"
+AC_SUBST(LIBM)
+LIBGIMPPRINT_LIBS="${LIBGIMPPRINT_LIBS}"
 AC_SUBST(LIBGIMPPRINT_LIBS)
 AC_SUBST(LIBREADLINE_DEPS)
 AC_SUBST(LTLIBOBJS)
@@ -947,21 +934,17 @@ man/gimpprint-mediasizes.7 man/gimpprint-mediasources.7
 man/gimpprint-mediatypes.7 man/gimpprint-models.7 man/gimpprint-resolutions.7
 man/ijsgimpprint.1 po/Makefile.in samples/Makefile
 src/Makefile src/escputil/Makefile src/gimp/Makefile
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 cups-gimpprint.list man/cups-calibrate.8 src/testpattern/Makefile
 src/cups/Makefile src/foomatic/Makefile test/Makefile
 src/foomatic/foomatic-generator src/ghost/Makefile src/ghost/contrib.mak.addon
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 src/main/Makefile src/main/gimpprint-config src/printdef/Makefile
 ],[
 chmod +x src/main/gimpprint-config
-dnl @-@-@-@-@ NO-GIMP @-@-@-@-@
 chmod +x src/foomatic/foomatic-generator
 if test -f src/ghost/contrib.mak.addon ; then
   sed -e 's;${exec_prefix};'"${exec_prefix};" -e 's;${prefix};'"${prefix};" src/ghost/contrib.mak.addon > src/ghost/contrib.mak.addon.tmp
   mv src/ghost/contrib.mak.addon.tmp src/ghost/contrib.mak.addon
 fi
-dnl @-@-@-@-@ YES-GIMP @-@-@-@-@
 echo "Finished configuring."
 echo "Type 'make' to build the package"
 echo "then 'make install' to install it."

@@ -44,14 +44,21 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 
 #include <sys/param.h>
 #include <sys/stat.h>
+#ifdef __APPLE__
+#include <sys/acl.h>
+#include <sys/types.h>
+#include <grp.h>
+#include <pwd.h>
+#include <membership.h>
+#include <membershipPriv.h>
+#include <uuid/uuid.h>
+#endif
 
 #include <err.h>
 #include <errno.h>
 #include <fts.h>
 #include <math.h>
-#ifndef __APPLE__
 #include <langinfo.h>
-#endif /* __APPLE__ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -154,6 +161,162 @@ printname(const char *name)
 		return printf("%s", name);
 }
 
+/*
+ * print access control list
+ */
+static struct {
+	acl_perm_t	perm;
+	char		*name;
+	int		flags;
+#define ACL_PERM_DIR	(1<<0)
+#define ACL_PERM_FILE	(1<<1)
+} acl_perms[] = {
+	{ACL_READ_DATA,		"read",		ACL_PERM_FILE},
+	{ACL_LIST_DIRECTORY,	"list",		ACL_PERM_DIR},
+	{ACL_WRITE_DATA,	"write",	ACL_PERM_FILE},
+	{ACL_ADD_FILE,		"add_file",	ACL_PERM_DIR},
+	{ACL_EXECUTE,		"execute",	ACL_PERM_FILE},
+	{ACL_SEARCH,		"search",	ACL_PERM_DIR},
+	{ACL_DELETE,		"delete",	ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_APPEND_DATA,	"append",	ACL_PERM_FILE},
+	{ACL_ADD_SUBDIRECTORY,	"add_subdirectory", ACL_PERM_DIR},
+	{ACL_DELETE_CHILD,	"delete_child",	ACL_PERM_DIR},
+	{ACL_READ_ATTRIBUTES,	"readattr",	ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_WRITE_ATTRIBUTES,	"writeattr",	ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_READ_EXTATTRIBUTES, "readextattr",	ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_WRITE_EXTATTRIBUTES, "writeextattr", ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_READ_SECURITY,	"readsecurity",	ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_WRITE_SECURITY,	"writesecurity", ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_CHANGE_OWNER,	"chown",	ACL_PERM_FILE | ACL_PERM_DIR},
+	{0, NULL, 0}
+};
+
+static struct {
+	acl_flag_t	flag;
+	char		*name;
+	int		flags;
+} acl_flags[] = {
+	{ACL_ENTRY_FILE_INHERIT, 	"file_inherit",		ACL_PERM_DIR},
+	{ACL_ENTRY_DIRECTORY_INHERIT,	"directory_inherit",	ACL_PERM_DIR},
+	{ACL_ENTRY_LIMIT_INHERIT,	"limit_inherit",	ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_ENTRY_ONLY_INHERIT,	"only_inherit",		ACL_PERM_DIR},
+	{0, NULL, 0}
+};
+
+static char *
+uuid_to_name(uuid_t *uu) 
+{
+  int is_gid = -1;
+  struct group *tgrp = NULL;
+  struct passwd *tpass = NULL;
+  char *name = NULL;
+  uid_t id;
+
+
+#define MAXNAMETAG (MAXLOGNAME + 6) /* + strlen("group:") */
+  name = (char *) malloc(MAXNAMETAG);
+  
+  if (NULL == name)
+	  err(1, "malloc");
+
+  if (0 != mbr_uuid_to_id(uu, &id, &is_gid))
+	  goto errout;
+  
+  switch (is_gid) {
+  case ID_TYPE_UID:
+	  tpass = getpwuid(id);
+	  if (!tpass) {
+		  goto errout;
+	  }
+	  snprintf(name, MAXNAMETAG, "%s:%s", "user", tpass->pw_name);
+	  break;
+  case ID_TYPE_GID:
+	  tgrp = getgrgid((gid_t) id);
+	  if (!tgrp) {
+		  goto errout;
+	  }
+	  snprintf(name, MAXNAMETAG, "%s:%s", "group", tgrp->gr_name);
+	  break;
+  default:
+	  if (0 != mbr_uuid_to_string(uu, name))
+		  goto errout;
+  }
+  return name;
+ errout:
+  fprintf(stderr, "Unable to translate qualifier on ACL\n");
+  strcpy(name, "<UNKNOWN>");
+  return name;
+}
+
+static void
+printacl(acl_t acl, int isdir)
+{
+	acl_entry_t	entry;
+	int		index;
+	uuid_t		*applicable;
+	char		*name = NULL;
+	acl_tag_t	tag;
+	acl_flagset_t	flags;
+	acl_permset_t	perms;
+	char		*type;
+	int		i, first;
+	
+
+	for (index = 0;
+	     acl_get_entry(acl, entry == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY, &entry) == 0;
+	     index++) {
+		if ((applicable = (uuid_t *) acl_get_qualifier(entry)) == NULL)
+			continue;
+		if (acl_get_tag_type(entry, &tag) != 0)
+			continue;
+		if (acl_get_flagset_np(entry, &flags) != 0)
+			continue;
+		if (acl_get_permset(entry, &perms) != 0)
+			continue;
+
+		name = uuid_to_name(applicable);
+		acl_free(applicable);
+
+		switch(tag) {
+		case ACL_EXTENDED_ALLOW:
+			type = "allow";
+			break;
+		case ACL_EXTENDED_DENY:
+			type = "deny";
+			break;
+		default:
+			type = "unknown";
+		}
+
+		(void)printf(" %d: %s%s %s ",
+		    index,
+		    name,
+		    acl_get_flag_np(flags, ACL_ENTRY_INHERITED) ? " inherited" : "",
+		    type);
+
+		if (name)
+			free(name);
+
+		for (i = 0, first = 0; acl_perms[i].name != NULL; i++) {
+			if (acl_get_perm_np(perms, acl_perms[i].perm) == 0)
+				continue;
+			if (!(acl_perms[i].flags & (isdir ? ACL_PERM_DIR : ACL_PERM_FILE)))
+				continue;
+			(void)printf("%s%s", first++ ? "," : "", acl_perms[i].name);
+		}
+		for (i = 0; acl_flags[i].name != NULL; i++) {
+			if (acl_get_flag_np(flags, acl_flags[i].flag) == 0)
+				continue;
+			if (!(acl_flags[i].flags & (isdir ? ACL_PERM_DIR : ACL_PERM_FILE)))
+				continue;
+			(void)printf("%s%s", first++ ? "," : "", acl_flags[i].name);
+		}
+			
+		(void)putchar('\n');
+	}
+
+}
+
 void
 printlong(DISPLAY *dp)
 {
@@ -161,6 +324,10 @@ printlong(DISPLAY *dp)
 	FTSENT *p;
 	NAMES *np;
 	char buf[20];
+#ifdef __APPLE__
+	acl_t acl = NULL;
+	char full_path[MAXPATHLEN];
+#endif
 #ifdef COLORLS
 	int color_printed = 0;
 #endif
@@ -179,15 +346,37 @@ printlong(DISPLAY *dp)
 			    dp->s_block, (u_int64_t)howmany(sp->st_blocks, blocksize));
 		strmode(sp->st_mode, buf);
 		np = p->fts_pointer;
-		(void)printf("%s %*u %-*s  %-*s  ", buf, dp->s_nlink,
-		    sp->st_nlink, dp->s_user, np->user, dp->s_group,
-		    np->group);
+#ifdef __APPLE__
+		if (p->fts_parent->fts_name && *p->fts_parent->fts_name)
+		{
+		    snprintf(full_path, sizeof full_path, "%s/%s",
+			    p->fts_parent->fts_accpath, p->fts_accpath);
+		    acl = acl_get_file(full_path, ACL_TYPE_EXTENDED);
+		} else
+		    acl = acl_get_file(p->fts_accpath, ACL_TYPE_EXTENDED);
+#endif /* __APPLE__ */
+		if (f_group) {
+#ifdef __APPLE__
+			(void)printf("%s%s %*u %-*s  ", buf, acl == NULL ? " " : "+", dp->s_nlink,
+				     sp->st_nlink, dp->s_group, np->group);
+#else  /* ! __APPLE__ */
+			(void)printf("%s %*u %-*s  ", buf, dp->s_nlink,
+				     sp->st_nlink, dp->s_group, np->group);
+#endif /* __APPLE__ */
+		}
+		else {
+#ifdef __APPLE__
+			(void)printf("%s%s %*u %-*s  %-*s  ", buf, acl == NULL ? " " : "+", dp->s_nlink,
+				     sp->st_nlink, dp->s_user, np->user, dp->s_group,
+				     np->group);
+#else  /* ! __APPLE__ */
+			(void)printf("%s %*u %-*s  %-*s  ", buf, dp->s_nlink,
+				     sp->st_nlink, dp->s_user, np->user, dp->s_group,
+				     np->group);
+#endif /* ! __APPLE__ */
+		}
 		if (f_flags)
 			(void)printf("%-*s ", dp->s_flags, np->flags);
-#ifndef __APPLE__
-		if (f_lomac)
-			(void)printf("%-*s ", dp->s_lattr, np->lattr);
-#endif /* __APPLE__ */
 		if (S_ISCHR(sp->st_mode) || S_ISBLK(sp->st_mode))
 			if (minor(sp->st_rdev) > 255 || minor(sp->st_rdev) < 0)
 				(void)printf("%3d, 0x%08x ",
@@ -221,6 +410,11 @@ printlong(DISPLAY *dp)
 		if (S_ISLNK(sp->st_mode))
 			printlink(p);
 		(void)putchar('\n');
+#ifdef __APPLE__
+		if (f_acl && (acl != NULL))
+			printacl(acl, S_ISDIR(sp->st_mode));
+		acl_free(acl);
+#endif /* __APPLE__ */
 	}
 }
 
@@ -379,10 +573,8 @@ printtime(time_t ftime)
 	const char *format;
 	static int d_first = -1;
 
-#ifndef __APPLE__
 	if (d_first < 0)
 		d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
-#endif /* __APPLE__ */
 	if (now == 0)
 		now = time(NULL);
 
@@ -614,12 +806,12 @@ printsize(size_t width, off_t bytes)
 		unit = unit_adjust(&bytes);
 
 		if (bytes == 0)
-			(void)printf("%*s ", width, "0B");
+			(void)printf("%*s ", (int)width, "0B");
 		else
-			(void)printf("%*lld%c ", width - 1, bytes,
+			(void)printf("%*lld%c ", (int)width - 1, bytes,
 			    "BKMGTPE"[unit]);
 	} else
-		(void)printf("%*lld ", width, bytes);
+		(void)printf("%*lld ", (int)width, bytes);
 }
 
 /*

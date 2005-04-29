@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/lib/Xft/xftdraw.c,v 1.25 2002/10/11 17:53:02 keithp Exp $
+ * $XFree86: xc/lib/Xft/xftdraw.c,v 1.26 2003/04/03 22:25:50 dawes Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
@@ -724,7 +724,7 @@ XftDrawGlyphFontSpec (XftDraw			*draw,
 	    {
 		XftGlyphFontSpecRender (draw->dpy, _XftDrawOp (draw, color),
 					src, draw->render.pict,
-					0, 0, glyphs, i - start);
+					0, 0, glyphs + start , i - start);
 	    }
 	}
 	else
@@ -732,7 +732,7 @@ XftDrawGlyphFontSpec (XftDraw			*draw,
 	    while (i < len && !((XftFontInt *) glyphs[i].font)->format)
 		i++;
 	    if (_XftDrawCorePrepare (draw, color))
-		XftGlyphFontSpecCore (draw, color, glyphs, len);
+		XftGlyphFontSpecCore (draw, color, glyphs + start, i - start);
 	}
     }
 }

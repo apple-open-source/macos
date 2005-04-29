@@ -1,0 +1,31 @@
+[page_begin mem/home]
+	[nav_link [mem/sf/txt]]
+<br>
+	[site_xref]
+<br>
+	[nav_link [tcl/foundry]]
+	[nav_link [tcl/sf/txt/home]]
+	[nav_link [trf/txt/home]]
+	[nav_link [mem/txt/old]]
+
+	<hr>[sect Developers]
+
+	[nav_link [andreas_kupries/home]]
+	[nav_link [stevel/home]]
+	[nav_link [pat/home]]
+[page_content]
+
+[p] Memchan is an extension library to the script language
+[tcl/sf/txt], as created by John Ousterhout. It provides several new
+channel types for in-memory channels and the appropriate commands for
+their creation.
+
+[p] They are useful to transfer large amounts of data between
+procedures or interpreters, and additionally provide an easy interface
+to on-the-fly generation of code or data too. No need to [tcl_cmd set]
+or [tcl_cmd append] to a string, just do a simple [tcl_cmd puts].
+
+[p] The latest release of the extension is [mem/latest-release].
+
+[page_end]
+

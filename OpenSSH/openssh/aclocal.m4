@@ -1,4 +1,4 @@
-dnl $Id: aclocal.m4,v 1.1.1.3 2001/12/01 00:46:21 bbraun Exp $
+dnl $Id: aclocal.m4,v 1.5 2001/10/22 00:53:59 tim Exp $
 dnl
 dnl OpenSSH-specific autoconf macros
 dnl

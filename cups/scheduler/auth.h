@@ -1,10 +1,10 @@
 /*
- * "$Id: auth.h,v 1.1.1.7 2002/12/24 00:07:25 jlovell Exp $"
+ * "$Id: auth.h,v 1.3 2005/01/04 22:10:45 jlovell Exp $"
  *
  *   Authorization definitions for the Common UNIX Printing System (CUPS)
  *   scheduler.
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -16,9 +16,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  */
@@ -84,7 +84,7 @@ typedef struct
 
 typedef struct
 {
-  char		location[HTTP_MAX_URI];	/* Location of resource */
+  char		*location;		/* Location of resource */
   int		limit,			/* Limit for these types of requests */
 		length,			/* Length of location string */
 		order_type,		/* Allow or Deny */
@@ -135,5 +135,5 @@ extern http_status_t	IsAuthorized(client_t *con);
 
 
 /*
- * End of "$Id: auth.h,v 1.1.1.7 2002/12/24 00:07:25 jlovell Exp $".
+ * End of "$Id: auth.h,v 1.3 2005/01/04 22:10:45 jlovell Exp $".
  */

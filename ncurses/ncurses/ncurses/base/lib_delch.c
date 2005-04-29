@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_delch.c,v 1.1.1.2 2002/01/03 23:53:38 jevans Exp $")
+MODULE_ID("$Id: lib_delch.c,v 1.12 2001/12/19 01:06:09 tom Exp $")
 
 NCURSES_EXPORT(int)
 wdelch(WINDOW *win)

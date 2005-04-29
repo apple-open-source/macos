@@ -1,96 +1,104 @@
-// Hawaiian language
-// Based on data from Keola Donaghy, University of Hawaii
-// Submitted by Deborah Goldsmith, Apple Computer, Inc.
-
-haw {
-	Version { "0.1" } 
-	CollationElements { 
-		// "&a <<< A" is redundant but is included for clarity
-	    Version { "0.1" }
-	    Sequence {
-		"&u < h < k < l < m < n < p < w < \u02bb < b < c < d < f < g < j < q < r < s < t < v < x < y < z"
-		"&h <<< H"
-		"&k <<< K"
-		"&l <<< L"
-		"&m <<< M"
-		"&n <<< N"
-		"&p <<< P"
-		"&w <<< W"
-		"&b <<< B"
-		"&c <<< C"
-		"&d <<< D"
-		"&f <<< F"
-		"&g <<< G"
-		"&j <<< J"
-		"&q <<< Q"
-		"&r <<< R"
-		"&s <<< S"
-		"&t <<< T"
-		"&v <<< V"
-		"&x <<< X"
-		"&y <<< Y"
-		"&z <<< Z"
-		 }
-	}
-
-	MonthAbbreviations {
-		"Ian.",
-		"Pep.",
-		"Mal.",
-		"\u02bbAp.",
-		"Mei.",
-		"Iun.",
-		"Iul.",
-		"\u02bbAu.",
-		"Kep.",
-		"\u02bbOk.",
-		"Now.",
-		"Kek.",
-	}
-
-	MonthNames {
-		"Ianuali",
-		"Pepeluali",
-		"Malaki",
-		"\u02bbApelila",
-		"Mei",
-		"Iune",
-		"Iulai",
-		"\u02bbAukake",
-		"Kepakemapa",
-		"\u02bbOkakopa",
-		"Nowemapa",
-		"Kekemapa",
-	}
-
-	DayAbbreviations {
-		"LP",
-		"P1",
-		"P2",
-		"P3",
-		"P4",
-		"P5",
-		"P6",
-	}
-
-	DayNames {
-		"L\u0101pule",
-		"Po\u02bbakahi",
-		"Po\u02bbalua",
-		"Po\u02bbakolu",
-		"Po\u02bbah\u0101",
-		"Po\u02bbalima",
-		"Po\u02bbaono",
-	}
-
-	Languages {
-		haw { "\u02bb\u014dlelo Hawai\u02bbi" }
-	}
-	
-	Countries {
-		US { "\u02bbAmelika Hui P\u016b \u02bbIa" }
-	}
-	
-    ExemplarCharacters{"[a-z \u02bb \u0101 \u0113 \u012b \u014d \u016b ]"}
-
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: /Users/deglocal/Desktop/Totoro/icucvs/locale/common/main/haw.xml
+// *
+// ***************************************************************************
+/**
+ *  ICU <specials> source: /Users/deglocal/Desktop/Totoro/icucvs/locale/icu/main/haw.xml
+ */
+haw{
+    Countries{
+        AU{"Nūhōlani"}
+        CA{"Kanakā"}
+        CN{"Kina"}
+        DE{"Kelemānia"}
+        DK{"Kenemaka"}
+        ES{"Kepania"}
+        FR{"Palani"}
+        GB{"Aupuni Mōʻī Hui Pū ʻIa"}
+        GR{"Helene"}
+        IE{"ʻIlelani"}
+        IL{"ʻIseraʻela"}
+        IN{"ʻĪnia"}
+        IT{"ʻĪkālia"}
+        JP{"Iāpana"}
+        MX{"Mekiko"}
+        NL{"Hōlani"}
+        NZ{"Aotearoa"}
+        PH{"ʻĀina Pilipino"}
+        RU{"Lūkia"}
+        US{"ʻAmelika Hui Pū ʻIa"}
+    }
+    ExemplarCharacters{"[āēīōūaeiouhklmnpwʻ]"}
+    Languages{
+        haw{"ʻōlelo Hawaiʻi"}
+    }
+    LocaleScript{
+        "Latn",
+    }
+    /**
+     * Draft
+     */
+    Version{"x1.2"}
+    calendar{
+        gregorian{
+            dayNames{
+                format{
+                    abbreviated{
+                        "LP",
+                        "P1",
+                        "P2",
+                        "P3",
+                        "P4",
+                        "P5",
+                        "P6",
+                    }
+                    wide{
+                        "Lāpule",
+                        "Poʻakahi",
+                        "Poʻalua",
+                        "Poʻakolu",
+                        "Poʻahā",
+                        "Poʻalima",
+                        "Poʻaono",
+                    }
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "Ian.",
+                        "Pep.",
+                        "Mal.",
+                        "ʻAp.",
+                        "Mei",
+                        "Iun.",
+                        "Iul.",
+                        "ʻAu.",
+                        "Kep.",
+                        "ʻOk.",
+                        "Now.",
+                        "Kek.",
+                    }
+                    wide{
+                        "Ianuali",
+                        "Pepeluali",
+                        "Malaki",
+                        "ʻApelila",
+                        "Mei",
+                        "Iune",
+                        "Iulai",
+                        "ʻAukake",
+                        "Kepakemapa",
+                        "ʻOkakopa",
+                        "Nowemapa",
+                        "Kekemapa",
+                    }
+                }
+            }
+        }
+    }
 }

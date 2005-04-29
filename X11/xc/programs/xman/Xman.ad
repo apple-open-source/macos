@@ -87,7 +87,13 @@
 		Ctrl<Key>m: GotoPage(ManualPage) \n\
 		Ctrl<Key>v: ShowVersion() \n\
 		<Key>Prior: Page(Back) \n\
-		<Key>Next : Page(Forward) 
+		<Key>Next : Page(Forward) \n\
+		Shift<Btn4Down>,<Btn4Up>: Page(Line,-1) \n\
+	        Shift<Btn5Down>,<Btn5Up>: Page(Line,1) \n\
+	        Ctrl<Btn4Down>,<Btn4Up>: Page(Back) \n\
+		Ctrl<Btn5Down>,<Btn5Up>: Page(Forward) \n\
+		None<Btn4Down>,<Btn4Up>: Page(Line,-5) \n\
+		None<Btn5Down>,<Btn5Up>: Page(Line,5)
 
 *manualBrowser*manualPage.translations:  #override \
 		Ctrl<Btn1Down>: \
@@ -107,6 +113,12 @@
 		Ctrl<Key>v: ShowVersion() \n\
 		<Key>Prior: Page(Back) \n\
 		<Key>Next : Page(Forward) \n\
+		Shift<Btn4Down>,<Btn4Up>: Page(Line,-1) \n\
+	        Shift<Btn5Down>,<Btn5Up>: Page(Line,1) \n\
+	        Ctrl<Btn4Down>,<Btn4Up>: Page(Back) \n\
+		Ctrl<Btn5Down>,<Btn5Up>: Page(Forward) \n\
+		None<Btn4Down>,<Btn4Up>: Page(Line,-5) \n\
+		None<Btn5Down>,<Btn5Up>: Page(Line,5) \n\
 		Ctrl<Key>s: PopupSearch()
 
 !*manualBrowser*directory.background: Grey80

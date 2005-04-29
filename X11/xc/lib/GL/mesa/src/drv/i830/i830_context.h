@@ -25,7 +25,7 @@
 /* Adapted for use in the I830M driver: 
  *   Jeff Hartmann <jhartmann@2d3d.com>
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_context.h,v 1.7 2003/02/06 04:18:01 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_context.h,v 1.8 2003/09/28 20:15:13 alanh Exp $ */
 
 #ifndef I830CONTEXT_INC
 #define I830CONTEXT_INC
@@ -86,6 +86,7 @@ struct i830_context_t
    GLuint Init_TexBlendColorPipeNum[I830_TEXBLEND_COUNT];
    GLuint TexBlendColorPipeNum[I830_TEXBLEND_COUNT];
    GLuint Init_BufferSetup[I830_DEST_SETUP_SIZE];
+   GLuint LodBias[2];
    
    GLenum palette_format;
    GLuint palette[256];
@@ -100,10 +101,10 @@ struct i830_context_t
    GLboolean mask_blue;
    GLboolean mask_alpha;
 
-   GLboolean clear_red;
-   GLboolean clear_green;
-   GLboolean clear_blue;
-   GLboolean clear_alpha;
+   GLubyte clear_red;
+   GLubyte clear_green;
+   GLubyte clear_blue;
+   GLubyte clear_alpha;
 
    GLfloat depth_scale;
    int depth_clear_mask;
@@ -116,16 +117,18 @@ struct i830_context_t
    GLuint LastTexEnabled;
    GLuint TexEnabledMask;
    
-   /* Textures
+   /* Texture object bookkeeping
     */
-   i830TextureObjectPtr CurrentTexObj[2];
-   struct i830_texture_object_t TexObjList;
-   struct i830_texture_object_t SwappedOut; 
-   memHeap_t *texHeap;
+   unsigned              nr_heaps;
+   driTexHeap          * texture_heaps[1];
+   driTextureObject      swapped;
 
-   /* Bit flag to keep track of fallbacks.
+   struct i830_texture_object_t *CurrentTexObj[2];
+
+   /* Rasterization and vertex state:
     */
    GLuint Fallback;
+   GLuint NewGLState;
 
    /* Temporaries for translating away float colors:
     */
@@ -134,7 +137,6 @@ struct i830_context_t
 
    /* State for i830vb.c and i830tris.c.
     */
-   GLuint new_state;		/* _NEW_* flags */
    GLuint SetupNewInputs;
    GLuint SetupIndex;
    GLuint RenderIndex;
@@ -212,7 +214,6 @@ struct i830_context_t
    drmContext hHWContext;
    drmLock *driHwLock;
    int driFd;
-   Display *display;
 
    __DRIdrawablePrivate *driDrawable;
    __DRIscreenPrivate *driScreen;

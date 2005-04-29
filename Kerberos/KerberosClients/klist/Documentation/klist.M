@@ -72,6 +72,11 @@ d	post\fBd\fPated
 R	\fBR\fPenewable
 I	\fBI\fPnitial
 i	\fBi\fPnvalid
+H	\fBH\fPardware authenticated
+A	pre\fBA\fPuthenticated
+O	\fBO\fPK as delegate
+a	\fBa\fPnonymous
+
 .in -.5i
 .fi
 .TP

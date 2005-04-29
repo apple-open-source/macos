@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XNEvent.man,v 1.2 2001/01/27 18:20:01 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XNEvent.man,v 1.3 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,71 +144,28 @@
 .SH NAME
 XNextEvent, XPeekEvent, XWindowEvent, XCheckWindowEvent, XMaskEvent, XCheckMaskEvent, XCheckTypedEvent, XCheckTypedWindowEvent \- select events by type
 .SH SYNTAX
-XNextEvent\^(\^\fIdisplay\fP, \fIevent_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XEvent *\fIevent_return\fP\^;
-.LP
-XPeekEvent\^(\^\fIdisplay\fP, \fIevent_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XEvent *\fIevent_return\fP\^;
-.LP
-XWindowEvent\^(\^\fIdisplay\fP, \fIw\fP\^, \fIevent_mask\fP\^, \fIevent_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      long \fIevent_mask\fP\^;
-.br
-      XEvent *\fIevent_return\fP\^;
-.LP
-Bool XCheckWindowEvent\^(\^\fIdisplay\fP, \fIw\fP\^, \fIevent_mask\fP\^, \fIevent_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      long \fIevent_mask\fP\^;
-.br
-      XEvent *\fIevent_return\fP\^;
-.LP
-XMaskEvent\^(\^\fIdisplay\fP, \fIevent_mask\fP\^, \fIevent_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      long \fIevent_mask\fP\^;
-.br
-      XEvent *\fIevent_return\fP\^;
-.LP
-Bool XCheckMaskEvent\^(\^\fIdisplay\fP, \fIevent_mask\fP\^, \fIevent_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      long \fIevent_mask\fP\^;
-.br
-      XEvent *\fIevent_return\fP\^;
-.LP
-Bool XCheckTypedEvent\^(\^\fIdisplay\fP, \fIevent_type\fP\^, \fIevent_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int \fIevent_type\fP\^;
-.br
-      XEvent *\fIevent_return\fP\^;
-.LP
-Bool XCheckTypedWindowEvent\^(\^\fIdisplay\fP, \fIw\fP\^, \fIevent_type\fP\^, \fIevent_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      int \fIevent_type\fP\^;
-.br
-      XEvent *\fIevent_return\fP\^;
+.HP
+int XNextEvent\^(\^Display *\fIdisplay\fP\^, XEvent *\fIevent_return\fP\^); 
+.HP
+int XPeekEvent\^(\^Display *\fIdisplay\fP\^, XEvent *\fIevent_return\fP\^); 
+.HP
+int XWindowEvent\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, long
+\fIevent_mask\fP\^, XEvent *\fIevent_return\fP\^); 
+.HP
+Bool XCheckWindowEvent\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, long
+\fIevent_mask\fP\^, XEvent *\fIevent_return\fP\^); 
+.HP
+int XMaskEvent\^(\^Display *\fIdisplay\fP\^, long \fIevent_mask\fP\^, XEvent
+*\fIevent_return\fP\^); 
+.HP
+Bool XCheckMaskEvent\^(\^Display *\fIdisplay\fP\^, long \fIevent_mask\fP\^,
+XEvent *\fIevent_return\fP\^); 
+.HP
+Bool XCheckTypedEvent\^(\^Display *\fIdisplay\fP\^, int \fIevent_type\fP\^,
+XEvent *\fIevent_return\fP\^); 
+.HP
+Bool XCheckTypedWindowEvent\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^,
+int \fIevent_type\fP\^, XEvent *\fIevent_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

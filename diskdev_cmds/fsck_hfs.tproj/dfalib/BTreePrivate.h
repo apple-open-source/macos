@@ -150,9 +150,11 @@ typedef struct BTreeControlBlock {					// fields specific to BTree CBs
 UInt32 CalcKeySize(const BTreeControlBlock *btcb, const BTreeKey *key);
 #define CalcKeySize(btcb, key)			( ((btcb)->attributes & kBTBigKeysMask) ? ((key)->length16 + 2) : ((key)->length8 + 1) )
 
+UInt32 MaxKeySize(const BTreeControlBlock *btcb);
+#define MaxKeySize(btcb)				( (btcb)->maxKeyLength + ((btcb)->attributes & kBTBigKeysMask ? 2 : 1))
+
 UInt32 KeyLength(const BTreeControlBlock *btcb, const BTreeKey *key);
 #define KeyLength(btcb, key)			( ((btcb)->attributes & kBTBigKeysMask) ? (key)->length16 : (key)->length8 )
-
 
 
 typedef enum {

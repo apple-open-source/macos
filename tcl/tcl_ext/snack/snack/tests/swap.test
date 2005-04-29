@@ -1,0 +1,31 @@
+# Commands covered: sound swap
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test swap-1.1 {swap command} {
+  set s1 [snack::sound s1 -load ex1.wav]
+  set s2 [snack::sound s2]
+
+  $s1 swap $s2
+  set res [$s1 info],[$s2 info]
+  $s1 destroy
+  $s2 destroy
+  set res
+} {0 16000 0 0 Lin16 1 WAV 44,15820 16000 14264 -8288 Lin16 1 RAW 0}
+
+test swap-1.2 {swap command, syntax check} {
+  set s [snack::sound snd]
+  catch {$s swap} msg
+  $s destroy
+  set msg
+} {wrong # args: should be "snd swap sound"}
+
+# cleanup
+::tcltest::cleanupTests
+return

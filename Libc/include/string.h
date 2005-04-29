@@ -57,16 +57,23 @@
 
 #ifndef _STRING_H_
 #define	_STRING_H_
-#include <machine/ansi.h>
+#include <_types.h>
 
-#ifndef	_BSD_SIZE_T_DEFINED_
-#define	_BSD_SIZE_T_DEFINED_
-typedef	_BSD_SIZE_T_	size_t;
+#ifndef	_SIZE_T
+#define	_SIZE_T
+typedef	__darwin_size_t		size_t;
 #endif
 
-#ifndef	NULL
-#define	NULL	0
+#ifndef _POSIX_C_SOURCE		/* For swab */
+#ifndef _SSIZE_T
+#define _SSIZE_T
+typedef __darwin_ssize_t	ssize_t;
 #endif
+#endif /* ! _POSIX_C_SOURCE */
+
+#ifndef NULL
+#define NULL __DARWIN_NULL
+#endif /* ! NULL */
 
 #include <sys/cdefs.h>
 
@@ -76,8 +83,10 @@ int	 memcmp(const void *, const void *, size_t);
 void	*memcpy(void *, const void *, size_t);
 void	*memmove(void *, const void *, size_t);
 void	*memset(void *, int, size_t);
+#ifndef _POSIX_C_SOURCE
 char	*stpcpy(char *, const char *);
 char	*strcasestr(const char *, const char *);
+#endif	/* !_POSIX_C_SOURCE */
 char	*strcat(char *, const char *);
 char	*strchr(const char *, int);
 int	 strcmp(const char *, const char *);
@@ -90,7 +99,9 @@ size_t	 strlen(const char *);
 char	*strncat(char *, const char *, size_t);
 int	 strncmp(const char *, const char *, size_t);
 char	*strncpy(char *, const char *, size_t);
+#ifndef _POSIX_C_SOURCE
 char	*strnstr(const char *, const char *, size_t);
+#endif	/* !_POSIX_C_SOURCE */
 char	*strpbrk(const char *, const char *);
 char	*strrchr(const char *, int);
 size_t	 strspn(const char *, const char *);
@@ -100,24 +111,30 @@ size_t	 strxfrm(char *, const char *, size_t);
 
 /* Nonstandard routines */
 #ifndef _ANSI_SOURCE
+void	*memccpy(void *, const void *, int, size_t);
+char	*strtok_r(char *, const char *, char **);
+char	*strdup(const char *);
+#ifndef _POSIX_C_SOURCE
 int	 bcmp(const void *, const void *, size_t);
 void	 bcopy(const void *, void *, size_t);
 void	 bzero(void *, size_t);
 int	 ffs(int);
 char	*index(const char *, int);
-void	*memccpy(void *, const void *, int, size_t);
 char	*rindex(const char *, int);
 int	 strcasecmp(const char *, const char *);
-char	*strdup(const char *);
 size_t	 strlcat(char *, const char *, size_t);
 size_t	 strlcpy(char *, const char *, size_t);
 void	 strmode(int, char *);
 int	 strncasecmp(const char *, const char *, size_t);
 char	*strsep(char **, const char *);
 char	*strsignal(int sig);
-char	*strtok_r(char *, const char *, char **);
-void	 swab(const void *, void *, size_t);
-#endif 
+void	 swab(const void * __restrict, void * __restrict, ssize_t);
+#endif	/* !_POSIX_C_SOURCE */
+#endif 	/* !_ANSI_SOURCE */
 __END_DECLS
+
+#ifdef _USE_EXTENDED_LOCALES_
+#include <xlocale/_string.h>
+#endif /* _USE_EXTENDED_LOCALES_ */
 
 #endif /* _STRING_H_ */

@@ -1,3 +1,4 @@
+// { dg-do run  }
 
 // Copyright (C) 2000 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 14 Nov 2000 <nathan@codesourcery.com>
@@ -48,3 +49,13 @@ int main ()
     return 9;
   return 0;
 }
+
+// On platforms that do not have weak symbols, these static data
+// members must be explicitly instantiated.  The iflag and jflag data
+// members should not have to be explicitly instantiated because their
+// const-ness should allow the compiler to elide references to the
+// actual variables.
+template const bool X<int>::cflag;
+template const bool X<int>::flag;
+template const bool X<float>::cflag;
+template const bool X<float>::flag;

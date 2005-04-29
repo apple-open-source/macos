@@ -47,6 +47,7 @@ public int twiddle;             /* Show tildes after EOF */
 public int show_attn;		/* Hilite first unread line */
 public int shift_count;		/* Number of positions to shift horizontally */
 public int status_col;		/* Display a status column */
+public int use_lessopen;	/* Use the LESSOPEN filter */
 #if HILITE_SEARCH
 public int hilite_search;	/* Highlight matched search patterns? */
 #endif
@@ -75,6 +76,7 @@ static struct optname J__optname     = { "status-column",        NULL };
 #if USERFILE
 static struct optname k_optname      = { "lesskey-file",         NULL };
 #endif
+static struct optname L__optname     = { "no-lessopen",          NULL };
 static struct optname m_optname      = { "long-prompt",          NULL };
 static struct optname n_optname      = { "line-numbers",         NULL };
 #if LOGFILE
@@ -246,6 +248,14 @@ static struct loption option[] =
 	{ 'l', NULL,
 		STRING|NO_TOGGLE|NO_QUERY, 0, NULL, opt_l,
 		{ NULL, NULL, NULL }
+	},
+	{ 'L', &L__optname,
+		BOOL, OPT_ON, &use_lessopen, NULL,
+		{
+			"Don't use the LESSOPEN filter",
+			"Use the LESSOPEN filter",
+			NULL
+		}
 	},
 	{ 'm', &m_optname,
 		TRIPLE, OPT_OFF, &pr_type, NULL,
@@ -451,6 +461,22 @@ findopt(c)
 }
 
 /*
+ *
+ */
+	static int
+is_optchar(c)
+	char c;
+{
+	if (SIMPLE_IS_UPPER(c))
+		return 1;
+	if (SIMPLE_IS_LOWER(c))
+		return 1;
+	if (c == '-')
+		return 1;
+	return 0;
+}
+
+/*
  * Find an option in the option table, given its option name.
  * p_optname is the (possibly partial) name to look for, and
  * is updated to point after the matched name.
@@ -472,6 +498,7 @@ findopt_name(p_optname, p_oname, p_err)
 	int maxlen = 0;
 	int ambig = 0;
 	int exact = 0;
+	char *eq;
 
 	/*
 	 * Check all options.
@@ -491,6 +518,13 @@ findopt_name(p_optname, p_oname, p_err)
 			for (uppercase = 0;  uppercase <= 1;  uppercase++)
 			{
 				len = sprefix(optname, oname->oname, uppercase);
+				if (len <= 0 || is_optchar(optname[len]))
+				{
+					/*
+					 * We didn't use all of the option name.
+					 */
+					continue;
+				}
 				if (!exact && len == maxlen)
 					/*
 					 * Already had a partial match,
@@ -526,6 +560,6 @@ findopt_name(p_optname, p_oname, p_err)
 	}
 	*p_optname = optname + maxlen;
 	if (p_oname != NULL)
-		*p_oname = maxoname->oname;
+		*p_oname = maxoname == NULL ? NULL : maxoname->oname;
 	return (maxo);
 }

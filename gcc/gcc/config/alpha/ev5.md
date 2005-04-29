@@ -1,24 +1,24 @@
 ;; Scheduling description for Alpha EV5.
-;;   Copyright (C) 2002 Free Software Foundation, Inc.
+;;   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 ;;
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 ;;
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 ;;
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
-;; EV5 has two asymetric integer units, E0 and E1, plus separate
+;; EV5 has two asymmetric integer units, E0 and E1, plus separate
 ;; FP add and multiply units.
 
 (define_automaton "ev5_0,ev5_1")
@@ -97,7 +97,7 @@
 ; Conditional move and branch can issue the same cycle as the test.
 (define_bypass 0 "ev5_ilogcmp" "ev5_ibr,ev5_cmov" "if_test_bypass_p")
 
-; Multiplies use a non-piplined imul unit.  Also, "no insn can be issued
+; Multiplies use a non-pipelined imul unit.  Also, "no insn can be issued
 ; to E0 exactly two cycles before an integer multiply completes".
 
 (define_insn_reservation "ev5_imull" 8
@@ -136,7 +136,7 @@
 (define_bypass 13 "ev5_imulq" "ev5_imull,ev5_imulq,ev5_imulh")
 (define_bypass 15 "ev5_imulh" "ev5_imull,ev5_imulq,ev5_imulh")
 
-; Similarly for the FPU we have two asymetric units.
+; Similarly for the FPU we have two asymmetric units.
 
 (define_insn_reservation "ev5_fadd" 4
   (and (eq_attr "cpu" "ev5")

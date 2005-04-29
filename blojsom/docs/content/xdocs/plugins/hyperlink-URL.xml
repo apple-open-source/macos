@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Hyperlink URL plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The hyperlink plugin will identify any valid url in a blog entry and automatically
+                convert it into a clickable hyperlink.
+            </p>
+            <p>
+                The plugin uses a regular expression to identify the  urls and is smart enough to
+                ignore existing href tags. So when you're posting your entries you no longer have to take the time to wrap an href around urls.
+                A great time saver!
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                href-hyperlinks=org.blojsom.plugin.hyperlink.HyperlinkURLPlugin
+            </source>
+            <p>
+                You may then add "href-hyperlinks" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=href-hyperlinks
+            </source>
+        </section>
+        <section>
+            <title>usage and URL parameters</title>
+
+            <section>
+                <title>usage</title>
+                <p>
+                    In your entries, simply type in a URL like http://blojsom.sf.net and it will be converted
+                    to
+                    <link href="http://blojsom.sf.net">http://blojsom.sf.net</link>.
+
+                </p>
+            </section>
+        </section>
+    </body>
+</document>
+

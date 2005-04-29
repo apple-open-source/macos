@@ -2,23 +2,17 @@
 
   pack.c -
 
-  $Author: melville $
-  $Date: 2003/05/14 14:09:13 $
+  $Author: gotoyuzo $
+  $Date: 2004/11/16 19:43:24 $
   created at: Thu Feb 10 15:17:05 JST 1994
 
-  Copyright (C) 1993-2000 Yukihiro Matsumoto
+  Copyright (C) 1993-2003 Yukihiro Matsumoto
 
 **********************************************************************/
 
 #include "ruby.h"
 #include <sys/types.h>
 #include <ctype.h>
-
-#ifdef __BIG_ENDIAN__
-#define WORDS_BIGENDIAN
-#else
-#undef WORDS_BIGENDIAN
-#endif
 
 #define SIZE16 2
 #define SIZE32 4
@@ -30,24 +24,27 @@
 #ifdef NATINT_PACK
 # define OFF16B(p) ((char*)(p) + (natint?0:(sizeof(short) - SIZE16)))
 # define OFF32B(p) ((char*)(p) + (natint?0:(sizeof(long) - SIZE32)))
-# define NATINT_I32(x) (natint?NUM2LONG(x):(NUM2I32(x)))
-# define NATINT_U32(x) (natint?NUM2ULONG(x):(NUM2U32(x)))
 # define NATINT_LEN(type,len) (natint?sizeof(type):(len))
 # ifdef WORDS_BIGENDIAN
 #   define OFF16(p) OFF16B(p)
 #   define OFF32(p) OFF32B(p)
 # endif
+# define NATINT_HTOVS(x) (natint?htovs(x):htov16(x))
+# define NATINT_HTOVL(x) (natint?htovl(x):htov32(x))
+# define NATINT_HTONS(x) (natint?htons(x):hton16(x))
+# define NATINT_HTONL(x) (natint?htonl(x):hton32(x))
 #else
-# define NATINT_I32(x) NUM2I32(x)
-# define NATINT_U32(x) NUM2U32(x)
 # define NATINT_LEN(type,len) sizeof(type)
+# define NATINT_HTOVS(x) htovs(x)
+# define NATINT_HTOVL(x) htovl(x)
+# define NATINT_HTONS(x) htons(x)
+# define NATINT_HTONL(x) htonl(x)
 #endif
 
 #ifndef OFF16
 # define OFF16(p) (char*)(p)
 # define OFF32(p) (char*)(p)
 #endif
-
 #ifndef OFF16B
 # define OFF16B(p) (char*)(p)
 # define OFF32B(p) (char*)(p)
@@ -63,10 +60,10 @@ TOKEN_PASTE(swap,x)(z)			\
     unsigned char *s, *t;		\
     int i;				\
 					\
-    zp = (xtype *)malloc(sizeof(xtype));\
+    zp = malloc(sizeof(xtype));		\
     *zp = z;				\
-    s = (char *)zp;			\
-    t = (char *)malloc(sizeof(xtype));	\
+    s = (unsigned char*)zp;		\
+    t = malloc(sizeof(xtype));		\
     for (i=0; i<sizeof(xtype); i++) {	\
 	t[sizeof(xtype)-i-1] = s[i];	\
     }					\
@@ -76,8 +73,11 @@ TOKEN_PASTE(swap,x)(z)			\
     return r;				\
 }
 
+#ifndef swap16
+#define swap16(x)	((((x)&0xFF)<<8) | (((x)>>8)&0xFF))
+#endif
 #if SIZEOF_SHORT == 2
-#define swaps(x)	((((x)&0xFF)<<8) | (((x)>>8)&0xFF))
+#define swaps(x)	swap16(x)
 #else
 #if SIZEOF_SHORT == 4
 #define swaps(x)	((((x)&0xFF)<<24)	\
@@ -85,15 +85,18 @@ TOKEN_PASTE(swap,x)(z)			\
 			|(((x)&0x0000FF00)<<8)	\
 			|(((x)&0x00FF0000)>>8)	)
 #else
-define_swapx(s,short);
+define_swapx(s,short)
 #endif
 #endif
 
-#if SIZEOF_LONG == 4
-#define swapl(x)	((((x)&0xFF)<<24)	\
+#ifndef swap32
+#define swap32(x)	((((x)&0xFF)<<24)	\
 			|(((x)>>24)&0xFF)	\
 			|(((x)&0x0000FF00)<<8)	\
 			|(((x)&0x00FF0000)>>8)	)
+#endif
+#if SIZEOF_LONG == 4
+#define swapl(x)	swap32(x)
 #else
 #if SIZEOF_LONG == 8
 #define swapl(x)        ((((x)&0x00000000000000FF)<<56)	\
@@ -105,7 +108,7 @@ define_swapx(s,short);
 			|(((x)&0x00000000FF000000)<<8)	\
 			|(((x)&0x000000FF00000000)>>8))
 #else
-define_swapx(l,long);
+define_swapx(l,long)
 #endif
 #endif
 
@@ -118,11 +121,11 @@ define_swapx(l,long);
 #define swapf(x)	swaps(x)
 #define FLOAT_SWAPPER	unsigned short
 #else	/* SIZEOF_FLOAT == 4 but undivide by known size of int */
-define_swapx(f,float);
+define_swapx(f,float)
 #endif	/* #if SIZEOF_SHORT == 4 */
 #endif	/* #if SIZEOF_LONG == 4 */
 #else	/* SIZEOF_FLOAT != 4 */
-define_swapx(f,float);
+define_swapx(f,float)
 #endif	/* #if SIZEOF_FLOAT == 4 */
 
 #if SIZEOF_DOUBLE == 8
@@ -166,13 +169,13 @@ swapd(d)
     return dtmp;
 }
 #else	/* SIZEOF_DOUBLE == 8 but undivied by known size of int */
-define_swapx(d, double);
+define_swapx(d, double)
 #endif	/* #if SIZEOF_SHORT == 4 */
 #endif	/* #if SIZEOF_LONG == 4 */
 #endif	/* #if SIZEOF_LONG == 8 */
 #else	/* SIZEOF_DOUBLE != 8 */
-define_swapx(d, double);
-#endif	/* #if SIZEOF_DPOUBLE == 8 */
+define_swapx(d, double)
+#endif	/* #if SIZEOF_DOUBLE == 8 */
 
 #undef define_swapx
 
@@ -212,6 +215,12 @@ endian()
 #define vtohl(x) (endian()?swapl(x):(x))
 #define vtohf(x) (endian()?swapf(x):(x))
 #define vtohd(x) (endian()?swapd(x):(x))
+# ifdef NATINT_PACK
+#define htov16(x) (endian()?swap16(x):(x))
+#define htov32(x) (endian()?swap32(x):(x))
+#define hton16(x) (endian()?(x):swap16(x))
+#define hton32(x) (endian()?(x):swap32(x))
+# endif
 #else
 #ifdef WORDS_BIGENDIAN
 #ifndef ntohs
@@ -232,17 +241,23 @@ endian()
 #define vtohl(x) swapl(x)
 #define vtohf(x) swapf(x)
 #define vtohd(x) swapd(x)
+# ifdef NATINT_PACK
+#define htov16(x) swap16(x)
+#define htov32(x) swap32(x)
+#define hton16(x) (x)
+#define hton32(x) (x)
+# endif
 #else /* LITTLE ENDIAN */
-#ifndef ntohs
+#ifdef ntohs
 #undef ntohs
 #undef ntohl
 #undef htons
 #undef htonl
+#endif
 #define ntohs(x) swaps(x)
 #define ntohl(x) swapl(x)
 #define htons(x) swaps(x)
 #define htonl(x) swapl(x)
-#endif
 #define ntohf(x) swapf(x)
 #define ntohd(x) swapd(x)
 #define htonf(x) swapf(x)
@@ -255,6 +270,12 @@ endian()
 #define vtohl(x) (x)
 #define vtohf(x) (x)
 #define vtohd(x) (x)
+# ifdef NATINT_PACK
+#define htov16(x) (x)
+#define htov32(x) (x)
+#define hton16(x) swap16(x)
+#define hton32(x) swap32(x)
+# endif
 #endif
 #endif
 
@@ -310,25 +331,111 @@ endian()
 #define VTOHD(x,y)	vtohd(x)
 #endif
 
-#if SIZEOF_LONG == SIZE32
-typedef long I32;
-typedef unsigned long U32;
-#define NUM2I32(x) NUM2LONG(x)
-#define NUM2U32(x) NUM2ULONG(x)
-#elif SIZEOF_INT == SIZE32
-typedef int I32;
-typedef unsigned int U32;
-#define NUM2I32(x) NUM2INT(x)
-#define NUM2U32(x) NUM2UINT(x)
+unsigned long rb_big2ulong_pack _((VALUE x));
+
+static unsigned long
+num2i32(x)
+    VALUE x;
+{
+    x = rb_to_int(x); /* is nil OK? (should not) */
+
+    if (FIXNUM_P(x)) return FIX2LONG(x);
+    if (TYPE(x) == T_BIGNUM) {
+	return rb_big2ulong_pack(x);
+    }
+    rb_raise(rb_eTypeError, "cannot convert %s to `integer'", rb_obj_classname(x));
+    return 0;			/* not reached */
+}
+
+#if SIZEOF_LONG == SIZE32 || SIZEOF_INT == SIZE32
+# define EXTEND32(x) 
+#else
+/* invariant in modulo 1<<31 */
+# define EXTEND32(x) do {if (!natint) {(x) = (I32)(((1<<31)-1-(x))^~(~0<<31))}} while(0)
+#endif
+#if SIZEOF_SHORT == SIZE16
+# define EXTEND16(x) 
+#else
+# define EXTEND16(x) do { if (!natint) {(x) = (short)(((1<<15)-1-(x))^~(~0<<15))}} while(0)
 #endif
 
+#ifdef HAVE_LONG_LONG
+# define QUAD_SIZE sizeof(LONG_LONG)
+#else
+# define QUAD_SIZE 8
+#endif
 static char *toofew = "too few arguments";
 
-static void encodes _((VALUE,char*,int,int));
-static void qpencode _((VALUE,VALUE,int));
+static void encodes _((VALUE,char*,long,int));
+static void qpencode _((VALUE,VALUE,long));
 
 static int uv_to_utf8 _((char*,unsigned long));
-static unsigned long utf8_to_uv _((char*,int*));
+static unsigned long utf8_to_uv _((char*,long*));
+
+/*
+ *  call-seq:
+ *     arr.pack ( aTemplateString ) -> aBinaryString
+ *  
+ *  Packs the contents of <i>arr</i> into a binary sequence according to
+ *  the directives in <i>aTemplateString</i> (see the table below)
+ *  Directives ``A,'' ``a,'' and ``Z'' may be followed by a count,
+ *  which gives the width of the resulting field. The remaining
+ *  directives also may take a count, indicating the number of array
+ *  elements to convert. If the count is an asterisk
+ *  (``<code>*</code>''), all remaining array elements will be
+ *  converted. Any of the directives ``<code>sSiIlL</code>'' may be
+ *  followed by an underscore (``<code>_</code>'') to use the underlying
+ *  platform's native size for the specified type; otherwise, they use a
+ *  platform-independent size. Spaces are ignored in the template
+ *  string. See also <code>String#unpack</code>.
+ *     
+ *     a = [ "a", "b", "c" ]
+ *     n = [ 65, 66, 67 ]
+ *     a.pack("A3A3A3")   #=> "a  b  c  "
+ *     a.pack("a3a3a3")   #=> "a\000\000b\000\000c\000\000"
+ *     n.pack("ccc")      #=> "ABC"
+ *     
+ *  Directives for +pack+.
+ *
+ *   Directive    Meaning
+ *   ---------------------------------------------------------------
+ *       @     |  Moves to absolute position
+ *       A     |  ASCII string (space padded, count is width)
+ *       a     |  ASCII string (null padded, count is width)
+ *       B     |  Bit string (descending bit order)
+ *       b     |  Bit string (ascending bit order)
+ *       C     |  Unsigned char
+ *       c     |  Char
+ *       D, d  |  Double-precision float, native format
+ *       E     |  Double-precision float, little-endian byte order
+ *       e     |  Single-precision float, little-endian byte order
+ *       F, f  |  Single-precision float, native format
+ *       G     |  Double-precision float, network (big-endian) byte order
+ *       g     |  Single-precision float, network (big-endian) byte order
+ *       H     |  Hex string (high nibble first)
+ *       h     |  Hex string (low nibble first)
+ *       I     |  Unsigned integer
+ *       i     |  Integer
+ *       L     |  Unsigned long
+ *       l     |  Long
+ *       M     |  Quoted printable, MIME encoding (see RFC2045)
+ *       m     |  Base64 encoded string
+ *       N     |  Long, network (big-endian) byte order
+ *       n     |  Short, network (big-endian) byte-order
+ *       P     |  Pointer to a structure (fixed-length string)
+ *       p     |  Pointer to a null-terminated string
+ *       Q, q  |  64-bit number
+ *       S     |  Unsigned short
+ *       s     |  Short
+ *       U     |  UTF-8
+ *       u     |  UU-encoded string
+ *       V     |  Long, little-endian byte order
+ *       v     |  Short, little-endian byte order
+ *       w     |  BER-compressed integer\fnm
+ *       X     |  Back up a byte
+ *       x     |  Null byte
+ *       Z     |  Same as ``a'', except that null is added with *
+ */
 
 static VALUE
 pack_pack(ary, fmt)
@@ -337,33 +444,43 @@ pack_pack(ary, fmt)
     static char *nul10 = "\0\0\0\0\0\0\0\0\0\0";
     static char *spc10 = "          ";
     char *p, *pend;
-    VALUE res, from;
+    VALUE res, from, associates = 0;
     char type;
-    int items, len, idx;
+    long items, len, idx, plen;
     char *ptr;
-    int plen;
 #ifdef NATINT_PACK
     int natint;		/* native integer */
 #endif
-    
-    p = rb_str2cstr(fmt, &plen);
-    pend = p + plen;
-    res = rb_str_new(0, 0);
+
+    StringValue(fmt);
+    p = RSTRING(fmt)->ptr;
+    pend = p + RSTRING(fmt)->len;
+    res = rb_str_buf_new(0);
 
     items = RARRAY(ary)->len;
     idx = 0;
 
+#define THISFROM RARRAY(ary)->ptr[idx]
 #define NEXTFROM (items-- > 0 ? RARRAY(ary)->ptr[idx++] : (rb_raise(rb_eArgError, toofew),0))
 
     while (p < pend) {
+	if (RSTRING(fmt)->ptr + RSTRING(fmt)->len != pend) {
+	    rb_raise(rb_eRuntimeError, "format string modified");
+	}
 	type = *p++;		/* get data type */
 #ifdef NATINT_PACK
 	natint = 0;
 #endif
 
 	if (ISSPACE(type)) continue;
+	if (type == '#') {
+	    while ((p < pend) && (*p != '\n')) {
+		p++;
+	    }
+	    continue;
+	}
         if (*p == '_' || *p == '!') {
-	    char *natstr = "sSiIlL";
+	    const char *natstr = "sSiIlL";
 
 	    if (strchr(natstr, type)) {
 #ifdef NATINT_PACK
@@ -396,33 +513,39 @@ pack_pack(ary, fmt)
 		plen = 0;
 	    }
 	    else {
-		ptr = rb_str2cstr(from, &plen);
+		StringValue(from);
+		ptr = RSTRING(from)->ptr;
+		plen = RSTRING(from)->len;
+		OBJ_INFECT(res, from);
 	    }
 
 	    if (p[-1] == '*')
 		len = plen;
 
 	    switch (type) {
-	      case 'a':
-	      case 'A':
-	      case 'Z':
-		if (plen >= len)
-		    rb_str_cat(res, ptr, len);
+	      case 'a':		/* arbitrary binary string (null padded)  */
+	      case 'A':		/* ASCII string (space padded) */
+	      case 'Z':		/* null terminated ASCII string  */
+		if (plen >= len) {
+		    rb_str_buf_cat(res, ptr, len);
+		    if (p[-1] == '*' && type == 'Z')
+			rb_str_buf_cat(res, nul10, 1);
+		}
 		else {
-		    rb_str_cat(res, ptr, plen);
+		    rb_str_buf_cat(res, ptr, plen);
 		    len -= plen;
 		    while (len >= 10) {
-			rb_str_cat(res, (type == 'A')?spc10:nul10, 10);
+			rb_str_buf_cat(res, (type == 'A')?spc10:nul10, 10);
 			len -= 10;
 		    }
-		    rb_str_cat(res, (type == 'A')?spc10:nul10, len);
+		    rb_str_buf_cat(res, (type == 'A')?spc10:nul10, len);
 		}
 		break;
 
-	      case 'b':
+	      case 'b':		/* bit string (ascending) */
 		{
 		    int byte = 0;
-		    int i, j = 0;
+		    long i, j = 0;
 
 		    if (len > plen) {
 			j = (len - plen + 1)/2;
@@ -435,7 +558,7 @@ pack_pack(ary, fmt)
 			    byte >>= 1;
 			else {
 			    char c = byte & 0xff;
-			    rb_str_cat(res, &c, 1);
+			    rb_str_buf_cat(res, &c, 1);
 			    byte = 0;
 			}
 		    }
@@ -443,18 +566,17 @@ pack_pack(ary, fmt)
 			char c;
 			byte >>= 7 - (len & 7);
 			c = byte & 0xff;
-			rb_str_cat(res, &c, 1);
+			rb_str_buf_cat(res, &c, 1);
 		    }
-		    len = RSTRING(res)->len;
-		    rb_str_resize(res, len+j);
-		    MEMZERO(RSTRING(res)->ptr+len, char, j);
+		    len = j;
+		    goto grow;
 		}
 		break;
 
-	      case 'B':
+	      case 'B':		/* bit string (descending) */
 		{
 		    int byte = 0;
-		    int i, j = 0;
+		    long i, j = 0;
 
 		    if (len > plen) {
 			j = (len - plen + 1)/2;
@@ -466,7 +588,7 @@ pack_pack(ary, fmt)
 			    byte <<= 1;
 			else {
 			    char c = byte & 0xff;
-			    rb_str_cat(res, &c, 1);
+			    rb_str_buf_cat(res, &c, 1);
 			    byte = 0;
 			}
 		    }
@@ -474,18 +596,17 @@ pack_pack(ary, fmt)
 			char c;
 			byte <<= 7 - (len & 7);
 			c = byte & 0xff;
-			rb_str_cat(res, &c, 1);
+			rb_str_buf_cat(res, &c, 1);
 		    }
-		    len = RSTRING(res)->len;
-		    rb_str_resize(res, len+j);
-		    MEMZERO(RSTRING(res)->ptr+len, char, j);
+		    len = j;
+		    goto grow;
 		}
 		break;
 
-	      case 'h':
+	      case 'h':		/* hex string (low nibble first) */
 		{
 		    int byte = 0;
-		    int i, j = 0;
+		    long i, j = 0;
 
 		    if (len > plen) {
 			j = (len - plen + 1)/2;
@@ -500,24 +621,23 @@ pack_pack(ary, fmt)
 			    byte >>= 4;
 			else {
 			    char c = byte & 0xff;
-			    rb_str_cat(res, &c, 1);
+			    rb_str_buf_cat(res, &c, 1);
 			    byte = 0;
 			}
 		    }
 		    if (len & 1) {
 			char c = byte & 0xff;
-			rb_str_cat(res, &c, 1);
+			rb_str_buf_cat(res, &c, 1);
 		    }
-		    len = RSTRING(res)->len;
-		    rb_str_resize(res, len+j);
-		    MEMZERO(RSTRING(res)->ptr+len, char, j);
+		    len = j;
+		    goto grow;
 		}
 		break;
 
-	      case 'H':
+	      case 'H':		/* hex string (high nibble first) */
 		{
 		    int byte = 0;
-		    int i, j = 0;
+		    long i, j = 0;
 
 		    if (len > plen) {
 			j = (len - plen + 1)/2;
@@ -532,276 +652,209 @@ pack_pack(ary, fmt)
 			    byte <<= 4;
 			else {
 			    char c = byte & 0xff;
-			    rb_str_cat(res, &c, 1);
+			    rb_str_buf_cat(res, &c, 1);
 			    byte = 0;
 			}
 		    }
 		    if (len & 1) {
 			char c = byte & 0xff;
-			rb_str_cat(res, &c, 1);
+			rb_str_buf_cat(res, &c, 1);
 		    }
-		    len = RSTRING(res)->len;
-		    rb_str_resize(res, len+j);
-		    MEMZERO(RSTRING(res)->ptr+len, char, j);
+		    len = j;
+		    goto grow;
 		}
 		break;
 	    }
 	    break;
 
-	  case 'c':
-	  case 'C':
+	  case 'c':		/* signed char */
+	  case 'C':		/* unsigned char */
 	    while (len-- > 0) {
 		char c;
 
 		from = NEXTFROM;
-		if (NIL_P(from)) c = 0;
-		else {
-		    c = NUM2INT(from);
-		}
-		rb_str_cat(res, &c, sizeof(char));
+		c = num2i32(from);
+		rb_str_buf_cat(res, &c, sizeof(char));
 	    }
 	    break;
 
-	  case 's':
-	  case 'S':
+	  case 's':		/* signed short */
+	  case 'S':		/* unsigned short */
 	    while (len-- > 0) {
 		short s;
 
 		from = NEXTFROM;
-		if (NIL_P(from)) s = 0;
-		else {
-		    s = NUM2INT(from);
-		}
-		rb_str_cat(res, OFF16(&s), NATINT_LEN(short,2));
+		s = num2i32(from);
+		rb_str_buf_cat(res, OFF16(&s), NATINT_LEN(short,2));
 	    }
 	    break;
 
-	  case 'i':
-	  case 'I':
+	  case 'i':		/* signed int */
+	  case 'I':		/* unsigned int */
 	    while (len-- > 0) {
-		int i;
+		long i;
 
 		from = NEXTFROM;
-		if (NIL_P(from)) i = 0;
-		else {
-		    i = NUM2UINT(from);
-		}
-		rb_str_cat(res, (char*)&i, sizeof(int));
+		i = num2i32(from);
+		rb_str_buf_cat(res, OFF32(&i), NATINT_LEN(int,4));
 	    }
 	    break;
 
-	  case 'l':
-	  case 'L':
+	  case 'l':		/* signed long */
+	  case 'L':		/* unsigned long */
 	    while (len-- > 0) {
 		long l;
 
 		from = NEXTFROM;
-		if (NIL_P(from)) l = 0;
-		else {
-		    l = NATINT_U32(from);
-		}
-		rb_str_cat(res, OFF32(&l), NATINT_LEN(long,4));
+		l = num2i32(from);
+		rb_str_buf_cat(res, OFF32(&l), NATINT_LEN(long,4));
 	    }
 	    break;
 
-	  case 'n':
+	  case 'q':		/* signed quad (64bit) int */
+	  case 'Q':		/* unsigned quad (64bit) int */
+	    while (len-- > 0) {
+		char tmp[QUAD_SIZE];
+
+		from = NEXTFROM;
+		rb_quad_pack(tmp, from);
+		rb_str_buf_cat(res, (char*)&tmp, QUAD_SIZE);
+	    }
+	    break;
+
+	  case 'n':		/* unsigned short (network byte-order)  */
 	    while (len-- > 0) {
 		unsigned short s;
 
 		from = NEXTFROM;
-		if (NIL_P(from)) s = 0;
-		else {
-		    s = NUM2INT(from);
-		}
-		s = htons(s);
-		rb_str_cat(res, OFF16B(&s), NATINT_LEN(short,2));
+		s = num2i32(from);
+		s = NATINT_HTONS(s);
+		rb_str_buf_cat(res, OFF16(&s), NATINT_LEN(short,2));
 	    }
 	    break;
 
-	  case 'N':
+	  case 'N':		/* unsigned long (network byte-order) */
 	    while (len-- > 0) {
 		unsigned long l;
 
 		from = NEXTFROM;
-		if (NIL_P(from)) l = 0;
-		else {
-		    l = NATINT_U32(from);
-		}
-		l = htonl(l);
-		rb_str_cat(res, OFF32B(&l), NATINT_LEN(long,4));
+		l = num2i32(from);
+		l = NATINT_HTONL(l);
+		rb_str_buf_cat(res, OFF32(&l), NATINT_LEN(long,4));
 	    }
 	    break;
 
-	  case 'v':
+	  case 'v':		/* unsigned short (VAX byte-order) */
 	    while (len-- > 0) {
 		unsigned short s;
 
 		from = NEXTFROM;
-		if (NIL_P(from)) s = 0;
-		else {
-		    s = NUM2INT(from);
-		}
-		s = htovs(s);
-		rb_str_cat(res, OFF16(&s), NATINT_LEN(short,2));
+		s = num2i32(from);
+		s = NATINT_HTOVS(s);
+		rb_str_buf_cat(res, OFF16(&s), NATINT_LEN(short,2));
 	    }
 	    break;
 
-	  case 'V':
+	  case 'V':		/* unsigned long (VAX byte-order) */
 	    while (len-- > 0) {
 		unsigned long l;
 
 		from = NEXTFROM;
-		if (NIL_P(from)) l = 0;
-		else {
-		    l = NATINT_U32(from);
-		}
-		l = htovl(l);
-		rb_str_cat(res, OFF32(&l), NATINT_LEN(long,4));
+		l = num2i32(from);
+		l = NATINT_HTOVL(l);
+		rb_str_buf_cat(res, OFF32(&l), NATINT_LEN(long,4));
 	    }
 	    break;
 
-	  case 'f':
-	  case 'F':
+	  case 'f':		/* single precision float in native format */
+	  case 'F':		/* ditto */
 	    while (len-- > 0) {
 		float f;
 
 		from = NEXTFROM;
-		switch (TYPE(from)) {
-		  case T_FLOAT:
-		    f = RFLOAT(from)->value;
-		    break;
-		  case T_STRING:
-		    f = strtod(RSTRING(from)->ptr, 0);
-		  default:
-		    f = (float)NUM2INT(from);
-		    break;
-		}
-		rb_str_cat(res, (char*)&f, sizeof(float));
+		f = RFLOAT(rb_Float(from))->value;
+		rb_str_buf_cat(res, (char*)&f, sizeof(float));
 	    }
 	    break;
 
-	  case 'e':
+	  case 'e':		/* single precision float in VAX byte-order */
 	    while (len-- > 0) {
 		float f;
 		FLOAT_CONVWITH(ftmp);
 
 		from = NEXTFROM;
-		switch (TYPE(from)) {
-		  case T_FLOAT:
-		    f = RFLOAT(from)->value;
-		    break;
-		  case T_STRING:
-		    f = strtod(RSTRING(from)->ptr, 0);
-		  default:
-		    f = (float)NUM2INT(from);
-		    break;
-		}
+		f = RFLOAT(rb_Float(from))->value;
 		f = HTOVF(f,ftmp);
-		rb_str_cat(res, (char*)&f, sizeof(float));
+		rb_str_buf_cat(res, (char*)&f, sizeof(float));
 	    }
 	    break;
 
-	  case 'E':
+	  case 'E':		/* double precision float in VAX byte-order */
 	    while (len-- > 0) {
 		double d;
 		DOUBLE_CONVWITH(dtmp);
 
 		from = NEXTFROM;
-		switch (TYPE(from)) {
-		  case T_FLOAT:
-		    d = RFLOAT(from)->value;
-		    break;
-		  case T_STRING:
-		    d = strtod(RSTRING(from)->ptr, 0);
-		  default:
-		    d = (double)NUM2INT(from);
-		    break;
-		}
+		d = RFLOAT(rb_Float(from))->value;
 		d = HTOVD(d,dtmp);
-		rb_str_cat(res, (char*)&d, sizeof(double));
+		rb_str_buf_cat(res, (char*)&d, sizeof(double));
 	    }
 	    break;
 
-	  case 'd':
-	  case 'D':
+	  case 'd':		/* double precision float in native format */
+	  case 'D':		/* ditto */
 	    while (len-- > 0) {
 		double d;
 
 		from = NEXTFROM;
-		switch (TYPE(from)) {
-		  case T_FLOAT:
-		    d = RFLOAT(from)->value;
-		    break;
-		  case T_STRING:
-		    d = strtod(RSTRING(from)->ptr, 0);
-		  default:
-		    d = (double)NUM2INT(from);
-		    break;
-		}
-		rb_str_cat(res, (char*)&d, sizeof(double));
+		d = RFLOAT(rb_Float(from))->value;
+		rb_str_buf_cat(res, (char*)&d, sizeof(double));
 	    }
 	    break;
 
-	  case 'g':
+	  case 'g':		/* single precision float in network byte-order */
 	    while (len-- > 0) {
 		float f;
 		FLOAT_CONVWITH(ftmp);
 
 		from = NEXTFROM;
-		switch (TYPE(from)) {
-		  case T_FLOAT:
-		    f = RFLOAT(from)->value;
-		    break;
-		  case T_STRING:
-		    f = strtod(RSTRING(from)->ptr, 0);
-		  default:
-		    f = (float)NUM2INT(from);
-		    break;
-		}
+		f = RFLOAT(rb_Float(from))->value;
 		f = HTONF(f,ftmp);
-		rb_str_cat(res, (char*)&f, sizeof(float));
+		rb_str_buf_cat(res, (char*)&f, sizeof(float));
 	    }
 	    break;
 
-	  case 'G':
+	  case 'G':		/* double precision float in network byte-order */
 	    while (len-- > 0) {
 		double d;
 		DOUBLE_CONVWITH(dtmp);
 
 		from = NEXTFROM;
-		switch (TYPE(from)) {
-		  case T_FLOAT:
-		    d = RFLOAT(from)->value;
-		    break;
-		  case T_STRING:
-		    d = strtod(RSTRING(from)->ptr, 0);
-		  default:
-		    d = (double)NUM2INT(from);
-		    break;
-		}
+		d = RFLOAT(rb_Float(from))->value;
 		d = HTOND(d,dtmp);
-		rb_str_cat(res, (char*)&d, sizeof(double));
+		rb_str_buf_cat(res, (char*)&d, sizeof(double));
 	    }
 	    break;
 
-	  case 'x':
+	  case 'x':		/* null byte */
 	  grow:
 	    while (len >= 10) {
-		rb_str_cat(res, nul10, 10);
+		rb_str_buf_cat(res, nul10, 10);
 		len -= 10;
 	    }
-	    rb_str_cat(res, nul10, len);
+	    rb_str_buf_cat(res, nul10, len);
 	    break;
 
-	  case 'X':
+	  case 'X':		/* back up byte */
 	  shrink:
-	    if (RSTRING(res)->len < len)
+	    plen = RSTRING(res)->len;
+	    if (plen < len)
 		rb_raise(rb_eArgError, "X outside of string");
-	    RSTRING(res)->len -= len;
-	    RSTRING(res)->ptr[RSTRING(res)->len] = '\0';
+	    RSTRING(res)->len = plen - len;
+	    RSTRING(res)->ptr[plen - len] = '\0';
 	    break;
 
-	  case '@':
+	  case '@':		/* null fill to absolute position */
 	    len -= RSTRING(res)->len;
 	    if (len > 0) goto grow;
 	    len = -len;
@@ -812,32 +865,36 @@ pack_pack(ary, fmt)
 	    rb_raise(rb_eArgError, "%% is not supported");
 	    break;
 
-	  case 'U':
+	  case 'U':		/* Unicode character */
 	    while (len-- > 0) {
-		unsigned long l;
+		long l;
 		char buf[8];
 		int le;
 
 		from = NEXTFROM;
-		if (NIL_P(from)) l = 0;
-		else {
-		    l = NUM2ULONG(from);
+		from = rb_to_int(from);
+		l = NUM2INT(from);
+		if (l < 0) {
+		    rb_raise(rb_eRangeError, "pack(U): value out of range");
 		}
 		le = uv_to_utf8(buf, l);
-		rb_str_cat(res, (char*)buf, le);
+		rb_str_buf_cat(res, (char*)buf, le);
 	    }
 	    break;
 
-	  case 'u':
-	  case 'm':
-	    ptr = rb_str2cstr(NEXTFROM, &plen);
+	  case 'u':		/* uuencoded string */
+	  case 'm':		/* base64 encoded string */
+	    from = NEXTFROM;
+	    StringValue(from);
+	    ptr = RSTRING(from)->ptr;
+	    plen = RSTRING(from)->len;
 
 	    if (len <= 2)
 		len = 45;
 	    else
 		len = len / 3 * 3;
 	    while (plen > 0) {
-		int todo;
+		long todo;
 
 		if (plen > len)
 		    todo = len;
@@ -849,55 +906,70 @@ pack_pack(ary, fmt)
 	    }
 	    break;
 
-	  case 'M':
+	  case 'M':		/* quoted-printable encoded string */
 	    from = rb_obj_as_string(NEXTFROM);
 	    if (len <= 1)
 		len = 72;
 	    qpencode(res, from, len);
 	    break;
 
-	  case 'P':
+	  case 'P':		/* pointer to packed byte string */
+	    from = THISFROM;
+	    if (!NIL_P(from)) {
+		StringValue(from);
+		if (RSTRING(from)->len < len) {
+		    rb_raise(rb_eArgError, "too short buffer for P(%ld for %ld)",
+			     RSTRING(from)->len, len);
+		}
+	    }
 	    len = 1;
 	    /* FALL THROUGH */
-	  case 'p':
+	  case 'p':		/* pointer to string */
 	    while (len-- > 0) {
 		char *t;
 		from = NEXTFROM;
-		if (NIL_P(from)) t = "";
-		else {
-		    t = STR2CSTR(from);
-		    rb_str_associate(res, from);
+		if (NIL_P(from)) {
+		    t = 0;
 		}
-		rb_str_cat(res, (char*)&t, sizeof(char*));
+		else {
+		    t = StringValuePtr(from);
+		}
+		if (!associates) {
+		    associates = rb_ary_new();
+		}
+		rb_ary_push(associates, from);
+		rb_str_buf_cat(res, (char*)&t, sizeof(char*));
 	    }
 	    break;
 
-	  case 'w':
+	  case 'w':		/* BER compressed integer  */
 	    while (len-- > 0) {
 		unsigned long ul;
 		VALUE buf = rb_str_new(0, 0);
 		char c, *bufs, *bufe;
 
 		from = NEXTFROM;
-
 		if (TYPE(from) == T_BIGNUM) {
 		    VALUE big128 = rb_uint2big(128);
 		    while (TYPE(from) == T_BIGNUM) {
 			from = rb_big_divmod(from, big128);
 			c = NUM2INT(RARRAY(from)->ptr[1]) | 0x80; /* mod */
-			rb_str_cat(buf, &c, sizeof(char));
+			rb_str_buf_cat(buf, &c, sizeof(char));
 			from = RARRAY(from)->ptr[0]; /* div */
 		    }
 		}
 
-		if (NIL_P(from)) ul = 0;
-		else {
-		    ul = NUM2ULONG(from);
+		{
+		    long l = NUM2LONG(from);
+		    if (l < 0) {
+			rb_raise(rb_eArgError, "cannot compress negative numbers");
+		    }
+		    ul = l;
 		}
 
 		while (ul) {
 		    c = ((ul & 0x7f) | 0x80);
-		    rb_str_cat(buf, &c, sizeof(char));
+		    rb_str_buf_cat(buf, &c, sizeof(char));
 		    ul >>=  7;
 		}
 
@@ -910,11 +982,11 @@ pack_pack(ary, fmt)
 			*bufs++ = *bufe;
 			*bufe-- = c;
 		    }
-		    rb_str_cat(res, RSTRING(buf)->ptr, RSTRING(buf)->len);
+		    rb_str_buf_cat(res, RSTRING(buf)->ptr, RSTRING(buf)->len);
 		}
 		else {
 		    c = 0;
-		    rb_str_cat(res, &c, sizeof(char));
+		    rb_str_buf_cat(res, &c, sizeof(char));
 		}
 	    }
 	    break;
@@ -924,6 +996,9 @@ pack_pack(ary, fmt)
 	}
     }
 
+    if (associates) {
+	rb_str_associate(res, associates);
+    }
     return res;
 }
 
@@ -936,11 +1011,11 @@ static void
 encodes(str, s, len, type)
     VALUE str;
     char *s;
-    int len;
+    long len;
     int type;
 {
     char *buff = ALLOCA_N(char, len * 4 / 3 + 6);
-    int i = 0;
+    long i = 0;
     char *trans = type == 'u' ? uu_table : b64_table;
     int padding;
 
@@ -972,7 +1047,7 @@ encodes(str, s, len, type)
 	buff[i++] = padding;
     }
     buff[i++] = '\n';
-    rb_str_cat(str, buff, i);
+    rb_str_buf_cat(str, buff, i);
 }
 
 static char hex_table[] = "0123456789ABCDEF";
@@ -980,10 +1055,10 @@ static char hex_table[] = "0123456789ABCDEF";
 static void
 qpencode(str, from, len)
     VALUE str, from;
-    int len;
+    long len;
 {
     char buff[1024];
-    int i = 0, n = 0, prev = EOF;
+    long i = 0, n = 0, prev = EOF;
     unsigned char *s = (unsigned char*)RSTRING(from)->ptr;
     unsigned char *send = s + RSTRING(from)->len;
 
@@ -1018,7 +1093,7 @@ qpencode(str, from, len)
             prev = '\n';
         }
 	if (i > 1024 - 5) {
-	    rb_str_cat(str, buff, i);
+	    rb_str_buf_cat(str, buff, i);
 	    i = 0;
 	}
 	s++;
@@ -1028,7 +1103,7 @@ qpencode(str, from, len)
 	buff[i++] = '\n';
     }
     if (i > 0) {
-	rb_str_cat(str, buff, i);
+	rb_str_buf_cat(str, buff, i);
     }
 }
 
@@ -1051,30 +1126,177 @@ hex2num(c)
     }
 }
 
+#define PACK_LENGTH_ADJUST_SIZE(sz) do {	\
+    tmp = 0;					\
+    if (len > (send-s)/sz) {			\
+        if (!star) {				\
+	    tmp = len-(send-s)/sz;		\
+        }					\
+	len = (send-s)/sz;			\
+    }						\
+} while (0)
+
 #ifdef NATINT_PACK
 #define PACK_LENGTH_ADJUST(type,sz) do {	\
     int t__len = NATINT_LEN(type,(sz));		\
-    tmp = 0;					\
-    if (len > (send-s)/t__len) {		\
-        if (!star) {				\
-	    tmp = len-(send-s)/t__len;		\
-        }					\
-	len = (send-s)/t__len;			\
-    }						\
+    PACK_LENGTH_ADJUST_SIZE(t__len);		\
 } while (0)
 #else
-#define PACK_LENGTH_ADJUST(type,sz) do {	\
-    tmp = 0;					\
-    if (len > (send-s)/sizeof(type)) {		\
-        if (!star) {				\
-	    tmp = len - (send-s)/sizeof(type);	\
-        }					\
-	len = (send-s)/sizeof(type);		\
-    }						\
-} while (0)
+#define PACK_LENGTH_ADJUST(type,sz) 		\
+    PACK_LENGTH_ADJUST_SIZE(sizeof(type))
 #endif
 
-#define PACK_ITEM_ADJUST() while (tmp--) rb_ary_push(ary, Qnil);
+#define PACK_ITEM_ADJUST() while (tmp--) rb_ary_push(ary, Qnil)
+
+static VALUE
+infected_str_new(ptr, len, str)
+    const char *ptr;
+    long len;
+    VALUE str;
+{
+    VALUE s = rb_str_new(ptr, len);
+
+    OBJ_INFECT(s, str);
+    return s;
+}
+    
+/*
+ *  call-seq:
+ *     str.unpack(format)   => anArray
+ *  
+ *  Decodes <i>str</i> (which may contain binary data) according to the
+ *  format string, returning an array of each value extracted. The
+ *  format string consists of a sequence of single-character directives,
+ *  summarized in the table at the end of this entry.
+ *  Each directive may be followed
+ *  by a number, indicating the number of times to repeat with this
+ *  directive. An asterisk (``<code>*</code>'') will use up all
+ *  remaining elements. The directives <code>sSiIlL</code> may each be
+ *  followed by an underscore (``<code>_</code>'') to use the underlying
+ *  platform's native size for the specified type; otherwise, it uses a
+ *  platform-independent consistent size. Spaces are ignored in the
+ *  format string. See also <code>Array#pack</code>.
+ *     
+ *     "abc \0\0abc \0\0".unpack('A6Z6')   #=> ["abc", "abc "]
+ *     "abc \0\0".unpack('a3a3')           #=> ["abc", " \000\000"]
+ *     "abc \0abc \0".unpack('Z*Z*')       #=> ["abc ", "abc "]
+ *     "aa".unpack('b8B8')                 #=> ["10000110", "01100001"]
+ *     "aaa".unpack('h2H2c')               #=> ["16", "61", 97]
+ *     "\xfe\xff\xfe\xff".unpack('sS')     #=> [-2, 65534]
+ *     "now=20is".unpack('M*')             #=> ["now is"]
+ *     "whole".unpack('xax2aX2aX1aX2a')    #=> ["h", "e", "l", "l", "o"]
+ *
+ *  This table summarizes the various formats and the Ruby classes
+ *  returned by each.
+ *     
+ *     Format | Returns | Function
+ *     -------+---------+-----------------------------------------
+ *       A    | String  | with trailing nulls and spaces removed
+ *     -------+---------+-----------------------------------------
+ *       a    | String  | string
+ *     -------+---------+-----------------------------------------
+ *       B    | String  | extract bits from each character (msb first)
+ *     -------+---------+-----------------------------------------
+ *       b    | String  | extract bits from each character (lsb first)
+ *     -------+---------+-----------------------------------------
+ *       C    | Fixnum  | extract a character as an unsigned integer
+ *     -------+---------+-----------------------------------------
+ *       c    | Fixnum  | extract a character as an integer
+ *     -------+---------+-----------------------------------------
+ *       d,D  | Float   | treat sizeof(double) characters as
+ *            |         | a native double
+ *     -------+---------+-----------------------------------------
+ *       E    | Float   | treat sizeof(double) characters as
+ *            |         | a double in little-endian byte order
+ *     -------+---------+-----------------------------------------
+ *       e    | Float   | treat sizeof(float) characters as
+ *            |         | a float in little-endian byte order
+ *     -------+---------+-----------------------------------------
+ *       f,F  | Float   | treat sizeof(float) characters as
+ *            |         | a native float
+ *     -------+---------+-----------------------------------------
+ *       G    | Float   | treat sizeof(double) characters as
+ *            |         | a double in network byte order
+ *     -------+---------+-----------------------------------------
+ *       g    | Float   | treat sizeof(float) characters as a
+ *            |         | float in network byte order
+ *     -------+---------+-----------------------------------------
+ *       H    | String  | extract hex nibbles from each character
+ *            |         | (most significant first)
+ *     -------+---------+-----------------------------------------
+ *       h    | String  | extract hex nibbles from each character
+ *            |         | (least significant first)
+ *     -------+---------+-----------------------------------------
+ *       I    | Integer | treat sizeof(int) (modified by _)
+ *            |         | successive characters as an unsigned
+ *            |         | native integer
+ *     -------+---------+-----------------------------------------
+ *       i    | Integer | treat sizeof(int) (modified by _)
+ *            |         | successive characters as a signed
+ *            |         | native integer
+ *     -------+---------+-----------------------------------------
+ *       L    | Integer | treat four (modified by _) successive
+ *            |         | characters as an unsigned native
+ *            |         | long integer
+ *     -------+---------+-----------------------------------------
+ *       l    | Integer | treat four (modified by _) successive
+ *            |         | characters as a signed native
+ *            |         | long integer
+ *     -------+---------+-----------------------------------------
+ *       M    | String  | quoted-printable
+ *     -------+---------+-----------------------------------------
+ *       m    | String  | base64-encoded
+ *     -------+---------+-----------------------------------------
+ *       N    | Integer | treat four characters as an unsigned
+ *            |         | long in network byte order
+ *     -------+---------+-----------------------------------------
+ *       n    | Fixnum  | treat two characters as an unsigned
+ *            |         | short in network byte order
+ *     -------+---------+-----------------------------------------
+ *       P    | String  | treat sizeof(char *) characters as a
+ *            |         | pointer, and  return \emph{len} characters
+ *            |         | from the referenced location
+ *     -------+---------+-----------------------------------------
+ *       p    | String  | treat sizeof(char *) characters as a
+ *            |         | pointer to a  null-terminated string
+ *     -------+---------+-----------------------------------------
+ *       Q    | Integer | treat 8 characters as an unsigned 
+ *            |         | quad word (64 bits)
+ *     -------+---------+-----------------------------------------
+ *       q    | Integer | treat 8 characters as a signed 
+ *            |         | quad word (64 bits)
+ *     -------+---------+-----------------------------------------
+ *       S    | Fixnum  | treat two (different if _ used)
+ *            |         | successive characters as an unsigned
+ *            |         | short in native byte order
+ *     -------+---------+-----------------------------------------
+ *       s    | Fixnum  | Treat two (different if _ used) 
+ *            |         | successive characters as a signed short
+ *            |         | in native byte order
+ *     -------+---------+-----------------------------------------
+ *       U    | Integer | UTF-8 characters as unsigned integers
+ *     -------+---------+-----------------------------------------
+ *       u    | String  | UU-encoded
+ *     -------+---------+-----------------------------------------
+ *       V    | Fixnum  | treat four characters as an unsigned
+ *            |         | long in little-endian byte order
+ *     -------+---------+-----------------------------------------
+ *       v    | Fixnum  | treat two characters as an unsigned
+ *            |         | short in little-endian byte order
+ *     -------+---------+-----------------------------------------
+ *       w    | Integer | BER-compressed integer (see Array.pack)
+ *     -------+---------+-----------------------------------------
+ *       X    | ---     | skip backward one character
+ *     -------+---------+-----------------------------------------
+ *       x    | ---     | skip forward one character
+ *     -------+---------+-----------------------------------------
+ *       Z    | String  | with trailing nulls removed
+ *            |         | upto first null with *
+ *     -------+---------+-----------------------------------------
+ *       @    | ---     | skip to the offset given by the 
+ *            |         | length argument
+ *     -------+---------+-----------------------------------------
+ */
 
 static VALUE
 pack_unpack(str, fmt)
@@ -1085,23 +1307,34 @@ pack_unpack(str, fmt)
     char *p, *pend;
     VALUE ary;
     char type;
-    int len, tmp, star;
+    long len;
+    int tmp, star;
 #ifdef NATINT_PACK
     int natint;			/* native integer */
 #endif
 
-    s = rb_str2cstr(str, &len);
-    send = s + len;
-    p = rb_str2cstr(fmt, &len);
-    pend = p + len;
+    StringValue(str);
+    StringValue(fmt);
+    s = RSTRING(str)->ptr;
+    send = s + RSTRING(str)->len;
+    p = RSTRING(fmt)->ptr;
+    pend = p + RSTRING(fmt)->len;
 
     ary = rb_ary_new();
     while (p < pend) {
+	type = *p++;
 #ifdef NATINT_PACK
 	natint = 0;
 #endif
+
+	if (ISSPACE(type)) continue;
+	if (type == '#') {
+	    while ((p < pend) && (*p != '\n')) {
+		p++;
+	    }
+	    continue;
+	}
 	star = 0;
-	type = *p++;
 	if (*p == '_' || *p == '!') {
 	    char *natstr = "sSiIlL";
 
@@ -1137,36 +1370,33 @@ pack_unpack(str, fmt)
 	  case 'A':
 	    if (len > send - s) len = send - s;
 	    {
-		int end = len;
+		long end = len;
 		char *t = s + len - 1;
 
 		while (t >= s) {
 		    if (*t != ' ' && *t != '\0') break;
 		    t--; len--;
 		}
-		rb_ary_push(ary, rb_str_new(s, len));
+		rb_ary_push(ary, infected_str_new(s, len, str));
 		s += end;
 	    }
 	    break;
 
 	  case 'Z':
-	    if (len > send - s) len = send - s;
 	    {
-		int end = len;
-		char *t = s + len - 1;
+		char *t = s;
 
-		while (t >= s) {
-		    if (*t) break;
-		    t--; len--;
-		}
-		rb_ary_push(ary, rb_str_new(s, len));
-		s += end;
+		if (len > send-s) len = send-s;
+		while (t < s+len && *t) t++;
+		rb_ary_push(ary, infected_str_new(s, t-s, str));
+		if (t < send) t++;
+		s = star ? t : s+len;
 	    }
 	    break;
 
 	  case 'a':
 	    if (len > send - s) len = send - s;
-	    rb_ary_push(ary, rb_str_new(s, len));
+	    rb_ary_push(ary, infected_str_new(s, len, str));
 	    s += len;
 	    break;
 
@@ -1175,7 +1405,8 @@ pack_unpack(str, fmt)
 	    {
 		VALUE bitstr;
 		char *t;
-		int bits, i;
+		int bits;
+		long i;
 
 		if (p[-1] == '*' || len > (send - s) * 8)
 		    len = (send - s) * 8;
@@ -1194,7 +1425,8 @@ pack_unpack(str, fmt)
 	    {
 		VALUE bitstr;
 		char *t;
-		int bits, i;
+		int bits;
+		long i;
 
 		if (p[-1] == '*' || len > (send - s) * 8)
 		    len = (send - s) * 8;
@@ -1213,7 +1445,8 @@ pack_unpack(str, fmt)
 	    {
 		VALUE bitstr;
 		char *t;
-		int bits, i;
+		int bits;
+		long i;
 
 		if (p[-1] == '*' || len > (send - s) * 2)
 		    len = (send - s) * 2;
@@ -1234,7 +1467,8 @@ pack_unpack(str, fmt)
 	    {
 		VALUE bitstr;
 		char *t;
-		int bits, i;
+		int bits;
+		long i;
 
 		if (p[-1] == '*' || len > (send - s) * 2)
 		    len = (send - s) * 2;
@@ -1275,6 +1509,7 @@ pack_unpack(str, fmt)
 	    while (len-- > 0) {
 		short tmp = 0;
 		memcpy(OFF16(&tmp), s, NATINT_LEN(short,2));
+		EXTEND16(tmp);
 		s += NATINT_LEN(short,2);
 		rb_ary_push(ary, INT2FIX(tmp));
 	    }
@@ -1298,7 +1533,7 @@ pack_unpack(str, fmt)
 		int tmp;
 		memcpy(&tmp, s, sizeof(int));
 		s += sizeof(int);
-		rb_ary_push(ary, rb_int2inum(tmp));
+		rb_ary_push(ary, INT2NUM(tmp));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
@@ -1309,7 +1544,7 @@ pack_unpack(str, fmt)
 		unsigned int tmp;
 		memcpy(&tmp, s, sizeof(unsigned int));
 		s += sizeof(unsigned int);
-		rb_ary_push(ary, rb_uint2inum(tmp));
+		rb_ary_push(ary, UINT2NUM(tmp));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
@@ -1319,21 +1554,39 @@ pack_unpack(str, fmt)
 	    while (len-- > 0) {
 		long tmp = 0;
 		memcpy(OFF32(&tmp), s, NATINT_LEN(long,4));
+		EXTEND32(tmp);
 		s += NATINT_LEN(long,4);
-		rb_ary_push(ary, rb_int2inum(tmp));
+		rb_ary_push(ary, LONG2NUM(tmp));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
-
 	  case 'L':
 	    PACK_LENGTH_ADJUST(unsigned long,4);
 	    while (len-- > 0) {
 		unsigned long tmp = 0;
 		memcpy(OFF32(&tmp), s, NATINT_LEN(unsigned long,4));
 		s += NATINT_LEN(unsigned long,4);
-		rb_ary_push(ary, rb_uint2inum(tmp));
+		rb_ary_push(ary, ULONG2NUM(tmp));
 	    }
 	    PACK_ITEM_ADJUST();
+	    break;
+
+	  case 'q':
+	    PACK_LENGTH_ADJUST_SIZE(QUAD_SIZE);
+	    while (len-- > 0) {
+		char *tmp = (char*)s;
+		s += QUAD_SIZE;
+		rb_ary_push(ary, rb_quad_unpack(tmp, 1));
+	    }
+	    PACK_ITEM_ADJUST();
+	    break;
+	case 'Q':
+	    PACK_LENGTH_ADJUST_SIZE(QUAD_SIZE);
+	    while (len-- > 0) {
+		char *tmp = (char*)s;
+		s += QUAD_SIZE;
+		rb_ary_push(ary, rb_quad_unpack(tmp, 0));
+	    }
 	    break;
 
 	  case 'n':
@@ -1342,7 +1595,7 @@ pack_unpack(str, fmt)
 		unsigned short tmp = 0;
 		memcpy(OFF16B(&tmp), s, NATINT_LEN(unsigned short,2));
 		s += NATINT_LEN(unsigned short,2);
-		rb_ary_push(ary, rb_uint2inum(ntohs(tmp)));
+		rb_ary_push(ary, UINT2NUM(ntohs(tmp)));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
@@ -1353,7 +1606,7 @@ pack_unpack(str, fmt)
 		unsigned long tmp = 0;
 		memcpy(OFF32B(&tmp), s, NATINT_LEN(unsigned long,4));
 		s += NATINT_LEN(unsigned long,4);
-		rb_ary_push(ary, rb_uint2inum(ntohl(tmp)));
+		rb_ary_push(ary, ULONG2NUM(ntohl(tmp)));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
@@ -1364,7 +1617,7 @@ pack_unpack(str, fmt)
 		unsigned short tmp = 0;
 		memcpy(OFF16(&tmp), s, NATINT_LEN(unsigned short,2));
 		s += NATINT_LEN(unsigned short,2);
-		rb_ary_push(ary, rb_uint2inum(vtohs(tmp)));
+		rb_ary_push(ary, UINT2NUM(vtohs(tmp)));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
@@ -1375,7 +1628,7 @@ pack_unpack(str, fmt)
 		unsigned long tmp = 0;
 		memcpy(OFF32(&tmp), s, NATINT_LEN(long,4));
 		s += NATINT_LEN(long,4);
-		rb_ary_push(ary, rb_uint2inum(vtohl(tmp)));
+		rb_ary_push(ary, ULONG2NUM(vtohl(tmp)));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
@@ -1463,20 +1716,20 @@ pack_unpack(str, fmt)
 	  case 'U':
 	    if (len > send - s) len = send - s;
 	    while (len > 0 && s < send) {
-		int alen = send - s;
+		long alen = send - s;
 		unsigned long l;
 
 		l = utf8_to_uv(s, &alen);
 		s += alen; len--;
-		rb_ary_push(ary, rb_uint2inum(l));
+		rb_ary_push(ary, ULONG2NUM(l));
 	    }
 	    break;
 
 	  case 'u':
 	    {
-		VALUE str = rb_str_new(0, (send - s)*3/4);
-		char *ptr = RSTRING(str)->ptr;
-		int total = 0;
+		VALUE buf = infected_str_new(0, (send - s)*3/4, str);
+		char *ptr = RSTRING(buf)->ptr;
+		long total = 0;
 
 		while (s < send && *s > ' ' && *s < 'a') {
 		    long a,b,c,d;
@@ -1485,13 +1738,13 @@ pack_unpack(str, fmt)
 		    hunk[3] = '\0';
 		    len = (*s++ - ' ') & 077;
 		    total += len;
-		    if (total > RSTRING(str)->len) {
-			len -= total - RSTRING(str)->len;
-			total = RSTRING(str)->len;
+		    if (total > RSTRING(buf)->len) {
+			len -= total - RSTRING(buf)->len;
+			total = RSTRING(buf)->len;
 		    }
 
 		    while (len > 0) {
-			int mlen = len > 3 ? 3 : len;
+			long mlen = len > 3 ? 3 : len;
 
 			if (s < send && *s >= ' ')
 			    a = (*s++ - ' ') & 077;
@@ -1522,17 +1775,17 @@ pack_unpack(str, fmt)
 			s += 2;	/* possible checksum byte */
 		}
 		
-		RSTRING(str)->ptr[total] = '\0';
-		RSTRING(str)->len = total;
-		rb_ary_push(ary, str);
+		RSTRING(buf)->ptr[total] = '\0';
+		RSTRING(buf)->len = total;
+		rb_ary_push(ary, buf);
 	    }
 	    break;
 
 	  case 'm':
 	    {
-		VALUE str = rb_str_new(0, (send - s)*3/4);
-		char *ptr = RSTRING(str)->ptr;
-		int a,b,c,d;
+		VALUE buf = infected_str_new(0, (send - s)*3/4, str);
+		char *ptr = RSTRING(buf)->ptr;
+		int a = -1,b = -1,c = 0,d;
 		static int first = 1;
 		static int b64_xtable[256];
 
@@ -1547,7 +1800,7 @@ pack_unpack(str, fmt)
 			b64_xtable[(int)b64_table[i]] = i;
 		    }
 		}
-		for (;;) {
+		while (s < send) {
 		    while (s[0] == '\r' || s[0] == '\n') { s++; }
 		    if ((a = b64_xtable[(int)s[0]]) == -1) break;
 		    if ((b = b64_xtable[(int)s[1]]) == -1) break;
@@ -1558,23 +1811,24 @@ pack_unpack(str, fmt)
 		    *ptr++ = c << 6 | d;
 		    s += 4;
 		}
-		if (a != -1 && b != -1 && s[2] == '=') {
-		    *ptr++ = a << 2 | b >> 4;
-		}
-		if (a != -1 && b != -1 && c != -1 && s[3] == '=') {
-		    *ptr++ = a << 2 | b >> 4;
-		    *ptr++ = b << 4 | c >> 2;
+		if (a != -1 && b != -1) {
+		    if (s + 2 < send && s[2] == '=')
+			*ptr++ = a << 2 | b >> 4;
+		    if (c != -1 && s + 3 < send && s[3] == '=') {
+			*ptr++ = a << 2 | b >> 4;
+			*ptr++ = b << 4 | c >> 2;
+		    }
 		}
 		*ptr = '\0';
-		RSTRING(str)->len = ptr - RSTRING(str)->ptr;
-		rb_ary_push(ary, str);
+		RSTRING(buf)->len = ptr - RSTRING(buf)->ptr;
+		rb_ary_push(ary, buf);
 	    }
 	    break;
 
 	  case 'M':
 	    {
-		VALUE str = rb_str_new(0, send - s);
-		char *ptr = RSTRING(str)->ptr;
+		VALUE buf = infected_str_new(0, send - s, str);
+		char *ptr = RSTRING(buf)->ptr;
 		int c1, c2;
 
 		while (s < send) {
@@ -1593,12 +1847,14 @@ pack_unpack(str, fmt)
 		    s++;
 		}
 		*ptr = '\0';
-		RSTRING(str)->len = ptr - RSTRING(str)->ptr;
-		rb_ary_push(ary, str);
+		RSTRING(buf)->len = ptr - RSTRING(buf)->ptr;
+		rb_ary_push(ary, buf);
 	    }
 	    break;
 
 	  case '@':
+	    if (len > RSTRING(str)->len)
+		rb_raise(rb_eArgError, "@ outside of string");
 	    s = RSTRING(str)->ptr + len;
 	    break;
 
@@ -1617,12 +1873,37 @@ pack_unpack(str, fmt)
 	  case 'P':
 	    if (sizeof(char *) <= send - s) {
 		char *t;
-		VALUE str = rb_str_new(0, 0);
+		VALUE tmp;
+
 		memcpy(&t, s, sizeof(char *));
 		s += sizeof(char *);
-		if (t)
-		    rb_str_cat(str, t, len);
-		rb_ary_push(ary, str);
+
+		if (t) {
+		    VALUE a, *p, *pend;
+
+		    if (!(a = rb_str_associated(str))) {
+			rb_raise(rb_eArgError, "no associated pointer");
+		    }
+		    p = RARRAY(a)->ptr;
+		    pend = p + RARRAY(a)->len;
+		    while (p < pend) {
+			if (TYPE(*p) == T_STRING && RSTRING(*p)->ptr == t) {
+			    if (len > RSTRING(*p)->len) {
+				len = RSTRING(*p)->len;
+			    }
+			    break;
+			}
+			p++;
+		    }
+		    if (p == pend) {
+			rb_raise(rb_eArgError, "non associated pointer");
+		    }
+		    tmp = rb_tainted_str_new(t, len);
+		}
+		else {
+		    tmp = Qnil;
+		}
+		rb_ary_push(ary, tmp);
 	    }
 	    break;
 
@@ -1633,14 +1914,36 @@ pack_unpack(str, fmt)
 		if (send - s < sizeof(char *))
 		    break;
 		else {
+		    VALUE tmp;
 		    char *t;
-		    VALUE str = rb_str_new(0, 0);
+
 		    memcpy(&t, s, sizeof(char *));
 		    s += sizeof(char *);
+
 		    if (t) {
-			rb_str_cat2(str, t);
+			VALUE a, *p, *pend;
+
+			if (!(a = rb_str_associated(str))) {
+			    rb_raise(rb_eArgError, "no associated pointer");
+			}
+			p = RARRAY(a)->ptr;
+			pend = p + RARRAY(a)->len;
+			while (p < pend) {
+			    if (TYPE(*p) == T_STRING && RSTRING(*p)->ptr == t) {
+				break;
+			    }
+			    p++;
+			}
+			if (p == pend) {
+			    rb_raise(rb_eArgError, "non associated pointer");
+			}
+			tmp = rb_str_new2(t);
+			OBJ_INFECT(tmp, str);
 		    }
-		    rb_ary_push(ary, str);
+		    else {
+			tmp = Qnil;
+		    }
+		    rb_ary_push(ary, tmp);
 		}
 	    }
 	    break;
@@ -1654,7 +1957,7 @@ pack_unpack(str, fmt)
 		    ul <<= 7;
 		    ul |= (*s & 0x7f);
 		    if (!(*s++ & 0x80)) {
-			rb_ary_push(ary, rb_uint2inum(ul));
+			rb_ary_push(ary, ULONG2NUM(ul));
 			len--;
 			ul = 0;
 		    }
@@ -1730,48 +2033,67 @@ uv_to_utf8(buf, uv)
 	buf[5] = (uv&0x3f)|0x80;
 	return 6;
     }
-#if SIZEOF_LONG > 4
-    if (uv <= 0xfffffffff) {
-#endif
-	buf[0] = 0xfe;
-	buf[1] = ((uv>>30)&0x3f)|0x80;
-	buf[2] = ((uv>>24)&0x3f)|0x80;
-	buf[3] = ((uv>>18)&0x3f)|0x80;
-	buf[4] = ((uv>>12)&0x3f)|0x80;
-	buf[5] = ((uv>>6)&0x3f)|0x80;
-	buf[6] = (uv&0x3f)|0x80;
-	return 7;
-#if SIZEOF_LONG > 4
-    }
-    rb_raise(rb_eArgError, "uv_to_utf8(); too big value");
-#endif
+    rb_raise(rb_eRangeError, "pack(U): value out of range");
 }
+
+static const long utf8_limits[] = {
+    0x0,			/* 1 */
+    0x80,			/* 2 */
+    0x800,			/* 3 */
+    0x10000,			/* 4 */
+    0x200000,			/* 5 */
+    0x4000000,			/* 6 */
+    0x80000000,			/* 7 */
+};
 
 static unsigned long
 utf8_to_uv(p, lenp)
     char *p;
-    int *lenp;
+    long *lenp;
 {
-    int c = (*p++)&0xff;
-    unsigned long uv;
-    int n = 1;
+    int c = *p++ & 0xff;
+    unsigned long uv = c;
+    long n;
 
-    if (c < 0xc0) n = 1;
-    else if (c < 0xe0) n = 2;
-    else if (c < 0xf0) n = 3;
-    else if (c < 0xf8) n = 4;
-    else if (c < 0xfc) n = 5;
-    else if (c < 0xfe) n = 6;
-    else if (c == 0xfe) n = 7;
-    if (n > *lenp) return 0;
+    if (!(uv & 0x80)) {
+	*lenp = 1;
+        return uv;
+    }
+    if (!(uv & 0x40)) {
+	*lenp = 1;
+	rb_raise(rb_eArgError, "malformed UTF-8 character");
+    }
+
+    if      (!(uv & 0x20)) { n = 2; uv &= 0x1f; }
+    else if (!(uv & 0x10)) { n = 3; uv &= 0x0f; }
+    else if (!(uv & 0x08)) { n = 4; uv &= 0x07; }
+    else if (!(uv & 0x04)) { n = 5; uv &= 0x03; }
+    else if (!(uv & 0x02)) { n = 6; uv &= 0x01; }
+    else {
+	*lenp = 1;
+	rb_raise(rb_eArgError, "malformed UTF-8 character");
+    }
+    if (n > *lenp) {
+	rb_raise(rb_eArgError, "malformed UTF-8 character (expected %d bytes, given %d bytes)",
+		 n, *lenp);
+    }
     *lenp = n--;
-
-    uv = c;
     if (n != 0) {
-	uv &= (1<<(BYTEWIDTH-2-n)) - 1;
 	while (n--) {
-	    uv = uv << 6 | *p++ & ((1<<6)-1);
+	    c = *p++ & 0xff;
+	    if ((c & 0xc0) != 0x80) {
+		*lenp -= n + 1;
+		rb_raise(rb_eArgError, "malformed UTF-8 character");
+	    }
+	    else {
+		c &= 0x3f;
+		uv = uv << 6 | c;
+	    }
 	}
+    }
+    n = *lenp - 1;
+    if (uv < utf8_limits[n]) {
+	rb_raise(rb_eArgError, "redundant UTF-8 sequence");
     }
     return uv;
 }

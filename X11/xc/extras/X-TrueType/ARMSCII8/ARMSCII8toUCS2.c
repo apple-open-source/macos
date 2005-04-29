@@ -32,7 +32,8 @@
 
 Notice===
 
-	Source: http://www.freenet.am/ArmSCII/ArmCS-005.html
+	Source: http://www.freenet.am/armscii/armcs-006.html
+	Revision 2 of 1999-06-30
 	There is a potential problem whith char "armeternity" 
 	(0xa1 in ArmSCII-8) as it isn't listed in unicode charts yet.
 	I used 0xf0a1 as that is the value used by a microsoft-symbol
@@ -40,14 +41,17 @@ Notice===
 	a microsoft-symbol encoding it will show up; otherwise the 
 	"armeternity" will probably be lost; a standardization is 
 	needed here.
-				Pablo Saratxaga <srtxg@chanae.alphanet.ch>
+				Pablo Saratxaga <pablo@mandrakesoft.com>
 
  */
+/* $XFree86: xc/extras/X-TrueType/ARMSCII8/ARMSCII8toUCS2.c,v 1.3 2003/10/22 16:25:25 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"
@@ -58,7 +62,7 @@ static char const * const releaseID =
 
 static ucs2_t tblArmSCII8ToUcs2[] = {
 /* 0x00A0 - 0x00FF */
-    0x00a0, 0xf0a1, 0x00a7, 0x0589, 0x0029, 0x0028, 0x00bb, 0x00ab,
+    0x00a0, 0xf0a1, 0x0587, 0x0589, 0x0029, 0x0028, 0x00bb, 0x00ab,
     0x2014, 0x002e, 0x055d, 0x002c, 0x2010, 0x058a, 0x2026, 0x055c,
     0x055b, 0x055e, 0x0531, 0x0561, 0x0532, 0x0562, 0x0533, 0x0563,
     0x0534, 0x0564, 0x0535, 0x0565, 0x0536, 0x0566, 0x0537, 0x0567,
@@ -69,7 +73,7 @@ static ucs2_t tblArmSCII8ToUcs2[] = {
     0x0548, 0x0578, 0x0549, 0x0579, 0x054a, 0x057a, 0x054b, 0x057b,
     0x054c, 0x057c, 0x054d, 0x057d, 0x054e, 0x057e, 0x054f, 0x057f,
     0x0550, 0x0580, 0x0551, 0x0581, 0x0552, 0x0582, 0x0553, 0x0583,
-    0x0554, 0x0584, 0x0555, 0x0585, 0x0556, 0x0586, 0x02bc, 0x0587
+    0x0554, 0x0584, 0x0555, 0x0585, 0x0556, 0x0586, 0x02bc, 0x00a7
 };
 
 CODE_CONV_ISO8859_TO_UCS2(cc_armscii8_to_ucs2, /* function name */

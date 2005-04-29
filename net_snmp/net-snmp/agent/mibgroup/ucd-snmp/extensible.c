@@ -114,9 +114,11 @@ int             strncasecmp(const char *s1, const char *s2, size_t n);
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include <net-snmp/agent/auto_nlist.h>
+#include <net-snmp/agent/agent_callbacks.h>
 
 #include "struct.h"
 #include "extensible.h"
+#include "utilities/execute.h"
 #include "util_funcs.h"
 
 extern struct myproc *procwatch;        /* moved to proc.c */
@@ -131,6 +133,27 @@ extern char     sysName[];
 extern netsnmp_subtree *subtrees;
 extern struct variable2 extensible_relocatable_variables[];
 extern struct variable2 extensible_passthru_variables[];
+
+/*
+ * the relocatable extensible commands variables 
+ */
+struct variable2 extensible_relocatable_variables[] = {
+    {MIBINDEX, ASN_INTEGER, RONLY, var_extensible_relocatable, 1,
+     {MIBINDEX}},
+    {ERRORNAME, ASN_OCTET_STR, RONLY, var_extensible_relocatable, 1,
+     {ERRORNAME}},
+    {SHELLCOMMAND, ASN_OCTET_STR, RONLY, var_extensible_relocatable, 1,
+     {SHELLCOMMAND}},
+    {ERRORFLAG, ASN_INTEGER, RONLY, var_extensible_relocatable, 1,
+     {ERRORFLAG}},
+    {ERRORMSG, ASN_OCTET_STR, RONLY, var_extensible_relocatable, 1,
+     {ERRORMSG}},
+    {ERRORFIX, ASN_INTEGER, RWRITE, var_extensible_relocatable, 1,
+     {ERRORFIX}},
+    {ERRORFIXCMD, ASN_OCTET_STR, RONLY, var_extensible_relocatable, 1,
+     {ERRORFIXCMD}}
+};
+
 
 void
 init_extensible(void)
@@ -174,13 +197,19 @@ init_extensible(void)
                                   "[miboid] name program-or-script arguments");
     snmpd_register_config_handler("execfix", execfix_parse_config, NULL,
                                   "exec-or-sh-name program [arguments...]");
+    snmp_register_callback(SNMP_CALLBACK_APPLICATION,
+                           SNMPD_CALLBACK_PRE_UPDATE_CONFIG,
+                           extensible_unregister, NULL);
 }
+
+extern int pass_compare(const void *a, const void *b);
 
 void
 extensible_parse_config(const char *token, char *cptr)
 {
     struct extensible *ptmp, **pp;
     char           *tcptr;
+    int            scount;
 
     /*
      * allocate and clear memory structure 
@@ -195,14 +224,18 @@ extensible_parse_config(const char *token, char *cptr)
         /*
          * its a relocatable extensible mib 
          */
+        config_perror("Warning: relocatable 'exec' format will change in a future release - See 'NET-SNMP-EXTEND-MIB' for an alternative" );
         for (pp = &relocs, numrelocs++; *pp; pp = &((*pp)->next));
         (*pp) = ptmp;
+        pp = &relocs; scount = numrelocs;
+
     } else {
         /*
          * it goes in with the general extensible table 
          */
         for (pp = &extens, numextens++; *pp; pp = &((*pp)->next));
         (*pp) = ptmp;
+        pp = &extens; scount = numextens;
     }
 
     /*
@@ -231,8 +264,13 @@ extensible_parse_config(const char *token, char *cptr)
     if (cptr == NULL) {
         config_perror("No command specified on line");
     } else {
-        for (tcptr = cptr; *tcptr != 0 && *tcptr != '#' && *tcptr != ';';
-             tcptr++);
+        /*
+         * Support multi-element commands in shell configuration
+         *   lines, but truncate after the first command for 'exec'
+         */
+        for (tcptr = cptr; *tcptr != 0 && *tcptr != '#'; tcptr++)
+            if (*tcptr == ';' && ptmp->type == EXECPROC)
+                break;
         strncpy(ptmp->command, cptr, tcptr - cptr);
         ptmp->command[tcptr - cptr] = 0;
     }
@@ -242,15 +280,49 @@ extensible_parse_config(const char *token, char *cptr)
     if (ptmp->miblen > 0) {
         register_mib(token,
                      (struct variable *) extensible_relocatable_variables,
-                     sizeof(struct variable2), 6, ptmp->miboid,
-                     ptmp->miblen);
+                     sizeof(struct variable2), 
+                     sizeof(extensible_relocatable_variables) /
+                     sizeof(*extensible_relocatable_variables),
+                     ptmp->miboid, ptmp->miblen);
     }
+
+    if (scount > 1) {
+        int i;
+        struct extensible **etmp = (struct extensible **)
+            malloc(((sizeof(struct extensible *)) * scount));
+        if (etmp == NULL)
+            return;                 /* XXX memory alloc error */
+        for (i = 0, ptmp = *pp;
+             i < scount && ptmp != 0; i++, ptmp = ptmp->next)
+            etmp[i] = ptmp;
+        qsort(etmp, scount, sizeof(struct extensible *),
+              pass_compare);
+        *pp = (struct extensible *) etmp[0];
+        ptmp = (struct extensible *) etmp[0];
+
+        for (i = 0; i < scount - 1; i++) {
+            ptmp->next = etmp[i + 1];
+            ptmp = ptmp->next;
+        }
+        ptmp->next = NULL;
+        free(etmp);
+    }
+}
+
+int
+extensible_unregister(int major, int minor,
+                      void *serverarg, void *clientarg)
+{
+    extensible_free_config();
+    return 0;
 }
 
 void
 extensible_free_config(void)
 {
     struct extensible *etmp, *etmp2;
+    oid    tname[MAX_OID_LEN];
+    int    i;
 
     for (etmp = extens; etmp != NULL;) {
         etmp2 = etmp;
@@ -261,7 +333,22 @@ extensible_free_config(void)
     for (etmp = relocs; etmp != NULL;) {
         etmp2 = etmp;
         etmp = etmp->next;
-        unregister_mib(etmp2->miboid, etmp2->miblen);
+
+        /*
+         * The new modular API results in the column
+         *  objects being registered individually, so
+         *  they need to be unregistered individually too!
+         */
+        memset(tname, 0, MAX_OID_LEN*sizeof(oid));
+        memcpy(tname,  etmp2->miboid, etmp2->miblen*sizeof(oid));
+        for (i=1; i<4; i++) {
+            tname[etmp2->miblen] = i;
+            unregister_mib(tname, etmp2->miblen+1);
+        }
+        for (i=100; i<=103; i++) {
+            tname[etmp2->miblen] = i;
+            unregister_mib(tname, etmp2->miblen+1);
+        }
         free(etmp2);
     }
 
@@ -271,18 +358,6 @@ extensible_free_config(void)
     numrelocs = 0;
 }
 
-
-struct extensible *
-get_exten_instance(struct extensible *exten, size_t inst)
-{
-    int             i;
-
-    if (exten == NULL)
-        return (NULL);
-    for (i = 1; i != (int) inst && exten != NULL; i++)
-        exten = exten->next;
-    return (exten);
-}
 
 #define MAXMSGLINES 1000
 
@@ -316,6 +391,11 @@ get_exec_by_name(char *name)
 
     for (etmp = extens; etmp != NULL && strcmp(etmp->name, name) != 0;
          etmp = etmp->next);
+
+    if(NULL == etmp)
+        for (etmp = relocs; etmp != NULL && strcmp(etmp->name, name) != 0;
+         etmp = etmp->next);
+
     return etmp;
 }
 
@@ -353,6 +433,7 @@ var_extensible_shell(struct variable * vp,
 
     static struct extensible *exten = 0;
     static long     long_ret;
+    int len;
 
     if (header_simple_table
         (vp, name, length, exact, var_len, write_method, numextens))
@@ -370,17 +451,25 @@ var_extensible_shell(struct variable * vp,
             *var_len = strlen(exten->command);
             return ((u_char *) (exten->command));
         case ERRORFLAG:        /* return code from the process */
-            if (exten->type == EXECPROC)
-                exec_command(exten);
-            else
-                shell_command(exten);
+            len = sizeof(exten->output);
+            if (exten->type == EXECPROC) {
+                exten->result = run_exec_command( exten->command, NULL,
+                                                  exten->output, &len);
+	    } else {
+                exten->result = run_shell_command(exten->command, NULL,
+                                                  exten->output, &len);
+	    }
             long_ret = exten->result;
             return ((u_char *) (&long_ret));
         case ERRORMSG:         /* first line of text returned from the process */
-            if (exten->type == EXECPROC)
-                exec_command(exten);
-            else
-                shell_command(exten);
+            len = sizeof(exten->output);
+            if (exten->type == EXECPROC) {
+                exten->result = run_exec_command( exten->command, NULL,
+                                                  exten->output, &len);
+	    } else {
+                exten->result = run_shell_command(exten->command, NULL,
+                                                  exten->output, &len);
+	    }
             *var_len = strlen(exten->output);
             if (exten->output[*var_len - 1] == '\n')
                 exten->output[--(*var_len)] = '\0';
@@ -433,24 +522,6 @@ fixExecError(int action,
     return SNMP_ERR_WRONGTYPE;
 }
 
-/*
- * the relocatable extensible commands variables 
- */
-struct variable2 extensible_relocatable_variables[] = {
-    {MIBINDEX, ASN_INTEGER, RONLY, var_extensible_relocatable, 1,
-     {MIBINDEX}},
-    {ERRORNAME, ASN_OCTET_STR, RONLY, var_extensible_relocatable, 1,
-     {ERRORNAME}},
-    {SHELLCOMMAND, ASN_OCTET_STR, RONLY, var_extensible_relocatable, 1,
-     {SHELLCOMMAND}},
-    {ERRORFLAG, ASN_INTEGER, RONLY, var_extensible_relocatable, 1,
-     {ERRORFLAG}},
-    {ERRORMSG, ASN_OCTET_STR, RONLY, var_extensible_relocatable, 1,
-     {ERRORMSG}},
-    {ERRORFIX, ASN_INTEGER, RWRITE, var_extensible_relocatable, 1,
-     {ERRORFIX}}
-};
-
 u_char         *
 var_extensible_relocatable(struct variable *vp,
                            oid * name,
@@ -459,12 +530,12 @@ var_extensible_relocatable(struct variable *vp,
                            size_t * var_len, WriteMethod ** write_method)
 {
 
-    int             fd;
     int             i;
-    FILE           *file;
+    int             len;
     struct extensible *exten = 0;
     static long     long_ret;
     static char     errmsg[STRMAX];
+    char            *cp, *cp1;
     struct variable myvp;
     oid             tname[MAX_OID_LEN];
 
@@ -508,37 +579,50 @@ var_extensible_relocatable(struct variable *vp,
         *var_len = strlen(exten->command);
         return ((u_char *) (exten->command));
     case ERRORFLAG:            /* return code from the process */
+        len = sizeof(exten->output);
         if (exten->type == EXECPROC)
-            exec_command(exten);
-        else
-            shell_command(exten);
+            exten->result = run_exec_command( exten->command, NULL,
+                                              exten->output, &len);
+	else
+            exten->result = run_shell_command(exten->command, NULL,
+                                              exten->output, &len);
         long_ret = exten->result;
         return ((u_char *) (&long_ret));
     case ERRORMSG:             /* first line of text returned from the process */
-        if (exten->type == EXECPROC) {
-            if ((fd = get_exec_output(exten)) != -1) {
-                file = fdopen(fd, "r");
-                for (i = 0; i != (int) name[*length - 1]; i++) {
-                    if (fgets(errmsg, sizeof(errmsg), file) == NULL) {
-                        *var_len = 0;
-                        fclose(file);
-                        wait_on_exec(exten);
-                        return (NULL);
-                    }
-                }
-                fclose(file);
-                wait_on_exec(exten);
-            } else
-                errmsg[0] = 0;
-        } else {
-            if (*length > 1) {
-                *var_len = 0;
-                return (NULL);
-            }
-            shell_command(exten);
-            strncpy(errmsg, exten->output, sizeof(errmsg));
-            errmsg[ sizeof(errmsg)-1 ] = 0;
-        }
+        len = sizeof(exten->output);
+        if (exten->type == EXECPROC)
+            exten->result = run_exec_command( exten->command, NULL,
+                                              exten->output, &len);
+	else
+            exten->result = run_shell_command(exten->command, NULL,
+                                              exten->output, &len);
+
+        /*
+         *  Pick the output string apart into individual lines,
+         *  and extract the one being asked for....
+         */
+        cp1 = exten->output;
+        for (i = 1; i != (int) name[*length - 1]; i++) {
+            cp = strchr(cp1, '\n');
+            if (!cp) {
+	        *var_len = 0;
+	        /* wait_on_exec(exten);		??? */
+	        return NULL;
+	    }
+	    cp1 = ++cp;
+	}
+        /*
+         *  ... and quit if we've run off the end of the output
+         */
+        if (!*cp1) {
+            *var_len = 0;
+	    return NULL;
+	}
+        cp = strchr(cp1, '\n');
+        if (cp)
+            *cp = 0;
+        strncpy(errmsg, cp1, sizeof(errmsg));
+        errmsg[ sizeof(errmsg)-1 ] = 0;
         *var_len = strlen(errmsg);
         if (errmsg[*var_len - 1] == '\n')
             errmsg[--(*var_len)] = '\0';
@@ -547,6 +631,10 @@ var_extensible_relocatable(struct variable *vp,
         *write_method = fixExecError;
         long_return = 0;
         return ((u_char *) & long_return);
+
+    case ERRORFIXCMD:
+        *var_len = strlen(exten->fixcmd);
+        return ((u_char *) exten->fixcmd);
     }
     return NULL;
 }

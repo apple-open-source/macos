@@ -1,0 +1,64 @@
+.\" $Id: cups-genppdconfig.8.in,v 1.1.1.1 2004/07/23 06:26:28 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <rleigh@debian.org>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.TH CUPS\-GENPPDCONFIG "8" "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.SH NAME
+cups\-genppdconfig \- a user-friendly interface to generate Gimp-Print PPD files for use with CUPS
+.SH SYNOPSIS
+.B cups\-genppdconfig
+[\fI\-d ppd_directory\fR]
+.br
+.B update\-cups\-genppd
+[\fI\-d pdd_directory\fR]
+.SH DESCRIPTION
+\fBcups\-genppdconfig\fR generates \fIGimp-Print\fR PPD files for use with CUPS.
+The program allows the selection of the base directory to create the PPDs in,
+and the printers and languages desired.  The default settings are taken from
+the contents of the base directory.  Note that unselecting an item will
+\fBnot\fP remove it from the disk; you must remove unwanted printers and
+languages by deleting the files and directories respectively.
+.PP
+If \fBdialog\fP is installed, it will be used to create the user interface,
+using colour, 3D-look dialog boxes etc.  If dialog cannot be found, perlmenu
+will be used instead to create a simpler, though functionally identical,
+interface.
+.SH OPTIONS
+.TP
+.B \-d \fIppd-directory\fP
+Use \fIppd-directory\fP as the base directory to create PPD files in.  The
+default printer and language selections will also be obtained from this
+directory.  By default, the base directory is
+\fP@cups_conf_datadir@/model/gimp\-print\fP.
+.SH SEE ALSO
+.BR cups\-genppd (8),
+.BR cups\-genppdupdate (8),
+.BR dialog (1),
+gimpprint.info,
+CUPS Software Administrators Manual, http://localhost:631/documentation.html
+.SH COPYRIGHT
+Copyright \(co  2002\-2003 Roger Leigh (rleigh@debian.org)
+.PP
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License, version 2, as
+published by the Free Software Foundation.
+.PP
+This manual page was written by Roger Leigh (rleigh@debian.org).
+.\"#
+.\"# The following sets edit modes for GNU EMACS
+.\"# Local Variables:
+.\"# mode:nroff
+.\"# fill-column:79
+.\"# End:

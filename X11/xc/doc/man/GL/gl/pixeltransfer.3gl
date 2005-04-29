@@ -1,3 +1,4 @@
+.\" $XFree86: xc/doc/man/GL/gl/pixeltransfer.3gl,v 1.4 2003/10/22 20:36:31 tsi Exp $
 '\" te
 '\"! tbl|eqn | mmdoc
 '\"macro stdmacro
@@ -173,7 +174,7 @@ All components taken from the maps are then clamped to the range [0,1].
 The contents of the various maps are specified with \%\f3glPixelMap\fP.
 .IP
 If the \%\f3GL_ARB_imaging\fP extension is supported, each of the four
-color components may be scaled and biased after tranformation by the
+color components may be scaled and biased after transformation by the
 color matrix.  
 That is,
 the red component is multiplied by \%\f3GL_POST_COLOR_MATRIX_RED_SCALE\fP,

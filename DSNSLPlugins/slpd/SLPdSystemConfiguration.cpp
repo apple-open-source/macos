@@ -67,19 +67,25 @@ void SLPdSystemConfiguration::FreeSLPSC( void )
 SLPdSystemConfiguration::SLPdSystemConfiguration( CFRunLoopRef runLoopRef )
 	: SLPSystemConfiguration( runLoopRef )
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_CONFIG, "New SLPdSystemConfiguration created" );
+#endif
 }
 
 
 SLPdSystemConfiguration::~SLPdSystemConfiguration()
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_CONFIG, "SLPdSystemConfiguration deleted" );
+#endif
 }
 
 void SLPdSystemConfiguration::HandleIPv4Notification( void )
 {
     // delete the reg file
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_CONFIG, "SLPdSystemConfiguration::HandleIPv4Notification, deleting reg file" );
+#endif
     delete_regfile( SLPGetProperty("com.sun.slp.regfile") );
     
     CFRunLoopStop(mMainRunLoopRef);
@@ -88,7 +94,9 @@ void SLPdSystemConfiguration::HandleIPv4Notification( void )
 void SLPdSystemConfiguration::HandleInterfaceNotification( void )
 {
     // delete the reg file
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_CONFIG, "SLPdSystemConfiguration::HandleInterfaceNotification, deleting reg file" );
+#endif
     delete_regfile( SLPGetProperty("com.sun.slp.regfile") );
     
     CFRunLoopStop(mMainRunLoopRef);

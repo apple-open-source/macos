@@ -29,5 +29,12 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __STR2VAL_H__
+#define __STR2VAL_H__
+
 extern caddr_t val2str __P((const char *, size_t));
 extern char *str2val __P((const char *, int, size_t *));
+
+
+#endif /* __STR2VAL_H__ */
+

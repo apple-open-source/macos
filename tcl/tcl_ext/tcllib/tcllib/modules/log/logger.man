@@ -1,0 +1,173 @@
+[comment {-*- tcl -*- doctools manpage}]
+[comment {$Id: logger.man,v 1.8.2.1 2004/05/27 03:47:22 andreas_kupries Exp $}]
+[manpage_begin logger n 0.3.1]
+[moddesc {Object Oriented logging facility}]
+[titledesc {System to control logging of events.}]
+[require Tcl 8.2]
+[require logger [opt 0.3.1]]
+[description]
+
+[para]
+
+The [package logger] package provides a flexible system for logging messages
+from different services, at priority levels, with different commands.
+
+[para]
+
+To begin using the logger package, we do the following:
+
+[para]
+
+[example {
+    package require logger
+    set log [logger::init myservice]
+    ${log}::notice "Initialized myservice logging"
+
+    ... code ...
+
+    ${log}::notice "Ending myservice logging"
+    ${log}::delete
+}]
+
+[para]
+
+In the above code, after the package is loaded, the following things
+happen:
+
+[list_begin definitions]
+
+[call [cmd logger::init] [arg service]]
+
+Initializes the service [arg service] for logging.  The service names
+are actually Tcl namespace names, so they are seperated with '::'.
+
+When a logger service is initialized, it "inherits" properties from its
+parents.  For instance, if there were a service [term foo], and
+we did a [cmd logger::init] [arg foo::bar] (to create a [term bar]
+service underneath [term foo]), [term bar] would copy the current
+configuration of the [term foo] service, although it would of
+course, also be possible to then seperately configure [term bar].
+
+If a logger service is initialized and the parent does not yet exist, the
+parent is also created. 
+
+[call [cmd logger::services]]
+
+Returns a list of all the available services.
+
+[call [cmd logger::enable] [arg level]]
+
+Globally enables logging at and "above" the given level.  Levels are
+[const debug], [const info], [const notice], [const warn], [const error],
+[const critical].
+
+[call [cmd logger::disable] [arg level]]
+
+Globally disables logging at and "below" the given level.  Levels are
+those listed above.
+
+[call [cmd logger::levels]]
+
+Returns a list of the available log levels (also listed above under [cmd enable]).
+
+[call [cmd \${log}::debug] [arg message]]
+[call [cmd \${log}::info] [arg message]]
+[call [cmd \${log}::notice] [arg message]]
+[call [cmd \${log}::warn] [arg message]]
+[call [cmd \${log}::error] [arg message]]
+[call [cmd \${log}::critical] [arg message]]
+
+These are the commands called to actually log a message about an
+event.  [var \${log}] is the variable obtained from [cmd logger::init].
+
+[call [cmd \${log}::setlevel] [arg level]]
+
+Enable logging, in the service referenced by [var \${log}], and its
+children, at or above the level specified, and disable logging below
+it.
+
+[call [cmd \${log}::enable] [arg level]]
+
+Enable logging, in the service referenced by [var \${log}], and its
+children, at and above the level specified.  Note that this does [emph not] disable logging below this level, so you should probably use
+[cmd setlevel] instead.
+
+[call [cmd \${log}::disable] [arg level]]
+
+Disable logging, in the service referenced by [var \${log}], and its
+children, at and below the level specified. Note that this does [emph not] enable logging above this level, 
+so you should probably use [cmd setlevel] instead.
+Disabling the loglevel [const critical] switches logging off for the service and its children.
+
+[call [cmd \${log}::logproc] [arg level] [arg command]]
+[call [cmd \${log}::logproc] [arg level] [arg argname] [arg body]]
+
+This command comes in two forms - the second, older one is deprecated
+and may be removed from future versions of the logger package.  The
+current version takes one argument, a command to be executed when the
+level is called.  The callback command takes on argument, the text to
+be logged.
+
+[cmd logproc] specifies which command will perform the actual logging
+for a given level.  The logger package ships with default commands for
+all log levels, but with [cmd logproc] it is possible to replace them
+with custom code.  This would let you send your logs over the network,
+to a database, or anything else.  For example:
+
+[example {
+    proc logtoserver {txt} {
+        variable socket
+        puts $socket "Notice: $txt"
+    }
+
+    ${log}::logproc notice logtoserver
+}]
+
+[call [cmd \${log}::services]]
+
+Returns a list of the registered logging services which are children of this service.
+
+[call [cmd \${log}::currentloglevel]]
+
+Returns the currently enabled log level for this service. If no logging is enabled returns [const none].
+
+[call [cmd \${log}::delproc] [arg command]]
+
+Set the script to call when the log instance in question is deleted.
+For example:
+
+[example {
+    ${log}::delproc [list closesock $logsock]
+}]
+
+[call [cmd \${log}::delete]]
+
+This command deletes a particular logging service, and its children.
+You must call this to clean up the resources used by a service.
+
+[list_end]
+
+[section IMPLEMENTATION]
+
+The logger package is implemented in such a way as to optimize (for
+Tcl 8.4 and newer) log procedures which are disabled.  They are
+aliased to a proc which has no body, which is compiled to a no op in
+bytecode.  This should make the peformance hit minimal.  If you really
+want to pull out all the stops, you can replace the ${log} token in
+your code with the actual namespace and command (${log}::warn becomes
+::logger::tree::myservice::warn), so that no variable lookup is done.
+This puts the performance of disabled logger commands very close to no
+logging at all.
+
+[para]
+
+The "object orientation" is done through a hierarchy of namespaces.
+Using an actual object oriented system would probably be a better way
+of doing things, or at least provide for a cleaner implementation.
+
+[para]
+
+The service "object orientation" is done with namespaces.
+
+[keywords logger log service {log level}]
+[manpage_end]

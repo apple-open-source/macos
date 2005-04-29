@@ -1,40 +1,36 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/sis6326_video.c,v 1.2 2003/01/29 15:42:16 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/sis6326_video.c,v 1.19 2004/02/25 17:45:12 twini Exp $ */
 /*
  * Xv driver for SiS 5597/5598, 6236 and 530/620.
  *
- * Copyright 2002 by Thomas Winischhofer, Vienna, Austria.
+ * Copyright (C) 2001-2004 by Thomas Winischhofer, Vienna, Austria.
  *
- * Based on sis_video.c which is
- *    Copyright 2000 Silicon Integrated Systems Corp, Inc., HsinChu, Taiwan.
- *    Parts Copyright 2002 by Thomas Winischhofer, Vienna, Austria.
- *    All Rights Reserved.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1) Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2) Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3) The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the
- * "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish,
- * distribute, sub license, and/or sell copies of the Software, and to
- * permit persons to whom the Software is furnished to do so, subject to
- * the following conditions:
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESSED OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * The above copyright notice and this permission notice (including the
- * next paragraph) shall be included in all copies or substantial portions
- * of the Software.
+ * Author:	Thomas Winischhofer <thomas@winischhofer.net>
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
- * IN NO EVENT SHALL INTEL, AND/OR ITS SUPPLIERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
- * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- *
- * Author:
- *      Thomas Winischhofer <thomas@winischhofer.net>
  */
 
 #include "sis.h"
-#ifdef USE6326VIDEO
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -84,6 +80,7 @@ static void     SIS6326InitOffscreenImages(ScreenPtr pScrn);
 
 static Atom xvBrightness, xvContrast, xvColorKey;
 static Atom xvAutopaintColorKey, xvSetDefaults;
+static Atom xvDisableGfx;
 
 #define IMAGE_MIN_WIDTH        32  /* Minimum and maximum image sizes */
 #define IMAGE_MIN_HEIGHT       24
@@ -121,7 +118,7 @@ static CARD8 getvideoreg(SISPtr pSiS, CARD8 reg)
     return(ret);
 }
 
-static void setvideoreg(SISPtr pSiS, CARD8 reg, CARD8 data)
+static __inline void setvideoreg(SISPtr pSiS, CARD8 reg, CARD8 data)
 {
     outSISIDXREG(SISCR, reg, data);
 }
@@ -220,7 +217,7 @@ static XF86VideoFormatRec SIS6326Formats[NUM_FORMATS] =
    {24, TrueColor}
 };
 
-#define NUM_ATTRIBUTES 5
+#define NUM_ATTRIBUTES 6
 
 static XF86AttributeRec SIS6326Attributes[NUM_ATTRIBUTES] =
 {
@@ -228,7 +225,8 @@ static XF86AttributeRec SIS6326Attributes[NUM_ATTRIBUTES] =
    {XvSettable | XvGettable, -128, 127,        "XV_BRIGHTNESS"},
    {XvSettable | XvGettable, 0, 7,             "XV_CONTRAST"},
    {XvSettable | XvGettable, 0, 1,             "XV_AUTOPAINT_COLORKEY"},
-   {XvSettable             , 0, 0,             "XV_SET_DEFAULTS"}
+   {XvSettable             , 0, 0,             "XV_SET_DEFAULTS"},
+   {XvSettable | XvGettable, 0, 1,             "XV_DISABLE_GRAPHICS"}
 };
 
 #define NUM_IMAGES 6
@@ -375,6 +373,8 @@ typedef struct {
     CARD32       colorKey;
     Bool 	 autopaintColorKey;
 
+    Bool 	 disablegfx;
+
     CARD32       videoStatus;
     Time         offTime;
     Time         freeTime;
@@ -392,13 +392,16 @@ typedef struct {
    (SISPortPrivPtr)((SISPTR(pScrn))->adaptor->pPortPrivates[0].ptr)
 
 static void
-SIS6326SetPortDefaults (ScrnInfoPtr pScrn, SISPortPrivPtr pPriv)
+SIS6326SetPortDefaults(ScrnInfoPtr pScrn, SISPortPrivPtr pPriv)
 {
+    SISPtr    pSiS = SISPTR(pScrn);
+    
     pPriv->colorKey    = 0x000101fe;
     pPriv->videoStatus = 0;
-    pPriv->brightness  = 0;
-    pPriv->contrast    = 4;
+    pPriv->brightness  = pSiS->XvDefBri; /* 0; - see sis_opt.c */
+    pPriv->contrast    = pSiS->XvDefCon; /* 4; */
     pPriv->autopaintColorKey = TRUE;
+    pPriv->disablegfx  = pSiS->XvDefDisableGfx;
 }
 
 static void
@@ -485,7 +488,7 @@ SIS6326ResetVideo(ScrnInfoPtr pScrn)
     /* Reset contrast control */
     setvideoregmask(pSiS, Index_VI6326_Contrast_Enh_Ctrl,     0x04, 0x1F);
 
-    /* Set treshold */
+    /* Set threshold */
     if(pSiS->oldChipset < OC_SIS6326) {
        CARD8 temp;
        inSISIDXREG(SISSR, 0x33, temp);  /* Synchronous DRAM Timing? */
@@ -575,7 +578,11 @@ SIS6326SetupImageVideo(ScreenPtr pScreen)
     SIS6326SetPortDefaults(pScrn, pPriv);
 
     /* gotta uninit this someplace */
-    REGION_INIT(pScreen, &pPriv->clip, NullBox, 0); 
+#if defined(REGION_NULL)
+    REGION_NULL(pScreen, &pPriv->clip);
+#else
+    REGION_INIT(pScreen, &pPriv->clip, NullBox, 0);
+#endif
 
     pSiS->adaptor = adapt;
 
@@ -584,12 +591,15 @@ SIS6326SetupImageVideo(ScreenPtr pScreen)
     xvColorKey   = MAKE_ATOM("XV_COLORKEY");
     xvAutopaintColorKey = MAKE_ATOM("XV_AUTOPAINT_COLORKEY");
     xvSetDefaults       = MAKE_ATOM("XV_SET_DEFAULTS");
+    xvDisableGfx = MAKE_ATOM("XV_DISABLE_GRAPHICS");
 
     SIS6326ResetVideo(pScrn);
+    pSiS->ResetXv = SIS6326ResetVideo;
 
     return adapt;
 }
 
+#if XF86_VERSION_CURRENT < XF86_VERSION_NUMERIC(4,3,99,0,0)
 static Bool
 RegionsEqual(RegionPtr A, RegionPtr B)
 {
@@ -618,6 +628,7 @@ RegionsEqual(RegionPtr A, RegionPtr B)
 
     return TRUE;
 }
+#endif
 
 static int
 SIS6326SetPortAttribute(ScrnInfoPtr pScrn, Atom attribute,
@@ -626,44 +637,50 @@ SIS6326SetPortAttribute(ScrnInfoPtr pScrn, Atom attribute,
   SISPortPrivPtr pPriv = (SISPortPrivPtr)data;
 
   if(attribute == xvBrightness) {
-    if((value < -128) || (value > 127))
-       return BadValue;
-    pPriv->brightness = value;
+     if((value < -128) || (value > 127))
+        return BadValue;
+     pPriv->brightness = value;
   } else if(attribute == xvContrast) {
-    if((value < 0) || (value > 7))
-       return BadValue;
-    pPriv->contrast = value;
+     if((value < 0) || (value > 7))
+        return BadValue;
+     pPriv->contrast = value;
   } else if(attribute == xvColorKey) {
-    pPriv->colorKey = value;
-    REGION_EMPTY(pScrn->pScreen, &pPriv->clip);
+     pPriv->colorKey = value;
+     REGION_EMPTY(pScrn->pScreen, &pPriv->clip);
   } else if (attribute == xvAutopaintColorKey) {
-     if ((value < 0) || (value > 1))
-       return BadValue;
+     if((value < 0) || (value > 1))
+        return BadValue;
      pPriv->autopaintColorKey = value;
+  } else if(attribute == xvDisableGfx) {
+     if((value < 0) || (value > 1))
+        return BadValue;
+     pPriv->disablegfx = value;
   } else if (attribute == xvSetDefaults) {
-        SIS6326SetPortDefaults(pScrn, pPriv);
+     SIS6326SetPortDefaults(pScrn, pPriv);
   } else return BadMatch;
   return Success;
 }
 
-static int 
+static int
 SIS6326GetPortAttribute(
-  ScrnInfoPtr pScrn, 
+  ScrnInfoPtr pScrn,
   Atom attribute,
-  INT32 *value, 
+  INT32 *value,
   pointer data
 ){
   SISPortPrivPtr pPriv = (SISPortPrivPtr)data;
 
   if(attribute == xvBrightness) {
-    *value = pPriv->brightness;
+     *value = pPriv->brightness;
   } else if(attribute == xvContrast) {
-    *value = pPriv->contrast;
+     *value = pPriv->contrast;
   } else if(attribute == xvColorKey) {
-    *value = pPriv->colorKey;
-  } else if (attribute == xvAutopaintColorKey)
-    *value = (pPriv->autopaintColorKey) ? 1 : 0;
-  else return BadMatch;
+     *value = pPriv->colorKey;
+  } else if (attribute == xvAutopaintColorKey) {
+     *value = (pPriv->autopaintColorKey) ? 1 : 0;
+  } else if (attribute == xvDisableGfx) {
+     *value = (pPriv->disablegfx) ? 1 : 0;
+  } else return BadMatch;
   return Success;
 }
 
@@ -722,7 +739,7 @@ calc_scale_factor(SISPtr pSiS, SISOverlayPtr pOverlay, ScrnInfoPtr pScrn,
 	if(temp > 63) temp = 63;
 	pOverlay->HUSF = temp;
   } else {
-  	/* TW: 6326 can't scale below factor .440 - to check with 530/620 */
+  	/* 6326 can't scale below factor .440 - to check with 530/620 */
         if(((dstW * 1000) / srcW) < 440) dstW = ((srcW * 440) / 1000) + 1;
 	temp = srcW / dstW;
 	if(temp > 15) temp = 15;
@@ -742,7 +759,7 @@ calc_scale_factor(SISPtr pSiS, SISOverlayPtr pOverlay, ScrnInfoPtr pScrn,
 	pOverlay->VUSF = temp;
 	pOverlay->PitchMult = 1;
   } else {
-        /* TW: 6326 can't scale below factor .440 - to check with 530/620 */
+        /* 6326 can't scale below factor .440 - to check with 530/620 */
 	if(((dstH * 1000) / srcH) < 440) dstH = ((srcH * 440) / 1000) + 1;
 	temp = srcH / dstH;
 	if(srcH % dstH) {
@@ -755,7 +772,7 @@ calc_scale_factor(SISPtr pSiS, SISOverlayPtr pOverlay, ScrnInfoPtr pScrn,
   }
 }
 
-static void  /* V 530/6326 */
+static void
 calc_line_buf_size(SISOverlayPtr pOverlay)
 {
     CARD32 I;
@@ -775,7 +792,7 @@ calc_line_buf_size(SISOverlayPtr pOverlay)
     pOverlay->lineBufSize = (CARD8)I;
 }
 
-static void  /* V 530/6326 */
+static void
 merge_line_buf(SISPtr pSiS, SISPortPrivPtr pPriv, Bool enable)
 {
   if(enable) {
@@ -785,7 +802,7 @@ merge_line_buf(SISPtr pSiS, SISPortPrivPtr pPriv, Bool enable)
   }
 }
 
-static void  /* V 530/6326 */
+static void
 set_format(SISPtr pSiS, SISOverlayPtr pOverlay)
 {
     CARD8 fmt, misc0, misc1, misc4;
@@ -840,7 +857,7 @@ set_format(SISPtr pSiS, SISOverlayPtr pOverlay)
     }
 }
 
-static void  /* V 6326/530 */
+static void
 set_colorkey(SISPtr pSiS, CARD32 colorkey)
 {
     CARD8 r, g, b, s;
@@ -864,13 +881,13 @@ set_colorkey(SISPtr pSiS, CARD32 colorkey)
     setvideoreg(pSiS, Index_VI6326_Overlay_ColorKey_Red_Max   ,(CARD8)r);
 }
 
-static void
+static __inline void
 set_brightness(SISPtr pSiS, CARD8 brightness)
 {
     setvideoreg(pSiS, Index_VI6326_Brightness, brightness);
 }
 
-static void
+static __inline void
 set_contrast(SISPtr pSiS, CARD8 contrast)
 {
     setvideoregmask(pSiS, Index_VI6326_Contrast_Enh_Ctrl, contrast, 0x07);
@@ -894,6 +911,12 @@ set_contrast_data(SISPtr pSiS, int value)
   temp <<= 10;
   temp /= value;
   setvideoreg(pSiS, Index_VI6326_Contrast_Factor, temp);
+}
+
+static __inline void
+set_disablegfx(SISPtr pSiS, Bool mybool)
+{
+    setvideoregmask(pSiS, Index_VI6326_Control_Misc0, mybool ? 0x10 : 0x00, 0x10);
 }
 
 static void
@@ -1033,11 +1056,14 @@ set_overlay(SISPtr pSiS, SISOverlayPtr pOverlay, SISPortPrivPtr pPriv, int index
        set_contrast(pSiS, pPriv->contrast);
     }
 
+    /* enable/disable graphics display around overlay */
+    set_disablegfx(pSiS, pPriv->disablegfx);
+
     /* set format */
     set_format(pSiS, pOverlay);
 }
 
-/* TW: Overlay MUST NOT be switched off while beam is over it */
+/* Overlay MUST NOT be switched off while beam is over it */
 static void
 close_overlay(SISPtr pSiS, SISPortPrivPtr pPriv)
 {
@@ -1271,9 +1297,10 @@ SIS6326PutImage(
 ){
    SISPtr pSiS = SISPTR(pScrn);
    SISPortPrivPtr pPriv = (SISPortPrivPtr)data;
-
    int totalSize=0;
    int depth = pSiS->CurrentLayout.bitsPerPixel >> 3;
+   CARD32 *src, *dest;
+   unsigned long i;
 
    if(pPriv->grabbedByV4L)
    	return Success;
@@ -1331,6 +1358,10 @@ SIS6326PutImage(
        totalSize = pPriv->srcPitch * height;
    }
 
+   /* make it a multiple of 16 to simplify to copy loop */
+   totalSize += 15;
+   totalSize &= ~15;
+
    pPriv->totalSize = totalSize;
 
    /* allocate memory (we do doublebuffering) */
@@ -1343,21 +1374,40 @@ SIS6326PutImage(
    pPriv->bufAddr[1] = pPriv->bufAddr[0] + totalSize;
 
    /* copy data */
-   memcpy(pSiS->FbBase + pPriv->bufAddr[pPriv->currentBuf], buf, totalSize);
+   if((pSiS->XvUseMemcpy) || (totalSize < 16)) {
+      memcpy(pSiS->FbBase + pPriv->bufAddr[pPriv->currentBuf], buf, totalSize);
+   } else {
+      dest = (CARD32 *)(pSiS->FbBase + pPriv->bufAddr[pPriv->currentBuf]);
+      src  = (CARD32 *)buf;
+      for(i = 0; i < (totalSize/16); i++) {
+         *dest++ = *src++;
+	 *dest++ = *src++;
+	 *dest++ = *src++;
+	 *dest++ = *src++;
+      }
+   }
 
    SIS6326DisplayVideo(pScrn, pPriv);
 
    /* update cliplist */
    if(  pPriv->autopaintColorKey &&
-        (pPriv->grabbedByV4L || !RegionsEqual(&pPriv->clip, clipBoxes))) {
+        (pPriv->grabbedByV4L ||
+#if XF86_VERSION_CURRENT < XF86_VERSION_NUMERIC(4,3,99,0,0)
+	 !RegionsEqual(&pPriv->clip, clipBoxes)) ) {
+#else
+         !REGION_EQUAL(pScrn->pScreen, &pPriv->clip, clipBoxes)) ) {
+#endif
      /* We always paint colorkey for V4L */
-     if (!pPriv->grabbedByV4L)
-     	REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
+     if(!pPriv->grabbedByV4L)
+     	REGION_COPY(pScrn->pScreen, &pPriv->clip, clipBoxes);
      /* draw these */
-     /* xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes); - for X4.2 */
+#if XF86_VERSION_CURRENT < XF86_VERSION_NUMERIC(4,2,99,0,0)
      XAAFillSolidRects(pScrn, pPriv->colorKey, GXcopy, ~0,
                     REGION_NUM_RECTS(clipBoxes),
                     REGION_RECTS(clipBoxes));
+#else
+     xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes);
+#endif
    }
 
    pPriv->currentBuf ^= 1;
@@ -1469,7 +1519,7 @@ SIS6326VideoTimerCallback (ScrnInfoPtr pScrn, Time now)
    }
 }
 
-/* TW: Offscreen surface stuff for v4l */
+/* Offscreen surface stuff for v4l */
 
 static int
 SIS6326AllocSurface (
@@ -1611,9 +1661,13 @@ SIS6326DisplaySurface (
    SIS6326DisplayVideo(pScrn, pPriv);
 
    if(pPriv->autopaintColorKey) {
+#if XF86_VERSION_CURRENT < XF86_VERSION_NUMERIC(4,2,99,0,0)
    	XAAFillSolidRects(pScrn, pPriv->colorKey, GXcopy, ~0,
                     REGION_NUM_RECTS(clipBoxes),
                     REGION_RECTS(clipBoxes));
+#else
+        xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes);
+#endif
    }
 
    pPriv->videoStatus = CLIENT_VIDEO_ON;
@@ -1656,7 +1710,5 @@ SIS6326InitOffscreenImages(ScreenPtr pScrn)
 {
     xf86XVRegisterOffscreenImages(pScrn, SIS6326OffscreenImages, 2);
 }
-#else
-int sis_foo;
-#endif
+
 

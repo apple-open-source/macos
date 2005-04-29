@@ -1,0 +1,80 @@
+// Croatian-US keyboards
+// by Vlatko Kosturjak (kost at linux.hr)
+//
+// Changelog
+// =========
+// 2003-04-03 Added <KPDL> (Delete/Separator)
+// 2002-11-20 Initial version
+//
+// xc/programs/xkbcomp/symbols/hr_US
+// $XFree86: xc/programs/xkbcomp/symbols/hr_US,v 1.1 2003/04/13 18:22:19 dawes Exp $
+
+default partial alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // Describes the differences between US/ASCII
+    // keyboard and a Croatian-US keyboard
+    // by Vlatko Kosturjak (kost at linux.hr)
+
+    // Alphanumeric section
+    name[Group1]= "Croatian(US)";
+    key <AD01> {	[	  q,	Q 		],
+			[ backslash			]	};
+    key <AD02> {	[	  w,	W 		],
+			[ bar				]	};
+    key <AD03> {	[	  e,	E		],
+			[  EuroSign			]	};
+    key <AD05> {	[	  t,	T		]	};
+    key <AD06> {	[	  y,	Y		],
+    			[	  z,    Z		]	};
+    key <AD07> {	[	  u,	U		]	};
+    key <AD08> {	[	  i,	I		]	};
+    key <AD11> {	[ bracketleft, braceleft	],
+    			[ scaron,	Scaron		] 	};
+    key <AD12> {	[ bracketright, braceright	],
+    			[      dstroke,	Dstroke		]	};
+    key <AC04> {	[	  f,	F		],
+			[ bracketleft			]	};
+    key <AC05> {	[	  g,	G		],
+			[ bracketright			]	};
+    key <AC08> {	[	  k,	K		],
+			[ lstroke			]	};
+    key <AC09> {	[	  l,	L		],
+			[ Lstroke			]	};
+    key <AC10> {	[ semicolon, 	colon		],
+    			[ ccaron,	Ccaron		]	};
+    key <AC11> {	[ apostrophe,	quotedbl	],
+    			[ cacute,	Cacute		]	};
+
+
+    key <LSGT> {	[ less,		greater		],
+			[	bar			]	};
+    key <AB01> {	[	  z,	Z 		],
+    			[	  y,	Y		]	};
+    key <AB04> {	[	  v,	V 		],
+			[ at				]	};
+    key <AB05> {	[	  b,	B 		],
+			[ braceleft			]	};
+    key <AB06> {	[	  n,	N 		],
+			[ braceright			]	};
+    key <AB07> {	[	  m,	M		],
+			[ section			]	};
+    key <AB08> {	[     comma,	less		],
+    			[ semicolon			]	};
+    key <AB09> {	[    period,	greater		],
+    			[ colon				]	};
+    key <AB10> {	[ slash,	question	],
+    			[     minus,	underscore	]	};
+    key <BKSL> {	[ backslash,	bar		],
+    			[ zcaron,	Zcaron		]	};
+    key <KPDL> {	[ KP_Delete,	KP_Separator	]	};
+    key <RALT> {	[ Mode_switch,	Multi_key	]	};
+
+    // End alphanumeric section
+
+    // begin modifier mappings
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3	{ Mode_switch };
+};

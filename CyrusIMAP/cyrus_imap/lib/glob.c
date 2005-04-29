@@ -42,7 +42,7 @@
  * Start Date: 4/5/93
  */
 /*
- * $Id: glob.c,v 1.31 2003/12/08 20:57:13 rjs3 Exp $
+ * $Id: glob.c,v 1.5 2005/03/05 00:37:13 dasenbro Exp $
  */
 
 #include <config.h>

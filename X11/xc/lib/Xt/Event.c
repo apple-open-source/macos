@@ -58,7 +58,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/Event.c,v 3.10 2001/12/14 19:56:11 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Event.c,v 3.11 2003/04/21 16:34:27 herrb Exp $ */
 
 #include "IntrinsicI.h"
 #include "Shell.h"
@@ -367,22 +367,12 @@ AddEventHandler(widget, select_data, type, has_type_specifier, other, proc,
     }
 }
 
-#if NeedFunctionPrototypes
 void XtRemoveEventHandler(
     Widget	    widget,
     EventMask       eventMask,
     _XtBoolean	    other,
     XtEventHandler  proc,
-    XtPointer	    closure
-    )
-#else
-void XtRemoveEventHandler(widget, eventMask, other, proc, closure)
-    Widget	    widget;
-    EventMask       eventMask;
-    Boolean	    other;
-    XtEventHandler  proc;
-    XtPointer	    closure;
-#endif
+    XtPointer	    closure)
 {
     WIDGET_TO_APPCON(widget);
     LOCK_APP(app);
@@ -391,22 +381,12 @@ void XtRemoveEventHandler(widget, eventMask, other, proc, closure)
     UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 void XtAddEventHandler(
     Widget	    widget,
     EventMask       eventMask,
     _XtBoolean      other,
     XtEventHandler  proc,
-    XtPointer	    closure
-    )
-#else
-void XtAddEventHandler(widget, eventMask, other, proc, closure)
-    Widget	    widget;
-    EventMask       eventMask;
-    Boolean         other;
-    XtEventHandler  proc;
-    XtPointer	    closure;
-#endif
+    XtPointer	    closure)
 {
     WIDGET_TO_APPCON(widget);
     LOCK_APP(app);
@@ -415,24 +395,13 @@ void XtAddEventHandler(widget, eventMask, other, proc, closure)
     UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 void XtInsertEventHandler(
     Widget	    widget,
     EventMask       eventMask,
     _XtBoolean      other,
     XtEventHandler  proc,
     XtPointer	    closure,
-    XtListPosition  position
-    )
-#else
-void XtInsertEventHandler(widget, eventMask, other, proc, closure, position)
-    Widget	    widget;
-    EventMask       eventMask;
-    Boolean         other;
-    XtEventHandler  proc;
-    XtPointer	    closure;
-    XtListPosition  position;
-#endif
+    XtListPosition  position)
 {
     WIDGET_TO_APPCON(widget);
     LOCK_APP(app);
@@ -441,22 +410,12 @@ void XtInsertEventHandler(widget, eventMask, other, proc, closure, position)
     UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 void XtRemoveRawEventHandler(
     Widget	    widget,
     EventMask       eventMask,
     _XtBoolean	    other,
     XtEventHandler  proc,
-    XtPointer	    closure
-    )
-#else
-void XtRemoveRawEventHandler(widget, eventMask, other, proc, closure)
-    Widget	    widget;
-    EventMask       eventMask;
-    Boolean	    other;
-    XtEventHandler  proc;
-    XtPointer	    closure;
-#endif
+    XtPointer	    closure)
 {
     WIDGET_TO_APPCON(widget);
     LOCK_APP(app);
@@ -465,24 +424,13 @@ void XtRemoveRawEventHandler(widget, eventMask, other, proc, closure)
     UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 void XtInsertRawEventHandler(
     Widget	    widget,
     EventMask       eventMask,
     _XtBoolean	    other,
     XtEventHandler  proc,
     XtPointer	    closure,
-    XtListPosition  position
-    )
-#else
-void XtInsertRawEventHandler(widget, eventMask, other, proc, closure, position)
-    Widget	    widget;
-    EventMask       eventMask;
-    Boolean	    other;
-    XtEventHandler  proc;
-    XtPointer	    closure;
-    XtListPosition  position;
-#endif
+    XtListPosition  position)
 {
     WIDGET_TO_APPCON(widget);
     LOCK_APP(app);
@@ -491,22 +439,12 @@ void XtInsertRawEventHandler(widget, eventMask, other, proc, closure, position)
     UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 void XtAddRawEventHandler(
     Widget	    widget,
     EventMask       eventMask,
     _XtBoolean      other,
     XtEventHandler  proc,
-    XtPointer	    closure
-    )
-#else
-void XtAddRawEventHandler(widget, eventMask, other, proc, closure)
-    Widget	    widget;
-    EventMask       eventMask;
-    Boolean         other;
-    XtEventHandler  proc;
-    XtPointer	    closure;
-#endif
+    XtPointer	    closure)
 {
     WIDGET_TO_APPCON(widget);
     LOCK_APP(app);
@@ -515,21 +453,12 @@ void XtAddRawEventHandler(widget, eventMask, other, proc, closure)
     UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 void XtRemoveEventTypeHandler(
     Widget	    widget,
     int		    type,
     XtPointer	    select_data,
     XtEventHandler  proc,
     XtPointer	    closure)
-#else
-void XtRemoveEventTypeHandler(widget, type, select_data, proc, closure)
-    Widget	    widget;
-    int		    type;
-    XtPointer	    select_data;
-    XtEventHandler  proc;
-    XtPointer	    closure;
-#endif
 {
     WIDGET_TO_APPCON(widget);
     LOCK_APP(app);
@@ -538,7 +467,6 @@ void XtRemoveEventTypeHandler(widget, type, select_data, proc, closure)
     UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 void XtInsertEventTypeHandler(
     Widget	    widget,
     int		    type,
@@ -546,15 +474,6 @@ void XtInsertEventTypeHandler(
     XtEventHandler  proc,
     XtPointer	    closure,
     XtListPosition  position)
-#else
-void XtInsertEventTypeHandler(widget, type, select_data, proc, closure, position)
-    Widget	    widget;
-    int		    type;
-    XtPointer	    select_data;
-    XtEventHandler  proc;
-    XtPointer	    closure;
-    XtListPosition  position;
-#endif
 {
     WIDGET_TO_APPCON(widget);
     LOCK_APP(app);
@@ -853,15 +772,9 @@ static void CompressExposures();
 /* because some compilers allocate all local locals on procedure entry */
 #define EHSIZE 4
 
-#if NeedFunctionPrototypes
 Boolean XtDispatchEventToWidget(
     Widget widget,
     XEvent* event)
-#else
-Boolean XtDispatchEventToWidget(widget, event)
-    Widget widget;
-    XEvent* event;
-#endif
 {
     register XtEventRec *p;
     Boolean was_dispatched = False;
@@ -1544,18 +1457,10 @@ static XtGrabRec *NewGrabRec(widget, exclusive, spring_loaded)
     return gl;
 }
 
-#if NeedFunctionPrototypes
 void XtAddGrab(
     Widget  widget,
     _XtBoolean exclusive,
-    _XtBoolean spring_loaded
-    )
-#else
-void XtAddGrab(widget, exclusive, spring_loaded)
-    Widget  widget;
-    Boolean exclusive;
-    Boolean spring_loaded;
-#endif
+    _XtBoolean spring_loaded)
 {
     register    XtGrabList gl;
     XtGrabList	*grabListPtr;
@@ -1718,18 +1623,10 @@ static XtEventDispatchProc* NewDispatcherList()
     return l;
 }
 
-#if NeedFunctionPrototypes
 XtEventDispatchProc XtSetEventDispatcher(
     Display		*dpy,
     int			event_type,
-    XtEventDispatchProc	proc
-    )
-#else
-XtEventDispatchProc XtSetEventDispatcher(dpy, event_type, proc)
-    Display		  *dpy;
-    int			  event_type;
-    XtEventDispatchProc	  proc;
-#endif
+    XtEventDispatchProc	proc)
 {
     XtEventDispatchProc *list;
     XtEventDispatchProc old_proc;
@@ -1753,23 +1650,12 @@ XtEventDispatchProc XtSetEventDispatcher(dpy, event_type, proc)
     return old_proc;
 }
 
-#if NeedFunctionPrototypes
 void XtRegisterExtensionSelector(
     Display		*dpy,
     int			min_event_type,
     int			max_event_type,
     XtExtensionSelectProc	proc,
-    XtPointer 		client_data
-    )
-#else
-void XtRegisterExtensionSelector(dpy, min_event_type, max_event_type,
-				 proc, client_data)
-    Display		*dpy;
-    int			min_event_type;
-    int			max_event_type;
-    XtExtensionSelectProc	proc;
-    XtPointer 		client_data;
-#endif
+    XtPointer 		client_data)
 {
     ExtSelectRec *e;
     XtPerDisplay pd;

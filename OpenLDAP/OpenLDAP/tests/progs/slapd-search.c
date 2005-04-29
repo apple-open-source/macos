@@ -1,8 +1,22 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-search.c,v 1.15.2.2 2003/03/03 17:10:12 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-search.c,v 1.17.2.3 2004/01/01 18:16:43 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Kurt Spanier for inclusion
+ * in OpenLDAP Software.
+ */
+
 #include "portable.h"
 
 #include <stdio.h>
@@ -16,7 +30,7 @@
 #include <ac/unistd.h>
 #include <ac/wait.h>
 
-
+#define LDAP_DEPRECATED 1
 #include <ldap.h>
 
 #define LOOPS	100

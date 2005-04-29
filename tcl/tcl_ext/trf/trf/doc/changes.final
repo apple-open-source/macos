@@ -1,0 +1,162 @@
+Changes in the script api to Trf.
+=================================
+
+* KISS	(Keep it simple, stupid).
+
+General interface	(registry.c)
+------------------------------------
+
+	Current state
+	~~~~~~~~~~~~~
+	a)	command ?-option value?... <in_channel> <out_channel>
+		The so called 'immediate' mode.
+
+	b)	command ?-option value?... -attach <channel>
+
+		'-attach' is an option, and may therefore be put
+		everywhere. It was placed at the end for emphasis only.
+
+		This form actually creates a 'filter' intercepting the
+		read/writes on the specified <channel>. The filter takes over
+		the role of the channel it is attached to, allowing to stack
+		even more filters.
+
+
+
+	Proposed changes
+	~~~~~~~~~~~~~~~~
+	*	Use object facilities of 8.0 to allow strings with embedded
+		'\0's.
+	*	'\0's restrict usage with 7.6, so channel based behaviour must
+		be retained. This is no issue for 8.1
+
+	A)	command ?-option value?... <value>
+		The transformation result is returned as result of the command!
+		The given value is interpreted as binary data.
+
+	B)	command ?-option value?... -out <channel> <value>
+		The transformation result is written into the specified channel.
+
+	C)	command ?-option value?... -in <channel>
+		The value is read from the specified channel, the result is
+		returned.
+
+	D)	command ?-option value?... -in <in_channel> -out <out_channel>
+		The value is read from the input channel, the result written to
+		the output channel. This implements (a).
+
+	In words:
+	*	Either use '-in <channel>' or specify the value directly.
+	*	Either use '-out channel' or expect the transformed information
+		as result of the command.
+
+	(b)	remains unchanged.
+
+	Additional rule
+
+	*	Usage of '-attach' disallows '-in', '-out', no result will
+		given, no value expected (#args %2 == 0).
+
+
+Interface to conversions, and similar transformations
+-----------------------------------------------------
+
+	Unchanged.
+
+	Remark:
+		Similar transformations are 'rs_ecc' and 'zip'. They can be
+		seen as conversions too, only with a special set of options.
+
+
+Interface to ciphers	(cipher.c, c_opt.c)
+-------------------------------------------
+
+	Current state
+	~~~~~~~~~~~~~
+	*	Ciphers get key information via '-key channel'.
+
+	Proposed changes
+	~~~~~~~~~~~~~~~~
+	*	Interpret the value of '-key' in depencendance of the value of
+		'-key-type'. This is either 'data' or 'channel', with 'data' as
+		default.
+
+		-key-type data	  -key <value>:	Interpret <value> as binary data.
+		-key-type channel -key <value>:	Interpret <value> as channel handle.
+
+		If the key is given as hexstring, or dual, octal, etc, the
+		following lines will do the trick:
+
+		8.0:
+			cipher -key [hex -mode decode <hexstring>] ...
+			(case A, see above)
+		7.6:
+			create	    <channel>.			| write the hexstring
+			hex -attach <channel> -mode decode	| into a channel,
+			puts	    <channel> <hexstring>	| decode to binary
+			unstack	    <channel>			| data too.
+			seek	    <channel> 0			|
+			cipher -key <channel> ...
+
+			(This is the current way with 8.x too)
+
+
+Interface to blockciphers	(blockcipher.c, bc_opt.c)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The relevant options are
+
+	-key	(key information)
+	-iv	(initialization vector for stream modes)
+
+I propose the same changes as with ciphers:
+
+	-key,	-key-type
+	-iv,	-iv-type
+
+
+Interface to message digests
+----------------------------
+
+	Current state
+	~~~~~~~~~~~~~
+	*	2 submodes for a filter.
+
+		absorb:
+			identity with respect to user data.
+
+			calculates a digest during write, attaches it after the
+			last character written by the user.
+
+			calculates a digest during read, compares it to the
+			digest after the user data. result goes into an
+			associated variable.
+
+		write:
+			/dev/null with respect to user data.
+			calculates digests for read/write, writes them to
+			destination channels after the primary channel is/was
+			closed.
+
+	Proposed changes
+	~~~~~~~~~~~~~~~~
+
+	*	No changes to the immediate mode.
+	*	No changes of filter submode 'absorbtion'.
+	*	Change submode 'write' to allow writing into variables. Use
+		..-type options to determine the type of destination.
+
+		Unsure:	Continuously update variables, or write only after
+		the primary channel was closed, as with channels ?
+		KISS:	Same as with channels.
+
+	*	Another submode: 'transparent'.
+		Like 'write' with respect to digest calculation, but identity
+		for user information, as in 'absorb'.
+
+	*	rename options
+			-write-dest, -read-dest
+		to
+			-write-destination, -read-destination
+
+		Compatible to existing scripts, and names are more clear.

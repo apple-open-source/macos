@@ -1,5 +1,5 @@
 /* DocumentEvent.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,11 +37,11 @@ exception statement from your version. */
 
 package javax.swing.event;
 
-// Imports
-import javax.swing.text.*;
+import javax.swing.text.Document;
+import javax.swing.text.Element;
 
 /**
- * DocumentEvent interface
+ * DocumentEvent public interface
  * @author Andrew Selkirk
  * @author Ronald Veldema
  */
@@ -52,9 +52,9 @@ public interface DocumentEvent {
 	//-------------------------------------------------------------
 
 	/**
-	 * ElementChange interface
+	 * ElementChange public interface
 	 */
-	public static interface ElementChange {
+	public interface ElementChange {
 
 		//-------------------------------------------------------------
 		// Methods ----------------------------------------------------
@@ -64,122 +64,103 @@ public interface DocumentEvent {
 		 * getIndex
 		 * @returns int
 		 */
-		public int getIndex();
+		int getIndex();
 
 		/**
 		 * getElement
 		 * @returns Element
 		 */
-		public Element getElement();
+		Element getElement();
 
 		/**
 		 * getChildrenRemoved
 		 * @returns Element[]
 		 */
-		public Element[] getChildrenRemoved();
+		Element[] getChildrenRemoved();
 
 		/**
 		 * getChildrenAdded
 		 * @returns Element[]
 		 */
-		public Element[] getChildrenAdded();
+		Element[] getChildrenAdded();
 
 
 	} // ElementChange
 
-	/**
-	 * EventType
-	 */
-	public static final class EventType {
+  /**
+   * EventType
+   */
+  class EventType
+  {
+    /**
+     * INSERT
+     */
+    public static final EventType INSERT = new EventType("INSERT"); // TODO
 
-		//-------------------------------------------------------------
-		// Variables --------------------------------------------------
-		//-------------------------------------------------------------
+    /**
+     * REMOVE
+     */
+    public static final EventType REMOVE = new EventType("REMOVE"); // TODO
 
-		/**
-		 * INSERT
-		 */
-		public static final EventType INSERT = new EventType("INSERT"); // TODO
+    /**
+     * CHANGE
+     */
+    public static final EventType CHANGE = new EventType("CHANGE"); // TODO
 
-		/**
-		 * REMOVE
-		 */
-		public static final EventType REMOVE = new EventType("REMOVE"); // TODO
+    /**
+     * typeString
+     */
+    private String type;
 
-		/**
-		 * CHANGE
-		 */
-		public static final EventType CHANGE = new EventType("CHANGE"); // TODO
+    /**
+     * Constructor EventType
+     * @param type TODO
+     */
+    private EventType(String type)
+    {
+      this.type = type;
+    }
 
-		/**
-		 * typeString
-		 */
-		private String type;
-
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor EventType
-		 * @param type TODO
-		 */
-		private EventType(String type) {
-			this.type = type;
-		} // EventType()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * toString
-		 * @returns String
-		 */
-		public String toString() {
-			return type; // TODO
-		} // toString()
-
-
-	} // EventType
-
-
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
+    /**
+     * toString
+     * @returns String
+     */
+    public String toString()
+    {
+      return type;
+    }
+  }
 
 	/**
 	 * getType
 	 * @returns EventType
 	 */
-	public EventType getType();
+	EventType getType();
 
 	/**
 	 * getOffset
 	 * @returns int
 	 */
-	public int getOffset();
+	int getOffset();
 
 	/**
 	 * getLength
 	 * @returns int
 	 */
-	public int getLength();
+	int getLength();
 
 	/**
 	 * getDocument
 	 * @returns Document
 	 */
-	public Document getDocument();
+	Document getDocument();
 
 	/**
 	 * getChange
 	 * @param element TODO
 	 * @returns ElementChange
 	 */
-	public ElementChange getChange(Element element);
+	ElementChange getChange(Element element);
 
 
 } // DocumentEvent

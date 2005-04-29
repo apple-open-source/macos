@@ -1,3 +1,4 @@
+// { dg-do run  }
 // GROUPS passed constructors
 // Check that sub-words sized class members are correctly set
 // by constructors.
@@ -25,4 +26,4 @@ base::base(int arg1, int arg2)
 {
 	f1 = arg1;
 	f2 = arg2;
-};
+}

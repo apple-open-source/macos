@@ -31,7 +31,9 @@
 *                                                                             *
 *  Developed by Arnaud Le Hors                                                *
 \*****************************************************************************/
-/* $XFree86: xc/extras/Xpm/lib/CrBufFrI.c,v 1.2 2001/10/28 03:32:09 tsi Exp $ */
+/* $XFree86: xc/extras/Xpm/lib/CrBufFrI.c,v 1.3 2004/11/18 21:30:51 herrb Exp $ */
+
+/* October 2004, source code review by Thomas Biege <thomas@suse.de> */
 
 #include "XpmI.h"
 
@@ -39,15 +41,17 @@ LFUNC(WriteColors, int, (char **dataptr, unsigned int *data_size,
 			 unsigned int *used_size, XpmColor *colors,
 			 unsigned int ncolors, unsigned int cpp));
 
-LFUNC(WritePixels, void, (char *dataptr, unsigned int *used_size,
+LFUNC(WritePixels, void, (char *dataptr, unsigned int data_size,
+			  unsigned int *used_size,
 			  unsigned int width, unsigned int height,
 			  unsigned int cpp, unsigned int *pixels,
 			  XpmColor *colors));
 
-LFUNC(WriteExtensions, void, (char *dataptr, unsigned int *used_size,
+LFUNC(WriteExtensions, void, (char *dataptr, unsigned int data_size,
+			      unsigned int *used_size,
 			      XpmExtension *ext, unsigned int num));
 
-LFUNC(ExtensionsSize, int, (XpmExtension *ext, unsigned int num));
+LFUNC(ExtensionsSize, unsigned int, (XpmExtension *ext, unsigned int num));
 LFUNC(CommentsSize, int, (XpmInfo *info));
 
 int
@@ -90,10 +94,11 @@ XpmCreateBufferFromImage(display, buffer_return, image, shapeimage, attributes)
 
 #undef RETURN
 #define RETURN(status) \
+do \
 { \
       ErrorStatus = status; \
       goto error; \
-}
+}while(0)
 
 int
 XpmCreateBufferFromXpmImage(buffer_return, image, info)
@@ -107,7 +112,7 @@ XpmCreateBufferFromXpmImage(buffer_return, image, info)
     unsigned int cmts, extensions, ext_size = 0;
     unsigned int l, cmt_size = 0;
     char *ptr = NULL, *p;
-    unsigned int ptr_size, used_size;
+    unsigned int ptr_size, used_size, tmp;
 
     *buffer_return = NULL;
 
@@ -129,7 +134,13 @@ XpmCreateBufferFromXpmImage(buffer_return, image, info)
 #ifdef VOID_SPRINTF
     used_size = strlen(buf);
 #endif
-    ptr_size = used_size + ext_size + cmt_size + 1;
+    ptr_size = used_size + ext_size + cmt_size + 1; /* ptr_size can't be 0 */
+    if(ptr_size <= used_size ||
+       ptr_size <= ext_size  ||
+       ptr_size <= cmt_size)
+    {
+        return XpmNoMemory;
+    }
     ptr = (char *) XpmMalloc(ptr_size);
     if (!ptr)
 	return XpmNoMemory;
@@ -140,7 +151,7 @@ XpmCreateBufferFromXpmImage(buffer_return, image, info)
 #ifndef VOID_SPRINTF
 	used_size +=
 #endif
-	sprintf(ptr + used_size, "/*%s*/\n", info->hints_cmt);
+	snprintf(ptr + used_size, ptr_size-used_size, "/*%s*/\n", info->hints_cmt);
 #ifdef VOID_SPRINTF
 	used_size += strlen(info->hints_cmt) + 5;
 #endif
@@ -158,7 +169,7 @@ XpmCreateBufferFromXpmImage(buffer_return, image, info)
 #ifndef VOID_SPRINTF
 	l +=
 #endif
-	sprintf(buf + l, " %d %d", info->x_hotspot, info->y_hotspot);
+	snprintf(buf + l, sizeof(buf)-l, " %d %d", info->x_hotspot, info->y_hotspot);
 #ifdef VOID_SPRINTF
 	l = strlen(buf);
 #endif
@@ -180,6 +191,8 @@ XpmCreateBufferFromXpmImage(buffer_return, image, info)
     l = strlen(buf);
 #endif
     ptr_size += l;
+    if(ptr_size <= l)
+        RETURN(XpmNoMemory);
     p = (char *) XpmRealloc(ptr, ptr_size);
     if (!p)
 	RETURN(XpmNoMemory);
@@ -192,7 +205,7 @@ XpmCreateBufferFromXpmImage(buffer_return, image, info)
 #ifndef VOID_SPRINTF
 	used_size +=
 #endif
-	sprintf(ptr + used_size, "/*%s*/\n", info->colors_cmt);
+	snprintf(ptr + used_size, ptr_size-used_size, "/*%s*/\n", info->colors_cmt);
 #ifdef VOID_SPRINTF
 	used_size += strlen(info->colors_cmt) + 5;
 #endif
@@ -208,7 +221,12 @@ XpmCreateBufferFromXpmImage(buffer_return, image, info)
      * 4 = 1 (for '"') + 3 (for '",\n')
      * 1 = - 2 (because the last line does not end with ',\n') + 3 (for '};\n')
      */
-    ptr_size += image->height * (image->width * image->cpp + 4) + 1;
+     if(image->width  > UINT_MAX / image->cpp ||
+       (tmp = image->width * image->cpp + 4) <= 4 ||
+        image->height > UINT_MAX / tmp ||
+       (tmp = image->height * tmp + 1) <= 1 ||
+       (ptr_size += tmp) <= tmp)
+	RETURN(XpmNoMemory);
 
     p = (char *) XpmRealloc(ptr, ptr_size);
     if (!p)
@@ -220,17 +238,17 @@ XpmCreateBufferFromXpmImage(buffer_return, image, info)
 #ifndef VOID_SPRINTF
 	used_size +=
 #endif
-	sprintf(ptr + used_size, "/*%s*/\n", info->pixels_cmt);
+	snprintf(ptr + used_size, ptr_size-used_size, "/*%s*/\n", info->pixels_cmt);
 #ifdef VOID_SPRINTF
 	used_size += strlen(info->pixels_cmt) + 5;
 #endif
     }
-    WritePixels(ptr + used_size, &used_size, image->width, image->height,
+    WritePixels(ptr + used_size, ptr_size - used_size, &used_size, image->width, image->height,
 		image->cpp, image->data, image->colorTable);
 
     /* print extensions */
     if (extensions)
-	WriteExtensions(ptr + used_size, &used_size,
+	WriteExtensions(ptr + used_size, ptr_size-used_size, &used_size,
 			info->extensions, info->nextensions);
 
     /* close the array */
@@ -247,6 +265,7 @@ error:
     return (ErrorStatus);
 }
 
+
 static int
 WriteColors(dataptr, data_size, used_size, colors, ncolors, cpp)
     char **dataptr;
@@ -256,7 +275,7 @@ WriteColors(dataptr, data_size, used_size, colors, ncolors, cpp)
     unsigned int ncolors;
     unsigned int cpp;
 {
-    char buf[BUFSIZ];
+    char buf[BUFSIZ] = {0};
     unsigned int a, key, l;
     char *s, *s2;
     char **defaults;
@@ -266,6 +285,8 @@ WriteColors(dataptr, data_size, used_size, colors, ncolors, cpp)
 
 	defaults = (char **) colors;
 	s = buf + 1;
+	if(cpp > (sizeof(buf) - (s-buf)))
+		return(XpmNoMemory);
 	strncpy(s, *defaults++, cpp);
 	s += cpp;
 
@@ -274,14 +295,24 @@ WriteColors(dataptr, data_size, used_size, colors, ncolors, cpp)
 #ifndef VOID_SPRINTF
 		s +=
 #endif
-		sprintf(s, "\t%s %s", xpmColorKeys[key - 1], s2);
+		/* assume C99 compliance */
+		snprintf(s, sizeof(buf) - (s-buf), "\t%s %s", xpmColorKeys[key - 1], s2);
 #ifdef VOID_SPRINTF
 		s += strlen(s);
 #endif
+		/* now let's check if s points out-of-bounds */
+		if((s-buf) > sizeof(buf))
+			return(XpmNoMemory);
 	    }
 	}
+	if(sizeof(buf) - (s-buf) < 4)
+		return(XpmNoMemory);
 	strcpy(s, "\",\n");
 	l = s + 3 - buf;
+	if( *data_size                   >= UINT_MAX-l ||
+	    *data_size + l               <= *used_size ||
+	   (*data_size + l - *used_size) <= sizeof(buf))
+		return(XpmNoMemory);
 	s = (char *) XpmRealloc(*dataptr, *data_size + l);
 	if (!s)
 	    return (XpmNoMemory);
@@ -294,8 +325,9 @@ WriteColors(dataptr, data_size, used_size, colors, ncolors, cpp)
 }
 
 static void
-WritePixels(dataptr, used_size, width, height, cpp, pixels, colors)
+WritePixels(dataptr, data_size, used_size, width, height, cpp, pixels, colors)
     char *dataptr;
+    unsigned int data_size;
     unsigned int *used_size;
     unsigned int width;
     unsigned int height;
@@ -306,27 +338,36 @@ WritePixels(dataptr, used_size, width, height, cpp, pixels, colors)
     char *s = dataptr;
     unsigned int x, y, h;
 
+    if(height <= 1)
+    	return;
+
     h = height - 1;
     for (y = 0; y < h; y++) {
 	*s++ = '"';
 	for (x = 0; x < width; x++, pixels++) {
-	    strncpy(s, colors[*pixels].string, cpp);
+	    if(cpp >= (data_size - (s-dataptr)))
+		return;
+	    strncpy(s, colors[*pixels].string, cpp); /* how can we trust *pixels? :-\ */
 	    s += cpp;
 	}
+	if((data_size - (s-dataptr)) < 4)
+		return;
 	strcpy(s, "\",\n");
 	s += 3;
     }
     /* duplicate some code to avoid a test in the loop */
     *s++ = '"';
     for (x = 0; x < width; x++, pixels++) {
-	strncpy(s, colors[*pixels].string, cpp);
+	if(cpp >= (data_size - (s-dataptr)))
+	    return;
+	strncpy(s, colors[*pixels].string, cpp); /* how can we trust *pixels? */
 	s += cpp;
     }
     *s++ = '"';
     *used_size += s - dataptr;
 }
 
-static int
+static unsigned int
 ExtensionsSize(ext, num)
     XpmExtension *ext;
     unsigned int num;
@@ -335,21 +376,26 @@ ExtensionsSize(ext, num)
     char **line;
 
     size = 0;
+    if(num == 0)
+    	return(0); /* ok? */
     for (x = 0; x < num; x++, ext++) {
 	/* 11 = 10 (for ',\n"XPMEXT ') + 1 (for '"') */
 	size += strlen(ext->name) + 11;
-	a = ext->nlines;
+	a = ext->nlines; /* how can we trust ext->nlines to be not out-of-bounds? */
 	for (y = 0, line = ext->lines; y < a; y++, line++)
 	    /* 4 = 3 (for ',\n"') + 1 (for '"') */
 	    size += strlen(*line) + 4;
     }
     /* 13 is for ',\n"XPMENDEXT"' */
+    if(size > UINT_MAX - 13) /* unlikely */
+    	return(0);
     return size + 13;
 }
 
 static void
-WriteExtensions(dataptr, used_size, ext, num)
+WriteExtensions(dataptr, data_size, used_size, ext, num)
     char *dataptr;
+    unsigned int data_size;
     unsigned int *used_size;
     XpmExtension *ext;
     unsigned int num;
@@ -362,7 +408,7 @@ WriteExtensions(dataptr, used_size, ext, num)
 #ifndef VOID_SPRINTF
 	s +=
 #endif
-	sprintf(s, ",\n\"XPMEXT %s\"", ext->name);
+	snprintf(s, data_size - (s-dataptr), ",\n\"XPMEXT %s\"", ext->name);
 #ifdef VOID_SPRINTF
 	s += strlen(ext->name) + 11;
 #endif
@@ -371,13 +417,13 @@ WriteExtensions(dataptr, used_size, ext, num)
 #ifndef VOID_SPRINTF
 	    s +=
 #endif
-	    sprintf(s, ",\n\"%s\"", *line);
+	    snprintf(s, data_size - (s-dataptr), ",\n\"%s\"", *line);
 #ifdef VOID_SPRINTF
 	    s += strlen(*line) + 4;
 #endif
 	}
     }
-    strcpy(s, ",\n\"XPMENDEXT\"");
+    strncpy(s, ",\n\"XPMENDEXT\"", data_size - (s-dataptr)-1);
     *used_size += s - dataptr + 13;
 }
 
@@ -388,6 +434,7 @@ CommentsSize(info)
     int size = 0;
 
     /* 5 = 2 (for "/_*") + 3 (for "*_/\n") */
+    /* wrap possible but *very* unlikely */
     if (info->hints_cmt)
 	size += 5 + strlen(info->hints_cmt);
 

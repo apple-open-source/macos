@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/programs/Xserver/hw/kdrive/vesa/vm86.c,v 1.3 2002/06/04 22:19:58 dawes Exp $
+ * $XFree86: xc/programs/Xserver/hw/kdrive/vesa/vm86.c,v 1.4 2003/11/01 04:49:15 dawes Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
@@ -63,10 +63,11 @@ static const U8 retcode_data[2] =
 { 0xCD, 0xFF };
 
 Vm86InfoPtr
-Vm86Setup(void)
+Vm86Setup(int mapHoles)
 {
     int devmem = -1, devzero = -1;
     void *magicMem, *loMem, *hiMem;
+    void *hole1, *hole2;
     U32 stack_base, ret_code;
     Vm86InfoPtr vi = NULL;
 
@@ -82,6 +83,12 @@ Vm86Setup(void)
 	goto fail;
     }
 
+    magicMem = MAP_FAILED;
+    loMem = MAP_FAILED;
+    hiMem = MAP_FAILED;
+    hole1 = MAP_FAILED;
+    hole2 = MAP_FAILED;
+
 
     magicMem = mmap((void*)MAGICMEM_BASE, MAGICMEM_SIZE,
 		    PROT_READ | PROT_WRITE | PROT_EXEC,
@@ -89,7 +96,18 @@ Vm86Setup(void)
     
     if(magicMem == MAP_FAILED) {
 	ErrorF("Couldn't map magic memory\n");
-	goto fail;
+	goto unmapfail;
+    }
+
+    if(mapHoles) {
+        hole1 = mmap((void*)HOLE1_BASE, HOLE1_SIZE,
+                     PROT_READ | PROT_WRITE | PROT_EXEC,
+                     MAP_PRIVATE | MAP_FIXED, devzero, HOLE1_BASE);
+    
+        if(hole1 == MAP_FAILED) {
+            ErrorF("Couldn't map first hole\n");
+            goto unmapfail;
+        }
     }
 
     loMem = mmap((void*)LOMEM_BASE, LOMEM_SIZE,
@@ -98,7 +116,18 @@ Vm86Setup(void)
     if(loMem == MAP_FAILED) {
 	ErrorF("Couldn't map low memory\n");
 	munmap(magicMem, MAGICMEM_SIZE);
-	goto fail;
+	goto unmapfail;
+    }
+
+    if(mapHoles) {
+        hole2 = mmap((void*)HOLE2_BASE, HOLE2_SIZE,
+                     PROT_READ | PROT_WRITE | PROT_EXEC,
+                     MAP_PRIVATE | MAP_FIXED, devzero, HOLE2_BASE);
+    
+        if(hole2 == MAP_FAILED) {
+            ErrorF("Couldn't map first hole\n");
+            goto unmapfail;
+        }
     }
 
     hiMem = mmap((void*)HIMEM_BASE, HIMEM_SIZE,
@@ -107,9 +136,7 @@ Vm86Setup(void)
 		 devmem, HIMEM_BASE);
     if(hiMem == MAP_FAILED) {
 	ErrorF("Couldn't map high memory\n");
-	munmap(magicMem, MAGICMEM_SIZE);
-	munmap(loMem, LOMEM_SIZE);
-	goto fail;
+	goto unmapfail;
     }
 
     vi = xalloc(sizeof(Vm86InfoRec));
@@ -117,7 +144,9 @@ Vm86Setup(void)
 	goto unmapfail;
 
     vi->magicMem = magicMem;
+    vi->hole1 = hole1;
     vi->loMem = loMem;
+    vi->hole2 = hole2;
     vi->hiMem = hiMem;
     vi->brk = LOMEM_BASE;
 
@@ -147,9 +176,11 @@ Vm86Setup(void)
     return vi;
 
 unmapfail:
-    munmap(magicMem, MAGICMEM_SIZE);
-    munmap(loMem, LOMEM_SIZE);
-    munmap(hiMem, HIMEM_SIZE);
+    if(magicMem != MAP_FAILED) munmap(magicMem, MAGICMEM_SIZE);
+    if(hole1 != MAP_FAILED) munmap(magicMem, HOLE1_SIZE);
+    if(loMem != MAP_FAILED) munmap(loMem, LOMEM_SIZE);
+    if(hole2 != MAP_FAILED) munmap(magicMem, HOLE2_SIZE);
+    if(hiMem != MAP_FAILED) munmap(hiMem, HIMEM_SIZE);
 fail:
     if(devmem >= 0)
 	close(devmem);
@@ -163,9 +194,11 @@ fail:
 void
 Vm86Cleanup(Vm86InfoPtr vi)
 {
-    munmap(vi->magicMem, MAGICMEM_SIZE);
-    munmap(vi->loMem, LOMEM_SIZE);
-    munmap(vi->hiMem, HIMEM_SIZE);
+    if(vi->magicMem != MAP_FAILED) munmap(vi->magicMem, MAGICMEM_SIZE);
+    if(vi->hole1 != MAP_FAILED) munmap(vi->magicMem, HOLE1_SIZE);
+    if(vi->loMem != MAP_FAILED) munmap(vi->loMem, LOMEM_SIZE);
+    if(vi->hole2 != MAP_FAILED) munmap(vi->magicMem, HOLE2_SIZE);
+    if(vi->hiMem != MAP_FAILED) munmap(vi->hiMem, HIMEM_SIZE);
     xfree(vi);
 }
 

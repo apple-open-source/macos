@@ -29,7 +29,7 @@ __RCSID("$NetBSD: s_frexp.c,v 1.11 1999/07/02 15:37:42 simonb Exp $");
 #include "math_private.h"
 
 static const double
-two54 =  1.80143985094819840000e+16; /* 0x43500000, 0x00000000 */
+two54 =  0x1.0p+54; /* 1.80143985094819840000e+16 0x43500000, 0x00000000 */
 
 double frexp(double x, int *eptr)
 {

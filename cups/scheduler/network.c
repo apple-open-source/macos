@@ -1,10 +1,10 @@
 /*
- * "$Id: network.c,v 1.1.1.6 2002/12/24 00:07:31 jlovell Exp $"
+ * "$Id: network.c,v 1.8 2005/01/04 22:10:46 jlovell Exp $"
  *
  *   Network interface functions for the Common UNIX Printing System
  *   (CUPS) scheduler.
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -16,9 +16,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  */
@@ -83,7 +83,7 @@ NetIFFind(const char *name)	/* I - Name of interface */
   * Update the interface list as needed...
   */
 
-  NetIFUpdate();
+  NetIFUpdate(FALSE);
 
  /*
   * Search for the named interface...
@@ -115,6 +115,9 @@ NetIFFree(void)
   {
     next = NetIFList->next;
 
+    if (NetIFList->hostname)
+      free(NetIFList->hostname);
+
     free(NetIFList);
 
     NetIFList = next;
@@ -127,8 +130,10 @@ NetIFFree(void)
  */
 
 void
-NetIFUpdate(void)
+NetIFUpdate(int force)		/* I - Force an update sooner than 1 minute */
 {
+  int		i;		/* Looping var */
+  listener_t	*lis;		/* Listen address */
   cups_netif_t	*temp;		/* Current interface */
   struct ifaddrs *addrs,	/* Interface address list */
 		*addr;		/* Current interface address */
@@ -140,7 +145,7 @@ NetIFUpdate(void)
   * minute...
   */
 
-  if ((time(NULL) - NetIFTime) < 60)
+  if (!force && (time(NULL) - NetIFTime) < 60)
     return;
 
   NetIFTime = time(NULL);
@@ -194,6 +199,19 @@ NetIFUpdate(void)
       temp->is_local = 1;
 
    /*
+    * Determine which port to use when advertising printers...
+    */
+
+    for (i = NumListeners, lis = Listeners; i > 0; i --, lis ++)
+      if (lis->address.sin_addr.s_addr == 0x00000000 ||
+          (lis->address.sin_addr.s_addr & temp->mask.sin_addr.s_addr) ==
+	      temp->address.sin_addr.s_addr)
+      {
+        temp->port = ntohs(lis->address.sin_port);
+	break;
+      }
+
+   /*
     * Finally, try looking up the hostname for the address as needed...
     */
 
@@ -217,16 +235,16 @@ NetIFUpdate(void)
     */
 
     if (host != NULL)
-      strlcpy(temp->hostname, host->h_name, sizeof(temp->hostname));
+      SetString(&temp->hostname, host->h_name);
     else if (ntohl(temp->address.sin_addr.s_addr) == 0x7f000001)
-      strcpy(temp->hostname, "localhost");
+      SetString(&temp->hostname, "localhost");
     else if (temp->address.sin_addr.s_addr == ServerAddr.sin_addr.s_addr)
-      strlcpy(temp->hostname, ServerName, sizeof(temp->hostname));
+      SetString(&temp->hostname, ServerName);
     else
     {
       unsigned ip = ntohl(temp->address.sin_addr.s_addr);
 
-      snprintf(temp->hostname, sizeof(temp->hostname), "%d.%d.%d.%d",
+      SetStringf(&temp->hostname, "%d.%d.%d.%d",
 	       (ip >> 24) & 255, (ip >> 16) & 255, (ip >> 8) & 255, ip & 255);
     }
   }
@@ -472,5 +490,5 @@ freeifaddrs(struct ifaddrs *addrs)	/* I - Interface list to free */
 
 
 /*
- * End of "$Id: network.c,v 1.1.1.6 2002/12/24 00:07:31 jlovell Exp $".
+ * End of "$Id: network.c,v 1.8 2005/01/04 22:10:46 jlovell Exp $".
  */

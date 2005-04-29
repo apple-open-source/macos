@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,19 +24,14 @@
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
+#include "imports.h"
 #include "context.h"
 #include "image.h"
 #include "enums.h"
 #include "macros.h"
-#include "mem.h"
 #include "polygon.h"
 #include "mtypes.h"
-#endif
-
 
 
 void
@@ -46,7 +41,7 @@ _mesa_CullFace( GLenum mode )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
-      fprintf(stderr, "glCullFace %s\n", _mesa_lookup_enum_by_nr(mode));
+      _mesa_debug(ctx, "glCullFace %s\n", _mesa_lookup_enum_by_nr(mode));
 
    if (mode!=GL_FRONT && mode!=GL_BACK && mode!=GL_FRONT_AND_BACK) {
       _mesa_error( ctx, GL_INVALID_ENUM, "glCullFace" );
@@ -72,7 +67,7 @@ _mesa_FrontFace( GLenum mode )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
-      fprintf(stderr, "glFrontFace %s\n", _mesa_lookup_enum_by_nr(mode));
+      _mesa_debug(ctx, "glFrontFace %s\n", _mesa_lookup_enum_by_nr(mode));
 
    if (mode!=GL_CW && mode!=GL_CCW) {
       _mesa_error( ctx, GL_INVALID_ENUM, "glFrontFace" );
@@ -100,9 +95,9 @@ _mesa_PolygonMode( GLenum face, GLenum mode )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
-      fprintf(stderr, "glPolygonMode %s %s\n",
-	      _mesa_lookup_enum_by_nr(face),
-	      _mesa_lookup_enum_by_nr(mode));
+      _mesa_debug(ctx, "glPolygonMode %s %s\n",
+                  _mesa_lookup_enum_by_nr(face),
+                  _mesa_lookup_enum_by_nr(mode));
 
    if (mode!=GL_POINT && mode!=GL_LINE && mode!=GL_FILL) {
       _mesa_error( ctx, GL_INVALID_ENUM, "glPolygonMode(mode)" );
@@ -153,7 +148,7 @@ _mesa_PolygonStipple( const GLubyte *pattern )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
-      fprintf(stderr, "glPolygonStipple\n");
+      _mesa_debug(ctx, "glPolygonStipple\n");
 
    FLUSH_VERTICES(ctx, _NEW_POLYGONSTIPPLE);
    _mesa_unpack_polygon_stipple(pattern, ctx->PolygonStipple, &ctx->Unpack);
@@ -171,7 +166,7 @@ _mesa_GetPolygonStipple( GLubyte *dest )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
-      fprintf(stderr, "glGetPolygonStipple\n");
+      _mesa_debug(ctx, "glGetPolygonStipple\n");
 
    _mesa_pack_polygon_stipple(ctx->PolygonStipple, dest, &ctx->Pack);
 }
@@ -185,7 +180,7 @@ _mesa_PolygonOffset( GLfloat factor, GLfloat units )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
-      fprintf(stderr, "glPolygonOffset %f %f\n", factor, units);
+      _mesa_debug(ctx, "glPolygonOffset %f %f\n", factor, units);
 
    if (ctx->Polygon.OffsetFactor == factor &&
        ctx->Polygon.OffsetUnits == units)
@@ -194,7 +189,6 @@ _mesa_PolygonOffset( GLfloat factor, GLfloat units )
    FLUSH_VERTICES(ctx, _NEW_POLYGON);
    ctx->Polygon.OffsetFactor = factor;
    ctx->Polygon.OffsetUnits = units;
-   ctx->Polygon.OffsetMRD = units * ctx->MRD;
 
    if (ctx->Driver.PolygonOffset)
       ctx->Driver.PolygonOffset( ctx, factor, units );

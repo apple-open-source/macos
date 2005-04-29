@@ -569,6 +569,28 @@ void perl_module_init(server_rec *s, pool *p)
     perl_startup(s, p);
 }
 
+static void mod_perl_boot(void *data)
+{
+    /* make sure DynaLoader is loaded before XSLoader
+     * to workaround bug in 5.6.1 that can trigger a segv
+     * when using modperl as a dso
+     */
+    perl_require_module("DynaLoader", NULL);
+}
+
+static void mod_perl_xs_init(pTHX)
+{
+    xs_init(aTHX);
+
+    /* XXX: in 5.7.2+ we can call the body of mod_perl_boot here
+     * but in 5.6.1 the Perl runtime is not properly setup yet
+     * so we have to pull this stunt to delay
+     */
+#ifdef SAVEDESTRUCTOR_X
+    SAVEDESTRUCTOR_X(mod_perl_boot, 0);
+#endif
+}
+
 void perl_startup (server_rec *s, pool *p)
 {
     char *argv[] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
@@ -677,7 +699,7 @@ void perl_startup (server_rec *s, pool *p)
     MP_TRACE_g(fprintf(stderr, "constructing perl interpreter...ok\n"));
     perl_construct(perl);
 
-    status = perl_parse(perl, xs_init, argc, argv, NULL);
+    status = perl_parse(perl, mod_perl_xs_init, argc, argv, NULL);
     if (status != OK) {
 	MP_TRACE_g(fprintf(stderr,"not ok, status=%d\n", status));
 	perror("parse");
@@ -685,6 +707,13 @@ void perl_startup (server_rec *s, pool *p)
     }
     MP_TRACE_g(fprintf(stderr, "ok\n"));
 
+#if (PERL_REVISION == 5) && (PERL_VERSION == 8) && (PERL_SUBVERSION == 1) && \
+    (defined(USE_HASH_SEED) || defined(USE_HASH_SEED_EXPLICIT))
+    /* bug in 5.8.1, causing all forked procs to produce the same rand
+     * sequence */
+    PL_srand_called = FALSE;
+#endif
+    
     perl_clear_env();
     mod_perl_pass_env(p, cls);
     mod_perl_set_cwd();
@@ -747,7 +776,7 @@ void perl_startup (server_rec *s, pool *p)
 #endif
 	
 #ifdef APACHE_PERL5LIB
-    perl_incpush(APACHE_PERL5LIB);
+    perl_inc_unshift(APACHE_PERL5LIB);
 #else
     av_push(GvAV(incgv), newSVpv(server_root_relative(p,""),0));
     av_push(GvAV(incgv), newSVpv(server_root_relative(p,"lib/perl"),0));
@@ -1077,8 +1106,11 @@ static char *my_signame(I32 num)
 static void per_request_cleanup(request_rec *r)
 {
     dPPREQ;
+
+#ifndef WIN32
     perl_request_sigsave **sigs;
     int i;
+#endif
 
     if(!cfg) {
 	return;
@@ -1392,6 +1424,7 @@ void perl_per_request_init(request_rec *r)
         /* PerlSetEnv
          * update only if the table changes across a request
          */
+        MP_HASENV_on(cld);
         mod_perl_dir_env(r, cld);
         cfg->dir_env = cld->env;
     }
@@ -1411,7 +1444,7 @@ void perl_per_request_init(request_rec *r)
 	char *path = (char *)table_get(r->subprocess_env, "PERL5LIB");
 
 	if (path) {
-	    perl_incpush(path);
+           perl_inc_unshift(path);
 	    MP_INCPUSH_on(cld);
 	}
     }

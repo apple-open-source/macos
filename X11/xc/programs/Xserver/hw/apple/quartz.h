@@ -65,7 +65,7 @@ void QuartzGiveUp(void);
 void QuartzMessageMainThread (int type, int argc, ...);
 void QuartzClientMessage (const struct _xEvent *xe);
 
-void QuartzRunClient (const char *command);
+void QuartzRunClient (const char *command, int needs_quoting);
 
 Bool QuartzAddScreen(int index, ScreenPtr pScreen);
 Bool QuartzSetupScreen(int index, ScreenPtr pScreen);

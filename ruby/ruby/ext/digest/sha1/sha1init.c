@@ -1,8 +1,12 @@
 /* $RoughId: sha1init.c,v 1.2 2001/07/13 19:49:10 knu Exp $ */
-/* $Id: sha1init.c,v 1.1.1.1 2002/05/27 17:59:45 jkh Exp $ */
+/* $Id: sha1init.c,v 1.3 2002/09/26 17:44:33 knu Exp $ */
 
 #include "digest.h"
+#if defined(HAVE_OPENSSL_SHA_H)
+#include "sha1ossl.h"
+#else
 #include "sha1.h"
+#endif
 
 static algo_t sha1 = {
     SHA1_DIGEST_LENGTH,
@@ -29,6 +33,6 @@ Init_sha1()
 
     id_metadata = rb_intern("metadata");
 
-    rb_cvar_declare(cDigest_SHA1, id_metadata,
-		    Data_Wrap_Struct(rb_cObject, 0, 0, &sha1));
+    rb_cvar_set(cDigest_SHA1, id_metadata,
+		Data_Wrap_Struct(rb_cObject, 0, 0, &sha1), Qtrue);
 }

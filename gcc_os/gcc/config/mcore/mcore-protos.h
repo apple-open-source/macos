@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in mcore.c
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
    Contributed by Nick Clifton (nickc@redhat.com)
 
 This file is part of GNU CC.
@@ -35,9 +35,6 @@ extern int          mcore_dllimport_name_p       	PARAMS ((const char *));
 extern int          mcore_naked_function_p       	PARAMS ((void));
 
 #ifdef TREE_CODE
-extern void         mcore_unique_section         	PARAMS ((tree, int));
-extern void         mcore_encode_section_info    	PARAMS ((tree));
-
 #ifdef HAVE_MACHINE_MODES
 extern int          mcore_function_arg_partial_nregs	PARAMS ((CUMULATIVE_ARGS, enum machine_mode, tree, int));
 extern void         mcore_setup_incoming_varargs	PARAMS ((CUMULATIVE_ARGS, enum machine_mode, tree, int *));
@@ -52,8 +49,8 @@ extern rtx          mcore_function_value         	PARAMS ((tree, tree));
 
 #ifdef RTX_CODE
 
-extern rtx arch_compare_op0;
-extern rtx arch_compare_op1;
+extern GTY(()) rtx arch_compare_op0;
+extern GTY(()) rtx arch_compare_op1;
 
 extern const char * mcore_output_bclri         		PARAMS ((rtx, int));
 extern const char * mcore_output_bseti         		PARAMS ((rtx, int));

@@ -24,6 +24,8 @@
 //other dealings in this Software without prior written authorization
 //from The Open Group.
 //
+// $XFree86: xc/programs/xkbcomp/geometry/keytronic,v 1.4 2003/10/24 20:38:19 tsi Exp $
+//
 default xkb_geometry "FlexPro" {
 
     // This is an approximate layout for a Key Tronic FlexPro
@@ -198,9 +200,9 @@ default xkb_geometry "FlexPro" {
     indicator.offColor= "green30";
     indicator.top= 13;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 440; };
-    indicator "CapsLock"    { left= 467; };
-    indicator "ScrollLock"  { left= 489; };
+    indicator "Num Lock"     { left= 440; };
+    indicator "Caps Lock"    { left= 467; };
+    indicator "Scroll Lock"  { left= 489; };
     text.top= 22;
     text.color= "black";
     text "NumLockLabel"		{ left= 438; text="Num\nLock"; };

@@ -47,14 +47,6 @@ itcl::class TdumpWin {
   method build_win {} {
     global tcl_platform
 
-    if {[string compare $tcl_platform(platform) "windows"] == 0} {
-      set mode static
-      ide_sizebox $itk_interior.sbox
-      place $itk_interior.sbox -relx 1.0 -rely 1.0 -anchor se
-    } else {
-      set mode dynamic
-    }
-
     itk_component add stext {
       iwidgets::scrolledtext $itk_interior.stext -hscrollmode $mode \
 	-vscrollmode $mode -textfont global/fixed \
@@ -96,7 +88,6 @@ itcl::class TdumpWin {
   #  METHOD:  reconfig - used when preferences change
   # ------------------------------------------------------------------
   method reconfig {} {
-    if {[winfo exists $itk_interior.sbox]} { destroy $itk_interior.sbox }
     if {[winfo exists $itk_interior.stext]} { destroy $itk_interior.stext }
     build_win
   }

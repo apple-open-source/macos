@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: krb5_gss_glue.c,v 1.20 2001/10/06 03:14:05 raeburn Exp $
+ * $Id: krb5_gss_glue.c,v 1.21 2004/04/24 21:09:40 raeburn Exp $
  */
 
 #include "gssapiP_krb5.h"
@@ -211,8 +211,14 @@ gss_import_name(minor_status, input_name_buffer, input_name_type, output_name)
      gss_OID input_name_type;
      gss_name_t *output_name;
 {
-   return(krb5_gss_import_name(minor_status, input_name_buffer,
-			       input_name_type, output_name));
+    OM_uint32 err;
+    err = gssint_initialize_library();
+    if (err) {
+	*minor_status = err;
+	return GSS_S_FAILURE;
+    }
+    return(krb5_gss_import_name(minor_status, input_name_buffer,
+				input_name_type, output_name));
 }
 
 /* V2 */

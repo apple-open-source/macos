@@ -32,7 +32,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: keyok.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: keyok.c,v 1.5 2000/12/10 02:43:26 tom Exp $")
 
 /*
  * Enable (or disable) ncurses' interpretation of a keycode by adding (or

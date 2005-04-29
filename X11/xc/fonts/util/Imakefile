@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/fonts/util/Imakefile,v 1.6 2002/11/15 02:33:09 dawes Exp $
+XCOMM $XFree86: xc/fonts/util/Imakefile,v 1.8 2003/10/22 20:50:46 tsi Exp $
 
 MAPFILES = \
 	map-ISO8859-1 map-ISO8859-2 map-ISO8859-3 map-ISO8859-4 map-ISO8859-5 \
@@ -7,8 +7,18 @@ MAPFILES = \
 	map-ISO8859-16 map-JISX0201.1976-0 map-KOI8-R
 
 InstallMultipleFlags($(MAPFILES),$(FONTDIR)/util,$(INSTDATFLAGS))
-InstallNamedProg(ucs2any.pl,ucs2any,$(BINDIR))
-InstallManPage(ucs2any,$(MANDIR))
+
+#if !HasBasename
+DEFINES= -DNEED_BASENAME
+#endif
+
+#ifdef SGIArchitecture
+LOCAL_LIBRARIES = -lgen
+#endif
+
+SimpleProgramTarget(ucs2any)
+LinkBuildBinary(ProgramTargetName(ucs2any))
+
 InstallNamedProg(bdftruncate.pl,bdftruncate,$(BINDIR))
 InstallManPage(bdftruncate,$(MANDIR))
 

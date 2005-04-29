@@ -1,0 +1,5 @@
+XCOMM X-TrueType Server - TrueType rasterizer for X
+XCOMM $XFree86: xc/lib/font/X-TrueType/ISO8859.13/module/Imakefile,v 1.1 2003/07/27 02:18:46 dawes Exp $
+#define IHaveModules
+#include "../Imakefile.inc"
+#include <xttMod.tmpl>

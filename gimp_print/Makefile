@@ -6,47 +6,39 @@
 Project               = gimp-print
 UserType              = Administrator
 ToolType              = Services
+LD_TWOLEVEL_NAMESPACE =
+LIBTOOL_CMD_SEP       = ^
 
 Extra_Configure_Flags = --sysconfdir=/private/etc		\
-						--infodir=/usr/local/share/info \
-						--mandir=/usr/local/share/man	\
-						--with-cups						\
-						--with-user-guide				\
-						--with-samples					\
-						--with-escputil					\
-						--with-included-gettext			\
-						--without-translated-ppds		\
-						--disable-static
+			--infodir=/usr/local/share/info \
+			--mandir=/usr/local/share/man \
+			--with-cups \
+			--enable-cups-ppds \
+			--enable-translated-cups-ppds \
+			--disable-testpattern
 
-#						--with-foomatic					
-
-Extra_Install_Flags   = sysconfdir="$(DSTROOT)$(ETCDIR)"
 Extra_CC_Flags        = -fno-common -I ../../intl
+Extra_Install_Flags   = LIBTOOL_CMD_SEP=^
 GnuAfterInstall       = do-fixups
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-Install_Target = install
-
 do-fixups:
-	strip -S	"$(DSTROOT)/usr/bin/escputil" \
-			"$(DSTROOT)/usr/lib/libgimpprint.1.1.0.dylib" \
-			"$(DSTROOT)/usr/bin/cups-calibrate" \
-			"$(DSTROOT)/usr/libexec/cups/backend/canon" \
-			"$(DSTROOT)/usr/libexec/cups/backend/epson" \
-			"$(DSTROOT)/usr/libexec/cups/filter/commandtocanon" \
-			"$(DSTROOT)/usr/libexec/cups/filter/commandtoepson" \
-			"$(DSTROOT)/usr/libexec/cups/filter/rastertoprinter"
-	rm -f		"$(DSTROOT)/usr/lib/charset.alias" \
-			"$(DSTROOT)/usr/lib/libgimpprint.la" \
-			"$(DSTROOT)/usr/share/info/dir" \
-			"$(DSTROOT)/usr/share/locale/locale.alias"
-	mv		"$(DSTROOT)/usr/share/locale/en_GB" \
-			"$(DSTROOT)/usr/share/locale/en_GB.ISO8859-1"
-	zcat "$(DSTROOT)/usr/share/cups/model/C/pcl-900.ppd.gz" | \
-		sed 's/HP DeskJet 900 series/HP DeskJet 995C/g' | \
-		gzip >	"$(DSTROOT)/usr/share/cups/model/C/pcl-995C.ppd.gz" 
-	zcat "$(DSTROOT)/usr/share/cups/model/C/pcl-340.ppd.gz" | \
-		sed 's/HP DeskJet 340/HP dj450/g' | \
-		gzip >	"$(DSTROOT)/usr/share/cups/model/C/pcl-450.ppd.gz" 
+	find $(DSTROOT) -type f -perm +111 -print0 | xargs -0tn 1 strip -S
+	rm -fr	"$(DSTROOT)/usr/include" \
+		"$(DSTROOT)/usr/lib/charset.alias" \
+		"$(DSTROOT)/usr/lib/gimp" \
+		"$(DSTROOT)/usr/lib/libgimpprint.a" \
+		"$(DSTROOT)/usr/lib/libgimpprint.la" \
+		"$(DSTROOT)/usr/lib/pkgconfig/gimpprintui.pc" \
+		"$(DSTROOT)/usr/lib/pkgconfig/gimpprintui2.pc" \
+		"$(DSTROOT)/usr/sbin" \
+		"$(DSTROOT)/usr/share/gimp-print/doc/html" \
+		"$(DSTROOT)/usr/share/gimp-print/doc/reference-html" \
+		"$(DSTROOT)/usr/share/gimp-print/samples" \
+		"$(DSTROOT)/usr/share/info/dir" \
+		"$(DSTROOT)/usr/share/locale/locale.alias" \
+		"$(DSTROOT)/usr/share/man/man8/cups-genppd.8" \
+		"$(DSTROOT)/usr/share/man/man8/cups-genppdconfig.8" \
+		"$(DSTROOT)/usr/share/man/man8/cups-genppdupdate.8"

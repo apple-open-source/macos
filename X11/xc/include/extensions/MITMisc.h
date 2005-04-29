@@ -45,24 +45,18 @@ in this Software without prior written authorization from The Open Group.
 _XFUNCPROTOBEGIN
 
 Bool XMITMiscQueryExtension(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int*		/* event_basep */,
     int*		/* error_basep */
-#endif
 );
 
 Status XMITMiscSetBugMode(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     Bool		/* onOff */
-#endif
 );
 
 Bool XMITMiscGetBugMode(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 _XFUNCPROTOEND

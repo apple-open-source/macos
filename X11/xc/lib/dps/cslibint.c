@@ -47,7 +47,7 @@
  *  
  * Author:  Adobe Systems Incorporated and MIT X Consortium
  */
-/* $XFree86: xc/lib/dps/cslibint.c,v 1.4 2000/05/18 23:46:12 dawes Exp $ */
+/* $XFree86: xc/lib/dps/cslibint.c,v 1.5 2003/05/23 14:38:28 tsi Exp $ */
 
 /*
  *	XlibInternal.c - Internal support routines for the C subroutine
@@ -471,14 +471,17 @@ void N_XReadPad (Display *dpy, char *data, long size)
 
 	    if (bytes_read > 0) {
 		size -= bytes_read;
-	    	if ((iov[0].iov_len -= bytes_read) < 0) {
-		    iov[1].iov_len += iov[0].iov_len;
-		    iov[1].iov_base = (char *)iov[1].iov_base - iov[0].iov_len;
+		if (iov[0].iov_len < bytes_read) {
+		    iov[1].iov_len += iov[0].iov_len - bytes_read;
+		    iov[1].iov_base =
+			(char *)iov[1].iov_base + bytes_read - iov[0].iov_len;
 		    iov[0].iov_len = 0;
-		    }
-	    	else
+		}
+	    	else {
+		    iov[0].iov_len -= bytes_read;
 	    	    iov[0].iov_base = (char *)iov[0].iov_base + bytes_read;
 	    	}
+	    }
 	    else if (ETEST(errno)) {
 		N_XWaitForReadable(dpy);
 		errno = 0;

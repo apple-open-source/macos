@@ -10,7 +10,6 @@
  * ====================================================
  */
 
-#include <sys/cdefs.h>
 #if defined(LIBM_SCCS) && !defined(lint)
 __RCSID("$NetBSD: s_scalbn.c,v 1.11 1999/07/02 15:37:43 simonb Exp $");
 #endif
@@ -22,12 +21,16 @@ __RCSID("$NetBSD: s_scalbn.c,v 1.11 1999/07/02 15:37:43 simonb Exp $");
  * exponentiation or a multiplication.
  */
 
+// Put definition of __DARWIN_ALIAS() in sys/cdefs.h in scope
+#define __DARWIN_UNIX03 1
+#include "sys/cdefs.h"
+
 #include "math.h"
 #include "math_private.h"
 
 static const double
-two54   =  1.80143985094819840000e+16, /* 0x43500000, 0x00000000 */
-twom54  =  5.55111512312578270212e-17, /* 0x3C900000, 0x00000000 */
+two54   =  0x1.0p+54, /* 1.80143985094819840000e+16 0x43500000, 0x00000000 */
+twom54  =  0x1.0p-54, /* 5.55111512312578270212e-17 0x3C900000, 0x00000000 */
 huge   = 1.0e+300,
 tiny   = 1.0e-300;
 
@@ -56,4 +59,18 @@ double scalbn (double x, int n)
         k += 54;				/* subnormal result */
 	SET_HIGH_WORD(x,(hx&0x800fffff)|(k<<20));
         return x*twom54;
+}
+
+// POSIX mandated signature for "scalb"
+double scalb ( double x, double n )
+{
+	int m;
+	
+	if ( n > 2098.0 )
+		m = 2098.0;
+	else if ( n < -2099.0 )
+		m = -2099.0;
+	else m = (int) n;
+	
+	return scalbn( x, m ); 
 }

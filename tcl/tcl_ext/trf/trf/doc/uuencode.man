@@ -1,0 +1,25 @@
+[vset    encoding uuencode]
+[include encoding/header.inc]
+
+[para]
+
+This encoding transforms every block of three bytes into a block of
+four bytes, each of which is printable, i.e. 7bit ASCII. This implies
+that the result is valid UTF-8 too.
+
+The command uses essentially the same algorithm as for [cmd base64],
+except for a different mapping from 6-bit fragments to printable
+bytes.
+
+[include encoding/middle.inc]
+
+[section NOTES]
+
+[list_begin enum]
+[enum]
+The encoding buffers 2 bytes.
+[list_end]
+
+[keywords base64]
+[include encoding/footer.inc]
+

@@ -23,7 +23,7 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_context.c,v 1.11 2003/01/15 04:16:39 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_context.c,v 1.14 2004/01/23 03:57:07 dawes Exp $ */
 
 /*
  * Original rewrite:
@@ -55,16 +55,6 @@
 #include "tnl/t_pipeline.h"
 
 
-#if 0
-/* Example extension function */
-static void
-fxFooBarEXT(GLint i)
-{
-   printf("You called glFooBarEXT(%d)\n", i);
-}
-#endif
-
-
 /*
  * Enable/Disable the extensions for this context.
  */
@@ -89,28 +79,14 @@ static void tdfxDDInitExtensions( GLcontext *ctx )
       _mesa_enable_extension( ctx, "GL_EXT_texture_env_combine" );
    }
 
+#if 0
+   _mesa_enable_extension( ctx, "GL_ARB_texture_cube_map");
+   _mesa_enable_extension( ctx, "GL_NV_texture_rectangle");
+#endif
+
    if (fxMesa->haveHwStencil) {
       _mesa_enable_extension( ctx, "GL_EXT_stencil_wrap" );
    }
-
-   /* Example of hooking in an extension function.
-    * For DRI-based drivers, also see __driRegisterExtensions in the
-    * tdfx_xmesa.c file.
-    */
-#if 0
-   {
-      void **dispatchTable = (void **) ctx->Exec;
-      const int _gloffset_FooBarEXT = 555; /* just an example number! */
-      const int tabSize = _glapi_get_dispatch_table_size();
-      assert(_gloffset_FooBarEXT < tabSize);
-      dispatchTable[_gloffset_FooBarEXT] = (void *) tdfxFooBarEXT;
-      /* XXX You would also need to hook into the display list dispatch
-       * table.  Really, the implementation of extensions might as well
-       * be in the core of Mesa since core Mesa and the device driver
-       * is one big shared lib.
-       */
-   }
-#endif
 }
 
 
@@ -127,7 +103,7 @@ static const struct gl_pipeline_stage *tdfx_pipeline[] = {
 };
 
 
-GLboolean tdfxCreateContext( Display *dpy, const __GLcontextModes *mesaVis,
+GLboolean tdfxCreateContext( const __GLcontextModes *mesaVis,
 			     __DRIcontextPrivate *driContextPriv,
                              void *sharedContextPrivate )
 {
@@ -137,7 +113,6 @@ GLboolean tdfxCreateContext( Display *dpy, const __GLcontextModes *mesaVis,
    tdfxScreenPrivate *fxScreen = (tdfxScreenPrivate *) sPriv->private;
    TDFXSAREAPriv *saPriv = (TDFXSAREAPriv *) ((char *) sPriv->pSAREA +
 					      sizeof(XF86DRISAREARec));
-
 
    /* Allocate tdfx context */
    fxMesa = (tdfxContextPtr) CALLOC( sizeof(tdfxContextRec) );
@@ -149,7 +124,8 @@ GLboolean tdfxCreateContext( Display *dpy, const __GLcontextModes *mesaVis,
       shareCtx = ((tdfxContextPtr) sharedContextPrivate)->glCtx;
    else 
       shareCtx = NULL;
-   fxMesa->glCtx = _mesa_create_context(mesaVis, shareCtx, fxMesa, GL_TRUE);
+
+   fxMesa->glCtx = _mesa_create_context(mesaVis, shareCtx, (void *) fxMesa, GL_TRUE);
    if (!fxMesa->glCtx) {
       FREE(fxMesa);
       return GL_FALSE;
@@ -227,10 +203,8 @@ GLboolean tdfxCreateContext( Display *dpy, const __GLcontextModes *mesaVis,
    ctx = fxMesa->glCtx;
    if ( TDFX_IS_NAPALM( fxMesa ) ) {
       ctx->Const.MaxTextureLevels = 12;
-      ctx->Const.NumCompressedTextureFormats = 1;
    } else {
       ctx->Const.MaxTextureLevels = 9;
-      ctx->Const.NumCompressedTextureFormats = 0;
    }
    ctx->Const.MaxTextureUnits = TDFX_IS_BANSHEE( fxMesa ) ? 1 : 2;
 
@@ -372,7 +346,7 @@ tdfxInitContext( __DRIdrawablePrivate *driDrawPriv, tdfxContextPtr fxMesa )
    FxI32 result[2];
 
    if ( TDFX_DEBUG & DEBUG_VERBOSE_DRI ) {
-      fprintf( stderr, "%s( %p )\n", __FUNCTION__, fxMesa );
+      fprintf( stderr, "%s( %p )\n", __FUNCTION__, (void *)fxMesa );
    }
 
 #if DEBUG_LOCKING
@@ -487,7 +461,7 @@ tdfxDestroyContext( __DRIcontextPrivate *driContextPriv )
    tdfxContextPtr fxMesa = (tdfxContextPtr) driContextPriv->driverPrivate;
 
    if ( TDFX_DEBUG & DEBUG_VERBOSE_DRI ) {
-      fprintf( stderr, "%s( %p )\n", __FUNCTION__, fxMesa );
+      fprintf( stderr, "%s( %p )\n", __FUNCTION__, (void *)fxMesa );
    }
 
    if ( fxMesa ) {
@@ -529,7 +503,7 @@ tdfxUnbindContext( __DRIcontextPrivate *driContextPriv )
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
 
    if ( TDFX_DEBUG & DEBUG_VERBOSE_DRI ) {
-      fprintf( stderr, "%s( %p )\n", __FUNCTION__, driContextPriv );
+      fprintf( stderr, "%s( %p )\n", __FUNCTION__, (void *)driContextPriv );
    }
 
    if ( driContextPriv && (tdfxContextPtr) driContextPriv == fxMesa ) {
@@ -547,7 +521,7 @@ tdfxMakeCurrent( __DRIcontextPrivate *driContextPriv,
                  __DRIdrawablePrivate *driReadPriv )
 {
    if ( TDFX_DEBUG & DEBUG_VERBOSE_DRI ) {
-      fprintf( stderr, "%s( %p )\n", __FUNCTION__, driContextPriv );
+      fprintf( stderr, "%s( %p )\n", __FUNCTION__, (void *)driContextPriv );
    }
 
    if ( driContextPriv ) {

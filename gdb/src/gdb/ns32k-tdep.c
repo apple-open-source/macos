@@ -1,6 +1,7 @@
 /* Target dependent code for the NS32000, for GDB.
-   Copyright 1986, 1988, 1991, 1992, 1994, 1995, 1998, 1999, 2000, 2001,
-   2002, 2003 Free Software Foundation, Inc.
+
+   Copyright 1986, 1988, 1991, 1992, 1994, 1995, 1998, 1999, 2000,
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -28,6 +29,7 @@
 #include "target.h"
 #include "arch-utils.h"
 #include "osabi.h"
+#include "dis-asm.h"
 
 #include "ns32k-tdep.h"
 #include "gdb_string.h"
@@ -146,7 +148,7 @@ ns32k_saved_pc_after_call (struct frame_info *frame)
 static CORE_ADDR
 umax_skip_prologue (CORE_ADDR pc)
 {
-  register unsigned char op = read_memory_integer (pc, 1);
+  unsigned char op = read_memory_integer (pc, 1);
   if (op == 0x82)
     {
       op = read_memory_integer (pc + 2, 1);
@@ -190,8 +192,8 @@ umax_frame_num_args (struct frame_info *fi)
   if (enter_addr > 0)
     {
       pc = ((enter_addr == 1)
-	    ? SAVED_PC_AFTER_CALL (fi)
-	    : FRAME_SAVED_PC (fi));
+	    ? DEPRECATED_SAVED_PC_AFTER_CALL (fi)
+	    : DEPRECATED_FRAME_SAVED_PC (fi));
       insn = read_memory_integer (pc, 2);
       addr_mode = (insn >> 11) & 0x1f;
       insn = insn & 0x7ff;
@@ -307,10 +309,6 @@ ns32k_frame_chain (struct frame_info *frame)
   /* In the case of the NS32000 series, the frame's nominal address is the
      FP value, and that address is saved at the previous FP value as a
      4-byte word.  */
-
-  if (inside_entry_file (get_frame_pc (frame)))
-    return 0;
-
   return (read_memory_integer (get_frame_base (frame), 4));
 }
 
@@ -327,15 +325,16 @@ ns32k_sigtramp_saved_pc (struct frame_info *frame)
   /* Get sigcontext address, it is the third parameter on the stack.  */
   if (get_next_frame (frame))
     sigcontext_addr = read_memory_typed_address
-      (FRAME_ARGS_ADDRESS (get_next_frame (frame)) + FRAME_ARGS_SKIP + sigcontext_offs,
+      (DEPRECATED_FRAME_ARGS_ADDRESS (get_next_frame (frame)) + FRAME_ARGS_SKIP + sigcontext_offs,
        builtin_type_void_data_ptr);
   else
     sigcontext_addr = read_memory_typed_address
       (read_register (SP_REGNUM) + sigcontext_offs, builtin_type_void_data_ptr);
 
-  /* Don't cause a memory_error when accessing sigcontext in case the stack
+  /* Offset to saved PC in sigcontext, from <machine/signal.h>.  Don't
+     cause a memory_error when accessing sigcontext in case the stack
      layout has changed or the stack is corrupt.  */
-  target_read_memory (sigcontext_addr + SIGCONTEXT_PC_OFFSET, buf, ptrbytes);
+  target_read_memory (sigcontext_addr + 20, buf, ptrbytes);
   return extract_typed_address (buf, builtin_type_void_func_ptr);
 }
 
@@ -357,12 +356,6 @@ ns32k_frame_args_address (struct frame_info *frame)
   return (read_register (SP_REGNUM) - 4);
 }
 
-static CORE_ADDR
-ns32k_frame_locals_address (struct frame_info *frame)
-{
-  return (get_frame_base (frame));
-}
-
 /* Code to initialize the addresses of the saved registers of frame described
    by FRAME_INFO.  This includes special registers such as pc and fp saved in
    special ways in the stack frame.  sp is even more special: the address we
@@ -375,7 +368,7 @@ ns32k_frame_init_saved_regs (struct frame_info *frame)
   int localcount;
   CORE_ADDR enter_addr, next_addr;
 
-  if (get_frame_saved_regs (frame))
+  if (deprecated_get_frame_saved_regs (frame))
     return;
 
   frame_saved_regs_zalloc (frame);
@@ -390,18 +383,18 @@ ns32k_frame_init_saved_regs (struct frame_info *frame)
       for (regnum = 0; regnum < 8; regnum++)
 	{
           if (regmask & (1 << regnum))
-	    get_frame_saved_regs (frame)[regnum] = next_addr -= 4;
+	    deprecated_get_frame_saved_regs (frame)[regnum] = next_addr -= 4;
 	}
 
-      get_frame_saved_regs (frame)[SP_REGNUM] = get_frame_base (frame) + 4;
-      get_frame_saved_regs (frame)[PC_REGNUM] = get_frame_base (frame) + 4;
-      get_frame_saved_regs (frame)[FP_REGNUM] = read_memory_integer (get_frame_base (frame), 4);
+      deprecated_get_frame_saved_regs (frame)[SP_REGNUM] = get_frame_base (frame) + 4;
+      deprecated_get_frame_saved_regs (frame)[PC_REGNUM] = get_frame_base (frame) + 4;
+      deprecated_get_frame_saved_regs (frame)[DEPRECATED_FP_REGNUM] = read_memory_integer (get_frame_base (frame), 4);
     }
   else if (enter_addr == 1)
     {
       CORE_ADDR sp = read_register (SP_REGNUM);
-      get_frame_saved_regs (frame)[PC_REGNUM] = sp;
-      get_frame_saved_regs (frame)[SP_REGNUM] = sp + 4;
+      deprecated_get_frame_saved_regs (frame)[PC_REGNUM] = sp;
+      deprecated_get_frame_saved_regs (frame)[SP_REGNUM] = sp + 4;
     }
 }
 
@@ -412,8 +405,8 @@ ns32k_push_dummy_frame (void)
   int regnum;
 
   sp = push_word (sp, read_register (PC_REGNUM));
-  sp = push_word (sp, read_register (FP_REGNUM));
-  write_register (FP_REGNUM, sp);
+  sp = push_word (sp, read_register (DEPRECATED_FP_REGNUM));
+  write_register (DEPRECATED_FP_REGNUM, sp);
 
   for (regnum = 0; regnum < 8; regnum++)
     sp = push_word (sp, read_register (regnum));
@@ -429,14 +422,14 @@ ns32k_pop_frame (void)
   int regnum;
 
   fp = get_frame_base (frame);
-  FRAME_INIT_SAVED_REGS (frame);
+  DEPRECATED_FRAME_INIT_SAVED_REGS (frame);
 
   for (regnum = 0; regnum < 8; regnum++)
-    if (get_frame_saved_regs (frame)[regnum])
+    if (deprecated_get_frame_saved_regs (frame)[regnum])
       write_register (regnum,
-		      read_memory_integer (get_frame_saved_regs (frame)[regnum], 4));
+		      read_memory_integer (deprecated_get_frame_saved_regs (frame)[regnum], 4));
 
-  write_register (FP_REGNUM, read_memory_integer (fp, 4));
+  write_register (DEPRECATED_FP_REGNUM, read_memory_integer (fp, 4));
   write_register (PC_REGNUM, read_memory_integer (fp + 4, 4));
   write_register (SP_REGNUM, fp + 8);
   flush_cached_frames ();
@@ -488,7 +481,7 @@ static void
 ns32k_extract_return_value (struct type *valtype, char *regbuf, char *valbuf)
 {
   memcpy (valbuf,
-          regbuf + REGISTER_BYTE (TYPE_CODE (valtype) == TYPE_CODE_FLT ?
+          regbuf + DEPRECATED_REGISTER_BYTE (TYPE_CODE (valtype) == TYPE_CODE_FLT ?
 				  FP0_REGNUM : 0), TYPE_LENGTH (valtype));
 }
 
@@ -500,20 +493,14 @@ ns32k_store_return_value (struct type *valtype, char *valbuf)
 				   TYPE_LENGTH (valtype));
 }
 
-static CORE_ADDR
-ns32k_extract_struct_value_address (char *regbuf)
-{
-  return (extract_address (regbuf + REGISTER_BYTE (0), REGISTER_RAW_SIZE (0)));
-}
-
 void
 ns32k_gdbarch_init_32082 (struct gdbarch *gdbarch)
 {
   set_gdbarch_num_regs (gdbarch, NS32K_NUM_REGS_32082);
 
   set_gdbarch_register_name (gdbarch, ns32k_register_name_32082);
-  set_gdbarch_register_bytes (gdbarch, NS32K_REGISTER_BYTES_32082);
-  set_gdbarch_register_byte (gdbarch, ns32k_register_byte_32082);
+  set_gdbarch_deprecated_register_bytes (gdbarch, NS32K_REGISTER_BYTES_32082);
+  set_gdbarch_deprecated_register_byte (gdbarch, ns32k_register_byte_32082);
 }
 
 void
@@ -522,8 +509,8 @@ ns32k_gdbarch_init_32382 (struct gdbarch *gdbarch)
   set_gdbarch_num_regs (gdbarch, NS32K_NUM_REGS_32382);
 
   set_gdbarch_register_name (gdbarch, ns32k_register_name_32382);
-  set_gdbarch_register_bytes (gdbarch, NS32K_REGISTER_BYTES_32382);
-  set_gdbarch_register_byte (gdbarch, ns32k_register_byte_32382);
+  set_gdbarch_deprecated_register_bytes (gdbarch, NS32K_REGISTER_BYTES_32382);
+  set_gdbarch_deprecated_register_byte (gdbarch, ns32k_register_byte_32382);
 }
 
 /* Initialize the current architecture based on INFO.  If possible, re-use an
@@ -547,7 +534,7 @@ ns32k_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   /* NOTE: cagney/2002-12-06: This can be deleted when this arch is
      ready to unwind the PC first (see frame.c:get_prev_frame()).  */
-  set_gdbarch_deprecated_init_frame_pc (gdbarch, init_frame_pc_default);
+  set_gdbarch_deprecated_init_frame_pc (gdbarch, deprecated_init_frame_pc_default);
 
   /* Register info */
   ns32k_gdbarch_init_32082 (gdbarch);
@@ -556,61 +543,55 @@ ns32k_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_num_regs (gdbarch, NS32K_PC_REGNUM);
   set_gdbarch_num_regs (gdbarch, NS32K_PS_REGNUM);
 
-  set_gdbarch_register_size (gdbarch, NS32K_REGISTER_SIZE);
-  set_gdbarch_register_raw_size (gdbarch, ns32k_register_raw_size);
-  set_gdbarch_max_register_raw_size (gdbarch, NS32K_MAX_REGISTER_RAW_SIZE);
-  set_gdbarch_register_virtual_size (gdbarch, ns32k_register_virtual_size);
-  set_gdbarch_max_register_virtual_size (gdbarch,
+  set_gdbarch_deprecated_register_size (gdbarch, NS32K_REGISTER_SIZE);
+  set_gdbarch_deprecated_register_raw_size (gdbarch, ns32k_register_raw_size);
+  set_gdbarch_deprecated_max_register_raw_size (gdbarch, NS32K_MAX_REGISTER_RAW_SIZE);
+  set_gdbarch_deprecated_register_virtual_size (gdbarch, ns32k_register_virtual_size);
+  set_gdbarch_deprecated_max_register_virtual_size (gdbarch,
                                          NS32K_MAX_REGISTER_VIRTUAL_SIZE);
-  set_gdbarch_register_virtual_type (gdbarch, ns32k_register_virtual_type);
+  set_gdbarch_deprecated_register_virtual_type (gdbarch, ns32k_register_virtual_type);
 
   /* Frame and stack info */
   set_gdbarch_skip_prologue (gdbarch, umax_skip_prologue);
-  set_gdbarch_saved_pc_after_call (gdbarch, ns32k_saved_pc_after_call);
+  set_gdbarch_deprecated_saved_pc_after_call (gdbarch, ns32k_saved_pc_after_call);
 
   set_gdbarch_frame_num_args (gdbarch, umax_frame_num_args);
-  set_gdbarch_frameless_function_invocation (gdbarch,
-                                   generic_frameless_function_invocation_not);
   
-  set_gdbarch_frame_chain (gdbarch, ns32k_frame_chain);
-  set_gdbarch_frame_saved_pc (gdbarch, ns32k_frame_saved_pc);
+  set_gdbarch_deprecated_frame_chain (gdbarch, ns32k_frame_chain);
+  set_gdbarch_deprecated_frame_saved_pc (gdbarch, ns32k_frame_saved_pc);
 
-  set_gdbarch_frame_args_address (gdbarch, ns32k_frame_args_address);
-  set_gdbarch_frame_locals_address (gdbarch, ns32k_frame_locals_address);
+  set_gdbarch_deprecated_frame_args_address (gdbarch, ns32k_frame_args_address);
 
-  set_gdbarch_frame_init_saved_regs (gdbarch, ns32k_frame_init_saved_regs);
+  set_gdbarch_deprecated_frame_init_saved_regs (gdbarch, ns32k_frame_init_saved_regs);
 
   set_gdbarch_frame_args_skip (gdbarch, 8);
 
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
 
   /* Return value info */
-  set_gdbarch_store_struct_return (gdbarch, ns32k_store_struct_return);
+  set_gdbarch_deprecated_store_struct_return (gdbarch, ns32k_store_struct_return);
   set_gdbarch_deprecated_extract_return_value (gdbarch, ns32k_extract_return_value);
   set_gdbarch_deprecated_store_return_value (gdbarch, ns32k_store_return_value);
-  set_gdbarch_deprecated_extract_struct_value_address (gdbarch,
-                                            ns32k_extract_struct_value_address);
 
   /* Call dummy info */
-  set_gdbarch_push_dummy_frame (gdbarch, ns32k_push_dummy_frame);
-  set_gdbarch_pop_frame (gdbarch, ns32k_pop_frame);
+  set_gdbarch_deprecated_push_dummy_frame (gdbarch, ns32k_push_dummy_frame);
+  set_gdbarch_deprecated_pop_frame (gdbarch, ns32k_pop_frame);
   set_gdbarch_call_dummy_location (gdbarch, ON_STACK);
-  set_gdbarch_call_dummy_p (gdbarch, 1);
-  set_gdbarch_call_dummy_words (gdbarch, ns32k_call_dummy_words);
-  set_gdbarch_sizeof_call_dummy_words (gdbarch, sizeof_ns32k_call_dummy_words);
-  set_gdbarch_fix_call_dummy (gdbarch, ns32k_fix_call_dummy);
-  set_gdbarch_call_dummy_start_offset (gdbarch, 3);
-  set_gdbarch_call_dummy_breakpoint_offset_p (gdbarch, 0);
+  set_gdbarch_deprecated_call_dummy_words (gdbarch, ns32k_call_dummy_words);
+  set_gdbarch_deprecated_sizeof_call_dummy_words (gdbarch, sizeof_ns32k_call_dummy_words);
+  set_gdbarch_deprecated_fix_call_dummy (gdbarch, ns32k_fix_call_dummy);
+  set_gdbarch_deprecated_call_dummy_start_offset (gdbarch, 3);
+  set_gdbarch_deprecated_call_dummy_breakpoint_offset (gdbarch, 15);
   set_gdbarch_deprecated_use_generic_dummy_frames (gdbarch, 0);
   set_gdbarch_deprecated_pc_in_call_dummy (gdbarch, deprecated_pc_in_call_dummy_on_stack);
-  set_gdbarch_call_dummy_stack_adjust_p (gdbarch, 0);
 
   /* Breakpoint info */
-  set_gdbarch_decr_pc_after_break (gdbarch, 0);
   set_gdbarch_breakpoint_from_pc (gdbarch, ns32k_breakpoint_from_pc);
 
-  /* Misc info */
-  set_gdbarch_function_start_offset (gdbarch, 0);
+  /* Should be using push_dummy_call.  */
+  set_gdbarch_deprecated_dummy_write_sp (gdbarch, deprecated_write_sp);
+
+  set_gdbarch_print_insn (gdbarch, print_insn_ns32k);
 
   /* Hook in OS ABI-specific overrides, if they have been registered.  */
   gdbarch_init_osabi (info, gdbarch);
@@ -618,10 +599,11 @@ ns32k_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   return (gdbarch);
 }
 
+extern initialize_file_ftype _initialize_ns32k_tdep; /* -Wmissing-prototypes */
+
 void
 _initialize_ns32k_tdep (void)
 {
   gdbarch_register (bfd_arch_ns32k, ns32k_gdbarch_init, NULL);
 
-  tm_print_insn = print_insn_ns32k;
 }

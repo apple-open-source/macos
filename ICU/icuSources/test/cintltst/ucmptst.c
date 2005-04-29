@@ -1,7 +1,7 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1998-2001, International Business Machines Corporation and
- * others. All Rights Reserved.
+ * Copyright (c) 1998-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
  ********************************************************************/
 /*
 * File test.c
@@ -15,7 +15,6 @@
 
 #include "unicode/utypes.h"
 #include "ucmp8.h"
-#include "umemstrm.h"
 #include "cmemory.h"
 #include "cintltst.h"
 #include "ucol_imp.h"
@@ -134,27 +133,25 @@ static void TestUCMP8API(){
     log_verbose("Testing ucmp8_flattenMem()\n");
     {
         int32_t len = 0;
-        const uint8_t *buff = NULL; 
-        UMemoryStream *MS = uprv_mstrm_openNew(65536);
-        int32_t size = ucmp8_flattenMem(&ucmp8Array1, MS);
+        int32_t size = ucmp8_flattenMem(&ucmp8Array1, NULL);
+        uint8_t *buff = malloc(size);
+        uint8_t *buffLocation = buff;
+        len = ucmp8_flattenMem(&ucmp8Array1, buff);
         
-        /* try after compacting */
-        buff = uprv_mstrm_getBuffer(MS, &len);
-        
-        if(size == 0 || len == 0 || buff == NULL) {
+        if(size != len || size == 0 || len == 0 || buff == NULL) {
             log_err("Unable to flatten!\n");
         } else {
             log_verbose("Testing ucmp8_initFromData()\n");
-            ucmp8_initFromData(&ucmp8Clone, &buff, &status);
-            if(U_FAILURE(status) || ucmp8_isBogus(&ucmp8Clone) == TRUE){
+            ucmp8_initFromData(&ucmp8Clone, (const uint8_t **)&buffLocation, &status);
+            if(U_FAILURE(status) || ucmp8_isBogus(&ucmp8Clone) == TRUE || (buffLocation-buff) != len){
                 log_err("ERROR: ucmp8_initFromData() failed\n");
                 status = U_ZERO_ERROR;
             } else {
-              query(&ucmp8Clone);
-              ucmp8_close(&ucmp8Clone);
+                query(&ucmp8Clone);
+                ucmp8_close(&ucmp8Clone);
             }
         }
-        uprv_mstrm_close(MS);
+        free(buff);
     }
 
 /*

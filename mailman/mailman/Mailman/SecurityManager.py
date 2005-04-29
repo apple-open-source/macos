@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -307,7 +307,10 @@ class SecurityManager:
     def __checkone(self, c, authcontext, user):
         # Do the guts of the cookie check, for one authcontext/user
         # combination.
-        key, secret = self.AuthContextInfo(authcontext, user)
+        try:
+            key, secret = self.AuthContextInfo(authcontext, user)
+        except Errors.NotAMemberError:
+            return False
         if not c.has_key(key) or not isinstance(secret, StringType):
             return False
         # Undo the encoding we performed in MakeCookie() above.  BAW: I

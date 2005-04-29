@@ -1,0 +1,34 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/aiptek/Imakefile,v 1.2 2003/06/30 16:52:57 eich Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#if HasLinuxInput
+DEFINES = -DLINUX_INPUT
+#endif
+
+SRCS = xf86Aiptek.c
+OBJS = xf86Aiptek.o
+
+DRIVER = aiptek
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/loader -I$(XF86OSSRC) \
+         -I$(SERVERSRC)/include -I$(SERVERSRC)/mi -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget($(DRIVER),$(OBJS))
+
+InstallObjectModule($(DRIVER),$(MODULEDIR),input)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage($(DRIVER))
+#endif
+
+DependTarget()
+
+InstallDriverSDKObjectModule($(DRIVER),$(DRIVERSDKMODULEDIR),input)

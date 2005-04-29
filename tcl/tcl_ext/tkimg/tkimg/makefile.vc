@@ -1,0 +1,360 @@
+# Visual C++ 2.x 4.x and 5.0 makefile for IMG
+#
+# CVS:	$Id: makefile.vc,v 1.1.1.1 2002/05/10 17:20:11 andreas_kupries Exp $
+# 
+
+# Does not depend on the presence of any environment variables in
+# order to compile tcl; all needed information is derived from 
+# location of the compiler directories.
+
+#
+# Project directories
+#
+# ROOT    = top of source tree
+#
+# TMPDIR  = location where .obj files should be stored during build
+#
+# TOOLS32 = location of VC++ 32-bit development tools. Note that the
+#	    VC++ 2.0 header files are broken, so you need to use the
+#	    ones that come with the developer network CD's, or later
+#	    versions of VC++.
+#
+# TCL     =	location where Tcl is installed.
+#
+# ZIP	  =	name and path to zip (or pkzip) archiver application
+#		(required for generation of binary distribution only)
+#
+
+TCL_VERSION = 8.0.5
+TCL_VER = 80
+
+VC_VERSION = 50
+
+ROOT		= .
+TMPDIR		= .
+!IF $(VC_VERSION) < 50
+TOOLS32 	= c:\msdev			# VC++ 2.x and 4.x
+!ELSE
+TOOLS32 	= c:\PROGRA~1\DevStudio\VC	# VC++ 5.0
+!ENDIF
+TCL		= c:\PROGRA~1\Tcl8.0
+ZIP		= zip -9 -k
+MAKE		= nmake
+IMGDLLDIR	= c:\WINNT\SYSTEM32
+
+TCLSH80		=	$(TCL)\bin\tclsh80.exe
+WISH80		=	$(TCL)\bin\wish80.exe
+TCLLIB80	=	$(TCL)\lib\tcl80vc.lib
+TKLIB80		=       $(TCL)\lib\tk80vc.lib
+
+TCLSH81		=	$(TCL)\bin\tclsh81.exe
+WISH81		=	$(TCL)\bin\wish81.exe
+TCLLIB81	=	$(TCL)\lib\tcl81.lib
+TKLIB81		=       $(TCL)\lib\tk81.lib
+
+TCLSH$(TCL_VER)		=	$(TCL)\bin\tclsh$(TCL_VER).exe
+WISH$(TCL_VER)		=	$(TCL)\bin\wish$(TCL_VER).exe
+TCLLIB$(TCL_VER)	=	$(TCL)\lib\tcl$(TCL_VER).lib
+TKLIB$(TCL_VER)		=       $(TCL)\lib\tk$(TCL_VER).lib
+
+# Set this to the appropriate value of /MACHINE: for your platform
+MACHINE	= IX86
+
+# Comment the following line to compile with symbols
+NODEBUG=1
+
+
+######################################################################
+# Do not modify below this line
+######################################################################
+
+IMG		=	img12
+IMGLIB80	=	$(IMG)80.lib
+IMGDLL80	=	$(IMG)80.dll
+IMGLIB81	=	$(IMG)81.lib
+IMGDLL81	=	$(IMG)81.dll
+IMGLIB$(TCL_VER)	=	$(IMG)$(TCL_VER).lib
+IMGDLL$(TCL_VER)	=	$(IMG)$(TCL_VER).dll
+ZLIB		=	zlib.lib
+ZDLL		=	zlib.dll
+ZDIR		=	$(ROOT)\libz
+PNGLIB		=	png.lib
+PNGDLL		=	png.dll
+PNGDIR		=	$(ROOT)\libpng
+JPEGLIB		=	jpeg62.lib
+JPEGDLL		=	jpeg62.dll
+JPEGDIR		=	$(ROOT)\libjpeg
+TIFFLIB		=	tiff.lib
+TIFFDLL		=	tiff.dll
+TIFFDIR		=	$(ROOT)\libtiff
+TTFLIB		=	ttf.lib
+TTFDLL		=	ttf.dll
+TTFDIR		=	$(ROOT)\freetype
+INSTALLDIR	=	$(TCL)\lib\$(IMG)
+
+IMGOBJS		=			\
+        $(TMPDIR)\dllEntry.obj		\
+        $(TMPDIR)\imgInit.obj		\
+        $(TMPDIR)\imgObj.obj		\
+        $(TMPDIR)\imgUtil.obj		\
+        $(TMPDIR)\imgPmap.obj		\
+        $(TMPDIR)\imgWinPmap.obj	\
+        $(TMPDIR)\imgBMP.obj		\
+        $(TMPDIR)\imgGIF.obj		\
+        $(TMPDIR)\imgJPEG.obj		\
+        $(TMPDIR)\imgPNG.obj		\
+        $(TMPDIR)\imgPS.obj		\
+        $(TMPDIR)\imgTIFF.obj		\
+        $(TMPDIR)\imgTIFFjpeg.obj	\
+        $(TMPDIR)\imgTIFFzip.obj	\
+        $(TMPDIR)\imgTIFFpixar.obj	\
+        $(TMPDIR)\imgXBM.obj		\
+        $(TMPDIR)\imgXPM.obj		\
+        $(TMPDIR)\imgWindow.obj		\
+        $(TMPDIR)\tclLoadWin.obj
+
+
+PATH=$(TOOLS32)\bin;$(PATH)
+
+cc32		= $(TOOLS32)\bin\cl.exe
+link32		= $(TOOLS32)\bin\link.exe
+include32	= -I$(TOOLS32)\include
+CP      	= copy
+RM      	= del
+
+IMG_INCLUDES	= -I$(ROOT) -I$(ROOT)\libz -I$(ROOT)\libpng -I$(ROOT)\libjpeg \
+		  -I$(ROOT)\libtiff -I..\tcl$(TCL_VERSION)\generic \
+		  -I..\tcl$(TCL_VERSION)\win -I..\tk$(TCL_VERSION)\generic \
+		  -I..\tk$(TCL_VERSION)\xlib -I..\tk$(TCL_VERSION)\win \
+		  -I$(TCL)\include
+IMG_DEFINES	= -nologo -D__WIN32__ -DWIN32 -DZLIB_DLL -D_WINDOWS \
+		  -Ddlopen=imgDlopen -Ddlclose=imgDlclose \
+		  -Ddlsym=imgDlsym -Ddlerror=imgDlerror
+
+IMG_CFLAGS	=	$(cdebug) $(cflags) $(cvarsdll) $(include32) \
+			$(IMG_INCLUDES) $(IMG_DEFINES)
+CON_CFLAGS	=	$(cdebug) $(cflags) $(cvars) $(include32) -DCONSOLE
+DOS_CFLAGS	=	$(cdebug) $(cflags) $(include16) -AL 
+
+######################################################################
+# Link flags
+######################################################################
+
+!IFDEF NODEBUG
+ldebug = /RELEASE
+!ELSE
+ldebug = -debug:full -debugtype:cv
+!ENDIF
+
+# declarations common to all linker options
+lcommon = /NODEFAULTLIB /RELEASE /NOLOGO
+
+# declarations for use on Intel i386, i486, and Pentium systems
+!IF "$(MACHINE)" == "IX86"
+DLLENTRY = @12
+lflags   = $(lcommon) -align:0x1000 /MACHINE:$(MACHINE)
+!ELSE
+lflags   = $(lcommon) /MACHINE:$(MACHINE)
+!ENDIF
+
+conlflags = $(lflags) -subsystem:console -entry:mainCRTStartup
+guilflags = $(lflags) -subsystem:windows -entry:WinMainCRTStartup
+dlllflags = $(lflags) -entry:_DllMainCRTStartup$(DLLENTRY) -dll
+
+!IF "$(MACHINE)" == "PPC"
+libc = libc.lib
+libcdll = crtdll.lib
+!ELSE
+libc = libc.lib oldnames.lib
+libcdll = msvcrt.lib oldnames.lib
+!ENDIF
+
+baselibs   = kernel32.lib $(optlibs) advapi32.lib
+winlibs    = $(baselibs) user32.lib gdi32.lib comdlg32.lib winspool.lib
+
+guilibs	   = $(libc) $(winlibs)
+conlibs	   = $(libc) $(baselibs)
+guilibsdll = $(libcdll) $(winlibs)
+conlibsdll = $(libcdll) $(baselibs)
+
+######################################################################
+# Compile flags
+######################################################################
+
+!IFDEF NODEBUG
+cdebug = -Ox -Oy- -Gs -GD
+!ELSE
+cdebug = -Z7 -Od -WX
+!ENDIF
+
+# declarations common to all compiler options
+ccommon = -c -W3 -nologo -YX
+
+# NEED BYTEORDER INFORMATION HERE !!
+!IF "$(MACHINE)" == "IX86"
+cflags = $(ccommon) -D_X86_=1
+!ELSE
+!IF "$(MACHINE)" == "MIPS"
+cflags = $(ccommon) -D_MIPS_=1
+!ELSE
+!IF "$(MACHINE)" == "PPC"
+cflags = $(ccommon) -D_PPC_=1
+!ELSE
+!IF "$(MACHINE)" == "ALPHA"
+cflags = $(ccommon) -D_ALPHA_=1
+!ENDIF
+!ENDIF
+!ENDIF
+!ENDIF
+
+cvars      = -DWIN32 -D_WIN32
+cvarsmt    = $(cvars) -D_MT
+cvarsdll   = $(cvarsmt) -D_DLL
+
+######################################################################
+# Project specific targets
+######################################################################
+
+default:	$(IMGDLL80)
+all:		default z png jpeg tiff
+z :		$(ZDIR)\$(ZDLL)
+png:		$(PNGDIR)\$(PNGDLL)
+jpeg:		$(JPEGDIR)\$(JPEGDLL)
+tiff:		$(TIFFDIR)\$(TIFFDLL)
+
+test:		$(IMGDLL80)
+	$(WISH80) demo.tcl
+
+install:	default
+	-@md	$(INSTALLDIR)
+	-@$(CP) $(IMGDLL80)		$(INSTALLDIR)
+	-@$(CP) $(IMGDLL81)		$(INSTALLDIR)
+	-@$(CP) $(ROOT)\pkgIndex.win	$(INSTALLDIR)\pkgIndex.tcl
+	-@$(CP) $(ZDIR)\$(ZDLL)		$(IMGDLLDIR)
+	-@$(CP) $(ZDIR)\zlib.h		$(TCL)\include
+	-@$(CP) $(ZDIR)\zconf.h		$(TCL)\include
+	-@$(CP) $(PNGDIR)\$(PNGDLL)	$(IMGDLLDIR)
+	-@$(CP) $(PNGDIR)\png.h		$(TCL)\include
+	-@$(CP) $(PNGDIR)\pngconf.h	$(TCL)\include
+	-@$(CP) $(JPEGDIR)\$(JPEGDLL)	$(IMGDLLDIR)
+	-@$(CP) $(JPEGDIR)\jpeglib.h	$(TCL)\include
+	-@$(CP) $(JPEGDIR)\jconfig.h	$(TCL)\include
+	-@$(CP) $(JPEGDIR)\jmorecfg.h	$(TCL)\include
+	-@$(CP) $(JPEGDIR)\jerror.h	$(TCL)\include
+	-@$(CP) $(TIFFDIR)\$(TIFFDLL)	$(IMGDLLDIR)
+	-@$(CP) $(TIFFDIR)\tiff.h	$(TCL)\include
+	-@$(CP) $(TIFFDIR)\tiffio.h	$(TCL)\include
+	-@$(CP) $(TIFFDIR)\tiffconf.h	$(TCL)\include
+
+bindist:	default
+	-@md	$(IMG)
+	-@md	$(IMG)\patches
+	-$(CP) $(IMGDLL80)		$(IMG)
+	-$(CP) $(IMGDLL81)		$(IMG)
+	-$(CP) c:\winnt\system32\msvcrt.dll		$(IMG)
+	$(CP) $(ROOT)\pkgIndex.win	$(IMG)\pkgIndex.tcl
+	$(CP) $(ROOT)\tools\install.tcl	$(IMG)
+	$(CP) $(ROOT)\demo.tcl		$(IMG)
+	$(CP) $(ROOT)\tkv.tcl		$(IMG)
+	$(CP) $(ROOT)\ANNOUNCE		$(IMG)
+	$(CP) $(ROOT)\README		$(IMG)
+	$(CP) $(ROOT)\README.JPEG	$(IMG)\README.JPG
+	$(CP) $(ROOT)\README.PNG	$(IMG)
+	$(CP) $(ROOT)\README.TIFF	$(IMG)\README.TIF
+	$(CP) $(ROOT)\README.ZLIB	$(IMG)\README.ZLB
+	$(CP) $(ROOT)\README.VC		$(IMG)
+	$(CP) $(ROOT)\README.PS		$(IMG)
+	-$(CP) $(ZDIR)\$(ZDLL)		$(IMG)
+	-$(CP) $(ZDIR)\$(ZLIB)		$(IMG)
+	-$(CP) $(ZDIR)\zlib.h		$(IMG)
+	-$(CP) $(ZDIR)\zconf.h		$(IMG)
+	-$(CP) $(PNGDIR)\$(PNGDLL)	$(IMG)
+	-$(CP) $(PNGDIR)\$(PNGLIB)	$(IMG)
+	-$(CP) $(PNGDIR)\png.h		$(IMG)
+	-$(CP) $(PNGDIR)\pngconf.h	$(IMG)
+	-$(CP) $(JPEGDIR)\$(JPEGDLL)	$(IMG)
+	-$(CP) $(JPEGDIR)\$(JPEGLIB)	$(IMG)
+	-$(CP) $(JPEGDIR)\jpeglib.h	$(IMG)
+	-$(CP) $(JPEGDIR)\jconfig.h	$(IMG)
+	-$(CP) $(JPEGDIR)\jmorecfg.h	$(IMG)
+	-$(CP) $(JPEGDIR)\jerror.h	$(IMG)
+	-$(CP) $(TIFFDIR)\$(TIFFDLL)	$(IMG)
+	-$(CP) $(TIFFDIR)\$(TIFFLIB)	$(IMG)
+	-$(CP) $(TIFFDIR)\tiff.h	$(IMG)
+	-$(CP) $(TIFFDIR)\tiffio.h	$(IMG)
+	-$(CP) $(TIFFDIR)\tiffconf.h	$(IMG)
+	$(ZIP) $(IMG)bin.zip $(IMG)\*.*
+	-@$(RM)	$(IMG)\*.tcl
+	-@$(RM)	$(IMG)\ANNOUNCE
+	-@$(RM)	$(IMG)\README
+	-@$(RM)	$(IMG)\README.*
+	-@$(RM)	$(IMG)\*.dll
+	-@$(RM)	$(IMG)\*.lib
+	-@$(RM)	$(IMG)\*.h
+	-@rd	$(IMG)
+
+
+$(JPEGDIR)\jconfig.h:	$(JPEGDIR)\jconfig.vc
+	$(CP) $(JPEGDIR)\jconfig.vc $(JPEGDIR)\jconfig.h
+
+$(ZDIR)\makefile:	$(ZDIR)\makefile.vc
+	$(CP) $(ZDIR)\makefile.vc $(ZDIR)\makefile
+
+$(PNGDIR)\makefile:	$(PNGDIR)\makefile.vc
+	$(CP) $(PNGDIR)\makefile.vc $(PNGDIR)\makefile
+
+$(JPEGDIR)\makefile:	$(JPEGDIR)\makefile.vc
+	$(CP) $(JPEGDIR)\makefile.vc $(JPEGDIR)\makefile
+
+$(TIFFDIR)\makefile:	$(TIFFDIR)\makefile.vc
+	$(CP) $(TIFFDIR)\makefile.vc $(TIFFDIR)\makefile
+
+$(IMGDLL80):	$(JPEGDIR)\jconfig.h pkgIndex.tcl $(IMGOBJS)
+	$(link32) $(ldebug) $(dlllflags) $(TCLLIB80) $(TKLIB80) \
+		$(guilibsdll) -out:$(IMGDLL80) $(IMGOBJS)
+
+$(IMGDLL81):	$(JPEGDIR)\jconfig.h pkgIndex.tcl $(IMGOBJS)
+	$(link32) $(ldebug) $(dlllflags) $(TCLLIB81) $(TKLIB81) \
+		$(guilibsdll) -out:$(IMGDLL81) $(IMGOBJS)
+
+pkgIndex.tcl:	$(ROOT)\pkgIndex.win
+	$(CP) $(ROOT)\pkgIndex.win pkgIndex.tcl
+
+$(ZDIR)\$(ZDLL):	$(ZDIR)\makefile
+   cd $(ZDIR)
+   $(MAKE) all
+   cd ..
+
+$(PNGDIR)\$(PNGDLL):	$(ZDIR)\$(ZDLL) $(PNGDIR)\makefile
+   cd $(PNGDIR)
+   $(MAKE) all
+   cd ..
+
+$(JPEGDIR)\$(JPEGDLL):	$(JPEGDIR)\makefile $(JPEGDIR)\jconfig.h
+   cd $(JPEGDIR)
+   $(MAKE) all
+    cd ..
+
+$(TIFFDIR)\$(TIFFDLL):	$(TIFFDIR)\makefile
+   cd $(TIFFDIR)
+   $(MAKE) all
+   cd ..
+
+#
+# Implicit rules
+#
+
+{$(ROOT)}.c{$(TMPDIR)}.obj:
+    $(cc32) $(IMG_CFLAGS) -Fo$(TMPDIR)\ $<
+
+{$(ROOT)\compat}.c{$(TMPDIR)}.obj:
+    $(cc32) $(IMG_CFLAGS) -Fo$(TMPDIR)\ $<
+
+
+clean:
+	-@del *.exp 
+	-@del *.lib 
+	-@del *.dll 
+	-@del $(TMPDIR)\*.obj
+	-@del *.pch
+	-@del *.pdb

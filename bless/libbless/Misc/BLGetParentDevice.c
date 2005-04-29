@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,23 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Mon Jun 25 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetParentDevice.c,v 1.10 2003/07/22 22:35:04 ssen Exp $
+ *  $Id: BLGetParentDevice.c,v 1.14 2005/02/03 00:42:27 ssen Exp $
  *
  *  $Log: BLGetParentDevice.c,v $
+ *  Revision 1.14  2005/02/03 00:42:27  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.13  2004/04/20 21:40:44  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.12  2003/10/24 22:46:35  ssen
+ *  don't try to compare IOKit objects to NULL, since they are really mach port integers
+ *
+ *  Revision 1.11  2003/10/17 00:10:39  ssen
+ *  add more const
+ *
  *  Revision 1.10  2003/07/22 22:35:04  ssen
  *  Add function to get pmap type as well as parent device
  *
@@ -91,7 +101,7 @@
 #include "bless.h"
 #include "bless_private.h"
 
-int BLGetParentDevice(BLContextPtr context,    unsigned char partitionDev[],
+int BLGetParentDevice(BLContextPtr context,  const unsigned char partitionDev[],
 		      unsigned char parentDev[],
 		      unsigned long *partitionNum) {
 
@@ -99,7 +109,7 @@ int BLGetParentDevice(BLContextPtr context,    unsigned char partitionDev[],
 }
 
     
-int BLGetParentDeviceAndPartitionType(BLContextPtr context,    unsigned char partitionDev[],
+int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const unsigned char partitionDev[],
 			 unsigned char parentDev[],
 			 unsigned long *partitionNum,
 			BLPartitionType *partitionType) {
@@ -166,7 +176,7 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,    unsigned char par
       /* We'll never loop forever. */
     }
 
-    while ( (service = IOIteratorNext(parents)) != NULL ) {
+    while ( (service = IOIteratorNext(parents)) != 0 ) {
 
         kret = IORegistryEntryGetParentIterator (service, kIOServicePlane,
                                                 &grandparents);
@@ -175,7 +185,7 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,    unsigned char par
         /* We'll never loop forever. */
         }
 
-        while ( (service2 = IOIteratorNext(grandparents)) != NULL ) {
+        while ( (service2 = IOIteratorNext(grandparents)) != 0 ) {
         
             CFStringRef content = NULL;
         

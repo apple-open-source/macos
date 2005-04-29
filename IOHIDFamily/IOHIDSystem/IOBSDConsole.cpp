@@ -137,7 +137,7 @@ IOReturn IOBSDConsole::message(UInt32 type, IOService * provider,
 extern "C" {
   void cons_cinput( char c);
 }
-#warning REMOVE cons_cinput DECLARATION FROM HERE
+//#warning REMOVE cons_cinput DECLARATION FROM HERE
 
 void IOBSDConsole::keyboardEvent(OSObject * target,
           /* eventType */        unsigned   eventType,

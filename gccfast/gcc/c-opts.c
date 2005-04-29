@@ -144,6 +144,8 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("Wall",			CL_ALL,   OPT_Wall)			     \
   /* APPLE LOCAL AltiVec */  \
   OPT("Waltivec-long-deprecated",	CL_ALL,     OPT_Waltivec_long_deprecated)	     \
+  /* APPLE LOCAL XJR */	\
+  OPT("Wassign-intercept",	CL_OBJC,  OPT_Wassign_intercept)	     \
   OPT("Wbad-function-cast",	CL_C,     OPT_Wbad_function_cast)	     \
   OPT("Wcast-qual",		CL_ALL,   OPT_Wcast_qual)		     \
   OPT("Wchar-subscripts",	CL_ALL,   OPT_Wchar_subscripts)		     \
@@ -248,6 +250,8 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("fconstant-cfstrings",	CL_ALL,   OPT_fconstant_cfstrings)	     \
   OPT("fconstant-string-class=", CL_OBJC | CL_JOINED,			     \
 					  OPT_fconstant_string_class)	     \
+  /* APPLE LOCAL jet */ \
+  OPT("fdebug-jet=", CL_CXX | CL_JOINED, OPT_fdebug_jet_)                   \
   OPT("fdefault-inline",	CL_CXX,   OPT_fdefault_inline)		     \
   OPT("fdisable-typechecking-for-spec", 				     \
       				CL_C,	  OPT_fdisable_typechecking_for_spec)\
@@ -273,6 +277,8 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("fimplicit-templates",	CL_CXX,   OPT_fimplicit_templates)	     \
   /* APPLE LOCAL -findirect-virtual-calls */  \
   OPT("findirect-virtual-calls",CL_CXX,   OPT_findirect_virtual_calls)	     \
+  /* APPLE LOCAL jet */ \
+  OPT("fjet-hash=", CL_ALL | CL_JOINED,   OPT_fjet_hash_)                    \
   OPT("flabels-ok",		CL_CXX,   OPT_flabels_ok)		     \
   OPT("fms-extensions",		CL_ALL,   OPT_fms_extensions)		     \
   OPT("fname-mangling-version-",CL_CXX | CL_JOINED, OPT_fname_mangling)	     \
@@ -284,6 +290,10 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("fnonnull-objects",	CL_CXX,   OPT_fnonnull_objects)		     \
   /* APPLE LOCAL Panther ObjC enhancements */   \
   OPT("fobjc-exceptions",	CL_ALL,   OPT_fobjc_exceptions)		     \
+  /* APPLE LOCAL begin XJR */	\
+  OPT("fobjc-fast",		CL_OBJC,   OPT_fobjc_fast)		     \
+  OPT("fobjc-gc",		CL_OBJC,   OPT_fobjc_gc)		     \
+  /* APPLE LOCAL end XJR */	\
   OPT("foperator-names",	CL_CXX,   OPT_foperator_names)		     \
   OPT("foptional-diags",	CL_CXX,   OPT_foptional_diags)		     \
   OPT("fpch-deps",		CL_ALL,	  OPT_fpch_deps)		     \
@@ -303,6 +313,8 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("fshow-column",		CL_ALL,   OPT_fshow_column)		     \
   OPT("fsigned-bitfields",	CL_ALL,   OPT_fsigned_bitfields)	     \
   OPT("fsigned-char",		CL_ALL,   OPT_fsigned_char)		     \
+  /* APPLE LOCAL jet */ \
+  OPT("fskip-unused-source",    CL_ALL,   OPT_fskip_unused_source)           \
   OPT("fsquangle",		CL_CXX,   OPT_fsquangle)		     \
   OPT("fstats",			CL_CXX,   OPT_fstats)			     \
   OPT("fstrict-prototype",	CL_CXX,   OPT_fstrict_prototype)	     \
@@ -419,6 +431,8 @@ missing_arg (opt_index)
     case OPT_fdump:
     case OPT_fname_mangling:
     case OPT_ftabstop:
+    /* APPLE LOCAL jet */
+    case OPT_fdebug_jet_:
     case OPT_ftemplate_depth:
     default:
       error ("missing argument to \"-%s\"", opt_text);
@@ -630,14 +644,13 @@ c_common_decode_option (argc, argv)
       return 1;
     }
   /* APPLE LOCAL begin read-from-stdin */
-/* BEGIN APPLE LOCAL IMI */
-  else if (!strcmp(opt, "-stdin") && num_in_fnames > 0)
-/* END APPLE LOCAL IMI */
+  else if ((predictive_compilation >= 0 || !strcmp(opt, "-stdin"))
+	   && in_fnames[0] && !stdin_filename)
   {
-/* BEGIN APPLE LOCAL IMI */
     stdin_filename = xstrdup (in_fnames[0]);
     in_fnames[0] = "-";
-/* END APPLE LOCAL IMI */
+    if (!strcmp(opt, "-stdin"))
+      predictive_compilation = 0;
     return 1;
   }
   /* APPLE LOCAL end read-from-stdin */
@@ -853,6 +866,11 @@ c_common_decode_option (argc, argv)
       break;
       /* APPLE LOCAL end AltiVec */
 
+    /* APPLE LOCAL begin XJR */
+    case OPT_Wassign_intercept:
+      warn_assign_intercept = on;
+      break;
+    /* APPLE LOCAL end XJR */
     case OPT_Wbad_function_cast:
       warn_bad_function_cast = on;
       break;
@@ -1234,6 +1252,14 @@ c_common_decode_option (argc, argv)
     case OPT_fobjc_exceptions:
       flag_objc_exceptions = on;
       break;
+    /* APPLE LOCAL begin XJR */
+    case OPT_fobjc_fast:
+      flag_objc_fast = on;
+      break;
+    case OPT_fobjc_gc:
+      flag_objc_gc = on;
+      break;
+    /* APPLE LOCAL end XJR */
     case OPT_fzero_link:
       flag_zero_link = on;
       break;
@@ -1306,6 +1332,30 @@ c_common_decode_option (argc, argv)
     case OPT_fsigned_char:
       flag_signed_char = on;
       break;
+
+    /* APPLE LOCAL begin jet */
+    case OPT_fskip_unused_source:
+      flag_jet = on;
+      break;
+    
+    case OPT_fdebug_jet_:
+      flag_debug_jet = read_integral_parameter (arg, argv[0], 0);
+      break;
+
+    case OPT_fjet_hash_:
+      {
+	char *end;
+	unsigned long n = strtoul (arg, &end, 10);
+	flag_jet_hash_code = 0;
+
+	if (*end == '\0' && n <= UINT_MAX)
+	  flag_jet_hash_code = n;
+	else
+	  error ("invalid option `%s'", argv[0]);
+
+	break;
+      }
+    /* APPLE LOCAL end jet */
 
     case OPT_funsigned_bitfields:
       flag_signed_bitfields = !on;
@@ -1622,11 +1672,15 @@ c_common_post_options ()
     }
   else if (strcmp (in_fnames[0], "-") == 0)
     in_fnames[0] = "";
-  /* APPLE LOCAL begin read-from-stdin */
-  if (in_fnames[0] == 0 && stdin_filename != NULL)
-    set_stdin_option(parse_in, stdin_filename);
-  /* APPLE LOCAL end read-from-stdin */
 /* END APPLE LOCAL IMI */
+
+  if (in_fnames[0][0] == '\0')
+  {
+    /* APPLE LOCAL begin read-from-stdin */
+    if (stdin_filename != NULL)
+	set_stdin_option(parse_in, stdin_filename, predictive_compilation);
+    /* APPLE LOCAL end read-from-stdin */
+  }
 
   /* APPLE LOCAL new feedback nyi for C++ */
   if (c_language==clk_cplusplus 

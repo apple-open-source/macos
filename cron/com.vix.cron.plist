@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN"
+	"http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.vix.cron</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/sbin/cron</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>WatchPaths</key>
+	<array>
+		<string>/etc/crontab</string>
+	</array>
+	<key>QueueDirectories</key>
+	<array>
+		<string>/var/cron/tabs</string>
+	</array>
+</dict>
+</plist>

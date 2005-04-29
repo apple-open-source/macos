@@ -34,10 +34,13 @@
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 #include <grp.h>
+#include <pwd.h>
 #include <netinet/in.h>
 #include <sys/param.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h>
+#include <servers/bootstrap.h>
 
 #include "_lu_types.h"
 #include "lookup.h"
@@ -54,6 +57,14 @@ static unsigned int _group_cache_index = 0;
 static unsigned int _group_cache_ttl = DEFAULT_GROUP_CACHE_TTL;
 
 static pthread_mutex_t _group_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/*
+ * Support for memberd calls
+ */
+#define MEMBERD_NAME "com.apple.memberd"
+static mach_port_t mbr_port = MACH_PORT_NULL;
+typedef uint32_t GIDArray[16];
+extern kern_return_t _mbr_GetGroups(mach_port_t server, uint32_t uid, uint32_t *numGroups, GIDArray gids);
 
 #define GR_GET_NAME 1
 #define GR_GET_GID 2
@@ -220,8 +231,8 @@ copy_group_r(struct group *in, struct group *out, char *buffer, int buflen)
 
 	/* Calculate size of input */
 	hsize = 0;
-	if (in->gr_name != NULL) hsize += strlen(in->gr_name);
-	if (in->gr_passwd != NULL) hsize += strlen(in->gr_passwd);
+	if (in->gr_name != NULL) hsize += (strlen(in->gr_name) + 1);
+	if (in->gr_passwd != NULL) hsize += (strlen(in->gr_passwd) + 1);
 
 	/* NULL pointer at end of list */
 	hsize += sizeof(char *);
@@ -232,7 +243,7 @@ copy_group_r(struct group *in, struct group *out, char *buffer, int buflen)
 		for (len = 0; in->gr_mem[len] != NULL; len++)
 		{
 			hsize += sizeof(char *);
-			hsize += strlen(in->gr_mem[len]);
+			hsize += (strlen(in->gr_mem[len]) + 1);
 		}
 	}
 
@@ -557,24 +568,59 @@ lu_getgrnam(const char *name)
 	return g;
 }
 
+/*
+ * add a group to a list
+ *
+ * if dupok is non-zero, it's OK to add a duplicate entry
+ * if dupok is zero, we only add the gid if it is new
+ * (*listcount) is incremented if the gid was added
+ * returns -1 if adding the gid would overflow the list
+ *
+ */
+static int
+_add_group(int gid, int *list, int *listcount, int max, int dupok, int laststatus)
+{
+	int i, n, addit, status;
+
+	if (laststatus != 0) return laststatus;
+
+	status = 0;
+	addit = 1;
+	n = *listcount;
+
+	if (dupok == 0) 
+	{
+		for (i = 0; (i < n) && (addit == 1); i++)
+		{
+			if (list[i] == gid) addit = 0;
+		}
+	}
+
+	if (addit == 0) return 0;
+	if (n >= max) return -1;
+
+	list[n] = gid;
+	*listcount = n + 1;
+	return 0;
+}
+
 int
-_old_getgrouplist(const char *uname, int agroup, int *groups, int *grpcnt)
+_old_getgrouplist(const char *uname, int basegid, int *groups, int *grpcnt)
 {
 	struct group *grp;
-	int i, ngroups;
-	int ret, maxgroups;
+	int i, status, maxgroups;
 
-	ret = 0;
-	ngroups = 0;
+	status = 0;
 	maxgroups = *grpcnt;
+	*grpcnt = 0;
 
 	/*
 	 * When installing primary group, duplicate it;
 	 * the first element of groups is the effective gid
 	 * and will be overwritten when a setgid file is executed.
 	 */
-	groups[ngroups++] = agroup;
-	if (maxgroups > 1) groups[ngroups++] = agroup;
+	status = _add_group(basegid, groups, grpcnt, maxgroups, 0, status);
+	status = _add_group(basegid, groups, grpcnt, maxgroups, 1, status);
 
 	/*
 	 * Scan the group file to find additional groups.
@@ -583,26 +629,86 @@ _old_getgrouplist(const char *uname, int agroup, int *groups, int *grpcnt)
 
 	while ((grp = getgrent()))
 	{
-		if (grp->gr_gid == (gid_t)agroup) continue;
+		if (grp->gr_gid == (gid_t)basegid) continue;
 		for (i = 0; grp->gr_mem[i]; i++)
 		{
 			if (!strcmp(grp->gr_mem[i], uname))
 			{
-				if (ngroups >= maxgroups)
-				{
-					ret = -1;
-					break;
-				}
-
-				groups[ngroups++] = grp->gr_gid;
+				status = _add_group(grp->gr_gid, groups, grpcnt, maxgroups, 0, status);
 				break;
 			}
 		}
 	}
 
 	endgrent();
-	*grpcnt = ngroups;
-	return ret;
+	return status;
+}
+
+static int
+_mbr_running()
+{
+	kern_return_t status;
+
+	status = bootstrap_look_up(bootstrap_port, MEMBERD_NAME, &mbr_port);
+	if (status != KERN_SUCCESS) return 0;
+	if (mbr_port == MACH_PORT_NULL) return 0;
+	return 1;
+}
+
+/*
+ * Guess at the size of a password buffer for getpwnam_r
+ * pw_name can be MAXLOGNAME + 1         256 - sys/param.h
+ * pw_passwd can be _PASSWORD_LEN + 1    129 - pwd.h
+ * pw_dir can be MAXPATHLEN + 1         1025 - sys/syslimits.h
+ * pw_shell can be MAXPATHLEN +         1025 - sys/syslimits.h
+ * We allow pw_class and pw_gecos to take a maximum of 4098 bytes (there's no limit on these).
+ * This adds to 6533 bytes (until one of the constants changes)
+ */
+#define MAXPWBUF (MAXLOGNAME + 1 + _PASSWORD_LEN + 1 + MAXPATHLEN + 1 + MAXPATHLEN + 1 + 4098)
+static int
+mbr_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int dupbase)
+{
+	struct passwd p, *res;
+	char buf[MAXPWBUF];
+	kern_return_t kstatus;
+	uint32_t i, count;
+	int pwstatus;
+	GIDArray gids;
+	int status, maxgroups;
+
+	status = 0;
+
+	if (mbr_port == MACH_PORT_NULL) return status;
+	if (name == NULL) return status;
+	if (groups == NULL) return status;
+	if (grpcnt == NULL) return status;
+
+	maxgroups = *grpcnt;
+	*grpcnt = 0;
+
+	status = _add_group(basegid, groups, grpcnt, maxgroups, 0, status);
+	if (dupbase != 0) status = _add_group(basegid, groups, grpcnt, maxgroups, 1, status);
+
+	if (status != 0) return status;
+
+	memset(&p, 0, sizeof(struct passwd));
+	memset(buf, 0, sizeof(buf));
+	res = NULL;
+
+	pwstatus = getpwnam_r(name, &p, buf, MAXPWBUF, &res);
+	if (pwstatus != 0) return status;
+	if (res == NULL) return status;
+
+	count = 0;
+	kstatus = _mbr_GetGroups(mbr_port, p.pw_uid, &count, gids);
+	if (kstatus != KERN_SUCCESS) return status;
+
+	for (i = 0; (i < count) && (status == 0); i++) 
+	{
+		status = _add_group(gids[i], groups, grpcnt, maxgroups, 0, status);
+	}
+
+	return status;
 }
 
 static int
@@ -614,54 +720,49 @@ lu_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int dup
 	static int proc = -1;
 	char *lookup_buf;
 	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
-	int ngroups;
-	int a_group;
-	int i, j, count;
+	int gid;
+	int i, count;
+	int status, maxgroups;
 
-	if (groups == NULL) return -1;
-	if (*grpcnt == 0) return -1;
+	status = 0;
 
-	ngroups = 0;
-	groups[ngroups++] = basegid;
-	if (*grpcnt == 1) return 0;
+	if (name == NULL) return status;
+	if (groups == NULL) return status;
+	if (grpcnt == NULL) return status;
+	
+	maxgroups = *grpcnt;
+	*grpcnt = 0;
 
-	if (dupbase != 0)
-	{
-		/* getgrouplist duplicates the primary group! */
-		groups[ngroups++] = basegid;
-		if (*grpcnt == 2) return 0;
-	}
+	status = _add_group(basegid, groups, grpcnt, maxgroups, 0, status);
+	if (dupbase != 0) status = _add_group(basegid, groups, grpcnt, maxgroups, 1, status);
+
+	if (status != 0) return status;
 
 	if (proc < 0)
 	{
-		if (_lookup_link(_lu_port, "initgroups", &proc) != KERN_SUCCESS)
-		{
-			return -1;
-		}
+		if (_lookup_link(_lu_port, "initgroups", &proc) != KERN_SUCCESS) return status;
 	}
 
 	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
 	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
 	{
 		xdr_destroy(&outxdr);
-		return -1;
+		return status;
 	}
 
 	datalen = 0;
 	lookup_buf = NULL;
 
-	if (_lookup_all(_lu_port, proc, (unit *)namebuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen)
-		!= KERN_SUCCESS)
+	if (_lookup_all(_lu_port, proc, (unit *)namebuf, xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen) != KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
-		return -1;
+		return status;
 	}
 
 	xdr_destroy(&outxdr);
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+	if ((lookup_buf == NULL) || (datalen == 0)) return 0;
 
 	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
 
@@ -669,55 +770,41 @@ lu_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int dup
 	{
 		xdr_destroy(&inxdr);
 		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-		return -1;
+		return status;
 	}
 
-	for (i = 0; i < count; i++)
+	for (i = 0; (i < count) && (status == 0); i++)
 	{
-		if (!xdr_int(&inxdr, &a_group)) break;
-
-		j = 0;
-		if (dupbase != 0) j = 1;
-		for (; j < ngroups; j++)
-		{
-			if (groups[j] == a_group) break;
-		}
-
-		if (j >= ngroups)
-		{
-			groups[ngroups++] = a_group;
-			if (ngroups == *grpcnt) break;
-		}
+		if (!xdr_int(&inxdr, &gid)) break;
+		status = _add_group(gid, groups, grpcnt, maxgroups, 0, status);
 	}
 
 	xdr_destroy(&inxdr);
 	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
 
-	*grpcnt = ngroups;
-	return 0;
+	return status;
+}
+
+static int
+getgrouplist_internal(const char *name, int basegid, int *groups, int *grpcnt, int dupbase)
+{
+	if (_mbr_running())
+	{
+		return mbr_getgrouplist(name, basegid, groups, grpcnt, dupbase);
+	}
+	
+	if (_lu_running())
+	{
+		return lu_getgrouplist(name, basegid, groups, grpcnt, dupbase);
+	}
+	
+	return _old_getgrouplist(name, basegid, groups, grpcnt);
 }
 
 int
 getgrouplist(const char *uname, int agroup, int *groups, int *grpcnt)
 {
-	if (_lu_running())
-	{
-		return lu_getgrouplist(uname, agroup, groups, grpcnt, 1);
-	}
-
-	return _old_getgrouplist(uname, agroup, groups, grpcnt);
-}
-
-static int
-lu_initgroups(const char *name, int basegid)
-{
-	int status, ngroups, groups[NGROUPS];
-
-	ngroups = NGROUPS;
-	status = lu_getgrouplist(name, basegid, groups, &ngroups, 0);
-	if (status < 0) return status;
-
-	return setgroups(ngroups, groups);
+	return getgrouplist_internal(uname, agroup, groups, grpcnt, 1);
 }
 
 static void
@@ -914,23 +1001,14 @@ getgr_r(const char *name, gid_t gid, int source, struct group *grp, char *buffer
 int
 initgroups(const char *name, int basegid)
 {
-	int res;
+	int status, ngroups, groups[NGROUPS];
 
-	if (name == NULL) return -1;
+	ngroups = NGROUPS;
 
-	if (_lu_running())
-	{
-		if ((res = lu_initgroups(name, basegid)))
-		{
-			res = _old_initgroups(name, basegid);
-		}
-	}
-	else
-	{
-		res = _old_initgroups(name, basegid);
-	}
+	status = getgrouplist_internal(name, basegid, groups, &ngroups, 0);
+	if (status < 0) return status;
 
-	return (res);
+	return setgroups(ngroups, groups);
 }
 
 struct group *

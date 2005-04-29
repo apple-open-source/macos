@@ -56,10 +56,7 @@ typedef struct {
 
 	/* per-session flags */
 	Boolean				locked;
-
-	/* SCDynamicStoreKeys being watched */
-	CFMutableSetRef			keys;
-	CFMutableSetRef			patterns;
+	Boolean				useSessionKeys;
 
 	/* current status of notification requests */
 	__SCDynamicStoreNotificationStatus	notifyStatus;
@@ -74,8 +71,11 @@ typedef struct {
 	SCDynamicStoreCallBack_v1	callbackFunction;
 	void				*callbackArgument;
 	CFMachPortRef			callbackPort;
-	CFRunLoopRef			callbackRunLoop;
-	CFRunLoopSourceRef		callbackRunLoopSource;
+	CFRunLoopSourceRef		callbackRLS;
+
+	/* "server" SCDynamicStoreKeys being watched */
+	CFMutableSetRef			keys;
+	CFMutableSetRef			patterns;
 
 	/* "server" information associated with SCDynamicStoreNotifyMachPort() */
 	mach_port_t			notifyPort;

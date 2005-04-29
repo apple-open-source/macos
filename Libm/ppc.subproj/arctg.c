@@ -76,9 +76,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include    "fenv_private.h"
 #include    "fp_private.h"
 
@@ -95,7 +92,7 @@ static const double Rint        = 6.755399441055744e15;        /* 0x1.8p52      
 static const double PiOver2     = 1.570796326794896619231322;  /* head of ¹/2           */
 static const double PiOver2Tail = 6.1232339957367660e-17;      /* tail of ¹/2           */
 static const hexdouble Pi       = HEXDOUBLE(0x400921fb, 0x54442d18);
-static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
+static const double kMinNormal  = 0x1.0p-1022;                 // 2.2250738585072014e-308;
 
 /*******************************************************************************
 ********************************************************************************
@@ -114,172 +111,7 @@ struct tableEntry                             /* tanatantable entry structure */
       double f0;
       };
 
-extern const unsigned long tanatantable[];
-
-#ifdef notdef
-double atan ( double x )
-      {
-      hexdouble argument, reducedX, OldEnvironment;
-      register double fabsOfx, xSquared, xFourth, xThird, temp1, temp2, result, z;
-      struct tableEntry *tablePointer;
-      register unsigned long int xHead;
-
-      fabsOfx = __FABS ( x );
-      argument.d = x;
-      xHead = argument.i.hi & 0x7fffffff;
-
-/*******************************************************************************
-*     initialization of table pointer.                                         *
-*******************************************************************************/
-
-      tablePointer = ( struct tableEntry * ) ( tanatantable - ( 16 * 14 ) );
-
-/*******************************************************************************
-*     |x| > 1.0 or NaN.                                                        *
-*******************************************************************************/
-      
-      FEGETENVD( OldEnvironment.d );
-      if ( xHead > 0x3ff00000) 
-            {
-
-/*******************************************************************************
-*     |x| is nontrivial.                                                       *
-*******************************************************************************/
-
-            if ( xHead < 0x434d0297UL ) 
-                  {
-                  register double y, yTail, z, resultHead, resultTail;
-                  y = 1.0 / fabsOfx;                                       /* parameter y = 1.0/|x|      */
-                  reducedX.d = 256.0 * y + Rint;
-                  xSquared = y * y;
-                  OldEnvironment.i.lo |= FE_INEXACT;
-
-/*******************************************************************************
-*     |x| > 16.0                                                               *
-*******************************************************************************/
-
-                  if ( xHead > 0x40300000UL ) 
-                        {
-                        xFourth = xSquared * xSquared;
-                        xThird  = xSquared * y;
-                        temp1   = c9 + xFourth * c13;
-                        temp2   = c7 + xFourth * c11;
-                        temp1   = c5 + xFourth * temp1;
-                        temp2   = c3 + xFourth * temp2;
-                        resultHead   = PiOver2 - y;                        /* zeroth order term          */
-                        temp1   = temp2 + xSquared * temp1;
-                        yTail   = y * ( 1.0 - fabsOfx * y );               /* tail of 1.0/|x|            */
-                        resultTail   = ( resultHead - PiOver2 ) + y;       /* correction to zeroth order */
-                        temp1   = PiOver2Tail - xThird * temp1;            /* correction for ¹/2         */
-                        
-                        if ( x > 0.0 )                                     /* adjust sign of result      */
-                            result = ( ( ( temp1 - yTail ) - resultTail ) + resultHead );
-                        else
-                            result = ( ( ( yTail - temp1 ) + resultTail ) - resultHead );
-                        FESETENVD( OldEnvironment.d );                     /* restore the environment    */
-                        return result;
-                        }
-            
-/*******************************************************************************
-*     1 <= |x| <= 16  use table-driven approximation for arctg(y = 1/|x|).     *
-*******************************************************************************/
-                  
-                  yTail = y * ( 1.0 - fabsOfx * y );                       /* tail of 1.0/|x|            */
-                  z = y - tablePointer[reducedX.i.lo].p + yTail;           /*y delta                     */
-                  resultHead = PiOver2 - tablePointer[reducedX.i.lo].f0;   /* zeroth order term          */
-                  temp1 = ( ( ( ( tablePointer[reducedX.i.lo].f5 * z       /* table-driven approximation */ 
-                                + tablePointer[reducedX.i.lo].f4 ) * z
-                                + tablePointer[reducedX.i.lo].f3 ) * z 
-                                + tablePointer[reducedX.i.lo].f2 ) * z
-                                + tablePointer[reducedX.i.lo].f1 );
-                  
-                  if ( x > 0.0 )                                            /* adjust for sign of x       */
-                        result = ( ( PiOver2Tail - z * temp1 ) + resultHead );
-                  else
-                        result = ( ( z * temp1 - PiOver2Tail ) - resultHead );      
-                  FESETENVD( OldEnvironment.d );                            /* restore the environment    */
-                  return result;
-                  }
-
-/*******************************************************************************
-*     |x| is huge, INF, or NaN.                                                *
-*     For x = INF, then the expression ¹/2 ± ¹tail would return the round up   *
-*     or down version of atan if rounding is taken into consideration.         *
-*     otherwise, just ±¹/2 would be delivered.                                 *
-*******************************************************************************/
-            else 
-                  {                                                         /* |x| is huge, INF, or NaN   */
-                  if ( x != x )                                             /* NaN argument is returned   */
-                        result = x;
-                  else 
-                    {
-                    OldEnvironment.i.lo |= FE_INEXACT;
-                    if ( x > 0.0 )                                       /* positive x returns ¹/2     */
-                            result =  ( Pi.d * 0.5 + PiOver2Tail );
-                    else                                                      /* negative x returns -¹/2    */
-                            result =  ( - Pi.d * 0.5 - PiOver2Tail );
-                    }
-                  }
-            FESETENVD( OldEnvironment.d );                                  /* restore the environment    */
-            return result;
-            }
-      
-
-/*******************************************************************************
-*     |x| <= 1.0.                                                              *
-*******************************************************************************/
-
-      reducedX.d = 256.0 * fabsOfx + Rint;
-      xSquared = x * x;
-    
-/*******************************************************************************
-*     1.0/16 < |x| < 1  use table-driven approximation for arctg(x).           *
-*******************************************************************************/
-
-      if ( xHead > 0x3fb00000UL ) 
-            {
-            z = fabsOfx - tablePointer[reducedX.i.lo].p;                    /* x delta                    */
-            temp1 = ( ( ( ( tablePointer[reducedX.i.lo].f5 * z 
-                          + tablePointer[reducedX.i.lo].f4 ) * z
-                          + tablePointer[reducedX.i.lo].f3 ) * z 
-                          + tablePointer[reducedX.i.lo].f2 ) * z
-                          + tablePointer[reducedX.i.lo].f1 );               /* table-driven approximation */ 
-            if ( x > 0.0 )                                                  /* adjust for sign of x       */
-                  result = ( tablePointer[reducedX.i.lo].f0 + z * temp1 );
-            else 
-                  result = - z * temp1 - tablePointer[reducedX.i.lo].f0;
-            OldEnvironment.i.lo |= FE_INEXACT;
-            FESETENVD( OldEnvironment.d );                                  /* restore the environment    */
-            return result;
-            }
-
-/*******************************************************************************
-*     |x| <= 1.0/16 fast, simple polynomial approximation.                     *
-*******************************************************************************/
-
-      if ( fabsOfx == 0.0 )
-            {
-            FESETENVD( OldEnvironment.d );                                  /* restore the environment    */
-            return x; /* +0 or -0 preserved */
-            }
-            
-      xFourth = xSquared * xSquared;
-      temp1 = c9 + xFourth * c13;
-      temp2 = c7 + xFourth * c11;
-      temp1 = c5 + xFourth * temp1;
-      temp2 = c3 + xFourth * temp2;
-      xThird = x * xSquared;
-      temp1 = temp2 + xSquared * temp1;
-      result = x + xThird * temp1;
-      
-      if ( fabs ( result ) < kMinNormal )
-            OldEnvironment.i.lo |= FE_UNDERFLOW;
-
-      OldEnvironment.i.lo |= FE_INEXACT;
-      FESETENVD( OldEnvironment.d );                                         /* restore the environment    */
-      return result;
-      }
-#else
+extern const uint32_t tanatantable[];
 
 static const hexdouble Big       = HEXDOUBLE(0x434d0297, 0x00000000);
 
@@ -296,7 +128,7 @@ double atan ( double x )
 
       fabsOfx = __FABS ( x );
       
-      if (x != x)
+      if (unlikely(x != x))
             return x;
             
       FPR_z = 0.0;						FPR_half = 0.5;
@@ -322,15 +154,15 @@ double atan ( double x )
 
       if ( fabsOfx > FPR_one ) 
       {
-            __ORI_NOOP;
+            __NOOP;
             y = FPR_one / fabsOfx;  // Executes in issue slot 1 hence FPU 1
-            __ORI_NOOP;
+            __NOOP;
 
 /*******************************************************************************
 *     |x| is nontrivial.                                                       *
 *******************************************************************************/
 
-            if ( fabsOfx < FPR_t ) 
+            if (likely( fabsOfx < FPR_t ))
             {
                   register double yTail, z, resultHead, resultTail;
                   
@@ -338,9 +170,9 @@ double atan ( double x )
                   FPR_t = 16.0;
                   FPR_r = __FMADD( FPR_256, y, FPR_kRint );
                   
-                  __ORI_NOOP;
-                  __ORI_NOOP;
-                  __ORI_NOOP;
+                  __NOOP;
+                  __NOOP;
+                  __NOOP;
                   reducedX.d = FPR_r;
 
 /*******************************************************************************
@@ -388,9 +220,9 @@ double atan ( double x )
                   yTail = __FMUL( y, FPR_t );                    z = y - FPR_c13 + yTail;	/* x delta    */
                               
                   FPR_c9 = pT->f4;				FPR_c7 = pT->f3;
-                  temp1 = __FMADD( FPR_c11, z, FPR_c9 );	__ORI_NOOP;
+                  temp1 = __FMADD( FPR_c11, z, FPR_c9 );	__NOOP;
             
-                  temp1 = __FMADD( temp1, z, FPR_c7 );		__ORI_NOOP;
+                  temp1 = __FMADD( temp1, z, FPR_c7 );		__NOOP;
                   FPR_c5 = pT->f2;				FPR_c3 = pT->f1;
             
                   FPR_t = pT->f0;
@@ -444,15 +276,15 @@ double atan ( double x )
 *******************************************************************************/
       if ( fabsOfx > FPR_t ) 
       {
-            pT = &(tablePointer[reducedX.i.lo]);		__ORI_NOOP;
+            pT = &(tablePointer[reducedX.i.lo]);		__NOOP;
             
             FPR_c13 = pT->p;					FPR_c11 = pT->f5;
-            z = fabsOfx - FPR_c13;                    		__ORI_NOOP;	/* x delta */
+            z = fabsOfx - FPR_c13;                    		__NOOP;	/* x delta */
             
             FPR_c9 = pT->f4;					FPR_c7 = pT->f3;
-            temp1 = __FMADD( FPR_c11, z, FPR_c9 );		__ORI_NOOP;
+            temp1 = __FMADD( FPR_c11, z, FPR_c9 );		__NOOP;
             
-            temp1 = __FMADD( temp1, z, FPR_c7 );		__ORI_NOOP;
+            temp1 = __FMADD( temp1, z, FPR_c7 );		__NOOP;
             FPR_c5 = pT->f2;					FPR_c3 = pT->f1;
             
             FPR_t = pT->f0;
@@ -474,7 +306,7 @@ double atan ( double x )
 *     |x| <= 1.0/16 fast, simple polynomial approximation.                     *
 *******************************************************************************/
 
-      if ( fabsOfx == FPR_z )
+      if (unlikely( fabsOfx == FPR_z ))
       {
             FESETENVD( FPR_env );                               		/* restore the environment    */
             return x; 								/* +0 or -0 preserved */
@@ -495,7 +327,7 @@ double atan ( double x )
       result = __FMADD( xThird, temp1, x );
       
       FESETENVD( FPR_env );                                     		/* restore the environment    */
-      if ( __FABS( result ) >= FPR_kMinNormal )
+      if (likely( __FABS( result ) >= FPR_kMinNormal ))
       {
             __PROG_INEXACT( FPR_PiDiv2 );
             return result;
@@ -548,12 +380,12 @@ double atanCore ( double fabsOfx ) // absolute value is passed by caller!
             pT = &(tablePointer[reducedX.i.lo]);
                         
             FPR_c13 = pT->p;					FPR_c11 = pT->f5;
-            z = fabsOfx - FPR_c13;                    		__ORI_NOOP;		/* x delta */
+            z = fabsOfx - FPR_c13;                    		__NOOP;		/* x delta */
             
             FPR_c9 = pT->f4;					FPR_c7 = pT->f3;
-            temp1 = __FMADD( FPR_c11, z, FPR_c9 );		__ORI_NOOP;
+            temp1 = __FMADD( FPR_c11, z, FPR_c9 );		__NOOP;
             
-            temp1 = __FMADD( temp1, z, FPR_c7 );		__ORI_NOOP;
+            temp1 = __FMADD( temp1, z, FPR_c7 );		__NOOP;
             FPR_c5 = pT->f2;					FPR_c3 = pT->f1;
             
             FPR_t = pT->f0;
@@ -569,7 +401,7 @@ double atanCore ( double fabsOfx ) // absolute value is passed by caller!
 *     |x| <= 1.0/16 fast, simple polynomial approximation.                     *
 *******************************************************************************/
 
-      if ( fabsOfx == FPR_z )
+      if (unlikely( fabsOfx == FPR_z ))
             return fabsOfx;
             
       xFourth = __FMUL( xSquared, xSquared );			xThird  = __FMUL( xSquared, fabsOfx );
@@ -627,7 +459,7 @@ double atanCoreInv ( double fabsOfx ) // absolute value is passed by caller!
 *     |x| is nontrivial.                                                       *
 *******************************************************************************/
 
-            if ( fabsOfx < FPR_s )
+            if (likely( fabsOfx < FPR_s ))
             {
                   register double yTail, z, resultHead, resultTail;
                   
@@ -635,9 +467,9 @@ double atanCoreInv ( double fabsOfx ) // absolute value is passed by caller!
                   FPR_s = 16.0;
                   xSquared = __FMUL( y, y ); 
 
-                  __ORI_NOOP;
-                  __ORI_NOOP;
-                  __ORI_NOOP;
+                  __NOOP;
+                  __NOOP;
+                  __NOOP;
                   reducedX.d = FPR_r;
 
 /*******************************************************************************
@@ -679,9 +511,9 @@ double atanCoreInv ( double fabsOfx ) // absolute value is passed by caller!
                   yTail = __FMUL( y, FPR_t );                    z = y - FPR_c13 + yTail;	/* x delta    */
                               
                   FPR_c9 = pT->f4;				FPR_c7 = pT->f3;
-                  temp1 = __FMADD( FPR_c11, z, FPR_c9 );	__ORI_NOOP;
+                  temp1 = __FMADD( FPR_c11, z, FPR_c9 );	__NOOP;
             
-                  temp1 = __FMADD( temp1, z, FPR_c7 );		__ORI_NOOP;
+                  temp1 = __FMADD( temp1, z, FPR_c7 );		__NOOP;
                   FPR_c5 = pT->f2;				FPR_c3 = pT->f1;
             
                   FPR_t = pT->f0;
@@ -715,9 +547,3 @@ double atanCoreInv ( double fabsOfx ) // absolute value is passed by caller!
             }
       }
 }
-#endif
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

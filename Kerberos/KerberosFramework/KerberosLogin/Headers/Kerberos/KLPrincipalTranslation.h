@@ -25,7 +25,7 @@
 /*
  * KLPrincipalTranslation.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Headers/Kerberos/KLPrincipalTranslation.h,v 1.7 2003/04/14 15:47:59 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Headers/Kerberos/KLPrincipalTranslation.h,v 1.8 2004/10/22 20:52:05 lxs Exp $
  */
  
 #ifndef KLPrincipalTranslation_h_

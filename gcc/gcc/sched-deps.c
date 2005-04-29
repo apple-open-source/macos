@@ -1,7 +1,7 @@
 /* Instruction scheduling pass.  This file computes dependencies between
    instructions.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -24,6 +24,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "toplev.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -40,9 +42,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "sched-int.h"
 #include "params.h"
 #include "cselib.h"
+#include "df.h"
 
-extern char *reg_known_equiv_p;
-extern rtx *reg_known_value;
 
 static regset_head reg_pending_sets_head;
 static regset_head reg_pending_clobbers_head;
@@ -51,7 +52,18 @@ static regset_head reg_pending_uses_head;
 static regset reg_pending_sets;
 static regset reg_pending_clobbers;
 static regset reg_pending_uses;
-static bool reg_pending_barrier;
+
+/* The following enumeration values tell us what dependencies we
+   should use to implement the barrier.  We use true-dependencies for
+   TRUE_BARRIER and anti-dependencies for MOVE_BARRIER.  */
+enum reg_pending_barrier_mode
+{
+  NOT_A_BARRIER = 0,
+  MOVE_BARRIER,
+  TRUE_BARRIER
+};
+
+static enum reg_pending_barrier_mode reg_pending_barrier;
 
 /* To speed up the test for duplicate dependency links we keep a
    record of dependencies created by add_dependence when the average
@@ -66,43 +78,45 @@ static bool reg_pending_barrier;
    has enough entries to represent a dependency on any other insn in
    the insn chain.  All bitmap for true dependencies cache is
    allocated then the rest two ones are also allocated.  */
-static sbitmap *true_dependency_cache;
-static sbitmap *anti_dependency_cache;
-static sbitmap *output_dependency_cache;
+static bitmap_head *true_dependency_cache;
+static bitmap_head *anti_dependency_cache;
+static bitmap_head *output_dependency_cache;
+int cache_size;
 
 /* To speed up checking consistency of formed forward insn
    dependencies we use the following cache.  Another possible solution
    could be switching off checking duplication of insns in forward
    dependencies.  */
 #ifdef ENABLE_CHECKING
-static sbitmap *forward_dependency_cache;
+static bitmap_head *forward_dependency_cache;
 #endif
 
-static int deps_may_trap_p PARAMS ((rtx));
-static void add_dependence_list PARAMS ((rtx, rtx, enum reg_note));
-static void add_dependence_list_and_free PARAMS ((rtx, rtx *, enum reg_note));
-static void set_sched_group_p PARAMS ((rtx));
+static int deps_may_trap_p (rtx);
+static void add_dependence_list (rtx, rtx, enum reg_note);
+static void add_dependence_list_and_free (rtx, rtx *, enum reg_note);
+static void set_sched_group_p (rtx);
 
-static void flush_pending_lists PARAMS ((struct deps *, rtx, int, int));
-static void sched_analyze_1 PARAMS ((struct deps *, rtx, rtx));
-static void sched_analyze_2 PARAMS ((struct deps *, rtx, rtx));
-static void sched_analyze_insn PARAMS ((struct deps *, rtx, rtx, rtx));
+static void flush_pending_lists (struct deps *, rtx, int, int);
+static void sched_analyze_1 (struct deps *, rtx, rtx);
+static void sched_analyze_2 (struct deps *, rtx, rtx);
+static void sched_analyze_insn (struct deps *, rtx, rtx, rtx);
 
-static rtx get_condition PARAMS ((rtx));
-static int conditions_mutex_p PARAMS ((rtx, rtx));
+static rtx get_condition (rtx);
+static int conditions_mutex_p (rtx, rtx);
 
 /* Return nonzero if a load of the memory reference MEM can cause a trap.  */
 
 static int
-deps_may_trap_p (mem)
-     rtx mem;
+deps_may_trap_p (rtx mem)
 {
   rtx addr = XEXP (mem, 0);
 
-  if (REG_P (addr)
-      && REGNO (addr) >= FIRST_PSEUDO_REGISTER
-      && reg_known_value[REGNO (addr)])
-    addr = reg_known_value[REGNO (addr)];
+  if (REG_P (addr) && REGNO (addr) >= FIRST_PSEUDO_REGISTER)
+    {
+      rtx t = get_reg_known_value (REGNO (addr));
+      if (t)
+	addr = t;
+    }
   return rtx_addr_can_trap_p (addr);
 }
 
@@ -110,9 +124,7 @@ deps_may_trap_p (mem)
    if LIST does not contain INSN.  */
 
 rtx
-find_insn_list (insn, list)
-     rtx insn;
-     rtx list;
+find_insn_list (rtx insn, rtx list)
 {
   while (list)
     {
@@ -126,44 +138,51 @@ find_insn_list (insn, list)
 /* Find the condition under which INSN is executed.  */
 
 static rtx
-get_condition (insn)
-     rtx insn;
+get_condition (rtx insn)
 {
   rtx pat = PATTERN (insn);
-  rtx cond;
+  rtx src;
 
   if (pat == 0)
     return 0;
+
   if (GET_CODE (pat) == COND_EXEC)
     return COND_EXEC_TEST (pat);
-  if (GET_CODE (insn) != JUMP_INSN)
+
+  if (!any_condjump_p (insn) || !onlyjump_p (insn))
     return 0;
-  if (GET_CODE (pat) != SET || SET_SRC (pat) != pc_rtx)
-    return 0;
-  if (GET_CODE (SET_DEST (pat)) != IF_THEN_ELSE)
-    return 0;
-  pat = SET_DEST (pat);
-  cond = XEXP (pat, 0);
-  if (GET_CODE (XEXP (cond, 1)) == LABEL_REF
-      && XEXP (cond, 2) == pc_rtx)
-    return cond;
-  else if (GET_CODE (XEXP (cond, 2)) == LABEL_REF
-	   && XEXP (cond, 1) == pc_rtx)
-    return gen_rtx_fmt_ee (reverse_condition (GET_CODE (cond)), GET_MODE (cond),
-			   XEXP (cond, 0), XEXP (cond, 1));
-  else
-    return 0;
+
+  src = SET_SRC (pc_set (insn));
+#if 0
+  /* The previous code here was completely invalid and could never extract
+     the condition from a jump.  This code does the correct thing, but that
+     triggers latent bugs later in the scheduler on ports with conditional
+     execution.  So this is disabled for now.  */
+  if (XEXP (src, 2) == pc_rtx)
+    return XEXP (src, 0);
+  else if (XEXP (src, 1) == pc_rtx)
+    {
+      rtx cond = XEXP (src, 0);
+      enum rtx_code revcode = reversed_comparison_code (cond, insn);
+
+      if (revcode == UNKNOWN)
+	return 0;
+      return gen_rtx_fmt_ee (revcode, GET_MODE (cond), XEXP (cond, 0),
+			     XEXP (cond, 1));
+    }
+#endif
+
+  return 0;
 }
 
 /* Return nonzero if conditions COND1 and COND2 can never be both true.  */
 
 static int
-conditions_mutex_p (cond1, cond2)
-     rtx cond1, cond2;
+conditions_mutex_p (rtx cond1, rtx cond2)
 {
-  if (GET_RTX_CLASS (GET_CODE (cond1)) == '<'
-      && GET_RTX_CLASS (GET_CODE (cond2)) == '<'
-      && GET_CODE (cond1) == reverse_condition (GET_CODE (cond2))
+  if (COMPARISON_P (cond1)
+      && COMPARISON_P (cond2)
+      && GET_CODE (cond1) == reversed_comparison_code (cond2, NULL)
       && XEXP (cond1, 0) == XEXP (cond2, 0)
       && XEXP (cond1, 1) == XEXP (cond2, 1))
     return 1;
@@ -171,14 +190,12 @@ conditions_mutex_p (cond1, cond2)
 }
 
 /* Add ELEM wrapped in an INSN_LIST with reg note kind DEP_TYPE to the
-   LOG_LINKS of INSN, if not already there.  DEP_TYPE indicates the type
-   of dependence that this link represents.  */
+   LOG_LINKS of INSN, if not already there.  DEP_TYPE indicates the
+   type of dependence that this link represents.  The function returns
+   nonzero if a new entry has been added to insn's LOG_LINK.  */
 
-void
-add_dependence (insn, elem, dep_type)
-     rtx insn;
-     rtx elem;
-     enum reg_note dep_type;
+int
+add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
 {
   rtx link;
   int present_p;
@@ -186,20 +203,20 @@ add_dependence (insn, elem, dep_type)
 
   /* Don't depend an insn on itself.  */
   if (insn == elem)
-    return;
+    return 0;
 
   /* We can get a dependency on deleted insns due to optimizations in
      the register allocation and reloading or due to splitting.  Any
      such dependency is useless and can be ignored.  */
-  if (GET_CODE (elem) == NOTE)
-    return;
+  if (NOTE_P (elem))
+    return 0;
 
   /* flow.c doesn't handle conditional lifetimes entirely correctly;
      calls mess up the conditional lifetimes.  */
   /* ??? add_dependence is the wrong place to be eliding dependencies,
      as that forgets that the condition expressions themselves may
      be dependent.  */
-  if (GET_CODE (insn) != CALL_INSN && GET_CODE (elem) != CALL_INSN)
+  if (!CALL_P (insn) && !CALL_P (elem))
     {
       cond1 = get_condition (insn);
       cond2 = get_condition (elem);
@@ -211,7 +228,7 @@ add_dependence (insn, elem, dep_type)
 	  /* Make sure second instruction doesn't affect condition of first
 	     instruction if switched.  */
 	  && !modified_in_p (cond2, insn))
-	return;
+	return 0;
     }
 
   present_p = 1;
@@ -223,9 +240,9 @@ add_dependence (insn, elem, dep_type)
      No need for interblock dependences with calls, since
      calls are not moved between blocks.   Note: the edge where
      elem is a CALL is still required.  */
-  if (GET_CODE (insn) == CALL_INSN
+  if (CALL_P (insn)
       && (INSN_BB (elem) != INSN_BB (insn)))
-    return;
+    return 0;
 #endif
 
   /* If we already have a dependency for ELEM, then we do not need to
@@ -235,21 +252,22 @@ add_dependence (insn, elem, dep_type)
     {
       enum reg_note present_dep_type = 0;
 
-      if (anti_dependency_cache == NULL || output_dependency_cache == NULL)
-	abort ();
-      if (TEST_BIT (true_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem)))
+      gcc_assert (anti_dependency_cache);
+      gcc_assert (output_dependency_cache);
+      if (bitmap_bit_p (&true_dependency_cache[INSN_LUID (insn)],
+			INSN_LUID (elem)))
 	/* Do nothing (present_set_type is already 0).  */
 	;
-      else if (TEST_BIT (anti_dependency_cache[INSN_LUID (insn)],
+      else if (bitmap_bit_p (&anti_dependency_cache[INSN_LUID (insn)],
 			 INSN_LUID (elem)))
 	present_dep_type = REG_DEP_ANTI;
-      else if (TEST_BIT (output_dependency_cache[INSN_LUID (insn)],
+      else if (bitmap_bit_p (&output_dependency_cache[INSN_LUID (insn)],
 			 INSN_LUID (elem)))
 	present_dep_type = REG_DEP_OUTPUT;
       else
 	present_p = 0;
       if (present_p && (int) dep_type >= (int) present_dep_type)
-	return;
+	return 0;
     }
 #endif
 
@@ -263,15 +281,21 @@ add_dependence (insn, elem, dep_type)
              may be changed.  */
 	  if (true_dependency_cache != NULL)
 	    {
-	      if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
-		RESET_BIT (anti_dependency_cache[INSN_LUID (insn)],
-			   INSN_LUID (elem));
-	      else if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT
-		       && output_dependency_cache)
-		RESET_BIT (output_dependency_cache[INSN_LUID (insn)],
-			   INSN_LUID (elem));
-	      else
-		abort ();
+	      enum reg_note kind = REG_NOTE_KIND (link);
+	      switch (kind)
+		{
+		case REG_DEP_ANTI:
+		  bitmap_clear_bit (&anti_dependency_cache[INSN_LUID (insn)],
+				    INSN_LUID (elem));
+		  break;
+		case REG_DEP_OUTPUT:
+		  gcc_assert (output_dependency_cache);
+		  bitmap_clear_bit (&output_dependency_cache[INSN_LUID (insn)],
+				    INSN_LUID (elem));
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
 	    }
 #endif
 
@@ -286,18 +310,18 @@ add_dependence (insn, elem, dep_type)
 	  if (true_dependency_cache != NULL)
 	    {
 	      if ((int) REG_NOTE_KIND (link) == 0)
-		SET_BIT (true_dependency_cache[INSN_LUID (insn)],
-			 INSN_LUID (elem));
+		bitmap_set_bit (&true_dependency_cache[INSN_LUID (insn)],
+				INSN_LUID (elem));
 	      else if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
-		SET_BIT (anti_dependency_cache[INSN_LUID (insn)],
-			 INSN_LUID (elem));
+		bitmap_set_bit (&anti_dependency_cache[INSN_LUID (insn)],
+				INSN_LUID (elem));
 	      else if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT)
-		SET_BIT (output_dependency_cache[INSN_LUID (insn)],
-			 INSN_LUID (elem));
+		bitmap_set_bit (&output_dependency_cache[INSN_LUID (insn)],
+				INSN_LUID (elem));
 	    }
 #endif
-	  return;
-      }
+	  return 0;
+	}
   /* Might want to check one level of transitivity to save conses.  */
 
   link = alloc_INSN_LIST (elem, LOG_LINKS (insn));
@@ -312,21 +336,20 @@ add_dependence (insn, elem, dep_type)
   if (true_dependency_cache != NULL)
     {
       if ((int) dep_type == 0)
-	SET_BIT (true_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
+	bitmap_set_bit (&true_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
       else if (dep_type == REG_DEP_ANTI)
-	SET_BIT (anti_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
+	bitmap_set_bit (&anti_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
       else if (dep_type == REG_DEP_OUTPUT)
-	SET_BIT (output_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
+	bitmap_set_bit (&output_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
     }
 #endif
+  return 1;
 }
 
 /* A convenience wrapper to operate on an entire list.  */
 
 static void
-add_dependence_list (insn, list, dep_type)
-     rtx insn, list;
-     enum reg_note dep_type;
+add_dependence_list (rtx insn, rtx list, enum reg_note dep_type)
 {
   for (; list; list = XEXP (list, 1))
     add_dependence (insn, XEXP (list, 0), dep_type);
@@ -335,10 +358,7 @@ add_dependence_list (insn, list, dep_type)
 /* Similar, but free *LISTP at the same time.  */
 
 static void
-add_dependence_list_and_free (insn, listp, dep_type)
-     rtx insn;
-     rtx *listp;
-     enum reg_note dep_type;
+add_dependence_list_and_free (rtx insn, rtx *listp, enum reg_note dep_type)
 {
   rtx list, next;
   for (list = *listp, *listp = NULL; list ; list = next)
@@ -352,10 +372,8 @@ add_dependence_list_and_free (insn, listp, dep_type)
 /* Set SCHED_GROUP_P and care for the rest of the bookkeeping that
    goes along with that.  */
 
-/* APPLE LOCAL begin - 3.4 scheduler update */
 static void
-set_sched_group_p (insn)
-     rtx insn;
+set_sched_group_p (rtx insn)
 {
   rtx prev;
 
@@ -364,7 +382,6 @@ set_sched_group_p (insn)
   prev = prev_nonnote_insn (insn);
   add_dependence (insn, prev, REG_DEP_ANTI);
 }
-/* APPLE LOCAL end  - 3.4 scheduler update */
 
 /* Process an insn's memory dependencies.  There are four kinds of
    dependencies:
@@ -382,9 +399,8 @@ set_sched_group_p (insn)
    so that we can do memory aliasing on it.  */
 
 void
-add_insn_mem_dependence (deps, insn_list, mem_list, insn, mem)
-     struct deps *deps;
-     rtx *insn_list, *mem_list, insn, mem;
+add_insn_mem_dependence (struct deps *deps, rtx *insn_list, rtx *mem_list,
+			 rtx insn, rtx mem)
 {
   rtx link;
 
@@ -396,7 +412,7 @@ add_insn_mem_dependence (deps, insn_list, mem_list, insn, mem)
       mem = shallow_copy_rtx (mem);
       XEXP (mem, 0) = cselib_subst_to_values (XEXP (mem, 0));
     }
-  link = alloc_EXPR_LIST (VOIDmode, mem, *mem_list);
+  link = alloc_EXPR_LIST (VOIDmode, canon_rtx (mem), *mem_list);
   *mem_list = link;
 
   deps->pending_lists_length++;
@@ -407,10 +423,8 @@ add_insn_mem_dependence (deps, insn_list, mem_list, insn, mem)
    dependencies for a read operation, similarly with FOR_WRITE.  */
 
 static void
-flush_pending_lists (deps, insn, for_read, for_write)
-     struct deps *deps;
-     rtx insn;
-     int for_read, for_write;
+flush_pending_lists (struct deps *deps, rtx insn, int for_read,
+		     int for_write)
 {
   if (for_write)
     {
@@ -435,10 +449,7 @@ flush_pending_lists (deps, insn, for_read, for_write)
    destination of X, and reads of everything mentioned.  */
 
 static void
-sched_analyze_1 (deps, x, insn)
-     struct deps *deps;
-     rtx x;
-     rtx insn;
+sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 {
   int regno;
   rtx dest = XEXP (x, 0);
@@ -466,6 +477,19 @@ sched_analyze_1 (deps, x, insn)
   while (GET_CODE (dest) == STRICT_LOW_PART || GET_CODE (dest) == SUBREG
 	 || GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SIGN_EXTRACT)
     {
+      if (GET_CODE (dest) == STRICT_LOW_PART
+	 || GET_CODE (dest) == ZERO_EXTRACT
+	 || GET_CODE (dest) == SIGN_EXTRACT
+	 || read_modify_subreg_p (dest))
+        {
+	  /* These both read and modify the result.  We must handle
+             them as writes to get proper dependencies for following
+             instructions.  We must handle them as reads to get proper
+             dependencies from this to previous instructions.
+             Thus we need to call sched_analyze_2.  */
+
+	  sched_analyze_2 (deps, XEXP (dest, 0), insn);
+	}
       if (GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SIGN_EXTRACT)
 	{
 	  /* The second and third arguments are values read by this insn.  */
@@ -475,7 +499,7 @@ sched_analyze_1 (deps, x, insn)
       dest = XEXP (dest, 0);
     }
 
-  if (GET_CODE (dest) == REG)
+  if (REG_P (dest))
     {
       regno = REGNO (dest);
 
@@ -483,7 +507,7 @@ sched_analyze_1 (deps, x, insn)
          If so, mark all of them just like the first.  */
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
-	  int i = HARD_REGNO_NREGS (regno, GET_MODE (dest));
+	  int i = hard_regno_nregs[regno][GET_MODE (dest)];
 	  if (code == SET)
 	    {
 	      while (--i >= 0)
@@ -500,9 +524,8 @@ sched_analyze_1 (deps, x, insn)
 	 purpose already.  */
       else if (regno >= deps->max_reg)
 	{
-	  if (GET_CODE (PATTERN (insn)) != USE
-	      && GET_CODE (PATTERN (insn)) != CLOBBER)
-	    abort ();
+	  gcc_assert (GET_CODE (PATTERN (insn)) == USE
+		      || GET_CODE (PATTERN (insn)) == CLOBBER);
 	}
       else
 	{
@@ -514,10 +537,12 @@ sched_analyze_1 (deps, x, insn)
 	  /* Pseudos that are REG_EQUIV to something may be replaced
 	     by that during reloading.  We need only add dependencies for
 	     the address in the REG_EQUIV note.  */
-	  if (!reload_completed
-	      && reg_known_equiv_p[regno]
-	      && GET_CODE (reg_known_value[regno]) == MEM)
-	    sched_analyze_2 (deps, XEXP (reg_known_value[regno], 0), insn);
+	  if (!reload_completed && get_reg_known_equiv_p (regno))
+	    {
+	      rtx t = get_reg_known_value (regno);
+	      if (MEM_P (t))
+	        sched_analyze_2 (deps, XEXP (t, 0), insn);
+	    }
 
 	  /* Don't let it cross a call after scheduling if it doesn't
 	     already cross one.  */
@@ -525,7 +550,7 @@ sched_analyze_1 (deps, x, insn)
 	    add_dependence_list (insn, deps->last_function_call, REG_DEP_ANTI);
 	}
     }
-  else if (GET_CODE (dest) == MEM)
+  else if (MEM_P (dest))
     {
       /* Writing memory.  */
       rtx t = dest;
@@ -536,6 +561,7 @@ sched_analyze_1 (deps, x, insn)
 	  cselib_lookup (XEXP (t, 0), Pmode, 1);
 	  XEXP (t, 0) = cselib_subst_to_values (XEXP (t, 0));
 	}
+      t = canon_rtx (t);
 
       if (deps->pending_lists_length > MAX_PENDING_LIST_LENGTH)
 	{
@@ -589,10 +615,7 @@ sched_analyze_1 (deps, x, insn)
 /* Analyze the uses of memory and registers in rtx X in INSN.  */
 
 static void
-sched_analyze_2 (deps, x, insn)
-     struct deps *deps;
-     rtx x;
-     rtx insn;
+sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 {
   int i;
   int j;
@@ -621,6 +644,9 @@ sched_analyze_2 (deps, x, insn)
     case CC0:
       /* User of CC0 depends on immediately preceding insn.  */
       set_sched_group_p (insn);
+       /* Don't move CC0 setter to another block (it can set up the
+        same flag for previous CC0 users which is safe).  */
+      CANT_MOVE (prev_nonnote_insn (insn)) = 1;
       return;
 #endif
 
@@ -629,7 +655,7 @@ sched_analyze_2 (deps, x, insn)
 	int regno = REGNO (x);
 	if (regno < FIRST_PSEUDO_REGISTER)
 	  {
-	    int i = HARD_REGNO_NREGS (regno, GET_MODE (x));
+	    int i = hard_regno_nregs[regno][GET_MODE (x)];
 	    while (--i >= 0)
 	      SET_REGNO_REG_SET (reg_pending_uses, regno + i);
 	  }
@@ -638,9 +664,8 @@ sched_analyze_2 (deps, x, insn)
 	   purpose already.  */
 	else if (regno >= deps->max_reg)
 	  {
-	    if (GET_CODE (PATTERN (insn)) != USE
-		&& GET_CODE (PATTERN (insn)) != CLOBBER)
-	      abort ();
+	    gcc_assert (GET_CODE (PATTERN (insn)) == USE
+			|| GET_CODE (PATTERN (insn)) == CLOBBER);
 	  }
 	else
 	  {
@@ -649,10 +674,12 @@ sched_analyze_2 (deps, x, insn)
 	    /* Pseudos that are REG_EQUIV to something may be replaced
 	       by that during reloading.  We need only add dependencies for
 	       the address in the REG_EQUIV note.  */
-	    if (!reload_completed
-		&& reg_known_equiv_p[regno]
-		&& GET_CODE (reg_known_value[regno]) == MEM)
-	      sched_analyze_2 (deps, XEXP (reg_known_value[regno], 0), insn);
+	    if (!reload_completed && get_reg_known_equiv_p (regno))
+	      {
+		rtx t = get_reg_known_value (regno);
+		if (MEM_P (t))
+		  sched_analyze_2 (deps, XEXP (t, 0), insn);
+	      }
 
 	    /* If the register does not already cross any calls, then add this
 	       insn to the sched_before_next_call list so that it will still
@@ -677,6 +704,7 @@ sched_analyze_2 (deps, x, insn)
 	    cselib_lookup (XEXP (t, 0), Pmode, 1);
 	    XEXP (t, 0) = cselib_subst_to_values (XEXP (t, 0));
 	  }
+	t = canon_rtx (t);
 	pending = deps->pending_read_insns;
 	pending_mem = deps->pending_read_mems;
 	while (pending)
@@ -701,7 +729,7 @@ sched_analyze_2 (deps, x, insn)
 	  }
 
 	for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
-	  if (GET_CODE (XEXP (u, 0)) != JUMP_INSN
+	  if (!JUMP_P (XEXP (u, 0))
 	      || deps_may_trap_p (x))
 	    add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 
@@ -732,7 +760,7 @@ sched_analyze_2 (deps, x, insn)
 	   mode.  An insn should not be moved across this even if it only uses
 	   pseudo-regs because it might give an incorrectly rounded result.  */
 	if (code != ASM_OPERANDS || MEM_VOLATILE_P (x))
-	  reg_pending_barrier = true;
+	  reg_pending_barrier = TRUE_BARRIER;
 
 	/* For all ASM_OPERANDS, we must traverse the vector of input operands.
 	   We can not just fall through here since then we would be confused
@@ -789,14 +817,12 @@ sched_analyze_2 (deps, x, insn)
 /* Analyze an INSN with pattern X to find all dependencies.  */
 
 static void
-sched_analyze_insn (deps, x, insn, loop_notes)
-     struct deps *deps;
-     rtx x, insn;
-     rtx loop_notes;
+sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 {
   RTX_CODE code = GET_CODE (x);
   rtx link;
   int i;
+  reg_set_iterator rsi;
 
   if (code == COND_EXEC)
     {
@@ -841,7 +867,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
     sched_analyze_2 (deps, x, insn);
 
   /* Mark registers CLOBBERED or used by called function.  */
-  if (GET_CODE (insn) == CALL_INSN)
+  if (CALL_P (insn))
     {
       for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
 	{
@@ -851,34 +877,37 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	    sched_analyze_2 (deps, XEXP (link, 0), insn);
 	}
       if (find_reg_note (insn, REG_SETJMP, NULL))
-	reg_pending_barrier = true;
+	reg_pending_barrier = MOVE_BARRIER;
     }
 
-  if (GET_CODE (insn) == JUMP_INSN)
+  if (JUMP_P (insn))
     {
       rtx next;
       next = next_nonnote_insn (insn);
-      if (next && GET_CODE (next) == BARRIER)
-	reg_pending_barrier = true;
+      if (next && BARRIER_P (next))
+	reg_pending_barrier = TRUE_BARRIER;
       else
 	{
 	  rtx pending, pending_mem;
-	  regset_head tmp;
-	  INIT_REG_SET (&tmp);
+	  regset_head tmp_uses, tmp_sets;
+	  INIT_REG_SET (&tmp_uses);
+	  INIT_REG_SET (&tmp_sets);
 
-	  (*current_sched_info->compute_jump_reg_dependencies) (insn, &tmp);
-	  /* APPLE LOCAL begin - 3.4 scheduler update */
+	  (*current_sched_info->compute_jump_reg_dependencies)
+	    (insn, &deps->reg_conditional_sets, &tmp_uses, &tmp_sets);
 	  /* Make latency of jump equal to 0 by using anti-dependence.  */
-	  EXECUTE_IF_SET_IN_REG_SET (&tmp, 0, i,
+	  EXECUTE_IF_SET_IN_REG_SET (&tmp_uses, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->sets, REG_DEP_ANTI);
 	      add_dependence_list (insn, reg_last->clobbers, REG_DEP_ANTI);
 	      reg_last->uses_length++;
 	      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
-	    });
-	  /* APPLE LOCAL end - 3.4 scheduler update */
-	  CLEAR_REG_SET (&tmp);
+	    }
+	  IOR_REG_SET (reg_pending_sets, &tmp_sets);
+
+	  CLEAR_REG_SET (&tmp_uses);
+	  CLEAR_REG_SET (&tmp_sets);
 
 	  /* All memory writes and volatile reads must happen before the
 	     jump.  Non-volatile reads must happen before the jump iff
@@ -926,7 +955,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_END
 	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_BEG
 	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_END)
-	    reg_pending_barrier = true;
+	    reg_pending_barrier = MOVE_BARRIER;
 
 	  link = XEXP (link, 1);
 	}
@@ -938,7 +967,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
      where block boundaries fall.  This is mighty confusing elsewhere.
      Therefore, prevent such an instruction from being moved.  */
   if (can_throw_internal (insn))
-    reg_pending_barrier = true;
+    reg_pending_barrier = MOVE_BARRIER;
 
   /* Add dependencies if a scheduling barrier was found.  */
   if (reg_pending_barrier)
@@ -947,32 +976,34 @@ sched_analyze_insn (deps, x, insn, loop_notes)
          real, so we use anti-dependence here.  */
       if (GET_CODE (PATTERN (insn)) == COND_EXEC)
 	{
-	  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i,
+	  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
-	      /* APPLE LOCAL begin - 3.4 scheduler update */
-	      add_dependence_list (insn, reg_last->sets, REG_DEP_ANTI);
-	      add_dependence_list (insn, reg_last->clobbers, REG_DEP_ANTI);
-	      /* APPLE LOCAL end - 3.4 scheduler update */
-	    });
+	      add_dependence_list
+		(insn, reg_last->sets,
+		 reg_pending_barrier == TRUE_BARRIER ? 0 : REG_DEP_ANTI);
+	      add_dependence_list
+		(insn, reg_last->clobbers,
+		 reg_pending_barrier == TRUE_BARRIER ? 0 : REG_DEP_ANTI);
+	    }
 	}
       else
 	{
-	  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i,
+	  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list_and_free (insn, &reg_last->uses,
 					    REG_DEP_ANTI);
-	      /* APPLE LOCAL begin - 3.4 scheduler update */
-	      add_dependence_list_and_free (insn, &reg_last->sets,
-					    REG_DEP_ANTI);
-	      add_dependence_list_and_free (insn, &reg_last->clobbers,
-					    REG_DEP_ANTI);
-	      /* APPLE LOCAL end - 3.4 scheduler update */
+	      add_dependence_list_and_free
+		(insn, &reg_last->sets,
+		 reg_pending_barrier == TRUE_BARRIER ? 0 : REG_DEP_ANTI);
+	      add_dependence_list_and_free
+		(insn, &reg_last->clobbers,
+		 reg_pending_barrier == TRUE_BARRIER ? 0 : REG_DEP_ANTI);
 	      reg_last->uses_length = 0;
 	      reg_last->clobbers_length = 0;
-	    });
+	    }
 	}
 
       for (i = 0; i < deps->max_reg; i++)
@@ -983,7 +1014,8 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	}
 
       flush_pending_lists (deps, insn, true, true);
-      reg_pending_barrier = false;
+      CLEAR_REG_SET (&deps->reg_conditional_sets);
+      reg_pending_barrier = NOT_A_BARRIER;
     }
   else
     {
@@ -991,42 +1023,43 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	 of the lists.  */
       if (GET_CODE (PATTERN (insn)) == COND_EXEC)
 	{
-	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i,
+	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->sets, 0);
 	      add_dependence_list (insn, reg_last->clobbers, 0);
 	      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
 	      reg_last->uses_length++;
-	    });
-	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_clobbers, 0, i,
+	    }
+	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_clobbers, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->sets, REG_DEP_OUTPUT);
 	      add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
 	      reg_last->clobbers = alloc_INSN_LIST (insn, reg_last->clobbers);
 	      reg_last->clobbers_length++;
-	    });
-	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_sets, 0, i,
+	    }
+	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_sets, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->sets, REG_DEP_OUTPUT);
 	      add_dependence_list (insn, reg_last->clobbers, REG_DEP_OUTPUT);
 	      add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
 	      reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
-	    });
+	      SET_REGNO_REG_SET (&deps->reg_conditional_sets, i);
+	    }
 	}
       else
 	{
-	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i,
+	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->sets, 0);
 	      add_dependence_list (insn, reg_last->clobbers, 0);
 	      reg_last->uses_length++;
 	      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
-	    });
-	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_clobbers, 0, i,
+	    }
+	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_clobbers, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      if (reg_last->uses_length > MAX_PENDING_LIST_LENGTH
@@ -1049,8 +1082,8 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 		}
 	      reg_last->clobbers_length++;
 	      reg_last->clobbers = alloc_INSN_LIST (insn, reg_last->clobbers);
-	    });
-	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_sets, 0, i,
+	    }
+	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_sets, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list_and_free (insn, &reg_last->sets,
@@ -1062,7 +1095,8 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	      reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
 	      reg_last->uses_length = 0;
 	      reg_last->clobbers_length = 0;
-	    });
+	      CLEAR_REGNO_REG_SET (&deps->reg_conditional_sets, i);
+	    }
 	}
 
       IOR_REG_SET (&deps->reg_last_in_use, reg_pending_uses);
@@ -1103,7 +1137,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
       tmp = SET_DEST (set);
       if (GET_CODE (tmp) == SUBREG)
 	tmp = SUBREG_REG (tmp);
-      if (GET_CODE (tmp) == REG)
+      if (REG_P (tmp))
 	dest_regno = REGNO (tmp);
       else
 	goto end_call_group;
@@ -1111,7 +1145,13 @@ sched_analyze_insn (deps, x, insn, loop_notes)
       tmp = SET_SRC (set);
       if (GET_CODE (tmp) == SUBREG)
 	tmp = SUBREG_REG (tmp);
-      if (GET_CODE (tmp) == REG)
+      if ((GET_CODE (tmp) == PLUS
+	   || GET_CODE (tmp) == MINUS)
+	  && REG_P (XEXP (tmp, 0))
+	  && REGNO (XEXP (tmp, 0)) == STACK_POINTER_REGNUM
+	  && dest_regno == STACK_POINTER_REGNUM)
+	src_regno = STACK_POINTER_REGNUM;
+      else if (REG_P (tmp))
 	src_regno = REGNO (tmp);
       else
 	goto end_call_group;
@@ -1119,13 +1159,21 @@ sched_analyze_insn (deps, x, insn, loop_notes)
       if (src_regno < FIRST_PSEUDO_REGISTER
 	  || dest_regno < FIRST_PSEUDO_REGISTER)
 	{
-	  set_sched_group_p (insn);
+	  /* If we are inside a post-call group right at the start of the
+	     scheduling region, we must not add a dependency.  */
+	  if (deps->in_post_call_group_p == post_call_initial)
+	    {
+	      SCHED_GROUP_P (insn) = 1;
+	      deps->in_post_call_group_p = post_call;
+	    }
+	  else
+	    set_sched_group_p (insn);
 	  CANT_MOVE (insn) = 1;
 	}
       else
 	{
 	end_call_group:
-	  deps->in_post_call_group_p = false;
+	  deps->in_post_call_group_p = not_post_call;
 	}
     }
 }
@@ -1134,28 +1182,35 @@ sched_analyze_insn (deps, x, insn, loop_notes)
    for every dependency.  */
 
 void
-sched_analyze (deps, head, tail)
-     struct deps *deps;
-     rtx head, tail;
+sched_analyze (struct deps *deps, rtx head, rtx tail)
 {
   rtx insn;
   rtx loop_notes = 0;
 
   if (current_sched_info->use_cselib)
-    cselib_init ();
+    cselib_init (true);
 
+  /* Before reload, if the previous block ended in a call, show that
+     we are inside a post-call group, so as to keep the lifetimes of
+     hard registers correct.  */
+  if (! reload_completed && !LABEL_P (head))
+    {
+      insn = prev_nonnote_insn (head);
+      if (insn && CALL_P (insn))
+	deps->in_post_call_group_p = post_call_initial;
+    }
   for (insn = head;; insn = NEXT_INSN (insn))
     {
       rtx link, end_seq, r0, set;
 
-      if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN)
+      if (NONJUMP_INSN_P (insn) || JUMP_P (insn))
 	{
 	  /* Clear out the stale LOG_LINKS from flow.  */
 	  free_INSN_LIST_list (&LOG_LINKS (insn));
 
 	  /* Make each JUMP_INSN a scheduling barrier for memory
              references.  */
-	  if (GET_CODE (insn) == JUMP_INSN)
+	  if (JUMP_P (insn))
 	    {
 	      /* Keep the list a reasonable size.  */
 	      if (deps->pending_flush_length++ > MAX_PENDING_LIST_LENGTH)
@@ -1167,7 +1222,7 @@ sched_analyze (deps, head, tail)
 	  sched_analyze_insn (deps, PATTERN (insn), insn, loop_notes);
 	  loop_notes = 0;
 	}
-      else if (GET_CODE (insn) == CALL_INSN)
+      else if (CALL_P (insn))
 	{
 	  int i;
 
@@ -1180,7 +1235,7 @@ sched_analyze (deps, head, tail)
 	    {
 	      /* This is setjmp.  Assume that all registers, not just
 		 hard registers, may be clobbered by this call.  */
-	      reg_pending_barrier = true;
+	      reg_pending_barrier = MOVE_BARRIER;
 	    }
 	  else
 	    {
@@ -1235,13 +1290,13 @@ sched_analyze (deps, head, tail)
 	  /* Before reload, begin a post-call group, so as to keep the
 	     lifetimes of hard registers correct.  */
 	  if (! reload_completed)
-	    deps->in_post_call_group_p = true;
+	    deps->in_post_call_group_p = post_call;
 	}
 
       /* See comments on reemit_notes as to why we do this.
 	 ??? Actually, the reemit_notes just say what is done, not why.  */
 
-      if (GET_CODE (insn) == NOTE
+      if (NOTE_P (insn)
 	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
@@ -1253,7 +1308,7 @@ sched_analyze (deps, head, tail)
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)
 	    rtx_region = GEN_INT (NOTE_EH_HANDLER (insn));
 	  else
-	    rtx_region = GEN_INT (0);
+	    rtx_region = const0_rtx;
 
 	  loop_notes = alloc_EXPR_LIST (REG_SAVE_NOTE,
 					rtx_region,
@@ -1269,7 +1324,7 @@ sched_analyze (deps, head, tail)
 
       /* Now that we have completed handling INSN, check and see if it is
 	 a CLOBBER beginning a libcall block.   If it is, record the
-	 end of the libcall sequence. 
+	 end of the libcall sequence.
 
 	 We want to schedule libcall blocks as a unit before reload.  While
 	 this restricts scheduling, it preserves the meaning of a libcall
@@ -1280,13 +1335,13 @@ sched_analyze (deps, head, tail)
 	 a libcall block.  */
       if (!reload_completed
 	  /* Note we may have nested libcall sequences.  We only care about
-	     the outermost libcall sequence.  */ 
+	     the outermost libcall sequence.  */
 	  && deps->libcall_block_tail_insn == 0
 	  /* The sequence must start with a clobber of a register.  */
-	  && GET_CODE (insn) == INSN
+	  && NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == CLOBBER
-          && (r0 = XEXP (PATTERN (insn), 0), GET_CODE (r0) == REG)
-	  && GET_CODE (XEXP (PATTERN (insn), 0)) == REG
+          && (r0 = XEXP (PATTERN (insn), 0), REG_P (r0))
+	  && REG_P (XEXP (PATTERN (insn), 0))
 	  /* The CLOBBER must also have a REG_LIBCALL note attached.  */
 	  && (link = find_reg_note (insn, REG_LIBCALL, NULL_RTX)) != 0
 	  && (end_seq = XEXP (link, 0)) != 0
@@ -1313,20 +1368,56 @@ sched_analyze (deps, head, tail)
 	  return;
 	}
     }
-  abort ();
+  gcc_unreachable ();
 }
 
+
+/* The following function adds forward dependence (FROM, TO) with
+   given DEP_TYPE.  The forward dependence should be not exist before.  */
+
+void
+add_forward_dependence (rtx from, rtx to, enum reg_note dep_type)
+{
+  rtx new_link;
+
+#ifdef ENABLE_CHECKING
+  /* If add_dependence is working properly there should never
+     be notes, deleted insns or duplicates in the backward
+     links.  Thus we need not check for them here.
+
+     However, if we have enabled checking we might as well go
+     ahead and verify that add_dependence worked properly.  */
+  gcc_assert (!NOTE_P (from));
+  gcc_assert (!INSN_DELETED_P (from));
+  if (forward_dependency_cache)
+    gcc_assert (!bitmap_bit_p (&forward_dependency_cache[INSN_LUID (from)],
+			       INSN_LUID (to)));
+  else
+    gcc_assert (!find_insn_list (to, INSN_DEPEND (from)));
+
+  /* ??? If bitmap_bit_p is a predicate, what is this supposed to do? */
+  if (forward_dependency_cache != NULL)
+    bitmap_bit_p (&forward_dependency_cache[INSN_LUID (from)],
+		  INSN_LUID (to));
+#endif
+
+  new_link = alloc_INSN_LIST (to, INSN_DEPEND (from));
+
+  PUT_REG_NOTE_KIND (new_link, dep_type);
+
+  INSN_DEPEND (from) = new_link;
+  INSN_DEP_COUNT (to) += 1;
+}
+
 /* Examine insns in the range [ HEAD, TAIL ] and Use the backward
    dependences from LOG_LINKS to build forward dependences in
    INSN_DEPEND.  */
 
 void
-compute_forward_dependences (head, tail)
-     rtx head, tail;
+compute_forward_dependences (rtx head, rtx tail)
 {
   rtx insn, link;
   rtx next_tail;
-  enum reg_note dep_type;
 
   next_tail = NEXT_INSN (tail);
   for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
@@ -1335,41 +1426,7 @@ compute_forward_dependences (head, tail)
 	continue;
 
       for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
-	{
-	  rtx x = XEXP (link, 0); /* APPLE LOCAL - 3.4 scheduler update */
-	  rtx new_link;
-
-	  if (x != XEXP (link, 0))
-	    continue;
-
-#ifdef ENABLE_CHECKING
-	  /* If add_dependence is working properly there should never
-	     be notes, deleted insns or duplicates in the backward
-	     links.  Thus we need not check for them here.
-
-	     However, if we have enabled checking we might as well go
-	     ahead and verify that add_dependence worked properly.  */
-	  if (GET_CODE (x) == NOTE
-	      || INSN_DELETED_P (x)
-	      || (forward_dependency_cache != NULL
-		  && TEST_BIT (forward_dependency_cache[INSN_LUID (x)],
-			       INSN_LUID (insn)))
-	      || (forward_dependency_cache == NULL
-		  && find_insn_list (insn, INSN_DEPEND (x))))
-	    abort ();
-	  if (forward_dependency_cache != NULL)
-	    SET_BIT (forward_dependency_cache[INSN_LUID (x)],
-		     INSN_LUID (insn));
-#endif
-
-	  new_link = alloc_INSN_LIST (insn, INSN_DEPEND (x));
-
-	  dep_type = REG_NOTE_KIND (link);
-	  PUT_REG_NOTE_KIND (new_link, dep_type);
-
-	  INSN_DEPEND (x) = new_link;
-	  INSN_DEP_COUNT (insn) += 1;
-	}
+	add_forward_dependence (XEXP (link, 0), insn, REG_NOTE_KIND (link));
     }
 }
 
@@ -1377,15 +1434,14 @@ compute_forward_dependences (head, tail)
    n_bbs is the number of region blocks.  */
 
 void
-init_deps (deps)
-     struct deps *deps;
+init_deps (struct deps *deps)
 {
   int max_reg = (reload_completed ? FIRST_PSEUDO_REGISTER : max_reg_num ());
 
   deps->max_reg = max_reg;
-  deps->reg_last = (struct deps_reg *)
-    xcalloc (max_reg, sizeof (struct deps_reg));
+  deps->reg_last = xcalloc (max_reg, sizeof (struct deps_reg));
   INIT_REG_SET (&deps->reg_last_in_use);
+  INIT_REG_SET (&deps->reg_conditional_sets);
 
   deps->pending_read_insns = 0;
   deps->pending_read_mems = 0;
@@ -1396,17 +1452,17 @@ init_deps (deps)
   deps->last_pending_memory_flush = 0;
   deps->last_function_call = 0;
   deps->sched_before_next_call = 0;
-  deps->in_post_call_group_p = false;
+  deps->in_post_call_group_p = not_post_call;
   deps->libcall_block_tail_insn = 0;
 }
 
 /* Free insn lists found in DEPS.  */
 
 void
-free_deps (deps)
-     struct deps *deps;
+free_deps (struct deps *deps)
 {
   int i;
+  reg_set_iterator rsi;
 
   free_INSN_LIST_list (&deps->pending_read_insns);
   free_EXPR_LIST_list (&deps->pending_read_mems);
@@ -1415,9 +1471,9 @@ free_deps (deps)
   free_INSN_LIST_list (&deps->last_pending_memory_flush);
 
   /* Without the EXECUTE_IF_SET, this loop is executed max_reg * nr_regions
-     times.  For a test case with 42000 regs and 8000 small basic blocks,
+     times.  For a testcase with 42000 regs and 8000 small basic blocks,
      this loop accounted for nearly 60% (84 sec) of the total -O2 runtime.  */
-  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i,
+  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i, rsi)
     {
       struct deps_reg *reg_last = &deps->reg_last[i];
       if (reg_last->uses)
@@ -1426,8 +1482,9 @@ free_deps (deps)
 	free_INSN_LIST_list (&reg_last->sets);
       if (reg_last->clobbers)
 	free_INSN_LIST_list (&reg_last->clobbers);
-    });
+    }
   CLEAR_REG_SET (&deps->reg_last_in_use);
+  CLEAR_REG_SET (&deps->reg_conditional_sets);
 
   free (deps->reg_last);
 }
@@ -1437,8 +1494,7 @@ free_deps (deps)
    it is used in the estimate of profitability.  */
 
 void
-init_dependency_caches (luid)
-     int luid;
+init_dependency_caches (int luid)
 {
   /* ?!? We could save some memory by computing a per-region luid mapping
      which could reduce both the number of vectors in the cache and the size
@@ -1448,34 +1504,52 @@ init_dependency_caches (luid)
      what we consider "very high".  */
   if (luid / n_basic_blocks > 100 * 5)
     {
-      true_dependency_cache = sbitmap_vector_alloc (luid, luid);
-      sbitmap_vector_zero (true_dependency_cache, luid);
-      anti_dependency_cache = sbitmap_vector_alloc (luid, luid);
-      sbitmap_vector_zero (anti_dependency_cache, luid);
-      output_dependency_cache = sbitmap_vector_alloc (luid, luid);
-      sbitmap_vector_zero (output_dependency_cache, luid);
+      int i;
+      true_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
+      anti_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
+      output_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
 #ifdef ENABLE_CHECKING
-      forward_dependency_cache = sbitmap_vector_alloc (luid, luid);
-      sbitmap_vector_zero (forward_dependency_cache, luid);
+      forward_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
 #endif
+      for (i = 0; i < luid; i++)
+	{
+	  bitmap_initialize (&true_dependency_cache[i], 0);
+	  bitmap_initialize (&anti_dependency_cache[i], 0);
+	  bitmap_initialize (&output_dependency_cache[i], 0);
+#ifdef ENABLE_CHECKING
+	  bitmap_initialize (&forward_dependency_cache[i], 0);
+#endif
+	}
+      cache_size = luid;
     }
 }
 
 /* Free the caches allocated in init_dependency_caches.  */
 
 void
-free_dependency_caches ()
+free_dependency_caches (void)
 {
   if (true_dependency_cache)
     {
-      sbitmap_vector_free (true_dependency_cache);
+      int i;
+
+      for (i = 0; i < cache_size; i++)
+	{
+	  bitmap_clear (&true_dependency_cache[i]);
+	  bitmap_clear (&anti_dependency_cache[i]);
+	  bitmap_clear (&output_dependency_cache[i]);
+#ifdef ENABLE_CHECKING
+	  bitmap_clear (&forward_dependency_cache[i]);
+#endif
+	}
+      free (true_dependency_cache);
       true_dependency_cache = NULL;
-      sbitmap_vector_free (anti_dependency_cache);
+      free (anti_dependency_cache);
       anti_dependency_cache = NULL;
-      sbitmap_vector_free (output_dependency_cache);
+      free (output_dependency_cache);
       output_dependency_cache = NULL;
 #ifdef ENABLE_CHECKING
-      sbitmap_vector_free (forward_dependency_cache);
+      free (forward_dependency_cache);
       forward_dependency_cache = NULL;
 #endif
     }
@@ -1485,18 +1559,18 @@ free_dependency_caches ()
    code.  */
 
 void
-init_deps_global ()
+init_deps_global (void)
 {
   reg_pending_sets = INITIALIZE_REG_SET (reg_pending_sets_head);
   reg_pending_clobbers = INITIALIZE_REG_SET (reg_pending_clobbers_head);
   reg_pending_uses = INITIALIZE_REG_SET (reg_pending_uses_head);
-  reg_pending_barrier = false;
+  reg_pending_barrier = NOT_A_BARRIER;
 }
 
 /* Free everything used by the dependency analysis code.  */
 
 void
-finish_deps_global ()
+finish_deps_global (void)
 {
   FREE_REG_SET (reg_pending_sets);
   FREE_REG_SET (reg_pending_clobbers);

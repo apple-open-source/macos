@@ -1,5 +1,3 @@
-.\"	$NetBSD: renice.8,v 1.5 1997/10/19 14:01:33 lukem Exp $
-.\"
 .\" Copyright (c) 1983, 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -31,68 +29,69 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"     from: @(#)renice.8	8.1 (Berkeley) 6/9/93
-.\"	$NetBSD: renice.8,v 1.5 1997/10/19 14:01:33 lukem Exp $
+.\"     @(#)renice.8	8.1 (Berkeley) 6/9/93
+.\" $FreeBSD: src/usr.bin/renice/renice.8,v 1.16 2003/02/26 20:27:24 charnier Exp $
 .\"
 .Dd June 9, 1993
 .Dt RENICE 8
-.Os BSD 4
+.Os
 .Sh NAME
 .Nm renice
 .Nd alter priority of running processes
 .Sh SYNOPSIS
 .Nm
 .Ar priority
-.Oo
-.Op Fl p
-.Ar pid ...
-.Oc
-.Oo
-.Op Fl g
-.Ar pgrp ...
-.Oc
-.Oo
-.Op Fl u
-.Ar user ...
-.Oc
-.Sh DESCRIPTION
+.Op Oo Fl p Oc Ar pid ...
+.Op Oo Fl g Oc Ar pgrp ...
+.Op Oo Fl u Oc Ar user ...
 .Nm
-alters the 
+.Fl n Ar increment
+.Op Oo Fl p Oc Ar pid ...
+.Op Oo Fl g Oc Ar pgrp ...
+.Op Oo Fl u Oc Ar user ...
+.Sh DESCRIPTION
+The
+.Nm
+utility alters the
 scheduling priority of one or more running processes.
 The following
 .Ar who
 parameters are interpreted as process ID's, process group
-ID's, or user names.
+ID's, user ID's or user names.
+The
 .Nm Ns 'ing
-a process group causes all processes in the process group
-to have their scheduling priority altered.  
+of a process group causes all processes in the process group
+to have their scheduling priority altered.
+The
 .Nm Ns 'ing
-a user causes all processes owned by the user to have
+of a user causes all processes owned by the user to have
 their scheduling priority altered.
 By default, the processes to be affected are specified by
 their process ID's.
 .Pp
-Options supported by
-.Nm :
-.Bl -tag -width Ds
+The following options are available:
+.Bl -tag -width indent
 .It Fl g
-Force 
+Force
 .Ar who
 parameters to be interpreted as process group ID's.
+.It Fl n
+Instead of changing the specified processes to the given priority,
+interpret the following argument as an increment to be applied to
+the current priority of each process.
 .It Fl u
 Force the
 .Ar who
-parameters to be interpreted as user names.
+parameters to be interpreted as user names or user ID's.
 .It Fl p
-Resets the
+Reset the
 .Ar who
 interpretation to be (the default) process ID's.
 .El
 .Pp
 For example,
-.Bd -literal -offset
-renice +1 987 -u daemon root -p 32
-.Ed
+.Pp
+.Dl "renice +1 987 -u daemon root -p 32"
 .Pp
 would change the priority of process ID's 987 and 32, and
 all processes owned by users daemon and root.
@@ -123,13 +122,19 @@ to map user names to user ID's
 .El
 .Sh SEE ALSO
 .Xr nice 1 ,
+.Xr rtprio 1 ,
 .Xr getpriority 2 ,
 .Xr setpriority 2
-.Sh BUGS
-Non super-users can not increase scheduling priorities of their own processes,
-even if they were the ones that decreased the priorities in the first place.
+.Sh STANDARDS
+The
+.Nm
+utility conforms to
+.St -p1003.1-2001 .
 .Sh HISTORY
 The
 .Nm
-command appeared in
+utility appeared in
 .Bx 4.0 .
+.Sh BUGS
+Non super-users cannot increase scheduling priorities of their own processes,
+even if they were the ones that decreased the priorities in the first place.

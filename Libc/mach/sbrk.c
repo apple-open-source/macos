@@ -35,13 +35,12 @@
 
 #include <mach/mach.h>		/* for vm_allocate, vm_offset_t */
 #include <mach/vm_statistics.h>
-#include <sys/types.h>		/* for caddr_t */
 
 static int sbrk_needs_init = TRUE;
 static vm_size_t sbrk_region_size = 4*1024*1024; /* Well, what should it be? */
 static vm_address_t sbrk_curbrk;
 
-caddr_t sbrk(size)
+void *sbrk(size)
 	int	size;
 {
 	kern_return_t	ret;
@@ -54,21 +53,21 @@ caddr_t sbrk(size)
 		ret =  vm_allocate(mach_task_self(), &sbrk_curbrk, sbrk_region_size,
 				  VM_MAKE_TAG(VM_MEMORY_SBRK)|TRUE);
 		if (ret != KERN_SUCCESS)
-			return((caddr_t)-1);
+			return((void *)-1);
 	}
 	
 	if (size <= 0)
-		return((caddr_t)sbrk_curbrk);
+		return((void *)sbrk_curbrk);
 	else if (size > sbrk_region_size)
-		return((caddr_t)-1);
+		return((void *)-1);
 	sbrk_curbrk += size;
 	sbrk_region_size -= size;
-	return((caddr_t)(sbrk_curbrk - size));
+	return((void *)(sbrk_curbrk - size));
 }
 
-caddr_t brk(x)
-	caddr_t x;
+void *brk(x)
+	void *x;
 {
-	return((caddr_t)-1);
+	return((void *)-1);
 }
 

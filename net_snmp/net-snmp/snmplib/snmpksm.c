@@ -45,8 +45,32 @@
 #include <dmalloc.h>
 #endif
 
+#ifdef HEIMDAL
+#ifndef MIT_NEW_CRYPTO
+#define OLD_HEIMDAL
+#endif 				/* ! MIT_NEW_CRYPTO */
+#endif 				/* HEIMDAL */
+
+#ifdef HEIMDAL
+#define oid heimdal_oid_renamed
+#endif				/* HEIMDAL */
 #include <krb5.h>
 #include <com_err.h>
+#ifdef HEIMDAL
+#undef oid
+#endif				/* HEIMDAL */
+
+#ifdef HEIMDAL
+#define CHECKSUM_TYPE(x)	(x)->cksumtype
+#define CHECKSUM_CONTENTS(x)	((char *)((x)->checksum.data))
+#define CHECKSUM_LENGTH(x)	(x)->checksum.length
+#define TICKET_CLIENT(x)	(x)->client
+#else				/* HEIMDAL */
+#define CHECKSUM_TYPE(x)	(x)->checksum_type
+#define CHECKSUM_CONTENTS(x)	(x)->contents
+#define CHECKSUM_LENGTH(x)	(x)->length
+#define TICKET_CLIENT(x)	(x)->enc_part2->client
+#endif				/* HEIMDAL */
 
 #include <net-snmp/output_api.h>
 #include <net-snmp/config_api.h>
@@ -65,6 +89,9 @@
 
 static krb5_context kcontext = NULL;
 static krb5_rcache rcache = NULL;
+static krb5_keytab keytab = NULL;
+static int keytab_setup = 0;
+static const char *service_name = NULL;
 
 static int      ksm_session_init(netsnmp_session *);
 static void     ksm_free_state_ref(void *);
@@ -108,6 +135,58 @@ struct ksm_cache_entry {
 static struct ksm_cache_entry *ksm_hash_table[HASHSIZE];
 
 /*
+ * Stuff to deal with config values
+ * Note the conditionals that wrap these--i don't know if these are
+ * needed, since i don't know how library initialization and callbacks
+ * and stuff work
+ */
+
+static int
+init_snmpksm_post_config(int majorid, int minorid, void *serverarg,
+			 void *clientarg)
+{
+
+    if (kcontext == NULL) {
+	/* not reached, i'd imagine */
+        return SNMPERR_KRB5;
+    }
+
+    if (service_name == NULL) {
+	/* always reached, i'd imagine */
+	char *c = netsnmp_ds_get_string(NETSNMP_DS_LIBRARY_ID,
+					NETSNMP_DS_LIB_KSM_SERVICE_NAME);
+	if (c != NULL) {
+		service_name = c;
+	}
+	else {
+		service_name = "host";
+	}
+    }
+
+    if (keytab_setup == 0) {
+	/* always reached, i'd imagine */
+	char *c = netsnmp_ds_get_string(NETSNMP_DS_LIBRARY_ID,
+					NETSNMP_DS_LIB_KSM_KEYTAB);
+	if (c) {
+	    krb5_error_code retval;
+	    DEBUGMSGTL(("ksm", "Using keytab %s\n", c));
+	    retval = krb5_kt_resolve(kcontext, c, &keytab);
+	    if (retval) {
+		DEBUGMSGTL(("ksm", "krb5_kt_resolve(\"%s\") failed. KSM "
+			    "config callback failing\n", error_message(retval)));
+		return SNMPERR_KRB5;
+	    }
+	}
+	else {
+	    DEBUGMSGTL(("ksm", "Using default keytab\n", c));
+	}
+	keytab_setup = 1;
+    }
+
+    return SNMPERR_SUCCESS;
+}
+
+/*
  * Initialize all of the state required for Kerberos (right now, just call
  * krb5_init_context).
  */
@@ -118,6 +197,16 @@ init_ksm(void)
     krb5_error_code retval;
     struct snmp_secmod_def *def;
     int             i;
+
+    netsnmp_ds_register_config(ASN_OCTET_STR, "snmp", "defKSMKeytab",
+                               NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_KSM_KEYTAB);
+    netsnmp_ds_register_config(ASN_OCTET_STR, "snmp", "defKSMServiceName",
+                               NETSNMP_DS_LIBRARY_ID,
+			       NETSNMP_DS_LIB_KSM_SERVICE_NAME);
+    snmp_register_callback(SNMP_CALLBACK_LIBRARY,
+			   SNMP_CALLBACK_POST_READ_CONFIG,
+			   init_snmpksm_post_config, NULL);
+
 
     if (kcontext == NULL) {
         retval = krb5_init_context(&kcontext);
@@ -363,6 +452,10 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
 #ifdef MIT_NEW_CRYPTO
     krb5_data       input;
     krb5_enc_data   output;
+    unsigned int    numcksumtypes;
+    krb5_cksumtype  *cksumtype_array;
+#elif defined OLD_HEIMDAL	/* MIT_NEW_CRYPTO */
+    krb5_crypto heim_crypto = NULL;
 #else                           /* MIT_NEW_CRYPTO */
     krb5_encrypt_block eblock;
 #endif                          /* MIT_NEW_CRYPTO */
@@ -370,13 +463,17 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
     unsigned char  *encrypted_data = NULL;
     int             zero = 0, i;
     u_char         *cksum_pointer, *endp = *parms->wholeMsg;
-    krb5_cksumtype  cksumtype = CKSUMTYPE_RSA_MD5_DES;
+    krb5_cksumtype  cksumtype;
     krb5_checksum   pdu_checksum;
     u_char         **wholeMsg = parms->wholeMsg;
     size_t	   *offset = parms->wholeMsgOffset, seq_offset;
     struct ksm_secStateRef *ksm_state = (struct ksm_secStateRef *)
         parms->secStateRef;
+#ifdef OLD_HEIMDAL
+    krb5_data encrypted_scoped_pdu;
+#endif				/* OLD_HEIMDAL */
     int rc;
+    char *colon = NULL;
 
     DEBUGMSGTL(("ksm", "Starting KSM processing\n"));
 
@@ -384,9 +481,19 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
     outdata.data = NULL;
     ivector.length = 0;
     ivector.data = NULL;
-    pdu_checksum.contents = NULL;
+    CHECKSUM_CONTENTS(&pdu_checksum) = NULL;
 
     if (!ksm_state) {
+        /*
+         * If we've got a port number as part of the "peername", then
+         * suppress this (temporarily) while we build the credential info.
+         *   XXX - what about "udp:host" style addresses?
+         */
+        colon = strrchr(params->session->peername, ':');
+        if (colon != NULL) {
+            *colon='\0';
+        }
+
         /*
          * If we don't have a ksm_state, then we're a request.  Get a
          * credential cache and build a ap_req.
@@ -415,8 +522,11 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
         retcode =
             krb5_mk_req(kcontext, &auth_context,
                         AP_OPTS_MUTUAL_REQUIRED | AP_OPTS_USE_SUBKEY,
-                        (char *) "host", parms->session->peername, NULL,
+                        (char *) service_name, parms->session->peername, NULL,
                         cc, &outdata);
+
+        if (colon != NULL)
+            *colon=':';
 
         if (retcode) {
             DEBUGMSGTL(("ksm", "KSM: krb5_mk_req failed: %s\n",
@@ -426,7 +536,9 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
             goto error;
         }
 
-        DEBUGMSGTL(("ksm", "KSM: ticket retrieved successfully\n"));
+	DEBUGMSGTL(("ksm", "KSM: ticket retrieved successfully for \"%s/%s\" "
+		    "(may not be actual ticket sname)\n", service_name,
+		    parms->session->peername));
 
     } else {
 
@@ -510,6 +622,17 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
             retval = SNMPERR_KRB5;
             goto error;
         }
+#elif defined OLD_HEIMDAL
+	retcode = krb5_crypto_init(kcontext, subkey, 0, &heim_crypto);
+        if (retcode) {
+            DEBUGMSGTL(("ksm", "krb5_crypto_init failed: %s\n",
+                        error_message(retcode)));
+            snmp_set_detail(error_message(retcode));
+            retval = SNMPERR_KRB5;
+            goto error;
+        }
+	encrypted_length = krb5_get_wrapped_length(kcontext, heim_crypto,
+						   parms->scopedPduLen);
 #else                           /* MIT_NEW_CRYPTO */
 
         krb5_use_enctype(kcontext, &eblock, subkey->enctype);
@@ -527,6 +650,7 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
                                              eblock.crypto_entry);
 #endif                          /* MIT_NEW_CRYPTO */
 
+#ifndef OLD_HEIMDAL /* since heimdal allocs the space for us */
         encrypted_data = malloc(encrypted_length);
 
         if (!encrypted_data) {
@@ -541,6 +665,7 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
 
             goto error;
         }
+#endif /* ! OLD_HEIMDAL */
 
         /*
          * We need to set up a blank initialization vector for the encryption.
@@ -560,6 +685,7 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
             retval = SNMPERR_KRB5;
             goto error;
         }
+#elif defined (OLD_HEIMDAL)	/* MIT_NEW_CRYPTO */
 #else                           /* MIT_NEW_CRYPTO */
 
         blocksize =
@@ -567,6 +693,7 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
 
 #endif                          /* MIT_NEW_CRYPTO */
 
+#ifndef OLD_HEIMDAL	/* since allocs the space for us */
         ivector.data = malloc(blocksize);
 
         if (!ivector.data) {
@@ -578,6 +705,7 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
 
         ivector.length = blocksize;
         memset(ivector.data, 0, blocksize);
+#endif /* OLD_HEIMDAL */
 
         /*
          * Finally!  Do the encryption!
@@ -594,6 +722,17 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
             krb5_c_encrypt(kcontext, subkey, KSM_KEY_USAGE_ENCRYPTION,
                            &ivector, &input, &output);
 
+#elif defined OLD_HEIMDAL /* MIT_NEW_CRYPTO */
+
+	krb5_data_zero(&encrypted_scoped_pdu);
+	retcode = krb5_encrypt(kcontext, heim_crypto, KSM_KEY_USAGE_ENCRYPTION,
+			       parms->scopedPdu, parms->scopedPduLen,
+			       &encrypted_scoped_pdu);
+	if (retcode == 0) {
+		encrypted_length = encrypted_scoped_pdu.length;
+		encrypted_data = encrypted_scoped_pdu.data;
+		krb5_data_zero(&encrypted_scoped_pdu);
+	}
 #else                           /* MIT_NEW_CRYPTO */
 
         retcode = krb5_encrypt(kcontext, (krb5_pointer) parms->scopedPdu,
@@ -680,31 +819,74 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
     }
 
     /*
-     * Hardcode checksum type FOR NOW! XXX (but make sure the response
-     * checksum type is the same as the request).
-     *
-     * Not sure what we're supposed to do about checksum negotiation.
+     * If we didn't encrypt the packet, we haven't yet got the subkey.
+     * Get that now.
      */
 
-    if (ksm_state)
-        cksumtype = ksm_state->cksumtype;
-
-    if (!is_keyed_cksum(cksumtype)) {
-        DEBUGMSGTL(("ksm", "Checksum type %d is not a keyed checksum\n",
-                    cksumtype));
-        snmp_set_detail("Checksum is not a keyed checksum");
-        retval = SNMPERR_KRB5;
-        goto error;
+    if (!subkey) {
+        if (ksm_state)
+            retcode = krb5_auth_con_getremotesubkey(kcontext, auth_context,
+                                                    &subkey);
+        else
+            retcode = krb5_auth_con_getlocalsubkey(kcontext, auth_context,
+                                                   &subkey);
+        if (retcode) {
+            DEBUGMSGTL(("ksm", "krb5_auth_con_getlocalsubkey failed: %s\n",
+                        error_message(retcode)));
+            snmp_set_detail(error_message(retcode));
+            retval = SNMPERR_KRB5;
+            goto error;
+        }
+#ifdef OLD_HEIMDAL
+	 retcode = krb5_crypto_init(kcontext, subkey, 0, &heim_crypto);
+        if (retcode) {
+            DEBUGMSGTL(("ksm", "krb5_crypto_init failed: %s\n",
+                        error_message(retcode)));
+            snmp_set_detail(error_message(retcode));
+            retval = SNMPERR_KRB5;
+            goto error;
+        }
+#endif					/* OLD_HEIMDAL */
     }
 
-    if (!is_coll_proof_cksum(cksumtype)) {
-        DEBUGMSGTL(("ksm", "Checksum type %d is not a collision-proof "
-                    "checksum\n", cksumtype));
-        snmp_set_detail("Checksum is not a collision-proof checksum");
-        retval = SNMPERR_KRB5;
-        goto error;
-    }
+    /*
+     * Now, we need to pick the "right" checksum algorithm.  For old
+     * crypto, just pick CKSUMTYPE_RSA_MD5_DES; for new crypto, pick
+     * one of the "approved" ones.
+     */
+
 #ifdef MIT_NEW_CRYPTO
+    retcode = krb5_c_keyed_checksum_types(kcontext, subkey->enctype,
+                                          &numcksumtypes, &cksumtype_array);
+
+    if (retcode) {
+	DEBUGMSGTL(("ksm", "Unable to find appropriate keyed checksum: %s\n",
+		    error_message(retcode)));
+	snmp_set_detail(error_message(retcode));
+        retval = SNMPERR_KRB5;
+        goto error;
+    }
+
+    if (numcksumtypes <= 0) {
+	DEBUGMSGTL(("ksm", "We received a list of zero cksumtypes for this "
+		    "enctype (%d)\n", subkey->enctype));
+	snmp_set_detail("No valid checksum type for this encryption type");
+	retval = SNMPERR_KRB5;
+	goto error;
+    }
+
+    /*
+     * It's not clear to me from the API which checksum you're supposed
+     * to support, so I'm taking a guess at the first one
+     */
+
+    cksumtype = cksumtype_array[0];
+
+    krb5_free_cksumtypes(kcontext, cksumtype_array);
+
+    DEBUGMSGTL(("ksm", "KSM: Choosing checksum type of %d (subkey type "
+		"of %d)\n", cksumtype, subkey->enctype));
+
     retcode = krb5_c_checksum_length(kcontext, cksumtype, &blocksize);
 
     if (retcode) {
@@ -715,22 +897,90 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
         goto error;
     }
 
-    pdu_checksum.length = blocksize;
+    CHECKSUM_LENGTH(&pdu_checksum) = blocksize;
 
-#else                           /* MIT_NEW_CRYPTO */
+#else /* MIT_NEW_CRYPTO */
+    if (ksm_state)
+        cksumtype = ksm_state->cksumtype;
+    else
+#ifdef OLD_HEIMDAL
+    {
+	    /* no way to tell what kind of checksum to use without trying */
+	    retval = krb5_create_checksum(kcontext, heim_crypto, 
+					  KSM_KEY_USAGE_CHECKSUM, 0,
+					  parms->scopedPdu, parms->scopedPduLen,
+					  &pdu_checksum);
+	    if (retval) {
+		    DEBUGMSGTL(("ksm", "Unable to create a checksum: %s\n",
+				error_message(retval)));
+		    snmp_set_detail(error_message(retcode));
+		    retval = SNMPERR_KRB5;
+		    goto error;
+	    }
+	    cksumtype = CHECKSUM_TYPE(&pdu_checksum);
+    }
+#else					/* OLD_HEIMDAL */
+	cksumtype = CKSUMTYPE_RSA_MD5_DES;
+#endif					/* OLD_HEIMDAL */
 
-    pdu_checksum.length = krb5_checksum_size(kcontext, cksumtype);
-    pdu_checksum.checksum_type = cksumtype;
+#ifdef OLD_HEIMDAL
+	if (!krb5_checksum_is_keyed(kcontext, cksumtype)) {
+#else 				/* OLD_HEIMDAL */
+    if (!is_keyed_cksum(cksumtype)) {
+#endif 				/* OLD_HEIMDAL */
+        DEBUGMSGTL(("ksm", "Checksum type %d is not a keyed checksum\n",
+                    cksumtype));
+        snmp_set_detail("Checksum is not a keyed checksum");
+        retval = SNMPERR_KRB5;
+        goto error;
+    }
 
-#endif                          /* MIT_NEW_CRYPTO */
+#ifdef OLD_HEIMDAL
+    if (!krb5_checksum_is_collision_proof(kcontext, cksumtype)) {
+#else 				/* OLD_HEIMDAL */
+    if (!is_coll_proof_cksum(cksumtype)) {
+#endif 				/* OLD_HEIMDAL */
+        DEBUGMSGTL(("ksm", "Checksum type %d is not a collision-proof "
+                    "checksum\n", cksumtype));
+        snmp_set_detail("Checksum is not a collision-proof checksum");
+        retval = SNMPERR_KRB5;
+        goto error;
+    }
+
+#ifdef OLD_HEIMDAL
+    if (CHECKSUM_CONTENTS(&pdu_checksum) != NULL ) {
+	/* we did the bogus checksum--don't need to ask for the size again
+	 * or initialize cksumtype; just free the bits */
+	free(CHECKSUM_CONTENTS(&pdu_checksum));
+	CHECKSUM_CONTENTS(&pdu_checksum) = NULL;
+    }
+    else {
+	retval = krb5_checksumsize(kcontext, cksumtype,
+				   &CHECKSUM_LENGTH(&pdu_checksum));
+	if (retval) {
+	    DEBUGMSGTL(("ksm", "Unable to determine checksum length: %s\n",
+			error_message(retval)));
+	    snmp_set_detail(error_message(retcode));
+	    retval = SNMPERR_KRB5;
+	    goto error;
+	}
+#else			/* OLD_HEIMDAL */
+    CHECKSUM_LENGTH(&pdu_checksum) = krb5_checksum_size(kcontext, cksumtype);
+#endif			/* OLD_HEIMDAL */
+    CHECKSUM_TYPE(&pdu_checksum) = cksumtype;
+#ifdef OLD_HEIMDAL
+    }
+#endif			/* OLD_HEIMDAL */
+
+#endif /* MIT_NEW_CRYPTO */
 
     /*
      * Note that here, we're just leaving blank space for the checksum;
      * we remember where that is, and we'll fill it in later.
      */
 
-    *offset += pdu_checksum.length;
-    memset(*wholeMsg + *parms->wholeMsgLen - *offset, 0, pdu_checksum.length);
+    *offset += CHECKSUM_LENGTH(&pdu_checksum);
+    memset(*wholeMsg + *parms->wholeMsgLen - *offset, 0, CHECKSUM_LENGTH(&pdu_checksum));
 
     cksum_pointer = *wholeMsg + *parms->wholeMsgLen - *offset;
 
@@ -739,7 +989,7 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
                                          (u_char) (ASN_UNIVERSAL |
                                                    ASN_PRIMITIVE |
                                                    ASN_OCTET_STR),
-                                         pdu_checksum.length);
+                                         CHECKSUM_LENGTH(&pdu_checksum));
 
     if (rc == 0) {
         DEBUGMSGTL(("ksm", "Building ksm security parameters failed.\n"));
@@ -821,35 +1071,16 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
      * Now we need to checksum the entire PDU (since it's built).
      */
 
-    pdu_checksum.contents = malloc(pdu_checksum.length);
+#ifndef OLD_HEIMDAL /* since heimdal allocs the mem for us */
+    CHECKSUM_CONTENTS(&pdu_checksum) = malloc(CHECKSUM_LENGTH(&pdu_checksum));
 
-    if (!pdu_checksum.contents) {
+    if (!CHECKSUM_CONTENTS(&pdu_checksum)) {
         DEBUGMSGTL(("ksm", "Unable to malloc %d bytes for checksum\n",
-                    pdu_checksum.length));
+                    CHECKSUM_LENGTH(&pdu_checksum)));
         retval = SNMPERR_MALLOC;
         goto error;
     }
-
-    /*
-     * If we didn't encrypt the packet, we haven't yet got the subkey.
-     * Get that now.
-     */
-
-    if (!subkey) {
-        if (ksm_state)
-            retcode = krb5_auth_con_getremotesubkey(kcontext, auth_context,
-                                                    &subkey);
-        else
-            retcode = krb5_auth_con_getlocalsubkey(kcontext, auth_context,
-                                                   &subkey);
-        if (retcode) {
-            DEBUGMSGTL(("ksm", "krb5_auth_con_getlocalsubkey failed: %s\n",
-                        error_message(retcode)));
-            snmp_set_detail(error_message(retcode));
-            retval = SNMPERR_KRB5;
-            goto error;
-        }
-    }
+#endif					/* ! OLD_HEIMDAL */
 #ifdef MIT_NEW_CRYPTO
 
     input.data = (char *) (*wholeMsg + *parms->wholeMsgLen - *offset);
@@ -858,6 +1089,12 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
                                        KSM_KEY_USAGE_CHECKSUM, &input,
                                        &pdu_checksum);
 
+#elif defined(OLD_HEIMDAL)	/* MIT_NEW_CRYPTO */
+
+	retcode = krb5_create_checksum(kcontext, heim_crypto,
+				       KSM_KEY_USAGE_CHECKSUM, cksumtype,
+				       *wholeMsg + *parms->wholeMsgLen
+				       - *offset, *offset, &pdu_checksum);
 #else                           /* MIT_NEW_CRYPTO */
 
     retcode = krb5_calculate_checksum(kcontext, cksumtype, *wholeMsg +
@@ -878,16 +1115,16 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
 
     DEBUGMSGTL(("ksm", "KSM: Checksum calculation complete.\n"));
 
-    memcpy(cksum_pointer, pdu_checksum.contents, pdu_checksum.length);
+    memcpy(cksum_pointer, CHECKSUM_CONTENTS(&pdu_checksum), CHECKSUM_LENGTH(&pdu_checksum));
 
     DEBUGMSGTL(("ksm", "KSM: Writing checksum of %d bytes at offset %d\n",
-                pdu_checksum.length, cksum_pointer - (*wholeMsg + 1)));
+                CHECKSUM_LENGTH(&pdu_checksum), cksum_pointer - (*wholeMsg + 1)));
 
     DEBUGMSGTL(("ksm", "KSM: Checksum:"));
 
-    for (i = 0; i < pdu_checksum.length; i++)
+    for (i = 0; i < CHECKSUM_LENGTH(&pdu_checksum); i++)
         DEBUGMSG(("ksm", " %02x",
-                  (unsigned int) pdu_checksum.contents[i]));
+                  (unsigned int) CHECKSUM_CONTENTS(&pdu_checksum)[i]));
 
     DEBUGMSG(("ksm", "\n"));
 
@@ -909,11 +1146,11 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
 
   error:
 
-    if (pdu_checksum.contents)
+    if (CHECKSUM_CONTENTS(&pdu_checksum))
 #ifdef MIT_NEW_CRYPTO
         krb5_free_checksum_contents(kcontext, &pdu_checksum);
 #else                           /* MIT_NEW_CRYPTO */
-        free(pdu_checksum.contents);
+        free(CHECKSUM_CONTENTS(&pdu_checksum));
 #endif                          /* MIT_NEW_CRYPTO */
 
     if (ivector.data)
@@ -921,6 +1158,11 @@ ksm_rgenerate_out_msg(struct snmp_secmod_outgoing_params *parms)
 
     if (subkey)
         krb5_free_keyblock(kcontext, subkey);
+
+#ifdef OLD_HEIMDAL /* OLD_HEIMDAL */
+    if (heim_crypto)
+	    krb5_crypto_destroy(kcontext, heim_crypto);
+#endif /* OLD_HEIMDAL */
 
     if (encrypted_data)
         free(encrypted_data);
@@ -967,6 +1209,9 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
     krb5_data       input, output;
     krb5_boolean    valid;
     krb5_enc_data   in_crypt;
+#elif defined OLD_HEIMDAL	/* MIT_NEW_CRYPTO */
+    krb5_data output;
+    krb5_crypto heim_crypto = NULL;
 #else                           /* MIT_NEW_CRYPTO */
     krb5_encrypt_block eblock;
 #endif                          /* MIT_NEW_CRYPTO */
@@ -983,7 +1228,7 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
 
     DEBUGMSGTL(("ksm", "Processing has begun\n"));
 
-    checksum.contents = NULL;
+    CHECKSUM_CONTENTS(&checksum) = NULL;
     ap_req.data = NULL;
     ivector.length = 0;
     ivector.data = NULL;
@@ -1024,7 +1269,8 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
 
     cksumtype = temp;
 
-    if (!valid_cksumtype(cksumtype)) {
+#ifdef MIT_NEW_CRYPTO
+    if (!krb5_c_valid_cksumtype(cksumtype)) {
         DEBUGMSGTL(("ksm", "Invalid checksum type (%d)\n", cksumtype));
 
         retval = SNMPERR_KRB5;
@@ -1032,7 +1278,7 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
         goto error;
     }
 
-    if (!is_keyed_cksum(cksumtype)) {
+    if (!krb5_c_is_keyed_cksum(cksumtype)) {
         DEBUGMSGTL(("ksm", "Checksum type %d is not a keyed checksum\n",
                     cksumtype));
         snmp_set_detail("Checksum is not a keyed checksum");
@@ -1040,15 +1286,53 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
         goto error;
     }
 
-    if (!is_coll_proof_cksum(cksumtype)) {
+    if (!krb5_c_is_coll_proof_cksum(cksumtype)) {
         DEBUGMSGTL(("ksm", "Checksum type %d is not a collision-proof "
                     "checksum\n", cksumtype));
         snmp_set_detail("Checksum is not a collision-proof checksum");
         retval = SNMPERR_KRB5;
         goto error;
     }
+#else /* ! MIT_NEW_CRYPTO */
+#ifdef OLD_HEIMDAL
+    /* kludge */
+    if (krb5_checksumsize(kcontext, cksumtype, &cksumlength)) {
+#else					/* OLD_HEIMDAL */
+    if (!valid_cksumtype(cksumtype)) {
+#endif					/* OLD_HEIMDAL */
+        DEBUGMSGTL(("ksm", "Invalid checksum type (%d)\n", cksumtype));
 
-    checksum.checksum_type = cksumtype;
+        retval = SNMPERR_KRB5;
+        snmp_set_detail("Invalid checksum type");
+        goto error;
+    }
+
+#ifdef OLD_HEIMDAL
+    if (!krb5_checksum_is_keyed(kcontext, cksumtype)) {
+#else					/* OLD_HEIMDAL */
+    if (!is_keyed_cksum(cksumtype)) {
+#endif					/* OLD_HEIMDAL */
+        DEBUGMSGTL(("ksm", "Checksum type %d is not a keyed checksum\n",
+                    cksumtype));
+        snmp_set_detail("Checksum is not a keyed checksum");
+        retval = SNMPERR_KRB5;
+        goto error;
+    }
+
+#ifdef OLD_HEIMDAL
+    if (!krb5_checksum_is_collision_proof(kcontext, cksumtype)) {
+#else					/* OLD_HEIMDAL */
+    if (!is_coll_proof_cksum(cksumtype)) {
+#endif					/* OLD_HEIMDAL */
+        DEBUGMSGTL(("ksm", "Checksum type %d is not a collision-proof "
+                    "checksum\n", cksumtype));
+        snmp_set_detail("Checksum is not a collision-proof checksum");
+        retval = SNMPERR_KRB5;
+        goto error;
+    }
+#endif /* MIT_NEW_CRYPTO */
+
+    CHECKSUM_TYPE(&checksum) = cksumtype;
 
     cksumlength = length;
 
@@ -1063,18 +1347,18 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
         goto error;
     }
 
-    checksum.contents = malloc(cksumlength);
-    if (!checksum.contents) {
+    CHECKSUM_CONTENTS(&checksum) = malloc(cksumlength);
+    if (!CHECKSUM_CONTENTS(&checksum)) {
         DEBUGMSGTL(("ksm", "Unable to malloc %d bytes for checksum.\n",
                     cksumlength));
         retval = SNMPERR_MALLOC;
         goto error;
     }
 
-    memcpy(checksum.contents, current, cksumlength);
+    memcpy(CHECKSUM_CONTENTS(&checksum), current, cksumlength);
 
-    checksum.length = cksumlength;
-    checksum.checksum_type = cksumtype;
+    CHECKSUM_LENGTH(&checksum) = cksumlength;
+    CHECKSUM_TYPE(&checksum) = cksumtype;
 
     /*
      * Zero out the checksum so the validation works correctly
@@ -1136,7 +1420,11 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
      */
 
     if (ap_req.length
+#ifndef HEIMDAL
         && (ap_req.data[0] == 0x6e || ap_req.data[0] == 0x4e)) {
+#else				/* HEIMDAL */
+        && (((char *)ap_req.data)[0] == 0x6e || ((char *)ap_req.data)[0] == 0x4e)) {
+#endif
 
         /*
          * We need to initalize the authorization context, and set the
@@ -1181,7 +1469,7 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
         }
 
         retcode = krb5_rd_req(kcontext, &auth_context, &ap_req, NULL,
-                              NULL, &flags, &ticket);
+                              keytab, &flags, &ticket);
 
         krb5_auth_con_setrcache(kcontext, auth_context, NULL);
 
@@ -1194,7 +1482,7 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
         }
 
         retcode =
-            krb5_unparse_name(kcontext, ticket->enc_part2->client, &cname);
+            krb5_unparse_name(kcontext, TICKET_CLIENT(ticket), &cname);
 
         if (retcode == 0) {
             DEBUGMSGTL(("ksm", "KSM authenticated principal name: %s\n",
@@ -1225,8 +1513,13 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
             goto error;
         }
 
+#ifndef HEIMDAL
     } else if (ap_req.length && (ap_req.data[0] == 0x6f ||
                                  ap_req.data[0] == 0x4f)) {
+#else				/* HEIMDAL */
+    } else if (ap_req.length && (((char *)ap_req.data)[0] == 0x6f ||
+                                 ((char *)ap_req.data)[0] == 0x4f)) {
+#endif				/* HEIMDAL */
         /*
          * Looks like a response; let's see if we've got that auth_context
          * in our cache.
@@ -1278,8 +1571,13 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
         }
 
     } else {
+#ifndef HEIMDAL
         DEBUGMSGTL(("ksm", "Unknown Kerberos message type (%02x)\n",
                     ap_req.data[0]));
+#else 				/* HEIMDAL */
+	 DEBUGMSGTL(("ksm", "Unknown Kerberos message type (%02x)\n",
+                    ((char *)ap_req.data)[0]));
+#endif
         retval = SNMPERR_KRB5;
         snmp_set_detail("Unknown Kerberos message type");
         goto error;
@@ -1292,6 +1590,18 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
     retcode =
         krb5_c_verify_checksum(kcontext, subkey, KSM_KEY_USAGE_CHECKSUM,
                                &input, &checksum, &valid);
+#elif defined(OLD_HEIMDAL)	/* MIT_NEW_CRYPTO */
+    retcode = krb5_crypto_init(kcontext, subkey, 0, &heim_crypto);
+    if (retcode) {
+            DEBUGMSGTL(("ksm", "krb5_crypto_init failed: %s\n",
+                        error_message(retcode)));
+            snmp_set_detail(error_message(retcode));
+            retval = SNMPERR_KRB5;
+            goto error;
+    }
+    retcode = krb5_verify_checksum(kcontext, heim_crypto,
+				   KSM_KEY_USAGE_CHECKSUM, parms->wholeMsg,
+				   parms->wholeMsgLen, &checksum);
 #else                           /* MIT_NEW_CRYPTO */
     retcode = krb5_verify_checksum(kcontext, cksumtype, &checksum,
                                    parms->wholeMsg, parms->wholeMsgLen,
@@ -1366,6 +1676,7 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
             retval = SNMPERR_KRB5;
             goto error;
         }
+#elif defined(OLD_HEIMDAL)	/* MIT_NEW_CRYPTO */
 #else                           /* MIT_NEW_CRYPTO */
 
         blocksize =
@@ -1373,6 +1684,7 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
 
 #endif                          /* MIT_NEW_CRYPTO */
 
+#ifndef OLD_HEIMDAL
         ivector.data = malloc(blocksize);
 
         if (!ivector.data) {
@@ -1400,13 +1712,17 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
         }
 #endif                          /* !MIT_NEW_CRYPTO */
 
+#endif /* ! OLD_HEIMDAL */
+
         if (length > *parms->scopedPduLen) {
             DEBUGMSGTL(("ksm", "KSM not enough room - have %d bytes to "
                         "decrypt but only %d bytes available\n", length,
                         *parms->scopedPduLen));
             retval = SNMPERR_TOO_LONG;
 #ifndef MIT_NEW_CRYPTO
+#ifndef OLD_HEIMDAL
             krb5_finish_key(kcontext, &eblock);
+#endif                          /* ! OLD_HEIMDAL */
 #endif                          /* ! MIT_NEW_CRYPTO */
             goto error;
         }
@@ -1420,6 +1736,14 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
         retcode =
             krb5_c_decrypt(kcontext, subkey, KSM_KEY_USAGE_ENCRYPTION,
                            &ivector, &in_crypt, &output);
+#elif defined (OLD_HEIMDAL)	/* MIT_NEW_CRYPTO */
+	retcode = krb5_decrypt(kcontext, heim_crypto, KSM_KEY_USAGE_ENCRYPTION,
+			       current, length, &output);
+	if (retcode == 0) {
+		*parms->scopedPdu = (char *) output.data;
+		*parms->scopedPduLen = output.length;
+		krb5_data_zero(&output);
+	}
 #else                           /* MIT_NEW_CRYPTO */
 
         retcode = krb5_decrypt(kcontext, (krb5_pointer) current,
@@ -1465,7 +1789,7 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
 
     if (!response) {
 
-        retcode = krb5_unparse_name(kcontext, ticket->enc_part2->client,
+        retcode = krb5_unparse_name(kcontext, TICKET_CLIENT(ticket),
                                     &cname);
 
         if (retcode) {
@@ -1538,8 +1862,13 @@ ksm_process_in_msg(struct snmp_secmod_incoming_params *parms)
     if (subkey)
         krb5_free_keyblock(kcontext, subkey);
 
-    if (checksum.contents)
-        free(checksum.contents);
+#ifdef OLD_HEIMDAL /* OLD_HEIMDAL */
+    if (heim_crypto)
+	    krb5_crypto_destroy(kcontext, heim_crypto);
+#endif /* OLD_HEIMDAL */
+
+    if (CHECKSUM_CONTENTS(&checksum))
+        free(CHECKSUM_CONTENTS(&checksum));
 
     if (ivector.data)
         free(ivector.data);

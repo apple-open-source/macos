@@ -28,14 +28,19 @@
 # test_summary | sh     # so as to actually send e-mail and move log files
 
 # It accepts a few command line arguments.  For example:
-# -o: re-reads logs that have been mailed already (.sum.sent)
-# -t: prevents logs from being renamed
-# -p: prepend specified file (or list of files: -p "a b") to the report
-# -i: append specified file (or list of files: -i "a b") to the report
-# -m: specify the e-mail address to send notes to.  An appropriate default
-#     should be selected from the log files.
-# -f: force reports to be mailed; if omitted, only reports that differ
-#     from the sent.* version are sent.
+if test x"$1" = "x-h"; then
+  cat <<_EOF
+ -o: re-reads logs that have been mailed already (.sum.sent)
+ -t: prevents logs from being renamed
+ -p: prepend specified file (or list of files: -p "a b") to the report
+ -i: append specified file (or list of files: -i "a b") to the report
+ -m: specify the e-mail address to send notes to.  An appropriate default
+     should be selected from the log files.
+ -f: force reports to be mailed; if omitted, only reports that differ
+     from the sent.* version are sent.
+_EOF
+  exit 0
+fi
 
 # Find a good awk.
 if test -z "$AWK" ; then
@@ -88,22 +93,28 @@ if $forcemail || $anychange; then :; else mailto=nobody; fi &&
 cat ./config.status $files |
 $AWK '
 BEGIN {
-  lang="";
+  lang=""; configflags = "";
   address="gcc-testresults@gcc.gnu.org";
   version="gcc";
   print "cat <<'"'"'EOF'"'"' |";
 '${prepend_logs+"  system(\"cat $prepend_logs\"); "}'
 }
-$1 ~ /\/configure$/ {
-    srcdir = $1;
-    gsub(/\/configure$/, "", srcdir);
+($0 ~ /^[^ ]*\/configure / || $0 ~ /^# [^ ]*\/configure /) &&
+configflags == "" {
+    configflags = $0 " ";
+    sub(/^# /, "", configflags);
+    srcdir = configflags;
+    sub(/\/configure .*/, "", srcdir);
     printf "LAST_UPDATED: ";
     system("tail -1 " srcdir "/LAST_UPDATED");
     print "";
 
-    $1 = "configure flags:"; configflags = $0;
-    gsub(/--with-gcc-version-trigger=[^ ]* /, "", configflags);
-    gsub(/ --norecursion/, "", configflags)
+    sub(/^[^ ]*\/configure */, " ", configflags);
+    sub(/ --with-gcc-version-trigger=[^ ]* /, " ", configflags);
+    sub(/ --norecursion /, " ", configflags);
+    sub(/ $/, "", configflags);
+    sub(/^ *$/, " none", configflags);
+    configflags = "configure flags:" configflags;
 }
 /^Running target / { print ""; print; }
 /^Target / { if (host != "") next; else host = $3; }
@@ -116,6 +127,7 @@ $2 == "version" { save = $0; $1 = ""; $2 = ""; version = $0; gsub(/^ */, "", ver
 /\===.*Summary/ { print ""; print; blanks=1; }
 /tests ===/ || /^(Target|Host|Native)/ || $2 == "version" { print; blanks=1; }
 /^(XPASS|FAIL|UNRESOLVED|WARNING|ERROR|# of )/ { print; }
+/^using:/ { print ""; print; print ""; }
 # dumpall != 0 && /^X?(PASS|FAIL|UNTESTED)|^testcase/ { dumpall=0; }
 # dumpall != 0 { print; }
 # /^FAIL/ { dumpall=1; }

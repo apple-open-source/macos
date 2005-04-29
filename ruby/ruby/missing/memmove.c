@@ -1,24 +1,22 @@
-/*
- * memmove --- move memories.
- *
- * We supply this routine for those systems that aren't standard yet.
- */
+/* public domain rewrite of memcmp(3) */
 
-char *
-memmove (dst, src, n)
-     char *dst, *src;
-     int n;
+void *
+memmove (d, s, n)
+    void *d, *s;
+    int n;
 {
-  char *ret = dst;
+    char *dst = d;
+    char *src = s;
+    void *ret = dst;
 
-  if (src < dst) {
-    src += n;
-    dst += n;
-    while (n--)
-      *--dst = *--src;
-  }
-  else if (dst < src)
-    while (n--)
-      *dst++ = *src++;
-  return ret;
+    if (src < dst) {
+	src += n;
+	dst += n;
+	while (n--)
+	    *--dst = *--src;
+    }
+    else if (dst < src)
+	while (n--)
+	    *dst++ = *src++;
+    return ret;
 }

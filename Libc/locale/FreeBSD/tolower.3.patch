@@ -1,0 +1,47 @@
+--- tolower.3.orig	Fri Mar 11 19:44:47 2005
++++ tolower.3	Fri Mar 11 19:52:07 2005
+@@ -40,7 +40,8 @@
+ .Dt TOLOWER 3
+ .Os
+ .Sh NAME
+-.Nm tolower
++.Nm tolower ,
++.Nm tolower_l
+ .Nd upper case to lower case letter conversion
+ .Sh LIBRARY
+ .Lb libc
+@@ -48,6 +49,9 @@
+ .In ctype.h
+ .Ft int
+ .Fn tolower "int c"
++.In xlocale.h
++.Ft int
++.Fn tolower_l "int c" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn tolower
+@@ -62,6 +66,14 @@
+ .Li unsigned char
+ or the value of
+ .Dv EOF .
++.Pp
++While the
++.Fn tolower
++function uses the current locale, the
++.Fn tolower_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ If the argument is an upper-case letter, the
+ .Fn tolower
+@@ -81,7 +93,8 @@
+ .Xr ctype 3 ,
+ .Xr islower 3 ,
+ .Xr multibyte 3 ,
+-.Xr towlower 3
++.Xr towlower 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn tolower

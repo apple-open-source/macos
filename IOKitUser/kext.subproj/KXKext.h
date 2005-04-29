@@ -27,7 +27,8 @@ typedef enum {
     kKXKextIntegrityUnknown = 0,
     kKXKextIntegrityCorrect,
     kKXKextIntegrityKextIsModified,
-    kKXKextIntegrityNoReceipt
+    kKXKextIntegrityNoReceipt,
+	kKXKextIntegrityNotApple
 } KXKextIntegrityState;
 
 /*******************************************************************************

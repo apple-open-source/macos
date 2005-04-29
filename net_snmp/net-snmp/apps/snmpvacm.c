@@ -111,14 +111,12 @@ usage(void)
     fprintf(stderr, " COMMAND\n\n");
     snmp_parse_args_descriptions(stderr);
     fprintf(stderr, "\nsnmpvacm commands:\n");
-    fprintf(stderr,
-            "  createAccess  GROUPNAME [CONTEXTPREFIX] SECURITYMODEL SECURITYLEVEL CONTEXTMATCH READVIEWNAME WRITEVIEWNAME NOTIFYVIEWNAME\n");
-    fprintf(stderr,
-            "  deleteAccess  GROUPNAME [CONTEXTPREFIX] SECURITYMODEL SECURITYLEVEL\n");
-    fprintf(stderr, "  createSec2Group  MODEL SECURITYNAME  GROUPNAME\n");
-    fprintf(stderr, "  deleteSec2Group  MODEL SECURITYNAME\n");
-    fprintf(stderr, "  createView  [-Ce] NAME SUBTREE MASK\n");
-    fprintf(stderr, "  deleteView  NAME SUBTREE\n");
+    fprintf(stderr, "        createAccess     GROUPNAME [CONTEXTPREFIX] SECURITYMODEL SECURITYLEVEL CONTEXTMATCH READVIEWNAME WRITEVIEWNAME NOTIFYVIEWNAME\n");
+    fprintf(stderr, "        deleteAccess     GROUPNAME [CONTEXTPREFIX] SECURITYMODEL SECURITYLEVEL\n");
+    fprintf(stderr, "        createSec2Group  MODEL SECURITYNAME  GROUPNAME\n");
+    fprintf(stderr, "        deleteSec2Group  MODEL SECURITYNAME\n");
+    fprintf(stderr, "  [-Ce] createView       NAME SUBTREE [MASK]\n");
+    fprintf(stderr, "        deleteView       NAME SUBTREE\n");
 }
 
 
@@ -174,8 +172,8 @@ view_oid(oid * it, size_t * len, const char *viewName, char *viewSubtree)
 
     int             itIndex = VIEW_OID_LEN;
 
-    if (!read_objid(viewSubtree, c_oid, &c_oid_length)) {
-        printf("Error parsing subtree\n");
+    if (!snmp_parse_oid(viewSubtree, c_oid, &c_oid_length)) {
+        printf("Error parsing subtree (%s)\n", viewSubtree);
         exit(1);
     }
 
@@ -245,6 +243,7 @@ main(int argc, char *argv[])
     int             secModel, secLevel, contextMatch, val, i = 0;
     char           *mask, *groupName, *prefix;
     u_char          viewMask[VACMSTRINGLEN];
+    char           *st;
 
 
     /*
@@ -284,7 +283,7 @@ main(int argc, char *argv[])
     pdu = snmp_pdu_create(SNMP_MSG_SET);
 
     if (arg >= argc) {
-        fprintf(stderr, "Please specify a opreation to perform.\n");
+        fprintf(stderr, "Please specify a operation to perform.\n");
         usage();
         exit(1);
     }
@@ -319,7 +318,7 @@ main(int argc, char *argv[])
          *
          */
     {
-        if (++arg + 3 > argc) {
+        if (++arg + 2 > argc) {
             fprintf(stderr, "You must specify name, subtree and mask\n");
             usage();
             exit(1);
@@ -332,22 +331,26 @@ main(int argc, char *argv[])
         snmp_pdu_add_variable(pdu, vacmViewTreeFamilyStatus, name_length,
                               ASN_INTEGER, (u_char *) & longvar,
                               sizeof(longvar));
-
         /*
          * Mask
          */
-        mask = argv[arg + 2];
-        for (mask = strtok(mask, ".:"); mask; mask = strtok(NULL, ".:")) {
-            if (i >= sizeof(viewMask)) {
-                printf("MASK too long\n");
-                exit(1);
+        if (arg + 3 == argc) {
+            mask = argv[arg + 2];
+            for (mask = strtok_r(mask, ".:", &st); mask; mask = strtok_r(NULL, ".:", &st)) {
+                if (i >= sizeof(viewMask)) {
+                    printf("MASK too long\n");
+                    exit(1);
+                }
+                if (sscanf(mask, "%x", &val) == 0) {
+                    printf("invalid MASK\n");
+                    exit(1);
+                }
+                viewMask[i] = val;
+                i++;
             }
-            if (sscanf(mask, "%x", &val) == 0) {
-                printf("invalid MASK\n");
-                exit(1);
-            }
-            viewMask[i] = val;
-            i++;
+	} else {
+            for (i=0 ; i < ((int)name_length+7)/8; i++)
+                viewMask[i] = (u_char)0xff;
         }
         view_oid(vacmViewTreeFamilyMask, &name_length, argv[arg],
                  argv[arg + 1]);

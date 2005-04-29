@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:53:36 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/Xserver/mi/Imakefile,v 3.34 2002/05/22 21:38:31 herrb Exp $
+XCOMM $XFree86: xc/programs/Xserver/mi/Imakefile,v 3.35 2003/04/21 12:32:13 sven Exp $
 
 #include <Server.tmpl>
 
@@ -85,3 +85,4 @@ InstallDriverSDKNonExecFile(miline.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(mipointer.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(mipointrst.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(mizerarc.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(micoord.h,$(DRIVERSDKINCLUDEDIR))

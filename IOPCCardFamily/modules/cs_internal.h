@@ -48,7 +48,11 @@ typedef struct eraseq_t {
 #define CLIENT_MAGIC 	0x51E6
 typedef struct client_t {
     u_short		client_magic;
+#ifdef __MACOSX__
+    cs_socket_t		Socket;
+#else
     socket_t		Socket;
+#endif
     u_char		Function;
     dev_info_t		dev_info;
     u_int		Attributes;
@@ -294,7 +298,11 @@ void pci_fixup_init(void);
 void pci_fixup_done(void);
 
 #define MAX_SOCK 8
+#ifdef __MACOSX__
+extern cs_socket_t sockets;
+#else
 extern socket_t sockets;
+#endif
 extern socket_info_t *socket_table[MAX_SOCK];
 
 #ifdef HAS_PROC_BUS

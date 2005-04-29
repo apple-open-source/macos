@@ -40,11 +40,22 @@
 #endif	/* hpux */
 #endif /* HAVE_NETINET_IN_H */
 
+#ifdef APPLE_KDC_MODS
+int kdc_update_pws( const char *in_user_principle, int in_error, int inCheck);
+#endif
+
 #include "kdc_util.h"
 #include "policy.h"
 #include "adm.h"
 #include "adm_proto.h"
 #include "extern.h"
+
+#define     AS_REQ_DEBUG    0
+#if	    AS_REQ_DEBUG
+#define     asReqDebug(args...)       printf(args)
+#else
+#define     asReqDebug(args...)
+#endif
 
 static krb5_error_code prepare_error_as (krb5_kdc_req *, int, krb5_data *, 
 					 krb5_data **, const char *);
@@ -80,6 +91,9 @@ process_as_req(krb5_kdc_req *request, const krb5_fulladdr *from,
     char rep_etypestr[128];
     char fromstringbuf[70];
 
+    asReqDebug("process_as_req top realm %s name %s\n", 
+	request->client->realm.data, request->client->data->data);
+	
     ticket_reply.enc_part.ciphertext.data = 0;
     e_data.data = 0;
     encrypting_key.contents = 0;
@@ -224,35 +238,7 @@ process_as_req(krb5_kdc_req *request, const krb5_fulladdr *from,
 		min(enc_tkt_reply.times.starttime + server.max_life,
 		    enc_tkt_reply.times.starttime + max_life_for_realm)));
 
-    if (isflagset(request->kdc_options, KDC_OPT_RENEWABLE_OK) &&
-	!isflagset(client.attributes, KRB5_KDB_DISALLOW_RENEWABLE) &&
-	(enc_tkt_reply.times.endtime < request->till)) {
-
-	/* we set the RENEWABLE option for later processing */
-
-	setflag(request->kdc_options, KDC_OPT_RENEWABLE);
-	request->rtime = request->till;
-    }
-    rtime = (request->rtime == 0) ? kdc_infinity : request->rtime;
-
-    if (isflagset(request->kdc_options, KDC_OPT_RENEWABLE)) {
-	/*
-	 * XXX Should we squelch the output renew_till to be no
-	 * earlier than the endtime of the ticket? 
-	 */
-	setflag(enc_tkt_reply.flags, TKT_FLG_RENEWABLE);
-	enc_tkt_reply.times.renew_till =
-	    min(rtime, enc_tkt_reply.times.starttime +
-		       min(client.max_renewable_life,
-			   min(server.max_renewable_life,
-			       max_renewable_life_for_realm)));
-    } else
-	enc_tkt_reply.times.renew_till = 0; /* XXX */
-
-    /* starttime is optional, and treated as authtime if not present.
-       so we can nuke it if it matches */
-    if (enc_tkt_reply.times.starttime == enc_tkt_reply.times.authtime)
-	enc_tkt_reply.times.starttime = 0;
+    /* delay further time-related processing until after preauth check */
 
     enc_tkt_reply.caddrs = request->addresses;
     enc_tkt_reply.authorization_data = 0;
@@ -285,6 +271,36 @@ process_as_req(krb5_kdc_req *request, const krb5_fulladdr *from,
 	    goto errout;
 	} 
     }
+
+    if (isflagset(request->kdc_options, KDC_OPT_RENEWABLE_OK) &&
+	!isflagset(client.attributes, KRB5_KDB_DISALLOW_RENEWABLE) &&
+	(enc_tkt_reply.times.endtime < request->till)) {
+
+	/* we set the RENEWABLE option for later processing */
+
+	setflag(request->kdc_options, KDC_OPT_RENEWABLE);
+	request->rtime = request->till;
+    }
+    rtime = (request->rtime == 0) ? kdc_infinity : request->rtime;
+
+    if (isflagset(request->kdc_options, KDC_OPT_RENEWABLE)) {
+	/*
+	 * XXX Should we squelch the output renew_till to be no
+	 * earlier than the endtime of the ticket? 
+	 */
+	setflag(enc_tkt_reply.flags, TKT_FLG_RENEWABLE);
+	enc_tkt_reply.times.renew_till =
+	    min(rtime, enc_tkt_reply.times.starttime +
+		       min(client.max_renewable_life,
+			   min(server.max_renewable_life,
+			       max_renewable_life_for_realm)));
+    } else
+	enc_tkt_reply.times.renew_till = 0; /* XXX */
+
+    /* starttime is optional, and treated as authtime if not present.
+       so we can nuke it if it matches */
+    if (enc_tkt_reply.times.starttime == enc_tkt_reply.times.authtime)
+	enc_tkt_reply.times.starttime = 0;
 
     /*
      * Final check before handing out ticket: If the client requires
@@ -389,6 +405,9 @@ process_as_req(krb5_kdc_req *request, const krb5_fulladdr *from,
 	goto errout;
     }
 
+    asReqDebug("process_as_req reply realm %s name %s\n", 
+	reply.client->realm.data, reply.client->data->data);
+	
     /* now encode/encrypt the response */
 
     reply.enc_part.enctype = encrypting_key.enctype;
@@ -404,6 +423,18 @@ process_as_req(krb5_kdc_req *request, const krb5_fulladdr *from,
 	goto errout;
     }
     
+#ifdef APPLE_KDC_MODS
+    /*  Add code that checks the pws for account validity LAW */
+    if(kdc_notify_pws_apple){
+    	errcode = kdc_update_pws(cname, 0, 1);
+    	if (errcode) {
+			status = "CHECK_PWS_ACCT";
+			goto errout;
+    	}
+    }
+#endif
+    	
+   
     /* these parts are left on as a courtesy from krb5_encode_kdc_rep so we
        can use them in raw form if needed.  But, we don't... */
     memset(reply.enc_part.ciphertext.data, 0, reply.enc_part.ciphertext.length);
@@ -428,6 +459,15 @@ process_as_req(krb5_kdc_req *request, const krb5_fulladdr *from,
 #endif	/* KRBCONF_KDC_MODIFIES_KDB */
 
 errout:
+
+#ifdef APPLE_KDC_MODS
+    /* call code to notify PWS of the failure iff not NEEDS_Preauth	*/
+    if(kdc_notify_pws_apple){
+    	if((errcode != KRB5KDC_ERR_PREAUTH_REQUIRED ) && (errcode != KRB_AP_ERR_METHOD))
+    		kdc_update_pws(cname, errcode, 0);
+    }
+#endif
+
     if (status)
         krb5_klog_syslog(LOG_INFO, "AS_REQ (%s) %s: %s: %s for %s%s%s",
 			 ktypestr,
@@ -445,8 +485,10 @@ errout:
 	    
 	errcode = prepare_error_as(request, errcode, &e_data, response,
 				   status);
+    
     }
 
+	
     if (encrypting_key.contents)
 	krb5_free_keyblock_contents(kdc_context, &encrypting_key);
     if (reply.padata)

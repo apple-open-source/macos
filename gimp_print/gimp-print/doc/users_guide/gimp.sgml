@@ -384,18 +384,6 @@ space and prints more slowly, but does not require significantly more
 processing time.
        </para>
      </sect4>
-     <sect4><title>Microweave</title>
-       <para>
-       Certain Epson printers (older models mostly) support a printing
-       mode called <emphasis>Microweave</emphasis>.  This mode uses
-       special software within the printer to improve the print quality.
-       Microweave print modes will usually produce better quality
-       output than non-Microweave modes, with only a small performance
-       penalty.  If Microweave is not listed at your chosen
-       resolution, fear not.  In those cases, the non-Microweave print
-       modes offer similar printing quality improvements.
-       </para>
-     </sect4>
      <sect4><title>DMT</title>
        <para>
        DMT is an acronym which stands for <emphasis>D</emphasis>ot

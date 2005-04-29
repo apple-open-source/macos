@@ -1,21 +1,21 @@
 ;; Machine description for GNU compiler, VAX Version
 ;; Copyright (C) 1987, 1988, 1991, 1994, 1995, 1996, 1998, 1999, 2000, 2001,
-;; 2002 Free Software Foundation, Inc.
+;; 2002, 2004 Free Software Foundation, Inc.
 
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
@@ -193,9 +193,6 @@
   ""
   "*
 {
-  if (operands[1] == const1_rtx && reg_was_0_p (insn, operands[0]))
-    return \"incl %0\";
-
   if (GET_CODE (operands[1]) == SYMBOL_REF || GET_CODE (operands[1]) == CONST)
     {
       if (push_operand (operands[0], SImode))
@@ -230,9 +227,6 @@
   ""
   "*
 {
-  if (operands[1] == const1_rtx && reg_was_0_p (insn, operands[0]))
-    return \"incw %0\";
-
   if (GET_CODE (operands[1]) == CONST_INT)
     {
       int i = INTVAL (operands[1]);
@@ -275,9 +269,6 @@
   ""
   "*
 {
-  if (operands[1] == const1_rtx && reg_was_0_p (insn, operands[0]))
-    return \"incb %0\";
-
   if (GET_CODE (operands[1]) == CONST_INT)
     {
       int i = INTVAL (operands[1]);
@@ -307,15 +298,15 @@
 }")
 
 ;; This is here to accept 4 arguments and pass the first 3 along
-;; to the movstrhi1 pattern that really does the work.
-(define_expand "movstrhi"
+;; to the movmemhi1 pattern that really does the work.
+(define_expand "movmemhi"
   [(set (match_operand:BLK 0 "general_operand" "=g")
 	(match_operand:BLK 1 "general_operand" "g"))
    (use (match_operand:HI 2 "general_operand" "g"))
    (match_operand 3 "" "")]
   ""
   "
-  emit_insn (gen_movstrhi1 (operands[0], operands[1], operands[2]));
+  emit_insn (gen_movmemhi1 (operands[0], operands[1], operands[2]));
   DONE;
 ")
 
@@ -323,7 +314,7 @@
 ;; but it should suffice
 ;; that anything generated as this insn will be recognized as one
 ;; and that it won't successfully combine with anything.
-(define_insn "movstrhi1"
+(define_insn "movmemhi1"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
 	(match_operand:BLK 1 "memory_operand" "m"))
    (use (match_operand:HI 2 "general_operand" "g"))

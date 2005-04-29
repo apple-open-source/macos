@@ -3,13 +3,13 @@ XCOMM $Xorg: Imakefile,v 1.4 2000/08/17 19:54:17 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/xdm/config/Imakefile,v 1.12 2002/12/07 20:20:16 herrb Exp $
+XCOMM $XFree86: xc/programs/xdm/config/Imakefile,v 1.15 2004/01/09 00:25:25 dawes Exp $
 
 SERVERSTYPE = XdmServersType
 
 all:: Xservers.ws xdm-config Xservers Xresources
 
-#if defined(i386Architecture) && (defined(NetBSDArchitecture) || defined(OpenBSDArchitecture))
+#if defined(i386Architecture) && (defined(KNetBSDArchitecture) || defined(KOpenBSDArchitecture))
 DEFAULTVT=vt05
 #endif
 
@@ -22,6 +22,8 @@ DEFAULTVT=vt7
 # define XdmbwPixmap XFree86bw.xpm
 #endif
 
+CHOOSERPATH = $(XDMDIR)/chooser
+
 XPM_DEFINES=-DXPM -DBITMAPDIR=$(XDMDIR)/pixmaps -DXDM_PIXMAP=XdmPixmap\ @@\
 	-DXDM_BWPIXMAP=XdmbwPixmap
 
@@ -32,14 +34,14 @@ XDMPIDDIR = $(VARRUNDIR)
 XDMPIDDIR = $(XDMDIR)
 #endif
 
-#if defined(OpenBSDArchitecture) || defined(NetBSDArchitecture) || defined(FreeBSDArchitecture)
+#if defined(OpenBSDArchitecture) || defined(NetBSDArchitecture) || defined(FreeBSDArchitecture) || defined(DarwinArchitecture)
 SU = "su -m"
 #else
 SU = su
 #endif
 
 CppFileTarget(Xservers.ws,Xserv.ws.cpp,-DBINDIR=$(BINDIR) -DDEFAULTVT=$(DEFAULTVT),NullParameter)
-CppFileTarget(xdm-config,xdm-conf.cpp,-DXDMDIR=$(XDMDIR) -DXDMLOGDIR=$(XDMLOGDIR) -DXDMPIDDIR=$(XDMPIDDIR) -DSU=$(SU),NullParameter)
+CppFileTarget(xdm-config,xdm-conf.cpp,-DXDMDIR=$(XDMDIR) -DXDMLOGDIR=$(XDMLOGDIR) -DXDMPIDDIR=$(XDMPIDDIR) -DSU=$(SU) -DCHOOSERPATH=$(CHOOSERPATH),NullParameter)
 CppFileTarget(Xresources,Xres.cpp,$(XPM_DEFINES),NullParameter)
 
 LinkFile(Xservers,Xservers.$(SERVERSTYPE))

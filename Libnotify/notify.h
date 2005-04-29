@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 2003 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,7 +29,7 @@
 #include <stdint.h>
 #include <mach/message.h>
 
-/*
+/*! @header
  * These routines allow processes to exchange stateless notification events.
  *
  * Notifications are associated with names in a namespace shared by all
@@ -59,7 +58,7 @@
  * This behavior may vary in future releases.  
  */
 
-/*
+/*! @defineblock Status Codes
  * Status codes returned by the API.
  */
 #define NOTIFY_STATUS_OK 0
@@ -71,8 +70,9 @@
 #define NOTIFY_STATUS_INVALID_REQUEST 6
 #define NOTIFY_STATUS_NOT_AUTHORIZED 7
 #define NOTIFY_STATUS_FAILED 1000000
+/*! @/defineblock */
 
-/*
+/*!
  * Flag bits used for registration.
  */
 #define NOTIFY_REUSE 0x00000001
@@ -80,7 +80,7 @@
 
 __BEGIN_DECLS
 
-/* 
+/*!
  * Post a notification for a name.
  *
  * This is the only call that is required for a notification producer.
@@ -88,35 +88,33 @@ __BEGIN_DECLS
  */
 uint32_t notify_post(const char *name);
 
-/*
+/*!
  * Creates a registration token be used with notify_check(),
  * but no active notifications will be delivered.
  *
- * Input parameter
- *     name - notification name
- * Output parameter
- *     out_token - registration token
- * Returns status.
+ * @param name
+ *    (input) notification name
+ * @param out_token
+ *    (output) registration token
+ * @result Returns status.
  */
 uint32_t notify_register_check(const char *name, int *out_token);
 
-/*
+/*!
  * Request notification delivery by UNIX signal.
  *
  * A client may request signal notification for multiple names.  After a signal
  * is delivered, the notify_check() routine may be called with each notification 
  * token to determine which name (if any) generated the signal notification.
  *
- * Input parameters
- *     name - notification name
- *     sig  - signal number (see signal(3))
- * Output parameter
- *     out_token - notification token
- * Returns status.
+ * @param name (input) notification name
+ * @param sig (input) signal number (see signal(3))
+ * @param out_token (output) notification token
+ * @result Returns status.
  */
 uint32_t notify_register_signal(const char *name, int sig, int *out_token);
 
-/*
+/*!
  * Request notification by mach message.  
  *
  * Notifications are delivered by an empty message sent to a mach port.
@@ -138,13 +136,13 @@ uint32_t notify_register_signal(const char *name, int sig, int *out_token);
  * the msgh_id value may be used to determine which name generated
  * the notification.
  *
- * Input parameter
- *     name - notification name
- * Output parameter
- *     out_token - notification token
- * Input/Output parameter
- *     notify_port - pointer to a mach port
- * Returns status.
+ * @param name
+ *     (input) notification name
+ * @param  out_token
+ *     (output) notification token
+ * @param  notify_port
+ *     (input/output) pointer to a mach port
+ * @result Returns status.
  */
 uint32_t notify_register_mach_port(const char *name, mach_port_t *notify_port, int flags, int *out_token);
 
@@ -168,17 +166,17 @@ uint32_t notify_register_mach_port(const char *name, mach_port_t *notify_port, i
  * file descriptor.  The value will match the notification token
  * for which the notification was generated.
  *
- * Input parameter
- *     name - notification name
- * Output parameter
- *     out_token - notification token
- * Input/Output parameter
- *     notify_fd - pointer to a file descriptor
- * Returns status.
+ * @param name
+ *     (input) notification name
+ * @param out_token
+ *     (output) notification token
+ * @param notify_fd
+ *     (input/output) pointer to a file descriptor
+ * @result Returns status.
  */
 uint32_t notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int *out_token);
 
-/*
+/*!
  * Check if any notifications have been posted.
  *
  * Output parameter check is set to 0 for false, 1 for true.  Returns status.
@@ -189,23 +187,23 @@ uint32_t notify_register_file_descriptor(const char *name, int *notify_fd, int f
  * notify_post() for a name and then calls notify_check() for a token associated
  * with that name.
  *
- * Input parameter
- *     token - notification token
- * Output parameter
- *     check - true/false indication
- * Returns status.
+ * @param token
+ *     (input)notification token
+ * @param check
+ *     (output) true/false indication
+ * @result Returns status.
  */
 uint32_t notify_check(int token, int *check);
 
-/*
+/*!
  * Cancel notification and free resources associated with a notification
  * token.  Mach ports and file descriptor associated with a token are released 
  * (deallocated or closed) when all registration tokens associated with 
  * the port or file descriptor have been cancelled.
  *
- * Input parameter
- *     token - notification token
- * Returns status.
+ * @param token
+ *     (input) notification token
+ * @result Returns status.
  */
 uint32_t notify_cancel(int token);
 

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeClipO.man,v 1.2 2001/01/27 18:20:04 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeClipO.man,v 1.3 2003/04/28 22:17:56 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,35 +144,16 @@
 .SH NAME
 XSetClipOrigin, XSetClipMask, XSetClipRectangles \- GC convenience routines
 .SH SYNTAX
-XSetClipOrigin\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIclip_x_origin\fP\^, \fIclip_y_origin\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIclip_x_origin\fP\^, \fIclip_y_origin\fP\^;
-.LP
-XSetClipMask\^(\^\fIdisplay\fP, \fIgc\fP, \fIpixmap\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      Pixmap \fIpixmap\fP\^;
-.LP
-XSetClipRectangles\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIclip_x_origin\fP\^, \fIclip_y_origin\fP\^, \fIrectangles\fP\^, \fIn\fP\^, \fIordering\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIclip_x_origin\fP\^, \fIclip_y_origin\fP\^;
-.br
-      XRectangle \fIrectangles\fP[]\^;
-.br
-      int \fIn\fP\^;
-.br
-      int \fIordering\fP\^;
+.HP
+int XSetClipOrigin\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, int
+\fIclip_x_origin\fP\^, int \fIclip_y_origin\fP\^); 
+.HP
+int XSetClipMask\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, Pixmap
+\fIpixmap\fP\^); 
+.HP
+int XSetClipRectangles\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, int
+\fIclip_x_origin\fP\^, int \fIclip_y_origin\fP\^, XRectangle
+\fIrectangles\fP[]\^, int \fIn\fP\^, int \fIordering\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

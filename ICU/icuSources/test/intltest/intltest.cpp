@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -22,13 +22,17 @@
 #include "unicode/smpdtfmt.h"
 #include "unicode/ucnv.h"
 #include "unicode/uclean.h"
+#include "unicode/timezone.h"
+#include "unicode/curramt.h"
+#include "unicode/putil.h"
 
 #include "intltest.h"
 #include "caltztst.h"
 #include "itmajor.h"
-#include "tsmutex.h"
-
+#include "cstring.h"
 #include "umutex.h"
+#include "uassert.h"
+#include "cmemory.h"
 
 #ifdef XP_MAC_CONSOLE
 #include <console.h>
@@ -49,16 +53,6 @@ static UnicodeString errorList;
 UnicodeString
 UCharToUnicodeString(UChar c)
 { return UnicodeString(c); }
-
-// [LIU] Just to get things working
-UnicodeString
-operator+(const UnicodeString& left,
-      const UnicodeString& right)
-{
-    UnicodeString str(left);
-    str += right;
-    return str;
-}
 
 // [rtg] Just to get things working
 UnicodeString
@@ -87,6 +81,22 @@ operator+(const UnicodeString& left,
     return left + buffer;
 }
 
+UnicodeString
+Int64ToUnicodeString(int64_t num)
+{
+    char buffer[64];    // nos changed from 10 to 64
+    char danger = 'p';  // guard against overrunning the buffer (rtg)
+
+#ifdef WIN32
+    sprintf(buffer, "%I64d", num);
+#else
+    sprintf(buffer, "%lld", num);
+#endif
+    assert(danger == 'p');
+
+    return buffer;
+}
+
 // [LIU] Just to get things working
 UnicodeString
 operator+(const UnicodeString& left,
@@ -95,7 +105,11 @@ operator+(const UnicodeString& left,
     char buffer[64];   // was 32, made it arbitrarily bigger (rtg)
     char danger = 'p'; // guard against overrunning the buffer (rtg)
 
-    sprintf(buffer, "%.30g", num); // nos changed from 99 to 30
+    // IEEE floating point has 52 bits of mantissa, plus one assumed bit
+    //  53*log(2)/log(10) = 15.95
+    // so there is no need to show more than 16 digits. [alan]
+
+    sprintf(buffer, "%.16g", num);
     assert(danger == 'p');
 
     return left + buffer;
@@ -104,10 +118,9 @@ operator+(const UnicodeString& left,
 #if !UCONFIG_NO_FORMATTING
 
 /**
- * Originally coded this as operator+, but that makes the expression
- * + char* ambiguous. - liu
+ * Return a string display for for this, without surrounding braces.
  */
-UnicodeString toString(const Formattable& f) {
+UnicodeString _toString(const Formattable& f) {
     UnicodeString s;
     switch (f.getType()) {
     case Formattable::kDate:
@@ -117,44 +130,74 @@ UnicodeString toString(const Formattable& f) {
             if (U_SUCCESS(status)) {
                 FieldPosition pos;
                 fmt.format(f.getDate(), s, pos);
-                s.insert(0, "[Date:");
-                s.insert(s.length(), (UChar)0x005d);
+                s.insert(0, "Date:");
             } else {
-                s = UnicodeString("[Error creating date format]");
+                s = UnicodeString("Error creating date format]");
             }
         }
         break;
     case Formattable::kDouble:
-        s = UnicodeString("[Double:") + f.getDouble() + "]";
+        s = UnicodeString("double:") + f.getDouble();
         break;
     case Formattable::kLong:
-        s = UnicodeString("[Long:") + f.getLong() + "]";
+        s = UnicodeString("long:") + f.getLong();
         break;
+
+    case Formattable::kInt64:
+        s = UnicodeString("int64:") + Int64ToUnicodeString(f.getInt64());
+        break;
+
     case Formattable::kString:
         f.getString(s);
-        s.insert(0, "[String:");
-        s.insert(s.length(), (UChar)0x005d);
+        s.insert(0, "String:");
         break;
     case Formattable::kArray:
         {
             int32_t i, n;
             const Formattable* array = f.getArray(n);
-            s.insert(0, UnicodeString("[Array:"));
+            s.insert(0, UnicodeString("Array:"));
             UnicodeString delim(", ");
             for (i=0; i<n; ++i) {
                 if (i > 0) {
                     s.append(delim);
                 }
-                s = s + toString(array[i]);
+                s = s + _toString(array[i]);
             }
-            s.append(UChar(0x005d));
         }
+        break;
+    case Formattable::kObject:
+        if (f.getObject()->getDynamicClassID() ==
+            CurrencyAmount::getStaticClassID()) {
+            const CurrencyAmount& c = (const CurrencyAmount&) *f.getObject();
+            s = _toString(c.getNumber()) + " " + UnicodeString(c.getISOCurrency());
+        } else {
+            s = UnicodeString("Unknown UObject");
+        }
+        break;
+    default:
+        s = UnicodeString("Unknown Formattable type=") + (int32_t)f.getType();
         break;
     }
     return s;
 }
 
+/**
+ * Originally coded this as operator+, but that makes the expression
+ * + char* ambiguous. - liu
+ */
+UnicodeString toString(const Formattable& f) {
+    UnicodeString s((UChar)91/*[*/);
+    s.append(_toString(f));
+    s.append((UChar)0x5d/*]*/);
+    return s;
+}
+
 #endif
+
+// useful when operator+ won't cooperate
+UnicodeString toString(int32_t n) {
+    return UnicodeString() + (long)n;
+}
 
 // stephen - cleaned up 05/05/99
 UnicodeString operator+(const UnicodeString& left, char num)
@@ -381,7 +424,7 @@ void IntlTest::setICU_DATA() {
     //              may not be the same as the source directory, depending on
     //              the configure options used.  At any rate,
     //              set the data path to the built data from this directory.
-    //              The value is complete with quotes, so it can be used 
+    //              The value is complete with quotes, so it can be used
     //              as-is as a string constant.
 
 #if defined (U_TOPBUILDDIR)
@@ -498,47 +541,6 @@ void it_errln( UnicodeString message )
         IntlTest::gTest->errln( message );
 }
 
-IntlTest& operator<<(IntlTest& test, const UnicodeString&   string)
-{
-/* NULL shouldn't happen */
-//    if (&test == NULL)
-//        return *((IntlTest*) NULL);
-    test.log( string );
-    return test;
-}
-
-IntlTest& operator<<(IntlTest& test, const char*    string)
-{
-/* NULL shouldn't happen */
-//    if (&test == NULL)
-//        return *((IntlTest*) NULL);
-    test.log( string );
-    return test;
-}
-
-IntlTest& operator<<(IntlTest& test, const int32_t num)
-{
-/* NULL shouldn't happen */
-//    if (&test == NULL)
-//        return *((IntlTest*) NULL);
-    char convert[20];
-    sprintf(convert, "%li", (long)num);
-    test.log(convert);
-    return test;
-}
-
-IntlTest& endl( IntlTest& test )
-{
-    test.logln();
-    return test;
-}
-
-IntlTest& operator<<(IntlTest& test,  IntlTest& ( * _f)(IntlTest&))
-{
-    (*_f)(test);
-    return test;
-}
-
 
 IntlTest::IntlTest()
 {
@@ -626,7 +628,7 @@ UBool IntlTest::runTest( char* name, char* par )
     }
 
     if (!name || (name[0] == 0) || (strcmp(name, "*") == 0)) {
-        rval = runTestLoop( NULL, NULL );
+        rval = runTestLoop( NULL, par );
 
     }else if (strcmp( name, "LIST" ) == 0) {
         this->usage();
@@ -669,7 +671,7 @@ UBool IntlTest::runTestLoop( char* testname, char* par )
     IntlTest* saveTest = gTest;
     gTest = this;
     do {
-        this->runIndexedTest( index, FALSE, name );
+        this->runIndexedTest( index, FALSE, name, par );
         if (!name || (name[0] == 0))
             break;
         if (!testname) {
@@ -790,7 +792,7 @@ void IntlTest::errln( const UnicodeString &message )
 /* convenience functions that include sprintf formatting */
 void IntlTest::log(const char *fmt, ...)
 {
-    char buffer[512];
+    char buffer[4000];
     va_list ap;
 
     va_start(ap, fmt);
@@ -804,7 +806,7 @@ void IntlTest::log(const char *fmt, ...)
 
 void IntlTest::logln(const char *fmt, ...)
 {
-    char buffer[512];
+    char buffer[4000];
     va_list ap;
 
     va_start(ap, fmt);
@@ -819,7 +821,7 @@ void IntlTest::logln(const char *fmt, ...)
 /* convenience functions that include sprintf formatting */
 void IntlTest::info(const char *fmt, ...)
 {
-    char buffer[512];
+    char buffer[4000];
     va_list ap;
 
     va_start(ap, fmt);
@@ -831,7 +833,7 @@ void IntlTest::info(const char *fmt, ...)
 
 void IntlTest::infoln(const char *fmt, ...)
 {
-    char buffer[512];
+    char buffer[4000];
     va_list ap;
 
     va_start(ap, fmt);
@@ -843,7 +845,7 @@ void IntlTest::infoln(const char *fmt, ...)
 
 void IntlTest::err(const char *fmt, ...)
 {
-    char buffer[512];
+    char buffer[4000];
     va_list ap;
 
     va_start(ap, fmt);
@@ -854,7 +856,7 @@ void IntlTest::err(const char *fmt, ...)
 
 void IntlTest::errln(const char *fmt, ...)
 {
-    char buffer[512];
+    char buffer[4000];
     va_list ap;
 
     va_start(ap, fmt);
@@ -893,7 +895,7 @@ void IntlTest::LL_message( UnicodeString message, UBool newline )
     // stream out the indentation string first if necessary
     length = indent.extract(1, indent.length(), buffer, sizeof(buffer));
     if (length > 0) {
-        fwrite(buffer, sizeof(*buffer), length, testoutfp);
+        fwrite(buffer, sizeof(*buffer), length, (FILE *)testoutfp);
     }
 
     // replace each LineFeed by the indentation string
@@ -902,17 +904,17 @@ void IntlTest::LL_message( UnicodeString message, UBool newline )
     // stream out the message
     length = message.extract(0, message.length(), buffer, sizeof(buffer));
     if (length > 0) {
-        fwrite(buffer, sizeof(*buffer), length, testoutfp);
+        fwrite(buffer, sizeof(*buffer), length, (FILE *)testoutfp);
     }
 
     if (newline) {
         char newLine = '\n';
-        fwrite(&newLine, sizeof(newLine), 1, testoutfp);
+        fwrite(&newLine, sizeof(newLine), 1, (FILE *)testoutfp);
     }
 
     // A newline usually flushes the buffer, but
     // flush the message just in case of a core dump.
-    fflush(testoutfp);
+    fflush((FILE *)testoutfp);
 }
 
 /**
@@ -959,7 +961,7 @@ int
 main(int argc, char* argv[])
 {
     UBool syntax = FALSE;
-    UBool all = TRUE;
+    UBool all = FALSE;
     UBool verbose = FALSE;
     UBool no_err_msg = FALSE;
     UBool quick = TRUE;
@@ -968,74 +970,68 @@ main(int argc, char* argv[])
     UBool warnOnMissingData = FALSE;
     UErrorCode errorCode = U_ZERO_ERROR;
     UConverter *cnv = NULL;
-    const char *warnOrErr = "Failure"; 
-
-    /* This must be tested before using anything! */
-    MutexTest::gMutexInitialized = umtx_isInitialized(NULL);
+    const char *warnOrErr = "Failure";
 
 #ifdef XP_MAC_CONSOLE
     argc = ccommand( &argv );
 #endif
 
-    /* try opening the data from dll instead of the dat file */
-    cnv = ucnv_open(TRY_CNV_1, &errorCode);
-    if(cnv != 0) {
-        /* ok */
-        ucnv_close(cnv);
-    } else {
+    /* Initialize ICU */
+    IntlTest::setICU_DATA();   // Must set data directory before u_init() is called.
+    u_init(&errorCode);
+    if (U_FAILURE(errorCode)) {
         fprintf(stderr,
-                "#### WARNING! The converter for " TRY_CNV_1 " cannot be loaded from data dll/so."
-                "Proceeding to load data from dat file.\n");
-        errorCode = U_ZERO_ERROR;
-
+                "#### %s: u_init() failed, error is \"%s\".\n"
+                "#### Most commonly indicates that the ICU data is not accesible.\n"
+                "#### Check setting of ICU_DATA, or check that ICU data library is available\n"
+                "#### ICU_DATA is currently set to \"%s\"\n", argv[0], u_errorName(errorCode), u_getDataDirectory());
+        u_cleanup();
+        return 1;
     }
-    // If user didn't set ICU_DATA, attempt to generate one.
-    IntlTest::setICU_DATA();
+
 
     for (int i = 1; i < argc; ++i) {
         if (argv[i][0] == '-') {
             const char* str = argv[i] + 1;
-            if (strcmp("verbose", str) == 0)
+            if (strcmp("verbose", str) == 0 ||
+                strcmp("v", str) == 0)
                 verbose = TRUE;
-            else if (strcmp("v", str) == 0)
-                verbose = TRUE;
-            else if (strcmp("noerrormsg", str) == 0)
+            else if (strcmp("noerrormsg", str) == 0 ||
+                     strcmp("n", str) == 0)
                 no_err_msg = TRUE;
-            else if (strcmp("n", str) == 0)
-                no_err_msg = TRUE;
-            else if (strcmp("exhaustive", str) == 0)
+            else if (strcmp("exhaustive", str) == 0 ||
+                     strcmp("e", str) == 0)
                 quick = FALSE;
-            else if (strcmp("e", str) == 0)
-                quick = FALSE;
-            else if (strcmp("all", str) == 0)
+            else if (strcmp("all", str) == 0 ||
+                     strcmp("a", str) == 0)
                 all = TRUE;
-            else if (strcmp("a", str) == 0)
-                all = TRUE;
-            else if (strcmp("leaks", str) == 0)
-                leaks = TRUE;
-            else if (strcmp("l", str) == 0)
+            else if (strcmp("leaks", str) == 0 ||
+                     strcmp("l", str) == 0)
                 leaks = TRUE;
             else if (strcmp("w", str) == 0) {
               warnOnMissingData = TRUE;
               warnOrErr = "WARNING";
-            } else {
+            }
+            else {
                 syntax = TRUE;
             }
         }else{
             name = TRUE;
-            all = FALSE;
         }
     }
 
-    if (all && name) syntax = TRUE;
-    if (!all && !name) syntax = TRUE;
+    if (!all && !name) {
+        all = TRUE;
+    } else if (all && name) {
+        syntax = TRUE;
+    }
 
     if (syntax) {
         fprintf(stdout,
                 "### Syntax:\n"
                 "### IntlTest [-option1 -option2 ...] [testname1 testname2 ...] \n"
                 "### where options are: verbose (v), all (a), noerrormsg (n), \n"
-                "### exhaustive (e) and leaks (l). \n"
+                "### exhaustive (e), leaks (l)"
                 "### (Specify either -all (shortcut -a) or a test name). \n"
                 "### -all will run all of the tests.\n"
                 "### \n"
@@ -1079,7 +1075,7 @@ main(int argc, char* argv[])
                 "*** check that the data files are present.\n",
                 u_errorName(errorCode));
         if(!warnOnMissingData) {
-          fprintf(stdout, "*** Exitting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
+          fprintf(stdout, "*** Exiting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
           return 1;
         }
     }
@@ -1098,7 +1094,7 @@ main(int argc, char* argv[])
                 "*** check that the data files are present.\n",
                 warnOrErr, ucnv_getDefaultName());
         if(!warnOnMissingData) {
-          fprintf(stdout, "*** Exitting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
+          fprintf(stdout, "*** Exiting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
           return 1;
         }
     }
@@ -1114,7 +1110,7 @@ main(int argc, char* argv[])
                 "*** Check the ICU_DATA environment variable and \n"
                 "*** check that the data files are present.\n", warnOrErr);
         if(!warnOnMissingData) {
-          fprintf(stdout, "*** Exitting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
+          fprintf(stdout, "*** Exiting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
           return 1;
         }
     }
@@ -1127,7 +1123,7 @@ main(int argc, char* argv[])
                 "*** Check the ICU_DATA environment variable and \n"
                 "*** check that the data files are present.\n", warnOrErr);
         if(!warnOnMissingData) {
-          fprintf(stdout, "*** Exitting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
+          fprintf(stdout, "*** Exiting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
           return 1;
         }
     }
@@ -1186,18 +1182,6 @@ main(int argc, char* argv[])
 
     fprintf(stdout, "--------------------------------------\n");
 
-    if (!MutexTest::gMutexInitialized) {
-        fprintf(stderr,
-            "#### WARNING!\n"
-            "  The global mutex was not initialized during C++ static initialization.\n"
-            "  You must use an ICU API in a single thread, like ucnv_open() or\n"
-            "  uloc_countAvailable(), before using ICU in multiple threads.\n"
-            "  Most ICU API functions will initialize the global mutex for you.\n"
-            "  If you are using ICU in a single threaded application, please ignore this\n"
-            "  warning.\n"
-            "#### WARNING!\n"
-            );
-    }
     if (execCount <= 0) {
         fprintf(stdout, "***** Not all called tests actually exist! *****\n");
     }
@@ -1225,7 +1209,7 @@ const char* IntlTest::loadTestData(UErrorCode& err){
         /* u_getDataDirectory shoul return \source\data ... set the
          * directory to ..\source\data\..\test\testdata\out\testdata
          */
-		strcpy(tdpath, directory);
+        strcpy(tdpath, directory);
         strcat(tdpath, tdrelativepath);
         strcat(tdpath,"testdata");
 
@@ -1241,6 +1225,30 @@ const char* IntlTest::loadTestData(UErrorCode& err){
         return _testDataPath;
     }
     return _testDataPath;
+}
+
+const char* IntlTest::getTestDataPath(UErrorCode& err) {
+    return loadTestData(err);
+}
+
+/* Returns the path to icu/source/test/testdata/ */
+const char *IntlTest::getSourceTestData(UErrorCode& /*err*/) {
+    const char *srcDataDir = NULL;
+#ifdef U_TOPSRCDIR
+    srcDataDir = U_TOPSRCDIR U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING;
+#else
+    srcDataDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING;
+    FILE *f = fopen(".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING"rbbitst.txt", "r");
+    if (f) {
+        /* We're in icu/source/test/intltest/ */
+        fclose(f);
+    }
+    else {
+        /* We're in icu/source/test/intltest/(Debug|Release) */
+        srcDataDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING;
+    }
+#endif
+    return srcDataDir;
 }
 
 const char* IntlTest::fgDataDir = NULL;
@@ -1295,14 +1303,14 @@ const char *  IntlTest::pathToDataDirectory()
         }
         else {
             /* __FILE__ on MSVC7 does not contain the directory */
-			FILE *file = fopen(".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING "Makefile.in", "r");
-			if (file) {
-				fclose(file);
-	            fgDataDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
-			}
-			else {
-	            fgDataDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
-			}
+            FILE *file = fopen(".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING "Makefile.in", "r");
+            if (file) {
+                fclose(file);
+                fgDataDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
+            }
+            else {
+                fgDataDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
+            }
         }
     }
 #endif
@@ -1322,6 +1330,208 @@ UnicodeString CharsToUnicodeString(const char* chars)
     return str.unescape();
 }
 
+UnicodeString ctou(const char* chars) {
+    return CharsToUnicodeString(chars);
+}
+
+#define RAND_M  (714025)
+#define RAND_IA (1366)
+#define RAND_IC (150889)
+
+static int32_t RAND_SEED;
+
+/**
+ * Returns a uniform random value x, with 0.0 <= x < 1.0.  Use
+ * with care: Does not return all possible values; returns one of
+ * 714,025 values, uniformly spaced.  However, the period is
+ * effectively infinite.  See: Numerical Recipes, section 7.1.
+ *
+ * @param seedp pointer to seed. Set *seedp to any negative value
+ * to restart the sequence.
+ */
+float IntlTest::random(int32_t* seedp) {
+    static int32_t iy, ir[98];
+    static UBool first=TRUE;
+    int32_t j;
+    if (*seedp < 0 || first) {
+        first = FALSE;
+        if ((*seedp=(RAND_IC-(*seedp)) % RAND_M) < 0) *seedp = -(*seedp);
+        for (j=1;j<=97;++j) {
+            *seedp=(RAND_IA*(*seedp)+RAND_IC) % RAND_M;
+            ir[j]=(*seedp);
+        }
+        *seedp=(RAND_IA*(*seedp)+RAND_IC) % RAND_M;
+        iy=(*seedp);
+    }
+    j=(int32_t)(1 + 97.0*iy/RAND_M);
+    U_ASSERT(j>=1 && j<=97);
+    iy=ir[j];
+    *seedp=(RAND_IA*(*seedp)+RAND_IC) % RAND_M;
+    ir[j]=(*seedp);
+    return (float) iy/RAND_M;
+}
+
+/**
+ * Convenience method using a global seed.
+ */
+float IntlTest::random() {
+    return random(&RAND_SEED);
+}
+
+static inline UChar toHex(int32_t i) {
+    return (UChar)(i + (i < 10 ? 0x30 : (0x41 - 10)));
+}
+
+static UnicodeString& escape(const UnicodeString& s, UnicodeString& result) {
+    for (int32_t i=0; i<s.length(); ++i) {
+        UChar c = s[i];
+        if (c <= (UChar)0x7F) {
+            result += c;
+        } else {
+            result += (UChar)0x5c;
+            result += (UChar)0x75;
+            result += toHex((c >> 12) & 0xF);
+            result += toHex((c >>  8) & 0xF);
+            result += toHex((c >>  4) & 0xF);
+            result += toHex( c        & 0xF);
+        }
+    }
+    return result;
+}
+
+#define VERBOSE_ASSERTIONS
+
+UBool IntlTest::assertTrue(const char* message, UBool condition, UBool quiet) {
+    if (!condition) {
+        errln("FAIL: assertTrue() failed: %s", message);
+    } else if (!quiet) {
+        logln("Ok: %s", message);
+    }
+    return condition;
+}
+
+UBool IntlTest::assertFalse(const char* message, UBool condition, UBool quiet) {
+    if (condition) {
+        errln("FAIL: assertFalse() failed: %s", message);
+    } else if (!quiet) {
+        logln("Ok: %s", message);
+    }
+    return !condition;
+}
+
+UBool IntlTest::assertSuccess(const char* message, UErrorCode ec) {
+    if (U_FAILURE(ec)) {
+        errln("FAIL: %s (%s)", message, u_errorName(ec));
+        return FALSE;
+    }
+    return TRUE;
+}
+
+UBool IntlTest::assertEquals(const char* message,
+                             const UnicodeString& expected,
+                             const UnicodeString& actual) {
+    if (expected != actual) {
+        errln((UnicodeString)"FAIL: " + message + "; got " +
+              prettify(actual) +
+              "; expected " + prettify(expected));
+        return FALSE;
+    }
+#ifdef VERBOSE_ASSERTIONS
+    else {
+        logln((UnicodeString)"Ok: " + message + "; got " + prettify(actual));
+    }
+#endif
+    return TRUE;
+}
+
+UBool IntlTest::assertEquals(const char* message,
+                             const char* expected,
+                             const char* actual) {
+    if (uprv_strcmp(expected, actual) != 0) {
+        errln((UnicodeString)"FAIL: " + message + "; got \"" +
+              actual +
+              "\"; expected \"" + expected + "\"");
+        return FALSE;
+    }
+#ifdef VERBOSE_ASSERTIONS
+    else {
+        logln((UnicodeString)"Ok: " + message + "; got \"" + actual + "\"");
+    }
+#endif
+    return TRUE;
+}
+
+#if !UCONFIG_NO_FORMATTING
+UBool IntlTest::assertEquals(const char* message,
+                             const Formattable& expected,
+                             const Formattable& actual) {
+    if (expected != actual) {
+        errln((UnicodeString)"FAIL: " + message + "; got " +
+              toString(actual) +
+              "; expected " + toString(expected));
+        return FALSE;
+    }
+#ifdef VERBOSE_ASSERTIONS
+    else {
+        logln((UnicodeString)"Ok: " + message + "; got " + toString(actual));
+    }
+#endif
+    return TRUE;
+}
+#endif
+
+static char ASSERT_BUF[256];
+
+static const char* extractToAssertBuf(const UnicodeString& message) {
+    UnicodeString buf;
+    escape(message, buf);
+    buf.extract(0, 0x7FFFFFFF, ASSERT_BUF, sizeof(ASSERT_BUF)-1, 0);
+    ASSERT_BUF[sizeof(ASSERT_BUF)-1] = 0;
+    return ASSERT_BUF;
+}
+
+UBool IntlTest::assertTrue(const UnicodeString& message, UBool condition, UBool quiet) {
+    return assertTrue(extractToAssertBuf(message), condition, quiet);
+}
+
+UBool IntlTest::assertFalse(const UnicodeString& message, UBool condition, UBool quiet) {
+    return assertFalse(extractToAssertBuf(message), condition, quiet);
+}
+
+UBool IntlTest::assertSuccess(const UnicodeString& message, UErrorCode ec) {
+    return assertSuccess(extractToAssertBuf(message), ec);
+}
+
+UBool IntlTest::assertEquals(const UnicodeString& message,
+                             const UnicodeString& expected,
+                             const UnicodeString& actual) {
+    return assertEquals(extractToAssertBuf(message), expected, actual);
+}
+
+UBool IntlTest::assertEquals(const UnicodeString& message,
+                             const char* expected,
+                             const char* actual) {
+    return assertEquals(extractToAssertBuf(message), expected, actual);
+}
+//--------------------------------------------------------------------
+// Time bomb - allows temporary behavior that expires at a given
+//             release
+//--------------------------------------------------------------------
+
+UBool IntlTest::isICUVersionAtLeast(const UVersionInfo x) {
+    UVersionInfo v;
+    u_getVersion(v);
+    return (uprv_memcmp(v, x, U_MAX_VERSION_LENGTH) >= 0);
+}
+
+#if !UCONFIG_NO_FORMATTING
+UBool IntlTest::assertEquals(const UnicodeString& message,
+                             const Formattable& expected,
+                             const Formattable& actual) {
+    return assertEquals(extractToAssertBuf(message), expected, actual);
+}
+#endif
+
 /*
  * Hey, Emacs, please set the following:
  *
@@ -1330,4 +1540,3 @@ UnicodeString CharsToUnicodeString(const char* chars)
  * End:
  *
  */
-

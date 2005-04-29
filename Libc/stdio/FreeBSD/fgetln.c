@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)fgetln.c	8.2 (Berkeley) 1/2/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fgetln.c,v 1.8 2002/03/22 21:53:04 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fgetln.c,v 1.10 2004/07/16 05:52:51 tjr Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -55,8 +55,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fgetln.c,v 1.8 2002/03/22 21:53:04 obrien
  * so we add 1 here.
 #endif
  */
-static int
-slbexpand(FILE *fp, size_t newsize)
+int
+__slbexpand(FILE *fp, size_t newsize)
 {
 	void *p;
 
@@ -87,6 +87,7 @@ fgetln(FILE *fp, size_t *lenp)
 	size_t off;
 
 	FLOCKFILE(fp);
+	ORIENT(fp, -1);
 	/* make sure there is input */
 	if (fp->_r <= 0 && __srefill(fp)) {
 		*lenp = 0;
@@ -131,7 +132,7 @@ fgetln(FILE *fp, size_t *lenp)
 		 * file buffer to line buffer, refill file and look for
 		 * newline.  The loop stops only when we find a newline.
 		 */
-		if (slbexpand(fp, len + OPTIMISTIC))
+		if (__slbexpand(fp, len + OPTIMISTIC))
 			goto error;
 		(void)memcpy((void *)(fp->_lb._base + off), (void *)fp->_p,
 		    len - off);
@@ -145,7 +146,7 @@ fgetln(FILE *fp, size_t *lenp)
 		p++;
 		diff = p - fp->_p;
 		len += diff;
-		if (slbexpand(fp, len))
+		if (__slbexpand(fp, len))
 			goto error;
 		(void)memcpy((void *)(fp->_lb._base + off), (void *)fp->_p,
 		    diff);

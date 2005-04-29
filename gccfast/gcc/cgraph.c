@@ -47,7 +47,7 @@ static GTY(()) varray_type known_fns;
 /* APPLE LOCAL end callgraph inlining */
 
 /* Hash table used to convert declarations into nodes.  */
-static htab_t cgraph_hash = 0;
+static GTY((param_is (struct cgraph_node))) htab_t cgraph_hash;
 
 /* APPLE LOCAL callgraph inlining */
 /* The linked list of cgraph nodes.  */
@@ -99,15 +99,30 @@ cgraph_node (decl)
 {
   struct cgraph_node *node;
   struct cgraph_node **slot;
+  struct cgraph_node *step;
+  static bool cgraph_hash_init = FALSE;
 
   /* APPLE LOCAL begin callgraph inlining */
   if (TREE_CODE (decl) != FUNCTION_DECL)
     abort ();
 
-  if (!cgraph_hash)
+  if (!cgraph_hash_init)
     {
-      cgraph_hash = htab_create (10, hash_node, eq_node, NULL);
+      cgraph_hash = htab_create_ggc (10, hash_node, eq_node, NULL);
       VARRAY_TREE_INIT (known_fns, 32, "known_fns");
+      /* Rebuild our hashtable after waking from a PCH-addled sleep.  */
+      for (step = cgraph_nodes; step ; step = step->next)
+	{
+	  slot =
+	    (struct cgraph_node **)
+	    htab_find_slot_with_hash (cgraph_hash, step->decl,
+				      htab_hash_pointer
+				      (DECL_ASSEMBLER_NAME
+				       (step->decl)), 1);
+						      
+	  *slot = step;
+	}
+      cgraph_hash_init = TRUE;
     }
 
   slot =

@@ -1,21 +1,21 @@
 // -*- C++ -*- std::terminate, std::unexpected and friends.
-// Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001 
+// Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
 // Free Software Foundation
 //
-// This file is part of GNU CC.
+// This file is part of GCC.
 //
-// GNU CC is free software; you can redistribute it and/or modify
+// GCC is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation; either version 2, or (at your option)
 // any later version.
 //
-// GNU CC is distributed in the hope that it will be useful,
+// GCC is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with GNU CC; see the file COPYING.  If not, write to
+// along with GCC; see the file COPYING.  If not, write to
 // the Free Software Foundation, 59 Temple Place - Suite 330,
 // Boston, MA 02111-1307, USA. 
 
@@ -42,10 +42,6 @@
 
 using namespace __cxxabiv1;
 
-/* The current installed user handlers.  */
-std::terminate_handler __cxxabiv1::__terminate_handler = std::abort;
-std::unexpected_handler __cxxabiv1::__unexpected_handler = std::terminate;
-
 void
 __cxxabiv1::__terminate (std::terminate_handler handler)
 {
@@ -66,9 +62,9 @@ std::terminate ()
    * If the Key Manager has a terminate function assigned to this thread, invoke that fn.
    * If not (KeyMgr has 0), use whatever is initialized into my local static pointer (above).
    */
-   void (*__keymgr_terminate_func)() =
+  std::terminate_handler __keymgr_terminate_func = (std::terminate_handler)
     _keymgr_get_per_thread_data (KEYMGR_TERMINATE_HANDLER_KEY);
-   if (__keymgr_terminate_func)
+  if (__keymgr_terminate_func)
      __terminate_handler = __keymgr_terminate_func;
 #endif /* APPLE_KEYMGR */
   __terminate (__terminate_handler);
@@ -88,8 +84,8 @@ std::unexpected ()
   /* APPLE LOCAL begin keymgr */
 #if defined(APPLE_KEYMGR) && ! defined(APPLE_KERNEL_EXTENSION) && ! defined(LIBCC_KEXT)
   /* Similar to terminate case above. */
-   void (*__keymgr_unexpected_func)() =
-    _keymgr_get_per_thread_data (KEYMGR_UNEXPECTED_HANDLER_KEY);
+   std::unexpected_handler __keymgr_unexpected_func = (std::unexpected_handler)
+     _keymgr_get_per_thread_data (KEYMGR_UNEXPECTED_HANDLER_KEY);
    if (__keymgr_unexpected_func)
      __unexpected_handler = __keymgr_unexpected_func;
 #endif /* APPLE_KEYMGR */
@@ -104,7 +100,7 @@ std::set_terminate (std::terminate_handler func) throw()
 #if defined(APPLE_KEYMGR) && ! defined(APPLE_KERNEL_EXTENSION) && ! defined(LIBCC_KEXT)
   std::terminate_handler old =
     (std::terminate_handler) _keymgr_get_per_thread_data (KEYMGR_TERMINATE_HANDLER_KEY);
-  _keymgr_set_per_thread_data(KEYMGR_TERMINATE_HANDLER_KEY,func) ;
+  _keymgr_set_per_thread_data (KEYMGR_TERMINATE_HANDLER_KEY, (void *) func) ;
   if ( ! old)
     old = __terminate_handler;
 #else
@@ -122,7 +118,7 @@ std::set_unexpected (std::unexpected_handler func) throw()
 #if defined(APPLE_KEYMGR) && ! defined(APPLE_KERNEL_EXTENSION) && ! defined(LIBCC_KEXT)
   std::unexpected_handler old =
     (std::unexpected_handler) _keymgr_get_per_thread_data (KEYMGR_UNEXPECTED_HANDLER_KEY);
-  _keymgr_set_per_thread_data (KEYMGR_UNEXPECTED_HANDLER_KEY,func);
+  _keymgr_set_per_thread_data (KEYMGR_UNEXPECTED_HANDLER_KEY, (void *) func);
   if ( ! old)
     old = __unexpected_handler;
 #else

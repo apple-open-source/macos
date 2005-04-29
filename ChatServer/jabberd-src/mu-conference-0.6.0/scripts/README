@@ -1,0 +1,7 @@
+Scripts:
+-------
+
+Included in this directory are a number of scripts designed to help with maintaining MU-Conference:
+
+roomname.pl:	Takes a list of jids and returns the sha1 hash. Used as the room filename for the spool
+roommaker.pl:	Allows you to create predefined persistent rooms without first starting the service

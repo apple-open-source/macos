@@ -1,5 +1,5 @@
 /* global.h -- Header for global/shared variables & functions.
- * $Id: global.h,v 1.6 2004/12/17 16:32:08 ken3 Exp $
+ * $Id: global.h,v 1.4 2005/03/05 00:36:49 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

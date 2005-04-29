@@ -1,5 +1,6 @@
 /* Sets (bit vectors) of hard registers, and operations on them.
-   Copyright (C) 1987, 1992, 1994, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1992, 1994, 2000, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC
 
@@ -33,22 +34,23 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    Note that lots of code assumes that the first part of a regset is
    the same format as a HARD_REG_SET.  To help make sure this is true,
-   we only try the widest integer mode (HOST_WIDE_INT) instead of all the
-   smaller types.  This approach loses only if there are a very few
-   registers and then only in the few cases where we have an array of
-   HARD_REG_SETs, so it needn't be as complex as it used to be.  */
+   we only try the widest fast integer mode (HOST_WIDEST_FAST_INT)
+   instead of all the smaller types.  This approach loses only if
+   there are very few registers and then only in the few cases where
+   we have an array of HARD_REG_SETs, so it needn't be as complex as
+   it used to be.  */
 
-typedef unsigned HOST_WIDE_INT HARD_REG_ELT_TYPE;
+typedef unsigned HOST_WIDEST_FAST_INT HARD_REG_ELT_TYPE;
 
-#if FIRST_PSEUDO_REGISTER <= HOST_BITS_PER_WIDE_INT
+#if FIRST_PSEUDO_REGISTER <= HOST_BITS_PER_WIDEST_FAST_INT
 
 #define HARD_REG_SET HARD_REG_ELT_TYPE
 
 #else
 
 #define HARD_REG_SET_LONGS \
- ((FIRST_PSEUDO_REGISTER + HOST_BITS_PER_WIDE_INT - 1)	\
-  / HOST_BITS_PER_WIDE_INT)
+ ((FIRST_PSEUDO_REGISTER + HOST_BITS_PER_WIDEST_FAST_INT - 1)	\
+  / HOST_BITS_PER_WIDEST_FAST_INT)
 typedef HARD_REG_ELT_TYPE HARD_REG_SET[HARD_REG_SET_LONGS];
 
 #endif
@@ -111,7 +113,7 @@ typedef HARD_REG_ELT_TYPE HARD_REG_SET[HARD_REG_SET_LONGS];
 
 #else
 
-#define UHOST_BITS_PER_WIDE_INT ((unsigned) HOST_BITS_PER_WIDE_INT)
+#define UHOST_BITS_PER_WIDE_INT ((unsigned) HOST_BITS_PER_WIDEST_FAST_INT)
 
 #define SET_HARD_REG_BIT(SET, BIT)		\
   ((SET)[(BIT) / UHOST_BITS_PER_WIDE_INT]	\
@@ -125,7 +127,7 @@ typedef HARD_REG_ELT_TYPE HARD_REG_SET[HARD_REG_SET_LONGS];
   (!!((SET)[(BIT) / UHOST_BITS_PER_WIDE_INT]	\
       & (HARD_CONST (1) << ((BIT) % UHOST_BITS_PER_WIDE_INT))))
 
-#if FIRST_PSEUDO_REGISTER <= 2*HOST_BITS_PER_WIDE_INT
+#if FIRST_PSEUDO_REGISTER <= 2*HOST_BITS_PER_WIDEST_FAST_INT
 #define CLEAR_HARD_REG_SET(TO)  \
 do { HARD_REG_ELT_TYPE *scan_tp_ = (TO);			\
      scan_tp_[0] = 0;						\
@@ -179,7 +181,7 @@ do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
 	goto TO; } while (0)
 
 #else
-#if FIRST_PSEUDO_REGISTER <= 3*HOST_BITS_PER_WIDE_INT
+#if FIRST_PSEUDO_REGISTER <= 3*HOST_BITS_PER_WIDEST_FAST_INT
 #define CLEAR_HARD_REG_SET(TO)  \
 do { HARD_REG_ELT_TYPE *scan_tp_ = (TO);			\
      scan_tp_[0] = 0;						\
@@ -243,7 +245,7 @@ do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
 	goto TO; } while (0)
 
 #else
-#if FIRST_PSEUDO_REGISTER <= 4*HOST_BITS_PER_WIDE_INT
+#if FIRST_PSEUDO_REGISTER <= 4*HOST_BITS_PER_WIDEST_FAST_INT
 #define CLEAR_HARD_REG_SET(TO)  \
 do { HARD_REG_ELT_TYPE *scan_tp_ = (TO);			\
      scan_tp_[0] = 0;						\
@@ -316,7 +318,7 @@ do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
 	 && (scan_xp_[3] == scan_yp_[3]))			\
 	goto TO; } while (0)
 
-#else /* FIRST_PSEUDO_REGISTER > 3*HOST_BITS_PER_WIDE_INT */
+#else /* FIRST_PSEUDO_REGISTER > 3*HOST_BITS_PER_WIDEST_FAST_INT */
 
 #define CLEAR_HARD_REG_SET(TO)  \
 do { HARD_REG_ELT_TYPE *scan_tp_ = (TO);			\
@@ -418,7 +420,7 @@ extern HARD_REG_SET losing_caller_save_reg_set;
 
 /* Indexed by hard register number, contains 1 for registers that are
    fixed use -- i.e. in fixed_regs -- or a function value return register
-   or STRUCT_VALUE_REGNUM or STATIC_CHAIN_REGNUM.  These are the
+   or TARGET_STRUCT_VALUE_RTX or STATIC_CHAIN_REGNUM.  These are the
    registers that cannot hold quantities across calls even if we are
    willing to save and restore them.  */
 
@@ -490,7 +492,6 @@ extern const char * reg_names[FIRST_PSEUDO_REGISTER];
 
 /* Given a hard REGN a FROM mode and a TO mode, return nonzero if
    REGN cannot change modes between the specified modes.  */
-/* APPLE LOCAL 3.4 sse backport */
 #define REG_CANNOT_CHANGE_MODE_P(REGN, FROM, TO)                          \
          CANNOT_CHANGE_MODE_CLASS (FROM, TO, REGNO_REG_CLASS (REGN))
 

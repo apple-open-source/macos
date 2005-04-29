@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -322,7 +322,7 @@ static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, voi
     if ( stampID )
     {
         /*
-         * Execute the "set uuid" command.
+         * Execute the "set UUID" command.
          */
 
         DACommandExecute( context->probeCommand,
@@ -385,7 +385,7 @@ static void __DAFileSystemProbeCallbackStageS( int status, CFDataRef output, voi
     if ( status == FSUR_IO_SUCCESS )
     {
         /*
-         * Execute the "get uuid" command.
+         * Execute the "get UUID" command.
          */
 
         DACommandExecute( context->probeCommand,
@@ -783,17 +783,14 @@ void DAFileSystemRename( DAFileSystemRef      filesystem,
      * Set the name.
      */
 
-    if ( CFStringGetCString( name, buffer->name, sizeof( buffer->name ), kCFStringEncodingUTF8 ) )
-    {
-        buffer->data.attr_dataoffset = sizeof( buffer->data );
-        buffer->data.attr_length     = CFStringGetLength( name );
+    status = CFStringGetCString( name, buffer->name, sizeof( buffer->name ), kCFStringEncodingUTF8 );
+    if ( status == FALSE )  { status = EINVAL; goto DAFileSystemRenameErr; }
 
-        status = setattrlist( mountpointPath, &attributes, buffer, sizeof( __DAFileSystemRenameBuffer ), 0 );
-    }
-    else
-    {
-        status = EINVAL;
-    }
+    buffer->data.attr_dataoffset = sizeof( buffer->data );
+    buffer->data.attr_length     = strlen( buffer->name ) + 1;
+
+    status = setattrlist( mountpointPath, &attributes, buffer, sizeof( __DAFileSystemRenameBuffer ), 0 );
+    if ( status == -1 )  { status = errno; goto DAFileSystemRenameErr; }
 
 DAFileSystemRenameErr:
 

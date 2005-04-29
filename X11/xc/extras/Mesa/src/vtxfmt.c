@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
  * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
@@ -23,13 +23,14 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
- *    Gareth Hughes <gareth@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
+ *    Gareth Hughes
  */
 
 #include "glheader.h"
 #include "api_loopback.h"
 #include "context.h"
+#include "imports.h"
 #include "mtypes.h"
 #include "state.h"
 #include "vtxfmt.h"
@@ -53,18 +54,16 @@
    ASSERT( tnl->Current );						\
    ASSERT( tnl->SwapCount < NUM_VERTEX_FORMAT_ENTRIES );		\
 									\
-   /* Save the swapped function's dispatch entry so it can be		\
-    * restored later.							\
-    */									\
+   /* Save the swapped function's dispatch entry so it can be */	\
+   /* restored later. */						\
    tnl->Swapped[tnl->SwapCount][0] = (void *)&(ctx->Exec->FUNC);	\
    tnl->Swapped[tnl->SwapCount][1] = (void *)TAG(FUNC);			\
    tnl->SwapCount++;							\
 									\
    if ( 0 )								\
-      fprintf( stderr, "   swapping gl" #FUNC"...\n" );			\
+      _mesa_debug(ctx, "   swapping gl" #FUNC"...\n" );			\
 									\
-   /* Install the tnl function pointer.					\
-    */									\
+   /* Install the tnl function pointer.	*/				\
    ctx->Exec->FUNC = tnl->Current->FUNC;				\
 }
 
@@ -125,18 +124,17 @@ static void install_vtxfmt( struct _glapi_table *tab, GLvertexformat *vfmt )
    tab->Vertex3fv = vfmt->Vertex3fv;
    tab->Vertex4f = vfmt->Vertex4f;
    tab->Vertex4fv = vfmt->Vertex4fv;
+   tab->CallList = vfmt->CallList;
    tab->Begin = vfmt->Begin;
    tab->End = vfmt->End;
-
-/*     tab->NewList = vfmt->NewList; */
-   tab->CallList = vfmt->CallList;
-
+   tab->VertexAttrib4fNV = vfmt->VertexAttrib4fNV;
    tab->Rectf = vfmt->Rectf;
    tab->DrawArrays = vfmt->DrawArrays;
    tab->DrawElements = vfmt->DrawElements;
    tab->DrawRangeElements = vfmt->DrawRangeElements;
    tab->EvalMesh1 = vfmt->EvalMesh1;
    tab->EvalMesh2 = vfmt->EvalMesh2;
+   assert(tab->EvalMesh2);
 }
 
 

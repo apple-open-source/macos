@@ -6,6 +6,7 @@
 #include <net-snmp/net-snmp-config.h>
 #include "host_res.h"
 #include "hr_filesys.h"
+#include "hr_storage.h"
 #include <net-snmp/utilities.h>
 
 #if HAVE_MNTENT_H
@@ -85,6 +86,15 @@ struct mnttab  *HRFS_entry = &HRFS_entry_struct;
 #define	HRFS_type	mnt_fstype
 #define	HRFS_statfs	statvfs
 
+#elif defined(HAVE_STATVFS) && defined(__NetBSD__)
+
+static struct statvfs	*fsstats = NULL;
+struct statvfs		*HRFS_entry;
+static int		fscount;
+#define HRFS_mount	f_mntonname
+#define	HRFS_name	f_mntfromname
+#define HRFS_statfs	statvfs
+#define	HRFS_type	f_fstypename
 #elif defined(HAVE_GETFSSTAT)
 static struct statfs *fsstats = 0;
 static int      fscount;
@@ -262,7 +272,7 @@ var_hrfilesys(struct variable *vp,
               int exact, size_t * var_len, WriteMethod ** write_method)
 {
     int             fsys_idx;
-    static char     string[100];
+    static char     string[1024];
     char           *mnt_type;
 
     fsys_idx =
@@ -372,7 +382,7 @@ var_hrfilesys(struct variable *vp,
 #endif
 #ifdef MNTTYPE_UFS
         else if (!strcmp(mnt_type, MNTTYPE_UFS))
-#if defined(BerkelyFS) && !defined(MNTTYPE_HFS)
+#if (defined(BerkelyFS) && !defined(MNTTYPE_HFS)) || defined(solaris2)
             fsys_type_id[fsys_type_len - 1] = 3;
 #else                           /* SysV */
             fsys_type_id[fsys_type_len - 1] = 4;        /* or 3? XXX */
@@ -402,6 +412,10 @@ var_hrfilesys(struct variable *vp,
             fsys_type_id[fsys_type_len - 1] = 12;
 #endif
 #endif
+#ifdef MNTTYPE_HSFS
+        else if (!strcmp(mnt_type, MNTTYPE_HSFS))
+            fsys_type_id[fsys_type_len - 1] = 13;
+#endif
 #ifdef MNTTYPE_ISO9660
         else if (!strcmp(mnt_type, MNTTYPE_ISO9660))
             fsys_type_id[fsys_type_len - 1] = 12;
@@ -412,7 +426,7 @@ var_hrfilesys(struct variable *vp,
 #endif
 #ifdef MNTTYPE_SMBFS
         else if (!strcmp(mnt_type, MNTTYPE_SMBFS))
-            fsys_type_id[fsys_type_len - 1] = 1;
+            fsys_type_id[fsys_type_len - 1] = 14;
 #endif
 #ifdef MNTTYPE_NFS
         else if (!strcmp(mnt_type, MNTTYPE_NFS))
@@ -447,7 +461,9 @@ var_hrfilesys(struct variable *vp,
         return (u_char *) fsys_type_id;
 
     case HRFSYS_ACCESS:
-#if HAVE_GETFSSTAT
+#if defined(HAVE_STATVFS) && defined(__NetBSD__)
+	long_return = HRFS_entry->f_flag & MNT_RDONLY ? 2 : 1;
+#elif defined(HAVE_GETFSSTAT)
         long_return = HRFS_entry->f_flags & MNT_RDONLY ? 2 : 1;
 #elif defined(cygwin)
         long_return = 1;
@@ -466,7 +482,7 @@ var_hrfilesys(struct variable *vp,
             long_return = 2;    /* others probably aren't */
         return (u_char *) & long_return;
     case HRFSYS_STOREIDX:
-        long_return = fsys_idx; /* Use the same indices */
+        long_return = fsys_idx + HRS_TYPE_FIXED_MAX;
         return (u_char *) & long_return;
     case HRFSYS_FULLDUMP:
         return when_dumped(HRFS_entry->HRFS_name, FULL_DUMP, var_len);
@@ -520,10 +536,14 @@ const char     *HRFS_ignores[] = {
 #ifdef MNTTYPE_PROC
     MNTTYPE_PROC,
 #endif
+#ifdef MNTTYPE_PROCFS
+    MNTTYPE_PROCFS,
+#endif
 #ifdef MNTTYPE_AUTOFS
     MNTTYPE_AUTOFS,
-#endif
+#else
     "autofs",
+#endif
 #ifdef linux
     "devpts",
     "devfs",
@@ -532,6 +552,8 @@ const char     *HRFS_ignores[] = {
     "shm",
 #endif
 #ifdef solaris2
+    "mntfs",
+    "proc",
     "fd",
 #endif
     0
@@ -547,28 +569,6 @@ Get_Next_HR_FileSys(void)
     return ++HRFS_index;
 #else
     const char    **cpp;
-    /*
-     * XXX - According to RFC 1514, hrFSIndex must
-     *   "remain constant at least from one re-initialization
-     *    of the agent to the next re-initialization."
-     *
-     *  This simple-minded counter doesn't handle filesystems
-     *    being un-mounted and re-mounted.
-     *  Options for fixing this include:
-     *       - keeping a history of previous indices used
-     *       - calculating the index from filesystem
-     *              specific information
-     *
-     *  Note: this index is also used as hrStorageIndex
-     *     which is assumed to be less than HRS_TYPE_FS_MAX
-     *     This assumption may well be broken if the second
-     *     option above is followed.  Consider indexing the
-     *     non-filesystem-based storage entries first in this
-     *     case, and assume hrStorageIndex > HRS_TYPE_FS_MIN
-     *     (for file-system based storage entries)
-     *
-     *  But at least this gets us started.
-     */
 
     if (fp == NULL)
         return -1;
@@ -586,15 +586,27 @@ Get_Next_HR_FileSys(void)
         if (!strcmp(HRFS_entry->HRFS_type, *cpp))
             return Get_Next_HR_FileSys();
 
+    /*
+     * Try and ensure that index values are persistent
+     *   at least within a single run of the agent
+     */
+    HRFS_index = se_find_value_in_slist("filesys", HRFS_entry->HRFS_name );
+    if (HRFS_index == SE_DNE) {
+        HRFS_index = se_find_free_value_in_slist("filesys");
+        if (HRFS_index == SE_DNE) { HRFS_index = 1; }
+        se_add_pair_to_slist( "filesys",
+                              strdup( HRFS_entry->HRFS_name ), HRFS_index);
+    }
+
     return HRFS_index++;
 #endif                          /* HAVE_GETFSSTAT */
 }
 
 /*
  * this function checks whether the current file system (info can be found
- * in HRFS_entry) is a Network file system
+ * in HRFS_entry) is a NFS file system
  * HRFS_entry must be valid prior to calling this function
- * returns 1 if Network file system, 0 otherwise
+ * returns 1 if NFS file system, 0 otherwise
  */
 int
 Check_HR_FileSys_NFS (void)
@@ -628,9 +640,9 @@ Check_HR_FileSys_NFS (void)
 	     */
 	    !strcmp( HRFS_entry->HRFS_type, "mvfs")))
 #endif /* HAVE_GETFSSTAT */
-	return 1;	/* Network file system */
+	return 1;	/* NFS file system */
 
-    return 0;		/* no Network file system */
+    return 0;		/* no NFS file system */
 }
 
 void
@@ -653,7 +665,7 @@ when_dumped(char *filesys, int level, size_t * length)
 {
     time_t          dumpdate = 0, tmp;
     FILE           *dump_fp;
-    char            line[100];
+    char            line[1024];
     char           *cp1, *cp2, *cp3;
 
     /*
@@ -782,10 +794,14 @@ Get_FSSize(char *dev)
   		 * in case of 512 (f_blocks/2) is returned
   		 * otherwise (f_blocks*(f_bsize/1024)) is returned
   		 */
+#if defined(solaris2) && defined(STRUCT_STATVFS_HAS_F_FRSIZE)
+                return (statfs_buf.f_blocks*(statfs_buf.f_frsize/1024));
+#else
   		if (statfs_buf.f_bsize == 512)
   		    return (statfs_buf.f_blocks/2);
                 else
   		    return (statfs_buf.f_blocks*(statfs_buf.f_bsize/1024));
+#endif
             else
                 return -1;
         }

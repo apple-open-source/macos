@@ -1,3 +1,41 @@
-pmconfigd: AutoWakeScheduler.c PMSettings.c PrivateLib.h AutoWakeScheduler.h PMSettings.h RepeatingAutoWake.c BatteryTimeRemaining.c PSLowPower.c RepeatingAutoWake.h BatteryTimeRemaining.h PSLowPower.h pmconfigd.c PrivateLib.c
-	cc -o pm -g -DSTANDALONE pmconfigd.c PSLowPower.c PMSettings.c BatteryTimeRemaining.c AutoWakeScheduler.c RepeatingAutoWake.c PrivateLib.c -framework IOKit -framework CoreFoundation -framework SystemConfiguration
+OBJ_FILES = SetActive.o PMSettings.o PrivateLib.o AutoWakeScheduler.o \
+	RepeatingAutoWake.o BatteryTimeRemaining.o PSLowPower.o  pmconfigd.o \
+	powermanagementServer.o IOUPSPrivate.o ioupspluginUser.o
+H_FILES = PrivateLib.h AutoWakeScheduler.h PMSettings.h RepeatingAutoWake.h \
+	BatteryTimeRemaining.h PSLowPower.h SetActive.h
+MIG_PRODUCTS = powermanagement.h powermanagementServer.c powermanagementServer.h \
+	powermanagementUser.c ioupspluginUser.c ioupsplugin.h ioupspluginServer.c
+
+PROJ_ROOT = ..
+UPS_DIR = $(PROJ_ROOT)/ioupsd
+
+CFLAGS = -g -DSTANDALONE
+
+all: pmconfigd
+
+pmconfigd: $(OBJ_FILES) $(H_FILES)
+	cc -o pm -g -DSTANDALONE $(OBJ_FILES) -framework IOKit -framework CoreFoundation -framework SystemConfiguration
+
+powermanagement.h powermanagementServer.c: powermanagement.defs
+	mig powermanagement.defs
+	
+powermanagementServer.h: powermanagement.defs
+	mig -sheader powermanagementServer.h powermanagement.defs
+
+pmconfigd.o : powermanagementServer.h
+
+SetActive.c: powermanagementServer.h
+
+powermanagementServer.o: powermanagementServer.c powermanagementServer.h
+
+IOUPSPrivate.o: $(UPS_DIR)/IOUPSPrivate.c
+	cc -c $(UPS_DIR)/IOUPSPrivate.c
+	
+ioupspluginUser.o: ioupspluginUser.c
+
+ioupspluginUser.c: $(UPS_DIR)/ioupsplugin.defs
+	mig $(UPS_DIR)/ioupsplugin.defs
+
+clean:
+	rm pm $(OBJ_FILES) $(MIG_PRODUCTS)
 

@@ -1,0 +1,20 @@
+man was written by John Eaton (jwe@bevo.che.wisc.edu).
+He does not maintain man anymore - please do not bother
+him with remarks about the current version, which is
+rather different from the original one.
+
+man-1.2 was released by Zeyd M. Ben-Halim (zmbenhal@netcom.com).
+
+man-1.3, man-1.4* and man-1.5* were released by Andries Brouwer (aeb@cwi.nl).
+I still maintain this program. The current version is usually found
+in ftp://ftp.win.tue.nl:/pub/linux-local/utils/man/ .
+
+In man-1.5 Richard Verhoeven's man2html was added, together with
+some scripts by Michael Hamilton. This html stuff is still alpha
+(but it works - no negative reports so far).
+
+There is a very different man program, also derived from
+John Eaton's original version (by Graeme W. Wilford)
+distributed under the name man_db, with version numbers
+like man_db-2.3.10.  Do not confuse the two, they are
+mutually incompatible, although they perform nearly the same job.

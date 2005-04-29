@@ -31,7 +31,9 @@ class CCICCacheData:
 		void		Destroy ();
 
 		void		SetDefault ();
-
+                
+                void		UpdateLastDefaultTime ();
+                
 		CCIUInt32	GetCredentialsVersion () const;
 		
 		std::string	GetPrincipal (

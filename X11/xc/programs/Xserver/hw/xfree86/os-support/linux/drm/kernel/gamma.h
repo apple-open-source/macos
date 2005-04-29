@@ -53,6 +53,10 @@
 	[DRM_IOCTL_NR(DRM_IOCTL_GAMMA_INIT)] = { gamma_dma_init,  1, 1 }, \
 	[DRM_IOCTL_NR(DRM_IOCTL_GAMMA_COPY)] = { gamma_dma_copy,  1, 1 }
 
+#define DRIVER_PCI_IDS							\
+	{0x3d3d, 0x0008, 0, "3DLabs GLINT Gamma G1"},			\
+	{0, 0, 0, NULL}
+
 #define IOCTL_TABLE_NAME	DRM(ioctls)
 #define IOCTL_FUNC_NAME 	DRM(ioctl)
 
@@ -63,6 +67,12 @@
 #define __HAVE_COUNTER9		_DRM_STAT_SPECIAL
 #define __HAVE_COUNTER10	_DRM_STAT_MISSED
 
+/* Driver customization:
+ */
+#define DRIVER_PRETAKEDOWN() do {					\
+	gamma_do_cleanup_dma( dev );					\
+} while (0)
+
 /* DMA customization:
  */
 #define __HAVE_DMA			1
@@ -70,6 +80,9 @@
 #define __MUST_HAVE_AGP			0
 #define __HAVE_OLD_DMA			1
 #define __HAVE_PCI_DMA			1
+
+#define __HAVE_DRIVER_FOPS_READ		1
+#define __HAVE_DRIVER_FOPS_POLL		1
 
 #define __HAVE_MULTIPLE_DMA_QUEUES	1
 #define __HAVE_DMA_WAITQUEUE		1
@@ -87,62 +100,19 @@
 
 #define __HAVE_DMA_QUIESCENT		1
 #define DRIVER_DMA_QUIESCENT() do {					\
-	/* FIXME ! */ 							\
-	gamma_dma_quiescent_single(dev);					\
+	drm_gamma_private_t *dev_priv =					\
+		(drm_gamma_private_t *)dev->dev_private;		\
+	if (dev_priv->num_rast == 2)					\
+		gamma_dma_quiescent_dual(dev);				\
+	else gamma_dma_quiescent_single(dev);				\
 	return 0;							\
 } while (0)
 
-#define __HAVE_DMA_IRQ			1
-#define __HAVE_DMA_IRQ_BH		1
-
-#if 1
-#define DRIVER_PREINSTALL() do {					\
-	drm_gamma_private_t *dev_priv =					\
-				(drm_gamma_private_t *)dev->dev_private;\
-	while(GAMMA_READ(GAMMA_INFIFOSPACE) < 2);			\
-	GAMMA_WRITE( GAMMA_GCOMMANDMODE,	0x00000004 );		\
-	GAMMA_WRITE( GAMMA_GDMACONTROL,		0x00000000 );		\
-} while (0)
-#define DRIVER_POSTINSTALL() do {					\
-	drm_gamma_private_t *dev_priv =					\
-				(drm_gamma_private_t *)dev->dev_private;\
-	while(GAMMA_READ(GAMMA_INFIFOSPACE) < 2);			\
-	while(GAMMA_READ(GAMMA_INFIFOSPACE) < 3);			\
-	GAMMA_WRITE( GAMMA_GINTENABLE,		0x00002001 );		\
-	GAMMA_WRITE( GAMMA_COMMANDINTENABLE,	0x00000008 );		\
-	GAMMA_WRITE( GAMMA_GDELAYTIMER,		0x00039090 );		\
-} while (0)
-#else
-#define DRIVER_POSTINSTALL() do {					\
-	drm_gamma_private_t *dev_priv =					\
-				(drm_gamma_private_t *)dev->dev_private;\
-	while(GAMMA_READ(GAMMA_INFIFOSPACE) < 2);			\
-	while(GAMMA_READ(GAMMA_INFIFOSPACE) < 2);			\
-	GAMMA_WRITE( GAMMA_GINTENABLE,		0x00002000 );		\
-	GAMMA_WRITE( GAMMA_COMMANDINTENABLE,	0x00000004 );		\
-} while (0)
-
-#define DRIVER_PREINSTALL() do {					\
-	drm_gamma_private_t *dev_priv =					\
-				(drm_gamma_private_t *)dev->dev_private;\
-	while(GAMMA_READ(GAMMA_INFIFOSPACE) < 2);			\
-	while(GAMMA_READ(GAMMA_INFIFOSPACE) < 2);			\
-	GAMMA_WRITE( GAMMA_GCOMMANDMODE,	GAMMA_QUEUED_DMA_MODE );\
-	GAMMA_WRITE( GAMMA_GDMACONTROL,		0x00000000 );\
-} while (0)
-#endif
-
-#define DRIVER_UNINSTALL() do {						\
-	drm_gamma_private_t *dev_priv =					\
-				(drm_gamma_private_t *)dev->dev_private;\
-	while(GAMMA_READ(GAMMA_INFIFOSPACE) < 2);			\
-	while(GAMMA_READ(GAMMA_INFIFOSPACE) < 3);			\
-	GAMMA_WRITE( GAMMA_GDELAYTIMER,		0x00000000 );		\
-	GAMMA_WRITE( GAMMA_COMMANDINTENABLE,	0x00000000 );		\
-	GAMMA_WRITE( GAMMA_GINTENABLE,		0x00000000 );		\
-} while (0)
+#define __HAVE_IRQ			1
+#define __HAVE_IRQ_BH			1
 
 #define DRIVER_AGP_BUFFERS_MAP( dev )					\
 	((drm_gamma_private_t *)((dev)->dev_private))->buffers
+
 
 #endif /* __GAMMA_H__ */

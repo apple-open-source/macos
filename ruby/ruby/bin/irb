@@ -2,8 +2,8 @@
 #
 #   irb.rb - intaractive ruby
 #   	$Release Version: 0.7.3 $
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2003/05/14 13:58:45 $
+#   	$Revision: 1.2 $
+#   	$Date: 2002/11/19 02:00:18 $
 #   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #
 
@@ -16,6 +16,6 @@ else
   if /^-e$/ =~ $0
     IRB.start(__FILE__)
   else
-    IRB.initialize(__FILE__)
+    IRB.setup(__FILE__)
   end
 end

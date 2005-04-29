@@ -1,5 +1,5 @@
 /* auth_krb5.c -- Kerberos V authorization for Cyrus IMAP
- * $Id: auth_krb5.c,v 1.3 2004/01/16 15:28:58 rjs3 Exp $
+ * $Id: auth_krb5.c,v 1.4 2005/03/05 00:37:11 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

@@ -1,0 +1,118 @@
+{
+    Name = "Kerberos"; 
+    AppleEventCode = "KrbM"; 
+    
+    Commands = {
+        showTicketList = {
+            AppleEventClassCode = "core"; 
+            AppleEventCode = "tixl"; 
+            CommandClass = "NSScriptCommand"; 
+            Type = "NSObjectReference"; 
+            ResultAppleEventCode = "****"; 
+        };
+         getTickets = {
+            AppleEventClassCode = "core"; 
+            AppleEventCode = "ntix"; 
+            CommandClass = "NSScriptCommand"; 
+            Type = "NSObjectReference"; 
+            ResultAppleEventCode = "****"; 
+            Arguments = {
+                forPrincipal = {
+                    Type = "NSString";
+                    AppleEventCode = "prin";
+                    Optional = "YES";
+                };
+            };
+        };
+        renewTickets = {
+            AppleEventClassCode = "core"; 
+            AppleEventCode = "rtix"; 
+            CommandClass = "NSScriptCommand"; 
+            Type = "NSObjectReference"; 
+            ResultAppleEventCode = "****"; 
+            Arguments = {
+                forPrincipal = {
+                    Type = "NSString";
+                    AppleEventCode = "prin";
+                    Optional = "YES";
+                };
+            };
+        };
+        destroyTickets = {
+            AppleEventClassCode = "core"; 
+            AppleEventCode = "dtix"; 
+            CommandClass = "NSScriptCommand"; 
+            Type = "NSObjectReference"; 
+            ResultAppleEventCode = "****"; 
+            Arguments = {
+                forPrincipal = {
+                    Type = "NSString";
+                    AppleEventCode = "prin";
+                    Optional = "YES";
+                };
+            };
+        };
+        changePassword = {
+            AppleEventClassCode = "core"; 
+            AppleEventCode = "chpa"; 
+            CommandClass = "NSScriptCommand"; 
+            Type = "NSObjectReference"; 
+            ResultAppleEventCode = "****"; 
+            Arguments = {
+                forPrincipal = {
+                    Type = "NSString";
+                    AppleEventCode = "prin";
+                    Optional = "YES";
+                };
+            };
+        };
+    };
+    Classes = {
+        NSApplication = {
+            AppleEventCode = "capp";
+            Superclass = "NSCoreSuite.NSApplication";
+            SupportedCommands = {
+                "Kerberos.showTicketList" = "handleShowTicketListScriptCommand:"; 
+                "Kerberos.getTickets"     = "handleGetTicketsScriptCommand:"; 
+                "Kerberos.renewTickets"   = "handleRenewTicketsScriptCommand:"; 
+                "Kerberos.destroyTickets" = "handleDestroyTicketsScriptCommand:"; 
+                "Kerberos.changePassword" = "handleChangePasswordScriptCommand:"; 
+            };
+            ToManyRelationships = {
+                caches = {
+                    Type = "Cache";
+                    AppleEventCode = "cach";
+                    ReadOnly = "YES";
+                };
+            };
+            Attributes = {
+                defaultCache = {
+                    Type = "Cache";
+                    AppleEventCode = "cdef";
+                    ReadOnly = "YES";
+                };
+            };
+        };
+        Cache = {
+            Superclass = "NSCoreSuite.NSObject";
+            AppleEventCode = "cach";
+            Attributes = {
+                ccacheName = {
+                    Type = "NSString";
+                    AppleEventCode = "cnme";
+                    ReadOnly = "YES";
+                };
+                stringValueForTimeRemainingScriptCommand = {
+                    Type = "NSString";
+                    AppleEventCode = "life";
+                    ReadOnly = "YES";
+                };
+                principalString = {
+                    Type = "NSString";
+                    AppleEventCode = "cprn";
+                    ReadOnly = "YES";
+                };
+            };
+        };
+    };
+}

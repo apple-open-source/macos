@@ -1,23 +1,24 @@
-/* C code produced by gperf version 2.7 */
-/* Command-line: gperf -L C -C -F , 0 -p -t -j1 -i 1 -g -o -N java_keyword -k1,4,$ keyword.gperf  */
+/* ANSI-C code produced by gperf version 2.7.2 */
+/* Command-line: gperf -L ANSI-C -C -F ', 0' -p -t -j1 -i 1 -g -o -N java_keyword -k'1,4,$' keyword.gperf  */
 /* Keyword definition for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 2001, 2002, 2003
+   Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -29,11 +30,11 @@ struct java_keyword { const char *const name; const int token; };
 #ifdef __GNUC__
 __inline
 #endif
-static unsigned int hash		PARAMS ((const char *, unsigned int));
+static unsigned int hash (const char *, unsigned int);
 #ifdef __GNUC__
 __inline
 #endif
-const struct java_keyword *java_keyword	PARAMS ((const char *, unsigned int));
+const struct java_keyword *java_keyword (const char *, unsigned int);
 
 #define TOTAL_KEYWORDS 52
 #define MIN_WORD_LENGTH 2
@@ -44,11 +45,13 @@ const struct java_keyword *java_keyword	PARAMS ((const char *, unsigned int));
 
 #ifdef __GNUC__
 __inline
+#else
+#ifdef __cplusplus
+inline
+#endif
 #endif
 static unsigned int
-hash (str, len)
-     register const char *str;
-     register unsigned int len;
+hash (const char *str, unsigned int len)
 {
   static const unsigned char asso_values[] =
     {
@@ -79,7 +82,7 @@ hash (str, len)
       86, 86, 86, 86, 86, 86, 86, 86, 86, 86,
       86, 86, 86, 86, 86, 86
     };
-  register int hval = len;
+  int hval = len;
 
   switch (hval)
     {
@@ -99,13 +102,12 @@ hash (str, len)
 __inline
 #endif
 const struct java_keyword *
-java_keyword (str, len)
-     register const char *str;
-     register unsigned int len;
+java_keyword (const char *str, unsigned int len)
 {
   static const struct java_keyword wordlist[] =
     {
-      {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0},
+      {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0},
+      {"", 0},
       {"else", ELSE_TK},
       {"true", TRUE_TK},
       {"case", CASE_TK},
@@ -163,8 +165,9 @@ java_keyword (str, len)
       {"", 0},
       {"finally", FINALLY_TK},
       {"throw", THROW_TK},
-      {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0},
       {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0},
+      {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0},
+      {"", 0}, {"", 0}, {"", 0},
       {"strictfp", STRICT_TK},
       {"", 0}, {"", 0}, {"", 0}, {"", 0}, {"", 0},
       {"private", PRIVATE_TK}
@@ -172,11 +175,11 @@ java_keyword (str, len)
 
   if (len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH)
     {
-      register int key = hash (str, len);
+      int key = hash (str, len);
 
       if (key <= MAX_HASH_VALUE && key >= 0)
         {
-          register const char *s = wordlist[key].name;
+          const char *s = wordlist[key].name;
 
           if (*str == *s && !strcmp (str + 1, s + 1))
             return &wordlist[key];

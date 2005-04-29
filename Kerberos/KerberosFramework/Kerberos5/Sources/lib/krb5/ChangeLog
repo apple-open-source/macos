@@ -1,3 +1,94 @@
+2005-01-04  Jeffrey Altman <jaltman@mit.edu>
+      
+        * libkrb5.exports: add krb5_is_thread_safe
+
+2004-08-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* libkrb5.exports: Remove memory ccache symbols except ops table.
+
+2004-06-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (OBJFILEDEP, OBJFILELIST) [DOS]: Include locally
+	built object files.
+	(OBJFILE, LIBOBJS, LOCALINCLUDES) [DOS]: Define.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (MAC_SUBDIRS): Don't set.
+
+2004-06-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LOCALINCLUDES): Add $srcdir/os.
+
+	* krb5_libinit.c: Include os-proto.h.
+	(krb5int_lib_init): Initialize krb5int_us_time_mutex.
+
+	* libkrb5.exports: Drop krb5_init_ets, krb5_free_ets,
+	krb5_kt_default_vno, and krb5int_profile_shared_data.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBBASE): Renamed from LIB.
+
+2004-06-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* krb5_libinit.c (initialized): Variable deleted, all references
+	removed.
+	(krb5int_lib_init): Initialize error tables here, including k524.
+	(krb5int_initialize_library): Don't do it here.
+	(krb5int_lib_fini): Remove k524 error table too.
+
+2004-05-27  Ezra Peisach  <epeisach@mit.edu>
+
+	* Makefile.in (LOCALINCLUDES): Include ccache, keytab and rcache
+	directories.
+
+	* krb5_libinit.c: Include cc-int.h, kt-int.h, rc-int.h for
+	init/fini prototypes.
+
+2004-05-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* libkrb5.exports: Export krb5int_foreach_localaddr for now.
+
+2004-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* krb5_libinit.c: Include k5-platform.h.
+	(krb5int_lib_init, krb5int_lib_fini): New init/fini functions.
+	Call the corresponding functions for the ccache, keytab, and
+	rcache code.  Incorporate the finalization code from
+	krb5int_cleanup_library.
+	(krb5int_initialize_library): Make sure the init function runs
+	successfully.
+	(krb5int_cleanup_library): Now empty.
+
+2004-04-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* libkrb5.exports: New file.
+
+2003-12-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Remove basic checks for header files and
+	functions, now moved into include/configure.in.
+
+2003-08-21  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Don't substitute LIBOBJS, newer autoconfs don't
+	like it.
+
+2003-08-20  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Don't replace any missing system functions.  Just
+	set LIBOBJS empty for now and substitute it.
+
+2003-08-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Don't check for or replace vfprintf, vsprintf,
+	strerror, memmove, or sscanf, all part of C 89.
+
+2003-07-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* krb5_libinit.c: Include autoconf.h.
+
 2003-03-07  Alexandra Ellwood  <lxs@mit.edu>
 
     * krb5_libinit.c: Changed USE_HARDCODED_FALLBACK_ERROR_TABLES macro 

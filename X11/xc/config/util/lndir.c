@@ -26,14 +26,14 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/config/util/lndir.c,v 3.17 2002/10/07 15:28:51 tsi Exp $ */
+/* $XFree86: xc/config/util/lndir.c,v 3.19 2004/01/11 00:10:15 herrb Exp $ */
 
 /* From the original /bin/sh script:
 
   Used to create a copy of the a directory tree that has links for all
-  non-directories (except, by default, those named RCS, SCCS or CVS.adm).
-  If you are building the distribution on more than one machine, you
-  should use this technique.
+  non-directories (except, by default, those named BitKeeper, RCS, SCCS
+  or CVS.adm).  If you are building the distribution on more than one
+  machine, you should use this technique.
 
   If your master sources are located in /usr/local/src/X and you would like
   your link tree to be in /usr/local/src/new-X, do the following:
@@ -212,6 +212,8 @@ dodir (char *fn,		/* name of "from" directory, either absolute or
 					       dp->d_name[2] == '\0')))
 		    continue;
 		if (!with_revinfo) {
+		    if (!strcmp (dp->d_name, "BitKeeper"))
+			continue;
 		    if (!strcmp (dp->d_name, "RCS"))
 			continue;
 		    if (!strcmp (dp->d_name, "SCCS"))
@@ -219,6 +221,8 @@ dodir (char *fn,		/* name of "from" directory, either absolute or
 		    if (!strcmp (dp->d_name, "CVS"))
 			continue;
 		    if (!strcmp (dp->d_name, "CVS.adm"))
+			continue;
+		    if (!strcmp (dp->d_name, ".svn"))
 			continue;
 		}
 		ocurdir = rcurdir;

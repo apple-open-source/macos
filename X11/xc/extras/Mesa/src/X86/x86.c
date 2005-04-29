@@ -29,7 +29,6 @@
 
 #include "glheader.h"
 #include "context.h"
-#include "math/m_vertices.h"
 #include "math/m_xform.h"
 #include "tnl/t_context.h"
 
@@ -94,14 +93,3 @@ void _mesa_init_x86_transform_asm( void )
 #endif
 }
 
-void _mesa_init_x86_vertex_asm( void )
-{
-#ifdef USE_X86_ASM
-   _mesa_xform_points3_v16_general = _mesa_v16_x86_general_xform;
-   _mesa_cliptest_points4_v16 = _mesa_v16_x86_cliptest_points4;
-
-#if 0 /* DEBUG */
-   _math_test_all_vertex_functions( "x86" );
-#endif
-#endif
-}

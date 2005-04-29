@@ -51,7 +51,7 @@
  *
  *	from: @(#)pmap_rmt.h 1.2 88/02/08 SMI 
  *	from: @(#)pmap_rmt.h	2.1 88/07/29 4.0 RPCSRC
- *	$Id: pmap_rmt.h,v 1.2 1999/10/14 21:56:53 wsanchez Exp $
+ *	$Id: pmap_rmt.h,v 1.3 2004/10/28 21:58:23 emoy Exp $
  */
 
 /*
@@ -66,14 +66,14 @@
 #include <sys/cdefs.h>
 
 struct rmtcallargs {
-	u_long prog, vers, proc, arglen;
+	unsigned long prog, vers, proc, arglen;
 	caddr_t args_ptr;
 	xdrproc_t xdr_args;
 };
 
 struct rmtcallres {
-	u_long *port_ptr;
-	u_long resultslen;
+	unsigned long *port_ptr;
+	unsigned long resultslen;
 	caddr_t results_ptr;
 	xdrproc_t xdr_results;
 };

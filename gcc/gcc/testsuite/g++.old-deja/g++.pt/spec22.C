@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 
 template <class T>
 struct S
@@ -9,7 +9,7 @@ struct S
 
 
 template <class T> 
-template <> // ERROR - enclosing classes not specialized
-void S<T>::f<int> () 
-{ // ERROR - template does not match any declaration
+template <> // { dg-error "enclosing class templates|invalid explicit specialization" }
+void S<T>::f<int> ()  // { dg-error "does not match|invalid function declaration" }
+{
 }

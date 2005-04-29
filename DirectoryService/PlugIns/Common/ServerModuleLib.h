@@ -31,9 +31,8 @@
 
 #include <stdarg.h>		// for va_list
 
-#include "DirServicesTypes.h"	// for SvrLibFtbl
-#include "ServerModule.h"	// for SvrLibFtbl
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
+#include <DirectoryServiceCore/ServerModule.h>	// for SvrLibFtbl
 
 extern "C"
 {

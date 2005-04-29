@@ -29,7 +29,7 @@ int pppoe_wan_init();
 int pppoe_wan_dispose();
 int pppoe_wan_attach(void *rfc, struct ppp_link **link);
 void pppoe_wan_detach(struct ppp_link *link);
-int pppoe_wan_input(struct ppp_link *link, struct mbuf *m);
+int pppoe_wan_input(struct ppp_link *link, mbuf_t m);
 
 
 #endif

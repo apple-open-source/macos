@@ -22,39 +22,107 @@ Boston, MA 02111-1307, USA.  */
 
 /* Define default target values. */
 
-#ifndef TARGET_ENDIAN_DEFAULT
-#define TARGET_ENDIAN_DEFAULT MASK_BIG_ENDIAN
-#endif
-
-#ifndef MACHINE_TYPE
+#undef MACHINE_TYPE
 #if TARGET_ENDIAN_DEFAULT != 0
 #define MACHINE_TYPE "NetBSD/mipseb ELF"
 #else
 #define MACHINE_TYPE "NetBSD/mipsel ELF"
 #endif
-#endif
 
-#define TARGET_DEFAULT (MASK_GAS|MASK_ABICALLS)
+#define TARGET_OS_CPP_BUILTINS()			\
+  do							\
+    {							\
+      NETBSD_OS_CPP_BUILTINS_ELF();			\
+      builtin_define ("__NO_LEADING_UNDERSCORES__");	\
+      builtin_define ("__GP_SUPPORT__");		\
+      builtin_assert ("machine=mips");			\
+      if (TARGET_LONG64)				\
+	builtin_define ("__LONG64");			\
+							\
+      if (TARGET_ABICALLS)				\
+	builtin_define ("__ABICALLS__");		\
+							\
+      if (mips_abi == ABI_EABI)				\
+	builtin_define ("__mips_eabi");			\
+      else if (mips_abi == ABI_N32)			\
+	builtin_define ("__mips_n32");			\
+      else if (mips_abi == ABI_64)			\
+	builtin_define ("__mips_n64");			\
+      else if (mips_abi == ABI_O64)			\
+	builtin_define ("__mips_o64");			\
+    }							\
+  while (0)
 
+/* The generic MIPS TARGET_CPU_CPP_BUILTINS are incorrect for NetBSD.
+   Specifically, they define too many namespace-invasive macros.  Override
+   them here.  Note this is structured for easy comparison to the version
+   in mips.h.
 
-/* XXX Don't use DWARF-2 debugging info, for now.  */
-#undef DBX_DEBUGGING_INFO
-#define DBX_DEBUGGING_INFO
-#undef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+   FIXME: This probably isn't the best solution.  But in the absense
+   of something better, it will have to do, for now.  */
+
+#undef TARGET_CPU_CPP_BUILTINS
+#define TARGET_CPU_CPP_BUILTINS()				\
+  do								\
+    {								\
+      builtin_assert ("cpu=mips");				\
+      builtin_define ("__mips__");				\
+      builtin_define ("_mips");					\
+								\
+      /* No _R3000 or _R4000.  */				\
+      if (TARGET_64BIT)						\
+	builtin_define ("__mips64");				\
+								\
+      if (TARGET_FLOAT64)					\
+	builtin_define ("__mips_fpr=64");			\
+      else							\
+	builtin_define ("__mips_fpr=32");			\
+								\
+      if (TARGET_MIPS16)					\
+	builtin_define ("__mips16");				\
+								\
+      MIPS_CPP_SET_PROCESSOR ("_MIPS_ARCH", mips_arch_info);	\
+      MIPS_CPP_SET_PROCESSOR ("_MIPS_TUNE", mips_tune_info);	\
+								\
+      if (ISA_MIPS1)						\
+	builtin_define ("__mips=1");				\
+      else if (ISA_MIPS2)					\
+	builtin_define ("__mips=2");				\
+      else if (ISA_MIPS3)					\
+	builtin_define ("__mips=3");				\
+      else if (ISA_MIPS4)					\
+	builtin_define ("__mips=4");				\
+      else if (ISA_MIPS32)					\
+	builtin_define ("__mips=32");				\
+      else if (ISA_MIPS64)					\
+	builtin_define ("__mips=64");				\
+								\
+      if (TARGET_HARD_FLOAT)					\
+	builtin_define ("__mips_hard_float");			\
+      else if (TARGET_SOFT_FLOAT)				\
+	builtin_define ("__mips_soft_float");			\
+								\
+      if (TARGET_SINGLE_FLOAT)					\
+	builtin_define ("__mips_single_float");			\
+								\
+      if (TARGET_BIG_ENDIAN)					\
+	builtin_define ("__MIPSEB__");				\
+      else							\
+	builtin_define ("__MIPSEL__");				\
+								\
+      /* No language dialect defines.  */			\
+								\
+      /* ABIs handled in TARGET_OS_CPP_BUILTINS.  */		\
+    }								\
+  while (0)
 
 
 /* Include the generic MIPS ELF configuration.  */
 #include <mips/elf.h>
 
 /* Now clean up after it.  */
-#undef OBJECT_FORMAT_COFF
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
-#undef US_SOFTWARE_GOFAST
-#undef INIT_SUBTARGET_OPTABS
-#define INIT_SUBTARGET_OPTABS
-
 
 /* Get generic NetBSD definitions.  */
 #include <netbsd.h>
@@ -64,106 +132,44 @@ Boston, MA 02111-1307, USA.  */
 #include <netbsd-elf.h>
 
 
-/* Provide CPP predefines appropriate for NetBSD.  We default to
-   MIPS-I.  */
+/* Extra specs we need.  */
+#undef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS						\
+  { "netbsd_cpp_spec",		NETBSD_CPP_SPEC },			\
+  { "netbsd_link_spec",		NETBSD_LINK_SPEC_ELF },			\
+  { "netbsd_entry_point",	NETBSD_ENTRY_POINT },
 
-#undef CPP_PREDEFINES
-#if TARGET_ENDIAN_DEFAULT != 0 
-#define CPP_PREDEFINES							\
-  "-D__NetBSD__ -D__ELF__ -D__mips__ -D__mips=1 -D__MIPSEB__		\
-   -D__NO_LEADING_UNDERSCORES__	-D__GP_SUPPORT__			\
-   -Asystem=unix -Asystem=NetBSD -Amachine=mips"
-#else
-#define CPP_PREDEFINES							\
-  "-D__NetBSD__ -D__ELF__ -D__mips__ -D__mips=1 -D__MIPSEL__		\
-   -D__NO_LEADING_UNDERSCORES__	-D__GP_SUPPORT__			\
-   -Asystem=unix -Asystem=NetBSD -Amachine=mips"
-#endif
-
-
-/* Provide a CPP_SPEC appropriate for NetBSD.  This is a simplified
-   CPP_SPEC from <mips/mips.h>.  We use the SUBTARGET_CPP_SPEC to
-   deal with NetBSD-specific CPP options.  */
-
-#undef CPP_SPEC
-#define CPP_SPEC							\
-  "%(subtarget_cpp_size_spec)						\
-   %{mips3:-U__mips -D__mips=3 -D__mips64}				\
-   %{mips4:-U__mips -D__mips=4 -D__mips64}				\
-   %{mips32:-U__mips -D__mips=32}					\
-   %{mips64:-U__mips -D__mips=64 -D__mips64}				\
-   %{mgp32:-U__mips64} %{mgp64:-D__mips64}				\
-   %{mfp32:-D__mips_fpr=32} %{mfp64:-D__mips_fpr=64}			\
-   %{!mfp32:								\
-     %{!mfp64:								\
-       %{mgp32:-D__mips_fpr=32}						\
-       %{!mgp32: %(cpp_fpr_spec)}}}					\
-   %{msingle-float:							\
-     %{!msoft-float:-D__mips_single_float}}				\
-   %{m4650:								\
-     %{!msoft-float:-D__mips_single_float}}				\
-   %{msoft-float:-D__mips_soft_float}					\
-   %{mabi=eabi:-D__mips_eabi}						\
-   %{mips16:%{!mno-mips16:-D__mips16}}					\
-   %{EB:-U__MIPSEL__ -D__MIPSEB__}					\
-   %{EL:-U__MIPSEB__ -D__MIPSEL__}					\
-   %(subtarget_cpp_spec) "
-
-
-/* Provide a SUBTARGET_CPP_SIZE_SPEC appropriate for NetBSD.  In
-   addition to the normal work done by this spec, we also define
-   __LONG64 or not (so that <machine/ansi.h> can tell).  */
-
-#undef SUBTARGET_CPP_SIZE_SPEC
-#define SUBTARGET_CPP_SIZE_SPEC						\
-  "%{mlong64:								\
-     %{!mips1:								\
-       %{!mips2:							\
-	 %{!mips32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int -D__LONG64}}}} \
-   %{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int -U__LONG64}"
-
-
-/* Provide a SUBTARGET_CPP_SPEC appropriate for NetBSD.  Currently,
-   we just deal with the GCC option '-posix'.  */
+/* Provide a SUBTARGET_CPP_SPEC appropriate for NetBSD.  */
 
 #undef SUBTARGET_CPP_SPEC
-#define SUBTARGET_CPP_SPEC "%{posix:-D_POSIX_SOURCE}"
-
+#define SUBTARGET_CPP_SPEC "%(netbsd_cpp_spec)"
 
 /* Provide a LINK_SPEC appropriate for a NetBSD/mips target.
    This is a copy of LINK_SPEC from <netbsd-elf.h> tweaked for
    the MIPS target.  */
 
 #undef LINK_SPEC
-#define LINK_SPEC							\
-  "%{assert*} %{R*} %{rpath*}						\
-   %{EL:-m elf32lmip}							\
-   %{EB:-m elf32bmip}							\
-   %(endian_spec)							\
-   %{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips64}	\
-   %{bestGnum} %{call_shared} %{no_archive} %{exact_version}		\
-   %{shared:-shared}							\
-   %{!shared:								\
-     -dc -dp								\
-     %{!nostdlib:							\
-       %{!r*:								\
-	 %{!e*:-e __start}}}						\
-     %{!static:								\
-       %{rdynamic:-export-dynamic}					\
-       %{!dynamic-linker:-dynamic-linker /usr/libexec/ld.elf_so}}	\
-     %{static:-static}}"
+#define LINK_SPEC \
+  "%{EL:-m elf32lmip} \
+   %{EB:-m elf32bmip} \
+   %(endian_spec) \
+   %{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips64} \
+   %{bestGnum} %{call_shared} %{no_archive} %{exact_version} \
+   %(netbsd_link_spec)"
 
+#define NETBSD_ENTRY_POINT "__start"
 
 #undef SUBTARGET_ASM_SPEC
-#define SUBTARGET_ASM_SPEC						\
-  "%{fpic:-KPIC} %{fPIC:-KPIC}"
+#define SUBTARGET_ASM_SPEC \
+  "%{!mno-abicalls: \
+     %{!fno-PIC:%{!fno-pic:-KPIC}}}"
 
 
 /* -G is incompatible with -KPIC which is the default, so only allow objects
    in the small data section if the user explicitly asks for it.  */
 
-#undef MIPS_DEFAULT_GVALUE 
-#define MIPS_DEFAULT_GVALUE 0 
+#undef MIPS_DEFAULT_GVALUE
+#define MIPS_DEFAULT_GVALUE 0
 
 
 /* This defines which switch letters take arguments.  -G is a MIPS
@@ -180,13 +186,16 @@ Boston, MA 02111-1307, USA.  */
 #undef SET_ASM_OP
 
 
+/* NetBSD hasn't historically provided _flush_cache(), but rather
+   _cacheflush(), which takes the same arguments as the former.  */
+#undef CACHE_FLUSH_FUNC
+#define CACHE_FLUSH_FUNC "_cacheflush"
+
+
 /* Make gcc agree with <machine/ansi.h> */
 
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "int"
-
-#undef WCHAR_UNSIGNED
-#define WCHAR_UNSIGNED 0
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32

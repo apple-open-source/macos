@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -107,6 +106,29 @@ package body Tbuild is
          return Result;
       end if;
    end Convert_To;
+
+   -------------------------------------------
+   -- Make_Byte_Aligned_Attribute_Reference --
+   -------------------------------------------
+
+   function Make_Byte_Aligned_Attribute_Reference
+     (Sloc           : Source_Ptr;
+      Prefix         : Node_Id;
+      Attribute_Name : Name_Id)
+      return           Node_Id
+   is
+      N : constant Node_Id :=
+            Make_Attribute_Reference (Sloc,
+              Prefix        => Prefix,
+              Attribute_Name => Attribute_Name);
+
+   begin
+      pragma Assert (Attribute_Name = Name_Address
+                       or else
+                     Attribute_Name = Name_Unrestricted_Access);
+      Set_Must_Be_Byte_Aligned (N, True);
+      return N;
+   end Make_Byte_Aligned_Attribute_Reference;
 
    --------------------
    -- Make_DT_Access --
@@ -243,6 +265,63 @@ package body Tbuild is
    begin
       return Make_Integer_Literal (Loc, UI_From_Int (Intval));
    end Make_Integer_Literal;
+
+   ---------------------------------
+   -- Make_Raise_Constraint_Error --
+   ---------------------------------
+
+   function Make_Raise_Constraint_Error
+     (Sloc      : Source_Ptr;
+      Condition : Node_Id := Empty;
+      Reason    : RT_Exception_Code)
+      return      Node_Id
+   is
+   begin
+      pragma Assert (Reason in RT_CE_Exceptions);
+      return
+        Make_Raise_Constraint_Error (Sloc,
+          Condition => Condition,
+          Reason =>
+            UI_From_Int (RT_Exception_Code'Pos (Reason)));
+   end Make_Raise_Constraint_Error;
+
+   ------------------------------
+   -- Make_Raise_Program_Error --
+   ------------------------------
+
+   function Make_Raise_Program_Error
+     (Sloc      : Source_Ptr;
+      Condition : Node_Id := Empty;
+      Reason    : RT_Exception_Code)
+      return      Node_Id
+   is
+   begin
+      pragma Assert (Reason in RT_PE_Exceptions);
+      return
+        Make_Raise_Program_Error (Sloc,
+          Condition => Condition,
+          Reason =>
+            UI_From_Int (RT_Exception_Code'Pos (Reason)));
+   end Make_Raise_Program_Error;
+
+   ------------------------------
+   -- Make_Raise_Storage_Error --
+   ------------------------------
+
+   function Make_Raise_Storage_Error
+     (Sloc      : Source_Ptr;
+      Condition : Node_Id := Empty;
+      Reason    : RT_Exception_Code)
+      return      Node_Id
+   is
+   begin
+      pragma Assert (Reason in RT_SE_Exceptions);
+      return
+        Make_Raise_Storage_Error (Sloc,
+          Condition => Condition,
+          Reason =>
+            UI_From_Int (RT_Exception_Code'Pos (Reason)));
+   end Make_Raise_Storage_Error;
 
    ---------------------------
    -- Make_Unsuppress_Block --

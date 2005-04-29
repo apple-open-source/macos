@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -187,7 +187,7 @@ def process_request(doc, cgidata):
                 mlist.Create(listname, owner, pw, langs, emailhost)
             finally:
                 os.umask(oldmask)
-        except Errors.MMBadEmailError, s:
+        except Errors.EmailAddressError, s:
             request_creation(doc, cgidata,
                              _('Bad owner email address: %(s)s'))
             return

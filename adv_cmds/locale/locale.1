@@ -1,0 +1,91 @@
+.\"Modified from man(1) of FreeBSD, the NetBSD mdoc.template, and mdoc.samples.
+.\"See Also:
+.\"man mdoc.samples for a complete listing of options
+.\"man mdoc for the short list of editing options
+.\"/usr/share/misc/mdoc.template
+.Dd August 27, 2004
+.Dt LOCALE 1
+.Os Darwin
+.Sh NAME
+.Nm locale
+.Nd display locale settings
+.Sh SYNOPSIS
+.Nm
+.Op Fl a|m
+.Nm
+.Op Fl ck
+.Ar name 
+.Op ...
+.Sh DESCRIPTION
+.Nm
+displays information about the current locale, or a list of all avilable 
+locales.
+.Pp
+When
+.Nm
+is run with no arguments it will display the current source of each 
+locale category.
+.Pp
+When
+.Nm
+is given the name of a category it acts as if it had been given each
+keyword in that category.  For each keyword it is given the current value 
+is displayed.
+.Sh OPTIONS
+.Bl -tag -width -indent
+.It Fl a
+Lists all public locales.
+.It Fl c
+Lists the category name before each keyword, unless it is the same category
+as the previously displayed keyword.
+.It Fl k
+Displays the name of each keyword prior to it's value.
+.It Fl m
+Lists all avilable public charmaps.  This is currently an empty list.
+.El
+.Pp
+.Sh ENVIRONMENT
+.Bl -tag -width "LC_MESSAGES"
+.It Ev LANG
+Used as a substitute for any unset 
+.Ev LC_* 
+variable.  If
+.Ev LANG
+is unset it will act as if set to "C".  If any of
+.Ev LANG
+or
+.Ev LC_*
+are set to invalide values
+.Nm
+acts as if they are all unset.
+.It Ev LC_ALL
+Will overide the setting of all other
+.Ev LC_*
+variables.
+.It Ev LC_COLLATE
+Sets the locale for the LC_COLLATE category.
+.It Ev LC_CTYPE
+Sets the locale for the LC_CTYPE category.
+.It Ev LC_MESSAGES
+Sets the locale for the LC_MESSAGES category.
+.It Ev LC_MONETARY
+Sets the locale for the LC_MONETARY category.
+.It Ev LC_NUMERIC
+Sets the locale for the LC_NUMERIC category.
+.It Ev LC_TIME
+Sets the locale for the LC_TIME category.
+.El                      
+.Sh SEE ALSO 
+.\" List links in ascending order by section, alphabetically within a section.
+.\" Please do not reference files that do not exist without filing a bug report
+.Xr localedef 1 , 
+.Xr setlocale 3 ,
+.Xr localeconv 3 ,
+.Xr nl_langinfo 3 ,
+.Sh STANDARDS
+The
+.Nm
+utility conforms to IEEE Std 1003.1-2001 (``POSIX.1'').
+.Sh HISTORY           \" Document history if command behaves in a unique manner 
+.Nm
+appeared in Mac OS X 10.4

@@ -1,26 +1,22 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Portions Copyright (c) 1999-2003 Apple Computer, Inc. All Rights
+ *  Reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ *  This file contains Original Code and/or Modifications of Original Code
+ *  as defined in and that are subject to the Apple Public Source License
+ *  Version 2.0 (the 'License'). You may not use this file except in
+ *  compliance with the License. Please obtain a copy of the License at
+ *  http://www.opensource.apple.com/apsl/ and read it before using this
+ *  file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+*/
 
 #define IOKIT   1       /* to get io_name_t in device_types.h */
 
@@ -46,6 +42,7 @@
 #include <sys/socket.h>
 #include <net/if.h>
 #include <net/if_var.h>
+#include <ifaddrs.h>
 
 #include <sadc.h>
 
@@ -83,10 +80,6 @@ int dp_count = 0;
 struct netstats *ns_table = NULL;
 int ns_count = 0;
 
-static kvm_t *kvmd;
-static struct nlist nlist_net[2];
-int kvm_init_failed = 0;
-
 static uid_t realuid;
 
 int network_mode = 0;
@@ -103,8 +96,6 @@ static int get_ndrives();
 static int record_device(io_registry_entry_t, struct drivestats *, int ndrives);
 static int check_device_path (char *name, char *path, int ndrives);
 static void get_netstat_sample(int pppflag);
-static int kvm_init();
-static int kread(u_long addr, void *buf, size_t nbytes);
 
 int
 main(argc, argv)
@@ -820,68 +811,6 @@ check_device_path (char *name, char *path, int ndrives)
 }
 
 
-/*
- * success - returns 1
- * failure - returns 0
- */
-static int
-kvm_init()
-{
-    int	retval = 1;
-    char errbuf[_POSIX2_LINE_MAX];
-
-	
-	/*
-	 * Initialize the kvm descriptor and get the location of _ifnet in
-	 * preparation for gathering network statistics.
-	 *
-	 * We become root again momentarily so that we have permission to
-	 * open /dev/kmem.
-	 */
-	if (seteuid(0))
-	{
-	    fprintf(stderr, "sar: root privleges denied\n");
-	    retval = 0;
-	    goto RETURN;
-	}
-	kvmd = kvm_openfiles(NULL, NULL, NULL, O_RDONLY, errbuf);
-	setuid(realuid);
-	
-	if (kvmd == NULL) {
-	    fprintf(stderr, "sar: error in kvm_openfiles(): %s", errbuf);
-	    retval = 0;
-	    goto RETURN;
-	}
-	nlist_net[0].n_name = "_ifnet";
-	nlist_net[1].n_name = NULL;
-	if (kvm_nlist(kvmd, nlist_net) < 0) {
-	    fprintf(stderr,"sar: error in kvm_nlist(): %s", kvm_geterr(kvmd));
-	    retval = 0;
-	    goto RETURN;
-	}
-	if (nlist_net[0].n_type == N_UNDF) {
-		fprintf(stderr, "sadc: No nlist for _ifnet");
-		retval = 0;
-		goto RETURN;
-	}
-    RETURN:
-	return (retval);
-}
-
-/* Read data from kernel memory. */
-static int
-kread(u_long addr, void *buf, size_t nbytes)
-{
-    int retval = 0;
-
-    if (kvm_read(kvmd, addr, buf, nbytes) != (ssize_t)nbytes) {
-	fprintf(stderr, "sadc: error in kvm_read(): %s\n", kvm_geterr(kvmd));
-	retval = 1;
-    }
-
-    return (retval);
-}
-
 
 /*
  * Thus far, only the networking stats take an optional flag
@@ -897,22 +826,10 @@ get_netstat_sample(int mode)
 
     int n;
     int ns_index     = 0;
-    struct ifnet            ifnet;
-    struct ifnethead        ifnethead;
-    u_long                  off;
     char                    tname[MAX_TNAME_SIZE + 1];
     char                    name[MAX_TNAME_UNIT_SIZE + 1];
+    struct ifaddrs *ifa_list, *ifa;
 
-    if (ns_table == NULL)
-    {
-	/* this is our first sample -- do some init */
-
-	/* if kvm_init fails, we don't retry */
-	if (kvm_init_failed || !kvm_init())
-	{
-	    kvm_init_failed = 1;
-	    return;
-	}
 
 	/*
 	 * Set the starting table size to 100 entries
@@ -926,24 +843,19 @@ get_netstat_sample(int mode)
 	    fprintf(stderr, "sadc: malloc netstat table failed\n");
 	    return;
 	}
-    }
 
     bzero(ns_table, ns_count * sizeof(struct netstats));
-    if (nlist_net[0].n_value != 0
-      && kread(nlist_net[0].n_value, &ifnethead, sizeof(ifnethead)) == 0)
-    {
-	for (ns_index = 0, off = (u_long)ifnethead.tqh_first;
-	     off != 0;
-	     off = (u_long)ifnet.if_link.tqe_next)
+    if (getifaddrs(&ifa_list) == -1)
+   	    return;
+
+	for (ifa = ifa_list; ifa; ifa = ifa->ifa_next)
 	{
-	    if (kread(off, &ifnet, sizeof(ifnet)))
-	    {
-		break;
-	    }
-	    if (kread((u_long)ifnet.if_name, tname, sizeof(tname)))
-	    {
-		break;
-	    }
+        struct if_data *if_data = (struct if_data *)ifa->ifa_data;
+        
+		if (AF_LINK != ifa->ifa_addr->sa_family)
+			continue;
+		if (ifa->ifa_data == 0)
+			continue;
 	    tname[MAX_TNAME_SIZE] = '\0';
 	    if (!(network_mode & NET_PPP_MODE))
 	    {
@@ -951,10 +863,10 @@ get_netstat_sample(int mode)
 		 * If the flag is set, include PPP connections.
 		 * By default this collection is turned off
 		 */
-		if(!strncmp(tname, "ppp", 3))
+		if(!strncmp(ifa->ifa_name, "ppp", 3))
 		    continue;
 	    }
-	    snprintf(name, MAX_TNAME_UNIT_SIZE, "%s%d", tname, ifnet.if_unit);
+	    snprintf(name, MAX_TNAME_UNIT_SIZE, "%s", ifa->ifa_name);
 	    name[MAX_TNAME_UNIT_SIZE] = '\0';
 
 	    if (ns_index == ns_count)
@@ -965,7 +877,6 @@ get_netstat_sample(int mode)
 		bzero(&ns_table[ns_count], ns_count * sizeof(struct netstats));
 		ns_count = n;
 	    }
-
 
 	    /*
 	     * As a means of helping to identify when interface unit numbers
@@ -978,16 +889,16 @@ get_netstat_sample(int mode)
 	    
 	    strncpy(ns_table[ns_index].tname_unit, name, MAX_TNAME_UNIT_SIZE);
 	    ns_table[ns_index].tname_unit[MAX_TNAME_UNIT_SIZE] = '\0';
-	    ns_table[ns_index].net_ipackets = ifnet.if_ipackets;
-	    ns_table[ns_index].net_ierrors  = ifnet.if_ierrors;	    	    
-	    ns_table[ns_index].net_opackets = ifnet.if_opackets;
-	    ns_table[ns_index].net_oerrors  = ifnet.if_oerrors;
-	    ns_table[ns_index].net_collisions = ifnet.if_collisions;	    
-	    ns_table[ns_index].net_ibytes   = ifnet.if_ibytes;
-	    ns_table[ns_index].net_obytes   = ifnet.if_obytes;	    
-	    ns_table[ns_index].net_imcasts   = ifnet.if_imcasts;
-	    ns_table[ns_index].net_omcasts   = ifnet.if_omcasts;
-	    ns_table[ns_index].net_drops      = ifnet.if_snd.ifq_drops;
+	    ns_table[ns_index].net_ipackets = if_data->ifi_ipackets;
+	    ns_table[ns_index].net_ierrors  = if_data->ifi_ierrors;	    	    
+	    ns_table[ns_index].net_opackets = if_data->ifi_opackets;
+	    ns_table[ns_index].net_oerrors  = if_data->ifi_oerrors;
+	    ns_table[ns_index].net_collisions = if_data->ifi_collisions;	    
+	    ns_table[ns_index].net_ibytes   = if_data->ifi_ibytes;
+	    ns_table[ns_index].net_obytes   = if_data->ifi_obytes;	    
+	    ns_table[ns_index].net_imcasts   = if_data->ifi_imcasts;
+	    ns_table[ns_index].net_omcasts   = if_data->ifi_omcasts;
+	    ns_table[ns_index].net_drops      = if_data->ifi_iqdrops;
 	    ns_index++;
 	}  /* end for */
 
@@ -995,6 +906,5 @@ get_netstat_sample(int mode)
 	netstats_record.rec_size = sizeof(struct netstats);
 	write_record_hdr(&netstats_record);
 	write_record_data((char *)ns_table, (ns_index * sizeof(struct netstats)));
-    } /* end if */
     return;
 }

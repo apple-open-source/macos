@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __STRNAMES_H__
+#define __STRNAMES_H__
+
 extern char * s_isakmp_state __P((int, int, int));
 extern char *s_isakmp_certtype __P((int));
 extern char *s_isakmp_etype __P((int));
@@ -61,3 +64,6 @@ extern char *s_pfkey_type __P((int));
 extern char *s_pfkey_satype __P((int));
 extern char *s_direction __P((int));
 extern char *s_proto __P((int));
+
+#endif /* __STRNAMES_H__ */
+

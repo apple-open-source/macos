@@ -2,24 +2,23 @@
    Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
-This file is part of GNU CC.
+   This file is part of GNU CC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GNU CC is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GNU CC is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GNU CC; see the file COPYING.  If not, write to
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
-/*}}}*/
 /*{{{  Includes */ 
 
 #include "config.h"
@@ -30,11 +29,11 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
 #include "tree.h"
+#include "output.h"
 #include "expr.h"
 #include "obstack.h"
 #include "except.h"
@@ -90,7 +89,7 @@ struct rtx_def * fr30_compare_op1;
                                    SP ->|                       |  /  
                                         +-----------------------+    
    
-   Note, AP is a fake hard register.  It will be eliminated in favour of
+   Note, AP is a fake hard register.  It will be eliminated in favor of
    SP or FP as appropriate.
 
    Note, Some or all of the stack sections above may be omitted if they 
@@ -419,11 +418,9 @@ fr30_setup_incoming_varargs (arg_regs_used_so_far, int_mode, type, pretend_size)
     abort ();
 
 #if STRICT_ARGUMENT_NAMING
-  /* We must treat `__builtin_va_alist' as an anonymous arg.
-     But otherwise if STRICT_ARGUMENT_NAMING is true then the
-     last named arg must not be treated as an anonymous arg. */
-  if (! current_function_varargs)
-    arg_regs_used_so_far += fr30_num_arg_regs (int_mode, type);
+  /* If STRICT_ARGUMENT_NAMING is true then the last named
+     arg must not be treated as an anonymous arg. */
+  arg_regs_used_so_far += fr30_num_arg_regs (int_mode, type);
 #endif
   
   size = FR30_NUM_ARG_REGS - arg_regs_used_so_far;
@@ -556,10 +553,11 @@ fr30_print_operand (file, x, code)
 	output_operand_lossage ("fr30_print_operand: invalid %%F code");
       else
 	{
-	  REAL_VALUE_TYPE d;
+	  char str[30];
 
-	  REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-	  fprintf (file, "%.8f", d);
+	  real_to_decimal (str, CONST_DOUBLE_REAL_VALUE (x),
+			   sizeof (str), 0, 1);
+	  fputs (str, file);
 	}
       return;
       
@@ -953,6 +951,20 @@ fr30_check_multiple_regs (operands, num_operands, descending)
   return 1;
 }
 
+int
+fr30_const_double_is_zero (operand)
+     rtx operand;
+{
+  REAL_VALUE_TYPE d;
+
+  if (operand == NULL || GET_CODE (operand) != CONST_DOUBLE)
+    return 0;
+
+  REAL_VALUE_FROM_CONST_DOUBLE (d, operand);
+
+  return REAL_VALUES_EQUAL (d, dconst0);
+}
+
 /*}}}*/
 /*{{{  Instruction Output Routines  */
 
@@ -1095,8 +1107,12 @@ fr30_move_double (operands)
     /* This should have been prevented by the constraints on movdi_insn.  */
     abort ();
   
-  val = gen_sequence ();
+  val = get_insns ();
   end_sequence ();
 
   return val;
 }
+/*}}}*/
+/* Local Variables: */
+/* folded-file: t   */
+/* End:		    */

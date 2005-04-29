@@ -1,9 +1,7 @@
 ## -*-makefile-*-
 ## Aix-specific setup (for Visual Age 5+)
-## Copyright (c) 1999-2002, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
-##
-## $Id: mh-aix-va,v 1.1.1.2 2003/07/03 18:13:33 avery Exp $
 
 ## Commands to generate dependency files
 GEN_DEPS.c=	$(CC) -E -M $(DEFS) $(CPPFLAGS)
@@ -15,7 +13,8 @@ GEN_DEPS.cc=	$(CXX) -E -M $(DEFS) $(CPPFLAGS)
 CFLAGS += -qproto -qroconst
 CXXFLAGS += -qproto -qroconst
 
-LDFLAGS += -brtl -bh:5
+# If you readd this line, you must change the SO value
+#LDFLAGS += -brtl
 
 ## We need to delete things prior to linking, or else we'll get
 ## SEVERE ERROR: output file in use ..  on AIX. 
@@ -52,12 +51,19 @@ MIDDLE_SO_TARGET= $(basename $(SO_TARGET))$(SO_TARGET_VERSION_MAJOR).$(SO)
 ICULIBSUFFIX_VERSION = $(LIB_VERSION_MAJOR)
 
 # this one is for icudefs.mk's use
+ifeq ($(ENABLE_SHARED),YES)
 SO_TARGET_VERSION_SUFFIX = $(SO_TARGET_VERSION_MAJOR)
+endif
 
 LD_SONAME = 
 
+## The type of assembly needed when pkgdata is used for generating shared libraries.
+GENCCODE_ASSEMBLY=-a xlc
+
 ## Shared object suffix
-SO=		so
+#SO=	so
+# without the -brtl option, the library names use .a. AIX is funny that way.
+SO=	a
 ## Non-shared intermediate object suffix
 STATIC_O = o
 
@@ -81,8 +87,6 @@ STATIC_O = o
 %.o: $(srcdir)/%.cpp
 	$(COMPILE.cc) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $<
 
-../data/%.o: ../data/%.c
-	$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCFLAGS) -o $@ $<
 
 ## Dependency rules
 %.d : %.u
@@ -100,8 +104,8 @@ STATIC_O = o
 
 ## Versioned libraries rules
 %$(SO_TARGET_VERSION_MAJOR).$(SO): %$(SO_TARGET_VERSION).$(SO)
-	$(RM) $@ && ln -s $*$(SO_TARGET_VERSION).$(SO) $@
+	$(RM) $@ && ln -s ${*F}$(SO_TARGET_VERSION).$(SO) $@
 %.$(SO): %$(SO_TARGET_VERSION).$(SO)
-	$(RM) $@ && ln -s $*$(SO_TARGET_VERSION).$(SO) $@
+	$(RM) $@ && ln -s ${*F}$(SO_TARGET_VERSION).$(SO) $@
 
 ## End Aix-specific setup

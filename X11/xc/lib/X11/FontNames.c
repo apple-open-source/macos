@@ -25,24 +25,17 @@ in this Software without prior written authorization from The Open Group.
 
 */
 
-/* $XFree86: xc/lib/X11/FontNames.c,v 1.6 2001/12/14 19:54:00 dawes Exp $ */
+/* $XFree86: xc/lib/X11/FontNames.c,v 1.7 2003/11/17 22:20:06 dawes Exp $ */
 
 #define NEED_REPLIES
 #include "Xlibint.h"
 
-#if NeedFunctionPrototypes
-char **XListFonts(
+char **
+XListFonts(
 register Display *dpy,
 _Xconst char *pattern,  /* null-terminated */
 int maxNames,
 int *actualCount)	/* RETURN */
-#else
-char **XListFonts(dpy, pattern, maxNames, actualCount)
-register Display *dpy;
-char *pattern;  /* null-terminated */
-int maxNames;
-int *actualCount;	/* RETURN */
-#endif
 {       
     register long nbytes;
     register unsigned i;

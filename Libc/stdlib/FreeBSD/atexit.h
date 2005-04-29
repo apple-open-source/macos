@@ -31,16 +31,10 @@
  * SUCH DAMAGE.
  *
  *	@(#)atexit.h	8.2 (Berkeley) 7/3/94
- * $FreeBSD: src/lib/libc/stdlib/atexit.h,v 1.2 2002/03/22 23:42:03 obrien Exp $
+ * $FreeBSD: src/lib/libc/stdlib/atexit.h,v 1.3 2003/12/19 17:11:20 kan Exp $
  */
 
 /* must be at least 32 to guarantee ANSI conformance */
 #define	ATEXIT_SIZE	32
 
-struct atexit {
-	struct atexit *next;		/* next in list */
-	int ind;			/* next index in this table */
-	void (*fns[ATEXIT_SIZE])();	/* the table itself */
-};
-
-extern struct atexit *__atexit;	/* points to head of LIFO stack */
+void __cxa_finalize(void *dso);

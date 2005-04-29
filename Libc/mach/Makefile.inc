@@ -1,12 +1,12 @@
-.PATH: ${.CURDIR}/${MACHINE_ARCH}/mach ${.CURDIR}/mach
-
-.include "${.CURDIR}/mach/headers/Makefile.inc"
-.include "${.CURDIR}/mach/servers/Makefile.inc"
-
-# machine-dependent mach sources  
+# machine-dependent mach sources
 .if exists(${.CURDIR}/${MACHINE_ARCH}/mach/Makefile.inc)
 .include "${.CURDIR}/${MACHINE_ARCH}/mach/Makefile.inc"
 .endif
+
+.PATH: ${.CURDIR}/mach
+
+.include "${.CURDIR}/mach/headers/Makefile.inc"
+.include "${.CURDIR}/mach/servers/Makefile.inc"
 
 MD_MIGDEFS += task.defs \
 	thread_act.defs 
@@ -22,6 +22,7 @@ MIGDEFS += \
 	lock_set.defs \
 	mach_port.defs \
 	mach_host.defs \
+	mach_vm.defs \
 	processor.defs \
 	processor_set.defs \
 	vm_map.defs
@@ -33,7 +34,7 @@ MACH_INSTHDRS += ${MIGHDRS}
 # These files are generated from the .defs files
 MIGSRCS = ${MIGDEFS:.defs=User.c} ${MD_MIGDEFS:.defs=User.c}
 
-SRCS += ${MIGSRCS} \
+MISRCS += ${MIGSRCS} \
 	bootstrap_ports.c \
 	clock_sleep.c \
 	error_codes.c \
@@ -64,3 +65,11 @@ SRCS += ${MIGSRCS} \
 CLEANFILES += ${MIGHDRS} ${MIGSRCS} ${MD_MIGDEFS:.defs=Server.c} \
 		${MIGDEFS:.defs=Server.c} exc.h excUser.c excServer.c \
 		notify.h notifyUser.c notifyServer.c
+
+.if ${LIB} == "c"
+
+MAN2 += brk.2
+
+MLINKS += brk.2 sbrk.2
+
+.endif

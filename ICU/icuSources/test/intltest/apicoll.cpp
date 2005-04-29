@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 //===============================================================================
@@ -51,6 +51,7 @@ CollationAPITest::doAssert(UBool condition, const char *message)
     }
 }
 
+#ifdef U_USE_COLLATION_OBSOLETE_2_6
 /*
  * Test Collator::createInstance(... version...) for some locale. Called by TestProperty().
  */
@@ -80,6 +81,7 @@ TestOpenVersion(IntlTest &test, const Locale &locale) {
         }
     }
 }
+#endif
 
 // Collator Class Properties
 // ctor, dtor, createInstance, compare, getStrength/setStrength
@@ -96,8 +98,9 @@ CollationAPITest::TestProperty(/* char* par */)
       ICU 2.1 currVersionArray = {0x19, 0x00, 0x03, 0x03};
       ICU 2.2 currVersionArray = {0x21, 0x40, 0x04, 0x04};
       ICU 2.4 currVersionArray = {0x21, 0x40, 0x04, 0x04};
+      ICU 2.6 currVersionArray = {0x21, 0x40, 0x03, 0x03};
     */
-    UVersionInfo currVersionArray = {0x21, 0x40, 0x03, 0x03};
+    UVersionInfo currVersionArray = {0x29, 0x80, 0x00, 0x04};
     UVersionInfo versionArray;
     int i = 0;
 
@@ -232,6 +235,7 @@ CollationAPITest::TestProperty(/* char* par */)
     delete aFrCol;
     delete junk;
 
+#ifdef U_USE_COLLATION_OBSOLETE_2_6
     /* test Collator::createInstance(...version...) */
     TestOpenVersion(*this, "");
     TestOpenVersion(*this, "da");
@@ -248,6 +252,7 @@ CollationAPITest::TestProperty(/* char* par */)
         errln("error: ucol_openVersion(bogus version) succeeded");
         delete col;
     }
+#endif
 }
 
 void 
@@ -350,8 +355,8 @@ CollationAPITest::TestRules()
     }
 
     coll->getRules(UCOL_TAILORING_ONLY, rules);
-    if (rules.length() != 0) {
-        errln("English tailored rules failed");
+    if (rules.length() != 0x0a) {
+      errln("English tailored rules failed - length is 0x%x expected 0x%x", rules.length(), 0x0e);
     }
 
     coll->getRules(UCOL_FULL_RULES, rules);
@@ -376,17 +381,17 @@ CollationAPITest::TestDecomposition() {
   /* there is no reason to have canonical decomposition in en_US OR default locale */
   if (vi_VN->getAttribute(UCOL_NORMALIZATION_MODE, status) != UCOL_ON)
   {
-    errln("ERROR: vi_VN collation did not have cannonical decomposition for normalization!\n");
+    errln("ERROR: vi_VN collation did not have canonical decomposition for normalization!\n");
   }
 
   if (el_GR->getAttribute(UCOL_NORMALIZATION_MODE, status) != UCOL_ON)
   {
-    errln("ERROR: el_GR collation did not have cannonical decomposition for normalization!\n");
+    errln("ERROR: el_GR collation did not have canonical decomposition for normalization!\n");
   }
 
   if (en_US->getAttribute(UCOL_NORMALIZATION_MODE, status) != UCOL_OFF)
   {
-    errln("ERROR: en_US collation had cannonical decomposition for normalization!\n");
+    errln("ERROR: en_US collation had canonical decomposition for normalization!\n");
   }
 
   delete en_US;
@@ -1012,11 +1017,17 @@ void CollationAPITest::TestSortKey()
     col->setAttribute(UCOL_STRENGTH, UCOL_IDENTICAL, status);
 
     uint8_t key2compat[] = {
+            /* 2.6.1 key */
+        0x26, 0x28, 0x2A, 0x2C, 0x26, 0x01, 
+        0x09, 0x01, 0x09, 0x01, 0x25, 0x01, 
+        0x92, 0x93, 0x94, 0x95, 0x92, 0x00 
+
         /* 2.2 key */
+        /*
         0x1D, 0x1F, 0x21, 0x23, 0x1D, 0x01,
         0x09, 0x01, 0x09, 0x01, 0x1C, 0x01,
         0x92, 0x93, 0x94, 0x95, 0x92, 0x00
-
+        */
         /* 2.0 key */
         /*
         0x19, 0x1B, 0x1D, 0x1F, 0x19,
@@ -1176,7 +1187,7 @@ void CollationAPITest::TestMaxExpansion()
 {
     UErrorCode          status = U_ZERO_ERROR;
     UChar               ch     = 0;
-    UChar               supplementary[2] = {0xD800, 0xDC00};
+    UChar32             unassigned = 0xEFFFD;
     uint32_t            sorder = 0;
     uint32_t            temporder = 0;
 
@@ -1205,8 +1216,7 @@ void CollationAPITest::TestMaxExpansion()
         if (order == 0)
             order = iter->previous(status);
 
-        while (U_SUCCESS(status) &&
-            ((uint32_t)iter->previous(status) != UCOL_NULLORDER)) {
+        while (U_SUCCESS(status) && iter->previous(status) != UCOL_NULLORDER) {
             count ++;
         }
 
@@ -1253,7 +1263,7 @@ void CollationAPITest::TestMaxExpansion()
                 ch, 3);
     }
 
-    str.setTo(supplementary, 2);
+    str.setTo(unassigned);
     iter->setText(str, status);
     sorder = iter->previous(status);
 
@@ -1498,7 +1508,7 @@ void CollationAPITest::TestGetLocale() {
 
   /* completely non-existant locale for collator should get a default collator */
   {
-    Collator *defaultColl = Collator::createInstance(NULL, status);
+    Collator *defaultColl = Collator::createInstance((const Locale)NULL, status);
     coll = Collator::createInstance("blahaha", status);
     if(U_FAILURE(status)) {
       log("Failed to open collator with %s\n", u_errorName(status));
@@ -2108,6 +2118,24 @@ void CollationAPITest::TestSubclass()
     }
 }
 
+void CollationAPITest::TestNULLCharTailoring()
+{
+    UErrorCode status = U_ZERO_ERROR;
+    UChar buf[256] = {0};
+    int32_t len = u_unescape("&a < '\\u0000'", buf, 256);
+    UnicodeString first((UChar)0x0061);
+    UnicodeString second((UChar)0);
+    RuleBasedCollator *coll = new RuleBasedCollator(UnicodeString(buf, len), status);
+    if(U_FAILURE(status)) {
+        errln("Failed to open collator");
+    }
+    UCollationResult res = coll->compare(first, second, status);
+    if(res != UCOL_LESS) {
+        errln("a should be less then NULL after tailoring");
+    }
+    delete coll;
+}
+
 void CollationAPITest::runIndexedTest( int32_t index, UBool exec, const char* &name, char* /*par */)
 {
     if (exec) logln("TestSuite CollationAPITest: ");
@@ -2134,6 +2162,7 @@ void CollationAPITest::runIndexedTest( int32_t index, UBool exec, const char* &n
         case 19: name = "TestGetTailoredSet"; if (exec) TestGetTailoredSet(); break;
         case 20: name = "TestUClassID"; if (exec) TestUClassID(); break;
         case 21: name = "TestSubclass"; if (exec) TestSubclass(); break;
+        case 22: name = "TestNULLCharTailoring"; if (exec) TestNULLCharTailoring(); break;
         default: name = ""; break;
     }
 }

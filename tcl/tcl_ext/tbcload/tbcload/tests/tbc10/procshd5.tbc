@@ -1,0 +1,216 @@
+# procshd5.tcl --
+#
+#  Test file for compilation.
+#  This file contains a proc definintion, where the body is shared among
+#  several procs. The args are different for same, the same for others
+#  It checks that the compiler detects that the object is shared and creates a
+#  copy that it will then compile.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: procshd5.tbc,v 1.2 2000/05/30 22:19:10 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+13 0 109 20 0 0 56 0 8 13 13 -1 -1
+109
+7iE<!(H&s!/HW<!:E`<!=eUqv<1/*'0#>6#=Go9v9J>>!0Ki<!@fAs!?ytl#/2:3w/HW<!Ao
+J=!6M1qv6P60%2SQK%.QA9v8,9X!7bQK%:8Ts!9hQK%3)tl#8,9X!<qQK%65k6#z
+13
+B=xOwDAfX!;Dbpv'!
+13
+M=xOwguBtv;>Ppv'!
+20
+x
+4
+,CHr@
+x
+1
+-v
+x
+3
+/MHw
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+1 1
+1
+Dv
+0 0 257
+x
+1
+.v
+x
+13
+UPxQH?Vu^FHxf<IA!
+x
+1
+/v
+x
+5
+S>%pGA!
+x
+1
+0v
+x
+1
+1v
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+JHFw
+0
+0
+1 1
+1
+Dv
+0 0 257
+x
+1
+2v
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+HBFw
+0
+0
+1 1
+1
+Dv
+0 0 257
+x
+4
+4/;EF
+x
+4
+b4Z)<
+x
+5
++EF/DEv
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+2 2
+1
+Dv
+0 0 257
+1
+Ev
+1 1 257
+x
+5
++EF/DEv
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+2 2
+1
+Dv
+0 0 257
+1
+Ev
+1 0 257
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+2 2
+1
+Dv
+0 0 257
+1
+Ev
+1 1 257
+x
+5
++EF/DEv
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}

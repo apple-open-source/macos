@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -82,11 +81,11 @@ package body Exp_Intr is
    --  Expand a call to an instantiation of Unchecked_Convertion into a node
    --  N_Unchecked_Type_Conversion.
 
-   procedure Expand_Unc_Deallocation (N : Node_Id; E : Entity_Id);
+   procedure Expand_Unc_Deallocation (N : Node_Id);
    --  Expand a call to an instantiation of Unchecked_Deallocation into a node
    --  N_Free_Statement and appropriate context.
 
-   procedure Expand_Source_Info (N : Node_Id; E : Entity_Id; Nam : Name_Id);
+   procedure Expand_Source_Info (N : Node_Id; Nam : Name_Id);
    --  Rewrite the node by the appropriate string or positive constant.
    --  Nam can be one of the following:
    --    Name_File             - expand string that is the name of source file
@@ -267,14 +266,14 @@ package body Exp_Intr is
          Expand_Unc_Conversion (N, E);
 
       elsif Nam = Name_Unchecked_Deallocation then
-         Expand_Unc_Deallocation (N, E);
+         Expand_Unc_Deallocation (N);
 
       elsif Nam = Name_File
         or else Nam = Name_Line
         or else Nam = Name_Source_Location
         or else Nam = Name_Enclosing_Entity
       then
-         Expand_Source_Info (N, E, Nam);
+         Expand_Source_Info (N, Nam);
 
       else
          --  Only other possibility is a renaming, in which case we expand
@@ -389,7 +388,7 @@ package body Exp_Intr is
    -- Expand_Source_Info --
    ------------------------
 
-   procedure Expand_Source_Info (N : Node_Id; E : Entity_Id; Nam : Name_Id) is
+   procedure Expand_Source_Info (N : Node_Id; Nam : Name_Id) is
       Loc : constant Source_Ptr := Sloc (N);
       Ent : Entity_Id;
 
@@ -515,7 +514,7 @@ package body Exp_Intr is
    --  task itself is freed if it is terminated, ditto for a simple protected
    --  object, with a call to Finalize_Protection
 
-   procedure Expand_Unc_Deallocation (N : Node_Id; E : Entity_Id) is
+   procedure Expand_Unc_Deallocation (N : Node_Id) is
       Loc   : constant Source_Ptr := Sloc (N);
       Arg   : constant Node_Id    := First_Actual (N);
       Typ   : constant Entity_Id  := Etype (Arg);

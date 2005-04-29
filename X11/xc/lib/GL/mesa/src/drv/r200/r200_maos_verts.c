@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_maos_verts.c,v 1.1 2002/10/30 12:51:52 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_maos_verts.c,v 1.2 2003/09/28 20:15:23 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,21 +25,16 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#include "r200_context.h"
-#include "r200_state.h"
-#include "r200_ioctl.h"
-#include "r200_tex.h"
-#include "r200_tcl.h"
-#include "r200_swtcl.h"
-#include "r200_maos.h"
-
+#include "glheader.h"
+#include "imports.h"
 #include "mmath.h"
 #include "mtypes.h"
 #include "enums.h"
@@ -50,6 +45,15 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "tnl/tnl.h"
 #include "tnl/t_pipeline.h"
 #include "tnl/t_imm_debug.h"
+
+#include "r200_context.h"
+#include "r200_state.h"
+#include "r200_ioctl.h"
+#include "r200_tex.h"
+#include "r200_tcl.h"
+#include "r200_swtcl.h"
+#include "r200_maos.h"
+
 
 #define R200_TCL_MAX_SETUP 13
 
@@ -256,19 +260,19 @@ void r200EmitArrays( GLcontext *ctx, GLuint inputs )
       }
    }
 
-   if (inputs & VERT_NORM) {
+   if (inputs & VERT_BIT_NORMAL) {
       req |= R200_CP_VC_FRMT_N0;
    }
    
-   if (inputs & VERT_RGBA) {
+   if (inputs & VERT_BIT_COLOR0) {
       req |= R200_CP_VC_FRMT_PKCOLOR;
    }
 
-   if (inputs & VERT_SPEC_RGB) {
+   if (inputs & VERT_BIT_COLOR1) {
       req |= R200_CP_VC_FRMT_PKSPEC;
    }
 
-   if (inputs & VERT_TEX0) {
+   if (inputs & VERT_BIT_TEX0) {
       req |= R200_CP_VC_FRMT_ST0;
 
       if (VB->TexCoordPtr[0]->size == 4) {
@@ -277,7 +281,7 @@ void r200EmitArrays( GLcontext *ctx, GLuint inputs )
       }
    }
 
-   if (inputs & VERT_TEX1) {
+   if (inputs & VERT_BIT_TEX1) {
       req |= R200_CP_VC_FRMT_ST1;
 
       if (VB->TexCoordPtr[1]->size == 4) {

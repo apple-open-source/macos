@@ -28,8 +28,10 @@ class CCICredentialsData:
 			const CCICredentialsData::UniqueID&		inCompareTo);
 
 		CCIUInt32	GetVersion () const;
+		                
+                void    WriteCredentials (std::ostream& ioStream) const;
 		
-		void		CopyV4Credentials (
+                void		CopyV4Credentials (
 			cc_credentials_v4_t&			outCredentials) const;
 		
 		void		CopyV5Credentials (
@@ -94,6 +96,8 @@ class CCICredentialsData:
 					const cc_credentials_v4_compat*	inCredentials);
 #endif
 				
+                                void    WriteCredentials (std::ostream& ioStream) const;
+
 				void	CopyCredentials (
 					cc_credentials_v4_t&		outCredentials) const;
 #if CCache_v2_compat
@@ -104,8 +108,8 @@ class CCICredentialsData:
 			private:
 				cc_credentials_v4_t		mCredentials;
 
-                        friend std::ostream& operator << (std::ostream& ioStream, const CCICredentialsData::CCICredentialsV4Data& inCredentials);
-		};
+                                friend void WriteV4CredentialsData (std::ostream& ioStream, const CCICredentialsData::CCICredentialsV4Data& inCredentials);
+                };
 		
 		class CCICredentialsV5Data:
 			public Implementations::SharedData {
@@ -119,6 +123,8 @@ class CCICredentialsData:
 					const cc_credentials_v5_compat*	inCredentials);
 #endif
 			
+                                void    WriteCredentials (std::ostream& ioStream) const;
+
 				void	CopyCredentials (
 					cc_credentials_v5_t&		outCredentials) const;
 
@@ -154,16 +160,16 @@ class CCICredentialsData:
 				void	DeleteCCData (cc_data&	inData) const;
 				void	DeleteCCDataArray (cc_data**&	inDataArray) const;
 
-                    friend std::ostream& operator << (std::ostream& ioStream, const CCICredentialsData::CCICredentialsV5Data& inCredentials);
-		};
+                                friend void WriteV5CredentialsData (std::ostream& ioStream, const CCICredentialsData::CCICredentialsV5Data& inCredentials);
+                };
 		
 		CCICredentialsV5Data*		mCredentialsV5;
 		CCICredentialsV4Data*		mCredentialsV4;
 
-    friend std::ostream& operator << (std::ostream& ioStream, const CCICredentialsData& inCredentials);
-    friend std::ostream& operator << (std::ostream& ioStream, const CCICredentialsData::CCICredentialsV4Data& inCredentials);
-    friend std::ostream& operator << (std::ostream& ioStream, const CCICredentialsData::CCICredentialsV5Data& inCredentials);
+                friend void WriteCredentialsData (std::ostream& ioStream, const CCICredentialsData& inCredentials);
 };
+
+
 
 class CCICredentialsDataInterface {
 	public:
@@ -182,9 +188,3 @@ class CCICredentialsDataInterface {
 		CCICredentialsDataInterface (const CCICredentialsDataInterface&);
 		CCICredentialsDataInterface& operator = (const CCICredentialsDataInterface&);
 };
-
-std::ostream& operator << (std::ostream& ioStream, const CCICredentialsData& inCredentials);
-std::ostream& operator << (std::ostream& ioStream, const CCICredentialsData::CCICredentialsV4Data& inCredentials);
-std::ostream& operator << (std::ostream& ioStream, const CCICredentialsData::CCICredentialsV5Data& inCredentials);
-std::ostream& operator << (std::ostream& ioStream, const Implementations::CCISharedCCData& inData);
-std::ostream& operator << (std::ostream& ioStream, const Implementations::CCISharedCCDataArray& inData);

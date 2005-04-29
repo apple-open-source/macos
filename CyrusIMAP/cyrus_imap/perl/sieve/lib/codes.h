@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: codes.h,v 1.4 2003/02/13 20:15:53 rjs3 Exp $ */
+/* $Id: codes.h,v 1.5 2005/03/05 00:37:33 dasenbro Exp $ */
 
 #ifndef _CODES_H_
 #define _CODES_H_

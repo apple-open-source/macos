@@ -62,6 +62,7 @@ asm(".desc _NXArgc, 0x10");
 asm(".desc _NXArgv, 0x10");
 asm(".desc _environ, 0x10");
 asm(".desc __mh_execute_header, 0x10");
+#if !defined(__ppc64__)
 asm(".comm _catch_exception_raise, 4");
 asm(".desc _catch_exception_raise, 0x10");
 asm(".comm _catch_exception_raise_state, 4");
@@ -88,6 +89,7 @@ asm(".comm _clock_alarm_reply, 4");
 asm(".desc _clock_alarm_reply, 0x10");
 asm(".comm _receive_samples, 4");
 asm(".desc _receive_samples, 0x10");
+#endif /* --ppc64__ */
 asm(".desc ___progname, 0x10");
 #endif /* CRT1 */
 
@@ -107,18 +109,15 @@ asm(".desc ___progname, 0x10");
  * architectutes like the PowerPC to avoid a relocation overflow error when
  * linking programs with large data area.
  */
-int (*mach_init_routine)(void);
-int (*_cthread_init_routine)(void);
-asm(".comm __objcInit, 4");
+extern int (*mach_init_routine)(void);
+extern int (*_cthread_init_routine)(void);
+#ifdef CRT0
 asm(".comm __cplus_init, 4");
-asm(".comm ___darwin_gcc3_preregister_frame_info, 4");
-extern void _objcInit(void);
-#ifndef POSTSCRIPT
-static void (*pointer_to_objcInit)(void) = _objcInit;
-#endif /* !defined(POSTSCRIPT) */
 extern void _cplus_init(void);
+#endif
+#if defined(__ppc__) && defined(CRT1)
+asm(".comm ___darwin_gcc3_preregister_frame_info, 4");
 extern void __darwin_gcc3_preregister_frame_info (void);
-#ifdef CRT1
 static void (*pointer_to__darwin_gcc3_preregister_frame_info)(void) =
 	__darwin_gcc3_preregister_frame_info;
 #endif
@@ -162,6 +161,10 @@ int _dyld_func_lookup(
 extern void __keymgr_dwarf2_register_sections (void);
 #endif /* CRT1 */
 
+#if defined(CRT1)  &&  !defined(POSTSCRIPT) && !defined(__ppc64__)
+static void _call_objcInit(void);
+#endif
+
 extern int errno;
 
 /*
@@ -178,7 +181,7 @@ char **envp)
 {
     int i;
     char *p, **apple;
-#if defined(__ppc__) || defined(__i386__)
+#if defined(__ppc__) ||defined(__ppc64__) || defined(__i386__)
     char **q;
 #endif
 #ifdef CRT1
@@ -200,8 +203,10 @@ char **envp)
 
 #ifdef CRT1
 	__keymgr_dwarf2_register_sections ();
+#endif
 
-       /* Call a GCC 3.x-specific function (in libgcc.a) to
+#if defined(__ppc__) && defined(CRT1)
+       /* Call a ppc GCC 3.3-specific function (in libgcc.a) to
           "preregister" exception frame info, meaning to set up the
           dyld hooks that do the actual registration.  */
        if(*((int *)pointer_to__darwin_gcc3_preregister_frame_info) != 0)
@@ -217,9 +222,8 @@ char **envp)
 	_call_mod_init_funcs();
 #endif
 
-#ifndef        POSTSCRIPT
-	if(*((int *)pointer_to_objcInit) != 0)
-		pointer_to_objcInit();
+#if defined(CRT1)  &&  !defined(POSTSCRIPT) && !defined(__ppc64__)
+        _call_objcInit();
 #endif
 
 #ifdef GCRT
@@ -230,7 +234,8 @@ char **envp)
 #ifdef CRT1
 	/*
 	 * If the dyld we are running with supports module termination routines
-	 * for all types of images then register the function to call them with		 * atexit().
+	 * for all types of images then register the function to call them with
+     * atexit().
 	 */
         _dyld_func_lookup("__dyld_mod_term_funcs", (unsigned long *)&term);
         if(term != 0)
@@ -251,10 +256,10 @@ char **envp)
 		__progname = argv[0];
 	}
 
-#if defined(__ppc__) || defined(__i386__)
+#if defined(__ppc__) ||defined(__ppc64__) || defined(__i386__)
 	/*
 	 * Pickup the pointer to the array that contains as its first pointer a
-         * pointer to the exec path (the actual first argument to exec(2) which
+     * pointer to the exec path (the actual first argument to exec(2) which
 	 * most of the time is the same as argv[0]).  This array is placed by
 	 * the kernel just after the trailing 0 of the envp[] array.  See the
 	 * comments in start.s .
@@ -299,3 +304,95 @@ _call_mod_init_funcs(void)
         p();
 }
 #endif /* CRT1 */
+
+#if defined(CRT1)  &&  !defined(POSTSCRIPT) && !defined(__ppc64__)
+
+/*
+ * Look for a function called _objcInit() in any library whose name 
+ * starts with "libobjc", and call it if one exists. This is used to 
+ * initialize the Objective-C runtime on Panther and earlier. This 
+ * is completely unnecessary on Tiger and later.
+ */
+static 
+const char *
+crt_basename(const char *path)
+{
+    const char *s;
+    const char *last = path;
+
+    for (s = path; *s != '\0'; s++) {
+        if (*s == '/') last = s+1;
+    }
+
+    return last;
+}
+
+static 
+int
+crt_strbeginswith(const char *s1, const char *s2)
+{
+    int i;
+
+    for (i = 0; ; i++) {
+        if (s2[i] == '\0') return 1;
+        else if (s1[i] != s2[i]) return 0;
+    }
+}
+
+static
+void
+_call_objcInit(void)
+{
+    unsigned int i, count;
+
+    unsigned int (*_dyld_image_count_fn)(void);
+    const char *(*_dyld_get_image_name_fn)(unsigned int image_index);
+    const void *(*_dyld_get_image_header_fn)(unsigned int image_index);
+    const void *(*NSLookupSymbolInImage_fn)(const void *image, const char *symbolName, unsigned int options);
+    void *(*NSAddressOfSymbol_fn)(const void *symbol);
+
+    // Find some dyld functions.
+    _dyld_func_lookup("__dyld_image_count", 
+                      (unsigned long *)&_dyld_image_count_fn);
+    _dyld_func_lookup("__dyld_get_image_name", 
+                      (unsigned long *)&_dyld_get_image_name_fn);
+    _dyld_func_lookup("__dyld_get_image_header", 
+                      (unsigned long *)&_dyld_get_image_header_fn);
+    _dyld_func_lookup("__dyld_NSLookupSymbolInImage", 
+                      (unsigned long *)&NSLookupSymbolInImage_fn);
+    _dyld_func_lookup("__dyld_NSAddressOfSymbol", 
+                      (unsigned long *)&NSAddressOfSymbol_fn);
+
+    // If any of the dyld functions don't exist, assume we're 
+    // on a post-Panther dyld and silently do nothing.
+    if (!_dyld_image_count_fn) return;
+    if (!_dyld_get_image_name_fn) return;
+    if (!_dyld_get_image_header_fn) return;
+    if (!NSLookupSymbolInImage_fn) return;
+    if (!NSAddressOfSymbol_fn) return;
+
+    // Search for an image whose library name starts with "libobjc".
+    count = (*_dyld_image_count_fn)();
+    for (i = 0; i < count; i++) {
+        const void *image;
+        const char *path = (*_dyld_get_image_name_fn)(i);
+        const char *base = crt_basename(path);
+        if (!crt_strbeginswith(base, "libobjc")) continue;
+
+        // Call _objcInit() if library exports it.
+        if ((image = (*_dyld_get_image_header_fn)(i))) {
+            const void *symbol;
+            // 4 == NSLOOKUPSYMBOLINIMAGE_OPTION_RETURN_ON_ERROR
+            if ((symbol = (*NSLookupSymbolInImage_fn)(image,"__objcInit",4))) {
+                void (*_objcInit_fn)(void) = 
+                    (void(*)(void))(*NSAddressOfSymbol_fn)(symbol);
+                if (_objcInit_fn) {
+                    (*_objcInit_fn)();
+                    break;
+                }
+            }
+        }
+    }
+}
+
+#endif /* defined(CRT1)  &&  !defined(POSTSCRIPT) && !defined(__ppc64__) */

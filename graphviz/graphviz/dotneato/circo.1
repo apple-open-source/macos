@@ -1,0 +1,107 @@
+.TH CIRCO 1 "21 November 2003"
+.SH NAME
+circo \- preprocessor for circular layout of graphs
+.SH SYNOPSIS
+\fBcirco\fR [\fB\-G\fIname=value\fR]
+[\fB\-N\fIname=value\fR]
+[\-E\fIname=value\fR]
+[\fB\-T\fIlang\fR]
+[\fB\-l \fIlibfile\fR]
+[\fB\-o \fIoutfile\fR]
+[\fB\-vV\fR]
+[files]
+.SH DESCRIPTION
+.I circo
+draws graphs using a circular layout (see 
+Six and Tollis, GD '99 and ALENEX '99, and
+Kaufmann and Wiese, GD '02.)
+The tool identifies biconnected components and draws the nodes of 
+the component on a circle. The block-cutpoint tree 
+is then laid out using a recursive radial algorithm. Edge 
+crossings within a circle are minimized by placing as many edges on
+the circle's perimeter as possible.
+In particular, if the component is outerplanar, the component will
+have a planar layout.
+.PP
+If a node belongs to multiple non-trivial biconnected components,
+the layout puts the node in one of them. By default, this is the first
+non-trivial component found in the search from the root component.
+.PP
+Input files must be formatted in the
+.I dot
+attributed graph language.
+By default, the output of
+.I circo
+is the input graph with layout coordinates appended.
+To make PostScript, use the \fB\-Tps\fP option.
+FrameMaker MIF (\fB-Tmif\fP), HPGL (\fB-Thpgl\fP),
+JPEG (\fB-Tjpeg\fP), SVG (\fB-Tsvg\fP),
+and GIF (\fB-Tgif\fP) are other choices.
+.PP
+Here is a brief synopsis of the graph language.
+.PP
+\fBgraph \fIname\fP { \fIstatement-list\fP }\fR is the top level graph.
+Statements may be:
+.PP
+\fIname\fB=\fIval\fB;\fR
+.br
+\fBnode [\fIname\fB=\fIval\fB];\fR
+.br
+\fBedge [\fIname\fB=\fIval\fB];\fR
+Set the default graph, node, or edge attribute \fIname\fP to \fIval\fP.
+Any subgraph, node, or edge specified after one of these statements
+inherits these attributes.
+.PP
+\fBn0 [\fIname0=val0,name1=val1,...\fB];\fR
+Creates node \fBn0\fP if it does not exist,
+and sets its attributes according to the optional list. 
+.PP
+\fBn0 \-\- n1 \-\- \fI...\fB \-\- nn [\fIname0=val0,name1=val1,...\fB];\fR
+Creates edges between nodes \fBn0\fP, \fBn1\fP, ..., \fBnn\fP and optionally
+sets the given attributes.  Creates nodes as necessary.
+.PP
+\fBsubgraph \fIname\fB { \fIstatement-list \fB}\fR
+Creates a subgraph.  A subgraph may appear in place of
+an individual node within an edge statement.
+The \fBsubgraph \fIname\fR part is optional. If missing,
+the subgraph is given an internal name.
+.PP
+While attribute names and values may be arbitrary strings,
+certain fixed attributes control \fIcirco\fP's layout algorithm,
+as next described.
+.SH "GRAPH ATTRIBUTES"
+Refer to \fIdot\fP(1) for options to control the layout size.
+In addition, \fIcirco\fP recognizes the following:
+.PP
+\fBroot=\fInodename\fR. Specifies the name of a node occurring in the
+root block. If the graph is disconnected, the \fBroot\fP node attribute
+can be used to specify additional root blocks.
+.PP
+\fBmindist=\fIvalue\fR. Sets the minimum separation between all nodes. If not 
+specified then \fIcirco\fP uses a default value of 1.0.
+.PP
+\fBsplines=\fItrue/false\fR. If set to true, \fIcirco\fP will use the
+graphviz path planning library to draw edges as splines avoiding nodes.
+If the value is false, or some nodes overlap,
+edges are drawn as straight line segments connecting nodes.
+This is also the default style.
+.SH "NODE ATTRIBUTES"
+.PP
+\fBroot=\fItrue/false\fR. This specifies that the block containing the given 
+node be treated as the root of the spanning tree in the layout. 
+.PP
+Refer to \fIdot\fP(1) for options to control node labels, shapes,
+sizes, colors, fonts, etc.
+.SH "EDGE ATTRIBUTES"
+Refer to \fIdot\fP(1) for options to control edge line style and labels.
+.SH "COMMAND LINE OPTIONS"
+\fB\-V\fP (version) prints version information and exits.
+.SH "BUGS"
+.SH AUTHOR
+Emden R. Gansner <erg@research.att.com>
+.SH "SEE ALSO"
+.BR dot (1),
+.BR fdp (1)
+.BR neato (1)
+.BR twopi (1)
+.br

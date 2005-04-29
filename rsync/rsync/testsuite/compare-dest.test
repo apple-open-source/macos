@@ -1,0 +1,33 @@
+#! /bin/sh
+
+# Copyright (C) 2004 by Wayne Davison <wayned@samba.org>
+
+# This program is distributable under the terms of the GNU GPL see
+# COPYING).
+
+# Test rsync handling of the --compare-dest option.
+
+. "$suitedir/rsync.fns"
+
+set -x
+
+altdir="$tmpdir/alt"
+
+# Build some files/dirs/links to copy
+
+hands_setup
+
+# Setup the alt and chk dirs
+$RSYNC -av --include=text --include='*/' --exclude='*' "$fromdir/" "$altdir/"
+
+sleep 1
+touch "$fromdir/dir/text"
+
+$RSYNC -av --exclude=/text "$fromdir/" "$chkdir/"
+
+# Let's do it!
+checkit "$RSYNC -avv --no-whole-file --compare-dest=\"$altdir\" \
+    \"$fromdir/\" \"$todir/\"" "$chkdir" "$todir"
+
+# The script would have aborted on error, so getting here means we've won.
+exit 0

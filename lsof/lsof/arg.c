@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: arg.c,v 1.41 2002/12/05 12:21:18 abe Exp $";
+static char *rcsid = "$Id: arg.c,v 1.43 2004/03/10 23:42:49 abe Exp $";
 #endif
 
 
@@ -61,6 +61,7 @@ _PROTOTYPE(static int ckfd_range,(char *first, char *dash, char *last, int *lo, 
 _PROTOTYPE(static int enter_fd_lst,(char *nm, int lo, int hi, int excl));
 _PROTOTYPE(static int enter_nwad,(struct nwad *n, int sp, int ep, char *s, struct hostent *he));
 _PROTOTYPE(static struct hostent *lkup_hostnm,(char *hn, struct nwad *n));
+_PROTOTYPE(static char *isIPv4addr,(char *hn, unsigned char *a, int al));
 
 
 /*
@@ -769,7 +770,7 @@ enter_fd_lst(nm, lo, hi, excl)
 	int excl;			/* exclusion on match */
 {
 	char buf[256], *cp;
-	int dup, n;
+	int n;
 	struct fd_lst *f, *ft;
 /*
  * Don't allow a mixture of exclusions and inclusions.
@@ -1036,8 +1037,6 @@ enter_dir(d, descend)
 	    /*
 	     * Lstatsafely() the entry; complain if that fails.
 	     *
-	     * Ignore symbolic links and files not not the directory's device.
-	     *
 	     * Stack entries that represent subdirectories.
 	     */
 		if (lstatsafely(fp, &sb)) {
@@ -1056,8 +1055,39 @@ enter_dir(d, descend)
 		(void) HASSPECDEVD(fp, &sb);
 #endif	/* defined(HASSPECDEVD) */
 
-		if ((sb.st_mode & S_IFMT) == S_IFLNK || sb.st_dev != ddev)
-		    continue;
+		if (!(Fxover & XO_FILESYS)) {
+
+		/*
+		 * Unless "-x" or "-x f" was specified, don't cross over file
+		 * system mount points.
+		 */
+		    if (sb.st_dev != ddev)
+			continue;
+		}
+		if ((sb.st_mode & S_IFMT) == S_IFLNK) {
+
+		/*
+		 * If this is a symbolic link and "-x_ or "-x l" was specified,
+		 * Statsafely() the entry and process it.
+		 *
+		 * Otherwise skip symbolic links.
+		 */
+		    if (Fxover & XO_SYMLINK) {
+			if (statsafely(fp, &sb)) {
+			    if ((en = errno) != ENOENT) {
+				if (!Fwarn) {
+				    (void) fprintf(stderr,
+					"%s: WARNING: can't stat(", Pn);
+				    safestrprt(fp, stderr, 0);
+				    (void) fprintf(stderr,
+					") symbolc link: %s\n", strerror(en));
+				}
+			    }
+			    continue;
+		        }
+		    } else
+			continue;
+		}
 		if (av[0]) {
 		    (void) free((FREE_P *)av[0]);
 		    av[0] = (char *)NULL;
@@ -1376,52 +1406,20 @@ unacc_address:
 		safestrprt(na, stderr, 1);
 		goto nwad_exit;
 	    }
-	    if ((*wa < '0' || *wa > '9') && *wa != '[') {
+
+	    if ((p = isIPv4addr(wa, n.a, sizeof(n.a)))) {
 
 	    /*
-	     * Assemble host name.
+	     * Process IPv4 address.
 	     */
-		for (p = wa; *p && *p != ':'; p++)
-		    ;
-		if ((l = p - wa)) {
-		    if (!(hn = mkstrcat(wa, l, (char *)NULL, -1, (char *)NULL,
-			       -1, (MALLOC_S *)NULL)))
-		    {
-			(void) fprintf(stderr,
-			    "%s: no space for host name: -i ", Pn);
-			safestrprt(na, stderr, 1);
-			goto nwad_exit;
-		    }
-
-#if	defined(HASIPv6)
-
-		/*
-		 * If no IP version has been specified, look up an IPv6 host
-		 * name first.  If that fails, look up an IPv4 host name.
-		 *
-		 * If the IPv6 version has been specified, look up the host
-		 * name only under its IP version specification.
-		 */
-		    if (!ft)
-			n.af = AF_INET6;
-		    if (!(he = lkup_hostnm(hn, &n)) && !ft) {
-			n.af = AF_INET;
-			he = lkup_hostnm(hn, &n);
-		    }
-#else	/* !defined(HASIPv6) */
-		    if (!ft)
-			n.af = AF_INET;
-		    he = lkup_hostnm(hn, &n);
-#endif	/* defined(HASIPv6) */
-		
-		    if (!he) {
-			fprintf(stderr, "%s: unknown host name (%s) in: -i ",
-			    Pn, hn);
-			safestrprt(na, stderr, 1);
-			goto nwad_exit;
-		    }
+		if (ft == 6) {
+		    (void) fprintf(stderr,
+			"%s: IPv4 addresses are prohibited: -i ", Pn);
+		    safestrprt(na, stderr, 1);
+		    goto nwad_exit;
 		}
 		wa = p;
+		n.af = AF_INET;
 	    } else if (*wa == '[') {
 
 #if	defined(HASIPv6)
@@ -1472,34 +1470,49 @@ unacc_address:
 	    } else {
 
 	    /*
-	     * Assemble IPv4 address.
+	     * Assemble host name.
 	     */
-		if (ft == 6) {
-		    (void) fprintf(stderr,
-			"%s: IPv4 addresses are prohibited: -i ", Pn);
-		    safestrprt(na, stderr, 1);
-		    goto nwad_exit;
-		}
-		for (i = 0; *wa; wa++) {
-		    if (*wa == ':')
-			break;
-		    if (*wa == '.') {
-			i++;
-			if (i >= MIN_AF_ADDR)
-			    break;
-			continue;
+		for (p = wa; *p && *p != ':'; p++)
+		    ;
+		if ((l = p - wa)) {
+		    if (!(hn = mkstrcat(wa, l, (char *)NULL, -1, (char *)NULL,
+			       -1, (MALLOC_S *)NULL)))
+		    {
+			(void) fprintf(stderr,
+			    "%s: no space for host name: -i ", Pn);
+			safestrprt(na, stderr, 1);
+			goto nwad_exit;
 		    }
-		    if (*wa < '0' || *wa > '9')
-			goto unacc_address;
-		    ae = (10 * n.a[i]) + *wa - '0';
-		    if (ae > 255)
-			goto unacc_address;
-		    n.a[i] = (unsigned char)ae;
+
+#if	defined(HASIPv6)
+
+		/*
+		 * If no IP version has been specified, look up an IPv6 host
+		 * name first.  If that fails, look up an IPv4 host name.
+		 *
+		 * If the IPv6 version has been specified, look up the host
+		 * name only under its IP version specification.
+		 */
+		    if (!ft)
+			n.af = AF_INET6;
+		    if (!(he = lkup_hostnm(hn, &n)) && !ft) {
+			n.af = AF_INET;
+			he = lkup_hostnm(hn, &n);
+		    }
+#else	/* !defined(HASIPv6) */
+		    if (!ft)
+			n.af = AF_INET;
+		    he = lkup_hostnm(hn, &n);
+#endif	/* defined(HASIPv6) */
+		
+		    if (!he) {
+			fprintf(stderr, "%s: unknown host name (%s) in: -i ",
+			    Pn, hn);
+			safestrprt(na, stderr, 1);
+			goto nwad_exit;
+		    }
 		}
-		if (i != (MIN_AF_ADDR - 1)
-		||  (!n.a[0] && !n.a[1] && !n.a[2] && !n.a[3]))
-		    goto unacc_address;
-		n.af = AF_INET;
+		wa = p;
 	    }
 	}
 /*
@@ -1970,6 +1983,82 @@ enter_uid(us)
 		Nuidincl++;
 	}
 	return(err);
+}
+
+
+/*
+ * isIPv4addr() - is host name an IPv4 address
+ */
+
+static char *
+isIPv4addr(hn, a, al)
+	char *hn;			/* host name */
+	unsigned char *a;		/* address receptor */
+	int al;				/* address receptor length */
+{
+	int dc = 0;			/* dot count */
+	int i;				/* temorary index */
+	int ov[MIN_AF_ADDR];		/* octet values */
+	int ovx = 0;			/* ov[] index */
+/*
+ * The host name must begin with a number and the return octet value
+ * arguments must be acceptable.
+ */
+	if ((*hn < '0') || (*hn > '9'))
+	    return((char *)NULL);
+	if (!a || (al < MIN_AF_ADDR))
+	    return((char *)NULL);
+/*
+ * Start the first octet assembly, then parse tge remainder of the host
+ * name for four octets, separated by dots.
+ */
+	ov[0] = (int)(*hn++ - '0');
+	while (*hn && (*hn != ':')) {
+	    if (*hn == '.') {
+
+	    /*
+	     * Count a dot.  Make sure a preceding octet value has been
+	     * assembled.  Don't assemble more than MIN_AF_ADDR octets.
+	     */
+		dc++;
+		if ((ov[ovx] < 0) || (ov[ovx] > 255))
+		    return((char *)NULL);
+		if (++ovx > (MIN_AF_ADDR - 1))
+		    return((char *)NULL);
+		ov[ovx] = -1;
+	    } else if ((*hn >= '0') && (*hn <= '9')) {
+
+	    /*
+	     * Assemble an octet.
+	     */
+		if (ov[ovx] < 0)
+		    ov[ovx] = (int)(*hn - '0');
+		else
+		    ov[ovx] = (ov[ovx] * 10) + (int)(*hn - '0');
+	    } else {
+
+	    /*
+	     * A non-address character has been detected.
+	     */
+		return((char *)NULL);
+	    }
+	    hn++;
+	}
+/*
+ * Make sure there were three dots and four non-null octets.
+ */
+	if ((dc != 3)
+	||  (ovx != (MIN_AF_ADDR - 1))
+	||  (ov[ovx] < 0) || (ov[ovx] > 255))
+	    return((char *)NULL);
+/*
+ * Copy the octets as unsigned characters and return the ending host name
+ * character position.
+ */
+	for (i = 0; i < MIN_AF_ADDR; i++) {
+	     a[i] = (unsigned char)ov[i];
+	}
+	return(hn);
 }
 
 

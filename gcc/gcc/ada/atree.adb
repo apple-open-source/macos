@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -348,15 +347,97 @@ package body Atree is
       Table_Increment      => Alloc.Orig_Nodes_Increment,
       Table_Name           => "Orig_Nodes");
 
+   ----------------------------------------
+   -- Global_Variables for New_Copy_Tree --
+   ----------------------------------------
+
+   --  These global variables are used by New_Copy_Tree. See description
+   --  of the body of this subprogram for details. Global variables can be
+   --  safely used by New_Copy_Tree, since there is no case of a recursive
+   --  call from the processing inside New_Copy_Tree.
+
+   NCT_Hash_Threshhold : constant := 20;
+   --  If there are more than this number of pairs of entries in the
+   --  map, then Hash_Tables_Used will be set, and the hash tables will
+   --  be initialized and used for the searches.
+
+   NCT_Hash_Tables_Used : Boolean := False;
+   --  Set to True if hash tables are in use
+
+   NCT_Table_Entries : Nat;
+   --  Count entries in table to see if threshhold is reached
+
+   NCT_Hash_Table_Setup : Boolean := False;
+   --  Set to True if hash table contains data. We set this True if we
+   --  setup the hash table with data, and leave it set permanently
+   --  from then on, this is a signal that second and subsequent users
+   --  of the hash table must clear the old entries before reuse.
+
+   subtype NCT_Header_Num is Int range 0 .. 511;
+   --  Defines range of headers in hash tables (512 headers)
+
    -----------------------
    -- Local Subprograms --
    -----------------------
 
-   procedure Fix_Parent (Field : Union_Id; Old_Node, New_Node : Node_Id);
-   --  This subprogram is used to fixup parent pointers that are rendered
-   --  incorrect because of a node copy. Field is checked to see if it
-   --  points to a node, list, or element list that has a parent that
-   --  points to Old_Node. If so, the parent is reset to point to New_Node.
+   procedure Fix_Parents (Old_Node, New_Node : Node_Id);
+   --  Fixup parent pointers for the syntactic children of New_Node after
+   --  a copy, setting them to New_Node when they pointed to Old_Node.
+
+   function Allocate_Initialize_Node
+     (Src            : Node_Id;
+      With_Extension : Boolean) return Node_Id;
+   --  Allocate a new node or node extension. If Src is not empty,
+   --  the information for the newly-allocated node is copied from it.
+
+   ------------------------------
+   -- Allocate_Initialize_Node --
+   ------------------------------
+
+   function Allocate_Initialize_Node
+     (Src            : Node_Id;
+      With_Extension : Boolean) return Node_Id
+   is
+      New_Id : Node_Id     := Src;
+      Nod    : Node_Record := Default_Node;
+      Ext1   : Node_Record := Default_Node_Extension;
+      Ext2   : Node_Record := Default_Node_Extension;
+      Ext3   : Node_Record := Default_Node_Extension;
+   begin
+      if Present (Src) then
+         Nod := Nodes.Table (Src);
+
+         if Has_Extension (Src) then
+            Ext1 := Nodes.Table (Src + 1);
+            Ext2 := Nodes.Table (Src + 2);
+            Ext3 := Nodes.Table (Src + 3);
+         end if;
+      end if;
+
+      if not (Present (Src)
+               and then not Has_Extension (Src)
+               and then With_Extension
+               and then Src = Nodes.Last)
+      then
+         --  We are allocating a new node, or extending a node
+         --  other than Nodes.Last.
+
+         Nodes.Append (Nod);
+         New_Id := Nodes.Last;
+         Orig_Nodes.Append (New_Id);
+         Node_Count := Node_Count + 1;
+      end if;
+
+      if With_Extension then
+         Nodes.Append (Ext1);
+         Nodes.Append (Ext2);
+         Nodes.Append (Ext3);
+      end if;
+
+      Orig_Nodes.Set_Last (Nodes.Last);
+      Allocate_List_Tables (Nodes.Last);
+      return New_Id;
+   end Allocate_Initialize_Node;
 
    --------------
    -- Analyzed --
@@ -512,7 +593,6 @@ package body Atree is
 
             return NL;
          end if;
-
       end Copy_List;
 
       -------------------
@@ -557,17 +637,7 @@ package body Atree is
          return Copy_Entity (Source);
 
       else
-         Nodes.Increment_Last;
-         New_Id := Nodes.Last;
-         Nodes.Table (New_Id) := Nodes.Table (Source);
-         Nodes.Table (New_Id).Link := Empty_List_Or_Node;
-         Nodes.Table (New_Id).In_List := False;
-         Nodes.Table (New_Id).Rewrite_Ins := False;
-         Node_Count := Node_Count + 1;
-
-         Orig_Nodes.Increment_Last;
-         Allocate_List_Tables (Nodes.Last);
-         Orig_Nodes.Table (New_Id) := New_Id;
+         New_Id := New_Copy (Source);
 
          --  Recursively copy descendents
 
@@ -665,7 +735,6 @@ package body Atree is
       Delete_Field (Field3 (Node));
       Delete_Field (Field4 (Node));
       Delete_Field (Field5 (Node));
-
    end Delete_Tree;
 
    -----------
@@ -761,59 +830,53 @@ package body Atree is
       pragma Inline (Debug_Extend_Node);
 
    begin
-      if Node /= Nodes.Last then
-         Nodes.Increment_Last;
-         Nodes.Table (Nodes.Last) := Nodes.Table (Node);
-         Result := Nodes.Last;
-
-         Orig_Nodes.Increment_Last;
-         Orig_Nodes.Table (Nodes.Last) := Nodes.Last;
-
-      else
-         Result := Node;
-      end if;
-
-      Nodes.Increment_Last;
-      Nodes.Table (Nodes.Last) := Default_Node_Extension;
-      Nodes.Increment_Last;
-      Nodes.Table (Nodes.Last) := Default_Node_Extension;
-      Nodes.Increment_Last;
-      Nodes.Table (Nodes.Last) := Default_Node_Extension;
-
-      Orig_Nodes.Set_Last (Nodes.Last);
-      Allocate_List_Tables (Nodes.Last);
-
+      pragma Assert (not (Has_Extension (Node)));
+      Result := Allocate_Initialize_Node (Node, With_Extension => True);
       pragma Debug (Debug_Extend_Node);
       return Result;
    end Extend_Node;
 
-   ----------------
-   -- Fix_Parent --
-   ----------------
+   -----------------
+   -- Fix_Parents --
+   -----------------
 
-   procedure Fix_Parent (Field : Union_Id; Old_Node, New_Node : Node_Id) is
+   procedure Fix_Parents (Old_Node, New_Node : Node_Id) is
+
+      procedure Fix_Parent (Field : Union_Id; Old_Node, New_Node : Node_Id);
+      --  Fixup one parent pointer. Field is checked to see if it
+      --  points to a node, list, or element list that has a parent that
+      --  points to Old_Node. If so, the parent is reset to point to New_Node.
+
+      procedure Fix_Parent (Field : Union_Id; Old_Node, New_Node : Node_Id) is
+      begin
+         --  Fix parent of node that is referenced by Field. Note that we must
+         --  exclude the case where the node is a member of a list, because in
+         --  this case the parent is the parent of the list.
+
+         if Field in Node_Range
+           and then Present (Node_Id (Field))
+           and then not Nodes.Table (Node_Id (Field)).In_List
+           and then Parent (Node_Id (Field)) = Old_Node
+         then
+            Set_Parent (Node_Id (Field), New_Node);
+
+         --  Fix parent of list that is referenced by Field
+
+         elsif Field in List_Range
+           and then Present (List_Id (Field))
+           and then Parent (List_Id (Field)) = Old_Node
+         then
+            Set_Parent (List_Id (Field), New_Node);
+         end if;
+      end Fix_Parent;
+
    begin
-      --  Fix parent of node that is referenced by Field. Note that we must
-      --  exclude the case where the node is a member of a list, because in
-      --  this case the parent is the parent of the list.
-
-      if Field in Node_Range
-        and then Present (Node_Id (Field))
-        and then not Nodes.Table (Node_Id (Field)).In_List
-        and then Parent (Node_Id (Field)) = Old_Node
-      then
-         Set_Parent (Node_Id (Field), New_Node);
-
-      --  Fix parent of list that is referenced by Field
-
-      elsif Field in List_Range
-        and then Present (List_Id (Field))
-        and then Parent (List_Id (Field)) = Old_Node
-      then
-         Set_Parent (List_Id (Field), New_Node);
-      end if;
-
-   end Fix_Parent;
+      Fix_Parent (Field1 (New_Node), Old_Node, New_Node);
+      Fix_Parent (Field2 (New_Node), Old_Node, New_Node);
+      Fix_Parent (Field3 (New_Node), Old_Node, New_Node);
+      Fix_Parent (Field4 (New_Node), Old_Node, New_Node);
+      Fix_Parent (Field5 (New_Node), Old_Node, New_Node);
+   end Fix_Parents;
 
    -----------------------------------
    -- Get_Comes_From_Source_Default --
@@ -839,8 +902,13 @@ package body Atree is
 
    procedure Initialize is
       Dummy : Node_Id;
+      pragma Warnings (Off, Dummy);
 
    begin
+      Node_Count := 0;
+      Atree_Private_Part.Nodes.Init;
+      Orig_Nodes.Init;
+
       --  Allocate Empty node
 
       Dummy := New_Node (N_Empty, No_Location);
@@ -852,6 +920,11 @@ package body Atree is
       Dummy := New_Node (N_Error, No_Location);
       Set_Name1 (Error, Error_Name);
       Set_Error_Posted (Error, True);
+
+      --  Set global variables for New_Copy_Tree:
+      NCT_Hash_Tables_Used := False;
+      NCT_Table_Entries    := 0;
+      NCT_Hash_Table_Setup := False;
    end Initialize;
 
    --------------------------
@@ -907,38 +980,23 @@ package body Atree is
    --------------
 
    function New_Copy (Source : Node_Id) return Node_Id is
-      New_Id : Node_Id;
+      New_Id : Node_Id := Source;
 
    begin
-      if Source <= Empty_Or_Error then
-         return Source;
+      if Source > Empty_Or_Error then
 
-      else
-         Nodes.Increment_Last;
-         New_Id := Nodes.Last;
-         Nodes.Table (New_Id) := Nodes.Table (Source);
+         New_Id := Allocate_Initialize_Node (Source, Has_Extension (Source));
+
          Nodes.Table (New_Id).Link := Empty_List_Or_Node;
          Nodes.Table (New_Id).In_List := False;
+
+         --  If the original is marked as a rewrite insertion, then unmark
+         --  the copy, since we inserted the original, not the copy.
+
          Nodes.Table (New_Id).Rewrite_Ins := False;
-
-         Orig_Nodes.Increment_Last;
-         Orig_Nodes.Table (New_Id) := New_Id;
-
-         if Has_Extension (Source) then
-            Nodes.Increment_Last;
-            Nodes.Table (New_Id + 1) := Nodes.Table (Source + 1);
-            Nodes.Increment_Last;
-            Nodes.Table (New_Id + 2) := Nodes.Table (Source + 2);
-            Nodes.Increment_Last;
-            Nodes.Table (New_Id + 3) := Nodes.Table (Source + 3);
-
-            Orig_Nodes.Set_Last (Nodes.Last);
-         end if;
-
-         Allocate_List_Tables (Nodes.Last);
-         Node_Count := Node_Count + 1;
-         return New_Id;
       end if;
+
+      return New_Id;
    end New_Copy;
 
    -------------------
@@ -957,29 +1015,6 @@ package body Atree is
    --  there are fewer entries, then the map is searched sequentially
    --  (because setting up a hash table for only a few entries takes
    --  more time than it saves.
-
-   --  Global variables are safe for this purpose, since there is no case
-   --  of a recursive call from the processing inside New_Copy_Tree.
-
-   NCT_Hash_Threshhold : constant := 20;
-   --  If there are more than this number of pairs of entries in the
-   --  map, then Hash_Tables_Used will be set, and the hash tables will
-   --  be initialized and used for the searches.
-
-   NCT_Hash_Tables_Used : Boolean := False;
-   --  Set to True if hash tables are in use
-
-   NCT_Table_Entries : Nat;
-   --  Count entries in table to see if threshhold is reached
-
-   NCT_Hash_Table_Setup : Boolean := False;
-   --  Set to True if hash table contains data. We set this True if we
-   --  setup the hash table with data, and leave it set permanently
-   --  from then on, this is a signal that second and subsequent users
-   --  of the hash table must clear the old entries before reuse.
-
-   subtype NCT_Header_Num is Int range 0 .. 511;
-   --  Defines range of headers in hash tables (512 headers)
 
    function New_Copy_Hash (E : Entity_Id) return NCT_Header_Num;
    --  Hash function used for hash operations
@@ -1020,8 +1055,7 @@ package body Atree is
      (Source    : Node_Id;
       Map       : Elist_Id := No_Elist;
       New_Sloc  : Source_Ptr := No_Location;
-      New_Scope : Entity_Id := Empty)
-      return      Node_Id
+      New_Scope : Entity_Id := Empty) return Node_Id
    is
       Actual_Map : Elist_Id := Map;
       --  This is the actual map for the copy. It is initialized with the
@@ -1041,8 +1075,7 @@ package body Atree is
       --  Builds hash tables (number of elements >= threshold value)
 
       function Copy_Elist_With_Replacement
-        (Old_Elist : Elist_Id)
-         return      Elist_Id;
+        (Old_Elist : Elist_Id) return Elist_Id;
       --  Called during second phase to copy element list doing replacements.
 
       procedure Copy_Itype_With_Replacement (New_Itype : Entity_Id);
@@ -1155,8 +1188,7 @@ package body Atree is
       ---------------------------------
 
       function Copy_Elist_With_Replacement
-        (Old_Elist : Elist_Id)
-         return      Elist_Id
+        (Old_Elist : Elist_Id) return Elist_Id
       is
          M         : Elmt_Id;
          New_Elist : Elist_Id;
@@ -1231,8 +1263,7 @@ package body Atree is
       --------------------------------
 
       function Copy_List_With_Replacement
-        (Old_List : List_Id)
-         return     List_Id
+        (Old_List : List_Id) return List_Id
       is
          New_List : List_Id;
          E        : Node_Id;
@@ -1258,14 +1289,12 @@ package body Atree is
       --------------------------------
 
       function Copy_Node_With_Replacement
-        (Old_Node : Node_Id)
-         return     Node_Id
+        (Old_Node : Node_Id) return Node_Id
       is
          New_Node : Node_Id;
 
          function Copy_Field_With_Replacement
-           (Field : Union_Id)
-            return  Union_Id;
+           (Field : Union_Id) return Union_Id;
          --  Given Field, which is a field of Old_Node, return a copy of it
          --  if it is a syntactic field (i.e. its parent is Node), setting
          --  the parent of the copy to poit to New_Node. Otherwise returns
@@ -1276,8 +1305,7 @@ package body Atree is
          ---------------------------------
 
          function Copy_Field_With_Replacement
-           (Field : Union_Id)
-            return  Union_Id
+           (Field : Union_Id) return Union_Id
          is
          begin
             if Field = Union_Id (Empty) then
@@ -1348,17 +1376,7 @@ package body Atree is
             return Assoc (Old_Node);
 
          else
-            Nodes.Increment_Last;
-            New_Node := Nodes.Last;
-            Nodes.Table (New_Node) := Nodes.Table (Old_Node);
-            Nodes.Table (New_Node).Link := Empty_List_Or_Node;
-            Nodes.Table (New_Node).In_List := False;
-            Node_Count := Node_Count + 1;
-
-            Orig_Nodes.Increment_Last;
-            Allocate_List_Tables (Nodes.Last);
-
-            Orig_Nodes.Table (Nodes.Last) := Nodes.Last;
+            New_Node := New_Copy (Old_Node);
 
             --  If the node we are copying is the associated node of a
             --  previously copied Itype, then adjust the associated node
@@ -1384,7 +1402,10 @@ package body Atree is
                   else
                      E := First_Elmt (Actual_Map);
                      while Present (E) loop
-                        if Old_Node = Associated_Node_For_Itype (Node (E)) then
+                        if Is_Itype (Node (E))
+                          and then
+                            Old_Node = Associated_Node_For_Itype (Node (E))
+                        then
                            Set_Associated_Node_For_Itype
                              (Node (Next_Elmt (E)), New_Node);
                         end if;
@@ -1407,11 +1428,6 @@ package body Atree is
               (New_Node, Copy_Field_With_Replacement (Field4 (New_Node)));
             Set_Field5
               (New_Node, Copy_Field_With_Replacement (Field5 (New_Node)));
-
-            --  If the original is marked as a rewrite insertion, then unmark
-            --  the copy, since we inserted the original, not the copy.
-
-            Nodes.Table (New_Node).Rewrite_Ins := False;
 
             --  Adjust Sloc of new node if necessary
 
@@ -1591,7 +1607,7 @@ package body Atree is
                   Set_Associated_Node_For_Itype (Ent, New_Itype);
                end if;
 
-            --  Csae of hash tables not used
+            --  Case of hash tables not used
 
             else
                E := First_Elmt (Actual_Map);
@@ -1601,7 +1617,10 @@ package body Atree is
                        (New_Itype, Node (Next_Elmt (E)));
                   end if;
 
-                  if Old_Itype = Associated_Node_For_Itype (Node (E)) then
+                  if Is_Type (Node (E))
+                    and then
+                      Old_Itype = Associated_Node_For_Itype (Node (E))
+                  then
                      Set_Associated_Node_For_Itype
                        (Node (Next_Elmt (E)), New_Itype);
                   end if;
@@ -1811,17 +1830,23 @@ package body Atree is
 
    function New_Entity
      (New_Node_Kind : Node_Kind;
-      New_Sloc      : Source_Ptr)
-      return          Entity_Id
+      New_Sloc      : Source_Ptr) return Entity_Id
    is
+      Ent : Entity_Id;
+
       procedure New_Entity_Debugging_Output;
       --  Debugging routine for debug flag N
+      pragma Inline (New_Entity_Debugging_Output);
+
+      ---------------------------------
+      -- New_Entity_Debugging_Output --
+      ---------------------------------
 
       procedure New_Entity_Debugging_Output is
       begin
          if Debug_Flag_N then
             Write_Str ("Allocate entity, Id = ");
-            Write_Int (Int (Nodes.Last));
+            Write_Int (Int (Ent));
             Write_Str ("  ");
             Write_Location (New_Sloc);
             Write_Str ("  ");
@@ -1830,36 +1855,26 @@ package body Atree is
          end if;
       end New_Entity_Debugging_Output;
 
-      pragma Inline (New_Entity_Debugging_Output);
-
    --  Start of processing for New_Entity
 
    begin
       pragma Assert (New_Node_Kind in N_Entity);
 
-      Nodes.Increment_Last;
-      Current_Error_Node := Nodes.Last;
-      Nodes.Table (Nodes.Last)        := Default_Node;
-      Nodes.Table (Nodes.Last).Nkind  := New_Node_Kind;
-      Nodes.Table (Nodes.Last).Sloc   := New_Sloc;
+      Ent := Allocate_Initialize_Node (Empty, With_Extension => True);
+
+      --  If this is a node with a real location and we are generating
+      --  source nodes, then reset Current_Error_Node. This is useful
+      --  if we bomb during parsing to get a error location for the bomb.
+
+      if Default_Node.Comes_From_Source and then New_Sloc > No_Location then
+         Current_Error_Node := Ent;
+      end if;
+
+      Nodes.Table (Ent).Nkind  := New_Node_Kind;
+      Nodes.Table (Ent).Sloc   := New_Sloc;
       pragma Debug (New_Entity_Debugging_Output);
 
-      Orig_Nodes.Increment_Last;
-      Orig_Nodes.Table (Nodes.Last) := Nodes.Last;
-
-      Nodes.Increment_Last;
-      Nodes.Table (Nodes.Last) := Default_Node_Extension;
-
-      Nodes.Increment_Last;
-      Nodes.Table (Nodes.Last) := Default_Node_Extension;
-
-      Nodes.Increment_Last;
-      Nodes.Table (Nodes.Last) := Default_Node_Extension;
-
-      Orig_Nodes.Set_Last (Nodes.Last);
-      Allocate_List_Tables (Nodes.Last);
-      Node_Count := Node_Count + 1;
-      return Current_Error_Node;
+      return Ent;
    end New_Entity;
 
    --------------
@@ -1868,17 +1883,23 @@ package body Atree is
 
    function New_Node
      (New_Node_Kind : Node_Kind;
-      New_Sloc      : Source_Ptr)
-      return          Node_Id
+      New_Sloc      : Source_Ptr) return Node_Id
    is
+      Nod : Node_Id;
+
       procedure New_Node_Debugging_Output;
       --  Debugging routine for debug flag N
+      pragma Inline (New_Node_Debugging_Output);
+
+      --------------------------
+      -- New_Debugging_Output --
+      --------------------------
 
       procedure New_Node_Debugging_Output is
       begin
          if Debug_Flag_N then
             Write_Str ("Allocate node, Id = ");
-            Write_Int (Int (Nodes.Last));
+            Write_Int (Int (Nod));
             Write_Str ("  ");
             Write_Location (New_Sloc);
             Write_Str ("  ");
@@ -1887,24 +1908,24 @@ package body Atree is
          end if;
       end New_Node_Debugging_Output;
 
-      pragma Inline (New_Node_Debugging_Output);
-
    --  Start of processing for New_Node
 
    begin
       pragma Assert (New_Node_Kind not in N_Entity);
-      Nodes.Increment_Last;
-      Nodes.Table (Nodes.Last)        := Default_Node;
-      Nodes.Table (Nodes.Last).Nkind  := New_Node_Kind;
-      Nodes.Table (Nodes.Last).Sloc   := New_Sloc;
+      Nod := Allocate_Initialize_Node (Empty, With_Extension => False);
+      Nodes.Table (Nod).Nkind := New_Node_Kind;
+      Nodes.Table (Nod).Sloc  := New_Sloc;
       pragma Debug (New_Node_Debugging_Output);
-      Current_Error_Node := Nodes.Last;
-      Node_Count := Node_Count + 1;
 
-      Orig_Nodes.Increment_Last;
-      Allocate_List_Tables (Nodes.Last);
-      Orig_Nodes.Table (Nodes.Last) := Nodes.Last;
-      return Nodes.Last;
+      --  If this is a node with a real location and we are generating
+      --  source nodes, then reset Current_Error_Node. This is useful
+      --  if we bomb during parsing to get a error location for the bomb.
+
+      if Default_Node.Comes_From_Source and then New_Sloc > No_Location then
+         Current_Error_Node := Nod;
+      end if;
+
+      return Nod;
    end New_Node;
 
    -----------
@@ -2018,11 +2039,7 @@ package body Atree is
       end if;
 
       New_Node := New_Copy (Source);
-      Fix_Parent (Field1 (Source), Source, New_Node);
-      Fix_Parent (Field2 (Source), Source, New_Node);
-      Fix_Parent (Field3 (Source), Source, New_Node);
-      Fix_Parent (Field4 (Source), Source, New_Node);
-      Fix_Parent (Field5 (Source), Source, New_Node);
+      Fix_Parents (Source, New_Node);
 
       --  We now set the parent of the new node to be the same as the
       --  parent of the source. Almost always this parent will be
@@ -2033,6 +2050,14 @@ package body Atree is
       --  not get set.
 
       Set_Parent (New_Node, Parent (Source));
+
+      --  If the node being relocated was a rewriting of some original
+      --  node, then the relocated node has the same original node.
+
+      if Orig_Nodes.Table (Source) /= Source then
+         Orig_Nodes.Table (New_Node) := Orig_Nodes.Table (Source);
+      end if;
+
       return New_Node;
    end Relocate_Node;
 
@@ -2041,8 +2066,6 @@ package body Atree is
    -------------
 
    procedure Replace (Old_Node, New_Node : Node_Id) is
-      Old_Link : constant Union_Id := Nodes.Table (Old_Node).Link;
-      Old_InL  : constant Boolean  := Nodes.Table (Old_Node).In_List;
       Old_Post : constant Boolean  := Nodes.Table (Old_Node).Error_Posted;
       Old_CFS  : constant Boolean  := Nodes.Table (Old_Node).Comes_From_Source;
 
@@ -2054,31 +2077,23 @@ package body Atree is
 
       --  Do copy, preserving link and in list status and comes from source
 
-      Nodes.Table (Old_Node)                   := Nodes.Table (New_Node);
-      Nodes.Table (Old_Node).Link              := Old_Link;
-      Nodes.Table (Old_Node).In_List           := Old_InL;
+      Copy_Node (Source => New_Node, Destination => Old_Node);
       Nodes.Table (Old_Node).Comes_From_Source := Old_CFS;
       Nodes.Table (Old_Node).Error_Posted      := Old_Post;
 
       --  Fix parents of substituted node, since it has changed identity
 
-      Fix_Parent (Field1 (Old_Node), New_Node, Old_Node);
-      Fix_Parent (Field2 (Old_Node), New_Node, Old_Node);
-      Fix_Parent (Field3 (Old_Node), New_Node, Old_Node);
-      Fix_Parent (Field4 (Old_Node), New_Node, Old_Node);
-      Fix_Parent (Field5 (Old_Node), New_Node, Old_Node);
+      Fix_Parents (New_Node, Old_Node);
 
       --  Since we are doing a replace, we assume that the original node
       --  is intended to become the new replaced node. The call would be
-      --  to Rewrite_Substitute_Node if there were an intention to save
-      --  the original node.
+      --  to Rewrite if there were an intention to save the original node.
 
       Orig_Nodes.Table (Old_Node) := Old_Node;
 
       --  Finally delete the source, since it is now copied
 
       Delete_Node (New_Node);
-
    end Replace;
 
    -------------
@@ -2087,10 +2102,8 @@ package body Atree is
 
    procedure Rewrite (Old_Node, New_Node : Node_Id) is
 
-      Old_Link    : constant Union_Id := Nodes.Table (Old_Node).Link;
-      Old_In_List : constant Boolean  := Nodes.Table (Old_Node).In_List;
       Old_Error_P : constant Boolean  := Nodes.Table (Old_Node).Error_Posted;
-      --  These three fields are always preserved in the new node
+      --  This fields is always preserved in the new node
 
       Old_Paren_Count     : Paren_Count_Type;
       Old_Must_Not_Freeze : Boolean;
@@ -2123,24 +2136,14 @@ package body Atree is
       --  that does not reference the Old_Node.
 
       if Orig_Nodes.Table (Old_Node) = Old_Node then
-         Nodes.Increment_Last;
-         Sav_Node := Nodes.Last;
-         Nodes.Table (Sav_Node)         := Nodes.Table (Old_Node);
-         Nodes.Table (Sav_Node).In_List := False;
-         Nodes.Table (Sav_Node).Link    := Union_Id (Empty);
-
-         Orig_Nodes.Increment_Last;
-         Allocate_List_Tables (Nodes.Last);
-
+         Sav_Node := New_Copy (Old_Node);
          Orig_Nodes.Table (Sav_Node) := Sav_Node;
          Orig_Nodes.Table (Old_Node) := Sav_Node;
       end if;
 
       --  Copy substitute node into place, preserving old fields as required
 
-      Nodes.Table (Old_Node)              := Nodes.Table (New_Node);
-      Nodes.Table (Old_Node).Link         := Old_Link;
-      Nodes.Table (Old_Node).In_List      := Old_In_List;
+      Copy_Node (Source => New_Node, Destination => Old_Node);
       Nodes.Table (Old_Node).Error_Posted := Old_Error_P;
 
       if Nkind (New_Node) in N_Subexpr then
@@ -2148,12 +2151,7 @@ package body Atree is
          Set_Must_Not_Freeze (Old_Node, Old_Must_Not_Freeze);
       end if;
 
-      Fix_Parent (Field1 (Old_Node), New_Node, Old_Node);
-      Fix_Parent (Field2 (Old_Node), New_Node, Old_Node);
-      Fix_Parent (Field3 (Old_Node), New_Node, Old_Node);
-      Fix_Parent (Field4 (Old_Node), New_Node, Old_Node);
-      Fix_Parent (Field5 (Old_Node), New_Node, Old_Node);
-
+      Fix_Parents (New_Node, Old_Node);
    end Rewrite;
 
    ------------------
@@ -2282,7 +2280,9 @@ package body Atree is
 
             --  Traverse descendent that is syntactic subtree node
 
-            if Parent (Node_Id (Fld)) = Node then
+            if Parent (Node_Id (Fld)) = Node
+              or else Original_Node (Parent (Node_Id (Fld))) = Node
+            then
                return Traverse_Func (Node_Id (Fld));
 
             --  Node that is not a syntactic subtree
@@ -2297,8 +2297,9 @@ package body Atree is
 
             --  Traverse descendent that is a syntactic subtree list
 
-            if Parent (List_Id (Fld)) = Node then
-
+            if Parent (List_Id (Fld)) = Node
+              or else Original_Node (Parent (List_Id (Fld))) = Node
+            then
                declare
                   Elmt : Node_Id := First (List_Id (Fld));
                begin
@@ -2375,7 +2376,6 @@ package body Atree is
                end if;
             end;
       end case;
-
    end Traverse_Func;
 
    -------------------
@@ -2385,6 +2385,7 @@ package body Atree is
    procedure Traverse_Proc (Node : Node_Id) is
       function Traverse is new Traverse_Func (Process);
       Discard : Traverse_Result;
+      pragma Warnings (Off, Discard);
 
    begin
       Discard := Traverse (Node);

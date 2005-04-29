@@ -1,0 +1,51 @@
+
+AC_INIT(pkg-config.1)
+
+AM_INIT_AUTOMAKE(pkgconfig, 0.15.0)
+AM_MAINTAINER_MODE
+
+AM_CONFIG_HEADER(config.h)
+
+AM_PROG_LIBTOOL
+
+AC_PROG_CC
+
+AC_MSG_CHECKING([for Win32])
+case "$host" in
+  *-*-mingw*)
+    native_win32=yes
+    AC_DEFINE(USE_INSTALLED_GLIB, 1, [We are using an installed GLib])
+  ;;
+  *)
+    native_win32=no
+  ;;
+esac
+AC_MSG_RESULT([$native_win32])
+
+AM_CONDITIONAL(USE_INSTALLED_GLIB, test x$native_win32 = xyes)
+
+if test x$native_win32 = xyes; then
+  # On Win32, use the normal installed GLib.  Yes, this is a circular
+  # dependency. But then, only experienced hackers that presumably can
+  # work around that will be building pkg-config and GLib on Win32
+  # anyway (especially using the auto*/configure/libtool
+  # mechanism). Others use prebuilt versions.
+  #
+  # These are correct for GLib 2.x
+  GLIB_CFLAGS="-I$includedir/glib-2.0 -I$libdir/glib-2.0/include"
+  GLIB_LIBS="-L$libdir -lglib-2.0 -liconv -lintl"
+
+  AC_SUBST(GLIB_LIBS)
+  AC_SUBST(GLIB_CFLAGS)
+
+  AC_CONFIG_AUX_DIR(.)
+else
+  AC_CONFIG_SUBDIRS(glib-1.2.8)
+fi # !native_win32
+
+AC_FUNC_ALLOCA
+
+AC_CHECK_FUNCS(setresuid setreuid,break)
+AC_CHECK_HEADERS([dirent.h unistd.h sys/wait.h])
+
+AC_OUTPUT([Makefile])

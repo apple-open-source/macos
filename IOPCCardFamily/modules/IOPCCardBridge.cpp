@@ -481,7 +481,7 @@ IOPCCardBridge::getConfigurationSettings(void)
 		IOLockUnlock(gIOPCCardBridgeLock); 
 		return true;
 	    }
-	    IOLog("IOPCCardBridge::getOFConfigurationSettings: failed to the configure machine\n");
+	    IOLog("IOPCCardBridge::getOFConfigurationSettings: failed to configure the machine\n");
 	    IOLockUnlock(gIOPCCardBridgeLock); 
 	    return false;
 	}

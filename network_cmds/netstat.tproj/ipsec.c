@@ -76,6 +76,7 @@ static const char rcsid[] =
 #include <sys/param.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 
 #include <netinet/in.h>
 
@@ -241,10 +242,18 @@ print_ipsecstats(void)
 void
 ipsec_stats(u_long off __unused, char *name, int af __unused)
 {
-	if (off == 0)
+	size_t len;
+	
+	len = sizeof(struct ipsecstat);
+	if (strcmp(name, "ipsec") == 0)
+		if (sysctlbyname("net.inet.ipsec.stats", &ipsecstat, &len, 0, 0) == -1)
+			return;
+	else if (strcmp(name, "ipsec6") == 0)
+		if (sysctlbyname("net.inet6.ipsec6.stats", &ipsecstat, &len, 0, 0) == -1)
+			return;
+	else
 		return;
 	printf ("%s:\n", name);
-	kread(off, (char *)&ipsecstat, sizeof (ipsecstat));
 
 	print_ipsecstats();
 }
@@ -267,11 +276,12 @@ pfkey_stats(u_long off __unused, char *name, int af __unused)
 {
 	struct pfkeystat pfkeystat;
 	unsigned first, type;
-
-	if (off == 0)
+	size_t len;
+	
+	len = sizeof(struct pfkeystat);
+	if (sysctlbyname("net.key.pfkeystat", &pfkeystat, &len, 0, 0) == -1)
 		return;
 	printf ("%s:\n", name);
-	kread(off, (char *)&pfkeystat, sizeof(pfkeystat));
 
 #define	p(f, m) if (pfkeystat.f || sflag <= 1) \
     printf(m, (CAST)pfkeystat.f, plural(pfkeystat.f))

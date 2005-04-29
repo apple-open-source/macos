@@ -1,3 +1,81 @@
+2004-12-21  Tom Yu  <tlyu@mit.edu>
+
+	* def-check.pl: Check for PRIVATE or INTERNAL annotations in defs
+	file.
+
+2004-10-31  Tom Yu  <tlyu@mit.edu>
+
+	* mkrel: Rework quoting for RELTAIL check.  Don't check RELTAIL if
+	doing a "-current" snapshot.
+
+2004-09-24  Tom Yu  <tlyu@mit.edu>
+
+	* mkrel: Rework somewhat to handle patchlevel.h being the new
+	master version stamp file.
+
+2004-09-14  Ken Raeburn  <raeburn@mit.edu>
+
+	* reconf: Export ACLOCAL=true to environment.
+
+2004-06-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (all-windows): Build support directory.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (MAC_SUBDIRS): Don't set.
+	(all-mac): Target deleted.
+
+2004-06-16  Tom Yu  <tlyu@mit.edu>
+
+	* depfix.sed: Delete /os/usr/include as well, to cope with an
+	athena hack.  (#include "/os/usr/include/sys/rwstlock.h" in
+	sys/vnode.h)
+
+2004-05-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LOCAL_SUBDIRS): Build support library.
+
+2004-04-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* libupdate.sh, makeshlib.sh: Deleted.
+	* Makefile.in (libupdate, makeshlib): Targets deleted.
+	(all-recurse): Don't depend on them.
+	(clean): Don't try to delete them.
+
+2004-03-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LOCAL_SUBDIRS): Renamed from MY_SUBDIRS.
+
+2004-03-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* reconf: Delete autom4te.cache directories after running
+	autoreconf.
+
+2004-02-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (MY_SUBDIRS): Drop apputils.
+
+2004-02-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (MY_SUBDIRS): Build in apputils dir.
+
+2004-02-12  Tom Yu  <tlyu@mit.edu>
+
+	* Makefile.in (all-recurse): Remove exitsleep.
+	
+	* Makefile.in (all-unix, clean-unix): Add new rule to build fake
+	root directory for _RLD_ROOT hacks.
+
+2003-12-05  Tom Yu  <tlyu@mit.edu>
+
+	* Makefile.in (DL_COMPILE, DL_COMPILE_TAIL): New variables to
+	support compilation of the exitsleep LD_PRELOAD object.
+
+	* exitsleep.c: New file.  LD_PRELOAD object for Solaris, to work
+	around a kernel bug where final output prior to a pty close gets
+	lost.
+
 2003-05-23  Ken Raeburn  <raeburn@mit.edu>
 
 	* depfix.sed: Don't check for krb524 headers.

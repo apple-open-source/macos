@@ -1,5 +1,5 @@
 /* Header file for modules that link with gcc.c
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,46 +26,50 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* The mapping of a spec function name to the C function that
    implements it.  */
 struct spec_function
-{       
+{
   const char *name;
-  const char *(*func) PARAMS ((int, const char **));
+  const char *(*func) (int, const char **);
 };
 
+/* This defines which switch letters take arguments.  */
 
-/* APPLE LOCAL begin FSF candidate 3190950 */
+#define DEFAULT_SWITCH_TAKES_ARG(CHAR) \
+  ((CHAR) == 'D' || (CHAR) == 'U' || (CHAR) == 'o' \
+   || (CHAR) == 'e' || (CHAR) == 'T' || (CHAR) == 'u' \
+   || (CHAR) == 'I' || (CHAR) == 'm' || (CHAR) == 'x' \
+   || (CHAR) == 'L' || (CHAR) == 'A' || (CHAR) == 'V' \
+   /* APPLE LOCAL frameworks */ \
+   || (CHAR) == 'F' \
+   || (CHAR) == 'B' || (CHAR) == 'b')
+
 /* This defines which multi-letter switches take arguments.  */
-/* APPLE LOCAL Symbol Separation */
-/* Add save-repository in the list. */
+
 #define DEFAULT_WORD_SWITCH_TAKES_ARG(STR)		\
  (!strcmp (STR, "Tdata") || !strcmp (STR, "Ttext")	\
   || !strcmp (STR, "Tbss") || !strcmp (STR, "include")	\
   || !strcmp (STR, "imacros") || !strcmp (STR, "aux-info") \
   || !strcmp (STR, "idirafter") || !strcmp (STR, "iprefix") \
   || !strcmp (STR, "iwithprefix") || !strcmp (STR, "iwithprefixbefore") \
-  || !strcmp (STR, "isystem") || !strcmp (STR, "-param") \
-  || !strcmp (STR, "save-repository") || !strcmp (STR, "specs") \
+  || !strcmp (STR, "iquote") || !strcmp (STR, "isystem") \
+  || !strcmp (STR, "isysroot") \
+  || !strcmp (STR, "-param") || !strcmp (STR, "specs") \
   || !strcmp (STR, "MF") || !strcmp (STR, "MT") || !strcmp (STR, "MQ"))
-/* APPLE LOCAL end FSF candidate 3190950 */
 
 /* These are exported by gcc.c.  */
-extern int do_spec PARAMS ((const char *));
-extern void record_temp_file PARAMS ((const char *, int, int));
-extern void fancy_abort PARAMS ((void)) ATTRIBUTE_NORETURN;
-extern const char *input_filename;
-extern size_t input_filename_length;
-extern void fatal PARAMS ((const char *, ...))
-     ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
-extern void error PARAMS ((const char *, ...)) ATTRIBUTE_PRINTF_1;
-extern void pfatal_with_name PARAMS ((const char *)) ATTRIBUTE_NORETURN;
-extern void set_input PARAMS ((const char *));
+extern int do_spec (const char *);
+extern void record_temp_file (const char *, int, int);
+extern void fatal (const char *, ...) ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
+extern void error (const char *, ...) ATTRIBUTE_PRINTF_1;
+extern void pfatal_with_name (const char *) ATTRIBUTE_NORETURN;
+extern void set_input (const char *);
 
 /* Spec files linked with gcc.c must provide definitions for these.  */
 
 /* Called before processing to change/add/remove arguments.  */
-extern void lang_specific_driver PARAMS ((int *, const char *const **, int *));
+extern void lang_specific_driver (int *, const char *const **, int *);
 
 /* Called before linking.  Returns 0 on success and -1 on failure.  */
-extern int lang_specific_pre_link PARAMS ((void));
+extern int lang_specific_pre_link (void);
 
 extern int n_infiles;
 

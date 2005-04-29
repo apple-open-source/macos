@@ -64,16 +64,16 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/ICWrap.c,v 1.8 2002/11/25 14:04:53 eich Exp $ */
+/* $XFree86: xc/lib/X11/ICWrap.c,v 1.11 2004/01/04 18:44:46 dawes Exp $ */
 
 #define NEED_EVENTS
 #include "Xlibint.h"
 #include "Xlcint.h"
 
 static int
-_XIMNestedListToNestedList(nlist, list)
-    XIMArg *nlist;   /* This is the new list */
-    XIMArg *list;    /* The original list */
+_XIMNestedListToNestedList(
+    XIMArg *nlist,   /* This is the new list */
+    XIMArg *list)    /* The original list */
 {
     register XIMArg *ptr = list;
 
@@ -91,9 +91,9 @@ _XIMNestedListToNestedList(nlist, list)
 }
 
 static void
-_XIMCountNestedList(args, total_count)
-    XIMArg *args;
-    int *total_count;
+_XIMCountNestedList(
+    XIMArg *args,
+    int *total_count)
 {
     for (; args->name; args++) {
 	if (!strcmp(args->name, XNVaNestedList))
@@ -346,7 +346,7 @@ void
 XSetICFocus(ic)
     XIC ic;
 {
-  if (ic->core.im)
+  if (ic && ic->core.im)
       (*ic->methods->set_focus) (ic);
 }
 
@@ -395,9 +395,9 @@ Xutf8ResetIC(ic)
     XIC ic;
 {
     if (ic->core.im) {
-	if (*ic->methods->utf8_reset)
+	if (ic->methods->utf8_reset)
 	    return (*ic->methods->utf8_reset)(ic);
-	else if (*ic->methods->mb_reset)
+	else if (ic->methods->mb_reset)
 	    return (*ic->methods->mb_reset)(ic);
     }
     return (char *)NULL;
@@ -443,10 +443,10 @@ Xutf8LookupString(ic, ev, buffer, nbytes, keysym, status)
     Status *status;
 {
     if (ic->core.im) {
-	if (*ic->methods->utf8_lookup_string)
+	if (ic->methods->utf8_lookup_string)
 	    return (*ic->methods->utf8_lookup_string) (ic, ev, buffer, nbytes,
 						   	keysym, status);
-	else if (*ic->methods->mb_lookup_string)
+	else if (ic->methods->mb_lookup_string)
 	    return (*ic->methods->mb_lookup_string) (ic, ev, buffer, nbytes,
 						   	keysym, status);
     }

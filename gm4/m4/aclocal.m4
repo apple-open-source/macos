@@ -1,5 +1,5 @@
 # Local additions to Autoconf macros.
-# Copyright (C) 1992, 1994 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1994, 2004 Free Software Foundation, Inc.
 # Francois Pinard <pinard@iro.umontreal.ca>, 1992.
 
 # @defmac AC_PROG_CC_STDC
@@ -18,7 +18,7 @@
 # program @code{ansi2knr}, which comes with Ghostscript.
 # @end defmac
 
-define(fp_PROG_CC_STDC,
+AC_DEFUN([fp_PROG_CC_STDC],
 [AC_MSG_CHECKING(for ${CC-cc} option to accept ANSI C)
 AC_CACHE_VAL(ac_cv_prog_cc_stdc,
 [ac_cv_prog_cc_stdc=no

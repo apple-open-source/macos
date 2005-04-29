@@ -1,46 +1,15 @@
+# APPLE LOCAL file testsuite
 ###
 ### List of failing tests with Radar bug numbers
 ### <radarNum>: <test name>
 ### test name should be exactly as it appears html summary reports
 ### including any trailing #<number>
 ###
-### When the bug is fixed and the test passes, it will be a
+### When the bug is fixed and the test passes, it will be an
 ### analyzed non-fail. You should then comment out the test in this
-### file and make sure the Radar bug is closed.
+### file and make sure the Radar is closed.
 ###
 ###------------------------------------------------------------------
-#3256731: g++.dg/expr/cast-ptr-1.C (test for excess errors)
-#3259830: g++.dg/abi/mangle10.C (test for excess errors)
-#3259830: g++.dg/abi/mangle12.C  (test for warnings, line 11)
-#3259830: g++.dg/abi/mangle12.C (test for excess errors)
-#3259830: g++.dg/abi/mangle13.C (test for excess errors)
-#3259830: g++.dg/abi/mangle3.C (test for excess errors)
-#3259830: g++.dg/abi/mangle4.C (test for excess errors)
-#3259830: g++.dg/abi/vague1.C (test for excess errors)
-#3259830: g++.dg/compat/eh/template1_x.C (test for excess errors)
-#3259830: g++.dg/compat/eh/template1_y.C (test for excess errors)
-#3259830: g++.dg/debug/debug1.C (test for excess errors)
-#3259830: g++.dg/debug/debug2.C (test for excess errors)
-#3259830: g++.dg/debug/template1.C (test for excess errors)
-#3259830: g++.dg/eh/omit-frame-pointer.C (test for excess errors)
-#3259830: g++.dg/eh/spec4.C (test for excess errors)
-#3259830: g++.dg/eh/template1.C (test for excess errors)
-#3259830: g++.dg/eh/template2.C (test for excess errors)
-#3259830: g++.dg/ext/instantiate1.C (test for excess errors)
-#3259830: g++.dg/ext/instantiate2.C (test for excess errors)
-#3220984: g++.dg/altivec-5.C (test for excess errors)
-#3219341: g++.dg/abi/layout2.C (test for excess errors)
-###------------------------------------------------------------------
-3220997: g++.dg/align-test-1.C execution test
-3242489: g++.dg/compat/abi/bitfield1_y.C (test for excess errors)
-3242504: g++.dg/compat/abi/vbase8-10_x.C (test for excess errors)
-3242504: g++.dg/compat/abi/vbase8-10_y.C (test for excess errors)
-3242504: g++.dg/compat/abi/vbase8-21_x.C (test for excess errors)
-3242504: g++.dg/compat/abi/vbase8-21_y.C (test for excess errors)
-3242504: g++.dg/compat/abi/vbase8-22_x.C (test for excess errors)
-3242504: g++.dg/compat/abi/vbase8-22_y.C (test for excess errors)
-3242504: g++.dg/compat/abi/vbase8-4_x.C (test for excess errors)
-3242504: g++.dg/compat/abi/vbase8-4_y.C (test for excess errors)
-3242561: g++.dg/compat/break/bitfield7_x.C (test for excess errors)          
-3242561: g++.dg/compat/break/bitfield7_y.C (test for excess errors)
-3242590: g++.dg/ext/vla1.C  (test for errors, line 12)     
+#3863563: obj-c++.dg/basic.mm (test for excess errors)
+#3869273: obj-c++.dg/cxx-ivars-2.mm execution test
+#3869280: obj-c++.dg/template-4.mm (test for excess errors)

@@ -1,45 +1,80 @@
 /* APPLE LOCAL file Objective-C++ */
-/* Further template tests; also, make sure that -fconstant-cfstrings does not interfere with
-   ObjC message dispatch type-checking.  */
-/* Author:  Ziemowit Laski <zlaski@apple.com>.  */
+/* Test for passing arguments to ObjC methods in the context of template
+   expansion.  */
+/* Contributed by Ziemowit Laski  <zlaski@apple.com>.  */
 /* { dg-do run } */
-/* { dg-options "-fconstant-cfstrings -framework Foundation -lstdc++" } */
 
-#import <Foundation/Foundation.h>
+#include <objc/Object.h>
+#include <stdlib.h>
 
-extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort()
 
-template <class ARR, class TYPE> class TestT
+@interface ObjCClass : Object
 {
-public:
-	TYPE k;
-	int abc( ARR *array ) {
-		return [array count] * k;
-	}
-	TestT(TYPE _k): k(_k) { }
+@public
+  int info;
+}
+-(id) init;
+-(id) initWithInformation: (int) whatInfo;
+-(id) initWithInformation: (int) whatInfo andInfo: (int) info2;
+@end
+
+void foo(int info) {
+   ObjCClass *mObj1 = [[ObjCClass alloc] init];
+   ObjCClass *mObj2 = [[ObjCClass alloc] initWithInformation: info];
+   ObjCClass *mObj3 = [[ObjCClass alloc] initWithInformation: info andInfo: 39];
+
+   CHECK_IF(mObj1->info == 666);
+   CHECK_IF(mObj2->info == info);
+   CHECK_IF(mObj3->info == info + 39);
+}
+
+template <class WrappedObjCClass>
+class ObjCObjectWrapper
+{
+    public:
+        ObjCObjectWrapper(int info);
+        WrappedObjCClass *mObj1, *mObj2, *mObj3;
 };
 
-template <class TYPE>
-NSString *getDesc(void) {
-	return [TYPE description];
-}
-
-template <class TYPE>
-int abc( TYPE *xyz, NSArray *array ) {
-	return [xyz count] + [array count];
-}
-
-int main(void)
+template <class WrappedObjCClass>
+ObjCObjectWrapper<WrappedObjCClass>::ObjCObjectWrapper(int info)
 {
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	CHECK_IF(![@"NSArray" compare: getDesc<NSArray>()]);
-	NSArray* a1 = [NSArray arrayWithObjects:@"One", @"Two", @"Three", nil];
-	NSArray* a2 = [NSArray arrayWithObjects:@"Four", @"Five", nil];
-	
-	TestT<NSArray, int> t(7);
-	CHECK_IF(t.abc(a1) + t.abc(a2) == 35);
-        CHECK_IF(abc(a1, a2) * t.k == 35);
-	[pool release];
-	return 0;
+    mObj1 = [[WrappedObjCClass alloc] init];
+    mObj2 = [[WrappedObjCClass alloc] initWithInformation: info];
+    mObj3 = [[WrappedObjCClass alloc] initWithInformation: info andInfo: 67];
+}
+
+@implementation ObjCClass
+-(id) init {
+  return [self initWithInformation:666];
+}
+-(id) initWithInformation: (int) whatInfo {
+  [super init];
+  info = whatInfo;
+  return self;
+}
+-(id) initWithInformation: (int) whatInfo andInfo: (int) info2 {
+  [super init];
+  info = whatInfo + info2;
+  return self;
+}
+@end
+
+ObjCObjectWrapper<ObjCClass> staticInstance(42); 
+
+int main(void) {
+  ObjCObjectWrapper<ObjCClass> stackInstance(47);
+
+  foo(89);
+  
+  CHECK_IF(staticInstance.mObj1->info == 666);
+  CHECK_IF(staticInstance.mObj2->info == 42);
+  CHECK_IF(staticInstance.mObj3->info == 42 + 67);
+  
+  CHECK_IF(stackInstance.mObj1->info == 666);
+  CHECK_IF(stackInstance.mObj2->info == 47);
+  CHECK_IF(stackInstance.mObj3->info == 47 + 67);
+  
+  return 0;
 }

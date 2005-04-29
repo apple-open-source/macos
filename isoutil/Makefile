@@ -27,9 +27,9 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
+NEXTSTEP_PB_CFLAGS = -mdynamic-no-pic
 
 FRAMEWORKS = -framework IOKit -framework CoreFoundation
-
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc

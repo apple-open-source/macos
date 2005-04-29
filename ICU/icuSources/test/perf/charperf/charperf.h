@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002, International Business Machines
+* Copyright (c) 2002-2003, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 **********************************************************************
@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <wchar.h>
+#include <wctype.h>
 
 typedef void (*CharPerfFn)(UChar32 ch);
 typedef void (*StdLibCharPerfFn)(wchar_t ch);

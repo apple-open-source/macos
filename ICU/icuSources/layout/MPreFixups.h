@@ -1,9 +1,6 @@
 /*
- * (C) Copyright IBM Corp. 2002-2003 - All Rights Reserved
  *
- * $Source: /cvs/root/ICU/icuSources/layout/MPreFixups.h,v $
- * $Date: 2003/07/03 18:13:45 $
- * $Revision: 1.1.1.1 $
+ * (C) Copyright IBM Corp. 2002-2004 - All Rights Reserved
  *
  */
 
@@ -19,6 +16,8 @@
 
 U_NAMESPACE_BEGIN
 
+class LEGlyphStorage;
+
 // Might want to make this a private member...
 struct FixupData;
 
@@ -30,7 +29,7 @@ public:
 
     void add(le_int32 baseIndex, le_int32 mpreIndex);
     
-    void apply(LEGlyphID *glyphs, le_int32 *charIndicies);
+    void apply(LEGlyphStorage &glyphStorage);
 
 private:
     FixupData *fFixupData;

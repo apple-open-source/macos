@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -148,11 +147,12 @@ package Namet is
    procedure Get_Unqualified_Name_String (Id : Name_Id);
    --  Similar to the above except that qualification (as defined in unit
    --  Exp_Dbug) is removed (including both preceding __ delimited names,
-   --  and also the suffix used to indicate package body entities). Note
-   --  that names are not qualified until just before the call to gigi, so
-   --  this routine is only needed by processing that occurs after gigi has
-   --  been called. This includes all ASIS processing, since ASIS works on
-   --  the tree written after gigi has been called.
+   --  and also the suffixes used to indicate package body entities and to
+   --  distinguish between overloaded entities). Note that names are not
+   --  qualified until just before the call to gigi, so this routine is
+   --  only needed by processing that occurs after gigi has been called.
+   --  This includes all ASIS processing, since ASIS works on the tree
+   --  written after gigi has been called.
 
    procedure Get_Name_String_And_Append (Id : Name_Id);
    --  Like Get_Name_String but the resulting characters are appended to
@@ -335,6 +335,7 @@ package Namet is
    --  the name table). If Id is Error_Name, or No_Name, no text is output.
 
    procedure wn (Id : Name_Id);
+   pragma Export (Ada, wn);
    --  Like Write_Name, but includes new line at end. Intended for use
    --  from the debugger only.
 

@@ -1,9 +1,13 @@
-README for libffi-2.00
+This directory contains the libffi package, which is not part of GCC but
+shipped with GCC as convenience.
+
+Status
+======
 
 libffi-2.00 has not been released yet! This is a development snapshot!
 
-libffi-1.20 was released on [SOME FUTURE DAY]. Check the libffi web
-page for updates: <URL:http://sourceware.cygnus.com/libffi/>.
+libffi-1.20 was released on October 5, 1998. Check the libffi web
+page for updates: <URL:http://sources.redhat.com/libffi/>.
 
 
 What is libffi?
@@ -42,7 +46,7 @@ Supported Platforms and Prerequisites
 
 Libffi has been ported to:
 
-	SunOS 4.1.3 & Solaris 2.x (Sparc v8)
+	SunOS 4.1.3 & Solaris 2.x (SPARC-V8, SPARC-V9)
 
 	Irix 5.3 & 6.2 (System V/o32 & n32)
 
@@ -302,14 +306,8 @@ Platform Specific Notes
 
 There are no known problems with the x86 port.
 
-	Sun Sparc - SunOS 4.1.3 & Solaris 2.x
+	Sun SPARC - SunOS 4.1.3 & Solaris 2.x
 	-------------------------------------
-
-There's a bug in the structure passing code for sparc processors.
-Struct arguments that are passed in value actually end up being passed
-by reference. This will be fixed Real Soon Now.
-
-"long long" values are not supported yet.
 
 You must use GNU Make to build libffi on Sun platforms.
 

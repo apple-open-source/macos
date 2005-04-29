@@ -76,7 +76,7 @@ int GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void
     UInt8 		desc[256]; // Max possible descriptor length
     int stringLen;
     IOReturn err;
-    if (lang == NULL) // set default langID
+    if (lang == nil) // set default langID
         lang=0x0409;
     
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
@@ -173,7 +173,7 @@ char * GetStringFromIndex(UInt8 strIndex, IOUSBDeviceInterface ** deviceIntf) {
     if (strIndex > 0) {
         int len;
         buf[0] = 0;
-        len = GetStringDescriptor(deviceIntf, strIndex, buf, sizeof(buf),NULL);
+        len = GetStringDescriptor(deviceIntf, strIndex, buf, sizeof(buf), nil);
         
         if (len > 2) {
             Byte *p;

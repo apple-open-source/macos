@@ -1,5 +1,6 @@
 /* Output routines for graphical representation.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Ulrich Drepper <drepper@cygnus.com>, 1998.
 
 This file is part of GCC.
@@ -21,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include <config.h>
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "rtl.h"
 #include "flags.h"
@@ -37,25 +40,23 @@ static const char *const graph_ext[] =
   /* vcg */      ".vcg",
 };
 
-static void start_fct PARAMS ((FILE *));
-static void start_bb PARAMS ((FILE *, int));
-static void node_data PARAMS ((FILE *, rtx));
-static void draw_edge PARAMS ((FILE *, int, int, int, int));
-static void end_fct PARAMS ((FILE *));
-static void end_bb PARAMS ((FILE *));
+static void start_fct (FILE *);
+static void start_bb (FILE *, int);
+static void node_data (FILE *, rtx);
+static void draw_edge (FILE *, int, int, int, int);
+static void end_fct (FILE *);
+static void end_bb (FILE *);
 
 /* Output text for new basic block.  */
 static void
-start_fct (fp)
-     FILE *fp;
+start_fct (FILE *fp)
 {
-
   switch (graph_dump_format)
     {
     case vcg:
       fprintf (fp, "\
 graph: { title: \"%s\"\nfolding: 1\nhidden: 2\nnode: { title: \"%s.0\" }\n",
-	       current_function_name, current_function_name);
+	       current_function_name (), current_function_name ());
       break;
     case no_graph:
       break;
@@ -63,17 +64,19 @@ graph: { title: \"%s\"\nfolding: 1\nhidden: 2\nnode: { title: \"%s.0\" }\n",
 }
 
 static void
-start_bb (fp, bb)
-     FILE *fp;
-     int bb;
+start_bb (FILE *fp, int bb)
 {
+#if 0
+  reg_set_iterator rsi;
+#endif
+
   switch (graph_dump_format)
     {
     case vcg:
       fprintf (fp, "\
 graph: {\ntitle: \"%s.BB%d\"\nfolding: 1\ncolor: lightblue\n\
 label: \"basic block %d",
-	       current_function_name, bb, bb);
+	       current_function_name (), bb, bb);
       break;
     case no_graph:
       break;
@@ -84,13 +87,12 @@ label: \"basic block %d",
 
   /* Print the live-at-start register list.  */
   fputc ('\n', fp);
-  EXECUTE_IF_SET_IN_REG_SET (basic_block_live_at_start[bb], 0, i,
-			     {
-			       fprintf (fp, " %d", i);
-			       if (i < FIRST_PSEUDO_REGISTER)
-				 fprintf (fp, " [%s]",
-					  reg_names[i]);
-			     });
+  EXECUTE_IF_SET_IN_REG_SET (basic_block_live_at_start[bb], 0, i, rsi)
+    {
+      fprintf (fp, " %d", i);
+      if (i < FIRST_PSEUDO_REGISTER)
+	fprintf (fp, " [%s]", reg_names[i]);
+    }
 #endif
 
   switch (graph_dump_format)
@@ -104,11 +106,8 @@ label: \"basic block %d",
 }
 
 static void
-node_data (fp, tmp_rtx)
-     FILE *fp;
-     rtx tmp_rtx;
+node_data (FILE *fp, rtx tmp_rtx)
 {
-
   if (PREV_INSN (tmp_rtx) == 0)
     {
       /* This is the first instruction.  Add an edge from the starting
@@ -118,8 +117,8 @@ node_data (fp, tmp_rtx)
 	case vcg:
 	  fprintf (fp, "\
 edge: { sourcename: \"%s.0\" targetname: \"%s.%d\" }\n",
-		   current_function_name,
-		   current_function_name, XINT (tmp_rtx, 0));
+		   current_function_name (),
+		   current_function_name (), XINT (tmp_rtx, 0));
 	  break;
 	case no_graph:
 	  break;
@@ -131,12 +130,12 @@ edge: { sourcename: \"%s.0\" targetname: \"%s.%d\" }\n",
     case vcg:
       fprintf (fp, "node: {\n  title: \"%s.%d\"\n  color: %s\n  \
 label: \"%s %d\n",
-	       current_function_name, XINT (tmp_rtx, 0),
-	       GET_CODE (tmp_rtx) == NOTE ? "lightgrey"
-	       : GET_CODE (tmp_rtx) == INSN ? "green"
-	       : GET_CODE (tmp_rtx) == JUMP_INSN ? "darkgreen"
-	       : GET_CODE (tmp_rtx) == CALL_INSN ? "darkgreen"
-	       : GET_CODE (tmp_rtx) == CODE_LABEL ?  "\
+	       current_function_name (), XINT (tmp_rtx, 0),
+	       NOTE_P (tmp_rtx) ? "lightgrey"
+	       : NONJUMP_INSN_P (tmp_rtx) ? "green"
+	       : JUMP_P (tmp_rtx) ? "darkgreen"
+	       : CALL_P (tmp_rtx) ? "darkgreen"
+	       : LABEL_P (tmp_rtx) ?  "\
 darkgrey\n  shape: ellipse" : "white",
 	       GET_RTX_NAME (GET_CODE (tmp_rtx)), XINT (tmp_rtx, 0));
       break;
@@ -145,7 +144,7 @@ darkgrey\n  shape: ellipse" : "white",
     }
 
   /* Print the RTL.  */
-  if (GET_CODE (tmp_rtx) == NOTE)
+  if (NOTE_P (tmp_rtx))
     {
       const char *name = "";
       if (NOTE_LINE_NUMBER (tmp_rtx) < 0)
@@ -168,12 +167,7 @@ darkgrey\n  shape: ellipse" : "white",
 }
 
 static void
-draw_edge (fp, from, to, bb_edge, class)
-     FILE *fp;
-     int from;
-     int to;
-     int bb_edge;
-     int class;
+draw_edge (FILE *fp, int from, int to, int bb_edge, int class)
 {
   const char * color;
   switch (graph_dump_format)
@@ -188,8 +182,8 @@ draw_edge (fp, from, to, bb_edge, class)
 	color = "color: green ";
       fprintf (fp,
 	       "edge: { sourcename: \"%s.%d\" targetname: \"%s.%d\" %s",
-	       current_function_name, from,
-	       current_function_name, to, color);
+	       current_function_name (), from,
+	       current_function_name (), to, color);
       if (class)
 	fprintf (fp, "class: %d ", class);
       fputs ("}\n", fp);
@@ -200,8 +194,7 @@ draw_edge (fp, from, to, bb_edge, class)
 }
 
 static void
-end_bb (fp)
-     FILE *fp;
+end_bb (FILE *fp)
 {
   switch (graph_dump_format)
     {
@@ -214,14 +207,13 @@ end_bb (fp)
 }
 
 static void
-end_fct (fp)
-     FILE *fp;
+end_fct (FILE *fp)
 {
   switch (graph_dump_format)
     {
     case vcg:
       fprintf (fp, "node: { title: \"%s.999999\" label: \"END\" }\n}\n",
-	       current_function_name);
+	       current_function_name ());
       break;
     case no_graph:
       break;
@@ -231,24 +223,19 @@ end_fct (fp)
 /* Like print_rtl, but also print out live information for the start of each
    basic block.  */
 void
-print_rtl_graph_with_bb (base, suffix, rtx_first)
-     const char *base;
-     const char *suffix;
-     rtx rtx_first;
+print_rtl_graph_with_bb (const char *base, rtx rtx_first)
 {
   rtx tmp_rtx;
   size_t namelen = strlen (base);
-  size_t suffixlen = strlen (suffix);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = (char *) alloca (namelen + suffixlen + extlen);
+  char *buf = alloca (namelen + extlen);
   FILE *fp;
 
   if (basic_block_info == NULL)
     return;
 
   memcpy (buf, base, namelen);
-  memcpy (buf + namelen, suffix, suffixlen);
-  memcpy (buf + namelen + suffixlen, graph_ext[graph_dump_format], extlen);
+  memcpy (buf + namelen, graph_ext[graph_dump_format], extlen);
 
   fp = fopen (buf, "a");
   if (fp == NULL)
@@ -260,10 +247,9 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
     {
       enum bb_state { NOT_IN_BB, IN_ONE_BB, IN_MULTIPLE_BB };
       int max_uid = get_max_uid ();
-      int *start = (int *) xmalloc (max_uid * sizeof (int));
-      int *end = (int *) xmalloc (max_uid * sizeof (int));
-      enum bb_state *in_bb_p = (enum bb_state *)
-	xmalloc (max_uid * sizeof (enum bb_state));
+      int *start = xmalloc (max_uid * sizeof (int));
+      int *end = xmalloc (max_uid * sizeof (int));
+      enum bb_state *in_bb_p = xmalloc (max_uid * sizeof (enum bb_state));
       basic_block bb;
       int i;
 
@@ -276,14 +262,14 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
       FOR_EACH_BB_REVERSE (bb)
 	{
 	  rtx x;
-	  start[INSN_UID (bb->head)] = bb->index;
-	  end[INSN_UID (bb->end)] = bb->index;
-	  for (x = bb->head; x != NULL_RTX; x = NEXT_INSN (x))
+	  start[INSN_UID (BB_HEAD (bb))] = bb->index;
+	  end[INSN_UID (BB_END (bb))] = bb->index;
+	  for (x = BB_HEAD (bb); x != NULL_RTX; x = NEXT_INSN (x))
 	    {
 	      in_bb_p[INSN_UID (x)]
 		= (in_bb_p[INSN_UID (x)] == NOT_IN_BB)
 		 ? IN_ONE_BB : IN_MULTIPLE_BB;
-	      if (x == bb->end)
+	      if (x == BB_END (bb))
 		break;
 	    }
 	}
@@ -302,9 +288,9 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
 
 	  if (start[INSN_UID (tmp_rtx)] < 0 && end[INSN_UID (tmp_rtx)] < 0)
 	    {
-	      if (GET_CODE (tmp_rtx) == BARRIER)
+	      if (BARRIER_P (tmp_rtx))
 		continue;
-	      if (GET_CODE (tmp_rtx) == NOTE
+	      if (NOTE_P (tmp_rtx)
 		  && (1 || in_bb_p[INSN_UID (tmp_rtx)] == NOT_IN_BB))
 		continue;
 	    }
@@ -325,6 +311,7 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
 	  if ((i = end[INSN_UID (tmp_rtx)]) >= 0)
 	    {
 	      edge e;
+	      edge_iterator ei;
 
 	      bb = BASIC_BLOCK (i);
 
@@ -333,11 +320,11 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
 
 	      /* Now specify the edges to all the successors of this
 		 basic block.  */
-	      for (e = bb->succ; e ; e = e->succ_next)
+	      FOR_EACH_EDGE (e, ei, bb->succs)
 		{
 		  if (e->dest != EXIT_BLOCK_PTR)
 		    {
-		      rtx block_head = e->dest->head;
+		      rtx block_head = BB_HEAD (e->dest);
 
 		      draw_edge (fp, INSN_UID (tmp_rtx),
 				 INSN_UID (block_head),
@@ -363,7 +350,7 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
 	    {
 	      /* Don't print edges to barriers.  */
 	      if (next_insn == 0
-		  || GET_CODE (next_insn) != BARRIER)
+		  || !BARRIER_P (next_insn))
 		draw_edge (fp, XINT (tmp_rtx, 0),
 			   next_insn ? INSN_UID (next_insn) : 999999, 0, 0);
 	      else
@@ -374,8 +361,8 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
 		  do
 		    next_insn = NEXT_INSN (next_insn);
 		  while (next_insn
-			 && (GET_CODE (next_insn) == NOTE
-			     || GET_CODE (next_insn) == BARRIER));
+			 && (NOTE_P (next_insn)
+			     || BARRIER_P (next_insn)));
 
 		  draw_edge (fp, XINT (tmp_rtx, 0),
 			     next_insn ? INSN_UID (next_insn) : 999999, 0, 3);
@@ -400,33 +387,23 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
 /* Similar as clean_dump_file, but this time for graph output files.  */
 
 void
-clean_graph_dump_file (base, suffix)
-     const char *base;
-     const char *suffix;
+clean_graph_dump_file (const char *base)
 {
   size_t namelen = strlen (base);
-  size_t suffixlen = strlen (suffix);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = (char *) alloca (namelen + extlen + suffixlen);
+  char *buf = alloca (namelen + extlen);
   FILE *fp;
 
   memcpy (buf, base, namelen);
-  memcpy (buf + namelen, suffix, suffixlen);
-  memcpy (buf + namelen + suffixlen, graph_ext[graph_dump_format], extlen);
+  memcpy (buf + namelen, graph_ext[graph_dump_format], extlen);
 
   fp = fopen (buf, "w");
 
   if (fp == NULL)
-    fatal_io_error ("can't open %s", buf);
+    fatal_error ("can't open %s: %m", buf);
 
-  switch (graph_dump_format)
-    {
-    case vcg:
-      fputs ("graph: {\nport_sharing: no\n", fp);
-      break;
-    case no_graph:
-      abort ();
-    }
+  gcc_assert (graph_dump_format == vcg);
+  fputs ("graph: {\nport_sharing: no\n", fp);
 
   fclose (fp);
 }
@@ -434,32 +411,21 @@ clean_graph_dump_file (base, suffix)
 
 /* Do final work on the graph output file.  */
 void
-finish_graph_dump_file (base, suffix)
-     const char *base;
-     const char *suffix;
+finish_graph_dump_file (const char *base)
 {
   size_t namelen = strlen (base);
-  size_t suffixlen = strlen (suffix);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = (char *) alloca (namelen + suffixlen + extlen);
+  char *buf = alloca (namelen + extlen);
   FILE *fp;
 
   memcpy (buf, base, namelen);
-  memcpy (buf + namelen, suffix, suffixlen);
-  memcpy (buf + namelen + suffixlen, graph_ext[graph_dump_format], extlen);
+  memcpy (buf + namelen, graph_ext[graph_dump_format], extlen);
 
   fp = fopen (buf, "a");
   if (fp != NULL)
     {
-      switch (graph_dump_format)
-	{
-	case vcg:
-	  fputs ("}\n", fp);
-	  break;
-	case no_graph:
-	  abort ();
-	}
-
+      gcc_assert (graph_dump_format == vcg);
+      fputs ("}\n", fp);
       fclose (fp);
     }
 }

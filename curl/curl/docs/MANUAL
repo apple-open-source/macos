@@ -11,7 +11,7 @@ SIMPLE USAGE
 
         curl http://www.netscape.com/
 
-  Get the root README file from funet's ftp-server:
+  Get the README file the user's home directory at funet's ftp-server:
 
         curl ftp://ftp.funet.fi/README
 
@@ -19,7 +19,7 @@ SIMPLE USAGE
 
         curl http://www.weirdserver.com:8000/
 
-  Get a list of the root directory of an FTP site:
+  Get a list of a directory of an FTP site:
 
         curl ftp://cool.haxx.se/
 
@@ -63,6 +63,11 @@ USING PASSWORDS
 
         curl -u name:passwd ftp://machine.domain:port/full/path/to/file
 
+ FTPS
+
+   It is just like for FTP, but you may also want to specify and use
+   SSL-specific options for certificates etc.
+
  HTTP
 
    The HTTP URL doesn't support user and password in the URL string. Curl
@@ -74,6 +79,12 @@ USING PASSWORDS
    or specify user and password separately like in
 
         curl -u name:passwd http://machine.domain/full/path/to/file
+
+   HTTP offers many different methods of authentication and curl supports
+   several: Basic, Digest, NTLM and Negotiate. Without telling which method to
+   use, curl defaults to Basic. You can also ask curl to pick the most secure
+   ones out of the ones that the server accepts for the given URL, by using
+   --anyauth.
 
    NOTE! Since HTTP URLs don't support user and password, you can't use that
    style when using Curl via a proxy. You _must_ use the -u style fetch
@@ -159,19 +170,27 @@ UPLOADING
 
         curl -T - http://www.upload.com/myfile
 
-  Note that the http server must've been configured to accept PUT before this
-  can be done successfully.
+  Note that the http server must have been configured to accept PUT before
+  this can be done successfully.
 
   For other ways to do http data upload, see the POST section below.
 
 VERBOSE / DEBUG
 
-  If curl fails where it isn't supposed to, if the servers don't let you
-  in, if you can't understand the responses: use the -v flag to get VERBOSE
-  fetching. Curl will output lots of info and all data it sends and
-  receives in order to let the user see all client-server interaction.
+  If curl fails where it isn't supposed to, if the servers don't let you in,
+  if you can't understand the responses: use the -v flag to get verbose
+  fetching. Curl will output lots of info and what it sends and receives in
+  order to let the user see all client-server interaction (but it won't show
+  you the actual data).
 
         curl -v ftp://ftp.upload.com/
+
+  To get even more details and information on what curl does, try using the
+  --trace or --trace-ascii options with a given file name to log to, like
+  this:
+
+        curl --trace trace.txt www.haxx.se
+ 
 
 DETAILED INFORMATION
 
@@ -235,7 +254,7 @@ POST (HTTP)
 
   To post to this, you enter a curl command line like:
 
-        curl -d "user=foobar&pass=12345&id=blablabla&dig=submit"  (continues)
+        curl -d "user=foobar&pass=12345&id=blablabla&ding=submit"  (continues)
           http://www.formpost.com/getthis/post.cgi
 
 
@@ -350,6 +369,13 @@ COOKIES
 
         curl -b headers www.example.com
 
+  While saving headers to a file is a working way to store cookies, it is
+  however error-prone and not the preferred way to do this. Instead, make curl
+  save the incoming cookies using the well-known netscape cookie format like
+  this:
+
+        curl -c cookies.txt www.example.com
+
   Note that by specifying -b you enable the "cookie awareness" and with -L
   you can make curl follow a location: (which often is used in combination
   with cookies). So that if a site sends cookies and a location, you can
@@ -362,8 +388,12 @@ COOKIES
   file contents.  In the above command, curl will parse the header and store
   the cookies received from www.example.com.  curl will send to the server the
   stored cookies which match the request as it follows the location.  The
-  file "empty.txt" may be a non-existant file.
-  
+  file "empty.txt" may be a nonexistent file.
+
+  Alas, to both read and write cookies from a netscape cookie file, you can
+  set both -b and -c to use the same file:
+
+        curl -b cookies.txt -c cookies.txt www.example.com
 
 PROGRESS METER
 
@@ -387,7 +417,7 @@ PROGRESS METER
    Upload        - the average transfer speed of the upload
    Time Total    - expected time to complete the operation
    Time Current  - time passed since the invoke
-   Time Left     - expected time left to completetion
+   Time Left     - expected time left to completion
    Curr.Speed    - the average transfer speed the last 5 seconds (the first
                    5 seconds of a transfer is based on less time of course.)
 
@@ -407,13 +437,14 @@ SPEED LIMIT
         curl -Y 3000 -y 60 www.far-away-site.com
 
   This can very well be used in combination with the overall time limit, so
-  that the above operatioin must be completed in whole within 30 minutes:
+  that the above operation must be completed in whole within 30 minutes:
 
         curl -m 1800 -Y 3000 -y 60 www.far-away-site.com
 
   Forcing curl not to transfer data faster than a given rate is also possible,
   which might be useful if you're using a limited bandwidth connection and you
-  don't want your transfer to use all of it.
+  don't want your transfer to use all of it (sometimes referred to as
+  "bandwidth throttle").
 
   Make curl transfer data no faster than 10 kilobytes per second:
 
@@ -426,6 +457,11 @@ SPEED LIMIT
   Or prevent curl from uploading data faster than 1 megabyte per second:
 
         curl -T upload --limit-rate 1M ftp://uploadshereplease.com
+
+  When using the --limit-rate option, the transfer rate is regulated on a
+  per-second basis, which will cause the total transfer speed to become lower
+  than the given number. Sometimes of course substantially lower, if your
+  transfer stalls during periods.
 
 CONFIG FILE
 
@@ -544,17 +580,17 @@ NETWORK INTERFACE
 
   Get a web page from a server using a specified port for the interface:
 
-	curl --interface eth0:1 http://www.netscape.com/
+        curl --interface eth0:1 http://www.netscape.com/
 
   or
 
-	curl --interface 192.168.1.10 http://www.netscape.com/
+        curl --interface 192.168.1.10 http://www.netscape.com/
 
 HTTPS
 
   Secure HTTP requires SSL libraries to be installed and used when curl is
   built. If that is done, curl is capable of retrieving and posting documents
-  using the HTTPS procotol.
+  using the HTTPS protocol.
 
   Example:
 
@@ -729,7 +765,7 @@ NETRC
   to specify name and password for commonly visited ftp sites in a file so
   that you don't have to type them in each time you visit those sites. You
   realize this is a big security risk if someone else gets hold of your
-  passwords, so therefor most unix programs won't read this file unless it is
+  passwords, so therefore most unix programs won't read this file unless it is
   only readable by yourself (curl doesn't care though).
 
   Curl supports .netrc files if told so (using the -n/--netrc and
@@ -794,30 +830,28 @@ TELNET
   to track when the login prompt is received and send the username and
   password accordingly.
 
-PERSISTANT CONNECTIONS
+PERSISTENT CONNECTIONS
 
   Specifying multiple files on a single command line will make curl transfer
   all of them, one after the other in the specified order.
 
-  libcurl will attempt to use persistant connections for the transfers so that
+  libcurl will attempt to use persistent connections for the transfers so that
   the second transfer to the same host can use the same connection that was
   already initiated and was left open in the previous transfer. This greatly
   decreases connection time for all but the first transfer and it makes a far
   better use of the network.
 
-  Note that curl cannot use persistant connections for transfers that are used
+  Note that curl cannot use persistent connections for transfers that are used
   in subsequence curl invokes. Try to stuff as many URLs as possible on the
   same command line if they are using the same host, as that'll make the
-  transfers faster. If you use a http proxy for file transfers, practicly
-  all transfers will be persistant.
-
-  Persistant connections were introduced in curl 7.7.
+  transfers faster. If you use a http proxy for file transfers, practically
+  all transfers will be persistent.
 
 MAILING LISTS
 
   For your convenience, we have several open mailing lists to discuss curl,
   its development and things relevant to this. Get all info at
-  http://curl.haxx.se/mail/. The lists available are:
+  http://curl.haxx.se/mail/. Some of the lists available are:
 
   curl-users
 
@@ -831,24 +865,18 @@ MAILING LISTS
 
   curl-announce
 
-    Low-traffic. Only announcements of new public versions.
+    Low-traffic. Only receives announcements of new public versions. At worst,
+    that makes something like one or two mails per month, but usually only one
+    mail every second month.
 
-  curl-and-PHP
+  curl-and-php
 
     Using the curl functions in PHP. Everything curl with a PHP angle. Or PHP
     with a curl angle.
 
-  curl-commits
+  curl-and-python
 
-    Receives notifications on all CVS commits done to the curl source module.
-    This can become quite a large amount of mails during intense development,
-    be aware. This is for us who like email...
-
-  curl-www-commits
-
-    Receives notifications on all CVS commits done to the curl www module
-    (basicly the web site).  This can become quite a large amount of mails
-    during intense changing, be aware. This is for us who like email...
+    Python hackers using curl with or without the python binding pycurl.
 
   Please direct curl questions, feature requests and trouble reports to one of
   these mailing lists instead of mailing any individual.

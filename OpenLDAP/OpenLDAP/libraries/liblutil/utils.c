@@ -1,11 +1,21 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/utils.c,v 1.12.2.2 2003/03/03 17:10:06 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/utils.c,v 1.18.2.3 2004/03/19 17:16:47 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
 
+#include <stdio.h>
 #include <ac/stdlib.h>
 #include <ac/string.h>
 #include <ac/unistd.h>
@@ -24,6 +34,23 @@
 int _trans_argv = 1;
 #endif
 
+#ifdef _WIN32
+/* Some Windows versions accept both forward and backslashes in
+ * directory paths, but we always use backslashes when generating
+ * and parsing...
+ */
+void lutil_slashpath( char *path )
+{
+	char *c, *p;
+
+	p = path;
+	while (( c=strchr( p, '/' ))) {
+		*c++ = '\\';
+		p = c;
+	}
+}
+#endif
+
 char* lutil_progname( const char* name, int argc, char *argv[] )
 {
 	char *progname;
@@ -39,13 +66,14 @@ char* lutil_progname( const char* name, int argc, char *argv[] )
 		_trans_argv = 0;
 	}
 #endif
+	LUTIL_SLASHPATH( argv[0] );
 	progname = strrchr ( argv[0], *LDAP_DIRSEP );
 	progname = progname ? &progname[1] : argv[0];
-
 	return progname;
 }
 
-size_t lutil_gentime( char *s, size_t max, const struct tm *tm )
+#if 0
+size_t lutil_gentime( char *s, size_t smax, const struct tm *tm )
 {
 	size_t ret;
 #ifdef HAVE_EBCDIC
@@ -54,13 +82,59 @@ size_t lutil_gentime( char *s, size_t max, const struct tm *tm )
  */
 #pragma convlit(suspend)
 #endif
-	ret = strftime( s, max, "%Y%m%d%H%M%SZ", tm );
+	ret = strftime( s, smax, "%Y%m%d%H%M%SZ", tm );
 #ifdef HAVE_EBCDIC
 #pragma convlit(resume)
 	__etoa( s );
 #endif
 	return ret;
 }
+#endif
+
+size_t lutil_localtime( char *s, size_t smax, const struct tm *tm, long delta )
+{
+	size_t	ret;
+	char	*p;
+
+	if ( smax < 16 ) {	/* YYYYmmddHHMMSSZ */
+		return 0;
+	}
+
+#ifdef HAVE_EBCDIC
+/* We've been compiling in ASCII so far, but we want EBCDIC now since
+ * strftime only understands EBCDIC input.
+ */
+#pragma convlit(suspend)
+#endif
+	ret = strftime( s, smax, "%Y%m%d%H%M%SZ", tm );
+#ifdef HAVE_EBCDIC
+#pragma convlit(resume)
+	__etoa( s );
+#endif
+	if ( delta == 0 || ret == 0 ) {
+		return ret;
+	}
+
+	if ( smax < 20 ) {	/* YYYYmmddHHMMSS+HHMM */
+		return 0;
+	}
+
+	p = s + 14;
+
+	if ( delta < 0 ) {
+		p[ 0 ] = '-';
+		delta = -delta;
+	} else {
+		p[ 0 ] = '+';
+	}
+	p++;
+
+	snprintf( p, smax - 15, "%02ld%02ld", delta / 3600,
+			( delta % 3600 ) / 60 );
+
+	return ret + 5;
+}
+
 
 /* strcopy is like strcpy except it returns a pointer to the trailing NUL of
  * the result string. This allows fast construction of catenated strings

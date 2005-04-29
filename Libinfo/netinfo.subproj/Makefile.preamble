@@ -5,3 +5,7 @@ AFTER_POSTINSTALL += install-netinfo-man
 OTHER_PRIVATE_HEADERS = $(NETINFO_HEADERS)
 BEFORE_INSTALLHEADERS += $(NETINFO_HEADERS)
 PRIVATE_HEADER_DIR = /usr/local/include/netinfo
+
+# for building 64-bit
+# <rdar://problem/3819761> Libinfo need to build with gcc-3.5 and 3-way fat
+NEXTSTEP_OBJCPLUS_COMPILER = $(CCOMPILER)

@@ -61,12 +61,11 @@ void exit ();
 extern char *strerror ();
 #endif
 
-extern int vasprintf ();
-
 void
 error_exit PROTO ((void))
 {
-    Lock_Cleanup();
+    rcs_cleanup ();
+    Lock_Cleanup ();
 #ifdef SERVER_SUPPORT
     if (server_active)
 	server_cleanup (0);
@@ -80,7 +79,10 @@ error_exit PROTO ((void))
 }
 
 /* Print the program name and error message MESSAGE, which is a printf-style
-   format string with optional args.
+   format string with optional args.  This is a very limited printf subset:
+   %s, %d, %c, %x and %% only (without anything between the % and the s,
+   d, &c).  Callers who want something fancier can use sprintf.
+
    If ERRNUM is nonzero, print its corresponding system error message.
    Exit with status EXIT_FAILURE if STATUS is nonzero.  If MESSAGE is "",
    no need to print a message.
@@ -100,7 +102,7 @@ error_exit PROTO ((void))
 
 /* VARARGS */
 void
-#if defined (HAVE_VPRINTF) && defined (__STDC__)
+#if defined (__STDC__)
 error (int status, int errnum, const char *message, ...)
 #else
 error (status, errnum, message, va_alist)
@@ -110,115 +112,101 @@ error (status, errnum, message, va_alist)
     va_dcl
 #endif
 {
-    /* Prevent strtoul (via int_vasprintf) from clobbering it.  */
     int save_errno = errno;
 
-#ifdef HAVE_VPRINTF
     if (message[0] != '\0')
     {
 	va_list args;
-	char *mess = NULL;
-	char *entire;
-	size_t len;
+	const char *p;
+	char *q;
+	char *str;
+	int num;
+	long lnum;
+	unsigned int unum;
+	unsigned long ulnum;
+	int ch;
+	char buf[100];
+
+	cvs_outerr (program_name, 0);
+	if (cvs_cmd_name && *cvs_cmd_name)
+	{
+	    cvs_outerr (" ", 1);
+	    if (status != 0)
+		cvs_outerr ("[", 1);
+	    cvs_outerr (cvs_cmd_name, 0);
+	    if (status != 0)
+		cvs_outerr (" aborted]", 0);
+	}
+	cvs_outerr (": ", 2);
 
 	VA_START (args, message);
-	vasprintf (&mess, message, args);
+	p = message;
+	while ((q = strchr (p, '%')) != NULL)
+	{
+	    static const char msg[] =
+		"\ninternal error: bad % in error()\n";
+	    if (q - p > 0)
+		cvs_outerr (p, q - p);
+
+	    switch (q[1])
+	    {
+	    case 's':
+		str = va_arg (args, char *);
+		cvs_outerr (str, strlen (str));
+		break;
+	    case 'd':
+		num = va_arg (args, int);
+		sprintf (buf, "%d", num);
+		cvs_outerr (buf, strlen (buf));
+		break;
+	    case 'l':
+		if (q[2] == 'd')
+		{
+		    lnum = va_arg (args, long);
+		    sprintf (buf, "%ld", lnum);
+		}
+		else if (q[2] == 'u')
+		{
+		    ulnum = va_arg (args, unsigned long);
+		    sprintf (buf, "%lu", ulnum);
+		}
+		else goto bad;
+		cvs_outerr (buf, strlen (buf));
+		q++;
+		break;
+	    case 'x':
+		unum = va_arg (args, unsigned int);
+		sprintf (buf, "%x", unum);
+		cvs_outerr (buf, strlen (buf));
+		break;
+	    case 'c':
+		ch = va_arg (args, int);
+		buf[0] = ch;
+		cvs_outerr (buf, 1);
+		break;
+	    case '%':
+		cvs_outerr ("%", 1);
+		break;
+	    default:
+	    bad:
+		cvs_outerr (msg, sizeof (msg) - 1);
+		/* Don't just keep going, because q + 1 might point to the
+		   terminating '\0'.  */
+		goto out;
+	    }
+	    p = q + 2;
+	}
+	cvs_outerr (p, strlen (p));
+    out:
 	va_end (args);
 
-	if (mess == NULL)
+	if (errnum != 0)
 	{
-	    entire = NULL;
-	    status = 1;
+	    cvs_outerr (": ", 2);
+	    cvs_outerr (strerror (errnum), 0);
 	}
-	else
-	{
-	    len = strlen (mess) + strlen (program_name) + 80;
-	    if (command_name != NULL)
-		len += strlen (command_name);
-	    if (errnum != 0)
-		len += strlen (strerror (errnum));
-	    entire = malloc (len);
-	    if (entire == NULL)
-	    {
-		free (mess);
-		status = 1;
-	    }
-	    else
-	    {
-		strcpy (entire, program_name);
-		if (command_name != NULL && command_name[0] != '\0')
-		{
-		    strcat (entire, " ");
-		    if (status != 0)
-			strcat (entire, "[");
-		    strcat (entire, command_name);
-		    if (status != 0)
-			strcat (entire, " aborted]");
-		}
-		strcat (entire, ": ");
-		strcat (entire, mess);
-		if (errnum != 0)
-		{
-		    strcat (entire, ": ");
-		    strcat (entire, strerror (errnum));
-		}
-		strcat (entire, "\n");
-		free (mess);
-	    }
-	}
-	cvs_outerr (entire ? entire : "out of memory\n", 0);
-	if (entire != NULL)
-	    free (entire);
+	cvs_outerr ("\n", 1);
     }
-
-#else /* No HAVE_VPRINTF */
-    /* I think that all relevant systems have vprintf these days.  But
-       just in case, I'm leaving this code here.  */
-
-    if (message[0] != '\0')
-    {
-	FILE *out = stderr;
-
-	if (error_use_protocol)
-	{
-	    out = stdout;
-	    printf ("E ");
-	}
-
-	if (command_name && *command_name)
-	{
-	    if (status)
-		fprintf (out, "%s [%s aborted]: ", program_name, command_name);
-	    else
-		fprintf (out, "%s %s: ", program_name, command_name);
-	}
-	else
-	    fprintf (out, "%s: ", program_name);
-
-#ifdef HAVE_VPRINTF
-	VA_START (args, message);
-	vfprintf (out, message, args);
-	va_end (args);
-#else
-#ifdef HAVE_DOPRNT
-	_doprnt (message, &args, out);
-#else
-	fprintf (out, message, a1, a2, a3, a4, a5, a6, a7, a8);
-#endif
-#endif
-	if (errnum)
-	    fprintf (out, ": %s", strerror (errnum));
-	putc ('\n', out);
-
-	/* In the error_use_protocol case, this probably does
-	   something useful.  In most other cases, I suspect it is a
-	   noop (either stderr is line buffered or we haven't written
-	   anything to stderr) or unnecessary (if stderr is not line
-	   buffered, maybe there is a reason....).  */
-	fflush (out);
-    }
-
-#endif /* No HAVE_VPRINTF */
 
     if (status)
 	error_exit ();
@@ -232,9 +220,9 @@ error (status, errnum, message, va_alist)
 /* VARARGS */
 void
 #if defined (HAVE_VPRINTF) && defined (__STDC__)
-fperror (FILE *fp, int status, int errnum, char *message, ...)
+fperrmsg (FILE *fp, int status, int errnum, char *message, ...)
 #else
-fperror (fp, status, errnum, message, va_alist)
+fperrmsg (fp, status, errnum, message, va_alist)
     FILE *fp;
     int status;
     int errnum;

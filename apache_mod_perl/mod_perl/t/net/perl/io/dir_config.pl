@@ -1,5 +1,6 @@
+#!perl
 use strict;
-use Apache::test;
+use Apache::testold;
 use Data::Dumper ();
 use Apache::ModuleConfig ();
 

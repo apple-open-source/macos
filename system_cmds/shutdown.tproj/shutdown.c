@@ -107,7 +107,11 @@ static char mbuf[BUFSIZ];
 static const char *nosync, *whom;
 
 void badtime(void);
+#ifdef __APPLE__
+void log_and_exec_reboot_or_halt(void);
+#else
 void die_you_gravy_sucking_pig_dog(void);
+#endif
 void finish(int);
 void getoffset(char *);
 void loop(void);
@@ -228,7 +232,6 @@ main(argc, argv)
 	if (!(whom = getlogin()))
 		whom = (pw = getpwuid(getuid())) ? pw->pw_name : "???";
 
-
 #ifdef DEBUG
 	audit_shutdown(0);
 	(void)putc('\n', stdout);
@@ -293,7 +296,11 @@ loop()
 		if (!tp->timeleft)
 			break;
 	}
+#ifdef __APPLE__
+	log_and_exec_reboot_or_halt();
+#else
 	die_you_gravy_sucking_pig_dog();
+#endif
 }
 
 static jmp_buf alarmbuf;
@@ -363,7 +370,11 @@ timeout(signo)
 }
 
 void
+#ifdef __APPLE__
+log_and_exec_reboot_or_halt()
+#else
 die_you_gravy_sucking_pig_dog()
+#endif
 {
 	char *empty_environ[] = { NULL };
 
@@ -374,7 +385,9 @@ die_you_gravy_sucking_pig_dog()
 	    doreboot ? "reboot" : dohalt ? "halt" : 
 #endif
 	    "shutdown", whom, mbuf);
+#ifndef __APPLE__
 	(void)sleep(2);
+#endif
 
 	(void)printf("\r\nSystem shutdown time has arrived\007\007\r\n");
 	if (killflg) {
@@ -394,6 +407,16 @@ die_you_gravy_sucking_pig_dog()
 		(void)printf(" no sync");
 	(void)printf("\nkill -HUP 1\n");
 #else
+#ifdef __APPLE__
+	{
+		int ws = 0;
+		int fp = fork();
+		if (fp == 0)
+			execl(_PATH_BSHELL, _PATH_BSHELL, "/etc/rc.shutdown", NULL);
+		else if (fp > 0)
+			waitpid(fp, &ws, 0);
+	}
+#endif
 	if (!oflag) {
 		(void)kill(1, doreboot ? SIGINT :	/* reboot */
 			      dohalt ? SIGUSR1 :	/* halt */
@@ -615,4 +638,3 @@ int audit_shutdown(int exitstatus)
 	}
 	return 1;
 }
-

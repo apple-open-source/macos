@@ -738,6 +738,10 @@ enum reg_note
   /* Indicate calls that always returns.  */
   REG_ALWAYS_RETURN,
 
+  /* APPLE LOCAL begin direct calls to objc_msgSend etc.  */
+  REG_ABSCALL,
+  /* APPLE LOCAL end direct calls to objc_msgSend etc.  */
+
   /* Indicate that the memory load references a vtable.  The expression
      is of the form (plus (symbol_ref vtable_sym) (const_int offset)).  */
   REG_VTABLE_REF

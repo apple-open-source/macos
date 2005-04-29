@@ -17,6 +17,7 @@
 
 
 #include <ft2build.h>
+#include FT_WINFONTS_H
 #include FT_INTERNAL_DEBUG_H
 #include FT_INTERNAL_STREAM_H
 #include FT_INTERNAL_OBJECTS_H
@@ -68,9 +69,9 @@
   const FT_Frame_Field  winfnt_header_fields[] =
   {
 #undef  FT_STRUCTURE
-#define FT_STRUCTURE  WinFNT_HeaderRec
+#define FT_STRUCTURE  FT_WinFNT_HeaderRec
 
-    FT_FRAME_START( 134 ),
+    FT_FRAME_START( 146 ),
       FT_FRAME_USHORT_LE( version ),
       FT_FRAME_ULONG_LE ( file_size ),
       FT_FRAME_BYTES    ( copyright, 60 ),
@@ -106,7 +107,7 @@
       FT_FRAME_USHORT_LE( B_space ),
       FT_FRAME_USHORT_LE( C_space ),
       FT_FRAME_USHORT_LE( color_table_offset ),
-      FT_FRAME_BYTES    ( reserved, 4 ),
+      FT_FRAME_BYTES    ( reserved1, 16 ),
     FT_FRAME_END
   };
 
@@ -127,8 +128,8 @@
   fnt_font_load( FNT_Font   font,
                  FT_Stream  stream )
   {
-    FT_Error       error;
-    WinFNT_Header  header = &font->header;
+    FT_Error          error;
+    FT_WinFNT_Header  header = &font->header;
 
 
     /* first of all, read the FNT header */
@@ -143,6 +144,17 @@
       FT_TRACE2(( "[not a valid FNT file]\n" ));
       error = FNT_Err_Unknown_File_Format;
       goto Exit;
+    }
+
+    /* Version 2 doesn't have these fields */
+    if ( header->version == 0x200 )
+    {
+      header->flags   = 0;
+      header->A_space = 0;
+      header->B_space = 0;
+      header->C_space = 0;
+
+      header->color_table_offset = 0;
     }
 
     if ( header->file_type & 1 )
@@ -310,8 +322,6 @@
   }
 
 
-#ifdef FT_CONFIG_OPTION_USE_CMAPS
-
 
   typedef struct  FNT_CMapRec_
   {
@@ -392,57 +402,6 @@
 
   static FT_CMap_Class  fnt_cmap_class = &fnt_cmap_class_rec;
 
-
-#else /* !FT_CONFIG_OPTION_USE_CMAPS */
-
-
-  static FT_UInt
-  FNT_Get_Char_Index( FT_CharMap  charmap,
-                      FT_Long     char_code )
-  {
-    FT_Long  result = char_code;
-
-
-    if ( charmap )
-    {
-      FNT_Font  font  = ((FNT_Face)charmap->face)->fonts;
-      FT_Long   first = font->header.first_char;
-      FT_Long   count = font->header.last_char - first + 1;
-
-
-      char_code -= first;
-      if ( char_code < count )
-        result = char_code + 1;
-      else
-        result = 0;
-    }
-
-    return result;
-  }
-
-
-  static FT_Long
-  FNT_Get_Next_Char( FT_CharMap  charmap,
-                     FT_Long     char_code )
-  {
-    char_code++;
-    if ( charmap )
-    {
-      FNT_Font  font  = ((FNT_Face)charmap->face)->fonts;
-      FT_Long   first = font->header.first_char;
-
-
-      if ( char_code < first )
-        char_code = first;
-      if ( char_code <= font->header.last_char )
-        return char_code;
-    }
-    else
-      return char_code;
-    return 0;
-  }
-
-#endif /* !FT_CONFIG_OPTION_USE_CMAPS */
 
 
   static void
@@ -534,12 +493,10 @@
         }
       }
 
-#ifdef FT_CONFIG_OPTION_USE_CMAPS
-
       {
         FT_CharMapRec  charmap;
 
-        charmap.encoding    = ft_encoding_unicode;
+        charmap.encoding    = FT_ENCODING_UNICODE;
         charmap.platform_id = 3;
         charmap.encoding_id = 1;
         charmap.face        = root;
@@ -548,25 +505,13 @@
                              NULL,
                              &charmap,
                              NULL );
-        if (error) goto Fail;
+        if ( error )
+          goto Fail;
+
+        /* Select default charmap */
+        if ( root->num_charmaps )
+          root->charmap = root->charmaps[0];
       }
-
-#else /* !FT_CONFIG_OPTION_USE_CMAPS */
-
-      /* Setup the `charmaps' array */
-      root->charmaps     = &face->charmap_handle;
-      root->num_charmaps = 1;
-
-      face->charmap.encoding    = ft_encoding_unicode;
-      face->charmap.platform_id = 3;
-      face->charmap.encoding_id = 1;
-      face->charmap.face        = root;
-
-      face->charmap_handle = &face->charmap;
-
-      root->charmap = face->charmap_handle;
-
-#endif /* !FT_CONFIG_OPTION_USE_CMAPS */
 
       /* setup remaining flags */
       root->num_glyphs = fonts->header.last_char -
@@ -630,7 +575,7 @@
   FNT_Load_Glyph( FT_GlyphSlot  slot,
                   FNT_Size      size,
                   FT_UInt       glyph_index,
-                  FT_Int        load_flags )
+                  FT_Int32      load_flags )
   {
     FNT_Font    font  = size->font;
     FT_Error    error = 0;
@@ -659,7 +604,7 @@
     len        = new_format ? 6 : 4;
 
     /* jump to glyph entry */
-    p = font->fnt_frame + 118 + len * glyph_index;
+    p = font->fnt_frame + ( new_format ? 146 : 118 ) + len * glyph_index;
 
     bitmap->width = FT_NEXT_SHORT_LE( p );
 
@@ -673,35 +618,21 @@
 
     /* allocate and build bitmap */
     {
-      FT_Memory  memory = FT_FACE_MEMORY( slot->face );
       FT_Int     pitch  = ( bitmap->width + 7 ) >> 3;
-      FT_Byte*   column;
-      FT_Byte*   write;
 
 
       bitmap->pitch      = pitch;
       bitmap->rows       = font->header.pixel_height;
-      bitmap->pixel_mode = ft_pixel_mode_mono;
+      bitmap->pixel_mode = FT_PIXEL_MODE_MONO;
 
-      if ( FT_ALLOC( bitmap->buffer, pitch * bitmap->rows ) )
-        goto Exit;
-
-      column = (FT_Byte*)bitmap->buffer;
-
-      for ( ; pitch > 0; pitch--, column++ )
-      {
-        FT_Byte*  limit = p + bitmap->rows;
-
-
-        for ( write = column; p < limit; p++, write += bitmap->pitch )
-          write[0] = p[0];
-      }
+      /* note: we don't allocate a new buffer for the bitmap since we */
+      /*       already store the images in the FT_Face                */
+      ft_glyphslot_set_bitmap( slot, p );
     }
 
-    slot->flags       = FT_GLYPH_OWN_BITMAP;
     slot->bitmap_left = 0;
     slot->bitmap_top  = font->header.ascent;
-    slot->format      = ft_glyph_format_bitmap;
+    slot->format      = FT_GLYPH_FORMAT_BITMAP;
 
     /* now set up metrics */
     slot->metrics.horiAdvance  = bitmap->width << 6;
@@ -709,7 +640,7 @@
     slot->metrics.horiBearingY = slot->bitmap_top << 6;
 
     slot->linearHoriAdvance    = (FT_Fixed)bitmap->width << 16;
-    slot->format               = ft_glyph_format_bitmap;
+    slot->format               = FT_GLYPH_FORMAT_BITMAP;
 
   Exit:
     return error;
@@ -749,22 +680,9 @@
     (FT_Size_ResetPixelsFunc) FNT_Size_Set_Pixels,
     (FT_Slot_LoadFunc)        FNT_Load_Glyph,
 
-#ifdef FT_CONFIG_OPTION_USE_CMAPS
-    (FT_CharMap_CharIndexFunc)0,
-#else
-    (FT_CharMap_CharIndexFunc)FNT_Get_Char_Index,
-#endif
-    
-
     (FT_Face_GetKerningFunc)  0,
     (FT_Face_AttachFunc)      0,
-    (FT_Face_GetAdvancesFunc) 0,
-
-#ifdef FT_CONFIG_OPTION_USE_CMAPS
-    (FT_CharMap_CharNextFunc) 0
-#else
-    (FT_CharMap_CharNextFunc) FNT_Get_Next_Char
-#endif    
+    (FT_Face_GetAdvancesFunc) 0
   };
 
 

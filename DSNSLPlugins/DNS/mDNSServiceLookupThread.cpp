@@ -45,15 +45,15 @@ void CancelSearchBrowse(CFRunLoopTimerRef timer, void *info);
 mDNSServiceLookupThread::mDNSServiceLookupThread( CNSLPlugin* parentPlugin, char* serviceType, CNSLDirNodeRep* nodeDirRep )
     : CNSLServiceLookupThread( parentPlugin, serviceType, nodeDirRep )
 {
-	DBGLOG( "mDNSServiceLookupThread::mDNSServiceLookupThread\n" );
+	DBGLOG( "mDNSServiceLookupThread::mDNSServiceLookupThread: 0x%x\n", (int)this);
 	mSearchingBrowserRef = NULL;
 	mRunLoopRef = NULL;
-	mLastResult = NULL;
+	mLastResult = 0;
 }
 
 mDNSServiceLookupThread::~mDNSServiceLookupThread()
 {
-	DBGLOG( "mDNSServiceLookupThread::~mDNSServiceLookupThread\n" );
+	DBGLOG( "mDNSServiceLookupThread::~mDNSServiceLookupThread: 0x%x\n", (int)this );
 
 	if ( mSearchingBrowserRef )
 	{
@@ -68,7 +68,7 @@ mDNSServiceLookupThread::~mDNSServiceLookupThread()
 
 void mDNSServiceLookupThread::Cancel( void )
 {
-	DBGLOG( "mDNSServiceLookupThread::Cancel\n" );
+	DBGLOG( "mDNSServiceLookupThread::Cancel: 0x%x\n", (int)this );
 	if ( mSearchingBrowserRef )
 	{
 		CFNetServiceBrowserInvalidate( mSearchingBrowserRef );
@@ -82,25 +82,25 @@ void mDNSServiceLookupThread::Cancel( void )
 
 void* mDNSServiceLookupThread::Run( void )
 {
-	DBGLOG( "mDNSServiceLookupThread::Run\n" );
+	DBGLOG( "mDNSServiceLookupThread::Run: 0x%x\n", (int)this );
     
     mRunLoopRef = CFRunLoopGetCurrent();
     
     if ( AreWeCanceled() )
     {
-        DBGLOG( "CDNSServiceLookupThread::Run, we were canceled before we even started\n" );
+        DBGLOG( "CDNSServiceLookupThread::Run, we were canceled before we even started: 0x%x\n", (int)this );
     }
     else 
     {
         sInt32	status = StartServiceLookup( GetNodeName(), GetServiceTypeRef() );
     
         if ( status )
-            DBGLOG( "mDNSServiceLookupThread::Run, mDNSGetListOfServicesWithCallback returned error: %ld\n", status );
+            DBGLOG( "mDNSServiceLookupThread::Run, mDNSGetListOfServicesWithCallback returned error: %ld: 0x%x\n", (int)this, status );
         else
             CFRunLoopRun();
     }
     
-    DBGLOG( "mDNSServiceLookupThread::Run, finished\n" );
+    DBGLOG( "mDNSServiceLookupThread::Run, finished: 0x%x\n", (int)this );
     
     return NULL;
 }
@@ -109,7 +109,7 @@ sInt32 mDNSServiceLookupThread::StartServiceLookup( CFStringRef domainRef, CFStr
 {
     sInt32		status = 0;
     
-    DBGLOG("mDNSServiceLookupThread::StartServiceLookup called\n" );
+    DBGLOG("mDNSServiceLookupThread::StartServiceLookup called: 0x%x\n", (int)this );
     if ( getenv( "NSLDEBUG" ) )
     {
         CFShow(domainRef);
@@ -118,7 +118,7 @@ sInt32 mDNSServiceLookupThread::StartServiceLookup( CFStringRef domainRef, CFStr
     
     while (!mRunLoopRef)
     {
-        DBGLOG("mDNSServiceLookupThread::StartServiceLookup, waiting for mRunLoopRef\n");
+        DBGLOG("mDNSServiceLookupThread::StartServiceLookup, waiting for mRunLoopRef: 0x%x\n", (int)this);
         
         if ( mCanceled )
             return status;
@@ -146,8 +146,8 @@ sInt32 mDNSServiceLookupThread::StartServiceLookup( CFStringRef domainRef, CFStr
     
     CFStreamError 				error = {(CFStreamErrorDomain)0, 0};
     CFNetServiceClientContext 	c = {0, this, NULL, NULL, CopyServiceBrowserDescription};
-    CFRunLoopTimerRef 			timer = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent() + kMaxTimeToWaitBetweenServices, 0, 0, 0, CancelSearchBrowse, (CFRunLoopTimerContext*)&c);
-    CFNetServiceBrowserRef 		searchingBrowser = CFNetServiceBrowserCreate(NULL, ServiceBrowserCallBack, &c);
+	
+	CFNetServiceBrowserRef 		searchingBrowser = CFNetServiceBrowserCreate(NULL, ServiceBrowserCallBack, &c);
 
     DBGLOG("Run mDNSServiceLookupThread::StartServiceLookup called, searchingBrowser:%ld, mRunLoopRef:%ld\n", (UInt32)searchingBrowser, (UInt32)mRunLoopRef );
 	
@@ -156,7 +156,7 @@ sInt32 mDNSServiceLookupThread::StartServiceLookup( CFStringRef domainRef, CFStr
 		mSearchingBrowserRef = searchingBrowser;
 		CFNetServiceBrowserScheduleWithRunLoop(searchingBrowser, mRunLoopRef, kCFRunLoopDefaultMode);
 		
-		DBGLOG("Run mDNSServiceLookupThread::StartServiceLookup calling, CFNetServiceBrowserSearchForServices\n" );
+		DBGLOG("Run mDNSServiceLookupThread::StartServiceLookup calling, CFNetServiceBrowserSearchForServices: 0x%x\n", (int)this );
 		CFNetServiceBrowserSearchForServices(searchingBrowser, (modDomainRef)?modDomainRef:domainRef, (modTypeRef)?modTypeRef:serviceType, &error);
 	}
 	
@@ -166,8 +166,9 @@ sInt32 mDNSServiceLookupThread::StartServiceLookup( CFStringRef domainRef, CFStr
 	if ( modTypeRef )
 		CFRelease( modTypeRef );
 		
-    CFRunLoopAddTimer(mRunLoopRef, timer, kCFRunLoopDefaultMode);
-    
+		CFRunLoopTimerRef 			timer = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent() + kMaxTimeToWaitBetweenServices, 0, 0, 0, CancelSearchBrowse, (CFRunLoopTimerContext*)&c);
+	CFRunLoopAddTimer(mRunLoopRef, timer, kCFRunLoopDefaultMode);
+	
 	CFRelease( timer );
 	
     if (error.error)
@@ -175,13 +176,15 @@ sInt32 mDNSServiceLookupThread::StartServiceLookup( CFStringRef domainRef, CFStr
         DBGLOG( "Got an error starting service search (%d, %ld)\n", error.domain, error.error);
         status = error.error;
     }
-    
+    else
+		DBGLOG("Run mDNSServiceLookupThread::StartServiceLookup calling, CFNetServiceBrowserSearchForServices: 0x%x\n", (int)this );
+	
     return status;
 }
 
 void mDNSServiceLookupThread::AddResult( CNSLResult* newResult )
 {
-	DBGLOG( "mDNSServiceLookupThread::AddResult\n" );
+	DBGLOG( "mDNSServiceLookupThread::AddResult: 0x%x\n", (int)this );
 	
 	CNSLServiceLookupThread::AddResult( newResult );
 		
@@ -200,7 +203,7 @@ static void ServiceBrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags
 {
     mDNSServiceLookupThread*	browserThread = (mDNSServiceLookupThread*)info;
 
-    DBGLOG("ServiceBrowserCallBack called\n" );
+    DBGLOG("ServiceBrowserCallBack called, flags:%d\n", flags );
     
 	do {
 		if (error->error) 
@@ -223,6 +226,7 @@ static void ServiceBrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags
 			{
 				CFStringRef			nameRef = CFNetServiceGetName((CFNetServiceRef)domainOrEntity);
 				CFStringRef			domainRef = CFNetServiceGetDomain((CFNetServiceRef)domainOrEntity);
+				CFMutableStringRef	modifiedDomainRef = NULL;
 				
 				if ( !nameRef || !domainRef )
 				{
@@ -230,17 +234,12 @@ static void ServiceBrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags
 					break;
 				}
 			
-				if ( getenv("NSLDEBUG") )
-					CFShow( nameRef );
-					
                 if ( CFStringHasSuffix( (CFStringRef)domainRef, kDotSAFE_CFSTR ) )
                 {
-					CFMutableStringRef	modifiedDomainRef = NULL;
                     modifiedDomainRef = CFStringCreateMutableCopy( NULL, 0, (CFStringRef)domainRef );
                     CFStringDelete( modifiedDomainRef, CFRangeMake(CFStringGetLength(modifiedDomainRef)-1, 1) );
 
 					CFDictionaryAddValue( foundService, kDS1AttrLocationSAFE_CFSTR, modifiedDomainRef );
-                    CFRelease( modifiedDomainRef );
                 }
 				else
 					CFDictionaryAddValue( foundService, kDS1AttrLocationSAFE_CFSTR, domainRef );
@@ -275,45 +274,45 @@ static void ServiceBrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags
 	
 				CFDictionaryAddValue( foundService, kDS1AttrServiceTypeSAFE_CFSTR, convertedServiceTypeRef );
 		
-				CFMutableStringRef		dnsURL = CFStringCreateMutable( NULL, 0 );
-				CFStringRef				escapedPortion = NULL;
+				CFStringRef				dnsURL = NULL;
+				CFStringRef				hostNameRef = CreateRFC1034HostLabelFromUTF8Name( nameRef );
 				
-				escapedPortion = CFURLCreateStringByAddingPercentEscapes(NULL, serviceType, NULL, NULL, kCFStringEncodingUTF8);
-				CFStringAppend( dnsURL, escapedPortion );
-				CFRelease( escapedPortion );
+				if ( hostNameRef )
+				{				
+					if ( CFStringCompare( convertedServiceTypeRef, kDSStdRecordTypeAFPServerSAFE_CFSTR, 0 ) == kCFCompareEqualTo )
+					{
+						// special case afpovertcp to be afp
+						dnsURL = CFStringCreateWithFormat( NULL, NULL, CFSTR("afp://%@.%@"), hostNameRef, modifiedDomainRef );
+					}
+					else
+						dnsURL = CFStringCreateWithFormat( NULL, NULL, CFSTR("%@://%@.%@"), serviceType, hostNameRef, modifiedDomainRef );
+				}
 				
-				CFStringAppend( dnsURL, kColonSlashSlashSAFE_CFSTR );
+				if ( dnsURL )
+				{
+					CFDictionaryAddValue( foundService, kDSNAttrURLSAFE_CFSTR, dnsURL );
+				}
+				
+				if ( modifiedDomainRef )
+					CFRelease( modifiedDomainRef );
+				modifiedDomainRef = NULL;
+				
+				if ( convertedServiceTypeRef )
+					CFRelease( convertedServiceTypeRef );
+				convertedServiceTypeRef = NULL;
+				
+				if ( serviceType )
+					CFRelease( serviceType );
+				serviceType = NULL;
 
-				escapedPortion = CFURLCreateStringByAddingPercentEscapes(NULL, nameRef, NULL, NULL, kCFStringEncodingUTF8);
-				if ( escapedPortion )
-				{
-					CFStringAppend( dnsURL, escapedPortion );
-					CFRelease( escapedPortion );
-				}
+				if ( dnsURL )
+					CFRelease( dnsURL );
+				dnsURL = NULL;
 				
-				CFStringAppend( dnsURL, kDotSAFE_CFSTR );
-
-				escapedPortion = CFURLCreateStringByAddingPercentEscapes(NULL, CFNetServiceGetType((CFNetServiceRef)domainOrEntity), NULL, NULL, kCFStringEncodingUTF8);
-				if ( escapedPortion )
-				{
-					CFStringAppend( dnsURL, escapedPortion );
-					CFRelease( escapedPortion );
-				}
+				if ( hostNameRef )
+					CFRelease( hostNameRef );
+				hostNameRef = NULL;
 				
-				escapedPortion = CFURLCreateStringByAddingPercentEscapes(NULL, domainRef, NULL, NULL, kCFStringEncodingUTF8);
-				if ( escapedPortion )
-				{
-					CFStringAppend( dnsURL, escapedPortion );
-					CFRelease( escapedPortion );
-				}
-				
-//	uncomment below when we are ready to display mdns style urls
-//				CFDictionaryAddValue( foundService, kDSNAttrURLSAFE_CFSTR, dnsURL );
-				
-				CFRelease( serviceType );
-				CFRelease( convertedServiceTypeRef );
-				CFRelease( dnsURL );
-	
 				CFStringRef		protocolSpecificInfo = CFNetServiceGetProtocolSpecificInformation( (CFNetServiceRef)domainOrEntity );
 				
 				if ( protocolSpecificInfo )
@@ -337,18 +336,18 @@ static void ServiceBrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags
 		/*        if ( !addressResults )
 				{
 					CFStreamError	resolveError;
-		
+			
 					if ( CFNetServiceResolve( (CFNetServiceRef)domainOrEntity, &resolveError ) )
 						DBGLOG("ServiceBrowserCallBack, CFNetServiceResolve returned true\n");
 					else
 						DBGLOG("ServiceBrowserCallBack, CFNetServiceResolve returned false with error (%d,%ld)\n", resolveError.domain, resolveError.error);
-				
+			
 				}
 		*/        
 				if ( addressResults )
 				{
 					CFIndex 	numAddressResults = CFArrayGetCount(addressResults);
-					
+			
 					for ( CFIndex i=0; i<numAddressResults; i++ )
 					{
 						CFDataRef			sockAddrRef = (CFDataRef)CFArrayGetValueAtIndex( addressResults, i );
@@ -365,7 +364,7 @@ static void ServiceBrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags
 									struct sockaddr_in		address;
 									char					addressString[16];
 									char					addressPort[7];
-									
+			
 									CFDataGetBytes( sockAddrRef, CFRangeMake(0, sizeof(address)), (UInt8*)&address );
 		
 									const u_char* p = (const u_char*)&address.sin_addr;
@@ -382,7 +381,7 @@ static void ServiceBrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags
 								break;
 								
 								case AF_INET6:
-								{
+			{
 									DBGLOG("ServiceBrowserCallBack, received IPv6 type that we don't handle!\n");
 								}
 								break;
@@ -420,7 +419,7 @@ static void ServiceBrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags
 	if ( newItemTypeRef )
 		CFStringGetCString( newItemTypeRef, newItemType, sizeof(newItemType), kCFStringEncodingUTF8 );
 
-	syslog( LOG_ALERT, "[NSL] Rendezvous DS plugin (0x%x) got a %s notification for result [%s - %s]\n", browserThread, (flags & kCFNetServiceFlagRemove) ? "delete" : "add", newItemName, newItemType );
+	syslog( LOG_ALERT, "[NSL] Bonjour DS plugin (0x%x) got a %s notification for result [%s - %s]\n", browserThread, (flags & kCFNetServiceFlagRemove) ? "delete" : "add", newItemName, newItemType );
 
 }
 #endif
@@ -430,11 +429,14 @@ static void ServiceBrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags
 				}
 #ifdef LOG_CF_NOTIFY
 else
-	syslog( LOG_ALERT, "[NSL] Rendezvous DS plugin ignoring notification as the browserThread was canceled!\n" );
+	syslog( LOG_ALERT, "[NSL] Bonjour DS plugin ignoring notification as the browserThread was canceled!\n" );
 #endif
-				if ( foundService )
-					CFRelease( foundService );
 			}
+			else
+				DBGLOG("ServiceBrowserCallBack, CFDictionaryCreateMutable failed!\n");
+
+			if ( foundService )
+				CFRelease( foundService );
 		}
 		
 		if ( flags & kCFNetServiceFlagMoreComing )
@@ -470,3 +472,4 @@ void CancelSearchBrowse(CFRunLoopTimerRef timer, void *info)
     if ( !browserThread->AreWeCanceled() )
         browserThread->Cancel();
 }
+

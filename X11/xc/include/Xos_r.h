@@ -1,5 +1,5 @@
 /* $Xorg: Xos_r.h,v 1.4 2001/02/09 02:03:22 xorgcvs Exp $ */
-/* 
+/*
 Copyright 1996, 1998  The Open Group
 
 Permission to use, copy, modify, distribute, and sell this software and its
@@ -22,9 +22,9 @@ Except as contained in this notice, the name of The Open Group shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 */
-/* $XFree86: xc/include/Xos_r.h,v 1.18 2002/08/28 23:08:22 torrey Exp $ */
+/* $XFree86: xc/include/Xos_r.h,v 1.19 2003/10/23 15:19:01 tsi Exp $ */
 
-/* 
+/*
  * Various and sundry Thread-Safe functions used by X11, Motif, and CDE.
  *
  * Use this file in MT-safe code where you would have included
@@ -54,7 +54,7 @@ in this Software without prior written authorization from The Open Group.
  * NOTE: On systems lacking appropriate _r functions Getgrgid() and
  *	Getgrnam() do NOT copy the list of group members!
  *
- * This header is nominally intended to simplify porting X11, Motif, and 
+ * This header is nominally intended to simplify porting X11, Motif, and
  * CDE; it may be useful to other people too.  The structure below is
  * complicated, mostly because P1003.1c (the IEEE POSIX Threads spec)
  * went through lots of drafts, and some vendors shipped systems based
@@ -189,7 +189,7 @@ extern void XtProcessUnlock(
 
 #endif /* !defined WIN32 */
 
-/* 
+/*
  * Solaris 2.5 has SVR4 thread-safe API, but defines the POSIX
  * thread-safe feature test macro.  Fix the feature test macro.
  */
@@ -198,7 +198,7 @@ extern void XtProcessUnlock(
 #endif
 
 /*
- * LynxOS 3.1 defines _POSIX_THREAD_SAFE_FUNCTIONS but 
+ * LynxOS 3.1 defines _POSIX_THREAD_SAFE_FUNCTIONS but
  * getpwuid_r has different semantics than defined by POSIX
  */
 #if defined(Lynx) && defined(_POSIX_THREAD_SAFE_FUNCTIONS)
@@ -255,7 +255,7 @@ typedef struct {
  * NetBSD and FreeBSD, at least, are missing several of the unixware passwd
  * fields.
  */
-   
+
 #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__APPLE__)
 static __inline__ void _Xpw_copyPasswd(_Xgetpwparams p)
@@ -382,7 +382,7 @@ typedef int _Xgetpwret;
 
 /***** <netdb.h> wrappers *****/
 
-/* 
+/*
  * Effective prototypes for <netdb.h> wrappers:
  *
  * NOTE: On systems lacking the appropriate _r functions Gethostbyname(),
@@ -397,7 +397,7 @@ typedef int _Xgetpwret;
  * typedef ... _Xgetservbynameparams;
  *
  * struct hostent* _XGethostbyname(const char* name,_Xgethostbynameparams);
- * struct hostent* _XGethostbyaddr(const char* addr, int len, int type, 
+ * struct hostent* _XGethostbyaddr(const char* addr, int len, int type,
  *				   _Xgethostbynameparams);
  * struct servent* _XGetservbyname(const char* name, const char* proto,
  *				 _Xgetservbynameparams);
@@ -554,7 +554,7 @@ typedef int _Xgetservbynameparams; /* dummy */
  * #define X_INCLUDE_DIRENT_H
  * #define XOS_USE_..._LOCKING
  * #include <X11/Xos_r.h>
- * 
+ *
  * typedef ... _Xreaddirparams;
  *
  * struct dirent *_XReaddir(DIR *dir_pointer, _Xreaddirparams);
@@ -678,7 +678,7 @@ extern int _Preaddir_r(DIR *, struct dirent *, struct dirent **);
  * #define X_INCLUDE_UNISTD_H
  * #define XOS_USE_..._LOCKING
  * #include <X11/Xos_r.h>
- * 
+ *
  * typedef ... _Xgetloginparams;
  * typedef ... _Xttynameparams;
  *
@@ -840,7 +840,7 @@ typedef struct {
 /* Use regular, unsafe API. */
 typedef int _Xstrtokparams;	/* dummy */
 # define _XStrtok(s1,s2,p) \
- ( (void)(p), strtok((s1),(s2)) )
+ ( p = 0, (void)p, strtok((s1),(s2)) )
 
 #elif !defined(XOS_USE_MTSAFE_STRINGAPI) || defined(XNO_MTSAFE_STRINGAPI)
 /* Systems with thread support but no _r API. */

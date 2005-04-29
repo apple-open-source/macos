@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_tex.c,v 1.2 2002/11/05 17:46:08 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_tex.c,v 1.4 2004/01/23 03:57:05 dawes Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -32,42 +32,68 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
 
+#include "glheader.h"
+#include "imports.h"
+#include "colormac.h"
+#include "context.h"
+#include "enums.h"
+#include "image.h"
+#include "simple_list.h"
+#include "texformat.h"
+#include "texstore.h"
+#include "texutil.h"
+#include "texmem.h"
+
 #include "r200_context.h"
 #include "r200_state.h"
 #include "r200_ioctl.h"
 #include "r200_swtcl.h"
 #include "r200_tex.h"
 
-#include "colormac.h"
-#include "context.h"
-#include "enums.h"
-#include "image.h"
-#include "mem.h"
-#include "mmath.h"
-#include "simple_list.h"
-#include "texformat.h"
-#include "texstore.h"
-#include "texutil.h"
 
 
-/* =============================================================
- * Utility functions:
+/**
+ * Set the texture wrap modes.
+ * 
+ * \param t Texture object whose wrap modes are to be set
+ * \param swrap Wrap mode for the \a s texture coordinate
+ * \param twrap Wrap mode for the \a t texture coordinate
  */
 
-static void r200SetTexWrap( r200TexObjPtr t, GLenum swrap, GLenum twrap )
+static void r200SetTexWrap( r200TexObjPtr t, GLenum swrap, GLenum twrap, GLenum rwrap )
 {
-   t->pp_txfilter &= ~(R200_CLAMP_S_MASK | R200_CLAMP_T_MASK);
+   GLboolean  is_clamp = GL_FALSE;
+   GLboolean  is_clamp_to_border = GL_FALSE;
+
+   t->pp_txfilter &= ~(R200_CLAMP_S_MASK | R200_CLAMP_T_MASK | R200_BORDER_MODE_D3D);
 
    switch ( swrap ) {
    case GL_REPEAT:
       t->pp_txfilter |= R200_CLAMP_S_WRAP;
       break;
    case GL_CLAMP:
-      t->pp_txfilter |= R200_CLAMP_S_CLAMP_LAST;
+      t->pp_txfilter |= R200_CLAMP_S_CLAMP_GL;
+      is_clamp = GL_TRUE;
       break;
    case GL_CLAMP_TO_EDGE:
       t->pp_txfilter |= R200_CLAMP_S_CLAMP_LAST;
       break;
+   case GL_CLAMP_TO_BORDER:
+      t->pp_txfilter |= R200_CLAMP_S_CLAMP_GL;
+      is_clamp_to_border = GL_TRUE;
+      break;
+   case GL_MIRRORED_REPEAT:
+      t->pp_txfilter |= R200_CLAMP_S_MIRROR;
+      break;
+   case GL_MIRROR_CLAMP_ATI:
+      t->pp_txfilter |= R200_CLAMP_S_MIRROR_CLAMP_GL;
+      is_clamp = GL_TRUE;
+      break;
+   case GL_MIRROR_CLAMP_TO_EDGE_ATI:
+      t->pp_txfilter |= R200_CLAMP_S_MIRROR_CLAMP_LAST;
+      break;
+   default:
+      _mesa_problem(NULL, "bad S wrap mode in %s", __FUNCTION__);
    }
 
    switch ( twrap ) {
@@ -75,12 +101,66 @@ static void r200SetTexWrap( r200TexObjPtr t, GLenum swrap, GLenum twrap )
       t->pp_txfilter |= R200_CLAMP_T_WRAP;
       break;
    case GL_CLAMP:
-      t->pp_txfilter |= R200_CLAMP_T_CLAMP_LAST;
+      t->pp_txfilter |= R200_CLAMP_T_CLAMP_GL;
+      is_clamp = GL_TRUE;
       break;
    case GL_CLAMP_TO_EDGE:
       t->pp_txfilter |= R200_CLAMP_T_CLAMP_LAST;
       break;
+   case GL_CLAMP_TO_BORDER:
+      t->pp_txfilter |= R200_CLAMP_T_CLAMP_GL | R200_BORDER_MODE_D3D;
+      is_clamp_to_border = GL_TRUE;
+      break;
+   case GL_MIRRORED_REPEAT:
+      t->pp_txfilter |= R200_CLAMP_T_MIRROR;
+      break;
+   case GL_MIRROR_CLAMP_ATI:
+      t->pp_txfilter |= R200_CLAMP_T_MIRROR_CLAMP_GL;
+      is_clamp = GL_TRUE;
+      break;
+   case GL_MIRROR_CLAMP_TO_EDGE_ATI:
+      t->pp_txfilter |= R200_CLAMP_T_MIRROR_CLAMP_LAST;
+      break;
+   default:
+      _mesa_problem(NULL, "bad T wrap mode in %s", __FUNCTION__);
    }
+
+   t->pp_txformat_x &= ~R200_CLAMP_Q_MASK;
+
+   switch ( rwrap ) {
+   case GL_REPEAT:
+      t->pp_txformat_x |= R200_CLAMP_Q_WRAP;
+      break;
+   case GL_CLAMP:
+      t->pp_txformat_x |= R200_CLAMP_Q_CLAMP_GL;
+      is_clamp = GL_TRUE;
+      break;
+   case GL_CLAMP_TO_EDGE:
+      t->pp_txformat_x |= R200_CLAMP_Q_CLAMP_LAST;
+      break;
+   case GL_CLAMP_TO_BORDER:
+      t->pp_txformat_x |= R200_CLAMP_Q_CLAMP_GL;
+      is_clamp_to_border = GL_TRUE;
+      break;
+   case GL_MIRRORED_REPEAT:
+      t->pp_txformat_x |= R200_CLAMP_Q_MIRROR;
+      break;
+   case GL_MIRROR_CLAMP_ATI:
+      t->pp_txformat_x |= R200_CLAMP_Q_MIRROR_CLAMP_GL;
+      is_clamp = GL_TRUE;
+      break;
+   case GL_MIRROR_CLAMP_TO_EDGE_ATI:
+      t->pp_txformat_x |= R200_CLAMP_Q_MIRROR_CLAMP_LAST;
+      break;
+   default:
+      _mesa_problem(NULL, "bad R wrap mode in %s", __FUNCTION__);
+   }
+
+   if ( is_clamp_to_border ) {
+      t->pp_txfilter |= R200_BORDER_MODE_D3D;
+   }
+
+   t->border_fallback = (is_clamp && is_clamp_to_border);
 }
 
 static void r200SetTexMaxAnisotropy( r200TexObjPtr t, GLfloat max )
@@ -100,11 +180,20 @@ static void r200SetTexMaxAnisotropy( r200TexObjPtr t, GLfloat max )
    }
 }
 
+/**
+ * Set the texture magnification and minification modes.
+ * 
+ * \param t Texture whose filter modes are to be set
+ * \param minf Texture minification mode
+ * \param magf Texture magnification mode
+ */
+
 static void r200SetTexFilter( r200TexObjPtr t, GLenum minf, GLenum magf )
 {
    GLuint anisotropy = (t->pp_txfilter & R200_MAX_ANISO_MASK);
 
    t->pp_txfilter &= ~(R200_MIN_FILTER_MASK | R200_MAG_FILTER_MASK);
+   t->pp_txformat_x &= ~R200_VOLUME_FILTER_MASK;
 
    if ( anisotropy == R200_MAX_ANISO_1_TO_1 ) {
       switch ( minf ) {
@@ -146,12 +235,17 @@ static void r200SetTexFilter( r200TexObjPtr t, GLenum minf, GLenum magf )
       }
    }
 
+   /* Note we don't have 3D mipmaps so only use the mag filter setting
+    * to set the 3D texture filter mode.
+    */
    switch ( magf ) {
    case GL_NEAREST:
       t->pp_txfilter |= R200_MAG_FILTER_NEAREST;
+      t->pp_txformat_x |= R200_VOLUME_FILTER_NEAREST;
       break;
    case GL_LINEAR:
       t->pp_txfilter |= R200_MAG_FILTER_LINEAR;
+      t->pp_txformat_x |= R200_VOLUME_FILTER_LINEAR;
       break;
    }
 }
@@ -162,27 +256,36 @@ static void r200SetTexBorderColor( r200TexObjPtr t, GLubyte c[4] )
 }
 
 
+/**
+ * Allocate space for and load the mesa images into the texture memory block.
+ * This will happen before drawing with a new texture, or drawing with a
+ * texture after it was swapped out or teximaged again.
+ */
+
 static r200TexObjPtr r200AllocTexObj( struct gl_texture_object *texObj )
 {
    r200TexObjPtr t;
 
    t = CALLOC_STRUCT( r200_tex_obj );
-   if (!t)
-      return NULL;
+   texObj->DriverData = t;
+   if ( t != NULL ) {
+      if ( R200_DEBUG & DEBUG_TEXTURE ) {
+	 fprintf( stderr, "%s( %p, %p )\n", __FUNCTION__, (void *)texObj, (void *)t );
+      }
 
-   if ( R200_DEBUG & DEBUG_TEXTURE ) {
-      fprintf( stderr, "%s( %p, %p )\n", __FUNCTION__, texObj, t );
+      /* Initialize non-image-dependent parts of the state:
+       */
+      t->base.tObj = texObj;
+      t->border_fallback = GL_FALSE;
+
+      make_empty_list( & t->base );
+
+      r200SetTexWrap( t, texObj->WrapS, texObj->WrapT, texObj->WrapR );
+      r200SetTexMaxAnisotropy( t, texObj->MaxAnisotropy );
+      r200SetTexFilter( t, texObj->MinFilter, texObj->MagFilter );
+      r200SetTexBorderColor( t, texObj->_BorderChan );
    }
 
-   t->tObj = texObj;
-   make_empty_list( t );
-
-   /* Initialize non-image-dependent parts of the state:
-    */
-   r200SetTexWrap( t, texObj->WrapS, texObj->WrapT );
-   r200SetTexMaxAnisotropy( t, texObj->MaxAnisotropy );
-   r200SetTexFilter( t, texObj->MinFilter, texObj->MagFilter );
-   r200SetTexBorderColor( t, texObj->BorderColor );
    return t;
 }
 
@@ -197,6 +300,7 @@ r200ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
    switch ( internalFormat ) {
    case 4:
    case GL_RGBA:
+   case GL_COMPRESSED_RGBA:
       if ( format == GL_BGRA ) {
 	 if ( type == GL_UNSIGNED_INT_8_8_8_8_REV ) {
 	    return &_mesa_texformat_argb8888;
@@ -212,6 +316,7 @@ r200ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
 
    case 3:
    case GL_RGB:
+   case GL_COMPRESSED_RGB:
       if ( format == GL_RGB && type == GL_UNSIGNED_SHORT_5_6_5 ) {
 	 return &_mesa_texformat_rgb565;
       }
@@ -246,6 +351,7 @@ r200ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
    case GL_ALPHA8:
    case GL_ALPHA12:
    case GL_ALPHA16:
+   case GL_COMPRESSED_ALPHA:
       return &_mesa_texformat_al88;
 
    case 1:
@@ -254,6 +360,7 @@ r200ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
    case GL_LUMINANCE8:
    case GL_LUMINANCE12:
    case GL_LUMINANCE16:
+   case GL_COMPRESSED_LUMINANCE:
       return &_mesa_texformat_al88;
 
    case 2:
@@ -264,6 +371,7 @@ r200ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
    case GL_LUMINANCE12_ALPHA4:
    case GL_LUMINANCE12_ALPHA12:
    case GL_LUMINANCE16_ALPHA16:
+   case GL_COMPRESSED_LUMINANCE_ALPHA:
       return &_mesa_texformat_al88;
 
    case GL_INTENSITY:
@@ -271,6 +379,7 @@ r200ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
    case GL_INTENSITY8:
    case GL_INTENSITY12:
    case GL_INTENSITY16:
+   case GL_COMPRESSED_INTENSITY:
       /* At the moment, glean & conform both fail using the i8 internal
        * format.
        */
@@ -285,7 +394,7 @@ r200ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
          return &_mesa_texformat_ycbcr_rev;
 
    default:
-      _mesa_problem(ctx, "unexpected texture format in r200ChoosTexFormat");
+      _mesa_problem(ctx, "unexpected texture format in %s", __FUNCTION__);
       return NULL;
    }
 
@@ -328,6 +437,15 @@ r200ValidateClientStorage( GLcontext *ctx, GLenum target,
       if ( format == GL_BGRA && type == GL_UNSIGNED_INT_8_8_8_8_REV ) {
 	 texImage->TexFormat = &_mesa_texformat_argb8888;
 	 texelBytes = 4;
+      }
+      else
+	 return 0;
+      break;
+
+   case GL_RGB:
+      if ( format == GL_RGB && type == GL_UNSIGNED_SHORT_5_6_5 ) {
+	 texImage->TexFormat = &_mesa_texformat_rgb565;
+	 texelBytes = 2;
       }
       else
 	 return 0;
@@ -376,7 +494,7 @@ r200ValidateClientStorage( GLcontext *ctx, GLenum target,
        * relaxed, but would need to store the image pitch somewhere,
        * as packing details might change before image is uploaded:
        */
-      if (!r200IsAgpMemory( rmesa, pixels, srcHeight * srcRowStride ) ||
+      if (!r200IsGartMemory( rmesa, pixels, srcHeight * srcRowStride ) ||
 	  (srcRowStride & 63))
 	 return 0;
 
@@ -402,27 +520,25 @@ static void r200TexImage1D( GLcontext *ctx, GLenum target, GLint level,
                               struct gl_texture_object *texObj,
                               struct gl_texture_image *texImage )
 {
-   r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   r200TexObjPtr t = (r200TexObjPtr) texObj->DriverData;
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
 
    if ( t ) {
-      r200SwapOutTexObj( rmesa, t );
+      driSwapOutTextureObject( t );
    }
    else {
-      t = r200AllocTexObj( texObj );
+      t = (driTextureObject *) r200AllocTexObj( texObj );
       if (!t) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage1D");
          return;
       }
-      texObj->DriverData = t;
    }
 
-   /* Note, this will call r200ChooseTextureFormat */
+   /* Note, this will call ChooseTextureFormat */
    _mesa_store_teximage1d(ctx, target, level, internalFormat,
                           width, border, format, type, pixels,
                           &ctx->Unpack, texObj, texImage);
 
-   t->dirty_images |= (1 << level);
+   t->dirty_images[0] |= (1 << level);
 }
 
 
@@ -435,28 +551,25 @@ static void r200TexSubImage1D( GLcontext *ctx, GLenum target, GLint level,
                                  struct gl_texture_object *texObj,
                                  struct gl_texture_image *texImage )
 {
-   r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   r200TexObjPtr t = (r200TexObjPtr)texObj->DriverData;
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
 
    assert( t ); /* this _should_ be true */
    if ( t ) {
-      r200SwapOutTexObj( rmesa, t );
-      t->dirty_images |= (1 << level);
+      driSwapOutTextureObject( t );
    }
    else {
-      t = r200AllocTexObj(texObj);
+      t = (driTextureObject *) r200AllocTexObj( texObj );
       if (!t) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexSubImage1D");
          return;
       }
-      texObj->DriverData = t;
    }
 
    _mesa_store_texsubimage1d(ctx, target, level, xoffset, width,
 			     format, type, pixels, packing, texObj,
 			     texImage);
 
-   t->dirty_images |= (1 << level);
+   t->dirty_images[0] |= (1 << level);
 }
 
 
@@ -468,19 +581,33 @@ static void r200TexImage2D( GLcontext *ctx, GLenum target, GLint level,
                               struct gl_texture_object *texObj,
                               struct gl_texture_image *texImage )
 {
-   r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   r200TexObjPtr t = (r200TexObjPtr)texObj->DriverData;
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
+   GLuint face;
 
-   if ( t ) {
-      r200SwapOutTexObj( rmesa, t );
+   /* which cube face or ordinary 2D image */
+   switch (target) {
+   case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+   case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+   case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+   case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+   case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+   case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+      face = (GLuint) target - (GLuint) GL_TEXTURE_CUBE_MAP_POSITIVE_X;
+      ASSERT(face < 6);
+      break;
+   default:
+      face = 0;
+   }
+
+   if ( t != NULL ) {
+      driSwapOutTextureObject( t );
    }
    else {
-      t = r200AllocTexObj( texObj );
+      t = (driTextureObject *) r200AllocTexObj( texObj );
       if (!t) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
          return;
       }
-      texObj->DriverData = t;
    }
 
    texImage->IsClientData = GL_FALSE;
@@ -498,8 +625,8 @@ static void r200TexImage2D( GLcontext *ctx, GLenum target, GLint level,
 	 fprintf(stderr, "%s: Using normal storage\n", __FUNCTION__); 
 
       /* Normal path: copy (to cached memory) and eventually upload
-       * via another copy to agp memory and then a blit...  Could
-       * eliminate one copy by going straight to (permanent) agp.
+       * via another copy to GART memory and then a blit...  Could
+       * eliminate one copy by going straight to (permanent) GART.
        *
        * Note, this will call r200ChooseTextureFormat.
        */
@@ -507,7 +634,7 @@ static void r200TexImage2D( GLcontext *ctx, GLenum target, GLint level,
 			     width, height, border, format, type, pixels,
 			     &ctx->Unpack, texObj, texImage);
       
-      t->dirty_images |= (1 << level);
+      t->dirty_images[face] |= (1 << level);
    }
 }
 
@@ -521,30 +648,138 @@ static void r200TexSubImage2D( GLcontext *ctx, GLenum target, GLint level,
                                  struct gl_texture_object *texObj,
                                  struct gl_texture_image *texImage )
 {
-   r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   r200TexObjPtr t = (r200TexObjPtr) texObj->DriverData;
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
+   GLuint face;
 
-/*     fprintf(stderr, "%s\n", __FUNCTION__); */
+
+   /* which cube face or ordinary 2D image */
+   switch (target) {
+   case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+   case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+   case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+   case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+   case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+   case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+      face = (GLuint) target - (GLuint) GL_TEXTURE_CUBE_MAP_POSITIVE_X;
+      ASSERT(face < 6);
+      break;
+   default:
+      face = 0;
+   }
 
    assert( t ); /* this _should_ be true */
    if ( t ) {
-      r200SwapOutTexObj( rmesa, t );
+      driSwapOutTextureObject( t );
    }
    else {
-      t = r200AllocTexObj(texObj);
+      t = (driTextureObject *) r200AllocTexObj( texObj );
       if (!t) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexSubImage2D");
          return;
       }
-      texObj->DriverData = t;
    }
 
    _mesa_store_texsubimage2d(ctx, target, level, xoffset, yoffset, width,
 			     height, format, type, pixels, packing, texObj,
 			     texImage);
 
-   t->dirty_images |= (1 << level);
+   t->dirty_images[face] |= (1 << level);
 }
+
+
+#if ENABLE_HW_3D_TEXTURE
+static void r200TexImage3D( GLcontext *ctx, GLenum target, GLint level,
+                            GLint internalFormat,
+                            GLint width, GLint height, GLint depth,
+                            GLint border,
+                            GLenum format, GLenum type, const GLvoid *pixels,
+                            const struct gl_pixelstore_attrib *packing,
+                            struct gl_texture_object *texObj,
+                            struct gl_texture_image *texImage )
+{
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
+
+   if ( t ) {
+      driSwapOutTextureObject( t );
+   }
+   else {
+      t = r200AllocTexObj( texObj );
+      if (!t) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage3D");
+         return;
+      }
+   }
+
+   texImage->IsClientData = GL_FALSE;
+
+#if 0
+   if (r200ValidateClientStorage( ctx, target, 
+				  internalFormat, 
+				  width, height, 
+				  format, type, pixels, 
+				  packing, texObj, texImage)) {
+      if (R200_DEBUG & DEBUG_TEXTURE)
+	 fprintf(stderr, "%s: Using client storage\n", __FUNCTION__); 
+   }
+   else
+#endif
+   {
+      if (R200_DEBUG & DEBUG_TEXTURE)
+	 fprintf(stderr, "%s: Using normal storage\n", __FUNCTION__); 
+
+      /* Normal path: copy (to cached memory) and eventually upload
+       * via another copy to GART memory and then a blit...  Could
+       * eliminate one copy by going straight to (permanent) GART.
+       *
+       * Note, this will call r200ChooseTextureFormat.
+       */
+      _mesa_store_teximage3d(ctx, target, level, internalFormat,
+			     width, height, depth, border,
+                             format, type, pixels,
+			     &ctx->Unpack, texObj, texImage);
+      
+      t->dirty_images[0] |= (1 << level);
+   }
+}
+#endif
+
+
+#if ENABLE_HW_3D_TEXTURE
+static void
+r200TexSubImage3D( GLcontext *ctx, GLenum target, GLint level,
+                   GLint xoffset, GLint yoffset, GLint zoffset,
+                   GLsizei width, GLsizei height, GLsizei depth,
+                   GLenum format, GLenum type,
+                   const GLvoid *pixels,
+                   const struct gl_pixelstore_attrib *packing,
+                   struct gl_texture_object *texObj,
+                   struct gl_texture_image *texImage )
+{
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
+
+/*     fprintf(stderr, "%s\n", __FUNCTION__); */
+
+   assert( t ); /* this _should_ be true */
+   if ( t ) {
+      driSwapOutTextureObject( t );
+   }
+   else {
+      t = r200AllocTexObj(texObj);
+      if (!t) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexSubImage3D");
+         return;
+      }
+      texObj->DriverData = t;
+   }
+
+   _mesa_store_texsubimage3d(ctx, target, level, xoffset, yoffset, zoffset,
+                             width, height, depth,
+                             format, type, pixels, packing, texObj, texImage);
+
+   t->dirty_images[0] |= (1 << level);
+}
+#endif
+
 
 
 static void r200TexEnv( GLcontext *ctx, GLenum target,
@@ -603,11 +838,16 @@ static void r200TexEnv( GLcontext *ctx, GLenum target,
    }
 }
 
+
+/**
+ * Changes variables and flags for a state update, which will happen at the
+ * next UpdateTextureState
+ */
+
 static void r200TexParameter( GLcontext *ctx, GLenum target,
 				struct gl_texture_object *texObj,
 				GLenum pname, const GLfloat *params )
 {
-   r200ContextPtr rmesa = R200_CONTEXT(ctx);
    r200TexObjPtr t = (r200TexObjPtr) texObj->DriverData;
 
    if ( R200_DEBUG & (DEBUG_STATE|DEBUG_TEXTURE) ) {
@@ -615,7 +855,8 @@ static void r200TexParameter( GLcontext *ctx, GLenum target,
 	       _mesa_lookup_enum_by_nr( pname ) );
    }
 
-   if (!t)
+   if ( ( target != GL_TEXTURE_2D ) &&
+	( target != GL_TEXTURE_1D ) )
       return;
 
    switch ( pname ) {
@@ -628,11 +869,12 @@ static void r200TexParameter( GLcontext *ctx, GLenum target,
 
    case GL_TEXTURE_WRAP_S:
    case GL_TEXTURE_WRAP_T:
-      r200SetTexWrap( t, texObj->WrapS, texObj->WrapT );
+   case GL_TEXTURE_WRAP_R:
+      r200SetTexWrap( t, texObj->WrapS, texObj->WrapT, texObj->WrapR );
       break;
 
    case GL_TEXTURE_BORDER_COLOR:
-      r200SetTexBorderColor( t, texObj->BorderColor );
+      r200SetTexBorderColor( t, texObj->_BorderChan );
       break;
 
    case GL_TEXTURE_BASE_LEVEL:
@@ -640,11 +882,11 @@ static void r200TexParameter( GLcontext *ctx, GLenum target,
    case GL_TEXTURE_MIN_LOD:
    case GL_TEXTURE_MAX_LOD:
       /* This isn't the most efficient solution but there doesn't appear to
-       * be a nice alternative for R200.  Since there's no LOD clamping,
+       * be a nice alternative.  Since there's no LOD clamping,
        * we just have to rely on loading the right subset of mipmap levels
        * to simulate a clamped LOD.
        */
-      r200SwapOutTexObj( rmesa, t );
+      driSwapOutTextureObject( (driTextureObject *) t );
       break;
 
    default:
@@ -661,17 +903,14 @@ static void r200TexParameter( GLcontext *ctx, GLenum target,
 static void r200BindTexture( GLcontext *ctx, GLenum target,
 			       struct gl_texture_object *texObj )
 {
-   r200TexObjPtr t = (r200TexObjPtr) texObj->DriverData;
-   GLuint unit = ctx->Texture.CurrentUnit;
-
    if ( R200_DEBUG & (DEBUG_STATE|DEBUG_TEXTURE) ) {
-      fprintf( stderr, "%s( %p ) unit=%d\n", __FUNCTION__, texObj, unit );
+      fprintf( stderr, "%s( %p ) unit=%d\n", __FUNCTION__, (void *)texObj,
+	       ctx->Texture.CurrentUnit );
    }
 
    if ( target == GL_TEXTURE_2D || target == GL_TEXTURE_1D ) {
-      if ( !t ) {
-	 t = r200AllocTexObj( texObj );
-	 texObj->DriverData = t;
+      if ( texObj->DriverData == NULL ) {
+	 r200AllocTexObj( texObj );
       }
    }
 }
@@ -680,61 +919,20 @@ static void r200DeleteTexture( GLcontext *ctx,
 				 struct gl_texture_object *texObj )
 {
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   r200TexObjPtr t = (r200TexObjPtr) texObj->DriverData;
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
 
    if ( R200_DEBUG & (DEBUG_STATE|DEBUG_TEXTURE) ) {
-      fprintf( stderr, "%s( %p )\n", __FUNCTION__, texObj );
+      fprintf( stderr, "%s( %p (target = %s) )\n", __FUNCTION__, (void *)texObj,
+	       _mesa_lookup_enum_by_nr( texObj->Target ) );
    }
 
-   if ( t ) {
+   if ( t != NULL ) {
       if ( rmesa ) {
          R200_FIREVERTICES( rmesa );
       }
-      r200DestroyTexObj( rmesa, t );
-      texObj->DriverData = NULL;
+
+      driDestroyTextureObject( t );
    }
-}
-
-static GLboolean r200IsTextureResident( GLcontext *ctx,
-					  struct gl_texture_object *texObj )
-{
-   r200TexObjPtr t = (r200TexObjPtr) texObj->DriverData;
-
-   return ( t && t->memBlock );
-}
-
-
-static void r200InitTextureObjects( GLcontext *ctx )
-{
-   r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   struct gl_texture_object *texObj;
-   GLuint tmp = ctx->Texture.CurrentUnit;
-
-   ctx->Texture.CurrentUnit = 0;
-
-   texObj = ctx->Texture.Unit[0].Current1D;
-   r200BindTexture( ctx, GL_TEXTURE_1D, texObj );
-   move_to_tail( &rmesa->texture.swapped,
-		 (r200TexObjPtr)texObj->DriverData );
-
-   texObj = ctx->Texture.Unit[0].Current2D;
-   r200BindTexture( ctx, GL_TEXTURE_2D, texObj );
-   move_to_tail( &rmesa->texture.swapped,
-		 (r200TexObjPtr)texObj->DriverData );
-
-   ctx->Texture.CurrentUnit = 1;
-
-   texObj = ctx->Texture.Unit[1].Current1D;
-   r200BindTexture( ctx, GL_TEXTURE_1D, texObj );
-   move_to_tail( &rmesa->texture.swapped,
-		 (r200TexObjPtr)texObj->DriverData );
-
-   texObj = ctx->Texture.Unit[1].Current2D;
-   r200BindTexture( ctx, GL_TEXTURE_2D, texObj );
-   move_to_tail( &rmesa->texture.swapped,
-		 (r200TexObjPtr)texObj->DriverData );
-
-   ctx->Texture.CurrentUnit = tmp;
 }
 
 /* Need:  
@@ -760,13 +958,24 @@ static void r200TexGen( GLcontext *ctx,
 
 void r200InitTextureFuncs( GLcontext *ctx )
 {
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+
+
    ctx->Driver.ChooseTextureFormat	= r200ChooseTextureFormat;
    ctx->Driver.TexImage1D		= r200TexImage1D;
    ctx->Driver.TexImage2D		= r200TexImage2D;
+#if ENABLE_HW_3D_TEXTURE
+   ctx->Driver.TexImage3D		= r200TexImage3D;
+#else
    ctx->Driver.TexImage3D		= _mesa_store_teximage3d;
+#endif
    ctx->Driver.TexSubImage1D		= r200TexSubImage1D;
    ctx->Driver.TexSubImage2D		= r200TexSubImage2D;
+#if ENABLE_HW_3D_TEXTURE
+   ctx->Driver.TexSubImage3D		= r200TexSubImage3D;
+#else
    ctx->Driver.TexSubImage3D		= _mesa_store_texsubimage3d;
+#endif
    ctx->Driver.CopyTexImage1D		= _swrast_copy_teximage1d;
    ctx->Driver.CopyTexImage2D		= _swrast_copy_teximage2d;
    ctx->Driver.CopyTexSubImage1D	= _swrast_copy_texsubimage1d;
@@ -777,7 +986,7 @@ void r200InitTextureFuncs( GLcontext *ctx )
    ctx->Driver.BindTexture		= r200BindTexture;
    ctx->Driver.CreateTexture		= NULL; /* FIXME: Is this used??? */
    ctx->Driver.DeleteTexture		= r200DeleteTexture;
-   ctx->Driver.IsTextureResident	= r200IsTextureResident;
+   ctx->Driver.IsTextureResident	= driIsTextureResident;
    ctx->Driver.PrioritizeTexture	= NULL;
    ctx->Driver.ActiveTexture		= NULL;
    ctx->Driver.UpdateTexturePalette	= NULL;
@@ -786,5 +995,7 @@ void r200InitTextureFuncs( GLcontext *ctx )
    ctx->Driver.TexParameter		= r200TexParameter;
    ctx->Driver.TexGen                   = r200TexGen;
 
-   r200InitTextureObjects( ctx );
+   driInitTextureObjects( ctx, & rmesa->swapped,
+			  DRI_TEXMGR_DO_TEXTURE_1D
+			  | DRI_TEXMGR_DO_TEXTURE_2D );
 }

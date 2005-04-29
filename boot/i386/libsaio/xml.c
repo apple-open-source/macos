@@ -6,7 +6,7 @@
  * Portions Copyright (c) 2003 Apple Computer, Inc.  All Rights
  * Reserved.  
  * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
+ * are subject to the Apple Public Source License Version 2.0 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
@@ -111,6 +111,7 @@ XMLGetProperty( TagPtr dict, const char * key )
 }
 
 
+#if UNUSED
 //==========================================================================
 // XMLParseFile
 // Expects to see one dictionary in the XML file.
@@ -142,6 +143,7 @@ XMLParseFile( char * buffer, TagPtr * dict )
     *dict = tag;
     return 0;
 }
+#endif /* UNUSED */
 
 //==========================================================================
 // ParseNextTag

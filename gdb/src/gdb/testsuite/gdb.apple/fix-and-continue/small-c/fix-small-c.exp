@@ -298,22 +298,6 @@ gdb_expect {
   }
 }
 
-# Build invalid b.c #10
-
-gdb_test "shell make -C $objdir/$subdir stage17" ".*-o b-bundlized.o17 b.o" "make version 17 of b.c"
-send_gdb "fix $objdir/$subdir/b-bundlized.o17 $objdir/$subdir/b.c\n"
-gdb_expect {
-  -re "NSLinkModule was not able to correctly load the Fix bundle, most likely due to unresolved external references.*\[\r\n\]+$gdb_prompt $" {
-    pass "Reject reference to undefined external function."
-  }
-  -re ".*$gdb_prompt $" {
-    fail "Reject reference to undefined external function."
-  }
-  timeout {
-    fail "Reject reference to undefined external function. (timeout)"
-  }
-}
-
 # Build valid b.c #4
 
 gdb_test "shell make -C $objdir/$subdir stage18" ".*-o b-bundlized.o18 b.o" "make version 18 of b.c"
@@ -339,10 +323,65 @@ if { $stage4_foo_addr != $stage18_foo_addr } then {
 }
 
 
+# Build invalid b.c #10
+
+gdb_test "shell make -C $objdir/$subdir stage17" ".*-o b-bundlized.o17 b.o" "make version 17 of b.c"
+send_gdb "fix $objdir/$subdir/b-bundlized.o17 $objdir/$subdir/b.c\n"
+gdb_expect {
+  -re "NSLinkModule was not able to correctly load the Fix bundle, most likely due to unresolved external references.*\[\r\n\]+$gdb_prompt $" {
+    pass "Reject reference to undefined external function."
+  }
+  -re ".*$gdb_prompt $" {
+    fail "Reject reference to undefined external function."
+  }
+  timeout {
+    fail "Reject reference to undefined external function. (timeout)"
+  }
+}
+
+
+# Build valid b.c #5
+
+gdb_test "shell make -C $objdir/$subdir stage19" ".*-o b-bundlized.o19 b.o" "make version 19 of b.c"
+gdb_test "fix $objdir/$subdir/b-bundlized.o19 $objdir/$subdir/b.c" ".*Fix succeeded." "fix in b-bundlized version 19"
+gdb_test "next" ".*I am in bar in b.c version 19.*I am in fred.*"  "step over bar() version 19"
+
+gdb_test "print newly_added_integer" "\\$$decimal = 0" "check that new global is printable and zeroed"
+
+send_gdb "set newly_added_integer = 15\n"
+gdb_expect {
+  -re "No symbol \"newly_added_integer\" in current context.*$gdb_prompt $" 
+    {
+      fail "Set newly_added_integer by hand"
+    }
+  -re "$gdb_prompt $" 
+    { 
+      pass "Set newly_added_integer by hand" 
+    }
+  -re ".*$gdb_prompt $"
+    {
+      fail "Set newly_added_integer by hand"
+    }
+  timeout {
+      fail "Set newly_added_integer by hand (timeout)"
+  }
+}
+
+gdb_test "print newly_added_integer" "\\$$decimal = 15" "setting of newly_added_integer took"
+
+# Build valid b.c #6
+
+gdb_test "shell make -C $objdir/$subdir stage20" ".*-o b-bundlized.o20 b.o" "make version 20 of b.c"
+gdb_test "fix $objdir/$subdir/b-bundlized.o20 $objdir/$subdir/b.c" ".*Fix succeeded." "fix in b-bundlized version 20"
+gdb_test "next" ".*I am in bar in b.c version 20.*I am in fred.*"  "step over bar() version 20"
+
+gdb_test "print newly_added_integer" "\\$$decimal = 15" "setting of newly_added_integer persisted across another fix"
+
 
 # FIXME: Check that we only have three copies of b-bundlized loaded, maybe
 # do more.
 gdb_test "info sharedlibrary" ".*b-bundlized.*" "get list of dylibs at end"
+
 
 gdb_exit
 

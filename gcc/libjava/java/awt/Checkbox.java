@@ -38,10 +38,9 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.peer.CheckboxPeer;
-import java.awt.peer.ComponentPeer;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.peer.CheckboxPeer;
 import java.io.Serializable;
 
 /**
@@ -307,7 +306,11 @@ addNotify()
   super.addNotify ();
 }
 
-/*************************************************************************/
+  public ItemListener[] getItemListeners ()
+  {
+    return (ItemListener[])
+      AWTEventMulticaster.getListeners (item_listeners, ItemListener.class);
+  }
 
 /**
   * Adds a new listeners to the list of registered listeners for this object.

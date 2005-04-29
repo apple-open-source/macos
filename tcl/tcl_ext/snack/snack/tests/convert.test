@@ -1,0 +1,78 @@
+# Commands covered: sound convert
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test convert-1.1 {convert command, mono->stereo} {
+  set s [snack::sound snd -load ex1.wav]
+  $s convert -channels 2
+  set res [$s sample 0]
+  $s destroy
+  set res
+} {1177 1177}
+
+test convert-1.2 {convert command, Lin16->Mulaw} {
+  set s [snack::sound snd -load ex1.wav]
+  $s convert -encoding Mulaw
+  set res [$s sample 0]
+  $s destroy
+  set res
+} {1180}
+
+test convert-1.3 {convert command, 16kH->32kHz} {
+  set s [snack::sound snd -load ex1.wav]
+  $s convert -rate 32000
+  set res [$s sample 5000]
+  $s destroy
+  set res
+} {1688}
+
+test convert-2.1 {convert command, missing argument for -rate option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s convert -rate} msg
+  $s destroy
+  set msg
+} {wrong # args: should be "snd convert option value"}
+
+test convert-3.1 {convert command, -progress option} {
+  set res ""
+  proc prog {msg frac} {
+    lappend ::res $frac
+  }
+  set s [snack::sound snd]
+  $s length 100000
+  $s convert -encoding Mulaw -progress prog
+  $s destroy
+  set res
+} {0.0 0.99999 1.0}
+
+test convert-4.1 {convert command, testing internal allocation} {
+  set s1 [snack::sound snd1]
+  set s2 [snack::sound snd2]
+  $s1 length 50000
+  $s2 copy $s1
+  $s1 convert -rate 8000
+  $s1 copy $s2
+  set res [$s2 sample 5000]
+  $s1 destroy
+  $s2 destroy
+  set res
+} {0}
+
+test convert-5.1 {convert command, stereo->mono} {
+  set s [snack::sound snd -channels 2]
+  $s length 1
+  $s convert -channels 1
+  set res [$s sample 0]
+  $s destroy
+  set res
+} {0}
+
+# cleanup
+::tcltest::cleanupTests
+return

@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: patchlevel.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
+ * $Id: patchlevel.h,v 1.17 1994/05/31 12:32:35 mlschroe Exp $ FAU
  */
 
 /****************************************************************
@@ -507,11 +507,23 @@
  *                     list ('=') added. Added %` string escape
  *                     and backtick command.
  *                     -- DISTRIBUTED
+ * 08.09.2003  4.00.00 rewrote nonblock command, added defnonblock.
+ *                     added zmodem support (catch & passthrough).
+ *                     added screenblanker.
+ *                     fixed a couple of GBK bugs.
+ *                     rewrote command parsing.
+ *                     added -m option to windowlist (Felix Rosencrantz)
+ *                     -- DISTRIBUTED
+ * 18.09.2003  4.00.01 fixed two small bugs in the new parser.
+ *                     -- DISTRIBUTED
+ * 05.12.2003  4.00.02 fixed a bug in the ansi parser. fixed execs
+ *                     on ttys. fixed hardstatus line on blanked screen.
+ *                     -- DISTRIBUTED
  */
 
 #define ORIGIN "FAU"
-#define REV 3
-#define VERS 9
-#define PATCHLEVEL 15
-#define DATE "13-Mar-03"
+#define REV 4
+#define VERS 0
+#define PATCHLEVEL 2
+#define DATE "5-Dec-03"
 #define STATE ""

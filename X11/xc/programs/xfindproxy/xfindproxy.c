@@ -25,7 +25,7 @@ not be used in advertising or otherwise to promote the sale, use or
 other dealings in this Software without prior written authorization
 from The Open Group.
 */
-/* $XFree86: xc/programs/xfindproxy/xfindproxy.c,v 1.8 2001/12/14 20:01:32 dawes Exp $ */
+/* $XFree86: xc/programs/xfindproxy/xfindproxy.c,v 1.9 2003/05/27 22:27:05 tsi Exp $ */
 
 
 #include <stdio.h>
@@ -371,8 +371,10 @@ PMprocessMessages(IceConn iceConn, IcePointer clientData, int opcode,
 	    GetProxyAddrReply 	*reply = 
 		(GetProxyAddrReply *) (replyWait->reply);
 
+#if 0 /* No-op */
 	    CHECK_AT_LEAST_SIZE (iceConn, PMopcode, opcode,
 		length, SIZEOF (pmGetProxyAddrReplyMsg), IceFatalToProtocol);
+#endif
 
 	    IceReadCompleteMessage (iceConn, SIZEOF (pmGetProxyAddrReplyMsg),
 		pmGetProxyAddrReplyMsg, pMsg, pStart);

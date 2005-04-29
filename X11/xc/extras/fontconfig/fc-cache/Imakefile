@@ -1,0 +1,22 @@
+XCOMM $XFree86: xc/extras/fontconfig/fc-cache/Imakefile,v 1.1.1.1 2003/06/04 02:56:38 dawes Exp $
+
+#ifdef UseInstalled
+/* building outside the tree, use private defines */
+#include "../local.def"
+#endif
+
+INCLUDES=$(FREETYPE2INCLUDES) -I..
+
+LOCAL_LIBRARIES=FontconfigClientLibs
+        DEPLIBS=FontconfigClientDepLibs
+
+SRCS=fc-cache.c
+OBJS=fc-cache.o
+
+ComplexProgramTarget(fc-cache)
+LinkBuildBinary(ProgramTargetName(fc-cache))
+
+install::
+	if [ x$${DESTDIR} = x ]; then \
+		$(FCCACHE) -v -f;\
+	fi

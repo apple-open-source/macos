@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <Carbon/Carbon.h>  // for printf
+#include <CoreFoundation/CoreFoundation.h>
 
 #include "FWDebugging.h"
 #include "IOFireWireSBP2LibLUN.h"
@@ -123,6 +123,7 @@ IOFireWireSBP2LibLUN::IOFireWireSBP2LibLUN( void )
 	// init async callbacks
 	fAsyncPort = MACH_PORT_NULL;
 	fCFAsyncPort = NULL;
+	fCFRunLoopSource = NULL;
 	fMessageCallbackRoutine = NULL;
 	fMessageCallbackRefCon = NULL;
 	

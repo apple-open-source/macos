@@ -1,10 +1,10 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2002
+ * Copyright (c) 1996-2003
  *	Sleepycat Software.  All rights reserved.
  *
- * $Id: globals.h,v 1.1.1.1 2003/02/15 04:55:42 zarzycki Exp $
+ * $Id: globals.h,v 1.2 2004/03/30 01:21:28 jtownsen Exp $
  */
 
 /*******************************************************
@@ -17,7 +17,6 @@
 #endif
 
 typedef struct __db_globals {
-	u_int32_t no_write_errors;	/* write error testing disallowed */
 #ifdef HAVE_VXWORKS
 	u_int32_t db_global_init;	/* VxWorks: inited */
 	SEM_ID db_global_lock;		/* VxWorks: global semaphore */
@@ -49,7 +48,6 @@ typedef struct __db_globals {
 
 #ifdef DB_INITIALIZE_DB_GLOBALS
 DB_GLOBALS __db_global_values = {
-	0,				/* write error testing disallowed */
 #ifdef HAVE_VXWORKS
 	0,				/* VxWorks: initialized */
 	NULL,				/* VxWorks: global semaphore */

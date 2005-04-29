@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xman/ScrollByL.c,v 1.6 2001/10/28 03:34:36 tsi Exp $ */
+/* $XFree86: xc/programs/xman/ScrollByL.c,v 1.7 2003/05/27 22:27:07 tsi Exp $ */
 
 #if !defined(lint) && !defined(SABER) && 0
   static char rcs_version[] = "$Athena: ScrollByL.c,v 4.5 88/12/19 13:46:04 kit Exp $";
@@ -902,7 +902,6 @@ PrintText(Widget w, int start_line, int num_lines, int location)
   register char *bufp, *c;	/* Generic char pointers */
   int current_line;		/* the number of the currrent line */
   char buf[BUFSIZ];		/* Misc. characters */
-  int width;			/* Width of a tab stop. */
   Boolean italicflag = FALSE;	/* Print text in italics?? */
   Boolean first = TRUE;	        /* First line of a manual page??? */
   int x_loc, y_loc;		/* x and y location of text. */
@@ -914,11 +913,8 @@ PrintText(Widget w, int start_line, int num_lines, int location)
  * lots is greater than two. Use a space width of 70% of the
  * widest character in the font.
  */
-  XFontStruct * h_font;
   int h_col, h_fix;
   char * h_c;
-
-  h_font = sblw->scroll.normal_font;
 
 /*
  * Nothing loaded, take no action.
@@ -932,9 +928,6 @@ PrintText(Widget w, int start_line, int num_lines, int location)
 /* Set the first character to print at the first line. */
 
   c = *(sblw->scroll.top_line + start_line);
-
- /* Width of a tab stop. */
-  width = 8 * h_width;
 
 /*
  * Because XDrawString uses the bottom of the text as a position

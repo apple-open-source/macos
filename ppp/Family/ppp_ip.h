@@ -29,11 +29,11 @@
 int ppp_ip_init(int init_arg);
 int ppp_ip_dispose(int term_arg);
 
-int ppp_ip_attach(struct ifnet *ifp, u_long *dl_tag);
-int ppp_ip_detach(struct ifnet *ifp, u_long dl_tag);
+errno_t ppp_ip_attach(ifnet_t ifp, protocol_family_t protocol_family);
+void ppp_ip_detach(ifnet_t ifp, protocol_family_t protocol_family);
 
-int ppp_ip_af_src_out(struct ifnet *ifp, char *pkt);
-int ppp_ip_af_src_in(struct ifnet *ifp, char *pkt);
+int ppp_ip_af_src_out(ifnet_t ifp, char *pkt);
+int ppp_ip_af_src_in(ifnet_t ifp, char *pkt);
 
 
 #endif

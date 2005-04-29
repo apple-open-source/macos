@@ -33,6 +33,7 @@
  *
  *
  */
+/* $XFree86: xc/lib/X11/UNDEFINED.c,v 1.2 2003/04/13 19:22:18 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
@@ -40,19 +41,31 @@
 /*
  *      FORWARD DECLARATIONS
  */
-static int ReturnZero();
+static int DummyParseStringProc(
+    char*               /* color_string */,
+    XcmsColor*          /* color_return */
+    );
+static Status ReturnZero(
+    XcmsCCC             /* ccc */,
+    XcmsColor*          /* white_point */,
+    XcmsColor*          /* colors */,
+    unsigned int        /* ncolors */
+    );
 
 
 /*
  *      LOCALS VARIABLES
  */
 
-static Status (*(Fl_ReturnZero[]))() = {
+static Status (*(Fl_ReturnZero[]))(
+    XcmsCCC             /* ccc */,
+    XcmsColor*          /* white_point */,
+    XcmsColor*          /* colors */,
+    unsigned int        /* ncolors */
+    ) = {
     ReturnZero,
     NULL
 };
-
-
 
 
 /*
@@ -67,7 +80,7 @@ XcmsColorSpace	XcmsUNDEFINEDColorSpace =
     {
 	"undefined",		/* prefix */
 	XcmsUndefinedFormat,	/* id */
-	ReturnZero,		/* parseString */
+	&DummyParseStringProc,	/* parseString */
 	Fl_ReturnZero,		/* to_CIEXYZ */
 	Fl_ReturnZero		/* from_CIEXYZ */
     };
@@ -87,8 +100,13 @@ XcmsColorSpace	XcmsUNDEFINEDColorSpace =
  *	SYNOPSIS
  */
 /* ARGSUSED */
-static int
-ReturnZero()
+static Status
+ReturnZero(
+    XcmsCCC             ccc /* ccc */,
+    XcmsColor*          white /* white_point */,
+    XcmsColor*          colors /* colors */,
+    unsigned int        ncolors /* ncolors */
+    )
 /*
  *	DESCRIPTION
  *		Does nothing.
@@ -100,3 +118,13 @@ ReturnZero()
 {
     return(0);
 }
+
+static int DummyParseStringProc(
+    char*               color_string /* color_string */,
+    XcmsColor*          color_return /* color_return */
+    )
+{
+    return(0);
+}
+
+/* ### EOF ### */

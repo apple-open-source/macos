@@ -1,5 +1,3 @@
-/*	$NetBSD: expand.c,v 1.6 1997/10/18 14:45:57 lukem Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,23 +31,28 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1980, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)expand.c	8.1 (Berkeley) 6/9/93";
 #endif
-__RCSID("$NetBSD: expand.c,v 1.6 1997/10/18 14:45:57 lukem Exp $");
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/expand/expand.c,v 1.15 2004/06/24 13:42:26 tjr Exp $");
 
+#include <ctype.h>
+#include <err.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <unistd.h>
+#include <wchar.h>
+#include <wctype.h>
 
 /*
  * expand - expand tabs to equivalent spaces
@@ -57,20 +60,24 @@ __RCSID("$NetBSD: expand.c,v 1.6 1997/10/18 14:45:57 lukem Exp $");
 int	nstops;
 int	tabstops[100];
 
-static	void	getstops __P((char *));
-	int	main __P((int, char **));
-static	void	usage __P((void));
+static void getstops(char *);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
+	const char *curfile;
+	wint_t wc;
 	int c, column;
 	int n;
+	int rval;
+	int width;
+
+	setlocale(LC_CTYPE, "");
 
 	/* handle obsolete syntax */
-	while (argc > 1 && argv[1][0] && isdigit(argv[1][1])) {
+	while (argc > 1 && argv[1][0] == '-' &&
+	    isdigit((unsigned char)argv[1][1])) {
 		getstops(&argv[1][1]);
 		argc--; argv++;
 	}
@@ -89,28 +96,33 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
+	rval = 0;
 	do {
 		if (argc > 0) {
 			if (freopen(argv[0], "r", stdin) == NULL) {
-				perror(argv[0]);
-				exit(1);
+				warn("%s", argv[0]);
+				rval = 1;
+				argc--, argv++;
+				continue;
 			}
+			curfile = argv[0];
 			argc--, argv++;
-		}
+		} else
+			curfile = "stdin";
 		column = 0;
-		while ((c = getchar()) != EOF) {
-			switch (c) {
+		while ((wc = getwchar()) != WEOF) {
+			switch (wc) {
 			case '\t':
 				if (nstops == 0) {
 					do {
-						putchar(' ');
+						putwchar(' ');
 						column++;
 					} while (column & 07);
 					continue;
 				}
 				if (nstops == 1) {
 					do {
-						putchar(' ');
+						putwchar(' ');
 						column++;
 					} while (((column - 1) % tabstops[0]) != (tabstops[0] - 1));
 					continue;
@@ -119,12 +131,12 @@ main(argc, argv)
 					if (tabstops[n] > column)
 						break;
 				if (n == nstops) {
-					putchar(' ');
+					putwchar(' ');
 					column++;
 					continue;
 				}
 				while (column < tabstops[n]) {
-					putchar(' ');
+					putwchar(' ');
 					column++;
 				}
 				continue;
@@ -132,27 +144,31 @@ main(argc, argv)
 			case '\b':
 				if (column)
 					column--;
-				putchar('\b');
+				putwchar('\b');
 				continue;
 
 			default:
-				putchar(c);
-				column++;
+				putwchar(wc);
+				if ((width = wcwidth(wc)) > 0)
+					column += width;
 				continue;
 
 			case '\n':
-				putchar(c);
+				putwchar(wc);
 				column = 0;
 				continue;
 			}
 		}
+		if (ferror(stdin)) {
+			warn("%s", curfile);
+			rval = 1;
+		}
 	} while (argc > 0);
-	exit(0);
+	exit(rval);
 }
 
 static void
-getstops(cp)
-	char *cp;
+getstops(char *cp)
 {
 	int i;
 
@@ -161,24 +177,23 @@ getstops(cp)
 		i = 0;
 		while (*cp >= '0' && *cp <= '9')
 			i = i * 10 + *cp++ - '0';
-		if (i <= 0 || i > 256) {
-bad:
-			fprintf(stderr, "Bad tab stop spec\n");
-			exit(1);
-		}
+		if (i <= 0)
+			errx(1, "bad tab stop spec");
 		if (nstops > 0 && i <= tabstops[nstops-1])
-			goto bad;
+			errx(1, "bad tab stop spec");
+		if (nstops == sizeof(tabstops) / sizeof(*tabstops))
+			errx(1, "too many tab stops");
 		tabstops[nstops++] = i;
 		if (*cp == 0)
 			break;
-		if (*cp != ',' && *cp != ' ')
-			goto bad;
+		if (*cp != ',' && !isblank((unsigned char)*cp))
+			errx(1, "bad tab stop spec");
 		cp++;
 	}
 }
 
 static void
-usage()
+usage(void)
 {
 	(void)fprintf (stderr, "usage: expand [-t tablist] [file ...]\n");
 	exit(1);

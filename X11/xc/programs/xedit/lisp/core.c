@@ -27,15 +27,15 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/core.c,v 1.69 2002/12/20 04:32:45 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/core.c,v 1.72 2003/05/27 22:27:01 tsi Exp $ */
 
-#include "io.h"
-#include "core.h"
-#include "format.h"
-#include "helper.h"
-#include "package.h"
-#include "private.h"
-#include "write.h"
+#include "lisp/io.h"
+#include "lisp/core.h"
+#include "lisp/format.h"
+#include "lisp/helper.h"
+#include "lisp/package.h"
+#include "lisp/private.h"
+#include "lisp/write.h"
 
 /*
  * Types
@@ -61,6 +61,10 @@ typedef struct _SeqInfo {
 	    seq.data.list = object->data.array.list;			\
 	    break;							\
     }
+
+#ifdef __UNIXOS2__
+# define finite(x) isfinite(x)
+#endif
 
 #ifdef NEED_SETENV
 extern int setenv(const char *name, const char *value, int overwrite);
@@ -580,7 +584,7 @@ Lisp_Block(LispBuiltin *builtin)
  */
 {
     int did_jump, *pdid_jump = &did_jump;
-    LispObj *res, **pres = &res, **pbody;
+    LispObj *res, **pres = &res;
     LispBlock *block;
 
     LispObj *name, *body;
@@ -592,7 +596,6 @@ Lisp_Block(LispBuiltin *builtin)
 	LispDestroy("%s: %s cannot name a block",
 		    STRFUN(builtin), STROBJ(name));
 
-    pbody = &body;
     *pres = NIL;
     *pdid_jump = 1;
     block = LispBeginBlock(name, LispBlockTag);
@@ -779,12 +782,11 @@ Lisp_Catch(LispBuiltin *builtin)
     LispObj *res, **pres = &res;
     LispBlock *block;
 
-    LispObj *tag, *body, **pbody;
+    LispObj *tag, *body;
 
     body = ARGUMENT(1);
     tag = ARGUMENT(0);
 
-    pbody = &body;
     *pres = NIL;
     *pdid_jump = 1;
     block = LispBeginBlock(tag, LispBlockCatch);
@@ -1013,9 +1015,8 @@ Lisp_Constantp(LispBuiltin *builtin)
  constantp form &optional environment
  */
 {
-    LispObj *form, *environment;
+    LispObj *form;
 
-    environment = ARGUMENT(1);
     form = ARGUMENT(0);
 
     /* not all self-evaluating objects are considered constants */
@@ -1936,8 +1937,8 @@ Lisp_IgnoreErrors(LispBuiltin *builtin)
  ignore-erros &rest body
  */
 {
-    LispObj *result, **presult, **pbody;
-    int i, jumped, *pjumped;
+    LispObj *result;
+    int i, jumped;
     LispBlock *block;
 
     /* interpreter state */
@@ -1963,9 +1964,6 @@ Lisp_IgnoreErrors(LispBuiltin *builtin)
     memcpy(mem, lisp__data.mem.mem, mem_level * sizeof(void*));
 
     ++lisp__data.ignore_errors;
-    presult = &result;
-    pjumped = &jumped;
-    pbody = &body;
     result = NIL;
     jumped = 1;
     block = LispBeginBlock(NIL, LispBlockProtect);
@@ -2618,16 +2616,13 @@ Lisp_MakeArray(LispBuiltin *builtin)
     LispType type;
 
     LispObj *dimensions, *element_type, *initial_element, *initial_contents,
-	    *adjustable, *fill_pointer, *displaced_to,
-	    *displaced_index_offset;
+	    *displaced_to, *displaced_index_offset;
 
     dim = array = NIL;
     type = LispNil_t;
 
     displaced_index_offset = ARGUMENT(7);
     displaced_to = ARGUMENT(6);
-    fill_pointer = ARGUMENT(5);
-    adjustable = ARGUMENT(4);
     initial_contents = ARGUMENT(3);
     initial_element = ARGUMENT(2);
     element_type = ARGUMENT(1);
@@ -4050,9 +4045,9 @@ Lisp_Progv(LispBuiltin *builtin)
 {
     GC_ENTER();
     int head = lisp__data.env.length, i, count, ostk[32], *offsets;
-    LispObj *result, *list, *symbol, *value, **presult, **psymbols, **pbody;
-    int jumped, *pjumped, *pcount, **poffsets;
-    char fstk[32], *flags, **pflags;
+    LispObj *result, *list, *symbol, *value;
+    int jumped;
+    char fstk[32], *flags;
     LispBlock *block;
     LispAtom *atom;
 
@@ -4074,15 +4069,6 @@ Lisp_Progv(LispBuiltin *builtin)
     /* get symbol values */
     values = EVAL(values);
     GC_PROTECT(values);
-
-    /* use variables */
-    pbody = &body;
-    psymbols = &symbols;
-    presult = &result;
-    pjumped = &jumped;
-    poffsets = &offsets;
-    pcount = &count;
-    pflags = &flags;
 
     /* count/check symbols and allocate space to remember symbol state */
     for (count = 0, list = symbols; CONSP(list); count++, list = CDR(list)) {
@@ -6302,8 +6288,7 @@ Lisp_Tagbody(LispBuiltin *builtin)
 {
     GC_ENTER();
     int stack, lex, length;
-    LispObj *list, *body, *ptr, *tag, *labels, *map,
-	    **p_list, **p_body, **p_labels;
+    LispObj *list, *body, *ptr, *tag, *labels, *map, **p_body;
     LispBlock *block;
 
     body = ARGUMENT(0);
@@ -6361,9 +6346,7 @@ Lisp_Tagbody(LispBuiltin *builtin)
 
     /* Initialize */
     list = body;
-    p_list = &list;
     p_body = &body;
-    p_labels = &labels;
     block = LispBeginBlock(NIL, LispBlockBody);
 
     /* Loop */
@@ -6810,12 +6793,11 @@ Lisp_While(LispBuiltin *builtin)
  while test &rest body
  */
 {
-    LispObj *result, *test, *body, *prog;
+    LispObj *test, *body, *prog;
 
     body = ARGUMENT(1);
     test = ARGUMENT(0);
 
-    result = NIL;
     for (;;) {
 	if (EVAL(test) != NIL) {
 	    for (prog = body; CONSP(prog); prog = CDR(prog))

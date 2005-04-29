@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.1 (the "License").  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,6 +33,8 @@
 #include "defs.h"
 #include <ctype.h>
 #include <stdarg.h>
+#include <string.h>
+#include <math.h>
  
 #define MAXOCT	11	/* Maximum octal digits in a long */
 #define MAXDIGS	10	/* number of decimal digits in unsigned long */
@@ -56,11 +57,9 @@
 void _doprnt();
 
 static char *_p_dconv();
-static char *_ffmt(va_list *app, char *buf, int prec, int alt);
+static char *_ffmt(va_list *app, char *buf, int prec, int fcode, int alt);
 static char *_efmt(va_list *app, char *buf, int ndigit, int fcode, int alt);
 static char *_gfmt(va_list *app, char *buf, int prec, int fcode, int alt, int sign_type);
-extern int isnan(double num);
-extern int isinf(double num);
 extern char *ecvt(double x, int ndigits, int *decimal, int *sign);
 extern char *fcvt(double x, int ndigits, int *decimal, int *sign);
 
@@ -264,9 +263,10 @@ postprefix:
 	    begp = buf;
 	    break;
 	case 'f':
+	case 'F':
 	    if (prec < 0)
 		prec = 6;
-	    endp = _ffmt(&ap, buf, prec, alt);
+	    endp = _ffmt(&ap, buf, prec, fcode, alt);
 	    begp = buf;
 	    break;
 	default: 
@@ -465,23 +465,19 @@ static char *_efmt(va_list *app, char *buf, int ndigit, int fcode, int alt)
 {
 	int sign, decpt;
 	register char *p1, *p2;
-	register i;
 	char ebuf[MAXDIGS+1];
 	double number;
 
 	number = va_arg(*app, double);
-	if (i = isnan(number)) {
-		if (i > 0)
-			strcpy(buf, "NaN");
-		else
-			strcpy(buf, "SNaN");
+	if (isnan(number)) {
+		strcpy(buf, isupper(fcode) ? "NAN" : "nan");
 		return(&buf[strlen(buf)]);
 	}
-	if (i = isinf(number)) {
-		if (i > 0)
-			strcpy(buf, "+Infinity");
+	if (isinf(number)) {
+		if (!signbit(number))
+			strcpy(buf, isupper(fcode) ? "INF" : "inf");
 		else
-			strcpy(buf, "-Infinity");
+			strcpy(buf, isupper(fcode) ? "-INF" : "-inf");
 		return(&buf[strlen(buf)]);
 	}
 	/*
@@ -522,26 +518,22 @@ static char *_efmt(va_list *app, char *buf, int ndigit, int fcode, int alt)
 	return(p2);
 }
 
-static char *_ffmt(va_list *app, char *buf, int prec, int alt)
+static char *_ffmt(va_list *app, char *buf, int prec, int fcode, int alt)
 {
 	int sign, decpt;
 	register char *p1, *p2;
-	register i;
 	double number;
 
 	number = va_arg(*app, double);
-	if (i = isnan(number)) {
-		if (i > 0)
-			strcpy(buf, "NaN");
-		else
-			strcpy(buf, "SNaN");
+	if (isnan(number)) {
+		strcpy(buf, isupper(fcode) ? "NAN" : "nan");
 		return(&buf[strlen(buf)]);
 	}
-	if (i = isinf(number)) {
-		if (i > 0)
-			strcpy(buf, "+Infinity");
+	if (isinf(number)) {
+		if (!signbit(number))
+			strcpy(buf, isupper(fcode) ? "INF" : "inf");
 		else
-			strcpy(buf, "-Infinity");
+			strcpy(buf, isupper(fcode) ? "-INF" : "-inf");
 		return(&buf[strlen(buf)]);
 	}
 	/*
@@ -601,21 +593,17 @@ static char *_gfmt_common(double number, char *buf, int prec, int fcode, int alt
 {
 	int is_neg, decpt;
 	register char *p1, *p2;
-	register i;
 	char ebuf[MAXDIGS+1];
 
-	if (i = isnan(number)) {
-		if (i > 0)
-			strcpy(buf, "NaN");
-		else
-			strcpy(buf, "SNaN");
+	if (isnan(number)) {
+		strcpy(buf, isupper(fcode) ? "NAN" : "nan");
 		return(&buf[strlen(buf)]);
 	}
-	if (i = isinf(number)) {
-		if (i > 0)
-			strcpy(buf, "+Infinity");
+	if (isinf(number)) {
+		if (!signbit(number))
+			strcpy(buf, isupper(fcode) ? "INF" : "inf");
 		else
-			strcpy(buf, "-Infinity");
+			strcpy(buf, isupper(fcode) ? "-INF" : "-inf");
 		return(&buf[strlen(buf)]);
 	}
 	/*

@@ -1,11 +1,12 @@
 XCOMM $XConsortium: Imakefile /main/30 1996/03/09 09:37:57 kaleb $
-XCOMM $XFree86: xc/programs/xload/Imakefile,v 1.7 2001/08/13 19:35:01 dawes Exp $
+XCOMM $XFree86: xc/programs/xload/Imakefile,v 1.8 2003/10/24 20:38:21 tsi Exp $
         DEPLIBS = XawClientDepLibs
 LOCAL_LIBRARIES = XawClientLibs
 
 #if defined(i386MachArchitecture) && !defined(GNUMachArchitecture)
   SYS_LIBRARIES = -lsys
-#elif defined(SGIArchitecture) && !defined(MipsN32Architecture)
+#elif defined(SGIArchitecture) && \
+     !defined(MipsN32Architecture) && !defined(Mips64Architecture)
   SYS_LIBRARIES = -lmld
 #elif defined(SonyArchitecture)
   SYS_LIBRARIES = -lmld
@@ -15,14 +16,16 @@ LOCAL_LIBRARIES = XawClientLibs
   SYS_LIBRARIES = -lelf
 #elif defined(OsfArchitecture)
   SYS_LIBRARIES = -lld
-#elif defined(BSDOSArchitecture) && !defined(NetBSDArchitecture) && !defined(OpenBSDArchitecture)
+#elif defined(BSDOSArchitecture) && \
+     !defined(NetBSDArchitecture) && !defined(OpenBSDArchitecture)
   SYS_LIBRARIES = -lutil -lkvm
 #endif
            SRCS = xload.c get_load.c get_rload.c
            OBJS = xload.o get_load.o get_rload.o
  OSMAJORVERSION = OSMajorVersion
  OSMINORVERSION = OSMinorVersion
-      DEFINES = -DOSMAJORVERSION=$(OSMAJORVERSION) -DOSMINORVERSION=$(OSMINORVERSION) 
+      DEFINES = -DOSMAJORVERSION=$(OSMAJORVERSION) \
+		-DOSMINORVERSION=$(OSMINORVERSION)
 
 AllTarget(ProgramTargetName(xload))
 NormalProgramTarget(xload,$(OBJS),$(DEPLIBS),$(LOCAL_LIBRARIES),NullParameter)

@@ -33,9 +33,9 @@ xkb_symbols "basic" {
     key <AD01> {[],	[ 0x010010e5,	q	]	};
     key <AD02> {[],	[ 0x010010ec,	0x010010ed	]	};
     key <AD03> {[],	[ 0x010010d4,	e	]       };
-    key <AD04> {[],	[ 0x010010e0,	r	]	};
-    key <AD05> {[],	[ 0x010010e2,	0x010010e6	]       };
-    key <AD06> {[],	[ 0x010010e7,	0x010010d7	]       };
+    key <AD04> {[],	[ 0x010010e0,	0x010010e6	]	};
+    key <AD05> {[],	[ 0x010010e2,	0x010010d7	]       };
+    key <AD06> {[],	[ 0x010010e7,	y	]       };
     key <AD07> {[],	[ 0x010010e3,	u	]       };
     key <AD08> {[],	[ 0x010010d8,	i	]       };
     key <AD09> {[],	[ 0x010010dd,	o	]       };
@@ -58,8 +58,8 @@ xkb_symbols "basic" {
 
     key <LSGT> {[],	[ guillemotleft,guillemotright	]       };
     key <AB01> {[],	[ 0x010010d6,	0x010010eb	]       };
-    key <AB02> {[],	[ 0x010010ee,	x	]       };
-    key <AB03> {[],	[ 0x010010ea,	0x010010d9	]       };
+    key <AB02> {[],	[ 0x010010ee,	x		]       };
+    key <AB03> {[],	[ 0x010010ea,	0x010010e9	]       };
     key <AB04> {[],	[ 0x010010d5,	v		]       };
     key <AB05> {[],	[ 0x010010d1,	b		]       };
     key <AB06> {[],	[ 0x010010dc,	n		]	};

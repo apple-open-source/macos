@@ -1,0 +1,23 @@
+
+<!-- Optional Code if you are using the referer plugin -->
+#if($REFERER_HISTORY)
+<div id="refererHistory">
+  <h3><span>Complete Referer History:</span></h3>
+  #foreach( $flavorgroup in $REFERER_HISTORY.keySet())
+    #set ($group = $REFERER_HISTORY.get($flavorgroup))
+    #if ($group.isHitCounter())
+      <div id="groupRefererHitCounter">$flavorgroup hits:&nbsp;$group.getReferralCount()</div>
+    #else
+      <div id="groupReferersToday">
+         $flavorgroup referers&nbsp;($group.getReferralCount() total)
+      </div>
+      <div id="groupRefererUrls">
+    #foreach( $refererurl in $group.keySet())
+        <a href="$refererurl">$refererurl</a>&nbsp;($group.get($refererurl).getCount())<br/>
+     #end
+      </div>
+     #end
+  #end
+</div>
+#end
+

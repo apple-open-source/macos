@@ -1,0 +1,29 @@
+[page_begin trf/home]
+	[nav_link [trf/sf/txt]]
+<br>
+	[site_xref]
+<br>
+	[nav_link [tcl/foundry]]
+	[nav_link [tcl/sf/txt/home]]
+	[nav_link [trf/txt/home]]
+	[nav_link [trf/txt/old]]
+
+	<hr>[sect Developers]
+
+	[nav_link [andreas_kupries/home]]
+[page_content]
+
+[p] Trf is an extension library to the script language [tcl/sf/txt],
+as created by John Ousterhout. It provides transformer procedures
+which change the flow of bytes through a channel in arbitrary ways.
+The underlying functionlaity in the core is that of ''stacked channels
+which allows code outside of the core to intercept all actions
+(read/write) on a channel.
+
+[p] Among the applications of the above provided here are compression,
+charset recording, error correction, and hash generation.
+
+[p] The latest release of the extension is [trf/latest-release].
+
+[page_end]
+

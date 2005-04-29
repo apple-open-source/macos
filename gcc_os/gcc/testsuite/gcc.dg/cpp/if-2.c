@@ -18,6 +18,8 @@
 #endif
 
 #if 'abcd' /* { dg-warning "multi-character character constant" "multi-character charconst" } */
+# /* APPLE LOCAL enable the warning with the -Wfour-char-constants flag */
+# /* { dg-options "-Wfour-char-constants" { target *-apple-darwin* } } */
 #endif
 
 #if 'abcdefghi' /* { dg-error "character constant (is )?too long" "charconst too long" } */

@@ -1,0 +1,712 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.web.distrib.UserDirectory</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.web.html">Package&nbsp;web</a> ::
+        <a href="twisted.web.distrib.html">Module&nbsp;distrib</a> ::
+        Class&nbsp;UserDirectory
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.web.distrib.UserDirectory.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class UserDirectory</h2>
+
+<pre class="base-tree">
+<a href="twisted.web.resource.Resource.html"><code>Resource</code></a> --+        
+           |        
+  <a href="twisted.web.woven.controller.Controller.html"><code>Controller</code></a> --+    
+               |    
+   <a href="twisted.web.woven.model.Model.html"><code>Model</code></a> --+   |    
+           |   |    
+ <a href="twisted.web.woven.model.MethodModel.html"><code>MethodModel</code></a> --+    
+               |    
+        <a href="twisted.web.woven.view.View.html"><code>View</code></a> --+    
+               |    
+            <a href="twisted.web.woven.page.Page.html"><code>Page</code></a> --+
+                   |
+                  <b>UserDirectory</b>
+</pre><br />
+
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.distrib.UserDirectory.html#getChild" class="summary-sig-name"><code>getChild</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Look for a factory method to create the object to handle the next 
+segment of the URL.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="wmfactory_base"></a><span class="summary-sig"><span class="summary-sig-name">wmfactory_base</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="wmfactory_directory"></a><span class="summary-sig"><span class="summary-sig-name">wmfactory_directory</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Page</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.page.Page.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kwargs</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.page.Page.html#renderView" class="summary-sig-name"><code>renderView</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from MethodModel</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.MethodModel.html#getSubmodel" class="summary-sig-name"><code>getSubmodel</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Get the submodel `name' of this model.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.MethodModel.html#submodelCheck" class="summary-sig-name"><code>submodelCheck</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Allow any submodel for which I have a submodel.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.MethodModel.html#submodelFactory" class="summary-sig-name"><code>submodelFactory</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Call a wmfactory_name method on this model.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Model</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#__getstate__" class="summary-sig-name"><code>__getstate__</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#addSubview" class="summary-sig-name"><code>addSubview</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>subview</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#addView" class="summary-sig-name"><code>addView</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>view</span>)</span></code>
+<br />
+Add a view for the model to keep track of.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#dataWillChange" class="summary-sig-name"><code>dataWillChange</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#getData" class="summary-sig-name"><code>getData</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#initialize" class="summary-sig-name"><code>initialize</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kwargs</span>)</span></code>
+<br />
+Hook for subclasses to initialize themselves without having to mess 
+with the __init__ chain.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#invalidateCache" class="summary-sig-name"><code>invalidateCache</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Invalidate the cache for this object, so the next time getData is 
+called, it's getter method is called again.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#lookupSubmodel" class="summary-sig-name"><code>lookupSubmodel</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>submodelName</span>)</span></code>
+<br />
+Look up a full submodel name.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#notify" class="summary-sig-name"><code>notify</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>changed</span>)</span></code>
+<br />
+Notify all views that something was changed on me.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#removeView" class="summary-sig-name"><code>removeView</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>view</span>)</span></code>
+<br />
+Remove a view that the model no longer should keep track of.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#setData" class="summary-sig-name"><code>setData</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#setGetter" class="summary-sig-name"><code>setGetter</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>getter</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#setSetter" class="summary-sig-name"><code>setSetter</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>setter</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.model.Model.html#setSubmodel" class="summary-sig-name"><code>setSubmodel</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>value</span>)</span></code>
+<br />
+Set a submodel on this model.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Controller</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#aggregateInvalid" class="summary-sig-name"><code>aggregateInvalid</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>input</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#aggregateValid" class="summary-sig-name"><code>aggregateValid</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>input</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#domChanged" class="summary-sig-name"><code>domChanged</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>widget</span>,
+          <span class=summary-sig-arg>node</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#exit" class="summary-sig-name"><code>exit</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+We are done handling the node to which this controller was 
+attached.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#gatheredControllers" class="summary-sig-name"><code>gatheredControllers</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>v</span>,
+          <span class=summary-sig-arg>d</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#getDynamicChild" class="summary-sig-name"><code>getDynamicChild</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+This method is called when getChild cannot find a matching wchild_* 
+method in the Controller.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#getSubcontroller" class="summary-sig-name"><code>getSubcontroller</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>model</span>,
+          <span class=summary-sig-arg>controllerName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#handle" class="summary-sig-name"><code>handle</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+By default, we don't do anything</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#importControllerLibrary" class="summary-sig-name"><code>importControllerLibrary</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>namespace</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#makeView" class="summary-sig-name"><code>makeView</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>model</span>,
+          <span class=summary-sig-arg>templateFile</span>,
+          <span class=summary-sig-arg>parentCount</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#pageRenderComplete" class="summary-sig-name"><code>pageRenderComplete</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Override this to recieve notification when the view rendering process 
+is complete.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#process" class="summary-sig-name"><code>process</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class="summary-sig-kwarg">**kwargs</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#render" class="summary-sig-name"><code>render</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Trigger any inputhandlers that were passed in to this Page, then 
+delegate to the View for traversing the DOM.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#setNode" class="summary-sig-name"><code>setNode</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>node</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#setSubcontrollerFactory" class="summary-sig-name"><code>setSubcontrollerFactory</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>factory</span>,
+          <span class=summary-sig-arg>setup</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#setUp" class="summary-sig-name"><code>setUp</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class="summary-sig-vararg">*args</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#setupControllerStack" class="summary-sig-name"><code>setupControllerStack</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#setView" class="summary-sig-name"><code>setView</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>view</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.controller.Controller.html#wchild_index" class="summary-sig-name"><code>wchild_index</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+By default, we return ourself as the index.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Resource</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#delEntity" class="summary-sig-name"><code>delEntity</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#getChildForRequest" class="summary-sig-name"><code>getChildForRequest</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#getChildWithDefault" class="summary-sig-name"><code>getChildWithDefault</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Retrieve a static or dynamically generated child resource from me.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#getDynamicEntity" class="summary-sig-name"><code>getDynamicEntity</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#getStaticEntity" class="summary-sig-name"><code>getStaticEntity</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#listDynamicEntities" class="summary-sig-name"><code>listDynamicEntities</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#listDynamicNames" class="summary-sig-name"><code>listDynamicNames</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#listEntities" class="summary-sig-name"><code>listEntities</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#listNames" class="summary-sig-name"><code>listNames</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#listStaticEntities" class="summary-sig-name"><code>listStaticEntities</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#listStaticNames" class="summary-sig-name"><code>listStaticNames</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#putChild" class="summary-sig-name"><code>putChild</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>child</span>)</span></code>
+<br />
+Register a static child.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#reallyPutEntity" class="summary-sig-name"><code>reallyPutEntity</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>entity</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.resource.Resource.html#render_HEAD" class="summary-sig-name"><code>render_HEAD</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Default handling of HEAD method.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from View</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#__setitem__" class="summary-sig-name"><code>__setitem__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>key</span>,
+          <span class=summary-sig-arg>value</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#dispatchResult" class="summary-sig-name"><code>dispatchResult</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>result</span>)</span></code>
+<br />
+Check a given result from handling a node and look up a NodeMutator 
+adapter which will convert the result into a node and insert it into the 
+DOM tree.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#dispatchResultCallback" class="summary-sig-name"><code>dispatchResultCallback</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>)</span></code>
+<br />
+Deal with a callback from a deferred, checking to see if it is ok to 
+send the page yet or not.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#generate" class="summary-sig-name"><code>generate</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>)</span></code>
+<br />
+Allow a view to be used like a widget.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#getNodeController" class="summary-sig-name"><code>getNodeController</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>submodel</span>,
+          <span class=summary-sig-arg>model</span>)</span></code>
+<br />
+Get a controller object to handle this node.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#getNodeModel" class="summary-sig-name"><code>getNodeModel</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>submodel</span>)</span></code>
+<br />
+Get the model object associated with this node.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#getNodeView" class="summary-sig-name"><code>getNodeView</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>submodel</span>,
+          <span class=summary-sig-arg>model</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#getSubview" class="summary-sig-name"><code>getSubview</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>model</span>,
+          <span class=summary-sig-arg>viewName</span>)</span></code>
+<br />
+Get a sub-view from me.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#getTemplate" class="summary-sig-name"><code>getTemplate</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Override this if you want to have your subclass look up its template 
+using a different method.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#handleControllerResults" class="summary-sig-name"><code>handleControllerResults</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>controllerResult</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>controller</span>,
+          <span class=summary-sig-arg>view</span>)</span></code>
+<br />
+Handle a deferred from a controller.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#handleDocument" class="summary-sig-name"><code>handleDocument</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>document</span>)</span></code>
+<br />
+Handle the root node, and send the page if there are no outstanding 
+callbacks when it returns.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#handleNewNode" class="summary-sig-name"><code>handleNewNode</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>returnNode</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#handleNode" class="summary-sig-name"><code>handleNode</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#handleOutstanding" class="summary-sig-name"><code>handleOutstanding</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#importViewLibrary" class="summary-sig-name"><code>importViewLibrary</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>namespace</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#lookupTemplate" class="summary-sig-name"><code>lookupTemplate</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Use acquisition to look up the template named by self.templateFile, 
+located anywhere above this object in the heirarchy, and use it as the 
+template.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#modelChanged" class="summary-sig-name"><code>modelChanged</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>changed</span>)</span></code>
+<br />
+Rerender this view, because our model has changed.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#recurseChildren" class="summary-sig-name"><code>recurseChildren</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>)</span></code>
+<br />
+If this node has children, handle them.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#renderFailure" class="summary-sig-name"><code>renderFailure</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#sendPage" class="summary-sig-name"><code>sendPage</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Check to see if handlers recorded any errors before sending the 
+page</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#setController" class="summary-sig-name"><code>setController</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>controller</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#setSubviewFactory" class="summary-sig-name"><code>setSubviewFactory</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>factory</span>,
+          <span class=summary-sig-arg>setup</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kwargs</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#setupAllStacks" class="summary-sig-name"><code>setupAllStacks</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#setupViewStack" class="summary-sig-name"><code>setupViewStack</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.woven.view.View.html#unlinkViews" class="summary-sig-name"><code>unlinkViews</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.web.distrib.UserDirectory.html#template"><code>template</code></a></b> = <span title="'\n&lt;html&gt;\n    &lt;head&gt;\n    &lt;title&gt;twisted.web.distrib.UserDirectory&lt;/title&gt;\n    &lt;style&gt;\n    \n    a\n    {\n        font-family: Lucida, Verdana, Helvetica, Arial, sans-serif;\n        color: #369;\n        text-decoration: none;\n    }\n\n    th\n    {\n        font-family: Lucida, Verdana, Helvetica, Arial, sans-serif;\n        font-weight: bold;\n        text-decoration: none;\n        text-align: left;\n    }\n\n    pre, code\n    {\n        font-family: &quot;Courier New&quot;, Courier, monospace;\n    }\n\n    p, body, td, ol, ul, menu, blockquote, div\n    {\n        font-family: Lucida, Ver..."><code><span class="variable-quote">'</span>\n&lt;html&gt;\n&nbsp;&nbsp;&nbsp;&nbsp;&lt;head&gt;\n&nbsp;&nbsp;&nbsp;&nbsp;&lt;title&gt;twisted.web<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.web.distrib.UserDirectory.html#userDirName"><code>userDirName</code></a></b> = <span title="'public_html'"><code><span class="variable-quote">'</span>public_html<span class="variable-quote">'</span>                              </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.web.distrib.UserDirectory.html#userSocketName"><code>userSocketName</code></a></b> = <span title="'.twistd-web-pb'"><code><span class="variable-quote">'</span>.twistd-web-pb<span class="variable-quote">'</span>                        </code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Page</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.web.woven.page.Page.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class twisted.web.woven.interfaces.IModel at 0x856484c&gt;, (&lt;class twisted.web.resource.IResource at 0x8450e44&gt;, &lt;class twisted.web.woven.interfaces.IView at 0x85936d4&gt;), (&lt;class twisted.web.woven.interfaces.IController at 0x858b4ec&gt;, &lt;class twisted.web.resource.IResource at 0x8450e44&gt;))"><code>(&lt;class&nbsp;twisted.web.woven.interfaces.IM<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.web.woven.page.Page.html#appRoot"><code>appRoot</code></a></b>: Set this to True if you want me to call request.rememberRootURL() in 
+my getChild, so you can later use request.getRootURL() to get the URL to 
+this &quot;application&quot;'s root resource.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Model</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>list</code></font></td>
+<td><b><a href="twisted.web.woven.model.Model.html#allowed_names"><code>allowed_names</code></a></b> = <span title="[]"><code>[]                                       </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>list</code></font></td>
+<td><b><a href="twisted.web.woven.model.Model.html#protected_names"><code>protected_names</code></a></b> = <span title="['initialize', 'addView', 'addSubview', 'removeView', 'notify', 'getSubmodel', 'setSubmodel', 'getData', 'setData']"><code>['initialize',&nbsp;'addView',&nbsp;'addSubview'<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Controller</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.web.woven.controller.Controller.html#addSlash"><code>addSlash</code></a></b> = <span title="1">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>list</code></font></td>
+<td><b><a href="twisted.web.woven.controller.Controller.html#controllerLibraries"><code>controllerLibraries</code></a></b> = <span title="[]"><code>[]                                 </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.web.woven.controller.Controller.html#setupStacks"><code>setupStacks</code></a></b> = <span title="1">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.web.woven.controller.Controller.html#templateDirectory"><code>templateDirectory</code></a></b> = <span title="''"><code><span class="variable-quote">'</span><span class="variable-quote">'</span>                                   </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.web.woven.controller.Controller.html#viewFactory"><code>viewFactory</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Resource</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.web.resource.Resource.html#isLeaf"><code>isLeaf</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.web.resource.Resource.html#server"><code>server</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from View</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.web.woven.view.View.html#doneCallback"><code>doneCallback</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.web.woven.view.View.html#livePage"><code>livePage</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.web.woven.view.View.html#templateFile"><code>templateFile</code></a></b> = <span title="''"><code><span class="variable-quote">'</span><span class="variable-quote">'</span>                                        </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.web.woven.view.View.html#templateNode"><code>templateNode</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>list</code></font></td>
+<td><b><a href="twisted.web.woven.view.View.html#viewLibraries"><code>viewLibraries</code></a></b> = <span title="[]"><code>[]                                       </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.web.woven.view.View.html#wantsAllNotifications"><code>wantsAllNotifications</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="getChild"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getChild</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>name</span>,
+          <span class=sig-arg>request</span>)</span>
+  </h3>
+  Look for a factory method to create the object to handle the next 
+  segment of the URL. If a wchild_* method is found, it will be called to 
+  produce the Resource object to handle the next segment of the path. If 
+  a wchild_* method is not found, getDynamicChild will be called with the 
+  name and request.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>name</b></code> -
+         The name of the child being requested.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=string)</i>
+      <dd><code><b>request</b></code> -
+         The HTTP request being handled.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<a href="twisted.web.server.Request.html" 
+              class="link"><code>twisted.web.server.Request</code></a>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.web.woven.page.Page.html#getChild"><code>twisted.web.woven.page.Page.getChild</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="template"></a>
+<h3>template</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'\n&lt;html&gt;\n    &lt;head&gt;\n    &lt;title&gt;twisted.web.distrib.UserDirectory&lt;/title&gt;\n    &lt;style&gt;\n    \n    a\n    {\n        font-family: Lucida, Verdana, Helvetica, Arial, sans-serif;\n        color: #369;\n        text-decoration: none;\n    }\n\n    th\n    {\n        font-family: Lucida, Verdana, Helvetica, Arial, sans-serif;\n        font-weight: bold;\n        text-decoration: none;\n        text-align: left;\n    }\n\n    pre, code\n    {\n        font-family: &quot;Courier New&quot;, Courier, monospace;\n    }\n\n    p, body, td, ol, ul, menu, blockquote, div\n    {\n        font-family: Lucida, Ver...">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'''</span>
+&lt;html&gt;
+    &lt;head&gt;
+    &lt;title&gt;twisted.web.distrib.UserDirectory&lt;/title&gt;
+    &lt;style&gt;
+    
+    a
+    {
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="userDirName"></a>
+<h3>userDirName</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'public_html'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>public_html<span class="variable-quote">'</span>                                                          </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="userSocketName"></a>
+<h3>userSocketName</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'.twistd-web-pb'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>.twistd-web-pb<span class="variable-quote">'</span>                                                       </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:04 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

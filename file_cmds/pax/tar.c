@@ -1039,8 +1039,6 @@ ustar_wr(arcn)
 	case PAX_DIR:
 		hd->typeflag = DIRTYPE;
 		memset(hd->linkname, 0, sizeof(hd->linkname));
-		memset(hd->devmajor, 0, sizeof(hd->devmajor));
-		memset(hd->devminor, 0, sizeof(hd->devminor));
 		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 3))
 			goto out;
 		break;
@@ -1051,18 +1049,13 @@ ustar_wr(arcn)
 		else
 			hd->typeflag = BLKTYPE;
 		memset(hd->linkname, 0, sizeof(hd->linkname));
-		if (ul_oct((u_long)MAJOR(arcn->sb.st_rdev), hd->devmajor,
-		   sizeof(hd->devmajor), 3) ||
-		   ul_oct((u_long)MINOR(arcn->sb.st_rdev), hd->devminor,
-		   sizeof(hd->devminor), 3) ||
-		   ul_oct((u_long)0L, hd->size, sizeof(hd->size), 3))
+		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 3))
 			goto out;
+
 		break;
 	case PAX_FIF:
 		hd->typeflag = FIFOTYPE;
 		memset(hd->linkname, 0, sizeof(hd->linkname));
-		memset(hd->devmajor, 0, sizeof(hd->devmajor));
-		memset(hd->devminor, 0, sizeof(hd->devminor));
 		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 3))
 			goto out;
 		break;
@@ -1075,8 +1068,6 @@ ustar_wr(arcn)
 			hd->typeflag = LNKTYPE;
 		l_strncpy(hd->linkname,arcn->ln_name, sizeof(hd->linkname) - 1);
 		hd->linkname[sizeof(hd->linkname) - 1] = '\0';
-		memset(hd->devmajor, 0, sizeof(hd->devmajor));
-		memset(hd->devminor, 0, sizeof(hd->devminor));
 		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 3))
 			goto out;
 		break;
@@ -1091,8 +1082,6 @@ ustar_wr(arcn)
 		else
 			hd->typeflag = REGTYPE;
 		memset(hd->linkname, 0, sizeof(hd->linkname));
-		memset(hd->devmajor, 0, sizeof(hd->devmajor));
-		memset(hd->devminor, 0, sizeof(hd->devminor));
 		arcn->pad = TAR_PAD(arcn->sb.st_size);
 #		ifdef NET2_STAT
 		if (ul_oct((u_long)arcn->sb.st_size, hd->size,
@@ -1106,6 +1095,13 @@ ustar_wr(arcn)
 		}
 		break;
 	}
+
+		/* set devmajor and devminor for all types as per spec */
+	if (ul_oct((u_long)MAJOR(arcn->sb.st_rdev), hd->devmajor,
+	   sizeof(hd->devmajor), 3) ||
+	   ul_oct((u_long)MINOR(arcn->sb.st_rdev), hd->devminor,
+		  sizeof(hd->devminor), 3))
+		goto out;
 
 	l_strncpy(hd->magic, TMAGIC, TMAGLEN);
 	l_strncpy(hd->version, TVERSION, TVERSLEN);

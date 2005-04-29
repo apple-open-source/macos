@@ -32,13 +32,22 @@ includes
 #include <unistd.h>
 #include <sys/queue.h>
 #import <CoreFoundation/CFSocket.h>
+#include <mach/mach.h>
+#include <mach/mach_error.h>
+#include <CoreFoundation/CFMachPort.h>
+#include <CoreFoundation/CFBundle.h>
 
 #include "ppp_msg.h"
 #include "ppp_client.h"
+#include "ppp_utils.h"
+#include "ppp_mach_server.h"
+#include "ppp_socket_server.h"
 
 /* -----------------------------------------------------------------------------
 definitions
 ----------------------------------------------------------------------------- */
+
+int ppp_clientgone(void *client);
 
 TAILQ_HEAD(, client) 	client_head;
 
@@ -54,7 +63,7 @@ u_long client_init_all ()
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-struct client *client_new (CFSocketRef ref)
+struct client *client_new_socket (CFSocketRef ref, int priviledged, uid_t uid, gid_t gid)
 {
     struct client	*client;
     
@@ -65,7 +74,42 @@ struct client *client_new (CFSocketRef ref)
     bzero(client, sizeof(struct client));
 
     CFRetain(ref);
-    client->ref = ref;
+    client->socketRef = ref;
+    if (priviledged)
+		client->flags |= CLIENT_FLAG_PRIVILEDGED;
+	client->uid = uid;
+	client->gid = gid;
+	client->flags |= CLIENT_FLAG_IS_SOCKET;
+    TAILQ_INIT(&client->opts_head);
+
+    TAILQ_INSERT_TAIL(&client_head, client, next);
+
+    return client;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+struct client *client_new_mach (CFMachPortRef port, CFRunLoopSourceRef rls, CFStringRef serviceID, uid_t uid, gid_t gid, mach_port_t bootstrap, mach_port_t notify_port)
+{
+    struct client	*client;
+    
+    client = malloc(sizeof(struct client));
+    if (!client)
+        return 0;	// very bad...
+
+    bzero(client, sizeof(struct client));
+
+    CFRetain(port);
+    CFRetain(rls);
+    CFRetain(serviceID);
+    client->sessionPortRef = port;
+    client->sessionRls = rls;
+    client->serviceID = serviceID;
+	client->uid = uid;
+	client->gid = gid;
+	client->bootstrap_port = bootstrap;
+	client->notify_port = notify_port;
+	client->flags &= ~CLIENT_FLAG_IS_SOCKET;
     TAILQ_INIT(&client->opts_head);
 
     TAILQ_INSERT_TAIL(&client_head, client, next);
@@ -80,7 +124,7 @@ void client_dispose (struct client *client)
     struct client_opts	*opts;
     
     TAILQ_REMOVE(&client_head, client, next);
-    
+
     ppp_clientgone(client);
 
     while (opts = TAILQ_FIRST(&(client->opts_head))) {
@@ -91,19 +135,44 @@ void client_dispose (struct client *client)
     }
 
     client->notify_link = 0;    
-    client->notify_useserviceid = 0;    
     if (client->notify_serviceid) {
         free(client->notify_serviceid);
         client->notify_serviceid = 0;
     }
     
     if (client->msg) {
-        CFAllocatorDeallocate(NULL, client->msg);
+        my_Deallocate(client->msg, client->msgtotallen + 1);
         client->msg = 0;
     }
     client->msglen = 0;
     client->msgtotallen = 0;
-    CFRelease(client->ref);
+	
+    if (client->bootstrap_port != MACH_PORT_NULL) {
+	mach_port_deallocate(mach_task_self(), client->bootstrap_port);
+	client->bootstrap_port = MACH_PORT_NULL;
+    }
+
+    if (client->notify_port != MACH_PORT_NULL) {
+		mach_port_destroy(mach_task_self(), client->notify_port);
+		client->notify_port = MACH_PORT_NULL;
+    }
+
+	if (client->socketRef) {
+		CFSocketInvalidate(client->socketRef);
+		my_CFRelease(client->socketRef);
+	}
+	
+	if (client->sessionPortRef) {
+		CFMachPortInvalidate(client->sessionPortRef);
+		my_CFRelease(client->sessionPortRef);
+	}
+
+	if (client->sessionRls) {
+		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), client->sessionRls, kCFRunLoopDefaultMode);
+		my_CFRelease(client->sessionRls);
+	}
+
+    my_CFRelease(client->serviceID);
     free(client);
 }
 
@@ -147,46 +216,38 @@ CFMutableDictionaryRef client_findoptset (struct client *client, CFStringRef ser
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long client_notify (u_char* sid, u_int32_t link, u_long event, u_long error, int notification)
+u_long client_notify (CFStringRef serviceID, u_char* sid, u_int32_t link, u_long event, u_long error, int notification)
 {
-    struct ppp_msg_hdr	msg;
     struct client	*client;
     int 		doit;
     
     TAILQ_FOREACH(client, &client_head, next) {
         doit = 0;
-        
-        if (client->notify & notification) {
-            if (client->notify_useserviceid) {
-                doit = ((client->notify_serviceid == 0)	// any service
-                        || !strcmp(client->notify_serviceid, sid));
-            }
-            else { 
-                doit = ((client->notify_link == link)			// exact same link
-                        || ((client->notify_link >> 16) == 0xFFFF)	// all kind of links
-                        || (((client->notify_link >> 16) == (link >> 16))// all links of that kind
-                            && ((client->notify_link >> 16) == 0xFFFF)));
-            }
+
+        if (client->flags & notification) {
+		
+			if (client->flags & CLIENT_FLAG_IS_SOCKET) {
+				if (client->notify_serviceid) {
+					doit = ((client->notify_serviceid[0] == 0)	// any service
+							|| !strcmp(client->notify_serviceid, sid));
+				}
+				else { 
+					doit = ((client->notify_link == link)			// exact same link
+							|| ((client->notify_link >> 16) == 0xFFFF)	// all kind of links
+							|| (((client->notify_link >> 16) == (link >> 16))// all links of that kind
+								&& ((client->notify_link >> 16) == 0xFFFF)));
+				}
+			}
+			else {
+				doit = CFStringCompare(client->serviceID, serviceID, 0) == kCFCompareEqualTo;
+			}
         }
 
         if (doit) {
-            bzero(&msg, sizeof(msg));
-            msg.m_type = PPP_EVENT;
-            msg.m_link = link;
-            msg.m_result = event;
-            msg.m_cookie = error;
-            if (client->notify_useserviceid) {
-                msg.m_flags |= USE_SERVICEID;
-                msg.m_link = strlen(sid);
-            }
-            
-            if (writen(CFSocketGetNative(client->ref), &msg, sizeof(msg)) != sizeof(msg))
-                continue;
-
-            if (client->notify_useserviceid) {
-                if (writen(CFSocketGetNative(client->ref), sid, msg.m_link) != msg.m_link)
-                    continue;
-            }
+			if (client->flags & CLIENT_FLAG_IS_SOCKET)
+				socket_client_notify (client->socketRef, client->notify_serviceid ? sid : 0, link, event, error);
+			else 
+				mach_client_notify (client->notify_port, client->serviceID, event, error);
         }
     }
     return 0;
@@ -199,7 +260,21 @@ struct client *client_findbysocketref(CFSocketRef ref)
     struct client	*client;
 
     TAILQ_FOREACH(client, &client_head, next)
-        if (client->ref == ref)
+        if (client->socketRef == ref)
+            return client;
+            
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+struct client *client_findbymachport(mach_port_t port)
+{
+    struct client	*client;
+
+    TAILQ_FOREACH(client, &client_head, next)
+        if (client->sessionPortRef
+			&& port == CFMachPortGetPort(client->sessionPortRef))
             return client;
             
     return 0;

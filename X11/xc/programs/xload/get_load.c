@@ -1,5 +1,5 @@
 /* $XConsortium: get_load.c /main/37 1996/03/09 09:38:04 kaleb $ */
-/* $XFree86: xc/programs/xload/get_load.c,v 1.18 2002/09/18 17:11:57 tsi Exp $ */
+/* $XFree86: xc/programs/xload/get_load.c,v 1.22 2003/12/22 17:48:13 tsi Exp $ */
 /*
 
 Copyright (c) 1989  X Consortium
@@ -54,7 +54,7 @@ from the X Consortium.
 #ifndef macII
 #ifndef apollo
 #ifndef LOADSTUB
-#if !defined(linux) && !defined(__UNIXOS2__) && !defined(__GNU__)
+#if !defined(linux) && !defined(__UNIXOS2__) && !defined(__GLIBC__)
 #include <nlist.h>
 #endif /* !linux && ... */
 #endif /* LOADSTUB */
@@ -154,11 +154,7 @@ struct lavnum {
 extern long lseek();
 #endif
 
-static void xload_error(
-#if NeedFunctionPrototypes
-char *, char *
-#endif
-);
+void xload_error(char *, char *);
 
 
 #ifdef apollo
@@ -272,7 +268,7 @@ void InitLoadPoint()				/* SYSV386 version */
 	xload_error("cannot allocat space for", PROC_NAME);
 	  
     first_buf = (XtPointer) namelist[2].n_value;
-    last_buf  = first_buf + v.v_buf * sizeof(struct buf);
+    last_buf  = (char *)first_buf + v.v_buf * sizeof(struct buf);
 }
 	
 /* ARGSUSED */
@@ -298,7 +294,7 @@ XtPointer	call_data;	/* pointer to (double) return value */
 	      (p[i].p_stat == SIDL) ||
 	      (p[i].p_stat == SXBRK) ||
 	      (p[i].p_stat == SSLEEP && (p[i].p_pri < PZERO) &&
-	       (p[i].p_wchan >= first_buf) && (p[i].p_wchan < last_buf)))
+	       (p[i].p_wchan >= (char *)first_buf) && (p[i].p_wchan < (char *)last_buf)))
 	    nproc++;
 
     /* update the load average using a decay filter */
@@ -1073,7 +1069,7 @@ void GetLoadPoint( w, closure, call_data )
 #endif /* KVM_ROUTINES else */
 #endif /* SYSV && i386 else */
 
-static void xload_error(str1, str2)
+void xload_error(str1, str2)
 char *str1, *str2;
 {
     (void) fprintf(stderr,"xload: %s %s\n", str1, str2);

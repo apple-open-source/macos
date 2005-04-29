@@ -1,0 +1,1580 @@
+# Romanian translation of GNU tar
+# Copyright (C) 2002 Free Software Foundation, Inc.
+# Laurentiu Buzdugan <buzdugan@voyager.net>, 2002.
+#
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: tar 1.13.25\n"
+"Report-Msgid-Bugs-To: bug-tar@gnu.org\n"
+"POT-Creation-Date: 2004-05-10 14:53+0300\n"
+"PO-Revision-Date: 2002-11-10 10:03-0500\n"
+"Last-Translator: Laurentiu Buzdugan <buzdugan@voyager.net>\n"
+"Language-Team: Romanian <translation-team-ro@lists.sourceforge.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-2\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: lib/argmatch.c:133
+#, c-format
+msgid "invalid argument %s for %s"
+msgstr "argument invalid %s pentru %s"
+
+#: lib/argmatch.c:134
+#, c-format
+msgid "ambiguous argument %s for %s"
+msgstr "argument ambiguu %s pentru %s"
+
+#: lib/argmatch.c:153
+#, c-format
+msgid "Valid arguments are:"
+msgstr "Argumente valide sunt:"
+
+#: lib/error.c:127 src/rmt.c:92
+msgid "Unknown system error"
+msgstr "Eroare sistem necunoscutã"
+
+#: lib/getopt.c:570 lib/getopt.c:589
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: opþiunea `%s' este ambiguã\n"
+
+#: lib/getopt.c:622 lib/getopt.c:626
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: opþiunea `--%s' nu permite un argument\n"
+
+#: lib/getopt.c:635 lib/getopt.c:640
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: opþiunea `%c%s' nu permite un argument\n"
+
+#: lib/getopt.c:686 lib/getopt.c:708 lib/getopt.c:1039 lib/getopt.c:1061
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: opþiunea `%s' necesitã un argument\n"
+
+#: lib/getopt.c:746 lib/getopt.c:749
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: opþiunea `--%s' nu este recunoscutã\n"
+
+#: lib/getopt.c:757 lib/getopt.c:760
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: opþiunea `%c%s' bu este recunoscutã\n"
+
+#: lib/getopt.c:815 lib/getopt.c:818
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: opþiune ilegalã -- %c\n"
+
+#: lib/getopt.c:824 lib/getopt.c:827
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: opþiune invalidã -- %c\n"
+
+#: lib/getopt.c:882 lib/getopt.c:901 lib/getopt.c:1114 lib/getopt.c:1135
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: opþiunea necesitã un argument -- %c\n"
+
+#: lib/getopt.c:954 lib/getopt.c:973
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: opþiunea `-W %s' este ambiguã\n"
+
+#: lib/getopt.c:997 lib/getopt.c:1018
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: opþiunea `-W %s' nu permite un argument\n"
+
+#: lib/human.c:483
+msgid "block size"
+msgstr "dimensiune bloc"
+
+#: lib/quotearg.c:238
+msgid "`"
+msgstr "`"
+
+#: lib/quotearg.c:239
+msgid "'"
+msgstr "'"
+
+#: lib/xmalloc.c:53
+msgid "memory exhausted"
+msgstr "memorie epuizatã"
+
+#: src/buffer.c:139
+#, fuzzy, c-format
+msgid "Total bytes written: %s (%s, %s/s)\n"
+msgstr "Numãr totat octeþi scriºi: %s (%sB, %sB/s)\n"
+
+#: src/buffer.c:216
+msgid "(pipe)"
+msgstr "(pipe)"
+
+#: src/buffer.c:264
+msgid "Invalid value for record_size"
+msgstr "Valoare invalidã pentru record_size"
+
+#: src/buffer.c:267
+msgid "No archive name given"
+msgstr "Nume arhivã nu a fost furnizat"
+
+#: src/buffer.c:282
+#, c-format
+msgid "Cannot allocate memory for blocking factor %d"
+msgstr "Nu pot aloca memorie pentru factor de blocare %d"
+
+#: src/buffer.c:316
+msgid "Cannot verify stdin/stdout archive"
+msgstr "Nu pot verifica arhive atdin/stdout"
+
+#: src/buffer.c:392
+#, c-format
+msgid "Archive not labeled to match %s"
+msgstr "Arhiva nu este etichetatã sã se potriveascã cu %s"
+
+#: src/buffer.c:395 src/buffer.c:752
+#, c-format
+msgid "Volume %s does not match %s"
+msgstr "Volumul %s nu se potriveºte cu %s"
+
+#: src/buffer.c:433
+#, c-format
+msgid "Write checkpoint %d"
+msgstr "Scrie punct de verificare %d"
+
+#: src/buffer.c:592
+msgid "At beginning of tape, quitting now"
+msgstr "La începutul benzii, ieºim acum"
+
+#: src/buffer.c:598
+msgid "Too many errors, quitting"
+msgstr "Prea multe erori, ieºim"
+
+#: src/buffer.c:622
+#, fuzzy, c-format
+msgid "Read %s bytes from %s"
+msgstr "Redenumit %s ca %s"
+
+#: src/buffer.c:633
+#, fuzzy, c-format
+msgid "Unaligned block (%lu byte) in archive"
+msgid_plural "Unaligned block (%lu bytes) in archive"
+msgstr[0] "Bloc ne-aliniat (%lu octeþi) în arhivã"
+msgstr[1] "Bloc ne-aliniat (%lu octeþi) în arhivã"
+
+#: src/buffer.c:653
+#, fuzzy, c-format
+msgid "Record size = %lu block"
+msgid_plural "Record size = %lu blocks"
+msgstr[0] "Dimensiune înregistrare = %lu blocuri"
+msgstr[1] "Dimensiune înregistrare = %lu blocuri"
+
+#: src/buffer.c:670
+#, c-format
+msgid "Read checkpoint %d"
+msgstr "Citeºte punct de verificare %d"
+
+#: src/buffer.c:761 src/extract.c:1082
+#, c-format
+msgid "Reading %s\n"
+msgstr "Citesc %s\n"
+
+#: src/buffer.c:765
+msgid "WARNING: No volume header"
+msgstr "AVERTISMENT: Nici un header de volum"
+
+#: src/buffer.c:773
+#, c-format
+msgid "%s is not continued on this volume"
+msgstr "%s nu este continuat pe acest volum"
+
+#: src/buffer.c:787
+#, c-format
+msgid "%s is the wrong size (%s != %s + %s)"
+msgstr "%s este de dimensiune greºitã (%s != %s + %s)"
+
+#: src/buffer.c:799
+msgid "This volume is out of sequence"
+msgstr "Acest volum este în afara secvenþei"
+
+#: src/buffer.c:881
+#, fuzzy
+msgid "Cannot backspace archive file; it may be unreadable without -i"
+msgstr ""
+"Nu pot backspace fiºierul arhivã; acesta ar putea sã fie de necitit farã -i"
+
+#: src/buffer.c:927
+#, c-format
+msgid "%s: contains invalid volume number"
+msgstr "%s: conþine numãr volum invalid"
+
+#: src/buffer.c:979
+#, fuzzy
+msgid "Volume number overflow"
+msgstr "Numãr volum overflow"
+
+#: src/buffer.c:998
+#, c-format
+msgid "`%s' command failed"
+msgstr "`%s' comanda a eºuat"
+
+#: src/buffer.c:1007
+#, c-format
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr "Preparã volum #%d pentru %s ºi apasã tasta return: "
+
+#: src/buffer.c:1013
+msgid "EOF where user reply was expected"
+msgstr "EOF unde era aºteptat rãspunsul utilizatorului"
+
+#: src/buffer.c:1018 src/buffer.c:1048
+msgid "WARNING: Archive is incomplete"
+msgstr "AVERTISMENT: Arhiva este incompletã"
+
+#: src/buffer.c:1032
+#, c-format
+msgid ""
+" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
+" q          Abort tar\n"
+" !          Spawn a subshell\n"
+" ?          Print this list\n"
+msgstr ""
+" n [nume]   Daþi un nume de fiºier nou pentru urmatoarele volume\n"
+" q          Abandoneazã tar\n"
+" !          Lanseazã un subshell\n"
+" ?          Afiºeazã aceastã listã de opþiuni\n"
+
+#: src/buffer.c:1043
+msgid "No new volume; exiting.\n"
+msgstr "Nici un volum nou; terminãm.\n"
+
+#: src/compare.c:106
+#, fuzzy, c-format
+msgid "Could only read %lu of %lu byte"
+msgid_plural "Could only read %lu of %lu bytes"
+msgstr[0] "Am putut citi doar %lu din %lu octeþi"
+msgstr[1] "Am putut citi doar %lu din %lu octeþi"
+
+#: src/compare.c:117 src/compare.c:133
+msgid "Contents differ"
+msgstr "Conþinuturile diferã"
+
+#: src/compare.c:159 src/extract.c:748 src/incremen.c:497 src/list.c:233
+#: src/list.c:398 src/list.c:1244
+msgid "Unexpected EOF in archive"
+msgstr "EOF neaºteptat în arhivã"
+
+#: src/compare.c:213
+#, c-format
+msgid "Verify "
+msgstr "Verificã "
+
+#: src/compare.c:220
+#, c-format
+msgid "%s: Unknown file type '%c', diffed as normal file"
+msgstr ""
+"%s: Tip de fiºier necunoscut '%c', folosesc diff ca pentru un fiºier normal"
+
+#: src/compare.c:243 src/compare.c:365 src/compare.c:417 src/compare.c:444
+msgid "File type differs"
+msgstr "Tipul fiºierelor diferã"
+
+#: src/compare.c:250 src/compare.c:379 src/compare.c:423
+msgid "Mode differs"
+msgstr "Modurile diferã"
+
+#: src/compare.c:253
+msgid "Uid differs"
+msgstr "Uid diferã"
+
+#: src/compare.c:255
+msgid "Gid differs"
+msgstr "Gid diferã"
+
+#: src/compare.c:258
+msgid "Mod time differs"
+msgstr "Timp modificare diferã"
+
+#: src/compare.c:262 src/compare.c:452
+msgid "Size differs"
+msgstr "Dimensiunea diferã"
+
+#: src/compare.c:320
+#, fuzzy, c-format
+msgid "Not linked to %s"
+msgstr "Nu este link-at cãtre %s"
+
+#: src/compare.c:343
+msgid "Symlink differs"
+msgstr "Symlink diferã"
+
+#: src/compare.c:373
+msgid "Device number differs"
+msgstr "Numãr dispozitiv diferã"
+
+#: src/compare.c:564
+#, fuzzy, c-format
+msgid "VERIFY FAILURE: %d invalid header detected"
+msgid_plural "VERIFY FAILURE: %d invalid headers detected"
+msgstr[0] "VERIFICÃ EªEC: detectat %d header(e) invalid(e)"
+msgstr[1] "VERIFICÃ EªEC: detectat %d header(e) invalid(e)"
+
+#: src/create.c:145
+msgid "Generating negative octal headers"
+msgstr "Generez headere octale negative"
+
+#: src/create.c:196
+#, c-format
+msgid "value %s out of %s range %s..%s; substituting %s"
+msgstr "valoarea %s în afara %s intervalului %s..%s; înlocuiesc %s"
+
+#: src/create.c:202
+#, c-format
+msgid "value %s out of %s range %s..%s"
+msgstr "valoarea %s în afara %s intervalului %s..%s"
+
+#: src/create.c:462 src/create.c:525
+#, fuzzy, c-format
+msgid "%s: file name is too long (max %d); not dumped"
+msgstr "%s: fiºierul este neschimbat; nimic generat"
+
+#: src/create.c:472
+#, fuzzy, c-format
+msgid "%s: file name is too long (cannot be split); not dumped"
+msgstr "%s: fiºierul este neschimbat; nimic generat"
+
+#: src/create.c:499
+#, fuzzy, c-format
+msgid "%s: link name is too long; not dumped"
+msgstr "%s: fiºierul este neschimbat; nimic generat"
+
+#: src/create.c:865
+#, fuzzy, c-format
+msgid "%s: File shrank by %s byte; padding with zeros"
+msgid_plural "%s: File shrank by %s bytes; padding with zeros"
+msgstr[0] "%s: Fiºier scurtat cu %s octeþi; completat cu zerouri"
+msgstr[1] "%s: Fiºier scurtat cu %s octeþi; completat cu zerouri"
+
+#: src/create.c:891
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr "%s: fiºier schimbat în timp ce îl citeam"
+
+#: src/create.c:991
+#, c-format
+msgid "%s: file is on a different filesystem; not dumped"
+msgstr "%s: fiºierul este pe un sistem de fiºiere diferit; nimic generat"
+
+#: src/create.c:1151
+#, c-format
+msgid "%s: Unknown file type; file ignored"
+msgstr "%s: Tip de fiºier necunoscut; fiºier ignorat"
+
+#: src/create.c:1250
+#, fuzzy, c-format
+msgid "Missing links to '%s'.\n"
+msgstr " link cãtre %s\n"
+
+#: src/create.c:1313
+#, c-format
+msgid "%s: file is unchanged; not dumped"
+msgstr "%s: fiºierul este neschimbat; nimic generat"
+
+#: src/create.c:1322
+#, c-format
+msgid "%s: file is the archive; not dumped"
+msgstr "%s: fiºierul este în arhivã; nimic generat"
+
+#: src/create.c:1357
+#, c-format
+msgid "%s: File removed before we read it"
+msgstr "%s: Fiºier ºters înainte înainte de a-l putea citi"
+
+#: src/create.c:1450
+#, c-format
+msgid "%s: socket ignored"
+msgstr "%s: socket ignorat"
+
+#: src/create.c:1455
+#, fuzzy, c-format
+msgid "%s: door ignored"
+msgstr "%s: uºã ignoratã"
+
+#: src/delete.c:209 src/list.c:169 src/update.c:160
+msgid "This does not look like a tar archive"
+msgstr "Aceasta nu aratã a fi o arhivã tar"
+
+#: src/delete.c:215 src/list.c:183 src/update.c:165
+msgid "Skipping to next header"
+msgstr "Sãrim la urmãrul header"
+
+#: src/delete.c:280
+msgid "Deleting non-header from archive"
+msgstr "ªtergem non-header din arhivã"
+
+#: src/extract.c:195
+#, c-format
+msgid "%s: implausibly old time stamp %s"
+msgstr ""
+
+#: src/extract.c:198
+#, fuzzy, c-format
+msgid "%s: time stamp %s is %lu s in the future"
+msgstr "%s: înregistrare timp %s este %lu în viitor"
+
+#: src/extract.c:346
+#, c-format
+msgid "%s: Unexpected inconsistency when making directory"
+msgstr "%s: Inconsistenþã neaºteptatã când cream directorul"
+
+#: src/extract.c:463
+#, c-format
+msgid "Current `%s' is newer"
+msgstr ""
+
+#: src/extract.c:575
+#, c-format
+msgid "%s: Directory renamed before its status could be extracted"
+msgstr "%s: Director redenumit înainte de a fi putut extrage starea sa"
+
+#: src/extract.c:640
+#, fuzzy, c-format
+msgid "%s: Was unable to backup this file"
+msgstr "%s: Nu am putut backup acest fiºier"
+
+#: src/extract.c:707
+#, fuzzy
+msgid "Extracting contiguous files as regular files"
+msgstr "Extragem fiºiere contigue ca fiºiere normale"
+
+#: src/extract.c:894
+#, fuzzy
+msgid "Attempting extraction of symbolic links as hard links"
+msgstr "Încerc sã extragem link-uri simbolice ca link-uri hard"
+
+#: src/extract.c:1091
+#, c-format
+msgid "%s: Cannot extract -- file is continued from another volume"
+msgstr "%s: Nu pot extrage -- fiºierul este continuat din altã arhivã"
+
+#: src/extract.c:1100
+#, fuzzy
+msgid "Visible long name error"
+msgstr "Eroare nume lung vizibil"
+
+#: src/extract.c:1108
+#, c-format
+msgid "%s: Unknown file type '%c', extracted as normal file"
+msgstr "%s: Tip de fiºier necunoscut '%c', extras ca fiºier normal"
+
+#: src/extract.c:1193
+#, fuzzy
+msgid "Error is not recoverable: exiting now"
+msgstr "Nu-mi pot reveni din eroare: termin acum"
+
+#: src/incremen.c:193
+#, c-format
+msgid "%s: Directory has been renamed"
+msgstr "%s: Directorul a fost redenumit"
+
+#: src/incremen.c:205
+#, c-format
+msgid "%s: Directory is new"
+msgstr "%s: Directorul este nou"
+
+#: src/incremen.c:354
+#, fuzzy
+msgid "Invalid time stamp"
+msgstr "Înregistrare timp invalidã"
+
+#: src/incremen.c:357
+msgid "Time stamp out of range"
+msgstr "Înregistrare timp în afara domeniului"
+
+#: src/incremen.c:381
+msgid "Invalid device number"
+msgstr "Numãr dispozitiv invalid"
+
+#: src/incremen.c:385
+msgid "Device number out of range"
+msgstr "Numãr dispozitiv în afara intervalului"
+
+#: src/incremen.c:393
+msgid "Invalid inode number"
+msgstr "Numãr inode invalid"
+
+#: src/incremen.c:397
+msgid "Inode number out of range"
+msgstr "Numãr inode în afara intervalului"
+
+#: src/incremen.c:523
+#, c-format
+msgid "%s: Deleting %s\n"
+msgstr "%s: ªtergem %s\n"
+
+#: src/incremen.c:528
+#, c-format
+msgid "%s: Cannot remove"
+msgstr "%s: Nu pot ºterge"
+
+#: src/list.c:117
+#, c-format
+msgid "%s: Omitting"
+msgstr "%s: Omis"
+
+#: src/list.c:133
+#, c-format
+msgid "block %s: ** Block of NULs **\n"
+msgstr "bloc %s: ** Bloc de NUL-uri **\n"
+
+#: src/list.c:146
+#, c-format
+msgid "A lone zero block at %s"
+msgstr ""
+
+#: src/list.c:157
+#, c-format
+msgid "block %s: ** End of File **\n"
+msgstr "bloc %s: ** Sfârºir de fiºier **\n"
+
+#: src/list.c:180 src/list.c:994 src/list.c:1219
+#, c-format
+msgid "block %s: "
+msgstr "bloc %s: "
+
+#: src/list.c:625
+#, c-format
+msgid "Blanks in header where numeric %s value expected"
+msgstr "Spaþii libere în header unde valoare %s numericã aºteptatã"
+
+#: src/list.c:678
+#, c-format
+msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
+msgstr ""
+"Valoare octalã %.*s este în afara %s intervalului; presupunem complementul "
+"lui doi"
+
+#: src/list.c:688
+#, c-format
+msgid "Archive octal value %.*s is out of %s range"
+msgstr "Valoare octalã arhivã %.*s este în afara %s intervalului"
+
+#: src/list.c:704
+msgid "Archive contains obsolescent base-64 headers"
+msgstr "Arhiva conþine headere în baza-64 depãºite"
+
+#: src/list.c:717
+#, fuzzy, c-format
+msgid "Archive signed base-64 string %s is out of %s range"
+msgstr "ªir baza-64 %s este în afara %s intervalului"
+
+#: src/list.c:748
+#, c-format
+msgid "Archive base-256 value is out of %s range"
+msgstr "Valoare baza-256 a arhivei este în afara %s intervalului"
+
+#: src/list.c:775
+#, c-format
+msgid "Archive contains %.*s where numeric %s value expected"
+msgstr "Arhiva conþine %.*s unde valoare %s numericã aºteptatã"
+
+#: src/list.c:796
+#, fuzzy, c-format
+msgid "Archive value %s is out of %s range %s.%s"
+msgstr "Valoare arhivã %s este în afara %s intervalului %s..%s"
+
+#: src/list.c:1025
+#, fuzzy
+msgid "Visible longname error"
+msgstr "Eroare nume lung vizibilã"
+
+#: src/list.c:1150
+#, c-format
+msgid " link to %s\n"
+msgstr " link cãtre %s\n"
+
+#: src/list.c:1158
+#, c-format
+msgid " unknown file type %s\n"
+msgstr " tip fiºier necunoscut %s\n"
+
+#: src/list.c:1176
+#, c-format
+msgid "--Long Link--\n"
+msgstr ""
+
+#: src/list.c:1180
+#, c-format
+msgid "--Long Name--\n"
+msgstr ""
+
+#: src/list.c:1184
+#, c-format
+msgid "--Volume Header--\n"
+msgstr "--Header Volum--\n"
+
+#: src/list.c:1192
+#, c-format
+msgid "--Continued at byte %s--\n"
+msgstr "--Continuat la octet %s--\n"
+
+#: src/list.c:1196
+#, c-format
+msgid "--Mangled file names--\n"
+msgstr "--Amestecat numele foºierelor--\n"
+
+#: src/list.c:1224
+msgid "Creating directory:"
+msgstr "Creez director:"
+
+#: src/mangle.c:54
+msgid "Unexpected EOF in mangled names"
+msgstr "EOF neaºteptat în numele amestecate"
+
+#: src/mangle.c:90 src/misc.c:387 src/misc.c:405
+#, c-format
+msgid "%s: Cannot rename to %s"
+msgstr "%s: Nu pot redenumi ca %s"
+
+#: src/mangle.c:93
+#, c-format
+msgid "Renamed %s to %s"
+msgstr "Redenumit %s ca %s"
+
+#: src/mangle.c:110
+#, c-format
+msgid "%s: Cannot symlink to %s"
+msgstr "%s: Nu pot crea symlink cãtre %s"
+
+#: src/mangle.c:113
+#, c-format
+msgid "Symlinked %s to %s"
+msgstr "Creat symlink %s cãtre %s"
+
+#: src/mangle.c:117
+#, c-format
+msgid "Unknown demangling command %s"
+msgstr "Comanda de-amestecare necunoscutã %s"
+
+#: src/misc.c:378
+#, c-format
+msgid "Renaming %s to %s\n"
+msgstr "Redenumesc %s ca %s\n"
+
+#: src/misc.c:410
+#, c-format
+msgid "Renaming %s back to %s\n"
+msgstr "Redenumesc %s înapoi ca %s\n"
+
+#: src/misc.c:490
+msgid "Cannot save working directory"
+msgstr "Nu pot salva directorul în care lucrez"
+
+#: src/misc.c:496
+msgid "Cannot change working directory"
+msgstr "Nu pot schimba directorul în care lucrez"
+
+#: src/misc.c:540 src/misc.c:549
+#, c-format
+msgid "%s: Cannot %s"
+msgstr "%s: Nu pot %s"
+
+#: src/misc.c:558
+#, c-format
+msgid "%s: Warning: Cannot %s"
+msgstr "%s: Avertisment: Nu pot %s"
+
+#: src/misc.c:573
+#, c-format
+msgid "%s: Cannot change mode to %s"
+msgstr "%s: Nu pot schimba modul ca %s"
+
+#: src/misc.c:581
+#, c-format
+msgid "%s: Cannot change ownership to uid %lu, gid %lu"
+msgstr "%s: Nu pot schimba proprietatea cãtre uid %lu, gid %lu"
+
+#: src/misc.c:616
+#, c-format
+msgid "%s: Cannot hard link to %s"
+msgstr "%s: Nu pot crea hard link cãtre %s"
+
+#: src/misc.c:677 src/misc.c:718
+#, fuzzy, c-format
+msgid "%s: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Read error at byte %s, reading %lu bytes"
+msgstr[0] "%s: Eroare citire la octet %s, citind %lu octeþi"
+msgstr[1] "%s: Eroare citire la octet %s, citind %lu octeþi"
+
+#: src/misc.c:690
+#, fuzzy, c-format
+msgid "%s: Warning: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
+msgstr[0] "%s: Avertisment: Eroare citire la octet %s, citind %lu octeþi"
+msgstr[1] "%s: Avertisment: Eroare citire la octet %s, citind %lu octeþi"
+
+#: src/misc.c:778
+#, fuzzy, c-format
+msgid "%s: Cannot seek to %s"
+msgstr "%s: Nu pot seek cãtre %s"
+
+#: src/misc.c:794
+#, fuzzy, c-format
+msgid "%s: Warning: Cannot seek to %s"
+msgstr "%s: Avertisment: Nu pot seek cãtre %s"
+
+#: src/misc.c:812
+#, c-format
+msgid "%s: Cannot create symlink to %s"
+msgstr "%s: Nu pot crea symlink cãtre %s"
+
+#: src/misc.c:880
+#, fuzzy, c-format
+msgid "%s: Wrote only %lu of %lu byte"
+msgid_plural "%s: Wrote only %lu of %lu bytes"
+msgstr[0] "%s: Scris numai %lu din %lu octeþi"
+msgstr[1] "%s: Scris numai %lu din %lu octeþi"
+
+#: src/misc.c:906
+msgid "child process"
+msgstr "proces copil"
+
+#: src/misc.c:915
+msgid "interprocess channel"
+msgstr "canal între-procese"
+
+#: src/names.c:368 src/names.c:417 src/names.c:461
+msgid "Missing file name after -C"
+msgstr "Nume fiºier absent dupã -C"
+
+#: src/names.c:638 src/names.c:654
+#, c-format
+msgid "%s: Not found in archive"
+msgstr "%s: Nu a fost gãsit în arhivã"
+
+#: src/names.c:641
+#, fuzzy, c-format
+msgid "%s: Required occurrence not found in archive"
+msgstr "%s: Nu a fost gãsit în arhivã"
+
+#: src/names.c:1053
+#, fuzzy, c-format
+msgid "Removing leading `%s' from member names"
+msgstr "Eliminãm primul  `%.*s' din numele membrilor"
+
+#: src/names.c:1054
+#, fuzzy, c-format
+msgid "Removing leading `%s' from hard link targets"
+msgstr "Eliminãm primul  `%.*s' din numele membrilor"
+
+#: src/names.c:1067
+#, fuzzy
+msgid "Substituting `.' for empty member name"
+msgstr "Eliminãm primul  `%.*s' din numele membrilor"
+
+#: src/names.c:1068
+msgid "Substituting `.' for empty hard link target"
+msgstr ""
+
+#: src/rmt.c:144
+msgid "rmtd: Cannot allocate buffer space\n"
+msgstr "rmtd: Nu pot aloca spaþiu memorie intermediarã\n"
+
+#: src/rmt.c:146
+msgid "Cannot allocate buffer space"
+msgstr "Nu pot aloca spaþiu memorie intermediarã"
+
+#: src/rmt.c:256 src/tar.c:349
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Încercaþi `%s --help' pentru informaþii suplimentare.\n"
+
+#: src/rmt.c:260
+#, c-format
+msgid ""
+"Usage: %s [OPTION]\n"
+"Manipulate a tape drive, accepting commands from a remote process.\n"
+"\n"
+"  --version  Output version info.\n"
+"  --help  Output this help.\n"
+msgstr ""
+"Folosire: %s [OPÞIUNE]\n"
+"Manipulare drive bandã, acceptând comenzi de la un proces remote.\n"
+"\n"
+"  --version   Afiºeazã informaþii versiune.\n"
+"  --help      Afiºeazã acest mesaj.\n"
+
+#: src/rmt.c:267 src/tar.c:542
+#, fuzzy, c-format
+msgid ""
+"\n"
+"Report bugs to <%s>.\n"
+msgstr ""
+"\n"
+"Raportaþi bug-uri la <bug-tar@gnu.org>.\n"
+
+#: src/rmt.c:300 src/tar.c:1300
+msgid ""
+"This program comes with NO WARRANTY, to the extent permitted by law.\n"
+"You may redistribute it under the terms of the GNU General Public License;\n"
+"see the file named COPYING for details."
+msgstr ""
+"Acest program vine fãrã NICI O GARANÞIE, în conformitate cu sistemul legal.\n"
+"Îl puteþi redistribui conform termenilor Licenþei Publice Generale GNU;\n"
+"vedeþi fiºierul numit COPYING pentru detalii."
+
+#: src/rmt.c:399 src/rmt.c:519 src/rmt.c:529
+#, fuzzy
+msgid "Seek offset out of range"
+msgstr "Offset seek în afara domeniului"
+
+#: src/rmt.c:412
+msgid "Seek direction out of range"
+msgstr "Direcþie seek în afara domeniului"
+
+#: src/rmt.c:451
+msgid "rmtd: Premature eof\n"
+msgstr "rmtd: eof prematur\n"
+
+#: src/rmt.c:453
+msgid "Premature end of file"
+msgstr "Sfârºit de fiºier prematur"
+
+#: src/rmt.c:561
+#, c-format
+msgid "rmtd: Garbage command %c\n"
+msgstr "rmtd: Comandã gunoi %c\n"
+
+#: src/rmt.c:563
+msgid "Garbage command"
+msgstr "Comandã gunoi"
+
+#: src/rtapelib.c:292
+msgid "exec/tcp: Service not available"
+msgstr "exec/tcp: Serviciu indisponibil"
+
+#: src/rtapelib.c:296
+msgid "stdin"
+msgstr "stdin"
+
+#: src/rtapelib.c:299
+msgid "stdout"
+msgstr "stdout"
+
+#: src/rtapelib.c:506
+#, fuzzy
+msgid "Cannot execute remote shell"
+msgstr "Nu pot executa shell remote"
+
+#: src/tar.c:70
+#, c-format
+msgid "Options `-%s' and `-%s' both want standard input"
+msgstr "Opþiunile `-%s' ºi `-%s' vor amândouã intrarea standard"
+
+#: src/tar.c:141
+#, fuzzy, c-format
+msgid "%s: Invalid archive format"
+msgstr "%s: Grup invalid"
+
+#: src/tar.c:165
+msgid "GNU features wanted on incompatible archive format"
+msgstr "Capabilitãþi GNU cerute pentru un format de arhivã incompatibil"
+
+#: src/tar.c:353
+msgid ""
+"GNU `tar' saves many files together into a single tape or disk archive, and\n"
+"can restore individual files from the archive.\n"
+msgstr ""
+"GNU `tar' salveazã mai multe fiºiere împreunã pe o singurã bandã sau arhivã\n"
+"pe disc, ºi poate restaura fiºiere individuale din arhivã.\n"
+
+#: src/tar.c:357
+#, c-format
+msgid ""
+"\n"
+"Usage: %s [OPTION]... [FILE]...\n"
+"\n"
+"Examples:\n"
+"  %s -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
+"  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n"
+"  %s -xf archive.tar          # Extract all files from archive.tar.\n"
+msgstr ""
+"\n"
+"Folosire: %s [OPÞIUNE]... [FIªIER]...\n"
+"\n"
+"Exemple:\n"
+"  %s -cf arhivã.tar foo bar  # Creazã arhivã.tar din fiºierele foo ºi bar.\n"
+"  %s -tvf arhivã.tar         # Enumerã amãnunþit toate fiºierele din arhivã."
+"tar.\n"
+"  %s -xf arhivã.tar          # Extrage toate fiºierele din arhivã.tar.\n"
+
+#: src/tar.c:364
+msgid ""
+"\n"
+"If a long option shows an argument as mandatory, then it is mandatory\n"
+"for the equivalent short option also.  Similarly for optional arguments.\n"
+msgstr ""
+"\n"
+"Dacã o opþiune lungã aratã un argument ca necesar, atunci el este necesar\n"
+"ºi pentru opþiunea scurtã echivalentã. Similar pentru argumentele "
+"opþionale.\n"
+
+#: src/tar.c:369
+msgid ""
+"\n"
+"Main operation mode:\n"
+"  -t, --list              list the contents of an archive\n"
+"  -x, --extract, --get    extract files from an archive\n"
+"  -c, --create            create a new archive\n"
+"  -d, --diff, --compare   find differences between archive and file system\n"
+"  -r, --append            append files to the end of an archive\n"
+"  -u, --update            only append files newer than copy in archive\n"
+"  -A, --catenate          append tar files to an archive\n"
+"      --concatenate       same as -A\n"
+"      --delete            delete from the archive (not on mag tapes!)\n"
+msgstr ""
+"\n"
+"Modul de operare principal:\n"
+"  -t, --list             enumerã conþinutul unei arhive\n"
+"  -x, --extract, --get   extrage fiºiere dintr-o arhivã\n"
+"  -c, --create           creazã o arhivã nouã\n"
+"  -d, --diff, --compare  gãseºte diferenþele dintre arhivã ºi sistemul de "
+"fiºiere\n"
+"  -r, --append           adaugã fiºiere la sfârºitul unei arhive\n"
+"  -u, --update           adaugã numai fiºiere mai noi decât copia din "
+"arhivã\n"
+"  -A, --catenate         adaugã fiºiere tar la o arhivã\n"
+"      --concatenate      acelaºi lucru ca ºi -A\n"
+"      --delete           ºterge din arhivã (nu pe benzi magnetice!)\n"
+
+#: src/tar.c:382
+#, fuzzy
+msgid ""
+"\n"
+"Operation modifiers:\n"
+"  -W, --verify               attempt to verify the archive after writing it\n"
+"      --remove-files         remove files after adding them to the archive\n"
+"  -k, --keep-old-files       don't replace existing files when extracting\n"
+"      --keep-newer-files     don't replace existing files that are newer\n"
+"                             than their archive copies\n"
+"      --overwrite            overwrite existing files when extracting\n"
+"      --no-overwrite-dir     preserve metadata of existing directories\n"
+"  -U, --unlink-first         remove each file prior to extracting over it\n"
+"      --recursive-unlink     empty hierarchies prior to extracting "
+"directory\n"
+"  -S, --sparse               handle sparse files efficiently\n"
+"  -O, --to-stdout            extract files to standard output\n"
+"  -G, --incremental          handle old GNU-format incremental backup\n"
+"  -g, --listed-incremental=FILE\n"
+"                             handle new GNU-format incremental backup\n"
+"      --ignore-failed-read   do not exit with nonzero on unreadable files\n"
+"      --occurrence[=NUM]     process only the NUMth occurrence of each file "
+"in\n"
+"                             the archive. This option is valid only in\n"
+"                             conjunction with one of the subcommands --"
+"delete,\n"
+"                             --diff, --extract or --list and when a list of\n"
+"                             files is given either on the command line or\n"
+"                             via -T option.\n"
+"                             NUM defaults to 1.\n"
+msgstr ""
+"\n"
+"  -W, --verificã             încearcã sã verifici arhiva dupã ce e scrisã\n"
+"      --remove-files         ºterge fiºierele dupã ce e adaugatã la arhivã\n"
+"  -k, --keep-old-files       nu înlocui fiºierele existente la extragere\n"
+"      --overwrite            scrie peste fiºierele existente la extragere\n"
+"      --overwrite-dir        scrie peste metadata directoarelor la "
+"extragere\n"
+"  -U, --unlink-first         ºterge fiecare fiºier înainte de a extrage "
+"peste el\n"
+"      --recursive-unlink     curãþã ierarhiile înainte de a extrage "
+"directorul\n"
+"  -G, --incremental          manipuleazã vechiul format GNU pentru backup "
+"incremental\n"
+"  -g, --listed-incremental=FILE\n"
+"                             manipuleazã noul format GNU pentru backup "
+"incremental\n"
+"      --ignore-failed-read   nu ieºii cu non-zero la fiºiere ce nu pot fi "
+"citite\n"
+
+#: src/tar.c:408
+msgid ""
+"\n"
+"Handling of file attributes:\n"
+"      --owner=NAME             force NAME as owner for added files\n"
+"      --group=NAME             force NAME as group for added files\n"
+"      --mode=CHANGES           force (symbolic) mode CHANGES for added "
+"files\n"
+"      --atime-preserve         don't change access times on dumped files\n"
+"  -m, --modification-time      don't extract file modified time\n"
+"      --same-owner             try extracting files with the same ownership\n"
+"      --no-same-owner          extract files as yourself\n"
+"      --numeric-owner          always use numbers for user/group names\n"
+"  -p, --same-permissions       extract permissions information\n"
+"      --no-same-permissions    do not extract permissions information\n"
+"      --preserve-permissions   same as -p\n"
+"  -s, --same-order             sort names to extract to match archive\n"
+"      --preserve-order         same as -s\n"
+"      --preserve               same as both -p and -s\n"
+msgstr ""
+"\n"
+"Handling of file attributes:\n"
+"      --owner=NUME             foreazã NUME ca proprietar pentru fiºierele "
+"adãugate\n"
+"      --group=NUME             forþeazã NUME ca grup pentru fiºierele "
+"adãugate\n"
+"      --mode=SCHIMBÃRI         forþeazã modul SCHIMBÃRI pentru fiºierele "
+"adãugate\n"
+"      --atime-preserve         nu schimba timpul de acces pentru fiºierele "
+"generate\n"
+"  -m, --modification-time      nu extrage timpul modificãrii fiºierelor\n"
+"      --same-owner             încearcã sã extragi fiºierele cu acelaºi "
+"proprietar\n"
+"      --no-same-owner          extrage fiºierele ca tine însuþi\n"
+"      --numeric-owner          întotdeauna foloseºte numere pentru "
+"numeleutilizatorului/grupului\n"
+"  -p, --same-permissions       extrage informaþia despre permisiuni\n"
+"      --no-same-permissions    nu extrage informaþia despre permisiuni\n"
+"      --preserve-permissions   aceeaºi opþiune ca ºi -p\n"
+"  -s, --same-order             sorteazã numele de extras pentru a se potrivi "
+"cu arhiva\n"
+"      --preserve-order         aceeaºi opþiune ca ºi -s\n"
+"      --preserve               aceeaºi opþiune ca ºi -p ºi -s\n"
+
+#: src/tar.c:426
+#, fuzzy
+msgid ""
+"\n"
+"Device selection and switching:\n"
+"  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
+"      --force-local              archive file is local even if has a colon\n"
+"      --rmt-command=COMMAND      use given rmt COMMAND instead of /etc/rmt\n"
+"      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
+"  -[0-7][lmh]                    specify drive and density\n"
+"  -M, --multi-volume             create/list/extract multi-volume archive\n"
+"  -L, --tape-length=NUM          change tape after writing NUM x 1024 bytes\n"
+"  -F, --info-script=FILE         run script at end of each tape (implies -"
+"M)\n"
+"      --new-volume-script=FILE   same as -F FILE\n"
+"      --volno-file=FILE          use/update the volume number in FILE\n"
+msgstr ""
+"\n"
+"Device selection and switching:\n"
+"  -f, --file=ARHIVÃ              foloseºte fiºier arhivã sau dispozitiv "
+"ARCHIVE\n"
+"      --force-local              fiºier arhivã este local chiar dacã are "
+"un :\n"
+"      --rsh-command=COMANDÃ      foloseºte COMANDÃ remote în loc de rsh\n"
+"  -[0-7][lmh]                    specificã unitate ºi densitate\n"
+"  -M, --multi-volume             creazã/listeazã/extrage arhivã pe mai multe "
+"volume\n"
+"  -L, --tape-length=NUM          schimbã banda dupã scrierea a NUM x 1024 "
+"octeþi\n"
+"  -F, --info-script=FIªIER       executã script la sfârºitul fiecãrei benzi "
+"(implicã - M)\n"
+"      --new-volume-script=FIªIER aceeaºi opþiune ca ºi -F FIªIER\n"
+"      --volno-file=FIªIER        foloseºte/actualizeazã numãrul volumului în "
+"FIªIER\n"
+
+#: src/tar.c:440
+msgid ""
+"\n"
+"Device blocking:\n"
+"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
+"      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
+"  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
+"EOF)\n"
+"  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
+msgstr ""
+"\n"
+"Blocare dispozitiv:\n"
+"  -b, --blocking-factor=BLOCURI  BLOCURI de 512 octeþi pe înregistrare\n"
+"      --record-size=NUM          NUM octeþi pe înregistrare, multiplu de "
+"512\n"
+"  -i, --ignore-zeros             ignorã blocuri setate la zero în archivã "
+"(înseamnã EOF)\n"
+"  -B, --read-full-records        re-bloc pe mãsurã ce citeºte (pentru pipe-"
+"uri 4.2BSD)\n"
+
+#: src/tar.c:448
+msgid ""
+"\n"
+"Archive format selection:\n"
+"      --format=FMTNAME               create archive of the given format.\n"
+"                                     FMTNAME is one of the following:\n"
+"                                     v7        old V7 tar format\n"
+"                                     oldgnu    GNU format as per tar <= "
+"1.12\n"
+"                                     gnu       GNU tar 1.13 format\n"
+"                                     ustar     POSIX 1003.1-1988 (ustar) "
+"format\n"
+"                                     posix     POSIX 1003.1-2001 (pax) "
+"format\n"
+"      --old-archive, --portability   same as --format=v7\n"
+"      --posix                        same as --format=posix\n"
+"  --pax-option keyword[[:]=value][,keyword[[:]=value], ...]\n"
+"                                     control pax keywords\n"
+"  -V, --label=NAME                   create archive with volume name NAME\n"
+"              PATTERN                at list/extract time, a globbing "
+"PATTERN\n"
+"  -j, --bzip2                        filter the archive through bzip2\n"
+"  -z, --gzip, --ungzip               filter the archive through gzip\n"
+"  -Z, --compress, --uncompress       filter the archive through compress\n"
+"      --use-compress-program=PROG    filter through PROG (must accept -d)\n"
+msgstr ""
+
+#: src/tar.c:469
+#, fuzzy
+msgid ""
+"\n"
+"Local file selection:\n"
+"  -C, --directory=DIR          change to directory DIR\n"
+"  -T, --files-from=NAME        get names to extract or create from file "
+"NAME\n"
+"      --null                   -T reads null-terminated names, disable -C\n"
+"      --exclude=PATTERN        exclude files, given as a PATTERN\n"
+"  -X, --exclude-from=FILE      exclude patterns listed in FILE\n"
+"      --anchored               exclude patterns match file name start "
+"(default)\n"
+"      --no-anchored            exclude patterns match after any /\n"
+"      --ignore-case            exclusion ignores case\n"
+"      --no-ignore-case         exclusion is case sensitive (default)\n"
+"      --wildcards              exclude patterns use wildcards (default)\n"
+"      --no-wildcards           exclude patterns are plain strings\n"
+"      --wildcards-match-slash  exclude pattern wildcards match "
+"'/' (default)\n"
+"      --no-wildcards-match-slash exclude pattern wildcards do not match '/'\n"
+"  -P, --absolute-names         don't strip leading `/'s from file names\n"
+"  -h, --dereference            dump instead the files symlinks point to\n"
+"      --no-recursion           avoid descending automatically in "
+"directories\n"
+"  -l, --one-file-system        stay in local file system when creating "
+"archive\n"
+"  -K, --starting-file=NAME     begin at file NAME in the archive\n"
+"      --strip-path=NUM         strip NUM leading components from file names\n"
+"                               before extraction\n"
+msgstr ""
+"\n"
+"Selecþie fiºier local:\n"
+"  -C, --directory=DIR          schimbã în directorul DIR\n"
+"  -T, --files-from=NUME        obþine numele de extras sau creazã din "
+"fiºierul NUME\n"
+"      --null                   -T citeºte nume terminate în null, "
+"dezactiveazã -C\n"
+"      --exclude=PATTERN        exclude fiºierele, date ca un PATTERN\n"
+"  -X, --exclude-from=FIªIER    exclude pattern-urile listate în FIªIER\n"
+"      --anchored               exclude pattern match file name start "
+"(default)\n"
+"      --no-anchored            exclude patterns match after any /\n"
+"      --ignore-case            exclusion ignores case\n"
+"      --no-ignore-case         exclusion is case sensitive (default)\n"
+"      --wildcards              exclude patterns use wildcards (default)\n"
+"      --no-wildcards           exclude patterns sunt ºiruri ordinare\n"
+"      --wildcards-match-slash  exclude pattern wildcards match "
+"'/' (default)\n"
+"      --no-wildcards-match-slash exclude pattern wildcards do not match '/'\n"
+"  -P, --absolute-names         nu elimina primul `/' din numele fiºierelor\n"
+"  -h, --dereference            dump instead the files symlinks point to\n"
+"      --no-recursion           evitã sã descenzi automatic în directoare\n"
+"  -l, --one-file-system        rãmâi în sistemul de fiºiere local când creez "
+"arhiva\n"
+"  -K, --starting-file=NUME     începe la fiºierul NUME în arhivã\n"
+
+#: src/tar.c:494
+#, fuzzy
+msgid ""
+"  -N, --newer=DATE-OR-FILE     only store files newer than DATE-OR-FILE\n"
+"      --newer-mtime=DATE       compare date and time when data changed only\n"
+"      --after-date=DATE        same as -N\n"
+msgstr ""
+"  -N, --newer=DATA             stocheazã numai fiºierele mai noi decât DATA\n"
+"      --newer-mtime=DATA       comparã data ºi timpul numai când conþinutul "
+"s-a schimbat\n"
+"      --after-date=DATA        aceeaºi opþiune ca ºi -N\n"
+
+#: src/tar.c:500
+msgid ""
+"      --backup[=CONTROL]       backup before removal, choose version "
+"control\n"
+"      --suffix=SUFFIX          backup before removal, override usual suffix\n"
+msgstr ""
+"      --backup[=CONTROL]       backup înainte de a ºterge, alege controlul "
+"versiunii\n"
+"      --suffix=SUFIX           backup înainte de a ºterge, ignorã prefixul "
+"uzual\n"
+
+#: src/tar.c:504
+#, fuzzy
+msgid ""
+"\n"
+"Informative output:\n"
+"      --help            print this help, then exit\n"
+"      --version         print tar program version number, then exit\n"
+"  -v, --verbose         verbosely list files processed\n"
+"      --checkpoint      print directory names while reading the archive\n"
+"      --check-links     print a message if not all links are dumped\n"
+"      --totals          print total bytes written while creating archive\n"
+"      --index-file=FILE send verbose output to FILE\n"
+"      --utc             print file modification dates in UTC\n"
+"  -R, --block-number    show block number within archive with each message\n"
+"  -w, --interactive     ask for confirmation for every action\n"
+"      --confirmation    same as -w\n"
+msgstr ""
+"\n"
+"Mesaj Informativ:\n"
+"      --help            afiºeazã acest mesaj, apoi terminã\n"
+"      --version         afiºeazã numãrul versiunii programului tar, apoi "
+"terminã\n"
+"  -v, --verbose         listeazã în detaliu fiºierele procesate\n"
+"      --checkpoint      afiºeazã numele directoarelor în timpul citirii "
+"arhivei\n"
+"      --totals          afiºeazã numãrul total de octeþi scris în timp ce "
+"arhiva este creatã\n"
+"  -R, --block-number    aratã numãrul blocului în arhivã la fiecare mesaj\n"
+"  -w, --interactive     cere confirmare pentru fiecare acþiune\n"
+"      --confirmation    aceeaºi opþiune ca ºi -w\n"
+
+#: src/tar.c:519
+msgid ""
+"\n"
+"Compatibility options:\n"
+"  -o                                 when creating, same as --old-archive\n"
+"                                     when extracting, same as --no-same-"
+"owner\n"
+msgstr ""
+
+#: src/tar.c:526
+msgid ""
+"\n"
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+"The version control may be set with --backup or VERSION_CONTROL, values "
+"are:\n"
+"\n"
+"  t, numbered     make numbered backups\n"
+"  nil, existing   numbered if numbered backups exist, simple otherwise\n"
+"  never, simple   always make simple backups\n"
+msgstr ""
+"\n"
+"Sufixul pentru backup este `~', dacã nu este setat cu --suffix sau "
+"SIMPLE_BACKUP_SUFFIX.\n"
+"Versiunea de control poate fi setatã cu --backup sau VERSION_CONTROL, "
+"valorile permise sunt:\n"
+"\n"
+"  t, numbered     creazã backup numerotat\n"
+"  nil, existing   numeroteazã dacã existã backup numerotat, altfel simplu\n"
+"  never, simple   întotdeauna creazã backup simplu\n"
+
+#: src/tar.c:535
+#, fuzzy, c-format
+msgid ""
+"\n"
+"ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual "
+"date\n"
+"or a file name starting with `/' or `.', in which case the file's date is "
+"used.\n"
+"*This* `tar' defaults to `--format=%s -f%s -b%d'.\n"
+msgstr ""
+"\n"
+"GNU tar nu poate citi sau produce arhive `--posix'. Dacã POSIXLY_CORRECT\n"
+"este setat în variabilele de mediu, extensiile GNU sunt interzise cu `--"
+"posix'.\n"
+"Suport pentru POSIX este numai parþial implementatã, nu contaþi încã pe el.\n"
+"ARHIVA poate fi FIªIER, HOST:FIªIER sau UTILIZATOR@HOST:FIªIER; DATA poate\n"
+"fi o datã textualã sau un nume de fiºier ce începe cu `/' sau `.', caz în\n"
+"care data fiºierului este folositã.\n"
+"*Acest* `tar' foloseºte implicit opþiunile `-f%s -b%d'.\n"
+
+#: src/tar.c:568
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr "Nu puteþi specifica mai mult de una dintre opþiunile `-Acdtrux'"
+
+#: src/tar.c:577
+msgid "Conflicting compression options"
+msgstr "Opþiunile de compresie sunt în conflict"
+
+#: src/tar.c:649
+#, c-format
+msgid "Old option `%c' requires an argument."
+msgstr "Vechea opþiune `%c' necesitã un argument."
+
+#: src/tar.c:702
+#, fuzzy
+msgid "Invalid blocking factor"
+msgstr "Factor de bloc invalid"
+
+#: src/tar.c:777
+msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
+msgstr "Avertisment: opþiunea -I nu este suportatã; aþi dorit cumva -j sau -T?"
+
+#: src/tar.c:807
+msgid "Invalid tape length"
+msgstr "Lungime de bandã invalidã"
+
+#: src/tar.c:831
+msgid "More than one threshold date"
+msgstr "Mai mult de o singurã datã limitã"
+
+#: src/tar.c:841
+msgid "Date file not found"
+msgstr "Fiºier datã nu a fost gãsit"
+
+#: src/tar.c:850
+#, c-format
+msgid "Substituting %s for unknown date format %s"
+msgstr "Înlocuim %s pentru format de datã necunoscut %s"
+
+#: src/tar.c:955
+msgid "Warning: the -y option is not supported; perhaps you meant -j?"
+msgstr "Avertisment: opþiunea -y nu este suportatã, aþi dorit cumva -j?"
+
+#: src/tar.c:1027
+#, c-format
+msgid "%s: Invalid group"
+msgstr "%s: Grup invalid"
+
+#: src/tar.c:1036
+msgid "Invalid mode given on option"
+msgstr "Mod invalid furnizat ca opþiune"
+
+#: src/tar.c:1079
+#, fuzzy
+msgid "Invalid number"
+msgstr "Numãr inode invalid"
+
+#: src/tar.c:1097
+msgid "Invalid owner"
+msgstr "Proprietar invalid"
+
+#: src/tar.c:1121
+msgid "Invalid record size"
+msgstr "Dimensiune înregistrare invalidã"
+
+#: src/tar.c:1124
+#, c-format
+msgid "Record size must be a multiple of %d."
+msgstr "Dimensiune înregistrare trebuie sã fie un multiplu de %d."
+
+#: src/tar.c:1158
+#, fuzzy
+msgid "Invalid number of elements"
+msgstr "Lungime de bandã invalidã"
+
+#: src/tar.c:1259
+msgid "Options `-[0-7][lmh]' not supported by *this* tar"
+msgstr "Opþiunile `-[0-7][lmh]' nu sunt suportate de *acest* tar"
+
+#: src/tar.c:1305
+msgid "Written by John Gilmore and Jay Fenlason."
+msgstr "Scris de John Gilmore ºi Jay Fenlason."
+
+#: src/tar.c:1340
+msgid "--occurrence is meaningless without a file list"
+msgstr ""
+
+#: src/tar.c:1346
+msgid "--occurrence cannot be used in the requested operation mode"
+msgstr ""
+
+#: src/tar.c:1364
+#, fuzzy
+msgid "Multiple archive files require `-M' option"
+msgstr "Fiºiere de arhivã multiple necesitã opþiunea `-M'"
+
+#: src/tar.c:1369
+msgid "Cannot combine --listed-incremental with --newer"
+msgstr "Nu puteþi combina --listed-incremental cu --newer"
+
+#: src/tar.c:1384
+#, fuzzy, c-format
+msgid "%s: Volume label is too long (limit is %lu byte)"
+msgid_plural "%s: Volume label is too long (limit is %lu bytes)"
+msgstr[0] "%s: Eticheta volumului este prea lungã (limita este %lu bytes)"
+msgstr[1] "%s: Eticheta volumului este prea lungã (limita este %lu bytes)"
+
+#: src/tar.c:1394
+msgid "Cannot verify multi-volume archives"
+msgstr "Nu pot verifica arhive pe volume multiple"
+
+#: src/tar.c:1396
+msgid "Cannot verify compressed archives"
+msgstr "Nu pot verifica arhive comprimate"
+
+#: src/tar.c:1402
+msgid "Cannot use multi-volume compressed archives"
+msgstr "Nu pot folosi arhive comprimate pe volume multiple"
+
+#: src/tar.c:1404
+msgid "Cannot update compressed archives"
+msgstr "Nu pot actualiza arhive comprimate"
+
+#: src/tar.c:1416
+msgid "--pax-option can be used only on POSIX archives"
+msgstr ""
+
+#: src/tar.c:1436
+msgid "Cowardly refusing to create an empty archive"
+msgstr "Refuz categoric sã creez o arhivã goalã"
+
+#: src/tar.c:1457
+msgid "Options `-Aru' are incompatible with `-f -'"
+msgstr "Opþiunile `-Aru' sunt incompatibile cu `-f -'"
+
+#: src/tar.c:1479
+#, c-format
+msgid "Treating date `%s' as %s + %ld nanoseconds"
+msgstr ""
+
+#: src/tar.c:1532
+msgid "You must specify one of the `-Acdtrux' options"
+msgstr "Trebuie sã specificaþi una din opþiunile `-Acdtrux'"
+
+#: src/tar.c:1584
+msgid "Error in writing to standard output"
+msgstr "Eroare de scriere la ieºirea standard"
+
+#: src/tar.c:1586
+msgid "Error exit delayed from previous errors"
+msgstr "Terminare cauzatã de eroare întârziatã de erori precedente"
+
+#: src/update.c:86
+#, fuzzy, c-format
+msgid "%s: File shrank by %s byte"
+msgid_plural "%s: File shrank by %s bytes"
+msgstr[0] "%s: Fiºier scurtat cu %s octeþi"
+msgstr[1] "%s: Fiºier scurtat cu %s octeþi"
+
+#: src/xheader.c:140
+#, c-format
+msgid "Keyword %s is unknown or not yet imlemented"
+msgstr ""
+
+#: src/xheader.c:166
+#, c-format
+msgid "Pattern %s cannot be used"
+msgstr ""
+
+#: src/xheader.c:176
+#, c-format
+msgid "Keyword %s cannot be overridden"
+msgstr ""
+
+#: src/xheader.c:490
+msgid "Malformed extended header: missing whitespace after the length"
+msgstr ""
+
+#: src/xheader.c:501
+msgid "Malformed extended header: missing equal sign"
+msgstr ""
+
+#~ msgid "Cannot close"
+#~ msgstr "Nu pot închide"
+
+#~ msgid "Cannot dup"
+#~ msgstr "Nu pot duplica"
+
+#, fuzzy
+#~ msgid "Cannot use compressed or remote archives"
+#~ msgstr "Nu pot folosi arhive comprimate sau remote"
+
+#~ msgid "tar (child)"
+#~ msgstr "tar (copil)"
+
+#~ msgid "tar (grandchild)"
+#~ msgstr "tar (nepot)"
+
+#~ msgid "Child died with signal %d"
+#~ msgstr "Copilul a murit cu semnalul %d"
+
+#~ msgid "Child returned status %d"
+#~ msgstr "Copilul a returnat starea %d"
+
+#~ msgid "Member names contain `..'"
+#~ msgstr "Numele membriilor conþin `..'"
+
+#~ msgid "%s: Member name contains `..'"
+#~ msgstr "%s: Nume menbru conþine `..'"
+
+#~ msgid ""
+#~ "\n"
+#~ "Archive format selection:\n"
+#~ "  -V, --label=NAME                   create archive with volume name "
+#~ "NAME\n"
+#~ "              PATTERN                at list/extract time, a globbing "
+#~ "PATTERN\n"
+#~ "  -o, --old-archive, --portability   write a V7 format archive\n"
+#~ "      --posix                        write a POSIX format archive\n"
+#~ "  -j, --bzip2                        filter the archive through bzip2\n"
+#~ "  -z, --gzip, --ungzip               filter the archive through gzip\n"
+#~ "  -Z, --compress, --uncompress       filter the archive through compress\n"
+#~ "      --use-compress-program=PROG    filter through PROG (must accept -"
+#~ "d)\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Selecþie format arhivã:\n"
+#~ "  -V, --label=NUME                   creazã arhivã cu NUME volum\n"
+#~ "              PATTERN                la momentul listãrii/extracþiei, un "
+#~ "PATTERN global\n"
+#~ "  -o, --old-archive, --portability   scrie o arhivã cu format V7\n"
+#~ "      --posix                        scrie o arhivã cu format POSIX\n"
+#~ "  -j, --bzip2                        filtreazã arhivã prin bzip2\n"
+#~ "  -z, --gzip, --ungzip               filtreazã arhivã prin gzip\n"
+#~ "  -Z, --compress, --uncompress       filtreazã arhivã prin compress\n"
+#~ "      --use-compress-program=PROG    filtreazã arhivã prin PROG (trebuie "
+#~ "sã accepte -d)\n"
+
+#~ msgid "Obsolete option name replaced by --blocking-factor"
+#~ msgstr "Nume de opþiune învechit înlocuit cu --blocking-factor"
+
+#~ msgid "Obsolete option name replaced by --read-full-records"
+#~ msgstr "Nume de opþiune învechit înlocuit cu --read-full-records"
+
+#~ msgid "Obsolete option name replaced by --touch"
+#~ msgstr "Nume de opþiune învechit înlocuit cu --touch"
+
+#~ msgid "Conflicting archive format options"
+#~ msgstr "Opþiuni conflictuale pentru formatul arhivei"
+
+#~ msgid "Obsolete option name replaced by --absolute-names"
+#~ msgstr "Nume de opþiune învechit înlocuit cu --absolute-names"
+
+#~ msgid "Obsolete option name replaced by --block-number"
+#~ msgstr "Nume de opþiune învechit înlocuit cu --block-number"
+
+#~ msgid "Obsolete option name replaced by --backup"
+#~ msgstr "Nume de opþiune învechit înlocuit cu --backup"
+
+#~ msgid "Generate data files for GNU tar test suite.\n"
+#~ msgstr "Genereazã fiºiere de date pentru suita de testat GNU tar.\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Usage: %s [OPTION]...\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Folosire: %s [OPÞIUNE]...\n"
+
+#~ msgid ""
+#~ "If a long option shows an argument as mandatory, then it is mandatory\n"
+#~ "for the equivalent short option also.\n"
+#~ "\n"
+#~ "  -l, --file-length=LENGTH   LENGTH of generated file\n"
+#~ "  -p, --pattern=PATTERN      PATTERN is `default' or `zeros'\n"
+#~ "      --help                 display this help and exit\n"
+#~ "      --version              output version information and exit\n"
+#~ msgstr ""
+#~ "Dacã o opþiune lungã aratã un argument ca necesar, atunci el este "
+#~ "necesar\n"
+#~ "deasemenea ºi pentru opþiunea scurtã corespunzãtoare.\n"
+#~ "\n"
+#~ "  -l, --file-length=LUNGIME  LUNGIMEa fiºierului generat\n"
+#~ "  -p, --pattern=PATTERN      PATTERN este `default' sau `zeros'\n"
+#~ "      --help                 afiºeazã acest mesaj ºi terminã\n"
+#~ "      --version              afiºeazã informaþii despre versiune ºi "
+#~ "terminã\n"
+
+#~ msgid "Written by F. Pinard."
+#~ msgstr "Scris de F. Pinard."

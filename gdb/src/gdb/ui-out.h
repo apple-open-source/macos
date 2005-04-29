@@ -27,7 +27,7 @@
 
 struct ui_out;
 struct ui_out_data;
-
+struct ui_file;
 
 /* the current ui_out */
 
@@ -88,34 +88,20 @@ extern struct cleanup *ui_out_begin_cleanup_end (struct ui_out *uiout,
    implied structure: ``table = { hdr = { header, ... } , body = [ {
    field, ... }, ... ] }''. If NR_ROWS is negative then there is at
    least one row. */
-
-extern void ui_out_table_begin (struct ui_out *uiout, int nbrofcols,
-				int nr_rows, const char *tblid);
-
 extern void ui_out_table_header (struct ui_out *uiout, int width,
 				 enum ui_align align, const char *col_name,
 				 const char *colhdr);
 
 extern void ui_out_table_body (struct ui_out *uiout);
 
-extern void ui_out_table_end (struct ui_out *uiout);
-
-extern struct cleanup *make_cleanup_ui_out_table_begin_end (struct ui_out *uiout,
-							int nbrofcols,
-							int nr_rows,
-							const char *tblid);
-
+extern struct cleanup *make_cleanup_ui_out_table_begin_end (struct ui_out *ui_out,
+                                                            int nr_cols,
+                                                           int nr_rows,
+                                                           const char *tblid);
 /* Compatibility wrappers.  */
-
-extern void ui_out_list_begin (struct ui_out *uiout, const char *id);
-
-extern void ui_out_list_end (struct ui_out *uiout);
 
 extern struct cleanup *make_cleanup_ui_out_list_begin_end (struct ui_out *uiout,
 							   const char *id);
-extern void ui_out_tuple_begin (struct ui_out *uiout, const char *id);
-
-extern void ui_out_tuple_end (struct ui_out *uiout);
 
 extern struct cleanup *make_cleanup_ui_out_tuple_begin_end (struct ui_out *uiout,
 							    const char *id);
@@ -175,10 +161,6 @@ extern void ui_out_cleanup_after_error (struct ui_out *uiout);
 struct cleanup *
 make_cleanup_ui_out_notify_begin_end (struct ui_out *uiout,
 				      char *class);
-
-extern void ui_out_notify_begin (struct ui_out *uiout, char *class);
-
-extern void ui_out_notify_end (struct ui_out *uiout);
 
 #if 0
 extern void ui_out_result_begin (struct ui_out *uiout, char *class);
@@ -247,13 +229,15 @@ typedef void (field_fmt_ftype) (struct ui_out * uiout, int fldno, int width,
 				const char *format,
 				va_list args);
 typedef void (spaces_ftype) (struct ui_out * uiout, int numspaces);
-typedef void (text_fmt_ftype) (struct ui_out * uiout, char *format, va_list args);
+typedef void (text_fmt_ftype) (struct ui_out * uiout, const char *format, va_list args);
 typedef void (text_ftype) (struct ui_out * uiout,
 			   const char *string);
 typedef void (message_ftype) (struct ui_out * uiout, int verbosity,
 			      const char *format, va_list args);
-typedef void (wrap_hint_ftype) (struct ui_out * uiout, char *identstring);
+typedef void (wrap_hint_ftype) (struct ui_out * uiout, const char *identstring);
 typedef void (flush_ftype) (struct ui_out * uiout);
+typedef int (redirect_ftype) (struct ui_out * uiout,
+			      struct ui_file * outstream);
 typedef void (notify_begin_ftype) (struct ui_out *uiout, char *class);
 typedef void (notify_end_ftype) (struct ui_out *uiout);
 
@@ -280,6 +264,7 @@ struct ui_out_impl
     message_ftype *message;
     wrap_hint_ftype *wrap_hint;
     flush_ftype *flush;
+    redirect_ftype *redirect;
     notify_begin_ftype *notify_begin;
     notify_end_ftype *notify_end;
     int is_mi_like_p;
@@ -293,5 +278,11 @@ extern struct ui_out_data *ui_out_data (struct ui_out *uiout);
 extern struct ui_out *ui_out_new (struct ui_out_impl *impl,
 				  struct ui_out_data *data,
 				  int flags);
+
+/* Redirect the ouptut of a ui_out object temporarily.  */
+
+extern int ui_out_redirect (struct ui_out *uiout, struct ui_file *outstream);
+
+void ui_out_delete (struct ui_out *uiout);
 
 #endif /* UI_OUT_H */

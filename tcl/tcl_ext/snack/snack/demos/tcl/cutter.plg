@@ -1,0 +1,68 @@
+# -*-Mode:Tcl-*-
+
+namespace eval cutter_v1 {
+    variable basename
+    variable number
+
+    lappend ::v(plugins) ::cutter_v1
+    snack::menuCommand Tools {Sound Cutter} ::cutter_v1::CutterWin
+
+    proc Describe {} {
+	return "A tool for cutting long audio files into several short ones. Specify a basename and an utterance number. The save button saves the current marked region using filename \$basename\$number.wav. The number is also incremented and the markers repositioned."
+    }
+    
+    proc Unload {} {
+	snack::menuDelete Tools {Sound Cutter}
+    }
+    
+    proc Redraw y {
+	return 0
+    }
+    
+    proc Putmark m {
+    }
+    
+    proc CutterWin {} {
+	variable basename
+	variable number
+
+	set w .cutter
+	catch {destroy $w}
+	toplevel $w
+	wm title $w {Sound cutter tool}
+	wm geometry $w [xsGetGeometry]
+	
+	pack [ frame $w.f1] -pady 2
+	pack [ label $w.f1.l1 -text Basename: -wi 20] -side left
+	pack [ label $w.f1.l2 -text "Utterance number:" -wi 20] -side left
+
+	pack [ frame $w.f2]
+	pack [ entry $w.f2.e1 -textvar ::cutter_v1::basename] -side left
+	pack [ entry $w.f2.e2 -textvar ::cutter_v1::number] -side left
+
+	pack [ frame $w.f3] -pady 10
+	pack [ button $w.f3.save -image snackSave -command ::cutter_v1::Save] -side left -padx 5
+	pack [ button $w.f3.play -bitmap play -command PlayMark] -side left -padx 5
+	pack [ button $w.f3.stop -bitmap stop -command StopPlay] -side left -padx 5
+
+	pack [ frame $w.f] -side bottom -fill x   
+	label $w.f.lab -text "" -width 1 -relief sunken -bd 1 -anchor w
+	pack $w.f.lab -side left -expand yes -fill x
+	button $w.f.helpB -text Help -command {tk_messageBox -message [::cutter_v1::Describe] -type ok}
+	button $w.f.exitB -text Close -command "destroy $w"
+	pack $w.f.helpB $w.f.exitB -side left
+    }
+
+    proc Save {} {
+	variable number
+	variable basename
+
+	set start [Marker2Sample m1]
+	set end   [Marker2Sample m2]
+	snd write $basename$number.wav -start $start -end $end
+	puts "$basename$number.wav $start $end"
+	PutMarker m1 [Marker2Sample m2] 0
+	PutMarker m2 [expr [Marker2Sample m2]+32000] 0
+	incr number
+    }
+}

@@ -39,7 +39,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_redrawln.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: lib_redrawln.c,v 1.10 2001/09/29 17:41:31 tom Exp $")
 
 NCURSES_EXPORT(int)
 wredrawln(WINDOW *win, int beg, int num)

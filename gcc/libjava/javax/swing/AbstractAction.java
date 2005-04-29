@@ -1,5 +1,5 @@
 /* AbstractAction.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,181 +35,232 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-// Imports
-import java.awt.event.*;
-import java.beans.*;
-import java.io.*;
-import javax.swing.event.*;
-import java.util.*;
+import java.beans.PropertyChangeListener;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.HashMap;
+import javax.swing.event.SwingPropertyChangeSupport;
 
 /**
  * AbstractAction
  * @author	Andrew Selkirk
  * @version	1.0
  */
-public abstract class AbstractAction implements Action, Cloneable, Serializable {
+public abstract class AbstractAction
+  implements Action, Cloneable, Serializable
+{
+  static final long serialVersionUID = -6803159439231523484L;
 
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * enabled
+   */
+  protected boolean enabled = true;
+  
+  public static final String ENABLED_PROPERTY = "enabled";
 
-	/**
-	 * enabled
-	 */
-	protected boolean enabled = true;
+  /**
+   * changeSupport
+   */
+  protected SwingPropertyChangeSupport changeSupport =
+    new SwingPropertyChangeSupport(this);
 
-	/**
-	 * changeSupport
-	 */
-	protected SwingPropertyChangeSupport changeSupport =
-				new SwingPropertyChangeSupport(this);
+  /**
+   * store
+   */
+  private transient HashMap store = new HashMap();
 
-	/**
-	 * store
-	 */
-	private transient HashMap store = new HashMap();
+  /**
+   * Constructor AbstractAction
+   */
+  public AbstractAction()
+  {
+    this(""); // TODO: default name
+  }
 
+  /**
+   * Constructor AbstractAction
+   *
+   * @param name TODO
+   */
+  public AbstractAction(String name)
+  {
+    this(name, null); // TODO: default icon??
+  }
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * Constructor AbstractAction
+   *
+   * @param name TODO
+   * @param icon TODO
+   */
+  public AbstractAction(String name, Icon icon)
+  {
+    putValue(NAME, name);
+    putValue(SMALL_ICON, icon);
+  }
 
-	/**
-	 * Constructor AbstractAction
-	 */
-	public AbstractAction() {
-		this(""); // TODO: default name
-	} // AbstractAction()
+  /**
+   * readObject
+   *
+   * @param stream the stream to read from
+   *
+   * @exception ClassNotFoundException TODO
+   * @exception IOException if an error occurs
+   */
+  private void readObject(ObjectInputStream stream)
+    throws ClassNotFoundException, IOException
+  {
+    // TODO
+  }
 
-	/**
-	 * Constructor AbstractAction
-	 * @param name TODO
-	 */
-	public AbstractAction(String name) {
-		this(name, null); // TODO: default icon??
-	} // AbstractAction()
+  /**
+   * writeObject
+   *
+   * @param stream the stream to write to
+   *
+   * @exception IOException if an error occurs
+   */
+  private void writeObject(ObjectOutputStream stream) throws IOException
+  {
+    // TODO
+  }
 
-	/**
-	 * Constructor AbstractAction
-	 * @param name TODO
-	 * @param icon TODO
-	 */
-	public AbstractAction(String name, Icon icon) {
-		putValue(NAME, name);
-		putValue(SMALL_ICON, icon);
-	} // AbstractAction()
+  /**
+   * clone
+   *
+   * @return Object
+   *
+   * @exception CloneNotSupportedException TODO
+   */
+  protected Object clone() throws CloneNotSupportedException
+  {
+    AbstractAction copy = (AbstractAction) super.clone();
+    copy.store = (HashMap) store.clone();
+    return copy;
+  }
 
+  /**
+   * Returns a value for a given key from the built-in store.
+   *
+   * @param key the key to get the value for
+   *
+   * @return Object
+   */
+  public Object getValue(String key)
+  {
+    return store.get(key);
+  }
 
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * Puts a key/value pair into the built-in store.
+   *
+   * @param key the key
+   * @param value the value
+   */
+  public void putValue(String key, Object value)
+  {
+    Object old = getValue(key);
+    if (old != value)
+    {
+      store.put(key, value);
+      firePropertyChange(key, old, value);
+    }
+  }
 
-	/**
-	 * readObject
-	 * @param stream TODO
-	 * @exception ClassNotFoundException TODO
-	 * @exception IOException TODO
-	 */
-	private void readObject(ObjectInputStream stream) 
-			throws ClassNotFoundException, IOException {
-		// TODO
-	} // readObject()
+  /**
+   * isEnabled
+   *
+   * @return boolean
+   */
+  public boolean isEnabled()
+  {
+    return enabled;
+  }
 
-	/**
-	 * writeObject
-	 * @param stream TODO
-	 * @exception IOException TODO
-	 */
-	private void writeObject(ObjectOutputStream stream) throws IOException {
-		// TODO
-	} // writeObject()
+  /**
+   * setEnabled
+   *
+   * @param enabled TODO
+   */
+  public void setEnabled(boolean enabled)
+  {
+    if (enabled != this.enabled)
+    {
+      this.enabled = enabled;
+      firePropertyChange(ENABLED_PROPERTY, !this.enabled, this.enabled);
+    }
+  }
 
-	/**
-	 * clone
-	 * @exception CloneNotSupportedException TODO
-	 * @returns Object
-	 */
-	protected Object clone() throws CloneNotSupportedException {
-		// What to do??
-		return null;
-	} // clone()
+  /**
+   * getKeys
+   * @returns Object[]
+   */
+  public Object[] getKeys()
+  {
+    return store.keySet().toArray();
+  }
 
-	/**
-	 * getValue
-	 * @param key TODO
-	 * @returns Object
-	 */
-	public Object getValue(String key) {
-		return store.get(key);
-	} // getValue()
+  /**
+   * This method fires a PropertyChangeEvent given the propertyName 
+   * and the old and new values.
+   *
+   * @param propertyName The property that changed.
+   * @param oldValue The old value of the property.
+   * @param newValue The new value of the property.
+   */
+  protected void firePropertyChange(String propertyName, Object oldValue,
+                                    Object newValue)
+  {
+    changeSupport.firePropertyChange(propertyName, oldValue, newValue);
+  }
+  
+  /**
+   * This convenience method fires a PropertyChangeEvent given 
+   * the propertyName and the old and new values.
+   *
+   * @param propertyName The property that changed.
+   * @param oldValue The old value of the property.
+   * @param newValue The new value of the property.
+   */
+  private void firePropertyChange(String propertyName, boolean oldValue, boolean newValue)
+  {
+    changeSupport.firePropertyChange(propertyName, oldValue, newValue);
+  }
 
-	/**
-	 * putValue
-	 * @param key TODO
-	 * @param value TODO
-	 */
-	public void putValue(String key, Object value) {
-		store.put(key, value);
-	} // putValue()
+  /**
+   * addPropertyChangeListener
+   *
+   * @param listener the listener to add
+   */
+  public void addPropertyChangeListener(PropertyChangeListener listener)
+  {
+    changeSupport.addPropertyChangeListener(listener);
+  }
 
-	/**
-	 * isEnabled
-	 * @returns boolean
-	 */
-	public boolean isEnabled() {
-		return enabled;
-	} // isEnabled()
+  /**
+   * removePropertyChangeListener
+   *
+   * @param listener the listener to remove
+   */
+  public void removePropertyChangeListener(PropertyChangeListener listener)
+  {
+    changeSupport.removePropertyChangeListener(listener);
+  }
 
-	/**
-	 * setEnabled
-	 * @param enabled TODO
-	 */
-	public void setEnabled(boolean enabled) {
-		this.enabled = enabled;
-	} // setEnabled()
-
-	/**
-	 * getKeys
-	 * @returns Object[]
-	 */
-	public Object[] getKeys() {
-		return store.keySet().toArray();
-	} // getKeys()
-
-	/**
-	 * firePropertyChange
-	 * @param propertyName TODO
-	 * @param oldValue TODO
-	 * @param newValue TODO
-	 */
-	protected void firePropertyChange(String propertyName,
-			Object oldValue, Object newValue) {
-		changeSupport.firePropertyChange(propertyName, oldValue, newValue);
-	} // firePropertyChange()
-
-	/**
-	 * addPropertyChangeListener
-	 * @param listener TODO
-	 */
-	public synchronized void addPropertyChangeListener(PropertyChangeListener listener) {
-		changeSupport.addPropertyChangeListener(listener);
-	} // addPropertyChangeListener()
-
-	/**
-	 * removePropertyChangeListener
-	 * @param listener TODO
-	 */
-	public synchronized void removePropertyChangeListener(PropertyChangeListener listener) {
-		changeSupport.removePropertyChangeListener(listener);
-	} // removePropertyChangeListener()
-
-	/**
-	 * actionPerformed
-	 * @param event TODO
-	 */
-	public abstract void actionPerformed(ActionEvent event);
-
-
-} // AbstractAction
+  /**
+   * Returns all registered listeners.
+   *
+   * @return array of listeners.
+   * 
+   * @since 1.4
+   */
+  public PropertyChangeListener[] getPropertyChangeListeners()
+  {
+    return changeSupport.getPropertyChangeListeners();
+  }
+}

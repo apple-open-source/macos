@@ -192,8 +192,6 @@ tstlsof(texec, tkmem, tproc)
 /*
  * Get lsof executable's stat(2) information.
  */
-
-#if	!defined(LT_DIAL_darwin)
     if (stat(LsofPath, &lsofsb)) {
 	(void) snprintf(buf, sizeof(buf) - 1, "ERROR!!!  stat(%s): %s",
 	    LsofPath, strerror(errno));
@@ -209,12 +207,6 @@ tstlsof(texec, tkmem, tproc)
 	pem = cem;
 	execs = 1;
     }
-#else	/* defined(LT_DIAL_darwin) */
-/*
- * Lsof can't find executables in Apple Darwin.
- */
-    execs = 1;
-#endif	/* defined(LT_DIAL_darwin) */
 
 #if	defined(LT_KMEM)
 /*

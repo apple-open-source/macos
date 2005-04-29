@@ -1,0 +1,136 @@
+# Features covered:  XSLT Extensions
+#
+# This file contains a collection of tests for the TclXSLT package.
+# This file tests the parser's performance on tranformations.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 2001-2002 Zveno Pty Ltd.
+#
+# $Id: extension.test,v 1.4 2002/09/24 21:15:14 balls Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if {[catch {package require xslt 2.3}]} {
+    catch {puts stderr "Cannot load xslt 2.3 package"}
+    return
+}
+
+namespace eval exttest {
+    namespace export countargs
+}
+
+proc exttest::countargs args {
+    return [llength $args]
+}
+
+proc exttest::testnodes {ns args} {
+    foreach node $ns {
+	lappend ::nodenames [dom::node cget $node -nodeName]
+    }
+
+    return [lindex $ns end]
+}
+
+proc dumptree doc {
+    puts stderr "node $doc type [dom::node cget $doc -nodeType] name [dom::node cget $doc -nodeName] value [dom::node cget $doc -nodeValue]"
+    foreach node [dom::node children $doc] {
+	set type [dom::node cget $node -nodeType]
+	switch $type {
+	    element -
+	    document -
+	    documentFragment {
+		dumptree $node
+	    }
+	    textNode {
+	        puts stderr "node $node type textNode value [dom::node cget $node -nodeValue]"
+	    }
+	}
+    }
+}
+
+test extension-1.1 {Register extension namespace} {
+    xslt::extension add http://tclxml.sourceforge.net/schemas/exttest ::exttest
+} {}
+
+test extension-2.1 {Extension function} {
+    set sd [dom::parse {<xsl:stylesheet version='1.0'
+    xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
+    xmlns:ext='http://tclxml.sourceforge.net/schemas/exttest'
+    extension-element-prefixes='ext'>
+  <xsl:output method='text'/>
+
+  <xsl:template match='/'>
+    <xsl:variable name='value' select='ext:countargs("arg1", "arg2")'/>
+    <xsl:message>Stylesheet got value <xsl:value-of select='$value'/></xsl:message>
+    <xsl:value-of select='$value'/>
+  </xsl:template>
+
+</xsl:stylesheet>
+}]
+    set ss [xslt::compile $sd]
+    set xd [dom::parse {<?xml version="1.0"?>
+<Test>
+  <value/>
+</Test>
+}]
+    set rd [$ss transform $xd]
+    dom::serialize $rd -method text
+} 2
+
+test extension-2.2 {Extension function, no args} {
+    set sd [dom::parse {<xsl:stylesheet version='1.0'
+    xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
+    xmlns:ext='http://tclxml.sourceforge.net/schemas/exttest'
+    extension-element-prefixes='ext'>
+  <xsl:output method='text'/>
+  <xsl:template match='/'>
+    <xsl:value-of select='ext:countargs()'/>
+  </xsl:template>
+
+</xsl:stylesheet>
+}]
+    set ss [xslt::compile $sd]
+    set xd [dom::parse {<?xml version="1.0"?>
+<Test>
+  <value/>
+</Test>
+}]
+    set rd [$ss transform $xd]
+    dom::serialize $rd -method text
+} 0
+
+test extension-2.3 {pass nodeset to function, return nodeset} {
+    set ::nodenames {}
+    set sd [dom::parse {<xsl:stylesheet version='1.0'
+    xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
+    xmlns:ext='http://tclxml.sourceforge.net/schemas/exttest'
+    extension-element-prefixes='ext'>
+  <xsl:output method='text'/>
+  <xsl:template match='/Test'>
+    <xsl:value-of select='ext:testnodes(*)/preceding-sibling::*[1]'/>
+  </xsl:template>
+
+</xsl:stylesheet>
+}]
+    set xd [dom::parse {<?xml version="1.0"?>
+<Test>
+  <value1>First value</value1>
+  <value2>Second value</value2>
+  <value3>Third value</value3>
+  <value4>
+    <para>Fourth</para>
+    <para>value</para>
+  </value4>
+</Test>
+}]
+    set ss [xslt::compile $sd]
+    set rd [$ss transform $xd]
+    list [dom::serialize $rd -method text] $::nodenames
+} {{Third value} {value1 value2 value3 value4}}
+
+# cleanup
+::tcltest::cleanupTests
+return

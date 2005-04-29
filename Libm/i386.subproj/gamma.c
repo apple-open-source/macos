@@ -115,8 +115,6 @@
 *          1968.                                                               *
 *                                                                              *
 *******************************************************************************/
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
 
 #include      "math.h"
 #include      "fenv.h"
@@ -176,6 +174,7 @@ static const double xbig       = 171.624e+0;
 static const double MinimumX   = 2.23e-308;
 static const double eps        = 2.22e-16;
 static const hexdouble Huge    = HEXDOUBLE(0x7ff00000, 0x00000000);
+static const hexdouble MinusHuge    = HEXDOUBLE(0xFFF00000, 0x00000000);
 static const double zero	 = 0.0;
 
 #define      GAMMA_NAN      "42"
@@ -235,6 +234,11 @@ double tgamma ( double x )
       if ( y <= 0.0 )
             {
             y = - x;
+			if ( y < MinimumX )
+                  {
+                  feupdateenv( &OldEnvironment ); //   restore caller's environment
+                  return MinusHuge.d * Huge.d; // raises OVERFLOW
+                  }
             y1 = trunc ( y );
             IsItAnInt = y - y1;
             if ( IsItAnInt != 0.0 )                   /* is it an integer?   */
@@ -326,8 +330,3 @@ float tgammaf ( float x )
 {
     return (float)tgamma ( x );
 }
-
-#else       /* __APPLE_CC__ version */
-#error Version gcc-932 or higher required.  Compilation terminated.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  5.0.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,7 +30,6 @@
 
 #include "glheader.h"
 #include "context.h"
-#include "math/m_vertices.h"
 #include "math/m_xform.h"
 #include "tnl/t_context.h"
 
@@ -79,27 +78,14 @@ void _mesa_init_3dnow_transform_asm( void )
    ASSIGN_XFORM_GROUP( 3dnow, 3 );
    ASSIGN_XFORM_GROUP( 3dnow, 4 );
 
-/* Normalize function is broken - see demos/morph3d for example.
- */
-/*     ASSIGN_NORM_GROUP( 3dnow ); */
+   /* There's a bug somewhere in the 3dnow_normal.S file that causes
+    * bad shading.  Disable for now.
+   ASSIGN_NORM_GROUP( 3dnow );
+   */
 
 #ifdef DEBUG
    _math_test_all_transform_functions( "3DNow!" );
    _math_test_all_normal_transform_functions( "3DNow!" );
-#endif
-#endif
-}
-
-void _mesa_init_3dnow_vertex_asm( void )
-{
-#ifdef USE_3DNOW_ASM
-   _mesa_xform_points3_v16_general = _mesa_v16_3dnow_general_xform;
-
-   _mesa_project_v16 = _mesa_3dnow_project_vertices;
-   _mesa_project_clipped_v16 = _mesa_3dnow_project_clipped_vertices;
-
-#ifdef DEBUG_NOT
-   _math_test_all_vertex_functions( "3DNow!" );
 #endif
 #endif
 }

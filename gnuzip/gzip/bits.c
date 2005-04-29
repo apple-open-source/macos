@@ -51,6 +51,7 @@
  *
  */
 
+#include <config.h>
 #include "tailor.h"
 #include "gzip.h"
 #include "crypt.h"
@@ -60,7 +61,7 @@
 #endif
 
 #ifdef RCSID
-static char rcsid[] = "$Id: bits.c,v 1.1.1.1 1999/04/23 01:05:56 wsanchez Exp $";
+static char rcsid[] = "$Id: bits.c,v 0.9 1993/06/11 10:16:58 jloup Exp $";
 #endif
 
 /* ===========================================================================
@@ -88,7 +89,7 @@ int (*read_buf) OF((char *buf, unsigned size));
 /* Current input function. Set to mem_read for in-memory compression */
 
 #ifdef DEBUG
-  ulg bits_sent;   /* bit length of the compressed data */
+  off_t bits_sent;   /* bit length of the compressed data */
 #endif
 
 /* ===========================================================================
@@ -123,7 +124,7 @@ void send_bits(value, length)
 #ifdef DEBUG
     Tracev((stderr," l %2d v %4x ", length, value));
     Assert(length > 0 && length <= 15, "invalid length");
-    bits_sent += (ulg)length;
+    bits_sent += (off_t)length;
 #endif
     /* If not enough room in bi_buf, use (valid) bits from bi_buf and
      * (16 - bi_valid) bits from value, leaving (width - (16-bi_valid))
@@ -193,7 +194,7 @@ void copy_block(buf, len, header)
 #endif
     }
 #ifdef DEBUG
-    bits_sent += (ulg)len<<3;
+    bits_sent += (off_t)len<<3;
 #endif
     while (len--) {
 #ifdef CRYPT

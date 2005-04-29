@@ -6,9 +6,8 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *                            $Revision: 1.1.1.1 $
  *                                                                          *
- *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2002 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -28,12 +27,15 @@
  * file might be covered by the  GNU Public License.                        *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
 /* This file contains some standard macros for performing Ada-like
    operations. These are used to aid in the translation of other headers. */
+
+#ifndef GCC_ADA_H
+#define GCC_ADA_H
 
 /* Inlined functions in header are preceded by INLINE, which is normally set
    to extern inline for GCC, but may be set to static for use in standard 
@@ -63,14 +65,17 @@
    effect is to compile a typedef defining the subtype as a synonym for the 
    type, together with two constants defining the end points.  */
 
-#define SUBTYPE(SUBTYPE,TYPE,FIRST,LAST)    \
-  typedef TYPE SUBTYPE;		    \
-  static const SUBTYPE CAT (SUBTYPE,__First) = FIRST; \
-  static const SUBTYPE CAT (SUBTYPE,__Last) = LAST;
+#define SUBTYPE(SUBTYPE,TYPE,FIRST,LAST)	\
+  typedef TYPE SUBTYPE;				\
+  enum { CAT (SUBTYPE,__First) = FIRST,		\
+         CAT (SUBTYPE,__Last) = LAST };
 
 /* The following definitions provide the equivalent of the Ada IN and NOT IN
    operators, assuming that the subtype involved has been defined using the 
    SUBTYPE macro defined above.  */
 
 #define IN(VALUE,SUBTYPE) \
-  (((VALUE) >= CAT (SUBTYPE,__First)) && ((VALUE) <= CAT (SUBTYPE,__Last)))
+  (((VALUE) >= (SUBTYPE) CAT (SUBTYPE,__First)) && \
+   ((VALUE) <= (SUBTYPE) CAT (SUBTYPE,__Last)))
+
+#endif

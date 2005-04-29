@@ -1,9 +1,9 @@
 /*
- * "$Id: imagetoraster.c,v 1.1.1.11 2003/08/03 06:18:43 jlovell Exp $"
+ * "$Id: imagetoraster.c,v 1.1.1.16 2005/01/04 19:16:01 jlovell Exp $"
  *
  *   Image file to raster filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2003 by Easy Software Products.
+ *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -150,21 +150,21 @@ int	Planes[] =	/* Number of planes for each colorspace */
 	  0,		/* ... reserved ... */
 	  0,		/* ... reserved ... */
 	  0,		/* ... reserved ... */
-	  1,		/* CUPS_CSPACE_ICC1 */
-	  2,		/* CUPS_CSPACE_ICC2 */
+	  3,		/* CUPS_CSPACE_ICC1 */
+	  3,		/* CUPS_CSPACE_ICC2 */
 	  3,		/* CUPS_CSPACE_ICC3 */
-	  4,		/* CUPS_CSPACE_ICC4 */
-	  5,		/* CUPS_CSPACE_ICC5 */
-	  6,		/* CUPS_CSPACE_ICC6 */
-	  7,		/* CUPS_CSPACE_ICC7 */
-	  8,		/* CUPS_CSPACE_ICC8 */
-	  9,		/* CUPS_CSPACE_ICC9 */
-	  10,		/* CUPS_CSPACE_ICCA */
-	  11,		/* CUPS_CSPACE_ICCB */
-	  12,		/* CUPS_CSPACE_ICCC */
-	  13,		/* CUPS_CSPACE_ICCD */
-	  14,		/* CUPS_CSPACE_ICCE */
-	  15		/* CUPS_CSPACE_ICCF */
+	  3,		/* CUPS_CSPACE_ICC4 */
+	  3,		/* CUPS_CSPACE_ICC5 */
+	  3,		/* CUPS_CSPACE_ICC6 */
+	  3,		/* CUPS_CSPACE_ICC7 */
+	  3,		/* CUPS_CSPACE_ICC8 */
+	  3,		/* CUPS_CSPACE_ICC9 */
+	  3,		/* CUPS_CSPACE_ICCA */
+	  3,		/* CUPS_CSPACE_ICCB */
+	  3,		/* CUPS_CSPACE_ICCC */
+	  3,		/* CUPS_CSPACE_ICCD */
+	  3,		/* CUPS_CSPACE_ICCE */
+	  3		/* CUPS_CSPACE_ICCF */
 	};
 
 
@@ -866,16 +866,6 @@ main(int  argc,		/* I - Number of command-line arguments */
       yinches     = ysize2;
       xprint      = (PageTop - PageBottom) / 72.0;
       yprint      = (PageRight - PageLeft) / 72.0;
-
-      xsize       = PageLeft;
-      PageLeft    = PageBottom;
-      PageBottom  = PageWidth - PageRight;
-      PageRight   = PageTop;
-      PageTop     = PageLength - xsize;
-
-      xsize       = PageWidth;
-      PageWidth   = PageLength;
-      PageLength  = xsize;
     }
     else
     {
@@ -888,17 +878,23 @@ main(int  argc,		/* I - Number of command-line arguments */
     }
   }
 
+ /*
+  * Compute the number of pages to print and the size of the image on each
+  * page...
+  */
+
   xpages = ceil(xinches / xprint);
   ypages = ceil(yinches / yprint);
 
-  fprintf(stderr, "DEBUG: xpages = %d, ypages = %d\n", xpages, ypages);
+  xprint = xinches / xpages;
+  yprint = yinches / ypages;
+
+  fprintf(stderr, "DEBUG: xpages = %dx%.2fin, ypages = %dx%.2fin\n",
+          xpages, xprint, ypages, yprint);
 
  /*
   * Compute the bitmap size...
   */
-
-  xprint = xinches / xpages;
-  yprint = yinches / ypages;
 
   if ((choice = ppdFindMarkedChoice(ppd, "PageSize")) != NULL &&
       strcasecmp(choice->choice, "Custom") == 0)
@@ -906,6 +902,10 @@ main(int  argc,		/* I - Number of command-line arguments */
     float	width,		/* New width in points */
 		length;		/* New length in points */
 
+
+   /*
+    * Use the correct width and length for the current orientation...
+    */
 
     if (Orientation & 1)
     {
@@ -1479,7 +1479,7 @@ exec_code(cups_page_header_t *header,	/* I - Page header */
     */
 
     code ++;
-    for (ptr = name; isalnum(*code) && (ptr - name) < (sizeof(name) - 1);)
+    for (ptr = name; isalnum(*code & 255) && (ptr - name) < (sizeof(name) - 1);)
       *ptr++ = *code++;
     *ptr = '\0';
 
@@ -1487,7 +1487,7 @@ exec_code(cups_page_header_t *header,	/* I - Page header */
     * The parse the value as needed...
     */
 
-    while (isspace(*code))
+    while (isspace(*code & 255))
       code ++;
 
     if (*code == '\0')
@@ -1519,7 +1519,7 @@ exec_code(cups_page_header_t *header,	/* I - Page header */
         if (*code == '\\')
 	{
 	  code ++;
-	  if (isdigit(*code))
+	  if (isdigit(*code & 255))
 	    *ptr++ = (char)strtol(code, (char **)&code, 8);
           else
 	    *ptr++ = *code++;
@@ -1529,14 +1529,14 @@ exec_code(cups_page_header_t *header,	/* I - Page header */
 
       *ptr = '\0';
     }
-    else if (isdigit(*code) || *code == '-')
+    else if (isdigit(*code & 255) || *code == '-')
     {
      /*
       * Read single number...
       */
 
       for (ptr = value;
-           (isdigit(*code) || *code == '-') &&
+           (isdigit(*code & 255) || *code == '-') &&
 	       (ptr - value) < (sizeof(value) - 1);)
 	*ptr++ = *code++;
       *ptr = '\0';
@@ -1548,7 +1548,7 @@ exec_code(cups_page_header_t *header,	/* I - Page header */
       */
 
       for (ptr = value;
-           (isalnum(*code) || *code == '_') &&
+           (isalnum(*code & 255) || *code == '_') &&
 	       (ptr - value) < (sizeof(value) - 1);)
 	*ptr++ = *code++;
       *ptr = '\0';
@@ -4594,5 +4594,5 @@ make_lut(ib_t  *lut,		/* I - Lookup table */
 
 
 /*
- * End of "$Id: imagetoraster.c,v 1.1.1.11 2003/08/03 06:18:43 jlovell Exp $".
+ * End of "$Id: imagetoraster.c,v 1.1.1.16 2005/01/04 19:16:01 jlovell Exp $".
  */

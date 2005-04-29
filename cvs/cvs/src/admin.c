@@ -15,14 +15,52 @@
 #endif
 #include <assert.h>
 
-static Dtype admin_dirproc PROTO ((void *callerdat, char *dir,
-				   char *repos, char *update_dir,
-				   List *entries));
+static Dtype admin_dirproc PROTO ((void *callerdat, const char *dir,
+                                   const char *repos, const char *update_dir,
+                                   List *entries));
 static int admin_fileproc PROTO ((void *callerdat, struct file_info *finfo));
 
 static const char *const admin_usage[] =
 {
-    "Usage: %s %s rcs-options files...\n",
+    "Usage: %s %s [options] files...\n",
+    "\t-a users   Append (comma-separated) user names to access list.\n",
+    "\t-A file    Append another file's access list.\n",
+    "\t-b[rev]    Set default branch (highest branch on trunk if omitted).\n",
+    "\t-c string  Set comment leader.\n",
+    "\t-e[users]  Remove (comma-separated) user names from access list\n",
+    "\t           (all names if omitted).\n",
+    "\t-I         Run interactively.\n",
+    "\t-k subst   Set keyword substitution mode:\n",
+    "\t   kv   (Default) Substitute keyword and value.\n",
+    "\t   kvl  Substitute keyword, value, and locker (if any).\n",
+    "\t   k    Substitute keyword only.\n",
+    "\t   o    Preserve original string.\n",
+    "\t   b    Like o, but mark file as binary.\n",
+    "\t   v    Substitute value only.\n",
+    "\t-l[rev]    Lock revision (latest revision on branch,\n",
+    "\t           latest revision on trunk if omitted).\n",
+    "\t-L         Set strict locking.\n",
+    "\t-m rev:msg  Replace revision's log message.\n",
+    "\t-n tag[:[rev]]  Tag branch or revision.  If :rev is omitted,\n",
+    "\t                delete the tag; if rev is omitted, tag the latest\n",
+    "\t                revision on the default branch.\n",
+    "\t-N tag[:[rev]]  Same as -n except override existing tag.\n",
+    "\t-o range   Delete (outdate) specified range of revisions:\n",
+    "\t   rev1:rev2   Between rev1 and rev2, including rev1 and rev2.\n",
+    "\t   rev1::rev2  Between rev1 and rev2, excluding rev1 and rev2.\n",
+    "\t   rev:        rev and following revisions on the same branch.\n",
+    "\t   rev::       After rev on the same branch.\n",
+    "\t   :rev        rev and previous revisions on the same branch.\n",
+    "\t   ::rev       Before rev on the same branch.\n",
+    "\t   rev         Just rev.\n",
+    "\t-q         Run quietly.\n",
+    "\t-s state[:rev]  Set revision state (latest revision on branch,\n",
+    "\t                latest revision on trunk if omitted).\n",
+    "\t-t[file]   Get descriptive text from file (stdin if omitted).\n",
+    "\t-t-string  Set descriptive text.\n",
+    "\t-u[rev]    Unlock the revision (latest revision on branch,\n",
+    "\t           latest revision on trunk if omitted).\n",
+    "\t-U         Unset strict locking.\n",
     "(Specify the --help global option for a list of other help options)\n",
     NULL
 };
@@ -53,17 +91,11 @@ struct admin_data
     /* Keyword substitution mode (-k), e.g. "-kb".  */
     char *kflag;
 
-    /* Description (-t).  See sanity.sh for various moanings about
-       files and stdin and such.  "" if -t specified without an
-       argument.  It is "-t" followed by the argument.  */
+    /* Description (-t).  */
     char *desc;
 
     /* Interactive (-I).  Problematic with client/server.  */
     int interactive;
-
-    /* Quiet (-q).  Not the same as the global -q option, which is a bit
-       on the confusing side, perhaps.  */
-    int quiet;
 
     /* This is the cheesy part.  It is a vector with the options which
        we don't deal with above (e.g. "-afoo" "-abar,baz").  In the future
@@ -120,34 +152,10 @@ admin (argc, argv)
     struct admin_data admin_data;
     int c;
     int i;
+    int only_k_option;
 
     if (argc <= 1)
 	usage (admin_usage);
-
-#ifdef CVS_ADMIN_GROUP
-    grp = getgrnam(CVS_ADMIN_GROUP);
-     /* skip usage right check if group CVS_ADMIN_GROUP does not exist */
-    if (grp != NULL)
-    {
-	char *me = getcaller();
-	char **grnam = grp->gr_mem;
-	int denied = 1;
-	
-	while (*grnam)
-	{
-	    if (strcmp(*grnam, me) == 0) 
-	    {
-		denied = 0;
-		break;
-	    }
-	    grnam++;
-	}
-
-	if (denied)
-	    error (1, 0, "usage is restricted to members of the group %s",
-		   CVS_ADMIN_GROUP);
-    }
-#endif
 
     wrap_setup ();
 
@@ -157,9 +165,13 @@ admin (argc, argv)
        example, admin_data->branch should be not `-bfoo' but simply `foo'. */
 
     optind = 0;
+    only_k_option = 1;
     while ((c = getopt (argc, argv,
-			"+ib::c:a:A:e:l::u::LUn:N:m:o:s:t::IqxV:k:")) != -1)
+			"+ib::c:a:A:e::l::u::LUn:N:m:o:s:t::IqxV:k:")) != -1)
     {
+	if (c != 'k' && c != 'q')
+	    only_k_option = 0;
+
 	switch (c)
 	{
 	    case 'i':
@@ -302,13 +314,15 @@ admin (argc, argv)
 		    error (0, 0, "duplicate 't' option");
 		    goto usage_error;
 		}
-		if (optarg == NULL)
-		    admin_data.desc = xstrdup ("-t");
+		if (optarg != NULL && optarg[0] == '-')
+		    admin_data.desc = xstrdup (optarg + 1);
 		else
 		{
-		    admin_data.desc = xmalloc (strlen (optarg) + 5);
-		    strcpy (admin_data.desc, "-t");
-		    strcat (admin_data.desc, optarg);
+		    size_t bufsize = 0;
+		    size_t len;
+
+		    get_file (optarg, optarg, "r", &admin_data.desc,
+			      &bufsize, &len);
 		}
 		break;
 
@@ -319,7 +333,15 @@ admin (argc, argv)
 		break;
 
 	    case 'q':
-		admin_data.quiet = 1;
+		/* Silently set the global really_quiet flag.  This keeps admin in
+		 * sync with the RCS man page and allows us to silently support
+		 * older servers when necessary.
+		 *
+		 * Some logic says we might want to output a deprecation warning
+		 * here, but I'm opting not to in order to stay quietly in sync
+		 * with the RCS man page.
+		 */
+		really_quiet = 1;
 		break;
 
 	    case 'x':
@@ -345,13 +367,61 @@ admin (argc, argv)
 		/* getopt will have printed an error message.  */
 
 	    usage_error:
-		/* Don't use command_name; it might be "server".  */
+		/* Don't use cvs_cmd_name; it might be "server".  */
 	        error (1, 0, "specify %s -H admin for usage information",
 		       program_name);
 	}
     }
     argc -= optind;
     argv += optind;
+
+#ifdef CVS_ADMIN_GROUP
+    /* The use of `cvs admin -k' is unrestricted.  However, any other
+       option is restricted if the group CVS_ADMIN_GROUP exists on the
+       server.  */
+    if (
+# ifdef CLIENT_SUPPORT
+        /* This is only "secure" on the server, since the user could edit the
+	 * RCS file on a local host, but some people like this kind of
+	 * check anyhow.  The alternative would be to check only when
+	 * (server_active) rather than when not on the client.
+	 */
+        !current_parsed_root->isremote &&
+# endif	/* CLIENT_SUPPORT */
+        !only_k_option
+	&& (grp = getgrnam(CVS_ADMIN_GROUP)) != NULL)
+    {
+#ifdef HAVE_GETGROUPS
+	gid_t *grps;
+	int n;
+
+	/* get number of auxiliary groups */
+	n = getgroups (0, NULL);
+	if (n < 0)
+	    error (1, errno, "unable to get number of auxiliary groups");
+	grps = (gid_t *) xmalloc((n + 1) * sizeof *grps);
+	n = getgroups (n, grps);
+	if (n < 0)
+	    error (1, errno, "unable to get list of auxiliary groups");
+	grps[n] = getgid();
+	for (i = 0; i <= n; i++)
+	    if (grps[i] == grp->gr_gid) break;
+	free (grps);
+	if (i > n)
+	    error (1, 0, "usage is restricted to members of the group %s",
+		   CVS_ADMIN_GROUP);
+#else
+	char *me = getcaller();
+	char **grnam;
+	
+	for (grnam = grp->gr_mem; *grnam; grnam++)
+	    if (strcmp (*grnam, me) == 0) break;
+	if (!*grnam && getgid() != grp->gr_gid)
+	    error (1, 0, "usage is restricted to members of the group %s",
+		   CVS_ADMIN_GROUP);
+#endif
+    }
+#endif /* defined CVS_ADMIN_GROUP */
 
     for (i = 0; i < admin_data.ac; ++i)
     {
@@ -375,14 +445,14 @@ admin (argc, argv)
 
 	check_numeric (admin_data.delete_revs + 2, argc, argv);
 	p = strchr (admin_data.delete_revs + 2, ':');
-	if (p != NULL && isdigit (p[1]))
+	if (p != NULL && isdigit ((unsigned char) p[1]))
 	    check_numeric (p + 1, argc, argv);
-	else if (p != NULL && p[1] == ':' && isdigit(p[2]))
+	else if (p != NULL && p[1] == ':' && isdigit ((unsigned char) p[2]))
 	    check_numeric (p + 2, argc, argv);
     }
 
 #ifdef CLIENT_SUPPORT
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	/* We're the client side.  Fire up the remote server.  */
 	start_server ();
@@ -405,8 +475,30 @@ admin (argc, argv)
 	if (admin_data.delete_revs != NULL)
 	    send_arg (admin_data.delete_revs);
 	if (admin_data.desc != NULL)
-	    send_arg (admin_data.desc);
-	if (admin_data.quiet)
+	{
+	    char *p = admin_data.desc;
+	    send_to_server ("Argument -t-", 0);
+	    while (*p)
+	    {
+		if (*p == '\n')
+		{
+		    send_to_server ("\012Argumentx ", 0);
+		    ++p;
+		}
+		else
+		{
+		    char *q = strchr (p, '\n');
+		    if (q == NULL) q = p + strlen (p);
+		    send_to_server (p, q - p);
+		    p = q;
+		}
+	    }
+	    send_to_server ("\012", 1);
+	}
+	/* Send this for all really_quiets since we know that it will be silently
+	 * ignored when unneeded.  This supports old servers.
+	 */
+	if (really_quiet)
 	    send_arg ("-q");
 	if (admin_data.kflag != NULL)
 	    send_arg (admin_data.kflag);
@@ -414,20 +506,22 @@ admin (argc, argv)
 	for (i = 0; i < admin_data.ac; ++i)
 	    send_arg (admin_data.av[i]);
 
-	send_file_names (argc, argv, SEND_EXPAND_WILD);
+	send_arg ("--");
 	send_files (argc, argv, 0, 0, SEND_NO_CONTENTS);
+	send_file_names (argc, argv, SEND_EXPAND_WILD);
 	send_to_server ("admin\012", 0);
         err = get_responses_and_close ();
 	goto return_it;
     }
 #endif /* CLIENT_SUPPORT */
 
-    lock_tree_for_write (argc, argv, 0, 0);
+    lock_tree_for_write (argc, argv, 0, W_LOCAL, 0);
 
     err = start_recursion (admin_fileproc, (FILESDONEPROC) NULL, admin_dirproc,
 			   (DIRLEAVEPROC) NULL, (void *)&admin_data,
 			   argc, argv, 0,
-			   W_LOCAL, 0, 0, (char *) NULL, 1);
+			   W_LOCAL, 0, CVS_LOCK_NONE, (char *) NULL, 1,
+			   (char *) NULL);
     Lock_Cleanup ();
 
  return_it:
@@ -468,21 +562,26 @@ admin_fileproc (callerdat, finfo)
     vers = Version_TS (finfo, NULL, NULL, NULL, 0, 0);
 
     version = vers->vn_user;
-    if (version == NULL)
-	goto exitfunc;
-    else if (strcmp (version, "0") == 0)
+    if (version != NULL && strcmp (version, "0") == 0)
     {
 	error (0, 0, "cannot admin newly added file `%s'", finfo->file);
+	status = 1;
 	goto exitfunc;
     }
 
     rcs = vers->srcfile;
+    if (rcs == NULL)
+    {
+	if (!really_quiet)
+	    error (0, 0, "nothing known about %s", finfo->file);
+	status = 1;
+	goto exitfunc;
+    }
+
     if (rcs->flags & PARTIAL)
 	RCS_reparsercsfile (rcs, (FILE **) NULL, (struct rcsbuffer *) NULL);
 
-    status = 0;
-
-    if (!admin_data->quiet)
+    if (!really_quiet)
     {
 	cvs_output ("RCS file: ", 0);
 	cvs_output (rcs->path, 0);
@@ -492,7 +591,7 @@ admin_fileproc (callerdat, finfo)
     if (admin_data->branch != NULL)
     {
 	char *branch = &admin_data->branch[2];
-	if (*branch != '\0' && ! isdigit (*branch))
+	if (*branch != '\0' && ! isdigit ((unsigned char) *branch))
 	{
 	    branch = RCS_whatbranch (rcs, admin_data->branch + 2);
 	    if (branch == NULL)
@@ -586,30 +685,14 @@ admin_fileproc (callerdat, finfo)
     if (admin_data->desc != NULL)
     {
 	free (rcs->desc);
-	rcs->desc = NULL;
-	if (admin_data->desc[2] == '-')
-	    rcs->desc = xstrdup (admin_data->desc + 3);
-	else
-	{
-	    char *descfile = admin_data->desc + 2;
-	    size_t bufsize = 0;
-	    size_t len;
-
-	    /* If -t specified with no argument, read from stdin. */
-	    if (*descfile == '\0')
-		descfile = NULL;
-	    get_file (descfile, descfile, "r", &rcs->desc, &bufsize, &len);
-	}
+	rcs->desc = xstrdup (admin_data->desc);
     }
     if (admin_data->kflag != NULL)
     {
 	char *kflag = admin_data->kflag + 2;
-	if (!rcs->expand || strcmp (rcs->expand, kflag) != 0)
-	{
-	    if (rcs->expand)
-		free (rcs->expand);
-	    rcs->expand = xstrdup (kflag);
-	}
+	char *oldexpand = RCS_getexpand (rcs);
+	if (oldexpand == NULL || strcmp (oldexpand, kflag) != 0)
+	    RCS_setexpand (rcs, kflag);
     }
 
     /* Handle miscellaneous options.  TODO: decide whether any or all
@@ -633,6 +716,8 @@ admin_fileproc (callerdat, finfo)
 		if (arg[1] == 'a')
 		    for (u = 0; u < argc; ++u)
 			RCS_addaccess (rcs, users[u]);
+		else if (argc == 0)
+		    RCS_delaccess (rcs, NULL);
 		else
 		    for (u = 0; u < argc; ++u)
 			RCS_delaccess (rcs, users[u]);
@@ -699,7 +784,7 @@ admin_fileproc (callerdat, finfo)
 			error (0, 0,
 			       "%s: symbolic name %s already bound to %s",
 			       rcs->path,
-			       tag, n->data);
+			       tag, (char *)n->data);
 			status = 1;
 			free (tag);
 			continue;
@@ -717,9 +802,10 @@ admin_fileproc (callerdat, finfo)
 		}
                 else
 		{
-		    error (0, 0,
-			  "%s: Symbolic name or revision %s is undefined",
-			   rcs->path, p);
+		    if (!really_quiet)
+			error (0, 0,
+			       "%s: Symbolic name or revision %s is undefined.",
+			       rcs->path, p);
 		    status = 1;
 		}
 		free (tag);
@@ -739,21 +825,25 @@ admin_fileproc (callerdat, finfo)
 		    rev = xstrdup (p);
 		}
 		revnum = RCS_gettag (rcs, rev, 0, NULL);
-		free (rev);
 		if (revnum != NULL)
+		{
 		    n = findnode (rcs->versions, revnum);
-		if (revnum == NULL || n == NULL)
+		    free (revnum);
+		}
+		else
+		    n = NULL;
+		if (n == NULL)
 		{
 		    error (0, 0,
 			   "%s: can't set state of nonexisting revision %s",
 			   rcs->path,
 			   rev);
-		    if (revnum != NULL)
-			free (revnum);
+		    free (rev);
 		    status = 1;
 		    continue;
 		}
-		delta = (RCSVers *) n->data;
+		free (rev);
+		delta = n->data;
 		free (delta->state);
 		delta->state = tag;
 		break;
@@ -767,19 +857,32 @@ admin_fileproc (callerdat, finfo)
 		    status = 1;
 		    continue;
 		}
-		*p = '\0';
-		rev = RCS_gettag (rcs, arg + 2, 0, NULL);
+		*p = '\0';	/* temporarily make arg+2 its own string */
+		rev = RCS_gettag (rcs, arg + 2, 1, NULL); /* Force tag match */
 		if (rev == NULL)
 		{
-		    error (0, 0, "%s: no such revision %s", rcs->path, rev);
+		    error (0, 0, "%s: no such revision %s", rcs->path, arg+2);
 		    status = 1;
+		    *p = ':';	/* restore the full text of the -m argument */
 		    continue;
 		}
-		*p++ = ':';
-		msg = p;
+		msg = p+1;
 
 		n = findnode (rcs->versions, rev);
-		delta = (RCSVers *) n->data;
+		/* tags may exist against non-existing versions */
+		if (n == NULL)
+		{
+		     error (0, 0, "%s: no such revision %s: %s",
+			    rcs->path, arg+2, rev);
+		    status = 1;
+		    *p = ':';	/* restore the full text of the -m argument */
+		    free (rev);
+		    continue;
+		}
+		*p = ':';	/* restore the full text of the -m argument */
+		free (rev);
+
+		delta = n->data;
 		if (delta->text == NULL)
 		{
 		    delta->text = (Deltatext *) xmalloc (sizeof (Deltatext));
@@ -799,12 +902,10 @@ admin_fileproc (callerdat, finfo)
 	}
     }
 
-    /* TODO: reconcile the weird discrepancies between
-       admin_data->quiet and quiet. */
     if (status == 0)
     {
 	RCS_rewrite (rcs, NULL, NULL);
-	if (!admin_data->quiet)
+	if (!really_quiet)
 	    cvs_output ("done\n", 5);
     }
     else
@@ -813,13 +914,9 @@ admin_fileproc (callerdat, finfo)
 	   message has given a more specific error.  The point of this
 	   additional message is to make it clear that the previous problems
 	   caused CVS to forget about the idea of modifying the RCS file.  */
-	error (0, 0, "cannot modify RCS file for `%s'", finfo->file);
-
-	/* Upon failure, we want to abandon any changes made to the
-	   RCS data structure.  Forcing a reparse does the trick,
-	   but leaks memory and is kludgey.  Should we export
-	   free_rcsnode_contents for this purpose? */
-	RCS_reparsercsfile (rcs, (FILE **) NULL, (struct rcsbuffer *) NULL);
+	if (!really_quiet)
+	    error (0, 0, "RCS file for `%s' not modified.", finfo->file);
+	RCS_abandon (rcs);
     }
 
   exitfunc:
@@ -834,9 +931,9 @@ admin_fileproc (callerdat, finfo)
 static Dtype
 admin_dirproc (callerdat, dir, repos, update_dir, entries)
     void *callerdat;
-    char *dir;
-    char *repos;
-    char *update_dir;
+    const char *dir;
+    const char *repos;
+    const char *update_dir;
     List *entries;
 {
     if (!quiet)

@@ -1,5 +1,6 @@
 // -*- C++ -*-
-/* Copyright (C) 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1990, 1991, 1992, 2003, 2004
+   Free Software Foundation, Inc.
      Written by James Clark (jjc@jclark.com)
 
 This file is part of groff.
@@ -52,7 +53,7 @@ extern void warning(const char *,
 		    const errarg &arg3 = empty_errarg);
 
 
-extern const char *program_name;
+extern "C" const char *program_name;
 extern int current_lineno;
 extern const char *current_filename;
-
+extern const char *current_source_filename;

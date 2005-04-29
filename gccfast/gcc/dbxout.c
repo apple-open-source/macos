@@ -404,6 +404,8 @@ static void dbxout_handle_pch		PARAMS ((unsigned));
 #if defined (DBX_DEBUGGING_INFO)
 
 static void dbxout_source_line		PARAMS ((unsigned int, const char *));
+/* APPLE LOCAL dead code strip.  */
+static void dbxout_begin_prologue	PARAMS ((unsigned int, const char *));
 static void dbxout_source_file		PARAMS ((FILE *, const char *));
 static void dbxout_function_end		PARAMS ((void));
 static void dbxout_begin_function	PARAMS ((tree));
@@ -423,7 +425,8 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   dbxout_end_block,
   debug_true_tree,		/* ignore_block */
   dbxout_source_line,		/* source_line */
-  dbxout_source_line,		/* begin_prologue: just output line info */
+  /* APPLE LOCAL dead code strip */
+  dbxout_begin_prologue,	/* begin_prologue */
   debug_nothing_int_charstar,	/* end_prologue */
   debug_nothing_int_charstar,	/* end_epilogue */
 #ifdef DBX_FUNCTION_FIRST
@@ -522,6 +525,13 @@ dbxout_function_end ()
   assemble_name (asmfile, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
   fprintf (asmfile, "\n");
 #endif
+
+  /* APPLE LOCAL begin dead code strip */
+#ifdef DBX_ONLY_USED_SYMBOLS
+  if (!flag_debug_only_used_symbols)
+#endif
+    fprintf (asmfile, "%s%d,0,0\n", ASM_STABD_OP, N_ENSYM);
+  /* APPLE LOCAL end dead code strip */
 }
 #endif /* DBX_DEBUGGING_INFO */
 
@@ -892,6 +902,24 @@ dbxout_source_file (file, filename)
       lastfile = filename;
     }
 }
+
+/* APPLE LOCAL begin dead code strip */
+/* Output N_BNSYM and line number symbol entry.  */
+
+static void
+dbxout_begin_prologue (lineno, filename)
+     unsigned int lineno;
+     const char *filename;
+{
+ 
+#ifdef DBX_ONLY_USED_SYMBOLS
+  if (!flag_debug_only_used_symbols)
+#endif
+    fprintf (asmfile, "%s%d,0,0\n", ASM_STABD_OP, N_BNSYM);
+
+  dbxout_source_line (lineno, filename);
+}
+/* APPLE LOCAL end dead code strip */
 
 /* Output a line number symbol entry for source file FILENAME and line
    number LINENO.  */

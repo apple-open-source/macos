@@ -15,7 +15,6 @@ GnuNoChown = YES
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 Install_Target = install-strip
-Extra_Install_Flags = "DEBUG=\"-g\""
 
 Configure = $(BuildDirectory)/Configure
 Configure_Flags = -n darwin
@@ -34,6 +33,7 @@ lazy_install_source:: shadow_source
 UNIQUE := $(shell echo $$$$)
 
 LSOF_MAKEFILE  = $(OBJROOT)/Makefile
+LSOF_MAKEFILE2 = $(OBJROOT)/lib/Makefile
 LSOF_MACHINE_H = $(OBJROOT)/dialects/darwin/machine.h
 
 ConfigStamp2 = $(ConfigStamp)2
@@ -42,9 +42,13 @@ configure:: $(ConfigStamp2)
 
 $(ConfigStamp2): $(ConfigStamp)
 	$(_v) $(CAT) $(LSOF_MAKEFILE) |			\
-		$(SED)	-e 's@^\(DEBUG=\).*@\1 -Os@'	\
+		$(SED)	-e 's@^\(DEBUG=\).*@\1 -Os -g@'	\
 		> /tmp/build.lsof.$(UNIQUE)
 	$(_v) $(MV) -f /tmp/build.lsof.$(UNIQUE) $(LSOF_MAKEFILE)
+	$(_v) $(CAT) $(LSOF_MAKEFILE2) |		\
+		$(SED)	-e 's@^\(DEBUG=\).*@\1 -Os -g@'	\
+		> /tmp/build.lsof.$(UNIQUE)
+	$(_v) $(MV) -f /tmp/build.lsof.$(UNIQUE) $(LSOF_MAKEFILE2)
 	$(_v) $(CAT) $(LSOF_MACHINE_H) |					\
 		$(SED)	-e 's@^.*\(#define.*HASSECURITY.*1\).*@\1@'		\
 			-e 's@^.*\(#define.*HASKERNIDCK.*1\).*@/* \1 */@'	\

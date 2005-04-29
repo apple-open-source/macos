@@ -27,15 +27,15 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/helper.c,v 1.47 2002/11/26 04:06:28 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/helper.c,v 1.51 2003/09/17 22:28:08 paulo Exp $ */
 
-#include "helper.h"
-#include "pathname.h"
-#include "package.h"
-#include "read.h"
-#include "stream.h"
-#include "write.h"
-#include "hash.h"
+#include "lisp/helper.h"
+#include "lisp/pathname.h"
+#include "lisp/package.h"
+#include "lisp/read.h"
+#include "lisp/stream.h"
+#include "lisp/write.h"
+#include "lisp/hash.h"
 #include <ctype.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -691,14 +691,12 @@ LispDo(LispBuiltin *builtin, int refs)
  do* init test &rest body
  */
 {
-    int jumped, *pjumped;
-    LispObj *result, **presult;
+    int jumped;
+    LispObj *result;
     LispBlock *block;
 
     jumped = 1;
     result = NIL;
-    presult = &result;
-    pjumped = &jumped;
     block = LispBeginBlock(NIL, LispBlockTag);
     if (setjmp(block->jmp) == 0) {
 	result = LispReallyDo(builtin, refs);
@@ -982,7 +980,7 @@ LispPathnameField(int field, int string)
 
     pathname = ARGUMENT(0);
 
-    if (PATHNAMEP(pathname))
+    if (!PATHNAMEP(pathname))
 	pathname = APPLY1(Oparse_namestring, pathname);
 
     result = pathname->data.pathname;
@@ -1062,8 +1060,12 @@ LispProbeFile(LispBuiltin *builtin, int probe)
     else if (STREAMP(pathname) && pathname->data.stream.type == LispStreamFile)
 	name = THESTR(CAR(pathname->data.stream.pathname->data.pathname));
 
+#ifndef __UNIXOS2__
     if (realpath(name, &resolved[0]) == NULL ||
 	stat(resolved, &st)) {
+#else
+    if ((name == NULL) || stat(resolved, &st)) {
+#endif
 	if (probe)
 	    return (NIL);
 	LispDestroy("%s: realpath(\"%s\"): %s",

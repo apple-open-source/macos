@@ -99,7 +99,7 @@ from The Open Group.
  * The Original Software is CID font code that was developed by Silicon
  * Graphics, Inc.
  */
-/* $XFree86: xc/lib/font/Type1/t1info.c,v 1.18 2002/09/10 16:14:33 tsi Exp $ */
+/* $XFree86: xc/lib/font/Type1/t1info.c,v 1.19 2003/05/27 22:26:47 tsi Exp $ */
 
 #include "fntfilst.h"
 #include "fontutil.h"
@@ -386,7 +386,7 @@ ComputeBoundsAllChars(FontPtr pFont, char *cfmfilename, double sxmult)
           k <= cidrangeP->range[j].srcCodeHi; k++) {
           ccode[0] = (k >> 8) & 0xff;
           ccode[1] = k & 0xff;
-          ret = CIDGetMetrics(pFont, 1, ccode, 2, &ccount, &pmetrics);
+          ret = CIDGetMetrics(pFont, 1, ccode, Linear16Bit, &ccount, &pmetrics);
           if (ret != Successful || (ret == Successful && pmetrics == NULL))
               continue;
           total_width += pmetrics->attributes;
@@ -505,7 +505,7 @@ ComputeBoundsAll(FontPtr pFont)
           k <= cidrangeP->range[j].srcCodeHi; k++) {
           ccode[0] = (k >> 8) & 0xff;
           ccode[1] = k & 0xff;
-          ret = CIDGetMetrics(pFont, 1, ccode, 2, &ccount, (xCharInfo **)cinfo);
+          ret = CIDGetMetrics(pFont, 1, ccode, Linear16Bit, &ccount, (xCharInfo **)cinfo);
           if (ret != Successful || cinfo == NULL)
               continue;
           pmetrics = &cinfo[0]->metrics;

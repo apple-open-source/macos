@@ -1,0 +1,4 @@
+sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/Rendezvous.dsplug
+sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/Bonjour.dsplug
+sudo cp -r ./build/Bonjour.dsplug /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/
+

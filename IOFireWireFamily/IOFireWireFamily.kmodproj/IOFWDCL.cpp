@@ -52,6 +52,7 @@ IOFWDCL :: initWithRanges (
 void
 IOFWDCL :: setBranch( IOFWDCL* branch )
 { 
+	fLoLevel->lastBranch = fBranch ;
 	fBranch = branch ;
 }
 
@@ -70,7 +71,7 @@ IOFWDCL :: setTimeStampPtr ( UInt32* timeStampPtr )
 UInt32 *
 IOFWDCL :: getTimeStampPtr () const
 {
-	return fTimeStampPtr ;
+	return (UInt32*)fTimeStampPtr ;
 }
 
 void
@@ -94,7 +95,7 @@ IOFWDCL :: setStatusPtr( UInt32* statusPtr )
 UInt32*
 IOFWDCL :: getStatusPtr() const
 {
-	return fUserStatusPtr ; 
+	return (UInt32*) fUserStatusPtr ; 
 }
 
 void
@@ -481,7 +482,7 @@ IOFWDCL :: importUserDCL (
 	return error ;
 }
 
-OSMetaClassDefineReservedUnused ( IOFWDCL, 0 ) ;
+OSMetaClassDefineReservedUsed ( IOFWDCL, 0 ) ;
 OSMetaClassDefineReservedUnused ( IOFWDCL, 1 ) ;
 OSMetaClassDefineReservedUnused ( IOFWDCL, 2 ) ;
 OSMetaClassDefineReservedUnused ( IOFWDCL, 3 ) ;

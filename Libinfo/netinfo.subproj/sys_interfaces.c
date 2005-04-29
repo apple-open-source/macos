@@ -29,7 +29,7 @@
 #include "sys_interfaces.h"
 
 __private_extern__ interface_list_t *
-sys_interfaces(void)
+_libinfo_ni_sys_interfaces(void)
 {
 	interface_list_t *my_interfaces = NULL;
 	interface_t *iface;
@@ -73,7 +73,7 @@ sys_interfaces(void)
 }
 
 __private_extern__  void
-sys_interfaces_release(interface_list_t *l)
+_libinfo_ni_sys_interfaces_release(interface_list_t *l)
 {
 	int i;
 
@@ -89,7 +89,7 @@ sys_interfaces_release(interface_list_t *l)
 }
 
 __private_extern__ int
-sys_is_my_address(interface_list_t *l, struct in_addr *a)
+_libinfo_ni_sys_is_my_address(interface_list_t *l, struct in_addr *a)
 {
 	int i;
 
@@ -103,7 +103,7 @@ sys_is_my_address(interface_list_t *l, struct in_addr *a)
 }
 
 __private_extern__ int
-sys_is_my_network(interface_list_t *l, struct in_addr *a)
+_libinfo_ni_sys_is_my_network(interface_list_t *l, struct in_addr *a)
 {
 	int i;
 

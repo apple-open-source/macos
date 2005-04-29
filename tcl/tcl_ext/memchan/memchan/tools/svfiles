@@ -1,0 +1,110 @@
+svfile DESCRIPTION {
+    {    version	   @mFullVersion@}
+    {    version	   2.2a4}
+    {    date           {@mDate@}}
+    {    date           {AUG-20-2002}}
+}
+svfile LSM {
+    {Version:        @mFullVersion@}
+    {Version:        2.2a4}
+    {Entered-date:   @mDate@}
+    {Entered-date:   AUG-20-2002}
+}
+svfile ANNOUNCE {
+    {I hereby announce @mName@ @mFullVersion@.}
+    {I hereby announce memchan 2.2a4.}
+    {	@mDate@}
+    {	AUG-20-2002}
+}
+svfile ANNOUNCE.MAIL {
+    {Subject:      @mName@ @mFullVersion@}
+    {Subject:      memchan 2.2a4}
+}
+svfile README {
+    {		(Version @mFullVersion@ / @mDate@)}
+    {		(Version 2.2a4 / AUG-20-2002)}
+    {Memchan @mFullVersion@ is developed for}
+    {Memchan 2.2a4 is developed for}
+}
+svfile win/README {
+    {		(Version @mFullVersion@ / @mDate@)}
+    {		(Version 2.2a4 / AUG-20-2002)}
+    {	Memchan @mFullVersion@ Source Distribution}
+    {	Memchan 2.2a4 Source Distribution}
+}
+svfile mac/README {
+    {		(Version @mFullVersion@ / @mDate@)}
+    {		(Version 2.2a4 / AUG-20-2002)}
+}
+svfile unix/configure.in {
+    MEMCHAN_VERSION=@mFullVersion@
+    MEMCHAN_VERSION=2.2a4
+    MEMCHAN_MAJOR_VERSION=@mMajor@
+    MEMCHAN_MAJOR_VERSION=2
+    MEMCHAN_MINOR_VERSION=@mMinor@
+    MEMCHAN_MINOR_VERSION=2
+}
+svfile unix/Makefile.in {
+    {# This file is a Makefile for MEMCHAN @mFullVersion@.}
+    {# This file is a Makefile for MEMCHAN 2.2a4.}
+    {# Distribution as of @mDate@}
+    {# Distribution as of AUG-20-2002}
+    {VERSION		=	@mFullVersion@}
+    {VERSION		=	2.2a4}
+}
+svfile configure.in {
+    {# Configure script for package '@mName@', as distributed at @mDate@.}
+    {# Configure script for package 'memchan', as distributed at AUG-20-2002.}
+    MAJOR_VERSION=@mMajor@
+    MAJOR_VERSION=2
+    MINOR_VERSION=@mMinor@
+    MINOR_VERSION=2
+}
+svfile pkgIndex.tcl {
+    {bin Memchan@mShortDosVersion@}
+    {bin Memchan22}
+    {dir libMemchan@mVersion@}
+    {dir libMemchan2.2}
+    {ifneeded Memchan @mVersion@}
+    {ifneeded Memchan 2.2}
+}
+svfile win/mc.rc {
+    {VALUE "OriginalFilename", "Memchan@mShortDosVersion@.dll\0"}
+    {VALUE "OriginalFilename", "Memchan22.dll\0"}
+    {VALUE "FileVersion",      "@mVersion@"}
+    {VALUE "FileVersion",      "2.2"}
+    {VALUE "ProductName",      "Memchan @mVersion@ for Windows\0"}
+    {VALUE "ProductName",      "Memchan 2.2 for Windows\0"}
+    {VALUE "ProductVersion",   "@mVersion@"}
+    {VALUE "ProductVersion",   "2.2"}
+}
+svfile win/Makefile.gnu {
+    {Memchan @mFullVersion@ (as of @mDate@)}
+    {Memchan 2.2a4 (as of AUG-20-2002)}
+    {VERSION		= @mFullVersion@}
+    {VERSION		= 2.2a4}
+    {MEMCHAN_DLL_FILE= memchan@mShortDosVersion@.dll}
+    {MEMCHAN_DLL_FILE= memchan22.dll}
+}
+svfile win/makefile.vc {
+    {makefile for memchan @mFullVersion@ (as of @mDate@)}
+    {makefile for memchan 2.2a4 (as of AUG-20-2002)}
+    {MC		=	memchan@mShortDosVersion@}
+    {MC		=	memchan22}
+    {DMEMCHAN_VERSION=\"@mFullVersion@\"}
+    {DMEMCHAN_VERSION=\"2.2a4\"}
+}
+svfile win/makefile.vc5 {
+    {makefile for Memchan @mFullVersion@ (@mDate@)}
+    {makefile for Memchan 2.2a4 (AUG-20-2002)}
+    {MC		=	memchan@mShortDosVersion@}
+    {MC		=	memchan22}
+    {DMEMCHAN_VERSION=\"@mFullVersion@\"}
+    {DMEMCHAN_VERSION=\"2.2a4\"}
+}
+svfile win/pkgIndex.tcl {
+    {ifneeded Memchan @mVersion@}
+    {ifneeded Memchan 2.2}
+    {dir memchan@mShortDosVersion@}
+    {dir memchan22}
+}

@@ -327,6 +327,11 @@ ip6_sa2str(const struct sockaddr_in6 *sa6, char *buf, size_t bufsiz, int flags)
 	}
 #endif
 
+		/*
+		 * XXXLUKEM:	some systems (MacOS X) don't have IF_NAMESIZE
+		 *		or if_indextoname()
+		 */
+#if 0
 	/* if_indextoname() does not take buffer size.  not a good api... */
 	if ((IN6_IS_ADDR_LINKLOCAL(a6) || IN6_IS_ADDR_MC_LINKLOCAL(a6)) &&
 	    bufsiz >= IF_NAMESIZE) {
@@ -335,6 +340,7 @@ ip6_sa2str(const struct sockaddr_in6 *sa6, char *buf, size_t bufsiz, int flags)
 			return(strlen(p));
 		}
 	}
+#endif
 
 	/* last resort */
 	return(snprintf(buf, bufsiz, "%u", sa6->sin6_scope_id));

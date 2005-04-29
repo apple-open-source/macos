@@ -63,6 +63,14 @@
 
 #include <bits/concept_check.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define map _Release_map
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
   /**
@@ -86,9 +94,10 @@ namespace std
    *  called (*_unique versus *_equal, same as the standard).
    *  @endif
   */
+  /* APPLE LOCAL libstdc++ debug mode */
   template <typename _Key, typename _Tp, typename _Compare = less<_Key>,
             typename _Alloc = allocator<pair<const _Key, _Tp> > >
-    class map
+    class _GLIBCXX_RELEASE_CLASS(map) map
   {
     // concept requirements
     __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
@@ -657,5 +666,12 @@ namespace std
     swap(map<_Key,_Tp,_Compare,_Alloc>& __x, map<_Key,_Tp,_Compare,_Alloc>& __y)
     { __x.swap(__y); }
 } // namespace std
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef map
+#  include <debug/dbg_map.h>
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #endif /* __GLIBCPP_INTERNAL_MAP_H */

@@ -35,8 +35,7 @@ cd "$objdir"
 
 rm -f *.c *.o a.out Makefile*
 
-(cd "$srcdir"; /usr/bin/tar -c -f - -s '/.exp/.expdontrun/g' . ) | 
-     /usr/bin/tar xBpf - >/dev/null 2>&1
+(cd "$srcdir"; /usr/bin/tar -c -f - . ) | /usr/bin/tar xBpf - >/dev/null 2>&1
 
 if [ ! -f "Makefile-in" -a ! -f "Makefile" ]
 then

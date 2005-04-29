@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 2001-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,42 +24,86 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with GNAT.OS_Lib; use GNAT.OS_Lib;
-with Namet;       use Namet;
+with Namet;    use Namet;
 with Opt;
-with Osint;       use Osint;
-with Output;      use Output;
-with Prj.Com;     use Prj.Com;
-with Prj.Util;
-with Snames;      use Snames;
-with Stringt;     use Stringt;
+with Osint;    use Osint;
+with Output;   use Output;
+with Prj.Com;  use Prj.Com;
 with Table;
+with Tempdir;
+
+with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 package body Prj.Env is
 
    type Naming_Id is new Nat;
 
-   Ada_Path_Buffer : String_Access := new String (1 .. 1_000);
+   Current_Source_Path_File : Name_Id := No_Name;
+   --  Current value of project source path file env var.
+   --  Used to avoid setting the env var to the same value.
+
+   Current_Object_Path_File : Name_Id := No_Name;
+   --  Current value of project object path file env var.
+   --  Used to avoid setting the env var to the same value.
+
+   Ada_Path_Buffer : String_Access := new String (1 .. 1024);
    --  A buffer where values for ADA_INCLUDE_PATH
    --  and ADA_OBJECTS_PATH are stored.
 
    Ada_Path_Length : Natural := 0;
    --  Index of the last valid character in Ada_Path_Buffer.
 
-   package Namings is new Table.Table (
-     Table_Component_Type => Naming_Data,
-     Table_Index_Type     => Naming_Id,
-     Table_Low_Bound      => 1,
-     Table_Initial        => 5,
-     Table_Increment      => 100,
-     Table_Name           => "Prj.Env.Namings");
+   Ada_Prj_Include_File_Set : Boolean := False;
+   Ada_Prj_Objects_File_Set : Boolean := False;
+   --  These flags are set to True when the corresponding environment variables
+   --  are set and are used to give these environment variables an empty string
+   --  value at the end of the program. This has no practical effect on most
+   --  platforms, except on VMS where the logical names are deassigned, thus
+   --  avoiding the pollution of the environment of the caller.
+
+   package Namings is new Table.Table
+     (Table_Component_Type => Naming_Data,
+      Table_Index_Type     => Naming_Id,
+      Table_Low_Bound      => 1,
+      Table_Initial        => 5,
+      Table_Increment      => 100,
+      Table_Name           => "Prj.Env.Namings");
 
    Default_Naming : constant Naming_Id := Namings.First;
 
-   Global_Configuration_Pragmas : Name_Id;
-   Local_Configuration_Pragmas  : Name_Id;
-
    Fill_Mapping_File : Boolean := True;
+
+   package Path_Files is new Table.Table
+     (Table_Component_Type => Name_Id,
+      Table_Index_Type     => Natural,
+      Table_Low_Bound      => 1,
+      Table_Initial        => 50,
+      Table_Increment      => 50,
+      Table_Name           => "Prj.Env.Path_Files");
+   --  Table storing all the temp path file names.
+   --  Used by Delete_All_Path_Files.
+
+   type Project_Flags is array (Project_Id range <>) of Boolean;
+   --  A Boolean array type used in Create_Mapping_File to select the projects
+   --  in the closure of a specific project.
+
+   package Source_Paths is new Table.Table
+     (Table_Component_Type => Name_Id,
+      Table_Index_Type     => Natural,
+      Table_Low_Bound      => 1,
+      Table_Initial        => 50,
+      Table_Increment      => 50,
+      Table_Name           => "Prj.Env.Source_Paths");
+   --  A table to store the source dirs before creating the source path file
+
+   package Object_Paths is new Table.Table
+     (Table_Component_Type => Name_Id,
+      Table_Index_Type     => Natural,
+      Table_Low_Bound      => 1,
+      Table_Initial        => 50,
+      Table_Increment      => 50,
+      Table_Name           => "Prj.Env.Source_Paths");
+   --  A table to store the object dirs, before creating the object path file
 
    -----------------------
    -- Local Subprograms --
@@ -78,9 +121,33 @@ package body Prj.Env is
    --  Add to Ada_Path_Buffer all the source directories in string list
    --  Source_Dirs, if any. Increment Ada_Path_Length.
 
-   procedure Add_To_Path (Path : String);
-   --  Add Path to global variable Ada_Path_Buffer
-   --  Increment Ada_Path_Length
+   procedure Add_To_Path (Dir : String);
+   --  If Dir is not already in the global variable Ada_Path_Buffer, add it.
+   --  Increment Ada_Path_Length.
+   --  If Ada_Path_Length /= 0, prepend a Path_Separator character to
+   --  Path.
+
+   procedure Add_To_Source_Path (Source_Dirs : String_List_Id);
+   --  Add to Ada_Path_B all the source directories in string list
+   --  Source_Dirs, if any. Increment Ada_Path_Length.
+
+   procedure Add_To_Object_Path (Object_Dir : Name_Id);
+   --  Add Object_Dir to object path table. Make sure it is not duplicate
+   --  and it is the last one in the current table.
+
+   procedure Create_New_Path_File
+     (Path_FD   : out File_Descriptor;
+      Path_Name : out Name_Id);
+   --  Create a new temporary path file. Get the file name in Path_Name.
+   --  The name is normally obtained by increasing the number in
+   --  Temp_Path_File_Name by 1.
+
+   procedure Set_Path_File_Var (Name : String; Value : String);
+   --  Call Setenv, after calling To_Host_File_Spec
+
+   function Ultimate_Extension_Of (Project : in Project_Id) return Project_Id;
+   --  Return a project that is either Project or an extended ancestor of
+   --  Project that itself is not extended.
 
    ----------------------
    -- Ada_Include_Path --
@@ -91,7 +158,7 @@ package body Prj.Env is
       procedure Add (Project : Project_Id);
       --  Add all the source directories of a project to the path only if
       --  this project has not been visited. Calls itself recursively for
-      --  projects being modified, and imported projects. Adds the project
+      --  projects being extended, and imported projects. Adds the project
       --  to the list Seen if this is the call to Add for this project.
 
       ---------
@@ -106,7 +173,7 @@ package body Prj.Env is
             Projects.Table (Project).Seen := True;
 
             declare
-               Data : Project_Data := Projects.Table (Project);
+               Data : constant Project_Data := Projects.Table (Project);
                List : Project_List := Data.Imported_Projects;
 
             begin
@@ -114,10 +181,10 @@ package body Prj.Env is
 
                Add_To_Path (Data.Source_Dirs);
 
-               --  Call Add to the project being modified, if any
+               --  Call Add to the project being extended, if any
 
-               if Data.Modifies /= No_Project then
-                  Add (Data.Modifies);
+               if Data.Extends /= No_Project then
+                  Add (Data.Extends);
                end if;
 
                --  Call Add for each imported project, if any
@@ -136,7 +203,7 @@ package body Prj.Env is
       --  If it is the first time we call this function for
       --  this project, compute the source path
 
-      if Projects.Table (Project).Include_Path = null then
+      if Projects.Table (Project).Ada_Include_Path = null then
          Ada_Path_Length := 0;
 
          for Index in 1 .. Projects.Last loop
@@ -144,17 +211,20 @@ package body Prj.Env is
          end loop;
 
          Add (Project);
-         Projects.Table (Project).Include_Path :=
+         Projects.Table (Project).Ada_Include_Path :=
            new String'(Ada_Path_Buffer (1 .. Ada_Path_Length));
       end if;
 
-      return Projects.Table (Project).Include_Path;
+      return Projects.Table (Project).Ada_Include_Path;
    end Ada_Include_Path;
+
+   ----------------------
+   -- Ada_Include_Path --
+   ----------------------
 
    function Ada_Include_Path
      (Project   : Project_Id;
-      Recursive : Boolean)
-      return      String
+      Recursive : Boolean) return String
    is
    begin
       if Recursive then
@@ -172,13 +242,12 @@ package body Prj.Env is
 
    function Ada_Objects_Path
      (Project             : Project_Id;
-      Including_Libraries : Boolean := True)
-      return                String_Access
+      Including_Libraries : Boolean := True) return String_Access
    is
       procedure Add (Project : Project_Id);
       --  Add all the object directories of a project to the path only if
       --  this project has not been visited. Calls itself recursively for
-      --  projects being modified, and imported projects. Adds the project
+      --  projects being extended, and imported projects. Adds the project
       --  to the list Seen if this is the first call to Add for this project.
 
       ---------
@@ -193,7 +262,7 @@ package body Prj.Env is
             Projects.Table (Project).Seen := True;
 
             declare
-               Data : Project_Data := Projects.Table (Project);
+               Data : constant Project_Data := Projects.Table (Project);
                List : Project_List := Data.Imported_Projects;
 
             begin
@@ -207,35 +276,22 @@ package body Prj.Env is
                    and then
                    (not Including_Libraries or else not Data.Library))
                then
-                  if Ada_Path_Length > 0 then
-                     Add_To_Path (Path => (1 => Path_Separator));
-                  end if;
-
-                  --  For a library project, att the library directory
+                  --  For a library project, add the library directory
 
                   if Data.Library then
-                     declare
-                        New_Path : constant String :=
-                          Get_Name_String (Data.Library_Dir);
-                     begin
-                        Add_To_Path (New_Path);
-                     end;
-                  else
+                     Add_To_Path (Get_Name_String (Data.Library_Dir));
 
+                  else
                      --  For a non library project, add the object directory
-                     declare
-                        New_Path : constant String :=
-                          Get_Name_String (Data.Object_Directory);
-                     begin
-                        Add_To_Path (New_Path);
-                     end;
+
+                     Add_To_Path (Get_Name_String (Data.Object_Directory));
                   end if;
                end if;
 
-               --  Call Add to the project being modified, if any
+               --  Call Add to the project being extended, if any
 
-               if Data.Modifies /= No_Project then
-                  Add (Data.Modifies);
+               if Data.Extends /= No_Project then
+                  Add (Data.Extends);
                end if;
 
                --  Call Add for each imported project, if any
@@ -255,7 +311,7 @@ package body Prj.Env is
       --  If it is the first time we call this function for
       --  this project, compute the objects path
 
-      if Projects.Table (Project).Objects_Path = null then
+      if Projects.Table (Project).Ada_Objects_Path = null then
          Ada_Path_Length := 0;
 
          for Index in 1 .. Projects.Last loop
@@ -263,12 +319,41 @@ package body Prj.Env is
          end loop;
 
          Add (Project);
-         Projects.Table (Project).Objects_Path :=
+         Projects.Table (Project).Ada_Objects_Path :=
            new String'(Ada_Path_Buffer (1 .. Ada_Path_Length));
       end if;
 
-      return Projects.Table (Project).Objects_Path;
+      return Projects.Table (Project).Ada_Objects_Path;
    end Ada_Objects_Path;
+
+   ------------------------
+   -- Add_To_Object_Path --
+   ------------------------
+
+   procedure Add_To_Object_Path (Object_Dir : Name_Id) is
+   begin
+      --  Check if the directory is already in the table
+
+      for Index in 1 .. Object_Paths.Last loop
+
+         --  If it is, remove it, and add it as the last one
+
+         if Object_Paths.Table (Index) = Object_Dir then
+            for Index2 in Index + 1 .. Object_Paths.Last loop
+               Object_Paths.Table (Index2 - 1) :=
+                 Object_Paths.Table (Index2);
+            end loop;
+
+            Object_Paths.Table (Object_Paths.Last) := Object_Dir;
+            return;
+         end if;
+      end loop;
+
+      --  The directory is not already in the table, add it
+
+      Object_Paths.Increment_Last;
+      Object_Paths.Table (Object_Paths.Last) := Object_Dir;
+   end Add_To_Object_Path;
 
    -----------------
    -- Add_To_Path --
@@ -277,49 +362,132 @@ package body Prj.Env is
    procedure Add_To_Path (Source_Dirs : String_List_Id) is
       Current    : String_List_Id := Source_Dirs;
       Source_Dir : String_Element;
-
    begin
       while Current /= Nil_String loop
-         if Ada_Path_Length > 0 then
-            Add_To_Path (Path => (1 => Path_Separator));
-         end if;
-
          Source_Dir := String_Elements.Table (Current);
-         String_To_Name_Buffer (Source_Dir.Value);
-
-         declare
-            New_Path : constant String :=
-              Name_Buffer (1 .. Name_Len);
-         begin
-            Add_To_Path (New_Path);
-         end;
-
+         Add_To_Path (Get_Name_String (Source_Dir.Display_Value));
          Current := Source_Dir.Next;
       end loop;
    end Add_To_Path;
 
-   procedure Add_To_Path (Path : String) is
+   procedure Add_To_Path (Dir : String) is
+      Len        : Natural;
+      New_Buffer : String_Access;
+      Min_Len    : Natural;
+
+      function Is_Present (Path : String; Dir : String) return Boolean;
+      --  Return True if Dir is part of Path
+
+      ----------------
+      -- Is_Present --
+      ----------------
+
+      function Is_Present (Path : String; Dir : String) return Boolean is
+         Last : constant Integer := Path'Last - Dir'Length + 1;
+
+      begin
+         for J in Path'First .. Last loop
+
+            --  Note: the order of the conditions below is important, since
+            --  it ensures a minimal number of string comparisons.
+
+            if (J = Path'First
+                or else Path (J - 1) = Path_Separator)
+              and then
+                (J + Dir'Length > Path'Last
+                 or else Path (J + Dir'Length) = Path_Separator)
+              and then Dir = Path (J .. J + Dir'Length - 1)
+            then
+               return True;
+            end if;
+         end loop;
+
+         return False;
+      end Is_Present;
+
+   --  Start of processing for Add_To_Path
+
    begin
-      --  If Ada_Path_Buffer is too small, double it
+      if Is_Present (Ada_Path_Buffer (1 .. Ada_Path_Length), Dir) then
 
-      if Ada_Path_Length + Path'Length > Ada_Path_Buffer'Last then
-         declare
-            New_Ada_Path_Buffer : constant String_Access :=
-                                    new String
-                                      (1 .. Ada_Path_Buffer'Last +
-                                                 Ada_Path_Buffer'Last);
+         --  Dir is already in the path, nothing to do
 
-         begin
-            New_Ada_Path_Buffer (1 .. Ada_Path_Length) :=
-              Ada_Path_Buffer (1 .. Ada_Path_Length);
-            Ada_Path_Buffer := New_Ada_Path_Buffer;
-         end;
+         return;
+      end if;
+
+      Min_Len := Ada_Path_Length + Dir'Length;
+
+      if Ada_Path_Length > 0 then
+
+         --  Add 1 for the Path_Separator character
+
+         Min_Len := Min_Len + 1;
+      end if;
+
+      --  If Ada_Path_Buffer is too small, increase it
+
+      Len := Ada_Path_Buffer'Last;
+
+      if Len < Min_Len then
+         loop
+            Len := Len * 2;
+            exit when Len >= Min_Len;
+         end loop;
+
+         New_Buffer := new String (1 .. Len);
+         New_Buffer (1 .. Ada_Path_Length) :=
+           Ada_Path_Buffer (1 .. Ada_Path_Length);
+         Free (Ada_Path_Buffer);
+         Ada_Path_Buffer := New_Buffer;
+      end if;
+
+      if Ada_Path_Length > 0 then
+         Ada_Path_Length := Ada_Path_Length + 1;
+         Ada_Path_Buffer (Ada_Path_Length) := Path_Separator;
       end if;
 
       Ada_Path_Buffer
-        (Ada_Path_Length + 1 .. Ada_Path_Length + Path'Length) := Path;
-      Ada_Path_Length := Ada_Path_Length + Path'Length;
+        (Ada_Path_Length + 1 .. Ada_Path_Length + Dir'Length) := Dir;
+      Ada_Path_Length := Ada_Path_Length + Dir'Length;
    end Add_To_Path;
+
+   ------------------------
+   -- Add_To_Source_Path --
+   ------------------------
+
+   procedure Add_To_Source_Path (Source_Dirs : String_List_Id) is
+      Current    : String_List_Id := Source_Dirs;
+      Source_Dir : String_Element;
+      Add_It     : Boolean;
+
+   begin
+      --  Add each source directory
+
+      while Current /= Nil_String loop
+         Source_Dir := String_Elements.Table (Current);
+         Add_It := True;
+
+         --  Check if the source directory is already in the table
+
+         for Index in 1 .. Source_Paths.Last loop
+            --  If it is already, no need to add it
+
+            if Source_Paths.Table (Index) = Source_Dir.Value then
+               Add_It := False;
+               exit;
+            end if;
+         end loop;
+
+         if Add_It then
+            Source_Paths.Increment_Last;
+            Source_Paths.Table (Source_Paths.Last) := Source_Dir.Value;
+         end if;
+
+         --  Next source directory
+
+         Current := Source_Dir.Next;
+      end loop;
+   end Add_To_Source_Path;
 
    -----------------------
    -- Body_Path_Name_Of --
@@ -347,13 +515,12 @@ package body Prj.Env is
             --  For each source directory
 
             while Current_Source /= Nil_String loop
-               String_To_Name_Buffer
-                 (String_Elements.Table (Current_Source).Value);
                Path :=
                  Locate_Regular_File
-                 (Namet.Get_Name_String
-                  (Data.File_Names (Body_Part).Name),
-                  Name_Buffer (1 .. Name_Len));
+                   (Namet.Get_Name_String
+                      (Data.File_Names (Body_Part).Name),
+                    Namet.Get_Name_String
+                       (String_Elements.Table (Current_Source).Value));
 
                --  If the file is in this directory,
                --  then we store the path, and we are done.
@@ -374,7 +541,7 @@ package body Prj.Env is
          end;
       end if;
 
-      --  Returned the value stored
+      --  Returned the stored value
 
       return Namet.Get_Name_String (Data.File_Names (Body_Part).Path);
    end Body_Path_Name_Of;
@@ -384,15 +551,15 @@ package body Prj.Env is
    --------------------------------
 
    procedure Create_Config_Pragmas_File
-     (For_Project  : Project_Id;
-      Main_Project : Project_Id)
+     (For_Project          : Project_Id;
+      Main_Project         : Project_Id;
+      Include_Config_Files : Boolean := True)
    is
-      File_Name : Temp_File_Name;
-      File      : File_Descriptor := Invalid_FD;
+      pragma Unreferenced (Main_Project);
+      pragma Unreferenced (Include_Config_Files);
 
-      The_Packages : Package_Id;
-      Gnatmake     : Prj.Package_Id;
-      Compiler     : Prj.Package_Id;
+      File_Name : Name_Id         := No_Name;
+      File      : File_Descriptor := Invalid_FD;
 
       Current_Unit : Unit_Id := Units.First;
 
@@ -401,31 +568,29 @@ package body Prj.Env is
       Current_Project : Project_List;
       Current_Naming  : Naming_Id;
 
-      Global_Attribute : Variable_Value := Nil_Variable_Value;
-      Local_Attribute  : Variable_Value := Nil_Variable_Value;
-
-      Global_Attribute_Present : Boolean := False;
-      Local_Attribute_Present  : Boolean := False;
+      Status : Boolean;
+      --  For call to Close
 
       procedure Check (Project : Project_Id);
+      --  Recursive procedure that put in the config pragmas file any non
+      --  standard naming schemes, if it is not already in the file, then call
+      --  itself for any imported project.
 
       procedure Check_Temp_File;
       --  Check that a temporary file has been opened.
       --  If not, create one, and put its name in the project data,
       --  with the indication that it is a temporary file.
 
-      procedure Copy_File (Name : String_Id);
-      --  Copy a configuration pragmas file into the temp file.
-
       procedure Put
         (Unit_Name : Name_Id;
          File_Name : Name_Id;
-         Unit_Kind : Spec_Or_Body);
-      --  Put an SFN pragma in the temporary file.
+         Unit_Kind : Spec_Or_Body;
+         Index     : Int);
+      --  Put an SFN pragma in the temporary file
 
       procedure Put (File : File_Descriptor; S : String);
-
       procedure Put_Line (File : File_Descriptor; S : String);
+      --  Output procedures, analogous to normal Text_IO procs of same name
 
       -----------
       -- Check --
@@ -484,7 +649,7 @@ package body Prj.Env is
                --  Spec
 
                Put_Line
-                 (File, "pragma Source_File_Name");
+                 (File, "pragma Source_File_Name_Project");
                Put_Line
                  (File, "  (Spec_File_Name  => ""*" &
                   Namet.Get_Name_String (Data.Naming.Current_Spec_Suffix) &
@@ -500,10 +665,10 @@ package body Prj.Env is
                --  and body
 
                Put_Line
-                 (File, "pragma Source_File_Name");
+                 (File, "pragma Source_File_Name_Project");
                Put_Line
                  (File, "  (Body_File_Name  => ""*" &
-                  Namet.Get_Name_String (Data.Naming.Current_Impl_Suffix) &
+                  Namet.Get_Name_String (Data.Naming.Current_Body_Suffix) &
                   """,");
                Put_Line
                  (File, "   Casing          => " &
@@ -516,10 +681,10 @@ package body Prj.Env is
                --  and maybe separate
 
                if
-                 Data.Naming.Current_Impl_Suffix /= Data.Naming.Separate_Suffix
+                 Data.Naming.Current_Body_Suffix /= Data.Naming.Separate_Suffix
                then
                   Put_Line
-                    (File, "pragma Source_File_Name");
+                    (File, "pragma Source_File_Name_Project");
                   Put_Line
                     (File, "  (Subunit_File_Name  => ""*" &
                      Namet.Get_Name_String (Data.Naming.Separate_Suffix) &
@@ -535,8 +700,8 @@ package body Prj.Env is
                end if;
             end if;
 
-            if Data.Modifies /= No_Project then
-               Check (Data.Modifies);
+            if Data.Extends /= No_Project then
+               Check (Data.Extends);
             end if;
 
             declare
@@ -558,65 +723,18 @@ package body Prj.Env is
       procedure Check_Temp_File is
       begin
          if File = Invalid_FD then
-            GNAT.OS_Lib.Create_Temp_File (File, Name => File_Name);
+            Tempdir.Create_Temp_File (File, Name => File_Name);
+
             if File = Invalid_FD then
-               Osint.Fail
+               Prj.Com.Fail
                  ("unable to create temporary configuration pragmas file");
             elsif Opt.Verbose_Mode then
                Write_Str ("Creating temp file """);
-               Write_Str (File_Name);
+               Write_Str (Get_Name_String (File_Name));
                Write_Line ("""");
             end if;
          end if;
       end Check_Temp_File;
-
-      ---------------
-      -- Copy_File --
-      ---------------
-
-      procedure Copy_File (Name : in String_Id) is
-         Input         : File_Descriptor;
-         Buffer        : String (1 .. 1_000);
-         Input_Length  : Integer;
-         Output_Length : Integer;
-
-      begin
-         Check_Temp_File;
-         String_To_Name_Buffer (Name);
-
-         if Opt.Verbose_Mode then
-            Write_Str ("Copying config pragmas file """);
-            Write_Str (Name_Buffer (1 .. Name_Len));
-            Write_Line (""" into temp file");
-         end if;
-
-         declare
-            Name : constant String :=
-              Name_Buffer (1 .. Name_Len)  & ASCII.NUL;
-         begin
-            Input := Open_Read (Name'Address, Binary);
-         end;
-
-         if Input = Invalid_FD then
-            Osint.Fail
-              ("cannot open configuration pragmas file " &
-               Name_Buffer (1 .. Name_Len));
-         end if;
-
-         loop
-            Input_Length := Read (Input, Buffer'Address, Buffer'Length);
-            Output_Length := Write (File, Buffer'Address, Input_Length);
-
-            if Output_Length /= Input_Length then
-               Osint.Fail ("disk full");
-            end if;
-
-            exit when Input_Length < Buffer'Length;
-         end loop;
-
-         Close (Input);
-
-      end Copy_File;
 
       ---------
       -- Put --
@@ -625,7 +743,8 @@ package body Prj.Env is
       procedure Put
         (Unit_Name : Name_Id;
          File_Name : Name_Id;
-         Unit_Kind : Spec_Or_Body)
+         Unit_Kind : Spec_Or_Body;
+         Index     : Int)
       is
       begin
          --  A temporary file needs to be open
@@ -634,7 +753,7 @@ package body Prj.Env is
 
          --  Put the pragma SFN for the unit kind (spec or body)
 
-         Put (File, "pragma Source_File_Name (");
+         Put (File, "pragma Source_File_Name_Project (");
          Put (File, Namet.Get_Name_String (Unit_Name));
 
          if Unit_Kind = Specification then
@@ -644,7 +763,14 @@ package body Prj.Env is
          end if;
 
          Put (File, Namet.Get_Name_String (File_Name));
-         Put_Line (File, """);");
+         Put (File, """");
+
+         if Index /= 0 then
+            Put (File, ", Index =>");
+            Put (File, Index'Img);
+         end if;
+
+         Put_Line (File, ");");
       end Put;
 
       procedure Put (File : File_Descriptor; S : String) is
@@ -654,7 +780,7 @@ package body Prj.Env is
          Last := Write (File, S (S'First)'Address, S'Length);
 
          if Last /= S'Length then
-            Osint.Fail ("Disk full");
+            Prj.Com.Fail ("Disk full");
          end if;
 
          if Current_Verbosity = High then
@@ -671,7 +797,7 @@ package body Prj.Env is
          Last : Natural;
 
       begin
-         --  Add an ASCII.LF to the string. As this gnat.adc is supposed to
+         --  Add an ASCII.LF to the string. As this config file is supposed to
          --  be used only by the compiler, we don't care about the characters
          --  for the end of line. In fact we could have put a space, but
          --  it is more convenient to be able to read gnat.adc during
@@ -682,7 +808,7 @@ package body Prj.Env is
          Last := Write (File, S0'Address, S0'Length);
 
          if Last /= S'Length + 1 then
-            Osint.Fail ("Disk full");
+            Prj.Com.Fail ("Disk full");
          end if;
 
          if Current_Verbosity = High then
@@ -714,85 +840,55 @@ package body Prj.Env is
                if Unit.File_Names (Specification).Needs_Pragma then
                   Put (Unit.Name,
                        Unit.File_Names (Specification).Name,
-                       Specification);
+                       Specification,
+                       Unit.File_Names (Specification).Index);
                end if;
 
                if Unit.File_Names (Body_Part).Needs_Pragma then
                   Put (Unit.Name,
                        Unit.File_Names (Body_Part).Name,
-                       Body_Part);
+                       Body_Part,
+                       Unit.File_Names (Body_Part).Index);
                end if;
 
                Current_Unit := Current_Unit + 1;
             end;
          end loop;
 
-         The_Packages := Projects.Table (Main_Project).Decl.Packages;
-         Gnatmake :=
-           Prj.Util.Value_Of
-           (Name        => Name_Builder,
-            In_Packages => The_Packages);
+         --  If there are no non standard naming scheme, issue the GNAT
+         --  standard naming scheme. This will tell the compiler that
+         --  a project file is used and will forbid any pragma SFN.
 
-         if Gnatmake /= No_Package then
-            Global_Attribute := Prj.Util.Value_Of
-              (Variable_Name => Global_Configuration_Pragmas,
-               In_Variables => Packages.Table (Gnatmake).Decl.Attributes);
-            Global_Attribute_Present :=
-              Global_Attribute /= Nil_Variable_Value
-              and then String_Length (Global_Attribute.Value) > 0;
+         if File = Invalid_FD then
+            Check_Temp_File;
+
+            Put_Line (File, "pragma Source_File_Name_Project");
+            Put_Line (File, "   (Spec_File_Name  => ""*.ads"",");
+            Put_Line (File, "    Dot_Replacement => ""-"",");
+            Put_Line (File, "    Casing          => lowercase);");
+
+            Put_Line (File, "pragma Source_File_Name_Project");
+            Put_Line (File, "   (Body_File_Name  => ""*.adb"",");
+            Put_Line (File, "    Dot_Replacement => ""-"",");
+            Put_Line (File, "    Casing          => lowercase);");
          end if;
 
-         The_Packages := Projects.Table (For_Project).Decl.Packages;
-         Compiler :=
-           Prj.Util.Value_Of
-           (Name        => Name_Compiler,
-            In_Packages => The_Packages);
+         --  Close the temporary file
 
-         if Compiler /= No_Package then
-            Local_Attribute := Prj.Util.Value_Of
-              (Variable_Name => Local_Configuration_Pragmas,
-               In_Variables => Packages.Table (Compiler).Decl.Attributes);
-            Local_Attribute_Present :=
-              Local_Attribute /= Nil_Variable_Value
-              and then String_Length (Local_Attribute.Value) > 0;
+         GNAT.OS_Lib.Close (File, Status);
+
+         if not Status then
+            Prj.Com.Fail ("disk full");
          end if;
 
-         if Global_Attribute_Present then
-            if File /= Invalid_FD
-              or else Local_Attribute_Present
-            then
-               Copy_File (Global_Attribute.Value);
-
-            else
-               String_To_Name_Buffer (Global_Attribute.Value);
-               Projects.Table (For_Project).Config_File_Name := Name_Find;
-            end if;
+         if Opt.Verbose_Mode then
+            Write_Str ("Closing configuration file """);
+            Write_Str (Get_Name_String (File_Name));
+            Write_Line ("""");
          end if;
 
-         if Local_Attribute_Present then
-            if File /= Invalid_FD then
-               Copy_File (Local_Attribute.Value);
-
-            else
-               String_To_Name_Buffer (Local_Attribute.Value);
-               Projects.Table (For_Project).Config_File_Name := Name_Find;
-            end if;
-         end if;
-
-         if File /= Invalid_FD then
-            GNAT.OS_Lib.Close (File);
-
-            if Opt.Verbose_Mode then
-               Write_Str ("Closing configuration file """);
-               Write_Str (File_Name);
-               Write_Line ("""");
-            end if;
-
-            Name_Len := File_Name'Length;
-            Name_Buffer (1 .. Name_Len) := File_Name;
-            Projects.Table (For_Project).Config_File_Name := Name_Find;
-            Projects.Table (For_Project).Config_File_Temp := True;
-         end if;
+         Projects.Table (For_Project).Config_File_Name := File_Name;
+         Projects.Table (For_Project).Config_File_Temp := True;
 
          Projects.Table (For_Project).Config_Checked := True;
       end if;
@@ -802,10 +898,21 @@ package body Prj.Env is
    -- Create_Mapping_File --
    -------------------------
 
-   procedure Create_Mapping_File (Name : in out Temp_File_Name) is
+   procedure Create_Mapping_File
+     (Project : Project_Id;
+      Name    : out Name_Id)
+   is
       File          : File_Descriptor := Invalid_FD;
       The_Unit_Data : Unit_Data;
       Data          : File_Name_Data;
+
+      Status : Boolean;
+      --  For call to Close
+
+      Present : Project_Flags (No_Project .. Projects.Last) :=
+        (others => False);
+      --  For each project in the closure of Project, the corresponding flag
+      --  will be set to True;
 
       procedure Put_Name_Buffer;
       --  Put the line contained in the Name_Buffer in the mapping file
@@ -813,6 +920,10 @@ package body Prj.Env is
       procedure Put_Data (Spec : Boolean);
       --  Put the mapping of the spec or body contained in Data in the file
       --  (3 lines).
+
+      procedure Recursive_Flag (Prj : Project_Id);
+      --  Set the flags corresponding to Prj, the projects it imports
+      --  (directly or indirectly) or extends to True. Call itself recursively.
 
       ---------
       -- Put --
@@ -827,7 +938,7 @@ package body Prj.Env is
          Last := Write (File, Name_Buffer (1)'Address, Name_Len);
 
          if Last /= Name_Len then
-            Osint.Fail ("Disk full");
+            Prj.Com.Fail ("Disk full");
          end if;
       end Put_Name_Buffer;
 
@@ -852,7 +963,7 @@ package body Prj.Env is
 
          Put_Name_Buffer;
 
-         --  Line with the file nale
+         --  Line with the file name
 
          Get_Name_String (Data.Name);
          Put_Name_Buffer;
@@ -864,18 +975,57 @@ package body Prj.Env is
 
       end Put_Data;
 
+      --------------------
+      -- Recursive_Flag --
+      --------------------
+
+      procedure Recursive_Flag (Prj : Project_Id) is
+         Imported : Project_List;
+         Proj     : Project_Id;
+
+      begin
+         --  Nothing to do for non existent project or project that has
+         --  already been flagged.
+
+         if Prj = No_Project or else Present (Prj) then
+            return;
+         end if;
+
+         --  Flag the current project
+
+         Present (Prj) := True;
+         Imported := Projects.Table (Prj).Imported_Projects;
+
+         --  Call itself for each project directly imported
+
+         while Imported /= Empty_Project_List loop
+            Proj := Project_Lists.Table (Imported).Project;
+            Imported := Project_Lists.Table (Imported).Next;
+            Recursive_Flag (Proj);
+         end loop;
+
+         --  Call itself for an eventual project being extended
+
+         Recursive_Flag (Projects.Table (Prj).Extends);
+      end Recursive_Flag;
+
    --  Start of processing for Create_Mapping_File
 
    begin
-      GNAT.OS_Lib.Create_Temp_File (File, Name => Name);
+      --  Flag the necessary projects
+
+      Recursive_Flag (Project);
+
+      --  Create the temporary file
+
+      Tempdir.Create_Temp_File (File, Name => Name);
 
       if File = Invalid_FD then
-         Osint.Fail
-           ("unable to create temporary mapping file");
+         Prj.Com.Fail ("unable to create temporary mapping file");
 
       elsif Opt.Verbose_Mode then
          Write_Str ("Creating temp mapping file """);
-         Write_Str (Name);
+         Write_Str (Get_Name_String (Name));
          Write_Line ("""");
       end if;
 
@@ -890,17 +1040,19 @@ package body Prj.Env is
             if The_Unit_Data.Name /= No_Name then
                Data := The_Unit_Data.File_Names (Specification);
 
-               --  If there is a spec, put it mapping in the file
+               --  If there is a spec, put it mapping in the file if it is
+               --  from a project in the closure of Project.
 
-               if Data.Name /= No_Name then
+               if Data.Name /= No_Name and then Present (Data.Project) then
                   Put_Data (Spec => True);
                end if;
 
                Data := The_Unit_Data.File_Names (Body_Part);
 
                --  If there is a body (or subunit) put its mapping in the file
+               --  if it is from a project in the closure of Project.
 
-               if Data.Name /= No_Name then
+               if Data.Name /= No_Name and then Present (Data.Project) then
                   Put_Data (Spec => False);
                end if;
 
@@ -908,20 +1060,77 @@ package body Prj.Env is
          end loop;
       end if;
 
-      GNAT.OS_Lib.Close (File);
+      GNAT.OS_Lib.Close (File, Status);
 
+      if not Status then
+         Prj.Com.Fail ("disk full");
+      end if;
    end Create_Mapping_File;
+
+   --------------------------
+   -- Create_New_Path_File --
+   --------------------------
+
+   procedure Create_New_Path_File
+     (Path_FD   : out File_Descriptor;
+      Path_Name : out Name_Id)
+   is
+   begin
+      Tempdir.Create_Temp_File (Path_FD, Path_Name);
+
+      if Path_Name /= No_Name then
+
+         --  Record the name, so that the temp path file will be deleted
+         --  at the end of the program.
+
+         Path_Files.Increment_Last;
+         Path_Files.Table (Path_Files.Last) := Path_Name;
+      end if;
+   end Create_New_Path_File;
+
+   ---------------------------
+   -- Delete_All_Path_Files --
+   ---------------------------
+
+   procedure Delete_All_Path_Files is
+      Disregard : Boolean := True;
+
+   begin
+      for Index in 1 .. Path_Files.Last loop
+         if Path_Files.Table (Index) /= No_Name then
+            Delete_File
+              (Get_Name_String (Path_Files.Table (Index)), Disregard);
+         end if;
+      end loop;
+
+      --  If any of the environment variables ADA_PRJ_INCLUDE_FILE or
+      --  ADA_PRJ_OBJECTS_FILE has been set, then reset their value to
+      --  the empty string. On VMS, this has the effect of deassigning
+      --  the logical names.
+
+      if Ada_Prj_Include_File_Set then
+         Setenv (Project_Include_Path_File, "");
+         Ada_Prj_Include_File_Set := False;
+      end if;
+
+      if Ada_Prj_Objects_File_Set then
+         Setenv (Project_Objects_Path_File, "");
+         Ada_Prj_Objects_File_Set := False;
+      end if;
+   end Delete_All_Path_Files;
 
    ------------------------------------
    -- File_Name_Of_Library_Unit_Body --
    ------------------------------------
 
    function File_Name_Of_Library_Unit_Body
-     (Name    : String;
-      Project : Project_Id)
-      return    String
+     (Name              : String;
+      Project           : Project_Id;
+      Main_Project_Only : Boolean := True;
+      Full_Path         : Boolean := False) return String
    is
-      Data          : constant Project_Data := Projects.Table (Project);
+      The_Project   : Project_Id := Project;
+      Data          : Project_Data := Projects.Table (Project);
       Original_Name : String := Name;
 
       Extended_Spec_Name : String :=
@@ -929,7 +1138,7 @@ package body Prj.Env is
                                       (Data.Naming.Current_Spec_Suffix);
       Extended_Body_Name : String :=
                              Name & Namet.Get_Name_String
-                                      (Data.Naming.Current_Impl_Suffix);
+                                      (Data.Naming.Current_Body_Suffix);
 
       Unit : Unit_Data;
 
@@ -968,109 +1177,149 @@ package body Prj.Env is
          Write_Eol;
       end if;
 
-      --  For every unit
+      --  For extending project, search in the extended project
+      --  if the source is not found. For non extending projects,
+      --  this loop will be run only once.
 
-      for Current in reverse Units.First .. Units.Last loop
-         Unit := Units.Table (Current);
+      loop
+         --  Loop through units
+         --  Should have comment explaining reverse ???
 
-         --  Case of unit of the same project
+         for Current in reverse Units.First .. Units.Last loop
+            Unit := Units.Table (Current);
 
-         if Unit.File_Names (Body_Part).Project = Project then
-            declare
-               Current_Name : constant Name_Id :=
-                                Unit.File_Names (Body_Part).Name;
+            --  Check for body
 
-            begin
-               --  Case of a body present
+            if not Main_Project_Only
+              or else Unit.File_Names (Body_Part).Project = The_Project
+            then
+               declare
+                  Current_Name : constant Name_Id :=
+                                   Unit.File_Names (Body_Part).Name;
 
-               if Current_Name /= No_Name then
-                  if Current_Verbosity = High then
-                     Write_Str  ("   Comparing with """);
-                     Write_Str  (Get_Name_String (Current_Name));
-                     Write_Char ('"');
-                     Write_Eol;
-                  end if;
+               begin
+                  --  Case of a body present
 
-                  --  If it has the name of the original name,
-                  --  return the original name
-
-                  if Unit.Name = The_Original_Name
-                    or else Current_Name = The_Original_Name
-                  then
+                  if Current_Name /= No_Name then
                      if Current_Verbosity = High then
-                        Write_Line ("   OK");
+                        Write_Str  ("   Comparing with """);
+                        Write_Str  (Get_Name_String (Current_Name));
+                        Write_Char ('"');
+                        Write_Eol;
                      end if;
 
-                     return Get_Name_String (Current_Name);
+                     --  If it has the name of the original name,
+                     --  return the original name
 
-                  --  If it has the name of the extended body name,
-                  --  return the extended body name
+                     if Unit.Name = The_Original_Name
+                       or else Current_Name = The_Original_Name
+                     then
+                        if Current_Verbosity = High then
+                           Write_Line ("   OK");
+                        end if;
 
-                  elsif Current_Name = The_Body_Name then
-                     if Current_Verbosity = High then
-                        Write_Line ("   OK");
-                     end if;
+                        if Full_Path then
+                           return Get_Name_String
+                             (Unit.File_Names (Body_Part).Path);
 
-                     return Extended_Body_Name;
+                        else
+                           return Get_Name_String (Current_Name);
+                        end if;
 
-                  else
-                     if Current_Verbosity = High then
-                        Write_Line ("   not good");
-                     end if;
-                  end if;
-               end if;
-            end;
-         end if;
+                        --  If it has the name of the extended body name,
+                        --  return the extended body name
 
-         --  Case of a unit of the same project
+                     elsif Current_Name = The_Body_Name then
+                        if Current_Verbosity = High then
+                           Write_Line ("   OK");
+                        end if;
 
-         if Units.Table (Current).File_Names (Specification).Project =
-                                                                 Project
-         then
-            declare
-               Current_Name : constant Name_Id :=
-                                Unit.File_Names (Specification).Name;
+                        if Full_Path then
+                           return Get_Name_String
+                             (Unit.File_Names (Body_Part).Path);
 
-            begin
-               --  Case of spec present
+                        else
+                           return Extended_Body_Name;
+                        end if;
 
-               if Current_Name /= No_Name then
-                  if Current_Verbosity = High then
-                     Write_Str  ("   Comparing with """);
-                     Write_Str  (Get_Name_String (Current_Name));
-                     Write_Char ('"');
-                     Write_Eol;
-                  end if;
-
-                  --  If name same as the original name, return original name
-
-                  if Unit.Name = The_Original_Name
-                    or else Current_Name = The_Original_Name
-                  then
-                     if Current_Verbosity = High then
-                        Write_Line ("   OK");
-                     end if;
-
-                     return Get_Name_String (Current_Name);
-
-                  --  If it has the same name as the extended spec name,
-                  --  return the extended spec name.
-
-                  elsif Current_Name = The_Spec_Name then
-                     if Current_Verbosity = High then
-                        Write_Line ("   OK");
-                     end if;
-
-                     return Extended_Spec_Name;
-
-                  else
-                     if Current_Verbosity = High then
-                        Write_Line ("   not good");
+                     else
+                        if Current_Verbosity = High then
+                           Write_Line ("   not good");
+                        end if;
                      end if;
                   end if;
-               end if;
-            end;
-         end if;
+               end;
+            end if;
+
+            --  Check for spec
+
+            if not Main_Project_Only
+              or else Unit.File_Names (Specification).Project = The_Project
+            then
+               declare
+                  Current_Name : constant Name_Id :=
+                                   Unit.File_Names (Specification).Name;
+
+               begin
+                  --  Case of spec present
+
+                  if Current_Name /= No_Name then
+                     if Current_Verbosity = High then
+                        Write_Str  ("   Comparing with """);
+                        Write_Str  (Get_Name_String (Current_Name));
+                        Write_Char ('"');
+                        Write_Eol;
+                     end if;
+
+                     --  If name same as original name, return original name
+
+                     if Unit.Name = The_Original_Name
+                       or else Current_Name = The_Original_Name
+                     then
+                        if Current_Verbosity = High then
+                           Write_Line ("   OK");
+                        end if;
+
+                        if Full_Path then
+                           return Get_Name_String
+                             (Unit.File_Names (Specification).Path);
+                        else
+                           return Get_Name_String (Current_Name);
+                        end if;
+
+                        --  If it has the same name as the extended spec name,
+                        --  return the extended spec name.
+
+                     elsif Current_Name = The_Spec_Name then
+                        if Current_Verbosity = High then
+                           Write_Line ("   OK");
+                        end if;
+
+                        if Full_Path then
+                           return Get_Name_String
+                             (Unit.File_Names (Specification).Path);
+                        else
+                           return Extended_Spec_Name;
+                        end if;
+
+                     else
+                        if Current_Verbosity = High then
+                           Write_Line ("   not good");
+                        end if;
+                     end if;
+                  end if;
+               end;
+            end if;
+         end loop;
+
+         --  If we are not in an extending project, give up
+
+         exit when (not Main_Project_Only) or else Data.Extends = No_Project;
+
+         --  Otherwise, look in the project we are extending
+
+         The_Project := Data.Extends;
+         Data := Projects.Table (The_Project);
       end loop;
 
       --  We don't know this file name, return an empty string
@@ -1088,7 +1337,7 @@ package body Prj.Env is
       procedure Add (Project : Project_Id);
       --  Process a project. Remember the processes visited to avoid
       --  processing a project twice. Recursively process an eventual
-      --  modified project, and all imported projects.
+      --  extended project, and all imported projects.
 
       ---------
       -- Add --
@@ -1147,8 +1396,8 @@ package body Prj.Env is
 
          --  If we are extending a project, visit it
 
-         if Data.Modifies /= No_Project then
-            Add (Data.Modifies);
+         if Data.Extends /= No_Project then
+            Add (Data.Extends);
          end if;
 
          --  And visit all imported projects
@@ -1178,7 +1427,7 @@ package body Prj.Env is
       procedure Add (Project : Project_Id);
       --  Process a project. Remember the processes visited to avoid
       --  processing a project twice. Recursively process an eventual
-      --  modified project, and all imported projects.
+      --  extended project, and all imported projects.
 
       ---------
       -- Add --
@@ -1232,20 +1481,22 @@ package body Prj.Env is
             The_String : String_Element;
 
          begin
-            --  Call action with the name of every source directorie
+            --  If there are Ada sources, call action with the name of every
+            --  source directory.
 
-            while Current /= Nil_String loop
-               The_String := String_Elements.Table (Current);
-               String_To_Name_Buffer (The_String.Value);
-               Action (Name_Buffer (1 .. Name_Len));
-               Current := The_String.Next;
-            end loop;
+            if Projects.Table (Project).Ada_Sources_Present then
+               while Current /= Nil_String loop
+                  The_String := String_Elements.Table (Current);
+                  Action (Get_Name_String (The_String.Value));
+                  Current := The_String.Next;
+               end loop;
+            end if;
          end;
 
          --  If we are extending a project, visit it
 
-         if Data.Modifies /= No_Project then
-            Add (Data.Modifies);
+         if Data.Extends /= No_Project then
+            Add (Data.Extends);
          end if;
 
          --  And visit all imported projects
@@ -1274,6 +1525,8 @@ package body Prj.Env is
       Path             : out Name_Id)
    is
    begin
+      --  Body below could use some comments ???
+
       if Current_Verbosity > Default then
          Write_Str ("Getting Reference_Of (""");
          Write_Str (Source_File_Name);
@@ -1300,8 +1553,9 @@ package body Prj.Env is
                            (Unit.File_Names (Specification).Path) =
                                                               Original_Name)
             then
-               Project := Unit.File_Names (Specification).Project;
-               Path := Unit.File_Names (Specification).Path;
+               Project := Ultimate_Extension_Of
+                            (Unit.File_Names (Specification).Project);
+               Path := Unit.File_Names (Specification).Display_Path;
 
                if Current_Verbosity > Default then
                   Write_Str ("Done: Specification.");
@@ -1319,8 +1573,9 @@ package body Prj.Env is
                                     (Unit.File_Names (Body_Part).Path) =
                                                              Original_Name)
             then
-               Project := Unit.File_Names (Body_Part).Project;
-               Path := Unit.File_Names (Body_Part).Path;
+               Project := Ultimate_Extension_Of
+                            (Unit.File_Names (Body_Part).Project);
+               Path := Unit.File_Names (Body_Part).Display_Path;
 
                if Current_Verbosity > Default then
                   Write_Str ("Done: Body.");
@@ -1329,7 +1584,6 @@ package body Prj.Env is
 
                return;
             end if;
-
          end loop;
       end;
 
@@ -1346,33 +1600,25 @@ package body Prj.Env is
    -- Initialize --
    ----------------
 
+   --  This is a place holder for possible required initialization in
+   --  the future. In the current version no initialization is required.
+
    procedure Initialize is
-      Global : constant String := "global_configuration_pragmas";
-      Local  : constant String :=  "local_configuration_pragmas";
-
    begin
-      --  Put the standard GNAT naming scheme in the Namings table
-
-      Namings.Increment_Last;
-      Namings.Table (Namings.Last) := Standard_Naming_Data;
-      Name_Len := Global'Length;
-      Name_Buffer (1 .. Name_Len) := Global;
-      Global_Configuration_Pragmas := Name_Find;
-      Name_Len := Local'Length;
-      Name_Buffer (1 .. Name_Len) := Local;
-      Local_Configuration_Pragmas := Name_Find;
+      null;
    end Initialize;
 
    ------------------------------------
    -- Path_Name_Of_Library_Unit_Body --
    ------------------------------------
 
+   --  Could use some comments in the body here ???
+
    function Path_Name_Of_Library_Unit_Body
      (Name    : String;
-      Project : Project_Id)
-      return String
+      Project : Project_Id) return String
    is
-      Data : constant Project_Data := Projects.Table (Project);
+      Data          : constant Project_Data := Projects.Table (Project);
       Original_Name : String := Name;
 
       Extended_Spec_Name : String :=
@@ -1380,7 +1626,7 @@ package body Prj.Env is
                                      (Data.Naming.Current_Spec_Suffix);
       Extended_Body_Name : String :=
                              Name & Namet.Get_Name_String
-                                     (Data.Naming.Current_Impl_Suffix);
+                                     (Data.Naming.Current_Body_Suffix);
 
       First   : Unit_Id := Units.First;
       Current : Unit_Id;
@@ -1389,7 +1635,7 @@ package body Prj.Env is
    begin
       Canonical_Case_File_Name (Original_Name);
       Canonical_Case_File_Name (Extended_Spec_Name);
-      Canonical_Case_File_Name (Extended_Spec_Name);
+      Canonical_Case_File_Name (Extended_Body_Name);
 
       if Current_Verbosity = High then
          Write_Str  ("Looking for path name of """);
@@ -1473,7 +1719,6 @@ package body Prj.Env is
                   return Spec_Path_Name_Of (Current);
 
                elsif Current_Name = Extended_Spec_Name then
-
                   if Current_Verbosity = High then
                      Write_Line ("   OK");
                   end if;
@@ -1496,6 +1741,8 @@ package body Prj.Env is
    -------------------
    -- Print_Sources --
    -------------------
+
+   --  Could use some comments in this body ???
 
    procedure Print_Sources is
       Unit : Unit_Data;
@@ -1543,11 +1790,342 @@ package body Prj.Env is
               (Namet.Get_Name_String
                (Unit.File_Names (Body_Part).Name));
          end if;
-
       end loop;
 
       Write_Line ("end of List of Sources.");
    end Print_Sources;
+
+   ----------------
+   -- Project_Of --
+   ----------------
+
+   function Project_Of
+     (Name         : String;
+      Main_Project : Project_Id) return Project_Id
+   is
+      Result : Project_Id := No_Project;
+
+      Original_Name : String := Name;
+
+      Data : constant Project_Data := Projects.Table (Main_Project);
+
+      Extended_Spec_Name : String :=
+                             Name & Namet.Get_Name_String
+                                      (Data.Naming.Current_Spec_Suffix);
+      Extended_Body_Name : String :=
+                             Name & Namet.Get_Name_String
+                                      (Data.Naming.Current_Body_Suffix);
+
+      Unit : Unit_Data;
+
+      Current_Name : Name_Id;
+
+      The_Original_Name : Name_Id;
+      The_Spec_Name     : Name_Id;
+      The_Body_Name     : Name_Id;
+
+   begin
+      Canonical_Case_File_Name (Original_Name);
+      Name_Len := Original_Name'Length;
+      Name_Buffer (1 .. Name_Len) := Original_Name;
+      The_Original_Name := Name_Find;
+
+      Canonical_Case_File_Name (Extended_Spec_Name);
+      Name_Len := Extended_Spec_Name'Length;
+      Name_Buffer (1 .. Name_Len) := Extended_Spec_Name;
+      The_Spec_Name := Name_Find;
+
+      Canonical_Case_File_Name (Extended_Body_Name);
+      Name_Len := Extended_Body_Name'Length;
+      Name_Buffer (1 .. Name_Len) := Extended_Body_Name;
+      The_Body_Name := Name_Find;
+
+      for Current in reverse Units.First .. Units.Last loop
+         Unit := Units.Table (Current);
+
+         --  Check for body
+
+         Current_Name := Unit.File_Names (Body_Part).Name;
+
+         --  Case of a body present
+
+         if Current_Name /= No_Name then
+
+            --  If it has the name of the original name or the body name,
+            --  we have found the project.
+
+            if Unit.Name = The_Original_Name
+              or else Current_Name = The_Original_Name
+              or else Current_Name = The_Body_Name
+            then
+               Result := Unit.File_Names (Body_Part).Project;
+               exit;
+            end if;
+         end if;
+
+         --  Check for spec
+
+         Current_Name := Unit.File_Names (Specification).Name;
+
+         if Current_Name /= No_Name then
+
+            --  If name same as the original name, or the spec name, we have
+            --  found the project.
+
+            if Unit.Name = The_Original_Name
+              or else Current_Name = The_Original_Name
+              or else Current_Name = The_Spec_Name
+            then
+               Result := Unit.File_Names (Specification).Project;
+               exit;
+            end if;
+         end if;
+      end loop;
+
+      --  Get the ultimate extending project
+
+      if Result /= No_Project then
+         while Projects.Table (Result).Extended_By /= No_Project loop
+            Result := Projects.Table (Result).Extended_By;
+         end loop;
+      end if;
+
+      return Result;
+   end Project_Of;
+
+   -------------------
+   -- Set_Ada_Paths --
+   -------------------
+
+   procedure Set_Ada_Paths
+     (Project             : Project_Id;
+      Including_Libraries : Boolean)
+   is
+      Source_FD : File_Descriptor := Invalid_FD;
+      Object_FD : File_Descriptor := Invalid_FD;
+
+      Process_Source_Dirs : Boolean := False;
+      Process_Object_Dirs : Boolean := False;
+
+      Status : Boolean;
+      --  For calls to Close
+
+      Len : Natural;
+
+      procedure Add (Proj : Project_Id);
+      --  Add all the source/object directories of a project to the path only
+      --  if this project has not been visited. Calls an internal procedure
+      --  recursively for projects being extended, and imported projects.
+
+      ---------
+      -- Add --
+      ---------
+
+      procedure Add (Proj : Project_Id) is
+
+         procedure Recursive_Add (Project : Project_Id);
+         --  Recursive procedure to add the source/object paths of extended/
+         --  imported projects.
+
+         -------------------
+         -- Recursive_Add --
+         -------------------
+
+         procedure Recursive_Add (Project : Project_Id) is
+         begin
+            --  If Seen is False, then the project has not yet been visited
+
+            if not Projects.Table (Project).Seen then
+               Projects.Table (Project).Seen := True;
+
+               declare
+                  Data : constant Project_Data := Projects.Table (Project);
+                  List : Project_List := Data.Imported_Projects;
+
+               begin
+                  if Process_Source_Dirs then
+
+                     --  Add to path all source directories of this project
+                     --  if there are Ada sources.
+
+                     if Projects.Table (Project).Ada_Sources_Present then
+                        Add_To_Source_Path (Data.Source_Dirs);
+                     end if;
+                  end if;
+
+                  if Process_Object_Dirs then
+
+                     --  Add to path the object directory of this project
+                     --  except if we don't include library project and
+                     --  this is a library project.
+
+                     if (Data.Library and then Including_Libraries)
+                       or else
+                         (Data.Object_Directory /= No_Name
+                          and then
+                            (not Including_Libraries or else not Data.Library))
+                     then
+                        --  For a library project, add the library directory
+
+                        if Data.Library then
+                           Add_To_Object_Path (Data.Library_Dir);
+
+                        --  For a non-library project, add the object
+                        --  directory, if it is not a virtual project.
+
+                        elsif not Data.Virtual then
+                           Add_To_Object_Path (Data.Object_Directory);
+                        end if;
+                     end if;
+                  end if;
+
+                  --  Call Add to the project being extended, if any
+
+                  if Data.Extends /= No_Project then
+                     Recursive_Add (Data.Extends);
+                  end if;
+
+                  --  Call Add for each imported project, if any
+
+                  while List /= Empty_Project_List loop
+                     Recursive_Add (Project_Lists.Table (List).Project);
+                     List := Project_Lists.Table (List).Next;
+                  end loop;
+               end;
+            end if;
+         end Recursive_Add;
+
+      begin
+         Source_Paths.Set_Last (0);
+         Object_Paths.Set_Last (0);
+
+         for Index in 1 .. Projects.Last loop
+            Projects.Table (Index).Seen := False;
+         end loop;
+
+         Recursive_Add (Proj);
+      end Add;
+
+   --  Start of processing for Set_Ada_Paths
+
+   begin
+      --  If it is the first time we call this procedure for
+      --  this project, compute the source path and/or the object path.
+
+      if Projects.Table (Project).Include_Path_File = No_Name then
+         Process_Source_Dirs := True;
+         Create_New_Path_File
+           (Source_FD, Projects.Table (Project).Include_Path_File);
+      end if;
+
+      --  For the object path, we make a distinction depending on
+      --  Including_Libraries.
+
+      if Including_Libraries then
+         if Projects.Table (Project).Objects_Path_File_With_Libs = No_Name then
+            Process_Object_Dirs := True;
+            Create_New_Path_File
+              (Object_FD, Projects.Table (Project).
+                                           Objects_Path_File_With_Libs);
+         end if;
+
+      else
+         if
+           Projects.Table (Project).Objects_Path_File_Without_Libs = No_Name
+         then
+            Process_Object_Dirs := True;
+            Create_New_Path_File
+              (Object_FD, Projects.Table (Project).
+                                           Objects_Path_File_Without_Libs);
+         end if;
+      end if;
+
+      --  If there is something to do, set Seen to False for all projects,
+      --  then call the recursive procedure Add for Project.
+
+      if Process_Source_Dirs or Process_Object_Dirs then
+         Add (Project);
+      end if;
+
+      --  Write and close any file that has been created.
+
+      if Source_FD /= Invalid_FD then
+         for Index in 1 .. Source_Paths.Last loop
+            Get_Name_String (Source_Paths.Table (Index));
+            Name_Len := Name_Len + 1;
+            Name_Buffer (Name_Len) := ASCII.LF;
+            Len := Write (Source_FD, Name_Buffer (1)'Address, Name_Len);
+
+            if Len /= Name_Len then
+               Prj.Com.Fail ("disk full");
+            end if;
+         end loop;
+
+         Close (Source_FD, Status);
+
+         if not Status then
+            Prj.Com.Fail ("disk full");
+         end if;
+      end if;
+
+      if Object_FD /= Invalid_FD then
+         for Index in 1 .. Object_Paths.Last loop
+            Get_Name_String (Object_Paths.Table (Index));
+            Name_Len := Name_Len + 1;
+            Name_Buffer (Name_Len) := ASCII.LF;
+            Len := Write (Object_FD, Name_Buffer (1)'Address, Name_Len);
+
+            if Len /= Name_Len then
+               Prj.Com.Fail ("disk full");
+            end if;
+         end loop;
+
+         Close (Object_FD, Status);
+
+         if not Status then
+            Prj.Com.Fail ("disk full");
+         end if;
+      end if;
+
+      --  Set the env vars, if they need to be changed, and set the
+      --  corresponding flags.
+
+      if Current_Source_Path_File /=
+           Projects.Table (Project).Include_Path_File
+      then
+         Current_Source_Path_File :=
+           Projects.Table (Project).Include_Path_File;
+         Set_Path_File_Var
+           (Project_Include_Path_File,
+            Get_Name_String (Current_Source_Path_File));
+         Ada_Prj_Include_File_Set := True;
+      end if;
+
+      if Including_Libraries then
+         if Current_Object_Path_File
+              /= Projects.Table (Project).Objects_Path_File_With_Libs
+         then
+            Current_Object_Path_File :=
+              Projects.Table (Project).Objects_Path_File_With_Libs;
+            Set_Path_File_Var
+              (Project_Objects_Path_File,
+               Get_Name_String (Current_Object_Path_File));
+            Ada_Prj_Objects_File_Set := True;
+         end if;
+
+      else
+         if Current_Object_Path_File
+              /= Projects.Table (Project).Objects_Path_File_Without_Libs
+         then
+            Current_Object_Path_File :=
+              Projects.Table (Project).Objects_Path_File_Without_Libs;
+            Set_Path_File_Var
+              (Project_Objects_Path_File,
+               Get_Name_String (Current_Object_Path_File));
+            Ada_Prj_Objects_File_Set := True;
+         end if;
+      end if;
+   end Set_Ada_Paths;
 
    ---------------------------------------------
    -- Set_Mapping_File_Initial_State_To_Empty --
@@ -1557,6 +2135,23 @@ package body Prj.Env is
    begin
       Fill_Mapping_File := False;
    end Set_Mapping_File_Initial_State_To_Empty;
+
+   -----------------------
+   -- Set_Path_File_Var --
+   -----------------------
+
+   procedure Set_Path_File_Var (Name : String; Value : String) is
+      Host_Spec : String_Access := To_Host_File_Spec (Value);
+
+   begin
+      if Host_Spec = null then
+         Prj.Com.Fail
+           ("could not convert file name """, Value, """ to host spec");
+      else
+         Setenv (Name, Host_Spec.all);
+         Free (Host_Spec);
+      end if;
+   end Set_Path_File_Var;
 
    -----------------------
    -- Spec_Path_Name_Of --
@@ -1577,12 +2172,11 @@ package body Prj.Env is
               Data.File_Names (Specification).Name;
 
             while Current_Source /= Nil_String loop
-               String_To_Name_Buffer
-                 (String_Elements.Table (Current_Source).Value);
                Path := Locate_Regular_File
                  (Namet.Get_Name_String
                   (Data.File_Names (Specification).Name),
-                  Name_Buffer (1 .. Name_Len));
+                  Namet.Get_Name_String
+                   (String_Elements.Table (Current_Source).Value));
 
                if Path /= null then
                   Name_Len := Path'Length;
@@ -1602,4 +2196,25 @@ package body Prj.Env is
       return Namet.Get_Name_String (Data.File_Names (Specification).Path);
    end Spec_Path_Name_Of;
 
+   ---------------------------
+   -- Ultimate_Extension_Of --
+   ---------------------------
+
+   function Ultimate_Extension_Of (Project : in Project_Id) return Project_Id
+   is
+      Result : Project_Id := Project;
+
+   begin
+      while Projects.Table (Result).Extended_By /= No_Project loop
+         Result := Projects.Table (Result).Extended_By;
+      end loop;
+
+      return Result;
+   end Ultimate_Extension_Of;
+
+--  Package initialization
+--  What is relationshiop to procedure Initialize
+
+begin
+   Path_Files.Set_Last (0);
 end Prj.Env;

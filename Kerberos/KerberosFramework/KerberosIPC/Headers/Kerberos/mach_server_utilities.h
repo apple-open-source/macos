@@ -1,7 +1,7 @@
 /*
  * mach_server_utilities.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/mach_server_utilities.h,v 1.12 2003/04/23 21:41:52 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/mach_server_utilities.h,v 1.15 2004/10/22 20:54:18 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -42,13 +42,9 @@
 #if __cplusplus
 extern "C" {
 #endif
-                                            
-kern_return_t
-mach_server_init (const char *inServiceNamePrefix,
-                  boolean_t (*inDemuxProc)(mach_msg_header_t *, mach_msg_header_t *));
 
 kern_return_t
-mach_server_run_server ();
+mach_server_run_server (boolean_t (*inDemuxProc)(mach_msg_header_t *, mach_msg_header_t *));
 
 boolean_t 
 mach_server_demux (mach_msg_header_t *request, mach_msg_header_t *reply);

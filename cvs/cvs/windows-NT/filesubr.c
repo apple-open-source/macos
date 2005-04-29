@@ -21,6 +21,9 @@
 #include <windows.h>
 
 #include "cvs.h"
+#include "JmgStat.h"
+
+
 
 static int deep_remove_dir PROTO((const char *path));
 
@@ -291,7 +294,7 @@ make_directories (name)
    existed.  */
 int
 mkdir_if_needed (name)
-    char *name;
+    const char *name;
 {
     if (mkdir (name) < 0)
     {
@@ -320,7 +323,7 @@ mkdir_if_needed (name)
  */
 void
 xchmod (fname, writable)
-    char *fname;
+    const char *fname;
     int writable;
 {
     struct stat sb;
@@ -369,6 +372,41 @@ readlink (char *path, char *buf, int buf_size)
     return -1;
 }
 
+/* Rename for NT which works for read only files.  Apparently if we are
+   accessing FROM and TO via a Novell network, this is an issue.  */
+int
+wnt_rename (from, to)
+    const char *from;
+    const char *to;
+{
+    int result, save_errno;
+    int readonly = !iswritable (from);
+
+    if (readonly)
+    {
+	if (chmod (from, S_IWRITE) < 0)
+	    return -1;
+    }
+    result = rename (from, to);
+    save_errno = errno;
+    if (readonly)
+    {
+	if (result == 0)
+	{
+	    if (chmod (to, S_IREAD) < 0)
+		return -1;
+	}
+	else
+	{
+	    /* We have a choice of which error to report, if there is
+	       one here too; report the one from rename ().  */
+	    chmod (from, S_IREAD);
+	}
+	errno = save_errno;
+    }
+    return result;
+}
+
 /*
  * Rename a file and die if it fails
  */
@@ -390,7 +428,7 @@ rename_file (from, to)
     /* Win32 unlink is stupid --- it fails if the file is read-only  */
     chmod(to, S_IWRITE);
     unlink(to);
-    if (rename (from, to) < 0)
+    if (CVS_RENAME (from, to) < 0)
 	error (1, errno, "cannot rename file %s to %s", from, to);
 }
 
@@ -439,9 +477,11 @@ unlink_file_dir (f)
     chmod (f, _S_IWRITE);
     if (unlink (f) != 0)
     {
-	/* under Windows NT, unlink returns EACCES if the path
-	   is a directory.  Under Windows 95, ENOENT.  */
-        if (errno == EISDIR || errno == EACCES || errno == ENOENT)
+	/* Under Windows NT, unlink returns EACCES if the path
+           is a directory.  Under Windows 95, it returns ENOENT.
+           Under Windows XP, it can return ENOTEMPTY. */
+        if (errno == EISDIR || errno == EACCES || errno == ENOENT
+            || errno == ENOTEMPTY)
                 return deep_remove_dir (f);
         else
 		/* The file wasn't a directory and some other
@@ -488,13 +528,15 @@ deep_remove_dir (path)
 	    if (unlink (buf) != 0 )
 	    {
 		/* Under Windows NT, unlink returns EACCES if the path
-		   is a directory.  Under Windows 95, ENOENT.  It
+		   is a directory.  Under Windows 95, it returns ENOENT.
+                   Under Windows XP, it can return ENOTEMPTY.  It
 		   isn't really clear to me whether checking errno is
 		   better or worse than using _stat to check for a directory.
 		   We aren't really trying to prevent race conditions here
 		   (e.g. what if something changes between readdir and
 		   unlink?)  */
-		if (errno == EISDIR || errno == EACCES || errno == ENOENT)
+		if (errno == EISDIR || errno == EACCES || errno == ENOENT
+                    || errno == ENOTEMPTY)
 		{
 		    if (deep_remove_dir (buf))
 		    {
@@ -619,45 +661,122 @@ xcmp (file1, file2)
     return (ret);
 }
 
-
 /* Generate a unique temporary filename.  Returns a pointer to a newly
-   malloc'd string containing the name.  Returns successfully or not at
-   all.  */
+ * malloc'd string containing the name.  Returns successfully or not at
+ * all.
+ *
+ *     THIS FUNCTION IS DEPRECATED!!!  USE cvs_temp_file INSTEAD!!!
+ *
+ * and yes, I know about the way the rcs commands use temp files.  I think
+ * they should be converted too but I don't have time to look into it right
+ * now.
+ */
 char *
 cvs_temp_name ()
 {
-    char *retval;
+    char *fn;
+    FILE *fp;
 
-    retval = _tempnam (NULL, NULL);
-    if (retval == NULL)
-	error (1, errno, "cannot generate temporary filename");
-    return retval;
+    fp = cvs_temp_file (&fn);
+    if (fp == NULL)
+	error (1, errno, "Failed to create temporary file");
+    if (fclose (fp) == EOF)
+	error (0, errno, "Failed to close temporary file %s", fn);
+    return fn;
 }
-
-/* Return non-zero iff FILENAME is absolute.
-   Trivial under Unix, but more complicated under other systems.  */
-int
-isabsolute (filename)
-    const char *filename;
+
+/* Generate a unique temporary filename and return an open file stream
+ * to the truncated file by that name
+ *
+ *  INPUTS
+ *	filename	where to place the pointer to the newly allocated file
+ *   			name string
+ *
+ *  OUTPUTS
+ *	filename	dereferenced, will point to the newly allocated file
+ *			name string.  This value is undefined if the function
+ *			returns an error.
+ *
+ *  RETURNS
+ *	An open file pointer to a read/write mode empty temporary file with the
+ *	unique file name or NULL on failure.
+ *
+ *  ERRORS
+ *	on error, errno will be set to some value either by CVS_FOPEN or
+ *	whatever system function is called to generate the temporary file name
+ */
+FILE *cvs_temp_file (filename)
+    char **filename;
 {
-    /* FIXME: This routine seems to interact poorly with
-       strip_trailing_slashes.  For example, specify ":local:r:\" as
-       CVSROOT.  The CVS/Root file will contain ":local:r:" and then
-       isabsolute will complain about the root not being an absolute
-       pathname.  My guess is that strip_trailing_slashes is the right
-       place to fix this.  */
-    return (ISDIRSEP (filename[0])
-            || (filename[0] != '\0'
-                && filename[1] == ':'
-                && ISDIRSEP (filename[2])));
+    char *fn;
+    FILE *fp;
+
+    /* FIXME - I'd like to be returning NULL here in noexec mode, but I think
+     * some of the rcs & diff functions which rely on a temp file run in
+     * noexec mode too.
+     */
+
+    /* assert (filename != NULL); */
+
+    fn = _tempnam (Tmpdir, "cvs");
+    if (fn == NULL) fp = NULL;
+    else if ((fp = CVS_FOPEN (fn, "w+")) == NULL) free (fn);
+
+    /* tempnam returns a pointer to a newly malloc'd string, so there's
+     * no need for a xstrdup
+     */
+
+    *filename = fn;
+    return fp;
+}
+
+
+
+/* char *
+ * xresolvepath ( const char *path )
+ *
+ * Like xreadlink(), but resolve all links in a path.
+ *
+ * INPUTS
+ *  path	The original path.
+ *
+ * RETURNS
+ *  The path with any symbolic links expanded.
+ *
+ * ERRORS
+ *  This function exits with a fatal error if it fails to read the link for
+ *  any reason.
+ */
+char *
+xresolvepath ( path )
+    const char *path;
+{
+    char *hardpath;
+    char *owd;
+
+    /* assert ( isdir ( path ) ); */
+
+    /* FIXME - If HAVE_READLINK is defined, we should probably walk the path
+     * bit by bit calling xreadlink().
+     */
+
+    owd = xgetwd();
+    if ( CVS_CHDIR ( path ) < 0)
+	error ( 1, errno, "cannot chdir to %s", path );
+    if ( ( hardpath = xgetwd() ) == NULL )
+	error (1, errno, "cannot readlink %s", hardpath);
+    if ( CVS_CHDIR ( owd ) < 0)
+	error ( 1, errno, "cannot chdir to %s", owd );
+    free (owd);
+    return hardpath;
 }
 
 /* Return a pointer into PATH's last component.  */
-char *
-last_component (char *path)
+const char *
+last_component (const char *path)
 {
-    char *scan;
-    char *last = 0;
+    const char *scan;
+    const char *last = 0;
 
     for (scan = path; *scan; scan++)
         if (ISDIRSEP (*scan))
@@ -716,6 +835,27 @@ get_homedir ()
     }
     else
 	return NULL;
+}
+
+/* Compose a path to a file in the home directory.  This is necessary because
+ * of different behavior on UNIX, Windows, and VMS.  See more notes in
+ * vms/filesubr.c.
+ *
+ * A more clean solution would be something more along the lines of a
+ * "join a directory to a filename" kind of thing which was not specific to
+ * the homedir.  This should aid portability between UNIX, Mac, Windows, VMS,
+ * and possibly others.  This is already handled by Perl - it might be
+ * interesting to see how much of the code was written in C since Perl is under
+ * the GPL and the Artistic license - we might be able to use it.
+ */
+char *
+strcat_filename_onto_homedir (dir, file)
+    const char *dir;
+    const char *file;
+{
+    char *path = xmalloc (strlen (dir) + 1 + strlen(file) + 1);
+    sprintf (path, "%s\\%s", dir, file);
+    return path;
 }
 
 /* See cvs.h for description.  */
@@ -858,6 +998,9 @@ expand_wild (argc, argv, pargc, pargv)
 
 static void check_statbuf (const char *file, struct stat *sb)
 {
+    struct tm *newtime;
+    time_t long_time;
+
     /* Win32 processes file times in a 64 bit format
        (see Win32 functions SetFileTime and GetFileTime).
        If the file time on a file doesn't fit into the
@@ -877,6 +1020,9 @@ static void check_statbuf (const char *file, struct stat *sb)
 	error (1, 0, "invalid ctime for %s", file);
     if (sb->st_atime == (time_t) -1)
 	error (1, 0, "invalid access time for %s", file);
+
+    if (!GetUTCFileModTime (file, &sb->st_mtime))
+	error (1, 0, "Failed to retrieve modification time for %s", file);
 }
 
 int

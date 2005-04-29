@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,7 +24,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Uintp; use Uintp;
+with Csets;   use Csets;
+with Stylesw; use Stylesw;
+with Uintp;   use Uintp;
 
 with GNAT.Spelling_Checker; use GNAT.Spelling_Checker;
 
@@ -114,7 +115,6 @@ package body Util is
       end if;
 
       if Is_Bad_Spelling_Of (Name_Buffer (1 .. Name_Len), S) then
-
          for J in 1 .. S'Last loop
             M1 (P1 + J - 1) := Fold_Upper (S (J));
          end loop;
@@ -126,7 +126,6 @@ package body Util is
       else
          return False;
       end if;
-
    end Bad_Spelling_Of;
 
    ----------------------
@@ -195,7 +194,7 @@ package body Util is
    procedure Check_Simple_Expression_In_Ada_83 (E : Node_Id) is
    begin
       if Expr_Form = EF_Non_Simple then
-         if Ada_83 then
+         if Ada_Version = Ada_83 then
             Error_Msg_N ("(Ada 83) this expression must be parenthesized!", E);
          end if;
       end if;
@@ -360,7 +359,6 @@ package body Util is
 
    procedure Discard_Junk_List (L : List_Id) is
       pragma Warnings (Off, L);
-
    begin
       null;
    end Discard_Junk_List;
@@ -371,7 +369,6 @@ package body Util is
 
    procedure Discard_Junk_Node (N : Node_Id) is
       pragma Warnings (Off, N);
-
    begin
       null;
    end Discard_Junk_Node;
@@ -420,7 +417,7 @@ package body Util is
    -- Is_Reserved_Identifier --
    ----------------------------
 
-   function Is_Reserved_Identifier return Boolean is
+   function Is_Reserved_Identifier (C : Id_Check := None) return Boolean is
    begin
       if not Is_Reserved_Keyword (Token) then
          return False;
@@ -439,20 +436,88 @@ package body Util is
             --  keyword casing, then we return False, since it is pretty
             --  clearly intended to be a keyword.
 
-            if Ident_Casing /= Unknown
-              and then Key_Casing /= Unknown
-              and then Ident_Casing /= Key_Casing
-              and then Determine_Token_Casing = Key_Casing
+            if Ident_Casing = Unknown
+              or else Key_Casing = Unknown
+              or else Ident_Casing = Key_Casing
+              or else Determine_Token_Casing /= Key_Casing
             then
-               return False;
-
-            --  Otherwise assume that an identifier was intended
-
-            else
                return True;
+
+            --  Here we have a keyword written clearly with keyword casing.
+            --  In default mode, we would not be willing to consider this as
+            --  a reserved identifier, but if C is set, we may still accept it
+
+            elsif C /= None then
+               declare
+                  Scan_State  : Saved_Scan_State;
+                  OK_Next_Tok : Boolean;
+
+               begin
+                  Save_Scan_State (Scan_State);
+                  Scan;
+
+                  if Token_Is_At_Start_Of_Line then
+                     return False;
+                  end if;
+
+                  case C is
+                     when None =>
+                        raise Program_Error;
+
+                     when C_Comma_Right_Paren =>
+                        OK_Next_Tok :=
+                          Token = Tok_Comma or else Token = Tok_Right_Paren;
+
+                     when C_Comma_Colon =>
+                        OK_Next_Tok :=
+                          Token = Tok_Comma or else Token = Tok_Colon;
+
+                     when C_Do =>
+                        OK_Next_Tok :=
+                          Token = Tok_Do;
+
+                     when C_Dot =>
+                        OK_Next_Tok :=
+                          Token = Tok_Dot;
+
+                     when C_Greater_Greater =>
+                        OK_Next_Tok :=
+                          Token = Tok_Greater_Greater;
+
+                     when C_In =>
+                        OK_Next_Tok :=
+                          Token = Tok_In;
+
+                     when C_Is =>
+                        OK_Next_Tok :=
+                          Token = Tok_Is;
+
+                     when C_Left_Paren_Semicolon =>
+                        OK_Next_Tok :=
+                          Token = Tok_Left_Paren or else Token = Tok_Semicolon;
+
+                     when C_Use =>
+                        OK_Next_Tok :=
+                          Token = Tok_Use;
+
+                     when C_Vertical_Bar_Arrow =>
+                        OK_Next_Tok :=
+                          Token = Tok_Vertical_Bar or else Token = Tok_Arrow;
+                  end case;
+
+                  Restore_Scan_State (Scan_State);
+
+                  if OK_Next_Tok then
+                     return True;
+                  end if;
+               end;
             end if;
          end;
       end if;
+
+      --  If we fall through it is not a reserved identifier
+
+      return False;
    end Is_Reserved_Identifier;
 
    ----------------------
@@ -494,7 +559,8 @@ package body Util is
       Get_Name_String (Chars (Token_Node));
 
       declare
-         Buf : String (1 .. Name_Len) := Name_Buffer (1 .. Name_Len);
+         Buf : constant String (1 .. Name_Len) :=
+                 Name_Buffer (1 .. Name_Len);
 
       begin
          Get_Name_String (Chars (Prev));
@@ -558,6 +624,15 @@ package body Util is
    procedure Push_Scope_Stack is
    begin
       Scope.Increment_Last;
+
+      if Style_Check_Max_Nesting_Level
+        and then Scope.Last = Style_Max_Nesting_Level + 1
+      then
+         Error_Msg
+           ("(style) maximum nesting level exceeded",
+            First_Non_Blank_Location);
+      end if;
+
       Scope.Table (Scope.Last).Junk := False;
       Scope.Table (Scope.Last).Node := Empty;
 
@@ -628,6 +703,28 @@ package body Util is
          end loop;
       end;
    end Signal_Bad_Attribute;
+
+   -----------------------------
+   -- Token_Is_At_End_Of_Line --
+   -----------------------------
+
+   function Token_Is_At_End_Of_Line return Boolean is
+      S : Source_Ptr;
+
+   begin
+      --  Skip past blanks and horizontal tabs
+
+      S := Scan_Ptr;
+      while Source (S) = ' ' or else Source (S) = ASCII.HT loop
+         S := S + 1;
+      end loop;
+
+      --  We are at end of line if at a control character (CR/LF/VT/FF/EOF)
+      --  or if we are at the start of an end of line comment sequence.
+
+      return Source (S) < ' '
+        or else (Source (S) = '-' and then Source (S + 1) = '-');
+   end Token_Is_At_End_Of_Line;
 
    -------------------------------
    -- Token_Is_At_Start_Of_Line --

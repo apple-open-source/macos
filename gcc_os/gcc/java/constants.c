@@ -29,9 +29,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "ggc.h"
 
-extern struct obstack permanent_obstack;
-
 static void set_constant_entry PARAMS ((CPool *, int, int, jword));
+static int find_tree_constant  PARAMS ((CPool *, int, tree));
 static int find_class_or_string_constant PARAMS ((CPool *, int, tree));
 static int find_name_and_type_constant PARAMS ((CPool *, tree, tree));
 static tree get_tag_node PARAMS ((int));
@@ -49,8 +48,8 @@ set_constant_entry (cpool, index, tag, value)
   if (cpool->data == NULL)
     {
       cpool->capacity = 100;
-      cpool->tags = (uint8*) xmalloc (sizeof(uint8) * cpool->capacity);
-      cpool->data = (jword*) xmalloc (sizeof(jword) * cpool->capacity);
+      cpool->tags = ggc_alloc (sizeof(uint8) * cpool->capacity);
+      cpool->data = ggc_alloc (sizeof(union cpool_entry) * cpool->capacity);
       cpool->count = 1;
     }
   if (index >= cpool->capacity)
@@ -58,15 +57,15 @@ set_constant_entry (cpool, index, tag, value)
       cpool->capacity *= 2;
       if (index >= cpool->capacity)
 	cpool->capacity = index + 10;
-      cpool->tags = (uint8*) xrealloc (cpool->tags,
-				       sizeof(uint8) * cpool->capacity);
-      cpool->data = (jword*) xrealloc (cpool->data,
-				       sizeof(jword) * cpool->capacity);
+      cpool->tags = ggc_realloc (cpool->tags, 
+				 sizeof(uint8) * cpool->capacity);
+      cpool->data = ggc_realloc (cpool->data,
+				 sizeof(union cpool_entry) * cpool->capacity);
     }
   if (index >= cpool->count)
     cpool->count = index + 1;
   cpool->tags[index] = tag;
-  cpool->data[index] = value;
+  cpool->data[index].w = value;
 }
 
 /* Find (or create) a constant pool entry matching TAG and VALUE. */
@@ -80,7 +79,7 @@ find_constant1 (cpool, tag, value)
   int i;
   for (i = cpool->count;  --i > 0; )
     {
-      if (cpool->tags[i] == tag && cpool->data[i] == value)
+      if (cpool->tags[i] == tag && cpool->data[i].w == value)
 	return i;
     }
   i = cpool->count == 0 ? 1 : cpool->count;
@@ -100,8 +99,8 @@ find_constant2 (cpool, tag, word1, word2)
   for (i = cpool->count - 1;  --i > 0; )
     {
       if (cpool->tags[i] == tag
-	  && cpool->data[i] == word1
-	  && cpool->data[i+1] == word2)
+	  && cpool->data[i].w == word1
+	  && cpool->data[i+1].w == word2)
 	return i;
     }
   i = cpool->count == 0 ? 1 : cpool->count;
@@ -110,6 +109,25 @@ find_constant2 (cpool, tag, word1, word2)
   return i;
 }
 
+static int
+find_tree_constant (cpool, tag, value)
+     CPool *cpool;
+     int tag;
+     tree value;
+{
+  int i;
+  for (i = cpool->count;  --i > 0; )
+    {
+      if (cpool->tags[i] == tag && cpool->data[i].t == value)
+	return i;
+    }
+  i = cpool->count == 0 ? 1 : cpool->count;
+  set_constant_entry (cpool, i, tag, 0);
+  cpool->data[i].t = value;
+  return i;
+}
+
+
 int
 find_utf8_constant (cpool, name)
      CPool *cpool;
@@ -117,7 +135,7 @@ find_utf8_constant (cpool, name)
 {
   if (name == NULL_TREE)
     return 0;
-  return find_constant1 (cpool, CONSTANT_Utf8, (jword) name);
+  return find_tree_constant (cpool, CONSTANT_Utf8, name);
 }
 
 static int
@@ -126,15 +144,15 @@ find_class_or_string_constant (cpool, tag, name)
      int tag;
      tree name;
 {
-  int j = find_utf8_constant (cpool, name);
+  jword j = find_utf8_constant (cpool, name);
   int i;
   for (i = cpool->count;  --i > 0; )
     {
-      if (cpool->tags[i] == tag && cpool->data[i] == (jword) j)
+      if (cpool->tags[i] == tag && cpool->data[i].w == j)
 	return i;
     }
   i = cpool->count;
-  set_constant_entry (cpool, i, tag, (jword) j);
+  set_constant_entry (cpool, i, tag, j);
   return i;
 }
 
@@ -257,7 +275,7 @@ count_constant_pool_bytes (cpool)
 	  break;
 	case CONSTANT_Utf8:
 	  {
-	    tree t = (tree) cpool->data[i];
+	    tree t = cpool->data[i].t;
 	    int len = IDENTIFIER_LENGTH (t);
 	    size += len + 2;
 	  }
@@ -281,7 +299,7 @@ write_constant_pool (cpool, buffer, length)
 {
   unsigned char *ptr = buffer;
   int i = 1;
-  jword *datap = &cpool->data[1];
+  union cpool_entry *datap = &cpool->data[1];
   PUT2 (cpool->count);
   for ( ;  i < cpool->count;  i++, datap++)
     {
@@ -295,23 +313,23 @@ write_constant_pool (cpool, buffer, length)
 	case CONSTANT_InterfaceMethodref:
 	case CONSTANT_Float:
 	case CONSTANT_Integer:
-	  PUT4 (*datap);
+	  PUT4 (datap->w);
 	  break;
 	case CONSTANT_Class:
 	case CONSTANT_String:
-	  PUT2 (*datap);
+	  PUT2 (datap->w);
 	  break;
 	  break;
 	case CONSTANT_Long:
 	case CONSTANT_Double:
-	  PUT4(*datap);
+	  PUT4(datap->w);
 	  i++;
 	  datap++;
-	  PUT4 (*datap);
+	  PUT4 (datap->w);
 	  break;
 	case CONSTANT_Utf8:
 	  {
-	    tree t = (tree) *datap;
+	    tree t = datap->t;
 	    int len = IDENTIFIER_LENGTH (t);
 	    PUT2 (len);
 	    PUTN (IDENTIFIER_POINTER (t), len);
@@ -326,20 +344,12 @@ write_constant_pool (cpool, buffer, length)
 
 CPool *outgoing_cpool;
 
+static GTY(()) tree tag_nodes[13];
 static tree
 get_tag_node (tag)
      int tag;
 {
   /* A Cache for build_int_2 (CONSTANT_XXX, 0). */
-  static tree tag_nodes[13];
-  static int initialized_p;
-
-  /* Register the TAG_NODES with the garbage collector.  */
-  if (!initialized_p)
-    {
-      ggc_add_tree_root (tag_nodes, 13);
-      initialized_p = 1;
-    }
 
   if (tag_nodes[tag] == NULL_TREE)
     tag_nodes[tag] = build_int_2 (tag, 0);
@@ -357,7 +367,7 @@ alloc_name_constant (tag, name)
      int tag;
      tree name;
 {
-  return find_constant1 (outgoing_cpool, tag, (jword) name);
+  return find_tree_constant (outgoing_cpool, tag, name);
 }
 
 /* Build an identifier for the internal name of reference type TYPE. */
@@ -446,7 +456,7 @@ build_constants_constructor ()
 	= tree_cons (NULL_TREE, get_tag_node (outgoing_cpool->tags[i]),
 		     tags_list);
       data_list
-	= tree_cons (NULL_TREE, build_utf8_ref ((tree)outgoing_cpool->data[i]),
+	= tree_cons (NULL_TREE, build_utf8_ref (outgoing_cpool->data[i].t),
 		     data_list);
     }
   if (outgoing_cpool->count > 0)
@@ -492,3 +502,5 @@ build_constants_constructor ()
   FINISH_RECORD_CONSTRUCTOR (cons);
   return cons;
 }
+
+#include "gt-java-constants.h"

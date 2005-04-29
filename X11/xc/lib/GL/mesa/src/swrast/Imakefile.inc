@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/GL/mesa/src/swrast/Imakefile.inc,v 1.2 2002/11/14 21:01:17 tsi Exp $
+XCOMM $XFree86: xc/lib/GL/mesa/src/swrast/Imakefile.inc,v 1.3 2003/09/28 20:15:40 alanh Exp $
 
 #ifndef MesaSwrastBuildDir
 #define MesaSwrastBuildDir $(GLXLIBSRC)/mesa/src/swrast/
@@ -25,11 +25,9 @@ MESASWRASTBUILDDIR = MesaSwrastBuildDir
 		     $(MESASWRASTBUILDDIR)s_lines.c \
 		     $(MESASWRASTBUILDDIR)s_logic.c \
 		     $(MESASWRASTBUILDDIR)s_masking.c \
-		     $(MESASWRASTBUILDDIR)s_pb.c \
 		     $(MESASWRASTBUILDDIR)s_pixeltex.c \
 		     $(MESASWRASTBUILDDIR)s_points.c \
 		     $(MESASWRASTBUILDDIR)s_readpix.c \
-		     $(MESASWRASTBUILDDIR)s_scissor.c \
 		     $(MESASWRASTBUILDDIR)s_span.c \
 		     $(MESASWRASTBUILDDIR)s_stencil.c \
 		     $(MESASWRASTBUILDDIR)s_texstore.c \
@@ -57,11 +55,9 @@ LinkSourceFile(s_imaging.c, $(MESASRCDIR)/src/swrast)
 LinkSourceFile(s_lines.c, $(MESASRCDIR)/src/swrast)
 LinkSourceFile(s_logic.c, $(MESASRCDIR)/src/swrast)
 LinkSourceFile(s_masking.c, $(MESASRCDIR)/src/swrast)
-LinkSourceFile(s_pb.c, $(MESASRCDIR)/src/swrast)
 LinkSourceFile(s_pixeltex.c, $(MESASRCDIR)/src/swrast)
 LinkSourceFile(s_points.c, $(MESASRCDIR)/src/swrast)
 LinkSourceFile(s_readpix.c, $(MESASRCDIR)/src/swrast)
-LinkSourceFile(s_scissor.c, $(MESASRCDIR)/src/swrast)
 LinkSourceFile(s_span.c, $(MESASRCDIR)/src/swrast)
 LinkSourceFile(s_stencil.c, $(MESASRCDIR)/src/swrast)
 LinkSourceFile(s_texstore.c, $(MESASRCDIR)/src/swrast)
@@ -89,11 +85,9 @@ LinkSourceFile(s_zoom.c, $(MESASRCDIR)/src/swrast)
 		     $(MESASWRASTBUILDDIR)s_lines.o \
 		     $(MESASWRASTBUILDDIR)s_logic.o \
 		     $(MESASWRASTBUILDDIR)s_masking.o \
-		     $(MESASWRASTBUILDDIR)s_pb.o \
 		     $(MESASWRASTBUILDDIR)s_pixeltex.o \
 		     $(MESASWRASTBUILDDIR)s_points.o \
 		     $(MESASWRASTBUILDDIR)s_readpix.o \
-		     $(MESASWRASTBUILDDIR)s_scissor.o \
 		     $(MESASWRASTBUILDDIR)s_span.o \
 		     $(MESASWRASTBUILDDIR)s_stencil.o \
 		     $(MESASWRASTBUILDDIR)s_texstore.o \
@@ -121,11 +115,9 @@ LinkSourceFile(s_zoom.c, $(MESASRCDIR)/src/swrast)
 		     $(MESASWRASTBUILDDIR)unshared/s_lines.o \
 		     $(MESASWRASTBUILDDIR)unshared/s_logic.o \
 		     $(MESASWRASTBUILDDIR)unshared/s_masking.o \
-		     $(MESASWRASTBUILDDIR)unshared/s_pb.o \
 		     $(MESASWRASTBUILDDIR)unshared/s_pixeltex.o \
 		     $(MESASWRASTBUILDDIR)unshared/s_points.o \
 		     $(MESASWRASTBUILDDIR)unshared/s_readpix.o \
-		     $(MESASWRASTBUILDDIR)unshared/s_scissor.o \
 		     $(MESASWRASTBUILDDIR)unshared/s_span.o \
 		     $(MESASWRASTBUILDDIR)unshared/s_stencil.o \
 		     $(MESASWRASTBUILDDIR)unshared/s_texstore.o \
@@ -155,11 +147,9 @@ LinkSourceFile(s_zoom.c, $(MESASRCDIR)/src/swrast)
 		     $(MESASWRASTBUILDDIR)debugger/s_lines.o \
 		     $(MESASWRASTBUILDDIR)debugger/s_logic.o \
 		     $(MESASWRASTBUILDDIR)debugger/s_masking.o \
-		     $(MESASWRASTBUILDDIR)debugger/s_pb.o \
 		     $(MESASWRASTBUILDDIR)debugger/s_pixeltex.o \
 		     $(MESASWRASTBUILDDIR)debugger/s_points.o \
 		     $(MESASWRASTBUILDDIR)debugger/s_readpix.o \
-		     $(MESASWRASTBUILDDIR)debugger/s_scissor.o \
 		     $(MESASWRASTBUILDDIR)debugger/s_span.o \
 		     $(MESASWRASTBUILDDIR)debugger/s_stencil.o \
 		     $(MESASWRASTBUILDDIR)debugger/s_texstore.o \
@@ -186,11 +176,9 @@ LinkSourceFile(s_zoom.c, $(MESASRCDIR)/src/swrast)
 		     $(MESASWRASTBUILDDIR)profiled/s_lines.o \
 		     $(MESASWRASTBUILDDIR)profiled/s_logic.o \
 		     $(MESASWRASTBUILDDIR)profiled/s_masking.o \
-		     $(MESASWRASTBUILDDIR)profiled/s_pb.o \
 		     $(MESASWRASTBUILDDIR)profiled/s_pixeltex.o \
 		     $(MESASWRASTBUILDDIR)profiled/s_points.o \
 		     $(MESASWRASTBUILDDIR)profiled/s_readpix.o \
-		     $(MESASWRASTBUILDDIR)profiled/s_scissor.o \
 		     $(MESASWRASTBUILDDIR)profiled/s_span.o \
 		     $(MESASWRASTBUILDDIR)profiled/s_stencil.o \
 		     $(MESASWRASTBUILDDIR)profiled/s_texstore.o \

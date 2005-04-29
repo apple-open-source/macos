@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)stdio.3	8.7 (Berkeley) 4/19/94
-.\" $FreeBSD: src/lib/libc/stdio/stdio.3,v 1.24 2003/02/23 01:47:47 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdio/stdio.3,v 1.26 2004/07/02 23:52:12 ru Exp $
 .\"
 .Dd January 10, 2003
 .Dt STDIO 3
@@ -92,15 +92,19 @@ object is indeterminate (garbage) after a file is closed.
 .Pp
 A file may be subsequently reopened, by the same or another program
 execution, and its contents reclaimed or modified (if it can be repositioned
-at the start).  If the main function returns to its original caller, or
+at the start).
+If the main function returns to its original caller, or
 the
 .Xr exit 3
 function is called, all open files are closed (hence all output
-streams are flushed) before program termination.  Other methods
+streams are flushed) before program termination.
+Other methods
 of program termination may not close files properly and hence
-buffered output may be lost.  In particular,
+buffered output may be lost.
+In particular,
 .Xr _exit 2
-does not flush stdio files.  Neither does an exit due to a signal.
+does not flush stdio files.
+Neither does an exit due to a signal.
 Buffers are flushed by
 .Xr abort 3
 as required by POSIX, although previous implementations did not.
@@ -186,28 +190,44 @@ without first removing their current definitions with
 .Dv SEEK_END ,
 .Dv SEEK_SET ,
 .Dv TMP_MAX ,
+.Dv clearerr ,
 .Dv clearerr_unlocked ,
+.Dv feof ,
 .Dv feof_unlocked ,
+.Dv ferror ,
 .Dv ferror_unlocked ,
+.Dv fileno ,
 .Dv fileno_unlocked ,
 .Dv fropen ,
 .Dv fwopen ,
+.Dv getc ,
 .Dv getc_unlocked ,
+.Dv getchar ,
 .Dv getchar_unlocked ,
+.Dv putc ,
 .Dv putc_unlocked ,
+.Dv putchar ,
 .Dv putchar_unlocked ,
 .Dv stderr ,
 .Dv stdin
 and
 .Dv stdout .
 Function versions of the macro functions
+.Dv clearerr ,
 .Dv clearerr_unlocked ,
+.Dv feof ,
 .Dv feof_unlocked ,
+.Dv ferror ,
 .Dv ferror_unlocked ,
+.Dv fileno ,
 .Dv fileno_unlocked ,
+.Dv getc ,
 .Dv getc_unlocked ,
+.Dv getchar ,
 .Dv getchar_unlocked ,
-.Dv putc_unlocked
+.Dv putc ,
+.Dv putc_unlocked ,
+.Dv putchar ,
 and
 .Dv putchar_unlocked
 exist and will be used if the macro

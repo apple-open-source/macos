@@ -3,22 +3,19 @@
  *
  *@APPLE_LICENSE_HEADER_START@
  *
- *Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ *The contents of this file constitute Original Code as defined in and
+ *are subject to the Apple Public Source License Version 1.1 (the
+ *"License").  You may not use this file except in compliance with the
+ *License.  Please obtain a copy of the License at
+ *http://www.apple.com/publicsource and read it before using this file.
  *
- *This file contains Original Code and/or Modifications of Original Code
- *as defined in and that are subject to the Apple Public Source License
- *Version 2.0 (the 'License'). You may not use this file except in
- *compliance with the License. Please obtain a copy of the License at
- *http://www.opensource.apple.com/apsl/ and read it before using this
- *file.
- *
- *The Original Code and all software distributed under the License are
- *distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *This Original Code and all software distributed under the License are
+ *distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  *EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  *INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- *FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- *Please see the License for the specific language governing rights and
- *limitations under the License.
+ *FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ *License for the specific language governing rights and limitations
+ *under the License.
  *
  *@APPLE_LICENSE_HEADER_END@
  */
@@ -262,6 +259,8 @@ bool AppleSCCSerial::start(IOService *provider)
     Port.RXStats.BufferSize= BUFFER_SIZE_DEFAULT;
     initChip(&Port);
 
+	Port.fAppleSCCSerialInstance = (void *)this;
+
 #if USE_WORK_LOOPS
 //	myWorkLoop = (IOWorkLoop *)getWorkLoop();
 	
@@ -386,6 +385,24 @@ bool AppleSCCSerial::start(IOService *provider)
         return false;
 	}
     
+//rcs Tiger Fixes..
+    fdmaStartTransmissionThread = thread_call_allocate (
+        &SccStartTransmissionDelayedHandler, ( thread_call_param_t ) this);
+	if ( fdmaStartTransmissionThread == NULL )
+	{
+        return false;
+	}
+
+
+    dmaRxHandleCurrentPositionThread = thread_call_allocate (
+        &SccCurrentPositionDelayedHandler, ( thread_call_param_t ) this);
+	if ( dmaRxHandleCurrentPositionThread == NULL )
+	{
+        return false;
+	}
+
+
+    
     // Finished all initialisation so start service matching
 
     return createSerialStream();
@@ -492,6 +509,33 @@ void AppleSCCSerial::stop(IOService *provider)
         thread_call_free ( fPollingThread );
         fPollingThread = NULL;
     }
+
+	if (fdmaStartTransmissionThread != NULL)
+	{
+		while (fTransmissionCount > 0) {
+			if (thread_call_cancel(fdmaStartTransmissionThread))
+				break;
+			else
+				IOSleep(1);
+		}
+			
+		thread_call_free(fdmaStartTransmissionThread);
+		fdmaStartTransmissionThread = NULL;
+	}
+	
+	if (dmaRxHandleCurrentPositionThread != NULL)
+	{
+		while (fCurrentPositionCount > 0) {
+			if (thread_call_cancel(dmaRxHandleCurrentPositionThread))
+				break;
+			else
+				IOSleep(1);
+		}
+		
+		thread_call_free(dmaRxHandleCurrentPositionThread);
+		dmaRxHandleCurrentPositionThread = NULL;
+		
+	}
 
     /* Turn the chip off after closing a port */
     if (Port.ControlRegister != NULL)
@@ -722,7 +766,7 @@ handleDBDMATxInterrupt(OSObject *target, void *refCon, IOService *nub, int sourc
      #if ! USE_WORK_LOOPS
         serialPortPtr->fProvider->disableInterrupt(kIntTxDMA);
     #endif    
-        PPCSerialTxDMAISR(NULL, NULL,  serialPortPtr->portPtr());
+        PPCSerialTxDMAISR(serialPortPtr, NULL,  serialPortPtr->portPtr());
         
      #if ! USE_WORK_LOOPS
         serialPortPtr->fProvider->enableInterrupt(kIntTxDMA);
@@ -746,7 +790,7 @@ handleDBDMARxInterrupt(OSObject *target, void *refCon, IOService *nub, int sourc
         serialPortPtr->fProvider->disableInterrupt(kIntRxDMA);
     #endif
 
-        PPCSerialRxDMAISR(NULL, NULL,  serialPortPtr->portPtr());
+        PPCSerialRxDMAISR(serialPortPtr, NULL,  serialPortPtr->portPtr());
 
      #if ! USE_WORK_LOOPS
         serialPortPtr->fProvider->enableInterrupt(kIntRxDMA);

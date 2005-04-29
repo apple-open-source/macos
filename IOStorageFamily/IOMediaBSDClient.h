@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,7 @@
  * Kernel
  */
 
+#include <sys/kernel_types.h>
 #include <IOKit/storage/IOMedia.h>
 
 /* DEPRECATED */ class  AnchorTable;
@@ -118,7 +119,7 @@ public:
      * Process a foreign ioctl.
      */
 
-    virtual int ioctl(dev_t, u_long cmd, caddr_t data, int, struct proc *);
+    virtual int ioctl(dev_t, u_long cmd, caddr_t data, int, proc_t);
 
     OSMetaClassDeclareReservedUsed(IOMediaBSDClient, 0);
 

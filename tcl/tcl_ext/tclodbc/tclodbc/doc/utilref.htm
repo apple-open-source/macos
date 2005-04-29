@@ -1,0 +1,291 @@
+<HTML><BODY>
+<h2>Tclodbc 2.1 Utility Procedure Reference</h2>
+<p>
+<A HREF="#ColTypes">ColTypes</A>
+<A HREF="#DumpSchema">DumpSchema</A>
+<A HREF="#DumpTable">DumpTable</A>
+<A HREF="#FieldFormat">FieldFormat</A>
+<A HREF="#Justification">Justification</A>
+<A HREF="#LoadSchema">LoadSchema</A>
+<A HREF="#LoadSql">LoadSql</A>
+<A HREF="#LoadTable">LoadTable</A>
+<A HREF="#SqlDelete">SqlDelete</A>
+<A HREF="#SqlInsert">SqlInsert</A>
+<A HREF="#SqlSelect">SqlSelect</A>
+<A HREF="#SqlShell">SqlShell</A>
+<A HREF="#SqlTimeToTclTime">SqlTimeToTclTime</A>
+<A HREF="#SqlUpdate">SqlUpdate</A>
+<A HREF="#TableDef">TableDef</A>
+<A HREF="#TableDefToSql">TableDefToSql</A>
+<A HREF="#TclTimeToSqlTime">TclTimeToSqlTime</A>
+<A HREF="#TkTableInit">TkTableInit</A>
+<A HREF="#TkTableRead">TkTableRead</A>
+</p>
+<HR>
+<h2><A NAME="ColTypes">ColTypes</A></h2>
+<p>
+</p>
+<p>
+Return list of column types for given columns. This list can
+be used as statement argument specification.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object</li>
+<li>table      : table name</li>
+<li>columns    : column names</li>
+</ul>
+<h2><A NAME="DumpSchema">DumpSchema</A></h2>
+<p>
+</p>
+<p>
+Dumps whole database schema to a named file.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object name</li>
+<li>filename   : filename</li>
+</ul>
+<h2><A NAME="DumpTable">DumpTable</A></h2>
+<p>
+</p>
+<p>
+Dump the contents of a named table to a file.
+The filename may be given explicitly, but if not,
+a default name of the form $tablename.d is used.
+</p>
+<p>
+The .d file format is the following:
+1st line contains the data column names.
+from 2rd line forward, the data in tcl list format.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object name</li>
+<li>table      : database table name</li>
+<li>?filename? : filename, optional</li>
+</ul>
+<h2><A NAME="FieldFormat">FieldFormat</A></h2>
+<p>
+</p>
+<p>
+Formats given list of fields for output
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>fielddef    : field defininition list, {coltype ?fieldlenght?}</li>
+<li>?data?      : field data, if empty, return a delimiter row</li>
+</ul>
+<h2><A NAME="Justification">Justification</A></h2>
+<p>
+</p>
+<p>
+Returns default justification of a column, right, left or center
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>coltype    : column type description, as returned by "stmt columns type precision scale displaysize"</li>
+</ul>
+<h2><A NAME="LoadSchema">LoadSchema</A></h2>
+<p>
+</p>
+<p>
+Loads whole database schema from a named file.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object name</li>
+<li>filename   : filename</li>
+<li>verbose    : puts lines before executing, useful when debugging sql</li>
+</ul>
+<h2><A NAME="LoadSql">LoadSql</A></h2>
+<p>
+</p>
+<p>
+Loads sql from a file to a database.
+The input file should contain one sql statement per line.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object name</li>
+<li>filename   : filename</li>
+</ul>
+<h2><A NAME="LoadTable">LoadTable</A></h2>
+<p>
+</p>
+<p>
+Loads the contents of a named table from a file.
+The filename may be given explicitly, but if not,
+a default name of the form $tablename.d is used.
+The file format is assumed to be of the form generated
+by DumpData procedure, described above.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object name</li>
+<li>table      : database table name</li>
+<li>?filename? : filename, optional</li>
+</ul>
+<h2><A NAME="SqlDelete">SqlDelete</A></h2>
+<p>
+</p>
+<p>
+Create command for creating a delete statement for given table
+and columns.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object</li>
+<li>stmt       : statement name</li>
+<li>table      : table name</li>
+<li>keycols    : key column names</li>
+<li>?mode?     : mode, default is eval</li>
+</ul>
+<h2><A NAME="SqlInsert">SqlInsert</A></h2>
+<p>
+</p>
+<p>
+Return command for creating a insert statement for given table
+and columns. Mode determines the action for the command. Useful
+modes are e.g. eval, return and puts.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object</li>
+<li>stmt       : statement name</li>
+<li>table      : table name</li>
+<li>columns    : column names</li>
+<li>?mode?     : mode, default is eval</li>
+</ul>
+<h2><A NAME="SqlSelect">SqlSelect</A></h2>
+<p>
+</p>
+<p>
+Return command for creating a select statement for given table
+and columns. Mode determines the action for the command. Useful
+modes are e.g. eval, return and puts.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object</li>
+<li>stmt       : statement name</li>
+<li>table      : table name</li>
+<li>datacols   : data column names</li>
+<li>keycols    : key column names</li>
+<li>?mode?     : mode, default is eval</li>
+</ul>
+<h2><A NAME="SqlShell">SqlShell</A></h2>
+<p>
+</p>
+<p>
+Very simple sql shell. Execute given statements and return data
+in columnar format.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db          : db connection object</li>
+</ul>
+<h2><A NAME="SqlTimeToTclTime">SqlTimeToTclTime</A></h2>
+<p>
+</p>
+<p>
+Returns tcl time in seconds
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>sqltime     : sql timestamp of the form YYYY-MM-DD ?HH:MM:SS?</li>
+</ul>
+<h2><A NAME="SqlUpdate">SqlUpdate</A></h2>
+<p>
+</p>
+<p>
+Return command for creating a update statement for given table
+and columns. Mode determines the action for the command. Useful
+modes are e.g. eval, return and puts.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object</li>
+<li>stmt       : statement name</li>
+<li>table      : table name</li>
+<li>datacols   : data column names</li>
+<li>keycols    : key column names</li>
+<li>?mode?     : mode, default is eval</li>
+</ul>
+<h2><A NAME="TableDef">TableDef</A></h2>
+<p>
+</p>
+<p>
+Return the definition of a named database table.
+The definition consist of a list {tablename coldefs indexdefs}
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object name</li>
+<li>table      : database table name</li>
+</ul>
+<h2><A NAME="TableDefToSql">TableDefToSql</A></h2>
+<p>
+</p>
+<p>
+Transforms a TableDef as returned by procedure TableDef to a list
+of driver specific sql data definition statements.
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>db         : database object name</li>
+<li>tabledef   : database table name</li>
+</ul>
+<h2><A NAME="TclTimeToSqlTime">TclTimeToSqlTime</A></h2>
+<p>
+</p>
+<p>
+Returns sql timestamp of the form YYYY-MM-DD HH:MM:SS
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>tcltime     : tcl time as returned by [clock seconds]</li>
+</ul>
+<h2><A NAME="TkTableInit">TkTableInit</A></h2>
+<p>
+</p>
+<p>
+Initialize tk table widget for a given result set
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>table      : tktable widget name</li>
+<li>stmt       : the name of a statement object</li>
+</ul>
+<h2><A NAME="TkTableRead">TkTableRead</A></h2>
+<p>
+</p>
+<p>
+Display whole result set in a tk table widget. The statement object
+should be executed before calling this
+</p>
+<p>
+</p>
+<h3>Parameters</h3><ul>
+<li>stmt       : the name of a statement object</li>
+<li>table      : tktable widget name</li>
+</ul>
+</BODY></HTML>

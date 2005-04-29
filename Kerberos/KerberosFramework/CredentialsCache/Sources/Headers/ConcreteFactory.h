@@ -44,4 +44,4 @@ class CCIConcreteFactory:
 		{
 			return new CompatCredentials (inCredentialsID, inAPIVersion);
 		}
-};		
+};

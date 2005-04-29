@@ -1,0 +1,354 @@
+diff -Naur /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/Makefile.top ./Makefile.top
+--- /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/Makefile.top	2004-10-05 17:38:34.000000000 -0700
++++ ./Makefile.top	2004-12-20 11:43:59.000000000 -0800
+@@ -42,9 +42,9 @@
+ #
+ # Compiler arguments
+ #
+-CFLAGS		= @CFLAGS@ @DEVFLAGS@
+-EXTRACPPFLAGS	= @EXTRACPPFLAGS@
+-LDFLAGS		= @LDFLAGS@ 
++CFLAGS		+= @CFLAGS@
++EXTRACPPFLAGS	+= @EXTRACPPFLAGS@
++LDFLAGS		+= @LDFLAGS@ 
+ LIBTOOL		= @LIBTOOL@ @LIBTOOLFLAGS@
+ EXEEXT		= @EXEEXT@
+ 
+diff -Naur /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/aclocal.m4 ./aclocal.m4
+--- /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/aclocal.m4	2003-02-13 08:01:23.000000000 -0800
++++ ./aclocal.m4	2004-12-20 11:43:59.000000000 -0800
+@@ -1783,7 +1783,7 @@
+     #        cross-compilation, but unfortunately the echo tests do not
+     #        yet detect zsh echo's removal of \ escapes.  Also zsh mangles
+     #	     `"' quotes if we put them in here... so don't!
+-    archive_cmds='$CC -r -keep_private_externs -nostdlib -o ${lib}-master.o $libobjs && $CC $(test .$module = .yes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib ${lib}-master.o $deplibs$linker_flags $(test .$module != .yes && echo -install_name $rpath/$soname $verstring)'
++    archive_cmds='$CC $CFLAGS -r -keep_private_externs -nostdlib -o ${lib}-master.o $libobjs && $CC $CFLAGS $(test .$module = .yes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib ${lib}-master.o $deplibs$linker_flags $(test .$module != .yes && echo -install_name $rpath/$soname $verstring)'
+     # We need to add '_' to the symbols in $export_symbols first
+     #archive_expsym_cmds="$archive_cmds"' && strip -s $export_symbols'
+     hardcode_direct=yes
+diff -Naur /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/agent/mibgroup/host/hr_storage.c ./agent/mibgroup/host/hr_storage.c
+--- /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/agent/mibgroup/host/hr_storage.c	2004-10-16 18:59:14.000000000 -0700
++++ ./agent/mibgroup/host/hr_storage.c	2004-12-20 11:43:59.000000000 -0800
+@@ -164,7 +164,7 @@
+ #define HRFS_mount	f_mntonname
+ #define HRFS_HAS_FRSIZE STRUCT_STATVFS_HAS_F_FRSIZE
+ 
+-#elif defined(HAVE_STATVFS)
++#elif defined(HAVE_STATVFS) && defined(STRUCT_STATVFS_HAS_MNT_DIR)
+ 
+ extern struct mntent *HRFS_entry;
+ extern int      fscount;
+diff -Naur /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/agent/mibgroup/host/hr_swrun.c ./agent/mibgroup/host/hr_swrun.c
+--- /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/agent/mibgroup/host/hr_swrun.c	2004-06-08 13:56:03.000000000 -0700
++++ ./agent/mibgroup/host/hr_swrun.c	2004-12-20 11:52:53.000000000 -0800
+@@ -1070,6 +1070,10 @@
+     #else
+             proc_table[LowProcIndex].kp_eproc.e_vm.vm_map.size / 1024;
+     #endif
++#elif defined darwin
++//NLS, no realiable way of getting this data... 
++	long_return = -1; 
++
+ #else
+         long_return = proc_table[LowProcIndex].kp_eproc.e_vm.vm_tsize +
+             proc_table[LowProcIndex].kp_eproc.e_vm.vm_ssize +
+diff -Naur /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/agent/mibgroup/mibII/route_write.c ./agent/mibgroup/mibII/route_write.c
+--- /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/agent/mibgroup/mibII/route_write.c	2004-07-08 17:31:41.000000000 -0700
++++ ./agent/mibgroup/mibII/route_write.c	2004-12-20 11:43:59.000000000 -0800
+@@ -102,7 +102,7 @@
+ int
+ addRoute(u_long dstip, u_long gwip, u_long iff, u_short flags)
+ {
+-#ifndef dynix
++#if !(defined dynix || defined darwin)
+     struct sockaddr_in dst;
+     struct sockaddr_in gateway;
+     int             s, rc;
+@@ -141,6 +141,57 @@
+     return rc;
+ #endif
+ 
++#elif defined darwin
++
++	size_t sa_in_size = sizeof(struct sockaddr_in);
++	int	s, rc;
++	struct sockaddr_in dst;
++	struct sockaddr_in gateway;
++	struct {
++		struct	rt_msghdr hdr;
++		char	space[512];
++	} rtmsg;
++
++	s = socket(PF_ROUTE, SOCK_RAW, 0);
++    if (s < 0) {
++        snmp_log_perror("socket");
++        return -1;
++    }
++
++	shutdown(s, SHUT_RD);
++
++	/* possible panic otherwise */
++	flags |= (RTF_UP | RTF_GATEWAY);
++
++	bzero((char *)&dst, sa_in_size);
++	dst.sin_len = sa_in_size;
++	dst.sin_family = AF_INET;
++	dst.sin_addr.s_addr = htonl(dstip);
++
++	bzero((char *)&gateway, sa_in_size);
++	gateway.sin_len = sa_in_size;
++	gateway.sin_family = AF_INET;
++	gateway.sin_addr.s_addr = htonl(gwip);
++
++	bzero((char *)&rtmsg, sizeof(rtmsg));
++
++	rtmsg.hdr.rtm_type = RTM_ADD;
++	rtmsg.hdr.rtm_version = RTM_VERSION;
++	rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY;
++	rtmsg.hdr.rtm_flags = RTF_GATEWAY;
++
++	bcopy((char *)&dst, rtmsg.space, sa_in_size);
++	bcopy((char *)&gateway, (rtmsg.space+sa_in_size), sa_in_size);
++
++	rc = sizeof(struct rt_msghdr) + sa_in_size + sa_in_size;
++	rtmsg.hdr.rtm_msglen = rc;
++
++	if ((rc = write(s, (char *)&rtmsg, rc)) < 0) {
++		snmp_log_perror("writing to routing socket");
++		return -1;
++	}
++	return (rc);
++
+ #else                           /* dynix */
+     /*
+      *  Throws up the following errors:
+@@ -166,7 +217,7 @@
+ int
+ delRoute(u_long dstip, u_long gwip, u_long iff, u_short flags)
+ {
+-#ifndef dynix
++#if !(defined dynix || defined darwin)
+ 
+     struct sockaddr_in dst;
+     struct sockaddr_in gateway;
+@@ -204,6 +255,56 @@
+     close(s);
+     return rc;
+ #endif
++#elif defined darwin
++
++	size_t sa_in_size = sizeof(struct sockaddr_in);
++	int	s, rc;
++	struct sockaddr_in dst;
++	struct sockaddr_in gateway;
++	struct {
++		struct	rt_msghdr hdr;
++		char	space[512];
++	} rtmsg;
++
++	s = socket(PF_ROUTE, SOCK_RAW, 0);
++    if (s < 0) {
++        snmp_log_perror("socket");
++        return -1;
++    }
++
++	shutdown(s, SHUT_RD);
++
++	/* possible panic otherwise */
++	flags |= (RTF_UP | RTF_GATEWAY);
++
++	bzero((char *)&dst, sa_in_size);
++	dst.sin_len = sa_in_size;
++	dst.sin_family = AF_INET;
++	dst.sin_addr.s_addr = htonl(dstip);
++
++	bzero((char *)&gateway, sa_in_size);
++	gateway.sin_len = sa_in_size;
++	gateway.sin_family = AF_INET;
++	gateway.sin_addr.s_addr = htonl(gwip);
++
++	bzero((char *)&rtmsg, sizeof(rtmsg));
++
++	rtmsg.hdr.rtm_type = RTM_DELETE;
++	rtmsg.hdr.rtm_version = RTM_VERSION;
++	rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY;
++	rtmsg.hdr.rtm_flags = RTF_GATEWAY;
++
++	bcopy((char *)&dst, rtmsg.space, sa_in_size);
++	bcopy((char *)&gateway, (rtmsg.space+sa_in_size), sa_in_size);
++
++	rc = sizeof(struct rt_msghdr) + sa_in_size + sa_in_size;
++	rtmsg.hdr.rtm_msglen = rc;
++
++	if ((rc = write(s, (char *)&rtmsg, rc)) < 0) {
++		snmp_log_perror("writing to routing socket");
++		return -1;
++	}
++	return (rc);
+ 
+ #else                           /* dynix */
+     /*
+diff -Naur /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/agent/mibgroup/ucd-snmp/disk.c ./agent/mibgroup/ucd-snmp/disk.c
+--- /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/agent/mibgroup/ucd-snmp/disk.c	2004-10-05 00:50:38.000000000 -0700
++++ ./agent/mibgroup/ucd-snmp/disk.c	2004-12-20 11:43:59.000000000 -0800
+@@ -73,15 +73,17 @@
+ #if HAVE_SYS_VFS_H
+ #include <sys/vfs.h>
+ #endif
+-#if (!defined(HAVE_STATVFS)) && defined(HAVE_STATFS)
++#ifdef HAVE_STATFS
+ #if HAVE_SYS_MOUNT_H
+ #include <sys/mount.h>
+ #endif
+ #if HAVE_SYS_SYSCTL_H
+ #include <sys/sysctl.h>
+ #endif
++#ifndef HAVE_STATVFS
+ #define statvfs statfs
+ #endif
++#endif
+ #if HAVE_VM_VM_H
+ #include <vm/vm.h>
+ #endif
+diff -Naur /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/configure ./configure
+--- /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/configure	2004-11-24 14:39:34.000000000 -0800
++++ ./configure	2004-12-20 11:43:59.000000000 -0800
+@@ -7084,7 +7084,7 @@
+     #        cross-compilation, but unfortunately the echo tests do not
+     #        yet detect zsh echo's removal of \ escapes.  Also zsh mangles
+     #	     `"' quotes if we put them in here... so don't!
+-    archive_cmds='$CC -r -keep_private_externs -nostdlib -o ${lib}-master.o $libobjs && $CC $(test .$module = .yes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib ${lib}-master.o $deplibs$linker_flags $(test .$module != .yes && echo -install_name $rpath/$soname $verstring)'
++    archive_cmds='$CC $CFLAGS -r -keep_private_externs -nostdlib -o ${lib}-master.o $libobjs && $CC $CFLAGS $(test .$module = .yes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib ${lib}-master.o $deplibs$linker_flags $(test .$module != .yes && echo -install_name $rpath/$soname $verstring)'
+     # We need to add '_' to the symbols in $export_symbols first
+     #archive_expsym_cmds="$archive_cmds"' && strip -s $export_symbols'
+     hardcode_direct=yes
+@@ -30630,6 +30630,95 @@
+ 
+ 
+ ac_safe_struct=`echo "statvfs" | sed 'y%./+-%__p_%'`
++ac_safe_member=`echo "mnt_dir" | sed 'y%./+-%__p_%'`
++ac_safe_all="ac_cv_struct_${ac_safe_struct}_has_${ac_safe_member}"
++  ac_uc_define=STRUCT_`echo "${ac_safe_struct}_HAS_${ac_safe_member}" | sed 'y%abcdefghijklmnopqrstuvwxyz./-%ABCDEFGHIJKLMNOPQRSTUVWXYZ___%'`
++
++echo "$as_me:$LINENO: checking for statvfs.mnt_dir" >&5
++echo $ECHO_N "checking for statvfs.mnt_dir... $ECHO_C" >&6
++if eval "test \"\${$ac_safe_all+set}\" = set"; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++else
++
++if test "x" = "x"; then
++  defineit="= 0"
++elif test "x" = "xno"; then
++  defineit=""
++else
++  defineit=""
++fi
++cat >conftest.$ac_ext <<_ACEOF
++#line $LINENO "configure"
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++
++
++#ifdef HAVE_SYS_STAT_H
++#include <sys/stat.h>
++#endif
++#if HAVE_SYS_STATFS_H
++#include <sys/statfs.h>
++#endif
++#if HAVE_SYS_STATVFS_H
++#include <sys/statvfs.h>
++#endif
++
++
++int
++main ()
++{
++
++struct statvfs testit;
++testit.mnt_dir $defineit;
++
++  ;
++  return 0;
++}
++_ACEOF
++rm -f conftest.$ac_objext
++if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
++  (eval $ac_compile) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } &&
++         { ac_try='test -s conftest.$ac_objext'
++  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; }; then
++  eval "${ac_safe_all}=yes"
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++eval "${ac_safe_all}=no"
++fi
++rm -f conftest.$ac_objext conftest.$ac_ext
++
++fi
++
++
++if eval "test \"x$`echo ${ac_safe_all}`\" = \"xyes\""; then
++  echo "$as_me:$LINENO: result: yes" >&5
++echo "${ECHO_T}yes" >&6
++  cat >>confdefs.h <<_ACEOF
++#define $ac_uc_define 1
++_ACEOF
++
++else
++  echo "$as_me:$LINENO: result: no" >&5
++echo "${ECHO_T}no" >&6
++fi
++
++
++
++
++
++ac_safe_struct=`echo "statvfs" | sed 'y%./+-%__p_%'`
+ ac_safe_member=`echo "f_frsize" | sed 'y%./+-%__p_%'`
+ ac_safe_all="ac_cv_struct_${ac_safe_struct}_has_${ac_safe_member}"
+   ac_uc_define=STRUCT_`echo "${ac_safe_struct}_HAS_${ac_safe_member}" | sed 'y%abcdefghijklmnopqrstuvwxyz./-%ABCDEFGHIJKLMNOPQRSTUVWXYZ___%'`
+diff -Naur /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/configure.in ./configure.in
+--- /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/configure.in	2004-11-24 10:19:25.000000000 -0800
++++ ./configure.in	2004-12-20 11:43:59.000000000 -0800
+@@ -3167,6 +3167,18 @@
+ #if HAVE_SYS_STATVFS_H
+ #include <sys/statvfs.h>
+ #endif
++],statvfs,mnt_dir)
++
++AC_CHECK_STRUCT_FOR([
++#ifdef HAVE_SYS_STAT_H
++#include <sys/stat.h>
++#endif
++#if HAVE_SYS_STATFS_H
++#include <sys/statfs.h>
++#endif
++#if HAVE_SYS_STATVFS_H
++#include <sys/statvfs.h>
++#endif
+ ],statvfs,f_frsize)
+ 
+ AC_CHECK_STRUCT_FOR([
+diff -Naur /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/snmplib/Makefile.in ./snmplib/Makefile.in
+--- /Network/Servers/madrid/Volumes/huis/nickls/net_snmp/net-snmp-5.2/snmplib/Makefile.in	2004-10-07 05:12:44.000000000 -0700
++++ ./snmplib/Makefile.in	2004-12-20 11:43:58.000000000 -0800
+@@ -180,6 +180,8 @@
+ # 
+ CPPFLAGS = $(TOP_INCLUDES) -I. 	$(SNMPLIB_INCLUDES) @CPPFLAGS@
+ 
++CFLAGS	 += @CFLAGS@
++CPPFLAGS += -I. -I.. -I$(srcdir) -I$(srcdir)/.. @CPPFLAGS@
+ all: standardall
+ 
+ # how to build the libraries.

@@ -1,80 +1,68 @@
 ##
-# Makefile for Tcl
+# Makefile for tcl
 ##
 
-# Project info
-Project               = tcl
-UserType              = Developer
-ToolType              = Commands
-Configure             = $(Sources)/unix/configure
-Extra_Environment     = INSTALL_PATH="$(NSFRAMEWORKDIR)" PREFIX="$(USRDIR)" \
-			BUILD_DIR="$(BuildDirectory)" TCL_EXE="$(Tclsh)" \
-			MANDIR="$(MANDIR)" INSTALL_MANPAGES=1
-AfterInstall          = extra-int-headers links old-tcllib
+Project = tcl
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
-# Tcl needs to be built thread-safe, using --enable-threads. As of 8.4.4
-# the Mac OS X framework Makefile passes --enable-threads to configure
-# by default. (3290551)
-#Configure_Flags       += --enable-threads
 
-Install_Flags = INSTALL_ROOT="$(DSTROOT)"
+## Build settings ##
 
-Version = $(shell $(GREP) "TCL_VERSION=" "$(Configure)" | $(CUT) -d '=' -f 2)
+TCL_DSTROOT           = $(if $(DSTROOT),$(DSTROOT),/tmp/tcl/Release)
+TCL_FRAMEWORK_DIR     = $(TCL_DSTROOT)/$(NSDEFAULTLOCATION)/Library/Frameworks
+TCLSH                 = $(TCL_DSTROOT)/usr/bin/tclsh
+WISH                  = $(TCL_DSTROOT)/usr/bin/wish
 
-FmwkDir               = $(NSFRAMEWORKDIR)/Tcl.framework/Versions/$(Version)
-LibItems              = tclConfig.sh libtclstub$(Version).a
-HeaderItems           = tcl.h tclDecls.h tclPlatDecls.h
-PrivateHeaderItems    = tclInt.h tclIntDecls.h tclIntPlatDecls.h tclMath.h tclPort.h
+NSDEFAULTLOCATION     = /System
 
-extra-int-headers:
-	$(_v) $(INSTALL_FILE) "$(Sources)/unix/tclUnixPort.h" "$(DSTROOT)$(FmwkDir)/PrivateHeaders/tclPort.h"
+MAKE_ARGS             = VERBOSE=YES NSDEFAULTLOCATION=$(NSDEFAULTLOCATION) \
+                        TclFramework=$(TCL_FRAMEWORK_DIR)/Tcl.framework Tclsh=$(TCLSH) \
+                        TkFramework=$(TCL_FRAMEWORK_DIR)/Tk.framework Wish=$(WISH) \
+                        $(if $(UseCvs),UseCvs=$(UseCvs))
 
-links:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(USRLIBDIR)"
-	$(_v) $(LN) -fs "$(FmwkDir)/Tcl" "$(DSTROOT)$(USRLIBDIR)/libtcl$(Version).dylib"
-	$(_v) $(LN) -fs "libtcl$(Version).dylib" "$(DSTROOT)$(USRLIBDIR)/libtcl.dylib"
-	$(_v) $(LN) -fs $(foreach f,$(LibItems),"$(FmwkDir)/$(f)") "$(DSTROOT)$(USRLIBDIR)"
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(USRINCLUDEDIR)"
-	$(_v) $(LN) -fs $(foreach f,$(HeaderItems),"$(FmwkDir)/Headers/$(f)") \
-	        "$(DSTROOT)$(USRINCLUDEDIR)"
-# Install compat sym links for private headers in /usr/local/include (3198305)
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/usr/local/include"
-	$(_v) $(LN) -fs $(foreach f,$(PrivateHeaderItems),"$(FmwkDir)/PrivateHeaders/$(f)") \
-	        "$(DSTROOT)/usr/local/include/"
-# Move tclsh.1 to tclsh$(Version).1 and
-# link tclsh.1 to tclsh$(Version).1 (2853545)
-	$(_v) $(MV) "$(DSTROOT)$(MANDIR)/man1/tclsh.1" "$(DSTROOT)$(MANDIR)/man1/tclsh$(Version).1"
-	$(_v) $(LN) -fs "tclsh$(Version).1" "$(DSTROOT)$(MANDIR)/man1/tclsh.1"
+core = tcl tk
+ext  = tcl_ext
+all  = $(core) $(ext)
 
-# Provide Tcl 8.3 dylib for binary compatibility (3280206)
-old-tcllib:
-	$(_v) cd $(BuildDirectory) && /usr/bin/uudecode $(SRCROOT)/libtcl8.3.dylib.uue
-	$(_v) $(INSTALL_DYLIB) "$(BuildDirectory)/libtcl8.3.dylib" "$(DSTROOT)$(USRLIBDIR)"
+## targets ##
 
-###
+.PHONY: $(all)
 
-Sources               = $(SRCROOT)/$(Project)
-MakeDir               = $(Sources)/macosx
+## installsrc ##
 
-BuildTarget           = deploy
+install_source::
+	@echo "Extracting $(Project)..."
+	for subdir in $(all) ; do \
+		$(MAKE) -C $(SRCROOT)/$${subdir} -f Makefile.fetch fetch SRCROOT=$(SRCROOT)/$${subdir}; \
+	done
+	$(CHMOD) a+x $(SRCROOT)/tcl_ext/expect/expect/install-sh
+	$(CHMOD) a+x $(SRCROOT)/tcl_ext/expect/expect/mkinstalldirs
+	$(CHMOD) a+x $(SRCROOT)/tcl_ext/incrtcl/incrTcl/config/install-sh
+	$(CHMOD) a+x $(SRCROOT)/tcl_ext/tclAE/TclAE/Build/Resources/macRoman2utf8.tcl
 
-all: build-$(Project)
+## install ##
 
-.PHONY: almostclean build-$(Project) $(AfterInstall)
+install:: $(all) install-plist munge-docs
 
-build-$(Project):
-	@echo "Building $(Project)..."
-	$(_v) $(MAKE) -C $(MakeDir) $(Environment) $(BuildTarget)
+$(all):
+	$(_v) $(MAKE) -C $@ install $(MAKE_ARGS) \
+		SRCROOT=$(SRCROOT)/$@ \
+		OBJROOT=$(OBJROOT)/$@ \
+		SYMROOT=$(SYMROOT)/$@ \
+		DSTROOT=$(DSTROOT)
 
-install::
-	@echo "Installing $(Project)..."
-	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(MakeDir) $(Environment) \
-	        $(Install_Flags) install-$(BuildTarget)
-	$(_v) $(FIND) $(DSTROOT) $(Find_Cruft) | $(XARGS) $(RMDIR)
-	$(_v)- $(CHOWN) -R $(Install_User).$(Install_Group) $(DSTROOT)
-	$(_v) $(MAKE) $(AfterInstall)
+OSV     = $(DSTROOT)/usr/local/OpenSourceVersions
+OSL     = $(DSTROOT)/usr/local/OpenSourceLicenses
 
-almostclean::
-	@echo "Cleaning $(Project)..."
-	$(_v) $(MAKE) -C $(MakeDir) $(Environment) clean-$(BuildTarget)
+install-plist:
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) $(SRCROOT)/tcl/tcl/license.terms $(OSL)/tcl.txt
+	$(INSTALL_FILE) $(SRCROOT)/tk/tk/license.terms $(OSL)/tk.txt
+
+munge-docs:
+	$(MKDIR) "$(DSTROOT)$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)"
+	$(MV) "$(DSTROOT)/Developer/Documentation/DeveloperTools/Tcl" \
+		"$(DSTROOT)$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)"
+	$(RMDIR) "$(DSTROOT)/Developer/Documentation"

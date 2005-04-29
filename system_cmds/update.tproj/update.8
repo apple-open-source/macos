@@ -39,6 +39,7 @@
 .Nd flush internal filesystem caches to disk frequently
 .Sh SYNOPSIS
 .Nm update
+.Op Ar normal_interval Op Ar save_energy_interval
 .Sh DESCRIPTION
 The
 .Nm update
@@ -50,6 +51,8 @@ to disk at thirty second intervals.
 uses the
 .Xr sync 2
 function call to do the task.
+The normal_interval and save_energy_interval can be used to set the
+.Xr sync 2 interval in seconds of the normal case and the case where the computer is trying to save energy.
 .Pp
 .Nm Update
 is commonly invoked at startup time by

@@ -25,7 +25,7 @@
  * Converted to common header format:
  *   Jens Owen <jens@tungstengraphics.com>
  *
- * $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810_common.h,v 1.1 2002/09/11 00:29:31 dawes Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810_common.h,v 1.2 2003/09/28 20:15:58 alanh Exp $
  *
  */
 
@@ -123,14 +123,18 @@
 #define DRM_I810_OV0FLIP                  0x0b
 #define DRM_I810_MC                       0x0c
 #define DRM_I810_RSTATUS                  0x0d
+#define DRM_I810_FLIP                     0x0e
 
 #endif
 
+typedef enum _drmI810Initfunc {
+	I810_INIT_DMA = 0x01,
+	I810_CLEANUP_DMA = 0x02,
+	I810_INIT_DMA_1_4 = 0x03
+} drmI810Initfunc;
+
 typedef struct {
-   enum {
-      I810_INIT_DMA = 0x01,
-      I810_CLEANUP_DMA = 0x02
-   } func;
+   drmI810Initfunc func;
    unsigned int mmio_offset;
    unsigned int buffers_offset;
    int sarea_priv_offset;

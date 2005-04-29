@@ -1,10 +1,10 @@
-o\input texinfo               @c             -*- Texinfo -*-
+\input texinfo               @c             -*- Texinfo -*-
 @finalout
 @setfilename dejagnu.info
 @c
 @c This file documents the GNU Testing Framework ``DejaGnu''
 @c
-@c Copyright (C) 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+@c Copyright (C) 92 - 2000, 2001 Free Software Foundation, Inc.
 @c
 @c This text may be freely distributed under the terms of the GNU
 @c General Public License.
@@ -43,7 +43,7 @@ END-INFO-DIR-ENTRY
 @end tex
 
 @vskip 0pt plus 1filll
-Copyright @copyright{} 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+Copyright @copyright{} 92, 93, 94, 95, 96, 97, 98, 99, 2000 Free Software Foundation, Inc.
 
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -60,7 +60,7 @@ into another language, under the above conditions for modified versions.
 @end titlepage
 
 @ifinfo
-Copyright @copyright{} 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+Copyright @copyright{} 92, 93, 94, 95, 96, 97, 98, 99, 2000 Free Software Foundation, Inc.
 
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -82,6 +82,7 @@ Permission is granted to copy and distribute translations of this manual
 into another language, under the above conditions for modified versions.
 
 @node Top
+
 @top DejaGnu
 
 DejaGnu is a framework for running test suites on software tools.
@@ -453,24 +454,12 @@ case:
 @item PASS
 A test has succeeded.  That is, it demonstrated that the assertion is true.
 
-@cindex XFAIL, avoiding for POSIX
-@item XFAIL
-@sc{posix} 1003.3 does not incorporate the notion of expected failures,
-so @code{PASS}, instead of @code{XPASS}, must also be returned for test
-cases which were expected to fail and did not.  This means that
-@code{PASS} is in some sense more ambiguous than if @code{XPASS} is also
-used.  For information on @code{XPASS} and @code{XFAIL}, see
-@ref{Invoking runtest,,Using @code{runtest}}.
-
 @item FAIL
 @cindex failure, POSIX definition
 A test @emph{has} produced the bug it was intended to capture.  That is,
 it has demonstrated that the assertion is false.  The @code{FAIL}
 message is based on the test case only.  Other messages are used to
 indicate a failure of the framework.
-
-As with @code{PASS}, @sc{posix} tests must return @code{FAIL} rather
-than @code{XFAIL} even if a failure was expected.
 
 @item UNRESOLVED
 @cindex ambiguity, required for POSIX
@@ -516,8 +505,9 @@ real test case yet.
 @end ftable
 
 @noindent
-The only remaining output message left is intended to test features that
-are specified by the applicable @sc{posix} standard as conditional:
+The only remaining @sc{posix} output message left is intended to test
+features that are specified by the applicable @sc{posix} standard as
+conditional:
 
 @ftable @code
 @item UNSUPPORTED
@@ -529,14 +519,83 @@ running the test case.  For example, a test for the system subroutine
 @code{gethostname} would never work on a target board running only a
 boot monitor.
 @end ftable
-  
+
 DejaGnu uses the same output procedures to produce these messages for
 all test suites, and these procedures are already known to conform to
 @sc{posix} 1003.3.  For a DejaGnu test suite to conform to @sc{posix}
-1003.3, you must avoid the @code{setup_xfail} procedure as described in
-the @code{PASS} section above, and you must be careful to return
+1003.3, you must avoid the @code{setup_xfail} and @code{setup_kfail}
+procedures (see below), and you must be careful to return
 @code{UNRESOLVED} where appropriate, as described in the
 @code{UNRESOLVED} section above.
+  
+Besides the @sc{posix} messages, DejaGnu provides for variations of the
+PASS and FAIL messages that can be helpful for the tool maintainers.
+It must be noted, however, that this feature is not @sc{posix} 1003.3
+compliant, so its use should be avoided if compliance is necessary.
+
+The additional messages are:
+
+@ftable @code
+
+@item XFAIL
+A test is expected to fail in some environment(s) due to some bug
+in the environment that we hope is fixed someday (but we can't do
+nothing about as it is not a bug in the tool that we are testing).
+The procedure @code{setup_xfail} is used to indicate that a failure
+is expected.
+
+@cindex XFAIL, avoiding for POSIX
+@sc{posix} 1003.3 does not incorporate the notion of expected failures,
+so @sc{posix} tests must return @code{FAIL} rather
+than @code{XFAIL} even if a failure was expected.
+
+@item KFAIL
+A test is known to fail in some environment(s) due to a known bug
+in the tool being tested (identified by a bug id string).  This 
+exists so that, after a bug is identified and properly registered
+in a bug tracking database (Gnats, for instance), the count of 
+failures can be kept as zero.  Having zero as a baseline in all
+platforms allow the tool developers to immediately detect regressions
+caused by changes (which may affect some platforms and not others).
+The connection with a bug tracking database allows for automatic
+generation of the BUGS section of man pages or Release Notes, as
+well as a "Bugs Fixed this Release" section (by comparing to a
+previous release set of known failures).
+The procedure @code{setup_kfail} is used to indicate a failure is
+known to exist.
+
+@cindex KFAIL, avoiding for POSIX
+As with @code{XFAIL}, @sc{posix} tests must return @code{FAIL} rather
+than @code{KFAIL} even if a failure was due to a known bug.
+
+
+@item XPASS
+A test was expected to fail with @code{XFAIL} but passed instead.
+Whatever problem that used to exist in the environment was corrected
+The test may also be failing to detect the failure due to some
+environment or output changes, so this possibility must be investigated
+as well.
+
+@item KPASS
+A test was expected to fail with @code{KFAIL} but passed instead.
+Someone may have fixed the bug and failed to unmark the test.
+As for XPASS, the test may also be failing to detect the
+failure due to some environment or output changes, so this possibility
+must also be checked.
+
+@code{PASS}, instead of @code{XPASS} or @code{KPASS}, must also be
+returned for test cases which were expected to fail and did not,
+if @sc{posix} 1003.3 compliance is required.
+This means that @code{PASS} is in some sense more ambiguous than if
+@code{XPASS} and @code{KPASS} are also used.  
+
+@end ftable
+
+See also @ref{Invoking runtest,,Using @code{runtest}}.
+For information on how to mark tests as expected/known to fail by using
+@code{setup_xfail} and @code{setup_kfail}, see
+@ref{framework.exp,,Core Internal Procedures}.
+
 
 @node Future Directions
 @section Future directions
@@ -616,6 +675,14 @@ A pleasant kind of failure: a test was expected to fail, but succeeded.
 This may indicate progress; inspect the test case to determine whether
 you should amend it to stop expecting failure.
 
+@item KPASS
+@kindex KPASS
+@cindex successful test, unexpected
+@cindex unexpected success
+A pleasant kind of failure: a test was known to fail, but succeeded.
+This may indicate progress; inspect the test case to determine whether
+you should amend it to stop expecting failure.
+
 @item FAIL
 @kindex FAIL
 @cindex failing test, unexpected
@@ -628,9 +695,19 @@ regress; inspect the test case and the failing software to locate the bug.
 @cindex expected failure
 @cindex failing test, expected
 A test failed, but it was expected to fail.  This result indicates no
-change in a known bug.  If a test fails because the operating system
-where the test runs lacks some facility required by the test, the
-outcome is @code{UNSUPPORTED} instead.
+change in a known environment bug.  If a test fails because the operating
+system where the test runs lacks some facility required by the test
+(i.e. failure is due to the lack of a feature, not the existence of a bug),
+the outcome is @code{UNSUPPORTED} instead.
+
+@item KFAIL
+@kindex KFAIL
+@cindex known failure
+@cindex failing test, known
+A test failed, but it was known to fail.  This result indicates no
+change in a known bug.  If a test fails because of a problem in the
+environment, not in the tool being tested, that is expected to be
+fixed one day, the outcome is @code{XFAIL} instead.
 
 @item UNRESOLVED
 @kindex UNRESOLVED
@@ -764,8 +841,8 @@ values}.
 @cindex test output, displaying all
 Display all test output.  By default, @code{runtest} shows only the
 output of tests that produce unexpected results; that is, tests with
-status @samp{FAIL} (unexpected failure), @samp{XPASS} (unexpected
-success), or @samp{ERROR} (a severe error in the test case itself).
+status @samp{FAIL} (unexpected failure), @samp{XPASS} or @samp{KPASS}
+(unexpected success), or @samp{ERROR} (a severe error in the test case itself).
 Specify @samp{--all} to see output for tests with status @samp{PASS}
 (success, as expected) @samp{XFAIL} (failure, as expected), or
 @samp{WARNING} (minor error in the test case itself).
@@ -844,8 +921,9 @@ recorded by your configuration's choice of host.  This choice does not
 change how anything is actually configured unless --build is also
 specified; it affects @emph{only} DejaGnu procedures that compare the
 host string with particular values.  The procedures @code{ishost},
-@code{istarget}, @code{isnative}, and @code{setup_xfail} are affected by
-@samp{--host}. In this usage, @code{host} refers to the machine that the
+@code{istarget}, @code{isnative}, @code{setup_xfail} and
+@code{setup_kfail} are affected by @samp{--host}.
+In this usage, @code{host} refers to the machine that the
 tests are to be run on, which may not be the same as the @code{build}
 machine. If @code{--build} is also specified, then @code{--host} refers
 to the machine that the tests wil, be run on, not the machine DejaGnu is
@@ -1422,7 +1500,7 @@ variable in the top section, then just put a duplicate value in this
 second section. Usually the values defined in this config file are
 related to the configuration of the test run. This is the ideal place to
 set the variables @code{host_triplet}, @code{build_triplet},
-@code{target_triplet}. All other variables are tool dependant. ie for
+@code{target_triplet}. All other variables are tool dependant, i.e., for
 testing a compiler, the value for @var{CC} might be set to a freshly
 built binary, as opposed to one in the user's path.
 
@@ -1593,7 +1671,7 @@ exit 1
 At the beginning of the init file, you must first determine the proper
 executable name of the tool to execute, since the actual name of the
 tool to be tested my vary from system to system. Here's an example
-for the @sc{GNU} C compiler.
+for the @sc{gnu} C compiler.
 
 @cartouche
 @smallexample
@@ -1736,8 +1814,9 @@ the verbosity level use @code{note}.
 @item pass "@var{string}"
 @cindex test case, declaring success
 Declares a test to have passed.  @code{pass} writes in the 
-log files a message beginning with @samp{PASS} (or @code{XPASS}, if
-failure was expected), appending the argument @var{string}.
+log files a message beginning with @samp{PASS}
+(or @code{XPASS}/@code{KPASS}, if failure was expected),
+appending the argument @var{string}.
 
 @item fail "@var{string}"
 @cindex test case, declaring failure
@@ -1860,18 +1939,44 @@ common shell wildcard characters to specify sets of names).  The
 output; use it as a link to a bug-tracking system such as @sc{gnats}
 (@pxref{Overview,, Overview, gnats.info, Tracking Bugs With GNATS}).
 
-@cindex @code{XFAIL}, producing
-@cindex @code{XPASS}, producing
-Once you use @code{setup_xfail}, the @code{fail} and @code{pass}
-procedures produce the messages @samp{XFAIL} and @samp{XPASS}
-respectively, allowing you to distinguish expected failures (and
-unexpected success!) from other test outcomes.
+See notes under setup_kfail (below).
+ 
+@item setup_kfail "@var{config}  @r{[}@var{bugid}@r{]}"
+@c two spaces above to make it absolutely clear there's whitespace---a
+@c crude sort of italic correction!
+@cindex test case, known failure
+@cindex failure, known
+@cindex known failure
+Declares that the test is known to fail on a particular set of
+configurations.  The @var{config} argument must be a list of full
+three-part @code{configure} target name; in particular, you may not use
+the shorter nicknames supported by @code{configure} (but you can use the
+common shell wildcard characters to specify sets of names).  The
+@var{bugid} argument is mandatory, and used only in the logging file
+output; use it as a link to a bug-tracking system such as @sc{gnats}
+(@pxref{Overview,, Overview, gnats.info, Tracking Bugs With GNATS}).
 
-@emph{Warning:} you must clear the expected failure after using
-@code{setup_xfail} in a test case.  Any call to @code{pass} or
-@code{fail} clears the expected failure implicitly; if the test has some
-other outcome, e.g. an error, you can call @code{clear_xfail} to clear
-the expected failure explicitly.  Otherwise, the expected-failure
+@cindex @code{XFAIL}, producing
+@cindex @code{KFAIL}, producing
+@cindex @code{XPASS}, producing
+@cindex @code{KPASS}, producing
+Once you use @code{setup_xfail} or @code{setup_kfail}, the @code{fail}
+and @code{pass} procedures produce the messages @samp{XFAIL} or @samp{KFAIL}
+and @samp{XPASS} or @samp{KPASS} respectively, allowing you to distinguish
+expected/known failures (and unexpected success!) from other test outcomes.
+
+If a test is marked as both expected to fail and known to fail for a
+certain configuration, a @samp{KFAIL} message will be generated.
+As @samp{KFAIL} messages are expected to draw more attention than
+the @samp{XFAIL} ones this will hopefuly ensure the test result is not
+overlooked.
+
+@emph{Warning:} you must clear the expected/known failure after using
+@code{setup_xfail} or @code{setup_kfail} in a test case.  Any call to 
+@code{pass} or @code{fail} clears the expectedknown failure implicitly;
+if the test has some other outcome, e.g. an error, you can call
+@code{clear_xfail} to clear the expected failure or @code{clear_kfail}
+to clear the known failure explicitly.  Otherwise, the expected-failure
 declaration applies to whatever test runs next, leading to surprising
 results.
 
@@ -1952,7 +2057,16 @@ list of configuration target names.  It is only necessary to call
 @code{clear_xfail} if a test case ends without calling either
 @code{pass} or @code{fail}, after calling @code{setup_xfail}.
 
-@item verbose @r{[}-log@r{]} @r{[}-n@r{]} @r{[}--@r{]} "@var{string}" @var{number}
+@item clear_kfail @var{config}
+@cindex cancelling known failure
+@cindex known failure, cancelling
+Cancel a known failure (previously declared with @code{setup_kfail})
+for a particular set of configurations.  The @var{config} argument is a
+list of configuration target names.  It is only necessary to call
+@code{clear_kfail} if a test case ends without calling either
+@code{pass} or @code{fail}, after calling @code{setup_kfail}.
+
+@item verbose @r{[}-log@r{]} @r{[}-n@r{]} @r{[}--@r{]} @r{[}--@r{]} "@var{string}" @var{number}
 @cindex @code{verbose} builtin function
 Test cases can use this function to issue helpful messages depending on
 the number of @samp{--verbose} options on the @code{runtest} command
@@ -1962,7 +2076,8 @@ default value for @var{number} is 1.  Use the optional @samp{-log} argument
 to cause @var{string} to always be added to the log file, even if it won't
 be printed.  Use the optional @samp{-n} argument to print @var{string}
 without a trailing newline.  Use the optional @samp{--} argument if
-@var{string} begins with "-".
+@var{string} begins with "-".  To log test results to a XML file use the
+@samp{-x} argument.
 
 @end ftable
 
@@ -2181,10 +2296,10 @@ otherwise it returns @code{NULL}.
 @cindex selecting a range of tests
 @cindex tests, running specifically
 Search @var{runtests} for @var{testcase} and return 1 if found, 0 if not.
-@var{runtests} is a list of two elements.  The first is the pathname of
-the testsuite expect script running.  The second is a copy of what was
+@var{runtests} is a list of two elements.  The first is a copy of what was
 on the right side of the @code{=} if @samp{foo.exp="@dots{}"} was specified,
-or an empty string if no such argument is present.
+or an empty string if no such argument is present.  The second is the 
+pathname of the current testcase under consideration.
 This is used by tools like compilers where each testcase is a file.
 
 @item prune_system_crud @var{system} @var{text}
@@ -2627,9 +2742,9 @@ For troubleshooting, a third kind of output file is useful: use
 @code{runtest} always produces a summary output file
 @file{@var{tool}.sum}.  This summary shows the names of all test files
 run; for each test file, one line of output from each @code{pass}
-command (showing status @samp{PASS} or @samp{XPASS}) or @code{fail}
-command (status @samp{FAIL} or @samp{XFAIL}); trailing summary
-statistics that count passing and failing tests (expected and
+command (showing status @samp{PASS}, @samp{XPASS} or @samp{KPASS}) or
+@code{fail} command (status @samp{FAIL}, @samp{XFAIL} or @samp{KFAIL});
+trailing summary statistics that count passing and failing tests (expected and
 unexpected); and the full pathname and version number of the tool
 tested.  (All possible outcomes, and all errors, are always reflected in
 the summary output file, regardless of whether or not you specify

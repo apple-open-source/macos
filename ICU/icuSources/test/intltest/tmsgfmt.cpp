@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*
@@ -51,6 +51,7 @@ TestMessageFormat::runIndexedTest(int32_t index, UBool exec,
         TESTCASE(15,testAdopt);
         TESTCASE(16,testCopyConstructor2);
         TESTCASE(17,TestUnlimitedArgsAndSubformats);
+    TESTCASE(18,TestRBNF);
         default: name = ""; break;
     }
 }
@@ -129,9 +130,7 @@ void TestMessageFormat::testBug3()
         success = U_ZERO_ERROR;
         ParsePosition parsePos;
         form->parse(buffer, result, parsePos);
-#ifdef _DEBUG
-        it_out << " -> " /*<< dec*/ /*<< result*/ << "[supposed output for result]" <<endl;
-#endif
+        logln(UnicodeString(" -> ") /* + << dec*/ + toString(result) + UnicodeString("[supposed output for result]"));
         if (U_FAILURE(success)) {
             errln("Err: Number Format parse");
             logln("Number format parse failed.");
@@ -364,17 +363,16 @@ void TestMessageFormat::sample()
     UnicodeString def("def");
     Formattable testArgs1[] = { abc, def };
     FieldPosition fieldpos(0);
-    logln(form->toPattern(buffer1) + "; " + form->format(testArgs1, 2, buffer2, fieldpos, success));
+    assertEquals("format",
+                 "There are abc files on def",
+                 form->format(testArgs1, 2, buffer2, fieldpos, success));
+    assertSuccess("format", success);
     delete form;
 }
 
-/* Who knows what kind of static format we are talking about. */
-void TestMessageFormat::testStaticFormat(/* char* par */)
+void TestMessageFormat::testStaticFormat()
 {
-    logln("running TestMessageFormat::testStaticFormat");
-
     UErrorCode err = U_ZERO_ERROR;
-    GregorianCalendar cal(err);   
     Formattable arguments[] = {
         (int32_t)7,
         Formattable(UDate(8.71068e+011), Formattable::kIsDate),
@@ -491,7 +489,6 @@ void TestMessageFormat::testMsgFormatChoice(/* char* par */)
 
 void TestMessageFormat::testCopyConstructor() 
 {
-    logln("TestMessageFormat::testCopyConstructor");
     UErrorCode success = U_ZERO_ERROR;
     MessageFormat *x = new MessageFormat("There are {0} files on {1}", success);
     MessageFormat *z = new MessageFormat("There are {0} files on {1} created", success);
@@ -522,7 +519,6 @@ void TestMessageFormat::testCopyConstructor()
 
 void TestMessageFormat::testAssignment() 
 {
-    logln("TestMessageFormat::testAssignment");
     UErrorCode success = U_ZERO_ERROR;
     MessageFormat *x = new MessageFormat("There are {0} files on {1}", success);
     MessageFormat *z = new MessageFormat("There are {0} files on {1} created", success);
@@ -552,7 +548,6 @@ void TestMessageFormat::testAssignment()
 
 void TestMessageFormat::testClone() 
 {
-    logln("TestMessageFormat::testClone");
     UErrorCode success = U_ZERO_ERROR;
     MessageFormat *x = new MessageFormat("There are {0} files on {1}", success);
     MessageFormat *z = new MessageFormat("There are {0} files on {1} created", success);
@@ -582,7 +577,6 @@ void TestMessageFormat::testClone()
 
 void TestMessageFormat::testEquals() 
 {
-    logln("TestMessageFormat::testClone");
     UErrorCode success = U_ZERO_ERROR;
     MessageFormat x("There are {0} files on {1}", success);
     MessageFormat y("There are {0} files on {1}", success);
@@ -607,7 +601,7 @@ void TestMessageFormat::testNotEquals()
     y.applyPattern("There are {0} files on {1} the disk", success);
     if (!(x != y)) {
         errln( "TestMessageFormat::testEquals failed #1");
-        logln("First test (operator !=): Failed!");
+        logln("Second test (operator !=): Failed!");
     }
 }
 
@@ -883,7 +877,7 @@ void TestMessageFormat::testAdopt()
         b = formatsCmp[i];
         if ((a != NULL) && (b != NULL)) {
             if (*a == *b) {
-                logln("formatsChg != formatsCmp at index %d", i);
+                logln("formatsChg == formatsCmp at index %d", i);
                 diff = FALSE;
             }
         }
@@ -903,12 +897,8 @@ void TestMessageFormat::testAdopt()
         return;
     }
 
-#if 1
-    msgCmp.toPattern( patCmp );
-    logln("MSG patCmp: " + patCmp);
-    msg.toPattern( patAct );
-    logln("MSG patAct: " + patAct);
-#endif
+    assertEquals("msgCmp.toPattern()", formatStr, msgCmp.toPattern(patCmp.remove()));
+    assertEquals("msg.toPattern()", formatStr, msg.toPattern(patAct.remove()));
 
     for (i = 0; i < countAct; i++) {
         a = formatsAct[i];
@@ -925,7 +915,6 @@ void TestMessageFormat::testAdopt()
         }
     }
     logln("MSG setFormats tested.");
-
 
     //----
 
@@ -951,12 +940,8 @@ void TestMessageFormat::testAdopt()
     msg.adoptFormats( formatsToAdopt, countCmp ); // function to test
     delete[] formatsToAdopt;
 
-#if 1
-    msgCmp.toPattern( patCmp );
-    logln("MSG patCmp: " + patCmp);
-    msg.toPattern( patAct );
-    logln("MSG patAct: " + patAct);
-#endif
+    assertEquals("msgCmp.toPattern()", formatStr, msgCmp.toPattern(patCmp.remove()));
+    assertEquals("msg.toPattern()", formatStr, msg.toPattern(patAct.remove()));
 
     formatsAct = msg.getFormats(countAct);
     if (!formatsAct || (countAct <=0) || (countAct != countCmp)) {
@@ -1006,12 +991,8 @@ void TestMessageFormat::testAdopt()
     }
     delete[] formatsToAdopt; // array itself not needed in this case;
 
-#if 1
-    msgCmp.toPattern( patCmp );
-    logln("MSG patCmp: " + patCmp);
-    msg.toPattern( patAct );
-    logln("MSG patAct: " + patAct);
-#endif
+    assertEquals("msgCmp.toPattern()", formatStr, msgCmp.toPattern(patCmp.remove()));
+    assertEquals("msg.toPattern()", formatStr, msg.toPattern(patAct.remove()));
 
     formatsAct = msg.getFormats(countAct);
     if (!formatsAct || (countAct <=0) || (countAct != countCmp)) {
@@ -1134,6 +1115,64 @@ void TestMessageFormat::TestUnlimitedArgsAndSubformats() {
         errln((UnicodeString)"FAIL: Got " + result +
               ", expected " + expected);
     }
+}
+
+// test RBNF extensions to message format
+void TestMessageFormat::TestRBNF(void) {
+    // WARNING: this depends on the RBNF formats for en_US
+    Locale locale("en", "US", "");
+
+    UErrorCode ec = U_ZERO_ERROR;
+
+    UnicodeString values[] = {
+        // decimal values do not format completely for ordinal or duration, and 
+        // do not always parse, so do not include them
+        "0", "1", "12", "100", "123", "1001", "123,456", "-17",
+    };
+    int32_t values_count = sizeof(values)/sizeof(values[0]);
+
+    UnicodeString formats[] = {
+        "There are {0,spellout} files to search.",
+        "There are {0,spellout,%simplified} files to search.",
+        "The bogus spellout {0,spellout,%BOGUS} files behaves like the default.",
+        "This is the {0,ordinal} file to search.", // TODO fix bug, ordinal does not parse
+        "Searching this file will take {0,duration} to complete.",
+        "Searching this file will take {0,duration,%with-words} to complete.",
+    };
+    int32_t formats_count = sizeof(formats)/sizeof(formats[0]);
+
+    Formattable args[1];
+
+    NumberFormat* numFmt = NumberFormat::createInstance(locale, ec);
+    for (int i = 0; i < formats_count; ++i) {
+        MessageFormat* fmt = new MessageFormat(formats[i], locale, ec);
+        logln((UnicodeString)"Testing format pattern: '" + formats[i] + "'");
+        for (int j = 0; j < values_count; ++j) {
+            ec = U_ZERO_ERROR;
+            numFmt->parse(values[j], args[0], ec);
+            if (U_FAILURE(ec)) {
+                errln((UnicodeString)"Failed to parse test argument " + values[j]);
+            } else {
+                FieldPosition fp(0);
+                UnicodeString result;
+                fmt->format(args, 1, result, fp, ec);
+                logln((UnicodeString)"value: " + toString(args[0]) + " --> " + result + UnicodeString(" ec: ") + u_errorName(ec));
+               
+                if (i != 3) { // TODO: fix this, for now skip ordinal parsing (format string at index 3)
+                    int32_t count = 0;
+                    Formattable* parseResult = fmt->parse(result, count, ec);
+                    if (count != 1) {
+                        errln((UnicodeString)"parse returned " + count + " args");
+                    } else if (parseResult[0] != args[0]) {
+                        errln((UnicodeString)"parsed argument " + toString(parseResult[0]) + " != " + toString(args[0]));
+                    }
+                    delete []parseResult;
+                }
+            }
+        }
+        delete fmt;
+    }
+    delete numFmt;
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

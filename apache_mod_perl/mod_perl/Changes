@@ -8,6 +8,215 @@ all changes without author attribution are by Doug MacEachern
 
 =over 3
 
+=item 1.29 - Oct 7, 2003
+
+Add a workaround for the 'rand' bug for perl 5.8.1 (compiled with
+either -DUSE_HASH_SEED or -DUSE_HASH_SEED_EXPLICIT, which is the
+default), causing all forked procs to produce the same rand
+sequence. [Stas]
+
+For Win32, add an INSTALL_LIB option to 'perl Makefile.PL' to
+allow one to specify where to install mod_perl.lib. If not
+given, this defaults to APACHE_SRC\libexec, if this exists.
+Suggested by Steve Hay [randyk]
+
+Fix t/net/perl/sym.pl (called by modules/symbol) not to affect other
+tests (internal/http-get and internal/http-post, which were failing to
+call exit) [Stas]
+
+Fix Apache::ExtUtils to work with blead perl (it was breaking the
+build) http://rt.perl.org/rt2/Ticket/Display.html?id=23803 [Stas]
+
+On Win32 the uploaded file wasn't cleaned up (weither it's a bug in
+CGI.pm or not), make sure we don't leave any dropped files around
+[Steve Hay <steve.hay@uk.radan.com>]
+
+For Win32, keep drive letters in mod_perl.dsp to fix bug, reported 
+by DH <crazyinsomniac@yahoo.com>, when compiling mod_perl in
+cases where Apache and Perl are on different drives [Randy Kobes]. 
+
+Add workaround to define statcache in Apache.xs so that
+one can build on Win32 ActivePerl 8xx with LARGE_FILES
+support [Randy Kobes]
+
+=item 1.28 - July 2, 2003
+
+Apache::FakeRequest now isa Apache so code that is carefull about
+$r and checks that $r->isa('Apache') will not fail [David Wheeler
+<david@kineticode.com]
+
+Add Mac OS X support to Apache::SizeLimit [David Wheeler
+<david@kineticode.com>]
+
+Add Win32 support to Apache::SizeLimit [Matt Phillips
+<mphillips@virage.com> and Mohamed Hendawi <mhendawi@virage.com>]
+
+Change Apache::SizeLimit to not push a cleanup handler if already in
+the cleanup handler phase, and adjust docs to show that cleanup
+handler is the preferred phase to use [Perrin Harkins
+<perrin@elem.com>]
+
+Rename Apache::test to Apache::testold because Apache::test on 
+case-insensitive systems will collide with Apache::Test which 
+supercedes Apache::test. So if you want to keep on using Apache::test,
+either bundle it with your project (putting it under inc/ or t/ so it
+won't be installed) or require mod_perl 1.28 and use Apache::testold
+instead. Of course the best route is to port your test suite to use
+a much better Apache::Test which work with mod_perl 1.0 and 2.0.
+[Philippe M. Chiasson, Stas Bekman]
+
+Tweak mod_perl.h to defined _INCLUDE_APACHE_FIRST only after apache
+headers were included [Stas Bekman]
+
+avoid various warnings under src/modules/perl/:
+- declare bufsiz to be STRLEN in Apache.xs, and add
+  STRLEN to Apache/typemap
+- add I32 typecast in Constants.xs
+- avoid use of unregistered local variables for Win32
+  in mod_perl.c and perl_config.c
+- s/I32/U8/ in mod_perl.h, perl_config.c, and perl_util.c
+- declare i and http_code to be STRLEN in perl_util.c
+[Stas Bekman, Randy Kobes]
+
+don't use $r variable in Apache::PerlRun::compile(), so the script
+won't use use inherited $r by mistake [Stas Bekman]
+
+define PERL_DIRECTIVE_HANDLERS so that ModuleConfig.c gets
+generated when building on Win32 within Visual Studio
+[John Petrakis <jpetrakis@rcn.com>]
+
+enable PERL_SECTIONS for Win32 [Dirk Maetens <dirk.maetens@chello.be>]
+
+use touch() from ExtUtils::Command, rather than a system touch(),
+for the benefit of platforms without touch(). [Randy Kobes
+<randy@theoryx5.uwinnipeg.ca>]
+ 
+can't let the default typemap rule to convert sv into char* in
+unescape_url, since it doesn't handle correctly undefs (returns an
+unallocated "" string, which then causes a segfault in
+ap_unescape_url. use SvPV_force, instead, which does the right
+thing. [Stas Bekman]
+
+Make sure to start perl, if it's not running, before processing Perl*
+directives, with threaded perl and PERL_STACKED_HANDLERS=0 [Stas
+Bekman]
+
+Add Apache::Module to Bundle::Apache [Stas Bekman]
+
+use $Config{'installstyle'} instead of hardcoded 'lib', to handle
+Makefile.PL's PREFIX option correctly [Philippe M. Chiasson
+<gozer@cpan.org>]
+
+prevent segfaults in mod_perl_mark_where() when a sub can't get
+resolved [Gerald Richter <richter@ecos.de>]
+
+Apache::Status: Need to load B::Terse/TerseSize if it wasn't loaded
+yet in that child before using it.  [Dan Sully <daniel@electricrain.com>]
+
+document the server_root_relative() method [Stas Bekman <stas@stason.org>]
+
+eliminate warnings when flushing functions with empty () prototypes in
+Apache::PerlRun::flush_namespace [Yair Lenga <yair.lenga@citigroup.com>]
+
+fix Apache::Status to not use :: in filenames, which is not allowed on
+certain OSs [DH <crazyinsomniac@yahoo.com>]
+
+various cygwin fixes [Per Einar Ellefsen <per.einar@skynet.be>]
+
+fix to compile with 5.8.0 on win32 [Randy Kobes <randy@theoryx5.uwinnipeg.ca>]
+
+Document the possible misuses of the Apache::Constant constants
+[Per Einar Ellefsen <per.einar@skynet.be>]
+
+=item 1.27 - June 1, 2002
+
+workaround Cwd bug in 5.8.0-RC1 that breaks apache configuration on solaris
+
+fix get_set_PVp() to properly set NULL values when passing in undef
+thanks to Lyle Brooks for the spot
+[Stephen Clouse <stephenc@theiqgroup.com>]
+
+Apache::Registry/PerlRun/RegistryNG errors are now saved 
+in $r->notes('error-notes')
+[Jesse Erlbaum <jesse@vm.com>]
+
+fix Win32 build problems with spaces in shell arguments
+[Randy Kobes <randy@theoryx5.uwinnipeg.ca>]
+
+make sure DynaLoader is loaded before XSLoader to workaround possible
+segv when using mod_perl as a dso with perl 5.6.1
+
+autoset PERL_USELARGEFILES=0 if needed
+
+fix taint issues with bleedperl
+
+fix bug in modules/util test
+[Tatsuhiko Miyagawa <miyagawa@edge.co.jp>]
+
+Adjust the mailling list addresses
+'s|\@apache\.org|\@perl.apache.org|' [Stas Bekman <stas@stason.org>]
+
+Apache::PerlRun will now localize $SIG{__{DIE,WARN}__}
+thanks to Jon Coulter for the spot
+
+PERL5LIB support now properly unshifts paths into @INC rather than push
+[Tatsuhiko Miyagawa <miyagawa@edge.co.jp>]
+
+do not clear symbol tables within a package in perl_clear_symtab()
+used by directive handler extensions
+[Stephen Clouse <stephenc@theiqgroup.com>]
+
+properly deal with $r->status codes (e.g. redirect) in
+Apache::RegistryNG [Geoff Young <geoff@modperlcookbook.org>]
+
+allow $r->auth_name and $r->auth_type to be set on win32
+[John Kelly <john_kelly@uk.ibm.com>]
+
+fix compilation for win32 w/ apache 1.3.22+
+[Randy Kobes <randy@theoryx5.uwinnipeg.ca>]
+
+fix multiple %LocationMatch in <Perl> sections bug
+[Salvador Ortiz Garcia <sog@msg.com.mx>]
+
+rip -D_GNU_SOURCE out of Perl 5.7.3+'s ccflags, which modperl doesn't
+need and apache won't compile with [Stas Bekman <stas@stason.org>]
+
+make sure PerlSetEnv variables are visible after first access
+to each child [Geoff Young <geoff@modperlcookbook.org>]
+
+workaround Apache::Constants::AUTOLOAD problem with bleedperl
+
+the first flag argument to perl cannot start with space, since perl tries 
+to open the " -spi.bak" as a file. fix that in the win32 case.
+[Stas Bekman <stas@stason.org>]
+
+starting from perl 5.7.3 for tied filehandles, tiedscalar magic is applied 
+to the IO slot of the GP rather than the GV itself. adjust the TIEHANDLE 
+macro to work properly under 5.7.3+. [Charles Jardine <cj10@cam.ac.uk>, 
+Stas Bekman <stas@stason.org>]
+
+added perl_perl_merge_dir_config and array_header2avrv symbols to
+mod_perl.def for win32 and mod_perl.exp for aix.
+[Randy Kobes <randy@theoryx5.uwinnipeg.ca>]
+
+INSTALL.apaci: added an explanation of how perl has to be built in
+order to use DSO without problems (copied from the guide) based on
+email from Doug.  [Stas Bekman <stas@stason.org>]
+
+warn if Perl is configured with -Duseshrplib and a libperl.so is found
+in a place where it should not be, example: /lib /usr/lib or /usr/local/lib
+
+fix potential segv in Apache::URI->rpath
+[Vyacheslav Zamyatin <slawa@w-m.ru>]
+
+require URI::URL to work with newer libwww-perl
+
+allow overriding of container directive handlers using the func parameter
+[Geoffrey Young <gyoung@laserlink.net>]
+
+enable directive handler support for TAKE13
+[Geoffrey Young <gyoung@laserlink.net>]
+
 =item 1.26 - July 11, 2001
 
 fix 'make test' problem seen with Perl 5.005_03
@@ -88,7 +297,7 @@ win32 fixes [Randy Kobes <randy@theoryx5.uwinnipeg.ca>]
 
 fix double-loading bug of Perl{Require,Module}s at startup time
 
-improve Apache::MyConfig [Stas Bekman <sbekman@stason.org>]
+improve Apache::MyConfig [Stas Bekman <stas@stason.org>]
 
 back out 'stop win32 crash when bringing down service' change, no
 longer needed with 1.3.19
@@ -165,7 +374,7 @@ INSTALL.win32 updates, obsolete INSTALL.activeperl removed
 
 Solving an 'uninitialized value' warn in Apache::SizeLimit.
 post_connection() expects a return status from the callback function.
-[Stas Bekman <sbekman@stason.org>]
+[Stas Bekman <stas@stason.org>]
 
 include mod_perl hook/feature config and pod in Apache::MyConfig
 [Geoffrey Young <gyoung@laserlink.net>]
@@ -192,7 +401,7 @@ various Apache::test enhancements and fixes
 [Ken Williams <ken@forum.swarthmore.edu>, Dave Rolsky <autarch@urth.org>]
 
 Documenting the new PerlAddVar httpd.conf directive
-[Stas Bekman <sbekman@stason.org>]
+[Stas Bekman <stas@stason.org>]
 
 new Apache::test::static_modules() method
 [Ken Williams <ken@forum.swarthmore.edu>]
@@ -446,7 +655,7 @@ by Geoffrey Young [Eric Cholet <cholet@logilune.com>]
 $Apache::Server::AddPerlVersion uses $^V for Perl/v5.6.0+
 
 update mod_ssl config for 'make test'
-[Stas Bekman <sbekman@stason.org>]
+[Stas Bekman <stas@stason.org>]
 
 reset the stack pointer after calling perl_require_module() in
 perl_call_handler().  this fix will most likely cure the reports of
@@ -706,11 +915,11 @@ document the fact that $r->uri sets/gets the URI minus the query string,
 not the complete URI [Andrei A. Voropaev <andrei@securities.com>]
 
 fixed the failure of t/modules/file test in 'make test' suit by untainting
-the $ENV{PATH} in ./t/net/perl/file.pl [Stas Bekman <sbekman@iname.com>]
+the $ENV{PATH} in ./t/net/perl/file.pl [Stas Bekman <stas@stason.org>]
 
 Apache::RegistryLoader::handler was rewritten to allow a better
 diagnostics of scripts preloading problems. [Stas Bekman 
-<sbekman@iname.com>]
+<stas@stason.org>]
 
 document the fact that $r->args can be used to set the query string
 as well as get it [Andrei A. Voropaev <andrei@securities.com>]
@@ -1614,7 +1823,7 @@ Jens Heunemann <heunemann2@janet.de>]
 
 have ldopts yank ExtUtils::Liblist message:
  Note (probably harmless): No library found for ...
-from stdout to stderr [Stas Bekman <sbekman@iil.intel.com>]
+from stdout to stderr [Stas Bekman <stas@stason.org>]
 
 change Apache.xs/typemap so classes who inherit from the Apache class
 can invoke methods with a hash object, provided $hash->{_r} contains a

@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth2-pubkey.c,v 1.2 2002/05/31 11:35:15 markus Exp $");
+RCSID("$OpenBSD: auth2-pubkey.c,v 1.6 2004/01/19 21:25:15 markus Exp $");
 
 #include "ssh2.h"
 #include "xmalloc.h"
@@ -44,7 +44,7 @@ RCSID("$OpenBSD: auth2-pubkey.c,v 1.2 2002/05/31 11:35:15 markus Exp $");
 /* import */
 extern ServerOptions options;
 extern u_char *session_id2;
-extern int session_id2_len;
+extern u_int session_id2_len;
 
 static int
 userauth_pubkey(Authctxt *authctxt)
@@ -78,7 +78,7 @@ userauth_pubkey(Authctxt *authctxt)
 	pktype = key_type_from_name(pkalg);
 	if (pktype == KEY_UNSPEC) {
 		/* this is perfectly legal */
-		log("userauth_pubkey: unsupported public key algorithm: %s",
+		logit("userauth_pubkey: unsupported public key algorithm: %s",
 		    pkalg);
 		goto done;
 	}
@@ -123,9 +123,9 @@ userauth_pubkey(Authctxt *authctxt)
 		authenticated = 0;
 		if (PRIVSEP(user_key_allowed(authctxt->pw, key)) &&
 		    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
-				buffer_len(&b))) == 1)
+		    buffer_len(&b))) == 1)
 			authenticated = 1;
-		buffer_clear(&b);
+		buffer_free(&b);
 		xfree(sig);
 	} else {
 		debug("test whether pkalg/pkblob are acceptable");
@@ -180,9 +180,6 @@ user_key_allowed2(struct passwd *pw, Key *key, char *file)
 	Key *found;
 	char *fp;
 
-	if (pw == NULL)
-		return 0;
-
 	/* Temporarily use the user's uid. */
 	temporarily_use_uid(pw);
 
@@ -204,7 +201,7 @@ user_key_allowed2(struct passwd *pw, Key *key, char *file)
 	if (options.strict_modes &&
 	    secure_filename(f, file, pw, line, sizeof(line)) != 0) {
 		fclose(f);
-		log("Authentication refused: %s", line);
+		logit("Authentication refused: %s", line);
 		restore_uid();
 		return 0;
 	}

@@ -1,7 +1,7 @@
 /*
  *  error.c
  *
- *  $Id: error.c,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: error.c,v 1.3 2004/11/11 01:52:39 luesang Exp $
  *
  *  The data_sources dialog for SQLDriverConnect and a login box procedures
  *
@@ -73,10 +73,43 @@
 #include "gui.h"
 
 void SQL_API
+_iodbcdm_nativeerrorbox (
+    HWND	hwnd,
+    HENV	henv,
+    HDBC	hdbc,
+    HSTMT	hstmt)
+{
+  SQLCHAR buf[250];
+  SQLCHAR sqlstate[15];
+
+  /*
+   * Get statement errors
+   */
+  if (SQLError (henv, hdbc, hstmt, sqlstate, NULL,
+	  buf, sizeof (buf), NULL) == SQL_SUCCESS)
+    create_error (hwnd, "Native ODBC Error", (LPCSTR) sqlstate, (LPCSTR) buf);
+
+  /*
+   * Get connection errors
+   */
+  if (SQLError (henv, hdbc, SQL_NULL_HSTMT, sqlstate,
+	  NULL, buf, sizeof (buf), NULL) == SQL_SUCCESS)
+    create_error (hwnd, "Native ODBC Error", (LPCSTR) sqlstate, (LPCSTR) buf);
+
+  /*
+   * Get environmental errors
+   */
+  if (SQLError (henv, SQL_NULL_HDBC, SQL_NULL_HSTMT,
+	  sqlstate, NULL, buf, sizeof (buf), NULL) == SQL_SUCCESS)
+    create_error (hwnd, "Native ODBC Error", (LPCSTR) sqlstate, (LPCSTR) buf);
+}
+
+
+void SQL_API
 _iodbcdm_errorbox (
-    HWND hwnd,
-    LPCSTR szDSN,
-    LPCSTR szText)
+    HWND	hwnd,
+    LPCSTR	szDSN,
+    LPCSTR	szText)
 {
   char msg[4096];
 
@@ -87,9 +120,19 @@ _iodbcdm_errorbox (
 
 void SQL_API
 _iodbcdm_messagebox (
-    HWND hwnd,
-    LPCSTR szDSN,
-    LPCSTR szText)
+    HWND	hwnd,
+    LPCSTR	szDSN,
+    LPCSTR	szText)
 {
   create_message (hwnd, szDSN, szText);
+}
+
+
+BOOL SQL_API
+_iodbcdm_confirmbox (
+    HWND	hwnd,
+    LPCSTR	szDSN,
+    LPCSTR	szText)
+{
+  return create_confirm (hwnd, (SQLPOINTER) szDSN, (SQLPOINTER) szText);
 }

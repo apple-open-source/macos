@@ -1,57 +1,53 @@
-  /* 
+/* TREELANG Compiler almost main (tree1)
+   Called by GCC's toplev.c
 
-    TREELANG Compiler almost main (tree1)
-    Called by GCC's toplev.c
+   Copyright (C) 1986, 87, 89, 92-96, 1997, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
-    Copyright (C) 1986, 87, 89, 92-96, 1997, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   This program is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by the
+   Free Software Foundation; either version 2, or (at your option) any
+   later version.
 
-    This program is free software; you can redistribute it and/or modify it
-    under the terms of the GNU General Public License as published by the
-    Free Software Foundation; either version 2, or (at your option) any
-    later version.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.
 
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, 59 Temple Place - Suite 330,
-    Boston, MA 02111-1307, USA.
+   In other words, you are welcome to use, share and improve this program.
+   You are forbidden to forbid anyone else to use, share and improve
+   what you give them.   Help stamp out software-hoarding!  
 
-    In other words, you are welcome to use, share and improve this program.
-    You are forbidden to forbid anyone else to use, share and improve
-    what you give them.   Help stamp out software-hoarding!  
+   ---------------------------------------------------------------------------
 
-    ---------------------------------------------------------------------------
-
-    Written by Tim Josling 1999, 2000, 2001, based in part on other
-    parts of the GCC compiler.
-
-*/
+   Written by Tim Josling 1999, 2000, 2001, based in part on other
+   parts of the GCC compiler.  */
 
 #include "config.h"
 #include "system.h"
-#include "ansidecl.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "flags.h"
 #include "toplev.h"
+#include "version.h"
 
 #include "ggc.h"
 #include "tree.h"
+#include "cgraph.h"
 #include "diagnostic.h"
-
-#include <stdlib.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <stdarg.h>
-#include <string.h>
-#include <stdio.h>
 
 #include "treelang.h"
 #include "treetree.h"
+#include "opts.h"
+#include "options.h"
 
 extern int yyparse (void);
+
 /* Linked list of symbols - all must be unique in treelang.  */
 
 static GTY(()) struct prod_token_parm_item *symbol_table = NULL;
@@ -83,8 +79,6 @@ unsigned int option_lexer_trace = 0;
 
 /* Local variables.  */
 
-unsigned char *in_fname = NULL;	/* Input file name.  */
-
 /* This is 1 if we have output the version string.  */
 
 static int version_done = 0;
@@ -93,110 +87,67 @@ static int version_done = 0;
 
 static unsigned int work_nesting_level = 0;
 
-/* Process one switch - called by toplev.c.  */
-
-int
-treelang_decode_option (num_options_left, first_option_left)
-     int num_options_left ATTRIBUTE_UNUSED; 
-     char** first_option_left;
+/* Prepare to handle switches.  */
+unsigned int
+treelang_init_options (unsigned int argc ATTRIBUTE_UNUSED,
+		       const char **argv ATTRIBUTE_UNUSED)
 {
-  
-  /*
-    Process options - bear in mind I may get options that are really
-    meant for someone else (eg the main compiler) so I have to be very
-    permissive. 
-    
-  */
-  
-  if (first_option_left[0][0] != '-')
-    return 0; 
-  
-  switch (first_option_left[0][1]) 
+  return CL_Treelang;
+}
+
+/* Process a switch - called by opts.c.  */
+int
+treelang_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED,
+			int value)
+{
+  enum opt_code code = (enum opt_code) scode;
+
+  switch (code)
     {
-    case '-':
-      if (!strcmp (first_option_left[0],"--help"))
-        {
-          if (!version_done)
-            {
-              fputs (language_string, stdout);
-              fputs (version_string, stdout);
-              fputs ("\n", stdout);
-              version_done = 1;
-            }
-          fprintf (stdout, "Usage: tree1 [switches] -o output input\n");
-          return 1;
-        }
-    case 'v':
-      if (!strcmp (first_option_left[0],"-v"))
-        {
-          if (!version_done)
-            {
-              fputs (language_string, stdout);
-              fputs (version_string, stdout);
-              fputs ("\n", stdout);
-              version_done = 1;
-            }
-          return 1;
-        }
-    case 'y':
-      if (!strcmp (first_option_left[0],"-y"))
-        {
-          option_lexer_trace = 1;
-          option_parser_trace = 1;
-          return 1;
-        }
-    case 'f':
-      if (!strcmp (first_option_left[0],"-fparser-trace"))
-        {
-          option_parser_trace = 1;
-          return 1;
-        }
-      if (!strcmp (first_option_left[0],"-flexer-trace"))
-        {
-          option_lexer_trace = 1;
-          return 1;
-        }
-      return 0;
+    case OPT_v:
+      if (!version_done)
+	{
+	  fputs (language_string, stdout);
+	  fputs (version_string, stdout);
+	  fputs ("\n", stdout);
+	  version_done = 1;
+	}
+      break;
 
-    case 'w':
-      if (!strcmp (first_option_left[0],"-w"))
-        {
-          /* Tolerate this option but ignore it - we always put out
-             all warnings.  */
-          return 1;
-        }
-      return 0;
+    case OPT_y:
+      option_lexer_trace = 1;
+      option_parser_trace = 1;
+      break;
 
-    case 'W':
-      if (!strcmp (first_option_left[0],"-Wall"))
-        {
-          return 1;
-        }
-      return 0;
+    case OPT_fparser_trace:
+      option_parser_trace = value;
+      break;
+
+    case OPT_flexer_trace:
+      option_lexer_trace = value;
+      break;
 
     default:
-      return 0;
+      gcc_unreachable ();
     }
 
-  return 0;
-
+  return 1;
 }
 
 /* Language dependent parser setup.  */
 
-const char*
-treelang_init (const char* filename)
+bool
+treelang_init (void)
 {
-  /* Set up the declarations needed for this front end.  */
-
-  input_filename = "";
-  lineno = 0;
-
-  treelang_init_decl_processing ();
+#ifndef USE_MAPPED_LOCATION
+  input_filename = main_input_filename;
+#else
+  linemap_add (&line_table, LC_ENTER, false, main_input_filename, 1);
+#endif
 
   /* This error will not happen from GCC as it will always create a
      fake input file.  */
-  if (!filename || (filename[0] == ' ') || (!filename[0])) 
+  if (!input_filename || input_filename[0] == ' ' || !input_filename[0]) 
     {
       if (!version_done)
         {
@@ -204,17 +155,25 @@ treelang_init (const char* filename)
           exit (1);
         }
 
-      in_fname = NULL;
-      return NULL;
+      return false;
     }
-  yyin = fopen (filename, "r");
+
+  yyin = fopen (input_filename, "r");
   if (!yyin)
     {
-      fprintf (stderr, "Unable to open input file %s\n", filename);
+      fprintf (stderr, "Unable to open input file %s\n", input_filename);
       exit (1);
     }
-  input_filename = filename;
-  return (char*) (in_fname = (unsigned char*)filename);
+
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 1);
+  linemap_line_start (&line_table, 0, 1);
+#endif
+
+  /* Init decls, etc.  */
+  treelang_init_decl_processing ();
+
+  return true;
 }
 
 /* Language dependent wrapup.  */
@@ -230,11 +189,26 @@ treelang_finish (void)
 void
 treelang_parse_file (int debug_flag ATTRIBUTE_UNUSED)
 {
+#ifdef USE_MAPPED_LOCATION
+  source_location s;
+  linemap_add (&line_table, LC_RENAME, false, main_input_filename, 1);
+  s = linemap_line_start (&line_table, 1, 80);
+  input_location = s;
+#else
+  input_line = 1;
+#endif
+
   treelang_debug ();
   yyparse ();
+  cgraph_finalize_compilation_unit ();
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
+#endif
+  cgraph_optimize ();
 }
 
-/* Allocate SIZE bytes and clear them.  */
+/* Allocate SIZE bytes and clear them.  Not to be used for strings
+   which must go in stringpool.  */
 
 void *
 my_malloc (size_t size)
@@ -260,22 +234,34 @@ lookup_tree_name (struct prod_token_parm_item *prod)
   struct prod_token_parm_item *this;
   struct prod_token_parm_item *this_tok;
   struct prod_token_parm_item *tok;
+
+  sanity_check (prod);
+  
   tok = SYMBOL_TABLE_NAME (prod);
+  sanity_check (tok);
+  
   for (this = symbol_table; this; this = this->tp.pro.next)
     {
+      sanity_check (this);
       this_tok = this->tp.pro.main_token;
+      sanity_check (this_tok);
       if (tok->tp.tok.length != this_tok->tp.tok.length) 
         continue;
-      if (memcmp (tok->tp.tok.chars, this_tok->tp.tok.chars, this_tok->tp.tok.length))
+      if (memcmp (tok->tp.tok.chars, this_tok->tp.tok.chars,
+		  this_tok->tp.tok.length))
         continue;
+
       if (option_parser_trace)
-        fprintf (stderr, "Found symbol %s (%i:%i) as %i \n", tok->tp.tok.chars, 
-                tok->tp.tok.lineno, tok->tp.tok.charno, NUMERIC_TYPE (this));
+        fprintf (stderr, "Found symbol %s (%i:%i) as %i \n",
+		 tok->tp.tok.chars, LOCATION_LINE (tok->tp.tok.location),
+		 tok->tp.tok.charno, NUMERIC_TYPE (this));
       return this;
     }
+
   if (option_parser_trace)
-    fprintf (stderr, "Not found symbol %s (%i:%i) as %i \n", tok->tp.tok.chars, 
-            tok->tp.tok.lineno, tok->tp.tok.charno, tok->type);
+    fprintf (stderr, "Not found symbol %s (%i:%i) as %i \n",
+	     tok->tp.tok.chars, LOCATION_LINE (tok->tp.tok.location),
+	     tok->tp.tok.charno, tok->type);
   return NULL;
 }
 
@@ -286,11 +272,11 @@ insert_tree_name (struct prod_token_parm_item *prod)
 {
   struct prod_token_parm_item *tok;
   tok = SYMBOL_TABLE_NAME (prod);
+  sanity_check (prod);
   if (lookup_tree_name (prod))
     {
-      fprintf (stderr, "%s:%i:%i duplicate name %s\n", in_fname, tok->tp.tok.lineno, 
-               tok->tp.tok.charno, tok->tp.tok.chars);
-      errorcount++;
+      error ("%HDuplicate name %q.*s.", &tok->tp.tok.location,
+	     tok->tp.tok.length, tok->tp.tok.chars);
       return 1;
     }
   prod->tp.pro.next = symbol_table;
@@ -312,6 +298,22 @@ make_production (int type, struct prod_token_parm_item *main_tok)
   return prod;
 } 
 
+/* Abort if ITEM is not a valid structure, based on 'category'.  */
+
+void
+sanity_check (struct prod_token_parm_item *item)
+{
+  switch (item->category)
+    {
+    case token_category:
+    case production_category:
+    case parameter_category:
+      break;
+      
+    default:
+      gcc_unreachable ();
+    }
+}  
 
 /* New garbage collection regime see gty.texi.  */
 #include "gt-treelang-tree1.h"

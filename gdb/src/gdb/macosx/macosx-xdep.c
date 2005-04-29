@@ -55,24 +55,29 @@ macosx_resize_window (int *lines_per_page, int *chars_per_line)
   int new_chars_per_line = UINT_MAX;
   int ret;
 
-  if (isatty (fileno (stdout))) {
-    struct winsize window_size;
-    ret = ioctl (fileno(stdout), TIOCGWINSZ, &window_size);
-    if (ret == 0) {
-      new_lines_per_page = window_size.ws_row;
-      new_chars_per_line = window_size.ws_col;
+  if (isatty (fileno (stdout)))
+    {
+      struct winsize window_size;
+      ret = ioctl (fileno (stdout), TIOCGWINSZ, &window_size);
+      if (ret == 0)
+        {
+          new_lines_per_page = window_size.ws_row;
+          new_chars_per_line = window_size.ws_col;
+        }
     }
-  }
 
-  if ((*lines_per_page != UINT_MAX) && (*lines_per_page != 0)) {
-    *lines_per_page = new_lines_per_page;
-  }
+  if ((*lines_per_page != UINT_MAX) && (*lines_per_page != 0))
+    {
+      *lines_per_page = new_lines_per_page;
+    }
 
-  if ((*chars_per_line != UINT_MAX) && (*chars_per_line != 0)) {
-    *chars_per_line = new_chars_per_line;
-  }
+  if ((*chars_per_line != UINT_MAX) && (*chars_per_line != 0))
+    {
+      *chars_per_line = new_chars_per_line;
+    }
 
-  update_width ();
+  set_screen_size ();
+  set_width ();
 }
 
 void

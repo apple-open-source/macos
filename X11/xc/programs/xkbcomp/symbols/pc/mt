@@ -1,7 +1,7 @@
 // Maltese keyboard map (based on MSA Standard DMS100)
 // by Ramon Casha (ramon.casha@linux.org.mt)
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/mt,v 1.3 2002/12/13 04:18:04 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/mt,v 1.4 2003/04/19 12:22:12 pascal Exp $
 
 partial default alphanumeric_keys
 xkb_symbols "basic" {
@@ -30,7 +30,5 @@ xkb_symbols "basic" {
     key <AD09>	{ [         o,          O,       ograve,       Ograve ]	};
     key <AC01>	{ [         a,          A,       agrave,       Agrave ]	};
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    include "level3(ralt_switch_multikey)"
 };

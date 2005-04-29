@@ -1,22 +1,22 @@
 /* Prototypes for v850.c functions used in the md file & elsewhere.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+   This file is part of GNU CC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GNU CC is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GNU CC is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GNU CC; see the file COPYING.  If not, write to
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 /* Function prototypes that cannot exist in v850.h due to dependency
    complications.  */
@@ -42,6 +42,7 @@ extern int    compute_frame_size            PARAMS ((int, long *));
 extern void   v850_init_expanders           PARAMS ((void));
 
 #ifdef RTX_CODE
+extern int    v850_output_addr_const_extra  PARAMS ((FILE *, rtx));
 extern rtx    v850_return_addr              PARAMS ((int));
 extern void   print_operand                 PARAMS ((FILE *, rtx, int ));
 extern void   print_operand_address         PARAMS ((FILE *, rtx));
@@ -53,6 +54,12 @@ extern void   notice_update_cc              PARAMS ((rtx, rtx));
 extern char * construct_save_jarl           PARAMS ((rtx));
 extern char * construct_restore_jr          PARAMS ((rtx));
 #ifdef HAVE_MACHINE_MODES
+extern int    reg_or_int9_operand           PARAMS ((rtx, Mmode));
+extern int    reg_or_const_operand          PARAMS ((rtx, Mmode));
+extern char * construct_dispose_instruction PARAMS ((rtx));
+extern char * construct_prepare_instruction PARAMS ((rtx));
+extern int    pattern_is_ok_for_prepare     PARAMS ((rtx, Mmode));
+extern int    pattern_is_ok_for_dispose     PARAMS ((rtx, Mmode));
 extern int    ep_memory_operand             PARAMS ((rtx, Mmode, int));
 extern int    reg_or_0_operand              PARAMS ((rtx, Mmode));
 extern int    reg_or_int5_operand           PARAMS ((rtx, Mmode));
@@ -72,7 +79,6 @@ extern rtx    v850_va_arg                   PARAMS ((tree, tree));
 #endif /* TREE_CODE */
 
 #ifdef TREE_CODE
-extern void   v850_encode_data_area         PARAMS ((tree));
 extern int    v850_interrupt_function_p     PARAMS ((tree));
 extern void   v850_output_aligned_bss       PARAMS ((FILE *, tree, const char *, int, int));
 extern void   v850_output_common            PARAMS ((FILE *, tree, const char *, int, int));

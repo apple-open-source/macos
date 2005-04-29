@@ -1,7 +1,7 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_gx2_driver.c,v 1.6 2003/02/12 13:08:54 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_gx2_driver.c,v 1.10 2003/11/03 05:11:20 tsi Exp $ */
 /*
  * $Workfile: nsc_gx2_driver.c $
- * $Revision: 1.1.1.1 $
+ * $Revision: 1.1.1.2 $
  * $Author: jharper $
  *
  * File Contents: This is the main module configures the interfacing 
@@ -200,12 +200,10 @@
 #include "extensions/xf86dgastr.h"
 #endif /* XFreeXDGA */
 
-#ifdef DPMSExtension
 #include "globals.h"
 #include "opaque.h"
 #define DPMS_SERVER
 #include "extensions/dpms.h"
-#endif /* DPMSExtension */
 
 /* Our private include file (this also includes the durango headers) */
 #include "nsc.h"
@@ -232,7 +230,7 @@ static void GX2LeaveVT(int, int);
 static void GX2FreeScreen(int, int);
 void GX2AdjustFrame(int, int, int, int);
 Bool GX2SwitchMode(int, DisplayModePtr, int);
-static int GX2ValidMode(int, DisplayModePtr, Bool, int);
+static ModeStatus GX2ValidMode(int, DisplayModePtr, Bool, int);
 static void GX2LoadPalette(ScrnInfoPtr pScreenInfo,
 			   int numColors, int *indizes,
 			   LOCO * colors, VisualPtr pVisual);
@@ -476,9 +474,8 @@ GX2PreInit(ScrnInfoPtr pScreenInfo, int flags)
    MessageType from;
    int i = 0;
    GeodePtr pGeode;
-   char *mod = NULL;
-
 #if CFB
+   char *mod = NULL;
    char *reqSymbol = NULL;
 #endif /* CFB */
 #if defined(STB_X)
@@ -634,12 +631,12 @@ GX2PreInit(ScrnInfoPtr pScreenInfo, int flags)
    SupportFlags = Support24bppFb | Support32bppFb;
    GeodeDebug(("GX2PreInit(2)!\n"));
    /* Determine depth, bpp, etc. */
-   if (!xf86SetDepthBpp(pScreenInfo, 8, 8, 8, SupportFlags)) {
+   if (!xf86SetDepthBpp(pScreenInfo, 0, 0, 0, SupportFlags)) {
       return FALSE;
    } else {
       if (!((pScreenInfo->depth == 8) ||
 	    (pScreenInfo->depth == 16) ||
-	    (pScreenInfo->depth == 24) || (pScreenInfo->depth == 32))) {
+	    (pScreenInfo->depth == 24))) {
 	 /* Depth not supported */
 	 DEBUGMSG(1, (pScreenInfo->scrnIndex, X_ERROR,
 		      "Given depth (%d bpp) is not supported by this driver\n",
@@ -981,10 +978,10 @@ GX2PreInit(ScrnInfoPtr pScreenInfo, int flags)
    xf86SetDpi(pScreenInfo, 0, 0);
    GeodeDebug(("GX2PreInit(14)!\n"));
 
+#if CFB
    /* Load bpp-specific modules */
    mod = NULL;
 
-#if CFB
    /* Load bpp-specific modules */
    switch (pScreenInfo->bitsPerPixel) {
    case 8:
@@ -1054,6 +1051,7 @@ GX2PreInit(ScrnInfoPtr pScreenInfo, int flags)
    }
    GX2UnmapMem(pScreenInfo);
    GeodeDebug(("GX2PreInit ... done successfully!\n"));
+   (void) from;
    return TRUE;
 }
 
@@ -1657,7 +1655,6 @@ GX2CloseScreen(int scrnIndex, ScreenPtr pScreen)
    return TRUE;
 }
 
-#ifdef DPMSExtension
 /*----------------------------------------------------------------------------
  * GX2DPMSSet.
  *
@@ -1736,7 +1733,6 @@ GX2DPMSSet(ScrnInfoPtr pScreenInfo, int mode, int flags)
       break;
    }
 }
-#endif
 
 /*----------------------------------------------------------------------------
  * GX2ScreenInit.
@@ -2062,9 +2058,7 @@ GX2ScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
       }
       ShadowFBInit(pScreen, refreshArea);
    }
-#ifdef DPMSExtension
    xf86DPMSInit(pScreen, GX2DPMSSet, 0);
-#endif
    GeodeDebug(("GX2ScreenInit(12)!\n"));
 
    pScreenInfo->memPhysBase = (unsigned long)pGeode->FBBase;
@@ -2223,7 +2217,7 @@ GX2FreeScreen(int scrnIndex, int flags)
  * Comments     :none.
 *----------------------------------------------------------------------------
 */
-static int
+static ModeStatus
 GX2ValidMode(int scrnIndex, DisplayModePtr pMode, Bool Verbose, int flags)
 {
    unsigned int total_memory_required;

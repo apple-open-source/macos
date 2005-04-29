@@ -27,7 +27,7 @@
  *
  *	Id: fontcache.h,v 1.6 1999/01/31 12:41:32 akiyama Exp $
  */
-/* $XFree86: xc/include/extensions/fontcache.h,v 1.3 2001/08/01 00:44:35 tsi Exp $ */
+/* $XFree86: xc/include/extensions/fontcache.h,v 1.4 2003/11/17 22:20:03 dawes Exp $ */
 
 /* THIS IS NOT AN X CONSORTIUM STANDARD */
 
@@ -73,40 +73,30 @@ typedef struct {
 _XFUNCPROTOBEGIN
 
 Bool FontCacheQueryVersion(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int* 		/* majorVersion */,
     int* 		/* minorVersion */
-#endif
 );
 
 Bool FontCacheQueryExtension(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int*		/* event_base */,
     int*		/* error_base */
-#endif
 );
 
 Status FontCacheGetCacheSettings(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     FontCacheSettings*		/* cache info */
-#endif
 );
 
 Status FontCacheChangeCacheSettings(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     FontCacheSettings*		/* cache info */
-#endif
 );
 
 Status FontCacheGetCacheStatistics(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     FontCacheStatistics*	/* cache statistics info */
-#endif
 );
 
 _XFUNCPROTOEND

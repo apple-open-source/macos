@@ -169,8 +169,7 @@ main(int argc, char *argv[])
 
 	if (*argv)
 		for (first = 1; (fname = *argv++);) {
-			if ((fp = fopen(fname, "r")) == NULL ||
-			    fstat(fileno(fp), &sb)) {
+			if ((fp = fopen(fname, "r")) == NULL || fstat(fileno(fp), &sb)) {
 				ierr();
 				continue;
 			}
@@ -181,10 +180,13 @@ main(int argc, char *argv[])
 				(void)fflush(stdout);
 			}
 
-			if (rflag)
-				reverse(fp, style, off, &sb);
-			else
-				forward(fp, style, off, &sb);
+			/* only try to read the file if it's not a directory */
+			if (S_IFDIR != (sb.st_mode & S_IFMT)) {
+				if (rflag)
+					reverse(fp, style, off, &sb);
+				else
+					forward(fp, style, off, &sb);
+			}
 			(void)fclose(fp);
 		}
 	else {

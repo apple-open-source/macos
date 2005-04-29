@@ -1,3 +1,33 @@
+2004-06-24  Tom Yu  <tlyu@mit.edu>
+
+	* kpasswd.c (P1, P2): Cosmetic fix for prompts to avoid
+	double colons.
+
+2004-06-07  Ezra Peisach  <epeisach@mit.edu>
+
+	* kpasswd.c (get_name_from_passwd_file): Do not cast return from
+	getuid() to int as argument to getpwuid.
+
+	* ksetpwd.c: Include time.h for time() prototype.
+	(main): Return 0 on success.
+
+2004-05-30  Ken Raeburn  <raeburn@mit.edu>
+
+	* ksetpwd.c (verify_creds, get_init_creds_opt_init,
+	userinitcontext, init_creds): Now static.
+	(main): Remove one of two variables named "ccache".
+
+2003-04-28  Ken Raeburn  <raeburn@mit.edu>
+
+	* ksetpwd.c (init_creds): Let's use C comments for C code, shall
+	we?
+
+2003-04-25  Sam Hartman  <hartmans@mit.edu>
+
+	* Makefile.in :   Add rule to build ksetpw, a set/change password
+	client for the Microsoft protocol.  We do not install this program
+	by default because it is not of release quality yet.
+
 2003-02-25  Tom Yu  <tlyu@mit.edu>
 
 	* kpasswd.c (main): Don't pass a NULL pointer to printf().

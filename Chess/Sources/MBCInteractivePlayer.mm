@@ -1,46 +1,56 @@
 /*
 	File:		MBCInteractivePlayer.mm
 	Contains:	An agent representing a local human player
-	Copyright:	© 2002-2003 Apple Computer, Inc. All rights reserved.
+	Version:	1.0
+	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
 
-	IMPORTANT: This Apple software is supplied to you by Apple Computer,
-	Inc.  ("Apple") in consideration of your agreement to the following
-	terms, and your use, installation, modification or redistribution of
-	this Apple software constitutes acceptance of these terms.  If you do
-	not agree with these terms, please do not use, install, modify or
-	redistribute this Apple software.
-	
-	In consideration of your agreement to abide by the following terms,
-	and subject to these terms, Apple grants you a personal, non-exclusive
-	license, under Apple's copyrights in this original Apple software (the
-	"Apple Software"), to use, reproduce, modify and redistribute the
-	Apple Software, with or without modifications, in source and/or binary
-	forms; provided that if you redistribute the Apple Software in its
-	entirety and without modifications, you must retain this notice and
-	the following text and disclaimers in all such redistributions of the
-	Apple Software.  Neither the name, trademarks, service marks or logos
-	of Apple Computer, Inc. may be used to endorse or promote products
-	derived from the Apple Software without specific prior written
-	permission from Apple.  Except as expressly stated in this notice, no
-	other rights or licenses, express or implied, are granted by Apple
-	herein, including but not limited to any patent rights that may be
-	infringed by your derivative works or by other works in which the
-	Apple Software may be incorporated.
-	
-	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
-	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
-	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
-	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
-	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
-	
-	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
-	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
-	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
-	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
-	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
-	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+	File Ownership:
+
+		DRI:				Matthias Neeracher    x43683
+
+	Writers:
+
+		(MN)	Matthias Neeracher
+
+	Change History (most recent first):
+
+		$Log: MBCInteractivePlayer.mm,v $
+		Revision 1.12  2004/08/16 07:48:48  neerache
+		Support flexible voices, accessibility
+		
+		Revision 1.11  2003/07/17 23:30:38  neerache
+		Add Speech recognition help
+		
+		Revision 1.10  2003/07/14 23:22:50  neerache
+		Move to much smarter speech recognition model
+		
+		Revision 1.9  2003/07/07 08:49:01  neerache
+		Improve startup time
+		
+		Revision 1.8  2003/06/30 05:02:32  neerache
+		Use proper move generator instead of engine
+		
+		Revision 1.7  2003/05/24 20:25:25  neerache
+		Eliminate compact moves for most purposes
+		
+		Revision 1.6  2003/04/24 23:20:35  neeri
+		Support pawn promotions
+		
+		Revision 1.5  2002/10/08 22:12:38  neeri
+		Beep on rejected move
+		
+		Revision 1.4  2002/09/13 23:57:06  neeri
+		Support for Crazyhouse display and mouse
+		
+		Revision 1.3  2002/09/12 17:46:46  neeri
+		Introduce dual board representation, in-hand pieces
+		
+		Revision 1.2  2002/08/26 23:14:40  neeri
+		Weed out non-moves
+		
+		Revision 1.1  2002/08/22 23:47:06  neeri
+		Initial Checkin
+		
 */
 
 #import "MBCInteractivePlayer.h"
@@ -359,15 +369,19 @@ const char *	sPieceName[] = {
 		MBCMove * 	move = reinterpret_cast<MBCMove *>([notification object]);
 		NSString *	text = [self stringFromMove:move];
 
-		Str255	str;
-		memcpy(str+1, [text cString], str[0]=[text cStringLength]);
 		//
 		// We only wait for speech to end before speaking the next move
 		// to allow a maximum in concurrency.
 		//
 		while (SpeechBusy() > 0)
 			;
-		SpeakString(str);
+		NSSpeechSynthesizer * synth;
+		if (fSide == kNeitherSide && Color(move->fPiece)==kBlackPiece)
+			synth = [fController alternateSynth];
+		else
+			synth = [fController defaultSynth];
+
+		[synth startSpeakingString:text];
 	}
 }
 
@@ -384,7 +398,7 @@ const char *	sPieceName[] = {
 	if (square > kInHandSquare) {
 		piece = square-kInHandSquare;
 		if (fVariant!=kVarCrazyhouse || ![[fController board] curInHand:piece])
-			piece = EMPTY;
+			return;
 	} else if (square == kWhitePromoSquare || square == kBlackPromoSquare)
 		return;
 	else
@@ -399,9 +413,13 @@ const char *	sPieceName[] = {
 	}
 }
 
-- (void) endSelection:(MBCSquare)square
+- (void) endSelection:(MBCSquare)square animate:(BOOL)animate
 {
-	if (fFromSquare == square || square > kSyntheticSquare) {
+	if (fFromSquare == square) {
+		[[fController view] clickPiece];
+
+		return;
+	} else if (square > kSyntheticSquare) {
 		[[fController view] unselectPiece];
 		
 		return;
@@ -416,7 +434,7 @@ const char *	sPieceName[] = {
 		move->fFromSquare	= fFromSquare;
 	}
 	move->fToSquare		= square;
-	move->fAnimate		= NO;	// Move already made on board
+	move->fAnimate		= animate;
 
 	//
 	// Fill in promotion info
@@ -456,7 +474,7 @@ const char *	sPieceName[] = {
 
 @end
 
-
 // Local Variables:
 // mode:ObjC
 // End:
+ 

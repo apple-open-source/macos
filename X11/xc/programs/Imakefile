@@ -2,7 +2,7 @@ XCOMM $Xorg: Imakefile,v 1.4 2000/08/17 19:47:01 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/Imakefile,v 3.53 2002/11/20 04:43:50 dawes Exp $
+XCOMM $XFree86: xc/programs/Imakefile,v 3.56 2003/06/20 15:49:50 eich Exp $
 
 #define IHaveSubdirs
 #define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)"
@@ -68,10 +68,6 @@ XFINDPROXYSRCDIR = xfindproxy
   MKFONTSCALEDIR = mkfontscale
 #endif
 
-#if BuildXIElib
-   XIECLIENTDIRS = xieperf
-#endif
-
 #if BuildXInputLib
 XINPUTCLIENTDIRS = xsetmode xsetpointer
 #endif
@@ -108,13 +104,20 @@ XTRAPCLIENTDIRS = xtrap
    XCURSORGENDIR = xcursorgen
 #endif
 
+#if BuildFontconfigLibrary
+          FCDIRS = fc-cache fc-list
+#endif
+#if 0
+       FCLANGDIR = fc-lang
+#endif
+
 #if BuildServersOnly || !BuildClients
 SUBDIRS = $(XSSRCDIR)
 #else
 SUBDIRS = \
-	appres bdftopcf bitmap \
-	$(SCREENSAVESRCDIR) editres fslsfonts fstobdf iceauth \
-	ico listres luit \
+	appres bdftopcf fonttosfnt bitmap \
+	$(SCREENSAVESRCDIR) editres $(FCDIRS) $(FCLANGDIR) fslsfonts fstobdf \
+	iceauth ico listres luit \
 	$(MAKEPSRESDIR) $(DPSCLIENTDIRS) \
 	$(MKCFMSRCDIR) \
 	mkfontdir $(MKFONTSCALEDIR) oclock $(PROXYMGRSRCDIR) \
@@ -124,15 +127,14 @@ SUBDIRS = \
 	xcmsdb $(XCONSOLESRCDIR) xditview $(XDMSRCDIR) xdpyinfo \
 	$(XF86DGASRCDIR) xedit xev xeyes xfd xfontsel $(XFSSRCDIR) xfsinfo \
 	$(XFINDPROXYSRCDIR) $(XFWPSRCDIR) $(XGAMMASRCDIR) xgc $(XHOSTSRCDIR) \
-	$(XIECLIENTDIRS) $(XINITSRCDIR) $(XKBSRCDIRS) xkill $(XLOADDIR) xlogo \
-	xlsatoms \
+	$(XINITSRCDIR) $(XKBSRCDIRS) xkill $(XLOADDIR) xlogo xlsatoms \
 	xlsclients xlsfonts xmag xman xmessage xmh xmodmap xprop xrdb \
 	xrefresh $(XRXSRCDIR) xset \
 	xsetroot $(XSMSRCDIR) xstdcmap $(XINPUTCLIENTDIRS) \
 	$(XTERMSRCDIR) $(XTRAPCLIENTDIRS) $(XVIDTUNESRCDIR) xwd xwininfo xwud \
 	$(XPMCLIENTDIRS) $(XVINFOSRCDIR) \
 	$(XSSRCDIR) $(XASSRCDIR) $(LBXPROXYSRCDIR) $(SCRIPTSDIR) \
-	$(GLXCLIENTDIRS) $(XRANDRDIR) $(XCURSORGENDIR)
+	$(GLXCLIENTDIRS) $(XRANDRDIR) $(XCURSORGENDIR) 
 #endif
 
 MakeSubdirs($(SUBDIRS))

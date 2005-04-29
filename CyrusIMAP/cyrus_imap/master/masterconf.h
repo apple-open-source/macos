@@ -1,5 +1,5 @@
 /* config.h -- Configuration routines
- $Id: masterconf.h,v 1.6 2003/10/22 18:50:14 rjs3 Exp $
+ $Id: masterconf.h,v 1.5 2005/03/05 00:37:29 dasenbro Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/freetype2/freetype/config/Imakefile,v 1.9 2002/06/20 08:26:18 keithp Exp $
+XCOMM $XFree86: xc/lib/freetype2/freetype/config/Imakefile,v 1.13 2003/10/31 20:49:05 herrb Exp $
 
 FREETYPETOP = $(TOP)/extras/freetype2
 FREETYPESRC = $(FREETYPETOP)/src
@@ -14,7 +14,11 @@ HEADERS= \
 BuildIncludes($(HEADERS),freetype2/freetype/config,../../..)
 InstallMultipleFlags($(HEADERS),$(INCDIR)/freetype2/freetype/config,$(INSTINCFLAGS))
 
+#if 0
 LinkSourceFile(ftconfig.h,$(FREETYPEINC)/config)
+#else
+LinkSourceFile(ftconfig.h,$(FONTLIBSRC)/FreeType)
+#endif
 LinkSourceFile(ftheader.h,$(FREETYPEINC)/config)
 LinkSourceFile(ftmodule.h,$(FREETYPEINC)/config)
 LinkSourceFile(ftoption.h,$(FREETYPEINC)/config)
@@ -26,10 +30,13 @@ LinkSourceFile(freetype-config.in,$(FREETYPETOP)/builds/unix)
 
 FREETYPE_VERSION=Freetype2Version
 
+RPATH_CFLAG = HardCodeLibdirFlag
+
 freetype-config: freetype-config.in
 	sed -e s%@prefix@%$(PROJECTROOT)% -e s%@exec_prefix@%$(PROJECTROOT)% \
-	-e s%@libdir@%$(USRLIBDIR)% -e s%@includedir@%$(INCDIR)% 	\
-	-e s%@ft_version@%$(FREETYPE_VERSION)% \
+	-e s%@libdir@%$(USRLIBDIR)%g -e s%@includedir@%$(INCDIR)%	\
+	-e s%@ft_version@%$(FREETYPE_VERSION)% -e s%@LIBZ@%% \
+	-e s%@hardcode_libdir_flag_spec@%$(RPATH_CFLAG)% \
 	< freetype-config.in > $@
 
 includes:: freetype-config

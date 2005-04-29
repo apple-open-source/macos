@@ -1,3 +1,58 @@
+2005-01-13  Ezra Peisach  <epeisach@mit.edu>
+
+	* ftpd.c: GCC 4.0 fixes... Move static declaration of gunique out
+	of function.
+
+2004-11-26  Sam Hartman  <hartmans@mit.edu>
+
+	* ftpcmd.y: nbby should be 8 for anything platform we care about.
+	The previous test broke on Debian BSD, so the test has been
+	removed. 
+
+2004-11-03  Tom Yu  <tlyu@mit.edu>
+
+	* ftpcmd.y (getline): Merge Athena change to reject MICed
+	password.
+
+	* ftpd.M: Document '-E'.
+
+	* ftpd.c (main): Merge Athena's '-E' changes to prohibit
+	unencrypted passwords.
+
+2004-09-22  Tom Yu  <tlyu@mit.edu>
+
+	* Makefile.in (ftpd): Use UTIL_LIB.
+
+2004-08-27  Ken Raeburn  <raeburn@mit.edu>
+
+	* ftpd.c (ftpd_gss_convert_creds): Terminate argument list to
+	krb5_build_principal_ext with 0, not NULL.  Patch from Nalin
+	Dahyabhai.
+
+2004-08-27  Sam Hartman  <hartmans@mit.edu>
+
+	* ftpd.c (passwd;): Patch from Garry Zacheiss to use
+	krb5_get_init_creds_password instead of krb5_get_in_tkt since
+	get_in_tkt is obselete 
+
+2004-08-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* ftpd.c (main): Use socklen_t for the size of the address from
+	accept.
+
+2003-12-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* ftpcmd.y (getline): Allow "AUTH" as an unprotected command.
+	* ftpd.c (login): Fix checks for accept_sec_context status.  Only
+	send back one message in the CONTINUE_NEEDED case.
+	(with_gss_error_text): New function, split out from
+	reply_gss_error.
+	(reply_gss_error): Call it.
+	(reply_gss_error_1): New function.
+	(log_gss_error, log_gss_error_1): New functions.
+	(login): Call log_gss_error instead of syslog on error from
+	gss_display_name.
+
 2003-06-05  Sam Hartman  <hartmans@mit.edu>
 
 	* popen.c (ftpd_popen): Use fork not vfork

@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xman/search.c,v 1.5 2001/01/27 17:24:27 herrb Exp $ */
+/* $XFree86: xc/programs/xman/search.c,v 1.6 2003/04/09 20:31:31 herrb Exp $ */
 
 
 #include "globals.h"
@@ -38,7 +38,7 @@ from the X Consortium.
 
 #define SEARCHARGS 10
 
-FILE * DoManualSearch(ManpageGlobals *man_globals, char * string);
+static FILE * DoManualSearch(ManpageGlobals *man_globals, char * string);
 static int BEntrySearch(char * string, char ** first, int number);
 
 /*	Function Name: MakeSearchWidget
@@ -301,7 +301,7 @@ DoSearch(ManpageGlobals * man_globals, int type)
 
 #define NO_ENTRY -100
 
-FILE * 
+static FILE * 
 DoManualSearch(ManpageGlobals *man_globals, char * string)
 {
   int e_num = NO_ENTRY;

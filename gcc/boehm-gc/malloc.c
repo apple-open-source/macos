@@ -36,6 +36,7 @@ register struct obj_kind * kind;
 /* Allocate a large block of size lw words.	*/
 /* The block is not cleared.			*/
 /* Flags is 0 or IGNORE_OFF_PAGE.		*/
+/* We hold the allocation lock.			*/
 ptr_t GC_alloc_large(lw, k, flags)
 word lw;
 int k;
@@ -62,20 +63,21 @@ unsigned flags;
     if (h == 0) {
 	result = 0;
     } else {
-	int total_bytes = BYTES_TO_WORDS(n_blocks * HBLKSIZE);
+	int total_bytes = n_blocks * HBLKSIZE;
 	if (n_blocks > 1) {
-	    GC_large_allocd_bytes += n_blocks * HBLKSIZE;
+	    GC_large_allocd_bytes += total_bytes;
 	    if (GC_large_allocd_bytes > GC_max_large_allocd_bytes)
 	        GC_max_large_allocd_bytes = GC_large_allocd_bytes;
 	}
 	result = (ptr_t) (h -> hb_body);
-	GC_words_wasted += total_bytes - lw;
+	GC_words_wasted += BYTES_TO_WORDS(total_bytes) - lw;
     }
     return result;
 }
 
 
 /* Allocate a large block of size lb bytes.  Clear if appropriate.	*/
+/* We hold the allocation lock.						*/
 ptr_t GC_alloc_large_and_clear(lw, k, flags)
 word lw;
 int k;
@@ -182,6 +184,7 @@ register int k;
     ptr_t result;
     DCL_LOCK_STATE;
 
+    if (GC_have_errors) GC_print_all_errors();
     GC_INVOKE_FINALIZERS();
     if (SMALL_OBJ(lb)) {
     	DISABLE_SIGNALS();
@@ -216,7 +219,7 @@ register int k;
 	GC_words_allocd += lw;
 	UNLOCK();
 	ENABLE_SIGNALS();
-    	if (init & !GC_debugging_started && 0 != result) {
+    	if (init && !GC_debugging_started && 0 != result) {
 	    BZERO(result, n_blocks * HBLKSIZE);
         }
     }
@@ -294,6 +297,11 @@ DCL_LOCK_STATE;
             return(GENERAL_MALLOC((word)lb, NORMAL));
         }
         /* See above comment on signals.	*/
+	GC_ASSERT(0 == obj_link(op)
+		  || (word)obj_link(op)
+		  	<= (word)GC_greatest_plausible_heap_addr
+		     && (word)obj_link(op)
+		     	>= (word)GC_least_plausible_heap_addr);
         *opp = obj_link(op);
         obj_link(op) = 0;
         GC_words_allocd += lw;
@@ -305,6 +313,19 @@ DCL_LOCK_STATE;
 }
 
 # ifdef REDIRECT_MALLOC
+
+/* Avoid unnecessary nested procedure calls here, by #defining some	*/
+/* malloc replacements.  Otherwise we end up saving a 			*/
+/* meaningless return address in the object.  It also speeds things up,	*/
+/* but it is admittedly quite ugly.					*/
+# ifdef GC_ADD_CALLER
+#   define RA GC_RETURN_ADDR,
+# else
+#   define RA
+# endif
+# define GC_debug_malloc_replacement(lb) \
+	GC_debug_malloc(lb, RA "unknown", 0)
+
 # ifdef __STDC__
     GC_PTR malloc(size_t lb)
 # else
@@ -338,6 +359,7 @@ DCL_LOCK_STATE;
     return((GC_PTR)REDIRECT_MALLOC(n*lb));
   }
 
+#ifndef strdup
 # include <string.h>
 # ifdef __STDC__
     char *strdup(const char *s)
@@ -346,11 +368,18 @@ DCL_LOCK_STATE;
     char *s;
 # endif
   {
-    size_t len = strlen + 1;
+    size_t len = strlen(s) + 1;
     char * result = ((char *)REDIRECT_MALLOC(len+1));
     BCOPY(s, result, len+1);
     return result;
   }
+#endif /* !defined(strdup) */
+ /* If strdup is macro defined, we assume that it actually calls malloc, */
+ /* and thus the right thing will happen even without overriding it.	 */
+ /* This seems to be true on most Linux systems.			 */
+
+#undef GC_debug_malloc_replacement
+
 # endif /* REDIRECT_MALLOC */
 
 /* Explicitly deallocate an object p.				*/
@@ -373,6 +402,7 @@ DCL_LOCK_STATE;
     	/* Required by ANSI.  It's not my fault ...	*/
     h = HBLKPTR(p);
     hhdr = HDR(h);
+    GC_ASSERT(GC_base(p) == p);
 #   if defined(REDIRECT_MALLOC) && \
 	(defined(GC_SOLARIS_THREADS) || defined(GC_LINUX_THREADS) \
 	 || defined(__MINGW32__)) /* Should this be MSWIN32 in general? */
@@ -454,7 +484,10 @@ void GC_free_inner(GC_PTR p)
 }
 #endif /* THREADS */
 
-# ifdef REDIRECT_MALLOC
+# if defined(REDIRECT_MALLOC) && !defined(REDIRECT_FREE)
+#   define REDIRECT_FREE GC_free
+# endif
+# ifdef REDIRECT_FREE
 #   ifdef __STDC__
       void free(GC_PTR p)
 #   else
@@ -463,7 +496,7 @@ void GC_free_inner(GC_PTR p)
 #   endif
   {
 #   ifndef IGNORE_FREE
-      GC_free(p);
+      REDIRECT_FREE(p);
 #   endif
   }
 # endif  /* REDIRECT_MALLOC */

@@ -1,0 +1,268 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<HTML>
+
+<HEAD>
+
+<META http-equiv="content-type"  CONTENT="text/html; charset=macintosh">
+<TITLE>Cheater's Guide to Writing AppleEvent Descriptors</TITLE>
+<LINK HREF="style/tclae.css" REL="stylesheet" TYPE="text/css">
+
+
+</HEAD>
+
+<H1>Cheater's Guide to Writing AppleEvent Descriptors</H1>
+
+<HR>
+
+<P>
+Until I found out about <A 
+HREF="http://www.westcodesoft.com/FTPOCTools.html">Capture AE</A> (thanks 
+Tom!), there was no simple way to figure out how to write an 
+<CODE>AEDesc</CODE> for some applications (I've never learned anything 
+useful from <A HREF="http://www.ravensoftware.com/">AETracker</A>, but 
+YMMV). Determining something as trivial as a list of the available disks 
+which, in AppleScript, is
+</P>
+
+<PRE>
+	<B>tell</B> application "Finder" <B>to get</B> disks
+</PRE>
+
+<P>
+can be an unholy nightmare to translate into AEGizmos. Note that in recent 
+versions of Tcl there's no need for this particular AppleEvent, because 
+the same result is obtained with <CODE>[file volumes]</CODE>, but it serves 
+as a nice example. When we wanted to implement <CODE>[file volumes]</CODE> in 
+Alpha 7, which uses the Tcl 7.5 library, this is exactly the process we 
+went through.
+</P>
+
+<P>
+If you activate <A 
+HREF="http://www.westcodesoft.com/FTPOCTools.html">Capture AE</A>, 
+execution of this AppleScript dumps
+</P>
+
+<PRE>
+	Process("Finder").SendAE "core,getd,'----':obj {form:indx, want:type(cdis), seld:abso(«616C6C20»), from:'null'()}"
+</PRE>
+
+<P>
+This is easily enough rendered with TclÆ as
+</P>
+
+<PRE>
+	tclAE::send -r 'MACS' core getd ---- {obj {form:indx, want:type(cdis), seld:abso(«616C6C20»), from:'null'()}}
+</PRE>
+
+<P>
+Although it works, "<CODE>abso(«616C6C20»)</CODE>" isn't very 
+nice to look at.  A quick pass with <CODE>tclAE::coerce::hexd&gt;TEXT</CODE> 
+(or perusal of an ASCII chart) reveals this is, reasonably enough, the 
+identifier <CODE>'all '</CODE>. We make this substitution and send it, and 
+call <CODE>tclAE::print</CODE> on the resulting descriptor hash key,
+which… unfortunately… returns
+</P>
+
+<PRE>
+	aevt\ansr{
+		'----':[
+			obj {
+				want:type(prop), 
+				from:'null'(), 
+				form:prop, 
+				seld:type(sdsk)
+			}, 
+			obj {
+				want:type(cdis), 
+				from:'null'(), 
+				form:name, 
+				seld:“catbert”
+			}, 
+			obj {
+				want:type(cdis), 
+				from:'null'(), 
+				form:name, 
+				seld:“ratbert”
+			}
+		]
+	}
+</PRE>
+
+<P>
+which is a parsing nightmare (it's not even usually formatted this nicely). 
+Note that, on top of everything else, the Startup Disk is treated 
+differently from everything else. Fortunately, we can make the Finder do 
+our work for us by using the <CODE>'rtyp'</CODE> tag. We now send
+</P>
+
+<PRE>
+	tclAE::build::resultData 'MACS' core getd rtyp TEXT ---- {obj {form:indx, want:type(cdis), seld:abso('all '), from:'null'()}}
+</PRE>
+
+<P>
+which yields a manageable
+</P>
+
+<PRE>
+	catbert: dogbert: ratbert:
+</PRE>
+
+<P>
+on my computer.
+</P>
+
+<H2><CODE>'aete'</CODE> Resources</H2>
+
+<P>
+Even with Capture AE, it's handy to be able to read <CODE>'aete'</CODE> 
+resources (if for no other reason, to decipher what you just blindly copied 
+into your TclÆ statements). Resourcerer has a template to open 
+<CODE>'aete'</CODE> resources and you can decompile them with Rez. If you 
+can manage to find it, Yuji Hachiya of Apple Japan wrote an 
+<CODE>'aete'</CODE> editor for ResEdit. It would appear, though, that Apple 
+has hired the Mossad to hunt down and destroy every copy of this utility 
+(I’ve seen complaints about it, but it's perfectly adequate for 
+<EM>reading</EM> <CODE>'aete'</CODE> resources).
+</P>
+
+<H2>Desperate Measures</H2>
+
+<P>
+If, for some reason, <A 
+HREF="http://www.westcodesoft.com/FTPOCTools.html">Capture AE</A> is 
+unavailable to you (redistribution is prohibited, so <A
+HREF="http://www.westcodesoft.com/">WestCodeSoft</A> could 
+conceivably withdraw it), there is, fortunately, a trick you can try:
+</P>
+
+<OL>
+    <LI>Enter your desired AppleScript in the Script Editor, but trick it 
+    talking to Alpha instead of the actual target application<SUP><A
+    HREF="#ReallyDesperate">*</A></SUP>. For instance,
+	
+<PRE>
+	<B>tell application</B> "Alpha"
+		<B>using terms from</B> application "Finder"
+			<B>get</B> disks
+		<B>end using terms from</B>
+	<B>end tell</B>	
+</PRE>	
+    
+	<LI>Return to Alpha (or Wish) and write a dummy Tcl routine to 
+	intercept this event, such as
+	
+<PRE>
+	proc snoop {theAESubDesc theReplyAE} {
+		return [tclAE::print $theAESubDesc]
+	}
+</PRE>
+
+    It needn’t do any more than this.
+    
+    <LI>Declare <CODE>snoop</CODE> as an AppleEvent handler for the event you 
+    wish to examine:
+			
+<PRE>
+	tclAE::installEventHandler core getd snoop
+</PRE>
+
+	<LI>Open the Result window and run your script. You should get something 
+	like:
+    
+<PRE>
+	"core\\getd{'----':obj {form:indx, want:type(cdis), seld:abso(«616C6C20»), from:'null'()}, &amp;inte:cans, &amp;timo:3600}"
+</PRE>
+    
+</OL>
+
+
+<P>
+Although this probably seems like a lot of work, I assure you that 
+it's far preferable to the hunt-and-peck alternative. There's no 
+reason that this methodology won't work with other scriptable 
+applications, either, but I take no responsibility for the implosion 
+of your monitor.
+</P>
+
+<H3><A NAME="ReallyDesperate"><EM>Really</EM> desperate measures</A></H3>
+
+<P>
+If you’re using a version of AppleScript earlier than 1.4, you won’t have 
+access to the <CODE><B>using terms from</B></CODE> construct. In that 
+event, you can try something really sleazy: 
+</P>
+
+<OL>
+	<LI>Enter the AppleScript you want to decipher in the Script Editor and 
+	save it as a compiled script. For example
+	
+<PRE>
+	<B>tell application</B> "Finder" <B>to get</B> disks
+</PRE>	
+	
+	<LI>Open the script in a resource editor, open the <CODE>'scpt'</CODE> 
+	resources, and open what will likely be the only <CODE>'scpt'</CODE> 
+	resource there (if you have a <CODE>'scpt'</CODE> resource editor 
+	template installed, you'll want to be sure to open the resource as 
+	hexadecimal).
+	
+	<LI>Look for the first occurence of the string <CODE>'MACS'</CODE> 
+	(<CODE>4D414353</CODE>) and change this to <CODE>'ALFA'</CODE> 
+	(<CODE>414C4641</CODE>) [or <CODE>'WIsH'</CODE> 
+	(<CODE>57497348</CODE>)]. Ignore any explicit references to "Finder"; 
+	they don't matter. You've just changed the script to ask Alpha for a 
+	list of all disks. Alpha obviously doesn't know how to do this, but 
+	that's not the point.
+	
+    <LI>Close and save your changes and reopen the script in the Script 
+    editor. It should now look like
+
+<PRE>
+	<B>tell application</B> "Alpha" <B>to get every</B> «class cdis»
+</PRE>	
+	
+	<LI>Proceed as above with writing a <CODE>core getd</CODE> handler in 
+	Alpha or Wish.
+
+</OL>
+
+<P>
+You can’t just write 
+</P>
+<PRE>
+	<B>tell application</B> "Alpha" <B>to get</B> disks
+</PRE>	
+<P>
+because it won't compile, and if you knew enough to write <CODE>«class 
+cdis»</CODE>, you probably wouldn't need the rest of this. We've 
+tricked the Script Editor into thinking that Alpha understands the 
+<CODE><B>get</B> disks</CODE> command.
+</P>
+
+<HR>
+
+<P>
+Copyright © 1998–2000 Jonathan E. Guyer<BR>
+All rights reserved.
+</P>
+
+<p>
+<!-- #LASTMODIFIED TEXT="Last modified" FORM="LONG,WEEKDAY,TIME,SECONDS"-->
+Last modified Monday, March 3, 2003 11:48:43 PM
+<!-- /#LASTMODIFIED -->
+</p>
+
+<p>
+<a href="http://jigsaw.w3.org/css-validator/"><img 
+style="border:0;width:88px;height:31px" 
+src="http://jigsaw.w3.org/css-validator/images/vcss" alt="Valid CSS!"></a> 
+<a href="http://validator.w3.org/check/referer"><img border="0" 
+src="http://www.w3.org/Icons/valid-html40" alt="Valid HTML 4.0!" 
+height="31" width="88"></a>
+</p>
+
+</BODY>
+
+</HTML>

@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 // Origin: Mark Mitchell <mark@codesourcery.com>
 
 template <class T>
@@ -14,4 +14,4 @@ class D {
   template <class U>
   friend class N::D;
 };
-};
+}

@@ -7394,10 +7394,40 @@ cse_basic_block (from, to, next_branch, around_loop)
   /* This array is undefined before max_reg, so only allocate
      the space actually needed and adjust the start.  */
 
-  qty_table
-    = (struct qty_table_elem *) xmalloc ((max_qty - max_reg)
-					 * sizeof (struct qty_table_elem));
+  /* APPLE LOCAL start 3405101 avoid calling malloc on every pass bowdidge 9/19/03 */
+  /* Keep track of the size of the currently-allocated QTY_TABLE so we can
+     decide if we can reuse the previous version. */
+
+  static int currentSize = 0;
+  static void *currentPtr = 0;
+  int newSize = (max_qty - max_reg) * sizeof(struct qty_table_elem);
+
+  if (qty_table == NULL) 
+    {
+      /* Create buffer for the first time. */
+      qty_table = xmalloc(newSize);
+      currentPtr = qty_table;
+      currentSize = newSize;
+      qty_table -= max_reg;
+    } 
+  else if (newSize > currentSize)  
+    {
+      /* The new size of the QTY_TABLE is larger than the buffer that already
+         exists, so create a new buffer. */
+      free(currentPtr);
+      qty_table =  xmalloc(newSize);
+      currentPtr = qty_table;
+      currentSize = newSize;
   qty_table -= max_reg;
+    } 
+  else  
+    {
+      /* keep using old buffer, but use current MAX_REG value to figure out where
+         we'll pretend it starts. */
+      qty_table = currentPtr;
+      qty_table -= max_reg; 
+    }
+/* APPLE LOCAL end */
 
   new_basic_block ();
 
@@ -7493,7 +7523,9 @@ cse_basic_block (from, to, next_branch, around_loop)
 	{
 	  if (to == 0)
 	    {
-	      free (qty_table + max_reg);
+/* APPLE LOCAL start 3405101 avoid calling malloc on every pass bowdidge 9/19/03 */
+             /* free (qty_table + max_reg); */
+/* APPLE LOCAL end */
 	      return 0;
 	    }
 
@@ -7528,7 +7560,9 @@ cse_basic_block (from, to, next_branch, around_loop)
 	  /* If TO was the last insn in the function, we are done.  */
 	  if (insn == 0)
 	    {
-	      free (qty_table + max_reg);
+/* APPLE LOCAL start 3405101 avoid calling malloc on every pass bowdidge 9/19/03 */
+             /* free (qty_table + max_reg); */
+/* APPLE LOCAL end */
 	      return 0;
 	    }
 
@@ -7537,7 +7571,9 @@ cse_basic_block (from, to, next_branch, around_loop)
 	  prev = prev_nonnote_insn (to);
 	  if (prev && GET_CODE (prev) == BARRIER)
 	    {
-	      free (qty_table + max_reg);
+/* APPLE LOCAL start 3405101 avoid calling malloc on every pass bowdidge 9/19/03 */
+             /*free (qty_table + max_reg); */
+/* APPLE LOCAL end */
 	      return insn;
 	    }
 
@@ -7585,7 +7621,9 @@ cse_basic_block (from, to, next_branch, around_loop)
       && LABEL_NUSES (JUMP_LABEL (insn)) == 1)
     cse_around_loop (JUMP_LABEL (insn));
 
-  free (qty_table + max_reg);
+/* APPLE LOCAL start 3405101 avoid calling malloc on every pass bowdidge 9/19/03 */
+  /* free (qty_table + max_reg); */
+/* APPLE LOCAL end */
 
   return to ? NEXT_INSN (to) : 0;
 }
@@ -7682,6 +7720,14 @@ count_reg_usage (x, counts, dest, incr)
       if (note)
         count_reg_usage (XEXP (note, 0), counts, NULL_RTX, incr);
       return;
+
+      /* APPLE LOCAL begin asm statement optimization fix from post-3.3 */
+    case ASM_OPERANDS:
+      /* Iterate over just the inputs, not the constraints as well.  */
+      for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
+	count_reg_usage (ASM_OPERANDS_INPUT (x, i), counts, NULL_RTX, incr);
+      return;
+      /* APPLE LOCAL end asm statement optimization fix from post-3.3 */
 
     case INSN_LIST:
       abort ();

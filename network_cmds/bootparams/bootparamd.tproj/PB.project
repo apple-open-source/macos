@@ -4,7 +4,7 @@
         FRAMEWORKS = (); 
         H_FILES = (); 
         OTHER_LINKED = (bootparamd.c, bootparam_proc.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, bootparamd.8); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

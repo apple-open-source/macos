@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1997-2001, International Business Machines
+*   Copyright (C) 1997-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *   file name:  nfrs.h
@@ -64,6 +64,7 @@ class NFRuleSet : public UMemory {
   NFRule *fractionRules[3];
   UBool fIsFractionRuleSet;
   UBool fIsPublic;
+  int32_t fRecursionCount;
 
   NFRuleSet(const NFRuleSet &other); // forbid copying of this class
   NFRuleSet &operator=(const NFRuleSet &other); // forbid copying of this class

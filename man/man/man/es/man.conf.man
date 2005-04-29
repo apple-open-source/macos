@@ -1,0 +1,42 @@
+.\" @(#)man.conf
+.\" Traducido del portugués por Pablo Saratxag <srtxg@f2219.n293.z2.fidonet.org>
+.\"
+.TH MAN.CONF 5 "25 Mayo 1996" "Manual Linux" "Comandos utilisador"
+.SH NOMBRE
+man.conf \- fichero de configuración para el comando man
+.SH DESCRIPCIÓN
+.LP
+Este ficheiro es leido por
+.BR man (1)
+y contiene: (a) información de como construir el camino de búsqueda de las
+páginas (manpath); (b) nombres completos
+de vários programas como nroff, eqn, tbl, etc. usados por man; (c) una lista
+de descompresores de ficheros com determinadas extensions. Un fichero
+alternativo puede ser indicado con
+.LP
+.RS
+man -C fich_config ...
+.RE
+.LP
+Los nombres de comandos pueden ser indicados con opciones.
+Las opciones útiles para nroff podem se encuentran en grotty(1).
+Por ejemplo, en vez de la linea
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+se puede usar
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+para suprimir subrayados y carácteres grasos.
+.SH "VEA TAMBIÉN"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) e compress(1), gzip(1).

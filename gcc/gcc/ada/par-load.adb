@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -43,13 +42,15 @@ with Sinput.L; use Sinput.L;
 with Stylesw;  use Stylesw;
 with Validsw;  use Validsw;
 
+with GNAT.Spelling_Checker; use GNAT.Spelling_Checker;
+
 separate (Par)
 procedure Load is
 
    File_Name : File_Name_Type;
    --  Name of file for current unit, derived from unit name
 
-   Cur_Unum : Unit_Number_Type := Current_Source_Unit;
+   Cur_Unum : constant Unit_Number_Type := Current_Source_Unit;
    --  Unit number of unit that we just finished parsing. Note that we need
    --  to capture this, because Source_Unit will change as we parse new
    --  source files in the multiple main source file case.
@@ -88,16 +89,18 @@ procedure Load is
 
    function Same_File_Name_Except_For_Case
      (Expected_File_Name : File_Name_Type;
-      Actual_File_Name   : File_Name_Type)
-      return               Boolean;
+      Actual_File_Name   : File_Name_Type) return Boolean;
    --  Given an actual file name and an expected file name (the latter being
    --  derived from the unit name), determine if they are the same except for
    --  possibly different casing of letters.
 
+   ------------------------------------
+   -- Same_File_Name_Except_For_Case --
+   ------------------------------------
+
    function Same_File_Name_Except_For_Case
      (Expected_File_Name : File_Name_Type;
-      Actual_File_Name   : File_Name_Type)
-      return               Boolean
+      Actual_File_Name   : File_Name_Type) return Boolean
    is
    begin
       Get_Name_String (Actual_File_Name);
@@ -147,7 +150,9 @@ begin
    --  Next step, make sure that the unit name matches the file name
    --  and issue a warning message if not. We only output this for the
    --  main unit, since for other units it is more serious and is
-   --  caught in a separate test below.
+   --  caught in a separate test below. We also inhibit the message in
+   --  multiple unit per file mode, because in this case the relation
+   --  between file name and unit name is broken.
 
    File_Name :=
      Get_File_Name
@@ -155,6 +160,7 @@ begin
         Subunit => Nkind (Unit (Cunit (Cur_Unum))) = N_Subunit);
 
    if Cur_Unum = Main_Unit
+     and then Multiple_Unit_Index = 0
      and then File_Name /= Unit_File_Name (Cur_Unum)
      and then (File_Names_Case_Sensitive
                 or not Same_File_Name_Except_For_Case
@@ -189,26 +195,45 @@ begin
                     or else
                   Name_Buffer (1) = 'g')
       then
-         --  In the predefined file case, we know the user did not construct
-         --  their own package, but we got the wrong one. This means that the
-         --  name supplied by the user crunched to something we recognized,
-         --  but then the file did not contain the unit expected. Most likely
-         --  this is due to a misspelling, e.g.
+         declare
+            Expect_Name : constant Name_Id := Expected_Unit (Cur_Unum);
+            Actual_Name : constant Name_Id := Unit_Name (Cur_Unum);
 
-         --    with Ada.Calender;
+         begin
+            Error_Msg_Name_1 := Expect_Name;
+            Error_Msg ("% is not a predefined library unit!", Loc);
 
-         --  This crunches to a-calend, which indeed contains the unit
-         --  Ada.Calendar, and we can diagnose the misspelling. This is
-         --  a simple heuristic, but it catches many common cases of
-         --  misspelling of predefined unit names without needing a full
-         --  list of them.
+            --  In the predefined file case, we know the user did not
+            --  construct their own package, but we got the wrong one.
+            --  This means that the name supplied by the user crunched
+            --  to something we recognized, but then the file did not
+            --  contain the unit expected. Most likely this is due to
+            --  a misspelling, e.g.
 
-         Error_Msg_Name_1 := Expected_Unit (Cur_Unum);
-         Error_Msg ("% is not a predefined library unit!", Loc);
-         Error_Msg_Name_1 := Unit_Name (Cur_Unum);
-         Error_Msg ("possible misspelling of %!", Loc);
+            --    with Ada.Calender;
 
-      --  Non-predefined file name case
+            --  This crunches to a-calend, which indeed contains the unit
+            --  Ada.Calendar, and we can diagnose the misspelling. This
+            --  is a simple heuristic, but it catches many common cases
+            --  of misspelling of predefined unit names without needing
+            --  a full list of them.
+
+            --  Before actually issinying the message, we will check that the
+            --  unit name is indeed a plausible misspelling of the one we got.
+
+            if Is_Bad_Spelling_Of
+              (Found  => Get_Name_String (Expect_Name),
+               Expect => Get_Name_String (Actual_Name))
+            then
+               Error_Msg_Name_1 := Actual_Name;
+               Error_Msg ("possible misspelling of %!", Loc);
+            end if;
+         end;
+
+      --  Non-predefined file name case. In this case we generate a message
+      --  and then we quit, because we are in big trouble, and if we try
+      --  to continue compilation, we get into some nasty situations
+      --  (for example in some subunit cases).
 
       else
          Error_Msg ("file { does not contain expected unit!", Loc);
@@ -218,7 +243,10 @@ begin
          Error_Msg ("found unit $!", Loc);
       end if;
 
-      raise Unrecoverable_Error;
+      --  In both cases, remove the unit if it is the last unit (which it
+      --  normally (always?) will be) so that it is out of the way later.
+
+      Remove_Unit (Cur_Unum);
    end if;
 
    --  If current unit is a body, load its corresponding spec
@@ -313,7 +341,6 @@ begin
       if Unum /= No_Unit then
          Set_Library_Unit (Curunit, Cunit (Unum));
       end if;
-
    end if;
 
    --  Now we load with'ed units, with style/validity checks turned off
@@ -327,7 +354,6 @@ begin
 
    Context_Node := First (Context_Items (Curunit));
    while Present (Context_Node) loop
-
       if Nkind (Context_Node) = N_With_Clause then
          With_Node := Context_Node;
          Spec_Name := Get_Unit_Name (With_Node);

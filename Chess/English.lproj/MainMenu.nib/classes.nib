@@ -34,11 +34,14 @@
                 updateOptions = id; 
                 updateSearchTime = id; 
                 updateStyles = id; 
+                updateVoices = id; 
             }; 
             CLASS = MBCController; 
             LANGUAGE = ObjC; 
             OUTLETS = {
+                fAlternateVoice = id; 
                 fBoardStyle = id; 
+                fComputerVoice = id; 
                 fFloatingMenuItem = id; 
                 fFloatingView = id; 
                 fGameInfo = id; 

@@ -282,7 +282,7 @@ directory_file_name (src, dst)
 		  && (ptr[rlen] == ']' || ptr[rlen] == '>')
 		  && ptr[rlen - 1] == '.')
 		{
-		  char * buf = (char *) malloc (strlen (ptr) + 1);
+		  char * buf = (char *) xmalloc (strlen (ptr) + 1);
 		  int tmp = ptr[rlen];
 		  if (buf == 0)
 		    return 0; /* bad luck */

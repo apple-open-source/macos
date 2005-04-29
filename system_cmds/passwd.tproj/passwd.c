@@ -178,6 +178,7 @@ main(int argc, char *argv[])
 {
 	char *user, *locn;
 	int i, infosystem;
+	int free_user = 0;
 	
 	/* since DS works for most infosystems, make it the default */
 	//infosystem = INFO_NETINFO;
@@ -226,11 +227,22 @@ main(int argc, char *argv[])
 
 	if (user == NULL)
 	{
-	    	/*
+		/*
 		 * Verify that the login name exists.
 		 * lukeh 24 Dec 1997
 		 */
-		if ((user = getlogin()) == NULL)
+		 
+		/* getlogin() is the wrong thing to use here because it returns the wrong user after su */
+		/* sns 5 Jan 2005 */
+		
+		struct passwd * userRec = getpwuid(getuid());
+		if (userRec != NULL && userRec->pw_name != NULL) {
+			/* global static mem is volatile; must strdup */
+			user = strdup(userRec->pw_name);
+			free_user = 1;
+		}
+		
+		if (user == NULL)
 		{
 			fprintf(stderr, "you don't have a login name\n");
 			exit(1);
@@ -252,7 +264,10 @@ main(int argc, char *argv[])
 			ds_passwd(user, locn);
 			break;
 	}
-
+	
+	if (free_user == 1)
+		free(user);
+	
 	exit(0);
 }
 

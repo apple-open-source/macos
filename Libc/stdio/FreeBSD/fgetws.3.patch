@@ -1,0 +1,47 @@
+--- fgetws.3.orig	Fri Mar 11 11:51:15 2005
++++ fgetws.3	Fri Mar 11 11:52:41 2005
+@@ -41,7 +41,8 @@
+ .Dt FGETWS 3
+ .Os
+ .Sh NAME
+-.Nm fgetws
++.Nm fgetws ,
++.Nm fgetws_l
+ .Nd get a line of wide characters from a stream
+ .Sh LIBRARY
+ .Lb libc
+@@ -50,6 +51,9 @@
+ .In wchar.h
+ .Ft "wchar_t *"
+ .Fn fgetws "wchar_t * restrict ws" "int n" "FILE * restrict fp"
++.In xlocale.h
++.Ft "wchar_t *"
++.Fn fgetws_l "wchar_t * restrict ws" "int n" "FILE * restrict fp" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn fgetws
+@@ -66,6 +70,14 @@
+ If any characters are read and there is no error, a
+ .Ql \e0
+ character is appended to end the string.
++.Pp
++While the
++.Fn fgetws
++function uses the current locale, the
++.Fn fgetws_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ Upon successful completion,
+ .Fn fgetws
+@@ -116,7 +128,8 @@
+ .Sh SEE ALSO
+ .Xr feof 3 ,
+ .Xr ferror 3 ,
+-.Xr fgets 3
++.Xr fgets 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn fgetws

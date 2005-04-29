@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xman/handler.c,v 1.6 2003/01/19 04:44:45 paulo Exp $ */
+/* $XFree86: xc/programs/xman/handler.c,v 1.7 2003/04/09 20:31:31 herrb Exp $ */
 
 /*
  * xman - X window system manual page display program.
@@ -215,6 +215,7 @@ DirectoryHandler(Widget w, XtPointer global_pointer, XtPointer ret_val)
   file = FindManualFile(man_globals, man_globals->current_directory,
 			ret_struct->list_index);
   PutUpManpage(man_globals, file);
+  fclose(file);
 }
 
 /*	Function Name: DirPopupCallback
@@ -531,7 +532,7 @@ void
 Search(Widget w, XEvent * event, String * params, Cardinal * num_params)
 {
   ManpageGlobals * man_globals = GetGlobals(w);
-  FILE * file;
+  FILE * file = NULL;
 
   XtPopdown(  XtParent(XtParent(w)) );       /* popdown the search widget */
 
@@ -588,6 +589,8 @@ Search(Widget w, XEvent * event, String * params, Cardinal * num_params)
   else {
     PutUpManpage(man_globals, file);
   }
+  if (file != NULL)
+	  fclose(file);
 }
 
 /*      Function Name: ShowVersion

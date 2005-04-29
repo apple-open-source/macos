@@ -67,11 +67,9 @@
 #include <bits/stl_alloc.h>
 #include <bits/stl_construct.h>
 #include <bits/stl_uninitialized.h>
-#include <bits/stl_deque.h>
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <deque>
+/* APPLE LOCAL end libstdc++ debug mode */
 #include <bits/stl_stack.h>
-
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
-#  include <bits/deque.tcc>
-#endif
 
 #endif /* _CPP_STACK */

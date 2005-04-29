@@ -38,6 +38,7 @@
 const char *program = NULL;
 
 static int usage (void);
+static void printiferr (errcode_t err, const char *format, ...);
 static void printerr (const char *format, ...);
 static void vprinterr (const char *format, va_list args);
 
@@ -57,74 +58,64 @@ int main (int argc, char * const * argv)
     }
     
     /* Get the principal name from the command line */
-    if (argc > 1) {
-        klErr = KLCreatePrincipalFromString (argv[1], kerberosVersion_V5, &principal);
-        if (klErr != klNoErr) {
-            printerr ("Unable to create principal for '%s': %s\n", 
-                      argv[1], error_message (klErr));
-            err = 1;
-            goto done;
-        }        
+    if (!err && (argc > 1)) {
+        err = KLCreatePrincipalFromString (argv[1], kerberosVersion_V5, &principal);
+        printiferr (err, "while creating principal '%s'", argv[1]);
     }
     
     /* If that fails, try the principal of the current ticket cache */
-    if (principal == NULL) {
-        KLBoolean found = false;
+    if (!err && (principal == NULL)) {
+        KLBoolean   found = false;
         KLPrincipal foundPrincipal;
-        
-        klErr = KLCacheHasValidTickets (NULL, kerberosVersion_Any, &found, &foundPrincipal, NULL);
-        if (klErr == klNoErr && found) {
-            principal = foundPrincipal;
-        }
+        KLStatus    terr = KLCacheHasValidTickets (NULL, kerberosVersion_Any, &found, &foundPrincipal, NULL);
+        if (!terr && found) { principal = foundPrincipal; }
     }
     
     /* As a last resort, fall back on the passwd database */
-    if (principal == NULL) {
+    if (!err && (principal == NULL)) {
         struct passwd *pw;
         
         /* Try to get the principal name from the password database */
         if ((pw = getpwuid (getuid ())) != NULL) {
             char *username = malloc (strlen (pw->pw_name) + 1); /* copy because pw not stable */
-            if (username == NULL) {
-                printerr ("Out of memory\n");
-                err = 1;
-                goto done;
+            if (username == NULL) { err = ENOMEM; }
+
+            if (!err) {
+                strcpy (username, pw->pw_name);
+                err = KLCreatePrincipalFromString (username, kerberosVersion_V5, &principal);
             }
-            strcpy (username, pw->pw_name);
-            klErr = KLCreatePrincipalFromString (username, kerberosVersion_V5, &principal);
-            free (username);
             
-            if (klErr != klNoErr) {
-                printerr ("Unable to create principal for current user: %s\n", 
-                          error_message (klErr));
-                err = 1;
-                goto done;
-            }        
+            printiferr (err, "while creating principal for current user");
+
+            if (username != NULL) { free (username); }
         }
     }
 
-    klErr = KLChangePassword (principal);
-    if (klErr != klNoErr) {
-        printerr ("Error changing password: %s\n", error_message (klErr));
-        goto done;
+    if (!err) {
+        err = KLChangePassword (principal);
+        printiferr (err, "while changing password");
     }
     
-    return 0;
+    if (principal != NULL) { KLDisposePrincipal (principal); }
     
-done:
-    if (principal != NULL)
-        KLDisposePrincipal (principal);
-                
-    if (klErr != klNoErr)
-        err = 1;
-    
-    return err;    
+    return err ? 1 : 0;    
 }
 
 static int usage (void)
 {
     fprintf (stderr, "Usage: %s principal\n", program);
     return 2;
+}
+
+static void printiferr (errcode_t err, const char *format, ...)
+{
+    if (err && (err != ccIteratorEnd) && (err != KRB5_CC_END)) {
+        va_list pvar;
+        
+        va_start (pvar, format);
+        com_err_va (program, err, format, pvar);
+        va_end (pvar);
+    }
 }
 
 static void printerr (const char *format, ...)

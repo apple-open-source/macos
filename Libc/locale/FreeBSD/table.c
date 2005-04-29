@@ -38,20 +38,18 @@
 static char sccsid[] = "@(#)table.c	8.1 (Berkeley) 6/27/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/table.c,v 1.16 2002/03/22 21:52:18 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/table.c,v 1.26 2004/10/17 06:51:50 tjr Exp $");
 
 #include <ctype.h>
-#include <rune.h>
-
-extern rune_t	_none_sgetrune(const char *, size_t, char const **);
-extern int	_none_sputrune(rune_t, char *, size_t, char **);
-extern int	_none_init(char *, char **);
+#include <runetype.h>
+#include <wchar.h>
+#include "mblocal.h"
 
 _RuneLocale _DefaultRuneLocale = {
     _RUNE_MAGIC_1,
     "NONE",
-    _none_sgetrune,
-    _none_sputrune,
+    NULL,
+    NULL,
     0xFFFD,
 
     {	/*00*/	_CTYPE_C,
@@ -254,5 +252,12 @@ _RuneLocale _DefaultRuneLocale = {
 _RuneLocale *_CurrentRuneLocale = &_DefaultRuneLocale;
 
 int __mb_cur_max = 1;
-
-char	*_PathLocale;
+size_t (*__mbrtowc)(wchar_t * __restrict, const char * __restrict, size_t,
+    mbstate_t * __restrict) = _none_mbrtowc;
+int (*__mbsinit)(const mbstate_t *) = _none_mbsinit;
+size_t (*__mbsnrtowcs)(wchar_t * __restrict, const char ** __restrict,
+    size_t, size_t, mbstate_t * __restrict) = _none_mbsnrtowcs;
+size_t (*__wcrtomb)(char * __restrict, wchar_t, mbstate_t * __restrict) =
+    _none_wcrtomb;
+size_t (*__wcsnrtombs)(char * __restrict, const wchar_t ** __restrict,
+    size_t, size_t, mbstate_t * __restrict) = _none_wcsnrtombs;

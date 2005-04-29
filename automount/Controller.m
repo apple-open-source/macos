@@ -22,13 +22,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define kUseExistingMount         0x00000001
-#define kNoNewMount               0x00000002
-#define kMountAtMountdir          0x00000004
-#define kCreateNewSession         0x00000008
-#define kMarkAutomounted		  0x00000010
-#define kMountWithoutNotification 0x00000020
-
 #import "Controller.h"
 #import "automount.h"
 #import "Server.h"
@@ -42,6 +35,7 @@
 #import "NSLMap.h"
 #import "NSLVnode.h"
 #import "log.h"
+#import "vfs_sysctl.h"
 #import <unistd.h>
 #import <stdio.h>
 #import <signal.h>
@@ -67,6 +61,7 @@
 #import <resolv.h>
 #import "systhread.h"
 #ifdef __APPLE__
+extern int bindresvport(int sd, struct sockaddr *sa);
 extern int mount(const char *, const char *, int, void *);
 extern int unmount(const char *, int);
 #else
@@ -78,13 +73,7 @@ extern int chdir(const char *);
 #endif
 #import <URLMount/URLMount.h>
 
-#define SHUNTAFPMOUNTS 0
-#define AFPSCHEMEPREFIX "afp:/"
-#define AFPGUESTUAM "AUTH=No%20User%20Authent"
-
-#if SHUNTAFPMOUNTS
-#import <AppleShareClient/afpHLMount.h>
-#endif
+#define MOUNT_COMMAND "/sbin/mount_autofs"
 
 #define HOSTINFO "/usr/bin/hostinfo"
 #define OS_NEXTSTEP 0
@@ -92,7 +81,29 @@ extern int chdir(const char *);
 #define OS_MACOSX 2
 #define OS_DARWIN 3
 
+#define UNMOUNTALL_USING_NODETABLE 0
+
 static char gConsoleDevicePath[] = "/dev/console";
+
+static Boolean VnodeKeyEqual(const void *value1, const void *value2);
+static CFHashCode VnodeKeyHash(const void *value);
+static CFDictionaryKeyCallBacks VnodeDictionaryKeyCallBacks = {
+	0,								/* version */
+	NULL,							/* retain */
+	NULL,							/* release */
+	NULL,							/* copyDescription */
+	VnodeKeyEqual,					/* equal */
+	VnodeKeyHash					/* hash */
+};
+
+static Boolean VnodeEqual(const void *value1, const void *value2);
+static CFDictionaryValueCallBacks VnodeDictionaryValueCallBacks = {
+	0,								/* version */
+	NULL,							/* retain */
+	NULL,							/* release */
+	NULL,							/* copyDescription */
+	VnodeEqual						/* equal */
+};
 
 extern void nfs_program_2();
 
@@ -108,6 +119,8 @@ extern u_long rpc_xid;
 
 extern NSLMap *GlobalTargetNSLMap;
 
+extern BOOL doServerMounts;
+
 static void completeMount(Vnode *v, unsigned int status);
 
 static gid_t
@@ -120,40 +133,6 @@ gidForGroup(char *name)
 
 	sys_msg(debug, LOG_WARNING, "Can't get gid for group %s", name);
 	return 0;
-}
-
-int
-sysctl_fsid(op, fsid, oldp, oldlenp, newp, newlen)
-	int op;
-	fsid_t *fsid;
-	void *oldp;
-	size_t *oldlenp;
-	void *newp;
-	size_t newlen;
-{
-	int ctlname[CTL_MAXNAME+2];
-	size_t ctllen;
-	const char *sysstr = "vfs.generic.ctlbyfsid";
-	struct vfsidctl vc;
-
-	ctllen = CTL_MAXNAME+2;
-	if (sysctlnametomib(sysstr, ctlname, &ctllen) == -1) return -1;
-	ctlname[ctllen] = op;
-
-	bzero(&vc, sizeof(vc));
-	vc.vc_vers = VFS_CTL_VERS1;
-	vc.vc_fsid = *fsid;
-	vc.vc_ptr = newp;
-	vc.vc_len = newlen;
-	return (sysctl(ctlname, ctllen + 1, oldp, oldlenp, &vc, sizeof(vc)));
-}
-
-int
-sysctl_unmount(fsid_t *fsid, int flag)
-{
-
-	return (sysctl_fsid(VFS_CTL_UMOUNT, fsid, NULL, 0, &flag,
-		sizeof(flag)));
 }
 
 @implementation Controller
@@ -193,7 +172,7 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	bzero((char *)&addr, sizeof (addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	if (bindresvport(sock, &addr)) {
+	if (bindresvport(sock, (struct sockaddr *)&addr)) {
 		addr.sin_port = 0;
 		if (bind(sock, (struct sockaddr *)&addr, len) == -1) {
 			sys_msg(debug, LOG_ERR, "Can't bind UDP socket to INADDR_LOOPBACK");
@@ -307,16 +286,13 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	return self;
 }
 
-- (BOOL)createPath:(String *)path
-{
-	return [self createPath:path withUid:0];
-}
-
-- (BOOL)createPath:(String *)path withUid:(int)uid
+- (BOOL)createPath:(String *)path withUid:(int)uid allowAnyExisting:(BOOL)allowAnyExisting
 {
 	int i, p;
 	char *s, t[1024];
 	int status;
+	struct stat dirinfo;
+	BOOL successful = YES; 
 
 	if (path == nil) return YES;
 	if ([path length] == 0) return YES;
@@ -328,11 +304,13 @@ sysctl_unmount(fsid_t *fsid, int flag)
 
 	while (s != NULL)
 	{
+		/* Strip off leading slashes: */
 		while (s[0] == '/')
 		{
 			p++;
 			s++;
 		}
+		
 		for (i = 0; (s[i] != '/') && (s[i] != '\0'); i++) t[i] = s[i];
 		t[i] = '\0';
 		if (i == 0)
@@ -346,18 +324,49 @@ sysctl_unmount(fsid_t *fsid, int flag)
 		status = mkdir(t, 0755);
 		if (status == -1)
 		{
-			 if (errno == EEXIST) status = 0;
-			 if (errno == EISDIR) status = 0;
+			if (errno == EISDIR) {
+				status = 0;
+			} else if (errno != EEXIST) {
+				goto Fail;
+			} else if (allowAnyExisting) {
+				status = 0;
+			} else {
+				status = lstat(t, &dirinfo);
+				if (status == -1) goto Fail;
+				if (! S_ISDIR(dirinfo.st_mode)) goto Fail;
+			}
 		}
 
-		if (status != 0) return NO;
+		if (status != 0) goto Fail;
 
 		chdir(t);
 		s = [path scan:'/' pos:&p];
 	}
-
+	goto Done;
+	
+Fail:
+	successful = NO;
+	
+Done:
 	chdir("/");
-	return YES;
+	return successful;
+}
+
+- (void)hashVnode:(Vnode *)v
+{
+	if (vnodeHashTable == nil) {
+		vnodeHashTable = CFDictionaryCreateMutable(NULL, 0, &VnodeDictionaryKeyCallBacks, &VnodeDictionaryValueCallBacks);
+	}
+	CFDictionaryAddValue(vnodeHashTable, [v hashKey], v);
+}
+
+- (void)unhashVnode:(Vnode *)v
+{
+	if (vnodeHashTable) CFDictionaryRemoveValue(vnodeHashTable, [v hashKey]);
+}
+
+- (Vnode *)vnodeWithKey:(void *)vnodeKey {
+	return (vnodeHashTable == nil) ? nil : (Vnode *)CFDictionaryGetValue(vnodeHashTable, vnodeKey);
 }
 
 - (void)registerVnode:(Vnode *)v
@@ -399,7 +408,7 @@ sysctl_unmount(fsid_t *fsid, int flag)
 		if (node_table[i].node_id == n)
 		{
 			v = node_table[i].node;
-			[v resetTime];
+			[v markAccessTime];
 			return v;
 		}
 	}
@@ -459,7 +468,7 @@ sysctl_unmount(fsid_t *fsid, int flag)
 
 	if (nodeIndex == -1)
 	{
-		sys_msg(debug, LOG_ERR, "Unregistered Vnode %u (%s)", [v nodeID], [[v path] value]);
+		sys_msg(debug, LOG_ERR, "freeVnode for unregistered Vnode %u (%s)", [v nodeID], [[v path] value]);
 	} else {
 		node_table[nodeIndex].node = nil;
 		node_table[nodeIndex].node_id = 0;
@@ -472,7 +481,7 @@ sysctl_unmount(fsid_t *fsid, int flag)
 
 - (void)removeVnode:(Vnode *)v
 {
-	int i;
+	int i, err;
 	unsigned int count;
 	Array *kids;
 
@@ -483,6 +492,12 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	for (i = count - 1; i >= 0; i--)
 		[self removeVnode:[kids objectAtIndex:i]];
 
+	if ([[v map] mountStyle] == kMountStyleAutoFS) {
+		err = rmdir([[v path] value]);
+		if (err)
+			sys_msg(debug, LOG_ERR, "Cannot remove %s: %s", [[v path] value], strerror(errno));
+	}
+	
 	[self freeVnode:v];
 }
 
@@ -499,7 +514,81 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	[self compactVnodeTableFrom:0];
 }
 
-- (unsigned int)automount:(Vnode *)v directory:(String *)dir args:(int)mntargs
+- (int)autofsmount:(Vnode *)v directory:(String *)dir args:(int)mntargs
+{
+	char str[MAXPATHLEN + 64];
+	String *src;
+    pid_t pid, terminated_pid;
+    int result=0;
+    union wait status;
+
+	[self createPath:dir withUid:0 allowAnyExisting:YES];
+
+	src = [v source];
+	
+	sprintf(str, "automount %s [%d]", [src value], getpid());
+	[[v map] setHostname:[String uniqueString:str]];
+	sys_msg(debug, LOG_DEBUG, "Mounting map %s on %s", [src value], [dir value]);
+
+    pid = fork();
+    if (pid == 0) {
+		result = execl(MOUNT_COMMAND,
+			MOUNT_COMMAND,
+//			"-o", (mntargs & MNT_AUTOMOUNTED) ? "automounted" : "noautomounted",
+//			"-o", (mntargs & MNT_DONTBROWSE) ? "nobrowse" : "browse",
+//			str,
+			"-f",
+			str,
+			[dir value],
+			NULL);
+		/* IF WE ARE HERE, WE WERE UNSUCCESSFUL */
+        exit(result ? result : ECHILD);
+    }
+
+    if (pid == -1) {
+        result = -1;
+        goto mount_complete;
+    }
+
+    /* Success! */
+    while ( (terminated_pid = wait4(pid, (int *)&status, 0, NULL)) < 0 ) {
+		/* retry if EINTR, else break out with error */
+		if ( errno != EINTR ) {
+			break;
+		}
+    }
+    
+    if (terminated_pid == pid) {
+		if (WIFEXITED(status)) {
+			result = WEXITSTATUS(status);
+		} else if (WIFSIGNALED(status)) {
+			result = EFAULT;
+		} else {
+			result = -1;
+		}
+	}
+
+mount_complete:
+	if (result != 0)
+	{
+		sys_msg(debug, LOG_ERR, "Can't autofs-mount map %s on %s: %s",
+			[src value], [dir value], strerror(errno));
+		return 1;
+	}
+	
+	sys_msg(debug, LOG_DEBUG, "Mounted autofs %s on %s", [src value], [dir value]);
+
+	[v setMounted:YES];
+	
+#ifndef __APPLE__
+	[self mtabUpdate:v];
+#endif
+
+	return 0;
+
+}
+
+- (int)automount:(Vnode *)v directory:(String *)dir args:(int)mntargs nfsmountoptions:(int)mntoptionflags
 {
 	struct nfs_args args;
 	struct sockaddr_in sin;
@@ -508,7 +597,7 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	String *src;
 	int status;
 
-	[self createPath:dir];
+	[self createPath:dir withUid:0 allowAnyExisting:YES];
 
 	src = [v source];
 
@@ -529,7 +618,11 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	args.maxgrouplist = NFS_MAXGRPS;
 	args.readahead = NFS_DEFRAHEAD;
 	args.fhsize = sizeof(nfs_fh);
-	args.flags = NFSMNT_INT | NFSMNT_TIMEO | NFSMNT_RETRANS | NFSMNT_NOLOCKS;
+	args.flags = mntoptionflags | NFSMNT_INT | NFSMNT_TIMEO | NFSMNT_RETRANS | NFSMNT_NOLOCKS;
+	if (mntoptionflags & NFSMNT_ACREGMIN) args.acregmin = 0;
+	if (mntoptionflags & NFSMNT_ACREGMAX) args.acregmax = 0;
+	if (mntoptionflags & NFSMNT_ACDIRMIN) args.acdirmin = 0;
+	if (mntoptionflags & NFSMNT_ACDIRMAX) args.acdirmax = 0;
 	args.wsize = NFS_WSIZE;
 	args.rsize = NFS_RSIZE;
 #else
@@ -602,11 +695,10 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	return YES;
 }
 
-- (unsigned int)autoMap:(Map *)map name:(String *)name directory:(String *)dir mountdirectory:(String *)mnt
+- (int)autoMap:(Map *)map name:(String *)name directory:(String *)dir mountdirectory:(String *)mnt
 {
 	Vnode *maproot;
-	unsigned int status;
-	struct statfs sfs;
+	int status;
 
 	maproot = [map root];
 	[maproot setSource:name];
@@ -623,13 +715,12 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	map_table[map_table_count].mountdir = [mnt retain];
 	map_table[map_table_count].map = map;
 
-	status = [self automount:maproot directory:dir args:[map mountArgs]];
+	if ([map mountStyle] == kMountStyleAutoFS) {
+		status = [self autofsmount:maproot directory:dir args:[map mountArgs]];
+	} else {
+		status = [self automount:maproot directory:dir args:[map mountArgs] nfsmountoptions:[map NFSMountOptions]];
+	};
 	if (status != 0) return status;
-
-	/* Look up and save off the fsid of the newly mounted map: */
-	status = statfs([dir value], &sfs);
-	if (status != 0) return status;
-	[map setFSID:&sfs.f_fsid];
 
 	map_table_count++;
 	
@@ -637,14 +728,75 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	return status;
 }
 
-- (unsigned int)mountmap:(String *)mapname directory:(String *)dir mountdirectory:(String *)mnt
+/* Find autmount trigger path for given findmnt */
+- (String *)findDirByMountDir:(String *)findmnt
+{
+	String *triggerPath = nil;
+	int i, mountdir_len;
+	int max_mountdir_len = -1, offset = -1;
+
+	sys_msg(debug, LOG_DEBUG, "findDirByMountDir: Finding trigger path for %s.", [findmnt value]);
+	
+	/* traverse through map_table to find matching mountdir */
+	for (i = 0; i < map_table_count; i++) {
+		sys_msg(debug, LOG_DEBUG, "map_table[%d] dir=%s mountdir=%s.", i, [map_table[i].dir value], [map_table[i].mountdir value]); 
+		/* Check if mountdir is the substring of findmnt */
+		mountdir_len = [map_table[i].mountdir length];
+		if (strncmp([map_table[i].mountdir value], [findmnt value], mountdir_len) == 0) {
+			sys_msg(debug, LOG_DEBUG, "Substring %s found in %s.", [map_table[i].mountdir value], [findmnt value]);
+			/* Check if this substring is the largest occuring substring.  Store the length and offset if it is */
+			if (mountdir_len > max_mountdir_len) {
+				max_mountdir_len = mountdir_len;
+				offset = i;
+			}
+		}
+	}
+
+	if (max_mountdir_len > 0) {
+		char findmntpath[PATH_MAX];
+		int total_len;
+
+		/* found the offset of the map table that we want to access */
+		sys_msg(debug, LOG_DEBUG, "Best candidate for %s is %s.", [findmnt value], [map_table[offset].mountdir value]);
+		
+		/* replace /private/var/automount with /automount/static */
+		/* Replace the prefix string from findmnt similar with 
+		 * map_table.mountdir with map_table.dir.  We pass this
+		 * string to appropriate Map to check if path exists.
+		 * newstring = map_table.dir + (findmnt - map_table.mountdir)
+		 * /private/var/automount/riemann => /automount/static/riemann
+		 * /private/var/automount/Network => /automount/static/Network
+		 */
+
+		/* check if total length is less than PATH_MAX */
+		total_len = [map_table[offset].dir length] + strlen(&([findmnt value][max_mountdir_len])) + 1;
+		if (total_len > (PATH_MAX-1)) {
+			sys_msg (debug, LOG_ERR, "findDirByMountDir: Path length of new string > PATH_MAX");
+			goto out;
+		}
+		strncpy(findmntpath, [map_table[offset].dir value], [map_table[offset].dir length]+1); 
+		/* findmnt is NULL terminated from parent function */
+		strcat(findmntpath, &([findmnt value][max_mountdir_len]));
+		
+		/* send message to the indivdual map to get the trigger path */
+		triggerPath = [map_table[offset].map findTriggerPath:[map_table[offset].map root] findPath:[String uniqueString:findmntpath]];
+	} else {
+		/* no matching string was found */
+		sys_msg(debug, LOG_DEBUG, "findDirByMountDir: No matching string found.");
+	}
+
+out:
+	return triggerPath;
+}
+
+- (int)mountmap:(String *)mapname directory:(String *)dir mountdirectory:(String *)mnt
 {
 	Vnode *root, *p;
 	Map *map;
 	char *s, *t;
 	String *parent, *mountpt;
 	id mapclass;
-    unsigned int mountstatus;
+    int mountstatus;
 
 	mapclass = [Map class];
 
@@ -716,7 +868,7 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	mountstatus = [self autoMap:map name:mapname directory:dir mountdirectory:mnt];
     if (mountstatus) return mountstatus;
     
-    return [map registerAMInfoService];
+    return 0;
 }
 
 - (Map *)rootMap
@@ -724,50 +876,16 @@ sysctl_unmount(fsid_t *fsid, int flag)
 	return rootMap;
 }
 
-BOOL URLFieldSeparator(char c)
-{
-	switch (c) {
-		case '@':
-		case '/':
-			return YES;
-		
-		default:
-			return NO;
-	};
-}
-
-BOOL URLIsComplete(const char *url)
-{
-	const char *urlcontent;
-	const char *auth_field = NULL;
-	const char *p;
-		
-	if (strncasecmp(url, AFPSCHEMEPREFIX, sizeof(AFPSCHEMEPREFIX)-1) != 0) return NO;
-	
-	urlcontent = strchr(url + sizeof(AFPSCHEMEPREFIX) - 1, '/');
-	if (urlcontent == NULL) return NO;
-	
-	for (p = urlcontent + 1; *p; ++p) {
-		if (*p == ';') auth_field = p + 1;
-		if (URLFieldSeparator(*p)) break;
-	};
-	
-	if (auth_field == NULL) return NO;
-	
-	return strncasecmp(auth_field, AFPGUESTUAM, sizeof(AFPGUESTUAM) - 1) ? NO : YES;	
-}
-
-- (unsigned int)nfsmount:(Vnode *)v withUid:(int)uid
+- (int)nfsmount:(Vnode *)v withUid:(int)uid
 {
 	struct sockaddr_in sin;
 	struct nfs_args args;
 	char str[1024];
 	struct file_handle fh;
 	Server *s;
-	unsigned int status;
+	int status;
 	unsigned int vers, proto;
 	unsigned short port;
-	String *urlMountType;
     unsigned long urlMountFlags = kMarkAutomounted | kUseUIProxy;
 	char *url;
 	char mountDir[PATH_MAX];
@@ -777,33 +895,53 @@ BOOL URLIsComplete(const char *url)
 	char retString[1024];
 	uid_t effuid;
 	gid_t storedgid, storedegid;
-
-	urlMountType = [String uniqueString:"url"];
+	struct stat sb;
 
 #ifndef __APPLE__
 	unsigned int fhsize;
 #endif
 
-	if ([v mounted])
+	/*
+	   It's possible this node was mounted without the automounter noticing:
+	   make no assumptions here and double-check to avoid double-mounting.
+	 */
+	invalidate_fsstat_array();
+
+	if (([[v map] mountStyle] != kMountStyleAutoFS) && [v mounted])
 	{
 		sys_msg(debug_mount, LOG_DEBUG, "%s is already mounted",
 			[[v link] value]);
 		[v setNfsStatus:NFS_OK];
 		return 0;
 	}
-
+	
 	if ([v source] == nil) {
 		/* This is just an intermediate directory */
 		[v setMounted:YES];
 		return 0;
 	} else {
-		if ([v needsAuthentication]) {
-			sys_msg(debug, LOG_ERR, "Can't mount %s (URL='%s') because it might require authentication UI\n", [[v link] value], [[v urlString] value]);
-			[v setNfsStatus:NFSERR_NXIO];
-			return 1;
-		};
-		urlMountFlags |= kMountAtMountdir;
+		if ([[v map] mountStyle] == kMountStyleAutoFS) urlMountFlags |= kCreateNewSession;
 		if ([v mntArgs] & MNT_DONTBROWSE) urlMountFlags |= kMarkDontBrowse;
+		if ([v mntArgs] & MNT_NOSUID) urlMountFlags |= kNoSetUID;
+		if ([v mntArgs] & MNT_NODEV) urlMountFlags |= kNoDevices;
+		if ([v source] && (strcmp([[v source] value], "*") == 0)) {
+			if ([v needsAuthentication]) {
+				/* Mounting this URL may involve UI: */
+				if (gUIAllowed) {
+					urlMountFlags |= kMountAll;
+				} else {
+					sys_msg(debug, LOG_ERR, "Cannot mount URL '%s' for %s (UI not allowed).", [[v urlString] value], [[v path] value]);
+					[v setNfsStatus:NFSERR_NXIO];
+					return 1;
+				}
+			} else {
+				/* A URL for a non-authenticated service (NFS): */
+				urlMountFlags |= kMountAtMountdir;
+			}
+		} else {
+			/* Not a mount-all server URL: */
+			urlMountFlags |= kMountAtMountdir;
+		};
 	};
 
 	s = [v server];
@@ -816,7 +954,7 @@ BOOL URLIsComplete(const char *url)
 
 	if (![v mountPathCreated])
 	{
-		if (![self createPath:[v link] withUid:uid])
+		if (![self createPath:[v link] withUid:uid allowAnyExisting:NO])
 		{
 			sys_msg(debug, LOG_ERR, "Can't create mount point %s",
 				[[v link] value]);
@@ -834,20 +972,18 @@ BOOL URLIsComplete(const char *url)
 	args = [v nfsArgs];
 	args.hostname = str;
 
-	sys_msg(debug, LOG_DEBUG, "Mounting %s on %s",
-		str, [[v link] value]);
+	sys_msg(debug, LOG_DEBUG, "Mounting %s on %s", str, [[v link] value]);
 
 #ifdef __APPLE__
 	vers = [v forcedNFSVersion];
 	proto = [v forcedProtocol];
 
-	if ([[v vfsType] equal:urlMountType])
+	if ([v vfsType] && (strcmp([[v vfsType] value], "url") == 0))
 	{ 
 #ifdef Darwin
 		/* Darwin doesn't have AFP support.  */
 		status = 1;  // fail
 #else /* Darwin */
-#if 1
 		/* Use URLMount to mount the specified URL: */
 		effuid = geteuid();
 		storedgid = getgid();
@@ -877,7 +1013,7 @@ BOOL URLIsComplete(const char *url)
 		sigaddset(&blocked_set, SIGCHLD);
 		sigprocmask(SIG_BLOCK, &blocked_set, &curr_set);
 		
-		if ([v mountInProgress]) {
+		if ([self mountInProgressForVnode:v forUID:uid]) {
 			/* Don't bother forking for another mount request when one is already in progress;
 			   delaying this response could result in a deadlock if it's coming (even indirectly)
 			   from the UI mount proxy of the mount in progress
@@ -887,7 +1023,7 @@ BOOL URLIsComplete(const char *url)
 			gBlockedMountDependency = YES;
 			gBlockingMountTransactionID = [v transactionID];
 		} else {
-			[v setMountInProgress:YES];
+			[v incrementMountInProgressCount];
 			[v setTransactionID:rpc_xid];
 			mountPID = fork();
 			if (mountPID == -1) {
@@ -901,7 +1037,7 @@ BOOL URLIsComplete(const char *url)
 					
 					/* The child process will eventually signal (SIGCHLD) when the mount is complete; mark the vnode as
 					   'mount in progress' to prevent starting more than one mount while this attempt is in progress. */
-					(void)[self recordMountInProgressFor:v mountPID:mountPID transactionID:rpc_xid];
+					(void)[self recordMountInProgressFor:v uid:uid mountPID:mountPID transactionID:rpc_xid];
 				} else {
 					/* We are the child process; continue with this call but don't fall back into the main service loop */
 					gForkedMount = YES;
@@ -914,73 +1050,53 @@ BOOL URLIsComplete(const char *url)
 		/* If there's a forked mount in progress we're not the ones to do the mount;
 		   if we're a blocked dependency, we're not the ones to do the mount: */
 		if ((status == 0) && !gForkedMountInProgress && !gBlockedMountDependency) {
+			sys_msg(debug_mount, LOG_DEBUG, "Changing real and effective uid to %d...", uid);
 			setreuid(getuid(), uid);
 			setgid(gidForGroup("unknown"));  // unknown
 			setegid(gidForGroup("unknown"));  // unknown
-	
-#if SHUNTAFPMOUNTS
-			if (strncasecmp(url, AFPSCHEMEPREFIX, sizeof(AFPSCHEMEPREFIX)-1) == 0)
-			{
-				/* Shunt AFP URLs directly to the [low-level] AFP client: */
-				if (!afpLoaded)
-				{
-					system("/System/Library/Filesystems/AppleShare/afpLoad");
-					afpLoaded++;
-				}
 
-				sys_msg(debug_mount, LOG_DEBUG,
-					"Attempting to automount AFP url: \n\tURL = %s, \n\tserver = %s, \n\tmountdir = %s\n\toptions = 0x%08lx\n\tuid = %d",
-					url, [[[v server] name] value], mountDir, urlMountFlags, uid);
-	
-				status = afp_LLMount(url, mountDir, sizeof(retString), retString, urlMountFlags);
-			}
-			else
-#else /* SHUNTAFPMOUNTS */
-        if (1)
-#endif /* SHUNTAFPMOUNTS */
-			{
-				struct stat sb;
-	
-				retString[0] = (char)0;
-				
-				/* Look at the system console to figure out the uid of the logged-in user, if any: */
-				status = stat(gConsoleDevicePath, &sb);
-				if (URLIsComplete(url) || (status != 0) || (sb.st_uid != uid)) {
-					/* As a user different than the logged-in user, the UI proxy won't even TRY to mount a volume;
-					if the URL is complete, though, this will successfully mount it without UI
-					*/
-					sys_msg(debug_mount, LOG_DEBUG,
-						"Attempting to quietly automount url:\n\tURL = %s,\n\tserver = %s,\n\tmountdir = %s\n\toptions = 0x%08lx\n\tuid = %d",
-						url, [[[v server] name] value], mountDir, urlMountFlags & ~kUseUIProxy, uid);
-					status = MountCompleteURL(url, mountDir, sizeof(retString), retString, urlMountFlags & ~kUseUIProxy);
+			retString[0] = (char)0;
+			
+			/* Look at the system console to figure out the uid of the logged-in user, if any: */
+			status = stat(gConsoleDevicePath, &sb);
+			if ((status != 0) || (sb.st_uid != uid) || ![v needsAuthentication]) {
+				/* As a user different than the logged-in user, the UI proxy won't even TRY to mount a volume;
+				if the URL is complete, though, this will successfully mount it without UI
+				*/
+				sys_msg(debug_mount, LOG_DEBUG, "Attempting to quietly automount URL '%s':", url);
+				sys_msg(debug_mount, LOG_DEBUG, "\tserver = %s", [[[v server] name] value]);
+				sys_msg(debug_mount, LOG_DEBUG, "\tmountdir = %s", mountDir);
+				sys_msg(debug_mount, LOG_DEBUG, "\toptions = 0x%08lx", urlMountFlags & ~kUseUIProxy);
+				sys_msg(debug_mount, LOG_DEBUG, "\tuid = %d", uid);
+				status = MountCompleteURL(url, mountDir, sizeof(retString), retString, urlMountFlags & ~kUseUIProxy);
+			} else {
+				sys_msg(debug_mount, LOG_DEBUG, "Attempting to automount URL '%s':", url);
+				sys_msg(debug_mount, LOG_DEBUG, "\tserver = %s", [[[v server] name] value]);
+				sys_msg(debug_mount, LOG_DEBUG, "\tmountdir = %s", mountDir);
+				sys_msg(debug_mount, LOG_DEBUG, "\toptions = 0x%08lx", urlMountFlags);
+				sys_msg(debug_mount, LOG_DEBUG, "\tuid = %d", uid);
+				if ((urlMountFlags & kUseUIProxy) && ([[v map] mountStyle] == kMountStyleAutoFS)) {
+					status = AutomountServerURL(url, mountDir, &[v hashKey]->fsid, [v nodeID], sizeof(retString), retString, urlMountFlags | kAutoFSMount);
 				} else {
-					sys_msg(debug_mount, LOG_DEBUG,
-						"Attempting to automount url: \n\tURL = %s,\n\tserver = %s,\n\tmountdir = %s\n\toptions = 0x%08lx\n\tuid = %d",
-						url, [[[v server] name] value], mountDir, urlMountFlags, uid);
 					status = MountServerURL(url, mountDir, sizeof(retString), retString, urlMountFlags);
-				};
-				if ((status == 0) && (urlMountFlags & kMountAll)) {
-					strncpy(retString, mountDir, sizeof(retString));
-					retString[sizeof(retString)-1] = (char)0;			/* Make sure it's terminated */
-				};
-			}
+				}
+			};
+			if ((status == 0) && (urlMountFlags & kMountAll)) {
+				strncpy(retString, mountDir, sizeof(retString));
+				retString[sizeof(retString)-1] = (char)0;			/* Make sure it's terminated */
+			};
 		
+			sys_msg(debug_mount, LOG_DEBUG, "Reverting real and effective uid to %d...", effuid);
 			setreuid(getuid(), effuid);
 			setgid(storedgid);
 			setegid(storedegid);
 	
 			if (status)
 			{
-				sys_msg(debug_mount, LOG_DEBUG, "Recieved status = %d from forked MountServerURL", status);
+				sys_msg(debug_mount, LOG_DEBUG, "Received status = %d from forked MountServerURL", status);
 			}
 URLMount_Failure: ;
 		};
-#else /* 1 */
-		/* afp or http */
-		effuid = geteuid();
-		storedgid = getgid();
-		storedegid = getegid();
-#endif /* 1 */
 #endif /* Darwin */
 	}
 	else
@@ -1085,10 +1201,11 @@ URLMount_Failure: ;
 		else
 		{
 			status = mount("nfs", mountDir, [v mntArgs] | MNT_AUTOMOUNTED, &args);
+			if (status == -1) status = (errno != 0) ? errno : EINVAL;
 		}
 	}
 #else /* __APPLE__ */
-	if ([[v vfsType] equal:urlMountType])
+	if ([v vfsType] && (strcmp([[v vfsType] value], "url") == 0))
 	{
 		status = 1;  // fail
 	}
@@ -1116,11 +1233,10 @@ URLMount_Failure: ;
 		sin.sin_addr.s_addr = [s address];
 		args.addr = (struct sockaddr_in *)&sin;
 		status = mount(MOUNT_NFS, [[v link] value], [v mntArgs] | MNT_AUTOMOUNTED, (caddr_t)&args);
+		if (status == -1) status = (errno != 0) ? errno : EINVAL;
 	}
 #endif /* __APPLE__ */
 	
-	[urlMountType release];
-
 	if (gForkedMount || gSubMounter) gMountResult = status;
 
 	if (!gForkedMountInProgress && !gBlockedMountDependency) {
@@ -1145,12 +1261,42 @@ static void AddMountsInProgressListEntry(struct MountProgressRecord *pr)
 	sigprocmask(SIG_SETMASK, &curr_set, NULL);
 }
 
-- (void)recordMountInProgressFor:(Vnode *)v mountPID:(pid_t)mountPID transactionID:(u_long)transactionID
+- (BOOL)mountInProgressForVnode:(Vnode *)v forUID:(uid_t)uid
 {
-	struct MountProgressRecord *pr = [v mountInfo];
+	sigset_t curr_set;
+	sigset_t block_set;
+	struct MountProgressRecord *pr;
+	BOOL result = NO;
+	
+	/* Check the global mounts-in-progress list with delivery of SIGCHLD blocked
+	   to avoid a race wrt. the 'gMountsInProgress' list: */
+	sigemptyset(&block_set);
+	sigaddset(&block_set, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &block_set, &curr_set);
+	LIST_FOREACH(pr, &gMountsInProgress, mpr_link) {
+		if ((pr->mpr_vp == v) && (pr->mpr_uid == uid)) {
+			result = YES;
+			break;
+		};
+	};
+	sigprocmask(SIG_SETMASK, &curr_set, NULL);
+	
+	return result;
+}
+
+- (void)recordMountInProgressFor:(Vnode *)v uid:(uid_t)uid mountPID:(pid_t)mountPID transactionID:(u_long)transactionID
+{
+	struct MountProgressRecord *pr;
+	
+	pr = malloc(sizeof(*pr));
+	if (pr == NULL) {
+		sys_msg(debug, LOG_ERR, "Couldn't allocate mount progress record?!");
+		return;
+	};
 	
 	pr->mpr_mountpid = mountPID;
 	pr->mpr_vp = [v retain];
+	pr->mpr_uid = uid;
 	pr->mpr_xid = transactionID;
 	
 	AddMountsInProgressListEntry(pr);
@@ -1181,6 +1327,8 @@ static void AddMountsInProgressListEntry(struct MountProgressRecord *pr)
 
 static void completeMount(Vnode *v, unsigned int status)
 {
+	Vnode *serverNode;
+	
 	sys_msg(debug_mount, LOG_DEBUG, "completeMount: v = 0x%08lx, status = 0x%08lx", v, status);
 	
 	if (v == NULL)
@@ -1199,16 +1347,17 @@ static void completeMount(Vnode *v, unsigned int status)
 		sys_msg(debug_mount, LOG_DEBUG, "Mounted %s:%s on %s", [[[v server] name] value],
 											[[v source] value],
 											[[v link] value]);
-	
-		/* Tell the node that it was mounted */
-		if (v) {
-			[v setMounted:YES];
-			[v markDirectoryChanged];
-			if ([v parent]) {
-				[[v parent] markDirectoryChanged];
-			};
+	}
+
+	/* Update the 'mounted' status of the entire subtree
+	   [ some of which may have been mounted by sub-processes ]
+	   unless this is being completed in a sub-mount process: */
+	if (v && !(gForkedMount || gSubMounter)) {
+		serverNode = v;
+		if (doServerMounts) {
+		  while ([serverNode serverDepth] > 0) serverNode = [serverNode parent];
 		};
-	
+		[serverNode updateMountStatus];
 #ifndef __APPLE__
 		[self mtabUpdate:v];
 #endif
@@ -1224,13 +1373,31 @@ static void completeMount(Vnode *v, unsigned int status)
 	LIST_FOREACH(pr, &gMountsInProgress, mpr_link) {
 		if ((pr->mpr_mountpid == mountPID) || (pr->mpr_mountpid == 0)) {
 			sys_msg(debug_mount, LOG_DEBUG, "completeMountInProgressBy:%d, transaction id = 0x%08x", mountPID, pr->mpr_xid);
-			completeMount(pr->mpr_vp, (unsigned int)WEXITSTATUS(exitStatus));
-			[pr->mpr_vp setMountInProgress:NO];
+			completeMount(pr->mpr_vp, (WIFEXITED(exitStatus)) ? (unsigned int)WEXITSTATUS(exitStatus) : EFAULT);
+			[pr->mpr_vp decrementMountInProgressCount];
 			[pr->mpr_vp release];
 			LIST_REMOVE(pr, mpr_link);
+			free(pr);
 			break;
 		};
 	};
+}
+
+- (int)dispatch_autofsreq:(struct autofs_userreq *)req forFSID:(struct fsid *)target_fsid
+{
+	int i;
+	fsid_t *fs_fsid;
+
+	/* Dispatch the mount request to the specific map: */
+	for (i = 0; i < map_table_count; i++) {
+		fs_fsid = [map_table[i].map mountedFSID];
+		if ((fs_fsid->val[0] == target_fsid->val[0]) &&
+			(fs_fsid->val[1] == target_fsid->val[1])) {
+			return [map_table[i].map handle_autofsreq:req];
+		};
+	};
+	
+	return -1;
 }
 
 - (Server *)serverWithName:(String *)name
@@ -1333,10 +1500,12 @@ static void completeMount(Vnode *v, unsigned int status)
 	Vnode *v;
 
 	sys_msg(debug, LOG_DEBUG, "Unmounting automounts");
+	
+	invalidate_fsstat_array();
 
 	chdir("/");
 
-    if (use_force)
+    if (UNMOUNTALL_USING_NODETABLE && use_force)
     {
         /* unmount normal NFS mounts */
         for (i = node_table_count - 1; i >= 0; i--)
@@ -1350,7 +1519,7 @@ static void completeMount(Vnode *v, unsigned int status)
     
             if (![v mounted]) continue;
     
-    #ifdef __APPLE__
+#ifdef __APPLE__
             if (use_force)
             {
                 sys_msg(debug, LOG_WARNING, "Force-unmounting %s", [[v link] value]);
@@ -1361,16 +1530,16 @@ static void completeMount(Vnode *v, unsigned int status)
                 sys_msg(debug, LOG_WARNING, "Unmounting %s", [[v link] value]);
                 status = unmount([[v link] value], 0);
             }
-    #else
+#else
             status = unmount([[v link] value]);
-    #endif
+#endif
     
             if (status == 0)	
             {
                 [v setMounted:NO];
-    #ifndef __APPLE__
+#ifndef __APPLE__
                 [self mtabUpdate:v];
-    #endif
+#endif
                 sys_msg(debug, LOG_DEBUG, "Unmounted %s", [[v link] value]);
             }
             else
@@ -1382,9 +1551,9 @@ static void completeMount(Vnode *v, unsigned int status)
     }
     else
     {
-        /* Tell maps to try to unmount all nodes */
+        /* Tell individual maps to try to unmount all nodes */
         for (i = 0; i < map_table_count; i++) {
-            [map_table[i].map unmount:[map_table[i].map root] withRemountOnFailure:NO];
+            [map_table[i].map unmountAutomounts:use_force];
         };
     }
 }
@@ -1395,6 +1564,8 @@ static void completeMount(Vnode *v, unsigned int status)
 	Vnode *v;
 
 	sys_msg(debug, LOG_DEBUG, "Unmounting maps");
+	
+	invalidate_fsstat_array();
 	
 	/* unmount automounter */
 	for (i = node_table_count - 1; i >= 0; i--)
@@ -1407,18 +1578,22 @@ static void completeMount(Vnode *v, unsigned int status)
 		if ([v link] == nil) continue;
 
 #ifdef __APPLE__
-		if (use_force)
-		{
-			sys_msg(debug, LOG_WARNING, "Force-unmounting %s", [[v link] value]);
-			if ((status = sysctl_unmount([[v map] mountedFSID], MNT_FORCE)) != 0) {
-				status = unmount([[v link] value], MNT_FORCE);
-			};
-		}
-		else
-		{
-			sys_msg(debug, LOG_DEBUG, "Unmounting %s", [[v link] value]);
-			if ((status = sysctl_unmount([[v map] mountedFSID], 0)) != 0) {
-				status = unmount([[v link] value], 0);
+		if ([[v map] mountStyle] == kMountStyleAutoFS) {
+			status = [self attemptUnmount:v usingForce:use_force];
+		} else {
+			if (use_force)
+			{
+				sys_msg(debug, LOG_WARNING, "Force-unmounting %s", [[v link] value]);
+				if ((status = sysctl_unmount([[v map] mountedFSID], MNT_FORCE)) != 0) {
+					status = unmount([[v link] value], MNT_FORCE);
+				};
+			}
+			else
+			{
+				sys_msg(debug, LOG_DEBUG, "Unmounting %s", [[v link] value]);
+				if ((status = sysctl_unmount([[v map] mountedFSID], 0)) != 0) {
+					status = unmount([[v link] value], 0);
+				};
 			};
 		};
 #else
@@ -1505,7 +1680,7 @@ static void completeMount(Vnode *v, unsigned int status)
 				   (a disconnected NFS mount will hang forever in unmount()), but leave the
 				   mount undisturbed.
 				 */
-				sys_msg(debug, LOG_ERR, "validate: abandoning mountpoint %s.", mountpoint);
+				sys_msg(debug, LOG_INFO, "validate: abandoning mountpoint %s.", mountpoint);
 					
 				/* Pretend this node was unmarked to begin with to leave its accessor path */
 				continue;
@@ -1652,6 +1827,8 @@ static void completeMount(Vnode *v, unsigned int status)
 	BOOL foundUnmount = NO;
 	int i;
 	
+	revalidate_fsstat_array(NULL);
+	
 	for (i=0; i<map_table_count; ++i)
 	{
 		sys_msg(debug, LOG_DEBUG, "Checking map %s for unmounts", [map_table[i].name value]);
@@ -1669,8 +1846,8 @@ static void completeMount(Vnode *v, unsigned int status)
 {
 	int i;
 
-	[self unmountAutomounts:1];
-	[self unmountMaps:1];
+	[self unmountAutomounts:MNT_FORCE];
+	[self unmountMaps:MNT_FORCE];
 
 	/* Give maps a chance to clean up before nodes or servers are released. */
 	for (i = 0; i < map_table_count; i++)
@@ -1714,37 +1891,78 @@ static void completeMount(Vnode *v, unsigned int status)
 	[super dealloc];
 }
 
-- (unsigned int)attemptUnmount:(Vnode *)v
+- (int)attemptUnmount:(Vnode *)v usingForce:(int)use_force
 {
 	int status;
 
 	if (v == nil) return EINVAL;
 
-	if (![v mounted]) return 0;
+	if ([[v map] mountStyle] == kMountStyleParallel) {
+		if (![v mounted]) return 0;
+		if ([v type] != NFLNK) return EINVAL;
 
-	if ([v type] != NFLNK) return EINVAL;
+		if ([v source] == nil)
+		{
+			[v setMounted:NO];
+			return 0;
+		}
+	};
+	
+	if ([[v map] mountStyle] == kMountStyleAutoFS) {
+		int fs_count, i;
+		struct statfs *fsinfo;
+		uid_t effuid;
 
-	if ([v source] == nil)
-	{
-		[v setMounted:NO];
-		return 0;
-	}
+		sys_msg(debug_mount, LOG_DEBUG, "Attempting to %s unmount all instances of %s",
+					(use_force ? "forcibly" : ""),
+					[[v path] value]);
 
-	sys_msg(debug_mount, LOG_DEBUG, "Attempting to unmount %s",
-		[[v link] value]);
+		fs_count = revalidate_fsstat_array(&fsinfo);
+		if (fs_count <= 0) {
+			sys_msg(debug, LOG_DEBUG, "attemptUnmount: get_fsstat_array failed returned fs count of %d: %s", fs_count, strerror(errno));
+			return NO;
+		};
+		
+		effuid = geteuid();
+		for (i=0; i < fs_count; ++i)
+		{
+			if (strcmp(fsinfo[i].f_mntonname, [[v path] value]) == 0) {
+				seteuid(fsinfo[i].f_owner);
 #ifdef __APPLE__
-	status = unmount([[v link] value], 0);
+				status = unmount(fsinfo[i].f_mntonname, use_force);
 #else
-	status = unmount([[v link] value]);
+				status = unmount(fsinfo[i].f_mntonname);
 #endif
-	if (status == 0)
-	{
-		sys_msg(debug, LOG_DEBUG, "Unmounted %s", [[v link] value]);
-		[v setMounted:NO];
+				if (status == 0)
+				{
+					sys_msg(debug, LOG_DEBUG, "Unmounted %s (uid = %d)", [[v path] value], fsinfo[i].f_owner);
 #ifndef __APPLE__
-		[self mtabUpdate:v];
+					[self mtabUpdate:v];
 #endif
+				}
+			};
+		};
+		seteuid(effuid);
+		invalidate_fsstat_array();
 		return 0;
+	} else {
+		sys_msg(debug_mount, LOG_DEBUG, "Attempting to %s unmount %s", (use_force ? "forcibly" : ""), [[v link] value]);
+	
+#ifdef __APPLE__
+		status = unmount([[v link] value], use_force);
+#else
+		status = unmount([[v link] value]);
+#endif
+		if (status == 0)
+		{
+			sys_msg(debug, LOG_DEBUG, "Unmounted %s", [[v link] value]);
+			[v setMounted:NO];
+#ifndef __APPLE__
+			[self mtabUpdate:v];
+#endif
+			invalidate_fsstat_array();
+			return 0;
+		}
 	}
 
 	sys_msg(debug_mount, LOG_DEBUG, "Unmount %s failed: %s",
@@ -1937,5 +2155,19 @@ static void completeMount(Vnode *v, unsigned int status)
 	rename("/etc/auto_mtab", "/etc/mtab");
 }
 #endif
+
+static Boolean VnodeKeyEqual(const void *value1, const void *value2) {
+	return ( (((VNodeHashKey *)value1)->nodeid == ((VNodeHashKey *)value2)->nodeid) &&
+			 (((VNodeHashKey *)value1)->fsid.val[0] == ((VNodeHashKey *)value2)->fsid.val[0]) &&
+			 (((VNodeHashKey *)value1)->fsid.val[1] == ((VNodeHashKey *)value2)->fsid.val[1]) );
+}
+
+static CFHashCode VnodeKeyHash(const void *value) {
+	return (CFHashCode)(((VNodeHashKey *)value)->nodeid ^ ((VNodeHashKey *)value)->fsid.val[0]);
+}
+
+static Boolean VnodeEqual(const void *value1, const void *value2) {
+	return (value1 == value2);
+}
 
 @end

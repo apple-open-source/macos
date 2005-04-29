@@ -111,7 +111,7 @@
         case 3: strcat(str, "  (Interrupt ");    interrupt = true;      break;
     }
     
-    switch ( (endpointDescriptor.bmAttributes & 0x06) >> 2)
+    switch ( (endpointDescriptor.bmAttributes & 0x0C) >> 2)
     {
         case 0: strcat(str, "no synchronization ");     break;
         case 1: strcat(str, "asynchronous ");           break;

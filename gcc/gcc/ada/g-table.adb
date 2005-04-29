@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---            Copyright (C) 1998-2001 Ada Core Technologies, Inc.           --
+--            Copyright (C) 1998-2004 Ada Core Technologies, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,13 +26,15 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).   --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
 with System;        use System;
 with System.Memory; use System.Memory;
-with System.Address_To_Access_Conversions;
+
+with Unchecked_Conversion;
 
 package body GNAT.Table is
 
@@ -59,17 +60,15 @@ package body GNAT.Table is
    --  in Max. Works correctly to do an initial allocation if the table
    --  is currently null.
 
-   package Table_Conversions is
-      new System.Address_To_Access_Conversions (Big_Table_Type);
-   --  Address and Access conversions for a Table object.
+   pragma Warnings (Off);
+   --  Turn off warnings. The following unchecked conversions are only used
+   --  internally in this package, and cannot never result in any instances
+   --  of improperly aliased pointers for the client of the package.
 
-   function To_Address (Table : Table_Ptr) return Address;
-   pragma Inline (To_Address);
-   --  Returns the Address for the Table object.
+   function To_Address is new Unchecked_Conversion (Table_Ptr, Address);
+   function To_Pointer is new Unchecked_Conversion (Address, Table_Ptr);
 
-   function To_Pointer (Table : Address) return Table_Ptr;
-   pragma Inline (To_Pointer);
-   --  Returns the Access pointer for the Table object.
+   pragma Warnings (On);
 
    --------------
    -- Allocate --
@@ -136,7 +135,7 @@ package body GNAT.Table is
    ----------
 
    procedure Init is
-      Old_Length : Integer := Length;
+      Old_Length : constant Integer := Length;
 
    begin
       Last_Val := Min - 1;
@@ -232,7 +231,7 @@ package body GNAT.Table is
       Item  : Table_Component_Type)
    is
    begin
-      if Integer (Index) > Max then
+      if Integer (Index) > Last_Val then
          Set_Last (Index);
       end if;
 
@@ -255,25 +254,6 @@ package body GNAT.Table is
          end if;
       end if;
    end Set_Last;
-
-   ----------------
-   -- To_Address --
-   ----------------
-
-   function To_Address (Table : Table_Ptr) return Address is
-   begin
-      return Table_Conversions.To_Address
-        (Table_Conversions.Object_Pointer (Table));
-   end To_Address;
-
-   ----------------
-   -- To_Pointer --
-   ----------------
-
-   function To_Pointer (Table : Address) return Table_Ptr is
-   begin
-      return Table_Ptr (Table_Conversions.To_Pointer (Table));
-   end To_Pointer;
 
 begin
    Init;

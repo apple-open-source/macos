@@ -65,8 +65,8 @@
 #    DEBUG_BUILD_LDFLAGS, OPTIMIZE_BUILD_LDFLAGS, PROFILE_BUILD_LDFLAGS: flags
 #	passed to ld/libtool (defaults to nothing)
 
-WARNING_CFLAGS = -Wmost -Wno-format
-OPTIMIZE_BUILD_CFLAGS = -O0
+WARNING_CFLAGS = -Wall -Wno-format
+OPTIMIZE_BUILD_CFLAGS = -Os
 
 # Library and Framework projects only:
 #    INSTALL_NAME_DIRECTIVE:  This directive ensures that executables linked

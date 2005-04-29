@@ -27,6 +27,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
+/* $XFree86: xc/programs/lbxproxy/include/resource.h,v 1.6 2003/11/17 22:20:49 dawes Exp $ */
 
 #ifndef RESOURCE_H
 #define RESOURCE_H 1
@@ -64,74 +65,54 @@ typedef struct _ClientResource {
 #define PROXY_BIT		0x40000000		/* use illegal bit */
 
 typedef int (*DeleteType)(
-#if NeedNestedPrototypes
     ClientPtr /*client*/,
     pointer /*value*/,
     XID /*id*/
-#endif
 );
 
 extern Bool InitDeleteFuncs(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern Bool InitClientResources(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void FinishInitClientResources(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     XID /*ridBase*/,
     XID /*ridMask*/
-#endif
 );
 
 extern XID FakeClientID(
-#if NeedFunctionPrototypes
     int /*client*/
-#endif
 );
 
 extern Bool AddResource(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     XID /*id*/,
     RESTYPE /*type*/,
     pointer /*value*/
-#endif
 );
 
 extern void FreeResource(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     XID /*id*/,
     RESTYPE /*skipDeleteFuncType*/
-#endif
 );
 
 extern void FreeClientResources(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void FreeAllResources(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern pointer LookupIDByType(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     XID /*id*/,
     RESTYPE /*rtype*/
-#endif
 );
 
 #endif

@@ -1,0 +1,118 @@
+# Commands covered: running our tests from inside a 'zip' vfs.
+#
+# This file contains a collection of tests for one or more of the Tcl
+# built-in commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2001-2002 by Vince Darley.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+tcltest::testConstraint nativefs \
+  [string equal [lindex [file system [info script]] 0] "native"]
+
+proc makeAndMountZipArchive {} {
+    puts stdout "Zipping tests" ; update
+    cd [file dirname [file dirname [file normalize [info script]]]]
+    set filelist [concat [glob -dir [pwd] -join -tails tests *.test] \
+      [glob -dir [pwd] -join -tails tests *.tcl]]
+    catch {file delete [file join tests tests.zip]}
+    eval [list exec zip -q -9 [file join tests tests.zip]] $filelist
+    puts stdout "Done zipping"
+    cd [file dirname [info script]]
+    
+    package require vfs::zip
+    set mount [vfs::zip::Mount tests.zip tests.zip]
+    #puts "[pwd] ; $::auto_path, [glob *]"
+    pwd
+    cd tests.zip
+    return [list vfs::zip::Unmount $mount tests.zip]
+}
+
+proc makeAndMountMk4Archive {} {
+    puts stdout "Making mk4 archive of tests" ; update
+    cd [file dirname [file dirname [file normalize [info script]]]]
+    catch {file delete [file join tests tests.bin]}
+    exec sdx fs2sd tests
+    puts stdout "Done making mk4 archive"
+    cd [file dirname [info script]]
+    
+    package require vfs::mk4
+    set mount [vfs::mk4::Mount tests.bin tests.bin]
+    cd tests.bin
+    return [list vfs::mk4::Unmount $mount tests.bin]
+}
+
+# This actually calls the test suite recursively, which probably
+# causes some problems, although it shouldn't really!
+test vfsArchive-1.0 {package require vfs} {
+    if {![catch {package require vfs} res]} {
+	set res "ok"
+    }
+    set res
+} {ok}
+
+# This actually calls the test suite recursively, which probably
+# causes some problems, although it shouldn't really!
+test vfsArchive-1.1 {run tests in zip archive} {nativefs} {
+    # If this test fails, you probably don't have 'zip' installed.
+    set testdir [pwd]
+    package require vfs
+    if {[catch {makeAndMountZipArchive} unmount]} {
+	set res "Couldn't make and mount zip archive to test with: $unmount"
+	puts $::errorInfo
+	puts stderr $::auto_path
+    } else {
+	puts stdout "=== Running tests in zip archive ==="
+	if {![catch {
+	    cd tests
+	    source all.tcl
+	    cd ..
+	    cd ..
+	    puts [pwd]
+	    eval $unmount
+	} res]} {
+	    set res "ok"
+	}
+	puts stdout "=== End of embedded zip tests ==="
+    }
+    cd $testdir
+    set res
+} {ok}
+
+
+# This actually calls the test suite recursively, which probably
+# causes some problems, although it shouldn't really!
+test vfsArchive-1.2 {run tests in mk4 archive} {nativefs} {
+    # If this test fails, you probably don't have tclkit and 'sdx'
+    # installed.  That's not a big deal.
+    set testdir [pwd]
+    puts stderr $testdir
+    package require vfs
+    if {[catch {makeAndMountMk4Archive} unmount]} {
+	set res "Couldn't make and mount mk4 archive to test with: $unmount"
+	puts stderr $::auto_path
+    } else {
+	puts stdout "=== Running tests in mk4 archive ==="
+	cd tests
+	source all.tcl
+	cd ..
+	cd ..
+	puts [pwd]
+	eval $unmount
+	set res "ok"
+	puts stdout "=== End of embedded mk4 tests ==="
+    }
+    cd $testdir
+    set res
+} {ok}
+
+
+

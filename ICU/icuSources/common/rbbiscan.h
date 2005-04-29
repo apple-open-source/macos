@@ -18,7 +18,7 @@
 #include "unicode/parseerr.h"
 #include "uhash.h"
 #include "uvector.h"
-#include "symtable.h"     // For UnicodeSet parsing, is the interface that
+#include "unicode/symtable.h"// For UnicodeSet parsing, is the interface that
                           //    looks up references to $variables within a set.
 #include "rbbinode.h"
 //#include "rbbitblb.h"
@@ -144,6 +144,9 @@ private:
                                                      //  See rbbirpt.h.
 
     int32_t                        fRuleNum;         // Counts each rule as it is scanned.
+
+    int32_t                        fOptionStart;     // Input index of start of a !!option
+                                                     //   keyword, while being scanned.
 
     UnicodeSet *gRuleSet_rule_char;
     UnicodeSet *gRuleSet_white_space;

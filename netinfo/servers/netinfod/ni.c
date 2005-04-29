@@ -101,20 +101,29 @@ ni_validate_dir(void *handle, ni_object *obj, int complain)
 {
 	ni_proplist *pl;
 	ni_index i;
-	
-	if ((NH(handle)->user != NULL) &&
-		(ni_name_match(NH(handle)->user, ACCESS_USER_SUPER)))
+
+	pl = &obj->nio_props;
+	for (i = 0; i < pl->nipl_len; i++)
+	{
+		if (ni_name_match(pl->nipl_val[i].nip_name, LOCK_DIR_KEY)) 
+		{
+			system_log(LOG_DEBUG, "Denied access to locked directory %d", obj->nio_id.nii_object);
+			return NI_RDONLY;
+		}
+	}
+
+	if ((NH(handle)->user != NULL) && (ni_name_match(NH(handle)->user, ACCESS_USER_SUPER)))
 	{
 		auth_count[WGOOD]++;
 		if (!i_am_clone)
 		{
 			system_log(LOG_DEBUG,
-				"Allowing superuser %s to modify directory %d",
-				NH(handle)->user, obj->nio_id.nii_object);
+					   "Allowing superuser %s to modify directory %d",
+					   NH(handle)->user, obj->nio_id.nii_object);
 		}
 		return NI_OK;
 	}
-
+	
 	pl = &obj->nio_props;
 	for (i = 0; i < pl->nipl_len; i++)
 	{
@@ -143,8 +152,7 @@ ni_validate_name(void *handle, ni_object *obj, ni_index prop_index)
 	ni_name propkey;
 	ni_index i;
 
-	if ((NH(handle)->user != NULL) &&
-		(ni_name_match(NH(handle)->user, ACCESS_USER_SUPER)))
+	if ((NH(handle)->user != NULL) && (ni_name_match(NH(handle)->user, ACCESS_USER_SUPER)))
 	{
 		auth_count[WGOOD]++;
 		if (!i_am_clone)
@@ -1010,6 +1018,8 @@ ni_writeprop(void *handle, ni_id *id, ni_index prop_index, ni_namelist values)
 
 	/* check for directory access */
 	status = ni_validate_dir(handle, obj, 0);
+	if (status == NI_RDONLY) return status;
+
 	if (status != NI_OK)
 	{
 		/* no directory access - check for access to this property */

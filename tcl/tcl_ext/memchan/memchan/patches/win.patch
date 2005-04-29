@@ -1,0 +1,143 @@
+*** memchan.c	Fri Nov 15 22:37:43 1996
+--- ../work/memchan/memchan.c	Sat Feb 15 21:07:49 1997
+***************
+*** 32,42 ****
+--- 32,74 ----
+  #include <errno.h>
+  
+  /*
++  * Definitions to enable the generation of a DLL under Windows.
++  * Taken from 'ftp://ftp.sunlabs.com/pub/tcl/example.zip(example.c)'
++  */
++ 
++ #if defined(__WIN32__)
++ #   define WIN32_LEAN_AND_MEAN
++ #   include <windows.h>
++ #   undef WIN32_LEAN_AND_MEAN
++ 
++ /*
++  * VC++ has an alternate entry point called DllMain, so we need to rename
++  * our entry point.
++  */
++ 
++ #   if defined(_MSC_VER)
++ #	define EXPORT(a,b) __declspec(dllexport) a b
++ #	define DllEntryPoint DllMain
++ #   else
++ #	if defined(__BORLANDC__)
++ #	    define EXPORT(a,b) a _export b
++ #	else
++ #	    define EXPORT(a,b) a b
++ #	endif
++ #   endif
++ #else
++ #   define EXPORT(a,b) a b
++ #endif
++ 
++ /*
+   * Number of bytes used to extend a storage area being to small.
+   */
+  
+  #define INCREMENT (512)
+  
++ /* make internal procedure of tcl available */
++ EXTERN void
++ panic _ANSI_ARGS_ ((CONST char* format, ...));
+  
+  /*
+   * Forward declarations of internal procedures.
+***************
+*** 274,280 ****
+  int*       errorCodePtr;	/* Location of error flag. */
+  {
+    ChannelInstance* chan;
+!   int              newLocation;
+  
+    chan = (ChannelInstance*) instanceData;
+    *errorCodePtr = 0;
+--- 306,312 ----
+  int*       errorCodePtr;	/* Location of error flag. */
+  {
+    ChannelInstance* chan;
+!   long int         newLocation;
+  
+    chan = (ChannelInstance*) instanceData;
+    *errorCodePtr = 0;
+***************
+*** 297,303 ****
+      return -1;
+    }
+  
+!   if ((newLocation < 0) || (newLocation > chan->used)) {
+      *errorCodePtr = EINVAL; /* EBADRQC ?? */
+      return -1;
+    }
+--- 329,335 ----
+      return -1;
+    }
+  
+!   if ((newLocation < 0) || (newLocation > (long int) chan->used)) {
+      *errorCodePtr = EINVAL; /* EBADRQC ?? */
+      return -1;
+    }
+***************
+*** 541,547 ****
+  
+    chan = Tcl_CreateChannel (&channelType,
+  			    channelName,
+! 			    instance,
+  			    TCL_READABLE | TCL_WRITABLE);
+  
+    Tcl_RegisterChannel  (interp, chan);
+--- 573,579 ----
+  
+    chan = Tcl_CreateChannel (&channelType,
+  			    channelName,
+! 			    (ClientData) instance,
+  			    TCL_READABLE | TCL_WRITABLE);
+  
+    Tcl_RegisterChannel  (interp, chan);
+***************
+*** 569,580 ****
+   *------------------------------------------------------*
+   */
+  
+! EXTERN int
+! Memchan_Init (interp)
+  Tcl_Interp* interp;
+  {
+    Tcl_CreateCommand (interp, "memchan", &MemoryChannelCmd,
+! 		     (ClientData) NULL, NULL);
+  
+    /* register memory channels as now available package */
+    Tcl_PkgProvide (interp, "Memchan", MEMCHAN_VERSION);
+--- 601,611 ----
+   *------------------------------------------------------*
+   */
+  
+! EXTERN EXPORT (int,Memchan_Init) (interp)
+  Tcl_Interp* interp;
+  {
+    Tcl_CreateCommand (interp, "memchan", &MemoryChannelCmd,
+! 		     (ClientData) NULL, (Tcl_CmdDeleteProc*) NULL);
+  
+    /* register memory channels as now available package */
+    Tcl_PkgProvide (interp, "Memchan", MEMCHAN_VERSION);
+***************
+*** 601,608 ****
+   *------------------------------------------------------*
+   */
+  
+! EXTERN int
+! Mem_SafeInit (interp)
+  Tcl_Interp* interp;
+  {
+    return Memchan_Init (interp);
+--- 632,638 ----
+   *------------------------------------------------------*
+   */
+  
+! EXTERN EXPORT (int,Mem_SafeInit) (interp)
+  Tcl_Interp* interp;
+  {
+    return Memchan_Init (interp);

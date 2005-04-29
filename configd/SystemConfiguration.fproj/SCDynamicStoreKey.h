@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,19 +30,31 @@
 
 /*!
 	@header SCDynamicStoreKey
+	@discussion The SCDynamicStoreKey API provides convenience functions
+		that an application can use to create a correctly formatted
+		dynamic store key for accessing specific items in the dynamic
+		store.  An application can then use the resulting string in
+		any function that requires a dynamic store key.
  */
 
 
 __BEGIN_DECLS
 
 /*
- * SCDynamicStoreKeyCreate*
+ * SCDynamicStoreKeyCreate
  * - convenience routines that create a CFString key for an item in the store
  */
 
 /*!
 	@function SCDynamicStoreKeyCreate
-	@discussion Creates a store key using the given format.
+	@discussion Creates a dynamic store key using the given format.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this key.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@param fmt A CFStringRef describing the format for this key.
+	@result Returns a string containing the formatted key.
  */
 CFStringRef
 SCDynamicStoreKeyCreate				(
@@ -53,6 +65,21 @@ SCDynamicStoreKeyCreate				(
 
 /*!
 	@function SCDynamicStoreKeyCreateNetworkGlobalEntity
+	@discussion Creates a dynamic store key that can be used to access
+		a specific global (as opposed to a per-service or per-interface)
+		network configuration entity.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this key.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@param domain A string specifying the desired domain, such as the
+		requested configuration (kSCDynamicStoreDomainSetup) or the
+		actual state (kSCDynamicStoreDomainState).
+	@param entity A string containing the specific global entity, such
+		as IPv4 (kSCEntNetIPv4) or DNS (kSCEntNetDNS).
+	@result Returns a string containing the formatted key.
+
  */
 CFStringRef
 SCDynamicStoreKeyCreateNetworkGlobalEntity	(
@@ -63,6 +90,19 @@ SCDynamicStoreKeyCreateNetworkGlobalEntity	(
 
 /*!
 	@function SCDynamicStoreKeyCreateNetworkInterface
+	@discussion Creates a dynamic store key that can be used to access
+		the network interface configuration information stored in
+		the dynamic store.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this key.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@param domain A string specifying the desired domain, such as the
+		requested configuration (kSCDynamicStoreDomainSetup) or the
+		actual state (kSCDynamicStoreDomainState).
+	@result Returns a string containing the formatted key.
+
  */
 CFStringRef
 SCDynamicStoreKeyCreateNetworkInterface		(
@@ -72,6 +112,23 @@ SCDynamicStoreKeyCreateNetworkInterface		(
 
 /*!
 	@function SCDynamicStoreKeyCreateNetworkInterfaceEntity
+	@discussion Creates a dynamic store key that can be used to access
+		the per-interface network configuration information stored in
+		the dynamic store.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this key.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@param domain A string specifying the desired domain, such as the
+		requested configuration (kSCDynamicStoreDomainSetup) or the
+		actual state (kSCDynamicStoreDomainState).
+	@param ifname A string containing the interface name or a regular
+		expression pattern.
+	@param entity A string containing the specific global entity, such
+		as IPv4 (kSCEntNetIPv4) or DNS (kSCEntNetDNS).
+	@result Returns a string containing the formatted key.
+
  */
 CFStringRef
 SCDynamicStoreKeyCreateNetworkInterfaceEntity	(
@@ -83,6 +140,24 @@ SCDynamicStoreKeyCreateNetworkInterfaceEntity	(
 
 /*!
 	@function SCDynamicStoreKeyCreateNetworkServiceEntity
+	@discussion Creates a dynamic store key that can be used to access
+		the per-service network configuration information stored in
+		the dynamic store.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this key.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@param domain A string specifying the desired domain, such as the
+		requested configuration (kSCDynamicStoreDomainSetup) or the
+		actual state (kSCDynamicStoreDomainState).
+	@param serviceID A string containing the service ID or a regular
+		expression pattern.
+	@param entity A string containing the specific global entity, such
+		as IPv4 (kSCEntNetIPv4) or DNS (kSCEntNetDNS).
+	@result Returns a string containing the formatted key.
+
+
  */
 CFStringRef
 SCDynamicStoreKeyCreateNetworkServiceEntity	(
@@ -94,10 +169,16 @@ SCDynamicStoreKeyCreateNetworkServiceEntity	(
 
 /*!
 	@function SCDynamicStoreKeyCreateComputerName
-	@discussion Creates a key that can be used by the SCDynamicStoreSetNotificationKeys()
-		function to receive notifications when the current
-		computer/host name changes.
-	@result A notification string for the current computer/host name.
+	@discussion Creates a key that can be used in conjuntion with
+		SCDynamicStoreSetNotificationKeys function to receive
+		notifications when the current computer name changes.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this key.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@result Returns a notification string for the current computer or
+		host name.
 */
 CFStringRef
 SCDynamicStoreKeyCreateComputerName		(
@@ -106,10 +187,15 @@ SCDynamicStoreKeyCreateComputerName		(
 
 /*!
 	@function SCDynamicStoreKeyCreateConsoleUser
-	@discussion Creates a key that can be used by the SCDynamicStoreSetNotificationKeys()
-		function to receive notifications when the current "Console"
-		user changes.
-	@result A notification string for the current "Console" user.
+	@discussion Creates a key that can be used in conjunction with
+		SCDynamicStoreSetNotificationKeys function to receive
+		notifications when the current console user changes.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this key.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@result Returns a notification string for the current console user.
 */
 CFStringRef
 SCDynamicStoreKeyCreateConsoleUser		(
@@ -118,11 +204,16 @@ SCDynamicStoreKeyCreateConsoleUser		(
 
 /*!
 	@function SCDynamicStoreKeyCreateHostNames
-	@discussion Creates a key that can be used in conjunction with
-		SCDynamicStoreSetNotificationKeys() to receive
+	@discussion Creates a key that can be used in conjunction with the
+		SCDynamicStoreSetNotificationKeys function to receive
 		notifications when the HostNames entity changes.  The
-		HostNames entity contains the LocalHostName.
-	@result A notification string for the HostNames entity.
+		HostNames entity includes the local host name.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this key.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@result Returns a notification string for the HostNames entity.
 */
 CFStringRef
 SCDynamicStoreKeyCreateHostNames		(
@@ -131,10 +222,16 @@ SCDynamicStoreKeyCreateHostNames		(
 
 /*!
 	@function SCDynamicStoreKeyCreateLocation
-	@discussion Creates a key that can be used in conjunction with
-		SCDynamicStoreSetNotificationKeys() to receive
-		notifications when the "location" identifier changes.
-	@result A notification string for the current "location" identifier.
+	@discussion Creates a key that can be used in conjunction with the
+		SCDynamicStoreSetNotificationKeys function to receive
+		notifications when the location identifier changes.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this key.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@result Returns a notification string for the current location
+		identifier.
 */
 CFStringRef
 SCDynamicStoreKeyCreateLocation			(
@@ -143,10 +240,16 @@ SCDynamicStoreKeyCreateLocation			(
 
 /*!
 	@function SCDynamicStoreKeyCreateProxies
-	@discussion Creates a key that can be used by the SCDynamicStoreSetNotificationKeys()
-		function to receive notifications when the current network proxy
-		settings (HTTP, FTP, ...) are changed.
-	@result A notification string for the current proxy settings.
+	@discussion Creates a key that can be used in conjunction with
+		the SCDynamicStoreSetNotificationKeys function to receive
+		notifications when the current network proxy settings
+		(such as HTTP or FTP) are changed.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this key.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@result Returns a notification string for the current proxy settings.
 */
 CFStringRef
 SCDynamicStoreKeyCreateProxies			(

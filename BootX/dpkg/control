@@ -1,0 +1,5 @@
+Package: bootx
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Apple Computer, Inc.
+Build-Depends: build-base
+Description: Darwin booter.

@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:2808: Origin of test
+dnl ../doc/m4.texinfo:2809: Origin of test
 eval(-3 * 5)
 dnl @result{}-15
 eval(index(`Hello world', `llo') >= 0)

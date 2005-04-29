@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +23,9 @@
 
 /*
  * Modification History
+ *
+ * August 4, 2004		Allan Nathanson <ajn@apple.com>
+ * - added network configuration (prefs) support
  *
  * September 25, 2002		Allan Nathanson <ajn@apple.com>
  * - added command line history & editing
@@ -56,8 +59,10 @@
 #include "scutil.h"
 #include "commands.h"
 #include "dictionary.h"
-#include "tests.h"
+#include "net.h"
 #include "prefs.h"
+#include "session.h"
+#include "tests.h"
 
 #include "SCDynamicStoreInternal.h"
 
@@ -65,25 +70,30 @@
 #define LINE_LENGTH 256
 
 
-int			nesting		= 0;
-CFRunLoopRef		notifyRl	= NULL;
-CFRunLoopSourceRef	notifyRls	= NULL;
-SCDynamicStoreRef	store		= NULL;
-CFPropertyListRef	value		= NULL;
-CFMutableArrayRef	watchedKeys	= NULL;
-CFMutableArrayRef	watchedPatterns	= NULL;
+__private_extern__ InputRef		currentInput	= NULL;
+__private_extern__ int			nesting		= 0;
+__private_extern__ CFRunLoopRef		notifyRl	= NULL;
+__private_extern__ CFRunLoopSourceRef	notifyRls	= NULL;
+__private_extern__ SCPreferencesRef	prefs		= NULL;
+__private_extern__ SCDynamicStoreRef	store		= NULL;
+__private_extern__ CFPropertyListRef	value		= NULL;
+__private_extern__ CFMutableArrayRef	watchedKeys	= NULL;
+__private_extern__ CFMutableArrayRef	watchedPatterns	= NULL;
 
-static struct option longopts[] = {
+static const struct option longopts[] = {
 //	{ "debug",		no_argument,		NULL,	'd'	},
 //	{ "verbose",		no_argument,		NULL,	'v'	},
 //	{ "SPI",		no_argument,		NULL,	'p'	},
-//	{ "check-reachability",	required_argument,      NULL,	'r'	},
+//	{ "check-reachability",	required_argument,	NULL,	'r'	},
 //	{ "timeout",		required_argument,	NULL,	't'	},
 //	{ "wait-key",		required_argument,	NULL,	'w'	},
+	{ "dns",		no_argument,		NULL,	0	},
 	{ "get",		required_argument,	NULL,	0	},
 	{ "help",		no_argument,		NULL,	'?'	},
+	{ "net",		no_argument,		NULL,	0	},
+	{ "proxy",		no_argument,		NULL,	0	},
 	{ "set",		required_argument,	NULL,	0	},
-	{ NULL,			0,                      NULL,	0	}
+	{ NULL,			0,			NULL,	0	}
 };
 
 
@@ -127,7 +137,7 @@ getLine(char *buf, int len, InputRef src)
 }
 
 
-char *
+static char *
 getString(char **line)
 {
 	char *s, *e, c, *string;
@@ -178,13 +188,18 @@ getString(char **line)
 }
 
 
+__private_extern__
 Boolean
 process_line(InputRef src)
 {
-	char	line[LINE_LENGTH], *s, *arg, **argv = NULL;
-	int	i, argc;
+	char	*arg;
+	int	argc			= 0;
+	char	**argv			= NULL;
+	int	i;
+	char	line[LINE_LENGTH];
+	char	*s			= line;
 
-	/* if end-of-file, exit */
+	// if end-of-file, exit
 	if (getLine(line, sizeof(line), src) == NULL)
 		return FALSE;
 
@@ -192,39 +207,37 @@ process_line(InputRef src)
 		SCPrint(TRUE, stdout, CFSTR("%d> %s\n"), nesting, line);
 	}
 
-	/* if requested, exit */
-	if (strcasecmp(line, "exit") == 0) return FALSE;
-	if (strcasecmp(line, "quit") == 0) return FALSE;
-	if (strcasecmp(line, "q"   ) == 0) return FALSE;
-
-	/* break up the input line */
-	s = line;
-	argc = 0;
+	// break up the input line
 	while ((arg = getString(&s)) != NULL) {
 		if (argc == 0)
 			argv = (char **)malloc(2 * sizeof(char *));
 		else
-			argv = (char **)realloc(argv, ((argc + 2) * sizeof(char *)));
+			argv = (char **)reallocf(argv, ((argc + 2) * sizeof(char *)));
 		argv[argc++] = arg;
 	}
 
-	/* process the command */
-	if (argc > 0) {
-		argv[argc] = NULL;	/* just in case... */
-
-		if (*argv[0] != '#')
-			do_command(argc, argv);
-
-		for (i = 0; i < argc; i++)
-			free(argv[i]);
-		free(argv);
+	if (argc == 0) {
+		return TRUE;		// if no arguments
 	}
 
-	return TRUE;
+	/* process the command */
+	if (*argv[0] != '#') {
+		argv[argc] = NULL;	// just in case...
+		currentInput = src;
+		do_command(argc, argv);
+	}
+
+	/* free the arguments */
+	for (i = 0; i < argc; i++) {
+		free(argv[i]);
+	}
+	free(argv);
+
+	return !termRequested;
 }
 
 
-void
+static void
 usage(const char *command)
 {
 	SCPrint(TRUE, stderr, CFSTR("usage: %s\n"), command);
@@ -246,6 +259,19 @@ usage(const char *command)
 	SCPrint(TRUE, stderr, CFSTR("\t\t\tComputerName, LocalHostName\n"));
 	SCPrint(TRUE, stderr, CFSTR("\tnewval\tNew preference value to be set.  If not specified,\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\tthe new value will be read from standard input.\n"));
+	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --dns\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tshow DNS configuration.\n"));
+	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --proxy\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tshow \"proxy\" configuration.\n"));
+
+	if (getenv("ENABLE_EXPERIMENTAL_SCUTIL_COMMANDS")) {
+		SCPrint(TRUE, stderr, CFSTR("\n"));
+		SCPrint(TRUE, stderr, CFSTR("   or: %s --net\n"), command);
+		SCPrint(TRUE, stderr, CFSTR("\tmanage network configuration.\n"));
+	}
+
 	exit (EX_USAGE);
 }
 
@@ -260,11 +286,14 @@ prompt(EditLine *el)
 int
 main(int argc, char * const argv[])
 {
+	Boolean			dns	= FALSE;
 	char			*get	= NULL;
+	Boolean			net	= FALSE;
 	extern int		optind;
 	int			opt;
 	int			opti;
 	const char		*prog	= argv[0];
+	Boolean			proxy	= FALSE;
 	Boolean			reach	= FALSE;
 	char			*set	= NULL;
 	InputRef		src;
@@ -299,8 +328,17 @@ main(int argc, char * const argv[])
 			xStore++;
 			break;
 		case 0:
-			if        (strcmp(longopts[opti].name, "get") == 0) {
+			if        (strcmp(longopts[opti].name, "dns") == 0) {
+				dns = TRUE;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "get") == 0) {
 				get = optarg;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "net") == 0) {
+				net = TRUE;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "proxy") == 0) {
+				proxy = TRUE;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "set") == 0) {
 				set = optarg;
@@ -334,12 +372,24 @@ main(int argc, char * const argv[])
 		/* NOT REACHED */
 	}
 
+	/* are we looking up the DNS configuration */
+	if (dns) {
+		do_showDNSConfiguration(argc, (char **)argv);
+		/* NOT REACHED */
+	}
+
 	/* are we looking up a preference value */
 	if (get) {
 		if (findPref(get) < 0) {
 			usage(prog);
 		}
 		do_getPref(get, argc, (char **)argv);
+		/* NOT REACHED */
+	}
+
+	/* are we looking up the proxy configuration */
+	if (proxy) {
+		do_showProxyConfiguration(argc, (char **)argv);
 		/* NOT REACHED */
 	}
 
@@ -352,8 +402,25 @@ main(int argc, char * const argv[])
 		/* NOT REACHED */
 	}
 
-	/* start with an empty dictionary */
-	do_dictInit(0, NULL);
+	if (net) {
+		/* if we are going to be managing the network configuration */
+		commands  = (cmdInfo *)commands_prefs;
+		nCommands = nCommands_prefs;
+
+		if (!getenv("ENABLE_EXPERIMENTAL_SCUTIL_COMMANDS")) {
+			usage(prog);
+		}
+
+		do_net_init();		/* initialization */
+		do_net_open(0, NULL);	/* open default prefs */
+	} else {
+		/* if we are going to be managing the dynamic store */
+		commands  = (cmdInfo *)commands_store;
+		nCommands = nCommands_store;
+
+		do_dictInit(0, NULL);	/* start with an empty dictionary */
+		do_open(0, NULL);	/* open the dynamic store */
+	}
 
 	/* allocate command input stream */
 	src = (InputRef)CFAllocatorAllocate(NULL, sizeof(Input), 0);

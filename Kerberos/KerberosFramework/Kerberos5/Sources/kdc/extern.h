@@ -94,6 +94,11 @@ extern krb5_timestamp 	kdc_infinity;	/* greater than all other timestamps */
 extern krb5_rcache	kdc_rcache;	/* replay cache */
 extern krb5_keyblock	psr_key;	/* key for predicted sam response */
 
+#ifdef APPLE_KDC_MODS
+extern int    kdc_notify_pws_apple;   /* flag for apple password server integration   */
+#endif
+
 extern volatile int signal_requests_exit;
 extern volatile int signal_requests_hup;
+extern volatile int signal_requests_network;
 #endif /* __KRB5_KDC_EXTERN__ */

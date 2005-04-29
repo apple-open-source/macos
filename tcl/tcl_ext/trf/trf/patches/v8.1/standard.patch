@@ -1,0 +1,546 @@
+*** ./tcl.decls.orig	Fri May  7 20:30:02 1999
+--- ./tcl.decls	Fri May  7 20:33:35 1999
+***************
+*** 967,977 ****
+      void Tcl_InitMemory(Tcl_Interp *interp)
+  }
+  
+  # Reserved for future use (8.0.x vs. 8.1)
+- #  declare 281 generic {
+- #  }
+- #  declare 282 generic {
+- #  }
+  #  declare 283 generic {
+  #  }
+  #  declare 284 generic {
+--- 967,996 ----
+      void Tcl_InitMemory(Tcl_Interp *interp)
+  }
+  
++ # Andreas Kupries <a.kupries@westend.com>, 03/21/1999
++ # "Trf-Patch for filtering channels"
++ #
++ # C-Level API for (un)stacking of channels. This allows the introduction
++ # of filtering channels with relatively little changes to the core.
++ # This patch was created in cooperation with Jan Nijtmans <nijtmans@wxs.nl>
++ # and is therefore part of his plus-patches too.
++ #
++ # It would have been possible to place the following definitions according
++ # to the alphabetical order used elsewhere in this file, but I decided
++ # against that to ease the maintenance of the patch across new tcl versions
++ # (patch usually has no problems to integrate the patch file for the last
++ # version into the new one).
++ 
++ declare 281 generic {
++     Tcl_Channel Tcl_StackChannel(Tcl_Interp *interp, \
++ 	    Tcl_ChannelType *typePtr, ClientData instanceData, \
++ 	    int mask, Tcl_Channel prevChan)
++ }
++ declare 282 generic {
++     void Tcl_UnstackChannel(Tcl_Interp *interp, Tcl_Channel chan)
++ }
++ 
+  # Reserved for future use (8.0.x vs. 8.1)
+  #  declare 283 generic {
+  #  }
+  #  declare 284 generic {
+*** ./tclDecls.h.orig	Fri May  7 20:30:02 1999
+--- ./tclDecls.h	Fri May  7 20:33:35 1999
+***************
+*** 875,882 ****
+  				int * patchLevel, int * type));
+  /* 280 */
+  EXTERN void		Tcl_InitMemory _ANSI_ARGS_((Tcl_Interp * interp));
+! /* Slot 281 is reserved */
+! /* Slot 282 is reserved */
+  /* Slot 283 is reserved */
+  /* Slot 284 is reserved */
+  /* Slot 285 is reserved */
+--- 875,888 ----
+  				int * patchLevel, int * type));
+  /* 280 */
+  EXTERN void		Tcl_InitMemory _ANSI_ARGS_((Tcl_Interp * interp));
+! /* 281 */
+! EXTERN Tcl_Channel	Tcl_StackChannel _ANSI_ARGS_((Tcl_Interp * interp, 
+! 				Tcl_ChannelType * typePtr, 
+! 				ClientData instanceData, int mask, 
+! 				Tcl_Channel prevChan));
+! /* 282 */
+! EXTERN void		Tcl_UnstackChannel _ANSI_ARGS_((
+! 				Tcl_Interp * interp, Tcl_Channel chan));
+  /* Slot 283 is reserved */
+  /* Slot 284 is reserved */
+  /* Slot 285 is reserved */
+***************
+*** 1439,1446 ****
+      void (*tcl_PanicVA) _ANSI_ARGS_((char * format, va_list argList)); /* 278 */
+      void (*tcl_GetVersion) _ANSI_ARGS_((int * major, int * minor, int * patchLevel, int * type)); /* 279 */
+      void (*tcl_InitMemory) _ANSI_ARGS_((Tcl_Interp * interp)); /* 280 */
+!     void *reserved281;
+!     void *reserved282;
+      void *reserved283;
+      void *reserved284;
+      void *reserved285;
+--- 1445,1452 ----
+      void (*tcl_PanicVA) _ANSI_ARGS_((char * format, va_list argList)); /* 278 */
+      void (*tcl_GetVersion) _ANSI_ARGS_((int * major, int * minor, int * patchLevel, int * type)); /* 279 */
+      void (*tcl_InitMemory) _ANSI_ARGS_((Tcl_Interp * interp)); /* 280 */
+!     Tcl_Channel (*tcl_StackChannel) _ANSI_ARGS_((Tcl_Interp * interp, Tcl_ChannelType * typePtr, ClientData instanceData, int mask, Tcl_Channel prevChan)); /* 281 */
+!     void (*tcl_UnstackChannel) _ANSI_ARGS_((Tcl_Interp * interp, Tcl_Channel chan)); /* 282 */
+      void *reserved283;
+      void *reserved284;
+      void *reserved285;
+***************
+*** 2670,2677 ****
+  #define Tcl_InitMemory \
+  	(tclStubsPtr->tcl_InitMemory) /* 280 */
+  #endif
+! /* Slot 281 is reserved */
+! /* Slot 282 is reserved */
+  /* Slot 283 is reserved */
+  /* Slot 284 is reserved */
+  /* Slot 285 is reserved */
+--- 2676,2689 ----
+  #define Tcl_InitMemory \
+  	(tclStubsPtr->tcl_InitMemory) /* 280 */
+  #endif
+! #ifndef Tcl_StackChannel
+! #define Tcl_StackChannel \
+! 	(tclStubsPtr->tcl_StackChannel) /* 281 */
+! #endif
+! #ifndef Tcl_UnstackChannel
+! #define Tcl_UnstackChannel \
+! 	(tclStubsPtr->tcl_UnstackChannel) /* 282 */
+! #endif
+  /* Slot 283 is reserved */
+  /* Slot 284 is reserved */
+  /* Slot 285 is reserved */
+*** ./tclIO.c.orig	Fri May  7 20:30:02 1999
+--- ./tclIO.c	Fri May  7 20:33:35 1999
+***************
+*** 202,207 ****
+--- 202,229 ----
+      int bufSize;		/* What size buffers to allocate? */
+      Tcl_TimerToken timer;	/* Handle to wakeup timer for this channel. */
+      CopyState *csPtr;		/* State of background copy, or NULL. */
++ 
++   /* Andreas Kupries <a.kupries@westend.com>, 12/13/1998
++    * "Trf-Patch for filtering channels"
++    *
++    * The single change to the internal datastructures of the core. Every
++    * channel now maintains a reference to the channel he is stacked upon.
++    * This reference is NULL for normal channels. Only the two exported
++    * procedures (Tcl_StackChannel and Tcl_UnstackChannel, see at the
++    * end of 'tcl.h') use this field in a non-trivial way.
++    *
++    * Of the existing procedures the only following are affected by this
++    * change:
++    *
++    * - Tcl_RegisterChannel
++    * - Tcl_CreateChannel
++    * - CloseChannel
++    *
++    * The why is explained at the changed locations.
++    */
++ 
++   struct Channel* supercedes; /* Refers to channel this one was stacked upon */
++ 
+  } Channel;
+      
+  /*
+***************
+*** 1038,1044 ****
+              if (chan == (Tcl_Channel) Tcl_GetHashValue(hPtr)) {
+                  return;
+              }
+!             panic("Tcl_RegisterChannel: duplicate channel names");
+          }
+          Tcl_SetHashValue(hPtr, (ClientData) chanPtr);
+      }
+--- 1060,1080 ----
+              if (chan == (Tcl_Channel) Tcl_GetHashValue(hPtr)) {
+                  return;
+              }
+! 
+! 	    /* Andreas Kupries <a.kupries@westend.com>, 12/13/1998
+! 	     * "Trf-Patch for filtering channels"
+! 	     *
+! 	     * This is the change to 'Tcl_RegisterChannel'.
+! 	     *
+! 	     * Explanation:
+! 	     *		The moment a channel is stacked upon another he
+! 	     *		takes the identity of the channel he supercedes,
+! 	     *		i.e. he gets the *same* name. Because of this we
+! 	     *		cannot check for duplicate names anymore, they
+! 	     *		have to be allowed now.
+! 	     */
+! 
+! 	    /* panic("Tcl_RegisterChannel: duplicate channel names"); */
+          }
+          Tcl_SetHashValue(hPtr, (ClientData) chanPtr);
+      }
+***************
+*** 1297,1302 ****
+--- 1333,1352 ----
+      chanPtr->timer = NULL;
+      chanPtr->csPtr = NULL;
+  
++     /* Andreas Kupries <a.kupries@westend.com>, 12/13/1998
++      * "Trf-Patch for filtering channels"
++      *
++      * This is the change to 'Tcl_CreateChannel'.
++      *
++      * Explanation:
++      *	It is of course necessary to initialize the new field
++      *	in the Channel structure. The chosen value indicates
++      *	that the created channel is a normal one, and not
++      *	stacked upon another.
++      */
++ 
++     chanPtr->supercedes = (Channel*) NULL;
++ 
+      chanPtr->outputStage = NULL;
+      if ((chanPtr->encoding != NULL) && (chanPtr->flags & TCL_WRITABLE)) {
+  	chanPtr->outputStage = (char *)
+***************
+*** 1330,1335 ****
+--- 1380,1622 ----
+      return (Tcl_Channel) chanPtr;
+  }
+  
++ /* Andreas Kupries <a.kupries@westend.com>, 12/13/1998
++  * "Trf-Patch for filtering channels"
++  *
++  * The following two procedures are the new, exported ones. They
++  * - create a channel stacked upon an existing one and
++  * - pop a stacked channel off, thus revealing the superceded one.
++  *
++  * Please read the following completely.
++  */
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * Tcl_StackChannel --
++  *
++  *	Replaces an entry in the hash table for a Tcl_Channel
++  *	record. The replacement is a new channel with same name,
++  *	it supercedes the replaced channel. Input and output of
++  *	the superceded channel is now going through the newly
++  *	created channel and allows the arbitrary filtering/manipulation
++  *	of the dataflow.
++  *
++  * Results:
++  *	Returns the new Tcl_Channel.
++  *
++  * Side effects:
++  *	See above.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ Tcl_Channel
++ Tcl_StackChannel(interp, typePtr, instanceData, mask, prevChan)
++     Tcl_Interp*      interp;       /* The interpreter we are working in */
++     Tcl_ChannelType *typePtr;	   /* The channel type record for the new
++ 				    * channel. */
++     ClientData       instanceData; /* Instance specific data for the new
++ 				    * channel. */
++     int              mask;	   /* TCL_READABLE & TCL_WRITABLE to indicate
++ 				    * if the channel is readable, writable. */
++     Tcl_Channel      prevChan;	   /* The channel structure to replace */
++ {
++   ThreadSpecificData *tsdPtr = TCL_TSD_INIT(&dataKey);
++   Channel            *chanPtr, *pt, *prevPt;
++ 
++   /*
++    * Find the given channel in the list of all channels, compute enough
++    * information to allow easy removal after the conditions are met.
++    */
++ 
++   prevPt = (Channel*) NULL;
++   pt     = (Channel*) tsdPtr->firstChanPtr;
++ 
++   while (pt != (Channel *) prevChan) {
++     prevPt = pt;
++     pt     = pt->nextChanPtr;
++   }
++ 
++   /*
++    * 'pt == prevChan' now
++    */
++ 
++   if (!pt) {
++     return (Tcl_Channel) NULL;
++   }
++ 
++   /*
++    * Here we check if the given "mask" matches the "flags"
++    * of the already existing channel.
++    *
++    *	  | - | R | W | RW |
++    *	--+---+---+---+----+	<=>  0 != (chan->mask & prevChan->mask)
++    *	- |   |   |   |    |
++    *	R |   | + |   | +  |	The superceding channel is allowed to
++    *	W |   |   | + | +  |	restrict the capabilities of the
++    *	RW|   | + | + | +  |	superceded one !
++    *	--+---+---+---+----+
++    */
++ 
++   if ((mask & Tcl_GetChannelMode (prevChan)) == 0) {
++     return (Tcl_Channel) NULL;
++   }
++ 
++ 
++   chanPtr = (Channel *) ckalloc((unsigned) sizeof(Channel));
++   chanPtr->flags = mask;
++ 
++   /*
++    * Set the channel up initially in no Input translation mode and
++    * no Output translation mode.
++    */
++ 
++   chanPtr->inputTranslation = TCL_TRANSLATE_LF;
++   chanPtr->outputTranslation = TCL_TRANSLATE_LF;
++   chanPtr->inEofChar = 0;
++   chanPtr->outEofChar = 0;
++ 
++   chanPtr->unreportedError = 0;
++   chanPtr->instanceData = instanceData;
++   chanPtr->typePtr = typePtr;
++   chanPtr->refCount = 0;
++   chanPtr->closeCbPtr = (CloseCallback *) NULL;
++   chanPtr->curOutPtr = (ChannelBuffer *) NULL;
++   chanPtr->outQueueHead = (ChannelBuffer *) NULL;
++   chanPtr->outQueueTail = (ChannelBuffer *) NULL;
++   chanPtr->saveInBufPtr = (ChannelBuffer *) NULL;
++   chanPtr->inQueueHead = (ChannelBuffer *) NULL;
++   chanPtr->inQueueTail = (ChannelBuffer *) NULL;
++   chanPtr->chPtr = (ChannelHandler *) NULL;
++   chanPtr->interestMask = 0;
++   chanPtr->scriptRecordPtr = (EventScriptRecord *) NULL;
++   chanPtr->bufSize = CHANNELBUFFER_DEFAULT_SIZE;
++   chanPtr->timer = NULL;
++   chanPtr->csPtr = NULL;
++ 
++   /* 06/12/1998: New for Tcl 8.1
++    *
++    * Take over the encoding from the superceded channel, so that it will be
++    * executed in the future despite the replacement, and at the proper time
++    * (*after* / *before* our transformation, depending on the direction of
++    * the dataflow).
++    *
++    * *Important*
++    * The I/O functionality of the filtering channel has to use 'Tcl_Read' to
++    * get at the underlying information. This will circumvent the de/encoder
++    * stage [*] in the superceded channel and removes the need to trouble
++    * ourselves with 'ByteArray's too.
++    *
++    * [*] I'm talking about the conversion between UNICODE and other
++    *     representations, like ASCII.
++    */
++ 
++   chanPtr->encoding=Tcl_GetEncoding(interp,Tcl_GetEncodingName(pt->encoding));
++   chanPtr->inputEncodingState  = pt->inputEncodingState;
++   chanPtr->inputEncodingFlags  = pt->inputEncodingFlags;
++   chanPtr->outputEncodingState = pt->outputEncodingState;
++   chanPtr->outputEncodingFlags = pt->outputEncodingFlags;
++ 
++   chanPtr->outputStage = NULL;
++ 
++   if ((chanPtr->encoding != NULL) && (chanPtr->flags & TCL_WRITABLE)) {
++     chanPtr->outputStage = (char *)
++       ckalloc((unsigned) (chanPtr->bufSize + 2));
++   }
++ 
++   chanPtr->supercedes = (Channel*) prevChan;
++ 
++   chanPtr->channelName = (char *) ckalloc (strlen(pt->channelName)+1);
++   strcpy (chanPtr->channelName, pt->channelName);
++ 
++   if (prevPt) {
++     prevPt->nextChanPtr = chanPtr;
++   } else {
++     tsdPtr->firstChanPtr = chanPtr;
++   }
++ 
++   chanPtr->nextChanPtr = pt->nextChanPtr;
++ 
++   Tcl_RegisterChannel (interp, (Tcl_Channel) chanPtr);
++ 
++   /*
++    * The superceded channel is effectively unregistered
++    */
++ 
++   /*chanPtr->supercedes->refCount --;*/
++ 
++   return (Tcl_Channel) chanPtr;
++ }
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * Tcl_UnstackChannel --
++  *
++  *	Unstacks an entry in the hash table for a Tcl_Channel
++  *	record. This is the reverse to 'Tcl_StackChannel'.
++  *	The old, superceded channel is uncovered and re-registered
++  *	in the appropriate datastructures.
++  *
++  * Results:
++  *	Returns the old Tcl_Channel, i.e. the one which was stacked over.
++  *
++  * Side effects:
++  *	See above.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ void
++ Tcl_UnstackChannel (interp, chan)
++ Tcl_Interp* interp; /* The interpreter we are working in */
++ Tcl_Channel chan;   /* The channel to unstack */
++ {
++   ThreadSpecificData *tsdPtr = TCL_TSD_INIT(&dataKey);
++   Channel* chanPtr = (Channel*) chan;
++ 
++   if (chanPtr->supercedes != (Channel*) NULL) {
++     Tcl_HashTable *hTblPtr;	/* Hash table of channels. */
++     Tcl_HashEntry *hPtr;	/* Search variable. */
++     int new;			/* Is the hash entry new or does it exist? */
++ 
++     /*
++      * Insert the channel we were stacked upon back into
++      * the list of open channels. Place it back into the hashtable too.
++      * Correct 'refCount', as this actually unregisters 'chan'.
++      */
++ 
++     chanPtr->supercedes->nextChanPtr = tsdPtr->firstChanPtr;
++     tsdPtr->firstChanPtr             = chanPtr->supercedes;
++ 
++     hTblPtr = GetChannelTable (interp);
++     hPtr    = Tcl_CreateHashEntry (hTblPtr, chanPtr->channelName, &new);
++ 
++     Tcl_SetHashValue(hPtr, (ClientData) chanPtr->supercedes);
++     chanPtr->refCount --;
++ 
++     /*
++      * The superceded channel is effectively registered again
++      */
++ 
++     /*chanPtr->supercedes->refCount ++;*/
++   }
++ 
++   /*
++    * Disconnect the channels, then do a regular close upon the
++    * stacked one, the filtering channel. This may cause flushing
++    * of data into the superceded channel (if the filtering channel
++    * ('chan') remembered its parent in itself).
++    */
++ 
++   chanPtr->supercedes = NULL;
++ 
++   if (chanPtr->refCount == 0) {
++     Tcl_Close (interp, chan);
++   }
++ }
++ 
+  /*
+   *----------------------------------------------------------------------
+   *
+***************
+*** 2003,2008 ****
+--- 2290,2330 ----
+          if (errorCode != 0) {
+              Tcl_SetErrno(errorCode);
+          }
++     }
++ 
++     /* Andreas Kupries <a.kupries@westend.com>, 12/13/1998
++      * "Trf-Patch for filtering channels"
++      *
++      * This is the change to 'CloseChannel'.
++      *
++      * Explanation
++      *		Closing a filtering channel closes the one it
++      *		superceded too. This basically ripples through
++      *		the whole chain of filters until it reaches
++      *		the underlying normal channel.
++      *
++      *		This is done by reintegrating the superceded
++      *		channel into the (thread) global list of open
++      *		channels and then invoking a regular close.
++      *		There is no need to handle the complexities of
++      *		this process by ourselves.
++      *
++      *		*Note*
++      *		This has to be done after the call to the
++      *		'closeProc' of the filtering channel to allow
++      *		that one the flushing of internal buffers into
++      *		the underlying channel.
++      */
++ 
++     if (chanPtr->supercedes != (Channel*) NULL) {
++       /* Insert the channel we were stacked upon back into
++        * the list of open channels, then do a regular close.
++        */
++ 
++       chanPtr->supercedes->nextChanPtr = tsdPtr->firstChanPtr;
++       tsdPtr->firstChanPtr             = chanPtr->supercedes;
++       chanPtr->supercedes->refCount --; /* is deregistered */
++       Tcl_Close (interp, (Tcl_Channel) chanPtr->supercedes);
+      }
+  
+      /*
+*** ./tclStubInit.c.orig	Fri May  7 20:30:02 1999
+--- ./tclStubInit.c	Fri May  7 20:33:35 1999
+***************
+*** 593,600 ****
+      Tcl_PanicVA, /* 278 */
+      Tcl_GetVersion, /* 279 */
+      Tcl_InitMemory, /* 280 */
+!     NULL, /* 281 */
+!     NULL, /* 282 */
+      NULL, /* 283 */
+      NULL, /* 284 */
+      NULL, /* 285 */
+--- 593,600 ----
+      Tcl_PanicVA, /* 278 */
+      Tcl_GetVersion, /* 279 */
+      Tcl_InitMemory, /* 280 */
+!     Tcl_StackChannel, /* 281 */
+!     Tcl_UnstackChannel, /* 282 */
+      NULL, /* 283 */
+      NULL, /* 284 */
+      NULL, /* 285 */
+*** ./tclStubs.c.orig	Fri May  7 20:30:02 1999
+--- ./tclStubs.c	Fri May  7 20:33:35 1999
+***************
+*** 3263,3267 ****
+--- 3263,3288 ----
+      (tclStubsPtr->tcl_ServiceModeHook)(mode);
+  }
+  
++ /* Slot 345 */
++ Tcl_Channel
++ Tcl_StackChannel(interp, typePtr, instanceData, mask, prevChan)
++     Tcl_Interp * interp;
++     Tcl_ChannelType * typePtr;
++     ClientData instanceData;
++     int mask;
++     Tcl_Channel prevChan;
++ {
++     return (tclStubsPtr->tcl_StackChannel)(interp, typePtr, instanceData, mask, prevChan);
++ }
++ 
++ /* Slot 346 */
++ void
++ Tcl_UnstackChannel(interp, chan)
++     Tcl_Interp * interp;
++     Tcl_Channel chan;
++ {
++     (tclStubsPtr->tcl_UnstackChannel)(interp, chan);
++ }
++ 
+  
+  /* !END!: Do not edit above this line. */

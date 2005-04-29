@@ -27,7 +27,7 @@ in this Software without prior written authorization from The Open Group.
  * The X Window System is a Trademark of The Open Group.
  *
  */
-/* $XFree86: xc/include/Xos.h,v 3.38 2002/05/31 18:45:39 dawes Exp $ */
+/* $XFree86: xc/include/Xos.h,v 3.42 2003/12/31 01:18:41 tsi Exp $ */
 
 /* This is a collection of things to try and minimize system dependencies
  * in a "signficant" number of source files.
@@ -60,6 +60,12 @@ in this Software without prior written authorization from The Open Group.
 #endif
 #endif /* USG */
 
+#ifndef sgi
+#if defined(SCO325) || defined(__USLC__)
+#include <stdint.h>
+#endif
+#endif
+
 #ifdef _SEQUENT_
 /*
  * in_systm.h compatibility between SysV and BSD types u_char u_short u_long
@@ -85,6 +91,9 @@ in this Software without prior written authorization from The Open Group.
 #ifndef X_NOT_STDC_ENV
 
 #include <string.h>
+#ifdef SCO325
+#include <strings.h>
+#else
 #ifdef __STDC__
 #ifndef index
 #define index(s,c) (strchr((s),(c)))
@@ -98,6 +107,7 @@ in this Software without prior written authorization from The Open Group.
 #endif
 #ifndef rindex
 #define rindex strrchr
+#endif
 #endif
 #endif
 
@@ -261,7 +271,7 @@ typedef unsigned long fd_mask;
 #define NGROUPS 16
 #endif
 
-#if defined(ISC) || \
+#if defined(ISC) || defined(__UNIXOS2__) || \
     (defined(linux) && !defined(__GLIBC__)) || \
     (defined(__QNX__) && !defined(UNIXCONN))
 /*

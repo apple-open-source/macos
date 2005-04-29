@@ -74,7 +74,7 @@ SOFTWARE.
  * XFree86 Project.
  */
 
-/* $XFree86: xc/lib/Xaw/Text.c,v 3.52 2002/11/03 20:10:25 paulo Exp $ */
+/* $XFree86: xc/lib/Xaw/Text.c,v 3.54 2003/12/22 17:48:04 tsi Exp $ */
 
 #include <stdio.h>
 #include <X11/IntrinsicP.h>
@@ -171,7 +171,9 @@ static Boolean CvtJustifyModeToString(Display*, XrmValue*, Cardinal*,
 				      XrmValue*, XrmValue*, XtPointer*);
 static void DestroyHScrollBar(TextWidget);
 static void DestroyVScrollBar(TextWidget);
+#ifndef OLDXAW
 static void DisplayText(Widget, XawTextPosition, XawTextPosition);
+#endif
 static void OldDisplayText(Widget, XawTextPosition, XawTextPosition);
 static void DisplayTextWindow(Widget);
 static void DoCopyArea(TextWidget, int, int, unsigned int, unsigned int,
@@ -923,7 +925,7 @@ XawTextInitialize(Widget request, Widget cnew,
     ctx->text.file_insert = NULL;
     ctx->text.search = NULL;
     ctx->text.update = XmuNewScanline(0, 0, 0);
-    ctx->text.gc = DefaultGCOfScreen(XtScreen(ctx));
+    ctx->text.gc = XtGetGC(cnew, 0, 0);
     ctx->text.hasfocus = False;
     ctx->text.margin = ctx->text.r_margin; /* Strucure copy */
     ctx->text.left_margin = ctx->text.r_margin.left;
@@ -2743,11 +2745,11 @@ OldDisplayText(Widget w, XawTextPosition left, XawTextPosition right)
     }
 }
 
+#ifndef OLDXAW
 /*ARGSUSED*/
 static void
 DisplayText(Widget w, XawTextPosition left, XawTextPosition right)
 {
-#ifndef OLDXAW
     static XmuSegment segment;
     static XmuScanline next;
     static XmuScanline scanline = {0, &segment, &next};
@@ -2817,8 +2819,8 @@ DisplayText(Widget w, XawTextPosition left, XawTextPosition right)
 	    XmuAreaOr(paint_list->clip, &area);
 	}
     }
-#endif
 }
+#endif
 
 /*
  * This routine implements multi-click selection in a hardwired manner.
@@ -3619,6 +3621,7 @@ XawTextDestroy(Widget w)
     XtFree((char *)ctx->text.lt.info);
     XtFree((char *)ctx->text.search);
     XmuDestroyScanline(ctx->text.update);
+    XtReleaseGC((Widget)ctx, ctx->text.gc);
 }
 
 /*

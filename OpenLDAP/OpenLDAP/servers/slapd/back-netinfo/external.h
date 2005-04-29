@@ -40,73 +40,41 @@ extern int netinfo_back_db_destroy LDAP_P(( BackendDB *bd ));
 extern int netinfo_back_db_config LDAP_P(( BackendDB *bd,
 	const char *fname, int lineno, int argc, char **argv ));
 
-extern int netinfo_back_bind LDAP_P(( BackendDB *bd,
-	Connection *conn, Operation *op,
-	struct berval *dn, struct berval *ndn, int method,
-	struct berval *cred, struct berval *edn ));
+extern int netinfo_back_bind LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs ));
 
 extern int netinfo_back_conn_destroy LDAP_P(( BackendDB *bd,
 	Connection *conn ));
 
-extern int netinfo_back_referrals LDAP_P(( BackendDB *bd,
-	Connection *conn, Operation *op, struct berval *dn,
-	struct berval *ndn, const char **text ));
+extern int netinfo_back_referrals LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs ));
 
-extern int netinfo_back_search LDAP_P(( BackendDB *bd,
-	Connection *conn, Operation *op,
-	struct berval *base, struct berval *nbase,
-	int scope, int deref, int sizelimit, int timelimit,
-	Filter *filter, struct berval *filterstr,
-	AttributeName *attrs, int attrsonly ));
+extern int netinfo_back_search LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs ));
 
-extern int netinfo_back_compare LDAP_P(( BackendDB *bd,
-	Connection *conn, Operation *op,
-	struct berval *dn, struct berval *ndn,
-	AttributeAssertion *ava ));
+extern int netinfo_back_compare LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs ));
 
-extern int netinfo_back_modify LDAP_P(( BackendDB *bd,
-	Connection *conn, Operation *op,
-	struct berval *dn, struct berval *ndn, Modifications *ml ));
+extern int netinfo_back_modify LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs ));
 
-extern int netinfo_back_modrdn LDAP_P(( BackendDB *bd,
-	Connection *conn, Operation *op,
-	struct berval *dn, struct berval *ndn,
-	struct berval *newrdn, struct berval *nnewrdn, int deleteoldrdn,
-	struct berval *newSuperior, struct berval *nnewSuperior ));
+extern int netinfo_back_modrdn LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs ));
 
-extern int netinfo_back_add LDAP_P(( BackendDB *bd,
-	Connection *conn, Operation *op, Entry *e ));
+extern int netinfo_back_add LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs ));
 
-extern int netinfo_back_delete LDAP_P(( BackendDB *bd,
-	Connection *conn, Operation *op,
-	struct berval *dn, struct berval *ndn ));
+extern int netinfo_back_delete LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs ));
 
-extern int netinfo_back_abandon LDAP_P(( BackendDB *bd,
-	Connection *conn, Operation *op, int msgid ));
+extern int netinfo_back_abandon LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs ));
 
-extern int netinfo_back_exop_passwd LDAP_P((
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
-	const char *reqoid,
-	struct berval *reqdata,
-	char **rspoid,
-	struct berval **rspdata,
-	LDAPControl ***rspctrls,
-	const char **text,
-	BerVarray *refs));
+extern int netinfo_back_exop_passwd LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs));
 
-extern int netinfo_back_extended LDAP_P((
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
-	const char *reqoid,
-	struct berval *reqdata,
-	char **respoid,
-	struct berval **rspdata,
-	LDAPControl ***rspctrls,
-	const char **text,
-	BerVarray *refs));
+extern int netinfo_back_extended LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs ));
 
 extern int netinfo_back_attribute LDAP_P((
 	BackendDB *be,
@@ -117,21 +85,11 @@ extern int netinfo_back_attribute LDAP_P((
 	AttributeDescription *entry_at,
 	BerVarray *vals));
 
-extern int netinfo_back_operational LDAP_P((
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
-	Entry *e,
-	AttributeName *attrs,
-	int opattrs,
-	Attribute **a));
+extern int netinfo_back_operational LDAP_P(( struct slap_op *op, 
+	struct slap_rep *rs, int opattrs, Attribute **ap ));
 
-extern int netinfo_back_entry_release LDAP_P((
-	BackendDB *be,
-	Connection *c,
-	Operation *o,
-	Entry *e,
-	int rw));
+extern int netinfo_back_entry_release LDAP_P(( struct slap_op *op, Entry *e, 
+	int rw ));
 
 extern int netinfo_back_group LDAP_P((
 	Backend *be,

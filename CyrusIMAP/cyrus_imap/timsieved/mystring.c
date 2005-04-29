@@ -1,4 +1,4 @@
-/* $Id: mystring.c,v 1.7 2004/02/27 18:32:19 ken3 Exp $ */
+/* $Id: mystring.c,v 1.4 2005/03/05 00:37:39 dasenbro Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

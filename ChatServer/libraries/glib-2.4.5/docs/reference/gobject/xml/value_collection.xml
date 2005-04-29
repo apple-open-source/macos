@@ -1,0 +1,122 @@
+<refentry id="gobject-Varargs-Value-Collection">
+<refmeta>
+<refentrytitle>Varargs Value Collection</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GOBJECT Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Varargs Value Collection</refname><refpurpose>Converting varargs to generic values</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib-object.h&gt;
+#include &lt;gobject/gvaluecollector.h&gt;
+
+
+union       <link linkend="GTypeCValue">GTypeCValue</link>;
+#define     <link linkend="G-VALUE-COLLECT-CAPS">G_VALUE_COLLECT</link>                 (value, var_args, flags, __error)
+#define     <link linkend="G-VALUE-LCOPY-CAPS">G_VALUE_LCOPY</link>                   (value, var_args, flags, __error)
+#define     <link linkend="G-VALUE-COLLECT-FORMAT-MAX-LENGTH-CAPS">G_VALUE_COLLECT_FORMAT_MAX_LENGTH</link>
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GTypeCValue"/>union GTypeCValue</title>
+<indexterm><primary>GTypeCValue</primary></indexterm><programlisting>union GTypeCValue
+{
+  gint     v_int;
+  glong    v_long;
+  gint64   v_int64;
+  gdouble  v_double;
+  gpointer v_pointer;
+};
+</programlisting>
+<para>
+A union holding one collected value.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-VALUE-COLLECT-CAPS"/>G_VALUE_COLLECT()</title>
+<indexterm><primary>G_VALUE_COLLECT</primary></indexterm><programlisting>#define     G_VALUE_COLLECT(value, var_args, flags, __error)</programlisting>
+<para>
+Collects a variable argument value from a va_list. We have to
+implement the varargs collection as a macro, because on some systems
+va_list variables cannot be passed by reference.
+</para><variablelist role="params">
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GValue"><type>GValue</type></link> return location. <parameter>value</parameter> is supposed to be initialized 
+  according to the value type to be collected
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>var_args</parameter>&nbsp;:</term>
+<listitem><simpara>the va_list variable; it may be evaluated multiple times
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara>flags which are passed on to the <link linkend="collect-value"><function>collect_value()</function></link> function of
+  the <link linkend="GTypeValueTable"><type>GTypeValueTable</type></link> of <parameter>value</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>__error</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="gchar"><type>gchar</type></link>** variable that will be modified to hold a <link linkend="g-new"><function>g_new()</function></link>
+  allocated error messages if something fails
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-VALUE-LCOPY-CAPS"/>G_VALUE_LCOPY()</title>
+<indexterm><primary>G_VALUE_LCOPY</primary></indexterm><programlisting>#define     G_VALUE_LCOPY(value, var_args, flags, __error)</programlisting>
+<para>
+Collects a value's variable argument locations from a va_list. 
+</para><variablelist role="params">
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GValue"><type>GValue</type></link> return location. <parameter>value</parameter> is supposed to be initialized 
+  according to the value type to be collected
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>var_args</parameter>&nbsp;:</term>
+<listitem><simpara>the va_list variable; it may be evaluated multiple times
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara>flags which are passed on to the <link linkend="lcopy-value"><function>lcopy_value()</function></link> function of
+  the <link linkend="GTypeValueTable"><type>GTypeValueTable</type></link> of <parameter>value</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>__error</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="gchar"><type>gchar</type></link>** variable that will be modified to hold a <link linkend="g-new"><function>g_new()</function></link>
+  allocated error messages if something fails
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-VALUE-COLLECT-FORMAT-MAX-LENGTH-CAPS"/>G_VALUE_COLLECT_FORMAT_MAX_LENGTH</title>
+<indexterm><primary>G_VALUE_COLLECT_FORMAT_MAX_LENGTH</primary></indexterm><programlisting>#define	G_VALUE_COLLECT_FORMAT_MAX_LENGTH	(8)
+</programlisting>
+<para>
+The maximal number of <link linkend="GTypeCValue"><type>GTypeCValue</type></link><!-- -->s which can be collected for a 
+single <link linkend="GValue"><type>GValue</type></link>.
+</para></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

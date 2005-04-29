@@ -1,8 +1,17 @@
 /* attr.c - backend routines for dealing with attributes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/attr.c,v 1.8.2.5 2003/05/07 22:29:11 hyc Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/attr.c,v 1.15.2.3 2004/04/12 18:20:13 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2000-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -147,12 +156,9 @@ bdb_attr_index_config(
 		}
 
 		if( IS_SLAP_INDEX( mask, SLAP_INDEX_APPROX ) && !(
-			( ad->ad_type->sat_approx
+			ad->ad_type->sat_approx
 				&& ad->ad_type->sat_approx->smr_indexer
-				&& ad->ad_type->sat_approx->smr_filter )
-			&& ( ad->ad_type->sat_equality
-				&& ad->ad_type->sat_equality->smr_indexer
-				&& ad->ad_type->sat_equality->smr_filter ) ) )
+				&& ad->ad_type->sat_approx->smr_filter ) )
 		{
 			fprintf( stderr, "%s: line %d: "
 				"approx index of attribute \"%s\" disallowed\n",

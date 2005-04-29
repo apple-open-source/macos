@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --           Copyright (C) 1992-2001 Free Software Foundation, Inc.         --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -38,8 +37,8 @@ package Exp_Ch3 is
    procedure Expand_N_Variant_Part               (N : Node_Id);
    procedure Expand_N_Full_Type_Declaration      (N : Node_Id);
 
-   procedure Expand_Previous_Access_Type (N : Node_Id; Def_Id : Entity_Id);
-   --  For a full type declaration that contains tasks,  or that is a task,
+   procedure Expand_Previous_Access_Type (Def_Id : Entity_Id);
+   --  For a full type declaration that contains tasks, or that is a task,
    --  check whether there exists an access type whose designated type is an
    --  incomplete declarations for the current composite type. If so, build
    --  the master for that access type, now that it is known to denote an

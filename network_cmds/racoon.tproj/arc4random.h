@@ -29,4 +29,11 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ARC4RANDOM_H__
+#define __ARC4RANDOM_H__
+
 extern u_int32_t arc4random __P((void));
+
+
+#endif /* __ARC4RANDOM_H__ */
+

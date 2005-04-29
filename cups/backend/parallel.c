@@ -1,9 +1,9 @@
 /*
- * "$Id: parallel.c,v 1.1.1.9 2002/12/24 00:04:40 jlovell Exp $"
+ * "$Id: parallel.c,v 1.1.1.14 2005/01/04 19:15:01 jlovell Exp $"
  *
  *   Parallel port backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -245,6 +245,8 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   * Finally, send the print file...
   */
 
+  wbytes = 0;
+
   while (copies > 0)
   {
     copies --;
@@ -281,6 +283,9 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 	bufptr += wbytes;
       }
 
+      if (wbytes < 0)
+        break;
+
       if (argc > 6)
 	fprintf(stderr, "INFO: Sending print file, %lu bytes...\n",
 	        (unsigned long)tbytes);
@@ -295,9 +300,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   if (fp != 0)
     close(fp);
 
-  fputs("INFO: Ready to print.\n", stderr);
-
-  return (0);
+  return (wbytes < 0);
 }
 
 
@@ -672,5 +675,5 @@ list_devices(void)
 
 
 /*
- * End of "$Id: parallel.c,v 1.1.1.9 2002/12/24 00:04:40 jlovell Exp $".
+ * End of "$Id: parallel.c,v 1.1.1.14 2005/01/04 19:15:01 jlovell Exp $".
  */

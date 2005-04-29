@@ -1,5 +1,5 @@
-/* EventObject.java - Represent events fired by objects.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+/* EventObject.java -- represents an event on an object
+   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -43,23 +43,44 @@ import java.io.Serializable;
 /**
  * Represents Events fired by Objects.
  *
+ * @author Eric Blake <ebb9@email.byu.edu>
  * @see EventListener
+ * @since 1.1
+ * @status updated to 1.4
  */
 public class EventObject implements Serializable
 {
+  /**
+   * Compatible with JDK 1.1+.
+   */
   private static final long serialVersionUID = 5516075349620653480L;
+
+  /**
+   * The source object; in other words, the object which this event takes
+   * place on.
+   */
   protected transient Object source;
 
   /**
    * Constructs an EventObject with the specified source.
+   *
+   * @param source the source of the event
+   * @throws IllegalArgumentException if source is null (This is not
+   *         specified, but matches the behavior of the JDK)
    */
   public EventObject(Object source)
   {
+    // This check for null is stupid, if you ask me, since source is
+    // protected and non-final, so a subclass can set it to null later on.
+    if (source == null)
+      throw new IllegalArgumentException();
     this.source = source;
   }
 
   /**
-   * @return The source of the Event.
+   * Returns the source of the event.
+   *
+   * @return the event source
    */
   public Object getSource()
   {
@@ -67,11 +88,14 @@ public class EventObject implements Serializable
   }
 
   /**
-   * @return String representation of the Event.
-   * @override toString in class Object
+   * Converts the event to a String. The format is not specified, but by
+   * observation, the JDK uses:
+   * <code>getClass().getName() + "[source=" + source + "]";</code>.
+   *
+   * @return String representation of the Event
    */
   public String toString()
   {
-    return this.getClass() + "[source=" + source.toString() + "]";
+    return getClass().getName() + "[source=" + source + "]";
   }
-}
+} // class EventObject

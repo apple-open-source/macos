@@ -1,9 +1,7 @@
 /*
 **********************************************************************
-* Copyright (c) 2002, International Business Machines
+* Copyright (c) 2002-2004, International Business Machines
 * Corporation and others.  All Rights Reserved.
-**********************************************************************
-* $Source: /cvs/root/ICU/icuSources/test/usetperf/usetperf.cpp,v $ 
 **********************************************************************
 * 2002-09-20 aliu Created.
 */

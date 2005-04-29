@@ -65,6 +65,8 @@
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <mach/boolean.h>
+#include <sys/vm.h>
 
 #ifdef linux
 #include <fcntl.h>
@@ -361,9 +363,6 @@ main(argc, argv)
 			break;
 #ifdef __APPLE__
 		case 'v':
-		    	if (strchr(optarg, ':') || strchr(optarg, '/'))
-			    	fatal("%s: volume name contains invalid "
-				      "characters ':' or '/'", optarg);
 		    	filesystem_name = optarg;
 			break;
 #endif __APPLE__

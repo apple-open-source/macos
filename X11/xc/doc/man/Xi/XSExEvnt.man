@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XSExEvnt.man,v 1.3 2001/02/09 03:47:49 tsi Exp $
+.\" $XFree86: xc/doc/man/Xi/XSExEvnt.man,v 1.4 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,21 +17,11 @@
 .SH NAME
 XSendExtensionEvent \- send input extension events to a client
 .SH SYNTAX
-Status XSendExtensionEvent\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fIdestination\fP\^, \fIpropagate\fP\^, \fIevent_count\fP\^, \fIevent_list\fP\^, \fIevent_send\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^;
-.br
-      Window \fIdestination\fP\^;
-.br
-      Bool \fIpropagate\fP\^;
-.br
-      int \fIevent_count\fP\^;
-.br
-      XEventClass *\fIevent_list\fP\^;
-.br
-      XEvent *\fIevent_send\fP\^;
+.HP
+Status XSendExtensionEvent\^(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, Window \fIdestination\fP\^, Bool \fIpropagate\fP\^, int
+\fIevent_count\fP\^, XEventClass *\fIevent_list\fP\^, XEvent
+*\fIevent_send\fP\^); 
 .SH ARGUMENTS
 .TP 12
 .I display

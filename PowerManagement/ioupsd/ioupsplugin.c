@@ -31,7 +31,7 @@
 #include <sysexits.h>
 
 /* defined by MiG: */
-extern struct rpc_subsystem _ioupsplugin_subsystem;
+extern struct mig_subsystem _ioupsplugin_subsystem;
 extern boolean_t ioupsplugin_server(mach_msg_header_t *, mach_msg_header_t *);
 
 int gClientUID = -1;

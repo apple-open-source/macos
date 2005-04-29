@@ -3,13 +3,13 @@
 
 
 
-// $XFree86: xc/programs/xkbcomp/symbols/de,v 3.12 2002/11/25 14:05:06 eich Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/de,v 3.15 2003/09/27 13:31:59 pascal Exp $
 
 default partial alphanumeric_keys 
 xkb_symbols "basic" {
 
     // Describes the differences between a very simple US/ASCII
-    // keyboard and a very simple German keybaord
+    // keyboard and a very simple German keyboard
 
     // Alphanumeric section
     name[Group1]= "German";
@@ -127,4 +127,47 @@ xkb_symbols "deadacute" {
 			[ dead_cedilla,	dead_ogonek	]	};
     key <BKSL> {	[ numbersign,	apostrophe	],
 			[ dead_grave			]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "de_ro" {
+    // add romanian-specific characters to the basic German layout.
+    // Romanian symbols are accessible with combination of <AltGr> and
+    // 'a', 's', 't', 'i', 'ä (&auml)' (+<Shift> for capital letters).
+    // To view romanian specific symbols, add "export LC_CTYPE=ro_RO"
+    // or "export LC_CTYPE=de_DE.utf8" to your .profile.
+
+    include "de(basic)"
+
+    name[Group1]="Romanian for German keyboard";
+
+    key <AD05> {        [         t,    T               ],
+                        [ tcedilla,     Tcedilla        ]       };
+    key <AD08> {        [         i,    I               ],
+                        [ icircumflex,  Icircumflex     ]       };
+    key <AC01> {        [         a,    A               ],
+                        [ acircumflex,  Acircumflex     ]       };
+    key <AC02> {        [         s,    S               ],
+                        [ scedilla,     Scedilla        ]       };
+    key <AC11> {        [ adiaeresis,   Adiaeresis      ],
+                        [ abreve,       Abreve          ]       };
+};
+
+partial alphanumeric_keys
+xkb_symbols "de_ro_nodeadkeys" {
+    // add romanian-specific characters to the "nodeadkeys" German layout.
+    // Read the comment for de_ro !
+
+    include "de(nodeadkeys)"
+
+    key <AD05> {        [         t,    T               ],
+                        [ tcedilla,     Tcedilla        ]       };
+    key <AD08> {        [         i,    I               ],
+                        [ icircumflex,  Icircumflex     ]       };
+    key <AC01> {        [         a,    A               ],
+                        [ acircumflex,  Acircumflex     ]       };
+    key <AC02> {        [         s,    S               ],
+                        [ scedilla,     Scedilla        ]       };
+    key <AC11> {        [ adiaeresis,   Adiaeresis      ],
+                        [ abreve,       Abreve          ]       };
 };

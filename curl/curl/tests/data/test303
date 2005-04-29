@@ -14,13 +14,19 @@ wait 10
 
 # Client-side
 <client>
+<features>
+SSL
+</features>
+<server>
+https
+</server>
  <name>
 HTTPS with 2 secs timeout
  </name>
  <command>
-http://%HOSTIP:%HOSTPORT/want/303 -m 2
+http://%HOSTIP:%HTTPPORT/want/303 -m 2
 </command>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -29,9 +35,9 @@ http://%HOSTIP:%HOSTPORT/want/303 -m 2
 </strip>
 <protocol>
 GET /want/303 HTTP/1.1
-Host: 127.0.0.1:8999
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
 
 </protocol>
 <errorcode>

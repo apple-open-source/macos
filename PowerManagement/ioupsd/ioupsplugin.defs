@@ -39,9 +39,9 @@ routine io_ups_send_command(
 routine io_ups_get_event(
             server		: mach_port_t;
             upsID		: int;
-	out event		: pointer_t);
+	out event		: pointer_t, dealloc);
         
 routine io_ups_get_capabilities(
             server		: mach_port_t;
             upsID		: int;
-	out capabilites		: pointer_t);
+	out capabilites		: pointer_t, dealloc);

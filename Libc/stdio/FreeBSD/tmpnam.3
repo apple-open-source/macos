@@ -34,7 +34,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)tmpnam.3	8.2 (Berkeley) 11/17/93
-.\" $FreeBSD: src/lib/libc/stdio/tmpnam.3,v 1.14 2002/12/18 12:45:10 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdio/tmpnam.3,v 1.16 2004/06/21 19:38:25 mpp Exp $
 .\"
 .Dd November 17, 1993
 .Dt TMPFILE 3
@@ -85,7 +85,7 @@ did not reference an existing file at some indeterminate point in the
 past.
 .Dv P_tmpdir
 is defined in the include file
-.Aq Pa stdio.h .
+.In stdio.h .
 If the argument
 .Fa str
 is
@@ -103,7 +103,7 @@ is expected to be at least
 bytes in length.
 .Dv L_tmpnam
 is defined in the include file
-.Aq Pa stdio.h .
+.In stdio.h .
 .Pp
 The
 .Fn tempnam
@@ -190,7 +190,7 @@ The
 and
 .Fn tempnam
 functions are susceptible to a race condition
-occuring between the selection of the file name
+occurring between the selection of the file name
 and the creation of the file,
 which allows malicious users
 to potentially overwrite arbitrary files in the system,

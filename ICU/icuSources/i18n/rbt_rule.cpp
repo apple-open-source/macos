@@ -1,12 +1,12 @@
 /*
-**********************************************************************
-*   Copyright (C) 1999-2001, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-**********************************************************************
-*   Date        Name        Description
-*   11/17/99    aliu        Creation.
-**********************************************************************
-*/
+ **********************************************************************
+ *   Copyright (C) 1999-2004, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ **********************************************************************
+ *   Date        Name        Description
+ *   11/17/99    aliu        Creation.
+ **********************************************************************
+ */
 
 #include "unicode/utypes.h"
 
@@ -21,6 +21,7 @@
 #include "strmatch.h"
 #include "strrepl.h"
 #include "util.h"
+#include "putilimp.h"
 
 static const UChar FORWARD_OP[] = {32,62,32,0}; // " > "
 
@@ -528,14 +529,14 @@ void TransliterationRule::setData(const TransliterationRuleData* d) {
 void TransliterationRule::addSourceSetTo(UnicodeSet& toUnionTo) const {
     int32_t limit = anteContextLength + keyLength;
     for (int32_t i=anteContextLength; i<limit; ) {
-	UChar32 ch = pattern.char32At(i);
-	i += UTF_CHAR_LENGTH(ch);
-	const UnicodeMatcher* matcher = data->lookupMatcher(ch);
-	if (matcher == NULL) {
-	    toUnionTo.add(ch);
-	} else {
-	    matcher->addMatchSetTo(toUnionTo);
-	}
+    UChar32 ch = pattern.char32At(i);
+    i += UTF_CHAR_LENGTH(ch);
+    const UnicodeMatcher* matcher = data->lookupMatcher(ch);
+    if (matcher == NULL) {
+        toUnionTo.add(ch);
+    } else {
+        matcher->addMatchSetTo(toUnionTo);
+    }
     }
 }
 

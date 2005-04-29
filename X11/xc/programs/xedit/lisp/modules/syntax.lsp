@@ -27,7 +27,7 @@
 ;; Author: Paulo César Pereira de Andrade
 ;;
 ;;
-;; $XFree86: xc/programs/xedit/lisp/modules/syntax.lsp,v 1.11 2003/01/16 03:50:46 paulo Exp $
+;; $XFree86: xc/programs/xedit/lisp/modules/syntax.lsp,v 1.12 2004/01/08 21:29:11 paulo Exp $
 ;;
 
 (provide "syntax")
@@ -126,60 +126,60 @@ is used.
 ;; sources in different programming languages.
 (defsynprop *prop-default*
     "default"
-    :font	"*courier-medium-r*12*"
+    :font	"*courier-medium-r*-12-*"
     :foreground	"black")
 
 (defsynprop *prop-keyword*
     "keyword"
-    :font	"*courier-bold-r*12*"
+    :font	"*courier-bold-r*-12-*"
     :foreground	"gray12")
 
 (defsynprop *prop-number*
     "number"
-    :font	"*courier-bold-r*12*"
+    :font	"*courier-bold-r*-12-*"
     :foreground	"OrangeRed3")
 
 (defsynprop *prop-string*
     "string"
-    :font	"*lucidatypewriter-medium-r*12*"
+    :font	"*lucidatypewriter-medium-r*-12-*"
     :foreground	"RoyalBlue2")
 
 (defsynprop *prop-constant*
     "constant"
-    :font	"*lucidatypewriter-medium-r*12*"
+    :font	"*lucidatypewriter-medium-r*-12-*"
     :foreground	"VioletRed3")
 
 (defsynprop *prop-comment*
     "comment"
-    :font	"*courier-medium-o*12*"
+    :font	"*courier-medium-o*-12-*"
     :foreground	"SlateBlue3")
 
 (defsynprop *prop-preprocessor*
     "preprocessor"
-    :font	"*courier-medium-r*12*"
+    :font	"*courier-medium-r*-12-*"
     :foreground	"green4")
 
 (defsynprop *prop-punctuation*
     "punctuation"
-    :font	"*courier-bold-r*12*"
+    :font	"*courier-bold-r*-12-*"
     :foreground	"gray12")
 
 ;; Control characters, not always errors...
 (defsynprop *prop-control*
     "control"
-    :font	"*courier-bold-r*12*"
+    :font	"*courier-bold-r*-12-*"
     :foreground	"yellow2"
     :background	"red3")
 
 (defsynprop *prop-error*
     "error"
-    :font	"*new century schoolbook-bold*24*"
+    :font	"*new century schoolbook-bold*-24-*"
     :foreground	"yellow"
     :background	"red")
 
 (defsynprop *prop-annotation*
     "annotation"
-    :font	"*courier-medium-r*12*"
+    :font	"*courier-medium-r*-12-*"
     :foreground	"black"
     :background	"PaleGreen")
 

@@ -1,28 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*	$OpenBSD: private.h,v 1.6 1997/01/14 03:16:48 millert Exp $	*/
-
 #ifndef PRIVATE_H
 
 #define PRIVATE_H
@@ -32,13 +7,14 @@
 ** 1996-06-05 by Arthur David Olson (arthur_david_olson@nih.gov).
 */
 
-/* OpenBSD defaults */
-#define TM_GMTOFF		tm_gmtoff
-#define TM_ZONE			tm_zone
-#define PCTS			1
-#define STD_INSPIRED		1
-#define HAVE_LONG_DOUBLE	1
-#define HAVE_STRERROR		1
+/*
+ * FreeBSD modifications: separate libc's privates from zic's.
+ * This makes it easier when we need to update one but not the other.
+ * I have removed all of the ifdef spaghetti which is not relevant to
+ * zic from this file.
+ *
+ * $FreeBSD: src/usr.sbin/zic/private.h,v 1.7 2004/06/20 21:41:11 stefanf Exp $
+ */
 
 /*
 ** This header is for use ONLY with the time conversion code.
@@ -52,46 +28,40 @@
 ** ID
 */
 
-#if 0
 #ifndef lint
 #ifndef NOID
-static char	privatehid[] = "@(#)private.h	7.44";
+static const char	privatehid[] = "@(#)private.h	7.53";
 #endif /* !defined NOID */
 #endif /* !defined lint */
-#endif
 
 /*
 ** Defaults for preprocessor symbols.
 ** You can override these in your C compiler options, e.g. `-DHAVE_ADJTIME=0'.
 */
 
-#ifndef HAVE_ADJTIME
-#define HAVE_ADJTIME		1
-#endif /* !defined HAVE_ADJTIME */
-
 #ifndef HAVE_GETTEXT
 #define HAVE_GETTEXT		0
 #endif /* !defined HAVE_GETTEXT */
 
-#ifndef HAVE_SETTIMEOFDAY
-#define HAVE_SETTIMEOFDAY	3
-#endif /* !defined HAVE_SETTIMEOFDAY */
-
 #ifndef HAVE_STRERROR
-#define HAVE_STRERROR		0
+#define HAVE_STRERROR		1
 #endif /* !defined HAVE_STRERROR */
+
+#ifndef HAVE_SYMLINK
+#define HAVE_SYMLINK		1
+#endif /* !defined HAVE_SYMLINK */
+
+#ifndef HAVE_SYS_STAT_H
+#define HAVE_SYS_STAT_H		1
+#endif /* !defined HAVE_SYS_STAT_H */
+
+#ifndef HAVE_SYS_WAIT_H
+#define HAVE_SYS_WAIT_H		1
+#endif /* !defined HAVE_SYS_WAIT_H */
 
 #ifndef HAVE_UNISTD_H
 #define HAVE_UNISTD_H		1
 #endif /* !defined HAVE_UNISTD_H */
-
-#ifndef HAVE_UTMPX_H
-#define HAVE_UTMPX_H		0
-#endif /* !defined HAVE_UTMPX_H */
-
-#ifndef LOCALE_HOME
-#define LOCALE_HOME		"/usr/lib/locale"
-#endif /* !defined LOCALE_HOME */
 
 /*
 ** Nested includes
@@ -109,6 +79,10 @@ static char	privatehid[] = "@(#)private.h	7.44";
 #include "libintl.h"
 #endif /* HAVE_GETTEXT - 0 */
 
+#if HAVE_SYS_WAIT_H - 0
+#include <sys/wait.h>	/* for WIFEXITED and WEXITSTATUS */
+#endif /* HAVE_SYS_WAIT_H - 0 */
+
 #if HAVE_UNISTD_H - 0
 #include "unistd.h"	/* for F_OK and R_OK */
 #endif /* HAVE_UNISTD_H - 0 */
@@ -125,89 +99,19 @@ static char	privatehid[] = "@(#)private.h	7.44";
 /* Unlike <ctype.h>'s isdigit, this also works if c < 0 | c > UCHAR_MAX.  */
 #define is_digit(c) ((unsigned)(c) - '0' <= 9)
 
-/*
-** Workarounds for compilers/systems.
-*/
+#define P(x) x
 
 /*
-** SunOS 4.1.1 cc lacks const.
+** Private function declarations.
 */
-
-#ifndef const
-#ifndef __STDC__
-#define const
-#endif /* !defined __STDC__ */
-#endif /* !defined const */
-
-/*
-** SunOS 4.1.1 cc lacks prototypes.
-*/
-
-#ifndef P
-#ifdef __STDC__
-#define P(x)	x
-#endif /* defined __STDC__ */
-#ifndef __STDC__
-#define P(x)	()
-#endif /* !defined __STDC__ */
-#endif /* !defined P */
-
-/*
-** SunOS 4.1.1 headers lack EXIT_SUCCESS.
-*/
-
-#ifndef EXIT_SUCCESS
-#define EXIT_SUCCESS	0
-#endif /* !defined EXIT_SUCCESS */
-
-/*
-** SunOS 4.1.1 headers lack EXIT_FAILURE.
-*/
-
-#ifndef EXIT_FAILURE
-#define EXIT_FAILURE	1
-#endif /* !defined EXIT_FAILURE */
-
-/*
-** SunOS 4.1.1 headers lack FILENAME_MAX.
-*/
-
-#ifndef FILENAME_MAX
-
-#ifndef MAXPATHLEN
-#ifdef unix
-#include "sys/param.h"
-#endif /* defined unix */
-#endif /* !defined MAXPATHLEN */
-
-#ifdef MAXPATHLEN
-#define FILENAME_MAX	MAXPATHLEN
-#endif /* defined MAXPATHLEN */
-#ifndef MAXPATHLEN
-#define FILENAME_MAX	1024		/* Pure guesswork */
-#endif /* !defined MAXPATHLEN */
-
-#endif /* !defined FILENAME_MAX */
-
-/*
-** SunOS 4.1.1 libraries lack remove.
-*/
-
-#ifndef remove
-extern int	unlink P((const char * filename));
-#define remove	unlink
-#endif /* !defined remove */
-
-#if 0
-/*
-** Some ancient errno.h implementations don't declare errno.
-** But some newer errno.h implementations define it as a macro.
-** Fix the former without affecting the latter.
-*/
-#ifndef errno
-extern int errno;
-#endif /* !defined errno */
-#endif
+char *	icalloc P((int nelem, int elsize));
+char *	icatalloc P((char * old, const char * new));
+char *	icpyalloc P((const char * string));
+char *	imalloc P((int n));
+void *	irealloc P((void * pointer, int size));
+void	icfree P((char * pointer));
+void	ifree P((char * pointer));
+char *	scheck P((const char *string, const char *format));
 
 /*
 ** Finally, some convenience items.
@@ -237,7 +141,7 @@ extern int errno;
 ** add one more for a minus sign if the type is signed.
 */
 #define INT_STRLEN_MAXIMUM(type) \
-    ((TYPE_BIT(type) - TYPE_SIGNED(type)) * 302 / 100 + 1 + TYPE_SIGNED(type))
+    ((TYPE_BIT(type) - TYPE_SIGNED(type)) * 302 / 1000 + 1 + TYPE_SIGNED(type))
 #endif /* !defined INT_STRLEN_MAXIMUM */
 
 /*
@@ -283,7 +187,7 @@ extern int errno;
 #endif /* !defined TZ_DOMAIN */
 
 /*
-** UNIX was a registered trademark of UNIX System Laboratories in 1993.
+** UNIX was a registered trademark of The Open Group in 2003.
 */
 
 #endif /* !defined PRIVATE_H */

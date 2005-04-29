@@ -1,7 +1,7 @@
 /*
  * CCICredentialsDataMachIPCStubs.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/CredsDataMachIPCStubs.cp,v 1.11 2003/03/17 20:48:13 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/CredsDataMachIPCStubs.cp,v 1.12 2004/09/08 20:48:33 lxs Exp $
  */
  
 #include "CredsDataMachIPCStubs.h"
@@ -79,9 +79,11 @@ CCICredentialsDataMachIPCStub::CopyV4Credentials (
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
         CCIUInt32	version;
-        flatCredentials >> version;
+        //flatCredentials >> version;
+        ReadUInt32 (flatCredentials, version);
         CCIAssert_ (version == cc_credentials_v4);
-        flatCredentials >> outCredentials;
+        //flatCredentials >> outCredentials;
+        ReadV4Credentials (flatCredentials, outCredentials);
 }
 
 void
@@ -101,9 +103,11 @@ CCICredentialsDataMachIPCStub::CopyV5Credentials (
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
         CCIUInt32 version;
-        flatCredentials >> version;
+        //flatCredentials >> version;
+        ReadUInt32 (flatCredentials, version);
         CCIAssert_ (version == cc_credentials_v5);
-        flatCredentials >> outCredentials;
+        //flatCredentials >> outCredentials;
+        ReadV5Credentials (flatCredentials, outCredentials);
 }
 
 #if CCache_v2_compat
@@ -124,9 +128,11 @@ CCICredentialsDataMachIPCStub::CompatCopyV4Credentials (
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
         CCIUInt32	version;
-        flatCredentials >> version;
+        //flatCredentials >> version;
+        ReadUInt32 (flatCredentials, version);
         CCIAssert_ (version == cc_credentials_v4);
-        flatCredentials >> outCredentials;
+        //flatCredentials >> outCredentials;
+        ReadV4CompatCredentials (flatCredentials, outCredentials);
 }
 
 void
@@ -146,8 +152,10 @@ CCICredentialsDataMachIPCStub::CompatCopyV5Credentials (
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
         CCIUInt32	version;
-        flatCredentials >> version;
+        //flatCredentials >> version;
+        ReadUInt32 (flatCredentials, version);
         CCIAssert_ (version == cc_credentials_v5);
-        flatCredentials >> outCredentials;
+        //flatCredentials >> outCredentials;
+        ReadV5CompatCredentials (flatCredentials, outCredentials);
 }
 #endif

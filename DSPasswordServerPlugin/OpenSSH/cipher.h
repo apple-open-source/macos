@@ -47,6 +47,7 @@
 #include <openssl/blowfish.h>
 #include <openssl/rc4.h>
 #include <openssl/cast.h>
+#include <sys/types.h>
 
 /* Cipher types.  New types can be added, but old types should not be removed
    for compatibility.  The maximum allowed value is 31. */

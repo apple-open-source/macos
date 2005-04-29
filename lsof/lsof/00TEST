@@ -11,6 +11,7 @@
 		    1.  Test Limitations
 		    2.  Test Data Base and Scripts
 		    3.  The Makefile
+			3.1 The CkTestDB Script
 		    4.  The Lsof Executable and LT_LSOF_PATH
 		    5.  Automated Testing
 		C.  Configure Script Participation
@@ -63,6 +64,10 @@ The lsof test suite attempts to test basic lsof features.  It does
 not promise to test every lsof feature for every supported dialect.
 (That's a nearly impossible goal.)
 
+As a result, the test suite cannot promise that every lsof feature
+works as documented.  At best the test suite gives some assurance
+that basic, standard and some optional lsof features work.
+
 A.2. Not a FAQ
 ==============
 
@@ -112,8 +117,7 @@ are described below in "F. The Individual Tests".
 Each test measures lsof functionality by putting a specific lsof
 command execution at the end of an in-bound (to the test) pipe.
 The caller asks lsof to write its results to the pipe in field
-output form.  (See the -F option in the lsof man page.)  That has
-a limitation, described below in "B.1 Test Limitations."
+output form.  (See the -F option in the lsof man page.)
 
 Using an in-bound lsof pipe allows the tests to measure a great
 deal of lsof functionality, including as an interesting side effect,
@@ -126,68 +130,133 @@ B.1. Test Limitations
 One limitation of the tests is that they don't measure lsof formatted
 output -- i.e., the output normally see when lsof is run.  There
 are just too many variants of lsof output produced across the range
-of dialects where lsof runs, so field output is a more constant
+of dialects where lsof runs, so field output is a more consistent
 way to process lsof output.
 
 But using field output does mean that the test suite doesn't check
 for lsof formatting problems, except in the field output itself.
 
-
 B.2. Test Data Base and Scripts
 ===============================
 
-The tests/TestDB file contains a simple data base that describes
-where the tests have been validated.  Entries are formed from a
-combination of the lines in the tests/config.cflags file produced
-by the lsof Configure script.  The entries can be considered "lsof
-dialect footprints."
+The TestDB file contains a simple data base that describes where
+the tests have been validated.  Entries are formed from a combination
+of the lines in the config.cflags file produced by the lsof Configure
+script.  The entries can be considered "lsof dialect footprints,"
+hereafter simply called "dialect footprints" or just "footprints."
 
-Two shell scripts support TestDB.  The first Add2TestDB will add
-an lsof dialect footprint to tests/TestDB.  I don't recommend you
-use this script.  Mostly it's for my use when I find that the test
-suite has been validated on a new dialect.
+Two shell scripts support TestDB.  The first, Add2TestDB, will add
+a footprint to TestDB.  I don't recommend you use this script.
+Mostly it's for my use when I find that the test suite has been
+validated on a new dialect.
 
-The CkTestDB script is used by the Makefile to compare an lsof
-dialect footprint to tests/TestDB.  If no match is located, the
-script issues a warning, displays the footprint it formed that
-doesn't compare to anything in TestDB, and asks if running the test
-suite should continue.
+It's also possible to add a footprint to TestDB by simply editing
+TestDB and pasting into it a copy of the footprint reported by a
+failed Makefile rule.  I don't generally recommend this be done,
+either.
+
+There are Makefile rules that use (and avoid) the CkTestDB script.
+(See "B.3 The Makefile".)
+
+The default (i.e., "all") Makefile rule uses the CkTestDB script
+to look for the footprint in TestDB. If no footprint is found, the
+script issues a warning, displays the unfound footprint, and asks
+if running the test suite should continue.
+
+The "auto" Makefile rule also uses CkTestDB, but with a special
+call that causes CkTestDB to look in TestDB for the footprint,
+report it when it can't be found, and then fail.  That CkTestDB
+failure causes the "auto" rule to fail, too.
+
+The "silent" Makefile rule doesn't use CkTestDB to look in TestDB
+for the footprint.  It runs the standard and basic tests as silently
+as possible, then returns a failure or success exit code that
+signals the result of the running of the tests.  (Use the "silent"
+rule carefully, because it will skip proving the tests have previously
+run on the dialect.)
 
 B.3. The Makefile
-=================
+=======================
 
-The Makefile in tests/ runs the tests in the test suite.  It has
-these useful rules.
+The Makefile runs the tests in the test suite.  It has these rules.
 
-    all		runs the basic test and the standard tests.
+    all         runs the basic test and the standard tests,
+		interacting with the caller should the footprint
+		not be found in TestDB.
 
-    auto        runs the basic test and the standard tests as
-		silently as possible.  This rule is designed for
-		lsof build scripts that want a quick noiseless test
-		of what they built.  This rule inhibits any CkTestDB
-		go-ahead request (See below.) by making sure its
-		standard input file isn't a TTY.
+		(This is the default rule.)
 
-    clean       removes test and compiler output.  (See the "Cleaning
-		-- Quick or Spotless" section.)
+    auto        runs the basic test and the standard tests on a
+		previously validated system as silently as possible.
+
+		The footprint must be found in TestDB for this rule
+		to succeed.  (See the "silent" rule for one that
+		avoids checking TestDB.)
+
+		This rule is designed for lsof build scripts that
+		want a quick noiseless test to make sure what they
+		built works as it previously did.
+
+		This rule calls CkTestDB in a way that inhibits
+		its normal go-ahead request. (See "B.2.1 The CkTestDB
+		Script".)  If CkTestDB finds the footprint and all
+		tests succeed, this rule returns a zero exit code
+		(success).  If the footprint isn't found or if any
+		test fails, a non-zero exit code (failure) is
+		returned.
+
+    ckDB        calls the CkTestDB script to look for a footprint.
+		If none is found, the way CkTestDB was called (See
+		"B.3.1 The CkTestDB Script".) causes it to return
+		a non-zero exit code (failure) to this rule, and
+		the rule then returns a non-zero exit code (failure)
+		itself.
+
+		This rule is used by the "auto" rule.  If this rule
+		succeeds (zero exit code), the "auto" rule then
+		uses the "silent" rule.
+
+    clean       removes test and compiler output.  (See the "D.
+		Cleaning -- Quick or Spotless" section.)
 
     opt		runs the optional tests.
     optional
 
+    silent      runs the lsof basic and standard tests as silently
+		as possible (as the "auto" rule does), but without
+		using CkTestDB to look for a footprint.  If all
+		tests succeed, the rule returns a zero exit code
+		(success).  If any test fails, the rule returns a
+		non-zero exit code (failure).
+
+		Use the "silent" rule carefully, because it will
+		skip proving the tests have previously run on the
+		dialect.
+
     spotless    does what the clean rule does and also removes the
 		config.* files created by ../Configure.  (See the
-		"Cleaning -- Quick or Spotless" section.)
+		"D. Cleaning -- Quick or Spotless" section.)
 
     std		runs the basic test and the standard tests.
     standard
 
-Rules in the Makefile that run tests first run the CkTestDB script.
-It makes sure the tests have been validated on the UNIX dialect.  If
-not, and if standard input is a TTY, CkTestDB asks for a go-ahead
-signal.  If standard input isn't a TTY, CkTestDB aborts the test run.
-
-The Makefile has some cleaning rules, further described in "Cleaning
+The Makefile cleaning rules are further described in "D.  Cleaning
 -- Quick or Spotless."
+
+B.3.1 The CkTestDB Script
+=========================
+
+Some Makefile rules (e.g., "all" and "auto") use the CkTestDB script
+to make sure the tests have been run previously on the dialect.
+CkTestDB does that by looking for the dialect's footprint in TestDB.
+
+If no footprint is found, and if standard input is a TTY, CkTestDB
+asks for a go-ahead signal.  If standard input isn't a TTY, CkTestDB
+aborts the test run.  (See "B.2. Test Data Base and Scripts".)
+
+The Makefile "silent" rule does not call CkTestDB.  use the "silent"
+rule carefully, because it will skip proving the tests have previously
+run on the dialect.
 
 B.4. The Lsof Executable and LT_LSOF_PATH
 =========================================
@@ -228,8 +297,18 @@ B.5 Automated Testing
 =====================
 
 Normally the lsof test suite is wordy and may require interaction.
-When you want to avoid those interferences, use the tests/Makefile
-"auto" rule.  (See B.5 Automated Testing.)
+When you want to avoid those interferences, use the Makefile "auto"
+or "silent" rules.  (See the description of the "auto" and "silent"
+rules in "B.3 The Makefile".)
+
+The footprint must be present in TestDB in order to use the "auto"
+rule.  If it is not, the "auto" rule will fail and report the
+missing footprint.  Footprints in TestDB proclaim that the tests
+have previously succeeded on the dialect.
+
+The footprint need not be present in TestDB in order to use the
+"silent" rule.  Use the "silent" rule carefully, because it will
+skip proving the tests have previously run on the dialect.
 
 
 C. Configure Script Participation
@@ -246,26 +325,25 @@ suite.
 C.1. config.cc
 ==============
 
-This file, tests/config.cc, contains the name of or the path to
-the C compiler used to compile lsof.  The Makefile in tests/ uses
-this file in place of the standard make(1) CC string with a shell
-in-place execution statement -- i.e., `cat config.cc`.
+This file, config.cc, contains the name of or the path to the C
+compiler used to compile lsof.  The Makefile uses this file in
+place of the standard make(1) CC string with a shell in-place
+execution statement -- i.e., `cat config.cc`.
 
 If the LSOF_CC environment variable is supplied to the lsof Configure
-script, its value will appear in the tests/config.cc file.
+script, its value will appear in the config.cc file.
 
 C.2. config.cflags
 ==================
 
-This file, tests/config.cflags, contains C compiler flags that
-tests/Makefile uses to compile the C programs in the test suite.
-As with the compiler file, tests/config.cc, the make rules incorporate
-the contents of this file into C compiler options with `cat
-config.cflags`.
+This file, config.cflags, contains C compiler flags that Makefile
+uses to compile the C programs in the test suite.  As with the
+compiler file, config.cc, the make rules incorporate the contents
+of this file into C compiler options with `cat config.cflags`.
 
-This file is also used by the Add2TestDB and CkTestDB shells scripts
-to build and match lsof dialect footprints.  (See "B.2. Test Data
-Base and Scripts.")
+This file is also used by the Add2TestDB and CkTestDB shell scripts
+to build and match footprints.  (See "B.2. Test Data Base and
+Scripts.")
 
 C.2.1 config.cflags Contents
 ============================
@@ -304,7 +382,7 @@ The config.cflags file may contain the following C compiler flags.
 			    dialect, as used in lsof pre-processor
 			    tests.
 
-			    Example for Solaris 8: -DLT_VERS=80000
+			    Example for Solaris 10: -DLT_VERS=100000
 
 The config.cflags file may also contain dialect-specific compiler
 flags needed to activate a specific feature on the dialect.  For
@@ -321,8 +399,8 @@ example, for HP-UX config.cflags might contain:
 C.3. config.ldflags
 ===================
 
-This file, tests/config.ldflags, contains the dialect loader flags
--- i.e., the equivalent to make(1) LFLAGS -- for loading the test
+This file, config.ldflags, contains the dialect loader flags --
+i.e., the equivalent to make(1) LFLAGS -- for loading the test
 programs.
 
 Example for Solaris: -lsocket           this adds the socket library
@@ -338,11 +416,11 @@ Example for UnixWare: -lsocket -lnsl    this adds the socket and
 C.4. config.xobj
 ================
 
-This file, tests/config.xobj, contains the paths to any extra object
+This file, config.xobj, contains the paths to any extra object
 files (.o's) that must be loaded when the test suite C programs
-are loaded.  Like tests/config.cc and tests/config.cflags, it's
-incorporated into the loader statements of the tests/Makefile's
-make rules with `cat config.xobj`.
+are loaded.  Like config.cc and config.cflags, it's incorporated
+into the loader statements of the Makefile's rules with `cat
+config.xobj`.
 
 Examples for DEC OSF/1 and NEXTSTEP:
 
@@ -355,8 +433,8 @@ Examples for DEC OSF/1 and NEXTSTEP:
 D. Cleaning -- Quick or Spotless
 ================================
 
-While on the subject of make rules, here's a description of the
-two cleaning rules in tests/Makefile:
+There are two Makefile rules that clean the tests/ subdirectory --
+"clean" and "spotless".  They cause different degrees of cleaning.
 
     clean       a "quick" clean that removes compiled object files,
 		executables and test files.  It does NOT remove
@@ -381,11 +459,11 @@ The lsof test suite provides a C library.
 E.1. LTlib.c
 ============
 
-This is a C library of common functions used by tests.  configured
-at compile time by the contents of tests/config.cflags, it uses
-the single header file tests/LsofTest.h.  LsofTest.h tailors its
-definitions to the dialect at compile time, using the LT_DIAL_*
-definitions in config.cflags.
+This is a C library of common functions used by tests.  Configured
+at compile time by the contents of config.cflags, it uses the single
+header file LsofTest.h.  LsofTest.h tailors its definitions to the
+dialect at compile time, using the LT_DIAL_* definitions in
+config.cflags.
 
 Two particularly useful functions in the library are: ExecLsof(),
 which will execute an lsof child process; and RdFromLsof(), which
@@ -395,7 +473,7 @@ structures that are easy for C programs to process.
 This library is a good model for processing field output in a C
 program from an in-bound lsof pipe.
 
-The source for the library, tests/LTlib.c, contains more documentation.
+The source for the library, LTlib.c, contains more documentation.
 
 
 F. The Individual Tests
@@ -406,14 +484,18 @@ explain what the tests do, a few errors they might report, and how
 to use options and environment variables to customize the tests.
 
 The test descriptions are listed in this section in alphabetical
-order, not in the order they are run by tests/Makefile.
+order, not in the order they are run by Makefile.
 
 The Makefile runs the tests in three groups, basic tests, standard
 tests, and optional tests.  The default make "all" rule runs the
 basic and standard tests.  (The "standard", "std", and "test"
-Makefile rules are synonyms to "all".)  If the standard tests
-succeed, the Makefile suggests running the optional tests with the
-"opt" (or "optional") rule.
+Makefile rules are synonyms to "all".) If the standard tests succeed,
+Makefile suggests running the optional tests with the "opt" (or
+"optional") rule.
+
+The Makefile "auto" and "silent" rules run only the basic and
+standard tests.  They do not run or suggest you run the optional
+tests.
 
     The basic test:
 	LTbasic
@@ -434,7 +516,7 @@ The basic and standard tests should all succeed on all dialects,
 although LTnlink may warn that it can't perform its unlink test on
 an NFS file system.
 
-The optional tests may run,  they may be disabled for specific
+The optional tests may run, they may be disabled for specific
 dialects, or they may fail because of special resource needs --
 e.g., LTbigf will run only on UNIX dialects where it knows how to
 handle files whose lengths exceed 32 bits, and LTnfs needs access
@@ -449,17 +531,15 @@ G.1. LTbasic, a Basic Lsof Test
 ===============================
 
 This is the basic lsof test.  If it doesn't run, it's not likely
-any other tests will run, either.  Hence, if it fails, the tests/
-Makefile runs no other tests.
+any other tests will run, either.  Hence, if it fails, no Makefile
+rule runs any other tests.
 
 This test uses lsof to locate files in the lsof process, including
 current working directory, the lsof executable, and the /dev/kmem
 open file.
 
-Finding the lsof executable isn't possible on all dialects -- e.g.,
-Apple Darwin -- so that test is disabled there.  It may not be
-possible on AIX if lsof was compiled without support for its -X
-option.
+Finding the lsof executable may not be possible on AIX if lsof was
+compiled without support for its -X option.
 
 Finding /dev/kmem use by lsof is only possible on dialects where
 lsof uses /dev/kmem.  The -DLT_KMEM define indicates that.
@@ -477,11 +557,10 @@ G.2. LTbigf, Test Sizes and Offsets for Large (> 32 bit) Files
 This is a test in the optional test group.
 
 This test is effective only when ../Configure has put -DLT_BIGF in
-tests/config.cflags.  Without that definition this test simply
-reports that the dialect doesn't support large files.  That report
-is accompanied by a successful test exit code, so that the runner
-of the test (e.g., the tests/Makefile) won't believe the test
-failed.
+config.cflags.  Without that definition this test simply reports
+that the dialect doesn't support large files.  That report is
+accompanied by a successful test exit code, so that the runner of
+the test (e.g., the Makefile) won't believe the test failed.
 
 When a dialect does support large files, the test attempts to create
 a file that looks very large -- e.g., has a length as reported by
@@ -489,8 +568,8 @@ ls(1) of 0x140000000 bytes.  However, the file really has only a
 small amount of data in it, the rest of the file consists of a
 large standard UNIX file system "hole."
 
-By default the test file is named tests/config.LTbigf<PID>, where
-PID is the Process ID of the LTbigf process.
+By default the test file is named config.LTbigf<PID>, where PID is
+the Process ID of the LTbigf process.
 
 When that file is not on a file system enabled for large files, or
 when the process that runs LTbigf can't create a big file, LTbigf
@@ -500,7 +579,7 @@ can write a large file, or the process ulimit file block size may
 need to be raised -- e.g., to "unlimited."
 
 LTbigf can't test file offset reporting on Linux, because its /proc
-file system doesn't report them to lsof.
+file system doesn't report offsets to lsof.
 
 Run this test:
 
@@ -521,14 +600,16 @@ other dialect-specific methods.  (E.g., Linux, HP-UX 11.11, and
 some Tru64 UNIX versions have private name lookup methods.)
 
 The test checks what lsof reports as the current working directory
-path with for any missing components and counts the number of full
-paths returned.  (Symbolic link complications prevent testing for
-exact path matches.)  The test is repeated.  If full paths are
-returned at least half the time, the test considers itself successful.
+path for any missing components and counts the number of full paths
+returned.  (Symbolic link complications prevent testing for exact
+path matches.)  The test is repeated.  If full paths are returned
+at least half the time, the test considers itself successful.
 
 This test can't be run on AIX, because lsof can't access the DNLC
-there.  It can't be run on Darwin, either, because insufficient
-DNLC information is available there.
+there.  It can't be run on Apple Darwin, either, because insufficiently
+reliable DNLC information is available there.  This test may fail on
+other dialects when the file system -- e.g., NFS. /tmp, loopback --
+doesn't fully participate in the dialect's DNLC.
 
 Run this test:
 
@@ -551,11 +632,11 @@ This test can't be run on an NFS client file system, because NFS
 lock information is kept on the server.  Lsof on the client can't
 see that server kernel data.
 
-By default the test attempts to create a file names
-tests/config.LTlock<PID>, where PID is the Process ID of the locking
-test process.  It uses lsof to determine if the file is on a client
-NFS file system.  If it is, the test aborts, hinting that the -p
-option can be used to specify a non-client-NFS test file path.
+By default the test attempts to create a file named config.LTlock<PID>,
+where PID is the Process ID of the locking test process.  It uses
+lsof to determine if the file is on a client NFS file system.  If
+it is, the test aborts, hinting that the -p option can be used to
+specify a non-client-NFS test file path.
 
 This test can't be run on Darwin, because insufficient file system
 lock information is available to lsof there.
@@ -575,9 +656,9 @@ This is a test in the optional test group.
 This test verifies that lsof can locate files mounted on a client
 NFS system from an NFS server.
 
-By default it creates a test file, tests/config.LTnfs<PID>, where
-PID is the Process ID of the test process.  The test then uses lsof
-to find the file on an NFS file system.
+By default it creates a test file, config.LTnfs<PID>, where PID is
+the Process ID of the test process.  The test then uses lsof to
+find the file on an NFS file system.
 
 If lsof can't find the file the test warns that the test file might
 not be on an NFS file system and hints that the -p option may be
@@ -604,13 +685,13 @@ This is a test in the standard test group.
 The test checks lsof's reporting of link count (nlink in UNIX
 argot.)
 
-It creates a test file in the current working directory name
-tests/config.LTnlink<PID>, where  PID is the Process ID of the test
+It creates a test file in the current working directory named
+config.LTnlink<PID>, where  PID is the Process ID of the test
 process.  It then uses stat(2) and lsof to measure the link count
 of the file.
 
-If nlink creates the test file in the current working directory
-and it is on an NFS file system, nlink won't be able to perform
+If LTnlink creates the test file in the current working directory
+and it is on an NFS file system, LTnlink won't be able to perform
 one section of its test.  In that section the test file is unlinked
 so its link count will be zero and lsof is asked to find it among
 the set of files whose link counts are zero.
@@ -618,10 +699,9 @@ the set of files whose link counts are zero.
 When an NFS file is unlinked its link count isn't reduced until
 the last open instance is closed on either the NFS clients or the
 NFS.  That's a consequence of NFS statelessness and leads to the
-occasional presence of files with names of the form .nfsxxxx you
-may have noticed.
+occasional presence of files with names of the form .nfsxxxx.
 
-Should nlink find its test file on an NFS file system, it disables
+Should LTnlink find its test file on an NFS file system, it disables
 the unlink section of its tests and issues a warning.  It also
 issues a hint that the test file path can be named via the -p option
 to give a test file location that isn't on an NFS file system.
@@ -670,8 +750,7 @@ This test checks lsof's reporting of file size and offset for small
 (< 32 bits) files.
 
 It creates a test file in the current working directory named
-tests/config.LTszoff<PID>.  PID is the Process ID of the test
-process.
+config.LTszoff<PID>.  PID is the Process ID of the test process.
 
 LTszoff can't test file offset reporting on Linux, because its
 /proc file system doesn't report them to lsof.
@@ -739,60 +818,89 @@ tests I was unable to run, mostly LTnfs because the test systems
 I used had no NFS file systems mounted.
 
 The information in the following table is encoded in a test data
-base file, tests/TestDB, as lsof dialect footprints, using the
-tests compiler options written to tests/config.cflags by the lsof
-Configure script.  See "B.2. Test Data Base and Scripts" for more
-information on the test data base, lsof dialect footprints, and
-the scripts that support them.
+base file, TestDB, as footprints, using the tests compiler options
+written to config.cflags by the lsof Configure script.  See "B.2.
+Test Data Base and Scripts" for more information on the test data
+base, footprints, and the scripts that support them.
 
     UNIX
     Dialect	  Dialect Description		Untested Tests
     ======= 	  ===================		==============
     AIX		  4.3.3, Power, cc
-		  5.1.1, Power-32, cc
-		  5.1.1, Power-64, cc
+		  5.1, Power-32, cc
+		  5.1, Power-32, gcc
+		  5.1, Power-64, cc
 		  5.2, Power-32, cc
+		  5.2, Power-32, gcc
 		  5.2, Power-64, cc
+		  5.2, Power-64, gcc
     BSDI	  4.[13], gcc
-    Darwin        1.4, 5.5, gcc                 Darwin lsof doesn't
+    Darwin        1.4, 5.5, 6.x, 7.x, 8.x gcc	Darwin lsof doesn't
 						have adequate support
-						to allow the LTdnlc,
-						LTlock, LTnfs, and
-						LTnlink tests to run.
-    FreeBSD       4.5, gcc
-		  4.6, gcc
-		  4.7, gcc
-		  4.8, gcc
+						to allow the LTbigf,
+						Ltdnlc, LTlock, LTnfs,
+						and LTnlink tests to
+						run.
+    FreeBSD       4.5, i386, gcc
+		  4.6, i386, gcc
+		  4.7, i386, gcc
+		  4.8, i386, gcc
+		  4.9, i386, gcc
+		  4.10, i386 gcc
 		  5.0, Alpha, gcc
 		  5.0, Sparc, gcc
-		  5.0, x86, gcc
+		  5.0, i386, gcc
 		  5.1, Alpha, gcc
+		  5.1, Amd64, gcc
 		  5.1, Sparc, gcc
-		  5.1, x86, gcc
+		  5.1, i386, gcc
+		  5.2, i386, gcc
+		  5.2, Alpha, gcc
+		  5.2, Amd64, gcc
+		  5.2, Sparc, gcc
+		  6.0, Alpha, gcc
+		  6.0, Amd64, gcc
+		  6.0, Sparc, gcc
     DEC OSF/1	  4.0, cc
     HP-UX	  10.20, cc			LTbigf
 		  10.20, gcc (1)		LTbigf
 		  11.00-32, ANSI-C		LTbigf, LTnfs
 		  11.00-64, ANSI-C
 		  11.11, ANSI-C			LTnfs
-    Linux         2.4.12-696            	LTbigf, no offset tests
+    Linux         2.4.12-686            	LTbigf, no offset tests
 						LTszoff, no offset tests
-		  2.4.18-696            	LTbigf, no offset tests
+		  2.4.18-686            	LTbigf, no offset tests
 						LTszoff, no offset tests
-		  2.4.21-696            	LTbigf, no offset tests
+		  2.4.21-686            	LTbigf, no offset tests
+						LTszoff, no offset tests
+		  2.4.23-686            	LTbigf, no offset tests
+						LTszoff, no offset tests
+		  2.4.24-686            	LTbigf, no offset tests
+						LTszoff, no offset tests
+		  2.4.25-686            	LTbigf, no offset tests
+						LTszoff, no offset tests
+		  2.4.26-686            	LTbigf, no offset tests
+						LTszoff, no offset tests
+		  2.6.1-rc2	            	LTbigf, no offset tests
 						LTszoff, no offset tests
     NEXTSTEP      3.1, gcc                   	LTnfs
     NetBSD        1.4.1, Alpha, gcc          	LTnfs
 		  1.5x, x86, gcc           	LTnfs
 		  1.6x, Alpha, gcc		LTnfs
 		  1.6x, x86, gcc		LTnfs
+		  2.0x, alpha, gcc		LTnfs
+		  2.0x, sparc64, gcc		LTnfs
+		  2.0x, x86, gcc		LTnfs
+		  2.99.9, x86, gcc		LTnfs
     OpenBSD       3.0, gcc
 		  3.1, gcc
 		  3.2, gcc
 		  3.3, gcc
-    OpenStep	  4.2, gcc			LTnfs
+		  3.4, gcc
+		  3.5, gcc
+		  3.6, gcc
+    OPENSTEP	  4.2, gcc			LTnfs
     OpenUNIX	  8.0, cc
-		  8.0.1-BETA, cc
     OSR           5.04, cc              	LTnfs
 		  5.06, cc              	LTnfs
     Solaris       2.6, cc			LTnfs
@@ -807,17 +915,22 @@ the scripts that support them.
 		  9-64, Beta-Refresh, gcc
 		  9-64, FCS, cc
 		  9-64, FCS, gcc
+		  10-32, i86pc, gcc
+		  10-32, i86pc, cc
+		  10-64, Sparc, cc
+		  10-64, Sparc, gcc
     Tru64 UNIX    5.0, cc
     Tru64 UNIX    5.0, cc
 		  5.1, cc
     UnixWare      7.1.1, NSC, cc            	LTnfs
 		  7.1.3, cc
+		  7.1.4, cc
 
 If you are able to run the test suite on dialect versions other
 than the ones listed above, please send e-mail to <abe@purdue.edu>,
 indicating the dialect version where you were able to run the test
-suite.  Please send me the lsof dialect footprint formed by CkTestDB,
-or run the Add2TestDB script and send me the footprint it reports.
+suite.  Please send me the footprint formed by CkTestDB, or run
+the Add2TestDB script and send me the footprint it reports.
 
 If you encounter problems compiling the tests or running them on
 a dialect version listed above, please send e-mail to <abe@purdue.edu>,
@@ -825,7 +938,7 @@ naming the dialect version and providing the output from the lsof
 Configure script and make operation.
 
 1) John Dzubera did the HP-UX 10.20 gcc testing and provided its
-   test footprint.
+   footprint.
 
 
 Appendix C, Test Failures
@@ -842,4 +955,4 @@ I was unable to make the test suite run on the following dialects.
 
 
 Vic Abell <abe@purdue.edu>
-June 11, 2003
+October 18, 2004

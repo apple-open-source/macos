@@ -140,6 +140,7 @@ line: while (<>) {
 	    (print $fh '#include <com_err.h>');
 	&Pick('>', $outfile) &&
 	    (print $fh '');
+	$table_item_count = 0;
     }
 
     if (/^[ \t]*(error_code|ec)[ \t]+[A-Z_0-9]+,/) {
@@ -168,6 +169,11 @@ line: while (<>) {
     }
 }
 
+if ($table_item_count > 256) {
+    &Pick('|', 'cat 1>&2') &&
+	(print $fh 'Error table too large!');
+    exit 1;
+}
 if ($tab_base_high == 0) {
     &Pick('>', $outfile) &&
 	(print $fh '#define ERROR_TABLE_BASE_' . $table_name . ' (' .
@@ -185,21 +191,29 @@ else {
 &Pick('>', $outfile) &&
     (print $fh '');
 &Pick('>', $outfile) &&
-    (print $fh 'extern struct error_table et_' . $table_name .
+    (print $fh 'extern const struct error_table et_' . $table_name .
 
       '_error_table;');
 &Pick('>', $outfile) &&
     (print $fh '');
 &Pick('>', $outfile) &&
-    (print $fh
-
-      '#if !defined(_WIN32)');
+    (print $fh '#if !defined(_WIN32)');
 &Pick('>', $outfile) &&
     (print $fh '/* for compatibility with older versions... */');
 &Pick('>', $outfile) &&
     (print $fh 'extern void initialize_' . $table_name .
 
-      '_error_table () /*@modifies internalState@*/;');
+      '_error_table (void) /*@modifies internalState@*/;');
+&Pick('>', $outfile) &&
+    (print $fh '#else');
+&Pick('>', $outfile) &&
+    (print $fh '#define initialize_' . $table_name . '_error_table()');
+&Pick('>', $outfile) &&
+    (print $fh '#endif');
+&Pick('>', $outfile) &&
+    (print $fh '');
+&Pick('>', $outfile) &&
+    (print $fh '#if !defined(_WIN32)');
 &Pick('>', $outfile) &&
     (print $fh '#define init_' . $table_name . '_err_tbl initialize_' .
 
@@ -209,11 +223,9 @@ else {
 
       $table_name);
 &Pick('>', $outfile) &&
-    (print $fh '#else');
-&Pick('>', $outfile) &&
-    (print $fh '#define initialize_' . $table_name . '_error_table()');
-&Pick('>', $outfile) &&
     (print $fh '#endif');
+
+exit $ExitValue;
 
 sub Pick {
     local($mode,$name,$pipe) = @_;

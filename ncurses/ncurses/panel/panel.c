@@ -34,7 +34,7 @@
 /* panel.c -- implementation of panels library, some core routines */
 #include "panel.priv.h"
 
-MODULE_ID("$Id: panel.c,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $")
+MODULE_ID("$Id: panel.c,v 1.20 2001/02/24 23:17:26 tom Exp $")
 
 #ifdef TRACE
 #ifndef TRACE_TXT

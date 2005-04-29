@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,44 +58,40 @@
 #ifndef _STDLIB_H_
 #define _STDLIB_H_
 
-#include <machine/ansi.h>
-#include <machine/types.h>
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_SOURCE)
-#include <alloca.h>
-#endif
-
-#ifndef	_BSD_SIZE_T_DEFINED_
-#define	_BSD_SIZE_T_DEFINED_
-typedef	_BSD_SIZE_T_	size_t;
-#endif
-
+#include <sys/cdefs.h>
+#include <_types.h>
 #if !defined(_ANSI_SOURCE)
-#ifndef _BSD_CT_RUNE_T_DEFINED_
-#define _BSD_CT_RUNE_T_DEFINED_
-typedef	_BSD_CT_RUNE_T_	ct_rune_t;
+#include <sys/wait.h>
+#if !defined(_POSIX_C_SOURCE)
+#include <alloca.h>
+#endif /* !_POSIX_C_SOURCE */
+#endif /* !_ANSI_SOURCE */
+
+#ifndef	_SIZE_T
+#define	_SIZE_T
+/* DO NOT REMOVE THIS COMMENT: fixincludes needs to see:
+ * _GCC_SIZE_T */
+typedef	__darwin_size_t		size_t;
 #endif
 
-#ifndef _BSD_RUNE_T_DEFINED_
-#define _BSD_RUNE_T_DEFINED_
-typedef _BSD_RUNE_T_   rune_t;
+#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#ifndef _CT_RUNE_T
+#define _CT_RUNE_T
+typedef	__darwin_ct_rune_t	ct_rune_t;
+#endif
+
+#ifndef _RUNE_T
+#define _RUNE_T
+typedef __darwin_rune_t   	rune_t;
 #endif
 #endif
 
 #ifndef	__cplusplus
-#ifndef	_BSD_WCHAR_T_DEFINED_
-#define	_BSD_WCHAR_T_DEFINED_
-#ifdef	__WCHAR_TYPE__
-typedef	__WCHAR_TYPE__	wchar_t;
-#else	/* ! __WCHAR_TYPE__ */
-typedef	_BSD_WCHAR_T_	wchar_t;
-#endif	/* __WCHAR_TYPE__ */
-#endif	/* _BSD_WCHAR_T_DEFINED_ */
+#ifndef	_WCHAR_T
+#define	_WCHAR_T
+typedef	__darwin_wchar_t	wchar_t;
+#endif	/* _WCHAR_T */
 #endif	/* __cplusplus */
-
-#ifndef	_BSD_WINT_T_DEFINED_
-#define _BSD_WINT_T_DEFINED_
-typedef	_BSD_WINT_T_	wint_t;
-#endif
 
 typedef struct {
 	int quot;		/* quotient */
@@ -107,19 +103,42 @@ typedef struct {
 	long rem;		/* remainder */
 } ldiv_t;
 
+#if !__DARWIN_NO_LONG_LONG
+typedef struct {
+	long long quot;
+	long long rem;
+} lldiv_t;
+#endif /* !__DARWIN_NO_LONG_LONG */
+
 #ifndef NULL
-#define	NULL	0
-#endif
+#define NULL __DARWIN_NULL
+#endif /* ! NULL */
 
 #define	EXIT_FAILURE	1
 #define	EXIT_SUCCESS	0
 
 #define	RAND_MAX	0x7fffffff
 
+#ifdef _USE_EXTENDED_LOCALES_
+#include <_xlocale.h>
+#endif /* _USE_EXTENDED_LOCALES_ */
+
+#ifndef MB_CUR_MAX
+#ifdef _USE_EXTENDED_LOCALES_
+#define	MB_CUR_MAX	(___mb_cur_max())
+#ifndef MB_CUR_MAX_L
+#define	MB_CUR_MAX_L(x)	(___mb_cur_max_l(x))
+#endif /* !MB_CUR_MAX_L */
+#else /* !_USE_EXTENDED_LOCALES_ */
 extern int __mb_cur_max;
 #define	MB_CUR_MAX	__mb_cur_max
+#endif /* _USE_EXTENDED_LOCALES_ */
+#endif /* MB_CUR_MAX */
 
-#include <sys/cdefs.h>
+#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE) \
+    && defined(_USE_EXTENDED_LOCALES_) && !defined(MB_CUR_MAX_L)
+#define	MB_CUR_MAX_L(x)	(___mb_cur_max_l(x))
+#endif
 
 __BEGIN_DECLS
 void	 abort(void) __dead2;
@@ -128,6 +147,10 @@ int	 atexit(void (*)(void));
 double	 atof(const char *);
 int	 atoi(const char *);
 long	 atol(const char *);
+#if !__DARWIN_NO_LONG_LONG
+long long
+	 atoll(const char *);
+#endif /* !__DARWIN_NO_LONG_LONG */
 void	*bsearch(const void *, const void *, size_t,
 	    size_t, int (*)(const void *, const void *));
 void	*calloc(size_t, size_t);
@@ -137,6 +160,11 @@ void	 free(void *);
 char	*getenv(const char *);
 long	 labs(long) __pure2;
 ldiv_t	 ldiv(long, long) __pure2;
+#if !__DARWIN_NO_LONG_LONG
+long long
+	 llabs(long long);
+lldiv_t	 lldiv(long long, long long);
+#endif /* !__DARWIN_NO_LONG_LONG */
 void	*malloc(size_t);
 int	 mblen(const char *, size_t);
 size_t	 mbstowcs(wchar_t * __restrict , const char * __restrict, size_t);
@@ -150,34 +178,89 @@ double	 strtod(const char *, char **);
 float	 strtof(const char *, char **);
 long	 strtol(const char *, char **, int);
 long double
-	 strtold(const char *, char **);
+	 strtold(const char *, char **) __DARWIN_LDBL_COMPAT(strtold);
+#if !__DARWIN_NO_LONG_LONG
+long long 
+	 strtoll(const char *, char **, int);
+#endif /* !__DARWIN_NO_LONG_LONG */
 unsigned long
 	 strtoul(const char *, char **, int);
+#if !__DARWIN_NO_LONG_LONG
+unsigned long long
+	 strtoull(const char *, char **, int);
+#endif /* !__DARWIN_NO_LONG_LONG */
 int	 system(const char *);
-void	*valloc(size_t);
-int	 wctomb(char *, wchar_t);
 size_t	 wcstombs(char * __restrict, const wchar_t * __restrict, size_t);
+int	 wctomb(char *, wchar_t);
 
 #ifndef _ANSI_SOURCE
-int	 putenv(const char *);
-int	 setenv(const char *, const char *, int);
+void	_Exit(int) __dead2;
+long	 a64l(const char *);
+double	 drand48(void);
+char	*ecvt(double, int, int *__restrict, int *__restrict); /* LEGACY */
+double	 erand48(unsigned short[3]); 
+char	*fcvt(double, int, int *__restrict, int *__restrict); /* LEGACY */
+char	*gcvt(double, int, char *); /* LEGACY */
+int	 getsubopt(char **, char * const *, char **);
+int	 grantpt(int);
+#if __DARWIN_UNIX03
+char	*initstate(unsigned, char *, size_t); /* no  __DARWIN_ALIAS needed */
+#else /* !__DARWIN_UNIX03 */
+char	*initstate(unsigned long, char *, long);
+#endif /* __DARWIN_UNIX03 */
+long	 jrand48(unsigned short[3]);
+char	*l64a(long);
+void	 lcong48(unsigned short[7]);
+long	 lrand48(void);
+char	*mktemp(char *);
+int	 mkstemp(char *);
+long	 mrand48(void); 
+long	 nrand48(unsigned short[3]);
+int	 posix_openpt(int);
+char	*ptsname(int);
+int	 putenv(char *) __DARWIN_ALIAS(putenv);
+long	 random(void);
+char	*realpath(const char *, char *resolved_path);
+unsigned short
+	*seed48(unsigned short[3]);
+int	 setenv(const char *, const char *, int) __DARWIN_ALIAS(setenv);
+#if __DARWIN_UNIX03
+void	 setkey(const char *) __DARWIN_ALIAS(setkey);
+#else /* !__DARWIN_UNIX03 */
+int	 setkey(const char *);
+#endif /* __DARWIN_UNIX03 */
+char	*setstate(const char *);
+void	 srand48(long);
+#if __DARWIN_UNIX03
+void	 srandom(unsigned);
+#else /* !__DARWIN_UNIX03 */
+void	 srandom(unsigned long);
+#endif /* __DARWIN_UNIX03 */
+int	 unlockpt(int);
+#if __DARWIN_UNIX03
+int	 unsetenv(const char *) __DARWIN_ALIAS(unsetenv);
+#else /* !__DARWIN_UNIX03 */
+void	 unsetenv(const char *);
+#endif /* __DARWIN_UNIX03 */
 #endif
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_SOURCE)
+#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#include <machine/types.h>
+
+#ifndef _DEV_T
+typedef	__darwin_dev_t	dev_t;
+#define _DEV_T
+#endif
+
+#ifndef	_MODE_T
+typedef	__darwin_mode_t	mode_t;
+#define _MODE_T
+#endif
+
 u_int32_t
 	 arc4random(void);
 void	 arc4random_addrandom(unsigned char *dat, int datlen);
 void	 arc4random_stir(void);
-double	 drand48(void);
-double	 erand48(unsigned short[3]); 
-long	 jrand48(unsigned short[3]);
-void	 lcong48(unsigned short[7]);
-long	 lrand48(void);
-long	 mrand48(void); 
-long	 nrand48(unsigned short[3]);
-unsigned short
-	*seed48(unsigned short[3]);
-void	 srand48(long);
 
 	 /* getcap(3) functions */
 char	*cgetcap(char *, const char *, int);
@@ -192,23 +275,17 @@ int	 cgetstr(char *, const char *, char **);
 int	 cgetustr(char *, const char *, char **);
 
 int	 daemon(int, int);
-char	*devname(int, int);
+char	*devname(dev_t, mode_t);
+char	*devname_r(dev_t, mode_t, char *buf, int len);
 char	*getbsize(int *, long *);
 int	 getloadavg(double [], int);
 const char
 	*getprogname(void);
 
-long	 a64l(const char *);
-char	*l64a(long);
-
-/* int	 grantpt(int); */
 int	 heapsort(void *, size_t, size_t,
 	    int (*)(const void *, const void *));
-char	*initstate(unsigned long, char *, long);
 int	 mergesort(void *, size_t, size_t,
 	    int (*)(const void *, const void *));
-/* int	 posix_openpt(int); */
-/* char	*ptsname(int); */
 void	 qsort_r(void *, size_t, size_t, void *,
 	    int (*)(void *, const void *, const void *));
 int	 radixsort(const unsigned char **, int, const unsigned char *,
@@ -219,34 +296,20 @@ int	 sradixsort(const unsigned char **, int, const unsigned char *,
 void	 sranddev(void);
 void	 srandomdev(void);
 int	 rand_r(unsigned *);
-long	 random(void);
 void	*reallocf(void *, size_t);
-char	*realpath(const char *, char resolved_path[]);
-char	*setstate(char *);
-void	 srandom(unsigned long);
-/* int	 unlockpt(int); */
-#ifndef __STRICT_ANSI__
-typedef struct {
-	long long quot;
-	long long rem;
-} lldiv_t;
-
-long long
-	 atoll(const char *);
-long long
-	 llabs(long long);
-lldiv_t	 lldiv(long long, long long);
-long long 
-	 strtoll(const char *, char **, int);
-unsigned long long
-	 strtoull(const char *, char **, int);
+#if !__DARWIN_NO_LONG_LONG
 long long
 	 strtoq(const char *, char **, int);
 unsigned long long
 	 strtouq(const char *, char **, int);
-#endif
-void	 unsetenv(const char *);
+#endif /* !__DARWIN_NO_LONG_LONG */
+extern char *suboptarg;		/* getsubopt(3) external variable */
+void	*valloc(size_t);
 #endif
 __END_DECLS
+
+#ifdef _USE_EXTENDED_LOCALES_
+#include <xlocale/_stdlib.h>
+#endif /* _USE_EXTENDED_LOCALES_ */
 
 #endif /* _STDLIB_H_ */

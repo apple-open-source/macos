@@ -7,7 +7,7 @@ Project  = vim
 #CommonNoInstallSource = YES
 
 Extra_CC_Flags = -no-cpp-precomp
-Extra_Configure_Flags = --enable-cscope --enable-gui=no --without-x
+Extra_Configure_Flags = --enable-cscope --enable-gui=no --without-x --enable-multibyte
 GnuAfterInstall = symlink
 
 lazy_install_source:: shadow_source

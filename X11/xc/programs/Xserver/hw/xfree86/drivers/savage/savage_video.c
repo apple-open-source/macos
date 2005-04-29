@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/savage/savage_video.c,v 1.11 2003/01/12 03:55:49 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/savage/savage_video.c,v 1.18 2003/11/10 18:22:26 tsi Exp $ */
 
 #include "Xv.h"
 #include "dix.h"
@@ -16,11 +16,6 @@
 #define CLIENT_VIDEO_ON	0x04
 
 #define TIMER_MASK      (OFF_TIMER | FREE_TIMER)
-
-#ifndef XvExtension
-void SavageInitVideo(ScreenPtr pScreen) {}
-void SavageResetVideo(ScrnInfoPtr pScrn) {}
-#else
 
 void myOUTREG( SavagePtr psav, unsigned long offset, unsigned long value );
 
@@ -79,7 +74,7 @@ static void (*SavageDisplayVideo)(
 ) = NULL;
 
 static void OverlayParamInit(ScrnInfoPtr pScrn);
-static void InitStreamsForExpansion(SavagePtr psav);
+static void InitStreamsForExpansion(ScrnInfoPtr pScrn);
 
 /*static void SavageBlockHandler(int, pointer, pointer, pointer);*/
 
@@ -303,10 +298,10 @@ unsigned int GetBlendForFourCC( int id )
 
 void myOUTREG( SavagePtr psav, unsigned long offset, unsigned long value )
 {
-    ErrorF( "MMIO %04x, was %08x, want %08x,", 
-	offset, MMIO_IN32( psav->MapBase, offset ), value );
+    ErrorF( "MMIO %04lx, was %08lx, want %08lx,", 
+	offset, (unsigned long)MMIO_IN32( psav->MapBase, offset ), value );
     MMIO_OUT32( psav->MapBase, offset, value );
-    ErrorF( " now %08x\n", MMIO_IN32( psav->MapBase, offset ) );
+    ErrorF( " now %08lx\n", (unsigned long)MMIO_IN32( psav->MapBase, offset ) );
 }
 
 void SavageInitStreamsOld(ScrnInfoPtr pScrn)
@@ -421,7 +416,6 @@ void SavageStreamsOn(ScrnInfoPtr pScrn, int id)
 
     /* Sequence stolen from streams.c in M7 NT driver */
 
-
     xf86EnableIO();
 
     /* Unlock extended registers. */
@@ -430,10 +424,20 @@ void SavageStreamsOn(ScrnInfoPtr pScrn, int id)
     VGAOUT16(vgaCRIndex, 0xa039);
     VGAOUT16(0x3c4, 0x0608);
 
+    if( 
+	S3_SAVAGE_MOBILE_SERIES(psav->Chipset) && 
+	!psav->CrtOnly && 
+	!psav->TvOn 
+    ) {
+	OverlayParamInit( pScrn );
+    }
+
     VGAOUT8( vgaCRIndex, EXT_MISC_CTRL2 );
 
     if( S3_SAVAGE_MOBILE_SERIES(psav->Chipset) ||
-        (psav->Chipset == S3_SUPERSAVAGE) ||
+#if 0 /* I don't think commenting this out is correct (EE) */
+	(psav->Chipset == S3_SUPERSAVAGE) ||
+#endif
         (psav->Chipset == S3_SAVAGE2000) )
     {
 	jStreamsControl = VGAIN8( vgaCRReg ) | ENABLE_STREAM1;
@@ -447,7 +451,7 @@ void SavageStreamsOn(ScrnInfoPtr pScrn, int id)
 	VGAOUT16( vgaCRIndex, (jStreamsControl << 8) | EXT_MISC_CTRL2 );
 
 	psav->blendBase = GetBlendForFourCC( id ) << 9;
-	xf86ErrorFVerb(XVTRACE+1,"Format %4.4s, blend is %08x\n", &id, psav->blendBase );
+	xf86ErrorFVerb(XVTRACE+1,"Format %4.4s, blend is %08x\n", (char *)&id, psav->blendBase );
 	OUTREG( BLEND_CONTROL, psav->blendBase | 0x08 );
 
 	/* These values specify brightness, contrast, saturation and hue. */
@@ -701,7 +705,7 @@ void SavageSetColorOld( ScrnInfoPtr pScrn )
     SavagePortPrivPtr pPriv = psav->adaptor->pPortPrivates[0].ptr;
 
     xf86ErrorFVerb(XVTRACE, "bright %d, contrast %d, saturation %d, hue %d\n",
-	pPriv->brightness, pPriv->contrast, pPriv->saturation, pPriv->hue );
+	pPriv->brightness, (int)pPriv->contrast, (int)pPriv->saturation, pPriv->hue );
 
     if( 
 	(psav->videoFourCC == FOURCC_RV15) ||
@@ -743,7 +747,7 @@ void SavageSetColorNew( ScrnInfoPtr pScrn )
     unsigned long assembly;
 
     xf86ErrorFVerb(XVTRACE, "bright %d, contrast %d, saturation %d, hue %d\n",
-	pPriv->brightness, pPriv->contrast, pPriv->saturation, pPriv->hue );
+	pPriv->brightness, (int)pPriv->contrast, (int)pPriv->saturation, pPriv->hue );
 
     if( psav->videoFourCC == FOURCC_Y211 )
 	k = 1.0;	/* YUV */
@@ -771,20 +775,20 @@ void SavageSetColorNew( ScrnInfoPtr pScrn )
     k2 = (int)(dk2+0.5) & 0x1ff;
     k3 = (int)(dk3+0.5) & 0x1ff;
     assembly = (k3<<18) | (k2<<9) | k1;
-    xf86ErrorFVerb(XVTRACE+1, "CC1 = %08x  ", assembly );
+    xf86ErrorFVerb(XVTRACE+1, "CC1 = %08lx  ", assembly );
     OUTREG( SEC_STREAM_COLOR_CONVERT1, assembly );
 
     k4 = (int)(dk4+0.5) & 0x1ff;
     k5 = (int)(dk5+0.5) & 0x1ff;
     k6 = (int)(dk6+0.5) & 0x1ff;
     assembly = (k6<<18) | (k5<<9) | k4;
-    xf86ErrorFVerb(XVTRACE+1, "CC2 = %08x  ", assembly );
+    xf86ErrorFVerb(XVTRACE+1, "CC2 = %08lx  ", assembly );
     OUTREG( SEC_STREAM_COLOR_CONVERT2, assembly );
 
     k7 = (int)(dk7+0.5) & 0x1ff;
     kb = (int)(dkb+0.5) & 0xffff;
     assembly = (kb<<9) | k7;
-    xf86ErrorFVerb(XVTRACE+1, "CC3 = %08x\n", assembly );
+    xf86ErrorFVerb(XVTRACE+1, "CC3 = %08lx\n", assembly );
     OUTREG( SEC_STREAM_COLOR_CONVERT3, assembly );
 }
 
@@ -865,7 +869,7 @@ SavageSetupImageVideo(ScreenPtr pScreen)
     pPriv->lastKnownPitch = 0;
 
     /* gotta uninit this someplace */
-    REGION_INIT(pScreen, &pPriv->clip, NullBox, 0); 
+    REGION_NULL(pScreen, &pPriv->clip);
 
     psav->adaptor = adapt;
 
@@ -875,36 +879,6 @@ SavageSetupImageVideo(ScreenPtr pScreen)
 #endif
 
     return adapt;
-}
-
-
-static Bool
-RegionsEqual(RegionPtr A, RegionPtr B)
-{
-    int *dataA, *dataB;
-    int num;
-
-    num = REGION_NUM_RECTS(A);
-    if(num != REGION_NUM_RECTS(B))
-	return FALSE;
-
-    if((A->extents.x1 != B->extents.x1) ||
-       (A->extents.x2 != B->extents.x2) ||
-       (A->extents.y1 != B->extents.y1) ||
-       (A->extents.y2 != B->extents.y2))
-	return FALSE;
-
-    dataA = (int*)REGION_RECTS(A);
-    dataB = (int*)REGION_RECTS(B);
-
-    while(num--) {
-	if((dataA[0] != dataB[0]) || (dataA[1] != dataB[1]))
-	   return FALSE;
-	dataA += 2; 
-	dataB += 2;
-    }
-
-    return TRUE;
 }
 
 
@@ -992,9 +966,8 @@ SavageStopVideo(ScrnInfoPtr pScrn, pointer data, Bool shutdown)
 
     REGION_EMPTY(pScrn->pScreen, &pPriv->clip);   
 
-    SavageStreamsOff( pScrn );
-
     if(shutdown) {
+	SavageStreamsOff( pScrn );
 	if(pPriv->area) {
 	    xf86FreeOffscreenArea(pPriv->area);
 	    pPriv->area = NULL;
@@ -1266,16 +1239,15 @@ SavageDisplayVideoOld(
 
     if( src_w > (drw_w << 1) )
     {
-	/* BUGBUG shouldn't this be >=?  */
 	if( src_w <= (drw_w << 2) )
 	    ssControl |= HDSCALE_4;
-	else if( src_w > (drw_w << 3) )
+	else if( src_w <= (drw_w << 3) )
 	    ssControl |= HDSCALE_8;
-	else if( src_w > (drw_w << 4) )
+	else if( src_w <= (drw_w << 4) )
 	    ssControl |= HDSCALE_16;
-	else if( src_w > (drw_w << 5) )
+	else if( src_w <= (drw_w << 5) )
 	    ssControl |= HDSCALE_32;
-	else if( src_w > (drw_w << 6) )
+	else if( src_w <= (drw_w << 6) )
 	    ssControl |= HDSCALE_64;
     }
 
@@ -1283,9 +1255,11 @@ SavageDisplayVideoOld(
     ssControl |= (1 << 24);
     OUTREG(SSTREAM_CONTROL_REG, ssControl);
 
+#if 0
     /* Set color key on primary. */
 
     SavageSetColorKey( pScrn );
+#endif
 
     /* Set FIFO L2 on second stream. */
 
@@ -1358,10 +1332,10 @@ SavageDisplayVideoNew(
 	    !psav->CrtOnly &&
 	    !psav->TvOn
 	) {
-	    drw_w = (float)(drw_w * psav->XExp1)/(float)psav->XExp2 + 1;
-	    drw_h = (float)(drw_h * psav->YExp1)/(float)psav->YExp2 + 1;
-	    dstBox->x1 = (float)(dstBox->x1 * psav->XExp1)/(float)psav->XExp2;
-	    dstBox->y1 = (float)(dstBox->y1 * psav->YExp1)/(float)psav->YExp2;
+	    drw_w = (drw_w * psav->XExp1)/psav->XExp2 + 1;
+	    drw_h = (drw_h * psav->YExp1)/psav->YExp2 + 1;
+	    dstBox->x1 = (dstBox->x1 * psav->XExp1)/psav->XExp2;
+	    dstBox->y1 = (dstBox->y1 * psav->YExp1)/psav->YExp2;
 	    dstBox->x1 += psav->displayXoffset;
 	    dstBox->y1 += psav->displayYoffset;
 	}
@@ -1378,14 +1352,16 @@ SavageDisplayVideoNew(
      * are 2 bytes/pixel.
      */
 
-    OUTREG(SEC_STREAM_FBUF_ADDR0, (offset + (x1>>15)) & 0x3ffff0 );
+    OUTREG(SEC_STREAM_FBUF_ADDR0, (offset + (x1>>15)) & 0x7ffff0 );
     OUTREG(SEC_STREAM_STRIDE, pitch & 0xfff );
     OUTREG(SEC_STREAM_WINDOW_START, ((dstBox->x1+1) << 16) | (dstBox->y1+1) );
     OUTREG(SEC_STREAM_WINDOW_SZ, ((drw_w) << 16) | drw_h );
 
+#if 0
     /* Set color key on primary. */
 
     SavageSetColorKey( pScrn );
+#endif
 
     /* Set FIFO L2 on second stream. */
 
@@ -1417,6 +1393,7 @@ SavagePutImage(
 ){
     SavagePortPrivPtr pPriv = (SavagePortPrivPtr)data;
     SavagePtr psav = SAVPTR(pScrn);
+    ScreenPtr pScreen = pScrn->pScreen;
     INT32 x1, x2, y1, y2;
     unsigned char *dst_start;
     int pitch, new_h, offset, offsetV=0, offsetU=0;
@@ -1424,6 +1401,20 @@ SavagePutImage(
     int top, left, npixels, nlines;
     BoxRec dstBox;
     CARD32 tmp;
+/*    xf86ErrorFVerb(XVTRACE,"SavagePutImage\n"); */
+
+    if( psav->cxScreen != pScrn->currentMode->HDisplay )
+    {
+	/* The mode has changed.  Recompute the offsets. */
+
+	if( 
+	    S3_SAVAGE_MOBILE_SERIES(psav->Chipset) && 
+	    !psav->CrtOnly && 
+	    !psav->TvOn 
+	) {
+	    OverlayParamInit( pScrn );
+	}
+    }
 
     if(drw_w > 16384) drw_w = 16384;
 
@@ -1519,18 +1510,19 @@ SavagePutImage(
 	SavageCopyData(buf, dst_start, srcPitch, dstPitch, nlines, npixels);
 	break;
     }  
-
-    /* update cliplist */
-    if(!RegionsEqual(&pPriv->clip, clipBoxes)) {
-	REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
-	/* draw these */
-	XAAFillSolidRects(pScrn, pPriv->colorKey, GXcopy, ~0, 
-					REGION_NUM_RECTS(clipBoxes),
-					REGION_RECTS(clipBoxes));
-    }
    
+    /* We need to enable the video before we draw the chroma color.
+       Otherwise, we get blue flashes. */
+
     SavageDisplayVideo(pScrn, id, offset, width, height, dstPitch,
 	     x1, y1, x2, y2, &dstBox, src_w, src_h, drw_w, drw_h);
+
+    /* update cliplist */
+    if(!REGION_EQUAL(pScreen, &pPriv->clip, clipBoxes)) {
+	REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
+	/* draw these */
+	xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes);
+    }
 
     pPriv->videoStatus = CLIENT_VIDEO_ON;
 
@@ -1692,6 +1684,7 @@ SavageStopSurface(
     XF86SurfacePtr surface
 ){
     OffscreenPrivPtr pPriv = (OffscreenPrivPtr)surface->devPrivate.ptr;
+    xf86ErrorFVerb(XVTRACE,"SavageStopSurface\n");
 
     if(pPriv->isOn) {
 	/*SavagePtr psav = SAVPTR(surface->pScrn);*/
@@ -1751,9 +1744,11 @@ SavageDisplaySurface(
 ){
     OffscreenPrivPtr pPriv = (OffscreenPrivPtr)surface->devPrivate.ptr;
     ScrnInfoPtr pScrn = surface->pScrn;
+    ScreenPtr pScreen = pScrn->pScreen;
     SavagePortPrivPtr portPriv = GET_PORT_PRIVATE(pScrn);
     INT32 x1, y1, x2, y2;
     BoxRec dstBox;
+    xf86ErrorFVerb(XVTRACE,"SavageDisplaySurface\n");
 
     x1 = src_x;
     x2 = src_x + src_w;
@@ -1777,18 +1772,16 @@ SavageDisplaySurface(
     dstBox.y1 -= pScrn->frameY0;
     dstBox.y2 -= pScrn->frameY0;
 
-    XAAFillSolidRects(pScrn, portPriv->colorKey, GXcopy, ~0, 
-                                        REGION_NUM_RECTS(clipBoxes),
-                                        REGION_RECTS(clipBoxes));
-
     SavageDisplayVideo(pScrn, surface->id, surface->offsets[0], 
 	     surface->width, surface->height, surface->pitches[0],
 	     x1, y1, x2, y2, &dstBox, src_w, src_h, drw_w, drw_h);
 
+    xf86XVFillKeyHelper(pScrn->pScreen, portPriv->colorKey, clipBoxes);
+
     pPriv->isOn = TRUE;
 #if 0
     if(portPriv->videoStatus & CLIENT_VIDEO_ON) {
-	REGION_EMPTY(pScrn->pScreen, &portPriv->clip);   
+	REGION_EMPTY(pScreen, &portPriv->clip);
 	UpdateCurrentTime();
 	portPriv->videoStatus = FREE_TIMER;
 	portPriv->freeTime = currentTime.milliseconds + FREE_DELAY;
@@ -1839,144 +1832,87 @@ static void OverlayParamInit(ScrnInfoPtr pScrn)
     SavagePtr psav = SAVPTR(pScrn);
 
     psav = SAVPTR(pScrn);
-    psav->cxScreen = psav->iResX;
-    InitStreamsForExpansion(psav);
+    psav->cxScreen = pScrn->currentMode->HDisplay;
+    InitStreamsForExpansion(pScrn);
 }
 
-/* Function to calculate lcd expansion x,yfactor and offset for overlay
+/* Function to calculate lcd expansion x,y factor and offset for overlay
  */
-static void InitStreamsForExpansion(SavagePtr psav)
+static void InitStreamsForExpansion(ScrnInfoPtr pScrn)
 {
+    SavagePtr psav = SAVPTR(pScrn);
     int		PanelSizeX,PanelSizeY;
     int		ViewPortWidth,ViewPortHeight;
+    int		XExpansion, YExpansion;
     int		XFactor, YFactor;
+    int		Hstate, Vstate;
+
+    static CARD32 Xfactors[] = {
+	0x00010001,
+	0x00010001, /* 1 */
+	0,
+	0x00090008, /* 3 */
+	0x00050004, /* 4 */
+	0,
+	0x00030002, /* 6 */
+	0x00020001  /* 7 */
+    };
+
+    static CARD32 Yfactors[] = {
+	0x00010001,	0x00010001,
+	0,		0x00060005,
+	0x00050004,	0x00040003,
+	0,		0x00030002,
+	0x00020001,	0x00050002,
+	0x000C0005,	0x00080003,
+	0x00090004,	0,
+	0x00030001,	0x00040001,
+    };
+
+
 
     PanelSizeX = psav->PanelX;
     PanelSizeY = psav->PanelY;
-    ViewPortWidth = psav->iResX;
-    ViewPortHeight = psav->iResY;
+    ViewPortWidth = pScrn->currentMode->HDisplay;
+    ViewPortHeight = pScrn->currentMode->VDisplay;
+
     if( PanelSizeX == 1408 )
 	PanelSizeX = 1400;
-    psav->XExpansion = 0x00010001;
-    psav->YExpansion = 0x00010001;
+
+    XExpansion = 0x00010001;
+    YExpansion = 0x00010001;
+
     psav->displayXoffset = 0;
     psav->displayYoffset = 0;
 
+    VGAOUT8(0x3C4, HZEXP_COMP_1);
+    Hstate = VGAIN8(0x3C5);
+    VGAOUT8(0x3C4, VTEXP_COMP_1);
+    Vstate = VGAIN8(0x3C5);
     VGAOUT8(0x3C4, HZEXP_FACTOR_IGA1);
-    XFactor = VGAIN8(0x3C5) >> 4;
+    XFactor = VGAIN8(0x3C5);
     VGAOUT8(0x3C4, VTEXP_FACTOR_IGA1);
-    YFactor = VGAIN8(0x3C5) >> 4;
+    YFactor = VGAIN8(0x3C5);
 
-    switch( XFactor )
+    if( Hstate & EC1_EXPAND_ON )
     {
-	case 1:
-	    psav->XExpansion = 0x00010001;
-	    psav->displayXoffset = 
-		(((PanelSizeX - ViewPortWidth) / 2) + 0x7) & 0xFFF8;
-	    break;
-
-	case 3:
-	    psav->XExpansion = 0x00090008;
-	    psav->displayXoffset = 
-		(((PanelSizeX - ((9 * ViewPortWidth)/8)) / 2) + 0x7) & 0xFFF8;
-	    break;
-
-	case 4:
-	    psav->XExpansion = 0x00050004;
-
-	    if ((psav->cxScreen == 800) && (PanelSizeX !=1400))
-	    {
-		psav->displayXoffset = 
-		    (((PanelSizeX - ((5 * ViewPortWidth)/4)) / 2) ) & 0xFFF8; 
-	    }
-	    else
-	    {
-		psav->displayXoffset = 
-		    (((PanelSizeX - ((5 * ViewPortWidth)/4)) / 2) +0x7) & 0xFFF8;
-	    }
-	    break;
-
-	case 6:
-	    psav->XExpansion = 0x00030002;
-	    psav->displayXoffset = 
-		(((PanelSizeX - ((3 * ViewPortWidth)/2)) / 2) + 0x7) & 0xFFF8;
-	    break;
-
-	case 7:
-	    psav->XExpansion = 0x00020001;
-	    psav->displayXoffset = 
-		(((PanelSizeX - (2 * ViewPortWidth)) / 2) + 0x7) & 0xFFF8;
-	    break;
+	XExpansion = Xfactors[XFactor>>4];
     }
-	
-    switch( YFactor )
+
+    if( Vstate & EC1_EXPAND_ON )
     {
-	case 0:
-	    psav->YExpansion = 0x00010001;
-	    psav->displayYoffset = (PanelSizeY - ViewPortHeight) / 2;
-	    break;
-	case 1:
-	    psav->YExpansion = 0x00010001;
-	    psav->displayYoffset = (PanelSizeY - ViewPortHeight) / 2;
-	    break;
-	case 2:
-	    psav->YExpansion = 0x00040003;
-	    psav->displayYoffset = (PanelSizeY - ((4 * ViewPortHeight)/3)) / 2;
-	    break;
-	case 4:
-	    psav->YExpansion = 0x00050004;
-	    psav->displayYoffset = (PanelSizeY - ((5 * ViewPortHeight)/4)) / 2;
-	    break;
-	case 5:
-	    psav->YExpansion = 0x00040003;
-
-	    if((psav->cxScreen == 1024)&&(PanelSizeX ==1400))
-	    {
-		psav->displayYoffset = 
-		    ((PanelSizeY - ((4 * ViewPortHeight)/3)) / 2) - 0x1 ;
-	    }
-	    else
-	    {
-		psav->displayYoffset = (PanelSizeY - ((4 * ViewPortHeight)/3)) / 2;
-	    }
-	    break;
-	case 6:
-	    psav->YExpansion = 0x00050004;
-	    psav->displayYoffset = (PanelSizeY - ((5 * ViewPortHeight)/4)) / 2;
-	    break;
-	case 7:
-	    psav->YExpansion = 0x00030002;
-	    psav->displayYoffset = (PanelSizeY - ((3 * ViewPortHeight)/2)) / 2;
-	    break;
-	case 8:
-	    psav->YExpansion = 0x00020001;
-	    psav->displayYoffset = (PanelSizeY - (2 * ViewPortHeight)) /2;
-	    break;
-	case 9:
-	    psav->YExpansion = 0x00090004;
-	    psav->displayYoffset = (PanelSizeY - ((9 * ViewPortHeight)/4)) /2;
-	    break;
-	case 11:
-	    psav->YExpansion = 0x00110005;
-	    psav->displayYoffset = (PanelSizeY - ((11 * ViewPortHeight)/5)) /2;
-	    break;
-	case 12:
-	    psav->YExpansion = 0x00070003;
-	    psav->displayYoffset = (PanelSizeY - ((7 * ViewPortHeight)/3)) /2;
-	    break;
-	case 14:
-	    psav->YExpansion = 0x00050002;
-	    psav->displayYoffset = (PanelSizeY - ((5 * ViewPortHeight)/2)) /2;
-	    break;
-	case 15:
-	    psav->YExpansion = 0x00040001;
-	    psav->displayYoffset = (PanelSizeY - (4 * ViewPortHeight)) /2;
-	    break;
+	YExpansion = Yfactors[YFactor>>4];
     }
-    psav->XExp1 = psav->XExpansion >> 16;
-    psav->XExp2 = psav->XExpansion & 0xFFFF;
-    psav->YExp1 = psav->YExpansion >> 16;
-    psav->YExp2 = psav->YExpansion & 0xFFFF;
+
+    psav->XExp1 = XExpansion >> 16;
+    psav->XExp2 = XExpansion & 0xFFFF;
+
+    psav->YExp1 = YExpansion >> 16;
+    psav->YExp2 = YExpansion & 0xFFFF;
+
+    psav->displayXoffset = 
+       ((PanelSizeX - (psav->XExp1 * ViewPortWidth) / psav->XExp2) / 2 + 7) & 0xfff8;
+    psav->displayYoffset = 
+       ((PanelSizeY - (psav->YExp1 * ViewPortHeight) / psav->YExp2) / 2);
+
 }  /* InitStreamsForExpansionPM */
-
-#endif /* XvExtension */

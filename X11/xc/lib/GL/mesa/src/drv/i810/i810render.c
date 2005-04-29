@@ -34,9 +34,8 @@
 #include "glheader.h"
 #include "context.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 #include "mtypes.h"
-#include "mmath.h"
 
 #include "tnl/t_context.h"
 
@@ -106,7 +105,7 @@ static void VERT_FALLBACK( GLcontext *ctx,
    tnl->Driver.Render.BuildVertices( ctx, start, count, ~0 );
    tnl->Driver.Render.PrimTabVerts[flags&PRIM_MODE_MASK]( ctx, start, 
 							  count, flags );
-   I810_CONTEXT(ctx)->SetupNewInputs = VERT_CLIP;
+   I810_CONTEXT(ctx)->SetupNewInputs = VERT_BIT_CLIP;
 }
 
 
@@ -151,7 +150,7 @@ static GLboolean i810_run_render( GLcontext *ctx,
       return GL_TRUE;
    }
 
-   imesa->SetupNewInputs = VERT_CLIP;
+   imesa->SetupNewInputs = VERT_BIT_CLIP;
 
    tnl->Driver.Render.Start( ctx );
 
@@ -172,20 +171,20 @@ static GLboolean i810_run_render( GLcontext *ctx,
 
 static void i810_check_render( GLcontext *ctx, struct gl_pipeline_stage *stage )
 {
-   GLuint inputs = VERT_CLIP|VERT_RGBA;
+   GLuint inputs = VERT_BIT_CLIP | VERT_BIT_COLOR0;
 
    if (ctx->RenderMode == GL_RENDER) {
       if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR)
-	 inputs |= VERT_SPEC_RGB;
+	 inputs |= VERT_BIT_COLOR1;
 
       if (ctx->Texture.Unit[0]._ReallyEnabled)
-	 inputs |= VERT_TEX(0);
+	 inputs |= VERT_BIT_TEX0;
 
       if (ctx->Texture.Unit[1]._ReallyEnabled)
-	 inputs |= VERT_TEX(1);
+	 inputs |= VERT_BIT_TEX1;
 
       if (ctx->Fog.Enabled)
-	 inputs |= VERT_FOG_COORD;
+	 inputs |= VERT_BIT_FOG;
    }
 
    stage->inputs = inputs;

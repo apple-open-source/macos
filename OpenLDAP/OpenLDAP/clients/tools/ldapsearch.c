@@ -1,7 +1,39 @@
-/* $OpenLDAP: pkg/ldap/clients/tools/ldapsearch.c,v 1.111.2.21 2003/03/29 15:45:43 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* ldapsearch -- a tool for searching LDAP directories */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldapsearch.c,v 1.170.2.15 2004/08/28 13:35:42 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1998-2003 Kurt D. Zeilenga.
+ * Portions Copyright 1998-2001 Net Boolean Incorporated.
+ * Portions Copyright 2001-2003 IBM Corporation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1992-1996 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor.  The name of the
+ * University may not be used to endorse or promote products derived
+ * from this software without specific prior written permission.  This
+ * software is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by the University of Michigan
+ * (as part of U-MICH LDAP).  Additional significant contributors
+ * include:
+ *   Jong Hyuk Choi
+ *   Lynn Moss
+ *   Mikhail Sahalaev
+ *   Kurt D. Zeilenga
  */
 
 #include "portable.h"
@@ -33,6 +65,7 @@
 #include "lutil_ldap.h"
 #include "ldap_defaults.h"
 #include "ldap_log.h"
+#include "ldap_pvt.h"
 
 #include "common.h"
 
@@ -46,59 +79,55 @@ static int sizelimit = -1;
 static char *def_tmpdir;
 static char *def_urlpre;
 
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+/* Turn off commandline globbing, otherwise you cannot search for
+ * attribute '*'
+ */
+int _CRT_glob = 0;
+#endif
 
 void
 usage( void )
 {
-	fprintf( stderr,
-"usage: %s [options] [filter [attributes...]]\nwhere:\n"
-"  filter\tRFC-2254 compliant LDAP search filter\n"
-"  attributes\twhitespace-separated list of attribute descriptions\n"
-"    which may include:\n"
-"      1.1   no attributes\n"
-"      *     all user attributes\n"
-"      +     all operational attributes\n"
+	fprintf( stderr, _("usage: %s [options] [filter [attributes...]]\nwhere:\n"), prog);
+	fprintf( stderr, _("  filter\tRFC-2254 compliant LDAP search filter\n"));
+	fprintf( stderr, _("  attributes\twhitespace-separated list of attribute descriptions\n"));
+	fprintf( stderr, _("    which may include:\n"));
+	fprintf( stderr, _("      1.1   no attributes\n"));
+	fprintf( stderr, _("      *     all user attributes\n"));
+	fprintf( stderr, _("      +     all operational attributes\n"));
 
-"Search options:\n"
-"  -a deref   one of never (default), always, search, or find\n"
-"  -A         retrieve attribute names only (no values)\n"
-"  -b basedn  base dn for search\n"
-"  -E [!]<ctrl>[=<ctrlparam>] search controls (! indicates criticality)\n"
+
+	fprintf( stderr, _("Search options:\n"));
+	fprintf( stderr, _("  -a deref   one of never (default), always, search, or find\n"));
+	fprintf( stderr, _("  -A         retrieve attribute names only (no values)\n"));
+	fprintf( stderr, _("  -b basedn  base dn for search\n"));
+	fprintf( stderr, _("  -E [!]<ext>[=<extparam>] search extensions (! indicates criticality)\n"));
 #ifdef LDAP_CONTROL_X_DOMAIN_SCOPE
-"             [!]domainScope              (domain scope)\n"
+	fprintf( stderr, _("             [!]domainScope              (domain scope)\n"));
 #endif
-"             [!]mv=<filter>              (matched values filter)\n"
+	fprintf( stderr, _("             [!]mv=<filter>              (matched values filter)\n"));
 #ifdef LDAP_CONTROL_PAGEDRESULTS
-"             [!]pr=<size>                (paged results)\n"
+	fprintf( stderr, _("             [!]pr=<size>[/prompt|noprompt]   (paged results/prompt)\n"));
 #endif
 #ifdef LDAP_CONTROL_SUBENTRIES
-"             [!]subentries[=true|false]  (subentries)\n"
+	fprintf( stderr, _("             [!]subentries[=true|false]  (subentries)\n"));
 #endif
-#ifdef LDAP_CLIENT_UPDATE
-"             [!]lcup=p/<cint>/<cookie>/<slimit> (LDAP client update)\n"
-/*
- * "                      s/<cint>/<cookie>  (LDAP client update)\n"
- * "                     sp/<cint>/<cookie>/<slimit>\n"
- * */
-#endif
-#ifdef LDAP_SYNC
-"             [!]sync=ro[/<cookie>]            (LDAP Sync refreshOnly)\n"
-"                     rp[/<cookie>][/<slimit>] (LDAP Sync refreshAndPersist)\n"
-#endif
-"  -F prefix  URL prefix for files (default: %s)\n"
-"  -l limit   time limit (in seconds) for search\n"
-"  -L         print responses in LDIFv1 format\n"
-"  -LL        print responses in LDIF format without comments\n"
-"  -LLL       print responses in LDIF format without comments\n"
-"             and version\n"
-"  -s scope   one of base, one, or sub (search scope)\n"
-"  -S attr    sort the results by attribute `attr'\n"
-"  -t         write binary values to files in temporary directory\n"
-"  -tt        write all values to files in temporary directory\n"
-"  -T path    write files to directory specified by path (default: %s)\n"
-"  -u         include User Friendly entry names in the output\n"
-"  -z limit   size limit (in entries) for search\n"
-	         , prog, def_urlpre, def_tmpdir );
+	fprintf( stderr, _("             [!]sync=ro[/<cookie>]            (LDAP Sync refreshOnly)\n"));
+	fprintf( stderr, _("                     rp[/<cookie>][/<slimit>] (LDAP Sync refreshAndPersist)\n"));
+	fprintf( stderr, _("  -F prefix  URL prefix for files (default: %s)\n"), def_urlpre);
+	fprintf( stderr, _("  -l limit   time limit (in seconds, or \"none\" or \"max\") for search\n"));
+	fprintf( stderr, _("  -L         print responses in LDIFv1 format\n"));
+	fprintf( stderr, _("  -LL        print responses in LDIF format without comments\n"));
+	fprintf( stderr, _("  -LLL       print responses in LDIF format without comments\n"));
+	fprintf( stderr, _("             and version\n"));
+	fprintf( stderr, _("  -s scope   one of base, one, or sub (search scope)\n"));
+	fprintf( stderr, _("  -S attr    sort the results by attribute `attr'\n"));
+	fprintf( stderr, _("  -t         write binary values to files in temporary directory\n"));
+	fprintf( stderr, _("  -tt        write all values to files in temporary directory\n"));
+	fprintf( stderr, _("  -T path    write files to directory specified by path (default: %s)\n"), def_tmpdir);
+	fprintf( stderr, _("  -u         include User Friendly entry names in the output\n"));
+	fprintf( stderr, _("  -z limit   size limit (in entries, or \"none\" or \"max\") for search\n"));
 	tool_common_usage();
 	exit( EXIT_FAILURE );
 }
@@ -160,24 +189,13 @@ static char	*vrFilter = NULL;
 static int domainScope = 0;
 #endif
 
-#if defined(LDAP_CLIENT_UPDATE) || defined(LDAP_SYNC)
-static int lcup = 0;
 static int ldapsync = 0;
-#endif
-
-#ifdef LDAP_CLIENT_UPDATE
-static int lcup_cint = 0;
-static struct berval lcup_cookie = { 0, NULL };
-static int lcup_slimit = -1;
-#endif
-
-#ifdef LDAP_SYNC
 static struct berval sync_cookie = { 0, NULL };
 static int sync_slimit = -1;
-#endif
 
 #ifdef LDAP_CONTROL_PAGEDRESULTS
 static int pagedResults = 0;
+static int pagePrompt = 1;
 static ber_int_t pageSize = 0;
 static ber_int_t entriesLeft = 0;
 static ber_int_t morePagedResults = 1;
@@ -214,32 +232,33 @@ const char options[] = "a:Ab:E:F:l:Ls:S:tT:uz:"
 int
 handle_private_option( int i )
 {
-	int crit;
-	char *control, *cvalue;
+	int crit, ival;
+	char *control, *cvalue, *next;
 	switch ( i ) {
 	case 'a':	/* set alias deref option */
 		if ( strcasecmp( optarg, "never" ) == 0 ) {
-		deref = LDAP_DEREF_NEVER;
+			deref = LDAP_DEREF_NEVER;
 		} else if ( strncasecmp( optarg, "search", sizeof("search")-1 ) == 0 ) {
-		deref = LDAP_DEREF_SEARCHING;
+			deref = LDAP_DEREF_SEARCHING;
 		} else if ( strncasecmp( optarg, "find", sizeof("find")-1 ) == 0 ) {
-		deref = LDAP_DEREF_FINDING;
+			deref = LDAP_DEREF_FINDING;
 		} else if ( strcasecmp( optarg, "always" ) == 0 ) {
-		deref = LDAP_DEREF_ALWAYS;
+			deref = LDAP_DEREF_ALWAYS;
 		} else {
-		fprintf( stderr, "alias deref should be never, search, find, or always\n" );
-		usage();
+			fprintf( stderr,
+				_("alias deref should be never, search, find, or always\n") );
+			usage();
 		}
 		break;
 	case 'A':	/* retrieve attribute names only -- no values */
 		++attrsonly;
 		break;
 	case 'b': /* search base */
-		base = strdup( optarg );
+		base = ber_strdup( optarg );
 		break;
-	case 'E': /* search controls */
+	case 'E': /* search extensions */
 		if( protocol == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -E incompatible with LDAPv%d\n",
+			fprintf( stderr, _("%s: -E incompatible with LDAPv%d\n"),
 				prog, protocol );
 			exit( EXIT_FAILURE );
 		}
@@ -255,7 +274,7 @@ handle_private_option( int i )
 			optarg++;
 		}
 
-		control = strdup( optarg );
+		control = ber_strdup( optarg );
 		if ( (cvalue = strchr( control, '=' )) != NULL ) {
 			*cvalue++ = '\0';
 		}
@@ -263,14 +282,15 @@ handle_private_option( int i )
 		if ( strcasecmp( control, "mv" ) == 0 ) {
 			/* ValuesReturnFilter control */
 			if( valuesReturnFilter ) {
-				fprintf( stderr, "ValuesReturnFilter previously specified\n");
+				fprintf( stderr,
+					_("ValuesReturnFilter previously specified\n"));
 				exit( EXIT_FAILURE );
 			}
 			valuesReturnFilter= 1 + crit;
 
 			if ( cvalue == NULL ) {
 				fprintf( stderr,
-					"missing filter in ValuesReturnFilter control\n");
+					_("missing filter in ValuesReturnFilter control\n"));
 				exit( EXIT_FAILURE );
 			}
 
@@ -282,15 +302,39 @@ handle_private_option( int i )
 			int num, tmp;
 			/* PagedResults control */
 			if ( pagedResults != 0 ) {
-				fprintf( stderr, "PagedResultsControl previously specified\n" );
+				fprintf( stderr,
+					_("PagedResultsControl previously specified\n") );
 				exit( EXIT_FAILURE );
 			}
-			
-			num = sscanf( cvalue, "%d", &tmp );
-			if ( num != 1 ) {
-				fprintf( stderr, "Invalid value for PagedResultsControl, %s.\n", cvalue);
-				exit( EXIT_FAILURE );
 
+			if( cvalue != NULL ) {
+				char *promptp;
+
+				promptp = strchr( cvalue, '/' );
+				if ( promptp != NULL ) {
+					*promptp++ = '\0';
+					if ( strcasecmp( promptp, "prompt" ) == 0 ) {
+						pagePrompt = 1;
+					} else if ( strcasecmp( promptp, "noprompt" ) == 0) {
+						pagePrompt = 0;
+					} else {
+						fprintf( stderr,
+							_("Invalid value for PagedResultsControl,"
+							" %s/%s.\n"), cvalue, promptp );
+						exit( EXIT_FAILURE );
+					}
+				}
+				num = sscanf( cvalue, "%d", &tmp );
+				if ( num != 1 ) {
+					fprintf( stderr,
+						_("Invalid value for PagedResultsControl, %s.\n"),
+						cvalue );
+					exit( EXIT_FAILURE );
+				}
+			} else {
+				fprintf( stderr, _("Invalid value for PagedResultsControl.\n"),
+					cvalue);
+				exit( EXIT_FAILURE );
 			}
 			pageSize = (ber_int_t) tmp;
 			pagedResults = 1 + crit;
@@ -300,12 +344,12 @@ handle_private_option( int i )
 		} else if ( strcasecmp( control, "domainScope" ) == 0 ) {
 			if( domainScope ) {
 				fprintf( stderr,
-					"domainScope control previously specified\n");
+					_("domainScope control previously specified\n"));
 				exit( EXIT_FAILURE );
 			}
 			if( cvalue != NULL ) {
 				fprintf( stderr,
-			         "domainScope: no control value expected\n" );
+			         _("domainScope: no control value expected\n") );
 				usage();
 			}
 
@@ -314,7 +358,8 @@ handle_private_option( int i )
 #ifdef LDAP_CONTROL_SUBENTRIES
 		} else if ( strcasecmp( control, "subentries" ) == 0 ) {
 			if( subentries ) {
-				fprintf( stderr, "subentries control previously specified\n");
+				fprintf( stderr,
+					_("subentries control previously specified\n"));
 				exit( EXIT_FAILURE );
 			}
 			if( cvalue == NULL || strcasecmp( cvalue, "true") == 0 ) {
@@ -323,87 +368,22 @@ handle_private_option( int i )
 				subentries = 1;
 			} else {
 				fprintf( stderr,
-					"subentries control value \"%s\" invalid\n",
+					_("subentries control value \"%s\" invalid\n"),
 					cvalue );
 				exit( EXIT_FAILURE );
 			}
 			if( crit ) subentries *= -1;
 #endif
 
-#ifdef LDAP_CLIENT_UPDATE
-                } else if ( strcasecmp( control, "lcup" ) == 0 ) {
-                        char *cookiep;
-                        char *slimitp;
-                        if ( lcup ) {
-                                fprintf( stderr, "client update control previously specified\n");
-                                exit( EXIT_FAILURE );
-                        }
-                        if ( ldapsync != -1 ) {
-                                fprintf( stderr, "ldap sync control previously specified\n");
-                                exit( EXIT_FAILURE );
-                        }
-                        if ( cvalue == NULL ) {
-                                fprintf( stderr,
-                                        "missing specification of client update control\n");
-                                exit( EXIT_FAILURE );
-                        }
-                        if ( strncasecmp( cvalue, "p", 1 ) == 0 ) {
-                                lcup = LDAP_CUP_PERSIST_ONLY;
-                                cvalue = strchr( cvalue, '/' );
-                                cvalue++;
-                                cookiep = strchr( cvalue, '/' );
-                                *cookiep++ = '\0';
-                                lcup_cint = atoi( cvalue );
-                                cvalue = cookiep;
-                                slimitp = strchr( cvalue, '/' );
-                                *slimitp++ = '\0';
-                                while ( isspace( *cookiep ) ) cookiep++;
-                                ber_str2bv( cookiep, 0, 0, &lcup_cookie );
-                                lcup_slimit = atoi( slimitp );
-/*
-			} else if ( strncasecmp( cvalue, "s", 1 ) == 0 ) {
-				lcup = LDAP_CUP_SYNC_ONLY;
-				cvalue += 2;
-				cookiep = strchr( cvalue, '/' );
-				*cookiep++ = '\0';
-				lcup_cint = atoi( cvalue );
-				ber_str2bv( cookiep, 0, 0, &lcup_cookie );
-			} else if ( strncasecmp( cvalue, "sp", 2 ) == 0 ) {
-				lcup = LDAP_CUP_SYNC_AND_PERSIST;
-				cvalue += 3;
-				cookiep = strchr( cvalue, '/' );
-				*cookiep++ = '\0';
-				lcup_cint = atoi( cvalue );
-				cvalue = cookiep;
-				slimitp = strchr( cvalue, '/' );
-				*slimitp++ = '\0';
-				ber_str2bv( cookiep, 0, 0, &lcup_cookie );
-				lcup_slimit = atoi( slimitp );
-*/
-			} else {
-				fprintf( stderr,
-					"client update control value \"%s\" invalid\n",
-					cvalue );
-				exit( EXIT_FAILURE );
-			}
-			if ( crit ) lcup *= -1;
-#endif
-
-#ifdef LDAP_SYNC
 	} else if ( strcasecmp( control, "sync" ) == 0 ) {
 			char *cookiep;
 			char *slimitp;
 			if ( ldapsync ) {
-				fprintf( stderr, "ldap sync control previously specified\n" );
-				exit( EXIT_FAILURE );
-			}
-			if ( lcup ) {
-				fprintf( stderr, "client update control previously specified\n" );
+				fprintf( stderr, _("sync control previously specified\n") );
 				exit( EXIT_FAILURE );
 			}
 			if ( cvalue == NULL ) {
-				fprintf( stderr,
-					"missing specification of ldap sync control\n");
+				fprintf( stderr, _("missing specification of sync control\n"));
 				exit( EXIT_FAILURE );
 			}
 			if ( strncasecmp( cvalue, "ro", 2 ) == 0 ) {
@@ -428,19 +408,24 @@ handle_private_option( int i )
 				}
 				if ( cookiep != NULL && *cookiep != '\0' )
 					ber_str2bv( cookiep, 0, 0, &sync_cookie );
-				if ( slimitp != NULL && *slimitp != '\0' )
-					sync_slimit = atoi( slimitp );
+				if ( slimitp != NULL && *slimitp != '\0' ) {
+					ival = strtol( slimitp, &next, 10 );
+					if ( next == NULL || next[0] != '\0' ) {
+						fprintf( stderr, _("Unable to parse sync control value \"%s\"\n"), slimitp );
+						exit( EXIT_FAILURE );
+					}
+					sync_slimit = ival;
+				}
 			} else {
-				fprintf( stderr,
-					"ldap sync control value \"%s\" invalid\n",
+				fprintf( stderr, _("sync control value \"%s\" invalid\n"),
 					cvalue );
 				exit( EXIT_FAILURE );
 			}
 			if ( crit ) ldapsync *= -1;
-#endif
 
 		} else {
-			fprintf( stderr, "Invalid control name: %s\n", control );
+			fprintf( stderr, _("Invalid search extension name: %s\n"),
+				control );
 			usage();
 		}
 		break;
@@ -449,9 +434,23 @@ handle_private_option( int i )
 		urlpre = strdup( optarg );
 		break;
 	case 'l':	/* time limit */
-		timelimit = atoi( optarg );
-		if( timelimit < 0 ) {
-			fprintf( stderr, "%s: invalid timelimit (%d) specified\n",
+		if ( strcasecmp( optarg, "none" ) == 0 ) {
+			timelimit = 0;
+
+		} else if ( strcasecmp( optarg, "max" ) == 0 ) {
+			timelimit = LDAP_MAXINT;
+
+		} else {
+			ival = strtol( optarg, &next, 10 );
+			if ( next == NULL || next[0] != '\0' ) {
+				fprintf( stderr,
+					_("Unable to parse time limit \"%s\"\n"), optarg );
+				exit( EXIT_FAILURE );
+			}
+			timelimit = ival;
+		}
+		if( timelimit < 0 || timelimit > LDAP_MAXINT ) {
+			fprintf( stderr, _("%s: invalid timelimit (%d) specified\n"),
 				prog, timelimit );
 			exit( EXIT_FAILURE );
 		}
@@ -467,8 +466,8 @@ handle_private_option( int i )
 		} else if ( strncasecmp( optarg, "sub", sizeof("sub")-1 ) == 0 ) {
 		scope = LDAP_SCOPE_SUBTREE;
 		} else {
-		fprintf( stderr, "scope should be base, one, or sub\n" );
-		usage();
+			fprintf( stderr, _("scope should be base, one, or sub\n") );
+			usage();
 		}
 		break;
 	case 'S':	/* sort attribute */
@@ -485,7 +484,31 @@ handle_private_option( int i )
 		++includeufn;
 		break;
 	case 'z':	/* size limit */
-		sizelimit = atoi( optarg );
+		if ( strcasecmp( optarg, "none" ) == 0 ) {
+			sizelimit = 0;
+
+		} else if ( strcasecmp( optarg, "max" ) == 0 ) {
+			sizelimit = LDAP_MAXINT;
+
+		} else {
+			ival = strtol( optarg, &next, 10 );
+			if ( next == NULL || next[0] != '\0' ) {
+				fprintf( stderr,
+					_("Unable to parse size limit \"%s\"\n"), optarg );
+				exit( EXIT_FAILURE );
+			}
+			sizelimit = ival;
+		}
+		if( sizelimit < 0 || sizelimit > LDAP_MAXINT ) {
+			fprintf( stderr, _("%s: invalid sizelimit (%d) specified\n"),
+				prog, sizelimit );
+			exit( EXIT_FAILURE );
+		}
+		if( sizelimit < 0 ) {
+			fprintf( stderr, _("%s: invalid sizelimit (%d) specified\n"),
+				prog, timelimit );
+			exit( EXIT_FAILURE );
+		}
 		break;
 	default:
 		return 0;
@@ -498,21 +521,26 @@ static void
 private_conn_setup( LDAP *ld )
 {
 	if (deref != -1 &&
-		ldap_set_option( ld, LDAP_OPT_DEREF, (void *) &deref ) != LDAP_OPT_SUCCESS )
+		ldap_set_option( ld, LDAP_OPT_DEREF, (void *) &deref )
+			!= LDAP_OPT_SUCCESS )
 	{
-		fprintf( stderr, "Could not set LDAP_OPT_DEREF %d\n", deref );
+		fprintf( stderr, _("Could not set LDAP_OPT_DEREF %d\n"), deref );
 		exit( EXIT_FAILURE );
 	}
-	if (timelimit != -1 &&
-		ldap_set_option( ld, LDAP_OPT_TIMELIMIT, (void *) &timelimit ) != LDAP_OPT_SUCCESS )
+	if (timelimit > 0 &&
+		ldap_set_option( ld, LDAP_OPT_TIMELIMIT, (void *) &timelimit )
+			!= LDAP_OPT_SUCCESS )
 	{
-		fprintf( stderr, "Could not set LDAP_OPT_TIMELIMIT %d\n", timelimit );
+		fprintf( stderr,
+			_("Could not set LDAP_OPT_TIMELIMIT %d\n"), timelimit );
 		exit( EXIT_FAILURE );
 	}
-	if (sizelimit != -1 &&
-		ldap_set_option( ld, LDAP_OPT_SIZELIMIT, (void *) &sizelimit ) != LDAP_OPT_SUCCESS )
+	if (sizelimit > 0 &&
+		ldap_set_option( ld, LDAP_OPT_SIZELIMIT, (void *) &sizelimit )
+			!= LDAP_OPT_SUCCESS )
 	{
-		fprintf( stderr, "Could not set LDAP_OPT_SIZELIMIT %d\n", sizelimit );
+		fprintf( stderr,
+			_("Could not set LDAP_OPT_SIZELIMIT %d\n"), sizelimit );
 		exit( EXIT_FAILURE );
 	}
 }
@@ -526,15 +554,11 @@ main( int argc, char **argv )
 	int			rc, i, first;
 	LDAP		*ld = NULL;
 	BerElement	*seber = NULL, *vrber = NULL, *prber = NULL;
-#ifdef LDAP_CLIENT_UPDATE
-	BerElement	*cuber = NULL;
-        struct berval   *cubvalp = NULL;
-#endif
 
-#ifdef LDAP_SYNC
 	BerElement      *syncber = NULL;
 	struct berval   *syncbvalp = NULL;
-#endif
+
+	tool_init();
 
 #ifdef LDAP_CONTROL_PAGEDRESULTS
 	npagedresponses = npagedentries = npagedreferences =
@@ -622,7 +646,7 @@ main( int argc, char **argv )
 			rc = lutil_get_filed_password( pw_file, &passwd );
 			if( rc ) return EXIT_FAILURE;
 		} else {
-			passwd.bv_val = getpassphrase( "Enter LDAP Password: " );
+			passwd.bv_val = getpassphrase( _("Enter LDAP Password: ") );
 			passwd.bv_len = passwd.bv_val ? strlen( passwd.bv_val ) : 0;
 		}
 	}
@@ -630,20 +654,16 @@ main( int argc, char **argv )
 	tool_bind( ld );
 
 getNextPage:
-	if ( manageDSAit || noop || subentries || valuesReturnFilter
+	if ( assertion || authzid || manageDSAit || noop
 #ifdef LDAP_CONTROL_X_DOMAIN_SCOPE
-			|| domainScope
+		|| domainScope
 #endif
 #ifdef LDAP_CONTROL_PAGEDRESULTS
-			|| pageSize
+		|| pagedResults
 #endif
-#ifdef LDAP_CLIENT_UPDATE
-			|| lcup
-#endif
-#ifdef LDAP_SYNC
-			|| ldapsync
-#endif
-			) {
+		|| ldapsync
+		|| subentries || valuesReturnFilter )
+	{
 		int err;
 		int i=0;
 		LDAPControl c[6];
@@ -664,10 +684,10 @@ getNextPage:
 				return EXIT_FAILURE;
 			}
 
-			err = ber_printf( seber, "{b}", abs(subentries) == 1 ? 0 : 1 );
+			err = ber_printf( seber, "b", abs(subentries) == 1 ? 0 : 1 );
 	    	if ( err == -1 ) {
 				ber_free( seber, 1 );
-				fprintf( stderr, "Subentries control encoding error!\n" );
+				fprintf( stderr, _("Subentries control encoding error!\n") );
 				return EXIT_FAILURE;
 			}
 
@@ -681,37 +701,6 @@ getNextPage:
 		}
 #endif
 
-#ifdef LDAP_CLIENT_UPDATE
-                if ( lcup ) {
-                        if (( cuber = ber_alloc_t(LBER_USE_DER)) == NULL ) {
-                                return EXIT_FAILURE;
-                        }
-
-                        if ( lcup_cookie.bv_len == 0 ) {
-                                err = ber_printf( cuber, "{ei}", abs(lcup), lcup_cint );
-                        } else {
-                                err = ber_printf( cuber, "{ei{sO}}", abs(lcup), lcup_cint,
-                                    LDAP_CUP_COOKIE_OID, &lcup_cookie );
-                        }
-
-                        if ( err == LBER_ERROR ) {
-                                ber_free( cuber, 1 );
-                                fprintf( stderr, "client update control encoding error!\n" );
-                                return EXIT_FAILURE;
-                        }
-
-                        if ( ber_flatten( cuber, &cubvalp ) == LBER_ERROR ) {
-                                return EXIT_FAILURE;
-                        }
-
-                        c[i].ldctl_oid = LDAP_CONTROL_CLIENT_UPDATE;
-                        c[i].ldctl_value = (*cubvalp);
-                        c[i].ldctl_iscritical = lcup < 0;
-                        i++;
-                }
-#endif
-
-#ifdef LDAP_SYNC
 		if ( ldapsync ) {
 			if (( syncber = ber_alloc_t(LBER_USE_DER)) == NULL ) {
 				return EXIT_FAILURE;
@@ -726,7 +715,7 @@ getNextPage:
 
 			if ( err == LBER_ERROR ) {
 				ber_free( syncber, 1 );
-				fprintf( stderr, "ldap sync control encoding error!\n" );
+				fprintf( stderr, _("ldap sync control encoding error!\n") );
 				return EXIT_FAILURE;
 			}
 
@@ -739,7 +728,6 @@ getNextPage:
 			c[i].ldctl_iscritical = ldapsync < 0;
 			i++;
 		}
-#endif
 
 		if ( valuesReturnFilter ) {
 	        if (( vrber = ber_alloc_t(LBER_USE_DER)) == NULL ) {
@@ -748,7 +736,7 @@ getNextPage:
 
 	    	if ( ( err = ldap_put_vrFilter( vrber, vrFilter ) ) == -1 ) {
 				ber_free( vrber, 1 );
-				fprintf( stderr, "Bad ValuesReturnFilter: %s\n", vrFilter );
+				fprintf( stderr, _("Bad ValuesReturnFilter: %s\n"), vrFilter );
 				return EXIT_FAILURE;
 			}
 
@@ -780,18 +768,22 @@ getNextPage:
 
 		tool_server_controls( ld, c, i );
 
+#ifdef LDAP_CONTROL_SUBENTRIES
 		ber_free( seber, 1 );
+#endif
 		ber_free( vrber, 1 );
+#ifdef LDAP_CONTROL_PAGEDRESULTS
 		ber_free( prber, 1 );
+#endif
 	}
 	
 	if ( verbose ) {
-		fprintf( stderr, "filter%s: %s\nrequesting: ",
-			infile != NULL ? " pattern" : "",
+		fprintf( stderr, _("filter%s: %s\nrequesting: "),
+			infile != NULL ? _(" pattern") : "",
 			filtpattern );
 
 		if ( attrs == NULL ) {
-			fprintf( stderr, "ALL" );
+			fprintf( stderr, _("ALL") );
 		} else {
 			for ( i = 0; attrs[ i ] != NULL; ++i ) {
 				fprintf( stderr, "%s ", attrs[ i ] );
@@ -801,25 +793,23 @@ getNextPage:
 	}
 
 	if ( ldif == 0 ) {
-		printf( "# extended LDIF\n" );
+		printf( _("# extended LDIF\n") );
 	} else if ( ldif < 3 ) {
-		printf( "version: %d\n\n", 1 );
+		printf( _("version: %d\n\n"), 1 );
 	}
 
 	if (ldif < 2 ) {
-		printf( "#\n"
-			"# LDAPv%d\n"
-			"# base <%s> with scope %s\n"
-			"# filter%s: %s\n"
-			"# requesting: ",
-			protocol,
+		printf( "#\n" );
+		printf(_("# LDAPv%d\n"), protocol);
+		printf(_("# base <%s> with scope %s\n"),
 			base ? base : "", (scope == LDAP_SCOPE_BASE) ? "base"
-				: ((scope == LDAP_SCOPE_ONELEVEL) ? "one" : "sub"),
-			infile != NULL ? " pattern" : "",
-			filtpattern );
+		       : ((scope == LDAP_SCOPE_ONELEVEL) ? "one" : "sub"));
+		printf(_("# filter%s: %s\n"), infile != NULL ? _(" pattern") : "",
+		       filtpattern);
+		printf(_("# requesting: "));
 
 		if ( attrs == NULL ) {
-			printf( "ALL" );
+			printf( _("ALL") );
 		} else {
 			for ( i = 0; attrs[ i ] != NULL; ++i ) {
 				printf( "%s ", attrs[ i ] );
@@ -827,31 +817,31 @@ getNextPage:
 		}
 
 		if ( manageDSAit ) {
-			printf("\n# with manageDSAit %scontrol",
-				manageDSAit > 1 ? "critical " : "" );
+			printf(_("\n# with manageDSAit %scontrol"),
+				manageDSAit > 1 ? _("critical ") : "" );
 		}
 		if ( noop ) {
-			printf("\n# with noop %scontrol",
-				noop > 1 ? "critical " : "" );
+			printf(_("\n# with noop %scontrol"),
+				noop > 1 ? _("critical ") : "" );
 		}
 		if ( subentries ) {
-			printf("\n# with subentries %scontrol: %s",
-				subentries < 0 ? "critical " : "",
+			printf(_("\n# with subentries %scontrol: %s"),
+				subentries < 0 ? _("critical ") : "",
 				abs(subentries) == 1 ? "false" : "true" );
 		}
 		if ( valuesReturnFilter ) {
-			printf("\n# with valuesReturnFilter %scontrol: %s",
-				valuesReturnFilter > 1 ? "critical " : "", vrFilter );
+			printf(_("\n# with valuesReturnFilter %scontrol: %s"),
+				valuesReturnFilter > 1 ? _("critical ") : "", vrFilter );
 		}
 #ifdef LDAP_CONTROL_PAGEDRESULTS
-		if ( pageSize ) {
-			printf("\n# with pagedResults %scontrol: size=%d",
-				(pagedResults > 1) ? "critical " : "", 
+		if ( pagedResults ) {
+			printf(_("\n# with pagedResults %scontrol: size=%d"),
+				(pagedResults > 1) ? _("critical ") : "", 
 				pageSize );
 		}
 #endif
 
-		printf( "\n#\n\n" );
+		printf( _("\n#\n\n") );
 	}
 
 	if ( infile == NULL ) {
@@ -877,44 +867,52 @@ getNextPage:
 	}
 
 #ifdef LDAP_CONTROL_PAGEDRESULTS
-	if ( ( pageSize != 0 ) && ( morePagedResults != 0 ) ) {
+	if ( ( rc == LDAP_SUCCESS ) &&  ( pageSize != 0 ) && ( morePagedResults != 0 ) ) {
 		char	buf[6];
 		int	i, moreEntries, tmpSize;
 
 		/* Loop to get the next pages when 
 		 * enter is pressed on the terminal.
 		 */
-		if ( entriesLeft > 0 ) {
-			printf( "Estimate entries: %d\n", entriesLeft );
-		}
-		printf( "Press [size] Enter for the next {%d|size} entries.\n",
-			(int)pageSize ); 
-		i = 0;
-		moreEntries = getchar();
-		while ( moreEntries != EOF && moreEntries != '\n' ) { 
-			if ( i < (int)sizeof(buf) - 1 ) {
-				buf[i] = moreEntries;
-				i++;
+		if ( pagePrompt != 0 ) {
+			if ( entriesLeft > 0 ) {
+				printf( _("Estimate entries: %d\n"), entriesLeft );
 			}
+			printf( _("Press [size] Enter for the next {%d|size} entries.\n"),
+				(int)pageSize );
+			i = 0;
 			moreEntries = getchar();
-		}
-		buf[i] = '\0';
-
-		if ( i > 0 && isdigit( (unsigned char)buf[0] ) ) {
-			int num = sscanf( buf, "%d", &tmpSize );
-			if ( num != 1 ) {
-				fprintf( stderr, "Invalid value for PagedResultsControl, %s.\n", buf);
-				return EXIT_FAILURE;
-
+			while ( moreEntries != EOF && moreEntries != '\n' ) { 
+				if ( i < (int)sizeof(buf) - 1 ) {
+					buf[i] = moreEntries;
+					i++;
+				}
+				moreEntries = getchar();
 			}
-			pageSize = (ber_int_t)tmpSize;
+			buf[i] = '\0';
+
+			if ( i > 0 && isdigit( (unsigned char)buf[0] ) ) {
+				int num = sscanf( buf, "%d", &tmpSize );
+				if ( num != 1 ) {
+					fprintf( stderr, _("Invalid value for PagedResultsControl, %s.\n"), buf);
+					return EXIT_FAILURE;
+	
+				}
+				pageSize = (ber_int_t)tmpSize;
+			}
 		}
 
-		goto getNextPage;	
+		goto getNextPage;
 	}
 #endif
 
-	ldap_unbind( ld );
+	ldap_unbind_ext( ld, NULL, NULL );
+#ifdef HAVE_CYRUS_SASL
+	sasl_done();
+#endif
+#ifdef HAVE_TLS
+	ldap_pvt_tls_destroy();
+#endif
 	return( rc );
 }
 
@@ -941,12 +939,10 @@ static int dosearch(
 	int			npartial;
 	LDAPMessage		*res, *msg;
 	ber_int_t		msgid;
-#ifdef LDAP_SYNC
 	char			*retoid = NULL;
 	struct berval		*retdata = NULL;
 	int			nresponses_psearch = -1;
 	int			cancel_msgid = -1;
-#endif
 
 	if( filtpatt != NULL ) {
 		filter = malloc( strlen( filtpatt ) + strlen( value ) );
@@ -958,11 +954,11 @@ static int dosearch(
 		sprintf( filter, filtpatt, value );
 
 		if ( verbose ) {
-			fprintf( stderr, "filter: %s\n", filter );
+			fprintf( stderr, _("filter: %s\n"), filter );
 		}
 
 		if( ldif < 2 ) {
-			printf( "#\n# filter: %s\n#\n", filter );
+			printf( _("#\n# filter: %s\n#\n"), filter );
 		}
 
 	} else {
@@ -981,7 +977,7 @@ static int dosearch(
 	}
 
 	if( rc != LDAP_SUCCESS ) {
-		fprintf( stderr, "%s: ldap_search_ext: %s (%d)\n",
+		fprintf( stderr, _("%s: ldap_search_ext: %s (%d)\n"),
 			prog, ldap_err2string( rc ), rc );
 		return( rc );
 	}
@@ -1004,10 +1000,8 @@ static int dosearch(
 			msg = ldap_next_message( ld, msg ) )
 		{
 			if ( nresponses++ ) putchar('\n');
-#if LDAP_SYNC
 			if ( nresponses_psearch >= 0 ) 
 				nresponses_psearch++;
-#endif
 
 			switch( ldap_msgtype( msg ) ) {
 			case LDAP_RES_SEARCH_ENTRY:
@@ -1029,73 +1023,54 @@ static int dosearch(
 					goto done;
 				}
 
-#ifdef LDAP_SYNC
 				if ( cancel_msgid != -1 &&
 						cancel_msgid == ldap_msgid( msg ) ) {
-					printf("Cancelled \n");
-					printf("cancel_msgid = %d\n", cancel_msgid);
+					printf(_("Cancelled \n"));
+					printf(_("cancel_msgid = %d\n"), cancel_msgid);
 					goto done;
 				}
-#endif
-
-				break;
-
-			case LDAP_RES_EXTENDED_PARTIAL:
-				npartial++;
-				print_partial( ld, msg );
 				break;
 
 			case LDAP_RES_SEARCH_RESULT:
 				rc = print_result( ld, msg, 1 );
 #ifdef LDAP_CONTROL_PAGEDRESULTS
-				if ( pageSize != 0 ) { 
-					rc = parse_page_control( ld, msg, &cookie );
+				if ( pageSize != 0 ) {
+					if ( rc == LDAP_SUCCESS ) {
+						rc = parse_page_control( ld, msg, &cookie );
+					} else {
+						morePagedResults = 0;
+					}
+				} else {
+					morePagedResults = 0;
 				}
 #endif
 
-#ifdef LDAP_CLIENT_UPDATE
-				if ( lcup == LDAP_CUP_PERSIST_ONLY ||
-				     lcup == LDAP_CUP_SYNC_AND_PERSIST ) {
-					break;
-				}
-#endif
-#if defined(LDAP_CLIENT_UPDATE) && defined(LDAP_SYNC)
-				else
-#endif
-#ifdef LDAP_SYNC
 				if ( ldapsync == LDAP_SYNC_REFRESH_AND_PERSIST ) {
 					break;
 				}
-#endif
 
 				goto done;
 
-#ifdef LDAP_SYNC
-			case LDAP_RES_INTERMEDIATE_RESP:
-				ldap_parse_intermediate_resp_result( ld, msg, &retoid, &retdata, 0 );
+			case LDAP_RES_INTERMEDIATE:
+				npartial++;
+				ldap_parse_intermediate( ld, msg,
+					&retoid, &retdata, NULL, 0 );
+
 				nresponses_psearch = 0;
 
-				if ( strcmp( retoid, LDAP_SYNC_INFO ) ) {
-					printf("Unexpected Intermediate Response\n");
-					ldap_memfree( retoid );
-					ber_bvfree( retdata );
-					goto done;
-				} else {
-					printf("SyncInfo Received\n");
+				if ( strcmp( retoid, LDAP_SYNC_INFO ) == 0 ) {
+					printf(_("SyncInfo Received\n"));
 					ldap_memfree( retoid );
 					ber_bvfree( retdata );
 					break;
 				}
-#endif
-			}
 
-#ifdef LDAP_CLIENT_UPDATE
-			if ( lcup && lcup_slimit != -1 && nresponses >= lcup_slimit ) {
-				ldap_abandon (ld, ldap_msgid(msg));
+				print_partial( ld, msg );
+				ldap_memfree( retoid );
+				ber_bvfree( retdata );
 				goto done;
 			}
-#endif
-#ifdef LDAP_SYNC
+
 			if ( ldapsync && sync_slimit != -1 &&
 					nresponses_psearch >= sync_slimit ) {
 				BerElement *msgidber = NULL;
@@ -1107,8 +1082,6 @@ static int dosearch(
 						msgidvalp, NULL, NULL, &cancel_msgid);
 				nresponses_psearch = -1;
 			}
-#endif
-
 		}
 
 		ldap_msgfree( res );
@@ -1120,143 +1093,34 @@ static int dosearch(
 	}
 
 done:
+	ldap_msgfree( res );
 #ifdef LDAP_CONTROL_PAGEDRESULTS
-	if ( pageSize != 0 ) { 
-		npagedresponses = npagedresponses + nresponses;
-		npagedentries = npagedentries + nentries;
-		npagedreferences = npagedreferences + nreferences;
-		npagedextended = npagedextended + nextended;
-		npagedpartial = npagedpartial + npartial;
+	if ( pagedResults ) { 
+		npagedresponses += nresponses;
+		npagedentries += nentries;
+		npagedextended += nextended;
+		npagedpartial += npartial;
+		npagedreferences += nreferences;
 		if ( ( morePagedResults == 0 ) && ( ldif < 2 ) ) {
-			printf( "\n# numResponses: %d\n", npagedresponses );
-			if( nentries ) printf( "# numEntries: %d\n", npagedentries );
-			if( nextended ) printf( "# numExtended: %d\n", npagedextended );
-			if( npartial ) printf( "# numPartial: %d\n", npagedpartial );
-			if( nreferences ) printf( "# numReferences: %d\n", npagedreferences );
+			printf( _("\n# numResponses: %d\n"), npagedresponses );
+			if( npagedentries ) printf( _("# numEntries: %d\n"), npagedentries );
+			if( npagedextended ) printf( _("# numExtended: %d\n"), npagedextended );
+			if( npagedpartial ) printf( _("# numPartial: %d\n"), npagedpartial );
+			if( npagedreferences ) printf( _("# numReferences: %d\n"), npagedreferences );
 		}
 	} else
 #endif
 	if ( ldif < 2 ) {
-		printf( "\n# numResponses: %d\n", nresponses );
-		if( nentries ) printf( "# numEntries: %d\n", nentries );
-		if( nextended ) printf( "# numExtended: %d\n", nextended );
-		if( npartial ) printf( "# numPartial: %d\n", npartial );
-		if( nreferences ) printf( "# numReferences: %d\n", nreferences );
+		printf( _("\n# numResponses: %d\n"), nresponses );
+		if( nentries ) printf( _("# numEntries: %d\n"), nentries );
+		if( nextended ) printf( _("# numExtended: %d\n"), nextended );
+		if( npartial ) printf( _("# numPartial: %d\n"), npartial );
+		if( nreferences ) printf( _("# numReferences: %d\n"), nreferences );
 	}
 
 	return( rc );
 }
 
-#if 1
-/* This is the original version, the old way of doing things. */
-static void
-print_entry(
-	LDAP	*ld,
-	LDAPMessage	*entry,
-	int		attrsonly)
-{
-	char		*a, *dn, *ufn;
-	char	tmpfname[ 256 ];
-	char	url[ 256 ];
-	int			i, rc;
-	BerElement		*ber = NULL;
-	struct berval	**bvals;
-	LDAPControl **ctrls = NULL;
-	FILE		*tmpfp;
-
-	dn = ldap_get_dn( ld, entry );
-	ufn = NULL;
-
-	if ( ldif < 2 ) {
-		ufn = ldap_dn2ufn( dn );
-		write_ldif( LDIF_PUT_COMMENT, NULL, ufn, ufn ? strlen( ufn ) : 0 );
-	}
-	write_ldif( LDIF_PUT_VALUE, "dn", dn, dn ? strlen( dn ) : 0);
-
-	rc = ldap_get_entry_controls( ld, entry, &ctrls );
-
-	if( rc != LDAP_SUCCESS ) {
-		fprintf(stderr, "print_entry: %d\n", rc );
-		ldap_perror( ld, "ldap_get_entry_controls" );
-		exit( EXIT_FAILURE );
-	}
-
-	if( ctrls ) {
-		print_ctrls( ctrls );
-		ldap_controls_free( ctrls );
-	}
-
-	if ( includeufn ) {
-		if( ufn == NULL ) {
-			ufn = ldap_dn2ufn( dn );
-		}
-		write_ldif( LDIF_PUT_VALUE, "ufn", ufn, ufn ? strlen( ufn ) : 0 );
-	}
-
-	if( ufn != NULL ) ldap_memfree( ufn );
-	ldap_memfree( dn );
-
-	for ( a = ldap_first_attribute( ld, entry, &ber ); a != NULL;
-		a = ldap_next_attribute( ld, entry, ber ) )
-	{
-		if ( attrsonly ) {
-			write_ldif( LDIF_PUT_NOVALUE, a, NULL, 0 );
-
-		} else if (( bvals = ldap_get_values_len( ld, entry, a )) != NULL ) {
-			for ( i = 0; bvals[i] != NULL; i++ ) {
-				if ( vals2tmp > 1 || ( vals2tmp
-					&& ldif_is_not_printable( bvals[i]->bv_val, bvals[i]->bv_len ) ))
-				{
-					int tmpfd;
-					/* write value to file */
-					snprintf( tmpfname, sizeof tmpfname,
-						"%s" LDAP_DIRSEP "ldapsearch-%s-XXXXXX",
-						tmpdir, a );
-					tmpfp = NULL;
-
-					tmpfd = mkstemp( tmpfname );
-
-					if ( tmpfd < 0  ) {
-						perror( tmpfname );
-						continue;
-					}
-
-					if (( tmpfp = fdopen( tmpfd, "w")) == NULL ) {
-						perror( tmpfname );
-						continue;
-					}
-
-					if ( fwrite( bvals[ i ]->bv_val,
-						bvals[ i ]->bv_len, 1, tmpfp ) == 0 )
-					{
-						perror( tmpfname );
-						fclose( tmpfp );
-						continue;
-					}
-
-					fclose( tmpfp );
-
-					snprintf( url, sizeof url, "%s%s", urlpre,
-						&tmpfname[strlen(tmpdir) + sizeof(LDAP_DIRSEP) - 1] );
-
-					urlize( url );
-					write_ldif( LDIF_PUT_URL, a, url, strlen( url ));
-
-				} else {
-					write_ldif( LDIF_PUT_VALUE, a,
-						bvals[ i ]->bv_val, bvals[ i ]->bv_len );
-				}
-			}
-			ber_bvecfree( bvals );
-		}
-		ldap_memfree( a );
-	}
-
-	if( ber != NULL ) {
-		ber_free( ber, 0 );
-	}
-}
-#else
 /* This is the proposed new way of doing things.
  * It is more efficient, but the API is non-standard.
  */
@@ -1283,10 +1147,9 @@ print_entry(
 	}
 	write_ldif( LDIF_PUT_VALUE, "dn", bv.bv_val, bv.bv_len );
 
-	rc = ldap_int_get_controls( ber, &ctrls );
-
+	rc = ldap_get_entry_controls( ld, entry, &ctrls );
 	if( rc != LDAP_SUCCESS ) {
-		fprintf(stderr, "print_entry: %d\n", rc );
+		fprintf(stderr, _("print_entry: %d\n"), rc );
 		ldap_perror( ld, "ldap_get_entry_controls" );
 		exit( EXIT_FAILURE );
 	}
@@ -1313,13 +1176,13 @@ print_entry(
 	{
 		if (bv.bv_val == NULL) break;
 
-		if ( attrsonly || !bvals ) {
+		if ( attrsonly ) {
 			write_ldif( LDIF_PUT_NOVALUE, bv.bv_val, NULL, 0 );
 
-		} else {
+		} else if ( bvals ) {
 			for ( i = 0; bvals[i].bv_val != NULL; i++ ) {
-				if ( vals2tmp > 1 || ( vals2tmp
-					&& ldif_is_not_printable( bvals[i].bv_val, bvals[i].bv_len ) ))
+				if ( vals2tmp > 1 || ( vals2tmp &&
+					ldif_is_not_printable( bvals[i].bv_val, bvals[i].bv_len )))
 				{
 					int tmpfd;
 					/* write value to file */
@@ -1369,7 +1232,6 @@ print_entry(
 		ber_free( ber, 0 );
 	}
 }
-#endif
 
 static void print_reference(
 	LDAP *ld,
@@ -1380,7 +1242,7 @@ static void print_reference(
 	LDAPControl **ctrls;
 
 	if( ldif < 2 ) {
-		printf("# search reference\n");
+		printf(_("# search reference\n"));
 	}
 
 	rc = ldap_parse_reference( ld, reference, &refs, &ctrls, 0 );
@@ -1414,7 +1276,7 @@ static void print_extended(
 	struct berval *retdata = NULL;
 
 	if( ldif < 2 ) {
-		printf("# extended result response\n");
+		printf(_("# extended result response\n"));
 	}
 
 	rc = ldap_parse_extended_result( ld, extended,
@@ -1452,14 +1314,14 @@ static void print_partial(
 	LDAPControl **ctrls = NULL;
 
 	if( ldif < 2 ) {
-		printf("# extended partial response\n");
+		printf(_("# extended partial response\n"));
 	}
 
-	rc = ldap_parse_extended_partial( ld, partial,
+	rc = ldap_parse_intermediate( ld, partial,
 		&retoid, &retdata, &ctrls, 0 );
 
 	if( rc != LDAP_SUCCESS ) {
-		ldap_perror(ld, "ldap_parse_extended_partial");
+		ldap_perror(ld, "ldap_parse_intermediate");
 		exit( EXIT_FAILURE );
 	}
 
@@ -1498,10 +1360,10 @@ static int print_result(
 
 	if( search ) {
 		if ( ldif < 2 ) {
-			printf("# search result\n");
+			printf(_("# search result\n"));
 		}
 		if ( ldif < 1 ) {
-			printf("%s: %d\n", "search", ldap_msgid(result) );
+			printf("%s: %d\n", _("search"), ldap_msgid(result) );
 		}
 	}
 
@@ -1515,29 +1377,33 @@ static int print_result(
 
 
 	if( !ldif ) {
-		printf( "result: %d %s\n", err, ldap_err2string(err) );
+		printf( _("result: %d %s\n"), err, ldap_err2string(err) );
 
 	} else if ( err != LDAP_SUCCESS ) {
 		fprintf( stderr, "%s (%d)\n", ldap_err2string(err), err );
 	}
 
-	if( matcheddn && *matcheddn ) {
+	if( matcheddn ) {
+		if( *matcheddn ) {
 		if( !ldif ) {
 			write_ldif( LDIF_PUT_VALUE,
 				"matchedDN", matcheddn, strlen(matcheddn) );
 		} else {
-			fprintf( stderr, "Matched DN: %s\n", matcheddn );
+			fprintf( stderr, _("Matched DN: %s\n"), matcheddn );
+		}
 		}
 
 		ber_memfree( matcheddn );
 	}
 
-	if( text && *text ) {
+	if( text ) {
+		if( *text ) {
 		if( !ldif ) {
 			write_ldif( LDIF_PUT_TEXT, "text",
 				text, strlen(text) );
 		} else {
-			fprintf( stderr, "Additional information: %s\n", text );
+			fprintf( stderr, _("Additional information: %s\n"), text );
+		}
 		}
 
 		ber_memfree( text );
@@ -1549,7 +1415,7 @@ static int print_result(
 			if( !ldif ) {
 				write_ldif( LDIF_PUT_VALUE, "ref", refs[i], strlen(refs[i]) );
 			} else {
-				fprintf( stderr, "Referral: %s\n", refs[i] );
+				fprintf( stderr, _("Referral: %s\n"), refs[i] );
 			}
 		}
 
@@ -1590,7 +1456,8 @@ static void print_ctrls(
 			b64->bv_val = ber_memalloc( b64->bv_len + 1 );
 
 			b64->bv_len = lutil_b64_ntop(
-				ctrls[i]->ldctl_value.bv_val, ctrls[i]->ldctl_value.bv_len,
+				(unsigned char *) ctrls[i]->ldctl_value.bv_val,
+				ctrls[i]->ldctl_value.bv_len,
 				b64->bv_val, b64->bv_len );
 		}
 
@@ -1677,7 +1544,7 @@ parse_page_control(
 		ctrlp = *ctrl;
 		ber = ber_init( &ctrlp->ldctl_value );
 		if ( ber == NULL ) {
-			fprintf( stderr, "Internal error.\n" );
+			fprintf( stderr, _("Internal error.\n") );
 			return EXIT_FAILURE;
 		}
 
@@ -1687,14 +1554,18 @@ parse_page_control(
 
 		if( tag == LBER_ERROR ) {
 			fprintf( stderr,
-				"Paged results response control could not be decoded.\n" );
+				_("Paged results response control could not be decoded.\n") );
 			return EXIT_FAILURE;
 		}
 
 		if( entriesLeft < 0 ) {
 			fprintf( stderr,
-				"Invalid entries estimate in paged results response.\n" );
+				_("Invalid entries estimate in paged results response.\n") );
 			return EXIT_FAILURE;
+		}
+
+		if ( servercookie.bv_len == 0 ) {
+			morePagedResults = 0;
 		}
 
 		ldap_controls_free( ctrl );

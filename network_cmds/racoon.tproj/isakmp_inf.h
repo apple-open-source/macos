@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ISAKMP_INF_H__
+#define __ISAKMP_INF_H__
+
 struct saproto;
 extern int isakmp_info_recv __P((struct ph1handle *, vchar_t *));
 extern int isakmp_info_send_d1 __P((struct ph1handle *));
@@ -44,3 +47,6 @@ extern vchar_t * isakmp_add_pl_n __P((vchar_t *, u_int8_t **, int,
 	struct saproto *, vchar_t *));
 
 extern void isakmp_check_notify __P((struct isakmp_gen *, struct ph1handle *));
+
+#endif /* __ISAKMP_INF_H__ */
+

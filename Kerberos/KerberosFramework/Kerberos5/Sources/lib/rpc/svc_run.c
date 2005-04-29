@@ -36,16 +36,19 @@ static char sccsid[] = "@(#)svc_run.c 1.1 87/10/13 Copyr 1984 Sun Micro";
  * This is the rpc server side idle loop
  * Wait for input, call server program.
  */
+
 #include <gssrpc/rpc.h>
 #include <errno.h>
 
+extern int svc_maxfd;
+
 void
-svc_run()
+svc_run(void)
 {
 #ifdef FD_SETSIZE
 	fd_set readfds;
 #else
-      int readfds;
+	int readfds;
 #endif /* def FD_SETSIZE */
 
 	for (;;) {
@@ -54,7 +57,7 @@ svc_run()
 #else
 		readfds = svc_fds;
 #endif /* def FD_SETSIZE */
-		switch (select(_gssrpc_rpc_dtablesize(), &readfds, (fd_set *)0,
+		switch (select(svc_maxfd + 1, &readfds, (fd_set *)0,
 			       (fd_set *)0, (struct timeval *)0)) {
 		case -1:
 			if (errno == EINTR) {

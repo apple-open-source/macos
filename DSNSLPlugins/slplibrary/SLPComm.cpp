@@ -46,6 +46,7 @@
 #include <sys/resource.h>	// for getrlimit()
 
 #include <DirectoryService/DirServicesTypes.h>
+#include "NSLDebugLog.h"
 
 #include "mslp_sd.h"
 #include "slp.h"
@@ -64,7 +65,9 @@ OSStatus SendDataToSLPd(	char* data,
                             char** returnData,
                             UInt32* returnDataLen )
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "******** RunSLPLoad called ********" );
+#endif
     return SendDataViaIPC( kSLPdPath, data, dataLen, returnData, returnDataLen );
 }
 
@@ -91,7 +94,7 @@ OSStatus SendDataViaIPC(	char* ipc_path,
 
     if ( socketDescriptor < 0 )
     {
-        status = socketDescriptor;
+        status = errno;
     }
     else
     {
@@ -104,19 +107,39 @@ OSStatus SendDataViaIPC(	char* ipc_path,
         strcpy( ourAddrBlock.sun_path, ipc_path );
         servlen = strlen(ourAddrBlock.sun_path) + sizeof(ourAddrBlock.sun_family) + 1;
 
+#ifdef TRACK_FUNCTION_TIMES
+	CFAbsoluteTime		startTime = CFAbsoluteTimeGetCurrent();
+#endif
         status = connect( socketDescriptor, (struct sockaddr*)&ourAddrBlock, servlen );
+        
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "SendDataViaIPC, connect took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+	startTime = CFAbsoluteTimeGetCurrent();
+#endif
 
         if ( status < 0 && strcmp(ipc_path, kRAdminIPCPath) != 0 )
         {
             if ( errno == EINTR )
                 status = noErr;		// try again
-            else            // slpd may not be running, let's fire it up with our slpLoad tool
+            else
+			{            // slpd may not be running, let's fire it up with our slpLoad tool
                 status = RunSLPLoad();
-
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "SendDataViaIPC, RunSLPLoad took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+	startTime = CFAbsoluteTimeGetCurrent();
+#endif
+			}
             // try again
             if ( !status )
+			{
                 status = connect( socketDescriptor, (struct sockaddr*)&ourAddrBlock, servlen );
-       
+
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "SendDataViaIPC, connect(2) took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+	startTime = CFAbsoluteTimeGetCurrent();
+#endif
+			}
+			
             if ( status )
                 status = errno;
         }
@@ -135,12 +158,22 @@ OSStatus SendDataViaIPC(	char* ipc_path,
         if ( !status )
         {
             status = write( socketDescriptor, data, dataLen );
+
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "SendDataViaIPC, write took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+	startTime = CFAbsoluteTimeGetCurrent();
+#endif
             
             if ( status < 0 && errno == EINTR )
             {
                 SLP_LOG( SLP_LOG_ERR, "SendDataToSLPd: write received EINTR, try again" );
                 
                 status = write( socketDescriptor, data, dataLen );
+
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "SendDataViaIPC, write(2) took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+	startTime = CFAbsoluteTimeGetCurrent();
+#endif
             }
             
             if ( (UInt32)status != dataLen )
@@ -156,12 +189,24 @@ OSStatus SendDataViaIPC(	char* ipc_path,
                 
                 int readnResult = readn( socketDescriptor, internalBuffer, sizeof(SLPdMessageHeader) );
  
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "SendDataViaIPC, readn took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+	startTime = CFAbsoluteTimeGetCurrent();
+#endif
+
                 if ( readnResult < 0 )
                 {
                     if (errno == EINTR) 
                     {
+#ifdef ENABLE_SLP_LOGGING
                         SLP_LOG( SLP_LOG_DROP, "SendDataToSLPd readn received EINTR, try again" );
+#endif
                         readnResult = readn( socketDescriptor, internalBuffer, sizeof(SLPdMessageHeader) );
+ 
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "SendDataViaIPC, readn(2) took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+	startTime = CFAbsoluteTimeGetCurrent();
+#endif
                     }
                     
                     if ( readnResult < 0 )
@@ -182,12 +227,19 @@ OSStatus SendDataViaIPC(	char* ipc_path,
                     SLPdMessageHeader*	headPtr = (SLPdMessageHeader*)internalBuffer;
                     readnResult = readn( socketDescriptor, &internalBuffer[*returnDataLen], (headPtr->messageLength)-sizeof(SLPdMessageHeader) );
 
+ 
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "SendDataViaIPC, readn(3) took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+	startTime = CFAbsoluteTimeGetCurrent();
+#endif
                     if ( readnResult < 0 )
                         status = errno;
                     else
                         *returnDataLen += readnResult;
 
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_DEBUG, "SendDataToSLPd, received %ld bytes from sender", *returnDataLen );
+#endif
                 }
             }
         }
@@ -232,8 +284,9 @@ OSStatus RunSLPLoad( void )
 {
     OSStatus	status = noErr;
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "RunSLPLoad called" );
-        
+#endif        
     register pid_t  pidChild = -1 ;
 
     if ( (pidChild = ::fork()) != 0 )

@@ -129,7 +129,7 @@ Mask * mask_and(Mask *pm1, Mask *pm2)
 	
 	if (pm1->iLen != pm2->iLen || pm1->iBits != pm2->iBits) 
 	{
-		LOG( SLP_LOG_FAIL, "mask_and: unequal lengths");
+		SLPLOG( SLP_LOG_FAIL, "mask_and: unequal lengths");
 		return NULL;
 	}
 
@@ -149,7 +149,7 @@ Mask * mask_or(Mask *pm1, Mask *pm2)
 	
 	if (pm1->iLen != pm2->iLen || pm1->iBits != pm2->iBits)
   	{
-		LOG( SLP_LOG_FAIL, "mask_and: unequal lengths");
+		SLPLOG( SLP_LOG_FAIL, "mask_and: unequal lengths");
 		return NULL;
 	}
 	

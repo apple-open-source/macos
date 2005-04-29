@@ -1,9 +1,7 @@
 ## -*-makefile-*-
 ## PTX-specific setup
-## Copyright (c) 1999-2000, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
-##
-## $Id: mh-ptx,v 1.1.1.1 2003/02/05 21:31:17 avery Exp $
 
 ## Flags for position independent code
 SHAREDLIBCFLAGS = -KPIC

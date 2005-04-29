@@ -1,7 +1,7 @@
 # Server-side
 <reply>
 <data>
-HTTP/1.0 200 OK
+HTTP/1.0 200 OK swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
 
@@ -12,11 +12,14 @@ blablabla
 
 # Client-side
 <client>
+<server>
+http
+</server>
  <name>
 simple HTTP PUT from file
  </name>
  <command>
-http://%HOSTIP:%HOSTPORT/we/want/10 -T log/test10.txt
+http://%HOSTIP:%HTTPPORT/we/want/10 -T log/test10.txt
 </command>
 <file name="log/test10.txt">
 Weird
@@ -29,7 +32,7 @@ the
    PUT
       feature
 </file>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -38,10 +41,11 @@ the
 </strip>
 <protocol>
 PUT /we/want/10 HTTP/1.1
-Host: 127.0.0.1:8999
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
 Content-Length: 78
+Expect: 100-continue
 
 Weird
      file

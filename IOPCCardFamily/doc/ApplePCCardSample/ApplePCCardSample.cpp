@@ -154,7 +154,7 @@ public:
     virtual IOReturn setPowerState(unsigned long powerState, IOService * whatDevice);
     virtual IOReturn message(UInt32 type, IOService * provider, void * argument = 0);
 
-    void interruptOccurred(IOInterruptEventSource * src, int i);
+    static void interruptOccurred(class ApplePCCardSample * sample, IOInterruptEventSource * src, int i);
 
     void dumpWindows();
     void dumpConfigRegisters();
@@ -547,11 +547,11 @@ ApplePCCardSample::message(UInt32 type, IOService * provider, void * argument)
 }
 
 void
-ApplePCCardSample::interruptOccurred(IOInterruptEventSource * src, int i)
+ApplePCCardSample::interruptOccurred(class ApplePCCardSample * sample, IOInterruptEventSource * src, int i)
 {
-    IOLog("ApplePCCardSample::interruptOccurred, nub=%p, src=%p, i=0x%x.\n", nub, src, i);
-    if (!cardPresent) {
-	IOLog("%s::interruptOccurred, ignoring interrupt, the card is not present\n", getName());
+    IOLog("ApplePCCardSample::interruptOccurred, nub=%p, src=%p, i=0x%x.\n", sample->nub, src, i);
+    if (!sample->cardPresent) {
+	IOLog("%s::interruptOccurred, ignoring interrupt, the card is not present\n", sample->getName());
 	return;
     }
 

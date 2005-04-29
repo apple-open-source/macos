@@ -28,44 +28,31 @@
 #ifndef __CContinue_h__
 #define	__CContinue_h__	1
 
-#include "PrivateTypes.h"
-#include "DSMutexSemaphore.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
+#include <DirectoryServiceCore/SharedConsts.h>
+#include <DirectoryServiceCore/DSMutexSemaphore.h>
 
 typedef void DeallocateProc ( void *inData );
 
 class CContinue {
-public:
-enum {
-	kErrItemNotFound	= -3020,
-	kErrDuplicateFound	= -3021
-} eRefErrors;
-
-enum {
-	kTableSize	= 1024
-};
-
-private:
-typedef struct sTableEntry {
-	uInt32			fRefNum;
-	uInt32			fTimeStamp;
-	void		   *fData;
-	sTableEntry	   *fNext;
-} sTableEntry;
 
 public:
 					CContinue		( DeallocateProc *inProcPtr );
+					CContinue		( DeallocateProc *inProcPtr, uInt32 inHashArrayLength );
 	virtual		   ~CContinue		( void );
 
 	sInt32			AddItem			( void *inData, uInt32 inRefNum );
 	sInt32			RemoveItem		( void *inData );
 	sInt32			RemoveItems		( uInt32 inRefNum );
 	bool			VerifyItem		( void *inData );
+	uInt32			GetRefNumForItem ( void *inData );
 
 private:
-			sTableEntry			*fLookupTable[ kTableSize ];
-			DeallocateProc		*fDeallocProcPtr;
+			sDSTableEntry		  **fLookupTable;
+			uInt32				fHashArrayLength;
+			DeallocateProc     *fDeallocProcPtr;
 
-			DSMutexSemaphore		fMutex;
+			DSMutexSemaphore	fMutex;
 };
 
 #endif

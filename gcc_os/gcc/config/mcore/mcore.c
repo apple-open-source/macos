@@ -1,5 +1,5 @@
 /* Output routines for Motorola MCore processor
-   Copyright (C) 1993, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -62,7 +62,7 @@ rtx arch_compare_op1;
 
 /* Provides the class number of the smallest class containing
    reg number.  */
-int regno_reg_class[FIRST_PSEUDO_REGISTER] =
+const int regno_reg_class[FIRST_PSEUDO_REGISTER] =
 {
   GENERAL_REGS,	ONLYR1_REGS,  LRW_REGS,	    LRW_REGS,
   LRW_REGS,	LRW_REGS,     LRW_REGS,	    LRW_REGS,
@@ -125,7 +125,6 @@ static cond_type  is_cond_candidate            PARAMS ((rtx));
 static rtx        emit_new_cond_insn           PARAMS ((rtx, int));
 static rtx        conditionalize_block         PARAMS ((rtx));
 static void       conditionalize_optimization  PARAMS ((rtx));
-static void       mcore_add_gc_roots           PARAMS ((void));
 static rtx        handle_structs_in_regs       PARAMS ((enum machine_mode, tree, int));
 static void       mcore_mark_dllexport         PARAMS ((tree));
 static void       mcore_mark_dllimport         PARAMS ((tree));
@@ -137,6 +136,9 @@ static tree       mcore_handle_naked_attribute PARAMS ((tree *, tree, tree, int,
 static void	  mcore_asm_named_section      PARAMS ((const char *,
 							unsigned int));
 #endif
+static void       mcore_unique_section	       PARAMS ((tree, int));
+static void mcore_encode_section_info		PARAMS ((tree, int));
+static const char *mcore_strip_name_encoding	PARAMS ((const char *));
 
 /* Initialize the GCC target structure.  */
 #ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
@@ -153,6 +155,12 @@ static void	  mcore_asm_named_section      PARAMS ((const char *,
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE mcore_attribute_table
+#undef TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION mcore_unique_section
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO mcore_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING mcore_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1288,7 +1296,7 @@ mcore_output_inline_const_forced (insn, operands, mode)
 
   /* Now, work our way backwards emitting the constant.  */
 
-  /* Emit the value that remains -- it will be non-zero.  */
+  /* Emit the value that remains -- it will be nonzero.  */
   operands[1] = GEN_INT (value);
   output_asm_insn (output_inline_const (SImode, operands), operands);
  
@@ -1429,7 +1437,7 @@ mcore_output_movedouble (operands, mode)
 
 /* Predicates used by the templates.  */
 
-/* Non zero if OP can be source of a simple move operation.  */
+/* Nonzero if OP can be source of a simple move operation.  */
 
 int
 mcore_general_movsrc_operand (op, mode)
@@ -1443,7 +1451,7 @@ mcore_general_movsrc_operand (op, mode)
   return general_operand (op, mode);
 }
 
-/* Non zero if OP can be destination of a simple move operation. */
+/* Nonzero if OP can be destination of a simple move operation. */
 
 int
 mcore_general_movdst_operand (op, mode)
@@ -1475,7 +1483,7 @@ mcore_arith_reg_operand (op, mode)
   return 1;
 }
 
-/* Non zero if OP should be recognized during reload for an ixh/ixw
+/* Nonzero if OP should be recognized during reload for an ixh/ixw
    operand.  See the ixh/ixw patterns.  */
 
 int
@@ -1721,7 +1729,7 @@ mcore_expand_insv (operands)
       return 1;
     }
 
-  /* Look at some bitfield placements that we aren't interested
+  /* Look at some bit-field placements that we aren't interested
      in handling ourselves, unless specifically directed to do so.  */
   if (! TARGET_W_FIELD)
     return 0;		/* Generally, give up about now.  */
@@ -2333,7 +2341,6 @@ mcore_expand_prolog ()
     {
       /* Emit a symbol for this routine's frame size.  */
       rtx x;
-      int len;
 
       x = DECL_RTL (current_function_decl);
       
@@ -2348,10 +2355,7 @@ mcore_expand_prolog ()
       if (mcore_current_function_name)
 	free (mcore_current_function_name);
       
-      len = strlen (XSTR (x, 0)) + 1;
-      mcore_current_function_name = (char *) xmalloc (len);
-      
-      memcpy (mcore_current_function_name, XSTR (x, 0), len);
+      mcore_current_function_name = xstrdup (XSTR (x, 0));
       
       ASM_OUTPUT_CG_NODE (asm_out_file, mcore_current_function_name, space_allocated);
 
@@ -3060,15 +3064,6 @@ mcore_is_same_reg (x, y)
   return 0;
 }
 
-/* Called to register all of our global variables with the garbage
-   collector.  */
-static void
-mcore_add_gc_roots ()
-{
-  ggc_add_rtx_root (&arch_compare_op0, 1);
-  ggc_add_rtx_root (&arch_compare_op1, 1);
-}
-
 void
 mcore_override_options ()
 {
@@ -3087,8 +3082,6 @@ mcore_override_options ()
   /* Only the m340 supports little endian code.  */
   if (TARGET_LITTLE_END && ! TARGET_M340)
     target_flags |= M340_BIT;
-
-  mcore_add_gc_roots ();
 }
 
 int
@@ -3275,7 +3268,7 @@ mcore_function_arg_partial_nregs (cum, mode, type, named)
   return reg;
 }
 
-/* Return non-zero if SYMBOL is marked as being dllexport'd.  */
+/* Return nonzero if SYMBOL is marked as being dllexport'd.  */
 int
 mcore_dllexport_name_p (symbol)
      const char * symbol;
@@ -3283,7 +3276,7 @@ mcore_dllexport_name_p (symbol)
   return symbol[0] == '@' && symbol[1] == 'e' && symbol[2] == '.';
 }
 
-/* Return non-zero if SYMBOL is marked as being dllimport'd.  */
+/* Return nonzero if SYMBOL is marked as being dllimport'd.  */
 int
 mcore_dllimport_name_p (symbol)
      const char * symbol;
@@ -3414,10 +3407,13 @@ mcore_dllimport_p (decl)
   return lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl)) != 0;
 }
 
-/* Cover function to implement ENCODE_SECTION_INFO.  */
-void
-mcore_encode_section_info (decl)
+/* We must mark dll symbols specially.  Definitions of dllexport'd objects
+   install some info in the .drective (PE) or .exports (ELF) sections.   */
+
+static void
+mcore_encode_section_info (decl, first)
      tree decl;
+     int first ATTRIBUTE_UNUSED;
 {
   /* This bit is copied from arm.h.  */
   if (optimize > 0
@@ -3456,6 +3452,15 @@ mcore_encode_section_info (decl)
       /* We previously set TREE_PUBLIC and DECL_EXTERNAL.
 	 ??? We leave these alone for now.  */
     }
+}
+
+/* Undo the effects of the above.  */
+
+static const char *
+mcore_strip_name_encoding (str)
+     const char *str;
+{
+  return str + (str[0] == '@' ? 3 : 0);
 }
 
 /* MCore specific attribute support.
@@ -3510,22 +3515,23 @@ mcore_handle_naked_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 
-/* Cover function for UNIQUE_SECTION.  */
+/* ??? It looks like this is PE specific?  Oh well, this is what the
+   old code did as well.  */
 
-void
+static void
 mcore_unique_section (decl, reloc)
      tree decl;
      int reloc ATTRIBUTE_UNUSED;
 {
   int len;
-  char * name;
+  const char * name;
   char * string;
   const char * prefix;
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   
   /* Strip off any encoding in name.  */
-  STRIP_NAME_ENCODING (name, name);
+  name = (* targetm.strip_name_encoding) (name);
 
   /* The object is put in, for example, section .text$foo.
      The linker will then ultimately place them in .text
@@ -3534,7 +3540,7 @@ mcore_unique_section (decl, reloc)
     prefix = ".text$";
   /* For compatibility with EPOC, we ignore the fact that the
      section might have relocs against it.  */
-  else if (DECL_READONLY_SECTION (decl, 0))
+  else if (decl_readonly_section (decl, 0))
     prefix = ".rdata$";
   else
     prefix = ".data$";

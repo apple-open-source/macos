@@ -6,6 +6,9 @@
 #include <Kerberos/KerberosLogin.h>
 #include <Kerberos/mach_client_utilities.h>
 
+#define kKerberosAgentBundleID "edu.mit.Kerberos.KerberosAgent"
+#define kKerberosAgentPath "/System/Library/CoreServices/KerberosAgent.app/Contents/MacOS/KerberosAgent"
+
 #define kKLMachIPCTimeout	200
 #define kMachIPCRetryCount	3
 
@@ -28,30 +31,17 @@
         u_int32_t retriesLeft = kMachIPCRetryCount;                                                                 \
         gServerKilled = false;                                                                                      \
         mach_port_t machPort = MACH_PORT_NULL;                                                                      \
-        char *name = NULL;                                                                                          \
         char *path = NULL;                                                                                          \
-        KLIPCInString applicationName = NULL;                                                                       \
-        mach_msg_type_number_t applicationNameLength = 0;                                                           \
-        KLIPCInString applicationIconPath = NULL;                                                                   \
-        mach_msg_type_number_t applicationIconPathLength = 0;                                                       \
+        KLIPCInString applicationPath = NULL;                                                                       \
+        mach_msg_type_number_t applicationPathLength = 0;                                                           \
+        task_t applicationTask = mach_task_self ();                                                                 \
                                                                                                                     \
-        if (!__KLIsKerberosApp ()) {                                                                                \
-            if (__KLGetApplicationNameString (&name) == klNoErr) {                                                  \
-                applicationName = name;                                                                             \
-                applicationNameLength = strlen (applicationName) + 1;                                               \
-            }                                                                                                       \
-                                                                                                                    \
-            if (__KLGetApplicationIconPathString (&path) == klNoErr) {                                              \
-                applicationIconPath = path;                                                                         \
-                applicationIconPathLength = strlen (applicationIconPath) + 1;                                       \
-            }                                                                                                       \
+        if (__KLGetApplicationPathString (&path) == klNoErr) {                                                      \
+            applicationPath = path;                                                                                 \
+            applicationPathLength = strlen (applicationPath) + 1;                                                   \
         }                                                                                                           \
                                                                                                                     \
-        ipcErr = mach_client_lookup_and_launch_server (LoginMachIPCServiceName,                                     \
-                                                       NULL,                                                        \
-                                                       "/System/Library/Frameworks/Kerberos.framework/Servers",     \
-                                                       "KerberosLoginServer.app",                                   \
-                                                       &machPort);                                                  \
+        ipcErr = mach_client_lookup_and_launch_server (kKerberosAgentBundleID, kKerberosAgentPath, &machPort);      \
                                                                                                                     \
         if (ipcErr == BOOTSTRAP_SUCCESS) {                                                                          \
             do {                                                                                                    \
@@ -74,8 +64,7 @@
         }                                                                                                           \
                                                                                                                     \
         if (machPort != MACH_PORT_NULL) { mach_port_deallocate (mach_task_self (), machPort); }                     \
-        if (name != NULL) { KLDisposeString (name); }                                                               \
-        if (path != NULL) { KLDisposeString (path); }                                                               \
+        if (path       != NULL) { KLDisposeString (path); }                                                               \
     }
 
 /*#define __AfterRcvRpc(num, name)					\
@@ -110,8 +99,6 @@
                                   kKLMachIPCTimeout, MACH_PORT_NULL);                                 \
         }                                                                                             \
     }
-
-#define LoginMachIPCServiceName	"KerberosLoginServer"
 
 typedef const char*                     KLIPCInString;
 typedef char*                           KLIPCOutString;

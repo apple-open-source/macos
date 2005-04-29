@@ -29,35 +29,24 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: iconv.c,v 1.7 2003/05/06 21:54:41 lindak Exp $
+ * $Id: iconv.c,v 1.11 2004/12/13 00:25:16 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
-#ifdef APPLE
 #include <sys/smb_apple.h>
-#endif
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 #include <sys/malloc.h>
 
-#ifndef APPLE
-#include <sys/sysctlconf.h>
-#endif
 
 #include "iconv_converter_if.h"
 
 #ifdef SYSCTL_DECL
-#ifdef APPLE
 SYSCTL_DECL(_net_smb_fs);
-#endif
 SYSCTL_DECL(_kern_iconv);
 #endif
 
-#ifdef APPLE
 SYSCTL_NODE(_net_smb_fs, OID_AUTO, iconv, CTLFLAG_RW, NULL, "kernel iconv interface");
-#else
-SYSCTL_NODE(_kern, OID_AUTO, iconv, CTLFLAG_RW, NULL, "kernel iconv interface");
-#endif
 
 MALLOC_DEFINE(M_ICONV, "ICONV", "ICONV structures");
 MALLOC_DEFINE(M_ICONVDATA, "ICONV data", "ICONV data");
@@ -76,9 +65,6 @@ struct iconv_converter {
 };
 #endif
 
-#ifndef APPLE
-struct sysctl_oid *iconv_oid_hook = &sysctl___kern_iconv;
-#endif
 
 /*
  * List of loaded converters
@@ -328,26 +314,17 @@ iconv_sysctl_drvlist SYSCTL_HANDLER_ARGS
 	return error;
 }
 
-#ifdef APPLE
 static int
 iconv_sysctl_drvlist0 SYSCTL_HANDLER_ARGS
 {
 	int error;
 
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	error = iconv_sysctl_drvlist(oidp, arg1, arg2, req);
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	return (error);
 }
-#endif
 
-#ifdef APPLE
 SYSCTL_PROC(_kern_iconv, OID_AUTO, drvlist, CTLFLAG_RD | CTLTYPE_OPAQUE,
 	    NULL, 0, iconv_sysctl_drvlist0, "S,xlat", "registered converters");
-#else
-SYSCTL_PROC(_kern_iconv, OID_AUTO, drvlist, CTLFLAG_RD | CTLTYPE_OPAQUE,
-	    NULL, 0, iconv_sysctl_drvlist, "S,xlat", "registered converters");
-#endif
 
 /*
  * List all available charset pairs.
@@ -364,9 +341,6 @@ iconv_sysctl_cslist SYSCTL_HANDLER_ARGS
 	struct iconv_cspair_info csi;
 	int error;
 
-#ifdef APPLE
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
-#endif
 	error = 0;
 	bzero(&csi, sizeof(csi));
 	csi.cs_version = ICONV_CSPAIR_INFO_VER;
@@ -381,16 +355,12 @@ iconv_sysctl_cslist SYSCTL_HANDLER_ARGS
 		if (error)
 			break;
 	}
-#ifdef APPLE
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
-#endif
 	return error;
 }
 
 SYSCTL_PROC(_kern_iconv, OID_AUTO, cslist, CTLFLAG_RD | CTLTYPE_OPAQUE,
 	    NULL, 0, iconv_sysctl_cslist, "S,xlat", "registered charset pairs");
 
-#ifdef APPLE
 PRIVSYM int
 iconv_add(const char *converter, const char *to, const char *from)
 {
@@ -402,7 +372,6 @@ iconv_add(const char *converter, const char *to, const char *from)
 
 	return iconv_register_cspair(to, from, dcp, NULL, &csp);
 }
-#endif /* APPLE */
 
 /*
  * Add new charset pair
@@ -435,7 +404,7 @@ iconv_sysctl_add SYSCTL_HANDLER_ARGS
 		return error;
 	if (din.ia_datalen) {
 		csp->cp_data = malloc(din.ia_datalen, M_ICONVDATA, M_WAITOK);
-		error = copyin((void *)din.ia_data, csp->cp_data,
+		error = copyin(CAST_USER_ADDR_T(din.ia_data), csp->cp_data,
 			       din.ia_datalen);
 		if (error)
 			goto bad;
@@ -451,26 +420,17 @@ bad:
 }
 
 
-#ifdef APPLE
 static int
 iconv_sysctl_add0 SYSCTL_HANDLER_ARGS
 {
 	int error;
 
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	error = iconv_sysctl_add(oidp, arg1, arg2, req);
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	return (error);
 }
-#endif
 
-#ifdef APPLE
 SYSCTL_PROC(_kern_iconv, OID_AUTO, add, CTLFLAG_RW | CTLTYPE_OPAQUE,
 	    NULL, 0, iconv_sysctl_add0, "S,xlat", "register charset pair");
-#else
-SYSCTL_PROC(_kern_iconv, OID_AUTO, add, CTLFLAG_RW | CTLTYPE_OPAQUE,
-	    NULL, 0, iconv_sysctl_add, "S,xlat", "register charset pair");
-#endif
 
 /*
  * Default stubs for converters
@@ -519,11 +479,7 @@ iconv_converter_handler(module_t mod, int type, void *data)
  * Common used functions
  */
 PRIVSYM char *
-#ifdef APPLE
 iconv_convstr(void *handle, char *dst, const char *src, size_t len)
-#else
-iconv_convstr(void *handle, char *dst, const char *src)
-#endif
 {
 	char *p = dst;
 	size_t inlen, outlen;
@@ -534,9 +490,7 @@ iconv_convstr(void *handle, char *dst, const char *src)
 		return dst;
 	}
 	inlen = outlen = strlen(src);
-#ifdef APPLE
 	outlen = len;
-#endif
 	error = iconv_conv(handle, NULL, NULL, &p, &outlen);
 	if (error)
 		return NULL;
@@ -547,30 +501,6 @@ iconv_convstr(void *handle, char *dst, const char *src)
 	return dst;
 }
 
-#ifndef APPLE
-PRIVSYM void *
-iconv_convmem(void *handle, void *dst, const void *src, int size)
-{
-	const char *s = src;
-	char *d = dst;
-	int inlen, outlen, error;
-
-	if (size == 0)
-		return dst;
-	if (handle == NULL) {
-		memcpy(dst, src, size);
-		return dst;
-	}
-	inlen = outlen = size;
-	error = iconv_conv(handle, NULL, NULL, &d, &outlen);
-	if (error)
-		return NULL;
-	error = iconv_conv(handle, &s, &inlen, &d, &outlen);
-	if (error)
-		return NULL;
-	return dst;
-}
-#endif
 
 PRIVSYM int
 iconv_lookupcp(char **cpp, const char *s)

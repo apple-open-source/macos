@@ -24,7 +24,7 @@
  * ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS 
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/FS/FSOpenServ.c,v 1.6 2001/12/14 19:53:33 dawes Exp $ */
+/* $XFree86: xc/lib/FS/FSOpenServ.c,v 1.9 2003/12/22 17:48:02 tsi Exp $ */
 
 /*
 
@@ -118,7 +118,7 @@ FSOpenServer(server)
     AlternateServer *alts;
     int         altlen;
     char       *vendor_string;
-    long        setuplength;
+    unsigned long        setuplength;
 
     if (server == NULL || *server == '\0') {
 	if ((server = getenv("FONTSERVER")) == NULL) {
@@ -153,7 +153,8 @@ FSOpenServer(server)
     _FSRead(svr, (char *) &prefix, (long) SIZEOF(fsConnSetup));
 
     setuplength = prefix.alternate_len << 2;
-    if ((alt_data = (char *)
+    if (setuplength > (SIZE_MAX>>2)
+	|| (alt_data = (char *)
 	 (setup = FSmalloc((unsigned) setuplength))) == NULL) {
 	errno = ENOMEM;
 	FSfree((char *) svr);
@@ -162,10 +163,20 @@ FSOpenServer(server)
     _FSRead(svr, (char *) alt_data, setuplength);
     ad = alt_data;
 
+#if SIZE_MAX <= UINT_MAX
+    if (prefix.num_alternates > SIZE_MAX / sizeof(AlternateServer)) {
+	errno = ENOMEM;
+	FSfree((char *) alt_data);
+	FSfree((char *) svr);
+	return (FSServer *) 0;
+    }
+#endif
+
     alts = (AlternateServer *)
 	FSmalloc(sizeof(AlternateServer) * prefix.num_alternates);
     if (!alts) {
 	errno = ENOMEM;
+	FSfree((char *) alt_data);
 	FSfree((char *) svr);
 	return (FSServer *) 0;
     }
@@ -193,9 +204,11 @@ FSOpenServer(server)
     svr->num_alternates = prefix.num_alternates;
 
     setuplength = prefix.auth_len << 2;
-    if ((auth_data = (char *)
+    if (setuplength > (SIZE_MAX>>2) 
+	|| (auth_data = (char *)
 	 (setup = FSmalloc((unsigned) setuplength))) == NULL) {
 	errno = ENOMEM;
+	FSfree((char *) alts);
 	FSfree((char *) svr);
 	return (FSServer *) NULL;
     }
@@ -204,6 +217,7 @@ FSOpenServer(server)
     if (prefix.status != AuthSuccess) {
 	fprintf(stderr, "%s: connection to \"%s\" refused by server\r\n%s: ",
 		"FSlib", server, "FSlib");
+	FSfree((char *) alts);
 	FSfree((char *) svr);
 	FSfree(setup);
 	return (FSServer *) NULL;
@@ -214,6 +228,8 @@ FSOpenServer(server)
     if ((vendor_string = (char *)
 	 FSmalloc((unsigned) conn.vendor_len + 1)) == NULL) {
 	errno = ENOMEM;
+	FSfree((char *) auth_data);
+	FSfree((char *) alts);
 	FSfree((char *) svr);
 	return (FSServer *) NULL;
     }
@@ -270,4 +286,3 @@ FSOpenServer(server)
 
     return (svr);
 }
-

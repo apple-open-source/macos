@@ -1,0 +1,203 @@
+# Common makefile definitions for building GLib, GTk+, and various
+# software that use these libraries with gcc on Win32 for a mingw
+# configuration (for a description of what mingw is, see
+# http://www.mingw.org)
+
+# You can use this in two ways:
+
+# Either have the build module included in each module
+# that uses it. the glib and gtk+ directories should be siblings to
+# these modules. For example:
+
+# $(TOP)\somemodule
+#        somemodule\build\win32 (this directory)
+#        glib
+#        gtk+
+#        libglade (for example)
+#etc
+
+# Or, have the build module as a sibling to the source directory that 
+# uses it, like:
+# $(TOP)\somemodule
+#        build\win32
+#        glib
+#        gtk+
+#        libxml (for example)
+#etc
+
+# Some libraries have headers that can't be used from the source directories,
+# we have to "install" them. USRDIR is a directory where we have an "include"
+# subdirectory for headers.
+USRDIR = /target
+
+# The makefile.mingw files in the source directories (or
+# subdirectories) all include this file right at the top after
+# defining some macros used here.
+
+ifndef OPTIMIZE
+OPTIMIZE = -O2
+endif
+
+ifndef WARNINGS
+WARNINGS = -Wall
+endif
+
+ifndef TOP
+TOP = ..
+endif
+
+################
+# It's hard to include module.defs. There is no way to tell GNU Make
+# to include it from the same directory *this* file is in, is it?
+# The build module can be as a freestanding directory, or included
+# in the software package whose makefile includes *this* file.
+#
+# Also set BUILD to the location of the build directory.
+#
+# First try a separate top-level directory
+-include $(TOP)/build/win32/module.defs
+BUILD=$(TOP)/build
+# Then in GLib 
+ifndef MODULE_DEFS_INCLUDED
+-include $(TOP)/glib/build/win32/module.defs
+BUILD=$(TOP)/glib/build
+# Then a build subdirectory of the directory where the makefile that
+# included us was.
+ifndef MODULE_DEFS_INCLUDED
+-include build/win32/module.defs
+BUILD=build
+# Then try a sibling directory called build
+ifndef MODULE_DEFS_INCLUDED
+-include ../build/win32/module.defs
+BUILD=../build
+# Etc upwards
+ifndef MODULE_DEFS_INCLUDED
+-include ../../build/win32/module.defs
+BUILD=../../build
+ifndef MODULE_DEFS_INCLUDED
+-include ../../../build/win32/module.defs
+BUILD=../../../build
+ifndef MODULE_DEFS_INCLUDED
+-include ../../../../build/win32/module.defs
+BUILD=../../../../build
+endif
+endif
+endif
+endif
+endif
+endif
+
+BUILD_DLL = $(BUILD)/win32/build-dll
+COMPILE_RESOURCE = $(BUILD)/win32/compile-resource
+
+################
+# CFLAGS and LIBS for the packages in module.defs.
+# In alphabetical order.
+
+FREETYPE2_CFLAGS = -I $(FREETYPE2)/include
+FREETYPE2_LIBS = -L $(FREETYPE2)/obj -lfreetype-$(FREETYPE2_VER)
+
+GIMP_CFLAGS = -I $(GIMP)
+GIMP_PLUGIN_LIBS = -L $(GIMP)/libgimp -lgimp-$(GIMP_VER) -lgimpui-$(GIMP_VER)
+
+GLIB_CFLAGS = `pkg-config --cflags glib-2.0`
+GLIB_LIBS = `pkg-config --libs glib-2.0`
+
+GMODULE_CFLAGS = `pkg-config --cflags gmodule-2.0`
+GMODULE_LIBS = `pkg-config --libs gmodule-2.0`
+
+GTK_CFLAGS = `pkg-config --cflags gtk+-1.3-win32-production`
+GTK_LIBS = `pkg-config --libs gtk+-1.3-win32-production`
+
+GTK2_CFLAGS = `pkg-config --cflags gtk+-2.0`
+GTK2_LIBS = `pkg-config --libs gtk+-2.0`
+
+GTKGLAREA_CFLAGS = -I $(GTKGLAREA)
+GTKGLAREA_LIBS = -L $(GTKGLAREA)/gtkgl -lgtkgl-$(GTKGLAREA_VER)
+
+INTL_CFLAGS = `pkg-config --cflags libintl`
+INTL_LIBS = `pkg-config --libs libintl`
+
+JPEG_CFLAGS = `pkg-config --cflags libjpeg`
+JPEG_LIBS = `pkg-config --libs libjpeg`
+
+LIBICONV_CFLAGS = `pkg-config --cflags libiconv`
+LIBICONV_LIBS = `pkg-config --libs libiconv`
+
+LIBXML_CFLAGS = -I $(LIBXML)
+LIBXML_LIBS = -L $(LIBXML) -lxml-$(LIBXML_VER)
+
+# libxml2 from gnuwin32
+LIBXML2_CFLAGS = -I $(TOP)/include/libxml2
+LIBXML2_LIBS = -L $(TOP)/lib -L $(TOP)/bin -lxml2
+
+OPENGL_CFLAGS = $(PLATFORMSDK_CFLAGS)
+OPENGL_LIBS = -lopengl32 -lglu32
+
+PANGO_CFLAGS = `pkg-config --cflags pango`
+PANGO_LIBS = `pkg-config --libs pango`
+PANGOWIN32_LIBS = `pkg-config --libs pangowin32`
+
+# Must use -idirafter for PlatformSDK so the mingw Win32 API headers have
+# precedence
+PLATFORMSDK_CFLAGS = -idirafter $(PLATFORMSDK)/include
+
+PNG_CFLAGS = `pkg-config --cflags libpng`
+PNG_LIBS = `pkg-config --libs libpng`
+
+TIFF_CFLAGS = `pkg-config --cflags libtiff`
+# Use single import library for both libtiff DLL versions (with or
+# without LZW code). The user selects which DLL to use.
+TIFF_NOLZW_LIBS = `pkg-config --libs libtiff`
+TIFF_LZW_LIBS = $(TIFF_NOLZW_LIBS)
+TIFF_LIBS = $(TIFF_NOLZW_LIBS)
+
+ZLIB_CFLAGS = -I $(ZLIB)
+ZLIB_LIBS = -L $(ZLIB) -lz
+
+################
+# Compiler to use. The -fnative-struct switch is important so that the
+# produced libraries are also callable from MSVC-compiled code. Only
+# gcc 2.95 or later for mingw (distributed by Mumit Khan) have the
+# -fnative-struct switch.
+
+CCOMPILER = gcc
+CC = $(CCOMPILER) -mno-cygwin -mpentium -fnative-struct
+CXXCOMPILER = c++
+CXX = $(CXXCOMPILER) -mno-cygwin -mpentium -fnative-struct
+				
+################
+# Various other tools
+
+DLLTOOL = dlltool
+INSTALL = install
+
+################
+# The including makefile should define INCLUDES, DEFINES and
+# DEPCFLAGS.  INCLUDES are the includes related to the module being
+# built.  DEFINES similarly. DEPCFLAGS should be set to a set of
+# GLIB_CFLAGS, GTK_CFLAGS etc corresponding to what other modules we
+# depend on.
+
+CFLAGS = $(OPTIMIZE) $(INCLUDES) $(DEFINES) $(DEPCFLAGS) $(WARNINGS)
+
+################
+# Useful rules
+
+.SUFFIXES: .c .o .i .s
+
+.c.i:
+	$(CC) $(CFLAGS) -E $< >$@
+
+.c.s:
+	$(CC) $(CFLAGS) -S $< -o $@
+
+.cc.o:
+	$(CXX) $(CFLAGS) -c $< -o $@
+
+# The default target should be "all"
+
+default: all
+
+clean::
+	-rm *.o *.i *.exe *.dll *.a *.base *.exp 

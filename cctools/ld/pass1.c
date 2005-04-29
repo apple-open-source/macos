@@ -2320,26 +2320,38 @@ void)
 	/*
 	 * When building for two-level-namespace, remove from the search path 
 	 * indirect libraries that cannot be encoded in a library ordinal.
+	 *
+	 * It is unclear what the reason for this part of the logic:
+	 *  && (force_flat_namespace == FALSE) && (filetype != MH_OBJECT)
+	 * is here for and is likely wrong.
 	 */
-	if((twolevel_namespace == TRUE) && (force_flat_namespace == FALSE) && (filetype != MH_OBJECT)){
-	    struct dynamic_library* last_library = NULL;
-	    unsigned int total_library_count = 0;
-	    unsigned int direct_library_count = 0;
+	if((twolevel_namespace == TRUE) &&
+	   (force_flat_namespace == FALSE) &&
+	   (filetype != MH_OBJECT)){
+	    struct dynamic_library* last_library;
+	    unsigned int total_library_count;
+	    unsigned int direct_library_count;
+
+	    last_library = NULL;
+	    total_library_count = 0;
+	    direct_library_count = 0;
 	    for(p = dynamic_libs; p != NULL; p = p->next){
-		++total_library_count;
-		if((p->type == DYLIB) && (p->definition_obj->library_ordinal == 0)){
-		    if(last_library==NULL)
+		total_library_count += 1;
+		if((p->type == DYLIB) &&
+		   (p->definition_obj->library_ordinal == 0)){
+		    if(last_library == NULL)
 			dynamic_libs = p->next;
 		    else
 			last_library->next = p->next;
 		}
-		else {
+		else{
 		    last_library = p;
-		    ++direct_library_count;
+		    direct_library_count += 1;
 		}
 	    }
-	    if(direct_library_count!=0)
-		indirect_library_ratio = total_library_count / direct_library_count;
+	    if(direct_library_count != 0)
+		indirect_library_ratio =
+		    total_library_count / direct_library_count;
 	}
 
 	/*
@@ -2662,7 +2674,14 @@ undefined_twolevel_reference:
 			    if(q->dl->cmd == LC_LOAD_DYLIB ||
 			       q->dl->cmd == LC_LOAD_WEAK_DYLIB)
 				break;
-			    /* don't search images that cannot be two level encoded */
+			    /*
+			     * Don't search images that cannot be two level
+			     * encoded.
+			     *
+			     * This logic seems questionable that this is not
+			     * conditional on building a two-level namespace
+			     * image.
+			     */
 			    if(q->definition_obj->library_ordinal == 0)
 				continue;
 			    bsearch_strings = q->strings;
@@ -4157,6 +4176,12 @@ enum bool bundle_loader)
 		else
 		    target_byte_sex = host_byte_sex;
 	    }
+	    /*
+	     * If for this cputype we are to always output the ALL cpusubtype
+	     * then set force_cpusubtype_ALL.
+	     */
+	    if(force_cpusubtype_ALL_for_cputype(mh->cputype) == TRUE)
+		force_cpusubtype_ALL = TRUE;
 	    /*
 	     * If we have previous loaded something or an -arch flag was
 	     * specified something so make sure the cputype of this object

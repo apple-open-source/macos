@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/savage/savage_vbe.c,v 1.12 2002/10/02 20:39:55 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/savage/savage_vbe.c,v 1.14 2003/06/18 16:17:40 eich Exp $ */
 
 #include "savage_driver.h"
 #include "savage_vbe.h"
@@ -72,7 +72,7 @@ SavageSetVESAMode( SavagePtr psav, int n, int Refresh )
     SavageClearVM86Regs( psav->pInt10 );
     psav->pInt10->ax = 0x4f14;	/* S3 extensions */
     psav->pInt10->bx = 0x0001;	/* Set default refresh rate */
-    psav->pInt10->cx = n;
+    psav->pInt10->cx = n & 0x3fff;
     psav->pInt10->di = Refresh & 0xffff;
 
     xf86ExecX86int10( psav->pInt10 );
@@ -150,6 +150,7 @@ SavageFreeBIOSModeTable( SavagePtr psav, SavageModeTablePtr* ppTable )
 	    xfree( pMode->RefreshRate );
 	    pMode->RefreshRate = NULL;
 	}
+	pMode++;
     }
 
     xfree( *ppTable );

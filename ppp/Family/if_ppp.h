@@ -43,6 +43,8 @@
 #ifndef _IF_PPP_H_
 #define _IF_PPP_H_
 
+#include <net/if.h>
+
 /*
  * Packet sizes
  */

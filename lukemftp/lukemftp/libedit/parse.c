@@ -1,4 +1,4 @@
-/*	$NetBSD: parse.c,v 1.13 2000/09/04 22:06:31 lukem Exp $	*/
+/*	$NetBSD: parse.c,v 1.15 2002/03/18 16:00:56 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,6 +36,9 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * parse.c: parse an editline extended command
  *
@@ -49,14 +52,13 @@
  *	settc
  *	setty
  */
-#include "sys.h"
 #include "el.h"
 #include "tokenizer.h"
 #include <stdlib.h>
 
-private struct {
-	char *name;
-	int (*func)(EditLine *, int, char **);
+private const struct {
+	const char *name;
+	int (*func)(EditLine *, int, const char **);
 } cmds[] = {
 	{ "bind",	map_bind	},
 	{ "echotc",	term_echotc	},
@@ -75,7 +77,7 @@ private struct {
 protected int
 parse_line(EditLine *el, const char *line)
 {
-	char **argv;
+	const char **argv;
 	int argc;
 	Tokenizer *tok;
 
@@ -91,9 +93,9 @@ parse_line(EditLine *el, const char *line)
  *	Command dispatcher
  */
 public int
-el_parse(EditLine *el, int argc, char *argv[])
+el_parse(EditLine *el, int argc, const char *argv[])
 {
-	char *ptr;
+	const char *ptr;
 	int i;
 
 	if (argc < 1)

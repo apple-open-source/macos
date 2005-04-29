@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -72,7 +75,7 @@
 /*
  * Structure of a dos directory entry.
  */
-struct direntry {
+struct dosdirentry {
 	u_int8_t	deName[8];	/* filename, blank filled */
 #define	SLOT_EMPTY	0x00		/* slot has never been used */
 #define	SLOT_E5		0x05		/* the real value is 0xe5 */
@@ -125,7 +128,7 @@ struct winentry {
 #define	WIN_MAXLEN	255
 
 /*
- * This is the format of the contents of the deTime field in the direntry
+ * This is the format of the contents of the deTime field in the dosdirentry
  * structure.
  * We don't use bitfields because we don't know how compilers for
  * arbitrary machines will lay them out.
@@ -138,7 +141,7 @@ struct winentry {
 #define DT_HOURS_SHIFT		11
 
 /*
- * This is the format of the contents of the deDate field in the direntry
+ * This is the format of the contents of the deDate field in the dosdirentry
  * structure.
  */
 #define DD_DAY_MASK		0x1F	/* day of month */
@@ -153,12 +156,15 @@ struct dirent;
 void unix2dostime __P((struct timespec *tsp, u_int16_t *ddp, 
 	     u_int16_t *dtp, u_int8_t *dhp));
 void dos2unixtime __P((u_int dd, u_int dt, u_int dh, struct timespec *tsp));
-int dos2unicodefn __P((u_char dn[11], u_int16_t *un, int lower, int d2u_loaded, u_int8_t *d2u, int ul_loaded, u_int8_t *ul));
-int unicode2dosfn __P((const u_int16_t *un, u_char dn[12], int unlen, u_int gen));
+int dos2unicodefn __P((u_char dn[11], u_int16_t *un, int lower));
+int unicode2dosfn __P((const u_int16_t *un, u_char dn[12], int unlen, u_int gen, u_int8_t *lower_case));
 int unicode2winfn __P((const u_int16_t *un, int unlen, struct winentry *wep, int cnt, int chksum));
-int winChkName __P((const u_int16_t *un, int unlen, struct winentry *wep, int chksum, int u2w_loaded, u_int16_t *u2w, int ul_loaded, u_int8_t *ul));
+int winChkName __P((const u_int16_t *un, int unlen, struct winentry *wep, int chksum));
 int getunicodefn __P((struct winentry *wep, u_int16_t *ucfn, u_int16_t *unichars, int chksum));
 u_int8_t winChksum __P((u_int8_t *name));
 int winSlotCnt __P((const u_int16_t *un, int unlen));
-int winLenFixup __P((const u_int16_t *un, int unlen));
+void mac2sfmfn __P((u_int16_t *un, size_t unlen));
+void sfm2macfn __P((u_int16_t *un, u_int16_t unlen));
+int msdosfs_fsync_internal(vnode_t vp, int sync, vfs_context_t context);
+
 #endif	/* KERNEL */

@@ -1,32 +1,58 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/shared/libc_wrapper.c,v 1.88 2003/02/22 06:00:39 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/shared/libc_wrapper.c,v 1.103 2004/02/13 23:58:48 dawes Exp $ */
 /*
- * Copyright 1997 by The XFree86 Project, Inc.
+ * Copyright 1997-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
  *
- * Permission to use, copy, modify, distribute, and sell this software and its
- * documentation for any purpose is hereby granted without fee, provided that
- * the above copyright notice appear in all copies and that both that
- * copyright notice and this permission notice appear in supporting
- * documentation, and that the names of Orest Zborowski and David Wexelblat 
- * not be used in advertising or publicity pertaining to distribution of 
- * the software without specific, written prior permission.  Orest Zborowski
- * and David Wexelblat make no representations about the suitability of this 
- * software for any purpose.  It is provided "as is" without express or 
- * implied warranty.
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
  *
- * THE XFREE86 PROJECT, INC. DISCLAIMS ALL WARRANTIES WITH REGARD 
- * TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND 
- * FITNESS, IN NO EVENT SHALL OREST ZBOROWSKI OR DAVID WEXELBLAT BE LIABLE 
- * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES 
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN 
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF 
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
  *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #if defined(linux) && !defined(__GLIBC__)
 #undef __STRICT_ANSI__
 #endif
 #include <X.h>
+#ifdef __UNIXOS2__
+#define I_NEED_OS2_H
+#endif
 #include <Xmd.h>
 #include <Xos.h>
 #include <sys/types.h>
@@ -165,8 +191,9 @@ typedef struct dirent DIRENTRY;
 #endif
 #include <setjmp.h>
 
-#if defined(setjmp) && \
-    defined(__GLIBC__) && __GLIBC__ == 2 && __GLIBC_MINOR__ < 2
+#if defined(setjmp) && defined(__GNU_LIBRARY__) && \
+    (!defined(__GLIBC__) || (__GLIBC__ < 2) || \
+     ((__GLIBC__ == 2) && (__GLIBC_MINOR__ < 3)))
 #define HAS_GLIBC_SIGSETJMP 1
 #endif
 
@@ -248,6 +275,18 @@ xf86size_t
 xf86strlen(const char* s)
 {
 	return (xf86size_t)strlen(s);
+}
+
+xf86size_t
+xf86strlcat(char *dest, const char *src, xf86size_t size)
+{
+	return(strlcat(dest, src, size));
+}
+
+xf86size_t
+xf86strlcpy(char *dest, const char *src, xf86size_t size)
+{
+	return strlcpy(dest, src, size);
 }
 
 char*
@@ -480,7 +519,7 @@ xf86mmap(void *start, xf86size_t length, int prot,
     if (flags & XF86_MAP_FIXED)		f |= MAP_FIXED;
     if (flags & XF86_MAP_SHARED)	f |= MAP_SHARED;
     if (flags & XF86_MAP_PRIVATE)	f |= MAP_PRIVATE;
-#ifdef __x86_64__
+#if defined(__AMD64__) && defined(linux)
     if (flags & XF86_MAP_32BIT)	        f |= MAP_32BIT;
 #endif
     if (prot  & XF86_PROT_EXEC)		p |= PROT_EXEC;
@@ -654,7 +693,7 @@ static void _xf86checkhndl(XF86FILE_priv* f,const char *func)
 {
 	if (!f || f->magic != XF86FILE_magic ||
 	    !f->filehnd || !f->fname) {
-		FatalError("libc_wrapper error: passed invalid FILE handle to %s\n",
+		FatalError("libc_wrapper error: passed invalid FILE handle to %s",
 			func);
 		exit(42);
 	}
@@ -1087,7 +1126,7 @@ xf86setvbuf(XF86FILE* f, char *buf, int mode, xf86size_t size)
 		vbufmode = _IOLBF;
 		break;
 	default:
-		FatalError("libc_wrapper error: mode in setvbuf incorrect\n");
+		FatalError("libc_wrapper error: mode in setvbuf incorrect");
 		exit(42);
 	}
 
@@ -1297,7 +1336,7 @@ static void
 _xf86checkdirhndl(XF86DIR_priv* f,const char *func)
 {
 	if (!f || f->magic != XF86DIR_magic || !f->dir || !f->dirent) {
-		FatalError("libc_wrapper error: passed invalid DIR handle to %s\n",
+		FatalError("libc_wrapper error: passed invalid DIR handle to %s",
 			func);
 		exit(42);
 	}
@@ -1549,7 +1588,11 @@ int
 xf86finite(double x)
 {
 #ifndef QNX4
+#ifndef __UNIXOS2__
 	return(finite(x));
+#else
+	return(isfinite(x));
+#endif	/* __UNIXOS2__ */
 #else
 	/* XXX Replace this with something that really works. */
 	return 1;
@@ -1809,7 +1852,7 @@ xf86getpagesize()
 		pagesize = PAGE_SIZE;
 #endif
 	if (pagesize == -1)
-		FatalError("xf86getpagesize: Cannot determine page size\n");
+		FatalError("xf86getpagesize: Cannot determine page size");
 
 	return pagesize;
 }
@@ -1858,22 +1901,18 @@ xf86GetErrno ()
 
 
 
-#ifdef NEED_SNPRINTF
-#include "snprintf.c"
-#endif
-
 #ifdef HAVE_SYSV_IPC
 
 int
 xf86shmget(xf86key_t key, int size, int xf86shmflg)
 {
-    int shmflg = xf86shmflg & 0777;
+    int shmflg;
+
+    /* This copies the permissions (SHM_R, SHM_W for u, g, o). */
+    shmflg = xf86shmflg & 0777;
 
     if (key == XF86IPC_PRIVATE) key = IPC_PRIVATE;
-    
 
-    if (xf86shmflg & XF86SHM_R) shmflg |= SHM_R;
-    if (xf86shmflg & XF86SHM_W) shmflg |= SHM_W;
     if (xf86shmflg & XF86IPC_CREAT) shmflg |= IPC_CREAT;
     if (xf86shmflg & XF86IPC_EXCL) shmflg |= IPC_EXCL;
     if (xf86shmflg & XF86IPC_NOWAIT) shmflg |= IPC_NOWAIT;
@@ -1961,29 +2000,54 @@ xf86getjmptype()
 }
 
 #ifdef HAS_GLIBC_SIGSETJMP
+
 int
 xf86setjmp(xf86jmp_buf env)
 {
-    FatalError("setjmp: type 0 called instead of type %d\n", xf86getjmptype());
-}
+#if defined(__GLIBC__) && (__GLIBC__ >= 2)
+    return __sigsetjmp((void *)env, xf86setjmp1_arg2());
 #else
+    return xf86setjmp1(env, xf86setjmp1_arg2());
+#endif
+}
+
+int
+xf86setjmp0(xf86jmp_buf env)
+{
+    FatalError("setjmp: type 0 called instead of type %d", xf86getjmptype());
+}
+
+#if !defined(__GLIBC__) || (__GLIBC__ < 2)	/* libc5 */
+
 int
 xf86setjmp1(xf86jmp_buf env, int arg2)
 {
-    FatalError("setjmp: type 1 called instead of type %d\n", xf86getjmptype());
+    __sigjmp_save((void *)env, arg2);
+    return __setjmp((void *)env);
 }
+
 #endif
+
+#else	/* HAS_GLIBC_SIGSETJMP */
+
+int
+xf86setjmp1(xf86jmp_buf env, int arg2)
+{
+    FatalError("setjmp: type 1 called instead of type %d", xf86getjmptype());
+}
+
+#endif  /* HAS_GLIBC_SIGSETJMP */
 
 int
 xf86setjmp1_arg2()
 {
-    return 0;
+    return 1;
 }
 
 int
 xf86setjmperror(xf86jmp_buf env)
 {
-    FatalError("setjmp: don't know how to handle setjmp() type %d\n",
+    FatalError("setjmp: don't know how to handle setjmp() type %d",
 	       xf86getjmptype());
 }
 

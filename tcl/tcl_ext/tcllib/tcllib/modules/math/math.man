@@ -1,0 +1,82 @@
+[manpage_begin math n 4.2]
+[comment {-*- tcl -*- doctools manpage}]
+[moddesc   {Tcl Math Library}]
+[titledesc {Tcl Math Library}]
+[require Tcl 8.2]
+[require math [opt 1.2.2]]
+[description]
+[para]
+
+The [package math] package provides utility math functions.
+
+[section COMMANDS]
+
+[list_begin definitions]
+
+[call [cmd ::math::cov] [arg value] [arg value] [opt [arg {value ...}]]]
+
+Return the coefficient of variation expressed as percent of two or
+more numeric values.
+
+
+[call [cmd ::math::integrate] [arg {list of xy value pairs}]]
+
+Return the area under a "curve" defined by a set of x,y pairs and the
+error bound as a list.
+
+
+[call [cmd ::math::fibonacci] [arg n]]
+
+Return the [arg n]'th Fibonacci number.
+
+
+[call [cmd ::math::max] [arg value] [opt [arg {value ...}]]]
+
+Return the maximum of one or more numeric values.
+
+
+[call [cmd ::math::mean] [arg value] [opt [arg {value ...}]]]
+
+Return the mean, or "average" of one or more numeric values.
+
+
+[call [cmd ::math::min] [arg value] [opt [arg {value ...}]]]
+
+Return the minimum of one or more numeric values.
+
+
+[call [cmd ::math::prod] [arg value] [opt [arg {value ...}]]]
+
+Return the product of one or more numeric values.
+
+
+[call [cmd ::math::random] [opt [arg value1]] [opt [arg value2]]]
+
+Return a random number.  If no arguments are given, the number is a
+floating point value between 0 and 1.  If one argument is given, the
+number is an integer value between 0 and [arg value1].  If two
+arguments are given, the number is an integer value between
+
+[arg value1] and [arg value2].
+
+
+[call [cmd ::math::sigma] [arg value] [arg value] [opt [arg {value ...}]]]
+
+Return the population standard deviation of two or more numeric
+values.
+
+
+[call [cmd ::math::stats] [arg value] [arg value] [opt [arg {value ...}]]]
+
+Return the mean, standard deviation, and coefficient of variation (as
+percent) as a list.
+
+
+[call [cmd ::math::sum] [arg value] [opt [arg {value ...}]]]
+
+Return the sum of one or more numeric values.
+
+[list_end]
+
+[keywords math statistics]
+[manpage_end]

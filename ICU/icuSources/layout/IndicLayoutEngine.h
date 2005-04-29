@@ -1,8 +1,7 @@
 
 /*
- * @(#)IndicLayoutEngine.h	1.4 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -19,11 +18,10 @@
 #include "GlyphDefinitionTables.h"
 #include "GlyphPositioningTables.h"
 
-#include <string.h>
-
 U_NAMESPACE_BEGIN
 
 class MPreFixups;
+class LEGlyphStorage;
 
 /**
  * This class implements OpenType layout for Indic OpenType fonts, as
@@ -84,16 +82,16 @@ public:
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
-    virtual inline UClassID getDynamicClassID() const { return getStaticClassID(); }
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
-    static inline UClassID getStaticClassID() { return (UClassID)&fgClassID; }
+    static UClassID getStaticClassID();
 
 protected:
 
@@ -108,12 +106,11 @@ protected:
      * @param offset - the index of the first character to process
      * @param count - the number of characters to process
      * @param max - the number of characters in the input context
-     * @param rightToLeft - true if the characters are in a right to left directional run
+     * @param rightToLeft - <code>TRUE</code> if the characters are in a right to left directional run
+     * @param glyphStorage - the glyph storage object. The glyph and character index arrays will be set.
+     *                       the auxillary data array will be set to the feature tags.
      *
      * Output parameters:
-     * @param outChars - the output character arrayt
-     * @param charIndices - the output character index array
-     * @param featureTags - the output feature tag array
      * @param success - set to an error code if the operation fails
      *
      * @return the output character count
@@ -121,7 +118,7 @@ protected:
      * @internal
      */
     virtual le_int32 characterProcessing(const LEUnicode chars[], le_int32 offset, le_int32 count, le_int32 max, le_bool rightToLeft,
-            LEUnicode *&outChars, le_int32 *&charIndices, const LETag **&featureTags, LEErrorCode &success);
+            LEUnicode *&outChars, LEGlyphStorage &glyphStorage, LEErrorCode &success);
 
     /**
      * This method does character to glyph mapping, applies the GSUB table and applies
@@ -137,12 +134,11 @@ protected:
      * @param offset - the index of the first character to process
      * @param count - the number of characters to process
      * @param max - the number of characters in the input context
-     * @param rightToLeft - true if the characters are in a right to left directional run
+     * @param rightToLeft - <code>TRUE</code> if the characters are in a right to left directional run
      * @param featureTags - the feature tag array
+     * @param glyphStorage - the glyph storage object. The glyph and char index arrays will be set.
      *
      * Output parameters:
-     * @param glyphs - the output glyph index array
-     * @param charIndices - the output character index array
      * @param success - set to an error code if the operation fails
      *
      * @return the number of glyphs in the output glyph index array
@@ -153,15 +149,9 @@ protected:
      * @internal
      */
     virtual le_int32 glyphProcessing(const LEUnicode chars[], le_int32 offset, le_int32 count, le_int32 max, le_bool rightToLeft,
-            const LETag **featureTags, LEGlyphID *&glyphs, le_int32 *&charIndices, LEErrorCode &success);
+            LEGlyphStorage &glyphStorage, LEErrorCode &success);
 
 private:
-
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
 
     MPreFixups *fMPreFixups;
 };

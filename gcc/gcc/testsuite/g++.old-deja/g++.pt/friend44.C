@@ -1,7 +1,7 @@
+// { dg-do compile }
 // Test that template friends referring to class template members are
 // respected.
 
-// excess errors test - XFAIL *-*-*
 
 template <class T> struct A
 {

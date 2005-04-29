@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -40,20 +40,28 @@ static int currentIndicator = 0;
 static unsigned long lookUpCLUTIndex( unsigned char index,
                                       unsigned char depth );
 
-static void drawColorRectangle( unsigned short x,
+void drawColorRectangle( unsigned short x,
                                 unsigned short y,
                                 unsigned short width,
                                 unsigned short height,
                                 unsigned char  colorIndex );
 
-static void drawDataRectangle( unsigned short  x,
+void drawDataRectangle( unsigned short  x,
                                unsigned short  y,
                                unsigned short  width,
                                unsigned short  height,
-                               unsigned char * data );
+                        unsigned char * data );
+
+
+int
+convertImage( unsigned short width,
+              unsigned short height,
+              const unsigned char *imageData,
+              unsigned char **newImageData );
 
 #define VIDEO(x) (bootArgs->video.v_ ## x)
 
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 //==========================================================================
 // printVBEInfo
@@ -62,6 +70,7 @@ void printVBEInfo()
 {
     VBEInfoBlock vbeInfo;
     int          err;
+    int          small;
 
     // Fetch VBE Controller Info.
 
@@ -77,12 +86,76 @@ void printVBEInfo()
 
     // Announce controller properties.
 
-    printf("VESA v%d.%d %dMB (%s)\n",
+    small = (vbeInfo.TotalMemory < 16);
+
+    printf("VESA v%d.%d %d%s (%s)\n",
            vbeInfo.VESAVersion >> 8,
            vbeInfo.VESAVersion & 0xf,
-           vbeInfo.TotalMemory / 16,
+           small ? (vbeInfo.TotalMemory * 64) : (vbeInfo.TotalMemory / 16),
+           small ? "KB" : "MB",
            VBEDecodeFP(const char *, vbeInfo.OEMStringPtr) );
 }
+
+//==========================================================================
+//
+
+void 
+printVBEModeInfo()
+{
+    VBEInfoBlock     vbeInfo;
+    unsigned short * modePtr;
+    VBEModeInfoBlock modeInfo;
+    int              err;
+    int              line;
+
+    err = getVBEInfo( &vbeInfo );
+    if ( err != errSuccess )
+        return;
+
+    line = 0;
+
+    // Activate and clear page 1
+    setActiveDisplayPage(1);
+    clearScreenRows(0, 24);
+    setCursorPosition( 0, 0, 1 );
+
+    printVBEInfo();
+    printf("Video modes supported:\n", VBEDecodeFP(const char *, vbeInfo.OEMStringPtr));
+
+   // Loop through the mode list, and find the matching mode.
+
+    for ( modePtr = VBEDecodeFP( unsigned short *, vbeInfo.VideoModePtr );
+          *modePtr != modeEndOfList; modePtr++ )
+    {
+        // Get mode information.
+
+        bzero( &modeInfo, sizeof(modeInfo) );
+        err = getVBEModeInfo( *modePtr, &modeInfo );
+        if ( err != errSuccess )
+        {
+            continue;
+        }
+
+        printf("Mode %x: %dx%dx%d mm:%d attr:%x\n",
+               *modePtr, modeInfo.XResolution, modeInfo.YResolution,
+               modeInfo.BitsPerPixel, modeInfo.MemoryModel,
+               modeInfo.ModeAttributes);
+
+        if (line++ >= 20) {
+            printf("(Press a key to continue...)");
+            getc();
+            line = 0;
+            clearScreenRows(0, 24);
+            setCursorPosition( 0, 0, 1 );
+        }
+    }    
+    if (line != 0) {
+        printf("(Press a key to continue...)");
+        getc();
+    }
+    setActiveDisplayPage(0);
+}
+
 
 //==========================================================================
 // getVESAModeWithProperties
@@ -137,7 +210,7 @@ getVESAModeWithProperties( unsigned short     width,
             continue;
         }
 
-#if 0   // debug
+#if DEBUG
         printf("Mode %x: %dx%dx%d mm:%d attr:%x\n",
                *modePtr, modeInfo.XResolution, modeInfo.YResolution,
                modeInfo.BitsPerPixel, modeInfo.MemoryModel,
@@ -215,7 +288,7 @@ getVESAModeWithProperties( unsigned short     width,
         }
         if ( modeInfo.XResolution < outModeInfo->XResolution ||
              modeInfo.YResolution < outModeInfo->YResolution ||
-             modeBitsPerPixel     < 16 )
+             modeBitsPerPixel     < outModeInfo->BitsPerPixel )
         {
             continue;  // Saved mode has more resolution.
         }
@@ -247,7 +320,7 @@ static void setupPalette( VBEPalette * p, const unsigned char * g )
 //==========================================================================
 // Simple decompressor for boot images encoded in RLE format.
 
-static char * decodeRLE( const void * rleData, int rleBlocks, int outBytes )
+char * decodeRLE( const void * rleData, int rleBlocks, int outBytes )
 {
     char *out, *cp;
 
@@ -361,48 +434,64 @@ setVESAGraphicsMode( unsigned short width,
         bootArgs->video.v_depth    = minfo.BitsPerPixel;
         bootArgs->video.v_rowBytes = minfo.BytesPerScanline;
         bootArgs->video.v_baseAddr = VBEMakeUInt32(minfo.PhysBasePtr);
+
     }
     while ( 0 );
 
     return err;
 }
 
+int
+convertImage( unsigned short width,
+              unsigned short height,
+              const unsigned char *imageData,
+              unsigned char **newImageData )
+{
+    int cnt;
+    unsigned char *img = 0;
+    unsigned short *img16;
+    unsigned long *img32;
+
+    switch ( VIDEO(depth) ) {
+    case 16 :
+        img16 = malloc(width * height * 2);
+        if ( !img16 ) break;
+        for (cnt = 0; cnt < (width * height); cnt++)
+            img16[cnt] = lookUpCLUTIndex(imageData[cnt], 16);
+        img = (unsigned char *)img16;
+        break;
+    
+    case 32 :
+        img32 = malloc(width * height * 4);
+        if ( !img32 ) break;
+        for (cnt = 0; cnt < (width * height); cnt++)
+            img32[cnt] = lookUpCLUTIndex(imageData[cnt], 32);
+        img = (unsigned char *)img32;
+        break;
+    
+    default :
+        img = malloc(width * height);
+        bcopy(imageData, img, width * height);
+        break;
+    }
+    *newImageData = img;
+    return 0;
+}
+
 //==========================================================================
 // drawBootGraphics
 
-static int
-drawBootGraphics( unsigned short width,
-                  unsigned short height,
-                  unsigned char  bitsPerPixel,
-                  unsigned short refreshRate )
+void
+drawBootGraphics( void )
 {
-    VBEModeInfoBlock  minfo;
-    unsigned short    mode;
-    unsigned short    vesaVersion;
-    int               err = errFuncNotSupported;
-
-    char  * appleBoot = 0;
-    short * appleBoot16;
-    long  * appleBoot32;
-    long    cnt, x, y;
+    unsigned char  * imageData = 0;
+    long    x, y;
     char  * appleBootPict;
 
     do {
-        mode = getVESAModeWithProperties( width, height, bitsPerPixel,
-                                          maColorModeBit             |
-                                          maModeIsSupportedBit       |
-                                          maGraphicsModeBit          |
-                                          maLinearFrameBufferAvailBit,
-                                          0,
-                                          &minfo, &vesaVersion );
-        if ( mode == modeEndOfList )
-        {
-            break;
-        }
-
         // Fill the background to 75% grey (same as BootX).
 
-        drawColorRectangle( 0, 0, minfo.XResolution, minfo.YResolution,
+        drawColorRectangle( 0, 0, VIDEO(width), VIDEO(height),
                             0x01 /* color index */ );
 
         appleBootPict = decodeRLE( gAppleBootPictRLE, kAppleBootRLEBlocks,
@@ -412,45 +501,24 @@ drawBootGraphics( unsigned short width,
 
         if ( appleBootPict )
         {
-            switch ( VIDEO(depth) )
-            {
-                case 16 :
-                    appleBoot16 = malloc(kAppleBootWidth * kAppleBootHeight * 2);
-                    if ( !appleBoot16 ) break;
-                    for (cnt = 0; cnt < (kAppleBootWidth * kAppleBootHeight); cnt++)
-                        appleBoot16[cnt] = lookUpCLUTIndex(appleBootPict[cnt], 16);
-                    appleBoot = (char *) appleBoot16;
-                    break;
-    
-                case 32 :
-                    appleBoot32 = malloc(kAppleBootWidth * kAppleBootHeight * 4);
-                    if ( !appleBoot32 ) break;
-                    for (cnt = 0; cnt < (kAppleBootWidth * kAppleBootHeight); cnt++)
-                        appleBoot32[cnt] = lookUpCLUTIndex(appleBootPict[cnt], 32);
-                    appleBoot = (char *) appleBoot32;
-                    break;
-    
-                default :
-                    appleBoot = (char *) appleBootPict;
-                    break;
-            }
+            convertImage(kAppleBootWidth, kAppleBootHeight,
+                         appleBootPict, &imageData);
 
             x = ( VIDEO(width) - kAppleBootWidth ) / 2;
             y = ( VIDEO(height) - kAppleBootHeight ) / 2 + kAppleBootOffset;
     
             // Draw the happy mac in the center of the display.
             
-            if ( appleBoot )
+            if ( imageData )
             {
                 drawDataRectangle( x, y, kAppleBootWidth, kAppleBootHeight,
-                                   appleBoot );
+                                   imageData );
+                free( imageData );
             }
-
             free( appleBootPict );
         }
-    } while (0);
 
-    return err;
+    } while (0);
 }
 
 //==========================================================================
@@ -499,7 +567,7 @@ static void * stosl(void * dst, long val, long len)
     return dst;
 }
 
-static void drawColorRectangle( unsigned short x,
+void drawColorRectangle( unsigned short x,
                                 unsigned short y,
                                 unsigned short width,
                                 unsigned short height,
@@ -513,6 +581,9 @@ static void drawColorRectangle( unsigned short x,
     vram       = (char *) VIDEO(baseAddr) +
                  VIDEO(rowBytes) * y + pixelBytes * x;
 
+    width = MIN(width, VIDEO(width) - x);
+    height = MIN(height, VIDEO(height) - y);
+
     while ( height-- )
     {
         int rem = ( pixelBytes * width ) % 4;
@@ -525,19 +596,21 @@ static void drawColorRectangle( unsigned short x,
 //==========================================================================
 // drawDataRectangle
 
-static void drawDataRectangle( unsigned short  x,
-                               unsigned short  y,
-                               unsigned short  width,
-                               unsigned short  height,
-                               unsigned char * data )
+void drawDataRectangle( unsigned short  x,
+                        unsigned short  y,
+                        unsigned short  width,
+                        unsigned short  height,
+                        unsigned char * data )
 {
+    unsigned short drawWidth;
     long   pixelBytes = VIDEO(depth) / 8;
-    char * vram       = (char *) VIDEO(baseAddr) +
-                        VIDEO(rowBytes) * y + pixelBytes * x;
+    unsigned char * vram   = (unsigned char *) VIDEO(baseAddr) +
+        VIDEO(rowBytes) * y + pixelBytes * x;
 
-    while ( height-- )
-    {
-        bcopy( data, vram, width * pixelBytes );
+    drawWidth = MIN(width, VIDEO(width) - x);
+    height = MIN(height, VIDEO(height) - y);
+    while ( height-- ) {
+        bcopy( data, vram, drawWidth * pixelBytes );
         vram += VIDEO(rowBytes);
         data += width * pixelBytes;
     }
@@ -638,9 +711,9 @@ setVideoMode( int mode )
         count = getNumberArrayFromProperty( kGraphicsModeKey, params, 4 );
         if ( count < 3 )
         {
-            params[0] = 1024;  // Default graphics mode is 1024x768x16.
+            params[0] = 1024;  // Default graphics mode is 1024x768x32.
             params[1] = 768;
-            params[2] = 16;
+            params[2] = 32;
         }
 
         // Map from pixel format to bits per pixel.
@@ -659,7 +732,7 @@ setVideoMode( int mode )
             bootArgs->video.v_display = !gVerboseMode;
             
             if (!gVerboseMode) {
-                drawBootGraphics( params[0], params[1], params[2], params[3] );
+                drawBootGraphics();
             }
         }
     }
@@ -692,6 +765,7 @@ int getVideoMode(void)
 // Display and clear the activity indicator.
 
 static char indicator[] = {'-', '\\', '|', '/', '-', '\\', '|', '/', '\0'};
+#define kNumIndicators (sizeof(indicator) - 1)
 
 // To prevent a ridiculously fast-spinning indicator,
 // ensure a minimum of 1/9 sec between animation frames.
@@ -711,10 +785,9 @@ spinActivityIndicator( void )
 
     if ( getVideoMode() == TEXT_MODE )
     {
-        string[0] = indicator[currentIndicator];
+        if (currentIndicator >= kNumIndicators) currentIndicator = 0;
+        string[0] = indicator[currentIndicator++];
         printf(string);
-        if (indicator[++currentIndicator] == 0)
-            currentIndicator = 0;
     }
 }
 
@@ -726,3 +799,4 @@ clearActivityIndicator( void )
         printf(" \b");
     }
 }
+

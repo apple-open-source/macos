@@ -1,0 +1,53 @@
+--- strftime.3.orig	Fri Mar 11 07:33:40 2005
++++ strftime.3	Fri Mar 11 07:43:03 2005
+@@ -40,7 +40,8 @@
+ .Dt STRFTIME 3
+ .Os
+ .Sh NAME
+-.Nm strftime
++.Nm strftime ,
++.Nm strftime_l
+ .Nd format date and time
+ .Sh LIBRARY
+ .Lb libc
+@@ -53,6 +54,15 @@
+ .Fa "const char * restrict format"
+ .Fa "const struct tm * restrict timeptr"
+ .Fc
++.In xlocale.h
++.Ft size_t
++.Fo strftime_l
++.Fa "char * restrict buf"
++.Fa "size_t maxsize"
++.Fa "const char * restrict format"
++.Fa "const struct tm * restrict timeptr"
++.Fa "locale_t loc"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn strftime
+@@ -83,6 +93,14 @@
+ terminating NUL.
+ Otherwise, zero is returned and the buffer contents are indeterminate.
+ .Pp
++While the
++.Fn strftime
++function uses the current locale, the
++.Fn strftime_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
++.Pp
+ The conversion specifications are copied to the buffer after expansion
+ as follows:-
+ .Bl -tag -width "xxxx"
+@@ -226,7 +244,8 @@
+ .Xr ctime 3 ,
+ .Xr printf 3 ,
+ .Xr strptime 3 ,
+-.Xr wcsftime 3
++.Xr wcsftime 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn strftime

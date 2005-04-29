@@ -1,7 +1,7 @@
 
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************
 **********************************************************************
@@ -49,8 +49,6 @@ private:
 
     void TestStrings(void);
 
-    void TestStringPatterns(void);
-
     void TestScriptSet(void);
 
     /**
@@ -69,6 +67,10 @@ private:
     void TestEscapePattern(void);
 
     void TestInvalidCodePoint(void);
+
+    void TestSymbolTable(void);
+
+    void TestSurrogate();
 
 private:
 

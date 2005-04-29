@@ -27,13 +27,13 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/require.h,v 1.4 2002/11/08 08:00:57 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/require.h,v 1.5 2003/04/27 18:17:34 tsi Exp $ */
 
 #ifndef Lisp_require_h
 #define Lisp_require_h
 
-#include "private.h"
-#include "helper.h"
+#include "lisp/private.h"
+#include "lisp/helper.h"
 #ifdef SHARED_MODULES
 #include <dlfcn.h>
 #endif

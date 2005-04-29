@@ -27,23 +27,14 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xfs/os/daemon.c,v 1.12 2002/10/20 21:42:50 tsi Exp $ */
+/* $XFree86: xc/programs/xfs/os/daemon.c,v 1.13 2004/01/07 03:47:36 dawes Exp $ */
 
 #include <X11/Xos.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <stdlib.h>
 
-#ifndef __GLIBC__
-# if defined(__osf__) || \
-     defined(__GNU__) || \
-     defined(__CYGWIN__) || \
-     defined(linux)
-#  define setpgrp setpgid
-# endif
-#endif
-
-#if defined(SVR4) || defined(USG) || defined(__GLIBC__)
+#if defined(USG)
 # include <termios.h>
 #else
 # include <sys/ioctl.h>
@@ -60,108 +51,88 @@ from the X Consortium.
 
 #include "os.h"
 
-void
-BecomeOrphan ()
+#if defined(__GLIBC__) || defined(CSRG_BASED)
+#define HAS_DAEMON
+#endif
+
+#ifndef X_NOT_POSIX
+#define HAS_SETSID
+#endif
+
+#ifndef HAS_SETSID
+
+#define setsid() MySetsid()
+
+static Pid_t
+MySetsid(void)
 {
-    Pid_t child_id;
+#if defined(TIOCNOTTY) || defined(TCCLRCTTY) || defined(TIOCTTY)
+    int fd;
+#endif
+    int stat;
 
-    chdir("/");
-    /*
-     * fork so that the process goes into the background automatically. Also
-     * has a nice side effect of having the child process get inherited by
-     * init (pid 1).
-     * Separate the child into its own process group before the parent
-     * exits.  This eliminates the possibility that the child might get
-     * killed when the init script that's running xfs exits.
-     */
+    fd = open("/dev/tty", O_RDWR);
+    if (fd >= 0) {
+#if defined(USG) && defined(TCCLRCTTY)
+	int zero = 0;
+	(void) ioctl (fd, TCCLRCTTY, &zero);
+#elif (defined(SYSV) || defined(SVR4)) && defined(TIOCTTY)
+	int zero = 0;
+	(void) ioctl (i, TIOCTTY, &zero);
+#elif defined(TIOCNOTTY)
+	(void) ioctl (i, TIOCNOTTY, (char *) 0);    /* detach, BSD style */
+#endif
+        close(fd);
+    }
 
-    child_id = fork();
-    switch (child_id) {
-    case 0:
-	/* child */
-	break;
+#if defined(SYSV) || defined(__QNXNTO__)
+    return setpgrp();
+#else
+    return setpgid(0, getpid());
+#endif
+}
+
+#endif /* !HAS_SETSID */
+
+
+/* detach */
+void
+BecomeDaemon ()
+{
+    /* If our C library has the daemon() function, just use it. */
+#ifdef HAS_DAEMON
+    daemon (0, 0);
+#else
+
+    switch (fork()) {
     case -1:
 	/* error */
 	FatalError("daemon fork failed, %s\n", strerror(errno));
 	break;
-
+    case 0:
+	/* child */
+	break;
     default:
 	/* parent */
-
-#if defined(CSRG_BASED) || \
-    defined(SYSV) || \
-    defined(SVR4) || \
-    defined(__QNXNTO__) || \
-    defined(__GLIBC__) || \
-    defined(linux)
-	{
-	    int stat;
-# if defined(SVR4) || defined(__QNXNTO__)
-	    /* This gets error EPERM.  Why? */
-	    stat = setpgid (child_id, child_id);
-# elif defined(SYSV)
-	    stat = 0;	/* don't know how to set child's process group */
-# elif defined(__GLIBC__)
-	    stat = setpgrp ();
-# else
-	    stat = setpgrp (child_id, child_id);
-# endif
-	    if (stat != 0)
-		FatalError("setting process group for daemon failed: %s\n",
-			   strerror(errno));
-	}
-#endif /* ! (CSRG_BASED || SYSV || SVR4 || __QNXNTO__ || __GLIBC__) */
-	exit (0);
+	exit(0);
     }
-}
 
-void
-BecomeDaemon ()
-{
-    /*
-     * Close standard file descriptors and get rid of controlling tty.
-     */
+    if (setsid() == -1)
+	FatalError("setting session id for daemon failed: %s\n",
+		   strerror(errno));
 
-    /* If our C library has the daemon() function, just use it. */
-#if defined(__GLIBC__) || defined(CSRG_BASED)
-    daemon (0, 0);
-#else
-    register int i;
-
-# if defined(SYSV) || defined(SVR4) || defined(__QNXNTO__)
-    setpgrp ();
-# else
-    setpgrp (0, getpid());
-# endif
+    chdir("/");
 
     close (0);
     close (1);
     close (2);
 
-# if !defined(__UNIXOS2__) && !defined(__CYGWIN__)
-#  if !((defined(SYSV) || defined(SVR4)) && defined(i386))
-    if ((i = open ("/dev/tty", O_RDWR)) >= 0) {	/* did open succeed? */
-#   if defined(USG) && defined(TCCLRCTTY)
-	int zero = 0;
-	(void) ioctl (i, TCCLRCTTY, &zero);
-#   else
-#    if (defined(SYSV) || defined(SVR4)) && defined(TIOCTTY)
-	int zero = 0;
-	(void) ioctl (i, TIOCTTY, &zero);
-#    else
-	(void) ioctl (i, TIOCNOTTY, (char *) 0);    /* detach, BSD style */
-#    endif
-#   endif
-	(void) close (i);
-    }
-#  endif /* !((SYSV || SVR4) && i386) */
-# endif /* !__UNIXOS2__ && !__CYGWIN__ */
-
     /*
      * Set up the standard file descriptors.
      */
-    (void) open ("/", O_RDONLY);	/* root inode already in core */
+    (void) open ("/dev/null", O_RDWR);
     (void) dup2 (0, 1);
     (void) dup2 (0, 2);
-#endif
+
+#endif /* HAS_DAEMON */
 }

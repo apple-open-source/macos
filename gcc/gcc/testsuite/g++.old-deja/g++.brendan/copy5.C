@@ -1,3 +1,4 @@
+// { dg-do run  }
 // GROUPS passed copy-ctors
 /*
 bad:
@@ -49,7 +50,7 @@ void BaseClass::Increm( int r )
     i += r;
   else
     die ();
-};
+}
 
 class DerivedClass : public BaseClass {
 public:

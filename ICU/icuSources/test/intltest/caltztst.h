@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2001, International Business Machines Corporation and
+ * Copyright (c) 1997-2003, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -33,6 +33,7 @@ protected:
     // Tries to mimic the Java Date.toString() format.
     UnicodeString  dateToString(UDate d);
     UnicodeString& dateToString(UDate d, UnicodeString& str);
+    UnicodeString& dateToString(UDate d, UnicodeString& str, const TimeZone& z);
 
     // Utility methods to create a date.  This is useful for converting Java constructs
     // which create a Date object.  Returns a Date in the current local time.

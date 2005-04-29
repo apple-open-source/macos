@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  5.0
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -30,13 +30,12 @@
 #include "convolve.h"
 #include "feedback.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 #include "mmath.h"
 #include "pixel.h"
 
 #include "s_context.h"
 #include "s_depth.h"
-#include "s_fog.h"
 #include "s_histogram.h"
 #include "s_pixeltex.h"
 #include "s_span.h"
@@ -64,6 +63,9 @@ regions_overlap(GLint srcx, GLint srcy,
          return GL_FALSE;
       }
       else if (srcy < dsty) { /* this is OK */
+         return GL_FALSE;
+      }
+      else if (srcy > dsty + height) {
          return GL_FALSE;
       }
       else {
@@ -97,32 +99,21 @@ copy_conv_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
                       GLint width, GLint height, GLint destx, GLint desty)
 {
    SWcontext *swrast = SWRAST_CONTEXT(ctx);
-   GLdepth zspan[MAX_WIDTH];
-   GLfloat fogSpan[MAX_WIDTH];
    GLboolean quick_draw;
    GLint row;
    GLboolean changeBuffer;
-   GLchan *saveReadAlpha;
    const GLboolean zoom = ctx->Pixel.ZoomX != 1.0F || ctx->Pixel.ZoomY != 1.0F;
    const GLuint transferOps = ctx->_ImageTransferState;
    GLfloat *dest, *tmpImage, *convImage;
+   struct sw_span span;
 
-   if (ctx->Depth.Test || ctx->Fog.Enabled) {
-      /* fill in array of z values */
-      GLdepth z = (GLdepth) (ctx->Current.RasterPos[2] * ctx->DepthMax);
-      GLfloat fog;
-      GLint i;
+   INIT_SPAN(span, GL_BITMAP, 0, 0, SPAN_RGBA);
 
-      if (ctx->Fog.FogCoordinateSource == GL_FOG_COORDINATE_EXT)
-         fog = _mesa_z_to_fogfactor(ctx, ctx->Current.RasterFogCoord);
-      else
-         fog = _mesa_z_to_fogfactor(ctx, ctx->Current.RasterDistance);
+   if (ctx->Depth.Test)
+      _mesa_span_default_z(ctx, &span);
+   if (ctx->Fog.Enabled)
+      _mesa_span_default_fog(ctx, &span);
 
-      for (i = 0; i < width; i++) {
-         zspan[i] = z;
-         fogSpan[i] = fog;
-      }
-   }
 
    if (SWRAST_CONTEXT(ctx)->_RasterMask == 0
        && !zoom
@@ -135,7 +126,6 @@ copy_conv_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
    }
 
    /* If read and draw buffer are different we must do buffer switching */
-   saveReadAlpha = ctx->ReadBuffer->Alpha;
    changeBuffer = ctx->Pixel.ReadBuffer != ctx->Color.DrawBuffer
                || ctx->DrawBuffer != ctx->ReadBuffer;
 
@@ -156,16 +146,8 @@ copy_conv_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
    dest = tmpImage;
 
    if (changeBuffer) {
-      (*swrast->Driver.SetReadBuffer)( ctx, ctx->ReadBuffer,
-                                    ctx->Pixel.DriverReadBuffer );
-      if (ctx->Pixel.DriverReadBuffer == GL_FRONT_LEFT)
-         ctx->ReadBuffer->Alpha = ctx->ReadBuffer->FrontLeftAlpha;
-      else if (ctx->Pixel.DriverReadBuffer == GL_BACK_LEFT)
-         ctx->ReadBuffer->Alpha = ctx->ReadBuffer->BackLeftAlpha;
-      else if (ctx->Pixel.DriverReadBuffer == GL_FRONT_RIGHT)
-         ctx->ReadBuffer->Alpha = ctx->ReadBuffer->FrontRightAlpha;
-      else
-         ctx->ReadBuffer->Alpha = ctx->ReadBuffer->BackRightAlpha;
+      /* choose the read buffer */
+      _swrast_use_read_buffer(ctx);
    }
 
    /* read source image */
@@ -183,11 +165,9 @@ copy_conv_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
       }
    }
 
-   /* read from the draw buffer again (in case of blending) */
    if (changeBuffer) {
-      (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer,
-                                    ctx->Color.DriverDrawBuffer );
-      ctx->ReadBuffer->Alpha = saveReadAlpha;
+      /* restore default src/dst buffer */
+      _swrast_use_draw_buffer(ctx);
    }
 
    /* do image transfer ops up until convolution */
@@ -250,7 +230,6 @@ copy_conv_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
 
    for (row = 0; row < height; row++) {
       const GLfloat *src = convImage + row * width * 4;
-      GLchan rgba[MAX_WIDTH][4];
       GLint i, dy;
 
       /* clamp to [0,1] and convert float back to chan */
@@ -259,27 +238,15 @@ copy_conv_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
          GLint g = (GLint) (src[i * 4 + GCOMP] * CHAN_MAXF);
          GLint b = (GLint) (src[i * 4 + BCOMP] * CHAN_MAXF);
          GLint a = (GLint) (src[i * 4 + ACOMP] * CHAN_MAXF);
-         rgba[i][RCOMP] = (GLchan) CLAMP(r, 0, CHAN_MAX);
-         rgba[i][GCOMP] = (GLchan) CLAMP(g, 0, CHAN_MAX);
-         rgba[i][BCOMP] = (GLchan) CLAMP(b, 0, CHAN_MAX);
-         rgba[i][ACOMP] = (GLchan) CLAMP(a, 0, CHAN_MAX);
+         span.array->rgba[i][RCOMP] = (GLchan) CLAMP(r, 0, CHAN_MAX);
+         span.array->rgba[i][GCOMP] = (GLchan) CLAMP(g, 0, CHAN_MAX);
+         span.array->rgba[i][BCOMP] = (GLchan) CLAMP(b, 0, CHAN_MAX);
+         span.array->rgba[i][ACOMP] = (GLchan) CLAMP(a, 0, CHAN_MAX);
       }
 
-      if (ctx->Texture._ReallyEnabled && ctx->Pixel.PixelTextureEnabled) {
-         GLfloat s[MAX_WIDTH], t[MAX_WIDTH], r[MAX_WIDTH], q[MAX_WIDTH];
-         GLchan primary_rgba[MAX_WIDTH][4];
-         GLuint unit;
-         /* XXX not sure how multitexture is supposed to work here */
-
-         MEMCPY(primary_rgba, rgba, 4 * width * sizeof(GLchan));
-
-         for (unit = 0; unit < ctx->Const.MaxTextureUnits; unit++) {
-            _mesa_pixeltexgen(ctx, width, (const GLchan (*)[4]) rgba,
-                              s, t, r, q);
-            _swrast_texture_fragments(ctx, unit, width, s, t, r, NULL,
-                                      (CONST GLchan (*)[4]) primary_rgba,
-                                      rgba);
-         }
+      if (ctx->Pixel.PixelTextureEnabled && ctx->Texture._EnabledUnits) {
+         span.end = width;
+         _swrast_pixel_texture(ctx, &span);
       }
 
       /* write row to framebuffer */
@@ -287,15 +254,21 @@ copy_conv_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
       dy = desty + row;
       if (quick_draw && dy >= 0 && dy < (GLint) ctx->DrawBuffer->Height) {
          (*swrast->Driver.WriteRGBASpan)( ctx, width, destx, dy,
-				       (const GLchan (*)[4])rgba, NULL );
+		       (const GLchan (*)[4])span.array->rgba, NULL );
       }
       else if (zoom) {
-         _mesa_write_zoomed_rgba_span( ctx, width, destx, dy, zspan, fogSpan,
-				    (const GLchan (*)[4])rgba, desty);
+         span.x = destx;
+         span.y = dy;
+         span.end = width;
+         _mesa_write_zoomed_rgba_span(ctx, &span, 
+                                     (CONST GLchan (*)[4])span.array->rgba,
+                                     desty);
       }
       else {
-         _mesa_write_rgba_span( ctx, width, destx, dy, zspan, fogSpan, rgba,
-                                NULL, GL_BITMAP );
+         span.x = destx;
+         span.y = dy;
+         span.end = width;
+         _mesa_write_rgba_span(ctx, &span);
       }
    }
 
@@ -311,18 +284,16 @@ copy_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
                  GLint width, GLint height, GLint destx, GLint desty)
 {
    SWcontext *swrast = SWRAST_CONTEXT(ctx);
-   GLdepth zspan[MAX_WIDTH];
-   GLfloat fogSpan[MAX_WIDTH];
-   GLchan rgba[MAX_WIDTH][4];
    GLchan *tmpImage,*p;
    GLboolean quick_draw;
-   GLint sy, dy, stepy;
-   GLint i, j;
+   GLint sy, dy, stepy, j;
    GLboolean changeBuffer;
-   GLchan *saveReadAlpha;
    const GLboolean zoom = ctx->Pixel.ZoomX != 1.0F || ctx->Pixel.ZoomY != 1.0F;
    GLint overlapping;
    const GLuint transferOps = ctx->_ImageTransferState;
+   struct sw_span span;
+
+   INIT_SPAN(span, GL_BITMAP, 0, 0, SPAN_RGBA);
 
    if (ctx->Pixel.Convolution2DEnabled || ctx->Pixel.Separable2DEnabled) {
       copy_conv_rgba_pixels(ctx, srcx, srcy, width, height, destx, desty);
@@ -346,21 +317,10 @@ copy_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
    overlapping = regions_overlap(srcx, srcy, destx, desty, width, height,
                                  ctx->Pixel.ZoomX, ctx->Pixel.ZoomY);
 
-   if (ctx->Depth.Test || ctx->Fog.Enabled) {
-      /* fill in array of z values */
-      GLdepth z = (GLdepth) (ctx->Current.RasterPos[2] * ctx->DepthMax);
-      GLfloat fog;
-
-      if (ctx->Fog.FogCoordinateSource == GL_FOG_COORDINATE_EXT)
-         fog = _mesa_z_to_fogfactor(ctx, ctx->Current.RasterFogCoord);
-      else
-         fog = _mesa_z_to_fogfactor(ctx, ctx->Current.RasterDistance);
-
-      for (i=0;i<width;i++) {
-         zspan[i] = z;
-         fogSpan[i] = fog;
-      }
-   }
+   if (ctx->Depth.Test)
+      _mesa_span_default_z(ctx, &span);
+   if (ctx->Fog.Enabled)
+      _mesa_span_default_fog(ctx, &span);
 
    if (SWRAST_CONTEXT(ctx)->_RasterMask == 0
        && !zoom
@@ -373,12 +333,8 @@ copy_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
    }
 
    /* If read and draw buffer are different we must do buffer switching */
-   saveReadAlpha = ctx->ReadBuffer->Alpha;
    changeBuffer = ctx->Pixel.ReadBuffer != ctx->Color.DrawBuffer
                   || ctx->DrawBuffer != ctx->ReadBuffer;
-
-   (*swrast->Driver.SetReadBuffer)( ctx, ctx->ReadBuffer,
-                                 ctx->Pixel.DriverReadBuffer );
 
    if (overlapping) {
       GLint ssy = sy;
@@ -387,25 +343,22 @@ copy_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
          _mesa_error( ctx, GL_OUT_OF_MEMORY, "glCopyPixels" );
          return;
       }
+      /* setup source */
+      if (changeBuffer)
+         _swrast_use_read_buffer(ctx);
+      /* read the source image */
       p = tmpImage;
-      if (changeBuffer) {
-         (*swrast->Driver.SetReadBuffer)( ctx, ctx->ReadBuffer,
-                                       ctx->Pixel.DriverReadBuffer );
-         if (ctx->Pixel.DriverReadBuffer == GL_FRONT_LEFT)
-            ctx->ReadBuffer->Alpha = ctx->ReadBuffer->FrontLeftAlpha;
-         else if (ctx->Pixel.DriverReadBuffer == GL_BACK_LEFT)
-            ctx->ReadBuffer->Alpha = ctx->ReadBuffer->BackLeftAlpha;
-         else if (ctx->Pixel.DriverReadBuffer == GL_FRONT_RIGHT)
-            ctx->ReadBuffer->Alpha = ctx->ReadBuffer->FrontRightAlpha;
-         else
-            ctx->ReadBuffer->Alpha = ctx->ReadBuffer->BackRightAlpha;
-      }
       for (j = 0; j < height; j++, ssy += stepy) {
          _mesa_read_rgba_span( ctx, ctx->ReadBuffer, width, srcx, ssy,
                             (GLchan (*)[4]) p );
          p += width * 4;
       }
       p = tmpImage;
+      /* restore dest */
+      if (changeBuffer) {
+         _swrast_use_draw_buffer(ctx);
+         changeBuffer = GL_FALSE;
+      }
    }
    else {
       tmpImage = NULL;  /* silence compiler warnings */
@@ -416,35 +369,17 @@ copy_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
       /* Get source pixels */
       if (overlapping) {
          /* get from buffered image */
-         MEMCPY(rgba, p, width * sizeof(GLchan) * 4);
+         MEMCPY(span.array->rgba, p, width * sizeof(GLchan) * 4);
          p += width * 4;
       }
       else {
          /* get from framebuffer */
-         if (changeBuffer) {
-            (*swrast->Driver.SetReadBuffer)( ctx, ctx->ReadBuffer,
-                                          ctx->Pixel.DriverReadBuffer );
-            if (ctx->Pixel.DriverReadBuffer == GL_FRONT_LEFT) {
-               ctx->ReadBuffer->Alpha = ctx->ReadBuffer->FrontLeftAlpha;
-            }
-            else if (ctx->Pixel.DriverReadBuffer == GL_BACK_LEFT) {
-               ctx->ReadBuffer->Alpha = ctx->ReadBuffer->BackLeftAlpha;
-            }
-            else if (ctx->Pixel.DriverReadBuffer == GL_FRONT_RIGHT) {
-               ctx->ReadBuffer->Alpha = ctx->ReadBuffer->FrontRightAlpha;
-            }
-            else {
-               ctx->ReadBuffer->Alpha = ctx->ReadBuffer->BackRightAlpha;
-            }
-         }
-         _mesa_read_rgba_span( ctx, ctx->ReadBuffer, width, srcx, sy, rgba );
-      }
-
-      if (changeBuffer) {
-         /* read from the draw buffer again (in case of blending) */
-         (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer,
-                                       ctx->Color.DriverDrawBuffer );
-         ctx->ReadBuffer->Alpha = saveReadAlpha;
+         if (changeBuffer)
+            _swrast_use_read_buffer(ctx);
+         _mesa_read_rgba_span( ctx, ctx->ReadBuffer, width, srcx, sy,
+                               span.array->rgba );
+         if (changeBuffer)
+            _swrast_use_draw_buffer(ctx);
       }
 
       if (transferOps) {
@@ -455,10 +390,10 @@ copy_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
 
          /* convert chan to float */
          for (k = 0; k < width; k++) {
-            rgbaFloat[k][RCOMP] = (GLfloat) rgba[k][RCOMP] * scale;
-            rgbaFloat[k][GCOMP] = (GLfloat) rgba[k][GCOMP] * scale;
-            rgbaFloat[k][BCOMP] = (GLfloat) rgba[k][BCOMP] * scale;
-            rgbaFloat[k][ACOMP] = (GLfloat) rgba[k][ACOMP] * scale;
+            rgbaFloat[k][RCOMP] = (GLfloat) span.array->rgba[k][RCOMP] * scale;
+            rgbaFloat[k][GCOMP] = (GLfloat) span.array->rgba[k][GCOMP] * scale;
+            rgbaFloat[k][BCOMP] = (GLfloat) span.array->rgba[k][BCOMP] * scale;
+            rgbaFloat[k][ACOMP] = (GLfloat) span.array->rgba[k][ACOMP] * scale;
          }
          /* scale & bias */
          if (transferOps & IMAGE_SCALE_BIAS_BIT) {
@@ -478,7 +413,8 @@ copy_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
          }
          /* convolution */
          if (transferOps & IMAGE_CONVOLUTION_BIT) {
-            /* XXX to do */
+            _mesa_problem(ctx, "Convolution should not be enabled in copy_rgba_pixels()");
+            return;
          }
          /* GL_POST_CONVOLUTION_RED/GREEN/BLUE/ALPHA_SCALE/BIAS */
          if (transferOps & IMAGE_POST_CONVOLUTION_SCALE_BIAS) {
@@ -518,60 +454,38 @@ copy_rgba_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
             GLint g = (GLint) (rgbaFloat[k][GCOMP] * CHAN_MAXF);
             GLint b = (GLint) (rgbaFloat[k][BCOMP] * CHAN_MAXF);
             GLint a = (GLint) (rgbaFloat[k][ACOMP] * CHAN_MAXF);
-            rgba[k][RCOMP] = (GLchan) CLAMP(r, 0, CHAN_MAX);
-            rgba[k][GCOMP] = (GLchan) CLAMP(g, 0, CHAN_MAX);
-            rgba[k][BCOMP] = (GLchan) CLAMP(b, 0, CHAN_MAX);
-            rgba[k][ACOMP] = (GLchan) CLAMP(a, 0, CHAN_MAX);
+            span.array->rgba[k][RCOMP] = (GLchan) CLAMP(r, 0, CHAN_MAX);
+            span.array->rgba[k][GCOMP] = (GLchan) CLAMP(g, 0, CHAN_MAX);
+            span.array->rgba[k][BCOMP] = (GLchan) CLAMP(b, 0, CHAN_MAX);
+            span.array->rgba[k][ACOMP] = (GLchan) CLAMP(a, 0, CHAN_MAX);
          }
          UNDEFARRAY(rgbaFloat);  /* mac 32k limitation */
       }
 
-      if (ctx->Texture._ReallyEnabled && ctx->Pixel.PixelTextureEnabled) {
-         GLuint unit;
-         GLchan primary_rgba[MAX_WIDTH][4];
-         DEFARRAY(GLfloat, s, MAX_WIDTH);  /* mac 32k limitation */
-         DEFARRAY(GLfloat, t, MAX_WIDTH);  /* mac 32k limitation */
-         DEFARRAY(GLfloat, r, MAX_WIDTH);  /* mac 32k limitation */
-         DEFARRAY(GLfloat, q, MAX_WIDTH);  /* mac 32k limitation */
-         CHECKARRAY(s, return); /* mac 32k limitation */
-         CHECKARRAY(t, return);
-         CHECKARRAY(r, return);
-         CHECKARRAY(q, return);
-
-         /* XXX not sure how multitexture is supposed to work here */
-         MEMCPY(primary_rgba, rgba, 4 * width * sizeof(GLchan));
-
-         for (unit = 0; unit < ctx->Const.MaxTextureUnits; unit++) {
-            _mesa_pixeltexgen(ctx, width, (const GLchan (*)[4]) rgba,
-                              s, t, r, q);
-            _swrast_texture_fragments(ctx, unit, width, s, t, r, NULL,
-                                      (CONST GLchan (*)[4]) primary_rgba,
-                                      rgba);
-         }
-
-         UNDEFARRAY(s);  /* mac 32k limitation */
-         UNDEFARRAY(t);
-         UNDEFARRAY(r);
-         UNDEFARRAY(q);
+      if (ctx->Pixel.PixelTextureEnabled && ctx->Texture._EnabledUnits) {
+         span.end = width;
+         _swrast_pixel_texture(ctx, &span);
       }
 
       if (quick_draw && dy >= 0 && dy < (GLint) ctx->DrawBuffer->Height) {
          (*swrast->Driver.WriteRGBASpan)( ctx, width, destx, dy,
-				       (const GLchan (*)[4])rgba, NULL );
+				       (const GLchan (*)[4])span.array->rgba, NULL );
       }
       else if (zoom) {
-         _mesa_write_zoomed_rgba_span( ctx, width, destx, dy, zspan, fogSpan,
-				    (const GLchan (*)[4])rgba, desty);
+         span.x = destx;
+         span.y = dy;
+         span.end = width;
+         _mesa_write_zoomed_rgba_span(ctx, &span,
+                                     (CONST GLchan (*)[4]) span.array->rgba,
+                                     desty);
       }
       else {
-         _mesa_write_rgba_span( ctx, width, destx, dy, zspan, fogSpan, rgba,
-                                NULL, GL_BITMAP );
+         span.x = destx;
+         span.y = dy;
+         span.end = width;
+         _mesa_write_rgba_span(ctx, &span);
       }
    }
-
-   /* Restore pixel source to be the draw buffer (for blending, etc) */
-   (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer,
-                                 ctx->Color.DriverDrawBuffer );
 
    if (overlapping)
       FREE(tmpImage);
@@ -582,16 +496,16 @@ static void copy_ci_pixels( GLcontext *ctx,
                             GLint srcx, GLint srcy, GLint width, GLint height,
                             GLint destx, GLint desty )
 {
-   SWcontext *swrast = SWRAST_CONTEXT(ctx);
-   GLdepth zspan[MAX_WIDTH];
-   GLfloat fogSpan[MAX_WIDTH];
    GLuint *tmpImage,*p;
    GLint sy, dy, stepy;
-   GLint i, j;
+   GLint j;
    GLboolean changeBuffer;
    const GLboolean zoom = ctx->Pixel.ZoomX != 1.0F || ctx->Pixel.ZoomY != 1.0F;
    const GLboolean shift_or_offset = ctx->Pixel.IndexShift || ctx->Pixel.IndexOffset;
    GLint overlapping;
+   struct sw_span span;
+
+   INIT_SPAN(span, GL_BITMAP, 0, 0, SPAN_INDEX);
 
    /* Determine if copy should be bottom-to-top or top-to-bottom */
    if (srcy<desty) {
@@ -610,28 +524,14 @@ static void copy_ci_pixels( GLcontext *ctx,
    overlapping = regions_overlap(srcx, srcy, destx, desty, width, height,
                                  ctx->Pixel.ZoomX, ctx->Pixel.ZoomY);
 
-   if (ctx->Depth.Test || ctx->Fog.Enabled) {
-      /* fill in array of z values */
-      GLdepth z = (GLdepth) (ctx->Current.RasterPos[2] * ctx->DepthMax);
-      GLfloat fog;
-
-      if (ctx->Fog.FogCoordinateSource == GL_FOG_COORDINATE_EXT)
-         fog = _mesa_z_to_fogfactor(ctx, ctx->Current.RasterFogCoord);
-      else
-         fog = _mesa_z_to_fogfactor(ctx, ctx->Current.RasterDistance);
-
-      for (i=0;i<width;i++) {
-         zspan[i] = z;
-         fogSpan[i] = fog;
-      }
-   }
+   if (ctx->Depth.Test)
+      _mesa_span_default_z(ctx, &span);
+   if (ctx->Fog.Enabled)
+      _mesa_span_default_fog(ctx, &span);
 
    /* If read and draw buffer are different we must do buffer switching */
    changeBuffer = ctx->Pixel.ReadBuffer != ctx->Color.DrawBuffer
                || ctx->DrawBuffer != ctx->ReadBuffer;
-
-   (*swrast->Driver.SetReadBuffer)( ctx, ctx->ReadBuffer,
-                                 ctx->Pixel.DriverReadBuffer );
 
    if (overlapping) {
       GLint ssy = sy;
@@ -640,16 +540,21 @@ static void copy_ci_pixels( GLcontext *ctx,
          _mesa_error( ctx, GL_OUT_OF_MEMORY, "glCopyPixels" );
          return;
       }
+      /* setup source */
+      if (changeBuffer)
+         _swrast_use_read_buffer(ctx);
+      /* read the image */
       p = tmpImage;
-      if (changeBuffer) {
-         (*swrast->Driver.SetReadBuffer)( ctx, ctx->ReadBuffer,
-                                       ctx->Pixel.DriverReadBuffer );
-      }
       for (j = 0; j < height; j++, ssy += stepy) {
          _mesa_read_index_span( ctx, ctx->ReadBuffer, width, srcx, ssy, p );
          p += width;
       }
       p = tmpImage;
+      /* restore to draw buffer */
+      if (changeBuffer) {
+         _swrast_use_draw_buffer(ctx);
+         changeBuffer = GL_FALSE;
+      }
    }
    else {
       tmpImage = NULL;  /* silence compiler warning */
@@ -657,45 +562,34 @@ static void copy_ci_pixels( GLcontext *ctx,
    }
 
    for (j = 0; j < height; j++, sy += stepy, dy += stepy) {
-      GLuint indexes[MAX_WIDTH];
       if (overlapping) {
-         MEMCPY(indexes, p, width * sizeof(GLuint));
+         MEMCPY(span.array->index, p, width * sizeof(GLuint));
          p += width;
       }
       else {
-         if (changeBuffer) {
-            (*swrast->Driver.SetReadBuffer)( ctx, ctx->ReadBuffer,
-                                          ctx->Pixel.DriverReadBuffer );
-         }
-         _mesa_read_index_span( ctx, ctx->ReadBuffer, width, srcx, sy, indexes );
-      }
-
-      if (changeBuffer) {
-         /* set read buffer back to draw buffer (in case of logicops) */
-         (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer,
-                                       ctx->Color.DriverDrawBuffer );
+         if (changeBuffer)
+            _swrast_use_read_buffer(ctx);
+         _mesa_read_index_span( ctx, ctx->ReadBuffer, width, srcx, sy,
+                                span.array->index );
+         if (changeBuffer)
+            _swrast_use_draw_buffer(ctx);
       }
 
       if (shift_or_offset) {
-         _mesa_shift_and_offset_ci( ctx, width, indexes );
+         _mesa_shift_and_offset_ci( ctx, width, span.array->index );
       }
       if (ctx->Pixel.MapColorFlag) {
-         _mesa_map_ci( ctx, width, indexes );
+         _mesa_map_ci( ctx, width, span.array->index );
       }
 
-      if (zoom) {
-         _mesa_write_zoomed_index_span(ctx, width, destx, dy, zspan, fogSpan,
-                                       indexes, desty );
-      }
-      else {
-         _mesa_write_index_span(ctx, width, destx, dy, zspan, fogSpan, indexes,
-                                NULL, GL_BITMAP);
-      }
+      span.x = destx;
+      span.y = dy;
+      span.end = width;
+      if (zoom)
+         _mesa_write_zoomed_index_span(ctx, &span, desty);
+      else
+         _mesa_write_index_span(ctx, &span);
    }
-
-   /* Restore pixel source to be the draw buffer (for blending, etc) */
-   (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer,
-                                 ctx->Color.DriverDrawBuffer );
 
    if (overlapping)
       FREE(tmpImage);
@@ -711,20 +605,17 @@ static void copy_depth_pixels( GLcontext *ctx, GLint srcx, GLint srcy,
                                GLint destx, GLint desty )
 {
    GLfloat depth[MAX_WIDTH];
-   GLdepth zspan[MAX_WIDTH];
-   GLfloat fogSpan[MAX_WIDTH];
    GLfloat *p, *tmpImage;
-   GLuint indexes[MAX_WIDTH];
    GLint sy, dy, stepy;
    GLint i, j;
    const GLboolean zoom = ctx->Pixel.ZoomX != 1.0F || ctx->Pixel.ZoomY != 1.0F;
    GLint overlapping;
-   DEFMARRAY(GLchan, rgba, MAX_WIDTH, 4);  /* mac 32k limitation */
-   CHECKARRAY(rgba, return);  /* mac 32k limitation */
+   struct sw_span span;
+
+   INIT_SPAN(span, GL_BITMAP, 0, 0, SPAN_Z);
 
    if (!ctx->Visual.depthBits) {
       _mesa_error( ctx, GL_INVALID_OPERATION, "glCopyPixels" );
-      UNDEFARRAY(rgba);  /* mac 32k limitation */
       return;
    }
 
@@ -745,39 +636,15 @@ static void copy_depth_pixels( GLcontext *ctx, GLint srcx, GLint srcy,
    overlapping = regions_overlap(srcx, srcy, destx, desty, width, height,
                                  ctx->Pixel.ZoomX, ctx->Pixel.ZoomY);
 
-   /* setup colors or indexes */
-   if (ctx->Visual.rgbMode) {
-      GLuint *rgba32 = (GLuint *) rgba;
-      GLuint color = *(GLuint*)( ctx->Current.Color );
-      for (i = 0; i < width; i++) {
-         rgba32[i] = color;
-      }
-   }
-   else {
-      for (i = 0; i < width; i++) {
-         indexes[i] = ctx->Current.Index;
-      }
-   }
-
-   if (ctx->Fog.Enabled) {
-      GLfloat fog;
-
-      if (ctx->Fog.FogCoordinateSource == GL_FOG_COORDINATE_EXT)
-         fog = _mesa_z_to_fogfactor(ctx, ctx->Current.RasterFogCoord);
-      else
-         fog = _mesa_z_to_fogfactor(ctx, ctx->Current.RasterDistance);
-
-      for (i = 0; i < width; i++) {
-         fogSpan[i] = fog;
-      }
-   }
+   _mesa_span_default_color(ctx, &span);
+   if (ctx->Fog.Enabled)
+      _mesa_span_default_fog(ctx, &span);
 
    if (overlapping) {
       GLint ssy = sy;
       tmpImage = (GLfloat *) MALLOC(width * height * sizeof(GLfloat));
       if (!tmpImage) {
          _mesa_error( ctx, GL_OUT_OF_MEMORY, "glCopyPixels" );
-         UNDEFARRAY(rgba);  /* mac 32k limitation */
          return;
       }
       p = tmpImage;
@@ -803,32 +670,27 @@ static void copy_depth_pixels( GLcontext *ctx, GLint srcx, GLint srcy,
 
       for (i = 0; i < width; i++) {
          GLfloat d = depth[i] * ctx->Pixel.DepthScale + ctx->Pixel.DepthBias;
-         zspan[i] = (GLdepth) (CLAMP(d, 0.0F, 1.0F) * ctx->DepthMax);
+         span.array->z[i] = (GLdepth) (CLAMP(d, 0.0F, 1.0F) * ctx->DepthMax);
       }
 
+      span.x = destx;
+      span.y = dy;
+      span.end = width;
       if (ctx->Visual.rgbMode) {
-         if (zoom) {
-            _mesa_write_zoomed_rgba_span( ctx, width, destx, dy, zspan,
-                                   fogSpan, (const GLchan (*)[4])rgba, desty );
-         }
-         else {
-            _mesa_write_rgba_span( ctx, width, destx, dy, zspan, fogSpan,
-                                   (GLchan (*)[4])rgba, NULL, GL_BITMAP);
-         }
+         if (zoom)
+            _mesa_write_zoomed_rgba_span( ctx, &span, 
+                                          (const GLchan (*)[4])span.array->rgba,
+                                          desty );
+         else
+            _mesa_write_rgba_span(ctx, &span);
       }
       else {
-         if (zoom) {
-            _mesa_write_zoomed_index_span( ctx, width, destx, dy,
-                                           zspan, fogSpan, indexes, desty );
-         }
-         else {
-            _mesa_write_index_span( ctx, width, destx, dy,
-                                    zspan, fogSpan, indexes, NULL, GL_BITMAP );
-         }
+         if (zoom)
+            _mesa_write_zoomed_index_span( ctx, &span, desty );
+         else
+            _mesa_write_index_span(ctx, &span);
       }
    }
-
-   UNDEFARRAY(rgba);  /* mac 32k limitation */
 
    if (overlapping)
       FREE(tmpImage);

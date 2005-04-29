@@ -70,7 +70,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_query.c	8.1 (Berkeley) 6/4/93";
-static const char rcsid[] = "$Id: res_query.c,v 1.2 2003/02/18 16:52:07 majka Exp $";
+static const char rcsid[] = "$Id: res_query.c,v 1.3 2004/05/13 19:37:48 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #ifndef __APPLE__
@@ -422,6 +422,137 @@ res_nsearch_2(res_state statp,
 	return (-1);
 }
 
+int
+__res_nsearch_list_2(res_state statp, const char *name,	int class, int type,  u_char *answer, int anslen, struct sockaddr *from, int *fromlen, int nsearch, char **search)
+{
+	const char *cp, *domain;
+	HEADER *hp = (HEADER *) answer;
+	char tmp[NS_MAXDNAME];
+	u_int dots;
+	int trailing_dot, ret, saved_herrno, i;
+	int got_nodata = 0, got_servfail = 0, root_on_list = 0;
+	int tried_as_is = 0;
+	int searched = 0;
+	
+	errno = 0;
+	__h_errno_set(statp, HOST_NOT_FOUND);  /* True if we never query. */
+	
+	dots = 0;
+	for (cp = name; *cp != '\0'; cp++) dots += (*cp == '.');
+
+	trailing_dot = 0;
+	if (cp > name && *--cp == '.') trailing_dot++;
+	
+	/* If there aren't any dots, it could be a user-level alias. */
+	if (!dots && (cp = res_hostalias(statp, name, tmp, sizeof tmp)) != NULL)
+		return (res_nquery(statp, cp, class, type, answer, anslen));
+	
+	/*
+	 * If there are enough dots in the name, let's just give it a
+	 * try 'as is'. The threshold can be set with the "ndots" option.
+	 * Also, query 'as is', if there is a trailing dot in the name.
+	 */
+	saved_herrno = -1;
+	if (dots >= statp->ndots || trailing_dot)
+	{
+		ret = res_nquerydomain(statp, name, NULL, class, type, answer, anslen);
+		if (ret > 0 || trailing_dot) return ret;
+		saved_herrno = h_errno;
+		tried_as_is++;
+	}
+	
+	/*
+	 * We do at least one level of search if
+	 *	- there is no dot and RES_DEFNAME is set, or
+	 *	- there is at least one dot, there is no trailing dot,
+	 *	  and RES_DNSRCH is set.
+	 */
+	if ((!dots && (statp->options & RES_DEFNAMES) != 0) || (dots && !trailing_dot && (statp->options & RES_DNSRCH) != 0))
+	{
+		int done = 0;
+		
+		for (i = 0; i < nsearch; i++)
+		{
+			domain = search[i];
+			searched = 1;
+			
+			if (domain[0] == '\0' || (domain[0] == '.' && domain[1] == '\0')) root_on_list++;
+			
+			ret = res_nquerydomain_2(statp, name, domain, class, type, answer, anslen, from, fromlen);
+			if (ret > 0) return ret;
+			
+			/*
+			 * If no server present, give up.
+			 * If name isn't found in this domain,
+			 * keep trying higher domains in the search list
+			 * (if that's enabled).
+			 * On a NO_DATA error, keep trying, otherwise
+			 * a wildcard entry of another type could keep us
+			 * from finding this entry higher in the domain.
+			 * If we get some other error (negative answer or
+										   * server failure), then stop searching up,
+			 * but try the input name below in case it's
+			 * fully-qualified.
+			 */
+			if (errno == ECONNREFUSED)
+			{
+				__h_errno_set(statp, TRY_AGAIN);
+				return -1;
+			}
+			
+			switch (statp->res_h_errno)
+			{
+				case NO_DATA:
+					got_nodata++;
+					/* FALLTHROUGH */
+				case HOST_NOT_FOUND:
+					/* keep trying */
+					break;
+				case TRY_AGAIN:
+					if (hp->rcode == ns_r_refused)
+					{
+						/* try next search element, if any */
+						got_servfail++;
+						break;
+					}
+					/* FALLTHROUGH */
+				default:
+					/* anything else implies that we're done */
+					done++;
+			}
+			
+			/*
+			 * if we got here for some reason other than DNSRCH,
+			 * we only wanted one iteration of the loop, so stop.
+			 */
+			if ((statp->options & RES_DNSRCH) == 0) done++;
+		}
+	}
+	
+	/*
+	 * If the query has not already been tried as is then try it
+	 * unless RES_NOTLDQUERY is set and there were no dots.
+	 */
+	if ((dots || !searched || (statp->options & RES_NOTLDQUERY) == 0) && !(tried_as_is || root_on_list))
+	{
+		ret = res_nquerydomain_2(statp, name, NULL, class, type, answer, anslen, from, fromlen);
+		if (ret > 0) return ret;
+	}
+	
+	/*
+	 * we got here, we didn't satisfy the search.
+	 * if we did an initial full query, return that query's H_ERRNO
+	 * (note that we wouldn't be here if that query had succeeded).
+	 * else if we ever got a nodata, send that back as the reason.
+	 * else send back meaningless H_ERRNO, that being the one from
+	 * the last DNSRCH we did.
+	 */
+	if (saved_herrno != -1) __h_errno_set(statp, saved_herrno);
+	else if (got_nodata) __h_errno_set(statp, NO_DATA);
+	else if (got_servfail) __h_errno_set(statp, TRY_AGAIN);
+	return -1;
+}
+			  
 int
 res_nsearch(res_state statp, const char *name, int class, int type, u_char *answer, int anslen)
 {

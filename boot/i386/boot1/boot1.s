@@ -1,11 +1,11 @@
-; Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+; Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
 ;
 ; @APPLE_LICENSE_HEADER_START@
 ; 
-; Portions Copyright (c) 1999-2002 Apple Computer, Inc.  All Rights
+; Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
 ; Reserved.  This file contains Original Code and/or Modifications of
 ; Original Code as defined in and that are subject to the Apple Public
-; Source License Version 1.2 (the "License").  You may not use this file
+; Source License Version 2.0 (the "License").  You may not use this file
 ; except in compliance with the License.  Please obtain a copy of the
 ; License at http://www.apple.com/publicsource and read it before using
 ; this file.
@@ -39,20 +39,12 @@
 DEBUG                EQU  0
 
 ;
-; Set to 1 to support loading the booter (boot2) from a
-; logical partition.
-;
-EXT_PART_SUPPORT     EQU  0
-
-;
 ; Various constants.
 ;
 kBoot0Segment        EQU  0x0000
 kBoot0Stack          EQU  0xFFF0        ; boot0 stack pointer
 kBoot0LoadAddr       EQU  0x7C00        ; boot0 load address
 kBoot0RelocAddr      EQU  0xE000        ; boot0 relocated address
-
-ebios_lba            EQU  0xEF00	; storage for variables
 
 kMBRBuffer           EQU  0x1000        ; MBR buffer address
 kExtBuffer           EQU  0x1200        ; EXT boot block buffer address
@@ -61,7 +53,7 @@ kPartTableOffset     EQU  0x1be
 kMBRPartTable        EQU  kMBRBuffer + kPartTableOffset
 kExtPartTable        EQU  kExtBuffer + kPartTableOffset
 
-kBoot2Sectors        EQU  112           ; sectors to load for boot2
+kBoot2Sectors        EQU  126           ; sectors to load for boot2
 kBoot2Address        EQU  0x0000        ; boot2 load address
 kBoot2Segment        EQU  0x2000        ; boot2 load segment
 
@@ -89,6 +81,7 @@ kAlBlkSizOffset      EQU  0x14
 ;; HFS+ constants
 ;;
 kHFSPlusSig          EQU  0x2B48	; HFS+ volume signature
+kHFSXSig             EQU  0x5848        ; HFSX volume signature
 kBlockSizeOffset     EQU  0x28
 kExtentOffset        EQU  0x1c0
 	
@@ -104,11 +97,7 @@ kHFSPlusBlockSize    EQU  kHFSBuffer + kBlockSizeOffset
 kHFSPlusExtent       EQU  kHFSBuffer + kExtentOffset
 
 
-%ifdef FLOPPY
-kDriveNumber         EQU  0x00
-%else
 kDriveNumber         EQU  0x80
-%endif
 
 ;
 ; Format of fdisk partition entry.
@@ -138,6 +127,11 @@ kDriveNumber         EQU  0x80
     call getc
 %endmacro
 
+%macro PrintString 1
+    mov   si, %1
+    call  print_string
+%endmacro
+        
 %if DEBUG
 %define DebugChar(x)  DebugCharMacro x
 %else
@@ -150,7 +144,7 @@ kDriveNumber         EQU  0x80
 
     SEGMENT .text
 
-    ORG     0xE000                  ; must match kBoot0RelocAddr
+    ORG     0x7C00                  ; must match kBoot0RelocAddr
 
 ;--------------------------------------------------------------------------
 ; Boot code is loaded at 0:7C00h.
@@ -184,13 +178,11 @@ start
 
     cmp     BYTE [si + part.type], kPartTypeHFS
     jne     .part_err
-    cmp     BYTE [si + part.bootid], kPartActive
-    jne     .part_err
 
     jmp     find_startup
 	
 .part_err:
-    DebugChar('P')
+    PrintString(part_error_str)
     jmp     hang
 
 ;;; ---------------------------------------
@@ -254,10 +246,13 @@ find_startup:
     DebugChar('}')
     mov     ax, [kHFSPlusSigAddr]
     cmp     ax, kHFSPlusSig
+    je      .hfs_plus2
+    cmp     ax, kHFSXSig
     jne     startup_err
 
 ;;; Now the HFS+ volume header is in our buffer.
 
+.hfs_plus2
     DebugChar('*')
     mov     eax, [kHFSPlusBlockSize]
     bswap   eax
@@ -271,8 +266,6 @@ find_startup:
 
     dec     eax
     dec     eax
-;     add     [ebios_lba], eax 		;  offset to startup file
-;     mov     ecx, [ebios_lba]
     add     ecx, eax
 
     DebugChar('!')	
@@ -292,39 +285,12 @@ find_startup:
 
 startup_err:
 
+    PrintString(boot2_error_str)
     DebugChar('X')
 	
 hang:
     hlt
     jmp     SHORT hang
-
-;--------------------------------------------------------------------------
-; load - Load one or more sectors from a partition.
-;
-; Arguments:
-;   AL = number of 512-byte sectors to read.
-;   ES:BX = pointer to where the sectors should be stored.
-;   ECX = sector offset in partition
-;   DL = drive number (0x80 + unit number)
-;   SI = pointer to the partition entry.
-;
-; Returns:
-;   CF = 0  success
-;        1 error
-;
-; load:
-; ;    push    cx
-
-; .ebios:
-; ;    mov     cx, 5                   ; load retry count
-; .ebios_loop:
-;     call    read_lba                ; use INT13/F42
-;     jnc     .exit
-; ;     loop    .ebios_loop
-
-; .exit
-;     pop     cx
-;     ret
 
 
 ;--------------------------------------------------------------------------
@@ -346,7 +312,7 @@ load:
     pushad                           ; save all registers
     mov     bp, sp                  ; save current SP
 
-;
+    ;
     ; Create the Disk Address Packet structure for the
     ; INT13/F42 (Extended Read Sectors) on the stack.
     ;
@@ -379,23 +345,23 @@ load:
 
     push    WORD 16                 ; offset 0-1, packet size
 
-;
+    ;
     ; INT13 Func 42 - Extended Read Sectors
-;
+    ;
     ; Arguments:
     ;   AH    = 0x42
     ;   DL    = drive number (80h + drive unit)
     ;   DS:SI = pointer to Disk Address Packet
-;
+    ;
     ; Returns:
     ;   AH    = return status (sucess is 0)
     ;   carry = 0 success
     ;           1 error
-;
+    ;
     ; Packet offset 2 indicates the number of sectors read
     ; successfully.
     ;
-;   mov     dl, kDriveNumber
+    ;   mov     dl, kDriveNumber
     mov     si, sp
     mov     ah, 0x42
     int     0x13
@@ -421,7 +387,6 @@ load:
     popad
     ret
 
-%if 0
 ;-------------------------------------------------------------------------
 ; Write a string to the console.
 ;
@@ -443,7 +408,6 @@ print_string
     jmp     short .loop
 .exit
     ret
-%endif
 
 %if DEBUG
 
@@ -527,6 +491,8 @@ getc:
 ; NULL terminated strings.
 ;
 ; boot_error_str   db  10, 13, 'Error', 0
+part_error_str  db  10, 13, 'HFS+ partition error', 0
+boot2_error_str db  10, 13, 'Error loading booter', 0
 
 ;--------------------------------------------------------------------------
 ; Pad the rest of the 512 byte sized booter with zeroes. The last
@@ -535,32 +501,17 @@ getc:
 ; If the booter code becomes too large, then nasm will complain
 ; that the 'times' argument is negative.
 
-pad_boot
-    times 510-($-$$) db 0
-
-%ifdef FLOPPY
-;--------------------------------------------------------------------------
-; Put fake partition entries for the bootable floppy image
-;
-part1bootid     db        0x80  ; first partition active
-part1head       db        0x00  ; head #
-part1sect       db        0x02  ; sector # (low 6 bits)
-part1cyl        db        0x00  ; cylinder # (+ high 2 bits of above)
-part1systid     db        0xab  ; Apple boot partition
-times   3       db        0x00  ; ignore head/cyl/sect #'s
-part1relsect    dd  0x00000001  ; start at sector 1
-part1numsect    dd  0x00000080  ; 64K for booter
-part2bootid     db        0x00  ; not active
-times   3       db        0x00  ; ignore head/cyl/sect #'s
-part2systid     db        0xa8  ; Apple UFS partition
-times   3       db        0x00  ; ignore head/cyl/sect #'s
-part2relsect    dd  0x00000082  ; start after booter
-; part2numsect  dd  0x00000abe  ; 1.44MB - 65K
-part2numsect    dd  0x000015fe  ; 2.88MB - 65K
-%endif
-
 pad_table_and_sig
     times 510-($-$$) db 0
     dw    kBootSignature
 
+
+    ABSOLUTE 0xE400
+	
+;
+; Variable storage area
+;        	
+ebios_lba    resd 1     
+
     END
+

@@ -24,15 +24,12 @@ Boston, MA 02111-1307, USA.  */
 /*** Public Interface (procedures) ***/
 
 const char *objc_init				PARAMS ((const char *));
-int objc_decode_option				PARAMS ((int, char **));
+const char *objc_printable_name			PARAMS ((tree, int));
 
 /* used by yyparse */
 
-/* APPLE LOCAL Objective-C++ begin */
+/* APPLE LOCAL Objective-C++ */
 void objc_finish_file				PARAMS ((void));
-/* APPLE LOCAL bitfield alignment */
-tree build_ivar_chain				PARAMS ((tree));
-/* APPLE LOCAL Objective-C++ end */
 tree start_class				PARAMS ((enum tree_code, tree, tree, tree));
 tree continue_class				PARAMS ((tree));
 void finish_class				PARAMS ((tree));
@@ -44,16 +41,36 @@ void finish_protocol				PARAMS ((tree));
 /* APPLE LOCAL msg send super  */
 /* The 'add_objc_decls' routine is no more.  */
 
+/* APPLE LOCAL begin Panther ObjC enhancements */
+tree objc_build_throw_stmt			PARAMS ((tree));
+tree objc_build_try_catch_finally_stmt		PARAMS ((int, int));
+void objc_build_synchronized_prologue		PARAMS ((tree));
+tree objc_build_synchronized_epilogue		PARAMS ((void));
+tree objc_build_try_prologue			PARAMS ((void));
+void objc_build_try_epilogue			PARAMS ((int));
+void objc_build_catch_stmt			PARAMS ((tree));
+void objc_build_catch_epilogue			PARAMS ((void));
+tree objc_build_finally_prologue		PARAMS ((void));
+tree objc_build_finally_epilogue		PARAMS ((void));
+/* APPLE LOCAL end Panther ObjC enhancements */
+
+/* APPLE LOCAL begin XJR */
+int objc_is_object_ptr_type			PARAMS ((tree, int));
+/* APPLE LOCAL end XJR */
+
 tree is_ivar					PARAMS ((tree, tree));
 int is_private					PARAMS ((tree));
 int is_public					PARAMS ((tree, tree));
-tree add_instance_variable			PARAMS ((tree, int, tree, tree, tree));
+tree add_instance_variable			PARAMS ((tree, int, tree, tree, tree, tree));
 tree add_class_method				PARAMS ((tree, tree));
 tree add_instance_method			PARAMS ((tree, tree));
 tree get_super_receiver				PARAMS ((void));
 /* APPLE LOCAL msg send super */
 void objc_clear_super_receiver			PARAMS ((void));
-tree get_class_ivars				PARAMS ((tree));
+/* APPLE LOCAL Objective-C++ */
+tree get_class_ivars_from_name			PARAMS ((tree));
+/* APPLE LOCAL bitfields */
+/* 'get_class_ivars' has been made static.  */
 tree get_class_reference			PARAMS ((tree));
 tree get_static_reference			PARAMS ((tree, tree));
 tree get_object_reference			PARAMS ((tree));
@@ -69,9 +86,6 @@ tree build_objc_string_object			PARAMS ((tree));
 void objc_declare_alias				PARAMS ((tree, tree));
 void objc_declare_class				PARAMS ((tree));
 void objc_declare_protocols			PARAMS ((tree));
-
-/* APPLE LOCAL designated initializers */
-/* 'int objc_receiver_context' is no more.  */
 
 /* the following routines are used to implement statically typed objects */
 
@@ -107,7 +121,6 @@ tree build_encode_expr				PARAMS ((tree));
 #define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 2)
 #define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 3)
 #define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 4)
-/* APPLE LOCAL bitfield alignment */
 #define CLASS_OWN_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 5)
 #define PROTOCOL_NAME(CLASS) ((CLASS)->type.name)
 #define PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 0)
@@ -117,20 +130,29 @@ tree build_encode_expr				PARAMS ((tree));
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
 #define TYPE_PROTOCOL_LIST(TYPE) ((TYPE)->type.context)
 
+/* APPLE LOCAL objc speedup dpatel */
+#define IDENTIFIER_INTERFACE_VALUE(NODE) (((struct lang_identifier *) (NODE))->interface_value)
+
 /* Set by `continue_class' and checked by `is_public'.  */
 
 #define TREE_STATIC_TEMPLATE(record_type) (TREE_PUBLIC (record_type))
 #define TYPED_OBJECT(type) \
        (TREE_CODE (type) == RECORD_TYPE && TREE_STATIC_TEMPLATE (type))
+/* APPLE LOCAL type aliasing */
+#define OBJC_TYPE_NAME(type) TYPE_NAME(type)
 
 /* Define the Objective-C or Objective-C++ language-specific tree codes.  */
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
 enum objc_tree_code {
-#ifdef OBJCPLUS
+/* APPLE LOCAL begin Objective C++ */
+#if defined (GCC_CP_TREE_H)
   LAST_BASE_TREE_CODE = LAST_CPLUS_TREE_CODE,
-#else
+#elif defined (GCC_C_TREE_H)
   LAST_BASE_TREE_CODE = LAST_C_TREE_CODE,
+#else
+#error You must include <c-tree.h> or <cp/cp-tree.h> before <objc/objc-act.h>
+/* APPLE LOCAL end Objective-C++ */
 #endif
 #include "objc-tree.def"
   LAST_OBJC_TREE_CODE
@@ -142,28 +164,26 @@ enum objc_tree_code {
 typedef struct hashed_entry	*hash;
 typedef struct hashed_attribute	*attr;
 
-struct hashed_attribute
+struct hashed_attribute GTY(())
 {
   attr next;
   tree value;
 };
-struct hashed_entry
+struct hashed_entry GTY(())
 {
   attr list;
   hash next;
   tree key;
 };
 
-extern hash *nst_method_hash_list;
-extern hash *cls_method_hash_list;
+extern GTY ((length ("SIZEHASHTABLE"))) hash *nst_method_hash_list;
+extern GTY ((length ("SIZEHASHTABLE"))) hash *cls_method_hash_list;
 
-#define HASH_ALLOC_LIST_SIZE	170
-#define ATTR_ALLOC_LIST_SIZE	170
 #define SIZEHASHTABLE 		257
 
 /* Objective-C/Objective-C++ @implementation list.  */
 
-struct imp_entry
+struct imp_entry GTY(())
 {
   struct imp_entry *next;
   tree imp_context;
@@ -172,7 +192,7 @@ struct imp_entry
   tree meta_decl;		/* _OBJC_METACLASS_<my_name>; */
 };
 
-extern struct imp_entry *imp_list;
+extern GTY(()) struct imp_entry *imp_list;
 extern int imp_count;	/* `@implementation' */
 extern int cat_count;	/* `@category' */
 
@@ -189,6 +209,8 @@ enum objc_tree_index
 
     OCTI_SELF_DECL,
     OCTI_UMSG_DECL,
+    /* APPLE LOCAL XJR */
+    OCTI_UMSG_FAST_DECL,
     OCTI_UMSG_SUPER_DECL,
     /* APPLE LOCAL begin objc stret methods */
     OCTI_UMSG_STRET_DECL,
@@ -257,11 +279,38 @@ enum objc_tree_index
     OCTI_CNST_STR_GLOB_ID,
     OCTI_STRING_CLASS_DECL,
     OCTI_SUPER_DECL,
-    
+    /* APPLE LOCAL begin Panther ObjC enhancements */
+    OCTI_UMSG_NONNIL_DECL,
+    OCTI_UMSG_NONNIL_STRET_DECL,
+    OCTI_STORAGE_CLS,
+    OCTI_EXCEPTION_EXTRACT_DECL,
+    OCTI_EXCEPTION_TRY_ENTER_DECL,
+    OCTI_EXCEPTION_TRY_EXIT_DECL,
+    OCTI_EXCEPTION_MATCH_DECL,
+    OCTI_EXCEPTION_THROW_DECL,
+    OCTI_SYNC_ENTER_DECL,
+    OCTI_SYNC_EXIT_DECL,
+    OCTI_SETJMP_DECL,
+    OCTI_EXCDATA_TEMPL,
+    OCTI_STACK_EXCEPTION_DATA_DECL,
+    OCTI_LOCAL_EXCEPTION_DECL,
+    OCTI_RETHROW_EXCEPTION_DECL,
+    OCTI_EVAL_ONCE_DECL,
+    OCTI_EXCEPTION_BLK_STACK,
+    OCTI_CATCH_TYPE,
+    /* APPLE LOCAL end Panther ObjC enhancements */
+
+    /* APPLE LOCAL begin XJR */
+    OCTI_ASSIGN_IVAR_DECL,
+    OCTI_ASSIGN_IVAR_FAST_DECL,
+    OCTI_ASSIGN_GLOBAL_DECL,
+    OCTI_ASSIGN_STRONGCAST_DECL,
+    /* APPLE LOCAL end XJR */
+
     OCTI_MAX
 };
 
-extern tree objc_global_trees[OCTI_MAX];
+extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 /* List of classes with list of their static instances.  */
 #define objc_static_instances	objc_global_trees[OCTI_STATIC_NST]
@@ -278,6 +327,8 @@ extern tree objc_global_trees[OCTI_MAX];
 
 #define self_decl		objc_global_trees[OCTI_SELF_DECL]
 #define umsg_decl		objc_global_trees[OCTI_UMSG_DECL]
+/* APPLE LOCAL XJR */
+#define umsg_fast_decl		objc_global_trees[OCTI_UMSG_FAST_DECL]
 #define umsg_super_decl		objc_global_trees[OCTI_UMSG_SUPER_DECL]
 /* APPLE LOCAL begin objc stret methods */
 #define umsg_stret_decl		objc_global_trees[OCTI_UMSG_STRET_DECL]
@@ -296,12 +347,16 @@ extern tree objc_global_trees[OCTI_MAX];
 
 /* Type checking macros.  */
 
+/* APPLE LOCAL begin XJR */
 #define IS_ID(TYPE) \
-  (TYPE_MAIN_VARIANT (TYPE) == TYPE_MAIN_VARIANT (id_type))
+  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == TREE_TYPE (id_type))
+#define IS_CLASS(TYPE) \
+  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == TREE_TYPE (objc_class_type))
 #define IS_PROTOCOL_QUALIFIED_ID(TYPE) \
   (IS_ID (TYPE) && TYPE_PROTOCOL_LIST (TYPE))
 #define IS_SUPER(TYPE) \
-  (super_type && TYPE_MAIN_VARIANT (TYPE) == TYPE_MAIN_VARIANT (super_type))
+  (POINTER_TYPE_P (TYPE) && TREE_TYPE (TYPE) == objc_super_template)
+/* APPLE LOCAL end XJR */
 
 #define class_chain		objc_global_trees[OCTI_CLS_CHAIN]
 #define alias_chain		objc_global_trees[OCTI_ALIAS_CHAIN]
@@ -354,6 +409,44 @@ extern tree objc_global_trees[OCTI_MAX];
 #define objc_selector_template	objc_global_trees[OCTI_SEL_TEMPL]
 #define ucls_super_ref		objc_global_trees[OCTI_UCLS_SUPER_REF]
 #define uucls_super_ref		objc_global_trees[OCTI_UUCLS_SUPER_REF]
+
+/* APPLE LOCAL begin Panther ObjC enhancements */
+#define umsg_nonnil_decl	objc_global_trees[OCTI_UMSG_NONNIL_DECL]
+#define umsg_nonnil_stret_decl	objc_global_trees[OCTI_UMSG_NONNIL_STRET_DECL]
+#define objc_storage_class	objc_global_trees[OCTI_STORAGE_CLS]
+#define objc_exception_extract_decl		\
+				objc_global_trees[OCTI_EXCEPTION_EXTRACT_DECL]
+#define objc_exception_try_enter_decl		\
+				objc_global_trees[OCTI_EXCEPTION_TRY_ENTER_DECL]
+#define objc_exception_try_exit_decl		\
+				objc_global_trees[OCTI_EXCEPTION_TRY_EXIT_DECL]
+#define objc_exception_match_decl		\
+				objc_global_trees[OCTI_EXCEPTION_MATCH_DECL]
+#define objc_exception_throw_decl		\
+				objc_global_trees[OCTI_EXCEPTION_THROW_DECL]
+#define objc_sync_enter_decl	objc_global_trees[OCTI_SYNC_ENTER_DECL]
+#define objc_sync_exit_decl	objc_global_trees[OCTI_SYNC_EXIT_DECL]
+#define objc_exception_data_template		\
+				objc_global_trees[OCTI_EXCDATA_TEMPL]
+#define objc_setjmp_decl	objc_global_trees[OCTI_SETJMP_DECL]
+#define objc_stack_exception_data		\
+				objc_global_trees[OCTI_STACK_EXCEPTION_DATA_DECL]
+#define objc_caught_exception	objc_global_trees[OCTI_LOCAL_EXCEPTION_DECL]	
+#define objc_rethrow_exception	objc_global_trees[OCTI_RETHROW_EXCEPTION_DECL]	
+#define objc_eval_once		objc_global_trees[OCTI_EVAL_ONCE_DECL]	
+#define objc_exception_block_stack		\
+				objc_global_trees[OCTI_EXCEPTION_BLK_STACK]
+#define objc_catch_type		objc_global_trees[OCTI_CATCH_TYPE]
+/* APPLE LOCAL end Panther ObjC enhancements */
+
+/* APPLE LOCAL begin XJR */
+#define objc_assign_ivar_decl	objc_global_trees[OCTI_ASSIGN_IVAR_DECL]
+#define objc_assign_ivar_fast_decl		\
+				objc_global_trees[OCTI_ASSIGN_IVAR_FAST_DECL]
+#define objc_assign_global_decl	objc_global_trees[OCTI_ASSIGN_GLOBAL_DECL]
+#define objc_assign_strong_cast_decl		\
+				objc_global_trees[OCTI_ASSIGN_STRONGCAST_DECL]
+/* APPLE LOCAL end XJR */
 
 #define objc_method_template	objc_global_trees[OCTI_METH_TEMPL]
 #define objc_ivar_template	objc_global_trees[OCTI_IVAR_TEMPL]

@@ -1,4 +1,5 @@
-/* Copyright (C) 1989, 1990, 1991, 1992, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1990, 1991, 1992, 2001, 2003
+   Free Software Foundation, Inc.
      Written by James Clark (jjc@jclark.com)
 
 This file is part of groff.
@@ -22,6 +23,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. */
 #endif
 
 #include <stdio.h>
+#include <errno.h>
+#include <stdlib.h>		/* for MinGW */
 
 #define INT_DIGITS 19		/* enough for 64 bit integer */
 

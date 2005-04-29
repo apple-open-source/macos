@@ -62,14 +62,16 @@ dnl
 dnl    AC_OUTPUT(Makefile)
 dnl
 dnl @author Stephane Bortzmeyer <bortzmeyer@pasteur.fr>
-dnl @version $Id: ac_prog_java.ac,v 1.1.1.1 2003/02/15 04:55:44 zarzycki Exp $
+dnl @version $Id: ac_prog_java.ac,v 1.2 2004/03/30 01:21:39 jtownsen Exp $
+dnl
+dnl Note: Modified by dda@sleepycat.com to prefer java over kaffe. [#8059]
 dnl
 AC_DEFUN([AC_PROG_JAVA],[
 AC_REQUIRE([AC_EXEEXT])dnl
 if test x$JAVAPREFIX = x; then
-        test x$JAVA = x && AC_CHECK_PROGS(JAVA, kaffe$EXEEXT java$EXEEXT)
+        test x$JAVA = x && AC_CHECK_PROGS(JAVA, java$EXEEXT kaffe$EXEEXT)
 else
-        test x$JAVA = x && AC_CHECK_PROGS(JAVA, kaffe$EXEEXT java$EXEEXT, $JAVAPREFIX)
+        test x$JAVA = x && AC_CHECK_PROGS(JAVA, java$EXEEXT kaffe$EXEEXT, $JAVAPREFIX)
 fi
 test x$JAVA = x && AC_MSG_ERROR([no acceptable Java virtual machine found in \$PATH])
 AC_PROG_JAVA_WORKS

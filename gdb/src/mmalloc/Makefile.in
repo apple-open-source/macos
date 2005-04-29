@@ -118,6 +118,7 @@ mmalloc.dvi: mmalloc.texi
 	rm -f mmalloc.?? mmalloc.??s mmalloc.log mmalloc.aux mmalloc.toc
 
 install-info: info
+	$(SHELL) $(srcdir)/../mkinstalldirs $(DESTDIR)$(infodir)
 	@list='$(INFO_DEPS)'; \
 	for file in $$list; do \
 	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
@@ -160,11 +161,6 @@ check: test1.c
 # for gdb, perhaps).
 #	./a.out
 
-install:	all
-		$(INSTALL_DATA) $(TARGETLIB) $(libdir)/$(TARGETLIB).n
-		$(RANLIB) $(libdir)/$(TARGETLIB).n
-		mv -f $(libdir)/$(TARGETLIB).n $(libdir)/$(TARGETLIB)
-
 SYSTEM_FRAMEWORK = -framework System
 
 FRAMEWORK = mmalloc
@@ -206,6 +202,12 @@ stamp-framework: $(FRAMEWORK_OFILES)
 		ln -s Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK) $(FRAMEWORK).framework/$(FRAMEWORK_PREFIX)$(FRAMEWORK); \
 	fi
 	touch stamp-framework
+
+install:	all install-info
+		$(SHELL) $(srcdir)/../mkinstalldirs $(DESTDIR)$(libdir)
+		$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(libdir)/$(TARGETLIB)n
+		$(RANLIB) $(DESTDIR)$(libdir)/$(TARGETLIB)n
+		mv -f $(DESTDIR)$(libdir)/$(TARGETLIB)n $(DESTDIR)$(libdir)/$(TARGETLIB)
 
 uninstall:	uninstall-info
 

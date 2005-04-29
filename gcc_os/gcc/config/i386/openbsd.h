@@ -1,5 +1,5 @@
 /* Configuration for an OpenBSD i386 target.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,23 +18,24 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* This is tested by i386gas.h.  */
-#define YES_UNDERSCORES
 
-#include <i386/gstabs.h>
-
-/* Get generic OpenBSD definitions.  */
-#define OBSD_OLD_GAS
-#include <openbsd.h>
+#define TARGET_VERSION fprintf (stderr, " (OpenBSD/i386)");
 
 /* This goes away when the math-emulator is fixed */
 #undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT \
   (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_NO_FANCY_MATH_387)
 
-/* Run-time target specifications */
-#define CPP_PREDEFINES "-D__unix__ -D__OpenBSD__ \
- -Asystem=unix -Asystem=bsd -Asystem=OpenBSD"
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__unix__");		\
+	builtin_define ("__OpenBSD__");		\
+	builtin_assert ("system=unix");		\
+	builtin_assert ("system=bsd");		\
+	builtin_assert ("system=OpenBSD");	\
+    }						\
+  while (0)
 
 /* Layout of source language data types.  */
 
@@ -95,26 +96,8 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 
-/* Assembler format: alignment output.  */
-
-/* A C statement to output to the stdio stream FILE an assembler
-   command to advance the location counter to a multiple of 1<<LOG
-   bytes if it is within MAX_SKIP bytes.
-
-   This will be used to align code labels according to Intel 
-   recommendations, in prevision of binutils upgrade.  */
-#ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
-#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP)			\
-  do {									\
-    if ((LOG) != 0) {							\
-      if ((MAX_SKIP) == 0) fprintf ((FILE), "\t.p2align %d\n", (LOG));	\
-      else fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP));	\
-    }									\
-  } while (0)
-#endif
-
-/* Note that we pick up ASM_OUTPUT_MI_THUNK from unix.h.  */
-
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START ";#"
 
+/* OpenBSD gas currently does not support quad, so do not use it.  */
+#undef ASM_QUAD

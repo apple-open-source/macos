@@ -1,3 +1,42 @@
+2004-05-25  Ezra Peisach  <epeisach@mit.edu>
+
+	* aes.c (krb5int_aes_encrypt): Signed/unsigned warning fix. 
+
+2004-02-09  Ken Raeburn  <raeburn@mit.edu>
+
+	* aes.c (krb5int_aes_encrypt, krb5int_aes_decrypt): Copy out value
+	for new IV.
+
+2003-12-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* arcfour.c (arcfour_weakkey1, arcfour_weakkey2,
+	arcfour_weakkeys): Now const.
+
+	* des.c (mit_des_zeroblock): Don't define here.
+	* des3.c (mit_des_zeroblock): Don't define here.
+
+2003-07-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* aes.c (aes_block_size, aes128_keysize, aes256_keysize):
+	Deleted.
+	(krb5int_enc_aes128, krb5int_enc_aes256): Updated.
+	* arcfour.c (k5_arcfour_blocksize, k5_arcfour_keysize): Deleted.
+	(krb5int_enc_arcfour): Updated.
+	* des.c (k5_des_block_size, k5_des_keysize): Deleted.
+	(krb5int_enc_des): Updated.
+	* des3.c (k5_des3_block_size, k5_des3_keysize): Deleted.
+	(krb5int_enc_des3): Updated.
+
+	* des3.c (validate_and_schedule): Split out from old
+	k5_des3_docrypt.
+	(k5_des3_encrypt, k5_des3_decrypt): Call it, and
+	krb5int_des3_cbc_encrypt or _decrypt, instead of
+	k5_des3_docrypt.  Zap key schedules before returning.
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
+
 2003-04-13  Ken Raeburn  <raeburn@mit.edu>
 
 	* aes.c (enc): Replaced function with a macro.

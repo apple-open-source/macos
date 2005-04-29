@@ -1,0 +1,137 @@
+This is texi2html.info, produced by makeinfo version 4.3 from
+texi2html.texi.
+
+Copyright (C) 1999, 2000, 2001, 2002, 2003                        Free
+Software Foundation, Inc.
+
+Portions  
+of        
+`texi2html'
+          Copyright (C) 1999, 2000 Lionel Cons
+          Copyright (C) 1999, 2000 Karl Berry
+          Copyright (C) 1999, 2000 Olaf Bachmann
+          Copyright (C) 2002, 2003 Patrice Dumas
+          Copyright (C) 2001, 2002, 2003 Derek Price
+          Copyright (C) many others.
+
+
+Portions  
+of this   
+manual    
+          Copyright (C) 1999, 2000 Karl Heinz Marbaise (manual)
+          Copyright (C) 2003 Patrice Dumas (manual)
+          Copyright (C) 2003 Derek Price (manual)
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Free Software Foundation.
+INFO-DIR-SECTION Texinfo documentation system
+START-INFO-DIR-ENTRY
+* Texi2HTML: (texi2html).  Texinfo to HTML Converter.
+END-INFO-DIR-ENTRY
+
+   This file, last updated 26 February 2004, documents the `texi2html'
+script which converts Texinfo (http://www.texinfo.org) into HTML
+(http://w3c.org).  This edition is for `texi2html' version 1.70.
+
+
+Indirect:
+texi2html.info-1: 1709
+texi2html.info-2: 50318
+texi2html.info-3: 99406
+
+Tag Table:
+(Indirect)
+Node: Top1709
+Node: Overview5646
+Node: whytexi2html7435
+Node: Obtaining texi2html9082
+Node: Installation9364
+Node: Invoking texi2html11553
+Node: Splitting output12732
+Node: Output files16061
+Node: Expansion19200
+Node: Texinfo related options20104
+Node: Page layout options21166
+Node: Style options22059
+Node: Expanding TeX regions24384
+Node: Using init files25525
+Node: Initialization files27409
+Node: Redefining functions29355
+Node: Function prototypes30421
+Node: Changing the page layout31496
+Node: The different pages32853
+Node: The page layout34566
+Ref: Element labels35845
+Node: Navigation panel37581
+Node: General purpose variables38239
+Node: Button specifications39007
+Node: Panel formatting function42339
+Node: Program variables43128
+Node: Elements hashes43833
+Node: Global informations44343
+Node: Global functions46583
+Node: Output initialization47324
+Node: Output finalization48781
+Node: css49252
+Node: Customizing header50318
+Node: Customizing section53123
+Node: Customizing footer54120
+Node: Special pages55987
+Node: Special pages content56314
+Node: Top element text56604
+Node: Contents and Overview text57875
+Node: Footnotes text60613
+Node: About text60906
+Node: Special pages layout62409
+Node: File names63599
+Node: External index files65474
+Node: Customizing HTML67594
+Node: Three contexts69256
+Node: Commands without argument71911
+Node: Style and accent commands73328
+Node: Hash reference interface74816
+Ref: Reference hash args75683
+Node: String interface78053
+Node: Define your own interface80029
+Node: Anchors images and spaces81739
+Node: Text83594
+Node: Strings84922
+Node: Skipped commands86513
+Node: References87176
+Node: Alignement commands89069
+Node: Paragraph and preformatted region89661
+Node: Complex formats93396
+Node: Lists tables and quotation95099
+Node: Table and list items95627
+Node: Whole table list and quotation99406
+Node: Definitions100940
+Node: Definition line101429
+Node: Definition formatting102970
+Node: Headings104406
+Node: Special regions105365
+Node: Menus106119
+Node: Menu parts106564
+Node: Menu formatting107997
+Node: Indices110888
+Node: Index entry place111541
+Node: Index list112152
+Node: Footnotes115241
+Node: Other commands117716
+Node: Internationalization119258
+Node: Translating strings119669
+Node: Adding new strings121322
+Node: Indexop122194
+Node: Indexvr124797
+Node: Indexcp133369
+
+End Tag Table

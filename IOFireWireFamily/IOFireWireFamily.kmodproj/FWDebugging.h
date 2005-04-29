@@ -58,11 +58,11 @@
 #endif
 
 #if FIRELOG > 0
-#   define DoErrorLog( x... ) { FireLog ( "%s %u: ", __FILE__, __LINE__ ); FireLog( "ERROR: " x ) ; }
-#   define DoDebugLog( x... ) { FireLog ( "%s %u: ", __FILE__, __LINE__ ); FireLog( x ) ; }
+#   define DoErrorLog( x... ) { FireLog( "ERROR: " x ) ; }
+#   define DoDebugLog( x... ) { FireLog( x ) ; }
 #else
-#   define DoErrorLog( x... ) { IOLog ( "%s %u: ", __FILE__, __LINE__ ); IOLog( "ERROR: " x ) ; }
-#   define DoDebugLog( x... ) { IOLog ( "%s %u: ", __FILE__, __LINE__ ); IOLog( x ) ; }
+#   define DoErrorLog( x... ) { IOLog( "ERROR: " x ) ; }
+#   define DoDebugLog( x... ) { IOLog( x ) ; }
 #endif
 
 #define ErrorLog(x...) 				DoErrorLog( x ) ;

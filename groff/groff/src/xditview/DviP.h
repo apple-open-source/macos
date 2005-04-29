@@ -182,6 +182,7 @@ typedef struct {
 	int		word_flag;
 } DviPart;
 
+extern int DviGetAndPut();
 #define DviGetIn(dw,cp)\
     (dw->dvi.tmpFile ? (\
 	DviGetAndPut (dw, cp) \

@@ -26,6 +26,7 @@ in this Software without prior written authorization from the X Consortium.
  *
  * Author:  Keith Packard, MIT X Consortium
  */
+/* $XFree86: xc/include/extensions/scrnsaver.h,v 3.1 2003/11/17 22:20:03 dawes Exp $ */
 
 #ifndef _SCRNSAVER_H_
 #define _SCRNSAVER_H_
@@ -58,45 +59,34 @@ typedef struct {
 _XFUNCPROTOBEGIN
 
 extern Bool XScreenSaverQueryExtension (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     int*	/* event_base */,
     int*	/* error_base */
-#endif
 );
 
 extern Status XScreenSaverQueryVersion (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     int*	/* major_version */,
     int*	/* minor_version */
-#endif
 );
 
 extern XScreenSaverInfo *XScreenSaverAllocInfo (
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern Status XScreenSaverQueryInfo (
-#if NeedFunctionPrototypes
     Display*		/* display */,
     Drawable		/* drawable */,
     XScreenSaverInfo*	/* info */
-#endif
 );
 
 extern void XScreenSaverSelectInput (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     Drawable	/* drawable */,
     unsigned long   /* eventMask */
-#endif
 );
 
 extern void XScreenSaverSetAttributes (
-#if NeedFunctionPrototypes
     Display*		    /* display */,
     Drawable		    /* drawable */,
     int			    /* x */,
@@ -109,39 +99,30 @@ extern void XScreenSaverSetAttributes (
     Visual *		    /* visual */,
     unsigned long	    /* valuemask */,
     XSetWindowAttributes *  /* attributes */
-#endif
 );
 
 extern void XScreenSaverUnsetAttributes (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     Drawable	/* drawable */
-#endif
 );
 
 extern Status XScreenSaverRegister (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     int		/* screen */,
     XID		/* xid */,
     Atom	/* type */
-#endif
 );
 
 extern Status XScreenSaverUnregister (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     int		/* screen */
-#endif
 );
 
 extern Status XScreenSaverGetRegistered (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     int		/* screen */,
     XID*	/* xid */,
     Atom*	/* type */
-#endif
 );
 
 _XFUNCPROTOEND

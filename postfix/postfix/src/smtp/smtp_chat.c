@@ -151,6 +151,13 @@ void    smtp_chat_cmd(SMTP_STATE *state, char *fmt,...)
     smtp_fputs(STR(state->buffer), LEN(state->buffer), session->stream);
 
     /*
+     * This code is in the wrong place and can run before an I/O error
+     * handler is set up. To make matters worse, this code pre-empts better
+     * output flushing code that sits in the smtp_xfer() routine.
+     */
+#if 0
+
+    /*
      * Flush unsent data to avoid timeouts after slow DNS lookups.
      */
     if (time((time_t *) 0) - vstream_ftime(session->stream) > 10)
@@ -160,9 +167,10 @@ void    smtp_chat_cmd(SMTP_STATE *state, char *fmt,...)
      * Abort immediately if the connection is broken.
      */
     if (vstream_ftimeout(session->stream))
-        vstream_longjmp(session->stream, SMTP_ERR_TIME);
+	vstream_longjmp(session->stream, SMTP_ERR_TIME);
     if (vstream_ferror(session->stream))
 	vstream_longjmp(session->stream, SMTP_ERR_EOF);
+#endif
 }
 
 /* smtp_chat_resp - read and process SMTP server response */
@@ -193,7 +201,7 @@ SMTP_RESP *smtp_chat_resp(SMTP_STATE *state)
 	    msg_warn("%s: response longer than %d: %.30s...",
 		     session->namaddr, var_line_limit, STR(state->buffer));
 	if (msg_verbose)
-	    msg_info("< %s: %s", session->namaddr, STR(state->buffer));
+	    msg_info("< %s: %.100s", session->namaddr, STR(state->buffer));
 
 	/*
 	 * Defend against a denial of service attack by limiting the amount
@@ -260,13 +268,14 @@ void    smtp_chat_notify(SMTP_STATE *state)
      * mail bounce wars. Always prepend one space to message content that we
      * generate from untrusted data.
      */
-#define NULL_CLEANUP_FLAGS	0
+#define NULL_TRACE_FLAGS	0
 #define LENGTH	78
 #define INDENT	4
 
     notice = post_mail_fopen_nowait(mail_addr_double_bounce(),
 				    var_error_rcpt,
-				    NULL_CLEANUP_FLAGS);
+				    CLEANUP_FLAG_MASK_INTERNAL,
+				    NULL_TRACE_FLAGS);
     if (notice == 0) {
 	msg_warn("postmaster notify: %m");
 	return;

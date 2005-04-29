@@ -12,9 +12,10 @@ NAME = tftpd
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = tftpd.c
+HFILES = tftp.h tftpsubs.h
+CFILES = tftpd.c tftpsubs.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble tftpd.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble tftpd.8 tftp.plist tftp.plist-SERVER
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -26,9 +27,6 @@ PDO_UNIX_INSTALLDIR = /usr/libexec
 LIBS = 
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
-
-
-HEADER_PATHS = -I../tftp.tproj
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /$(USER)/BUILD

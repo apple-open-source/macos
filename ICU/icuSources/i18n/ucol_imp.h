@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1998-2003, International Business Machines
+*   Copyright (C) 1998-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -33,6 +33,12 @@
 #define INVC_DATA_TYPE "icu"
 #define INVC_DATA_NAME "invuca"
 
+/**
+ * Convenience string denoting the Collation data tree
+ * @internal ICU 3.0
+ */
+#define U_ICUDATA_COLL U_ICUDATA_NAME U_TREE_SEPARATOR_STRING "coll"
+
 #if !UCONFIG_NO_COLLATION
 
 #include "unicode/ucol.h"
@@ -54,43 +60,64 @@
  * Substructures are described in the collation design document at
  * http://oss.software.ibm.com/cvs/icu/~checkout~/icuhtml/design/collation/ICU_collation_design.htm
  *
+ * -------------------------------------------------------------
+ *
  * Here is the format of binary collation image.
+ *
+ * Physical order of structures:
+ * - header (UCATableHeader)
+ * - options (UColOptionSet)
+ * - expansions (CE[])
+ * - contractions (UChar[contractionSize] + CE[contractionSize])
+ * - serialized UTrie with mappings of code points to CEs
+ * - max expansion tables (CE[endExpansionCECount] + uint8_t[endExpansionCECount])
+ * - two bit sets for backward processing in strcoll (identical prefixes)
+ *   and for backward CE iteration (each set is uint8_t[UCOL_UNSAFECP_TABLE_SIZE])
+ * - UCA constants (UCAConstants)
+ * - UCA contractions (UChar[contractionUCACombosSize][contractionUCACombosWidth])
+ *
+ * UCATableHeader fields:
  *
  * int32_t size; - image size in bytes
  *
  * Offsets to interesting data. All offsets are in bytes.
  * to get the address add to the header address and cast properly.
- * Offsets are in ascending order if non-zero. 
+ * Some offsets are zero if the corresponding structures are empty.
  *
- * uint32_t options; - offset to default collator options (UColOptionSet *), 1 signed 3-bit value, followed by 7 unsigned 32-bit values, 
- *                     followed by 64 reserved bytes (could be considered 16 32-bit values). See declaration of UColOptionSet for more details
+ * Tailoring binaries that only set options and contain no mappings etc.
+ * will have all offsets 0 except for the options and expansion offsets,
+ * which give the position and length of the options array.
  *
- * uint32_t UCAConsts; - only used in UCA image - structure which holds values for indirect positioning and implicit ranges
- *                       See declaration of UCAConstants structure. This is a field of 37 unsigned 32-bit values used to store 
+ * uint32_t options; - offset to default collator options (UColOptionSet *),
+ *                     a set of 32-bit values. See declaration of UColOptionSet for more details
+ *
+ * uint32_t UCAConsts; - only used (!=0) in UCA image - structure which holds values for indirect positioning and implicit ranges
+ *                       See declaration of UCAConstants structure. This is a set of unsigned 32-bit values used to store 
  *                       important constant values that are defined in the UCA and used for building and runtime.
  *
- * uint32_t contractionUCACombos; - only used in UCA image - list of UCA contractions. This is a zero terminated array of UChar[3],
+ * uint32_t contractionUCACombos; - only used (!=0) in UCA image - list of UCA contractions. This is a zero terminated array of UChar[contractionUCACombosWidth],
  *                                  containing contractions from the UCA. These are needed in the build process to copy UCA contractions
  *                                  in case the base contraction symbol is tailored.
  *
- * uint32_t unusedReserved1; -  reserved for future use 
+ * uint32_t magic; - must contain UCOL_HEADER_MAGIC (formatVersion 2.3)
  *
  * uint32_t mappingPosition;  - offset to UTrie (const uint8_t *mappingPosition). This is a serialized UTrie and should be treated as such. 
  *                              Used as a primary lookup table for collation elements.
  *
- * uint32_t expansion;  - offset to expansion table (uint32_t *expansion). This is an array of expansion CEs. 
+ * uint32_t expansion;  - offset to expansion table (uint32_t *expansion). This is an array of expansion CEs. Never 0.
  *
  * uint32_t contractionIndex; - offset to contraction table (UChar *contractionIndex). Used to look up contraction sequences. Contents
- *                              are aligned with the contents of contractionCEs table.
+ *                              are aligned with the contents of contractionCEs table. 0 if no contractions.
  *
  * uint32_t contractionCEs;  - offset to resulting contraction CEs (uint32_t *contractionCEs). When a contraction is resolved in the
  *                             in the contractionIndex table, the resulting index is used to look up corresponding CE in this table. 
- *
+ *                             0 if no contractions.
  * uint32_t contractionSize; - size of contraction table in elements (both Index and CEs). 
  *
  * Tables described below are used for Boyer-Moore searching algorithm - they define the size of longest expansion
  * and last CEs in expansions.
- * uint32_t endExpansionCE; - offset to array of last collation element in expansion (uint32_t *). .
+ * uint32_t endExpansionCE; - offset to array of last collation element in expansion (uint32_t *).
+ *                            Never 0.
  * uint32_t expansionCESize; - array of maximum expansion sizes (uint8_t *)
  * int32_t  endExpansionCECount; - size of endExpansionCE. See UCOL_GETMAXEXPANSION
  *                                 for the usage model
@@ -99,27 +126,31 @@
  * uint32_t unsafeCP; - hash table of unsafe code points (uint8_t *). See ucol_unsafeCP function.
  * uint32_t contrEndCP; - hash table of final code points in contractions (uint8_t *). See ucol_contractionEndCP.              
  *
- * int32_t CEcount; - currently unused
- *
+ * int32_t contractionUCACombosSize; - number of UChar[contractionUCACombosWidth] in contractionUCACombos
+ *                                     (formatVersion 2.3)
  * UBool jamoSpecial; - Jamo special indicator (uint8_t). If TRUE, Jamos are special, so we cannot use simple Hangul decomposition.
- * uint8_t padding[3]; - padding 3 uint8_t 
+ * UBool isBigEndian; - endianness of this collation binary (formatVersion 2.3)
+ * uint8_t charSetFamily; - charset family of this collation binary (formatVersion 2.3)
+ * uint8_t contractionUCACombosWidth; - number of UChars per UCA contraction in contractionUCACombos (formatVersion 2.3)
  *
  * Various version fields
  * UVersionInfo version; - version 4 uint8_t
  * UVersionInfo UCAVersion;  - version 4 uint8_t
  * UVersionInfo UCDVersion;  - version 4 uint8_t
+ * UVersionInfo formatVersion; - version of the format of the collation binary
+ *                               same formatVersion as in ucadata.icu's UDataInfo header
+ *                               (formatVersion 2.3)
  *
- * char charsetName[32];  - currently unused 32 uint8_t
- * uint8_t reserved[56];  - currently unused 64 uint8_t
+ * uint8_t reserved[84];  - currently unused
  *
- * This header is followed by data addressed by offsets in the header. 
+ * -------------------------------------------------------------
  *
  * Inverse UCA is used for constructing collators from rules. It is always an individual file
  * and always has a UDataInfo header. 
  * here is the structure:
  * 
  * uint32_t byteSize; - size of inverse UCA image in bytes
- * uint32_t tableSize; - size of inverse table (number of (inverse elements + 2)*3
+ * uint32_t tableSize; - length of inverse table (number of uint32_t[3] rows)
  * uint32_t contsSize; - size of continuation table (number of UChars in table)
  *
  * uint32_t table; - offset to inverse table (uint32_t *)
@@ -135,42 +166,32 @@
  * Header is followed by the table and continuation table.
 */
 
+/* let us know whether reserved fields are reset to zero or junked */
+#define UCOL_HEADER_MAGIC 0x20030618
+
 /* UDataInfo for UCA mapping table */
-static const UDataInfo ucaDataInfo={
-    sizeof(UDataInfo),
-    0,
+/* dataFormat="UCol"            */
+#define UCA_DATA_FORMAT_0 ((uint8_t)0x55)
+#define UCA_DATA_FORMAT_1 ((uint8_t)0x43)
+#define UCA_DATA_FORMAT_2 ((uint8_t)0x6f)
+#define UCA_DATA_FORMAT_3 ((uint8_t)0x6c)
 
-    U_IS_BIG_ENDIAN,
-    U_CHARSET_FAMILY,
-    sizeof(UChar),
-    0,
-
-    {0x55, 0x43, 0x6f, 0x6c},     /* dataFormat="UCol"            */
-    /* 03/26/2002 bumped up version since format has changed */
-    /* 09/16/2002 bumped up version since we went from UColAttributeValue */
-    /*            to int32_t in UColOptionSet */
-    /* 05/13/2003 This one also updated since we added UCA and UCD versions */
-    /*            to header */
-    {2, 2, 0, 0},                 /* formatVersion                */
-    {3, 0, 0, 0}                  /* dataVersion = Unicode Version*/
-};
+#define UCA_FORMAT_VERSION_0 ((uint8_t)2)
+#define UCA_FORMAT_VERSION_1 ((uint8_t)3)
+#define UCA_FORMAT_VERSION_2 ((uint8_t)0)
+#define UCA_FORMAT_VERSION_3 ((uint8_t)0)
 
 /* UDataInfo for inverse UCA table */
-static const UDataInfo invUcaDataInfo={
-    sizeof(UDataInfo),
-    0,
+/* dataFormat="InvC"            */
+#define INVUCA_DATA_FORMAT_0 ((uint8_t)0x49)
+#define INVUCA_DATA_FORMAT_1 ((uint8_t)0x6E)
+#define INVUCA_DATA_FORMAT_2 ((uint8_t)0x76)
+#define INVUCA_DATA_FORMAT_3 ((uint8_t)0x43)
 
-    U_IS_BIG_ENDIAN,
-    U_CHARSET_FAMILY,
-    sizeof(UChar),
-    0,
-
-    {0x49, 0x6E, 0x76, 0x43},     /* dataFormat="InvC"            */
-    /* 03/26/2002 bumped up version since format has changed */
-    /* 04/29/2003 2.1 format - we have added UCA version to header */
-    {2, 1, 0, 0},                 /* formatVersion                */
-    {3, 0, 0, 0}                  /* dataVersion = Unicode Version*/
-};
+#define INVUCA_FORMAT_VERSION_0 ((uint8_t)2)
+#define INVUCA_FORMAT_VERSION_1 ((uint8_t)1)
+#define INVUCA_FORMAT_VERSION_2 ((uint8_t)0)
+#define INVUCA_FORMAT_VERSION_3 ((uint8_t)0)
 
 /* This is the size of the stack allocated buffer for sortkey generation and similar operations */
 /* if it is too small, heap allocation will occur.*/
@@ -537,6 +558,7 @@ enum {
     UCOL_BYTE_FIRST_TAILORED = 0x04,
     UCOL_BYTE_COMMON = 0x05,
     UCOL_BYTE_FIRST_UCA = UCOL_BYTE_COMMON,
+    UCOL_CODAN_PLACEHOLDER = 0x24,
     UCOL_BYTE_LAST_LATIN_PRIMARY = 0x4C,
     UCOL_BYTE_FIRST_NON_LATIN_PRIMARY = 0x4D,
     UCOL_BYTE_UNSHIFTED_MAX = 0xFF
@@ -636,8 +658,8 @@ typedef enum {
                              /* It fits in a single 32 bit CE and is used instead of expansion to save */
                              /* space without affecting the performance (hopefully) */
                              
-	DIGIT_TAG = 13,			/* COllate Digits As Numbers (CODAN) implementation */
-	
+    DIGIT_TAG = 13,          /* COllate Digits As Numbers (CODAN) implementation */
+    
     CE_TAGS_COUNT
 } UColCETags;
 
@@ -657,8 +679,8 @@ typedef struct {
       /*UColAttributeValue*/ int32_t normalizationMode; /* attribute for normalization */
       /*UColAttributeValue*/ int32_t strength;          /* attribute for strength */
       /*UColAttributeValue*/ int32_t hiraganaQ;         /* attribute for special Hiragana */
-      /*UColAttributeValue*/ int32_t numericCollation;
-      uint8_t reserved[64];                 /* for future use */
+      /*UColAttributeValue*/ int32_t numericCollation;  /* attribute for numeric collation */
+      uint32_t reserved[15];                 /* for future use */
 } UColOptionSet;
 
 typedef struct {
@@ -706,7 +728,7 @@ typedef struct {
       uint32_t options; /* these are the default options for the collator */
       uint32_t UCAConsts; /* structure which holds values for indirect positioning and implicit ranges */
       uint32_t contractionUCACombos;        /* this one is needed only for UCA, to copy the appropriate contractions */
-      uint32_t unusedReserved1;         /* reserved for future use */
+      uint32_t magic;            /* magic number - lets us know whether reserved data is reset or junked */
       uint32_t mappingPosition;  /* const uint8_t *mappingPosition; */
       uint32_t expansion;        /* uint32_t *expansion;            */
       uint32_t contractionIndex; /* UChar *contractionIndex;        */
@@ -725,14 +747,17 @@ typedef struct {
       uint32_t contrEndCP;          /* hash table of final code points  */
                                     /*   in contractions.               */
 
-      int32_t CEcount;
+      int32_t contractionUCACombosSize;     /* number of UCA contraction items. */
+                                            /*Length is contractionUCACombosSize*contractionUCACombosWidth*sizeof(UChar) */
       UBool jamoSpecial;                    /* is jamoSpecial */
-      uint8_t padding[3];                   /* for guaranteed alignment */
+      UBool isBigEndian;                    /* is this data big endian? from the UDataInfo header*/
+      uint8_t charSetFamily;                /* what is the charset family of this data from the UDataInfo header*/
+      uint8_t contractionUCACombosWidth;    /* width of UCA combos field */
       UVersionInfo version;
       UVersionInfo UCAVersion;              /* version of the UCA, read from file */
       UVersionInfo UCDVersion;              /* UCD version, obtained by u_getUnicodeVersion */
-      char charsetName[32];                 /* for charset CEs */
-      uint8_t reserved[56];                 /* for future use */
+      UVersionInfo formatVersion;           /* format version from the UDataInfo header */
+      uint8_t reserved[84];                 /* for future use */
 } UCATableHeader;
 
 #define U_UNKNOWN_STATE 0
@@ -899,6 +924,7 @@ struct UCollator {
     uint8_t tertiaryBottomCount;
 
     UDataInfo dataInfo;               /* Data info of UCA table */
+    const UCollator *UCA;
 
 };
 
@@ -911,7 +937,7 @@ U_CFUNC
 UCollator* ucol_initUCA(UErrorCode *status);
 
 U_CFUNC
-UCollator* ucol_initCollator(const UCATableHeader *image, UCollator *fillIn, UErrorCode *status);
+UCollator* ucol_initCollator(const UCATableHeader *image, UCollator *fillIn, const UCollator *UCA, UErrorCode *status);
 
 U_CFUNC
 void ucol_setOptionsFromHeader(UCollator* result, UColOptionSet * opts, UErrorCode *status);
@@ -932,24 +958,26 @@ U_CAPI char* U_EXPORT2 ucol_sortKeyToString(const UCollator *coll, const uint8_t
 U_CAPI UBool U_EXPORT2 ucol_isTailored(const UCollator *coll, const UChar u, UErrorCode *status);
 
 U_CAPI const InverseUCATableHeader* U_EXPORT2 ucol_initInverseUCA(UErrorCode *status);
-U_CAPI int32_t U_EXPORT2 ucol_inv_getNextCE(uint32_t CE, uint32_t contCE,
-                                            uint32_t *nextCE, uint32_t *nextContCE,
-                                            uint32_t strength);
-U_CAPI int32_t U_EXPORT2 ucol_inv_getPrevCE(uint32_t CE, uint32_t contCE,
-                                            uint32_t *prevCE, uint32_t *prevContCE,
-                                            uint32_t strength);
-U_CAPI void U_EXPORT2 
-uprv_uca_initImplicitConstants(uint32_t baseByte);
 
-/** Check whether two collators are equal. Collators are considered equal if they
- *  will sort strings the same. This means that both the current attributes and the
- *  rules must be equivalent. Currently used for RuleBasedCollator::operator==.
- *  @param source first collator
- *  @param target second collator
- *  @return TRUE or FALSE
- */
-U_CAPI UBool U_EXPORT2
-ucol_equals(const UCollator *source, const UCollator *target);
+U_CAPI void U_EXPORT2 
+uprv_uca_initImplicitConstants(int32_t minPrimary, int32_t maxPrimary, UErrorCode *status);
+
+U_CAPI uint32_t U_EXPORT2
+uprv_uca_getImplicitFromRaw(UChar32 cp);
+
+U_CAPI uint32_t U_EXPORT2
+uprv_uca_getImplicitPrimary(UChar32 cp);
+
+U_CAPI UChar32 U_EXPORT2
+uprv_uca_getRawFromImplicit(uint32_t implicit);
+
+U_CAPI UChar32 U_EXPORT2
+uprv_uca_getRawFromCodePoint(UChar32 i);
+
+U_CAPI UChar32 U_EXPORT2
+uprv_uca_getCodePointFromRaw(UChar32 i);
+
+
 
 #ifdef XP_CPLUSPLUS
 /*

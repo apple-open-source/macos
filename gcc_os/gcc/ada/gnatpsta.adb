@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --          Copyright (C) 1997-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -35,13 +34,11 @@
 --  integer and floating point sizes.
 
 with Ada.Text_IO; use Ada.Text_IO;
-with Gnatvsn;
 with Ttypef;      use Ttypef;
 with Ttypes;      use Ttypes;
 with Types;       use Types;
 
 procedure GnatPsta is
-   pragma Ident (Gnatvsn.Gnat_Version_String);
 
    procedure P (Item : String) renames Ada.Text_IO.Put_Line;
 

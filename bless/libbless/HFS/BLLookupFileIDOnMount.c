@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,7 +25,7 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Apr 19 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Int. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Int. All rights reserved.
  *
  */
 
@@ -57,7 +55,7 @@ struct cataloginforeturn {
 
 static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, unsigned char out[]);
 
-int BLLookupFileIDOnMount(BLContextPtr context, unsigned char mount[], uint32_t fileID, unsigned char out[]) {
+int BLLookupFileIDOnMount(BLContextPtr context, const unsigned char mount[], uint32_t fileID, unsigned char out[]) {
     struct attrlist alist;
     struct cataloginforeturn catinfo;
     int err;

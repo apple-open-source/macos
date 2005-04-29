@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstIsEmpty.c,v 1.6 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -59,8 +58,8 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstIsEmpty.c,v 1.6 2000/07/09 00:08:
  * Side Effects:
  *	None.
  *
- *	A list is considered empty if its firstPtr == NilListNode (or if
- *	the list itself is NILLIST).
+ *	A list is considered empty if its firstPtr == NULL (or if
+ *	the list itself is NULLLIST).
  *-----------------------------------------------------------------------
  */
 Boolean

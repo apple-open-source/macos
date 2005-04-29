@@ -26,59 +26,127 @@
 
 
 #include <sys/cdefs.h>
+#include <AvailabilityMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDynamicStore.h>
 
 
 /*!
 	@header SCPreferences
-	The SCPreferencesXXX() APIs allow an application to load and
-	store XML configuration data in a controlled manner and provide
-	the necessary notifications to other applications that need to
-	be aware of configuration changes.
+	@discussion The SCPreferences API allows an application to load and
+		store XML configuration data in a controlled manner and provide
+		the necessary notifications to other applications that need to
+		be aware of configuration changes.
 
-	The stored XML configuration data is accessed using a prefsID. A
-	NULL value indicates that the default system preferences are to
-	be accessed.
-	A string which starts with a leading "/" character specifies the
-	path to the file containing te preferences to be accessed.
-	A string which does not start with a leading "/" character
-	specifies a file relative to the default system preferences
-	directory.
+		To access configuration preferences, you must first establish a
+		preferences session using the SCPreferencesCreate function.
+		To identify a specific set of preferences to access, you pass a
+		value in the prefsID parameter.
+		A NULL value indicates that the default system preferences are
+		to be accessed.
+		A string that starts with a leading "/" character specifies
+		the absolute path to the file containing the preferences to
+		be accessed.
+		A string that does not start with a leading "/" character
+		specifies a file relative to the default system preferences
+		directory.
+
+		When you are finished with the preferences session, use
+		CFRelease to close it.
  */
 
 
 /*!
 	@typedef SCPreferencesRef
-	@discussion This is the handle to an open "session" for
+	@discussion This is the handle to an open preferences session for
 		accessing system configuration preferences.
  */
 typedef const struct __SCPreferences *	SCPreferencesRef;
+
+/*!
+	@enum SCPreferencesNotification
+	@discussion Used with the SCPreferencesCallBack callback
+		to describe the type of notification.
+	@constant kSCPreferencesNotificationCommit Indicates when new
+		preferences have been saved.
+	@constant kSCPreferencesNotificationApply Key Indicates when a
+		request has been made to apply the currently saved
+		preferences to the active system configuration.
+ */
+enum {
+	kSCPreferencesNotificationCommit	= 1<<0,
+	kSCPreferencesNotificationApply		= 1<<1
+};
+typedef	uint32_t	SCPreferencesNotification;
+
+/*!
+	@typedef SCPreferencesContext
+	Structure containing user-specified data and callbacks for SCPreferences.
+	@field version The version number of the structure type being passed
+		in as a parameter to the SCPreferencesSetCallback function.
+		This structure is version 0.
+	@field info A C pointer to a user-specified block of data.
+	@field retain The callback used to add a retain for the info field.
+		If this parameter is not a pointer to a function of the correct
+		prototype, the behavior is undefined.
+		The value may be NULL.
+	@field release The calllback used to remove a retain previously added
+		for the info field.
+		If this parameter is not a pointer to a function of the
+		correct prototype, the behavior is undefined.
+		The value may be NULL.
+	@field copyDescription The callback used to provide a description of
+		the info field.
+ */
+typedef struct {
+	CFIndex		version;
+	void *		info;
+	const void	*(*retain)(const void *info);
+	void		(*release)(const void *info);
+	CFStringRef	(*copyDescription)(const void *info);
+} SCPreferencesContext;
+
+/*!
+	@typedef SCPreferencesCallBack
+	@discussion Type of the callback function used when the
+		preferences have been updated and/or applied.
+	@param prefs The preferences session.
+	@param notificationType The type of notification, such as changes
+		committed, changes applied, etc.
+	@param info A C pointer to a user-specified block of data.
+ */
+typedef void (*SCPreferencesCallBack)   (
+					SCPreferencesRef		prefs,
+					SCPreferencesNotification	notificationType,
+					void				*info
+					);
 
 
 __BEGIN_DECLS
 
 /*!
 	@function SCPreferencesGetTypeID
-	Returns the type identifier of all SCPreferences instances.
+	@discussion Returns the type identifier of all SCPreferences instances.
  */
 CFTypeID
 SCPreferencesGetTypeID		(void);
-
 
 /*!
 	@function SCPreferencesCreate
 	@discussion Initiates access to the per-system set of configuration
 		preferences.
-	@param allocator ...
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this preferences session.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used.
+		If this reference is not a valid CFAllocator, the behavior
+		is undefined.
 	@param name A string that describes the name of the calling
 		process.
 	@param prefsID A string that identifies the name of the
-		group of preferences to be accessed/updated.
-	@result prefs A pointer to memory that will be filled with an
-		SCPreferencesRef handle to be used for all subsequent requests.
-		If a session cannot be established, the contents of
-		memory pointed to by this parameter are undefined.
+		group of preferences to be accessed or updated.
+	@result Returns a reference to the new SCPreferences.
+		You must release the returned value.
  */
 SCPreferencesRef
 SCPreferencesCreate		(
@@ -91,120 +159,116 @@ SCPreferencesCreate		(
 	@function SCPreferencesLock
 	@discussion Locks access to the configuration preferences.
 
-	This function obtains exclusive access to the configuration
-	preferences associated with this prefsID. Clients attempting
-	to obtain exclusive access to the preferences will either receive
-	an kSCStatusPrefsBusy error or block waiting for the lock to be
-	released.
-	@param session An SCPreferencesRef handle that should be used for
-		all API calls.
+		This function obtains exclusive access to the configuration
+		preferences.  Clients attempting to obtain exclusive access
+		to the preferences will either receive a kSCStatusPrefsBusy
+		error or block waiting for the lock to be released.
+	@param prefs The preferences session.
 	@param wait A boolean flag indicating whether the calling process
 		should block waiting for another process to complete its update
 		operation and release its lock.
-	@result TRUE if the lock was obtained; FALSE if an error occurred.
+	@result Returns TRUE if the lock was obtained;
+		FALSE if an error occurred.
  */
 Boolean
 SCPreferencesLock		(
-				SCPreferencesRef	session,
+				SCPreferencesRef	prefs,
 				Boolean			wait
 				);
 
 /*!
 	@function SCPreferencesCommitChanges
 	@discussion Commits changes made to the configuration preferences to
-		persitent storage.
+		persistent storage.
 
-		This function commits any changes to permanent storage. An
-		implicit call to SCPreferencesLock/SCPreferencesUnlock will
-		be made if exclusive access has not already been established.
+		This function commits any changes to permanent storage.
+		Implicit calls to the SCPreferencesLock and SCPreferencesUnlock
+		functions will be made if exclusive access has not already been
+		established.
 
-		Note:  This routine commits changes to persistent storage.
-		Call SCPreferencesApplyChanges() to apply the changes
-		to the running system.
-	@param session An SCPreferencesRef handle that should be used for
-		all API calls.
-	@result TRUE if the lock was obtained; FALSE if an error occurred.
+		Note: This routine commits changes to persistent storage.
+		Call the SCPreferencesApplyChanges function to apply the
+		changes to the running system.
+	@param prefs The preferences session.
+	@result Returns TRUE if the lock was obtained;
+		FALSE if an error occurred.
  */
 Boolean
 SCPreferencesCommitChanges	(
-				SCPreferencesRef	session
+				SCPreferencesRef	prefs
 				);
 
 /*!
 	@function SCPreferencesApplyChanges
 	@discussion Requests that the currently stored configuration
 		preferences be applied to the active configuration.
-	@param session An SCPreferencesRef handle that should be used for
-		all API calls.
-	@result TRUE if the lock was obtained; FALSE if an error occurred.
+	@param prefs The preferences session.
+	@result Returns TRUE if the lock was obtained;
+		FALSE if an error occurred.
  */
 Boolean
 SCPreferencesApplyChanges	(
-				SCPreferencesRef	session
+				SCPreferencesRef	prefs
 				);
 
 /*!
 	@function SCPreferencesUnlock
 	@discussion Releases exclusive access to the configuration preferences.
 
-		This function releases the exclusive access "lock" for this prefsID.
-		Other clients will be now be able to establish exclusive access to
-		the preferences.
-	@param session An SCPreferencesRef handle that should be used for
-		all API calls.
-	@result TRUE if the lock was obtained; FALSE if an error occurred.
+		This function releases the exclusive access lock to the
+		preferences.  Other clients will be now be able to establish
+		exclusive access to the preferences.
+	@param prefs The preferences session.
+	@result Returns TRUE if the lock was obtained;
+		FALSE if an error occurred.
  */
 Boolean
 SCPreferencesUnlock		(
-				SCPreferencesRef	session
+				SCPreferencesRef	prefs
 				);
 
 /*!
 	@function SCPreferencesGetSignature
 	@discussion Returns a sequence of bytes that can be used to determine
 		if the saved configuration preferences have changed.
-	@param session An SCPreferencesRef handle that should be used for
-		all API calls.
-	@param signature A pointer to a CFDataRef that will reflect
-		the signature of the configuration preferences at the time
-		of the call to SCPreferencesCreate().
-	@result A CFDataRef that reflects the signature of the configuration
-		preferences at the time of the call to SCPreferencesCreate().
+	@param prefs The preferences session.
+	@result Returns a CFDataRef that reflects the signature of the configuration
+		preferences at the time of the call to the SCPreferencesCreate function.
  */
 CFDataRef
 SCPreferencesGetSignature	(
-				SCPreferencesRef	session
+				SCPreferencesRef	prefs
 				);
 
 /*!
 	@function SCPreferencesCopyKeyList
 	@discussion Returns an array of currently defined preference keys.
-	@param session An SCPreferencesRef handle that should be used for
-		all API calls.
-	@result The list of keys.  You must release the returned value.
+	@param prefs The preferences session.
+	@result Returns the list of keys.
+		You must release the returned value.
  */
 CFArrayRef
 SCPreferencesCopyKeyList	(
-				SCPreferencesRef	session
+				SCPreferencesRef	prefs
 				);
 
 /*!
 	@function SCPreferencesGetValue
 	@discussion Returns the data associated with a preference key.
 
-		This function retrieves data associated with a key for the prefsID.
+		This function retrieves data associated with the specified
+		key.
 
-		Note:  You could read stale data and not know it, unless you
-		first call SCPreferencesLock().
-	@param session An SCPreferencesRef handle that should be used for
-		all API calls.
+		Note: To avoid inadvertantly reading stale data, first call
+		the SCPreferencesLock function.
+	@param prefs The preferences session.
 	@param key The preference key to be returned.
-	@result The value associated with the specified preference key; If no
-		value was located, NULL is returned.
+	@result Returns the value associated with the specified preference key;
+		NULL if no value was located.
  */
 CFPropertyListRef
 SCPreferencesGetValue		(
-				SCPreferencesRef	session,
+				SCPreferencesRef	prefs,
 				CFStringRef		key
 				);
 
@@ -212,20 +276,20 @@ SCPreferencesGetValue		(
 	@function SCPreferencesAddValue
 	@discussion Adds data for a preference key.
 
-	This function associates new data with the specified key. In order
-	to commit these changes to permanent storage a call must be made to
-	SCPreferencesCommitChanges().
-	@param session The SCPreferencesRef handle that should be used to
-		communicate with the APIs.
+		This function associates new data with the specified key.
+		To commit these changes to permanent storage, a call must
+		be made to the SCPreferencesCommitChanges function.
+	@param prefs The preferences session.
 	@param key The preference key to be updated.
 	@param value The CFPropertyListRef object containing the
 		value to be associated with the specified preference key.
-	@result TRUE if the value was added; FALSE if the key already exists or
+	@result Returns TRUE if the value was added;
+		FALSE if the key already exists or
 		if an error occurred.
  */
 Boolean
 SCPreferencesAddValue		(
-				SCPreferencesRef	session,
+				SCPreferencesRef	prefs,
 				CFStringRef		key,
 				CFPropertyListRef	value
 				);
@@ -234,19 +298,19 @@ SCPreferencesAddValue		(
 	@function SCPreferencesSetValue
 	@discussion Updates the data associated with a preference key.
 
-	This function adds or replaces the value associated with the
-	specified key. In order to commit these changes to permanent
-	storage a call must be made to SCPreferencesCommitChanges().
-	@param session The SCPreferencesRef handle that should be used to
-		communicate with the APIs.
+		This function adds or replaces the value associated with the
+		specified key.  To commit these changes to permanent storage
+		a call must be made to the SCPreferencesCommitChanges function.
+	@param prefs The preferences session.
 	@param key The preference key to be updated.
 	@param value The CFPropertyListRef object containing the
 		data to be associated with the specified preference key.
-	@result TRUE if the value was set; FALSE if an error occurred.
+	@result Returns TRUE if the value was set;
+		FALSE if an error occurred.
  */
 Boolean
 SCPreferencesSetValue		(
-				SCPreferencesRef	session,
+				SCPreferencesRef	prefs,
 				CFStringRef		key,
 				CFPropertyListRef	value
 				);
@@ -255,20 +319,95 @@ SCPreferencesSetValue		(
 	@function SCPreferencesRemoveValue
 	@discussion Removes the data associated with a preference key.
 
-	This function removes the data associated with the specified
-	key. In order to commit these changes to permanent storage a
-	call must be made to SCPreferencesCommitChanges().
-	@param session The SCPreferencesRef handle that should be used to
-		communicate with the APIs.
+		This function removes the data associated with the specified
+		key.  To commit these changes to permanent storage a call must
+		be made to the SCPreferencesCommitChanges function.
+	@param prefs The preferences session.
 	@param key The preference key to be removed.
-	@result TRUE if the value was removed; FALSE if the key did not exist or
-		if an error occurred.
+	@result Returns TRUE if the value was removed;
+		FALSE if the key did not exist or if an error occurred.
  */
 Boolean
 SCPreferencesRemoveValue	(
-				SCPreferencesRef	session,
+				SCPreferencesRef	prefs,
 				CFStringRef		key
 				);
+
+/*!
+	@function SCPreferencesSetCallback
+	@discussion Assigns a callback to a preferences session.  The function
+		is called when the changes to the preferences have been
+		committed or applied.
+	@param prefs The preferences session.
+	@param callout The function to be called when the preferences have
+		been changed or applied.
+		If NULL, the current callback is removed.
+	@param context The SCPreferencesContext associated with
+		the callout.
+	@result Returns TRUE if the notification client was successfully set.
+ */
+Boolean
+SCPreferencesSetCallback		(
+					SCPreferencesRef	prefs,
+					SCPreferencesCallBack	callout,
+					SCPreferencesContext	*context
+					)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+/*!
+	@function SCPreferencesScheduleWithRunLoop
+	@discussion Schedule commit and apply notifications for the specified
+		preferences session using the specified run loop and mode.
+	@param prefs The preferences session.
+	@param runLoop A reference to a run loop on which the notification
+		should be scheduled.
+		Must be non-NULL.
+	@param runLoopMode The mode on which to schedule the notification.
+		Must be non-NULL.
+	@result Returns TRUE if the notifications are successfully scheduled;
+		FALSE otherwise.
+ */
+Boolean
+SCPreferencesScheduleWithRunLoop	(
+					SCPreferencesRef	prefs,
+					CFRunLoopRef		runLoop,
+					CFStringRef		runLoopMode
+					)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+/*!
+	@function SCPreferencesUnscheduleFromRunLoop
+	@discussion Unschedule commit and apply notifications for the specified
+		preferences session from the specified run loop and mode.
+	@param prefs The preferences session.
+	@param runLoop A reference to a run loop from which the notification
+		should be unscheduled.
+		Must be non-NULL.
+	@param runLoopMode The mode on which to unschedule the notification.
+		Must be non-NULL.
+	@result Returns TRUE if the notifications are successfully unscheduled;
+		FALSE otherwise.
+ */
+Boolean
+SCPreferencesUnscheduleFromRunLoop	(
+					SCPreferencesRef	prefs,
+					CFRunLoopRef		runLoop,
+					CFStringRef		runLoopMode
+					)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+/*!
+	@function SCPreferencesSynchronize
+	@discussion Synchronizes accessed preferences with committed changes.
+
+		Any references to preference values returned by calls to the
+		SCPreferencesGetValue function are no longer valid unless they
+		were explicitly retained or copied.  Any preference values
+		that were updated (add, set, remove) but not committed will
+		be discarded.
+	@param prefs The preferences session.
+ */
+void
+SCPreferencesSynchronize		(
+					SCPreferencesRef	prefs
+					)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 __END_DECLS
 

@@ -29,5 +29,12 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __SESSION_H__
+#define __SESSION_H__
+
 extern int session __P((void));
 extern RETSIGTYPE signal_handler __P((int));
+
+
+#endif /* __SESSION_H__ */
+

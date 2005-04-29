@@ -24,7 +24,7 @@
  * Authors:
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgavb.c,v 1.14 2002/10/30 12:51:36 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgavb.c,v 1.17 2003/12/02 13:02:38 alanh Exp $ */
 
 #include "mgacontext.h"
 #include "mgavb.h"
@@ -34,17 +34,13 @@
 
 #include "glheader.h"
 #include "mtypes.h"
-#include "mem.h"
+#include "imports.h"
 #include "macros.h"
 #include "colormac.h"
-#include "mmath.h"
 
 #include "tnl/t_context.h"
 #include "swrast_setup/swrast_setup.h"
 #include "swrast/swrast.h"
-
-#include <stdio.h>
-#include <stdlib.h>
 
 
 #define MGA_TEX1_BIT       0x1
@@ -125,8 +121,8 @@ static struct {
 #define IMPORT_FLOAT_COLORS mga_import_float_colors
 #define IMPORT_FLOAT_SPEC_COLORS mga_import_float_spec_colors
 
-#define INTERP_VERTEX setup_tab[MGA_CONTEXT(ctx)->SetupIndex].interp
-#define COPY_PV_VERTEX setup_tab[MGA_CONTEXT(ctx)->SetupIndex].copy_pv
+#define INTERP_VERTEX setup_tab[mmesa->SetupIndex].interp
+#define COPY_PV_VERTEX setup_tab[mmesa->SetupIndex].copy_pv
 
 
 /***********************************************************************
@@ -344,6 +340,9 @@ void mgaCheckTexSizes( GLcontext *ctx )
 	 tnl->Driver.Render.Interp = setup_tab[mmesa->SetupIndex].interp;
 	 tnl->Driver.Render.CopyPV = setup_tab[mmesa->SetupIndex].copy_pv;
       }
+      if (mmesa->Fallback) {
+         tnl->Driver.Render.Start(ctx);
+      }
    }
 }
 
@@ -363,24 +362,24 @@ void mgaBuildVertices( GLcontext *ctx,
    if (!newinputs)
       return;
 
-   if (newinputs & VERT_CLIP) {
+   if (newinputs & VERT_BIT_CLIP) {
       setup_tab[mmesa->SetupIndex].emit( ctx, start, count, v, stride );   
    } else {
       GLuint ind = 0;
 
-      if (newinputs & VERT_RGBA)
+      if (newinputs & VERT_BIT_COLOR0)
 	 ind |= MGA_RGBA_BIT;
       
-      if (newinputs & VERT_SPEC_RGB)
+      if (newinputs & VERT_BIT_COLOR1)
 	 ind |= MGA_SPEC_BIT;
 
-      if (newinputs & VERT_TEX0) 
+      if (newinputs & VERT_BIT_TEX0) 
 	 ind |= MGA_TEX0_BIT;
 
-      if (newinputs & VERT_TEX1)
+      if (newinputs & VERT_BIT_TEX1)
 	 ind |= MGA_TEX0_BIT|MGA_TEX1_BIT;
 
-      if (newinputs & VERT_FOG_COORD)
+      if (newinputs & VERT_BIT_FOG)
 	 ind |= MGA_FOG_BIT;
 
       if (mmesa->SetupIndex & MGA_PTEX_BIT)
@@ -407,15 +406,18 @@ void mgaChooseVertexState( GLcontext *ctx )
    if (ctx->Fog.Enabled) 
       ind |= MGA_FOG_BIT;
    
-   if (ctx->Texture._ReallyEnabled & TEXTURE1_ANY) {
-      if (ctx->Texture._ReallyEnabled & TEXTURE0_ANY) {
+   if (ctx->Texture._EnabledUnits & 0x2) {
+      /* unit 1 enabled */
+      if (ctx->Texture._EnabledUnits & 0x1) {
+         /* unit 0 enabled */
 	 ind |= MGA_TEX1_BIT|MGA_TEX0_BIT;
       }
       else {
 	 ind |= MGA_TEX0_BIT;
       }
    }
-   else if (ctx->Texture._ReallyEnabled & TEXTURE0_ANY) {
+   else if (ctx->Texture._EnabledUnits & 0x1) {
+      /* unit 0 enabled */
       ind |= MGA_TEX0_BIT;
    }
    
@@ -431,7 +433,6 @@ void mgaChooseVertexState( GLcontext *ctx )
 
    if (setup_tab[ind].vertex_format != mmesa->vertex_format) {
       FLUSH_BATCH(mmesa);      
-      mmesa->new_state |= MGA_NEW_WARP;
       mmesa->dirty |= MGA_UPLOAD_PIPE;
       mmesa->vertex_format = setup_tab[ind].vertex_format;
       mmesa->vertex_size = setup_tab[ind].vertex_size;
@@ -468,7 +469,6 @@ void mgaInitVB( GLcontext *ctx )
       }
    }
 
-   mmesa->new_state |= MGA_NEW_WARP;
    mmesa->dirty |= MGA_UPLOAD_PIPE;
    mmesa->vertex_format = setup_tab[0].vertex_format;
    mmesa->vertex_size = setup_tab[0].vertex_size;

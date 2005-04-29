@@ -1,3 +1,33 @@
+2004-08-20  Tom Yu  <tlyu@mit.edu>
+
+	* admin.h (KADM5_CONFIG_NO_AUTH): New flag.
+
+2004-06-25  Tom Yu  <tlyu@mit.edu>
+
+	* adb.h:
+	* kadm_rpc_xdr.c: rpc_u_int32 -> uint32_t
+
+2004-06-24  Tom Yu  <tlyu@mit.edu>
+
+	* alt_prof.c (kadm5_get_admin_service_name): Fix call to
+	kadm5_get_config_params().
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (clean-mac): Target deleted.
+
+2004-06-15  Tom Yu  <tlyu@mit.edu>
+
+	* admin.h (kadm5_get_admin_service_name): Prototype for new function.
+	(KADM5_CONFIG_OLD_AUTH_GSSAPI): New flag to force old AUTH_GSSAPI
+	flavor.
+
+	* alt_prof.c (kadm5_get_admin_service_name): New function.
+
+2004-02-12  Tom Yu  <tlyu@mit.edu>
+
+	* configure.in: Invoke PRIOCNTL_HACK.
+
 2003-06-03  Tom Yu  <tlyu@mit.edu>
 
 	* alt_prof.c (krb5_read_realm_params): Don't bother reading in
@@ -12,6 +42,10 @@
 
 	* alt_prof.c (kadm5_get_config_params): Remove aes256 from the
 	default supported enctypes list for now.
+
+2003-05-04  Sam Hartman  <hartmans@mit.edu>
+
+	* chpass_util_strings.et: Replace reference to ovpasswd with kpasswd
 
 2003-04-18  Ken Raeburn  <raeburn@mit.edu>
 

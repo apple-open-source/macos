@@ -1,21 +1,37 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_nt.c,v 1.20.2.3 2003/03/03 17:10:05 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* thr_nt.c - wrapper around NT threads */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_nt.c,v 1.24.2.4 2004/03/17 20:11:37 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted only
- * as authorized by the OpenLDAP Public License.  A copy of this
- * license is available at http://www.OpenLDAP.org/license.html or
- * in file LICENSE in the top-level directory of the distribution.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-
-/* thr_nt.c - wrapper around NT threads */
 
 #include "portable.h"
 
 #if defined( HAVE_NT_THREADS )
 
 #include "ldap_pvt_thread.h"
+
+typedef struct ldap_int_thread_s {
+	long tid;
+	HANDLE thd;
+} ldap_int_thread_s;
+
+#ifndef NT_MAX_THREADS
+#define NT_MAX_THREADS	1024
+#endif
+
+static ldap_int_thread_s tids[NT_MAX_THREADS];
+static int ntids;
+
 
 /* mingw compiler very sensitive about getting prototypes right */
 typedef unsigned __stdcall thrfunc_t(void *);
@@ -40,13 +56,19 @@ ldap_pvt_thread_create( ldap_pvt_thread_t * thread,
 {
 	unsigned tid;
 	HANDLE thd;
+	int rc = -1;
 
 	thd = (HANDLE) _beginthreadex(NULL, LDAP_PVT_THREAD_STACK_SIZE, (thrfunc_t *) start_routine,
 				      arg, 0, &tid);
 
-	*thread = (ldap_pvt_thread_t) thd;
-
-	return thd == NULL ? -1 : 0;
+	if ( thd ) {
+		*thread = (ldap_pvt_thread_t) tid;
+		tids[ntids].tid = tid;
+		tids[ntids].thd = thd;
+		ntids++;
+		rc = 0;
+	}
+	return rc;
 }
 	
 void 
@@ -59,7 +81,19 @@ int
 ldap_pvt_thread_join( ldap_pvt_thread_t thread, void **thread_return )
 {
 	DWORD status;
-	status = WaitForSingleObject( (HANDLE) thread, INFINITE );
+	int i;
+
+	for (i=0; i<ntids; i++) {
+		if ( tids[i].tid == thread )
+			break;
+	}
+	if ( i > ntids ) return -1;
+
+	status = WaitForSingleObject( tids[i].thd, INFINITE );
+	for (; i<ntids; i++) {
+		tids[i] = tids[i+1];
+	}
+	ntids--;
 	return status == WAIT_FAILED ? -1 : 0;
 }
 
@@ -155,7 +189,7 @@ ldap_pvt_thread_mutex_trylock( ldap_pvt_thread_mutex_t *mp )
 ldap_pvt_thread_t
 ldap_pvt_thread_self( void )
 {
-	return GetCurrentThread();
+	return GetCurrentThreadId();
 }
 
 #endif

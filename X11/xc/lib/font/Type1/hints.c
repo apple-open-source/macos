@@ -26,7 +26,7 @@
  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
  * THIS SOFTWARE.
  */
-/* $XFree86: xc/lib/font/Type1/hints.c,v 1.7 2002/02/18 20:51:57 herrb Exp $ */
+/* $XFree86: xc/lib/font/Type1/hints.c,v 1.8 2003/05/27 22:26:45 tsi Exp $ */
 
  /* HINTS    CWEB         V0006 ********                             */
 /*
@@ -113,9 +113,6 @@ CloseHints(struct fractpoint *hintP)
       hintP->y -= oldHint[i].hint.y;
  
       oldHint[i].inuse = FALSE;
- 
-      IfTrace3((HintDebug > 1),"  Hint %d was open, hint=(%p,%p)\n",
-                i, hintP->x, hintP->y);
       }
     }
 }
@@ -143,16 +140,13 @@ multiple of 90 degrees.
   if (hP->width.y == 0)
     {
     orientation = 'v';  /* vertical */
-    IfTrace0((HintDebug > 0),"  vertical hint\n");
     }
   else if (hP->width.x == 0)
     {
     orientation = 'h';  /* horizontal */
-    IfTrace0((HintDebug > 0),"  horizontal hint\n");
     }
   else
     {
-    IfTrace0((HintDebug > 0),"  hint not vertical or horizontal\n");
     hintP->x = hintP->y = 0;
     return;
     }
@@ -173,11 +167,6 @@ multiple of 90 degrees.
     Abort("ComputeHint: invalid orientation");
     }
  
-  IfTrace4((HintDebug > 1),
-    "  currX=%p, currY=%p, currRef=%p, currWidth=%p\n",
-    currX, currY,
-    currRef, currWidth);
- 
   if ((hP->hinttype == 'b')      /* Bar or stem */
     || (hP->hinttype == 's'))    /* Serif */
     {
@@ -193,9 +182,6 @@ multiple of 90 degrees.
       /* align "ref" on pel boundary */
       hintValue = FPROUND(currRef) - currRef;
       }
-    if (HintDebug > 2) {
-          IfTrace1(TRUE,"  idealWidth=%d, ", idealWidth);
-      }
     }
   else if (hP->hinttype == 'c')  /* Curve extrema */
     {
@@ -206,8 +192,6 @@ multiple of 90 degrees.
     {
     Abort("ComputeHint: invalid hinttype");
     }
- 
-  IfTrace1((HintDebug > 1),"  hintValue=%p", hintValue);
  
   if (orientation == 'v')      /* vertical */
     {
@@ -235,14 +219,6 @@ ProcessHint(struct hintsegment *hP,
 	    struct fractpoint *hintP)
 {
   struct fractpoint thisHint;
- 
-  IfTrace4((HintDebug > 1),"  ref=(%p,%p), width=(%p,%p)",
-      hP->ref.x, hP->ref.y,
-      hP->width.x, hP->width.y);
-  IfTrace4((HintDebug > 1),", %c %c %c %c",
-      hP->orientation, hP->hinttype,
-      hP->adjusttype, hP->direction);
-  IfTrace1((HintDebug > 1),", label=%d\n", hP->label);
  
   if ((hP->adjusttype == 'm')      /* Move */
     || (hP->adjusttype == 'a'))    /* Adjust */
@@ -299,14 +275,9 @@ ProcessHint(struct hintsegment *hP,
     {
     Abort("ProcessHint: invalid adjusttype");
     }
-  IfTrace3((HintDebug > 1),"  label=%d, thisHint=(%p,%p)\n",
-    hP->label, thisHint.x, thisHint.y);
  
   hintP->x += thisHint.x;
   hintP->y += thisHint.y;
- 
-  IfTrace2((HintDebug > 1),"  hint=(%p,%p)\n",
-    hintP->x, hintP->y);
 }
  
 /*
@@ -643,28 +614,19 @@ DumpSubPaths(struct edgelist *anchor)
        for (edge = anchor; VALIDEDGE(edge); edge = edge->link) {
                if (ISPERMANENT(edge->flag))
                        continue;
-               IfTrace0(TRUE, "BEGIN Subpath\n");
                for (e2 = edge; !ISPERMANENT(e2->flag);) {
                        if (ISDOWN(e2->flag)) {
-                               IfTrace1(TRUE, ". Downgoing edge's top at %x\n", e2);
                                for (e = e2;; e = e->subpath) {
-                                       IfTrace4(TRUE, ". . [%5d] %5d    @ %x[%x]\n",
-                                                e->ymin, *e->xvalues, e, e->flag);
                                        for (y=e->ymin+1; y < e->ymax; y++)
-                                               IfTrace2(TRUE, ". . [%5d] %5d     \"\n", y, e->xvalues[y-e->ymin]);
                                        e->flag |= ISPERMANENT(ON);
                                        if (ISBREAK(e, e->subpath))
                                                break;
                                }
                        }
                        else {
-                               IfTrace1(TRUE, ". Upgoing edge's top at %x\n", e2);
                                for (e = e2; !ISBREAK(e, e->subpath); e = e->subpath) { ; }
                                for (;; e=before(e)) {
-                                       IfTrace4(TRUE, ". . [%5d] %5d    @ %x[%x]\n",
-                                                e->ymax-1, e->xvalues[e->ymax-1-e->ymin], e, e->flag);
                                        for (y=e->ymax-2; y >= e->ymin; y--)
-                                               IfTrace2(TRUE, ". . [%5d] %5d      \"\n", y, e->xvalues[y-e->ymin]);
                                        e->flag |= ISPERMANENT(ON);
                                        if (e == e2)
                                                break;

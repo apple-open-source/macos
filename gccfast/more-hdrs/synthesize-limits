@@ -16,6 +16,24 @@ cat <<EOF >"$2"
 #ifndef _LIMITS_H___
 #define _LIMITS_H___
 
+/* APPLE LOCAL begin MW compatibility */
+/* Define the maximum values of built-in integral types, if needed.  */
+#ifdef __MWERKS__
+#ifndef __SHRT_MAX__ 
+#define __SHRT_MAX__ 32767
+#endif
+#ifndef __INT_MAX__ 
+#define __INT_MAX__ 2147483647
+#endif
+#ifndef __LONG_MAX__
+#define __LONG_MAX__ 2147483647L
+#endif
+#ifndef __LONG_LONG_MAX__
+#define __LONG_LONG_MAX__ 9223372036854775807LL
+#endif
+#endif /* __MWERKS__ */
+/* APPLE LOCAl end MW compatibility */
+
 #if defined (__ppc__)
 #include <ppc/limits.h>
 #elif defined (__i386__)
@@ -25,6 +43,8 @@ cat <<EOF >"$2"
 #endif
 
 #undef MB_LEN_MAX
+#define MB_LEN_MAX 6
+
 EOF
 
 cat "$1"/gcc/glimits.h | grep -v _LIMITS_H___  >>"$2"

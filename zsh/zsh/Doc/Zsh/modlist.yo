@@ -18,6 +18,9 @@ item(tt(zsh/computil))(
 A module with utility builtins needed for the shell function based
 completion system.
 )
+item(tt(zsh/datetime))(
+Some date/time commands and parameters.
+)
 item(tt(zsh/deltochar))(
 A ZLE function duplicating EMACS' tt(zap-to-char).
 )
@@ -48,6 +51,12 @@ Manipulation of Unix domain sockets
 item(tt(zsh/stat))(
 A builtin command interface to the tt(stat) system call.
 )
+item(tt(zsh/system))(
+A builtin interface to various low-level system features.
+)
+item(tt(zsh/net/tcp))(
+Manipulation of TCP sockets
+)
 item(tt(zsh/termcap))(
 Interface to the termcap database.
 )
@@ -76,9 +85,6 @@ item(tt(zsh/zutil))(
 Some utility builtins, e.g. the one for supporting configuration via 
 styles.
 )
-item(tt(zsh/net/tcp))(
-Manipulation of TCP sockets
-)
 enditem()
 includefile(Zsh/modmenu.yo)
 texinode(The zsh/cap Module)(The zsh/clone Module)()(Zsh Modules)
@@ -96,10 +102,13 @@ includefile(Zsh/mod_complete.yo)
 texinode(The zsh/complist Module)(The zsh/computil Module)(The zsh/complete Module)(Zsh Modules)
 sect(The zsh/complist Module)
 includefile(Zsh/mod_complist.yo)
-texinode(The zsh/computil Module)(The zsh/deltochar Module)(The zsh/complist Module)(Zsh Modules)
+texinode(The zsh/computil Module)(The zsh/datetime Module)(The zsh/complist Module)(Zsh Modules)
 sect(The zsh/computil Module)
 includefile(Zsh/mod_computil.yo)
-texinode(The zsh/deltochar Module)(The zsh/example Module)(The zsh/computil Module)(Zsh Modules)
+texinode(The zsh/datetime Module)(The zsh/deltochar Module)(The zsh/computil Module)(Zsh Modules)
+sect(The zsh/datetime Module)
+includefile(Zsh/mod_datetime.yo)
+texinode(The zsh/deltochar Module)(The zsh/example Module)(The zsh/datetime Module)(Zsh Modules)
 sect(The zsh/deltochar Module)
 includefile(Zsh/mod_deltochar.yo)
 texinode(The zsh/example Module)(The zsh/files Module)(The zsh/deltochar Module)(Zsh Modules)
@@ -126,10 +135,16 @@ includefile(Zsh/mod_sched.yo)
 texinode(The zsh/net/socket Module)(The zsh/stat Module)(The zsh/sched Module)(Zsh Modules)
 sect(The zsh/net/socket Module)
 includefile(Zsh/mod_socket.yo)
-texinode(The zsh/stat Module)(The zsh/termcap Module)(The zsh/net/socket Module)(Zsh Modules)
+texinode(The zsh/stat Module)(The zsh/system Module)(The zsh/net/socket Module)(Zsh Modules)
 sect(The zsh/stat Module)
 includefile(Zsh/mod_stat.yo)
-texinode(The zsh/termcap Module)(The zsh/terminfo Module)(The zsh/stat Module)(Zsh Modules)
+texinode(The zsh/system Module)(The zsh/net/tcp Module)(The zsh/stat Module)(Zsh Modules)
+sect(The zsh/system Module)
+includefile(Zsh/mod_system.yo)
+texinode(The zsh/net/tcp Module)(The zsh/termcap Module)(The zsh/system Module)(Zsh Modules)
+sect(The zsh/net/tcp Module)
+includefile(Zsh/mod_tcp.yo)
+texinode(The zsh/termcap Module)(The zsh/terminfo Module)(The zsh/net/tcp Module)(Zsh Modules)
 sect(The zsh/termcap Module)
 includefile(Zsh/mod_termcap.yo)
 texinode(The zsh/terminfo Module)(The zsh/zftp Module)(The zsh/termcap Module)(Zsh Modules)
@@ -153,9 +168,6 @@ includefile(Zsh/mod_zpty.yo)
 texinode(The zsh/zselect Module)(The zsh/zutil Module)(The zsh/zpty Module)(Zsh Modules)
 sect(The zsh/zselect Module)
 includefile(Zsh/mod_zselect.yo)
-texinode(The zsh/zutil Module)(The zsh/net/tcp Module)(The zsh/zselect Module)(Zsh Modules)
+texinode(The zsh/zutil Module)()(The zsh/zselect Module)(Zsh Modules)
 sect(The zsh/zutil Module)
 includefile(Zsh/mod_zutil.yo)
-texinode(The zsh/net/tcp Module)()(The zsh/zutil Module)(Zsh Modules)
-sect(The zsh/net/tcp Module)
-includefile(Zsh/mod_tcp.yo)

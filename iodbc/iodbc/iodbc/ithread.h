@@ -1,7 +1,7 @@
 /*
  *  ithread.h
  *
- *  $Id: ithread.h,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: ithread.h,v 1.2 2004/08/10 22:20:24 luesang Exp $
  *
  *  Macros for locking & multihreading
  *

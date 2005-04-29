@@ -68,10 +68,8 @@ char *afs_crypt (const char *, const char *, char *);
 #define min(a,b) ((a)>(b)?(b):(a))
 
 krb5_error_code
-mit_afs_string_to_key (keyblock, data, salt)
-     krb5_keyblock * keyblock;
-     const krb5_data * data;
-     const krb5_data * salt;
+mit_afs_string_to_key (krb5_keyblock *keyblock, const krb5_data *data,
+		       const krb5_data *salt)
 {
   /* totally different approach from MIT string2key. */
   /* much of the work has already been done by the only caller 
@@ -188,7 +186,7 @@ mit_afs_string_to_key (keyblock, data, salt)
  */
 
 static void krb5_afs_crypt_setkey (char*, char*, char(*)[48]);
-static void krb5_afs_encrypt (char*,long,char*,char (*)[48]);
+static void krb5_afs_encrypt (char*,char*,char (*)[48]);
 
 /*
  * Initial permutation,
@@ -338,10 +336,9 @@ static const char	S[8][64] = {
 };
  
  
-char *afs_crypt(pw, salt, iobuf)
-     const char *pw;
-     const char *salt;
-     char *iobuf;		/* must be at least 16 bytes */
+char *afs_crypt(const char *pw, const char *salt,
+		/* must be at least 16 bytes */
+		char *iobuf)
 {
 	int i, j, c;
 	int temp;
@@ -382,7 +379,7 @@ char *afs_crypt(pw, salt, iobuf)
 		}
 	
 	for(i=0; i<25; i++)
-		krb5_afs_encrypt(block,0,E,KS);
+		krb5_afs_encrypt(block,E,KS);
 	
 	for(i=0; i<11; i++){
 		c = 0;
@@ -405,9 +402,7 @@ char *afs_crypt(pw, salt, iobuf)
  * Set up the key schedule from the key.
  */
  
-static void krb5_afs_crypt_setkey(key, E, KS)
-     char *key;
-     char *E, (*KS)[48];
+static void krb5_afs_crypt_setkey(char *key, char *E, char (*KS)[48])
 {
 	register int i, j, k;
 	int t;
@@ -454,20 +449,22 @@ static void krb5_afs_crypt_setkey(key, E, KS)
 		}
 	}
  
+#if 0
 	for(i=0;i<48;i++) {
 		E[i] = e[i];
 	}
+#else
+	memcpy(E, e, 48);
+#endif
 }
  
 /*
  * The payoff: encrypt a block.
  */
  
-static void krb5_afs_encrypt(block, edflag, E, KS)
-     char *block;
-     long edflag;
-     char *E, (*KS)[48];
+static void krb5_afs_encrypt(char *block, char *E, char (*KS)[48])
 {
+	const long edflag = 0;
 	int i, ii;
 	int t, j, k;
 	char tempL[32];
@@ -502,8 +499,12 @@ static void krb5_afs_encrypt(block, edflag, E, KS)
 		 * Save the R array,
 		 * which will be the new L.
 		 */
+#if 0
 		for (j=0; j<32; j++)
 			tempL[j] = R[j];
+#else
+		memcpy(tempL, R, 32);
+#endif
 		/*
 		 * Expand R to 48 bits using the E selector;
 		 * exclusive-or with the current key bits.
@@ -545,8 +546,12 @@ static void krb5_afs_encrypt(block, edflag, E, KS)
 		 * Finally, the new L (the original R)
 		 * is copied back.
 		 */
+#if 0
 		for (j=0; j<32; j++)
 			L[j] = tempL[j];
+#else
+		memcpy(L, tempL, 32);
+#endif
 	}
 	/*
 	 * The output L and R are reversed.

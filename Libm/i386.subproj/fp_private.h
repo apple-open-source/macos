@@ -29,6 +29,7 @@
 
 #ifndef __FP_PRIVATE__
 #define __FP_PRIVATE__
+#include "stdint.h"
 
 /******************************************************************************
 *       Functions used internally                                             *
@@ -37,9 +38,17 @@ double   copysign ( double arg2, double arg1 );
 double	 fabs ( double x );
 double   nan   ( const char *string );
 
-/* gcc 2.95 inlines fabs() and fabsf() of its own accord (as single instructions!) */ 
-#define      __FABS(x)	fabs(x)
-#define      __FABSF(x)	fabsf(x)
+/* gcc inlines fabs() and fabsf()  */ 
+#define      __FABS(x)	__builtin_fabs(x)
+#define      __FABSF(x)	__builtin_fabsf(x)
+
+#if defined(__APPLE_CC__)
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect((x), 0)
+#else
+#define likely(x) (x)
+#define unlikely(x) (x)
+#endif
 
 /******************************************************************************
 *       Single precision                                                      *
@@ -48,7 +57,7 @@ double   nan   ( const char *string );
 #define       fQuietNan           0x00400000
 
 typedef union {
-       long int       lval;
+       int32_t		  lval;
        float          fval;
 } hexsingle;
 
@@ -61,8 +70,8 @@ typedef union {
 #if defined(__BIG_ENDIAN__)
 typedef union {
        struct {
-		unsigned long hi;
-		unsigned long lo;
+		uint32_t hi;
+		uint32_t lo;
 	} i;
        double            d;
 } hexdouble;
@@ -72,8 +81,8 @@ typedef union {
 #elif defined(__LITTLE_ENDIAN__)
 typedef union {
        struct {
-		unsigned long lo;
-		unsigned long hi;
+		uint32_t lo;
+		uint32_t hi;
 	} i;
        double            d;
 } hexdouble;
@@ -92,9 +101,9 @@ typedef union {
 
 typedef union {
         struct {
-        unsigned long    least_mantissa;
-        unsigned long    most_mantissa;
-        unsigned short	 head;
+        uint32_t     least_mantissa;
+        uint32_t     most_mantissa;
+        uint16_t	 head;
         } u;
         long double      e80;
 } hexlongdouble;

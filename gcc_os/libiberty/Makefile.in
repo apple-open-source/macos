@@ -1,6 +1,6 @@
 #
 # Makefile
-#   Copyright (C) 1990, 91-99, 2000, 2001
+#   Copyright (C) 1990, 91-99, 2000, 2001, 2002, 2003
 #   Free Software Foundation
 #
 # This file is part of the libiberty library.
@@ -26,6 +26,7 @@
 # Makefile for libiberty directory
 #
 
+libiberty_topdir = @libiberty_topdir@
 srcdir = @srcdir@
 VPATH = @srcdir@
 
@@ -34,6 +35,8 @@ prefix = @prefix@
 exec_prefix = @exec_prefix@
 bindir = @bindir@
 libdir = @libdir@
+includedir = @includedir@
+target_header_dir = @target_header_dir@
 
 SHELL = @SHELL@
 
@@ -48,6 +51,10 @@ MULTICLEAN = true
 INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_DATA = @INSTALL_DATA@
+mkinstalldirs = $(SHELL) $(libiberty_topdir)/mkinstalldirs
+
+# Some compilers can't handle cc -c blah.c -o foo/blah.o.
+OUTPUT_OPTION = @OUTPUT_OPTION@
 
 AR = @AR@
 AR_FLAGS = rc
@@ -78,6 +85,7 @@ FLAGS_TO_PASS = \
 	"AR_FLAGS=$(AR_FLAGS)" \
 	"CC=$(CC)" \
 	"CFLAGS=$(CFLAGS)" \
+	"DESTDIR=$(DESTDIR)" \
 	"LIBCFLAGS=$(LIBCFLAGS)" \
 	"EXTRA_OFILES=$(EXTRA_OFILES)" \
 	"HDEFINES=$(HDEFINES)" \
@@ -99,7 +107,7 @@ SUBDIRS = testsuite
 
 # FIXME: add @BUILD_INFO@ once we're sure it works for everyone.
 all: stamp-picdir $(TARGETLIB) needed-list required-list all-subdir
-	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=all
+	@: $(MAKE) ; exec $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=all
 
 .PHONY: check installcheck
 check: check-subdir
@@ -114,7 +122,7 @@ COMPILE.c = $(CC) -c @DEFS@ $(LIBCFLAGS) -I. -I$(INCDIR) $(HDEFINES) @ac_libiber
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $< -o pic/$@; \
 	else true; fi
-	$(COMPILE.c) $<
+	$(COMPILE.c) $< $(OUTPUT_OPTION)
 
 # NOTE: If you add new files to the library, add them to this list
 # (alphabetical), and add them to REQUIRED_OFILES, or
@@ -129,10 +137,11 @@ CFILES = alloca.c argv.c asprintf.c atexit.c				\
 	hashtab.c hex.c							\
 	index.c insque.c						\
 	lbasename.c							\
+	make-relative-prefix.c						\
 	make-temp-file.c md5.c memchr.c memcmp.c memcpy.c memmove.c	\
 	 memset.c mkstemps.c						\
 	objalloc.c obstack.c						\
-	partition.c pexecute.c putenv.c					\
+	partition.c pexecute.c physmem.c putenv.c			\
 	random.c regex.c rename.c rindex.c				\
 	safe-ctype.c setenv.c sigsetmask.c sort.c spaces.c		\
 	 splay-tree.c strcasecmp.c strchr.c strdup.c strerror.c		\
@@ -153,9 +162,10 @@ REQUIRED_OFILES = regex.o cplus-dem.o cp-demangle.o md5.o		\
 	getopt.o getopt1.o getpwd.o getruntime.o			\
 	hashtab.o hex.o							\
 	lbasename.o							\
+	make-relative-prefix.o						\
 	make-temp-file.o						\
 	objalloc.o obstack.o						\
-	partition.o pexecute.o						\
+	partition.o physmem.o pexecute.o				\
 	safe-ctype.o sort.o spaces.o splay-tree.o strerror.o		\
 	 strsignal.o							\
 	ternary.o							\
@@ -180,6 +190,22 @@ CONFIGURED_OFILES = asprintf.o atexit.o					\
 	tmpnam.o							\
 	vasprintf.o vfork.o vfprintf.o vprintf.o vsprintf.o		\
 	waitpid.o
+
+# These files are installed if the library has been configured to do so.
+INSTALLED_HEADERS =                                                     \
+	$(INCDIR)/ansidecl.h                                            \
+	$(INCDIR)/demangle.h                                            \
+	$(INCDIR)/dyn-string.h                                          \
+	$(INCDIR)/fibheap.h                                             \
+	$(INCDIR)/floatformat.h                                         \
+	$(INCDIR)/hashtab.h                                             \
+	$(INCDIR)/libiberty.h                                           \
+	$(INCDIR)/objalloc.h                                            \
+	$(INCDIR)/partition.h                                           \
+	$(INCDIR)/safe-ctype.h                                          \
+	$(INCDIR)/sort.h                                                \
+	$(INCDIR)/splay-tree.h                                          \
+	$(INCDIR)/ternary.h
 
 $(TARGETLIB): $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS)
 	-rm -f $(TARGETLIB) pic/$(TARGETLIB)
@@ -237,15 +263,27 @@ INSTALL_DEST = @INSTALL_DEST@
 install: install_to_$(INSTALL_DEST) install-subdir
 
 install_to_libdir: all
-	$(INSTALL_DATA) $(TARGETLIB) $(libdir)$(MULTISUBDIR)/$(TARGETLIB)n
-	( cd $(libdir)$(MULTISUBDIR) ; $(RANLIB) $(TARGETLIB)n )
-	mv -f $(libdir)$(MULTISUBDIR)/$(TARGETLIB)n $(libdir)$(MULTISUBDIR)/$(TARGETLIB)
+	${mkinstalldirs} $(DESTDIR)$(libdir)$(MULTISUBDIR)
+	$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(libdir)$(MULTISUBDIR)/$(TARGETLIB)n
+	( cd $(DESTDIR)$(libdir)$(MULTISUBDIR) ; $(RANLIB) $(TARGETLIB)n )
+	mv -f $(DESTDIR)$(libdir)$(MULTISUBDIR)/$(TARGETLIB)n $(DESTDIR)$(libdir)$(MULTISUBDIR)/$(TARGETLIB)
+	if test -n "${target_header_dir}"; then \
+	  case "${target_header_dir}" in \
+	    /*)    thd=${target_header_dir};; \
+	    *)     thd=${includedir}${MULTISUBDIR}/${target_header_dir};; \
+	  esac; \
+	  ${mkinstalldirs} $(DESTDIR)$${thd}; \
+	  for h in ${INSTALLED_HEADERS}; do \
+	    ${INSTALL_DATA} $$h $(DESTDIR)$${thd}; \
+	  done; \
+	fi
 	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
 
 install_to_tooldir: all
-	$(INSTALL_DATA) $(TARGETLIB) $(tooldir)/lib$(MULTISUBDIR)/$(TARGETLIB)n
-	( cd $(tooldir)/lib$(MULTISUBDIR) ; $(RANLIB) $(TARGETLIB)n )
-	mv -f $(tooldir)/lib$(MULTISUBDIR)/$(TARGETLIB)n $(tooldir)/lib$(MULTISUBDIR)/$(TARGETLIB)
+	${mkinstalldirs} $(DESTDIR)$(tooldir)/lib/`$$CC -print-multi-os-directory`
+	$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(tooldir)/lib/`$$CC -print-multi-os-directory`/$(TARGETLIB)n
+	( cd $(DESTDIR)$(tooldir)/lib/`$$CC -print-multi-os-directory` ; $(RANLIB) $(TARGETLIB)n )
+	mv -f $(DESTDIR)$(tooldir)/lib/`$$CC -print-multi-os-directory`/$(TARGETLIB)n $(DESTDIR)$(tooldir)/lib/`$$CC -print-multi-os-directory`/$(TARGETLIB)
 	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
 
 # needed-list is used by libstdc++.  NEEDED is the list of functions
@@ -356,7 +394,7 @@ maintainer-clean-subdir: config.h
 	@subdirs='$(SUBDIRS)'; \
 	target=`echo $@ | sed -e 's/-subdir//'`; \
 	for dir in $$subdirs ; do \
-	  cd $$dir && $(MAKE) $$target; \
+	  cd $$dir && $(MAKE) $(FLAGS_TO_PASS) $$target; \
 	done
 
 $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS): stamp-picdir
@@ -400,6 +438,7 @@ hashtab.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/hashtab.h \
 hex.o: $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
 lbasename.o: $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
 	$(INCDIR)/safe-ctype.h
+make-relative-prefix.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
 make-temp-file.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
 md5.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/md5.h
 memchr.o: $(INCDIR)/ansidecl.h
@@ -414,6 +453,7 @@ partition.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
 	$(INCDIR)/partition.h
 pexecute.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
 	$(INCDIR)/safe-ctype.h
+physmem.o: config.h $(INCDIR)/libiberty.h
 putenv.o: config.h $(INCDIR)/ansidecl.h
 random.o: $(INCDIR)/ansidecl.h
 regex.o: config.h $(INCDIR)/xregex.h $(INCDIR)/xregex2.h

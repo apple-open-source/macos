@@ -21,7 +21,7 @@
  *
  */
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i128/i128IBMDAC.c,v 1.2 2000/10/25 22:53:33 robin Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i128/i128IBMDAC.c,v 1.4 2003/11/06 18:38:02 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_ansic.h"
@@ -322,7 +322,7 @@ I128ProgramIBMRGB(ScrnInfoPtr pScrn, DisplayModePtr mode)
    I128Ptr pI128 = I128PTR(pScrn);
    unsigned char tmp2, m, n, df, best_m, best_n, best_df, max_n;
    CARD32 tmpl, tmph, tmpc;
-   long f, vrf, outf, best_vrf, best_diff, best_outf, diff;
+   long f, vrf, outf, best_diff, best_outf = 0, diff;
    long requested_freq;
    int   freq = mode->SynthClock;
    int   flags = mode->Flags;
@@ -350,7 +350,6 @@ I128ProgramIBMRGB(ScrnInfoPtr pScrn, DisplayModePtr mode)
    requested_freq = freq * 1000;
 
    best_m = best_n = best_df = 0;
-   best_vrf = best_outf = 0;
    best_diff = requested_freq;  /* worst case */
 
    for (df=0; df<4; df++) {
@@ -532,7 +531,7 @@ I128ProgramSilverHammer(ScrnInfoPtr pScrn, DisplayModePtr mode)
    I128Ptr pI128 = I128PTR(pScrn);
    unsigned char tmp2, m, n, df, best_m, best_n, best_df, max_n;
    CARD32 tmpl, tmph, tmpc;
-   long f, vrf, outf, best_vrf, best_diff, best_outf, diff;
+   long f, vrf, outf, best_diff, best_outf = 0, diff;
    long requested_freq;
    int   freq = mode->SynthClock;
    int   flags = mode->Flags;
@@ -562,7 +561,6 @@ I128ProgramSilverHammer(ScrnInfoPtr pScrn, DisplayModePtr mode)
    requested_freq = freq * 1000;
 
    best_m = best_n = best_df = 0;
-   best_vrf = best_outf = 0;
    best_diff = requested_freq;  /* worst case */
 
    for (df=0; df<4; df++) {
@@ -732,5 +730,3 @@ I128ProgramSilverHammer(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
    return(TRUE);
 }
-
-

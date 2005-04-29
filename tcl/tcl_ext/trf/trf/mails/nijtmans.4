@@ -1,0 +1,328 @@
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m112xrH-00027XC; Sat, 10 Jul 1999 16:12:03 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Sat Jul 10 16:08:28 1999
+X-From_: Jan.Nijtmans@wxs.nl  Sat Jul 10 13:52:25 1999
+Received: from mail.telekabel.nl (arnhem.telekabel.nl [194.134.132.130])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id NAA14777
+	for <a.kupries@westend.com>; Sat, 10 Jul 1999 13:52:24 +0200 (MET DST)
+Received: from wxs.nl (n20109.telekabel.chello.nl [212.142.20.109])
+	by mail.telekabel.nl (8.8.8/8.8/EuroNet) with ESMTP id NAA12899
+	from <Jan.Nijtmans@wxs.nl> for <a.kupries@westend.com>; Sat, 10 Jul 1999 13:52:15 +0200 (MET DST)
+Message-ID: <3787340A.3A8CD852@wxs.nl>
+Date: Sat, 10 Jul 1999 13:52:42 +0200
+From: Jan Nijtmans <Jan.Nijtmans@wxs.nl>
+Organization: C.M.G. Arnhem B.V.
+X-Mailer: Mozilla 4.61 [en] (Win95; I)
+X-Accept-Language: en
+MIME-Version: 1.0
+To: Andreas Kupries <a.kupries@westend.com>
+Subject: Re: Internal trf release (1.8)
+References: <m112gMq-00027XC@bluepeak>
+Content-Type: multipart/mixed;
+ boundary="------------8AA34EC8369F25F4172A900A"
+
+This is a multi-part message in MIME format.
+--------------8AA34EC8369F25F4172A900A
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+Andreas Kupries wrote:
+> I made an unofficial release of trf containing all the changes
+> contributed by you two, i.e.
+
+I built it successfully on Linux Redhat 4.2 with openssl 0.9.3c.
+All tests pass (except bz2, of course). Attached is a diff-file
+containing all changes I had to make.
+
+Comments:
+- The CHAR_BIT macro was missing. I don't know if this is
+  the correct fix.
+- openssl 0.9.3c has its header files in a different place.
+- I used Tcl8.1.1 with my current plus-patches (not released
+  yet), in which I already changed the names of the functions.
+- The "-rpath" option needs a '-Wl,' in front. Because of
+  a bug in Tcl8.1.[01] this was not visible up to now,
+  but this bug is corrected in the plus-patches and
+  now also in 8.2. This solution is taken over from Tk.
+
+Regards,
+-- 
+Jan Nijtmans, CMG Arnhem B.V.
+email: Jan.Nijtmans@wxs.nl (private)
+       Jan.Nijtmans@cmg.nl (work)
+url:   http://home.wxs.nl/~nijtmans/
+--------------8AA34EC8369F25F4172A900A
+Content-Type: text/plain; charset=us-ascii;
+ name="Trf.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="Trf.txt"
+
+*** generic/bincode.c.orig	Sat Jul 10 13:12:44 1999
+--- generic/bincode.c	Sat Jul 10 13:13:20 1999
+***************
+*** 30,35 ****
+--- 30,39 ----
+  #include <limits.h>
+  #include "transformInt.h"
+  
++ #ifndef CHAR_BIT
++ #define CHAR_BIT 8
++ #endif
++ 
+  /*
+   * Converter description
+   * ---------------------
+*** generic/loadman.h.orig	Sat Jul 10 13:04:17 1999
+--- generic/loadman.h	Sat Jul 10 13:04:49 1999
+***************
+*** 47,59 ****
+  #include "transformInt.h"
+  
+  #ifdef HAVE_MD2_H
+! #   include <md2.h>
+  #else
+  #   include "../compat/md2.h"
+  #endif
+  
+  #ifdef HAVE_SHA_H
+! #   include <sha.h>
+  #else
+  #   include "../compat/sha.h"
+  #endif
+--- 47,59 ----
+  #include "transformInt.h"
+  
+  #ifdef HAVE_MD2_H
+! #   include <openssl/md2.h>
+  #else
+  #   include "../compat/md2.h"
+  #endif
+  
+  #ifdef HAVE_SHA_H
+! #   include <openssl/sha.h>
+  #else
+  #   include "../compat/sha.h"
+  #endif
+*** generic/registry.c.orig	Sat Jul 10 13:05:39 1999
+--- generic/registry.c	Sat Jul 10 13:24:15 1999
+***************
+*** 911,917 ****
+       */
+  
+  #if GT81
+!     if (Tcl_ReplaceChannel == NULL) {
+        Tcl_AppendResult (interp, cmd, ": this feature (-attach) is not ",
+  			"available as the required patch to the core ",
+  			"was not applied", (char*) NULL);
+--- 911,917 ----
+       */
+  
+  #if GT81
+!     if (Tcl_StackChannel == NULL) {
+        Tcl_AppendResult (interp, cmd, ": this feature (-attach) is not ",
+  			"available as the required patch to the core ",
+  			"was not applied", (char*) NULL);
+***************
+*** 1917,1930 ****
+     * shall attach to.
+     */
+  
+!   trans->self = Tcl_ReplaceChannel (interp, entry->transType,
+  				    (ClientData) trans, trans->mode,
+  				    attach);
+  
+  
+    if (trans->self == (Tcl_Channel) NULL) {
+      Tcl_Free ((char*) trans);
+!     Tcl_AppendResult (interp, "internal error in Tcl_ReplaceChannel",
+  		      (char*) NULL);
+      return TCL_ERROR;
+    }
+--- 1917,1930 ----
+     * shall attach to.
+     */
+  
+!   trans->self = Tcl_StackChannel (interp, entry->transType,
+  				    (ClientData) trans, trans->mode,
+  				    attach);
+  
+  
+    if (trans->self == (Tcl_Channel) NULL) {
+      Tcl_Free ((char*) trans);
+!     Tcl_AppendResult (interp, "internal error in Tcl_StackChannel",
+  		      (char*) NULL);
+      return TCL_ERROR;
+    }
+*** generic/transformInt.h.orig	Sat Jul 10 13:07:18 1999
+--- generic/transformInt.h	Sat Jul 10 13:09:58 1999
+***************
+*** 315,321 ****
+  #endif
+  
+  #ifdef USE_TCL_STUBS
+! #ifndef Tcl_ReplaceChannel
+  /* The core we are compiling against is not patched, so supply the
+   * necesssary definitions here by ourselves. The form chosen for
+   * the procedure macros (reservedXXX) will notify us if the core
+--- 315,321 ----
+  #endif
+  
+  #ifdef USE_TCL_STUBS
+! #ifndef Tcl_StackChannel
+  /* The core we are compiling against is not patched, so supply the
+   * necesssary definitions here by ourselves. The form chosen for
+   * the procedure macros (reservedXXX) will notify us if the core
+***************
+*** 327,345 ****
+   */
+  
+  /* 281 */
+! typedef Tcl_Channel (trf_ReplaceChannel) _ANSI_ARGS_((Tcl_Interp* interp,
+  						      Tcl_ChannelType* typePtr,
+  						      ClientData instanceData,
+  						      int mask,
+  						      Tcl_Channel prevChan));
+  /* 282 */
+! typedef void (trf_UndoReplaceChannel) _ANSI_ARGS_((Tcl_Interp* interp,
+  						   Tcl_Channel chan));
+  
+! #define Tcl_ReplaceChannel     ((trf_ReplaceChannel*) tclStubsPtr->reserved281)
+! #define Tcl_UndoReplaceChannel ((trf_UndoReplaceChannel*) tclStubsPtr->reserved282)
+  
+! #endif /* Tcl_ReplaceChannel */
+  #endif /* USE_TCL_STUBS */
+  
+  
+--- 327,345 ----
+   */
+  
+  /* 281 */
+! typedef Tcl_Channel (trf_StackChannel) _ANSI_ARGS_((Tcl_Interp* interp,
+  						      Tcl_ChannelType* typePtr,
+  						      ClientData instanceData,
+  						      int mask,
+  						      Tcl_Channel prevChan));
+  /* 282 */
+! typedef void (trf_UnstackChannel) _ANSI_ARGS_((Tcl_Interp* interp,
+  						   Tcl_Channel chan));
+  
+! #define Tcl_StackChannel   ((trf_StackChannel*) tclStubsPtr->reserved281)
+! #define Tcl_UnstackChannel ((trf_UnstackChannel*) tclStubsPtr->reserved282)
+  
+! #endif /* Tcl_StackChannel */
+  #endif /* USE_TCL_STUBS */
+  
+  
+*** generic/unstack.c.orig	Sat Jul 10 13:11:26 1999
+--- generic/unstack.c	Sat Jul 10 13:12:03 1999
+***************
+*** 66,72 ****
+  #if GT81
+    const char* cmd = argv [0];
+  
+!   if (Tcl_UndoReplaceChannel == NULL) {
+      Tcl_AppendResult (interp, cmd, " is not available as the required ",
+  		      "patch to the core was not applied", (char*) NULL);
+      return TCL_ERROR;
+--- 66,72 ----
+  #if GT81
+    const char* cmd = argv [0];
+  
+!   if (Tcl_UnstackChannel == NULL) {
+      Tcl_AppendResult (interp, cmd, " is not available as the required ",
+  		      "patch to the core was not applied", (char*) NULL);
+      return TCL_ERROR;
+***************
+*** 85,91 ****
+      return TCL_ERROR;
+    }
+  
+!   Tcl_UndoReplaceChannel (interp, chan);
+    return TCL_OK;
+  }
+  
+--- 85,91 ----
+      return TCL_ERROR;
+    }
+  
+!   Tcl_UnstackChannel (interp, chan);
+    return TCL_OK;
+  }
+  
+*** unix/configure.in.orig	Sat Jul 10 12:54:32 1999
+--- unix/configure.in	Sat Jul 10 13:19:41 1999
+***************
+*** 79,85 ****
+  	[])
+  
+  AC_ARG_WITH(ssl,
+! 	[  --with-ssl=DIR		md2.h/sha1.h reside in DIR/include, libcrypto resides in DIR/lib],
+  	[SSL_LIB_DIR=$withval/lib; SSL_INCLUDE_DIR=$withval/include],
+  	[])
+  dnl
+--- 79,85 ----
+  	[])
+  
+  AC_ARG_WITH(ssl,
+! 	[  --with-ssl=DIR		md2.h/sha1.h reside in DIR/include/openssl, libcrypto resides in DIR/lib],
+  	[SSL_LIB_DIR=$withval/lib; SSL_INCLUDE_DIR=$withval/include],
+  	[])
+  dnl
+***************
+*** 409,419 ****
+  		/usr/local/include \
+  		/usr/include"
+       for dir in $places; do
+!          if test -r $dir/md2.h ; then
+              trf_cv_path_SSL_INCLUDE_DIR=$dir
+              break
+           fi
+!          if test -r $dir/sha1.h ; then
+              trf_cv_path_SSL_INCLUDE_DIR=$dir
+              break
+           fi
+--- 409,419 ----
+  		/usr/local/include \
+  		/usr/include"
+       for dir in $places; do
+!          if test -r $dir/openssl/md2.h ; then
+              trf_cv_path_SSL_INCLUDE_DIR=$dir
+              break
+           fi
+!          if test -r $dir/openssl/sha1.h ; then
+              trf_cv_path_SSL_INCLUDE_DIR=$dir
+              break
+           fi
+***************
+*** 533,539 ****
+      LIB_RUNTIME_DIR=`echo ${LIB_RUNTIME_DIR} |sed -e 's/:/ -L/g'`
+  fi
+  eval "TRF_CC_SEARCH_FLAGS=\"$TCL_LD_SEARCH_FLAGS\""
+! TRF_LD_SEARCH_FLAGS=`echo ${TRF_CC_SEARCH_FLAGS} |sed -e "s|-Wl,||g" -e "s|,| |g"`
+  
+  TCL_BASE=`echo ${TCL_LIB_SPEC} |sed -e "s|^.*-l||"`
+  TCL_STUB_BASE=`echo ${TCL_STUB_LIB_SPEC} |sed -e "s|^.*-l||"`
+--- 533,549 ----
+      LIB_RUNTIME_DIR=`echo ${LIB_RUNTIME_DIR} |sed -e 's/:/ -L/g'`
+  fi
+  eval "TRF_CC_SEARCH_FLAGS=\"$TCL_LD_SEARCH_FLAGS\""
+! # The following case handles the differences between linking with "ld"
+! # and the compiler
+! 
+! case $SHLIB_LD in
+!     *ld*)
+!       TRF_LD_SEARCH_FLAGS=`echo ${TRF_CC_SEARCH_FLAGS} |sed -e "s|-Wl,||g" -e "s|,| |g"`
+!       ;;
+!     *)
+!       TRF_LD_SEARCH_FLAGS="${TRF_CC_SEARCH_FLAGS}"
+!       ;;
+! esac
+  
+  TCL_BASE=`echo ${TCL_LIB_SPEC} |sed -e "s|^.*-l||"`
+  TCL_STUB_BASE=`echo ${TCL_STUB_LIB_SPEC} |sed -e "s|^.*-l||"`
+
+--------------8AA34EC8369F25F4172A900A--

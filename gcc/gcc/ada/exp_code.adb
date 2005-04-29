@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1996-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -166,12 +165,13 @@ package body Exp_Code is
       --  are never static).
 
       if Is_OK_Static_Expression (Temp)
-        or else (Ada_83 and then Nkind (Temp) = N_String_Literal)
+        or else (Ada_Version = Ada_83
+                  and then Nkind (Temp) = N_String_Literal)
       then
          return Get_String_Node (Temp);
 
       else
-         Error_Msg_N ("asm template argument is not static", Temp);
+         Flag_Non_Static_Expr ("asm template argument is not static!", Temp);
          return Empty;
       end if;
    end Asm_Template;
@@ -243,7 +243,7 @@ package body Exp_Code is
 
    begin
       if not Is_OK_Static_Expression (Clob) then
-         Error_Msg_N ("asm clobber argument is not static", Clob);
+         Flag_Non_Static_Expr ("asm clobber argument is not static!", Clob);
          Clobber_Node := Empty;
 
       else
@@ -270,7 +270,7 @@ package body Exp_Code is
          --  know the type is right, it is sufficient to see if the
          --  referenced entity is in a runtime routine.
 
-         if Nkind (N) = N_Identifier
+         if Is_Entity_Name (N)
            and then
              Is_Predefined_File_Name (Unit_File_Name
                                        (Get_Source_Unit (Entity (N))))
@@ -400,7 +400,7 @@ package body Exp_Code is
 
    begin
       if not Is_OK_Static_Expression (Vol) then
-         Error_Msg_N ("asm volatile argument is not static", Vol);
+         Flag_Non_Static_Expr ("asm volatile argument is not static!", Vol);
          return False;
 
       else

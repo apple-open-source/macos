@@ -72,11 +72,8 @@
 #endif
 
 #ifdef PERL_THREADS
-#define _INCLUDE_APACHE_FIRST
-#endif
-
-#ifdef _INCLUDE_APACHE_FIRST
 #include "apache_inc.h"
+#define _INCLUDE_APACHE_FIRST
 #endif
 
 #include "EXTERN.h"
@@ -168,6 +165,8 @@
 #ifndef PERL_IS_5_6
 #define pTHX_
 #define aTHXo_
+#define aTHX
+#define pTHX
 #define CopFILEGV(cop) cop->cop_filegv
 #define CopLINE(cop)   cop->cop_line
 #define CopLINE_set(c,l) (CopLINE(c) = (l))
@@ -1089,8 +1088,10 @@ typedef struct {
 extern module MODULE_VAR_EXPORT perl_module;
 
 /* a couple for -Wall sanity sake */
+#ifndef WIN32
 int translate_name (request_rec *);
 int log_transaction (request_rec *r);
+#endif
 
 /* mod_perl prototypes */
 
@@ -1170,14 +1171,14 @@ void perl_reload_inc(server_rec *s, pool *p);
 I32 perl_module_is_loaded(char *name);
 SV *perl_module2file(char *name);
 int perl_require_module(char *module, server_rec *s);
-int perl_load_startup_script(server_rec *s, pool *p, char *script, I32 my_warn);
+int perl_load_startup_script(server_rec *s, pool *p, char *script, U8 my_warn);
 array_header *perl_cgi_env_init(request_rec *r);
 void perl_clear_env(void);
 void mp_magic_setenv(char *key, char *val, int is_tainted);
 void mod_perl_init_ids(void);
 int perl_eval_ok(server_rec *s);
 int perl_sv_is_http_code(SV *sv, int *status);
-void perl_incpush(char *s);
+void perl_inc_unshift(char *s);
 SV *mod_perl_sv_name(SV *svp);
 void mod_perl_mark_where(char *where, SV *sub);
 
@@ -1261,6 +1262,7 @@ CHAR_P perl_cmd_perl_FLAG(cmd_parms *cmd, mod_perl_perl_dir_config *d, int flag)
 #define perl_cmd_perl_TAKE12 perl_cmd_perl_TAKE2
 #define perl_cmd_perl_TAKE23 perl_cmd_perl_TAKE123
 #define perl_cmd_perl_TAKE3 perl_cmd_perl_TAKE123
+#define perl_cmd_perl_TAKE13 perl_cmd_perl_TAKE123
 void *perl_perl_merge_dir_config(pool *p, void *basev, void *addv);
 void *perl_perl_merge_srv_config(pool *p, void *basev, void *addv);
 

@@ -1,6 +1,6 @@
 /*
  * GLX Hardware Device Driver common code
- * Copyright (C) 1999 Keith Whitwell
+ * Copyright (C) 1999 Wittawat Yamwong
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -15,13 +15,13 @@
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * KEITH WHITWELL, OR ANY OTHER CONTRIBUTORS BE LIABLE FOR ANY CLAIM, 
+ * WITTAWAT YAMWONG, OR ANY OTHER CONTRIBUTORS BE LIABLE FOR ANY CLAIM, 
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE 
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/common/mm.c,v 1.4 2002/10/30 12:51:27 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/common/mm.c,v 1.5 2003/09/28 20:15:07 alanh Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -29,15 +29,12 @@
 #include "mm.h"
 #include "hwlog.h"
 
-/* KW: I don't know who the author of this code is, but it wasn't me
- * despite what the copyright says...
- */
 
 void mmDumpMemInfo( memHeap_t *heap )
 {
    TMemBlock *p;
 
-   fprintf(stderr, "Memory heap %p:\n", heap);
+   fprintf(stderr, "Memory heap %p:\n", (void *)heap);
    if (heap == 0) {
       fprintf(stderr, "  heap == 0\n");
    } else {

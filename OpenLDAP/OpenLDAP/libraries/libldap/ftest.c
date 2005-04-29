@@ -1,9 +1,18 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/ftest.c,v 1.5.2.2 2003/02/08 23:53:25 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* ftest.c -- OpenLDAP Filter API Test */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/ftest.c,v 1.10.2.3 2004/04/12 15:17:41 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/* OpenLDAP Filter API Test */
 
 #include "portable.h"
 
@@ -16,6 +25,7 @@
 #include <ldap.h>
 
 #include "ldap_pvt.h"
+#include "lber_pvt.h"
 
 #include "ldif.h"
 #include "lutil.h"
@@ -76,7 +86,7 @@ main( int argc, char *argv[] )
 static int filter2ber( char *filter )
 {
 	int rc;
-	struct berval bv = {0};
+	struct berval bv = BER_BVNULL;
 	BerElement *ber;
 
 	printf( "Filter: %s\n", filter );

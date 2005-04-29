@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstInsert.c,v 1.7 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -67,7 +66,7 @@ ReturnStatus
 Lst_Insert (l, ln, d)
     Lst	    	  	l;	/* list to manipulate */
     LstNode	  	ln;	/* node before which to insert d */
-    ClientData	  	d;	/* datum to be inserted */
+    void *	  	d;	/* datum to be inserted */
 {
     register ListNode	nLNode;	/* new lnode for d */
     register ListNode	lNode = (ListNode)ln;
@@ -77,7 +76,7 @@ Lst_Insert (l, ln, d)
     /*
      * check validity of arguments
      */
-    if (LstValid (l) && (LstIsEmpty (l) && ln == NILLNODE))
+    if (LstValid (l) && (LstIsEmpty (l) && ln == NULL))
 	goto ok;
 
     if (!LstValid (l) || LstIsEmpty (l) || !LstNodeValid (ln, l)) {
@@ -90,18 +89,18 @@ Lst_Insert (l, ln, d)
     nLNode->datum = d;
     nLNode->useCount = nLNode->flags = 0;
 
-    if (ln == NILLNODE) {
+    if (ln == NULL) {
 	if (list->isCirc) {
 	    nLNode->prevPtr = nLNode->nextPtr = nLNode;
 	} else {
-	    nLNode->prevPtr = nLNode->nextPtr = NilListNode;
+	    nLNode->prevPtr = nLNode->nextPtr = NULL;
 	}
 	list->firstPtr = list->lastPtr = nLNode;
     } else {
 	nLNode->prevPtr = lNode->prevPtr;
 	nLNode->nextPtr = lNode;
 
-	if (nLNode->prevPtr != NilListNode) {
+	if (nLNode->prevPtr != NULL) {
 	    nLNode->prevPtr->nextPtr = nLNode;
 	}
 	lNode->prevPtr = nLNode;

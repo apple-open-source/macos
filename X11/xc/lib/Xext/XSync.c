@@ -50,7 +50,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xext/XSync.c,v 1.7 2002/10/16 02:19:22 dawes Exp $ */
+/* $XFree86: xc/lib/Xext/XSync.c,v 1.8 2003/10/23 21:36:09 tsi Exp $ */
 
 #include <stdio.h>
 #define NEED_EVENTS
@@ -94,21 +94,21 @@ static char    *sync_error_list[] = {
     "BadAlarm",
 };
 
-static 
+static
 XEXT_GENERATE_FIND_DISPLAY(find_display, sync_info,
 			   sync_extension_name,
 			   &sync_extension_hooks,
 			   XSyncNumberEvents, (XPointer) NULL)
 
-static 
+static
 XEXT_GENERATE_CLOSE_DISPLAY(close_display, sync_info)
 
-static 
+static
 XEXT_GENERATE_ERROR_STRING(error_string, sync_extension_name,
 			   XSyncNumberErrors, sync_error_list)
 
 
-static Bool     
+static Bool
 wire_to_event(Display *dpy, XEvent *event, xEvent *wire)
 {
     XExtDisplayInfo *info = find_display(dpy);
@@ -155,7 +155,7 @@ wire_to_event(Display *dpy, XEvent *event, xEvent *wire)
 	XSyncIntsToValue(&anl->alarm_value,
 				    ane->alarm_value_lo,
 				    ane->alarm_value_hi);
-	anl->state = ane->state;
+	anl->state = (XSyncAlarmState)ane->state;
 	anl->time = ane->time;
 	return True;
     }
@@ -163,7 +163,7 @@ wire_to_event(Display *dpy, XEvent *event, xEvent *wire)
     return False;
 }
 
-static Status 
+static Status
 event_to_wire(Display *dpy, XEvent *event, xEvent *wire)
 {
     XExtDisplayInfo *info = find_display(dpy);
@@ -317,11 +317,11 @@ XSyncListSystemCounters(dpy, n_counters_return)
 	     * here.
 	     */
 	    pNextWireSysCounter = (xSyncSystemCounter *)
-		(((char *)pWireSysCounter) + ((SIZEOF(xSyncSystemCounter) + 
+		(((char *)pWireSysCounter) + ((SIZEOF(xSyncSystemCounter) +
 				     pWireSysCounter->name_length + 3) & ~3));
 	    counter = pNextWireSysCounter->counter;
 
-	    list[i].name = ((char *)pWireSysCounter) + 
+	    list[i].name = ((char *)pWireSysCounter) +
 						SIZEOF(xSyncSystemCounter);
 	    /* null-terminate the string */
 	    *(list[i].name + pWireSysCounter->name_length) = '\0';
@@ -347,7 +347,7 @@ XSyncFreeSystemCounterList(list)
 }
 
 
-XSyncCounter 
+XSyncCounter
 XSyncCreateCounter(dpy, initial_value)
     Display        *dpy;
     XSyncValue    initial_value;
@@ -371,7 +371,7 @@ XSyncCreateCounter(dpy, initial_value)
     return req->cid;
 }
 
-Status 
+Status
 XSyncSetCounter(dpy, counter, value)
     Display        *dpy;
     XSyncCounter    counter;
@@ -394,7 +394,7 @@ XSyncSetCounter(dpy, counter, value)
     return True;
 }
 
-Status 
+Status
 XSyncChangeCounter(dpy, counter, value)
     Display        *dpy;
     XSyncCounter    counter;
@@ -417,7 +417,7 @@ XSyncChangeCounter(dpy, counter, value)
     return True;
 }
 
-Status 
+Status
 XSyncDestroyCounter(dpy, counter)
     Display        *dpy;
     XSyncCounter    counter;
@@ -438,7 +438,7 @@ XSyncDestroyCounter(dpy, counter)
     return True;
 }
 
-Status 
+Status
 XSyncQueryCounter(dpy, counter, value_return)
     Display        *dpy;
     XSyncCounter    counter;
@@ -549,7 +549,7 @@ _XProcessAlarmAttributes(Display *dpy, xSyncChangeAlarmReq *req,
     Data32(dpy, (long *) values, (long) nvalues);
 }
 
-XSyncAlarm 
+XSyncAlarm
 XSyncCreateAlarm(dpy, values_mask, values)
     Display        *dpy;
     unsigned long   values_mask;
@@ -567,7 +567,7 @@ XSyncCreateAlarm(dpy, values_mask, values)
     req->syncReqType = X_SyncCreateAlarm;
     req->id = aid = XAllocID(dpy);
     values_mask &= XSyncCACounter | XSyncCAValueType | XSyncCAValue
-    			| XSyncCATestType | XSyncCADelta | XSyncCAEvents;
+			| XSyncCATestType | XSyncCADelta | XSyncCAEvents;
     if ((req->valueMask = values_mask))
 	_XProcessAlarmAttributes(dpy, (xSyncChangeAlarmReq *) req,
 				 values_mask, values);
@@ -623,14 +623,14 @@ XSyncQueryAlarm(dpy, alarm, values_return)
     }
 
     values_return->trigger.counter = rep.counter;
-    values_return->trigger.value_type = rep.value_type;
+    values_return->trigger.value_type = (XSyncValueType)rep.value_type;
     XSyncIntsToValue(&values_return->trigger.wait_value,
 				rep.wait_value_lo, rep.wait_value_hi);
-    values_return->trigger.test_type = rep.test_type;
+    values_return->trigger.test_type = (XSyncTestType)rep.test_type;
     XSyncIntsToValue(&values_return->delta, rep.delta_lo,
 				rep.delta_hi);
     values_return->events = rep.events;
-    values_return->state = rep.state;
+    values_return->state = (XSyncAlarmState)rep.state;
     UnlockDisplay(dpy);
     SyncHandle();
     return True;
@@ -684,7 +684,7 @@ XSyncSetPriority(dpy, client_resource_id, priority)
     return True;
 }
 
-Status 
+Status
 XSyncGetPriority(dpy, client_resource_id, return_priority)
     Display        *dpy;
     XID             client_resource_id;

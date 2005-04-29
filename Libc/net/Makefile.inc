@@ -5,13 +5,15 @@
 .PATH: ${.CURDIR}/${MACHINE_ARCH}/net ${.CURDIR}/net
 
 .include "Makefile.fbsd_begin"
-FBSDSRCS= addr2ascii.c ascii2addr.c inet_addr.c inet_lnaof.c \
+FBSDMISRCS= addr2ascii.c ascii2addr.c inet_addr.c inet_lnaof.c \
 	inet_makeaddr.c inet_net_ntop.c inet_net_pton.c inet_neta.c \
 	inet_netof.c inet_network.c inet_ntoa.c linkaddr.c nsap_addr.c \
 	recv.c send.c
 .include "Makefile.fbsd_end"
 
-CFLAGS+=-DINET6 -I${.OBJDIR}
+UNIX03SRCS+= recv.c send.c
+
+CFLAGS+= -I${.OBJDIR}
 
 # machine-dependent net sources
 .if exists(${.CURDIR}/${MACHINE_ARCH}/net/Makefile.inc)

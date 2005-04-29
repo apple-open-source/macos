@@ -23,7 +23,7 @@
  * Author: Katsuhisa Yano	TOSHIBA Corp.
  *			   	mopi@osa.ilab.toshiba.co.jp
  */
-/* $XFree86: xc/lib/X11/XlcPubI.h,v 3.9 2001/11/16 00:52:27 dawes Exp $ */
+/* $XFree86: xc/lib/X11/XlcPubI.h,v 3.15 2004/02/11 00:30:44 torrey Exp $ */
 
 #ifndef _XLCPUBLICI_H_
 #define _XLCPUBLICI_H_
@@ -165,43 +165,35 @@ extern int _Xutf8TextPropertyToTextList(
 );
 
 extern int _XmbTextListToTextProperty(
-#if NeedFunctionPrototypes
     XLCd		/* lcd */,
     Display*		/* dpy */,
     char**		/* list */,
     int			/* count */,
     XICCEncodingStyle	/* style */,
     XTextProperty*	/* text_prop */
-#endif
 );
 
 extern int _XwcTextListToTextProperty(
-#if NeedFunctionPrototypes
     XLCd		/* lcd */,
     Display*		/* dpy */,
     wchar_t**		/* list */,
     int			/* count */,
     XICCEncodingStyle	/* style */,
     XTextProperty*	/* text_prop */
-#endif
 );
 
 extern int _Xutf8TextListToTextProperty(
-#if NeedFunctionPrototypes
     XLCd		/* lcd */,
     Display*		/* dpy */,
     char**		/* list */,
     int			/* count */,
     XICCEncodingStyle	/* style */,
     XTextProperty*	/* text_prop */
-#endif
 );
 
 extern void _XwcFreeStringList(
-#if NeedFunctionPrototypes
     XLCd		/* lcd */,
     wchar_t**		/* list */
-#endif
 );
 
 extern int _XlcResolveLocaleName(
@@ -215,10 +207,9 @@ extern int _XlcResolveI18NPath(
 );
 
 extern char *_XlcLocaleDirName(
-#if NeedFunctionPrototypes
      char*             /* dir_name */,
+     size_t,	       /* dir_len */
      char*             /* lc_name */
-#endif
 );
 
 extern XPointer _XlcCreateLocaleDataBase(
@@ -236,6 +227,74 @@ extern void _XlcGetLocaleDataBase(
     char***		/* value */,
     int*		/* count */
 );
+
+#ifdef X_LOCALE
+extern char *
+_Xsetlocale(
+    int           category,
+    _Xconst char  *name);
+#else
+#ifdef __DARWIN__
+extern char *
+_Xsetlocale(
+    int           category,
+    _Xconst char  *name);
+#endif
+extern char *_XlcMapOSLocaleName(
+    char *osname,
+    char *siname);
+#endif
+
+extern int
+_Xmbstoutf8(
+    char *ustr,
+    const char *str,
+    int len);
+extern int
+_Xlcmbstoutf8(
+    XLCd lcd,
+    char *ustr,
+    const char *str,
+    int len);
+extern int
+_Xmbstowcs(
+    wchar_t *wstr,
+    char *str,
+    int len);
+extern int
+_Xlcwcstombs(
+    XLCd lcd,
+    char *str,
+    wchar_t *wstr,
+    int len);
+extern int
+_Xlcmbstowcs(
+    XLCd lcd,
+    wchar_t *wstr,
+    char *str,
+    int len);
+extern int
+_Xwcstombs(
+    char *str,
+    wchar_t *wstr,
+    int len);
+extern int
+_Xlcmbtowc(
+    XLCd lcd,
+    wchar_t *wstr,
+    char *str,
+    int len);
+extern int
+_Xlcwctomb(
+    XLCd lcd,
+    char *str,
+    wchar_t wc);
+
+
+
+extern XPointer
+_Utf8GetConvByName(
+    const char *name);
 
 _XFUNCPROTOEND
 

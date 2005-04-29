@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xgc/main.c,v 1.5 2001/10/28 03:34:34 tsi Exp $ */
+/* $XFree86: xc/programs/xgc/main.c,v 1.7 2003/05/27 22:27:06 tsi Exp $ */
 
 /* xgc
 **
@@ -51,28 +51,12 @@ from the X Consortium.
 #include "tile"
 #include "main.h"
 
-static void fill_up_commandform();
-extern void run_test();
-static void quit();
-static void quitAction();
-static void clear_test_window();
-static void clear_result_window();
-extern void start_playback();
-extern void read_from_keyboard();
-extern void toggle_recordbutton();
-static void set_foreground_and_background();
-extern ChoiceDesc *create_choice();
-extern void choose_defaults();
-extern void line_up_labels();
-extern Widget create_text_choice();
-extern void create_planemask_choice();
-extern void create_dashlist_choice();
-extern void create_testfrac_choice();
-extern void GC_change_foreground();
-extern void GC_change_background();
-extern void GC_change_font();
-extern void close_file_if_recording();
-extern void set_text (Widget ww, char *string);
+static void fill_up_commandform(Widget);
+static void quit(void);
+static void quitAction(Widget, XEvent *, String *, Cardinal *);
+static void clear_test_window(void);
+static void clear_result_window(void);
+static void set_foreground_and_background(void);
 
 #ifdef notdef
 int fildes[2];			/* for pipe */
@@ -98,7 +82,6 @@ static Widget commandform;	/* form with run, quit, clear, etc. */
        Widget test;		/* where the test is run */
        Widget result;           /* where the results are displayed */
 static Widget runbutton;	/* command for running */
-static Widget quitbutton;	/* command for quitting */
 static Widget clearbutton;	/* command for clearing the test window */
        Widget recordbutton;	/* start/stop recording */
 static Widget playbackbutton;	/* playback from file */
@@ -126,9 +109,7 @@ static Widget percentchoice;	/* form for choosing percentage of test */
 */
 
 int
-main(argc,argv)
-     int argc;
-     char **argv;
+main(int argc, char *argv[])
 {
   static Arg shellargs[] = {
     {XtNinput, 	      (XtArgVal) True}
@@ -339,8 +320,7 @@ main(argc,argv)
 */
 
 static void
-fill_up_commandform(w)
-     Widget w;
+fill_up_commandform(Widget w)
 {
   static XtCallbackRec runcallbacklist[] = {
     {(XtCallbackProc) run_test,  NULL},
@@ -432,8 +412,8 @@ fill_up_commandform(w)
 
   quitargs[0].value = (XtArgVal) quitcallbacklist;
   quitargs[1].value = (XtArgVal) keyinputbutton; /* under */
-  quitbutton = XtCreateManagedWidget("Quit",commandWidgetClass,
-   			      w,quitargs,XtNumber(quitargs));
+  (void) XtCreateManagedWidget("Quit",commandWidgetClass,
+			       w,quitargs,XtNumber(quitargs));
     
 }    
 /* quit()
@@ -442,17 +422,13 @@ fill_up_commandform(w)
 */
 
 static void
-quit()
+quit(void)
 {
   close_file_if_recording();
   exit(0);
 }
 
-static void quitAction(w, e, p, n)
-    Widget w;
-    XEvent *e;
-    String *p;
-    Cardinal *n;
+static void quitAction(Widget w, XEvent *e, String *p, Cardinal *n)
 {
     if (e->type == ClientMessage && e->xclient.data.l[0] != wm_delete_window)
 	XBell(XtDisplay(w), 0);
@@ -466,7 +442,7 @@ static void quitAction(w, e, p, n)
 */
 
 static void
-clear_test_window()
+clear_test_window(void)
 {
   XClearWindow(X.dpy,XtWindow(test));
 }
@@ -477,7 +453,7 @@ clear_test_window()
 */
 
 static void
-clear_result_window()
+clear_result_window(void)
 {
   set_text(result, "");
 }
@@ -490,7 +466,7 @@ clear_result_window()
 */
 
 static void
-set_foreground_and_background()
+set_foreground_and_background(void)
 {
   static XtResource resources[] = {
     {XtNforeground, XtCForeground, XtRPixel, sizeof(Pixel),

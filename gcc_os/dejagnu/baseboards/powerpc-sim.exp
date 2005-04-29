@@ -25,4 +25,4 @@ set_board_info ldflags  "-msim [libgloss_link_flags] [newlib_link_flags]"
 set_board_info gdb,nosignals 1;
 
 # Can't call functions from GDB.
-set_board_info gdb,cannot_call_functions 1
+# set_board_info gdb,cannot_call_functions 1

@@ -7935,7 +7935,7 @@ c_reset_state ()
     that the modification of
     COMMON.unew_[icheck_ + 1335*icheck_] (in the outer loop)
     needs to be done right after the inner loop. */
-
+    
 static tree perform_loop_transpose PARAMS ((tree *, int *, void *));
 static tree tree_contains_1 PARAMS ((tree *, int *, void *));
 static bool tree_contains PARAMS ((tree, tree));
@@ -8206,261 +8206,287 @@ perform_loop_transpose (tp, walk_subtrees, data)
      void *data ATTRIBUTE_UNUSED;
 {
   tree already_modified = NULL_TREE;
+  tree outer_init, inner_init;
+  tree outer_init_expr, inner_init_expr;
+  tree outer_var, inner_var;
+  tree inner_loop_body;
+  tree newouter, newinner;
+  tree outer_loop, inner_loop;
+  tree before_inner_loop, right_before_inner_loop;
+  
   if (*tp == NULL_TREE)
     return NULL_TREE;
-  if (TREE_CODE (*tp) == FOR_STMT)
+  
+  if (TREE_CODE (*tp) != FOR_STMT)
+    return NULL;
+  
+  outer_loop = *tp;
+  inner_loop = TREE_OPERAND (outer_loop, 3);
+  before_inner_loop = NULL_TREE;
+  right_before_inner_loop = NULL_TREE;
+  
+  /* If the loops contains a call or an if statement or is empty, 
+     do not do the transposition.  */
+  if (inner_loop == NULL_TREE 
+      || find_tree_with_code (inner_loop, CALL_EXPR) != NULL_TREE
+      || find_tree_with_code (inner_loop, IF_STMT) != NULL_TREE)
+    return NULL_TREE;
+  
+  /* A compound stmt after the outer for loop.  */
+  if (TREE_CODE (inner_loop) == COMPOUND_STMT 
+      && TREE_OPERAND (inner_loop, 0) != NULL_TREE
+      && TREE_CODE (TREE_OPERAND (inner_loop, 0)) == SCOPE_STMT)
     {
-      tree outer_loop = *tp;
-      tree inner_loop = TREE_OPERAND (outer_loop, 3);
-      tree before_inner_loop = NULL_TREE;
-      tree right_before_inner_loop = NULL_TREE;
-      /* If the loops contains a call or an if statement or is empty, 
-         do not do the transposition.  */
-      if (inner_loop == NULL_TREE 
-          || find_tree_with_code (inner_loop, CALL_EXPR) != NULL_TREE
-          || find_tree_with_code (inner_loop, IF_STMT) != NULL_TREE)
-          return NULL_TREE;
-      /* A compound stmt after the outer for loop.  */
-      if (TREE_CODE (inner_loop) == COMPOUND_STMT 
-          && TREE_OPERAND (inner_loop, 0) != NULL_TREE
-          && TREE_CODE (TREE_OPERAND (inner_loop, 0)) == SCOPE_STMT)
-        {
-          tree previous = NULL_TREE;
-          before_inner_loop = TREE_OPERAND (inner_loop, 0);
-          
-          /* If the outer loop contains variable definitions, do not 
-             do the transposition.  FIXME: if the only definition is
-             the inner loop variable we could do it.  */
-          if (TREE_OPERAND (before_inner_loop, 0) != NULL_TREE)
-	    return NULL_TREE;
-          
-          /* Find the inner loop if there is any.
-             FIXME: will not work if the inner loop is another compound loop.  */
-          for (inner_loop = before_inner_loop;
-               inner_loop != NULL_TREE && TREE_CODE (inner_loop) != FOR_STMT;
-               inner_loop = TREE_CHAIN (inner_loop))
-	    previous = inner_loop;
-          
-          /* If there is no inner loop do not do anything.  */
-          if (inner_loop == NULL_TREE)
-	    return NULL_TREE;
-          
-          /* If the inner_loop is equal to the start of the compound 
-             statement set the start to NULL. */
-          if (inner_loop == before_inner_loop)
-            before_inner_loop = NULL_TREE;
-          
-          right_before_inner_loop = previous;
-        }
-      /* We found the inner loop.  */
-      if (inner_loop != NULL_TREE && TREE_CODE (inner_loop) == FOR_STMT)
-        {
-          tree outer_init = TREE_OPERAND (outer_loop, 0);
-          tree inner_init = TREE_OPERAND (inner_loop, 0);
-          /* FIXME: does not handle C99/C++ style for init statements */
-          if (outer_init != NULL_TREE && inner_init != NULL_TREE
-              && TREE_CODE (outer_init) == EXPR_STMT 
-              && TREE_CODE (inner_init) == EXPR_STMT)
-            {
-              tree outer_init_expr = TREE_OPERAND (outer_init, 0);
-              tree inner_init_expr = TREE_OPERAND (inner_init, 0);
-              if (outer_init_expr != NULL_TREE && inner_init_expr != NULL_TREE
-                  && TREE_CODE (inner_init_expr) == MODIFY_EXPR
-                  && TREE_CODE (outer_init_expr) == MODIFY_EXPR)
-                {
-                  tree outer_var = TREE_OPERAND (outer_init_expr, 0);
-                  tree inner_var = TREE_OPERAND (inner_init_expr, 0);
-                  /* The inner_var should be independent of outer_var */
-                  if (!tree_contains (TREE_OPERAND (inner_init_expr, 1), 
-                                      outer_var)
-                      && !tree_contains (TREE_OPERAND (inner_loop, 1), 
-                                         outer_var)
-                      && !tree_contains (TREE_OPERAND (inner_loop, 2), 
-                                         outer_var)
-                      /* The outer loop variable should be independent of 
-                         inner_var also. */
-                      && !tree_contains (TREE_OPERAND (outer_loop, 1), 
-                                         inner_var)
-                      && !tree_contains (TREE_OPERAND (outer_loop, 2), 
-                                         inner_var))
-                    {
-                      tree inner_loop_body = TREE_OPERAND (inner_loop, 3);
-                      if (should_transpose_for_loops (inner_loop_body, 
-                               inner_var, outer_var, &already_modified))
-                        {
-                          tree newouter;
-                          tree newinner;
-                          /* Is the outter loop's body a compound statement?  */
-                          if (TREE_CODE (TREE_OPERAND (outer_loop, 3)) 
-                              == COMPOUND_STMT)
-                            {
-                              tree after_loop = TREE_CHAIN (inner_loop);
-                              tree find;
-                              tree allloops_stmt;
-                              tree outloopafter;
-                              tree outloopbefore;
-                              allloops_stmt = build_stmt (COMPOUND_STMT, 
-                                                          NULL_TREE);
-                              outloopbefore = build_stmt (FOR_STMT, outer_init,
-                                                 TREE_OPERAND (outer_loop, 1),
-                                                 TREE_OPERAND (outer_loop, 2), 
-                                                 NULL_TREE);
-			      /* Use copies of the loop test
-				 expression (TREE_OPERAND #1) for
-				 these, lest the tree-profiler mix the
-				 execution counts of two different
-				 loops.  */
-                              outloopafter = build_stmt (FOR_STMT, outer_init,
-                                                 copy_node (TREE_OPERAND (outer_loop, 1)),
-                                                 TREE_OPERAND (outer_loop, 2), 
-                                                 NULL_TREE);
-                              newinner = build_stmt (FOR_STMT, outer_init,
-					         copy_node (TREE_OPERAND (outer_loop, 1)),
-                                                 TREE_OPERAND (outer_loop, 2), 
-                                                 inner_loop_body);
-                              newouter = build_stmt (FOR_STMT, inner_init, 
-                                                 TREE_OPERAND (inner_loop, 1),
-                                                 TREE_OPERAND (inner_loop, 2), 
-                                                 newinner);
-                              /* This new compound statement has no scope. */
-                              COMPOUND_STMT_NO_SCOPE (allloops_stmt) = 1;
-                              /* Move to the next statement in the chain of 
-                                 before_inner_loop if it is a scope statement */
-                              if (before_inner_loop != NULL_TREE 
-                                  && TREE_CODE (before_inner_loop) 
-                                     == SCOPE_STMT)
-                                {
-                                  if (right_before_inner_loop != NULL_TREE)
-                                    TREE_CHAIN (right_before_inner_loop) 
-                                       = NULL_TREE;
-                                  before_inner_loop 
-                                      = TREE_CHAIN (before_inner_loop);
-                                }
-                              /* Are there statements before the inner loop? */
-                              if (before_inner_loop != NULL_TREE)
-                                {
-                                  tree beforeloopbody 
-                                     = build_stmt (COMPOUND_STMT, NULL_TREE);
-                                  COMPOUND_STMT_NO_SCOPE (beforeloopbody) = 1;
-                                  beforeloopbody 
-                                     = build_stmt (COMPOUND_STMT, NULL_TREE);
-                                  COMPOUND_BODY (beforeloopbody) 
-                                     = before_inner_loop;
-                                  FOR_BODY (outloopbefore) = beforeloopbody;
-				  /* If the outer loop body depends on the inner
-				     variable we can't do the transposition. */
-				  if (tree_contains (outloopbefore, inner_var))
-				    return NULL_TREE;
-
-                                  for (find = already_modified;
-                                       find != NULL_TREE;
-                                       find = TREE_CHAIN (find))
-				    {
-                                      tree temp3 = TREE_VALUE(find);
-                                      if (tree_contains(outloopbefore, temp3))
-					/* We cannot do the transposition
-					   because there is a reference to
-					   something modified in the outer loop. */
-					return NULL_TREE;
-				    }
-                                  /* If the new before loop body is independent
-                                     of the outer variable, remove the loop 
-                                     and make the body the first statement in 
-                                     the chain of all the statements. */
-                                  if (!tree_contains (beforeloopbody, 
-                                                      outer_var))
-                                    {
-                                      COMPOUND_BODY (allloops_stmt) 
-                                           = beforeloopbody;
-                                      TREE_CHAIN (beforeloopbody) = newouter;
-                                    } 
-                                  else
-                                    {
-                                      COMPOUND_BODY (allloops_stmt) 
-                                          = outloopbefore;
-                                      TREE_CHAIN (outloopbefore) = newouter;
-                                    }
-                                }
-                              else
-				{
-				  COMPOUND_BODY (allloops_stmt) = newouter;
-				  outloopbefore = NULL_TREE;
-                                }
-                              if (after_loop != NULL_TREE 
-                                  && TREE_CHAIN (after_loop) == NULL_TREE)
-                                {
-                                  if (TREE_CODE (after_loop) != SCOPE_STMT)
-				    FOR_BODY (outloopafter) = after_loop;
-                                  else
-				    outloopafter = NULL_TREE;
-                                 } 
-                               else
-                                 {
-                                   tree afterloopbody 
-                                       = build_stmt (COMPOUND_STMT, NULL_TREE);
-                                   tree temp5;
-                                   COMPOUND_STMT_NO_SCOPE (afterloopbody) = 1;
-                                   COMPOUND_BODY (afterloopbody) = after_loop;
-                                   FOR_BODY (outloopafter) = afterloopbody;
-                                   for (temp5 = after_loop;
-                                        temp5 != NULL_TREE;
-                                        temp5 = TREE_CHAIN (temp5))
-                                     if (TREE_CODE (TREE_CHAIN (temp5)) 
-                                           == SCOPE_STMT)
-                                       TREE_CHAIN (temp5) = NULL_TREE;
-				   /* If the outer loop body depends on the inner
-				      variable, we cannot do the transposition. */
-				   if (tree_contains (afterloopbody, inner_var))
-				     return NULL_TREE;
-				   /* FIXME: need to check for the afterloopbody
-				      containing a pointer that gets modified
-				      before the inner loop has a chance to
-				      read it. */
-                                   for (find = already_modified;
-                                        find != NULL_TREE;
-                                        find = TREE_CHAIN (find))
-                                     {
-                                       tree temp3 = TREE_VALUE(find);
-				       /* If something references something that
-					  is stored into we cannot do the
-					  transposition. */
-                                       if (tree_contains(afterloopbody, temp3))
-					 return NULL_TREE;
-                                     }
-                                   /* If the stuff after the inner_loop is not 
-                                      dependent on the loop variable pull it 
-                                      out of the loop. */
-                                   if (!tree_contains (afterloopbody, outer_var))
-				     outloopafter = afterloopbody;
-                                }
-                              TREE_CHAIN (newouter) = outloopafter;
-                              if (outloopafter == NULL_TREE 
-                                  && outloopbefore == NULL_TREE)
-                                  allloops_stmt = newouter;
-                              TREE_CHAIN (allloops_stmt) 
-                                   = TREE_CHAIN (outer_loop);
-                              *walk_subtrees = 0;
-                              *tp = allloops_stmt;
-                              return NULL_TREE;
-                            }
-                          /* Do the transposition. */
-                          newinner = build_stmt (FOR_STMT, outer_init,
-                                                 TREE_OPERAND (outer_loop, 1),
-                                                 TREE_OPERAND (outer_loop, 2), 
-                                                 inner_loop_body);
-                          newouter = build_stmt (FOR_STMT, inner_init, 
-                                                 TREE_OPERAND (inner_loop, 1),
-                                                 TREE_OPERAND (inner_loop, 2), 
-                                                 newinner);
-                          TREE_CHAIN (newouter) = TREE_CHAIN (outer_loop);
-                          *tp = newouter;
-                          *walk_subtrees = 0;
-                        }
-                    }
-                }
-            }
-        }
+      tree previous = NULL_TREE;
+      before_inner_loop = TREE_OPERAND (inner_loop, 0);
+      
+      /* If the outer loop contains variable definitions, do not 
+	 do the transposition.  FIXME: if the only definition is
+	 the inner loop variable we could do it.  */
+      if (TREE_OPERAND (before_inner_loop, 0) != NULL_TREE)
+	return NULL_TREE;
+      
+      /* Find the inner loop if there is any.
+	 FIXME: will not work if the inner loop is another compound loop.  */
+      for (inner_loop = before_inner_loop;
+	   inner_loop != NULL_TREE && TREE_CODE (inner_loop) != FOR_STMT;
+	   inner_loop = TREE_CHAIN (inner_loop))
+	previous = inner_loop;
+      
+      /* If there is no inner loop do not do anything.  */
+      if (inner_loop == NULL_TREE)
+	return NULL_TREE;
+      
+      /* If the inner_loop is equal to the start of the compound 
+	 statement set the start to NULL. */
+      if (inner_loop == before_inner_loop)
+	before_inner_loop = NULL_TREE;
+      
+      right_before_inner_loop = previous;
     }
+  
+  /* If we do not have found the inner loop return right away.  */
+  if (inner_loop == NULL_TREE || TREE_CODE (inner_loop) != FOR_STMT)
+    return NULL;
+  
+  outer_init = TREE_OPERAND (outer_loop, 0);
+  inner_init = TREE_OPERAND (inner_loop, 0);
+  
+  /* FIXME: does not handle C99/C++ style for init statements */
+  if (outer_init == NULL_TREE || inner_init == NULL_TREE
+      || TREE_CODE (outer_init) != EXPR_STMT 
+      || TREE_CODE (inner_init) != EXPR_STMT)
+    return NULL;
+  
+  outer_init_expr = TREE_OPERAND (outer_init, 0);
+  inner_init_expr = TREE_OPERAND (inner_init, 0);
+  
+  if (outer_init_expr == NULL_TREE || inner_init_expr == NULL_TREE
+      || TREE_CODE (inner_init_expr) != MODIFY_EXPR
+      || TREE_CODE (outer_init_expr) != MODIFY_EXPR)
+    return NULL;
+  
+  outer_var = TREE_OPERAND (outer_init_expr, 0);
+  inner_var = TREE_OPERAND (inner_init_expr, 0);
+  
+  /* The inner_var should be independent of outer_var */
+  if (tree_contains (TREE_OPERAND (inner_init_expr, 1), outer_var)
+      || tree_contains (TREE_OPERAND (inner_loop, 1), outer_var)
+      || tree_contains (TREE_OPERAND (inner_loop, 2), outer_var)
+      /* The outer loop variable should be independent of 
+	 inner_var also. */
+      || tree_contains (TREE_OPERAND (outer_loop, 1), inner_var)
+      || tree_contains (TREE_OPERAND (outer_loop, 2), inner_var))
+    return NULL;
+  
+  inner_loop_body = TREE_OPERAND (inner_loop, 3);
+  if (!should_transpose_for_loops (inner_loop_body,inner_var, outer_var,
+				   &already_modified))
+    return NULL;
+  
+  /* Is the outter loop's body a compound statement?  */
+  if (TREE_CODE (TREE_OPERAND (outer_loop, 3)) == COMPOUND_STMT)
+    {
+      tree after_loop = TREE_CHAIN (inner_loop);
+      tree find;
+      tree allloops_stmt;
+      tree outloopafter;
+      tree outloopbefore;
+      tree save_chain = NULL_TREE;
+      
+      allloops_stmt = build_stmt (COMPOUND_STMT, NULL_TREE);
+      outloopbefore = build_stmt (FOR_STMT, outer_init,
+				  TREE_OPERAND (outer_loop, 1),
+				  TREE_OPERAND (outer_loop, 2), NULL_TREE);
+      
+      /* Use copies of the loop test expression (TREE_OPERAND #1) for
+	 these, lest the tree-profiler mix the execution counts of two different
+	 loops.  */
+      
+      outloopafter = build_stmt (FOR_STMT, outer_init,
+				 copy_node (TREE_OPERAND (outer_loop, 1)),
+				 TREE_OPERAND (outer_loop, 2), NULL_TREE);
+      newinner = build_stmt (FOR_STMT, outer_init,
+			     copy_node (TREE_OPERAND (outer_loop, 1)),
+			     TREE_OPERAND (outer_loop, 2), inner_loop_body);
+      newouter = build_stmt (FOR_STMT, inner_init, TREE_OPERAND (inner_loop, 1),
+			     TREE_OPERAND (inner_loop, 2), newinner);
+      
+      /* This new compound statement has no scope. */
+      COMPOUND_STMT_NO_SCOPE (allloops_stmt) = 1;
+      
+      /* Move to the next statement in the chain of 
+	 before_inner_loop if it is a scope statement */
+      if (before_inner_loop != NULL_TREE
+	  && TREE_CODE (before_inner_loop) == SCOPE_STMT)
+	{
+	  if (right_before_inner_loop)
+	    {
+	      save_chain = TREE_CHAIN (right_before_inner_loop);
+	      TREE_CHAIN (right_before_inner_loop) = NULL_TREE;
+	    }
+	  before_inner_loop = TREE_CHAIN (before_inner_loop);
+	}
+      
+      /* Are there statements before the inner loop? */
+      if (before_inner_loop != NULL_TREE)
+	{
+	  tree beforeloopbody = build_stmt (COMPOUND_STMT, NULL_TREE);
+	  COMPOUND_STMT_NO_SCOPE (beforeloopbody) = 1;
+	  beforeloopbody = build_stmt (COMPOUND_STMT, NULL_TREE);
+	  COMPOUND_BODY (beforeloopbody) = before_inner_loop;
+	  FOR_BODY (outloopbefore) = beforeloopbody;
+	  
+	  /* If the outer loop body depends on the inner variable we can't do
+	     the transposition. */
+	  if (tree_contains (outloopbefore, inner_var))
+	    {
+	      if (right_before_inner_loop)
+		TREE_CHAIN (right_before_inner_loop) = save_chain;
+	      return NULL_TREE;
+	    }
+
+	  for (find = already_modified; find != NULL_TREE;
+	      find = TREE_CHAIN (find))
+	    {
+	      tree temp3 = TREE_VALUE(find);
+	      if (tree_contains(outloopbefore, temp3))
+		{
+		  /* We cannot do the transposition because there is a reference
+		     to something modified in the outer loop. */
+		  if (right_before_inner_loop)
+		    TREE_CHAIN (right_before_inner_loop) = save_chain;
+		  return NULL_TREE;
+		}
+	    }
+	  /* If the new before loop body is independent
+	     of the outer variable, remove the loop 
+	     and make the body the first statement in 
+	     the chain of all the statements. */
+	  if (!tree_contains (beforeloopbody, outer_var))
+	    {
+	      COMPOUND_BODY (allloops_stmt) = beforeloopbody;
+	      TREE_CHAIN (beforeloopbody) = newouter;
+	    } 
+	  else
+	    {
+	      COMPOUND_BODY (allloops_stmt) = outloopbefore;
+	      TREE_CHAIN (outloopbefore) = newouter;
+	    }
+	}
+      else
+	{
+	  COMPOUND_BODY (allloops_stmt) = newouter;
+	  outloopbefore = NULL_TREE;
+	}
+      
+      if (after_loop != NULL_TREE && TREE_CHAIN (after_loop) == NULL_TREE)
+	{
+	  if (TREE_CODE (after_loop) != SCOPE_STMT)
+	    FOR_BODY (outloopafter) = after_loop;
+	  else
+	    outloopafter = NULL_TREE;
+	 } 
+       else
+	 {
+	   tree afterloopbody = build_stmt (COMPOUND_STMT, NULL_TREE);
+	   tree temp5;
+	   tree saved_scope = NULL_TREE;
+	   tree *save_scope_spot = NULL;
+	   
+	   COMPOUND_STMT_NO_SCOPE (afterloopbody) = 1;
+	   COMPOUND_BODY (afterloopbody) = after_loop;
+	   FOR_BODY (outloopafter) = afterloopbody;
+	   
+	   for (temp5 = after_loop; temp5 != NULL_TREE;
+		temp5 = TREE_CHAIN (temp5))
+	     if (TREE_CODE (TREE_CHAIN (temp5)) == SCOPE_STMT)
+	       {
+		 saved_scope = TREE_CHAIN (temp5);
+		 save_scope_spot = &TREE_CHAIN (temp5);
+		 TREE_CHAIN (temp5) = NULL_TREE;
+	       }
+	   
+	   /* If the outer loop body depends on the inner
+	      variable, we cannot do the transposition. */
+	   if (tree_contains (afterloopbody, inner_var))
+	     {
+	       if (right_before_inner_loop)
+		 TREE_CHAIN (right_before_inner_loop) = save_chain;
+	       if (save_scope_spot)
+		 *save_scope_spot = saved_scope;
+	       return NULL_TREE;
+	     }
+	   
+	   /* FIXME: need to check for the afterloopbody
+	      containing a pointer that gets modified
+	      before the inner loop has a chance to
+	      read it. */
+	   for (find = already_modified; find != NULL_TREE;
+		find = TREE_CHAIN (find))
+	     {
+	       tree temp3 = TREE_VALUE(find);
+	       /* If something references something that
+		  is stored into we cannot do the
+		  transposition. */
+	       if (tree_contains(afterloopbody, temp3))
+		 {
+		   if (right_before_inner_loop)
+		     TREE_CHAIN (right_before_inner_loop) = save_chain;
+		   if (save_scope_spot)
+		     *save_scope_spot = saved_scope;
+		   return NULL_TREE;
+		 }
+	     }
+	   
+	   /* If the stuff after the inner_loop is not 
+	      dependent on the loop variable pull it 
+	      out of the loop. */
+	   if (!tree_contains (afterloopbody, outer_var))
+	     outloopafter = afterloopbody;
+	}
+      
+      if (before_inner_loop != NULL_TREE
+	  && TREE_CODE (before_inner_loop) == SCOPE_STMT
+	  && right_before_inner_loop != NULL_TREE)
+	TREE_CHAIN (right_before_inner_loop) = NULL_TREE;
+      
+      TREE_CHAIN (newouter) = outloopafter;
+      if (outloopafter == NULL_TREE && outloopbefore == NULL_TREE)
+	  allloops_stmt = newouter;
+      TREE_CHAIN (allloops_stmt) = TREE_CHAIN (outer_loop);
+      *walk_subtrees = 0;
+      *tp = allloops_stmt;
+      return NULL_TREE;
+    }
+  /* Do the transposition. */
+  newinner = build_stmt (FOR_STMT, outer_init, TREE_OPERAND (outer_loop, 1),
+			 TREE_OPERAND (outer_loop, 2),  inner_loop_body);
+  newouter = build_stmt (FOR_STMT, inner_init,  TREE_OPERAND (inner_loop, 1),
+			 TREE_OPERAND (inner_loop, 2),  newinner);
+  TREE_CHAIN (newouter) = TREE_CHAIN (outer_loop);
+  *tp = newouter;
+  *walk_subtrees = 0;
   return NULL_TREE;
 }
 
@@ -8475,6 +8501,22 @@ loop_transpose (fn)
 }
 /* APPLE LOCAL end loop transposition */
 
+/* APPLE LOCAL begin CW asm blocks */
+/* Look for a struct or union tag, but quietly; don't complain if neither
+   is found, and don't autocreate. Used to identify struct/union tags
+   mentioned in CW asm operands.  */
+tree
+lookup_struct_or_union_tag (tree typename)
+{
+  tree rslt = lookup_tag (RECORD_TYPE, typename, current_binding_level, 0);
+
+  pending_invalid_xref = 0;
+  if (!rslt)
+    rslt = lookup_tag (UNION_TYPE, typename, current_binding_level, 0);
+  pending_invalid_xref = 0;
+  return rslt;
+}
+/* APPLE LOCAL end CW asm blocks */
 
 /* APPLE LOCAL begin memset loop */
 

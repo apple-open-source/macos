@@ -1,5 +1,3 @@
-/*	$NetBSD: checknr.c,v 1.5 1997/10/18 12:38:13 lukem Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,19 +31,20 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1980, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)checknr.c	8.1 (Berkeley) 6/6/93";
-#else 
-__RCSID("$NetBSD: checknr.c,v 1.5 1997/10/18 12:38:13 lukem Exp $");
-#endif
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/checknr/checknr.c,v 1.9 2004/07/15 04:42:47 tjr Exp $");
 
 /*
  * checknr: check an nroff/troff input file for matching macro calls.
@@ -54,14 +53,28 @@ __RCSID("$NetBSD: checknr.c,v 1.5 1997/10/18 12:38:13 lukem Exp $");
  * later but for now think of these restrictions as contributions to
  * structured typesetting.
  */
-#include <ctype.h>
+#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define MAXSTK	100	/* Stack size */
 #define MAXBR	100	/* Max number of bracket pairs known */
 #define MAXCMDS	500	/* Max number of commands known */
+
+void addcmd(char *);
+void addmac(const char *);
+int binsrch(const char *);
+void checkknown(const char *);
+void chkcmd(const char *, const char *);
+void complain(int);
+int eq(const char *, const char *);
+void nomatch(const char *);
+void pe(int);
+void process(FILE *);
+void prop(int);
+static void usage(void);
 
 /*
  * The stack on which we remember what we've seen so far.
@@ -78,14 +91,14 @@ int stktop;
  * The kinds of opening and closing brackets.
  */
 struct brstr {
-	char *opbr;
-	char *clbr;
+	const char *opbr;
+	const char *clbr;
 } br[MAXBR] = {
 	/* A few bare bones troff commands */
 #define SZ	0
-	{ "sz",	"sz"},	/* also \s */
+	{"sz",	"sz"},	/* also \s */
 #define FT	1
-	{ "ft",	"ft"},	/* also \f */
+	{"ft",	"ft"},	/* also \f */
 	/* the -mm package */
 	{"AL",	"LE"},
 	{"AS",	"AE"},
@@ -129,14 +142,14 @@ struct brstr {
 	{"TS",	"TE"},
 	/* Refer */
 	{"[",	"]"},
-	{0,	0},
+	{0,	0}
 };
 
 /*
  * All commands known to nroff, plus macro packages.
  * Used so we can complain about unrecognized commands.
  */
-char *knowncmds[MAXCMDS] = {
+const char *knowncmds[MAXCMDS] = {
 "$c", "$f", "$h", "$p", "$s", "(b", "(c", "(d", "(f", "(l", "(q", "(t",
 "(x", "(z", ")b", ")c", ")d", ")f", ")l", ")q", ")t", ")x", ")z", "++",
 "+c", "1C", "1c", "2C", "2c", "@(", "@)", "@C", "@D", "@F", "@I", "@M",
@@ -171,32 +184,15 @@ char *knowncmds[MAXCMDS] = {
 };
 
 int	lineno;		/* current line number in input file */
-char	line[256];	/* the current line */
-char	*cfilename;	/* name of current file */
+const char *cfilename;	/* name of current file */
 int	nfiles;		/* number of files to process */
 int	fflag;		/* -f: ignore \f */
 int	sflag;		/* -s: ignore \s */
 int	ncmds;		/* size of knowncmds */
 int	slot;		/* slot in knowncmds found by binsrch */
 
-void	addcmd __P((char *));
-void	addmac __P((char *));
-int	binsrch __P((char *));
-void	checkknown __P((char *));
-void	chkcmd __P((char *, char *));
-void	complain __P((int));
-int	eq __P((const void *, const void *));
-int	main __P((int, char **));
-void	nomatch __P((char *));
-void	pe __P((int));
-void	process __P((FILE *));
-void	prop __P((int));
-void	usage __P((void));
-
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char **argv)
 {
 	FILE *f;
 	int i;
@@ -218,10 +214,8 @@ main(argc, argv)
 			for (i=0; br[i].opbr; i++)
 				;
 			for (cp=argv[1]+3; cp[-1]; cp += 6) {
-				br[i].opbr = malloc(3);
-				strncpy(br[i].opbr, cp, 2);
-				br[i].clbr = malloc(3);
-				strncpy(br[i].clbr, cp+3, 2);
+				br[i].opbr = strncpy(malloc(3), cp, 2);
+				br[i].clbr = strncpy(malloc(3), cp+3, 2);
 				addmac(br[i].opbr);	/* knows pairs are also known cmds */
 				addmac(br[i].clbr);
 				i++;
@@ -237,6 +231,7 @@ main(argc, argv)
 				if (cp[2] && cp[2] != '.')
 					usage();
 				strncpy(b1, cp, 2);
+				b1[2] = '\0';
 				addmac(b1);
 			}
 			break;
@@ -263,9 +258,11 @@ main(argc, argv)
 			cfilename = argv[i];
 			f = fopen(cfilename, "r");
 			if (f == NULL)
-				perror(cfilename);
-			else
+				warn("%s", cfilename);
+			else {
 				process(f);
+				fclose(f);
+			}
 		}
 	} else {
 		cfilename = "stdin";
@@ -274,20 +271,21 @@ main(argc, argv)
 	exit(0);
 }
 
-void
-usage()
+static void
+usage(void)
 {
-	printf("Usage: checknr -s -f -a.xx.yy.xx.yy... -c.xx.xx.xx...\n");
+	fprintf(stderr,
+	"usage: checknr [-a.xx.yy.xx.yy...] [-c.xx.xx.xx...] [-s] [-f] file\n");
 	exit(1);
 }
 
 void
-process(f)
-	FILE *f;
+process(FILE *f)
 {
 	int i, n;
 	char mac[5];	/* The current macro or nroff command */
 	int pl;
+	static char line[256];	/* the current line */
 
 	stktop = -1;
 	for (lineno = 1; fgets(line, sizeof line, f); lineno++) {
@@ -379,8 +377,7 @@ process(f)
 }
 
 void
-complain(i)
-	int i;
+complain(int i)
 {
 	pe(stk[i].lno);
 	printf("Unmatched ");
@@ -389,8 +386,7 @@ complain(i)
 }
 
 void
-prop(i)
-	int i;
+prop(int i)
 {
 	if (stk[i].pl == 0)
 		printf(".%s", br[stk[i].opno].opbr);
@@ -403,15 +399,12 @@ prop(i)
 		break;
 	default:
 		printf("Bug: stk[%d].opno = %d = .%s, .%s",
-			i, stk[i].opno, br[stk[i].opno].opbr,
-			br[stk[i].opno].clbr);
+			i, stk[i].opno, br[stk[i].opno].opbr, br[stk[i].opno].clbr);
 	}
 }
 
 void
-chkcmd(line, mac)
-	char *line;
-	char *mac;
+chkcmd(const char *line __unused, const char *mac)
 {
 	int i;
 
@@ -447,8 +440,7 @@ chkcmd(line, mac)
 }
 
 void
-nomatch(mac)
-	char *mac;
+nomatch(const char *mac)
 {
 	int i, j;
 
@@ -493,25 +485,22 @@ nomatch(mac)
 
 /* eq: are two strings equal? */
 int
-eq(s1, s2)
-	const void *s1, *s2;
+eq(const char *s1, const char *s2)
 {
-	return (strcmp((char *)s1, (char *)s2) == 0);
+	return (strcmp(s1, s2) == 0);
 }
 
 /* print the first part of an error message, given the line number */
 void
-pe(lineno)
-	int lineno;
+pe(int linen)
 {
 	if (nfiles > 1)
 		printf("%s: ", cfilename);
-	printf("%d: ", lineno);
+	printf("%d: ", linen);
 }
 
 void
-checkknown(mac)
-	char *mac;
+checkknown(const char *mac)
 {
 
 	if (eq(mac, "."))
@@ -529,8 +518,7 @@ checkknown(mac)
  * We have a .de xx line in "line".  Add xx to the list of known commands.
  */
 void
-addcmd(line)
-	char *line;
+addcmd(char *line)
 {
 	char *mac;
 
@@ -561,15 +549,14 @@ addcmd(line)
  * nroff programs, and the register loop below is pretty fast.
  */
 void
-addmac(mac)
-	char *mac;
+addmac(const char *mac)
 {
-	char **src, **dest, **loc;
+	const char **src, **dest, **loc;
 
 	if (binsrch(mac) >= 0){	/* it's OK to redefine something */
 #ifdef DEBUG
 		printf("binsrch(%s) -> already in table\n", mac);
-#endif DEBUG
+#endif
 		return;
 	}
 	/* binsrch sets slot as a side effect */
@@ -581,8 +568,7 @@ printf("binsrch(%s) -> %d\n", mac, slot);
 	dest = src+1;
 	while (dest > loc)
 		*dest-- = *src--;
-	*loc = malloc(3);
-	strcpy(*loc, mac);
+	*loc = strcpy(malloc(3), mac);
 	ncmds++;
 #ifdef DEBUG
 printf("after: %s %s %s %s %s, %d cmds\n", knowncmds[slot-2], knowncmds[slot-1], knowncmds[slot], knowncmds[slot+1], knowncmds[slot+2], ncmds);
@@ -594,10 +580,9 @@ printf("after: %s %s %s %s %s, %d cmds\n", knowncmds[slot-2], knowncmds[slot-1],
  * If found, return the index.  If not, return -1.
  */
 int
-binsrch(mac)
-	char *mac;
+binsrch(const char *mac)
 {
-	char *p;	/* pointer to current cmd in list */
+	const char *p;	/* pointer to current cmd in list */
 	int d;		/* difference if any */
 	int mid;	/* mid point in binary search */
 	int top, bot;	/* boundaries of bin search, inclusive */

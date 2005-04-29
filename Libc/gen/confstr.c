@@ -97,6 +97,65 @@ confstr(name, buf, len)
 			free(p);
 		}
 		return (tlen + 1);
+
+	case _CS_POSIX_V6_ILP32_OFF32_CFLAGS:
+	case _CS_XBS5_ILP32_OFF32_CFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_ILP32_OFF32_LDFLAGS:
+	case _CS_XBS5_ILP32_OFF32_LDFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_ILP32_OFF32_LIBS:
+	case _CS_XBS5_ILP32_OFF32_LIBS:			/* legacy */
+
+	case _CS_XBS5_ILP32_OFF32_LINTFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_ILP32_OFFBIG_CFLAGS:
+	case _CS_XBS5_ILP32_OFFBIG_CFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_ILP32_OFFBIG_LDFLAGS:
+	case _CS_XBS5_ILP32_OFFBIG_LDFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_ILP32_OFFBIG_LIBS:
+	case _CS_XBS5_ILP32_OFFBIG_LIBS:		/* legacy */
+
+	case _CS_XBS5_ILP32_OFFBIG_LINTFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_LP64_OFF64_CFLAGS:
+	case _CS_XBS5_LP64_OFF64_CFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_LP64_OFF64_LDFLAGS:
+	case _CS_XBS5_LP64_OFF64_LDFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_LP64_OFF64_LIBS:
+	case _CS_XBS5_LP64_OFF64_LIBS:			/* legacy */
+
+	case _CS_XBS5_LP64_OFF64_LINTFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_LPBIG_OFFBIG_CFLAGS:
+	case _CS_XBS5_LPBIG_OFFBIG_CFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_LPBIG_OFFBIG_LDFLAGS:
+	case _CS_XBS5_LPBIG_OFFBIG_LDFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_LPBIG_OFFBIG_LIBS:
+	case _CS_XBS5_LPBIG_OFFBIG_LIBS:		/* legacy */
+
+	case _CS_XBS5_LPBIG_OFFBIG_LINTFLAGS:		/* legacy */
+		/* No special flags... yet */
+		p = "";
+		goto docopy;
+
+	case _CS_POSIX_V6_WIDTH_RESTRICTED_ENVS:
+		if (sizeof(long) >= 8)
+			p = "_POSIX_V6_LP64_OFF64";
+		else
+			p = "_POSIX_V6_ILP32_OFFBIG";
+
+docopy:
+		if (len != 0 && buf != NULL)
+			strlcpy(buf, p, len);
+		return (strlen(p) + 1);
+
 	default:
 		errno = EINVAL;
 		return (0);

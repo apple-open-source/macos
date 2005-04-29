@@ -57,7 +57,7 @@ char * dsutil_utf8_strpbrk( const char* str, const char *set);
 char* dsutil_utf8_strtok( char* sp, const char* sep, char **last);
 
 /* Optimizations */
-#define DSUTIL_UTF8_ISASCII(p) ( * (const unsigned char *) (p) < 0x100 )
+#define DSUTIL_UTF8_ISASCII(p) ( * (unsigned char *) (p) < 0x80 )
 #define DSUTIL_UTF8_CHARLEN(p) ( DSUTIL_UTF8_ISASCII(p) \
 	? 1 : dsutil_utf8_charlen((p)) )
 #define DSUTIL_UTF8_OFFSET(p) ( DSUTIL_UTF8_ISASCII(p) \

@@ -327,7 +327,7 @@ dns_async_handle_reply(void *msg)
 	if (status != KERN_SUCCESS)
 	{
 		callback(NO_RECOVERY, NULL, 0, NULL, 0, context);
-		return NULL;
+		return 0;
 	}
 
 	if (buf == NULL)

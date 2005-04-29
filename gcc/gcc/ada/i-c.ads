@@ -1,4 +1,4 @@
------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 --                                                                          --
 --                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
@@ -6,11 +6,32 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
--- This specification is adapted from the Ada Reference Manual for use with --
--- GNAT.  In accordance with the copyright of that document, you can freely --
--- copy and modify this specification,  provided that if you redistribute a --
--- modified version,  any changes that you have made are clearly indicated. --
+-- This specification is derived from the Ada Reference Manual for use with --
+-- GNAT. The copyright notice above, and the license provisions that follow --
+-- apply solely to the  contents of the part following the private keyword. --
+--                                                                          --
+-- GNAT is free software;  you can  redistribute it  and/or modify it under --
+-- terms of the  GNU General Public License as published  by the Free Soft- --
+-- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
+-- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
+-- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
+-- for  more details.  You should have  received  a copy of the GNU General --
+-- Public License  distributed with GNAT;  see file COPYING.  If not, write --
+-- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
+-- MA 02111-1307, USA.                                                      --
+--                                                                          --
+-- As a special exception,  if other files  instantiate  generics from this --
+-- unit, or you link  this unit with other files  to produce an executable, --
+-- this  unit  does not  by itself cause  the resulting  executable  to  be --
+-- covered  by the  GNU  General  Public  License.  This exception does not --
+-- however invalidate  any other reasons why  the executable file  might be --
+-- covered by the  GNU Public License.                                      --
+--                                                                          --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -29,10 +50,14 @@ pragma Pure (C);
    --  Signed and Unsigned Integers. Note that in GNAT, we have ensured that
    --  the standard predefined Ada types correspond to the standard C types
 
+   --  Note: the Integer qualifications used in the declaration of type long
+   --  avoid ambiguities when compiling in the presence of s-auxdec.ads and
+   --  a non-private system.address type.
+
    type int   is new Integer;
    type short is new Short_Integer;
-   type long  is range -(2 ** (System.Parameters.long_bits - 1))
-     .. +(2 ** (System.Parameters.long_bits - 1)) - 1;
+   type long  is range -(2 ** (System.Parameters.long_bits - Integer'(1)))
+     .. +(2 ** (System.Parameters.long_bits - Integer'(1))) - 1;
 
    type signed_char is range SCHAR_MIN .. SCHAR_MAX;
    for signed_char'Size use CHAR_BIT;
@@ -46,9 +71,13 @@ pragma Pure (C);
 
    subtype plain_char is unsigned_char; -- ??? should be parametrized
 
+   --  Note: the Integer qualifications used in the declaration of ptrdiff_t
+   --  avoid ambiguities when compiling in the presence of s-auxdec.ads and
+   --  a non-private system.address type.
+
    type ptrdiff_t is
-     range -(2 ** (Standard'Address_Size - 1)) ..
-           +(2 ** (Standard'Address_Size - 1) - 1);
+     range -(2 ** (Standard'Address_Size - Integer'(1))) ..
+           +(2 ** (Standard'Address_Size - Integer'(1)) - 1);
 
    type size_t is mod 2 ** Standard'Address_Size;
 
@@ -136,4 +165,6 @@ pragma Pure (C);
 
    Terminator_Error : exception;
 
+private
+   --  No private declarations required
 end Interfaces.C;

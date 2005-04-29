@@ -1,9 +1,9 @@
 /*
- * "$Id: ppds.c,v 1.1.1.10 2003/07/23 02:33:37 jlovell Exp $"
+ * "$Id: ppds.c,v 1.1.1.16 2005/01/04 19:16:28 jlovell Exp $"
  *
  *   PPD scanning routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -30,7 +30,6 @@
  *   compare_names() - Compare PPD filenames for sorting.
  *   compare_ppds()  - Compare PPD file make and model names for sorting.
  *   load_ppds()     - Load PPD files recursively.
- *   ppd_gets()      - Read a line from a PPD file.
  */
 
 /*
@@ -67,6 +66,7 @@ typedef struct
  */
 
 static int		num_ppds,	/* Number of PPD files */
+			sorted_ppds,	/* Number of sorted PPD files */
 			alloc_ppds;	/* Number of allocated entries */
 static ppd_info_t	*ppds;		/* PPD file info */
 static int		changed_ppd;	/* Did we change the PPD database? */
@@ -139,8 +139,10 @@ LoadPPDs(const char *d)			/* I - Directory to scan... */
       */
 
       if (num_ppds > 1)
+      {
 	qsort(ppds, num_ppds, sizeof(ppd_info_t),
               (int (*)(const void *, const void *))compare_names);
+      }
     }
     else
     {
@@ -153,6 +155,8 @@ LoadPPDs(const char *d)			/* I - Directory to scan... */
  /*
   * Load all PPDs in the specified directory and below...
   */
+
+  sorted_ppds = num_ppds;
 
   load_ppds(d, "");
 
@@ -168,7 +172,7 @@ LoadPPDs(const char *d)			/* I - Directory to scan... */
       */
 
       if (i > 1)
-        memcpy(ppd, ppd + 1, (i - 1) * sizeof(ppd_info_t));
+        memmove(ppd, ppd + 1, (i - 1) * sizeof(ppd_info_t));
 
       num_ppds --;
       ppd --;
@@ -301,7 +305,7 @@ compare_ppds(const ppd_info_t *p0,	/* I - First PPD file */
 
   while (*s && *t)
   {
-    if (isdigit(*s) && isdigit(*t))
+    if (isdigit(*s & 255) && isdigit(*t & 255))
     {
      /*
       * Got a number; start by skipping leading 0's...
@@ -316,7 +320,7 @@ compare_ppds(const ppd_info_t *p0,	/* I - First PPD file */
       * Skip equal digits...
       */
 
-      while (isdigit(*s) && *s == *t)
+      while (isdigit(*s & 255) && *s == *t)
       {
         s ++;
 	t ++;
@@ -326,11 +330,11 @@ compare_ppds(const ppd_info_t *p0,	/* I - First PPD file */
       * Bounce out if *s and *t aren't both digits...
       */
 
-      if (isdigit(*s) && !isdigit(*t))
+      if (isdigit(*s & 255) && !isdigit(*t & 255))
         return (1);
-      else if (!isdigit(*s) && isdigit(*t))
+      else if (!isdigit(*s & 255) && isdigit(*t & 255))
         return (-1);
-      else if (!isdigit(*s) || !isdigit(*t))
+      else if (!isdigit(*s & 255) || !isdigit(*t & 255))
         continue;     
 
       if (*s < *t)
@@ -346,13 +350,13 @@ compare_ppds(const ppd_info_t *p0,	/* I - First PPD file */
       s ++;
       t ++;
 
-      while (isdigit(*s))
+      while (isdigit(*s & 255))
       {
         digits ++;
 	s ++;
       }
 
-      while (isdigit(*t))
+      while (isdigit(*t & 255))
       {
         digits --;
 	t ++;
@@ -369,9 +373,9 @@ compare_ppds(const ppd_info_t *p0,	/* I - First PPD file */
       else if (diff)
         return (diff);
     }
-    else if (tolower(*s) < tolower(*t))
+    else if (tolower(*s & 255) < tolower(*t & 255))
       return (-1);
-    else if (tolower(*s) > tolower(*t))
+    else if (tolower(*s & 255) > tolower(*t & 255))
       return (1);
     else
     {
@@ -491,11 +495,11 @@ load_ppds(const char *d,		/* I - Actual directory */
     * See if this file has been scanned before...
     */
 
-    if (num_ppds > 0)
+    if (sorted_ppds > 0)
     {
       strcpy(key.record.ppd_name, name);
 
-      ppd = bsearch(&key, ppds, num_ppds, sizeof(ppd_info_t),
+      ppd = bsearch(&key, ppds, sorted_ppds, sizeof(ppd_info_t),
                     (int (*)(const void *, const void *))compare_names);
 
       if (ppd &&
@@ -588,7 +592,7 @@ load_ppds(const char *d,		/* I - Actual directory */
     else
       strcpy(make_model, model_name);
 
-    while (isspace(make_model[0]))
+    while (isspace(make_model[0] & 255))
       cups_strcpy(make_model, make_model + 1);
 
     if (!make_model[0])
@@ -598,7 +602,7 @@ load_ppds(const char *d,		/* I - Actual directory */
     * See if we got a manufacturer...
     */
 
-    while (isspace(manufacturer[0]))
+    while (isspace(manufacturer[0] & 255))
       cups_strcpy(manufacturer, manufacturer + 1);
 
     if (!manufacturer[0] || strcmp(manufacturer, "ESP") == 0)
@@ -766,14 +770,6 @@ load_ppds(const char *d,		/* I - Actual directory */
             sizeof(ppd->record.ppd_natural_language));
 
     changed_ppd = 1;
-
-   /*
-    * Re-sort the PPD array...
-    */
-
-    if (num_ppds > 1 && new_ppd)
-      qsort(ppds, num_ppds, sizeof(ppd_info_t),
-            (int (*)(const void *, const void *))compare_names);
   }
 
   closedir(dir);
@@ -781,5 +777,5 @@ load_ppds(const char *d,		/* I - Actual directory */
 
 
 /*
- * End of "$Id: ppds.c,v 1.1.1.10 2003/07/23 02:33:37 jlovell Exp $".
+ * End of "$Id: ppds.c,v 1.1.1.16 2005/01/04 19:16:28 jlovell Exp $".
  */

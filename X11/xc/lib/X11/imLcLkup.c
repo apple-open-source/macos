@@ -29,7 +29,7 @@ PERFORMANCE OF THIS SOFTWARE.
                                fujiwara@a80.tech.yk.fujitsu.co.jp
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/imLcLkup.c,v 3.6 2001/08/13 21:46:46 dawes Exp $ */
+/* $XFree86: xc/lib/X11/imLcLkup.c,v 3.9 2003/07/08 15:39:47 tsi Exp $ */
 
 #include <stdio.h>
 #include <X11/Xatom.h>
@@ -66,7 +66,7 @@ _XimLocalMbLookupString(xic, ev, buffer, bytes, keysym, status)
 	memcpy(buffer, ic->private.local.composed->mb, ret);
 	if(keysym) *keysym = ic->private.local.composed->ks;
 	if (ret > 0) {
-	    if(keysym && *keysym != NoSymbol) {
+	    if (keysym && *keysym != NoSymbol) {
 		if(status) *status = XLookupBoth;
 	    } else {
 		if(status) *status = XLookupChars;
@@ -82,7 +82,9 @@ _XimLocalMbLookupString(xic, ev, buffer, bytes, keysym, status)
     } else { /* Throughed Event */
 	ret = _XimLookupMBText(ic, ev, buffer, bytes, keysym, NULL);
 	if(ret > 0) {
-	    if(keysym && *keysym != NoSymbol) {
+	    if (ret > bytes) {
+		if (status) *status = XBufferOverflow;
+	    } else if (keysym && *keysym != NoSymbol) {
 		if(status) *status = XLookupBoth;
 	    } else {
 		if(status) *status = XLookupChars;
@@ -124,7 +126,7 @@ _XimLocalWcLookupString(xic, ev, buffer, wlen, keysym, status)
 	       ret * sizeof(wchar_t));
 	if(keysym) *keysym = ic->private.local.composed->ks;
 	if (ret > 0) {
-	    if(keysym && *keysym != NoSymbol) {
+	    if (keysym && *keysym != NoSymbol) {
 		if(status) *status = XLookupBoth;
 	    } else {
 		if(status) *status = XLookupChars;
@@ -140,7 +142,9 @@ _XimLocalWcLookupString(xic, ev, buffer, wlen, keysym, status)
     } else { /* Throughed Event */
 	ret = _XimLookupWCText(ic, ev, buffer, wlen, keysym, NULL);
 	if(ret > 0) {
-	    if(keysym && *keysym != NoSymbol) {
+	    if (ret > wlen) {
+		if (status) *status = XBufferOverflow;
+	    } else if (keysym && *keysym != NoSymbol) {
 		if(status) *status = XLookupBoth;
 	    } else {
 		if(status) *status = XLookupChars;
@@ -181,7 +185,7 @@ _XimLocalUtf8LookupString(xic, ev, buffer, bytes, keysym, status)
 	memcpy(buffer, ic->private.local.composed->utf8, ret);
 	if(keysym) *keysym = ic->private.local.composed->ks;
 	if (ret > 0) {
-	    if(keysym && *keysym != NoSymbol) {
+	    if (keysym && *keysym != NoSymbol) {
 		if(status) *status = XLookupBoth;
 	    } else {
 		if(status) *status = XLookupChars;
@@ -197,7 +201,9 @@ _XimLocalUtf8LookupString(xic, ev, buffer, bytes, keysym, status)
     } else { /* Throughed Event */
 	ret = _XimLookupUTF8Text(ic, ev, buffer, bytes, keysym, NULL);
 	if(ret > 0) {
-	    if(keysym && *keysym != NoSymbol) {
+	    if (ret > bytes) {
+		if (status) *status = XBufferOverflow;
+	    } else if (keysym && *keysym != NoSymbol) {
 		if(status) *status = XLookupBoth;
 	    } else {
 		if(status) *status = XLookupChars;
@@ -214,13 +220,13 @@ _XimLocalUtf8LookupString(xic, ev, buffer, bytes, keysym, status)
 }
 
 Private int
-_XimLcctsconvert(conv, from, from_len, to, to_len, state)
-    XlcConv	 conv;
-    char	*from;
-    int		 from_len;
-    char	*to;
-    int		 to_len;
-    Status	*state;
+_XimLcctsconvert(
+    XlcConv	 conv,
+    char	*from,
+    int		 from_len,
+    char	*to,
+    int		 to_len,
+    Status	*state)
 {
     int		 from_left;
     int		 to_left;
@@ -245,58 +251,36 @@ _XimLcctsconvert(conv, from, from_len, to, to_len, state)
        initial state.  */
     _XlcResetConverter(conv);
 
-    if (to && to_len) {
-	from_left = from_len;
-	to_left = to_len;
-	from_cnvlen = 0;
-	to_cnvlen = 0;
-	for (;;) {
-	    from_savelen = from_left;
-	    to_savelen = to_left;
-	    from_buf = &from[from_cnvlen];
-	    to_buf = &to[to_cnvlen];
-	    if (_XlcConvert(conv, (XPointer *)&from_buf, &from_left,
-				 (XPointer *)&to_buf, &to_left, NULL, 0) < 0) {
-		*state = XLookupNone;
-		return 0;
-	    }
-	    from_cnvlen += (from_savelen - from_left);
-	    to_cnvlen += (to_savelen - to_left);
-	    if (from_left == 0) {
-		if (to_cnvlen > 0) {
-		    *state = XLookupChars;
-		} else {
-		    *state = XLookupNone;
-		}
-		return to_cnvlen;
-	    }
-	    if (to_left == 0)
-		break;
-	}
-    }
-
     from_left = from_len;
+    to_left = BUFSIZ;
     from_cnvlen = 0;
     to_cnvlen = 0;
     for (;;) {
-	from_savelen = from_left;
-	to_buf = scratchbuf;
-	to_left = BUFSIZ;
 	from_buf = &from[from_cnvlen];
+	from_savelen = from_left;
+	to_buf = &scratchbuf[to_cnvlen];
+	to_savelen = to_left;
 	if (_XlcConvert(conv, (XPointer *)&from_buf, &from_left,
 				 (XPointer *)&to_buf, &to_left, NULL, 0) < 0) {
 	    *state = XLookupNone;
 	    return 0;
 	}
 	from_cnvlen += (from_savelen - from_left);
-	to_cnvlen += (BUFSIZ - to_left);
+	to_cnvlen += (to_savelen - to_left);
 	if (from_left == 0) {
-	    if (to_cnvlen > 0)
-		*state = XBufferOverflow;
-	    else
+	    if (!to_cnvlen) {
 		*state = XLookupNone;
-	    break;
+		return 0;
+           }
+	   break;
 	}
+    }
+
+    if (!to || !to_len || (to_len < to_cnvlen)) {
+       *state = XBufferOverflow;
+    } else {
+       memcpy(to, scratchbuf, to_cnvlen);
+       *state = XLookupChars;
     }
     return to_cnvlen;
 }
@@ -347,59 +331,37 @@ _XimLcctstowcs(xim, from, from_len, to, to_len, state)
     /* Reset the converter.  The CompoundText at 'from' starts in
        initial state.  */
     _XlcResetConverter(conv);
-
-    if (to && to_len) {
-	from_left = from_len;
-	to_left = to_len;
-	from_cnvlen = 0;
-	to_cnvlen = 0;
-	for (;;) {
-	    from_savelen = from_left;
-	    to_savelen = to_left;
-	    from_buf = &from[from_cnvlen];
-	    to_buf = &to[to_cnvlen];
-	    if (_XlcConvert(conv, (XPointer *)&from_buf, &from_left,
-				 (XPointer *)&to_buf, &to_left, NULL, 0) < 0) {
-		*state = XLookupNone;
-		return 0;
-	    }
-	    from_cnvlen += (from_savelen - from_left);
-	    to_cnvlen += (to_savelen - to_left);
-	    if (from_left == 0) {
-		if (to_cnvlen > 0) {
-		    *state = XLookupChars;
-		} else {
-		    *state = XLookupNone;
-		}
-		return to_cnvlen;
-	    }
-	    if (to_left == 0)
-		break;
-	}
-    }
 		
     from_left = from_len;
+    to_left = BUFSIZ;
     from_cnvlen = 0;
     to_cnvlen = 0;
     for (;;) {
-	from_savelen = from_left;
-	to_buf = scratchbuf;
-	to_left = BUFSIZ * sizeof(wchar_t);
 	from_buf = &from[from_cnvlen];
+       from_savelen = from_left;
+       to_buf = &scratchbuf[to_cnvlen];
+       to_savelen = to_left;
 	if (_XlcConvert(conv, (XPointer *)&from_buf, &from_left,
 				 (XPointer *)&to_buf, &to_left, NULL, 0) < 0) {
 	    *state = XLookupNone;
 	    return 0;
 	}
 	from_cnvlen += (from_savelen - from_left);
-	to_cnvlen += (BUFSIZ * sizeof(wchar_t) - to_left);
+       to_cnvlen += (to_savelen - to_left);
 	if (from_left == 0) {
-	    if (to_cnvlen > 0)
-		*state = XBufferOverflow;
-	    else
+           if (!to_cnvlen){
 		*state = XLookupNone;
+               return 0;
+           }
 	    break;
 	}
+    }
+
+    if (!to || !to_len || (to_len < to_cnvlen)) {
+       *state = XBufferOverflow;
+    } else {
+       memcpy(to, scratchbuf, to_cnvlen * sizeof(wchar_t));
+       *state = XLookupChars;
     }
     return to_cnvlen;
 }

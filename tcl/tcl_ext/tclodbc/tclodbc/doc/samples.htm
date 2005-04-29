@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+   <TITLE></TITLE>
+   <META NAME="Author" CONTENT="Roy Nurmi">
+</HEAD>
+<BODY>
+
+<H1>Utilities and sample programs</H1>
+<P>While working with tclodbc I
+have created numerous small utility procedures and programs for
+different purposes. These programs usually are quick non-general
+hacks, as scripts often tend to be. Thus most of them do not have any
+value as general utilities. </P> 
+<P>However, I have had some requests
+for more comprehesive examples of tclodbc programming. For this
+purpose I have included in tclodbc 2.1 some utility programs as well
+as some example programs that take use of them. The samples include
+e.g. creating, dumping and loading of a simple MS Access database, some
+date/time conversion functions and sql code generating utilities.
+Also, an of example of using tkTable widget with tclodbc is also
+provided.</P> 
+<H1>Important note from author</H1>
+<P>tclodbc as whole is provided on an "as is" basis, without any warranties
+whatsoever. This concerns the utility and sample programs as well as
+the extension itself. Utility programs are especially small and
+simple, and most propaby won’t work with every platform or dbms.
+Therefore I am not very interested in receiving e-mail about bugs or
+fixes in the utility programs. If they are of help to the users,
+good, if they are not, that’s how it is. Anyway, they are naturally written in
+tcl and may provide some insight for using tclodbc and also a good template
+for writing your own utilities. The bug reports of the actual extension
+are naturally still welcome and very much appreciated.</P>
+<H2>Sample programs</H2>
+<P>The sample programs are copied in directory <I>samples</I> below the tclodbc installation
+directory. Most of the programs are best run in plain tclsh, except
+tktable.tcl, which should be run in wish. The sample programs include
+basic documentation in the form of tcl comments.</P>
+<H2>Utility procedures</H2>
+<P>Utility procedures are
+included in several tcl files that are copied to tclodbc installation
+directory. The procedures are sourced in namespace ::tclodbc when
+running setup.tcl. So the utilities are normally called with
+namespace suffix. Example:</p> 
+<P><FONT FACE="Courier">tclodbc::SqlShell db</FONT></P>
+
+<P>Because of the use of namespaces in packaging, tcl 8.0 is required
+with the utilities</P>
+
+<P>The utilities are documented in some level in accompanying <a href="utilref.htm">utilref.htm</a></P>
+
+<address>Roy Nurmi</address>
+</BODY>
+</HTML>

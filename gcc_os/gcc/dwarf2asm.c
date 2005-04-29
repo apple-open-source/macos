@@ -60,7 +60,7 @@ dw2_assemble_integer (size, x)
   else
     assemble_integer (x, size, BITS_PER_UNIT, 1);
 }
-     
+
 
 /* Output an immediate constant in a given size.  */
 
@@ -104,54 +104,14 @@ dw2_asm_output_delta VPARAMS ((int size, const char *lab1, const char *lab2,
   VA_FIXEDARG (ap, const char *, lab2);
   VA_FIXEDARG (ap, const char *, comment);
 
-  /* APPLE LOCAL begin C++ EH */
 #ifdef ASM_OUTPUT_DWARF_DELTA
   ASM_OUTPUT_DWARF_DELTA (asm_out_file, size, lab1, lab2);
-#else
-  /* APPLE LOCAL end C++ EH */
-  dw2_assemble_integer (size,
-			gen_rtx_MINUS (Pmode,
-				       gen_rtx_SYMBOL_REF (Pmode, lab1),
-				       gen_rtx_SYMBOL_REF (Pmode, lab2)));
-  /* APPLE LOCAL C++ EH */
-#endif /* ASM_OUTPUT_DWARF_DELTA */
-
-  if (flag_debug_asm && comment)
-    {
-      fprintf (asm_out_file, "\t%s ", ASM_COMMENT_START);
-      vfprintf (asm_out_file, comment, ap);
-    }
-  fputc ('\n', asm_out_file);
-
-  VA_CLOSE (ap);
-}
-
-/* APPLE LOCAL begin C++ eh */
-
-/* Output the difference between two symbols in a given size.
-   Force a relocatable reference, i.e. a reference that will
-   remain correct even if the linker moves around code in 
-   such a way that it affects the offset between the symbols. */
-
-void
-dw2_asm_output_reloc_delta VPARAMS ((int size, const char *lab1, const char *lab2,
-				     const char *comment, ...))
-{
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, int, size);
-  VA_FIXEDARG (ap, const char *, lab1);
-  VA_FIXEDARG (ap, const char *, lab2);
-  VA_FIXEDARG (ap, const char *, comment);
-
-#ifdef ASM_OUTPUT_RELOC_DWARF_DELTA
-  ASM_OUTPUT_RELOC_DWARF_DELTA (asm_out_file, size, lab1, lab2);
 #else
   dw2_assemble_integer (size,
 			gen_rtx_MINUS (Pmode,
 				       gen_rtx_SYMBOL_REF (Pmode, lab1),
 				       gen_rtx_SYMBOL_REF (Pmode, lab2)));
 #endif
-
   if (flag_debug_asm && comment)
     {
       fprintf (asm_out_file, "\t%s ", ASM_COMMENT_START);
@@ -161,8 +121,6 @@ dw2_asm_output_reloc_delta VPARAMS ((int size, const char *lab1, const char *lab
 
   VA_CLOSE (ap);
 }
-
-/* APPLE LOCAL end C++ eh */
 
 /* Output a section-relative reference to a label.  In general this
    can only be done for debugging symbols.  E.g. on most targets with
@@ -361,7 +319,7 @@ size_of_sleb128 (value)
 }
 
 /* Given an encoding, return the number of bytes the format occupies.
-   This is only defined for fixed-size encodings, and so does not 
+   This is only defined for fixed-size encodings, and so does not
    include leb128.  */
 
 int
@@ -606,7 +564,7 @@ dw2_asm_output_data_uleb128 VPARAMS ((unsigned HOST_WIDE_INT value,
   VA_CLOSE (ap);
 }
 
-/* Output an signed LEB128 quantity.  */
+/* Output a signed LEB128 quantity.  */
 
 void
 dw2_asm_output_data_sleb128 VPARAMS ((HOST_WIDE_INT value,
@@ -729,38 +687,18 @@ dw2_asm_output_delta_sleb128 VPARAMS ((const char *lab1 ATTRIBUTE_UNUSED,
   VA_CLOSE (ap);
 }
 
-static int mark_indirect_pool_entry PARAMS ((splay_tree_node, void *));
-static void mark_indirect_pool PARAMS ((PTR arg));
 static rtx dw2_force_const_mem PARAMS ((rtx));
 static int dw2_output_indirect_constant_1 PARAMS ((splay_tree_node, void *));
 
-static splay_tree indirect_pool;
+static GTY((param1_is (char *), param2_is (tree))) splay_tree indirect_pool;
+
+static GTY(()) int dw2_const_labelno;
 
 #if defined(HAVE_GAS_HIDDEN) && defined(SUPPORTS_ONE_ONLY)
 # define USE_LINKONCE_INDIRECT 1
 #else
 # define USE_LINKONCE_INDIRECT 0
 #endif
-
-/* Mark all indirect constants for GC.  */
-
-static int
-mark_indirect_pool_entry (node, data)
-     splay_tree_node node;
-     void* data ATTRIBUTE_UNUSED;
-{
-  ggc_mark_nonnull_tree ((tree) node->value);
-  return 0;
-}
-
-/* Mark all indirect constants for GC.  */
-
-static void
-mark_indirect_pool (arg)
-     PTR arg ATTRIBUTE_UNUSED;
-{
-  splay_tree_foreach (indirect_pool, mark_indirect_pool_entry, NULL);
-}
 
 /* Put X, a SYMBOL_REF, in memory.  Return a SYMBOL_REF to the allocated
    memory.  Differs from force_const_mem in that a single pool is used for
@@ -776,15 +714,12 @@ dw2_force_const_mem (x)
   tree decl;
 
   if (! indirect_pool)
-    {
-      indirect_pool = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-      ggc_add_root (&indirect_pool, 1, sizeof indirect_pool, mark_indirect_pool);
-    }
+    indirect_pool = splay_tree_new_ggc (splay_tree_compare_pointers);
 
   if (GET_CODE (x) != SYMBOL_REF)
     abort ();
 
-  STRIP_NAME_ENCODING (str, XSTR (x, 0));
+  str = (* targetm.strip_name_encoding) (XSTR (x, 0));
   node = splay_tree_lookup (indirect_pool, (splay_tree_key) str);
   if (node)
     decl = (tree) node->value;
@@ -806,11 +741,10 @@ dw2_force_const_mem (x)
 	}
       else
 	{
-	  extern int const_labelno;
 	  char label[32];
 
-	  ASM_GENERATE_INTERNAL_LABEL (label, "LC", const_labelno);
-	  ++const_labelno;
+	  ASM_GENERATE_INTERNAL_LABEL (label, "LDFCM", dw2_const_labelno);
+	  ++dw2_const_labelno;
 	  id = get_identifier (label);
 	  decl = build_decl (VAR_DECL, id, ptr_type_node);
 	  DECL_ARTIFICIAL (decl) = 1;
@@ -890,7 +824,7 @@ dw2_asm_output_encoded_addr_rtx VPARAMS ((int encoding,
     {
     restart:
       /* Allow the target first crack at emitting this.  Some of the
-	 special relocations require special directives instead of 
+	 special relocations require special directives instead of
 	 just ".4byte" or whatever.  */
 #ifdef ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX
       ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX (asm_out_file, encoding, size,
@@ -928,7 +862,7 @@ dw2_asm_output_encoded_addr_rtx VPARAMS ((int encoding,
 	  break;
 
 	default:
-	  /* Other encodings should have been handled by 
+	  /* Other encodings should have been handled by
 	     ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX.  */
 	  abort ();
 	}
@@ -947,3 +881,5 @@ dw2_asm_output_encoded_addr_rtx VPARAMS ((int encoding,
 
   VA_CLOSE (ap);
 }
+
+#include "gt-dwarf2asm.h"

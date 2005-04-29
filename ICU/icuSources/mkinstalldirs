@@ -1,15 +1,13 @@
 #! /bin/sh
 #  ********************************************************************
 #  * COPYRIGHT:
-#  * Copyright (c) 2002, International Business Machines Corporation and
+#  * Copyright (c) 2002-2004, International Business Machines Corporation and
 #  * others. All Rights Reserved.
 #  ********************************************************************
 # mkinstalldirs --- make directory hierarchy
 # Author: Noah Friedman <friedman@prep.ai.mit.edu>
 # Created: 1993-05-16
 # Public domain
-
-# $Id: mkinstalldirs,v 1.1.1.1 2003/02/05 21:31:12 avery Exp $
 
 errstatus=0
 

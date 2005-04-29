@@ -8,11 +8,12 @@ Prerequisites
 The packages that must be installed to build the gimp-print packages
 are listed in the Build-Depends field of the control file
 debian/control[.in].  However, these are the prerequisites to build
-the Debianised source.  Other things may be needed if building
+the Debianised source.  Other packages may be needed if building
 directly from CVS; it is less likely other tools will be needed if
 building from a distributed tarball.  Other tools that might
-potentially be needed are the latest versions of gettext and
-texi2html.
+potentially be needed are the latest versions of gettext, texi2html,
+docbook-utils and imagemagick.  build-essential and devscripts should
+also be installed in order to build Debian packages.
 
 
 General
@@ -87,5 +88,4 @@ unstable distributions.
 
 I hope you like it!
 
-Roger Leigh <roger@whinlatter.uklinux.net> -- Wed,  9 Oct 2002 21:25:06 +0100
-
+Roger Leigh <rleigh@debian.org> -- Thu, 29 May 2003 16:09:48 +0100

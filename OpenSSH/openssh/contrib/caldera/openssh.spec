@@ -17,11 +17,11 @@
 #old cvs stuff.  please update before use.  may be deprecated.
 %define use_stable	1
 %if %{use_stable}
-  %define version 	3.6.1p1
+  %define version 	3.8.1p1
   %define cvs		%{nil}
-  %define release 	2
+  %define release 	1
 %else
-  %define version 	2.9.9p2
+  %define version 	3.8.1p1
   %define cvs		cvs20011009
   %define release 	0r1
 %endif
@@ -180,7 +180,6 @@ CFLAGS="$RPM_OPT_FLAGS" \
 %configure \
             --with-pam \
             --with-tcp-wrappers \
-            --with-ipv4-default \
 	    --with-privsep-path=%{_var}/empty/sshd \
 	    #leave this line for easy edits.
 
@@ -364,4 +363,4 @@ fi
 * Mon Jan 01 1998 ...
 Template Version: 1.31
 
-$Id: openssh.spec,v 1.1.1.13 2003/04/02 18:36:59 zarzycki Exp $
+$Id: openssh.spec,v 1.49 2004/03/21 22:40:04 djm Exp $

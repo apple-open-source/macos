@@ -24,68 +24,74 @@
 #define _IOHIDPOINTING_H
 
 #include <IOKit/hidsystem/IOHIDTypes.h>
-#include <IOKit/hidsystem/IOHIPointing.h>
-#include "IOHIDDevice.h"
+#include "IOHITablet.h"
+#include "IOHIDEventService.h"
+#include "IOHIDevicePrivateKeys.h"
 
-enum IOHIDPointingButtonType{
-    kIOHIDPointingButtonGeneric = 0,
-    kIOHIDPointingButtonAbsolute,
-    kIOHIDPointingButtonRelative
-};
-typedef enum IOHIDPointingButtonType IOHIDPointingButtonType;
-
-class IOHIDPointing : public IOHIPointing
+class IOHIDPointing : public IOHITablet
 {
     OSDeclareDefaultStructors(IOHIDPointing);
 
 private:
-    HIDPreparsedDataRef		_preparsedReportDescriptorData;
-    Bounds			_bounds;
-    IOItemCount			_numButtons;
-    IOFixed     		_resolution;
-    IOFixed			_scrollResolution;
-    
-    IOHIDPointingButtonType	_buttonType;
-    SInt32			_buttonCollection;
-    SInt32			_xRelativeCollection;
-    SInt32			_yRelativeCollection;
-    SInt32			_xAbsoluteCollection;
-    SInt32			_yAbsoluteCollection;
-    SInt32			_tipPressureCollection;
-    SInt32			_digitizerButtonCollection;
-    SInt32			_scrollWheelCollection;
-    SInt32			_horzScrollCollection;
-    int				_tipPressureMin;
-    SInt16			_tipPressureMax;
-    
-    bool			_absoluteCoordinates;
-    bool			_hasInRangeReport;
-    bool			_bootProtocol;
-    
-    UInt32			_reportCount;
-    UInt32			_cachedButtonState;
-    
-    IOHIDDevice *		_provider;
+    IOHIDEventService *      _provider;
 
+    IOItemCount             _numButtons;
+    IOFixed                 _resolution;
+    IOFixed                 _scrollResolution;
+    UInt32                  _pointingMode;
+    bool                    _isDispatcher;
+                
 public:
+    static UInt16           generateDeviceID();
+
     // Allocator
-    static IOHIDPointing * 	Pointing(OSArray * elements, IOHIDDevice * owner);
+    static IOHIDPointing * Pointing(
+                                UInt32          buttonCount,
+                                IOFixed         pointerResolution,
+                                IOFixed         scrollResolution,
+                                bool            isDispatcher);
 
-    virtual bool init(OSDictionary * properties = 0);
+    virtual bool initWithMouseProperties(
+                                UInt32          buttonCount,
+                                IOFixed         pointerResolution,
+                                IOFixed         scrollResolution,
+                                bool            isDispatcher);
 
-    virtual bool	start(IOService * provider);
+    virtual bool start(IOService * provider);
     
-//    virtual void 	stop(IOService *  provider);
+										
+    virtual void dispatchAbsolutePointerEvent(
+                                AbsoluteTime                timeStamp,
+                                Point *                     newLoc,
+                                Bounds *                    bounds,
+                                UInt32                      buttonState,
+                                bool                        inRange,
+                                SInt32                      tipPressure,
+                                SInt32                      tipPressureMin,
+                                SInt32                      tipPressureMax,
+                                IOOptionBits                options = 0);
+                                								
+	virtual void dispatchRelativePointerEvent(
+                                AbsoluteTime                timeStamp,
+								SInt32                      dx,
+								SInt32                      dy,
+								UInt32                      buttonState,
+								IOOptionBits                options = 0);
 
-  virtual void free();
-  
-  virtual IOReturn parseReportDescriptor( 
-                    IOMemoryDescriptor * report,
-                    IOOptionBits         options = 0 );
-                                    
-  virtual IOReturn handleReport(
-                    IOMemoryDescriptor * report,
-                    IOOptionBits         options = 0 );
+	virtual void dispatchScrollWheelEvent(
+                                AbsoluteTime                timeStamp,
+								SInt32                      deltaAxis1,
+								SInt32                      deltaAxis2,
+								UInt32                      deltaAxis3,
+								IOOptionBits                options = 0);
+
+    virtual void dispatchTabletEvent(
+                                    NXEventData *           tabletEvent,
+                                    AbsoluteTime            ts);
+
+    virtual void dispatchProximityEvent(
+                                    NXEventData *           proximityEvent,
+                                    AbsoluteTime            ts);
 
 protected:
   virtual IOItemCount buttonCount();
@@ -94,8 +100,7 @@ protected:
 private:
   // This is needed to pass properties defined
   // in IOHIDDevice to the nub layer
-  void	  propagateProperties();
-  bool    findDesiredElements(OSArray *elements);
+  void	  setupProperties();
 
 };
 

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XPutRes.man,v 1.3 2001/02/09 03:47:46 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XPutRes.man,v 1.5 2003/08/04 10:32:20 eich Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,53 +144,22 @@
 .SH NAME
 XrmPutResource, XrmQPutResource, XrmPutStringResource, XrmQPutStringResource, XrmPutLineResource \- store database resources
 .SH SYNTAX
-void XrmPutResource\^(\^\fIdatabase\fP, \fIspecifier\fP, \fItype\fP, \fIvalue\fP\^)
-.br
-     XrmDatabase *\fIdatabase\fP\^;
-.br
-     char *\fIspecifier\fP\^;
-.br
-     char *\fItype\fP\^;
-.br
-     XrmValue *\fIvalue\fP\^;
-.LP
-void XrmQPutResource\^(\^\fIdatabase\fP, \fIbindings\fP, \fIquarks\fP,
-\fItype\fP, \fIvalue\fP\^)
-.br
-     XrmDatabase *\fIdatabase\fP\^;
-.br
-     XrmBindingList \fIbindings\fP\^;
-.br
-     XrmQuarkList \fIquarks\fP\^;
-.br
-     XrmRepresentation \fItype\fP\^;
-.br
-     XrmValue *\fIvalue\fP\^;
-.LP
-void XrmPutStringResource\^(\^\fIdatabase\fP, \fIspecifier\fP, \fIvalue\fP\^)
-.br
-     XrmDatabase *\fIdatabase\fP\^;
-.br
-     char *\fIspecifier\fP\^;
-.br
-     char *\fIvalue\fP\^;
-.LP
-void XrmQPutStringResource\^(\^\fIdatabase\fP, \fIbindings\fP, \fIquarks\fP,
-\fIvalue\fP\^)
-.br
-     XrmDatabase *\fIdatabase\fP\^;
-.br
-     XrmBindingList \fIbindings\fP\^;
-.br
-     XrmQuarkList \fIquarks\fP\^;
-.br
-     char *\fIvalue\fP\^;
-.LP
-void XrmPutLineResource\^(\^\fIdatabase\fP, \fIline\fP\^)
-.br
-     XrmDatabase *\fIdatabase\fP\^;
-.br
-     char *\fIline\fP\^;
+.HP
+void XrmPutResource\^(\^XrmDatabase *\fIdatabase\fP\^, char
+*\fIspecifier\fP\^, char *\fItype\fP\^, XrmValue *\fIvalue\fP\^); 
+.HP
+void XrmQPutResource\^(\^XrmDatabase *\fIdatabase\fP\^, XrmBindingList
+\fIbindings\fP\^, XrmQuarkList \fIquarks\fP\^, XrmRepresentation \fItype\fP\^,
+XrmValue *\fIvalue\fP\^); 
+.HP
+void XrmPutStringResource\^(\^XrmDatabase *\fIdatabase\fP\^, char
+*\fIspecifier\fP\^, char *\fIvalue\fP\^); 
+.HP
+void XrmQPutStringResource\^(\^XrmDatabase *\fIdatabase\fP\^, XrmBindingList
+\fIbindings\fP\^, XrmQuarkList \fIquarks\fP\^, char *\fIvalue\fP\^); 
+.HP
+void XrmPutLineResource\^(\^XrmDatabase *\fIdatabase\fP\^, char
+*\fIline\fP\^); 
 .SH ARGUMENTS
 .IP \fIbindings\fP 1i
 Specifies a list of bindings.
@@ -218,6 +187,7 @@ followed by:
 .Ds
 XrmQPutResource(database, bindings, quarks, XrmStringToQuark(type), value)
 .De
+.LP
 If the specifier and type are not in the Host Portable Character Encoding,
 the result is implementation-dependent.
 The value is stored in the database without modification.

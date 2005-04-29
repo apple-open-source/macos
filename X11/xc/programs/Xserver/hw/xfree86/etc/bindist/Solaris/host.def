@@ -1,7 +1,7 @@
 /*
  * Host.def for building Solaris bindists
  *
- * $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/Solaris/host.def,v 1.6 2002/12/24 16:14:45 dawes Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/Solaris/host.def,v 1.7 2003/11/05 21:12:06 dawes Exp $
  */
 
 #define InstallEmptyHostDef
@@ -11,4 +11,5 @@
 
 #define HasLibpng	YES
 #define LibpngDir	/usr/local
+#define ExtraLibDirPath	/usr/local/lib
 

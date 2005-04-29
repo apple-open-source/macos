@@ -1,0 +1,133 @@
+\section{The Evolution of Finger: making a finger library\label{doc/howto/tutorial/library.xhtml}}
+
+
+\subsection{Introduction}
+
+
+ This is the tenth part of the Twisted tutorial \textit{Twisted from Scratch, or The Evolution of Finger}\loreref{doc/howto/tutorial/index.xhtml}.
+
+In this part, we separate the application code that launches a finger service from the library code which defines a finger service, placing the application in a Twisted Application Configuration (.tac) file. We also move configuration (such as HTML templates) into separate files.
+
+\subsection{Organization}
+
+
+Now this code, while quite modular and well-designed, isn't properly organized. Everything above the \texttt{application=} belongs in a module, and the HTML templates all belong in separate files. 
+
+We can use the templateFile and templateDirectory attributes to indicate what HTML template file to use for each Page, and where to look for it.\begin{verbatim}
+# organized-finger.tac
+# eg:  twistd -ny organized-finger.tac
+
+import finger
+
+from twisted.internet import protocol, reactor, defer
+from twisted.spread import pb
+from twisted.web import resource, server
+from twisted.application import internet, service, strports
+from twisted.python import log
+
+application = service.Application('finger', uid=1, gid=1)
+f = finger.FingerService('/etc/users')
+serviceCollection = service.IServiceCollection(application)
+internet.TCPServer(79, finger.IFingerFactory(f)
+                   ).setServiceParent(serviceCollection)
+
+site = server.Site(resource.IResource(f))
+internet.TCPServer(8000, site
+                   ).setServiceParent(serviceCollection)
+
+internet.SSLServer(443, site, ServerContextFactory()
+                   ).setServiceParent(serviceCollection)
+
+i = finger.IIRCClientFactory(f)
+i.nickname = 'fingerbot'
+internet.TCPClient('irc.freenode.org', 6667, i
+                   ).setServiceParent(serviceCollection)
+
+internet.TCPServer(8889, pb.PBServerFactory(finger.IPerspectiveFinger(f))
+                   ).setServiceParent(serviceCollection)
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}organized-finger.tac\end{em}\end{center}}
+
+ Note that our program is now quite separated. We have: \begin{itemize}
+\item Code (in the module)
+\item Configuration (file above)
+\item Presentation (templates)
+\item Content (/etc/users)
+\item Deployment (twistd)
+\end{itemize}
+  Prototypes don't need this level of separation, so our earlier examples all bunched together. However, real applications do. Thankfully, if we write our code correctly, it is easy to achieve a good separation of parts. 
+
+\subsection{Easy Configuration}
+
+
+We can also supply easy configuration for common cases with a makeService method that will also help build .tap files later:\begin{verbatim}
+# Easy configuration
+# makeService from finger module
+
+def makeService(config):
+    # finger on port 79
+    s = service.MultiService()
+    f = FingerService(config['file'])
+    h = internet.TCPServer(79, IFingerFactory(f))
+    h.setServiceParent(s)
+
+    # website on port 8000
+    r = resource.IResource(f)
+    r.templateDirectory = config['templates']
+    site = server.Site(r)
+    j = internet.TCPServer(8000, site)
+    j.setServiceParent(s)
+
+    # ssl on port 443
+    if config.get('ssl'):
+        k = internet.SSLServer(443, site, ServerContextFactory())
+        k.setServiceParent(s)
+
+    # irc fingerbot
+    if config.has_key('ircnick'):
+        i = IIRCClientFactory(f)
+        i.nickname = config['ircnick']
+        ircserver = config['ircserver']
+        b = internet.TCPClient(ircserver, 6667, i)
+        b.setServiceParent(s)
+
+    # Pespective Broker on port 8889
+    if config.has_key('pbport'):
+        m = internet.TCPServer(
+            int(config['pbport']),
+            pb.PBServerFactory(IPerspectiveFinger(f)))
+        m.setServiceParent(s)
+
+    return s
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger\_config.py\end{em}\end{center}}
+
+And we can write simpler files now:\begin{verbatim}
+# simple-finger.tac
+# eg:  twistd -ny simple-finger.tac
+
+from twisted.application import service
+
+import finger
+
+options = { 'file': '/etc/users',
+            'templates': '/usr/share/finger/templates',
+            'ircnick': 'fingerbot',
+            'ircserver': 'irc.freenode.net',
+            'pbport': 8889,
+            'ssl': 'ssl=0' }
+
+ser = finger.makeService(options)
+application = service.Application('finger', uid=1, gid=1)
+ser.setServiceParent(service.IServiceCollection(application))
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}simple-finger.tac\end{em}\end{center}}\begin{verbatim}
+% twisted -ny simple-finger.tac
+\end{verbatim}
+
+
+Note: the finger \begin{em}user\end{em} still has ultimate power: he can use makeService, or he can use the lower-level interface if he has specific needs (maybe an IRC server on some other port? maybe we want the non-SSL webserver to listen only locally?  etc. etc.) This is an important design principle: never force a layer of abstraction: allow usage of layers of abstractions.
+
+The pasta theory of design:\begin{itemize}
+\item Spaghetti: each piece of code interacts with every other piece of     code {[}can be implemented with GOTO, functions, objects{]}
+\item Lasagna: code has carefully designed layers. Each layer is, in     theory independent. However low-level layers usually cannot be     used easily, and high-level layers depend on low-level layers.
+\item Ravioli: each part of the code is useful by itself. There is a thin     layer of interfaces between various parts {[}the sauce{]}. Each part     can be usefully be used elsewhere.
+\item ...but sometimes, the user just wants to order ``Ravioli'', so one     coarse-grain easily definable layer of abstraction on top of it all     can be useful.
+\end{itemize}

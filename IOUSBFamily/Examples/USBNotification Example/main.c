@@ -261,7 +261,8 @@ IOReturn FindInterfaces(IOUSBDeviceInterface **dev)
             
         // I have the interface plugin. I need the interface interface
         res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID), (LPVOID) &intf);
-        (*plugInInterface)->Release(plugInInterface);			// done with this
+        IODestroyPlugInInterface(plugInInterface);			// done with this
+
         if (res || !intf)
         {
             printf("couldn't create an IOUSBInterfaceInterface (%08x)\n", (int) res);
@@ -440,7 +441,8 @@ void RawDeviceAdded(void *refCon, io_iterator_t iterator)
             
         // I have the device plugin, I need the device interface
         res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID)&dev);
-        (*plugInInterface)->Release(plugInInterface);			// done with this
+        IODestroyPlugInInterface(plugInInterface);			// done with this
+		
         if (res || !dev)
         {
             printf("couldn't create a device interface (%08x)\n", (int) res);
@@ -528,7 +530,8 @@ void BulkTestDeviceAdded(void *refCon, io_iterator_t iterator)
             
         // I have the device plugin, I need the device interface
         res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID)&dev);
-        (*plugInInterface)->Release(plugInInterface);			// done with this
+        IODestroyPlugInInterface(plugInInterface);			// done with this
+		
         if (res || !dev)
         {
             printf("couldn't create a device interface (%08x)\n", (int) res);

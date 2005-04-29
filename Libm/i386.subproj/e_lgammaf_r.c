@@ -22,7 +22,7 @@ __RCSID("$NetBSD: e_lgammaf_r.c,v 1.5 1999/07/02 15:37:40 simonb Exp $");
 #include "math_private.h"
 
 static const float
-two23=  8.3886080000e+06, /* 0x4b000000 */
+two23=  0x1.0p+23, // 8.3886080000e+06, /* 0x4b000000 */
 half=  5.0000000000e-01, /* 0x3f000000 */
 one =  1.0000000000e+00, /* 0x3f800000 */
 pi  =  3.1415927410e+00, /* 0x40490fdb */

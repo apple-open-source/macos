@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: writeenv.c,v 1.1.1.1 2002/11/26 19:08:07 zarzycki Exp $
+ * $Id: writeenv.c,v 1.9 2004/12/15 01:38:25 danf Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -26,12 +26,13 @@
 #ifdef USE_ENVIRONMENT
 
 #include <curl/curl.h>
+#include "writeenv.h"
 
 #ifdef __riscos__
 #include <kernel.h>
 #endif
 
-struct
+static const struct
 {
   const char * name;
   CURLINFO id;
@@ -44,7 +45,7 @@ struct
 } variables[14] =
 {
   {"curl_url_effective", CURLINFO_EFFECTIVE_URL, writeenv_STRING},
-  {"curl_http_code", CURLINFO_HTTP_CODE, writeenv_LONG},
+  {"curl_http_code", CURLINFO_RESPONSE_CODE, writeenv_LONG},
   {"curl_time_total", CURLINFO_TOTAL_TIME, writeenv_DOUBLE},
   {"curl_time_namelookup", CURLINFO_NAMELOOKUP_TIME, writeenv_DOUBLE},
   {"curl_time_connect", CURLINFO_CONNECT_TIME, writeenv_DOUBLE},
@@ -64,6 +65,10 @@ static void internalSetEnv(const char * name, char * value)
   /* Add your OS-specific code here. */
 #ifdef __riscos__
   _kernel_setenv(name, value);
+#elif defined (CURLDEBUG)
+  extern FILE *curl_debuglogfile;
+  if (curl_debuglogfile)
+     fprintf (curl_debuglogfile, "ENV %s = %s\n", name, value);
 #endif
   return;
 }
@@ -99,6 +104,8 @@ void ourWriteEnv(CURL *curl)
       }
       else
         internalSetEnv(variables[i].name, NULL);
+      break;
+    default:
       break;
     }
   }

@@ -61,7 +61,7 @@ struct buffer
        appropriate should be done at this point.  This may be NULL.
        It should return 0 on success, or an errno code.  This entry
        point exists for the compression code.  */
-    int (*shutdown) PROTO((void *closure));
+    int (*shutdown) PROTO((struct buffer *));
 
     /* This field is passed to the INPUT, OUTPUT, and BLOCK functions.  */
     void *closure;
@@ -105,19 +105,21 @@ extern struct buffer *buf_initialize PROTO((int (*) (void *, char *, int,
 						     int, int *),
 					    int (*) (void *),
 					    int (*) (void *, int),
-					    int (*) (void *),
+					    int (*) (struct buffer *),
 					    void (*) (struct buffer *),
 					    void *));
 extern void buf_free PROTO((struct buffer *));
 extern struct buffer *buf_nonio_initialize PROTO((void (*) (struct buffer *)));
 extern struct buffer *stdio_buffer_initialize
-  PROTO((FILE *, int, void (*) (struct buffer *)));
+  PROTO((FILE *, int, int, void (*) (struct buffer *)));
+extern FILE *stdio_buffer_get_file PROTO((struct buffer *));
 extern struct buffer *compress_buffer_initialize
   PROTO((struct buffer *, int, int, void (*) (struct buffer *)));
 extern struct buffer *packetizing_buffer_initialize
   PROTO((struct buffer *, int (*) (void *, const char *, char *, int),
 	 int (*) (void *, const char *, char *, int, int *), void *,
 	 void (*) (struct buffer *)));
+extern int buf_empty PROTO((struct buffer *));
 extern int buf_empty_p PROTO((struct buffer *));
 extern void buf_output PROTO((struct buffer *, const char *, int));
 extern void buf_output0 PROTO((struct buffer *, const char *));

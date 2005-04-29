@@ -132,7 +132,7 @@ namespace IOFireWireLib {
 		{
 			descCString = CFStringGetChars( desc, descLen ) ;
 		}
-	
+		
 		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kLocalConfigDirectory_AddEntry_Buffer, 6, 0,
 				mKernUnitDirRef, key, buffer, len, descCString, descLen ) ;
 	}

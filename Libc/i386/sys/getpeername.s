@@ -25,5 +25,8 @@
  */
 #include "SYS.h"
 
-UNIX_SYSCALL(getpeername, 3)
+PSEUDO(getpeername$UNIX2003, getpeername, 3)
+	ret
+
+UNIX_SYSCALL_ERR(getpeername, 3, cerror_cvt)
 	ret

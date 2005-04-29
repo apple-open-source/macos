@@ -4,9 +4,12 @@
  * The settings here require the following to be installed:
  *
  *   - XFree86 doctools package (requires groff)
- *   - nroff/troff or groff
+ *   - groff 1.18 or later, including grohtml
+ *   - LaTeX
+ *   - pdflatex
+ *   - GhostScript (with pdfwrite support)
  *
- * $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/common/host.def,v 1.11 2002/01/16 18:36:01 dawes Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/common/host.def,v 1.14 2003/12/05 01:03:24 dawes Exp $
  */
 
 #define HasSgmlFmt		YES
@@ -14,10 +17,17 @@
 #define InstallJapaneseDocs	YES
 
 #define HasLatex		YES
+#define HasGhostScript		YES
+#define HasGroffHtml		YES
+#define HasPdfLatex		YES
+
 #define BuildSpecsDocs		YES
 #define BuildAllSpecsDocs	YES
 
 #define InstallHardcopyDocs	YES
-#define HardcopyDocDirs		RX XIE XKB XPRINT
+#define HardcopyDocDirs		RX XKB XPRINT
+#define InstallMiscManPages	YES
 
+#define BuildBethMarduthoFonts  YES
+#define BuildEthiopicFonts      YES
 

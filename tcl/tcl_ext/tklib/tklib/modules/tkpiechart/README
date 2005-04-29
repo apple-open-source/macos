@@ -1,0 +1,10 @@
+Tkpiechart is a Tcl only library which allows the creation of 2D or 3D
+pies with labels in Tcl canvases.
+This is version 6.6. It was tested with Tcl/Tk 8.3 and 8.4 on both
+Linux and Windows platforms (it should work on all Tcl/Tk supported
+platforms).
+It is object oriented using the stooop (Simple Tcl Only Object
+Oriented Programming) extension (version 4.1 or above).
+A demo.tcl demonstration script is included.
+
+Jean-Luc Fontaine, http://jfontain.free.fr/, mailto:jfontain@free.fr

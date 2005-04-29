@@ -1,0 +1,112 @@
+#! /bin/sh
+
+# Test of gettext facilities in the Java language.
+# Assumes an fr_FR locale is installed.
+# Assumes the following packages are installed: java.
+
+# Note: This test fails when using gcj from GCC 3.1 and GCC 3.2, due to a bug
+# (libgcj/6576). It is fixed in GCC 3.3.
+
+tmpfiles=""
+trap 'rm -fr $tmpfiles' 1 2 3 15
+
+# Test whether we can build and test Java programs.
+test "${TESTJAVA}" = yes || exit 77
+
+tmpfiles="$tmpfiles Program.java"
+cat <<\EOF > Program.java
+import java.util.*;
+import java.text.*;
+import gnu.gettext.*;
+
+public class Program {
+  public static void main (String[] args) {
+    // Some systems (like Solaris) don't set Locale.getDefault()
+    // as specified by LC_ALL. So set it by hand.
+    Locale.setDefault(new Locale("fr","FR"));
+    int n = Integer.parseInt(args[0]);
+    ResourceBundle catalog = ResourceBundle.getBundle("prog");
+    System.out.println(GettextResource.gettext(catalog,"'Your command, please?', asked the waiter."));
+    System.out.println(MessageFormat.format(GettextResource.ngettext(catalog,"a piece of cake","{0,number} pieces of cake",n), new Object[] { new Integer(n) }));
+    System.out.println(MessageFormat.format(GettextResource.gettext(catalog,"{0} is replaced by {1}."), new Object[] { "FF", "EUR" }));
+  }
+}
+EOF
+
+tmpfiles="$tmpfiles Program.class"
+: ${JAVACOMP="/bin/sh ../lib/javacomp.sh"}
+CLASSPATH=../../gettext-runtime/intl-java/libintl.jar ${JAVACOMP} -d . Program.java || exit 1
+
+tmpfiles="$tmpfiles prog.pot"
+: ${XGETTEXT=xgettext}
+${XGETTEXT} -o prog.pot --omit-header --no-location Program.java
+
+tmpfiles="$tmpfiles prog.ok"
+cat <<EOF > prog.ok
+msgid "'Your command, please?', asked the waiter."
+msgstr ""
+
+#, java-format
+msgid "a piece of cake"
+msgid_plural "{0,number} pieces of cake"
+msgstr[0] ""
+msgstr[1] ""
+
+#, java-format
+msgid "{0} is replaced by {1}."
+msgstr ""
+EOF
+
+: ${DIFF=diff}
+${DIFF} prog.ok prog.pot || exit 1
+
+tmpfiles="$tmpfiles fr.po"
+cat <<\EOF > fr.po
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "'Your command, please?', asked the waiter."
+msgstr "«Votre commande, s'il vous plait», dit le garçon."
+
+# Les gateaux allemands sont les meilleurs du monde.
+#, java-format
+msgid "a piece of cake"
+msgid_plural "{0,number} pieces of cake"
+msgstr[0] "un morceau de gateau"
+msgstr[1] "{0,number} morceaux de gateau"
+
+# Reverse the arguments.
+#, java-format
+msgid "{0} is replaced by {1}."
+msgstr "{1} remplace {0}."
+EOF
+
+tmpfiles="$tmpfiles fr.po.new"
+: ${MSGMERGE=msgmerge}
+${MSGMERGE} -q -o fr.po.new fr.po prog.pot
+
+: ${DIFF=diff}
+${DIFF} fr.po fr.po.new || exit 1
+
+tmpfiles="$tmpfiles prog_fr.class"
+: ${MSGFMT=msgfmt}
+${MSGFMT} -j -d . -r prog -l fr fr.po || exit 1
+
+tmpfiles="$tmpfiles prog.ok prog.out"
+: ${DIFF=diff}
+cat <<\EOF > prog.ok
+«Votre commande, s'il vous plait», dit le garçon.
+2 morceaux de gateau
+EUR remplace FF.
+EOF
+
+: ${LOCALE_FR=fr_FR}
+: ${JAVAEXEC="/bin/sh ../lib/javaexec.sh"}
+LANGUAGE= LC_ALL=$LOCALE_FR CLASSPATH=.:../../gettext-runtime/intl-java/libintl.jar ${JAVAEXEC} Program 2 > prog.out || exit 1
+${DIFF} prog.ok prog.out || exit 1
+
+rm -fr $tmpfiles
+
+exit 0

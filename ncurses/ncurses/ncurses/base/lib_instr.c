@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000,2001 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2001,2002 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_instr.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: lib_instr.c,v 1.12 2002/10/05 23:23:05 tom Exp $")
 
 NCURSES_EXPORT(int)
 winnstr(WINDOW *win, char *str, int n)
@@ -68,5 +68,6 @@ winnstr(WINDOW *win, char *str, int n)
 	}
     }
     str[i] = '\0';		/* SVr4 does not seem to count the null */
+    T(("winnstr returns %s", _nc_visbuf(str)));
     returnCode(i);
 }

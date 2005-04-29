@@ -1,7 +1,7 @@
 /*
  *  info.c
  *
- *  $Id: Info.c,v 1.1.1.1 2002/04/08 22:48:09 miner Exp $
+ *  $Id: Info.c,v 1.2 2004/08/10 22:20:21 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -67,8 +67,6 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include <iodbc.h>
 
-#include <config.h>
-
-char *version = VERSION;
-char *libname = "iODBC Driver Setup Proxy";
+char *iodbcproxy_version = VERSION;

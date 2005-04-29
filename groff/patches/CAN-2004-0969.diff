@@ -1,0 +1,24 @@
+--- contrib/groffer/groffer.sh.orig	Tue May  4 01:03:01 2004
++++ contrib/groffer/groffer.sh	Wed Jan  5 01:41:02 2005
+@@ -3217,17 +3217,12 @@
+   do
+     if is_not_empty "$d"; then
+       if obj d is_dir && obj d is_writable; then
+-        _TMP_DIR="${d}/${_PROGRAM_NAME}${_PROCESS_ID}";
+-        if obj _TMP_DIR is_dir; then
+-	  rm -f "${_TMP_DIR}"/*;
++        _TMP_DIR="$(mktemp -d "${d}/${_PROGRAM_NAME}.XXXXXX")"
++        if test $? = 0; then
+           break;
+         else
+-          mkdir "${_TMP_DIR}";
+-          if obj _TMP_DIR is_not_dir; then
+-            _TMP_DIR='';
+-	    continue;
+-          fi;
+-          break;
++          _TMP_DIR='';
++	  continue;
+   	fi;
+       fi;
+       if obj _TMP_DIR is_not_writable; then

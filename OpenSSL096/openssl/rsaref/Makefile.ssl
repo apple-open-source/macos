@@ -10,9 +10,6 @@ CFLAG=-g
 INSTALL_PREFIX=
 OPENSSLDIR=     /usr/local/ssl
 INSTALLTOP=/usr/local/ssl
-BINDIR=$(INSTALLTOP)/bin
-LIBDIR=$(INSTALLTOP)/lib
-INCLUDEDIR=$(INSTALLTOP)/include/openssl
 MAKE=		make -f Makefile.ssl
 MAKEDEPEND=	$(TOP)/util/domd $(TOP)
 MAKEFILE=	Makefile.ssl
@@ -58,15 +55,15 @@ links:
 install:
 	-@if [ "x`echo x $(EX_LIBS) | grep RSAglue`" != x ]; then \
 	    echo "installing libRSAglue.a"; \
-	    cp $(LIB) $(INSTALL_PREFIX)$(LIBDIR)/libRSAglue.a; \
-	    $(RANLIB) $(INSTALL_PREFIX)$(LIBDIR)/libRSAglue.a; \
-	    chmod 644 $(INSTALL_PREFIX)$(LIBDIR)/libRSAglue.a; \
+	    cp $(LIB) $(INSTALL_PREFIX)$(INSTALLTOP)/lib/libRSAglue.a; \
+	    $(RANLIB) $(INSTALL_PREFIX)$(INSTALLTOP)/lib/libRSAglue.a; \
+	    chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/lib/libRSAglue.a; \
 	fi
 
 #	@for i in $(EXHEADER) ; \
 #	do  \
-#	(cp $$i $(INSTALL_PREFIX)$(INCLUDEDIR)/$$i; \
-#	chmod 644 $(INSTALL_PREFIX)$(INCLUDEDIR)/$$i ); \
+#	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
+#	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
 #	done;
 
 tags:

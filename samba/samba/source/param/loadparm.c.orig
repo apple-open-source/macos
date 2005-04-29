@@ -517,7 +517,7 @@ static service sDefault = {
 	True,			/* bStrictLocking */
 	True,			/* bPosixLocking */
 	True,			/* bShareModes */
-	True,			/* bOpLocks */
+	False,			/* bOpLocks */
 	True,			/* bLevel2OpLocks */
 	False,			/* bOnlyUser */
 	True,			/* bMangledNames */

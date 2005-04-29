@@ -63,6 +63,10 @@
 
 #include <bits/concept_check.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/debug.h>
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
   // Forward declarations of operators == and <, needed for friend declaration.
@@ -153,14 +157,26 @@ namespace std
      *  %stack.
     */
     reference
-    top() { return c.back(); }
+    top() 
+    { 
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_nonempty();
+      /* APPLE LOCAL end libstdc++ debug mode */
+      return c.back(); 
+    }
   
     /**
      *  Returns a read-only (constant) reference to the data at the first
      *  element of the %stack.
     */
     const_reference
-    top() const { return c.back(); }
+    top() const 
+    { 
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_nonempty();
+      /* APPLE LOCAL end libstdc++ debug mode */
+      return c.back(); 
+    }
   
     /**
      *  @brief  Add data to the top of the %stack.
@@ -185,7 +201,13 @@ namespace std
      *  needed, it should be retrieved before pop() is called.
     */
     void
-    pop() { c.pop_back(); }
+    pop() 
+    { 
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_nonempty();
+      /* APPLE LOCAL end libstdc++ debug mode */
+      c.pop_back(); 
+    }
   };
   
   

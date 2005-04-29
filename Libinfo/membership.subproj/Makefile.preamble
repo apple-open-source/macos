@@ -1,0 +1,17 @@
+OTHER_PRIVATE_HEADERS = membershipPriv.h
+
+# Additional flags (MiG generated files)
+DEFSFILES = memberd.defs
+OTHER_OFILES = memberdUser.o
+
+# private headers
+INTERNAL_HDRS = memberd.defs memberd.h
+
+BEFORE_INSTALLHDRS += $(SFILE_DIR) $(INTERNAL_HDRS) 
+# AFTER_INSTALLHDRS += mdns_hdrs
+PRIVATE_HEADER_DIR = /usr/local/include
+
+
+# for building 64-bit
+# <rdar://problem/3819761> Libinfo need to build with gcc-3.5 and 3-way fat
+NEXTSTEP_OBJCPLUS_COMPILER = $(CCOMPILER)

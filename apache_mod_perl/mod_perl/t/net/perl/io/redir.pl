@@ -1,4 +1,4 @@
-
+#!perl
 #test internal redirects
 
 my %loc = (

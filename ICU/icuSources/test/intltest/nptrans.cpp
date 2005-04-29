@@ -63,8 +63,11 @@ NamePrepTransform::NamePrepTransform(UParseError& parseError, UErrorCode& status
         // create the mapping transliterator
         int32_t ruleLen = 0;
         const UChar* ruleUChar = ures_getStringByKey(bundle, "MapNFKC",&ruleLen, &status);
-        UnicodeString rule(ruleUChar, ruleLen);
-        
+        int32_t mapRuleLen = 0;
+        const UChar *mapRuleUChar = ures_getStringByKey(bundle, "MapNoNormalization", &mapRuleLen, &status);
+        UnicodeString rule(mapRuleUChar, mapRuleLen);
+        rule.append(ruleUChar, ruleLen);
+
         mapping = Transliterator::createFromRules(UnicodeString("NamePrepTransform", ""), rule,
                                                    UTRANS_FORWARD, parseError,status);
         if(U_FAILURE(status)) {
@@ -162,7 +165,7 @@ int32_t NamePrepTransform::map(const UChar* src, int32_t srcLength,
         for(;bufIndex<bufLen;){
             U16_NEXT(buffer, bufIndex, bufLen, ch);
             if(unassigned.contains(ch)){
-                status = U_IDNA_UNASSIGNED_CODEPOINT_FOUND_ERROR;
+                status = U_IDNA_UNASSIGNED_ERROR;
                 rsource.releaseBuffer();
                 return 0;
             }
@@ -231,7 +234,7 @@ int32_t NamePrepTransform::process( const UChar* src, int32_t srcLength,
         U16_NEXT(b1, b1Index, b1Len, ch);
 
         if(prohibited.contains(ch) && ch!=0x0020){
-            status = U_IDNA_PROHIBITED_CODEPOINT_FOUND_ERROR;
+            status = U_IDNA_PROHIBITED_ERROR;
             goto CLEANUP;
         }
 

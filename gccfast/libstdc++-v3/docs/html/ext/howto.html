@@ -629,14 +629,27 @@
       <a href="../faq/index.html">to the FAQ</a>.
    </p>
 
+<!-- APPLE LOCAL begin libstdc++ documentation -->
+<hr />
+<h2><a name="7">Debugging containers</a></h2>
+   <p>Apple's libstdc++ includes a set of containers that are
+   functionally equivalent to the C++ Standard Library containers
+   (e.g., <code>std::basic_string</code> or <code>std::vector</code>)
+   or libstdc++ extension containers
+   (e.g., <code>std::hash_map</code>) but perform additional run-time
+   checking to uncover problems with the use of the containers or
+   their iterators. To access these containers, include the
+   appropriate header (e.g., <code>&lt;debug/vector&gt;</code>) and
+   use the container in the namespace <code>__gnu_debug</code>. See <a
+   href="../debug.html">Apple's libstdc++ debug mode</a> for more
+   information.</p>
+<!-- APPLE LOCAL end libstdc++ documentation -->
 
 <!-- ####################################################### -->
 
 <hr />
 <p class="fineprint"><em>
 See <a href="../17_intro/license.html">license.html</a> for copying conditions.
-Comments and suggestions are welcome, and may be sent to
-<a href="mailto:libstdc++@gcc.gnu.org">the libstdc++ mailing list</a>.
 </em></p>
 
 

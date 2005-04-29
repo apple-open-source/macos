@@ -1,0 +1,4 @@
+ VIEW     1 rows = a:V
+    0: subview 'a'
+   VIEW     1 rows = p1:I p2:I p3:I p4:I
+      0: 100000 100000 100000 100000

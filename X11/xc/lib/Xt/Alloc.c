@@ -58,7 +58,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/Alloc.c,v 1.9 2001/12/14 19:56:07 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Alloc.c,v 1.10 2003/12/30 01:45:07 tsi Exp $ */
 
 /*
  * X Toolkit Memory Allocation Routines
@@ -117,7 +117,7 @@ char *XtMalloc(size)
 {
     char *ptr;
 
-#if defined (MALLOC_0_RETURNS_NULL) && defined(XTMALLOC_BC)
+#if defined(MALLOC_0_RETURNS_NULL) && defined(XTMALLOC_BC)
     /* preserve this (broken) behavior until everyone fixes their apps */
     if (!size) size = 1;
 #endif
@@ -132,12 +132,12 @@ char *XtRealloc(ptr, size)
     unsigned size;
 {
    if (ptr == NULL) {
-#if MALLOC_0_RETURNS_NULL
+#ifdef MALLOC_0_RETURNS_NULL
 	if (!size) size = 1;
 #endif
 	return(XtMalloc(size));
    } else if ((ptr = Xrealloc(ptr, size)) == NULL
-#if MALLOC_0_RETURNS_NULL
+#ifdef MALLOC_0_RETURNS_NULL
 		&& size
 #endif
 	)
@@ -151,7 +151,7 @@ char *XtCalloc(num, size)
 {
     char *ptr;
 
-#if defined (MALLOC_0_RETURNS_NULL) && defined(XTMALLOC_BC)
+#if defined(MALLOC_0_RETURNS_NULL) && defined(XTMALLOC_BC)
     /* preserve this (broken) behavior until everyone fixes their apps */
     if (!size) num = size = 1;
 #endif

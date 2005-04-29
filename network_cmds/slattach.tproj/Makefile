@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = slattach.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.dist slattach.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.dist slattach.8 Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

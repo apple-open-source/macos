@@ -1,0 +1,94 @@
+Index: mk-1st.awk
+===================================================================
+RCS file: /cvs/root/ncurses/ncurses/mk-1st.awk,v
+retrieving revision 1.5
+retrieving revision 1.7
+diff -u -r1.5 -r1.7
+--- mk-1st.awk	2002/02/16 00:43:53	1.5
++++ mk-1st.awk	2004/07/30 21:34:53	1.7
+@@ -1,4 +1,4 @@
+-# $Id: 4to9.diff,v 1.1.1.1 2004/11/20 23:08:25 josborne Exp $
++# $Id: 4to9.diff,v 1.1.1.1 2004/11/20 23:08:25 josborne Exp $
+ ##############################################################################
+ # Copyright (c) 1998,2000,2002 Free Software Foundation, Inc.                #
+ #                                                                            #
+@@ -194,6 +194,8 @@
+ 				}
+ 				if ( subset == "termlib") {
+ 					printf "\t$(MK_SHARED_LIB) $(%s_OBJS) $(TINFO_LIST)\n", OBJS
++				} else if ( name == "ncurses" ) {
++					printf "\t$(MK_SHARED_LIB) $(%s_OBJS) $(SHLIB_LIST) $(LDFLAGS) $(SECTORDER_FLAGS)\n", OBJS
+ 				} else {
+ 					printf "\t$(MK_SHARED_LIB) $(%s_OBJS) $(SHLIB_LIST) $(LDFLAGS)\n", OBJS
+ 				}
+Index: include/curses.h.in
+===================================================================
+RCS file: /cvs/root/ncurses/ncurses/include/curses.h.in,v
+retrieving revision 1.1.1.4
+retrieving revision 1.2
+diff -u -r1.1.1.4 -r1.2
+--- curses.h.in	2002/02/15 21:54:44	1.1.1.4
++++ curses.h.in	2003/06/07 06:46:36	1.2
+@@ -31,7 +31,7 @@
+  *     and: Eric S. Raymond <esr@snark.thyrsus.com>                         *
+  ****************************************************************************/
+ 
+-/* $Id: 4to9.diff,v 1.1.1.1 2004/11/20 23:08:25 josborne Exp $ */
++/* $Id: 4to9.diff,v 1.1.1.1 2004/11/20 23:08:25 josborne Exp $ */
+ 
+ #ifndef __NCURSES_H
+ #define __NCURSES_H
+@@ -279,10 +279,22 @@
+ #endif
+ 
+ #ifndef _WCHAR_T
+-typedef unsigned long wchar_t;
++#ifndef	__cplusplus
++#ifndef	_BSD_WCHAR_T_DEFINED_
++#define	_BSD_WCHAR_T_DEFINED_
++#ifdef	__WCHAR_TYPE__
++typedef	__WCHAR_TYPE__	wchar_t;
++#else	/* ! __WCHAR_TYPE__ */
++typedef	_BSD_WCHAR_T_	wchar_t;
++#endif	/* __WCHAR_TYPE__ */
++#endif	/* _BSD_WCHAR_T_DEFINED_ */
++#endif	/* __cplusplus */
+ #endif /* _WCHAR_T */
+ #ifndef _WINT_T
+-typedef long int wint_t;
++#ifndef	_BSD_WINT_T_DEFINED_
++#define _BSD_WINT_T_DEFINED_
++typedef	_BSD_WINT_T_	wint_t;
++#endif
+ #endif /* _WINT_T */
+ 
+ #define CCHARW_MAX	5
+Index: man/MKterminfo.sh
+===================================================================
+RCS file: /cvs/root/ncurses/ncurses/man/MKterminfo.sh,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -u -r1.1.1.1 -r1.2
+--- MKterminfo.sh	2001/11/29 20:40:54	1.1.1.1
++++ MKterminfo.sh	2003/01/07 23:12:08	1.2
+@@ -27,7 +27,7 @@
+ # authorization.                                                           *
+ #***************************************************************************
+ #
+-# $Id: 4to9.diff,v 1.1.1.1 2004/11/20 23:08:25 josborne Exp $
++# $Id: 4to9.diff,v 1.1.1.1 2004/11/20 23:08:25 josborne Exp $
+ #
+ # MKterminfo.sh -- generate terminfo.5 from Caps tabular data
+ #
+@@ -68,9 +68,9 @@
+ /%%-STOP-HERE-%%/q
+ /^#%/s///p
+ /^#/d
+-s/[	]\+/	/g
++s/[	]\{1,\}/	/g
+ s/$/T}/
+-s/	[A-Z0-9_()\-]\+	[0-9\-]\+	[Y\-][B\-][C\-][G\-][EK\-]\**	/	T{/
++s/	[A-Z0-9_()\-]\{1,\}	[0-9\-]\{1,\}	[Y\-][B\-][C\-][G\-][EK\-]\**	/	T{/
+ s/	bool	/	/p
+ s/	num	/	/p
+ s/	str	/	/p

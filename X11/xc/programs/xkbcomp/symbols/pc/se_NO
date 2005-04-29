@@ -1,0 +1,10 @@
+// Northern Sami keyboard for Norway
+// Written by Børre Gaup <boerre.gaup@pc.nu>
+// Quick usage: setxkbmap se_FI
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/se_NO,v 1.1 2003/12/09 00:10:39 dawes Exp $
+
+partial alphanumeric_keys 
+ xkb_symbols "basic" {
+	include "pc/sapmi(basic)"
+};

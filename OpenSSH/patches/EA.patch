@@ -1,0 +1,241 @@
+diff -u --exclude=CVS -r -udbp configure.ac configure.ac
+--- configure.ac	2004-04-16 20:03:07.000000000 -0700
++++ configure.ac	2005-02-21 18:46:25.000000000 -0800
+@@ -2869,6 +2869,9 @@ if test "$ac_cv_lib_pam_pam_set_item" = 
+ 	LIBS=`echo $LIBS | sed 's/-ldl //'`
+ fi
+ 
++AC_CHECK_FUNCS(copyfile)
++AC_CHECK_HEADERS(copyfile.h)
++
+ AC_EXEEXT
+ AC_CONFIG_FILES([Makefile openbsd-compat/Makefile scard/Makefile ssh_prng_cmds])
+ AC_OUTPUT
+diff -u --exclude=CVS -r -udbp scp.1 scp.1
+--- scp.1	2004-03-08 04:12:36.000000000 -0800
++++ scp.1	2005-02-21 18:46:25.000000000 -0800
+@@ -20,7 +20,7 @@
+ .Sh SYNOPSIS
+ .Nm scp
+ .Bk -words
+-.Op Fl 1246BCpqrv
++.Op Fl 1246BCEpqrv
+ .Op Fl c Ar cipher
+ .Op Fl F Ar ssh_config
+ .Op Fl i Ar identity_file
+@@ -87,6 +87,8 @@ Passes the
+ flag to
+ .Xr ssh 1
+ to enable compression.
++.It Fl E
++Preserves extended attributes, resource forks, and ACLs.  Requires both ends to be running Mac OS X 10.4 or later.
+ .It Fl c Ar cipher
+ Selects the cipher to use for encrypting the data transfer.
+ This option is directly passed to
+diff -u --exclude=CVS -r -udbp scp.c scp.c
+--- scp.c	2003-11-23 18:09:28.000000000 -0800
++++ scp.c	2005-02-21 18:46:52.000000000 -0800
+@@ -80,6 +80,11 @@ RCSID("$OpenBSD: scp.c,v 1.113 2003/11/2
+ #include "misc.h"
+ #include "progressmeter.h"
+ 
++#ifdef HAVE_COPYFILE_H
++#include <libgen.h>
++#include <copyfile.h>
++#endif
++
+ #ifdef HAVE___PROGNAME
+ extern char *__progname;
+ #else
+@@ -109,6 +114,12 @@ char *ssh_program = _PATH_SSH_PROGRAM;
+ /* This is used to store the pid of ssh_program */
+ pid_t do_cmd_pid = -1;
+ 
++#ifdef HAVE_COPYFILE
++int copy_xattr = 0;
++int md_flag = 0;
++#endif
++
++
+ static void
+ killchild(int signo)
+ {
+@@ -231,7 +242,11 @@ main(int argc, char **argv)
+ 	addargs(&args, "-oClearAllForwardings yes");
+ 
+ 	fflag = tflag = 0;
++#if HAVE_COPYFILE
++	while ((ch = getopt(argc, argv, "dfl:prtvBCEc:i:P:q1246S:o:F:")) != -1)
++#else
+ 	while ((ch = getopt(argc, argv, "dfl:prtvBCc:i:P:q1246S:o:F:")) != -1)
++#endif
+ 		switch (ch) {
+ 		/* User-visible flags. */
+ 		case '1':
+@@ -277,6 +292,11 @@ main(int argc, char **argv)
+ 			showprogress = 0;
+ 			break;
+ 
++#ifdef HAVE_COPYFILE
++		case 'E':
++			copy_xattr = 1;
++			break;
++#endif
+ 		/* Server options. */
+ 		case 'd':
+ 			targetshouldbedirectory = 1;
+@@ -326,7 +346,12 @@ main(int argc, char **argv)
+ 	remin = remout = -1;
+ 	do_cmd_pid = -1;
+ 	/* Command to be executed on remote system using "ssh". */
++#if HAVE_COPYFILE
++	(void) snprintf(cmd, sizeof cmd, "scp%s%s%s%s%s",
++	    copy_xattr ? " -E" : "",
++#else
+ 	(void) snprintf(cmd, sizeof cmd, "scp%s%s%s%s",
++#endif
+ 	    verbose_mode ? " -v" : "",
+ 	    iamrecursive ? " -r" : "", pflag ? " -p" : "",
+ 	    targetshouldbedirectory ? " -d" : "");
+@@ -507,6 +532,11 @@ source(int argc, char **argv)
+ 	int fd, haderr, indx;
+ 	char *last, *name, buf[2048];
+ 	int len;
++#if HAVE_COPYFILE
++	char md_name[MAXPATHLEN];
++	char *md_tmp;
++#endif
++
+ 
+ 	for (indx = 0; indx < argc; ++indx) {
+ 		name = argv[indx];
+@@ -519,6 +549,17 @@ source(int argc, char **argv)
+ 			    name);
+ 			goto next;
+ 		}
++#if HAVE_COPYFILE
++md_next:
++		statbytes = 0;
++		if (md_flag) {
++		    fd = open(md_tmp, O_RDONLY, 0);
++		    unlink(md_tmp);
++		    free(md_tmp);
++		    if (fd < 0)
++			goto syserr;
++		} else
++#endif
+ 		if ((fd = open(name, O_RDONLY, 0)) < 0)
+ 			goto syserr;
+ 		if (fstat(fd, &stb) < 0) {
+@@ -602,6 +643,36 @@ next:			(void) close(fd);
+ 		else
+ 			run_err("%s: %s", name, strerror(haderr));
+ 		(void) response();
++#ifdef HAVE_COPYFILE
++		if (copy_xattr && md_flag == 0)
++		{
++		    if (!copyfile(name, NULL, 0,
++			    COPYFILE_ACL | COPYFILE_XATTR | COPYFILE_CHECK))
++			continue;
++
++		    /*
++		     * this file will hold the actual metadata
++		     * to be transferred
++		     */
++		    md_tmp = strdup("/tmp/scp.md.XXXXXX");
++		    md_tmp = mktemp(md_tmp);
++
++		    if(copyfile(name, md_tmp, 0,
++				COPYFILE_ACL | COPYFILE_XATTR | COPYFILE_PACK) == 0)
++		    {
++			/*
++			 * this is the fake name to display
++			 */
++			snprintf(md_name, sizeof md_name, "%s/._%s", dirname(name), basename(name));
++			name = md_name;
++			md_flag = 1;
++			if (verbose_mode)
++			    fprintf(stderr, "copyfile(%s, %s, PACK)\n", name, md_tmp);
++			goto md_next;
++		    }
++		} else
++		    md_flag = 0;
++#endif
+ 	}
+ }
+ 
+@@ -748,6 +819,10 @@ sink(int argc, char **argv)
+ 	if (stat(targ, &stb) == 0 && S_ISDIR(stb.st_mode))
+ 		targisdir = 1;
+ 	for (first = 1;; first = 0) {
++#if HAVE_COPYFILE
++		char md_src[MAXPATHLEN];
++		char md_dst[MAXPATHLEN];
++#endif
+ 		cp = buf;
+ 		if (atomicio(read, remin, cp, 1) <= 0)
+ 			return;
+@@ -873,6 +948,29 @@ sink(int argc, char **argv)
+ 		}
+ 		omode = mode;
+ 		mode |= S_IWRITE;
++
++#if HAVE_COPYFILE
++		if (copy_xattr && !strncmp(basename(curfile), "._", 2))
++		{
++			if (targisdir)
++			{
++			    snprintf(md_src, sizeof md_src, "%s.XXX", np);
++			    snprintf(md_dst, sizeof md_dst, "%s/%s",
++				    dirname(np), basename(np) + 2);
++			    if(mkstemp(md_src) < 0)
++				continue;
++			}
++			else
++			{
++			    snprintf(md_src, sizeof md_src, "%s/._%s.XXX",
++				    dirname(np), basename(np));
++			    snprintf(md_dst, sizeof md_dst, "%s", np);
++			    if(mkstemp(md_src) < 0)
++				continue;
++			}
++			np = md_src;
++		}
++#endif
+ 		if ((ofd = open(np, O_WRONLY|O_CREAT, mode)) < 0) {
+ bad:			run_err("%s: %s", np, strerror(errno));
+ 			continue;
+@@ -959,6 +1057,21 @@ bad:			run_err("%s: %s", np, strerror(er
+ 			wrerrno = errno;
+ 		}
+ 		(void) response();
++#ifdef HAVE_COPYFILE
++		if (copy_xattr && strncmp(basename(np), "._", 2) == 0)
++		{
++			if (verbose_mode)
++			    fprintf(stderr, "copyfile(%s, %s, UNPACK)\n", md_src, md_dst);
++			if(!copyfile(md_src, md_dst, 0,
++			    COPYFILE_ACL | COPYFILE_XATTR | COPYFILE_UNPACK) < 0)
++			{
++			    snprintf(md_dst, sizeof md_dst, "%s/._%s",
++				    dirname(md_dst), basename(md_dst));
++			    rename(md_src, md_dst);
++			} else
++			    unlink(md_src);
++		} else
++#endif
+ 		if (setimes && wrerr == NO) {
+ 			setimes = 0;
+ 			if (utimes(np, tv) < 0) {
+@@ -1020,7 +1133,11 @@ void
+ usage(void)
+ {
+ 	(void) fprintf(stderr,
++#if HAVE_COPYFILE
++	    "usage: scp [-1246BCEpqrv] [-c cipher] [-F ssh_config] [-i identity_file]\n"
++#else
+ 	    "usage: scp [-1246BCpqrv] [-c cipher] [-F ssh_config] [-i identity_file]\n"
++#endif
+ 	    "           [-l limit] [-o ssh_option] [-P port] [-S program]\n"
+ 	    "           [[user@]host1:]file1 [...] [[user@]host2:]file2\n");
+ 	exit(1);

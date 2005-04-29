@@ -1,0 +1,3 @@
+g/^exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS}/s//& ${ARCH_CCFLAGS}/
+g/^exec - ${CC} ${mam_cc_FLAGS} ${debug?1?${mam_cc_DEBUG} -D_BLD_DEBUG??}/s//& ${ARCH_CCFLAGS}/
+w

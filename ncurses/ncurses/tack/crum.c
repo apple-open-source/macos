@@ -21,7 +21,7 @@
 
 #include <tack.h>
 
-MODULE_ID("$Id: crum.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $")
+MODULE_ID("$Id: crum.c,v 1.3 2000/03/04 21:09:18 tom Exp $")
 
 /*
  * Test cursor movement.

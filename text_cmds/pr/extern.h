@@ -1,5 +1,3 @@
-/*	$NetBSD: extern.h,v 1.2 1997/01/09 15:01:35 tls Exp $	*/
-
 /*-
  * Copyright (c) 1991 Keith Muller.
  * Copyright (c) 1993
@@ -36,28 +34,28 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *      from: @(#)extern.h	8.1 (Berkeley) 6/6/93
- *	$NetBSD: extern.h,v 1.2 1997/01/09 15:01:35 tls Exp $
+ *      @(#)extern.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.bin/pr/extern.h,v 1.3 2002/09/04 23:29:05 dwmalone Exp $
  */
 
 extern int eoptind;
 extern char *eoptarg;
 
-void	 addnum __P((char *, int, int));
-int	 egetopt __P((int, char * const *, const char *));
-void	 flsh_errs __P((void));
-int	 horzcol __P((int, char **));
-int	 inln __P((FILE *, char *, int, int *, int, int *));
-int	 inskip __P((FILE *, int, int));
-void	 mfail __P((void));
-int	 mulfile __P((int, char **));
-FILE	*nxtfile __P((int, char **, char **, char *, int));
-int	 onecol __P((int, char **));
-int	 otln __P((char *, int, int *, int *, int));
-void	 pfail __P((void));
-int	 prhead __P((char *, char *, int));
-int	 prtail __P((int, int));
-int	 setup __P((int, char **));
-void	 terminate __P((int));
-void	 usage __P((void));
-int	 vertcol __P((int, char **));
+void	 addnum(char *, int, int);
+int	 egetopt(int, char * const *, const char *);
+void	 flsh_errs(void);
+int	 horzcol(int, char **);
+int	 inln(FILE *, char *, int, int *, int, int *);
+int	 inskip(FILE *, int, int);
+void	 mfail(void);
+int	 mulfile(int, char **);
+FILE	*nxtfile(int, char **, const char **, char *, int);
+int	 onecol(int, char **);
+int	 otln(char *, int, int *, int *, int);
+void	 pfail(void);
+int	 prhead(char *, const char *, int);
+int	 prtail(int, int);
+int	 setup(int, char **);
+void	 terminate(int);
+void	 usage(void);
+int	 vertcol(int, char **);

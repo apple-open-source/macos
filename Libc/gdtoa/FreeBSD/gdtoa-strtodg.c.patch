@@ -1,0 +1,55 @@
+--- gdtoa-strtodg.c.orig	2005-01-20 20:12:37.000000000 -0800
++++ gdtoa-strtodg.c	2005-02-17 01:32:24.000000000 -0800
+@@ -29,6 +29,8 @@
+ /* Please send bug reports to David M. Gay (dmg at acm dot org,
+  * with " at " changed at "@" and " dot " changed to ".").	*/
+ 
++#include "xlocale_private.h"
++
+ #include "gdtoaimp.h"
+ 
+ #ifdef USE_LOCALE
+@@ -316,10 +318,10 @@
+  int
+ strtodg
+ #ifdef KR_headers
+-	(s00, se, fpi, exp, bits)
+-	CONST char *s00; char **se; FPI *fpi; Long *exp; ULong *bits;
++	(s00, se, fpi, exp, bits, loc)
++	CONST char *s00; char **se; FPI *fpi; Long *exp; ULong *bits; locale_t loc;
+ #else
+-	(CONST char *s00, char **se, FPI *fpi, Long *exp, ULong *bits)
++	(CONST char *s00, char **se, FPI *fpi, Long *exp, ULong *bits, locale_t loc)
+ #endif
+ {
+ 	int abe, abits, asub;
+@@ -367,7 +369,7 @@
+ 		switch(s[1]) {
+ 		  case 'x':
+ 		  case 'X':
+-			irv = gethex(&s, fpi, exp, &rvb, sign);
++			irv = gethex(&s, fpi, exp, &rvb, sign, loc);
+ 			if (irv == STRTOG_NoNumber) {
+ 				s = s00;
+ 				sign = 0;
+@@ -389,8 +391,9 @@
+ 		else if (nd < 16)
+ 			z = 10*z + c - '0';
+ 	nd0 = nd;
++	NORMALIZE_LOCALE(loc);
+ #ifdef USE_LOCALE
+-	if (c == *localeconv()->decimal_point)
++	if (c == *localeconv_l(loc)->decimal_point)
+ #else
+ 	if (c == '.')
+ #endif
+@@ -676,6 +679,9 @@
+ 					rvb->x[0] = 0;
+ 					*exp = emin;
+ 					irv = STRTOG_Underflow | STRTOG_Inexlo;
++#ifndef NO_ERRNO
++					errno = ERANGE;
++#endif
+ 					goto ret;
+ 					}
+ 				rvb->x[0] = rvb->wds = rvbits = 1;

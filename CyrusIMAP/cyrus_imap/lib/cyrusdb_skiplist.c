@@ -1,5 +1,5 @@
 /* cyrusdb_skiplist.c -- cyrusdb skiplist implementation
- * $Id: cyrusdb_skiplist.c,v 1.50 2004/06/08 19:55:17 rjs3 Exp $
+ * $Id: cyrusdb_skiplist.c,v 1.5 2005/03/05 00:37:13 dasenbro Exp $
  *
  * Copyright (c) 1998, 2000, 2002 Carnegie Mellon University.
  * All rights reserved.

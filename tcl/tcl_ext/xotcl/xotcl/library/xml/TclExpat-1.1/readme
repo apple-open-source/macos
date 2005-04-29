@@ -1,0 +1,174 @@
+		A Tcl interface to expat.
+
+		Steve Ball, Zveno Pty Ltd.
+
+This package provides a Tcl interface to James Clark's expat library.
+It creates a Tcl package, called "expat", which defines a single
+new Tcl command "expat".
+
+See <URL:http://www.zveno.com/zm.cgi/in-tclxml/> for more information
+on XML support for Tcl.
+
+INSTALLATION
+============
+
+Unix/Linux
+----------
+
+You must have Tcl/Tk version 8.0p2 or 8.1a2 installed on your system.
+TclExpat has been setup to use Tcl's configuration to make compilation
+easy.  Simply point TclExpat's Makefile at the Tcl configuration file:
+
+	/bin/sh '. /usr/local/tcl/lib/tclConfig.sh ; make -e'
+
+where "/usr/local/tcl" is the installation path for Tcl.
+
+To install the package in the first available directory in the Tcl package
+path use the command below.  You may need to be root to do this.
+
+	/bin/sh '. /usr/local/tcl/lib/tclConfig.sh ; make -e install'
+
+Macintosh
+---------
+
+The source must be compiled against the Tcl/Tk version 8.0p2 release.
+A pre-compiled shareware distribution is available from Zveno, see below.
+
+Windows
+-------
+
+The source must be compiled against the Tcl/Tk version 8.0p2 release.
+A pre-compiled shareware distribution is available from Zveno, see below.
+
+SHAREWARE
+=========
+
+Binary distributions for the Macintosh and Windows platforms are available
+from Zveno.  See <URL:http://www.zveno.com/zm.cgi/in-tclxml/in-shareware.tml>
+
+USAGE
+=====
+
+The package is loaded using:
+
+	package require expat 1.0
+
+This package defines the "expat" command which is used to create a 
+parser.  It accepts the following arguments:
+
+	expat parserName ?option value...?
+
+If no "parserName" argument is given then a unique name is chosen.
+The name of the newly created parser is returned and a new Tcl command
+of the same name is created to manipulate the parser.
+
+The parser command accepts the following methods:
+
+	$parser cget -option
+		Returns the current value of an option.
+
+	$parser configure -option value ?-option value...?
+		Sets configuration options.
+
+	$parser parse xml
+		Parses the XML data given by "xml".  This will
+		cause Tcl callback scripts to be invoked, if they
+		have been configured.
+
+		If the document is not well-formed then the command 
+		returns an error.
+
+	$parser reset
+		Resets the parser.  Call this method before parsing
+		a new document.
+
+The following options are accepted:
+
+	-elementstartcommand command
+		Defines a callback script which is invoked
+		when the start of an element is found in the 
+		document.  The following arguments are appended 
+		to the string before it is evaluated:
+
+			command name attributelist
+
+		"name" is the name of the element.
+		"attributelist" is the attribute list for the element.
+
+	-elementendcommand command
+		Defines a callback script which is invoked
+		whenever an element is closed in the document.  
+		The following arguments are appended to the string 
+		before it is evaluated:
+
+			command name
+
+		"name" is the name of the element.
+
+	-characterdatacommand command
+		Defines a callback script which is invoked whenever
+		character data is encountered in the document.
+		The following arguments are appended to the string
+		before it is evaluated:
+
+			command data
+
+		"data" is the character data found in the document.
+
+	-processinginstructioncommand command
+		Defines a callback script which is invoked whenever
+		a processing instruction is encountered in the document.
+		The following arguments are appended to the string
+		before it is evaluated:
+
+			command target data
+
+		"target" is the target of the PI.
+		"data" is additional data found in the PI.
+
+	-externalentitycommand command
+		Defines a callback script which is invoked whenever
+		an externally parsed general entity is encountered 
+		in the document.  The following arguments are appended 
+		to the string before it is evaluated:
+
+			command names base systemid publicid
+
+		"names" is a list of the open entity names.
+		"base" is a URL to be used for resolving relative URLs.
+		"systemid" is the system identifier specified in the entity declaration
+		"publicid" is the public identifier specified in the entity declaration
+
+	-defaultcommand command
+		Invoked when no other callback has been defined for a
+		document feature which has been encountered.
+
+	-unparsedentitydeclcommand command
+		Invoked when an unparsed entity declaration is encountered.
+
+	-notationdeclcommand command
+		Invoked when a notation declaration is encountered.
+
+	-unknownencodingcommand command
+		Invoked when a character is encountered which has an
+		unknown encoding.
+
+	-baseurl URL
+		Specifies a base URL to use for resolving relative URLs.
+
+	-final boolean
+		Specifies whether more data is to be parsed.
+
+Callback scripts
+
+Tcl callback scripts may use the "break", "continue" and "error" commands
+to alter the flow of control.
+
+	break
+		Suppresses invocation of further callback scripts.
+	continue
+		Suppresses invocation of further callback scripts
+		until the current element has finished.
+	error
+		Suppresses invocation of further callback scripts.
+		The parser also returns an error condition.

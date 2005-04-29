@@ -46,6 +46,10 @@ extern int dcelogin_atmost_once;
  */
 static int server_fd = -1;
 
+#ifdef WITH_BRLM
+BOOL brlm_init = False;
+#endif
+
 int smbd_server_fd(void)
 {
 	return server_fd;
@@ -131,6 +135,13 @@ static BOOL open_sockets_inetd(void)
 	
 	set_socket_options(smbd_server_fd(),"SO_KEEPALIVE");
 	set_socket_options(smbd_server_fd(), user_socket_options);
+
+#ifdef WITH_BRLM
+	if (lp_BRLM() && !brlm_init) {
+		BRLMInit();
+		brlm_init = True;
+	}
+#endif
 
 	return True;
 }
@@ -387,9 +398,15 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 			/* Ensure child is set to blocking mode */
 			set_blocking(smbd_server_fd(),True);
 
-			if (smbd_server_fd() != -1 && interactive)
+			if (smbd_server_fd() != -1 && interactive) {
+#ifdef WITH_BRLM
+				if (lp_BRLM() && !brlm_init) {
+					BRLMInit();
+					brlm_init = True;
+				}
+#endif
 				return True;
-			
+			}
 			if (allowable_number_of_smbd_processes() && smbd_server_fd() != -1 && sys_fork()==0) {
 				/* Child code ... */
 				
@@ -420,6 +437,13 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 					DEBUG(0,("tdb_reopen_all failed.\n"));
 					smb_panic("tdb_reopen_all failed.");
 				}
+
+#ifdef WITH_BRLM
+				if (lp_BRLM() && !brlm_init) {
+					BRLMInit();
+					brlm_init = True;
+				}
+#endif
 
 				return True; 
 			}
@@ -610,6 +634,11 @@ void exit_server(const char *reason)
 
 	locking_end();
 	printing_end();
+
+#ifdef WITH_BRLM
+    if(lp_BRLM() && brlm_init)
+       BRLMClose();
+#endif
 
 	DEBUG(3,("Server exit (%s)\n", (reason ? reason : "")));
 	exit(0);

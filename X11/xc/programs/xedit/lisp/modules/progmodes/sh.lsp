@@ -27,7 +27,7 @@
 ;; Author: Paulo César Pereira de Andrade
 ;;
 ;;
-;; $XFree86: xc/programs/xedit/lisp/modules/progmodes/sh.lsp,v 1.1 2003/01/16 03:50:46 paulo Exp $
+;; $XFree86: xc/programs/xedit/lisp/modules/progmodes/sh.lsp,v 1.2 2004/01/08 21:29:13 paulo Exp $
 ;;
 
 (require "syntax")
@@ -36,17 +36,17 @@
 
 (defsynprop *prop-escape*
     "escape"
-    :font	"*lucidatypewriter-medium-r*12*"
+    :font	"*lucidatypewriter-medium-r*-12-*"
     :foreground	"Red3")
 
 (defsynprop *prop-variable*
     "variable"
-    :font	"*lucidatypewriter-medium-r*12*"
+    :font	"*lucidatypewriter-medium-r*-12-*"
     :foreground	"Gold4")
 
 (defsynprop *prop-backslash*
     "backslash"
-    :font	"*courier-bold-r*12*"
+    :font	"*courier-bold-r*-12-*"
     :foreground	"green4")
 
 ;; XXX it would be interesting if "here-documents" could be parsed

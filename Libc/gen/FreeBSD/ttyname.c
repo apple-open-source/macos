@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)ttyname.c	8.2 (Berkeley) 1/27/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/ttyname.c,v 1.12 2002/02/01 01:32:19 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/ttyname.c,v 1.16 2004/01/06 18:26:14 nectar Exp $");
 
 #include "namespace.h"
 #include <sys/types.h>
@@ -50,11 +50,9 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/ttyname.c,v 1.12 2002/02/01 01:32:19 obrien
 #include <pthread.h>
 #include "un-namespace.h"
 
-#include <db.h>
 #include "libc_private.h"
 
-static char buf[sizeof(_PATH_DEV) + MAXNAMLEN] = _PATH_DEV;
-static char *oldttyname(int, struct stat *);
+static char buf[sizeof(_PATH_DEV) + MAXNAMLEN];
 static char *ttyname_threaded(int fd);
 static char *ttyname_unthreaded(int fd);
 
@@ -77,12 +75,8 @@ ttyname(int fd)
 char *
 ttyname_r(int fd, char *buf, size_t len)
 {
-	struct dirent	*dirp;
-	DIR		*dp;
-	struct stat	dsb;
 	struct stat	sb;
 	char		*rval;
-	int		minlen;
 
 	rval = NULL;
 
@@ -96,23 +90,10 @@ ttyname_r(int fd, char *buf, size_t len)
 	if (len <= sizeof(_PATH_DEV))
 		return (rval);
 
-	if ((dp = opendir(_PATH_DEV)) != NULL) {
-		memcpy(buf, _PATH_DEV, sizeof(_PATH_DEV));
-		for (rval = NULL; (dirp = readdir(dp)) != NULL;) {
-			if (dirp->d_fileno != sb.st_ino)
-				continue;
-			minlen = (len - (sizeof(_PATH_DEV) - 1)) < (dirp->d_namlen + 1) ?
-				(len - (sizeof(_PATH_DEV) - 1)) : (dirp->d_namlen + 1);
-			memcpy(buf + sizeof(_PATH_DEV) - 1, dirp->d_name, minlen);
-			if (stat(buf, &dsb) || sb.st_dev != dsb.st_dev ||
-			    sb.st_ino != dsb.st_ino)
-				continue;
-			rval = buf;
-			break;
-		}
-		(void) closedir(dp);
-	}
-	return (rval);
+	strcpy(buf, _PATH_DEV);
+	devname_r(sb.st_rdev, S_IFCHR,
+	    buf + strlen(buf), sizeof(buf) - strlen(buf));
+	return (buf);
 }
 
 static char *
@@ -151,12 +132,6 @@ ttyname_unthreaded(int fd)
 {
 	struct stat	sb;
 	struct termios	ttyb;
-	DB		*db;
-	DBT		data, key;
-	struct {
-		mode_t type;
-		dev_t dev;
-	} bkey;
 
 	/* Must be a terminal. */
 	if (tcgetattr(fd, &ttyb) < 0)
@@ -165,44 +140,8 @@ ttyname_unthreaded(int fd)
 	if (_fstat(fd, &sb) || !S_ISCHR(sb.st_mode))
 		return (NULL);
 
-	if ( (db = dbopen(_PATH_DEVDB, O_RDONLY, 0, DB_HASH, NULL)) ) {
-		memset(&bkey, 0, sizeof(bkey));
-		bkey.type = S_IFCHR;
-		bkey.dev = sb.st_rdev;
-		key.data = &bkey;
-		key.size = sizeof(bkey);
-		if (!(db->get)(db, &key, &data, 0)) {
-			bcopy(data.data,
-			    buf + sizeof(_PATH_DEV) - 1, data.size);
-			(void)(db->close)(db);
-			return (buf);
-		}
-		(void)(db->close)(db);
-	}
-	return (oldttyname(fd, &sb));
-}
-
-static char *
-oldttyname(int fd, struct stat *sb)
-{
-	struct dirent	*dirp;
-	struct stat	dsb;
-	DIR 		*dp;
-
-	if ((dp = opendir(_PATH_DEV)) == NULL)
-		return (NULL);
-
-	while ( (dirp = readdir(dp)) ) {
-		if (dirp->d_fileno != sb->st_ino)
-			continue;
-		bcopy(dirp->d_name, buf + sizeof(_PATH_DEV) - 1,
-		    dirp->d_namlen + 1);
-		if (stat(buf, &dsb) || sb->st_dev != dsb.st_dev ||
-		    sb->st_ino != dsb.st_ino)
-			continue;
-		(void)closedir(dp);
-		return (buf);
-	}
-	(void)closedir(dp);
-	return (NULL);
+	strcpy(buf, _PATH_DEV);
+	devname_r(sb.st_rdev, S_IFCHR,
+	    buf + strlen(buf), sizeof(buf) - strlen(buf));
+	return (buf);
 }

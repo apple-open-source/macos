@@ -37,15 +37,21 @@
 
 
 /*
-	@define	kSCBundleRequires
+	@defined kSCBundleRequiresKey
  */
-#define kSCBundleRequires	CFSTR("Requires")
+#define kSCBundleRequiresKey		CFSTR("Requires")
 
 
 /*
-	@define	kSCBundleVerbose
+	@defined kSCBundleVerboseKey
  */
-#define kSCBundleVerbose	CFSTR("Verbose")
+#define kSCBundleVerboseKey		CFSTR("Verbose")
+
+
+/*
+	@defined kSCBundleIsBuiltinKey
+ */
+#define kSCBundleIsBuiltinKey		CFSTR("Builtin")
 
 
 /*!
@@ -56,7 +62,7 @@
 		initialize any variables, open any sessions with "configd",
 		and register any needed notifications.
 	@param bundle The CFBundle being loaded.
-	@param verbose A boolean value indicating whether verbose logging has
+	@param bundleVerbose A boolean value indicating whether verbose logging has
 		been enabled for this bundle.
  */
 typedef void	(*SCDynamicStoreBundleLoadFunction)	(CFBundleRef	bundle,
@@ -87,6 +93,19 @@ typedef void	(*SCDynamicStoreBundlePrimeFunction)	();
 
 
 /*!
+	@typedef SCDynamicStoreBundleStopFunction
+	@discussion Type of the stop() termination function that will be
+		called when configd has been requested to shut down.
+	@param stopRls A run loop source which should be signaled using
+		CFRunLoopSourceSignal() when the plugin has been shut down.
+
+	Note: a plugin can delay shut down of the daemon by no more than
+		30 seconds.
+ */
+typedef void	(*SCDynamicStoreBundleStopFunction)	(CFRunLoopSourceRef	stopRls);
+
+
+/*!
 	@typedef SCDPluginExecCallBack
 	@discussion Type of the callback function used when a child process
 		started by a plug-in has exited.
@@ -97,10 +116,10 @@ typedef void	(*SCDynamicStoreBundlePrimeFunction)	();
 	@param context The callback argument specified on the call
 		to _SCDPluginExecCommand().
  */
-typedef void (*SCDPluginExecCallBack)	(pid_t		pid,
-					 int		status,
-					 struct rusage	*rusage,
-					 void		*context);
+typedef void	(*SCDPluginExecCallBack)		(pid_t		pid,
+							 int		status,
+							 struct rusage	*rusage,
+							 void		*context);
 
 
 /*!
@@ -111,8 +130,8 @@ typedef void (*SCDPluginExecCallBack)	(pid_t		pid,
 	@param setupContext The setup argument specified on the call
 		to _SCDPluginExecCommand2().
  */
-typedef	void (*SCDPluginExecSetup)	(pid_t		pid,
-					 void		*setupContext);
+typedef	void	(*SCDPluginExecSetup)			(pid_t		pid,
+							 void		*setupContext);
 
 
 __BEGIN_DECLS

@@ -1,6 +1,6 @@
+// { dg-do assemble  }
+// { dg-options "" }
 // This test case caused the compiler to abort at one point in time.
-// Build don't link:
-// Special g++ Options:
 // prms-id: 811
 
 class ostream; class streambuf;
@@ -512,25 +512,25 @@ class Y {
 public:
     Y() {}
     virtual const char *stringify() = 0;
-    virtual char *stringify2() const = 0; // ERROR - 
+    virtual char *stringify2() const = 0; // { dg-error "overriding" } 
 };
 
 class X: public Y {
 public:
     X(): Y() {}
-    char *stringify();		// ERROR - ok
-    const char *stringify2() const;  // ERROR - ok
+    char *stringify();		// { dg-error "candidate" }
+    const char *stringify2() const;  // { dg-error "candidate|conflicting return type" }
 };
 
 char *
-X::stringify() const
-{ // ERROR - ok
+X::stringify() const  // { dg-error "does not match" }
+{
     return "stringify";
 }
 
 const char *
-X::stringify2()
-{ // ERROR - ok
+X::stringify2()   // { dg-error "does not match" }
+{
     return "stringify2";
 }
 

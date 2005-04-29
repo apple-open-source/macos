@@ -1,7 +1,0 @@
-{
-  Description     = "Apache web server";
-  Provides        = ("Web Server");
-  Requires        = ("DirectoryServices");
-  Uses            = ("Disks", "NFS");
-  OrderPreference = "None";
-}

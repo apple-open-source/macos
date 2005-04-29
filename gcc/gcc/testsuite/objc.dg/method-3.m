@@ -1,10 +1,9 @@
-/* APPLE LOCAL file type aliasing */
 /* Test for sending messages to aliased classes (and instances thereof).  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-lobjc" } */
 /* { dg-do run } */
 
-#import <objc/Object.h>
+#include <objc/Object.h>
 
 extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort()
@@ -44,4 +43,3 @@ int main(void) {
   CHECK_IF([(Int1Alias *)int2typedef instanceMeth] == 1697);
   return 0;
 }
-

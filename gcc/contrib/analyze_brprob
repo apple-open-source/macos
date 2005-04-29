@@ -1,22 +1,22 @@
 #!/usr/bin/awk -f
 # Script to analyze experimental results of our branch prediction heuristics
 # Contributed by Jan Hubicka, SuSE Inc.
-# Copyright (C) 2001 Free Software Foundation, Inc.
+# Copyright (C) 2001, 2003 Free Software Foundation, Inc.
 #
-# This file is part of GNU CC.
+# This file is part of GCC.
 #
-# GNU CC is free software; you can redistribute it and/or modify
+# GCC is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2, or (at your option)
 # any later version.
 #
-# GNU CC is distributed in the hope that it will be useful,
+# GCC is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with GNU CC; see the file COPYING.  If not, write to
+# along with GCC; see the file COPYING.  If not, write to
 # the Free Software Foundation, 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 #
@@ -33,7 +33,7 @@
 #  Step 1: Compile and profile your program.  You need to use -fprofile-arcs
 #    flag to get the profiles
 #  Step 2: Generate log files.  The information about given heuristics are
-#    saved into *.life dumps.  You need to pass the -df switch to the compiler as well
+#    saved into *.bp dumps.  You need to pass the -db switch to the compiler as well
 #    as -fbranch-probabilities to get the results of profiling noted in the dumps.
 #    Ensure that there are no "Arc profiling: some edge counts were bad." warnings.
 #  Step 3: Run this script to concatenate all *.life files:
@@ -131,12 +131,12 @@ END {
   maxcounts = longeval(counts["combined"])
   maxbranches = branches["combined"]
   max = names["combined"]
-  printf("HEURISTICS                  BRANCHES  (REL)  HITRATE             COVERAGE  (REL)\n")
+  printf("HEURISTICS                 BRANCHES  (REL)  HITRATE              COVERAGE  (REL)\n")
   for (i = 0; i < nnames ; i++)
    {
      name = names[i]
      counts[name] = longeval(counts[name])
-     printf ("%-27s %8i %5.1f%% %6s%%/%6s%% %12s %5.1f%%\n",
+     printf ("%-26s %8i %5.1f%% %6s%% / %6s%% %12s %5.1f%%\n",
 	     name,
 	     branches[name], branches[name] * 100 / maxbranches,
 	     longeval("("hits[name]") * 100 /(" counts[name]"-0.00001)"),

@@ -207,10 +207,12 @@ class AppleUSBCDCACMData : public IOSerialDriverSync
     OSDeclareDefaultStructors(AppleUSBCDCACMData);			// Constructor & Destructor stuff
 
 private:
+	AppleUSBCDC		*fCDCDriver;			// The CDC driver
 	AppleUSBCDCACMControl   *fControlDriver;			// Our Control Driver
     UInt16			fSessions;				// Number of active sessions
     bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
     bool			fStopping;				// Are we being "stopped"
+	bool			fResetOnClose;			// Do we need to reset the device on closing
     UInt8			fProductName[productNameLength];	// Product String from the Device
     
     static void			dataReadComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);

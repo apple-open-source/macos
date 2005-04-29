@@ -26,7 +26,7 @@ finish_gen_indexing ()
 
 void
 push_cur_index_filename (name)
-     char *name ATTRIBUTE_UNUSED;
+     const char *name ATTRIBUTE_UNUSED;
 {
 }
 
@@ -54,6 +54,10 @@ void gen_indexing_header (name)
 }
 
 void gen_indexing_footer ()
+{
+}
+
+void disable_gen_index ()
 {
 }
 

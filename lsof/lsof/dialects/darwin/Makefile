@@ -23,10 +23,10 @@ GRP= kmem
 
 HDR=    lsof.h lsof_fields.h dlsof.h machine.h proto.h dproto.h
 
-SRC=    ddev.c dmnt.c dnode.c dnode1.c dproc.c dsock.c dstore.c \
+SRC=    ddev.c dfile.c dmnt.c dnode.c dnode1.c dproc.c dsock.c dstore.c \
 	arg.c main.c misc.c node.c print.c proc.c store.c usage.c
 
-OBJ=	ddev.o dmnt.o dnode.o dnode1.o dproc.o dsock.o dstore.o \
+OBJ=	ddev.o dfile.o dmnt.o dnode.o dnode1.o dproc.o dsock.o dstore.o \
 	arg.o main.o misc.o node.o print.o proc.o store.o usage.o
 
 MAN=	lsof.8
@@ -57,7 +57,7 @@ install: all FRC
 	install -c -m 444 ${MAN} ${DOC}/${MAN}
 
 ${LIB}: FRC
-	(cd lib; ${MAKE} DEBUG="${DEBUG}" CFGF="${CFGF}")
+	(cd lib; ${MAKE})
 
 version.h:	FRC
 	@echo Constructing version.h
@@ -111,6 +111,8 @@ FRC:
 # DO NOT DELETE THIS LINE - make depend DEPENDS ON IT
 
 ddev.o:		${HDR} ddev.c
+
+dfile.o:	${HDR} dfile.c
 
 dmnt.o:		${HDR} dmnt.c
 

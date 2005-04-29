@@ -5,13 +5,14 @@
 #include <servers/bootstrap.h>
 #include <sysexits.h>
 
+#include "globals.h"
 #include "logging.h"
 
 /* MiG generated externals and functions */
-extern struct rpc_subsystem _kextmanager_subsystem;
+extern struct mig_subsystem _kextmanager_subsystem;
 extern boolean_t kextmanager_server(mach_msg_header_t *, mach_msg_header_t *);
 
-int gClientUID = -1;
+uid_t gClientUID = -1;
 
 boolean_t kextd_demux(
     mach_msg_header_t * request,

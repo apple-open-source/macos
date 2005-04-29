@@ -149,16 +149,17 @@ netsnmp_transport_copy(netsnmp_transport *t)
 void
 netsnmp_transport_free(netsnmp_transport *t)
 {
+
     if (t->local != NULL) {
-        free(t->local);
+        SNMP_FREE(t->local);
     }
     if (t->remote != NULL) {
-        free(t->remote);
+        SNMP_FREE(t->remote);
     }
     if (t->data != NULL) {
-        free(t->data);
+        SNMP_FREE(t->data);
     }
-    free(t);
+    SNMP_FREE(t);
 }
 
 
@@ -208,6 +209,21 @@ netsnmp_tdomain_init(void)
     netsnmp_tcp6_ctor();
 #endif
     netsnmp_tdomain_dump();
+}
+
+void
+netsnmp_clear_tdomain_list(void)
+{
+    netsnmp_tdomain *list = domain_list, *next = NULL;
+    DEBUGMSGTL(("tdomain", "clear_tdomain_list() called\n"));
+
+    while (list != NULL) {
+	next = list->next;
+	SNMP_FREE(list->prefix);
+        /* attention!! list itself is not in the heap, so we must not free it! */
+	list = next;
+    }
+    domain_list = NULL;
 }
 
 
@@ -269,6 +285,7 @@ netsnmp_tdomain_unregister(netsnmp_tdomain *n)
             if (netsnmp_oid_equals(n->name, n->name_length,
                                 d->name, d->name_length) == 0) {
                 *prevNext = n->next;
+		SNMP_FREE(n->prefix);
                 return 1;
             }
             prevNext = &(d->next);
@@ -330,7 +347,7 @@ netsnmp_tdomain_transport(const char *string, int local,
                 DEBUGMSGTL(("tdomain", "specifier \"%s\" matched\n",
                             spec));
                 t = d->f_create_from_tstring(addr, local);
-                free(mystring);
+                SNMP_FREE(mystring);
                 return t;
             }
         }
@@ -362,7 +379,7 @@ netsnmp_tdomain_transport(const char *string, int local,
                 DEBUGMSGTL(("tdomain", "specifier \"%s\" matched\n",
                             spec));
                 t = d->f_create_from_tstring(addr, local);
-                free(mystring);
+                SNMP_FREE(mystring);
                 return t;
             }
         }
@@ -370,7 +387,7 @@ netsnmp_tdomain_transport(const char *string, int local,
 
     snmp_log(LOG_ERR, "No support for requested transport domain \"%s\"\n",
              spec);
-    free(mystring);
+    SNMP_FREE(mystring);
     return NULL;
 }
 
@@ -443,7 +460,7 @@ netsnmp_transport_remove_from_list(netsnmp_transport_list **transport_list,
     else
         *transport_list = ptr->next;
 
-    free(ptr);
+    SNMP_FREE(ptr);
 
     return 0;
 }

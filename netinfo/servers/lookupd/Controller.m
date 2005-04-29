@@ -47,7 +47,6 @@
 #import "DNSAgent.h"
 #import "NILAgent.h"
 #import <NetInfo/dsutil.h>
-#import <NetInfo/ni_shared.h>
 #import "sys.h"
 #import <sys/types.h>
 #import <sys/param.h>
@@ -63,13 +62,12 @@
 
 #define forever for(;;)
 
-extern int gethostname(char *, int);
 extern sys_port_type server_port;
 extern sys_port_type _lookupd_port(sys_port_type);
 extern int _lookup_link();
 
 @implementation Controller
-	
+
 /*
  * Server runs in this loop to answer requests
  */
@@ -95,7 +93,7 @@ extern int _lookup_link();
 			system_log(LOG_NOTICE, "Server status = %s (%d)", sys_strerror(status), status);
 			continue;
 		}
-		
+
 		syslock_lock(threadCountLock);
 		idleThreads--;
 		if ((idleThreads == 0) && (threadCount < maxThreads))
@@ -172,16 +170,21 @@ extern int _lookup_link();
 	configurationArray = [configManager config];
 	global = [configManager configGlobal:configurationArray];
 
+	debug_enabled = [configManager boolForKey:"Debug" dict:global default:debug_enabled];
+	trace_enabled = [configManager boolForKey:"Trace" dict:global default:trace_enabled];
+
+	aaaa_cutoff_enabled = [configManager boolForKey:"AAAACutoff" dict:global default:aaaa_cutoff_enabled];
+
 	str = [configManager stringForKey:"GAISearch" dict:global default:NULL];
 	if (str != NULL)
 	{
 		if (!strcasecmp(str, "Parallel")) gai_pref = GAI_P;
+		else if (!strcasecmp(str, "Default")) gai_pref = GAI_P;
 		else if (!strcasecmp(str, "P")) gai_pref = GAI_P;
 		else if (!strcasecmp(str, "IPv4")) gai_pref = GAI_4;
 		else if (!strcasecmp(str, "4")) gai_pref = GAI_4;
 		else if (!strcasecmp(str, "IPv6")) gai_pref = GAI_6;
 		else if (!strcasecmp(str, "6")) gai_pref = GAI_6;
-		else if (!strcasecmp(str, "Default")) gai_pref = GAI_S46;
 		else if (!strcasecmp(str, "Serial")) gai_pref = GAI_S46;
 		else if (!strcasecmp(str, "Serial46")) gai_pref = GAI_S46;
 		else if (!strcasecmp(str, "46")) gai_pref = GAI_S46;
@@ -192,9 +195,6 @@ extern int _lookup_link();
 
 	gai_wait = [configManager intForKey:"GAIWait" dict:global default:gai_wait];
 
-	lookup_local_interfaces = [configManager boolForKey:"LookupLocalInterfaces" dict:global default:lookup_local_interfaces];
-
-	debug_enabled = [configManager boolForKey:"Debug" dict:global default:debug_enabled];
 	if (debug_enabled)
 	{
 		statistics_enabled = YES;
@@ -242,9 +242,9 @@ extern int _lookup_link();
 	struct sockaddr_in6 *sin6;
 	struct sockaddr_in *sin4;
 	char buf[128];
-	BOOL isLinkLocal, isSiteLocal;
+	BOOL isLinkLocal, isSiteLocal, isLoopback;
 
-	if (getifaddrs(&ifa)) return;
+	if (getifaddrs(&ifa) != 0) return;
 
 	for (ifap = ifa; ifap != NULL; ifap = ifap->ifa_next)
 	{
@@ -252,9 +252,10 @@ extern int _lookup_link();
 		if (family != AF_INET && family != AF_INET6) continue;
 		if (family == AF_INET6)
 		{
-			sin6 = (struct sockaddr_in6 *)ifap->ifa_addr;
+			sin6 = (struct sockaddr_in6 *)(ifap->ifa_addr);
 			isLinkLocal = (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) != 0);
 			isSiteLocal = (IN6_IS_ADDR_SITELOCAL(&sin6->sin6_addr) != 0);
+			isLoopback = (IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr) != 0);
 
 			if (isLinkLocal || isSiteLocal)
 			{
@@ -262,6 +263,12 @@ extern int _lookup_link();
 				sin6->sin6_addr.s6_addr[2] = 0;
 				sin6->sin6_addr.s6_addr[3] = 0;
 			}
+
+			/*
+			 * Anything other than link-local or loopback is considered routable.
+			 * If we have routable IPv6 addresees, we want to do AAAA queries in DNS.
+			 */
+			if ((!isLinkLocal) && (!isLoopback)) aaaa_cutoff_enabled = NO;
 		}
 
 		if (family == AF_INET)
@@ -277,6 +284,8 @@ extern int _lookup_link();
 
 		netAddrList = appendString(buf, netAddrList);
 	}
+
+	freeifaddrs(ifa);
 }
 
 - (id)initWithName:(char *)name
@@ -307,13 +316,18 @@ extern int _lookup_link();
 
 	statistics = [[LUDictionary alloc] init];
 	[statistics setBanner:"lookupd statistics"];
-	
-	[statistics setValue:_PROJECT_BUILD_INFO_ forKey:"# build"];
-	[statistics setValue:_PROJECT_VERSION_    forKey:"# version"];
+
+	[statistics setValue:_PROJECT_BUILD_INFO_ forKey:"# Build"];
+	[statistics setValue:_PROJECT_VERSION_    forKey:"# Version"];
 
 	[self newAgent:[CacheAgent class] name:"CacheAgent"];
 	[self newAgent:[DNSAgent class] name:"DNSAgent"];
 	[self newAgent:[NILAgent class] name:"NILAgent"];
+
+	/* 
+	 * Build a list of local network addresses
+	 */
+	[self initNetAddrList];
 
 	[self initConfig];
 
@@ -327,11 +341,6 @@ extern int _lookup_link();
 		dnsSearchList = [dns searchList];
 		[dns release];
 	}
-
-	/* 
-	 * Build a list of local network addresses
-	 */
-	[self initNetAddrList];
 
 	return self;
 }
@@ -466,7 +475,6 @@ extern int _lookup_link();
 {
 	int i, len, idleServerCount;
 
-	[cacheAgent sweepCache];
 	syslock_lock(serverLock);
 
 	[server setIsIdle:YES];

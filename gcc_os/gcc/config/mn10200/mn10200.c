@@ -85,8 +85,6 @@ asm_file_start (file)
   else
     fprintf (file, "\n\n");
   output_file_directive (file, main_input_filename);
-  ggc_add_rtx_root (&zero_dreg, 1);
-  ggc_add_rtx_root (&zero_areg, 1);
 }
 
 /* Print operand X using operand code CODE to assembly language output file
@@ -692,13 +690,23 @@ expand_prologue ()
     }
 
   /* Now put the static chain back where the rest of the function
-     expects to find it.  */
+     expects to find it. 
+
+     Note that we may eliminate all references to this later, so we
+     mark the static chain as maybe dead.  */
   if (current_function_needs_context)
     {
-      emit_move_insn (gen_rtx_REG (PSImode, STATIC_CHAIN_REGNUM),
-		      gen_rtx (MEM, PSImode,
-			       gen_rtx_PLUS (PSImode, stack_pointer_rtx,
-					     GEN_INT (size))));
+      rtx insn;
+
+      insn = emit_move_insn (gen_rtx_REG (PSImode, STATIC_CHAIN_REGNUM),
+			     gen_rtx (MEM, PSImode,
+				      gen_rtx_PLUS (PSImode,
+						    stack_pointer_rtx,
+						    GEN_INT (size))));
+      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
+                                            const0_rtx,
+                                            REG_NOTES (insn));
+  
     }
 }
 
@@ -714,10 +722,8 @@ expand_epilogue ()
   size = total_frame_size ();
 
   if (DECL_RESULT (current_function_decl)
-      && DECL_RTL (DECL_RESULT (current_function_decl))
-      && REG_P (DECL_RTL (DECL_RESULT (current_function_decl))))
-    temp_regno = (REGNO (DECL_RTL (DECL_RESULT (current_function_decl))) == 4
-		  ? 0 : 4);
+      && POINTER_TYPE_P (TREE_TYPE (DECL_RESULT (current_function_decl))))
+    temp_regno = 0;
   else
     temp_regno = 4;
 
@@ -937,7 +943,7 @@ secondary_reload_class (class, mode, in, input)
 
    The basic shift methods:
 
-     * loop shifts -- emit a loop using one (or two on H8/S) bit shifts;
+     * loop shifts -- emit a loop using one (or two on H8S) bit shifts;
      this is the default.  SHIFT_LOOP
 
      * inlined shifts -- emit straight line code for the shift; this is

@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2000, International Business Machines Corporation and    *
+ * Copyright (C) 1996-2003, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -12,7 +12,8 @@
 #include "itrbnfrt.h"
 
 #include "unicode/fmtable.h"
-#include "math.h" // fabs
+#include <math.h> // fabs
+#include <stdio.h>
 
 // current macro not in icu1.8.1
 #define TESTCASE(id,test)             \

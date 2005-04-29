@@ -75,7 +75,7 @@ void sasl_chop(char *s)
 {
     char *p;
 
-    if (s==NULL)
+    if (s == NULL || *s == '\0')
         return;
     
     p = s + strlen(s) - 1;
@@ -179,6 +179,7 @@ long getconn(const char *host, const char *port, int *outSocket)
 	struct in_addr inetAddr;
 	char *endPtr = NULL;
 	struct timeval timeoutVal = { 30, 0 };
+	struct timeval sendTimeoutVal = { 120, 0 };
 	struct addrinfo *res, *res0;
     
     if ( host==NULL || port==NULL || outSocket==NULL )
@@ -238,8 +239,13 @@ long getconn(const char *host, const char *port, int *outSocket)
 		
 		if ( setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeoutVal, sizeof(timeoutVal) ) == -1 )
 		{
-			syslog(LOG_INFO,"setsockopt");
+			syslog(LOG_INFO,"setsockopt SO_RCVTIMEO");
             throw((long)-1);
+		}
+		if ( setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &sendTimeoutVal, sizeof(sendTimeoutVal) ) == -1 )
+		{
+			syslog(LOG_INFO, "setsockopt SO_SNDTIMEO");
+			//throw((long)-1);	// not fatal
 		}
 		
         if (connect(sock, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
@@ -468,7 +474,7 @@ void hmac_md5_init(HMAC_MD5_CTX *hmac,
  * buffer fields.  So all we have to do is save the state field; we
  * can zero the others when we reload it.  Which is why the decision
  * was made to pad the key out to 64 bytes in the first place. */
-void hmac_md5_precalc(HMAC_MD5_STATE *state,
+void pwsf_hmac_md5_precalc(HMAC_MD5_STATE *state,
 			    const unsigned char *key,
 			    int key_len)
 {

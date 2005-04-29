@@ -1,46 +1,7 @@
-include "./Common/Scripts/BuildPBX.jam" ;
+include "$(PWD)/Common/Scripts/BuildPBX.jam" ;
 
-# InstallSrc <destination dir> : <source dir>
-rule InstallSrc
-{
-    SPLIT_RESOURCES = "$(2)/Common/Scripts/SplitForks.pl" ;
-    RESTORE_RESOURCES = "$(2)/Common/Scripts/MergeForks.pl" ;
-    ALWAYS $(1) ;
-}
-
-actions ignore InstallSrc
-{
-    if [ -e "$(2)" ] ; then
-        # First pax the whole thing over, then go find resources and split or restore them
-        cd "$(2:D)" && pax -p e -rw "$(2:D=)" "$(1:P:G=)"
-        
-        # if $(2:D=) is not the same as $(1:D=), fix up the output name
-        test "$(2:D=)" != "$(1:D=)" && cd "$(1:D)" && mv "$(2:D=)" "$(1:D=)"
-        
-        # Now copy over the resource forks (specifically the CFMGlue)
-        if [ "$(NORSRC)" ] ; then
-            perl "$(SPLIT_RESOURCES)" "$(2)" "$(1)"
-        else
-            perl "$(RESTORE_RESOURCES)" "$(1)"
-        fi
-        
-        # Remove spurious executable bits from all the files
-        find "$(1)" -type f -print0 | xargs -0 chmod a-x
-    fi
-}
-
-# installsrc just copies the whole source tree
-DEPENDS installsrc : $(SRCROOT) ;
-InstallSrc $(SRCROOT) : $(PWD) ;
-
-# Flags for building
-OTHER_CFLAGS = "-DMACDEV_DEBUG=0 -DBIND_8_COMPAT" ;
-OTHER_CPLUSPLUSFLAGS = "-DMACDEV_DEBUG=0 -DBIND_8_COMPAT" ;
-OPTIMIZATION_CFLAGS = "-O" ;
-
-# clean, install, installhdrs call through to the top-level project
 KERBEROS_PBPROJ = "$(SRCROOT)/Common/Projects/Kerberos.pbproj" ;
 
-PBXBuild clean : "$(KERBEROS_PBPROJ)" Kerberos clean ;
-PBXBuild install : "$(KERBEROS_PBPROJ)" Kerberos install ;
-PBXBuild installhdrs : "$(KERBEROS_PBPROJ)" Kerberos installhdrs ;
+PBXBuild clean : "$(KERBEROS_PBPROJ)" "$(RC_ProjectName)" clean ;
+PBXBuild install : "$(KERBEROS_PBPROJ)" "$(RC_ProjectName)" install ;
+PBXBuild installhdrs : "$(KERBEROS_PBPROJ)" "$(RC_ProjectName)" installhdrs ;

@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
 --               Copyright (C) 1986 by University of Toronto.               --
---           Copyright (C) 1996-2001 Ada Core Technologies, Inc.            --
+--           Copyright (C) 1996-2004 Ada Core Technologies, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,7 +27,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).   --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -75,10 +75,13 @@ pragma Preelaborate (Regpat);
    --     regexp ::= expr
    --            ::= ^ expr               -- anchor at the beginning of string
    --            ::= expr $               -- anchor at the end of string
+
    --     expr   ::= term
    --            ::= term | term          -- alternation (term or term ...)
+
    --     term   ::= item
    --            ::= item item ...        -- concatenation (item then item)
+
    --     item   ::= elmt                 -- match elmt
    --            ::= elmt *               -- zero or more elmt's
    --            ::= elmt +               -- one or more elmt's
@@ -94,6 +97,7 @@ pragma Preelaborate (Regpat);
    --                                        non-greedy version
    --            ::= elmt { num , num2 }? -- matches between num and num2 times
    --                                        non-greedy version
+
    --     elmt   ::= nchr                 -- matches given character
    --            ::= [range range ...]    -- matches any character listed
    --            ::= [^ range range ...]  -- matches any character not listed
@@ -101,10 +105,12 @@ pragma Preelaborate (Regpat);
    --                                     -- except newlines
    --            ::= ( expr )             -- parens used for grouping
    --            ::= \ num                -- reference to num-th parenthesis
+
    --     range  ::= char - char          -- matches chars in given range
    --            ::= nchr
    --            ::= [: posix :]          -- any character in the POSIX range
    --            ::= [:^ posix :]         -- not in the POSIX range
+
    --     posix  ::= alnum                -- alphanumeric characters
    --            ::= alpha                -- alphabetic characters
    --            ::= ascii                -- ascii characters (0 .. 127)
@@ -121,6 +127,7 @@ pragma Preelaborate (Regpat);
 
    --     char   ::= any character, including special characters
    --                ASCII.NUL is not supported.
+
    --     nchr   ::= any character except \()[].*+?^ or \char to match char
    --                \n means a newline (ASCII.LF)
    --                \t means a tab (ASCII.HT)
@@ -218,7 +225,7 @@ pragma Preelaborate (Regpat);
    --  the first parenthesis pair.
 
    --     declare
-   --        Matches : Match_Array;
+   --        Matches : Match_Array (0 .. 1);
    --        Regexp  : String := "a(b|c)d";
    --        Str     : String := "gacdg";
 
@@ -226,6 +233,33 @@ pragma Preelaborate (Regpat);
    --        Match (Compile (Regexp), Str, Matches);
    --        return Str (Matches (1).First .. Matches (1).Last);
    --        --  returns 'c'
+   --     end;
+
+   --  Finding all occurrences
+   --  =======================
+
+   --  Finding all the occurrences of a regular expression in a string cannot
+   --  be done by simply passing a slice of the string. This wouldn't work for
+   --  anchored regular expressions (the ones starting with "^" or ending with
+   --  "$").
+   --  Instead, you need to use the last parameter to Match (Data_First), as in
+   --  the following loop:
+
+   --     declare
+   --        Str     : String :=
+   --           "-- first line" & ASCII.LF & "-- second line";
+   --        Matches : Match_array (0 .. 0);
+   --        Regexp  : Pattern_Matcher := Compile ("^--", Multiple_Lines);
+   --        Current : Natural := Str'First;
+   --     begin
+   --        loop
+   --           Match (Regexp, Str, Matches, Current);
+   --           exit when Matches (0) = No_Match;
+   --
+   --           --  Process the match at position Matches (0).First
+   --
+   --           Current := Matches (0).Last + 1;
+   --        end loop;
    --     end;
 
    --  String Substitution
@@ -240,7 +274,7 @@ pragma Preelaborate (Regpat);
    --     declare
    --        Regexp  : String := "([a-z]+) +([a-z]+)";
    --        Str     : String := " first   second third ";
-   --        Matches : Match_Array;
+   --        Matches : Match_Array (0 .. 2);
 
    --     begin
    --        Match (Compile (Regexp), Str, Matches);
@@ -266,19 +300,32 @@ pragma Preelaborate (Regpat);
    --  This is limited by the size of a Character, as found in the
    --  byte-compiled version of regular expressions.
 
-   Max_Program_Size : constant := 2**15 - 1;
-   --  Maximum size that can be allocated for a program.
-
    Max_Curly_Repeat : constant := 32767;
    --  Maximum number of repetition for the curly operator.
    --  The digits in the {n}, {n,} and {n,m } operators can not be higher
    --  than this constant, since they have to fit on two characters in the
    --  byte-compiled version of regular expressions.
 
+   Max_Program_Size : constant := 2**15 - 1;
+   --  Maximum size that can be allocated for a program
+
    type Program_Size is range 0 .. Max_Program_Size;
    for Program_Size'Size use 16;
    --  Number of bytes allocated for the byte-compiled version of a regular
-   --  expression.
+   --  expression. The size required depends on the complexity of the regular
+   --  expression in a complex manner that is undocumented (other than in the
+   --  body of the Compile procedure). Normally the size is automatically set
+   --  and the programmer need not be concerned about it. There are two
+   --  exceptions to this. First in the calls to Match, it is possible to
+   --  specify a non-zero size that is known to be large enough. This can
+   --  slightly increase the efficiency by avoiding a copy. Second, in the
+   --  case of calling compile, it is possible using the procedural form
+   --  of Compile to use a single Pattern_Matcher variable for several
+   --  different expressions by setting its size sufficiently large.
+
+   Auto_Size : constant := 0;
+   --  Used in calls to Match to indicate that the Size should be set to
+   --  a value appropriate to the expression being used automatically.
 
    type Regexp_Flags is mod 256;
    for Regexp_Flags'Size use 8;
@@ -334,9 +381,14 @@ pragma Preelaborate (Regpat);
    --  matching a null string at position 1, which uses (1, 0)
    --  and no match at all.
 
-   ------------------------------
-   -- Pattern_Matcher Creation --
-   ------------------------------
+   ---------------------------------
+   -- Pattern_Matcher Compilation --
+   ---------------------------------
+
+   --  The subprograms here are used to precompile regular expressions
+   --  for use in subsequent Match calls. Precompilation improves
+   --  efficiency if the same regular expression is to be used in
+   --  more than one Match call.
 
    type Pattern_Matcher (Size : Program_Size) is private;
    --  Type used to represent a regular expression compiled into byte code
@@ -346,16 +398,19 @@ pragma Preelaborate (Regpat);
 
    function Compile
      (Expression : String;
-      Flags      : Regexp_Flags := No_Flags)
-      return       Pattern_Matcher;
-   --  Compile a regular expression into internal code.
-   --  Raises Expression_Error if Expression is not a legal regular expression.
-   --  The appropriate size is calculated automatically, but this means that
-   --  the regular expression has to be compiled twice (the first time to
-   --  calculate the size, the second time to actually generate the byte code).
+      Flags      : Regexp_Flags := No_Flags) return Pattern_Matcher;
+   --  Compile a regular expression into internal code
    --
-   --  Flags is the default value to use to set properties for Expression (case
-   --  sensitivity,...).
+   --  Raises Expression_Error if Expression is not a legal regular expression
+   --
+   --  The appropriate size is calculated automatically to correspond to the
+   --  provided expression. This is the normal default method of compilation.
+   --  Note that it is generally not possible to assign the result of two
+   --  different calls to this Compile function to the same Pattern_Matcher
+   --  variable, since the sizes will differ.
+   --
+   --  Flags is the default value to use to set properties for Expression
+   --  (e.g. case sensitivity,...).
 
    procedure Compile
      (Matcher         : out Pattern_Matcher;
@@ -363,11 +418,28 @@ pragma Preelaborate (Regpat);
       Final_Code_Size : out Program_Size;
       Flags           : Regexp_Flags := No_Flags);
    --  Compile a regular expression into into internal code
-   --  This procedure is significantly faster than the function
-   --  Compile, as there is a known maximum size for the matcher.
-   --  This function raises Storage_Error if Matcher is too small
-   --  to hold the resulting code, or Expression_Error is Expression
-   --  is not a legal regular expression.
+
+   --  This procedure is significantly faster than the Compile function
+   --  since it avoids the extra step of precomputing the required size.
+   --
+   --  However, it requires the user to provide a Pattern_Matcher variable
+   --  whose size is preset to a large enough value. One advantage of this
+   --  approach, in addition to the improved efficiency, is that the same
+   --  Pattern_Matcher variable can be used to hold the compiled code for
+   --  several different regular expressions by setting a size that is
+   --  large enough to accomodate all possibilities.
+   --
+   --  In this version of the procedure call, the actual required code
+   --  size is returned. Also if Matcher.Size is zero on entry, then the
+   --  resulting code is not stored. A call with Matcher.Size set to Auto_Size
+   --  can thus be used to determine the space required for compiling the
+   --  given regular expression.
+   --
+   --  This function raises Storage_Error if Matcher is too small to hold
+   --  the resulting code (i.e. Matcher.Size has too small a value).
+   --
+   --  Expression_Error is raised if the string Expression does not contain
+   --  a valid regular expression.
    --
    --  Flags is the default value to use to set properties for Expression (case
    --  sensitivity,...).
@@ -377,13 +449,12 @@ pragma Preelaborate (Regpat);
       Expression : String;
       Flags      : Regexp_Flags := No_Flags);
    --  Same procedure as above, expect it does not return the final
-   --  program size.
+   --  program size, and Matcher.Size cannot be Auto_Size.
 
    function Paren_Count (Regexp : Pattern_Matcher) return Match_Count;
    pragma Inline (Paren_Count);
-
    --  Return the number of parenthesis pairs in Regexp.
-
+   --
    --  This is the maximum index that will be filled if a Match_Array is
    --  used as an argument to Match.
    --
@@ -410,68 +481,114 @@ pragma Preelaborate (Regpat);
    -- Matching --
    --------------
 
-   procedure Match
-     (Expression     : String;
-      Data           : String;
-      Matches        : out Match_Array;
-      Size           : Program_Size := 0);
-   --  Match Expression against Data and store result in Matches.
-   --  Function raises Storage_Error if Size is too small for Expression,
-   --  or Expression_Error if Expression is not a legal regular expression.
-   --  If Size is 0, then the appropriate size is automatically calculated
-   --  by this package, but this is slightly slower.
-   --
-   --  At most Matches'Length parenthesis are returned.
+   --  The Match subprograms are given a regular expression in string
+   --  form, and perform the corresponding match. The following parameters
+   --  are present in all forms of the Match call.
 
-   function  Match
+   --    Expression contains the regular expression to be matched as a string
+
+   --    Data contains the string to be matched
+
+   --    Data_First is the lower bound for the match, i.e. Data (Data_First)
+   --    will be the first character to be examined. If Data_First is set to
+   --    the special value of -1 (the default), then the first character to
+   --    be examined is Data (Data_First). However, the regular expression
+   --    character ^ (start of string) still refers to the first character
+   --    of the full string (Data (Data'First)), which is why there is a
+   --    separate mechanism for specifying Data_First.
+
+   --    Data_Last is the upper bound for the match, i.e. Data (Data_Last)
+   --    will be the last character to be examined. If Data_Last is set to
+   --    the special value of Positive'Last (the default), then the last
+   --    character to be examined is Data (Data_Last). However, the regular
+   --    expression character $ (end of string) still refers to the last
+   --    character of the full string (Data (Data'Last)), which is why there
+   --    is a separate mechanism for specifying Data_Last.
+
+   --    Note: the use of Data_First and Data_Last is not equivalent to
+   --    simply passing a slice as Expression because of the handling of
+   --    regular expression characters ^ and $.
+
+   --    Size is the size allocated for the compiled byte code. Normally
+   --    this is defaulted to Auto_Size which means that the appropriate
+   --    size is allocated automatically. It is possible to specify an
+   --    explicit size, which must be sufficiently large. This slightly
+   --    increases the efficiency by avoiding the extra step of computing
+   --    the appropriate size.
+
+   --  The following exceptions can be raised in calls to Match
+   --
+   --    Storage_Error is raised if a non-zero value is given for Size
+   --    and it is too small to hold the compiled byte code.
+   --
+   --    Expression_Error is raised if the given expression is not a legal
+   --    regular expression.
+
+
+   procedure Match
      (Expression : String;
       Data       : String;
-      Size       : Program_Size := 0)
-      return       Natural;
-   --  Return the position where Data matches, or (Data'First - 1) if there is
-   --  no match.
-   --  Function raises Storage_Error if Size is too small for Expression
-   --  or Expression_Error if Expression is not a legal regular expression
-   --  If Size is 0, then the appropriate size is automatically calculated
-   --  by this package, but this is slightly slower.
+      Matches    : out Match_Array;
+      Size       : Program_Size := Auto_Size;
+      Data_First : Integer      := -1;
+      Data_Last  : Positive     := Positive'Last);
+   --  This version returns the result of the match stored in Match_Array.
+   --  At most Matches'Length parenthesis are returned.
 
    function Match
      (Expression : String;
       Data       : String;
-      Size       : Program_Size := 0)
-      return       Boolean;
-   --  Return True if Data matches Expression. Match raises Storage_Error
-   --  if Size is too small for Expression, or Expression_Error if Expression
-   --  is not a legal regular expression.
-   --
-   --  If Size is 0, then the appropriate size is automatically calculated
-   --  by this package, but this is slightly slower.
+      Size       : Program_Size := Auto_Size;
+      Data_First : Integer      := -1;
+      Data_Last  : Positive     := Positive'Last) return Natural;
+   --  This version returns the position where Data matches, or if there is
+   --  no match, then the value Data'First - 1.
+
+   function Match
+     (Expression : String;
+      Data       : String;
+      Size       : Program_Size := Auto_Size;
+      Data_First : Integer      := -1;
+      Data_Last  : Positive     := Positive'Last) return Boolean;
+   --  This version returns True if the match succeeds, False otherwise
 
    ------------------------------------------------
-   -- Matching a pre-compiled regular expression --
+   -- Matching a Pre-Compiled Regular Expression --
    ------------------------------------------------
 
    --  The following functions are significantly faster if you need to reuse
    --  the same regular expression multiple times, since you only have to
-   --  compile it once.
+   --  compile it once. For these functions you must first compile the
+   --  expression with a call to Compile as previously described.
+
+   --  The parameters Data, Data_First and Data_Last are as described
+   --  in the previous section.
 
    function  Match
-     (Self : Pattern_Matcher;
-      Data : String)
-      return Natural;
-   --  Return the position where Data matches, or (Data'First - 1) if there is
-   --  no match. Raises Expression_Error if Expression is not a legal regular
-   --  expression.
+     (Self       : Pattern_Matcher;
+      Data       : String;
+      Data_First : Integer  := -1;
+      Data_Last  : Positive := Positive'Last) return Natural;
+   --  Match Data using the given pattern matcher. Returns the position
+   --  where Data matches, or (Data'First - 1) if there is no match.
+
+   function  Match
+     (Self       : Pattern_Matcher;
+      Data       : String;
+      Data_First : Integer  := -1;
+      Data_Last  : Positive := Positive'Last) return Boolean;
+   --  Return True if Data matches using the given pattern matcher.
 
    pragma Inline (Match);
-   --  All except the last one below.
+   --  All except the last one below
 
    procedure Match
-     (Self    : Pattern_Matcher;
-      Data    : String;
-      Matches : out Match_Array);
+     (Self       : Pattern_Matcher;
+      Data       : String;
+      Matches    : out Match_Array;
+      Data_First : Integer  := -1;
+      Data_Last  : Positive := Positive'Last);
    --  Match Data using the given pattern matcher and store result in Matches.
-   --  Raises Expression_Error if Expression is not a legal regular expression.
    --  The expression matches if Matches (0) /= No_Match.
    --
    --  At most Matches'Length parenthesis are returned.
@@ -481,7 +598,7 @@ pragma Preelaborate (Regpat);
    -----------
 
    procedure Dump (Self : Pattern_Matcher);
-   --  Dump the compiled version of the regular expression matched by Self.
+   --  Dump the compiled version of the regular expression matched by Self
 
 --------------------------
 -- Private Declarations --

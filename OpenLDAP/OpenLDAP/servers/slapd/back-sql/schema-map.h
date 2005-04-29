@@ -1,66 +1,93 @@
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/schema-map.h,v 1.9.2.5 2004/01/20 23:44:21 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999 Dmitry Kovalev.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Dmitry Kovalev for inclusion
+ * by OpenLDAP Software.
+ */
+
 #ifndef __BACKSQL_SCHEMA_MAP_H__
 #define __BACKSQL_SCHEMA_MAP_H__
 
-/*
- *	 Copyright 1999, Dmitry Kovalev <mit@openldap.org>, All rights reserved.
- *
- *	 Redistribution and use in source and binary forms are permitted only
- *	 as authorized by the OpenLDAP Public License.	A copy of this
- *	 license is available at http://www.OpenLDAP.org/license.html or
- *	 in file LICENSE in the top-level directory of the distribution.
- */
-
-typedef struct {
+typedef struct backsql_oc_map_rec {
 	/*
 	 * Structure of corresponding LDAP objectClass definition
 	 */
-	ObjectClass	*oc;
-#define BACKSQL_OC_NAME(ocmap)	((ocmap)->oc->soc_cname.bv_val)
+	ObjectClass	*bom_oc;
+#define BACKSQL_OC_NAME(ocmap)	((ocmap)->bom_oc->soc_cname.bv_val)
 	
-	struct berval	keytbl;
-	struct berval	keycol;
+	struct berval	bom_keytbl;
+	struct berval	bom_keycol;
 	/* expected to return keyval of newly created entry */
-	char		*create_proc;
+	char		*bom_create_proc;
 	/* in case create_proc does not return the keyval of the newly
 	 * created row */
-	char		*create_keyval;
+	char		*bom_create_keyval;
 	/* supposed to expect keyval as parameter and delete 
 	 * all the attributes as well */
-	char		*delete_proc;
+	char		*bom_delete_proc;
 	/* flags whether delete_proc is a function (whether back-sql 
 	 * should bind first parameter as output for return code) */
-	int		expect_return;
-	unsigned long	id;
-	Avlnode		*attrs;
+	int		bom_expect_return;
+	unsigned long	bom_id;
+	Avlnode		*bom_attrs;
 } backsql_oc_map_rec;
 
-typedef struct {
+typedef struct backsql_at_map_rec {
 	/* Description of corresponding LDAP attribute type */
-	AttributeDescription	*ad;
-	struct berval	from_tbls;
-	struct berval	join_where;
-	struct berval	sel_expr;
+	AttributeDescription	*bam_ad;
+	/* ObjectClass if bam_ad is objectClass */
+	ObjectClass		*bam_oc;
+
+	struct berval	bam_from_tbls;
+	struct berval	bam_join_where;
+	struct berval	bam_sel_expr;
+
+	/* TimesTen, or, if a uppercase function is defined,
+	 * an uppercased version of bam_sel_expr */
+	struct berval	bam_sel_expr_u;
+
 	/* supposed to expect 2 binded values: entry keyval 
 	 * and attr. value to add, like "add_name(?,?,?)" */
-	char		*add_proc;
+	char		*bam_add_proc;
 	/* supposed to expect 2 binded values: entry keyval 
 	 * and attr. value to delete */
-	char		*delete_proc;
+	char		*bam_delete_proc;
 	/* for optimization purposes attribute load query 
 	 * is preconstructed from parts on schemamap load time */
-	char		*query;
+	char		*bam_query;
 	/* following flags are bitmasks (first bit used for add_proc, 
 	 * second - for delete_proc) */
 	/* order of parameters for procedures above; 
 	 * 1 means "data then keyval", 0 means "keyval then data" */
-	int 		param_order;
+	int 		bam_param_order;
 	/* flags whether one or more of procedures is a function 
 	 * (whether back-sql should bind first parameter as output 
 	 * for return code) */
-	int 		expect_return;
-	/* TimesTen */
-	struct berval	sel_expr_u;
+	int 		bam_expect_return;
+
+	/* next mapping for attribute */
+	struct backsql_at_map_rec	*bam_next;
 } backsql_at_map_rec;
+
+#define BACKSQL_AT_MAP_REC_INIT { NULL, NULL, BER_BVC(""), BER_BVC(""), BER_BVNULL, BER_BVNULL, NULL, NULL, NULL, 0, 0, NULL }
+
+/* define to uppercase filters only if the matching rule requires it
+ * (currently broken) */
+/* #define	BACKSQL_UPPERCASE_FILTER */
+#define	BACKSQL_AT_CANUPPERCASE(at)	((at)->bam_sel_expr_u.bv_val)
 
 /* defines to support bitmasks above */
 #define BACKSQL_ADD	0x1
@@ -81,6 +108,8 @@ backsql_at_map_rec *backsql_name2at( backsql_oc_map_rec *objclass,
 		struct berval *at_name );
 backsql_at_map_rec *backsql_ad2at( backsql_oc_map_rec *objclass,
 		AttributeDescription *ad );
+int backsql_supad2at( backsql_oc_map_rec *objclass,
+		AttributeDescription *supad, backsql_at_map_rec ***pret );
 int backsql_destroy_schema_map( backsql_info *si );
 
 #endif /* __BACKSQL_SCHEMA_MAP_H__ */

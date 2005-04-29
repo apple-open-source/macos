@@ -43,6 +43,8 @@ extern const OSSymbol *	gIODisplayTrapezoidKey;
 extern const OSSymbol *	gIODisplayPincushionKey;
 extern const OSSymbol *	gIODisplayParallelogramKey;
 extern const OSSymbol *	gIODisplayRotationKey;
+extern const OSSymbol * gIODisplayOverscanKey;
+extern const OSSymbol * gIODisplayVideoBestKey;
 
 extern const OSSymbol * gIODisplayParametersTheatreModeKey;
 extern const OSSymbol * gIODisplayParametersTheatreModeWindowKey;
@@ -117,7 +119,8 @@ public:
 
     virtual bool start( IOService * provider );
     virtual void stop( IOService * provider );
-    
+    virtual void free();
+
     virtual IODisplayConnect * getConnection( void );
 
     virtual IOReturn getConnectFlagsForDisplayMode(
@@ -189,6 +192,7 @@ private:
 
     bool addParameterHandler( IODisplayParameterHandler * parameterHandler );
     bool removeParameterHandler( IODisplayParameterHandler * parameterHandler );
+    static bool updateNumber( OSDictionary * params, const OSSymbol * key, SInt32 value );
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -213,6 +217,8 @@ public:
     virtual unsigned long maxCapabilityForDomainState( IOPMPowerFlags );
     virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags );
     virtual unsigned long powerStateForDomainState( IOPMPowerFlags );
+    virtual IOReturn setAggressiveness( unsigned long type, unsigned long newLevel );
+    virtual IOReturn getAggressiveness( unsigned long type, unsigned long * currentLevel );
 
     // 
     virtual void initPowerManagement( IOService * );

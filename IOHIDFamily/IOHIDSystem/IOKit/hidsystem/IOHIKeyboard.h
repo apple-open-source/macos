@@ -116,6 +116,8 @@ class IOHIKeyboard : public IOHIDevice
     OSDeclareDefaultStructors(IOHIKeyboard);
 
     friend class IOHIDKeyboardDevice;
+	friend class IOHIDKeyboard;
+	friend class IOHIDConsumer;
 
 protected:
     IOLock *	         _deviceLock;	// Lock for all device access
@@ -182,6 +184,7 @@ public:
   virtual IOHIDKind hidKind();
   virtual bool 	    updateProperties( void );
   virtual IOReturn  setParamProperties(OSDictionary * dict);
+  virtual IOReturn  setProperties( OSObject * properties );
   
   inline  bool	    isRepeat() {return _isRepeat;}
 
@@ -198,6 +201,8 @@ private:
   static void _autoRepeat(void * arg, void *);
   virtual void autoRepeat();
   virtual void setRepeat(unsigned eventType, unsigned keyCode);
+  void setRepeatMode(bool repeat);
+  static void _createKeyboardNub(thread_call_param_t param0, thread_call_param_t param1);
 
 /*
  * HISTORICAL NOTE:

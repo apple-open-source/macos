@@ -110,6 +110,7 @@ typedef struct sPSContextData {
 	CAST_KEY castKey;
 	unsigned char castIV[10];
 	unsigned char castReceiveIV[10];
+	bool askForReplicaList;
 } sPSContextData;
 
 typedef struct sPSContinueData {

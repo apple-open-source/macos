@@ -1,11 +1,7 @@
 /*
- * $Id: rain.c,v 1.1.1.1 2001/11/29 20:41:00 jevans Exp $
+ * $Id: rain.c,v 1.20 2002/06/29 23:32:18 tom Exp $
  */
-#include <signal.h>
-
 #include <test.priv.h>
-
-#include <term.h>		/* for tparm() */
 
 /* rain 11/3/1980 EPS/CITHEP */
 
@@ -38,6 +34,8 @@ main(
     static int xpos[5], ypos[5];
     float r;
     float c;
+
+    setlocale(LC_ALL, "");
 
     for (j = SIGHUP; j <= SIGTERM; j++)
 	if (signal(j, SIG_IGN) != SIG_IGN)

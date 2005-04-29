@@ -21,7 +21,8 @@ HFILES = admin.h algorithm.h arc4random.h backupsa.h crypto_openssl.h dnssec.h\
          schedule.h session.h sha2.h sockmisc.h str2val.h strnames.h\
          vendorid.h vmbuf.h admin_var.h cftoken.h debug.h dhgroup.h\
          gcmalloc.h isakmp_var.h libpfkey.h netdb_dnssec.h\
-         rijndael_local.h rijndael.h var.h isakmp_natd.h
+         rijndael_local.h rijndael.h var.h isakmp_natd.h crypto_cssm.h\
+         open_dir.h
 
 OTHERLINKED = cfparse.y cftoken.l
 
@@ -33,7 +34,8 @@ CFILES = admin.c algorithm.c backupsa.c crypto_openssl.c dnssec.c\
          pfkey2.c pfkey_dump.c plog.c policy.c proposal.c\
          remoteconf.c rijndael-alg-fst.c rijndael-api-fst.c safefile.c\
          sainfo.c schedule.c session.c sha2.c sockmisc.c str2val.c\
-         strnames.c vendorid.c vmbuf.c isakmp_natd.c
+         strnames.c vendorid.c vmbuf.c isakmp_natd.c crypto_cssm.c\
+         open_dir.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble boxes-fst.dat\
             psk.txt racoon.8 racoon.conf anonymous.conf racoon.conf.5
@@ -50,7 +52,9 @@ LIBS = -lcrypto -lipsec -lssl
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-FRAMEWORKS = -framework CoreFoundation -framework Security
+HEADER_PATHS =\
+               -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/
+FRAMEWORKS = -framework CoreFoundation -framework Security -framework DirectoryService
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

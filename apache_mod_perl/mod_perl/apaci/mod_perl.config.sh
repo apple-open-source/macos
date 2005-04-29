@@ -1,3 +1,4 @@
+#!/bin/sh
 ##
 ##  mod_perl.config.sh -- mod_perl configuration transformation script
 ##  Written by Ralf S. Engelschall <rse@apache.org>
@@ -130,6 +131,9 @@ case "$os_version" in
 	esac
     	perl_lddlflags="$perl_lddlflags $XLINKER-bI:\$(APACHELIBEXEC)/httpd.exp"
 	;;
+    darwin*)
+	perl_lddlflags="$RC_CFLAGS $perl_lddlflags"
+	;;
     * )    ;;
 esac
 
@@ -145,7 +149,7 @@ $ldopts =~ s@$Config{ccdlflags}@@ if ($^O eq 'bsdos');
 $ldopts =~ s,(-bE:)(perl\.exp),$1$Config{archlibexp}/CORE/$2, if($^O eq "aix");
 
 #replace -Wl args meant for cc with args for ld
-if ($ARGV[0] eq "DSO" and $^O eq "hpux" and $Config{ld} eq "ld") {
+if ($ARGV[0] eq "DSO" and $^O eq "hpux" and $Config{ld} =~ /ld$/) {
     while ($ldopts =~ s/-Wl,(\S+)/$1/) {
 	my $cp = $1;
 	(my $repl = $cp) =~ s/,/ /g;

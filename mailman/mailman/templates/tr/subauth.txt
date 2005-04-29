@@ -1,0 +1,11 @@
+Bir mesaj listesi üyeliði için onayýnýz gerekiyor:
+
+    Üyelik isteyen:  %(username)s
+    Liste: %(listname)s@%(hostname)s
+
+Size uygun bir zamanda
+
+    %(admindb_url)s
+	
+adresine giderek isteði inceleyebilirsiniz.
+

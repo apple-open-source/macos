@@ -1,8 +1,16 @@
-Object: how to build iODBC for Mac OS X
+iODBC Driver Manager
+Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+Copyright (C) 1996-2004 by OpenLink Software <iodbc@openlinksw.com>
+All Rights Reserved.
+
+
+
+How to build iODBC for Mac OS X
+===============================
 
 
 Method 1: Using Project builder
-================================
+-------------------------------
 
 You first need to install the Mac OS X Developer Packages from the
 December 2001 package, which can be found at:
@@ -18,7 +26,7 @@ mac/iODBCinst, or execute the following commands from a terminal session:
 
 
 After building the iODBC frameworks, you have to install them on your
-system in /Library/Frameworks with the command: 
+system in /Library/Frameworks with the command:
 
     $ cd mac
     $ make install
@@ -28,7 +36,7 @@ Now that you have installed the iODBC frameworks on your system, you are
 able to use ODBC applications. Just for testing, you can from now build
 the odbctest application that you can find under the samples directory :
 
-    $ cd mac/iODBCtest 
+    $ cd mac/iODBCtest
     $ pbxbuild
 
 
@@ -40,7 +48,7 @@ be able to make a connection.
 
 
 Method 2: Using configure and make
-===================================
+----------------------------------
 
 The iODBC package can also be build like any other OpenSource package not
 using any frameworks.
@@ -50,7 +58,6 @@ following commands:
 
     $ ./configure
     $ make
-
 
 To install the header files and libraries in /usr/local, you execute
 the following command as root:

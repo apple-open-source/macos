@@ -1,24 +1,23 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/es_AR.xml
 // *
 // ***************************************************************************
-
-es_AR {
-    Version { "2.0" }
-    DateTimePatterns { 
-        "HH'h'''mm z",
-        "H:mm:ss z",
-        "HH:mm:ss",
-        "HH:mm",
-        "EEEE d' de 'MMMM' de 'yyyy",
-        "d' de 'MMMM' de 'yyyy",
-        "dd/MM/yyyy",
-        "dd/MM/yy",
-        "{1} {0}",
+es_AR{
+    Currencies{
+        ARS{
+            "$",
+            "Peso Argentino",
+        }
+        USD{
+            "US$",
+            "Dólar Americano",
+        }
     }
-    NumberElements {
+    NumberElements{
         ",",
         ".",
         ";",
@@ -27,18 +26,25 @@ es_AR {
         "#",
         "-",
         "E",
-        "\u2030",
-        "\u221E",
-        "\uFFFD",
-        ",",
+        "‰",
+        "∞",
+        "�",
+        "+",
     }
-    LocaleID:int { 0x2c0a }
-//    LocaleString { "es_AR" }
-//    ShortCountry { "ARG" }
-
-    // Currency display names
-    Currencies {
-        ARS { "$", "Peso Argentino" }
-        USD { "US$", "D\u00F3lar Americano" }
+    Version{"1.2"}
+    calendar{
+        gregorian{
+            DateTimePatterns{
+                "HH'h'''mm z",
+                "H:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE d' de 'MMMM' de 'yyyy",
+                "d' de 'MMMM' de 'yyyy",
+                "dd/MM/yyyy",
+                "dd/MM/yy",
+                "{1} {0}",
+            }
+        }
     }
 }

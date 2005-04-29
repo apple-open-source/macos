@@ -48,8 +48,9 @@
 #	@(#)usr.bin.cpp.sh	6.5 (Berkeley) 4/1/91
 #
 PATH=/usr/bin:/bin
-CPP="/usr/libexec/gcc/darwin/`/usr/bin/arch`/default/cpp"
-ALST="-traditional -D__GNUC__"
+CPP="/usr/bin/gcc -E"
+OUTPUT="-o -"
+ALST="-traditional"
 NSI=no
 OPTS=""
 INCS=""
@@ -85,7 +86,15 @@ do
 		then
 			NSI=skip
 		fi
-		eval $CPP $ALST $INCS $OPTS $A || exit $?
+		# If we've found an input  name and there's still an arg left, 
+		# that next arg will be the output file.  
+		if [ $# -eq 1 ]
+                then
+		    OUTPUT="-o $1"
+		    # and get rid of last arg
+		    shift
+		fi
+		eval $CPP $ALST $INCS $OPTS -x c $A $OUTPUT || exit $?
 		;;
 	esac
 done
@@ -97,7 +106,7 @@ then
 	then
 		INCS="$INCS -I/usr/include"
 	fi
-	eval exec $CPP $ALST $INCS $OPTS
+	eval exec $CPP $ALST $INCS $OPTS "-" 
 fi
 
 exit 0

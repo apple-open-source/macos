@@ -1,0 +1,1897 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd"> 
+<html>
+<head>
+<title>Chess Engine Communication Protocol</title>
+</head>
+
+<body>
+<hr noshade size="2">
+<h1>Chess Engine Communication Protocol</h1>
+<h2><a href="http://www.tim-mann.org/">Tim Mann</a></h2>
+<p>
+$Id: engine-intf.html,v 1.1 2002/08/22 23:47:04 neeri Exp $<br>
+Version 2; implemented in xboard/WinBoard 4.2.1 and later.<br>
+Changes since version 1 are indicated in <font color=red>red</font>.
+<hr noshade size="2">
+
+<ul>
+<li><a href="#1">1. Introduction</a>
+<li><a href="#2">2. Connection</a>
+<li><a href="#3">3. Debugging</a>
+<li><a href="#4">4. How it got this way</a>
+<li><a href="#5">5. WinBoard requires Win32 engines</a>
+<li><a href="#6">6. Hints on input/output</a>
+<li><a href="#7">7. Interrupts</a>
+<li><a href="#8">8. Commands from xboard to the engine</a>
+<li><a href="#9">9. Commands from the engine to xboard</a>
+<li><a href="#10">10. Thinking Output</a>
+<li><a href="#11">11. Time control</a>
+<li><a href="#12">12. Analyze Mode</a>
+<li><a href="#13">13. Idioms and backward compatibility features</a>
+</ul>
+
+<hr noshade size="2">
+
+<h2><a name="1">1. Introduction</a></h2>
+
+<p>
+This document is a set of rough notes on the protocol that xboard and
+WinBoard use to communicate with gnuchessx and other chess engines.
+These notes may be useful if you want to connect a different chess
+engine to xboard.  Throughout the notes, "xboard" means both xboard
+and WinBoard except where they are specifically contrasted.
+</p>
+
+<p>
+There are two reasons I can imagine someone wanting to do this: 
+</p>
+<ol>
+<li>You have, or are developing, a chess engine but you don't want to
+write your own graphical interface. 
+<li>You have, or are developing,a chess engine, and you want to
+interface it to the Internet Chess Server.
+</ol>
+
+<p>
+In case (2), if you are using xboard, you will need to configure the
+"Zippy" code into it, but WinBoard includes this code already.  See
+the file <a
+href="http://www.tim-mann.org/xboard/zippy.README">zippy.README</a>
+in the xboard or WinBoard distribution for more information.
+
+</p>
+
+<p>
+These notes are unpolished, but I've attempted to make them complete
+in this release.  If you notice any errors, omissions, or misleading
+statements, let me know.
+</p>
+
+<p>
+I'd like to hear from everyone who is trying to interface their own
+chess engine to xboard/WinBoard.  Please email me,
+tim<a name="nospam">@</a>tim-mann.org.  Also, please join
+the mailing list for authors of xboard/WinBoard compatible chess
+engines.  The list is now hosted by Yahoo Groups; you can join at <a
+href="http://www.egroups.com/group/chess-engines"
+>http://www.egroups.com/group/chess-engines</a>, or you can read the
+list there without joining.  The list is filtered to prevent spam.
+</p>
+
+<h2><a name="2">2. Connection</a></h2>
+
+<p>
+An xboard chess engine runs as a separate process from xboard itself,
+connected to xboard through a pair of anonymous pipes.  The engine
+does not have to do anything special to set up these pipes.  xboard
+sets up the pipes itself and starts the engine with one pipe as its
+standard input and the other as its standard output.  The engine then
+reads commands from its standard input and writes responses to its
+standard output.  This is, unfortunately, a little more complicated to
+do right than it sounds; see <a href="#6">section 6</a> below.
+</p>
+
+<p>
+And yes, contrary to some people's expectations, exactly the same
+thing is true for WinBoard.  Pipes and standard input/output are
+implemented in Win32 and work fine.  You don't have to use DDE, COM,
+DLLs, BSOD, or any of the other infinite complexity that
+Microsoft has created just to talk between two programs.  A WinBoard
+chess engine is a Win32 console program that simply reads from its
+standard input and writes to its standard output.  See sections 
+<a href="#5">5</a> and <a href="#6">6</a> below for additional details.
+</p>
+
+<h2><a name="3">3. Debugging</a></h2>
+
+<p>
+To diagnose problems in your engine's interaction with xboard, use the
+-debug flag on xboard's command line to see the messages that are
+being exchanged.  In WinBoard, these messages are written to the file
+WinBoard.debug instead of going to the screen.
+</p>
+
+<p>
+You can turn debug mode on or off while WinBoard is running by
+pressing Ctrl+Alt+F12.  You can turn debug mode on or off while xboard
+is running by binding DebugProc to a shortcut key (and pressing the
+key!); see the instructions on shortcut keys in the xboard man page.
+</p>
+
+<p>
+While your engine is running under xboard/WinBoard, you can send a
+command directly to the engine by pressing Shift+1 (xboard) or Alt+1
+(WinBoard 4.0.3 and later).  This brings up a dialog that you can type
+your command into.  Press Shift+2 (Alt+2) instead to send to the
+second chess engine in Two Machines mode.  On WinBoard 4.0.2 and earlier,
+Ctrl+Alt is used in place of Alt; this had to be changed due to a conflict
+with typing the @-sign on some European keyboards.
+</p>
+
+<h2><a name="4">4. How it got this way</a></h2>
+
+<p>
+Originally, xboard was just trying to talk to the existing
+command-line interface of GNU Chess 3.1+ and 4, which was designed
+for people to type commands to.  So the communication protocol is very
+ad-hoc.  It might have been good to redesign it early on, but because
+xboard and GNU Chess are separate programs, I didn't want to force
+people to upgrade them together to versions that matched.  I
+particularly wanted to keep new versions of xboard working with old
+versions of GNU Chess, to make it easier to compare the play of old
+and new gnuchess versions.  I didn't foresee the need for a clean
+protocol to be used with other chess engines in the future.
+</p>
+
+<p>
+Circumstances have changed over the years, and now there are many more
+engines that work with xboard.  I've had to make the protocol
+description more precise, I've added some features that GNU Chess
+does not support, and I've specified the standard semantics of a few
+features to be slightly different from what GNU Chess 4 does.
+</p>
+
+<p>
+<font color=red>
+This release of the protocol specification is the first to carry a
+version number of its own -- version 2.  Previous releases simply
+carried a last-modified date and were loosely tied to specific 
+releases of xboard and WinBoard.  The version number "1" applies
+generally to all those older versions of the protocol.
+</font>
+
+<font color=red>
+<p>Protocol version 2 remains compatible with older engines but has
+several new capabilities.  In particular, it adds the 
+"feature" command, a new mechanism for making backward-compatible
+changes and extensions to the protocol.  Engines that do not support a
+particular new feature do not have to use it; new features are not
+enabled unless the engine specifically requests them using the feature
+command.  If an engine does not send the feature command at all, the
+protocol behavior is nearly identical to version 1.  Several new
+features can be selected by the feature command in version 2,
+including the "ping" command (recommended for all engines), the
+"setboard" command, and many optional parameters.  Additional features
+will probably be added in future versions.
+</p>
+</font>
+
+<h2><a name="5">5. WinBoard requires Win32 engines</a></h2>
+
+<p>
+Due to some Microsoft brain damage that I don't understand, WinBoard
+does not work with chess engines that were compiled to use a DOS
+extender for 32-bit addressing.  (Probably not with 16-bit DOS or
+Windows programs either.)  WinBoard works only with engines that are
+compiled for the Win32 API.  You can get a free compiler that targets
+the Win32 API from <a href="http://sources.redhat.com/cygwin/"
+>http://sources.redhat.com/cygwin/</a>.  I think DJGPP 2.x should also
+work if you use the RSXNTDJ extension, but I haven't tried it.  Of
+course, Microsoft Visual C++ will work.  Most likely the other
+commercial products that support Win32 will work too (Borland, etc.),
+but I have not tried them.  Delphi has been successfully used to write
+engines for WinBoard; if you want to do this, Tony Werten has donated
+some <a href="http://www.tim-mann.org/winboard/delphi.txt" >sample
+code</a> that should help you get started.
+</p>
+
+<h2><a name="6">6. Hints on input/output</a></h2>
+
+<p>
+Beware of using buffered I/O in your chess engine.  The C stdio
+library, C++ streams, and the I/O packages in most other languages use
+buffering both on input and output.  That means two things.  First,
+when your engine tries to write some characters to xboard, the library
+stashes them in an internal buffer and does not actually write them to
+the pipe connected to xboard until either the buffer fills up or you
+call a special library routine asking for it to be flushed.  (In C
+stdio, this routine is named <tt>fflush</tt>.)  Second, when your engine tries
+to read some characters from xboard, the library does not read just
+the characters you asked for -- it reads all the characters that are
+currently available (up to some limit) and stashes any characters you
+are not yet ready for in an internal buffer.  The next time you ask to
+read, you get the characters from the buffer (if any) before the
+library tries to read more data from the actual pipe.
+</p>
+
+<p>
+Why does this cause problems?  First, on the output side, remember
+that your engine produces output in small quantities (say, a few
+characters for a move, or a line or two giving the current analysis),
+and that data always needs to be delivered to xboard/WinBoard for
+display immediately.  If you use buffered output, the data you print
+will sit in a buffer in your own address space instead of being
+delivered.
+</p>
+
+<p>
+You can usually fix the output buffering problem by asking for the
+buffering to be turned off.  In C stdio, you do this by calling
+<tt>setbuf(stdout, NULL)</tt>.  A more laborious and error-prone
+method is to carefully call <tt>fflush(stdout)</tt> after every line
+you output; I don't recommend this.  In C++, you can try
+<tt>cout.setf(ios::unitbuf)</tt>, which is documented in current
+editions of "The C++ Programming Language," but not older ones.
+Another C++ method that might work is
+<tt>cout.rdbuf()-&gt;setbuf(NULL, 0)</tt>.  Alternatively, you can
+carefully call <tt>cout.flush()</tt> after every line you output;
+again, I don't recommend this.
+</p>
+
+<p>
+Another way to fix the problem is to use unbuffered operating system
+calls to write directly to the file descriptor for standard output.
+On Unix, this means <tt>write(1, ...)</tt> -- see the man page for write(2).
+On Win32, you can use either the Unix-like <tt>_write(1, ...)</tt> or Win32
+native routines like <tt>WriteFile</tt>.
+</p>
+
+<p>
+Second, on the input side, you are likely to want to poll during your
+search and stop it if new input has come in.  If you implement
+pondering, you'll need this so that pondering stops when the user
+makes a move.  You should also poll during normal thinking on your
+move, so that you can implement the "?" (move now) command, and so
+that you can respond promptly to a "result", "force", or "quit"
+command if xboard wants to end the game or terminate your engine.
+Buffered input makes polling more complicated -- when you poll, you
+must stop your search if there are <em>either</em> characters in the buffer
+<em>or</em> characters available from the underlying file descriptor.
+</p>
+
+<p>
+The most direct way to fix this problem is to use unbuffered operating
+system calls to read (and poll) the underlying file descriptor
+directly.  On Unix, use <tt>read(0, ...)</tt> to read from standard input, and
+use <tt>select()</tt> to poll it.  See the man pages read(2) and select(2).
+(Don't follow the example of GNU Chess 4 and use the FIONREAD ioctl to
+poll for input.  It is not very portable; that is, it does not exist
+on all versions of Unix, and is broken on some that do have it.)  On
+Win32, you can use either the Unix-like <tt>_read(0, ...)</tt> or the native
+Win32 <tt>ReadFile()</tt> to read.  Unfortunately, under Win32, the function to
+use for polling is different depending on whether the input device is
+a pipe, a console, or something else.  (More Microsoft brain damage
+here -- did they never hear of device independence?)  For pipes, you
+can use <tt>PeekNamedPipe</tt> to poll (even when the pipe is unnamed).
+For consoles, 
+you can use <tt>GetNumberOfConsoleInputEvents</tt>.  For sockets only, you can
+use <tt>select()</tt>.  It might be possible to use
+<tt>WaitForSingleObject</tt> more 
+generally, but I have not tried it.  Some code to do these things can
+be found in Crafty's utility.c, but I don't guarantee that it's all
+correct or optimal.
+</p>
+
+<p>
+A second way to fix the problem might be to ask your I/O library not
+to buffer on input.  It should then be safe to poll the underlying
+file descriptor as described above.  With C, you can try calling
+<tt>setbuf(stdin, NULL)</tt>.  However, I have never tried this.  Also, there
+could be problems if you use <tt>scanf()</tt>, at least with certain patterns,
+because <tt>scanf()</tt> sometimes needs to read one extra character and "push
+it back" into the buffer; hence, there is a one-character pushback
+buffer even if you asked for stdio to be unbuffered.  With C++, you
+can try <tt>cin.rdbuf()-&gt;setbuf(NULL, 0)</tt>, but again, I have never tried
+this.
+</p>
+
+<p>
+A third way to fix the problem is to check whether there are
+characters in the buffer whenever you poll.  C I/O libraries generally
+do not provide any portable way to do this.  Under C++, you can use
+<tt>cin.rdbuf()-&gt;in_avail()</tt>.  This method has been reported to
+work with 
+EXchess.  Remember that if there are no characters in the buffer, you
+still have to poll the underlying file descriptor too, using the
+method described above.
+</p>
+
+<p>
+A fourth way to fix the problem is to use a separate thread to read
+from stdin.  This way works well if you are familiar with thread
+programming.  This thread can be blocked waiting for input to come in
+at all times, while the main thread of your engine does its thinking.
+When input arrives, you have the thread put the input into a buffer
+and set a flag in a global variable.  Your search routine then
+periodically tests the global variable to see if there is input to
+process, and stops if there is.  WinBoard and my Win32 ports of ICC
+timestamp and FICS timeseal use threads to handle multiple input
+sources.
+</p>
+
+<h2><a name="7">7. Signals</a></h2>
+
+<p>Engines that run on Unix need to be concerned with two Unix
+signals: <tt>SIGTERM</tt> and <tt>SIGINT</tt>.  This applies both to
+engines that run under xboard and (the unusual case of) engines that
+WinBoard remotely runs on a Unix host using the -firstHost or
+-secondHost feature.  It does not apply to engines that run on
+Windows, because Windows does not have Unix-style signals.
+<font color=red>
+Beginning with version 2, you can now turn off the use of
+either or both
+signals.  See the "feature" command in <a href="#6">section 9</a> below.
+</font>
+</p>
+
+<p>First, when an engine is sent the "quit" command, it is also given
+a <tt>SIGTERM</tt> signal shortly afterward to make sure it goes away.
+If your engine reliably responds to "quit", and the signal causes
+problems for you, you should either ignore it by calling
+<tt>signal(SIGTERM, SIG_IGN)</tt> at the start of your program,
+or disable it with the "feature" command.</p>
+
+<p>Second, xboard will send an interrupt signal (<tt>SIGINT</tt>) at
+certain times when it believes the engine may not be listening to user
+input (thinking or pondering).  WinBoard currently does this only when
+the engine is running remotely using the -firstHost or -secondHost
+feature, not when it is running locally.  You probably need to know
+only enough about this grungy feature to keep it from getting in your
+way.
+</p>
+
+<p>
+The <tt>SIGINT</tt>s are basically tailored to the needs of GNU Chess 4
+on systems where its input polling code is broken or disabled.
+Because they work in a rather peculiar way, it is recommended that you
+either ignore <tt>SIGINT</tt> by having your engine call
+<tt>signal(SIGINT, SIG_IGN)</tt>, or disable it with the "feature"
+command.</p>
+
+<p>
+Here are details for the curious.  If xboard needs to send a command
+when it is the chess engine's move (such as before the "?" command), 
+it sends a <tt>SIGINT</tt> first.  If xboard needs to send commands when it is
+not the chess engine's move, but the chess engine may be pondering
+(thinking on its opponent's time) or analyzing (analysis or analyze
+file mode), xboard sends a <tt>SIGINT</tt> before the first such command only.
+Another <tt>SIGINT</tt> is not sent until another move is made, even if xboard
+issues more commands.  This behavior is necessary for GNU Chess 4.  The
+first <tt>SIGINT</tt> stops it from pondering until the next move, but on some
+systems, GNU Chess 4 will die if it receives a <tt>SIGINT</tt> when not 
+actually thinking or pondering.
+</p>
+
+<p>
+There are two reasons why WinBoard does not send the Win32 equivalent
+of <tt>SIGINT</tt> (which is called <tt>CTRL_C_EVENT</tt>) to local
+engines.  First, the Win32 GNU Chess 4 port does not need it.  Second, I
+could not find a way to get it to work.  Win32 seems to be designed
+under the assumption that only console applications, not windowed
+applications, would ever want to send a <tt>CTRL_C_EVENT</tt>.
+</p>
+
+<h2><a name="8">8. Commands from xboard to the engine</a></h2>
+
+<p>
+All commands from xboard to the engine end with a newline (\n), even
+where that is not explicitly stated.  All your output to xboard must
+be in complete lines; any form of prompt or partial line will cause
+problems.
+</p>
+
+<p>
+At the beginning of each game, xboard sends an initialization string.
+This is currently "new\nrandom\n" unless the user changes it with the
+initString or secondInitString option.
+</p>
+
+<p>
+xboard normally reuses the same chess engine process for multiple
+games.  At the end of a game, xboard will send the "force" command
+(see below) to make sure your engine stops thinking about the current
+position.  It will later send the initString again to start a new
+game.  If your engine can't play multiple games, you can disable reuse
+<font color=red>
+either with the "feature" command (beginning in protocol version
+2; see below) or 
+</font>
+with xboard's -xreuse (or -xreuse2) command line
+option.  xboard will then ask the process to quit after each game and
+start a new process for the next game.
+</p>
+
+<dl>
+<dt><strong>xboard</strong>
+<dd>This command will be sent once immediately after your engine
+process is started.  You can use it to put your engine into "xboard
+mode" if that is needed.  If your engine prints a prompt to ask for
+user input, you must turn off the prompt and output a newline when the
+"xboard" command comes in.
+<p>
+
+<dt><font color=red><strong>protover N</strong></font>
+<dd><font color=red>
+Beginning in protocol version 2 (in which N=2), this command will
+be sent immediately after the "xboard" command.  If you receive some
+other command immediately after "xboard" (such as "new"), you can
+assume that protocol version 1 is in use.  The "protover" command is
+the only new command that xboard always sends in version 2.  All other
+new commands to the engine are sent only if the engine first enables
+them with the "feature" command.  Protocol versions will always be
+simple integers so that they can easily be compared.
+
+<p>Your engine should reply to the protover command by sending the
+"feature" command (see below) with the list of non-default feature
+settings that you require, if any.
+
+<p>Your engine should never refuse to run due to receiving a higher
+protocol version number than it is expecting!  New protocol versions
+will always be compatible with older ones by default; the larger
+version number is simply a hint that additional "feature" command
+options added in later protocol versions may be accepted.
+</font>
+<p>
+
+<dt><font color=red><strong>accepted</strong></font>
+<dt><font color=red><strong>rejected</strong></font>
+<dd><font color=red>
+These commands may be sent to your engine in reply to the "feature"
+command; see its documentation below.
+</font>
+<p>
+
+<dt><strong>new</strong>
+<dd>Reset the board to the standard chess starting position.  Set
+White on move.  Leave force mode and set the engine to play Black.
+Associate the engine's clock with Black and the opponent's clock with
+White.  Reset clocks and time controls to the start of a new game.
+Stop clocks.  Do not ponder on this move, even if pondering is on.
+Remove any search depth limit previously set by the sd command.
+<p>
+
+<dt><strong>variant VARNAME</strong>
+<dd>If the game is not standard chess, but a variant, this command is
+sent after "new" and before the first move or "edit" command.  Currently
+defined variant names are:
+
+<table>
+<tr align="left"><th>wildcastle<td>Shuffle chess where king can castle from d file
+<tr align="left"><th>nocastle<td>Shuffle chess with no castling at all
+<tr align="left"><th>fischerandom<td>Fischer Random (not supported yet)
+<tr align="left"><th>bughouse<td>Bughouse, ICC/FICS rules
+<tr align="left"><th>crazyhouse<td>Crazyhouse, ICC/FICS rules
+<tr align="left"><th>losers<td>Win by losing all pieces or getting mated (ICC)
+<tr align="left"><th>suicide<td>Win by losing all pieces including king,
+or by having fewer pieces when one player has no legal moves (FICS)
+<tr align="left"><th><font color=red>giveaway</font>
+<td><font color=red>Win by losing all pieces including king,
+or by having no legal moves (ICC)</font>
+<tr align="left"><th>twokings<td>Weird ICC wild 9
+<tr align="left"><th>kriegspiel<td>Kriegspiel (engines not supported)
+<tr align="left"><th>atomic<td>Atomic
+<tr align="left"><th>3check<td>Win by giving check 3 times
+<tr align="left"><th>unknown<td>Unknown variant (not supported)
+</table>
+<p>
+
+<dt><strong>quit</strong>
+<dd>The chess engine should immediately exit.  This command is used
+when xboard is itself exiting, and also between games if the -xreuse
+command line option is given (or -xreuse2 for the second engine).
+See also <a href="#7">Signals</a> above.
+<p>
+
+<dt><strong>random</strong>
+<dd>This command is specific to GNU Chess 4.  You can either ignore it
+completely (that is, treat it as a no-op) or implement it as GNU Chess
+does.  The command toggles "random" mode (that is, it sets random =
+!random).  In random mode, the engine adds a small random value to its
+evaluation function to vary its play.  The "new" command sets random
+mode off.
+<p>
+
+<dt><strong>force</strong>
+<dd>Set the engine to play neither color ("force mode").  Stop clocks.
+The engine should check that moves received in force mode are legal
+and made in the proper turn, but should not think, ponder, or make
+moves of its own.
+<p>
+
+<dt><strong>go</strong>
+<dd>Leave force mode and set the engine to play the color that is on
+move.  Associate the engine's clock with the color that is on move,
+the opponent's clock with the color that is not on move.  Start the engine's
+clock.  Start thinking and eventually make a move.
+<p>
+
+<dt><font color=red><strong>playother</strong></font>
+<dd>
+<font color=red>
+(This command is new in protocol version 2.  It is not
+sent unless you enable it with the feature command.)
+Leave force mode and set the engine to play the color that is <i>not</i> on
+move.  Associate the opponent's clock with the color that is on move,
+the engine's clock with the color that is not on move.  Start the opponent's
+clock.  If pondering is enabled, the engine should begin pondering.
+If the engine later receives a move, it should start thinking and eventually
+reply.
+</font>
+<p>
+
+<dt><strong>white</strong>
+<dd>
+<font color=red>
+(This command is obsolete as of protocol version 2, but is still
+sent in some situations to accommodate older engines unless you disable it 
+with the feature command.)
+</font>
+Set White on move.  Set the engine to play Black.  Stop clocks.
+<p>
+  
+<dt><strong>black</strong>
+<dd>
+<font color=red>
+(This command is obsolete as of protocol version 2, but is still
+sent in some situations to accommodate older engines unless you disable it 
+with the feature command.)
+</font>
+Set Black on move.  Set the engine to play White.  Stop clocks.
+<p>
+
+<dt><strong>level MPS BASE INC</strong>
+<dd>Set time controls.  See the <a href="#11">Time Control</a> section below.
+<p>
+  
+<dt><strong>st TIME</strong>
+<dd>Set time controls.  See the <a href="#11">Time Control</a> section
+below. The commands "level" and "st" are not used together.
+<p>
+
+<dt><strong>sd DEPTH</strong>
+<dd>The engine should limit its thinking to DEPTH ply.
+<p>
+
+<dt><strong>time N</strong>
+<dd>Set a clock that always belongs to the engine.  N is a number in
+  centiseconds (units of 1/100 second).  Even if the engine changes to
+  playing the opposite color, this clock remains with the engine.
+<p>
+
+<dt><strong>otim N</strong>
+
+<dd>Set a clock that always belongs to the opponent.  N is a number in
+centiseconds (units of 1/100 second).  Even if the opponent changes to
+playing the opposite color, this clock remains with the opponent.
+<p>
+If needed for purposes of board display in force mode (where the
+engine is not participating in the game) the time clock should be
+associated with the last color that the engine was set to play, the
+otim clock with the opposite color.
+</p>
+
+<p>
+<font color=red>
+Beginning in protocol version 2, if you can't handle the time and
+otim commands, you can use the "feature" command to disable them; see
+below.  
+</font>
+The following techniques from older protocol versions also
+work: You can ignore the time and otim commands (that is, treat them
+as no-ops), or send back "Error (unknown command): time" the first
+time you see "time".
+</p>
+
+<dt><strong>MOVE</strong>
+<dd>See below for the syntax of moves.  If the move is illegal, print
+an error message; see the section "<a href="#9">Commands from the engine to
+xboard</a>".  If the move is legal and in turn, make it.  If not in force
+mode, stop the opponent's clock, start the engine's clock, start
+thinking, and eventually make a move.
+<p>
+When xboard sends your engine a move, it normally sends coordinate
+algebraic notation.  Examples:
+<p>
+<table>
+<tr align="left"><td>Normal moves:<td>e2e4
+<tr align="left"><td>Pawn promotion:<td>e7e8q
+<tr align="left"><td>Castling:<td>e1g1, e1c1, e8g8, e8c8
+<tr align="left"><td>Bughouse/crazyhouse drop:<td>P@h3
+<tr align="left"><td>ICS Wild 0/1 castling:<td>d1f1, d1b1, d8f8, d8b8
+<tr align="left"><td>FischerRandom castling:<td>O-O, O-O-O (oh, not zero)
+</table>
+
+<p>
+<font color=red>
+Beginning in protocol version 2, you can use the feature command
+to select SAN (standard algebraic notation) instead; for example, e4,
+Nf3, exd5, Bxf7+, Qxf7#, e8=Q, O-O, or P@h3.  Note that the last form,
+P@h3, is a extension to the PGN standard's definition of SAN, which does
+not support bughouse or crazyhouse.
+</font>
+</p>
+
+<p>
+xboard doesn't reliably detect illegal moves, because it does not keep
+track of castling unavailability due to king or rook moves, or en
+passant availability.  If xboard sends an illegal move, send back an
+error message so that xboard can retract it and inform the user; see
+the section "<a href="#9">Commands from the engine to xboard</a>".
+</p>
+
+<dt><font color=red><strong>usermove MOVE</strong></font>
+<dd><font color=red>
+By default, moves are sent to the engine without a command name;
+the notation is just sent as a line by itself.
+Beginning in protocol version 2, you can use the feature command
+to cause the command name "usermove" to be sent before the move.
+Example: "usermove e2e4".
+</font>
+</p>
+
+<dt><strong>?</strong>
+<dd>Move now.  If your engine is thinking, it should move immediately;
+  otherwise, the command should be ignored (treated as a no-op).  It
+  is permissible for your engine to always ignore the ? command.  The
+  only bad consequence is that xboard's Move Now menu command will do
+  nothing.
+<p>
+It is also permissible for your engine to move immediately if it gets
+any command while thinking, as long as it processes the command right
+after moving, but it's preferable if you don't do this.  For example,
+xboard may send post, nopost, easy, hard, force, quit,
+<font color=red>
+or other commands
+</font>
+while the engine is on move.
+</p>
+
+<dt><font color=red><strong>ping N</strong></font>
+<dd>
+<font color=red>
+In this command, N is a decimal number.  When you receive the command,
+reply by sending the string <strong>pong N</strong>, where N is the
+same number you received.  Important: You must not reply to a "ping"
+command until you have finished executing all commands that you
+received before it.  Pondering does not count; if you receive a ping
+while pondering, you should reply immediately and continue pondering.
+Because of the way xboard uses the ping command, if you implement the
+other commands in this protocol, you should never see a "ping" command
+when it is your move; however, if you do, you must not send the "pong"
+reply to xboard until after you send your move.  For example, xboard
+may send "?" immediately followed by "ping".  If you implement the "?"
+command, you will have moved by the time you see the subsequent ping
+command.  Similarly, xboard may send a sequence like "force", "new",
+"ping".  You must not send the pong response until after you have
+finished executing the "new" command and are ready for the new game to
+start.
+
+<p>
+The ping command is new in protocol version 2 and will not be sent
+unless you enable it with the "feature" command.  Its purpose is to
+allow several race conditions that could occur in previous versions of
+the protocol to be fixed, so it is highly recommended that you
+implement it.  It is especially important in simple engines that do
+not ponder and do not poll for input while thinking, but it is needed in all
+engines.  
+</p>
+</font>
+
+<dt><strong>draw</strong>
+<dd>The engine's opponent offers the engine a draw.  To accept the
+draw, send "offer draw".  To decline, ignore the offer (that is, send
+nothing).  If you're playing on ICS, it's possible for the draw offer
+to have been withdrawn by the time you accept it, so don't assume the
+game is over because you accept a draw offer.  Continue playing until
+xboard tells you the game is over.  See also "offer draw" below.
+<p>
+
+<dt><strong>result RESULT {COMMENT}</strong>
+<dd>After the end of each game, xboard will send you a result command.
+You can use this command to trigger learning.  RESULT is either 1-0,
+0-1, 1/2-1/2, or *, indicating whether white won, black won, the game
+was a draw, or the game was unfinished.  The COMMENT string is purely
+a human-readable comment; its content is unspecified and subject to
+change.  In ICS mode, it is passed through from ICS uninterpreted.
+Example: <pre>result 1-0 {White mates}</pre>
+<p>
+Here are some notes on interpreting the "result" command.  Some apply
+only to playing on ICS ("Zippy" mode).
+</p>
+
+<p>
+If you won but did not just play a mate, your opponent must have
+resigned or forfeited.  If you lost but were not just mated, you
+probably forfeited on time, or perhaps the operator resigned manually.
+If there was a draw for some nonobvious reason, perhaps your opponent
+called your flag when he had insufficient mating material (or vice
+versa), or perhaps the operator agreed to a draw manually.
+</p>
+
+<p>
+You will get a result command even if you already know the game ended
+-- for example, after you just checkmated your opponent.  In fact, if
+you send the "RESULT {COMMENT}" command (discussed below), you will
+simply get the same thing fed back to you with "result" tacked in
+front.  You might not always get a "result *" command, however.  In
+particular, you won't get one in local chess engine mode when the user
+stops playing by selecting Reset, Edit Game, Exit or the like.
+</p>
+
+<dt><font color=red><strong>setboard FEN</strong></font>
+<dd><font color=red>
+The setboard command is the new way to set up positions, beginning
+in protocol version 2.  It is not used unless it has been selected
+with the feature command.  Here FEN is a position in Forsythe-Edwards
+Notation, as defined in the PGN standard.
+
+<p><i>Illegal positions:</i> Note that either setboard or edit can
+be used to send an illegal position to the engine.  The user can
+create any position with xboard's Edit Position command (even, say,
+an empty board, or a board with 64 white kings and no black ones).
+If your engine receives a position that it considers illegal, 
+I suggest that you send the response "tellusererror Illegal position",
+and then respond to any attempted move with "Illegal move" until
+the next new, edit, or setboard command.</p>
+</font>
+<p>
+
+<dt><strong>edit</strong>
+<dd>
+<font color=red>
+The edit command is the old way to set up positions.  For compatibility
+with old engines, it is still used by default, but new engines may prefer
+to use the feature command (see below) to cause xboard to use setboard instead.
+</font>
+The edit command puts the chess engine into a special mode, where
+it accepts the following subcommands:
+<table>
+<tr align="left"><th>c<td>change current piece color, initially white
+<tr align="left"><th>Pa4 (for example)<td>place pawn of current color on a4
+<tr align="left"><th>xa4 (for example)<td>empty the square a4 (not used by xboard)
+<tr align="left"><th>#<td>clear board
+<tr align="left"><th>.<td>leave edit mode
+</table>
+<font color=red>
+See the Idioms section below for additional subcommands used in
+ChessBase's implementation of the protocol.
+</font>
+
+<p>The edit command does not change the side to move.  To set up a
+black-on-move position, xboard uses the following command sequence:
+</p>
+<pre>
+    new
+    force
+    a2a3
+    edit
+    &lt;edit commands&gt;
+    .
+</pre>
+
+<p>
+This sequence is used to avoid the "black" command, which is now
+considered obsolete and which many engines never did implement as 
+specified in this document.
+</p>
+
+<p>
+After an edit command is complete, if a king and a rook are on their
+home squares, castling is assumed to be available to them.  En passant
+capture is assumed to be illegal on the current move regardless of the
+positions of the pawns.  The clock for the 50 move rule starts at
+zero, and for purposes of the draw by repetition rule, no prior
+positions are deemed to have occurred.
+</p>
+
+<dt><strong>hint</strong>
+<dd>If the user asks for a hint, xboard sends your engine the command
+"hint".  Your engine should respond with "Hint: xxx", where xxx is a
+suggested move.  If there is no move to suggest, you can ignore the
+hint command (that is, treat it as a no-op).
+<p>
+
+<dt><strong>bk</strong>
+<dd>If the user selects "Book" from the xboard menu, xboard will send
+your engine the command "bk".  You can send any text you like as the
+response, as long as each line begins with a blank space or tab (\t)
+character, and you send an empty line at the end.  The text pops up in
+a modal information dialog.
+<p>
+
+<dt><strong>undo</strong>
+<dd>If the user asks to back up one move, xboard will send you the
+"undo" command.  xboard will not send this command without putting you
+in "force" mode first, so you don't have to worry about what should
+happen if the user asks to undo a move your engine made.  (GNU Chess 4
+actually switches to playing the opposite color in this case.)
+<p>
+
+<dt><strong>remove</strong>
+<dd>If the user asks to retract a move, xboard will send you the
+"remove" command.  It sends this command only when the user is on
+move.  Your engine should undo the last two moves (one for each
+player) and continue playing the same color.
+<p>
+
+<dt><strong>hard</strong>
+<dd>Turn on pondering (thinking on the opponent's time, also known as
+"permanent brain").  xboard will not make any assumption about what
+your default is for pondering or whether "new" affects this setting.
+<p>
+
+<dt><strong>easy</strong>
+<dd>Turn off pondering.
+<p>
+  
+<dt><strong>post</strong>
+<dd>Turn on thinking/pondering output.  
+See <a href="#10">Thinking Output</a> section.
+<p>
+
+<dt><strong>nopost</strong>
+<dd>Turn off thinking/pondering output.
+<p>
+  
+<dt><strong>analyze</strong>
+<dd>Enter analyze mode.  See <a href="#12">Analyze Mode</a> section.
+<p>
+
+<dt><strong>name X</strong> <dd>This command informs the engine of its
+opponent's name.  When the engine is playing on a chess server, xboard
+obtains the opponent's name from the server. 
+<font color=red>
+When the engine is
+playing locally against a human user, xboard obtains the user's login
+name from the local operating system.  When the engine is playing
+locally against another engine, xboard uses either the other engine's
+filename or the name that the other engine supplied in the myname
+option to the feature command.  By default, xboard uses the name
+command only when the engine is playing on a chess server.  Beginning
+in protocol version 2, you can change this with the name option to the
+feature command; see below.
+</font>
+<p>
+
+<dt><strong>rating</strong>
+<dd>In ICS mode, xboard obtains the ICS opponent's rating from the
+"Creating:" message that appears before each game.  (This message may
+not appear on servers using outdated versions of the FICS code.)  In
+Zippy mode, it sends these ratings on to the chess engine using the
+"rating" command.  The chess engine's own rating comes first, and if
+either opponent is not rated, his rating is given as 0.  
+<font color=red>
+In the future this command may also be used in other modes, if ratings
+are known.
+</font>
+Example: <pre>rating 2600 1500</pre>
+<p>
+
+<dt><font color=red><strong>ics HOSTNAME</strong></font>
+<dd><font color=red>
+If HOSTNAME is "-", the engine is playing against a local
+opponent; otherwise, the engine is playing on an Internet Chess Server
+(ICS) with the given hostname.  This command is new in protocol
+version 2 and is not sent unless the engine has enabled it with
+the "feature" command.  Example: "ics freechess.org"
+</font>
+<p>
+
+<dt><strong>computer</strong>
+<dd>The opponent is also a computer chess engine.  Some engines alter
+their playing style when they receive this command.
+<p>
+
+<dt><font color=red><strong>pause</strong></font>
+<dt><font color=red><strong>resume</strong></font>
+<dd><font color=red>(These commands are new in protocol
+version 2 and will not be sent unless feature pause=1 is set.  At
+this writing, xboard actually does not use the commands at all, but it
+or other interfaces may use them in the future.)
+The "pause" command puts the engine into a special state where it
+does not think, ponder, or otherwise consume significant CPU time.
+The current thinking or pondering (if any) is suspended and both
+player's clocks are stopped.  The only command that the interface may
+send to the engine while it is in the paused state is "resume".  The
+paused thinking or pondering (if any) resumes from exactly where it
+left off, and the clock of the player on move resumes running from
+where it stopped.
+</font>
+</dl>
+
+<h3>Bughouse commands:</h3>
+
+<p>
+xboard now supports bughouse engines when in Zippy mode.  See
+<a href="http://www.tim-mann.org/xboard/zippy.README"
+>zippy.README</a> for information on Zippy mode and how to turn on the
+bughouse support.  The bughouse move format is given above.  xboard
+sends the following additional commands to the engine when in bughouse
+mode.  
+Commands to inform your engine of the partner's game state may
+be added in the future.
+</p>
+
+<dl>
+<dt><strong>partner &lt;player&gt;</strong>
+<dd>&lt;player&gt; is now your partner for future games.  Example: <pre>partner mann</pre>
+<p>
+
+<dt><strong>partner</strong>
+<dd>Meaning: You no longer have a partner.
+<p>
+
+<dt><strong>ptell &lt;text&gt;</strong>
+<dd>Your partner told you &lt;text&gt;, either with a ptell or an ordinary tell.  
+<p>
+
+<dt><strong>holding [&lt;white&gt;] [&lt;black&gt;]</strong>
+<dd>White currently holds &lt;white&gt;; black currently holds &lt;black&gt;.
+  Example: <pre>holding [PPPRQ] []</pre>
+
+<dt><strong>holding [&lt;white&gt;] [&lt;black&gt;] &lt;color&gt;&lt;piece&gt;</strong>
+<dd>White currently holds &lt;white&gt;; black currently holds &lt;black&gt;, after
+  &lt;color&gt; acquired &lt;piece&gt;.   Example: <pre>holding [PPPRQ] [R] BR</pre>
+</dl>
+
+<h2><a name="9">9. Commands from the engine to xboard</a></h2>
+
+<p>
+<font color=red>
+In general, an engine should not send any output to xboard that is not
+described in this document.  As the protocol is extended, newer
+versions of xboard may recognize additional strings as commands that
+were previously not assigned a meaning.
+</font>
+</p>
+
+<dl>
+<dt><font color=red>
+<strong>feature FEATURE1=VALUE1 FEATURE2=VALUE2 ...</strong> 
+</font>
+
+<dd><font color=red>
+Beginning with version 2, the protocol includes the "feature"
+command, which lets your engine control certain optional protocol
+features.  Feature settings are written as FEATURE=VALUE, where
+FEATURE is a name from the list below and VALUE is the value to be
+assigned.  Features can take string, integer, or boolean values; the
+type of value is listed for each feature.  String values are written
+in double quotes (for example, <tt>feature myname="Miracle Chess
+0.9"</tt>), integers are written in decimal, and boolean values are
+written as 0 for false, 1 for true.  Any number of features can be set
+in one feature command, or multiple feature commands can be given.
+
+<p>
+Your engine should send one or more feature commands immediately after
+receiving the "protover" command, since xboard needs to know the
+values of some features before sending further commands to the engine.
+Because engines that predate protocol version 2 do not send "feature",
+xboard uses a timeout mechanism: when it first starts your engine, it
+sends "xboard" and "protover N", then listens for feature commands for
+two seconds before sending any other commands.  To end this timeout
+and avoid the wait, set the feature "done=1" at the end of your last
+feature command.  To increase the timeout, if needed, set the feature
+"done=0" before your first feature command and "done=1" at the end.
+If needed, it is okay for your engine to set done=0 soon as it starts,
+even before it receives the xboard and protover commands.  This can be
+useful if your engine takes a long time to initialize itself.  It
+should be harmless even if you are talking to a (version 1) user
+interface that does not understand the "feature" command, since such
+interfaces generally ignore commands from the engine that they do not
+understand.
+</p>
+
+<p>
+The feature command is designed to let the protocol change without
+breaking engines that were written for older protocol versions.  When
+a new feature is added to the protocol, its default value is always
+chosen to be compatible with older versions of the protocol that did
+not have the feature.  Any feature that your engine does not set in a
+"feature" command retains its default value, so as the protocol
+changes, you do not have to change your engine to keep up with it
+unless you want to take advantage of a new feature.  Because some
+features are improvements to the protocol, while others are meant to
+cater to engines that do not implement all the protocol features, the
+recommended setting for a feature is not always the same as the
+default setting.  The listing below gives both default and recommended
+settings for most features.
+</p>
+
+<p>
+You may want to code your engine so as to be able to work with
+multiple versions of the engine protocol.  Protocol version 1 does not
+send the protover command and does not implement the feature command;
+if you send a feature command in protocol version 1, it will have no
+effect and there will be no response.  In protocol version 2 or later,
+each feature F that you set generates the response "accepted F" if the
+feature is implemented, or "rejected F" if it is not.  Thus an engine
+author can request any feature without having to keep track of which
+protocol version it was introduced in; you need only check whether the
+feature is accepted or rejected.  This mechanism also makes it
+possible for a user interface author to implement a subset of a
+protocol version by rejecting some features that are defined in that
+version; however, you should realize that engine authors are likely to
+code for xboard and may not be prepared to have a feature that they
+depend on be rejected.
+</p>
+
+<p>
+Here are the features that are currently defined.
+</p>
+</font>
+
+<dl>
+<dt><font color=red>
+<strong>ping</strong> (boolean, default 0, recommended 1)
+</font>
+<dd><font color=red>
+If ping=1, xboard may use the protocol's new "ping" command;
+if ping=0, xboard will not use the command.
+</font>
+
+<dt><font color=red>
+<strong>setboard</strong> (boolean, default 0, recommended 1)
+</font>
+<dd><font color=red>
+If setboard=1, xboard will use the protocol's new "setboard" command
+to set up positions; if setboard=0, it will use the older "edit" command.
+</font>
+
+<dt><font color=red>
+<strong>playother</strong> (boolean, default 0, recommended 1)
+</font>
+<dd><font color=red>
+If playother=1, xboard will use the protocol's new "playother" command
+when appropriate; if playother=0, it will not use the command.
+</font>
+
+<dt><font color=red>
+<strong>san</strong> (boolean, default 0)
+</font>
+<dd><font color=red>
+If san=1, xboard will send moves to the engine in standard algebraic
+notation (SAN); for example, Nf3.  If san=0, xboard will send moves in
+coordinate notation; for example, g1f3.  See MOVE in 
+<a href="#8">section 8</a> above for more details of both kinds of notation.
+</font>
+
+<dt><font color=red>
+<strong>usermove</strong> (boolean, default 0)
+</font>
+<dd><font color=red>
+If usermove=1, xboard will send moves to the engine with the
+command "usermove MOVE"; if usermove=0, xboard will send just the move,
+with no command name.
+</font>
+
+<dt><font color=red>
+<strong>time</strong> (boolean, default 1, recommended 1)
+</font>
+<dd><font color=red>
+If time=1, xboard will send the "time" and "otim" commands to
+update the engine's clocks; if time=0, it will not.
+</font>
+
+<dt><font color=red>
+<strong>draw</strong> (boolean, default 1, recommended 1)
+</font>
+<dd><font color=red>
+If draw=1, xboard will send the "draw" command if the engine's opponent
+offers a draw; if draw=0, xboard will not inform the engine about
+draw offers.  Note that if draw=1, you may receive a draw offer while you
+are on move; if this will cause you to move immediately, you should set
+draw=0.
+</font>
+
+<dt><font color=red>
+<strong>sigint</strong> (boolean, default 1)
+</font>
+<dd><font color=red>
+If sigint=1, xboard may send SIGINT (the interrupt signal) to
+the engine as <a href="#7">section 7</a> above; if sigint=0, it will
+not.
+</font>
+
+<dt><font color=red>
+<strong>sigterm</strong> (boolean, default 1)
+</font>
+<dd><font color=red>
+If sigterm=1, xboard may send SIGTERM (the termination signal) to
+the engine as <a href="#7">section 7</a> above; if sigterm=0, it will
+not.
+</font>
+
+<dt><font color=red>
+<strong>reuse</strong> (boolean, default 1, recommended 1) 
+</font>
+<dd><font color=red>
+If reuse=1, xboard may reuse your engine for multiple games.  If
+reuse=0 (or if the user has set the -xreuse option on xboard's command
+line), xboard will kill the engine process after every game and start
+a fresh process for the next game.
+</font>
+
+<dt><font color=red>
+<strong>analyze</strong> (boolean, default 1, recommended 1)
+</font>
+<dd><font color=red>
+If analyze=0, xboard will not try to use the "analyze" command; it
+will pop up an error message if the user asks for analysis mode.  If
+analyze=1, xboard will try to use the command if the user asks for
+analysis mode.
+</font>
+
+<dt><font color=red>
+<strong>myname</strong> (string, default determined from engine filename)
+</font>
+<dd><font color=red>
+This feature lets you set the name that xboard will use for your
+engine in window banners, in the PGN tags of saved game files, and when
+sending the "name" command to another engine.
+</font>
+
+<dt><font color=red>
+<strong>variants</strong> (string, see text below)
+</font>
+<dd><font color=red>
+This feature indicates which chess variants your engine accepts.
+It should be a comma-separated list of variant names.  See the table
+under the "variant" command in <a href="#8">section 8</a> above.  If
+you do not set this feature, xboard will assume by default that your
+engine supports all variants.  (However, the -zippyVariants
+command-line option still limits which variants will be accepted in
+Zippy mode.)  It is recommended that you set this feature to the
+correct value for your engine (just "normal" in most cases) rather
+than leaving the default in place, so that the user will get an
+appropriate error message if he tries to play a variant that your
+engine does not support.
+</font>
+
+<dt><font color=red>
+<strong>colors</strong> (boolean, default 1, recommended 0) 
+</font>
+<dd><font color=red>
+If colors=1, xboard uses the obsolete "white" and "black"
+commands in a stylized way that works with most older chess engines
+that require the commands.  See the "<a href="#13">Idioms</a>" section
+below for details.  If colors=0, xboard does not use the "white" and
+"black" commands at all.
+</font>
+
+<dt><font color=red>
+<strong>ics</strong> (boolean, default 0)
+</font>
+<dd><font color=red>
+If ics=1, xboard will use the protocol's new "ics" command
+to inform the engine of whether or not it is playing on a chess server;
+if ics=0, it will not.
+</font>
+
+<dt><font color=red>
+<strong>name</strong> (boolean, see text below)
+</font>
+<dd><font color=red>
+If name=1, xboard will use the protocol's "name" command
+to inform the engine of the opponent's name; if name=0, it will not.
+By default, name=1 if the engine is playing on a chess server; name=0 if not.
+</font>
+
+<dt><font color=red>
+<strong>pause</strong> (boolean, default 0)
+</font>
+<dd><font color=red>
+If pause=1, xboard may use the protocol's new "pause" command;
+if pause=0, xboard assumes that the engine does not support this command.
+</font>
+
+<dt><font color=red>
+<strong>done</strong> (integer, no default)
+</font>
+<dd><font color=red>
+If you set done=1 during the initial two-second timeout after
+xboard sends you the "xboard" command, the
+timeout will end and xboard will not look for any more feature
+commands before starting normal operation.
+If you set done=0, the initial timeout is increased to one hour;
+in this case, you must set done=1 before xboard will enter normal operation.
+</font>
+</dl>
+<p>
+
+<dt><strong>Illegal move: MOVE</strong>
+<dt><strong>Illegal move (REASON): MOVE</strong>
+<dd>If your engine receives a MOVE command that is recognizably a move
+but is not legal in the current position, your engine must print an
+error message in one of the above formats so that xboard can pass the
+error on to the user and retract the move.  The (REASON) is entirely
+optional.  Examples:
+
+<pre>
+  Illegal move: e2e4
+  Illegal move (in check): Nf3
+  Illegal move (moving into check): e1g1
+</pre>
+<p>
+Generally, xboard will never send an ambiguous move, so it does not 
+matter whether you respond to such a move with an Illegal move message 
+or an Error message.
+</p>
+
+<dt><strong>Error (ERRORTYPE): COMMAND</strong>
+<dd>If your engine receives a command it does not understand or does
+not implement, it should print an error message in the above format so
+that xboard can parse it.  Examples:
+<pre>
+  Error (ambiguous move): Nf3
+  Error (unknown command): analyze
+  Error (command not legal now): undo
+  Error (too many parameters): level 1 2 3 4 5 6 7
+</pre>
+
+<dt><strong>move MOVE</strong>
+<dd>Your engine is making the move MOVE.  Do not echo moves from
+xboard with this command; send only new moves made by the engine.
+
+<font color=red>
+<p>For the actual move text from your chess engine (in place of MOVE
+above), your move should be either
+<ul>
+<li>in coordinate notation (e.g.,
+e2e4, e7e8q) with castling indicated by the King's two-square move (e.g.,
+e1g1), or
+<li>in Standard Algebraic Notation (SAN) as defined in the
+Portable Game Notation standard (e.g, e4, Nf3, O-O, cxb5, Nxe4, e8=Q),
+with the extension piece@square (e.g., P@f7) to handle piece placement
+in bughouse and crazyhouse.
+</ul>
+xboard itself also accepts some variants of SAN, but for compatibility
+with non-xboard interfaces, it is best not to rely on this behavior.
+</p>
+
+<p>Warning: Even though all versions of this protocol specification
+have indicated that xboard accepts SAN moves, some non-xboard
+interfaces are known to accept only coordinate notation.  See the
+Idioms section for more information on the known limitations of some
+non-xboard interfaces.  It should be safe to send SAN moves if you
+receive a "protover 2" (or later) command from the interface, but
+otherwise it is best to stick to coordinate notation for maximum
+compatibility.  An even more conservative approach would be for your
+engine to send SAN to the interface only if you have set feature san=1
+(which causes the interface to send SAN to you) and have received
+"accepted san" in reply.
+</p>
+</font>
+
+<dt><strong>RESULT {COMMENT}</strong> <dd>When your engine detects
+that the game has ended by rule, your engine must output a line of the
+form "RESULT {comment}" (without the quotes), where RESULT is a PGN
+result code (1-0, 0-1, or 1/2-1/2), and comment is the reason.  Here
+"by rule" means that the game is definitely over because of what
+happened on the board.  In normal chess, this includes checkmate,
+stalemate, triple repetition, the 50 move rule, or insufficient
+material; it does not include loss on time or the like.
+Examples:
+<pre>
+  0-1 {Black mates}
+  1-0 {White mates}
+  1/2-1/2 {Draw by repetition}
+  1/2-1/2 {Stalemate}
+</pre>
+
+<p>
+xboard relays the result to the user, the ICS, the other engine in Two
+Machines mode, and the PGN save file as required.
+</p>
+
+<dt><strong>resign</strong>
+<dd>If your engine wants to resign, it can send the command "resign".
+Alternatively, it can use the "RESULT {comment}" command if the string
+"resign" is included in the comment; for example "0-1 {White
+resigns}".  xboard relays the resignation to the user, the ICS, the
+other engine in Two Machines mode, and the PGN save file as required.
+<p>
+
+<dt><strong>offer draw</strong>
+<dd>If your engine wants to offer a draw by agreement (as opposed to
+claiming a draw by rule), it can send the command "offer draw".
+xboard relays the offer to the user, the ICS, the other engine in Two
+Machines mode, and the PGN save file as required.  In Machine White,
+Machine Black, or Two Machines mode, the offer is considered valid
+until your engine has made two more moves.
+<p>
+
+<dt><font color=red><strong>tellopponent MESSAGE</strong></font>
+<dd><font color=red>
+This command lets the engine give a message to its opponent,
+independent of whether the opponent is a user on the local machine or
+a remote ICS user (Zippy mode).  MESSAGE consists of any characters,
+including whitespace, to the end of the line.  When the engine is
+playing against a user on the local machine, xboard pops up an
+information dialog containing the message.  When the engine is playing
+against an opponent on the ICS (Zippy mode), xboard sends "say
+MESSAGE\n" to the ICS.
+<p>
+
+<dt><strong>tellothers MESSAGE</strong> 
+<dd>This command lets the engine give a message to people watching the
+game other than the engine's opponent.  MESSAGE consists of any
+characters, including whitespace, to the end of the line.  When the
+engine is playing against a user on the local machine, this command
+does nothing.  When the engine is playing against an opponent on the
+ICS (Zippy mode), xboard sends "whisper MESSAGE\n" to the ICS.
+<p>
+
+<dt><strong>tellall MESSAGE</strong>
+<dd>This command lets the engine give a message to its opponent and
+other people watching the game, 
+independent of whether the opponent is a user on the local machine or
+a remote ICS user (Zippy mode).  MESSAGE consists of any characters,
+including whitespace, to the end of the line.  When the engine is
+playing against a user on the local machine, xboard pops up an
+information dialog containing the message.  When the engine is playing
+against an opponent on the ICS (Zippy mode), xboard sends "kibitz
+MESSAGE\n" to the ICS.
+</font>
+<p>
+
+<dt><strong>telluser MESSAGE</strong>
+<dd>xboard pops up an information dialog containing the message.
+MESSAGE consists of any characters, including whitespace, to the end
+of the line.
+<p>
+
+<dt><strong>tellusererror MESSAGE</strong>
+<dd>xboard pops up an error dialog containing the message.
+MESSAGE consists of any characters, including whitespace, to the end
+of the line.
+<p>
+
+<dt><strong>askuser REPTAG MESSAGE</strong>
+<dd>Here REPTAG is a string containing no whitespace, and MESSAGE
+consists of any characters, including whitespace, to the end of the
+line.  xboard pops up a question dialog that says MESSAGE and
+has a typein box.  If the user types in "bar", xboard sends "REPTAG
+bar" to the engine.  The user can cancel the dialog and send nothing.
+<p>
+
+<dt><strong>tellics MESSAGE</strong>
+<dd>In Zippy mode, xboard sends "MESSAGE\n" to ICS.  MESSAGE consists
+of any characters, including whitespace, to the end of the line.
+<p>
+
+<dt><font color=red><strong>tellicsnoalias MESSAGE</strong></font>
+<dd><font color=red>
+In Zippy mode, xboard sends "xMESSAGE\n" to ICS, where "x" is a
+character that prevents the ICS from expanding command aliases, if
+xboard knows of such a character.  (On chessclub.com and chess.net,
+"/" is used; on freechess.org, "$" is used.)  MESSAGE consists of any
+characters, including whitespace, to the end of the line.
+</font>
+</dl>
+<p>
+
+<h2><a name="10">10. Thinking Output</a></h2>
+
+<p>
+If the user asks your engine to "show thinking", xboard sends your
+engine the "post" command.  It sends "nopost" to turn thinking off.
+In post mode, your engine sends output lines to show the progress of
+its thinking.  The engine can send as many or few of these lines as it
+wants to, whenever it wants to.  Typically they would be sent when the
+PV (principal variation) changes or the depth changes.  The thinking
+output should be in the following format:
+</p>
+
+<pre>ply score time nodes pv</pre>
+
+Where:
+<table>
+<tr align="left"><th>ply<td>Integer giving current search depth.
+<tr align="left"><th>score<td>Integer giving current evaluation in centipawns.
+<tr align="left"><th>time<td>Current search time in centiseconds (ex:
+1028 = 10.28 seconds).
+
+<tr align="left"><th>nodes<td>Nodes searched.
+<tr align="left"><th>pv<td>Freeform text giving current "best" line.
+You can continue the pv onto another line if you start each
+continuation line with at least four space characters.
+</table>
+
+<p>
+Example:
+</p>
+
+<pre>  9 156 1084 48000 Nf3 Nc6 Nc3 Nf6</pre>
+
+<p>
+Meaning:
+</p>
+
+9 ply, score=1.56, time = 10.84 seconds, nodes=48000, 
+PV = "Nf3 Nc6 Nc3 Nf6"
+
+<p>
+Longer example from actual Crafty output:
+</p>
+<pre>
+  4    109      14   1435  1. e4 d5 2. Qf3 dxe4 3. Qxe4 Nc6
+  4    116      23   2252  1. Nf3 Nc6 2. e4 e6
+  4    116      27   2589  1. Nf3 Nc6 2. e4 e6
+  5    141      44   4539  1. Nf3 Nc6 2. O-O e5 3. e4
+  5    141      54   5568  1. Nf3 Nc6 2. O-O e5 3. e4
+</pre>
+
+<p>
+You can use the PV to show other things; for instance, while in book,
+Crafty shows the observed frequency of different reply moves in its
+book.  In situations like this where your engine is not really
+searching, start the PV with a '(' character:
+</p>
+
+<pre>
+  0      0       0      0  (e4 64%, d4 24%)
+</pre>
+
+<p>
+GNU Chess output is very slightly different.  The ply number is
+followed by an extra nonblank character, and the time is in seconds,
+not hundredths of seconds.  For compatibility, xboard accepts the
+extra character and takes it as a flag indicating the different time
+units.  Example:
+</p>
+
+<pre>
+ 2.     14    0       38   d1d2  e8e7 
+ 3+     78    0       65   d1d2  e8e7  d2d3 
+ 3&     14    0       89   d1d2  e8e7  d2d3 
+ 3&     76    0      191   d1e2  e8e7  e2e3 
+ 3.     76    0      215   d1e2  e8e7  e2e3 
+ 4&     15    0      366   d1e2  e8e7  e2e3  e7e6 
+ 4.     15    0      515   d1e2  e8e7  e2e3  e7e6 
+ 5+     74    0      702   d1e2  f7f5  e2e3  e8e7  e3f4 
+ 5&     71    0     1085   d1e2  e8e7  e2e3  e7e6  e3f4 
+ 5.     71    0     1669   d1e2  e8e7  e2e3  e7e6  e3f4 
+ 6&     48    0     3035   d1e2  e8e7  e2e3  e7e6  e3e4  f7f5  e4d4 
+ 6.     48    0     3720   d1e2  e8e7  e2e3  e7e6  e3e4  f7f5  e4d4 
+ 7&     48    0     6381   d1e2  e8e7  e2e3  e7e6  e3e4  f7f5  e4d4 
+ 7.     48    0    10056   d1e2  e8e7  e2e3  e7e6  e3e4  f7f5  e4d4 
+ 8&     66    1    20536   d1e2  e8e7  e2e3  e7e6  e3d4  g7g5  a2a4  f7f5 
+ 8.     66    1    24387   d1e2  e8e7  e2e3  e7e6  e3d4  g7g5  a2a4  f7f5 
+ 9&     62    2    38886   d1e2  e8e7  e2e3  e7e6  e3d4  h7h5  a2a4  h5h4 
+                           d4e4 
+ 9.     62    4    72578   d1e2  e8e7  e2e3  e7e6  e3d4  h7h5  a2a4  h5h4 
+                           d4e4 
+10&     34    7   135944   d1e2  e8e7  e2e3  e7e6  e3d4  h7h5  c2c4  h5h4 
+                           d4e4  f7f5  e4f4 
+10.     34    9   173474   d1e2  e8e7  e2e3  e7e6  e3d4  h7h5  c2c4  h5h4 
+                           d4e4  f7f5  e4f4 
+</pre>
+
+<p>If your engine is pondering (thinking on its opponent's time) in post
+mode, it can show its thinking then too.  In this case your engine may
+omit the hint move (the move it is assuming its opponent will make)
+from the thinking lines <em>if and only if</em> it sends xboard the move in
+the usual "Hint: xxx" format before sending the first line.
+</p>
+
+<h2><a name="11">11. Time control</a></h2>
+
+<p>
+xboard supports three styles of time control: conventional chess clocks,
+the ICS-style incremental clock, and an exact number of seconds per move.
+</p>
+
+<p>In conventional clock mode, every time control period is the same.
+That is, if the time control is 40 moves in 5 minutes, then after each
+side has made 40 moves, they each get an additional 5 minutes, and so
+on, ad infinitum.  At some future time it would be nice to support a
+series of distinct time controls.  This is very low on my personal
+priority list, but code donations to the xboard project are accepted,
+so feel free to take a swing at it.  I suggest you talk to me first,
+though.
+</p>
+
+<p>
+The command to set a conventional time control looks like this:
+</p>
+
+<pre>
+  level 40 5 0
+  level 40 0:30 0
+</pre>
+
+<p>
+The 40 means that there are 40 moves per time control.  The 5 means
+there are 5 minutes in the control.  In the second example, the 0:30
+means there are 30 seconds.  The final 0 means that we are in
+conventional clock mode.
+</p>
+
+<p>
+The command to set an incremental time control looks like this:
+</p>
+
+<pre>
+  level 0 2 12
+</pre>
+
+<p>
+Here the 0 means "play the whole game in this time control period",
+the 2 means "base=2 minutes", and the 12 means "inc=12 seconds".  As
+in conventional clock mode, the second argument to level can be in
+minutes and seconds.
+</p>
+
+<p>
+At the start of the game, each player's clock is set to base minutes.
+Immediately after a player makes a move, inc seconds are added to his
+clock.  A player's clock counts down while it is his turn.  Your flag
+can be called whenever your clock is zero or negative.  (Your clock
+can go negative and then become positive again because of the
+increment.)
+</p>
+
+<p>
+A special rule on some ICS implementations: if you ask for a game with
+base=0, the clocks really start at 10 seconds instead of 0.  xboard
+itself does not know about this rule, so it passes the 0 on to the
+engine instead of changing it to 0:10.
+</p>
+
+<p>
+ICS also has time odds games.  With time odds, each player has his own
+(base, inc) pair, but otherwise things work the same as in normal
+games.  The Zippy xboard accepts time odds games but ignores the fact
+that the opponent's parameters are different; this is perhaps not
+quite the right thing to do, but gnuchess doesn't understand time
+odds.  Time odds games are always unrated.
+</p>
+
+<p>
+The command to set an exact number of seconds per move looks like this:
+</p>
+
+<pre>
+  st 30
+</pre>
+
+<p>
+This means that each move must be made in at most 30 seconds.  Time not used
+on one move does not accumulate for use on later moves.
+</p>
+
+<h2><a name="12">12. Analyze Mode</a></h2>
+
+<p>xboard supports analyzing fresh games, edited positions, and games
+from files.  However, all of these look the same from the chess
+engine's perspective. Basically, the engine just has to respond to the
+"analyze" command.  
+<font color=red>
+Beginning in protocol version 2,
+if your engine does not support analyze mode, it should use
+the feature command to set analyze=0.  
+</font>
+The older method of
+printing the error message "Error (unknown command): analyze" in
+response to the "analyze" command will also work, however.
+</p>
+
+<p>
+To enter analyze mode, xboard sends the command sequence "post", "analyze".  
+Analyze mode in your engine should be
+similar to force mode, except that your engine thinks about what move
+it would make next if it were on move.  Your engine should accept the
+following commands while in analyze mode:
+</p>
+
+<ul>
+<li>Any legal move, as in force mode
+<li><strong>undo</strong>&nbsp;&nbsp; Back up one move and analyze previous position.
+<li><strong>new</strong>&nbsp;&nbsp; Reset position to start of game but stay in analyze mode.
+<li><font color=red><strong>setboard</strong> if you have set feature setboard=1; otherwise <strong>edit</strong>.  Exiting edit mode returns to analyze mode.
+</font>
+<li><strong>exit</strong>&nbsp;&nbsp; Leave analyze mode.
+<li><strong>.</strong>&nbsp;&nbsp; Send a search status update (optional); see below.
+<li><font color=red>
+<strong>bk</strong>&nbsp;&nbsp; Show book moves from this position,
+if any; see above.</font>
+<li><font color=red>
+<strong>hint</strong>&nbsp;&nbsp; Show the predicted move from this
+position, if any; see above.</font>
+</ul>
+  
+<p>
+If the user selects "Periodic Updates", xboard will send the string
+".\n" to the chess engine periodically during analyze mode, unless the
+last PV received began with a '(' character.
+</p>
+
+<p>
+The chess engine should respond to ".\n" with a line like this:
+</p>
+
+<pre>
+stat01: time nodes ply mvleft mvtot <font color=red>mvname</font>
+</pre>
+
+Where:
+<table>
+<tr align="left"><th>time<td>Elapsed search time in centiseconds (ie: 567 = 5.67 seconds).
+<tr align="left"><th>nodes<td>Nodes searched so far.
+<tr align="left"><th>ply<td>Search depth so far.
+<tr align="left"><th>mvleft<td>Number of moves left to consider at this depth.
+<tr align="left"><th>mvtot<td>Total number of moves to consider.
+<tr align="left"><th><font color=red>mvname</font><td><font color=red>
+Move currently being considered (SAN or coordinate notation).  Optional;
+added in protocol version 2.</font>
+</table>
+
+<p>
+Examples:
+</p>
+<pre>
+  stat01: 1234 30000 7 5 30
+  stat01: 1234 30000 7 5 30 Nf3
+</pre>
+
+<p>
+Meaning:
+</p>
+
+<p>After 12.34 seconds, I've searched 7 ply/30000 nodes, there are a
+  total of 30 legal moves, and I have 5 more moves to search
+  before going to depth 8.  In the second example, of the 30 legal
+  moves, the one I am currently searching is Nf3.</p>
+
+<p>
+Implementation of the "." command is optional. If the engine does not
+respond to the "." command with a "stat01..." line, xboard will stop
+sending "."  commands.  If the engine does not implement this command,
+the analysis window will use a shortened format to display the engine
+info.
+</p>
+
+<p>
+To give the user some extra information, the chess engine can output
+the strings "++\n" and "--\n", to indicate that the current search is
+failing high or low, respectively.  You don't have to send anything
+else to say "Okay, I'm not failing high/low anymore."  xboard will
+figure this out itself.
+</p>
+
+<h2><a name="13">13. Idioms and backward compatibility features</a></h2>
+
+<p>
+Some engines have variant interpretations of the force/go/white/black,
+time/otim, and hard/easy command sets.  
+In order to accommodate these older engines, xboard uses these commands
+only according to the stylized patterns ("idioms") given in this section.
+The obsolete white and black commands
+have historically been particularly troublesome, and it is recommended
+that new engines set the feature colors=0 and/or ignore the commands.
+</p>
+
+<dl>
+
+<dt><strong>time N</strong>
+<dt><strong>otim N</strong>
+<dt><strong>MOVE</strong>
+<dd>Sent when the opponent makes a move and the engine is already
+playing the opposite color.
+<p>
+
+<dt><strong>white</strong>
+<dt><strong>go</strong>
+<dd>Sent when the engine is in force mode or playing Black but should
+switch to playing White.  This sequence is sent only when White is
+already on move.  
+<font color=red>
+If you set the feature colors=0, "white" is not sent.
+</font>
+<p>
+
+<dt><strong>black</strong>
+<dt><strong>go</strong>
+<dd>Sent when the engine is in force mode or playing White but should
+switch to playing Black.  This sequence is sent only when Black is
+already on move.  
+<font color=red>
+If you set the feature colors=0, "black" is not sent.
+</font>
+<p>
+
+<dt><strong>white</strong>
+<dt><strong>time N</strong>
+<dt><strong>otim N</strong>
+<dt><strong>black</strong>
+<dt><strong>go</strong>
+<dd>Sent when Black is on move, the engine is in force mode or playing
+White, and the engine's clock needs to be updated before it starts
+playing.  
+The initial "white" is a kludge to accommodate GNU Chess
+4's variant interpretation of these commands.  
+<font color=red>
+If you set the feature colors=0, "white" and "black" are not sent.
+</font>
+<p>
+
+<dt><strong>black</strong>
+<dt><strong>time N</strong>
+<dt><strong>otim N</strong>
+<dt><strong>white</strong>
+<dt><strong>go</strong>
+<dd>Sent when White is on move, the engine is in force mode or playing
+Black, and the engine's clock needs to be updated before it starts
+playing.  See previous idiom.  
+The initial "black" is a kludge to accommodate GNU Chess
+4's variant interpretation of these commands.  
+<font color=red>
+If you set the feature colors=0, "black" and "white" are not sent.
+</font>
+<p>
+
+<dt><strong>hard</strong>
+<dt><strong>easy</strong>
+<dd>Sent in sequence to turn off pondering if xboard is not sure
+whether it is on.  When xboard is sure, it will send "hard" or "easy"
+alone.  xboard does this because "easy" is a toggle in GNU Chess 4 but
+"hard" is an absolute on.
+
+</dl>
+
+<p>
+To support older engines, certain additional commands from the engine
+to xboard are also recognized.  (These are commands by themselves, not
+values to be placed in the comment field of the PGN result code.)
+These forms are not recommended for new engines; use the PGN result
+code commands or the resign command instead.
+</p>
+
+<table>
+<tr align="left"><th>Command              <th>Interpreted as
+<tr align="left"><td>White resigns        <td>0-1 {White resigns}
+<tr align="left"><td>Black resigns        <td>1-0 {Black resigns}
+<tr align="left"><td>White                <td>1-0 {White mates}
+<tr align="left"><td>Black                <td>0-1 {Black mates}
+<tr align="left"><td>Draw                 <td>1/2-1/2 {Draw}
+<tr align="left"><td>computer mates       <td>1-0 {White mates} or 0-1 {Black mates}
+<tr align="left"><td>opponent mates       <td>1-0 {White mates} or 0-1 {Black mates}
+<tr align="left"><td>computer resigns     <td>0-1 {White resigns} or 1-0 {Black resigns}
+<tr align="left"><td>game is a draw       <td>1/2-1/2 {Draw}
+<tr align="left"><td>checkmate            <td>1-0 {White mates} or 0-1 {Black mates}
+</table>
+
+<p>
+Commands in the above table are recognized if they begin a line and
+arbitrary characters follow, so (for example) "White mates" will be
+recognized as "White", and "game is a draw by the 50 move rule" will
+be recognized as "game is a draw".  All the commands are
+case-sensitive.
+</p>
+
+<p>
+An alternative move syntax is also recognized:
+</p>
+
+<table>
+<tr align="left"><th>Command              <th>Interpreted as
+<tr align="left"><td>NUMBER ... MOVE      <td>move MOVE
+</table>
+
+<p>
+Here NUMBER means any string of decimal digits, optionally ending in a
+period.  MOVE is any string containing no whitespace.  In this command
+format, xboard requires the "..." even if your engine is playing
+White.  A command of the form NUMBER MOVE will be ignored.  This odd
+treatment of the commands is needed for compatibility with gnuchessx.
+The original reasons for it are lost in the mists of time, but I
+suspect it was originally a bug in the earliest versions of xboard,
+before I started working on it, which someone "fixed" in the wrong
+way, by creating a special version of gnuchess (gnuchessx) instead of
+changing xboard.
+</p>
+
+<p>
+Any line that contains the words "offer" and "draw" is recognized as
+"offer draw".
+</p>
+
+<p>
+The "Illegal move" message is recognized even if spelled "illegal
+move" and even if the colon (":") is omitted.  This accommodates GNU
+Chess 4, which prints messages like "Illegal move (no matching
+move)e2e4", and old versions of Crafty, which print just "illegal move".
+</p>
+
+<p>
+In Zippy mode, for compatibility with older versions of Crafty,
+xboard passes through to ICS any line that begins "kibitz", "whisper",
+"tell", or "draw".  Do not use this feature in new code.  Instead, use the
+commands "tellall", "tellothers", "tellopponent", "tellics" (if needed),
+"1/2-1/2 {COMMENT}", or "offer draw", as appropriate.
+</p>
+
+<p>
+<font color=red>
+If the engine responds to the "sd DEPTH" command with an error message
+indicating the command is not supported (such as "Illegal move: sd"),
+xboard sets an internal flag and subsequently uses the command
+"depth\nDEPTH" instead, for the benefit of GNU Chess 4.  Note the
+newline in the middle of this command!  New engines should not rely on
+this feature.
+</font>
+</p>
+
+<p>
+<font color=red>
+If the engine responds to the "st TIME" command with an error message
+indicating the command is not supported (such as "Illegal move: st"),
+xboard sets an internal flag and subsequently uses the command "level
+1 TIME" instead, for the benefit of GNU Chess 4.  Note that this is
+not a standard use of the level command, as TIME seconds are not added
+after each player makes 1 move; rather, each move is made in at most
+TIME seconds.  New engines should not implement or rely on this
+feature.
+</font>
+</p>
+
+<font color=red>
+<p>
+In support of the -firstHost/-secondHost features, which allow a chess
+engine to be run on another machine using the rsh protocol, xboard recognizes
+error messages that are likely to come from rsh as fatal errors.  The following
+messages are currently recognized:
+</p>
+
+<blockquote>
+unknown host<br>
+No remote directory<br>
+not found<br>
+No such file<br>
+can't alloc<br>
+Permission denied<br>
+</blockquote>
+</font>
+
+<p>
+<font color=red>
+ChessBase/Fritz now implements the xboard/winboard protocol and can use
+WinBoard-compatible engines in its GUI.  ChessBase's version of the
+protocol is generally the same as version 1, except that they have
+added the commands <strong>fritz</strong>, <strong>reset</strong>, and
+<strong>ponder</strong>, and the edit subcommands
+<strong>castle</strong> and <strong>ep</strong>.  If you want your
+engine to work well with the ChessBase/Fritz GUI, you may need to
+implement these additional commands, and you should also be aware of
+the peculiar way that ChessBase uses the protocol.  See their <a
+href="http://www.chessbase.com/Products/engines/winboard/tech.htm"
+>web page</a> for documentation.
+</font>
+</p>
+
+<p>
+<font color=red>
+ChessMaster 8000 also implements version 1 of the xboard/winboard
+protocol and can use WinBoard-compatible engines.  The original
+release of CM8000 also has one additional restriction: only pure
+coordinate notation (e.g., e2e4) is accepted in the move command.  A
+patch to correct this should be available from The Learning Company
+(makers of CM8000) in February 2001.
+</font>
+</p>
+
+<hr noshade size="2">
+<address>converted to HTML by <a href="http://www.jakob.at/steffen/">Steffen A. Jakob</a></address>
+</body>
+</html>

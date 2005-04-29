@@ -1,4 +1,4 @@
-/* $XFree86: xc/include/extensions/xf86rush.h,v 1.4 2000/02/29 03:09:00 dawes Exp $ */
+/* $XFree86: xc/include/extensions/xf86rush.h,v 1.5 2003/11/17 22:20:04 dawes Exp $ */
 /*
 
 Copyright (c) 1998  Daryll Strauss
@@ -34,62 +34,47 @@ Copyright (c) 1998  Daryll Strauss
 _XFUNCPROTOBEGIN
 
 Bool XF86RushQueryVersion(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int*		/* majorVersion */,
     int*		/* minorVersion */
-#endif
 );
 
 Bool XF86RushQueryExtension(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int*		/* event_base */,
     int*		/* error_base */
-#endif
 );
 
 Bool XF86RushLockPixmap(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     int			/* screen */,
     Pixmap		/* Pixmap */,
     void **		/* Return address */
-#endif
 );
 
 Bool XF86RushUnlockPixmap(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     int			/* screen */,
     Pixmap		/* Pixmap */
-#endif
 ); 
 
 Bool XF86RushUnlockAllPixmaps(
-#if NeedFunctionPrototypes
     Display *		/* dpy */
-#endif			    
 );
 
 Bool XF86RushSetCopyMode(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     int			/* screen */,
     int			/* copy mode */
-#endif			    
 );
 
 Bool XF86RushSetPixelStride(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     int			/* screen */,
     int			/* pixel stride */
-#endif			    
 );
 
 Bool XF86RushOverlayPixmap(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     XvPortID		/* port */,
     Drawable		/* d */,
@@ -104,28 +89,21 @@ Bool XF86RushOverlayPixmap(
     unsigned int	/* dest_w */,
     unsigned int	/* dest_h */,
     unsigned int	/* id */
-#endif			    
 );
 
 int XF86RushStatusRegOffset(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     int			/* screen */
-#endif			    
 );
 
 Bool XF86RushAT3DEnableRegs(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     int			/* screen */
-#endif			    
 );
 
 Bool XF86RushAT3DDisableRegs(
-#if NeedFunctionPrototypes
     Display *		/* dpy */,
     int			/* screen */
-#endif			    
 );
 
 _XFUNCPROTOEND

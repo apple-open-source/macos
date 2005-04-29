@@ -1,26 +1,21 @@
-/******************************************************************************
+/* $OpenLDAP: pkg/ldap/libraries/librewrite/config.c,v 1.5.2.4 2004/01/01 18:16:32 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright (C) 2000 Pierangelo Masarati, <ando@sys-net.it>
+ * Copyright 2000-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
  *
- * 1. The author is not responsible for the consequences of use of this
- * software, no matter how awful, even if they arise from flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- * explicit claim or by omission.  Since few users ever read sources,
- * credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- * misrepresented as being the original software.  Since few users
- * ever read sources, credits should appear in the documentation.
- * 
- * 4. This notice may not be removed or altered.
- *
- ******************************************************************************/
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENT:
+ * This work was initially developed by Pierangelo Masarati for
+ * inclusion in OpenLDAP Software.
+ */
 
 #include <portable.h>
 
@@ -44,7 +39,7 @@ rewrite_parse_builtin_map(
  * lines handled are of the form:
  *
  *      rewriteEngine 		{on|off}
- *      rewriteMaxPasses        numPasses
+ *      rewriteMaxPasses        numPasses [numPassesPerRule]
  *      rewriteContext 		contextName [alias aliasedContextName]
  *      rewriteRule 		pattern substPattern [ruleFlags]
  *      rewriteMap 		mapType mapName [mapArgs]
@@ -75,6 +70,7 @@ rewrite_parse(
 					"[%s:%d] rewriteEngine needs 'state'\n%s",
 					fname, lineno, "" );
 			return -1;
+
 		} else if ( argc > 2 ) {
 			Debug( LDAP_DEBUG_ANY,
 					"[%s:%d] extra fields in rewriteEngine"
@@ -84,8 +80,10 @@ rewrite_parse(
 
 		if ( strcasecmp( argv[ 1 ], "on" ) == 0 ) {
 			info->li_state = REWRITE_ON;
+
 		} else if ( strcasecmp( argv[ 1 ], "off" ) == 0 ) {
 			info->li_state = REWRITE_OFF;
+
 		} else {
 			Debug( LDAP_DEBUG_ANY,
 					"[%s:%d] unknown 'state' in rewriteEngine;"
@@ -105,7 +103,25 @@ rewrite_parse(
 					fname, lineno, "" );
 			return -1;
 		}
+
 		info->li_max_passes = atoi( argv[ 1 ] );
+		if ( info->li_max_passes <= 0 ) {
+			Debug( LDAP_DEBUG_ANY,
+					"[%s:%d] negative or null rewriteMaxPasses'\n",
+					fname, lineno, 0 );
+		}
+
+		if ( argc > 2 ) {
+			info->li_max_passes_per_rule = atoi( argv[ 2 ] );
+			if ( info->li_max_passes_per_rule <= 0 ) {
+				Debug( LDAP_DEBUG_ANY,
+						"[%s:%d] negative or null rewriteMaxPassesPerRule'\n",
+						fname, lineno, 0 );
+			}
+
+		} else {
+			info->li_max_passes_per_rule = info->li_max_passes;
+		}
 		rc = REWRITE_SUCCESS;
 	
 	/*
@@ -123,12 +139,12 @@ rewrite_parse(
 		 * Checks for existence (lots of contexts should be
 		 * available by default ...)
 		 */
-		 __curr_context = rewrite_context_find( info, argv[ 1 ] );
-		 if ( __curr_context == NULL ) {
-			 __curr_context = rewrite_context_create( info,
+		 rewrite_int_curr_context = rewrite_context_find( info, argv[ 1 ] );
+		 if ( rewrite_int_curr_context == NULL ) {
+			 rewrite_int_curr_context = rewrite_context_create( info,
 					 argv[ 1 ] );                       
 		 }
-		 if ( __curr_context == NULL ) {
+		 if ( rewrite_int_curr_context == NULL ) {
 			 return -1;
 		 }
 						
@@ -151,6 +167,7 @@ rewrite_parse(
 							 " 'alias'\n%s",
 							 fname, lineno, "" );
 					 return -1;
+
 				 } else if ( argc > 4 ) {
 					 Debug( LDAP_DEBUG_ANY,
 							 "[%s:%d] extra fields in"
@@ -173,8 +190,9 @@ rewrite_parse(
 					 return -1;
 				 }
 				 
-				 __curr_context->lc_alias = aliased;
-				 __curr_context = aliased;
+				 rewrite_int_curr_context->lc_alias = aliased;
+				 rewrite_int_curr_context = aliased;
+
 			 } else {
 				 Debug( LDAP_DEBUG_ANY,
 						 "[%s:%d] extra fields"
@@ -195,6 +213,7 @@ rewrite_parse(
 					" 'subst' ['flags']\n%s",
 					fname, lineno, "" );
 			return -1;
+
 		} else if ( argc > 4 ) {
 			Debug( LDAP_DEBUG_ANY,
 					"[%s:%d] extra fields in rewriteRule"
@@ -202,22 +221,22 @@ rewrite_parse(
 					fname, lineno, "" );
 		}
 
-		if ( __curr_context == NULL ) {
+		if ( rewrite_int_curr_context == NULL ) {
 			Debug( LDAP_DEBUG_ANY,
 					"[%s:%d] rewriteRule outside a"
 					" context; will add to default\n%s",
 					fname, lineno, "" );
-			__curr_context = rewrite_context_find( info,
+			rewrite_int_curr_context = rewrite_context_find( info,
 					REWRITE_DEFAULT_CONTEXT );
 
 			/*
 			 * Default context MUST exist in a properly initialized
 			 * struct rewrite_info
 			 */
-			assert( __curr_context != NULL );
+			assert( rewrite_int_curr_context != NULL );
 		}
 		
-		rc = rewrite_rule_compile( info, __curr_context, argv[ 1 ],
+		rc = rewrite_rule_compile( info, rewrite_int_curr_context, argv[ 1 ],
 				argv[ 2 ], ( argc == 4 ? argv[ 3 ] : "" ) );
 	
 	/*

@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.flow.protocol</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.flow.html">Package&nbsp;flow</a> ::
+        Module&nbsp;protocol
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.flow.protocol.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.flow.protocol</h2>
+
+<p>flow.protocol</p>
+This allows one to use flow module to create protocols, a protocol is 
+actually a controller, but it is specialized enough to deserve its own 
+module.
+<hr/>
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.flow.protocol._Protocol.html"><code>Protocol</code></a></b></td>
+  <td>A concrete flow.Protocol for inheritance</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_NotImplController"></a><span class="summary-sig"><span class="summary-sig-name">_NotImplController</span>(<span class=summary-sig-arg>protocol</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.flow.protocol.html#makeProtocol" class="summary-sig-name"><code>makeProtocol</code></a>(<span class=summary-sig-arg>controller</span>,
+          <span class=summary-sig-arg>baseClass</span>,
+          <span class="summary-sig-vararg">*callbacks</span>,
+          <span class="summary-sig-kwarg">**kwargs</span>)</span></code>
+<br />
+Construct a flow based protocol
+
+        This takes a base protocol class, and a set of callbacks and
+        creates a connection flow based on the two.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="makeProtocol"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">makeProtocol</span>(<span class=sig-arg>controller</span>,
+          <span class=sig-arg>baseClass</span>=<span class=sig-default>&lt;class&nbsp;twisted.internet.protocol.Protocol&nbsp;at&nbsp;0x82a647c&gt;</span>,
+          <span class="sig-vararg">*callbacks</span>,
+          <span class="sig-kwarg">**kwargs</span>)</span>
+  </h3>
+<pre class="literalblock">
+Construct a flow based protocol
+
+        This takes a base protocol class, and a set of callbacks and
+        creates a connection flow based on the two.   For example, 
+        the following would build a simple 'echo' protocol.
+
+            from __future__ import generators
+            from twisted.internet import reactor, protocol
+            from twisted.flow import flow
+            PORT = 8392
+
+            def echoServer(conn):
+                yield conn
+                for data in conn:
+                    conn.write(data)
+                    yield conn
+            
+            def echoClient(conn):
+                conn.write(&quot;hello, world!&quot;)
+                yield conn
+                print &quot;server said: &quot;, conn.next()
+                reactor.callLater(0,reactor.stop)
+            
+            server = protocol.ServerFactory()
+            server.protocol = flow.makeProtocol(echoServer)
+            reactor.listenTCP(PORT,server)
+            client = protocol.ClientFactory()
+            client.protocol = flow.makeProtocol(echoClient)
+            reactor.connectTCP(&quot;localhost&quot;, PORT, client)
+            reactor.run()
+
+        Of course, the best part about flow is that you can nest
+        stages.  Therefore it is quite easy to make a lineBreaker
+        generator which takes an input connection and produces
+        and output connection.   Anyway, the code is almost 
+        identical as far as the client/server is concerned:
+
+            # this is a filter generator, it consumes from the
+            # incoming connection, and yields results to
+            # the next stage, the echoServer below
+            def lineBreaker(conn, lineEnding = &quot;
+&quot;):
+                lst = []
+                yield conn
+                for chunk in conn:
+                   pos = chunk.find(lineEnding)
+                   if pos &gt; -1:
+                       lst.append(chunk[:pos])
+                       yield &quot;&quot;.join(lst)
+                       lst = [chunk[pos+1:]]
+                   else:
+                       lst.append(chunk)
+                   yield conn
+                yield &quot;&quot;.join(lst)
+
+            # note that this class is only slightly modified,
+            # simply comment out the line breaker line to see
+            # how the server behaves without the filter...
+            def echoServer(conn):
+                lines = flow.wrap(lineBreaker(conn))
+                yield lines
+                for data in lines:
+                    conn.write(data)
+                    yield lines
+            
+            # and the only thing that is changed is that we
+            # are sending data in strange chunks, and even
+            # putting the last chunk on hold for 2 seconds. 
+            def echoClient(conn):
+                conn.write(&quot;Good Morning!
+Please &quot;)
+                yield conn
+                print &quot;server said: &quot;, conn.next()
+                conn.write(&quot;do not disregard &quot;)
+                reactor.callLater(2, conn.write, &quot;this.
+&quot;)
+                yield conn
+                print &quot;server said: &quot;, conn.next()
+                reactor.callLater(0,reactor.stop)
+</pre>
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:07:42 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

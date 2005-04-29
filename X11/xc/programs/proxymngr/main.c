@@ -25,7 +25,7 @@ not be used in advertising or otherwise to promote the sale, use or
 other dealings in this Software without prior written authorization
 from The Open Group.
 */
-/* $XFree86: xc/programs/proxymngr/main.c,v 1.7 2001/12/19 21:37:35 dawes Exp $ */
+/* $XFree86: xc/programs/proxymngr/main.c,v 1.9 2003/07/09 15:27:36 tsi Exp $ */
 
 #include <stdlib.h>
 #include "pmint.h"
@@ -84,12 +84,11 @@ void
 SetCloseOnExec (fd)
     int	fd;
 {
-    int ret;
 #ifdef F_SETFD
 #ifdef FD_CLOEXEC
-    ret = fcntl (fd, F_SETFD, FD_CLOEXEC);
+    (void) fcntl (fd, F_SETFD, FD_CLOEXEC);
 #else
-    ret = fcntl (fd, F_SETFD, 1);
+    (void) fcntl (fd, F_SETFD, 1);
 #endif /* FD_CLOEXEC */
 #endif /* F_SETFD */
 }
@@ -430,8 +429,10 @@ Bool		 swap;
 	char			*authName = NULL, *authData = NULL;
 	int			authLen;
 
+#if 0 /* No-op */
 	CHECK_AT_LEAST_SIZE (iceConn, pmConn->pmOpcode, opcode,
 	    length, SIZEOF (pmGetProxyAddrMsg), IceFatalToProtocol);
+#endif
 
 	IceReadCompleteMessage (iceConn, SIZEOF (pmGetProxyAddrMsg),
 	    pmGetProxyAddrMsg, pMsg, pStart);
@@ -483,17 +484,21 @@ Bool		 swap;
 	     * different host than the client or the client host, 
 	     * proxy host and the server host may all be different, 
 	     * thus a serverAddress of :0 or :0.0 is not useful.  
-	     * Therefore, change serverAddrees to use the client's 
+	     * Therefore, change serverAddress to use the client's 
 	     * hostname.
 	     */
 	    char		*tmpName;
 
-	    tmpName = strchr (serverAddress, ':');
+	    tmpName = strrchr (serverAddress, ':');
 
-	    if (tmpName && ((serverAddress[0] == ':') || 
+	    if (tmpName && ((tmpName == serverAddress) || 
 			    (!strncmp (serverAddress, "unix:", 5))))
 	    {
+#if defined(IPv6) && defined(AF_INET6)
+		struct sockaddr_storage	serverSock;
+#else
 		struct sockaddr_in	serverSock;
+#endif
 		int 			retVal;
 		int 			addrLen = sizeof(serverSock);
 
@@ -502,20 +507,43 @@ Bool		 swap;
 				     (void *) &addrLen);
 		if (!retVal) 
 		{
+		    char *canonname = NULL;
+#if defined(IPv6) && defined(AF_INET6)
+		    char hostname[NI_MAXHOST];
+		    struct addrinfo *ai = NULL, hints;
+
+		    if (getnameinfo((struct sockaddr *) &serverSock,
+		      addrLen, hostname, sizeof(hostname), NULL, 0, 0) == 0) {
+			(void)memset(&hints, 0, sizeof(hints));
+			hints.ai_flags = AI_CANONNAME;
+			if (getaddrinfo(hostname, NULL, &hints, &ai) == 0) {
+			    canonname = ai->ai_canonname;
+			} else {
+			    ai = NULL;
+			}
+		    }
+#else
 		    struct hostent *hostent;
 
 		    hostent = gethostbyname (inet_ntoa(serverSock.sin_addr));
 
 		    if (hostent && hostent->h_name) 
+			canonname = hostent->h_name;
+#endif
+		    if (canonname)
 		    {
 			int		len;
 			char		* pch = strdup (tmpName);
 
-			len = strlen(hostent->h_name) + strlen(tmpName) + 1;
+			len = strlen(canonname) + strlen(tmpName) + 1;
 			serverAddress = (char *) realloc (serverAddress, len);
-			sprintf (serverAddress, "%s%s", hostent->h_name, pch);
+			sprintf (serverAddress, "%s%s", canonname, pch);
 			free (pch);
 		    }
+#if defined(IPv6) && defined(AF_INET6)
+		    if (ai != NULL)
+			freeaddrinfo(ai);
+#endif		    
 		}
 	    }
 	}
@@ -562,8 +590,10 @@ Bool		 swap;
 	char		*authName;
 	char		*authData;
 
+#if 0 /* No-op */
 	CHECK_AT_LEAST_SIZE (iceConn, pmConn->pmOpcode, opcode,
 	    length, SIZEOF (pmStartProxyMsg), IceFatalToProtocol);
+#endif
 
 	IceReadCompleteMessage (iceConn, SIZEOF (pmStartProxyMsg),
 	    pmStartProxyMsg, pMsg, pStart);
@@ -633,8 +663,10 @@ Bool		 swap;
 	char			*pData, *pStart;
 	char			*addr = NULL, *error = NULL;
 
+#if 0 /* No-op */
 	CHECK_AT_LEAST_SIZE (iceConn, pmConn->pmOpcode, opcode,
 	    length, SIZEOF (pmGetProxyAddrReplyMsg), IceFatalToProtocol);
+#endif
 
 	IceReadCompleteMessage (iceConn, SIZEOF (pmGetProxyAddrReplyMsg),
 	    pmGetProxyAddrReplyMsg, pMsg, pStart);

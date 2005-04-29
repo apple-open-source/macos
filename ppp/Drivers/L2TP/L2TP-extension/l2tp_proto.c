@@ -28,9 +28,10 @@
 #include <sys/socket.h>
 #include <sys/syslog.h>
 #include <sys/protosw.h>
+#include <kern/locks.h>
+
 #include <net/if_types.h>
 #include <net/dlil.h>
-#include <net/if_var.h>
 
 #include "../../../Family/ppp_defs.h"
 #include "../../../Family/if_ppplink.h"
@@ -64,11 +65,11 @@ int l2tp_detach(struct socket *);
 int l2tp_control(struct socket *so, u_long cmd, caddr_t data,
                   struct ifnet *ifp, struct proc *p);
 
-int l2tp_send(struct socket *so, int flags, struct mbuf *m, struct sockaddr *addr,
-	    struct mbuf *control, struct proc *p);
+int l2tp_send(struct socket *so, int flags, mbuf_t m, struct sockaddr *addr,
+	    mbuf_t control, struct proc *p);
 
 // callback from rfc layer
-int l2tp_input(void *data, struct mbuf *m, struct sockaddr *from, int more);
+int l2tp_input(void *data, mbuf_t m, struct sockaddr *from, int more);
 void l2tp_event(void *data, u_int32_t event, void *msg);
 
 /* -----------------------------------------------------------------------------
@@ -77,6 +78,7 @@ Globals
 struct pr_usrreqs 	l2tp_usr;	/* pr_usrreqs extension to the protosw */
 struct protosw 		l2tp;		/* describe the protocol switch */
 
+extern lck_mtx_t	*ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -110,22 +112,23 @@ int l2tp_add(struct domain *domain)
     l2tp_usr.pru_peeraddr 	= pru_peeraddr_notsupp;
     l2tp_usr.pru_rcvd 		= pru_rcvd_notsupp;
     l2tp_usr.pru_rcvoob 	= pru_rcvoob_notsupp;
-    l2tp_usr.pru_send 		= l2tp_send;
+    l2tp_usr.pru_send 		= (int	(*)(struct socket *, int, struct mbuf *, 
+				 struct sockaddr *, struct mbuf *, struct proc *))l2tp_send;
     l2tp_usr.pru_sense 		= pru_sense_null;
     l2tp_usr.pru_shutdown 	= pru_shutdown_notsupp;
     l2tp_usr.pru_sockaddr 	= pru_sockaddr_notsupp;
     l2tp_usr.pru_sosend 	= sosend;
     l2tp_usr.pru_soreceive 	= soreceive;
-    l2tp_usr.pru_sopoll 	= sopoll;
+    l2tp_usr.pru_sopoll 	= pru_sopoll_notsupp;
 
 
     bzero(&l2tp, sizeof(struct protosw));
-    l2tp.pr_type	= SOCK_DGRAM;
-    l2tp.pr_domain 	= domain;
+    l2tp.pr_type		= SOCK_DGRAM;
+    l2tp.pr_domain		= domain;
     l2tp.pr_protocol 	= PPPPROTO_L2TP;
-    l2tp.pr_flags 	= PR_ATOMIC | PR_ADDR;
+    l2tp.pr_flags		= PR_ATOMIC | PR_ADDR | PR_PROTOLOCK;
     l2tp.pr_ctloutput 	= l2tp_ctloutput;
-    l2tp.pr_init 	= l2tp_init;
+    l2tp.pr_init		= l2tp_init;
     l2tp.pr_fasttimo  	= l2tp_fasttimo;
     l2tp.pr_slowtimo  	= l2tp_slowtimo;
     l2tp.pr_usrreqs 	= &l2tp_usr;
@@ -175,9 +178,11 @@ This function is called by socket layer to handle get/set-socketoption
 int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
 {
     int		error, optval;
-    u_int32_t	lval, cmd;
+    u_int32_t	lval, cmd = 0;
     u_int16_t	val;
     u_char 	*addr;
+		
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
     //log(LOGVAL, "l2tp_ctloutput, so = 0x%x\n", so);
 
@@ -190,10 +195,16 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
         case SOPT_SET:
             switch (sopt->sopt_name) {
                 case L2TP_OPT_FLAGS:
+                case L2TP_OPT_BAUDRATE:
                     if (sopt->sopt_valsize != 4)
                         error = EMSGSIZE;
-                    else if ((error = sooptcopyin(sopt, &lval, 4, 4)) == 0)
-                        l2tp_rfc_command(so->so_pcb, L2TP_CMD_SETFLAGS, &lval);
+                    else if ((error = sooptcopyin(sopt, &lval, 4, 4)) == 0) {
+                        switch (sopt->sopt_name) {
+                            case L2TP_OPT_BAUDRATE: 		cmd = L2TP_CMD_SETBAUDRATE; break;
+                            case L2TP_OPT_FLAGS:			cmd = L2TP_CMD_SETFLAGS; break;
+                        }
+                        l2tp_rfc_command(so->so_pcb, cmd, &lval);
+					}
                     break;
                 case L2TP_OPT_ACCEPT:
                     if (sopt->sopt_valsize != 0)
@@ -226,6 +237,7 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                 case L2TP_OPT_INITIAL_TIMEOUT:
                 case L2TP_OPT_TIMEOUT_CAP:
                 case L2TP_OPT_MAX_RETRIES:
+                case L2TP_OPT_RELIABILITY:
                     if (sopt->sopt_valsize != 2)
                         error = EMSGSIZE;
                     else if ((error = sooptcopyin(sopt, &val, 2, 2)) == 0) {
@@ -239,6 +251,7 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                             case L2TP_OPT_INITIAL_TIMEOUT: 	cmd = L2TP_CMD_SETTIMEOUT; break;
                             case L2TP_OPT_TIMEOUT_CAP: 		cmd = L2TP_CMD_SETTIMEOUTCAP; break;
                             case L2TP_OPT_MAX_RETRIES: 		cmd = L2TP_CMD_SETMAXRETRIES; break;
+                            case L2TP_OPT_RELIABILITY: 		cmd = L2TP_CMD_SETRELIABILITY; break;
                         }
                         l2tp_rfc_command(so->so_pcb, cmd, &val);
                     }
@@ -302,8 +315,9 @@ fast timer function, called every 200ms
 ----------------------------------------------------------------------------- */
 void l2tp_fasttimo()
 {
-
+	lck_mtx_lock(ppp_domain_mutex);
     l2tp_rfc_fasttimer();
+	lck_mtx_unlock(ppp_domain_mutex);
 }
 
 /* -----------------------------------------------------------------------------
@@ -311,8 +325,9 @@ slow timer function, called every 500ms
 ----------------------------------------------------------------------------- */
 void l2tp_slowtimo()
 {
-    
+    lck_mtx_lock(ppp_domain_mutex);
     l2tp_rfc_slowtimer();
+	lck_mtx_unlock(ppp_domain_mutex);
 }
 
 /* -----------------------------------------------------------------------------
@@ -342,10 +357,13 @@ int l2tp_attach (struct socket *so, int proto, struct proc *p)
     }
    
     // call l2tp init with the rfc specific structure
+	lck_mtx_lock(ppp_domain_mutex);
     if (l2tp_rfc_new_client(so, (void**)&(so->so_pcb), l2tp_input, l2tp_event)) {
+		lck_mtx_unlock(ppp_domain_mutex);
         return ENOMEM;
     }
 
+	lck_mtx_unlock(ppp_domain_mutex);
     return 0;
 }
 
@@ -356,6 +374,8 @@ Should free all the L2TP structures
 int l2tp_detach(struct socket *so)
 {
 
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+	
     //log(LOGVAL, "l2tp_detach, so = 0x%x, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
 
     if (so->so_tpcb) {
@@ -366,6 +386,7 @@ int l2tp_detach(struct socket *so)
         l2tp_rfc_free_client(so->so_pcb);
         so->so_pcb = 0;
     }
+	so->so_flags |= SOF_PCBCLEARING;
     return 0;
 }
 
@@ -378,6 +399,8 @@ int l2tp_control(struct socket *so, u_long cmd, caddr_t data,
     int 		error = 0;
 
     //log(LOGVAL, "l2tp_control : so = 0x%x, cmd = %d\n", so, cmd);
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     switch (cmd) {
 	case PPPIOCGCHAN:
@@ -409,14 +432,14 @@ int l2tp_control(struct socket *so, u_long cmd, caddr_t data,
 /* -----------------------------------------------------------------------------
 Called by socket layer to send a packet
 ----------------------------------------------------------------------------- */
-int l2tp_send(struct socket *so, int flags, struct mbuf *m, struct sockaddr *to,
-	    struct mbuf *control, struct proc *p)
+int l2tp_send(struct socket *so, int flags, mbuf_t m, struct sockaddr *to,
+	    mbuf_t control, struct proc *p)
 {
 
     if (control)
-        m_freem(control);
-    if (m->m_len == 0) {
-        m_freem(m);
+        mbuf_freem(control);
+    if (mbuf_len(m) == 0) {
+        mbuf_freem(m);
         return 0;
     }
     return l2tp_rfc_output(so->so_pcb, m, to);
@@ -435,9 +458,12 @@ int l2tp_send(struct socket *so, int flags, struct mbuf *m, struct sockaddr *to,
 /* -----------------------------------------------------------------------------
 called from l2tp_rfc when data are present
 ----------------------------------------------------------------------------- */
-int l2tp_input(void *data, struct mbuf *m, struct sockaddr *from, int more)
+int l2tp_input(void *data, mbuf_t m, struct sockaddr *from, int more)
 {
     struct socket 	*so = (struct socket *)data;
+	int		err;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (so->so_tpcb) {
         // we are hooked to ppp
@@ -447,18 +473,19 @@ int l2tp_input(void *data, struct mbuf *m, struct sockaddr *from, int more)
     if (m) {
 	if (from == 0) {            
             // no from address, just free the buffer
-            m_freem(m);
+            mbuf_freem(m);
             return 1;
         }
 
-	if (sbappendaddr(&so->so_rcv, from, m, 0) == 0) {
-            log(LOGVAL, "l2tp_input no space, so = 0x%x, len = %d\n", so, m->m_pkthdr.len);
+	if (sbappendaddr(&so->so_rcv, from, (struct mbuf *)m, 0, &err) == 0) {
+            //log(LOGVAL, "l2tp_input no space, so = 0x%x\n", so);
             return 1;
 	}
     }
     
     if (!more)
         sorwakeup(so);
+
     return 0;
 }
 
@@ -467,6 +494,8 @@ int l2tp_input(void *data, struct mbuf *m, struct sockaddr *from, int more)
 void l2tp_event(void *data, u_int32_t event, void *msg)
 {
     struct socket 	*so = (struct socket *)data;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (so->so_tpcb) {
         switch (event) {

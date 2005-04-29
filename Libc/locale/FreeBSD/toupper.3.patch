@@ -1,0 +1,47 @@
+--- toupper.3.orig	Fri Mar 11 19:44:47 2005
++++ toupper.3	Fri Mar 11 19:51:26 2005
+@@ -40,7 +40,8 @@
+ .Dt TOUPPER 3
+ .Os
+ .Sh NAME
+-.Nm toupper
++.Nm toupper ,
++.Nm toupper_l
+ .Nd lower case to upper case letter conversion
+ .Sh LIBRARY
+ .Lb libc
+@@ -48,6 +49,9 @@
+ .In ctype.h
+ .Ft int
+ .Fn toupper "int c"
++.In xlocale.h
++.Ft int
++.Fn toupper_l "int c" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn toupper
+@@ -62,6 +66,14 @@
+ .Li unsigned char
+ or the value of
+ .Dv EOF .
++.Pp
++While the
++.Fn toupper
++function uses the current locale, the
++.Fn toupper_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ If the argument is a lower-case letter, the
+ .Fn toupper
+@@ -81,7 +93,8 @@
+ .Xr ctype 3 ,
+ .Xr isupper 3 ,
+ .Xr multibyte 3 ,
+-.Xr towupper 3
++.Xr towupper 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn toupper

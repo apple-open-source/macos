@@ -1,7 +1,5 @@
-Online:  http://curl.haxx.se/docs/httpscripting.shtml
-Author:  Daniel Stenberg <daniel@haxx.se>
-Date:    October 31, 2001
-Version: 0.5
+Online:  http://curl.haxx.se/docs/httpscripting.html
+Date:    December 9, 2004
 
                 The Art Of Scripting HTTP Requests Using Curl
                 =============================================
@@ -65,7 +63,8 @@ Version: 0.5
 
  All HTTP replies contain a set of headers that are normally hidden, use
  curl's -i option to display them as well as the rest of the document. You can
- also ask the remote server for ONLY the headers by using the -I option.
+ also ask the remote server for ONLY the headers by using the -I option (which
+ will make curl issue a HEAD request).
 
 4. Forms
 
@@ -122,22 +121,27 @@ Version: 0.5
 
         <form method="POST" action="junk.cgi">
           <input type=text name="birthyear">
-          <input type=submit name=press value="OK">
+          <input type=submit name=press value=" OK ">
         </form>
 
   And to use curl to post this form with the same data filled in as before, we
   could do it like:
 
-        curl -d "birthyear=1905&press=OK" www.hotmail.com/when/junk.cgi
+        curl -d "birthyear=1905&press=%20OK%20" www.hotmail.com/when/junk.cgi
 
   This kind of POST will use the Content-Type
   application/x-www-form-urlencoded and is the most widely used POST kind.
 
- 4.3 FILE UPLOAD POST
+  The data you send to the server MUST already be properly encoded, curl will
+  not do that for you. For example, if you want the data to contain a space,
+  you need to replace that space with %20 etc. Failing to comply with this
+  will most likely cause your data to be received wrongly and messed up.
 
-  Back in late 1995 they defined a new way to post data over HTTP. It was
-  documented in the RFC 1867, why this method sometimes is referred to as
-  a RFC1867-posting.
+ 4.3 File Upload POST
+
+  Back in late 1995 they defined an additional way to post data over HTTP. It
+  is documented in the RFC 1867, why this method sometimes is referred to as
+  RFC1867-posting.
 
   This method is mainly designed to better support file uploads. A form that
   allows a user to upload a file could be written like this in HTML:
@@ -154,7 +158,7 @@ Version: 0.5
 
         curl -F upload=@localfilename -F press=OK [URL]
 
- 4.4 HIDDEN FIELDS
+ 4.4 Hidden Fields
 
   A very common way for HTML based application to pass state information
   between pages is to add hidden fields to the forms. Hidden fields are
@@ -175,7 +179,7 @@ Version: 0.5
 
         curl -d "birthyear=1905&press=OK&person=daniel" [URL]
 
- 4.5 FIGURE OUT WHAT A POST LOOKS LIKE
+ 4.5 Figure Out What A POST Looks Like
 
   When you're about fill in a form and send to a server by using curl instead
   of a browser, you're of course very interested in sending a POST exactly the
@@ -198,18 +202,22 @@ Version: 0.5
 
         curl -T uploadfile www.uploadhttp.com/receive.cgi
 
-6. AUTHENTICATION
+6. Authentication
 
  Authentication is the ability to tell the server your username and password
  so that it can verify that you're allowed to do the request you're doing. The
- basic authentication used in HTTP is *plain* *text* based, which means it
- sends username and password only slightly obfuscated, but still fully
- readable by anyone that sniffs on the network between you and the remote
- server.
+ Basic authentication used in HTTP (which is the type curl uses by default) is
+ *plain* *text* based, which means it sends username and password only
+ slightly obfuscated, but still fully readable by anyone that sniffs on the
+ network between you and the remote server.
 
  To tell curl to use a user and password for authentication:
 
         curl -u name:password www.secrets.com
+
+ The site might require a different authentication method (check the headers
+ returned by the server), and then --ntlm, --digest, --negotiate or even
+ --anyauth might be options that suit you.
  
  Sometimes your HTTP access is only available through the use of a HTTP
  proxy. This seems to be especially common at various companies. A HTTP proxy
@@ -218,29 +226,32 @@ Version: 0.5
 
         curl -U proxyuser:proxypassword curl.haxx.se
 
+ If your proxy requires the authentication to be done using the NTLM method,
+ use --proxy-ntlm, if it requires Digest use --proxy-digest.
+
  If you use any one these user+password options but leave out the password
  part, curl will prompt for the password interactively.
 
- Do note that when a program is run, its parameters are possible to see when
- listing the running processes of the system. Thus, other users may be able to
- watch your passwords if you pass them as plain command line options. There
- are ways to circumvent this.
+ Do note that when a program is run, its parameters might be possible to see
+ when listing the running processes of the system. Thus, other users may be
+ able to watch your passwords if you pass them as plain command line
+ options. There are ways to circumvent this.
 
-7. REFERER
+7. Referer
 
- A HTTP request may include a 'referer' field, which can be used to tell from
- which URL the client got to this particular resource. Some programs/scripts
- check the referer field of requests to verify that this wasn't arriving from
- an external site or an unknown page. While this is a stupid way to check
- something so easily forged, many scripts still do it. Using curl, you can put
- anything you want in the referer-field and thus more easily be able to fool
- the server into serving your request.
+ A HTTP request may include a 'referer' field (yes it is misspelled), which
+ can be used to tell from which URL the client got to this particular
+ resource. Some programs/scripts check the referer field of requests to verify
+ that this wasn't arriving from an external site or an unknown page. While
+ this is a stupid way to check something so easily forged, many scripts still
+ do it. Using curl, you can put anything you want in the referer-field and
+ thus more easily be able to fool the server into serving your request.
 
  Use curl to set the referer field with:
 
         curl -e http://curl.haxx.se daniel.haxx.se
 
-8. USER AGENT
+8. User Agent
 
  Very similar to the referer field, all HTTP requests may set the User-Agent
  field. It names what user agent (client) that is being used. Many
@@ -262,7 +273,7 @@ Version: 0.5
 
         curl -A "Mozilla/4.73 [en] (X11; U; Linux 2.2.15 i686)" [URL]
 
-9. REDIRECTS
+9. Redirects
 
  When a resource is requested from a server, the reply from the server may
  include a hint about where the browser should go next to find this page, or a
@@ -281,7 +292,7 @@ Version: 0.5
  page, you can safely use -L and -d/-F together. Curl will only use POST in
  the first request, and then revert to GET in the following operations.
 
-10. COOKIES
+10. Cookies
 
  The way the web browsers do "client side state control" is by using
  cookies. Cookies are just names with associated contents. The cookies are
@@ -308,6 +319,9 @@ Version: 0.5
  using the -D option like:
 
         curl -D headers_and_cookies www.cookiesite.com
+
+ (Take note that the -c option described below is a better way to store
+ cookies.)
 
  Curl has a full blown cookie parsing engine built-in that comes to use if you
  want to reconnect to a server and use cookies that were stored from a
@@ -350,19 +364,80 @@ Version: 0.5
 
         curl https://that.secure.server.com
 
- 11.1 CERTIFICATES
+ 11.1 Certificates
 
   In the HTTPS world, you use certificates to validate that you are the one
   you you claim to be, as an addition to normal passwords. Curl supports
-  client-side certificates. All certificates are locked with a PIN-code, why
-  you need to enter the unlock-code before the certificate can be used by
-  curl. The PIN-code can be specified on the command line or if not, entered
-  interactively when curl queries for it. Use a certificate with curl on a
-  HTTPS server like:
+  client-side certificates. All certificates are locked with a pass phrase,
+  which you need to enter before the certificate can be used by curl. The pass
+  phrase can be specified on the command line or if not, entered interactively
+  when curl queries for it. Use a certificate with curl on a HTTPS server
+  like:
 
         curl -E mycert.pem https://that.secure.server.com
 
-12. REFERENCES
+  curl also tries to verify that the server is who it claims to be, by
+  verifying the server's certificate against a locally stored CA cert
+  bundle. Failing the verification will cause curl to deny the connection. You
+  must then use -k in case you want to tell curl to ignore that the server
+  can't be verified.
+
+  More about server certificate verification and ca cert bundles can be read
+  in the SSLCERTS document, available online here:
+
+        http://curl.haxx.se/docs/sslcerts.html
+
+12. Custom Request Elements
+
+ Doing fancy stuff, you may need to add or change elements of a single curl
+ request.
+
+ For example, you can change the POST request to a PROPFIND and send the data
+ as "Content-Type: text/xml" (instead of the default Content-Type) like this:
+
+        curl -d "<xml>" -H "Content-Type: text/xml" -X PROPFIND url.com
+
+ You can delete a default header by providing one without content. Like you
+ can ruin the request by chopping off the Host: header:
+
+        curl -H "Host:" http://mysite.com
+
+ You can add headers the same way. Your server may want a "Destination:"
+ header, and you can add it:
+
+        curl -H "Destination: http://moo.com/nowhere" http://url.com
+
+13. Debug
+
+ Many times when you run curl on a site, you'll notice that the site doesn't
+ seem to respond the same way to your curl requests as it does to your
+ browser's.
+
+ Then you need to start making your curl requests more similar to your
+ browser's requests:
+
+ * Use the --trace-ascii option to store fully detailed logs of the requests
+   for easier analyzing and better understanding
+
+ * Make sure you check for and use cookies when needed (both reading with -b
+   and writing with -c)
+
+ * Set user-agent to one like a recent popular browser does
+
+ * Set referer like it is set by the browser
+
+ * If you use POST, make sure you send all the fields and in the same order as
+   the browser does it. (See chapter 4.5 above)
+
+ A very good helper to make sure you do this right, is the LiveHTTPHeader tool
+ that lets you view all headers you send and receive with Mozilla/Firefox
+ (even when using HTTPS).
+
+ A more raw approach is to capture the HTTP traffic on the network with tools
+ such as ethereal or tcpdump and check what headers that were sent and
+ received by the browser. (HTTPS makes this technique inefficient.)
+
+14. References
 
  RFC 2616 is a must to read if you want in-depth understanding of the HTTP
  protocol.

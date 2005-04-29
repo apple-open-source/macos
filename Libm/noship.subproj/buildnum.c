@@ -22,27 +22,29 @@
 #include "stdio.h"
 #include "ctype.h"
 #include "string.h"
+#include "stdint.h"
+#include "math.h"
 
 #define EXTMAXEXP	 16384
 #define EXTMINEXP	-16383
 #define EXTSIGBITS		64
-#define MANLEN			 9
+#define MANLEN			16
 
-#define EXTBITS			 80
-#define EXTPAD  			((EXTBITS/8)-10)	// Number of pad bytes for extended (0 or 2)
+#define EXTBITS			80
+#define EXTPAD  		((EXTBITS/8)-10)	// Number of pad bytes for extended (0 or 2)
 
 #define strcat(a,b)		strcat((char *)a,(char *)b)
 #define strcpy(a,b)		strcpy((char *)a,(char *)b)
 #define strcmp(a,b)		strcmp((char *)a,(char *)b)
-#define strlen(a)		strlen((char *)a)
+#define strlen(a)		(int)strlen((char *)a)
 
 typedef int Boolean;
 enum {
-    false = 0,
-    true = 1
+    _false = 0,
+    _true = 1
 };
 
-typedef unsigned char Str90 [91];
+typedef unsigned char Str90 [255];
 
 typedef struct {
 	short int sgn;			// 0 for + and 1 for -
@@ -52,31 +54,36 @@ typedef struct {
 
 typedef union {
 //	unsigned char b[EXTBITS/8];
-	unsigned char b[16];		//	KLH:  altered 3/25/93
+	uint8_t b[16];              //	KLH:  altered 3/25/93
 	float f;					//	KLH:  ADDED 2/26/93
 	double u;					//	KLH:  ADDED 2/26/93
-	short w[5];
+    
+    long double ld;
+    struct { double ldh; double ldt; } ldu;
+    
+	int16_t w[5];
 
 } PckForm;
 
-static double Str90to (Str90 StrArg1, const char *op, const char pc);	
-													// returns a double from a Str90
+double Str90to (Str90 StrArg1, const char *op, const char pc);	
+long double Str90toldbl (Str90 StrArg1, const char *op);	// returns a long double from a Str90
 double Str90todbl (Str90 StrArg1, const char *op);	// returns a double from a Str90
 double Str90toflt (Str90 StrArg1, const char *op);	// returns a float from a Str90
 double Str90toint (Str90 StrArg1, const char *op);	// returns a short from a Str90
 double Str90tolng (Str90 StrArg1, const char *op);	// returns a long from a Str90
 
-UnpForm UnpArg1;
+short int HiTol, LoTol, RSign;
 
-PckForm PckArg1;
+static UnpForm UnpArg1;
+static PckForm PckArg1;
 
-short int aptr, HiTol, LoTol, RSign;
-static short int MaxExp, MinExp, SigBits, LowBit, LowByte;
+static short int aptr, MaxExp, MinExp, SigBits, LowBit, LowByte;
 static int Nancode;
 
 //
 //	** Called by AddUlps and AddExp to normalize an UnpForm.
 //
+static
 void Normalize (UnpForm *r)
 {
 	short int i, c, t;
@@ -96,7 +103,7 @@ void Normalize (UnpForm *r)
 		}
 		r->exp--;
 	}
-	// (r->exp = MinExp) or ((r->exp > MinExp) and (r->man[0] >= 128))
+	// (r->exp == MinExp) or ((r->exp > MinExp) and (r->man[0] >= 128))
 }
 
 //
@@ -105,9 +112,19 @@ void Normalize (UnpForm *r)
 //	** as much as possible. This routine is complicated by the need
 //	** to do bit operations using Pascal types.
 //
-void AddUlps (UnpForm *r, short int n)
+static
+void AddUlps (UnpForm *r, short int n, char pc)
 {
 	short int c, i, j, t;
+    
+    if (pc == 'g')
+    {
+        if (r->exp == MinExp && r->man[0] < 128) // e.g. 0i1
+        {
+            LowByte = 7;
+            LowBit = 8;
+        }
+    }
   
 	if (n >= 0) 
 		//
@@ -147,10 +164,10 @@ void AddUlps (UnpForm *r, short int n)
 						 c = 0;
 				 }
 		  	 }
-		  	 if (r->man[0] < 128 && r->exp > MinExp) {
-				 r->man[0] += 128;
-				 r->exp--;
-		  	 }
+             if (r->man[0] < 128 && r->exp > MinExp) {
+                 r->man[0] += 128;
+                 r->exp--;
+             }
 		  }
 	Normalize (r);
 }
@@ -162,15 +179,24 @@ void AddUlps (UnpForm *r, short int n)
 //	** be denormalized, shift right by a given number of bytes and
 //	** then normalize to the extent possible.
 //
+static
 void AddExp (UnpForm *r, short int n)
 {
 	short int i, j;
 
 	if ((r->exp += n) < MinExp) {
 		i = (MinExp - r->exp) / 8 + 1;
-		for (j = MANLEN - 1;	j >= i;	j--) r->man[j] = r->man[j - i];
-		for (j = 0;				j < i;	j++) r->man[j] = 0;
-		r->exp += i * 8;
+        if (i > MANLEN) // prevent infinite loop in, e.g., 1m1040 as a float
+        {
+            for (j = 0;				j < MANLEN;	j++) r->man[j] = 0;
+            r->exp = MinExp;
+        }
+        else
+        {
+            for (j = MANLEN - 1;	j >= i;	j--) r->man[j] = r->man[j - i];
+            for (j = 0;				j < i;	j++) r->man[j] = 0;
+            r->exp += i * 8;
+        }
 	}
 	
 	Normalize (r);
@@ -180,58 +206,61 @@ void AddExp (UnpForm *r, short int n)
 //	** Called by BuildNum.
 //
 
-				void getExponent (Str90 s, UnpForm *r)
-				{
-					short int i;
-					int val;
-					char c;
-					
-					//	Get biased exponent.
-					val = 0;
-					r->sgn = 0;
-					for (i = 0; (i < 4) && (aptr < strlen (s)); i++) {
-						c = s [aptr++];
-						if (isxdigit (c) && (i == 0))
-							if (c > '7') {
-								if (isdigit (c)) c -= '8';
-								else { c = toupper(c); c -= ('A' - '2'); }
-								r->sgn = 1;
-							}
-						if (isdigit (c))		val = 16 * val + c - '0';
-						else if (isxdigit (c))	val = 16 * val + toupper (c) - 'A' + 10;
-							 else break;
-					}
-					r->exp = val - 16383;	//	Unbias the exponent.
-				}
-				
-				void getMantissa (Str90 s, UnpForm *r)
-				{
-					short int i, val;
-					Boolean HiNib;
-					char c;
-						
-					HiNib	= true;	//	place first nibble in high half of byte
-					i		= 0;	//	index of first man[]
-					while (aptr < strlen (s)) {
-						c = s [aptr];
-			
-						//
-						// val = hex value of s [aptr]
-						if (isdigit (c))		val = c - '0';
-						else if (isxdigit (c))	val = toupper (c) - 'A' + 10; 
-							 else break;
-		
-						if (HiNib) val *= 16;		//	left-align nibble in byte
-						else i--;					//	recover from last i := i + 1
-				        r->man[i] += val;
-						i++;
-				        HiNib =  !HiNib;
-				        aptr++;
-					}
+static
+void getExponent (Str90 s, UnpForm *r)
+{
+    short int i;
+    int val;
+    char c;
+    
+    //	Get biased exponent.
+    val = 0;
+    r->sgn = 0;
+    for (i = 0; (i < 4) && (aptr < strlen (s)); i++) {
+        c = s [aptr++];
+        if (isxdigit (c) && (i == 0))
+            if (c > '7') {
+                if (isdigit (c)) c -= '8';
+                else { c = toupper(c); c -= ('A' - '2'); }
+                r->sgn = 1;
+            }
+        if (isdigit (c))		val = 16 * val + c - '0';
+        else if (isxdigit (c))	val = 16 * val + toupper (c) - 'A' + 10;
+             else break;
+    }
+    r->exp = val - 16383;	//	Unbias the exponent.
+}
+
+static
+void getMantissa (Str90 s, UnpForm *r)
+{
+    short int i, val;
+    Boolean HiNib;
+    char c;
+        
+    HiNib	= _true;	//	place first nibble in high half of byte
+    i		= 0;	//	index of first man[]
+    while (aptr < strlen (s)) {
+        c = s [aptr];
+
+        //
+        // val = hex value of s [aptr]
+        if (isdigit (c))		val = c - '0';
+        else if (isxdigit (c))	val = toupper (c) - 'A' + 10; 
+             else break;
+
+        if (HiNib) val *= 16;		//	left-align nibble in byte
+        else i--;					//	recover from last i := i + 1
+        r->man[i] += val;
+        i++;
+        HiNib =  !HiNib;
+        aptr++;
+    }
 //					if (r->man [6] & 4) r->man [6] += 8;	//	for rough double rounding
 //					r->man [6] = r->man [6] & 0xffffff8;	//	klh 9/15/93
-				}
+}
 					
+static
 void HexFloating (Str90 s, UnpForm *r)
 {
 	short int i, bptr;
@@ -283,6 +312,7 @@ void HexFloating (Str90 s, UnpForm *r)
 //
 //	** Called by BuildNum.
 //
+static
 void DecInteger (Str90 s, short int *d)
 {
 	*d = 0;
@@ -293,7 +323,8 @@ void DecInteger (Str90 s, short int *d)
 	while (aptr < strlen (s));
 }
 
-void DecLongInteger (Str90 s, long signed int *d)
+static
+void DecLongInteger (Str90 s, int32_t *d)
 {
 	*d = 0;
 	
@@ -306,10 +337,11 @@ void DecLongInteger (Str90 s, long signed int *d)
 //
 //	** Called by BuildUnpOps.
 //
-void BuildNum (Str90 s, UnpForm *r)
+static
+void BuildNum (Str90 s, UnpForm *r, char pc)
 {
 	short int i, d;
-    long signed int dd;
+    int32_t dd;
 	char c;
 	
 	aptr	= 0;		//	index into argument string
@@ -361,7 +393,7 @@ void BuildNum (Str90 s, UnpForm *r)
 	else {
 			switch (c) {
 				case 'e': 
-				case 'E':		r->exp	  = MinExp;
+				case 'E':		r->exp	  = (pc == 'g' ? MinExp + 54  /* -968 */: MinExp);
 								r->man[0] = 128;
 							break;
 							
@@ -372,11 +404,10 @@ void BuildNum (Str90 s, UnpForm *r)
 							
 				case 'M':		r->exp	  =  63;
 								r->man[0] = 128;
-								AddUlps (r,	-2);
+								AddUlps (r,	-2, pc);
 							break;
 							
 //		Truncates correctly to double, but not float (needs to be bumped)
-							
 				case 'p': 
 				case 'P':		r->exp	  = 1;
 								r->man[0] = 0xc9;
@@ -386,7 +417,15 @@ void BuildNum (Str90 s, UnpForm *r)
 								r->man[4] = 0x21;
 								r->man[5] = 0x68;
 								r->man[6] = 0xc2;
-								r->man[7] = 0x35;
+								r->man[7] = 0x34;
+								r->man[8] = 0xc4;
+								r->man[9] = 0xc6;
+								r->man[10] = 0x62;
+								r->man[11] = 0x8b;
+								r->man[12] = 0x80;
+								r->man[13] = 0xdc;
+								r->man[14] = 0x1c;
+								r->man[15] = 0xd1;
 							break;
 							
 				case 'q': 
@@ -427,12 +466,12 @@ void BuildNum (Str90 s, UnpForm *r)
 		c = s [aptr++];			//	get i,d,u,p,m specifier
 		DecInteger (s, &d);
 		switch (c) {
-			case 'i':		AddUlps (r,	 d);
+			case 'i':		AddUlps (r,	 d, pc);
 						break;
-			case 'd':		AddUlps (r,	-d);
+			case 'd':		AddUlps (r,	-d, pc);
 						break;
 			case 'u':		for (i = 0; i < MANLEN; i++) r->man[i] = 0;
-							AddUlps (r,	 d);
+							AddUlps (r,	 d, pc);
 						break;
 			case 'p':		AddExp (r,	 d);
 						break;
@@ -452,10 +491,12 @@ void BuildNum (Str90 s, UnpForm *r)
 //	** "word" is the vital issue here.
 //	** Substitute '.b [{?-}' for '.b [?-' for non-Mac orderings.
 //
-#if defined (__ppc__)
+#if (defined(__ppc__) || defined(__ppc64__))
+static
 void FpPack (UnpForm *x, PckForm *a, char pc)
 {
 	short int i, bexp;
+    short save;
 	
 	switch (pc) {
 		case 's':		bexp = x->exp + 127;
@@ -474,7 +515,7 @@ void FpPack (UnpForm *x, PckForm *a, char pc)
                             for (i = 8; i; i--) x->man[8 - i] = 0;
                             x->man[0] = 128;
                         } else if (x->exp > MaxExp) {
-                            bexp = MaxExp +1023;
+                            bexp = MaxExp + 1023;
                             for (i = 8; i; i--) x->man[8 - i] = 0;
                             x->man[0] = 128;
                         }
@@ -483,6 +524,62 @@ void FpPack (UnpForm *x, PckForm *a, char pc)
 						for (i = 6; i; i--)
 							a->b [8 - i] = (x->man[6 - i] % 8) * 32 + x->man[7 - i] / 8;
 						if (x->man[0] < 128 && bexp == 1) a->b [8 - 7] -= 16;
+                    break;
+					
+		case 'g':		bexp = x->exp + 1023;
+                        if (x->exp < MinExp) {
+                            bexp = MinExp + 1023;
+                            for (i = 16; i; i--) x->man[16 - i] = 0;
+                            x->man[0] = 128;
+                        } else if (x->exp > MaxExp) {
+                            bexp = MaxExp + 1023;
+                            for (i = 16; i; i--) x->man[16 - i] = 0;
+                            x->man[0] = 128;
+                        }
+                        
+                        // Allolcate 53 bits to the "head" part
+                        save = x->man[6];
+                        x->man[6] &= 0xf8;
+                        
+						a->b [8 - 8] = bexp / 16 + 128 * x->sgn;
+						a->b [8 - 7] = (bexp % 16) * 16 + (x->man[0] / 8) % 16;
+						for (i = 6; i; i--)
+							a->b [8 - i] = (x->man[6 - i] % 8) * 32 + x->man[7 - i] / 8;
+						if (x->man[0] < 128 && bexp == 1) a->b [8 - 7] -= 16;
+                        
+                        if (isnan(a->ldu.ldh) || isinf(a->ldu.ldh) || a->ldu.ldh == 0.0 || !isnormal(a->ldu.ldh))
+                        {
+                            a->ldu.ldt = 0.0;
+                            return;
+                        }
+                        
+                        // Clear the 53 mantissa bits just consumed by "head" part
+                        x->man[0] = 0;
+                        x->man[1] = 0;
+                        x->man[2] = 0;
+                        x->man[3] = 0;
+                        x->man[4] = 0;
+                        x->man[5] = 0;
+                        x->man[6] = save & 0x07;
+                        
+                        Normalize( x );
+                        
+                        // Now develop "tail" part
+                        bexp = x->exp + 1023;
+                        if (x->exp < MinExp) {
+                            bexp = MinExp + 1023;
+                            for (i = 16; i; i--) x->man[16 - i] = 0;
+                            x->man[0] = 128;
+                        } else if (x->exp > MaxExp) {
+                            bexp = MaxExp + 1023;
+                            for (i = 16; i; i--) x->man[16 - i] = 0;
+                            x->man[0] = 128;
+                        }
+						a->b [16 - 8] = bexp / 16 + 128 * x->sgn;
+						a->b [16 - 7] = (bexp % 16) * 16 + (x->man[0] / 8) % 16;
+						for (i = 6; i; i--)
+							a->b [16 - i] = (x->man[6 - i] % 8) * 32 + x->man[7 - i] / 8;
+						if (x->man[0] < 128 && bexp == 1) a->b [16 - 7] -= 16;
                     break;
 					
 		case 'e':	bexp = x->exp + 16383;
@@ -496,9 +593,11 @@ void FpPack (UnpForm *x, PckForm *a, char pc)
 					a->b [0] = a->b [EXTPAD];
 					a->b [1] = a->b [EXTPAD + 1];
 #endif
+                    break;
 	}
 }
 #elif defined (__i386__)
+static
 void FpPack (UnpForm *x, PckForm *a, char pc)
 {
 	short int i, bexp;
@@ -548,7 +647,7 @@ void FpPack (UnpForm *x, PckForm *a, char pc)
 #error Unknown architecture
 #endif
 
-static double Str90to (Str90 StrArg1, const char *op, const char pc) {
+double Str90to (Str90 StrArg1, const char *op, const char pc) {
 
 short int i;
 	  
@@ -580,6 +679,13 @@ short int i;
 						SigBits	=    53;
 						LowBit	=     8;
 						LowByte	=     7;
+					break;
+					
+		case 'g':		MaxExp	=  1024;
+						MinExp	= -1022;
+						SigBits	=   106;
+						LowBit	=    64;
+						LowByte	=    14;
 					break;
 					
 		case 'e':	MaxExp	= EXTMAXEXP;
@@ -625,7 +731,7 @@ short int i;
 	else if (op [1] == 'r') Nancode = 9;		//	rem
 	else Nancode = 255;
     
-	BuildNum (StrArg1,  &UnpArg1);
+	BuildNum (StrArg1,  &UnpArg1, pc);
 	FpPack   (&UnpArg1, &PckArg1, pc);
 	
 	switch (pc) {
@@ -636,10 +742,30 @@ short int i;
 		case 'l':
 		case 'd':	return PckArg1.u;
 					break;
+                    
+		case 'g':	return PckArg1.ld;
+					break;
 	}
 	return 0;
 }
 
+
+long double Str90toldbl (Str90 StrArg1, const char *op) {	// returns a long double from a Str90
+	double head, tail;
+	(void)Str90to (StrArg1, op, 'g');
+    
+    if (isnormal(PckArg1.ld) && isfinite(PckArg1.ld) && (PckArg1.ld != 0.0L) && 
+        (PckArg1.ld < 0x1.0p32) && (PckArg1.ld > -0x1.0p32)) // renormalize non-zero normal numbers
+    {
+        head = PckArg1.ldu.ldh + PckArg1.ldu.ldt;
+        tail = PckArg1.ldu.ldh - head + PckArg1.ldu.ldt;
+        
+        PckArg1.ldu.ldh = head;
+        PckArg1.ldu.ldt = tail;
+    }
+    
+    return PckArg1.ld;
+}
 
 double Str90todbl (Str90 StrArg1, const char *op) {	// returns a double from a Str90
 	

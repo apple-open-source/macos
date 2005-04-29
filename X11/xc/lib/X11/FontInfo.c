@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/FontInfo.c,v 1.6 2001/12/14 19:54:00 dawes Exp $ */
+/* $XFree86: xc/lib/X11/FontInfo.c,v 1.7 2003/11/17 22:20:06 dawes Exp $ */
 
 #define NEED_REPLIES
 #include "Xlibint.h"
@@ -34,27 +34,16 @@ in this Software without prior written authorization from The Open Group.
 #endif
 #ifdef USE_XF86BIGFONT
 extern void _XF86BigfontFreeFontMetrics(
-#if NeedFunctionPrototypes
     XFontStruct*	/* fs */
-#endif
 );
 #endif
 
-#if NeedFunctionPrototypes
 char **XListFontsWithInfo(
 register Display *dpy,
 _Xconst char *pattern,  /* null-terminated */
 int maxNames,
 int *actualCount,	/* RETURN */
 XFontStruct **info)	/* RETURN */
-#else
-char **XListFontsWithInfo(dpy, pattern, maxNames, actualCount, info)
-register Display *dpy;
-char *pattern;  /* null-terminated */
-int maxNames;
-int *actualCount;	/* RETURN */
-XFontStruct **info;	/* RETURN */
-#endif
 {       
     register long nbytes;
     register int i;

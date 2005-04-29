@@ -15,8 +15,6 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		06AA1265FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -30,8 +28,6 @@
 			name = Development;
 		};
 		06AA1266FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -96,7 +92,6 @@
 				06AA1264FFB2107B11CA28AA,
 			);
 			buildSettings = {
-				DEBUGGING_SYMBOLS = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -104,8 +99,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleK2SATA;
-				MODULE_VERSION = 1.0.2f4;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.0.4f2;
+				OTHER_CFLAGS = "-mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleK2SATA;
@@ -142,11 +137,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.2</string>
+	<string>1.0.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.2f4</string>
+	<string>1.0.4f2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleK2SATA</key>
@@ -259,8 +254,7 @@
 //0B4
 		0B81C263FFB7832611CA28AA = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = AppleK2SATA.kext;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;

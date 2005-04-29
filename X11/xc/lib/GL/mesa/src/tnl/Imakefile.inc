@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/GL/mesa/src/tnl/Imakefile.inc,v 1.2 2002/11/14 21:01:17 tsi Exp $
+XCOMM $XFree86: xc/lib/GL/mesa/src/tnl/Imakefile.inc,v 1.3 2003/09/28 20:15:40 alanh Exp $
 
 #ifndef MesaTnlBuildDir
 #define MesaTnlBuildDir $(GLXLIBSRC)/mesa/src/tnl/
@@ -23,6 +23,7 @@ MESATNLBUILDDIR = MesaTnlBuildDir
 		  $(MESATNLBUILDDIR)t_vb_light.c \
 		  $(MESATNLBUILDDIR)t_vb_normals.c \
 		  $(MESATNLBUILDDIR)t_vb_points.c \
+		  $(MESATNLBUILDDIR)t_vb_program.c \
 		  $(MESATNLBUILDDIR)t_vb_render.c \
 		  $(MESATNLBUILDDIR)t_vb_texgen.c \
 		  $(MESATNLBUILDDIR)t_vb_texmat.c \
@@ -46,6 +47,7 @@ LinkSourceFile(t_vb_fog.c, $(MESASRCDIR)/src/tnl)
 LinkSourceFile(t_vb_light.c, $(MESASRCDIR)/src/tnl)
 LinkSourceFile(t_vb_normals.c, $(MESASRCDIR)/src/tnl)
 LinkSourceFile(t_vb_points.c, $(MESASRCDIR)/src/tnl)
+LinkSourceFile(t_vb_program.c, $(MESASRCDIR)/src/tnl)
 LinkSourceFile(t_vb_render.c, $(MESASRCDIR)/src/tnl)
 LinkSourceFile(t_vb_texgen.c, $(MESASRCDIR)/src/tnl)
 LinkSourceFile(t_vb_texmat.c, $(MESASRCDIR)/src/tnl)
@@ -69,6 +71,7 @@ LinkSourceFile(t_vb_vertex.c, $(MESASRCDIR)/src/tnl)
 		  $(MESATNLBUILDDIR)t_vb_light.o \
 		  $(MESATNLBUILDDIR)t_vb_normals.o \
 		  $(MESATNLBUILDDIR)t_vb_points.o \
+		  $(MESATNLBUILDDIR)t_vb_program.o \
 		  $(MESATNLBUILDDIR)t_vb_render.o \
 		  $(MESATNLBUILDDIR)t_vb_texgen.o \
 		  $(MESATNLBUILDDIR)t_vb_texmat.o \
@@ -92,6 +95,7 @@ LinkSourceFile(t_vb_vertex.c, $(MESASRCDIR)/src/tnl)
 		  $(MESATNLBUILDDIR)unshared/t_vb_light.o \
 		  $(MESATNLBUILDDIR)unshared/t_vb_normals.o \
 		  $(MESATNLBUILDDIR)unshared/t_vb_points.o \
+		  $(MESATNLBUILDDIR)unshared/t_vb_program.o \
 		  $(MESATNLBUILDDIR)unshared/t_vb_render.o \
 		  $(MESATNLBUILDDIR)unshared/t_vb_texgen.o \
 		  $(MESATNLBUILDDIR)unshared/t_vb_texmat.o \
@@ -117,6 +121,7 @@ LinkSourceFile(t_vb_vertex.c, $(MESASRCDIR)/src/tnl)
 		  $(MESATNLBUILDDIR)debugger/t_vb_light.o \
 		  $(MESATNLBUILDDIR)debugger/t_vb_normals.o \
 		  $(MESATNLBUILDDIR)debugger/t_vb_points.o \
+		  $(MESATNLBUILDDIR)debugger/t_vb_program.o \
 		  $(MESATNLBUILDDIR)debugger/t_vb_render.o \
 		  $(MESATNLBUILDDIR)debugger/t_vb_texgen.o \
 		  $(MESATNLBUILDDIR)debugger/t_vb_texmat.o \
@@ -139,6 +144,7 @@ LinkSourceFile(t_vb_vertex.c, $(MESASRCDIR)/src/tnl)
 		  $(MESATNLBUILDDIR)profiled/t_vb_light.o \
 		  $(MESATNLBUILDDIR)profiled/t_vb_normals.o \
 		  $(MESATNLBUILDDIR)profiled/t_vb_points.o \
+		  $(MESATNLBUILDDIR)profiled/t_vb_program.o \
 		  $(MESATNLBUILDDIR)profiled/t_vb_render.o \
 		  $(MESATNLBUILDDIR)profiled/t_vb_texgen.o \
 		  $(MESATNLBUILDDIR)profiled/t_vb_texmat.o \

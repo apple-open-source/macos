@@ -1,0 +1,310 @@
+#--------------------------------------------------------------------
+# Sample configure.in for Tcl Extensions.  The only places you should
+# need to modify this file are marked by the string __CHANGE__
+#--------------------------------------------------------------------
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# This very first macro is used to verify that the configure script can
+# find the sources.  The argument to AC_INIT should be a unique filename
+# for this package, and can be a relative path, such as:
+#
+# AC_INIT(../generic/tcl.h)
+#--------------------------------------------------------------------
+
+AC_INIT(./tclexpat.c)
+AC_CONFIG_AUX_DIR(../../../config)
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# Set your package name and version numbers here.  The NODOT_VERSION is
+# required for constructing the library name on systems that don't like
+# dots in library names (Windows).  The VERSION variable is used on the
+# other systems.
+#--------------------------------------------------------------------
+
+PACKAGE=xotclexpat
+
+# do not modify the following lines manually, they are generated with changeXOTclVersion
+XOTCL_MAJOR_VERSION=1
+XOTCL_MINOR_VERSION=2
+XOTCL_RELEASE_LEVEL=.0
+
+MAJOR_VERSION=${XOTCL_MAJOR_VERSION}
+MINOR_VERSION=${XOTCL_MINOR_VERSION}
+PATCHLEVEL=${XOTCL_RELEASE_LEVEL}
+
+VERSION=${MAJOR_VERSION}.${MINOR_VERSION}
+NODOT_VERSION=${MAJOR_VERSION}${MINOR_VERSION}
+
+AC_SUBST(PATCHLEVEL)
+AC_SUBST(PACKAGE)
+AC_SUBST(VERSION)
+
+#--------------------------------------------------------------------
+# We put this here so that you can compile with -DVERSION="1.2" to
+# encode the package version directly into the source files.
+#--------------------------------------------------------------------
+
+eval AC_DEFINE_UNQUOTED(VERSION, "${VERSION}")
+
+#--------------------------------------------------------------------
+# Check whether --enable-gcc or --disable-gcc was given.  Do this
+# before AC_CYGWIN is called so the compiler can
+# be fully tested by built-in autoconf tools.
+# This macro also calls AC_PROG_CC to set the compiler if --enable-gcc
+# was not used.
+#--------------------------------------------------------------------
+
+SC_ENABLE_GCC
+AC_PROG_INSTALL
+
+#--------------------------------------------------------------------
+# Checks to see if the make program sets the $MAKE variable.
+#--------------------------------------------------------------------
+
+AC_PROG_MAKE_SET
+
+#--------------------------------------------------------------------
+# Find ranlib
+#--------------------------------------------------------------------
+
+AC_PROG_RANLIB
+
+#--------------------------------------------------------------------
+# This macro performs additional compiler tests.
+#--------------------------------------------------------------------
+
+AC_CYGWIN
+
+#--------------------------------------------------------------------
+# Determines the correct binary file extension (.o, .obj, .exe etc.)
+#--------------------------------------------------------------------
+
+AC_OBJEXT
+AC_EXEEXT
+
+#--------------------------------------------------------------------
+# "cygpath" is used on windows to generate native path names for include
+# files.
+# These variables should only be used with the compiler and linker since
+# they generate native path names.
+#
+# Unix tclConfig.sh points SRC_DIR at the top-level directory of
+# the Tcl sources, while the Windows tclConfig.sh points SRC_DIR at
+# the win subdirectory.  Hence the different usages of SRC_DIR below.
+#
+# This must be done before calling SC_PUBLIC_TCL_HEADERS
+#--------------------------------------------------------------------
+
+case "`uname -s`" in
+    *win32* | *WIN32* | *CYGWIN_NT*)
+	CYGPATH="cygpath -w"
+    ;;
+    *)
+	CYGPATH=echo
+    ;;
+esac
+
+AC_SUBST(CYGPATH)
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# Choose which headers you need.  Extension authors should try very
+# hard to only rely on the Tcl public header files.  Internal headers
+# contain private data structures and are subject to change without
+# notice.
+# This MUST be called before SC_PATH_TCLCONFIG/SC_LOAD_TCLCONFIG
+#--------------------------------------------------------------------
+
+#SC_PUBLIC_TCL_HEADERS
+SC_PRIVATE_TCL_HEADERS
+
+if test x"${with_tclinclude}" != x ; then
+   if test -f "${with_tclinclude}/tcl.h" ; then
+      TCL_INCLUDES="-I${with_tclinclude} ${TCL_INCLUDES}"
+   else
+      AC_MSG_ERROR([${with_tclinclude} directory does not contain Tcl header file tcl.h])
+   fi
+fi
+
+#--------------------------------------------------------------------
+# Load the tclConfig.sh file
+#--------------------------------------------------------------------
+
+SC_PATH_TCLCONFIG
+SC_LOAD_TCLCONFIG
+
+#--------------------------------------------------------------------
+# Load the xotclConfig.sh file
+#--------------------------------------------------------------------
+
+SC_PATH_XOTCLCONFIG
+SC_LOAD_XOTCLCONFIG
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# A few miscellaneous platform-specific items:
+#
+# Define a special symbol for Windows (BUILD_exampleA in this case) so
+# that we create the export library with the dll.  See sha1.h on how
+# to use this.
+#
+# Windows creates a few extra files that need to be cleaned up.
+# You can add more files to clean if your extension creates any extra
+# files.
+#
+# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
+# These will be appended to the current set of compiler flags for
+# your system.
+#--------------------------------------------------------------------
+
+case "`uname -s`" in
+    *win32* | *WIN32* | *CYGWIN_NT*)
+	AC_DEFINE(BUILD_xotclexpat)
+	CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc50.pch vc60.pch"
+	AC_SUBST(CLEANFILES)
+    ;;
+    *)
+	CLEANFILES=
+    ;;
+esac
+
+#--------------------------------------------------------------------
+# Check whether --enable-threads or --disable-threads was given.
+# So far only Tcl responds to this one.
+#--------------------------------------------------------------------
+
+SC_ENABLE_THREADS
+
+#--------------------------------------------------------------------
+# The statement below defines a collection of symbols related to
+# building as a shared library instead of a static library.
+#--------------------------------------------------------------------
+
+SC_ENABLE_SHARED
+
+#--------------------------------------------------------------------
+# This macro figures out what flags to use with the compiler/linker
+# when building shared/static debug/optimized objects.  This information
+# is all taken from the tclConfig.sh file.
+#--------------------------------------------------------------------
+
+CFLAGS_DEBUG=${TCL_CFLAGS_DEBUG}
+CFLAGS_OPTIMIZE=${TCL_CFLAGS_OPTIMIZE}
+LDFLAGS_DEBUG=${TCL_LDFLAGS_DEBUG}
+LDFLAGS_OPTIMIZE=${TCL_LDFLAGS_OPTIMIZE}
+SHLIB_LD=${TCL_SHLIB_LD}
+STLIB_LD=${TCL_STLIB_LD}
+SHLIB_CFLAGS=${TCL_SHLIB_CFLAGS}
+
+AC_SUBST(CFLAGS_DEBUG)
+AC_SUBST(CFLAGS_OPTIMIZE)
+AC_SUBST(STLIB_LD)
+AC_SUBST(SHLIB_LD)
+AC_SUBST(SHLIB_CFLAGS)
+AC_SUBST(SHLIB_LDFLAGS)
+
+#--------------------------------------------------------------------
+# Set the default compiler switches based on the --enable-symbols
+# option.
+#--------------------------------------------------------------------
+
+SC_ENABLE_SYMBOLS
+
+if test "${SHARED_BUILD}" = "1" ; then
+    CFLAGS='${CFLAGS_DEFAULT} ${CFLAGS_WARNING} ${SHLIB_CFLAGS}'
+else
+    CFLAGS='${CFLAGS_DEFAULT} ${CFLAGS_WARNING}'
+fi
+
+#--------------------------------------------------------------------
+# Everyone should be linking against the Tcl stub library.  If you
+# can't for some reason, remove this definition.  If you aren't using
+# stubs, you also need to modify the SHLIB_LD_LIBS setting below to
+# link against the non-stubbed Tcl library.
+#--------------------------------------------------------------------
+
+if test "${TCL_MAJOR_VERSION}" = "8" -a "${TCL_MINOR_VERSION}" = "0"; then
+	echo "Tcl 8.0, no stubs used"
+	USE_TCL_STUBS=""
+else
+	AC_DEFINE(USE_TCL_STUBS)
+	AC_DEFINE(USE_XOTCL_STUBS)
+fi
+
+#--------------------------------------------------------------------
+# This macro generates a line to use when building a library.  It
+# depends on values set by the SC_ENABLE_SHARED, SC_ENABLE_SYMBOLS,
+# and SC_LOAD_TCLCONFIG macros above.
+#--------------------------------------------------------------------
+
+SC_MAKE_LIB
+
+#--------------------------------------------------------------------
+# eval these two values to dereference the ${DBGX} variable.
+#--------------------------------------------------------------------
+
+#eval "SHARED_LIB_SUFFIX=${TCL_SHARED_LIB_SUFFIX}"
+#eval "UNSHARED_LIB_SUFFIX=${TCL_UNSHARED_LIB_SUFFIX}"
+
+SHARED_LIB_SUFFIX=${XOTCL_SHARED_LIB_SUFFIX}
+UNSHARED_LIB_SUFFIX=${XOTCL_UNSHARED_LIB_SUFFIX}
+
+#--------------------------------------------------------------------
+# Shared libraries and static libraries have different names.
+#--------------------------------------------------------------------
+
+case "`uname -s`" in
+    *win32* | *WIN32* | *CYGWIN_NT*)
+	if test "${SHARED_BUILD}" = "1" ; then
+	    SHLIB_LD_LIBS="\"`cygpath -w ${TCL_BIN_DIR}/${TCL_STUB_LIB_FILE}`\" \"`cygpath -w ${XOTCL_BUILD_STUB_LIB_PATH}`\" ${TCL_SHLIB_LD_LIBS}"
+	    eval "${PACKAGE}_LIB_FILE=${PACKAGE}${SHARED_LIB_SUFFIX}"
+	    RANLIB=:
+	else
+	    eval "${PACKAGE}_LIB_FILE=${PACKAGE}${UNSHARED_LIB_SUFFIX}"
+	fi
+	;;
+    *)
+	if test "${SHARED_BUILD}" = "1" ; then
+            #SHLIB_LD_LIBS="${TCL_BUILD_STUB_LIB_SPEC} ${XOTCL_BUILD_STUB_LIB_SPEC}"
+	    SHLIB_LD_LIBS="${TCL_STUB_LIB_SPEC} ${XOTCL_BUILD_STUB_LIB_SPEC}"
+	    eval "${PACKAGE}_LIB_FILE=lib${PACKAGE}${SHARED_LIB_SUFFIX}"
+	    RANLIB=:
+	else
+	    eval "${PACKAGE}_LIB_FILE=lib${PACKAGE}${UNSHARED_LIB_SUFFIX}"
+	fi
+	;;
+esac
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# Change the name from exampeA_LIB_FILE to match your package name.
+#--------------------------------------------------------------------
+
+AC_SUBST(xotclexpat_LIB_FILE)
+AC_SUBST(SHLIB_LD_LIBS)
+
+#--------------------------------------------------------------------
+# Find tclsh so that we can run pkg_mkIndex to generate the pkgIndex.tcl
+# file during the install process.  Don't run the TCLSH_PROG through
+# ${CYGPATH} because it's being used directly by make.
+# Require that we use a tclsh shell version 8.2 or later since earlier
+# versions have bugs in the pkg_mkIndex routine.
+#--------------------------------------------------------------------
+
+SC_PROG_TCLSH
+
+#--------------------------------------------------------------------
+# Finally, substitute all of the various values into the Makefile.
+#--------------------------------------------------------------------
+
+AC_OUTPUT(Makefile)
+
+
+
+
+
+
+
+

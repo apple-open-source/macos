@@ -655,8 +655,11 @@ mod_perl_slurp_filename(r)
     Apache r
 
 char *
-unescape_url(string)
-char *string
+unescape_url(sv)
+SV *sv
+
+    INIT:
+    char *string = SvPV_force(sv, PL_na);
 
     CODE:
     unescape_url(string);
@@ -982,7 +985,7 @@ void
 read_client_block(r, buffer, bufsiz)
     Apache	r
     SV    *buffer
-    int      bufsiz
+    STRLEN   bufsiz
 
     PREINIT:
     long nrd = 0, old_read_length;
@@ -1034,7 +1037,7 @@ void
 get_client_block(r, buffer, bufsiz)
     Apache	r
     SV    *buffer
-    int      bufsiz
+    STRLEN   bufsiz
 
     PREINIT:
     long nrd = 0;
@@ -1131,7 +1134,8 @@ print(r, ...)
 	sv_setiv(sendh, 0);
     }
     else {
-	CV *cv = GvCV(gv_fetchpv("Apache::write_client", FALSE, SVt_PVCV));
+        /* should exist already */
+        CV *cv = GvCV(gv_fetchpv("Apache::write_client", GV_ADDWARN, SVt_PVCV));
 	soft_timeout("mod_perl: Apache->print", r);
 	PUSHMARK(mark);
 #ifdef PERL_OBJECT
@@ -1959,8 +1963,22 @@ finfo(r, sv_statbuf=Nullsv)
             croak("statbuf is not an object");
         }
     }
-
+/* workaround for USE_LARGE_FILES on WIN32 ActivePerl 8xx */
+#if defined(WIN32) && defined(USE_LARGE_FILES)
+    statcache.st_dev = r->finfo.st_dev;
+    statcache.st_ino = r->finfo.st_ino;
+    statcache.st_mode = r->finfo.st_mode;
+    statcache.st_nlink = r->finfo.st_nlink;
+    statcache.st_uid = r->finfo.st_uid;
+    statcache.st_gid = r->finfo.st_gid;
+    statcache.st_rdev = r->finfo.st_rdev;
+    statcache.st_size = (__int64) r->finfo.st_size;
+    statcache.st_atime = r->finfo.st_atime;
+    statcache.st_mtime = r->finfo.st_mtime;
+    statcache.st_ctime = r->finfo.st_ctime;
+#else
     statcache = r->finfo;
+#endif
     if (r->finfo.st_mode) {
 	laststatval = 0;
         sv_setpv(statname, r->filename);

@@ -31,15 +31,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* APPLE LOCAL begin libm */
-/* Libm-39 provides it. */
-#if 0
-/* APPLE LOCAL end libm */
 double
 nan ()
 { return strtod ("nan", NULL); }
-
-/* APPLE LOCAL begin libm */
-#endif
-/* APPLE LOCAL end libm */
-

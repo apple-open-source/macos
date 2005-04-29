@@ -1,8 +1,8 @@
 #
 #   forwardable.rb - 
 #   	$Release Version: 1.1$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:48 $
+#   	$Revision: 1.2 $
+#   	$Date: 2001/11/03 13:41:57 $
 #   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #	original definition by delegator.rb
 # --

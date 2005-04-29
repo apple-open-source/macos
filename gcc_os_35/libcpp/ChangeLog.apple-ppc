@@ -1,0 +1,14 @@
+2004-08-03  Stan Shebs  <shebs@apple.com>
+
+	Support for CodeWarrior-style assembly language blocks and
+	functions.  Radar 3368707.
+	* include/cpplib.h (CPP_BOL, CPP_EOL): Define.
+	* internal.h (struct cpp_context): New field bol_p.
+	* lex.c (lex_identifier): Handle special chars in opcodes.
+	(cw_asm_label_follows): New global.
+	(_cpp_lex_direct): Special handling for @-labels,
+	flag end of operands when ';' seen.
+	* macro.c (enter_macro_context): Add bol_p argument and use.
+	(push_ptoken_context): Seed bol_p field.
+	(push_token_context): Ditto.
+	(cpp_get_token): Detect tokens at beginning of line and record.

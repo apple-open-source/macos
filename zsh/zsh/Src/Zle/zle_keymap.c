@@ -156,7 +156,7 @@ createkeymapnamtab(void)
 static KeymapName
 makekeymapnamnode(Keymap keymap)
 {
-    KeymapName kmn = (KeymapName) zcalloc(sizeof(*kmn));
+    KeymapName kmn = (KeymapName) zshcalloc(sizeof(*kmn));
 
     kmn->keymap = keymap;
     return kmn;
@@ -169,8 +169,7 @@ freekeymapnamnode(HashNode hn)
     KeymapName kmn = (KeymapName) hn;
 
     zsfree(kmn->nam);
-    if(!--kmn->keymap->rc)
-	deletekeymap(kmn->keymap);
+    unrefkeymap(kmn->keymap);
     zfree(kmn, sizeof(*kmn));
 }
 
@@ -201,7 +200,7 @@ newkeytab(char *kmname)
 static Key
 makekeynode(Thingy t, char *str)
 {
-    Key k = (Key) zcalloc(sizeof(*k));
+    Key k = (Key) zshcalloc(sizeof(*k));
 
     k->bind = t;
     k->str = str;
@@ -230,7 +229,7 @@ static HashTable copyto;
 mod_export Keymap
 newkeymap(Keymap tocopy, char *kmname)
 {
-    Keymap km = zcalloc(sizeof(*km));
+    Keymap km = zshcalloc(sizeof(*km));
     int i;
 
     km->rc = 0;
@@ -249,7 +248,7 @@ newkeymap(Keymap tocopy, char *kmname)
 
 /**/
 static void
-scancopykeys(HashNode hn, int flags)
+scancopykeys(HashNode hn, UNUSED(int flags))
 {
     Key k = (Key) hn;
     Key kn = zalloc(sizeof(*k));
@@ -302,7 +301,7 @@ scankeymap(Keymap km, int sort, KeyScanFunc func, void *magic)
 
 /**/
 static void
-scankeys(HashNode hn, int flags)
+scankeys(HashNode hn, UNUSED(int flags))
 {
     Key k = (Key) hn;
     int f = k->nam[0] == Meta ? STOUC(k->nam[1])^32 : STOUC(k->nam[0]);
@@ -355,8 +354,7 @@ linkkeymap(Keymap km, char *name, int imm)
 	    return 1;
 	if(n->keymap == km)
 	    return 0;
-	if(!--n->keymap->rc)
-	    deletekeymap(n->keymap);
+	unrefkeymap(n->keymap);
 	n->keymap = km;
     } else {
 	n = makekeymapnamnode(km);
@@ -364,8 +362,21 @@ linkkeymap(Keymap km, char *name, int imm)
 	    n->flags |= KMN_IMMORTAL;
 	keymapnamtab->addnode(keymapnamtab, ztrdup(name), n);
     }
-    km->rc++;
+    refkeymap(km);
     return 0;
+}
+
+/**/
+void refkeymap(Keymap km)
+{
+    km->rc++;
+}
+
+/**/
+void unrefkeymap(Keymap km)
+{
+    if (!--km->rc)
+	deletekeymap(km);
 }
 
 /* Select a keymap as the current ZLE keymap.  Can optionally fall back *
@@ -604,7 +615,7 @@ keyisprefix(Keymap km, char *seq)
 
 /**/
 int
-bin_bindkey(char *name, char **argv, Options ops, int func)
+bin_bindkey(char *name, char **argv, Options ops, UNUSED(int func))
 {
     static struct opn {
 	char o;
@@ -696,7 +707,7 @@ bin_bindkey(char *name, char **argv, Options ops, int func)
 
 /**/
 static int
-bin_bindkey_lsmaps(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
+bin_bindkey_lsmaps(UNUSED(char *name), UNUSED(char *kmname), UNUSED(Keymap km), UNUSED(char **argv), Options ops, UNUSED(char func))
 {
     scanhashtable(keymapnamtab, 1, 0, 0, scanlistmaps, OPT_ISSET(ops,'L'));
     return 0;
@@ -722,7 +733,7 @@ scanlistmaps(HashNode hn, int list)
 
 /**/
 static int
-bin_bindkey_delall(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
+bin_bindkey_delall(UNUSED(char *name), UNUSED(char *kmname), UNUSED(Keymap km), UNUSED(char **argv), UNUSED(Options ops), UNUSED(char func))
 {
     keymapnamtab->emptytable(keymapnamtab);
     default_bindings();
@@ -733,7 +744,7 @@ bin_bindkey_delall(char *name, char *kmname, Keymap km, char **argv, Options ops
 
 /**/
 static int
-bin_bindkey_del(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
+bin_bindkey_del(char *name, UNUSED(char *kmname), UNUSED(Keymap km), char **argv, UNUSED(Options ops), UNUSED(char func))
 {
     int ret = 0;
 
@@ -752,7 +763,7 @@ bin_bindkey_del(char *name, char *kmname, Keymap km, char **argv, Options ops, c
 
 /**/
 static int
-bin_bindkey_link(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
+bin_bindkey_link(char *name, UNUSED(char *kmname), Keymap km, char **argv, UNUSED(Options ops), UNUSED(char func))
 {
     km = openkeymap(argv[0]);
     if(!km) {
@@ -769,7 +780,7 @@ bin_bindkey_link(char *name, char *kmname, Keymap km, char **argv, Options ops, 
 
 /**/
 static int
-bin_bindkey_new(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
+bin_bindkey_new(char *name, UNUSED(char *kmname), Keymap km, char **argv, UNUSED(Options ops), UNUSED(char func))
 {
     KeymapName kmn = (KeymapName) keymapnamtab->getnode(keymapnamtab, argv[0]);
 
@@ -797,7 +808,7 @@ bin_bindkey_new(char *name, char *kmname, Keymap km, char **argv, Options ops, c
 
 /**/
 static int
-bin_bindkey_meta(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
+bin_bindkey_meta(char *name, char *kmname, Keymap km, UNUSED(char **argv), UNUSED(Options ops), UNUSED(char func))
 {
     char m[3], *str;
     int i;
@@ -905,7 +916,7 @@ bin_bindkey_bind(char *name, char *kmname, Keymap km, char **argv, Options ops, 
 
 /**/
 static void
-scanremoveprefix(char *seq, Thingy bind, char *str, void *magic)
+scanremoveprefix(char *seq, UNUSED(Thingy bind), UNUSED(char *str), void *magic)
 {
     struct remprefstate *rps = magic;
 
@@ -921,7 +932,7 @@ scanremoveprefix(char *seq, Thingy bind, char *str, void *magic)
 
 /**/
 static int
-bin_bindkey_list(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
+bin_bindkey_list(char *name, char *kmname, Keymap km, char **argv, Options ops, UNUSED(char func))
 {
     struct bindstate bs;
 
@@ -1257,11 +1268,11 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
 {
     Thingy func = t_undefinedkey;
     char *str = NULL;
-    int lastlen = 0, lastc = c;
+    int lastlen = 0, lastc = lastchar;
 
     keybuflen = 0;
     keybuf[0] = 0;
-    while((c = getkeybuf(!!lastlen)) != EOF) {
+    while((lastchar = getkeybuf(!!lastlen)) != EOF) {
 	char *s;
 	Thingy f;
 	int loc = 1;
@@ -1274,7 +1285,7 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
 	    lastlen = keybuflen;
 	    func = f;
 	    str = s;
-	    lastc = c;
+	    lastc = lastchar;
 	}
 	if(!keyisprefix((loc ? localkeymap : km), keybuf))
 	    break;
@@ -1282,7 +1293,7 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
     if(!lastlen && keybuflen)
 	lastlen = keybuflen;
     else
-	c = lastc;
+	lastchar = lastc;
     if(lastlen != keybuflen) {
 	unmetafy(keybuf + lastlen, &keybuflen);
 	ungetkeys(keybuf+lastlen, keybuflen);

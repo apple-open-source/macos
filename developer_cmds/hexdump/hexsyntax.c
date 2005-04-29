@@ -1,5 +1,3 @@
-/*	$NetBSD: hexsyntax.c,v 1.8 1998/04/08 23:48:57 jeremy Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,14 +31,13 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)hexsyntax.c	8.2 (Berkeley) 5/4/95";
-#else
-__RCSID("$NetBSD: hexsyntax.c,v 1.8 1998/04/08 23:48:57 jeremy Exp $");
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/hexdump/hexsyntax.c,v 1.12 2002/09/04 23:29:01 dwmalone Exp $");
 
 #include <sys/types.h>
 
@@ -55,14 +52,19 @@ __RCSID("$NetBSD: hexsyntax.c,v 1.8 1998/04/08 23:48:57 jeremy Exp $");
 off_t skip;				/* bytes to skip */
 
 void
-newsyntax(argc, argvp)
-	int argc;
-	char ***argvp;
+newsyntax(int argc, char ***argvp)
 {
 	int ch;
 	char *p, **argv;
 
 	argv = *argvp;
+	if ((p = rindex(argv[0], 'h')) != NULL &&
+	    strcmp(p, "hd") == 0) {
+		/* "Canonical" format, implies -C. */
+		add("\"%08.8_Ax\n\"");
+		add("\"%08.8_ax  \" 8/1 \"%02x \" \"  \" 8/1 \"%02x \" ");
+		add("\"  |\" 16/1 \"%_p\" \"|\\n\"");
+	}
 	while ((ch = getopt(argc, argv, "bcCde:f:n:os:vx")) != -1)
 		switch (ch) {
 		case 'b':
@@ -134,10 +136,12 @@ newsyntax(argc, argvp)
 }
 
 void
-usage()
+usage(void)
 {
-	(void)fprintf(stderr,
-"hexdump: [-bcCdovx] [-e fmt] [-f fmt_file] [-n length] [-s skip] [file ...]\n"
-	);
+	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n",
+"usage: hexdump [-bcCdovx] [-e fmt] [-f fmt_file] [-n length]",
+"               [-s skip] [file ...]",
+"       hd      [-bcdovx]  [-e fmt] [-f fmt_file] [-n length]",
+"               [-s skip] [file ...]");
 	exit(1);
 }

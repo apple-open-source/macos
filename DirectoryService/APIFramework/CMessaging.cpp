@@ -167,7 +167,7 @@ sInt32 CMessaging::OpenCommPort ( void )
 #ifndef SERVERINTERNAL
 	siStatus	= eMemoryAllocError;
 
-	fCommPort = new CClientEndPoint( kDSServiceName );
+	fCommPort = new CClientEndPoint( kDSStdMachPortName );
 	if ( fCommPort != nil )
 	{
 		siStatus = fCommPort->Initialize();
@@ -339,13 +339,13 @@ sInt32 CMessaging::GetReplyMessage ( void )
 		
 		if (result == eServerSendError)
 		{
-			syslog(LOG_INFO,"DirectoryService Framework::CMessaging::Mach msg receiver error - out of order mach msgs.");
+			syslog(LOG_ALERT,"DirectoryService Framework::CMessaging::Mach msg receiver error - out of order mach msgs.");
 		}
 	
 		//if the mach reply failed due to an interrupt then we need to reset the entire session
 		if (result == eDSCannotAccessSession)
 		{
-			syslog(LOG_INFO,"DirectoryService Framework::CMessaging::Mach msg receiver interrupt error = %d", result);
+			syslog(LOG_ALERT,"DirectoryService Framework::CMessaging::Mach msg receiver interrupt error = %d", result);
 		
 			gResetSession = true;
 		}
@@ -412,6 +412,7 @@ sInt32 CMessaging::SendInlineMessage ( uInt32 inMsgType )
 	aMsgData->type.msgt_longform	= false;
 	aMsgData->type.msgt_deallocate	= false;
 	aMsgData->type.msgt_unused		= 0;
+	aMsgData->fPID					= 0; // set the pid to 0 so we know it was internal dispatch
 
     handler.HandleRequest(&aMsgData);
 	
@@ -454,7 +455,7 @@ sInt32 CMessaging::SendInlineMessage ( uInt32 inMsgType )
 		//if the mach send was interrupted then we need to reset the entire session
 		if (result == eDSCannotAccessSession)
 		{
-			syslog(LOG_INFO,"DirectoryService Framework::CMessaging::Mach msg send interrupt error = %d.",result);
+			syslog(LOG_ALERT,"DirectoryService Framework::CMessaging::Mach msg send interrupt error = %d.",result);
 	
 			gResetSession = true;
 		}
@@ -1244,6 +1245,24 @@ void CMessaging::Lock ( void )
 #endif
 } // Lock
 
+//------------------------------------------------------------------------------------
+//	* ResetMessageBlock
+//------------------------------------------------------------------------------------
+
+void CMessaging::ResetMessageBlock( void )
+{
+	// let's free and reallocate the block if it isn't the default block size so we don't grow memory
+	if( kMsgBlockSize != fMsgData->fDataSize )
+	{
+		free( fMsgData );
+		fMsgData = (sComData *)::calloc( 1, sizeof( sComData ) + kMsgBlockSize );
+		if ( fMsgData != nil )
+		{
+			fMsgData->fDataSize		= kMsgBlockSize;
+			fMsgData->fDataLength	= 0;
+		}				
+	}
+} // ResetMessageBlock
 
 //------------------------------------------------------------------------------------
 //	* Unlock
@@ -1264,6 +1283,7 @@ void CMessaging::Unlock ( void )
 		{
 			if ( fLock != nil )
 			{
+				ResetMessageBlock();
 				fLock->Signal();
 			}
 		}
@@ -1272,6 +1292,7 @@ void CMessaging::Unlock ( void )
 	{
 		if ( fLock != nil )
 		{
+			ResetMessageBlock();
 			fLock->Signal();
 		}
 	}
@@ -1382,9 +1403,7 @@ bool CMessaging::IsThreadUsingInternalDispatchBuffering( OSType inThreadSig )
 {
 	bool	isInternalDispatchThread = false;
 	
-	if (	(inThreadSig == DSCThread::kTSHandlerThread) ||
-			(inThreadSig == DSCThread::kTSInternalHandlerThread) ||
-			(inThreadSig == DSCThread::kTSCheckpwHandlerThread) ||
+	if (	(inThreadSig == DSCThread::kTSMigHandlerThread) ||
 			(inThreadSig == DSCThread::kTSTCPConnectionThread) ||
 			(inThreadSig == DSCThread::kTSLauncherThread) ||
 			(inThreadSig == DSCThread::kTSPlugInHndlrThread) )

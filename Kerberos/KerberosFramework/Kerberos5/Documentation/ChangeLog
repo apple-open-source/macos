@@ -1,3 +1,62 @@
+2005-01-03  Ken Raeburn  <raeburn@mit.edu>
+
+	* build.texinfo (The util Directory): Add the new support
+	library.
+	(Installing the Binaries): Discuss parallel builds under GNU
+	make.
+
+	* implementor.texinfo (Host Address Lookup): Document Mac OS X
+	issues.
+
+	* threads.txt, thread-safety.txt: Updates.
+
+2004-11-19  Tom Yu  <tlyu@mit.edu>
+
+	* build.texinfo (Solaris 9): Document Solaris patches for pty
+	close bug.
+
+2004-10-06  Ken Raeburn  <raeburn@mit.edu>
+
+	* implementor.texinfo, thread-safe.txt, threads.txt: Various
+	updates relating to thread support.
+
+2004-09-07  Tom Yu  <tlyu@mit.edu>
+
+	* install.texinfo (Propagate the Database to Each Slave KDC):
+	Remove spurious "-R" flag from kdb5_util invocation.
+
+2004-09-02  Tom Yu  <tlyu@mit.edu>
+
+	* build.texinfo: Fix some typos.
+	(Build Requirements): Note ANSI C (c89) requirement.
+	(Alpha OSF/1 V4.0): Document "-std0" vs "-std" cc behavior.
+
+2004-07-20  Ken Raeburn  <raeburn@mit.edu>
+
+	* implementor.texinfo: Changed @code to @file where files are
+	referenced.
+	(NetBSD Shared Library Support, Solaris Shared Library Support):
+	Outdated sections deleted.
+	(Shared Library Theory): Fixed typo.
+	(Advanced Shared Library Requirements): New section.
+	(Thread Safety): Rewrite; add subsections.
+	(Compiler and OS Requirements): New section.
+
+2004-06-10  Ken Raeburn  <raeburn@mit.edu>
+
+	* admin.texinfo (Supported Encryption Types): Reflect new AES
+	support in GSSAPI, but keep a warning about interoperability with
+	old versions.
+
+2004-06-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* threads.txt, thread-safe.txt: New files.
+
+2004-02-13  Tom Yu  <tlyu@mit.edu>
+
+	* build.texinfo (Solaris 9): Add section describing workaround for
+	Solaris 9 pty-close kernel bug.
+
 2003-07-25  Ken Raeburn  <raeburn@mit.edu>
 
 	* admin.texinfo (realms (krb5.conf)): Add description of
@@ -23,6 +82,12 @@
 2003-06-18  Tom Yu  <tlyu@mit.edu>
 
 	* dnssrv.texinfo: Add note about _kerberos-iv._udp SRV records.
+
+2003-06-05  Tom Yu  <tlyu@mit.edu>
+
+	* procedures.txt: New file.  Draft of current procedures.
+	Currently mostly contains a few email messages from Sam.  More
+	clarification should follow later.
 
 2003-05-30  Ken Raeburn  <raeburn@mit.edu>
 
@@ -86,6 +151,10 @@
 
 	* krb4-xrealm.txt: New file.  Describe the krb4 cross-realm
 	patchkit.  Copied from 2003-004-krb4_patchkit.
+
+2003-02-07  Ken Raeburn  <raeburn@mit.edu>
+
+	* copyright.texinfo: Add Yarrow, AES licenses.
 
 2003-02-04  Sam Hartman  <hartmans@mit.edu>
 

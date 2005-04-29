@@ -24,10 +24,14 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (i386 Netware 4)");
 
-/* These surely require augmentation */
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES \
-  "-DAPX386 -D__i386__ -D__netware__ -Asystem=netware -Acpu=i386 -Amachine=i386"
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define_std ("APX386");		\
+	builtin_define ("__netware__");		\
+	builtin_assert ("system=netware");	\
+    }						\
+  while (0)
 
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "short unsigned int"

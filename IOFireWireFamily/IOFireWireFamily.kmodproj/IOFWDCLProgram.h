@@ -41,10 +41,7 @@ class IODCLProgram : public OSObject
 {
     OSDeclareAbstractStructors(IODCLProgram)
 
-	friend class IOFWUserLocalIsochPort ;
-	friend class IOFWLocalIsochPort ;
-	
-	protected:
+	private :	
 	
 		void * 						reserved0 ;//fDCLTaskToKernel;
 		void * 						reserved1 ;//fDataTaskToKernel;
@@ -52,6 +49,8 @@ class IODCLProgram : public OSObject
 		void *		 				reserved3 ;//		IOMemoryDescriptor *		fDCLDesc;
 		IOMemoryMap *				fBufferMem ;
 		void *		 				reserved5 ;//		IOMemoryCursor *			fDataCursor;
+
+	protected:
 	
 	/*! @struct ExpansionData
 		@discussion This structure will be used to expand the capablilties of the class in the future.
@@ -111,22 +110,19 @@ class IODCLProgram : public OSObject
 	
 		IOMemoryMap *			getBufferMap() const ;
 
-	protected :
+	public :
 	
 		// close/open isoch workloop gate...
 		// clients should not need to call these.
-		// (internal use only)
-		virtual void			closeGate() ;
-		virtual void			openGate() ;
+		virtual void			closeGate() = 0 ;
+		virtual void			openGate() = 0 ;
 
-		// call to synchronize with hardware/check for completed DCLs
-		// (internal use only)
-		virtual IOReturn		synchronizeWithIO() ;
+		virtual IOReturn		synchronizeWithIO() = 0 ;
 		
 	private:
 	
 		OSMetaClassDeclareReservedUsed(IODCLProgram, 0);
-		OSMetaClassDeclareReservedUnused(IODCLProgram, 1);
+		OSMetaClassDeclareReservedUsed(IODCLProgram, 1);
 		OSMetaClassDeclareReservedUnused(IODCLProgram, 2);
 		OSMetaClassDeclareReservedUnused(IODCLProgram, 3);
 		OSMetaClassDeclareReservedUnused(IODCLProgram, 4);

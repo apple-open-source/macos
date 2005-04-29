@@ -1,6 +1,29 @@
 TODO file for gzip.
 
+	Copyright (C) 1999, 2001 Free Software Foundation, Inc.
+	Copyright (C) 1992, 1993 Jean-loup Gailly
+
+	This file is part of gzip (GNU zip).
+
+	gzip is free software; you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation; either version 2, or (at your option)
+	any later version.
+
+	gzip is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with tar; see the file COPYING.  If not, write to
+	the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+	Boston, MA 02111-1307, USA.
+
+
 Some of the planned features include:
+
+- Internationalize by using gettext and setlocale.
 
 - Structure the sources so that the compression and decompression code
   form a library usable by any program, and write both gzip and zip on
@@ -50,9 +73,13 @@ Some of the planned features include:
   failure of a complete sector. Each block could be extracted
   independently, but this reduces the compression ratio.
 
+  For one possible approach to this, please see:
+
+    http://www.samba.org/netfilter/diary/gzip.rsync.patch
+
 - Use a larger window size to deal with some large redundant files that
   'compress' currently handles better than gzip.
 
 - Implement the -e (encrypt) option.
    
-Send comments to Jean-loup Gailly <jloup@chorus.fr>.
+Send comments to <bug-gzip@gnu.org>.

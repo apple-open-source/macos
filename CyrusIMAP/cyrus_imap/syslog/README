@@ -1,4 +1,4 @@
-$Revision: 1.1 $
+$Revision: 1.4 $
 
 InterNetNews uses the "three-arg" version of syslog.  That version is
 standard with many systems (4.3BSD, SunOS4.x, etc).  Some vendors have

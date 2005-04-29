@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_video.c,v 1.12 2002/11/25 14:04:58 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_video.c,v 1.17 2003/11/10 18:22:19 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -25,11 +25,6 @@
 #define CLIENT_VIDEO_ON	0x04
 
 #define TIMER_MASK      (OFF_TIMER | FREE_TIMER)
-
-#ifndef XvExtension
-void CHIPSInitVideo(ScreenPtr pScreen) {}
-void CHIPSResetVideo(ScrnInfoPtr pScrn) {}
-#else
 
 static XF86VideoAdaptorPtr CHIPSSetupImageVideo(ScreenPtr);
 static void CHIPSInitOffscreenImages(ScreenPtr);
@@ -277,7 +272,7 @@ CHIPSSetupImageVideo(ScreenPtr pScreen)
     pPriv->currentBuffer	= 0;
 
     /* gotta uninit this someplace */
-    REGION_INIT(pScreen, &pPriv->clip, NullBox, 0); 
+    REGION_NULL(pScreen, &pPriv->clip);
 
     cPtr->adaptor = adapt;
 
@@ -288,124 +283,6 @@ CHIPSSetupImageVideo(ScreenPtr pScreen)
     return adapt;
 }
 
-
-static Bool
-RegionsEqual(RegionPtr A, RegionPtr B)
-{
-    int *dataA, *dataB;
-    int num;
-
-    num = REGION_NUM_RECTS(A);
-    if(num != REGION_NUM_RECTS(B))
-	return FALSE;
-
-    if((A->extents.x1 != B->extents.x1) ||
-       (A->extents.x2 != B->extents.x2) ||
-       (A->extents.y1 != B->extents.y1) ||
-       (A->extents.y2 != B->extents.y2))
-	return FALSE;
-
-    dataA = (int*)REGION_RECTS(A);
-    dataB = (int*)REGION_RECTS(B);
-
-    while(num--) {
-	if((dataA[0] != dataB[0]) || (dataA[1] != dataB[1]))
-	   return FALSE;
-	dataA += 2; 
-	dataB += 2;
-    }
-
-    return TRUE;
-}
-
-
-/* CHIPSClipVideo -  
-
-   Takes the dst box in standard X BoxRec form (top and left
-   edges inclusive, bottom and right exclusive).  The new dst
-   box is returned.  The source boundaries are given (x1, y1 
-   inclusive, x2, y2 exclusive) and returned are the new source 
-   boundaries in 16.16 fixed point.
-*/
-
-static Bool
-CHIPSClipVideo(
-  BoxPtr dst, 
-  INT32 *x1, 
-  INT32 *x2, 
-  INT32 *y1, 
-  INT32 *y2,
-  RegionPtr reg,
-  INT32 width, 
-  INT32 height
-){
-    INT32 vscale, hscale, delta;
-    BoxPtr extents = REGION_EXTENTS(DummyScreen, reg);
-    int diff;
-
-    hscale = ((*x2 - *x1) << 16) / (dst->x2 - dst->x1);
-    vscale = ((*y2 - *y1) << 16) / (dst->y2 - dst->y1);
-
-    *x1 <<= 16; *x2 <<= 16;
-    *y1 <<= 16; *y2 <<= 16;
-
-    diff = extents->x1 - dst->x1;
-    if(diff > 0) {
-	dst->x1 = extents->x1;
-	*x1 += diff * hscale;     
-    }
-    diff = dst->x2 - extents->x2;
-    if(diff > 0) {
-	dst->x2 = extents->x2;
-	*x2 -= diff * hscale;     
-    }
-    diff = extents->y1 - dst->y1;
-    if(diff > 0) {
-	dst->y1 = extents->y1;
-	*y1 += diff * vscale;     
-    }
-    diff = dst->y2 - extents->y2;
-    if(diff > 0) {
-	dst->y2 = extents->y2;
-	*y2 -= diff * vscale;     
-    }
-
-    if(*x1 < 0) {
-	diff =  (- *x1 + hscale - 1)/ hscale;
-	dst->x1 += diff;
-	*x1 += diff * hscale;
-    }
-    delta = *x2 - (width << 16);
-    if(delta > 0) {
-	diff = (delta + hscale - 1)/ hscale;
-	dst->x2 -= diff;
-	*x2 -= diff * hscale;
-    }
-    if(*x1 >= *x2) return FALSE;
-
-    if(*y1 < 0) {
-	diff =  (- *y1 + vscale - 1)/ vscale;
-	dst->y1 += diff;
-	*y1 += diff * vscale;
-    }
-    delta = *y2 - (height << 16);
-    if(delta > 0) {
-	diff = (delta + vscale - 1)/ vscale;
-	dst->y2 -= diff;
-	*y2 -= diff * vscale;
-    }
-    if(*y1 >= *y2) return FALSE;
-
-    if((dst->x1 != extents->x1) || (dst->x2 != extents->x2) ||
-       (dst->y1 != extents->y1) || (dst->y2 != extents->y2))
-    {
-	RegionRec clipReg;
-	REGION_INIT(DummyScreen, &clipReg, dst, 1);
-	REGION_INTERSECT(DummyScreen, reg, reg, &clipReg);
-	REGION_UNINIT(DummyScreen, &clipReg);
-    }
-    return TRUE;
-} 
 
 static void 
 CHIPSStopVideo(ScrnInfoPtr pScrn, pointer data, Bool shadow)
@@ -589,23 +466,23 @@ CHIPSAllocateMemory(
 
    pScreen = screenInfo.screens[pScrn->scrnIndex];
 
-   new_linear = xf86AllocateOffscreenLinear(pScreen, size, 16, 
+   new_linear = xf86AllocateOffscreenLinear(pScreen, size, 8, 
    						NULL, NULL, NULL);
 
    if(!new_linear) {
 	int max_size;
 
-	xf86QueryLargestOffscreenLinear(pScreen, &max_size, 16, 
+	xf86QueryLargestOffscreenLinear(pScreen, &max_size, 8, 
 						PRIORITY_EXTREME);
 	
 	if(max_size < size)
 	   return NULL;
 
 	xf86PurgeUnlockedOffscreenAreas(pScreen);
-	new_linear = xf86AllocateOffscreenLinear(pScreen, size, 16, 
+	new_linear = xf86AllocateOffscreenLinear(pScreen, size, 8, 
 						NULL, NULL, NULL);
    }
-
+   
    return new_linear;
 }
 
@@ -748,8 +625,8 @@ CHIPSDisplayVideo(
 
     /* Vertical Zoom */
     if (drw_h > src_h) {
-        m1f = m1f | 0x80;
-	m1e = m1e | 0x08; /* set V-interpolation */
+        m1f = m1f | 0x80; /* set V-interpolation */
+	m1e = m1e | 0x08; 
 	tmp = cPtr->VideoZoomMax * src_h / drw_h ;
 	cPtr->writeMR(cPtr, 0x33, tmp);
     }
@@ -778,7 +655,7 @@ CHIPSPutImage(
    CHIPSPtr cPtr = CHIPSPTR(pScrn);
    INT32 x1, x2, y1, y2;
    unsigned char *dst_start;
-   int pitch, new_size, offset, offset2 = 0, offset3 = 0;
+   int new_size, offset, offset2 = 0, offset3 = 0;
    int srcPitch, srcPitch2 = 0, dstPitch;
    int top, left, npixels, nlines, bpp;
    BoxRec dstBox;
@@ -797,7 +674,8 @@ CHIPSPutImage(
    dstBox.y1 = drw_y;
    dstBox.y2 = drw_y + drw_h;
    
-   if (!CHIPSClipVideo(&dstBox, &x1, &x2, &y1, &y2, clipBoxes, width, height))
+   if (!xf86XVClipVideoHelper(&dstBox, &x1, &x2, &y1, &y2,
+			      clipBoxes, width, height))
 	return Success;
 
    dstBox.x1 -= pScrn->frameX0 & cPtr->viewportMask;
@@ -806,7 +684,6 @@ CHIPSPutImage(
    dstBox.y2 -= pScrn->frameY0;
 
    bpp = pScrn->bitsPerPixel >> 3;
-   pitch = bpp * pScrn->displayWidth;
 
    dstPitch = ((width << 1) + 15) & ~15;
    new_size = ((dstPitch * height) + bpp - 1) / bpp;
@@ -868,8 +745,8 @@ CHIPSPutImage(
    }  
 
    /* update cliplist */
-   if(!RegionsEqual(&pPriv->clip, clipBoxes)) {
-	REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
+   if(!REGION_EQUAL(pScrn->pScreen, &pPriv->clip, clipBoxes)) {
+	REGION_COPY(pScrn->pScreen, &pPriv->clip, clipBoxes);
         xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes);
    }
 
@@ -973,7 +850,7 @@ CHIPSAllocateSurface(
     XF86SurfacePtr surface
 ){
     FBLinearPtr linear;
-    int pitch, fbpitch, size, bpp;
+    int pitch, size, bpp;
     OffscreenPrivPtr pPriv;
 
     if((w > 1024) || (h > 1024))
@@ -982,7 +859,6 @@ CHIPSAllocateSurface(
     w = (w + 1) & ~1;
     pitch = ((w << 1) + 15) & ~15;
     bpp = pScrn->bitsPerPixel >> 3;
-    fbpitch = bpp * pScrn->displayWidth;
     size = ((pitch * h) + bpp - 1) / bpp;
 
     if(!(linear = CHIPSAllocateMemory(pScrn, NULL, size)))
@@ -1102,8 +978,8 @@ CHIPSDisplaySurface(
     dstBox.y1 = drw_y;
     dstBox.y2 = drw_y + drw_h;
 
-    if(!CHIPSClipVideo(&dstBox, &x1, &x2, &y1, &y2, clipBoxes, 
-			surface->width, surface->height))
+    if(!xf86XVClipVideoHelper(&dstBox, &x1, &x2, &y1, &y2, clipBoxes, 
+			      surface->width, surface->height))
 	return Success;
 
     dstBox.x1 -= pScrn->frameX0;
@@ -1159,5 +1035,3 @@ CHIPSInitOffscreenImages(ScreenPtr pScreen)
     
     xf86XVRegisterOffscreenImages(pScreen, offscreenImages, 1);
 }
-
-#endif  /* !XvExtension */

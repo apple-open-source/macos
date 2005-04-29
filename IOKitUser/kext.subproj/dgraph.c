@@ -520,8 +520,14 @@ dgraph_entry_t * dgraph_add_dependent(
 
     // /hacks
     new_entry->is_symbol_set = (2 & is_kernel_component);
-    new_entry->opaques = !strncmp(new_entry->expected_kmod_name, 
-				    "com.apple.kpi", strlen("com.apple.kpi"));
+
+    new_entry->opaques = 0;
+    if (!strncmp(new_entry->expected_kmod_name, 
+				    "com.apple.kpi", strlen("com.apple.kpi")))
+        new_entry->opaques |= kOpaqueLink;
+    if (!strcmp(new_entry->expected_kmod_name, 
+				    "com.apple.kernel"))
+        new_entry->opaques |= kOpaqueLink | kRawKernelLink;
     // hacks/
 
     dgraph->has_symbol_sets |= new_entry->is_symbol_set;

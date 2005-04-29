@@ -126,7 +126,7 @@ void TimeZoneRegressionTest:: Test4073215()
 {
     UErrorCode status = U_ZERO_ERROR;
     UnicodeString str, str2;
-    SimpleTimeZone *z = (SimpleTimeZone*) TimeZone::createTimeZone("GMT");
+    SimpleTimeZone *z = new SimpleTimeZone(0, "GMT");
     if (z->useDaylightTime())
         errln("Fail: Fix test to start with non-DST zone");
     z->setStartRule(UCAL_FEBRUARY, 1, UCAL_SUNDAY, 0, status);
@@ -486,7 +486,7 @@ void TimeZoneRegressionTest:: Test4151406() {
         // h is in half-hours from GMT; rawoffset is in millis
         int32_t rawoffset = h * 1800000;
         int32_t hh = (h<0) ? -h : h;
-        UnicodeString hname = ((h<0) ? UnicodeString("GMT-") : UnicodeString("GMT+")) +
+        UnicodeString hname = UnicodeString((h<0) ? "GMT-" : "GMT+") +
             ((hh/2 < 10) ? "0" : "") +
             (hh/2) + ':' +
             ((hh%2==0) ? "00" : "30");
@@ -497,8 +497,11 @@ void TimeZoneRegressionTest:: Test4151406() {
             count = ids->count(ec);
             if (count> max) 
                 max = count;
-            logln(hname + ' ' + count +
-                  ((count > 0) ? (" e.g. " + *ids->snext(ec)) : UnicodeString("")));
+            if (count > 0) {
+                logln(hname + ' ' + (UnicodeString)count + (UnicodeString)" e.g. " + *ids->snext(ec));
+            } else {
+                logln(hname + ' ' + count);
+            }
             // weiv 11/27/2002: why uprv_free? This should be a delete
             delete ids;
             //delete [] ids;
@@ -795,10 +798,17 @@ TimeZoneRegressionTest::Test4154650()
         //   e = ex;
         //}
         if(good != U_SUCCESS(status)) {
+            UnicodeString errMsg;
+            if (good) {
+                errMsg = (UnicodeString(") threw ") + u_errorName(status));
+            }
+            else {
+                errMsg = UnicodeString(") accepts invalid args", "");
+            }
             errln(UnicodeString("Fail: getOffset(") +
                   DATA[i+1] + ", " + DATA[i+2] + ", " + DATA[i+3] + ", " +
                   DATA[i+4] + ", " + DATA[i+5] + ", " + DATA[i+6] +
-                  (good ? (UnicodeString(") threw ") + u_errorName(status)) : UnicodeString(") accepts invalid args")));
+                  errMsg);
         }
         status = U_ZERO_ERROR; // reset
     }
@@ -834,9 +844,10 @@ TimeZoneRegressionTest::Test4162593()
       0, 0, 0 };
 
     int32_t DATA_INT [] [5] = {
-        {98, UCAL_SEPTEMBER, 30, 22, 0},
-        {100, UCAL_FEBRUARY, 28, 22, 0},
-        {100, UCAL_FEBRUARY, 29, 22, 0},
+        // These years must be AFTER the Gregorian cutover
+        {1998, UCAL_SEPTEMBER, 30, 22, 0},
+        {2000, UCAL_FEBRUARY, 28, 22, 0},
+        {2000, UCAL_FEBRUARY, 29, 22, 0},
      };
 
     UBool DATA_BOOL [] = {
@@ -933,7 +944,7 @@ void TimeZoneRegressionTest::TestJ449() {
     // specify two zones in the same equivalency group.  One must have
     // locale data in 'loc'; the other must not.
     const char* idWithLocaleData = "America/Los_Angeles";
-    const char* idWithoutLocaleData = "America/Vancouver";
+    const char* idWithoutLocaleData = "US/Pacific";
     const Locale loc("en", "", "");
 
     TimeZone *zoneWith = TimeZone::createTimeZone(idWithLocaleData);
@@ -941,7 +952,7 @@ void TimeZoneRegressionTest::TestJ449() {
     // Make sure we got valid zones
     if (zoneWith->getID(str) != UnicodeString(idWithLocaleData) ||
         zoneWithout->getID(str) != UnicodeString(idWithoutLocaleData)) {
-        errln("Fail: Unable to create zones");
+      errln(UnicodeString("Fail: Unable to create zones - wanted ") + idWithLocaleData + ", got " + zoneWith->getID(str) + ", and wanted " + idWithoutLocaleData + " but got " + zoneWithout->getID(str));
     } else {
         GregorianCalendar calWith(*zoneWith, status);
         GregorianCalendar calWithout(*zoneWithout, status);
@@ -975,8 +986,29 @@ void TimeZoneRegressionTest::TestJ449() {
 void
 TimeZoneRegressionTest::TestJDK12API()
 {
-    TimeZone *pst = TimeZone::createTimeZone("PST");
-    TimeZone *cst1 = TimeZone::createTimeZone("CST");
+    // TimeZone *pst = TimeZone::createTimeZone("PST");
+    // TimeZone *cst1 = TimeZone::createTimeZone("CST");
+    UErrorCode ec = U_ZERO_ERROR;
+    //d,-28800,3,1,-1,120,w,9,-1,1,120,w,60
+    TimeZone *pst = new SimpleTimeZone(-28800*U_MILLIS_PER_SECOND,
+                                       "PST",
+                                       3,1,-1,120*U_MILLIS_PER_MINUTE,
+                                       SimpleTimeZone::WALL_TIME,
+                                       9,-1,1,120*U_MILLIS_PER_MINUTE,
+                                       SimpleTimeZone::WALL_TIME,
+                                       60*U_MILLIS_PER_MINUTE,ec);
+    //d,-21600,3,1,-1,120,w,9,-1,1,120,w,60
+    TimeZone *cst1 = new SimpleTimeZone(-21600*U_MILLIS_PER_SECOND,
+                                       "CST",
+                                       3,1,-1,120*U_MILLIS_PER_MINUTE,
+                                       SimpleTimeZone::WALL_TIME,
+                                       9,-1,1,120*U_MILLIS_PER_MINUTE,
+                                       SimpleTimeZone::WALL_TIME,
+                                       60*U_MILLIS_PER_MINUTE,ec);
+    if (U_FAILURE(ec)) {
+        errln("FAIL: SimpleTimeZone constructor");
+        return;
+    }
 
     SimpleTimeZone *cst = 0;
 

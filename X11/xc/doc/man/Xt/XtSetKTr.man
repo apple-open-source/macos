@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtSetKTr.man,v 1.3 2001/02/09 03:47:52 tsi Exp $
+.\" $XFree86: xc/doc/man/Xt/XtSetKTr.man,v 1.4 2003/04/28 22:18:21 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,45 +131,18 @@
 .SH NAME
 XtSetKeyTranslator, XtTranslateKeycode, XtRegisterCaseConverter, XtConvertCase \- convert KeySym to KeyCodes
 .SH SYNTAX
-void XtSetKeyTranslator(\fIdisplay\fP, \fIproc\fP)
-.br
-    Display *\fIdisplay\fP;
-.br
-    XtKeyProc \fIproc\fP;
-.LP
-void XtTranslateKeycode(\fIdisplay\fP, \fIkeycode\fP, \fImodifiers\fP,
-\fImodifiers_return\fP, \fIkeysym_return\fP)
-.br
-    Display *\fIdisplay\fP;
-.br
-    KeyCode \fIkeycode\fP;
-.br
-    Modifiers \fImodifiers\fP;
-.br
-    Modifiers *\fImodifiers_return\fP;
-.br
-    KeySym *\fIkeysym_return\fP;
-.LP
-void XtRegisterCaseConverter(\fIdisplay\fP, \fIproc\fP, \fIstart\fP, \fIstop\fP)
-.br
-    Display *\fIdisplay\fP;
-.br
-    XtCaseProc \fIproc\fP;
-.br
-    KeySym \fIstart\fP;
-.br
-    KeySym \fIstop\fP;
-.LP
-void XtConvertCase(\fIdisplay\fP, \fIkeysym\fP, \fIlower_return\fP,
-\fIupper_return\fP)
-.br
-    Display *\fIdisplay\fP;
-.br
-    KeySym \fIkeysym\fP;
-.br
-    KeySym *\fIlower_return\fP;
-.br
-    KeySym *\fIupper_return\fP;
+.HP
+void XtSetKeyTranslator(Display *\fIdisplay\fP, XtKeyProc \fIproc\fP); 
+.HP
+void XtTranslateKeycode(Display *\fIdisplay\fP, KeyCode \fIkeycode\fP,
+Modifiers \fImodifiers\fP, Modifiers *\fImodifiers_return\fP, KeySym
+*\fIkeysym_return\fP); 
+.HP
+void XtRegisterCaseConverter(Display *\fIdisplay\fP, XtCaseProc \fIproc\fP,
+KeySym \fIstart\fP, KeySym \fIstop\fP); 
+.HP
+void XtConvertCase(Display *\fIdisplay\fP, KeySym \fIkeysym\fP, KeySym
+*\fIlower_return\fP, KeySym *\fIupper_return\fP); 
 .SH ARGUMENTS
 .ds Di
 .IP \fIdisplay\fP 1i

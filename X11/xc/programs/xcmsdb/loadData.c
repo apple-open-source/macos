@@ -31,7 +31,7 @@
  *
  *
  */
-/* $XFree86: xc/programs/xcmsdb/loadData.c,v 3.3 2001/07/25 15:05:18 dawes Exp $ */
+/* $XFree86: xc/programs/xcmsdb/loadData.c,v 3.4 2003/09/24 02:43:38 dawes Exp $ */
 
 /*
  *      INCLUDES
@@ -650,13 +650,15 @@ ProcessIProfile(FILE *stream, XDCCC_Correction *pCorrection)
 			/* With tableType 1 only store the intensity. */
 			pIRec++;
 		    } else {
+			short tmp;
 			/* Note ansi C can handle 0x preceeding hex number */
-			if (sscanf(ptoken, "%hi", &pIRec->value) != 1) {
+			if (sscanf(ptoken, "%hi", &tmp) != 1) {
 			    fprintf(stderr,
 			    "Line %d: invalid Intensity Profile value %s\n",
 				  linenum, ptoken);
 			    return (0);
-			}
+			} else
+			    pIRec->value = tmp;
 			if ((ptoken = strtok(NULL, DATA_DELIMS)) == NULL) {
 			    fprintf(stderr,
 				  "Line %d: missing Intensity Profile value\n",
@@ -1271,18 +1273,20 @@ ParseVisualOptions(Display *pDpy, XDCCC_Correction *pCorrection, char *pbuf)
     pCorrection->visual_info_mask = VisualNoMask;
     key = strtok(pbuf, delims);
     do {
+	long tmp;
 	value = strtok((char*)NULL, delims);
 	if ((key == (char*)NULL) || (value == (char*)NULL)) {
 	    return (0);
 	}
 	switch (StrToDefine(VisualOptKeyTbl, key)) {
 	  case  KEY_VISUALID:
-	    if (sscanf(value, "%li", &pCorrection->visual_info.visualid) != 1) {
+	    if (sscanf(value, "%li", &tmp) != 1) {
 		fprintf(stderr,
 			"Line %d: invalid VisualID specified, %s\n",
 			linenum, value);
 		return (0);
-	    } 
+	    } else
+		pCorrection->visual_info.visualid = tmp;
 	    pCorrection->visual_info_mask |= VisualIDMask;
 	    break;
 	  case  KEY_DEPTH:
@@ -1318,30 +1322,33 @@ ParseVisualOptions(Display *pDpy, XDCCC_Correction *pCorrection, char *pbuf)
 	    pCorrection->visual_info_mask |= VisualClassMask;
 	    break;
 	  case  KEY_RED_MASK:
-	    if (sscanf(value, "%li", &pCorrection->visual_info.red_mask) != 1) {
+	    if (sscanf(value, "%li", &tmp) != 1) {
 		fprintf(stderr,
 			"Line %d: invalid red_mask specified -- %s\n",
 			linenum, value);
 		return (0);
-	    } 
+	    } else
+		pCorrection->visual_info.red_mask = tmp;
 	    pCorrection->visual_info_mask |= VisualRedMaskMask;
 	    break;
 	  case  KEY_GREEN_MASK:
-	    if (sscanf(value, "%li", &pCorrection->visual_info.green_mask) != 1) {
+	    if (sscanf(value, "%li", &tmp) != 1) {
 		fprintf(stderr,
 			"Line %d: invalid green_mask specified -- %s\n",
 			linenum, value);
 		return (0);
-	    } 
+	    } else
+		pCorrection->visual_info.green_mask = tmp;
 	    pCorrection->visual_info_mask |= VisualGreenMaskMask;
 	    break;
 	  case  KEY_BLUE_MASK:
-	    if (sscanf(value, "%li", &pCorrection->visual_info.blue_mask) != 1) {
+	    if (sscanf(value, "%li", &tmp) != 1) {
 		fprintf(stderr,
 			"Line %d: invalid blue_mask specified -- %s\n",
 			linenum, value);
 		return (0);
-	    } 
+	    } else
+		pCorrection->visual_info.blue_mask = tmp;
 	    pCorrection->visual_info_mask |= VisualBlueMaskMask;
 	    break;
 	  case  KEY_COLORMAP_SIZE:

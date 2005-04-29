@@ -1,5 +1,8 @@
-/*
- * tools.h
+/**
+ * @file tools.h
+ * @defgroup util Memory Utility Routines
+ * @ingroup library
+ * @{
  */
 
 #ifndef _TOOLS_H
@@ -35,6 +38,7 @@ extern          "C" {
 #define SNMP_MAXBUF_MESSAGE	1500
 
 #define SNMP_MAXOID		64
+#define SNMP_MAX_CMDLINE_OIDS	128
 
 #define SNMP_FILEMODE_CLOSED	0600
 #define SNMP_FILEMODE_OPEN	0644
@@ -44,14 +48,28 @@ extern          "C" {
 
 
 
-#define SNMP_FREE(s)		if (s) { free((void *)s); s=NULL; }
+/** @def SNMP_FREE(s)
+    Frees a pointer only if it is !NULL and sets its value to NULL */
+#define SNMP_FREE(s)    do { if (s) { free((void *)s); s=NULL; } } while(0)
+
+/** @def SNMP_SWIPE_MEM(n, s)
+    Frees pointer n only if it is !NULL, sets n to s and sets s to NULL */
+#define SNMP_SWIPE_MEM(n,s) do { if (n) free((void *)n); n = s; s=NULL; } while(0)
 
     /*
      * XXX Not optimal everywhere. 
      */
+/** @def SNMP_MALLOC_STRUCT(s)
+    Mallocs memory of sizeof(struct s), zeros it and returns a pointer to it. */
 #define SNMP_MALLOC_STRUCT(s)   (struct s *) calloc(1, sizeof(struct s))
+
+/** @def SNMP_MALLOC_TYPEDEF(t)
+    Mallocs memory of sizeof(t), zeros it and returns a pointer to it. */
 #define SNMP_MALLOC_TYPEDEF(td)  (td *) calloc(1, sizeof(td))
-#define SNMP_ZERO(s,l)		if (s) memset(s, 0, l);
+
+/** @def SNMP_ZERO(s,l)
+    Zeros l bytes of memory starting at s. */
+#define SNMP_ZERO(s,l)	do { if (s) memset(s, 0, l); } while(0)
 
 
 #define TOUPPER(c)	(c >= 'a' && c <= 'z' ? c - ('a' - 'A') : c)
@@ -62,7 +80,12 @@ extern          "C" {
 #define VAL2HEX(s)	( (s) + (((s) >= 10) ? ('a'-10) : '0') )
 
 
+/** @def SNMP_MAX(a, b)
+    Computers the maximum of a and b. */
 #define SNMP_MAX(a,b) ((a) > (b) ? (a) : (b))
+
+/** @def SNMP_MIN(a, b)
+    Computers the minimum of a and b. */
 #define SNMP_MIN(a,b) ((a) > (b) ? (b) : (a))
 
 #ifndef FALSE
@@ -137,6 +160,15 @@ extern          "C" {
 
     u_int           binary_to_hex(const u_char * input, size_t len,
                                   char **output);
+                    /* preferred */
+    int             netsnmp_hex_to_binary(u_char ** buf, size_t * buf_len,
+                                         size_t * out_len, int allow_realloc,
+                                         const char *hex, const char *delim);
+                    /* calls netsnmp_hex_to_binary w/delim of " " */
+    int             snmp_hex_to_binary(u_char ** buf, size_t * buf_len,
+                                       size_t * out_len, int allow_realloc,
+                                       const char *hex);
+                    /* handles odd lengths */
     int             hex_to_binary2(const u_char * input, size_t len,
                                    char **output);
 
@@ -144,9 +176,6 @@ extern          "C" {
                                            size_t * out_len,
                                            int allow_realloc,
                                            const char *decimal);
-    int             snmp_hex_to_binary(u_char ** buf, size_t * buf_len,
-                                       size_t * out_len, int allow_realloc,
-                                       const char *hex);
     int             snmp_strcat(u_char ** buf, size_t * buf_len,
                                 size_t * out_len, int allow_realloc,
                                 const u_char * s);
@@ -168,8 +197,10 @@ extern          "C" {
 
     int             marker_tticks(marker_t pm);
     int             timeval_tticks(struct timeval *tv);
-
+    char            *netsnmp_getenv(const char *name);
+    
 #ifdef __cplusplus
 }
 #endif
 #endif                          /* _TOOLS_H */
+/* @} */

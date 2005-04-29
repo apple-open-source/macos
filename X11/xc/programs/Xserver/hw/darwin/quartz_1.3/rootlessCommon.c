@@ -3,7 +3,7 @@
  *
  * Greg Parker     gparker@cs.stanford.edu
  */
-/* $XFree86: xc/programs/Xserver/hw/darwin/quartz_1.3/rootlessCommon.c,v 1.1 2002/03/28 02:21:20 torrey Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/darwin/quartz_1.3/rootlessCommon.c,v 1.2 2003/11/10 18:21:47 tsi Exp $ */
 
 #include "rootlessCommon.h"
 
@@ -131,7 +131,7 @@ static void RootlessReallySetShape(WindowPtr pWin)
     if (wBoundingShape(pWin)) {
         // wBoundingShape is relative to *inner* origin of window.
         // Translate by borderWidth to get the outside-relative position.
-        REGION_INIT(pScreen, &newShape, NullBox, 0);
+        REGION_NULL(pScreen, &newShape);
         REGION_COPY(pScreen, &newShape, wBoundingShape(pWin));
         REGION_TRANSLATE(pScreen, &newShape, pWin->borderWidth,
                          pWin->borderWidth);

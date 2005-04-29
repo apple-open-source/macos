@@ -24,7 +24,7 @@
  *
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/s3_video.c,v 1.2 2001/08/15 11:54:27 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/s3_video.c,v 1.5 2003/11/10 18:22:25 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -168,45 +168,6 @@ static void S3QueryBestSize(ScrnInfoPtr pScrn, Bool motion, short vid_w,
 
 
 
-static void S3CopyData(unsigned char *src, unsigned char *dst,
-		       int srcPitch, int dstPitch, int h, int w)
-{
-	w <<= 1;
-	while (h--) {
-		memcpy(dst, src, w);
-		src += srcPitch;
-		dst += dstPitch;
-	}
-}
-
-
-static void S3CopyMungedData(unsigned char *src1, unsigned char *src2,
-			     unsigned char *src3, unsigned char *dst1,
-			     int srcPitch, int srcPitch2, int dstPitch,
-			     int h, int w)
-{
-	CARD32 *dst = (CARD32*)dst1;
-	int i, j;
-
-   	dstPitch >>= 2;
-   	w >>= 1;
-
-   	for(j = 0; j < h; j++) {
-        	for(i = 0; i < w; i++) {
-            		dst[i] = src1[i << 1] | (src1[(i << 1) + 1] << 16) |
-                     		 (src3[i] << 8) | (src2[i] << 24);
-        	}
-        	dst += dstPitch;
-        	src1 += srcPitch;
-        	if(j & 1) {
-            		src2 += srcPitch2;
-            		src3 += srcPitch2;
-       	 	}
-   	}
-}
-
-
-
 static void S3ResetVideoOverlay(ScrnInfoPtr pScrn)
 {
 }
@@ -281,116 +242,12 @@ static XF86VideoAdaptorPtr S3SetupImageVideoOverlay(ScreenPtr pScreen)
     	adapt->QueryImageAttributes = S3QueryImageAttributes;
  
     	/* gotta uninit this someplace */
-    	REGION_INIT(pScreen, &(pS3->portPrivate->clip), NullBox, 0);
+	REGION_NULL(pScreen, &(pS3->portPrivate->clip));
        
     	S3ResetVideoOverlay(pScrn);
        
     	return adapt;
 }   
-
-
-
-static Bool
-RegionsEqual(RegionPtr A, RegionPtr B)
-{
-    	int *dataA, *dataB; 
-    	int num;
-        
-    	num = REGION_NUM_RECTS(A);
-    	if(num != REGION_NUM_RECTS(B))
-        	return FALSE;
-
-    	if((A->extents.x1 != B->extents.x1) ||
-       	   (A->extents.x2 != B->extents.x2) ||
-       	   (A->extents.y1 != B->extents.y1) ||  
-       	   (A->extents.y2 != B->extents.y2))
-        	return FALSE;
-   
-    	dataA = (int*)REGION_RECTS(A);
-    	dataB = (int*)REGION_RECTS(B);
-   
-    	while(num--) {
-        	if((dataA[0] != dataB[0]) || (dataA[1] != dataB[1]))
-           		return FALSE;
-        	dataA += 2;
-        	dataB += 2;
-    	}
-  
-    	return TRUE;
-}
-
-
-
-static Bool S3ClipVideo(BoxPtr dst, INT32 *x1, INT32 *x2, INT32 *y1, INT32 *y2,
-			RegionPtr reg, INT32 width, INT32 height)
-{
-    	INT32 vscale, hscale, delta;
-    	BoxPtr extents = REGION_EXTENTS(DummyScreen, reg);
-    	int diff;
-
-    hscale = ((*x2 - *x1) << 16) / (dst->x2 - dst->x1);
-    vscale = ((*y2 - *y1) << 16) / (dst->y2 - dst->y1);
-     
-    *x1 <<= 16; *x2 <<= 16;
-    *y1 <<= 16; *y2 <<= 16;
-        
-    diff = extents->x1 - dst->x1;
-    if(diff > 0) {
-        dst->x1 = extents->x1;
-        *x1 += diff * hscale;
-    }
-    diff = dst->x2 - extents->x2;
-    if(diff > 0) {
-        dst->x2 = extents->x2;
-        *x2 -= diff * hscale;   
-    }
-    diff = extents->y1 - dst->y1;
-    if(diff > 0) {
-        dst->y1 = extents->y1;
-        *y1 += diff * vscale;
-    }
-    diff = dst->y2 - extents->y2;
-    if(diff > 0) {
-        dst->y2 = extents->y2;
-        *y2 -= diff * vscale;
-    }
-     
-    if(*x1 < 0) {
-        diff =  (- *x1 + hscale - 1)/ hscale;
-        dst->x1 += diff;
-        *x1 += diff * hscale;
-    }
-    delta = *x2 - (width << 16);
-    if(delta > 0) {
-        diff = (delta + hscale - 1)/ hscale;
-        dst->x2 -= diff;
-        *x2 -= diff * hscale;
-    }   
-    if(*x1 >= *x2) return FALSE; 
-    
-    if(*y1 < 0) {
-        diff =  (- *y1 + vscale - 1)/ vscale;
-        dst->y1 += diff;
-        *y1 += diff * vscale;
-    }
-    delta = *y2 - (height << 16);
-    if(delta > 0) {
-        diff = (delta + vscale - 1)/ vscale;
-        dst->y2 -= diff;
-        *y2 -= diff * vscale;
-    }
-    if(*y1 >= *y2) return FALSE;
-     
-    if((dst->x1 != extents->x1) || (dst->x2 != extents->x2) ||
-       (dst->y1 != extents->y1) || (dst->y2 != extents->y2))
-    {
-        RegionRec clipReg;   
-        REGION_INIT(DummyScreen, &clipReg, dst, 1);
-        REGION_INTERSECT(DummyScreen, reg, reg, &clipReg);
-        REGION_UNINIT(DummyScreen, &clipReg);
-    }
-    return TRUE;
-}
 
 
 static void S3StopVideo(ScrnInfoPtr pScrn, pointer data, Bool exit)
@@ -510,8 +367,6 @@ static int S3PutImage(ScrnInfoPtr pScrn, short src_x, short src_y,
    	int top, left, npixels, nlines;
    	BoxRec dstBox;
    	CARD32 tmp;
-   	static int once = 1;
-   	static int once2 = 1;
 
    /* Clip */
    x1 = src_x;
@@ -524,7 +379,8 @@ static int S3PutImage(ScrnInfoPtr pScrn, short src_x, short src_y,
    dstBox.y1 = drw_y;
    dstBox.y2 = drw_y + drw_h;
    
-   if(!S3ClipVideo(&dstBox, &x1, &x2, &y1, &y2, clipBoxes, width, height))
+   if(!xf86XVClipVideoHelper(&dstBox, &x1, &x2, &y1, &y2,
+			     clipBoxes, width, height))
         return Success;
         
    /*if(!pMga->TexturedVideo) {*/
@@ -577,28 +433,24 @@ static int S3PutImage(ScrnInfoPtr pScrn, short src_x, short src_y,
            offset3 = tmp;
         }
         nlines = ((((y2 + 0xffff) >> 16) + 1) & ~1) - top;
-        S3CopyMungedData(buf + (top * srcPitch) + (left >> 1),
-                         buf + offset2, buf + offset3, dst_start,
-                         srcPitch, srcPitch2, dstPitch, nlines, npixels);
-        once2 = 0;
+        xf86XVCopyYUV12ToPacked(buf + (top * srcPitch) + (left >> 1),
+                                buf + offset2, buf + offset3, dst_start,
+                                srcPitch, srcPitch2, dstPitch, nlines, npixels);
         break; 
     case FOURCC_UYVY:
     case FOURCC_YUY2:
     default:
         buf += (top * srcPitch) + left;
         nlines = ((y2 + 0xffff) >> 16) - top;
-        S3CopyData(buf, dst_start, srcPitch, dstPitch, nlines, npixels);
-        once = 0;
+        xf86XVCopyPacked(buf, dst_start, srcPitch, dstPitch, nlines, npixels);
         break;
     }
         
     /* update cliplist */
-        if(!RegionsEqual(&pPriv->clip, clipBoxes)) {
-            REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
+        if(!REGION_EQUAL(pScrn->pScreen, &pPriv->clip, clipBoxes)) {
+            REGION_COPY(pScrn->pScreen, &pPriv->clip, clipBoxes);
             /* draw these */
-            (*pS3->pXAA->FillSolidRects)(pScrn, pPriv->colorKey, GXcopy, ~0,
-                                         REGION_NUM_RECTS(clipBoxes),
-                                         REGION_RECTS(clipBoxes));
+	    xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes);
         }
                           
         offset += left + (top * dstPitch);

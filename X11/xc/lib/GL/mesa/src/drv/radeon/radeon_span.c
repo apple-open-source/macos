@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_span.c,v 1.6 2002/10/30 12:51:56 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_span.c,v 1.7 2003/09/28 20:15:29 alanh Exp $ */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -6,24 +6,25 @@ Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
 
 All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-on the rights to use, copy, modify, merge, publish, distribute, sub
-license, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice (including the next
-paragraph) shall be included in all copies or substantial portions of the
-Software.
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
-ATI, VA LINUX SYSTEMS AND/OR THEIR SUPPLIERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
@@ -35,13 +36,14 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
 
+#include "glheader.h"
+#include "swrast/swrast.h"
+
 #include "radeon_context.h"
 #include "radeon_ioctl.h"
 #include "radeon_state.h"
 #include "radeon_span.h"
 #include "radeon_tex.h"
-
-#include "swrast/swrast.h"
 
 #define DBG 0
 
@@ -150,22 +152,27 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define INIT_MONO_PIXEL(p, color) \
   p = PACK_COLOR_8888( color[3], color[0], color[1], color[2] )
 
-#define WRITE_RGBA( _x, _y, r, g, b, a )				\
-   *(GLuint *)(buf + _x*4 + _y*pitch) = ((b <<  0) |			\
-					 (g <<  8) |			\
-					 (r << 16) |			\
-					 (a << 24) )
+#define WRITE_RGBA( _x, _y, r, g, b, a )			\
+do {								\
+   *(GLuint *)(buf + _x*4 + _y*pitch) = ((b <<  0) |		\
+					 (g <<  8) |		\
+					 (r << 16) |		\
+					 (a << 24) );		\
+} while (0)
 
-#define WRITE_PIXEL( _x, _y, p )					\
-   *(GLuint *)(buf + _x*4 + _y*pitch) = p
+#define WRITE_PIXEL( _x, _y, p ) 			\
+do {							\
+   *(GLuint *)(buf + _x*4 + _y*pitch) = p;		\
+} while (0)
 
-#define READ_RGBA( rgba, _x, _y )					\
-do {									\
-   GLuint p = *(GLuint *)(read_buf + _x*4 + _y*pitch);			\
-   rgba[0] = (p >> 16) & 0xff;						\
-   rgba[1] = (p >>  8) & 0xff;						\
-   rgba[2] = (p >>  0) & 0xff;						\
-   rgba[3] = (p >> 24) & 0xff;						\
+#define READ_RGBA( rgba, _x, _y )				\
+do {								\
+   volatile GLuint *ptr = (volatile GLuint *)(read_buf + _x*4 + _y*pitch); \
+   GLuint p = *ptr;					\
+   rgba[0] = (p >> 16) & 0xff;					\
+   rgba[1] = (p >>  8) & 0xff;					\
+   rgba[2] = (p >>  0) & 0xff;					\
+   rgba[3] = (p >> 24) & 0xff;					\
 } while (0)
 
 #define TAG(x) radeon##x##_ARGB8888
@@ -177,37 +184,17 @@ do {									\
  * Depth buffer
  */
 
-/* The Radeon has depth tiling on all the time, so we have to convert
+/* The Radeon family has depth tiling on all the time, so we have to convert
  * the x,y coordinates into the memory bus address (mba) in the same
  * manner as the engine.  In each case, the linear block address (ba)
  * is calculated, and then wired with x and y to produce the final
  * memory address.
  */
-static __inline GLuint radeon_mba_z16( radeonContextPtr rmesa,
-				       GLint x, GLint y )
-{
-   radeonScreenPtr radeonScreen = rmesa->radeonScreen;
-   GLuint pitch = radeonScreen->frontPitch;
-   GLuint ba, address = 0;			/* a[0]    = 0           */
-
-   ba = (y / 16) * (pitch / 32) + (x / 32);
-
-   address |= (x & 0x7) << 1;			/* a[1..3] = x[0..2]     */
-   address |= (y & 0x7) << 4;			/* a[4..6] = y[0..2]     */
-   address |= (x & 0x8) << 4;			/* a[7]    = x[3]        */
-   address |= (ba & 0x3) << 8;			/* a[8..9] = ba[0..1]    */
-   address |= (y & 0x8) << 7;			/* a[10]   = y[3]        */
-   address |= ((x & 0x10) ^ (y & 0x10)) << 7;	/* a[11]   = x[4] ^ y[4] */
-   address |= (ba & ~0x3) << 10;		/* a[12..] = ba[2..]     */
-
-   return address;
-}
 
 static GLuint radeon_mba_z32( radeonContextPtr rmesa,
 				       GLint x, GLint y )
 {
-   radeonScreenPtr radeonScreen = rmesa->radeonScreen;
-   GLuint pitch = radeonScreen->frontPitch;
+   GLuint pitch = rmesa->radeonScreen->frontPitch;
    GLuint ba, address = 0;			/* a[0..1] = 0           */
 
    ba = (y / 16) * (pitch / 16) + (x / 16);
@@ -221,6 +208,24 @@ static GLuint radeon_mba_z32( radeonContextPtr rmesa,
    address |= (y & 0x8) << 7;			/* a[10]   = y[3]        */
    address |=
       (((x & 0x8) << 1) ^ (y & 0x10)) << 7;	/* a[11]   = x[3] ^ y[4] */
+   address |= (ba & ~0x3) << 10;		/* a[12..] = ba[2..]     */
+
+   return address;
+}
+
+static __inline GLuint radeon_mba_z16( radeonContextPtr rmesa, GLint x, GLint y )
+{
+   GLuint pitch = rmesa->radeonScreen->frontPitch;
+   GLuint ba, address = 0;			/* a[0]    = 0           */
+
+   ba = (y / 16) * (pitch / 32) + (x / 32);
+
+   address |= (x & 0x7) << 1;			/* a[1..3] = x[0..2]     */
+   address |= (y & 0x7) << 4;			/* a[4..6] = y[0..2]     */
+   address |= (x & 0x8) << 4;			/* a[7]    = x[3]        */
+   address |= (ba & 0x3) << 8;			/* a[8..9] = ba[0..1]    */
+   address |= (y & 0x8) << 7;			/* a[10]   = y[3]        */
+   address |= ((x & 0x10) ^ (y & 0x10)) << 7;	/* a[11]   = x[4] ^ y[4] */
    address |= (ba & ~0x3) << 10;		/* a[12..] = ba[2..]     */
 
    return address;
@@ -284,29 +289,42 @@ do {									\
 #include "stenciltmp.h"
 
 
-static void radeonSetReadBuffer( GLcontext *ctx,
-				 GLframebuffer *colorBuffer,
-				 GLenum mode )
+/*
+ * This function is called to specify which buffer to read and write
+ * for software rasterization (swrast) fallbacks.  This doesn't necessarily
+ * correspond to glDrawBuffer() or glReadBuffer() calls.
+ */
+static void radeonSetBuffer( GLcontext *ctx,
+                             GLframebuffer *colorBuffer,
+                             GLuint bufferBit )
 {
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
 
-   switch ( mode ) {
-   case GL_FRONT_LEFT:
+   switch ( bufferBit ) {
+   case FRONT_LEFT_BIT:
       if ( rmesa->sarea->pfCurrentPage == 1 ) {
         rmesa->state.pixel.readOffset = rmesa->radeonScreen->backOffset;
         rmesa->state.pixel.readPitch  = rmesa->radeonScreen->backPitch;
+        rmesa->state.color.drawOffset = rmesa->radeonScreen->backOffset;
+        rmesa->state.color.drawPitch  = rmesa->radeonScreen->backPitch;
       } else {
       	rmesa->state.pixel.readOffset = rmesa->radeonScreen->frontOffset;
       	rmesa->state.pixel.readPitch  = rmesa->radeonScreen->frontPitch;
+      	rmesa->state.color.drawOffset = rmesa->radeonScreen->frontOffset;
+      	rmesa->state.color.drawPitch  = rmesa->radeonScreen->frontPitch;
       }
       break;
-   case GL_BACK_LEFT:
+   case BACK_LEFT_BIT:
       if ( rmesa->sarea->pfCurrentPage == 1 ) {
       	rmesa->state.pixel.readOffset = rmesa->radeonScreen->frontOffset;
       	rmesa->state.pixel.readPitch  = rmesa->radeonScreen->frontPitch;
+      	rmesa->state.color.drawOffset = rmesa->radeonScreen->frontOffset;
+      	rmesa->state.color.drawPitch  = rmesa->radeonScreen->frontPitch;
       } else {
         rmesa->state.pixel.readOffset = rmesa->radeonScreen->backOffset;
         rmesa->state.pixel.readPitch  = rmesa->radeonScreen->backPitch;
+        rmesa->state.color.drawOffset = rmesa->radeonScreen->backOffset;
+        rmesa->state.color.drawPitch  = rmesa->radeonScreen->backPitch;
       }
       break;
    default:
@@ -323,6 +341,7 @@ static void radeonSetReadBuffer( GLcontext *ctx,
 static void radeonSpanRenderStart( GLcontext *ctx )
 {
    radeonContextPtr rmesa = RADEON_CONTEXT( ctx );
+
    RADEON_FIREVERTICES( rmesa );
    LOCK_HARDWARE( rmesa );
    radeonWaitForIdleLocked( rmesa );
@@ -340,7 +359,7 @@ void radeonInitSpanFuncs( GLcontext *ctx )
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
    struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
 
-   swdd->SetReadBuffer = radeonSetReadBuffer;
+   swdd->SetBuffer = radeonSetBuffer;
 
    switch ( rmesa->radeonScreen->cpp ) {
    case 2:

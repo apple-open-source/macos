@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/glint.h,v 1.58 2003/02/17 16:08:28 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/glint.h,v 1.59 2003/04/23 21:51:36 tsi Exp $ */
 /*
  * Copyright 1997-2001 by Alan Hourihane <alanh@fairlite.demon.co.uk>
  *
@@ -164,11 +164,9 @@ typedef struct {
     CARD32		PM3_VideoControl;
     int			FIFOSize;
     int			InFifoSpace;
-#ifdef XvExtension
     void		(*VideoTimerCallback)(ScrnInfoPtr, Time);
     XF86VideoAdaptorPtr adaptor;
     int                 videoKey;
-#endif
 #ifdef XF86DRI
     Bool		directRenderingEnabled;
     Bool		PCIMode;

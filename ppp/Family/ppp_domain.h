@@ -63,17 +63,19 @@ struct ppp_link_event_data {
 
 int ppp_domain_init();
 int ppp_domain_dispose();
+int ppp_proto_add();
+int ppp_proto_remove();
 
-int ppp_proto_input(void *data, struct mbuf *m);
+int ppp_proto_input(void *data, mbuf_t m);
 void ppp_proto_free(void *data);
 
 
 /* Logs facilities */
 
-#define LOGVAL 		LOG_DEBUG
+#define LOGVAL 		(LOG_DEBUG|LOG_RAS)
 #define LOG(text) 	log(LOGVAL, text)
 #define LOGDBG(ifp, text) \
-    if ((ifp)->if_flags & IFF_DEBUG) {	\
+    if (ifnet_flags(ifp) & IFF_DEBUG) {	\
         log text; 		\
     }
 
@@ -82,6 +84,51 @@ void ppp_proto_free(void *data);
         log(LOGVAL, text, err); \
         return ret;		\
     }
+	
+#define LOGGOTOFAIL(err, text) \
+    if (err) {			\
+        log(LOGVAL, text, err); \
+        goto fail;		\
+    }
+
+#define LOGNULLFAIL(ret, text) \
+    if (ret == 0) {			\
+        log(LOGVAL, text); \
+        goto fail;		\
+    }
+
+#ifdef LOGDATA
+#define LOGMBUF(text, m)   {		\
+    short i;				\
+    char *p = mtod((m), u_char *);	\
+    log(LOGVAL, text);			\
+    log(LOGVAL, " : 0x ");		\
+    for (i = 0; i < (m)->m_len; i++)	\
+       log(LOGVAL, "%x ", p[i]);	\
+    log(LOGVAL, "\n");			\
+}
+#else
+#define LOGMBUF(text, m)
+#endif
+
+
+
+/*
+ * PPP queues.
+ */
+struct	pppqueue {
+	mbuf_t head;
+	mbuf_t tail;
+	int	len;
+	int	maxlen;
+	int	drops;
+};
+
+int ppp_qfull(struct pppqueue *pppq);
+void ppp_drop(struct pppqueue *pppq);
+void ppp_enqueue(struct pppqueue *pppq, mbuf_t m);
+mbuf_t ppp_dequeue(struct pppqueue *pppq);
+void ppp_prepend(struct pppqueue *pppq, mbuf_t m);
 
 #endif
 

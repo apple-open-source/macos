@@ -45,7 +45,7 @@ include $(CoreOSMakefiles)/Standard/Standard.make
 # Some reasonable defaults for RC variables
 ##
 
-RC_ARCHS   = $(shell file /usr/lib/libSystem.B.dylib | grep 'shared library ' | sed 's|.*shared library ||')
+RC_ARCHS   = $(shell for i in `file /usr/lib/libSystem.B.dylib | grep 'shared library ' | sed 's|.*shared library ||'`; do $(CC) -arch $$i -E -x c /dev/null > /dev/null 2>&1 && echo $$i; done)
 RC_RELEASE = unknown
 RC_VERSION = unknown
 
@@ -89,11 +89,19 @@ CC_Archs      = $(RC_ARCHS:%=-arch %)
 
 Extra_CC_Flags += $(RC_CFLAGS)
 
-Environment =   CFLAGS="$(CFLAGS)"	\
-	       CCFLAGS="$(CXXFLAGS)"	\
-	      CXXFLAGS="$(CXXFLAGS)"	\
-	       LDFLAGS="$(LDFLAGS)"	\
-	      $(Extra_Environment)
+ifneq "$(strip $(CFLAGS))" ""
+Environment += CFLAGS="$(CFLAGS)"
+endif
+ifneq "$(strip $(CXXFLAGS))" ""
+Environment += CCFLAGS="$(CXXFLAGS)" CXXFLAGS="$(CXXFLAGS)"
+endif
+ifneq "$(strip $(LDFLAGS))" ""
+Environment += LDFLAGS="$(LDFLAGS)"
+endif
+ifneq "$(strip $(CPPFLAGS))" ""
+Environment += CPPFLAGS="$(CPPFLAGS)"
+endif
+Environment += $(Extra_Environment)
 
 VPATH=$(Sources)
 

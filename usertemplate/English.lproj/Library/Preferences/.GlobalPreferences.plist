@@ -14,12 +14,12 @@
                 <string>it</string>
                 <string>nl</string>
                 <string>sv</string>
-                <string>no</string>
+                <string>nb</string>
                 <string>da</string>
                 <string>fi</string>
                 <string>pt</string>
-                <string>zh_CN</string>
-                <string>zh_TW</string>
+                <string>zh_Hans</string>
+                <string>zh_Hant</string>
                 <string>ko</string>
         </array>
 </dict>

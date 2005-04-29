@@ -1,0 +1,55 @@
+=pod
+
+=head1 SYNOPSIS
+
+gcc_select -- Switch the default system compiler
+
+=head1 USAGE
+
+	gcc_select [-n] [-force] [2 | 3 | 3.x | 4.x ] [-h | --help] [-v | --version] [-l | --list] [-root]
+
+=over 4
+
+=item
+
+2: Select gcc 2.95.2 as the default compiler.
+
+=item
+
+3: Select gcc 3.1 as the default compiler.
+
+=item
+
+3.x: Select gcc 3.x as the default compiler.
+
+=item
+
+4.x: Select gcc 4.x as the default compiler.
+
+=item
+
+-force: Ensure the links are correct for the specified version, even if the one specified is the current version.
+
+=item
+
+-h, --help: Display this help info.
+
+=item
+
+-n: Show commands to do selection but do not execute them.
+
+=item
+
+-root: Skip 'root' check and assume you have root access.
+
+=item
+
+-v, --version: Display gcc_select version number.
+
+=item
+
+-l, --list: Display available compiler versions.
+
+=back
+
+=cut

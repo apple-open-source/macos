@@ -46,7 +46,7 @@ in this Software without prior written authorization from The Open Group.
  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
  * THIS SOFTWARE.
  */
-/* $XFree86: xc/programs/xfs/os/utils.c,v 3.20 2002/10/15 01:45:03 dawes Exp $ */
+/* $XFree86: xc/programs/xfs/os/utils.c,v 3.21 2004/01/07 03:47:36 dawes Exp $ */
 
 #include	<stdio.h>
 #include	<X11/Xos.h>
@@ -526,7 +526,6 @@ SetDaemonState(void)
     int	    oldpid;
 
     if (becomeDaemon) {
-	BecomeOrphan();
 	BecomeDaemon();
 	if ((oldpid = StorePid ())) {
 	    if (oldpid == -1)

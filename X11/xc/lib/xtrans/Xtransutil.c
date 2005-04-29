@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/xtrans/Xtransutil.c,v 3.23 2003/02/12 15:01:38 alanh Exp $ */
+/* $XFree86: xc/lib/xtrans/Xtransutil.c,v 3.27 2003/07/18 15:53:24 tsi Exp $ */
 
 /* Copyright 1993, 1994 NCR Corporation - Dayton, Ohio, USA
  *
@@ -69,9 +69,10 @@ from The Open Group.
  * of these values are also defined by the ChangeHost protocol message.
  */
 
-#define FamilyInternet		0
+#define FamilyInternet		0	/* IPv4 */
 #define FamilyDECnet		1
 #define FamilyChaos		2
+#define FamilyInternet6		6
 #define FamilyAmoeba		33
 #define FamilyLocalHost		252
 #define FamilyKrb5Principal	253
@@ -82,7 +83,7 @@ from The Open Group.
 /*
  * TRANS(ConvertAddress) converts a sockaddr based address to an
  * X authorization based address. Some of this is defined as part of
- * the ChangeHost protocol. The rest is just doen in a consistent manner.
+ * the ChangeHost protocol. The rest is just done in a consistent manner.
  */
 
 int
@@ -130,6 +131,42 @@ TRANS(ConvertAddress)(int *familyp, int *addrlenp, Xtransaddr **addrp)
 	}
 	break;
     }
+
+#if defined(IPv6) && defined(AF_INET6)
+    case AF_INET6:
+    {
+	struct sockaddr_in6 saddr6;
+
+	memcpy (&saddr6, *addrp, sizeof (struct sockaddr_in6));
+
+	if (IN6_IS_ADDR_LOOPBACK(&saddr6.sin6_addr))
+	{
+	    *familyp=FamilyLocal;
+	}
+	else if (IN6_IS_ADDR_V4MAPPED(&(saddr6.sin6_addr))) {
+	    char *cp = (char *) &saddr6.sin6_addr.s6_addr[12];
+
+	    if ((cp[0] == 127) && (cp[1] == 0) &&
+	      (cp[2] == 0) && (cp[3] == 1))
+	    {
+		*familyp=FamilyLocal;
+	    }
+	    else 
+	    {
+		*familyp=FamilyInternet;
+		*addrlenp = sizeof (struct in_addr);
+		memcpy(*addrp,cp,*addrlenp);
+	    }
+	}
+	else
+	{
+	    *familyp=FamilyInternet6;
+	    *addrlenp=sizeof(saddr6.sin6_addr);
+	    memcpy(*addrp,&saddr6.sin6_addr,sizeof(saddr6.sin6_addr));
+	}
+	break;
+    }
+#endif /* IPv6 */
 #endif /* defined(TCPCONN) || defined(STREAMSCONN) */
 
 #if defined(DNETCONN)
@@ -147,13 +184,13 @@ TRANS(ConvertAddress)(int *familyp, int *addrlenp, Xtransaddr **addrp)
     }
 #endif /* defined(DNETCONN) */
 
-#if defined(UNIXCONN) || defined(LOCALCONN)
+#if defined(UNIXCONN) || defined(LOCALCONN) || defined(OS2PIPECONN)
     case AF_UNIX:
     {
 	*familyp=FamilyLocal;
 	break;
     }
-#endif /* defined(UNIXCONN) || defined(LOCALCONN) */
+#endif /* defined(UNIXCONN) || defined(LOCALCONN) || defined(OS2PIPECONN*/
 
 
     default:
@@ -223,7 +260,7 @@ TRANS(GetMyNetworkId) (XtransConnInfo ciptr)
 
     switch (family)
     {
-#if defined(UNIXCONN) || defined(STREAMSCONN) || defined(LOCALCONN)
+#if defined(UNIXCONN) || defined(STREAMSCONN) || defined(LOCALCONN) || defined(OS2PIPECONN)
     case AF_UNIX:
     {
 	struct sockaddr_un *saddr = (struct sockaddr_un *) addr;
@@ -233,15 +270,30 @@ TRANS(GetMyNetworkId) (XtransConnInfo ciptr)
 	    hostnamebuf, saddr->sun_path);
 	break;
     }
-#endif /* defined(UNIXCONN) || defined(STREAMSCONN) || defined(LOCALCONN) */
+#endif /* defined(UNIXCONN) || defined(STREAMSCONN) || defined(LOCALCONN) || defined(OS2PIPECONN) */
 
 #if defined(TCPCONN) || defined(STREAMSCONN)
     case AF_INET:
+#if defined(IPv6) && defined(AF_INET6)
+    case AF_INET6:
+#endif
     {
 	struct sockaddr_in *saddr = (struct sockaddr_in *) addr;
+#if defined(IPv6) && defined(AF_INET6)
+	struct sockaddr_in6 *saddr6 = (struct sockaddr_in6 *) addr;
+#endif
+	int portnum;
 	char portnumbuf[10];
 
-	sprintf (portnumbuf, "%d", ntohs (saddr->sin_port));
+
+#if defined(IPv6) && defined(AF_INET6)
+	if (family == AF_INET6)
+	    portnum = ntohs (saddr6->sin6_port);
+	else
+#endif
+	    portnum = ntohs (saddr->sin_port);
+
+	sprintf (portnumbuf, "%d", portnum);
 	networkId = (char *) xalloc (3 + strlen (transName) +
 	    strlen (hostnamebuf) + strlen (portnumbuf));
 	sprintf (networkId, "%s/%s:%s", transName, hostnamebuf, portnumbuf);
@@ -273,7 +325,7 @@ TRANS(GetMyNetworkId) (XtransConnInfo ciptr)
 static jmp_buf env;
 
 #ifdef SIGALRM
-static int nameserver_timedout = 0;
+static volatile int nameserver_timedout = 0;
 
 static 
 #ifdef SIGNALRETURNSINT
@@ -301,28 +353,49 @@ TRANS(GetPeerNetworkId) (XtransConnInfo ciptr)
     char	*peer_addr = ciptr->peeraddr;
     char	*hostname;
     char	addrbuf[256];
-    char	*addr = NULL;
+    const char	*addr = NULL;
 
     switch (family)
     {
     case AF_UNSPEC:
-#if defined(UNIXCONN) || defined(STREAMSCONN) || defined(LOCALCONN)
+#if defined(UNIXCONN) || defined(STREAMSCONN) || defined(LOCALCONN) || defined(OS2PIPECONN)
     case AF_UNIX:
     {
 	if (gethostname (addrbuf, sizeof (addrbuf)) == 0)
 	    addr = addrbuf;
 	break;
     }
-#endif /* defined(UNIXCONN) || defined(STREAMSCONN) || defined(LOCALCONN) */
+#endif /* defined(UNIXCONN) || defined(STREAMSCONN) || defined(LOCALCONN) || defined(OS2PIPECONN) */
 
 #if defined(TCPCONN) || defined(STREAMSCONN)
     case AF_INET:
+#if defined(IPv6) && defined(AF_INET6)
+    case AF_INET6:
+#endif
     {
 	struct sockaddr_in *saddr = (struct sockaddr_in *) peer_addr;
+#if defined(IPv6) && defined(AF_INET6)
+	struct sockaddr_in6 *saddr6 = (struct sockaddr_in6 *) peer_addr;
+#endif
+	char *address;
+	int addresslen;
 #ifdef XTHREADS_NEEDS_BYNAMEPARAMS
 	_Xgethostbynameparams hparams;
 #endif
 	struct hostent * volatile hostp = NULL;
+
+#if defined(IPv6) && defined(AF_INET6)
+	if (family == AF_INET6)
+	{
+	    address = (char *) &saddr6->sin6_addr;
+	    addresslen = sizeof (saddr6->sin6_addr);
+	}
+	else
+#endif
+	{
+	    address = (char *) &saddr->sin_addr;
+	    addresslen = sizeof (saddr->sin_addr);
+	}
 
 #ifdef SIGALRM
 	/*
@@ -338,8 +411,7 @@ TRANS(GetPeerNetworkId) (XtransConnInfo ciptr)
 	alarm (4);
 	if (setjmp(env) == 0) {
 #endif
-	    hostp = _XGethostbyaddr ((char *) &saddr->sin_addr,
-		sizeof (saddr->sin_addr), AF_INET, hparams);
+	    hostp = _XGethostbyaddr (address, addresslen, family, hparams);
 #ifdef SIGALRM
 	}
 	alarm (0);
@@ -347,7 +419,11 @@ TRANS(GetPeerNetworkId) (XtransConnInfo ciptr)
 	if (hostp != NULL)
 	  addr = hostp->h_name;
 	else
+#if defined(IPv6) && defined(AF_INET6)
+	  addr = inet_ntop (family, address, addrbuf, sizeof (addrbuf));
+#else
 	  addr = inet_ntoa (saddr->sin_addr);
+#endif
 	break;
     }
 
@@ -497,14 +573,14 @@ trans_mkdir(char *path, int mode)
 	    if (updateOwner && !updatedOwner) {
 	  	PRMSG(1, "mkdir: Owner of %s should be set to root\n",
 		      path, 0, 0);
-#if !defined(__CYGWIN__)
+#if !defined(__CYGWIN__) && !defined(__DARWIN__)
 		sleep(5);
 #endif
 	    }
 	    if (updateMode && !updatedMode) {
 	  	PRMSG(1, "mkdir: Mode of %s should be set to %04o\n",
 		      path, mode, 0);
-#if !defined(__CYGWIN__)
+#if !defined(__CYGWIN__) && !defined(__DARWIN__)
 		sleep(5);
 #endif
 	    }

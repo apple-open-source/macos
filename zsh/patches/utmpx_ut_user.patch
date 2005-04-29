@@ -1,0 +1,12 @@
+--- Src/watch.c	2004-08-13 03:22:46.000000000 -0700
++++ Src/watch.c	2004-11-22 15:47:51.000000000 -0800
+@@ -103,6 +103,9 @@
+ # ifdef HAVE_STRUCT_UTMPX_UT_HOST
+ #  define WATCH_UTMP_UT_HOST 1
+ # endif
++# ifdef __APPLE__
++# define ut_name ut_user
++#endif
+ #endif
+ 
+ #if !defined(WATCH_STRUCT_UTMP) && defined(HAVE_STRUCT_UTMP) && defined(REAL_UTMP_FILE)

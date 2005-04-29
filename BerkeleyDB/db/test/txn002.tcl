@@ -1,21 +1,21 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2002
+# Copyright (c) 1996-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: txn002.tcl,v 1.1.1.1 2003/02/15 04:56:17 zarzycki Exp $
+# $Id: txn002.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
 #
 
 # TEST	txn002
 # TEST	Verify that  read-only transactions do not write log records.
-proc txn002 { {tnum "02" } { max 1024 } { ntxns 50 } } {
+proc txn002 { {tnum "002" } { max 1024 } { ntxns 50 } } {
 	source ./include.tcl
 	global txn_curid
 	global txn_maxid
 
-	puts -nonewline "Txn0$tnum: Read-only transaction test ($max) ($ntxns)"
+	puts -nonewline "Txn$tnum: Read-only transaction test ($max) ($ntxns)"
 
-	if { $tnum != "02" } {
+	if { $tnum != "002" } {
 		puts " (with ID wrap)"
 	} else {
 		puts ""
@@ -34,7 +34,7 @@ proc txn002 { {tnum "02" } { max 1024 } { ntxns 50 } } {
 	# We will create a bunch of transactions and commit them.
 	set txn_list {}
 	set tid_list {}
-	puts "\tTxn0$tnum.a: Beginning/Committing Transactions"
+	puts "\tTxn$tnum.a: Beginning/Committing Transactions"
 	for { set i 0 } { $i < $ntxns } { incr i } {
 		set txn [$env txn]
 		error_check_good txn_begin [is_valid_txn $txn $env] TRUE

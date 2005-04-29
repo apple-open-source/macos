@@ -26,7 +26,7 @@
             // Scc General Routines
 
     void 	initChip(PortInfo_t *port);
-    void	FixZeroBug(SccChannel *Channel);
+    //void	FixZeroBug(SccChannel *Channel);
     void	ProbeSccDevice(PortInfo_t *Port);
     void 	OpenScc(PortInfo_t *Port);
     void 	SccCloseChannel(SccChannel *Channel);
@@ -48,6 +48,7 @@
     bool 	SccGetDCD(SccChannel *Channel);
     void 	SccSetCTSFlowControlEnable(SccChannel *Channel, bool enableCTS);
     void	SccSetDTR(SccChannel *Channel, bool assertDTR);
+    void	SccSetRTS(SccChannel *Channel, bool assertRTS);
     void	SccSetBreak(SccChannel *Channel, bool setBreak);
 
         // Scc Interrupt Service Routines
@@ -62,17 +63,17 @@
 
         // SCC Data transfer Routines - General
         
-    void	SccSetDMARegisters(SccChannel *Channel, IOService *provider);
+    bool	SccSetDMARegisters(SccChannel *Channel, IOService *provider);
     void	SccEnableDMAInterruptSources(SccChannel *Channel, bool onOff);
 
 	// SCC Data transfer Routines - RX channel
         
-    void 	SccSetupReceptionChannel(SccChannel *Channel);
-    void 	SccFreeReceptionChannel(SccChannel *Channel);
-    void 	SccdbdmaDefineReceptionCommands(SccChannel *Channel);
-    void 	SccdbdmaStartReception(SccChannel *Channel);
-    void 	SccdbdmaEndReception(SccChannel *Channel);
-    void 	SccdbdmaRxHandleCurrentPosition(SccChannel *Channel);
+    void 	SccSetupReceptionChannel(SccChannel *Channel, UInt32 index);
+    void 	SccFreeReceptionChannel(SccChannel *Channel, UInt32 index);
+    void 	SccdbdmaDefineReceptionCommands(SccChannel *Channel, UInt32 index, bool firstReadInterrupts);
+    void 	SccdbdmaStartReception(SccChannel *Channel, UInt32 index, bool firstReadInterrupts);
+    void 	SccdbdmaEndReception(SccChannel *Channel, UInt32 index);
+    void 	SccdbdmaRxHandleCurrentPosition(SccChannel *Channel, UInt32 index);
 
 	// SCC Data transfer Routines - TX channel
         
@@ -84,6 +85,8 @@
 
         // SCC Timeout Routines
 
+    void	SccCurrentPositionDelayedHandler( thread_call_param_t arg, thread_call_param_t );
+    void	SccStartTransmissionDelayedHandler ( thread_call_param_t self, thread_call_param_t );
     void 	HandleRxIntTimeout(SccChannel *Channel);
     void 	rxTimeoutHandler(OSObject *owner, IOTimerEventSource *sender);
     

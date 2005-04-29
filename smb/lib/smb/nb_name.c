@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_name.c,v 1.9 2002/03/12 22:06:12 lindak Exp $
+ * $Id: nb_name.c,v 1.11 2004/12/11 05:23:59 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -88,7 +88,16 @@ nb_sockaddr(struct sockaddr *peer, struct nb_name *np,
 	error = nb_snballoc(nmlen, &snb);
 	if (error)
 		return error;
-	if (nmlen != nb_name_encode(np, snb->snb_name))
+	/* the only time the first argument to nb_name_encode()
+	*  is not NULL is when we are processing the server's
+	*  computer name from NBNS (the name with <20> at the
+	*  end), and we DON'T want to uppercase it, because we
+	*  don't know what the encoding is */
+	u_int8_t	UCflag=1; /* to upper or not to upper?
+				     that is the question */
+	if (peer)
+		UCflag = 0; /* don't do it! */
+	if (nmlen != nb_name_encode(np, snb->snb_name,UCflag))
 		printf("a bug somewhere in the nb_name* code\n");
 	if (peer)
 		memcpy(&snb->snb_tran, peer, peer->sa_len);
@@ -153,7 +162,8 @@ memsetw(char *dst, int n, u_short word)
 }
 
 int
-nb_name_encode(struct nb_name *np, u_char *dst)
+/* add new arg UCflag. 1=uppercase, 0=don't */
+nb_name_encode(struct nb_name *np, u_char *dst, u_int8_t UCflag)
 {
 	u_char *name, *plen;
 	u_char *cp = dst;
@@ -163,16 +173,18 @@ nb_name_encode(struct nb_name *np, u_char *dst)
 	name = np->nn_name;
 	if (name[0] == '*' && name[1] == 0) {
 		*(u_short*)cp = NBENCODE('*');
-#ifdef APPLE
 		memsetw(cp + 2, NB_NAMELEN - 1, NBENCODE((char)0));
-#else
-		memsetw(cp + 2, NB_NAMELEN - 1, NBENCODE(' '));
-#endif
 		cp += NB_ENCNAMELEN;
 	} else {
 		/* freebsd bug: system names must be truncated to 15 chars not 16 */
 		for (i = 0; *name && i < NB_NAMELEN - 1; i++, cp += 2, name++)
-			*(u_short*)cp = NBENCODE(toupper(*name));
+
+			if (UCflag) /* caller wants uppercase */ {
+				*(u_short*)cp = NBENCODE(toupper(*name));
+			} else {
+				*(u_short*)cp = NBENCODE(*name);
+			}
+
 		i = NB_NAMELEN - i - 1;
 		if (i > 0) {
 			memsetw(cp, i, NBENCODE(' '));

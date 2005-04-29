@@ -1,0 +1,20 @@
+--- wcstol.3.orig	Fri Mar 11 19:16:13 2005
++++ wcstol.3	Fri Mar 11 19:17:53 2005
+@@ -78,9 +78,16 @@
+ Refer to their manual pages (for example
+ .Xr strtol 3 )
+ for details.
++.Pp
++Extended locale versions of these functions are documented in
++.Xr wcstol_l 3 .
++See
++.Xr xlocale 3
++for more information.
+ .Sh SEE ALSO
+ .Xr strtol 3 ,
+-.Xr strtoul 3
++.Xr strtoul 3 ,
++.Xr wcstol_l 3
+ .Sh STANDARDS
+ The
+ .Fn wcstol ,

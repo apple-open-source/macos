@@ -90,6 +90,7 @@ SOFTWARE.
         char           *hint;
         char           *units;
         char           *description;    /* description (a quoted string) */
+        char           *reference;    /* references (a quoted string) */
         char           *defaultValue;
 	char           *filename;
         int             lineno;
@@ -120,11 +121,12 @@ SOFTWARE.
         char           *hint;
         char           *units;
         int             (*printomat) (u_char **, size_t *, size_t *, int,
-                                      netsnmp_variable_list *,
-                                      struct enum_list *, const char *,
+                                      const netsnmp_variable_list *,
+                                      const struct enum_list *, const char *,
                                       const char *);
-        void            (*printer) (char *, netsnmp_variable_list *, struct enum_list *, const char *, const char *);   /* Value printing function */
+        void            (*printer) (char *, const netsnmp_variable_list *, const struct enum_list *, const char *, const char *);   /* Value printing function */
         char           *description;    /* description (a quoted string) */
+        char           *reference;    /* references (a quoted string) */
         int             reported;       /* 1=report started in print_subtree... */
         char           *defaultValue;
     };
@@ -212,6 +214,7 @@ SOFTWARE.
     int             unload_module(const char *name);
     void            unload_all_mibs(void);
     void            init_mib_internals(void);
+    int             add_mibfile(const char*, const char*, FILE *);
     int             add_mibdir(const char *);
     void            add_module_replacement(const char *, const char *,
                                            const char *, int);
@@ -221,12 +224,14 @@ SOFTWARE.
     void            print_ascii_dump_tree(FILE *, struct tree *, int);
     struct tree    *find_tree_node(const char *, int);
     const char     *get_tc_descriptor(int);
+    const char     *get_tc_description(int);
     struct tree    *find_best_tree_node(const char *, struct tree *,
                                         u_int *);
     /*
      * backwards compatability 
      */
     struct tree    *find_node(const char *, struct tree *);
+    struct tree    *find_node2(const char *, const char *); 
     struct module  *find_module(int);
     void            adopt_orphans(void);
     char           *snmp_mib_toggle_options(char *options);

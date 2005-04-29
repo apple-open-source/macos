@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		02345980000FD03B11CA0E72 = {
 			children = (
@@ -12,6 +12,7 @@
 			isa = PBXVariantGroup;
 			name = main.nib;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		02345981000FD03B11CA0E72 = {
 			fileRef = 02345980000FD03B11CA0E72;
@@ -20,9 +21,11 @@
 			};
 		};
 		0249A667FF388E1711CA2CEA = {
-			isa = PBXApplicationReference;
+			explicitFileType = wrapper.application;
+			isa = PBXFileReference;
 			path = X11.app;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //020
 //021
@@ -58,13 +61,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0867D6ABFE840B52C02AAC07 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0867D6ACFE840B52C02AAC07 = {
 			fileRef = 0867D6AAFE840B52C02AAC07;
@@ -84,9 +90,11 @@
 //184
 		1870340FFE93FCAF11CA0CD7 = {
 			isa = PBXFileReference;
+			lastKnownFileType = wrapper.nib;
 			name = English;
 			path = English.lproj/main.nib;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //180
 //181
@@ -105,6 +113,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -117,6 +126,8 @@
 //203
 //204
 		20286C28FDCF999611CA2CEA = {
+			buildSettings = {
+			};
 			buildStyles = (
 				4A9504C5FFE6A39111CA0CBA,
 				4A9504C6FFE6A39111CA0CBA,
@@ -140,6 +151,7 @@
 			name = X11;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		20286C2AFDCF999611CA2CEA = {
 			children = (
@@ -149,17 +161,20 @@
 			name = Sources;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		20286C2CFDCF999611CA2CEA = {
 			children = (
 				50459C5F038587C60ECA21EC,
 				0867D6AAFE840B52C02AAC07,
+				574679B106E8F60B004DBA28,
 				02345980000FD03B11CA0E72,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		20286C32FDCF999611CA2CEA = {
 			children = (
@@ -170,11 +185,13 @@
 			name = "External Frameworks and Libraries";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		20286C34FDCF999611CA2CEA = {
 			buildPhases = (
 				20286C35FDCF999611CA2CEA,
 				20286C36FDCF999611CA2CEA,
+				574E7C9806E8FC3B007ECC87,
 				20286C38FDCF999611CA2CEA,
 				20286C3BFDCF999611CA2CEA,
 				04313892FE3035C9C02AAC07,
@@ -254,14 +271,14 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2003, Apple Computer, Inc.
-Copyright © 2003, XFree86 Project, Inc.</string>
+	<string>Copyright © 2003-2004, Apple Computer, Inc.
+Copyright © 1994-2004, XFree86 Project, Inc.</string>
 	<key>NSMainNibFile</key>
 	<string>main</string>
 	<key>NSPrincipalClass</key>
@@ -315,20 +332,23 @@ Copyright © 2003, XFree86 Project, Inc.</string>
 //4A3
 //4A4
 		4A9504C5FFE6A39111CA0CBA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		4A9504C6FFE6A39111CA0CBA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -345,8 +365,10 @@ Copyright © 2003, XFree86 Project, Inc.</string>
 //504
 		50459C5F038587C60ECA21EC = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			path = X11.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		50459C60038587C60ECA21EC = {
 			fileRef = 50459C5F038587C60ECA21EC;
@@ -357,8 +379,10 @@ Copyright © 2003, XFree86 Project, Inc.</string>
 		50EE2AB703849F0B0ECA21EC = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = "bundle-main.c";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		50EE2AB803849F0B0ECA21EC = {
 			fileRef = 50EE2AB703849F0B0ECA21EC;
@@ -367,10 +391,12 @@ Copyright © 2003, XFree86 Project, Inc.</string>
 			};
 		};
 		50F4F0A7039D6ACA0E82C0CB = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		50F4F0E8039D6ACA0E82C0CB = {
 			fileRef = 50F4F0A7039D6ACA0E82C0CB;
@@ -389,16 +415,43 @@ Copyright © 2003, XFree86 Project, Inc.</string>
 //573
 //574
 		570C5748047186C400ACF82F = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		570C5749047186C400ACF82F = {
 			fileRef = 570C5748047186C400ACF82F;
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		574679B106E8F60B004DBA28 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = Localizable.strings;
+			path = English.lproj/Localizable.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		574679B206E8F60B004DBA28 = {
+			fileRef = 574679B106E8F60B004DBA28;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		574E7C9806E8FC3B007ECC87 = {
+			buildActionMask = 2147483647;
+			dstPath = English.lproj;
+			dstSubfolderSpec = 7;
+			files = (
+				574679B206E8F60B004DBA28,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 	};
 	rootObject = 20286C28FDCF999611CA2CEA;

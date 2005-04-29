@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeArcMod.man,v 1.2 2001/01/27 18:20:04 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeArcMod.man,v 1.3 2003/04/28 22:17:56 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,29 +144,15 @@
 .SH NAME
 XSetArcMode, XSetSubwindowMode, XSetGraphicsExposure \- GC convenience routines
 .SH SYNTAX
-XSetArcMode\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIarc_mode\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIarc_mode\fP\^;
-.LP
-XSetSubwindowMode\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIsubwindow_mode\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIsubwindow_mode\fP\^;
-.LP
-XSetGraphicsExposures\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIgraphics_exposures\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      Bool \fIgraphics_exposures\fP\^;
+.HP
+int XSetArcMode\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, int
+\fIarc_mode\fP\^); 
+.HP
+int XSetSubwindowMode\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, int
+\fIsubwindow_mode\fP\^); 
+.HP
+int XSetGraphicsExposures\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, Bool
+\fIgraphics_exposures\fP\^); 
 .SH ARGUMENTS
 .IP \fIarc_mode\fP 1i
 Specifies the arc mode.

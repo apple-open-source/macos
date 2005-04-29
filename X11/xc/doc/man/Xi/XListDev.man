@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XListDev.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XListDev.man,v 1.3 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,15 +17,11 @@
 .SH NAME
 XListInputDevices, XFreeDeviceList \- list available input devices
 .SH SYNTAX
-XDeviceInfo *XListInputDevices\^(\^\fIdisplay\fP, \fIndevices_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int *\fIndevices_return\fP\^;
-.sp
-XFreeDeviceList\^(\^\fIlist\fP\^)
-.br
-      XDeviceInfo *\fIlist\fP\^;
+.HP
+XDeviceInfo *XListInputDevices\^(\^Display *\fIdisplay\fP\^, int
+*\fIndevices_return\fP\^); 
+.HP
+int XFreeDeviceList\^(\^XDeviceInfo *\fIlist\fP\^); 
 .SH ARGUMENTS
 .TP 12
 .I display

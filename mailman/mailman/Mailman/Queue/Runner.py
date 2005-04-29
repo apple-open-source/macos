@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -31,6 +31,8 @@ from Mailman import i18n
 from Mailman.Queue.Switchboard import Switchboard
 from Mailman.Logging.Syslog import syslog
 
+import email.Errors
+
 try:
     True, False
 except NameError:
@@ -51,6 +53,9 @@ class Runner:
         # Create the shunt switchboard
         self._shunt = Switchboard(mm_cfg.SHUNTQUEUE_DIR)
         self._stop = False
+
+    def __repr__(self):
+        return '<%s at %s>' % (self.__class__.__name__, id(self))
 
     def stop(self):
         self._stop = True
@@ -88,32 +93,34 @@ class Runner:
         # available for this qrunner to process.
         files = self._switchboard.files()
         for filebase in files:
-            # Ask the switchboard for the message and metadata objects
-            # associated with this filebase.
-            msg, msgdata = self._switchboard.dequeue(filebase)
-            # It's possible one or both files got lost.  If so, just ignore
-            # this filebase entry.  dequeue() will automatically unlink the
-            # other file, but we should log an error message for diagnostics.
-            if msg is None or msgdata is None:
-                syslog('error', 'lost data files for filebase: %s', filebase)
-            else:
-                # Now that we've dequeued the message, we want to be
-                # incredibly anal about making sure that no uncaught exception
-                # could cause us to lose the message.  All runners that
-                # implement _dispose() must guarantee that exceptions are
-                # caught and dealt with properly.  Still, there may be a bug
-                # in the infrastructure, and we do not want those to cause
-                # messages to be lost.  Any uncaught exceptions will cause the
-                # message to be stored in the shunt queue for human
+            try:
+                # Ask the switchboard for the message and metadata objects
+                # associated with this filebase.
+                msg, msgdata = self._switchboard.dequeue(filebase)
+            except email.Errors.MessageParseError, e:
+                # It's possible to get here if the message was stored in the
+                # pickle in plain text, and the metadata had a _parsemsg key
+                # that was true, /and/ if the message had some bogosity in
+                # it.  It's almost always going to be spam or bounced spam.
+                # There's not much we can do (and we didn't even get the
+                # metadata, so just log the exception and continue.
+                self._log(e)
+                syslog('error', 'Ignoring unparseable message: %s', filebase)
+                continue
+            try:
+                self._onefile(msg, msgdata)
+            except Exception, e:
+                # All runners that implement _dispose() must guarantee that
+                # exceptions are caught and dealt with properly.  Still, there
+                # may be a bug in the infrastructure, and we do not want those
+                # to cause messages to be lost.  Any uncaught exceptions will
+                # cause the message to be stored in the shunt queue for human
                 # intervention.
-                try:
-                    self._onefile(msg, msgdata)
-                except Exception, e:
-                    self._log(e)
-                    # Put a marker in the metadata for unshunting
-                    msgdata['whichq'] = self._switchboard.whichq()
-                    filebase = self._shunt.enqueue(msg, msgdata)
-                    syslog('error', 'SHUNTING: %s', filebase)
+                self._log(e)
+                # Put a marker in the metadata for unshunting
+                msgdata['whichq'] = self._switchboard.whichq()
+                filebase = self._shunt.enqueue(msg, msgdata)
+                syslog('error', 'SHUNTING: %s', filebase)
             # Other work we want to do each time through the loop
             Utils.reap(self._kids, once=True)
             self._doperiodic()

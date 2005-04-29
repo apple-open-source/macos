@@ -41,6 +41,7 @@ package java.awt.image;
 import java.awt.Image;
 import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.Vector;
 
 public class MemoryImageSource implements ImageProducer 
 {
@@ -49,7 +50,8 @@ public class MemoryImageSource implements ImageProducer
     private int pixeli[], width, height, offset, scansize;
     private byte pixelb[];
     private ColorModel cm;
-    private Hashtable props, consumers = new Hashtable();
+    private Hashtable props = new Hashtable();
+    private Vector consumers = new Vector();
 
     /**
        Constructs an ImageProducer from memory
@@ -74,7 +76,7 @@ public class MemoryImageSource implements ImageProducer
 	this.props = props;
 	int max = (( scansize > width ) ? scansize : width );
 	pixelb = new byte[ max  * height ];
-	System.arraycopy( pix, 0, pixelb, 0, max );
+	System.arraycopy( pix, 0, pixelb, 0, max * height );
     }
     /**
        Constructs an ImageProducer from memory
@@ -100,7 +102,7 @@ public class MemoryImageSource implements ImageProducer
 	this.props = props;
 	int max = (( scansize > width ) ? scansize : width );
 	pixeli = new int[ max  * height ];
-	System.arraycopy( pix, 0, pixeli, 0, max );
+	System.arraycopy( pix, 0, pixeli, 0, max * height );
     }
     /**
        Constructs an ImageProducer from memory using the default RGB ColorModel
@@ -126,10 +128,10 @@ public class MemoryImageSource implements ImageProducer
      * <code>ImageProducer</code>.  
      */
     public synchronized void addConsumer(ImageConsumer ic) {
-	if (consumers.containsKey(ic))
+	if (consumers.contains(ic))
 	    return;
 
-	consumers.put(ic, ic);
+	consumers.addElement(ic);
     }
 
     /**
@@ -137,7 +139,7 @@ public class MemoryImageSource implements ImageProducer
      * already registered with this <code>ImageProducer</code>.  
      */
     public synchronized boolean isConsumer(ImageConsumer ic) {
-	if (consumers.containsKey(ic))
+	if (consumers.contains(ic))
 	    return true;
 	return false;
     }
@@ -147,7 +149,7 @@ public class MemoryImageSource implements ImageProducer
      * registered consumers for this <code>ImageProducer</code>.  
      */
     public synchronized void removeConsumer(ImageConsumer ic) {
-	consumers.remove(ic);
+	consumers.removeElement(ic);
     }
 
     /**
@@ -157,16 +159,16 @@ public class MemoryImageSource implements ImageProducer
      * registered consumers.  
      */
     public void startProduction(ImageConsumer ic) {
-	if (!(consumers.containsKey(ic))) {
-	    consumers.put(ic, ic);
+	if (!(consumers.contains(ic))) {
+	    consumers.addElement(ic);
 	}        
-	Enumeration e = consumers.elements();
-	for( ; e.hasMoreElements(); ) {
-		ic = (ImageConsumer)e.nextElement();
-		sendPicture( ic );
-		ic.imageComplete( ImageConsumer.SINGLEFRAME );
-	    }	
 
+	Vector list = (Vector) consumers.clone();
+	for(int i = 0; i < list.size(); i++) {
+	    ic = (ImageConsumer) list.elementAt(i);
+		sendPicture( ic );
+	    ic.imageComplete( ImageConsumer.STATICIMAGEDONE );
+	    }	
     }
 
     /**
@@ -210,9 +212,9 @@ public class MemoryImageSource implements ImageProducer
     {
 	if( animated == true ) {
 		ImageConsumer ic;
-		Enumeration e = consumers.elements();
-		for( ; e.hasMoreElements(); ) {
-			ic = (ImageConsumer)e.nextElement();
+		Vector list = (Vector) consumers.clone();
+		for(int i = 0; i < list.size(); i++) {
+			ic = (ImageConsumer) list.elementAt(i);
 			sendPicture( ic );
 			ic.imageComplete( ImageConsumer.SINGLEFRAME );
 		    }	
@@ -226,6 +228,8 @@ public class MemoryImageSource implements ImageProducer
 	if( props != null ) {
 	    ic.setProperties( props );
 	}
+	ic.setDimensions(width, height);
+	ic.setColorModel(cm);
 	if( pixeli != null ) {
 	    ic.setPixels( 0, 0, width, height, cm, pixeli, offset, scansize );
 	} else {
@@ -248,17 +252,23 @@ public class MemoryImageSource implements ImageProducer
 		    newPixels();
 		} else {
 		    ImageConsumer ic;
-		    Enumeration e = consumers.elements();
-		    for( ; e.hasMoreElements(); ) {
-			    ic = (ImageConsumer)e.nextElement();
+		    Vector list = (Vector) consumers.clone();
+		    for(int i = 0; i < list.size(); i++) {
+			    ic = (ImageConsumer) list.elementAt(i);
 			    ic.setHints( ImageConsumer.TOPDOWNLEFTRIGHT );
 			    if( props != null ) {
 				ic.setProperties( props );
 			    }
 			    if( pixeli != null ) {
-				ic.setPixels( 0, 0, width, height, cm, pixeli, offset, scansize );
+				int[] pixelbuf = new int[w * h];
+				for (int row = y; row < h; row++)
+				    System.arraycopy(pixeli, row * scansize + x + offset, pixelbuf, row * w, w);
+				ic.setPixels( x, y, w, h, cm, pixelbuf, 0, w );
 			    } else {
-				ic.setPixels( 0, 0, width, height, cm, pixelb, offset, scansize );
+				byte[] pixelbuf = new byte[w * h];
+				for (int row = y; row < h; row++)
+				    System.arraycopy(pixelb, row * scansize + x + offset, pixelbuf, row * w, w);
+				ic.setPixels( x, y, w, h, cm, pixelbuf, 0, w );
 			    }
 			    ic.imageComplete( ImageConsumer.SINGLEFRAME );
 		    }
@@ -287,17 +297,23 @@ public class MemoryImageSource implements ImageProducer
 		    newPixels();
 		} else {
 		    ImageConsumer ic;
-		    Enumeration e = consumers.elements();
-		    for( ; e.hasMoreElements(); ) {
-			    ic = (ImageConsumer)e.nextElement();
+		    Vector list = (Vector) consumers.clone();
+		    for(int i = 0; i < list.size(); i++) {
+			    ic = (ImageConsumer) list.elementAt(i);
 			    ic.setHints( ImageConsumer.TOPDOWNLEFTRIGHT );
 			    if( props != null ) {
 				ic.setProperties( props );
 			    }
 			    if( pixeli != null ) {
-				ic.setPixels( 0, 0, width, height, cm, pixeli, offset, scansize );
+				int[] pixelbuf = new int[w * h];
+				for (int row = y; row < h; row++)
+				    System.arraycopy(pixeli, row * scansize + x + offset, pixelbuf, row * w, w);
+				ic.setPixels( x, y, w, h, cm, pixelbuf, 0, w );
 			    } else {
-				ic.setPixels( 0, 0, width, height, cm, pixelb, offset, scansize );
+				byte[] pixelbuf = new byte[w * h];
+				for (int row = y; row < h; row++)
+				    System.arraycopy(pixelb, row * scansize + x + offset, pixelbuf, row * w, w);
+				ic.setPixels( x, y, w, h, cm, pixelbuf, 0, w );
 			    }
 			    if( framenotify == true )
 				ic.imageComplete( ImageConsumer.SINGLEFRAME );
@@ -312,9 +328,14 @@ public class MemoryImageSource implements ImageProducer
 				       int scansize)
 
     {
+	pixeli = null;
+	pixelb = newpix;
+	cm = newmodel;
+	this.offset = offset;
+	this.scansize = scansize;
 	if( animated == true )
 	    {
-		//FIXME
+		newPixels();
 	    }
     }
 
@@ -324,9 +345,14 @@ public class MemoryImageSource implements ImageProducer
 				       int scansize)
 
     {
+	pixelb = null;
+	pixeli = newpix;
+	cm = newmodel;
+	this.offset = offset;
+	this.scansize = scansize;
 	if( animated == true )
 	    {
-		//FIXME
+		newPixels();
 	    }
     }
 

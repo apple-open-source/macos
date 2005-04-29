@@ -2,20 +2,20 @@
    Copyright (C) 1993, 1994, 1996 Free Software Foundation, Inc.
    Contributed by Kresten Krab Thorup.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -27,6 +27,10 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef __GNU_OBJC_LIST_H
 #define __GNU_OBJC_LIST_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 struct objc_list {
   void *head;
@@ -64,9 +68,9 @@ list_length(struct objc_list* list)
    larger than the list length, NULL is returned  */
 
 static inline void*
-list_nth(int index, struct objc_list* list)
+list_nth(int indx, struct objc_list* list)
 {
-  while(index-- != 0)
+  while(indx-- != 0)
     {
       if(list->tail)
 	list = list->tail;
@@ -144,4 +148,9 @@ list_free(struct objc_list* list)
       objc_free(list);
     }
 }
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
 #endif /* not __GNU_OBJC_LIST_H */

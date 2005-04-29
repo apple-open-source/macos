@@ -1,0 +1,2978 @@
+<html><head>
+    <title>Snit V0.93 Frequently Asked Questions</title>
+</head>
+
+<BODY>
+
+<h1>Snit V0.93 Frequently Asked Questions</h1>
+
+
+<p><hr><p>
+
+<h3><a href="#overview">OVERVIEW</a></h3>
+<ul>
+<li><a href="#what_is_this_document">What is this document?</a>
+<li><a href="#what_is_snit">What is Snit?</a>
+<li><a href="#what_version_of_tcl_does_snit_require">What version of Tcl does Snit require?</a>
+<li><a href="#what_are_snits_goals">What are Snit's goals?</a>
+<li><a href="#how_is_snit_different_from_other_oo_frameworks">How is Snit different from other OO frameworks?</a>
+<li><a href="#what_can_i_do_with_snit">What can I do with Snit?</a>
+</ul><p>
+<h3><a href="#objects">OBJECTS</a></h3>
+<ul>
+<li><a href="#what_is_an_object">What is an object?</a>
+<li><a href="#what_is_an_abstract_data_type">What is an abstract data type?</a>
+<li><a href="#what_kinds_of_abstract_data_types_does_snit_provide">What kinds of abstract data types does Snit provide?</a>
+<li><a href="#what_is_a_snittype">What is a snit::type?</a>
+<li><a href="#what_is_a_snitwidget">What is a snit::widget?</a>
+<li><a href="#what_is_a_snitwidgetadaptor">What is a snit::widgetadaptor?</a>
+<li><a href="#how_do_i_create_an_instance_of_a_snittype">How do I create an instance of a snit::type?</a>
+<li><a href="#how_do_i_refer_to_an_object_indirectly">How do I refer to an object indirectly?</a>
+<li><a href="#how_can_i_generate_the_object_name_automatically">How can I generate the object name automatically?</a>
+<li><a href="#can_types_be_renamed">Can types be renamed?</a>
+<li><a href="#can_objects_be_renamed">Can objects be renamed?</a>
+<li><a href="#how_do_i_destroy_a_snit_object">How do I destroy a Snit object?</a>
+</ul><p>
+<h3><a href="#instance_methods">INSTANCE METHODS</a></h3>
+<ul>
+<li><a href="#what_is_an_instance_method">What is an instance method?</a>
+<li><a href="#how_do_i_define_an_instance_method">How do I define an instance method?</a>
+<li><a href="#how_does_a_client_call_an_instance_method">How does a client call an instance method?</a>
+<li><a href="#how_does_an_instance_method_call_another_instance_method">How does an instance method call another instance method?</a>
+<li><a href="#are_there_any_limitations_on_instance_method_names">Are there any limitations on instance method names?</a>
+<li><a href="#how_do_i_make_an_instance_method_private">How do I make an instance method private?</a>
+<li><a href="#are_there_any_limitations_on_instance_method_arguments">Are there any limitations on instance method arguments?</a>
+<li><a href="#what_implicit_arguments_are_passed_to_each_instance_method">What implicit arguments are passed to each instance method?</a>
+<li><a href="#what_is_type">What is $type?</a>
+<li><a href="#what_is_self">What is $self?</a>
+<li><a href="#what_is_selfns">What is $selfns?</a>
+<li><a href="#what_is_win">What is $win?</a>
+<li><a href="#how_do_i_pass_an_instance_method_as_a_callback">How do I pass an instance method as a callback?</a>
+<li><a href="#how_do_i_delegate_instance_methods_to_a_component">How do I delegate instance methods to a component?</a>
+</ul><p>
+<h3><a href="#instance_variables">INSTANCE VARIABLES</a></h3>
+<ul>
+<li><a href="#what_is_an_instance_variable">What is an instance variable?</a>
+<li><a href="#how_is_a_scalar_instance_variable_defined">How is a scalar instance variable defined?</a>
+<li><a href="#how_is_an_array_instance_variable_defined">How is an array instance variable defined?</a>
+<li><a href="#are_there_any_limitations_on_instance_variable_names">Are there any limitations on instance variable names?</a>
+<li><a href="#do_i_need_to_declare_instance_variables_before_using_them">Do I need to declare instance variables before using them?</a>
+<li><a href="#how_do_i_pass_an_instance_variables_name_to_another_object">How do I pass an instance variable's name to another object?</a>
+<li><a href="#how_do_i_make_an_instance_variable_public">How do I make an instance variable public?</a>
+</ul><p>
+<h3><a href="#options">OPTIONS</a></h3>
+<ul>
+<li><a href="#what_is_an_option">What is an option?</a>
+<li><a href="#how_do_i_define_an_option">How do I define an option?</a>
+<li><a href="#how_can_a_client_set_options_at_object_creation">How can a client set options at object creation?</a>
+<li><a href="#how_can_a_client_retrieve_an_options_value">How can a client retrieve an option's value?</a>
+<li><a href="#how_can_a_client_set_options_after_object_creation">How can a client set options after object creation?</a>
+<li><a href="#how_should_an_instance_method_access_an_option_value">How should an instance method access an option value?</a>
+<li><a href="#how_can_i_catch_changes_to_an_options_value">How can I catch changes to an option's value?</a>
+<li><a href="#what_is_an_onconfigure_handler">What is an onconfigure handler?</a>
+<li><a href="#how_can_i_catch_accesses_to_an_options_value">How can I catch accesses to an option's value?</a>
+<li><a href="#what_is_an_oncget_handler">What is an oncget handler?</a>
+</ul><p>
+<h3><a href="#type_variables">TYPE VARIABLES</a></h3>
+<ul>
+<li><a href="#what_is_a_type_variable">What is a type variable?</a>
+<li><a href="#how_is_a_scalar_type_variable_defined">How is a scalar type variable defined?</a>
+<li><a href="#how_is_an_array_type_variable_defined">How is an array type variable defined?</a>
+<li><a href="#are_there_any_limitations_on_type_variable_names">Are there any limitations on type variable names?</a>
+<li><a href="#do_i_need_to_declare_type_variables_before_using_them">Do I need to declare type variables before using them?</a>
+<li><a href="#how_do_i_pass_a_type_variables_name_to_another_object">How do I pass a type variable's name to another object?</a>
+<li><a href="#how_do_i_make_a_type_variable_public">How do I make a type variable public?</a>
+</ul><p>
+<h3><a href="#type_methods">TYPE METHODS</a></h3>
+<ul>
+<li><a href="#what_is_a_type_method">What is a type method?</a>
+<li><a href="#how_do_i_define_a_type_method">How do I define a type method?</a>
+<li><a href="#how_does_a_client_call_a_type_method">How does a client call a type method?</a>
+<li><a href="#are_there_any_limitations_on_type_method_names">Are there any limitations on type method names?</a>
+<li><a href="#how_do_i_make_a_type_method_private">How do I make a type method private?</a>
+<li><a href="#are_there_any_limitations_on_type_method_arguments">Are there any limitations on type method arguments?</a>
+<li><a href="#how_does_an_instance_or_type_method_call_a_type_method">How does an instance or type method call a type method?</a>
+<li><a href="#how_do_i_pass_a_type_method_as_a_callback">How do I pass a type method as a callback?</a>
+</ul><p>
+<h3><a href="#procs">PROCS</a></h3>
+<ul>
+<li><a href="#what_is_a_proc">What is a proc?</a>
+<li><a href="#how_do_i_define_a_proc">How do I define a proc?</a>
+<li><a href="#are_there_any_limitations_on_proc_names">Are there any limitations on proc names?</a>
+<li><a href="#how_does_a_method_call_a_proc">How does a method call a proc?</a>
+<li><a href="#how_can_i_pass_a_proc_to_another_object_as_a_callback">How can I pass a proc to another object as a callback?</a>
+</ul><p>
+<h3><a href="#type_constructors">TYPE CONSTRUCTORS</a></h3>
+<ul>
+<li><a href="#what_is_a_type_constructor">What is a type constructor?</a>
+<li><a href="#how_do_i_define_a_type_constructor">How do I define a type constructor?</a>
+</ul><p>
+<h3><a href="#constructors">CONSTRUCTORS</a></h3>
+<ul>
+<li><a href="#what_is_a_constructor">What is a constructor?</a>
+<li><a href="#how_do_i_define_a_constructor">How do I define a constructor?</a>
+<li><a href="#what_does_the_default_constructor_do">What does the default constructor do?</a>
+<li><a href="#can_i_choose_a_different_command_line_syntax_for_the_constructor">Can I choose a different command line syntax for the constructor?</a>
+<li><a href="#are_there_any_limitations_on_constructor_arguments">Are there any limitations on constructor arguments?</a>
+<li><a href="#what_implicit_arguments_are_passed_to_the_constructor">What implicit arguments are passed to the constructor?</a>
+</ul><p>
+<h3><a href="#destructors">DESTRUCTORS</a></h3>
+<ul>
+<li><a href="#what_is_a_destructor">What is a destructor?</a>
+<li><a href="#how_do_i_define_a_destructor">How do I define a destructor?</a>
+<li><a href="#are_there_any_limitations_on_destructor_arguments">Are there any limitations on destructor arguments?</a>
+<li><a href="#what_implicit_arguments_are_passed_to_the_destructor">What implicit arguments are passed to the destructor?</a>
+<li><a href="#must_components_be_destroyed_explicitly">Must components be destroyed explicitly?</a>
+</ul><p>
+<h3><a href="#components">COMPONENTS</a></h3>
+<ul>
+<li><a href="#what_is_a_component">What is a component?</a>
+<li><a href="#how_do_i_create_a_component">How do I create a component?</a>
+<li><a href="#how_is_a_component_named">How is a component named?</a>
+<li><a href="#what_does_the_install_command_do">What does the install command do?</a>
+<li><a href="#are_there_any_limitations_on_component_names">Are there any limitations on component names?</a>
+<li><a href="#are_there_any_limitations_on_component_object_names">Are there any limitations on component object names?</a>
+<li><a href="#must_i_destroy_the_components_i_create">Must I destroy the components I create?</a>
+<li><a href="#can_i_expose_a_components_object_command_as_part_of_my_interface">Can I expose a component's object command as part of my interface?</a>
+<li><a href="#how_do_i_expose_a_components_object_command">How do I expose a component's object command?</a>
+</ul><p>
+<h3><a href="#delegation">DELEGATION</a></h3>
+<ul>
+<li><a href="#what_is_delegation">What is delegation?</a>
+<li><a href="#how_can_i_delegate_a_method_to_a_component_object">How can I delegate a method to a component object?</a>
+<li><a href="#can_i_delegate_to_a_method_with_a_different_name">Can I delegate to a method with a different name?</a>
+<li><a href="#can_i_delegate_to_a_method_with_additional_arguments">Can I delegate to a method with additional arguments?</a>
+<li><a href="#how_can_i_delegate_an_option_to_a_component_object">How can I delegate an option to a component object?</a>
+<li><a href="#can_i_delegate_to_an_option_with_a_different_name">Can I delegate to an option with a different name?</a>
+<li><a href="#how_can_i_delegate_any_unrecognized_method_or_option_to_a_component_object">How can I delegate any unrecognized method or option to a component object?</a>
+<li><a href="#how_can_i_delegate_all_but_certain_methods_or_options_to_a_component">How can I delegate all but certain methods or options to a component?</a>
+</ul><p>
+<h3><a href="#widgets">WIDGETS</a></h3>
+<ul>
+<li><a href="#what_is_a_snitwidget">What is a snit::widget?</a>
+<li><a href="#how_do_i_define_a_snitwidget">How do I define a snit::widget?</a>
+<li><a href="#how_do_snitwidgets_differ_from_snittypes">How do snit::widgets differ from snit::types?</a>
+<li><a href="#what_is_a_hull_component">What is a hull component?</a>
+<li><a href="#how_can_i_set_the_hull_type_for_a_snitwidget">How can I set the hull type for a snit::widget?</a>
+<li><a href="#how_should_i_name_widgets_which_are_components_of_a_snitwidget">How should I name widgets which are components of a snit::widget?</a>
+</ul><p>
+<h3><a href="#widgetadaptors">WIDGETADAPTORS</a></h3>
+<ul>
+<li><a href="#what_is_a_snitwidgetadaptor">What is a snit::widgetadaptor?</a>
+<li><a href="#how_do_i_define_a_snitwidgetadaptor">How do I define a snit::widgetadaptor?</a>
+<li><a href="#can_i_adapt_a_widget_created_by_someone_else">Can I adapt a widget created by someone else?</a>
+</ul><p>
+<h3><a href="#the_tk_option_database">THE TK OPTION DATABASE</a></h3>
+<ul>
+<li><a href="#what_is_the_tk_option_database">What is the Tk option database?</a>
+<li><a href="#do_snittypes_use_the_tk_option_database">Do snit::types use the Tk option database?</a>
+<li><a href="#what_is_my_snitwidgets_widget_class">What is my snit::widget's widget class?</a>
+<li><a href="#what_is_my_snitwidgetadaptors_widget_class">What is my snit::widgetadaptor's widget class?</a>
+<li><a href="#what_are_option_resource_and_class_names">What are option resource and class names?</a>
+<li><a href="#what_are_the_resource_and_class_names_for_my_megawidgets_options">What are the resource and class names for my megawidget's options?</a>
+<li><a href="#how_does_snit_initialize_my_megawidgets_locallydefined_options">How does Snit initialize my megawidget's locally-defined options?</a>
+<li><a href="#how_does_snit_initialize_delegated_options">How does Snit initialize delegated options?</a>
+<li><a href="#how_does_snit_initialize_options_delegated_to_the_hull">How does Snit initialize options delegated to the hull?</a>
+<li><a href="#how_does_snit_initialize_options_delegated_to_other_components">How does Snit initialize options delegated to other components?</a>
+<li><a href="#what_happens_if_i_install_a_nonwidget_as_a_component_of_widget">What happens if I install a non-widget as a component of widget?</a>
+</ul><p>
+
+
+<p><hr><p>
+
+<h2><a name="overview">OVERVIEW</a></h2>
+
+<h4><a name="what_is_this_document">What is this document?</a></h4>
+
+
+
+This is an atypical FAQ list, in that few of the questions are
+frequently asked.  Rather, these are the questions I think a newcomer
+to Snit should be asking.  This file is not a complete reference to
+Snit, however; that information is in the <a href="snit.html">Snit man
+page</a>.<p>
+
+<h4><a name="what_is_snit">What is Snit?</a></h4>
+
+
+
+Snit is a framework for defining abstract data types and megawidgets
+in pure Tcl.  The name stands for "Snit's Not Incr Tcl", signifying
+that Snit takes a different approach to defining objects than does
+Incr Tcl, the best known object framework for Tcl.<p>
+
+<h4><a name="what_version_of_tcl_does_snit_require">What version of Tcl does Snit require?</a></h4>
+
+
+
+Snit requires version Tcl 8.4 or later.<p>
+
+<h4><a name="what_are_snits_goals">What are Snit's goals?</a></h4>
+
+
+
+In developing Snit I had the following goals:<p>
+
+<ul>
+  <li> It should be at least as efficient as the object code I'd been
+       writing by hand.<p>
+
+  <li> The fact that Snit was used in an object's implementation
+       should be transparent (and irrelevant) to clients of that
+       object.<p>
+
+  <li> Snit should be able to encapsulate objects from other sources,
+       particularly Tk widgets.<p>
+
+  <li> Snit megawidgets should be (to the extent possible)
+       indistinguishable in interface from Tk widgets.<p>
+
+  <li> Snit should be Tclish--that is, rather than trying to emulate
+       C++, Smalltalk, or anything else, it should try to emulate Tcl
+       itself.<p>
+
+  <li> It should have a simple, easy-to-use, easy-to-remember syntax.<p>
+</ul><p>
+
+<h4><a name="how_is_snit_different_from_other_oo_frameworks">How is Snit different from other OO frameworks?</a></h4>
+
+
+
+Snit is unique among Tcl object systems (so far as I know) in that it's a
+system based not on inheritance but on delegation.  Object systems
+based on inheritance only allow you to inherit from classes defined
+using the same system, and that's a shame.  In Tcl, an object
+is anything that acts like an object; it shouldn't matter how the
+object was implemented.  I designed Snit to help me build applications
+out of the materials at hand; thus, Snit is designed to be able to
+incorporate and build on any object, whether it's a hand-coded object,
+a Tk widget, an Incr Tcl object, a BWidget or almost anything else.<p>
+
+<h4><a name="what_can_i_do_with_snit">What can I do with Snit?</a></h4>
+
+
+
+Using Snit, a programmer can:
+
+<ul>
+  <li> Create abstract data types and Tk megawidgets.<p>
+
+  <li> Define instance variables, type variables, and option variables.<p>
+
+  <li> Define constructors, destructors, instance methods, type
+       methods, and several kinds of handler.<p>
+
+  <li> Assemble a type out of component types.  Instance methods and
+       options can be delegated to the component types automatically.<p>
+</ul>
+
+<h2><a name="objects">OBJECTS</a></h2>
+
+<h4><a name="what_is_an_object">What is an object?</a></h4>
+
+
+
+Obviously, a full description of object-oriented programming is beyond
+the scope of this FAQ.  In simple terms, an object is an instance of
+an abstract data type--a coherent bundle of code and data.
+
+There are many ways to represent objects in Tcl/Tk; the best known
+example are the Tk widgets.  A widget is an object; it is represented
+by a Tcl command.  The object's methods are subcommands of the Tcl
+command.  Snit uses the same conventions as Tk widgets do.
+
+<h4><a name="what_is_an_abstract_data_type">What is an abstract data type?</a></h4>
+
+
+
+In computer science terms, an abstract data type is a complex data
+structure along with a set of operations, like a stack, a queue, or a
+binary tree--that is to say, in modern terms, an object.  In systems
+that include include some form of inheritance the word "class" is
+usually used instead of "abstract data type", but as Snit doesn't do
+inheritance, the older term seems more appropriate.  Sometimes this is
+called <i>object-based</i> programming as opposed to <i>object-oriented</i>
+programming.<p>
+
+In Snit, as in Tk, a <i>type</i> is a command that creates
+instances--objects--that belong to the type.  Most types define some
+number of "options" that can be set at creation time, and usually can
+be changed later.<p>
+
+Further, an <i>instance</i> is also a Tcl command--a command that gives
+access to the operations that are defined for that abstract data
+type.  Conventionally, the operations are defined as subcommands, or
+<a href="#instance_methods">instance methods</a> of
+the instance command.  For example, to insert text into a Tk text
+widget, you use the text widget's "insert" method:<p>
+
+<pre>
+    # Create a text widget and insert some text in it.
+    text .mytext -width 80 -height 24
+    .mytext insert end "Howdy!"
+</pre>
+
+In this example, "text" is the <i>type</i> command and ".mytext" is the
+<i>instance</i> command.<p>
+
+
+<h4><a name="what_kinds_of_abstract_data_types_does_snit_provide">What kinds of abstract data types does Snit provide?</a></h4>
+
+
+
+Snit allows you to define three kinds of abstract data types:<p>
+
+<ul>
+  <li> <code>snit::type</code>
+  <li> <code>snit::widget</code>
+  <li> <code>snit::widgetadaptor</code>
+</ul><p>
+
+<h4><a name="what_is_a_snittype">What is a snit::type?</a></h4>
+
+
+
+A <code>snit::type</code> is a non-GUI abstract data type, e.g., a
+stack or a queue.  <code>snit::types</code> are defined using the 
+<code>snit::type</code> command.  For example, if you were designing
+a kennel management system for a dog breeder, you'd need a dog type.<p>
+
+<pre>% snit::type dog {
+    # ...
+}
+::dog
+%</pre>
+
+This definition defines a new command (<code>::dog</code>, in this
+case) that can be used to define dog objects.<p>
+
+An instance of a <code>snit::type</code> can have
+<a href="#instance_methods">instance methods</a>,
+<a href="#instance_variables">instance variables</a>, <a href="#options">options</a>, and
+<a href="#components">components</a>.  The type itself
+can have <a href="#type_methods">type methods</a> and <a href="#procs">procs</a>.<p>
+
+<h4><a name="what_is_a_snitwidget">What is a snit::widget?</a></h4>
+
+
+
+A <code>snit::widget</code> is a Tk megawidget built using Snit; it is
+very similar to a <code>snit::type</code>.  See <a href="#widgets">WIDGETS</a>.<p>
+
+<h4><a name="what_is_a_snitwidgetadaptor">What is a snit::widgetadaptor?</a></h4>
+
+
+
+A <code>snit::widgetadaptor</code> uses Snit to wrap an existing
+widget type (e.g., a Tk label), modifying its interface to a lesser or
+greater extent.  It is very similar to a <code>snit::widget</code>.  See
+<a href="#widgetadaptors">WIDGETADAPTORS</a>.<p>
+
+<h4><a name="how_do_i_create_an_instance_of_a_snittype">How do I create an instance of a snit::type?</a></h4>
+
+
+
+You create an instance of a <code>snit::type</code> by passing the new
+instance's name to the type's create method.  In the following
+example, we create a <code>dog</code> object called
+<code>spot</code>.
+
+<pre>% snit::type dog {
+    # ....
+}
+::dog
+% dog create spot
+::spot
+%</pre><p>
+
+The "create" method name can be omitted so long as the instance name
+doesn't conflict with any defined <a href="#type_methods">type methods</a>.  So the
+following example is identical to the previous example:<p>
+
+<pre>% snit::type dog {
+    # ....
+}
+::dog
+% dog spot
+::spot
+%</pre><p>
+
+This document generally uses the shorter form.<p>
+
+If the <code>dog</code> type defines <a href="#options">options</a>, these can
+be given defaults at creation time:<p>
+
+<pre>% snit::type dog {
+    option -breed mongrel
+    option -color brown
+
+    method bark {} { return "$self barks." }
+}
+::dog
+% dog create spot -breed dalmation -color spotted
+::spot
+% spot cget -breed
+dalmation
+% spot cget -color
+spotted
+%</pre><p>
+
+Either way, the instance name now names a new Tcl command that is
+used to manipulate the object.  For example, the following code makes
+the dog bark:<p>
+
+<pre>% spot bark
+::spot barks.
+%</pre>
+
+<h4><a name="how_do_i_refer_to_an_object_indirectly">How do I refer to an object indirectly?</a></h4>
+
+
+
+Some programmers prefer to save the object name in a variable, and
+reference it that way.  For example,<p>
+
+<pre>% snit::type dog {
+    option -breed mongrel
+    option -color brown
+
+    method bark {} { return "$self barks." }
+}
+::dog
+% set d [dog spot -breed dalmation -color spotted]
+::spot
+% $d cget -breed
+dalmation
+% $d bark
+::spot barks.
+%</pre>
+
+<h4><a name="how_can_i_generate_the_object_name_automatically">How can I generate the object name automatically?</a></h4>
+
+
+
+If you'd like Snit to generate an object name for you, use the
+"%AUTO%" keyword as the requested name:<p>
+
+<pre>% snit::type dog {
+    method bark {} { return "$self barks." }
+}
+::dog
+% set d [dog %AUTO%]
+::dog2
+% $d bark
+::dog2 barks.
+%</pre>
+
+The "%AUTO%" keyword can be embedded in a longer string:<p>
+
+<pre>% set d [dog dog%AUTO%]
+::dogdog5
+% $d bark
+::dogdog5 barks.
+%</pre>
+
+
+<h4><a name="can_types_be_renamed">Can types be renamed?</a></h4>
+
+
+
+Tcl's "<code>rename</code>" command renames other commands.  It's a
+common technique in Tcl to modify an existing command by renaming it
+and defining a new command with the original name; the new command
+usually calls the renamed command.<p>
+
+<code>snit::type</code>'s, however, should never be renamed; to do so
+breaks the connection between the type and its objects.<p>
+
+<h4><a name="can_objects_be_renamed">Can objects be renamed?</a></h4>
+
+
+
+Tcl's "<code>rename</code>" command renames other commands.  It's a
+common technique in Tcl to modify an existing command by renaming it
+and defining a new command with the original name; the new command
+usually calls the renamed command.<p>
+
+All Snit objects (including <a href="#widgets">widgets</a> and
+<a href="#widgetadaptors">widgetadaptors</a>) can be renamed, though this flexibility has
+some consequences:<p>
+
+<ul>
+  <li> In an instance method, $self will always contain the object's
+       current name, so instance methods can always call other instance
+       methods using $self.<p>
+
+  <li> If the object is renamed, however, then $self's value will
+       change.  Therefore,  don't use $self for anything that will
+       break if $self changes. For example, don't pass a callback
+       command to another object like this:<p>
+
+       <pre>[list $self methodname args...]</pre><p>
+
+       You'll get an error if this command is called after your
+       object is renamed.<p>
+
+  <li> Instead, the object should pass the callback command like this:<p>
+
+       <pre>[mymethod methodname args...]</pre><p>
+
+       The <code>mymethod</code> command returns code that will call
+       the desired method safely; the caller of the callback can
+       safely add additional arguments to the end of the command as
+       usual.<p>
+
+       For example, one could use this code to call a
+       method when a Tk button is pushed:<p>
+
+       <pre>.btn configure -command [list $self buttonpress]</pre><p>
+
+       This will break if your instance is renamed.  Here's the safe
+       way to do it:<p> 
+
+       <pre>.btn configure -command [mymethod buttonpress]</pre><p>
+       
+  <li> Every object has a private namespace; the name of this namespace
+       is available in method bodies, etc., as "$selfns".  This value is
+       constant for the life the object.  Use "$selfns" instead of "$self" if
+       you need a unique token to identify the object.<p>
+
+  <li> When a snit::widget's instance command is renamed, its Tk window
+       name remains the same--and is still extremely important.
+       Consequently, the Tk window name is available in
+       <code>snit::widget</code>
+       method bodies, etc., as "$win".  This value is constant for the
+       life of the object.  When creating child windows, it's best to 
+       use "$win.child" rather than "$self.child" as the name of the
+       child window.<p>
+
+  <li> The names "selfns" and "win" may not be used as explicit
+       argument names for typemethods, methods, constructors, or
+       onconfigure handlers.<p>
+
+  <li> procs defined in a Snit type or widget definition used to be
+       able to reference instance variables if "$self" was passed to
+       them explicitly as the argument "self"; this is no longer the
+       case.<p>
+</ul><p>
+
+<h4><a name="how_do_i_destroy_a_snit_object">How do I destroy a Snit object?</a></h4>
+
+
+
+Every instance of a <code>snit::type</code> has a <code>destroy</code>
+method:
+
+<pre>% snit::type dog {
+    method bark {} { return "$self barks." }
+}
+::dog
+% dog spot
+::spot
+% spot bark
+::spot barks.
+% spot destroy
+% info commands ::spot
+%</pre>
+
+Snit megawidgets (i.e., instances of <code>snit::widget</code> and
+<code>snit::widgetadaptor</code>) are destroyed like any other widget:
+by using the Tk <code>destroy</code> command on the widget or on one
+of its ancestors in the window hierarchy.<p>
+
+In addition, any Snit object of any type can be destroyed by renaming it to ""
+using the Tcl <code>rename</code> command.<p>
+
+<h2><a name="instance_methods">INSTANCE METHODS</a></h2>
+
+<h4><a name="what_is_an_instance_method">What is an instance method?</a></h4>
+
+
+
+An instance method is a procedure associated with a specific object.
+It is given free access to all of the object's type variables,
+instance variables, and so forth.<p>
+
+<h4><a name="how_do_i_define_an_instance_method">How do I define an instance method?</a></h4>
+
+
+
+Instance methods are defined in the type definition using the "method"
+statement.  Consider the following code that might be used to add dogs
+to a computer simulation:<p>
+
+<pre>% snit::type dog {
+    method bark {} {
+        return "$self barks."
+    }
+
+    method chase {thing} {
+        return "$self chases $thing."
+    }
+}
+::dog
+%</pre>
+
+A dog can bark, and it can chase things.<p>
+
+The "method" statement looks just like a normal Tcl "proc", except
+that it appears in a <code>snit::type</code> definition.
+Notice that every instance method gets an implicit argument called
+"<code>self</code>"; this argument contains the object's name.<p>
+
+<h4><a name="how_does_a_client_call_an_instance_method">How does a client call an instance method?</a></h4>
+
+
+
+The method name becomes a subcommand of the object.  For example,
+let's put a simulated dog through its paces:<p>
+
+<pre>% dog spot
+::spot
+% spot bark
+::spot barks.
+% spot chase cat
+::spot chases cat.
+%</pre>
+
+<h4><a name="how_does_an_instance_method_call_another_instance_method">How does an instance method call another instance method?</a></h4>
+
+
+
+If method A needs to call method B on the
+same object, it does so just as a client does: it calls method B as a
+subcommand of the object itself, using the object name stored in
+"<code>self</code>".<p>
+
+Suppose, for example, that our dogs never chase anything without
+barking at them:<p>
+
+<pre>% snit::type dog {
+    method bark {} {
+        return "$self barks."
+    }
+
+    method chase {thing} {
+        return "$self chases $thing.  [$self bark]"
+    }
+}
+::dog
+% dog spot
+::spot
+% spot bark
+::spot barks.
+% spot chase cat
+::spot chases cat.  ::spot barks.
+%</pre>
+
+<h4><a name="are_there_any_limitations_on_instance_method_names">Are there any limitations on instance method names?</a></h4>
+
+
+
+Not really, so long as you avoid the standard instance method names:
+<code>configure</code>, <code>configurelist</code>, <code>cget</code>,
+<code>destroy</code>, and <code>info</code>.
+
+<h4><a name="how_do_i_make_an_instance_method_private">How do I make an instance method private?</a></h4>
+
+
+
+It's often useful to define private methods, that is, instance methods
+intended to be called only by other methods of the same object.<p>
+
+Snit doesn't implement any access control on instance methods, so all
+methods are <i>de facto</i> public.  Conventionally, though, 
+the names of public methods begin with a lower-case
+letter, and the names of private methods begin with an upper-case
+letter.<p>
+
+For example, suppose our simulated dogs only bark in response to other
+stimuli; they never bark just for fun.  So the "bark" method could be
+private:<p>
+
+<pre>% snit::type dog {
+    # Private by convention: begins with uppercase letter.
+    method Bark {} {
+        return "$self barks."
+    }
+
+    method chase {thing} {
+        return "$self chases $thing. [$self Bark]"
+    }
+}
+::dog
+% dog fido
+::fido
+% fido chase cat
+::fido chases cat. ::fido barks.
+%</pre>
+
+<h4><a name="are_there_any_limitations_on_instance_method_arguments">Are there any limitations on instance method arguments?</a></h4>
+
+
+
+Method argument lists are defined just like normal Tcl proc argument
+lists; they can include default values, and the "args" argument.
+However, every method is called with a number of implicit arguments
+provided by Snit in addition to those explicitly defined.  The names
+of these implicit arguments may not used to name explicit arguments.<p>
+
+<h4><a name="what_implicit_arguments_are_passed_to_each_instance_method">What implicit arguments are passed to each instance method?</a></h4>
+
+
+
+The arguments implicitly passed to every method are <code>type</code>,
+<code>selfns</code>, <code>win</code>, and <code>self</code>.
+
+<h4><a name="what_is_type">What is $type?</a></h4>
+
+
+
+The implicit argument "<code>type</code>" contains the fully qualified
+name of the object's type:<p>
+
+<pre>% snit::type thing {
+    method mytype {} {
+        return $type
+    }
+}
+::thing
+% thing something
+::something
+% something mytype
+::thing
+%</pre>
+
+<h4><a name="what_is_self">What is $self?</a></h4>
+
+
+
+The implicit argument "<code>self</code>" contains the object's fully
+qualified name.<p>
+
+If the object's command is renamed, then "<code>$self</code>" will
+change to match in subsequent calls.  Thus, your code should not
+assume that "<code>$self</code>" is constant unless you know for sure
+that the object will never be renamed.<p>
+
+<pre>% snit::type thing {
+    method myself {} {
+        return $self
+    }
+}
+::thing
+% thing mutt
+::mutt
+% mutt myself
+::mutt
+% rename mutt jeff
+% jeff myself
+::jeff
+%</pre>
+
+<h4><a name="what_is_selfns">What is $selfns?</a></h4>
+
+
+
+Each Snit object has a private namespace in which to store its
+<a href="#instance_variables">instance variables</a> and <a href="#options">options</a>.
+The implicit argument "<code>$selfns</code>" is the name of this
+namespace; it never changes, and is constant for the life of the
+object, even if the object's name changes:<p>
+
+<pre>% snit::type thing {
+    method myNameSpace {} {
+        return $selfns
+    }
+}
+::thing
+% thing jeff
+::jeff
+% jeff myNameSpace
+::thing::Snit_inst3
+% rename jeff mutt
+% mutt myNameSpace
+::thing::Snit_inst3
+%</pre>
+
+The above example reveals how Snit names an instance's private
+namespace; however, you should not write code that depends on the
+specific naming convention, as it might change in future releases.<p>
+
+
+<h4><a name="what_is_win">What is $win?</a></h4>
+
+
+
+The implicit argument "<code>win</code>" is defined for all Snit
+methods, including those of <a href="#widgets">widgets</a> and
+<a href="#widgetadaptors">widgetadaptors</a>, though it makes sense mostly for the latter
+two kinds.  "<code>$win</code>" is simply the original name of the
+object, whether it's been renamed or not.  For widgets and
+widgetadaptors, it is also therefore the name of a Tk window.
+
+When a <code>snit::widgetadaptor</code> is used to modify the
+interface of a widget or megawidget, it must rename the widget's
+original command and replace it with its own.  Thus, using
+"<code>$win</code>" whenever the Tk window name is called for means
+that a <code>snit::widget</code> or <code>snit::widgetadaptor</code>
+can be adapted by a <code>snit::widgetadaptor</code>.
+See <a href="#widgets">WIDGETS</a> for more information.<p>
+
+<h4><a name="how_do_i_pass_an_instance_method_as_a_callback">How do I pass an instance method as a callback?</a></h4>
+
+
+
+It depends on the context.  Suppose in my application I have a
+<code>dog</code> object named <code>fido</code>, and I want
+<code>fido</code> to bark when a Tk button is pressed.  In this case,
+I pass the instance method in the normal way, as a subcommand of
+<code>fido</code>:<p>
+
+<pre>button .bark -text "Bark!" -command [list fido bark]</pre>
+
+In typical Tcl style, we use a callback to hook two independent
+components together.  But what if the <code>dog</code> object
+itself, passing one of its own instance methods to another object (one
+of its components, say)?  The obvious thing to do is this:<p>
+
+<pre>% snit::widget dog {
+    constructor {args} {
+        #...
+        button $win.barkbtn -text "Bark!"  -command [list $self bark]
+        #...
+    }
+}
+::dog
+%</pre>
+
+(Note that in this example, our <code>dog</code> becomes a
+<code>snit::widget</code>, because it has GUI behavior.  See
+<a href="#widgets">WIDGETS</a> for more.)  Thus, if we create a <code>dog</code>
+called <code>.spot</code>, it will create a Tk button called
+<code>.barkbtn</code> and pass it "<code>$self bark</code>" as the
+command.<p>
+
+Now, this will work--provided that <code>.spot</code> is never
+renamed.  But why should <code>.spot</code> be renamed?  Surely
+renaming widgets is abnormal?  And so it is--unless <code>.spot</code>
+is the <a href="#what_is_a_hull_component">hull component</a> of a
+<code>snit::widgetadaptor</code>.
+If it is, then it will be renamed, and <code>.spot</code> will name the
+<code>snit::widgetadaptor</code> object.  When the button is pressed,
+the command "<code>$self bark</code>" will be handled by the
+<code>snit::widgetadaptor</code>, which might or might not do the
+right thing.<p>
+
+There's a safer way to do it, and it looks like this:<p>
+
+<pre>% snit::widget dog {
+    constructor {args} {
+        #...
+        button $win.barkbtn -text "Bark!"  -command [mymethod bark]
+        #...
+    }
+}
+::dog
+%</pre>
+
+The command <code>mymethod</code> can be used like <code>list</code>
+to build up a callback command; the only difference is that
+<code>mymethod</code> returns a form of the command that won't change
+if the instance's name changes.<p>
+
+<h4><a name="how_do_i_delegate_instance_methods_to_a_component">How do I delegate instance methods to a component?</a></h4>
+
+
+
+See <a href="#delegation">DELEGATION</a>.<p>
+
+<h2><a name="instance_variables">INSTANCE VARIABLES</a></h2>
+
+<h4><a name="what_is_an_instance_variable">What is an instance variable?</a></h4>
+
+
+
+An instance variable is a private variable associated with some particular
+Snit object.  Instance variables can be scalars or arrays.<p>
+
+<h4><a name="how_is_a_scalar_instance_variable_defined">How is a scalar instance variable defined?</a></h4>
+
+
+
+Scalar instance variables are defined in the type definition using the
+<code>variable</code> statement.  You can simply name it, or you can
+initialize it with a value:
+
+<pre>snit::type mytype {
+    # Define variable "greeting" and initialize it with "Howdy!"
+    variable greeting "Howdy!"
+}</pre>
+
+<h4><a name="how_is_an_array_instance_variable_defined">How is an array instance variable defined?</a></h4>
+
+
+
+Array instance variables are also defined using the
+<code>variable</code> command; however, you can't initialize them
+using the variable command.  Typically, they get initialized in the
+constructor:<p>
+
+<pre>snit::type mytype {
+    # Define array variable "greetings"
+    variable greetings
+
+    constructor {args} {
+        set greetings(formal) "Good Evening"
+        set greetings(casual) "Howdy!"
+    }
+}</pre>
+
+<h4><a name="are_there_any_limitations_on_instance_variable_names">Are there any limitations on instance variable names?</a></h4>
+
+
+
+Just a few.<p>
+
+First, every Snit object has a built-in instance
+variable called "options", which should never be redefined.<p>
+
+Second, all names beginning with "Snit_" or "snit_" are reserved for
+use by Snit internal code.<p>
+
+Third, instance variable names with the namespace delimiter ("::") in them
+are likely to cause great confusion.<p>
+
+<h4><a name="do_i_need_to_declare_instance_variables_before_using_them">Do I need to declare instance variables before using them?</a></h4>
+
+
+
+No. Once you've defined an instance variable in the type definition, it
+can be used in any instance code without declaration.  This differs
+from normal Tcl practice, in which all non-local variables in a proc
+need to be declared.<p>
+
+<h4><a name="how_do_i_pass_an_instance_variables_name_to_another_object">How do I pass an instance variable's name to another object?</a></h4>
+
+
+
+In Tk, it's common to pass a widget a variable name; for example, Tk
+label widgets have a <code>-textvariable</code> option which names the
+variable which will contain the widget's text.  This allows the
+program to update the label's value just by assigning a new value to
+the variable.<p>
+
+If you naively pass the instance variable name to the label widget,
+you'll be confused by the result; Tk will assume that the name names a
+global variable.  Instead, you need to provide a fully-qualified
+variable name.  From within an instance method or a constructor, you
+can fully qualify the variable's name using the <code>varname</code>
+command:<p> 
+
+<pre>snit::widget mywidget {
+    variable labeltext ""
+
+    constructor {args} {
+        # ...
+
+        label $win.label -textvariable [varname labeltext]
+
+        # ...
+    }
+}</pre>
+
+<h4><a name="how_do_i_make_an_instance_variable_public">How do I make an instance variable public?</a></h4>
+
+
+
+Practically speaking, you don't.  Instead, you'll implement public
+variables as <a href="#options">options</a>.  Alternatively, you can write
+<a href="#instance_methods">instance methods</a> to set and get the variable's value.<p>
+
+<h2><a name="options">OPTIONS</a></h2>
+
+<h4><a name="what_is_an_option">What is an option?</a></h4>
+
+
+
+A type's options are the equivalent of what other object-oriented
+languages would call public member variables or properties: they are
+data values which can be retrieved and (usually) set by the clients of
+an object.  If a type is to be used a record type, it's possible that
+options are all that's needed.<p>
+
+Snit's implementation of options follows the Tk model fairly exactly,
+except that <code>snit::type</code> objects can't interact with Tk's
+option database; <code>snit::widget</code> and
+<code>snit::widgetadaptor</code> objects, on the other hand, can and
+do.<p>
+
+<h4><a name="how_do_i_define_an_option">How do I define an option?</a></h4>
+
+
+
+Options are defined in the type definition using the
+<code>option</code> statement.  Consider the following type, to be
+used in an application that manages a list of dogs for a pet store:<p>
+
+<pre>% snit::type dog {
+    option -breed mongrel
+    option -color brown
+    option -akc 0
+    option -shots 0
+}
+::dog
+%</pre>
+</pre>
+
+According to this, a dog has four notable properties, or options: a
+breed, a color, a flag that says whether it's pedigreed with the
+American Kennel Club, and another flag that says whether it has had its
+shots.  The default dog, evidently, is a brown mutt.<p>
+
+If no default value is specified, the option's value defaults to the
+empty string, {}.<p>
+
+The Snit man page refers to these as "locally defined" options.<p>
+
+<h4><a name="how_can_a_client_set_options_at_object_creation">How can a client set options at object creation?</a></h4>
+
+
+
+The normal convention is that the client may pass any number of
+options and their values after the object's name at object creation.
+For example, the ::dog command defined in the previous answer can now
+be used to define individual dogs.  Any or 
+all of the options may be set at creation time.<p>
+
+<pre>% dog spot -breed beagle -color "mottled" -akc 1 -shots 1
+::spot
+% dog fido -shots 1
+::fido
+%</pre>
+
+So ::spot is a pedigreed beagle; ::fido is a typical mutt, but his owners
+evidently take care of him, because he's had his shots.<p>
+
+NOTE: If the type defines a constructor, it can specify a different
+object-creation syntax.  See <a href="#constructors">CONSTRUCTORS</a> for more
+information.<p>
+
+<h4><a name="how_can_a_client_retrieve_an_options_value">How can a client retrieve an option's value?</a></h4>
+
+
+
+Retrieve option values using the <code>cget</code> method:<p>
+
+<pre>% spot cget -color
+mottled
+% fido cget -breed
+mongrel
+%</pre>
+
+<h4><a name="how_can_a_client_set_options_after_object_creation">How can a client set options after object creation?</a></h4>
+
+
+
+Any number of options may be set at one time using the
+<code><a href="#configure">configure</a></code> instance method.  Suppose that closer inspection
+shows that ::fido is a rare Arctic Boar Hound of a lovely dun color:<p>
+
+<pre>% fido configure -color dun -breed "Arctic Boar Hound"
+% fido cget -color
+dun
+% fido cget -breed
+Arctic Boar Hound
+%</pre>
+
+Alternatively, the <code>configurelist</code> method takes a list of
+options and values; this is sometimes more convenient:<p>
+
+<pre>% set features [list -color dun -breed "Arctic Boar Hound"]
+-color dun -breed {Arctic Boar Hound}
+% fido configurelist $features
+% fido cget -color
+dun
+% fido cget -breed
+Arctic Boar Hound
+%</pre>
+
+
+<h4><a name="how_should_an_instance_method_access_an_option_value">How should an instance method access an option value?</a></h4>
+
+
+
+There are two ways an instance method can set and retrieve an option's
+value.  One is to use the <code>configure</code> and <code>cget</code>
+methods, as shown below:<p>
+
+<pre>% snit::type dog {
+    option -weight 10
+
+    method gainWeight {} {
+        set wt [$self cget -weight]
+        incr wt
+        $self configure -weight $wt
+    }
+}
+::dog
+% dog fido
+::fido
+% fido cget -weight
+10
+% fido gainWeight
+% fido cget -weight
+11
+%</pre>
+
+Alternatively, Snit provides a built-in array instance variable called
+<code>options</code>.  The indices are the option names; the values
+are the option values.  The method given above can thus be rewritten
+as follows:<p>
+
+<pre>    method gainWeight {
+        incr options(-weight)
+    }</pre>
+
+As you can see, using the <code>options</code> variable involves
+considerably less typing.  If you define <code>onconfigure</code> or
+<code>oncget</code> handlers, as described in the following answers,
+you might wish to use the <code>configure</code> and <code>cget</code>
+methods anyway, just so that any special processing you've implemented
+is sure to get done.<p>
+
+<h4><a name="how_can_i_catch_changes_to_an_options_value">How can I catch changes to an option's value?</a></h4>
+
+
+
+Use an <code>onconfigure</code> handler.<p>
+
+<h4><a name="what_is_an_onconfigure_handler">What is an onconfigure handler?</a></h4>
+
+
+
+An <code>onconfigure</code> handler is a special kind of instance
+method that's called whenever the related option is given a new value
+via the <code>configure</code> or <code>configurelist</code> instance
+methods. The handler can validate the new value, pass it to some other
+object, and anything else you'd like it to do.<p>
+
+An <code>onconfigure</code> handler is defined by an
+<code>onconfigure</code> statement in the type definition.  Here's
+what the default configuration behavior would look like if written as
+an <code>onconfigure</code> handler:<p>
+
+<pre>snit::type dog {
+    option -color brown
+
+    onconfigure -color {value} {
+        set options(-color) $value
+    }
+}</pre>
+
+The name of the handler is just the option name.  The
+argument list must have exactly one argument; it can be called almost
+anything, but conventionally it is called "value".  Within the handler,
+the argument is set to the new value; also, all instance variables are
+available, just as in an instance method.<p>
+
+Note that if your handler doesn't put the value in the
+<code>options</code> array, it doesn't get updated.<p>
+
+<h4><a name="how_can_i_catch_accesses_to_an_options_value">How can I catch accesses to an option's value?</a></h4>
+
+
+
+Use an <code>oncget</code> handler.<p>
+
+<h4><a name="what_is_an_oncget_handler">What is an oncget handler?</a></h4>
+
+
+
+An <code>oncget</code> handler is a special kind of instance method that's
+called whenever the related option's value is queried via the
+<code>cget</code> instance method.  The handler can compute the value,
+retrieve it from a database, or anything else you'd like it to do.<p>
+
+An <code>oncget</code> handler is defined by an
+<code>oncget</code> statement in the type definition.  Here's
+what the default behavior would look like if written as
+an <code>oncget</code> handler:<p>
+
+<pre>snit::type dog {
+    option -color brown
+
+    oncget -color {
+        return $options(-color)
+    }
+}</pre>
+
+The handler takes no arguments, and so has no argument list; however,
+all instance variables are available, just as they are in normal
+instance methods.<p>
+
+<h2><a name="type_variables">TYPE VARIABLES</a></h2>
+
+<h4><a name="what_is_a_type_variable">What is a type variable?</a></h4>
+
+
+
+A type variable is a private variable associated with a Snit type
+rather than with a particular instance of the type.  In C++ and Java,
+the equivalent of type variables are called static member variables.
+Type variables can be scalars or arrays.<p>
+
+<h4><a name="how_is_a_scalar_type_variable_defined">How is a scalar type variable defined?</a></h4>
+
+
+
+Scalar type variables are defined in the type definition using the
+<code>typevariable</code> statement.  You can simply name it, or you can
+initialize it with a value:
+
+<pre>snit::type mytype {
+    # Define variable "greeting" and initialize it with "Howdy!"
+    typevariable greeting "Howdy!"
+}</pre>
+
+Every object of type <code>mytype</code> now has access to a single
+variable called "greeting".<p>
+
+<h4><a name="how_is_an_array_type_variable_defined">How is an array type variable defined?</a></h4>
+
+
+
+Array-valued type variables are also defined using the
+<code>typevariable</code> command; however, you can't initialize them
+that way, just as you can't initialize array variables using Tcl's
+standard <code>variable</code> command.
+<a href="#type_constructors">Type constructors</a> are the usual way to initialize
+array-valued type variables.<p>
+
+<h4><a name="are_there_any_limitations_on_type_variable_names">Are there any limitations on type variable names?</a></h4>
+
+
+
+Type variable names have the same restrictions as instance
+variable names.<p>
+
+<h4><a name="do_i_need_to_declare_type_variables_before_using_them">Do I need to declare type variables before using them?</a></h4>
+
+
+
+No. Once you've defined a type variable in the type definition, it
+can be used in <a href="#instance_methods">instance methods</a> or <a href="#typemethods">type
+methods</a> without declaration.  This differs from normal Tcl practice,
+in which all non-local variables in a proc need to be declared.<p>
+
+<h4><a name="how_do_i_pass_a_type_variables_name_to_another_object">How do I pass a type variable's name to another object?</a></h4>
+
+
+
+In Tk, it's common to pass a widget a variable name; for example, Tk
+label widgets have a <code>-textvariable</code> option which names the
+variable which will contain the widget's text.  This allows the
+program to update the label's value just by assigning a new value to
+the variable.<p>
+
+If you naively pass a type variable name to the label widget,
+you'll be confused by the result; Tk will assume that the name names a
+global variable.  Instead, you need to provide a fully-qualified
+variable name.  From within an instance method or a constructor, you
+can fully qualify the type variable's name using the <code>typevarname</code>
+command:<p> 
+
+<pre>snit::widget mywidget {
+    typevariable labeltext ""
+
+    constructor {args} {
+        # ...
+
+        label $win.label -textvariable [typevarname labeltext]
+
+        # ...
+    }
+}</pre>
+
+<h4><a name="how_do_i_make_a_type_variable_public">How do I make a type variable public?</a></h4>
+
+
+
+There are two ways to do this.  The preferred way is to write a pair
+of <a href="#type_methods">type methods</a> to set and query the variable's value.<p>
+
+Alternatively, you can publicize the variable's name in your
+documentation and clients can access it directly.  For example,<p>
+
+<pre>snit::type mytype {
+    typevariable myvariable
+}
+
+set ::mytype::myvariable "New Value"</pre>
+
+As shown, type variables are stored in the type's namespace, which has
+the same name as the type itself.<p>
+
+<h2><a name="type_methods">TYPE METHODS</a></h2>
+
+<h4><a name="what_is_a_type_method">What is a type method?</a></h4>
+
+
+
+A type method is a procedure associated with the type itself rather
+than with any specific instance of the type.<p>
+
+<h4><a name="how_do_i_define_a_type_method">How do I define a type method?</a></h4>
+
+
+
+Type methods are defined in the type definition using the "typemethod"
+statement:<p>
+
+<pre>snit::type dog {
+    # List of pedigreed dogs
+    typevariable pedigreed
+
+    typemethod pedigreedDogs {} {
+        return $pedigreed
+    }
+
+    # ...
+}</pre>
+
+Suppose the <code>dog</code> type maintains a list of the names of the
+dogs that have pedigrees.  The <code>pedigreedDogs</code> type method
+returns this list.<p>
+
+The "typemethod" statement looks just like a normal Tcl "proc", except
+that it appears in a <code>snit::type</code> definition.  It defines
+the method name, the argument list, and the
+body of the method.<p>
+
+<h4><a name="how_does_a_client_call_a_type_method">How does a client call a type method?</a></h4>
+
+
+
+The method name becomes a subcommand of the type's command.  For example,<p>
+
+<pre>snit::type dog {
+    option -pedigreed 0
+
+    # List of pedigreed dogs
+    typevariable pedigreed
+
+    typemethod pedigreedDogs {} {
+        return $pedigreed
+    }
+
+    # ...
+}
+
+dog spot -pedigreed 1
+dog fido
+
+foreach dog [dog pedigreedDogs] { ... }</pre>
+
+<h4><a name="are_there_any_limitations_on_type_method_names">Are there any limitations on type method names?</a></h4>
+
+
+
+Not really, so long as you avoid the standard type method names:<p>
+<code>create</code> and <code>info</code>.
+
+<h4><a name="how_do_i_make_a_type_method_private">How do I make a type method private?</a></h4>
+
+
+
+It's sometimes useful to define private type methods, that is, type methods
+intended to be called only by other type or instance methods of the
+same object.<p>
+
+Snit doesn't implement any access control on type methods; by
+convention, the names of public methods begin with a lower-case
+letter, and the names of private methods begin with an upper-case
+letter.<p>
+
+Alternatively, a Snit "proc" can be used as a private type method; see
+<a href="#procs">PROCS</a>.<p>
+
+<h4><a name="are_there_any_limitations_on_type_method_arguments">Are there any limitations on type method arguments?</a></h4>
+
+
+
+Method argument lists are defined just like normal Tcl proc argument
+lists; they can include default values, and the "args" argument.
+However, every type method is called with an implicit argument called
+"type" that contains the name of the type command.  In addition, type
+methods should by convention avoid using the names of the arguments
+implicitly defined for <a href="#instance_methods">instance methods</a>.<p>
+
+<h4><a name="how_does_an_instance_or_type_method_call_a_type_method">How does an instance or type method call a type method?</a></h4>
+
+
+
+If an instance or type method needs to call a type method,
+it should use "$type" to do so:<p>
+
+<pre>snit::type dog {
+
+    typemethod pedigreedDogs {} { ... }
+
+    typemethod printPedigrees {} {
+        foreach obj [$type pedigreedDogs] { ... }
+    }
+}</pre><p>
+
+<h4><a name="how_do_i_pass_a_type_method_as_a_callback">How do I pass a type method as a callback?</a></h4>
+
+
+
+It's common in Tcl to pass a snippet of code to another object, for it
+to call later.  Because types cannot be renamed, the thing to do is
+just use the type name, or, if the callback is registered from within
+a type method, "<code>$type</code>".  For example, suppose we want to print
+a list of pedigreed dogs when a Tk button is pushed:<p>
+
+<pre>button .btn -text "Pedigrees" -command [list dog printPedigrees]
+pack .btn</pre>
+
+<h2><a name="procs">PROCS</a></h2>
+
+<h4><a name="what_is_a_proc">What is a proc?</a></h4>
+
+
+
+A Snit "proc" is really just a Tcl proc defined within the type's
+namespace.  You can use procs for private code that isn't related to
+any particular instance.  For example, I often find myself writing a
+proc to pop the first item off of a list stored in a variable.<p>
+
+<h4><a name="how_do_i_define_a_proc">How do I define a proc?</a></h4>
+
+
+
+Procs are defined by including a "proc" statement in the type definition:<p>
+
+<pre>snit::type mytype {
+    # Pops and returns the first item from the list stored in the
+    # listvar, updating the listvar
+   proc pop {listvar} { ... }
+
+   # ...
+}</pre>
+
+<h4><a name="are_there_any_limitations_on_proc_names">Are there any limitations on proc names?</a></h4>
+
+
+
+Any name can be used, so long as it does not begin with "Snit_"; names
+beginning with "Snit_" are reserved for Snit's own use.  However, the
+wise programmer will avoid proc names like "set", "list", "if", and
+so forth that would shadow standard Tcl command names.<p>
+
+By convention, proc names, being private, begin with a capital letter.<p>
+
+<h4><a name="how_does_a_method_call_a_proc">How does a method call a proc?</a></h4>
+
+
+
+Just like it calls any Tcl command.  For example,<p>
+
+<pre>snit::type mytype {
+    # Pops and returns the first item from the list stored in the
+    # listvar, updating the listvar
+    proc Pop {listvar} { ... }
+
+    variable requestQueue {}
+
+    # Get one request from the queue and process it.
+    method processRequest {} {
+        set req [Pop requestQueue]
+    }
+}</pre>
+
+<h4><a name="how_can_i_pass_a_proc_to_another_object_as_a_callback">How can I pass a proc to another object as a callback?</a></h4>
+
+
+
+I tend to use type or instance methods for this purpose and ignore
+procs altogether.  But if you really need to, the
+<code>codename</code> command returns the proc's fully qualified
+name.<p>
+
+<h2><a name="type_constructors">TYPE CONSTRUCTORS</a></h2>
+
+<h4><a name="what_is_a_type_constructor">What is a type constructor?</a></h4>
+
+
+
+A type constructor is a body of code that initializes the type as a
+whole, rather like a C++ static initializer.  The body of a type
+constructor is executed once when the type is defined, and never
+again.<p>
+
+A type can have at most one type constructor.<p>
+
+<h4><a name="how_do_i_define_a_type_constructor">How do I define a type constructor?</a></h4>
+
+
+
+A type constructor is defined by using the
+<code>typeconstructor</code> statement in the type definition.  For
+example, suppose the type uses an array-valued type variable as a
+look up table:<p>
+
+<pre>% snit::type mytype {
+    typevariable lookupTable
+
+    typeconstructor {
+        array set lookupTable {key value...}
+    }
+}
+::mytype
+%</pre>
+
+
+<h2><a name="constructors">CONSTRUCTORS</a></h2>
+
+<h4><a name="what_is_a_constructor">What is a constructor?</a></h4>
+
+
+
+In object-oriented programming, an object's constructor is responsible
+for initializing the object completely at creation time.   The constructor
+receives the list of options passed to the <code>snit::type</code>
+command's create method and can then do whatever it likes.  That might
+include computing instance variable values, reading data from files,
+creating other objects, updating type variables, and so forth.<p>
+
+The constructor doesn't return anything.<p>
+
+<h4><a name="how_do_i_define_a_constructor">How do I define a constructor?</a></h4>
+
+
+
+A constructor is defined by using the <code>constructor</code>
+statement in the type definition.  Suppose that it's desired to keep a
+list of all pedigreed dogs.  The list can be maintained in a type
+variable and retrieved by a type method.  Whenever a dog is created,
+it can add itself to the list--provided that it's registered with the
+American Kennel Club.<p> 
+
+<pre>% snit::type dog {
+    option -akc 0
+
+    typevariable akcList {}
+
+    constructor {args} {
+        $self configurelist $args
+
+        if {$options(-akc)} {
+            lappend akcList $self
+        }
+    }
+
+    typemethod akclist {} {
+        return $akcList
+    }
+}
+::dog
+% dog spot -akc 1
+::spot
+% dog fido
+::fido
+% dog akclist
+::spot
+%</pre>
+
+<h4><a name="what_does_the_default_constructor_do">What does the default constructor do?</a></h4>
+
+
+
+If you don't provide a constructor explicitly, you get the default
+constructor, which looks like this:<p>
+
+<pre>% snit::type dog {
+    option -breed mongrel
+    option -color brown
+    option -akc 0
+
+    constructor {args} {
+        $self configurelist $args
+    }
+}
+::dog
+% dog spot -breed dalmatian -color spotted -akc 1
+::spot
+%</pre>
+
+When the constructor is called, "args" will be set to the list of
+arguments that follow the object's name.  The constructor is allowed
+to interprete this list any way it chooses; the normal convention is
+to assume that it's a list of option names and values, as shown in the
+example above.  If you simply want to save the option values, you
+should use the <code>configurelist</code> method, as shown.<p>
+
+<h4><a name="can_i_choose_a_different_command_line_syntax_for_the_constructor">Can I choose a different command line syntax for the constructor?</a></h4>
+
+
+
+Yes, you can.  For example, suppose we wanted to be sure that the
+breed was explicitly stated for every dog at creation time, and
+couldn't be changed thereafter.  One way to do that is as follows:<p>
+
+<pre>% snit::type dog {
+    variable breed
+
+    option -color brown
+    option -akc 0
+
+    constructor {theBreed args} {
+        set breed $theBreed
+        $self configurelist $args
+    }
+
+    method breed {} {
+        return $breed
+    }
+}
+::dog
+% dog spot dalmatian -color spotted -akc 1
+::spot
+% spot breed
+dalmatian
+%</pre>
+
+The drawback is that this creation syntax is non-standard, and may
+limit the compatibility of your new type with other people's code.
+For example, Snit generally assumes that <a href="#components">components</a> use
+the standard creation syntax.<p>
+
+<h4><a name="are_there_any_limitations_on_constructor_arguments">Are there any limitations on constructor arguments?</a></h4>
+
+
+
+Constructor argument lists are defined just like normal Tcl proc argument
+list; they can include default values, and the "args" argument.
+However, the constructor is called with a number of implicit arguments
+provided by Snit in addition to those explicitly defined.  The names
+of these implicit arguments may not used to name explicit arguments.<p>
+
+<h4><a name="what_implicit_arguments_are_passed_to_the_constructor">What implicit arguments are passed to the constructor?</a></h4>
+
+
+
+The constructor gets the same implicit arguments that are passed to
+<a href="#instance_methods">instance methods</a>: <code>type</code>,
+<code>selfns</code>, <code>win</code>, and <code>self</code>.<p>
+
+<h2><a name="destructors">DESTRUCTORS</a></h2>
+
+<h4><a name="what_is_a_destructor">What is a destructor?</a></h4>
+
+
+
+A destructor is a special kind of method that's called when an object
+is destroyed.  It's responsible for doing any necessary clean-up when
+the object goes away: destroying components, closing files, and so
+forth.<p>
+
+<h4><a name="how_do_i_define_a_destructor">How do I define a destructor?</a></h4>
+
+
+
+Destructors are defined by using the <code>destructor</code> statement
+in the type definition.  Suppose we're maintaining a list of pedigreed
+dogs; then we'll want to remove dogs from it when they are
+destroyed.<p>
+
+<pre>% snit::type dog {
+    option -akc 0
+
+    typevariable akcList {}
+
+    constructor {args} {
+        $self configurelist $args
+
+        if {$options(-akc)} {
+            lappend akcList $self
+        }
+    }
+
+    destructor {
+        set ndx [lsearch $akcList $self]
+
+        if {$ndx != -1} {
+            set akcList [lreplace $akcList $ndx $ndx]
+        }
+    }
+
+    typemethod akclist {} {
+        return $akcList
+    }
+}
+::dog
+% dog spot -akc 1
+::spot
+% dog fido -akc 1
+::fido
+% dog akclist
+::spot ::fido
+% fido destroy
+% dog akclist
+::spot
+%</pre>
+
+<h4><a name="are_there_any_limitations_on_destructor_arguments">Are there any limitations on destructor arguments?</a></h4>
+
+
+
+Yes; a destructor has no explicit arguments.<p>
+
+<h4><a name="what_implicit_arguments_are_passed_to_the_destructor">What implicit arguments are passed to the destructor?</a></h4>
+
+
+
+The destructor gets the same implicit arguments that are passed to
+<a href="#instance_methods">instance methods</a>: <code>type</code>,
+<code>selfns</code>, <code>win</code>, and <code>self</code>.<p>
+
+<h4><a name="must_components_be_destroyed_explicitly">Must components be destroyed explicitly?</a></h4>
+
+
+
+Yes and no.<p>
+
+For a Snit megawidget (<code>snit::widgets</code> and
+<code>snit::widgetadaptors</code>), any widget <a href="#components">components</a>
+created by it will be destroyed automatically when the megawidget is
+destroyed, in keeping with normal Tk behavior (destroying a parent
+widget destroys the whole tree).
+
+On the other hand, all non-widget components of a Snit megawidget, and
+all components of a normal <code>snit::type</code> object, must be
+destroyed explicitly in a destructor.<p>
+
+<h2><a name="components">COMPONENTS</a></h2>
+
+<h4><a name="what_is_a_component">What is a component?</a></h4>
+
+
+
+Often an object will create and manage a number of other objects.  One
+example is a Snit megawidget that composes a number of Tk widgets.
+These objects are part of the main object and are thus are called
+components of it.<p>
+
+But Snit also has a more precise meaning for "component".  The
+components of a Snit object are those objects created by it to which
+methods and options can be delegated.  See <a href="#delegation">DELEGATION</a> for
+more information about delegation.<p>
+
+<h4><a name="how_do_i_create_a_component">How do I create a component?</a></h4>
+
+
+
+First, you must decide what role a component plays within your object,
+and give the role a name.  For example, suppose your <code>dog</code>
+object creates a <code>tail</code> object (the better to wag with, no
+doubt).  The <code>tail</code> object will have some command name, but
+you tell Snit about it using its role name, as follows:<p>
+
+<pre>% snit::type dog {
+    # Define component name as an instance variable
+    variable mytail
+
+    constructor {args} {
+        # Create and save the component's command
+        install mytail using tail %AUTO% -partof $self
+        $self configurelist $args
+    }
+
+    method wag {} {
+        $mytail wag
+    }
+}
+::dog</pre>
+
+As shown here, it doesn't matter what the <code>tail</code> object's
+real name is; the <code>dog</code> object refers to it by its
+component name.<p>
+
+The above example shows one way to delegate the "wag" method to
+the "mytail" component; see <a href="#delegation">DELEGATION</a> for an easier
+way.<p>
+
+<h4><a name="how_is_a_component_named">How is a component named?</a></h4>
+
+
+
+A component has two names.  The first name represents the role the
+component object plays within the Snit object.  This is the component
+name proper, and is the name used to refer to the component within
+Snit code.  The second name is the name of the actual component object
+created by the Snit object's constructor.  This second name is always
+a Tcl command name, and is referred to as the component's object name.<p>
+
+In the example in the previous FAQ, the component name is "mytail";
+the "mytail" component's object name is chosen automatically by Snit
+since %AUTO% was used when the component object was created.<p>
+
+<h4><a name="what_does_the_install_command_do">What does the install command do?</a></h4>
+
+
+
+The <code>install</code> command creates the component using the
+specified command (<code>tail %AUTO% -partof $self</code>), and
+assigns the result to the <code>mytail</code> variable.  For
+<code>snit::types</code>, the <code>install</code> command shown
+above is equivalent to the following command:<p>
+
+<pre>        set mytail [tail %AUTO% -partof $self]</pre>
+
+For <code>snit::widgets</code> and <code>snit::widgetadaptors</code>,
+however, the <code>install</code> command also queries
+<a href="#the_tk_option_database">the Tk option database</a> and initializes the component's
+options accordingly.  For consistency, it's a good idea to get in the
+habit of using <code>install</code> for all components.<p>
+
+<h4><a name="are_there_any_limitations_on_component_names">Are there any limitations on component names?</a></h4>
+
+
+
+Yes.  <code>snit::widget</code> and <code>snit::widgetadaptor</code>
+have a special component called the <code>hull</code> component; thus,
+the name <code>hull</code> should be used for no other purpose.<p>
+
+Component names are in fact instance variable names, and so follow the
+rules for <a href="#instance_variables">instance variables</a>.<p>
+
+<h4><a name="are_there_any_limitations_on_component_object_names">Are there any limitations on component object names?</a></h4>
+
+
+
+Yes.
+
+Component objects which are Tk widgets or megawidgets must have valid
+Tk window names.
+
+Component objects which are not widgets or megawidgets must have
+fully-qualified command names, i.e., names which include the full
+namespace of the command.  Note that Snit always creates objects with
+fully qualified names.
+
+Second, component object names must be unique.  This is no problem for
+widget components, since widget names are always unique; but consider
+the following code:
+
+<pre>    snit::type tail { ... }
+
+    snit::type dog {
+        delegate method wag to mytail
+
+        constructor {} {
+            install mytail using tail mytail
+        }
+    }</pre>
+
+This code uses the component name, "mytail", as the component object
+name.  This is not good, and here's why: Snit instance code executes
+in the Snit type's namespace.  In this case, the mytail component is
+created in the ::dog:: namespace, and will thus have the name
+::dog::mytail.<p>
+
+Now, suppose you create two dogs.  Both will have a mytail component
+called ::dog::mytail.  In other words, you've got two dogs with one
+tail between them.  This is very bad.  Here are a couple of ways to
+avoid it:<p>
+
+First, if the component type is a <code>snit::type</code> you can
+specify %AUTO% as its name, and be guaranteed to get a unique name.
+This is the safest thing to do:<p>
+
+<pre>    install mytail using tail %AUTO%</pre>
+
+If the component type isn't a <code>snit::type</code> you can base the
+component's object name on the type's name in some way:<p>
+
+<pre>     install mytail using tail $self.mytail</pre>
+
+This isn't as safe, but should usually work out okay.<p>
+
+<h4><a name="must_i_destroy_the_components_i_create">Must I destroy the components I create?</a></h4>
+
+
+
+That depends.  When a parent widget is destroyed, all child widgets
+are destroyed automatically.  Thus, if your object is a
+<code>snit::widget</code> or <code>snit::widgetadaptor</code> you
+don't need to destroy any components that are widgets.<p>
+
+Any non-widget components, however, and all components of a
+<code>snit::type</code> object, must be destroyed explicitly.  This is
+true whether you assign them a component name or not.<p>
+
+<pre>% snit::type dog {
+    variable mytail
+
+    constructor {args} {
+        install mytail using tail %AUTO% -partof $self
+        $self configurelist $args
+    }
+
+    destructor {
+        $mytail destroy
+    }
+}
+::dog
+%</pre>
+
+Note that this code assumes that <code>tail</code> is also a
+<code>snit::type</code>; if not, it might need to be destroyed in some
+other way.<p>
+
+<h4><a name="can_i_expose_a_components_object_command_as_part_of_my_interface">Can I expose a component's object command as part of my interface?</a></h4>
+
+
+
+Yes, and there are two ways to do it.  The most appropriate way is
+usually to use <a href="#delegation">delegation</a>.  Delegation allows you to
+pass the options and methods you specify along to particular
+components.  This effectively hides the components from the users of
+your type, and ensures good encapsulation.<p>
+
+However, there are times when it's appropriate, not to mention
+simpler, just to make the entire component part of your type's public
+interface.<p>
+
+<h4><a name="how_do_i_expose_a_components_object_command">How do I expose a component's object command?</a></h4>
+
+
+
+Use the <code>expose</code> statement.  For example, suppose you're
+creating a combobox megawidget which owns a listbox widget, and you
+want to make the listbox's entire interface public.  You can do this:<p>
+
+<pre>snit::widget combobox {
+     expose listbox
+
+     constructor {args} {
+         install listbox using listbox $win.listbox ....
+
+         #...
+     }
+
+     #...
+}
+
+combobox .mycombo
+.mycombo listbox configure -width 30</pre>
+
+The <code>expose</code> statement exposes the named component by
+defining a method of the same name.  The method's arguments are passed
+along to the component.  Thus, the above code sets the listbox
+component's "-width" to 30.<p>
+
+If called with no arguments, the method returns the component's object
+name:<p>
+
+<pre>% .mycombo listbox
+.mycombo.listbox</pre>
+
+Usually you'll let the method name be the same as the component name;
+however, you can rename it if necessary.  The code in the following
+listing exposes the same interface as the previous example:<p>
+
+<pre>snit::widget combobox {
+     expose mylistbox as listbox
+
+     constructor {args} {
+         install mylistbox using listbox $win.mylistbox ....
+
+         #...
+     }
+
+     #...
+}
+combobox .mycombo
+.mycombo listbox configure -width 30</pre>
+
+<h2><a name="delegation">DELEGATION</a></h2>
+
+<h4><a name="what_is_delegation">What is delegation?</a></h4>
+
+
+
+Delegation, simply put, is when you pass a task you've been given to
+one of your assistants.  (You do have assistants, don't you?)  Snit
+objects can do the same thing.  The following example shows one way in
+which the <code>dog</code> object can delegate its <code>wag</code>
+method and its <code>-taillength</code> option to its
+<code>tail</code> component.<p> 
+
+<pre>% snit::type dog {
+    variable mytail
+
+    option -taillength
+
+    onconfigure -taillength {value} {
+         $mytail configure -length $value
+    }
+
+    oncget -taillength {
+         $mytail cget -length
+    }
+
+    constructor {args} {
+        install mytail using tail %AUTO% -partof $self
+        $self configurelist $args
+    }
+
+    method wag {} {
+        $mytail wag
+    }
+}
+::dog
+% snit::type tail {
+    option -length 5
+    option -partof
+    method wag {} { return "Wag, wag, wag."}
+}
+::tail
+% dog spot -taillength 7
+::spot
+% spot cget -taillength
+7
+% spot wag
+Wag, wag, wag.
+%</pre>
+
+This is the hard way to do it, by it demonstrates what delegation is
+all about.  See the following answers for the easy way to do it.<p>
+
+Note that the constructor calls the <code>configurelist</code> method
+<b>after</b> it creates its <code>tail</code>; otherwise, if
+<code>-taillength</code> appeared in the list of <code>args</code>
+we'd get an error.<p>
+
+<h4><a name="how_can_i_delegate_a_method_to_a_component_object">How can I delegate a method to a component object?</a></h4>
+
+
+
+Delegation occurs frequently enough that Snit makes it easy.  Any
+method can be delegated to any component by placing a single
+<code>delegate</code> statement in the type definition.  (See
+<a href="#components">COMPONENTS</a> for more information about component names.)<p>
+
+For example, here's a much better way to delegate the <code>dog</code>
+object's <code>wag</code> method:<p>
+
+<pre>% snit::type dog {
+    delegate method wag to mytail
+
+    constructor {args} {
+        install mytail using tail %AUTO% -partof $self
+        $self configurelist $args
+    }
+}
+::dog
+% snit::type tail {
+    option -length 5
+    option -partof
+    method wag {} { return "Wag, wag, wag."}
+}
+::tail
+% dog spot
+::spot
+% spot wag
+Wag, wag, wag.
+%</pre>
+
+This code has the same affect as the code shown under the previous
+question: when a <code>dog</code>'s <code>wag</code> method is called,
+the call and its arguments are passed along automatically to the
+<code>tail</code> object.<p>
+
+Note that when a component is mentioned in a <code>delegate</code>
+statement, the component's instance variable is defined implicitly.<p>
+
+Note also that you can define a method name using the <code>method</code>
+statement, or you can define it using <code>delegate</code>; you can't
+do both.<p>
+
+<h4><a name="can_i_delegate_to_a_method_with_a_different_name">Can I delegate to a method with a different name?</a></h4>
+
+
+
+Suppose the <code>tail</code> object has a <code>wiggle</code> method
+instead of a <code>wag</code> method, and you  want to delegate the
+<code>dog</code>'s <code>wag</code> method to the <code>tail</code>'s
+<code>wiggle</code> method.  It's easily done:<p>
+
+<pre>% snit::type dog {
+    delegate method wag to mytail as wiggle
+
+    constructor {args} {
+        install mytail using tail %AUTO% -partof $self
+        $self configurelist $args
+    }
+}
+::dog
+% snit::type tail {
+    option -length 5
+    option -partof
+    method wiggle {} { return "Wag, wag, wag."}
+}
+::tail
+% dog spot
+::spot
+% spot wag
+Wag, wag, wag.
+%</pre>
+
+<h4><a name="can_i_delegate_to_a_method_with_additional_arguments">Can I delegate to a method with additional arguments?</a></h4>
+
+
+
+Suppose the <code>tail</code> object has a <code>wag</code> method
+that takes as an argument the number of times the tail should be
+wagged.  You want to delegate the <code>dog</code>'s <code>wag</code>
+method to the <code>tail</code>'s <code>wag</code> method, specifying
+that the tail should be wagged three times.  It's easily done:<p>
+
+<pre>% snit::type dog {
+    delegate method wag to mytail as {wag 3}
+
+    constructor {args} {
+        install mytail using tail %AUTO% -partof $self
+        $self configurelist $args
+    }
+}
+::dog
+% snit::type tail {
+    option -length 5
+    option -partof
+    method wag {count} {
+        return [string repeat "Wag " $count]
+    }
+}
+::tail
+% dog spot
+::spot
+% spot wag
+Wag Wag Wag 
+%</pre>
+
+<h4><a name="how_can_i_delegate_an_option_to_a_component_object">How can I delegate an option to a component object?</a></h4>
+
+
+
+The first question in this section (see <a href="#delegation">DELEGATION</a>) shows
+one way to delegate an option 
+to a component; but this pattern occurs often enough that Snit makes
+it easy.  For example, every <code>tail</code> object has a
+<code>-length</code> option; we want to allow the creator of a
+<code>dog</code> object to set the tail's length.  We can do this:<p>
+
+<pre>% snit::type dog {
+    delegate option -length to mytail
+
+    constructor {args} {
+        install mytail using tail %AUTO% -partof $self
+        $self configurelist $args
+    }
+}
+::dog
+% snit::type tail {
+    option -partof
+    option -length 5
+}
+::tail
+% dog spot -length 7
+::spot
+% spot cget -length
+7
+%</pre>
+
+This produces nearly the same result as the <code>oncget</code> and
+<code>onconfigure</code> handlers shown under the first question in
+this section: whenever a <code>dog</code> object's
+<code>-length</code> option is set or retrieved, the underlying
+<code>tail</code> object's option is set or retrieved in turn.<p>
+
+Note that you can define an option name using the <code>option</code>
+statement, or you can define it using <code>delegate</code>; you can't
+do both.<p>
+
+<h4><a name="can_i_delegate_to_an_option_with_a_different_name">Can I delegate to an option with a different name?</a></h4>
+
+
+
+In the previous answer we delegated the <code>dog</code>'s
+<code>-length</code> option down to its <code>tail</code>.  This is,
+of course, wrong.  The dog has a length, and the tail has a length,
+and they are different.  What we'd really like to do is give the
+<code>dog</code> a <code>-taillength</code> option, but delegate it to
+the <code>tail</code>'s <code>-length</code> option:<p>
+
+<pre>% snit::type dog {
+    delegate option -taillength to mytail as -length
+
+    constructor {args} {
+        set mytail [tail %AUTO% -partof $self]
+        $self configurelist $args
+    }
+}
+::dog
+% snit::type tail {
+    option -partof
+    option -length 5
+}
+::tail
+% dog spot -taillength 7
+::spot
+% spot cget -taillength
+7
+%</pre>
+
+<h4><a name="how_can_i_delegate_any_unrecognized_method_or_option_to_a_component_object">How can I delegate any unrecognized method or option to a component object?</a></h4>
+
+
+
+It may happen that a Snit object gets most of its behavior from one of
+its components.  This often happens with
+<code>snit::widgetadaptors</code>, for example, where we wish to
+slightly the modify the behavior of an existing widget.  To carry on
+with our <code>dog</code> example, however, suppose that we have a
+<code>snit::type</code> called <code>animal</code> that implements a
+variety of animal behaviors--moving, eating, sleeping, and so forth.
+We want our <code>dog</code> objects to inherit these same behaviors,
+while adding dog-like behaviors of its own.  Here's how we can give a
+<code>dog</code> methods and options of its own while delegating all
+other methods and options to its <code>animal</code> component:<p>
+
+<pre>% snit::type dog {
+    delegate option * to animal
+    delegate method * to animal
+
+    option -akc 0
+
+    constructor {args} {
+        install animal using animal %AUTO% -name $self
+        $self configurelist $args
+    }
+
+    method wag {} {
+        return "$self wags its tail"
+    }
+}
+::dog
+%</pre>
+
+That's it.  A <code>dog</code> is now an <code>animal</code> which has
+a <code>-akc</code> option and can <code>wag</code> its tail.<p>
+
+Note that we don't need to specify the full list of method names or
+option names which <code>animal</code> will receive.  It gets anything
+<code>dog</code> doesn't recognize--and if it doesn't recognize it
+either, it will simply throw an error, just as it should.<p>
+
+<h4><a name="how_can_i_delegate_all_but_certain_methods_or_options_to_a_component">How can I delegate all but certain methods or options to a component?</a></h4>
+
+
+
+In the previous answer, we said that every <code>dog</code> is an
+<code>animal</code> by delegating all unknown methods and options to
+the <code>animal</code> component. But what if the
+<code>animal</code> type has some methods or options that we'd like
+to suppress?<p>
+
+One solution is to explicitly delegate all the options and methods,
+and forgo the convenience of <code>delegate method *</code> and
+<code>delegate option *</code>.  But if we wish to suppress only a few
+options or methods, there's an easier way:<p>
+
+<pre>% snit::type dog {
+    delegate option * to animal except -legs
+    delegate method * to animal except {fly climb}
+
+    # ...
+
+    constructor {args} {
+        install animal using animal %AUTO% -name $self -legs 4
+        $self configurelist $args
+    }
+
+    # ...
+}
+::dog
+%</pre>
+
+Dogs have four legs, so we specify that explicitly when we create
+the <code>animal</code> component, and explicitly exclude
+<code>-legs</code> from the set of delegated options.  Similarly,
+dogs can neither fly nor climb, so we exclude those
+<code>animal</code> methods as shown.<p>
+
+<h2><a name="widgets">WIDGETS</a></h2>
+
+<h4><a name="what_is_a_snitwidget">What is a snit::widget?</a></h4>
+
+
+
+A <code>snit::widget</code> is the Snit version of what Tcl
+programmers usually call a "megawidget":  a widget-like object usually
+consisting of one or more Tk widgets all contained within a Tk frame.<p>
+
+A <code>snit::widget</code> is also a special kind of
+<code>snit::type</code>.  Just about everything in this FAQ list that
+relates to <code>snit::types</code> also applies to
+<code>snit::widgets</code>.<p>
+
+<h4><a name="how_do_i_define_a_snitwidget">How do I define a snit::widget?</a></h4>
+
+
+
+<code>snit::widgets</code> are defined using the
+<code>snit::widget</code> command, just as <code>snit::types</code>
+are defined by the <code>snit::type</code> command.<p>
+
+The body of the definition can contain all of the same kinds of
+statements, plus a couple of others which will be mentioned below.<p>
+
+<h4><a name="how_do_snitwidgets_differ_from_snittypes">How do snit::widgets differ from snit::types?</a></h4>
+
+
+
+<ul>
+  <li> The name of an instance of a <code>snit::type</code> can be any
+       valid Tcl command name, in any namespace.  The name of an
+       instance of a <code>snit::widget</code> must be a valid Tk
+       widget name, and its parent widget must already exist.<p>
+
+  <li> An instance of a <code>snit::type</code> can be destroyed by
+       calling its <code>destroy</code> method.
+       Instances of a <code>snit::widget</code> have no destroy
+       method; use the Tk <code>destroy</code> command instead.<p>
+
+  <li> Every instance of a <code>snit::widget</code> has one
+       predefined component called its <code>hull</code> component.
+       The hull is a Tk <code>frame</code> or <code>toplevel</code>
+       widget; any other widgets created as 
+       part of the <code>snit::widget</code> will usually be contained within
+       this frame or toplevel.<p>
+
+  <li> <code>snit::widgets</code> can have their options receive
+       default values from <a href="#the_tk_option_database">the Tk option database</a>.<p>
+</ul>
+
+<h4><a name="what_is_a_hull_component">What is a hull component?</a></h4>
+
+
+
+Snit can't create a Tk widget object; only Tk can do that.  Thus,
+every instance of a <code>snit::widget</code> must be wrapped around
+a genuine Tk widget; this Tk widget is called the <i>hull
+component</i>.  Snit effectively piggybacks the behavior you define
+(methods, options, and so forth) on top of the hull component so that
+the whole thing behaves like a standard Tk widget.<p>
+
+For <code>snit::widgets</code> the hull component must be a
+Tk <code>frame</code> or <code>toplevel</code> widget; any other
+widgets created as part of the <code>snit::widget</code> will
+be contained within this frame or toplevel.<p>
+
+<code>snit::widgetadaptors</code> differ from
+<code>snit::widgets</code> chiefly in that any kind of widget can be
+used as the hull component; see <a href="#widgetadaptors">WIDGETADAPTORS</a>.<p>
+
+<h4><a name="how_can_i_set_the_hull_type_for_a_snitwidget">How can I set the hull type for a snit::widget?</a></h4>
+
+
+
+A <code>snit::widget</code>'s hull component will usually be a Tk
+<code>frame</code> widget; however, it may also be a
+<code>toplevel</code> widget.  You can explicitly choose one or the
+other by including the <code>hulltype</code> command in the widget
+definition:<p>
+
+<pre>snit::widget mytoplevel {
+    hulltype toplevel
+
+    # ...
+}</pre>
+
+If no <code>hulltype</code> command appears, the hull will be a
+<code>frame</code>.<p>
+
+<h4><a name="how_should_i_name_widgets_which_are_components_of_a_snitwidget">How should I name widgets which are components of a snit::widget?</a></h4>
+
+
+
+Every widget, whether a genuine Tk widget or a Snit megawidget, has to
+have a valid Tk window name.  When a <code>snit::widget</code> is
+first created, its instance name, <code>$self</code>, is a Tk window
+name; however, if the <code>snit::widget</code> is used as the hull
+component by a <code>snit::widgetadaptor</code> its instance name will
+be changed to something else.  For this reason, every
+<code>snit::widget</code> method, constructor, destructor, and so
+forth is passed another implicit argument, <code>$win</code>, which is
+the window name of the megawidget.  Any children must be named using
+<code>$win</code> as the root.<p>
+
+Thus, suppose you're writing a toolbar widget, a frame consisting of
+a number of buttons placed side-by-side.  It might look something like
+this:<p>
+
+<pre>snit::widget toolbar {
+    delegate option * to hull
+
+    constructor {args} {
+        button $win.open -text Open -command [mymethod open]
+        button $win.save -text Save -command [mymethod save]
+
+        # ....
+
+        $self configurelist $args
+
+    }
+}</pre>
+
+See also the question on renaming objects, toward the top of this file.<p>
+
+<h2><a name="widgetadaptors">WIDGETADAPTORS</a></h2>
+
+<h4><a name="what_is_a_snitwidgetadaptor">What is a snit::widgetadaptor?</a></h4>
+
+
+
+A <code>snit::widgetadaptor</code> is a kind of
+<code>snit::widget</code>.  Whereas a <code>snit::widget</code>'s hull
+is automatically created and is always a Tk frame, a
+<code>snit::widgetadaptor</code> can be based on any Tk widget--or on
+any Snit megawidget, or even (with luck) on megawidgets defined using
+some other package.<p>
+
+It's called a "widget adaptor" because it allows you to take an
+existing widget and customize its behavior.<p>
+
+<h4><a name="how_do_i_define_a_snitwidgetadaptor">How do I define a snit::widgetadaptor?</a></h4>
+
+
+
+Using the <code>snit::widgetadaptor</code> command.  The definition
+for a <code>snit::widgetadaptor</code> looks just like that for a
+<code>snit::type</code> or <code>snit::widget</code>, except that the
+constructor must create and install the hull component.<p>
+
+For example, the following code creates a read-only text widget by the simple
+device of turning its "insert" and "delete" methods into no-ops.
+Then, we define new methods, "ins" and "del", which get delegated
+to the hull component as "insert" and "delete".  Thus, we've adapted
+the text widget and given it new behavior while still leaving it
+fundamentally a text widget.<p>
+
+<pre>% ::snit::widgetadaptor rotext {
+
+    constructor {args} {
+        # Create the text widget; turn off its insert cursor
+        installhull using text -insertwidth 0
+
+        # Apply any options passed at creation time.
+        $self configurelist $args
+    }
+
+    # Disable the text widget's insert and delete methods, to
+    # make this readonly.
+    method insert {args} {}
+    method delete {args} {}
+
+    # Enable ins and del as synonyms, so the program can insert and
+    # delete.
+    delegate method ins to hull as insert
+    delegate method del to hull as delete
+    
+    # Pass all other methods and options to the real text widget, so
+    # that the remaining behavior is as expected.
+    delegate method * to hull
+    delegate option * to hull
+}
+::rotext
+%</pre>
+
+The most important part is in the constructor.  Whereas
+<code>snit::widget</code> creates the hull for you,
+<code>snit::widgetadaptor</code> cannot--it doesn't know what kind of
+widget you want.  So the first thing the constructor does is create
+the hull component (a Tk text widget in this case), and then installs
+it using the <code>installhull</code> command.<p>
+
+<b>Note:</b> There is no instance command until you create one by
+installing a hull component.  Any attempt to pass methods to $self
+prior to calling <code>installhull</code> will fail.<p>
+
+<h4><a name="can_i_adapt_a_widget_created_by_someone_else">Can I adapt a widget created by someone else?</a></h4>
+
+
+
+Yes.<p>
+
+At times, it can be convenient to adapt a widget created by another
+party.  For example, the Bwidget <code>PagesManager</code> widget
+manages a set of <code>frame</code> widgets, only one of which is
+visible at a time.  The application chooses which <code>frame</code>
+is visible.  These <code>frames</code> are created by the
+<code>PagesManager</code> itself, using its <code>add</code>
+method.<p>
+
+In a case like this, the Tk widget will already exist when the
+<code>snit::widgetadaptor</code> is created.  Snit provides an
+alternate form of the <code>installhull</code> command for this purpose:<p>
+
+<pre>snit::widgetadaptor pageadaptor {
+    constructor {args} {
+        # The widget already exists; just install it.
+        installhull $win
+
+        # ...
+    }
+}</pre>
+
+<h2><a name="the_tk_option_database">THE TK OPTION DATABASE</a></h2>
+
+<h4><a name="what_is_the_tk_option_database">What is the Tk option database?</a></h4>
+
+
+
+The Tk option database is a database of default option values
+maintained by Tk itself; every Tk application has one.  The concept of
+the option database derives from something called the X Windows
+resource database; however, the option database is available in every
+Tk implementation, including those which do not use the X Windows
+system (e.g., Microsoft Windows).<p>
+
+Full details about the Tk option database are beyond the scope of
+this document; both <i>Practical Programming in Tcl and Tk</i> by
+Welch, Jones, and Hobbs, and <i>Effective Tcl/Tk Programming</i> by
+Harrison and McClennan., have good introductions to it.<p>
+
+Snit is implemented so that most of the time it will simply do the
+right thing with respect to the option database, provided that the
+widget developer does the right thing by Snit.  The body of this
+section goes into great deal about what Snit requires.  The following
+is a brief statement of the requirements, for reference.<p>
+
+<ul>
+  <li> If the widget's default widget class is not what is desired, set it
+       explicitly using the <code>widgetclass</code> statement in the
+       widget definition.<p>
+
+  <li> When defining or delegating options, specify the resource and
+       class names explicitly when necessary.<p>
+
+  <li> Use the <code>installhull using</code> command to create
+       and install the hull for <code>snit::widgetadaptors</code>.<p>
+
+  <li> Use the <code>install</code> command to create and install all
+       other components.<p>
+</ul>
+
+The interaction of Tk widgets with the option database is a complex
+thing; the interaction of Snit with the option database is even more
+so, and repays attention to detail.<p>
+
+<h4><a name="do_snittypes_use_the_tk_option_database">Do snit::types use the Tk option database?</a></h4>
+
+
+
+No, they don't; querying the option database requires a Tk window
+name, and snit::types don't have one.<p>
+
+Only <code>snit::widgets</code> and <code>snit::widgetadaptors</code>
+query the option database.<p>
+
+<h4><a name="what_is_my_snitwidgets_widget_class">What is my snit::widget's widget class?</a></h4>
+
+
+
+Every Tk widget has a "widget class": a name that is used when adding option
+settings to the database.  For Tk widgets, the widget class is the
+same as the widget command name with an initial capital.  For
+example, the widget class of the Tk <code>button</code> widget is
+"Button".<p>
+
+Similarly, the widget class of a <code>snit::widget</code> defaults
+to the unqualified type name with the first letter capitalized.  For
+example, the widget class of<p>
+
+<pre>snit::widget ::mylibrary::scrolledText { ... }</pre>
+
+is "ScrolledText".<p>
+
+The widget class can also be set explicitly using
+the <code>widgetclass</code> statement within the
+<code>snit::widget</code> definition:<p>
+
+<pre>snit::widget ::mylibrary::scrolledText {
+    widgetclass Text
+
+    # ...
+}</pre>
+
+The above definition says that a <code>scrolledText</code> megawidget
+has the same widget class as an ordinary <code>text</code> widget.
+This might or might not be a good idea, depending on how the rest of
+the megawidget is defined, and how its options are delegated.<p>
+
+<h4><a name="what_is_my_snitwidgetadaptors_widget_class">What is my snit::widgetadaptor's widget class?</a></h4>
+
+
+
+The widget class of a <code>snit::widgetadaptor</code> is just the
+widget class of its hull widget; Snit has no control over this.<p>
+
+Note that the widget class can be changed only for <code>frame</code> and
+<code>toplevel</code> widgets, which is why these are the valid hull
+types for <code>snit::widgets</code>.<p>
+
+Try to use <code>snit::widgetadaptors</code> only to make small
+modifications to another widget's behavior.  Then, it will usually
+not make sense to change the widget's widget class anyway.<p>
+
+<h4><a name="what_are_option_resource_and_class_names">What are option resource and class names?</a></h4>
+
+
+
+Every Tk widget option has three names: the option name, the
+resource name, and the class name.  The option name begins with a
+hyphen and is all lowercase; it's used when creating widgets, and with the
+<code>configure</code> and <code>cget</code> commands.<p>
+
+The resource and class names are used to initialize option
+default values by querying the option database.
+The resource name is usually just the option
+name minus the hyphen, but may contain uppercase letters at word
+boundaries; the class name is usually just the resource
+name with an initial capital, but not always.  For example, here are
+the option, resource, and class names for several Tk <code>text</code>
+widget options:<p>
+
+<pre>
+-background         background         Background 
+-borderwidth        borderWidth        BorderWidth 
+-insertborderwidth  insertBorderWidth  BorderWidth 
+-padx               padX               Pad 
+</pre>
+
+As is easily seen, sometimes the resource and class names can be
+inferred from the option name, but not always.<p>
+
+<h4><a name="what_are_the_resource_and_class_names_for_my_megawidgets_options">What are the resource and class names for my megawidget's options?</a></h4>
+
+
+
+For options implicitly delegated to a component using <code>delegate
+option *</code>, the resource and class names will be exactly those
+defined by the component.  The <code>configure</code> method returns
+these names, along with the option's default and current values:<p>
+
+<pre>% snit::widget mytext {
+    delegate option * to text
+
+    constructor {args} {
+        install text using text .text
+        # ...
+    }
+
+    # ...
+}
+::mytext
+% mytext .text
+.text
+% .text configure -padx
+-padx padX Pad 1 1
+%</pre>
+
+For all other options (whether locally defined or explicitly
+delegated), the resource and class names can be defined explicitly,
+or they can be allowed to have default values.<p>
+
+By default, the resource name is just the option name minus the
+hyphen; the the class name is just the option name with an initial
+capital letter.  For example, suppose we explicitly delegate "-padx":<p>
+
+<pre>% snit::widget mytext {
+    option -myvalue 5
+
+    delegate option -padx to text
+    delegate option * to text
+
+    constructor {args} {
+        install text using text .text
+        # ...
+    }
+
+    # ...
+}
+::mytext
+% mytext .text
+.text
+% .text configure -mytext
+-mytext mytext Mytext 5 5
+% .text configure -padx
+-padx padx Padx 1 1
+%</pre>
+
+Here the resource and class names are chosen using the default
+rules.  Often these rules are sufficient, but in the case of "-padx" we'd most
+likely prefer that the option's resource and class names are the same
+as for the built-in Tk widgets.  This is easily done:<p>
+
+<pre>% snit::widget mytext {
+    delegate option {-padx padX Pad} to text
+
+    # ...
+}
+::mytext
+% mytext .text
+.text
+% .text configure -padx
+-padx padX Pad 1 1
+%</pre>
+
+<h4><a name="how_does_snit_initialize_my_megawidgets_locallydefined_options">How does Snit initialize my megawidget's locally-defined options?</a></h4>
+
+
+
+The option database is queried for each of the megawidget's locally-defined
+options, using the option's resource and class name.  If the result
+isn't "", then it replaces the default value given in widget
+definition.  In either case, the default can be overriden by the
+caller.  For example,<p>
+
+<pre>option add *Mywidget.texture pebbled
+
+snit::widget mywidget {
+     option -texture smooth
+     # ...
+}
+
+mywidget .mywidget -texture greasy</pre>
+
+Here, "-texture" would normally default to "smooth", but because of
+the entry added to the option database it defaults to "pebbled".
+However, the caller has explicitly overridden the default, and so the
+new widget will be "greasy".<p>
+
+<h4><a name="how_does_snit_initialize_delegated_options">How does Snit initialize delegated options?</a></h4>
+
+
+
+That depends on whether the options are delegated to the hull, or to
+some other component.<p>
+
+<h4><a name="how_does_snit_initialize_options_delegated_to_the_hull">How does Snit initialize options delegated to the hull?</a></h4>
+
+
+
+A <code>snit::widget</code>'s hull is a widget, and given that its
+class has been set it is expected to query the option database for
+itself.  The only exception concerns options that are delegated to it
+with a different name.  Consider the following code:<p>
+
+<pre>option add *Mywidget.borderWidth 5
+option add *Mywidget.relief sunken
+option add *Mywidget.hullbackground red
+option add *Mywidget.background green
+
+snit::widget mywidget {
+    delegate option -borderwidth to hull
+    delegate option -hullbackground to hull as -background
+    delegate option * to hull
+    # ...
+}
+
+mywidget .mywidget
+
+set A [.mywidget cget -relief]
+set B [.mywidget cget -hullbackground]
+set C [.mywidget cget -background]
+set D [.mywidget cget -borderwidth]</pre>
+
+The question is, what are the values of variables A, B, C and D?<p>
+
+The value of A is "sunken".  The hull is a Tk frame which has been
+given the widget class "Mywidget"; it will automatically query the
+option database and pick up this value.  Since the -relief option
+is implicitly delegated to the hull, Snit takes no action.<p>
+
+The value of B is "red".  The hull will automatically pick up the
+value "green" for its -background option, just as it picked up the
+-relief value.  However, Snit knows that -hullbackground is mapped
+to the hull's  -background option; hence, it queries the option
+database for -hullbackground and gets "red" and updates the hull
+accordingly.<p>
+
+The value of C is also "red", because -background is implicitly
+delegated to the hull; thus, retrieving it is the same as retrieving
+-hullbackground.  Note that this case is unusual; the -background
+option should probably have been excluded using the delegate
+statement's "except" clause, or (more likely) delegated to some other
+component.<p>
+
+The value of D is "5", but not for the reason you think.  Note that
+as it is defined above, the resource name for -borderwidth defaults
+to "borderwidth", whereas the option database entry is "borderWidth",
+in accordance with the standard Tk naming for this option.
+As with -relief, the hull picks up its own "-borderwidth" option
+before Snit does anything.  Because the option is delegated under its
+own name, Snit assumes that the correct thing has happened, and
+doesn't worry about it any further.  To avoid confusion, the
+-borderwidth option should have been delegated like this:<p>
+
+<pre>    delegate option {-borderwidth borderWidth BorderWidth} to hull</pre>
+
+For <code>snit::widgetadaptors</code>, the case is somewhat altered.
+Widget adaptors retain the widget class of their hull, and the
+hull is not created automatically by Snit.  Instead, the
+<code>snit::widgetadaptor</code> must call
+<code>installhull</code> in its
+constructor.  The normal way to do this is as follows:<p>
+
+<pre>
+snit::widgetadaptor mywidget {
+    # ...
+    constructor {args} {
+        # ...
+        installhull using text -foreground white
+        #
+    }
+    #...
+}
+</pre>
+
+In this case, the <code>installhull</code>
+command will create the hull using a command like this:<p>
+
+<pre>
+    set hull [text $win -foreground white]
+</pre>
+
+The hull is a <code>text</code> widget, so its widget class
+is "Text".  Just as with <code>snit::widget</code> hulls,
+Snit assumes that it will pick up all of its normal option values
+automatically, without help from Snit.  Options delegated from a
+different name are initialized from the option database in the same
+way as described above.<p>
+
+In earlier versions of Snit, <code>snit::widgetadaptors</code> were
+expected to call <code>installhull</code> like this:<p>
+
+<pre>    installhull [text $win -foreground white]</pre>
+
+This form still works--but Snit will not query the option database
+as described above.<p>
+
+<h4><a name="how_does_snit_initialize_options_delegated_to_other_components">How does Snit initialize options delegated to other components?</a></h4>
+
+
+
+For hull components, Snit assumes that Tk will do most of the work
+automatically.  Hull components are somewhat more complicated,
+because they are matched against the option database twice.<p>
+
+A component widget remains a widget still, and is therefore
+initialized from the option database in the usual way.  A
+<code>text</code> widget remains a <code>text</code> widget whether
+it is a component of a megawidget or not, and will be created as such.<p>
+
+But then, the option database is queried for all options delegated
+to the component, and the component is initialized
+accordingly--provided that the <code>install</code>
+command is used to create it.<p>
+
+Before option database support was added to Snit, the usual way to
+create a component was to simply create it in the constructor and
+assign its command name to the component variable:<p>
+
+<pre>
+snit::widget mywidget {
+    delegate option -background to myComp
+
+    constructor {args} {
+        set myComp [text $win.text -foreground black]
+    }
+}
+</pre>
+
+The drawback of this method is that Snit has no opportunity to
+initialize the component properly.  Hence, the following approach is
+now used:<p>
+
+<pre>
+snit::widget mywidget {
+    delegate option -background to myComp
+
+    constructor {args} {
+        install myComp using text $win.text -foreground black
+    }
+}
+</pre>
+
+The <code>install</code> command does the
+following:<p>
+
+<ul>
+  <li> Builds a list of the options explicitly included in the
+       <code>install</code> command--in this
+       case, -foreground.<p>
+       
+  <li> Queries the option database for all options delegated
+       explicitly to the named component.<p>
+
+  <li> Creates the component using the specified command, after
+       inserting into it a list of options and values read from the
+       option database.  Thus, the explicitly include options
+       (-foreground) will override anything read from the option
+       database.<p>
+
+  <li> If the widget definition implicitly delegated options to the
+       component using "delegate option *", then Snit calls the newly
+       created component's <code>configure</code> method to receive a
+       list of all of the component's options.  From this Snit builds
+       a list of options implicitly delegated to the component which
+       were not explicitly included in the
+       <code>install</code> command.  For all
+       such options, Snit queries the option database and configures
+       the component accordingly.<p>
+</ul>
+
+You don't really need to know all of this; just use
+<code>install</code> to install your components, and Snit will try to
+do the right thing.<p>
+
+<h4><a name="what_happens_if_i_install_a_nonwidget_as_a_component_of_widget">What happens if I install a non-widget as a component of widget?</a></h4>
+
+
+
+A <code>snit::type</code> never queries the option database.
+However, a <code>snit::widget</code> can have non-widget
+components.  And if options are delegated to those components, and if
+the <code>install</code> command is used to
+install those components, then they will be initialized from the
+option database just as widget components are.<p>
+
+However, when used within a megawidget, <code>install</code> assumes
+that the created component uses a reasonably standard widget-like
+creation syntax.  If it doesn't, don't use <code>install</code>.<p>
+
+
+<p><hr><p>
+Copyright &copy; 2003, by William H. Duquette.  All rights reserved.<p>
+
+
+
+
+
+</body>
+</html>

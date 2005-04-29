@@ -44,11 +44,14 @@ Notice===
     whith -misc-fontspecific instead of -viscii1.1-1 *sigh*)
 
  */
+/* $XFree86: xc/extras/X-TrueType/DOSENCODING/main.c,v 1.3 2003/10/22 16:25:28 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"
@@ -60,23 +63,25 @@ typedef enum
 {
     CP437,
     CP850,
-    CP1252
+    CP1252,
+    MSANSI
 } CharSetMagic;
 
 static CharSetRelation const charSetRelations[] = {
     { "ibm",       NULL,        "cp437",  CP437,  { 0x00, 0xff, 0, 0, 0x20 } },
     { "ibm",       NULL,        "cp850",  CP850,  { 0x00, 0xff, 0, 0, 0x20 } },
     { "microsoft", NULL,       "cp1252", CP1252,  { 0x00, 0xff, 0, 0, 0x20 } },
-    { "ansi",      NULL,            "0", CP1252,  { 0x00, 0xff, 0, 0, 0x20 } },
-    { "microsoft", NULL,       "win3.1", CP1252,  { 0x00, 0xff, 0, 0, 0x20 } },
-    { "microsoft", NULL, "fontspecific", CP1252,  { 0x00, 0xff, 0, 0, 0x20 } },
-    { "misc",      NULL, "fontspecific", CP1252,  { 0x00, 0xff, 0, 0, 0x20 } },
+    { "ansi",      NULL,            "0", MSANSI,  { 0x00, 0xff, 0, 0, 0x20 } },
+    { "microsoft", NULL,       "win3.1", MSANSI,  { 0x00, 0xff, 0, 0, 0x20 } },
+    { "microsoft", NULL, "fontspecific", MSANSI,  { 0x00, 0xff, 0, 0, 0x20 } },
+    { "misc",      NULL, "fontspecific", MSANSI,  { 0x00, 0xff, 0, 0, 0x20 } },
     { NULL, NULL, NULL, 0, { 0, 0, 0, 0, 0 } }
 };
 
 
 CODECONV_TEMPLATE(cc_cp437_to_ucs2);
 CODECONV_TEMPLATE(cc_cp850_to_ucs2);
+CODECONV_TEMPLATE(cc_msansi_to_ucs2);
 CODECONV_TEMPLATE(cc_cp1252_to_ucs2);
 static MapIDRelation const mapIDRelations[] = {
     { CP437,    EPlfmISO,     EEncISO10646,    cc_cp437_to_ucs2,    NULL },
@@ -85,6 +90,9 @@ static MapIDRelation const mapIDRelations[] = {
     { CP850,    EPlfmISO,     EEncISO10646,    cc_cp850_to_ucs2,    NULL },
     { CP850,    EPlfmUnicode, EEncAny,         cc_cp850_to_ucs2,    NULL },
     { CP850,    EPlfmMS,      EEncMSUnicode,   cc_cp850_to_ucs2,    NULL },
+    { MSANSI,   EPlfmISO,     EEncISO10646,    cc_msansi_to_ucs2,   NULL },
+    { MSANSI,   EPlfmUnicode, EEncAny,         cc_msansi_to_ucs2,   NULL },
+    { MSANSI,   EPlfmMS,      EEncMSUnicode,   cc_msansi_to_ucs2,   NULL },
     { CP1252,   EPlfmISO,     EEncISO10646,    cc_cp1252_to_ucs2,   NULL },
     { CP1252,   EPlfmUnicode, EEncAny,         cc_cp1252_to_ucs2,   NULL },
     { CP1252,   EPlfmMS,      EEncMSUnicode,   cc_cp1252_to_ucs2,   NULL },
@@ -93,4 +101,19 @@ static MapIDRelation const mapIDRelations[] = {
 
 STD_ENTRYFUNC_TEMPLATE(DOSENCODING_entrypoint)
 
+ucs2_t
+cc_cp1252_to_ucs2(ft_char_code_t codeSrc)
+{
+	ucs2_t codeDst;
+	
+	switch(codeSrc) {
+		case 0x80: codeDst = 0x20ac; break;
+		case 0x8e: codeDst = 0x017d; break;
+		case 0x9e: codeDst = 0x017e; break;
+		default:   codeDst = cc_msansi_to_ucs2(codeSrc);
+	}
+	
+	return codeDst;
+}
+				
 /* end of file */

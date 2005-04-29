@@ -1,8 +1,31 @@
 /* init.c - initialize shell backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/init.c,v 1.23.2.3 2003/03/03 17:10:11 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/init.c,v 1.27.2.4 2004/04/12 18:20:14 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1995 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor. The name of the University
+ * may not be used to endorse or promote products derived from this
+ * software without specific prior written permission. This software
+ * is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by the University of Michigan
+ * (as part of U-MICH LDAP).
  */
 
 #include "portable.h"
@@ -14,9 +37,9 @@
 #include "slap.h"
 #include "shell.h"
 
-#ifdef SLAPD_SHELL_DYNAMIC
+#if SLAPD_SHELL == SLAPD_MOD_DYNAMIC
 
-int back_shell_LTX_init_module(int argc, char *argv[]) {
+int init_module(int argc, char *argv[]) {
     BackendInfo bi;
 
     memset( &bi, '\0', sizeof(bi) );
@@ -27,7 +50,7 @@ int back_shell_LTX_init_module(int argc, char *argv[]) {
     return 0;
 }
 
-#endif /* SLAPD_SHELL_DYNAMIC */
+#endif /* SLAPD_SHELL */
 
 int
 shell_back_initialize(
@@ -53,12 +76,10 @@ shell_back_initialize(
 	bi->bi_op_modrdn = shell_back_modrdn;
 	bi->bi_op_add = shell_back_add;
 	bi->bi_op_delete = shell_back_delete;
-	bi->bi_op_abandon = shell_back_abandon;
+	bi->bi_op_abandon = 0;
 
 	bi->bi_extended = 0;
 
-	bi->bi_acl_group = 0;
-	bi->bi_acl_attribute = 0;
 	bi->bi_chk_referrals = 0;
 
 	bi->bi_connection_init = 0;

@@ -1,15 +1,13 @@
 # Configure template for GNU m4.
-# Copyright (C) 1991, 1993, 1994 Free Software Foundation, Inc.
+# Copyright (C) 1991, 1993, 1994, 2004 Free Software Foundation, Inc.
 # Process this file with autoconf to produce a configure script.
-
-undefine([changeword])
 
 AC_INIT(src/m4.c)
 AC_CONFIG_HEADER(config.h)
 AC_ARG_PROGRAM
 
 PRODUCT=m4
-VERSION=1.4
+VERSION=1.4.2
 AC_DEFINE_UNQUOTED(PRODUCT, "$PRODUCT")
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 AC_SUBST(PRODUCT)
@@ -38,7 +36,7 @@ AC_FUNC_VPRINTF
 AC_REPLACE_FUNCS(strtol)
 AC_MSG_CHECKING(ecvt declaration)
 AC_EGREP_HEADER(ecvt, stdlib.h,
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_EFGCVT, 2)], 
+  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_EFGCVT, 2)],
   [AC_MSG_RESULT(no); AC_CHECK_FUNCS(ecvt)])
 
 AC_MSG_CHECKING(if stack overflow is detectable)

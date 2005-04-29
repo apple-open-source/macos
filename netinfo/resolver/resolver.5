@@ -115,7 +115,7 @@ Queries will be sent to these clients in order by ascending
 .Sx search_order
 value.
 For example, this allows two clients for the ".local"
-domain, which is used by Apple's Rendezvous multicast DNS system, but which may
+domain, which is used by Apple's multicast DNS, but which may
 also be used at some sites as private DNS domain name.
 .Ss sortlist
 Sortlist allows addresses returned by gethostbyname to be sorted.
@@ -168,6 +168,7 @@ list elements are appended to it.
 The keyword and value must appear on a single line,
 and the keyword must start the line.
 The value follows the keyword, separated by white space.
+.El
 .Sh SEARCH STRATEGY
 Mac OS X uses a DNS search strategy that supports multiple DNS
 client configurations.

@@ -1,7 +1,7 @@
 #
 # RC Makefile for ypinit scripts on Rhapsody.
 #
-# $Id: Makefile,v 1.4 2003/02/08 03:46:33 mscopp Exp $
+# $Id: Makefile,v 1.5 2003/10/31 05:04:39 lindak Exp $
 #
 
 VARYP=$(DSTROOT)/private/var/yp
@@ -44,5 +44,5 @@ install_binaries:
 	install -c -m 755 ypinit.sh $(USRSBIN)
 	-chown root.wheel $(USRSBIN)/ypinit
 	-mkdir -p "$(DSTROOT)/usr/share/man/man8"
-	install -c -m 644 ypinit.8 "$(DSTROOT)/usr/share/man/man8/ypinit.sh.8"
+	install -c -m 644 ypinit.8 "$(DSTROOT)/usr/share/man/man8/ypinit.8"
 

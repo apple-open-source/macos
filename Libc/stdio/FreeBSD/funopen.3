@@ -32,9 +32,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)funopen.3	8.1 (Berkeley) 6/9/93
-.\" $FreeBSD: src/lib/libc/stdio/funopen.3,v 1.12 2001/10/01 16:08:59 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdio/funopen.3,v 1.15 2004/07/03 22:30:09 ru Exp $
 .\"
-.Dd June 9, 1993
+.Dd March 19, 2004
 .Dt FUNOPEN 3
 .Os
 .Sh NAME
@@ -49,9 +49,9 @@
 .Ft FILE *
 .Fn funopen "const void *cookie" "int (*readfn)(void *, char *, int)" "int (*writefn)(void *, const char *, int)" "fpos_t (*seekfn)(void *, fpos_t, int)" "int (*closefn)(void *)"
 .Ft FILE *
-.Fn fropen "void  *cookie" "int  (*readfn)(void *, char *, int)"
+.Fn fropen "void *cookie" "int (*readfn)(void *, char *, int)"
 .Ft FILE *
-.Fn fwopen "void  *cookie" "int  (*writefn)(void *, const char *, int)"
+.Fn fwopen "void *cookie" "int (*writefn)(void *, const char *, int)"
 .Sh DESCRIPTION
 The
 .Fn funopen
@@ -117,7 +117,7 @@ An error on
 does not keep the stream open.
 .Pp
 As a convenience, the include file
-.Aq Pa stdio.h
+.In stdio.h
 defines the macros
 .Fn fropen
 and
@@ -170,3 +170,11 @@ The
 function
 may not be portable to systems other than
 .Bx .
+.Pp
+The
+.Fn funopen
+interface erroneously assumes that
+.Vt fpos_t
+is an integral type; see
+.Xr fseek 3
+for a discussion of this issue.

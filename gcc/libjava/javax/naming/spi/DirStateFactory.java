@@ -1,5 +1,5 @@
 /* DirStateFactory.java --
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,15 +37,18 @@ exception statement from your version. */
 
 
 package javax.naming.spi;
-import javax.naming.*;
-import javax.naming.directory.*;
+
 import java.util.Hashtable;
+
+import javax.naming.Context;
+import javax.naming.Name;
+import javax.naming.NamingException;
+import javax.naming.directory.Attributes;
  
 /**
- * @author Warren Levy <warrenl@redhat.com>
+ * @author Warren Levy (warrenl@redhat.com)
  * @date June 1, 2001
  */
-
 public interface DirStateFactory extends StateFactory
 {
   // Inner class
@@ -72,7 +75,7 @@ public interface DirStateFactory extends StateFactory
     }
   }
 
-  public DirStateFactory.Result getStateToBind(Object obj, Name name,
+  DirStateFactory.Result getStateToBind(Object obj, Name name,
   					       Context nameCtx,
 					       Hashtable environment,
 					       Attributes inAttrs)

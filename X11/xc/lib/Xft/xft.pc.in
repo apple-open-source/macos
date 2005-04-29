@@ -1,6 +1,7 @@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 libdir=@libdir@
+hardcode_libdir_flag_spec=@hardcode_libdir_flag_spec@
 includedir=@includedir@
 freetypelibs=@FREETYPE_LIBS@
 freetypecflags=@FREETYPE_CFLAGS@
@@ -11,5 +12,5 @@ Name: Xft
 Description: X FreeType library
 Version: @PACKAGE_VERSION@
 Requires: fontconfig
-Libs: -L${libdir} -lXft ${freetypelibs} ${xrenderlibs}
+Libs: ${hardcode_libdir_flag_spec} -L${libdir} -lXft ${freetypelibs} ${xrenderlibs}
 Cflags: -I${includedir} ${freetypecflags} ${xrendercflags}

@@ -97,14 +97,14 @@ build-java-classes: build-java-classes-server build-java-classes-client
 
 ifneq "" "$(JAVAFILES)"
 build-java-classes-server: $(JAVA_SRC_DIR)  $(JAVA_OBJ_DIR)
-	$(BUILDFILTER) -command $(JAVATOOL) $(JAVATOOL_ARGS) $(PB_JAVATOOL_FLAGS) $(OTHER_JAVATOOL_FLAGS) $(ALL_JAVAC_FLAGS) -newer -build -java_src $(JAVA_SRC_DIR) -java_obj $(JAVA_OBJ_DIR) $(JAVAFILES) -- $(JAVAC_SPECFILE) -profile $(JAVA_FILE_MAP)
+	$(JAVATOOL) $(JAVATOOL_ARGS) $(PB_JAVATOOL_FLAGS) $(OTHER_JAVATOOL_FLAGS) $(ALL_JAVAC_FLAGS) -newer -build -java_src $(JAVA_SRC_DIR) -java_obj $(JAVA_OBJ_DIR) $(JAVAFILES)
 else
 build-java-classes-server:
 endif
 
 ifneq "" "$(JAVAFILES_CLIENT)"
 build-java-classes-client: $(JAVA_SRC_DIR_CLIENT) $(JAVA_OBJ_DIR_CLIENT)
-	$(BUILDFILTER) -command $(JAVATOOL) $(JAVATOOL_ARGS_CLIENT) $(PB_JAVATOOL_FLAGS) $(OTHER_JAVATOOL_FLAGS) $(ALL_JAVAC_FLAGS) -newer -build -java_src $(JAVA_SRC_DIR_CLIENT) -java_obj $(JAVA_OBJ_DIR_CLIENT) $(JAVAFILES_CLIENT) -- $(JAVAC_SPECFILE) -profile $(JAVA_FILE_MAP_CLIENT)
+	$(JAVATOOL) $(JAVATOOL_ARGS_CLIENT) $(PB_JAVATOOL_FLAGS) $(OTHER_JAVATOOL_FLAGS) $(ALL_JAVAC_FLAGS) -newer -build -java_src $(JAVA_SRC_DIR_CLIENT) -java_obj $(JAVA_OBJ_DIR_CLIENT) $(JAVAFILES_CLIENT)
 else
 build-java-classes-client:
 endif

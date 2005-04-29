@@ -26,7 +26,7 @@ in this Software without prior written authorization from The Open Group.
  * *
  * Author:  Jim Fulton, MIT X Consortium
  */
-/* $XFree86: xc/programs/xauth/xauth.h,v 1.6 2001/12/14 20:01:15 dawes Exp $ */
+/* $XFree86: xc/programs/xauth/xauth.h,v 1.7 2003/07/09 15:27:37 tsi Exp $ */
 
 #include <stdio.h>
 #include <X11/Xos.h>
@@ -43,16 +43,23 @@ extern char *ProgramName;
 
 #include <stdlib.h>
 
+struct addrlist {
+    struct addrlist *next;
+    char	    *address;
+    int		    len;
+    int		    family;
+};
+
 extern char *get_hostname ( Xauth *auth );
-extern char *get_address_info ( int family, char *fulldpyname, int prefix, char *host, int *lenp );
+extern struct addrlist *get_address_info ( int family, char *fulldpyname, int prefix, char *host);
 extern char *copystring ( char *src, int len );
 extern char *get_local_hostname ( char *buf, int maxlen );
 extern Bool parse_displayname ( char *displayname, int *familyp, char **hostp, int *dpynump, int *scrnump, char **restp );
 extern int auth_initialize ( char *authfilename );
 extern int auth_finalize ( void );
 extern int process_command ( char *inputfilename, int lineno, int argc, char **argv );
-extern int dump_numeric ( FILE *fp, Xauth *auth );
 extern int print_help ( FILE *fp, char *cmd, char *prefix );
 extern int verbose;
 extern Bool ignore_locks;
 extern Bool break_locks;
+extern Bool no_name_lookups;

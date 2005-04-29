@@ -25,6 +25,5 @@
  */
 #include "SYS.h"
 
-PSEUDO(getegid, getgid, 0)
-	movl	%edx, %eax
-	ret				// egid = getegid();
+UNIX_SYSCALL(getegid, 0)
+	ret

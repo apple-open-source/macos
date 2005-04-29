@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_vtxfmt_sse.c,v 1.1 2002/10/30 12:51:53 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_vtxfmt_sse.c,v 1.2 2003/09/28 20:15:26 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,62 +25,200 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#include <stdio.h>
-#include <assert.h>
-#include "mem.h" 
+#include "glheader.h"
+#include "imports.h"
 #include "simple_list.h" 
 #include "r200_vtxfmt.h"
 
 #if defined(USE_SSE_ASM)
+#include "X86/common_x86_asm.h"
+
+#define EXTERN( FUNC )		\
+extern const char *FUNC;	\
+extern const char *FUNC##_end
+
+EXTERN( _sse_Attribute2fv );
+EXTERN( _sse_Attribute2f );
+EXTERN( _sse_Attribute3fv );
+EXTERN( _sse_Attribute3f );
+EXTERN( _sse_MultiTexCoord2fv );
+EXTERN( _sse_MultiTexCoord2f );
+EXTERN( _sse_MultiTexCoord2fv_2 );
+EXTERN( _sse_MultiTexCoord2f_2 );
 
 /* Build specialized versions of the immediate calls on the fly for
- * the current state.  ???P4 SSE2 versions???
+ * the current state.
  */
 
-
-static struct dynfn *makeSSENormal3fv( GLcontext *ctx, const int *key )
+static struct dynfn *r200_makeSSEAttribute2fv( struct dynfn * cache, const int * key,
+					       const char * name, void * dest)
 {
-   /* Requires P4 (sse2?)
-    */
-   static unsigned char temp[] = {
-      0x8b, 0x44, 0x24, 0x04,          	/*  mov    0x4(%esp,1),%eax */
-      0xba, 0x78, 0x56, 0x34, 0x12,   	/*  mov    $0x12345678,%edx */
-      0xf3, 0x0f, 0x7e, 0x00,          	/*  movq   (%eax),%xmm0 */
-      0x66, 0x0f, 0x6e, 0x48, 0x08,    	/*  movd   0x8(%eax),%xmm1 */
-      0x66, 0x0f, 0xd6, 0x42, 0x0c,    	/*  movq   %xmm0,0xc(%edx) */
-      0x66, 0x0f, 0x7e, 0x4a, 0x14,    	/*  movd   %xmm1,0x14(%edx) */
-      0xc3,                   	        /*  ret     */
-   };
+   struct dynfn *dfn = MALLOC_STRUCT( dynfn );
 
+   if (R200_DEBUG & DEBUG_CODEGEN)
+      fprintf(stderr, "%s 0x%08x\n", name, key[0] );
 
+   DFN ( _sse_Attribute2fv, (*cache) );
+   FIXUP(dfn->code, 10, 0x0, (int)dest);
+   return dfn;
+}
+
+static struct dynfn *r200_makeSSEAttribute2f( struct dynfn * cache, const int * key,
+					      const char * name, void * dest )
+{
+   struct dynfn *dfn = MALLOC_STRUCT( dynfn );
+
+   if (R200_DEBUG & DEBUG_CODEGEN)
+      fprintf(stderr, "%s 0x%08x\n", name, key[0] );
+
+   DFN ( _sse_Attribute2f, (*cache) );
+   FIXUP(dfn->code, 8, 0x0, (int)dest); 
+   return dfn;
+}
+
+static struct dynfn *r200_makeSSEAttribute3fv( struct dynfn * cache, const int * key,
+					       const char * name, void * dest)
+{
+   struct dynfn *dfn = MALLOC_STRUCT( dynfn );
+
+   if (R200_DEBUG & DEBUG_CODEGEN)
+      fprintf(stderr, "%s 0x%08x\n", name, key[0] );
+
+   DFN ( _sse_Attribute3fv, (*cache) );
+   FIXUP(dfn->code, 13, 0x0, (int)dest);
+   FIXUP(dfn->code, 18, 0x8, 8+(int)dest);
+   return dfn;
+}
+
+static struct dynfn *r200_makeSSEAttribute3f( struct dynfn * cache, const int * key,
+					      const char * name, void * dest )
+{
+   struct dynfn *dfn = MALLOC_STRUCT( dynfn );
+
+   if (R200_DEBUG & DEBUG_CODEGEN)
+      fprintf(stderr, "%s 0x%08x\n", name, key[0] );
+
+   DFN ( _sse_Attribute3f, (*cache) );
+   FIXUP(dfn->code, 12, 0x0, (int)dest); 
+   FIXUP(dfn->code, 17, 0x8, 8+(int)dest); 
+   return dfn;
+}
+
+static struct dynfn *r200_makeSSENormal3fv( GLcontext *ctx, const int *key )
+{
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+
+   return r200_makeSSEAttribute3fv( & rmesa->vb.dfn_cache.Normal3fv, key,
+				    __FUNCTION__, rmesa->vb.normalptr );
+}
+
+static struct dynfn *r200_makeSSENormal3f( GLcontext *ctx, const int * key )
+{
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+
+   return r200_makeSSEAttribute3f( & rmesa->vb.dfn_cache.Normal3f, key,
+				   __FUNCTION__, rmesa->vb.normalptr );
+}
+
+static struct dynfn *r200_makeSSEColor3fv( GLcontext *ctx, const int * key )
+{
+   if (VTX_COLOR(key[0],0) != R200_VTX_FP_RGB) 
+      return 0;
+   else
+   {
+      r200ContextPtr rmesa = R200_CONTEXT(ctx);
+
+      return r200_makeSSEAttribute3fv( & rmesa->vb.dfn_cache.Color3fv, key,
+				       __FUNCTION__, rmesa->vb.floatcolorptr );
+   }
+}
+
+static struct dynfn *r200_makeSSEColor3f( GLcontext *ctx, const int * key )
+{
+   if (VTX_COLOR(key[0],0) != R200_VTX_FP_RGB) 
+      return 0;
+   else
+   {
+      r200ContextPtr rmesa = R200_CONTEXT(ctx);
+
+      return r200_makeSSEAttribute3f( & rmesa->vb.dfn_cache.Color3f, key,
+				      __FUNCTION__, rmesa->vb.floatcolorptr );
+   }
+}
+
+static struct dynfn *r200_makeSSETexCoord2fv( GLcontext *ctx, const int * key )
+{
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+
+   return r200_makeSSEAttribute2fv( & rmesa->vb.dfn_cache.TexCoord2fv, key,
+				    __FUNCTION__, rmesa->vb.texcoordptr[0] );
+}
+
+static struct dynfn *r200_makeSSETexCoord2f( GLcontext *ctx, const int * key )
+{
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+
+   return r200_makeSSEAttribute2f( & rmesa->vb.dfn_cache.TexCoord2f, key,
+				   __FUNCTION__, rmesa->vb.texcoordptr[0] );
+}
+
+static struct dynfn *r200_makeSSEMultiTexCoord2fv( GLcontext *ctx, const int * key )
+{
    struct dynfn *dfn = MALLOC_STRUCT( dynfn );
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   insert_at_head( &rmesa->vb.dfn_cache.Normal3fv, dfn );
-   dfn->key[0] = key[0];
-   dfn->key[1] = key[1];
 
-   dfn->code = ALIGN_MALLOC( sizeof(temp), 16 );
-   memcpy (dfn->code, temp, sizeof(temp));
-   FIXUP(dfn->code, 5, 0x0, (int)vb.normalptr); 
+   if (R200_DEBUG & DEBUG_CODEGEN)
+      fprintf(stderr, "%s 0x%08x\n", __FUNCTION__, key[0] );
+
+   if (rmesa->vb.texcoordptr[1] == rmesa->vb.texcoordptr[0]+4) {
+      DFN ( _sse_MultiTexCoord2fv, rmesa->vb.dfn_cache.MultiTexCoord2fvARB );
+      FIXUP(dfn->code, 18, 0xdeadbeef, (int)rmesa->vb.texcoordptr[0]);	
+   } else {
+      DFN ( _sse_MultiTexCoord2fv_2, rmesa->vb.dfn_cache.MultiTexCoord2fvARB );
+      FIXUP(dfn->code, 14, 0x0, (int)rmesa->vb.texcoordptr);
+   }
+   return dfn;
+}
+
+static struct dynfn *r200_makeSSEMultiTexCoord2f( GLcontext *ctx, const int * key )
+{
+   struct dynfn *dfn = MALLOC_STRUCT( dynfn );
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+
+   if (R200_DEBUG & DEBUG_CODEGEN)
+      fprintf(stderr, "%s 0x%08x\n", __FUNCTION__, key[0] );
+
+   if (rmesa->vb.texcoordptr[1] == rmesa->vb.texcoordptr[0]+4) {
+      DFN ( _sse_MultiTexCoord2f, rmesa->vb.dfn_cache.MultiTexCoord2fARB );
+      FIXUP(dfn->code, 16, 0xdeadbeef, (int)rmesa->vb.texcoordptr[0]);	
+   } else {
+      DFN ( _sse_MultiTexCoord2f_2, rmesa->vb.dfn_cache.MultiTexCoord2fARB );
+      FIXUP(dfn->code, 15, 0x0, (int)rmesa->vb.texcoordptr);
+   }
    return dfn;
 }
 
 void r200InitSSECodegen( struct dfn_generators *gen )
 {
-   /* Need to: 
-    *    - check kernel sse support
-    *    - check p4/sse2
-    */
-   (void) makeSSENormal3fv;
+   if ( cpu_has_xmm ) {
+      gen->Normal3fv = (void *) r200_makeSSENormal3fv;
+      gen->Normal3f = (void *) r200_makeSSENormal3f;
+      gen->Color3fv = (void *) r200_makeSSEColor3fv;
+      gen->Color3f = (void *) r200_makeSSEColor3f;
+      gen->TexCoord2fv = (void *) r200_makeSSETexCoord2fv;
+      gen->TexCoord2f = (void *) r200_makeSSETexCoord2f;
+      gen->MultiTexCoord2fvARB = (void *) r200_makeSSEMultiTexCoord2fv;
+      gen->MultiTexCoord2fARB = (void *) r200_makeSSEMultiTexCoord2f;
+   }
 }
-
 
 #else 
 
@@ -90,7 +228,3 @@ void r200InitSSECodegen( struct dfn_generators *gen )
 }
 
 #endif
-
-
-
-

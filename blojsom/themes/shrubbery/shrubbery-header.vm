@@ -1,0 +1,2 @@
+<div class="bn">
+	<h1 title="$BLOJSOM_BLOG.getBlogDescription()">$BLOJSOM_BLOG.getBlogName()</h1>	<a href="$BLOJSOM_BLOG.getBlogURL()"><img src="$BLOJSOM_SITE_URL/h.jpg" alt="$BLOJSOM_BLOG.getBlogDescription()" /></a></div>

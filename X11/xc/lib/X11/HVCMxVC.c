@@ -44,9 +44,11 @@
  *		querying routine.
  *
  */
+/* $XFree86: xc/lib/X11/HVCMxVC.c,v 1.2 2003/04/13 19:22:16 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
+#include "Cv.h"
 
 /*
  *	DEFINES
@@ -57,18 +59,6 @@
 #define MAX3(x,y,z) ((x) > (MAX((y), (z))) ? (x) : (MAX((y), (z))))
 #define START_V	    40.0
 #define START_C	    120.0
-
-/*
- *	EXTERNS
- */
-extern Status _XcmsTekHVC_CheckModify();
-extern Status _XcmsConvertColorsWithWhitePt();
-extern XcmsColorSpace XcmsTekHVCColorSpace;
-
-/*
- *	FORWARD DECLARATIONS
- */
-Status _XcmsTekHVCQueryMaxVCRGB();
 
 
 /************************************************************************
@@ -84,11 +74,11 @@ Status _XcmsTekHVCQueryMaxVCRGB();
  *	SYNOPSIS
  */
 Status
-_XcmsTekHVCQueryMaxVCRGB(ccc, hue, pColor_return, pRGB_return)
-    XcmsCCC	ccc;
-    XcmsFloat	hue;
-    XcmsColor   *pColor_return;
-    XcmsRGBi    *pRGB_return;
+_XcmsTekHVCQueryMaxVCRGB(
+    XcmsCCC	ccc,
+    XcmsFloat	hue,
+    XcmsColor   *pColor_return,
+    XcmsRGBi    *pRGB_return)
 
 /*
  *	DESCRIPTION

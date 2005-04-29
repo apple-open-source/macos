@@ -1,0 +1,136 @@
+<manpage id="tnc" cat="cmd" title="tnc">
+  <namesection>
+    <name>tnc</name>
+    <desc>tnc is an expat parser object extension, that validates the XML
+stream against the document DTD while parsing.</desc>
+  </namesection>
+  
+  <synopsis>
+    <syntax>package require tdom
+package require tnc
+
+set parser [expat]
+
+tnc $parser enable</syntax>
+  </synopsis>
+
+  <section>
+    <title>DESCRIPTION</title>
+    
+    <p><m>tnc</m> adds the C handler set &quot;tnc&quot; to a tcl expat parser
+obj. This handler set is a simple DTD validator. If the validator detects a
+validation error, it sets the interp result, signals error and stops
+parsing. There isn't any validation error recovering. As a consequence, only
+valid documents are completely parsed.</p>
+
+    <p>This handler set has only three methods:</p>
+
+    <commandlist>
+      <commanddef>
+        <command><cmd>tnc</cmd> <m>parserObj</m> <method>enable</method></command>
+
+        <desc><p>Adds the tnc C handler set to a Tcl expat parser object.</p></desc>
+      </commanddef>
+
+      <commanddef>
+        <command><cmd>tnc</cmd> <m>parserObj</m> <method>remove</method></command>
+
+        <desc><p>Removes the tnc validatore from the parser <m>parserObj</m>
+and frees all information, stored by it.</p></desc>
+      </commanddef>
+
+      <commanddef>
+        <command><cmd>tnc</cmd> <m>parserObj</m> <method>getValidateCmd</method> <option>?validateCmdName?</option></command>
+
+        <desc><p>Returns a new created validation command, if one is avaliable
+from the parser command, otherwise it signals error. The name of the validation
+command is the <m>validateCmdName</m>, if this optional argument was given, or
+a random choosen name. A validation command is avaliable in a parser command,
+if the parser with tnc enabled was previously used, to parse an XML document
+with a valid doctype declaration, a valid external subset, if one was given by
+the doctype declaration, and a valid internal subset. The further document
+doesn't need to be valid, to make the validation command avaliable. The
+validation command can only get received one time from the parser command. The
+created validation command has this syntax:</p>
+
+<syntax><cmd>validationCmd</cmd> <m>method</m> <m>?args?</m></syntax>
+
+    <p>The valid methods are:</p>
+
+    <commandlist>
+      <commanddef>
+        <command><method>validateDocument</method> <m>domDocument</m> <m>?varName?</m></command>
+        <desc>Checks, if the given domDocument is valid against the DTD
+information represented by the validation command. Returns 1, if the document
+ist valid, 0 otherwise. If the <m>varName</m> argument is given, then the
+variable it names is set to the detected reason for the validation error or to
+the empty string in case of a valid document.</desc>
+      </commanddef>
+
+      <commanddef>
+        <command><method>validateTree</method> <m>elementNode</m> <m>?varName?</m></command>
+
+        <desc>Checks, if the given subtree with <m>domNode</m> as root element
+is a posible valid subtree of a document conforming to the DTD information
+represented by teh validation command. IDREF could not checked, while
+validating only a subtree, but it is checked, that every known ID attribute in
+the subtree is unique. Returns 1, if the subtree is OK, 0 otherwise. If the
+<m>varName</m> argument is given, then the variable it names is set to the
+detected reason for the validation error or to the empty string in case of
+a valid subtree.</desc>
+
+      </commanddef>
+
+      <commanddef>
+        <command><method>validateAttributes</method> <m>elementNode</m> <m>?varName?</m></command>
+
+        <desc>Checks, if there is an element declaration for the name of the
+<m>elementNode</m> in the DTD represented by the validation command and, if
+yes, if the attributes of the <m>elementNode</m> are conform to the ATTLIST
+declarations for that element in the DTD. Returns 1, if the attributes and
+there value types are OK, 0 otherwise. If the <m>varName</m> argument is given,
+then the variable it names is set to the detected reason for the validation
+error or to the empty string in case the element has all its required
+attributes, only declared attributes and the values of the attributes matches
+there type.</desc>
+
+      </commanddef>
+
+      <commanddef>
+        <command><method>delete</method></command>
+        <desc>Deletes the validation command and frees the memory used by
+it. Returns the empty string.</desc>
+      </commanddef>
+
+      </commandlist>
+     </desc>
+      </commanddef>
+    </commandlist>
+  </section>
+
+  <section>
+    <title>BUGS</title>
+
+    <p>The validation error reports could be much more informative and
+user-friendly.</p>
+
+    <p>The validator doesn't detect ambiguous content models (see XML
+recomendation Section 3.2.1 and Appendix E). Most Java validators also doesn't,
+but handle such content models right anyhow. Tnc does not; if your DTD has
+such ambiguous content models, tnc can not used to validate documents against
+such (not completely XML spec compliant) DTDs.</p>
+
+    <p>It isn't possible to validate XML documents with standalone="yes" in the
+XML Declaration</p>
+
+    <p>Violations of the validity constraints Proper Group/PE Nesting and
+Proper Conditional Section/PE Nesting are not detected. They could only happen
+inside a invalid DTD, not in the content of a document.</p>
+
+  </section>
+  <keywords>
+    <keyword>Validation</keyword>
+    <keyword>DTD</keyword>
+  </keywords>
+  
+</manpage>

@@ -60,7 +60,7 @@ static char *auth_errmsg(enum auth_stat);
 static char *buf;
 
 static char *
-_buf()
+get_buf(void)
 {
 	if (buf == NULL)
 		buf = (char *)malloc(BUFSIZ);
@@ -71,14 +71,12 @@ _buf()
  * Print reply error info
  */
 char *
-clnt_sperror(rpch, s)
-	CLIENT *rpch;
-	char *s;
+clnt_sperror(CLIENT *rpch, char *s)
 {
 	struct rpc_err e;
 	void clnt_perrno();
 	char *err;
-	char *bufstart = _buf();
+	char *bufstart = get_buf();
 	char *str = bufstart;
 	char *strstart = str;
 
@@ -124,8 +122,8 @@ clnt_sperror(rpch, s)
 		if(str - bufstart + 33 + 22 < BUFSIZ)
 		    (void) sprintf(str,
 				   "; low version = %lu, high version = %lu", 
-				   (unsigned long) e.re_vers.low,
-				   (unsigned long) e.re_vers.high);
+				   (u_long) e.re_vers.low,
+				   (u_long) e.re_vers.high);
 		str += strlen(str);
 		break;
 
@@ -153,8 +151,8 @@ clnt_sperror(rpch, s)
 		if(str - bufstart + 33 + 22 < BUFSIZ)
 		    (void) sprintf(str,
 				   "; low version = %lu, high version = %lu",
-				   (unsigned long) e.re_vers.low,
-				   (unsigned long) e.re_vers.high);
+				   (u_long) e.re_vers.low,
+				   (u_long) e.re_vers.high);
 		str += strlen(str);
 		break;
 
@@ -163,8 +161,8 @@ clnt_sperror(rpch, s)
 		if(str - bufstart + 14 + 22 < BUFSIZ)
 		    (void) sprintf(str,
 				   "; s1 = %lu, s2 = %lu",
-				   (unsigned long) e.re_lb.s1,
-				   (unsigned long) e.re_lb.s2);
+				   (u_long) e.re_lb.s1,
+				   (u_long) e.re_lb.s2);
 		str += strlen(str);
 		break;
 	}
@@ -174,9 +172,7 @@ clnt_sperror(rpch, s)
 }
 
 void
-clnt_perror(rpch, s)
-	CLIENT *rpch;
-	char *s;
+clnt_perror(CLIENT *rpch, char *s)
 {
 	(void) fprintf(stderr,"%s",clnt_sperror(rpch,s));
 }
@@ -231,8 +227,7 @@ static struct rpc_errtab  rpc_errlist[] = {
  * This interface for use by clntrpc
  */
 char *
-clnt_sperrno(stat)
-	enum clnt_stat stat;
+clnt_sperrno(enum clnt_stat stat)
 {
 	int i;
 
@@ -245,18 +240,16 @@ clnt_sperrno(stat)
 }
 
 void
-clnt_perrno(num)
-	enum clnt_stat num;
+clnt_perrno(enum clnt_stat num)
 {
 	(void) fprintf(stderr,"%s",clnt_sperrno(num));
 }
 
 
 char *
-clnt_spcreateerror(s)
-	char *s;
+clnt_spcreateerror(char *s)
 {
-	char *str = _buf();
+	char *str = get_buf();
 
 	if (str == 0)
 		return(0);
@@ -307,8 +300,7 @@ clnt_spcreateerror(s)
 }
 
 void
-clnt_pcreateerror(s)
-	char *s;
+clnt_pcreateerror(char *s)
 {
 	(void) fprintf(stderr,"%s",clnt_spcreateerror(s));
 }
@@ -338,8 +330,7 @@ static struct auth_errtab auth_errlist[] = {
 };
 
 static char *
-auth_errmsg(stat)
-	enum auth_stat stat;
+auth_errmsg(enum auth_stat stat)
 {
 	int i;
 

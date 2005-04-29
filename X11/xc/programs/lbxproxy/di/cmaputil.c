@@ -48,7 +48,7 @@ from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/lbxproxy/di/cmaputil.c,v 1.11 2002/05/31 18:46:07 dawes Exp $ */
+/* $XFree86: xc/programs/lbxproxy/di/cmaputil.c,v 1.12 2003/10/24 20:38:12 tsi Exp $ */
 
 #include	<stdio.h>
 #include	"misc.h"
@@ -186,10 +186,7 @@ typedef struct _dbEntry {
 static dbEntryPtr hashTab[HASHSIZE];
 
 static dbEntryPtr
-lookup(name, len, create)
-     char *name;
-     int  len;
-     Bool create;
+lookup(char *name, int len, Bool create)
 {
   unsigned int h = 0, g;
   dbEntryPtr   entry, *prev = NULL;

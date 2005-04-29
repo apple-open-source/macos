@@ -1,0 +1,77 @@
+<html><head>
+	<title>Metakit sample code - FtpCat</title>
+</head><body bgcolor=white>
+
+<font face=Helvetica size=3>
+
+<!--begin-->
+<h2><img src="e4app.gif" alt="App Icon" border=0 align=left>
+Metakit sample code - FtpCat</h2><br clear=left>
+
+<p>This tiny application does not illustrate any new aspects fo Metakit,
+but it may be useful in its own right, especially with the CatFish application
+described hereafter. </p>
+
+<p><b>What it does</b>: FtpCat creates a catalog file of a directory tree,
+just like DisCat. In this case, however the directory listings are obtained
+from an FTP server anywhere on the network. Since FtpCat has no browse
+facility, you will have to use CatSend &amp; CatrRecv (or Dump) to examine
+the contents of the resulting catalog. </p>
+
+<p><b>What it illustrates</b>: FtpCat is a 32-bit console application,
+which is dynamically linked to both Metakit and MFC. FtpCat is a bit peculiar,
+in that it uses the FTP.EXE application which is part of Windows 95 to
+take care of all networking (after all, Metakit is not an introduction
+on how to build ftp clients). There are no ftp-related routines, nor even
+any Winsock calls, in FtpCat. There is a fair amount of tricky code in
+here to juggle two pipes which are used to control the child process (ftp.exe).
+</p>
+
+<p><b>How to use it</b>: FtpCat is very simple to use: simply call it with
+an URL as argument, and it will open an ftp connection and retrieve the
+listings of the specified directory and all its subdirectories. If you
+do not supply a second parameter, the catalog will be stored in a file
+called &quot;ftpcat.dat&quot;. As with DisCat, you can then use CatSend
+&amp; CatRecv to examine the catalog contents. </p>
+
+<p>If you're connected to Internet, you could try &quot;ftpcat ftp://ftp.winsite.com/pub/pc/win3/programr&quot;
+(this is one the areas where new distributions of the Metakit library are
+posted). The &quot;ftp://&quot; prefix is optional, and you may add a &quot;user:password@&quot;
+prefix to the site to login under a specific name. This allows you to produce
+a catalog of protected areas, for example with &quot;ftpcat user:passwd@mysite.org/mydir&quot;.
+Please be aware of the fact that some sites on internet are huge, and that
+a command such as &quot;ftpcat ftp.winsite.com&quot; which uses &quot;/&quot;
+as default path may take some time to complete, depending on the speed
+of your connection. </p>
+
+<p><b>Known problems</b>: None, but there are some limitations in this
+sample application: </p>
+
+<ol>
+<li>The &quot;site:port&quot; notation is not implemented, you can only
+connect to standard ftp servers. </li>
+
+<li>This version does not commit intermediate results to file. If you cancel
+it, nothing is saved. </li>
+</ol>
+
+<p><b>Files in EXAMPLES\FTPCAT</b>: </p>
+
+<p>FTPCAT.CPP - FtpCat main program 
+<br>FTPCAT.MAK, FTPCAT.MDP - MSVC 4.2 project makefiles for Win32 </p>
+<!--end-->
+
+<center><p><hr size=1>
+||
+&nbsp; <a href="index.html" target="_top">Roadmap</a>
+&nbsp; <a href="classes.html">Class Index</a>
+&nbsp; <a href="samples.html">Sample Index</a>
+&nbsp; ||
+&nbsp; <a href="intro.html">Introduction</a>
+&nbsp; <a href="tips.html">Tips and Tricks</a>
+&nbsp; || 
+
+</center>
+</font>
+
+</body></html>

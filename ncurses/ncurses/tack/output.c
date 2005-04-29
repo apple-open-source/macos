@@ -23,7 +23,7 @@
 #include <tack.h>
 #include <time.h>
 
-MODULE_ID("$Id: output.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $")
+MODULE_ID("$Id: output.c,v 1.8 2003/10/25 20:43:43 tom Exp $")
 
 /* globals */
 long char_sent;			/* number of characters sent */
@@ -186,9 +186,9 @@ tt_putp(const char *string)
 }
 
 /*
-**	tt_putparm(string, reps, arg1, arg2, ...)
+**	tt_putparm(string, reps, arg1, arg2)
 **
-**	Send tt_tputs(tparm(string, args...), reps)
+**	Send tt_tputs(tparm(string, args1, arg2), reps)
 **	Use this function inside timing tests.
 */
 void

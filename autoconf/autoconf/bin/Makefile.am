@@ -21,10 +21,10 @@
 include ../lib/freeze.mk
 
 bin_SCRIPTS = autom4te \
-              autoconf autoheader autoreconf ifnames autoscan autoupdate
+	      autoconf autoheader autoreconf ifnames autoscan autoupdate
 
 EXTRA_DIST = autoconf.in autoheader.in autoreconf.in autoupdate.in ifnames.in \
-             autoscan.in autom4te.in \
+	     autoscan.in autom4te.in \
 	     autoconf.as
 
 # Files that should be removed, but which Automake does not know.
@@ -47,7 +47,8 @@ edit = sed \
 	-e 's,@M4\@,$(M4),g' \
 	-e 's,@AWK\@,$(AWK),g' \
 	-e 's,@VERSION\@,$(VERSION),g' \
-	-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g'
+	-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g' \
+	-e 's,@configure_input\@,Generated from $<; do not edit by hand.,g'
 
 # autoconf is written in M4sh.
 AUTOM4SH = $(top_builddir)/tests/autom4te --language M4sh --cache ''
@@ -58,47 +59,55 @@ $(srcdir)/autoconf.in: $(srcdir)/autoconf.as # FIXME: $(m4sh_m4f_dependencies)
 ## when the prefix etc. changes.  It took quite a while to have these
 ## rules correct, don't break them!  In particular, we believe there is
 ## no solution to factor the code.
+## Use chmod -w to prevent people from editing the wrong file by accident.
 autoconf: $(srcdir)/autoconf.in Makefile
 	rm -f autoconf autoconf.tmp
 	$(edit) $(srcdir)/autoconf.in >autoconf.tmp
 	chmod +x autoconf.tmp
-	mv autoconf.tmp autoconf
+	chmod -w autoconf.tmp
+	mv -f autoconf.tmp autoconf
 
 autoheader: $(srcdir)/autoheader.in Makefile
 	rm -f autoheader autoheader.tmp
 	$(edit) $(srcdir)/autoheader.in >autoheader.tmp
 	chmod +x autoheader.tmp
-	mv autoheader.tmp autoheader
+	chmod -w autoheader.tmp
+	mv -f autoheader.tmp autoheader
 
 autom4te: $(srcdir)/autom4te.in Makefile
 	rm -f autom4te autom4te.tmp
 	$(edit) $(srcdir)/autom4te.in >autom4te.tmp
 	chmod +x autom4te.tmp
-	mv autom4te.tmp autom4te
+	chmod -w autom4te.tmp
+	mv -f autom4te.tmp autom4te
 
 autoreconf: $(srcdir)/autoreconf.in Makefile
 	rm -f autoreconf autoreconf.tmp
 	$(edit) $(srcdir)/autoreconf.in >autoreconf.tmp
 	chmod +x autoreconf.tmp
-	mv autoreconf.tmp autoreconf
+	chmod -w autoreconf.tmp
+	mv -f autoreconf.tmp autoreconf
 
 autoscan: $(srcdir)/autoscan.in Makefile
 	rm -f autoscan autoscan.tmp
 	$(edit) $(srcdir)/autoscan.in >autoscan.tmp
 	chmod +x autoscan.tmp
-	mv autoscan.tmp autoscan
+	chmod -w autoscan.tmp
+	mv -f autoscan.tmp autoscan
 
 autoupdate: $(srcdir)/autoupdate.in Makefile
 	rm -f autoupdate autoupdate.tmp
 	$(edit) $(srcdir)/autoupdate.in >autoupdate.tmp
 	chmod +x autoupdate.tmp
-	mv autoupdate.tmp autoupdate
+	chmod -w autoupdate.tmp
+	mv -f autoupdate.tmp autoupdate
 
 ifnames: $(srcdir)/ifnames.in Makefile
 	rm -f ifnames ifnames.tmp
 	$(edit) $(srcdir)/ifnames.in >ifnames.tmp
 	chmod +x ifnames.tmp
-	mv ifnames.tmp ifnames
+	chmod -w ifnames.tmp
+	mv -f ifnames.tmp ifnames
 
 
 

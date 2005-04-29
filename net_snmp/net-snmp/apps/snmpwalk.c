@@ -71,9 +71,11 @@ SOFTWARE.
 
 #include <net-snmp/net-snmp-includes.h>
 
-#define NETSNMP_DS_WALK_INCLUDE_REQUESTED	1
-#define NETSNMP_DS_WALK_PRINT_STATISTICS	2
+#define NETSNMP_DS_WALK_INCLUDE_REQUESTED	        1
+#define NETSNMP_DS_WALK_PRINT_STATISTICS	        2
 #define NETSNMP_DS_WALK_DONT_CHECK_LEXICOGRAPHIC	3
+#define NETSNMP_DS_WALK_TIME_RESULTS     	        4
+#define NETSNMP_DS_WALK_DONT_GET_REQUESTED	        5
 
 oid             objid_mib[] = { 1, 3, 6, 1, 2, 1 };
 int             numprinted = 0;
@@ -89,8 +91,11 @@ usage(void)
             "  -C APPOPTS\t\tSet various application specific behaviours:\n");
     fprintf(stderr, "\t\t\t  p:  print the number of variables found\n");
     fprintf(stderr, "\t\t\t  i:  include given OID in the search range\n");
+    fprintf(stderr, "\t\t\t  I:  don't include the given OID, even if no results are returned\n");
     fprintf(stderr,
             "\t\t\t  c:  do not check returned OIDs are increasing\n");
+    fprintf(stderr,
+            "\t\t\t  t:  Display wall-clock time to complete the request\n");
 }
 
 void
@@ -127,6 +132,11 @@ optProc(int argc, char *const *argv, int opt)
 					  NETSNMP_DS_WALK_INCLUDE_REQUESTED);
                 break;
 
+            case 'I':
+                netsnmp_ds_toggle_boolean(NETSNMP_DS_APPLICATION_ID,
+					  NETSNMP_DS_WALK_DONT_GET_REQUESTED);
+                break;
+
             case 'p':
                 netsnmp_ds_toggle_boolean(NETSNMP_DS_APPLICATION_ID,
 					  NETSNMP_DS_WALK_PRINT_STATISTICS);
@@ -136,6 +146,12 @@ optProc(int argc, char *const *argv, int opt)
                 netsnmp_ds_toggle_boolean(NETSNMP_DS_APPLICATION_ID,
 				    NETSNMP_DS_WALK_DONT_CHECK_LEXICOGRAPHIC);
                 break;
+
+            case 't':
+                netsnmp_ds_toggle_boolean(NETSNMP_DS_APPLICATION_ID,
+                                          NETSNMP_DS_WALK_TIME_RESULTS);
+                break;
+                
             default:
                 fprintf(stderr, "Unknown flag passed to -C: %c\n",
                         optarg[-1]);
@@ -162,10 +178,15 @@ main(int argc, char *argv[])
     int             status;
     int             check;
     int             exitval = 0;
+    struct timeval  tv1, tv2;
 
     netsnmp_ds_register_config(ASN_BOOLEAN, "snmpwalk", "includeRequested",
 			       NETSNMP_DS_APPLICATION_ID, 
 			       NETSNMP_DS_WALK_INCLUDE_REQUESTED);
+
+    netsnmp_ds_register_config(ASN_BOOLEAN, "snmpwalk", "excludeRequested",
+			       NETSNMP_DS_APPLICATION_ID, 
+			       NETSNMP_DS_WALK_DONT_GET_REQUESTED);
 
     netsnmp_ds_register_config(ASN_BOOLEAN, "snmpwalk", "printStatistics",
 			       NETSNMP_DS_APPLICATION_ID, 
@@ -174,6 +195,10 @@ main(int argc, char *argv[])
     netsnmp_ds_register_config(ASN_BOOLEAN, "snmpwalk", "dontCheckOrdering",
 			       NETSNMP_DS_APPLICATION_ID,
 			       NETSNMP_DS_WALK_DONT_CHECK_LEXICOGRAPHIC);
+
+    netsnmp_ds_register_config(ASN_BOOLEAN, "snmpwalk", "timeResults",
+                               NETSNMP_DS_APPLICATION_ID,
+			       NETSNMP_DS_WALK_TIME_RESULTS);
 
     /*
      * get the common command line arguments 
@@ -238,6 +263,9 @@ main(int argc, char *argv[])
         snmp_get_and_print(ss, root, rootlen);
     }
 
+    if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID,
+                               NETSNMP_DS_WALK_TIME_RESULTS))
+        gettimeofday(&tv1, NULL);
     while (running) {
         /*
          * create PDU for GETNEXT request and add object name to request 
@@ -332,6 +360,9 @@ main(int argc, char *argv[])
         if (response)
             snmp_free_pdu(response);
     }
+    if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID,
+                               NETSNMP_DS_WALK_TIME_RESULTS))
+        gettimeofday(&tv2, NULL);
 
     if (numprinted == 0 && status == STAT_SUCCESS) {
         /*
@@ -339,12 +370,21 @@ main(int argc, char *argv[])
          * pointed at an only existing instance.  Attempt a GET, just
          * for get measure. 
          */
-        snmp_get_and_print(ss, root, rootlen);
+        if (!netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_WALK_DONT_GET_REQUESTED)) {
+            snmp_get_and_print(ss, root, rootlen);
+        }
     }
     snmp_close(ss);
 
-    if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_WALK_PRINT_STATISTICS)) {
+    if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID,
+                               NETSNMP_DS_WALK_PRINT_STATISTICS)) {
         printf("Variables found: %d\n", numprinted);
+    }
+    if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID,
+                               NETSNMP_DS_WALK_TIME_RESULTS)) {
+        fprintf (stderr, "Total traversal time = %f seconds\n",
+                 (double) (tv2.tv_usec - tv1.tv_usec)/1000000 +
+                 (double) (tv2.tv_sec - tv1.tv_sec));
     }
 
     SOCK_CLEANUP;

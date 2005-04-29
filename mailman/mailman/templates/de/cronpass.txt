@@ -1,43 +1,38 @@
 
-Sehr geehrter Mailinglisten Nutzer, 
+Sehr geehrter Mailinglisten-Nutzer, 
 
-dies ist die monatliche Infomail, die Sie über Ihre Mitgliedschaften in den
-Mailinglisten auf dem Server %(hostname)s informiert. Mailinglisten sind
-Diskussionsrunden oder Infoverteiler von Privatpersonen, Gruppen, Vereinen 
-o.ä., in den Sie sich eingetragen haben.
+dies ist eine monatliche Infomail, die Sie über Ihre Mitgliedschaften 
+in  den Mailinglisten/e-Mail-Verteilern auf dem Server 
+%(hostname)s informiert. 
 
-Mit dieser monatlichen Erinnerungsmail geben wir Ihnen die Informationen,
-wie Sie den Bezug der genannten Mailinglisten beenden, ihre
-eingetragene Mailadresse ändern lassen, bzw. andere persönliche 
-Einstellungen vornehmen lassen können.
+Mit den unten genannten Links und Passwörtern können Sie den Bezug
+der Mailinglisten beenden, ihre eingetragene e-Mailadresse oder andere 
+Einstellungen ändern.
 
        * Wenn Sie sich austragen wollen: LESEN SIE DIESE e-Mail! *
 
-Bitte antworten Sie nur auf diese e-Mail, wenn Sie es vorher selbst
-versucht haben und es wirklich Probleme gab!
+Wenn Sie Fragen, Probleme, Kommentare etc. haben, können Sie sich (bitte
+freundlich) an %(owner)s wenden. Bitte versuchen Sie es 
+vorher allerdings selbst; mailen Sie nur, wenn es wirklich Probleme gibt.
 
-Zusätzlich zum Web-Interface können Sie solche Änderungen auch via Email
-vornehmen. Um detaillierte Informationen zu dieser Methode zu erhalten,
-schicken Sie bitte ein Email an die '-request' Adresse der Liste (z.B. an
-%(exreq)s), die nur das Wort "help" (ohne Anführungszeichen) im Betreff oder
-im Nachrichtentext enthält.
+Am Ende dieser e-Mail steht jeweils der Name der Mailingliste, daneben 
+das Passwort (oft ein sechsstelliger Buchstabencode). 
 
-Sie erhalten dann eine Antwort mit genauen Instruktionen.
+*UM SICH AUSZUTRAGEN* klicken Sie bitte auf den darunter genannten Link 
+und geben Sie auf der Webseite das hier genannte Passwort ein. 
 
-Wenn Sie Fragen, Probleme, Kommentare etc. haben, dann wenden Sie sich
-bitte an %(owner)s. Danke!
+Achten Sie darauf, daß Ihre Mailsoftware den Link nicht durch einen
+Zeilenumbruch kaputt macht und die im Link enthaltene e-Mail-Adresse
+abschneidet.
 
-Sie kriegen jetzt den Namen der Mailingliste, daneben das Kennwort (oft ein
-sechsstelliger Buchstabencode) aufgelistet. *UM SICH AUSZUTRAGEN* klicken Sie
-bitte auf den jeweils darunter stehenden Link und geben Sie dann das
-geforderte Kennwort ein. 
+1) Klicken Sie unten auf den Link
+2) Geben das neben der e-Mailadresse genannte Passwort an
+3) Klicken auf der Webseite auf "Kündigung des Abos"
 
-Achten Sie darauf, daß Ihre Mailsoftware den Link nicht "abschneidet" und
-dadurch zerstört!
+Für Mailprofis: Zusätzlich zum Web-Interface können Sie solche Änderungen 
+auch via e-Mail vornehmen. Eine Anleitung dazu erhalten Sie, indem Sie 
+eine e-Mail mit dem Wort "help" an die '-request' Adresse der Liste (!) 
+senden (bitte nicht an den Absender dieser e-Mail).
 
-1) Klicken Sie auf den Link
-2) Geben Sie das hier genannte Codewort/Buchstabencode an
-3) Klicken Sie auf "Austragen".
-
-Listen und Passwörter für die Mailadresse %(useraddr)s:
+Hier sind Passwörter und Mailinglisten für %(useraddr)s:
 

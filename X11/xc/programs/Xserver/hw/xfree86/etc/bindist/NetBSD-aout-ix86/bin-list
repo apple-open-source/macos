@@ -11,7 +11,7 @@ lib/libXaw.so.6.1
 lib/libXaw.so.7.0
 lib/libXcursor.so.1.0
 lib/libXext.so.6.4
-lib/libXfont.so.1.4
+lib/libXfont.so.1.5
 lib/libXft.so.1.1
 lib/libXft.so.2.1
 lib/libXi.so.6.0
@@ -26,7 +26,7 @@ lib/libXtst.so.6.1
 lib/libXv.so.1.0
 lib/libdps.so.1.0
 lib/libdpstk.so.1.0
-lib/libexpat.so.1.0
+lib/libexpat.so.4.0
 lib/libfontconfig.so.1.0
 lib/libfreetype.so.9.0
 lib/liboldX.so.6.0

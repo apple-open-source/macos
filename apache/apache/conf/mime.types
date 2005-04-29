@@ -414,7 +414,7 @@ audio/lpc
 audio/midi			mid midi kar
 audio/mpa
 audio/mpa-robust
-audio/mp4a-latm
+audio/mp4a-latm			m4a m4p
 audio/mpeg			mpga mp2 mp3
 audio/parityfec
 audio/pcma

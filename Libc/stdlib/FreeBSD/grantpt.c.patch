@@ -1,0 +1,71 @@
+--- grantpt.c.orig	2004-09-14 19:06:46.000000000 -0700
++++ grantpt.c	2004-09-14 19:11:31.000000000 -0700
+@@ -54,18 +54,16 @@
+ #include <unistd.h>
+ #include "un-namespace.h"
+ 
+-#define PTM_MAJOR	6	/* pseudo tty master major */
+-#define PTS_MAJOR	5	/* pseudo tty slave major */
+ #define PTM_PREFIX	"pty"	/* pseudo tty master naming convention */
+ #define PTS_PREFIX	"tty"	/* pseudo tty slave naming convention */
+ 
+ /*
+  * The following are range values for pseudo TTY devices.  Pseudo TTYs have a
+- * name of /dev/[pt]ty[p-sP-S][0-9a-v], yielding 256 combinations per major.
++ * name of /dev/[pt]ty[p-w][0-9a-f], yielding 128 combinations per major.
+  */
+-#define PT_MAX		256
+-#define	PT_DEV1		"pqrsPQRS"
+-#define PT_DEV2		"0123456789abcdefghijklmnopqrstuv"
++#define PT_MAX		128
++#define	PT_DEV1		"pqrstuvw"
++#define PT_DEV2		"0123456789abcdef"
+ 
+ /*
+  * grantpt(3) support utility.
+@@ -73,11 +71,32 @@
+ #define _PATH_PTCHOWN	"/usr/libexec/pt_chown"
+ 
+ /*
++ * On Mac OS X, the major device number may not be the same between reboots.
++ * So we need to determine the major device number the first time.
++ */
++#define	_PATH_A_PTY	(_PATH_DEV PTM_PREFIX "p0")
++
++static int _ptm_major = -1;
++
++static int
++_init_major(void)
++{
++	struct stat st;
++
++	if (_ptm_major >= 0)
++		return _ptm_major;
++	if (stat(_PATH_A_PTY, &st) < 0)
++		return -1; /* should never happen */
++	_ptm_major = major(st.st_rdev);
++	return _ptm_major;
++}
++/*
+  * ISPTM(x) returns 0 for struct stat x if x is not a pty master.
+  * The bounds checking may be unnecessary but it does eliminate doubt.
+  */
+-#define ISPTM(x)	(S_ISCHR((x).st_mode) && 			\
+-			 major((x).st_rdev) == PTM_MAJOR &&		\
++#define ISPTM(x)	(_init_major() >= 0 &&				\
++			 S_ISCHR((x).st_mode) && 			\
++			 major((x).st_rdev) == _ptm_major &&		\
+ 			 minor((x).st_rdev) >= 0 &&			\
+ 			 minor((x).st_rdev) < PT_MAX)
+ 
+@@ -227,8 +246,8 @@
+ 			errno = EINVAL;
+ 		else {
+ 			(void)sprintf(slave, _PATH_DEV PTS_PREFIX "%c%c",
+-				      PT_DEV1[minor(sbuf.st_rdev) / 32],
+-				      PT_DEV2[minor(sbuf.st_rdev) % 32]);
++				      PT_DEV1[minor(sbuf.st_rdev) / 16],
++				      PT_DEV2[minor(sbuf.st_rdev) % 16]);
+ 			retval = slave;
+ 		}
+ 	}

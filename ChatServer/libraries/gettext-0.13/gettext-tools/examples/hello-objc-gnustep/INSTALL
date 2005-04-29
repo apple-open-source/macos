@@ -1,0 +1,10 @@
+This example relies on:
+  - the GNUstep libraries (libgnustep-gui, libgnustep-base)
+    and their dependencies (libiconv or glibc, and ffcall)
+  - the Objective C runtime libraries (libobjc)
+
+GNUstep applications don't need to be configured or installed in order to run;
+all you need is to
+  1. Prepare your environment, as described in the GNUstep-HOWTO
+  2. make
+  3. openapp Hello

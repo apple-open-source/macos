@@ -34,8 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #define CP_DMP_TREE
 #include "c-dmp-tree.c"
 
-#ifdef ENABLE_DMP_TREE
-
 #include "cp-tree.h"
 
 int cp_dump_tree_p (FILE *, const char *, tree, int);
@@ -46,7 +44,6 @@ static void print_ ## SYM (FILE *file, const char *annotation, tree node, int in
 #include "cp-tree.def"
 #undef DEFTREECODE
 
-static void print_SRCLOC (FILE *, const char *, tree, int);
 static void print_RECORD_TYPE (FILE *, const char *, tree, int);
 static void print_NAMESPACE_DECL (FILE *, const char *, tree, int);
 static void print_ADDR_EXPR (FILE *, const char *, tree, int);
@@ -280,14 +277,6 @@ cxx_dump_type (FILE *file, tree node, int indent, int after_id)
 	    fputs (" delete[]", file);
 	  if (TYPE_HAS_ASSIGN_REF (node))
 	    fputs (" this=(X&)", file);
-	  if (TYPE_OVERLOADS_CALL_EXPR (node))
-	    fputs (" op()", file);
-	  if (TYPE_OVERLOADS_ARRAY_REF (node))
-	    fputs (" op[]", file);
-	  if (TYPE_OVERLOADS_ARROW (node))
-	    fputs (" op->", file);
-	  if (TYPE_USES_MULTIPLE_INHERITANCE (node))
-	    fputs (" uses-mult-inh", file);
         }
     }
     
@@ -354,17 +343,8 @@ cxx_dump_blank_line_p (tree previous_node ATTRIBUTE_UNUSED,
    the same as before.  */
    
 int 
-cxx_dump_lineno_p (FILE *file, tree node)
+cxx_dump_lineno_p (FILE *file ATTRIBUTE_UNUSED, tree node ATTRIBUTE_UNUSED)
 {
-  if (statement_code_p (TREE_CODE (node)) && STMT_LINENO (node))
-    {
-      if (STMT_LINENO_FOR_FN_P (node))
-	fprintf (file, " end-line=%d", STMT_LINENO (node));
-      else
-	fprintf (file, " line=%d", STMT_LINENO (node));
-      return 1;
-    }
-  
   return 0;
 }
 
@@ -392,6 +372,12 @@ print_OFFSET_REF (FILE *file, const char *annotation, tree node, int indent)
   print_ref (file, annotation, node, indent);
   
   print_operands (file, node, indent, TRUE, "(obj)", "(offset)", NULL);
+}
+
+static void
+print_NON_DEPENDENT_EXPR (FILE *file, const char *annotation, tree node,
+			  int indent)
+{
 }
 
 static void
@@ -590,26 +576,26 @@ print_TEMPLATE_DECL (FILE *file,
       dump_tree (file, "(inst)", DECL_VINDEX (node), indent + INDENT);
     }
     
-  // tsubst_decl() in cp/pt.c looks interesting
+  /* tsubst_decl() in cp/pt.c looks interesting */
   if (TREE_TYPE (node))
     {
       if (dump_tree_state.line_cnt > 1)
       	newline_and_indent (file, 0);
-      dump_tree (file, "(obj-type)", TREE_TYPE (node), indent + INDENT); // type of object to be constructed
+      dump_tree (file, "(obj-type)", TREE_TYPE (node), indent + INDENT);
     }
     
   if (DECL_TEMPLATE_RESULT (node))
     {
       if (dump_tree_state.line_cnt > 1)
       	newline_and_indent (file, 0);
-      dump_tree (file, "(obj-decl)", DECL_TEMPLATE_RESULT (node), indent + INDENT); // decl for object to be created
+      dump_tree (file, "(obj-decl)", DECL_TEMPLATE_RESULT (node), indent + INDENT);
     }
   
   if (DECL_INITIAL (node))
     {
       if (dump_tree_state.line_cnt > 1)
       	newline_and_indent (file, 0);
-      dump_tree (file, "(assoc-tmpl)", DECL_INITIAL (node), indent + INDENT); // associated templates
+      dump_tree (file, "(assoc-tmpl)", DECL_INITIAL (node), indent + INDENT);
     }
 }
 
@@ -780,9 +766,12 @@ print_DEFAULT_ARG (FILE *file,
 		   tree node, 
 		   int indent ATTRIBUTE_UNUSED)
 {
+#if 0
+  /* TO DO */
   fprintf (file, " def-arg=");
   fprintf (file, HOST_PTR_PRINTF,
   		HOST_PTR_PRINTF_VALUE (DEFARG_POINTER (node)));
+#endif
   fprintf (file, " (struct unparsed_text * in cp/spew.c)");
 
   if (TREE_PURPOSE (node))
@@ -904,18 +893,6 @@ print_WRAPPER (FILE *file,
 }
 
 static void
-print_LOOKUP_EXPR (FILE *file,
-		   const char *annotation ATTRIBUTE_UNUSED,
-		   tree node,
-		   int indent)
-{
-  if (LOOKUP_EXPR_GLOBAL (node))
-    fputs (" glbl", file);
-  
-  print_operands (file, node, indent, TRUE, NULL);
-}
-
-static void
 print_MODOP_EXPR (FILE *file, 
                   const char *annotation ATTRIBUTE_UNUSED, 
 		  tree node, 
@@ -1005,6 +982,7 @@ print_CTOR_INITIALIZER (FILE *file,
   print_operands (file, node, indent, TRUE, "(mbr-init)", "(base-init)", NULL);
 }
 
+#if 0
 static void
 print_RETURN_INIT (FILE *file,
 		   const char *annotation ATTRIBUTE_UNUSED,
@@ -1013,6 +991,7 @@ print_RETURN_INIT (FILE *file,
 {
   print_operands (file, node, indent, TRUE, "(id)", "(init)", NULL);
 }
+#endif
 
 static void
 print_TRY_BLOCK (FILE *file,
@@ -1175,18 +1154,6 @@ print_RVALUE_CONV (FILE *file,
 
 /*-------------------------------------------------------------------*/
 
-/* Override routine in c-tmp-tree.c to handle SRCLOC node.  */
-static void
-print_SRCLOC (file, annotation, node, indent)
-     FILE *file;
-     const char *annotation ATTRIBUTE_UNUSED;
-     tree node;
-     int indent ATTRIBUTE_UNUSED;
-{
-  fprintf (file, " line=%d file=", SRCLOC_LINE (node));
-  print_string_constant (file, (char *)SRCLOC_FILE (node), 35);
-}
-
 /* Override to routine in dmp-tree.c print Method vector Record Type.  */
 static void
 print_RECORD_TYPE (FILE *file,
@@ -1293,6 +1260,15 @@ print_ADDR_EXPR (FILE *file,
   print_operands (file, node, indent, TRUE, NULL);
 }
 
+static void
+print_ALIAS_DECL (FILE *file ATTRIBUTE_UNUSED,
+	         const char *annotation ATTRIBUTE_UNUSED,
+	         tree node ATTRIBUTE_UNUSED,
+	         int indent ATTRIBUTE_UNUSED)
+{
+  /* TO DO */
+}
+
 /*-------------------------------------------------------------------*/
 
 /* Return 1 if tree node is a C++ specific tree node from cp-tree.def
@@ -1310,10 +1286,6 @@ cp_dump_tree_p (FILE *file, const char *annotation, tree node, int indent)
      #include "cp-tree.def"
      #undef DEFTREECODE
      
-     case SRCLOC:
-       print_SRCLOC (file, annotation, node, indent);
-       break;
-       
      case RECORD_TYPE:
        print_RECORD_TYPE (file, annotation, node, indent);
        break;
@@ -1333,8 +1305,6 @@ cp_dump_tree_p (FILE *file, const char *annotation, tree node, int indent)
    
    return 1;
 }
-
-#endif /* ENABLE_DMP_TREE */
 
 /*-------------------------------------------------------------------*/
 

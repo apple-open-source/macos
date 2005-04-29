@@ -2,14 +2,9 @@
 #include <sys/kernel.h>
 #include <sys/systm.h>
 #include <sys/queue.h>
-#ifdef APPLE
 #include <sys/smb_apple.h>
-#endif
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 
-#ifndef APPLE
-#include <sys/sysctlconf.h>
-#endif
 
 #include "iconv_ces_if.h"
 

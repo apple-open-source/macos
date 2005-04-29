@@ -40,8 +40,15 @@
 
 #define FIX(x) ((x == NULL) ? NULL : (_lu_string *)&(x))
 
+struct lu_netgrent
+{
+	char *ng_host;
+	char *ng_user;
+	char *ng_domain;
+};
+
 static void 
-free_netgroup_data(struct netgrent *ng)
+free_netgroup_data(struct lu_netgrent *ng)
 {
 	if (ng == NULL) return;
 
@@ -51,7 +58,7 @@ free_netgroup_data(struct netgrent *ng)
 }
 
 static void 
-free_netgroup(struct netgrent *ng)
+free_netgroup(struct lu_netgrent *ng)
 {
 	if (ng == NULL) return;
 	free_netgroup_data(ng);
@@ -69,7 +76,7 @@ free_lu_thread_info_netgroup(void *x)
 	
 	if (tdata->lu_entry != NULL)
 	{
-		free_netgroup((struct netgrent *)tdata->lu_entry);
+		free_netgroup((struct lu_netgrent *)tdata->lu_entry);
 		tdata->lu_entry = NULL;
 	}
 
@@ -78,11 +85,11 @@ free_lu_thread_info_netgroup(void *x)
 	free(tdata);
 }
 
-static struct netgrent *
+static struct lu_netgrent *
 extract_netgroup(XDR *xdr)
 {
 	char *h, *u, *d;
-	struct netgrent *ng;
+	struct lu_netgrent *ng;
 
 	if (xdr == NULL) return NULL;
 
@@ -108,7 +115,7 @@ extract_netgroup(XDR *xdr)
 		return NULL;
 	}
 
-	ng = (struct netgrent *)calloc(1, sizeof(struct netgrent));
+	ng = (struct lu_netgrent *)calloc(1, sizeof(struct lu_netgrent));
 
 	ng->ng_host = h;
 	ng->ng_user = u;
@@ -118,14 +125,14 @@ extract_netgroup(XDR *xdr)
 }
 
 #ifdef NOTDEF
-static struct netgrent *
-copy_netgroup(struct netgrent *in)
+static struct lu_netgrent *
+copy_netgroup(struct lu_netgrent *in)
 {
-	struct netgrent *ng;
+	struct lu_netgrent *ng;
 
 	if (in == NULL) return NULL;
 
-	ng = (struct group *)calloc(1, sizeof(struct netgrent));
+	ng = (struct group *)calloc(1, sizeof(struct lu_netgrent));
 
 	ng->ng_host = LU_COPY_STRING(in->ng_host);
 	ng->ng_user = LU_COPY_STRING(in->ng_user);
@@ -136,12 +143,12 @@ copy_netgroup(struct netgrent *in)
 #endif
 
 static void
-recycle_netgroup(struct lu_thread_info *tdata, struct netgrent *in)
+recycle_netgroup(struct lu_thread_info *tdata, struct lu_netgrent *in)
 {
-	struct netgrent *ng;
+	struct lu_netgrent *ng;
 
 	if (tdata == NULL) return;
-	ng = (struct netgrent *)tdata->lu_entry;
+	ng = (struct lu_netgrent *)tdata->lu_entry;
 
 	if (in == NULL)
 	{
@@ -210,7 +217,7 @@ lu_innetgr(const char *group, const char *host, const char *user,
 	}
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+	if ((lookup_buf == NULL) || (datalen == 0)) return 0;
 
 	xdrmem_create(&xdr, lookup_buf, datalen, XDR_DECODE);
 	if (!xdr_int(&xdr, &res))
@@ -223,7 +230,7 @@ lu_innetgr(const char *group, const char *host, const char *user,
 	xdr_destroy(&xdr);
 	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
 
-	return res;
+	return 1;
 }
 
 static void
@@ -299,10 +306,10 @@ lu_setnetgrent(const char *name)
 }
 
 
-struct netgrent *
+static struct lu_netgrent *
 lu_getnetgrent(void)
 {
-	struct netgrent *ng;
+	struct lu_netgrent *ng;
 	struct lu_thread_info *tdata;
 
 	tdata = _lu_data_create_key(_lu_data_key_netgroup, free_lu_thread_info_netgroup);
@@ -334,10 +341,10 @@ innetgr(const char *group, const char *host, const char *user,
 	return 0;
 }
 
-struct netgrent *
-getnetgrent(void)
+int
+getnetgrent(char **host, char **user, char **domain)
 {
-	struct netgrent *res = NULL;
+	struct lu_netgrent *res = NULL;
 	struct lu_thread_info *tdata;
 
 	tdata = _lu_data_create_key(_lu_data_key_netgroup, free_lu_thread_info_netgroup);
@@ -351,7 +358,13 @@ getnetgrent(void)
 	if (_lu_running()) res = lu_getnetgrent();
 
 	recycle_netgroup(tdata, res);
-	return (struct netgrent *)tdata->lu_entry;
+	if (res == NULL) return 0;
+
+	if (host != NULL) *host = res->ng_host;
+	if (user != NULL) *user = res->ng_user;
+	if (domain != NULL) *domain = res->ng_domain;
+
+	return 1;
 }
 
 void

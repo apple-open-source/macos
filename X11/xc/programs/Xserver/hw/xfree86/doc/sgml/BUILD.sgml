@@ -5,16 +5,16 @@
 <article>
 <title>Building XFree86 from a Source Distribution
 <author>David Dawes, Matthieu Herrb
-<Date>26 February 2003
+<Date>23 February 2004
 
 <ident>
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/BUILD.sgml,v 3.11 2003/02/27 01:17:36 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/BUILD.sgml,v 3.14 2004/02/24 03:41:39 dawes Exp $
 </ident>
 
 <abstract>
 This document describes how to build XFree86 from the <bf>source</bf>
-distribution.  It is designed to
-be used in conjunction with the OS-specific README files.
+distribution and is designed to
+be used in conjunction with the operating system (OS) specific README files.
 </abstract>
 
 <toc>
@@ -22,23 +22,23 @@ be used in conjunction with the OS-specific README files.
 <p>
 <quote>
 <bf/NOTE:/  Refer to the appropriate OS-specific README file before attempting
-       to build XFree86.  These files contain additional information that 
-       you may need to successfully build under your OS.
+       to build XFree86.  These files often contain additional information that 
+       you need to successfully build for your OS.
 </quote>
 
 
-We highly recommend using gcc to build XFree86, but it generally also
-builds with the native compiler for each platform; 
+We highly recommend using gcc to build XFree86, but XFree86 also
+generally builds with the native compiler for each OS platform; 
 
 <sect>How to get the XFree86 &relvers; source
 <p>
 
 The recommended way of getting the XFree86 &relvers; source is to
-get it directly from the XFree86 CVS repository.  There are several
+obtain it directly from the XFree86 CVS repository.  There are several
 ways of doing that, and they are described at our <url name="CVS web page"
 url="http://www.xfree86.org/cvs/">  The CVS tag for this release is
-"<tt>&reltag;</tt>", and the tag for the maintenance branch for this
-release is "<tt>&relbranchtag;</tt>".
+"<tt>&reltag;</tt>".  <![ %fullrel; [ The tag for the maintenance branch
+for this release is "<tt>&relbranchtag;</tt>".]]>
 
 <![ %notsnapshot; [
 Another method of getting the XFree86 &relvers; source is to
@@ -46,38 +46,46 @@ either download the &fullrelvers; source tarballs from the XFree86 ftp
 site<![ %updaterel; [ and the source patch that updates &fullrelvers; to
 &relvers]]>.  The procedure for this is as follows:
 <itemize>
-  <item>The XFree86 &fullrelvers; source is contained in the files
-	<tt>X&fullsrcvers;src-1.tgz</tt>, <tt>X&fullsrcvers;src-2.tgz</tt>,
-	<tt>X&fullsrcvers;src-3.tgz</tt>, <tt>X&fullsrcvers;src-4.tgz</tt>,
-	<tt>X&fullsrcvers;src-5.tgz</tt>, <tt>X&fullsrcvers;src-6.tgz</tt>
-	and <tt>X&fullsrcvers;src-7.tgz</tt>.  These can be found at
-	<htmlurl
+  <item>The XFree86 &fullrelvers; source is contained in the files:
+
+	<quote><tt>
+	XFree86-&fullrelvers;-src-1.tgz<newline>
+	XFree86-&fullrelvers;-src-2.tgz<newline>
+	XFree86-&fullrelvers;-src-3.tgz<newline>
+	XFree86-&fullrelvers;-src-4.tgz<newline>
+	XFree86-&fullrelvers;-src-5.tgz<newline>
+	XFree86-&fullrelvers;-src-6.tgz<newline>
+	XFree86-&fullrelvers;-src-7.tgz<newline>
+	</tt></quote>
+
+	These can be found at <htmlurl
 	name="ftp://ftp.xfree86.org/pub/XFree86/&fullrelvers;/source/"
 	url="ftp://ftp.xfree86.org/pub/XFree86/&fullrelvers;/source/">
 	and similar locations on XFree86 mirror sites.
-	<tt>X&fullsrcvers;src-4.tgz</tt> and
-	<tt>X&fullsrcvers;src-5.tgz</tt> contains the fonts.
-	<tt>X&fullsrcvers;src-6.tgz</tt> contains the documentation
-	source.  <tt>X&fullsrcvers;src-7.tgz</tt> contains the hardcopy
-	documentation.  <tt>X&fullsrcvers;src-1.tgz</tt>,
-	<tt>X&fullsrcvers;src-2.tgz</tt> and
-	<tt>X&fullsrcvers;src-3.tgz</tt> contains everything else.  If
-	you don't need the docs or fonts you can get by with only
-	<tt>X&fullsrcvers;src-1.tgz</tt>, <tt>X&fullsrcvers;src-2.tgz</tt>
-	and <tt>X&fullsrcvers;src-3.tgz</tt>.
+	<tt>XFree86-&fullrelvers;-src-4.tgz</tt> and
+	<tt>XFree86-&fullrelvers;-src-5.tgz</tt> contains the fonts.
+	<tt>XFree86-&fullrelvers;-src-6.tgz</tt> contains the documentation
+	source.  <tt>XFree86-&fullrelvers;-src-7.tgz</tt> contains the
+	hardcopy documentation.  <tt>XFree86-&fullrelvers;-src-1.tgz</tt>,
+	<tt>XFree86-&fullrelvers;-src-2.tgz</tt> and
+	<tt>XFree86-&fullrelvers;-src-3.tgz</tt> contains everything
+	else.  If you don't need the docs or fonts you can get by with
+	only <tt>XFree86-&fullrelvers;-src-1.tgz</tt>,
+	<tt>XFree86-&fullrelvers;-src-2.tgz</tt> and
+	<tt>XFree86-&fullrelvers;-src-3.tgz</tt>.
 
   <item>Extract each of these files by running the following from a directory
 	on a filesystem containing enough space (the full source requires
 	around 305MB, and a similar amount is required in addition to this
 	for the compiled binaries):
 	<quote><tt>
-	gzip -d &lt; X&fullsrcvers;src-1.tgz | tar vxf -<newline>
-	gzip -d &lt; X&fullsrcvers;src-2.tgz | tar vxf -<newline>
-	gzip -d &lt; X&fullsrcvers;src-3.tgz | tar vxf -<newline>
-	gzip -d &lt; X&fullsrcvers;src-4.tgz | tar vxf -<newline>
-	gzip -d &lt; X&fullsrcvers;src-5.tgz | tar vxf -<newline>
-	gzip -d &lt; X&fullsrcvers;src-6.tgz | tar vxf -<newline>
-	gzip -d &lt; X&fullsrcvers;src-7.tgz | tar vxf -<newline>
+	gzip -d &lt; XFree86-&fullrelvers;-src-1.tgz | tar vxf -<newline>
+	gzip -d &lt; XFree86-&fullrelvers;-src-2.tgz | tar vxf -<newline>
+	gzip -d &lt; XFree86-&fullrelvers;-src-3.tgz | tar vxf -<newline>
+	gzip -d &lt; XFree86-&fullrelvers;-src-4.tgz | tar vxf -<newline>
+	gzip -d &lt; XFree86-&fullrelvers;-src-5.tgz | tar vxf -<newline>
+	gzip -d &lt; XFree86-&fullrelvers;-src-6.tgz | tar vxf -<newline>
+	gzip -d &lt; XFree86-&fullrelvers;-src-7.tgz | tar vxf -<newline>
 	</tt></quote>
 
 <![ %updaterel; [
@@ -108,18 +116,23 @@ you to convert it to &relvers;.  Information about which patch files to
 download and how to apply them can be found in the "How to get XFree86"
 section of the <htmlurl name="README" url="README.html"> for this release.
 ]]>
-
-All methods will produce one main source directory called <tt>xc</tt>. 
 ]]>
 
 <![ %snapshot; [
 <p>
-The source for the XFree86 &relvers; snapshot is available from the XFree86
-CVS repository.  See See <htmlurl name="http://www.xfree86.org/cvs/"
-url="http://www.xfree86.org/cvs/"> for details.  The tag for this snapshot
-is "&reltag;".  To get the current development version, don't specify any
-tag.
+Alternatively you can download the source for the XFree86 &relvers;
+snapshot as a tarball from <htmlurl
+name="ftp://ftp.xfree86.org/pub/XFree86/develsnaps/XFree86-&relvers;.tar.bz2"
+url="ftp://ftp.xfree86.org/pub/XFree86/develsnaps/XFree86-&relvers;.tar.bz2">.
+This can be extracted by running:
+
+	<quote><tt>
+	bzip2 -d &lt; XFree86-&relvers;.tar.bz2 | tar vxf -<newline>
+	</tt></quote>
+
 ]]>
+
+All methods will produce one main source directory called <tt>xc</tt>. 
 
 
 <sect>Configuring the source before building
@@ -129,43 +142,40 @@ In most cases it shouldn't be necessary to configure anything before building.
 If you do want to make configuration changes, it is recommended that
 you start by going to the <tt>xc/config/cf</tt> directory, and copying
 the file <tt>xf86site.def</tt> to <tt>host.def</tt>.  Then read through
-the <tt>host.def</tt> file (which is heavily commented), and set any
-parameters that you want for your configuration.  You can usually find
-out what the default settings are by checking the <tt>.cf</tt> file(s)
-relevant to your OS.
+the <tt>host.def</tt> file (which is heavily commented), and set your 
+configuration parameters. Usually you can find
+the default settings by checking the <tt>.cf</tt> file(s) relevant to your OS.
 
-A general rule to follow is to only change things that you understand
-and have a good reason to change.  It is easy to create build problems
-by changing the default configuration.  Many of the configuration
-parameters are documented in <tt>xc/config/cf/README</tt>.
+A good rule to follow is only to change things that you understand
+as it's  easy to create build problems by changing the default configuration.  
+Check the configuration parameters specified in the <tt>xc/config/cf/README</tt>.
 
 <!--
-There's also
-a section <ref name="below" id="config_params"> with information about
-some configuration settings.
+Another spot to check is a section <ref name="below" id="config_params">
+ with information about configuration settings.
 -->
 
 <![ %notsnapshot; [
-If you are using just the <tt>X&srcvers;src-1.tgz</tt>,
-<tt>X&srcvers;src-2.tgz</tt> and <tt>X&srcvers;src-3.tgz</tt> parts of
-the source dist, you will need to define <bf>BuildFonts</bf> to
-<bf>NO</bf>.
+If you are using just the <tt>XFree86-&fullrelvers;-src-1.tgz</tt>,
+<tt>XFree86-&fullrelvers;-src-2.tgz</tt> and
+<tt>XFree86-&fullrelvers;-src-3.tgz</tt> parts of the source dist, you
+will need to define <bf>BuildFonts</bf> to <bf>NO</bf>.
 ]]>
 
 <sect>Using a shadow directory of symbolic links for the build
 <p>
 A recommended practice is to use a shadow directory of symbolic links
-to do the build of XFree86. This permits to keep the source directory
-unmodified during the build, which has the following benefits:
+to do the build of XFree86 as this allows you to keep the source directory
+unmodified during the build.  It has the following benefits:
 <itemize>
-<item>In the case where CVS is used to maintain the source tree up to
-date, the update process is not disturbed by foreign files not under
-the control of CVS. 
+<item>When you are using CVS to maintain your source tree, 
+the update process is not disturbed by foreign files not under
+CVS's control. 
 <item>It is possible to build XFree86 for several different Operating
 System or architectures from the same sources, shared by read-only NFS
 mounts.
 <item>It is possible to build XFree86 with different configuration
-options, just by putting a real copy of the <tt>host.def</tt> file in
+options, by putting a real copy of the <tt>host.def</tt> file in
 each build tree and by customizing it separately in each build tree.
 </itemize>
 <p>
@@ -198,8 +208,8 @@ make -f Makefile.ini lndir<newline>
 cp lndir <em>some directory in your PATH</em>
 </tt></quote>
 
-From time to time there may be some stale links in the build tree, for
-example, when files in the source tree are removed or renamed.  These can
+Occasionally there may be stale links in the build tree, like 
+when files in the source tree are removed or renamed.  These can
 be cleaned up by running the "<tt>cleanlinks</tt>" script from the build
 directory (see the <htmlurl name="cleanlinks(1)" url="cleanlinks.1.html">
 manual page).  Rarely there will be changes that will require the build
@@ -211,7 +221,7 @@ and then re-create it using the steps outlined above.
 <p>
 Before building the distribution, read through the OS-specific <tt/README/
 file in <tt>xc/programs/Xserver/hw/xfree86/doc</tt> that is relevant to
-you.  Once those OS-specific details have been taken care of, go your
+you.  Once you have addressed the OS-specific details, go your
 build directory 
 (either the <tt/xc/ directory or the shadow tree created before) and
 run "<tt/make World/" with the <bf/BOOTSTRAPCFLAGS/ 
@@ -289,7 +299,7 @@ wish to build.  Also, change the driver lists to suit your needs.
 
 <sect>Other useful make targets
 <p>There are some other useful targets defined in the top level
-<tt>Makefile</tt>of XFree86: 
+<tt>Makefile</tt> of XFree86: 
 <itemize>
 <item><bf/Everything/ after a <tt>make World</tt>, <tt>make
 Everything</tt> does everything a <tt>make World</tt> does, except the

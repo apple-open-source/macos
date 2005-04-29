@@ -15,6 +15,9 @@ details.  */
 
 #include <java/lang/Class.h>
 #include <java/lang/NullPointerException.h>
+#include <gnu/gcj/runtime/StackTrace.h> 
+#include <gnu/gcj/runtime/MethodRef.h> 
+#include <gnu/gcj/RawData.h> 
 #include <gcj/cni.h>
 #include <jvm.h>
 
@@ -158,7 +161,7 @@ parse_lsda_header (_Unwind_Context *context, const unsigned char *p,
   return p;
 }
 
-static jclass
+static void **
 get_ttype_entry (_Unwind_Context *context, lsda_header_info *info, long i)
 {
   _Unwind_Ptr ptr;
@@ -166,7 +169,7 @@ get_ttype_entry (_Unwind_Context *context, lsda_header_info *info, long i)
   i *= size_of_encoded_value (info->ttype_encoding);
   read_encoded_value (context, info->ttype_encoding, info->TType - i, &ptr);
 
-  return reinterpret_cast<jclass>(ptr);
+  return reinterpret_cast<void **>(ptr);
 }
 
 
@@ -333,12 +336,14 @@ PERSONALITY_FUNCTION (int version,
 	    {
 	      // Positive filter values are handlers.
 
-	      jclass catch_type = get_ttype_entry (context, &info, ar_filter);
+	      void **catch_word = get_ttype_entry (context, &info, ar_filter);
+	      jclass catch_type = (jclass)*catch_word;
 
-	      // The catch_type is either a (java::lang::Class*) or
-	      // is one more than a (Utf8Const*).
-	      if ((size_t)catch_type & 1)
-		catch_type = _Jv_FindClass ((Utf8Const*)catch_type - 1, NULL);
+	      // FIXME: This line is a kludge to work around exception
+	      // handlers written in C++, which don't yet use indirect
+	      // dispatch.
+	      if (catch_type == *(void **)&java::lang::Class::class$)
+		catch_type = (jclass)catch_word;
 
 	      if (_Jv_IsInstanceOf (xh->value, catch_type))
 		{

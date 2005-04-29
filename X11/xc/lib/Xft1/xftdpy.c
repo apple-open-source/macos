@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/lib/Xft1/xftdpy.c,v 1.2 2002/11/24 01:56:56 keithp Exp $
+ * $XFree86: xc/lib/Xft1/xftdpy.c,v 1.3 2003/05/27 22:26:41 tsi Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
@@ -403,8 +403,7 @@ XftDefaultSubstitute (Display *dpy, int screen, XftPattern *pattern)
     }
     if (XftPatternGet (pattern, XFT_PIXEL_SIZE, 0, &v) == XftResultNoMatch)
     {
-	int	pixels, mm;
-	double	dpi;
+	double pixels, mm, dpi;
 
 	if (XftPatternGet (pattern, XFT_SIZE, 0, &v) != XftResultMatch)
 	{
@@ -429,11 +428,9 @@ XftDefaultSubstitute (Display *dpy, int screen, XftPattern *pattern)
 	size *= scale;
 	pixels = DisplayHeight (dpy, screen);
 	mm = DisplayHeightMM (dpy, screen);
-	dpi = (((double) DisplayHeight (dpy, screen) * 25.4) / 
-	       (double) DisplayHeightMM (dpy, screen));
+	dpi = (pixels * 25.4) / mm;
 	dpi = XftDefaultGetDouble (dpy, XFT_DPI, screen, dpi);
 	size = size * dpi / 72.0;
 	XftPatternAddDouble (pattern, XFT_PIXEL_SIZE, size);
     }
 }
-

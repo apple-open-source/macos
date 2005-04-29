@@ -50,7 +50,6 @@
 
 #include "smtp.h"
 
-#ifdef HAS_SSL
 /* static lists */
 static MAPS *tls_per_site;
 
@@ -61,7 +60,6 @@ void smtp_tls_list_init(void)
     tls_per_site = maps_create(VAR_SMTP_TLS_PER_SITE, var_smtp_tls_per_site,
 			       DICT_FLAG_LOCK);
 }
-#endif
 
 /* smtp_session_alloc - allocate and initialize SMTP_SESSION structure */
 
@@ -87,7 +85,7 @@ SMTP_SESSION *smtp_session_alloc(char *dest, VSTREAM *stream, char *host, char *
     session->best = 1;
     session->tls_use_tls = session->tls_enforce_tls = 0;
     session->tls_enforce_peername = 0;
-#ifdef HAS_SSL
+#ifdef USE_SSL
     lookup_key = lowercase(mystrdup(host));
     if (lookup = maps_find(tls_per_site, lookup_key, 0)) {
 	if (!strcasecmp(lookup, "NONE"))
@@ -147,7 +145,7 @@ SMTP_SESSION *smtp_session_alloc(char *dest, VSTREAM *stream, char *host, char *
 
 void    smtp_session_free(SMTP_SESSION *session)
 {
-#ifdef HAS_SSL
+#ifdef USE_SSL
     vstream_fflush(session->stream);
     pfixtls_stop_clienttls(session->stream, var_smtp_starttls_tmout, 0,
 			   &(session->tls_info));

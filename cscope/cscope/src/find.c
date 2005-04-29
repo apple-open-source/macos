@@ -36,6 +36,8 @@
  */
 
 #include "global.h"
+
+#include "build.h"
 #include "scanner.h"		/* for token definitions */
 #if defined(USE_NCURSES) && !defined(RENAMED_NCURSES)
 #include <ncurses.h>
@@ -44,7 +46,7 @@
 #endif
 #include <regex.h>
 
-static char const rcsid[] = "$Id: find.c,v 1.1.1.2 2002/01/09 18:50:32 umeshv Exp $";
+static char const rcsid[] = "$Id: find.c,v 1.2 2004/07/09 21:34:44 nicolai Exp $";
 
 /* most of these functions have been optimized so their innermost loops have
  * only one test for the desired character by putting the char and 
@@ -595,17 +597,24 @@ findinit(char *pattern)
 	isregexp_valid = NO;
 
 	/* remove trailing white space */
-	for (s = pattern + strlen(pattern) - 1; isspace((unsigned char)*s); --s) {
+	for (s = pattern + strlen(pattern) - 1; 
+	     isspace((unsigned char)*s);
+	     --s) {
 		*s = '\0';
 	}
+
+	/* HBB 20020620: new: make sure pattern is lowercased. Curses
+	 * mode gets this right all on its own, but at least -L mode
+	 * doesn't */
+	if (caseless == YES) {
+		pattern = lcasify(pattern);
+	}
+
 	/* allow a partial match for a file name */
 	if (field == FILENAME || field == INCLUDES) {
-	
 		if (regcomp (&regexp, pattern, REG_EXTENDED | REG_NOSUB) != 0) { 
 			return(REGCMPERROR);
-		}
-		else
-		{
+		} else {
 			isregexp_valid = YES;
 		}
 		return(NOERROR);
@@ -613,8 +622,7 @@ findinit(char *pattern)
 	/* see if the pattern is a regular expression */
 	if (strpbrk(pattern, "^.[{*+$") != NULL) {
 		isregexp = YES;
-	}
-	else {
+	} else {
 		/* check for a valid C symbol */
 		s = pattern;
 		if (!isalpha((unsigned char)*s) && *s != '_') {
@@ -656,7 +664,7 @@ findinit(char *pattern)
 			s[8] = '\0';
 		}
 		/* must be an exact match */
-		/* note: regcmp doesn't recognize ^*keypad$ as a syntax error
+		/* note: regcomp doesn't recognize ^*keypad$ as a syntax error
 		         unless it is given as a single arg */
 		(void) sprintf(buf, "^%s$", s);
 		if (regcomp (&regexp, buf, REG_EXTENDED | REG_NOSUB) != 0) {

@@ -1,4 +1,4 @@
-#ident $Id: netinfo.schema,v 1.18 2003/09/13 23:37:25 jtownsen Exp $
+#ident $Id: netinfo.schema,v 1.21 2004/07/22 02:22:07 jtownsen Exp $
 #
 # NetInfo attribute mapping schema.
 #
@@ -33,6 +33,7 @@ attributemap /users state stateOrProvinceName
 attributemap /users zip postalCode
 attributemap /users address1 streetAddress
 attributemap /users phonenumber telephoneNumber
+attributemap /users imhandle apple-imhandle
 attributemap /users comment description
 attributemap /users smb_acctFlags acctFlags
 attributemap /users smb_pwd_last_set pwdLastSet
@@ -72,6 +73,7 @@ attributemap /machines serves apple-machine-serves
 attributemap /machines suffix apple-machine-suffix
 attributemap /machines hardware apple-machine-hardware
 attributemap /machines software apple-machine-software
+attributemap /machines owner apple-machine-contactperson 
 
 #
 # Schema mapping for NetInfo protocols.
@@ -143,7 +145,7 @@ attributemap /computers smb_logoff_time logoffTime
 attributemap /computers smb_kickoff_time kickoffTime
 attributemap /computers smb_rid rid
 attributemap /computers smb_group_rid primaryGroupID
-attributemap /computers xmlplist apple-xmlplist
+attributemap /computers XMLPlist apple-xmlplist
 
 #
 # Schema mapping for NetInfo computer lists.
@@ -162,7 +164,7 @@ attributemap /config data_stamp apple-data-stamp
 attributemap /config passwordserverlist apple-password-server-list
 attributemap /config kdcauthkey apple-kdc-authkey
 attributemap /config kdcconfigdata apple-kdc-configdata
-attributemap /config xmlplist apple-xmlplist
+attributemap /config XMLPlist apple-xmlplist
 
 #
 # Schema mapping for NetInfo preset computer lists.
@@ -205,7 +207,7 @@ objectclassmap /people inetOrgPerson
 # Schema mapping for NetInfo Server Assistant configs.
 #
 objectclassmap /autoserversetup apple-serverassistant-config
-attributemap /autoserversetup xmlplist apple-xmlplist
+attributemap /autoserversetup XMLPlist apple-xmlplist
 
 #
 # Schema mapping for NetInfo locations.

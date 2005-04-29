@@ -1,12 +1,13 @@
-/* APPLE LOCAL file constant strings */
 /* Test the -fconstant-string-class=Foo option under the NeXT
    runtime.  */
 /* Developed by Markus Hitter <mah@jump-ing.de>.  */
 
-/* { dg-options "-fnext-runtime -fno-constant-cfstrings -fconstant-string-class=Foo -lobjc" } */
-/* { dg-do run } */
+/* { dg-options "-fnext-runtime -fconstant-string-class=Foo -lobjc" } */
+/* { dg-do run { target *-*-darwin* } } */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <memory.h>
 #include <objc/objc.h>
 #include <objc/Object.h>
 

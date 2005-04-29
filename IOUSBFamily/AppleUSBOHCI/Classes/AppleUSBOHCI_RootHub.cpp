@@ -78,11 +78,13 @@ IOReturn AppleUSBOHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
 {
     IOUSBHubDescriptor hubDesc;
     UInt8 pps, nps, cd, ppoc, noc;
-    UInt32 descriptorA, descriptorB;
-
+    UInt32 descriptorA, descriptorB, data;
+    UInt8 *dstP;
+    unsigned int i, numBytes;
 
     descriptorA = USBToHostLong(_pOHCIRegisters->hcRhDescriptorA);
     descriptorB = USBToHostLong(_pOHCIRegisters->hcRhDescriptorB);
+
     hubDesc.length = sizeof(IOUSBHubDescriptor);
     hubDesc.hubType = kUSBHubDescriptorType;
     hubDesc.numPorts = ((descriptorA & kOHCIHcRhDescriptorA_NDP)
@@ -107,30 +109,35 @@ IOReturn AppleUSBOHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
     // the root hub has no power requirements
     hubDesc.hubCurrent = 0;
 
-    // bitmap of removable ports
-    *((UInt16*)&hubDesc.removablePortFlags[0]) =
-        ((descriptorB & kOHCIHcRhDescriptorB_DR)
-         >> kOHCIHcRhDescriptorB_DRPhase);
-    *((UInt16 *)&hubDesc.removablePortFlags[2]) = 0;  // OHCI supports 15 ports
-    *((UInt32 *)&hubDesc.removablePortFlags[4]) = 0;  // so zero out the rest
-
-    // bitmap of power mode for each port
-    *((UInt16 *)&hubDesc.pwrCtlPortFlags[0]) =
-        ((descriptorB & kOHCIHcRhDescriptorB_PPCM)
-         >> kOHCIHcRhDescriptorB_PPCMPhase);
-    *((UInt16 *)&hubDesc.pwrCtlPortFlags[2]) = 0;  // OHCI supports 15 ports
-    *((UInt32 *)&hubDesc.pwrCtlPortFlags[4]) = 0;  // so zero out the rest
-
+    // Bitmap data is packed according to the number
+    // of ports on the hub, and is stored little-endian.
+    numBytes = (hubDesc.numPorts + 1) / 8 + 1;
+    dstP = (UInt8 *)&hubDesc.removablePortFlags[0];
+        
+    // bitmap of removable port flags
+    data = (descriptorB & kOHCIHcRhDescriptorB_DR) >> kOHCIHcRhDescriptorB_DRPhase;
+    for (i=0; i<numBytes; i++) {
+        *dstP++ = (UInt8)data;
+        data >>= 8;
+    }
+        
+    // bitmap of power control flags
+    data = (descriptorB & kOHCIHcRhDescriptorB_PPCM) >> kOHCIHcRhDescriptorB_PPCMPhase;
+    for (i=0; i<numBytes; i++) {
+        *dstP++ = (UInt8)data;
+        data >>= 8;
+    }
+    
+    // Adjust descriptor length to account for
+    // number of bytes used in removable and power control arrays.
+    hubDesc.length -= ((sizeof(hubDesc.removablePortFlags) - numBytes) +
+                       (sizeof(hubDesc.pwrCtlPortFlags) - numBytes));
+    
     if (!desc)
         return(kIOReturnNoMemory);
 
     bcopy(&hubDesc, desc, hubDesc.length);
 
-/*
-    if (!buffer->appendBytes(&hubDesc,  hubDesc.length))
-        return(kIOReturnNoMemory);
-*/
-    
     return(kIOReturnSuccess);
 }
 
@@ -159,7 +166,7 @@ IOReturn AppleUSBOHCI::GetRootHubConfDescriptor(OSData *desc)
         1,                      //UInt8 numEndpoints;
         kUSBHubClass,           //UInt8 interfaceClass;
         kUSBHubSubClass,        //UInt8 interfaceSubClass;
-        1,                      //UInt8 interfaceProtocol;
+        0,                      //UInt8 interfaceProtocol;
         0                       //UInt8 interfaceStrIndex;
     };
     IOUSBEndpointDescriptor endptDesc =
@@ -168,7 +175,7 @@ IOReturn AppleUSBOHCI::GetRootHubConfDescriptor(OSData *desc)
         kUSBEndpointDesc,       //UInt8 descriptorType;
         0x81,                   //UInt8  endpointAddress; In, 1
         kUSBInterrupt,          //UInt8 attributes;
-        HostToUSBWord(8),      	//UInt16 maxPacketSize;
+        USB_CONSTANT16(8),      	//UInt16 maxPacketSize;
         255,                    //UInt8 interval;
     };
 
@@ -754,7 +761,7 @@ AppleUSBOHCI::RootHubAreAllPortsDisconnected( )
         }
         else
         {
-            portStatus = HostToUSBLong( _pOHCIRegisters->hcRhPortStatus[--numPorts] );
+            portStatus = USBToHostLong( _pOHCIRegisters->hcRhPortStatus[--numPorts] );
             if ( (portStatus & kOHCIHcRhPortStatus_CCS) != 0 )
                 return false;
         }

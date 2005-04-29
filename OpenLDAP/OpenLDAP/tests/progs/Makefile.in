@@ -1,8 +1,17 @@
-# $OpenLDAP: pkg/ldap/tests/progs/Makefile.in,v 1.10.2.3 2003/02/24 16:16:54 kurt Exp $
-## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
-## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+## Makefile.in for test programs
+# $OpenLDAP: pkg/ldap/tests/progs/Makefile.in,v 1.14.2.2 2004/01/01 18:16:43 kurt Exp $
+## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## tests Makefile.in for OpenLDAP
+## Copyright 1998-2004 The OpenLDAP Foundation.
+## All rights reserved.
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted only as authorized by the OpenLDAP
+## Public License.
+##
+## A copy of this license is available in the file LICENSE in the
+## top-level directory of the distribution or, alternatively, at
+## <http://www.OpenLDAP.org/license.html>.
 
 PROGRAMS = slapd-tester slapd-search slapd-read slapd-addel slapd-modrdn
 

@@ -29,10 +29,10 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 #
-# $Id: iconv_drv_if.m,v 1.1.1.1 2001/06/09 00:28:12 zarzycki Exp $
+# $Id: iconv_drv_if.m,v 1.2 2004/12/13 00:25:16 lindak Exp $
 #
 
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 
 INTERFACE iconv_drv;
 

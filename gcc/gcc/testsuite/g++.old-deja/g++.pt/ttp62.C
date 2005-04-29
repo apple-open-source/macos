@@ -1,3 +1,4 @@
+// { dg-do run  }
 // Origin: Ewgenij Gawrilow <gawrilow@math.TU-Berlin.DE>
 
 extern "C" void abort ();
@@ -18,7 +19,7 @@ template <class X> struct D { };
 template <class T>
 bool is_C (const T&) {
    return is_instance_of<C,T>::answer;
-};
+}
 
 int main() {
    if (!is_C(C<int>()))

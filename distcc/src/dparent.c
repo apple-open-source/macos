@@ -3,7 +3,7 @@
  * distcc -- A simple distributed compiler system
  *
  * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
- * Copyright (C) 2003 by Apple Computer, Inc.
+ * Copyright (C) 2003, 2005 by Apple Computer, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -126,6 +126,7 @@ int dcc_standalone_server(void)
          * ready.  This is useful for testing -- when the daemon
          * detaches, we know we can go ahead and try to connect.  */
         dcc_detach();
+	chdir("/");
     } else {
         dcc_save_pid(getpid());
     }

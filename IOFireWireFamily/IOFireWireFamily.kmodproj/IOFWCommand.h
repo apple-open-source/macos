@@ -32,6 +32,11 @@
 
 #include <IOKit/firewire/IOFireWireFamilyCommon.h>
 
+#define kFWCmdDefaultRetries 3
+#define kFWCmdZeroRetries 0
+#define kFWCmdReducedRetries 2
+#define kFWCmdIncreasedRetries 6
+
 class IOMemoryDescriptor;
 class IOSyncer;
 class IOFireWireBus;
@@ -99,11 +104,15 @@ protected:
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
-    struct ExpansionData { };
+    struct MemberVariables 
+	{
+		void *		fFWIMRefCon;
+		IOReturn	fCompletionStatus;
+	};
 
 /*! @var reserved
     Reserved for future use.  (Internal use only)  */
-    ExpansionData *reserved;
+    MemberVariables * fMembers;
 
     virtual IOReturn	complete(IOReturn status);
     virtual void	updateTimer();
@@ -118,6 +127,8 @@ protected:
 public:
 
     virtual bool	initWithController(IOFireWireController *control);
+	virtual void	free( void );
+	
     IOReturn		getStatus() const { return fStatus; };
     
     /*	
@@ -171,6 +182,16 @@ public:
         
     friend class IOFWCmdQ;
 
+	void * getFWIMRefCon( void )
+	{
+		return fMembers->fFWIMRefCon;
+	}
+	
+	void setFWIMRefCon( void * refcon )
+	{
+		fMembers->fFWIMRefCon = refcon;
+	}
+	
 private:
     OSMetaClassDeclareReservedUnused(IOFWCommand, 0);
     OSMetaClassDeclareReservedUnused(IOFWCommand, 1);
@@ -285,10 +306,10 @@ protected:
 		// some of our subclasses didn't have room for expansion data, so
 		// we've reserved space for their use here.
 		
-		void *	fSubclassMembers;
-		int		fMaxSpeed;
-		int		fAckCode;
-		UInt32	fResponseCode;
+		void *		fSubclassMembers;
+		int			fMaxSpeed;
+		int			fAckCode;
+		UInt32		fResponseCode;
 	} 
 	MemberVariables;
 
@@ -357,13 +378,13 @@ public:
 	
 	void setAckCode( int ack );
 	int getAckCode( void );
-
+	
 	void setRetries( int retries);
 	int getMaxRetries( void );
-
+	
 	void setResponseCode( UInt32 rcode );
 	UInt32 getResponseCode( void ) const;
-			
+		
 private:
     OSMetaClassDeclareReservedUnused(IOFWAsyncCommand, 0);
     OSMetaClassDeclareReservedUnused(IOFWAsyncCommand, 1);
@@ -711,19 +732,13 @@ protected:
     int						fTag;
     UInt32					fGeneration;	// bus topology fNodeID is valid for.
     bool					fFailOnReset;
-		
-	/*! 
-		@struct ExpansionData
-		@discussion This structure will be used to expand the capablilties of the class in the future.
-    */    
-    struct ExpansionData { };
 
-	/*! 
-		@var reserved
-		Reserved for future use.  (Internal use only)  
-	*/
-    ExpansionData *reserved;
+	typedef struct 
+	{ 	} 
+	MemberVariables;
 
+    MemberVariables * fMembers;		
+	
     virtual IOReturn	complete(
     							IOReturn 				status);
     							
@@ -743,6 +758,8 @@ public:
                                 int						speed,
                                 FWAsyncStreamCallback	completion,
                                 void 					* refcon);
+	virtual void free( void );
+
     virtual IOReturn	reinit(	UInt32 					generation, 
                                 UInt32 					channel,
                                 UInt32 					sync,

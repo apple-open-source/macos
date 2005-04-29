@@ -1,19 +1,14 @@
 #import	<architecture/ppc/asm_help.h>
 #import	<architecture/ppc/pseudo_inst.h>
+#import	<architecture/ppc/mode_independent_asm.h>
 
-.section __DATA,__tuned_text,regular,pure_instructions
-
-.globl _sqrt
-_sqrt:
-	BRANCH_EXTERN(___sqrt)
-        
 .text
+.align 2
 
 .private_extern _hw_sqrt
 _hw_sqrt:
-       fsqrt f1, f1
-       blr
 Lhw_sqrt_end:
+		nop
 .set Lhw_sqrt_len, Lhw_sqrt_end - _hw_sqrt
 
 .const

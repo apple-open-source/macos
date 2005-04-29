@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2003, International Business Machines
+*   Copyright (C) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -23,10 +23,13 @@
 #include <stdlib.h>
 #include "unicode/utypes.h"
 #include "unicode/uchar.h"
+#include "unicode/ustring.h"
 #include "unicode/putil.h"
+#include "unicode/uclean.h"
+#include "unicode/udata.h"
+#include "unicode/uset.h"
 #include "cmemory.h"
 #include "cstring.h"
-#include "unicode/udata.h"
 #include "unewdata.h"
 #include "uoptions.h"
 #include "uparse.h"
@@ -52,6 +55,17 @@ parseDB(const char *filename, UErrorCode *pErrorCode);
 
 /* -------------------------------------------------------------------------- */
 
+enum {
+    HELP_H,
+    HELP_QUESTION_MARK,
+    VERBOSE,
+    COPYRIGHT,
+    DESTDIR,
+    SOURCEDIR,
+    UNICODE_VERSION,
+    ICUDATADIR
+};
+
 static UOption options[]={
     UOPTION_HELP_H,
     UOPTION_HELP_QUESTION_MARK,
@@ -59,7 +73,8 @@ static UOption options[]={
     UOPTION_COPYRIGHT,
     UOPTION_DESTDIR,
     UOPTION_SOURCEDIR,
-    { "unicode", NULL, NULL, NULL, 'u', UOPT_REQUIRES_ARG, 0 }
+    { "unicode", NULL, NULL, NULL, 'u', UOPT_REQUIRES_ARG, 0 },
+    UOPTION_ICUDATADIR
 };
 
 extern int
@@ -77,6 +92,7 @@ main(int argc, char* argv[]) {
     options[4].value=u_getDataDirectory();
     options[5].value="";
     options[6].value="3.0.0";
+    options[ICUDATADIR].value=u_getDataDirectory();
     argc=u_parseArgs(argc, argv, sizeof(options)/sizeof(options[0]), options);
 
     /* error handling, printing usage message */
@@ -106,9 +122,12 @@ main(int argc, char* argv[]) {
         fprintf(stderr,
             "\t-d or --destdir     destination directory, followed by the path\n"
             "\t-s or --sourcedir   source directory, followed by the path\n"
+            "\t-i or --icudatadir  directory for locating any needed intermediate data files,\n"
+            "\t                    followed by path, defaults to <%s>\n"
             "\tsuffix              suffix that is to be appended with a '-'\n"
             "\t                    to the source file basenames before opening;\n"
-            "\t                    'gennorm new' will read UnicodeData-new.txt etc.\n");
+            "\t                    'gennorm new' will read UnicodeData-new.txt etc.\n",
+            u_getDataDirectory());
         return argc<0 ? U_ILLEGAL_ARGUMENT_ERROR : U_ZERO_ERROR;
     }
 
@@ -135,6 +154,28 @@ main(int argc, char* argv[]) {
 #else
 
     setUnicodeVersion(options[6].value);
+
+    if (options[ICUDATADIR].doesOccur) {
+        u_setDataDirectory(options[ICUDATADIR].value);
+    }
+
+    /*
+     * Verify that we can work with properties
+     * but don't call u_init() because that needs unorm.icu which we are just
+     * going to build here.
+     */
+    {
+        U_STRING_DECL(ideo, "[:Ideographic:]", 15);
+        USet *set;
+
+        U_STRING_INIT(ideo, "[:Ideographic:]", 15);
+        set=uset_openPattern(ideo, -1, &errorCode);
+        if(U_FAILURE(errorCode) || !uset_contains(set, 0xf900)) {
+            fprintf(stderr, "gennorm is unable to work with properties (uprops.icu): %s\n", u_errorName(errorCode));
+            exit(errorCode);
+        }
+        uset_close(set);
+    }
 
     /* prepare the filename beginning with the source dir */
     uprv_strcpy(filename, srcDir);
@@ -241,12 +282,26 @@ derivedNormalizationPropertiesLineFn(void *context,
             return;
         }
 
-        if(0==uprv_memcmp(s, "NO", 2)) {
+        if(0==uprv_strncmp(s, "NO", 2)) {
             qcFlags&=0xf;
-        } else if(0==uprv_memcmp(s, "MAYBE", 5)) {
+        } else if(0==uprv_strncmp(s, "MAYBE", 5)) {
             qcFlags&=0x30;
+        } else if(0==uprv_strncmp(s, "QC", 2) && *(s=(char *)u_skipWhitespace(s+2))==';') {
+            /*
+             * Unicode 4.0.1:
+             * changes single field "NFD_NO" -> two fields "NFD_QC; N" etc.
+             */
+            /* start of the field */
+            s=(char *)u_skipWhitespace(s+1);
+            if(*s=='N') {
+                qcFlags&=0xf;
+            } else if(*s=='M') {
+                qcFlags&=0x30;
+            } else {
+                return; /* do nothing for "Yes" because it's the default value */
+            }
         } else {
-            return;
+            return; /* do nothing for "Yes" because it's the default value */
         }
 
         /* set this flag for all code points in this range */
@@ -258,7 +313,11 @@ derivedNormalizationPropertiesLineFn(void *context,
         while(start<=end) {
             setCompositionExclusion(start++);
         }
-    } else if(0==uprv_memcmp(s, "FNC", 3) && *(s=(char *)u_skipWhitespace(s+3))==';') {
+    } else if(
+        ((0==uprv_memcmp(s, "FNC", 3) && *(s=(char *)u_skipWhitespace(s+3))==';') || 
+        (0==uprv_memcmp(s, "FC_NFKC", 7) && *(s=(char *)u_skipWhitespace(s+7))==';'))
+        
+    ) {
         /* FC_NFKC_Closure, parse field 2 to get the string */
         char *t;
 

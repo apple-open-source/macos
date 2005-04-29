@@ -6,7 +6,7 @@
 char rcsId_vmwarexaa[] =
     "Id: $";
 #endif
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vmware/vmwarexaa.c,v 1.5 2003/02/04 01:39:53 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vmware/vmwarexaa.c,v 1.6 2003/04/13 18:09:27 dawes Exp $ */
 
 #include "vmware.h"
 
@@ -67,10 +67,33 @@ static void vmwareSubsequentCPUToScreenTexture(ScrnInfoPtr pScrn,
                                                int srcx, int srcy,
                                                int width, int height);
 
+static void vmwareXAAEnableDisableFBAccess(int index, Bool enable);
+
 CARD32 vmwareAlphaTextureFormats[2] = {PICT_a8, 0};
 CARD32 vmwareTextureFormats[2] = {PICT_a8r8g8b8, 0};
 
 #endif
+
+#define SCRATCH_SIZE_BYTES(pvmware) \
+    (((OFFSCREEN_SCRATCH_SIZE + (pvmware)->fbPitch - 1) / \
+     (pvmware)->fbPitch) * (pvmware)->fbPitch)
+
+static void vmwareXAACreateHeap(ScreenPtr pScreen, ScrnInfoPtr pScrn,
+                                VMWAREPtr pVMWARE) {
+   int scratchSizeBytes = SCRATCH_SIZE_BYTES(pVMWARE);
+   CARD8* osPtr = pVMWARE->FbBase + pVMWARE->videoRam - scratchSizeBytes;
+
+   pVMWARE->heap = vmwareHeap_Create(osPtr,
+                                     scratchSizeBytes,
+                                     OFFSCREEN_SCRATCH_MAX_SLOTS,
+                                     pVMWARE->videoRam - scratchSizeBytes,
+                                     pScrn->virtualX,
+                                     pScrn->virtualY,
+                                     pVMWARE->bitsPerPixel,
+                                     pVMWARE->fbPitch,
+                                     pVMWARE->fbOffset);
+   pVMWARE->frontBuffer = vmwareHeap_GetFrontBuffer(pVMWARE->heap);
+}
 
 #define DESTROY_XAA_INFO(pVMWARE) \
     if (pVMWARE->xaaInfo) { XAADestroyInfoRec(pVMWARE->xaaInfo); \
@@ -129,8 +152,7 @@ vmwareXAAScreenInit(ScreenPtr pScreen)
     }
 
     if (pVMWARE->vmwareCapability & SVGA_CAP_OFFSCREEN_1) {
-        int scratchSizeBytes = ((OFFSCREEN_SCRATCH_SIZE + pVMWARE->fbPitch - 1) /
-                                pVMWARE->fbPitch) * pVMWARE->fbPitch;
+        int scratchSizeBytes = SCRATCH_SIZE_BYTES(pVMWARE);
         BoxRec box;
         RegionRec region;
 
@@ -143,24 +165,13 @@ vmwareXAAScreenInit(ScreenPtr pScreen)
         if (pVMWARE->vmwareCapability & SVGA_CAP_ALPHA_BLEND &&
             pScrn->bitsPerPixel > 8) {
             if (box.y2 - (scratchSizeBytes / pVMWARE->fbPitch) > box.y1 + 4) {
-                CARD8* osPtr = pVMWARE->FbBase + pVMWARE->videoRam -
-                   scratchSizeBytes;
                 box.y2 -= scratchSizeBytes / pVMWARE->fbPitch;
 
                 VmwareLog(("Allocated %d bytes at offset %d for alpha scratch\n",
                            scratchSizeBytes,
                            pVMWARE->videoRam - scratchSizeBytes)); 
 
-                pVMWARE->heap = vmwareHeap_Create(osPtr,
-                                                  scratchSizeBytes,
-                                                  OFFSCREEN_SCRATCH_MAX_SLOTS,
-                                                  pVMWARE->videoRam - scratchSizeBytes,
-                                                  pScrn->virtualX,
-                                                  pScrn->virtualY,
-                                                  pVMWARE->bitsPerPixel,
-                                                  pVMWARE->fbPitch,
-                                                  pVMWARE->fbOffset);
-                pVMWARE->frontBuffer = vmwareHeap_GetFrontBuffer(pVMWARE->heap);
+                vmwareXAACreateHeap(pScreen, pScrn, pVMWARE);
 
                 xaaInfo->SetupForCPUToScreenAlphaTexture =
                    vmwareSetupForCPUToScreenAlphaTexture;
@@ -207,6 +218,13 @@ vmwareXAAScreenInit(ScreenPtr pScreen)
         return FALSE;
     }
 
+#ifdef RENDER
+    if (pVMWARE->heap) {
+        pVMWARE->EnableDisableFBAccess = pScrn->EnableDisableFBAccess;
+        pScrn->EnableDisableFBAccess = vmwareXAAEnableDisableFBAccess;
+    }
+#endif
+
     return TRUE;
 }
 
@@ -250,6 +268,8 @@ vmwareXAACloseScreen(ScreenPtr pScreen)
     
 #ifdef RENDER
     if (pVMWARE->heap) {
+        ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+        pScrn->EnableDisableFBAccess = pVMWARE->EnableDisableFBAccess;
         vmwareHeap_Destroy(pVMWARE->heap);
         pVMWARE->heap = NULL;
     }
@@ -546,4 +566,20 @@ vmwareSubsequentCPUToScreenTexture(ScrnInfoPtr pScrn,
     vmwareWriteWordToFIFO(pVMWARE, 0);  /* param1 */
     vmwareWriteWordToFIFO(pVMWARE, 0);  /* param2 */
 }
+
+void
+vmwareXAAEnableDisableFBAccess(int index, Bool enable)
+{
+    ScrnInfoPtr pScrn = xf86Screens[index];
+    ScreenPtr pScreen = pScrn->pScreen;
+    VMWAREPtr pVMWARE = VMWAREPTR(pScrn);
+
+    if (enable && pVMWARE->heap) {
+        vmwareHeap_Destroy(pVMWARE->heap);
+        vmwareXAACreateHeap(pScreen, pScrn, pVMWARE);
+    }
+
+    (*pVMWARE->EnableDisableFBAccess)(index, enable);
+}
+
 #endif

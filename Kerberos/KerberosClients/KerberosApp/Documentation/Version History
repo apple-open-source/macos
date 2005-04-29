@@ -1,10 +1,107 @@
 ==============================================================================
 Kerberos.app/Control Panel Version History
 ==============================================================================
-Current version:	1.8
-Date:				Sep 17, 2003
-Authors:			smcguire@mit.edu
+Current version:	2.0fc3
+Date:				February 1, 2005
+Authors:			smcguire@mit.edu, lxs@mit.edu
 ==============================================================================
+
+============================================================================
+
+Kerberos.app 2.0
+Released as part of Kerberos for Macintosh 5.5
+
+	========================================================================
+
+	Kerberos.app 2.0fc3
+	February 1, 2005
+
+	[RT 2901] Kerberos.app uses freed Credential object on Ticket Renewal (crash)
+	[RT 2905] Kerberos.app: Memory leak in stringValueForLifetimeColumn methods
+	[RT 2907] Lifetime displays can display 60 minutes when not displaying seconds
+
+	========================================================================
+
+	Kerberos.app 2.0fc2
+	December 13, 2004
+
+	[RT 2800] Use Apple System Logger and set debugging at runtime
+
+	========================================================================
+
+	Kerberos.app 2.0fc1
+	December 6, 2004
+
+	[RT 2788] alert sheets returning void should not run modal
+	[RT 2789] Kerberos.app should use an NSToolbar
+	[RT 2792] Ticket List window size and position handling busted
+
+	========================================================================
+
+	Kerberos.app 2.0b7
+	November 4, 2004
+
+	[RT 2747] kerberos.app doesn't always show window on reactivate 
+	[RT 2764] Realms editor should be able to set default realm 
+	[RT 2765] kinit should not loop forever getting password 
+	[RT 2766] realms editor should be able to save as administrator 
+	[RT 2767] Kerberos.app: remove '>' chars in prefs dialog in min/max 
+	          time vals tab 
+
+	========================================================================
+
+	Kerberos.app 2.0b6
+	October 17, 2004
+
+	[RT 2570] Kerberos.app needs a realms editor
+	[RT 2716] Kerberos.app needs applescript support again 
+	[RT 2744] Kerberos.app preferences and realms editor should remember 
+	          positions
+	[RT 2745] Kerberos.app needs a shiny Mac OS X like icon
+	[RT 2746] Kerberos.app shouldn't front list window when activating if 
+	          it's already visible
+
+	========================================================================
+
+	Kerberos.app 2.0b5
+	September 8, 2004
+
+	[RT 2695] Cosmetic glitches w/dock icon & window title when deleting 
+	          last ticket 
+	[RT 2697] Ticket list popup menu doesn't select default cache 
+
+	========================================================================
+
+	Kerberos.app 2.0b4
+	August 30, 2004
+
+	* More progress on the realms editor (more ability to modify controls)
+	[RT 2679] Kerberos.app crashes while waking from sleep 
+
+	========================================================================
+
+	Kerberos.app 2.0b3
+	August 20, 2004
+
+	* More progress on the realms editor (some ability to modify controls)
+	[RT 2663] KerberosApp should update renewal time when waking from sleep
+
+	========================================================================
+
+	Kerberos.app 2.0b2
+	July 15, 2004
+
+	* Partial progress on the realms editor (reads the profile now)
+	[RT 2571] Kerberos.app ticket list window should display when app fronts 
+	  
+	========================================================================
+
+	Kerberos.app 2.0b1
+	May 21, 2004
+
+	* New nib-based Cocoa implementation
+	[RT 2565]   Update Kerberos.app to use nib files
+	  
 
 ============================================================================
 

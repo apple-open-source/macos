@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/packvendpriv.h,v 1.5 2001/04/01 13:59:59 tsi Exp $ */
+/* $XFree86: xc/lib/GL/glx/packvendpriv.h,v 1.6 2003/10/23 15:30:09 tsi Exp $ */
 #ifndef __GLX_packvendpriv_h__
 #define __GLX_packvendpriv_h__
 
@@ -63,9 +63,10 @@
 
 #define __GLX_VENDPRIV_LOAD_VARIABLES() \
     pc = gc->pc;            \
-    (void) pixelHeaderPC;   \
-    (void) compsize;        \
-    (void) cmdlen
+    /* Muffle compilers */		     \
+    pixelHeaderPC = 0;  (void)pixelHeaderPC; \
+    compsize = 0;       (void)compsize;	     \
+    cmdlen = 0;         (void)cmdlen
 
 /* Start a vendor private command */
 #define __GLX_VENDPRIV_BEGIN(glxcode, opcode,bytes)	   \

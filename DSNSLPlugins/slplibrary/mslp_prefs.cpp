@@ -78,7 +78,7 @@ void mslp_hash_write(MslpHashtable *ph, const char *pcFileName)
     char buf[kMaxSizeOfParam];
     
     if (ph == NULL)
-        LOG(SLP_LOG_ERR,"mslp_hash_write called without an initialized hash table");
+        SLPLOG(SLP_LOG_ERR,"mslp_hash_write called without an initialized hash table");
     
     if (pcFileName == NULL)
         return;
@@ -87,7 +87,9 @@ void mslp_hash_write(MslpHashtable *ph, const char *pcFileName)
     
     if (fp == NULL) 
     {
+#ifdef ENABLE_SLP_LOGGING
         mslplog(SLP_LOG_MSG,"mslp_hash_write: Could not open config file",pcFileName);
+#endif
         return;
     }
     
@@ -126,10 +128,12 @@ void mslp_log_params(const char *pcKey, const char *pcVal, void *pvParam)
 {
     if ( !pcKey )
         SLP_LOG( SLP_LOG_ERR, "mslp_log_params was passed in a null key!" );
+#ifdef ENABLE_SLP_LOGGING
     else if (!pcVal || pcVal[0] == '\0') 
         SLP_LOG( SLP_LOG_STATE, "%s\n", pcKey );
     else
         SLP_LOG( SLP_LOG_STATE, "%s=%s", pcKey, pcVal );
+#endif
 }
 
 void mslp_hash_read(MslpHashtable *ph, const char *pcFileName) 
@@ -138,7 +142,7 @@ void mslp_hash_read(MslpHashtable *ph, const char *pcFileName)
     char buf[kMaxSizeOfParam];
     
     if (ph == NULL) {
-        LOG(SLP_LOG_FAIL,"mslp_hash_read called without an initialized hash table");
+        SLPLOG(SLP_LOG_FAIL,"mslp_hash_read called without an initialized hash table");
     }
     
     if (pcFileName == NULL) return;
@@ -146,7 +150,9 @@ void mslp_hash_read(MslpHashtable *ph, const char *pcFileName)
     fp = fopen(pcFileName,"r");
     
     if (fp == NULL) {
+#ifdef ENABLE_SLP_LOGGING
         mslplog(SLP_LOG_MSG,"mslp_hash_read: Could not open config file",pcFileName);
+#endif
         return;
     }
     
@@ -323,7 +329,7 @@ EXPORT const char
     
     if (ph == NULL)
     {
-        LOG(SLP_LOG_FAIL,"mslp_hash_find called without an initialized ht");
+        SLPLOG(SLP_LOG_FAIL,"mslp_hash_find called without an initialized ht");
         return NULL;
     }  
     
@@ -363,7 +369,7 @@ EXPORT void mslp_hash_add(MslpHashtable *ph, const char *pcKey, const char *pcVa
 	Boolean			found = false;
 	
     if (ph == NULL)
-        LOG(SLP_LOG_FAIL,"mslp_hash_add called without an initialized ht");
+        SLPLOG(SLP_LOG_FAIL,"mslp_hash_add called without an initialized ht");
     
     if (pcKey == NULL) 
         return;
@@ -466,8 +472,10 @@ static unsigned int string_hash(const char *pcKey)
 
 EXPORT void mslp_hash_log_values(MslpHashtable *ph)
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_STATE, "Current SLP Configuration State:" );
     mslp_hash_do( ph, mslp_log_params, NULL );		// iterate over all hash values and write to file
+#endif
 } 
 
 

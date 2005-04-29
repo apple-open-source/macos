@@ -21,11 +21,14 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
+/* $XFree86: xc/lib/X11/imEvToWire.c,v 1.2 2003/04/13 19:22:20 dawes Exp $ */
 
 #define NEED_EVENTS
 #include <X11/Xlibint.h>
 #include <X11/Xlib.h>
 #undef NEED_EVENTS
+#include "Ximint.h"
+
 
 #define sw16(n, s) ((s) ?                    \
 		      (((n) << 8 & 0xff00) | \
@@ -40,10 +43,10 @@ SOFTWARE.
 		      ) : n)
 
 Status
-_XimProtoEventToWire(re, event, sw)
-register XEvent *re;	/* pointer to where event should be reformatted */
-register xEvent *event;	/* wire protocol event */
-Bool sw;         /* swap byte? */
+_XimProtoEventToWire(
+    register XEvent *re,	/* pointer to where event should be reformatted */
+    register xEvent *event,	/* wire protocol event */
+    Bool sw)         /* swap byte? */
 {
 	switch (event->u.u.type = re->type) {
 	      case KeyPress:
@@ -417,10 +420,10 @@ Bool sw;         /* swap byte? */
  * reformat a wire event into an XEvent structure of the right type.
  */
 Bool
-_XimProtoWireToEvent(re, event, sw)
-register XEvent *re;	/* pointer to where event should be reformatted */
-register xEvent *event;	/* wire protocol event */
-Bool sw;                /* swap byte? */
+_XimProtoWireToEvent(
+    register XEvent *re,	/* pointer to where event should be reformatted */
+    register xEvent *event,	/* wire protocol event */
+    Bool sw)                /* swap byte? */
 {
 
 	re->type = event->u.u.type & 0x7f;

@@ -71,7 +71,7 @@ SOFTWARE.
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/lib/xkbfile/xkbatom.c,v 3.8 2001/12/14 19:57:03 dawes Exp $ */
+/* $XFree86: xc/lib/xkbfile/xkbatom.c,v 3.9 2003/11/17 22:20:23 dawes Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -102,14 +102,7 @@ static unsigned long tableLength;
 static NodePtr *nodeTable;
 
 static Atom 
-#if NeedFunctionPrototypes
 _XkbMakeAtom(char *string,unsigned len,Bool makeit)
-#else
-_XkbMakeAtom(string, len, makeit)
-    char *string;
-    unsigned len;
-    Bool makeit;
-#endif
 {
     register    NodePtr * np;
     unsigned i;
@@ -179,12 +172,7 @@ _XkbMakeAtom(string, len, makeit)
 }
 
 static char *
-#if NeedFunctionPrototypes
 _XkbNameForAtom(Atom atom)
-#else
-_XkbNameForAtom(atom)
-    Atom atom;
-#endif
 {
     NodePtr node;
     if (atom > lastAtom) return 0;
@@ -193,11 +181,7 @@ _XkbNameForAtom(atom)
 }
 
 static void
-#if NeedFunctionPrototypes
 _XkbInitAtoms(void)
-#else
-_XkbInitAtoms()
-#endif
 {
     tableLength = InitialTableSize;
     nodeTable = (NodePtr *)_XkbAlloc(InitialTableSize*sizeof(NodePtr));
@@ -207,13 +191,7 @@ _XkbInitAtoms()
 /***====================================================================***/
 
 char *
-#if NeedFunctionPrototypes
 XkbAtomGetString(Display *dpy,Atom atm)
-#else
-XkbAtomGetString(dpy,atm)
-    Display *	dpy;
-    Atom 	atm;
-#endif
 {
     if (atm==None)
 	return NULL;
@@ -225,14 +203,7 @@ XkbAtomGetString(dpy,atm)
 /***====================================================================***/
 
 Atom
-#if NeedFunctionPrototypes
 XkbInternAtom(Display *dpy,char *name,Bool onlyIfExists)
-#else
-XkbInternAtom(dpy,name,onlyIfExists)
-    Display *	dpy;
-    char *	name;
-    Bool	onlyIfExists;
-#endif
 {
     if (name==NULL)
 	return None;
@@ -245,14 +216,7 @@ XkbInternAtom(dpy,name,onlyIfExists)
 /***====================================================================***/
 
 Atom
-#if NeedFunctionPrototypes
 XkbChangeAtomDisplay(Display *oldDpy,Display *newDpy,Atom atm)
-#else
-XkbChangeAtomDisplay(oldDpy,newDpy,atm)
-    Display *	oldDpy;
-    Display *	newDpy;
-    Atom	atm;
-#endif
 {
 char *tmp;
 
@@ -267,12 +231,7 @@ char *tmp;
 /***====================================================================***/
 
 void
-#if NeedFunctionPrototypes
 XkbInitAtoms(Display *dpy)
-#else
-XkbInitAtoms(dpy)
-    Display *dpy;
-#endif
 {
 static int been_here= 0;
     if ((dpy==NULL)&&(!been_here)) {

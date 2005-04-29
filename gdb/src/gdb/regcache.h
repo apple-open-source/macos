@@ -32,6 +32,10 @@ void regcache_xfree (struct regcache *regcache);
 struct cleanup *make_cleanup_regcache_xfree (struct regcache *regcache);
 struct regcache *regcache_xmalloc (struct gdbarch *gdbarch);
 
+/* Return REGCACHE's architecture.  */
+
+extern struct gdbarch *get_regcache_arch (const struct regcache *regcache);
+
 /* Transfer a raw register [0..NUM_REGS) between core-gdb and the
    regcache. */
 
@@ -75,6 +79,10 @@ extern void regcache_cooked_read_signed (struct regcache *regcache,
 					 int regnum, LONGEST *val);
 extern void regcache_cooked_read_unsigned (struct regcache *regcache,
 					   int regnum, ULONGEST *val);
+extern void regcache_cooked_write_signed (struct regcache *regcache,
+					  int regnum, LONGEST val);
+extern void regcache_cooked_write_unsigned (struct regcache *regcache,
+					    int regnum, ULONGEST val);
 
 /* Partial transfer of a cooked register.  These perform read, modify,
    write style operations.  */
@@ -90,11 +98,15 @@ void regcache_cooked_write_part (struct regcache *regcache, int regnum,
 
 extern void supply_register (int regnum, const void *val);
 extern void regcache_collect (int regnum, void *buf);
+extern void regcache_raw_supply (struct regcache *regcache,
+				 int regnum, const void *buf);
+extern void regcache_raw_collect (const struct regcache *regcache,
+				  int regnum, void *buf);
 
 
 /* The register's ``offset''.
 
-   FIXME: cagney/2002-11-07: The get_saved_register() function, when
+   FIXME: cagney/2002-11-07: The frame_register() function, when
    specifying the real location of a register, does so using that
    registers offset in the register cache.  That offset is then used
    by valops.c to determine the location of the register.  The code
@@ -109,9 +121,9 @@ extern int register_offset_hack (struct gdbarch *gdbarch, int regnum);
    value stored in a table.
 
    NOTE: cagney/2002-08-17: The original macro was called
-   REGISTER_VIRTUAL_TYPE.  This was because the register could have
-   different raw and cooked (nee virtual) representations.  The
-   CONVERTABLE methods being used to convert between the two
+   DEPRECATED_REGISTER_VIRTUAL_TYPE.  This was because the register
+   could have different raw and cooked (nee virtual) representations.
+   The CONVERTABLE methods being used to convert between the two
    representations.  Current code does not do this.  Instead, the
    first [0..NUM_REGS) registers are 1:1 raw:cooked, and the type
    exactly describes the register's representation.  Consequently, the
@@ -123,21 +135,45 @@ extern int register_offset_hack (struct gdbarch *gdbarch, int regnum);
 extern struct type *register_type (struct gdbarch *gdbarch, int regnum);
 
 
-/* Return the size of the largest register.  Used when allocating
-   space for an aribtrary register value.  */
+/* Return the size of register REGNUM.  All registers should have only
+   one size.
 
-extern int max_register_size (struct gdbarch *gdbarch);
+   FIXME: cagney/2003-02-28:
+
+   Unfortunately, thanks to some legacy architectures, this doesn't
+   hold.  A register's cooked (nee virtual) and raw size can differ
+   (see MIPS).  Such architectures should be using different register
+   numbers for the different sized views of identical registers.
+
+   Anyway, the up-shot is that, until that mess is fixed, core code
+   can end up being very confused - should the RAW or VIRTUAL size be
+   used?  As a rule of thumb, use DEPRECATED_REGISTER_VIRTUAL_SIZE in
+   cooked code, but with the comment:
+
+   OK: REGISTER_VIRTUAL_SIZE
+
+   or just
+
+   OK
+
+   appended to the end of the line.  */
+   
+extern int register_size (struct gdbarch *gdbarch, int regnum);
 
 
-/* Save/restore a register cache.  The registers saved/restored is
-   determined by the save_reggroup and restore_reggroup (although you
-   can't restore a register that wasn't saved as well :-).  You can
-   only save to a read-only cache (default from regcache_xmalloc())
-   from a live cache and you can only restore from a read-only cache
-   to a live cache.  */
+/* Save/restore a register cache.  The set of registers saved /
+   restored into the DST regcache determined by the save_reggroup /
+   restore_reggroup respectively.  COOKED_READ returns zero iff the
+   register's value can't be returned.  */
 
-extern void regcache_save (struct regcache *dst, struct regcache *src);
-extern void regcache_restore (struct regcache *dst, struct regcache *src);
+typedef int (regcache_cooked_read_ftype) (void *src, int regnum, void *buf);
+
+extern void regcache_save (struct regcache *dst,
+			   regcache_cooked_read_ftype *cooked_read,
+			   void *src);
+extern void regcache_restore (struct regcache *dst,
+			      regcache_cooked_read_ftype *cooked_read,
+			      void *src);
 
 /* Copy/duplicate the contents of a register cache.  By default, the
    operation is pass-through.  Writes to DST and reads from SRC will
@@ -168,7 +204,6 @@ extern void regcache_cpy_no_passthrough (struct regcache *dest, struct regcache 
    parameterized with FRAME or REGCACHE.  */
 
 extern char *deprecated_grub_regcache_for_registers (struct regcache *);
-extern char *deprecated_grub_regcache_for_register_valid (struct regcache *);
 extern void deprecated_read_register_gen (int regnum, char *myaddr);
 extern void deprecated_write_register_gen (int regnum, char *myaddr);
 extern void deprecated_read_register_bytes (int regbyte, char *myaddr,
@@ -212,10 +247,6 @@ extern ULONGEST read_register (int regnum);
 
 /* Rename to read_unsigned_register_pid()? */
 extern ULONGEST read_register_pid (int regnum, ptid_t ptid);
-
-extern LONGEST read_signed_register (int regnum);
-
-extern LONGEST read_signed_register_pid (int regnum, ptid_t ptid);
 
 extern void write_register (int regnum, LONGEST val);
 

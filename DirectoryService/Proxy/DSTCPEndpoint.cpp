@@ -44,7 +44,6 @@
 #include <sys/time.h>		// for struct timeval
 
 #include <machine/byte_order.h>
-#include <mach/mach.h>		//mach_msg_audit_trailer_t
 
 #include "DSCThread.h"		// for GetCurThreadRunState()
 #include "DSTCPEndpoint.h"
@@ -836,11 +835,11 @@ int DSTCPEndpoint::DoTCPListen ( void )
 
 int DSTCPEndpoint::DoTCPAccept ( void )
 {
-	int		err		= eDSNoErr;
-	int		aLen	= sizeof( mRemoteSockAddr );
-	int		rc		= eDSNoErr;
-	fd_set	readSet;
-
+	int			err		= eDSNoErr;
+	socklen_t	aLen	= sizeof( mRemoteSockAddr );
+	int			rc		= eDSNoErr;
+	fd_set		readSet;
+	
 	do {
 		FD_ZERO( &readSet );
 		FD_SET( mListenFD, &readSet );
@@ -870,7 +869,7 @@ int DSTCPEndpoint::DoTCPAccept ( void )
 		}
 	} while ( !FD_ISSET( mListenFD, &readSet ) );
 
-	mConnectFD = ::accept( mListenFD, (struct sockaddr *)&mRemoteSockAddr, &aLen );
+	mConnectFD = ::accept( mListenFD, (struct sockaddr *)&mRemoteSockAddr, (socklen_t*)&aLen );
 
 	if ( mAborting == true )
 	{
@@ -1318,19 +1317,20 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 
 sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 {
-	uInt32			messageSize = 0;
+	uInt32                  messageSize = 0;
 	sComProxyData  *inProxyMsg  = nil;
-	sInt32			sendResult  = eDSNoErr;
-	
+	sInt32                  sendResult  = eDSNoErr;
+
 	inProxyMsg = AllocToProxyStruct( (sComData *)inMsg );
 	//let us only send the data that is present and not the entire buffer
 	inProxyMsg->fDataSize = inProxyMsg->fDataLength;
 	messageSize = sizeof(sComProxyData) + inProxyMsg->fDataLength;
 	DSTCPEndian swapper(inProxyMsg, DSTCPEndian::kSwapToBig);
-    swapper.SwapMessage();
-    sendResult = SendBuffer(inProxyMsg, messageSize);
+	swapper.SwapMessage();
+	sendResult = SendBuffer(inProxyMsg, messageSize);
 	free(inProxyMsg);
 	inProxyMsg = nil;
+	
 	return(sendResult);
 } // SendClientReply
 
@@ -1342,19 +1342,20 @@ sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 
 sInt32 DSTCPEndpoint::SendServerMessage ( void *inMsg )
 {
-	uInt32			messageSize = 0;
+	uInt32                  messageSize = 0;
 	sComProxyData  *inProxyMsg  = nil;
-	sInt32			sendResult  = eDSNoErr;
+	sInt32                  sendResult  = eDSNoErr;
 
 	inProxyMsg = AllocToProxyStruct( (sComData *)inMsg );
 	//let us only send the data that is present and not the entire buffer
 	inProxyMsg->fDataSize = inProxyMsg->fDataLength;
 	messageSize = sizeof(sComProxyData) + inProxyMsg->fDataLength;
 	DSTCPEndian swapper(inProxyMsg, DSTCPEndian::kSwapToBig);
-    swapper.SwapMessage();
-    sendResult = SendBuffer(inProxyMsg, messageSize);
+	swapper.SwapMessage();
+	sendResult = SendBuffer(inProxyMsg, messageSize);
 	free(inProxyMsg);
 	inProxyMsg = nil;
+	
 	return(sendResult);
 } // SendServerMessage
 
@@ -1476,7 +1477,7 @@ sInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 				if (buffLen == 0)
 				{
 					free(outProxyMsg);
-					outProxyMsg = (sComProxyData *)inBuffer;
+					outProxyMsg	= (sComProxyData *)inBuffer;
 					inBuffer	= nil;
 					buffLen		= inLength;
 				}
@@ -1529,26 +1530,31 @@ uInt16 DSTCPEndpoint::GetRemoteHostPort ( void )
 }
 
 //------------------------------------------------------------------------------
-//	* AllocToProxyStruct
+//     * AllocToProxyStruct
 //
 //------------------------------------------------------------------------------
 
 sComProxyData* DSTCPEndpoint::AllocToProxyStruct ( sComData *inDataMsg )
 {
 	sComProxyData      *outProxyDataMsg = nil;
-	uInt32				objIndex		= 0;
-	
+	int					objIndex;
+
 	if (inDataMsg != nil)
 	{
 		outProxyDataMsg = (sComProxyData *)calloc( 1, sizeof(sComProxyData) + inDataMsg->fDataSize );
-		memcpy(outProxyDataMsg, inDataMsg, sizeof(sComProxyData) - kObjSize - sizeof(char));
-		memcpy( outProxyDataMsg->obj, inDataMsg->obj, kObjSize + inDataMsg->fDataSize );
+		
+		// this is copying the head data from sComProxyData to sComData
+		bcopy( inDataMsg, outProxyDataMsg, (char *)(outProxyDataMsg->obj) - (char *)outProxyDataMsg );
+
+		// this copies the sObject and the actual data
+		bcopy( inDataMsg->obj, outProxyDataMsg->obj, kObjSize + inDataMsg->fDataSize );
+		
 		//need to adjust the offsets since they are relative to the start of the message
 		for ( objIndex = 0; objIndex < 10; objIndex++ )
 		{
 			if ( outProxyDataMsg->obj[ objIndex ].offset != 0 )
 			{
-				outProxyDataMsg->obj[ objIndex ].offset -= sizeof(mach_msg_audit_trailer_t);
+				outProxyDataMsg->obj[ objIndex ].offset -= sizeof(sComData) - sizeof(sComProxyData);
 			}
 		}
 	}
@@ -1557,30 +1563,37 @@ sComProxyData* DSTCPEndpoint::AllocToProxyStruct ( sComData *inDataMsg )
 }
 
 //------------------------------------------------------------------------------
-//	* AllocFromProxyStruct
+//     * AllocFromProxyStruct
 //
 //------------------------------------------------------------------------------
 
 sComData* DSTCPEndpoint::AllocFromProxyStruct ( sComProxyData *inProxyDataMsg )
 {
-	sComData		   *outDataMsg		= nil;
-	uInt32				objIndex		= 0;
-	
+	sComData                   *outDataMsg          = nil;
+	int							objIndex;
+
 	if (inProxyDataMsg != nil)
 	{
 		outDataMsg = (sComData *)calloc( 1, sizeof(sComData) + inProxyDataMsg->fDataSize );
-		memcpy(outDataMsg, inProxyDataMsg, sizeof(sComProxyData) - kObjSize - sizeof(char));
-		//outDataMsg->fTail should be all zeros due to calloc above
-		memcpy( outDataMsg->obj, inProxyDataMsg->obj, kObjSize + inProxyDataMsg->fDataSize );
+		
+		// this is copying the head data from sComProxyData to sComData
+		bcopy( inProxyDataMsg, outDataMsg, (char *)(inProxyDataMsg->obj) - (char *)inProxyDataMsg );
+		
+		// this copies the sObject and the actual data
+		bcopy( inProxyDataMsg->obj, outDataMsg->obj, kObjSize + inProxyDataMsg->fDataSize );
+		
 		//need to adjust the offsets since they are relative to the start of the message
 		for ( objIndex = 0; objIndex < 10; objIndex++ )
 		{
 			if ( outDataMsg->obj[ objIndex ].offset != 0 )
 			{
-				outDataMsg->obj[ objIndex ].offset += sizeof(mach_msg_audit_trailer_t);
+				outDataMsg->obj[ objIndex ].offset += sizeof(sComData) - sizeof(sComProxyData);
 			}
 		}
+		
+		// set the effective UIDs to -2...
+		outDataMsg->fUID = outDataMsg->fEffectiveUID = (uid_t) -2;
 	}
-	
+
 	return ( outDataMsg );
 }

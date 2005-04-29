@@ -61,16 +61,16 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
+// Put definition of __DARWIN_ALIAS() in sys/cdefs.h in scope
+#define __DARWIN_UNIX03 1
+#include "sys/cdefs.h"
 
 #include       "fp_private.h"
 
-static const double twoTo1023  = 8.988465674311579539e307;   // 0x1p1023
-static const double twoToM1022 = 2.225073858507201383e-308;  // 0x1p-1022
-static const double twoTo127  = 0.1701411834604692e39;   // 0x1p127
-static const double twoToM126 = 0.1175494350822288e-37;  // 0x1p-126
-
+static const double twoTo1023  = 0x1.0p+1023;
+static const double twoToM1022 = 0x1.0p-1022;
+static const double twoTo127  = 0x1.0p+127;
+static const double twoToM126 = 0x1.0p-126;
 
 /***********************************************************************
        Function scalbn
@@ -86,12 +86,18 @@ double scalbn ( double x, int n  )
 {
       hexdouble xInHex;
       
-      xInHex.i.lo = 0UL;                        // init. low half of xInHex
+      xInHex.i.lo = 0u;                        // init. low half of xInHex
       
       if ( n > 1023 ) 
        {                                        // large positive scaling
             if ( n > 2097 )                     // huge scaling
-                   return ( ( x * twoTo1023 ) * twoTo1023 ) * twoTo1023;
+	    {
+	    	register volatile double s, t, u;
+		s = x * twoTo1023;
+		t = s * twoTo1023;
+		u = t * twoTo1023;
+		return u;
+	    }
             while ( n > 1023 ) 
               {                                 // scale reduction loop
                   x *= twoTo1023;               // scale x by 2^1023
@@ -102,7 +108,13 @@ double scalbn ( double x, int n  )
       else if ( n < -1022 ) 
        {                                        // large negative scaling
             if ( n < -2098 )                    // huge negative scaling
-                   return ( ( x * twoToM1022 ) * twoToM1022 ) * twoToM1022;
+	    {
+	    	register volatile double s, t, u;
+		s = x * twoToM1022;
+		t = s * twoToM1022;
+		u = t * twoToM1022;
+		return u;
+	    }
             while ( n < -1022 ) 
               {                                 // scale reduction loop
                   x *= twoToM1022;              // scale x by 2^( -1022 )
@@ -118,11 +130,11 @@ double scalbn ( double x, int n  )
 *******************************************************************************/
             hexsingle XInHex;
             
-            XInHex.lval = ( ( unsigned long ) ( n + 127 ) ) << 23;
+            XInHex.lval = ( ( uint32_t ) ( n + 127 ) ) << 23;
             
-            __ORI_NOOP;
-            __ORI_NOOP;
-            __ORI_NOOP;
+            __NOOP;
+            __NOOP;
+            __NOOP;
             return ( x * XInHex.fval );
        }
        
@@ -130,7 +142,7 @@ double scalbn ( double x, int n  )
 *      -1022 <= n <= 1023; convert n to double scale factor.                   *
 *******************************************************************************/
 
-      xInHex.i.hi = ( ( unsigned long ) ( n + 1023 ) ) << 20;
+      xInHex.i.hi = ( ( uint32_t ) ( n + 1023 ) ) << 20;
       return ( x * xInHex.d );
 }
 
@@ -139,9 +151,9 @@ double scalbln ( double x, long int n  )
     int m;
     
     // Clip n
-    if (n > 2097)
+    if (unlikely(n > 2097))
         m = 2098;
-    else if (n < -2098)
+    else if (unlikely(n < -2098))
         m = -2099;
     else
         m = n;
@@ -156,7 +168,13 @@ float scalbnf ( float x, int n  )
       if ( n > 127 ) 
        {                                        // large positive scaling
             if ( n > 276 )                      // huge scaling
-                   return ( ( x * twoTo127 ) * twoTo127 ) * twoTo127;
+	    {
+	    	register volatile float s, t, u;
+		s = x * twoTo127;
+		t = s * twoTo127;
+		u = t * twoTo127;
+		return u;
+	    }
             while ( n > 127 ) 
               {                                 // scale reduction loop
                   x *= twoTo127;                // scale x by 2^127
@@ -167,7 +185,13 @@ float scalbnf ( float x, int n  )
       else if ( n < -126 ) 
        {                                        // large negative scaling
             if ( n < -277 )                     // huge negative scaling
-                   return ( ( x * twoToM126 ) * twoToM126 ) * twoToM126;
+	    {
+	    	register volatile float s, t, u;
+		s = x * twoToM126;
+		t = s * twoToM126;
+		u = t * twoToM126;
+		return u;
+	    }
             while ( n < -126 ) 
               {                                 // scale reduction loop
                   x *= twoToM126;               // scale x by 2^( -126 )
@@ -179,12 +203,12 @@ float scalbnf ( float x, int n  )
 *      -126 <= n <= 127; convert n to float scale factor.                      *
 *******************************************************************************/
 
-      xInHex.lval = ( ( unsigned long ) ( n + 127 ) ) << 23;
+      xInHex.lval = ( ( uint32_t ) ( n + 127 ) ) << 23;
       
       // Force the fetch for xInHex.fval to the next cycle to avoid Store/Load hazard.
-      __ORI_NOOP;
-      __ORI_NOOP;
-      __ORI_NOOP;
+      __NOOP;
+      __NOOP;
+      __NOOP;
 
       return ( x * xInHex.fval );
 }
@@ -194,9 +218,9 @@ float scalblnf ( float x, long int n  )
     int m;
     
     // Clip n
-    if (n > 276)
+    if (unlikely(n > 276))
         m = 277;
-    else if (n < -277)
+    else if (unlikely(n < -277))
         m = -278;
     else
         m = n;
@@ -204,7 +228,17 @@ float scalblnf ( float x, long int n  )
     return scalbnf(x, m);
 }
 
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */
+// POSIX mandated signature for "scalb"
+extern double scalb ( double, double )  __DARWIN_ALIAS(scalb);
+double scalb ( double x, double n )
+{
+	int m;
+	
+	if ( n > 2098.0 )
+		m = 2098.0;
+	else if ( n < -2099.0 )
+		m = -2099.0;
+	else m = (int) n;
+	
+	return scalbn( x, m ); 
+}

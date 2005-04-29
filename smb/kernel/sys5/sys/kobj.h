@@ -60,7 +60,6 @@ struct kobj_method {
 
 struct kobj_class {
 	KOBJ_CLASS_FIELDS;
-#ifdef APPLE
 /* B4BP (7/23/01 sent to BP) kobj_class fix */
 	/*
 	 * these are so casting to iconc_converter_class etc won't
@@ -69,7 +68,6 @@ struct kobj_class {
 	void	*filler1;
 	void	*filler2;
 	void	*filler3;
-#endif
 };
 
 /*
@@ -122,13 +120,7 @@ void		kobj_class_free(kobj_class_t cls);
 /*
  * Allocate memory for and initalise a new object.
  */
-kobj_t		kobj_create(kobj_class_t cls,
-#ifdef APPLE
-			    int mtype,
-#else
-			    struct malloc_type *mtype,
-#endif
-			    int mflags);
+kobj_t		kobj_create(kobj_class_t cls, int mtype);
 
 /*
  * Initialise a pre-allocated object.
@@ -138,11 +130,7 @@ void		kobj_init(kobj_t obj, kobj_class_t cls);
 /*
  * Delete an object. If mtype is non-zero, free the memory.
  */
-#ifdef APPLE
 void		kobj_delete(kobj_t obj, int mtype);
-#else
-void		kobj_delete(kobj_t obj, struct malloc_type *mtype);
-#endif
 
 /*
  * Maintain stats on hits/misses in lookup caches.

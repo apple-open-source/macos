@@ -32,41 +32,42 @@
 #define _IOETHERNETINTERFACE_H
 
 /*! @defined kIOEthernetInterfaceClass
-    @abstract kIOEthernetInterfaceClass is the name of the
-        IOEthernetInterface class. */
+    @abstract The name of the
+        IOEthernetInterface class. 
+*/
 
 #define kIOEthernetInterfaceClass     "IOEthernetInterface"
 
 /*! @defined kIOActivePacketFilters
-    @abstract kIOActivePacketFilters is a property of IOEthernetInterface
-        objects. It has an OSDictionary value.
-    @discussion The kIOActivePacketFilters property describes the current
+    @abstract A property of IOEthernetInterface objects.
+    @discussion The kIOActivePacketFilters property has an OSDictionary value that describes the current
         set of packet filters that have been successfully activated. Each
         entry in the dictionary is a key/value pair consisting of the filter
         group name, and an OSNumber describing the set of active filters for
         that group. Entries in this dictionary will mirror those in
         kIORequiredPacketFilters if the controller has reported success for
-        all filter change requests from the IOEthernetInterface object. */
+        all filter change requests from the IOEthernetInterface object. 
+*/
 
 #define kIOActivePacketFilters        "IOActivePacketFilters"
 
 /*! @defined kIORequiredPacketFilters
-    @abstract kIORequiredPacketFilters is a property of IOEthernetInterface
-        objects. It has an OSDictionary value.
-    @discussion The kIORequiredPacketFilters property describes the current
+    @abstract A property of IOEthernetInterface objects.
+    @discussion The kIORequiredPacketFilters property has an OSDictionary value that describes the current
         set of required packet filters. Each entry in the dictionary is a
         key/value pair consisting of the filter group name, and an OSNumber
-        describing the set of required filters for that group. */
+        describing the set of required filters for that group. 
+*/
 
 #define kIORequiredPacketFilters      "IORequiredPacketFilters"
 
 /*! @defined kIOMulticastAddressList
-    @abstract kIOMulticastAddressList is a property of IOEthernetInterface
-        objects. It is an OSData object.
-    @discussion The kIOMulticastAddressList property describes the
+    @abstract A property of IOEthernetInterface objects.
+    @discussion The kIOMulticastAddressList property is an OSData object that describes the
         list of multicast addresses that are being used by the
         controller to match against the destination address of an
-        incoming frame. */
+        incoming frame. 
+*/
 
 #define kIOMulticastAddressList       "IOMulticastAddressList"
 #define kIOMulticastFilterData        kIOMulticastAddressList    
@@ -80,21 +81,23 @@
 #include <IOKit/network/IOEthernetController.h>
 #include <IOKit/network/IOEthernetStats.h>
 
-/*! @class IOEthernetInterface : public IONetworkInterface
-    @abstract The Ethernet interface object. An Ethernet controller driver,
+/*! @class IOEthernetInterface
+    @abstract The Ethernet interface object. 
+    @discussion An Ethernet controller driver,
     that is a subclass of IOEthernetController, will instantiate an object
     of this class when the driver calls the attachInterface() method.
     This interface object will then vend an Ethernet interface to DLIL,
     and manage the connection between the controller driver and the upper
     networking layers. Drivers will seldom need to subclass
-    IOEthernetInterface. */
+    IOEthernetInterface. 
+*/
 
 class IOEthernetInterface : public IONetworkInterface
 {
     OSDeclareDefaultStructors( IOEthernetInterface )
 
 private:
-    struct arpcom *  _arpcom;               // Arpcom struct allocated
+    void *		__available__;               // deprecated space can be reused.
     UInt32           _mcAddrCount;          // # of multicast addresses
     bool             _ctrEnabled;           // Is controller enabled?
     OSDictionary *   _supportedFilters;     // Controller's supported filters
@@ -102,7 +105,9 @@ private:
     OSDictionary *   _activeFilters;        // Currently active filters    
     bool             _controllerLostPower;  // true if controller is unusable
 
-    struct ExpansionData { };
+    struct ExpansionData { 
+		UInt32 altMTU;					//track the physical mtu of controller
+	};
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
     ExpansionData *  _reserved;
@@ -132,60 +137,67 @@ private:
     int syncSIOCSIFADDR(IONetworkController * ctr);
     int syncSIOCADDMULTI(IONetworkController * ctr);
     int syncSIOCDELMULTI(IONetworkController * ctr);
-    int syncSIOCSIFMTU(IONetworkController * ctr, struct ifreq * ifr);
+    int syncSIOCSIFMTU(IONetworkController * ctr, struct ifreq * ifr, bool);
+    int syncSIOCGIFDEVMTU(IONetworkController * ctr, struct ifreq * ifr);
     int syncSIOCSIFLLADDR(IONetworkController * ctr, const char * lladdr, int len);
-
+	void _fixupVlanPacket(mbuf_t, u_int16_t, int);
+	
     static int performGatedCommand(void *, void *, void *, void *, void *);
 	static IOReturn enableFilter_Wrapper(IOEthernetInterface *, IONetworkController *, const OSSymbol *, UInt32 , IOOptionBits);
 
 public:
 
 /*! @function init
-    @abstract Initialize an IOEthernetInterface instance.
+    @abstract Initializes an IOEthernetInterface instance.
     @discussion Instance variables are initialized, and an arpcom
     structure is allocated.
     @param controller A network controller object that will service
     the interface object being initialized.
-    @result true on success, false otherwise. */
+    @result Returns true on success, false otherwise. 
+*/
 
     virtual bool init( IONetworkController * controller );
 
 /*! @function getNamePrefix
-    @abstract Return a string containing the prefix to use when
+    @abstract Returns a string containing the prefix to use when
     creating a BSD name for this interface.
     @discussion The BSD name for each interface object is created by
     concatenating a string returned by this method, with an unique
     unit number assigned by IONetworkStack.
-    @result A pointer to a constant C string "en". Therefore, Ethernet
-    interfaces will be registered with BSD as en0, en1, etc. */
+    @result Returns a pointer to a constant C string "en". Therefore, Ethernet
+    interfaces will be registered with BSD as en0, en1, etc. 
+*/
 
     virtual const char * getNamePrefix() const;
 
 /*! @function setProperties
-    @abstract Handle a request to set Ethernet interface properties from
-    kernel or non-kernel clients. For non-kernel clients, the preferred
-    access mechanism is through an user client connection.
+    @abstract Handles a request to set Ethernet interface properties from
+    kernel or non-kernel clients. 
+    @discussion For non-kernel clients, the preferred
+    access mechanism is through a user client connection.
     @param properties An OSDictionary containing a collection of
     properties.
     @result Returns kIOReturnUnsupported if the interface did not
     recognize any of the properties provided. Otherwise, the return
     code will be kIOReturnSuccess to indicate no errors, or an
     IOReturn error code to indicate that an error occurred while
-    handling one of the properties. */
+    handling one of the properties. 
+*/
 
     virtual IOReturn setProperties( OSObject * properties );
 
 protected:
 
 /*! @function free
-    @abstract Free the IOEthernetInterface instance.
+    @abstract Frees the IOEthernetInterface instance.
     @discussion The memory allocated for the arpcom structure is released,
-    followed by a call to super::free(). */
+    followed by a call to super::free(). 
+*/
 
     virtual void free();
 
 /*! @function performCommand
-    @abstract Handle an ioctl command sent to the Ethernet interface.
+    @abstract Handles an ioctl command sent to the Ethernet interface.
     @discussion This method handles socket ioctl commands sent to the Ethernet
     interface from DLIL. Commands recognized and processed by this method are
     SIOCSIFADDR, SIOCSIFFLAGS, SIOCADDMULTI, and SIOCDELMULTI. Other commands
@@ -195,7 +207,8 @@ protected:
     @param arg0 Command argument 0. Generally a pointer to an ifnet structure
         associated with the interface.
     @param arg1 Command argument 1.
-    @result A BSD return value defined in bsd/sys/errno.h. */
+    @result Returns a BSD return value defined in bsd/sys/errno.h. 
+*/
 
     virtual SInt32 performCommand(IONetworkController * controller,
                                   UInt32                cmd,
@@ -211,9 +224,10 @@ protected:
     superclass, then inspect the controller through properties published
     in the registry. This method is called with the arbitration lock held.
     @param controller The controller object that was opened.
-    @result true on success, false otherwise. Returning false will
+    @result Returns true on success, false otherwise. Returning false will
     cause the controller to be closed, and any pending client opens to be
-    rejected. */
+    rejected. 
+*/
 
     virtual bool controllerDidOpen(IONetworkController * controller);
 
@@ -222,33 +236,14 @@ protected:
     controller.
     @discussion This method will simply call super to propagate the method
     call. This method is called with the arbitration lock held.
-    @param controller The controller that is about to be closed. */
+    @param controller The controller that is about to be closed. 
+*/
 
     virtual void controllerWillClose(IONetworkController * controller);
 
-/*! @function initIfnet
-    @abstract Initialize the ifnet structure given.
-    @discussion IOEthernetInterface will initialize this structure in a manner
-    that is appropriate for Ethernet interfaces, then call super::initIfnet()
-    to allow the superclass to perform generic interface initialization.
-    @param ifp Pointer to an ifnet structure obtained earlier through
-               the getIfnet() method call.
-    @result true on success, false otherwise. */
-
-    virtual bool initIfnet(struct ifnet * ifp);
-
-/*! @function getIfnet
-    @abstract Get the ifnet structure allocated by the interface object.
-    @discussion This method returns a pointer to an ifnet structure
-    that was allocated by a concrete subclass of IONetworkInterface.
-    IOEthernetInterface will allocate an arpcom structure during init(),
-    and returns a pointer to that structure when this method is called.
-    @result Pointer to an ifnet structure. */
-
-    virtual struct ifnet * getIfnet() const;
 
 /*! @function controllerWillChangePowerState
-    @abstract Handle a notification that the network controller which is
+    @abstract Handles a notification that the network controller 
     servicing this interface object is about to transition to a new power state.
     @discussion If the controller is about to transition to an unusable state,
     and it is currently enabled, then the disable() method on the controller is
@@ -260,7 +255,8 @@ protected:
     power state array that the controller is switching to.
     @param policyMaker A reference to the network controller's policy-maker,
     and is also the originator of this notification.
-    @result The return value is always kIOReturnSuccess. */
+    @result Always returns kIOReturnSuccess. 
+*/
 
     virtual IOReturn controllerWillChangePowerState(
                                IONetworkController * controller,
@@ -269,7 +265,7 @@ protected:
                                IOService *           policyMaker);
 
 /*! @function controllerDidChangePowerState
-    @abstract Handle a notification that the network controller which is servicing
+    @abstract Handles a notification that the network controller servicing
     this interface object has transitioned to a new power state.
     @discussion If the controller did transition to a usable state, and it was
     previously disabled due to a previous power change, then it is re-enabled.
@@ -280,7 +276,8 @@ protected:
     power state array that the controller has switched to.
     @param policyMaker A reference to the network controller's policy-maker,
     and is also the originator of this notification.
-    @result The return value is always kIOReturnSuccess. */
+    @result Always returns kIOReturnSuccess. 
+*/
 
     virtual IOReturn controllerDidChangePowerState( 
                                IONetworkController * controller,
@@ -298,7 +295,13 @@ public:
 
     virtual IOReturn attachToDataLinkLayer( IOOptionBits options,
                                             void *       parameter );
-                                                    
+
+protected:
+	virtual void feedPacketInputTap(mbuf_t);
+	virtual void feedPacketOutputTap(mbuf_t);
+	virtual bool initIfnetParams(struct ifnet_init_params *params);
+
+public:
     // Virtual function padding
     OSMetaClassDeclareReservedUnused( IOEthernetInterface,  0);
     OSMetaClassDeclareReservedUnused( IOEthernetInterface,  1);

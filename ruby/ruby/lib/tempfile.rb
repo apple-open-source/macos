@@ -1,14 +1,15 @@
 #
 # tempfile - manipulates temporary files
 #
-# $Id: tempfile.rb,v 1.1.1.2 2003/05/14 13:58:49 melville Exp $
+# $Id: tempfile.rb,v 1.19.2.3 2004/10/19 10:25:19 matz Exp $
 #
 
 require 'delegate'
+require 'tmpdir'
 
 # A class for managing temporary files.  This library is written to be
 # thread safe.
-class Tempfile < SimpleDelegator
+class Tempfile < DelegateClass(File)
   MAX_TRY = 10
   @@cleanlist = []
 
@@ -17,11 +18,10 @@ class Tempfile < SimpleDelegator
   # object works just like a File object.
   #
   # If tmpdir is omitted, the temporary directory is determined by
-  # ENV['TMPDIR'], ENV['TMP'] and and ENV['TEMP'] in the order named.
-  # If none of them is available, or when $SAFE > 0 and the given
-  # tmpdir is tainted, it uses /tmp. (Note that ENV values are
-  # tainted by default)
-  def initialize(basename, tmpdir=ENV['TMPDIR']||ENV['TMP']||ENV['TEMP']||'/tmp')
+  # Dir::tmpdir provided by 'tmpdir.rb'.
+  # When $SAFE > 0 and the given tmpdir is tainted, it uses
+  # /tmp. (Note that ENV values are tainted by default)
+  def initialize(basename, tmpdir=Dir::tmpdir)
     if $SAFE > 0 and tmpdir.tainted?
       tmpdir = '/tmp'
     end
@@ -33,7 +33,7 @@ class Tempfile < SimpleDelegator
       Thread.critical = true
 
       begin
-	tmpname = sprintf('%s/%s%d.%d', tmpdir, basename, $$, n)
+	tmpname = File.join(tmpdir, make_tmpname(basename, n))
 	lock = tmpname + '.lock'
 	n += 1
       end while @@cleanlist.include?(tmpname) or
@@ -65,6 +65,11 @@ class Tempfile < SimpleDelegator
 
     Dir.rmdir(lock)
   end
+
+  def make_tmpname(basename, n)
+    sprintf('%s%d.%d', basename, $$, n)
+  end
+  private :make_tmpname
 
   # Opens or reopens the file with mode "r+".
   def open
@@ -106,8 +111,14 @@ class Tempfile < SimpleDelegator
   # file.
   def unlink
     # keep this order for thread safeness
-    File.unlink(@tmpname) if File.exist?(@tmpname)
-    @@cleanlist.delete(@tmpname) if @@cleanlist
+    begin
+      File.unlink(@tmpname) if File.exist?(@tmpname)
+      @@cleanlist.delete(@tmpname)
+      @data = @tmpname = nil
+      ObjectSpace.undefine_finalizer(self)
+    rescue Errno::EACCESS
+      # may not be able to unlink on Windows; just ignore
+    end
   end
   alias delete unlink
 
@@ -148,9 +159,25 @@ class Tempfile < SimpleDelegator
       }
     end
 
-    # Equivalent to new().
+    # If no block is given, this is a synonym for new().
+    #
+    # If a block is given, it will be passed tempfile as an argument,
+    # and the tempfile will automatically be closed when the block
+    # terminates.  In this case, open() returns nil.
     def open(*args)
-      new(*args)
+      tempfile = new(*args)
+
+      if block_given?
+	begin
+	  yield(tempfile)
+	ensure
+	  tempfile.close
+	end
+
+	nil
+      else
+	tempfile
+      end
     end
   end
 end

@@ -1,0 +1,76 @@
+{
+    IBClasses = (
+        {CLASS = ASExtendedTableView; LANGUAGE = ObjC; SUPERCLASS = NSTableView; }, 
+        {CLASS = ColorBackgroundView; LANGUAGE = ObjC; SUPERCLASS = NSView; }, 
+        {CLASS = ExpandingSplitView; LANGUAGE = ObjC; SUPERCLASS = NSSplitView; }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                changeActiveUser = id; 
+                changePasswordForActiveUser = id; 
+                changePasswordForSelectedCache = id; 
+                customizeToolbar = id; 
+                destroyTicketsForActiveUser = id; 
+                destroyTicketsForSelectedCache = id; 
+                editRealms = id; 
+                getTickets = id; 
+                renewTicketsForActiveUser = id; 
+                renewTicketsForSelectedCache = id; 
+                showAboutBox = id; 
+                showPreferences = id; 
+                showTicketInfo = id; 
+                showTicketList = id; 
+                validateTicketsForActiveUser = id; 
+                validateTicketsForSelectedCache = id; 
+            }; 
+            CLASS = KerberosController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                aboutCopyrightTextField = NSTextField; 
+                aboutVersionTextField = NSTextField; 
+                aboutWindow = NSWindow; 
+                activeUserMenu = NSMenu; 
+                activeUserMenuItem = NSMenuItem; 
+                changePasswordMenuItem = NSMenuItem; 
+                destroyTicketsMenuItem = NSMenuItem; 
+                dockChangePasswordMenuItem = NSMenuItem; 
+                dockDestroyTicketsMenuItem = NSMenuItem; 
+                dockMenu = NSMenu; 
+                dockNewTicketsMenuItem = NSMenuItem; 
+                dockRenewTicketsMenuItem = NSMenuItem; 
+                dockSeparatorItem = NSMenuItem; 
+                dockValidateTicketsMenuItem = NSMenuItem; 
+                newTicketsMenuItem = NSMenuItem; 
+                renewTicketsMenuItem = NSMenuItem; 
+                showTicketInfoMenuItem = NSMenuItem; 
+                ticketsMenu = NSMenu; 
+                validateTicketsMenuItem = NSMenuItem; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {originalSelectAll = id; }; 
+            CLASS = MessageHeaderView; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSTextView; 
+        }, 
+        {
+            ACTIONS = {changeQuoteLevel = id; orderFrontFontPanel = id; selectText = id; }; 
+            CLASS = MessageTextView; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSTextView; 
+        }, 
+        {
+            CLASS = MessageTilingView; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {bodyView = MessageTextView; headerView = NSTextView; }; 
+            SUPERCLASS = NSView; 
+        }, 
+        {
+            CLASS = TicketInfoController; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSDocumentController; 
+        }
+    ); 
+    IBVersion = 1; 
+}

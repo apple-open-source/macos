@@ -1,5 +1,5 @@
 /* Target support for Mac OS X for GDB, the GNU debugger.
-   Copyright (C) 1997-2002,
+   Copyright (C) 1997-2002, 2005,
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -29,7 +29,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define INTERNALIZE_SYMBOL(intern, extern, abfd) \
 macosx_internalize_symbol (&intern, extern, abfd)
 
+#define SOFUN_ADDRESS_MAYBE_MISSING
+#define TEXT_SEGMENT_NAME "LC_SEGMENT.__TEXT"
 #define TEXT_SECTION_NAME "LC_SEGMENT.__TEXT.__text"
+#define COALESCED_TEXT_SECTION_NAME "LC_SEGMENT.__TEXT.__textcoal_nt"
 #define DATA_SECTION_NAME "LC_SEGMENT.__DATA.__data"
 
 #define TM_NEXTSTEP 1

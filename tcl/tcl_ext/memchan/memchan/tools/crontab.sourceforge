@@ -1,0 +1,9 @@
+#
+# (c) 2001, Andreas Kupries <andreas_kupries@users.sourceforge.net>
+#
+#       Hourly cron job to regenerate the dynamic parts of the
+#	memchan website.
+#
+
+28 * * * * /home/groups/m/me/memchan/tools/htdocs_refresh
+17 6 * * * /home/groups/m/me/memchan/tools/watch_cvs

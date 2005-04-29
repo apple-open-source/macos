@@ -1,0 +1,31 @@
+AC_INIT(ChangeLog)
+
+case "`uname -s`" in
+    *win32* | *WIN32* | *CYGWIN_NT* | *CYGWIN_98* | *CYGWIN_95*)
+	CYGPATH="cygpath -w"
+	;;
+    *)
+	CYGPATH=echo
+	;;
+esac
+AC_SUBST(CYGPATH)
+
+SC_SIMPLE_EXEEXT
+SC_PROG_TCLSH
+
+# ### ######### ###########################
+
+PACKAGE=`$TCLSH_PROG ${srcdir}/sak.tcl name`
+MAJOR_VERSION=`$TCLSH_PROG ${srcdir}/sak.tcl major`
+MINOR_VERSION=`$TCLSH_PROG ${srcdir}/sak.tcl minor`
+PATCHLEVEL=""
+
+VERSION=${MAJOR_VERSION}.${MINOR_VERSION}${PATCHLEVEL}
+NODOT_VERSION=${MAJOR_VERSION}${MINOR_VERSION}
+
+AC_SUBST(PACKAGE)
+AC_SUBST(VERSION)
+
+# ### ######### ###########################
+
+AC_OUTPUT([Makefile])

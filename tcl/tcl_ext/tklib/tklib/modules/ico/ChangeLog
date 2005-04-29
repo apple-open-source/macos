@@ -1,0 +1,40 @@
+2004-07-27  Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* ico.tcl: undocumented windows feature: if the first palette entry
+	isnt black, the transparent background displays in odd colors. fixed
+	getPaletteFromColors to initialize palette with black. changed header
+	writing to use 0 for planes to be consistant with windows.
+
+2004-07-26  Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* ico.tcl: renamed some of the private API to be more descriptive.
+	bugfix in writeIcon and translateColors and CopyIcon. simplified
+	writeIconEXE.
+
+2004-07-26  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* ico.man: Reworked the documentation a bit (fixed bugs, reordered
+	  stuff a bit).
+
+2004-07-26  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* pkgIndex.tcl, ico.man, ico.tcl: add -type ICODATA as a way pass
+	ICO data instead of a filename. Currently supports read, not write.
+	Made 'package require Tk' only get called as necessary for the api.
+	Code cleanup, update to v0.3.
+
+	* ico.man (new):
+	* ico.tcl: revamp of API from Aaron, more public APIs.
+
+2004-07-24  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* ico.tcl (::ico::getIconImageFromData): add call to retrive icon
+	image from ICO info as data (not "official", may change).
+
+2004-07-22  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* ico.tcl: added to tklib as v0.2.
+	Primary usage is like so:
+		set file bin/wish.exe
+		set icos [::ico::getIcons $file]
+		set img  [::ico::getIconImage $file -index 1]

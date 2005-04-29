@@ -6,7 +6,7 @@
    Pre-fb-write callbacks and RENDER support - Nolan Leake (nolan@vmware.com)
 */
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/shadowfb/shadow.c,v 1.18 2003/02/21 15:06:19 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/shadowfb/shadow.c,v 1.21 2003/11/10 18:22:38 tsi Exp $ */
 
 #include "X.h"
 #include "Xproto.h"
@@ -372,7 +372,7 @@ ShadowCopyWindow(
     RegionRec rgnDst;
 
     if (pPriv->vtSema) {
-        REGION_INIT(pWin->drawable.pScreen, &rgnDst, NullBox, 0);
+        REGION_NULL(pWin->drawable.pScreen, &rgnDst);
 	REGION_COPY(pWin->drawable.pScreen, &rgnDst, prgn);
         
         REGION_TRANSLATE(pWin->drawable.pScreen, &rgnDst,
@@ -461,18 +461,28 @@ ShadowComposite(
     ShadowScreenPtr pPriv = GET_SCREEN_PRIVATE(pScreen);
     PictureScreenPtr ps = GetPictureScreen(pScreen);
     BoxRec box;
+    BoxPtr extents;
     Bool boxNotEmpty = FALSE;
 
-    box.x1 = pDst->pDrawable->x + xDst;
-    box.y1 = pDst->pDrawable->y + yDst;
-    box.x2 = box.x1 + width;
-    box.y2 = box.y1 + height;
-
     if (pPriv->vtSema
-	&& pDst->pDrawable->type == DRAWABLE_WINDOW && BOX_NOT_EMPTY(box)) {
-        if (pPriv->preRefresh)
-            (*pPriv->preRefresh)(pPriv->pScrn, 1, &box);
-        boxNotEmpty = TRUE;
+	&& pDst->pDrawable->type == DRAWABLE_WINDOW) {
+
+	box.x1 = pDst->pDrawable->x + xDst;
+	box.y1 = pDst->pDrawable->y + yDst;
+	box.x2 = box.x1 + width;
+	box.y2 = box.y1 + height;
+
+	extents = &pDst->pCompositeClip->extents;
+	if(box.x1 < extents->x1) box.x1 = extents->x1;
+	if(box.x2 > extents->x2) box.x2 = extents->x2;
+	if(box.y1 < extents->y1) box.y1 = extents->y1;
+	if(box.y2 > extents->y2) box.y2 = extents->y2;
+	
+	if (BOX_NOT_EMPTY(box)) {
+	    if (pPriv->preRefresh)
+		(*pPriv->preRefresh)(pPriv->pScrn, 1, &box);
+	    boxNotEmpty = TRUE;
+	}
     }
     
     ps->Composite = pPriv->Composite;
@@ -636,7 +646,11 @@ ShadowFillSpans(
 	}
 
 	box.y2++;
-	TRIM_AND_TRANSLATE_BOX(box, pDraw, pGC);
+
+        if(!pGC->miTranslate) {
+           TRANSLATE_BOX(box, pDraw);
+        }
+        TRIM_BOX(box, pGC); 
 
 	if(BOX_NOT_EMPTY(box)) {
             if(pPriv->preRefresh)
@@ -688,7 +702,11 @@ ShadowSetSpans(
 	}
 
 	box.y2++;
-	TRIM_AND_TRANSLATE_BOX(box, pDraw, pGC);
+
+        if(!pGC->miTranslate) {
+           TRANSLATE_BOX(box, pDraw);
+        }
+        TRIM_BOX(box, pGC);
 
 	if(BOX_NOT_EMPTY(box)) {
            if(pPriv->preRefresh)
@@ -1769,9 +1787,15 @@ ShadowPushPixels(
     SHADOW_GC_OP_PROLOGUE(pGC);
 
     if(IS_VISIBLE(pDraw)) {
-	box.x1 = xOrg + pDraw->x;
+	box.x1 = xOrg;
+	box.y1 = yOrg;
+
+        if(!pGC->miTranslate) {
+           box.x1 += pDraw->x;          
+           box.y1 += pDraw->y;          
+        }
+
 	box.x2 = box.x1 + dx;
-	box.y1 = yOrg + pDraw->y;
 	box.y2 = box.y1 + dy;
 
 	TRIM_BOX(box, pGC);

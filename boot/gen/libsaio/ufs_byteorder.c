@@ -28,7 +28,6 @@
 
 #import <sys/types.h>
 #import <sys/param.h>
-#import <sys/vnode.h>
 #import <ufs/fsdir.h>
 #include <libkern/OSByteOrder.h>
 #import "ufs_byteorder.h"

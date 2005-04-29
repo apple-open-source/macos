@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_crypt.c,v 1.7 2002/05/14 22:19:58 lindak Exp $
+ * $Id: smb_crypt.c,v 1.13 2005/01/26 23:50:50 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/malloc.h>
@@ -39,14 +39,13 @@
 #include <sys/proc.h>
 #include <sys/fcntl.h>
 #include <sys/socket.h>
-#include <sys/socketvar.h>
 #include <sys/sysctl.h>
+#include <sys/md5.h>
 
-#ifdef APPLE
 #include <sys/smb_apple.h>
-#endif
+#include <sys/utfconv.h>
 
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
@@ -54,17 +53,8 @@
 #include <netsmb/smb_dev.h>
 #include <netsmb/md4.h>
 
-#ifndef APPLE
-#include "opt_netsmb.h"
-#endif
 
-#ifdef NETSMBCRYPTO
-
-#ifdef APPLE
 #include <crypto/des.h>
-#else
-#include <crypto/des/des.h>
-#endif
 
 static u_char N8[] = {0x4b, 0x47, 0x53, 0x21, 0x40, 0x23, 0x24, 0x25};
 
@@ -88,13 +78,13 @@ smb_E(const u_char *key, u_char *data, u_char *dest)
 	des_ecb_encrypt((des_cblock*)data, (des_cblock*)dest, *ksp, 1);
 	free(ksp, M_SMBTEMP);
 }
-#endif
 
-
-int
-smb_encrypt(const u_char *apwd, u_char *C8, u_char *RN)
+/*
+ * Compute an LM response given the ASCII password and a challenge.
+ */
+PRIVSYM int
+smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN)
 {
-#ifdef NETSMBCRYPTO
 	u_char *p, *P14, *S21;
 
 	p = malloc(14 + 21, M_SMBTEMP, M_WAITOK);
@@ -113,49 +103,159 @@ smb_encrypt(const u_char *apwd, u_char *C8, u_char *RN)
 	smb_E(S21 + 14, C8, RN + 16);
 	free(p, M_SMBTEMP);
 	return 0;
-#else
-	SMBERROR("password encryption is not available\n");
-	bzero(RN, 24);
-	return EAUTH;
-#endif
 }
 
-int
-smb_ntencrypt(const u_char *apwd, u_char *C8, u_char *RN)
+/*
+ * Compute the NTLMv1 hash, which is used to compute both NTLMv1 and
+ * NTLMv2 responses.
+ */
+static void
+smb_ntlmv1hash(const u_char *apwd, u_char *v1hash)
 {
-#ifdef NETSMBCRYPTO
-	u_char S21[21];
 	u_int16_t *unipwd;
 	MD4_CTX *ctxp;
-	int len;
+	size_t alen, unilen;
 
-	len = strlen(apwd);
-#ifdef APPLE
-/* B4BP (7/23/01 sent to BP) Must add one to strlen for null! */
-	unipwd = malloc((len+1) * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
-#else
-	unipwd = malloc(len * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
-#endif
+	alen = strlen(apwd);
+	unipwd = malloc(alen * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
 	/*
-	 * S21 = concat(MD4(U(apwd)), zeros(5));
+	 * v1hash = concat(MD4(U(apwd)), zeros(5));
 	 */
-	smb_strtouni(unipwd, apwd);
+	unilen = smb_strtouni(unipwd, apwd, alen,
+	    UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
 	ctxp = malloc(sizeof(MD4_CTX), M_SMBTEMP, M_WAITOK);
 	MD4Init(ctxp);
-	MD4Update(ctxp, (u_char*)unipwd, len * sizeof(u_int16_t));
+	MD4Update(ctxp, (u_char*)unipwd, unilen);
 	free(unipwd, M_SMBTEMP);
-	bzero(S21, 21);
-	MD4Final(S21, ctxp);
+	bzero(v1hash, 21);
+	MD4Final(v1hash, ctxp);
 	free(ctxp, M_SMBTEMP);
+}
+
+/*
+ * Compute an NTLM response given the Unicode password (as an ASCII string,
+ * not a Unicode string!) and a challenge.
+ */
+PRIVSYM int
+smb_ntlmresponse(const u_char *apwd, u_char *C8, u_char *RN)
+{
+	u_char S21[21];
+
+	smb_ntlmv1hash(apwd, S21);
 
 	smb_E(S21, C8, RN);
 	smb_E(S21 + 7, C8, RN + 8);
 	smb_E(S21 + 14, C8, RN + 16);
 	return 0;
-#else
-	SMBERROR("password encryption is not available\n");
-	bzero(RN, 24);
-	return EAUTH;
-#endif
 }
 
+static void
+HMACT64(const u_char *key, size_t key_len, const u_char *data,
+    size_t data_len, u_char *digest)
+{
+	MD5_CTX context;
+	u_char k_ipad[64];	/* inner padding - key XORd with ipad */
+	u_char k_opad[64];	/* outer padding - key XORd with opad */
+	int i;
+
+	/* if key is longer than 64 bytes use only the first 64 bytes */
+	if (key_len > 64)
+		key_len = 64;
+
+	/*
+	 * The HMAC-MD5 (and HMACT64) transform looks like:
+	 *
+	 * MD5(K XOR opad, MD5(K XOR ipad, data))
+	 *
+	 * where K is an n byte key
+	 * ipad is the byte 0x36 repeated 64 times
+	 * opad is the byte 0x5c repeated 64 times
+	 * and data is the data being protected.
+	 */
+
+	/* start out by storing key in pads */
+	bzero(k_ipad, sizeof k_ipad);
+	bzero(k_opad, sizeof k_opad);
+	bcopy(key, k_ipad, key_len);
+	bcopy(key, k_opad, key_len);
+
+	/* XOR key with ipad and opad values */
+	for (i = 0; i < 64; i++) {
+		k_ipad[i] ^= 0x36;
+		k_opad[i] ^= 0x5c;
+	}
+
+	/*
+	 * perform inner MD5
+	 */
+	MD5Init(&context);			/* init context for 1st pass */
+	MD5Update(&context, k_ipad, 64);	/* start with inner pad */
+	MD5Update(&context, data, data_len);	/* then data of datagram */
+	MD5Final(digest, &context);		/* finish up 1st pass */
+
+	/*
+	 * perform outer MD5
+	 */
+	MD5Init(&context);			/* init context for 2nd pass */
+	MD5Update(&context, k_opad, 64);	/* start with outer pad */
+	MD5Update(&context, digest, 16);	/* then results of 1st hash */
+	MD5Final(digest, &context);		/* finish up 2nd pass */
+}
+
+/*
+ * Compute an NTLMv2 response given the Unicode password (as an ASCII string,
+ * not a Unicode string!), the user name, the destination workgroup/domain
+ * name, a challenge, and the blob.
+ */
+PRIVSYM int
+smb_ntlmv2response(const u_char *apwd, const u_char *user,
+    const u_char *destination, u_char *C8, const u_char *blob,
+    size_t bloblen, u_char **RN, size_t *RNlen)
+{
+	u_char v1hash[21];
+	u_int16_t *uniuser, *unidest;
+	size_t uniuserlen, unidestlen;
+	u_char v2hash[16];
+	int len;
+	size_t datalen;
+	u_char *data;
+	size_t v2resplen;
+	u_char *v2resp;
+
+	smb_ntlmv1hash(apwd, v1hash);
+
+	/*
+	 * v2hash = HMACT64(v1hash, 16, concat(upcase(user), upcase(destination))
+	 * We assume that user and destination are supplied to us as
+	 * upper-case UTF-8.
+	 */
+	len = strlen(user);
+	uniuser = malloc(len * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
+	uniuserlen = smb_strtouni(uniuser, user, len,
+	    UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
+	len = strlen(destination);
+	unidest = malloc(len * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
+	unidestlen = smb_strtouni(unidest, destination, len,
+	    UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
+	datalen = uniuserlen + unidestlen;
+	data = malloc(datalen, M_SMBTEMP, M_WAITOK);
+	bcopy(uniuser, data, uniuserlen);
+	bcopy(unidest, data + uniuserlen, unidestlen);
+	free(uniuser, M_SMBTEMP);
+	free(unidest, M_SMBTEMP);
+	HMACT64(v1hash, 16, data, datalen, v2hash);
+	free(data, M_SMBTEMP);
+
+	datalen = 8 + bloblen;
+	data = malloc(datalen, M_SMBTEMP, M_WAITOK);
+	bcopy(C8, data, 8);
+	bcopy(blob, data + 8, bloblen);
+	v2resplen = 16 + bloblen;
+	v2resp = malloc(v2resplen, M_SMBTEMP, M_WAITOK);
+	HMACT64(v2hash, 16, data, datalen, v2resp);
+	free(data, M_SMBTEMP);
+	bcopy(blob, v2resp + 16, bloblen);
+	*RN = v2resp;
+	*RNlen = v2resplen;
+	return 0;
+}

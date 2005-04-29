@@ -32,7 +32,7 @@
 class CSMBServiceLookupThread : public CNSLServiceLookupThread
 {
 public:
-                            CSMBServiceLookupThread		( CNSLPlugin* parentPlugin, char* serviceType, CNSLDirNodeRep* nodeDirRep, CFArrayRef lmbListRef );
+                            CSMBServiceLookupThread		( CNSLPlugin* parentPlugin, char* serviceType, CNSLDirNodeRep* nodeDirRep, CFArrayRef lmbListRef, const char* winsServer );
     virtual					~CSMBServiceLookupThread	();
         
 	virtual void*			Run							( void );
@@ -42,8 +42,12 @@ protected:
 			char*			CopyNextMachine				( char** buffer );
 			
 			void			AddServiceResult			( CFStringRef workgroupRef, CFStringRef netBIOSRef, CFStringRef commentRef );
+			Boolean			UseWINSURLMechanism			( void );
+
 private:
 			CFArrayRef		mLMBsRef;
+	const	char*			mWINSServer;
+	CFMutableArrayRef		mResultList;
 };
 
 #endif		// #ifndef

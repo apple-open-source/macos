@@ -1,4 +1,4 @@
-NAME Xnest NOTWINDOWCOMPAT
-DESCRIPTION "@#XFREE86:4.2.0#@ $XFree86: xc/programs/Xserver/Xnest.def,v 3.3 2002/05/31 18:45:53 dawes Exp $"
+NAME Xnest WINDOWCOMPAT
+DESCRIPTION "@#XFREE86:4.4.0#@ $XFree86: xc/programs/Xserver/Xnest.def,v 3.5 2004/01/14 17:32:39 dawes Exp $"
 PROTMODE
 EXETYPE OS2

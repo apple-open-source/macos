@@ -1,5 +1,5 @@
 /* BufferedReader.java
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -65,8 +65,6 @@ package java.io;
   * application specified character encoding.  Thus it can handle 
   * multibyte character encodings.
   *
-  * @version 0.0
-  *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   * @author Tom Tromey <tromey@cygnus.com>
   * @date September 24, 1998 
@@ -120,7 +118,7 @@ public class ByteArrayOutputStream extends OutputStream
    *
    * @return The number of bytes in the internal buffer
    *
-   * @see reset
+   * @see #reset()
    */
   public int size ()
   {
@@ -190,7 +188,7 @@ public class ByteArrayOutputStream extends OutputStream
    * @return A <code>String</code> containing the data written to this
    * stream so far
    *
-   * @deprecrated
+   * @deprecated
    */
   public String toString (int hibyte)
   {
@@ -200,7 +198,7 @@ public class ByteArrayOutputStream extends OutputStream
   // Resize buffer to accommodate new bytes.
   private void resize (int add)
   {
-    if (count + add >= buf.length)
+    if (count + add > buf.length)
       {
 	int newlen = buf.length * 2;
 	if (count + add > newlen)

@@ -62,8 +62,8 @@ static bool_t		svcudp_getargs(SVCXPRT *, xdrproc_t, void *);
 static bool_t		svcudp_freeargs(SVCXPRT *, xdrproc_t, void *);
 static void		svcudp_destroy(SVCXPRT *);
 
-static void cache_set(SVCXPRT *, rpc_u_int32);
-static int cache_get(SVCXPRT *, struct rpc_msg *, char **, rpc_u_int32 *);
+static void cache_set(SVCXPRT *, uint32_t);
+static int cache_get(SVCXPRT *, struct rpc_msg *, char **, uint32_t *);
 
 static struct xp_ops svcudp_op = {
 	svcudp_recv,
@@ -79,8 +79,8 @@ static struct xp_ops svcudp_op = {
  * kept in xprt->xp_p2
  */
 struct svcudp_data {
-	unsigned int   su_iosz;	/* byte size of send.recv buffer */
-	rpc_u_int32	su_xid;		/* transaction id */
+	u_int   su_iosz;	/* byte size of send.recv buffer */
+	uint32_t	su_xid;		/* transaction id */
 	XDR	su_xdrs;	/* XDR handle */
 	char	su_verfbody[MAX_AUTH_BYTES];	/* verifier body */
 	void * 	su_cache;	/* cached data, NULL if no cache */
@@ -101,9 +101,10 @@ struct svcudp_data {
  * The routines returns NULL if a problem occurred.
  */
 SVCXPRT *
-svcudp_bufcreate(sock, sendsz, recvsz)
-	register int sock;
-	unsigned int sendsz, recvsz;
+svcudp_bufcreate(
+	register int sock,
+	u_int sendsz,
+	u_int recvsz)
 {
 	bool_t madesock = FALSE;
 	register SVCXPRT *xprt;
@@ -119,8 +120,11 @@ svcudp_bufcreate(sock, sendsz, recvsz)
 		madesock = TRUE;
 	}
 	memset((char *)&addr, 0, sizeof (addr));
+#if HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+	addr.sin_len = sizeof(addr);
+#endif
 	addr.sin_family = AF_INET;
-	if (gssrpc_bindresvport(sock, &addr)) {
+	if (bindresvport(sock, &addr)) {
 		addr.sin_port = 0;
 		(void)bind(sock, (struct sockaddr *)&addr, len);
 	}
@@ -149,6 +153,7 @@ svcudp_bufcreate(sock, sendsz, recvsz)
 	    &(su->su_xdrs), rpc_buffer(xprt), su->su_iosz, XDR_DECODE);
 	su->su_cache = NULL;
 	xprt->xp_p2 = (caddr_t)su;
+	xprt->xp_auth = NULL;
 	xprt->xp_verf.oa_base = su->su_verfbody;
 	xprt->xp_ops = &svcudp_op;
 	xprt->xp_port = ntohs(addr.sin_port);
@@ -158,25 +163,23 @@ svcudp_bufcreate(sock, sendsz, recvsz)
 }
 
 SVCXPRT *
-svcudp_create(sock)
-	int sock;
+svcudp_create(int sock)
 {
 
 	return(svcudp_bufcreate(sock, UDPMSGSIZE, UDPMSGSIZE));
 }
 
 static enum xprt_stat
-svcudp_stat(xprt)
-	SVCXPRT *xprt;
+svcudp_stat(SVCXPRT *xprt)
 {
 
 	return (XPRT_IDLE); 
 }
 
 static bool_t
-svcudp_recv(xprt, msg)
-	register SVCXPRT *xprt;
-	struct rpc_msg *msg;
+svcudp_recv(
+	register SVCXPRT *xprt,
+	struct rpc_msg *msg)
 {
         struct msghdr dummy;
 	struct iovec dummy_iov[1];
@@ -184,7 +187,7 @@ svcudp_recv(xprt, msg)
 	register XDR *xdrs = &(su->su_xdrs);
 	register int rlen;
 	char *reply;
-	rpc_u_int32 replylen;
+	uint32_t replylen;
 
     again:
 	memset((char *) &dummy, 0, sizeof(dummy));
@@ -207,7 +210,7 @@ svcudp_recv(xprt, msg)
 	    0, (struct sockaddr *)&(xprt->xp_raddr), &(xprt->xp_addrlen));
 	if (rlen == -1 && errno == EINTR)
 		goto again;
-	if (rlen < (int) 4*sizeof(rpc_u_int32))
+	if (rlen < (int) 4*sizeof(uint32_t))
 		return (FALSE);
 	xdrs->x_op = XDR_DECODE;
 	XDR_SETPOS(xdrs, 0);
@@ -224,9 +227,9 @@ svcudp_recv(xprt, msg)
 	return (TRUE);
 }
 
-static bool_t svcudp_reply(xprt, msg)
-   register SVCXPRT *xprt; 
-   struct rpc_msg *msg; 
+static bool_t svcudp_reply(
+	register SVCXPRT *xprt,
+	struct rpc_msg *msg)
 {
      register struct svcudp_data *su = su_data(xprt);
      register XDR *xdrs = &(su->su_xdrs);
@@ -260,7 +263,7 @@ static bool_t svcudp_reply(xprt, msg)
 	      == slen) {
 	       stat = TRUE;
 	       if (su->su_cache && slen >= 0) {
-		    cache_set(xprt, (rpc_u_int32) slen);
+		    cache_set(xprt, (uint32_t) slen);
 	       }
 	  }
      }
@@ -268,10 +271,10 @@ static bool_t svcudp_reply(xprt, msg)
 }
 
 static bool_t
-svcudp_getargs(xprt, xdr_args, args_ptr)
-	SVCXPRT *xprt;
-	xdrproc_t xdr_args;
-	void * args_ptr;
+svcudp_getargs(
+	SVCXPRT *xprt,
+	xdrproc_t xdr_args,
+	void * args_ptr)
 {
 	if (! SVCAUTH_UNWRAP(xprt->xp_auth, &(su_data(xprt)->su_xdrs),
 			     xdr_args, args_ptr)) {
@@ -282,10 +285,10 @@ svcudp_getargs(xprt, xdr_args, args_ptr)
 }
 
 static bool_t
-svcudp_freeargs(xprt, xdr_args, args_ptr)
-	SVCXPRT *xprt;
-	xdrproc_t xdr_args;
-	void * args_ptr;
+svcudp_freeargs(
+	SVCXPRT *xprt,
+	xdrproc_t xdr_args,
+	void * args_ptr)
 {
 	register XDR *xdrs = &(su_data(xprt)->su_xdrs);
 
@@ -294,13 +297,18 @@ svcudp_freeargs(xprt, xdr_args, args_ptr)
 }
 
 static void
-svcudp_destroy(xprt)
-	register SVCXPRT *xprt;
+svcudp_destroy(register SVCXPRT *xprt)
 {
 	register struct svcudp_data *su = su_data(xprt);
 
 	xprt_unregister(xprt);
-	(void)close(xprt->xp_sock);
+	if (xprt->xp_sock != -1)
+		(void)close(xprt->xp_sock);
+	xprt->xp_sock = -1;
+	if (xprt->xp_auth != NULL) {
+		SVCAUTH_DESTROY(xprt->xp_auth);
+		xprt->xp_auth = NULL;
+	}
 	XDR_DESTROY(&(su->su_xdrs));
 	mem_free(rpc_buffer(xprt), su->su_iosz);
 	mem_free((caddr_t)su, sizeof(struct svcudp_data));
@@ -335,16 +343,16 @@ struct cache_node {
 	/*
 	 * Index into cache is xid, proc, vers, prog and address
 	 */
-	rpc_u_int32 cache_xid;
-	rpc_u_int32 cache_proc;
-	rpc_u_int32 cache_vers;
-	rpc_u_int32 cache_prog;
+	uint32_t cache_xid;
+	rpcproc_t cache_proc;
+	rpcvers_t cache_vers;
+	rpcprog_t cache_prog;
 	struct sockaddr_in cache_addr;
 	/*
 	 * The cached reply and length
 	 */
 	char * cache_reply;
-	rpc_u_int32 cache_replylen;
+	uint32_t cache_replylen;
 	/*
  	 * Next node on the list, if there is a collision
 	 */
@@ -357,13 +365,13 @@ struct cache_node {
  * The entire cache
  */
 struct udp_cache {
-	rpc_u_int32 uc_size;		/* size of cache */
+	uint32_t uc_size;		/* size of cache */
 	cache_ptr *uc_entries;	/* hash table of entries in cache */
 	cache_ptr *uc_fifo;	/* fifo list of entries in cache */
-	rpc_u_int32 uc_nextvictim;	/* points to next victim in fifo list */
-	rpc_u_int32 uc_prog;		/* saved program number */
-	rpc_u_int32 uc_vers;		/* saved version number */
-	rpc_u_int32 uc_proc;		/* saved procedure number */
+	uint32_t uc_nextvictim;	/* points to next victim in fifo list */
+	rpcprog_t uc_prog;		/* saved program number */
+	rpcvers_t uc_vers;		/* saved version number */
+	rpcproc_t uc_proc;		/* saved procedure number */
 	struct sockaddr_in uc_addr; /* saved caller's address */
 };
 
@@ -380,9 +388,9 @@ struct udp_cache {
  * Note: there is no disable.
  */
 int
-gssrpc_svcudp_enablecache(transp, size)
-	SVCXPRT *transp;
-	rpc_u_int32 size;
+svcudp_enablecache(
+	SVCXPRT *transp,
+	uint32_t size)
 {
 	struct svcudp_data *su = su_data(transp);
 	struct udp_cache *uc;
@@ -419,15 +427,15 @@ gssrpc_svcudp_enablecache(transp, size)
  * Set an entry in the cache
  */
 static void
-cache_set(xprt, replylen)
-	SVCXPRT *xprt;
-	rpc_u_int32 replylen;	
+cache_set(
+	SVCXPRT *xprt,
+	uint32_t replylen)
 {
 	register cache_ptr victim;	
 	register cache_ptr *vicp;
 	register struct svcudp_data *su = su_data(xprt);
 	struct udp_cache *uc = (struct udp_cache *) su->su_cache;
-	unsigned int loc;
+	u_int loc;
 	char *newbuf;
 
 	/*
@@ -484,13 +492,13 @@ cache_set(xprt, replylen)
  * return 1 if found, 0 if not found
  */
 static int
-cache_get(xprt, msg, replyp, replylenp)
-	SVCXPRT *xprt;
-	struct rpc_msg *msg;
-	char **replyp;
-	rpc_u_int32 *replylenp;
+cache_get(
+	SVCXPRT *xprt,
+	struct rpc_msg *msg,
+	char **replyp,
+	uint32_t *replylenp)
 {
-	unsigned int loc;
+	u_int loc;
 	register cache_ptr ent;
 	register struct svcudp_data *su = su_data(xprt);
 	register struct udp_cache *uc = (struct udp_cache *) su->su_cache;

@@ -29,7 +29,7 @@
 #define _SLPDefines_
 #pragma once
 
-#define kSLPdPath	"/tmp/slp_ipc"
+#define kSLPdPath	"/var/run/slp_ipc"
 
 #define CONFIG_DA_HEART_BEAT		10800	// (3 hours) DA Heartbeat,
 											// so that SAs passively detect

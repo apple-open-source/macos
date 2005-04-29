@@ -4,9 +4,10 @@
  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: unlzh.c,v 1.1.1.1 1999/04/23 01:05:58 wsanchez Exp $";
+static char rcsid[] = "$Id: unlzh.c,v 1.2 1993/06/24 10:59:01 jloup Exp $";
 #endif
 
+#include <config.h>
 #include <stdio.h>
 
 #include "tailor.h"

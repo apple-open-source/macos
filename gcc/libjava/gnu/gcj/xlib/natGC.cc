@@ -34,12 +34,16 @@ void gnu::gcj::xlib::GC::initStructure(GC* copyFrom)
 {
   Display* display = target->getDisplay();
   ::Display* dpy = (::Display*) (display->display);
-  ::Drawable drawableXID = target->getXID();
-    
-  ::GC gc = XCreateGC(dpy, drawableXID, 0, 0);
-  
-  if (gc == 0) 
-    throw new XException(JvNewStringLatin1("GC creation failed"));
+  ::GC gc = (::GC) structure;
+  if (gc == 0)
+  {
+    // If we haven't already created a GC, create one now
+    ::Drawable drawableXID = target->getXID();
+    gc = XCreateGC(dpy, drawableXID, 0, 0);
+    structure = reinterpret_cast<gnu::gcj::RawData*>(gc);
+    if (gc == 0) 
+      throw new XException(JvNewStringLatin1("GC creation failed"));
+  }
 
   if (copyFrom != 0)
     {
@@ -47,8 +51,6 @@ void gnu::gcj::xlib::GC::initStructure(GC* copyFrom)
       XCopyGC(dpy, fromGC, ~0, gc);
       // no fast fail
     }
-
-  structure = reinterpret_cast<gnu::gcj::RawData*>(gc);
 }
 
 void gnu::gcj::xlib::GC::disposeImpl()
@@ -95,34 +97,33 @@ void gnu::gcj::xlib::GC::drawString(jstring text, jint x, jint y)
   ::Drawable drawableXID = target->getXID();
   ::GC gc = (::GC) structure;
   
-  /*
-    FIXME: do something along the lines of the following instead:
+  jint length = text->length();
+  jchar* txt = JvGetStringChars(text);
 
-    jint length = text->length();
-    jchar* txt = JvGetStringChars(text);
-
-    XChar2b xwchars[length];
+  XChar2b xwchars[length];
     
-    // FIXME: Add convertion and caching
+  // FIXME: Convert to the character set used in the font, which may
+  // or may not be unicode. For now, treat everything as 16-bit and
+  // use character codes directly, which should be OK for unicode or
+  // 8-bit ascii fonts.
 
-    for (int i=0; i<length; i++)
-      {
-	XChar2b* xc = &(xwchars[i]);
-	jchar jc = txt[i];
-	xc->byte1 = jc & 0xff;
-	xc->byte2 = jc >> 8;
-      }
+  for (int i=0; i<length; i++)
+    {
+      XChar2b* xc = &(xwchars[i]);
+      jchar jc = txt[i];
+      xc->byte1 = (jc >> 8) & 0xff;
+      xc->byte2 = jc & 0xff;
+    }
+  XDrawString16(dpy, drawableXID, gc, x, y, xwchars, length);
+}
 
-     XDrawString16(dpy, drawableXID, gc, x, y, xwchars, length);
-    */
-  
-  // FIXME, temporary code:
-  int len = JvGetStringUTFLength(text);
-  char ctxt[len+1];
-  JvGetStringUTFRegion(text, 0, text->length(), ctxt);
-  ctxt[len] = '\0';
-  XDrawString(dpy, drawableXID, gc, x, y, ctxt, len);
-  // no fast fail
+void gnu::gcj::xlib::GC::drawPoint(jint x, jint y)
+{
+  Display* display = target->getDisplay();
+  ::Display* dpy = (::Display*) (display->display);
+  ::Drawable drawableXID = target->getXID();
+  ::GC gc = (::GC) structure;
+  XDrawPoint (dpy, drawableXID, gc, x, y);
 }
 
 void gnu::gcj::xlib::GC::drawLine(jint x1, jint y1, jint x2, jint y2)
@@ -153,6 +154,24 @@ void gnu::gcj::xlib::GC::fillRectangle(jint x, jint y, jint w, jint h)
   ::GC gc = (::GC) structure;
   XFillRectangle(dpy, drawableXID, gc, x, y, w, h);
   // no fast fail
+}
+
+void gnu::gcj::xlib::GC::drawArc(jint x, jint y, jint w, jint h,jint startAngle, jint arcAngle)
+{
+  Display* display = target->getDisplay();
+  ::Display* dpy = (::Display*) (display->display);
+  ::Drawable drawableXID = target->getXID();
+  ::GC gc = (::GC) structure;
+  XDrawArc(dpy, drawableXID, gc, x, y, w, h, startAngle * 64, arcAngle * 64);
+}
+
+void gnu::gcj::xlib::GC::fillArc(jint x, jint y, jint w, jint h,jint startAngle, jint arcAngle)
+{
+  Display* display = target->getDisplay();
+  ::Display* dpy = (::Display*) (display->display);
+  ::Drawable drawableXID = target->getXID();
+  ::GC gc = (::GC) structure;
+  XFillArc(dpy, drawableXID, gc, x, y, w, h, startAngle * 64, arcAngle * 64);
 }
 
 void gnu::gcj::xlib::GC::fillPolygon(jintArray xPoints, jintArray yPoints,
@@ -207,23 +226,46 @@ void gnu::gcj::xlib::GC::putImage(XImage* image,
   // no fast fail
 }
 
-void gnu::gcj::xlib::GC::updateClip()
+void gnu::gcj::xlib::GC::updateClip(AWTRectArray* rectangles)
 {
-  if (clip == 0)
-    return;
+  int numRect = JvGetArrayLength(rectangles);
+  XRectVector* xrectvector = new XRectVector(numRect);
   
+  for (int i=0; i<numRect; i++)
+  {
+    AWTRect* awtrect = elements(rectangles)[i];
+    XRectangle& xrect = (*xrectvector)[i];
+      
+    xrect.x      = awtrect->x;
+    xrect.y      = awtrect->y;
+    xrect.width  = awtrect->width;
+    xrect.height = awtrect->height;
+  }
+
   Display* display = target->getDisplay();
   ::Display* dpy = (::Display*) (display->display);
   ::GC gc = (::GC) structure;
-  
-  XRectVector* xrectvector = (XRectVector*) (clip->xrects);
-  int numRect = xrectvector->size();
-  
+
   int originX = 0;
   int originY = 0;
   int ordering = Unsorted;
   XSetClipRectangles(dpy, gc, originX, originY,
 		     &(xrectvector->front()), numRect,
 		     ordering);
-  // no fast fail
+  delete xrectvector;
+}
+
+void gnu::gcj::xlib::GC::copyArea (gnu::gcj::xlib::Drawable * source, 
+				  jint srcX, jint srcY,
+				  jint destX, jint destY,
+				  jint width, jint height)
+{
+  Display* display = target->getDisplay ();
+  ::Display* dpy = (::Display*) (display->display);
+  ::Drawable drawableXID = target->getXID ();
+  ::GC gc = (::GC) structure;
+  ::Drawable srcXID = source->getXID ();
+
+  XCopyArea (dpy, srcXID, drawableXID, gc, srcX, srcY, width, height,
+    destX, destY);
 }

@@ -21,7 +21,8 @@ AEP_Version    = 1.3.33
 AEP_ProjVers   = $(AEP_Project)_$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = NLS_current_apache.patch
+AEP_Patches    = NLS_current_apache.patch NLS_PR-3694368_mine.patch \
+                 TWP_PR-4005292.patch NLS_PR-3995868.patch
 
 #mod_ssl
 mod_ssl_Project = apache_mod_ssl
@@ -221,7 +222,7 @@ install-local:
 		  $(APXS) -A -n $${module} $${file}.so;	\
 	      done
 	$(APXS) -a -n hfs_apple mod_hfs_apple.so
-	$(APXS) -a -n rendezvous_apple mod_rendezvous_apple.so
+	$(APXS) -a -n bonjour mod_bonjour.so
 	$(_v) perl -i -pe 's|^(User\s+).*$$|$${1}www|'							$(DSTROOT)$(ConfigFile)
 	$(_v) perl -i -pe 's|^(Group\s+).*$$|$${1}www|'							$(DSTROOT)$(ConfigFile)
 	$(_v) perl -i -pe 's|^(MinSpareServers\s+)\d+$$|$${1}1|'					$(DSTROOT)$(ConfigFile)
@@ -253,13 +254,13 @@ install-local:
 	$(_v) echo "    RewriteRule .* - [F]" >>							$(DSTROOT)$(ConfigFile)
 	$(_v) echo "</IfModule>" >>									$(DSTROOT)$(ConfigFile)
 	$(_v) echo "" >>										$(DSTROOT)$(ConfigFile)
-	$(_v) echo "<IfModule mod_rendezvous_apple.c>" >>						$(DSTROOT)$(ConfigFile)
+	$(_v) echo "<IfModule mod_bonjour.c>" >>						$(DSTROOT)$(ConfigFile)
 	$(_v) echo "    # Only the pages of users who have edited their" >>				$(DSTROOT)$(ConfigFile)
-	$(_v) echo "    # default home pages will be advertised on Rendezvous." >>			$(DSTROOT)$(ConfigFile)
+	$(_v) echo "    # default home pages will be advertised on Bonjour." >>			$(DSTROOT)$(ConfigFile)
 	$(_v) echo "    RegisterUserSite customized-users" >>						$(DSTROOT)$(ConfigFile)
 	$(_v) echo "    #RegisterUserSite all-users" >>							$(DSTROOT)$(ConfigFile)
 	$(_v) echo "" >>										$(DSTROOT)$(ConfigFile)
-	$(_v) echo "    # Rendezvous advertising for the primary site is off by default." >>		$(DSTROOT)$(ConfigFile)
+	$(_v) echo "    # Bonjour advertising for the primary site is off by default." >>		$(DSTROOT)$(ConfigFile)
 	$(_v) echo "    #RegisterDefaultSite" >>							$(DSTROOT)$(ConfigFile)
 	$(_v) echo "</IfModule>" >>									$(DSTROOT)$(ConfigFile)
 	$(_v) echo "" >>										$(DSTROOT)$(ConfigFile)

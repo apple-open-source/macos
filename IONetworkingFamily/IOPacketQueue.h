@@ -32,9 +32,23 @@
 #ifndef _IOPACKETQUEUE_H
 #define _IOPACKETQUEUE_H
 
+#ifndef __MBUF_TRANSITION_STRIP
+#ifdef __MBUF_TRANSITION_
+# ifndef __MBUF_PROTO
+#  define __MBUF_PROTO mbuf_t
+# endif
+#else
+# ifndef __MBUF_PROTO
+#  define __MBUF_PROTO struct mbuf *
+# endif
+#endif
+#endif
+
 #include <libkern/c++/OSObject.h>
 #include <IOKit/IOLocks.h>
-
+extern "C" {
+#include <sys/kpi_mbuf.h>
+}
 // Forward declarations.
 //
 struct mbuf;
@@ -46,11 +60,13 @@ struct IOMbufQueue;
 #undef enqueue(queue,elt)
 #undef dequeue(queue)
 
-/*! @class IOPacketQueue : public OSObject
-    @abstract Implements a bounded FIFO queue of mbuf packets. Packets are
+/*! @class IOPacketQueue
+    @abstract Implements a bounded FIFO queue of mbuf packets. 
+    @discussion Packets are
     removed from the head of the queue (dequeue), and new packets are added
     to the tail of the queue (enqueue). A spinlock is used to synchronize
-    access to the queue between methods that have a "lock" prefix. */
+    access to the queue between methods that have a "lock" prefix. 
+*/
 
 class IOPacketQueue : public OSObject
 {   
@@ -66,186 +82,210 @@ protected:
     ExpansionData *_reserved;
 
 /*! @function free
-    @abstract Free the IOPacketQueue object.
+    @abstract Frees the IOPacketQueue object.
     @discussion All packets held by the queue are released back to the free
-    pool, resource are deallocated, then super::free() is called. */
+    pool, resource are deallocated, then super::free() is called. 
+*/
 
     virtual void free();
 
-/*! @var IOPacketQueueDefaultCapacity Describes the default capacity of the 
-    queue object. The capacity is only observed by the enqueue() method.
+/*! @var IOPacketQueueDefaultCapacity 
+    @abstract Describes the default capacity of the 
+    queue object. 
+    @discussion The capacity is only observed by the enqueue() method.
     Therefore, it is possible for the size of the queue to exceed its
     capacity when other methods, such as prepend(), are used to add packets
-    to the queue. */
+    to the queue. 
+*/
 
     static const UInt32 IOPacketQueueDefaultCapacity = 100;
 
 public:
 
 /*! @function withCapacity
-    @abstract Factory method that will construct and initialize an
+    @abstract Factory method that constructs and initializes an
     IOPacketQueue object.
     @param capacity The initial capacity of the queue object. Can be
     later changed by calling the setCapacity() method.
-    @result An IOPacketQueue instance on success, or 0 otherwise. */
+    @result Returns an IOPacketQueue instance on success, or 0 otherwise. 
+*/
 
     static IOPacketQueue * withCapacity(UInt32 capacity = 
                                         IOPacketQueueDefaultCapacity);
 
 /*! @function initWithCapacity
-    @abstract Initialize an IOPacketQueue object.
-    @discussion Initialize an IOPacketQueue object with the given capacity.
+    @abstract Initializes an IOPacketQueue object.
+    @discussion This method initializes an IOPacketQueue object with the given capacity.
     @param capacity The initial capacity of the queue. Can be later changed
     by calling the setCapacity() method.
-    @result true if initialized successfully, false otherwise. */
+    @result Returns true if initialized successfully, false otherwise. 
+*/
 
     virtual bool initWithCapacity(UInt32 capacity = 
                                   IOPacketQueueDefaultCapacity);
 
 /*! @function getSize
-    @abstract Get the size of the queue.
-    @result The number of packets currently held by the queue. */
+    @abstract Gets the size of the queue.
+    @result Returns the number of packets currently held by the queue. 
+*/
 
     virtual UInt32 getSize() const;
 
 /*! @function setCapacity
-    @abstract Change the capacity of the queue.
+    @abstract Changes the capacity of the queue.
     @param capacity The new capacity.
-    @result true if the new capacity was accepted, false otherwise. */
+    @result Returns true if the new capacity was accepted, false otherwise. 
+*/
 
     virtual bool setCapacity(UInt32 capacity);
 
 /*! @function getCapacity
-    @abstract Get the current capacity of the queue.
-    @result The current queue capacity. */
+    @abstract Gets the current capacity of the queue.
+    @result Returns the current queue capacity. 
+*/
 
     virtual UInt32 getCapacity() const;
 
 /*! @function peek
-    @abstract Examine the packet at the head of the queue without
+    @abstract Examines the packet at the head of the queue without
     removing it from the queue.
     @discussion A following call to peek() or dequeue() will return
     the same packet. The caller must never modify the mbuf packet returned.
-    @result The packet at the head of the queue. */
+    @result Returns the packet at the head of the queue. 
+*/
 
-    virtual const struct mbuf * peek() const;
-
-/*! @function prepend
-    @abstract Add a chain of packets to the head of the queue.
-    @param m A chain of packets to add to the head of the queue. */
-
-    virtual void prepend(struct mbuf * m);
+    virtual const __MBUF_PROTO peek() const;
 
 /*! @function prepend
-    @abstract Remove all packets from the specified queue, and add them
+    @abstract Adds a chain of packets to the head of the queue.
+    @param m A chain of packets to add to the head of the queue. 
+*/
+
+    virtual void prepend(__MBUF_PROTO m);
+
+/*! @function prepend
+    @abstract Removes all packets from the specified queue, and adds them
     to the head of this queue.
     @param queue The source IOPacketQueue object containing the packets to
-    be transferred. */
+    be transferred. 
+*/
 
     virtual void prepend(IOPacketQueue * queue);
 
 /*! @function lockPrepend
-    @abstract Add a chain of packets to the head of a synchronized queue.
+    @abstract Adds a chain of packets to the head of a synchronized queue.
     @discussion A spinlock is used to synchronize access to the queue.
     @param m A chain of packets to add to the head of the queue.
-    @result Will always return true. */
+    @result Always returns true. 
+*/
 
-    virtual void lockPrepend(struct mbuf * m);
+    virtual void lockPrepend(__MBUF_PROTO m);
 
 /*! @function enqueue
-    @abstract Add a chain of packets to the tail of the queue.
+    @abstract Adds a chain of packets to the tail of the queue.
     @discussion Packets are not added if the size of the queue has reached
     its capacity.
     @param m A chain of packets to add to the tail of the queue.
-    @result true on success, or false to indicate over-capacity and refusal
-    to accept the packet chain provided. */
+    @result Returns true on success, or false to indicate over-capacity and refusal
+    to accept the packet chain provided. 
+*/
 
-    virtual bool enqueue(struct mbuf * m);
+    virtual bool enqueue(__MBUF_PROTO m);
 
 /*! @function enqueue
-    @abstract Remove all packets from the specified queue, and add them
+    @abstract Removes all packets from the specified queue, and adds them
     to the tail of this queue.
     @param queue The source IOPacketQueue object containing the packets to
     be transferred.
-    @result Always return true. */
+    @result Always returns true. 
+*/
 
     virtual bool enqueue(IOPacketQueue * queue);
 
 /*! @function enqueueWithDrop
-    @abstract Add a chain of packets to the tail of the queue. Packets are
+    @abstract Adds a chain of packets to the tail of the queue. 
+    @discussion Packets are
     dropped if the size of the queue has reached its capacity.
     @param m A chain of packets to add to the tail of the queue.
-    @result The number of packets dropped and freed by the queue. */
+    @result Returns the number of packets dropped and freed by the queue. 
+*/
 
-    virtual UInt32 enqueueWithDrop(struct mbuf * m);
+    virtual UInt32 enqueueWithDrop(__MBUF_PROTO m);
 
 /*! @function lockEnqueue
-    @abstract Add a chain of packets to the tail of a synchronized queue.
+    @abstract Adds a chain of packets to the tail of a synchronized queue.
     @discussion Packets are not added if the size of the queue has reached
     its capacity. A spinlock is used to synchronize access to the queue.
     @param m A chain of packets to add to the tail of the queue.
-    @result true on success, or false to indicate over-capacity and refusal
-    to accept the packet chain provided. */
+    @result Returns true on success, or false to indicate over-capacity and refusal
+    to accept the packet chain provided.
+*/
 
-    virtual bool lockEnqueue(struct mbuf * m);
+    virtual bool lockEnqueue(__MBUF_PROTO m);
 
 /*! @function lockEnqueueWithDrop
-    @abstract Add a chain of packets to the tail of a synchronized queue.
-    Packets are dropped if the size of the queue has reached its capacity.
-    @discussion A spinlock is used to synchronize access to the queue.
+    @abstract Adds a chain of packets to the tail of a synchronized queue.
+    @discussion Packets are dropped if the size of the queue has reached its capacity.  A spinlock is used to synchronize access to the queue.
     @param m A chain of packets to add to the tail of the queue.
-    @result The number of packets dropped and freed by the queue. */
+    @result Returns the number of packets dropped and freed by the queue. 
+*/
 
-    virtual UInt32 lockEnqueueWithDrop(struct mbuf * m);
+    virtual UInt32 lockEnqueueWithDrop(__MBUF_PROTO m);
 
 /*! @function dequeue
-    @abstract Remove a single packet from the head of the queue.
-    @result A packet removed from the head of the queue, or NULL if the
-    queue was empty. */
+    @abstract Removes a single packet from the head of the queue.
+    @result Returns a packet removed from the head of the queue, or NULL if the
+    queue was empty. 
+*/
 
-    virtual struct mbuf * dequeue();
+    virtual __MBUF_PROTO dequeue();
 
 /*! @function lockDequeue
-    @abstract Remove a single packet from the head of a synchronized queue.
+    @abstract Removes a single packet from the head of a synchronized queue.
     @discussion A spinlock is used to synchronize access to the queue.
-    @result A packet removed from the head of the queue, or NULL if the
-    queue was empty. */
+    @result Returns a packet removed from the head of the queue, or NULL if the
+    queue was empty. 
+*/
 
-    virtual struct mbuf * lockDequeue();
+    virtual __MBUF_PROTO lockDequeue();
 
 /*! @function dequeueAll
-    @abstract Remove all packets from the queue and return the head of the
+    @abstract Removes all packets from the queue and returns the head of the
     packet chain.
     @discussion The size of the queue is cleared to zero.
-    @result The head of a packet chain linking all packets that were held
-    in the queue, or NULL if the queue was empty. */
+    @result Returns the head of a packet chain linking all packets that were held
+    in the queue, or NULL if the queue was empty. 
+*/
 
-    virtual struct mbuf * dequeueAll();
+    virtual __MBUF_PROTO dequeueAll();
 
 /*! @function lockDequeueAll
-    @abstract Remove all packets from a synchronized queue and return the
+    @abstract Removes all packets from a synchronized queue and returns the
     head of the packet chain.
     @discussion The size of the queue is cleared to zero. A spinlock is used
     to synchronize access to the queue.
-    @result The head of a packet chain linking all packets that were held
-    in the queue, or NULL if the queue was empty. */
+    @result Returns the head of a packet chain linking all packets that were held
+    in the queue, or NULL if the queue was empty. 
+*/
 
-    virtual struct mbuf * lockDequeueAll();
+    virtual __MBUF_PROTO lockDequeueAll();
 
 /*! @function flush
-    @abstract Free all packets currently held in the queue and release them
+    @abstract Frees all packets currently held in the queue and releases them
     back to the free mbuf pool.
     @discussion The size of the queue is cleared to zero.
-    @result The number of packets freed. */
+    @result Returns the number of packets freed. 
+*/
 
     virtual UInt32 flush();
 
 /*! @function lockFlush
-    @abstract Free all packets currently held in a synchronized queue and
-    release them back to the free mbuf pool.
+    @abstract Frees all packets currently held in a synchronized queue and
+    releases them back to the free mbuf pool.
     @discussion The size of the queue is cleared to zero. A spinlock is used
     to synchronize access to the queue.
-    @result The number of packets freed. */
+    @result Returns the number of packets freed. 
+*/
 
     virtual UInt32 lockFlush();
 

@@ -24,10 +24,18 @@
  * 
  */
 
-#ifdef __EMX__
+#include "file.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+
+#ifndef	lint
+FILE_RCSID("@(#)$Id: apptype.c,v 1.6 2003/11/11 20:01:45 christos Exp $")
+#endif /* lint */
+
+#ifdef __EMX__
 #include <io.h>
 #define INCL_DOSSESMGR
 #define INCL_DOSERRORS
@@ -35,43 +43,37 @@
 #include <os2.h>
 typedef ULONG   APPTYPE;
 
-#include "file.h"
-
-#ifndef	lint
-FILE_RCSID("@(#)$Id: apptype.c,v 1.1 2003/07/02 18:01:22 eseidel Exp $")
-#endif /* lint */
-
 protected int
 file_os2_apptype(struct magic_set *ms, const char *fn, const void *buf,
     size_t nb)
 {
 	APPTYPE         rc, type;
-	char            path[_MAX_PATH], drive[_MAX_DRIVE], dir[_MAX_DIR], fname[_MAX_FNAME],
-	                ext[_MAX_EXT];
+	char            path[_MAX_PATH], drive[_MAX_DRIVE], dir[_MAX_DIR],
+			fname[_MAX_FNAME], ext[_MAX_EXT];
 	char           *filename;
 	FILE           *fp;
 
 	if (fn)
 		filename = strdup(fn);
 	else if ((filename = tempnam("./", "tmp")) == NULL) {
-		error("can't create tempnam (%s).\n", strerror(errno));
+		file_error(ms, errno, "cannot create tempnam");
+		return -1;
 	}
 	/* qualify the filename to prevent extraneous searches */
 	_splitpath(filename, drive, dir, fname, ext);
-	sprintf(path, "%s%s%s%s", drive,
+	(void)sprintf(path, "%s%s%s%s", drive,
 		(*dir == '\0') ? "./" : dir,
 		fname,
 		(*ext == '\0') ? "." : ext);
 
 	if (fn == NULL) {
 		if ((fp = fopen(path, "wb")) == NULL) {
-			file_error("Can't open tmp file `%s' (%s)", path,
-			    strerror(errno));
+			file_error(ms, errno, "cannot open tmp file `%s'", path);
 			return -1;
 		}
 		if (fwrite(buf, 1, nb, fp) != nb) {
-			file_error("Can't write tmp file `%s' (%s)", path,
-			    strerror(errno));
+			file_error(ms, errno, "cannot write tmp file `%s'",
+			    path);
 			return -1;
 		}
 		(void)fclose(fp);

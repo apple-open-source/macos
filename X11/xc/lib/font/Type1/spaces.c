@@ -26,7 +26,7 @@
  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
  * THIS SOFTWARE.
  */
-/* $XFree86: xc/lib/font/Type1/spaces.c,v 3.10 2002/02/18 20:51:57 herrb Exp $ */
+/* $XFree86: xc/lib/font/Type1/spaces.c,v 3.11 2003/05/27 22:26:47 tsi Exp $ */
  /* SPACES   CWEB         V0021 ********                             */
 /*
 :h1 id=spaces.SPACES Module - Handles Coordinate Spaces
@@ -281,8 +281,6 @@ Context(pointer device,      /* device token                                 */
        double M[2][2];       /* device transformation matrix                 */
        register int n;       /* will hold device context number              */
        register struct XYspace *S;  /* XYspace constructed                   */
- 
-       IfTrace2((MustTraceCalls),"Context(%x, %f)\n", device, &units);
  
        ARGCHECK((device == NULL), "Context of NULLDEVICE not allowed",
                     NULL, IDENTITY, (0), struct XYspace *);
@@ -751,9 +749,6 @@ t1_Transform(struct xobject *obj,
 {
        double M[2][2];
  
-       IfTrace1((MustTraceCalls),"Transform(%z,", obj);
-       IfTrace4((MustTraceCalls)," %f %f %f %f)\n", &cxx, &cyx, &cxy, &cyy);
- 
        M[0][0] = cxx;
        M[0][1] = cyx;
        M[1][0] = cxy;
@@ -772,7 +767,7 @@ t1_Scale(struct xobject *obj,  /* object to scale                            */
 	 double sx, double sy) /* scale factors in x and y                   */
 {
        double M[2][2];
-       IfTrace3((MustTraceCalls),"Scale(%z, %f, %f)\n", obj, &sx, &sy);
+
        M[0][0] = sx;
        M[1][1] = sy;
        M[1][0] = M[0][1] = 0.0;
@@ -793,9 +788,6 @@ xiRotate(struct xobject *obj, /* object to be transformed                    */
 	 double degrees)      /* degrees of COUNTER-clockwise rotation       */
 {
        double M[2][2];
- 
- 
-       IfTrace2((MustTraceCalls),"Rotate(%z, %f)\n", obj, &degrees);
  
        M[0][0] = M[1][1] = DegreeCos(degrees);
        M[1][0] = - (M[0][1] = DegreeSin(degrees));
@@ -1000,12 +992,4 @@ FormatFP(char *string,         /* output string                              */
 void 
 DumpSpace(struct XYspace *S)
 {
-       IfTrace4(TRUE,"--Coordinate space at %x,ID=%d,convert=%x,iconvert=%x\n",
-                   S, S->ID, S->convert, S->iconvert);
-       IfTrace2(TRUE,"             |  %12.3f  %12.3f  |",
-                   &S->tofract.normal[0][0], &S->tofract.normal[0][1]);
-       IfTrace2(TRUE,"   [  %p  %p ]\n", S->itofract[0][0], S->itofract[0][1]);
-       IfTrace2(TRUE,"             |  %12.3f  %12.3f  |",
-                   &S->tofract.normal[1][0], &S->tofract.normal[1][1]);
-       IfTrace2(TRUE,"   [  %p  %p ]\n", S->itofract[1][0], S->itofract[1][1]);
 }

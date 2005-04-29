@@ -1,6 +1,6 @@
 // Specific definitions for HPUX  -*- C++ -*-
 
-// Copyright (C) 2000, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2002, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,8 +27,8 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _GLIBCPP_OS_DEFINES
-#define _GLIBCPP_OS_DEFINES 1
+#ifndef _GLIBCXX_OS_DEFINES
+#define _GLIBCXX_OS_DEFINES 1
 
 // System-specific #define, typedefs, corrections, etc, go here.  This
 // file will come before all others.
@@ -58,7 +58,7 @@
    unconditionally, which makes intmax_t and uintmax_t long long
    types.
 
-   We also force _GLIBCPP_USE_LONG_LONG here so that we don't have
+   We also force _GLIBCXX_USE_LONG_LONG here so that we don't have
    to bastardize configure to deal with this sillyness.  */
 namespace std 
 {
@@ -75,23 +75,25 @@ namespace std
 #endif
 }
 
-#define _GLIBCPP_USE_LONG_LONG 1
+#define _GLIBCXX_USE_LONG_LONG 1
 
 // HPUX on IA64 requires vtable to be 64 bit aligned even at 32 bit
 // mode.  We need to pad the vtable structure to achieve this.  
 #if !defined(_LP64) && defined (__ia64__)
-#define _GLIBCPP_VTABLE_PADDING 8
+#define _GLIBCXX_VTABLE_PADDING 8
 typedef long int __padding_type;
 #endif
 
-/* We need explicit instantiation of the atomicity lock on HPPA if
-   there is no weak support.  */
-#if !defined(_GLIBCPP_SUPPORTS_WEAK) && defined (__hppa__)
-#define _GLIBCPP_INST_ATOMICITY_LOCK 1
+// GCC on IA64 HP-UX uses the HP-UX system unwind library,
+// it does not have the _Unwind_Resume_or_Rethrow entry point
+// because that is not part of the standard IA64 Unwind ABI.
+#if defined (__ia64__)
+#define _LIBUNWIND_STD_ABI 1
 #endif
 
-/* Don't use pragma weak in gthread headers.  */
-#ifdef __hppa__
-#define _GLIBCPP_GTHREAD_USE_WEAK 0
-#endif
+/* Don't use pragma weak in gthread headers.  HP-UX rejects programs
+   with unsatisfied external references even if all of those references
+   are weak; gthread relies on such unsatisfied references being resolved
+   to null pointers when weak symbol support is on.  */
+#define _GLIBCXX_GTHREAD_USE_WEAK 0
 #endif

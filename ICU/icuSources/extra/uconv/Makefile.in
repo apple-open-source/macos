@@ -1,6 +1,6 @@
 ## ******************************************************************************
 ## *
-## *   Copyright (C) 1999-2000, International Business Machines
+## *   Copyright (C) 1999-2004, International Business Machines
 ## *   Corporation and others.  All Rights Reserved.
 ## *
 ## *******************************************************************************
@@ -30,18 +30,24 @@ RESFILES=$(RESSRC:$(RESOURCESDIR)$(FILESEPCHAR)%.txt=$(RESDIR)/$(RESOURCESDIR)$(
 
 ##
 
+TARGET_STUB_NAME = uconv
+
 SECTION = 1
 
-ALL_MAN_FILES = $(TARGET).$(SECTION)
+ALL_MAN_FILES = $(TARGET_STUB_NAME).$(SECTION)
 
 ## Extra files to remove for 'make clean'
 CLEANFILES = *~ $(DEPS) $(ALL_MAN_FILES)
 
 ## Target information
-TARGET = uconv
+TARGET = $(BINDIR)/$(TARGET_STUB_NAME)$(EXEEXT)
 
 CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(srcdir)/../toolutil
 LIBS = $(LIBICUI18N) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
+
+ifeq ($(PKGDATA_OPTS),)
+PKGDATA_OPTS = -O pkgdata.inc
+endif
 
 ## generic settings for data - common.
 PKGMODE=common
@@ -51,7 +57,7 @@ UCONVMSG_LIB=dummy
 ## Static mode
 ifeq ($(UCONVMSG_MODE),static)
 DEFS += -DUCONVMSG_LINK=$(MSGNAME)
-UCONVMSG_LIB = $(RESDIR)/lib$(MSGNAME).a
+UCONVMSG_LIB = $(RESDIR)/$(LIBPREFIX)$(MSGNAME).$(A)
 LIBS += $(UCONVMSG_LIB)
 PKGMODE=static
 INSTALLTO=$(libdir)
@@ -91,7 +97,7 @@ install-local: all-local install-target install-resfiles install-man
 
 install-target: all-local
 	$(MKINSTALLDIRS) $(DESTDIR)$(bindir)
-	$(INSTALL) $(TARGET) $(DESTDIR)$(bindir)/$(TARGET)
+	$(INSTALL) $(TARGET) $(DESTDIR)$(bindir)
 
 dist-local:
 
@@ -100,7 +106,7 @@ clean-local: resclean
 	$(RMV) $(OBJECTS) $(TARGET)
 
 resclean:
-	-$(INVOKE) $(top_builddir)/tools/pkgdata/pkgdata --clean -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
+	#-$(INVOKE) $(BINDIR)/pkgdata --clean -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
 	$(RMV) pkgdata.inc $(RESDIR)
 
 distclean-local: clean-local
@@ -116,8 +122,12 @@ pkgdata.inc: $(srcdir)/pkgdata.inc.in  $(top_builddir)/config.status
 	cd $(top_builddir) \
 	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
+%.$(SECTION): $(srcdir)/%.$(SECTION).in $(srcdir)/pkgdata.inc.in
+	cd $(top_builddir) \
+	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
 $(TARGET) : $(OBJECTS)  $(UCONVMSG_LIB)
-	$(LINK.cc) -o $@ $(OBJECTS) $(LIBS)
+	$(LINK.cc) $(OUTOPT)$@ $(OBJECTS) $(LIBS)
 
 resfiles: $(RESFILES) package-resfiles
 
@@ -127,20 +137,20 @@ endif
 
 
 package-resfiles: $(RESDIR)/$(RESDIR).lst pkgdata.inc
-	$(INVOKE) $(top_builddir)/tools/pkgdata/pkgdata -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
+	$(INVOKE) $(PKGDATA_INVOKE_OPTS) $(BINDIR)/pkgdata -p $(RESDIR) $(PKGDATA_OPTS) -m $(PKGMODE) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
 
 $(RESDIR)/$(RESDIR).lst: Makefile pkgdata.inc $(srcdir)/resfiles.mk
 	@$(MKINSTALLDIRS) $(RESDIR)
 	@-$(RMV) $@
 	@for file in $(RESFILES); do \
-	  echo `pwd`/$$file >> $@; \
+	  echo $(CURR_FULL_DIR)/$$file >> $@; \
 	done;
 
 # no install for static mode
 ifneq ($(UCONVMSG_MODE),static)
 install-resfiles: $(RESFILES)
 	$(MKINSTALLDIRS) $(DESTDIR)$(ICUDATA_DIR)
-	$(INVOKE) $(top_builddir)/tools/pkgdata/pkgdata -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -I $(INSTALLTO) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
+	$(INVOKE) $(BINDIR)/pkgdata -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -I $(INSTALLTO) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
 endif
 
 ##
@@ -148,18 +158,11 @@ $(UCONVMSG_LIB): resfiles
 
 $(RESDIR)/$(RESOURCESDIR)/$(MSGNAME)_%.res: $(srcdir)/$(RESOURCESDIR)/%.txt
 	$(MKINSTALLDIRS) $(@D)
-	$(INVOKE) $(top_builddir)/tools/genrb/genrb -p $(MSGNAME) -e UTF-8 -s $(^D) -d $(@D) $(^F)
+	$(INVOKE) $(BINDIR)/genrb -p $(MSGNAME) -e UTF-8 -s $(^D) -d $(@D) $(^F)
 
 install-man: $(ALL_MAN_FILES)
 	$(MKINSTALLDIRS) $(DESTDIR)$(mandir)/man$(SECTION)
 	$(INSTALL_DATA) $? $(DESTDIR)$(mandir)/man$(SECTION)
 
-%.$(SECTION): $(srcdir)/%.$(SECTION).in
-	cd $(top_builddir) \
-	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-# Don't do this.  This is a problem when changing platforms.
-#ifneq ($(MAKECMDGOALS),distclean)
-#-include $(DEPS)
-#endif
 

@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---            Copyright (C) 1998-2001 Ada Core Technologies, Inc.           --
+--            Copyright (C) 1998-2004 Ada Core Technologies, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -20,7 +19,8 @@
 -- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
--- GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).   --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -37,11 +37,6 @@ with Hostparm;
 
 procedure Gnatchop is
 
-   Cwrite : constant String :=
-              "GNATCHOP " &
-              Gnatvsn.Gnat_Version_String  &
-              " Copyright 1998-2000, Ada Core Technologies Inc.";
-
    Terminate_Program : exception;
    --  Used to terminate execution immediately
 
@@ -57,9 +52,13 @@ procedure Gnatchop is
    Gnat_Cmd : String_Access;
    --  Command to execute the GNAT compiler
 
-   Gnat_Args : Argument_List_Access   := new Argument_List'
-     (new String'("-c"), new String'("-x"), new String'("ada"),
-      new String'("-gnats"), new String'("-gnatu"));
+   Gnat_Args : Argument_List_Access :=
+                 new Argument_List'
+                   (new String'("-c"),
+                    new String'("-x"),
+                    new String'("ada"),
+                    new String'("-gnats"),
+                    new String'("-gnatu"));
    --  Arguments used in Gnat_Cmd call
 
    EOF : constant Character := Character'Val (26);
@@ -207,7 +206,7 @@ procedure Gnatchop is
    -- Local subprograms --
    -----------------------
 
-   procedure Error_Msg (Message : String);
+   procedure Error_Msg (Message : String; Warning : Boolean := False);
    --  Produce an error message on standard error output
 
    procedure File_Time_Stamp (Name : C_File_Name; Time : OS_Time);
@@ -337,13 +336,16 @@ procedure Gnatchop is
    -- Error_Msg --
    ---------------
 
-   procedure Error_Msg (Message : String) is
+   procedure Error_Msg (Message : String; Warning : Boolean := False) is
    begin
       Put_Line (Standard_Error, Message);
-      Set_Exit_Status (Failure);
 
-      if Exit_On_Error then
-         raise Terminate_Program;
+      if not Warning then
+         Set_Exit_Status (Failure);
+
+         if Exit_On_Error then
+            raise Terminate_Program;
+         end if;
       end if;
    end Error_Msg;
 
@@ -373,7 +375,8 @@ procedure Gnatchop is
 
          if not Is_Duplicated (SNum) then
             declare
-               Info : Unit_Info := Unit.Table (Sorted_Units.Table (SNum));
+               Info : constant Unit_Info :=
+                        Unit.Table (Sorted_Units.Table (SNum));
 
             begin
                if Is_Writable_File (Info.File_Name.all) then
@@ -585,10 +588,10 @@ procedure Gnatchop is
    ----------------
 
    function Parse_File (Num : File_Num) return Boolean is
-      Chop_Name   : constant String_Access := File.Table (Num).Name;
+      Chop_Name   : constant String_Access   := File.Table (Num).Name;
+      Save_Stdout : constant File_Descriptor := dup (Standout);
       Offset_Name : Temp_File_Name;
       Offset_FD   : File_Descriptor;
-      Save_Stdout : File_Descriptor := dup (Standout);
       Buffer      : String_Access;
       Success     : Boolean;
       Failure     : exception;
@@ -688,9 +691,9 @@ procedure Gnatchop is
      (Chop_File : File_Num;
       Source    : access String)
    is
-      First_Unit : Unit_Num      := Unit.Last + 1;
-      Bufferg    : String_Access := null;
-      Parse_Ptr  : File_Offset   := Source'First;
+      First_Unit : constant Unit_Num := Unit.Last + 1;
+      Bufferg    : String_Access     := null;
+      Parse_Ptr  : File_Offset       := Source'First;
       Token_Ptr  : File_Offset;
       Info       : Unit_Info;
 
@@ -1107,6 +1110,7 @@ procedure Gnatchop is
                            else
                               Error_Msg ("-k# requires numeric parameter");
                            end if;
+
                            return False;
                         end if;
                      end loop;
@@ -1126,23 +1130,31 @@ procedure Gnatchop is
                end;
 
             when 'p' =>
-               Preserve_Mode     := True;
+               Preserve_Mode := True;
 
             when 'q' =>
-               Quiet_Mode        := True;
+               Quiet_Mode := True;
 
             when 'r' =>
                Source_References := True;
 
             when 'v' =>
-               Verbose_Mode      := True;
-               Put_Line (Standard_Error, Cwrite);
+               Verbose_Mode := True;
+
+               --  Why is following written to standard error. Most other
+               --  tools write to standard output ???
+
+               Put (Standard_Error, "GNATCHOP ");
+               Put (Standard_Error, Gnatvsn.Gnat_Version_String);
+               Put_Line
+                 (Standard_Error,
+                  " Copyright 1998-2004, Ada Core Technologies Inc.");
 
             when 'w' =>
-               Overwrite_Files   := True;
+               Overwrite_Files := True;
 
             when 'x' =>
-               Exit_On_Error     := True;
+               Exit_On_Error := True;
 
             when others =>
                null;
@@ -1660,6 +1672,38 @@ procedure Gnatchop is
 --  Start of processing for gnatchop
 
 begin
+   --  Add the directory where gnatchop is invoked in front of the
+   --  path, if gnatchop is invoked with directory information.
+   --  Only do this if the platform is not VMS, where the notion of path
+   --  does not really exist.
+
+   if not Hostparm.OpenVMS then
+      declare
+         Command : constant String := Command_Name;
+
+      begin
+         for Index in reverse Command'Range loop
+            if Command (Index) = Directory_Separator then
+               declare
+                  Absolute_Dir : constant String :=
+                                   Normalize_Pathname
+                                     (Command (Command'First .. Index));
+
+                  PATH         : constant String :=
+                                   Absolute_Dir &
+                  Path_Separator &
+                  Getenv ("PATH").all;
+
+               begin
+                  Setenv ("PATH", PATH);
+               end;
+
+               exit;
+            end if;
+         end loop;
+      end;
+   end if;
+
    --  Process command line options and initialize global variables
 
    if not Scan_Arguments then
@@ -1687,7 +1731,7 @@ begin
 
    if Unit.Last = 0 then
       if not Write_gnat_adc then
-         Error_Msg ("no compilation units found");
+         Error_Msg ("no compilation units found", Warning => True);
       end if;
 
       goto No_Files_Written;
@@ -1725,9 +1769,9 @@ begin
 
    if Warning_Count > 0 then
       declare
-         Warnings_Msg : String := Warning_Count'Img & " warning(s)";
+         Warnings_Msg : constant String := Warning_Count'Img & " warning(s)";
       begin
-         Error_Msg (Warnings_Msg (2 .. Warnings_Msg'Last));
+         Error_Msg (Warnings_Msg (2 .. Warnings_Msg'Last), Warning => True);
       end;
    end if;
 
@@ -1739,7 +1783,7 @@ begin
    --  been written.
 
    if not Write_gnat_adc then
-      Error_Msg ("no source files written");
+      Error_Msg ("no source files written", Warning => True);
    end if;
 
    return;

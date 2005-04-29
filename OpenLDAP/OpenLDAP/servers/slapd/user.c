@@ -1,18 +1,19 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/user.c,v 1.17.2.2 2003/03/03 17:10:07 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/* user.c - set user id, group id and group access list
+/* user.c - set user id, group id and group access list */
+/* $OpenLDAP: pkg/ldap/servers/slapd/user.c,v 1.19.2.2 2004/01/01 18:16:35 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999 by PM Lashley.
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999 PM Lashley.
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted only
- * as authorized by the OpenLDAP Public License.  A copy of this
- * license is available at http://www.OpenLDAP.org/license.html or
- * in file LICENSE in the top-level directory of the distribution.
-*/
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
 
 #include "portable.h"
 

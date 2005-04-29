@@ -20,3 +20,6 @@ vendorman1dir='/usr/local/man/man1'
 vendorman3dir='/usr/local/man/man3'
 installusrbinperl='define'
 usevendorprefix='define'
+d_poll='undef'
+i_poll='undef'
+dlsrc=dl_dlopen.xs

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XGrKeybrd.man,v 1.2 2001/01/27 18:20:00 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XGrKeybrd.man,v 1.3 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,23 +144,12 @@
 .SH NAME
 XGrabKeyboard, XUngrabKeyboard \- grab the keyboard
 .SH SYNTAX
-int XGrabKeyboard\^(\^\fIdisplay\fP, \fIgrab_window\fP\^, \fIowner_events\fP\^, \fIpointer_mode\fP\^, \fIkeyboard_mode\fP\^, \fItime\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIgrab_window\fP\^;
-.br
-      Bool \fIowner_events\fP\^;
-.br
-      int \fIpointer_mode\fP\^, \fIkeyboard_mode\fP\^;
-.br
-      Time \fItime\fP\^;
-.LP
-XUngrabKeyboard\^(\^\fIdisplay\fP, \fItime\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Time \fItime\fP\^;
+.HP
+int XGrabKeyboard\^(\^Display *\fIdisplay\fP\^, Window \fIgrab_window\fP\^,
+Bool \fIowner_events\fP\^, int \fIpointer_mode\fP\^, int
+\fIkeyboard_mode\fP\^, Time \fItime\fP\^); 
+.HP
+int XUngrabKeyboard\^(\^Display *\fIdisplay\fP\^, Time \fItime\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

@@ -78,7 +78,7 @@ summary(void)
 	}
 	if (st.trunc) {
 		(void)snprintf(buf, sizeof(buf), "%qu truncated %s\n",
-		     st.trunc, (st.trunc == 1) ? "block" : "blocks");
+		     st.trunc, (st.trunc == 1) ? "record" : "records");
 		(void)write(STDERR_FILENO, buf, strlen(buf));
 	}
 	(void)snprintf(buf, sizeof(buf),

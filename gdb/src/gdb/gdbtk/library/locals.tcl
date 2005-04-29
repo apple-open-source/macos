@@ -82,10 +82,6 @@ itcl::class LocalsWin {
     set tree [VarTree $f.tree -type "local"]
     pack $f.tree -expand yes -fill both
     pack $f -expand yes -fill both
-    if {$::tcl_platform(platform) == "windows"} {
-#      ide_sizebox [namespace tail $this].sizebox
-#      place [namespace tail $this].sizebox -relx 1 -rely 1 -anchor se
-    }
     
     window_name "Local Variables"
     ::update idletasks

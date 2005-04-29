@@ -1,7 +1,50 @@
-/* $XFree86: xc/programs/Xserver/Xext/xf86misc.c,v 3.37 2002/11/20 04:04:58 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/Xext/xf86misc.c,v 3.42 2004/02/13 23:58:30 dawes Exp $ */
 
 /*
  * Copyright (c) 1995, 1996  The XFree86 Project, Inc
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /* THIS IS NOT AN X CONSORTIUM STANDARD */
@@ -54,9 +97,7 @@ typedef struct {
 #define MPRIV(c) ((c)->devPrivates[MiscClientPrivateIndex].ptr)
 
 static void XF86MiscResetProc(
-#if NeedFunctionPrototypes
     ExtensionEntry* /* extEntry */
-#endif
 );
 
 static void
@@ -84,6 +125,7 @@ static DISPATCH_PROC(ProcXF86MiscSetMouseSettings);
 static DISPATCH_PROC(ProcXF86MiscSetGrabKeysState);
 static DISPATCH_PROC(ProcXF86MiscSetClientVersion);
 static DISPATCH_PROC(ProcXF86MiscGetFilePaths);
+static DISPATCH_PROC(ProcXF86MiscPassMessage);
 #ifdef _XF86MISC_SAVER_COMPAT_
 static DISPATCH_PROC(ProcXF86MiscGetSaver);
 static DISPATCH_PROC(ProcXF86MiscSetSaver);
@@ -97,12 +139,15 @@ static DISPATCH_PROC(SProcXF86MiscSetMouseSettings);
 static DISPATCH_PROC(SProcXF86MiscSetGrabKeysState);
 static DISPATCH_PROC(SProcXF86MiscSetClientVersion);
 static DISPATCH_PROC(SProcXF86MiscGetFilePaths);
+static DISPATCH_PROC(SProcXF86MiscPassMessage);
 #ifdef _XF86MISC_SAVER_COMPAT_
 static DISPATCH_PROC(SProcXF86MiscGetSaver);
 static DISPATCH_PROC(SProcXF86MiscSetSaver);
 #endif
 
+#if 0
 static unsigned char XF86MiscReqCode = 0;
+#endif
 
 #ifdef DEBUG
 # define DEBUG_P(x) ErrorF(x"\n");
@@ -148,7 +193,9 @@ XFree86MiscExtensionInit(void)
 				SProcXF86MiscDispatch,
 				XF86MiscResetProc,
 				StandardMinorOpcode))) {
+#if 0
 	XF86MiscReqCode = (unsigned char)extEntry->base;
+#endif
 	miscErrorBase = extEntry->errorBase;
     }
 }
@@ -354,14 +401,13 @@ ProcXF86MiscSetMouseSettings(client)
     
     if (xf86GetVerbosity() > 1) {
 	ErrorF("SetMouseSettings - type: %d brate: %d srate: %d chdmid: %d\n",
-		stuff->mousetype, stuff->baudrate,
-		stuff->samplerate, stuff->chordmiddle);
-	ErrorF("                   em3but: %d em3tim: %d res: %d flags: %d\n",
-		stuff->emulate3buttons, stuff->emulate3timeout,
-		stuff->resolution, stuff->flags);
+		(int)stuff->mousetype, (int)stuff->baudrate,
+		(int)stuff->samplerate, stuff->chordmiddle);
+	ErrorF("                   em3but: %d em3tim: %d res: %d flags: %ld\n",
+		stuff->emulate3buttons, (int)stuff->emulate3timeout,
+		(int)stuff->resolution, (unsigned long)stuff->flags);
     }
 
-    
     if ((mouse = MiscExtCreateStruct(MISC_POINTER)) == (pointer) 0)
 	return BadAlloc;
 
@@ -427,8 +473,8 @@ ProcXF86MiscSetKbdSettings(client)
 
     if (xf86GetVerbosity() > 1)
 	ErrorF("SetKbdSettings - type: %d rate: %d delay: %d snumlk: %d\n",
-		stuff->kbdtype, stuff->rate,
-		stuff->delay, stuff->servnumlock);
+		(int)stuff->kbdtype, (int)stuff->rate,
+		(int)stuff->delay, stuff->servnumlock);
 
     if ((kbd = MiscExtCreateStruct(MISC_KEYBOARD)) == (pointer) 0)
 	return BadAlloc;
@@ -555,6 +601,59 @@ ProcXF86MiscGetFilePaths(client)
 }
 
 static int
+ProcXF86MiscPassMessage(client)
+    register ClientPtr client;
+{
+    xXF86MiscPassMessageReply rep;
+    char *msgtype, *msgval, *retstr;
+    int retval, size;
+    register int n;
+
+    REQUEST(xXF86MiscPassMessageReq);
+
+    DEBUG_P("XF86MiscPassMessage");
+
+    REQUEST_AT_LEAST_SIZE(xXF86MiscPassMessageReq);
+    size = (sizeof(xXF86MiscPassMessageReq) + 3) >> 2;
+    size+= (stuff->typelen + 3) >> 2;
+    size+= (stuff->vallen  + 3) >> 2;
+    if (client->req_len < size)
+	return BadLength;
+    if (stuff->typelen) {
+	if (!(msgtype = xalloc(stuff->typelen)))
+	    return BadAlloc;
+	strncpy(msgtype,(char*)(&stuff[1]),stuff->typelen);
+    } else return BadValue;
+    if (stuff->vallen) {
+	if (!(msgval = xalloc(stuff->vallen)))
+	    return BadAlloc;
+	strncpy(msgval,(char*)(&stuff[1] + ((stuff->typelen + 3) & ~3)),
+			stuff->vallen);
+    } else return BadValue;
+
+    if ((retval= MiscExtPassMessage(stuff->screen,msgtype,msgval,&retstr)) != 0)
+	return retval;
+
+    rep.type = X_Reply;
+    rep.sequenceNumber = client->sequence;
+    rep.mesglen = (retstr? strlen(retstr): 0);
+    rep.length = (SIZEOF(xXF86MiscPassMessageReply) - SIZEOF(xGenericReply) +
+		  ((rep.mesglen + 3) & ~3)) >> 2;
+    
+    if (client->swapped) {
+    	swaps(&rep.sequenceNumber, n);
+    	swapl(&rep.length, n);
+    	swaps(&rep.mesglen, n);
+    }
+    WriteToClient(client, SIZEOF(xXF86MiscPassMessageReply), (char *)&rep);
+    
+    if (rep.mesglen)
+        WriteToClient(client, rep.mesglen, (char *)retstr);
+
+    return (client->noClientException);
+}
+
+static int
 ProcXF86MiscDispatch (client)
     register ClientPtr	client;
 {
@@ -577,6 +676,8 @@ ProcXF86MiscDispatch (client)
 		return ProcXF86MiscSetClientVersion(client);
     case X_XF86MiscGetFilePaths:
 	return ProcXF86MiscGetFilePaths(client);
+    case X_XF86MiscPassMessage:
+	return ProcXF86MiscPassMessage(client);
     default:
 	if (!xf86GetModInDevEnabled())
 	    return miscErrorBase + XF86MiscModInDevDisabled;
@@ -724,6 +825,17 @@ SProcXF86MiscGetFilePaths(client)
 }
 
 static int
+SProcXF86MiscPassMessage(client)
+    ClientPtr client;
+{
+    register int n;
+    REQUEST(xXF86MiscPassMessageReq);
+    swaps(&stuff->length, n);
+    REQUEST_SIZE_MATCH(xXF86MiscPassMessageReq);
+    return ProcXF86MiscPassMessage(client);
+}
+
+static int
 SProcXF86MiscDispatch (client)
     register ClientPtr	client;
 {
@@ -746,6 +858,8 @@ SProcXF86MiscDispatch (client)
 	return SProcXF86MiscSetClientVersion(client);
     case X_XF86MiscGetFilePaths:
 	return SProcXF86MiscGetFilePaths(client);
+    case X_XF86MiscPassMessage:
+	return SProcXF86MiscPassMessage(client);
     default:
 	if (!xf86GetModInDevEnabled())
 	    return miscErrorBase + XF86MiscModInDevDisabled;

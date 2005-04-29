@@ -1,26 +1,21 @@
-/******************************************************************************
+/* $OpenLDAP: pkg/ldap/libraries/librewrite/session.c,v 1.6.2.4 2004/01/01 18:16:32 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright (C) 2000 Pierangelo Masarati, <ando@sys-net.it>
+ * Copyright 2000-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
  *
- * 1. The author is not responsible for the consequences of use of this
- * software, no matter how awful, even if they arise from flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- * explicit claim or by omission.  Since few users ever read sources,
- * credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- * misrepresented as being the original software.  Since few users
- * ever read sources, credits should appear in the documentation.
- * 
- * 4. This notice may not be removed or altered.
- *
- ******************************************************************************/
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENT:
+ * This work was initially developed by Pierangelo Masarati for
+ * inclusion in OpenLDAP Software.
+ */
 
 #include <portable.h>
 
@@ -190,11 +185,12 @@ rewrite_session_return(
  * Defines and inits a var with session scope
  */
 int
-rewrite_session_var_set(
+rewrite_session_var_set_f(
 		struct rewrite_info *info,
 		const void *cookie,
 		const char *name,
-		const char *value
+		const char *value,
+		int flags
 )
 {
 	struct rewrite_session *session;
@@ -217,11 +213,11 @@ rewrite_session_var_set(
 	var = rewrite_var_find( session->ls_vars, name );
 	if ( var != NULL ) {
 		assert( var->lv_value.bv_val != NULL );
-		free( var->lv_value.bv_val );
-		var->lv_value.bv_val = strdup( value );
-		var->lv_value.bv_len = strlen( value );
+
+		(void)rewrite_var_replace( var, value, flags );
+
 	} else {
-		var = rewrite_var_insert( &session->ls_vars, name, value );
+		var = rewrite_var_insert_f( &session->ls_vars, name, value, flags );
 		if ( var == NULL ) {
 #ifdef USE_REWRITE_LDAP_PVT_THREADS
 			ldap_pvt_thread_rdwr_wunlock( &session->ls_vars_mutex );
@@ -317,23 +313,27 @@ rewrite_session_delete(
 	
 	session = rewrite_session_find( info, cookie );
 
-	if ( session != NULL ) {
-		if ( --session->ls_count > 0 ) {
-			rewrite_session_return( info, session );
-			return REWRITE_SUCCESS;
-		}
-
-#ifdef USE_REWRITE_LDAP_PVT_THREADS
-		ldap_pvt_thread_rdwr_wlock( &session->ls_vars_mutex );
-#endif /* USE_REWRITE_LDAP_PVT_THREADS */
-
-		rewrite_var_delete( session->ls_vars );
-
-#ifdef USE_REWRITE_LDAP_PVT_THREADS
-		ldap_pvt_thread_rdwr_destroy( &session->ls_vars_mutex );
-		ldap_pvt_thread_mutex_destroy( &session->ls_mutex );
-#endif /* USE_REWRITE_LDAP_PVT_THREADS */
+	if ( session == NULL ) {
+		return REWRITE_SUCCESS;
 	}
+
+	if ( --session->ls_count > 0 ) {
+		rewrite_session_return( info, session );
+		return REWRITE_SUCCESS;
+	}
+
+#ifdef USE_REWRITE_LDAP_PVT_THREADS
+	ldap_pvt_thread_rdwr_wlock( &session->ls_vars_mutex );
+#endif /* USE_REWRITE_LDAP_PVT_THREADS */
+
+	rewrite_var_delete( session->ls_vars );
+
+#ifdef USE_REWRITE_LDAP_PVT_THREADS
+	ldap_pvt_thread_rdwr_wunlock( &session->ls_vars_mutex );
+	ldap_pvt_thread_rdwr_destroy( &session->ls_vars_mutex );
+	ldap_pvt_thread_mutex_unlock( &session->ls_mutex );
+	ldap_pvt_thread_mutex_destroy( &session->ls_mutex );
+#endif /* USE_REWRITE_LDAP_PVT_THREADS */
 
 #ifdef USE_REWRITE_LDAP_PVT_THREADS
 	ldap_pvt_thread_rdwr_wlock( &info->li_cookies_mutex );

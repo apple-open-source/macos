@@ -1,0 +1,19 @@
+*** zutil.c.orig	Fri Jul 14 22:13:46 2000
+--- zutil.c	Sat Jul 15 14:09:42 2000
+***************
+*** 211,217 ****
+      unsigned size;
+  {
+      if (opaque) items += size - size; /* make compiler happy */
+!     return (voidpf)calloc(items, size);
+  }
+  
+  void  zcfree (opaque, ptr)
+--- 211,217 ----
+      unsigned size;
+  {
+      if (opaque) items += size - size; /* make compiler happy */
+!     return (voidpf)malloc(items*size);
+  }
+  
+  void  zcfree (opaque, ptr)

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2000-2001, International Business Machines
+*   Copyright (C) 2000-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -19,8 +19,9 @@
 #include "unicode/utypes.h"
 #include "unicode/uchar.h"
 #include "unicode/ustring.h"
-#include "cmemory.h"
 #include "unicode/ushape.h"
+#include "cmemory.h"
+#include "putilimp.h"
 #include "ustr_imp.h"
 
 #if UTF_SIZE<16

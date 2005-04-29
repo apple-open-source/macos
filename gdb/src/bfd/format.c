@@ -1,5 +1,5 @@
 /* Generic BFD support for file formats.
-   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1999, 2000, 2001, 2002
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Written by Cygnus Support.
 
@@ -52,7 +52,7 @@ FUNCTION
 	bfd_check_format
 
 SYNOPSIS
-	bfd_boolean bfd_check_format(bfd *abfd, bfd_format format);
+	bfd_boolean bfd_check_format (bfd *abfd, bfd_format format);
 
 DESCRIPTION
 	Verify if the file attached to the BFD @var{abfd} is compatible
@@ -86,9 +86,7 @@ DESCRIPTION
 */
 
 bfd_boolean
-bfd_check_format (abfd, format)
-     bfd *abfd;
-     bfd_format format;
+bfd_check_format (bfd *abfd, bfd_format format)
 {
   return bfd_check_format_matches (abfd, format, NULL);
 }
@@ -98,7 +96,8 @@ FUNCTION
 	bfd_check_format_matches
 
 SYNOPSIS
-	bfd_boolean bfd_check_format_matches(bfd *abfd, bfd_format format, char ***matching);
+	bfd_boolean bfd_check_format_matches
+	  (bfd *abfd, bfd_format format, char ***matching);
 
 DESCRIPTION
 	Like <<bfd_check_format>>, except when it returns FALSE with
@@ -113,10 +112,7 @@ DESCRIPTION
 */
 
 bfd_boolean
-bfd_check_format_matches (abfd, format, matching)
-     bfd *abfd;
-     bfd_format format;
-     char ***matching;
+bfd_check_format_matches (bfd *abfd, bfd_format format, char ***matching)
 {
   extern const bfd_target binary_vec;
   bfd save_bfd;
@@ -140,21 +136,20 @@ bfd_check_format_matches (abfd, format, matching)
      all in the hope that one will be uniquely recognized.  */
 
   matching_targnames =
-    (char **) bfd_malloc (sizeof (char *) *
-			  (_bfd_target_vector_entries + 1));
+    bfd_malloc (sizeof (char *) * 
+		(_bfd_target_vector_entries + 1));
   if (! matching_targnames)
     return FALSE;
   matching_targnames[0] = NULL;
 
-  matching_bfd = 
-    (bfd *) bfd_malloc (sizeof (struct _bfd) *
-			  (_bfd_target_vector_entries + 1));
+  matching_bfd = bfd_malloc (sizeof (struct bfd) *
+			     (_bfd_target_vector_entries + 1));
   if (! matching_bfd)
     return FALSE;
 
   match_count = 0;
 
-  memcpy (&save_bfd, abfd, sizeof (struct _bfd));
+  memcpy (&save_bfd, abfd, sizeof (struct bfd));
   
   BFD_ASSERT (abfd->tdata.any == NULL);
 
@@ -171,7 +166,7 @@ bfd_check_format_matches (abfd, format, matching)
       if (ntarget)
 	{
 	  abfd->xvec = ntarget;
-	  memcpy (&matching_bfd[match_count], abfd, sizeof (struct _bfd));
+	  memcpy (&matching_bfd[match_count], abfd, sizeof (struct bfd));
 	  matching_targnames[match_count] = ntarget->name;
 	  match_count++;
 	  matching_targnames[match_count] = NULL;
@@ -195,8 +190,8 @@ bfd_check_format_matches (abfd, format, matching)
 
 	  bfd_set_error (bfd_error_wrong_format);
 
-	  memcpy (abfd, &save_bfd, sizeof (struct _bfd));
-	  abfd->xvec = *targetptr; /* Change BFD's target temporarily */
+	  memcpy (abfd, &save_bfd, sizeof (struct bfd));
+	  abfd->xvec = *targetptr; /* Change BFD's target temporarily. */
 	  abfd->format = format;
 
 	  if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) != 0)
@@ -213,7 +208,7 @@ bfd_check_format_matches (abfd, format, matching)
 	      /* This format checks out as ok! */
 
 	      abfd->xvec = ntarget;
-	      memcpy (&matching_bfd[match_count], abfd, sizeof (struct _bfd));
+	      memcpy (&matching_bfd[match_count], abfd, sizeof (struct bfd));
 	      matching_targnames[match_count] = ntarget->name;
 	      match_count++;
 	      matching_targnames[match_count] = NULL;
@@ -238,11 +233,11 @@ bfd_check_format_matches (abfd, format, matching)
 	    }
 	}
     }
-  memcpy (abfd, &save_bfd, sizeof (struct _bfd));
+  memcpy (abfd, &save_bfd, sizeof (struct bfd));
       
   if (match_count == 1)
     {
-      memcpy (abfd, &matching_bfd[0], sizeof (struct _bfd));
+      memcpy (abfd, &matching_bfd[0], sizeof (struct bfd));
       free (matching_bfd);
       free (matching_targnames);
       return TRUE;
@@ -267,7 +262,7 @@ FUNCTION
 	bfd_set_format
 
 SYNOPSIS
-	bfd_boolean bfd_set_format(bfd *abfd, bfd_format format);
+	bfd_boolean bfd_set_format (bfd *abfd, bfd_format format);
 
 DESCRIPTION
 	This function sets the file format of the BFD @var{abfd} to the
@@ -277,9 +272,7 @@ DESCRIPTION
 */
 
 bfd_boolean
-bfd_set_format (abfd, format)
-     bfd *abfd;
-     bfd_format format;
+bfd_set_format (bfd *abfd, bfd_format format)
 {
   if (bfd_read_p (abfd) ||
       ((int) abfd->format < (int) bfd_unknown) ||
@@ -309,7 +302,7 @@ FUNCTION
 	bfd_format_string
 
 SYNOPSIS
-	const char *bfd_format_string(bfd_format format);
+	const char *bfd_format_string (bfd_format format);
 
 DESCRIPTION
 	Return a pointer to a const string
@@ -318,17 +311,16 @@ DESCRIPTION
 */
 
 const char *
-bfd_format_string (format)
-     bfd_format format;
+bfd_format_string (bfd_format format)
 {
-  if (((int)format <(int) bfd_unknown)
-      || ((int)format >=(int) bfd_type_end))
+  if (((int)format < (int) bfd_unknown)
+      || ((int)format >= (int) bfd_type_end))
     return "invalid";
 
   switch (format)
     {
     case bfd_object:
-      return "object";		/* Linker/assember/compiler output.  */
+      return "object";		/* Linker/assembler/compiler output.  */
     case bfd_archive:
       return "archive";		/* Object archive file.  */
     case bfd_core:

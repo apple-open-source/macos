@@ -128,8 +128,10 @@ ar_open(name)
 		if (name == NULL) {
 			arfd = STDIN_FILENO;
 			arcname = STDN;
-		} else if ((arfd = open(name, EXT_MODE, DMOD)) < 0)
+		} else if ((arfd = open(name, EXT_MODE, DMOD)) < 0) {
 			syswarn(0, errno, "Failed open to read on %s", name);
+			exit(1);
+		}
 		if (zflag)
 			ar_start_gzip(arfd);
 		break;
@@ -649,7 +651,15 @@ ar_write(buf, bsz)
 		wr_trail = 1;
 		io_ok = 1;
 		return(bsz);
+	} else if (res < 0 && artyp == ISPIPE && errno == EPIPE) { /* ignore it */
+		wr_trail = 1;
+		io_ok = 1;
+		errno = 0;
+		arfd = open("/dev/null", AR_MODE, DMOD);
+		artyp = ISREG;
+		return bsz; 
 	}
+
 	/*
 	 * write broke, see what we can do with it. We try to send any partial
 	 * writes that may violate pax spec to the next archive volume.
@@ -1186,7 +1196,8 @@ ar_next()
 	if (sigprocmask(SIG_SETMASK, &o_mask, NULL) < 0)
 		syswarn(0, errno, "Unable to restore signal mask");
 
-	if (done || !wr_trail || strcmp(NM_TAR, argv0) == 0)
+	/* Don't query for new volume if format is unknown */
+	if (frmt == NULL || done || !wr_trail || strcmp(NM_TAR, argv0) == 0)
 		return(-1);
 
 	tty_prnt("\nATTENTION! %s archive volume change required.\n", argv0);

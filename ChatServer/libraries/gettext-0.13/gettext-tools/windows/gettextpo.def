@@ -1,0 +1,17 @@
+LIBRARY gettextpo
+EXPORTS
+po_file_domains
+po_file_domain_header
+po_file_free
+po_file_read
+po_header_field
+po_message_is_format
+po_message_is_fuzzy
+po_message_is_obsolete
+po_message_iterator
+po_message_iterator_free
+po_message_msgid
+po_message_msgid_plural
+po_message_msgstr
+po_message_msgstr_plural
+po_next_message

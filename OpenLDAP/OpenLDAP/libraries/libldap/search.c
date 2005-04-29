@@ -1,13 +1,19 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/search.c,v 1.51.2.3 2003/02/09 17:02:18 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/*  Portions
- *  Copyright (c) 1990 Regents of the University of Michigan.
- *  All rights reserved.
+/* $OpenLDAP: pkg/ldap/libraries/libldap/search.c,v 1.57.2.5 2004/03/17 20:10:49 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *  search.c
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1990 Regents of the University of Michigan.
+ * All rights reserved.
  */
 
 #include "portable.h"
@@ -60,6 +66,7 @@ ldap_search_ext(
 	int rc;
 	BerElement	*ber;
 	int timelimit;
+	ber_int_t id;
 
 #ifdef NEW_LOGGING
 	LDAP_LOG ( OPERATION, ENTRY, "ldap_search_ext\n", 0, 0, 0 );
@@ -76,7 +83,7 @@ ldap_search_ext(
 
 	/*
 	 * if timeout is provided, both tv_sec and tv_usec must
-	 * be non-zero
+	 * not be zero
 	 */
 	if( timeout != NULL ) {
 		if( timeout->tv_sec == 0 && timeout->tv_usec == 0 ) {
@@ -92,7 +99,7 @@ ldap_search_ext(
 	}
 
 	ber = ldap_build_search_req( ld, base, scope, filter, attrs,
-	    attrsonly, sctrls, cctrls, timelimit, sizelimit ); 
+	    attrsonly, sctrls, cctrls, timelimit, sizelimit, &id ); 
 
 	if ( ber == NULL ) {
 		return ld->ld_errno;
@@ -100,7 +107,7 @@ ldap_search_ext(
 
 
 	/* send the message */
-	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_SEARCH, base, ber );
+	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_SEARCH, base, ber, id );
 
 	if( *msgidp < 0 )
 		return ld->ld_errno;
@@ -139,7 +146,7 @@ ldap_search_ext_s(
 		return( ld->ld_errno );
 	}
 
-	if( rc == LDAP_RES_SEARCH_REFERENCE || rc == LDAP_RES_EXTENDED_PARTIAL ) {
+	if( rc == LDAP_RES_SEARCH_REFERENCE || rc == LDAP_RES_INTERMEDIATE ) {
 		return( ld->ld_errno );
 	}
 
@@ -171,6 +178,7 @@ ldap_search(
 	char **attrs, int attrsonly )
 {
 	BerElement	*ber;
+	ber_int_t	id;
 
 #ifdef NEW_LOGGING
 	LDAP_LOG ( OPERATION, ENTRY, "ldap_search\n", 0, 0, 0 );
@@ -182,7 +190,7 @@ ldap_search(
 	assert( LDAP_VALID( ld ) );
 
 	ber = ldap_build_search_req( ld, base, scope, filter, attrs,
-	    attrsonly, NULL, NULL, -1, -1 ); 
+	    attrsonly, NULL, NULL, -1, -1, &id ); 
 
 	if ( ber == NULL ) {
 		return( -1 );
@@ -190,7 +198,7 @@ ldap_search(
 
 
 	/* send the message */
-	return ( ldap_send_initial_request( ld, LDAP_REQ_SEARCH, base, ber ));
+	return ( ldap_send_initial_request( ld, LDAP_REQ_SEARCH, base, ber, id ));
 }
 
 
@@ -205,7 +213,8 @@ ldap_build_search_req(
 	LDAPControl **sctrls,
 	LDAPControl **cctrls,
 	ber_int_t timelimit,
-	ber_int_t sizelimit )
+	ber_int_t sizelimit,
+	ber_int_t *idp)
 {
 	BerElement	*ber;
 	int		err;
@@ -249,6 +258,7 @@ ldap_build_search_req(
 		}
 	}
 
+	LDAP_NEXT_MSGID( ld, *idp );
 #ifdef LDAP_CONNECTIONLESS
 	if ( LDAP_IS_UDP(ld) ) {
 	    err = ber_write( ber, ld->ld_options.ldo_peer,
@@ -257,7 +267,7 @@ ldap_build_search_req(
 	if ( LDAP_IS_UDP(ld) && ld->ld_options.ldo_version == LDAP_VERSION2) {
 	    char *dn = ld->ld_options.ldo_cldapdn;
 	    if (!dn) dn = "";
-	    err = ber_printf( ber, "{ist{seeiib", ++ld->ld_msgid, dn,
+	    err = ber_printf( ber, "{ist{seeiib", *idp, dn,
 		LDAP_REQ_SEARCH, base, (ber_int_t) scope, ld->ld_deref,
 		(sizelimit < 0) ? ld->ld_sizelimit : sizelimit,
 		(timelimit < 0) ? ld->ld_timelimit : timelimit,
@@ -265,7 +275,7 @@ ldap_build_search_req(
 	} else
 #endif
 	{
-	    err = ber_printf( ber, "{it{seeiib", ++ld->ld_msgid,
+	    err = ber_printf( ber, "{it{seeiib", *idp,
 		LDAP_REQ_SEARCH, base, (ber_int_t) scope, ld->ld_deref,
 		(sizelimit < 0) ? ld->ld_sizelimit : sizelimit,
 		(timelimit < 0) ? ld->ld_timelimit : timelimit,

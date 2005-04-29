@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-/* $XFree86: xc/programs/luit/charset.c,v 1.7 2003/02/24 01:10:25 dawes Exp $ */
+/* $XFree86: xc/programs/luit/charset.c,v 1.9 2004/01/27 02:30:30 dawes Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -40,6 +40,7 @@ IdentityRecode(unsigned int n, CharsetPtr self)
     return n;
 }
 
+#ifdef UNUSED
 static int
 IdentityReverse(unsigned int n, CharsetPtr self)
 {
@@ -66,6 +67,7 @@ IdentityReverse(unsigned int n, CharsetPtr self)
     }
 #undef IS_GL
 }
+#endif
 
 static int
 NullReverse(unsigned int n, CharsetPtr self)
@@ -152,6 +154,8 @@ OtherCharsetRec otherCharsets[] = {
     {"GBK", init_gbk, mapping_gbk, reverse_gbk, stack_gbk},
     {"UTF-8", init_utf8, mapping_utf8, reverse_utf8, stack_utf8},
     {"SJIS", init_sjis, mapping_sjis, reverse_sjis, stack_sjis},
+    {"BIG5-HKSCS", init_hkscs, mapping_hkscs, reverse_hkscs, stack_hkscs},
+    {"GB18030", init_gb18030, mapping_gb18030, reverse_gb18030, stack_gb18030},
     {0, 0, 0, 0, 0}
 };
 
@@ -416,6 +420,8 @@ LocaleCharsetRec localeCharsets[] = {
     { "gbk", 0, 1, NULL, NULL, NULL, NULL, "GBK"},
     { "UTF-8", 0, 1, NULL, NULL, NULL, NULL, "UTF-8"},
     { "SJIS", 0, 1, NULL, NULL, NULL, NULL, "SJIS"},
+    { "Big5-HKSCS", 0, 1, NULL, NULL, NULL, NULL, "BIG5-HKSCS"},
+    { "gb18030", 0, 1, NULL, NULL, NULL, NULL, "GB18030"},
     { 0, 0, 0, 0, 0, 0, 0}
 };
 

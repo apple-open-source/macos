@@ -41,7 +41,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: acscp.c,v 1.4 2003/08/14 00:00:29 callie Exp $"
+#define RCSID	"$Id: acscp.c,v 1.9 2004/12/01 02:27:59 lindak Exp $"
 
 
 #include <stdio.h>
@@ -69,8 +69,9 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCSchemaDefinitions.h>
 
+#ifndef lint
 static const char rcsid[] = RCSID;
-
+#endif
 //
 // Defines
 //
@@ -112,7 +113,6 @@ struct notifier *acsp_down_notifier = NULL;
 //
 
 // option vars from command line options - these override plist settings
-static int 	acscp_is_up;	
 // these will have to be passed to the plugin
 // once the plugin code is separated out
 bool	acsp_no_routes;
@@ -314,7 +314,7 @@ acscp_input(int unit, u_char *p, int len)
 static void
 acscp_protrej(int unit)
 {
-    fsm_lowerdown(&acscp_fsm[unit]);
+    fsm_protreject(&acscp_fsm[unit]);
 }
 
 /*
@@ -335,8 +335,6 @@ acscp_resetci(fsm *f)
 {
     acscp_options *wo = &acscp_wantoptions[0];
     acscp_options *go = &acscp_gotoptions[0];
-    
-    error("acsp resetci called\n");
 
     *go = *wo;
 }
@@ -372,11 +370,9 @@ acscp_addci(fsm *f, u_char *ucp, int *lenp)
 #define ADDCIROUTES(opt, neg, vers) \
     if (neg) { \
 	if (len >= CILEN_ROUTES) { \
-	    u_int32_t l; \
 	    PUTCHAR(opt, ucp); \
 	    PUTCHAR(CILEN_ROUTES, ucp); \
-	    l = ntohl(vers); \
-	    PUTLONG(l, ucp); \
+	    PUTLONG(vers, ucp); \
 	    len -= CILEN_ROUTES; \
 	} else \
 	    neg = 0; \
@@ -385,11 +381,9 @@ acscp_addci(fsm *f, u_char *ucp, int *lenp)
 #define ADDCIDOMAINS(opt, neg, vers) \
     if (neg) { \
 	if (len >= CILEN_DOMAINS) { \
-	    u_int32_t l; \
 	    PUTCHAR(opt, ucp); \
 	    PUTCHAR(CILEN_DOMAINS, ucp); \
-	    l = ntohl(vers); \
-	    PUTLONG(l, ucp); \
+	    PUTLONG(vers, ucp); \
 	    len -= CILEN_DOMAINS; \
 	} else \
 	    neg = 0; \
@@ -427,30 +421,26 @@ acscp_ackci(fsm *f, u_char *p, int len)
 
 #define ACKCIROUTES(opt, neg, vers) \
     if (neg) { \
-	u_int32_t l; \
 	if ((len -= CILEN_ROUTES) < 0) \
 	    goto bad; \
 	GETCHAR(citype, p); \
 	GETCHAR(cilen, p); \
 	if (cilen != CILEN_ROUTES || citype != opt) \
 	    goto bad; \
-	GETLONG(l, p); \
-	cilong = htonl(l); \
+	GETLONG(cilong, p); \
 	if (vers != cilong) \
 	    goto bad; \
     }
 
 #define ACKCIDOMAINS(opt, neg, vers) \
     if (neg) { \
-	u_int32_t l; \
 	if ((len -= CILEN_DOMAINS) < 0) \
 	    goto bad; \
 	GETCHAR(citype, p); \
 	GETCHAR(cilen, p); \
 	if (cilen != CILEN_DOMAINS || citype != opt) \
 	    goto bad; \
-	GETLONG(l, p); \
-	cilong = htonl(l); \
+	GETLONG(cilong, p); \
 	if (vers != cilong) \
 	    goto bad; \
     }
@@ -787,8 +777,6 @@ acscp_up(fsm *f)
     int		mtu;
         
     mtu = netif_get_mtu(f->unit);
-    np_up(f->unit, PPP_ACSP);
-    acscp_is_up = 1;    
     ACSCPDEBUG(("acscp: up"));
     notify(acsp_up_notifier, 0);
     if (acsp_up_hook)
@@ -812,10 +800,6 @@ acscp_down(fsm *f)
     acsp_stop();
     if (acsp_down_hook)
         acsp_down_hook();
-    if (acscp_is_up) {
-        acscp_is_up = 0;    
-        np_down(f->unit, PPP_ACSP);
-    }
 }
 
 

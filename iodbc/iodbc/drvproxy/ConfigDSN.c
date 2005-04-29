@@ -1,7 +1,7 @@
 /*
  *  ConfigDSN.c
  *
- *  $Id: ConfigDSN.c,v 1.1.1.1 2002/04/08 22:48:09 miner Exp $
+ *  $Id: ConfigDSN.c,v 1.3 2004/11/11 01:52:35 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -70,7 +70,6 @@
 
 /* ----------- Finished and tested with shadowing ----------- */
 
-#include <config.h>
 #include <iodbc.h>
 #include <iodbcinst.h>
 #include <iodbc_error.h>
@@ -78,8 +77,11 @@
 #include "gui.h"
 
 BOOL INSTAPI
-ConfigDSN (HWND hwndParent,
-    WORD fRequest, LPCSTR lpszDriver, LPCSTR lpszAttributes)
+ConfigDSN (
+    HWND	  hwndParent,
+    WORD	  fRequest,
+    LPCSTR	  lpszDriver,
+    LPCSTR	  lpszAttributes)
 {
   char *dsn = NULL, *connstr = NULL, *curr, *cour = NULL;
   char dsnread[4096] = { 0 };

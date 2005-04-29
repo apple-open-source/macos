@@ -24,7 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/lib/xkbui/XKBui.c,v 3.6 1999/06/20 07:14:08 dawes Exp $ */
+/* $XFree86: xc/lib/xkbui/XKBui.c,v 3.7 2003/11/17 22:20:25 dawes Exp $ */
 
 #include <X11/Xos.h>
 #include <stdio.h>
@@ -64,15 +64,7 @@ static XkbUI_ViewOptsRec dfltOpts = {
 };
 
 XkbUI_ViewPtr 
-#if NeedFunctionPrototypes
 XkbUI_SimpleInit(Display *dpy,Window win,int width,int height)
-#else
-XkbUI_SimpleInit(dpy,win,width,height)
-	Display *		dpy;
-	Window			win;
-	int			width;
-	int			height;
-#endif
 {
 XkbDescPtr	xkb;
 
@@ -85,12 +77,7 @@ XkbDescPtr	xkb;
 }
 
 static void
-#if NeedFunctionPrototypes
 _XkbUI_AllocateColors(XkbUI_ViewPtr view)
-#else
-_XkbUI_AllocateColors(view)
-    XkbUI_ViewPtr	view;
-#endif
 {
 register int i;
 Display *	dpy;
@@ -136,22 +123,12 @@ XkbDescPtr	xkb;
 }
 
 XkbUI_ViewPtr 
-#if NeedFunctionPrototypes
 XkbUI_Init(	Display *		dpy,
 		Window			win,
 		int			width,
 		int			height,
 		XkbDescPtr		xkb,
 		XkbUI_ViewOptsPtr	opts)
-#else
-XkbUI_Init(dpy,win,width,height,xkb,opts)
-	Display *		dpy;
-	Window			win;
-	int			width;
-	int			height;
-	XkbDescPtr		xkb;
-	XkbUI_ViewOptsPtr	opts;
-#endif
 {
 XGCValues	xgcv;
 XkbUI_ViewPtr	view;
@@ -222,13 +199,7 @@ int		scrn;
 }
 
 Status 
-#if NeedFunctionPrototypes
 XkbUI_SetViewOpts(XkbUI_ViewPtr	view,XkbUI_ViewOptsPtr opts)
-#else
-XkbUI_SetViewOpts(view,opts)
-	XkbUI_ViewPtr		view;
-	XkbUI_ViewOptsPtr	opts;
-#endif
 {
     if ((!view)||(!opts))
 	return BadValue;
@@ -262,13 +233,7 @@ XkbUI_SetViewOpts(view,opts)
 }
 
 Status 
-#if NeedFunctionPrototypes
 XbUI_GetViewOpts(XkbUI_ViewPtr view,XkbUI_ViewOptsPtr opts_rtrn)
-#else
-XbUI_GetViewOpts(view,opts_rtrn)
-	XkbUI_ViewPtr		view;
-	XkbUI_ViewOptsPtr	opts_rtrn;
-#endif
 {
     if ((!view)||(!opts_rtrn))
 	return BadValue;
@@ -277,14 +242,7 @@ XbUI_GetViewOpts(view,opts_rtrn)
 }
 
 Status 
-#if NeedFunctionPrototypes
 XkbUI_SetCanvasSize(XkbUI_ViewPtr view,int width,int height)
-#else
-XkbUI_SetCanvasSize(view,width,height)
-	XkbUI_Viewtr	view;
-	int		width;
-	int		height;
-#endif
 {
     if ((!view)||(!view->xkb)||(!view->xkb->geom))
 	return BadValue;
@@ -296,14 +254,7 @@ XkbUI_SetCanvasSize(view,width,height)
 }
 
 Status 
-#if NeedFunctionPrototypes
 XkbUI_GetCanvasSize(XkbUI_ViewPtr view,int *width_rtrn,int *height_rtrn)
-#else
-XkbUI_GetCanvasSize(view,width_rtrn,height_rtrn)
-	XkbUI_ViewPtr	view;
-	int *		width_rtrn;
-	int *		height_rtrn;
-#endif
 {
     if (!view)
 	return BadValue;
@@ -315,20 +266,11 @@ XkbUI_GetCanvasSize(view,width_rtrn,height_rtrn)
 /***====================================================================***/
 
 static void
-#if NeedFunctionPrototypes
 _RotatePoints(	double		rangle,
 		int 		corner_x,
 		int		corner_y,
 		int		nPts,
 		XkbUI_PointPtr	pts)
-#else
-_RotatePoints(rangle,corner_x,corner_y,nPts,pts)
-	double		rangle;
-	int		corner_x;
-	int		corner_y;
-	int		nPts;
-	XkbUI_PointPtr	pts;
-#endif
 {
 register int	i;
 double		rr,rx,ry,rt;
@@ -345,15 +287,7 @@ double		rr,rx,ry,rt;
 }
 
 static void
-#if NeedFunctionPrototypes
 _DrawPoints(XkbUI_ViewPtr view,int nPts,XkbUI_PointPtr pts,XPoint *xpts)
-#else
-_DrawPoints(view,nPts,pts)
-	XkbUI_ViewPtr	view;
-	int		nPts;
-	XkbUI_PointPtr	pts;
-	XPoint *	xpts;
-#endif
 {
 register int	i;
 
@@ -373,15 +307,7 @@ XFlush(view->dpy);
 }
 
 static void
-#if NeedFunctionPrototypes
 _DrawSolidPoints(XkbUI_ViewPtr view,int nPts,XkbUI_PointPtr pts,XPoint *xpts)
-#else
-_DrawSolidPoints(view,nPts,pts)
-	XkbUI_ViewPtr	view;
-	int		nPts;
-	XkbUI_PointPtr	pts;
-	XPoint *	xpts;
-#endif
 {
 register int	i;
 
@@ -402,7 +328,6 @@ XFlush(view->dpy);
 }
 
 static void
-#if NeedFunctionPrototypes
 _DrawShape(	XkbUI_ViewPtr	view,
 		double		rangle,
 		int		xoff,
@@ -411,17 +336,6 @@ _DrawShape(	XkbUI_ViewPtr	view,
 		int		roty,
 		XkbShapePtr	shape,
 		Bool		key)
-#else
-_DrawShape(view,rangle,xoff,yoff,rotx,roty,shape,key)
-	XkbUI_ViewPtr	view;
-	double		rangle;
-	int		xoff;
-	int		yoff;
-	int		rotx;
-	int		roty;
-	XkbShapePtr	shape;
-	Bool		key;
-#endif
 {
 XkbOutlinePtr	ol;
 register int	o;
@@ -487,7 +401,6 @@ XPoint *	xpts;
 }
 
 static void
-#if NeedFunctionPrototypes
 _DrawRect(	XkbUI_ViewPtr	view,
 		double		rangle,
 		int		x1,
@@ -495,16 +408,6 @@ _DrawRect(	XkbUI_ViewPtr	view,
 		int		x2,
 		int		y2,
 		Bool		key)
-#else
-_DrawRect(view,rangle,x1,y1,x2,y2,key)
-	XkbUI_ViewPtr	view;
-	double		rangle;
-	int		x1;
-	int		y1;
-	int		x2;
-	int		y2;
-	Bool		key;
-#endif
 {
 XkbUI_PointRec	uipts[4];
 XPoint 		xpts[4];
@@ -529,20 +432,11 @@ XPoint 		xpts[4];
 }
 
 static void
-#if NeedFunctionPrototypes
 _DrawDoodad(	XkbUI_ViewPtr	view,
 		double		rangle,
 		int		xoff,
 		int		yoff,
 		XkbDoodadPtr	doodad)
-#else
-_DrawDoodad(view,rangle,xoff,yoff,doodad)
-	XkbUI_ViewPtr	view;
-	double		rangle;
-	int		xoff;
-	int		yoff;
-	XkbDoodadPtr	doodad;
-#endif
 {
 int		x;
 int		y;
@@ -578,20 +472,11 @@ Bool		solid;
 }
 
 static void
-#if NeedFunctionPrototypes
 _DrawRow(	XkbUI_ViewPtr	view,
 		double		rangle,
 		int		xoff,
 		int		yoff,
 		XkbRowPtr	row)
-#else
-_DrawRow(view,rangle,xoff,yoff,row)
-	XkbUI_ViewPtr	view;
-	double		rangle;
-	int		xoff;
-	int		yoff;
-	XkbRowPtr	row;
-#endif
 {
 register int 	k,x,y;
 XkbKeyPtr	key;
@@ -615,13 +500,7 @@ XkbKeyPtr	key;
 }
 
 static void
-#if NeedFunctionPrototypes
 _DrawSection(XkbUI_ViewPtr view,XkbSectionPtr section)
-#else
-_DrawSection(view,section)
-	XkbUI_ViewPtr	view;
-	XkbSectionPtr	section;
-#endif
 {
 double	rangle;
 
@@ -647,12 +526,7 @@ double	rangle;
 }
 
 static void
-#if NeedFunctionPrototypes
 _DrawAll(XkbUI_ViewPtr view)
-#else
-_DrawAll(view)
-	XkbUI_ViewPtr	view;
-#endif
 {
 XkbGeometryPtr	geom;
 XkbDrawablePtr	first,draw;
@@ -694,13 +568,7 @@ Bool		dfltBorder;
 }
 
 static void
-#if NeedFunctionPrototypes
 _RedrawKey(XkbUI_ViewPtr view,KeyCode kc)
-#else
-_RedrawKey(view,kc)
-	XkbUI_ViewPtr	view;
-	KeyCode 	kc;
-#endif
 {
 /*    _DrawAll(view);*/
     return;
@@ -709,14 +577,7 @@ _RedrawKey(view,kc)
 /***====================================================================***/
 
 Bool 
-#if NeedFunctionPrototypes
 XkbUI_SetKeyAppearance(XkbUI_ViewPtr view,KeyCode kc,unsigned int flags)
-#else
-XkbUI_SetKeyAppearance(view,kc,flags)
-	XkbUI_ViewPtr		view;
-	KeyCode			kc;
-	unsigned int		flags;
-#endif
 {
 XkbDescPtr	xkb;
 unsigned	old;
@@ -736,16 +597,9 @@ unsigned	old;
 }
 
 Bool 
-#if NeedFunctionPrototypes
 XkbUI_SetKeyAppearanceByName(	XkbUI_ViewPtr 	view,
 				XkbKeyNamePtr	name,
 				unsigned int	flags)
-#else
-XkbUI_SetKeyAppearanceByName(view,name,flags)
-	XkbUI_ViewPtr		view;
-	XkbKeyNamePtr		name;
-	unsigned int		flags;
-#endif
 {
 KeyCode	kc;
 
@@ -758,16 +612,9 @@ KeyCode	kc;
 }
 
 Bool 
-#if NeedFunctionPrototypes
 XkbUI_ResetKeyAppearance(	XkbUI_ViewPtr 	view,
 				unsigned int 	mask,
 				unsigned int 	values)
-#else
-XkbUI_ResetKeyAppearance(view,mask,values)
-	XkbUI_ViewPtr		view;
-	unsigned int		mask;
-	unsigned int		values;
-#endif
 {
 register int 	i;
 unsigned	new_val;
@@ -785,13 +632,7 @@ unsigned	new_val;
 }
 
 Bool 
-#if NeedFunctionPrototypes
 XkbUI_DrawRegion(XkbUI_ViewPtr view,XRectangle *viewport)
-#else
-XkbUI_DrawRegion(view,viewport)
-	XkbUI_ViewPtr		view;
-	XRectangle *		viewport;
-#endif
 {
     if (!view) 
 	return False;
@@ -800,37 +641,20 @@ XkbUI_DrawRegion(view,viewport)
 }
 
 Bool 
-#if NeedFunctionPrototypes
 XkbUI_DrawChanged(	XkbUI_ViewPtr	view,
 			XRectangle *	viewport,
 			XkbChangesPtr	changes,
 			int		num_keys,
 			XkbKeyNamePtr	keys)
-#else
-XkbUI_DrawChanged(view,viewport,changesnum_keys,keys)
-	XkbUI_ViewPtr		view;
-	XRectangle *		viewport;
-	XkbChangesPtr		changes;
-	int			num_keys;
-	XkbKeyNamePtr		keys;
-#endif
 {
     return False;
 }
 
 Bool 
-#if NeedFunctionPrototypes
 XkbUI_Select(	XkbUI_ViewPtr	view,
 		XPoint *	coord,
 		unsigned int	which,
 		XkbSectionPtr	section)
-#else
-XkbUI_Select(view,coord,which,section)
-	XkbUI_ViewPtr		view;
-	XPoint *		coord;
-	unsigned int		which;
-	XkbSectionPtr		section;
-#endif
 {
     return False;
 }

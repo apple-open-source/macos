@@ -30,8 +30,11 @@
 #define SIZEOF_LONG     4
 
 #include <windows.h>
+#include <limits.h>
 
-#define HAVE_LABS
+#ifndef SIZE_MAX    /* in case Microsoft defines max size of size_t */
+#define SIZE_MAX UINT_MAX
+#endif
 
 #ifndef KRB5_CALLCONV
 #  define KRB5_CALLCONV __stdcall
@@ -69,6 +72,13 @@ typedef unsigned char	u_char;
 #define HAVE_STRDUP
 #define NO_USERID
 #define NO_PASSWORD
+#define HAVE_STRERROR
+#define SYS_ERRLIST_DECLARED
+/* if __STDC_VERSION__ >= 199901L this shouldn't be needed */
+#define inline __inline
+#define KRB5_USE_INET6
+#define NEED_INSIXADDR_ANY
+#define ENABLE_THREADS
 
 #define WM_KERBEROS5_CHANGED "Kerberos5 Changed"
 #ifdef KRB4
@@ -145,10 +155,19 @@ typedef unsigned char	u_char;
 /*
  * Functions with slightly different names on the PC
  */
+#ifndef strcasecmp
 #define strcasecmp   stricmp
+#endif
+#ifndef strncasecmp
 #define strncasecmp  strnicmp
+#endif
 
 HINSTANCE get_lib_instance(void);
+
+#define GETSOCKNAME_ARG2_TYPE	struct sockaddr
+#define GETSOCKNAME_ARG3_TYPE	size_t
+#define GETPEERNAME_ARG2_TYPE	GETSOCKNAME_ARG2_TYPE
+#define GETPEERNAME_ARG3_TYPE	GETSOCKNAME_ARG3_TYPE
 
 #endif /* !RES_ONLY */
 

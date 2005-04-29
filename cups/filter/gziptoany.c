@@ -1,9 +1,9 @@
 /*
- * "$Id: gziptoany.c,v 1.1.1.1 2003/04/11 21:07:45 jlovell Exp $"
+ * "$Id: gziptoany.c,v 1.1.1.6 2005/01/04 19:15:56 jlovell Exp $"
  *
  *   GZIP pre-filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2003 by Easy Software Products.
+ *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -33,6 +33,7 @@
  */
 
 #include <cups/string.h>
+#include <stdlib.h>
 #include <errno.h>
 
 #ifdef HAVE_LIBZ
@@ -52,6 +53,8 @@ main(int  argc,				/* I - Number of command-line arguments */
   gzFile	fp;			/* GZIP'd file */
   char		buffer[8192];		/* Data buffer */
   int		bytes;			/* Number of bytes read/written */
+  int		copies;			/* Number of copies */
+  const char	*content_type;		/* Content type for file... */
 
 
  /*
@@ -63,6 +66,17 @@ main(int  argc,				/* I - Number of command-line arguments */
     fputs("ERROR: gziptoany job-id user title copies options file\n", stderr);
     return (1);
   }
+
+ /*
+  * Get the copy count; if the MIME type is "application/vnd.cups-raw" then
+  * make copies since the file is going straight to a backend...
+  */
+
+  if ((content_type = getenv("CONTENT_TYPE")) != NULL &&
+      !strcasecmp(content_type, "application/vnd.cups-raw"))
+    copies = atoi(argv[4]);
+  else
+    copies = 1;
 
  /*
   * Open the gzip file...
@@ -80,15 +94,22 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   setbuf(stdout, NULL);
 
-  while ((bytes = gzread(fp, buffer, sizeof(buffer))) > 0)
-    if (fwrite(buffer, 1, bytes, stdout) < bytes)
-    {
-      fprintf(stderr, "ERROR: Unable to write uncompressed document data: %s\n",
-              strerror(ferror(stdout)));
-      gzclose(fp);
+  while (copies > 0)
+  {
+    gzrewind(fp);
 
-      return (1);
-    }
+    while ((bytes = gzread(fp, buffer, sizeof(buffer))) > 0)
+      if (fwrite(buffer, 1, bytes, stdout) < bytes)
+      {
+	fprintf(stderr, "ERROR: Unable to write uncompressed document data: %s\n",
+        	strerror(ferror(stdout)));
+	gzclose(fp);
+
+	return (1);
+      }
+
+    copies --;
+  }
 
  /*
   * Close the file and return...
@@ -106,5 +127,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: gziptoany.c,v 1.1.1.1 2003/04/11 21:07:45 jlovell Exp $".
+ * End of "$Id: gziptoany.c,v 1.1.1.6 2005/01/04 19:15:56 jlovell Exp $".
  */

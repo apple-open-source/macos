@@ -1,20 +1,21 @@
 #pragma once
 
 #include <Kerberos/KerberosDebug.h>
-#include "KClientCompat.h"
+#include <Kerberos/KClientCompat.h>
 
 #include <stdexcept>
 
 #define BeginShieldedTry_ try { try
 #define ShieldedCatch_ catch
-#if MACDEV_DEBUG
-#define EndShieldedTry_  } catch (std::exception& e) { SignalPStr_ ("\pUncaught exception."); err = paramErr; dprintf ("%s\n", e.what ()); } \
-	catch (...) { SignalPStr_ ("\pUncaught exception."); err = kcErrBadParam; }
-#define AssertReturnValue_(x) do {if (!(x)) { SignalPStr_ ("\pUnhandled error in KClient");}} while (false)
-#else
-#define EndShieldedTry_  } catch (...) { err = paramErr; }
-#define AssertReturnValue_(x)
-#endif
+#define EndShieldedTry_  } catch (std::exception& e) {                              \
+                             dprintf ("Exception '%s' thrown from %s() (%s:%d)",    \
+                                      e.what (), __FUNCTION__, __FILE__, __LINE__); \
+                             err = paramErr;                                        \
+                         } catch (...) {                                            \
+                             dprintf ("Exception thrown from %s() (%s:%d)",         \
+                                      __FUNCTION__, __FILE__, __LINE__);            \
+                             err = kcErrBadParam; }
+#define AssertReturnValue_(x) if (!(x)) { SignalCStr_ ("Unhandled error in KClient"); }
 	
 class KClientError {
 	public:

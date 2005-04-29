@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xau/AuGetAddr.c,v 1.5 2001/12/14 19:54:36 dawes Exp $ */
+/* $XFree86: xc/lib/Xau/AuGetAddr.c,v 1.6 2003/11/17 22:20:21 dawes Exp $ */
 
 #include <X11/Xauth.h>
 #include <X11/Xos.h>
@@ -39,7 +39,6 @@ binaryEqual (_Xconst char *a, _Xconst char *b, int len)
     return 1;
 }
 
-#if NeedFunctionPrototypes
 Xauth *
 XauGetAuthByAddr (
 #if NeedWidePrototypes
@@ -62,19 +61,6 @@ unsigned int	name_length,
 unsigned short	name_length,
 #endif
 _Xconst char*	name)
-#else
-Xauth *
-XauGetAuthByAddr (family, address_length, address,
-			  number_length, number,
-			  name_length, name)
-unsigned short	family;
-unsigned short	address_length;
-char	*address;
-unsigned short	number_length;
-char	*number;
-unsigned short	name_length;
-char	*name;
-#endif
 {
     FILE    *auth_file;
     char    *auth_name;

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/packsingle.h,v 1.5 2001/03/21 16:04:39 dawes Exp $ */
+/* $XFree86: xc/lib/GL/glx/packsingle.h,v 1.6 2003/10/23 15:30:09 tsi Exp $ */
 #ifndef __GLX_packsingle_h__
 #define __GLX_packsingle_h__
 
@@ -63,9 +63,10 @@
 
 #define __GLX_SINGLE_LOAD_VARIABLES() \
     pc = gc->pc;           \
-    (void) pixelHeaderPC;  \
-    (void) compsize;       \
-    (void) cmdlen
+    /* Muffle compilers */		     \
+    pixelHeaderPC = 0;  (void)pixelHeaderPC; \
+    compsize = 0;       (void)compsize;	     \
+    cmdlen = 0;         (void)cmdlen
 
 /* Start a single command */
 #define __GLX_SINGLE_BEGIN(opcode,bytes)	   \
@@ -190,7 +191,7 @@ extern float gl_ntoh_double(GLubyte *);
 #define __GLX_SINGLE_GET_SHORT_ARRAY(a,alen) \
 {						\
     GLint slop = (alen*__GLX_SIZE_INT16) & 3;	\
-    _XRead(dpy,(char *)a,alen*__GLX_SIZE_INT16);	\
+    _XRead(dpy,(char *)a,alen*__GLX_SIZE_INT16);\
     if (slop) _XEatData(dpy,4-slop);		\
 }
 

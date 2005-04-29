@@ -1,0 +1,35 @@
+--- fscanf.c.orig	2003-05-20 15:22:42.000000000 -0700
++++ fscanf.c	2005-02-23 16:23:38.000000000 -0800
+@@ -40,6 +40,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/fscanf.c,v 1.12 2003/01/03 23:27:27 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include "namespace.h"
+ #include <stdio.h>
+ #include <stdarg.h>
+@@ -55,7 +57,22 @@
+ 
+ 	va_start(ap, fmt);
+ 	FLOCKFILE(fp);
+-	ret = __svfscanf(fp, fmt, ap);
++	ret = __svfscanf_l(fp, __current_locale(), fmt, ap);
++	va_end(ap);
++	FUNLOCKFILE(fp);
++	return (ret);
++}
++
++int
++fscanf_l(FILE * __restrict fp, locale_t loc, char const * __restrict fmt, ...)
++{
++	int ret;
++	va_list ap;
++
++	NORMALIZE_LOCALE(loc);
++	va_start(ap, fmt);
++	FLOCKFILE(fp);
++	ret = __svfscanf_l(fp, loc, fmt, ap);
+ 	va_end(ap);
+ 	FUNLOCKFILE(fp);
+ 	return (ret);

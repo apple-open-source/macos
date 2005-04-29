@@ -199,6 +199,10 @@ initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
     fCachedOptionBits = 0;
     
     task_reference (fClient);
+
+    fQueueSet = OSSet::withCapacity(4);
+    if (!fQueueSet)
+        return false;
     
     return true;
 }
@@ -211,6 +215,20 @@ IOReturn IOHIDLibUserClient::clientClose(void)
     }
    
    if (fNub) {	
+   
+        // First clear any remaining queues
+        OSCollectionIterator * iterator = OSCollectionIterator::withCollection(fQueueSet);
+        
+        if (iterator)
+        {
+            IOHIDEventQueue * queue;
+            while (queue = (IOHIDEventQueue *)iterator->getNextObject())
+            {
+                fNub->stopEventDelivery(queue);
+            }
+            iterator->release();
+        }
+        
         // Have been started so we better detach
 		
         // make sure device is closed (especially on crash)
@@ -326,7 +344,7 @@ open(void * flags, void *, void *, void *, void *, void *)
             return ret;
     }
     
-    if (!fNub->open(this, options))
+    if (!fNub->IOService::open(this, options))
 	return kIOReturnExclusiveAccess;
         
     fCachedOptionBits = options;
@@ -384,6 +402,12 @@ void IOHIDLibUserClient::free()
         fGate = 0;
     }
     
+    if (fQueueSet)
+    {
+        fQueueSet->release();
+        fQueueSet = 0;
+    }
+    
     if (fNub)
     {
         fNub->release();
@@ -419,7 +443,7 @@ clientMemoryForType (	UInt32			type,
     }
     // otherwise, the type is an object pointer (evil hack alert - see header)
     // evil hack, the type is an IOHIDEventQueue ptr (as returned by createQueue)
-    else if (queue = OSDynamicCast(IOHIDEventQueue, type))
+    else if (queue = OSDynamicCast(IOHIDEventQueue, (OSObject *)type))
     {
         memoryToShare = queue->getMemoryDescriptor();
     }
@@ -454,6 +478,11 @@ createQueue(void * vInFlags, void * vInDepth, void * vOutQueue, void *, void *, 
     
     // set out queue
     *outQueue = eventQueue;
+            
+    // add the queue to the set
+    fQueueSet->setObject(eventQueue);
+    
+    eventQueue->release();
     
     return kIOReturnSuccess;
 }
@@ -470,8 +499,8 @@ disposeQueue(void * vInQueue, void *, void *, void *, void *, void * gated)
     if (fNub && !isInactive() && !fNubIsTerminated)
         ret = fNub->stopEventDelivery (queue);
     
-    // release this queue
-    queue->release();
+    // remove the queue from the set
+    fQueueSet->removeObject(queue);
 
     return kIOReturnSuccess;
 }
@@ -641,7 +670,7 @@ getReportOOL(  IOHIDReportReq *reqIn,
     if (fNub && !isInactive() && !fNubIsTerminated)
     {
         *sizeOut = 0;
-        mem = IOMemoryDescriptor::withAddress(reqIn->reportBuffer, reqIn->reportBufferSize, kIODirectionIn, fClient);
+        mem = IOMemoryDescriptor::withAddress((vm_address_t)reqIn->reportBuffer, reqIn->reportBufferSize, kIODirectionIn, fClient);
         if(mem)
         { 
             ret = mem->prepare();
@@ -702,7 +731,7 @@ setReportOOL (IOHIDReportReq *req, IOByteCount inCount)
 
     if (fNub && !isInactive() && !fNubIsTerminated)
     {
-        mem = IOMemoryDescriptor::withAddress(req->reportBuffer, req->reportBufferSize, kIODirectionOut, fClient);
+        mem = IOMemoryDescriptor::withAddress((vm_address_t)req->reportBuffer, req->reportBufferSize, kIODirectionOut, fClient);
         if(mem) 
         {
             ret = mem->prepare();

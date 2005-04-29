@@ -1,0 +1,305 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		05286097062B169B004E2D42 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.man;
+			name = certtool.1;
+			path = man/certtool.1;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0528609A062B16AD004E2D42 = {
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				0528609B062B16DD004E2D42,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		0528609B062B16DD004E2D42 = {
+			fileRef = 05286097062B169B004E2D42;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		058B75E70569475900B395BD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = CertTool.cpp;
+			path = src/CertTool.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		058B75E80569475900B395BD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = CertUI.cpp;
+			path = src/CertUI.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		058B75E90569475900B395BD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = CertUI.h;
+			path = src/CertUI.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		058B75EA0569475900B395BD = {
+			fileRef = 058B75E70569475900B395BD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		058B75EB0569475900B395BD = {
+			fileRef = 058B75E80569475900B395BD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		058B75EC0569475900B395BD = {
+			fileRef = 058B75E90569475900B395BD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		058B75EF0569477F00B395BD = {
+			children = (
+				058B75F2056947A800B395BD,
+				058B7601056947C200B395BD,
+				058B76F4056948B200B395BD,
+				058B7736056948F600B395BD,
+				058B77D00569493000B395BD,
+				058B78500569496700B395BD,
+				058B78A4056949C100B395BD,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		058B75F2056947A800B395BD = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			path = security_cdsa_utils.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		058B7601056947C200B395BD = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			path = Security.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		058B76F4056948B200B395BD = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		058B7736056948F600B395BD = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			path = security_cdsa_utilities.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		058B77D00569493000B395BD = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			path = security_keychain.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		058B78500569496700B395BD = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			path = security_cdsa_client.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		058B78A4056949C100B395BD = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			path = security_utilities.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+//050
+//051
+//052
+//053
+//054
+//400
+//401
+//402
+//403
+//404
+		40AFCD7F056EC2ED005EE129 = {
+			fileRef = 058B76F4056948B200B395BD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//400
+//401
+//402
+//403
+//404
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+		4CA1FEAC052A3C5800F22E42 = {
+			children = (
+				058B75E70569475900B395BD,
+				058B75E80569475900B395BD,
+				058B75E90569475900B395BD,
+				05286097062B169B004E2D42,
+				058B75EF0569477F00B395BD,
+				4CA1FEB7052A3C6D00F22E42,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4CA1FEAE052A3C5800F22E42 = {
+			buildRules = (
+			);
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		4CA1FEAF052A3C5800F22E42 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		4CA1FEB0052A3C5800F22E42 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				4CA1FEAE052A3C5800F22E42,
+				4CA1FEAF052A3C5800F22E42,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 4CA1FEAC052A3C5800F22E42;
+			productRefGroup = 4CA1FEB7052A3C6D00F22E42;
+			projectDirPath = "";
+			targets = (
+				4CA1FEB5052A3C6D00F22E42,
+			);
+		};
+		4CA1FEB1052A3C6D00F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+				058B75EC0569475900B395BD,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB2052A3C6D00F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+				058B75EA0569475900B395BD,
+				058B75EB0569475900B395BD,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB3052A3C6D00F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+				40AFCD7F056EC2ED005EE129,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB5052A3C6D00F22E42 = {
+			buildPhases = (
+				4CA1FEB1052A3C6D00F22E42,
+				4CA1FEB2052A3C6D00F22E42,
+				4CA1FEB3052A3C6D00F22E42,
+				0528609A062B16AD004E2D42,
+			);
+			buildSettings = {
+				BUILD_VARIANTS = "normal debug profile";
+				CURRENT_PROJECT_VERSION = 4;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				INSTALL_PATH = /usr/bin;
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-lstdc++\"";
+				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-lstdc++\"";
+				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-lstdc++\" -pg";
+				PRODUCT_NAME = certtool;
+				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = certtool;
+			productInstallPath = /usr/bin;
+			productName = security_certtool;
+			productReference = 4CA1FEB6052A3C6D00F22E42;
+		};
+		4CA1FEB6052A3C6D00F22E42 = {
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
+			path = certtool;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		4CA1FEB7052A3C6D00F22E42 = {
+			children = (
+				4CA1FEB6052A3C6D00F22E42,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+	};
+	rootObject = 4CA1FEB0052A3C5800F22E42;
+}

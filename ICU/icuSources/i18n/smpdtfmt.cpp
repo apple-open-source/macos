@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2003, International Business Machines Corporation and    *
+* Copyright (C) 1997-2004, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -30,7 +30,7 @@
 
 #include "unicode/smpdtfmt.h"
 #include "unicode/dtfmtsym.h"
-#include "unicode/resbund.h"
+#include "unicode/ures.h"
 #include "unicode/msgfmt.h"
 #include "unicode/calendar.h"
 #include "unicode/gregocal.h"
@@ -39,8 +39,15 @@
 #include "unicode/dcfmtsym.h"
 #include "unicode/uchar.h"
 #include "unicode/ustring.h"
-#include "uprops.h"
+#include "util.h"
+#include "gregoimp.h" 
+#include "cstring.h"
+#include "uassert.h"
 #include <float.h>
+
+#if defined( U_DEBUG_CALSVC ) || defined (U_DEBUG_CAL)
+#include <stdio.h>
+#endif
 
 // *****************************************************************************
 // class SimpleDateFormat
@@ -48,16 +55,19 @@
 
 U_NAMESPACE_BEGIN
 
+/**
+ * Last-resort string to use for "GMT" when constructing time zone strings.
+ */
 // For time zones that have no names, use strings GMT+minutes and
 // GMT-minutes. For instance, in France the time zone is GMT+60.
 // Also accepted are GMT+H:MM or GMT-H:MM.
-const UChar SimpleDateFormat::fgGmt[]      = {0x0047, 0x004D, 0x0054, 0x0000};         // "GMT"
-const UChar SimpleDateFormat::fgGmtPlus[]  = {0x0047, 0x004D, 0x0054, 0x002B, 0x0000}; // "GMT+"
-const UChar SimpleDateFormat::fgGmtMinus[] = {0x0047, 0x004D, 0x0054, 0x002D, 0x0000}; // "GMT-"
+static const UChar gGmt[]      = {0x0047, 0x004D, 0x0054, 0x0000};         // "GMT"
+static const UChar gGmtPlus[]  = {0x0047, 0x004D, 0x0054, 0x002B, 0x0000}; // "GMT+"
+static const UChar gGmtMinus[] = {0x0047, 0x004D, 0x0054, 0x002D, 0x0000}; // "GMT-"
 
 // This is a pattern-of-last-resort used when we can't load a usable pattern out
 // of a resource.
-const UChar SimpleDateFormat::fgDefaultPattern[] =
+static const UChar gDefaultPattern[] =
 {
     0x79, 0x79, 0x79, 0x79, 0x4D, 0x4D, 0x64, 0x64, 0x20, 0x68, 0x68, 0x3A, 0x6D, 0x6D, 0x20, 0x61, 0
 };  /* "yyyyMMdd hh:mm a" */
@@ -71,15 +81,9 @@ static const UChar SUPPRESS_NEGATIVE_PREFIX[] = {0xAB00, 0};
  * These are the tags we expect to see in normal resource bundle files associated
  * with a locale.
  */
-const char SimpleDateFormat::fgDateTimePatternsTag[]="DateTimePatterns";
+static const char gDateTimePatternsTag[]="DateTimePatterns";
 
-const char      SimpleDateFormat::fgClassID = 0; // Value is irrelevant
-
-/**
- * This value of defaultCenturyStart indicates that the system default is to be
- * used.  To be removed in 2.8
- */
-const UDate     SimpleDateFormat::fgSystemDefaultCentury        = DBL_MIN;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(SimpleDateFormat)
 
 static const UChar QUOTE = 0x27; // Single quote
 
@@ -179,7 +183,7 @@ SimpleDateFormat::SimpleDateFormat(EStyle timeStyle,
  */
 SimpleDateFormat::SimpleDateFormat(const Locale& locale,
                                    UErrorCode& status)
-:   fPattern(fgDefaultPattern),
+:   fPattern(gDefaultPattern),
     fLocale(locale),
     fSymbols(NULL)
 {
@@ -247,9 +251,8 @@ SimpleDateFormat::clone() const
 UBool
 SimpleDateFormat::operator==(const Format& other) const
 {
-    if (DateFormat::operator==(other) &&
-        other.getDynamicClassID() == getStaticClassID())
-    {
+    if (DateFormat::operator==(other)) {
+        // DateFormat::operator== guarantees following cast is safe
         SimpleDateFormat* that = (SimpleDateFormat*)&other;
         return     (fPattern             == that->fPattern &&
                 fSymbols             != NULL && // Check for pathological object
@@ -269,26 +272,23 @@ void SimpleDateFormat::construct(EStyle timeStyle,
                                  UErrorCode& status)
 {
     // called by several constructors to load pattern data from the resources
-
     if (U_FAILURE(status)) return;
-
-    // load up the DateTimePatterns resource from the appropriate locale (throw
-    // an error if for some weird reason the resource is malformed)
-
-    ResourceBundle resources((char *)0, locale, status);
 
     // We will need the calendar to know what type of symbols to load.
     initializeCalendar(NULL, locale, status);
 
-    // use Date Format Symbols' helper function to do the actual load.
-    ResourceBundle dateTimePatterns = DateFormatSymbols::getData(resources, fgDateTimePatternsTag, fCalendar?fCalendar->getType():NULL,  status);
+    CalendarData calData(locale, fCalendar?fCalendar->getType():NULL, status);
+    UResourceBundle *dateTimePatterns = calData.getByKey(gDateTimePatternsTag, status);
     if (U_FAILURE(status)) return;
 
-    if (dateTimePatterns.getSize() <= kDateTime)
+    if (ures_getSize(dateTimePatterns) <= kDateTime)
     {
         status = U_INVALID_FORMAT_ERROR;
         return;
     }
+
+    setLocaleIDs(ures_getLocaleByType(dateTimePatterns, ULOC_VALID_LOCALE, &status),
+                 ures_getLocaleByType(dateTimePatterns, ULOC_ACTUAL_LOCALE, &status));
 
     // create a symbols object from the locale
     initializeSymbols(locale,fCalendar, status);
@@ -299,52 +299,43 @@ void SimpleDateFormat::construct(EStyle timeStyle,
         return;
     }
 
-    UnicodeString str;
-
-    // Move dateStyle from the range [0, 3] to [4, 7] if necessary
-    //if (dateStyle >= 0 && dateStyle < DATE_OFFSET) dateStyle = (EStyle)(dateStyle + DATE_OFFSET);
+    const UChar *resStr;
+    int32_t resStrLen = 0;
 
     // if the pattern should include both date and time information, use the date/time
     // pattern string as a guide to tell use how to glue together the appropriate date
     // and time pattern strings.  The actual gluing-together is handled by a convenience
     // method on MessageFormat.
-    if ((timeStyle != kNone) &&
-        (dateStyle != kNone))
+    if ((timeStyle != kNone) && (dateStyle != kNone))
     {
-        //  Object[] dateTimeArgs = {
-        //     dateTimePatterns[timeStyle], dateTimePatterns[dateStyle]
-        //  };
-        //  pattern = MessageFormat.format(dateTimePatterns[8], dateTimeArgs);
+        Formattable timeDateArray[2];
 
-        Formattable *timeDateArray = new Formattable[2];
-        /* test for NULL */
-        if (timeDateArray == 0) {
-            status = U_MEMORY_ALLOCATION_ERROR;
-            return;
-        }
-        //timeDateArray[0].setString(UnicodeString(dateTimePatterns[timeStyle]));
-        //timeDateArray[1].setString(UnicodeString(dateTimePatterns[dateStyle]));
         // use Formattable::adoptString() so that we can use fastCopyFrom()
         // instead of Formattable::setString()'s unaware, safe, deep string clone
         // see Jitterbug 2296
-        timeDateArray[0].adoptString(&(new UnicodeString)->fastCopyFrom(dateTimePatterns.getStringEx(timeStyle, status)));
-        timeDateArray[1].adoptString(&(new UnicodeString)->fastCopyFrom(dateTimePatterns.getStringEx(dateStyle, status)));
+        resStr = ures_getStringByIndex(dateTimePatterns, (int32_t)timeStyle, &resStrLen, &status);
+        timeDateArray[0].adoptString(new UnicodeString(TRUE, resStr, resStrLen));
+        resStr = ures_getStringByIndex(dateTimePatterns, (int32_t)dateStyle, &resStrLen, &status);
+        timeDateArray[1].adoptString(new UnicodeString(TRUE, resStr, resStrLen));
 
-        //MessageFormat::format(UnicodeString(dateTimePatterns[kDateTime]), timeDateArray, 2, fPattern, status);
-        MessageFormat::format(dateTimePatterns.getStringEx(kDateTime, status), timeDateArray, 2, fPattern, status);
-        delete [] timeDateArray;
+        resStr = ures_getStringByIndex(dateTimePatterns, (int32_t)kDateTime, &resStrLen, &status);
+        MessageFormat::format(UnicodeString(TRUE, resStr, resStrLen), timeDateArray, 2, fPattern, status);
     }
-    
     // if the pattern includes just time data or just date date, load the appropriate
     // pattern string from the resources
-    //else if (timeStyle != kNone) fPattern = UnicodeString(dateTimePatterns[timeStyle]);
-    //else if (dateStyle != kNone) fPattern = UnicodeString(dateTimePatterns[dateStyle]);
-    // fastCopyFrom() - see DateFormatSymbols::assignArray comments
-    else if (timeStyle != kNone) fPattern.fastCopyFrom(dateTimePatterns.getStringEx(timeStyle, status));
-    else if (dateStyle != kNone) fPattern.fastCopyFrom(dateTimePatterns.getStringEx(dateStyle, status));
+    // setTo() - see DateFormatSymbols::assignArray comments
+    else if (timeStyle != kNone) {
+        resStr = ures_getStringByIndex(dateTimePatterns, (int32_t)timeStyle, &resStrLen, &status);
+        fPattern.setTo(TRUE, resStr, resStrLen);
+    }
+    else if (dateStyle != kNone) {
+        resStr = ures_getStringByIndex(dateTimePatterns, (int32_t)dateStyle, &resStrLen, &status);
+        fPattern.setTo(TRUE, resStr, resStrLen);
+    }
     
     // and if it includes _neither_, that's an error
-    else status = U_INVALID_FORMAT_ERROR;
+    else
+        status = U_INVALID_FORMAT_ERROR;
 
     // finally, finish initializing by creating a Calendar and a NumberFormat
     initialize(locale, status);
@@ -525,32 +516,43 @@ SimpleDateFormat::format(const Formattable& obj,
 const UCalendarDateFields
 SimpleDateFormat::fgPatternIndexToCalendarField[] =
 {
-    UCAL_ERA, UCAL_YEAR, UCAL_MONTH, UCAL_DATE, 
-    UCAL_HOUR_OF_DAY, UCAL_HOUR_OF_DAY, UCAL_MINUTE, 
-    UCAL_SECOND, UCAL_MILLISECOND, UCAL_DAY_OF_WEEK,
-    UCAL_DAY_OF_YEAR, UCAL_DAY_OF_WEEK_IN_MONTH, 
-    UCAL_WEEK_OF_YEAR, UCAL_WEEK_OF_MONTH, 
-    UCAL_AM_PM, UCAL_HOUR, UCAL_HOUR, UCAL_ZONE_OFFSET,
-    UCAL_YEAR_WOY, UCAL_DOW_LOCAL
+    /*GyM*/ UCAL_ERA, UCAL_YEAR, UCAL_MONTH,
+    /*dkH*/ UCAL_DATE, UCAL_HOUR_OF_DAY, UCAL_HOUR_OF_DAY,
+    /*msS*/ UCAL_MINUTE, UCAL_SECOND, UCAL_MILLISECOND,
+    /*EDF*/ UCAL_DAY_OF_WEEK, UCAL_DAY_OF_YEAR, UCAL_DAY_OF_WEEK_IN_MONTH,
+    /*wWa*/ UCAL_WEEK_OF_YEAR, UCAL_WEEK_OF_MONTH, UCAL_AM_PM,
+    /*hKz*/ UCAL_HOUR, UCAL_HOUR, UCAL_ZONE_OFFSET,
+    /*Yeu*/ UCAL_YEAR_WOY, UCAL_DOW_LOCAL, UCAL_EXTENDED_YEAR,
+    /*gAZ*/ UCAL_JULIAN_DAY, UCAL_MILLISECONDS_IN_DAY, UCAL_ZONE_OFFSET
 };
 
 // Map index into pattern character string to DateFormat field number
-const DateFormat::EField
+const UDateFormatField
 SimpleDateFormat::fgPatternIndexToDateFormatField[] = {
-    DateFormat::kEraField, DateFormat::kYearField, DateFormat::kMonthField,
-    DateFormat::kDateField, DateFormat::kHourOfDay1Field,
-    DateFormat::kHourOfDay0Field, DateFormat::kMinuteField,
-    DateFormat::kSecondField, DateFormat::kMillisecondField,
-    DateFormat::kDayOfWeekField, DateFormat::kDayOfYearField,
-    DateFormat::kDayOfWeekInMonthField, DateFormat::kWeekOfYearField,
-    DateFormat::kWeekOfMonthField, DateFormat::kAmPmField,
-    DateFormat::kHour1Field, DateFormat::kHour0Field,
-    DateFormat::kTimezoneField, DateFormat::kYearWOYField, 
-    DateFormat::kDOWLocalField
+    /*GyM*/ UDAT_ERA_FIELD, UDAT_YEAR_FIELD, UDAT_MONTH_FIELD,
+    /*dkH*/ UDAT_DATE_FIELD, UDAT_HOUR_OF_DAY1_FIELD, UDAT_HOUR_OF_DAY0_FIELD,
+    /*msS*/ UDAT_MINUTE_FIELD, UDAT_SECOND_FIELD, UDAT_FRACTIONAL_SECOND_FIELD,
+    /*EDF*/ UDAT_DAY_OF_WEEK_FIELD, UDAT_DAY_OF_YEAR_FIELD, UDAT_DAY_OF_WEEK_IN_MONTH_FIELD,
+    /*wWa*/ UDAT_WEEK_OF_YEAR_FIELD, UDAT_WEEK_OF_MONTH_FIELD, UDAT_AM_PM_FIELD,
+    /*hKz*/ UDAT_HOUR1_FIELD, UDAT_HOUR0_FIELD, UDAT_TIMEZONE_FIELD,
+    /*Yeu*/ UDAT_YEAR_WOY_FIELD, UDAT_DOW_LOCAL_FIELD, UDAT_EXTENDED_YEAR_FIELD,
+    /*gAZ*/ UDAT_JULIAN_DAY_FIELD, UDAT_MILLISECONDS_IN_DAY_FIELD, UDAT_TIMEZONE_RFC_FIELD
 };
 
-
 //----------------------------------------------------------------------
+
+/**
+ * Append symbols[value] to dst.  Make sure the array index is not out
+ * of bounds.
+ */
+inline void
+_appendSymbol(UnicodeString& dst,
+              int32_t value,
+              const UnicodeString* symbols,
+              int32_t symbolsCount) {
+    U_ASSERT(value >= 0 && value < symbolsCount);
+    dst += symbols[value];
+}
 
 void
 SimpleDateFormat::subFormat(UnicodeString &appendTo,
@@ -560,11 +562,15 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
                             Calendar& cal,
                             UErrorCode& status) const
 {
+    if (U_FAILURE(status)) {
+        return;
+    }
+
     // this function gets called by format() to produce the appropriate substitution
     // text for an individual pattern symbol (e.g., "HH" or "yyyy")
 
     UChar *patternCharPtr = u_strchr(DateFormatSymbols::getPatternUChars(), ch);
-    EField patternCharIndex;
+    UDateFormatField patternCharIndex;
     const int32_t maxIntCount = 10;
     int32_t beginOffset = appendTo.length();
 
@@ -572,9 +578,10 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
     if (patternCharPtr == NULL)
     {
         status = U_INVALID_FORMAT_ERROR;
+        return;
     }
 
-    patternCharIndex = (EField)(patternCharPtr - DateFormatSymbols::getPatternUChars());
+    patternCharIndex = (UDateFormatField)(patternCharPtr - DateFormatSymbols::getPatternUChars());
     UCalendarDateFields field = fgPatternIndexToCalendarField[patternCharIndex];
     int32_t value = cal.get(field, status);
     if (U_FAILURE(status)) {
@@ -584,13 +591,13 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
     switch (patternCharIndex) {
     
     // for any "G" symbol, write out the appropriate era string
-    case kEraField:
-        appendTo += fSymbols->fEras[value];
+    case UDAT_ERA_FIELD:
+        _appendSymbol(appendTo, value, fSymbols->fEras, fSymbols->fErasCount);
         break;
 
     // for "yyyy", write out the whole year; for "yy", write out the last 2 digits
-    case kYearField:
-    case kYearWOYField:
+    case UDAT_YEAR_FIELD:
+    case UDAT_YEAR_WOY_FIELD:
         if (count >= 4) 
             zeroPaddingNumber(appendTo, value, 4, maxIntCount);
         else if(count == 1) 
@@ -602,51 +609,63 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
     // for "MMMM", write out the whole month name, for "MMM", write out the month
     // abbreviation, for "M" or "MM", write out the month as a number with the
     // appropriate number of digits
-    case kMonthField:
+    case UDAT_MONTH_FIELD:
         if (count >= 4) 
-            appendTo += fSymbols->fMonths[value];
+            _appendSymbol(appendTo, value, fSymbols->fMonths,
+                          fSymbols->fMonthsCount);
         else if (count == 3) 
-            appendTo += fSymbols->fShortMonths[value];
+            _appendSymbol(appendTo, value, fSymbols->fShortMonths,
+                          fSymbols->fShortMonthsCount);
         else 
             zeroPaddingNumber(appendTo, value + 1, count, maxIntCount);
         break;
 
     // for "k" and "kk", write out the hour, adjusting midnight to appear as "24"
-    case kHourOfDay1Field:
+    case UDAT_HOUR_OF_DAY1_FIELD:
         if (value == 0) 
             zeroPaddingNumber(appendTo, cal.getMaximum(UCAL_HOUR_OF_DAY) + 1, count, maxIntCount);
         else 
             zeroPaddingNumber(appendTo, value, count, maxIntCount);
         break;
 
-    // for "SS" and "S", we want to truncate digits so that you still see the MOST
-    // significant digits rather than the LEAST (as is the case with the year)
-    case kMillisecondField:
-        if (count > 3) 
-            count = 3;
-        else if (count == 2) 
-            value = value / 10;
-        else if (count == 1) 
-            value = value / 100;
-        zeroPaddingNumber(appendTo, value, count, maxIntCount);
+    case UDAT_FRACTIONAL_SECOND_FIELD:
+        // Fractional seconds left-justify
+        {
+            fNumberFormat->setMinimumIntegerDigits((count > 3) ? 3 : count);
+            fNumberFormat->setMaximumIntegerDigits(maxIntCount);
+            if (count == 1) {
+                value = (value + 50) / 100;
+            } else if (count == 2) {
+                value = (value + 5) / 10;
+            }
+            FieldPosition p(0);
+            fNumberFormat->format(value, appendTo, p);
+            if (count > 3) {
+                fNumberFormat->setMinimumIntegerDigits(count - 3);
+                fNumberFormat->format((int32_t)0, appendTo, p);
+            }
+        }
         break;
 
     // for "EEEE", write out the day-of-the-week name; otherwise, use the abbreviation
-    case kDayOfWeekField:
+    case UDAT_DAY_OF_WEEK_FIELD:
         if (count >= 4) 
-            appendTo += fSymbols->fWeekdays[value];
+            _appendSymbol(appendTo, value, fSymbols->fWeekdays,
+                          fSymbols->fWeekdaysCount);
         else 
-            appendTo += fSymbols->fShortWeekdays[value];
+            _appendSymbol(appendTo, value, fSymbols->fShortWeekdays,
+                          fSymbols->fShortWeekdaysCount);
         break;
 
     // for and "a" symbol, write out the whole AM/PM string
-    case kAmPmField:
-        appendTo += fSymbols->fAmPms[value];
+    case UDAT_AM_PM_FIELD:
+        _appendSymbol(appendTo, value, fSymbols->fAmPms,
+                      fSymbols->fAmPmsCount);
         break;
 
     // for "h" and "hh", write out the hour, adjusting noon and midnight to show up
     // as "12"
-    case kHour1Field:
+    case UDAT_HOUR1_FIELD:
         if (value == 0) 
             zeroPaddingNumber(appendTo, cal.getLeastMaximum(UCAL_HOUR) + 1, count, maxIntCount);
         else 
@@ -659,7 +678,7 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
     // since the name will be different).  If we don't have a localized time zone name,
     // then the time zone shows up as "GMT+hh:mm" or "GMT-hh:mm" (where "hh:mm" is the
     // offset from GMT) regardless of how many z's were in the pattern symbol
-    case kTimezoneField: {
+    case UDAT_TIMEZONE_FIELD: {
         UnicodeString str;
         int32_t zoneIndex = fSymbols->getZoneIndex(cal.getTimeZone().getID(str));
         if (zoneIndex == -1) {
@@ -667,11 +686,11 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
                     cal.get(UCAL_DST_OFFSET, status);
 
             if (value < 0) {
-                appendTo += fgGmtMinus;
+                appendTo += gGmtMinus;
                 value = -value; // suppress the '-' sign for text display.
             }
             else
-                appendTo += fgGmtPlus;
+                appendTo += gGmtPlus;
             
             zeroPaddingNumber(appendTo, (int32_t)(value/U_MILLIS_PER_HOUR), 2, 2);
             appendTo += (UChar)0x003A /*':'*/;
@@ -692,30 +711,34 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
         }
         break;
     
+    case 23: // 'Z' - TIMEZONE_RFC
+        {
+            UChar sign = 43/*'+'*/;
+            value = (cal.get(UCAL_ZONE_OFFSET, status) +
+                     cal.get(UCAL_DST_OFFSET, status)) / U_MILLIS_PER_MINUTE;
+            if (value < 0) {
+                value = -value;
+                sign = 45/*'-'*/;
+            }
+            value = (value / 3) * 5 + (value % 60); // minutes => KKmm
+            appendTo += sign;
+            zeroPaddingNumber(appendTo, value, 4, 4);
+        }
+        break;
+
     // all of the other pattern symbols can be formatted as simple numbers with
     // appropriate zero padding
     default:
-    // case kDateField:
-    // case kHourOfDay0Field:
-    // case kMinuteField:
-    // case kSecondField:
-    // case kDayOfYearField:
-    // case kDayOfWeekInMonthField:
-    // case kWeekOfYearField:
-    // case kWeekOfMonthField:
-    // case kHour0Field:
-    // case kDOWLocalField:
         zeroPaddingNumber(appendTo, value, count, maxIntCount);
         break;
     }
 
     // if the field we're formatting is the one the FieldPosition says it's interested
     // in, fill in the FieldPosition with this field's positions
-    if (pos.getField() == fgPatternIndexToDateFormatField[patternCharIndex]) {
-        if (pos.getBeginIndex() == 0 && pos.getEndIndex() == 0) {
-            pos.setBeginIndex(beginOffset);
-            pos.setEndIndex(appendTo.length());
-        }
+    if (pos.getBeginIndex() == pos.getEndIndex() &&
+        pos.getField() == fgPatternIndexToDateFormatField[patternCharIndex]) {
+        pos.setBeginIndex(beginOffset);
+        pos.setEndIndex(appendTo.length());
     }
 }
 
@@ -1015,19 +1038,23 @@ int32_t SimpleDateFormat::matchString(const UnicodeString& text,
     // {sfb} kludge to support case-insensitive comparison
     // {markus 2002oct11} do not just use caseCompareBetween because we do not know
     // the length of the match after case folding
-    UnicodeString lcaseText;
-    lcaseText.fastCopyFrom(text).foldCase();
+    // {alan 20040607} don't case change the whole string, since the length
+    // can change
+    // TODO we need a case-insensitive startsWith function
+    UnicodeString lcase, lcaseText;
+    text.extract(start, INT32_MAX, lcaseText);
+    lcaseText.foldCase();
 
     for (; i < count; ++i)
     {
-        int32_t length = data[i].length();
         // Always compare if we have no match yet; otherwise only compare
         // against potentially better matches (longer strings).
 
-        UnicodeString lcase;
         lcase.fastCopyFrom(data[i]).foldCase();
+        int32_t length = lcase.length();
                     
-        if (length > bestMatchLength && (lcaseText.compareBetween(start, start + length, lcase, 0, length)) == 0)
+        if (length > bestMatchLength &&
+            lcaseText.compareBetween(0, length, lcase, 0, length) == 0)
         {
             bestMatch = i;
             bestMatchLength = length;
@@ -1036,7 +1063,33 @@ int32_t SimpleDateFormat::matchString(const UnicodeString& text,
     if (bestMatch >= 0)
     {
         cal.set(field, bestMatch);
-        return start + bestMatchLength;
+
+        // Once we have a match, we have to determine the length of the
+        // original source string.  This will usually be == the length of
+        // the case folded string, but it may differ (e.g. sharp s).
+        lcase.fastCopyFrom(data[bestMatch]).foldCase();
+
+        // Most of the time, the length will be the same as the length
+        // of the string from the locale data.  Sometimes it will be
+        // different, in which case we will have to figure it out by
+        // adding a character at a time, until we have a match.  We do
+        // this all in one loop, where we try 'len' first (at index
+        // i==0).
+        int32_t len = data[bestMatch].length(); // 99+% of the time
+        int32_t n = text.length() - start;
+        for (i=0; i<=n; ++i) {
+            int32_t j=i;
+            if (i == 0) {
+                j = len;
+            } else if (i == len) {
+                continue; // already tried this when i was 0
+            }
+            text.extract(start, j, lcaseText);
+            lcaseText.foldCase();
+            if (lcase == lcaseText) {
+                return start + j;
+            }
+        }
     }
     
     return -start;
@@ -1071,11 +1124,15 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
     UnicodeString temp;
     UChar *patternCharPtr = u_strchr(DateFormatSymbols::getPatternUChars(), ch);
 
+#if defined (U_DEBUG_CAL)
+    //fprintf(stderr, "%s:%d - [%c]  st=%d \n", __FILE__, __LINE__, (char) ch, start);
+#endif
+
     if (patternCharPtr == NULL) {
         return -start;
     }
 
-    patternCharIndex = (EField)(patternCharPtr - DateFormatSymbols::getPatternUChars());
+    patternCharIndex = (UDateFormatField)(patternCharPtr - DateFormatSymbols::getPatternUChars());
 
     UCalendarDateFields field = fgPatternIndexToCalendarField[patternCharIndex];
 
@@ -1097,13 +1154,14 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
     // a number value.  We handle further, more generic cases below.  We need
     // to handle some of them here because some fields require extra processing on
     // the parsed value.
-    if (patternCharIndex == kHourOfDay1Field /*HOUR_OF_DAY1_FIELD*/ ||
-        patternCharIndex == kHour1Field /*HOUR1_FIELD*/ ||
-        (patternCharIndex == kMonthField /*MONTH_FIELD*/ && count <= 2) ||
-        patternCharIndex == kYearField /*YEAR*/ ||
-        patternCharIndex == kYearWOYField)
+    if (patternCharIndex == UDAT_HOUR_OF_DAY1_FIELD ||
+        patternCharIndex == UDAT_HOUR1_FIELD ||
+        (patternCharIndex == UDAT_MONTH_FIELD && count <= 2) ||
+        patternCharIndex == UDAT_YEAR_FIELD ||
+        patternCharIndex == UDAT_YEAR_WOY_FIELD ||
+        patternCharIndex == UDAT_FRACTIONAL_SECOND_FIELD)
     {
-        int32_t parseStart = pos.getIndex(); // WORK AROUND BUG IN NUMBER FORMAT IN 1.2B3
+        int32_t parseStart = pos.getIndex();
         // It would be good to unify this with the obeyCount logic below,
         // but that's going to be difficult.
         const UnicodeString* src;
@@ -1118,15 +1176,14 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
         }
         parseInt(*src, number, pos, allowNegative);
         if (pos.getIndex() == parseStart)
-            // WORK AROUND BUG IN NUMBER FORMAT IN 1.2B3
             return -start;
         value = number.getLong();
     }
 
     switch (patternCharIndex) {
-    case kEraField:
+    case UDAT_ERA_FIELD:
         return matchString(text, start, UCAL_ERA, fSymbols->fEras, fSymbols->fErasCount, cal);
-    case kYearField:
+    case UDAT_YEAR_FIELD:
         // If there are 3 or more YEAR pattern characters, this indicates
         // that the year value is to be treated literally, without any
         // two-digit year adjustments (e.g., from "01" to 2001).  Otherwise
@@ -1154,8 +1211,8 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
         }
         cal.set(UCAL_YEAR, value);
         return pos.getIndex();
-    case kYearWOYField:
-        // Comment is the same as for kYearFields - look above
+    case UDAT_YEAR_WOY_FIELD:
+        // Comment is the same as for UDAT_Year_FIELDs - look above
         if (count <= 2 && (pos.getIndex() - start) == 2
             && u_isdigit(text.charAt(start))
             && u_isdigit(text.charAt(start+1))
@@ -1168,7 +1225,7 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
         }
         cal.set(UCAL_YEAR_WOY, value);
         return pos.getIndex();
-    case kMonthField:
+    case UDAT_MONTH_FIELD:
         if (count <= 2) // i.e., M or MM.
         {
             // Don't want to parse the month if it is a string
@@ -1190,13 +1247,31 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
                 return matchString(text, start, UCAL_MONTH,
                                    fSymbols->fShortMonths, fSymbols->fShortMonthsCount, cal);
         }
-    case kHourOfDay1Field:
+    case UDAT_HOUR_OF_DAY1_FIELD:
         // [We computed 'value' above.]
         if (value == cal.getMaximum(UCAL_HOUR_OF_DAY) + 1) 
             value = 0;
         cal.set(UCAL_HOUR_OF_DAY, value);
         return pos.getIndex();
-    case kDayOfWeekField:
+    case UDAT_FRACTIONAL_SECOND_FIELD:
+        // Fractional seconds left-justify
+        i = pos.getIndex() - start;
+        if (i < 3) {
+            while (i < 3) {
+                value *= 10;
+                i++;
+            }
+        } else {
+            int32_t a = 1;
+            while (i > 3) {
+                a *= 10;
+                i--;
+            }
+            value = (value + (a>>1)) / a;
+        }
+        cal.set(UCAL_MILLISECOND, value);
+        return pos.getIndex();
+    case UDAT_DAY_OF_WEEK_FIELD:
         {
             // Want to be able to parse both short and long forms.
             // Try count == 4 (DDDD) first:
@@ -1208,15 +1283,16 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
                 return matchString(text, start, UCAL_DAY_OF_WEEK,
                                    fSymbols->fShortWeekdays, fSymbols->fShortWeekdaysCount, cal);
         }
-    case kAmPmField:
+    case UDAT_AM_PM_FIELD:
         return matchString(text, start, UCAL_AM_PM, fSymbols->fAmPms, fSymbols->fAmPmsCount, cal);
-    case kHour1Field:
+    case UDAT_HOUR1_FIELD:
         // [We computed 'value' above.]
         if (value == cal.getLeastMaximum(UCAL_HOUR)+1) 
             value = 0;
         cal.set(UCAL_HOUR, value);
         return pos.getIndex();
-    case kTimezoneField:
+    case UDAT_TIMEZONE_FIELD:
+    case UDAT_TIMEZONE_RFC_FIELD:
         {
         // First try to parse generic forms such as GMT-07:00. Do this first
         // in case localized DateFormatZoneData contains the string "GMT"
@@ -1224,7 +1300,7 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
         // characters of GMT+/-HH:MM etc.
 
         UnicodeString lcaseText(text);
-        UnicodeString lcaseGMT(fgGmt);
+        UnicodeString lcaseGMT(gGmt);
         int32_t sign = 0;
         int32_t offset;
         int32_t gmtLen = lcaseGMT.length();
@@ -1257,23 +1333,19 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
 
             // Look for hours:minutes or hhmm.
             pos.setIndex(pos.getIndex() + 1);
-            // WORK AROUND BUG IN NUMBER FORMAT IN 1.2B3
             int32_t parseStart = pos.getIndex();
             Formattable tzNumber;
             fNumberFormat->parse(text, tzNumber, pos);
             if( pos.getIndex() == parseStart) {
-                // WORK AROUND BUG IN NUMBER FORMAT IN 1.2B3
                 return -start;
             }
             if( text[pos.getIndex()] == 0x003A /*':'*/ ) {
                 // This is the hours:minutes case
                 offset = tzNumber.getLong() * 60;
                 pos.setIndex(pos.getIndex() + 1);
-                // WORK AROUND BUG IN NUMBER FORMAT IN 1.2B3
                 parseStart = pos.getIndex();
                 fNumberFormat->parse(text, tzNumber, pos);
                 if( pos.getIndex() == parseStart) {
-                    // WORK AROUND BUG IN NUMBER FORMAT IN 1.2B3
                     return -start;
                 }
                 offset += tzNumber.getLong();
@@ -1325,16 +1397,14 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
             // a little more permissive than RFC 822.  It will try to do
             // its best with numbers that aren't strictly 4 digits long.
             UErrorCode status = U_ZERO_ERROR;
-            DecimalFormat *fmt = new DecimalFormat("+####;-####", status);
+            DecimalFormat fmt(UNICODE_STRING_SIMPLE("+####;-####"), status);
             if(U_FAILURE(status))
                 return -start;
-            fmt->setParseIntegerOnly(TRUE);
-            // WORK AROUND BUG IN NUMBER FORMAT IN 1.2B3
+            fmt.setParseIntegerOnly(TRUE);
             int32_t parseStart = pos.getIndex();
             Formattable tzNumber;
-            fmt->parse( text, tzNumber, pos );
+            fmt.parse( text, tzNumber, pos );
             if( pos.getIndex() == parseStart) {
-                // WORK AROUND BUG IN NUMBER FORMAT IN 1.2B3
                 return -start;   // Wasn't actually a number.
             }
             offset = tzNumber.getLong();
@@ -1371,21 +1441,8 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
         return -start;
         }
     default:
-    // case 3: // 'd' - DATE
-    // case 5: // 'H' - HOUR_OF_DAY:0-based.  eg, 23:59 + 1 hour =>> 00:59
-    // case 6: // 'm' - MINUTE
-    // case 7: // 's' - SECOND
-    // case 8: // 'S' - MILLISECOND
-    // case 10: // 'D' - DAY_OF_YEAR
-    // case 11: // 'F' - DAY_OF_WEEK_IN_MONTH
-    // case 12: // 'w' - WEEK_OF_YEAR
-    // case 13: // 'W' - WEEK_OF_MONTH
-    // case 16: // 'K' - HOUR: 0-based.  eg, 11PM + 1 hour =>> 0 AM
-    // 'e' - DOW_LOCAL
-
-        // WORK AROUND BUG IN NUMBER FORMAT IN 1.2B3
-        int32_t parseStart = pos.getIndex();
         // Handle "generic" fields
+        int32_t parseStart = pos.getIndex();
         const UnicodeString* src;
         if (obeyCount) {
             if ((start+count) > text.length()) {
@@ -1398,7 +1455,6 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
         }
         parseInt(*src, number, pos, allowNegative);
         if (pos.getIndex() != parseStart) {
-            // WORK AROUND BUG IN NUMBER FORMAT IN 1.2B3
             cal.set(field, number.getLong());
             return pos.getIndex();
         }
@@ -1548,7 +1604,6 @@ void SimpleDateFormat::adoptCalendar(Calendar* calendarToAdopt)
   initializeSymbols(fLocale, fCalendar, status);  // we need new symbols
   initializeDefaultCentury();  // we need a new century (possibly)
 }
-
 
 U_NAMESPACE_END
 

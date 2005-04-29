@@ -1,5 +1,5 @@
 #!/bin/sh
-#ident $Id: next-cvs_project_version.sh,v 1.3 2000/02/01 22:15:09 wsanchez Exp $
+#ident $Id: next-cvs_project_version.sh,v 1.5 2004/10/26 08:44:50 davep Exp $
 
 ##
 # Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
@@ -26,7 +26,6 @@
 # from /usr/bin/vers_string
 
 test=test
-projectInfo=projectInfo
 
 # default vers file is ./CVSVersionInfo.txt
 versFile=CVSVersionInfo.txt
@@ -57,15 +56,12 @@ done
 #echo nflag $nflag
 
 if $test '!' -r $versFile ; then
-#	echo no CVSVersionInfo.txt
-	wd=`pwd`
-	rootProjDir=`$projectInfo -rootProjectDir -inDirectory $wd`
-	versFile=$rootProjDir/CVSVersionInfo.txt
-#	echo versFile $versFile
-	if $test '!' -r $versFile ; then
-		vers_string $*
-		exit 0
-	fi
+	# This used to call `$projectInfo -rootProjectDir -inDirectory $wd`
+	# to try to get the vers file if it wasn't found in the working
+	# directory, but the -rootProjectDir flag to projectInfo
+	# is no longer supported.
+	echo "error: could not find CVSVersionInfo.txt for project versioning" 1>&2
+	exit 1
 fi
 
 

@@ -32,47 +32,11 @@
  *
  *
  */
-/* $XFree86: xc/lib/X11/cmsGlobls.c,v 1.4 2001/01/17 19:41:51 dawes Exp $ */
+/* $XFree86: xc/lib/X11/cmsGlobls.c,v 1.5 2003/04/13 19:22:20 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
-
-/*
- *      EXTERNS
- *              External declarations required locally to this package
- *              that are not already declared in any of the included header
- *		files (external includes or internal includes).
- */
-extern XcmsFunctionSet	XcmsLinearRGBFunctionSet;
-#ifdef GRAY
-extern XcmsFunctionSet	XcmsGrayFunctionSet;
-#endif /* GRAY */
-
-/* UNDEFINED Color Space */
-extern XcmsColorSpace	XcmsUNDEFINEDColorSpace;
-
-/* CIE XYZ Color Space */
-extern XcmsColorSpace	XcmsCIEXYZColorSpace;
-
-/* CIE uvY Color Space */
-extern XcmsColorSpace	XcmsCIEuvYColorSpace;
-
-/* CIE xyY Color Space */
-extern XcmsColorSpace	XcmsCIExyYColorSpace;
-
-/* CIE Lab Color Space */
-extern XcmsColorSpace	XcmsCIELabColorSpace;
-
-/* CIE Luv Color Space */
-extern XcmsColorSpace	XcmsCIELuvColorSpace;
-
-/* TekHVC Color Space */
-extern XcmsColorSpace	XcmsTekHVCColorSpace;
-
-/* Device Dependent Color Space Structures */
-extern XcmsColorSpace	XcmsRGBiColorSpace;
-extern XcmsColorSpace	XcmsRGBColorSpace;
-
+#include "Cv.h"
 
 /*
  *      GLOBALS

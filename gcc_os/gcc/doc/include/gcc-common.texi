@@ -1,10 +1,15 @@
-@c Copyright (C) 2001 Free Software Foundation, Inc.
+@c Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
 @c Common values used in the GCC manuals:
 
-@set version-GCC 3.1
+@set version-GCC 3.3
+
+@c DEVELOPMENT is set to indicate an in-development version,
+@c as compared to a release version.  When making a release
+@c branch, clear this.
+@clear DEVELOPMENT
 
 @c Common macros to support generating man pages:
 

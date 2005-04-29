@@ -1,0 +1,21 @@
+/*
+ * Host.def for building OpenBSD/ix86 bindists
+ *
+ * $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/OpenBSD-aout-ix86/host.def,v 1.1 2003/12/09 19:03:02 herrb Exp $
+ */
+
+#define InstallEmptyHostDef
+#define BuildBindist
+
+#define ForceNormalLib		YES
+
+/*
+ *  These defines assume libpng is installed from the ports tree
+ */
+#define HasLibpng               YES
+#define LibpngDir               /usr/local
+#define LibpngDirStandard       NO
+#define LibpngIncDir            /usr/local/include/libpng
+#define LibpngIncDirStandard    NO
+#define LibpngLibDir            /usr/local/lib
+#define LibpngLibDirStandard    NO

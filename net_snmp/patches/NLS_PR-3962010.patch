@@ -1,0 +1,14 @@
+diff -Naur /tmp/net_snmp.roots/net_snmp/net-snmp/snmplib/mib.c ./snmplib/mib.c
+--- /tmp/net_snmp.roots/net_snmp/net-snmp/snmplib/mib.c	2004-10-12 17:04:27.000000000 -0700
++++ ./snmplib/mib.c	2005-02-24 19:51:43.000000000 -0800
+@@ -317,7 +317,10 @@
+         sprintf((char *) (*buf + *out_len), "]");
+         *out_len += strlen((char *) (*buf + *out_len));
+     }
++#ifndef __APPLE__
++//NLS
+     *(*buf + (*out_len)++) = '\n';
++#endif
+     *(*buf + *out_len) = 0;
+     return 1;
+ }

@@ -1,0 +1,538 @@
+#! @PERL@ -w
+# $Id: cups-genppdupdate.in,v 1.2 2004/07/30 01:28:56 jlovell Exp $
+# Update CUPS PPDs for Gimp-Print queues.
+# Copyright (C) 2002-2003 Roger Leigh (rleigh@debian.org)
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+use strict;
+use Getopt::Std;
+use Fcntl qw(:mode);
+use File::Temp qw(:POSIX);
+use File::Copy qw(mv);
+
+sub parse_options ();
+sub update_ppd ($); # Original PPD filename
+sub find_ppd ($$$$); # Gimp-Print Filename, driver, language (e.g. en, sv),
+		     # region (e.g. GB, DE)
+sub get_default_types (*); # Source PPD FH
+sub get_defaults (*); # Source PPD FH
+sub get_options (*\%); # Source PPD FH, default_types hash ref
+
+our $opt_d; # Debug mode
+our $opt_h; # Help
+our $opt_n; # No action
+our $opt_q; # Quiet mode
+our $opt_s; # Source PPD location
+our $opt_v; # Verbose mode
+
+my $debug = 0;
+my $verbose = 0;   # Verbose output
+if ($debug) {
+    $verbose = 1;
+}
+my $quiet = 0;     # No output
+my $no_action = 0; # Don't output files
+my $version = "@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@";
+
+my $ppd_dir = "@cups_conf_serverroot@/ppd"; # Location of in-use CUPS PPDs
+my $ppd_root_dir = "@cups_conf_datadir@/model";
+my $ppd_base_dir = "$ppd_root_dir/gimp-print/$version"; # Available PPDs
+my $gzext = ".gz";
+my $updated_ppd_count = 0;
+
+my @ppd_files; # A list of in-use Gimp-Print PPD files
+
+# Used to convert a language name to its two letter code
+my %languagemappings = (
+			"chinese"    => "cn",
+			"danish"     => "da",
+			"dutch"      => "nl",
+			"english"    => "en",
+			"finnish"    => "fi",
+			"french"     => "fr",
+			"german"     => "de",
+			"greek"      => "el",
+			"italian"    => "it",
+			"japanese"   => "jp",
+			"norwegian"  => "no",
+			"polish"     => "pl",
+			"portuguese" => "pt",
+			"russian"    => "ru",
+			"slovak"     => "sk",
+			"spanish"    => "es",
+			"swedish"    => "sv",
+			"turkish"    => "tr"
+);
+
+
+# Check command-line options...
+
+parse_options();
+
+
+# Set a secure umask...
+
+umask 0177;
+
+
+# Find all in-use Gimp-Print PPD files...
+
+my @ppdglob = glob("$ppd_dir/*.{ppd,PPD}");
+my $ppdlist = join ' ', @ppdglob;
+if (@ppdglob) {
+    open PPDFILES, "grep -i -l Gimp-Print $ppdlist|" or die "can't grep $ppd_dir/*: $!";
+    while (<PPDFILES>) {
+	chomp;
+	push @ppd_files,  $_;
+    }
+    close PPDFILES or ($! == 0) or die "can't close grep pipe: $!";
+}
+
+
+# Exit if there are not files to update...
+
+if (!@ppd_files) {
+    print STDOUT "No Gimp-Print PPD files to update.\n";
+    exit (0);
+}
+
+# Update each of the Gimp-Print PPDs, where possible...
+
+foreach (@ppd_files) {
+    $updated_ppd_count += update_ppd($_);
+
+}
+
+if (!$quiet || $verbose) {
+    if ($updated_ppd_count > 0) {
+	print STDOUT "Updated $updated_ppd_count PPD files.  Restart cupsd for the changes to take effect.\n";
+	exit (0);
+    } else {
+	print STDOUT "Failed to update any PPD files\n";
+	exit (0);
+    }
+}
+
+
+
+sub parse_options () {
+    getopts("dhnqs:v");
+
+    if ($opt_n) {
+	$no_action = 1;
+    }
+    if ($opt_d) {
+	$debug = 1;
+    }
+    if ($opt_s) {
+	if (-d $opt_s) {
+	    $ppd_base_dir = "$opt_s";
+	}
+	else {
+	    die "$opt_s: invalid directory: $!";
+	}
+    }
+    if ($opt_v) {
+	$verbose = 1;
+	$quiet = 0;
+    }
+    if ($opt_q) {
+	$verbose = 0;
+	$quiet = 1;
+    }
+    if ($opt_h) {
+	print "Usage: $0 [OPTION]...\n";
+	print "Update Gimp-Print PPD files.\n\n";
+        print "  -d          Enable debugging\n";
+        print "  -h          Display this help text\n";
+	print "  -n          No-action.  Don't overwrite any PPD files.\n";
+	print "  -q          Quiet mode.  No messages except errors.\n";
+	print "  -s ppd_dir  Use ppd_dir as the source PPD directory.\n";
+	print "  -v          Verbose messages.\n";
+	exit (0);
+    }
+}
+
+
+# Update the named PPD file.
+sub update_ppd ($) {
+    my $ppd_source_filename = $_;
+
+    open ORIG, $_ or die "$_: can't open PPD file: $!";
+    seek (ORIG, 0, 0) or die "can't seek to start of PPD file";
+    if ($debug) {
+	print "Source Filename: $ppd_source_filename\n";
+    }
+    # Get the `PCFileName'; the new source PPD will have the same name.
+    my ($filename) = "";
+    my ($driver) = "";
+    my ($gimpprintdriver) = "";
+    my ($locale) = "";
+    my ($lingo) = "";
+    my ($region) = "";
+    my ($valid) = 0;
+    while (<ORIG>) {
+	if (/\*StpLocale:/) {
+	    ($locale) = m/^\*StpLocale:\s\"*(.*)\"$/;
+	    $valid = 1;
+	}
+	if (/\*LanguageVersion/) {
+	    ($lingo) = m/^\*LanguageVersion:\s*(.*)$/;
+	}
+	if (/^\*StpDriverName:/ ) {
+	    ($driver) = m/^\*StpDriverName:\s*\"(.*)\"$/;
+	    $valid = 1;
+	}
+	if (/\*%End of / && $driver eq "") {
+	    ($driver) = m/^\*%End of\s*(.*).ppd$/;
+	}
+	if (/^\*StpPPDLocation:/ ) {
+	    ($filename) = m/^\*StpPPDLocation:\s*\"(.*)\"$/;
+	    $valid = 1;
+	}
+	if (/^\*%Gimp-Print Filename:/) {
+	    $valid = 1;
+	}
+    }
+    if (! $valid) {
+	print STDERR "$ppd_source_filename: this PPD file cannot be upgraded automatically (only files based on Gimp-Print 4.3.21 and newer can be)\n";
+	return 0;
+    }
+    if ($debug) {
+	print "Gimp-Print Filename: $filename\n";
+	print "Locale: $locale\n";
+	print "Language: $lingo\n";
+	print "Driver: $driver\n";
+    }
+    if ($locale) {
+	# Split into the language and territory.
+	($locale, $region) = split(/-/, $locale);
+    } else {
+	# Split into the language and territory.
+	($locale, $region) = split(/-/, $lingo);
+	# Convert language into language code.
+	$locale = $languagemappings{"\L$lingo"};
+	if (!defined($locale)) {
+	    $locale = "C"; # Fallback if there isn't one.
+	}
+    }
+    if (! defined($region)) {
+	$region = "";
+    }
+    if ($debug) {
+	print "Locale: $locale\n";
+	print "Region: $region\n";
+    }
+
+    # Search for a PPD matching our criteria...
+
+    my $source = find_ppd($filename, $driver, $locale, $region);
+    if (!defined($source)) {
+        # There wasn't a valid source PPD file, so give up.
+        print STDERR "$ppd_source_filename: no valid candidate for replacement.  Skipping\n";
+        print STDERR "$ppd_source_filename: please upgrade this PPD manually\n";
+	return 0;
+    }
+    if ($debug) {
+	print "Candidate PPD: $source\n";
+    }
+
+
+    # Read in the new PPD, decompressing it if needed...
+
+    my $source_data;
+
+    my $suffix = "\\" . $gzext; # Add '\', so m// matches the '.'.
+    if ($source =~ m/.gz$/) { # Decompress input buffer
+	open GZIN, "gunzip -c $source |"
+	    or die "$_: can't open for decompression: $!";
+	while (<GZIN>) {
+	    $source_data .= $_;
+	}
+	close GZIN;
+    }
+    else {
+	open SOURCE, $source
+	    or die "$source: can't open source file: $!";
+	binmode SOURCE;
+	my $source_size = (stat(SOURCE))[7];
+	read (SOURCE, $source_data, $source_size)
+	    or die "$source: error reading source: $!";
+	close SOURCE or die "$source: can't close file: $!";
+    }
+
+    # Save new PPD in a temporary file, for processing...
+
+    my($tmpfile, $tmpfilename) = tmpnam();
+    chown(0, 0, $tmpfilename); # root.root
+    chmod(0644, $tmpfilename);
+    unlink $tmpfilename or warn "can't unlink temporary file $tmpfile: $!\n";
+    print $tmpfile $source_data;
+
+
+
+
+    # Extract the default values from the original PPD...
+
+    my %orig_default_types = get_default_types(ORIG);
+    my %new_default_types = get_default_types($tmpfile);
+    my %defaults = get_defaults(ORIG);
+    my %options = get_options($tmpfile, %new_default_types);
+
+
+    # Close original and temporary files...
+
+    close ORIG or die "$_: can't close file: $!";
+    close $tmpfile or die "can't close temporary file $tmpfile: $!";
+
+
+    if ($debug) {
+	print "Original Default Types:\n";
+	foreach (sort keys %orig_default_types) {
+	    print "  $_: $orig_default_types{$_}\n";
+	}
+	print "New Default Types:\n";
+	foreach (sort keys %new_default_types) {
+	    print "  $_: $new_default_types{$_}\n";
+	}
+	print "Defaults:\n";
+	foreach (sort keys %defaults) {
+	    print "  $_: $defaults{$_}\n";
+	}
+	print "Options:\n";
+	foreach (sort keys %options) {
+	    print "  $_:  ";
+	    foreach my $opt (@{$options{$_}}) {
+		print "$opt ";
+	    }
+	    print "\n";
+	}
+
+    }
+
+    # Update source buffer with old defaults...
+
+    # Loop through each default in turn.
+default_loop:
+    foreach (sort keys %defaults) {
+	my $default_option = $_;
+	my $option;
+	($option = $_) =~ s/Default//; # Strip off `Default'
+	# Check method is valid
+	my $orig_method = $orig_default_types{$option};
+	my $new_method = $new_default_types{$option};
+	if ((!defined($orig_method) || !defined($new_method)) ||
+	    $orig_method ne $new_method) {
+	    next;
+	}
+	if ($new_method eq "PickOne") {
+            # Check the old setting is valid
+	    foreach (@{$options{$option}}) {
+		if ($defaults{$default_option} eq $_) { # Valid option
+		    # Set the option in the new PPD
+		    $source_data =~ s/\*($default_option).*/*$1:$defaults{$default_option}/m;
+		    if ($verbose) {
+			print "$ppd_source_filename: Set *$default_option to $defaults{$default_option}\n";
+		    }
+		    next default_loop;
+		}
+	    }
+	    printf STDERR
+		"$ppd_source_filename: Invalid option: *$default_option: $defaults{$default_option}.  Skipped.\n";
+	    next;
+	}
+	print STDERR
+	    "$ppd_source_filename: PPD OpenUI method $new_default_types{$_} not understood.  Skipped\n";
+    }
+
+
+    # Write new PPD...
+
+    my $tmpnew = "${ppd_source_filename}.new";
+    if (! open NEWPPD, "> $tmpnew") {
+	warn "Can't open $tmpnew for writing: $!\n";
+	return 0;
+    }
+    chown(0, 0, $tmpnew);	# Bad idea to hardcode this...
+    chmod(0644, $tmpnew);	# Bad idea to hardcode this...
+    print NEWPPD $source_data;
+    if (! close NEWPPD) {
+	warn "Can't close ${tmpnew}.new for writing: $!\n";
+	unlink $tmpnew;
+	return 0;
+    }
+
+    if (! rename $tmpnew, $ppd_source_filename) {
+	warn "Can't rename $tmpnew to $ppd_source_filename: $!\n";
+	unlink $tmpnew;
+	return 0;
+    }
+
+    if (!$quiet || $verbose) {
+	print STDOUT "Updated $ppd_source_filename using $source\n";
+    }
+    return 1;
+    # All done!
+}
+
+# Find a suitable source PPD file
+sub find_ppd ($$$$) {
+    my($gimpprintfilename, $drivername, $lang, $region) = @_;
+    my $file; # filename to return
+    my ($key) = '^\\*FileVersion:[ 	]*"@VERSION@"$';
+    my ($lingo, $suffix, $base, $basedir);
+    my ($current_best_file, $current_best_time);
+    my ($stored_name, $stored_dir);
+    $stored_name = $gimpprintfilename;
+    $stored_name =~ s,.*/([^/]*)(.gz)?$,$1,;
+    $stored_dir = $gimpprintfilename;
+    $stored_dir =~ s,(.*)/([^/]*)$,$1,;
+
+    $current_best_file = "";
+    $current_best_time = 0;
+
+    # All possible candidates, in order of usefulness and gzippedness
+    foreach $lingo ("${lang}_${region}/",
+		    "$lang/",
+		    "en/",
+		    "C/",
+		    "") {
+	foreach $suffix (".ppd$gzext",
+			 ".ppd") {
+	    foreach $base ("${drivername}.$version",
+                           "stp-${drivername}.$version",
+			   $stored_name,
+			   $drivername) {
+		foreach $basedir ($ppd_base_dir,
+				  $stored_dir,
+				  $ppd_root_dir) {
+                    if (! $basedir || ! $base) { next; }
+		    my ($fn) = "$basedir/$lingo$base$suffix";
+		    if ($debug) {
+                        print "Trying $fn for $gimpprintfilename, $lang, $region\n";
+                    }
+# Check that it is a regular file, owned by root.root, not writable
+# by other, and is readable by root.  i.e. the file is secure.
+		    my @sb = stat $fn or next;
+		    if (S_ISREG($sb[2]) && ($sb[4] == 0) && ($sb[5] == 0)) {
+#			!(S_IWOTH & $sb[2]) && (S_IRUSR & $sb[2])) {
+			# Check that the file is a valid Gimp-Print PPD file
+			# of the correct version.
+			my $file_version;
+			if ($fn =~ m/\.gz$/) {
+			    $file_version = `gunzip -c $fn | grep '$key'`;
+			} else {
+			    $file_version = `cat $fn | grep '$key'`;
+			}
+			if ($file_version ne "") {
+                            if ($debug) {
+			        print "   Format valid: time $sb[9] best $current_best_time prev $current_best_file cur $fn!\n";
+			    }
+			    if ($sb[9] > $current_best_time) {
+				$current_best_time = $sb[9];
+				$current_best_file = $fn;
+			    }
+			} elsif ($debug) {
+			    print "   Format invalid\n";
+			}
+		    }
+		    else {
+			if (! -d $fn && ! /\/$/) {
+			    print STDERR "$fn: not a regular file, or insecure ownership and permissions.  Skipped\n";
+			}
+		    }
+		}
+	    }
+	}
+    }
+    if ($current_best_file) {
+        return $current_best_file;
+    }
+# Yikes!  Cannot find a valid PPD file!
+    return undef;
+}
+
+# Return the default options from the given PPD filename
+sub get_default_types(*) {
+    my $fh = $_[0];
+    my %default_types;
+
+    # Read each line of the original PPD file, and store all OpenUI
+    # names and their types in a hash...
+    seek ($fh, 0, 0) or die "can't seek to start of PPD file";
+    while (<$fh>) {
+	if ( m/^\*OpenUI/ ) {
+	    chomp;
+	    my ($key, $value) = /^\*OpenUI\s\*([[:alnum:]]+).*:\s([[:alnum:]]+)/;
+	    if ($key && $value) {
+		$default_types{$key}=$value;
+	    }
+	}
+    }
+    return %default_types;
+}
+
+
+# Return the default options from the given PPD filename
+sub get_defaults(*) {
+    my $fh = $_[0];
+    my %defaults;
+
+    # Read each line of the original PPD file, and store all default
+    # names and their values in a hash...
+    seek ($fh, 0, 0) or die "can't seek to start of PPD file";
+    while (<$fh>) {
+	if ( m/^\*Default/ ) {
+	    chomp;
+	    my($key, $value) = /^\*([[:alnum:]]+):\s*([[:alnum:]]+)/;
+	    if ($key && $value) {
+		$defaults{$key}=$value;
+	    }
+	}
+    }
+    return %defaults;
+}
+
+
+# Return the available options from the given PPD filename
+sub get_options(*\%) {
+    my $fh = $_[0];
+    my $validopts = $_[1];
+    my %options;
+
+    # For each valid option name, grab each valid option for that name
+    # and store in a hash of arrays...
+
+    foreach (sort keys %$validopts) {
+	my $tmp = $_;
+	my @optionlist;
+
+	seek ($fh, 0, 0) or die "can't seek to start of PPD file";
+	while (<$fh>) {
+	    if ( m/^\*$tmp/ ) {
+		chomp;
+		my ($value) = /^\*$tmp\s*([[:alnum:]]+)[\/:]/;
+		if ($value) {
+		    push @optionlist, $value;
+		}
+	    }
+	}
+	if (@optionlist) {
+	    $options{$tmp} = [ @optionlist ];
+	}
+    }
+    return %options;
+}

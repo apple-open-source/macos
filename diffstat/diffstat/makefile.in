@@ -1,4 +1,4 @@
-# $Id: makefile.in,v 1.2 1999/12/08 04:05:30 wsanchez Exp $
+# $Id: makefile.in,v 1.20 2003/11/09 18:49:00 tom Exp $
 # Makefile-template for 'diffstat'
 
 THIS		= diffstat
@@ -14,89 +14,73 @@ INSTALL		= @INSTALL@
 INSTALL_PROGRAM	= @INSTALL_PROGRAM@
 INSTALL_DATA	= @INSTALL_DATA@
 
-LIBS		= @LIBS@
-CFLAGS		= @CFLAGS@
-LDFLAGS		=
+CFLAGS		= @CFLAGS@ @EXTRA_CFLAGS@
+CPPFLAGS	= -I. -I$(srcdir) -DHAVE_CONFIG_H @CPPFLAGS@
 
-install_prefix	=
+LIBS		= @LIBS@
+LDFLAGS		= @LDFLAGS@
+
+EXEEXT		= @EXEEXT@
+
+DESTDIR		= @DESTDIR@
 prefix		= @prefix@
 exec_prefix	= @exec_prefix@
 
-bindir		= $(exec_prefix)/bin
-libdir		= $(exec_prefix)/lib
-mandir		= $(prefix)/man
-man1dir		= $(mandir)/man1
-manext		= 1
+bindir		= $(DESTDIR)@bindir@
+mandir		= $(DESTDIR)@mandir@
 
 #### End of system configuration section. ####
 
 SHELL		= /bin/sh
 
-CPPFLAGS	= -I. -I$(srcdir) -DHAVE_CONFIG_H
+man1dir		= $(mandir)/man1
+manext		= 1
 
-LDFLAGS		= 
+PROG		= $(THIS)$(EXEEXT)
 
-SRC = CHANGES patchlev.h \
+SRC = CHANGES \
 	README $(THIS).c $(THIS).1 \
-	config_h.in install.sh mkdirs.sh makefile.in configure.in
+	config_h.in install.sh mkdirs.sh makefile.in configure.in aclocal.m4
 
-OBJ = $(THIS).o
+DISTFILES = configure config.guess config.sub $(SRC)
 
-DISTFILES = configure $(SRC)
+all :	$(PROG)
 
-all:	$(THIS)
+$(PROG) : diffstat.c
+	@ECHO_LD@$(LINK) $(LDFLAGS) -o $(PROG) $(CPPFLAGS) $(CFLAGS) diffstat.c $(LIBS)
 
-.c.o:
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $<
+install : all installdirs
+	$(INSTALL_PROGRAM) $(PROG) $(bindir)/$(PROG)
+	$(INSTALL_DATA) $(srcdir)/$(THIS).1 $(man1dir)/$(THIS).$(manext)
 
-$(THIS): $(OBJ)
-	-mv $(THIS) o$(THIS)
-	$(LINK) $(LDFLAGS) -o $(THIS) $(OBJ) $(LIBS)
+installdirs :
+	$(SHELL) ${srcdir}/mkdirs.sh $(bindir) $(libdir) $(man1dir)
 
-install: all installdirs
-	$(INSTALL_PROGRAM) $(THIS) $(install_prefix)$(bindir)/$(THIS)
-	$(INSTALL_DATA) $(srcdir)/$(THIS).1 $(install_prefix)$(man1dir)/$(THIS).$(manext)
+uninstall :
+	rm -f $(bindir)/$(PROG) $(man1dir)/$(THIS).$(manext)
 
-install-strip:
-	$(MAKE) install INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s'
+mostlyclean :
+	rm -f *.o core *~ *.out *.BAK *.atac
 
-installdirs:
-	$(SHELL) ${srcdir}/mkdirs.sh $(bindir) $(man1dir)
+clean : mostlyclean
+	rm -f $(PROG)
 
-uninstall:
-	rm -f $(bindir)/$(THIS) $(install_prefix)$(man1dir)/$(THIS).$(manext)
-
-makefile: makefile.in config.status
-	./config.status
-
-config.h: configure
-	./configure
-
-config.status: configure
-	./config.status --recheck
-
-mostlyclean:
-	rm -f *.o o$(THIS) core *~ *.out *.BAK *.atac
-
-clean: mostlyclean
-	rm -f $(THIS)
-
-distclean: clean
+distclean : clean
 	rm -f makefile config.log config.cache config.status config.h
 
-realclean: distclean
+realclean : distclean
 	rm -f tags TAGS # don't remove configure!
 
-check:
-	cd testing && run_test.sh
+check :	$(PROG)
+	cd testing && $(SHELL) ./run_test.sh
 
-lint:
+lint :
 	lint $(THIS).c
 
-tags:
+tags :
 	ctags $(THIS).c $(HDRS)
 
-TAGS:
+TAGS :
 	etags $(THIS).c $(HDRS)
 
 dist:	makefile $(DISTFILES)
@@ -114,9 +98,6 @@ dist:	makefile $(DISTFILES)
 	tar -cf - `cat .fname` | gzip >`cat .fname`.tgz
 	rm -rf `cat .fname` .fname
 
-shar:	$(DISTFILES)
-	shar -a -m -M -L50 -n$(THIS) -oPart $(DISTFILES)
+$(THIS).o :	config.h
 
-$(THIS).o:	config.h
-
-$(SRC):
+$(SRC) :

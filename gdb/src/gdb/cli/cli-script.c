@@ -31,6 +31,7 @@
 #include "gdb_string.h"
 
 #include "top.h"
+#include "event-top.h"  /* for async_request_quit */
 #include "cli/cli-cmds.h"
 #include "cli/cli-decode.h"
 #include "cli/cli-script.h"
@@ -47,17 +48,16 @@ extern void do_restore_instream_cleanup (void *stream);
 
 /* Prototypes for local functions */
 
-static struct cleanup *
-	make_cleanup_free_command_lines (struct command_line **arg);
-
 static enum command_control_type
-	recurse_read_control_structure (struct command_line *current_cmd);
+	recurse_read_control_structure (char * (*read_next_line_func) (), struct command_line *current_cmd);
 
 static char *insert_args (char *line);
 
 static struct cleanup * setup_user_args (char *p);
 
 static void validate_comname (char *);
+
+static char *read_next_line ();
 
 /* Level of control structure.  */
 static int control_level;
@@ -120,7 +120,7 @@ get_command_line (enum command_control_type type, char *arg)
   old_chain = make_cleanup_free_command_lines (&cmd);
 
   /* Read in the body of this command.  */
-  if (recurse_read_control_structure (cmd) == invalid_control)
+  if (recurse_read_control_structure (read_next_line, cmd) == invalid_control)
     {
       warning ("error reading in control structure\n");
       do_cleanups (old_chain);
@@ -221,7 +221,7 @@ print_command_lines (struct ui_out *uiout, struct command_line *cmd,
 
 /* Handle pre-post hooks.  */
 
-void
+static void
 clear_hook_in_cleanup (void *data)
 {
   struct cmd_list_element *c = data;
@@ -253,7 +253,7 @@ execute_cmd_post_hook (struct cmd_list_element *c)
 }
 
 /* Execute the command in CMD.  */
-void
+static void
 do_restore_user_call_depth (void * call_depth)
 {	
   int * depth = call_depth;
@@ -266,10 +266,9 @@ do_restore_user_call_depth (void * call_depth)
 void
 execute_user_command (struct cmd_list_element *c, char *args)
 {
-  register struct command_line *cmdlines;
+  struct command_line *cmdlines;
   struct cleanup *old_chain;
   enum command_control_type ret;
-  int saved_async;
   static int user_call_depth = 0;
   extern int max_user_call_depth;
 
@@ -320,13 +319,19 @@ execute_control_command (struct command_line *cmd)
 {
   struct expression *expr;
   struct command_line *current;
-  struct cleanup *old_chain = 0;
+  struct cleanup *old_chain = make_cleanup (null_cleanup, 0);
   struct value *val;
   struct value *val_mark;
   int loop;
   enum command_control_type ret;
   char *new_line;
-  extern int sigint_taken_p(void); 
+
+  extern int sigint_taken_p (void); 
+
+
+  /* Start by assuming failure, if a problem is detected, the code
+     below will simply "break" out of the switch.  */
+  ret = invalid_control;
 
   switch (cmd->control_type)
     {
@@ -334,7 +339,7 @@ execute_control_command (struct command_line *cmd)
       /* A simple command, execute it and return.  */
       new_line = insert_args (cmd->line);
       if (!new_line)
-	return invalid_control;
+	break;
       old_chain = make_cleanup (free_current_contents, &new_line);
 
       /* Control commands are only run when we are doing console
@@ -355,7 +360,7 @@ execute_control_command (struct command_line *cmd)
 	{
 	  char *argv[2];
 	  int argc = 2;
-	  argv[0] = "console";
+	  argv[0] = "console-quoted";
 	  argv[1] = new_line;
 	  mi_interpreter_exec_bp_cmd (new_line, argv, argc);
 	}
@@ -377,8 +382,8 @@ execute_control_command (struct command_line *cmd)
 	/* Parse the loop control expression for the while statement.  */
 	new_line = insert_args (cmd->line);
 	if (!new_line)
-	  return invalid_control;
-	old_chain = make_cleanup (free_current_contents, &new_line);
+	  break;
+	make_cleanup (free_current_contents, &new_line);
 	expr = parse_expression (new_line);
 	make_cleanup (free_current_contents, &expr);
 
@@ -396,8 +401,8 @@ execute_control_command (struct command_line *cmd)
 	       equivalent to a longjmp() to the top level in this case  
 	       since this function isn't executed in a catch_errors()  
 	       environment. */ 
-	    if (sigint_taken_p()) 
-	      async_request_quit(0); 
+	    if (sigint_taken_p ()) 
+	      async_request_quit (0); 
 
 	    /* Evaluate the expression.  */
 	    val_mark = value_mark ();
@@ -444,8 +449,8 @@ execute_control_command (struct command_line *cmd)
       {
 	new_line = insert_args (cmd->line);
 	if (!new_line)
-	  return invalid_control;
-	old_chain = make_cleanup (free_current_contents, &new_line);
+	  break;
+	make_cleanup (free_current_contents, &new_line);
 	/* Parse the conditional for the if statement.  */
 	expr = parse_expression (new_line);
 	make_cleanup (free_current_contents, &expr);
@@ -483,11 +488,10 @@ execute_control_command (struct command_line *cmd)
 
     default:
       warning ("Invalid control type in command structure.");
-      return invalid_control;
+      break;
     }
 
-  if (old_chain)
-    do_cleanups (old_chain);
+  do_cleanups (old_chain);
 
   return ret;
 }
@@ -753,10 +757,10 @@ realloc_body_list (struct command_line *command, int new_length)
 /* Read one line from the input stream.  If the command is an "else" or
    "end", return such an indication to the caller.  */
 
-static enum misc_command_type
-read_next_line (struct command_line **command)
+char *
+read_next_line ()
 {
-  char *p, *p1, *prompt_ptr, control_prompt[256];
+  char *prompt_ptr, control_prompt[256];
   int i = 0;
 
   if (control_level >= 254)
@@ -774,7 +778,13 @@ read_next_line (struct command_line **command)
   else
     prompt_ptr = NULL;
 
-  p = command_line_input (prompt_ptr, instream == stdin, "commands");
+  return command_line_input (prompt_ptr, instream == stdin, "commands");
+}
+
+static enum misc_command_type
+process_next_line (char *p, struct command_line **command)
+{
+  char *p1;
 
   /* Not sure what to do here.  */
   if (p == NULL)
@@ -805,9 +815,25 @@ read_next_line (struct command_line **command)
   /* Check for while, if, break, continue, etc and build a new command
      line structure for them.  */
   if (p1 - p > 5 && !strncmp (p, "while", 5))
-    *command = build_command_line (while_control, p + 6);
+    {
+      /* APPLE LOCAL: correctly handle "while(expression)" without
+         a space char, submitted to the FSF 2004-09-08:
+	http://sources.redhat.com/ml/gdb-patches/2004-09/msg00129.html */
+      char *first_arg;
+      first_arg = p + 5;
+      while (first_arg < p1 && isspace (*first_arg))
+        first_arg++;
+      *command = build_command_line (while_control, first_arg);
+    }
   else if (p1 - p > 2 && !strncmp (p, "if", 2))
-    *command = build_command_line (if_control, p + 3);
+    {
+      /* APPLE LOCAL: Ibid.  */
+      char *first_arg;
+      first_arg = p + 2;
+      while (first_arg < p1 && isspace (*first_arg))
+        first_arg++;
+      *command = build_command_line (if_control, first_arg);
+    }
   else if (p1 - p == 10 && !strncmp (p, "loop_break", 10))
     {
       *command = (struct command_line *)
@@ -851,7 +877,7 @@ read_next_line (struct command_line **command)
    following commands are nested.  */
 
 static enum command_control_type
-recurse_read_control_structure (struct command_line *current_cmd)
+recurse_read_control_structure (char * (*read_next_line_func) (), struct command_line *current_cmd)
 {
   int current_body, i;
   enum misc_command_type val;
@@ -880,7 +906,7 @@ recurse_read_control_structure (struct command_line *current_cmd)
       dont_repeat ();
 
       next = NULL;
-      val = read_next_line (&next);
+      val = process_next_line (read_next_line_func (), &next);
 
       /* Just skip blanks and comments.  */
       if (val == nop_command)
@@ -942,7 +968,7 @@ recurse_read_control_structure (struct command_line *current_cmd)
 	  || next->control_type == if_control)
 	{
 	  control_level++;
-	  ret = recurse_read_control_structure (next);
+	  ret = recurse_read_control_structure (read_next_line_func, next);
 	  control_level--;
 
 	  if (ret != simple_control)
@@ -965,10 +991,7 @@ recurse_read_control_structure (struct command_line *current_cmd)
 struct command_line *
 read_command_lines (char *prompt_arg, int from_tty)
 {
-  struct command_line *head, *tail, *next;
-  struct cleanup *old_chain;
-  enum command_control_type ret;
-  enum misc_command_type val;
+  struct command_line *head;
 
   control_level = 0;
   if (readline_begin_hook)
@@ -982,12 +1005,30 @@ read_command_lines (char *prompt_arg, int from_tty)
       gdb_flush (gdb_stdout);
     }
 
+  head = read_command_lines_1 (read_next_line);
+
+  if (readline_end_hook)
+    {
+      (*readline_end_hook) ();
+    }
+  return (head);
+}
+
+struct command_line *
+read_command_lines_1 (char * (*read_next_line_func) ())
+{
+  struct command_line *head, *tail, *next;
+  struct cleanup *old_chain;
+  enum command_control_type ret;
+  enum misc_command_type val;
+
+  control_level = 0;
   head = tail = NULL;
   old_chain = NULL;
 
   while (1)
     {
-      val = read_next_line (&next);
+      val = process_next_line (read_next_line_func (), &next);
 
       /* Ignore blank lines or comments.  */
       if (val == nop_command)
@@ -1009,7 +1050,7 @@ read_command_lines (char *prompt_arg, int from_tty)
 	  || next->control_type == if_control)
 	{
 	  control_level++;
-	  ret = recurse_read_control_structure (next);
+	  ret = recurse_read_control_structure (read_next_line_func, next);
 	  control_level--;
 
 	  if (ret == invalid_control)
@@ -1040,11 +1081,7 @@ read_command_lines (char *prompt_arg, int from_tty)
 	do_cleanups (old_chain);
     }
 
-  if (readline_end_hook)
-    {
-      (*readline_end_hook) ();
-    }
-  return (head);
+  return head;
 }
 
 /* Free a chain of struct command_line's.  */
@@ -1052,8 +1089,8 @@ read_command_lines (char *prompt_arg, int from_tty)
 void
 free_command_lines (struct command_line **lptr)
 {
-  register struct command_line *l = *lptr;
-  register struct command_line *next;
+  struct command_line *l = *lptr;
+  struct command_line *next;
   struct command_line **blist;
   int i;
 
@@ -1079,7 +1116,7 @@ do_free_command_lines_cleanup (void *arg)
   free_command_lines (arg);
 }
 
-static struct cleanup *
+struct cleanup *
 make_cleanup_free_command_lines (struct command_line **arg)
 {
   return make_cleanup (do_free_command_lines_cleanup, arg);
@@ -1118,7 +1155,7 @@ copy_command_lines (struct command_line *cmds)
 static void
 validate_comname (char *comname)
 {
-  register char *p;
+  char *p;
 
   if (comname == 0)
     error_no_arg ("name of command to define");
@@ -1148,10 +1185,9 @@ define_command (char *comname, int from_tty)
       CMD_PRE_HOOK,
       CMD_POST_HOOK
     };
-  register struct command_line *cmds;
-  register struct cmd_list_element *c, *newc, *oldc, *hookc = 0;
+  struct command_line *cmds;
+  struct cmd_list_element *c, *newc, *hookc = 0;
   char *tem = comname;
-  char *tem2; 
   char tmpbuf[MAX_TMPBUF];
   int  hook_type      = CMD_NO_HOOK;
   int  hook_name_size = 0;
@@ -1165,16 +1201,17 @@ define_command (char *comname, int from_tty)
 
   /* Look it up, and verify that we got an exact match.  */
   c = lookup_cmd (&tem, cmdlist, "", -1, 1);
-  if (c && !STREQ (comname, c->name))
+  if (c && strcmp (comname, c->name) != 0)
     c = 0;
 
   if (c)
     {
+      int q;
       if (c->class == class_user || c->class == class_alias)
-	tem = "Redefine command \"%s\"? ";
+	q = query ("Redefine command \"%s\"? ", c->name);
       else
-	tem = "Really redefine built-in command \"%s\"? ";
-      if (!query (tem, c->name))
+	q = query ("Really redefine built-in command \"%s\"? ", c->name);
+      if (!q)
 	error ("Command \"%s\" not redefined.", c->name);
     }
 
@@ -1198,7 +1235,7 @@ define_command (char *comname, int from_tty)
       /* Look up cmd it hooks, and verify that we got an exact match.  */
       tem = comname + hook_name_size;
       hookc = lookup_cmd (&tem, cmdlist, "", -1, 0);
-      if (hookc && !STREQ (comname + hook_name_size, hookc->name))
+      if (hookc && strcmp (comname + hook_name_size, hookc->name) != 0)
 	hookc = 0;
       if (!hookc)
 	{
@@ -1253,7 +1290,7 @@ void
 document_command (char *comname, int from_tty)
 {
   struct command_line *doclines;
-  register struct cmd_list_element *c;
+  struct cmd_list_element *c;
   char *tem = comname;
   char tmpbuf[128];
 
@@ -1271,8 +1308,8 @@ document_command (char *comname, int from_tty)
     xfree (c->doc);
 
   {
-    register struct command_line *cl1;
-    register int len = 0;
+    struct command_line *cl1;
+    int len = 0;
 
     for (cl1 = doclines; cl1; cl1 = cl1->next)
       len += strlen (cl1->line) + 1;
@@ -1310,7 +1347,6 @@ source_cleanup_lines (void *args)
   error_pre_print = p->old_error_pre_print;
 }
 
-/* ARGSUSED */
 static void
 do_fclose_cleanup (void *stream)
 {
@@ -1367,7 +1403,7 @@ script_from_file (FILE *stream, char *file)
 void
 show_user_1 (struct cmd_list_element *c, struct ui_file *stream)
 {
-  register struct command_line *cmdlines;
+  struct command_line *cmdlines;
 
   cmdlines = c->user_commands;
   if (!cmdlines)

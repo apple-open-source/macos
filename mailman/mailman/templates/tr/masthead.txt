@@ -1,0 +1,17 @@
+%(real_name)s listesi mesajlarýný þu adrese gönderin:
+	%(got_list_email)s
+
+World Wide Web ile üye olmak veya üyelikten çýkmak için þu sayfayý
+ziyaret edin:
+	%(got_listinfo_url)s
+veya e-posta yoluyla konusunda veya gövdesinde 'help' yazan bir
+mesajý þu adrese gönderin:
+	%(got_request_email)s
+
+Bu listeyi yöneten kiþiye þu adresten ulaþabilirsiniz:
+	%(got_owner_email)s
+
+Yanýt yazarken, lütfen Konu satýrýný düzenleyerek þu tür bir þekilden daha
+belirli olmasýný saðlayýn:
+"Ynt: %(real_name)s toplu mesajýnýn içeriði..."
+

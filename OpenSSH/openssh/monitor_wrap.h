@@ -1,4 +1,4 @@
-/*	$OpenBSD: monitor_wrap.h,v 1.8 2002/09/26 11:38:43 markus Exp $	*/
+/*	$OpenBSD: monitor_wrap.h,v 1.13 2003/11/17 11:06:07 markus Exp $	*/
 
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
@@ -40,6 +40,7 @@ struct mm_master;
 struct passwd;
 struct Authctxt;
 
+int mm_is_monitor(void);
 DH *mm_choose_dh(int, int, int);
 int mm_key_sign(Key *, u_char **, u_int *, u_char *, u_int);
 void mm_inform_authserv(char *, char *);
@@ -55,25 +56,33 @@ int mm_auth_rsa_key_allowed(struct passwd *, BIGNUM *, Key **);
 int mm_auth_rsa_verify_response(Key *, BIGNUM *, u_char *);
 BIGNUM *mm_auth_rsa_generate_challenge(Key *);
 
-#ifdef USE_PAM
-void mm_start_pam(char *);
-#endif
-
 #ifdef GSSAPI
 #include "ssh-gss.h"
 OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **ctxt, gss_OID oid);
-OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *ctxt, gss_buffer_desc *recv,
-				   gss_buffer_desc *send, OM_uint32 *flags);
+OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *ctxt,
+   gss_buffer_desc *recv, gss_buffer_desc *send, OM_uint32 *flags);
+int mm_ssh_gssapi_userok(char *user);
+OM_uint32 mm_ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
 OM_uint32 mm_ssh_gssapi_sign(Gssctxt *ctxt, gss_buffer_desc *buffer,
 			     gss_buffer_desc *hash);
-int mm_ssh_gssapi_userok(char *user);
 char *mm_ssh_gssapi_last_error(Gssctxt *ctxt, OM_uint32 *maj, OM_uint32 *min);
 
 #endif
 
+#ifdef USE_PAM
+void mm_start_pam(struct Authctxt *);
+u_int mm_do_pam_account(void);
+void *mm_sshpam_init_ctx(struct Authctxt *);
+int mm_sshpam_query(void *, char **, char **, u_int *, char ***, u_int **);
+int mm_sshpam_respond(void *, u_int, char **);
+void mm_sshpam_free_ctx(void *);
+#endif
+
+
+struct Session;
 void mm_terminate(void);
 int mm_pty_allocate(int *, int *, char *, int);
-void mm_session_pty_cleanup2(void *);
+void mm_session_pty_cleanup2(struct Session *);
 
 /* SSHv1 interfaces */
 void mm_ssh1_session_id(u_char *);
@@ -94,16 +103,6 @@ int mm_bsdauth_respond(void *, u_int, char **);
 /* skey */
 int mm_skey_query(void *, char **, char **, u_int *, char ***, u_int **);
 int mm_skey_respond(void *, u_int, char **);
-
-/* auth_krb */
-#ifdef KRB4
-int mm_auth_krb4(struct Authctxt *, void *, char **, void *);
-#endif
-#ifdef KRB5
-/* auth and reply are really krb5_data objects, but we don't want to
- * include all of the krb5 headers here */
-int mm_auth_krb5(void *authctxt, void *auth, char **client, void *reply);
-#endif
 
 #if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
 void mm_solaris_audit_bad_pw(const char *what);

@@ -709,6 +709,33 @@ char *timestring(BOOL hires)
 	return(TimeBuf);
 }
 
+#if defined(ATTR_CMN_CRTIME)
+int get_creation_time_attr(char *path, time_t *createTime, int dontFollowSymLink) 
+{
+    int error;
+	struct attrlist alist;
+	struct replyBlock {
+		unsigned long   length;
+		struct timespec	createTime;
+	} reply;
+	unsigned long options = 0;
+	
+	if (dontFollowSymLink)
+		options |= FSOPT_NOFOLLOW;
+		
+	memset( &alist, 0, sizeof(alist));
+	memset( &reply, 0, sizeof(reply));
+	
+	alist.bitmapcount = ATTR_BIT_MAP_COUNT;
+	alist.commonattr = ATTR_CMN_CRTIME;
+	error = getattrlist( path, &alist, &reply, sizeof(reply), options);
+	if (error == 0) {
+		*createTime = reply.createTime.tv_sec;
+	}
+
+	return (error);
+}
+#endif
 /****************************************************************************
   return the best approximation to a 'create time' under UNIX from a stat
   structure.

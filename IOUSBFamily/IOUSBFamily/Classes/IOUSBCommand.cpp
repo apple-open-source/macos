@@ -72,7 +72,10 @@ IOUSBCommand::free()
     //  variables.
     //
     if (_expansionData)
+    {
 	IOFree(_expansionData, sizeof(ExpansionData));
+        _expansionData = NULL;
+    }
 
     super::free();
 }
@@ -225,6 +228,20 @@ IOUSBCommand::SetFinalTransferInTransaction(bool finalTDinTransaction)
 }
 
 
+void
+IOUSBCommand::SetUseTimeStamp(bool useTimeStamp)
+{
+    _expansionData->_useTimeStamp = useTimeStamp;
+}
+
+
+void
+IOUSBCommand::SetTimeStamp(AbsoluteTime timeStamp)
+{
+    _expansionData->_timeStamp = timeStamp;
+}
+
+
 usbCommand 
 IOUSBCommand::GetSelector(void) 
 {
@@ -349,6 +366,16 @@ bool IOUSBCommand::GetFinalTransferInTransaction(void)
     return _expansionData->_finalTransferInTransaction;
 }
 
+bool IOUSBCommand::GetUseTimeStamp(void)
+{
+    return _expansionData->_useTimeStamp;
+}
+
+AbsoluteTime IOUSBCommand::GetTimeStamp(void)
+{
+    return _expansionData->_timeStamp;
+}
+
 
 IOUSBIsocCommand*
 IOUSBIsocCommand::NewCommand()
@@ -387,8 +414,10 @@ IOUSBIsocCommand::free()
     //  variables.
     //
     if (_expansionData)
+    {
 	IOFree(_expansionData, sizeof(ExpansionData));
-
+        _expansionData = NULL;
+    }
     super::free();
 }
 

@@ -75,6 +75,10 @@
 #include <bits/stl_iterator.h>
 #include <bits/concept_check.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/debug.h>
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
   // swap and iter_swap
@@ -100,7 +104,6 @@ namespace std
       __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter2>)
       __glibcpp_function_requires(_ConvertibleConcept<_ValueType1, _ValueType2>)
       __glibcpp_function_requires(_ConvertibleConcept<_ValueType2, _ValueType1>)
-
       _ValueType1 __tmp = *__a;
       *__a = *__b;
       *__b = __tmp;
@@ -344,6 +347,9 @@ namespace std
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
 	    typename iterator_traits<_InputIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
        typedef typename _Is_normal_iterator<_InputIter>::_Normal __Normal;
        return __copy_ni1(__first, __last, __result, __Normal());
@@ -484,6 +490,9 @@ namespace std
       __glibcpp_function_requires(_ConvertibleConcept<
 	    typename iterator_traits<_BI1>::value_type,
 	    typename iterator_traits<_BI2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       typedef typename _Is_normal_iterator<_BI1>::_Normal __Normal;
       return __copy_backward_input_normal_iterator(__first, __last, __result,
@@ -512,6 +521,9 @@ namespace std
     {
       // concept requirements
       __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first != __last; ++__first)
 	*__first = __value;
@@ -534,7 +546,6 @@ namespace std
     {
       // concept requirements
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,_Tp>)
-
       for ( ; __n > 0; --__n, ++__first)
 	*__first = __value;
       return __first;
@@ -545,6 +556,10 @@ namespace std
   inline void
   fill(unsigned char* __first, unsigned char* __last, const unsigned char& __c)
   {
+    /* APPLE LOCAL begin libstdc++ debug mode */
+    __glibcxx_requires_valid_range(__first, __last);
+    /* APPLE LOCAL end libstdc++ debug mode */
+
     unsigned char __tmp = __c;
     memset(__first, __tmp, __last - __first);
   }
@@ -552,6 +567,10 @@ namespace std
   inline void
   fill(signed char* __first, signed char* __last, const signed char& __c)
   {
+    /* APPLE LOCAL begin libstdc++ debug mode */
+    __glibcxx_requires_valid_range(__first, __last);
+    /* APPLE LOCAL end libstdc++ debug mode */
+
     signed char __tmp = __c;
     memset(__first, static_cast<unsigned char>(__tmp), __last - __first);
   }
@@ -559,6 +578,10 @@ namespace std
   inline void
   fill(char* __first, char* __last, const char& __c)
   {
+    /* APPLE LOCAL begin libstdc++ debug mode */
+    __glibcxx_requires_valid_range(__first, __last);
+    /* APPLE LOCAL end libstdc++ debug mode */
+
     char __tmp = __c;
     memset(__first, static_cast<unsigned char>(__tmp), __last - __first);
   }
@@ -615,6 +638,9 @@ namespace std
 	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_EqualityComparableConcept<
 	    typename iterator_traits<_InputIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && *__first1 == *__first2) {
 	++__first1;
@@ -646,6 +672,9 @@ namespace std
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __binary_pred(*__first1, *__first2)) {
 	++__first1;
@@ -676,6 +705,9 @@ namespace std
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
 	    typename iterator_traits<_InputIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	if (!(*__first1 == *__first2))
@@ -705,6 +737,9 @@ namespace std
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	if (!__binary_pred(*__first1, *__first2))
@@ -741,6 +776,10 @@ namespace std
 	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first1 != __last1 && __first2 != __last2
 	    ; ++__first1, ++__first2) {
@@ -773,6 +812,10 @@ namespace std
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first1 != __last1 && __first2 != __last2
 	    ; ++__first1, ++__first2) {
@@ -788,6 +831,11 @@ namespace std
   lexicographical_compare(const unsigned char* __first1, const unsigned char* __last1,
 			  const unsigned char* __first2, const unsigned char* __last2)
   {
+    /* APPLE LOCAL begin libstdc++ debug mode */
+    __glibcxx_requires_valid_range(__first1, __last1);
+    __glibcxx_requires_valid_range(__first2, __last2);
+    /* APPLE LOCAL end libstdc++ debug mode */
+
     const size_t __len1 = __last1 - __first1;
     const size_t __len2 = __last2 - __first2;
     const int __result = memcmp(__first1, __first2, min(__len1, __len2));
@@ -798,6 +846,11 @@ namespace std
   lexicographical_compare(const char* __first1, const char* __last1,
 			  const char* __first2, const char* __last2)
   {
+    /* APPLE LOCAL begin libstdc++ debug mode */
+    __glibcxx_requires_valid_range(__first1, __last1);
+    __glibcxx_requires_valid_range(__first2, __last2);
+    /* APPLE LOCAL end libstdc++ debug mode */
+
 #if CHAR_MAX == SCHAR_MAX
     return lexicographical_compare((const signed char*) __first1,
 				   (const signed char*) __last1,

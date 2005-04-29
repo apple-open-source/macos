@@ -1,21 +1,23 @@
 /* This file read a Java(TM) .class file.
    It is not stand-alone:  It depends on tons of macros, and the
    intent is you #include this file after you've defined the macros.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
-   Copyright (C) 1996, 1997, 1998, 1999, 2000  Free Software Foundation, Inc.
+This file is part of GCC.
 
-This program is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -26,19 +28,19 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "jcf.h"
 #include "zipfile.h"
 
-static int get_attribute PARAMS ((JCF *));
-static int jcf_parse_preamble PARAMS ((JCF *));
-static int jcf_parse_constant_pool PARAMS ((JCF *));
-static void jcf_parse_class PARAMS ((JCF *));
-static int jcf_parse_fields PARAMS ((JCF *));
-static int jcf_parse_one_method PARAMS ((JCF *));
-static int jcf_parse_methods PARAMS ((JCF *));
-static int jcf_parse_final_attributes PARAMS ((JCF *));
+static int get_attribute (JCF *);
+static int jcf_parse_preamble (JCF *);
+static int jcf_parse_constant_pool (JCF *);
+static void jcf_parse_class (JCF *);
+static int jcf_parse_fields (JCF *);
+static int jcf_parse_one_method (JCF *);
+static int jcf_parse_methods (JCF *);
+static int jcf_parse_final_attributes (JCF *);
 #ifdef NEED_PEEK_ATTRIBUTE
-static int peek_attribute PARAMS ((JCF *, int, const char *, int));
+static int peek_attribute (JCF *, int, const char *, int);
 #endif
 #ifdef NEED_SKIP_ATTRIBUTE
-static void skip_attribute PARAMS ((JCF *, int));
+static void skip_attribute (JCF *, int);
 #endif
 
 /* Go through all available attribute (ATTRIBUTE_NUMER) and try to
@@ -48,11 +50,8 @@ static void skip_attribute PARAMS ((JCF *, int));
 
 #ifdef NEED_PEEK_ATTRIBUTE	/* Not everyone uses this function */
 static int
-peek_attribute (jcf, attribute_number, peeked_name, peeked_name_length)
-      JCF *jcf;
-      int attribute_number;
-      const char *peeked_name;
-      int peeked_name_length;
+peek_attribute (JCF *jcf, int attribute_number, const char *peeked_name,
+		int peeked_name_length)
 {
   int to_return = 0;
   long absolute_offset = (long)JCF_TELL (jcf);
@@ -90,9 +89,7 @@ peek_attribute (jcf, attribute_number, peeked_name, peeked_name_length)
 
 #ifdef NEED_SKIP_ATTRIBUTE	/* Not everyone uses this function */
 static void
-skip_attribute (jcf, number_of_attribute)
-     JCF *jcf;
-     int number_of_attribute;
+skip_attribute (JCF *jcf, int number_of_attribute)
 {
   while (number_of_attribute--)
     {
@@ -106,8 +103,7 @@ skip_attribute (jcf, number_of_attribute)
 #endif
 
 static int
-DEFUN(get_attribute, (jcf),
-      JCF *jcf)
+get_attribute (JCF *jcf)
 {
   uint16 attribute_name = (JCF_FILL (jcf, 6), JCF_readu2 (jcf));
   uint32 attribute_length = JCF_readu4 (jcf);
@@ -225,6 +221,13 @@ DEFUN(get_attribute, (jcf),
     }
   else
 #endif
+#ifdef HANDLE_DEPRECATED_ATTRIBUTE
+  if (MATCH_ATTRIBUTE ("Deprecated"))
+    {
+      HANDLE_DEPRECATED_ATTRIBUTE ();
+    }
+  else
+#endif
     {
 #ifdef PROCESS_OTHER_ATTRIBUTE
       PROCESS_OTHER_ATTRIBUTE(jcf, attribute_name, attribute_length);
@@ -239,8 +242,7 @@ DEFUN(get_attribute, (jcf),
 
 /* Read and handle the pre-amble. */
 static int
-DEFUN(jcf_parse_preamble, (jcf),
-      JCF* jcf)
+jcf_parse_preamble (JCF* jcf)
 {
   uint32 magic = (JCF_FILL (jcf, 8), JCF_readu4 (jcf));
   uint16 minor_version ATTRIBUTE_UNUSED = JCF_readu2 (jcf);
@@ -260,8 +262,7 @@ DEFUN(jcf_parse_preamble, (jcf),
    Return -2 if a bad cross-reference (index of other constant) was seen.
 */
 static int
-DEFUN(jcf_parse_constant_pool, (jcf),
-      JCF* jcf)
+jcf_parse_constant_pool (JCF* jcf)
 {
   int i, n;
   JPOOL_SIZE (jcf) = (JCF_FILL (jcf, 2), JCF_readu2 (jcf));
@@ -326,8 +327,7 @@ DEFUN(jcf_parse_constant_pool, (jcf),
 /* Read various class flags and numbers. */
 
 static void
-DEFUN(jcf_parse_class, (jcf),
-      JCF* jcf)
+jcf_parse_class (JCF* jcf)
 {
   int i;
   uint16 interfaces_count;
@@ -355,8 +355,7 @@ DEFUN(jcf_parse_class, (jcf),
 
 /* Read fields. */
 static int
-DEFUN(jcf_parse_fields, (jcf),
-      JCF* jcf)
+jcf_parse_fields (JCF* jcf)
 {
   int i, j;
   uint16 fields_count;
@@ -395,8 +394,7 @@ DEFUN(jcf_parse_fields, (jcf),
 /* Read methods. */
 
 static int
-DEFUN(jcf_parse_one_method, (jcf),
-      JCF* jcf)
+jcf_parse_one_method (JCF* jcf)
 {
   int i;
   uint16 access_flags = (JCF_FILL (jcf, 8), JCF_readu2 (jcf));
@@ -419,8 +417,7 @@ DEFUN(jcf_parse_one_method, (jcf),
 }
 
 static int
-DEFUN(jcf_parse_methods, (jcf),
-      JCF* jcf)
+jcf_parse_methods (JCF* jcf)
 {
   int i;
   uint16 methods_count;
@@ -443,8 +440,7 @@ DEFUN(jcf_parse_methods, (jcf),
 
 /* Read attributes. */
 static int
-DEFUN(jcf_parse_final_attributes, (jcf),
-      JCF *jcf)
+jcf_parse_final_attributes (JCF *jcf)
 {
   int i;
   uint16 attributes_count = (JCF_FILL (jcf, 2), JCF_readu2 (jcf));

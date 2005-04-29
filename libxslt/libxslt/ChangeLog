@@ -1,3 +1,97 @@
+Wed Sep 29 15:42:33 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/pattern.c: try to fix #153137 but without a test case
+	  it's shooting in the dark.
+
+Tue Sep 28 16:20:48 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* doc/tutorial2/libxslt_pipes.*: New tutorial from Panagiotis Louridas
+	* libxslt.spec.in doc/Makefile.am: integrated the tutorial in the
+	  distribution
+
+Sat Sep 25 21:38:57 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/preproc.c libxslt/variables.c: fixed 2 leaks with
+	  namespaced variable names.
+	* tests/general/bug-154.*, tests/general/Makefile.am,
+	  tests/docs/bug-154*, tests/docs/Makefile.am: added test case
+	  for above
+
+Fri Sep 24 18:13:45 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* Makefile.am: add missing variable
+	* libxslt/transform.c: fixed some error callback data
+	* tests/exslt/date/Makefile.am tests/exslt/date/sum*: added new
+	  date:sum testing from Derek Poon
+
+Fri Sep 24 09:17:22 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/date.c: fixed problem with empty sets, etc.
+	  (see discussion on mailing list)
+
+Sat Sep 18 17:08:31 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/date.c: fixed problem with timezone offset
+	  (bug 153000)
+	* tests/exslt/date/add.1.out: changed regression test output,
+	  which was apparently incorrect for above case
+
+Sat Sep 18 00:04:02 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: re-arranged sequence of setting up
+	  namespaces within xsltCopyTree (see the list thread
+	  http://mail.gnome.org/archives/xml/2004-September/msg00072.html)
+	* tests/general/bug-104.out: slight change to expected output
+	  due to above fix
+
+Fri Sep 17 23:15:33 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/date.c: enhanced validation of date-time to catch
+	  bit-field overflow (bug 152836)
+	* tests/exslt/date/date.2.*, tests/exslt/time.2.*: added test
+	  cases for above
+
+Tue Sep  7 18:04:55 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/numbers.c: further refinement to UTF8 pattern
+	  separator (bug 151975)
+
+Tue Sep  7 00:14:12 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/numbers.c: fixed problem with UTF8 pattern
+	  separator (bug 151975)
+
+Mon Sep  6 14:27:38 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/imports.c, libxslt/xslt.c, libxslt/xsltInternals.h:
+	  fixed 2 problems with xsl:include (bug #151795)
+
+Tue Aug 31 15:45:42 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* NEWS configure.in doc/*: Release of libxslt-1.1.10
+
+Tue Aug 31 11:41:11 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xsltproc.1 doc/xsltproc.xml: added missing descriptions
+	  for --path as well as --load-trace, fixes Red Hat bug #106545
+
+Fri Aug 27 20:52:52 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/keys.c: fixed small problem with key initialisation
+	  disturbing the transformation context (bug 151201).
+	* tests/general/bug-153.*, tests/general/Makefile.am,
+	  tests/docs/bug-153*, tests/docs/Makefile.am: added test case
+	  for above
+
+Tue Aug 24 16:40:51 CEST 2004 Igor Zlatkovic <igor@zlatkovic.com>
+
+	* win32/configure.js: added support for version extra
+
+Mon Aug 23 16:53:02 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/date.c libxslt/imports.c libxslt/xslt.c: fixing 
+	  compilation problems on Solaris #150844
+
 Sun Aug 22 17:19:49 CEST 2004 Daniel Veillard <daniel@veillard.com>
 
 	* configure.in NEWS doc/*: preparing release of 1.1.9

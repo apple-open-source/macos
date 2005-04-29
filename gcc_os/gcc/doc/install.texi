@@ -1,7 +1,7 @@
 \input texinfo.tex    @c -*-texinfo-*-
 @c @ifnothtml
 @c %**start of header
-@setfilename install.info
+@setfilename gccinstall.info
 @settitle Installing GCC
 @setchapternewpage odd
 @c %**end of header
@@ -58,12 +58,12 @@
 @end ifnothtml
 
 @c Part 2 Summary Description and Copyright
-@macro copyrightnotice
+@copying
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 @sp 1
 Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
+under the terms of the GNU Free Documentation License, Version 1.2 or
 any later version published by the Free Software Foundation; with no
 Invariant Sections, the Front-Cover texts being (a) (see below), and
 with the Back-Cover Texts being (b) (see below).  A copy of the
@@ -79,9 +79,9 @@ Free Documentation License}''.
      You have freedom to copy and modify this GNU Manual, like GNU
      software.  Copies published by the Free Software Foundation raise
      funds for GNU development.
-@end macro
+@end copying
 @ifinfo
-@copyrightnotice{}
+@insertcopying
 @end ifinfo
 
 @c Part 3 Titlepage and Copyright
@@ -93,7 +93,7 @@ Free Documentation License}''.
 @c The following two commands start the copyright page.
 @page
 @vskip 0pt plus 1filll
-@copyrightnotice{}
+@insertcopying
 @end titlepage
 
 @c Part 4 Top node and Master Menu
@@ -123,9 +123,6 @@ Free Documentation License}''.
 @node    Installing GCC, Binaries, , Top
 @end ifnothtml
 @ifset indexhtml
-@html
-<h1 align="center">Installing GCC</h1>
-@end html
 @ifnothtml
 @chapter Installing GCC
 @end ifnothtml
@@ -151,10 +148,7 @@ We recommend you browse the entire generic installation instructions before
 you proceed.
 
 Lists of successful builds for released versions of GCC are
-available at our web pages for
-@uref{http://gcc.gnu.org/gcc-3.0/buildstat.html,,3.0}
-and
-@uref{http://gcc.gnu.org/gcc-2.95/buildstat.html,,2.95}.
+available at @uref{http://gcc.gnu.org/buildstat.html}. 
 These lists are updated as new information becomes available.
 
 The installation procedure itself is broken into five steps.
@@ -197,13 +191,13 @@ not yet been merged into the main part of this manual.
 @end ifhtml
 
 @html
-<hr>
+<hr />
 <p>
 @end html
 @ifhtml
 @uref{./index.html,,Return to the GCC Installation page}
 
-@copyrightnotice{}
+@insertcopying
 @end ifhtml
 @end ifset
 
@@ -213,9 +207,6 @@ not yet been merged into the main part of this manual.
 @node    Downloading the source, Configuration, , Installing GCC
 @end ifnothtml
 @ifset downloadhtml
-@html
-<h1 align="center">Downloading GCC</h1>
-@end html
 @ifnothtml
 @chapter Downloading GCC
 @end ifnothtml
@@ -254,7 +245,7 @@ components of the binutils you intend to build alongside the compiler
 @file{opcodes}, @dots{}) to the directory containing the GCC sources.
 
 @html
-<hr>
+<hr />
 <p>
 @end html
 @ifhtml
@@ -268,9 +259,6 @@ components of the binutils you intend to build alongside the compiler
 @node    Configuration, Building, Downloading the source, Installing GCC
 @end ifnothtml
 @ifset configurehtml
-@html
-<h1 align="center">Installing GCC: Configuration</h1>
-@end html
 @ifnothtml
 @chapter Installing GCC: Configuration
 @end ifnothtml
@@ -288,6 +276,14 @@ If you obtained the sources via CVS, @var{srcdir} must refer to the top
 @file{gcc} directory, the one where the @file{MAINTAINERS} can be found,
 and not its @file{gcc} subdirectory, otherwise the build will fail.
 
+If either @var{srcdir} or @var{objdir} is located on an automounted NFS
+file system, the shell's built-in @command{pwd} command will return
+temporary pathnames.  Using these can lead to various sorts of build
+problems.  To avoid this issue, set the @env{PWDCMD} environment
+variable to an automounter-aware @command{pwd} command, e.g.,
+@command{pawd} or @command{amq -w}, during the configuration and build
+phases.
+
 First, we @strong{highly} recommend that GCC be built into a
 separate directory than the sources which does @strong{not} reside
 within the source tree.  This is how we generally build GCC; building
@@ -297,12 +293,12 @@ of @var{srcdir} is unsupported.
 
 If you have previously built GCC in the same directory for a
 different target machine, do @samp{make distclean} to delete all files
-that might be invalid.  One of the files this deletes is
-@file{Makefile}; if @samp{make distclean} complains that @file{Makefile}
-does not exist, it probably means that the directory is already suitably
-clean.  However, with the recommended method of building in a separate
-@var{objdir}, you should simply use a different @var{objdir} for each
-target.
+that might be invalid.  One of the files this deletes is @file{Makefile};
+if @samp{make distclean} complains that @file{Makefile} does not exist
+or issues a message like ``don't know how to make distclean'' it probably
+means that the directory is already suitably clean.  However, with the
+recommended method of building in a separate @var{objdir}, you should
+simply use a different @var{objdir} for each target.
 
 Second, when configuring a native system, either @command{cc} or
 @command{gcc} must be in your path or you must set @env{CC} in
@@ -362,12 +358,14 @@ other than the default.  The toplevel installation directory defaults to
 @file{/usr/local}.
 
 We @strong{highly} recommend against @var{dirname} being the same or a
-subdirectory of @var{objdir} or vice versa.
+subdirectory of @var{objdir} or vice versa.  If specifying a directory
+beneath a user's home directory tree, some shells will not expand
+@var{dirname} correctly if it contains the @samp{~} metacharacter; use
+@env{$HOME} instead.
 
 These additional options control where certain parts of the distribution
 are installed.  Normally you should not need to use these options.
 @table @code
-
 @item --exec-prefix=@var{dirname}
 Specify the toplevel installation directory for architecture-dependent
 files.  The default is @file{@var{prefix}}.
@@ -388,6 +386,10 @@ default is @file{@var{libdir}}.
 @item --infodir=@var{dirname}
 Specify the installation directory for documentation in info format.
 The default is @file{@var{prefix}/info}.
+
+@item --datadir=@var{dirname}
+Specify the installation directory for some architecture-independent
+data files referenced by GCC@.  The default is @file{@var{prefix}/share}.
 
 @item --mandir=@var{dirname}
 Specify the installation directory for manual pages.  The default is
@@ -434,9 +436,9 @@ complex conversion patterns. As a basic rule, @var{prefix} (and
 @var{suffix}) are prepended (appended) before further transformations
 can happen with a special transformation script @var{pattern}.
 
-As currently implemented, this options only take effect for native
+As currently implemented, this option only takes effect for native
 builds; cross compiler binaries' names are not transformed even when a
-transformation is explicitly asked for by one of this options.
+transformation is explicitly asked for by one of these options.
 
 For native builds, some of the installed programs are also installed
 with the target alias in front of their name, as in
@@ -472,12 +474,49 @@ any in that directory---are not part of GCC@.  They are part of other
 programs---perhaps many others.  (GCC installs its own header files in
 another directory which is based on the @option{--prefix} value.)
 
+Both the local-prefix include directory and the GCC-prefix include
+directory are part of GCC's "system include" directories.  Although these
+two directories are not fixed, they need to be searched in the proper
+order for the correct processing of the include_next directive.  The
+local-prefix include directory is searched before the GCC-prefix
+include directory.  Another characteristic of system include directories
+is that pedantic warnings are turned off for headers in these directories.
+
+Some autoconf macros add @option{-I @var{directory}} options to the
+compiler command line, to ensure that directories containing installed
+packages' headers are searched.  When @var{directory} is one of GCC's
+system include directories, GCC will ignore the option so that system
+directories continue to be processed in the correct order.  This
+may result in a search order different from what was specified but the
+directory will still be searched.
+
+GCC automatically searches for ordinary libraries using
+@env{GCC_EXEC_PREFIX}.  Thus, when the same installation prefix is
+used for both GCC and packages, GCC will automatically search for
+both headers and libraries.  This provides a configuration that is
+easy to use.  GCC behaves in a manner similar to that when it is
+installed as a system compiler in @file{/usr}.
+
+Sites that need to install multiple versions of GCC may not want to
+use the above simple configuration.  It is possible to use the
+@option{--program-prefix}, @option{--program-suffix} and
+@option{--program-transform-name} options to install multiple versions
+into a single directory, but it may be simpler to use different prefixes
+and the @option{--with-local-prefix} option to specify the location of the
+site-specific files for each version.  It will then be necessary for
+users to specify explicitly the location of local site libraries
+(e.g., with @env{LIBRARY_PATH}).
+
+The same value can be used for both @option{--with-local-prefix} and
+@option{--prefix} provided it is not @file{/usr}.  This can be used
+to avoid the default search of @file{/usr/local/include}.
+
 @strong{Do not} specify @file{/usr} as the @option{--with-local-prefix}!
 The directory you use for @option{--with-local-prefix} @strong{must not}
 contain any of the system's standard header files.  If it did contain
 them, certain programs would be miscompiled (including GNU Emacs, on
 certain targets), because this would override and nullify the header
-file corrections made by the @code{fixincludes} script.
+file corrections made by the @command{fixincludes} script.
 
 Indications are that people who use this option use it based on mistaken
 ideas of what it is for.  People use it as if it specified where to
@@ -508,22 +547,28 @@ argument, only @option{--enable-shared} does.
 @item @anchor{with-gnu-as}--with-gnu-as
 Specify that the compiler should assume that the
 assembler it finds is the GNU assembler.  However, this does not modify
-the rules to find an assembler and will result in confusion if found
-assembler is not actually the GNU assembler.  (Confusion will also
+the rules to find an assembler and will result in confusion if the
+assembler found is not actually the GNU assembler.  (Confusion may also
 result if the compiler finds the GNU assembler but has not been
 configured with @option{--with-gnu-as}.)  If you have more than one
 assembler installed on your system, you may want to use this option in
 connection with @option{--with-as=@var{pathname}}.
 
-The systems where it makes a difference whether you use the GNU assembler are
-@samp{hppa1.0-@var{any}-@var{any}}, @samp{hppa1.1-@var{any}-@var{any}},
-@samp{i386-@var{any}-sysv}, @samp{i386-@var{any}-isc},
-@samp{i860-@var{any}-bsd}, @samp{m68k-bull-sysv},
-@samp{m68k-hp-hpux}, @samp{m68k-sony-bsd},
-@samp{m68k-altos-sysv}, @samp{m68000-hp-hpux},
-@samp{m68000-att-sysv}, @samp{@var{any}-lynx-lynxos},
-and @samp{mips-@var{any}}.
-On any other system, @option{--with-gnu-as} has no effect.
+The following systems are the only ones where it makes a difference
+whether you use the GNU assembler.  On any other system,
+@option{--with-gnu-as} has no effect.
+
+@itemize bullet
+@item @samp{hppa1.0-@var{any}-@var{any}}
+@item @samp{hppa1.1-@var{any}-@var{any}}
+@item @samp{i386-@var{any}-sysv}
+@item @samp{m68k-bull-sysv}
+@item @samp{m68k-hp-hpux}
+@item @samp{m68000-hp-hpux}
+@item @samp{m68000-att-sysv}
+@item @samp{@var{any}-lynx-lynxos}
+@item @samp{mips-@var{any}}
+@end itemize
 
 On the systems listed above (except for the HP-PA, for ISC on the
 386, and for @samp{mips-sgi-irix5.*}), if you use the GNU assembler,
@@ -600,7 +645,6 @@ predefined set of them.
 Some targets provide finer-grained control over which multilibs are built
 (e.g., @option{--disable-softfloat}):
 @table @code
-
 @item arc-*-elf*
 biendian.
 
@@ -673,10 +717,10 @@ Microsoft Win32 API thread support.
 @item --with-cpu=@var{cpu}
 Specify which cpu variant the
 compiler should generate code for by default.  This is currently
-only supported on the some ports, specifically arm, powerpc, and
+only supported on some ports, specifically arm, powerpc, and
 SPARC@.  If configure does not recognize the model name (e.g.@: arm700,
-603e, or ultrasparc) you provide, please check the configure script
-for a complete list of supported models.
+603e, or ultrasparc) you provide, please check the
+@file{gcc/config.gcc} script for a complete list of supported models.
 
 @item --enable-altivec
 Specify that the target supports AltiVec vector enhancements.  This
@@ -695,6 +739,14 @@ Specify that a user visible @command{cpp} program should not be installed.
 @item --with-cpp-install-dir=@var{dirname}
 Specify that the user visible @command{cpp} program should be installed
 in @file{@var{prefix}/@var{dirname}/cpp}, in addition to @var{bindir}.
+
+@item --enable-initfini-array
+Force the use of sections @code{.init_array} and @code{.fini_array}
+(instead of @code{.init} and @code{.fini}) for constructors and
+destructors.  Option @option{--disable-initfini-array} has the
+opposite effect.  If neither option is specified, the configure script
+will try to guess whether the @code{.init_array} and
+@code{.fini_array} sections are supported and, if they are, use them.
 
 @item --enable-maintainer-mode
 The build rules that
@@ -769,8 +821,8 @@ option.  This option has no effect on the other hosts.
 
 @item --nfp
 Specify that the machine does not have a floating point unit.  This
-option only applies to @samp{m68k-sun-sunos@var{n}} and
-@samp{m68k-isi-bsd}.  On any other system, @option{--nfp} has no effect.
+option only applies to @samp{m68k-sun-sunos@var{n}}.  On any other
+system, @option{--nfp} has no effect.
 
 @item --enable-checking
 @itemx --enable-checking=@var{list}
@@ -782,9 +834,21 @@ compiler and may only work properly if you are building the compiler
 with GCC@.  This is on by default when building from CVS or snapshots,
 but off for releases.  More control over the checks may be had by
 specifying @var{list}; the categories of checks available are
-@samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl} and @samp{gcac}.  The
-default when @var{list} is not specified is @samp{misc,tree,gc}; the
+@samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl}, @samp{rtlflag} and
+@samp{gcac}.  The
+default when @var{list} is not specified is @samp{misc,tree,gc,rtlflag}; the
 checks @samp{rtl} and @samp{gcac} are very expensive.
+
+@item --enable-coverage
+@item --enable-coverage=@var{level}
+With this option, the compiler is built to collect self coverage
+information, every time it is run. This is for internal development
+purposes, and only works when the compiler is being built with gcc. The
+@var{level} argument controls whether the compiler is built optimized or
+not, values are @samp{opt} and @samp{noopt}. For coverage analysis you
+want to disable optimization, for performance analysis you want to
+enable optimization. When coverage is enabled, the default level is
+without optimization.
 
 @item --enable-nls
 @itemx --disable-nls
@@ -811,22 +875,36 @@ libiconv library files in @file{@var{dir}/lib}.
 @item --with-system-zlib
 Use installed zlib rather than that included with GCC@.  This option
 only applies if the Java front end is being built.
+
+@item --enable-obsolete
+Enable configuration for an obsoleted system.  If you attempt to
+configure GCC for a system (build, host, or target) which has been
+obsoleted, and you do not specify this flag, configure will halt with an
+error message.
+
+All support for systems which have been obsoleted in one release of GCC
+is removed entirely in the next major release, unless someone steps
+forward to maintain the port.
 @end table
 
 Some options which only apply to building cross compilers:
 @table @code
-@item --with-headers=@var{dir}
-Specifies a directory
-which has target include files.
-@emph{This options is required} when building a cross
-compiler, if @file{@var{prefix}/@var{target}/sys-include} doesn't pre-exist.
-These include files will be copied into the @file{gcc} install directory.
-Fixincludes will be run on these files to make them compatible with
-GCC.
-@item --with-libs=``@var{dir1} @var{dir2} @dots{} @var{dirN}''
+@item --with-headers
+@itemx --with-headers=@var{dir}
+Specifies that target headers are available when building a cross compiler.
+The @var{dir} argument specifies a directory which has the target include
+files.  These include files will be copied into the @file{gcc} install
+directory.  @emph{This option with the @var{dir} argument is required} when
+building a cross compiler, if @file{@var{prefix}/@var{target}/sys-include}
+doesn't pre-exist.  If @file{@var{prefix}/@var{target}/sys-include} does
+pre-exist, the @var{dir} argument may be omitted.  @command{fixincludes}
+will be run on these files to make them compatible with GCC.
+@item --with-libs
+@itemx --with-libs=``@var{dir1} @var{dir2} @dots{} @var{dirN}''
 Specifies a list of directories which contain the target runtime
 libraries.  These libraries will be copied into the @file{gcc} install
-directory.
+directory.  If the directory list is omitted, this option has no
+effect.
 @item --with-newlib
 Specifies that @samp{newlib} is
 being used as the target C library.  This causes @code{__eprintf} to be
@@ -839,7 +917,7 @@ Note that each @option{--enable} option has a corresponding
 corresponding @option{--without} option.
 
 @html
-<hr>
+<hr />
 <p>
 @end html
 @ifhtml
@@ -853,9 +931,6 @@ corresponding @option{--without} option.
 @node    Building, Testing, Configuration, Installing GCC
 @end ifnothtml
 @ifset buildhtml
-@html
-<h1 align="center">Installing GCC: Building</h1>
-@end html
 @ifnothtml
 @chapter Building
 @end ifnothtml
@@ -864,7 +939,7 @@ corresponding @option{--without} option.
 Now that GCC is configured, you are ready to build the compiler and
 runtime libraries.
 
-We @strong{highly} recommend that GCC be built using GNU make;
+We @strong{highly} recommend that GCC be built using GNU make; 
 other versions may work, then again they might not.
 GNU make is required for compiling GNAT (the Ada compiler) and the Java
 runtime library.
@@ -892,7 +967,7 @@ because you have previously configured the compiler in the source
 directory.  Make sure you have done all the necessary preparations.
 
 If you build GCC on a BSD system using a directory stored in an old System
-V file system, problems may occur in running @code{fixincludes} if the
+V file system, problems may occur in running @command{fixincludes} if the
 System V file system doesn't support symbolic links.  These problems
 result in a failure to fix the declaration of @code{size_t} in
 @file{sys/types.h}.  If you find that @code{size_t} is a signed type and
@@ -907,7 +982,7 @@ parser sources, releases contain the Bison-generated files and you do
 not need Bison installed to build them.
 
 When building from CVS or snapshots, or if you modify Texinfo
-documentation, you need version 4.0 or later of Texinfo installed if you
+documentation, you need version 4.2 or later of Texinfo installed if you
 want Info documentation to be regenerated.  Releases contain Info
 documentation pre-built for the unmodified documentation in the release.
 
@@ -944,13 +1019,16 @@ bootstrap} except that object files from the stage1 and
 stage2 of the 3-stage bootstrap of the compiler are deleted as
 soon as they are no longer needed.
 
-
 If you want to save additional space during the bootstrap and in
 the final installation as well, you can build the compiler binaries
-without debugging information with @samp{make CFLAGS='-O' LIBCFLAGS='-g
--O2' LIBCXXFLAGS='-g -O2 -fno-implicit-templates' bootstrap}.  This will save
+without debugging information as in the following example.  This will save
 roughly 40% of disk space both for the bootstrap and the final installation.
 (Libraries will still contain debugging information.)
+
+@example
+     make CFLAGS='-O' LIBCFLAGS='-g -O2' \
+       LIBCXXFLAGS='-g -O2 -fno-implicit-templates' bootstrap
+@end example
 
 If you wish to use non-default GCC flags when compiling the stage2 and
 stage3 compilers, set @code{BOOT_CFLAGS} on the command line when doing
@@ -1028,7 +1106,8 @@ the number of processors in your machine.
 @section Building the Ada compiler
 
 In order to build GNAT, the Ada compiler, you need a working GNAT
-compiler, since the Ada front end is written in Ada (with some
+compiler (GNAT version 3.13 or later, or GCC version 3.1 or later),
+since the Ada front end is written in Ada (with some
 GNAT-specific extensions), and GNU make.
 
 However, you do not need a full installation of GNAT, just the GNAT
@@ -1039,12 +1118,16 @@ environment variable at the configure step.  @command{configure} can
 detect the driver automatically if it has got a common name such as
 @command{gcc} or @command{gnatgcc}.  Of course, you still need a working
 C compiler (the compiler driver can be different or not).
+@command{configure} does not test whether the GNAT installation works
+and has a sufficiently recent version; if too old a GNAT version is
+installed, the build will fail unless @option{--enable-languages} is
+used to disable building the Ada front end.
 
 Additional build tools (such as @command{gnatmake}) or a working GNAT
 run-time library installation are usually @emph{not} required.  However,
-if you want to boostrap the compiler using a minimal version of GNAT,
+if you want to bootstrap the compiler using a minimal version of GNAT,
 you have to issue the following commands before invoking @samp{make
-boostrap} (this assumes that you start with an unmodified and consistent
+bootstrap} (this assumes that you start with an unmodified and consistent
 source distribution):
 
 @example
@@ -1076,7 +1159,7 @@ Currently, when compiling the Ada front end, you cannot use the parallel
 build feature described in the previous section.
 
 @html
-<hr>
+<hr />
 <p>
 @end html
 @ifhtml
@@ -1090,9 +1173,6 @@ build feature described in the previous section.
 @node    Testing, Final install, Building, Installing GCC
 @end ifnothtml
 @ifset testhtml
-@html
-<h1 align="center">Installing GCC: Testing</h1>
-@end html
 @ifnothtml
 @chapter Installing GCC: Testing
 @end ifnothtml
@@ -1100,68 +1180,70 @@ build feature described in the previous section.
 @cindex Installing GCC: Testing
 @cindex Testsuite
 
-Before you install GCC, you might wish to run the testsuite.  This
-step is optional and may require you to download additional software.
+Before you install GCC, we encourage you to run the testsuites and to
+compare your results with results from a similar configuration that have
+been submitted to the
+@uref{http://gcc.gnu.org/ml/gcc-testresults/,,gcc-testresults mailing list}.
+This step is optional and may require you to download additional software,
+but it can give you confidence in your new GCC installation or point out
+problems before you install and start using your new GCC.
 
 First, you must have @uref{download.html,,downloaded the testsuites}.
-The full distribution contains testsuites; only if you downloaded the
-``core'' compiler plus any front ends, you do not have the testsuites.
+These are part of the full distribution, but if you downloaded the
+``core'' compiler plus any front ends, you must download the testsuites
+separately.
 
-Second, you must have a @uref{http://www.gnu.org/software/dejagnu/,,current version of DejaGnu} installed;
-dejagnu 1.3 is not sufficient.
+Second, you must have the testing tools installed.  This includes
+@uref{http://www.gnu.org/software/dejagnu/,,DejaGnu} 1.4.2 (or later),
+Tcl, and Expect; the DejaGnu site has links to these.
 
-Now you may need specific preparations:
-
-@itemize @bullet
-
-@item
-The following environment variables may need to be set appropriately, as in
-the following example (which assumes that DejaGnu has been installed
-under @file{/usr/local}):
+If the directories where @command{runtest} and @command{expect} were
+installed are not in the @env{PATH}, you may need to set the following
+environment variables appropriately, as in the following example (which
+assumes that DejaGnu has been installed under @file{/usr/local}):
 
 @example
      TCL_LIBRARY = /usr/local/share/tcl8.0
      DEJAGNULIBS = /usr/local/share/dejagnu
 @end example
 
-On systems such as Cygwin, these paths are required to be actual
+(On systems such as Cygwin, these paths are required to be actual
 paths, not mounts or links; presumably this is due to some lack of
-portability in the DejaGnu code.
+portability in the DejaGnu code.)
 
-If the directories where @command{runtest} and @command{expect} were
-installed are in the @env{PATH}, it should not be necessary to set these
-environment variables.
-
-@end itemize
 
 Finally, you can run the testsuite (which may take a long time):
 @example
      cd @var{objdir}; make -k check
 @end example
 
-The testing process will try to test as many components in the GCC
-distribution as possible, including the C, C++, Objective-C and Fortran
-compilers as well as the C++ and Java runtime libraries.
+This will test various components of GCC, such as compiler
+front ends and runtime libraries.  While running the testsuite, DejaGnu
+might emit some harmless messages resembling
+@samp{WARNING: Couldn't find the global config file.} or 
+@samp{WARNING: Couldn't find tool init file} that can be ignored.
 
 @section How can I run the test suite on selected tests?
 
-As a first possibility to cut down the number of tests that are run it is
-possible to use @samp{make check-gcc} or @samp{make check-g++}
-in the @file{gcc} subdirectory of the object directory.  To further cut down the
-tests the following is possible:
+In order to run sets of tests selectively, there are targets
+@samp{make check-gcc} and @samp{make check-g++}
+in the @file{gcc} subdirectory of the object directory.  You can also
+just run @samp{make check} in a subdirectory of the object directory.
+
+
+A more selective way to just run all @command{gcc} execute tests in the
+testsuite is to use
 
 @example
     make check-gcc RUNTESTFLAGS="execute.exp @var{other-options}"
 @end example
 
-This will run all @command{gcc} execute tests in the testsuite.
+Likewise, in order to run only the @command{g++} ``old-deja'' tests in
+the testsuite with filenames matching @samp{9805*}, you would use
 
 @example
     make check-g++ RUNTESTFLAGS="old-deja.exp=9805* @var{other-options}"
 @end example
-
-This will run the @command{g++} ``old-deja'' tests in the testsuite where the filename
-matches @samp{9805*}.
 
 The @file{*.exp} files are located in the testsuite directories of the GCC
 source, the most important ones being @file{compile.exp},
@@ -1170,13 +1252,28 @@ To get a list of the possible @file{*.exp} files, pipe the
 output of @samp{make check} into a file and look at the
 @samp{Running @dots{}  .exp} lines.
 
+
+@section Additional testing for Java Class Libraries
+
+The @uref{http://sources.redhat.com/mauve/,,Mauve Project} provides
+a suite of tests for the Java Class Libraries.  This suite can be run
+as part of libgcj testing by placing the Mauve tree within the libjava
+testsuite at @file{libjava/testsuite/libjava.mauve/mauve}, or by
+specifying the location of that tree when invoking @samp{make}, as in
+@samp{make MAUVEDIR=~/mauve check}.
+
+@uref{http://www-124.ibm.com/developerworks/oss/cvs/jikes/~checkout~/jacks/jacks.html,,Jacks}
+is a free test suite that tests Java compiler front ends.  This suite
+can be run as part of libgcj testing by placing the Jacks tree within
+the libjava testsuite at @file{libjava/testsuite/libjava.jacks/jacks}.
+
 @section How to interpret test results
 
-After the testsuite has run you'll find various @file{*.sum} and @file{*.log}
+The result of running the testsuite are various @file{*.sum} and @file{*.log}
 files in the testsuite subdirectories.  The @file{*.log} files contain a
 detailed log of the compiler invocations and the corresponding
-results, the @file{*.sum} files summarize the results.  These summaries list
-all the tests that have been run with a corresponding status code:
+results, the @file{*.sum} files summarize the results.  These summaries 
+contain status codes for all tests: 
 
 @itemize @bullet
 @item
@@ -1216,15 +1313,10 @@ make sure it is in your @env{PATH}.  The file @file{your_commentary.txt} is
 prepended to the testsuite summary and should contain any special
 remarks you have on your results or your build environment.  Please
 do not edit the testsuite result block or the subject line, as these
-messages are automatically parsed and presented at the
-@uref{http://gcc.gnu.org/testresults/,,GCC testresults} web
-page.  Here you can also gather information on how specific tests
-behave on different platforms and compare them with your results.  A
-few failing testcases are possible even on released versions and you
-should look here first if you think your results are unreasonable.
+messages may be automatically processed.
 
 @html
-<hr>
+<hr />
 <p>
 @end html
 @ifhtml
@@ -1238,9 +1330,6 @@ should look here first if you think your results are unreasonable.
 @node    Final install, , Testing, Installing GCC
 @end ifnothtml
 @ifset finalinstallhtml
-@html
-<h1 align="center">Installing GCC: Final installation</h1>
-@end html
 @ifnothtml
 @chapter Installing GCC: Final installation
 @end ifnothtml
@@ -1249,6 +1338,9 @@ Now that GCC has been built (and optionally tested), you can install it with
 @example
 cd @var{objdir}; make install
 @end example
+
+We strongly recommend to install into a target directory where there is
+no previous version of GCC present.
 
 That step completes the installation of GCC; user level binaries can
 be found in @file{@var{prefix}/bin} where @var{prefix} is the value you
@@ -1261,10 +1353,37 @@ in @file{@var{libdir}} (normally @file{@var{prefix}/lib}); internal
 parts of the compiler in @file{@var{libdir}/gcc-lib}; documentation in
 info format in @file{@var{infodir}} (normally @file{@var{prefix}/info}).
 
-If you built a released version of GCC then if you don't mind, please
-quickly review the build status page for
-@uref{http://gcc.gnu.org/gcc-3.0/buildstat.html,,3.0} or
-@uref{http://gcc.gnu.org/gcc-2.95/buildstat.html,,2.95}.
+When installing cross-compilers, GCC's executables
+are not only installed into @file{@var{bindir}}, that
+is, @file{@var{exec-prefix}/bin}, but additionally into
+@file{@var{exec-prefix}/@var{target-alias}/bin}, if that directory
+exists.  Typically, such @dfn{tooldirs} hold target-specific
+binutils, including assembler and linker.
+
+Installation into a temporary staging area or into a @command{chroot}
+jail can be achieved with the command
+
+@example
+make DESTDIR=@var{path-to-rootdir} install
+@end example
+
+@noindent where @var{path-to-rootdir} is the absolute path of
+a directory relative to which all installation paths will be
+interpreted.  Note that the directory specified by @code{DESTDIR}
+need not exist yet; it will be created if necessary.
+
+There is a subtle point with tooldirs and @code{DESTDIR}:
+If you relocate a cross-compiler installation with
+e.g.@: @samp{DESTDIR=@var{rootdir}}, then the directory
+@file{@var{rootdir}/@var{exec-prefix}/@var{target-alias}/bin} will
+be filled with duplicated GCC executables only if it already exists,
+it will not be created otherwise.  This is regarded as a feature,
+not as a bug, because it gives slightly more control to the packagers
+using the @code{DESTDIR} feature.
+
+If you built a released version of GCC using @samp{make bootstrap} then please
+quickly review the build status page for your release, available from
+@uref{http://gcc.gnu.org/buildstat.html}.
 If your system is not listed for the version of GCC that you built,
 send a note to
 @email{gcc@@gcc.gnu.org} indicating
@@ -1280,6 +1399,13 @@ that file itself, just the one-line output from running it.
 The output of @samp{gcc -v} for your newly installed gcc.
 This tells us which version of GCC you built and the options you passed to
 configure.
+
+@item
+Whether you enabled all languages or a subset of them.  If you used a
+full distribution then this information is part of the configure
+options in the output of @samp{gcc -v}, but if you downloaded the
+``core'' compiler plus additional front ends then it isn't apparent
+which ones you built unless you tell us about it.
 
 @item
 If the build was for GNU/Linux, also include:
@@ -1321,7 +1447,7 @@ If you find a bug, please report it following our
 @uref{../bugs.html,,bug reporting guidelines}.
 
 If you want to print the GCC manuals, do @samp{cd @var{objdir}; make
-dvi}.  You will need to have @command{texi2dvi} (version at least 4.0)
+dvi}.  You will need to have @command{texi2dvi} (version at least 4.2)
 and @TeX{} installed.  This creates a number of @file{.dvi} files in
 subdirectories of @file{@var{objdir}}; these may be converted for
 printing with programs such as @command{dvips}.  You can also
@@ -1330,7 +1456,7 @@ Free Software Foundation}, though such manuals may not be for the most
 recent version of GCC@.
 
 @html
-<hr>
+<hr />
 <p>
 @end html
 @ifhtml
@@ -1344,9 +1470,6 @@ recent version of GCC@.
 @node    Binaries, Specific, Installing GCC, Top
 @end ifnothtml
 @ifset binarieshtml
-@html
-<h1 align="center">Installing GCC: Binaries</h1>
-@end html
 @ifnothtml
 @chapter Installing GCC: Binaries
 @end ifnothtml
@@ -1367,14 +1490,18 @@ contact their makers.
 AIX:
 @itemize
 @item
-@uref{http://freeware.bull.net,,Bull's Freeware and Shareware Archive for AIX};
+@uref{http://www.bullfreeware.com,,Bull's Freeware and Shareware Archive for AIX};
 
 @item
-@uref{http://aixpdslib.seas.ucla.edu,,UCLA Software Library for AIX};
+@uref{http://aixpdslib.seas.ucla.edu,,UCLA Software Library for AIX}.
 @end itemize
 
 @item
-DOS---@uref{http://www.delorie.com/djgpp/,,DJGPP};
+DOS---@uref{http://www.delorie.com/djgpp/,,DJGPP}.
+
+@item
+Hitachi H8/300[HS]---@uref{http://h8300-hms.sourceforge.net/,,GNU
+Development Tools for the Hitachi H8/300[HS] Series}.
 
 @item
 HP-UX:
@@ -1388,32 +1515,30 @@ HP-UX:
 
 @item
 @uref{http://www.sco.com/skunkware/devtools/index.html#gcc,,SCO
-OpenServer/Unixware};
+OpenServer/Unixware}.
 
 @item
-Solaris 2 (SPARC, Intel)---@uref{http://www.sunfreeware.com/,,Sunfreeware};
+Sinix/Reliant Unix---@uref{ftp://ftp.fujitsu-siemens.com/pub/pd/gnu/gcc/,,Siemens}.
+ 
+@item
+Solaris 2 (SPARC, Intel)---@uref{http://www.sunfreeware.com/,,Sunfreeware}.
 
 @item
-SGI---@uref{http://freeware.sgi.com/,,SGI Freeware};
+SGI---@uref{http://freeware.sgi.com/,,SGI Freeware}.
 
 @item
-Windows 95, 98, and NT:
+Microsoft Windows:
 @itemize
 @item
 The @uref{http://sources.redhat.com/cygwin/,,Cygwin} project;
 @item
-@uref{http://www.xraylith.wisc.edu/~khan/software/gnu-win32/,,GNU Win32}
-related projects by Mumit Khan.
+The @uref{http://www.mingw.org/,,MinGW} project.
 @end itemize
 
 @item
 @uref{ftp://ftp.thewrittenword.com/packages/free/by-name/,,The
 Written Word} offers binaries for Solaris 2.5.1, 2.6, 2.7/SPARC, 2.7/Intel,
 IRIX 6.2, 6.5, Digital UNIX 4.0D, HP-UX 10.20, and HP-UX 11.00.
-
-@item
-Hitachi H8/300[HS]---@uref{http://h8300-hms.sourceforge.net/,,GNU
-Development Tools for the Hitachi H8/300[HS] Series}
 
 @end itemize
 
@@ -1427,7 +1552,7 @@ bootstrapping the compiler.  An updated version of that disk is in the
 works.
 
 @html
-<hr>
+<hr />
 <p>
 @end html
 @ifhtml
@@ -1441,9 +1566,6 @@ works.
 @node    Specific, Old, Binaries, Top
 @end ifnothtml
 @ifset specifichtml
-@html
-<h1 align="center">Host/target specific installation notes for GCC</h1>
-@end html
 @ifnothtml
 @chapter Host/target specific installation notes for GCC
 @end ifnothtml
@@ -1456,21 +1578,8 @@ works.
 Please read this document carefully @emph{before} installing the
 GNU Compiler Collection on your machine.
 
-Lists of successful builds for released versions of GCC are
-available at our web pages for
-@uref{http://gcc.gnu.org/gcc-3.0/buildstat.html,,3.0}
-and
-@uref{http://gcc.gnu.org/gcc-2.95/buildstat.html,,2.95}.
-These lists are updated as new information becomes available.
-
 @ifhtml
 @itemize
-@item
-@uref{#1750a-*-*,,1750a-*-*}
-@item
-@uref{#a29k,,a29k}
-@item
-@uref{#a29k-*-bsd,,a29k-*-bsd}
 @item
 @uref{#alpha*-*-*,,alpha*-*-*}
 @item
@@ -1486,8 +1595,6 @@ These lists are updated as new information becomes available.
 @item
 @uref{#arm*-*-linux-gnu,,arm*-*-linux-gnu}
 @item
-@uref{#arm-*-riscix,,arm-*-riscix}
-@item
 @uref{#avr,,avr}
 @item
 @uref{#c4x,,c4x}
@@ -1495,8 +1602,6 @@ These lists are updated as new information becomes available.
 @uref{#dos,,DOS}
 @item
 @uref{#dsp16xx,,dsp16xx}
-@item
-@uref{#elxsi-elxsi-bsd,,elxsi-elxsi-bsd}
 @item
 @uref{#*-*-freebsd*,,*-*-freebsd*}
 @item
@@ -1514,8 +1619,6 @@ These lists are updated as new information becomes available.
 @item
 @uref{#*-*-linux-gnu,,*-*-linux-gnu}
 @item
-@uref{#ix86-*-linux*oldld,,i?86-*-linux*oldld}
-@item
 @uref{#ix86-*-linux*aout,,i?86-*-linux*aout}
 @item
 @uref{#ix86-*-linux*,,i?86-*-linux*}
@@ -1528,25 +1631,15 @@ These lists are updated as new information becomes available.
 @item
 @uref{#ix86-*-udk,,i?86-*-udk}
 @item
-@uref{#ix86-*-isc,,i?86-*-isc}
-@item
 @uref{#ix86-*-esix,,i?86-*-esix}
-@item
-@uref{#ix86-ibm-aix,,i?86-ibm-aix}
-@item
-@uref{#ix86-sequent-bsd,,i?86-sequent-bsd}
-@item
-@uref{#ix86-sequent-ptx1*,,i?86-sequent-ptx1*, i?86-sequent-ptx2*}
-@item
-@uref{#ix86-*-sysv3*,,i?86-*-sysv3*}
-@item
-@uref{#i860-intel-osf*,,i860-intel-osf*}
 @item
 @uref{#ia64-*-linux,,ia64-*-linux}
 @item
 @uref{#*-lynx-lynxos,,*-lynx-lynxos}
 @item
 @uref{#*-ibm-aix*,,*-ibm-aix*}
+@item
+@uref{#ip2k-*-elf,,ip2k-*-elf}
 @item
 @uref{#m32r-*-elf,,m32r-*-elf}
 @item
@@ -1556,19 +1649,11 @@ These lists are updated as new information becomes available.
 @item
 @uref{#m6812-elf,,m6812-elf}
 @item
-@uref{#m68k-altos,,m68k-altos}
-@item
-@uref{#m68k-apple-aux,,m68k-apple-aux}
-@item
 @uref{#m68k-att-sysv,,m68k-att-sysv}
 @item
-@uref{#m68k-bull-sysv,,m68k-bull-sysv}
-@item
-@uref{#m68k-crds-unox,,m68k-crds-unox}
+@uref{#m68k-crds-unos,,m68k-crds-unos}
 @item
 @uref{#m68k-hp-hpux,,m68k-hp-hpux}
-@item
-@uref{#m68k-*-nextstep*,,m68k-*-nextstep*}
 @item
 @uref{#m68k-ncr-*,,m68k-ncr-*}
 @item
@@ -1576,35 +1661,11 @@ These lists are updated as new information becomes available.
 @item
 @uref{#m68k-sun-sunos4.1.1,,m68k-sun-sunos4.1.1}
 @item
-@uref{#m88k-*-svr3,,m88k-*-svr3}
-@item
-@uref{#m88k-*-dgux,,m88k-*-dgux}
-@item
-@uref{#m88k-tektronix-sysv3,,m88k-tektronix-sysv3}
-@item
 @uref{#mips-*-*,,mips-*-*}
-@item
-@uref{#mips-dec-*,,mips-dec-*}
-@item
-@uref{#mips-mips-bsd,,mips-mips-bsd}
-@item
-@uref{#mips-mips-riscos*,,mips-mips-riscos*}
-@item
-@uref{#mips-sgi-irix4,,mips-sgi-irix4}
 @item
 @uref{#mips-sgi-irix5,,mips-sgi-irix5}
 @item
 @uref{#mips-sgi-irix6,,mips-sgi-irix6}
-@item
-@uref{#mips-sony-sysv,,mips-sony-sysv}
-@item
-@uref{#ns32k-encore,,ns32k-encore}
-@item
-@uref{#ns32k-*-genix,,ns32k-*-genix}
-@item
-@uref{#ns32k-sequent,,ns32k-sequent}
-@item
-@uref{#ns32k-utek,,ns32k-utek}
 @item
 @uref{#powerpc*-*-*,,powerpc*-*-*, powerpc-*-sysv4}
 @item
@@ -1630,19 +1691,15 @@ These lists are updated as new information becomes available.
 @item
 @uref{#powerpcle-*-winnt,,powerpcle-*-winnt, powerpcle-*-pe}
 @item
-@uref{#romp-*-aos,,romp-*-aos, romp-*-mach}
+@uref{#s390-*-linux*,,s390-*-linux*}
 @item
-@uref{#s390-*-linux*}
-@item
-@uref{#s390x-*-linux*}
+@uref{#s390x-*-linux*,,s390x-*-linux*}
 @item
 @uref{#*-*-solaris2*,,*-*-solaris2*}
 @item
 @uref{#sparc-sun-solaris2*,,sparc-sun-solaris2*}
 @item
 @uref{#sparc-sun-solaris2.7,,sparc-sun-solaris2.7}
-@item
-@uref{#*-*-solaris2.8,,*-*-solaris2.8}
 @item
 @uref{#sparc-sun-sunos4*,,sparc-sun-sunos4*}
 @item
@@ -1657,8 +1714,6 @@ These lists are updated as new information becomes available.
 @uref{#*-*-sysv*,,*-*-sysv*}
 @item
 @uref{#vax-dec-ultrix,,vax-dec-ultrix}
-@item
-@uref{#we32k-*-*,,we32k-*-*}
 @item
 @uref{#xtensa-*-elf,,xtensa-*-elf}
 @item
@@ -1680,70 +1735,7 @@ These lists are updated as new information becomes available.
 
 @html
 <!-- -------- host/target specific issues start here ---------------- -->
-<hr>
-@end html
-@heading @anchor{1750a-*-*}1750a-*-*
-MIL-STD-1750A processors.
-
-The MIL-STD-1750A cross configuration produces output for
-@code{as1750}, an assembler/linker available under the GNU General Public
-License for the 1750A@.  @code{as1750} can be obtained at
-@uref{ftp://ftp.fta-berlin.de/pub/crossgcc/1750gals/}.
-A similarly licensed simulator for
-the 1750A is available from same address.
-
-You should ignore a fatal error during the building of @samp{libgcc}
-(@samp{libgcc} is not yet implemented for the 1750A@.)
-
-The @code{as1750} assembler requires the file @file{ms1750.inc}, which is
-found in the directory @file{gcc/config/1750a}.
-
-GCC produced the same sections as the Fairchild F9450 C Compiler,
-namely:
-
-@table @code
-@item Normal
-The program code section.
-
-@item Static
-The read/write (RAM) data section.
-
-@item Konst
-The read-only (ROM) constants section.
-
-@item Init
-Initialization section (code to copy KREL to SREL)@.
-@end table
-
-The smallest addressable unit is 16 bits (@code{BITS_PER_UNIT} is 16).  This
-means that type @code{char} is represented with a 16-bit word per character.
-The 1750A's ``Load/Store Upper/Lower Byte'' instructions are not used by
-GCC@.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{a29k}a29k
-AMD Am29k-family processors.  These are normally used in embedded
-applications.  There are no standard Unix configurations.
-This configuration
-corresponds to AMD's standard calling sequence and binary interface
-and is compatible with other 29k tools.
-
-You may need to make a variant of the file @file{a29k.h} for your
-particular configuration.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{a29k-*-bsd}a29k-*-bsd
-AMD Am29050 used in a system running a variant of BSD Unix.
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{alpha*-*-*}alpha*-*-*
 
@@ -1758,13 +1750,23 @@ debugging information, not the least of which is incorrect linking of
 shared libraries.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{alpha*-dec-osf*}alpha*-dec-osf*
 Systems using processors that implement the DEC Alpha architecture and
 are running the DEC/Compaq Unix (DEC OSF/1, Digital UNIX, or Compaq
 Tru64 UNIX) operating system, for example the DEC Alpha AXP systems.
+
+As of GCC 3.2, versions before @code{alpha*-dec-osf4} are no longer
+supported.  (These are the versions which identify themselves as DEC
+OSF/1.)
+
+In Digital Unix V4.0, virtual memory exhausted bootstrap failures
+may be fixed by configuring with @option{--with-gc=simple},
+reconfiguring Kernel Virtual Memory and Swap parameters
+per the @command{/usr/sbin/sys_check} Tuning Suggestions,
+or applying the patch in
+@uref{http://gcc.gnu.org/ml/gcc/2002-08/msg00822.html}.
 
 In Tru64 UNIX V5.1, Compaq introduced a new assembler that does not
 currently (2001-06-13) work with @command{mips-tfile}.  As a workaround,
@@ -1832,8 +1834,7 @@ DBX@.  DEC is now aware of this problem with the assembler and hopes to
 provide a fix shortly.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{alphaev5-cray-unicosmk*}alphaev5-cray-unicosmk*
 Cray T3E systems running Unicos/Mk.
@@ -1849,8 +1850,10 @@ need to tell GCC where to find the assembler and the linker.  The
 simplest way to do so is by providing @option{--with-as} and
 @option{--with-ld} to @file{configure}, e.g.@:
 
-@samp{configure --with-as=/opt/ctl/bin/cam --with-ld=/opt/ctl/bin/cld
---enable-languages=c}
+@example
+    configure --with-as=/opt/ctl/bin/cam --with-ld=/opt/ctl/bin/cld \
+      --enable-languages=c
+@end example
 
 The comparison test during @samp{make bootstrap} fails on Unicos/Mk
 because the assembler inserts timestamps into object files.  You should
@@ -1858,16 +1861,14 @@ be able to work around this by doing @samp{make all} after getting this
 failure.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{arc-*-elf}arc-*-elf
 Argonaut ARC processor.
 This configuration is intended for embedded systems.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{arm-*-aout}arm-*-aout
 Advanced RISC Machines ARM-family processors.  These are often used in
@@ -1879,39 +1880,20 @@ You may need to make a variant of the file @file{arm.h} for your particular
 configuration.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{arm-*-elf}arm-*-elf
 This configuration is intended for embedded systems.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{arm*-*-linux-gnu}arm*-*-linux-gnu
 
 We require GNU binutils 2.10 or newer.
 
 @html
-</p>
-<hr>
-@end html
-@heading @anchor{arm-*-riscix}arm-*-riscix
-The ARM2 or ARM3 processor running RISC iX, Acorn's port of BSD Unix.
-If you are running a version of RISC iX prior to 1.2 then you must
-specify the version number during configuration.  Note that the
-assembler shipped with RISC iX does not support stabs debugging
-information; a new version of the assembler, with stabs support
-included, is now available from Acorn and via ftp
-@uref{ftp://ftp.acorn.com/pub/riscix/as+xterm.tar.Z}.  To enable stabs
-debugging, pass @option{--with-gnu-as} to configure.
-
-You will need to install GNU @command{sed} before you can run configure.
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{avr}avr
 
@@ -1933,12 +1915,14 @@ can also be obtained from:
 
 @itemize @bullet
 @item
-@uref{http://home.overta.ru/users/denisc,,http://home.overta.ru/users/denisc}
+@uref{http://www.openavr.org,,http://www.openavr.org}
 @item
-@uref{http://www.amelek.gda.pl/avr,,http://www.amelek.gda.pl/avr}
+@uref{http://home.overta.ru/users/denisc/,,http://home.overta.ru/users/denisc/}
+@item
+@uref{http://www.amelek.gda.pl/avr/,,http://www.amelek.gda.pl/avr/}
 @end itemize
 
-We @emph{strongly} recommend using binutils 2.11 or newer.
+We @emph{strongly} recommend using binutils 2.13 or newer.
 
 The following error:
 @example
@@ -1948,8 +1932,7 @@ The following error:
 indicates that you should upgrade to a newer version of the binutils.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{c4x}c4x
 
@@ -1979,8 +1962,7 @@ can also be obtained from:
 @end itemize
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{cris}CRIS
 
@@ -2018,8 +2000,7 @@ information about this platform is available at
 @uref{http://developer.axis.com/}.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{dos}DOS
 
@@ -2031,23 +2012,23 @@ compilation package DJGPP, which includes binaries as well as sources,
 and includes all the necessary compilation tools and libraries.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{dsp16xx}dsp16xx
 A port to the AT&T DSP1610 family of processors.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{*-*-freebsd*}*-*-freebsd*
 
 The version of binutils installed in @file{/usr/bin} is known to work unless
 otherwise specified in any per-architecture notes.  However, binutils
-2.11 or greater is known to improve overall testsuite results.
+2.12.1 or greater is known to improve overall testsuite results.
 
-For FreeBSD 1, FreeBSD 2 or any mutant a.out versions of FreeBSD 3: All
+FreeBSD 1 is no longer supported in GCC 3.2.
+
+For FreeBSD 2 or any mutant a.out versions of FreeBSD 3: All
 configuration support and files as shipped with GCC 2.95 are still in
 place.  FreeBSD 2.2.7 has been known to bootstrap completely; however,
 it is unknown which version of binutils was used (it is assumed that it
@@ -2067,13 +2048,17 @@ results on FreeBSD 3.0, 3.4, 4.0, 4.2, 4.3, 4.4, 4.5-STABLE and 5-CURRENT@.
 
 In principle, @option{--enable-threads} is now compatible with
 @option{--enable-libgcj} on FreeBSD@.  However, it has only been built
-and tested on i386-*-freebsd4.5 and alpha-*-freebsd5.0 and important
-test suite failures remain.  Multi-threaded boehm-gc (required for
+and tested on @samp{i386-*-freebsd4.5} and @samp{alpha-*-freebsd5.0}.
+The static
+library may be incorrectly built (symbols are missing at link time).
+There is a rare timing-based startup hang (probably involves an
+assumption about the thread library).  Multi-threaded boehm-gc (required for
 libjava) exposes severe threaded signal-handling bugs on FreeBSD before
 4.5-RELEASE.  The alpha port may not fully bootstrap without some manual
-intervention: gcjh will crash with a floating-point exception while
+intervention: @command{gcjh} will crash with a floating-point exception while
 generating @file{java/lang/Double.h} (just copy the version built on
-i386-*-freebsd* and rerun the top-level gmake with no arguments and it
+@samp{i386-*-freebsd*} and rerun the top-level @command{gmake} with no
+arguments and it
 should properly complete the bootstrap).  Other CPU architectures
 supported by FreeBSD will require additional configuration tuning in, at
 the very least, both boehm-gc and libffi.
@@ -2081,16 +2066,7 @@ the very least, both boehm-gc and libffi.
 Shared @file{libgcc_s.so} is now built and installed by default.
 
 @html
-</p>
-<hr>
-@end html
-@heading @anchor{elxsi-elxsi-bsd}elxsi-elxsi-bsd
-The Elxsi's C compiler has known limitations that prevent it from
-compiling GCC@.  Please contact @email{mrs@@wrs.com} for more details.
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{h8300-hms}h8300-hms
 Hitachi H8/300 series of processors.
@@ -2103,8 +2079,7 @@ first three arguments in function calls in registers.  Structures are no
 longer a multiple of 2 bytes.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{hppa*-hp-hpux*}hppa*-hp-hpux*
 
@@ -2118,15 +2093,27 @@ use GAS and GDB and configure GCC with the
 @uref{./configure.html#with-gnu-as,,@option{--with-gnu-as}} and
 @option{--with-as=@dots{}} options.
 
-If you wish to use pa-risc 2.0 architecture support, you must use either
-the HP assembler, gas/binutils 2.11 or a recent
+If you wish to use the pa-risc 2.0 architecture support with a 32-bit
+runtime, you must use either the HP assembler, gas/binutils 2.11 or newer,
+or a recent
 @uref{ftp://sources.redhat.com/pub/binutils/snapshots,,snapshot of gas}.
+
+There are two default scheduling models for instructions.  These are
+PROCESSOR_7100LC and PROCESSOR_8000.  They are selected from the pa-risc
+architecture specified for the target machine when configuring.
+PROCESSOR_8000 is the default.  PROCESSOR_7100LC is selected when
+the target is a @samp{hppa1*} machine.
+
+The PROCESSOR_8000 model is not well suited to older processors.  Thus,
+it is important to completely specify the machine architecture when
+configuring if you want a model other than PROCESSOR_8000.  The macro
+TARGET_SCHED_DEFAULT can be defined in BOOT_CFLAGS if a different
+default scheduling model is desired.
 
 More specific information to @samp{hppa*-hp-hpux*} targets follows.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{hppa*-hp-hpux9}hppa*-hp-hpux9
 
@@ -2142,8 +2129,7 @@ and @env{SHELL} to @file{/bin/ksh} in your environment.
 
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{hppa*-hp-hpux10}hppa*-hp-hpux10
 
@@ -2174,68 +2160,105 @@ bootstrap}.
 
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{hppa*-hp-hpux11}hppa*-hp-hpux11
 
-GCC 3.0 supports HP-UX 11.  You must use GNU binutils 2.11 or above on
-this platform.  Thread support is not currently implemented for this
-platform, so @option{--enable-threads} does not work.
-See @uref{http://gcc.gnu.org/ml/gcc-prs/2002-01/msg00551.html}
-and @uref{http://gcc.gnu.org/ml/gcc-bugs/2002-01/msg00663.html}.
+GCC 3.0 and up support HP-UX 11.  On 64-bit capable systems, there
+are two distinct ports.  The @samp{hppa2.0w-hp-hpux11*} port generates
+code for the 32-bit pa-risc runtime architecture.  It uses the HP
+linker.  The @samp{hppa64-hp-hpux11*} port generates 64-bit code for the
+pa-risc 2.0 architecture.  The script config.guess now selects the port
+type based on the type compiler detected during configuration.  You must
+set your @env{PATH} or define @env{CC} so that configure finds an appropriate
+compiler for the initial bootstrap.  Different prefixes must be used if
+both ports are to be installed on the same system.
+
 GCC 2.95.x is not supported under HP-UX 11 and cannot be used to
-compile GCC 3.0.  Refer to @uref{binaries.html,,binaries} for information
-about obtaining precompiled GCC binaries for HP-UX.
+compile GCC 3.0 and up.  Refer to @uref{binaries.html,,binaries} for
+information about obtaining precompiled GCC binaries for HP-UX.
+
+You must use GNU binutils 2.11 or above with the 32-bit port.  Thread
+support is not currently implemented, so @option{--enable-threads} does
+not work.  See:
+
+@itemize
+@item @uref{http://gcc.gnu.org/ml/gcc-prs/2002-01/msg00551.html}
+@item @uref{http://gcc.gnu.org/ml/gcc-bugs/2002-01/msg00663.html}
+@end itemize
+
+GCC 3.3 and later support weak symbols on the 32-bit port using SOM
+secondary definition symbols.  This feature is not enabled for earlier
+versions of HP-UX since there have been bugs in the linker support for
+secondary symbols.  The HP linker patches @code{PHSS_26559} and
+@code{PHSS_24304} for HP-UX 11.00 and 11.11, respectively, correct the
+problem of linker core dumps creating C++ libraries.  Earlier patches
+may work but they have not been tested.
+
+GCC 3.3 nows uses the ELF DT_INIT_ARRAY and DT_FINI_ARRAY capability
+to run initializers and finalizers on the 64-bit port.  The feature
+requires CVS binutils as of January 2, 2003, or a subsequent release
+to correct a problem arising from HP's non-standard use of the .init
+and .fini sections.  The 32-bit port uses the linker @option{+init}
+and @option{+fini} options.  As with the support for secondary symbols,
+there have been bugs in the order in which these options are executed
+by the HP linker.  So, again a recent linker patch is recommended.
+
+The HP assembler has many limitations and is not recommended for either
+the 32 or 64-bit ports.  For example, it does not support weak symbols
+or alias definitions.  As a result, explicit template instantiations
+are required when using C++.  You also can't generate debugging information
+when using the HP assembler.  Either the HP or GNU linker can be used
+with the 64-bit port but it may be necessary to use the GNU linker
+when dwarf2 exception support is implemented.
+
+There are several possible approaches to building the distribution.
+Binutils can be built first using the HP tools.  Then, the GCC
+distribution can be built.  The second approach is to build GCC
+first using the HP tools, then build binutils, then rebuild GCC.
+There have been problems with various binary distributions, so
+it is best not to start from a binary distribution.
+
+When starting with a HP compiler, it is preferable to use the ANSI
+compiler as the bundled compiler only supports traditional C.
+Bootstrapping with the bundled compiler is tested infrequently and
+problems often arise because of the subtle differences in semantics
+between traditional and ISO C.
+
+This port still is undergoing significant development.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{i370-*-*}i370-*-*
 This port is very preliminary and has many known bugs.  We hope to
 have a higher-quality port for this machine soon.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{*-*-linux-gnu}*-*-linux-gnu
+
+Versions of libstdc++-v3 starting with 3.2.1 require bugfixes present
+in glibc 2.2.5 and later.  More information is available in the
+libstdc++-v3 documentation.
 
 If you use glibc 2.2 (or 2.1.9x), GCC 2.95.2 won't install
 out-of-the-box.  You'll get compile errors while building @samp{libstdc++}.
 The patch @uref{glibc-2.2.patch,,glibc-2.2.patch}, that is to be
 applied in the GCC source tree, fixes the compatibility problems.
 
-@html
-</p>
-@end html
-
-@html
-<p>
-@end html
-
 Currently Glibc 2.2.3 (and older releases) and GCC 3.0 are out of sync
 since the latest exception handling changes for GCC@.  Compiling glibc
 with GCC 3.0 will give a binary incompatible glibc and therefore cause
-lots of problems and might make your system completly unusable.  This
-will definitly need fixes in glibc but might also need fixes in GCC@.  We
+lots of problems and might make your system completely unusable.  This
+will definitely need fixes in glibc but might also need fixes in GCC@.  We
 strongly advise to wait for glibc 2.2.4 and to read the release notes of
 glibc 2.2.4 whether patches for GCC 3.0 are needed.  You can use glibc
 2.2.3 with GCC 3.0, just do not try to recompile it.
 
 @html
-</p>
-<hr>
-@end html
-@heading @anchor{ix86-*-linux*oldld}i?86-*-linux*oldld
-Use this configuration to generate @file{a.out} binaries on Linux-based
-GNU systems if you do not have gas/binutils version 2.5.2 or later
-installed.  This is an obsolete configuration.
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{ix86-*-linux*aout}i?86-*-linux*aout
 Use this configuration to generate @file{a.out} binaries on Linux-based
@@ -2243,8 +2266,7 @@ GNU systems.  This configuration is being superseded.  You must use
 gas/binutils version 2.5.2 or later.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{ix86-*-linux*}i?86-*-linux*
 
@@ -2255,23 +2277,20 @@ possible you have a hardware problem.  Further information on this can be
 found on @uref{http://www.bitwizard.nl/sig11/,,www.bitwizard.nl}.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{ix86-*-sco}i?86-*-sco
 Compilation with RCC is recommended.  Also, it may be a good idea to
 link with GNU malloc instead of the malloc that comes with the system.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{ix86-*-sco3.2v4}i?86-*-sco3.2v4
 Use this configuration for SCO release 3.2 version 4.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{ix86-*-sco3.2v5*}i?86-*-sco3.2v5*
 Use this for the SCO OpenServer Release 5 family of operating systems.
@@ -2318,7 +2337,7 @@ additional OpenServer-specific flags.
 
 Systems based on OpenServer before 5.0.4 (@samp{uname -X}
 will tell you what you're running) require TLS597 from
-@uref{ftp://ftp.sco.com/TLS/,,ftp://ftp.sco.com/TLS/}
+@uref{ftp://stage.caldera.com/TLS/,,ftp://stage.caldera.com/TLS/}
 for C++ constructors and destructors to work right.
 
 The system linker in (at least) 5.0.4 and 5.0.5 will sometimes
@@ -2327,8 +2346,8 @@ code.  This can be seen as execution testsuite failures when using
 @option{-fPIC} on @file{921215-1.c}, @file{931002-1.c}, @file{nestfunc-1.c}, and @file{gcov-1.c}.
 For 5.0.5, an updated linker that will cure this problem is
 available.  You must install both
-@uref{ftp://ftp.sco.com/Supplements/rs505a/,,ftp://ftp.sco.com/Supplements/rs505a/}
-and @uref{ftp://ftp.sco.com/SLS/,,OSS499A}.
+@uref{ftp://ftp.sco.com/pub/openserver5/rs505a,,ftp://ftp.sco.com/pub/openserver5/rs505a}
+and @uref{ftp://ftp.sco.com/pub/openserver5,,OSS499A}.
 
 The dynamic linker in OpenServer 5.0.5 (earlier versions may show
 the same problem) aborts on certain G77-compiled programs.  It's particularly
@@ -2346,8 +2365,7 @@ engineering and will hopefully be addressed in later releases.
 
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{ix86-*-udk}i?86-*-udk
 
@@ -2366,8 +2384,10 @@ from the right place) while making the tools not think we're actually
 building a cross compiler.   The easiest way to do this is with a configure
 command like this:
 
-@samp{CC=/udk/usr/ccs/bin/cc @var{/your/path/to}/gcc/configure
---host=i686-pc-udk --target=i686-pc-udk --program-prefix=udk-}
+@example
+    CC=/udk/usr/ccs/bin/cc @var{/your/path/to}/gcc/configure \
+      --host=i686-pc-udk --target=i686-pc-udk --program-prefix=udk-
+@end example
 
 @emph{You should substitute @samp{i686} in the above command with the appropriate
 processor for your host.}
@@ -2381,102 +2401,7 @@ have installed.
 
 
 @html
-</p>
-<hr>
-@end html
-@heading @anchor{ix86-*-isc}i?86-*-isc
-It may be a good idea to link with GNU malloc instead of the malloc that
-comes with the system.
-
-In ISC version 4.1, @command{sed} core dumps when building
-@file{deduced.h}.  Use the version of @command{sed} from version 4.0.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{ix86-*-esix}i?86-*-esix
-It may be good idea to link with GNU malloc instead of the malloc that
-comes with the system.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{ix86-ibm-aix}i?86-ibm-aix
-You need to use GAS version 2.1 or later, and LD from
-GNU binutils version 2.2 or later.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{ix86-sequent-bsd}i?86-sequent-bsd
-Go to the Berkeley universe before compiling.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{ix86-sequent-ptx1*}i?86-sequent-ptx1*, i?86-sequent-ptx2*
-You must install GNU @command{sed} before running @command{configure}.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{#ix86-*-sysv3*}i?86-*-sysv3*
-The @code{fixproto} shell script may trigger a bug in the system shell.
-If you encounter this problem, upgrade your operating system or
-use @command{bash} (the GNU shell) to run @code{fixproto}.
-
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{i860-intel-osf*}i860-intel-osf*
-On the Intel Paragon (an i860 machine), if you are using operating
-system version 1.0, you will get warnings or errors about redefinition
-of @code{va_arg} when you build GCC@.
-
-If this happens, then you need to link most programs with the library
-@file{iclib.a}.  You must also modify @file{stdio.h} as follows: before
-the lines
-
-@example
-#if     defined(__i860__) && !defined(_VA_LIST)
-#include <va_list.h>
-@end example
-
-@noindent
-insert the line
-
-@example
-#if __PGC__
-@end example
-
-@noindent
-and after the lines
-
-@example
-extern int  vprintf(const char *, va_list );
-extern int  vsprintf(char *, const char *, va_list );
-#endif
-@end example
-
-@noindent
-insert the line
-
-@example
-#endif /* __PGC__ */
-@end example
-
-These problems don't exist in operating system version 1.1.
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{ia64-*-linux}ia64-*-linux
 IA-64 processor (also known as IPF, or Itanium Processor Family)
@@ -2500,8 +2425,7 @@ GCC 3.0.2 is believed to be fully ABI compliant, and hence no more major
 ABI changes are expected.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{*-lynx-lynxos}*-lynx-lynxos
 LynxOS 2.2 and earlier comes with GCC 1.x already installed as
@@ -2512,8 +2436,7 @@ COFF format object files and executables;  otherwise GCC will use the
 installed tools, which produce @file{a.out} format executables.
 
 @html
-</p>
-<hr>
+<hr />
 <!-- rs6000-ibm-aix*, powerpc-ibm-aix* -->
 @end html
 @heading @anchor{*-ibm-aix*}*-ibm-aix*
@@ -2533,13 +2456,42 @@ If this error occurs during stage2 or later, then the problem most likely
 is the version of Make (see above).
 
 The GNU Assembler incorrectly reports that it supports WEAK symbols on
-AIX which causes GCC to try to utilize weak symbol functionality which
-is not really supported on the platform.  The native @command{as} and
+AIX which causes GCC to try to utilize weak symbol functionality although
+it is not supported on the platform.  The native @command{as} and
 @command{ld} still are recommended.  The native AIX tools do
 interoperate with GCC@.
 
-Building @file{libstdc++.a} requires a fix for a AIX Assembler bug
+Building @file{libstdc++.a} requires a fix for an AIX Assembler bug
 APAR IY26685 (AIX 4.3) or APAR IY25528 (AIX 5.1).
+
+@samp{libstdc++} in GCC 3.2 increments the major version number of the
+shared object and GCC installation places the @file{libstdc++.a}
+shared library in a common location which will overwrite the GCC 3.1
+version of the shared library.  Applications either need to be
+re-linked against the new shared library or the GCC 3.1 version of the
+@samp{libstdc++} shared object needs to be available to the AIX
+runtime loader.  The GCC 3.1 @samp{libstdc++.so.4} shared object can
+be installed for runtime dynamic loading using the following steps to
+set the @samp{F_LOADONLY} flag in the shared object for @emph{each}
+multilib @file{libstdc++.a} installed:
+
+Extract the shared object from each the GCC 3.1 @file{libstdc++.a}
+archive:
+@example
+   % ar -x libstdc++.a libstdc++.so.4
+@end example
+
+Enable the @samp{F_LOADONLY} flag so that the shared object will be
+available for runtime dynamic loading, but not linking:
+@example
+   % strip -e libstdc++.so.4
+@end example
+
+Archive the runtime-only shared object in the GCC 3.2
+@file{libstdc++.a} archive:
+@example
+   % ar -q libstdc++.a libstdc++.so.4
+@end example
 
 Linking executables and shared libraries may produce warnings of
 duplicate symbols.  The assembly files generated by GCC for AIX always
@@ -2593,16 +2545,24 @@ A default can be specified with the @option{-mcpu=@var{cpu_type}}
 switch and using the configure option @option{--with-cpu-@var{cpu_type}}.
 
 @html
-</p>
-<hr>
+<hr />
+@end html
+@heading @anchor{ip2k-*-elf}ip2k-*-elf
+Ubicom IP2022 micro controller.
+This configuration is intended for embedded systems.
+There are no standard Unix configurations.
+
+Use @samp{configure --target=ip2k-elf --enable-languages=c} to configure GCC@.
+
+@html
+<hr />
 @end html
 @heading @anchor{m32r-*-elf}m32r-*-elf
 Mitsubishi M32R processor.
 This configuration is intended for embedded systems.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{m68000-hp-bsd}m68000-hp-bsd
 HP 9000 series 200 running BSD@.  Note that the C compiler that comes
@@ -2610,76 +2570,33 @@ with this system cannot compile GCC; contact @email{law@@cygnus.com}
 to get binaries of GCC for bootstrapping.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{m6811-elf}m6811-elf
 Motorola 68HC11 family micro controllers.  These are used in embedded
 applications.  There are no standard Unix configurations.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{m6812-elf}m6812-elf
 Motorola 68HC12 family micro controllers.  These are used in embedded
 applications.  There are no standard Unix configurations.
 
 @html
-</p>
-<hr>
-@end html
-@heading @anchor{m68k-altos}m68k-altos
-Altos 3068.  You must use the GNU assembler, linker and debugger.
-Also, you must fix a kernel bug.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{m68k-apple-aux}m68k-apple-aux
-Apple Macintosh running A/UX@.
-You may configure GCC  to use either the system assembler and
-linker or the GNU assembler and linker.  You should use the GNU configuration
-if you can, especially if you also want to use G++.  You enable
-that configuration with the @option{--with-gnu-as} and @option{--with-gnu-ld}
-options to @code{configure}.
-
-Note the C compiler that comes
-with this system cannot compile GCC@.  You can find binaries of GCC
-for bootstrapping on @code{jagubox.gsfc.nasa.gov}.
-You will also a patched version of @file{/bin/ld} there that
-raises some of the arbitrary limits found in the original.
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{m68k-att-sysv}m68k-att-sysv
 AT&T 3b1, a.k.a.@: 7300 PC@.  This version of GCC cannot
 be compiled with the system C compiler, which is too buggy.
 You will need to get a previous version of GCC and use it to
 bootstrap.  Binaries are available from the OSU-CIS archive, at
-@uref{ftp://archive.cis.ohio-state.edu/pub/att7300/}.
+@uref{ftp://ftp.uu.net/systems/att7300/}.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
-@heading @anchor{m68k-bull-sysv}m68k-bull-sysv
-Bull DPX/2 series 200 and 300 with BOS-2.00.45 up to BOS-2.01.  GCC works
-either with native assembler or GNU assembler.  You can use
-GNU assembler with native COFF generation by providing @option{--with-gnu-as} to
-the configure script or use GNU assembler with stabs-in-COFF encapsulation
-by providing @samp{--with-gnu-as --stabs}.  For any problem with the native
-assembler or for availability of the DPX/2 port of GAS, contact
-@email{F.Pierresteguy@@frcl.bull.fr}.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{m68k-crds-unox}m68k-crds-unox
+@heading @anchor{m68k-crds-unos}m68k-crds-unos
 Use @samp{configure unos} for building on Unos.
 
 The Unos assembler is named @code{casm} instead of @code{as}.  For some
@@ -2716,8 +2633,7 @@ If linking @file{cc1} fails, try putting the object files into a library
 and linking from that library.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{m68k-hp-hpux}m68k-hp-hpux
 HP 9000 series 300 or 400 running HP-UX@.  HP-UX version 8.0 has a bug in
@@ -2775,58 +2691,7 @@ to look like:
 
 
 @html
-</p>
-<hr>
-@end html
-@heading @anchor{m68k-*-nextstep*}m68k-*-nextstep*
-
-Current GCC versions probably do not work on version 2 of the NeXT
-operating system.
-
-On NeXTStep 3.0, the Objective-C compiler does not work, due,
-apparently, to a kernel bug that it happens to trigger.  This problem
-does not happen on 3.1.
-
-You absolutely @strong{must} use GNU sed and GNU make on this platform.
-
-
-On NeXTSTEP 3.x where x < 3 the build of GCC will abort during
-stage1 with an error message like this:
-
-@example
-  _eh
-  /usr/tmp/ccbbsZ0U.s:987:Unknown pseudo-op: .section
-  /usr/tmp/ccbbsZ0U.s:987:Rest of line ignored. 1st junk character
-  valued 95 (_).
-@end example
-
-The reason for this is the fact that NeXT's assembler for these
-versions of the operating system does not support the @samp{.section}
-pseudo op that's needed for full C++ exception functionality.
-
-As NeXT's assembler is a derived work from GNU as, a free
-replacement that does can be obtained at
-@uref{ftp://ftp.next.peak.org:/next-ftp/next/apps/devtools/as.3.3.NIHS.s.tar.gz,,ftp://ftp.next.peak.org:/next-ftp/next/apps/devtools/as.3.3.NIHS.s.tar.gz}.
-
-If you try to build the integrated C++ & C++ runtime libraries on this system
-you will run into trouble with include files.  The way to get around this is
-to use the following sequence.  Note you must have write permission to
-the directory @var{prefix} you specified in the configuration process of GCC
-for this sequence to work.
-
-@example
-  cd bld-gcc
-  make all-texinfo all-bison all-byacc all-binutils all-gas all-ld
-  cd gcc
-  make bootstrap
-  make install-headers-tar
-  cd ..
-  make bootstrap3
-@end example
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{m68k-ncr-*}m68k-ncr-*
 On the Tower models 4@var{n}0 and 6@var{n}0, by default a process is not
@@ -2842,8 +2707,7 @@ MAXUMEM = 4096
 
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{m68k-sun}m68k-sun
 Sun 3.  We do not provide a configuration file to use the Sun FPA by
@@ -2851,8 +2715,7 @@ default, because programs that establish signal handlers for floating
 point traps inherently cannot work with the FPA@.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{m68k-sun-sunos4.1.1}m68k-sun-sunos4.1.1
 
@@ -2860,63 +2723,9 @@ It is reported that you may need the GNU assembler on this platform.
 
 
 @html
-</p>
-<hr>
-@end html
-@heading @anchor{m88k-*-svr3}m88k-*-svr3
-Motorola m88k running the AT&T/Unisoft/Motorola V.3 reference port.
-These systems tend to use the Green Hills C, revision 1.8.5, as the
-standard C compiler.  There are apparently bugs in this compiler that
-result in object files differences between stage 2 and stage 3.  If this
-happens, make the stage 4 compiler and compare it to the stage 3
-compiler.  If the stage 3 and stage 4 object files are identical, this
-suggests you encountered a problem with the standard C compiler; the
-stage 3 and 4 compilers may be usable.
-
-It is best, however, to use an older version of GCC for bootstrapping
-if you have one.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{m88k-*-dgux}m88k-*-dgux
-Motorola m88k running DG/UX@.  To build 88open BCS native or cross
-compilers on DG/UX, specify the configuration name as
-@samp{m88k-*-dguxbcs} and build in the 88open BCS software development
-environment.  To build ELF native or cross compilers on DG/UX, specify
-@samp{m88k-*-dgux} and build in the DG/UX ELF development environment.
-You set the software development environment by issuing
-@samp{sde-target} command and specifying either @samp{m88kbcs} or
-@samp{m88kdguxelf} as the operand.
-
-If you do not specify a configuration name, @file{configure} guesses the
-configuration based on the current software development environment.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{m88k-tektronix-sysv3}m88k-tektronix-sysv3
-Tektronix XD88 running UTekV 3.2e.  Do not turn on
-optimization while building stage1 if you bootstrap with
-the buggy Green Hills compiler.  Also, the bundled LAI
-System V NFS is buggy so if you build in an NFS mounted
-directory, start from a fresh reboot, or avoid NFS all together.
-Otherwise you may have trouble getting clean comparisons
-between stages.
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{mips-*-*}mips-*-*
-If you use the 1.31 version of the MIPS assembler (such as was shipped
-with Ultrix 3.1), you will need to use the @option{-fno-delayed-branch} switch
-when optimizing floating point code.  Otherwise, the assembler will
-complain when the GCC compiler fills a branch delay slot with a
-floating point instruction, such as @code{add.d}.
-
 If on a MIPS system you get an error message saying ``does not have gp
 sections for all it's [sic] sectons [sic]'', don't worry about it.  This
 happens whenever you use GAS with the MIPS linker, but there is not
@@ -2926,148 +2735,6 @@ stop such warnings by installing the GNU linker.
 It would be nice to extend GAS to produce the gp tables, but they are
 optional, and there should not be a warning about their absence.
 
-Users have reported some problems with version 2.0 of the MIPS
-compiler tools that were shipped with Ultrix 4.1.  Version 2.10
-which came with Ultrix 4.2 seems to work fine.
-
-Users have also reported some problems with version 2.20 of the
-MIPS compiler tools that were shipped with RISC/os 4.x.  The earlier
-version 2.11 seems to work fine.
-
-Some versions of the MIPS linker will issue an assertion failure
-when linking code that uses @code{alloca} against shared
-libraries on RISC-OS 5.0, and DEC's OSF/1 systems.  This is a bug
-in the linker, that is supposed to be fixed in future revisions.
-To protect against this, GCC passes @option{-non_shared} to the
-linker unless you pass an explicit @option{-shared} or
-@option{-call_shared} switch.
-
-@heading @anchor{mips-mips-bsd}mips-mips-bsd
-MIPS machines running the MIPS operating system in BSD mode.  It's
-possible that some old versions of the system lack the functions
-@code{memcpy}, @code{memmove}, @code{memcmp}, and @code{memset}.  If your
-system lacks these, you must remove or undo the definition of
-@code{TARGET_MEM_FUNCTIONS} in @file{mips-bsd.h}.
-
-If you use the MIPS C compiler to bootstrap, it may be necessary
-to increase its table size for switch statements with the
-@option{-Wf,-XNg1500} option.  If you use the @option{-O2}
-optimization option, you also need to use @option{-Olimit 3000}.
-Both of these options are automatically generated in the
-@file{Makefile} that the shell script @file{configure} builds.
-If you override the @code{CC} make variable and use the MIPS
-compilers, you may need to add @option{-Wf,-XNg1500 -Olimit 3000}.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{mips-dec-*}mips-dec-*
-MIPS-based DECstations can support three different personalities:
-Ultrix, DEC OSF/1, and OSF/rose.  (Alpha-based DECstation products have
-a configuration name beginning with @samp{alpha*-dec}.)  To configure GCC
-for these platforms use the following configurations:
-
-@table @samp
-@item mips-dec-ultrix
-Ultrix configuration.
-
-@item mips-dec-osf1
-DEC's version of OSF/1.
-
-@item mips-dec-osfrose
-Open Software Foundation reference port of OSF/1 which uses the
-OSF/rose object file format instead of ECOFF@.  Normally, you
-would not select this configuration.
-@end table
-
-If you use the MIPS C compiler to bootstrap, it may be necessary
-to increase its table size for switch statements with the
-@option{-Wf,-XNg1500} option.  If you use the @option{-O2}
-optimization option, you also need to use @option{-Olimit 3000}.
-Both of these options are automatically generated in the
-@file{Makefile} that the shell script @file{configure} builds.
-If you override the @code{CC} make variable and use the MIPS
-compilers, you may need to add @option{-Wf,-XNg1500 -Olimit 3000}.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{mips-mips-riscos*}mips-mips-riscos*
-If you use the MIPS C compiler to bootstrap, it may be necessary
-to increase its table size for switch statements with the
-@option{-Wf,-XNg1500} option.  If you use the @option{-O2}
-optimization option, you also need to use @option{-Olimit 3000}.
-Both of these options are automatically generated in the
-@file{Makefile} that the shell script @file{configure} builds.
-If you override the @code{CC} make variable and use the MIPS
-compilers, you may need to add @samp{-Wf,-XNg1500 -Olimit 3000}.
-
-MIPS computers running RISC-OS can support four different
-personalities: default, BSD 4.3, System V.3, and System V.4
-(older versions of RISC-OS don't support V.4).  To configure GCC
-for these platforms use the following configurations:
-
-@table @samp
-@item mips-mips-riscos@var{rev}
-Default configuration for RISC-OS, revision @var{rev}.
-
-@item mips-mips-riscos@var{rev}bsd
-BSD 4.3 configuration for RISC-OS, revision @var{rev}.
-
-@item mips-mips-riscos@var{rev}sysv4
-System V.4 configuration for RISC-OS, revision @var{rev}.
-
-@html
-</p>
-<hr>
-@end html
-@item mips-mips-riscos@var{rev}sysv
-System V.3 configuration for RISC-OS, revision @var{rev}.
-@end table
-
-The revision @code{rev} mentioned above is the revision of
-RISC-OS to use.  You must reconfigure GCC when going from a
-RISC-OS revision 4 to RISC-OS revision 5.  This has the effect of
-avoiding a linker bug.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{mips-sgi-irix4}mips-sgi-irix4
-
-In order to compile GCC on an SGI running IRIX 4, the ``c.hdr.lib''
-option must be installed from the CD-ROM supplied from Silicon Graphics.
-This is found on the 2nd CD in release 4.0.1.
-
-On IRIX version 4.0.5F, and perhaps on some other versions as well,
-there is an assembler bug that reorders instructions incorrectly.  To
-work around it, specify the target configuration
-@samp{mips-sgi-irix4loser}.  This configuration inhibits assembler
-optimization.
-
-In a compiler configured with target @samp{mips-sgi-irix4}, you can turn
-off assembler optimization by using the @option{-noasmopt} option.  This
-compiler option passes the option @option{-O0} to the assembler, to
-inhibit reordering.
-
-The @option{-noasmopt} option can be useful for testing whether a problem
-is due to erroneous assembler reordering.  Even if a problem does not go
-away with @option{-noasmopt}, it may still be due to assembler
-reordering---perhaps GCC itself was miscompiled as a result.
-
-You may get the following warning on IRIX 4 platforms, it can be safely
-ignored.
-@example
-  warning: foo.o does not have gp tables for all its sections.
-@end example
-
-@html
-</p>
-<hr>
-@end html
 @heading @anchor{mips-sgi-irix5}mips-sgi-irix5
 
 This configuration has considerable problems, which will be fixed in a
@@ -3111,8 +2778,7 @@ however, you may have success with @command{smake} on IRIX 5.2 if you do
 not have GNU @command{make} available.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{mips-sgi-irix6}mips-sgi-irix6
 
@@ -3140,6 +2806,27 @@ test.o: ELF 64-bit MSB @dots{}
 then your version of @command{cc} uses the O32 or N64 ABI by default.  You
 should set the environment variable @env{CC} to @samp{cc -n32}
 before configuring GCC@.
+
+If you want the resulting @command{gcc} to run on old 32-bit systems
+with the MIPS R4400 CPU, you need to ensure that only code for the mips3
+instruction set architecture (ISA) is generated.  While GCC 3.x does
+this correctly, both GCC 2.95 and SGI's MIPSpro @command{cc} may change
+the ISA depending on the machine where GCC is built.  Using one of them
+as the bootstrap compiler may result in mips4 code, which won't run at
+all on mips3-only systems.  For the test program above, you should see:
+
+@example
+test.o: ELF N32 MSB mips-3 @dots{}
+@end example
+
+If you get:
+
+@example
+test.o: ELF N32 MSB mips-4 @dots{}
+@end example
+
+instead, you should set the environment variable @env{CC} to @samp{cc
+-n32 -mips3} or @samp{gcc -mips3} respectively before configuring GCC@.
 
 GCC on IRIX 6 is usually built to support both the N32 and N64 ABIs.  If
 you build GCC on a system that doesn't have the N64 libraries installed,
@@ -3172,7 +2859,7 @@ its maximum of 262144 bytes.  If you have root access, you can use the
 GCC does not correctly pass/return structures which are
 smaller than 16 bytes and which are not 8 bytes.  The problem is very
 involved and difficult to fix.  It affects a number of other targets also,
-but IRIX 6 is affected the most, because it is a 64 bit target, and 4 byte
+but IRIX 6 is affected the most, because it is a 64-bit target, and 4 byte
 structures are common.  The exact problem is that structures are being padded
 at the wrong end, e.g.@: a 4 byte structure is loaded into the lower 4 bytes
 of the register when it should be loaded into the upper 4 bytes of the
@@ -3190,52 +2877,7 @@ See @uref{http://freeware.sgi.com/,,http://freeware.sgi.com/} for more
 information about using GCC on IRIX platforms.
 
 @html
-</p>
-<hr>
-@end html
-@heading @anchor{mips-sony-sysv}mips-sony-sysv
-Sony MIPS NEWS@.  This works in NEWSOS 5.0.1, but not in 5.0.2 (which
-uses ELF instead of COFF)@.  Support for 5.0.2 will probably be provided
-soon by volunteers.  In particular, the linker does not like the
-code generated by GCC when shared libraries are linked in.
-
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{ns32k-encore}ns32k-encore
-Encore ns32000 system.  Encore systems are supported only under BSD@.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{ns32k-*-genix}ns32k-*-genix
-National Semiconductor ns32000 system.  Genix has bugs in @code{alloca}
-and @code{malloc}; you must get the compiled versions of these from GNU
-Emacs.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{ns32k-sequent}ns32k-sequent
-Go to the Berkeley universe before compiling.
-
-@html
-</p>
-<hr>
-@end html
-@heading @anchor{ns32k-utek}ns32k-utek
-UTEK ns32000 system (``merlin'').  The C compiler that comes with this
-system cannot compile GCC; contact @samp{tektronix!reed!mason} to get
-binaries of GCC for bootstrapping.
-
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpc*-*-*}powerpc-*-*
 
@@ -3243,148 +2885,117 @@ You can specify a default version for the @option{-mcpu=@var{cpu_type}}
 switch by using the configure option @option{--with-cpu-@var{cpu_type}}.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpc-*-darwin*}powerpc-*-darwin*
 PowerPC running Darwin (Mac OS X kernel).
 
-GCC 3.0 does not support Darwin, but 3.1 and later releases will work.
-
 Pre-installed versions of Mac OS X may not include any developer tools,
 meaning that you will not be able to build GCC from source.  Tool
 binaries are available at
-@uref{http://www.opensource.apple.com/projects/darwin} (free
+@uref{http://www.opensource.apple.com/projects/darwin/} (free
 registration required).
 
-Versions of the assembler prior to ``cctools-364'' cannot handle the
-4-argument form of rlwinm and related mask-using instructions.  Darwin
-1.3 (Mac OS X 10.0) uses cctools-353 for instance.  To get cctools-364,
+If you're using Darwin 1.3 (Mac OS X 10.0) or earlier, you will need
+to upgrade the assembler to version ``cctools-364''.  To get cctools-364,
 check out @file{cctools} with tag @samp{Apple-364}, build it, and
 install the assembler as @file{usr/bin/as}.  See
 @uref{http://www.opensource.apple.com/tools/cvs/docs.html} for details.
 
-Also, the default stack limit of 512K is too small, and a bootstrap will
-typically fail when self-compiling @file{expr.c}.  Set the stack to 800K
-or more, for instance by doing @samp{limit stack 800}.  It's also
-convenient to use the GNU preprocessor instead of Apple's during the
-first stage of bootstrapping; this is automatic when doing @samp{make
-bootstrap}, but to do it from the toplevel objdir you will need to say
-@samp{make CC='cc -no-cpp-precomp' bootstrap}.
+The default stack limit of 512K is too small, which may cause compiles
+to fail with 'Bus error'.  Set the stack larger, for instance
+by doing @samp{limit stack 800}.  It's a good idea to use the GNU
+preprocessor instead of Apple's @file{cpp-precomp} during the first stage of
+bootstrapping; this is automatic when doing @samp{make bootstrap}, but
+to do it from the toplevel objdir you will need to say @samp{make
+CC='cc -no-cpp-precomp' bootstrap}.
 
-Note that the version of GCC shipped by Apple typically includes a
-number of extensions not available in a standard GCC release.  These
-extensions are generally specific to Mac programming.
+The version of GCC shipped by Apple typically includes a number of
+extensions not available in a standard GCC release.  These extensions
+are generally specific to Mac programming.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpc-*-elf}powerpc-*-elf, powerpc-*-sysv4
 PowerPC system in big endian mode, running System V.4.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpc-*-linux-gnu*}powerpc-*-linux-gnu*
 
 You will need
-@uref{ftp://ftp.varesearch.com/pub/support/hjl/binutils,,binutils 2.9.4.0.8}
-or newer for a working GCC@.  It is strongly recommended to recompile binutils
-if you initially built it with gcc-2.7.2.x.
+@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.13.90.0.10}
+or newer for a working GCC@.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpc-*-netbsd*}powerpc-*-netbsd*
 PowerPC system in big endian mode running NetBSD@.  To build the
-documentation you will need Texinfo version 4.0 (NetBSD 1.5.1 included
+documentation you will need Texinfo version 4.2 (NetBSD 1.5.1 included
 Texinfo version 3.12).
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpc-*-eabiaix}powerpc-*-eabiaix
 Embedded PowerPC system in big endian mode with @option{-mcall-aix} selected as
 the default.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpc-*-eabisim}powerpc-*-eabisim
 Embedded PowerPC system in big endian mode for use in running under the
 PSIM simulator.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpc-*-eabi}powerpc-*-eabi
 Embedded PowerPC system in big endian mode.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpcle-*-elf}powerpcle-*-elf, powerpcle-*-sysv4
 PowerPC system in little endian mode, running System V.4.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpcle-*-eabisim}powerpcle-*-eabisim
 Embedded PowerPC system in little endian mode for use in running under
 the PSIM simulator.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpcle-*-eabi}powerpcle-*-eabi
 Embedded PowerPC system in little endian mode.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{powerpcle-*-winnt}powerpcle-*-winnt, powerpcle-*-pe
 PowerPC system in little endian mode running Windows NT@.
 
 @html
-</p>
-<hr>
-@end html
-@heading @anchor{romp-*-aos}romp-*-aos, romp-*-mach
-The only operating systems supported for the IBM RT PC are AOS and
-MACH@.  GCC does not support AIX running on the RT@.  We recommend you
-compile GCC with an earlier version of itself; if you compile GCC
-with @command{hc}, the Metaware compiler, it will work, but you will get
-mismatches between the stage 2 and stage 3 compilers in various files.
-These errors are minor differences in some floating-point constants and
-can be safely ignored; the stage 3 compiler is correct.
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{s390-*-linux*}s390-*-linux*
 S/390 system running Linux for S/390@.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{s390x-*-linux*}s390x-*-linux*
-zSeries system (64 Bit) running Linux for zSeries@.
+zSeries system (64-bit) running Linux for zSeries@.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @c Please use Solaris 2 to refer to all release of Solaris, starting
 @c with 2.0 until 2.6, 7, and 8.  Solaris 1 was a marketing name for
@@ -3399,9 +3010,7 @@ GCC you first have to install a pre-built compiler, see our
 The Solaris 2 @command{/bin/sh} will often fail to configure
 @file{libstdc++-v3}, @file{boehm-gc} or
 @file{libjava}.  If you encounter this problem, set @env{CONFIG_SHELL} to
-@command{/bin/ksh} in your environment and run @command{make bootstrap} again.
-Another possibility that sometimes helps is to remove
-@file{*-*-solaris2*/config.cache}.
+@command{/bin/ksh} in your environment before running @command{configure}.
 
 Solaris 2 comes with a number of optional OS packages.  Some of these
 packages are needed to use GCC fully, namely @code{SUNWarc},
@@ -3439,8 +3048,7 @@ There are patches for Solaris 2.6 (105633-56 or newer for SPARC,
 108653-22 for Intel) that fix this bug.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{sparc-sun-solaris2*}sparc-sun-solaris2*
 
@@ -3452,30 +3060,30 @@ information.
 Sun @command{as} 4.x is broken in that it cannot cope with long symbol names.
 A typical error message might look similar to the following:
 
-@samp{/usr/ccs/bin/as: "/var/tmp/ccMsw135.s", line 11041:
-error: can't compute value of an expression involving an external symbol.}
+@smallexample
+/usr/ccs/bin/as: "/var/tmp/ccMsw135.s", line 11041: error:
+  can't compute value of an expression involving an external symbol.
+@end smallexample
 
 This is Sun bug 4237974.  This is fixed with patch 108908-02 for Solaris
 2.6 and has been fixed in later (5.x) versions of the assembler,
 starting with Solaris 7.
 
 Starting with Solaris 7, the operating system is capable of executing
-64-bit SPARC V9 binaries.  GCC 3.1 and later should properly support
-this.  GCC 3.0 lacks the infrastructure necessary to support this
-configuration properly.  However, if all you want is code tuned for
-the UltraSPARC CPU, you should try the @option{-mtune=ultrasparc}
-option instead, which should be safe from those bugs and produce code
-that, unlike full 64-bit code, can still run on non-UltraSPARC
+64-bit SPARC V9 binaries.  GCC 3.1 and later properly supports
+this; the @option{-m64} option enables 64-bit code generation.
+However, if all you want is code tuned for the UltraSPARC CPU, you
+should try the @option{-mtune=ultrasparc} option instead, which produces
+code that, unlike full 64-bit code, can still run on non-UltraSPARC
 machines.
 
-When configuring on a Solaris 7 or 8 system that is running a kernel
+When configuring on a Solaris 7 or later system that is running a kernel
 that supports only 32-bit binaries, one must configure with
 @option{--disable-multilib}, since we will not be able to build the
 64-bit target libraries.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{sparc-sun-solaris2.7}sparc-sun-solaris2.7
 
@@ -3497,7 +3105,7 @@ back it out.
 @item
 Copy the original, unpatched Solaris 7
 @command{/usr/ccs/bin/as} into
-@command{/usr/local/lib/gcc-lib/sparc-sun-solaris2.7/3.0/as},
+@command{/usr/local/lib/gcc-lib/sparc-sun-solaris2.7/3.1/as},
 adjusting the latter name to fit your local conventions and software
 version numbers.
 
@@ -3517,22 +3125,7 @@ the Solaris 7 Recommended Patch Cluster.
 
 @html
 <p>
-<hr>
-@end html
-@heading @anchor{*-*-solaris2.8}*-*-solaris2.8
-
-The Solaris 8 linker fails to link some @samp{libjava} programs if
-previously-installed GCC java libraries already exist in the configured
-prefix.  For this reason, @command{configure} will report an error on
-Solaris 8 if an existing @samp{libgcj} is found in the appropriate
-install directory and the system linker is in use.  In this case, you
-can configure with a different prefix, or delete or rename the existing
-@samp{libgcj} library files before configuring, or configure using
-@option{--disable-libgcj}.
-
-@html
-<p>
-<hr>
+<hr />
 @end html
 @heading @anchor{sparc-sun-sunos4*}sparc-sun-sunos4*
 
@@ -3551,8 +3144,7 @@ be due to a bug in @command{sh}.  You can probably get around it by running
 @command{make}.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{sparc-unknown-linux-gnulibc1}sparc-unknown-linux-gnulibc1
 
@@ -3562,8 +3154,7 @@ for this platform, too.
 
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{sparc-*-linux*}sparc-*-linux*
 
@@ -3573,8 +3164,7 @@ releases mishandled unaligned relocations on @code{sparc-*-*} targets.
 
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{sparc64-*-*}sparc64-*-*
 
@@ -3585,8 +3175,7 @@ invocation with an environment that causes @command{configure} to
 recognize (via @samp{uname -a}) the system as @samp{sparc-*-*} instead.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{sparcv9-*-solaris2*}sparcv9-*-solaris2*
 
@@ -3601,8 +3190,7 @@ step in order to bootstrap this target with the Sun compiler:
 specifies the v9 architecture to the Sun linker and assembler.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{#*-*-sysv*}*-*-sysv*
 On System V release 3, you may get this error message
@@ -3636,54 +3224,14 @@ On a System V release 4 system, make sure @file{/usr/bin} precedes
 @file{/usr/ucb} uses libraries which have bugs.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{vax-dec-ultrix}vax-dec-ultrix
 Don't try compiling with VAX C (@code{vcc}).  It produces incorrect code
 in some cases (for example, when @code{alloca} is used).
 
 @html
-</p>
-<hr>
-@end html
-@heading @anchor{we32k-*-*}we32k-*-*
-These computers are also known as the 3b2, 3b5, 3b20 and other similar
-names.  (However, the 3b1 is actually a 68000.)
-
-Don't use @option{-g} when compiling with the system's compiler.  The
-system's linker seems to be unable to handle such a large program with
-debugging information.
-
-The system's compiler runs out of capacity when compiling @file{stmt.c}
-in GCC@.  You can work around this by building @file{cpp} in GCC
-first, then use that instead of the system's preprocessor with the
-system's C compiler to compile @file{stmt.c}.  Here is how:
-
-@smallexample
-mv /lib/cpp /lib/cpp.att
-cp cpp /lib/cpp.gnu
-echo '/lib/cpp.gnu -traditional $@{1+"$@@"@}' > /lib/cpp
-chmod +x /lib/cpp
-@end smallexample
-
-The system's compiler produces bad code for some of the GCC
-optimization files.  So you must build the stage 2 compiler without
-optimization.  Then build a stage 3 compiler with optimization.
-That executable should work.  Here are the necessary commands:
-
-@smallexample
-make LANGUAGES=c CC=stage1/xgcc CFLAGS="-Bstage1/ -g"
-make stage2
-make CC=stage2/xgcc CFLAGS="-Bstage2/ -g -O"
-@end smallexample
-
-You may need to raise the ULIMIT setting to build a C++ compiler,
-as the file @file{cc1plus} is larger than one megabyte.
-
-@html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{xtensa-*-elf}xtensa-*-elf
 
@@ -3701,8 +3249,7 @@ downloaded files include a customized copy of this header file,
 which you can use to replace the default header file.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{xtensa-*-linux*}xtensa-*-linux*
 
@@ -3714,10 +3261,9 @@ respects, this target is the same as the
 @uref{#xtensa-*-elf,,@samp{xtensa-*-elf}} target.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
-@heading @anchor{windows}Microsoft Windows (32 bit)
+@heading @anchor{windows}Microsoft Windows (32-bit)
 
 A port of GCC 2.95.x is included with the
 @uref{http://www.cygwin.com/,,Cygwin environment}.
@@ -3726,8 +3272,7 @@ Current (as of early 2001) snapshots of GCC will build under Cygwin
 without modification.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{os2}OS/2
 
@@ -3740,39 +3285,41 @@ An older copy of GCC 2.8.1 is included with the EMX tools available at
 ftp://ftp.leo.org/pub/comp/os/os2/leo/devtools/emx+gcc/}.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{older}Older systems
 
 GCC contains support files for many older (1980s and early
 1990s) Unix variants.  For the most part, support for these systems
 has not been deliberately removed, but it has not been maintained for
-several years and may suffer from bitrot.  Support from some systems
-has been removed from GCC 3: fx80, ns32-ns-genix, pyramid, tahoe,
-gmicro, spur; most of these targets had not been updated since GCC
-version 1.
+several years and may suffer from bitrot.
 
-Support for older systems as targets for cross-compilation is less
-problematic than support for them as hosts for GCC; if an enthusiast
-wishes to make such a target work again (including resurrecting any
-of the targets that never worked with GCC 2, starting from the last
-CVS version before they were removed), patches
-@uref{../contribute.html,,following the usual requirements}
-would be likely to be accepted, since they should not affect the
-support for more modern targets.
+Starting with GCC 3.1, each release has a list of ``obsoleted'' systems.
+Support for these systems is still present in that release, but
+@command{configure} will fail unless the @option{--enable-obsolete}
+option is given.  Unless a maintainer steps forward, support for these
+systems will be removed from the next release of GCC@.
 
 Support for old systems as hosts for GCC can cause problems if the
 workarounds for compiler, library and operating system bugs affect the
 cleanliness or maintainability of the rest of GCC@.  In some cases, to
 bring GCC up on such a system, if still possible with current GCC, may
 require first installing an old version of GCC which did work on that
-system, and using it to compile a more recent GCC, to avoid bugs in
-the vendor compiler.  Old releases of GCC 1 and GCC 2 are available in
-the @file{old-releases} directory on the
-@uref{../mirrors.html,,GCC mirror sites}.  Header bugs may generally
-be avoided using @command{fixincludes}, but bugs or deficiencies in
-libraries and the operating system may still cause problems.
+system, and using it to compile a more recent GCC, to avoid bugs in the
+vendor compiler.  Old releases of GCC 1 and GCC 2 are available in the
+@file{old-releases} directory on the @uref{../mirrors.html,,GCC mirror
+sites}.  Header bugs may generally be avoided using
+@command{fixincludes}, but bugs or deficiencies in libraries and the
+operating system may still cause problems.
+
+Support for older systems as targets for cross-compilation is less
+problematic than support for them as hosts for GCC; if an enthusiast
+wishes to make such a target work again (including resurrecting any of
+the targets that never worked with GCC 2, starting from the last CVS
+version before they were removed), patches
+@uref{../contribute.html,,following the usual requirements} would be
+likely to be accepted, since they should not affect the support for more
+modern targets.
 
 For some systems, old versions of GNU binutils may also be useful,
 and are available from @file{pub/binutils/old-releases} on
@@ -3784,8 +3331,7 @@ about GCC on such systems (which may no longer be applicable to
 current GCC) is to be found in the GCC texinfo manual.
 
 @html
-</p>
-<hr>
+<hr />
 @end html
 @heading @anchor{elf_targets}all ELF targets (SVR4, Solaris 2, etc.)
 
@@ -3796,8 +3342,7 @@ automatically.
 
 
 @html
-</p>
-<hr>
+<hr />
 <p>
 @end html
 @ifhtml
@@ -3809,8 +3354,7 @@ automatically.
 @ifset oldhtml
 @include install-old.texi
 @html
-</p>
-<hr>
+<hr />
 <p>
 @end html
 @ifhtml
@@ -3822,8 +3366,7 @@ automatically.
 @ifset gfdlhtml
 @include fdl.texi
 @html
-</p>
-<hr>
+<hr />
 <p>
 @end html
 @ifhtml

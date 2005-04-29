@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 #ifndef _AC_CONTEXT_H
@@ -46,6 +46,7 @@ struct ac_arrays {
    struct gl_client_array Index;
    struct gl_client_array TexCoord[MAX_TEXTURE_UNITS];
    struct gl_client_array EdgeFlag;
+   struct gl_client_array Attrib[VERT_ATTRIB_MAX];  /* GL_NV_vertex_program */
 };
 
 struct ac_array_pointers {
@@ -57,6 +58,7 @@ struct ac_array_pointers {
    struct gl_client_array *Index;
    struct gl_client_array *TexCoord[MAX_TEXTURE_UNITS];
    struct gl_client_array *EdgeFlag;
+   struct gl_client_array *Attrib[VERT_ATTRIB_MAX];  /* GL_NV_vertex_program */
 };
 
 struct ac_array_flags {
@@ -68,6 +70,7 @@ struct ac_array_flags {
    GLboolean Index;
    GLboolean TexCoord[MAX_TEXTURE_UNITS];
    GLboolean EdgeFlag;
+   GLboolean Attrib[VERT_ATTRIB_MAX];  /* GL_NV_vertex_program */
 };
 
 

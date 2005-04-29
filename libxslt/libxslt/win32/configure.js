@@ -38,6 +38,8 @@ var verMicroXslt;
 var verMajorExslt;
 var verMinorExslt;
 var verMicroExslt;
+var verCvs;
+var useCvsVer = true;
 /* Libxslt features. */
 var withTrio = false;
 var withXsltDebug = true;
@@ -131,6 +133,21 @@ function discoverVersion()
 {
 	var fso, cf, vf, ln, s;
 	fso = new ActiveXObject("Scripting.FileSystemObject");
+	verCvs = "";
+	if (useCvsVer && fso.FileExists("..\\CVS\\Entries")) {
+		cf = fso.OpenTextFile("..\\CVS\\Entries", 1);
+		while (cf.AtEndOfStream != true) {
+			ln = cf.ReadLine();
+			s = new String(ln);
+			if (s.search(/^\/ChangeLog\//) != -1) {
+				iDot = s.indexOf(".");
+				iSlash = s.indexOf("/", iDot);
+				verCvs = "CVS" + s.substring(iDot + 1, iSlash);
+				break;
+			}
+		}
+		cf.Close();
+	}
 	cf = fso.OpenTextFile(configFile, 1);
 	if (compiler == "msvc")
 		versionFile = ".\\config.msvc";
@@ -206,6 +223,8 @@ function configureXslt()
 		} else if (s.search(/\@LIBXSLT_VERSION_NUMBER\@/) != -1) {
 			of.WriteLine(s.replace(/\@LIBXSLT_VERSION_NUMBER\@/, 
 				verMajorXslt*10000 + verMinorXslt*100 + verMicroXslt*1));
+		} else if (s.search(/\@LIBXSLT_VERSION_EXTRA\@/) != -1) {
+			of.WriteLine(s.replace(/\@LIBXSLT_VERSION_EXTRA\@/, verCvs));
 		} else if (s.search(/\@WITH_TRIO\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_TRIO\@/, withTrio? "1" : "0"));
 		} else if (s.search(/\@WITH_XSLT_DEBUG\@/) != -1) {
@@ -239,6 +258,8 @@ function configureExslt()
 		} else if (s.search(/\@LIBEXSLT_VERSION_NUMBER\@/) != -1) {
 			of.WriteLine(s.replace(/\@LIBEXSLT_VERSION_NUMBER\@/, 
 				verMajorExslt*10000 + verMinorExslt*100 + verMicroExslt*1));
+		} else if (s.search(/\@LIBEXSLT_VERSION_EXTRA\@/) != -1) {
+			of.WriteLine(s.replace(/\@LIBEXSLT_VERSION_EXTRA\@/, verCvs));
 		} else if (s.search(/\@WITH_CRYPTO\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_CRYPTO\@/, withCrypto? "1" : "0"));
 		} else
@@ -333,6 +354,8 @@ for (i = 0; (i < WScript.Arguments.length) && (error == 0); i++) {
 			buildInclude = arg.substring(opt.length + 1, arg.length);
 		else if (opt == "lib")
 			buildLib = arg.substring(opt.length + 1, arg.length);
+		else if (opt == "release")
+			useCvsVer = false;
 		else
 			error = 1;
 	} else if (i == 0) {
@@ -371,8 +394,15 @@ if (error != 0) {
 	WScript.Echo("Version discovery failed, aborting.");
 	WScript.Quit(error);
 }
-WScript.Echo(baseNameXslt + " version: " + verMajorXslt + "." + verMinorXslt + "." + verMicroXslt);
-WScript.Echo(baseNameExslt + " version: " + verMajorExslt + "." + verMinorExslt + "." + verMicroExslt);
+
+var outVerString = baseNameXslt + " version: " + verMajorXslt + "." + verMinorXslt + "." + verMicroXslt;
+if (verCvs && verCvs != "")
+	outVerString += "-" + verCvs;
+WScript.Echo(outVerString);
+outVerString = baseNameExslt + " version: " + verMajorExslt + "." + verMinorExslt + "." + verMicroExslt;
+if (verCvs && verCvs != "")
+	outVerString += "-" + verCvs;
+WScript.Echo(outVerString);
 
 // Configure libxslt.
 configureXslt();

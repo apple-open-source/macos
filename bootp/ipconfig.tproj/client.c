@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1999, 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999 - 2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -45,7 +46,6 @@
 #include <string.h>
 #include <sysexits.h>
 
-#include "machcompat.h"
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <netinet/in_systm.h>
@@ -254,7 +254,7 @@ S_bsdp_option(port_t server, int argc, char * argv[])
 	dhcpol_free(&vendor_options);
     }
     else {
-	dhcptag_info_t * entry;
+	const dhcptag_info_t * entry;
 
 	entry = dhcptag_info(tag);
 	if (entry == NULL) {
@@ -447,15 +447,68 @@ S_set(port_t server, int argc, char * argv[])
     if (ipstatus != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_set %s %s failed: %s\n",
 		name, method_name, ipconfig_status_string(ipstatus));
+	return (1);
     }
-    return (1);
+    return (0);
 }
 
-static struct command_info {
-    char *	command;
+static int
+S_set_verbose(port_t server, int argc, char * argv[])
+{
+    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+    kern_return_t		status;
+    int				verbose;
+
+    verbose = strtol(argv[0], NULL, 0);
+    errno = 0;
+    if (verbose == 0 && errno != 0) {
+	fprintf(stderr, "conversion to integer of %s failed\n", argv[0]);
+	exit(1);
+    }
+    status = ipconfig_set_verbose(server, verbose, &ipstatus);
+    if (status != KERN_SUCCESS) {
+	return (1);
+    }
+    if (ipstatus != ipconfig_status_success_e) {
+	fprintf(stderr, "setverbose failed: %s\n",
+		ipconfig_status_string(ipstatus));
+	return (1);
+    }
+    return (0);
+}
+
+#ifdef IPCONFIG_TEST_NO_ENTRY
+static int
+S_set_something(port_t server, int argc, char * argv[])
+{
+    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+    kern_return_t		status;
+    int				verbose;
+
+    verbose = strtol(argv[0], NULL, 0);
+    errno = 0;
+    if (verbose == 0 && errno != 0) {
+	fprintf(stderr, "conversion to integer of %s failed\n", argv[0]);
+	exit(1);
+    }
+    status = ipconfig_set_something(server, verbose, &ipstatus);
+    if (status != KERN_SUCCESS) {
+	return (1);
+    }
+    if (ipstatus != ipconfig_status_success_e) {
+	fprintf(stderr, "setsomething failed: %s\n",
+		ipconfig_status_string(ipstatus));
+	return (1);
+    }
+    return (0);
+}
+#endif IPCONFIG_TEST_NO_ENTRY
+
+static const struct command_info {
+    const char *command;
     funcptr_t	func;
     int		argc;
-    char *	usage;
+    const char *usage;
     int		display;
     int		no_server;
 } commands[] = {
@@ -474,7 +527,11 @@ static struct command_info {
       SHADOW_MOUNT_PATH_COMMAND " | " SHADOW_FILE_PATH_COMMAND
       " | " MACHINE_NAME_COMMAND, 0, 1 },
     { "netbootpacket", S_bsdp_get_packet, 0, "", 0, 1 },
-    { NULL, NULL, NULL },
+    { "setverbose", S_set_verbose, 1, "0 | 1", 1, 0 },
+#ifdef IPCONFIG_TEST_NO_ENTRY
+    { "setsomething", S_set_something, 1, "0 | 1", 1, 0 },
+#endif IPCONFIG_TEST_NO_ENTRY
+    { NULL, NULL, 0, NULL, 0, 0 },
 };
 
 void
@@ -493,7 +550,7 @@ usage()
     exit(1);
 }
 
-static struct command_info *
+static const struct command_info *
 S_lookup_command(char * cmd, int argc)
 {
     int i;
@@ -517,7 +574,7 @@ int
 main(int argc, char * argv[])
 {
     boolean_t			active = FALSE;
-    struct command_info *	command;
+    const struct command_info *	command;
     port_t			server;
     kern_return_t		status;
 

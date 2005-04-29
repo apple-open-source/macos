@@ -1,0 +1,434 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.\" Traducere de Ovidiu Constantin <ovidiu.soft@xnet.ro>
+.TH man 1 "2 Septembrie 1995"
+.LO 1
+.SH NUME
+man \- formateazã ºi afiºeazã paginile de manual
+.br
+manpath \- determinã calea de cãutare a utilizatorului pentru paginile
+de manual
+.SH SUMAR
+.B man 
+.RB [ \-acdfFhkKtwW ]
+.RB [ --path ] 
+.RB [ \-m 
+.IR sistem ] 
+.RB [ \-p 
+.IR ºir ] 
+.RB [ \-C 
+.IR fiºier_configurare ] 
+.RB [ \-M 
+.IR listã_cãi ]
+.RB [ \-P
+.IR paginator ] 
+.RB [ \-S 
+.IR listã_secþiuni ] 
+.RI [ secþiune ] 
+.I "nume ..."
+
+.SH DESCRIERE
+.B man
+formateazã ºi afiºeazã paginile de manual.  Dacã specificaþi
+.IR secþiune ,
+.B man
+cautã doar în acea secþiune a manualului.
+.I nume
+este în mod normal numele paginii de manual, care este de obicei numele
+unei comenzi, funcþii, sau fiºier.  Totuºi, dacã
+.I nume
+conþine un slash
+.RB ( / ) 
+atunci
+.B man 
+îl interpreteazã ca o specificare de fiºier, astfel încât puteþi executa
+.B "man ./foo.5"
+sau chiar
+.B "man /cd/foo/bar.1.gz\fR.\fP"
+.PP
+Vedeþi mai jos pentru o descriere a locurilor unde cautã
+.B man
+fiºierele cu paginile de manual.
+ 
+.SH OPÞIUNI
+.TP
+.B \-\^C " fiiºier_configurare"
+Specificã fiºierul de configurare care se va folosi; inplicit este
+.BR @man_config_file@ .
+(Vezi 
+.BR man.conf (5).)
+.TP
+.B \-\^M " cale"
+Specificã lista de directoare unde se cautã paginile man. Separaþi
+directoarele cu douã puncte (:).  O listã goalã este echivalent cu a nu
+specifica
+.B \-M
+de loc.  Vezi ºi
+.BR "CALEA DE CÃUTARE A PAGINILOR MAN" .
+.TP
+.B \-\^P " paginator"
+Specificã ce paginator de va folosi.
+Aceastã opþiune ignorã variabila de mediu
+.B MANPAGER
+, care în schimb ignorã variabila
+.BR PAGER .
+Implicit,
+.B man
+foloseºte
+.BR @pager@ .
+.TP
+.B \-\^S " listã_secþiuni"
+Lista este un ºir de secþiuni de manual care vor fi cãutate, despãrþite
+prin douã puncte (:). Aceastã opþiune ignorã variabila de mediu
+.BR MANSECT .
+.TP
+.B \-\^a
+Implicit, executia
+.B man
+se va termina dupã afiºarea primei pagini de manual pe care o gãseºte.
+Folosirea acestei opþiuni forþeazã
+.B man
+sã afiºeze toate paginila de manual care verificã
+.B nume, 
+nu doar prima.
+.TP
+.B \-\^c
+Reformateazã pagina man sursã, chiar dacã existã o paginã cat
+actualizatã. Acest lucru poate fi important dacã pagina cat a fost
+formatatã pentru un ecran cu un numãr diferit de coloane, sau dacã
+pagina preformatatã este alteratã.
+.TP
+.B \-\^d
+Nu afiºeazã efectiv paginile man, ci tipãreºte multe informaþii de
+depanare.
+.TP
+.B \-\^D
+Afiºeazã atât paginile man, cât ºi informaþii de depanare.
+.TP
+.B \-\^f
+Echivalent cu
+.BR whatis .
+.TP
+.BR \-\^F " sau " \-\-preformat
+Doar formateazã - nu afiºeazã.
+.TP
+.B \-\^h
+Tipãreºte un mesaj de ajutor ºi terminã execuþia.
+.TP
+.B \-\^k
+Echivalent cu
+.BR apropos .
+.TP
+.B \-\^K
+Cautã ºirul de caractere specificat în *toate* paginile man.
+Avertisment: aceasta este probabil o operaþie foarte lentã! Ajutã
+specificarea unei secþiuni. (Pentru a da o idee generalã, pe maºina mea
+aceasta dureazã aproape un minut pentru 500 pagini man.)
+.TP
+.B \-\^m " sistem"
+Specificã un set alternativ de pagini man de cãutat, bazat pe numele de
+sistem dat.
+.TP
+.B \-\^p " ºir"
+Specificã secvenþa de preprocesoare ce vor fi rulate înainte de
+.B nroff
+sau
+.BR troff .
+Nu toate instalãrile vor avea un set complet de preprocesoare. Unele din
+preprocesoare ºi literele folosite pentru a le desemna sunt: eqn (e),
+grap (g), pic (p), tbl (t), vgrind (v), refer (r). Aceastã opþiune duce
+la ignorarea variabilei de mediu
+.BR MANROFFSEQ .
+.TP
+.B \-\^t
+Foloseºte
+.B @troff@
+pentru a formata pegina man, trimiþând rezultatul la ieºirea standard
+.BR (stdout) .
+Rezultatul comenzii
+.B @troff@
+ar putea necesita sã fie trecut printr-un filtru înante de a fi tipãrit.
+.TP
+.B \-\^w \fRsau\fP \-\-path
+Nu afiºeazã efectiv paginile man, ci tipãreºte locaþia(ile) fiºierelor
+care ar fi formatate sau afiºate. Dacã nici un argument nu este dat:
+afiºeazã (la ieºirea standard (stdout)) lista directoarelor în care sunt
+cãutate de 
+.B man
+paginile man. Dacã
+.B manpath
+este o legãturã la man, atunci "manpath" este echivalent cu "man --path".
+.TP
+.B \-\^W
+Ca \-\^w, dar afiºeazã numele de fiºiere unul pe linie, fãrã informaþii adiþionale.
+Aceastã opþiune este utilã în comenzi shell ca
+.ft CW
+.B "man -aW man | xargs ls -l"
+.ft
+
+.SH "PAGINILE CAT"
+Man va încerca sã salveze paginile man formatate, pentru a reduce timpul
+de formatare data viitoare când aceste pagini sunt necesare.
+Tradiþional, versiunile formatate ale paginilor din DIR/manX sunt
+salvate în DIR/catX, dar alte mapãri de la directorul man la directorul
+cat pot fi specificate în
+.BR @man_config_file@ .
+Nici o paginã cat nu este salvatã dacã directorul cat necesar nu existã.
+.PP
+Este posibil sã faceþi
+.B man
+suid la un utilizator man. Atunci, dacã un director cat are proprietar
+man ºi modul 0755 (scriere doar de cãtre man), ºi fiºierele cat au
+proprietarul man ºi modul 0644 sau 0444 (scriere doar de cãtre man, sau
+nici o permisiune de scriere), nici un utilizator normal nu poate
+modifica paginile cat sau sã punã alte fiºiere în directorul cat. Dacã
+.B man
+nu este fãcut suid, atunci un director cat ar trebui sã aibã modul 0777
+dacã toþi utilizatorii trebuie sã poatã lãsa pagini cat acolo.
+.PP
+Opþiunea
+.B \-c
+forþeazã reformatarea unei pagini, chiar dacã existã o paginã cat
+recentã.
+
+.SH "CALEA DE CÃUTARE A PAGINILOR MAN"
+.B man
+foloseºte o metodã sofisticatã pentru a gãsi paginile de manual, bazatã
+pe opþiuni de apelare ºi variabile de mediu, fiºierul de configurare
+.B @man_config_file@ 
+ºi anumite convenþii ºi euristici.
+.PP
+Înainte de toate, când argumentul
+.I nume
+al 
+.B man
+conþine un slash
+.RB ( / ),
+.B man
+considerã cã este un specificator de fiºier ºi nu se efectueazã nici o
+cãutare.
+.PP
+Dar în cazul normal în care
+.I nume
+nu conþine un slash,
+.B man
+cautã în o mulþime de directoare un fiºier care a putea fi o paginã de
+manual pentru subiectul numit.
+.PP
+Dacã specificaþi opþiunea
+.BI "-M " listã_cãi\fR,
+.I listã_cãi
+este o listã de directoare despãrþite prin douã puncte (:) în care cautã
+.BR man .
+.PP
+Dacã nu specificaþi
+.B -M
+dar setaþi variabila de mediu
+.BR MANPATH ,
+valoarea acestei variabile este lista de directoare în care cautã
+.BR man .
+.PP
+Dacã nu specificaþi explicit o listã de cãi cu
+.B -M
+sau 
+.BR MANPATH ,
+.B man
+îºi creeazã propria listã de cãi bazatã pe conþinutul fiºierului de
+configurare
+.BR @man_config_file@ .
+Declaraþiile
+.B MANPATH
+din fiºierul de configurare definesc anumite directoare care sã fie
+incluse în calea de cãutare.
+.PP
+Mai mult, declaraþiile
+.B MANPATH_MAP 
+se adaugã la calea de cãutare depinzând de calea de cãutare a
+comenzilor (de ex. variabila de mediu
+.BR PATH ).
+Pentru fiecare director care este în calea de cãutare a comenzilor, o
+declaraþie
+.B MANPATH_MAP
+specificã un director care trebuie cã fie adãugat la calea de cãutare a
+fiºierelor cu paginile de manual.
+.B man
+analizeazã variabila 
+.B PATH
+ºi adaugã directoarele corespunzãtoare la calea de cãutare a fiºierelor
+cu paginile de manual. Astfel, prin folosirea corectã a
+.BR MANPATH_MAP ,
+când executaþi comanda
+.BR "man xyz" ,
+obþineþi o paginã de manual pentru programul care ar rula dacã aþi
+executa comanda
+.BR xyz .
+.PP
+În plus, pentru fiecare director în calea de cãutare a comenzilor (o vom
+denumi "director de comenzi") pentru care
+.I nu
+aveþi o declaraþie
+.BR MANPATH_MAP ,
+.B man
+cautã în mod automat un director cu pagini de manual "învecinat",
+respectiv ca un subdirector al directorului de comenzi sau în directorul
+pãrinte al directorului de comenzi.
+.PP
+Puteþi dezactiva cãutarea "învecinatã" automatã incluzând o declaraþie
+.B NOAUTOPATH
+în
+.BR @man_config_file@ .
+.PP
+În fiecare director din calea de cãutare descris mai sus,
+.B man
+cautã un fiºier numit
+.IB topic . section\fR,
+cu un sufix opþional la numãrul secþiunii ºi posibil un sufix de
+compresie. Dacã nu gãseºte un astfel de fiºier, cautã în orice
+subdirectoare numite
+.BI man N
+sau 
+.BI cat N
+unde
+.I N
+este numãrul secþiunii de manual.
+Dacã fiºierul este într-ul subdirector
+.BI cat N\fR,
+.B man
+considerã cã este o paginã de manual formatatã (paginã cat). Altfel,
+.B man
+considerã cã este neformatatã. În oricare caz, dacã numele fiºierului
+are un sufix cunoscut de compresie (ca
+.BR .gz ),
+.B man
+considerã cã este comprimat cu gzip.
+.PP
+Dacã doriþie sã vedeþi unde (sau dacã)
+.B man
+ar gãsi pagina de manual pentru un anumit subiect, folosiþi opþiunea
+.BR "--path " ( -w ).
+
+.SH "VARIABILE DE MEDIU"
+.TP
+.B MANPATH
+Dacã
+.B MANPATH
+este setatã, 
+.B man
+o foloseºte drept cale de cãutare a fiºierelor cu paginile de manual. Ignorã fiºierul de configurare ºi
+calea de cãutare automatã, dar este ignoratã de opþiunea de apelare
+.BR -M .
+Vezi ºi
+.BR "CALEA DE CÃUTARE A PAGINILOR MAN" .
+.TP
+.B MANPL
+Dacã
+.B MANPL
+este setatã, valoarea ei este folositã ca lungimea paginii afiºate.
+Altfel, întreaga paginã man va ocupa o singurã paginã (lungã).
+.TP
+.B MANROFFSEQ
+Dacã
+.B MANROFFSEQ
+este setatã, valoarea ei este folositã pentru determinarea setului de
+preprocesoare rulate înainte de a rula
+.B nroff
+sau
+.BR troff .
+Implicit, paginile sunt trecute prin preprocesorul tbl înainte de
+.BR nroff .
+.TP
+.B MANSECT
+Dacã
+.B MANSECT
+este setatã, valoare ei este folositã pentru a determina în ce secþiune
+de manual sã se caute.
+.TP
+.B MANWIDTH
+Dacã
+.B MANWIDTH
+este setatã, valoare ei este folositã ca lãþimea pe care paginile de
+manual ar trebui sã fie afiºate. Altfel paginile ar putea fi afiºate
+peste lãþimea ecranului.
+.TP
+.B MANPAGER
+Dacã
+.B MANPAGER
+este setatã, valoarea ei este folositã ca numele programului ce va fi
+folosit pentru a afiºa pagina man. Dacã nu, atunci
+.B PAGER
+este folositã. Dacã nici aceasta nu are o valoare,
+.B @pager@
+este folosit.
+.TP
+.B LANG
+Dacã
+.B LANG
+este setatã, valoarea ei defineºte numele subdirectorului unde man cautã
+prima datã paginile man. Astfel, comanda `LANG=dk man 1 foo' va
+determina man sã caute pagina man foo în .../dk/man1/foo.1 ºi dacã nu
+poate gãsi un astfel de fiºier, în .../man1/foo.1, unde ... este un
+director în calea de cãutare.
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+Variabilele de mediu
+.B NLSPATH
+ºi
+.B LC_MESSAGES
+(sau
+.B LANG
+când ultima nu existã) joacã un rol în localizarea catalogului de
+mesaje. (Dar mesajele în englezã sunt incluse la compilare ºi pentru
+englezã nu este necesar nici un catalog.) Notaþi cã programe apelate de
+man ca
+.BR col(1)
+folosesc ºi ele de ex. LC_CTYPE.
+.TP
+.B PATH
+.B PATH
+ajutã la determinarea cãii de cãutare a fiºierelor cu paginile de
+manual. Vezi ºi
+.BR "CALEA DE CÃUTARE A PAGINILOR MAN" .
+.TP
+.B SYSTEM
+.B SYSTEM
+este folositã pentru a obþine numele implicit al sistemului alternativ
+(pentru a fi utilizat cu opþiunea
+.BR \-m ). 
+.SH "VEZI ªI"
+apropos(1), whatis(1), less(1), groff(1), man.conf(5).
+.SH ERORI
+Opþiunea
+.B \-t
+funcþioneazã doar dacã un program gen troff este instalat.
+.br
+Dacã vedeþi \e255 sau <AD> clipind în loc de liniuþe, setaþi
+`LESSCHARSET=latin1' în mediu.
+.SH SFATURI
+Dacã adãugaþi linia
+
+  (global-set-key [(f1)] (lambda () (interactive) (manual-entry (current-word))))
+
+în fiºierul dumneavoastrã
+.IR .emacs\fR,
+apãsând F1 veþi obþine pagina man pentru apelul de librãrie la poziþia
+curentã a cursorului.
+.LP
+Pentru a obþine o versiune doar text a paginii man, fãrã backspace ºi
+liniuþe de subliniere (underscore), încercaþi
+
+  # man foo | col -b > foo.mantxt
+

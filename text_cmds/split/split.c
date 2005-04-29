@@ -55,8 +55,11 @@ __RCSID("$NetBSD: split.c,v 1.6 1997/10/19 23:26:58 lukem Exp $");
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 
 #define DEFLINE	1000			/* Default num lines per file. */
+#define NUMBERBASE 26
+#define SUFFIXFIRSTCHAR 'a'
 
 long	 bytecnt;			/* Byte count to split on. */
 long	 numlines;			/* Line count to split on. */
@@ -64,6 +67,8 @@ int	 file_open;			/* If a file open. */
 int	 ifd = -1, ofd = -1;		/* Input/output file descriptors. */
 char	 bfr[MAXBSIZE];			/* I/O buffer. */
 char	 fname[MAXPATHLEN];		/* File name prefix. */
+long	gSuffixLen;				/* length of generated file suffix */
+double	gMaxFiles;				/* maximum number of output files that can be generated */
 
 int  main __P((int, char **));
 void newfile __P((void));
@@ -79,7 +84,7 @@ main(argc, argv)
 	int ch;
 	char *ep, *p;
 
-	while ((ch = getopt(argc, argv, "-0123456789b:l:")) != -1)
+	while ((ch = getopt(argc, argv, "-0123456789b:l:a:")) != -1)
 		switch (ch) {
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
@@ -119,6 +124,12 @@ main(argc, argv)
 			if ((numlines = strtol(optarg, &ep, 10)) <= 0 || *ep)
 				errx(1, "%s: illegal line count.", optarg);
 			break;
+		case 'a':		/* suffix length */
+			if (gSuffixLen != 0)
+				usage();
+			if ((gSuffixLen = strtol(optarg, &ep, 10)) <= 0 || *ep)
+				errx(1, "%s: illegal suffix length.", optarg);
+			break;
 		default:
 			usage();
 		}
@@ -140,6 +151,18 @@ main(argc, argv)
 		numlines = DEFLINE;
 	else if (bytecnt)
 		usage();
+
+	if (gSuffixLen == 0)
+		gSuffixLen = 2;			/* default suffix length */
+
+	if (fname[0] == '\0') {
+		strcpy(fname, "x");		/* default prefix */
+	}
+	
+	if ((strlen(fname) + gSuffixLen) > MAXPATHLEN)
+		errx(1, "%s: prefix+suffix filename too long.");
+
+	gMaxFiles = pow(NUMBERBASE, gSuffixLen);	/* maximum # of output files possible */
 
 	if (ifd == -1)				/* Stdin by default. */
 		ifd = 0;
@@ -246,41 +269,46 @@ split2()
 }
 
 /*
+ * generateSuffix --
+ *  create the suffix for the output filename
+ *
+ */
+static void
+generateSuffix(char *suffixPointer, double fileNum)
+{
+	long	counter;
+	
+	/* loop through all powers of number base, up to length of filename suffix */
+	for (counter = gSuffixLen-1; counter > 0; --counter) {
+		double	power = pow(NUMBERBASE, counter);	/* calculate value of digit position */
+		long factored = fileNum / power;			/* calculate valud of digit at that position */
+		*suffixPointer++ = factored + SUFFIXFIRSTCHAR;	/* generate the "digit" */
+		fileNum -= factored * power;				/* adjust remainder of file number */
+	}
+	*suffixPointer = fileNum + SUFFIXFIRSTCHAR;		/* generate the remaining ones digit */
+	return;
+}
+
+/*
  * newfile --
  *	Open a new output file.
  */
 void
 newfile()
 {
-	static long fnum;
-	static int defname;
+	static double fnum;
 	static char *fpnt;
 
 	if (ofd == -1) {
-		if (fname[0] == '\0') {
-			fname[0] = 'x';
-			fpnt = fname + 1;
-			defname = 1;
-		} else {
-			fpnt = fname + strlen(fname);
-			defname = 0;
-		}
+		fpnt = fname + strlen(fname);
 		ofd = fileno(stdout);
 	}
-	/*
-	 * Hack to increase max files; original code wandered through
-	 * magic characters.  Maximum files is 3 * 26 * 26 == 2028
-	 */
-#define MAXFILES	676
-	if (fnum == MAXFILES) {
-		if (!defname || fname[0] == 'z')
-			errx(1, "too many files.");
-		++fname[0];
-		fnum = 0;
+	if (fnum >= gMaxFiles) {
+		errx(1, "too many files.");
 	}
-	fpnt[0] = fnum / 26 + 'a';
-	fpnt[1] = fnum % 26 + 'a';
-	++fnum;
+	generateSuffix(fpnt, fnum);
+	fnum += 1.0;
+
 	if (!freopen(fname, "w", stdout))
 		err(1, "%s", fname);
 }
@@ -289,6 +317,6 @@ void
 usage()
 {
 	(void)fprintf(stderr,
-"usage: split [-b byte_count] [-l line_count] [file [prefix]]\n");
+"usage: split [-b byte_count] [-l line_count] [-a suffix_length] [file [prefix]]\n");
 	exit(1);
 }

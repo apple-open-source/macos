@@ -1,6 +1,6 @@
 =head1 NAME
 
-Mod_perl_faq - frequently asked questions about mod_perl ($Date: 2001/07/19 00:00:31 $)
+Mod_perl_faq - frequently asked questions about mod_perl ($Date: 2003/10/08 21:31:40 $)
 
 =head1 DESCRIPTION
 
@@ -404,16 +404,16 @@ http://www.progressive-comp.com/Lists/?l=apache-modperl&r=1#apache-modperl
 (threaded and indexed).
 
 You can subscribe to the list by sending a mail to
-C<modperl-subscribe@apache.org> and responding to the confirmation
+C<modperl-subscribe@perl.apache.org> and responding to the confirmation
 message that you will receive.  To unsubscribe, send mail to
-C<modperl-unsubscribe@apache.org> B<from the address you are
+C<modperl-unsubscribe@perl.apache.org> B<from the address you are
 subscribed at> and reply to the confirmation message.  Look at the
 full headers of mails that you receive from the list to see the
 address that they were sent to.  The address is embedded in the
 C<Return-Path> header (you will probably have to activate a "show full 
 headers" function in your mail reader to see it).  To find the
 address, delete C<modperl-return-nnnn-> from the front of the return path 
-and C<@apache.org> from the back, then replace the C<=> with C<@>.
+and C<@perl.apache.org> from the back, then replace the C<=> with C<@>.
 
 Remember: the mailing list is for questions about and discussion of
 mod_perl.  Quetions about perl programming in general should be asked

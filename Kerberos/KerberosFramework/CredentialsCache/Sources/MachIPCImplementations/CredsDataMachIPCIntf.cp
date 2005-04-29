@@ -52,7 +52,7 @@ kern_return_t CredentialsIPC_FlattenCredentials (
         CCICredentialsDataInterface	credentials (inCredentials);
 
         std::strstream		flatCredentials;
-        flatCredentials << credentials.Get () << std::ends;
+        credentials.Get().WriteCredentials (flatCredentials);
         CCIMachIPCServerBuffer <char>	buffer (flatCredentials.pcount ());
 
         memmove (buffer.Data (), flatCredentials.str (), buffer.Size ());

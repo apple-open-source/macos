@@ -23,7 +23,7 @@ VERSION = 2.0.1-zeroconf
 PACKAGE_TARNAME = distcc
 SHELL = /bin/sh
 
-CFLAGS = -g -O2 -W -Wall -W -Wimplicit -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -DDARWIN -D_REENTRANT -D__FreeBSD__
+CFLAGS = -g -O2 -W -Wall -W -Wimplicit -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -DDARWIN -D_REENTRANT -D__FreeBSD__ $(RC_CFLAGS)
 LDFLAGS = -lcrypto
 CC = gcc
 CPP = gcc -E
@@ -44,7 +44,7 @@ sharedstatedir = ${prefix}/com
 localstatedir = ${prefix}/var
 libdir = ${exec_prefix}/lib
 infodir = ${prefix}/info
-mandir = ${prefix}/man
+mandir = ${prefix}/share/man
 includedir = ${prefix}/include
 oldincludedir = /usr/include
 docdir = ${datadir}/doc
@@ -137,7 +137,7 @@ tarball_bz2 = $(tarball).bz2
 tarball_sig = $(tarball_bz2).asc
 distnews = $(PACKAGE_TARNAME)-$(VERSION).NEWS
 
-common_obj = src/trace.o src/util.o src/io.o src/exec.o src/arg.o	\
+common_obj = src/cpp_dialect.o src/trace.o src/util.o src/io.o src/exec.o src/arg.o	\
 src/rpc.o src/tempfile.o src/bulk.o src/help.o src/filename.o		\
 	src/lock.o src/ncpus.o						\
 	src/where.o src/hosts.o src/sendfile.o				\
@@ -171,7 +171,7 @@ h_argvtostr_obj = src/h_argvtostr.o src/trace.o src/util.o src/arg.o src/filenam
 h_strip_obj = src/h_strip.o src/trace.o src/util.o src/arg.o src/filename.o src/strip.o
 h_parsemask_obj = src/h_parsemask.o $(common_obj) src/access.o
 
-SRC = src/arg.c src/bulk.c src/clinet.c src/clirpc.c src/cpp.c		\
+SRC = src/cpp_dialect.c src/arg.c src/bulk.c src/clinet.c src/clirpc.c src/cpp.c		\
 	src/daemon.c src/distcc.c src/dsignal.c				\
 	src/ncpus.c							\
 	src/sendfile.c src/ssh.c					\
@@ -189,7 +189,7 @@ SRC = src/arg.c src/bulk.c src/clinet.c src/clirpc.c src/cpp.c		\
 	src/zeroconf_browse.c src/zeroconf_client.c src/zeroconf_reg.c  \
 	src/zeroconf_util.c src/sched.c
 
-HEADERS = src/access.h src/bulk.h src/clinet.h src/clirpc.h src/cpp.h	\
+HEADERS = src/cpp_dialect.h src/access.h src/bulk.h src/clinet.h src/clirpc.h src/cpp.h	\
 	src/distcc.h src/dopt.h src/exitcode.h src/filename.h		\
 	src/hosts.h src/implicit.h src/io.h				\
 	src/rpc.h							\
@@ -474,7 +474,7 @@ showpaths:
 # tricky features so mkinstalldirs and cp will do
 
 #install: showpaths install-doc install-man install-programs try-install-linuxdoc
-install: showpaths install-programs
+install: showpaths install-programs install-man
 
 installhdrs:
 	@echo NO INSTALLHDRS

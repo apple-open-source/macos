@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_ioctl.c,v 1.11 2003/01/29 22:04:59 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_ioctl.c,v 1.15 2004/01/23 03:57:06 dawes Exp $ */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -6,24 +6,25 @@ Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
 
 All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-on the rights to use, copy, modify, merge, publish, distribute, sub
-license, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice (including the next
-paragraph) shall be included in all copies or substantial portions of the
-Software.
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
-ATI, VA LINUX SYSTEMS AND/OR THEIR SUPPLIERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
@@ -32,8 +33,12 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Kevin E. Martin <martin@valinux.com>
  *   Gareth Hughes <gareth@valinux.com>
  *   Keith Whitwell <keith@tungstengraphics.com>
- *
  */
+
+#include "glheader.h"
+#include "imports.h"
+#include "simple_list.h"
+#include "swrast/swrast.h"
 
 #include "radeon_context.h"
 #include "radeon_state.h"
@@ -41,23 +46,14 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "radeon_tcl.h"
 #include "radeon_sanity.h"
 
+#define STANDALONE_MMIO
 #include "radeon_macros.h"  /* for INREG() */
 
-#include "mem.h"
-#include "macros.h"
-#include "swrast/swrast.h"
-#include "simple_list.h"
+#include "vblank.h"
 
 #define RADEON_TIMEOUT             512
 #define RADEON_IDLE_RETRY           16
 
-#include <unistd.h>  /* for usleep() */
-
-static void do_usleep( int nr, const char *caller )
-{
-   if (0) fprintf(stderr, "usleep %d in %s\n", nr, caller );
-   if (1) usleep( nr );
-}
 
 static void radeonWaitForIdle( radeonContextPtr rmesa );
 
@@ -165,7 +161,6 @@ extern void radeonEmitVbufPrim( radeonContextPtr rmesa,
    drmRadeonCmdHeader *cmd;
 
 
-   assert(rmesa->dri.drmMinor >= 3); 
    assert(!(primitive & RADEON_CP_VC_CNTL_PRIM_WALK_IND));
    
    radeonEmitState( rmesa );
@@ -257,7 +252,6 @@ GLushort *radeonAllocEltsOpenEnded( radeonContextPtr rmesa,
    if (RADEON_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "%s %d\n", __FUNCTION__, min_nr);
 
-   assert(rmesa->dri.drmMinor >= 3); 
    assert((primitive & RADEON_CP_VC_CNTL_PRIM_WALK_IND));
    
    radeonEmitState( rmesa );
@@ -301,6 +295,7 @@ GLushort *radeonAllocEltsOpenEnded( radeonContextPtr rmesa,
 	      cmd[1].i, vertex_format, primitive);
 
    assert(!rmesa->dma.flush);
+   rmesa->glCtx->Driver.NeedFlush |= FLUSH_STORED_VERTICES;
    rmesa->dma.flush = radeonFlushElts;
 
    rmesa->store.elts_start = ((char *)cmd) - rmesa->store.cmd_buf;
@@ -319,7 +314,6 @@ void radeonEmitVertexAOS( radeonContextPtr rmesa,
    rmesa->ioctl.vertex_offset = offset;
 #else
    drmRadeonCmdHeader *cmd;
-   assert(rmesa->dri.drmMinor >= 3); 
 
    if (RADEON_DEBUG & (DEBUG_PRIMS|DEBUG_IOCTL))
       fprintf(stderr, "%s:  vertex_size 0x%x offset 0x%x \n",
@@ -358,7 +352,6 @@ void radeonEmitAOS( radeonContextPtr rmesa,
    if (RADEON_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "%s\n", __FUNCTION__);
 
-   assert(rmesa->dri.drmMinor >= 3); 
 
    cmd = (drmRadeonCmdHeader *)radeonAllocCmdBuf( rmesa, sz * sizeof(int),
 						  __FUNCTION__ );
@@ -393,6 +386,73 @@ void radeonEmitAOS( radeonContextPtr rmesa,
 #endif
 }
 
+/* using already shifted color_fmt! */
+void radeonEmitBlit( radeonContextPtr rmesa, /* FIXME: which drmMinor is required? */
+		   GLuint color_fmt,
+		   GLuint src_pitch,
+		   GLuint src_offset,
+		   GLuint dst_pitch,
+		   GLuint dst_offset,
+		   GLint srcx, GLint srcy,
+		   GLint dstx, GLint dsty,
+		   GLuint w, GLuint h )
+{
+   drmRadeonCmdHeader *cmd;
+
+   if (RADEON_DEBUG & DEBUG_IOCTL)
+      fprintf(stderr, "%s src %x/%x %d,%d dst: %x/%x %d,%d sz: %dx%d\n",
+	      __FUNCTION__, 
+	      src_pitch, src_offset, srcx, srcy,
+	      dst_pitch, dst_offset, dstx, dsty,
+	      w, h);
+
+   assert( (src_pitch & 63) == 0 );
+   assert( (dst_pitch & 63) == 0 );
+   assert( (src_offset & 1023) == 0 ); 
+   assert( (dst_offset & 1023) == 0 ); 
+   assert( w < (1<<16) );
+   assert( h < (1<<16) );
+
+   cmd = (drmRadeonCmdHeader *)radeonAllocCmdBuf( rmesa, 8 * sizeof(int),
+						  __FUNCTION__ );
+
+
+   cmd[0].i = 0;
+   cmd[0].header.cmd_type = RADEON_CMD_PACKET3;
+   cmd[1].i = RADEON_CP_PACKET3_CNTL_BITBLT_MULTI | (5 << 16);
+   cmd[2].i = (RADEON_GMC_SRC_PITCH_OFFSET_CNTL |
+	       RADEON_GMC_DST_PITCH_OFFSET_CNTL |
+	       RADEON_GMC_BRUSH_NONE |
+	       color_fmt |
+	       RADEON_GMC_SRC_DATATYPE_COLOR |
+	       RADEON_ROP3_S |
+	       RADEON_DP_SRC_SOURCE_MEMORY |
+	       RADEON_GMC_CLR_CMP_CNTL_DIS |
+	       RADEON_GMC_WR_MSK_DIS );
+
+   cmd[3].i = ((src_pitch/64)<<22) | (src_offset >> 10);
+   cmd[4].i = ((dst_pitch/64)<<22) | (dst_offset >> 10);
+   cmd[5].i = (srcx << 16) | srcy;
+   cmd[6].i = (dstx << 16) | dsty; /* dst */
+   cmd[7].i = (w << 16) | h;
+}
+
+
+void radeonEmitWait( radeonContextPtr rmesa, GLuint flags )
+{
+   if (rmesa->dri.drmMinor >= 6) {
+      drmRadeonCmdHeader *cmd;
+
+      assert( !(flags & ~(RADEON_WAIT_2D|RADEON_WAIT_3D)) );
+      
+      cmd = (drmRadeonCmdHeader *)radeonAllocCmdBuf( rmesa, 1 * sizeof(int),
+						   __FUNCTION__ );
+      cmd[0].i = 0;
+      cmd[0].wait.cmd_type = RADEON_CMD_WAIT;
+      cmd[0].wait.flags = flags;
+   }
+}
+
 
 static int radeonFlushCmdBufLocked( radeonContextPtr rmesa, 
 				    const char * caller )
@@ -423,7 +483,12 @@ static int radeonFlushCmdBufLocked( radeonContextPtr rmesa,
 	 ret = radeonSanityCmdBuffer( rmesa, 
 				      rmesa->numClipRects,
 				      rmesa->pClipRects);
+      if (ret) {
+	 fprintf(stderr, "drmSanityCommandWrite: %d\n", ret);	 
+	 goto out;
+      }
    }
+
 
    cmd.bufsz = rmesa->store.cmd_used;
    cmd.buf = rmesa->store.cmd_buf;
@@ -440,6 +505,10 @@ static int radeonFlushCmdBufLocked( radeonContextPtr rmesa,
 			  DRM_RADEON_CMDBUF,
 			  &cmd, sizeof(cmd) );
 
+   if (ret)
+      fprintf(stderr, "drmCommandWrite: %d\n", ret);
+
+ out:
    rmesa->store.primnr = 0;
    rmesa->store.statenr = 0;
    rmesa->store.cmd_used = 0;
@@ -457,8 +526,6 @@ void radeonFlushCmdBuf( radeonContextPtr rmesa, const char *caller )
    int ret;
 
 	      
-   assert (rmesa->dri.drmMinor >= 3);
-
    LOCK_HARDWARE( rmesa );
 
    ret = radeonFlushCmdBufLocked( rmesa, caller );
@@ -466,11 +533,10 @@ void radeonFlushCmdBuf( radeonContextPtr rmesa, const char *caller )
    UNLOCK_HARDWARE( rmesa );
 
    if (ret) {
-      fprintf(stderr, "drmRadeonCmdBuffer: %d\n", ret);
+      fprintf(stderr, "drmRadeonCmdBuffer: %d (exiting)\n", ret);
       exit(ret);
    }
 }
-
 
 /* =============================================================
  * Hardware vertex buffer handling
@@ -618,9 +684,6 @@ void radeonAllocDmaRegion( radeonContextPtr rmesa,
    rmesa->dma.current.ptr += bytes; /* bug - if alignment > 7 */
    rmesa->dma.current.start = 
       rmesa->dma.current.ptr = (rmesa->dma.current.ptr + 0x7) & ~0x7;  
-
-   if ( rmesa->dri.drmMinor < 3 ) 
-      radeonRefillCurrentDmaRegion( rmesa );
 }
 
 void radeonAllocDmaRegionVerts( radeonContextPtr rmesa, 
@@ -653,12 +716,10 @@ static CARD32 radeonGetLastFrame (radeonContextPtr rmesa)
    else
       ret = -EINVAL;
 
-#ifndef __alpha__
    if ( ret == -EINVAL ) {
       frame = INREG( RADEON_LAST_FRAME_REG );
       ret = 0;
    } 
-#endif
    if ( ret ) {
       fprintf( stderr, "%s: drmRadeonGetParam: %d\n", __FUNCTION__, ret );
       exit(1);
@@ -725,7 +786,7 @@ static void radeonWaitForFrameCompletion( radeonContextPtr rmesa )
       while (radeonGetLastFrame (rmesa) < sarea->last_frame) {
 	 UNLOCK_HARDWARE( rmesa ); 
 	 if (rmesa->do_usleeps) 
-	    do_usleep(1, __FUNCTION__); 
+	    DO_USLEEP( 1 );
 	 LOCK_HARDWARE( rmesa ); 
       }
    }
@@ -737,6 +798,8 @@ void radeonCopyBuffer( const __DRIdrawablePrivate *dPriv )
 {
    radeonContextPtr rmesa;
    GLint nbox, i, ret;
+   GLboolean   missed_target;
+   int64_t     ust;
 
    assert(dPriv);
    assert(dPriv->driContextPriv);
@@ -745,25 +808,25 @@ void radeonCopyBuffer( const __DRIdrawablePrivate *dPriv )
    rmesa = (radeonContextPtr) dPriv->driContextPriv->driverPrivate;
 
    if ( RADEON_DEBUG & DEBUG_IOCTL ) {
-      fprintf( stderr, "\n%s( %p )\n\n", __FUNCTION__, rmesa->glCtx );
+      fprintf( stderr, "\n%s( %p )\n\n", __FUNCTION__, (void *)rmesa->glCtx );
    }
 
    RADEON_FIREVERTICES( rmesa );
-
    LOCK_HARDWARE( rmesa );
-
 
    /* Throttle the frame rate -- only allow one pending swap buffers
     * request at a time.
     */
    radeonWaitForFrameCompletion( rmesa );
-   radeonWaitForVBlank( rmesa );
+   UNLOCK_HARDWARE( rmesa );
+   driWaitForVBlank( dPriv, & rmesa->vbl_seq, rmesa->vblank_flags, & missed_target );
+   LOCK_HARDWARE( rmesa );
 
-   nbox = rmesa->dri.drawable->numClipRects; /* must be in locked region */
+   nbox = dPriv->numClipRects; /* must be in locked region */
 
    for ( i = 0 ; i < nbox ; ) {
       GLint nr = MIN2( i + RADEON_NR_SAREA_CLIPRECTS , nbox );
-      XF86DRIClipRectPtr box = rmesa->dri.drawable->pClipRects;
+      XF86DRIClipRectPtr box = dPriv->pClipRects;
       XF86DRIClipRectPtr b = rmesa->sarea->boxes;
       GLint n = 0;
 
@@ -783,12 +846,21 @@ void radeonCopyBuffer( const __DRIdrawablePrivate *dPriv )
    }
 
    UNLOCK_HARDWARE( rmesa );
+   rmesa->swap_count++;
+   (*rmesa->get_ust)( & ust );
+   if ( missed_target ) {
+      rmesa->swap_missed_count++;
+      rmesa->swap_missed_ust = ust - rmesa->swap_ust;
+   }
+
+   rmesa->swap_ust = ust;
 }
 
 void radeonPageFlip( const __DRIdrawablePrivate *dPriv )
 {
    radeonContextPtr rmesa;
    GLint ret;
+   GLboolean   missed_target;
 
    assert(dPriv);
    assert(dPriv->driContextPriv);
@@ -797,30 +869,34 @@ void radeonPageFlip( const __DRIdrawablePrivate *dPriv )
    rmesa = (radeonContextPtr) dPriv->driContextPriv->driverPrivate;
 
    if ( RADEON_DEBUG & DEBUG_IOCTL ) {
-      fprintf(stderr, "%s %d\n", __FUNCTION__, 
-	      rmesa->sarea->pfCurrentPage );
+      fprintf(stderr, "%s: pfCurrentPage: %d\n", __FUNCTION__,
+	      rmesa->sarea->pfCurrentPage);
    }
 
    RADEON_FIREVERTICES( rmesa );
-
    LOCK_HARDWARE( rmesa );
 
    /* Need to do this for the perf box placement:
     */
-   if (rmesa->dri.drawable->numClipRects)
+   if (dPriv->numClipRects)
    {
-      XF86DRIClipRectPtr box = rmesa->dri.drawable->pClipRects;
+      XF86DRIClipRectPtr box = dPriv->pClipRects;
       XF86DRIClipRectPtr b = rmesa->sarea->boxes;
       b[0] = box[0];
       rmesa->sarea->nbox = 1;
    }
 
-
-   /* Throttle the frame rate -- only allow one pending swap buffers
+   /* Throttle the frame rate -- only allow a few pending swap buffers
     * request at a time.
     */
    radeonWaitForFrameCompletion( rmesa );
-   radeonWaitForVBlank( rmesa );
+   UNLOCK_HARDWARE( rmesa );
+   driWaitForVBlank( dPriv, & rmesa->vbl_seq, rmesa->vblank_flags, & missed_target );
+   if ( missed_target ) {
+      rmesa->swap_missed_count++;
+      (void) (*rmesa->get_ust)( & rmesa->swap_missed_ust );
+   }
+   LOCK_HARDWARE( rmesa );
 
    ret = drmCommandNone( rmesa->dri.fd, DRM_RADEON_FLIP );
 
@@ -831,6 +907,9 @@ void radeonPageFlip( const __DRIdrawablePrivate *dPriv )
       exit( 1 );
    }
 
+   rmesa->swap_count++;
+   (void) (*rmesa->get_ust)( & rmesa->swap_ust );
+
    if ( rmesa->sarea->pfCurrentPage == 1 ) {
 	 rmesa->state.color.drawOffset = rmesa->radeonScreen->frontOffset;
 	 rmesa->state.color.drawPitch  = rmesa->radeonScreen->frontPitch;
@@ -840,7 +919,8 @@ void radeonPageFlip( const __DRIdrawablePrivate *dPriv )
    }
 
    RADEON_STATECHANGE( rmesa, ctx );
-   rmesa->hw.ctx.cmd[CTX_RB3D_COLOROFFSET] = rmesa->state.color.drawOffset;
+   rmesa->hw.ctx.cmd[CTX_RB3D_COLOROFFSET] = rmesa->state.color.drawOffset
+					   + rmesa->radeonScreen->fbLocation;
    rmesa->hw.ctx.cmd[CTX_RB3D_COLORPITCH]  = rmesa->state.color.drawPitch;
 }
 
@@ -896,8 +976,11 @@ static void radeonClear( GLcontext *ctx, GLbitfield mask, GLboolean all,
       mask &= ~DD_STENCIL_BIT;
    }
 
-   if ( mask )
+   if ( mask ) {
+      if (RADEON_DEBUG & DEBUG_FALLBACKS)
+	 fprintf(stderr, "%s: swrast clear, mask: %x\n", __FUNCTION__, mask);
       _swrast_Clear( ctx, mask, all, cx, cy, cw, ch );
+   }
 
    if ( !flags ) 
       return;
@@ -924,12 +1007,10 @@ static void radeonClear( GLcontext *ctx, GLbitfield mask, GLboolean all,
       } else
 	ret = -EINVAL;
 
-#ifndef __alpha__
       if ( ret == -EINVAL ) {
 	 clear = INREG( RADEON_LAST_CLEAR_REG );
 	 ret = 0;
       }
-#endif
       if ( ret ) {
 	 fprintf( stderr, "%s: drmRadeonGetParam: %d\n", __FUNCTION__, ret );
 	 exit(1);
@@ -945,7 +1026,7 @@ static void radeonClear( GLcontext *ctx, GLbitfield mask, GLboolean all,
 
       if ( rmesa->do_usleeps ) {
 	 UNLOCK_HARDWARE( rmesa );
-	 do_usleep(1, __FUNCTION__);
+	 DO_USLEEP( 1 );
 	 LOCK_HARDWARE( rmesa );
       }
    }
@@ -1032,14 +1113,6 @@ void radeonWaitForIdleLocked( radeonContextPtr rmesa )
         do {
             ret = drmCommandNone( fd, DRM_RADEON_CP_IDLE);
         } while ( ret && errno == EBUSY && i++ < RADEON_IDLE_RETRY );
-        if (ret && ret != -EBUSY) {
-            /*
-             * JO - I'm reluctant to print this message while holding the lock
-             *
-            xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                   "%s: CP idle %d\n", __FUNCTION__, ret);
-             */
-        }
     } while ( ( ret == -EBUSY ) && ( to++ < RADEON_TIMEOUT ) );
 
     if ( ret < 0 ) {
@@ -1052,46 +1125,11 @@ void radeonWaitForIdleLocked( radeonContextPtr rmesa )
 
 static void radeonWaitForIdle( radeonContextPtr rmesa )
 {
-    LOCK_HARDWARE(rmesa);
-    radeonWaitForIdleLocked( rmesa );
-    UNLOCK_HARDWARE(rmesa);
+   LOCK_HARDWARE(rmesa);
+   radeonWaitForIdleLocked( rmesa );
+   UNLOCK_HARDWARE(rmesa);
 }
 
-
-void radeonWaitForVBlank( radeonContextPtr rmesa )
-{
-    drmVBlank vbl;
-    int ret;
-
-    if ( !rmesa->radeonScreen->irq )
-	return;
-
-    if ( getenv("LIBGL_SYNC_REFRESH") ) {
-	/* Wait for at least one vertical blank since the last call */
-	vbl.request.type = DRM_VBLANK_RELATIVE;
-	vbl.request.sequence = 1;
-    } else if ( getenv("LIBGL_THROTTLE_REFRESH") ) {
-	/* Wait for at least one vertical blank since the last call */
-	vbl.request.type = DRM_VBLANK_ABSOLUTE;
-	vbl.request.sequence = rmesa->vbl_seq + 1;
-    } else {
-	return;
-    }
-
-    UNLOCK_HARDWARE( rmesa );
-
-    if ((ret = drmWaitVBlank( rmesa->dri.fd, &vbl ))) {
-	fprintf(stderr, "%s: drmWaitVBlank returned %d, IRQs don't seem to be"
-		" working correctly.\nTry running with LIBGL_THROTTLE_REFRESH"
-		" and LIBL_SYNC_REFRESH unset.\n", __FUNCTION__, ret);
-	exit(1);
-    } else if (RADEON_DEBUG & DEBUG_IOCTL)
-	fprintf(stderr, "%s: drmWaitVBlank returned %d\n", __FUNCTION__, ret);
-
-    rmesa->vbl_seq = vbl.reply.sequence;
-
-    LOCK_HARDWARE( rmesa );
-}
 
 void radeonFlush( GLcontext *ctx )
 {
@@ -1103,13 +1141,11 @@ void radeonFlush( GLcontext *ctx )
    if (rmesa->dma.flush)
       rmesa->dma.flush( rmesa );
 
-   if (rmesa->dri.drmMinor >= 3) {
-      if (!is_empty_list(&rmesa->hw.dirty)) 
-	 radeonEmitState( rmesa );
+   if (!is_empty_list(&rmesa->hw.dirty)) 
+      radeonEmitState( rmesa );
    
-      if (rmesa->store.cmd_used)
-	 radeonFlushCmdBuf( rmesa, __FUNCTION__ );
-   }
+   if (rmesa->store.cmd_used)
+      radeonFlushCmdBuf( rmesa, __FUNCTION__ );
 }
 
 /* Make sure all commands have been sent to the hardware and have

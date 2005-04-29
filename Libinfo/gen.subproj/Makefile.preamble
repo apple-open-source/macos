@@ -31,3 +31,7 @@ OTHER_CFLAGS = \
 	-Dgetfsspec=_old_getfsspec \
 	-Dinitgroups=_old_initgroups \
 	-I../lookup.subproj
+
+# for building 64-bit
+# <rdar://problem/3819761> Libinfo need to build with gcc-3.5 and 3-way fat
+NEXTSTEP_OBJCPLUS_COMPILER = $(CCOMPILER)

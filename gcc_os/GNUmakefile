@@ -102,6 +102,7 @@ SRC = `cd $(SRCROOT) && pwd | sed s,/private,,`
 OBJROOT = $(SRC)/obj
 SYMROOT = $(OBJROOT)/../sym
 DSTROOT = $(OBJROOT)/../dst
+MANPLACE := $(OBJROOT)/cc-$(firstword $(TARGETS))-on-$(firstword $(HOSTS))
 
 # Set BOOTSTRAP to null (either here on on the buildit cmd line) to
 # disable a bootstrap build.
@@ -128,7 +129,8 @@ else
     endif
 endif
 
-VERSION = 3.1
+VERSION =`fgrep version_string < $(SRCROOT)/gcc/version.c | \
+                 sed -e 's/.*\"\([^ \"]*\)[ \"].*/\1/'`
 
 ARCH = `arch`
 
@@ -164,7 +166,7 @@ OPTIMIZE =
 
 #######################################################################
 
-install: installhdrs build install_no_src # libkeymgr
+install: installhdrs build install_no_src
 	@echo
 	@echo ++++++++++++++
 	@echo + Installing +
@@ -182,7 +184,7 @@ install: installhdrs build install_no_src # libkeymgr
 	  ln -s $(VERSION) default; \
 	fi
 
-installhdrs: DSTROOT #cplusplus_hdrs
+installhdrs: DSTROOT
 	@echo
 	@echo ++++++++++++++++++++++
 	@echo + Installing headers +
@@ -207,6 +209,9 @@ installhdrs: DSTROOT #cplusplus_hdrs
 	      ln -s gcc/darwin/default/$$file1 $(std_include_dir); \
 	    fi \
 	done
+	case "${TARGETS}" in \
+	    *i386*) install -c -m 444 gcc/config/i386/*mmintrin.h $(gcc_hdr_dir) ;;\
+	esac
 	rm -f /tmp/float.$$$$ && \
 	more-hdrs/synthesize-float $(SRC) /tmp/float.$$$$ $(RC_RELEASE) && \
 	install -c -m 444 /tmp/float.$$$$ $(gcc_hdr_dir)/float.h && \
@@ -224,10 +229,11 @@ installhdrs: DSTROOT #cplusplus_hdrs
 	  ln -s ../gcc/darwin/default/machine/limits.h $(std_include_dir)/machine; \
 	fi
 
-# Note for future reference: Relative symlinks like the one above are aways
-# relative to the sym link.  So in the above ln -s $(std_include_dir)/machine
-# is "in" the machine dir.  So we need to go "up" to $(std_include_dir) and
-# then down to the actual machine/limits.
+# Note for future reference: Relative symlinks like the one above are
+# always relative to the sym link.  So in the above ln -s
+# $(std_include_dir)/machine is "in" the machine dir.  So we need to
+# go "up" to $(std_include_dir) and then down to the actual
+# machine/limits.
 
 build: OBJROOT SYMROOT
 	@echo
@@ -278,11 +284,25 @@ install_no_src:
 	    --prefix="$(PREFIX)" \
 	    --symlinks=$(DO_SYMLINKS)
 	mkdir -p $(gcc_man1_dir)
-	install -c -m 444 man-pages/gcc3.1 $(gcc_man1_dir)/gcc3.1
-	ln -s gcc3.1 $(gcc_man1_dir)/g++3.1
-	ln -s gcc3.1 $(gcc_man1_dir)/c++3.1
-	install -c -m 444 man-pages/cpp3.1 $(gcc_man1_dir)/cpp3.1
-	install -c -m 444 man-pages/gcov3.1 $(gcc_man1_dir)/gcov3.1
+	rm -f $(gcc_man1_dir)/g++-$(VERSION).1
+	rm -f $(gcc_man1_dir)/c++-$(VERSION).1
+	if [ -f $(MANPLACE)/gcc.1 ] ; then \
+	  install -c -m 444 $(MANPLACE)/gcc.1 \
+		$(gcc_man1_dir)/gcc-$(VERSION).1 && \
+	  install -c -m 444 $(MANPLACE)/cpp.1 \
+		$(gcc_man1_dir)/cpp-$(VERSION).1 && \
+	  install -c -m 444 $(MANPLACE)/gcov.1 \
+		$(gcc_man1_dir)/gcov-$(VERSION).1 ; \
+	 else \
+	  install -c -m 444 man-pages/gcc3.1 \
+		$(gcc_man1_dir)/gcc-$(VERSION).1 && \
+	  install -c -m 444 man-pages/cpp3.1 \
+		$(gcc_man1_dir)/cpp-$(VERSION).1 && \
+	  install -c -m 444 man-pages/gcov3.1 \
+		$(gcc_man1_dir)/gcov-$(VERSION).1 ; \
+	fi
+	ln -s gcc-$(VERSION).1 $(gcc_man1_dir)/g++-$(VERSION).1
+	ln -s gcc-$(VERSION).1 $(gcc_man1_dir)/c++-$(VERSION).1
 
 installsrc: SRCROOT
 	@echo
@@ -296,114 +316,6 @@ installsrc: SRCROOT
 	find -d "$(SRCROOT)" \( -type d -a -name CVS -o \
 	                        -type f -a -name .DS_Store \) \
 	  -exec rm -rf {} \;
-
-#######################################################################
-# C++-related targets
-#
-#   Headers go into $(cpp_hdr_dir), set below to
-#       /usr/include/gcc/darwin/$(VERSION)/g++
-#
-# For now, be explicit instead of theoretically "FSF-correct"
-
-# Most of libstdc++
-LIBSTDCPP_HDRS = cassert cctype cerrno cfloat ciso646 \
-    climits clocale cmath complex complex.h csetjmp \
-    csignal cstdarg cstddef cstdio cstdlib cstring ctime \
-    cwchar cwctype fstream iomanip iosfwd iostream \
-    stdexcept stl.h string strstream
-
-LIBSTDCPP_STL_HDRS = algo.h algobase.h algorithm alloc.h bvector.h	\
-    defalloc.h deque deque.h function.h functional hash_map hash_map.h	\
-    hash_set hash_set.h hashtable.h heap.h iterator iterator.h list	\
-    list.h map map.h memory multimap.h multiset.h numeric pair.h	\
-    pthread_alloc pthread_alloc.h queue rope rope.h ropeimpl.h set	\
-    set.h slist slist.h stack stack.h stl_algo.h stl_algobase.h		\
-    stl_alloc.h stl_bvector.h stl_config.h stl_construct.h stl_deque.h	\
-    stl_function.h stl_hash_fun.h stl_hash_map.h stl_hash_set.h		\
-    stl_hashtable.h stl_heap.h stl_iterator.h stl_list.h stl_map.h	\
-    stl_multimap.h stl_multiset.h stl_numeric.h stl_pair.h stl_queue.h	\
-    stl_raw_storage_iter.h stl_relops.h stl_rope.h stl_set.h		\
-    stl_slist.h stl_stack.h stl_tempbuf.h stl_tree.h			\
-    stl_uninitialized.h stl_vector.h tempbuf.h tree.h type_traits.h	\
-    utility vector vector.h
-
-LIBSTDCPP_STD_HDRS = bastring.cc bastring.h complext.cc complext.h	\
-    dcomplex.h fcomplex.h ldcomplex.h straits.h
-
-# Some of the standard headers (e.g., <fstream>, <iomanip>)
-# just #include these <*.h> versions from ./libio.
-LIBIO_HDRS = fstream.h iomanip.h iostream.h \
-  libio.h streambuf.h strfile.h strstream.h
-
-# DO WE NEED THE OTHERS?  These are all of the *other* .h
-#   files in libio.  I suspect we'll need to install some
-#   of them.  Any that we find we need, just move from here
-#   into LIBIO_HDRS.
-#
-LIBIO_OTHER_H = PlotFile.h SFile.h builtinbuf.h editbuf.h \
-  floatio.h indstream.h iolibio.h iostdio.h iostreamP.h \
-  istream.h libioP.h ostream.h parsestream.h pfstream.h \
-  procbuf.h stdiostream.h stream.h
-
-cpp_hdr_dir=$(gcc_hdr_dir)/g++
-
-cplusplus_hdrs: DSTROOT
-	mkdir -p $(cpp_hdr_dir)
-	for file in exception new new.h typeinfo; do \
-	  install -c -m 444 gcc/cp/inc/$$file $(cpp_hdr_dir); \
-	done
-	for file in $(LIBSTDCPP_HDRS); do \
-	  install -c -m 444 libstdc++/$$file $(cpp_hdr_dir); \
-	done
-	for file in $(LIBSTDCPP_STL_HDRS); do \
-	  install -c -m 444 libstdc++/stl/$$file $(cpp_hdr_dir); \
-	done
-	for file in $(LIBSTDCPP_STD_HDRS); do \
-	  install -c -m 444 libstdc++/std/$$file $(cpp_hdr_dir); \
-	done
-	for file in $(LIBIO_HDRS); do \
-	  install -c -m 444 libio/$$file $(cpp_hdr_dir); \
-	done
-	install -c -m 444 _G_config.h $(cpp_hdr_dir)
-	cd $(cpp_hdr_dir) && rm -f std && ln -s . std
-
-#######################################################################
-
-# keymgr build into system framework.
-# Since keymgr must be built 3 times (debug, profile, optimized)
-# and named according to the option set used (libxxx.a, libxxx_debug.a,
-# libxxx_profile.a), this build directly places the build result in the dst
-# directory.
-
-SYS_FRAMEWORK_DST = $(DSTROOT)/usr/local/lib/system
-KEYMGR_OBJ = $(OBJROOT)/keymgr
-KEYMGR_DEFINES = -DMACOSX -DPART_OF_SYSTEM_FRAMEWORK
-CFLAGS = -I$(SRCROOT)/gcc/config/apple $(RC_CFLAGS) $(OTHER_CFLAGS) $(KEYMGR_DEFINES)
-CC = $(DSTROOT)/usr/bin/cc -no-cpp-precomp
-
-libkeymgr: $(KEYMGR_OBJ)/libkeymgr.a $(KEYMGR_OBJ)/libkeymgr_debug.a \
-	   $(KEYMGR_OBJ)/libkeymgr_profile.a
-	install -d $(SYS_FRAMEWORK_DST)
-	install -c -m 444 $(KEYMGR_OBJ)/libkeymgr.a \
-			  $(KEYMGR_OBJ)/libkeymgr_debug.a \
-			  $(KEYMGR_OBJ)/libkeymgr_profile.a \
-		$(SYS_FRAMEWORK_DST)
-
-$(KEYMGR_OBJ)/libkeymgr.a: keymgr.c $(SRCROOT)/gcc/config/apple/keymgr.h \
-			   KEYMGR_OBJ
-	$(CC) $(CFLAGS) -O2 -c -o $(KEYMGR_OBJ)/keymgr.o keymgr.c
-	libtool -static -o $@ $(KEYMGR_OBJ)/keymgr.o
-
-$(KEYMGR_OBJ)/libkeymgr_debug.a: keymgr.c $(SRCROOT)/gcc/config/apple/keymgr.h\
-				 KEYMGR_OBJ
-	$(CC) $(CFLAGS) -g -c -o $(KEYMGR_OBJ)/keymgr.o keymgr.c
-	libtool -static -o $@ $(KEYMGR_OBJ)/keymgr.o
-
-$(KEYMGR_OBJ)/libkeymgr_profile.a: keymgr.c \
-				   $(SRCROOT)/gcc/config/apple/keymgr.h \
-				   KEYMGR_OBJ
-	$(CC) $(CFLAGS) -pg -c -o $(KEYMGR_OBJ)/keymgr.o keymgr.c
-	libtool -static -o $@ $(KEYMGR_OBJ)/keymgr.o
 
 #######################################################################
 

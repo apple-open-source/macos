@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001-2002
+ * Copyright (c) 2001-2003
  *	Sleepycat Software.  All rights reserved.
  *
  * Some parts of this code originally written by Adam Stubblefield,
@@ -11,7 +11,7 @@
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: hmac.c,v 1.1.1.1 2003/02/15 04:56:06 zarzycki Exp $";
+static const char revid[] = "$Id: hmac.c,v 1.2 2004/03/30 01:23:29 jtownsen Exp $";
 #endif /* not lint */
 
 #ifndef NO_SYSTEM_INCLUDES

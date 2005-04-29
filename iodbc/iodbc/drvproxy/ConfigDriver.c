@@ -1,7 +1,7 @@
 /*
  *  ConfigDriver.c
  *
- *  $Id: ConfigDriver.c,v 1.1.1.1 2002/04/08 22:48:09 miner Exp $
+ *  $Id: ConfigDriver.c,v 1.3 2004/11/11 01:52:35 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -68,7 +68,6 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <config.h>
 #include <iodbc.h>
 #include <iodbcinst.h>
 #include <iodbc_error.h>
@@ -76,12 +75,16 @@
 #include "gui.h"
 
 BOOL INSTAPI
-ConfigDriver (HWND hwndParent,
-    WORD fRequest,
-    LPCSTR lpszDriver,
-    LPCSTR lpszArgs, LPSTR lpszMsg, WORD cbMsgMax, WORD FAR * pcbMsgOut)
+ConfigDriver (
+    HWND	  hwndParent,
+    WORD	  fRequest,
+    LPCSTR	  lpszDriver,
+    LPCSTR	  lpszArgs,
+    LPSTR	  lpszMsg,
+    WORD	  cbMsgMax,
+    WORD	* pcbMsgOut)
 {
-  char *path = NULL, *curr, *cour;
+  char *curr, *cour;
   char driverread[4096] = { 0 };
   BOOL retcode = FALSE;
   UWORD confMode = ODBC_USER_DSN;

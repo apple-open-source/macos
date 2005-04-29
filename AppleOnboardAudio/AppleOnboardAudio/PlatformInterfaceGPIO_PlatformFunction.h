@@ -34,8 +34,8 @@ public:
 
 	virtual IOReturn					performPowerStateChange ( IOService * device, UInt32 currentPowerState, UInt32 pendingPowerState );
 
-	virtual	bool						needsUnregisterInterruptsOnSleep ( void ) { return TRUE; }
-	virtual	bool						needsRegisterInterruptsOnWake ( void ) { return TRUE; }
+	virtual	bool						needsUnregisterInterruptsOnSleep ( void ) { return FALSE; }
+	virtual	bool						needsRegisterInterruptsOnWake ( void ) { return FALSE; }
 	virtual	bool						needsCheckDetectStatusOnWake ( void ) { return TRUE; }
 
 	//

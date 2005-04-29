@@ -48,6 +48,9 @@ typedef struct {
 	/* base CFType information */
 	CFRuntimeBase		cfBase;
 
+	/* lock */
+	pthread_mutex_t		lock;
+
 	/* session name */
 	CFStringRef		name;
 
@@ -58,7 +61,7 @@ typedef struct {
 	Boolean			perUser;
 	CFStringRef		user;
 
-	/* configuration file path */
+	/* configuration file */
 	char			*path;
 	char			*newPath;
 
@@ -72,6 +75,12 @@ typedef struct {
 	CFStringRef		sessionKeyLock;
 	CFStringRef		sessionKeyCommit;
 	CFStringRef		sessionKeyApply;
+
+	/* run loop source, callout, context, rl scheduling info */
+	CFRunLoopSourceRef      rls;
+	SCPreferencesCallBack	rlsFunction;
+	SCPreferencesContext	rlsContext;
+	CFMutableArrayRef       rlList;
 
 	/* preferences */
 	CFMutableDictionaryRef	prefs;
@@ -102,6 +111,12 @@ __SCPreferencesCreate			(CFAllocatorRef		allocator,
 					 CFStringRef		prefsID,
 					 Boolean		perUser,
 					 CFStringRef		user);
+
+Boolean
+__SCPreferencesAccess			(SCPreferencesRef	prefs);
+
+Boolean
+__SCPreferencesAddSession		(SCPreferencesRef       prefs);
 
 CFDataRef
 __SCPSignatureFromStatbuf		(const struct stat	*statBuf);

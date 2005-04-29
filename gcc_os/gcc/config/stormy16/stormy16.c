@@ -44,10 +44,17 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "tm_p.h"
+#include "langhooks.h"
 
 static rtx emit_addhi3_postreload PARAMS ((rtx, rtx, rtx));
 static void xstormy16_asm_out_constructor PARAMS ((rtx, int));
 static void xstormy16_asm_out_destructor PARAMS ((rtx, int));
+static void xstormy16_encode_section_info PARAMS ((tree, int));
+static void xstormy16_asm_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+						   HOST_WIDE_INT, tree));
+
+static void xstormy16_init_builtins PARAMS ((void));
+static rtx xstormy16_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
@@ -225,15 +232,22 @@ xstormy16_split_cbranch (mode, label, comparison, dest, carry)
 {
   rtx op0 = XEXP (comparison, 0);
   rtx op1 = XEXP (comparison, 1);
-  rtx seq;
+  rtx seq, last_insn;
   rtx compare;
   
   start_sequence ();
   xstormy16_expand_arith (mode, COMPARE, dest, op0, op1, carry);
-  seq = gen_sequence ();
+  seq = get_insns ();
   end_sequence ();
-  compare = SET_SRC (XVECEXP (PATTERN (XVECEXP (seq, 0, XVECLEN (seq, 0) - 1)),
-			      0, 0));
+
+  if (! INSN_P (seq))
+    abort ();
+
+  last_insn = seq;
+  while (NEXT_INSN (last_insn) != NULL_RTX)
+    last_insn = NEXT_INSN (last_insn);
+
+  compare = SET_SRC (XVECEXP (PATTERN (last_insn), 0, 0));
   PUT_CODE (XEXP (compare, 0), GET_CODE (comparison));
   XEXP (compare, 1) = gen_rtx_LABEL_REF (VOIDmode, label);
   emit_insn (seq);
@@ -245,7 +259,7 @@ xstormy16_split_cbranch (mode, label, comparison, dest, carry)
 
    OP is the conditional expression, or NULL for branch-always.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
    INSN is the insn.  */
 
@@ -322,7 +336,7 @@ xstormy16_output_cbranch_hi (op, label, reversed, insn)
 
    OP is the conditional expression (OP is never NULL_RTX).
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
    INSN is the insn.  */
 
@@ -398,7 +412,7 @@ xstormy16_output_cbranch_si (op, label, reversed, insn)
    registers, but not memory.  Some machines allow copying all registers to and
    from memory, but require a scratch register for stores to some memory
    locations (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In some cases,
+   certain symbolic address on the SPARC when compiling PIC).  In some cases,
    both an intermediate and a scratch register are required.
 
    You should define these macros to indicate to the reload phase that it may
@@ -467,7 +481,7 @@ xstormy16_secondary_reload_class (class, mode, x)
   return NO_REGS;
 }
 
-/* Recognise a PLUS that needs the carry register.  */
+/* Recognize a PLUS that needs the carry register.  */
 int
 xstormy16_carry_plus_operand (x, mode)
      rtx x;
@@ -865,7 +879,7 @@ xstormy16_compute_stack_layout ()
     if (REG_NEEDS_SAVE (regno, ifun))
       layout.register_save_size += UNITS_PER_WORD;
   
-  if (current_function_varargs || current_function_stdarg)
+  if (current_function_stdarg)
     layout.stdarg_save_size = NUM_ARGUMENT_REGISTERS * UNITS_PER_WORD;
   else
     layout.stdarg_save_size = 0;
@@ -1140,7 +1154,7 @@ xstormy16_build_va_list ()
 {
   tree f_1, f_2, record, type_decl;
 
-  record = make_lang_type (RECORD_TYPE);
+  record = (*lang_hooks.types.make_type) (RECORD_TYPE);
   type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
 
   f_1 = build_decl (FIELD_DECL, get_identifier ("base"),
@@ -1161,13 +1175,12 @@ xstormy16_build_va_list ()
   return record;
 }
 
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is non-zero if this
+/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  */
 void
-xstormy16_expand_builtin_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p ATTRIBUTE_UNUSED;
+xstormy16_expand_builtin_va_start (valist, nextarg)
      tree valist;
      rtx nextarg ATTRIBUTE_UNUSED;
 {
@@ -1372,11 +1385,13 @@ xstormy16_function_value (valtype, func)
    extracted from it.)  It might possibly be useful on some targets, but
    probably not.  */
 
-void
-xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
+static void
+xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta,
+			       vcall_offset, function)
      FILE *file;
      tree thunk_fndecl ATTRIBUTE_UNUSED;
-     int delta;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
      tree function;
 {
   int regnum = FIRST_ARGUMENT_REGISTER;
@@ -1385,7 +1400,7 @@ xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
   if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
     regnum += 1;
   
-  fprintf (file, "\tadd %s,#0x%x\n", reg_names[regnum], (delta) & 0xFFFF);
+  fprintf (file, "\tadd %s,#0x%x\n", reg_names[regnum], (int) delta & 0xFFFF);
   fputs ("\tjmpf ", file);
   assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
   putc ('\n', file);
@@ -1393,9 +1408,10 @@ xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
 
 /* Mark functions with SYMBOL_REF_FLAG.  */
 
-void
-xstormy16_encode_section_info (decl)
+static void
+xstormy16_encode_section_info (decl, first)
      tree decl;
+     int first ATTRIBUTE_UNUSED;
 {
   if (TREE_CODE (decl) == FUNCTION_DECL)
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
@@ -2015,9 +2031,136 @@ xstormy16_handle_interrupt_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 
+#undef TARGET_INIT_BUILTINS
+#define TARGET_INIT_BUILTINS xstormy16_init_builtins
+#undef TARGET_EXPAND_BUILTIN
+#define TARGET_EXPAND_BUILTIN xstormy16_expand_builtin
+
+static struct {
+  const char *name;
+  int md_code;
+  const char *arg_ops; /* 0..9, t for temp register, r for return value */
+  const char *arg_types; /* s=short,l=long, upper case for unsigned */
+} s16builtins[] = {
+  { "__sdivlh", CODE_FOR_sdivlh, "rt01", "sls" },
+  { "__smodlh", CODE_FOR_sdivlh, "tr01", "sls" },
+  { "__udivlh", CODE_FOR_udivlh, "rt01", "SLS" },
+  { "__umodlh", CODE_FOR_udivlh, "tr01", "SLS" },
+  { 0, 0, 0, 0 }
+};
+
+static void
+xstormy16_init_builtins ()
+{
+  tree args, ret_type, arg;
+  int i, a;
+
+  ret_type = void_type_node;
+
+  for (i=0; s16builtins[i].name; i++)
+    {
+      args = void_list_node;
+      for (a=strlen (s16builtins[i].arg_types)-1; a>=0; a--)
+	{
+	  switch (s16builtins[i].arg_types[a])
+	    {
+	    case 's': arg = short_integer_type_node; break;
+	    case 'S': arg = short_unsigned_type_node; break;
+	    case 'l': arg = long_integer_type_node; break;
+	    case 'L': arg = long_unsigned_type_node; break;
+	    default: abort();
+	    }
+	  if (a == 0)
+	    ret_type = arg;
+	  else
+	    args = tree_cons (NULL_TREE, arg, args);
+	}
+      builtin_function (s16builtins[i].name,
+			build_function_type (ret_type, args),
+			i, BUILT_IN_MD, NULL, NULL);
+    }
+}
+
+static rtx
+xstormy16_expand_builtin(exp, target, subtarget, mode, ignore)
+     tree exp;
+     rtx target;
+     rtx subtarget ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     int ignore ATTRIBUTE_UNUSED;
+{
+  rtx op[10], args[10], pat, copyto[10], retval = 0;
+  tree fndecl, argtree;
+  int i, a, o, code;
+
+  fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  argtree = TREE_OPERAND (exp, 1);
+  i = DECL_FUNCTION_CODE (fndecl);
+  code = s16builtins[i].md_code;
+
+  for (a = 0; a < 10 && argtree; a++)
+    {
+      args[a] = expand_expr (TREE_VALUE (argtree), NULL_RTX, VOIDmode, 0);
+      argtree = TREE_CHAIN (argtree);
+    }
+
+  for (o = 0; s16builtins[i].arg_ops[o]; o++)
+    {
+      char ao = s16builtins[i].arg_ops[o];
+      char c = insn_data[code].operand[o].constraint[0];
+      int omode;
+
+      copyto[o] = 0;
+
+      omode = insn_data[code].operand[o].mode;
+      if (ao == 'r')
+	op[o] = target ? target : gen_reg_rtx (omode);
+      else if (ao == 't')
+	op[o] = gen_reg_rtx (omode);
+      else
+	op[o] = args[(int) hex_value (ao)];
+
+      if (! (*insn_data[code].operand[o].predicate) (op[o], GET_MODE (op[o])))
+	{
+	  if (c == '+' || c == '=')
+	    {
+	      copyto[o] = op[o];
+	      op[o] = gen_reg_rtx (omode);
+	    }
+	  else
+	    op[o] = copy_to_mode_reg (omode, op[o]);
+	}
+
+      if (ao == 'r')
+	retval = op[o];
+    }
+
+  pat = GEN_FCN (code) (op[0], op[1], op[2], op[3], op[4],
+			op[5], op[6], op[7], op[8], op[9]);
+  emit_insn (pat);
+
+  for (o = 0; s16builtins[i].arg_ops[o]; o++)
+    if (copyto[o])
+      {
+	emit_move_insn (copyto[o], op[o]);
+	if (op[o] == retval)
+	  retval = copyto[o];
+      }
+
+  return retval;
+}
+
+
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
 #undef TARGET_ASM_ALIGNED_SI_OP
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO xstormy16_encode_section_info
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK xstormy16_asm_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;

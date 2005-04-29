@@ -734,12 +734,13 @@ static bool actionPower1 ( )
                     serv->setAggressiveness (kIOFBLowPowerAggressiveness, 3);
                     provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonReduced);
                 }
-                else {
-                    conSensorArray[kGPUController].state = kGPUPowerState0;
-                    //debug_msg ("IOPMon::actionPower1 - sending GPU aggressiveness 0\n");
-                    serv->setAggressiveness (kIOFBLowPowerAggressiveness, 0);
-                    provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonFull);
-                }
+                else 
+                    if (conSensorArray[kGPUController].state != kGPUPowerState0) {
+                        conSensorArray[kGPUController].state = kGPUPowerState0;
+                        //debug_msg ("IOPMon::actionPower1 - sending GPU aggressiveness 0\n");
+                        serv->setAggressiveness (kIOFBLowPowerAggressiveness, 0);
+                        provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonFull);
+                    }
 	}
 
 	return true;
@@ -888,11 +889,13 @@ bool Portable2004_PlatformMonitor::start ( IOService * nub )
                         if (cpuSpeedData) {
                             newCPUSpeed = *(UInt32 *) cpuSpeedData->getBytesNoCopy();
                             if (newCPUSpeed != gPEClockFrequencyInfo.cpu_clock_rate_hz) {
-                               //  IOLog("Portable2004_PlatformMonitor::start - use max-clock-frequency to set new CPU speed\n");
-                               newNum = newCPUSpeed / (gPEClockFrequencyInfo.cpu_clock_rate_hz /
+								//  IOLog("Portable2004_PlatformMonitor::start - use max-clock-frequency to set new CPU speed\n");
+								newNum = newCPUSpeed / (gPEClockFrequencyInfo.cpu_clock_rate_hz /
                                                                                 gPEClockFrequencyInfo.bus_to_cpu_rate_num);
-                                gPEClockFrequencyInfo.bus_to_cpu_rate_num = newNum;		// Set new numerator
-                                gPEClockFrequencyInfo.cpu_clock_rate_hz = newCPUSpeed;		// Set new speed
+								gPEClockFrequencyInfo.bus_to_cpu_rate_num = newNum;			// Set new numerator
+								gPEClockFrequencyInfo.cpu_clock_rate_hz = newCPUSpeed;		// Set new speed (old, 32-bit)
+								gPEClockFrequencyInfo.cpu_frequency_hz = newCPUSpeed;		// Set new speed (64-bit)
+								gPEClockFrequencyInfo.cpu_frequency_max_hz = newCPUSpeed;	// Max as well (64-bit)
                             }
                         }
                         break;

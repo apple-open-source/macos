@@ -1,0 +1,11 @@
+--- /Volumes/XDisk/tmp/Libc/db/hash/FreeBSD/hash.c.orig	2004-09-09 22:41:41.000000000 -0700
++++ /Volumes/XDisk/tmp/Libc/db/hash/FreeBSD/hash.c	2004-10-24 17:08:27.000000000 -0700
+@@ -58,7 +58,7 @@
+ #include <db.h>
+ #include "hash.h"
+ #include "page.h"
+-#include "extern.h"
++#include "hash_extern.h"
+ 
+ static int   alloc_segs(HTAB *, int);
+ static int   flush_meta(HTAB *);

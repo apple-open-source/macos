@@ -1,0 +1,318 @@
+# Features covered:  Attribute Lists
+#
+# This file tests the parser's performance on Attribute Lists.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998-2000 Zveno Pty Ltd.
+#
+# $Id: attribute.test,v 1.6 2003/12/14 18:45:11 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+catch {unset result}
+proc EStart {tagName attrList} {
+    global result countAttributesOnly
+
+    if {![llength $attrList] && !$countAttributesOnly} {
+	if {[info exists result($tagName)]} {
+	    set count 0
+	    while {[info exists result($tagName/[incr count])]} {}
+	    set result($tagName/$count) {}
+	} else {
+	    set result($tagName) {}
+	}
+	return {}
+    }
+
+    foreach {name value} $attrList {
+	if {[info exists result($tagName,$name)]} {
+	    set count 0
+	    while {[info exists result($tagName,$name,[incr count])]} {}
+	    set result($tagName,$name,$count) $value
+	} else {
+	    set result($tagName,$name) $value
+	}
+    }
+}
+catch {unset ::pcdata}
+proc pcdata t {
+    append ::pcdata $t
+}
+
+test attrList-1.1 {empty attribute list} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-1.1 {}}
+    set parser [xml::parser attrList-1.1 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test></Test>
+}
+    array size result
+} 0
+
+test attrList-1.2 {single attribute} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-1.2 {}}
+    set parser [xml::parser attrList-1.2 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr="1"></Test>
+}
+
+    array get result
+} {Test,attr 1}
+
+test attrList-1.3 {multiple distinct attributes} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-1.3 {}}
+    set parser [xml::parser attrList-1.3 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test first="1" second='2'></Test>
+}
+
+    list [array size result] $result(Test,first) $result(Test,second)
+} {2 1 2}
+
+test attrList-1.4 {hyphen in attribute name} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-1.4 {}}
+    set parser [xml::parser attrList-1.4 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test first-attr="1"></Test>
+}
+
+    array get result
+} {Test,first-attr 1}
+
+test attrList-2.1 {right angle bracket in attribute value} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-2.1 {}}
+    set parser [xml::parser attrList-2.1 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr="value>"></Test>
+}
+
+    array get result
+} {Test,attr value>}
+
+test attrList-2.2 {right angle bracket in attribute value} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-2.2 {}}
+    set parser [xml::parser attrList-2.2 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr="value1>value2"></Test>
+}
+
+    array get result
+} {Test,attr value1>value2}
+
+test attrList-2.3 {right angle bracket in attribute value} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-2.3 {}}
+    set parser [xml::parser attrList-2.3 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr1="value1" attr2="value2>"></Test>
+}
+
+    set r ""
+    foreach key [lsort [array names result]] {
+        lappend r $key $result($key)
+    }
+    set r
+} {Test,attr1 value1 Test,attr2 value2>}
+
+test attrList-2.4 {right angle bracket in attribute value} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-2.4 {}}
+    set parser [xml::parser attrList-2.4 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr2="value2>" attr1="value1"></Test>
+}
+
+    set r ""
+    foreach key [lsort [array names result]] {
+        lappend r $key $result($key)
+    }
+    set r
+} {Test,attr1 value1 Test,attr2 value2>}
+
+test attrList-2.5 {right angle brackets in attribute values} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-2.5 {}}
+    set parser [xml::parser attrList-2.5 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr1="value>1" attr2="value>2"></Test>
+}
+
+    set r ""
+    foreach key [lsort [array names result]] {
+        lappend r $key $result($key)
+    }
+    set r
+} {Test,attr1 value>1 Test,attr2 value>2}
+
+test attrList-2.6 {right angle brackets in attribute values} {
+    catch {unset ::result}
+    catch {unset ::pcdata}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-2.6 {}}
+    set parser [xml::parser attrList-2.6 \
+	-elementstartcommand EStart \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr1="value>1">some text</Test>
+}
+
+    list [array get result] $::pcdata
+} {{Test,attr1 value>1} {some text}}
+
+test attrList-3.1 {unnested left brace in attribute value} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-3.1 {}}
+    set parser [xml::parser attrList-3.1 \
+	-elementstartcommand EStart]
+    $parser parse [format {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr="%svalue"></Test>
+} \{]
+
+    array get result
+} [list Test,attr [format {%svalue} \{]]
+
+test attrList-3.2 {unnested right brace in attribute value} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-3.2 {}}
+    set parser [xml::parser attrList-3.2 \
+	-elementstartcommand EStart]
+    $parser parse [format {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr="value%s"></Test>
+} \}]
+
+    array get result
+} [list Test,attr [format {value%s} \}]]
+
+test attrList-3.3 {Tcl special characters in attribute value} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-3.3 {}}
+    set parser [xml::parser attrList-3.3 \
+	-elementstartcommand EStart]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr="dollar $ backslash \ brackets [puts hello]"></Test>
+}
+
+    array get result
+} {Test,attr {dollar $ backslash \ brackets [puts hello]}}
+
+test attrList-4.1 {Unquoted attribute value} {
+    catch {unset ::result}
+    set ::countAttributesOnly 1
+
+    catch {rename xml::attrList-4.1 {}}
+    set parser [xml::parser attrList-4.1 \
+	-elementstartcommand EStart]
+    set retval [catch {
+	$parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test attr=noquotes></Test>
+}} msg]
+
+    list $retval $msg
+} [list 1 {error "not well-formed (invalid token)" at line 3 character 11}]
+
+# Test case contributed by David Sutton <dsutton@coactive.com>
+test attrList-5.0 {Complicated attribute list} {
+    catch {unset ::result}
+    catch {unset ::pcdata}
+    set ::countAttributesOnly 0
+
+    catch {rename xml::attrList-5.0 {}}
+    set parser [xml::parser attrList-5.0 \
+	-elementstartcommand EStart \
+	-characterdatacommand pcdata]
+    set retval [catch {
+	$parser parse {<?xml version="1.0"?>
+<event name='LogAlarmReset' ID='22' startDisabled='no' deleteOnCompletion='no' startDateTime='' endDateTime=''>
+  <stateChangeTrigger initialState='true' condition='AlarmSwitch = FALSE'/>
+  <eventAction>LightState = LightCtl</eventAction>
+  <eventAction>LOG(AlarmSwitch)</eventAction>
+  <eventAction>DISABLE(BlinkLight)</eventAction>
+  <eventAction>NOTIFY( AlarmSwitch,"Alarm has been reset")</eventAction>
+</event>
+}} msg]
+
+    regsub -all "\[ \t\n\]+" $::pcdata { } ::pcdata
+    set sortedResult {}
+    foreach key [lsort -dictionary [array names ::result]] {
+	lappend sortedResult $key $::result($key)
+    }
+    list $retval $sortedResult $::pcdata
+} [list 0 {event,deleteOnCompletion no event,endDateTime {} event,ID 22 event,name LogAlarmReset event,startDateTime {} event,startDisabled no eventAction {} eventAction/1 {} eventAction/2 {} eventAction/3 {} stateChangeTrigger,condition {AlarmSwitch = FALSE} stateChangeTrigger,initialState true} { LightState = LightCtl LOG(AlarmSwitch) DISABLE(BlinkLight) NOTIFY( AlarmSwitch,"Alarm has been reset") }]
+
+# Test case contributed by Marshall Rose <mrose@dbc.mtview.ca.us>
+test attrList-5.1 {Attribute list with quoted value} {
+    catch {unset ::result}
+    set ::countAttributesOnly 0
+
+    catch {rename xml::attrList-5.1 {}}
+    set parser [xml::parser attrList-5.1 \
+	-elementstartcommand EStart]
+    set retval [catch {
+	$parser parse {<test example="isn&apos;t this legal?"/>}
+    }]
+
+    list $retval [array get ::result]
+} {0 {test,example {isn't this legal?}}}
+
+foreach parser [info commands attrList-*] {
+    $parser free
+}
+
+
+# cleanup
+::tcltest::cleanupTests
+return

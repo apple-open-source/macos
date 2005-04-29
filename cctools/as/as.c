@@ -46,6 +46,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "xmalloc.h"
 #include "layout.h"
 #include "write_object.h"
+#include "stuff/arch.h"
 
 /* ['x'] TRUE if "-x" seen. */
 char flagseen[128] = { 0 };
@@ -643,6 +644,8 @@ unknown_flag:
 	 * specific architecture then let the machine instructions in the
 	 * assembly determine the cpusubtype of the output file.
 	 */
+	if(force_cpusubtype_ALL_for_cputype(md_cputype) == TRUE)
+	    force_cpusubtype_ALL = TRUE;
 	if(force_cpusubtype_ALL && specific_archflag)
 	    archflag_cpusubtype = -1;
 

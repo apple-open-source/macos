@@ -30,9 +30,10 @@
 
 
 /*!
-	@header SCDynamicStoreCopyDHCPInfo.h
-	The following APIs allow an application to retrieve DHCP/BOOTP
-	information, in particular DHCP/BOOTP options.
+	@header SCDynamicStoreCopyDHCPInfo
+	@discussion The functions of the SCDynamicStoreCopyDHCPInfo API
+		provide access to information returned by the DHCP or
+		BOOTP server.
  */
 
 
@@ -40,17 +41,16 @@ __BEGIN_DECLS
 
 /*!
 	@function SCDynamicStoreCopyDHCPInfo
-	@discussion Copies the DHCP/BOOTP information dictionary for the
-		requested serviceID, or the primary service if
-		serviceID == NULL.
-	@param store An SCDynamicStoreRef that should be used for communication
-		with the server.
+	@discussion Copies the DHCP information for the requested serviceID,
+		or the primary service if serviceID == NULL.
+	@param store An SCDynamicStoreRef representing the dynamic store session
+		that should be used for communication with the server.
 		If NULL, a temporary session will be used.
 	@param serviceID A CFStringRef containing the requested service.
 		If NULL, returns information for the primary service.
-	@result A dictionary containing DHCP/BOOTP information if successful,
+	@result Returns a dictionary containing DHCP information if successful;
 		NULL otherwise.
-		Use the DHCPInfoGetOption() to retrieve
+		Use the DHCPInfoGetOption function to retrieve
 		individual options from the returned dictionary.
 
 		A non-NULL return value must be released using CFRelease().
@@ -60,14 +60,14 @@ SCDynamicStoreCopyDHCPInfo(SCDynamicStoreRef store, CFStringRef serviceID);
 
 /*!
 	@function DHCPInfoGetOptionData
-	@discussion Returns a non-NULL CFDataRef containing the BOOTP/DHCP
-		option data if present, NULL otherwise.
+	@discussion Returns a non-NULL CFDataRef containing the DHCP
+		option data, if present.
 	@param info The non-NULL DHCP information dictionary returned by
 		calling SCDynamicStoreCopyDHCPInfo.
-	@param code The DHCP/BOOTP option code (see RFC 2132) to return
+	@param code The DHCP option code (see RFC 2132) to return
 		data for.
-	@result A non-NULL CFDataRef containing the option data,
-		NULL otherwise.
+	@result Returns a non-NULL CFDataRef containing the option data;
+		NULL if the requested option data is not present.
 
 		The return value must NOT be released.
  */
@@ -77,11 +77,12 @@ DHCPInfoGetOptionData(CFDictionaryRef info, UInt8 code);
 /*!
 	@function DHCPInfoGetLeaseStartTime
 	@discussion Returns a CFDateRef corresponding to the lease start time,
-		if present, NULL otherwise.  A NULL return value is returned
-		if the configuration method is BOOTP.
+		if present.
 	@param info The non-NULL DHCP information dictionary returned by
 		calling SCDynamicStoreCopyDHCPInfo.
-	@result A non-NULL CFDateRef if present, NULL otherwise.
+	@result Returns a non-NULL CFDateRef if lease start time information is
+		present; NULL if the information is not present or if the
+		configuration method is not DHCP.
 
 		The return value must NOT be released.
  */

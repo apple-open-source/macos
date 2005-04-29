@@ -37,11 +37,26 @@
 #include "SharedConsts.h"
 
 const uInt32 kMaxHandlerThreads			= 4; // this is used for both mach and TCP handler thread max
-const uInt32 kMaxCheckpwHandlerThreads	= 1; // make sure this is one more than kMaxHandlerThreads
-const uInt32 kMaxInternalHandlerThreads	= 10; // make sure this is one more than ALL external threads
+const uInt32 kMaxCheckpwHandlerThreads	= 1; // single thread is enough since we now have direct dispatch
+const uInt32 kMaxInternalHandlerThreads	= kMaxHandlerThreads + 64 + 1;	// make sure this is one more than ALL external threads
+																		// usual handler threads, max TCP connection threads, extra one
+																		//safety net here since
+																		//hopefully this is never used ie. case of third party plugins 
+																		//that incorrectly link in the DS FW and call back to DS
 
-#define kDSDefaultListenPort 625 //TODO need final port number
+#define kDSDefaultListenPort 625				//TODO need final port number
+#define kDSActOnThisNumberOfFlushRequests 25	//even if requests are close together send a flush after 25 requests
 
+#define	kDSDebugConfigFilePath  "/Library/Preferences/DirectoryService/DirectoryServiceDebug.plist"
+#define kXMLDSDebugLoggingKey		"Debug Logging"				//debug logging on/off
+#define kXMLDSCSBPDebugLoggingKey   "CSBP FW Debug Logging"		//DS FW CSBP debug logging on/off
+
+#define kDefaultDebugConfig		"<dict>\
+	<key>Version</key>\
+	<string>1.0</string>\
+	<key>Debug Logging</key>\
+	<true/>\
+</dict>"
 #define BUILD_IN_PERFORMANCE
 
 #ifdef BUILD_IN_PERFORMANCE
@@ -74,9 +89,9 @@ typedef struct {
 //	* Class definitions
 //-----------------------------------------------------------------------------
 
-class	CListener;
 class	DSTCPListener;
 class	CHandlerThread;
+class	CMigHandlerThread;
 class	CNodeList;
 class	CPlugInList;
 
@@ -106,10 +121,15 @@ public:
 			uInt32		GetHandlerCount		( const FourCharCode inThreadSignature );
 			sInt32		StartTCPListener	( uInt32 inPort );
 			sInt32		StopTCPListener		( void );
-			sInt32		HandleNetworkTransition
-											( void );
+
+			sInt32		HandleNetworkTransition	( void );
+			sInt32		HandleSystemWillSleep	( void );
+			sInt32		HandleSystemWillPowerOn	( void );
+			sInt32		FlushLookupDaemonCache	( void );
+			sInt32		FlushMemberDaemonCache	( void );
 			sInt32		NIAutoSwitchCheck	( void );
 			sInt32		SetUpPeriodicTask	( void );
+			sInt32		ResetDebugging		( void );
 
 #ifdef BUILD_IN_PERFORMANCE
 			void		ActivatePeformanceStatGathering( void ) { fPerformanceStatGatheringActive = true; }
@@ -119,12 +139,17 @@ public:
 			void		LogStats					( void );
 #endif
 
+			void		HandleLookupDaemonFlushCache( void );
+			void		HandleMemberDaemonFlushCache( void );
 			bool		IsPeformanceStatGatheringActive
 													( void ) { return fPerformanceStatGatheringActive; }
 			void		NotifyDirNodeAdded			( const char* newNode );
 			void		NotifyDirNodeDeleted		( char* oldNode );
 			
 			void		NodeSearchPolicyChanged		( void );
+			void		DoNodeSearchPolicyChange	( void );
+			void		NotifySearchPolicyFoundNIParent
+													( void );
 
 protected:
 #ifdef BUILD_IN_PERFORMANCE
@@ -133,7 +158,6 @@ protected:
 						CreatePerfStatTable			( void );
 #endif
 
-			sInt32		StartListener				( void );
 			sInt32		RegisterForSystemPower		( void );
 			sInt32		UnRegisterForSystemPower	( void );
 			sInt32		RegisterForNetworkChange	( void );
@@ -144,9 +168,6 @@ protected:
 private:
 
 	uInt32				fTCPHandlerThreadsCnt;
-	uInt32				fHandlerThreadsCnt;
-	uInt32				fInternalHandlerThreadsCnt;
-	uInt32				fCheckpwHandlerThreadsCnt;
 
 #ifdef BUILD_IN_PERFORMANCE
 	uInt32				fLastPluginCalled;
@@ -154,19 +175,18 @@ private:
 	uInt32				fPerfTableNumPlugins;
 #endif
 	
-	CListener		   *fListener;
 	DSTCPListener	   *fTCPListener;
-	CHandlerThread		*fTCPHandlers[ kMaxHandlerThreads ];
-	CHandlerThread	   *fHandlers[ kMaxHandlerThreads ];
-	CHandlerThread	   *fInternalHandlers[ kMaxInternalHandlerThreads ];
-	CHandlerThread	   *fCheckpwHandlers[ kMaxCheckpwHandlerThreads ];
+	CMigHandlerThread  *fMigListener;
+	CHandlerThread	  **fTCPHandlers;
 	DSSemaphore		   *fTCPHandlerSemaphore;
-	DSSemaphore		   *fHandlerSemaphore;
-	DSSemaphore		   *fInternalHandlerSemaphore;
-	DSSemaphore		   *fCheckpwHandlerSemaphore;
 	SCDynamicStoreRef	fSCDStore;
 	bool				fPerformanceStatGatheringActive;
+	double				fTimeToCheckSearchPolicyChange;
 	double				fTimeToCheckNIAutoSwitch;
+	double				fTimeToCheckLookupDaemonCacheFlush;
+	uInt32				fLookupDaemonFlushCacheRequestCount;
+	double				fTimeToCheckMemberDaemonCacheFlush;
+	uInt32				fMemberDaemonFlushCacheRequestCount;
 	SCDynamicStoreRef	fHoldStore;
 	CFStringRef			fServiceNameString;
 

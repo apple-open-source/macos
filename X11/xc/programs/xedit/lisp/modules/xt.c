@@ -27,7 +27,7 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/modules/xt.c,v 1.19 2002/11/23 08:26:52 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/modules/xt.c,v 1.21 2003/04/27 18:17:38 tsi Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -35,8 +35,8 @@
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <X11/Shell.h>
-#include "internal.h"
-#include "private.h"
+#include "lisp/internal.h"
+#include "lisp/private.h"
 
 /*
  * Types
@@ -67,7 +67,7 @@ typedef struct {
 /*
  * Prototypes
  */
-int xtLoadModule(LispMac*);
+int xtLoadModule(void);
 void LispXtCleanupCallback(Widget, XtPointer, XtPointer);
 
 void LispXtCallback(Widget, XtPointer, XtPointer);
@@ -545,13 +545,13 @@ Lisp_XtAppInitialize(LispBuiltin *builtin)
 	int count;
 
 	CHECK_CONS(fallback_resources);
-	for (string = fallback_resources, count = 0; CONS_P(string);
+	for (string = fallback_resources, count = 0; CONSP(string);
 	     string = CDR(string), count++)
 	    CHECK_STRING(CAR(string));
 
 	/* fallback resources was correctly specified */
 	fallback = LispMalloc(sizeof(String) * (count + 1));
-	for (string = fallback_resources, count = 0; CONS_P(string);
+	for (string = fallback_resources, count = 0; CONSP(string);
 	     string = CDR(string), count++)
 	    fallback[count] = THESTR(CAR(string));
 	fallback[count] = NULL;
@@ -644,8 +644,8 @@ Lisp_XtAppProcessEvent(LispBuiltin *builtin)
     }
 
     if (mask != (mask & XtIMAll))
-	LispDestroy("%s: %d does not fit in XtInputMask %d",
-		    STRFUN(builtin), mask);
+	LispDestroy("%s: %ld does not fit in XtInputMask %ld",
+		    STRFUN(builtin), (long)mask, (long)XtIMAll);
 
     if (mask)
 	XtAppProcessEvent(appcon, mask);
@@ -800,6 +800,8 @@ LispXtCreateWidget(LispBuiltin *builtin, int options)
 		    STRFUN(builtin), STROBJ(oparent));
     parent = (Widget)(oparent->data.opaque.data);
 
+    if (arguments == UNSPEC)
+	arguments = NIL;
     CHECK_LIST(arguments);
 
     if (options == SHELL)
@@ -807,7 +809,7 @@ LispXtCreateWidget(LispBuiltin *builtin, int options)
     else
 	widget = XtCreateWidget(name, widget_class, parent, NULL, 0);
 
-    if (arguments == UNSPEC || arguments == NIL)
+    if (arguments == NIL)
 	resources = NULL;
     else {
 	resources = LispConvertResources(arguments, widget,
@@ -878,7 +880,7 @@ Lisp_XtGetValues(LispBuiltin *builtin)
 
     GCDisable();
     result = NIL;
-    for (list = arguments; CONS_P(list); list = CDR(list)) {
+    for (list = arguments; CONSP(list); list = CDR(list)) {
 	CHECK_STRING(CAR(list));
 	if ((resource = GetResourceInfo(THESTR(CAR(list)), rlist, plist))
 	     == NULL) {
@@ -928,9 +930,9 @@ Lisp_XtGetValues(LispBuiltin *builtin)
 	/* special resources */
 	if (resource->qtype == qString) {
 #ifdef LONG64
-	    object = CONS(CAR(list), STRING(c8));
+	    object = CONS(CAR(list), STRING((char*)c8));
 #else
-	    object = CONS(CAR(list), STRING(c4));
+	    object = CONS(CAR(list), STRING((char*)c4));
 #endif
 	}
 	else if (resource->qtype == qCardinal || resource->qtype == qInt) {

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XcmsAClr.man,v 3.3 2001/01/27 18:20:06 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XcmsAClr.man,v 3.4 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,31 +144,13 @@
 .SH NAME
 XcmsAllocColor, XcmsAllocNamedColor \- allocate colors
 .SH SYNTAX
-Status XcmsAllocColor\^(\^\fIdisplay\fP\^, \fIcolormap\fP\^, \fIcolor_in_out\fP\^, \fIresult_format\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      XcmsColor *\fIcolor_in_out\fP\^;
-.br
-      XcmsColorFormat \fIresult_format\fP\^;
-.LP
-Status XcmsAllocNamedColor\^(\^\fIdisplay\fP\^, \fIcolormap\fP\^, \fIcolor_string\fP\^, \fIcolor_screen_return\fP\^, \fIcolor_exact_return\fP\^,
-.br
-                            \fIresult_format\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      char *\fIcolor_string\fP\^;
-.br
-      XcmsColor *\fIcolor_screen_return\fP\^;
-.br
-      XcmsColor *\fIcolor_exact_return\fP\^;
-.br
-      XcmsColorFormat \fIresult_format\fP\^;
+.HP
+Status XcmsAllocColor\^(\^Display *\fIdisplay\fP\^, Colormap \fIcolormap\fP\^,
+XcmsColor *\fIcolor_in_out\fP\^, XcmsColorFormat \fIresult_format\fP\^); 
+.HP
+Status XcmsAllocNamedColor\^(\^Display *\fIdisplay\fP\^, Colormap
+\fIcolormap\fP\^, char *\fIcolor_string\fP\^, XcmsColor
+*\fIcolor_screen_return\fP\^, XcmsColor *\fIcolor_exact_return\fP\^, XcmsColorFormat \fIresult_format\fP\^);
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

@@ -50,7 +50,19 @@
 
 /*
  *	@(#)resolv.h	8.1 (Berkeley) 6/2/93
- *	$Id: resolv.h,v 1.5 2003/06/09 00:28:40 jkh Exp $
+ *	$Id: resolv.h,v 1.6 2004/05/13 19:37:48 majka Exp $
+ */
+
+/*
+ * Important note regarding the BIND-9 API on Mac OS
+ * -------------------------------------------------
+ * 
+ * Mac OS supports a DNS query routing API (see <dns.h>) which is used by
+ * most system services to access DNS.  The BIND-9 APIs described here are
+ * a lower-level that does not do query routing or search amongst multiple
+ * resolver clients.  The results of DNS queries from this API may differ
+ * significantly from the results of queries sent to the <dns.h> API.  We
+ * strongly encourage developers to use higher-level APIs where possible.
  */
 
 #ifndef _RESOLV_9_H_
@@ -96,6 +108,9 @@ __END_DECLS
  * Resolver configuration file.
  * Normally not present, but may contain the address of the
  * inital name server(s) to query and the domain search list.
+ *
+ * Apple Note:  The default DNS resolver client configuration
+ * is now stored in a system configuration database, not in
  */
 
 #ifndef _PATH_RESCONF
@@ -163,7 +178,7 @@ struct __res_state_ext;
 #define __res_state __res_9_state
 struct __res_state {
 	int	retrans;	 	/* retransmition time interval */
-	int	retry;			/* number of times to retransmit */
+	int	retry;			/* number of times to transmit (attempts, not retries) */
 #ifdef sun
 	u_int	options;		/* option flags - see below. */
 #else

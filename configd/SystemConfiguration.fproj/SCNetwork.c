@@ -81,7 +81,7 @@ SCNetworkCheckReachabilityByName(const char			*nodename,
 				 SCNetworkConnectionFlags	*flags)
 {
 	SCNetworkReachabilityRef	networkAddress;
-	Boolean		ok;
+	Boolean				ok;
 
 	if (!nodename) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -98,25 +98,22 @@ Boolean
 SCNetworkInterfaceRefreshConfiguration(CFStringRef ifName)
 {
 	CFStringRef		key;
-	Boolean			ret = FALSE;
-	SCDynamicStoreRef	store = NULL;
+	Boolean			ret     = FALSE;
+	SCDynamicStoreRef	store;
 
 	store = SCDynamicStoreCreate(NULL,
 				     CFSTR("SCNetworkInterfaceRefreshConfiguration"),
 				     NULL, NULL);
 	if (store == NULL) {
-		goto done;
+		return FALSE;
 	}
+
 	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 							    kSCDynamicStoreDomainState,
 							    ifName,
 							    kSCEntNetRefreshConfiguration);
 	ret = SCDynamicStoreNotifyValue(store, key);
 	CFRelease(key);
-
- done:
-	if (store != NULL) {
-		CFRelease(store);
-	}
+	CFRelease(store);
 	return (ret);
 }

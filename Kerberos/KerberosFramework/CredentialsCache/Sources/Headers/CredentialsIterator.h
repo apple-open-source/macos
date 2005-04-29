@@ -1,12 +1,12 @@
 /*
  * CCICredentialsIterator.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CredentialsIterator.h,v 1.17 2003/03/17 20:47:59 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CredentialsIterator.h,v 1.18 2004/10/22 20:48:28 lxs Exp $
  */
  
 #pragma once
 
-#include "CredentialsCache.h"
+#include <Kerberos/CredentialsCache.h>
 #include "Magic.h"
 #include "Internal.h"
 #include "Internalize.h"

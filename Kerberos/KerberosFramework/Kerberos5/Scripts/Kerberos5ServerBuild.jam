@@ -1,65 +1,6 @@
-Intermediates = "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates" ;
-IntermediateBuild = "$(Intermediates)/build" ;
-Sources = "$(SRCROOT)/../../Kerberos5/Sources" ;
+include "$(SRCROOT)/../Scripts/Kerberos5BuildSystem.jam" ;
 
-Reconf = "$(Sources)/util/reconf" ;
-Configure = "$(Sources)/configure" ;
-Makefile = "$(IntermediateBuild)/Makefile" ;
 MakeStamp = "$(IntermediateBuild)/make.stamp" ;
-
-if $(KerberosCFLAGS) != "" { 
-    KerberosCFLAGS = "CFLAGS=$(CFLAGS) -fno-common -include /usr/include/TargetConditionals.h -DUSE_PASSWORD_SERVER" ; 
-} else {
-    KerberosCFLAGS = "CFLAGS=-fno-common -include /usr/include/TargetConditionals.h -DUSE_PASSWORD_SERVER" ;
-}
-
-if $(KerberosLDFLAGS) != "" { 
-    KerberosLDFLAGS = "LDFLAGS=$(LDFLAGS) -Wl,-search_paths_first" ; 
-} else {
-    KerberosLDFLAGS = "LDFLAGS=-Wl,-search_paths_first" ;
-}
-
-#
-# Note: in this jam script we have separated the dependency tree from the 
-# actual scripts.  This is so that CVS checkouts trigger a rebuild but the jam
-# script doesn't need to know how the reconf and configure scripts work.
-#
-
-# Reconf <configure> : <configure.in>
-rule Reconf
-{
-    DEPENDS "$(1)" : "$(1).in" "$(Reconf)" ;
-}
-actions Reconf
-{
-    cd "$(Sources)" && /bin/sh "$(Reconf)" -f
-}
-
-# Configure <makefile> : <configure>
-rule Configure
-{
-    DEPENDS "$(1)" : "$(2)" ;
-    Reconf "$(2)" : "$(2).in" ;
-    Clean.Remove clean "$(1:D)" ;
-}
-actions Configure
-{
-    mkdir -p "$(1:D)"
-    cd "$(1:D)" && /bin/sh "$(2)" --prefix=/usr --localstatedir=/var/db "$(KerberosCFLAGS)" "$(KerberosLDFLAGS)" || rm -f "$(1)"
-}
-
-# Make <stamp file> : <makefile>
-rule Make
-{
-    DEPENDS "$(1)" : "$(2)" ;
-    Configure "$(2)" : "$(Configure)" ;
-    Clean.Remove clean "$(1)" ;
-}
-actions Make
-{
-    mkdir -p "$(1:D)"
-    cd "$(1:D)" && make && touch "$(1)" && echo "### HAPPINESS ###"
-}
 
 # InstallProgram <destination executable> : <source executable>
 rule InstallProgram
@@ -98,8 +39,10 @@ InstallProgram "$(DSTROOT)/usr/sbin/kprop"           : "$(IntermediateBuild)/sla
 InstallProgram "$(DSTROOT)/usr/sbin/kpropd"          : "$(IntermediateBuild)/slave/kpropd" ;
 InstallProgram "$(DSTROOT)/usr/sbin/krb524d"         : "$(IntermediateBuild)/krb524/krb524d" ;
 InstallProgram "$(DSTROOT)/usr/sbin/krb5kdc"         : "$(IntermediateBuild)/kdc/krb5kdc" ;
+InstallProgram "$(DSTROOT)/usr/bin/krb5-config"      : "$(IntermediateBuild)/krb5-config" ;
                   
 InstallFile "$(DSTROOT)/usr/share/man/man1/kerberos.1"     : "$(SRCROOT)/../../Kerberos5/Sources/gen-manpages/kerberos.M" ;
+InstallFile "$(DSTROOT)/usr/share/man/man1/krb5-config.1"  : "$(SRCROOT)/../../Kerberos5/Sources/krb5-config.M" ;
 InstallFile "$(DSTROOT)/usr/share/man/man5/kdc.conf.5"     : "$(SRCROOT)/../../Kerberos5/Sources/config-files/kdc.conf.M" ;
 InstallFile "$(DSTROOT)/usr/share/man/man5/krb5.conf.5"    : "$(SRCROOT)/../../Kerberos5/Sources/config-files/krb5.conf.M" ;
 InstallFile "$(DSTROOT)/usr/share/man/man8/kadmin.8"       : "$(SRCROOT)/../../Kerberos5/Sources/kadmin/cli/kadmin.M" ;
@@ -110,6 +53,7 @@ InstallFile "$(DSTROOT)/usr/share/man/man8/kdb5_util.8"    : "$(SRCROOT)/../../K
 InstallFile "$(DSTROOT)/usr/share/man/man8/kprop.8"        : "$(SRCROOT)/../../Kerberos5/Sources/slave/kprop.M" ;
 InstallFile "$(DSTROOT)/usr/share/man/man8/kpropd.8"       : "$(SRCROOT)/../../Kerberos5/Sources/slave/kpropd.M" ;
 InstallFile "$(DSTROOT)/usr/share/man/man8/krb5kdc.8"      : "$(SRCROOT)/../../Kerberos5/Sources/kdc/krb5kdc.M" ;
+InstallFile "$(DSTROOT)/usr/share/man/man8/krb524d.8"      : "$(SRCROOT)/../../Kerberos5/Sources/krb524/krb524d.M" ;
 
 
 DEPENDS all     : "$(MakeStamp)" ;
@@ -124,8 +68,10 @@ DEPENDS install : all
                   "$(DSTROOT)/usr/sbin/krb524d"
                   "$(DSTROOT)/usr/sbin/krb5kdc"
                   "$(DSTROOT)/usr/sbin/ktutil"
+                  "$(DSTROOT)/usr/bin/krb5-config"
                   
                   "$(DSTROOT)/usr/share/man/man1/kerberos.1"
+                  "$(DSTROOT)/usr/share/man/man1/krb5-config.1"
                   "$(DSTROOT)/usr/share/man/man5/kdc.conf.5"
                   "$(DSTROOT)/usr/share/man/man5/krb5.conf.5"
                   "$(DSTROOT)/usr/share/man/man8/kadmin.8"
@@ -135,6 +81,7 @@ DEPENDS install : all
                   "$(DSTROOT)/usr/share/man/man8/kprop.8"
                   "$(DSTROOT)/usr/share/man/man8/kpropd.8"
                   "$(DSTROOT)/usr/share/man/man8/krb5kdc.8"
-                  "$(DSTROOT)/usr/share/man/man8/ktutil.8" ;
+                  "$(DSTROOT)/usr/share/man/man8/ktutil.8"
+                  "$(DSTROOT)/usr/share/man/man8/krb524d.8" ;
                   
 DEPENDS installhdrs : all ;

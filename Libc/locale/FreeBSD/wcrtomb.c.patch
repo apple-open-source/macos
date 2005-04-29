@@ -1,0 +1,31 @@
+--- wcrtomb.c.orig	2004-11-25 11:38:20.000000000 -0800
++++ wcrtomb.c	2005-02-18 18:30:14.000000000 -0800
+@@ -27,15 +27,23 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/wcrtomb.c,v 1.8 2004/05/12 14:09:04 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <wchar.h>
+ #include "mblocal.h"
+ 
+ size_t
+-wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
++wcrtomb_l(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps,
++    locale_t loc)
+ {
+-	static mbstate_t mbs;
+-
++	NORMALIZE_LOCALE(loc);
+ 	if (ps == NULL)
+-		ps = &mbs;
+-	return (__wcrtomb(s, wc, ps));
++		ps = &loc->__mbs_wcrtomb;
++	return (loc->__lc_ctype->__wcrtomb(s, wc, ps, loc));
++}
++
++size_t
++wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
++{
++	return wcrtomb_l(s, wc, ps, __current_locale());
+ }

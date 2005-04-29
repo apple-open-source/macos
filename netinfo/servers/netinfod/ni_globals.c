@@ -58,6 +58,7 @@ const char ACCESS_USER_SUPER[] = "root";
 const char ACCESS_USER_ANYBODY[] = "*";
 const char ACCESS_NAME_PREFIX[] = "_writers_";
 const char ACCESS_DIR_KEY[] = "_writers";
+const char LOCK_DIR_KEY[] = "_locked";
 
 /*
  * Variables

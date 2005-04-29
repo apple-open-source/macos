@@ -195,7 +195,8 @@ HRESULT res;
     }
     
     res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID), (LPVOID)&intf);
-    (void)(*plugInInterface)->Release(plugInInterface);			// done with this
+    IODestroyPlugInInterface(plugInInterface);			// done with this
+	
     if (res || !intf)
     {
         fprintf(stderr, "Unable to create interface with QueryInterface %lX\n", res);
@@ -371,7 +372,8 @@ HRESULT res;
     }
     
     res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID)&dev);
-    (*plugInInterface)->Release(plugInInterface);			// done with this
+    IODestroyPlugInInterface(plugInInterface);			// done with this
+	
     if (res || !dev)
     {
         fprintf(stderr, "Unable to create USB device with QueryInterface\n");
@@ -398,7 +400,7 @@ io_object_t usbDevice;
 int err = -1;
 IOReturn ret;
 IOUSBDeviceInterface **dev=NULL;
-SInt32 config;
+SInt32 config = 0;
 int exclusiveErrs, attempts;
 
 

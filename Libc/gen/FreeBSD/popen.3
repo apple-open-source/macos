@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)popen.3	8.2 (Berkeley) 5/3/95
-.\" $FreeBSD: src/lib/libc/gen/popen.3,v 1.15 2003/01/03 05:21:59 tjr Exp $
+.\" $FreeBSD: src/lib/libc/gen/popen.3,v 1.16 2003/06/08 10:01:51 charnier Exp $
 .\"
 .Dd May 3, 1995
 .Dt POPEN 3
@@ -122,7 +122,7 @@ The
 function waits for the associated process to terminate
 and returns the exit status of the command
 as returned by
-.Fn wait4 .
+.Xr wait4 2 .
 .Sh RETURN VALUES
 The
 .Fn popen
@@ -147,7 +147,7 @@ command, if
 already
 .Dq pclosed ,
 or if
-.Xr wait4
+.Xr wait4 2
 returns an error.
 .Sh ERRORS
 The

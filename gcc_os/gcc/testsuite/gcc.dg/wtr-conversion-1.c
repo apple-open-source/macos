@@ -2,7 +2,8 @@
    Note, gcc should omit these warnings in system header files.
    By Kaveh R. Ghazi <ghazi@caip.rutgers.edu> 4/09/2001.  */
 /* { dg-do compile } */
-/* { dg-options "-Wtraditional" } */
+/* APPLE LOCAL -Wlong-double */
+/* { dg-options "-Wtraditional -Wno-long-double" } */
 
 extern void foo_i (int);
 extern void foo_f (float);
@@ -15,7 +16,7 @@ extern long double ld;
 extern __complex__ double cd;
 
 void
-testfunc1 (void)
+testfunc1 ()
 {
   foo_i (i);
   foo_i (f); /* { dg-warning "as integer rather than floating" "prototype conversion warning" } */
@@ -42,7 +43,7 @@ testfunc1 (void)
 /* We are in system headers now, no -Wtraditional warnings should issue.  */
 
 void
-testfunc2 (void)
+testfunc2 ()
 {
   foo_i (i);
   foo_i (f);

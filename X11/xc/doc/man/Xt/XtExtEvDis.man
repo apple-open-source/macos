@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtExtEvDis.man,v 1.3 2001/02/09 03:47:50 tsi Exp $
+.\" $XFree86: xc/doc/man/Xt/XtExtEvDis.man,v 1.4 2003/04/28 22:18:18 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -132,62 +132,23 @@ XtInsertEventTypeHandler, XtRemoveEventTypeHandler,
 XtRegisterExtensionSelector, XtSetEventDispatcher, XtDispatchEventToWidget
 \- extension event handling
 .SH SYNTAX
-void XtInsertEventTypeHandler(\fIwidget\fP, \fIevent_type\fP,
-\fIselect_data\fP, \fIproc\fP, \fIclient_data\fP, \fIposition\fP)
-.br
-      Widget \fIwdget\fP;
-.br
-      int \fIevent_type\fP;
-.br
-      XtPointer \fIselect_data\fP;
-.br
-      XtEventHandler \fIproc\fP;
-.br
-      XtPointer \fIclient_data\fP;
-.br
-      XtListPosition \fIposition\fP;
-.LP
-void XtRemoveEventTypeHandler(\fIwidget\fP, \fIevent_type\fP,
-\fIselect_data\fP, \fIproc\fP, \fIclient_data\fP)
-.br
-      Widget \fIwdget\fP;
-.br
-      int \fIevent_type\fP;
-.br
-      XtPointer \fIselect_data\fP;
-.br
-      XtEventHandler \fIproc\fP;
-.br
-      XtPointer \fIclient_data\fP;
-.LP
-void XtRegisterExtensionSelector(\fIdisplay\fP, \fImin_event_type\fP,
-\fImax_event_type\fP, \fIproc\fP, \fIclient_data\fP)
-.br
-      Display* \fIdisplay\fP;
-.br
-      int \fImin_event_type\fP;
-.br
-      int \fImax_event_type\fP;
-.br
-      XtExtensionSelectProc \fIproc\fP;
-.br
-      XtPointer \fIclient_data\fP;
-.LP
-XtEventDispatchProc XtSetEventDispatcher(\fIdisplay\fP, \fIevent_type\fP,
-\fIproc\fP)
-.br
-      Widget \fIwidget\fP;
-.br
-      int \fIevent_type\fP;
-.br
-      XtEventDispatchProc \fIproc\fP;
-.LP
-Boolean XtDispatchEventToWidget(\fIwidget\fP, \fIevent\fP)
-.br
-      Widget \fIwidget\fP;
-.br
-      XEvent* \fIevent\fP;
-.LP
+.HP
+void XtInsertEventTypeHandler(Widget \fIwdget\fP, int \fIevent_type\fP,
+XtPointer \fIselect_data\fP, XtEventHandler \fIproc\fP, XtPointer
+\fIclient_data\fP, XtListPosition \fIposition\fP); 
+.HP
+void XtRemoveEventTypeHandler(Widget \fIwdget\fP, int \fIevent_type\fP,
+XtPointer \fIselect_data\fP, XtEventHandler \fIproc\fP, XtPointer
+\fIclient_data\fP); 
+.HP
+void XtRegisterExtensionSelector(Display* \fIdisplay\fP, int
+\fImin_event_type\fP, int \fImax_event_type\fP, XtExtensionSelectProc
+\fIproc\fP, XtPointer \fIclient_data\fP); 
+.HP
+XtEventDispatchProc XtSetEventDispatcher(Widget \fIwidget\fP, int
+\fIevent_type\fP, XtEventDispatchProc \fIproc\fP);
+.HP
+Boolean XtDispatchEventToWidget(Widget \fIwidget\fP, XEvent* \fIevent\fP); 
 .SH ARGUMENTS
 .IP \fIwidget\fP 1i
 Specifies the widget for this event handler.

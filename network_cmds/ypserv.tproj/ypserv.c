@@ -406,9 +406,9 @@ char *argv[];
 	}
 
 	if (aclfile != NULL) {
-		(void)acl_init(aclfile);
+		(void)yp_acl_init(aclfile);
 	} else {
-		(void)acl_securenet(YP_SECURENET_FILE);
+		(void)yp_acl_securenet(YP_SECURENET_FILE);
 	}
 	if (xflag) {
 		exit(1);
@@ -548,12 +548,12 @@ sig_child()
 void
 sig_hup()
 {
-	acl_reset();
+	yp_acl_reset();
 	if (aclfile != NULL) {
 		yplog("sig_hup: reread %s",aclfile);
-		(void)acl_init(aclfile);
+		(void)yp_acl_init(aclfile);
 	} else {
 		yplog("sig_hup: reread %s",YP_SECURENET_FILE);
-		(void)acl_securenet(YP_SECURENET_FILE);
+		(void)yp_acl_securenet(YP_SECURENET_FILE);
 	}
 }

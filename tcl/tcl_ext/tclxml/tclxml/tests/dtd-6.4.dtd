@@ -1,0 +1,5 @@
+<![INCLUDE[
+<!ELEMENT Test (Test2)>
+<![INCLUDE[<!ELEMENT Test2 (Test3)>
+<!ELEMENT Test3 (#PCDATA)>]]>
+]]>

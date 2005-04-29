@@ -30,7 +30,7 @@
  *     Header file for Xlib-related DBE
  *
  *****************************************************************************/
-/* $XFree86: xc/include/extensions/Xdbe.h,v 3.2 2001/08/01 00:44:35 tsi Exp $ */
+/* $XFree86: xc/include/extensions/Xdbe.h,v 3.3 2003/11/17 22:20:03 dawes Exp $ */
 
 #ifndef XDBE_H
 #define XDBE_H
@@ -85,67 +85,49 @@ XdbeBufferError;
 _XFUNCPROTOBEGIN
 
 extern Status XdbeQueryExtension(
-#if NeedFunctionPrototypes
     Display*		/* dpy                  */,
     int*		/* major_version_return */,
     int*		/* minor_version_return */
-#endif
 );
 
 extern XdbeBackBuffer XdbeAllocateBackBufferName(
-#if NeedFunctionPrototypes
     Display*		/* dpy         */,
     Window		/* window      */,
     XdbeSwapAction	/* swap_action */
-#endif
 );
 
 extern Status XdbeDeallocateBackBufferName(
-#if NeedFunctionPrototypes
     Display*		/* dpy    */,
     XdbeBackBuffer	/* buffer */
-#endif
 );
 
 extern Status XdbeSwapBuffers(
-#if NeedFunctionPrototypes
     Display*		/* dpy         */,
     XdbeSwapInfo*	/* swap_info   */,
     int			/* num_windows */
-#endif
 );
 
 extern Status XdbeBeginIdiom(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 extern Status XdbeEndIdiom(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 extern XdbeScreenVisualInfo *XdbeGetVisualInfo(
-#if NeedFunctionPrototypes
     Display*		/* dpy               */,
     Drawable*		/* screen_specifiers */,
     int*		/* num_screens       */
-#endif
 );
 
 extern void XdbeFreeVisualInfo(
-#if NeedFunctionPrototypes
     XdbeScreenVisualInfo*	/* visual_info */
-#endif
 );
 
 extern XdbeBackBufferAttributes *XdbeGetBackBufferAttributes(
-#if NeedFunctionPrototypes
     Display*		/* dpy    */,
     XdbeBackBuffer	/* buffer */
-#endif
 );
 
 _XFUNCPROTOEND

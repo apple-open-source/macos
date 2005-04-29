@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)cos.3	5.1 (Berkeley) 5/2/91
-.\"	$Id: frexp.3,v 1.3 2003/08/17 20:36:47 scp Exp $
+.\"	$Id: frexp.3,v 1.4 2004/12/20 21:35:45 scp Exp $
 .\"
 .Dd January 30, 2003
 .Dt FREXP 3
@@ -42,13 +42,13 @@
 .Fd #include <math.h>
 .Ft double
 .Fn frexp "double value" "int *exp"
+.Ft long double
+.Fn frexpl "long double value" "int *exp"
 .Ft float
 .Fn frexpf "float value" "int *exp"
 .Sh DESCRIPTION
 The
 .Fn frexp
-and
-.Fn frexpf
 functions break the floating-point number 
 .Fa value
 into a normalized fraction and an
@@ -72,6 +72,4 @@ returns a Nan, and stores an unspecified value in the object pointed to by exp.
 .Sh STANDARDS
 The
 .Fn frexp
-and 
-.Fn frexpf
 functions conform to ISO/IEC 9899:1999(E).

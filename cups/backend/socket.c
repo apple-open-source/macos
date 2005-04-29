@@ -1,9 +1,9 @@
 /*
- * "$Id: socket.c,v 1.12 2003/07/08 01:27:20 jlovell Exp $"
+ * "$Id: socket.c,v 1.17 2005/01/04 22:10:36 jlovell Exp $"
  *
  *   AppSocket backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -41,11 +41,13 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <cups/http-private.h>
 #include <cups/string.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <sys/param.h>		/* for MAX() definition */
 
 #ifdef WIN32
 #  include <winsock.h>
@@ -68,34 +70,6 @@ static void sighup_handler(int sig);
  * a reset signal to the printer.
  */
 static int gSocketOut = -1;
-
-/*
- * Some OS's don't have hstrerror(), most notably Solaris...
- */
-
-#ifndef HAVE_HSTRERROR
-#  define hstrerror cups_hstrerror
-
-const char *					/* O - Error string */
-cups_hstrerror(int error)			/* I - Error number */
-{
-  static const char * const errors[] =
-		{
-		  "OK",
-		  "Host not found.",
-		  "Try again.",
-		  "Unrecoverable lookup error.",
-		  "No data associated with name."
-		};
-
-
-  if (error < 0 || error > 4)
-    return ("Unknown hostname lookup error.");
-  else
-    return (errors[error]);
-}
-#endif /* !HAVE_HSTRERROR */
-
 
 /*
  * Local functions...
@@ -541,7 +515,6 @@ static void getSocketOptions(const char *uri, int *bidiP, int *waitEOFP)
   char username[255];	/* Username info (not used) */
   char resource[1024];	/* Resource info (device and options) */
   int port = 0;		/* Port number (not used) */
-  char *resourcePtr = NULL;
   char *options = NULL;	/* Pointer to options */
   char optionName[255];	/* Name of option */
   char value[255];	/* Value of option */
@@ -693,5 +666,5 @@ print_backchannel(const unsigned char *buffer,	/* I - Data buffer */
 
 
 /*
- * End of "$Id: socket.c,v 1.12 2003/07/08 01:27:20 jlovell Exp $".
+ * End of "$Id: socket.c,v 1.17 2005/01/04 22:10:36 jlovell Exp $".
  */

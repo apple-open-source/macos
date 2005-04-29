@@ -1,4 +1,4 @@
-# Copyright (c) 1999-2001 by Red Hat, Inc. All rights reserved.
+# Copyright (c) 1999, 2000, 2001, 2002, 2003 by Red Hat, Inc. All rights reserved.
 # 
 # THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
 # OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
@@ -14,6 +14,12 @@
 dnl Process this file with autoconf to produce configure.
 
 AC_INIT(gcj_mlc.c)
+
+# This works around the fact that libtool configuration may change LD
+# for this particular configuration, but some shells, instead of
+# keeping the changes in LD private, export them just because LD is
+# exported.
+ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 dnl Can't be done in GC_CONFIGURE because that confuses automake. 
 AC_CONFIG_AUX_DIR(.)
@@ -67,7 +73,7 @@ case "$THREADS" in
     THREADS=posix
     THREADLIBS=-lpthread
     case "$host" in
-     x86-*-linux* | ia64-*-linux* | i586-*-linux* | i686-*-linux*)
+     x86-*-linux* | ia64-*-linux* | i586-*-linux* | i686-*-linux* | x86_64-*-linux* )
 	AC_DEFINE(GC_LINUX_THREADS)
 	AC_DEFINE(_REENTRANT)
         if test "${enable_parallel_mark}"; then
@@ -176,6 +182,8 @@ case "$host" in
  mips-dec-ultrix*)
     machdep="mips_ultrix_mach-dep.lo"
     ;;
+ mips*-*-linux*)
+    ;;
  mips-*-*)
     machdep="mips_sgi_mach_dep.lo"
     AC_DEFINE(NO_EXECUTE_PERMISSION)
@@ -251,7 +259,7 @@ AC_ARG_ENABLE(full-debug,
       ia64-*-linux* )
 	AC_DEFINE(MAKE_BACK_GRAPH)
       ;;
-      x86-*-linux* | i586-*-linux* | i686-*-linux* )
+      x86-*-linux* | i586-*-linux* | i686-*-linux* | x86_64-*-linux* )
 	AC_DEFINE(MAKE_BACK_GRAPH)
 	AC_MSG_WARN("Client must not use -fomit-frame-pointer.")
 	AC_DEFINE(SAVE_CALL_COUNT, 8)
@@ -259,7 +267,17 @@ AC_ARG_ENABLE(full-debug,
     esac ]
   fi)
 
-AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
+if test -n "$with_cross_host" &&
+   test x"$with_cross_host" != x"no"; then
+  toolexecdir='$(exec_prefix)/$(target_alias)'
+  toolexeclibdir='$(toolexecdir)/lib'
+else
+  toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
+  toolexeclibdir='$(libdir)'
+fi
+toolexeclibdir=$toolexeclibdir/`$CC -print-multi-os-directory`
+AC_SUBST(toolexecdir)
+AC_SUBST(toolexeclibdir)
 
 if test "${multilib}" = "yes"; then
   multilib_arg="--enable-multilib"
@@ -272,6 +290,7 @@ dnl Put all the -D options in a file.
 echo "$DEFS" > boehm-cflags
 
 if test -n "$CONFIG_FILES"; then
+  LD="${ORIGINAL_LD_FOR_MULTILIBS}"
   ac_file=Makefile . ${gc_basedir}/../config-ml.in
 fi],
 srcdir=${srcdir}
@@ -282,5 +301,6 @@ ac_configure_args="${multilib_arg} ${ac_configure_args}"
 CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
 gc_basedir=${gc_basedir}
 CC="${CC}"
+ORIGINAL_LD_FOR_MULTILIBS="${ORIGINAL_LD_FOR_MULTILIBS}"
 DEFS="$DEFS"
 )

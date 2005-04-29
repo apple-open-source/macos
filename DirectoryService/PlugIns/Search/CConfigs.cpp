@@ -169,7 +169,7 @@ sInt32 CConfigs::Init ( const char *inSearchNodeConfigFilePrefix, uInt32 &outSea
 					{
 						if ( CFGetTypeID( cfSearchNode ) == CFStringGetTypeID() )
 						{
-							cfRangeVal = CFStringFind(cfSearchNode, cfLDAPv2Prefix, NULL);
+							cfRangeVal = CFStringFind(cfSearchNode, cfLDAPv2Prefix, 0);
 							if (cfRangeVal.location == 0)
 							{
 								if (stat( "/System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/LDAPv2.dsplug", &statResult ) != eDSNoErr)
@@ -183,7 +183,7 @@ sInt32 CConfigs::Init ( const char *inSearchNodeConfigFilePrefix, uInt32 &outSea
 								}
 								continue;
 							}
-							cfRangeVal = CFStringFind(cfSearchNode, cfBSDOldPrefix, NULL);
+							cfRangeVal = CFStringFind(cfSearchNode, cfBSDOldPrefix, 0);
 							if (cfRangeVal.location == 0)
 							{
 								if (stat( "/System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/BSD Configuration Files.dsplug", &statResult ) != eDSNoErr)
@@ -211,7 +211,7 @@ sInt32 CConfigs::Init ( const char *inSearchNodeConfigFilePrefix, uInt32 &outSea
 			}
 			if (bUpdateConfig)
 			{
-				cfStringRef = CFStringCreateWithCString( NULL, "Search Node PlugIn Version 1.6", kCFStringEncodingUTF8 );
+				cfStringRef = CFStringCreateWithCString( NULL, "Search Node PlugIn Version 1.7", kCFStringEncodingUTF8 );
 				CFDictionarySetValue( fConfigDict, fXMLSearchPathVersionKeyString, cfStringRef );
 				CFRelease(cfStringRef);
 				WriteConfig();
@@ -351,7 +351,7 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 												&kCFTypeDictionaryKeyCallBacks,
 												&kCFTypeDictionaryValueCallBacks );
 
-		cfStringRef = CFSTR("Search Node PlugIn Version 1.6");
+		cfStringRef = CFSTR("Search Node PlugIn Version 1.7");
 		CFDictionarySetValue( configDict, fXMLSearchPathVersionKeyString, cfStringRef );
 		//CFRelease(cfStringRef);
 		// we don't need to release CFSTR() created strings that we didn't retain
@@ -484,7 +484,7 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 												&kCFTypeDictionaryKeyCallBacks,
 												&kCFTypeDictionaryValueCallBacks );
 
-		cfStringRef = CFSTR("Search Node PlugIn Version 1.6");
+		cfStringRef = CFSTR("Search Node PlugIn Version 1.7");
 		CFDictionarySetValue( configDict, fXMLSearchPathVersionKeyString, cfStringRef );
 		//CFRelease(cfStringRef);
 		// don't release CFSTR() string if not retained

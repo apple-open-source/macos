@@ -139,6 +139,8 @@ public final class StackTrace
     return len;
   }
 
+  public static native Class getClass(RawData ip);
+
   private static native void update();
   private static MethodRef methodAtAddress(RawData addr)
   {
@@ -155,6 +157,7 @@ public final class StackTrace
   }
   
   private native void fillInStackTrace(int n, int offset);
+  protected native void finalize();
 
   private static native MethodRef getCompiledMethodRef(RawData addr);
   private static IdentityHashMap map = new IdentityHashMap();

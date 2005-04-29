@@ -58,7 +58,11 @@ __FBSDID("$FreeBSD: src/usr.bin/at/at.c,v 1.29 2002/07/22 11:32:16 robert Exp $"
 #include <time.h>
 #include <unistd.h>
 
-#define COMPAT_MODE(a,b) (0)
+#ifdef __APPLE__
+#include <get_compat.h>
+#else  /* !__APPLE */
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
 
 /* Local headers */
 

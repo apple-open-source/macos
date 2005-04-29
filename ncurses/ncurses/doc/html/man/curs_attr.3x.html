@@ -2,7 +2,7 @@
 <!-- 
   * t
   ****************************************************************************
-  * Copyright (c) 1998,2000 Free Software Foundation, Inc.                   *
+  * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
   *                                                                          *
   * Permission is hereby granted, free of charge, to any person obtaining a  *
   * copy of this software and associated documentation files (the            *
@@ -28,17 +28,23 @@
   * sale, use or other dealings in this Software without prior written       *
   * authorization.                                                           *
   ****************************************************************************
-  * @Id: curs_attr.3x,v 1.22 2000/07/08 11:59:58 tom Exp @
+  * @Id: curs_attr.3x,v 1.27 2003/12/27 18:50:51 tom Exp @
 -->
 <HTML>
 <HEAD>
-<TITLE>curs_attr 3x</TITLE><link rev=made href="mailto:bug-ncurses@gnu.org">
+<TITLE>curs_attr 3x</TITLE>
+<link rev=made href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY>
 <H1>curs_attr 3x</H1>
 <HR>
 <PRE>
 <!-- Manpage converted by man2html 3.0.1 -->
+<STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>                                       <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+
+
+
 
 </PRE>
 <H2>NAME</H2><PRE>
@@ -107,30 +113,39 @@
        same as <STRONG>attrset(A_NORMAL)</STRONG> or <STRONG>attrset(0)</STRONG>, that is, it turns
        off all attributes.
 
-       The routine <STRONG>color_set</STRONG> sets the current color of the  given
-       window  to the foreground/background combination described
-       by the color_pair_number. The parameter opts  is  reserved
+       The  <STRONG>attrset</STRONG>  and  related  routines  do  not  affect  the
+       attributes  used when erasing portions of the window.  See
+       <STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG> for functions which  modify  the  attributes
+       used for erasing and clearing.
+
+       The  routine <STRONG>color_set</STRONG> sets the current color of the given
+       window to the foreground/background combination  described
+       by  the  color_pair_number. The parameter opts is reserved
        for future use, applications must supply a null pointer.
 
-       The  routine  <STRONG>wattr_get</STRONG>  returns the current attribute and
+       The routine <STRONG>wattr_get</STRONG> returns the  current  attribute  and
        color pair for the given window; <STRONG>attr_get</STRONG> returns the cur-
-       rent  attribute  and color pair for <STRONG>stdscr</STRONG>.  The remaining
-       <STRONG>attr_</STRONG>* functions operate exactly  like  the  corresponding
-       <STRONG>attr</STRONG>*  functions,  except that they take arguments of type
+       rent attribute and color pair for <STRONG>stdscr</STRONG>.   The  remaining
+       <STRONG>attr_</STRONG>*  functions  operate  exactly like the corresponding
+       <STRONG>attr</STRONG>* functions, except that they take arguments  of  type
        <STRONG>attr_t</STRONG> rather than <STRONG>int</STRONG>.
 
        The routine <STRONG>chgat</STRONG> changes the attributes of a given number
-       of  characters  starting at the current cursor location of
-       <STRONG>stdscr</STRONG>.  It does not update the cursor and does  not  per-
-       form  wrapping.   A  character count of -1 or greater than
-       the remaining window width means to change attributes  all
-       the  way to the end of the current line.  The <STRONG>wchgat</STRONG> func-
+       of characters starting at the current cursor  location  of
+       <STRONG>stdscr</STRONG>.   It  does not update the cursor and does not per-
+       form wrapping.  A character count of -1  or  greater  than
+       the  remaining window width means to change attributes all
+       the way to the end of the current line.  The <STRONG>wchgat</STRONG>  func-
        tion generalizes this to any window; the <STRONG>mvwchgat</STRONG> function
        does a cursor move before acting.  In these functions, the
-       color argument is a color-pair  index  (as  in  the  first
-       argument  of  <EM>init</EM><STRONG>_</STRONG><EM>pair</EM>,  see  <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>).   The <STRONG>opts</STRONG>
-       argument is not presently used, but is  reserved  for  the
-       future (leave it <STRONG>NULL</STRONG>).
+       color  argument  is  a  color-pair  index (as in the first
+       argument of  <EM>init</EM><STRONG>_</STRONG><EM>pair</EM>,  see  <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>).   The  <STRONG>opts</STRONG>
+       argument  is  not  presently used, but is reserved for the
+       future (leave it <STRONG>NULL</STRONG>).  Note that changing the attributes
+       does  not  imply that a subsequent <STRONG>refresh</STRONG> will update the
+       screen to match, since the character values are not  modi-
+       fied.   Use  <STRONG>touchwin</STRONG>  to  force  the  screen to match the
+       updated attributes.
 
    <STRONG>Attributes</STRONG>
        The following video attributes, defined in <STRONG>&lt;curses.h&gt;</STRONG>, can
@@ -155,38 +170,37 @@
        <STRONG>PAIR_NUMBER(</STRONG><EM>attrs</EM>) Returns the pair number associated
                           with the <STRONG>COLOR_PAIR(</STRONG><EM>n</EM><STRONG>)</STRONG> attribute.
 
-       The  return values of many of these routines are not mean-
+       The return values of many of these routines are not  mean-
        ingful (they are implemented as macro-expanded assignments
-       and  simply  return their argument).  The SVr4 manual page
+       and simply return their argument).  The SVr4  manual  page
        claims (falsely) that these routines always return <STRONG>1</STRONG>.
-
 
 
 </PRE>
 <H2>NOTES</H2><PRE>
-       Note that <STRONG>attroff</STRONG>,  <STRONG>wattroff</STRONG>,  <STRONG>attron</STRONG>,  <STRONG>wattron</STRONG>,  <STRONG>attrset</STRONG>,
+       Note  that  <STRONG>attroff</STRONG>,  <STRONG>wattroff</STRONG>,  <STRONG>attron</STRONG>, <STRONG>wattron</STRONG>, <STRONG>attrset</STRONG>,
        <STRONG>wattrset</STRONG>, <STRONG>standend</STRONG> and <STRONG>standout</STRONG> may be macros.
 
 
 </PRE>
 <H2>PORTABILITY</H2><PRE>
-       All  these functions are supported in the XSI Curses stan-
-       dard, Issue 4.  The standard defined  the  dedicated  type
-       for  highlights,  <STRONG>attr_t</STRONG>,  which  is  not  defined in SVr4
+       All these functions are supported in the XSI Curses  stan-
+       dard,  Issue  4.   The standard defined the dedicated type
+       for highlights, <STRONG>attr_t</STRONG>,  which  is  not  defined  in  SVr4
        curses. The functions taking <STRONG>attr_t</STRONG> arguments are not sup-
        ported under SVr4.
 
-       The  XSI  Curses  standard  states that whether the tradi-
+       The XSI Curses standard states  that  whether  the  tradi-
        tional  functions  <STRONG>attron</STRONG>/<STRONG>attroff</STRONG>/<STRONG>attrset</STRONG>  can  manipulate
-       attributes  other  than <STRONG>A_BLINK</STRONG>, <STRONG>A_BOLD</STRONG>, <STRONG>A_DIM</STRONG>, <STRONG>A_REVERSE</STRONG>,
-       <STRONG>A_STANDOUT</STRONG>, or <STRONG>A_UNDERLINE</STRONG> is "unspecified".   Under  this
-       implementation  as  well  as  SVr4 curses, these functions
-       correctly manipulate all other  highlights  (specifically,
+       attributes other than <STRONG>A_BLINK</STRONG>, <STRONG>A_BOLD</STRONG>,  <STRONG>A_DIM</STRONG>,  <STRONG>A_REVERSE</STRONG>,
+       <STRONG>A_STANDOUT</STRONG>,  or  <STRONG>A_UNDERLINE</STRONG> is "unspecified".  Under this
+       implementation as well as  SVr4  curses,  these  functions
+       correctly  manipulate  all other highlights (specifically,
        <STRONG>A_ALTCHARSET</STRONG>, <STRONG>A_PROTECT</STRONG>, and <STRONG>A_INVIS</STRONG>).
 
-       XSI  Curses added the new entry points, <STRONG>attr_get</STRONG>, <STRONG>attr_on</STRONG>,
-       <STRONG>attr_off</STRONG>,  <STRONG>attr_set</STRONG>,   <STRONG>wattr_on</STRONG>,   <STRONG>wattr_off</STRONG>,   <STRONG>wattr_get</STRONG>,
-       <STRONG>wattr_set</STRONG>.   These  are intended to work with a new series
+       XSI Curses added the new entry points, <STRONG>attr_get</STRONG>,  <STRONG>attr_on</STRONG>,
+       <STRONG>attr_off</STRONG>,   <STRONG>attr_set</STRONG>,   <STRONG>wattr_on</STRONG>,   <STRONG>wattr_off</STRONG>,  <STRONG>wattr_get</STRONG>,
+       <STRONG>wattr_set</STRONG>.  These are intended to work with a  new  series
        of highlight macros prefixed with <STRONG>WA_</STRONG>.
 
         <STRONG>WA_NORMAL</STRONG>       Normal display (no highlight)
@@ -199,20 +213,23 @@
         <STRONG>WA_ALTCHARSET</STRONG>   Alternate character set
 
        The XSI curses standard specifies that each pair of corre-
-       sponding  <STRONG>A_</STRONG>  and <STRONG>WA_</STRONG>-using functions operates on the same
+       sponding <STRONG>A_</STRONG> and <STRONG>WA_</STRONG>-using functions operates on  the  same
        current-highlight information.
 
        The XSI standard extended conformance level adds new high-
        lights <STRONG>A_HORIZONTAL</STRONG>, <STRONG>A_LEFT</STRONG>, <STRONG>A_LOW</STRONG>, <STRONG>A_RIGHT</STRONG>, <STRONG>A_TOP</STRONG>, <STRONG>A_VER-</STRONG>
-       <STRONG>TICAL</STRONG> (and corresponding <STRONG>WA_</STRONG> macros for each)  which  this
+       <STRONG>TICAL</STRONG>  (and  corresponding <STRONG>WA_</STRONG> macros for each) which this
        curses does not yet support.
 
 
 </PRE>
 <H2>SEE ALSO</H2><PRE>
        <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,        <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>,        <STRONG><A HREF="curs_addstr.3x.html">curs_addstr(3x)</A></STRONG>,
-       <STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>
+       <STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG>, <STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>
 
+
+
+                                                    <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
 </PRE>
 <HR>
 <ADDRESS>

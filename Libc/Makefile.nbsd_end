@@ -1,0 +1,44 @@
+# For the NetBSD auto patching mechanism and compatibility environment
+# setup, original NetBSD sources a put into a NetBSD subdirectory.
+# If a file with the same name, but suffix ".patch" is in that directory,
+# that patch will be applied before use.
+#
+# The NBSDMDSRCS, NBSDMISRCS, NBSDORIGHDRS and NBSDSRCS variables must be set,
+# and bracketed by .include of Makefile.nbsd_begin and Makefile.nbsd_end
+#
+# Set up dependencies between the NetBSD source (in a NetBSD subdirectory)
+# and a file with a -nbsd.x suffix (where x is 'c' or 's').  The suffix
+# rules will then compile the file with the simulate NetBSD environment.
+
+NBSDSECTIONS= 1 2 3 4 5 6 7 8 9
+
+.for _src in ${NBSDSRCS}
+${SYMROOT}/${_src:R}-nbsd.${_src:E}: NetBSD/${_src} _AUTOPATCHSYM
+SRCS+= ${_src}
+AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-nbsd.${_src:E}
+.endfor
+
+.for _src in ${NBSDMDSRCS}
+${SYMROOT}/${_src:R}-nbsd.${_src:E}: NetBSD/${_src} _AUTOPATCHSYM
+MDSRCS+= ${_src}
+AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-nbsd.${_src:E}
+.endfor
+
+.for _src in ${NBSDMISRCS}
+${SYMROOT}/${_src:R}-nbsd.${_src:E}: NetBSD/${_src} _AUTOPATCHSYM
+MISRCS+= ${_src}
+AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-nbsd.${_src:E}
+.endfor
+
+.for _src in ${NBSDHDRS}
+${SYMROOT}/${_src}: NetBSD/${_src} _AUTOPATCHSYM
+AUTOPATCHHDRS+= ${SYMROOT}/${_src}
+.endfor
+
+.for _sect in ${NBSDSECTIONS}
+.for _src in ${NBSDMAN${_sect}}
+${_src}: NetBSD/${_src} _AUTOPATCH
+MAN${_sect}+= ${_src}
+AUTOPATCHMAN+= ${_src}
+.endfor
+.endfor

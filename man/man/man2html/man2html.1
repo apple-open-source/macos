@@ -1,0 +1,145 @@
+'\" t
+.\" Man page for man2html
+.\" aeb, 980101
+.\"
+.TH man2html 1 "1 January 1998"
+.LO 1
+.SH NAME
+man2html \- format a manual page in html
+.SH SYNOPSIS
+man2html [options] [file]
+.SH DESCRIPTION
+.B man2html
+converts a manual page as found in
+.I file
+(or stdin, in case no file argument, or the argument "-", is given)
+from man-style nroff into html, and prints the result on stdout.
+It does support tbl but does not know about eqn.
+The exit status is 0. If something goes wrong,
+an error page is printed on stdout.
+
+This can be used as a stand-alone utility, but is mainly intended
+as an auxiliary, to enable users to browse their man pages using
+a html browser like
+.BR lynx (1),
+.BR xmosaic (1)
+or
+.BR netscape (1).
+./" (See
+./" .BR man (1)
+./" for info on how to browse man pages via
+./" .BR man2html .
+./" Usually it would suffice to put "MANHTMLPAGER=/usr/bin/lynx"
+./" in the environment.)
+
+The main part of
+.B man2html
+is the troff-to-html engine written by Richard Verhoeven (rcb5@win.tue.nl).
+It adds hyperlinks for the following constructs:
+.LP
+.TS
+l l.
+foo(3x)	"http://localhost/cgi-bin/man/man2html?3x+foo"
+method://string	"method://string"
+www.host.name	"http://www.host.name"
+ftp.host.name	"ftp://ftp.host.name"
+name@host	"mailto:name@host"
+<string.h>	"file:/usr/include/string.h"
+.TE
+.LP
+(The first of these can be tuned by options - see below.)
+No lookup is done - the links generated need not exist.
+Also an index with internal hyperlinks to the various sections
+is generated, so that it is easier to find one's way
+in large man pages like
+.BR bash (1).
+
+.SH OPTIONS
+When reading from stdin, it is not always clear how to
+do .so expansion. The \-D option allows a script to define
+the working directory.
+.LP
+.TP
+.B \-\^D pathname
+Strip the last two parts from the pathname, and do a
+\fIchdir\fP(\fIdir\fP) before starting the conversion.
+.LP
+The \-E option allows the easy generation of error messages
+from a cgi script.
+.LP
+.TP
+.B \-\^E string
+Output an error page containing the given error message.
+.LP
+The general form of a hyperlink generated for a man page reference is
+.IP
+<method:cgipath><man2htmlpath><separator><manpage>
+.LP
+with a default as shown above. The parts of this hyperlink
+are set using the various options.
+.TP
+.B \-\^h
+Set method:cgipath to http://localhost. This is the default.
+.TP
+.BI \-\^H " host[.domain][:port]"
+Set method:cgipath to
+.RI http:// host.domain:port .
+.TP
+.B \-\^l
+Set method:cgipath to
+.RI lynxcgi: /home/httpd .
+.TP
+.BI \-\^L " dir"
+Set method:cgipath to
+.RI lynxcgi: dir .
+.TP
+.BI \-\^M " man2htmlpath"
+Set the man2htmlpath to use. The default is
+.IR /cgi-bin/man/man2html .
+.TP
+.B \-\^p
+Set separator to '/'.
+.TP
+.B \-\^q
+Set separator to '?'. This is the default.
+.TP
+.B \-\^r
+Use relative html paths, instead of cgi-bin paths.
+.LP
+On a machine without running
+.BR httpd ,
+one can use
+.B lynx
+to browse the man pages, using the lynxcgi method.
+When some http daemon is running, lynx, or any other browser,
+can be used to browse the man pages, using the http method.
+The option \-l (for `lynxcgi') selects the former behaviour.
+With it, the default cgipath is \fI/home/httpd\fP.
+
+In general, a cgi script can be called by
+.IP
+<path_to_script>/<more_path>?<query>
+.LP
+and the environment variables PATH_INFO and QUERY_STRING
+will be set to <more_path> and <query>, respectively.
+Since lynxcgi does not handle the PATH_INFO part, we generate
+hyperlinks with `?' as a separator by default.
+The option \-p (for `path') selects '/' as a separator, while
+the option \-q (for `query') selects '?' as a separator.
+
+The option \-H \fIhost\fP will specify the host to use
+(instead of \fIlocalhost\fP).  A cgi script could use
+.IP
+man2html -H $SERVER_NAME
+.LP
+if the variable SERVER_NAME is set.  This would allow your machine
+to act as a server and export man pages.
+
+.SH BUGS
+There are many heuristics.  The output will not always be perfect.
+The lynxcgi method will not work if lynx was compiled without
+selecting support for it.  There may be problems with security.
+
+.SH "SEE ALSO"
+.BR lynx (1),
+.BR man (1)

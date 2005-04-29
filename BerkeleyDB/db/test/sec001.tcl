@@ -1,17 +1,23 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2001
+# Copyright (c) 1999-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: sec001.tcl,v 1.1.1.1 2003/02/15 04:56:16 zarzycki Exp $
+# $Id: sec001.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
 #
 # TEST	sec001
 # TEST	Test of security interface
 proc sec001 { } {
 	global errorInfo
 	global errorCode
+	global has_crypto
 
 	source ./include.tcl
+	# Skip test if release does not support encryption.
+	if { $has_crypto == 0 } {
+		puts "Skipping test sec001 for non-crypto release."
+		return
+	}
 
 	set testfile1 env1.db
 	set testfile2 $testdir/env2.db

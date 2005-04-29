@@ -43,14 +43,16 @@
 class CNiNodeList;
 
 #define		kstrLocalDot				"."
+#define		kstrParentDotDot			".."
 #define		kstrDelimiter				"/"
 #define		kstrNetInfoName				"NetInfo"
 #define		kstrRootOnly				"root"
-#define		kstrPrefixName				"/NetInfo"
-#define		kstrRootName				"/NetInfo/"
+#define		kstrPrefixName				"/NetInfo/"
 #define		kstrRootNodeName   			"/NetInfo/root"
 #define		kstrLocalDomain				"/NetInfo/."
 #define		kstrParentDomain			"/NetInfo/.."
+#define		kstrRootLocalDomain			"/NetInfo/root/."
+#define		kstrDefaultLocalNode		"DefaultLocalNode"
 
 class CNetInfoPlugin : public CServerPlugin
 {
@@ -67,7 +69,8 @@ public:
 	virtual sInt32		ProcessRequest		( void *inData );
 	//virtual sInt32		Shutdown			( void );
 
-	static	sInt32		SafeOpen			( const char *inDomainName, sInt32 inTimeoutSecs, ni_id *outNiDirID, void **outDomain, char **outDomName );
+	static	sInt32		SafeOpen			( const char *inDomainName, sInt32 inTimeoutSecs, char **outDomName );
+	static	void*		GetNIDomain			( const char *inDomainName);
 	static	sInt32		SafeClose			( const char *inDomainName );
 	static	void		WakeUpRequests		( void );
 	static	sInt32		UnregisterNode		( const uInt32 inToken, tDataList *inNode );
@@ -80,8 +83,10 @@ protected:
 			void		HandleMultipleNetworkTransitions ( void );
 
 private:
+			void		SystemGoingToSleep	( void );
+			void		SystemWillPowerOn		( void );
+
 	// static private
-	static	CNiNodeList		   *fNiNodeList;
     static	FourCharCode		fToken; //dupe of the signature
 
 	// non-static private
@@ -90,6 +95,7 @@ private:
 			uInt32				fState;
 			CFRunLoopRef		fServerRunLoop;
 			time_t				fTransitionCheckTime;
+			bool				bFirstNetworkTransition;
 };
 
 #endif	// __CNetInfoPlugin_H__

@@ -5,7 +5,7 @@ include ../MakePaths.dir
 UTILDIR = ../util
 LIBSADIR = ../libsa
 INSTALLDIR = $(DSTROOT)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/standalone
-SYMROOT=
+#SYMROOT=
 
 OPTIM = -Os
 CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Werror \
@@ -33,7 +33,7 @@ SAIO_OBJS = table.o asm.o bios.o biosfn.o \
 	ufs.o ufs_byteorder.o \
 	stringTable.o load.o memory.o misc.o \
 	vbe.o nbp.o hfs.o hfs_compare.o \
-	xml.o
+	xml.o ntfs.o msdos.o
 
 SAIO_EXTERN_OBJS = console.o
 
@@ -63,7 +63,7 @@ all: $(DIRS_NEEDED) libsaio.h $(LIBS)
 
 libsaio.a: $(SAIO_EXTERN_OBJS) $(SAIO_OBJS)
 	rm -f $(SYMROOT)/$(@F)
-	ar q $(SYMROOT)/$(@F) $(SAIO_EXTERN_OBJS) $(SAIO_OBJS)
+	ar q $(SYMROOT)/$(@F) $^
 	ranlib $(SYMROOT)/$(@F)
 
 #saio_internal.h: saio_external.h

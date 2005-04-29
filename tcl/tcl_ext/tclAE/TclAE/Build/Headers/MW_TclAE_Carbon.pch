@@ -1,0 +1,4 @@
+#define TARGET_API_MAC_CARBON 1
+#define TARGET_API_MAC_OSX 0
+#define OLDP2C 1
+#include "MW_TclAE.pch"

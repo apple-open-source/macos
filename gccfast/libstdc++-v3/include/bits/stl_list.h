@@ -63,8 +63,17 @@
 
 #include <bits/concept_check.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define list _Release_list
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
+
   // Supporting structures are split into common and templated types; the
   // latter publicly inherits from the former in an effort to reduce code
   // duplication.  This results in some "needless" static_cast'ing later on,
@@ -362,8 +371,10 @@ namespace std
    *  pointers refer to itself, the %list is %empty.
    *  @endif
   */
+  /* APPLE LOCAL libstdc++ debug mode */
   template<typename _Tp, typename _Alloc = allocator<_Tp> >
-    class list : protected _List_base<_Tp, _Alloc>
+  class _GLIBCXX_RELEASE_CLASS(list) list 
+    : protected _List_base<_Tp, _Alloc>
   {
     // concept requirements
     __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
@@ -1160,6 +1171,14 @@ namespace std
     inline void
     swap(list<_Tp, _Alloc>& __x, list<_Tp, _Alloc>& __y)
     { __x.swap(__y); }
+
 } // namespace std
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef list
+#  include <debug/dbg_list.h>
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #endif /* __GLIBCPP_INTERNAL_LIST_H */

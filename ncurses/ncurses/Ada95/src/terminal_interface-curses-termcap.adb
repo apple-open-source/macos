@@ -7,7 +7,7 @@
 --                                 B O D Y                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 2000 Free Software Foundation, Inc.                        --
+-- Copyright (c) 2000,2004 Free Software Foundation, Inc.                   --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -33,9 +33,9 @@
 -- sale, use or other dealings in this Software without prior written       --
 -- authorization.                                                           --
 ------------------------------------------------------------------------------
---  Author: Eugene V. Melaragno <aldomel@ix.netcom.com> 2000
+--  Author:  Juergen Pfeifer, 1996
 --  Version Control:
---  $Revision: 1.1.1.1 $
+--  $Revision: 1.6 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 
@@ -111,7 +111,7 @@ package body Terminal_Interface.Curses.Termcap is
       Length : size_t;
       Txt2   : chars_ptr;
       type t is new char_array (0 .. 1024); --  does it need to be 1024?
-      Return_Buffer : t := (0 => nul);
+      Return_Buffer : t := (others => nul);
    begin
       To_C (Name, Txt, Length);
       Txt2 := tgetstr (Txt, char_array (Return_Buffer));
@@ -132,7 +132,7 @@ package body Terminal_Interface.Curses.Termcap is
       Length : size_t;
       Txt2   : chars_ptr;
       type t is new char_array (0 .. 1024); --  does it need to be 1024?
-      Phony_Txt : t := (0 => nul);
+      Phony_Txt : t := (others => nul);
    begin
       To_C (Name, Txt, Length);
       Txt2 := tgetstr (Txt, char_array (Phony_Txt));

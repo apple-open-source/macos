@@ -1,16 +1,12 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/apm/apm_video.c,v 1.9 2001/06/15 21:22:45 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/apm/apm_video.c,v 1.12 2003/11/10 18:22:17 tsi Exp $ */
 
 #if PSZ != 24
 #include "dixstruct.h"
+#include "fourcc.h"
 
 /*
  * Ported from mga_video.c by Loïc Grenié
  */
-
-#ifndef XvExtension
-void A(InitVideo)(ScreenPtr pScreen) {}
-void A(ResetVideo)(ScrnInfoPtr pScrn) {}
-#else
 
 #ifndef OFF_DELAY
 #define OFF_DELAY	200
@@ -120,7 +116,7 @@ static XF86AttributeRec Attributes[NUM_ATTRIBUTES] =
     {XvSettable | XvGettable, 0, 255, "XV_CONTRAST"}
 };
 
-#define NUM_IMAGES 8
+#define NUM_IMAGES 9
 typedef char c8;
 
 static XF86ImageRec Images[NUM_IMAGES] =
@@ -176,6 +172,7 @@ static XF86ImageRec Images[NUM_IMAGES] =
 	  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 	XvTopToBottom
    },
+   XVIMAGE_YUY2,
    {
 	0x59595959,
         XvYUV,
@@ -343,8 +340,8 @@ A(SetupImageVideo)(ScreenPtr pScreen)
     pPriv[1].contrast = 128;
 
     /* gotta uninit this someplace */
-    REGION_INIT(pScreen, &pPriv->clip, NullBox, 0);
-    REGION_INIT(pScreen, &(pPriv + 1)->clip, NullBox, 0);
+    REGION_NULL(pScreen, &pPriv->clip);
+    REGION_NULL(pScreen, &(pPriv + 1)->clip);
 
     pApm->adaptor = adapt;
 
@@ -483,43 +480,6 @@ ApmQueryBestSize(ScrnInfoPtr pScrn, Bool motion, short vid_w, short vid_h,
     *p_w = drw_w & round;
     *p_h = drw_h & round;
 }
-
-static void
-ApmCopyData(unsigned char *src, unsigned char *dst, int srcPitch, int dstPitch,
-	      int h, int w)
-{
-    w <<= 1;
-    while(h--) {
-	memcpy(dst, src, w);
-	src += srcPitch;
-	dst += dstPitch;
-    }
-}
-
-static void
-ApmCopyMungedData(unsigned char *src1, unsigned char *src2,
-		   unsigned char *src3, unsigned char *dst1,
-		   int srcPitch, int srcPitch2, int dstPitch, int h, int w)
-{
-   CARD32 *dst = (CARD32*)dst1;
-   int i, j;
-
-   dstPitch >>= 2;
-   w >>= 1;
-
-   for(j = 0; j < h; j++) {
-	for(i = 0; i < w; i++) {
-	    dst[i] = src1[i << 1] | (src1[(i << 1) + 1] << 16) |
-		     (src2[i] << 8) | (src3[i] << 24);
-	}
-	dst += dstPitch;
-	src1 += srcPitch;
-	if(j & 1) {
-	    src2 += srcPitch2;
-	    src3 += srcPitch2;
-	}
-   }
-}
 #endif
 
 static void A(XvMoveCB)(FBAreaPtr area1, FBAreaPtr area2)
@@ -548,6 +508,7 @@ static int
 A(ReputImage)(ScrnInfoPtr pScrn, short drw_x, short drw_y,
 		RegionPtr clipBoxes, pointer pdata)
 {
+    ScreenPtr		pScreen = pScrn->pScreen;
     APMDECL(pScrn);
     ApmPortPrivPtr	pPriv = pdata, pPriv0, pPriv1;
     register int	fx, fy;
@@ -576,7 +537,7 @@ A(ReputImage)(ScrnInfoPtr pScrn, short drw_x, short drw_y,
     reg0 = &pPriv0->clip;
     bzero(&Union, sizeof Union);
     REGION_EMPTY(pScreen, &Union);
-    REGION_INIT(pScreen, &Union, NullBox, 0);
+    REGION_NULL(pScreen, &Union);
     REGION_UNION(pScreen, &Union, reg0, &pPriv1->clip);
     nrects = REGION_NUM_RECTS(&Union);
     rects = REGION_RECTS(&Union);
@@ -868,9 +829,10 @@ A(PutImage)(ScrnInfoPtr pScrn, short src_x, short src_y,
 	    offset2 += tmp;
 	    offset3 += tmp;
 	    nlines = ((((y2 + 0xffff) >> 16) + 1) & ~1) - top;
-	    ApmCopyMungedData(buf + (top * srcPitch) + (left >> 1),
-			      buf + offset2, buf + offset3, dst_start,
-			      srcPitch, srcPitch2, dstPitch, nlines, npixels);
+	    xf86XVCopyYUV12ToPacked(buf + (top * srcPitch) + (left >> 1),
+				    buf + offset2, buf + offset3, dst_start,
+				    srcPitch, srcPitch2, dstPitch,
+				    nlines, npixels);
 	    break;
 	default:
 	    if (id == 0x32335652)
@@ -880,7 +842,8 @@ A(PutImage)(ScrnInfoPtr pScrn, short src_x, short src_y,
 	    buf += (top * srcPitch) + left;
 	    nlines = ((y2 + 0xffff) >> 16) - top;
 	    if (offscreen)
-		ApmCopyData(buf, dst_start, srcPitch, dstPitch, nlines, npixels);
+		xf86XVCopyPacked(buf, dst_start, srcPitch, dstPitch,
+				 nlines, npixels);
 	    break;
 	}
     }
@@ -966,6 +929,7 @@ ApmQueryImageAttributes(ScrnInfoPtr pScrn, int id,
     case 0x59565955:
     case 0x55595659:
     case 0x59555956:
+    case 0x32595559:
 	size = *w << 1;
 	goto common;
     case 0x59595959:
@@ -982,5 +946,3 @@ common:
 }
 #endif
 #endif
-#endif
-

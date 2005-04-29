@@ -3,6 +3,20 @@
 ## common prefix for all Makefile.in in the Kerberos V5 tree.
 ##
 
+# These are set per-directory by autoconf 2.52 and 2.53:
+#  srcdir=@srcdir@
+#  top_srcdir=@top_srcdir@
+# but these are only set by autoconf 2.53, and thus not useful to us on
+# Mac OS X yet (as of 10.2):
+#  abs_srcdir=@abs_srcdir@
+#  abs_top_srcdir=@abs_top_srcdir@
+#  builddir=@builddir@
+#  abs_builddir=@abs_builddir@
+#  top_builddir=@top_builddir@
+#  abs_top_builddir=@abs_top_builddir@
+# The "top" variables refer to the directory with the configure (or
+# config.status) script.
+
 WHAT = unix
 SHELL=/bin/sh
 
@@ -117,21 +131,32 @@ C=./
 # "/" for UNIX, "\" for Windows; *sigh*
 S=/
 
-SUBDIRS = @subdirs@ $(LOCAL_SUBDIRS)
+#SUBDIRS = @subdirs@ $(LOCAL_SUBDIRS)
+SUBDIRS_@top_srcdir@ = @subdirs@
+SUBDIRS = $(SUBDIRS_@srcdir@) $(LOCAL_SUBDIRS)
+#
 srcdir = @srcdir@
 SRCTOP = @srcdir@/$(BUILDTOP)
+top_srcdir = @top_srcdir@
 VPATH = @srcdir@
 CONFIG_RELTOPDIR = @CONFIG_RELTOPDIR@
+
+FAKEDEST=$(BUILDTOP)/util/fakedest
+FAKEPREFIX=$(FAKEDEST)/$(prefix)
+FAKELIBDIR=$(FAKEPREFIX)/lib
 
 # DEFS		set by configure
 # DEFINES	set by local Makefile.in
 # LOCALINCLUDES	set by local Makefile.in
 # CPPFLAGS	user override
 # CFLAGS	user override but starts off set by configure
+# PTHREAD_CFLAGS set by configure, not included in CFLAGS so that we
+#		don't pull the pthreads library into shared libraries
 ALL_CFLAGS = $(DEFS) $(DEFINES) $(KRB_INCLUDES) $(LOCALINCLUDES) \
-	$(CPPFLAGS) $(CFLAGS)
+	$(CPPFLAGS) $(CFLAGS) $(PTHREAD_CFLAGS)
 
 CFLAGS = @CFLAGS@
+PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 DEFS = @DEFS@
 CC = @CC@
@@ -152,6 +177,7 @@ CLNTDEPLIBS = @CLNTDEPLIBS@
 INSTALL=@INSTALL@
 INSTALL_STRIP=
 INSTALL_PROGRAM=@INSTALL_PROGRAM@ $(INSTALL_STRIP)
+INSTALL_SCRIPT=@INSTALL_PROGRAM@
 INSTALL_DATA=@INSTALL_DATA@
 INSTALL_SHLIB=@INSTALL_SHLIB@
 INSTALL_SETUID=$(INSTALL) $(INSTALL_STRIP) -m 4755 -o root
@@ -162,6 +188,9 @@ INSTALL_PREFIX=$(prefix)
 INSTALL_EXEC_PREFIX=@exec_prefix@
 exec_prefix=@exec_prefix@
 SHLIB_TAIL_COMP=@SHLIB_TAIL_COMP@
+
+datadir = @datadir@
+EXAMPLEDIR = $(datadir)/examples/krb5
 
 KRB5MANROOT = @mandir@
 ADMIN_BINDIR = @sbindir@
@@ -176,7 +205,8 @@ KRB5_SHLIBDIR = @libdir@$(SHLIB_TAIL_COMP)
 KRB5_INCDIR = @includedir@
 KRB5_INCSUBDIRS = \
 	$(KRB5_INCDIR)/gssapi \
-	$(KRB5_INCDIR)/kerberosIV
+	$(KRB5_INCDIR)/kerberosIV \
+	$(KRB5_INCDIR)/gssrpc
 
 #
 # Macros used by the KADM5 (OV-based) unit test system.
@@ -226,18 +256,16 @@ AWK = @AWK@
 LEX = @LEX@
 LEXLIB = @LEXLIB@
 YACC = @YACC@
-AUTOCONF = @AUTOCONF@
-AUTOCONFFLAGS = @AUTOCONFFLAGS@
-AUTOCONFINCFLAGS = @AUTOCONFINCFLAGS@
-AUTOHEADER = @AUTOHEADER@
-AUTOHEADERFLAGS = @AUTOHEADERFLAGS@
+PERL = @PERL@
+AUTOCONF = autoconf
+AUTOCONFFLAGS =
+AUTOHEADER = autoheader
+AUTOHEADERFLAGS =
 
 HOST_TYPE = @HOST_TYPE@
 SHEXT = @SHEXT@
 STEXT=@STEXT@
 VEXT=@VEXT@
-DO_MAKE_SHLIB = @DO_MAKE_SHLIB@
-SHLIB_STATIC_TARGET=@SHLIB_STATIC_TARGET@
 
 TOPLIBD = $(BUILDTOP)/lib
 
@@ -285,6 +313,8 @@ CRYPTO_DEPLIB	= $(TOPLIBD)/libk5crypto$(DEPLIBEXT)
 COM_ERR_DEPLIB	= $(COM_ERR_DEPLIB-@COM_ERR_VERSION@)
 COM_ERR_DEPLIB-sys = # empty
 COM_ERR_DEPLIB-k5 = $(TOPLIBD)/libcom_err$(DEPLIBEXT)
+SUPPORT_LIBNAME=krb5support
+SUPPORT_DEPLIB	= $(TOPLIBD)/lib$(SUPPORT_LIBNAME)$(DEPLIBEXT)
 
 # These are forced to use ".a" as an extension because they're never
 # built shared.
@@ -292,8 +322,9 @@ SS_DEPLIB	= $(SS_DEPLIB-@SS_VERSION@)
 SS_DEPLIB-k5	= $(TOPLIBD)/libss.a
 SS_DEPLIB-sys	=
 PTY_DEPLIB	= $(TOPLIBD)/libpty.a
+APPUTILS_DEPLIB	= $(TOPLIBD)/libapputils.a
 
-KRB5_BASE_DEPLIBS	= $(KRB5_DEPLIB) $(CRYPTO_DEPLIB) $(COM_ERR_DEPLIB)
+KRB5_BASE_DEPLIBS	= $(KRB5_DEPLIB) $(CRYPTO_DEPLIB) $(COM_ERR_DEPLIB) $(SUPPORT_DEPLIB)
 KRB4COMPAT_DEPLIBS	= $(KRB4_DEPLIB) $(DES425_DEPLIB) $(KRB5_BASE_DEPLIBS)
 KDB5_DEPLIBS		= $(KDB5_DEPLIB)
 GSS_DEPLIBS		= $(GSS_DEPLIB)
@@ -341,6 +372,7 @@ KRB5_LIB			= -lkrb5
 K5CRYPTO_LIB			= -lk5crypto
 COM_ERR_LIB			= -lcom_err
 GSS_KRB5_LIB			= -lgssapi_krb5
+SUPPORT_LIB			= -l$(SUPPORT_LIBNAME)
 
 # KRB4_LIB is -lkrb4 if building --with-krb4
 # needs fixing if ever used on Mac OS X!
@@ -353,7 +385,7 @@ DES425_LIB	= @DES425_LIB@
 # HESIOD_LIBS is -lhesiod...
 HESIOD_LIBS	= @HESIOD_LIBS@
 
-KRB5_BASE_LIBS	= $(KRB5_LIB) $(K5CRYPTO_LIB) $(COM_ERR_LIB) $(GEN_LIB) $(LIBS)
+KRB5_BASE_LIBS	= $(KRB5_LIB) $(K5CRYPTO_LIB) $(COM_ERR_LIB) $(SUPPORT_LIB) $(GEN_LIB) $(LIBS) -framework Security -framework CoreFoundation
 KRB4COMPAT_LIBS	= $(KRB4_LIB) $(DES425_LIB) $(KRB5_BASE_LIBS)
 KDB5_LIBS	= $(KDB5_LIB) $(KDB5_DB_LIB)
 GSS_LIBS	= $(GSS_KRB5_LIB)
@@ -366,6 +398,13 @@ KADMCLNT_LIBS	= -lkadm5clnt $(KADM_COMM_LIBS)
 
 # need fixing if ever used on Mac OS X!
 PTY_LIB		= -lpty
+
+# libutil for NetBSD, et al. for openpty(), etc.
+UTIL_LIB	= @UTIL_LIB@
+
+# Misc stuff for linking server programs (and maybe some others,
+# eventually) but which we don't want to install.
+APPUTILS_LIB	= -lapputils
 
 #
 # some more stuff for --with-krb4
@@ -426,7 +465,7 @@ MAKE_COMMANDS-k5= $(BUILDTOP)/util/ss/mk_cmds
 LN_S=@LN_S@
 AR=@AR@
 
-# Set to "lib$(LIB)$(STEXT) lib$(LIB)$(SHEXT) lib$(LIB)$(PFEXT)" or
+# Set to "lib$(LIBBASE)$(STEXT) lib$(LIBBASE)$(SHEXT) lib$(LIBBASE)$(PFEXT)" or
 # some subset thereof by configure; determines which types of libs get
 # built.
 LIBLIST=@LIBLIST@
@@ -455,11 +494,19 @@ SHLIBEXT=@SHLIBEXT@
 # usually _p.a
 PFLIBEXT=@PFLIBEXT@
 
-# "cc -G", "ld -Bshareable", etc.
-LDCOMBINE=@LDCOMBINE@
+# File with symbol names to be exported, both functions and data,
+# currently not distinguished.
+SHLIB_EXPORT_FILE=$(srcdir)/lib$(LIBBASE).exports
 
-# Misc args to tack on the tail of LDCOMBINE
-LDCOMBINE_TAIL=@LDCOMBINE_TAIL@
+# File that needs to be current for building the shared library,
+# usually SHLIB_EXPORT_FILE, but not always, if we have to convert
+# it to another, intermediate form for the linker.
+SHLIB_EXPORT_FILE_DEP=@SHLIB_EXPORT_FILE_DEP@
+
+# Command to run to build a shared library.
+# In systems that require multiple commands, like AIX, it may need
+# to change to rearrange where the various parameters fit in.
+MAKE_SHLIB_COMMAND=@MAKE_SHLIB_COMMAND@
 
 # flags for explicit libraries depending on this one,
 # e.g. "-R$(SHLIB_RPATH) $(SHLIB_SHLIB_DIRFLAGS) $(SHLIB_EXPLIBS)"
@@ -487,6 +534,9 @@ SONAME=@SONAME@
 #
 PICFLAGS=@PICFLAGS@
 PROFFLAGS=@PROFFLAGS@
+
+# platform-dependent temporary files that should get cleaned up
+EXTRA_FILES=@EXTRA_FILES@
 
 
 

@@ -1,9 +1,9 @@
-/* Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
    This file was pretty much copied from newlib.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it
+GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 2, or (at your option) any
 later version.
@@ -17,7 +17,7 @@ do apply in other respects; for example, they cover modification of
 the file, and distribution when not linked into a combine
 executable.)
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
@@ -72,7 +72,7 @@ start:
 	LOAD_ADDR (___data, r26)
 	LOAD_ADDR (___rodata, r27)
 
-#if ! __SH4_NOFPU__
+#if ! __SH4_NOFPU__ && ! __SH2A_NOFPU__
 #if __SH5__ == 32
 	pt/l ___set_fpscr, tr0
 	movi	0, r4
@@ -116,12 +116,14 @@ start_l:
 	cmp/ge	r0,r1
 	bt	start_l
 
-#if defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__)
+#if ! __SH2A_NOFPU__
+#if defined (__SH2E__) || defined (__SH2A__) || defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__)
 	mov.l set_fpscr_k, r1
 	jsr @r1
 	mov #0,r4
 	lds r3,fpscr
-#endif /*  defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__) */
+#endif /*  defined (__SH2E__) || defined (__SH2A__) || defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__) */
+#endif /* ! __SH2A_NOFPU__ */
 
 	! arrange for exit to call fini
 	mov.l	atexit_k,r0
@@ -146,10 +148,13 @@ start_l:
 	nop
 
 	.align 2
-#if defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__)
+#if ! __SH2A_NOFPU__
+#if defined (__SH2E__) || defined (__SH2A__) || defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__)
 set_fpscr_k:
 	.long	___set_fpscr
-#endif /*  defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__) */
+#endif /*  defined (__SH2E__) || defined (__SH2A__) || defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__) */
+#endif /* ! __SH2A_NOFPU__ */
+
 stack_k:
 	.long	_stack	
 edata_k:

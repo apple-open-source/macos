@@ -1,5 +1,5 @@
 
-use Apache::test;
+use Apache::testold;
 
 #hrm, deal with this later
 print "1..1\nok 1\n";

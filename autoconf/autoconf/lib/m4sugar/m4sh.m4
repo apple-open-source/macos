@@ -1,7 +1,7 @@
 # This file is part of Autoconf.                          -*- Autoconf -*-
 # M4 sugar for common shell constructs.
 # Requires GNU M4 and M4sugar.
-# Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -131,7 +131,7 @@ m4_copy([_m4_divert(M4SH-INIT)], [_m4_divert(NOTICE)])
 #
 m4_define([AS_REQUIRE],
 [m4_provide_if([$1], [],
-               [m4_divert_text([M4SH-INIT], [$1])])])
+	       [m4_divert_text([M4SH-INIT], [m4_default([$2], [$1])])])])
 
 
 # AS_SHELL_SANITIZE
@@ -152,6 +152,7 @@ if test -n "${ZSH_VERSION+set}" && (emulate sh) >/dev/null 2>&1; then
 elif test -n "${BASH_VERSION+set}" && (set -o posix) >/dev/null 2>&1; then
   set -o posix
 fi
+DUALCASE=1; export DUALCASE # for MKS sh
 
 _AS_UNSET_PREPARE
 
@@ -167,7 +168,7 @@ for as_var in \
   LC_MEASUREMENT LC_MESSAGES LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER \
   LC_TELEPHONE LC_TIME
 do
-  if (set +x; test -n "`(eval $as_var=C; export $as_var) 2>&1`"); then
+  if (set +x; test -z "`(eval $as_var=C; export $as_var) 2>&1`"); then
     eval $as_var=C; export $as_var
   else
     $as_unset $as_var
@@ -276,9 +277,12 @@ fi
 # _AS_UNSET_PREPARE
 # -----------------
 # AS_UNSET depends upon $as_unset: compute it.
+# Use MAIL to trigger a bug in Bash 2.01;
+# the "|| exit" suppresses the resulting "Segmentation fault" message.
+# Avoid 'if ((', as that triggers a bug in pdksh 5.2.14.
 m4_defun([_AS_UNSET_PREPARE],
 [# Support unset when possible.
-if (FOO=FOO; unset FOO) >/dev/null 2>&1; then
+if ( (MAIL=60; unset MAIL) || exit) >/dev/null 2>&1; then
   as_unset=unset
 else
   as_unset=false
@@ -312,8 +316,8 @@ $as_unset $1 || test "${$1+set}" != set || { $1=$2; export $1; }])
 # Escape the CHARS in STRING.
 m4_define([AS_ESCAPE],
 [m4_bpatsubst([$1],
-             m4_ifval([$2], [[\([$2]\)]], [[\([\"$`]\)]]),
-             [\\\1])])
+	     m4_ifval([$2], [[\([$2]\)]], [[\([\"$`]\)]]),
+	     [\\\1])])
 
 
 # _AS_QUOTE_IFELSE(STRING, IF-MODERN-QUOTATION, IF-OLD-QUOTATION)
@@ -326,9 +330,9 @@ m4_define([AS_ESCAPE],
 # We use two quotes in the pattern to keep highlighting tools at peace.
 m4_define([_AS_QUOTE_IFELSE],
 [m4_bmatch([$1],
-          [\\[\\$]], [$2],
-          [\\[`""]], [$3],
-          [$2])])
+	  [\\[\\$]], [$2],
+	  [\\[`""]], [$3],
+	  [$2])])
 
 
 # _AS_ECHO_UNQUOTED(STRING, [FD = AS_MESSAGE_FD])
@@ -344,9 +348,9 @@ m4_define([_AS_ECHO_UNQUOTED],
 # backslash all the quotes.
 m4_define([_AS_QUOTE],
 [_AS_QUOTE_IFELSE([$1],
-                  [AS_ESCAPE([$1], m4_default([$2], [`""]))],
-                  [m4_warn([obsolete],
-           [back quotes and double quotes must not be escaped in: $1])dnl
+		  [AS_ESCAPE([$1], m4_default([$2], [`""]))],
+		  [m4_warn([obsolete],
+	   [back quotes and double quotes must not be escaped in: $1])dnl
 $1])])
 
 
@@ -382,16 +386,16 @@ esac
 m4_define([_AS_ECHO_N],
 [AS_REQUIRE([_AS_ECHO_N_PREPARE])dnl
 echo $ECHO_N "_AS_QUOTE([$1])$ECHO_C" >&m4_default([$2],
-                                                    [AS_MESSAGE_FD])])
+						    [AS_MESSAGE_FD])])
 
 
 # AS_MESSAGE(STRING, [FD = AS_MESSAGE_FD])
 # ----------------------------------------
 m4_define([AS_MESSAGE],
 [m4_ifset([AS_MESSAGE_LOG_FD],
-          [{ _AS_ECHO([$as_me:$LINENO: $1], [AS_MESSAGE_LOG_FD])
+	  [{ _AS_ECHO([$as_me:$LINENO: $1], [AS_MESSAGE_LOG_FD])
 _AS_ECHO([$as_me: $1], [$2]);}],
-          [_AS_ECHO([$as_me: $1], [$2])])[]dnl
+	  [_AS_ECHO([$as_me: $1], [$2])])[]dnl
 ])
 
 
@@ -431,10 +435,10 @@ m4_define([AS_ERROR],
 m4_defun([AS_DIRNAME_EXPR],
 [AS_REQUIRE([_AS_EXPR_PREPARE])dnl
 $as_expr X[]$1 : 'X\(.*[[^/]]\)//*[[^/][^/]]*/*$' \| \
-         X[]$1 : 'X\(//\)[[^/]]' \| \
-         X[]$1 : 'X\(//\)$' \| \
-         X[]$1 : 'X\(/\)' \| \
-         .     : '\(.\)'])
+	 X[]$1 : 'X\(//\)[[^/]]' \| \
+	 X[]$1 : 'X\(//\)$' \| \
+	 X[]$1 : 'X\(/\)' \| \
+	 .     : '\(.\)'])
 
 m4_defun([AS_DIRNAME_SED],
 [echo X[]$1 |
@@ -541,7 +545,7 @@ _AS_LINENO_WORKS || {
   case $[0] in
     *[[\\/]]* ) as_myself=$[0] ;;
     *) _AS_PATH_WALK([],
-                   [test -r "$as_dir/$[0]" && as_myself=$as_dir/$[0] && break])
+		   [test -r "$as_dir/$[0]" && as_myself=$as_dir/$[0] && break])
        ;;
   esac
   # We did not find ourselves, most probably we were run as `sh COMMAND'
@@ -688,6 +692,7 @@ m4_defun([_AS_MKDIR_P_PREPARE],
 [if mkdir -p . 2>/dev/null; then
   as_mkdir_p=:
 else
+  test -d ./-p && rmdir ./-p
   as_mkdir_p=false
 fi
 ])# _AS_MKDIR_P_PREPARE
@@ -743,6 +748,21 @@ m4_defun([_AS_TEST_PREPARE],
 ])# _AS_BROKEN_TEST_PREPARE
 
 
+# AS_SET_CATFILE(VAR, DIR-NAME, FILE-NAME)
+# ----------------------------------------
+# Set VAR to DIR-NAME/FILE-NAME.
+# Optimize the common case where $2 or $3 is '.'.
+m4_define([AS_SET_CATFILE],
+[case $2 in
+.) $1=$3;;
+*)
+  case $3 in
+  .) $1=$2;;
+  [[\\/]]* | ?:[[\\/]]* ) $1=$3;;
+  *) $1=$2/$3;;
+  esac;;
+esac[]dnl
+])# AS_SET_CATFILE
 
 
 
@@ -760,8 +780,8 @@ m4_defun([_AS_TEST_PREPARE],
 # must not be `/').
 m4_define([AS_BOX],
 [AS_LITERAL_IF([$1],
-               [_AS_BOX_LITERAL($@)],
-               [_AS_BOX_INDIR($@)])])
+	       [_AS_BOX_LITERAL($@)],
+	       [_AS_BOX_INDIR($@)])])
 
 # _AS_BOX_LITERAL(MESSAGE, [FRAME-CHARACTER = `-'])
 # -------------------------------------------------
@@ -786,7 +806,7 @@ _ASBOX])
 # definitely a literal, but will not be recognized as such.
 m4_define([AS_LITERAL_IF],
 [m4_bmatch([$1], [[`$]],
-           [$3], [$2])])
+	   [$3], [$2])])
 
 
 # AS_TMPDIR(PREFIX, [DIRECTORY = $TMPDIR [= /tmp]])
@@ -850,6 +870,59 @@ _AS_PATH_WALK([$PATH], [echo "PATH: $as_dir"])
 }])
 
 
+# AS_HELP_STRING(LHS, RHS, [COLUMN])
+# ----------------------------------
+#
+# Format a help string so that it looks pretty when
+# the user executes "script --help".  This macro takes three
+# arguments, a "left hand side" (LHS), a "right hand side" (RHS), and
+# the COLUMN which is a string of white spaces which leads to the
+# the RHS column (default: 26 white spaces).
+#
+# The resulting string is suitable for use in other macros that require
+# a help string (e.g. AC_ARG_WITH).
+#
+# Here is the sample string from the Autoconf manual (Node: External
+# Software) which shows the proper spacing for help strings.
+#
+#    --with-readline         support fancy command line editing
+#  ^ ^                       ^
+#  | |                       |
+#  | column 2                column 26
+#  |
+#  column 0
+#
+# A help string is made up of a "left hand side" (LHS) and a "right
+# hand side" (RHS).  In the example above, the LHS is
+# "--with-readline", while the RHS is "support fancy command line
+# editing".
+#
+# If the LHS is contains more than (COLUMN - 3) characters, then the LHS
+# is terminated with a newline so that the RHS starts on a line of its
+# own beginning with COLUMN.  In the default case, this corresponds to
+# an LHS with more than 23 characters.
+#
+# Therefore, in the example, if the LHS were instead
+# "--with-readline-blah-blah-blah", then the AS_HELP_STRING macro would
+# expand into:
+#
+#
+#    --with-readline-blah-blah-blah
+#  ^ ^                       support fancy command line editing
+#  | |                       ^
+#  | column 2                |
+#  column 0                  column 26
+#
+m4_define([AS_HELP_STRING],
+[m4_pushdef([AS_Prefix], m4_default([$3], [                          ]))dnl
+m4_pushdef([AS_Prefix_Format],
+	   [  %-]m4_eval(m4_len(AS_Prefix) - 3)[s ])dnl [  %-23s ]
+m4_text_wrap([$2], AS_Prefix, m4_format(AS_Prefix_Format, [$1]))dnl
+m4_popdef([AS_Prefix_Format])dnl
+m4_popdef([AS_Prefix])dnl
+])
+
+
 
 ## ------------------------------------ ##
 ## Common m4/sh character translation.  ##
@@ -880,7 +953,7 @@ as_cr_alnum=$as_cr_Letters$as_cr_digits
 m4_defun([_AS_TR_SH_PREPARE],
 [AS_REQUIRE([_AS_CR_PREPARE])dnl
 # Sed expression to map a string onto a valid variable name.
-as_tr_sh="sed y%*+%pp%;s%[[^_$as_cr_alnum]]%_%g"
+as_tr_sh="eval sed 'y%*+%pp%;s%[[^_$as_cr_alnum]]%_%g'"
 ])
 
 
@@ -892,9 +965,9 @@ as_tr_sh="sed y%*+%pp%;s%[[^_$as_cr_alnum]]%_%g"
 m4_defun([AS_TR_SH],
 [AS_REQUIRE([_$0_PREPARE])dnl
 AS_LITERAL_IF([$1],
-              [m4_bpatsubst(m4_translit([[$1]], [*+], [pp]),
-                            [[^a-zA-Z0-9_]], [_])],
-              [`echo "$1" | $as_tr_sh`])])
+	      [m4_bpatsubst(m4_translit([[$1]], [*+], [pp]),
+			    [[^a-zA-Z0-9_]], [_])],
+	      [`echo "$1" | $as_tr_sh`])])
 
 
 # _AS_TR_CPP_PREPARE
@@ -902,7 +975,7 @@ AS_LITERAL_IF([$1],
 m4_defun([_AS_TR_CPP_PREPARE],
 [AS_REQUIRE([_AS_CR_PREPARE])dnl
 # Sed expression to map a string onto a valid CPP name.
-as_tr_cpp="sed y%*$as_cr_letters%P$as_cr_LETTERS%;s%[[^_$as_cr_alnum]]%_%g"
+as_tr_cpp="eval sed 'y%*$as_cr_letters%P$as_cr_LETTERS%;s%[[^_$as_cr_alnum]]%_%g'"
 ])
 
 
@@ -914,11 +987,11 @@ as_tr_cpp="sed y%*$as_cr_letters%P$as_cr_LETTERS%;s%[[^_$as_cr_alnum]]%_%g"
 m4_defun([AS_TR_CPP],
 [AS_REQUIRE([_$0_PREPARE])dnl
 AS_LITERAL_IF([$1],
-              [m4_bpatsubst(m4_translit([[$1]],
-                                        [*abcdefghijklmnopqrstuvwxyz],
-                                        [PABCDEFGHIJKLMNOPQRSTUVWXYZ]),
-                           [[^A-Z0-9_]], [_])],
-              [`echo "$1" | $as_tr_cpp`])])
+	      [m4_bpatsubst(m4_translit([[$1]],
+					[*abcdefghijklmnopqrstuvwxyz],
+					[PABCDEFGHIJKLMNOPQRSTUVWXYZ]),
+			   [[^A-Z0-9_]], [_])],
+	      [`echo "$1" | $as_tr_cpp`])])
 
 
 # _AS_TR_PREPARE
@@ -952,8 +1025,8 @@ AS_REQUIRE([_AS_TR_CPP_PREPARE])dnl
 # perform whenever possible at m4 level, otherwise sh level.
 m4_define([AS_VAR_SET],
 [AS_LITERAL_IF([$1],
-               [$1=$2],
-               [eval "$1=$2"])])
+	       [$1=$2],
+	       [eval "$1=AS_ESCAPE([$2])"])])
 
 
 # AS_VAR_GET(VARIABLE)
@@ -963,8 +1036,8 @@ m4_define([AS_VAR_SET],
 # else into the appropriate `eval' sequence.
 m4_define([AS_VAR_GET],
 [AS_LITERAL_IF([$1],
-               [$$1],
-               [`eval echo '${'m4_bpatsubst($1, [[\\`]], [\\\&])'}'`])])
+	       [$$1],
+	       [`eval echo '${'m4_bpatsubst($1, [[\\`]], [\\\&])'}'`])])
 
 
 # AS_VAR_TEST_SET(VARIABLE)
@@ -973,8 +1046,8 @@ m4_define([AS_VAR_GET],
 # is set.  Polymorphic.  Should be dnl'ed.
 m4_define([AS_VAR_TEST_SET],
 [AS_LITERAL_IF([$1],
-               [test "${$1+set}" = set],
-               [eval "test \"\${$1+set}\" = set"])])
+	       [test "${$1+set}" = set],
+	       [eval "test \"\${$1+set}\" = set"])])
 
 
 # AS_VAR_SET_IF(VARIABLE, IF-TRUE, IF-FALSE)
@@ -1018,8 +1091,8 @@ m4_define([AS_VAR_SET_IF],
 # the transliteration is handled here.  To be dnl'ed.
 m4_define([AS_VAR_PUSHDEF],
 [AS_LITERAL_IF([$2],
-               [m4_pushdef([$1], [AS_TR_SH($2)])],
-               [as_$1=AS_TR_SH($2)
+	       [m4_pushdef([$1], [AS_TR_SH($2)])],
+	       [as_$1=AS_TR_SH($2)
 m4_pushdef([$1], [$as_[$1]])])])
 
 

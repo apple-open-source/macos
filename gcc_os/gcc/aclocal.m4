@@ -306,10 +306,7 @@ procedure conftest is begin null; end conftest;
 EOF
 gcc_cv_prog_adac=no
 # Have to do ac_tool_prefix and user overrides by hand.
-user_adac=$ADAC
-user_cc=$CC
-for cand in ${ac_tool_prefix}$user_adac	$user_adac	\
-	    ${ac_tool_prefix}$user_cc	$user_cc	\
+for cand in ${ADAC+"$ADAC"} ${CC+"$CC"}	\
 	    ${ac_tool_prefix}gcc	gcc		\
 	    ${ac_tool_prefix}cc		cc		\
 	    ${ac_tool_prefix}gnatgcc	gnatgcc		\
@@ -660,14 +657,13 @@ AC_CACHE_CHECK(for working mmap from /dev/zero,
  then ac_cv_func_mmap_dev_zero=no
  else ac_cv_func_mmap_dev_zero=buggy
  fi],
- # If this is not cygwin, and /dev/zero is a character device, it's probably
- # safe to assume it works.
+ # When cross-building, assume that this works, unless we know it
+ # doesn't.  Of course, we have no way of knowing if there even is a /dev/zero
+ # on the host, let alone whether mmap will work on it.
  [case "$host_os" in
    cygwin* | win32 | pe | mingw* ) ac_cv_func_mmap_dev_zero=buggy ;;
-   * ) if test -c /dev/zero
-       then ac_cv_func_mmap_dev_zero=yes
-       else ac_cv_func_mmap_dev_zero=no
-       fi ;;
+   darwin* ) ac_cv_func_mmap_dev_zero=no ;;
+   * ) ac_cv_func_mmap_dev_zero=yes ;;
   esac])
 ])
 if test $ac_cv_func_mmap_dev_zero = yes; then
@@ -687,7 +683,10 @@ AC_CACHE_CHECK([for working mmap with MAP_ANON(YMOUS)],
  fi],
  # Unlike /dev/zero, it is not safe to assume MAP_ANON(YMOUS) works
  # just because it's there. Some SCO Un*xen define it but don't implement it.
- ac_cv_func_mmap_anon=no)
+ [case "$host_os" in
+   darwin* ) ac_cv_func_mmap_anon=yes ;;
+   * ) ac_cv_func_mmap_anon=no ;;
+  esac])
 ])
 if test $ac_cv_func_mmap_anon = yes; then
   AC_DEFINE(HAVE_MMAP_ANON, 1,
@@ -740,7 +739,10 @@ int main()
 
   exit(0);
 }], ac_cv_func_mmap_file=yes, ac_cv_func_mmap_file=no,
-ac_cv_func_mmap_file=no)])
+ [case "$host_os" in
+   darwin* ) ac_cv_func_mmap_file=yes ;;
+   * ) ac_cv_func_mmap_file=no ;;
+  esac])])
 if test $ac_cv_func_mmap_file = yes; then
   AC_DEFINE(HAVE_MMAP_FILE, 1,
 	    [Define if read-only mmap of a plain file works.])
@@ -1690,3 +1692,29 @@ strdup strtoul tsearch __argz_count __argz_stringify __argz_next])
    INTL_LIBTOOL_SUFFIX_PREFIX=ifelse([$1], use-libtool, [l], [])
    AC_SUBST(INTL_LIBTOOL_SUFFIX_PREFIX)
   ])
+
+AC_DEFUN(gcc_AC_INITFINI_ARRAY,
+[AC_CACHE_CHECK(for .preinit_array/.init_array/.fini_array support,
+		 gcc_cv_initfinit_array, [dnl
+  cat > conftest.c <<EOF
+static int x = -1;
+int main (void) { return x; }
+int foo (void) { x = 0; }
+int (*fp) (void) __attribute__ ((section (".init_array"))) = foo;
+EOF
+  if AC_TRY_COMMAND([${CC-cc} -o conftest conftest.c 1>&AS_MESSAGE_LOG_FD])
+  then
+    if ./conftest; then
+      gcc_cv_initfinit_array=yes
+    else
+      gcc_cv_initfinit_array=no
+    fi
+  else
+    gcc_cv_initfinit_array=no
+  fi
+  rm -f conftest*])
+  AC_SUBST(gcc_cv_initfinit_array)
+  if test $gcc_cv_initfinit_array = yes; then
+    AC_DEFINE(HAVE_INITFINI_ARRAY, 1,
+      [Define .init_array/.fini_array sections are available and working.])
+  fi])

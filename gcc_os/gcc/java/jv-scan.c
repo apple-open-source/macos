@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include <locale.h>
 #endif
 
-#ifdef HAVE_NL_LANGINFO
+#ifdef HAVE_LANGINFO_CODESET
 #include <langinfo.h>
 #endif
 
@@ -64,6 +64,7 @@ int flag_find_main = 0;
 int flag_dump_class = 0;
 int flag_list_filename = 0;
 int flag_complexity = 0;
+int flag_assert = 1;
 
 int pedantic = 0;
 
@@ -85,6 +86,8 @@ static const struct option options[] =
   { "list-class", no_argument,      &flag_dump_class, 1 },
   { "encoding",  required_argument, NULL, OPT_ENCODING },
   { "complexity", no_argument,	    &flag_complexity, 1 },
+  { "no-assert", no_argument,       &flag_assert, 0 },
+  { "assert",    no_argument,       &flag_assert, 1 },
   { NULL,        no_argument,       NULL, 0 }
 };
 
@@ -100,6 +103,7 @@ help ()
 {
   printf ("Usage: jv-scan [OPTION]... FILE...\n\n");
   printf ("Print useful information read from Java source files.\n\n");
+  printf ("  --no-assert             Don't recognize the assert keyword\n");
   printf ("  --complexity            Print cyclomatic complexity of input file\n");
   printf ("  --encoding NAME         Specify encoding of input file\n");
   printf ("  --print-main            Print name of class containing `main'\n");
@@ -111,7 +115,7 @@ help ()
   printf ("  --version               Print version number, then exit\n");
   printf ("\n");
   printf ("For bug reporting instructions, please see:\n");
-  printf ("%s.\n", GCCBUGURL);
+  printf ("%s.\n", bug_report_url);
   exit (0);
 }
 
@@ -199,7 +203,7 @@ DEFUN (main, (argc, argv),
 	    /* There's no point in trying to find the current encoding
 	       unless we are going to do something intelligent with it
 	       -- hence the test for iconv.  */
-#if defined (HAVE_LOCALE_H) && defined (HAVE_ICONV) && defined (HAVE_NL_LANGINFO)
+#if defined (HAVE_LOCALE_H) && defined (HAVE_ICONV) && defined (HAVE_LANGINFO_CODESET)
 	    setlocale (LC_CTYPE, "");
 	    if (encoding == NULL)
 	      encoding = nl_langinfo (CODESET);

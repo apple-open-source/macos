@@ -1,7 +1,7 @@
 /*
  * KLPrincipal.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLPrincipal.h,v 1.2 2003/09/02 15:03:39 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLPrincipal.h,v 1.4 2004/12/17 05:05:44 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -26,23 +26,6 @@
  * or implied warranty.
  */
 
-KLStatus __KLCreatePrincipalFromTriplet (const char  *inName,
-                                         const char  *inInstance,
-                                         const char  *inRealm,
-                                         KLKerberosVersion  inKerberosVersion,
-                                         KLPrincipal *outPrincipal);
-
-KLStatus __KLGetTripletFromPrincipal (KLPrincipal         inPrincipal,
-                                      KLKerberosVersion   inKerberosVersion,
-                                      char              **outName,
-                                      char              **outInstance,
-                                      char              **outRealm);
-
-KLStatus __KLCreatePrincipalFromKerberos5Principal (krb5_principal inPrincipal,
-                                                    KLPrincipal *outPrincipal);
-
 krb5_principal __KLGetKerberos5PrincipalFromPrincipal (KLPrincipal inPrincipal);
 
 KLStatus __KLGetRealmFromPrincipal (KLPrincipal inPrincipal, KLKerberosVersion inKerberosVersion, char **outRealm);
-
-KLBoolean __KLPrincipalIsTicketGrantingService (KLPrincipal inPrincipal, KLKerberosVersion inVersion);

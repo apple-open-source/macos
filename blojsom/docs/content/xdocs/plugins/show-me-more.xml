@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Show Me More plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The "More ..." plugin will truncate long entries and add a hyperlink to the
+                description so that the user can view the full text of the entry.
+
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                show-me-more=org.blojsom.plugin.showmore.ShowMeMorePlugin
+            </source>
+            <p>
+
+                You may then add "show-me-more" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=show-me-more
+            </source>
+            <p>
+
+                The "more ..." plugin has its own configuration file that is referenced in
+                <em>web.xml</em>. For example:
+            </p>
+            <source>
+                &lt;init-param&gt;
+                &lt;param-name&gt;plugin-showmemore&lt;/param-name&gt;
+                &lt;param-value&gt;showmemore.properties&lt;/param-value&gt;
+                &lt;/init-param&gt;
+            </source>
+            <p>
+
+                The
+                <em>showmemore.properties</em> file will be located in the respective
+                    <code>/WEB-INF/(user-id)</code> directory and contains three configurable parameters:
+            </p>
+            <source>
+                entry-length-cutoff=400
+                entry-text-cutoff=&lt;more/&gt;
+                show-me-more-text=More ...
+            </source>
+            <p>
+
+                <em>entry-length-cutoff</em> defines the number of characters after which the link to view the
+                full text of the entry will be placed. If this value is less than or equal to zero, the plugin
+                will not try to cutoff the entry unless the value for the <em>entry-text-cutoff</em> parameter
+                is present in the description.
+                <br/>
+                <em>entry-text-cutoff</em> defines a special tag or string that you can use in your blog entry to
+                define the place where the plugin should insert a link to view the full text of the entry. If
+                this parameter is present and defined, it will override the
+                <em>entry-length-cutoff</em> parameter.
+                <br/>
+                <em>show-me-more-text</em> controls the text of the hyperlink to view the full text of the entry.
+
+            </p>
+        </section>
+        <section>
+            <title>usage and URL parameters</title>
+
+            <section>
+                <title>usage</title>
+                <p>
+                    There is nothing special you have to do to your blog entries. Blog entries that are shorter
+                    than the length defined in
+                    <em>entry-length-cutoff</em> will not have a link added to their
+                    description.
+                </p>
+            </section>
+            <section>
+                <title>URL parameters</title>
+                <p>
+                    The following table describes the URL parameters that affect the output of the "more ..." plugin.
+                </p>
+                <table>
+                    <tr>
+                        <th>URL parameter</th>
+                        <th>Accepted values</th>
+                        <th>Usage</th>
+                    </tr>
+                    <tr>
+                        <td>smm</td>
+                        <td>If "smm" is set to "y", the plugin will not be executed on entries. This is used when generating the link to the entry with the full description.</td>
+                        <td>/blog/?smm=y</td>
+                    </tr>
+                </table>
+
+            </section>
+        </section>
+    </body>
+</document>
+

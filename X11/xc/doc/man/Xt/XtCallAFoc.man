@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtCallAFoc.man,v 1.2 2001/01/27 18:20:24 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtCallAFoc.man,v 1.3 2003/04/28 22:18:18 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,11 +131,8 @@
 .SH NAME
 XtCallAcceptFocus \- calla widget's accept_focus procedure
 .SH SYNTAX
-Boolean XtCallAcceptFocus(\fIw\fP, \fItime\fP)
-.br
-       Widget \fIw\fP;
-.br
-       Time *\fItime\fP;
+.HP
+Boolean XtCallAcceptFocus(Widget \fIw\fP, Time *\fItime\fP); 
 .SH ARGUMENTS
 .IP \fItime\fP 1i
 Specifies the X time of the event that is causing the accept focus.

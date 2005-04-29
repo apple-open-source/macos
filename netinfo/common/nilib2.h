@@ -23,6 +23,7 @@
  */
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <netinfo/ni.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -32,7 +33,6 @@
 #include <errno.h>
 #include <ctype.h>
 #include <netdb.h>
-#include <c.h>
 #include <strings.h>
 #include <pwd.h>
 

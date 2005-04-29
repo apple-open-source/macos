@@ -19,6 +19,13 @@ randkey_principal_wrapper_3(void *server_handle,
 			    krb5_key_salt_tuple *ks_tuple,
 			    krb5_keyblock **keys, int *n_keys);
 
+kadm5_ret_t
+chpass_util_wrapper(void *server_handle, krb5_principal princ,
+		    char *new_pw, char **ret_pw,
+		    char *msg_ret, unsigned int msg_len);
+
+kadm5_ret_t check_min_life(void *server_handle, krb5_principal principal);
+
 kadm5_ret_t kadm5_get_principal_v1(void *server_handle,
 				   krb5_principal principal, 
 				   kadm5_principal_ent_t_v1 *ent);
@@ -34,6 +41,6 @@ krb5_error_code process_chpw_request(krb5_context context,
 				     struct sockaddr_in *sockin, 
 				     krb5_data *req, krb5_data *rep);
 
-#ifdef __SVC_HEADER__
+#ifdef SVC_GETARGS
 void  kadm_1(struct svc_req *, SVCXPRT *);
 #endif

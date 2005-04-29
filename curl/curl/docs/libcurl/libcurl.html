@@ -1,178 +1,87 @@
-<HTML>
-<BODY>
-<PRE>
-<!-- Manpage converted by man2html 3.0.1 -->
-       libcurl - client-side URL transfers
+<html><head>
+<title>libcurl man page</title>
+<meta name="generator" content="roffit 0.7">
+<STYLE type="text/css">
+P.level0 {
+ padding-left: 2em;
+}
 
+P.level1 {
+ padding-left: 4em;
+}
 
-</PRE>
-<H2>DESCRIPTION</H2><PRE>
-       This  is  an overview on how to use libcurl in your C pro-
-       grams. There are specific man pages for each function men-
-       tioned  in  here. There's also the libcurl-the-guide docu-
-       ment for a complete tutorial to programming with  libcurl.
+P.level2 {
+ padding-left: 6em;
+}
 
-       There  are  a  dozen  custom  bindings  that bring libcurl
-       access to your favourite language. Look elsewhere for doc-
-       umentation on those.
+span.emphasis {
+ font-style: italic;
+}
 
-       All    applications   that   use   libcurl   should   call
-       <I>curl</I><B>_</B><I>global</I><B>_</B><I>init()</I> exactly once before any  libcurl  func-
-       tion  can be used. After all usage of libcurl is complete,
-       it <B>must</B> call <I>curl</I><B>_</B><I>global</I><B>_</B><I>cleanup()</I>. In between  those  two
-       calls, you can use libcurl as described below.
+span.bold {
+ font-weight: bold;
+}
 
-       When  using  libcurl's "easy" interface you init your ses-
-       sion and get a handle, which you use as input to the  easy
-       interface  functions  you use. Use <I>curl</I><B>_</B><I>easy</I><B>_</B><I>init()</I> to get
-       the handle. There is also the so called "multi" interface,
-       try the <I>libcurl-multi(3)</I> man page for an overview of that.
+span.manpage {
+ font-weight: bold;
+}
 
-       You continue by setting all the options you  want  in  the
-       upcoming  transfer,  most  important among them is the URL
-       itself (you can't transfer anything  without  a  specified
-       URL  as you may have figured out yourself). You might want
-       to set some callbacks as well that will be called from the
-       library when data is available etc.  <I>curl</I><B>_</B><I>easy</I><B>_</B><I>setopt()</I> is
-       there for this.
+h2.nroffsh {
+ background-color: #e0e0e0;
+}
 
-       When all is setup, you tell libcurl to perform the  trans-
-       fer using <I>curl</I><B>_</B><I>easy</I><B>_</B><I>perform()</I>.  It will then do the entire
-       operation and won't return until it is done  (successfully
-       or not).
+span.nroffip {
+ font-weight: bold;
+ font-size: 120%;
+ font-family: monospace;
+}
 
-       After  the transfer has been made, you can set new options
-       and make another transfer, or if you're done, cleanup  the
-       session  by calling <I>curl</I><B>_</B><I>easy</I><B>_</B><I>cleanup()</I>.  If you want per-
-       sistant connections, you don't  cleanup  immediately,  but
-       instead  run  ahead  and perform other transfers using the
-       same handle. See the chapter below for Persistant  Connec-
-       tions.
+p.roffit {
+ text-align: center;
+ font-size: 80%;
+}
+</STYLE>
+</head><body>
 
-       There  is also a series of other helpful functions to use.
-       They are:
-
-
-              <B>curl_version()</B>
-                        displays the libcurl version
-
-                        converts a date string to time_t
-
-              <B>curl_getenv()</B>
-                        portable environment variable reader
-
-              <B>curl_easy_getinfo()</B>
-                        get information about a performed  trans-
-                        fer
-
-              <B>curl_formadd()</B>
-                        helps building a HTTP form POST
-
-              <B>curl_formfree()</B>
-                        free   a   list   built  with  curl_form-
-                        parse()/curl_formadd()
-
-              <B>curl_slist_append()</B>
-                        builds a linked list
-
-              <B>curl_slist_free_all()</B>
-                        frees a whole curl_slist
-
-              <B>curl_mprintf()</B>
-                        portable printf() functions
-
-              <B>curl_strequal()</B>
-                        portable case insensitive string  compar-
-                        isons
-
-
-
-</PRE>
-<H2>LINKING WITH LIBCURL</H2><PRE>
-       On  unix-like  machines,  there's a tool named curl-config
-       that gets installed with the rest of the curl  stuff  when
-       'make install' is performed.
-
-       curl-config is added to make it easier for applications to
-       link with libcurl and developers to  learn  about  libcurl
-       and how to use it.
-
-       Run  'curl-config  --libs'  to get the (additional) linker
-       options you need to link with the  particular  version  of
-       libcurl you've installed.
-
-       For details, see the curl-config.1 man page.
-
-
-</PRE>
-<H2>LIBCURL SYMBOL NAMES</H2><PRE>
-       All public functions in the libcurl interface are prefixed
-       with 'curl_' (with a lowercase  c).  You  can  find  other
-       functions  in  the library source code, but other prefixes
-       indicate the functions are private and may change  without
-       further notice in the next release.
-
-       libcurl works <B>exactly</B> the same, on any of the platforms it
-       compiles and builds on.
-
-
-</PRE>
-<H2>THREADS</H2><PRE>
-       Never ever call curl-functions  simultaneously  using  the
-       same  handle  from several threads. libcurl is thread-safe
-       and can be used in any number of threads, but you must use
-       separate  curl  handles if you want to use libcurl in more
-       than one thread simultaneously.
-
-
-</PRE>
-<H2>PERSISTANT CONNECTIONS</H2><PRE>
-       Persistent connections means that libcurl can  re-use  the
-       same  connection  for several transfers, if the conditions
-       are right.
-
-       libcurl will *always* attempt to  use  persistent  connec-
-       tions.  Whenever you use curl_easy_perform(), libcurl will
-       attempt to use an existing connection to do the  transfer,
-       and  if none exists it'll open a new one that will be sub-
-       ject  for  re-use  on  a  possible   following   call   to
-       curl_easy_perform().
-
-       To allow libcurl to take full advantage of persistent con-
-       nections, you should do as many of your file transfers  as
-       possible  using  the  same  curl  handle.  When  you  call
-       curl_easy_cleanup(), all  the  possibly  open  connections
-       held by libcurl will be closed and forgotten.
-
-       Note  that the options set with curl_easy_setopt() will be
-       used in on every repeat curl_easy_perform() call
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</PRE>
-<HR>
-<ADDRESS>
-Man(1) output converted with
-<a href="http://www.oac.uci.edu/indiv/ehood/man2html.html">man2html</a>
-</ADDRESS>
-</BODY>
-</HTML>
+<p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
+<p class="level0">libcurl - client-side URL transfers <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
+<p class="level0">This is an short overview on how to use libcurl in your C programs. There are specific man pages for each function mentioned in here. There are also the <span Class="emphasis">libcurl-easy(3)</span> man page, the <span Class="emphasis">libcurl-multi(3)</span> man page, the <span Class="emphasis">libcurl-share(3)</span> man page and the <span Class="emphasis">libcurl-tutorial(3)</span> man page for in-depth understanding on how to program with libcurl. 
+<p class="level0">There are more than a twenty custom bindings available that bring libcurl access to your favourite language. Look elsewhere for documentation on those. 
+<p class="level0">All applications that use libcurl should call <a class="emphasis" href="./curl_global_init.html">curl_global_init(3)</a> exactly once before any libcurl function can be used. After all usage of libcurl is complete, it <span Class="bold">must</span> call <a class="emphasis" href="./curl_global_cleanup.html">curl_global_cleanup(3)</a>. In between those two calls, you can use libcurl as described below. 
+<p class="level0">To transfer files, you always set up an "easy handle" using <a class="emphasis" href="./curl_easy_init.html">curl_easy_init(3)</a>, but when you want the file(s) transferred you have the option of using the "easy" interface, or the "multi" interface. 
+<p class="level0">The easy interface is a synchronous interface with which you call <a class="emphasis" href="./curl_easy_perform.html">curl_easy_perform(3)</a> and let it perform the transfer. When it is completed, the function return and you can continue. More details are found in the <span Class="emphasis">libcurl-easy(3)</span> man page. 
+<p class="level0">The multi interface on the other hand is an asynchronous interface, that you call and that performs only a little piece of the transfer on each invoke. It is perfect if you want to do things while the transfer is in progress, or similar. The multi interface allows you to select() on libcurl action, and even to easily download multiple files simultaneously using a single thread. See further deails in the <span Class="emphasis">libcurl-multi(3)</span> man page. 
+<p class="level0">You can have multiple easy handles share certain data, even if they are used in different threads. This magic is setup using the share interface, as described in the <span Class="emphasis">libcurl-share(3)</span> man page. 
+<p class="level0">There is also a series of other helpful functions to use, including these: 
+<p class="level1">
+<p class="level0"><a name="curlversioninfo"></a><span class="nroffip">curl_version_info()</span> 
+<p class="level1">gets detailed libcurl (and other used libraries) version info 
+<p class="level0"><a name="curlgetdate"></a><span class="nroffip">curl_getdate()</span> 
+<p class="level1">converts a date string to time_t 
+<p class="level0"><a name="curleasygetinfo"></a><span class="nroffip">curl_easy_getinfo()</span> 
+<p class="level1">get information about a performed transfer 
+<p class="level0"><a name="curlformadd"></a><span class="nroffip">curl_formadd()</span> 
+<p class="level1">helps building an HTTP form POST 
+<p class="level0"><a name="curlformfree"></a><span class="nroffip">curl_formfree()</span> 
+<p class="level1">free a list built with <a class="emphasis" href="./curl_formadd.html">curl_formadd(3)</a> 
+<p class="level0"><a name="curlslistappend"></a><span class="nroffip">curl_slist_append()</span> 
+<p class="level1">builds a linked list 
+<p class="level0"><a name="curlslistfreeall"></a><span class="nroffip">curl_slist_free_all()</span> 
+<p class="level1">frees a whole curl_slist 
+<p class="level0">
+<p class="level0"><a name="LINKING"></a><h2 class="nroffsh">LINKING WITH LIBCURL</h2>
+<p class="level0">On unix-like machines, there's a tool named curl-config that gets installed with the rest of the curl stuff when 'make install' is performed. 
+<p class="level0">curl-config is added to make it easier for applications to link with libcurl and developers to learn about libcurl and how to use it. 
+<p class="level0">Run 'curl-config --libs' to get the (additional) linker options you need to link with the particular version of libcurl you've installed. See the <span Class="emphasis">curl-config(1)</span> man page for further details. 
+<p class="level0">Unix-like operating system that ship libcurl as part of their distributions often don't provide the curl-config tool, but simply install the library and headers in the common path for this purpose. 
+<p class="level0"><a name="LIBCURL"></a><h2 class="nroffsh">LIBCURL SYMBOL NAMES</h2>
+<p class="level0">All public functions in the libcurl interface are prefixed with 'curl_' (with a lowercase c). You can find other functions in the library source code, but other prefixes indicate that the functions are private and may change without further notice in the next release. 
+<p class="level0">Only use documented functions and functionality! <a name="PORTABILITY"></a><h2 class="nroffsh">PORTABILITY</h2>
+<p class="level0">libcurl works <span Class="bold">exactly</span> the same, on any of the platforms it compiles and builds on. <a name="THREADS"></a><h2 class="nroffsh">THREADS</h2>
+<p class="level0">Never ever call curl-functions simultaneously using the same handle from several threads. libcurl is thread-safe and can be used in any number of threads, but you must use separate curl handles if you want to use libcurl in more than one thread simultaneously. <a name="PERSISTENT"></a><h2 class="nroffsh">PERSISTENT CONNECTIONS</h2>
+<p class="level0">Persistent connections means that libcurl can re-use the same connection for several transfers, if the conditions are right. 
+<p class="level0">libcurl will <span Class="bold">always</span> attempt to use persistent connections. Whenever you use <a class="emphasis" href="./curl_easy_perform.html">curl_easy_perform(3)</a> or <a class="emphasis" href="./curl_multi_perform.html">curl_multi_perform(3)</a>, libcurl will attempt to use an existing connection to do the transfer, and if none exists it'll open a new one that will be subject for re-use on a possible following call to <a class="emphasis" href="./curl_easy_perform.html">curl_easy_perform(3)</a> or <a class="emphasis" href="./curl_multi_perform.html">curl_multi_perform(3)</a>. 
+<p class="level0">To allow libcurl to take full advantage of persistent connections, you should do as many of your file transfers as possible using the same curl handle. When you call <a class="emphasis" href="./curl_easy_cleanup.html">curl_easy_cleanup(3)</a>, all the possibly open connections held by libcurl will be closed and forgotten. 
+<p class="level0">Note that the options set with <a class="emphasis" href="./curl_easy_setopt.html">curl_easy_setopt(3)</a> will be used in on every repeated <a class="emphasis" href="./curl_easy_perform.html">curl_easy_perform(3)</a> call. <p class="roffit">
+ This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
+</body></html>

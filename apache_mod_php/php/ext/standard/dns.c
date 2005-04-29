@@ -55,6 +55,9 @@
 #undef STATUS
 #undef T_UNSPEC
 #endif
+#if !defined BIND_8_COMPAT
+#include <arpa/nameser_compat.h>
+#endif
 #if HAVE_ARPA_NAMESER_H
 #include <arpa/nameser.h>
 #endif

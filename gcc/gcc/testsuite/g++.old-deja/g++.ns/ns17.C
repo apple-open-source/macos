@@ -1,13 +1,13 @@
-//Build don't link:
+// { dg-do assemble  }
 namespace foo
 {
   class c
   {
   };
-};
+}
 
 int
-foo::c:fn ()  // ERROR - syntax error
+foo::c:fn ()  // { dg-error "" } syntax error
 {
 }
 

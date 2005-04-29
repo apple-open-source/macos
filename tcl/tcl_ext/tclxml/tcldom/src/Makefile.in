@@ -1,0 +1,142 @@
+#
+# @configure_input@
+# $Id: Makefile.in,v 1.8 2003/04/02 22:48:12 jenglish Exp $
+#
+
+### Identification division.
+#
+
+PACKAGE = @PACKAGE@
+VERSION = @VERSION@
+
+### Environment division.
+#
+##  Where to install stuff section.
+#
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+libdir		= @libdir@
+
+DESTDIR		=
+TCLPKGPATH	= $(libdir)
+pkglibdir	= $(TCLPKGPATH)/$(PACKAGE)$(VERSION)
+
+##  Where to find stuff section.
+#
+TCL_INCLUDES		= @TCL_INCLUDES@
+TCL_STUB_LIB_SPEC	= @TCL_STUB_LIB_SPEC@
+expat_INCLUDES		= @expat_INCLUDES@
+expat_LIB_SPEC		= @expat_LIB_SPEC@
+
+srcdir			= @srcdir@
+
+##  How to build stuff section.
+#
+
+SHELL		= @SHELL@
+CC 		= @CC@
+TCLSH_PROG	= @TCLSH_PROG@
+INSTALL		= @INSTALL@
+INSTALL_DATA	= @INSTALL_DATA@
+MKDIR   	= mkdir -p
+
+DEFS		= @DEFS@
+LIBS		= @LIBS@
+CPPFLAGS	= @CPPFLAGS@
+
+# TEA gunk for setting CFLAGS:
+#
+CFLAGS_DEBUG	= @CFLAGS_DEBUG@
+CFLAGS_OPTIMIZE	= @CFLAGS_OPTIMIZE@
+CFLAGS_DEFAULT	= @CFLAGS_DEFAULT@
+CFLAGS_WARNING	= @CFLAGS_WARNING@
+SHLIB_CFLAGS	= @SHLIB_CFLAGS@
+CFLAGS		= @CFLAGS@
+
+SHLIB_LDFLAGS	= @SHLIB_LDFLAGS@
+SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@
+SHLIB_LD	= @SHLIB_LD@
+
+### Data division.
+#
+OBJEXT		= @OBJEXT@
+INCLUDES	= $(TCL_INCLUDES) $(expat_INCLUDES)
+CLEANFILES	= *.o *.obj $(tcldom_LIB_FILE) @CONFIG_CLEANFILES@
+
+tcldom_LIB_FILE	= @tcldom_LIB_FILE@
+
+tcldom_OBJECTS = \
+    tcldompro.$(OBJEXT) \
+    tdpExpat.$(OBJEXT) \
+    traversal.$(OBJEXT) \
+    livelist.$(OBJEXT)
+
+tcldom_LIBRARIES = \
+    $(expat_LIB_SPEC)
+
+
+### Procedure division.
+#
+.PHONY: default all package clean distclean doc install installdirs test
+.NOEXPORT:
+.SUFFIXES: .c .@OBJEXT@
+
+VPATH		= @srcdir@
+
+default:	package
+all:		package		# doc ...
+package:	$(tcldom_LIB_FILE)
+
+##  Build stuff section.
+#
+
+.c.@OBJEXT@:
+	$(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(tcldom_LIB_FILE): $(tcldom_OBJECTS)
+	-rm -f $(tcldom_LIB_FILE)
+	$(SHLIB_LD) $(SHLIB_LDFLAGS) @SHLIB_LD_OUT@$@ \
+		$(tcldom_OBJECTS) $(tcldom_LIBRARIES) $(SHLIB_LD_LIBS)
+
+##  Documentation section.
+#
+
+doc:
+	@echo "make $@: not yet implemented"
+
+##  Test stuff section.
+#
+
+TESTFLAGS	= -verbose b
+TESTDIR		= $(srcdir)/../tests
+TESTDRIVER	= all.tcl
+TESTCONSTRAINTS	= -constraints dom_c
+TESTARGS	= $(TESTCONSTRAINTS) $(TESTFLAGS)
+
+test: package
+	TCLLIBPATH=`pwd` ; export TCLLIBPATH ;  \
+	    (cd $(TESTDIR) ; \
+	     $(TCLSH_PROG) $(TESTDRIVER) $(TESTARGS) 2>&1 | tee test.log)
+
+##  Install stuff section.
+#
+
+installdirs:
+	$(MKDIR) $(DESTDIR)$(pkglibdir)
+
+install: package installdirs
+	$(INSTALL_DATA) $(tcldom_LIB_FILE) $(DESTDIR)$(pkglibdir)
+	$(INSTALL_DATA) pkgIndex.tcl $(DESTDIR)$(pkglibdir)
+
+install-doc:
+	@echo "Nothing to install for $@"
+
+##  Cleanup section.
+#
+clean::
+	-rm -f $(CLEANFILES)
+
+distclean:: clean
+	-rm -f @CONFIGURE_OUTPUTS@
+
+# *EOF*

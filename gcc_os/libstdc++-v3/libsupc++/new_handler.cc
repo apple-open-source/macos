@@ -43,7 +43,7 @@ using std::new_handler;
 new_handler __new_handler;
 
 new_handler
-std::set_new_handler (new_handler handler)
+std::set_new_handler (new_handler handler) throw()
 {
 #if defined(APPLE_KEYMGR) && ! defined(APPLE_KERNEL_EXTENSION) && ! defined(LIBCC_KEXT)
   new_handler prev_handler =

@@ -1,9 +1,9 @@
 /*
- * "$Id: hpgl-config.c,v 1.1.1.7 2002/12/24 00:06:55 jlovell Exp $"
+ * "$Id: hpgl-config.c,v 1.1.1.12 2005/01/04 19:15:56 jlovell Exp $"
  *
  *   HP-GL/2 configuration routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2003 by Easy Software Products.
+ *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -182,6 +182,7 @@ update_transform(void)
 
   switch (Rotation)
   {
+    default :
     case 0 :
 	Transform[0][0] = scaling;
 	Transform[0][1] = 0.0;
@@ -280,6 +281,7 @@ DF_default_values(int     num_params,	/* I - Number of parameters */
   (void)num_params;
   (void)params;
 
+  NP_number_pens(0, NULL);
   AC_anchor_corner(0, NULL);
   AD_define_alternate(0, NULL);
   SD_define_standard(0, NULL);
@@ -639,5 +641,5 @@ SC_scale(int     num_params,	/* I - Number of parameters */
 
 
 /*
- * End of "$Id: hpgl-config.c,v 1.1.1.7 2002/12/24 00:06:55 jlovell Exp $".
+ * End of "$Id: hpgl-config.c,v 1.1.1.12 2005/01/04 19:15:56 jlovell Exp $".
  */

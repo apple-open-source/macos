@@ -56,7 +56,7 @@
 "expand-word", expandword, 0
 "forward-char", forwardchar, 0
 "forward-word", forwardword, 0
-"get-line", getline, 0
+"get-line", zgetline, 0
 "gosmacs-transpose-chars", gosmacstransposechars, 0
 "history-beginning-search-backward", historybeginningsearchbackward, 0
 "history-beginning-search-forward", historybeginningsearchforward, 0
@@ -88,6 +88,7 @@
 "recursive-edit", recursiveedit, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_LASTCOL
 "redisplay", redisplay, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_LASTCOL
 "redo", redo, ZLE_KEEPSUFFIX
+"reset-prompt", resetprompt, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_LASTCOL
 "reverse-menu-complete", reversemenucomplete, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_ISCOMP
 "run-help", processcmd, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_LASTCOL
 "self-insert", selfinsert, ZLE_MENUCMP | ZLE_KEEPSUFFIX

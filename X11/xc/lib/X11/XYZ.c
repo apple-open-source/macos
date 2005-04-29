@@ -33,22 +33,14 @@
  *
  *
  */
-/* $XFree86: xc/lib/X11/XYZ.c,v 1.3 2001/01/17 19:41:49 dawes Exp $ */
+/* $XFree86: xc/lib/X11/XYZ.c,v 1.4 2003/04/13 19:22:19 dawes Exp $ */
 
 #include <X11/Xos.h>
 #include "Xlibint.h"
 #include "Xcmsint.h"
+#include "Cv.h"
 
 #include <stdio.h> /* sscanf */
-
-
-/*
- *      EXTERNS
- *              External declarations required locally to this package
- *              that are not already declared in any of the included header
- *		files (external includes or internal includes).
- */
-extern char _XcmsCIEXYZ_prefix[];
 
 /*
  *	DEFINES
@@ -64,9 +56,7 @@ extern char _XcmsCIEXYZ_prefix[];
 /*
  *      FORWARD DECLARATIONS
  */
-static int CIEXYZ_ParseString();
-Status _XcmsCIEXYZ_ValidSpec();
-
+static int CIEXYZ_ParseString(register char *spec, XcmsColor *pColor);
 
 /*
  *      LOCALS VARIABLES
@@ -110,9 +100,9 @@ XcmsColorSpace	XcmsCIEXYZColorSpace =
  *	SYNOPSIS
  */
 static int
-CIEXYZ_ParseString(spec, pColor)
-    register char *spec;
-    XcmsColor *pColor;
+CIEXYZ_ParseString(
+    register char *spec,
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		This routines takes a string and attempts to convert
@@ -172,8 +162,8 @@ CIEXYZ_ParseString(spec, pColor)
  *	SYNOPSIS
  */
 Status
-_XcmsCIEXYZ_ValidSpec(pColor)
-    XcmsColor *pColor;
+_XcmsCIEXYZ_ValidSpec(
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		Checks if color specification valid for CIE XYZ

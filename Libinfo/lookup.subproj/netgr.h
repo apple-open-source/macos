@@ -29,19 +29,13 @@
 #ifndef _NETGR_H_
 #define _NETGR_H_
 
-struct netgrent {
-	char	*ng_host;
-	char	*ng_user;
-	char	*ng_domain;
-};
-
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-int innetgr __P((const char *,const char *,const char *,const char *));
-void setnetgrent __P((const char *));
-struct netgrent *getnetgrent __P((void));
-void endnetgrent __P((void));
+int innetgr(const char * name, const char *host, const char *user, const char *domain);
+int	getnetgrent(char **host, char **user, char **domain);
+void endnetgrent(void);
+void setnetgrent(const char *netgroup);
 __END_DECLS
 
 #endif /* !_NETGR_H_ */

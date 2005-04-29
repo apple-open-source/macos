@@ -1,0 +1,182 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+Rows can exist by themselves and as contents of views.  Row assignment
+implies that a copy of the contents of the originating row is made.
+<P>
+
+A row is implemented as an unattached view with exactly one element.
+
+<P>
+
+
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_Row_Allocate___"><dt>
+	  <nobr>
+	  static <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+	  <b>Allocate</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Row_ConcatRow_const__"><dt>
+	  <nobr>
+	  void 
+	  <b>ConcatRow</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Add all properties and values into this row</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Row_Release_c4_Cursor__"><dt>
+	  <nobr>
+	  static void 
+	  <b>Release</b> (<A HREF="c4_Cursor.html" >c4_Cursor</A>);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Row_c4_Row__"><dt>
+	  <nobr>
+	  
+	  <b>c4_Row</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a row with no properties</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Row_c4_Row_const_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Row</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a row from another oneConstruct a row copy from a row reference</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Row_c4_Row_const_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Row</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a row from another oneConstruct a row copy from a row reference</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Row_operator___const__"><dt>
+	  <nobr>
+	  <A HREF="c4_Row.html" >c4_Row</A>&#38; 
+	  <b>operator= </b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Assign a copy of another row to this oneCopy another row to this one</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Row_operator___const__"><dt>
+	  <nobr>
+	  <A HREF="c4_Row.html" >c4_Row</A>&#38; 
+	  <b>operator= </b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Assign a copy of another row to this oneCopy another row to this one</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Row__c4_Row__"><dt>
+	  <nobr>
+	  
+	  <b>~c4_Row</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Destructor</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_RowRef_Container___const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b><A HREF='c4_RowRef.html'>c4_RowRef</A>::Container</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the underlying container view</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_RowRef_operator_____const"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+	  <b><A HREF='c4_RowRef.html'>c4_RowRef</A>::operator& </b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the cursor associated to this row</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_RowRef_operator___const__"><dt>
+	  <nobr>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+	  <b><A HREF='c4_RowRef.html'>c4_RowRef</A>::operator= </b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Assign the value of another row to this one</font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_Row</b>
+</font>
+
+</body></html>

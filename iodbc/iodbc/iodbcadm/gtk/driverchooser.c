@@ -1,7 +1,7 @@
 /*
  *  driverchooser.c
  *
- *  $Id: driverchooser.c,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: driverchooser.c,v 1.3 2004/11/11 01:52:39 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -68,11 +68,15 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <iodbc.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "gui.h"
+#include "../gui.h"
 #include "img.xpm"
+
+#include "dlf.h"
+#include "dlproc.h"
 
 char *szDriverColumnNames[] = {
   "Name",
@@ -84,115 +88,206 @@ char *szDriverColumnNames[] = {
 
 
 void
-adddrivers_to_list (GtkWidget *widget, BOOL isTrs)
+adddrivers_to_list (GtkWidget *widget, GtkWidget *dlg)
 {
-  char *curr, *buffer = (char *) malloc (sizeof (char) * 65536), *szDriver;
-  char driver[1024], _date[1024], _size[1024];
-  char *data[4];
-  int len, row = 0, i;
-  BOOL careabout;
-  UWORD confMode = ODBC_USER_DSN;
+  SQLCHAR drvdesc[1024], drvattrs[1024], driver[1024], size[64];
+  SQLCHAR *data[4];
+  void *handle;
   struct stat _stat;
+  SQLSMALLINT len, len1;
+  SQLRETURN ret;
+  HENV henv, drv_henv;
+  HDBC drv_hdbc;
+  pSQLGetInfoFunc funcHdl;
+  pSQLAllocHandle allocHdl;
+  pSQLAllocEnv allocEnvHdl = NULL;
+  pSQLAllocConnect allocConnectHdl = NULL;
+  pSQLFreeHandle freeHdl;
+  pSQLFreeEnv freeEnvHdl;
+  pSQLFreeConnect freeConnectHdl;
 
-  if (!buffer || !GTK_IS_CLIST (widget))
+  if (!GTK_IS_CLIST (widget))
     return;
   gtk_clist_clear (GTK_CLIST (widget));
 
-  /* Get the current config mode */
-  while (confMode != ODBC_SYSTEM_DSN + 1)
+  /* Create a HENV to get the list of drivers then */
+  ret = SQLAllocHandle (SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
+  if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
     {
-      /* Get the list of drivers in the user context */
-      SQLSetConfigMode (confMode);
-#ifdef WIN32
-      len =
-	  SQLGetPrivateProfileString (isTrs ? "ODBC 32 bit Translators" :
-	  "ODBC 32 bit Drivers", NULL, "", buffer, 65535, "odbcinst.ini");
-#else
-      len =
-	  SQLGetPrivateProfileString (isTrs ? "ODBC Translators" :
-	  "ODBC Drivers", NULL, "", buffer, 65535, "odbcinst.ini");
-#endif
-      if (len)
-	goto process;
-
+      _iodbcdm_nativeerrorbox (dlg, henv, SQL_NULL_HANDLE, SQL_NULL_HANDLE);
       goto end;
-
-    process:
-      for (curr = buffer; *curr; curr += (STRLEN (curr) + 1))
-	{
-	  /* Shadowing system odbcinst.ini */
-	  for (i = 0, careabout = TRUE; i < GTK_CLIST (widget)->rows; i++)
-	    {
-	      gtk_clist_get_text (GTK_CLIST (widget), i, 0, &szDriver);
-	      if (!strcmp (szDriver, curr))
-		{
-		  careabout = FALSE;
-		  break;
-		}
-	    }
-
-	  if (!careabout)
-	    continue;
-
-	  SQLSetConfigMode (confMode);
-#ifdef WIN32
-	  SQLGetPrivateProfileString (isTrs ? "ODBC 32 bit Translators" :
-	      "ODBC 32 bit Drivers", curr, "", driver, sizeof (driver),
-	      "odbcinst.ini");
-#else
-	  SQLGetPrivateProfileString (isTrs ? "ODBC Translators" :
-	      "ODBC Drivers", curr, "", driver, sizeof (driver),
-	      "odbcinst.ini");
-#endif
-
-	  /* Check if the driver is installed */
-	  if (strcasecmp (driver, "Installed"))
-	    goto end;
-
-	  /* Get the driver library name */
-	  SQLSetConfigMode (confMode);
-	  if (!SQLGetPrivateProfileString (curr,
-		  isTrs ? "Translator" : "Driver", "", driver,
-		  sizeof (driver), "odbcinst.ini"))
-	    {
-	      SQLSetConfigMode (confMode);
-	      SQLGetPrivateProfileString ("Default",
-		  isTrs ? "Translator" : "Driver", "", driver,
-		  sizeof (driver), "odbcinst.ini");
-	    }
-
-	  if (STRLEN (curr) && STRLEN (driver))
-	    {
-	      data[0] = curr;
-	      data[1] = driver;
-
-	      /* Get some information about the driver */
-	      if (!stat (driver, &_stat))
-		{
-		  sprintf (_size, "%d Kb", _stat.st_size / 1024);
-		  sprintf (_date, "%s", ctime (&_stat.st_mtime));
-		  data[2] = _date;
-		  data[3] = _size;
-		  gtk_clist_append (GTK_CLIST (widget), data);
-		}
-	    }
-	}
-
-    end:
-      if (confMode == ODBC_USER_DSN)
-	confMode = ODBC_SYSTEM_DSN;
-      else
-	confMode = ODBC_SYSTEM_DSN + 1;
     }
 
+  /* Set the version ODBC API to use */
+  SQLSetEnvAttr (henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER) SQL_OV_ODBC3,
+      SQL_IS_INTEGER);
+
+  /* Get the list of drivers */
+  ret =
+      SQLDrivers (henv, SQL_FETCH_FIRST, drvdesc,
+      sizeof (drvdesc) / sizeof (SQLTCHAR), &len, drvattrs,
+      sizeof (drvattrs) / sizeof (SQLTCHAR), &len1);
+  if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO
+      && ret != SQL_NO_DATA)
+    {
+      _iodbcdm_nativeerrorbox (dlg, henv, SQL_NULL_HANDLE, SQL_NULL_HANDLE);
+      goto error;
+    }
+
+  while (ret != SQL_NO_DATA)
+    {
+      data[0] = drvdesc;
+
+      /* Get the driver library name */
+      SQLSetConfigMode (ODBC_BOTH_DSN);
+      SQLGetPrivateProfileString (drvdesc, "Driver", "", driver,
+	  sizeof (driver) / sizeof (SQLTCHAR), "odbcinst.ini");
+      if (driver[0] == '\0')
+		  SQLGetPrivateProfileString ("Default", "Driver", "", driver,
+	    sizeof (driver) / sizeof (SQLTCHAR), "odbcinst.ini");
+      if (driver[0] == '\0')
+		  {
+		    data[0] = NULL;
+			 goto skip;
+		  }
+
+      data[1] = driver;
+
+      drv_hdbc = NULL;
+      drv_henv = NULL;
+
+      if ((handle = (void *) DLL_OPEN (driver)) != NULL)
+			   {
+	  if ((allocHdl =
+		  (pSQLAllocHandle) DLL_PROC (handle,
+		      "SQLAllocHandle")) != NULL)
+	    {
+	      ret = allocHdl (SQL_HANDLE_ENV, SQL_NULL_HANDLE, &drv_henv);
+	      if (ret == SQL_ERROR)
+		goto nodriverver;
+	      ret = allocHdl (SQL_HANDLE_DBC, drv_henv, &drv_hdbc);
+	      if (ret == SQL_ERROR)
+		goto nodriverver;
+				}
+	  else
+			   {
+	      if ((allocEnvHdl =
+		      (pSQLAllocEnv) DLL_PROC (handle,
+			  "SQLAllocEnv")) != NULL)
+		{
+		  ret = allocEnvHdl (&drv_henv);
+		  if (ret == SQL_ERROR)
+		    goto nodriverver;
+					 }
+	      else
+		goto nodriverver;
+
+	      if ((allocConnectHdl =
+		      (pSQLAllocConnect) DLL_PROC (handle,
+			  "SQLAllocConnect")) != NULL)
+		{
+		  ret = allocConnectHdl (drv_henv, &drv_hdbc);
+		  if (ret == SQL_ERROR)
+		    goto nodriverver;
+					 }
+	      else
+		goto nodriverver;
+				}
+
+	  if ((funcHdl =
+		  (pSQLGetInfoFunc) DLL_PROC (handle, "SQLGetInfo")) != NULL)
+			   {
+				  /* Retrieve some informations */
+	      ret =
+		  funcHdl (drv_hdbc, SQL_DRIVER_VER, drvattrs,
+		  sizeof (drvattrs), &len);
+				  if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
+				    {
+					   unsigned int z;
+						/* Drop the description if one provided */
+		  for (z = 0; ((char *) drvattrs)[z]; z++)
+		    if (((char *) drvattrs)[z] == ' ')
+		      ((char *) drvattrs)[z] = '\0';
+						data[2] = drvattrs;
+					 }
+	      else
+		goto nodriverver;
+				}
+	  else
+	    goto nodriverver;
+		  }
+      else
+		  {
+	nodriverver:
+	  data[2] = "##.##";
+		  }
+
+      if (drv_hdbc || drv_henv)
+	{
+	  if (allocConnectHdl &&
+	      (freeConnectHdl =
+		  (pSQLFreeConnect) DLL_PROC (handle,
+		      "SQLFreeConnect")) != NULL)
+		   {
+	      freeConnectHdl (drv_hdbc);
+	      drv_hdbc = NULL;
+	    }
+
+	  if (allocEnvHdl &&
+	      (freeEnvHdl =
+		  (pSQLFreeEnv) DLL_PROC (handle, "SQLFreeEnv")) != NULL)
+	    {
+	      freeEnvHdl (drv_henv);
+	      drv_henv = NULL;
+	    }
+			}
+
+       if ((drv_hdbc || drv_henv) &&
+	  (freeHdl =
+	      (pSQLFreeHandle) DLL_PROC (handle, "SQLFreeHandle")) != NULL)
+			{
+	  if (drv_hdbc)
+	    freeHdl (SQL_HANDLE_DBC, drv_hdbc);
+	  if (drv_henv)
+	    freeHdl (SQL_HANDLE_ENV, drv_henv);
+			}
+
+      DLL_CLOSE (handle);
+
+       /* Get the size of the driver */
+      if (!stat (driver, &_stat))
+		   {
+	  sprintf (size, "%d Kb", (int) (_stat.st_size / 1024));
+			  data[3] = size;
+			}
+      else
+	data[3] = "-";
+
+      gtk_clist_append (GTK_CLIST (widget), data);
+
+    skip:
+       ret = SQLDrivers (henv, SQL_FETCH_NEXT, drvdesc,
+	  sizeof (drvdesc) / sizeof (SQLTCHAR), &len, drvattrs,
+	  sizeof (drvattrs) / sizeof (SQLTCHAR), &len1);
+      if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO
+	  && ret != SQL_NO_DATA)
+		   {
+	  _iodbcdm_nativeerrorbox (dlg, henv, SQL_NULL_HANDLE,
+	      SQL_NULL_HANDLE);
+			  goto error;
+			}
+    }
+
+error:
+  /* Clean all that */
+  SQLFreeHandle (SQL_HANDLE_ENV, henv);
+
+end:
   if (GTK_CLIST (widget)->rows > 0)
     {
       gtk_clist_columns_autosize (GTK_CLIST (widget));
       gtk_clist_sort (GTK_CLIST (widget));
     }
-
-  /* Make the clean up */
-  free (buffer);
 }
 
 
@@ -439,7 +534,7 @@ create_driverchooser (HWND hwnd, TDRIVERCHOOSER *choose_t)
 
   gtk_window_add_accel_group (GTK_WINDOW (driverchooser), accel_group);
 
-  adddrivers_to_list (clist1, FALSE);
+  adddrivers_to_list (clist1, driverchooser);
 
   choose_t->driverlist = clist1;
   choose_t->driver = NULL;

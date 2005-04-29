@@ -2,19 +2,15 @@
 
   main.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: eban $
+  $Date: 2004/10/31 16:06:57 $
   created at: Fri Aug 19 13:19:58 JST 1994
 
-  Copyright (C) 1993-2000 Yukihiro Matsumoto
+  Copyright (C) 1993-2003 Yukihiro Matsumoto
 
 **********************************************************************/
 
 #include "ruby.h"
-
-#ifdef DJGPP
-unsigned int _stklen = 0x180000;
-#endif
 
 #ifdef __human68k__
 int _stacksize = 262144;
@@ -29,7 +25,7 @@ int _CRT_glob = 0;
 #endif
 
 /* to link startup code with ObjC support */
-#if defined(__APPLE__) && defined(__MACH__)
+#if (defined(__APPLE__) || defined(__NeXT__)) && defined(__MACH__)
 static void objcdummyfunction( void ) { objc_msgSend(); }
 #endif
 
@@ -38,7 +34,7 @@ main(argc, argv, envp)
     int argc;
     char **argv, **envp;
 {
-#if defined(NT)
+#ifdef _WIN32
     NtInitialize(&argc, &argv);
 #endif
 #if defined(__MACOS__) && defined(__MWERKS__)

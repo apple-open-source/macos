@@ -65,13 +65,10 @@
 // Hashtable class, used to implement the hashed associative containers
 // hash_set, hash_map, hash_multiset, and hash_multimap.
 
-#include <bits/stl_algobase.h>
-#include <bits/stl_alloc.h>
-#include <bits/stl_construct.h>
+#include <vector>
+#include <iterator>
 #include <bits/stl_algo.h>
-#include <bits/stl_uninitialized.h>
 #include <bits/stl_function.h>
-#include <bits/stl_vector.h>
 #include <ext/stl_hash_fun.h>
 
 namespace __gnu_cxx
@@ -86,6 +83,7 @@ using std::_Destroy;
 using std::distance;
 using std::vector;
 using std::pair;
+using std::__iterator_category;
 
 template <class _Val>
 struct _Hashtable_node
@@ -136,10 +134,6 @@ struct _Hashtable_iterator {
   pointer operator->() const { return &(operator*()); }
   iterator& operator++();
   iterator operator++(int);
-  bool operator==(const iterator& __it) const
-    { return _M_cur == __it._M_cur; }
-  bool operator!=(const iterator& __it) const
-    { return _M_cur != __it._M_cur; }
 };
 
 
@@ -175,11 +169,81 @@ struct _Hashtable_const_iterator {
   pointer operator->() const { return &(operator*()); }
   const_iterator& operator++();
   const_iterator operator++(int);
-  bool operator==(const const_iterator& __it) const 
-    { return _M_cur == __it._M_cur; }
-  bool operator!=(const const_iterator& __it) const 
-    { return _M_cur != __it._M_cur; }
 };
+
+/* APPLE LOCAL begin libstdc++ debug mode fix */
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator==(const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur == __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator==(const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur == __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator==(const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur == __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator==(const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur == __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator!=(const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur != __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator!=(const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur != __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator!=(const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur != __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator!=(const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur != __rhs._M_cur; }
+/* APPLE LOCAL end libstdc++ debug mode fix */
 
 // Note: assumes long is at least 32 bits.
 enum { __stl_num_primes = 28 };
@@ -609,11 +673,28 @@ bool operator==(const hashtable<_Val,_Key,_HF,_Ex,_Eq,_All>& __ht1,
   for (size_t __n = 0; __n < __ht1._M_buckets.size(); ++__n) {
     _Node* __cur1 = __ht1._M_buckets[__n];
     _Node* __cur2 = __ht2._M_buckets[__n];
-    for ( ; __cur1 && __cur2 && __cur1->_M_val == __cur2->_M_val;
+    // Check same length of lists
+    for ( ; __cur1 && __cur2;
           __cur1 = __cur1->_M_next, __cur2 = __cur2->_M_next)
       {}
     if (__cur1 || __cur2)
       return false;
+    // Now check one's elements are in the other
+    for (__cur1 = __ht1._M_buckets[__n] ; __cur1; __cur1 = __cur1->_M_next)
+    {
+      bool _found__cur1 = false;
+      for (_Node* __cur2 = __ht2._M_buckets[__n];
+           __cur2; __cur2 = __cur2->_M_next)
+      {
+        if (__cur1->_M_val == __cur2->_M_val)
+        {
+          _found__cur1 = true;
+          break;
+        }
+      }
+      if (!_found__cur1)
+        return false;
+    }
   }
   return true;
 }  

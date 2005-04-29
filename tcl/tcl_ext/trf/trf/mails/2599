@@ -1,0 +1,498 @@
+MIME-Version: 1.0
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m13wHZP-00028TC; Thu, 16 Nov 2000 06:26:47 +0100 (MET)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Thu Nov 16 06:20:42 2000
+Received: from base486.home.org (root@imdave.pr.mcs.net [205.164.3.77])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id CAA04803
+	for <a.kupries@westend.com>; Thu, 16 Nov 2000 02:23:45 +0100 (MET)
+Received: from mcs.net (netscape@base586.home.org [10.0.0.2])
+	by base486.home.org (8.11.0/8.11.0) with ESMTP id eAFNwtO23081;
+	Wed, 15 Nov 2000 18:00:24 -0600 (CST)
+X-From_: imdave@mcs.net  Thu Nov 16 02:23:53 2000
+Sender: netscape@mcs.net
+Message-ID: <3A13233D.68E8B03F@mcs.net>
+Date: Wed, 15 Nov 2000 17:58:53 -0600
+From: Dave Bodenstab <imdave@mcs.net>
+Organization: Dave's Home Machine
+X-Mailer: Mozilla 4.75 [en] (X11; U; FreeBSD 2.2.5-RELEASE i386)
+X-Accept-Language: en
+To: a.kupries@westend.com
+Subject: Suggestion (patch) for trf & trfcrypt
+Content-Type: multipart/mixed;
+              boundary="------------CC45700125D5F12EF515CFAC"
+
+--------------CC45700125D5F12EF515CFAC
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+              charset="us-ascii"
+
+
+I like tcl's usual habit of providing a list of valid options
+to a command in the error message, ie.
+
+  % clock ??
+  bad option "??": must be clicks, format, scan, or seconds
+
+I enclose patches to trf2.1 and trfcrypt2.0p2 to make the error
+messages more informative.  Hope I've got them all correct.
+Perhaps you would consider making these changes.
+
+Thanks.
+
+Dave Bodenstab
+imdave@mcs.net
+--------------CC45700125D5F12EF515CFAC
+Content-Disposition: inline;
+ filename="trf2.1-patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+              name="trf2.1-patch";
+              charset="iso-8859-1"
+
+--- ./generic/ref_opt.c	1999/10/23 17:05:14	2.1
++++ ./generic/ref_opt.c	2000/11/15 23:18:28	2.1.1.1
+@@ -207,7 +207,7 @@
+ =
+
+   if (baseOptions->attach =3D=3D (Tcl_Channel) NULL) /* IMMEDIATE? */ {
+     if (o->mode =3D=3D TRF_UNKNOWN_MODE) {
+-      Tcl_AppendResult (interp, "mode not defined", (char*) NULL);
++      Tcl_AppendResult (interp, "-mode option not set", (char*) NULL);
+       return TCL_ERROR;
+     }
+   } else /* ATTACH */ {
+@@ -285,7 +285,7 @@
+     unknown_mode:
+       Tcl_AppendResult (interp, "unknown mode '", (char*) NULL);
+       Tcl_AppendResult (interp, value, (char*) NULL);
+-      Tcl_AppendResult (interp, "'", (char*) NULL);
++      Tcl_AppendResult (interp, "', should be 'read' or 'write'", (char*=
+) NULL);
+       return TCL_ERROR;
+       break;
+     } /* switch optvalue */
+@@ -316,7 +316,7 @@
+  unknown_option:
+   Tcl_AppendResult (interp, "unknown option '", (char*) NULL);
+   Tcl_AppendResult (interp, optname, (char*) NULL);
+-  Tcl_AppendResult (interp, "'", (char*) NULL);
++  Tcl_AppendResult (interp, "', should be '-mode' or '-command'", (char*=
+) NULL);
+   return TCL_ERROR;
+ }
+ =0C
+--- ./generic/zip_opt.c	1999/10/20 22:47:05	2.1
++++ ./generic/zip_opt.c	2000/11/15 23:18:30	2.1.1.1
+@@ -196,7 +196,7 @@
+ =
+
+   if (baseOptions->attach =3D=3D (Tcl_Channel) NULL) /* IMMEDIATE? */ {
+     if (o->mode =3D=3D TRF_UNKNOWN_MODE) {
+-      Tcl_AppendResult (interp, "mode not defined", (char*) NULL);
++      Tcl_AppendResult (interp, "-mode option not set", (char*) NULL);
+       return TCL_ERROR;
+     }
+   } else /* ATTACH */ {
+@@ -307,7 +307,7 @@
+     unknown_mode:
+       Tcl_AppendResult (interp, "unknown mode '", (char*) NULL);
+       Tcl_AppendResult (interp, value, (char*) NULL);
+-      Tcl_AppendResult (interp, "'", (char*) NULL);
++      Tcl_AppendResult (interp, "', should be 'compress' or 'decompress'=
+", (char*) NULL);
+       return TCL_ERROR;
+       break;
+     } /* switch optvalue */
+@@ -345,7 +345,7 @@
+  unknown_option:
+   Tcl_AppendResult (interp, "unknown option '", (char*) NULL);
+   Tcl_AppendResult (interp, optname, (char*) NULL);
+-  Tcl_AppendResult (interp, "'", (char*) NULL);
++  Tcl_AppendResult (interp, "', should be '-level', '-mode' or '-nowrap'=
+", (char*) NULL);
+   return TCL_ERROR;
+ }
+ =0C
+--- ./generic/dig_opt.c	1999/10/15 23:08:25	2.1
++++ ./generic/dig_opt.c	2000/11/15 23:18:25	2.1.1.1
+@@ -425,7 +425,8 @@
+   return TCL_OK;
+ =
+
+  unknown_option:
+-  Tcl_AppendResult (interp, "unknown option '", optname, "'", (char*) NU=
+LL);
++  Tcl_AppendResult (interp, "unknown option '", optname, "', should be '=
+-mode', '-matchflag', '-write-destination', '-write-type', '-read-destina=
+tion' or '-read-type'", (char*) NULL);
++   =
+
+   return TCL_ERROR;
+ }
+ =0C
+@@ -565,7 +566,7 @@
+ =
+
+   default:
+   unknown_mode:
+-    Tcl_AppendResult (interp, "unknown mode '", modeString, "'", (char*)=
+ NULL);
++    Tcl_AppendResult (interp, "unknown mode '", modeString, "', should b=
+e 'absorb', 'write' or 'transparent'", (char*) NULL);
+     return TCL_ERROR;
+   }
+ =
+
+--- ./generic/convert.c	1999/10/22 23:15:20	2.1
++++ ./generic/convert.c	2000/11/15 23:18:24	2.1.1.1
+@@ -189,7 +189,7 @@
+ =
+
+   if (baseOptions->attach =3D=3D (Tcl_Channel) NULL) /* IMMEDIATE? */ {
+     if (o->mode =3D=3D TRF_UNKNOWN_MODE) {
+-      Tcl_AppendResult (interp, "mode not defined", (char*) NULL);
++      Tcl_AppendResult (interp, "-mode option not set", (char*) NULL);
+       return TCL_ERROR;
+     }
+   } else /* ATTACH */ {
+@@ -261,7 +261,7 @@
+     unknown_mode:
+       Tcl_AppendResult (interp, "unknown mode '", (char*) NULL);
+       Tcl_AppendResult (interp, value, (char*) NULL);
+-      Tcl_AppendResult (interp, "'", (char*) NULL);
++      Tcl_AppendResult (interp, "', should be 'encode' or 'decode'", (ch=
+ar*) NULL);
+       return TCL_ERROR;
+       break;
+     } /* switch optvalue */
+@@ -277,7 +277,7 @@
+  unknown_option:
+   Tcl_AppendResult (interp, "unknown option '", (char*) NULL);
+   Tcl_AppendResult (interp, optname, (char*) NULL);
+-  Tcl_AppendResult (interp, "'", (char*) NULL);
++  Tcl_AppendResult (interp, "', should be '-mode'", (char*) NULL);
+   return TCL_ERROR;
+ }
+ =0C
+--- ./generic/registry.c	2000/08/09 19:13:17	2.1
++++ ./generic/registry.c	2000/11/15 23:18:29	2.1.1.1
+@@ -780,6 +780,7 @@
+   Trf_BaseOptions    baseOpt;
+   int                mode;
+   int                wrong_mod2;
++  int                wrong_number;
+ =
+
+   START (TrfExecuteObjCmd);
+ #ifdef TRF_DEBUG
+@@ -821,12 +822,7 @@
+       break;
+     }
+ =
+
+-    if (objc < 2) {
+-      /* option, but without argument */
+-      Tcl_AppendResult (interp, cmd, ": wrong # args", (char*) NULL);
+-      OT;
+-      goto cleanup_after_error;      =
+
+-    }
++    wrong_number =3D (objc < 2); /* option, but without argument */
+ =
+
+     optarg =3D objv [1];
+ =
+
+@@ -844,6 +840,12 @@
+ 	if (0 !=3D strncmp (option, "-attach", len))
+ 	  goto check_for_trans_option;
+ =
+
++	if (wrong_number) {
++	  Tcl_AppendResult (interp, cmd, ": wrong # args, option \"", option, "=
+\" requires an argument", (char*) NULL);
++	  OT;
++	  goto cleanup_after_error;      =
+
++	}
++
+ 	baseOpt.attach =3D Tcl_GetChannel (interp,
+ 					 Tcl_GetStringFromObj (optarg, NULL),
+ 					 &baseOpt.attach_mode);
+@@ -857,6 +859,12 @@
+ 	if (0 !=3D strncmp (option, "-in", len))
+ 	  goto check_for_trans_option;
+ =
+
++	if (wrong_number) {
++	  Tcl_AppendResult (interp, cmd, ": wrong # args, option \"", option, "=
+\" requires an argument", (char*) NULL);
++	  OT;
++	  goto cleanup_after_error;      =
+
++	}
++
+ 	baseOpt.source =3D Tcl_GetChannel (interp,
+ 					 Tcl_GetStringFromObj (optarg, NULL),
+ 					 &mode);
+@@ -876,6 +884,12 @@
+ 	if (0 !=3D strncmp (option, "-out", len))
+ 	  goto check_for_trans_option;
+ =
+
++	if (wrong_number) {
++	  Tcl_AppendResult (interp, cmd, ": wrong # args, option \"", option, "=
+\" requires an argument", (char*) NULL);
++	  OT;
++	  goto cleanup_after_error;      =
+
++	}
++
+ 	baseOpt.destination =3D Tcl_GetChannel (interp,
+ 					      Tcl_GetStringFromObj (optarg,
+ 								    NULL),
+@@ -899,12 +913,24 @@
+ 	if (0 !=3D strncmp (option, "-seekpolicy", len))
+ 	  goto check_for_trans_option;
+ =
+
++	if (wrong_number) {
++	  Tcl_AppendResult (interp, cmd, ": wrong # args, option \"", option, "=
+\" requires an argument", (char*) NULL);
++	  OT;
++	  goto cleanup_after_error;      =
+
++	}
++
+ 	baseOpt.policy =3D optarg;
+ 	Tcl_IncrRefCount (optarg);
+ 	break;
+ =
+
+       default:
+       check_for_trans_option:
++	if (wrong_number) {
++	  Tcl_AppendResult (interp, cmd, ": wrong # args, all options require a=
+n argument", (char*) NULL);
++	  OT;
++	  goto cleanup_after_error;      =
+
++	}
++
+ 	if ((*OPT->setObjProc) =3D=3D NULL) {
+ 	  res =3D SET_OPTION     (option, Tcl_GetStringFromObj (optarg, NULL));=
+
+ 	} else {
+@@ -1015,7 +1041,7 @@
+ unknown_option:
+   PRINT ("Unknown option \"%s\"\n", option); FL; OT;
+ =
+
+-  Tcl_AppendResult (interp, cmd, ": unknown option '", option, "'",
++  Tcl_AppendResult (interp, cmd, ": unknown option '", option, "', shoul=
+d be '-attach/in/out' or '-seekpolicy'",
+ 		    (char*) NULL);
+   /* fall through to cleanup */
+ =
+
+--- ./generic/bz2_opt.c	1999/10/03 21:06:33	2.1
++++ ./generic/bz2_opt.c	2000/11/15 23:18:23	2.1.1.1
+@@ -195,7 +195,7 @@
+ =
+
+   if (baseOptions->attach =3D=3D (Tcl_Channel) NULL) /* IMMEDIATE? */ {
+     if (o->mode =3D=3D TRF_UNKNOWN_MODE) {
+-      Tcl_AppendResult (interp, "mode not defined", (char*) NULL);
++      Tcl_AppendResult (interp, "-mode option not set", (char*) NULL);
+       return TCL_ERROR;
+     }
+   } else /* ATTACH */ {
+@@ -304,7 +304,7 @@
+     unknown_mode:
+       Tcl_AppendResult (interp, "unknown mode '", (char*) NULL);
+       Tcl_AppendResult (interp, value, (char*) NULL);
+-      Tcl_AppendResult (interp, "'", (char*) NULL);
++      Tcl_AppendResult (interp, "', should be 'compress' or 'decompress'=
+", (char*) NULL);
+       return TCL_ERROR;
+       break;
+     } /* switch optvalue */
+@@ -320,7 +320,7 @@
+  unknown_option:
+   Tcl_AppendResult (interp, "unknown option '", (char*) NULL);
+   Tcl_AppendResult (interp, optname, (char*) NULL);
+-  Tcl_AppendResult (interp, "'", (char*) NULL);
++  Tcl_AppendResult (interp, "', should be '-level' or '-mode'", (char*) =
+NULL);
+   return TCL_ERROR;
+ }
+ =0C
+
+--------------CC45700125D5F12EF515CFAC
+Content-Disposition: inline;
+ filename="trfcrypt2.0p2-patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+              name="trfcrypt2.0p2-patch";
+              charset="iso-8859-1"
+
+--- ./generic/safer.c	1999/10/10 18:20:22	20.2
++++ ./generic/safer.c	2000/11/15 19:38:34	20.2.1.1
+@@ -481,7 +481,7 @@
+  unknown_option:
+   Tcl_AppendResult (interp, "unknown option '", (char*) NULL);
+   Tcl_AppendResult (interp, optname, (char*) NULL);
+-  Tcl_AppendResult (interp, "'", (char*) NULL);
++  Tcl_AppendResult (interp, "', should be -rounds or -strong-schedule", =
+(char*) NULL);
+   return TCL_ERROR;
+ }
+ =0C
+--- ./generic/c_opt.c	1999/10/10 18:20:21	20.2
++++ ./generic/c_opt.c	2000/11/15 19:38:32	20.2.1.1
+@@ -244,7 +244,7 @@
+   }
+ =
+
+   if (o->direction =3D=3D TRFCRYPT_UNKNOWN_MODE) {
+-    Tcl_AppendResult (interp, "direction not specified", (char*) NULL);
++    Tcl_AppendResult (interp, "-direction not specified", (char*) NULL);=
+
+     return TCL_ERROR;
+   }
+ =
+
+@@ -253,7 +253,7 @@
+    */
+ =
+
+   if (o->keyData =3D=3D NULL) {
+-    Tcl_AppendResult (interp, "key not specified", (char*) NULL);
++    Tcl_AppendResult (interp, "-key not specified", (char*) NULL);
+     return TCL_ERROR;
+   }
+ =
+
+@@ -340,7 +340,7 @@
+       default:
+       unknown_direction:
+ 	Tcl_AppendResult (interp,
+-			  "unknown direction \"", value, "\"",
++			  "unknown value for -direction \"", value, "\", must be encrypt or d=
+ecrypt",
+ 			  (char*) NULL);
+ 	return TCL_ERROR;
+       }
+@@ -380,6 +380,7 @@
+   }
+ =
+
+   Tcl_AppendResult (interp, "unknown option '", optname, "'", (char*) NU=
+LL);
++  Tcl_AppendResult (interp, "unknown option '", optname, "', should be -=
+direction, -key or -key-type", (char*) NULL);
+   return TCL_ERROR;
+ }
+ =0C
+--- ./generic/c_util.c	1999/10/11 21:23:07	20.2
++++ ./generic/c_util.c	2000/11/15 19:38:32	20.2.1.1
+@@ -316,8 +316,8 @@
+ =
+
+   default:
+   unknown_type:
+-    Tcl_AppendResult (interp, "unknown ", dataName,
+-		      "-type \"", typeString, "\"",
++    Tcl_AppendResult (interp, "bad value for -", dataName,
++		      "-type: \"", typeString, "\", must be data or channel",
+ 		      (char*) NULL);
+     return TCL_ERROR;
+   }
+--- ./generic/bc_opt.c	1999/10/26 16:41:18	20.2
++++ ./generic/bc_opt.c	2000/11/15 19:38:31	20.2.1.1
+@@ -265,23 +265,23 @@
+ =
+
+ =
+
+   if (o->direction =3D=3D TRFCRYPT_UNKNOWN_MODE) {
+-    Tcl_AppendResult (interp, "direction not specified", (char*) NULL);
++    Tcl_AppendResult (interp, "-direction not specified", (char*) NULL);=
+
+     return TCL_ERROR;
+   }
+ =
+
+   if (o->operation_mode =3D=3D TRFCRYPT_UNKNOWN_MODE) {
+-    Tcl_AppendResult (interp, "mode not specified", (char*) NULL);
++    Tcl_AppendResult (interp, "-mode not specified", (char*) NULL);
+     return TCL_ERROR;
+   }
+ =
+
+   if (o->keyData =3D=3D NULL) {
+-    Tcl_AppendResult (interp, "key not specified", (char*) NULL);
++    Tcl_AppendResult (interp, "-key not specified", (char*) NULL);
+     return TCL_ERROR;
+   }
+ =
+
+   if (o->operation_mode >=3D TRFCRYPT_CBC_MODE) {
+     if (o->ivData =3D=3D NULL) {
+-      Tcl_AppendResult (interp, "iv not specified for stream mode",
++      Tcl_AppendResult (interp, "-iv not specified for stream mode",
+ 			(char*) NULL);
+       return TCL_ERROR;
+     }
+@@ -289,7 +289,7 @@
+ =
+
+   if (o->operation_mode >=3D TRFCRYPT_CFB_MODE) {
+     if (o->shift_width < 0) {
+-      Tcl_AppendResult (interp, "shift not specified for feedback mode",=
+
++      Tcl_AppendResult (interp, "-shift not specified for feedback mode"=
+,
+ 			(char*) NULL);
+       return TCL_ERROR;
+     }
+@@ -403,7 +403,7 @@
+ =
+
+       default:
+       unknown_direction:
+-	Tcl_AppendResult (interp, "unknown direction \"", value, "\"",
++	Tcl_AppendResult (interp, "unknown value for -direction \"", value, "\"=
+, must be encrypt or decrypt",
+ 			  (char*) NULL);
+ 	return TCL_ERROR;
+       }
+@@ -443,7 +443,7 @@
+ =
+
+       default:
+       unknown_mode:
+-	Tcl_AppendResult (interp, "unknown mode \"", value, "\"",
++	Tcl_AppendResult (interp, "unknown value for -mode \"", value, "\", mus=
+t be ecb, cbc, cfb or ofb",
+ 			  (char*) NULL);
+ 	return TCL_ERROR;
+       }
+@@ -519,7 +519,7 @@
+ 					 optvalue, (ClientData) o);
+   }
+ =
+
+-  Tcl_AppendResult (interp, "unknown option '", optname, "'", (char*) NU=
+LL);
++  Tcl_AppendResult (interp, "unknown option '", optname, "', should be -=
+direction, -mode, -shift, -key, -key-type, -iv or -iv-type", (char*) NULL=
+);
+   return TCL_ERROR;
+ }
+ =0C
+
+--------------CC45700125D5F12EF515CFAC--

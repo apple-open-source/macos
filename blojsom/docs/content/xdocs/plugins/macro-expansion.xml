@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Macro Expansion plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The macro expansion plugin expands
+                <em>$macro$</em> references that it finds in your blog description and expands
+                them into its full form.
+            </p>
+            <p>
+                It is a timesaver plugin to save you from repeatedly typing in
+                portions of blog entries that you use over and over again. For example, you might want to be
+                able to expand friend's names into URLs that point to their blogs.
+
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                macro-expansion=org.blojsom.plugin.macro.MacroExpansionPlugin
+            </source>
+            <p>
+                You may then add "macro-expansion" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=macro-expansion
+            </source>
+
+            <p>
+                The macro expansion plugin has its own configuration file that is referenced in
+                <em>web.xml</em>. For example:
+            </p>
+            <source>
+                &lt;init-param&gt;
+                &lt;param-name&gt;plugin-macros-expansion&lt;/param-name&gt;
+                &lt;param-value&gt;macros.properties&lt;/param-value&gt;
+                &lt;/init-param&gt;
+            </source>
+            <p>
+
+                The
+                <em>macros.properties</em> file will be located in the respective
+                    <code>/WEB-INF/(user-id)</code> directory and contains
+                <em>key=value</em> pairs like the following:
+            </p>
+            <source>
+                blojsom=http://blojsom.sf.net
+                ypm=Yeah, Pretty Much
+            </source>
+        </section>
+        <section>
+            <title>usage and URL parameters</title>
+            <p>
+                In your entries, simply reference your macros using the
+                <em>$macro$</em> syntax. The
+                <em>$macro$</em> references
+                are also case insensitive.
+            </p>
+            <p>
+
+                For example, "... and then he said, $ypm$ " in your blog description would expand to
+                "... and then he said, Yeah, Pretty Much "
+
+            </p>
+        </section>
+    </body>
+</document>
+

@@ -1,0 +1,139 @@
+This is a summary of user visible changes in srm.
+
+release-1_2_8
+
+	Documentation updates.
+
+release-1_2_7
+
+	Minor bugfixes. Correctly handle symlinks. Build with most
+	recent versions of automake.
+
+release-1_2_6
+
+	BSD variant fixes. Display verbose messages when -f and -v are
+	both specified.
+
+release-1_2_5
+
+	Updated README coverage. Fixed a rare deadlock.
+
+release-1_2_4
+
+	Build on tru64 and Solaris.
+
+release-1_2_3
+
+	None. However, a file descriptor leak is plugged.
+
+release-1_2_2
+
+	-f now really does ignore nonexistant files.
+
+release-1_2_1
+
+	srm will now try and chmod() files without write permission if
+	the user answers yes at the "Remove write-protected file?"
+	prompt or when -f is specified. Note that chmod() will fail
+	unless you own the file, however.
+
+release-1_2_0
+
+	Fixed .spec for rpm 4.
+
+release-1_1_0
+
+	A massive restructuring to allow automake support (no more bad
+	dependancies), cleaner integration of third-party modules (no
+	more phony snprintf on Irix, a cleaner tree_walker coming
+	soon), and an rpm distribution due to popular demand.
+
+release-1_0_0
+
+	Use sprintf()/vsprintf() when snprintf()/vsnprintf() are
+	absent. This allows building on Irix 3.5.
+
+release-0_9_2
+
+	Dynamically search for /dev/urandom rather than at build time,
+	to allow cross-compiling. Generic random module should allow
+	use on systems without kernel entropy devices.
+
+release-0_9_1
+
+	Misc build patches for Solaris 2.7 from Gael Roualland.
+
+release-0_9_0
+
+	Added a new option, -s --simple, which only overwrites the
+	file once, which is much faster than the default behavior.
+	On BSD, check for immutable, append, and nounlink flags before
+	overwriting data. Use nftw and a simple psuedo-random stream instead
+	of fts and /dev/urandom when they are missing, this should allow
+	building on more platforms.
+
+release-0_8_3
+
+	Added a missing overwrite pass. (Thanks to Gael Roualland for
+	sharp proofreading)
+
+release-0_8_2
+
+	Fixed a bug which was truncating some error messages. Special
+	files, and links are now renamed before removal. Fixed a bug
+	which made it unable to remove files from filesystems other
+	than ext2 under linux. (Thanks to Gael Roualland for reporting
+	these three bugs) Added a Credits file.
+
+release-0_8_1
+
+	Fixed a bug where some writes were cached and not sent to
+	disk.
+
+release-0_8_0
+
+	Use random, 14 character alphanumeric sequence to mask the
+	file name rather than a name based on the original. Fixed some
+	minor resource leaks which may have been apparant over
+	extremly long runs. Removed the empty BUGS and TODO lists, and
+	added this list of changes.
+
+release-0_7_0
+
+	Improved ext2 support, srm will not attempt to shred files
+	which have the undeletable, immutable, or append-only
+	attributes set. Ext2 support is always enabled on Linux now,
+	even if the ext2 development libraries are not installed.
+
+release-0_6_0
+
+	Improved file locking, srm now tries to lock the file before
+	overwriting, avoiding trashing locked files.
+
+release-0_5_0
+
+	Improved hard link handling, srm will now only overwrite files
+	when removing the last link.
+
+release-0_4_0
+
+	Improved error handling. Removed a bug where some recursive
+	runs would fail.
+
+release-0_3_0
+
+	Added a configure script and ported to BSD.
+
+release-0_2_0
+
+	Added man page.
+
+release-0_1_1
+
+	Fixed bug which caused srm to fail when removing files on
+	different file systems.
+
+release-0_1_0
+
+	First working version.
+

@@ -29,14 +29,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vfsops.c,v 1.31 2003/09/20 01:30:46 lindak Exp $
+ * $Id: smbfs_vfsops.c,v 1.73 2005/03/09 16:52:00 lindak Exp $
  */
-#ifndef APPLE
-#include "opt_nsmb.h"
-#endif
-#ifndef NETSMB
-#error "SMBFS requires option NETSMB"
-#endif
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -49,20 +43,18 @@
 #include <sys/malloc.h>
 #include <sys/sysctl.h>
 
+#include <sys/kauth.h>
 
-#ifdef APPLE
 #include <sys/syslog.h>
 #include <sys/smb_apple.h>
-#include <sys/iconv.h>
-#endif
+#include <sys/smb_iconv.h>
+#include <sys/mchain.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_dev.h>
-#ifdef APPLE
 #include <netsmb/smb_sleephandler.h>
-#endif
 
 #include <fs/smbfs/smbfs.h>
 #include <fs/smbfs/smbfs_node.h>
@@ -82,7 +74,6 @@ static int smbfs_version = SMBFS_VERSION;
 vm_zone_t smbfsmount_zone;
 #endif
 
-#ifdef APPLE
 #ifdef SYSCTL_DECL
 SYSCTL_DECL(_net_smb);
 #endif
@@ -95,75 +86,36 @@ extern struct sysctl_oid sysctl__net_smb_fs_iconv;
 extern struct sysctl_oid sysctl__net_smb_fs_iconv_add;
 extern struct sysctl_oid sysctl__net_smb_fs_iconv_cslist;
 extern struct sysctl_oid sysctl__net_smb_fs_iconv_drvlist;
-#else /* APPLE */
-#ifdef SYSCTL_DECL
-SYSCTL_DECL(_vfs_smbfs);
-#endif
-SYSCTL_NODE(_vfs, OID_AUTO, smbfs, CTLFLAG_RW, 0, "SMB/CIFS file system");
-SYSCTL_INT(_vfs_smbfs, OID_AUTO, version, CTLFLAG_RD, &smbfs_version, 0, "");
-SYSCTL_INT(_vfs_smbfs, OID_AUTO, debuglevel, CTLFLAG_RW, &smbfs_debuglevel, 0, "");
-#endif /* APPLE */
 
 MALLOC_DEFINE(M_SMBFSHASH, "SMBFS hash", "SMBFS hash table");
 
 
-static int smbfs_mount(struct mount *, char *, caddr_t,
-			struct nameidata *, struct proc *);
-static int smbfs_quotactl(struct mount *, int, uid_t, caddr_t, struct proc *);
-static int smbfs_root(struct mount *, struct vnode **);
-static int smbfs_start(struct mount *, int, struct proc *);
-static int smbfs_statfs(struct mount *, struct statfs *, struct proc *);
-static int smbfs_sync(struct mount *, int, struct ucred *, struct proc *);
-static int smbfs_unmount(struct mount *, int, struct proc *);
+static int smbfs_mount(struct mount *, vnode_t, user_addr_t, vfs_context_t);
+static int smbfs_root(struct mount *, vnode_t *, vfs_context_t);
+static int smbfs_start(struct mount *, int, vfs_context_t);
+static int smbfs_vfs_getattr(struct mount *, struct vfs_attr *, vfs_context_t);
+static int smbfs_sync(struct mount *, int, vfs_context_t);
+static int smbfs_unmount(struct mount *, int, vfs_context_t);
 static int smbfs_init(struct vfsconf *vfsp);
-#ifdef APPLE
-static int smbfs_sysctl(int *, u_int, void*, size_t *, void *, size_t, struct proc *);
-#else
-static int smbfs_uninit(struct vfsconf *vfsp);
-#endif /* APPLE */
+static int smbfs_sysctl(int *, u_int, user_addr_t, size_t *, user_addr_t, size_t, vfs_context_t);
 
-#if defined(APPLE) || __FreeBSD_version < 400009
-static int smbfs_vget(struct mount *mp, void *ino, struct vnode **vpp);
-static int smbfs_fhtovp(struct mount *, struct fid *,
-#ifdef APPLE
-			struct mbuf *, struct vnode **, int *,
-#else
-			struct sockaddr *, struct vnode **, int *,
-#endif /* APPLE */
-			struct ucred **);
-static int smbfs_vptofh(struct vnode *, struct fid *);
-#endif
+static int smbfs_vget(struct mount *, ino64_t , vnode_t *, vfs_context_t);
+static int smbfs_fhtovp(struct mount *, int, unsigned char *, vnode_t *, vfs_context_t);
+static int smbfs_vptofh(vnode_t, int *, unsigned char *, vfs_context_t);
 
 static struct vfsops smbfs_vfsops = {
 	smbfs_mount,
 	smbfs_start,
 	smbfs_unmount,
 	smbfs_root,
-	smbfs_quotactl,
-	smbfs_statfs,
+	NULL,			/* quotactl */
+	smbfs_vfs_getattr,
 	smbfs_sync,
-#if __FreeBSD_version > 400008
-	vfs_stdvget,
-	vfs_stdfhtovp,		/* shouldn't happen */
-	vfs_stdcheckexp,
-	vfs_stdvptofh,		/* shouldn't happen */
-#else
 	smbfs_vget,
 	smbfs_fhtovp,
 	smbfs_vptofh,
-#endif
 	smbfs_init,
-#ifdef APPLE
 	smbfs_sysctl
-#else
-	smbfs_uninit,
-#ifndef FB_RELENG3
-	vfs_stdextattrctl,
-#else
-#define	M_USE_RESERVE	M_KERNEL
-	&sysctl___vfs_smbfs
-#endif
-#endif /* APPLE */
 };
 
 
@@ -176,52 +128,239 @@ MODULE_DEPEND(smbfs, libiconv, 1, 1, 1);
 
 int smbfs_pbuf_freecnt = -1;	/* start out unlimited */
 
+lck_grp_attr_t *co_grp_attr;
+lck_grp_t *co_lck_group;
+lck_attr_t *co_lck_attr;
+lck_grp_attr_t *vcst_grp_attr;
+lck_grp_t *vcst_lck_group;
+lck_attr_t *vcst_lck_attr;
+lck_grp_attr_t *ssst_grp_attr;
+lck_grp_t *ssst_lck_group;
+lck_attr_t *ssst_lck_attr;
+lck_grp_attr_t *iodflags_grp_attr;
+lck_grp_t *iodflags_lck_group;
+lck_attr_t *iodflags_lck_attr;
+lck_grp_attr_t *iodrq_grp_attr;
+lck_grp_t *iodrq_lck_group;
+lck_attr_t *iodrq_lck_attr;
+lck_grp_attr_t *iodev_grp_attr;
+lck_grp_t *iodev_lck_group;
+lck_attr_t *iodev_lck_attr;
+lck_grp_attr_t *srs_grp_attr;
+lck_grp_t *srs_lck_group;
+lck_attr_t *srs_lck_attr;
+lck_grp_attr_t *nbp_grp_attr;
+lck_grp_t *nbp_lck_group;
+lck_attr_t *nbp_lck_attr;
+lck_grp_attr_t   * dev_lck_grp_attr;
+lck_grp_t  * dev_lck_grp;
+lck_attr_t * dev_lck_attr;
+lck_mtx_t * dev_lck;
+lck_grp_attr_t   * hash_lck_grp_attr;
+lck_grp_t  * hash_lck_grp;
+lck_attr_t * hash_lck_attr;
+
+struct smbmnt_carg {
+	vfs_context_t vfsctx;
+	struct mount *mp;
+	int found;
+};
+
 static int
-smbfs_mount(struct mount *mp, char *path, caddr_t data, 
-	struct nameidata *ndp, struct proc *p)
+smb_mnt_callback(struct mount *mp2, void *args)
 {
-	#pragma unused(ndp)
+	struct smbmnt_carg *cargp;
+
+	cargp = (struct smbmnt_carg *)args;
+
+	if (vfs_statfs(mp2)->f_owner !=
+	    kauth_cred_getuid(vfs_context_ucred(cargp->vfsctx)))
+		return (VFS_RETURNED);
+	if (strncmp(vfs_statfs(mp2)->f_mntfromname,
+		    vfs_statfs(cargp->mp)->f_mntfromname, MAXPATHLEN))
+		return (VFS_RETURNED);
+	cargp->found = 1;
+	return (VFS_RETURNED_DONE);
+}
+
+/*
+ * These memberd constants should be in an memberd include file, obviously.
+ *
+ * memberd generates these UUIDs for well-known SIDs, and for translations
+ * which Directory Services doesn't resolve.
+ *
+ * These temporary ids should probably go away altogether.  A better approach
+ * would be for the requests and replies between kernel and memberd to include
+ * a scope or other indication of the server used to translate the identity.
+ * So we might pass our file server's IP up and memberd/DS would use the
+ * appropriate Active Directory or LDAP server, falling back to the file
+ * server itself in the "ad hoc" scenario.
+ */
+#define IS_MEMBERD_TEMPUUID(uuidp) \
+	((*(u_int64_t *)(uuidp) == 0xFFFFEEEEDDDDCCCCULL &&	\
+	  *((u_int32_t *)(uuidp)+2) == 0xBBBBAAAA) ||		\
+	 (*(u_int64_t *)(uuidp) == 0xAAAABBBBCCCCDDDDULL &&	\
+	 *((u_int32_t *)(uuidp)+2) == 0xEEEEFFFF))
+
+static int
+smbfs_aclsflunksniff(struct smbmount *smp, struct smb_cred *scrp)
+{
+	struct smbnode *np = smp->sm_root;
+	struct smb_share *ssp = smp->sm_share;
+	int	error, cerror;
+	struct ntsecdesc	*w_secp = NULL;	/* Wire sec descriptor */
+	struct ntsid *usidp, *gsidp;
+	ntsid_t	kntsid;
+	guid_t	guid;
+	u_int8_t	ntauth[SIDAUTHSIZE] = { 0, 0, 0, 0, 0, 5 };
+	uid_t	uid;
+	u_int16_t	fid = 0;
+
+	/*
+	 * Does the server claim ACL support for this volume?
+	 */
+	if (!(smp->sm_flags & FILE_PERSISTENT_ACLS))
+		goto err;
+
+	/*
+	 * Get a security descriptor from the share's root.
+	 */
+	error = smbfs_smb_tmpopen(np, STD_RIGHT_READ_CONTROL_ACCESS, scrp,
+				  &fid);
+	if (error) {
+		SMBERROR("smbfs_smb_tmpopen error %d\n", error);
+		goto out;
+	}
+	error = smbfs_smb_getsec(ssp, fid, scrp,
+				 OWNER_SECURITY_INFORMATION |
+				 GROUP_SECURITY_INFORMATION, &w_secp);
+	cerror = smbfs_smb_tmpclose(np, fid, scrp);
+	if (cerror)
+		SMBERROR("error %d closing root fid %d\n", cerror, fid);
+	if (error) {
+		SMBERROR("smbfs_smb_getsec error %d\n", error);
+		goto out;
+	}
+	/*
+	 * A null w_secp commonly means a FAT filesystem, but in that
+	 * case the FILE_PERSISTENT_ACL bit should not have been set.
+	 */
+	if (w_secp == NULL) {
+		SMBERROR("null w_secp\n");
+		goto err;
+	}
+	usidp = sdowner(w_secp);
+	if (!usidp) {
+		SMBERROR("null owner\n");
+		goto err;
+	}
+	smb_sid_endianize(usidp);
+	smb_sid2sid16(usidp, &kntsid);
+	error = kauth_cred_ntsid2guid(&kntsid, &guid);
+	if (error) {
+		SMBERROR("kauth_cred_ntsid2guid error %d (owner)\n", error);
+		goto out;
+	}
+	if (IS_MEMBERD_TEMPUUID(&guid)) {
+		SMBERROR("user sid %s didnt map\n", smb_sid2str(usidp));
+		goto err;
+	}
+	gsidp = sdgroup(w_secp);
+	if (!gsidp) {
+		SMBERROR("null group\n");
+		goto err;
+	}
+	smb_sid_endianize(gsidp);
+	smb_sid2sid16(gsidp, &kntsid);
+	error = kauth_cred_ntsid2guid(&kntsid, &guid);
+	if (error) {
+		SMBERROR("kauth_cred_ntsid2guid error %d (group)\n", error);
+		goto out;
+	}
+	if (IS_MEMBERD_TEMPUUID(&guid)) {
+		SMBERROR("group sid %s didnt map\n", smb_sid2str(gsidp));
+		goto err;
+	}
+
+	/*
+	 * Can our DS subsystem give us a SID for the mounting user?
+	 */
+	error = kauth_cred_uid2ntsid(smp->sm_args.uid, &kntsid);
+	if (error) {
+		SMBERROR("sm_args.uid %d, error %d\n", smp->sm_args.uid, error);
+		goto out;
+	}
+	/*
+	 * We accept SIDS of the form S-1-5-x-*, where x is not 32
+	 * ("builtin" groups) and x > 20 (lower ones are "well-known")
+	 * Arguably a check could/should be done on the final subauthority
+	 * as those in the 500s are domain-specific well-knowns, while
+	 * those around 1000 are real users.
+	 */
+	if (kntsid.sid_kind != 1 ||
+	    bcmp(kntsid.sid_authority, ntauth, sizeof(ntauth)) ||
+	    kntsid.sid_authcount < 1 ||
+	    kntsid.sid_authorities[0] <= 20 ||
+	    kntsid.sid_authorities[0] == 32) {
+		SMBERROR("sm_args.uid %d, sid %s\n", smp->sm_args.uid,
+			 smb_sid2str((struct ntsid *)&kntsid));
+		goto err;
+	}
+	error = kauth_cred_ntsid2uid(&kntsid, &uid);
+	if (error) {
+		SMBERROR("sid %s, error %d\n",
+			 smb_sid2str((struct ntsid *)&kntsid), error);
+		goto out;
+	}
+	if (uid == smp->sm_args.uid)
+		goto out;
+	SMBERROR("sm_args.uid %d, uid %d\n", smp->sm_args.uid, uid);
+err:
+	error = -1;
+out:
+	if (w_secp)
+		FREE(w_secp, M_TEMP);
+	return (error);
+}
+
+static int
+smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
+	    vfs_context_t vfsctx)
+{
 	struct smbfs_args args;		/* will hold data from mount request */
 	struct smbmount *smp = NULL;
 	struct smb_vc *vcp;
 	struct smb_share *ssp = NULL;
-	struct vnode *vp;
+	vnode_t vp;
 	struct smb_cred scred;
-	size_t size;
 	int error;
 	char *pc, *pe;
-	struct mount *mp2;
+	struct smbmnt_carg carg;
 
-	if (data == NULL) {
+	if (data == USER_ADDR_NULL) {
 		printf("missing data argument\n");
-		return EINVAL;
+		return (EINVAL);
 	}
-	if (mp->mnt_flag & MNT_UPDATE) {
+	if (vfs_isupdate(mp)) {
 		printf("MNT_UPDATE not implemented");
-		return EOPNOTSUPP;
+		return (ENOTSUP);
 	}
-	error = copyin(data, (caddr_t)&args, sizeof(struct smbfs_args));
+	error = copyin(data, (caddr_t)&args, sizeof(args));
 	if (error)
-		return error;
+		return (error);
 	if (args.version != SMBFS_VERSION) {
 		printf("mount version mismatch: kernel=%d, mount=%d\n",
 		    SMBFS_VERSION, args.version);
-		return EINVAL;
+		return (EINVAL);
 	}
-	smb_makescred(&scred, p, p->p_ucred);
-	error = smb_dev2share(args.dev, SMBM_EXEC, &scred, &ssp);
+	error = smb_dev2share(args.dev, &ssp);
 	if (error) {
 		printf("invalid device handle %d (%d)\n", args.dev, error);
-		return error;
+		return (error);
 	}
+	smb_scred_init(&scred, vfsctx);
 	vcp = SSTOVC(ssp);
-	smb_share_unlock(ssp, 0, p);
-#ifdef APPLE
-	/* Give the Finder et al a better hint */
-	mp->mnt_stat.f_iosize = 128 * 1024;
-#else
-	mp->mnt_stat.f_iosize = SSTOVC(ssp)->vc_txmax;
-#endif /* APPLE */
+	smb_share_unlock(ssp, vfs_context_proc(vfsctx));
 
 #ifdef SMBFS_USEZONE
 	smp = zalloc(smbfsmount_zone);
@@ -234,29 +373,22 @@ smbfs_mount(struct mount *mp, char *path, caddr_t data,
 		goto bad;
 	}
 	bzero(smp, sizeof(*smp));
-	mp->mnt_data = (qaddr_t)smp;
+	smp->sm_mp = mp;
+	vfs_setfsprivate(mp, (void *)smp);
 	ssp->ss_mount = smp;
 	smp->sm_hash = hashinit(desiredvnodes, M_SMBFSHASH, &smp->sm_hashlen);
 	if (smp->sm_hash == NULL)
 		goto bad;
-	lockinit(&smp->sm_hashlock, PVFS, "smbfsh", 0, 0);
-	smp->sm_mp = mp;
+	smp->sm_hashlock = lck_mtx_alloc_init(hash_lck_grp, hash_lck_attr);
 	smp->sm_share = ssp;
 	smp->sm_root = NULL;
 	smp->sm_args = args;
 	smp->sm_caseopt = args.caseopt;
-	smp->sm_args.file_mode = (smp->sm_args.file_mode &
-			    (S_IRWXU|S_IRWXG|S_IRWXO)) | S_IFREG;
-	smp->sm_args.dir_mode  = (smp->sm_args.dir_mode &
-			    (S_IRWXU|S_IRWXG|S_IRWXO)) | S_IFDIR;
+	smp->sm_args.file_mode = smp->sm_args.file_mode & ACCESSPERMS;
+	smp->sm_args.dir_mode  = smp->sm_args.dir_mode & ACCESSPERMS;
 
-/*	simple_lock_init(&smp->sm_npslock);*/
-	error = copyinstr(path, mp->mnt_stat.f_mntonname, MNAMELEN - 1, &size);
-	if (error)
-		goto bad;
-	bzero(mp->mnt_stat.f_mntonname + size, MNAMELEN - size);
-	pc = mp->mnt_stat.f_mntfromname;
-	pe = pc + sizeof(mp->mnt_stat.f_mntfromname);
+	pc = vfs_statfs(mp)->f_mntfromname;
+	pe = pc + sizeof(vfs_statfs(mp)->f_mntfromname);
 	bzero(pc, MNAMELEN);
 	*pc++ = '/';
 	*pc++ = '/';
@@ -291,34 +423,49 @@ smbfs_mount(struct mount *mp, char *path, caddr_t data,
 	 * Changed for multisession: we now allow the multple mounts if being
 	 * done by a different user OR if not on the desktop.
 	 */
-	if (!(mp->mnt_flag & MNT_DONTBROWSE))
-		for (mp2 = mountlist.cqh_first; mp2 != (void *)&mountlist;
-		     mp2 = mp2->mnt_list.cqe_next)
-			if (mp2->mnt_stat.f_owner == p->p_ucred->cr_uid &&
-			    !strncmp(mp2->mnt_stat.f_mntfromname,
-				     mp->mnt_stat.f_mntfromname, MNAMELEN)) {
-				error = EBUSY;
-				goto bad;
-			}
+	if (!(vfs_flags(mp) & MNT_DONTBROWSE)) {
+		carg.vfsctx = vfsctx;
+		carg.mp = mp;
+		carg.found = 0;
+		(void)vfs_iterate(0, smb_mnt_callback, &carg);
+		if (carg.found) {
+			error = EBUSY;
+			goto bad;
+		}
+	}
+	vfs_setauthopaque(mp);
+	vfs_clearauthopaqueaccess(mp);
 	/* protect against invalid mount points */
 	smp->sm_args.mount_point[sizeof(smp->sm_args.mount_point) - 1] = '\0';
 	vfs_getnewfsid(mp);
-	error = smbfs_root(mp, &vp);
+	error = smbfs_root(mp, &vp, vfsctx);
 	if (error)
 		goto bad;
-	VOP_UNLOCK(vp, 0, p);
-	SMBVDEBUG("root.v_usecount = %d\n", vp->v_usecount);
+	vfs_clearextendedsecurity(mp);
+	error = smbfs_smb_qfsattr(ssp, &smp->sm_flags, &scred);
+	if (error) {
+		SMBERROR("smbfs_smb_qfsattr error %d\n", error);
+	} else if (smbfs_aclsflunksniff(smp, &scred)) {
+		smp->sm_flags &= ~FILE_PERSISTENT_ACLS;
+	} else
+		vfs_setextendedsecurity(mp);
 
-#ifdef DIAGNOSTICS
-	SMBERROR("mp=%p\n", mp);
-#endif
-	return error;
+	/*
+	 * Ensure cached info is set to reasonable values.
+	 *
+	 * XXX this call should be done from mount() in vfs layer.
+	 */
+	(void)vfs_update_vfsstat(mp, vfsctx);
+
+	vnode_ref(vp);
+	vnode_put(vp);
+	return (error);
 bad:
 	if (smp) {
-		mp->mnt_data = (qaddr_t)0;
+		vfs_setfsprivate(mp, (void *)0);
 		if (smp->sm_hash)
 			free(smp->sm_hash, M_SMBFSHASH);
-		lockdestroy(&smp->sm_hashlock);
+		lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 #ifdef SMBFS_USEZONE
 		zfree(smbfsmount_zone, smp);
 #else
@@ -327,15 +474,15 @@ bad:
 	}
 	if (ssp)
 		smb_share_put(ssp, &scred);
-	return error;
+	return (error);
 }
 
 /* Unmount the filesystem described by mp. */
 static int
-smbfs_unmount(struct mount *mp, int mntflags, struct proc *p)
+smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t vfsctx)
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
-	struct vnode *vp;
+	vnode_t vp;
 	struct smb_cred scred;
 	int error, flags;
 
@@ -343,83 +490,83 @@ smbfs_unmount(struct mount *mp, int mntflags, struct proc *p)
 	flags = 0;
 	if (mntflags & MNT_FORCE) {
 		flags |= FORCECLOSE;
-		smp->sm_status |= SM_STATUS_FORCE;
-		wakeup(&smp->sm_status);
+		wakeup(&smp->sm_status); /* sleeps are down in smb_rq.c */
 	}
-	error = VFS_ROOT(mp, &vp);
+	error = smbfs_root(mp, &vp, vfsctx);
 	if (error)
 		return (error);
 	error = vflush(mp, vp, flags);
 	if (error) {
-		vput(vp);
-		return error;
+		vnode_put(vp);
+		return (error);
 	}
-	if (vp->v_usecount > 2  && !(flags & FORCECLOSE)) {
-		printf("smbfs_unmount: usecnt=%d\n", (int)vp->v_usecount);
-		vput(vp);
-		return EBUSY;
+	if (vnode_isinuse(vp, 1)  && !(flags & FORCECLOSE)) {
+		printf("smbfs_unmount: usecnt\n");
+		vnode_put(vp);
+		return (EBUSY);
 	}
-	vput(vp);
-	vrele(vp);
-	vgone(vp);
+	vnode_rele(vp);	/* to drop ref taken by smbfs_mount */
+	vnode_put(vp);	/* to drop ref taken by VFS_ROOT above */
+
+	(void)vflush(mp, NULLVP, FORCECLOSE);
+
 	if (flags & FORCECLOSE) {
 		/*
 		 * Shutdown all outstanding I/O requests on this share.
 		 */
 		smb_iod_shutdown_share(smp->sm_share);
 	}
-	smb_makescred(&scred, p, p->p_ucred);
+	smb_scred_init(&scred, vfsctx);
 	smp->sm_share->ss_mount = NULL;
 	smb_share_put(smp->sm_share, &scred);
-	mp->mnt_data = (qaddr_t)0;
+	vfs_setfsprivate(mp, (void *)0);
 
-	if (smp->sm_hash)
+	if (smp->sm_hash) {
 		free(smp->sm_hash, M_SMBFSHASH);
-	lockdestroy(&smp->sm_hashlock);
+		smp->sm_hash = (void *)0xDEAD5AB0;
+	}
+	lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 #ifdef SMBFS_USEZONE
 	zfree(smbfsmount_zone, smp);
 #else
 	free(smp, M_SMBFSDATA);
 #endif
-	mp->mnt_flag &= ~MNT_LOCAL;
-	return error;
+	vfs_clearflags(mp, MNT_LOCAL);
+	return (error);
 }
 
 /* 
  * Return locked root vnode of a filesystem
  */
 static int
-smbfs_root(struct mount *mp, struct vnode **vpp)
+smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t vfsctx)
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
-	struct vnode *vp;
+	vnode_t vp;
 	struct smbnode *np;
 	struct smbfattr fattr;
-	struct proc *p = curproc;
-	struct ucred *cred = p->p_ucred;
 	struct smb_cred scred;
 	int error;
 
 	if (smp == NULL) {
 		SMBERROR("smp == NULL (bug in umount)\n");
-		return EINVAL;
+		return (EINVAL);
 	}
 	if (smp->sm_root) {
 		*vpp = SMBTOV(smp->sm_root);
-		return vget(*vpp, LK_EXCLUSIVE | LK_RETRY, p);
+		return (vnode_get(*vpp));
 	}
-	smb_makescred(&scred, p, cred);
+	smb_scred_init(&scred, vfsctx);
 	error = smbfs_smb_lookup(NULL, NULL, NULL, &fattr, &scred);
 	if (error)
-		return error;
-	error = smbfs_nget(mp, NULL, "TheRooT", 7, &fattr, &vp);
+		return (error);
+	error = smbfs_nget(mp, NULL, "TheRooT", 7, &fattr, &vp, !MAKEENTRY, 0);
 	if (error)
-		return error;
-	vp->v_flag |= VROOT;
+		return (error);
 	np = VTOSMB(vp);
 	smp->sm_root = np;
 	*vpp = vp;
-	return 0;
+	return (0);
 }
 
 /*
@@ -427,35 +574,10 @@ smbfs_root(struct mount *mp, struct vnode **vpp)
  */
 /* ARGSUSED */
 static int
-smbfs_start(mp, flags, p)
-	struct mount *mp;
-	int flags;
-	struct proc *p;
+smbfs_start(struct mount *mp, int flags, vfs_context_t vfsctx)
 {
-#ifdef SMB_VNODE_DEBUG
-	#pragma unused(mp, p)
-#else
-	#pragma unused(mp, flags, p)
-#endif
-	SMBVDEBUG("flags=%04x\n", flags);
+	#pragma unused(mp, flags, vfsctx)
 	return 0;
-}
-
-/*
- * Do operations associated with quotas, not supported
- */
-/* ARGSUSED */
-static int
-smbfs_quotactl(mp, cmd, uid, arg, p)
-	struct mount *mp;
-	int cmd;
-	uid_t uid;
-	caddr_t arg;
-	struct proc *p;
-{
-	#pragma unused(mp, cmd, uid, arg, p)
-	SMBVDEBUG("return EOPNOTSUPP\n");
-	return EOPNOTSUPP;
 }
 
 /*ARGSUSED*/
@@ -468,99 +590,154 @@ smbfs_init(struct vfsconf *vfsp)
 #ifdef SMBFS_USEZONE
 	smbfsmount_zone = zinit("SMBFSMOUNT", sizeof(struct smbmount), 0, 0, 1);
 #endif
-#ifndef APPLE
-	smbfs_pbuf_freecnt = nswbuf / 2 + 1;
-#endif
 	SMBVDEBUG("done.\n");
 	return 0;
 }
 
-#ifndef APPLE
-/*ARGSUSED*/
-int
-smbfs_uninit(struct vfsconf *vfsp)
-{
-
-	SMBVDEBUG("done.\n");
-	return 0;
-}
-#endif
 
 /*
  * smbfs_statfs call
  */
 int
-smbfs_statfs(struct mount *mp, struct statfs *sbp, struct proc *p)
+smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t vfsctx)
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
-	struct statfs *cachedstatfs = &smp->sm_statfsbuf;
 	struct smbnode *np = smp->sm_root;
 	struct smb_share *ssp = smp->sm_share;
+	struct statfs *cachedstatfs = &smp->sm_statfsbuf;
 	struct smb_cred scred;
+	struct timespec ts;
 	int error = 0;
 
 	if (np == NULL)
-		return EINVAL;
+		return (EINVAL);
 
 	/* while there's a smbfs_smb_statfs request outstanding, sleep */
 	while (smp->sm_status & SM_STATUS_STATFS) {
 		smp->sm_status |= SM_STATUS_STATFS_WANTED;
-		(void) tsleep((caddr_t)&smp->sm_status, PRIBIO, "smbfs_statfs", 0);
+		(void) msleep((caddr_t)&smp->sm_status, 0, PRIBIO,
+			      "smbfs_vfs_getattr", 0);
 	}
-
 	/* we're making a request so grab the token */
 	smp->sm_status |= SM_STATUS_STATFS;
-
-#ifdef APPLE
-	/* Give the Finder et al a better hint */
-	sbp->f_iosize = 128 * 1024;	/* optimal transfer block size */
-#else
-	sbp->f_iosize = SSTOVC(ssp)->vc_txmax;	/* optimal transfer block size */
-	sbp->f_spare2 = 0;			/* placeholder */
-#endif /* APPLE */
-	smb_makescred(&scred, p, p->p_ucred);
-
-	/* time to update cached statfs data? */
-	if ((time_second - smp->sm_statfstime) > SM_MAX_STATFSTIME) {
-		/* yes, update cached statfs data */
+	/* if from-the-server data is wanted and our cache is stale... */
+	nanotime(&ts);
+	if (ts.tv_sec - smp->sm_statfstime > SM_MAX_STATFSTIME &&
+	    (VFSATTR_IS_ACTIVE(fsap, f_bsize) ||
+	     VFSATTR_IS_ACTIVE(fsap, f_blocks) ||
+	     VFSATTR_IS_ACTIVE(fsap, f_bfree) ||
+	     VFSATTR_IS_ACTIVE(fsap, f_bavail) ||
+	     VFSATTR_IS_ACTIVE(fsap, f_files) ||
+	     VFSATTR_IS_ACTIVE(fsap, f_ffree))) {
+		/* update cached from-the-server data */
+		smb_scred_init(&scred, vfsctx);
 		if (SMB_DIALECT(SSTOVC(ssp)) >= SMB_DIALECT_LANMAN2_0)
 			error = smbfs_smb_statfs2(ssp, cachedstatfs, &scred);
 		else
 			error = smbfs_smb_statfs(ssp, cachedstatfs, &scred);
 		if (error)
 			goto releasetoken;
-		smp->sm_statfstime = time_second;
+		nanotime(&ts);
+		smp->sm_statfstime = ts.tv_sec;
 	}
 	/* copy results from cached statfs */
-	sbp->f_bsize = cachedstatfs->f_bsize; /* fundamental file system block size */
-	sbp->f_blocks = cachedstatfs->f_blocks; /* total data blocks in file system */
-	sbp->f_bfree = cachedstatfs->f_bfree; /* free blocks in fs */
-	sbp->f_bavail = cachedstatfs->f_bavail; /* free blocks avail to non-superuser */
-	sbp->f_files = cachedstatfs->f_files; /* total file nodes in file system */
-	sbp->f_ffree = cachedstatfs->f_ffree; /* free file nodes in fs */
-
-	sbp->f_flags = 0;		/* copy of mount exported flags */
-	if (sbp != &mp->mnt_stat) {
-		sbp->f_fsid = mp->mnt_stat.f_fsid;	/* file system id */
-		sbp->f_owner = mp->mnt_stat.f_owner;	/* user that mounted the filesystem */
-		sbp->f_type = mp->mnt_vfc->vfc_typenum;	/* type of filesystem */
-		bcopy(mp->mnt_stat.f_mntonname, sbp->f_mntonname, MNAMELEN);
-		bcopy(mp->mnt_stat.f_mntfromname, sbp->f_mntfromname, MNAMELEN);
-	}
-	strncpy(sbp->f_fstypename, mp->mnt_vfc->vfc_name, MFSNAMELEN);
-
+	VFSATTR_RETURN(fsap, f_bsize, cachedstatfs->f_bsize);
+	VFSATTR_RETURN(fsap, f_blocks, cachedstatfs->f_blocks);
+	VFSATTR_RETURN(fsap, f_bfree, cachedstatfs->f_bfree);
+	VFSATTR_RETURN(fsap, f_bavail, cachedstatfs->f_bavail);
+	VFSATTR_RETURN(fsap, f_files, cachedstatfs->f_files);
+	VFSATTR_RETURN(fsap, f_ffree, cachedstatfs->f_ffree);
 releasetoken:
-
 	/* we're done, so release the token */
 	smp->sm_status &= ~SM_STATUS_STATFS;
-	
 	/* if anyone else is waiting, wake them up */
 	if (smp->sm_status & SM_STATUS_STATFS_WANTED) {
 		smp->sm_status &= ~SM_STATUS_STATFS_WANTED;
 		wakeup((caddr_t)&smp->sm_status);
 	}
+	if (error)
+		return (error);
 
-	return error;
+	/* Give the Finder et al a better hint */
+	VFSATTR_RETURN(fsap, f_iosize, 128 * 1024);
+
+	/*
+	 * ref 3984574.  Returning null here keeps vfs from returning
+	 * f_mntonname, and causes CarbonCore (File Mgr) to use the
+	 * f_mntfromname, as it did (& still does) when an error is returned.
+	 */
+	if (VFSATTR_IS_ACTIVE(fsap, f_vol_name) && fsap->f_vol_name) {
+		*fsap->f_vol_name = '\0';
+		VFSATTR_SET_SUPPORTED(fsap, f_vol_name);
+	}
+
+	if (VFSATTR_IS_ACTIVE(fsap, f_capabilities)) {
+		vol_capabilities_attr_t *cap = &fsap->f_capabilities;
+
+		cap->capabilities[VOL_CAPABILITIES_FORMAT] =
+						VOL_CAP_FMT_SYMBOLICLINKS |
+						VOL_CAP_FMT_NO_ROOT_TIMES |
+						VOL_CAP_FMT_FAST_STATFS;
+		cap->capabilities[VOL_CAPABILITIES_INTERFACES] =
+						VOL_CAP_INT_FLOCK;
+		cap->capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
+		cap->capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
+		/*
+		 * This file system is case sensitive and case preserving, but
+		 * servers vary, depending on the underlying volume.  So rather
+		 * than providing a wrong yes or no answer we deny knowledge of
+		 * VOL_CAP_FMT_CASE_SENSITIVE and VOL_CAP_FMT_CASE_PRESERVING;
+		 */
+		cap->valid[VOL_CAPABILITIES_FORMAT] =
+					VOL_CAP_FMT_PERSISTENTOBJECTIDS |
+					VOL_CAP_FMT_SYMBOLICLINKS |
+					VOL_CAP_FMT_HARDLINKS |
+					VOL_CAP_FMT_JOURNAL |
+					VOL_CAP_FMT_JOURNAL_ACTIVE |
+					VOL_CAP_FMT_NO_ROOT_TIMES |
+					VOL_CAP_FMT_SPARSE_FILES |
+					VOL_CAP_FMT_ZERO_RUNS |
+					VOL_CAP_FMT_FAST_STATFS;
+		cap->valid[VOL_CAPABILITIES_INTERFACES] =
+						VOL_CAP_INT_SEARCHFS |
+						VOL_CAP_INT_ATTRLIST |
+						VOL_CAP_INT_NFSEXPORT |
+						VOL_CAP_INT_READDIRATTR |
+						VOL_CAP_INT_EXCHANGEDATA |
+						VOL_CAP_INT_COPYFILE |
+						VOL_CAP_INT_ALLOCATE |
+						VOL_CAP_INT_VOL_RENAME |
+						VOL_CAP_INT_ADVLOCK |
+						VOL_CAP_INT_FLOCK;
+		cap->valid[VOL_CAPABILITIES_RESERVED1] = 0;
+		cap->valid[VOL_CAPABILITIES_RESERVED2] = 0;
+		VFSATTR_SET_SUPPORTED(fsap, f_capabilities);
+	}
+	return (error);
+}
+
+struct smbfs_sync_cargs {
+	vfs_context_t	vfsctx;
+	int	waitfor;
+	int	error;
+};
+
+
+static int
+smbfs_sync_callback(vnode_t vp, void *args)
+{
+	int error;
+	struct smbfs_sync_cargs *cargs;
+
+	cargs = (struct smbfs_sync_cargs *)args;
+
+	if (vnode_hasdirtyblks(vp)) {
+		error = VNOP_FSYNC(vp, cargs->waitfor, cargs->vfsctx);
+
+		if (error)
+			cargs->error = error;
+	}
+	return (VNODE_RETURNED);
 }
 
 /*
@@ -568,89 +745,43 @@ releasetoken:
  */
 /* ARGSUSED */
 static int
-smbfs_sync(mp, waitfor, cred, p)
-	struct mount *mp;
-	int waitfor;
-	struct ucred *cred;
-	struct proc *p;
+smbfs_sync(struct mount *mp, int waitfor, vfs_context_t vfsctx)
 {
-	struct vnode *vp;
-	int error, allerror = 0;
-#ifdef APPLE
-	int didhold = 0;
-#endif
+	struct smbfs_sync_cargs args;
+
+	args.vfsctx = vfsctx;
+	args.waitfor = waitfor;
+	args.error = 0;
 	/*
 	 * Force stale buffer cache information to be flushed.
+	 *
+	 * sbmfs_sync_callback will be called for each vnode
+	 * hung off of this mount point... the vnode will be
+	 * properly referenced and unreferenced around the callback
 	 */
-loop:
-	for (vp = mp->mnt_vnodelist.lh_first;
-	     vp != NULL;
-	     vp = vp->v_mntvnodes.le_next) {
-		/*
-		 * If the vnode that we are about to sync is no longer
-		 * associated with this mount point, start over.
-		 */
-		if (vp->v_mount != mp)
-			goto loop;
-#ifdef APPLE
-		if (VOP_ISLOCKED(vp) || vp->v_dirtyblkhd.lh_first == NULL)
-#else
-#ifndef FB_RELENG3
-		if (VOP_ISLOCKED(vp, NULL) || TAILQ_EMPTY(&vp->v_dirtyblkhd) ||
-#else
-		if (VOP_ISLOCKED(vp) || TAILQ_EMPTY(&vp->v_dirtyblkhd) ||
-#endif
-		    waitfor == MNT_LAZY)
-#endif /* APPLE */
-			continue;
-		if (vget(vp, LK_EXCLUSIVE, p))
-			goto loop;
-#ifdef APPLE
-		didhold = ubc_hold(vp);
-#endif
-		error = VOP_FSYNC(vp, cred, waitfor, p);
-		if (error)
-			allerror = error;
-#ifdef APPLE
-		VOP_UNLOCK(vp, 0, p);
-		if (didhold)
-			(void)ubc_rele(vp);
-		vrele(vp);
-#else
-		vput(vp);
-#endif
-	}
-	return (allerror);
+	vnode_iterate(mp, VNODE_ITERATE_ACTIVE, smbfs_sync_callback, (void *)&args);
+
+	return (args.error);
 }
 
-#if defined(APPLE) || __FreeBSD_version < 400009
 /*
  * smbfs flat namespace lookup. Unsupported.
  */
 /* ARGSUSED */
-static int smbfs_vget(mp, ino, vpp)
-	struct mount *mp;
-	void *ino;
-	struct vnode **vpp;
+static int
+smbfs_vget(struct mount *mp, ino64_t ino, vnode_t *vpp,
+	   vfs_context_t vfsctx)
 {
-	#pragma unused(mp, ino, vpp)
-	return (EOPNOTSUPP);
+	#pragma unused(mp, ino, vpp, vfsctx)
+	return (ENOTSUP);
 }
 
 /* ARGSUSED */
-static int smbfs_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
-	struct mount *mp;
-	struct fid *fhp;
-#ifdef APPLE
-	struct mbuf *nam;
-#else
-	struct sockaddr *nam;
-#endif
-	struct vnode **vpp;
-	int *exflagsp;
-	struct ucred **credanonp;
+static int
+smbfs_fhtovp(struct mount *mp, int fhlen, unsigned char *fhp, vnode_t *vpp,
+	     vfs_context_t vfsctx)
 {
-	#pragma unused(mp, fhp, nam, vpp, exflagsp, credanonp)
+	#pragma unused(mp, fhlen, fhp, vpp, vfsctx)
 	return (EINVAL);
 }
 
@@ -659,38 +790,26 @@ static int smbfs_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
  */
 /* ARGSUSED */
 static int
-smbfs_vptofh(vp, fhp)
-	struct vnode *vp;
-	struct fid *fhp;
+smbfs_vptofh(vnode_t vp, int *fhlen, unsigned char *fhp, vfs_context_t vfsctx)
 {
-	#pragma unused(vp, fhp)
+	#pragma unused(vp, fhlen, fhp, vfsctx)
 	return (EINVAL);
 }
-
-#endif /* __FreeBSD_version < 400009 */
-
-
-#ifdef APPLE
 
 /*
  * smbfs_sysctl handles the VFS_CTL_QUERY request which tells interested
  * parties if the connection with the remote server is up or down.
  */
 static int
-smbfs_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
-	int * name;
-	u_int namelen;
-	void* oldp;
-	size_t * oldlenp;
-	void * newp;
-	size_t newlen;
-	struct proc * p;
+smbfs_sysctl(int * name, u_int namelen, user_addr_t oldp, size_t * oldlenp,
+	     user_addr_t newp, size_t newlen, vfs_context_t vfsctx)
 {
-	#pragma unused(oldlenp, newp, newlen, p)
+	#pragma unused(oldlenp, newp, newlen)
 
 	int error;
 	struct sysctl_req *req;
 	struct vfsidctl vc;
+	struct user_vfsidctl user_vc;
 	struct mount *mp;
 	struct smbmount *smp;
 	struct vfsquery vq;
@@ -702,11 +821,16 @@ smbfs_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 		return (ENOTDIR);	/* overloaded */
 	switch (name[0]) {
 	    case VFS_CTL_QUERY:
-		req = oldp;	/* we're new style vfs sysctl. */
-		error = SYSCTL_IN(req, &vc, sizeof(vc));
-		if (error)
-			break;
-		mp = vfs_getvfs(&vc.vc_fsid);
+		req = CAST_DOWN(struct sysctl_req *, oldp);	/* we're new style vfs sysctl. */
+		if (vfs_context_is64bit(vfsctx)) {
+			error = SYSCTL_IN(req, &user_vc, sizeof(user_vc));
+			if (error) break;
+			mp = vfs_getvfs(&user_vc.vc_fsid);
+		} else {
+			error = SYSCTL_IN(req, &vc, sizeof(vc));
+			if (error) break;
+			mp = vfs_getvfs(&vc.vc_fsid);
+		}
 		if (!mp) {
 			error = ENOENT;
 		} else {
@@ -720,7 +844,7 @@ smbfs_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 		}
 		break;
 	    default:
-		error = EOPNOTSUPP;
+		error = ENOTSUP;
 		break;
 	}
 	return (error);
@@ -732,25 +856,26 @@ kmod_info_t *smbfs_kmod_infop;
 
 typedef int (*PFI)();
 
-extern int vfs_opv_numops;
-
 extern struct vnodeopv_desc smbfs_vnodeop_opv_desc;
+static struct vnodeopv_desc *smbfs_vnodeop_opv_desc_list[1] =
+{
+	&smbfs_vnodeop_opv_desc
+};
+
 
 extern int version_major;
 extern int version_minor;
+
+static vfstable_t  smbfs_vfsconf;
 
 
 __private_extern__ int
 smbfs_module_start(kmod_info_t *ki, void *data)
 {
 #pragma unused(data)
-	boolean_t funnel_state;
-	struct vfsconf  *newvfsconf = NULL;
-	int     j;
-	int     (***opv_desc_vector_p)(void *);
-	int     (**opv_desc_vector)(void *);
-	struct vnodeopv_entry_desc      *opve_descp;
-	int     error = 0;
+	struct vfs_fsentry vfe;
+	int	error;
+	boolean_t	funnel_state;
 
 #if 0
 	/* instead of this just set breakpoint on kmod_start_or_stop */
@@ -759,87 +884,80 @@ smbfs_module_start(kmod_info_t *ki, void *data)
 	funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
 	smbfs_kmod_infop = ki;
-	/*
-	 * This routine is responsible for all the initialization that would
-	 * ordinarily be done as part of the system startup;
-	 */
-	MALLOC(newvfsconf, void *, sizeof(struct vfsconf), M_TEMP,
-	       M_WAITOK);
-	bzero(newvfsconf, sizeof(struct vfsconf));
-	newvfsconf->vfc_vfsops = &smbfs_vfsops;
-	strncpy(&newvfsconf->vfc_name[0], smbfs_name, MFSNAMELEN);
-	newvfsconf->vfc_typenum = maxvfsconf++;
-	newvfsconf->vfc_refcount = 0;
-	newvfsconf->vfc_flags = 0;
-	newvfsconf->vfc_mountroot = NULL;
-	newvfsconf->vfc_next = NULL;
 
-	opv_desc_vector_p = smbfs_vnodeop_opv_desc.opv_desc_vector_p;
-	/*
-	 * Allocate and init the vector.
-	 * Also handle backwards compatibility.
-	 */
-	/* XXX - shouldn't be M_TEMP */
-	MALLOC(*opv_desc_vector_p, PFI *, vfs_opv_numops * sizeof(PFI),
-	       M_TEMP, M_WAITOK);
-	bzero(*opv_desc_vector_p, vfs_opv_numops*sizeof(PFI));
+	vfe.vfe_vfsops = &smbfs_vfsops;
+	vfe.vfe_vopcnt = 1; /* We just have vnode operations for regular files and directories */
+	vfe.vfe_opvdescs = smbfs_vnodeop_opv_desc_list;
+	strncpy(vfe.vfe_fsname, smbfs_name, MFSNAMELEN);
+	vfe.vfe_flags = VFS_TBLNOTYPENUM |
+			VFS_TBL64BITREADY; /* 64bit mount & sysctl & ioctl */
+	vfe.vfe_reserv[0] = 0;
+	vfe.vfe_reserv[1] = 0;
 
-	opv_desc_vector = *opv_desc_vector_p;
-
-	for (j = 0; smbfs_vnodeop_opv_desc.opv_desc_ops[j].opve_op; j++) {
-		opve_descp = &(smbfs_vnodeop_opv_desc.opv_desc_ops[j]);
-		/*
-		 * Sanity check:  is this operation listed
-		 * in the list of operations?  We check this
-		 * by seeing if its offest is zero.  Since
-		 * the default routine should always be listed
-		 * first, it should be the only one with a zero
-		 * offset.  Any other operation with a zero
-		 * offset is probably not listed in
-		 * vfs_op_descs, and so is probably an error.
-		 *
-		 * A panic here means the layer programmer
-		 * has committed the all-too common bug
-		 * of adding a new operation to the layer's
-		 * list of vnode operations but
-		 * not adding the operation to the system-wide
-		 * list of supported operations.
-		 */
-		if (opve_descp->opve_op->vdesc_offset == 0 &&
-		    opve_descp->opve_op->vdesc_offset != VOFFSET(vop_default)) {
-			printf("smbfs_module_start: op %s not listed in %s.\n",
-			       opve_descp->opve_op->vdesc_name,
-			       "vfs_op_descs");
-			panic("smbfs_module_start: bad operation");
-		}
-		/*
-		 * Fill in this entry.
-		 */
-		opv_desc_vector[opve_descp->opve_op->vdesc_offset] =
-		    opve_descp->opve_impl;
-	}
-	/*
-	 * Finally, go back and replace unfilled routines
-	 * with their default.  (Sigh, an O(n^3) algorithm.  I
-	 * could make it better, but that'd be work, and n is small.)
-	 */
-	opv_desc_vector_p = smbfs_vnodeop_opv_desc.opv_desc_vector_p;
-	/*
-	 * Force every operations vector to have a default routine.
-	 */
-	opv_desc_vector = *opv_desc_vector_p;
-	if (opv_desc_vector[VOFFSET(vop_default)] == NULL)
-	    panic("smbfs_module_start: op vector without default routine.");
-	for (j = 0; j < vfs_opv_numops; j++)
-		if (opv_desc_vector[j] == NULL)
-			opv_desc_vector[j] =
-			    opv_desc_vector[VOFFSET(vop_default)];
-	/* Ok, vnode vectors are set up, vfs vectors are set up, add it in */
-	error = vfsconf_add(newvfsconf);
-	if (newvfsconf)
-		free(newvfsconf, M_TEMP);
+	error = vfs_fsadd(&vfe, &smbfs_vfsconf);
 
 	if (!error) {
+		co_grp_attr = lck_grp_attr_alloc_init();
+		lck_grp_attr_setstat(co_grp_attr);
+		co_lck_group = lck_grp_alloc_init("smb-co", co_grp_attr);
+		co_lck_attr = lck_attr_alloc_init();
+		lck_attr_setdebug(co_lck_attr);
+
+		vcst_grp_attr = lck_grp_attr_alloc_init();
+		lck_grp_attr_setstat(vcst_grp_attr);
+		vcst_lck_group = lck_grp_alloc_init("smb-vcst", vcst_grp_attr);
+		vcst_lck_attr = lck_attr_alloc_init();
+		lck_attr_setdebug(vcst_lck_attr);
+
+		ssst_grp_attr = lck_grp_attr_alloc_init();
+		lck_grp_attr_setstat(ssst_grp_attr);
+		ssst_lck_group = lck_grp_alloc_init("smb-ssst", ssst_grp_attr);
+		ssst_lck_attr = lck_attr_alloc_init();
+		lck_attr_setdebug(ssst_lck_attr);
+
+		iodflags_grp_attr = lck_grp_attr_alloc_init();
+		lck_grp_attr_setstat(iodflags_grp_attr);
+		iodflags_lck_group = lck_grp_alloc_init("smb-iodflags", iodflags_grp_attr);
+		iodflags_lck_attr = lck_attr_alloc_init();
+		lck_attr_setdebug(iodflags_lck_attr);
+
+		iodrq_grp_attr = lck_grp_attr_alloc_init();
+		lck_grp_attr_setstat(iodrq_grp_attr);
+		iodrq_lck_group = lck_grp_alloc_init("smb-iodrq", iodrq_grp_attr);
+		iodrq_lck_attr = lck_attr_alloc_init();
+		lck_attr_setdebug(iodrq_lck_attr);
+
+		iodev_grp_attr = lck_grp_attr_alloc_init();
+		lck_grp_attr_setstat(iodev_grp_attr);
+		iodev_lck_group = lck_grp_alloc_init("smb-iodev", iodev_grp_attr);
+		iodev_lck_attr = lck_attr_alloc_init();
+		lck_attr_setdebug(iodev_lck_attr);
+
+		srs_grp_attr = lck_grp_attr_alloc_init();
+		lck_grp_attr_setstat(srs_grp_attr);
+		srs_lck_group = lck_grp_alloc_init("smb-srs", srs_grp_attr);
+		srs_lck_attr = lck_attr_alloc_init();
+		lck_attr_setdebug(srs_lck_attr);
+
+		nbp_grp_attr = lck_grp_attr_alloc_init();
+		lck_grp_attr_setstat(nbp_grp_attr);
+		nbp_lck_group = lck_grp_alloc_init("smb-nbp", nbp_grp_attr);
+		nbp_lck_attr = lck_attr_alloc_init();
+		lck_attr_setdebug(nbp_lck_attr);
+
+		dev_lck_grp_attr = lck_grp_attr_alloc_init();
+		lck_grp_attr_setstat(dev_lck_grp_attr);
+		dev_lck_grp = lck_grp_alloc_init("smb-dev", dev_lck_grp_attr);
+		dev_lck_attr = lck_attr_alloc_init();
+		lck_attr_setdebug(dev_lck_attr);
+		dev_lck = lck_mtx_alloc_init(dev_lck_grp, dev_lck_attr);
+
+		hash_lck_grp_attr = lck_grp_attr_alloc_init();
+		lck_grp_attr_setstat(hash_lck_grp_attr);
+		hash_lck_grp = lck_grp_alloc_init("smb-hash", hash_lck_grp_attr);
+		hash_lck_attr = lck_attr_alloc_init();
+		lck_attr_setdebug(hash_lck_attr);
+
 		SEND_EVENT(iconv, MOD_LOAD);
 		SEND_EVENT(iconv_ces, MOD_LOAD);
 #ifdef XXX /* apparently unused */
@@ -866,8 +984,8 @@ smbfs_module_start(kmod_info_t *ki, void *data)
 
 		smbfs_install_sleep_wake_notifier();
 	}
-	thread_funnel_set(kernel_flock, funnel_state);
-	return (error);
+	(void) thread_funnel_set(kernel_flock, funnel_state);
+	return (error ? KERN_FAILURE : KERN_SUCCESS);
 }
 
 
@@ -876,7 +994,8 @@ smbfs_module_stop(kmod_info_t *ki, void *data)
 {
 #pragma unused(ki)
 #pragma unused(data)
-	boolean_t funnel_state;
+	int error;
+	boolean_t	funnel_state;
 
 	funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
@@ -887,7 +1006,7 @@ smbfs_module_stop(kmod_info_t *ki, void *data)
 	sysctl_unregister_oid(&sysctl__net_smb_fs);
 	sysctl_unregister_oid(&sysctl__net_smb);
 
-	vfsconf_del(smbfs_name);
+	error = vfs_fsremove(smbfs_vfsconf);
 
 	SEND_EVENT(dev_netsmb, MOD_UNLOAD);
 	SEND_EVENT(iconv_xlat, MOD_UNLOAD);
@@ -899,9 +1018,11 @@ smbfs_module_stop(kmod_info_t *ki, void *data)
 	SEND_EVENT(iconv_ces, MOD_UNLOAD);
 	SEND_EVENT(iconv, MOD_UNLOAD);
 
-	free(*smbfs_vnodeop_opv_desc.opv_desc_vector_p, M_TEMP);
 	smbfs_remove_sleep_wake_notifier();
-	thread_funnel_set(kernel_flock, funnel_state);
-	return (0);
+
+	lck_mtx_free(dev_lck, dev_lck_grp);
+
+	(void) thread_funnel_set(kernel_flock, funnel_state);
+
+	return (error ? KERN_FAILURE : KERN_SUCCESS);
 }
-#endif /* APPLE */

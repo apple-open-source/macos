@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,66 +25,21 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wcsrtombs.c,v 1.2 2002/09/06 11:23:45 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wcsrtombs.c,v 1.6 2004/07/21 10:54:57 tjr Exp $");
 
-#include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
+#include "mblocal.h"
 
 size_t
 wcsrtombs(char * __restrict dst, const wchar_t ** __restrict src, size_t len,
-    mbstate_t * __restrict ps __unused)
+    mbstate_t * __restrict ps)
 {
-	char buf[MB_LEN_MAX];
-	const wchar_t *s;
-	size_t nbytes;
-	int nb;
+	static mbstate_t mbs;
 
-	s = *src;
-	nbytes = 0;
-
-	if (dst == NULL) {
-		for (;;) {
-			if ((nb = (int)wcrtomb(buf, *s, NULL)) < 0)
-				/* Invalid character - wcrtomb() sets errno. */
-				return ((size_t)-1);
-			else if (*s == L'\0')
-				return (nbytes + nb - 1);
-			s++;
-			nbytes += nb;
-		}
-		/*NOTREACHED*/
-	}
-
-	while (len > 0) {
-		if (len > (size_t)MB_CUR_MAX) {
-			/* Enough space to translate in-place. */
-			if ((nb = (int)wcrtomb(dst, *s, NULL)) < 0) {
-				*src = s;
-				return ((size_t)-1);
-			}
-		} else {
-			/* May not be enough space; use temp. buffer. */
-			if ((nb = (int)wcrtomb(buf, *s, NULL)) < 0) {
-				*src = s;
-				return ((size_t)-1);
-			}
-			if (nb > (int)len)
-				/* MB sequence for character won't fit. */
-				break;
-			memcpy(dst, buf, nb);
-		}
-		if (*s == L'\0') {
-			*src = NULL;
-			return (nbytes + nb - 1);
-		}
-		s++;
-		dst += nb;
-		len -= nb;
-		nbytes += nb;
-	}
-	*src = s;
-	return (nbytes);
+	if (ps == NULL)
+		ps = &mbs;
+	return (__wcsnrtombs(dst, src, SIZE_T_MAX, len, ps));
 }

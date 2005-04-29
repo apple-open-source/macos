@@ -1,5 +1,5 @@
 /* APPLE LOCAL file AltiVec */
-/* { dg-do run { target powerpc-apple-darwin* } } */
+/* { dg-do run { target powerpc*-*-* } } */
 /* { dg-options "-faltivec -Wall" } */
 
 /* This test checks if AltiVec builtins accept const-qualified

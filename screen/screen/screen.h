@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: screen.h,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU
+ * $Id: screen.h,v 1.12 1994/05/31 12:32:54 mlschroe Exp $ FAU
  */
 
 #include "os.h"
@@ -287,3 +287,9 @@ struct baud_values
   int bps;	/* bits per seconds */
   int sym;	/* symbol defined in ttydev.h */
 };
+
+/*
+ * windowlist orders
+ */
+#define WLIST_NUM 0
+#define WLIST_MRU 1

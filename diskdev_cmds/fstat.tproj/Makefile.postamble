@@ -1,6 +1,0 @@
-INSTALL_AS_GROUP =	kmem
-INSTALL_PERMISSIONS =2555
-
-after_install:
-	install -m 755 -o root -g wheel -d $(DSTROOT)/usr/share/man/man1
-	install -m 644 -o root -g wheel -c fstat.1 $(DSTROOT)/usr/share/man/man1

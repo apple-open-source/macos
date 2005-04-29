@@ -1,5 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -21,6 +22,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -41,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "ggc.h"
+#include "optabs.h"
 
 /* Usable when we have an amount to add or subtract, and want the
    optimal size of the insn.  */
@@ -80,30 +84,39 @@ static char cris_output_insn_is_bound = 0;
 static int cris_pic_sympart_only = 0;
 
 /* Fix for reg_overlap_mentioned_p.  */
-static int cris_reg_overlap_mentioned_p PARAMS ((rtx, rtx));
+static int cris_reg_overlap_mentioned_p (rtx, rtx);
 
-static void cris_print_base PARAMS ((rtx, FILE *));
+static void cris_print_base (rtx, FILE *);
 
-static void cris_print_index PARAMS ((rtx, FILE *));
+static void cris_print_index (rtx, FILE *);
 
-static struct machine_function * cris_init_machine_status PARAMS ((void));
+static struct machine_function * cris_init_machine_status (void);
 
-static int cris_initial_frame_pointer_offset PARAMS ((void));
+static rtx cris_struct_value_rtx (tree, int);
 
-static int saved_regs_mentioned PARAMS ((rtx));
+static void cris_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
+					 tree type, int *, int);
 
-static void cris_target_asm_function_prologue
-  PARAMS ((FILE *, HOST_WIDE_INT));
+static int cris_initial_frame_pointer_offset (void);
 
-static void cris_target_asm_function_epilogue
-  PARAMS ((FILE *, HOST_WIDE_INT));
+static int saved_regs_mentioned (rtx);
 
-static void cris_encode_section_info PARAMS ((tree, int));
-static void cris_operand_lossage PARAMS ((const char *, rtx));
+static void cris_target_asm_function_prologue (FILE *, HOST_WIDE_INT);
+
+static void cris_target_asm_function_epilogue (FILE *, HOST_WIDE_INT);
+
+static void cris_operand_lossage (const char *, rtx);
 
 static void cris_asm_output_mi_thunk
-  PARAMS ((FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
+  (FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree);
 
+static void cris_file_start (void);
+static void cris_init_libfuncs (void);
+
+static bool cris_rtx_costs (rtx, int, int, int *);
+static int cris_address_cost (rtx);
+static bool cris_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
+				    tree, bool);
 
 /* The function cris_target_asm_function_epilogue puts the last insn to
    output here.  It always fits; there won't be a symbol operand.  Used in
@@ -154,13 +167,30 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE cris_target_asm_function_epilogue
 
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO cris_encode_section_info
-
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK cris_asm_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START cris_file_start
+
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS cris_init_libfuncs
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS cris_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST cris_address_cost
+
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX cris_struct_value_rtx
+#undef TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS cris_setup_incoming_varargs
+#undef TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE cris_pass_by_reference
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -174,9 +204,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
    c) a [r] or [r+] in SImode, or sign-extend from HI or QI.  */
 
 int
-cris_bdap_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+cris_bdap_operand (rtx op, enum machine_mode mode)
 {
   register enum rtx_code code = GET_CODE (op);
 
@@ -233,9 +261,7 @@ cris_bdap_operand (op, mode)
    d) a [r] or [r+] in SImode, or sign-extend from HI or QI.  */
 
 int
-cris_bdap_biap_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+cris_bdap_biap_operand (rtx op, enum machine_mode mode)
 {
   register enum rtx_code code = GET_CODE (op);
   rtx reg;
@@ -280,9 +306,7 @@ cris_bdap_biap_operand (op, mode)
    AND or UMIN.  */
 
 int
-cris_orthogonal_operator (x, mode)
-     rtx x;
-     enum machine_mode mode;
+cris_orthogonal_operator (rtx x, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (x);
 
@@ -298,9 +322,7 @@ cris_orthogonal_operator (x, mode)
    UMIN.  */
 
 int
-cris_commutative_orth_op (x, mode)
-     rtx x;
-     enum machine_mode mode;
+cris_commutative_orth_op (rtx x, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (x);
 
@@ -312,12 +334,13 @@ cris_commutative_orth_op (x, mode)
 	   || code == IOR || code == AND || code == UMIN));
 }
 
-/* Check if MODE is same as mode for X, and X is PLUS or MINUS or UMIN.  */
+/* Check if MODE is same as mode for X, and X is PLUS or MINUS or UMIN.
+   By the name, you might think we should include MULT.  We don't because
+   it doesn't accept the same addressing modes as the others (ony
+   registers) and there's also the problem of handling TARGET_MUL_BUG.  */
 
 int
-cris_operand_extend_operator (x, mode)
-     rtx x;
-     enum machine_mode mode;
+cris_operand_extend_operator (rtx x, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (x);
 
@@ -328,13 +351,25 @@ cris_operand_extend_operator (x, mode)
 	  && (code == PLUS || code == MINUS || code == UMIN));
 }
 
+/* Check if MODE is same as mode for X, and X is PLUS or MINUS.  */
+
+int
+cris_additive_operand_extend_operator (rtx x, enum machine_mode mode)
+{
+  enum rtx_code code = GET_CODE (x);
+
+  if (mode == VOIDmode)
+    mode = GET_MODE (x);
+
+  return (GET_MODE (x) == mode
+	  && (code == PLUS || code == MINUS));
+}
+
 /* Check to see if MODE is same as mode for X, and X is SIGN_EXTEND or
    ZERO_EXTEND.  */
 
 int
-cris_extend_operator (x, mode)
-     rtx x;
-     enum machine_mode mode;
+cris_extend_operator (rtx x, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (x);
 
@@ -348,9 +383,7 @@ cris_extend_operator (x, mode)
 /* Check to see if MODE is same as mode for X, and X is PLUS or BOUND.  */
 
 int
-cris_plus_or_bound_operator (x, mode)
-     rtx x;
-     enum machine_mode mode;
+cris_plus_or_bound_operator (rtx x, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (x);
 
@@ -361,14 +394,25 @@ cris_plus_or_bound_operator (x, mode)
     (GET_MODE (x) == mode && (code == UMIN || code == PLUS));
 }
 
+/* Used as an operator to get a handle on a already-known-valid MEM rtx:es
+   (no need to validate the address), where some address expression parts
+   have their own match_operand.  */
+
+int
+cris_mem_op (rtx x, enum machine_mode mode)
+{
+  if (mode == VOIDmode)
+    mode = GET_MODE (x);
+
+  return GET_MODE (x) == mode && GET_CODE (x) == MEM;
+}
+
 /* Since with -fPIC, not all symbols are valid PIC symbols or indeed
    general_operands, we have to have a predicate that matches it for the
    "movsi" expander.  */
 
 int
-cris_general_operand_or_symbol (op, mode)
-     rtx op;
-     enum machine_mode mode;
+cris_general_operand_or_symbol (rtx op, enum machine_mode mode)
 {
   return general_operand (op, mode)
     || (CONSTANT_P (op) && cris_symbol (op));
@@ -379,9 +423,7 @@ cris_general_operand_or_symbol (op, mode)
    "movsi" anonymous pattern for PIC symbols.  */
 
 int
-cris_general_operand_or_gotless_symbol (op, mode)
-     rtx op;
-     enum machine_mode mode;
+cris_general_operand_or_gotless_symbol (rtx op, enum machine_mode mode)
 {
   return general_operand (op, mode)
     || (CONSTANT_P (op) && cris_gotless_symbol (op));
@@ -392,9 +434,7 @@ cris_general_operand_or_gotless_symbol (op, mode)
    "call" and "call_value" anonymous patterns.  */
 
 int
-cris_general_operand_or_plt_symbol (op, mode)
-     rtx op;
-     enum machine_mode mode;
+cris_general_operand_or_plt_symbol (rtx op, enum machine_mode mode)
 {
   return general_operand (op, mode)
     || (GET_CODE (op) == CONST
@@ -409,9 +449,7 @@ cris_general_operand_or_plt_symbol (op, mode)
    UNSPEC 0).  */
 
 int
-cris_mem_call_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+cris_mem_call_operand (rtx op, enum machine_mode mode)
 {
   rtx xmem;
 
@@ -426,10 +464,10 @@ cris_mem_call_operand (op, mode)
   return cris_general_operand_or_symbol (xmem, GET_MODE (op));
 }
 
-/* The CONDITIONAL_REGISTER_USAGE worker.   */
+/* The CONDITIONAL_REGISTER_USAGE worker.  */
 
 void
-cris_conditional_register_usage ()
+cris_conditional_register_usage (void)
 {
   /* FIXME: This isn't nice.  We should be able to use that register for
      something else if the PIC table isn't needed.  */
@@ -442,7 +480,7 @@ cris_conditional_register_usage ()
    since some generated files do not include function.h.  */
 
 int
-cris_cfun_uses_pic_table ()
+cris_cfun_uses_pic_table (void)
 {
   return current_function_uses_pic_offset_table;
 }
@@ -452,8 +490,7 @@ cris_cfun_uses_pic_table ()
    define_insn.  */
 
 const char *
-cris_op_str (x)
-     rtx x;
+cris_op_str (rtx x)
 {
   cris_output_insn_is_bound = 0;
   switch (GET_CODE (x))
@@ -467,7 +504,11 @@ cris_op_str (x)
       break;
 
     case MULT:
-      return "mul";
+      /* This function is for retrieving a part of an instruction name for
+	 an operator, for immediate output.  If that ever happens for
+	 MULT, we need to apply TARGET_MUL_BUG in the caller.  Make sure
+	 we notice.  */
+      abort ();
       break;
 
     case DIV:
@@ -521,9 +562,7 @@ cris_op_str (x)
    categorization of the error.  */
 
 static void
-cris_operand_lossage (msgid, op)
-     const char *msgid;
-     rtx op;
+cris_operand_lossage (const char *msgid, rtx op)
 {
   debug_rtx (op);
   output_operand_lossage ("%s", msgid);
@@ -532,9 +571,7 @@ cris_operand_lossage (msgid, op)
 /* Print an index part of an address to file.  */
 
 static void
-cris_print_index (index, file)
-     rtx index;
-     FILE * file;
+cris_print_index (rtx index, FILE *file)
 {
   rtx inner = XEXP (index, 0);
 
@@ -587,9 +624,7 @@ cris_print_index (index, file)
 /* Print a base rtx of an address to file.  */
 
 static void
-cris_print_base (base, file)
-     rtx base;
-     FILE *file;
+cris_print_base (rtx base, FILE *file)
 {
   if (REG_P (base))
     fprintf (file, "$%s", reg_names[REGNO (base)]);
@@ -603,8 +638,7 @@ cris_print_base (base, file)
 /* Usable as a guard in expressions.  */
 
 int
-cris_fatal (arg)
-     char *arg;
+cris_fatal (char *arg)
 {
   internal_error (arg);
 
@@ -615,9 +649,7 @@ cris_fatal (arg)
 /* Textual function prologue.  */
 
 static void
-cris_target_asm_function_prologue (file, size)
-     FILE *file;
-     HOST_WIDE_INT size;
+cris_target_asm_function_prologue (FILE *file, HOST_WIDE_INT size)
 {
   int regno;
 
@@ -757,13 +789,13 @@ cris_target_asm_function_prologue (file, size)
 		      && (last_movem_reg + 1) * 4 + size <= 128
 		      && cris_cpu_version >= CRIS_CPU_SVINTO
 		      && TARGET_SIDE_EFFECT_PREFIXES)
-		    fprintf (file, "\tmovem $%s,[$sp=$sp-%d]\n",
+		    fprintf (file, "\tmovem $%s,[$sp=$sp-"HOST_WIDE_INT_PRINT_DEC"]\n",
 			     reg_names[last_movem_reg],
 			     (last_movem_reg + 1) * 4 + size);
 		  else
 		    {
 		      /* Avoid printing multiple subsequent sub:s for sp.  */
-		      fprintf (file, "\tsub%s %d,$sp\n",
+		      fprintf (file, "\tsub%s "HOST_WIDE_INT_PRINT_DEC",$sp\n",
 			       ADDITIVE_SIZE_MODIFIER ((last_movem_reg + 1)
 						       * 4 + size),
 			       (last_movem_reg + 1) * 4 + size);
@@ -775,7 +807,8 @@ cris_target_asm_function_prologue (file, size)
 		  framesize += (last_movem_reg + 1) * 4 + size;
 
 		  if (TARGET_PDEBUG)
-		    fprintf (file, "; frame %d, #regs %d, bytes %d args %d\n",
+		    fprintf (file, "; frame "HOST_WIDE_INT_PRINT_DEC
+			     ", #regs %d, bytes %d args %d\n",
 			     size,
 			     last_movem_reg + 1,
 			     (last_movem_reg + 1) * 4,
@@ -788,7 +821,7 @@ cris_target_asm_function_prologue (file, size)
 		{
 		  /* Local vars on stack, but there are no movem:s.
 		     Just allocate space.  */
-		  fprintf (file, "\tSub%s %d,$sp\n",
+		  fprintf (file, "\tSub%s "HOST_WIDE_INT_PRINT_DEC",$sp\n",
 			   ADDITIVE_SIZE_MODIFIER (size),
 			   size);
 		  framesize += size;
@@ -823,14 +856,14 @@ cris_target_asm_function_prologue (file, size)
 	  && (last_movem_reg + 1) * 4 + size <= 128
 	  && cris_cpu_version >= CRIS_CPU_SVINTO
 	  && TARGET_SIDE_EFFECT_PREFIXES)
-	fprintf (file, "\tmovem $%s,[$sp=$sp-%d]\n",
+	fprintf (file, "\tmovem $%s,[$sp=$sp-"HOST_WIDE_INT_PRINT_DEC"]\n",
 		 reg_names[last_movem_reg],
 		 (last_movem_reg+1) * 4 + size);
       else
 	{
 	  /* Avoid printing multiple subsequent sub:s for sp.  FIXME:
 	     Clean up the conditional expression.  */
-	  fprintf (file, "\tsub%s %d,$sp\n",
+	  fprintf (file, "\tsub%s "HOST_WIDE_INT_PRINT_DEC",$sp\n",
 		   ADDITIVE_SIZE_MODIFIER ((last_movem_reg + 1) * 4 + size),
 		   (last_movem_reg + 1) * 4 + size);
 	  /* To be compatible with v0..v3 means we do not use an assignment
@@ -843,7 +876,8 @@ cris_target_asm_function_prologue (file, size)
       framesize += (last_movem_reg + 1) * 4 + size;
 
       if (TARGET_PDEBUG)
-	fprintf (file, "; frame %d, #regs %d, bytes %d args %d\n",
+	fprintf (file, "; frame "HOST_WIDE_INT_PRINT_DEC
+		 ", #regs %d, bytes %d args %d\n",
 		 size,
 		 last_movem_reg + 1,
 		 (last_movem_reg + 1) * 4,
@@ -865,7 +899,7 @@ cris_target_asm_function_prologue (file, size)
       /* This does not need to be accounted for, for unwind.  */
 
       /* Local vars on stack, and we could not use movem.  Add a sub here.  */
-      fprintf (file, "\tSub%s %d,$sp\n",
+      fprintf (file, "\tSub%s "HOST_WIDE_INT_PRINT_DEC",$sp\n",
 	       ADDITIVE_SIZE_MODIFIER (size + cfoa_size),
 	       cfoa_size + size);
       framesize += size + cfoa_size;
@@ -879,7 +913,8 @@ cris_target_asm_function_prologue (file, size)
 
   if (TARGET_PDEBUG)
     fprintf (file,
-	     "; parm #%d @ %d; frame %d, FP-SP is %d; leaf: %s%s; fp %s, outg: %d arg %d\n",
+	     "; parm #%d @ %d; frame " HOST_WIDE_INT_PRINT_DEC
+	     ", FP-SP is %d; leaf: %s%s; fp %s, outg: %d arg %d\n",
 	     CRIS_MAX_ARGS_IN_REGS + 1, FIRST_PARM_OFFSET (0),
 	     get_frame_size (),
 	     cris_initial_frame_pointer_offset (),
@@ -897,8 +932,7 @@ cris_target_asm_function_prologue (file, size)
    can be put in the epilogue.  */
 
 static int
-saved_regs_mentioned (x)
-     rtx x;
+saved_regs_mentioned (rtx x)
 {
   int i;
   const char *fmt;
@@ -947,8 +981,7 @@ saved_regs_mentioned (x)
 /* Figure out if the insn may be put in the epilogue.  */
 
 int
-cris_eligible_for_epilogue_delay (insn)
-     rtx insn;
+cris_eligible_for_epilogue_delay (rtx insn)
 {
   /* First of all, it must be as slottable as for a delayed branch insn.  */
   if (get_attr_slottable (insn) != SLOTTABLE_YES)
@@ -979,7 +1012,7 @@ cris_eligible_for_epilogue_delay (insn)
    contains "ret", else 0.  */
 
 int
-cris_delay_slots_for_epilogue ()
+cris_delay_slots_for_epilogue (void)
 {
   /* Check if we use a return insn, which we only do for leaf functions.
      Else there is no slot to fill.  */
@@ -1007,9 +1040,7 @@ cris_delay_slots_for_epilogue ()
    itself by storing the delay insn in save_last.  */
 
 static void
-cris_target_asm_function_epilogue (file, size)
-     FILE *file;
-     HOST_WIDE_INT size;
+cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
 {
   int regno;
   int last_movem_reg = -1;
@@ -1166,7 +1197,7 @@ cris_target_asm_function_epilogue (file, size)
 	  if (*save_last && file)
 	    fprintf (file, save_last);
 
-	  sprintf (save_last, "\tadd%s %d,$sp\n",
+	  sprintf (save_last, "\tadd%s "HOST_WIDE_INT_PRINT_DEC",$sp\n",
 		   ADDITIVE_SIZE_MODIFIER (size), size);
 	}
 
@@ -1252,7 +1283,7 @@ cris_target_asm_function_epilogue (file, size)
 
       /* Output the delay-slot-insn the mandated way.  */
       final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
-		       file, 1, -2, 1);
+		       file, 1, -2, 1, NULL);
     }
   else if (file)
     {
@@ -1270,10 +1301,7 @@ cris_target_asm_function_epilogue (file, size)
 /* The PRINT_OPERAND worker.  */
 
 void
-cris_print_operand (file, x, code)
-     FILE *file;
-     rtx x;
-     int code;
+cris_print_operand (FILE *file, rtx x, int code)
 {
   rtx operand = x;
 
@@ -1289,12 +1317,13 @@ cris_print_operand (file, x, code)
   switch (code)
     {
     case 'b':
-      /* Print the unsigned supplied integer as if it was signed
+      /* Print the unsigned supplied integer as if it were signed
 	 and < 0, i.e print 255 or 65535 as -1, 254, 65534 as -2, etc.  */
       if (GET_CODE (x) != CONST_INT
 	  || ! CONST_OK_FOR_LETTER_P (INTVAL (x), 'O'))
 	LOSE_AND_RETURN ("invalid operand for 'b' modifier", x);
-      fprintf (file, "%d", INTVAL (x)| (INTVAL (x) <= 255 ? ~255 : ~65535));
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC,
+	       INTVAL (x)| (INTVAL (x) <= 255 ? ~255 : ~65535));
       return;
 
     case 'x':
@@ -1372,6 +1401,23 @@ cris_print_operand (file, x, code)
 	fputs ("\n\tnop", file);
       return;
 
+    case '!':
+      /* Output directive for alignment padded with "nop" insns.
+	 Optimizing for size, it's plain 4-byte alignment, otherwise we
+	 align the section to a cache-line (32 bytes) and skip at max 2
+	 bytes, i.e. we skip if it's the last insn on a cache-line.  The
+	 latter is faster by a small amount (for two test-programs 99.6%
+	 and 99.9%) and larger by a small amount (ditto 100.1% and
+	 100.2%).  This is supposed to be the simplest yet performance-
+	 wise least intrusive way to make sure the immediately following
+	 (supposed) muls/mulu insn isn't located at the end of a
+	 cache-line.  */
+      if (TARGET_MUL_BUG)
+	fputs (optimize_size
+	       ? ".p2alignw 2,0x050f\n\t"
+	       : ".p2alignw 5,0x050f,2\n\t", file);
+      return;
+
     case 'H':
       /* Print high (most significant) part of something.  */
       switch (GET_CODE (operand))
@@ -1388,7 +1434,7 @@ cris_print_operand (file, x, code)
 	  /* High part of a long long constant.  */
 	  if (GET_MODE (operand) == VOIDmode)
 	    {
-	      fprintf (file, "0x%x", CONST_DOUBLE_HIGH (x));
+	      fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_DOUBLE_HIGH (x));
 	      return;
 	    }
 	  else
@@ -1461,12 +1507,12 @@ cris_print_operand (file, x, code)
       /* Print the least significant part of operand.  */
       if (GET_CODE (operand) == CONST_DOUBLE)
 	{
-	  fprintf (file, "0x%x", CONST_DOUBLE_LOW (x));
+	  fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_DOUBLE_LOW (x));
 	  return;
 	}
       else if (HOST_BITS_PER_WIDE_INT > 32 && GET_CODE (operand) == CONST_INT)
 	{
-	  fprintf (file, "0x%x",
+	  fprintf (file, HOST_WIDE_INT_PRINT_HEX,
 		   INTVAL (x) & ((unsigned int) 0x7fffffff * 2 + 1));
 	  return;
 	}
@@ -1592,9 +1638,7 @@ cris_print_operand (file, x, code)
 /* The PRINT_OPERAND_ADDRESS worker.  */
 
 void
-cris_print_operand_address (file, x)
-     FILE *file;
-     rtx x;
+cris_print_operand_address (FILE *file, rtx x)
 {
   /* All these were inside MEM:s so output indirection characters.  */
   putc ('[', file);
@@ -1644,9 +1688,7 @@ cris_print_operand_address (file, x)
    initial-value machinery.  */
 
 rtx
-cris_return_addr_rtx (count, frameaddr)
-     int count;
-     rtx frameaddr ATTRIBUTE_UNUSED;
+cris_return_addr_rtx (int count, rtx frameaddr ATTRIBUTE_UNUSED)
 {
   cfun->machine->needs_return_address_on_stack = 1;
 
@@ -1658,11 +1700,20 @@ cris_return_addr_rtx (count, frameaddr)
     : NULL_RTX;
 }
 
+/* Accessor used in cris.md:return because cfun->machine isn't available
+   there.  */
+
+int
+cris_return_address_on_stack ()
+{
+  return cfun->machine->needs_return_address_on_stack;
+}
+
 /* This used to be the INITIAL_FRAME_POINTER_OFFSET worker; now only
    handles FP -> SP elimination offset.  */
 
 static int
-cris_initial_frame_pointer_offset ()
+cris_initial_frame_pointer_offset (void)
 {
   int regno;
 
@@ -1707,9 +1758,7 @@ cris_initial_frame_pointer_offset ()
    and imaginary arg pointer.  */
 
 int
-cris_initial_elimination_offset (fromreg, toreg)
-     int fromreg;
-     int toreg;
+cris_initial_elimination_offset (int fromreg, int toreg)
 {
   int fp_sp_offset
     = cris_initial_frame_pointer_offset ();
@@ -1720,7 +1769,7 @@ cris_initial_elimination_offset (fromreg, toreg)
     = regs_ever_live[CRIS_SRP_REGNUM]
     || cfun->machine->needs_return_address_on_stack != 0;
 
-  /* Here we act as if the frame-pointer is needed.  */
+  /* Here we act as if the frame-pointer were needed.  */
   int ap_fp_offset = 4 + (return_address_on_stack ? 4 : 0);
 
   if (fromreg == ARG_POINTER_REGNUM
@@ -1753,13 +1802,11 @@ cris_initial_elimination_offset (fromreg, toreg)
     check-cc-attribute methods.  */
 
 void
-cris_notice_update_cc (exp, insn)
-     rtx exp;
-     rtx insn;
+cris_notice_update_cc (rtx exp, rtx insn)
 {
   /* Check if user specified "-mcc-init" as a bug-workaround.  FIXME:
      TARGET_CCINIT does not work; we must set CC_REVERSED as below.
-     Several test-cases will otherwise fail, for example
+     Several testcases will otherwise fail, for example
      gcc.c-torture/execute/20000217-1.c -O0 and -O1.  */
   if (TARGET_CCINIT)
     {
@@ -1978,8 +2025,8 @@ cris_notice_update_cc (exp, insn)
 		     value1=rz and value2=[rx] */
 		  cc_status.value1 = XEXP (XVECEXP (exp, 0, 0), 0);
 		  cc_status.value2
-		    = gen_rtx_MEM (GET_MODE (XEXP (XVECEXP (exp, 0, 0), 0)),
-				   XEXP (XVECEXP (exp, 0, 1), 0));
+		    = replace_equiv_address (XEXP (XVECEXP (exp, 0, 0), 1),
+					     XEXP (XVECEXP (exp, 0, 1), 0));
 		  cc_status.flags = 0;
 
 		  /* Huh?  A side-effect cannot change the destination
@@ -2042,7 +2089,7 @@ cris_notice_update_cc (exp, insn)
    many registers must be saved, so return 0 then.  */
 
 int
-cris_simple_epilogue ()
+cris_simple_epilogue (void)
 {
   int regno;
   int reglimit = STACK_POINTER_REGNUM;
@@ -2080,11 +2127,118 @@ cris_simple_epilogue ()
   return 1;
 }
 
+/* Compute a (partial) cost for rtx X.  Return true if the complete
+   cost has been computed, and false if subexpressions should be
+   scanned.  In either case, *TOTAL contains the cost result.  */
+
+static bool
+cris_rtx_costs (rtx x, int code, int outer_code, int *total)
+{
+  switch (code)
+    {
+    case CONST_INT:
+      {
+	HOST_WIDE_INT val = INTVAL (x);
+	if (val == 0)
+	  *total = 0;
+	else if (val < 32 && val >= -32)
+	  *total = 1;
+	/* Eight or 16 bits are a word and cycle more expensive.  */
+	else if (val <= 32767 && val >= -32768)
+	  *total = 2;
+	/* A 32 bit constant (or very seldom, unsigned 16 bits) costs
+	   another word.  FIXME: This isn't linear to 16 bits.  */
+	else
+	  *total = 4;
+	return true;
+      }
+
+    case LABEL_REF:
+      *total = 6;
+      return true;
+
+    case CONST:
+    case SYMBOL_REF:
+      /* For PIC, we need a prefix (if it isn't already there),
+	 and the PIC register.  For a global PIC symbol, we also
+	 need a read of the GOT.  */
+      if (flag_pic)
+	{
+	  if (cris_got_symbol (x))
+	    *total = 2 + 4 + 6;
+	  else
+	    *total = 2 + 6;
+	}
+      else
+	*total = 6;
+      return true;
+
+    case CONST_DOUBLE:
+      if (x != CONST0_RTX (GET_MODE (x) == VOIDmode ? DImode : GET_MODE (x)))
+	*total = 12;
+      else
+        /* Make 0.0 cheap, else test-insns will not be used.  */
+	*total = 0;
+      return true;
+
+    case MULT:
+      /* Identify values that are no powers of two.  Powers of 2 are
+         taken care of already and those values should not be changed.  */
+      if (GET_CODE (XEXP (x, 1)) != CONST_INT
+          || exact_log2 (INTVAL (XEXP (x, 1)) < 0))
+	{
+	  /* If we have a multiply insn, then the cost is between
+	     1 and 2 "fast" instructions.  */
+	  if (TARGET_HAS_MUL_INSNS)
+	    {
+	      *total = COSTS_N_INSNS (1) + COSTS_N_INSNS (1) / 2;
+	      return true;
+	    }
+
+	  /* Estimate as 4 + 4 * #ofbits.  */
+	  *total = COSTS_N_INSNS (132);
+	  return true;
+	}
+      return false;
+
+    case UDIV:
+    case MOD:
+    case UMOD:
+    case DIV:
+      if (GET_CODE (XEXP (x, 1)) != CONST_INT
+          || exact_log2 (INTVAL (XEXP (x, 1)) < 0))
+	{
+	  /* Estimate this as 4 + 8 * #of bits.  */
+	  *total = COSTS_N_INSNS (260);
+	  return true;
+	}
+      return false;
+
+    case AND:
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
+          /* Two constants may actually happen before optimization.  */
+          && GET_CODE (XEXP (x, 0)) != CONST_INT
+          && !CONST_OK_FOR_LETTER_P (INTVAL (XEXP (x, 1)), 'I'))
+	{
+	  *total = (rtx_cost (XEXP (x, 0), outer_code) + 2
+		    + 2 * GET_MODE_NUNITS (GET_MODE (XEXP (x, 0))));
+	  return true;
+	}
+      return false;
+
+    case ZERO_EXTEND: case SIGN_EXTEND:
+      *total = rtx_cost (XEXP (x, 0), outer_code);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* The ADDRESS_COST worker.  */
 
-int
-cris_address_cost (x)
-     rtx x;
+static int
+cris_address_cost (rtx x)
 {
   /* The metric to use for the cost-macros is unclear.
      The metric used here is (the number of cycles needed) / 2,
@@ -2166,10 +2320,9 @@ cris_address_cost (x)
 	      whose mode we must consider.  */
 
 int
-cris_side_effect_mode_ok (code, ops, lreg, rreg, rval, multop, other_op)
-     enum rtx_code code;
-     rtx *ops;
-     int lreg, rreg, rval, multop, other_op;
+cris_side_effect_mode_ok (enum rtx_code code, rtx *ops,
+			  int lreg, int rreg, int rval,
+			  int multop, int other_op)
 {
   /* Find what value to multiply with, for rx =ry + rz * n.  */
   int mult = multop < 0 ? 1 : INTVAL (ops[multop]);
@@ -2283,8 +2436,7 @@ cris_side_effect_mode_ok (code, ops, lreg, rreg, rval, multop, other_op)
    anyway.  */
 
 static int
-cris_reg_overlap_mentioned_p (x, in)
-     rtx x, in;
+cris_reg_overlap_mentioned_p (rtx x, rtx in)
 {
   /* The function reg_overlap_mentioned now handles when X is
      strict_low_part, but not when IN is a STRICT_LOW_PART.  */
@@ -2298,21 +2450,19 @@ cris_reg_overlap_mentioned_p (x, in)
    We just dispatch to the functions for ELF and a.out.  */
 
 void
-cris_target_asm_named_section (name, flags)
-     const char *name;
-     unsigned int flags;
+cris_target_asm_named_section (const char *name, unsigned int flags,
+			       tree decl)
 {
   if (! TARGET_ELF)
-    default_no_named_section (name, flags);
+    default_no_named_section (name, flags, decl);
   else
-    default_elf_asm_named_section (name, flags);
+    default_elf_asm_named_section (name, flags, decl);
 }
 
 /* The LEGITIMATE_PIC_OPERAND_P worker.  */
 
 int
-cris_legitimate_pic_operand (x)
-     rtx x;
+cris_legitimate_pic_operand (rtx x)
 {
   /* The PIC representation of a symbol with a GOT entry will be (for
      example; relocations differ):
@@ -2328,8 +2478,7 @@ cris_legitimate_pic_operand (x)
    CONSTANT_P.  */
 
 int
-cris_symbol (x)
-     rtx x;
+cris_symbol (rtx x)
 {
   switch (GET_CODE (x))
     {
@@ -2351,7 +2500,6 @@ cris_symbol (x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2367,9 +2515,13 @@ cris_symbol (x)
    see something that would need one.  */
 
 int
-cris_gotless_symbol (x)
-     rtx x;
+cris_gotless_symbol (rtx x)
 {
+#ifdef ENABLE_CHECKING
+  if (!flag_pic)
+    abort ();
+#endif
+
   switch (GET_CODE (x))
     {
     case UNSPEC:
@@ -2377,9 +2529,9 @@ cris_gotless_symbol (x)
       return 1;
 
     case SYMBOL_REF:
-      if (flag_pic && cfun != NULL)
+      if (cfun != NULL)
 	current_function_uses_pic_offset_table = 1;
-      return SYMBOL_REF_FLAG (x);
+      return SYMBOL_REF_LOCAL_P (x);
 
     case LABEL_REF:
       /* We don't set current_function_uses_pic_offset_table for
@@ -2409,7 +2561,6 @@ cris_gotless_symbol (x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2423,9 +2574,13 @@ cris_gotless_symbol (x)
    CONSTANT_P, and the symbol needs a GOT entry.  */
 
 int
-cris_got_symbol (x)
-     rtx x;
+cris_got_symbol (rtx x)
 {
+#ifdef ENABLE_CHECKING
+  if (!flag_pic)
+    abort ();
+#endif
+
   switch (GET_CODE (x))
     {
     case UNSPEC:
@@ -2433,9 +2588,9 @@ cris_got_symbol (x)
       return 0;
 
     case SYMBOL_REF:
-      if (flag_pic && cfun != NULL)
+      if (cfun != NULL)
 	current_function_uses_pic_offset_table = 1;
-      return ! SYMBOL_REF_FLAG (x);
+      return ! SYMBOL_REF_LOCAL_P (x);
 
     case CONST:
       return cris_got_symbol (XEXP (x, 0));
@@ -2450,7 +2605,6 @@ cris_got_symbol (x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2465,7 +2619,7 @@ cris_got_symbol (x)
    As is the norm, this also parses -mfoo=bar type parameters.  */
 
 void
-cris_override_options ()
+cris_override_options (void)
 {
   if (cris_max_stackframe_str)
     {
@@ -2568,8 +2722,7 @@ cris_override_options ()
       flag_no_function_cse = 1;
     }
 
-  if ((write_symbols == DWARF_DEBUG
-       || write_symbols == DWARF2_DEBUG) && ! TARGET_ELF)
+  if (write_symbols == DWARF2_DEBUG && ! TARGET_ELF)
     {
       warning ("that particular -g option is invalid with -maout and -melinux");
       write_symbols = DBX_DEBUG;
@@ -2582,25 +2735,20 @@ cris_override_options ()
 /* The TARGET_ASM_OUTPUT_MI_THUNK worker.  */
 
 static void
-cris_asm_output_mi_thunk (stream, thunkdecl, delta, vcall_offset, funcdecl)
-     FILE *stream;
-     tree thunkdecl ATTRIBUTE_UNUSED;
-     HOST_WIDE_INT delta;
-     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
-     tree funcdecl;
+cris_asm_output_mi_thunk (FILE *stream,
+			  tree thunkdecl ATTRIBUTE_UNUSED,
+			  HOST_WIDE_INT delta,
+			  HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED,
+			  tree funcdecl)
 {
   if (delta > 0)
-    {
-      fprintf (stream, "\tadd%s ", ADDITIVE_SIZE_MODIFIER (delta));
-      fprintf (stream, HOST_WIDE_INT_PRINT_DEC, delta);
-      fprintf (stream, ",$%s\n", reg_names[CRIS_FIRST_ARG_REG]);
-    }
+    fprintf (stream, "\tadd%s " HOST_WIDE_INT_PRINT_DEC ",$%s\n",
+	     ADDITIVE_SIZE_MODIFIER (delta), delta,
+	     reg_names[CRIS_FIRST_ARG_REG]);
   else if (delta < 0)
-    {
-      fprintf (stream, "\tsub%s ", ADDITIVE_SIZE_MODIFIER (-delta));
-      fprintf (stream, HOST_WIDE_INT_PRINT_DEC, -delta);
-      fprintf (stream, ",$%s\n", reg_names[CRIS_FIRST_ARG_REG]);
-    }
+    fprintf (stream, "\tsub%s " HOST_WIDE_INT_PRINT_DEC ",$%s\n",
+	     ADDITIVE_SIZE_MODIFIER (-delta), -delta,
+	     reg_names[CRIS_FIRST_ARG_REG]);
 
   if (flag_pic)
     {
@@ -2619,93 +2767,40 @@ cris_asm_output_mi_thunk (stream, thunkdecl, delta, vcall_offset, funcdecl)
     }
 }
 
-/* The EXPAND_BUILTIN_VA_ARG worker.  This is modified from the
-   "standard" implementation of va_arg: read the value from the current
-   address and increment by the size of one or two registers.  The
-   important difference for CRIS is that if the type is
-   pass-by-reference, then perform an indirection.  */
+/* Boilerplate emitted at start of file.  
 
-rtx
-cris_expand_builtin_va_arg (valist, type)
-     tree valist;
-     tree type;
+   NO_APP *only at file start* means faster assembly.  It also means
+   comments are not allowed.  In some cases comments will be output
+   for debugging purposes.  Make sure they are allowed then.
+
+   We want a .file directive only if TARGET_ELF.  */
+static void
+cris_file_start (void)
 {
-  tree addr_tree, t;
-  rtx addr;
-  tree passed_size = size_zero_node;
-  tree type_size = NULL;
-  tree size3 = size_int (3);
-  tree size4 = size_int (4);
-  tree size8 = size_int (8);
-  tree rounded_size;
+  /* These expressions can vary at run time, so we cannot put
+     them into TARGET_INITIALIZER.  */
+  targetm.file_start_app_off = !(TARGET_PDEBUG || flag_print_asm_name);
+  targetm.file_start_file_directive = TARGET_ELF;
 
-  /* Get AP.  */
-  addr_tree = valist;
+  default_file_start ();
+}
 
-  if (type == error_mark_node
-      || (type_size = TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (type))) == NULL
-      || TREE_OVERFLOW (type_size))
-    /* Presumably an error; the size isn't computable.  A message has
-       supposedly been emitted elsewhere.  */
-    rounded_size = size_zero_node;
-  else
-    rounded_size
-      = fold (build (MULT_EXPR, sizetype,
-		     fold (build (TRUNC_DIV_EXPR, sizetype,
-				  fold (build (PLUS_EXPR, sizetype,
-					       type_size, size3)),
-				  size4)),
-		     size4));
-
-  if (!integer_zerop (rounded_size))
-    {
-      /* Check if the type is passed by value or by reference.  Values up
-	 to 8 bytes are passed by-value, padded to register-size (4
-	 bytes).  Larger values and varying-size types are passed
-	 by reference.  */
-      passed_size
-	= (!really_constant_p (type_size)
-	   ? size4
-	   : fold (build (COND_EXPR, sizetype,
-			  fold (build (GT_EXPR, sizetype,
-				       rounded_size,
-				       size8)),
-			  size4,
-			  rounded_size)));
-
-      addr_tree
-	= (!really_constant_p (type_size)
-	   ? build1 (INDIRECT_REF, build_pointer_type (type), addr_tree)
-	   : fold (build (COND_EXPR, TREE_TYPE (addr_tree),
-			  fold (build (GT_EXPR, sizetype,
-				       rounded_size,
-				       size8)),
-			  build1 (INDIRECT_REF, build_pointer_type (type),
-				  addr_tree),
-			  addr_tree)));
-    }
-
-  addr = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
-  addr = copy_to_reg (addr);
-
-  if (!integer_zerop (rounded_size))
-    {
-      /* Compute new value for AP.  */
-      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-		 build (PLUS_EXPR, TREE_TYPE (valist), valist,
-			passed_size));
-      TREE_SIDE_EFFECTS (t) = 1;
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-    }
-
-  return addr;
+/* Rename the function calls for integer multiply and divide.  */
+static void
+cris_init_libfuncs (void)
+{
+  set_optab_libfunc (smul_optab, SImode, "__Mul");
+  set_optab_libfunc (sdiv_optab, SImode, "__Div");
+  set_optab_libfunc (udiv_optab, SImode, "__Udiv");
+  set_optab_libfunc (smod_optab, SImode, "__Mod");
+  set_optab_libfunc (umod_optab, SImode, "__Umod");
 }
 
 /* The INIT_EXPANDERS worker sets the per-function-data initializer and
    mark functions.  */
 
 void
-cris_init_expanders ()
+cris_init_expanders (void)
 {
   /* Nothing here at the moment.  */
 }
@@ -2713,7 +2808,7 @@ cris_init_expanders ()
 /* Zero initialization is OK for all current fields.  */
 
 static struct machine_function *
-cris_init_machine_status ()
+cris_init_machine_status (void)
 {
   return ggc_alloc_cleared (sizeof (struct machine_function));
 }
@@ -2722,8 +2817,7 @@ cris_init_machine_status ()
    Originally a copy of gen_split_move_double in m32r.c.  */
 
 rtx
-cris_split_movdx (operands)
-     rtx *operands;
+cris_split_movdx (rtx *operands)
 {
   enum machine_mode mode = GET_MODE (operands[0]);
   rtx dest = operands[0];
@@ -2781,7 +2875,7 @@ cris_split_movdx (operands)
 	  int reverse
 	    = (refers_to_regno_p (dregno, dregno + 1, addr, NULL) != 0);
 
-	  /* The original code imples that we can't do
+	  /* The original code implies that we can't do
 	     move.x [rN+],rM  move.x [rN],rM+1
 	     when rN is dead, because of REG_NOTES damage.  That is
 	     consistent with what I've seen, so don't try it.
@@ -2882,9 +2976,7 @@ cris_split_movdx (operands)
    one for CODE_LABEL?).  */
 
 void
-cris_output_addr_const (file, x)
-     FILE *file;
-     rtx x;
+cris_output_addr_const (FILE *file, rtx x)
 {
   int is_plt = 0;
 
@@ -3007,7 +3099,7 @@ restart:
       break;
 
     case PLUS:
-      /* Some assemblers need integer constants to appear last (eg masm).  */
+      /* Some assemblers need integer constants to appear last (e.g. masm).  */
       if (GET_CODE (XEXP (x, 0)) == CONST_INT)
 	{
 	  cris_output_addr_const (file, XEXP (x, 1));
@@ -3051,72 +3143,88 @@ restart:
     }
 }
 
-/* Code-in whether we can get away without a GOT entry (needed for
-   externally visible objects but not for functions) into
-   SYMBOL_REF_FLAG and add the PLT suffix for global functions.  */
+/* Worker function for TARGET_STRUCT_VALUE_RTX.  */
+
+static rtx
+cris_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+		       int incoming ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (Pmode, CRIS_STRUCT_VALUE_REGNUM);
+}
+
+/* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
 
 static void
-cris_encode_section_info (exp, first)
-     tree exp;
-     int first ATTRIBUTE_UNUSED;
+cris_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
+			     enum machine_mode mode ATTRIBUTE_UNUSED,
+			     tree type ATTRIBUTE_UNUSED,
+			     int *pretend_arg_size,
+			     int second_time)
 {
-  if (flag_pic)
+  if (ca->regs < CRIS_MAX_ARGS_IN_REGS)
+    *pretend_arg_size = (CRIS_MAX_ARGS_IN_REGS - ca->regs) * 4;
+  if (TARGET_PDEBUG)
     {
-      rtx rtl = DECL_P (exp) ? DECL_RTL (exp) : TREE_CST_RTL (exp);
-
-      if (GET_CODE (rtl) == MEM && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)
-	SYMBOL_REF_FLAG (XEXP (rtl, 0)) = (*targetm.binds_local_p) (exp);
+      fprintf (asm_out_file,
+	       "\n; VA:: ANSI: %d args before, anon @ #%d, %dtime\n",
+	       ca->regs, *pretend_arg_size, second_time);
     }
 }
+
+/* Return true if TYPE must be passed by invisible reference.
+   For cris, we pass <= 8 bytes by value, others by reference.  */
+
+static bool
+cris_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+			enum machine_mode mode, tree type,
+			bool named ATTRIBUTE_UNUSED)
+{
+  return (targetm.calls.must_pass_in_stack (mode, type)
+	  || CRIS_FUNCTION_ARG_SIZE (mode, type) > 8);
+}
+
 
 #if 0
 /* Various small functions to replace macros.  Only called from a
    debugger.  They might collide with gcc functions or system functions,
    so only emit them when '#if 1' above.  */
 
-enum rtx_code Get_code PARAMS ((rtx));
+enum rtx_code Get_code (rtx);
 
 enum rtx_code
-Get_code (x)
-     rtx x;
+Get_code (rtx x)
 {
   return GET_CODE (x);
 }
 
-const char *Get_mode PARAMS ((rtx));
+const char *Get_mode (rtx);
 
 const char *
-Get_mode (x)
-     rtx x;
+Get_mode (rtx x)
 {
   return GET_MODE_NAME (GET_MODE (x));
 }
 
-rtx Xexp PARAMS ((rtx, int));
+rtx Xexp (rtx, int);
 
 rtx
-Xexp (x, n)
-     rtx x;
-     int n;
+Xexp (rtx x, int n)
 {
   return XEXP (x, n);
 }
 
-rtx Xvecexp PARAMS ((rtx, int, int));
+rtx Xvecexp (rtx, int, int);
 
 rtx
-Xvecexp (x, n, m)
-     rtx x;
-     int n;
+Xvecexp (rtx x, int n, int m)
 {
   return XVECEXP (x, n, m);
 }
 
-int Get_rtx_len PARAMS ((rtx));
+int Get_rtx_len (rtx);
 
 int
-Get_rtx_len (x)
-     rtx x;
+Get_rtx_len (rtx x)
 {
   return GET_RTX_LENGTH (GET_CODE (x));
 }
@@ -3124,20 +3232,18 @@ Get_rtx_len (x)
 /* Use upper-case to distinguish from local variables that are sometimes
    called next_insn and prev_insn.  */
 
-rtx Next_insn PARAMS ((rtx));
+rtx Next_insn (rtx);
 
 rtx
-Next_insn (insn)
-     rtx insn;
+Next_insn (rtx insn)
 {
   return NEXT_INSN (insn);
 }
 
-rtx Prev_insn PARAMS ((rtx));
+rtx Prev_insn (rtx);
 
 rtx
-Prev_insn (insn)
-     rtx insn;
+Prev_insn (rtx insn)
 {
   return PREV_INSN (insn);
 }

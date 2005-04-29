@@ -1,0 +1,47 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME png]
+[vset FORMATFULLNAME {Portable Network Graphics format}]
+
+[include format-header.inc]
+
+This handler provides new additional configuration options. See
+section [sectref {PNG OPTIONS}] for more detailed explanations.
+
+
+[include format-middle.inc]
+
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {PNG OPTIONS}].
+
+[list_end]
+
+
+
+[section {PNG OPTIONS}]
+
+The handler provides no true options at all, but accepts pairs of keys
+and values when writing a PNG file. Each pair will be written as a
+named text chunk where the key provides the name of the chunk and the
+value its contents.
+
+For example
+
+[example {
+    png Author <name> Title <title> Description ...
+}]
+
+
+[section TRANSPARENCY]
+
+If you want to write images to disk which contain transparency
+information (e.g. PNG with alpha channel) you need at least
+
+[package Tk] 8.3.
+
+
+
+[list_begin definitions]
+[include format-footer.inc]

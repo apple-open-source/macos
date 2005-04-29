@@ -21,7 +21,7 @@ INCIDENTAL OR CONSEQUENTIAL DAMAGES, ARISING OUT OF OR IN ANY WAY CONNECTED
 WITH THE SPEEDO SOFTWARE OR THE BITSTREAM CHARTER OUTLINE FONT.
 
 */
-/* $XFree86: xc/lib/font/Speedo/set_trns.c,v 1.5 2002/09/18 17:11:44 tsi Exp $ */
+/* $XFree86: xc/lib/font/Speedo/set_trns.c,v 1.6 2003/05/27 22:26:44 tsi Exp $ */
 
 
 
@@ -152,7 +152,6 @@ ufix8    format)    /* Character format byte */
 {
 fix15    i,n;
 ufix16   tmpufix16;
-fix15    constr;
 
 n = sp_globals.no_X_orus + sp_globals.no_Y_orus - 2;
 for (i = 0; i < n; i++)          /* For each entry in control table ... */
@@ -162,7 +161,7 @@ for (i = 0; i < n; i++)          /* For each entry in control table ... */
     else
         pointer += 2;            /* Skip FROM and TO fields */
     /* skip constraints field */
-    constr = NEXT_BYTES (pointer, tmpufix16);
+    NEXT_BYTES (pointer, tmpufix16);
 
     }
 return pointer;
@@ -936,8 +935,10 @@ fix15   no_Y_ctrl_zones) /* Number of Y control zones */
 {
 fix15    i, j, n;
 fix31    ppo;  
+#if INCL_SQUEEZING || INCL_ISW
 fix31    xppo0; /* top level pixels per oru */
 fix31    yppo0; /* top level pixels per oru */
+#endif
 ufix8    edge_org;
 ufix8    edge;
 ufix8    start_edge;
@@ -975,9 +976,9 @@ constr_org = 0;
 sp_globals.rnd_xmin = 0;  /* initialize the error for chars with no zone */
 n = no_X_ctrl_zones;
 ppo = sp_globals.tcb.xppo;
+#if INCL_SQUEEZING || INCL_ISW
 xppo0 = sp_globals.tcb0.xppo;
 yppo0 = sp_globals.tcb0.yppo;
-#if INCL_SQUEEZING || INCL_ISW
 squeezed_x = FALSE;
 #endif
 

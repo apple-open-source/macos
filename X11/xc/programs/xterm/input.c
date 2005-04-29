@@ -2,10 +2,10 @@
  *	$Xorg: input.c,v 1.3 2000/08/17 19:55:08 cpqbld Exp $
  */
 
-/* $XFree86: xc/programs/xterm/input.c,v 3.62 2002/12/27 21:05:22 dickey Exp $ */
+/* $XFree86: xc/programs/xterm/input.c,v 3.69 2003/12/31 17:12:28 dickey Exp $ */
 
 /*
- * Copyright 1999-2001,2002 by Thomas E. Dickey
+ * Copyright 1999-2002,2003 by Thomas E. Dickey
  *
  *                         All Rights Reserved
  *
@@ -86,11 +86,11 @@
 
 #define KEYSYM_FMT "0x%04lX"	/* simplify matching <X11/keysymdef.h> */
 
-/*                       0123456789 abc def0123456789abdef0123456789abcdef0123456789abcd */
-static char *kypd_num = " XXXXXXXX\tXXX\rXXXxxxxXXXXXXXXXXXXXXXXXXXXX*+,-./0123456789XX=";
+/*                       0123456789 abc def0123456789abcdef0123456789abcdef0123456789abcd */
+static char *kypd_num = " XXXXXXXX\tXXX\rXXXxxxxXXXXXXXXXXXXXXXXXXXXX*+,-./0123456789XXX=";
 
-/*                       0123456789abcdef0123456789abdef0123456789abcdef0123456789abcd */
-static char *kypd_apl = " ABCDEFGHIJKLMNOPQRSTUVWXYZ??????abcdefghijklmnopqrstuvwxyzXX";
+/*                       0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd */
+static char *kypd_apl = " ABCDEFGHIJKLMNOPQRSTUVWXYZ??????abcdefghijklmnopqrstuvwxyzXXX";
 
 static char *curfinal = "HDACB  FE";
 
@@ -300,10 +300,10 @@ convertFromUTF8(unsigned long c, Char * strbuf)
  * Determine if we use the \E[3~ sequence for Delete, or the legacy ^?.  We
  * maintain the delete_is_del value as 3 states:  unspecified(2), true and
  * false.  If unspecified, it is handled differently according to whether the
- * legacy keybord support is enabled, or if xterm emulates a VT220.
+ * legacy keyboard support is enabled, or if xterm emulates a VT220.
  *
  * Once the user (or application) has specified delete_is_del via resource
- * settting, popup menu or escape sequence, it overrides the keyboard type
+ * setting, popup menu or escape sequence, it overrides the keyboard type
  * rather than the reverse.
  */
 Boolean
@@ -325,36 +325,6 @@ xtermDeleteIsDEL(void)
 	   result));
 
     return result;
-}
-
-/*
- * Add input-actions for widgets that are overlooked (scrollbar and toolbar):
- *
- *	a) Sometimes the scrollbar passes through translations, sometimes it
- *	   doesn't.  We add the KeyPress translations here, just to be sure.
- *	b) In the normal (non-toolbar) configuration, the xterm widget covers
- *	   almost all of the window.  With a toolbar, there's a relatively
- *	   large area that the user would expect to enter keystrokes since the
- *	   program can get the focus.
- */
-void
-xtermAddInput(Widget w)
-{
-    static char input_trans[] = "\
-                ~Meta <KeyPress>:insert-seven-bit() \n\
-                 Meta <KeyPress>:insert-eight-bit() \n";
-    /* *INDENT-OFF* */
-    XtActionsRec input_actions[] = {
-	{ "insert",		HandleKeyPressed }, /* alias */
-	{ "insert-eight-bit",	HandleEightBitKeyPressed },
-	{ "insert-seven-bit",	HandleKeyPressed },
-	{ "secure",		HandleSecure },
-	{ "string",		HandleStringEvent },
-    };
-    /* *INDENT-ON* */
-
-    XtAppAddActions(app_con, input_actions, XtNumber(input_actions));
-    XtAugmentTranslations(w, XtParseTranslationTable(input_trans));
 }
 
 void
@@ -498,7 +468,7 @@ Input(TKeyboard * keyboard,
 	&& keyboard->type != keyboardIsVT220
 #endif
 #if OPT_VT52_MODE
-	&& screen->ansi_level != 0
+	&& screen->vtXX_level != 0
 #endif
 	) {
 /*
@@ -599,7 +569,7 @@ Input(TKeyboard * keyboard,
 	key = TRUE;
 #if 0				/* OPT_SUNPC_KBD should suppress - but only for vt220 compatibility */
     } else if (keyboard->type == keyboardIsVT220
-	       && screen->ansi_level <= 1
+	       && screen->vtXX_level <= 1
 	       && IsEditFunctionKey(keysym)) {
 	key = FALSE;		/* ignore editing-keypad in vt100 mode */
 #endif
@@ -716,18 +686,34 @@ Input(TKeyboard * keyboard,
 	     */
 	    if (screen->meta_sends_esc
 		&& ((event->state & term->misc.meta_left) != 0
-		    || (event->state & term->misc.meta_right)) != 0) {
+		    || (event->state & term->misc.meta_right) != 0)) {
 		TRACE(("...input-char is modified by META\n"));
 		eightbit = False;
 		unparseputc(ESC, pty);	/* escape */
 	    }
 #endif
 	    if (eightbit && screen->input_eight_bits) {
-		if (CharOf(*string) < 128) {
-		    TRACE(("...input shift from %d to %d\n",
-			   CharOf(*string),
-			   CharOf(*string) | 0x80));
+		IChar ch = CharOf(*string);
+		if (ch < 128) {
 		    *string |= 0x80;
+		    TRACE(("...input shift from %d to %d (%#x to %#x)\n",
+			   ch, CharOf(*string),
+			   ch, CharOf(*string)));
+#if OPT_WIDE_CHARS
+		    if (screen->utf8_mode) {
+			/*
+			 * We could interpret the incoming code as "in the
+			 * current locale", but it's simpler to treat it as
+			 * a Unicode value to translate to UTF-8.
+			 */
+			ch = CharOf(*string);
+			nbytes = 2;
+			string[0] = 0xc0 | ((ch >> 6) & 0x3);
+			string[1] = 0x80 | (ch & 0x3f);
+			TRACE(("...encoded %#x in UTF-8 as %#x,%#x\n",
+			       ch, string[0], string[1]));
+		    }
+#endif
 		}
 		eightbit = False;
 	    }
@@ -1049,6 +1035,7 @@ TranslationsUseKeyword(Widget w, const char *keyword)
 	char *p = data;
 	int state = 0;
 	int now = ' ', prv;
+	TRACE(("TranslationsUseKeyword(%p):%s\n", w, p));
 	while (*p != 0) {
 	    prv = now;
 	    now = char2lower(*p++);
@@ -1073,10 +1060,11 @@ TranslationsUseKeyword(Widget w, const char *keyword)
 	    }
 	}
     }
+    TRACE(("TranslationsUseKeyword(%p, %s) = %d\n", w, keyword, result));
     return result;
 }
 
-#define SaveMask(name)	term->misc.name = mask;\
+#define SaveMask(name)	term->misc.name |= mask;\
 			TRACE(("%s mask %#lx is%s modifier\n", \
 				#name, \
 				term->misc.name, \
@@ -1096,15 +1084,26 @@ VTInitModifiers(void)
     Display *dpy = XtDisplay(term);
     XModifierKeymap *keymap = XGetModifierMapping(dpy);
     unsigned long mask;
+    int min_keycode, max_keycode, keysyms_per_keycode = 0;
 
     if (keymap != 0) {
 
 	TRACE(("VTInitModifiers\n"));
+
+	XDisplayKeycodes(dpy, &min_keycode, &max_keycode);
+	XGetKeyboardMapping(dpy, min_keycode, (max_keycode - min_keycode + 1),
+			    &keysyms_per_keycode);
+
 	for (i = k = 0, mask = 1; i < 8; i++, mask <<= 1) {
 	    for (j = 0; j < keymap->max_keypermod; j++) {
 		KeyCode code = keymap->modifiermap[k];
 		if (code != 0) {
-		    KeySym keysym = XKeycodeToKeysym(dpy, code, 0);
+		    KeySym keysym;
+		    int l = 0;
+		    do {
+			keysym = XKeycodeToKeysym(dpy, code, l);
+			l++;
+		    } while (!keysym && l < keysyms_per_keycode);
 		    if (keysym == XK_Num_Lock) {
 			SaveMask(num_lock);
 		    } else if (keysym == XK_Alt_L) {

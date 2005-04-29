@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_clear.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: lib_clear.c,v 1.7 2000/12/10 02:43:26 tom Exp $")
 
 NCURSES_EXPORT(int)
 wclear(WINDOW *win)

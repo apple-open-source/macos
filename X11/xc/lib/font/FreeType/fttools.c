@@ -21,7 +21,7 @@
   THE SOFTWARE.
 */
 
-/* $XFree86: xc/lib/font/FreeType/fttools.c,v 1.4 2003/02/25 21:36:54 dawes Exp $ */
+/* $XFree86: xc/lib/font/FreeType/fttools.c,v 1.7 2003/11/20 22:36:37 dawes Exp $ */
 
 #include "fontmisc.h"
 #ifndef FONTMODULE
@@ -34,9 +34,10 @@
 #endif
 
 #include "font.h"
-#include "freetype/freetype.h"
-#include "freetype/ftsnames.h"
-#include "freetype/ttnameid.h"
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_SFNT_NAMES_H
+#include FT_TRUETYPE_IDS_H
 #include "ft.h"
 
 #ifndef LSBFirst
@@ -51,14 +52,16 @@ int FTtoXReturnCode(int rc)
 {
     if(rc == 0x40)
         return AllocError;
-    else return BadFontFormat;
+    /* Anything else stops the font matching mechanism */
+    else return BadFontName;
+
 }
 
 /* Convert slen bytes from UCS-2 to ISO 8859-1.  Byte specifies the
    endianness of the string, max the maximum number of bytes written into
    to. */
-int
-FTu2a(int slen, char *from, char *to, int byte, int max)
+static int
+FTu2a(int slen, FT_Byte *from, char *to, int byte, int max)
 {
     int i, n;
 
@@ -132,7 +135,7 @@ FTGetEnglishName(FT_Face face, int nid, char *name_return, int name_len)
         len = name.string_len;
         if(len > name_len)
             len = name_len;
-        memcpy(name_return, name.string, name_len);
+        memcpy(name_return, name.string, len);
         return len;
     }
 

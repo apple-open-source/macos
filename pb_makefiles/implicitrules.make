@@ -39,7 +39,7 @@
 # compiling
 #
 
-.SUFFIXES: .h .c .m .cc .cxx .cpp .cp .C .M .s .i386.o .m68k.o .sparc.o .ppc.o .o
+.SUFFIXES: .h .c .m .cc .cxx .cpp .cp .C .M .s .i386.o .m68k.o .sparc.o .ppc.o .ppc64.o .o
 
 
 ifneq "$(LIPO)" ""
@@ -71,6 +71,9 @@ CURRENT_ARCH = $(subst .,,$(suffix $(basename $@)))
 $(OFILE_DIR)/%.ppc.o %.ppc.o: %.c
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
+$(OFILE_DIR)/%.ppc64.o %.ppc64.o: %.c
+	$(CC) -arch $(CURRENT_ARCH) $(ALL_CFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
+
 $(OFILE_DIR)/%.i386.o %.i386.o: %.c
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
@@ -85,6 +88,9 @@ $(OFILE_DIR)/%.m68k.o %.m68k.o: %.c
 
 #$(foreach A, $(ADJUSTED_TARGET_ARCHS), $(OFILE_DIR)/%.$(A).o %.$(A).o): %.m
 $(OFILE_DIR)/%.ppc.o %.ppc.o: %.m
+	$(CC) -arch $(CURRENT_ARCH) $(ALL_MFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
+
+$(OFILE_DIR)/%.ppc64.o %.ppc64.o: %.m
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_MFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
 $(OFILE_DIR)/%.i386.o %.i386.o: %.m
@@ -104,6 +110,9 @@ $(OFILE_DIR)/%.m68k.o %.m68k.o: %.m
 $(OFILE_DIR)/%.ppc.o %.ppc.o: %.C
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
+$(OFILE_DIR)/%.ppc64.o %.ppc64.o: %.C
+	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
+
 $(OFILE_DIR)/%.i386.o %.i386.o: %.C
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
@@ -120,6 +129,9 @@ $(OFILE_DIR)/%.m68k.o %.m68k.o: %.C
 $(OFILE_DIR)/%.ppc.o %.ppc.o: %.cc
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
+$(OFILE_DIR)/%.ppc64.o %.ppc64.o: %.cc
+	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
+
 $(OFILE_DIR)/%.i386.o %.i386.o: %.cc
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
@@ -134,6 +146,9 @@ $(OFILE_DIR)/%.m68k.o %.m68k.o: %.cc
 
 #$(foreach A, $(ADJUSTED_TARGET_ARCHS), $(OFILE_DIR)/%.$(A).o %.$(A).o): %.M
 $(OFILE_DIR)/%.ppc.o %.ppc.o: %.M
+	$(CC) -arch $(CURRENT_ARCH) $(ALL_MMFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
+
+$(OFILE_DIR)/%.ppc64.o %.ppc64.o: %.M
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_MMFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
 $(OFILE_DIR)/%.i386.o %.i386.o: %.M
@@ -153,6 +168,9 @@ $(OFILE_DIR)/%.m68k.o %.m68k.o: %.M
 $(OFILE_DIR)/%.ppc.o %.ppc.o: %.cpp
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
+$(OFILE_DIR)/%.ppc64.o %.ppc64.o: %.cpp
+	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
+
 $(OFILE_DIR)/%.i386.o %.i386.o: %.cpp
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
@@ -167,6 +185,9 @@ $(OFILE_DIR)/%.m68k.o %.m68k.o: %.cpp
 
 #$(foreach A, $(ADJUSTED_TARGET_ARCHS), $(OFILE_DIR)/%.$(A).o %.$(A).o): %.cp
 $(OFILE_DIR)/%.ppc.o %.ppc.o: %.cp
+	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -x c++ -c -o $(OFILE_DIR)/$(notdir $@) $<
+
+$(OFILE_DIR)/%.ppc64.o %.ppc64.o: %.cp
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -x c++ -c -o $(OFILE_DIR)/$(notdir $@) $<
 
 $(OFILE_DIR)/%.i386.o %.i386.o: %.cp
@@ -186,6 +207,9 @@ $(OFILE_DIR)/%.m68k.o %.m68k.o: %.cp
 $(OFILE_DIR)/%.ppc.o %.ppc.o: %.cxx
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
+$(OFILE_DIR)/%.ppc64.o %.ppc64.o: %.cxx
+	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
+
 $(OFILE_DIR)/%.i386.o %.i386.o: %.cxx
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CCFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
@@ -202,6 +226,9 @@ $(OFILE_DIR)/%.m68k.o %.m68k.o: %.cxx
 #$(foreach A, $(ADJUSTED_TARGET_ARCHS), $(OFILE_DIR)/%.$(A).o %.$(A).o): %.s
 
 $(OFILE_DIR)/%.ppc.o %.ppc.o: %.s	
+	$(CC) -arch $(CURRENT_ARCH) $(ALL_CFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
+
+$(OFILE_DIR)/%.ppc64.o %.ppc64.o: %.s	
 	$(CC) -arch $(CURRENT_ARCH) $(ALL_CFLAGS) -c -o $(OFILE_DIR)/$(notdir $@) $<
 
 $(OFILE_DIR)/%.i386.o %.i386.o: %.s	

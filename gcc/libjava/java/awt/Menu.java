@@ -1,5 +1,5 @@
 /* Menu.java -- A Java AWT Menu
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,8 +39,6 @@ exception statement from your version. */
 package java.awt;
 
 import java.awt.peer.MenuPeer;
-import java.awt.peer.MenuItemPeer;
-import java.awt.peer.MenuComponentPeer;
 import java.io.Serializable;
 import java.util.Vector;
 import java.util.Enumeration;
@@ -84,7 +82,7 @@ private boolean isHelpMenu;
 // From the serialization spec.  FIXME: what should it be?
 private int menuSerializedDataVersion;
 
-static final MenuItem separator = new MenuItem("-");
+static final String separatorLabel = "-";
 
 /*************************************************************************/
 
@@ -173,22 +171,19 @@ isTearOff()
 public int
 getItemCount()
 {
-  return(items.size());
+  return countItems ();
 }
- 
-/*************************************************************************/
 
 /**
-  * Returns the number of items in this menu.
-  *
-  * @return The number of items in this menu.
-  *
-  * @deprecated This method is deprecated in favor of <code>getItemCount()</code>.
-  */
-public int
-count()
+ * Returns the number of items in this menu.
+ *
+ * @return The number of items in this menu.
+ *
+ * @deprecated As of JDK 1.1, replaced by getItemCount().
+ */
+public int countItems ()
 {
-  return(items.size());
+  return items.size ();
 }
  
 /*************************************************************************/
@@ -300,7 +295,7 @@ insert(String label, int index)
 public void
 addSeparator()
 {
-  add(separator);
+  add(new MenuItem(separatorLabel));
 }
 
 /*************************************************************************/
@@ -318,7 +313,7 @@ addSeparator()
 public void
 insertSeparator(int index)
 {
-  insert(separator, index);
+  insert(new MenuItem(separatorLabel), index);
 }
 
 /*************************************************************************/
@@ -382,8 +377,14 @@ removeAll()
 public void
 addNotify()
 {
-  if (peer != null)
+  if (peer == null)
     peer = getToolkit().createMenu(this);
+  Enumeration e = items.elements();
+  while (e.hasMoreElements())
+  {
+    MenuItem mi = (MenuItem)e.nextElement();
+    mi.addNotify();
+  }    
   super.addNotify ();
 }
 
@@ -395,6 +396,12 @@ addNotify()
 public void
 removeNotify()
 {
+  Enumeration e = items.elements();
+  while (e.hasMoreElements())
+  {
+    MenuItem mi = (MenuItem) e.nextElement();
+    mi.removeNotify();
+  }
   super.removeNotify();
 }
 

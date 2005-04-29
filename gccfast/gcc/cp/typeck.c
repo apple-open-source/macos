@@ -5218,7 +5218,13 @@ build_c_cast (type, expr)
        so we can tell (for -pedantic) that the cast is no lvalue.  */
   if (TREE_CODE (type) != REFERENCE_TYPE && value == expr
       && real_lvalue_p (value))
-    value = non_lvalue (value);
+    /* APPLE LOCAL begin XJR */
+    {
+      value = non_lvalue (value);
+      /* Don't lose the type we are casting to!  */
+      TREE_TYPE (value) = type;
+    }
+    /* APPLE LOCAL end XJR */
 
   return value;
 }
@@ -5403,6 +5409,20 @@ build_modify_expr (lhs, modifycode, rhs)
     {
     case NOP_EXPR:
     case CONVERT_EXPR:
+    /* APPLE LOCAL begin XJR */
+    case NON_LVALUE_EXPR:
+      if (flag_objc && flag_objc_gc)
+	{
+	  tree result = objc_generate_write_barrier (lhs, modifycode, newrhs);
+
+	  if (result)
+	    return result;
+
+	  if (TREE_CODE (lhs) == NON_LVALUE_EXPR)
+	    break;
+	  /* Otherwise, fall through.  */
+	}
+      /* APPLE LOCAL end XJR */  
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case FIX_FLOOR_EXPR:
@@ -5575,8 +5595,19 @@ build_modify_expr (lhs, modifycode, rhs)
 	}
     }
   else
-    result = build (modifycode == NOP_EXPR ? MODIFY_EXPR : INIT_EXPR,
-		    lhstype, lhs, newrhs);
+  /* APPLE LOCAL begin XJR */
+    {
+      if (flag_objc && flag_objc_gc)
+	{
+	  result = objc_generate_write_barrier (lhs, modifycode, newrhs);
+	  if (result)
+	    return result;
+	}
+
+      result = build (modifycode == NOP_EXPR ? MODIFY_EXPR : INIT_EXPR,
+		      lhstype, lhs, newrhs);
+    }
+  /* APPLE LOCAL end XJR */  
 
   TREE_SIDE_EFFECTS (result) = 1;
 
@@ -6897,3 +6928,16 @@ strip_all_pointer_quals (type)
   else
     return TYPE_MAIN_VARIANT (type);
 }
+
+/* APPLE LOCAL begin CW asm blocks */
+tree
+cw_asm_cp_build_component_ref (tree datum, tree component)
+{
+  tree expr = finish_class_member_access_expr (datum, component);
+  /* If this is not a real component reference, extract the field
+     decl, which includes the numeric offset we'll use later.  */
+  if (TREE_CODE (datum) == TYPE_DECL)
+    expr = TREE_OPERAND (expr, 1);
+  return expr;
+}
+/* APPLE LOCAL end CW asm blocks */

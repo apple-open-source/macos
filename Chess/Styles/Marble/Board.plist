@@ -4,12 +4,16 @@
 <dict>
 	<key>BlackAlpha</key>
 	<real>1</real>
+	<key>BlackDiffuse</key>
+	<real>0.2850877046585083</real>
 	<key>BlackShininess</key>
-	<real>21.894737243652344</real>
+	<real>25.263158798217773</real>
 	<key>BlackSpecular</key>
-	<real>0.32894736528396606</real>
+	<real>0.21491228044033051</real>
 	<key>BorderAlpha</key>
 	<real>1</real>
+	<key>BorderDiffuse</key>
+	<real>0.73245614767074585</real>
 	<key>BorderShininess</key>
 	<real>0.0</real>
 	<key>BorderSpecular</key>
@@ -20,9 +24,11 @@
 	<real>0.62719297409057617</real>
 	<key>WhiteAlpha</key>
 	<real>1</real>
+	<key>WhiteDiffuse</key>
+	<real>1</real>
 	<key>WhiteShininess</key>
-	<real>20.771930694580078</real>
+	<real>78.035087585449219</real>
 	<key>WhiteSpecular</key>
-	<real>0.2850877046585083</real>
+	<real>0.76754385232925415</real>
 </dict>
 </plist>

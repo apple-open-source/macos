@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)pmap_getport.c 1.9 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)pmap_getport.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: pmap_getport.c,v 1.3 2002/02/19 20:36:24 epeyton Exp $";
+static char *rcsid = "$Id: pmap_getport.c,v 1.4 2004/12/19 22:45:44 zarzycki Exp $";
 #endif
 
 /*
@@ -69,6 +69,8 @@ static char *rcsid = "$Id: pmap_getport.c,v 1.3 2002/02/19 20:36:24 epeyton Exp 
 #include <rpc/pmap_clnt.h>
 #include <sys/socket.h>
 #include <net/if.h>
+
+#include "pmap_wakeup.h"
 
 static struct timeval timeout = { 5, 0 };
 static struct timeval tottimeout = { 60, 0 };
@@ -89,6 +91,8 @@ pmap_getport(address, program, version, protocol)
 	int socket = -1;
 	register CLIENT *client;
 	struct pmap parms;
+
+	pmap_wakeup();
 
 	address->sin_port = htons(PMAPPORT);
 	client = clntudp_bufcreate(address, PMAPPROG,

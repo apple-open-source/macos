@@ -44,8 +44,10 @@
     int			autoUpdate;
     NSTimer		*updateTimer;
     mach_port_t		port;
+    IONotificationPortRef notifyPort;
     Boolean		registryHasChanged;
-
+    BOOL                dialogDisplayed;
+    Boolean		registryHasQuieted;
 }
 
 - (void)changeLevel:(id)sender;

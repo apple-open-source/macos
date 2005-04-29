@@ -1,0 +1,720 @@
+<refentry id="glib-Singly-Linked-Lists">
+<refmeta>
+<refentrytitle>Singly-Linked Lists</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Singly-Linked Lists</refname><refpurpose>linked lists containing integer values or pointers to data, limited to
+iterating over the list in one direction.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+struct      <link linkend="GSList">GSList</link>;
+
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-alloc">g_slist_alloc</link>                   (void);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-append">g_slist_append</link>                  (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gpointer">gpointer</link> data);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-prepend">g_slist_prepend</link>                 (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gpointer">gpointer</link> data);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-insert">g_slist_insert</link>                  (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="gint">gint</link> position);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-insert-before">g_slist_insert_before</link>           (<link linkend="GSList">GSList</link> *slist,
+                                             <link linkend="GSList">GSList</link> *sibling,
+                                             <link linkend="gpointer">gpointer</link> data);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-insert-sorted">g_slist_insert_sorted</link>           (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="GCompareFunc">GCompareFunc</link> func);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-remove">g_slist_remove</link>                  (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gconstpointer">gconstpointer</link> data);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-remove-link">g_slist_remove_link</link>             (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GSList">GSList</link> *link_);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-delete-link">g_slist_delete_link</link>             (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GSList">GSList</link> *link_);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-remove-all">g_slist_remove_all</link>              (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gconstpointer">gconstpointer</link> data);
+<link linkend="void">void</link>        <link linkend="g-slist-free">g_slist_free</link>                    (<link linkend="GSList">GSList</link> *list);
+<link linkend="void">void</link>        <link linkend="g-slist-free-1">g_slist_free_1</link>                  (<link linkend="GSList">GSList</link> *list);
+
+<link linkend="guint">guint</link>       <link linkend="g-slist-length">g_slist_length</link>                  (<link linkend="GSList">GSList</link> *list);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-copy">g_slist_copy</link>                    (<link linkend="GSList">GSList</link> *list);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-reverse">g_slist_reverse</link>                 (<link linkend="GSList">GSList</link> *list);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-sort">g_slist_sort</link>                    (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GCompareFunc">GCompareFunc</link> compare_func);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-sort-with-data">g_slist_sort_with_data</link>          (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GCompareDataFunc">GCompareDataFunc</link> compare_func,
+                                             <link linkend="gpointer">gpointer</link> user_data);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-concat">g_slist_concat</link>                  (<link linkend="GSList">GSList</link> *list1,
+                                             <link linkend="GSList">GSList</link> *list2);
+<link linkend="void">void</link>        <link linkend="g-slist-foreach">g_slist_foreach</link>                 (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GFunc">GFunc</link> func,
+                                             <link linkend="gpointer">gpointer</link> user_data);
+
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-last">g_slist_last</link>                    (<link linkend="GSList">GSList</link> *list);
+#define     <link linkend="g-slist-next">g_slist_next</link>                    (slist)
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-nth">g_slist_nth</link>                     (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="guint">guint</link> n);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-slist-nth-data">g_slist_nth_data</link>                (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="guint">guint</link> n);
+
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-find">g_slist_find</link>                    (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gconstpointer">gconstpointer</link> data);
+<link linkend="GSList">GSList</link>*     <link linkend="g-slist-find-custom">g_slist_find_custom</link>             (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gconstpointer">gconstpointer</link> data,
+                                             <link linkend="GCompareFunc">GCompareFunc</link> func);
+<link linkend="gint">gint</link>        <link linkend="g-slist-position">g_slist_position</link>                (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GSList">GSList</link> *llink);
+<link linkend="gint">gint</link>        <link linkend="g-slist-index">g_slist_index</link>                   (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gconstpointer">gconstpointer</link> data);
+
+<link linkend="void">void</link>        <link linkend="g-slist-push-allocator">g_slist_push_allocator</link>          (<link linkend="GAllocator">GAllocator</link> *allocator);
+<link linkend="void">void</link>        <link linkend="g-slist-pop-allocator">g_slist_pop_allocator</link>           (void);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+The <link linkend="GSList"><type>GSList</type></link> structure and its associated functions provide a standard
+singly-linked list data structure.
+</para>
+<para>
+Each element in the list contains a piece of data, together with a pointer
+which links to the next element in the list.
+Using this pointer it is possible to move through the list in one
+direction only (unlike the
+<link linkend="glib-Doubly-Linked-lists">Doubly-Linked Lists</link>
+which allow movement in both directions).
+</para>
+<para>
+The data contained in each element can be either integer values, by using one
+of the
+<link linkend="glib-Type-Conversion-Macros">Type Conversion Macros</link>,
+or simply pointers to any type of data.
+</para>
+<para>
+List elements are allocated in blocks using a <link linkend="GAllocator"><type>GAllocator</type></link>, which is
+more efficient than allocating elements individually.
+</para>
+<para>
+Note that most of the <link linkend="GSList"><type>GSList</type></link> functions expect to be passed a pointer to
+the first element in the list. The functions which insert elements return
+the new start of the list, which may have changed.
+</para>
+<para>
+There is no function to create a <link linkend="GSList"><type>GSList</type></link>. <literal>NULL</literal> is considered to be the empty
+list so you simply set a <link linkend="GSList"><type>GSList</type></link>* to <literal>NULL</literal>.
+</para>
+<para>
+To add elements, use <link linkend="g-slist-append"><function>g_slist_append()</function></link>, <link linkend="g-slist-prepend"><function>g_slist_prepend()</function></link>, <link linkend="g-slist-insert"><function>g_slist_insert()</function></link>
+and <link linkend="g-slist-insert-sorted"><function>g_slist_insert_sorted()</function></link>.
+</para>
+<para>
+To remove elements, use <link linkend="g-slist-remove"><function>g_slist_remove()</function></link>.
+</para>
+<para>
+To find elements in the list use <link linkend="g-slist-last"><function>g_slist_last()</function></link>, <link linkend="g-slist-next"><function>g_slist_next()</function></link>,
+<link linkend="g-slist-nth"><function>g_slist_nth()</function></link>, <link linkend="g-slist-nth-data"><function>g_slist_nth_data()</function></link>, <link linkend="g-slist-find"><function>g_slist_find()</function></link> and
+<link linkend="g-slist-find-custom"><function>g_slist_find_custom()</function></link>.
+</para>
+<para>
+To find the index of an element use <link linkend="g-slist-position"><function>g_slist_position()</function></link> and <link linkend="g-slist-index"><function>g_slist_index()</function></link>.
+</para>
+<para>
+To call a function for each element in the list use <link linkend="g-slist-foreach"><function>g_slist_foreach()</function></link>.
+</para>
+<para>
+To free the entire list, use <link linkend="g-slist-free"><function>g_slist_free()</function></link>.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GSList"/>struct GSList</title>
+<indexterm><primary>GSList</primary></indexterm><programlisting>struct GSList {
+
+  gpointer data;
+  GSList *next;
+};
+</programlisting>
+<para>
+The <link linkend="GSList"><type>GSList</type></link> struct is used for each element in the singly-linked list.
+The <structfield>data</structfield> field holds the element's data, which can
+be a pointer to any kind of data, or any integer value using the
+<link linkend="glib-Type-Conversion-Macros">Type Conversion Macros</link>.
+The <structfield>next</structfield> field contains the link to the next
+element in the list.
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-slist-alloc"/>g_slist_alloc ()</title>
+<indexterm><primary>g_slist_alloc</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_alloc                   (void);</programlisting>
+<para>
+Allocates space for one <link linkend="GSList"><type>GSList</type></link> element.
+It is called by the <link linkend="g-slist-append"><function>g_slist_append()</function></link>, <link linkend="g-slist-prepend"><function>g_slist_prepend()</function></link>, <link linkend="g-slist-insert"><function>g_slist_insert()</function></link> and
+<link linkend="g-slist-insert-sorted"><function>g_slist_insert_sorted()</function></link> functions and so is rarely used on its own.
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a pointer to the newly-allocated <link linkend="GSList"><type>GSList</type></link> element.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-append"/>g_slist_append ()</title>
+<indexterm><primary>g_slist_append</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_append                  (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+Adds a new element on to the end of the list.
+</para>
+<note>
+<para>
+The return value is the new start of the list, which may have changed, so
+make sure you store the new value.
+</para>
+</note>
+<informalexample><programlisting>
+  /* Notice that these are initialized to the empty list. */
+  GSList *list = NULL, *number_list = NULL;
+
+  /* This is a list of strings. */
+  list = g_slist_append (list, "first");
+  list = g_slist_append (list, "second");
+
+  /* This is a list of integers. */
+  number_list = g_slist_append (number_list, GINT_TO_POINTER (27));
+  number_list = g_slist_append (number_list, GINT_TO_POINTER (14));
+</programlisting></informalexample><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>the data for the new element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the new start of the <link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-prepend"/>g_slist_prepend ()</title>
+<indexterm><primary>g_slist_prepend</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_prepend                 (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+Adds a new element on to the start of the list.
+</para>
+<note>
+<para>
+The return value is the new start of the list, which may have changed, so
+make sure you store the new value.
+</para>
+</note>
+<informalexample><programlisting>
+  /* Notice that it is initialized to the empty list. */
+  GSList *list = NULL;
+  list = g_slist_prepend (list, "last");
+  list = g_slist_prepend (list, "first");
+</programlisting></informalexample><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>the data for the new element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the new start of the <link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-insert"/>g_slist_insert ()</title>
+<indexterm><primary>g_slist_insert</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_insert                  (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="gint">gint</link> position);</programlisting>
+<para>
+Inserts a new element into the list at the given position.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>the data for the new element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>position</parameter>&nbsp;:</term>
+<listitem><simpara>the position to insert the element. If this is negative, or is
+larger than the number of elements in the list, the new element is added on
+to the end of the list.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the new start of the <link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-insert-before"/>g_slist_insert_before ()</title>
+<indexterm><primary>g_slist_insert_before</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_insert_before           (<link linkend="GSList">GSList</link> *slist,
+                                             <link linkend="GSList">GSList</link> *sibling,
+                                             <link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+Inserts a node before <parameter>sibling</parameter> containing <parameter>data</parameter>. Returns the new head of the list.
+</para><variablelist role="params">
+<varlistentry><term><parameter>slist</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>sibling</parameter>&nbsp;:</term>
+<listitem><simpara>node to insert <parameter>data</parameter> before.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>data to put in the newly-inserted node.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>new head of the list.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-insert-sorted"/>g_slist_insert_sorted ()</title>
+<indexterm><primary>g_slist_insert_sorted</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_insert_sorted           (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="GCompareFunc">GCompareFunc</link> func);</programlisting>
+<para>
+Inserts a new element into the list, using the given comparison function
+to determine its position.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>the data for the new element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>the function to compare elements in the list. It should return a
+number > 0 if the first parameter comes after the second parameter in
+the sort order.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the new start of the <link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-remove"/>g_slist_remove ()</title>
+<indexterm><primary>g_slist_remove</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_remove                  (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gconstpointer">gconstpointer</link> data);</programlisting>
+<para>
+Removes an element from a <link linkend="GSList"><type>GSList</type></link>.
+If two elements contain the same data, only the first is removed.
+If none of the elements contain the data, the <link linkend="GSList"><type>GSList</type></link> is unchanged.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>the data of the element to remove.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the new start of the <link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-remove-link"/>g_slist_remove_link ()</title>
+<indexterm><primary>g_slist_remove_link</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_remove_link             (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GSList">GSList</link> *link_);</programlisting>
+<para>
+Removes an element from a <link linkend="GSList"><type>GSList</type></link>, without freeing the element.
+The removed element's next link is set to <literal>NULL</literal>, so that it becomes a
+self-contained list with one element.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>link_</parameter>&nbsp;:</term>
+<listitem><simpara>an element in the <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the new start of the <link linkend="GSList"><type>GSList</type></link>, without the element.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-delete-link"/>g_slist_delete_link ()</title>
+<indexterm><primary>g_slist_delete_link</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_delete_link             (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GSList">GSList</link> *link_);</programlisting>
+<para>
+Deletes a node of <parameter>list</parameter>. Returns the new list head.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>link_</parameter>&nbsp;:</term>
+<listitem><simpara>node to delete.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>new head of <parameter>list</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-remove-all"/>g_slist_remove_all ()</title>
+<indexterm><primary>g_slist_remove_all</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_remove_all              (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gconstpointer">gconstpointer</link> data);</programlisting>
+<para>
+Removes all list nodes with data equal to <parameter>data</parameter>. Returns the new
+head of the list. Contrast with <link linkend="g-slist-remove"><function>g_slist_remove()</function></link> which removes only 
+the first node matching the given data.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>data to remove.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>new head of <parameter>list</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-free"/>g_slist_free ()</title>
+<indexterm><primary>g_slist_free</primary></indexterm><programlisting><link linkend="void">void</link>        g_slist_free                    (<link linkend="GSList">GSList</link> *list);</programlisting>
+<para>
+Frees all of the memory used by a <link linkend="GSList"><type>GSList</type></link>.
+The freed elements are added to the <link linkend="GAllocator"><type>GAllocator</type></link> free list.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-free-1"/>g_slist_free_1 ()</title>
+<indexterm><primary>g_slist_free_1</primary></indexterm><programlisting><link linkend="void">void</link>        g_slist_free_1                  (<link linkend="GSList">GSList</link> *list);</programlisting>
+<para>
+Frees one <link linkend="GSList"><type>GSList</type></link> element.
+It is usually used after <link linkend="g-slist-remove-link"><function>g_slist_remove_link()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link> element.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-length"/>g_slist_length ()</title>
+<indexterm><primary>g_slist_length</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_slist_length                  (<link linkend="GSList">GSList</link> *list);</programlisting>
+<para>
+Gets the number of elements in a <link linkend="GSList"><type>GSList</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the number of elements in the <link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-copy"/>g_slist_copy ()</title>
+<indexterm><primary>g_slist_copy</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_copy                    (<link linkend="GSList">GSList</link> *list);</programlisting>
+<para>
+Copies a <link linkend="GSList"><type>GSList</type></link>.
+</para>
+<para>
+Note that this is a "shallow" copy. If the list elements consist of pointers
+to data, the pointers are copied but the actual data isn't.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a copy of <parameter>list</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-reverse"/>g_slist_reverse ()</title>
+<indexterm><primary>g_slist_reverse</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_reverse                 (<link linkend="GSList">GSList</link> *list);</programlisting>
+<para>
+Reverses a <link linkend="GSList"><type>GSList</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the start of the reversed <link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-sort"/>g_slist_sort ()</title>
+<indexterm><primary>g_slist_sort</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_sort                    (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GCompareFunc">GCompareFunc</link> compare_func);</programlisting>
+<para>
+Sorts a <link linkend="GSList"><type>GSList</type></link> using the given comparison function.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>compare_func</parameter>&nbsp;:</term>
+<listitem><simpara><function><link linkend="qsort"><function>qsort()</function></link></function>-style comparison function.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the start of the sorted <link linkend="GList"><type>GList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-sort-with-data"/>g_slist_sort_with_data ()</title>
+<indexterm><primary>g_slist_sort_with_data</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_sort_with_data          (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GCompareDataFunc">GCompareDataFunc</link> compare_func,
+                                             <link linkend="gpointer">gpointer</link> user_data);</programlisting>
+<para>
+Like <link linkend="g-slist-sort"><function>g_slist_sort()</function></link>, but the sort function accepts a user data argument.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>compare_func</parameter>&nbsp;:</term>
+<listitem><simpara>comparison function.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data</parameter>&nbsp;:</term>
+<listitem><simpara>data to pass to comparison function.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>new head of the list.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-concat"/>g_slist_concat ()</title>
+<indexterm><primary>g_slist_concat</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_concat                  (<link linkend="GSList">GSList</link> *list1,
+                                             <link linkend="GSList">GSList</link> *list2);</programlisting>
+<para>
+Adds the second <link linkend="GSList"><type>GSList</type></link> onto the end of the first <link linkend="GSList"><type>GSList</type></link>.
+Note that the elements of the second <link linkend="GSList"><type>GSList</type></link> are not copied.
+They are used directly.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list1</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>list2</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GSList"><type>GSList</type></link> to add to the end of the first <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the start of the new <link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-foreach"/>g_slist_foreach ()</title>
+<indexterm><primary>g_slist_foreach</primary></indexterm><programlisting><link linkend="void">void</link>        g_slist_foreach                 (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GFunc">GFunc</link> func,
+                                             <link linkend="gpointer">gpointer</link> user_data);</programlisting>
+<para>
+Calls a function for each element of a <link linkend="GSList"><type>GSList</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>the function to call with each element's data.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data</parameter>&nbsp;:</term>
+<listitem><simpara>user data to pass to the function.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-last"/>g_slist_last ()</title>
+<indexterm><primary>g_slist_last</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_last                    (<link linkend="GSList">GSList</link> *list);</programlisting>
+<para>
+Gets the last element in a <link linkend="GSList"><type>GSList</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the last element in the <link linkend="GSList"><type>GSList</type></link>, or <literal>NULL</literal> if the <link linkend="GSList"><type>GSList</type></link> has no
+elements.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-next"/>g_slist_next()</title>
+<indexterm><primary>g_slist_next</primary></indexterm><programlisting>#define     g_slist_next(slist)</programlisting>
+<para>
+A convenience macro to gets the next element in a <link linkend="GSList"><type>GSList</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>slist</parameter>&nbsp;:</term>
+<listitem><simpara>an element in a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the next element, or <literal>NULL</literal> if there are no more elements.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-nth"/>g_slist_nth ()</title>
+<indexterm><primary>g_slist_nth</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_nth                     (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="guint">guint</link> n);</programlisting>
+<para>
+Gets the element at the given position in a <link linkend="GSList"><type>GSList</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>n</parameter>&nbsp;:</term>
+<listitem><simpara>the position of the element, counting from 0.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the element, or <literal>NULL</literal> if the position is off the end of the <link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-nth-data"/>g_slist_nth_data ()</title>
+<indexterm><primary>g_slist_nth_data</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_slist_nth_data                (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="guint">guint</link> n);</programlisting>
+<para>
+Gets the data of the element at the given position.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>n</parameter>&nbsp;:</term>
+<listitem><simpara>the position of the element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the element's data, or <literal>NULL</literal> if the position is off the end of the
+<link linkend="GSList"><type>GSList</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-find"/>g_slist_find ()</title>
+<indexterm><primary>g_slist_find</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_find                    (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gconstpointer">gconstpointer</link> data);</programlisting>
+<para>
+Finds the element in a <link linkend="GSList"><type>GSList</type></link> which contains the given data.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>the element data to find.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the found <link linkend="GSList"><type>GSList</type></link> element, or <literal>NULL</literal> if it is not found.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-find-custom"/>g_slist_find_custom ()</title>
+<indexterm><primary>g_slist_find_custom</primary></indexterm><programlisting><link linkend="GSList">GSList</link>*     g_slist_find_custom             (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gconstpointer">gconstpointer</link> data,
+                                             <link linkend="GCompareFunc">GCompareFunc</link> func);</programlisting>
+<para>
+Finds an element in a <link linkend="GSList"><type>GSList</type></link>, using a supplied function to find the desired
+element.
+It iterates over the list, calling the given function which should return 0
+when the desired element is found.
+The function takes two <link linkend="gconstpointer"><type>gconstpointer</type></link> arguments, the <link linkend="GSList"><type>GSList</type></link> element's data
+and the given user data.
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>user data passed to the function.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>the function to call for each element. It should return 0 when the
+desired element is found.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the found <link linkend="GSList"><type>GSList</type></link> element, or <literal>NULL</literal> if it is not found.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-position"/>g_slist_position ()</title>
+<indexterm><primary>g_slist_position</primary></indexterm><programlisting><link linkend="gint">gint</link>        g_slist_position                (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="GSList">GSList</link> *llink);</programlisting>
+<para>
+Gets the position of the given element in the <link linkend="GSList"><type>GSList</type></link> (starting from 0).
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>llink</parameter>&nbsp;:</term>
+<listitem><simpara>an element in the <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the position of the element in the <link linkend="GSList"><type>GSList</type></link>, or -1 if the element
+is not found.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-index"/>g_slist_index ()</title>
+<indexterm><primary>g_slist_index</primary></indexterm><programlisting><link linkend="gint">gint</link>        g_slist_index                   (<link linkend="GSList">GSList</link> *list,
+                                             <link linkend="gconstpointer">gconstpointer</link> data);</programlisting>
+<para>
+Gets the position of the element containing the given data (starting from 0).
+</para><variablelist role="params">
+<varlistentry><term><parameter>list</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GSList"><type>GSList</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>the data to find.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the index of the element containing the data, or -1 if the data
+is not found.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-push-allocator"/>g_slist_push_allocator ()</title>
+<indexterm><primary>g_slist_push_allocator</primary></indexterm><programlisting><link linkend="void">void</link>        g_slist_push_allocator          (<link linkend="GAllocator">GAllocator</link> *allocator);</programlisting>
+<para>
+Sets the allocator to use to allocate <link linkend="GSList"><type>GSList</type></link> elements.
+Use <link linkend="g-slist-pop-allocator"><function>g_slist_pop_allocator()</function></link> to restore the previous allocator.
+</para><variablelist role="params">
+<varlistentry><term><parameter>allocator</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GAllocator"><type>GAllocator</type></link> to use when allocating <link linkend="GSList"><type>GSList</type></link> elements.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-slist-pop-allocator"/>g_slist_pop_allocator ()</title>
+<indexterm><primary>g_slist_pop_allocator</primary></indexterm><programlisting><link linkend="void">void</link>        g_slist_pop_allocator           (void);</programlisting>
+<para>
+Restores the previous <link linkend="GAllocator"><type>GAllocator</type></link>, used when allocating <link linkend="GSList"><type>GSList</type></link> elements.
+</para></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

@@ -58,7 +58,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/SetSens.c,v 1.3 2001/12/14 19:56:29 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/SetSens.c,v 1.4 2003/04/21 16:34:28 herrb Exp $ */
 
 #include "IntrinsicI.h"
 #include "StringDefs.h"
@@ -93,16 +93,9 @@ static void SetAncestorSensitive(
 } /* SetAncestorSensitive */
 
 
-#if NeedFunctionPrototypes
 void XtSetSensitive(
     register Widget widget,
-    _XtBoolean	    sensitive
-    )
-#else
-void XtSetSensitive(widget, sensitive)
-    register Widget widget;
-    Boolean	    sensitive;
-#endif
+    _XtBoolean	    sensitive)
 {
     Arg			args[1];
     register Cardinal   i;

@@ -13,13 +13,13 @@ const char*
 UProfileOutputList::operator [] (
 			u_int32_t	inIndex) {
 
-#if defined (MACDEV_DEBUG) && MACDEV_DEBUG
-	// Debugging version uses safe accessor
-	for (u_int32_t i = 0; i < inIndex; i++) {
-		Assert_ (Get () [i] != NULL);
+	if (ddebuglevel () > 0) {
+		// Debugging version uses safe accessor
+		for (u_int32_t i = 0; i < inIndex; i++) {
+			Assert_ (Get () [i] != NULL);
+		}
 	}
-#endif
-
+	
 	return Get () [inIndex];
 }
 

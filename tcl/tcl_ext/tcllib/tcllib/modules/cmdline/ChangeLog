@@ -1,0 +1,154 @@
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2004-02-09  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* typedCmdline.test: Fixed the problems of the testsuite with
+	* cmdline.test:      Tcl 8.5. It relied on the order of data
+	                     returned by [array get].
+
+2003-08-19  David N. Welton  <davidw@dedasys.com>
+
+	* cmdline.man: Added an example.  Feel free to change/improve it,
+	  but this package really needed one to show the standard usage
+	  pattern.
+
+2003-08-07  Andreas Kupries  <andreask@activestate.com>
+
+	* Bumped version information to 1.2.2 for the bugfix.
+
+2003-08-06  Andreas Kupries  <andreask@activestate.com>
+
+	* cmdline.tcl (getfiles): Using the [string map] fix still had
+	  problems, when mixing back- and forward slashes. Now using [file
+	  join] on the pattern. This removed all problems with the
+	  quoting. I.e. this operation pseudo-normalizes the path. Got the
+	  trick from JeffH.
+
+2003-08-06  Andreas Kupries  <andreask@activestate.com>
+
+	* cmdline.test: Added a test for the backslash quoting behaviour.
+
+	* cmdline.tcl (getfiles): Corrected a bogus attempt to quote
+	  backslashes in file patterns on the windows platform.
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-04-11  Andreas Kupries  <andreask@activestate.com>
+
+	* typedCmdline.tcl: Fixed bug #614591. See also last entry, this
+	  file was forgotten.
+
+2003-04-10  Andreas Kupries  <andreask@activestate.com>
+
+	* pkgIndex.tcl:
+	* cmdline.tcl:
+	* cmdline.man: Fixed bug #648679. Fixed bug #614591. Set version
+	  of the package to to 1.2.1
+
+	* urn-scheme.tcl: Fixed bug #614591. Set version
+	  of the package to to 1.2.1
+
+2003-02-23  David N. Welton  <davidw@dedasys.com>
+
+	* cmdline.tcl (cmdline::getfiles): Use string map instead of
+	regsub.
+
+2002-08-30  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* typeCmdline.tcl: Updated 'info exist' to 'info exists'.
+
+2002-04-24  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Applied patch #540313 on behalf of Melissa Chawla
+	  <melissachawla@yahoo.com> and Don Porter
+	  <dgp@users.sourceforge.net>.
+
+	  * cmdline.test: 
+	  * cmdline.tcl: Added getKnownOpt and getKnownOptions procedures
+	    to the API.  The procedures offer a way for arguments that are
+	    not in the optionList to be ignored.  This way, you can have
+	    two independant locations in your application where
+	    commandline arguments are parsed.  I bumped the package
+	    version to 1.2.
+
+	* cmdline.man: Updated documentation.
+
+2002-04-14  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* cmdline.man: Added doctools manpage.
+
+2001-10-16  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* cmdline.n:
+	* cmdline.tcl:
+	* pkgIndex.tcl: Version up to 1.1.1
+
+2001-10-12  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* cmdline.tcl: Corrected the inline documentation to reflect what
+	  is actually happening. Problem reported by Glenn Jackman
+	  <glennjnn@users.sourceforge.net>, Item #46650.
+
+2001-07-31  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* cmdline.n: Added manpage [446584].
+
+2001-06-21  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* typedCmdline.tcl:
+	* cmdline.tcl: Fixed dubious code reported by frink.
+
+2000-05-03  Brent Welch <welch@scriptics.com>
+
+	* cmdline.tcl: Changed cmdline::getopt to set boolean arguments to
+	0 or 1 explicitly.  Previously it just set the value to "" if it
+	was present, or did nothing.  This vfixes the -verbose command
+	line bug in connect.
+
+2000-04-07  Eric Melski  <ericm@scriptics.com>
+
+	* typedCmdline.test: Changed sourcing bits at start of file to
+	work better with updated file dependancies.
+
+	* typedCmdline.tcl: Removed "package provide"; that should occur
+	only in one file per package.  Reformatted function headers to
+	comply with Tcl coding standard.  Renamed "cmdline::lsearch" to
+	"cmdline::prefixSearch" to avoid confusion, and removed code thus
+	made obsolete.
+
+	* cmdline.tcl: Added call to source typedCmdline.tcl
+
+2000-04-04  Ross Mohn  <rpmohn@panix.com>
+
+	* typedCmdline.tcl: Added typed versions of getopt, getoptions,
+	and usage. Types supported are all character classes available
+	for the Tcl "string in" command.
+
+	* typedCmdline.test: Added tests for typed procedures.
+
+	* cmdline.tcl: Corrected some documentation errors and omissions.
+
+2000-03-09  Eric Melski  <ericm@scriptics.com>
+
+	* cmdline.test: Adapted tests to work with tcllib test framework.
+
+1999-10-29  Scott Stanton  <stanton@scriptics.com>
+
+	* cmdline.tcl: Fixed bug where options that contained regexp
+	special characters would cause an error.  Cleaned up lots of
+	messy code.  Added test suite.
+

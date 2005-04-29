@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 
@@ -43,7 +43,7 @@
 #include "context.h"
 #include "enums.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 #include "mtypes.h"
 #include "mmath.h"
 
@@ -227,7 +227,7 @@ static void clip_elt_triangles( GLcontext *ctx,
    const quad_func QuadFunc = tnl->Driver.Render.Quad;		\
    const GLboolean stipple = ctx->Line.StippleFlag;		\
    (void) (LineFunc && TriangleFunc && QuadFunc);		\
-   (void) elt; (void) stipple;
+   (void) elt; (void) stipple
 
 #define RESET_STIPPLE if (stipple) tnl->Driver.Render.ResetLineStipple( ctx )
 #define RESET_OCCLUSION ctx->OcclusionResult = GL_TRUE
@@ -282,7 +282,6 @@ static GLboolean run_render( GLcontext *ctx,
    render_func *tab;
    GLint pass = 0;
 
-
    /* Allow the drivers to lock before projected verts are built so
     * that window coordinates are guarenteed not to change before
     * rendering.
@@ -327,7 +326,7 @@ static GLboolean run_render( GLcontext *ctx,
 	 ASSERT((flags & PRIM_MODE_MASK) <= GL_POLYGON+1);
 
 	 if (MESA_VERBOSE & VERBOSE_PRIMS)
-	    fprintf(stderr, "MESA prim %s %d..%d\n", 
+	    _mesa_debug(NULL, "MESA prim %s %d..%d\n", 
 		    _mesa_lookup_enum_by_nr(flags & PRIM_MODE_MASK), 
 		    i, i+length);
 
@@ -356,39 +355,39 @@ static GLboolean run_render( GLcontext *ctx,
  */
 static void check_render( GLcontext *ctx, struct gl_pipeline_stage *stage )
 {
-   GLuint inputs = VERT_CLIP;
+   GLuint inputs = VERT_BIT_CLIP;
    GLuint i;
 
    if (ctx->Visual.rgbMode) {
-      inputs |= VERT_RGBA;
+      inputs |= VERT_BIT_COLOR0;
 
       if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR)
-	 inputs |= VERT_SPEC_RGB;
+	 inputs |= VERT_BIT_COLOR1;
 
-      if (ctx->Texture._ReallyEnabled) {
+      if (ctx->Texture._EnabledUnits) {
 	 for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++) {
 	    if (ctx->Texture.Unit[i]._ReallyEnabled)
-	       inputs |= VERT_TEX(i);
+	       inputs |= VERT_BIT_TEX(i);
 	 }
       }
    }
    else {
-      inputs |= VERT_INDEX;
+      inputs |= VERT_BIT_INDEX;
    }
 
    if (ctx->Point._Attenuated)
-      inputs |= VERT_POINT_SIZE;
+      inputs |= VERT_BIT_POINT_SIZE;
 
    /* How do drivers turn this off?
     */
    if (ctx->Fog.Enabled)
-      inputs |= VERT_FOG_COORD;
+      inputs |= VERT_BIT_FOG;
 
    if (ctx->_TriangleCaps & DD_TRI_UNFILLED)
-      inputs |= VERT_EDGE;
+      inputs |= VERT_BIT_EDGEFLAG;
 
    if (ctx->RenderMode==GL_FEEDBACK)
-      inputs |= VERT_TEX_ANY;
+      inputs |= VERT_BITS_TEX_ANY;
 
    stage->inputs = inputs;
 }
@@ -403,7 +402,7 @@ static void dtr( struct gl_pipeline_stage *stage )
 
 const struct gl_pipeline_stage _tnl_render_stage =
 {
-   "render",
+   "render",			/* name */
    (_NEW_BUFFERS |
     _DD_NEW_SEPARATE_SPECULAR |
     _DD_NEW_FLATSHADE |
@@ -414,9 +413,11 @@ const struct gl_pipeline_stage _tnl_render_stage =
     _DD_NEW_TRI_UNFILLED |
     _NEW_RENDERMODE),		/* re-check (new inputs, interp function) */
    0,				/* re-run (always runs) */
-   GL_TRUE,			/* active */
-   0, 0,			/* inputs (set in check_render), outputs */
-   0, 0,			/* changed_inputs, private */
+   GL_TRUE,			/* active? */
+   0,				/* inputs (set in check_render) */
+   0,				/* outputs */
+   0,				/* changed_inputs */
+   NULL,			/* private data */
    dtr,				/* destructor */
    check_render,		/* check */
    run_render			/* run */

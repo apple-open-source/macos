@@ -1,0 +1,47 @@
+<article>
+	<artheader>
+		<title>About Zveno</title>
+		<author>
+			<honorific>Ms</honorific>
+			<firstname>Polly</firstname>
+          		<surname>Ball</surname>
+		</author>
+
+	<para>
+	Zveno is a dedicated XML company, providing a comprehensive suite of services 
+	including consultancy, scheduled and in-house training and customised tools. Established 
+	in 1996, Zveno services a variety of clients worldwide. 
+	</para>
+
+	<para>
+	Our mission is to utilise the wealth of both open source and commercially produced 
+	packages to customise solutions to your XML requirements. Our dedicated vendor 
+	neutral stance coupled with our notably qualified staff, gives us a unique edge within the 
+	growing wealth of XML related companies operating today.    
+	</para>
+
+	<para>
+	Zveno offices are located in Canberra, ACT, Australia, and Perth, WA, Australia.  You may contact us:
+	</para>
+
+	<itemizedlist>
+	  <listitem>
+	    <para>by email <link type="email" ID="info">info@zveno.com</link></para>
+	  </listitem>
+	  <listitem>
+	    <para>by phone +61 2 6242 4099</para>
+	  </listitem>
+	  <listitem>
+	    <para>by fax +61 2 6242 4099</para>
+	  </listitem>
+	  <listitem>
+	    <para>by snail mail</para>
+	    <address>
+LPO Box A64 ANU
+<city>Canberra</city><state>ACT</state><postcode>2601</postcode>
+<country>Australia</country>
+	    </address>
+	  </listitem>
+	</itemizedlist>
+</article>
+

@@ -17,5 +17,6 @@
 #include <net-snmp/agent/var_struct.h>
 
 #include <net-snmp/agent/mib_module_config.h>
+#include <net-snmp/agent/agent_module_config.h>
 
 #endif                          /* NET_SNMP_AGENT_INCLUDES_H */

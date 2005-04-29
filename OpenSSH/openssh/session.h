@@ -1,4 +1,4 @@
-/*	$OpenBSD: session.h,v 1.19 2002/06/30 21:59:45 deraadt Exp $	*/
+/*	$OpenBSD: session.h,v 1.21 2003/09/23 20:17:11 markus Exp $	*/
 
 /*
  * Copyright (c) 2000, 2001 Markus Friedl.  All rights reserved.
@@ -56,19 +56,20 @@ struct Session {
 };
 
 void	 do_authenticated(Authctxt *);
+void	 do_cleanup(Authctxt *);
 
 int	 session_open(Authctxt *, int);
 int	 session_input_channel_req(Channel *, const char *);
 void	 session_close_by_pid(pid_t, int);
 void	 session_close_by_channel(int, void *);
 void	 session_destroy_all(void (*)(Session *));
-void	 session_pty_cleanup2(void *);
+void	 session_pty_cleanup2(Session *);
 
 Session	*session_new(void);
 Session	*session_by_tty(char *);
 void	 session_close(Session *);
 void	 do_setusercontext(struct passwd *);
-
 void	 child_set_env(char ***envp, u_int *envsizep, const char *name,
 		       const char *value);
+
 #endif

@@ -24,28 +24,21 @@ OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
-/* $XFree86: xc/lib/X11/XKBNames.c,v 1.4 2001/10/28 03:32:33 tsi Exp $ */
+/* $XFree86: xc/lib/X11/XKBNames.c,v 1.6 2003/11/17 22:20:09 dawes Exp $ */
 
 #define NEED_REPLIES
 #define NEED_EVENTS
+#define NEED_MAP_READERS
 #include "Xlibint.h"
 #include <X11/extensions/XKBproto.h>
 #include "XKBlibint.h"
 
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadAtoms(	XkbReadBufferPtr	buf,
 		Atom *			atoms,
 		int			maxAtoms,
 		CARD32		 	present)
-#else
-_XkbReadAtoms(buf,atoms,maxAtoms,present)
-    XkbReadBufferPtr	 buf;
-    Atom		*atoms;
-    int			 maxAtoms;
-    CARD32		 present;
-#endif
 {
 register int i,bit;
 
@@ -60,18 +53,10 @@ register int i,bit;
 }
 
 Status
-#if NeedFunctionPrototypes
 _XkbReadGetNamesReply(	Display *		dpy,
 			xkbGetNamesReply *	rep,
 			XkbDescPtr 		xkb,
 			int *			nread_rtrn)
-#else
-_XkbReadGetNamesReply(dpy,rep,xkb,nread_rtrn)
-    Display *		dpy;
-    xkbGetNamesReply *	rep;
-    XkbDescPtr 		xkb;
-    int *		nread_rtrn;
-#endif
 {
     int				 i,len;
     XkbReadBufferRec		 buf;
@@ -244,14 +229,7 @@ BAILOUT:
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetNames(Display *dpy,unsigned which,XkbDescPtr xkb)
-#else
-XkbGetNames(dpy,which,xkb)
-    Display *	dpy;
-    unsigned	which;
-    XkbDescPtr	xkb;
-#endif
 {
     register xkbGetNamesReq *req;
     xkbGetNamesReply	     rep;
@@ -291,13 +269,7 @@ XkbGetNames(dpy,which,xkb)
 /***====================================================================***/
 
 static int
-#if NeedFunctionPrototypes
 _XkbCountBits(int nBitsMax,unsigned long mask)
-#else
-_XkbCountBits(nBitsMax,mask)
-    int			nBitsMax;
-    unsigned long	mask;
-#endif
 {
 register unsigned long y, nBits;
 
@@ -310,14 +282,7 @@ register unsigned long y, nBits;
 }
 
 static CARD32
-#if NeedFunctionPrototypes
 _XkbCountAtoms(Atom *atoms,int maxAtoms,int *count)
-#else
-_XkbCountAtoms(atoms,maxAtoms,count)
-    Atom *atoms;
-    int   maxAtoms;
-    int  *count;
-#endif
 {
 register unsigned int i,bit,nAtoms;
 register CARD32 atomsPresent;
@@ -334,15 +299,7 @@ register CARD32 atomsPresent;
 }
 
 static void
-#if NeedFunctionPrototypes
 _XkbCopyAtoms(Display *dpy,Atom *atoms,CARD32 mask,int maxAtoms)
-#else
-_XkbCopyAtoms(dpy,atoms,mask,maxAtoms)
-    Display *	dpy;
-    Atom *	atoms;
-    CARD32	mask;
-    int   	maxAtoms;
-#endif
 {
 register unsigned int i,bit;
 
@@ -354,20 +311,11 @@ register unsigned int i,bit;
 }
 
 Bool
-#if NeedFunctionPrototypes
 XkbSetNames(	Display *	dpy,
 		unsigned int 	which,
 		unsigned int 	firstType,
 		unsigned int 	nTypes,
 		XkbDescPtr 	xkb)
-#else
-XkbSetNames(dpy,which,firstType,nTypes,xkb)
-    Display *		dpy;
-    unsigned int 	which;
-    unsigned int 	firstType;
-    unsigned int 	nTypes;
-    XkbDescPtr		xkb;
-#endif
 {
     register xkbSetNamesReq *req;
     int  nLvlNames = 0;
@@ -589,14 +537,7 @@ XkbSetNames(dpy,which,firstType,nTypes,xkb)
 }
 
 Bool
-#if NeedFunctionPrototypes
 XkbChangeNames(Display *dpy,XkbDescPtr xkb,XkbNameChangesPtr changes)
-#else
-XkbChangeNames(dpy,xkb,changes)
-    Display *		dpy;
-    XkbDescPtr		xkb;
-    XkbNameChangesPtr	changes;
-#endif
 {
     register xkbSetNamesReq *req;
     int  nLvlNames = 0;
@@ -852,16 +793,9 @@ XkbChangeNames(dpy,xkb,changes)
 }
 
 void
-#if NeedFunctionPrototypes
 XkbNoteNameChanges(	XkbNameChangesPtr	old,
 			XkbNamesNotifyEvent *	new,
 			unsigned int	 	wanted)
-#else
-XkbNoteNameChanges(old,new,wanted)
-    XkbNameChangesPtr		old;
-    XkbNamesNotifyEvent	*	new;
-    unsigned int	 	wanted;
-#endif
 {
 int	first,last,old_last,new_last;
 

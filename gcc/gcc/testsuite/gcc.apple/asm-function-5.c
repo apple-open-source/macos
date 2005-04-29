@@ -1,8 +1,10 @@
 /* APPLE LOCAL file CW asm blocks */
 /* Test function calls in asm functions.  */
 
-/* { dg-do run } */
-/* { dg-options "-fasm-blocks" } */
+/* { dg-do run { target powerpc*-*-* } } */
+/* { dg-options "-fasm-blocks -O2" } */
+
+void abort(void);
 
 int glob = 0;
 
@@ -17,7 +19,8 @@ asm void foo(int arg)
   stmw r30,-8(r1)
   stw r0,8(r1)
   stwu r1,-80(r1)
-  bl L_stubfn$stub
+  bl stubfn
+    /*  bl L_stubfn$stub */
   lwz r0,88(r1)
   addi r1,r1,80
   mtlr r0

@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---   Copyright (C) 1992,1993,1994,1995,1996 Free Software Foundation, Inc.  --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -50,8 +49,7 @@ package body Ada.Strings.Search is
    function Belongs
      (Element : Character;
       Set     : Maps.Character_Set;
-      Test    : Membership)
-      return    Boolean;
+      Test    : Membership) return Boolean;
    pragma Inline (Belongs);
    --  Determines if the given element is in (Test = Inside) or not in
    --  (Test = Outside) the given character set.
@@ -63,8 +61,7 @@ package body Ada.Strings.Search is
    function Belongs
      (Element : Character;
       Set     : Maps.Character_Set;
-      Test    : Membership)
-      return    Boolean
+      Test    : Membership) return Boolean
    is
    begin
       if Test = Inside then
@@ -79,10 +76,9 @@ package body Ada.Strings.Search is
    -----------
 
    function Count
-     (Source   : in String;
-      Pattern  : in String;
-      Mapping  : in Maps.Character_Mapping := Maps.Identity)
-      return     Natural
+     (Source   : String;
+      Pattern  : String;
+      Mapping  : Maps.Character_Mapping := Maps.Identity) return Natural
    is
       N : Natural;
       J : Natural;
@@ -114,10 +110,9 @@ package body Ada.Strings.Search is
    end Count;
 
    function Count
-     (Source   : in String;
-      Pattern  : in String;
-      Mapping  : in Maps.Character_Mapping_Function)
-      return     Natural
+     (Source   : String;
+      Pattern  : String;
+      Mapping  : Maps.Character_Mapping_Function) return Natural
    is
       Mapped_Source : String (Source'Range);
       N             : Natural;
@@ -157,9 +152,8 @@ package body Ada.Strings.Search is
    end Count;
 
    function Count
-     (Source : in String;
-      Set    : in Maps.Character_Set)
-      return   Natural
+     (Source : String;
+      Set    : Maps.Character_Set) return Natural
    is
       N : Natural := 0;
 
@@ -178,9 +172,9 @@ package body Ada.Strings.Search is
    ----------------
 
    procedure Find_Token
-     (Source : in String;
-      Set    : in Maps.Character_Set;
-      Test   : in Membership;
+     (Source : String;
+      Set    : Maps.Character_Set;
+      Test   : Membership;
       First  : out Positive;
       Last   : out Natural)
    is
@@ -215,11 +209,10 @@ package body Ada.Strings.Search is
    -----------
 
    function Index
-     (Source   : in String;
-      Pattern  : in String;
-      Going    : in Direction := Forward;
-      Mapping  : in Maps.Character_Mapping := Maps.Identity)
-      return     Natural
+     (Source  : String;
+      Pattern : String;
+      Going   : Direction := Forward;
+      Mapping : Maps.Character_Mapping := Maps.Identity) return Natural
    is
       Cur_Index     : Natural;
       Mapped_Source : String (Source'Range);
@@ -267,11 +260,11 @@ package body Ada.Strings.Search is
       return 0;
    end Index;
 
-   function Index (Source   : in String;
-                   Pattern  : in String;
-                   Going    : in Direction := Forward;
-                   Mapping  : in Maps.Character_Mapping_Function)
-      return Natural
+   function Index
+     (Source  : String;
+      Pattern : String;
+      Going   : Direction := Forward;
+      Mapping : Maps.Character_Mapping_Function) return Natural
    is
       Mapped_Source : String (Source'Range);
       Cur_Index     : Natural;
@@ -325,11 +318,10 @@ package body Ada.Strings.Search is
    end Index;
 
    function Index
-     (Source : in String;
-      Set    : in Maps.Character_Set;
-      Test   : in Membership := Inside;
-      Going  : in Direction  := Forward)
-      return   Natural
+     (Source : String;
+      Set    : Maps.Character_Set;
+      Test   : Membership := Inside;
+      Going  : Direction  := Forward) return Natural
    is
    begin
       --  Forwards case
@@ -361,9 +353,8 @@ package body Ada.Strings.Search is
    ---------------------
 
    function Index_Non_Blank
-     (Source : in String;
-      Going  : in Direction := Forward)
-      return   Natural
+     (Source : String;
+      Going  : Direction := Forward) return Natural
    is
    begin
       if Going = Forward then

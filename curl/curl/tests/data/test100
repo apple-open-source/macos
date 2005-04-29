@@ -1,6 +1,6 @@
 #
 # Server-side
-<reply name="1">
+<reply>
 <data>
 total 20
 drwxr-xr-x   8 98       98           512 Oct 22 13:06 .
@@ -19,13 +19,16 @@ dr-xr-xr-x   5 0        1            512 Oct  1  1997 usr
 #
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 FTP dir list PASV
  </name>
  <command>
 ftp://%HOSTIP:%FTPPORT/
 </command>
-</test>
+</client>
 
 #
 # Verify data after the test has been "shot"
@@ -40,5 +43,6 @@ PWD
 EPSV
 TYPE A
 LIST
+QUIT
 </protocol>
 </verify>

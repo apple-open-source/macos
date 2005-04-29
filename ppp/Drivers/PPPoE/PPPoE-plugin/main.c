@@ -34,6 +34,21 @@
   Includes
 ----------------------------------------------------------------------------- */
 
+#include <sys/param.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <syslog.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <sys/sys_domain.h>
+
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -47,21 +62,7 @@
 #include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
-#include <sys/param.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <syslog.h>
-#include <sys/ioctl.h>
-#include <net/dlil.h>
 
-#include <net/if.h>
 #include <CoreFoundation/CFBundle.h>
 
 #define APPLE 1
@@ -267,6 +268,8 @@ int pppoe_connect(int *errorcode)
     int 	err = 0;  
     CFURLRef	url;
     
+	*errorcode = 0;
+
     sprintf(dev, "socket[%d:%d]", PF_PPP, PPPPROTO_PPPOE);
     strlcpy(ppp_devnam, dev, sizeof(ppp_devnam));
 
@@ -306,13 +309,13 @@ int pppoe_connect(int *errorcode)
     if (loopback || debug) {
         u_int32_t 	flags;
         flags = (loopback ? PPPOE_FLAG_LOOPBACK : 0)
-            + (debug ? PPPOE_FLAG_DEBUG : 0);
+            + ((kdebugflag & 1) ? PPPOE_FLAG_DEBUG : 0);
         if (setsockopt(sockfd, PPPPROTO_PPPOE, PPPOE_OPT_FLAGS, &flags, 4)) {
             error("PPPoE can't set PPPoE flags...\n");
             return errno;
         }
         if (loopback) 
-            info("PPPoE loopback activated...\n");
+            notice("PPPoE loopback activated...\n");
     }
 
     if (connecttimer) {
@@ -365,14 +368,14 @@ run the disconnector connector
 ----------------------------------------------------------------------------- */
 void pppoe_disconnect()
 {
-    info("PPPoE disconnecting...\n");
+    notice("PPPoE disconnecting...\n");
     
     if (shutdown(sockfd, SHUT_RDWR) < 0) {
         error("PPPoE disconnection failed, error = %d.\n", errno);
         return;
     }
 
-    info("PPPoE disconnected\n");
+    notice("PPPoE disconnected\n");
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -456,7 +459,7 @@ int pppoe_dial()
         }
     }
     
-    info("PPPoE connecting to service '%s' [access concentrator '%s']...\n", 
+    notice("PPPoE connecting to service '%s' [access concentrator '%s']...\n", 
             service ? service : "", 
             access_concentrator ? access_concentrator : "");
 
@@ -496,7 +499,7 @@ int pppoe_dial()
         return -1;
     }
 
-    info("PPPoE connection established.");
+    notice("PPPoE connection established.");
     return 0;
 }
 
@@ -508,7 +511,7 @@ int pppoe_listen()
     struct sockaddr_pppoe 	addr;
     int				len, fd;
 
-    info("PPPoE listening on service '%s' [access concentrator '%s']...\n", 
+    notice("PPPoE listening on service '%s' [access concentrator '%s']...\n", 
             service ? service : "", 
             access_concentrator ? access_concentrator : "");
 
@@ -540,7 +543,7 @@ int pppoe_listen()
     close(sockfd);	// close the socket used for listening
     sockfd = fd;	// use the accepted socket instead of
     
-    info("PPPoE connection established in incoming call.");
+    notice("PPPoE connection established in incoming call.");
     return 0;
 }
 

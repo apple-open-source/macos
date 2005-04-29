@@ -1,6 +1,6 @@
 /* APPLE LOCAL file AltiVec */
 /* { dg-do compile { target powerpc-*-darwin* } } */
-/* { dg-options "-faltivec -Wno-long-double -I." } */
+/* { dg-options "-faltivec -I." } */
 
 #include "apple-altivec-1.h"
 

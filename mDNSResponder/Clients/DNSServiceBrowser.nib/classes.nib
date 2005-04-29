@@ -4,7 +4,6 @@
             ACTIONS = {
                 addNewService = id; 
                 connect = id; 
-                editDomains = id; 
                 handleDomainClick = id; 
                 handleNameClick = id; 
                 handleTableClick = id; 
@@ -15,9 +14,9 @@
             CLASS = BrowserController; 
             LANGUAGE = ObjC; 
             OUTLETS = {
-                domainEditField = id; 
                 domainField = id; 
-                domainWindow = id; 
+                hostField = id; 
+                ip6AddressField = id; 
                 ipAddressField = id; 
                 nameColumn = id; 
                 nameField = id; 

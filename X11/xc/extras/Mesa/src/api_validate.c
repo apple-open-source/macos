@@ -1,7 +1,7 @@
-
+/* $XFree86: xc/extras/Mesa/src/api_validate.c,v 1.4 2003/10/22 15:27:39 tsi Exp $ */
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.2
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -26,6 +26,7 @@
 #include "glheader.h"
 #include "api_validate.h"
 #include "context.h"
+#include "imports.h"
 #include "mtypes.h"
 #include "state.h"
 
@@ -59,7 +60,10 @@ _mesa_validate_DrawElements(GLcontext *ctx,
    if (ctx->NewState)
       _mesa_update_state( ctx );
 
-   if (!ctx->Array.Vertex.Enabled)
+   if (ctx->Array.Vertex.Enabled
+       || (ctx->VertexProgram.Enabled && ctx->Array.VertexAttrib[0].Enabled))
+      return GL_TRUE;
+   else
       return GL_FALSE;
 
    return GL_TRUE;
@@ -92,8 +96,7 @@ _mesa_validate_DrawRangeElements(GLcontext *ctx, GLenum mode,
 
    if (type != GL_UNSIGNED_INT &&
        type != GL_UNSIGNED_BYTE &&
-       type != GL_UNSIGNED_SHORT)
-   {
+       type != GL_UNSIGNED_SHORT) {
       _mesa_error(ctx, GL_INVALID_ENUM, "glDrawElements(type)" );
       return GL_FALSE;
    }
@@ -101,10 +104,11 @@ _mesa_validate_DrawRangeElements(GLcontext *ctx, GLenum mode,
    if (ctx->NewState)
       _mesa_update_state( ctx );
 
-   if (!ctx->Array.Vertex.Enabled)
+   if (ctx->Array.Vertex.Enabled
+       || (ctx->VertexProgram.Enabled && ctx->Array.VertexAttrib[0].Enabled))
+      return GL_TRUE;
+   else
       return GL_FALSE;
-
-   return GL_TRUE;
 }
 
 
@@ -128,8 +132,9 @@ _mesa_validate_DrawArrays(GLcontext *ctx,
    if (ctx->NewState)
       _mesa_update_state( ctx );
 
-   if (!ctx->Array.Vertex.Enabled)
+   if (ctx->Array.Vertex.Enabled
+       || (ctx->VertexProgram.Enabled && ctx->Array.VertexAttrib[0].Enabled))
+      return GL_TRUE;
+   else
       return GL_FALSE;
-
-   return GL_TRUE;
 }

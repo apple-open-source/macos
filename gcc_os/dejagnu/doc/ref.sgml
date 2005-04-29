@@ -1,6 +1,17 @@
 <chapter id=reference>
   <title>Reference</title>
 
+  <sect1 id=obtaining xreflabel="Obtaining DejaGnu">
+    <title>Obtaining DejaGnu</title>
+
+    <para>You can obtain DejaGnu from the DejaGnu web site at the
+    <ulink URL="http://www.gnu.org">Free Software Foundation</ulink>,
+    which is at <ulink
+    URL="http://www.gnu.org/software/dejagnu/">www.gnu.org/software/dejagnu/
+    </ulink></para>
+
+  </sect1>
+
   <sect1 id=installation xreflabel="Installation">
     <title>Installation</title>
     
@@ -22,7 +33,7 @@
       execute the configure script from the source tree like this:</para>
 
       <screen>
-        ../dejagnu-1.4/configure
+        ../dejagnu-&version/configure
       </screen>
 
       <para>DejaGnu doesn't care at config time if it's for testing a native
@@ -75,15 +86,15 @@
         <listitem><para>Create another directory in the
         <filename>share</filename> directory, called
         <filename>dejagnu</filename>, and copy all the library files into
-        it.</listitem>
+        it.</para></listitem>
 
         <listitem><para>Create a directory in the
         <filename>dejagnu/share</filename> directory, called
         <filename>config</filename>, and copy all the configuration files into
-        it.</listitem>
+        it.</para></listitem>
 
 	<listitem><para>Copy the <emphasis>runtest</emphasis> shell script into
-	<filename>$exec_prefix/bin</filename>.
+	<filename>$exec_prefix/bin</filename>.</para></listitem>
 
 	<listitem><para>Copy <filename>runtest.exp</filename> into
 	<filename>$exec_prefix/lib/dejagnu</filename>. This is the main Tcl
@@ -539,6 +550,7 @@
 	    <paramdef><parameter></parameter></paramdef>
         </funcsynopsis>
 
+      </sect3>
       <sect3 id=warning xreflabel="warning procedure">
         <title>Warning Procedure</title>
 
@@ -584,6 +596,7 @@
           </varlistentry>
 	</variablelist>
 
+      </sect3>
       <sect3 id=perror xreflabel="perror procedure">
         <title>Perror Procedure</title>
 
@@ -623,6 +636,7 @@
           </varlistentry>
 	</variablelist>
 
+      </sect3>
        <sect3 id=note xreflabel="note procedure">
         <title>Note Procedure</title>
 
@@ -880,20 +894,26 @@
 	  <symbol>verbose</symbol> is higher than or equal to the optional
 	  number. The default value for number is <emphasis>1</emphasis>.  Use
 	  the optional <option>-log</option> argument to cause string to always
-	  be added to the log file, even if it won't be printed.  Use the
-	  optional <option>-n</option> argument to print string without a
-	  trailing newline.  Use the optional <option>--</option> argument if
-	  string begins with "-".</para>
+          be added to the log file, even if it won't be printed.  Use the
+          optional <option>-x</option> argument to log the test results into
+          a parsable XML file.  Use the optional <option>-n</option> argument
+          to print string without a trailing newline.  Use the optional
+          <option>--</option> argument if string begins with "-".</para>
 
 	<funcsynopsis role="tcl"> 
             <funcdef><function>verbose</function></funcdef>
 	    <paramdef><parameter>-log</parameter>
+            <parameter>-x</parameter>
 	    <parameter>-n</parameter>
 	    <parameter>-r</parameter>
 	    <parameter>string</parameter>
 	    <parameter>number</parameter></paramdef>
         </funcsynopsis>
 	<variablelist>
+          <varlistentry>
+            <term><parameter>-x</parameter></term>
+            <listitem><para></para></listitem>
+          </varlistentry>
           <varlistentry>
 	    <term><parameter>-log</parameter></term>
  	    <listitem><para></para></listitem>
@@ -3118,6 +3138,7 @@
 	</variablelist>
 	</sect3>
 
+    </sect2>
     <sect2 id=platformprocs xreflabel="platform dependant procedures">
       <title>Platform Dependant Procedures</title>
 
@@ -3210,7 +3231,7 @@
 	  session.  You can also use <function>${tool}_exit</function>
 	  to remove any temporary files left over from the
 	  tests. <command>runtest</command> calls
-	  <function>${tool}_exit</function>.<para> 
+	  <function>${tool}_exit</function>.</para> 
 
 	<funcsynopsis role="tcl"> 
             <funcdef><function>${tool}_exit</function></funcdef>
@@ -3335,7 +3356,7 @@
 	<para>Use the optional third argument <emphasis>line</emphasis> to
 	start lines in the result with the line number in
 	<filename>filename</filename>.  (This argument is simply an option
-	flag; type it just as shown <option>--line</option>.)
+	flag; type it just as shown <option>--line</option>.)</para>
 
 	<funcsynopsis role="tcl"> 
             <funcdef><function>grep</function></funcdef>
@@ -3360,8 +3381,8 @@
 	    regexp matches.</para></listitem> 
           </varlistentry>
 	</variablelist>
-
 	</sect3>
+
 	<sect3 id=prune xreflabel="prune procedure">
 	  <title>Prune Procedure</title>
 
@@ -3437,7 +3458,7 @@
 	  <para>This sources the file <emphasis>filename</emphasis>, and traps
 	  all errors. It also ignores all extraneous output. If there was an
 	  error it returns a <emphasis>1</emphasis>, otherwise it returns a
-	  <emphasis>0</emphasis>.
+	  <emphasis>0</emphasis>.</para>
 
 	<funcsynopsis role="tcl"> 
             <funcdef><function>psource</function></funcdef>
@@ -3458,12 +3479,12 @@
 	  <para>Search <emphasis>runtest</emphasis>s for
 	  <emphasis>testcase</emphasis> and return <emphasis>1</emphasis> if
 	  found, <emphasis>0</emphasis> if not. <emphasis>runtests</emphasis>
-	  is a list of two elements.  The first is the pathname of the
-	  testsuite expect script running.  The second is a copy of what was on
-	  the right side of the <emphasis>=</emphasis> if
+	  is a list of two elements.  The first is a copy of what was on
+	  the right side of the <emphasis>=</emphasis> if	
 	  <programlisting>foo.exp="..."</programlisting>" was specified, or
-	  an empty string if no such argument is present. This is used by tools
-	  like compilers where each testcase is a file.</para>
+	  an empty string if no such argument is present. The second is the
+	  pathname of the current testcase under consideration. This is used
+	  by tools like compilers where each testcase is a file.</para>
 
 	<funcsynopsis role="tcl"> 
             <funcdef><function>runtest_file_p</function></funcdef>
@@ -3473,8 +3494,8 @@
 	<variablelist>
           <varlistentry>
 	    <term><parameter>runtests</parameter></term>
-	    <listitem><para>The pathname of the testsuite expect script
-	    running</para></listitem> 
+	    <listitem><para>The list of patterns to compare against.
+              </para></listitem> 
           </varlistentry>
           <varlistentry>
 	    <term><parameter>testcase</parameter></term>
@@ -3530,6 +3551,7 @@
           </varlistentry>
 	</variablelist>
 
+        </sect3>
 	<sect3 id=unsetenv xreflabel="unsetenv procedure">
 	  <title>unsetenv Procedure</title>
 
@@ -3553,7 +3575,7 @@
 	  <title>Getenv Procedure</title>
 
 	  <para>Returns the value of <emphasis>var</emphasis> in the
-	  environment if it exists, otherwise it returns NULL.
+	  environment if it exists, otherwise it returns NULL.</para>
 
 	<funcsynopsis role="tcl"> 
             <funcdef><function>getenv</function></funcdef>
@@ -3567,6 +3589,7 @@
           </varlistentry>
 	</variablelist>
 
+      </sect3>
 	<sect3 id=prunesystemcrud xreflabel="prune_system_crud procedure">
 	  <title>Prune_system_crud Procedure</title>
 
@@ -4235,8 +4258,180 @@
       <listitem><para>lib/util-defs.exp</para></listitem>
       <listitem><para>lib/utils.exp</para></listitem>
       <listitem><para>lib/xsh.exp</para></listitem>
+      <listitem><para>lib/dejagnu.exp</para></listitem>
     </itemizedlist>
 
   </sect1>
 
 </chapter>
+
+<chapter id=unittestapi xreflabel="Unit Testing API">
+  <title>Unit Testing API</title>
+
+    <sect1 id=cunit xreflabel="C Unit Testing API">
+    <title>C Unit Testing API</title>
+    
+    <para>All of the functions that take a
+    <parameter>msg</parameter> parameter use a C char * that is
+    the message to be dislayed. There currently is no support for
+    variable length arguments.</para>
+
+
+    <sect2 id=passfunc xreflabel="pass function">
+    <title>Pass Function</title>
+	  
+	  <para>This prints a message for a successful test
+	  completion.</para>
+
+	  <funcsynopsis role="C"> 
+	  <funcdef><function>pass</function></funcdef>
+	  <paramdef><parameter>msg</parameter></paramdef>
+	  </funcsynopsis>
+
+    </sect2>
+
+    <sect2 id=failfunc xreflabel="fail function">
+    <title>Fail Function</title>
+	  
+	  <para>This prints a message for an unsuccessful test
+	  completion.</para>
+
+	  <funcsynopsis role="C"> 
+	  <funcdef><function>fail</function></funcdef>
+	  <paramdef><parameter>msg</parameter></paramdef>
+	  </funcsynopsis>
+
+    </sect2>
+
+	<sect2 id=untestedfunc xreflabel="untested function">
+	  <title>Untested Function</title>
+
+	  <para>This prints a message for an test case that isn't run
+	  for some technical reason.</para>
+
+	<funcsynopsis role="C"> 
+            <funcdef><function>untested</function></funcdef>
+	    <paramdef><parameter>msg</parameter></paramdef>
+	        </funcsynopsis>
+	</sect2>
+
+	<sect2 id=unresolvedfunc xreflabel="unresolved function">
+	  <title>Unresolved Function</title>
+
+	  <para>This prints a message for an test case that is run,
+	  but there is no clear result. These output states require a
+	  human to look over the results to determine what happened.
+	  </para>
+
+	<funcsynopsis role="C"> 
+            <funcdef><function>unresolved</function></funcdef>
+	    <paramdef><parameter>msg</parameter></paramdef>
+	        </funcsynopsis>
+	</sect2>
+
+	<sect2 id=totalsfunc xreflabel="totals function">
+	  <title>Totals Function</title>
+
+	  <para>This prints out the total numbers of all the test
+	  state outputs.</para>
+
+	<funcsynopsis role="C"> 
+            <funcdef><function>totals</function></funcdef>
+	    <paramdef><parameter></parameter></paramdef>
+        </funcsynopsis>
+	</sect2>
+
+    </sect1>
+
+    <sect1 id=cppunit xreflabel="C++ Unit Testing API">
+	   <title>C++ Unit Testing API</title>
+	   
+	   <para>All of the methods that take a
+	   	  <parameter>msg</parameter> parameter use a C char *
+		  or STL string, that is the message to be
+	   	  dislayed. There currently is no support for variable
+	   	  length arguments.</para>
+	  
+	   <sect2 id=passmeth xreflabel="pass method">
+	   <title>Pass Method</title>
+
+	  <para>This prints a message for a successful test
+	  completion.</para>
+
+	<funcsynopsis role="C++"> 
+            <funcdef><function>TestState::pass</function></funcdef>
+	    <paramdef><parameter>msg</parameter></paramdef>
+	</funcsynopsis>
+	</sect2>
+
+	<sect2 id=failmeth xreflabel="fail method">
+	  <title>Fail Method</title>
+
+	  <para>This prints a message for an unsuccessful test
+	  completion.</para>
+
+	<funcsynopsis role="C++"> 
+            <funcdef><function>TestState::fail</function></funcdef>
+	    <paramdef><parameter>msg</parameter></paramdef>
+	</funcsynopsis>
+	</sect2>
+
+	<sect2 id=untestedmeth xreflabel="untested method">
+	  <title>Untested Method</title>
+
+	  <para>This prints a message for an test case that isn't run
+	  for some technical reason.</para>
+
+	<funcsynopsis role="C++"> 
+            <funcdef><function>TestState::untested</function></funcdef>
+	    <paramdef><parameter>msg</parameter></paramdef>
+	</funcsynopsis>
+	</sect2>
+
+	<sect2 id=unresolvedmeth xreflabel="unresolved method">
+	  <title>Unresolved Method</title>
+
+	  <para>This prints a message for an test case that is run,
+	  but there is no clear result. These output states require a
+	  human to look over the results to determine what happened.
+	  </para>
+
+	<funcsynopsis role="C++"> 
+            <funcdef><function>TestState::unresolved</function></funcdef>
+	    <paramdef><parameter>msg</parameter></paramdef>
+	</funcsynopsis>
+	</sect2>
+
+	<sect2 id=totalsmeth xreflabel="totals method">
+	  <title>Totals Method</title>
+
+	  <para>This prints out the total numbers of all the test
+	  state outputs.</para>
+
+	<funcsynopsis role="C++"> 
+            <funcdef><function>TestState::totals</function></funcdef>
+	    <paramdef><parameter></parameter></paramdef>
+        </funcsynopsis>
+	</sect2>
+
+     </sect1>
+
+</chapter>
+
+<!-- Keep this comment at the end of the file
+Local variables:
+mode: sgml
+sgml-omittag:t
+sgml-shorttag:t
+sgml-namecase-general:t
+sgml-general-insert-case:lower
+sgml-minimize-attributes:nil
+sgml-always-quote-attributes:t
+sgml-indent-step:1
+sgml-indent-data:nil
+sgml-parent-document:nil
+sgml-exposed-tags:nil
+sgml-local-catalogs:nil
+sgml-local-ecat-files:nil
+End:
+-->

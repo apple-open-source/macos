@@ -3,6 +3,10 @@
 #include "directory_service.h"
 #include "chpass.h"
 #include <err.h>
+#include <sys/time.h>
+
+#include <sys/errno.h>
+extern int errno;
 
 #define	CONFIGNAMELEN	14
 #define	GLOBALCONFIGLEN	20
@@ -16,7 +20,7 @@
 /*---------------------------------------------------------------------------
  * Global variables
  *---------------------------------------------------------------------------*/
-const char *DSPath = NULL;
+char *DSPath = NULL;
 const char MasterPasswd[] = "/etc/master.passwd";
 
 /*---------------------------------------------------------------------------
@@ -34,7 +38,6 @@ static char NetinfoRoot[] = "/NetInfo/root";
 static char NiclPathFmt[] = "/users/%s";
 static char NISPatFmt[] = "/usr/bin/ypcat passwd.byname | /usr/bin/grep -q '^%s:'";
 static char RemoteNI[] = "/NetInfo/";
-static char PathSep[] = "/";
 static char UserConfig[] = "User Configuration";
 static unsigned char RestrictedFFRoot[] = {
 	0, /*E_LOGIN */
@@ -223,20 +226,23 @@ setrestricted(int where, struct passwd *pw)
     int i;
     ENTRY *ep;
 
-    switch(where) {
-      case WHERE_FILES:
-	restricted = uid ? RestrictedFFUser : RestrictedFFRoot;
-	break;
-      case WHERE_LOCALNI:
-	restricted = uid ? RestrictedLocalNIUser : RestrictedLocalNIRoot;
-	break;
+    switch(where)
+	{
+		case WHERE_FILES:
+			restricted = uid ? RestrictedFFUser : RestrictedFFRoot;
+			break;
+		case WHERE_LOCALNI:
+			restricted = uid ? RestrictedLocalNIUser : RestrictedLocalNIRoot;
+			break;
+		default:
+			return;
     }
-
+	
     for (ep = list, i = NLIST; i > 0; i--)
-	(ep++)->restricted = *restricted++;
-
+		(ep++)->restricted = *restricted++;
+	
     if (uid && !ok_shell(pw->pw_shell))
-	list[E_SHELL].restricted = 1;
+		list[E_SHELL].restricted = 1;
 }
 
 /*---------------------------------------------------------------------------
@@ -323,170 +329,145 @@ whereDS(const char *name)
 	     *---------------------------------------------------------------*/
 	    IF((status = dsFindDirNodes(dsRef, dataBuff, NULL,
 	     eDSAuthenticationSearchNodeName, &nodeCount, &context))
-	     == eDSNoErr) {
-		tDataListPtr nodeName;
-		if(nodeCount < 1) {
-		    status = eDSNodeNotFound;
-		    break;
-		}
-		nodeName = NULL;
-		IF((status = dsGetDirNodeName(dsRef, dataBuff, 1,
-		 &nodeName)) == eDSNoErr) {
-		    tDirNodeReference    nodeRef;
-
-		    IF((status = dsOpenDirNode(dsRef, nodeName, &nodeRef))
-		     == eDSNoErr) {
-			tDataListPtr pRecType;
-			tDataListPtr pAttrType;
-			tDataListPtr pPattern;
-			unsigned long recCount;
-			tContextData context2 = NULL;
-
-			/*---------------------------------------------------
-			 * Now search the search node for the given user name.
-			 *---------------------------------------------------*/
-			pRecType = dsBuildListFromStrings(dsRef,
-			 kDSStdRecordTypeUsers, NULL);
-			pAttrType = dsBuildListFromStrings(dsRef,
-			 kStandardSourceAlias, NULL);
-			pPattern = dsBuildListFromStrings(dsRef, name, NULL);
-			IF((status = dsGetRecordList(nodeRef, dataBuff,
-			 pPattern, eDSExact, pRecType, pAttrType, 0, &recCount,
-			 &context2)) == eDSNoErr) {
-			    tAttributeListRef attrListRef;
-			    tRecordEntry *pRecEntry;
-
-			    if(recCount < 1) {
-				status = E_NOTFOUND;
+	     == eDSNoErr)
+		{
+			tDataListPtr nodeName;
+			if(nodeCount < 1) {
+				status = eDSNodeNotFound;
 				break;
-			    }
-			    /*-----------------------------------------------
-			     * Get the attributes for the first entry we find
-			     *-----------------------------------------------*/
-			    IF((status = dsGetRecordEntry(nodeRef,
-			     dataBuff, 1, &attrListRef, &pRecEntry)) ==
-			     eDSNoErr) {
-				tAttributeValueListRef valueRef;
-				tAttributeEntry *pAttrEntry;
+			}
+			nodeName = NULL;
+			IF((status = dsGetDirNodeName(dsRef, dataBuff, 1, &nodeName)) == eDSNoErr)
+			{
+				tDirNodeReference    nodeRef;
 
-				/*-------------------------------------------
-				 * Get the first (only) attribute
-				 *-------------------------------------------*/
-				IF((status = dsGetAttributeEntry( nodeRef,
-				 dataBuff, attrListRef, 1, &valueRef,
-				 &pAttrEntry)) == eDSNoErr) {
-				    tDataListPtr pPathList;
+				IF((status = dsOpenDirNode(dsRef, nodeName, &nodeRef)) == eDSNoErr) {
+					tDataListPtr pRecType;
+					tDataListPtr pAttrType;
+					tDataListPtr pPattern;
+					unsigned long recCount;
+					tContextData context2 = NULL;
 
-				    /*---------------------------------------
-				     * Put the attribute values into a data
-				     * list.
-				     *---------------------------------------*/
-				    IF((pPathList = dsDataListAllocate(dsRef))
-				     != NULL) {
-					int k;
-					tAttributeValueEntry *pValueEntry;
+					/*---------------------------------------------------
+					 * Now search the search node for the given user name.
+					 *---------------------------------------------------*/
+					pRecType = dsBuildListFromStrings(dsRef,
+					 kDSStdRecordTypeUsers, NULL);
+					pAttrType = dsBuildListFromStrings(dsRef,
+					 kDSNAttrMetaNodeLocation, NULL);
+					pPattern = dsBuildListFromStrings(dsRef, name, NULL);
+					IF((status = dsGetRecordList(nodeRef, dataBuff,
+					 pPattern, eDSExact, pRecType, pAttrType, 0, &recCount,
+					 &context2)) == eDSNoErr) {
+						tAttributeListRef attrListRef;
+						tRecordEntry *pRecEntry;
 
-					for(k = 1; k <=
-					 pAttrEntry->fAttributeValueCount;
-					 k++) {
-					    IF((status =
-					     dsGetAttributeValue(nodeRef,
-					     dataBuff, k, valueRef,
-					     &pValueEntry)) == eDSNoErr) {
-						if((status =
-						 dsAppendStringToListAlloc(
-						 dsRef, pPathList,
-						 pValueEntry->fAttributeValueData.fBufferData))
-						 != eDSNoErr) {
-						    k = pAttrEntry->fAttributeValueCount;
-						    break;
-						}
-					    } CLEANUP {
-						dsDeallocAttributeValueEntry(
-						 dsRef, pValueEntry);
-					    } ELSE {
+						if(recCount < 1) {
+						status = E_NOTFOUND;
 						break;
-					    } ENDIF
-					}
-					if(status != eDSNoErr)
-					    break;
-					/*-----------------------------------
-					 * Finally, build a path from the data
-					 * list, and compare it to known paths.
-					 *-----------------------------------*/
-					if(DSPath)
-					    free((void *)DSPath);
-					if((DSPath = dsGetPathFromList(dsRef,
-					 pPathList, PathSep)) != NULL) {
-					    if(strcmp(DSPath, LocalNI) == 0) {
-						status = WHERE_LOCALNI;
-						/*---------------------------
-						 * Translate to netinfo path
-						 *---------------------------*/
-						free((void *)DSPath);
-						DSPath = strdup(".");
-					    } else if(strcmp(DSPath, DSFiles)
-					     == 0) {
-						status = WHERE_FILES;
-						/*---------------------------
-						 * Translate to master.passwd
-						 * path
-						 *---------------------------*/
-						free((void *)DSPath);
-						DSPath = strdup(MasterPasswd);
-					    } else if(strncmp(DSPath, RemoteNI,
-					     REMOTEINFOLEN) == 0) {
-						status = WHERE_REMOTENI;
-						/*---------------------------
-						 * Translate to netinfo path
-						 *---------------------------*/
-						if(strncmp(DSPath, NetinfoRoot,
-						 NETINFOROOTLEN) == 0) {
-						    if(DSPath[NETINFOROOTLEN]
-						     == 0) {
-							free((void *)DSPath);
-							DSPath = strdup("/");
-						    } else {
-							char *tmp =
-							 strdup(DSPath +
-							 NETINFOROOTLEN);
-							free((void *)DSPath);
-							DSPath = tmp;
-						    }
 						}
-					    } else
-						status = WHERE_DS;
-					} else
-					    status = E_PATHOUTOFMEM;
-				    } CLEANUP {
-					dsDataListDeallocate(dsRef, pPathList);
-					free(pPathList);
-				    } ELSE {
-					status = E_DATALISTOUTOFMEM;
-				    } ENDIF
+						/*-----------------------------------------------
+						 * Get the attributes for the first entry we find
+						 *-----------------------------------------------*/
+						IF((status = dsGetRecordEntry(nodeRef,
+						 dataBuff, 1, &attrListRef, &pRecEntry)) ==
+						 eDSNoErr) {
+						tAttributeValueListRef valueRef;
+						tAttributeEntry *pAttrEntry;
+
+						/*-------------------------------------------
+						 * Get the first (only) attribute
+						 *-------------------------------------------*/
+						IF((status = dsGetAttributeEntry( nodeRef, dataBuff, attrListRef, 1, &valueRef,
+							&pAttrEntry)) == eDSNoErr)
+						{
+							tAttributeValueEntry *pValueEntry;
+							
+							/*---------------------------------------
+							 * Put the attribute values into a data
+							 * list.
+							 *---------------------------------------*/
+							
+							status = dsGetAttributeValue(nodeRef, dataBuff, 1, valueRef, &pValueEntry);
+							if ( status == eDSNoErr )
+							{
+								DSPath = (char *) malloc( pValueEntry->fAttributeValueData.fBufferLength + 1 );
+								if ( DSPath != NULL )
+									strlcpy( DSPath, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength + 1 );
+								
+								dsDeallocAttributeValueEntry(dsRef, pValueEntry);
+							}
+							
+							if(status != eDSNoErr)
+								break;
+							
+							if(strcmp(DSPath, LocalNI) == 0)
+							{
+								status = WHERE_LOCALNI;
+								/*---------------------------
+								 * Translate to netinfo path
+								 *---------------------------*/
+								free((void *)DSPath);
+								DSPath = strdup(".");
+							}
+							else if(strcmp(DSPath, DSFiles) == 0)
+							{
+								status = WHERE_FILES;
+								/*---------------------------
+								 * Translate to master.passwd
+								 * path
+								 *---------------------------*/
+								free((void *)DSPath);
+								DSPath = strdup(MasterPasswd);
+							}
+							else if(strncmp(DSPath, RemoteNI, REMOTEINFOLEN) == 0)
+							{
+								status = WHERE_REMOTENI;
+								/*---------------------------
+								 * Translate to netinfo path
+								 *---------------------------*/
+								if(strncmp(DSPath, NetinfoRoot,
+								 NETINFOROOTLEN) == 0) {
+									if(DSPath[NETINFOROOTLEN]
+									 == 0) {
+									free((void *)DSPath);
+									DSPath = strdup("/");
+									} else {
+									char *tmp =
+									 strdup(DSPath +
+									 NETINFOROOTLEN);
+									free((void *)DSPath);
+									DSPath = tmp;
+									}
+								}
+							}
+							else
+							{
+								status = WHERE_DS;
+							}
+						} CLEANUP {
+							dsCloseAttributeValueList(valueRef);
+							dsDeallocAttributeEntry(dsRef, pAttrEntry);
+						} ELSE {
+						} ENDIF
+						} CLEANUP {
+						dsCloseAttributeList(attrListRef); 
+						dsDeallocRecordEntry(dsRef, pRecEntry);
+						} ENDIF
+					} CLEANUP {
+						if(context2)
+						dsReleaseContinueData(dsRef, context2);
+					} ENDIF
+					dsDataListDeallocate(dsRef, pRecType);
+					free(pRecType);
+					dsDataListDeallocate(dsRef, pAttrType);
+					free(pAttrType);
+					dsDataListDeallocate(dsRef, pPattern);
+					free(pPattern);
 				} CLEANUP {
-				    dsCloseAttributeValueList(valueRef);
-				    dsDeallocAttributeEntry(dsRef, pAttrEntry);
-				} ELSE {
+				dsCloseDirNode(nodeRef);
 				} ENDIF
-			    } CLEANUP {
-				dsCloseAttributeList(attrListRef); 
-				dsDeallocRecordEntry(dsRef, pRecEntry);
-			    } ENDIF
 			} CLEANUP {
-			    if(context2)
-				dsReleaseContinueData(dsRef, context2);
-			} ENDIF
-			dsDataListDeallocate(dsRef, pRecType);
-			free(pRecType);
-			dsDataListDeallocate(dsRef, pAttrType);
-			free(pAttrType);
-			dsDataListDeallocate(dsRef, pPattern);
-			free(pPattern);
-		    } CLEANUP {
-			dsCloseDirNode(nodeRef);
-		    } ENDIF
-		} CLEANUP {
 		    dsDataListDeallocate(dsRef, nodeName);
 		} ENDIF
 	    } CLEANUP {
@@ -611,30 +592,66 @@ wherepwent(const char *name)
     char user[LINESIZE];
     char *cp, *str;
     struct where *w;
-    FILE *fp = popen("/usr/sbin/lookupd -configuration", "r");
+    FILE *fp = NULL;
     int status = 0;
-
-    IF(fp != NULL) {
+	fd_set fdset;
+	struct timeval selectTimeout = { 2, 0 };
+	int result;
 	char order[LINESIZE], line[LINESIZE];
-
+	char *task_argv[3] = {NULL};
+	int readPipe = -1;
+	int writePipe = -1;
+	
 	/*-------------------------------------------------------------------
  	 * Save the first LookupOrder as the global setting.  We make sure
 	 * that the first _config_name is Global Configuration.
  	 *-------------------------------------------------------------------*/
+	
+	do
+	{
+		task_argv[0] = "/usr/sbin/lookupd";
+		task_argv[1] = "-configuration";
+		task_argv[2] = NULL;
+	
+		if ( LaunchTaskWithPipes(task_argv[0], task_argv, &readPipe, &writePipe) != 0 )
+		return E_NOTFOUND;
+	
+		// close this pipe now so the forked process quits on completion
+		if ( writePipe != -1 )
+			close( writePipe );
+		
+		// wait for data (and skip signals)
+	FD_ZERO( &fdset );
+		FD_SET( readPipe, &fdset );
+		do {
+	result = select( FD_SETSIZE, &fdset, NULL, NULL, &selectTimeout );
+		}
+		while ( result == -1 && errno == EINTR );
+		if ( result == -1 || result == 0 ) {
+			status = E_NOTFOUND;
+			break;
+		}
+	
+	// now that the descriptor is ready, parse the configuration
+		fp = fdopen(readPipe, "r");
+		if ( fp == NULL ) {
+			status = E_NOTFOUND;
+			break;
+		}
 	*user = 0;
-	while(fgets(line, LINESIZE, fp)) {
+	while(fgets(line, LINESIZE, fp))
+	{
 	    if(strncasecmp(line, LookupOrder, LOOKUPORDERLEN) == 0) {
-		if((cp = strchr(line, '\n')) != NULL)
-		    *cp = 0;
-		strcpy(user, line + LOOKUPORDERLEN);
-		continue;
+			if((cp = strchr(line, '\n')) != NULL)
+				*cp = 0;
+			strcpy(user, line + LOOKUPORDERLEN);
+			continue;
 	    }
 	    if(strncasecmp(line, ConfigName, CONFIGNAMELEN) == 0) {
-		if(strncasecmp(line + CONFIGNAMELEN, GlobalConfig,
-		 GLOBALCONFIGLEN) != 0) {
-		    status = E_NOGLOBALCONFIG;
-		}
-		break;
+			if(strncasecmp(line + CONFIGNAMELEN, GlobalConfig, GLOBALCONFIGLEN) != 0) {
+				status = E_NOGLOBALCONFIG;
+			}
+			break;
 	    }
 	}
 	if(status < 0)
@@ -644,7 +661,8 @@ wherepwent(const char *name)
 	 * Configuration.  If found, replace the global order with this one.
  	 *-------------------------------------------------------------------*/
 	*order = 0;
-	while(fgets(line, LINESIZE, fp)) {
+		while(fgets(line, LINESIZE, fp))
+		{
 	    if(strncasecmp(line, LookupOrder, LOOKUPORDERLEN) == 0) {
 		if((cp = strchr(line, '\n')) != NULL)
 		    *cp = 0;
@@ -652,10 +670,9 @@ wherepwent(const char *name)
 		continue;
 	    }
 	    if(strncasecmp(line, ConfigName, CONFIGNAMELEN) == 0) {
-		if(strncasecmp(line + CONFIGNAMELEN, UserConfig,
-		 USERCONFIGLEN) == 0) {
+		if(strncasecmp(line + CONFIGNAMELEN, UserConfig, USERCONFIGLEN) == 0) {
 		    if(*order)
-			strcpy(user, order);
+				strcpy(user, order);
 		    break;
 		}
 		*order = 0;
@@ -665,15 +682,17 @@ wherepwent(const char *name)
 	    status = E_NOLOOKUPORDER;
 	    break;
 	}
-    } CLEANUP {
-	pclose(fp);
-    } ELSE {
-	status = E_POPENFAILED;
-    } ENDIF
-
+	}
+	while ( 0 );
+	
+	if ( fp != NULL )
+		fclose( fp );
+	else if ( readPipe != -1 )
+		close( readPipe );
+	
     if(status < 0)
 	return status;
-
+	
     /*-----------------------------------------------------------------------
      * Now for each agent, call the corresponding where function.  If the
      * return value is no E_NOTFOUND, then we either have found it or have

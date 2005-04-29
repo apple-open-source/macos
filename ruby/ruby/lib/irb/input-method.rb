@@ -1,8 +1,8 @@
 #
 #   irb/input-method.rb - input methods using irb
-#   	$Release Version: 0.7.3$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:49 $
+#   	$Release Version: 0.9$
+#   	$Revision: 1.4 $
+#   	$Date: 2003/03/23 17:58:43 $
 #   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #
 # --
@@ -18,7 +18,7 @@ module IRB
   #
   STDIN_FILE_NAME = "(line)"
   class InputMethod
-    @RCS_ID='-$Id: input-method.rb,v 1.1.1.1 2002/05/27 17:59:49 jkh Exp $-'
+    @RCS_ID='-$Id: input-method.rb,v 1.4 2003/03/23 17:58:43 matz Exp $-'
 
     def initialize(file = STDIN_FILE_NAME)
       @file_name = file
@@ -28,7 +28,7 @@ module IRB
     attr_accessor :prompt
     
     def gets
-      IRB.fail NotImplementError, "gets"
+      IRB.fail NotImplementedError, "gets"
     end
     public :gets
 
@@ -74,8 +74,9 @@ module IRB
     end
 
     def gets
+      print @prompt
       l = @io.gets
-      print @prompt, l
+#      print @prompt, l
       l
     end
   end

@@ -1,0 +1,36 @@
+--- forwback.c.orig	2004-07-28 11:15:37.000000000 -0700
++++ forwback.c	2004-07-28 11:31:06.000000000 -0700
+@@ -27,6 +27,7 @@
+ extern int quiet;
+ extern int sc_width, sc_height;
+ extern int quit_at_eof;
++extern int more_mode;
+ extern int plusoption;
+ extern int forw_scroll;
+ extern int back_scroll;
+@@ -142,9 +143,12 @@
+ 			pos_clear();
+ 			add_forw_pos(pos);
+ 			force = 1;
+-			if (top_scroll == OPT_ONPLUS || first_time)
+-				clear();
+-			home();
++			if (more_mode == 0)
++			{
++				if (top_scroll == OPT_ONPLUS || first_time)
++					clear();
++				home();
++			}
+ 		} else
+ 		{
+ 			clear_bot();
+@@ -228,7 +232,8 @@
+ 		 * start the display after the beginning of the file,
+ 		 * and it is not appropriate to squish in that case.
+ 		 */
+-		if (first_time && pos == NULL_POSITION && !top_scroll && 
++		if ((first_time || more_mode) &&
++			pos == NULL_POSITION && !top_scroll && 
+ #if TAGS
+ 		    tagoption == NULL &&
+ #endif

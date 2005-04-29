@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -62,6 +61,11 @@ begin
    Write_Str ("  -b       Bind only");
    Write_Eol;
 
+   --  Line for -B
+
+   Write_Str ("  -B       Build, bind and link full project");
+   Write_Eol;
+
    --  Line for -c
 
    Write_Str ("  -c       Compile only");
@@ -70,12 +74,39 @@ begin
    --  Line for -C
 
    Write_Str ("  -C       Cache source mappings: " &
-              "invoke the compiler with a mapping file");
+              "invoke compiler with temp mapping file");
+   Write_Eol;
+
+   --  Line for -C=<mapping file>
+
+   Write_Str ("  -C=mapp  Cache source mappings: " &
+              "invoke compiler with mapping file mapp");
+   Write_Eol;
+
+   --  Line for -D
+
+   Write_Str ("  -D dir   Specify dir as the object directory");
+   Write_Eol;
+
+   --  Line for -eI
+
+   Write_Str ("  -eI      Index of unit in multi-unit source file");
+   Write_Eol;
+
+   --  Line for -eL
+
+   Write_Str ("  -eL      Follow symbolic links when processing " &
+              "project files");
    Write_Eol;
 
    --  Line for -f
 
    Write_Str ("  -f       Force recompilations of non predefined units");
+   Write_Eol;
+
+   --  Line for -F
+
+   Write_Str ("  -F       Full project path name in brief error messages");
    Write_Eol;
 
    --  Line for -i
@@ -130,6 +161,11 @@ begin
    Write_Str ("  -q       Be quiet/terse");
    Write_Eol;
 
+   --  Line for -R
+
+   Write_Str ("  -R       Do not use a run_path_option when linking");
+   Write_Eol;
+
    --  Line for -s
 
    Write_Str ("  -s       Recompile if compiler switches have changed");
@@ -137,7 +173,12 @@ begin
 
    --  Line for -u
 
-   Write_Str ("  -u       Unique compilation. Only compile the given file.");
+   Write_Str ("  -u       Unique compilation. Only compile the given files.");
+   Write_Eol;
+
+   --  Line for -U
+
+   Write_Str ("  -U       Unique compilation for all sources of all projects");
    Write_Eol;
 
    --  Line for -v
@@ -148,6 +189,12 @@ begin
    --  Line for -vPx
 
    Write_Str ("  -vPx     Specify verbosity when parsing GNAT Project Files");
+   Write_Eol;
+
+   --  Line for -x
+
+   Write_Str ("  -x       " &
+              "Allow compilation of needed units external to the projects");
    Write_Eol;
 
    --  Line for -X

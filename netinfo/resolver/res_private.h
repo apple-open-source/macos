@@ -1,5 +1,9 @@
 #ifndef res_9_private_h
 #define res_9_private_h
+#include <arpa/inet.h>
+#include <stdint.h>
+
+#define RES_EXT_SUFFIX_LEN 64
 
 typedef struct {
 	unsigned	id :16;		/* query identification number */
@@ -41,7 +45,7 @@ typedef struct {
 struct __res_state_ext {
 	union res_sockaddr_union nsaddrs[MAXNS];
 	struct sort_list {
-		int     af;
+		int af;
 		union {
 			struct in_addr  ina;
 			struct in6_addr in6a;
@@ -50,7 +54,6 @@ struct __res_state_ext {
 	char nsuffix[64];
 	char bsuffix[64];
 	char nsuffix2[64];
-	unsigned int search_order;
 };
 
 #define get_nsaddr res_9_get_nsaddr
@@ -61,5 +64,16 @@ int res_nsend_2(res_state, const u_char *, int, u_char *, int, struct sockaddr *
 
 #define res_ourserver_p res_9_ourserver_p
 int res_ourserver_p(const res_state, const struct sockaddr *);
+
+/*
+ * From lookupd Thread.h.  We use this to signal threads to quit, since pthread_cancel() doesn't work.
+ */
+#define ThreadStateExitRequested 4
+
+/*
+ * notification SPI
+ */
+extern uint32_t notify_get_state(int token, int *state);
+extern uint32_t notify_register_plain(const char *name, int *out_token);
 
 #endif

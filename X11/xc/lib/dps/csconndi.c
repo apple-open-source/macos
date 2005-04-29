@@ -47,7 +47,7 @@
  *  
  * Author:  Adobe Systems Incorporated and MIT X Consortium
  */
-/* $XFree86: xc/lib/dps/csconndi.c,v 1.11 2002/01/07 19:55:04 dawes Exp $ */
+/* $XFree86: xc/lib/dps/csconndi.c,v 1.12 2003/05/27 22:26:43 tsi Exp $ */
 
 #if defined(sun) && !defined(SVR4)
 #define memmove(t,f,c) bcopy(f,t,c)
@@ -501,7 +501,6 @@ static int MakeUNIXSocketConnection (
     int addrlen;			/* length of addr */
     int fd;				/* socket file descriptor */
     int port = (iagent == 0) ? CSDPSPORT : iagent;
-    int ret;
 
     unaddr.sun_family = AF_UNIX;
     sprintf (unaddr.sun_path, "%s_%d", CSDPS_UNIX_PATH, port);
@@ -518,7 +517,7 @@ static int MakeUNIXSocketConnection (
 	}
 
         if (gNXSndBufSize > 0)
-	    ret = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (char *) &gNXSndBufSize, sizeof(gNXSndBufSize));
+	    setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (char *) &gNXSndBufSize, sizeof(gNXSndBufSize));
 
 	if (connect (fd, addr, addrlen) < 0) {
 	    int olderrno = errno;

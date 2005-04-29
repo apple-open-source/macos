@@ -1,27 +1,29 @@
 /* Subroutines for gcc2 for pdp11.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2004
    Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -49,14 +51,100 @@ Boston, MA 02111-1307, USA.  */
    defined in tm.h */
 int current_first_parm_offset;
 
+/* Routines to encode/decode pdp11 floats */
+static void encode_pdp11_f (const struct real_format *fmt,
+			    long *, const REAL_VALUE_TYPE *);
+static void decode_pdp11_f (const struct real_format *,
+			    REAL_VALUE_TYPE *, const long *);
+static void encode_pdp11_d (const struct real_format *fmt,
+			    long *, const REAL_VALUE_TYPE *);
+static void decode_pdp11_d (const struct real_format *,
+			    REAL_VALUE_TYPE *, const long *);
+
+/* These two are taken from the corresponding vax descriptors
+   in real.c, changing only the encode/decode routine pointers.  */
+const struct real_format pdp11_f_format =
+  {
+    encode_pdp11_f,
+    decode_pdp11_f,
+    2,
+    1,
+    24,
+    24,
+    -127,
+    127,
+    15,
+    false,
+    false,
+    false,
+    false,
+    false
+  };
+
+const struct real_format pdp11_d_format =
+  {
+    encode_pdp11_d,
+    decode_pdp11_d,
+    2,
+    1,
+    56,
+    56,
+    -127,
+    127,
+    15,
+    false,
+    false,
+    false,
+    false,
+    false
+  };
+
+static void
+encode_pdp11_f (const struct real_format *fmt ATTRIBUTE_UNUSED, long *buf,
+		const REAL_VALUE_TYPE *r)
+{
+  (*vax_f_format.encode) (fmt, buf, r);
+  buf[0] = ((buf[0] >> 16) & 0xffff) | ((buf[0] & 0xffff) << 16);
+}
+
+static void
+decode_pdp11_f (const struct real_format *fmt ATTRIBUTE_UNUSED,
+		REAL_VALUE_TYPE *r, const long *buf)
+{
+  long tbuf;
+  tbuf = ((buf[0] >> 16) & 0xffff) | ((buf[0] & 0xffff) << 16);
+  (*vax_f_format.decode) (fmt, r, &tbuf);
+}
+
+static void
+encode_pdp11_d (const struct real_format *fmt ATTRIBUTE_UNUSED, long *buf,
+		const REAL_VALUE_TYPE *r)
+{
+  (*vax_d_format.encode) (fmt, buf, r);
+  buf[0] = ((buf[0] >> 16) & 0xffff) | ((buf[0] & 0xffff) << 16);
+  buf[1] = ((buf[1] >> 16) & 0xffff) | ((buf[1] & 0xffff) << 16);
+}
+
+static void
+decode_pdp11_d (const struct real_format *fmt ATTRIBUTE_UNUSED,
+		REAL_VALUE_TYPE *r, const long *buf)
+{
+  long tbuf[2];
+  tbuf[0] = ((buf[0] >> 16) & 0xffff) | ((buf[0] & 0xffff) << 16);
+  tbuf[1] = ((buf[1] >> 16) & 0xffff) | ((buf[1] & 0xffff) << 16);
+  (*vax_d_format.decode) (fmt, r, tbuf);
+}
+
 /* This is where the condition code register lives.  */
 /* rtx cc0_reg_rtx; - no longer needed? */
 
-static rtx find_addr_reg PARAMS ((rtx)); 
-static const char *singlemove_string PARAMS ((rtx *));
-static bool pdp11_assemble_integer PARAMS ((rtx, unsigned int, int));
-static void pdp11_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
-static void pdp11_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static rtx find_addr_reg (rtx); 
+static const char *singlemove_string (rtx *);
+static bool pdp11_assemble_integer (rtx, unsigned int, int);
+static void pdp11_output_function_prologue (FILE *, HOST_WIDE_INT);
+static void pdp11_output_function_epilogue (FILE *, HOST_WIDE_INT);
+static bool pdp11_rtx_costs (rtx, int, int, int *);
+static bool pdp11_return_in_memory (tree, tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -78,38 +166,36 @@ static void pdp11_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 #undef TARGET_ASM_CLOSE_PAREN
 #define TARGET_ASM_CLOSE_PAREN "]"
 
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS pdp11_rtx_costs
+
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY pdp11_return_in_memory
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Nonzero if OP is a valid second operand for an arithmetic insn.  */
 
 int
-arith_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+arith_operand (rtx op, enum machine_mode mode)
 {
   return (register_operand (op, mode) || GET_CODE (op) == CONST_INT);
 }
 
 int
-const_immediate_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+const_immediate_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return (GET_CODE (op) == CONST_INT);
 }
 
 int 
-immediate15_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+immediate15_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
     return (GET_CODE (op) == CONST_INT && ((INTVAL (op) & 0x8000) == 0x0000));
 }
 
 int
-expand_shift_operand (op, mode)
-  rtx op;
-  enum machine_mode mode ATTRIBUTE_UNUSED;
+expand_shift_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
     return (GET_CODE (op) == CONST_INT 
 	    && abs (INTVAL(op)) > 1 
@@ -128,9 +214,7 @@ expand_shift_operand (op, mode)
 #ifdef TWO_BSD
 
 static void
-pdp11_output_function_prologue (stream, size)
-     FILE *stream;
-     HOST_WIDE_INT size;
+pdp11_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
 {							       
   fprintf (stream, "\tjsr	r5, csv\n");
   if (size)
@@ -145,16 +229,15 @@ pdp11_output_function_prologue (stream, size)
 #else  /* !TWO_BSD */
 
 static void
-pdp11_output_function_prologue (stream, size)
-     FILE *stream;
-     HOST_WIDE_INT size;
+pdp11_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
 {							       
     HOST_WIDE_INT fsize = ((size) + 1) & ~1;
     int regno;
     int via_ac = -1;
 
     fprintf (stream,
-	     "\n\t;	/* function prologue %s*/\n", current_function_name);
+	     "\n\t;	/* function prologue %s*/\n",
+	     current_function_name ());
 
     /* if we are outputting code for main, 
        the switch FPU to right mode if TARGET_FPU */
@@ -243,9 +326,8 @@ pdp11_output_function_prologue (stream, size)
 #ifdef TWO_BSD
 
 static void
-pdp11_output_function_epilogue (stream, size)
-     FILE *stream;
-     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
+pdp11_output_function_epilogue (FILE *stream,
+				HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {								
   fprintf (stream, "\t/* SP ignored by cret? */\n");
   fprintf (stream, "\tjmp cret\n");
@@ -254,9 +336,7 @@ pdp11_output_function_epilogue (stream, size)
 #else  /* !TWO_BSD */
 
 static void
-pdp11_output_function_epilogue (stream, size)
-     FILE *stream;
-     HOST_WIDE_INT size;
+pdp11_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 {								
     HOST_WIDE_INT fsize = ((size) + 1) & ~1;
     int i, j, k;
@@ -363,8 +443,7 @@ pdp11_output_function_epilogue (stream, size)
 /* Return the best assembler insn template
    for moving operands[1] into operands[0] as a fullword.  */
 static const char *
-singlemove_string (operands)
-     rtx *operands;
+singlemove_string (rtx *operands)
 {
   if (operands[1] != const0_rtx)
     return "mov %1,%0";
@@ -377,8 +456,7 @@ singlemove_string (operands)
    with operands OPERANDS.  */
 
 const char *
-output_move_double (operands)
-     rtx *operands;
+output_move_double (rtx *operands)
 {
   enum { REGOP, OFFSOP, MEMOP, PUSHOP, POPOP, CNSTOP, RNDOP } optype0, optype1;
   rtx latehalf[2];
@@ -556,8 +634,7 @@ output_move_double (operands)
    with operands OPERANDS.  */
 
 const char *
-output_move_quad (operands)
-     rtx *operands;
+output_move_quad (rtx *operands)
 {
   enum { REGOP, OFFSOP, MEMOP, PUSHOP, POPOP, CNSTOP, RNDOP } optype0, optype1;
   rtx latehalf[2];
@@ -688,26 +765,16 @@ output_move_quad (operands)
     {
       if (GET_CODE (operands[1]) == CONST_DOUBLE)
 	{
-	    /* floats only. not yet supported!
-
-	     -- compute it into PDP float format, - internally,
-	     just use IEEE and ignore possible problems ;-)
-
-	     we might get away with it !!!! */
-
-	    abort();
-	    
-#ifndef HOST_WORDS_BIG_ENDIAN
-	  latehalf[1] = GEN_INT (CONST_DOUBLE_LOW (operands[1]));
-	  operands[1] = GEN_INT	(CONST_DOUBLE_HIGH (operands[1]));
-#else /* HOST_WORDS_BIG_ENDIAN */
-	  latehalf[1] = GEN_INT (CONST_DOUBLE_HIGH (operands[1]));
-	  operands[1] = GEN_INT (CONST_DOUBLE_LOW (operands[1]));
-#endif /* HOST_WORDS_BIG_ENDIAN */
+	  REAL_VALUE_TYPE r;
+	  long dval[2];
+	  REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
+	  REAL_VALUE_TO_TARGET_DOUBLE (r, dval);
+	  latehalf[1] = GEN_INT (dval[1]);
+	  operands[1] = GEN_INT	(dval[0]);
 	}
       else if (GET_CODE(operands[1]) == CONST_INT)
 	{
-	  latehalf[1] = GEN_INT (0);
+	  latehalf[1] = const0_rtx;
 	}
       else
 	abort();
@@ -781,8 +848,7 @@ output_move_quad (operands)
    ADDR can be effectively incremented by incrementing REG.  */
 
 static rtx
-find_addr_reg (addr)
-     rtx addr;
+find_addr_reg (rtx addr)
 {
   while (GET_CODE (addr) == PLUS)
     {
@@ -802,10 +868,7 @@ find_addr_reg (addr)
 
 /* Output an ascii string.  */
 void
-output_ascii (file, p, size)
-     FILE *file;
-     const char *p;
-     int size;
+output_ascii (FILE *file, const char *p, int size)
 {
   int i;
 
@@ -829,9 +892,7 @@ output_ascii (file, p, size)
 /* --- stole from out-vax, needs changes */
 
 void
-print_operand_address (file, addr)
-     FILE *file;
-     register rtx addr;
+print_operand_address (FILE *file, register rtx addr)
 {
   register rtx reg1, reg2, breg, ireg;
   rtx offset;
@@ -961,10 +1022,7 @@ print_operand_address (file, addr)
    pdp-specific version of output_addr_const.  */
 
 static bool
-pdp11_assemble_integer (x, size, aligned_p)
-     rtx x;
-     unsigned int size;
-     int aligned_p;
+pdp11_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
   if (aligned_p)
     switch (size)
@@ -1013,10 +1071,115 @@ register_move_cost(c1, c2)
     return move_costs[(int)c1][(int)c2];
 }
 
+static bool
+pdp11_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
+{
+  switch (code)
+    {
+    case CONST_INT:
+      if (INTVAL (x) == 0 || INTVAL (x) == -1 || INTVAL (x) == 1)
+	{
+	  *total = 0;
+	  return true;
+	}
+      /* FALLTHRU */
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+      /* Twice as expensive as REG.  */
+      *total = 2;
+      return true;
+
+    case CONST_DOUBLE:
+      /* Twice (or 4 times) as expensive as 16 bit.  */
+      *total = 4;
+      return true;
+
+    case MULT:
+      /* ??? There is something wrong in MULT because MULT is not 
+         as cheap as total = 2 even if we can shift!  */
+      /* If optimizing for size make mult etc cheap, but not 1, so when 
+         in doubt the faster insn is chosen.  */
+      if (optimize_size)
+        *total = COSTS_N_INSNS (2);
+      else
+        *total = COSTS_N_INSNS (11);
+      return false;
+
+    case DIV:
+      if (optimize_size)
+        *total = COSTS_N_INSNS (2);
+      else
+        *total = COSTS_N_INSNS (25);
+      return false;
+
+    case MOD:
+      if (optimize_size)
+        *total = COSTS_N_INSNS (2);
+      else
+        *total = COSTS_N_INSNS (26);
+      return false;
+
+    case ABS:
+      /* Equivalent to length, so same for optimize_size.  */
+      *total = COSTS_N_INSNS (3);
+      return false;
+
+    case ZERO_EXTEND:
+      /* Only used for qi->hi.  */
+      *total = COSTS_N_INSNS (1);
+      return false;
+
+    case SIGN_EXTEND:
+      if (GET_MODE (x) == HImode)
+      	*total = COSTS_N_INSNS (1);
+      else if (GET_MODE (x) == SImode)
+	*total = COSTS_N_INSNS (6);
+      else
+	*total = COSTS_N_INSNS (2);
+      return false;
+
+    case ASHIFT:
+    case LSHIFTRT:
+    case ASHIFTRT:
+      if (optimize_size)
+        *total = COSTS_N_INSNS (1);
+      else if (GET_MODE (x) ==  QImode)
+        {
+          if (GET_CODE (XEXP (x, 1)) != CONST_INT)
+   	    *total = COSTS_N_INSNS (8); /* worst case */
+          else
+	    *total = COSTS_N_INSNS (INTVAL (XEXP (x, 1)));
+        }
+      else if (GET_MODE (x) == HImode)
+        {
+          if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+            {
+	      if (abs (INTVAL (XEXP (x, 1))) == 1)
+                *total = COSTS_N_INSNS (1);
+              else
+	        *total = COSTS_N_INSNS (2.5 + 0.5 * INTVAL (XEXP (x, 1)));
+            }
+          else
+            *total = COSTS_N_INSNS (10); /* worst case */
+        }
+      else if (GET_MODE (x) == SImode)
+        {
+          if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+	    *total = COSTS_N_INSNS (2.5 + 0.5 * INTVAL (XEXP (x, 1)));
+          else /* worst case */
+            *total = COSTS_N_INSNS (18);
+        }
+      return false;
+
+    default:
+      return false;
+    }
+}
+
 const char *
-output_jump(pos, neg, length)
-  const char *pos, *neg;
-  int length;
+output_jump(const char *pos, const char *neg, int length)
 {
     static int x = 0;
     
@@ -1057,9 +1220,7 @@ output_jump(pos, neg, length)
 }
 
 void
-notice_update_cc_on_set(exp, insn)
-  rtx exp;
-  rtx insn ATTRIBUTE_UNUSED;
+notice_update_cc_on_set(rtx exp, rtx insn ATTRIBUTE_UNUSED)
 {
     if (GET_CODE (SET_DEST (exp)) == CC0)
     { 
@@ -1129,9 +1290,7 @@ notice_update_cc_on_set(exp, insn)
 
 
 int
-simple_memory_operand(op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+simple_memory_operand(rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
     rtx addr;
 
@@ -1204,8 +1363,7 @@ simple_memory_operand(op, mode)
 
  
 const char *
-output_block_move(operands)
-  rtx *operands;
+output_block_move(rtx *operands)
 {
     static int count = 0;
     char buf[200];
@@ -1442,62 +1600,8 @@ output_block_move(operands)
     return "";
 }
 
-/* for future use */
 int
-comparison_operator_index(op)
-  rtx op;
-{
-    switch (GET_CODE(op))
-    {
-      case NE:
-	return 0;
-	
-      case EQ:
-	return 1;
-	
-      case GE:
-	return 2;
-	
-      case GT:
-	return 3;
-	
-      case LE:
-	return 4;
-	
-      case LT:
-	return 5;
-	
-      case GEU:
-	return 6;
-	
-      case GTU:
-	return 7;
-
-      case LEU:
-	return 8;
-	
-      case LTU:
-	return 9;
-	
-      default:
-	return -1;
-    }
-}    
-	
-/* tests whether the rtx is a comparison operator */
-int
-comp_operator (op, mode)
-  rtx op;
-  enum machine_mode mode ATTRIBUTE_UNUSED;
-{
-    return comparison_operator_index(op) >= 0;
-}
-
-    
-int
-legitimate_address_p (mode, address)
-  enum machine_mode mode;
-  rtx address;
+legitimate_address_p (enum machine_mode mode, rtx address)
 {
 /* #define REG_OK_STRICT */
     GO_IF_LEGITIMATE_ADDRESS(mode, address, win);
@@ -1510,15 +1614,28 @@ legitimate_address_p (mode, address)
 /* #undef REG_OK_STRICT */
 }
 
+/* This function checks whether a real value can be encoded as
+   a literal, i.e., addressing mode 27.  In that mode, real values
+   are one word values, so the remaining 48 bits have to be zero.  */
+int
+legitimate_const_double_p (rtx address)
+{
+  REAL_VALUE_TYPE r;
+  long sval[2];
+  REAL_VALUE_FROM_CONST_DOUBLE (r, address);
+  REAL_VALUE_TO_TARGET_DOUBLE (r, sval);
+  if ((sval[0] & 0xffff) == 0 && sval[1] == 0)
+    return 1;
+  return 0;
+}
+
 /* A copy of output_addr_const modified for pdp11 expression syntax.
    output_addr_const also gets called for %cDIGIT and %nDIGIT, which we don't
    use, and for debugging output, which we don't support with this port either.
    So this copy should get called whenever needed.
 */
 void
-output_addr_const_pdp11 (file, x)
-     FILE *file;
-     rtx x;
+output_addr_const_pdp11 (FILE *file, rtx x)
 {
   char buf[256];
 
@@ -1574,7 +1691,7 @@ output_addr_const_pdp11 (file, x)
       break;
 
     case PLUS:
-      /* Some assemblers need integer constants to appear last (eg masm).  */
+      /* Some assemblers need integer constants to appear last (e.g. masm).  */
       if (GET_CODE (XEXP (x, 0)) == CONST_INT)
 	{
 	  output_addr_const_pdp11 (file, XEXP (x, 1));
@@ -1619,4 +1736,19 @@ output_addr_const_pdp11 (file, x)
     default:
       output_operand_lossage ("invalid expression as operand");
     }
+}
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
+static bool
+pdp11_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  /* Should probably return DImode and DFmode in memory, lest
+     we fill up all regs!
+
+     have to, else we crash - exception: maybe return result in 
+     ac0 if DFmode and FPU present - compatibility problem with
+     libraries for non-floating point....  */
+  return (TYPE_MODE (type) == DImode
+	  || (TYPE_MODE (type) == DFmode && ! TARGET_AC0));
 }

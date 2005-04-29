@@ -1,8 +1,60 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 Here is a history of user visible changes to Mailman.
+
+2.1.5 (15-May-2004)
+
+    - The admindb page has a checkbox that allows you to discard all held
+      messages that are marked Defer.  On heavy lists with lots of spam holds,
+      this makes clearing them much faster.
+
+    - The qrunner system has changed to use only one file per message.
+      However the configuration variable METADATA_FORMAT has been removed, and
+      support for SAVE_MSGS_AS_PICKLES has been changed.  The latter no longer
+      writes messages as plain text.  Instead, they are stored as pickles of
+      plain strings, using the text pickle format.  This still makes them
+      non-binary files readable and editable by humans.
+
+      bin/dumpdb also works differently.  It will print out the entire pickle
+      file (with more verbosity) and if used with 'python -i', it binds msg to
+      a list of all objects found in the pickle file.
+
+      Removed from Defaults.py: PENDINGDB_LOCK_TIMEOUT,
+      PENDINGDB_LOCK_ATTEMPTS, METAFMT_MARSHAL, METAFMT_BSDDB_NATIVE,
+      METAFMT_ASCII, METADATA_FORMAT
+
+    - The bounce processor has been redesigned so that now when an address's
+      bounce score reaches the threshold, that address will be sent a probe
+      message.  Only if the probe bounces will the address be disabled.  The
+      score is reset to zero when the probe is sent.  Also, bounce events are
+      now kept in an event file instead of in memory.  This should help
+      contain the bloat of the BounceRunner.
+
+      New supporting variables in Defaults.py: VERP_PROBE_FORMAT,
+      VERP_PROBE_REGEXP
+
+      REGISTER_BOUNCES_EVERY is promoted to a Defaults.py variable.
+
+    - The pending database has been changed from a global pickle file, to a
+      unique pickle file per mailing list.
+
+    - The 'request' database file has changed from a marshal, to the more
+      secure pickle format.
+
+    - Disallow multiple password retrievals.
+
+    - SF patch #810675 which adds a "Discard all messages marked Defer" button
+      for faster admindb maintenance.
+
+    - The email package is updated to version 2.5.5.
+
+    - New language: Turkish.
+
+    - Bugs and patches: 869644, 869647 (NotAMemberError for old cookie data),
+      878087 (bug in Slovenian catalog), 899263 (ignore duplicate pending
+      ids), 810675 (discard all defers button)
 
 2.1.4 (31-Dec-2003)
 

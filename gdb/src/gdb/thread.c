@@ -35,6 +35,7 @@
 #include "regcache.h"
 #include "gdb.h"
 #include "gdb_string.h"
+#include "wrapper.h"
 
 #include <ctype.h>
 #include <sys/types.h>
@@ -253,29 +254,28 @@ in_thread_list (ptid_t ptid)
 
 /* Print a list of thread ids currently known, and the total number of
    threads. To be used from within catch_errors. */
-static int 
-do_captured_list_thread_ids (struct ui_out *uiout,
-			     void *arg)
+static int
+do_captured_list_thread_ids (struct ui_out *uiout, void *arg)
 {
-  struct cleanup *chain;
+  struct cleanup *cleanup_chain;
   struct thread_info *tp;
   int num = 0;
 
-  chain = make_cleanup_ui_out_tuple_begin_end (uiout, "thread-ids");
-  
+  cleanup_chain = make_cleanup_ui_out_tuple_begin_end (uiout, "thread-ids");
+
   if (!target_has_stack)
     error ("No stack.");
 
   prune_threads ();
   target_find_new_threads ();
-  
+
   for (tp = thread_list; tp; tp = tp->next)
     {
       num++;
       ui_out_field_int (uiout, "thread-id", tp->num);
     }
 
-  do_cleanups (chain);
+  do_cleanups (cleanup_chain);
   ui_out_field_int (uiout, "number-of-threads", num);
   return GDB_RC_OK;
 }
@@ -292,24 +292,21 @@ gdb_list_thread_ids (struct ui_out *uiout)
 /* Load infrun state for the thread PID.  */
 
 void
-load_infrun_state (ptid_t ptid, 
-		   CORE_ADDR *prev_pc, 
-		   CORE_ADDR *prev_func_start,
-		   char **prev_func_name, 
+load_infrun_state (ptid_t ptid,
+		   CORE_ADDR *prev_pc,
 		   int *trap_expected,
 		   struct breakpoint **step_resume_breakpoint,
 		   struct breakpoint **through_sigtramp_breakpoint,
-		   CORE_ADDR *step_range_start, 
+		   CORE_ADDR *step_range_start,
 		   CORE_ADDR *step_range_end,
-		   struct frame_id *step_frame_id, 
+		   struct frame_id *step_frame_id,
 		   int *handling_longjmp,
-		   int *another_trap, 
+		   int *another_trap,
 		   int *stepping_through_solib_after_catch,
 		   bpstat *stepping_through_solib_catchpoints,
 		   int *stepping_through_sigtramp,
-		   int *current_line, 
-		   struct symtab **current_symtab, 
-		   CORE_ADDR *step_sp)
+		   int *current_line,
+		   struct symtab **current_symtab, CORE_ADDR *step_sp)
 {
   struct thread_info *tp;
 
@@ -320,8 +317,6 @@ load_infrun_state (ptid_t ptid,
     return;
 
   *prev_pc = tp->prev_pc;
-  *prev_func_start = tp->prev_func_start;
-  *prev_func_name = tp->prev_func_name;
   *trap_expected = tp->trap_expected;
   *step_resume_breakpoint = tp->step_resume_breakpoint;
   *through_sigtramp_breakpoint = tp->through_sigtramp_breakpoint;
@@ -330,8 +325,10 @@ load_infrun_state (ptid_t ptid,
   *step_frame_id = tp->step_frame_id;
   *handling_longjmp = tp->handling_longjmp;
   *another_trap = tp->another_trap;
-  *stepping_through_solib_after_catch = tp->stepping_through_solib_after_catch;
-  *stepping_through_solib_catchpoints = tp->stepping_through_solib_catchpoints;
+  *stepping_through_solib_after_catch =
+    tp->stepping_through_solib_after_catch;
+  *stepping_through_solib_catchpoints =
+    tp->stepping_through_solib_catchpoints;
   *stepping_through_sigtramp = tp->stepping_through_sigtramp;
   *current_line = tp->current_line;
   *current_symtab = tp->current_symtab;
@@ -341,24 +338,21 @@ load_infrun_state (ptid_t ptid,
 /* Save infrun state for the thread PID.  */
 
 void
-save_infrun_state (ptid_t ptid, 
-		   CORE_ADDR prev_pc, 
-		   CORE_ADDR prev_func_start,
-		   char *prev_func_name, 
+save_infrun_state (ptid_t ptid,
+		   CORE_ADDR prev_pc,
 		   int trap_expected,
 		   struct breakpoint *step_resume_breakpoint,
 		   struct breakpoint *through_sigtramp_breakpoint,
-		   CORE_ADDR step_range_start, 
+		   CORE_ADDR step_range_start,
 		   CORE_ADDR step_range_end,
-		   const struct frame_id *step_frame_id, 
+		   const struct frame_id *step_frame_id,
 		   int handling_longjmp,
-		   int another_trap, 
+		   int another_trap,
 		   int stepping_through_solib_after_catch,
 		   bpstat stepping_through_solib_catchpoints,
-		   int stepping_through_sigtramp, 
+		   int stepping_through_sigtramp,
 		   int current_line,
-		   struct symtab *current_symtab,
-		   CORE_ADDR step_sp)
+		   struct symtab *current_symtab, CORE_ADDR step_sp)
 {
   struct thread_info *tp;
 
@@ -369,8 +363,6 @@ save_infrun_state (ptid_t ptid,
     return;
 
   tp->prev_pc = prev_pc;
-  tp->prev_func_start = prev_func_start;
-  tp->prev_func_name = prev_func_name;
   tp->trap_expected = trap_expected;
   tp->step_resume_breakpoint = step_resume_breakpoint;
   tp->through_sigtramp_breakpoint = through_sigtramp_breakpoint;
@@ -426,14 +418,14 @@ info_threads_command (char *arg, int from_tty)
   struct thread_info *tp;
   ptid_t current_ptid;
   struct frame_info *cur_frame;
-  int saved_frame_level = frame_relative_level (deprecated_selected_frame);
+  int saved_frame_level = frame_relative_level (get_selected_frame ());
   int counter;
   char *extra_info;
 
-  /* Avoid coredumps which would happen if we tried to access a NULL
-     deprecated_selected_frame.  */
-  if (!target_has_stack)
-    error ("No stack.");
+  /* Check that there really is a frame.  This happens when a simulator
+     is connected but not loaded or running, for instance.  */
+  if (legacy_frame_p (current_gdbarch) && saved_frame_level < 0)
+    error ("No frame.");
 
   prune_threads ();
   target_find_new_threads ();
@@ -457,10 +449,7 @@ info_threads_command (char *arg, int from_tty)
       puts_filtered ("  ");
 
       switch_to_thread (tp->ptid);
-      if (deprecated_selected_frame)
-	print_stack_frame (deprecated_selected_frame, -1, 0);
-      else
-	printf_filtered ("[No stack.]\n");
+      print_stack_frame (get_selected_frame (), -1, 0);
     }
 
   switch_to_thread (current_ptid);
@@ -472,12 +461,12 @@ info_threads_command (char *arg, int from_tty)
    * of the stack (leaf frame).
    */
   counter = saved_frame_level;
-  cur_frame = find_relative_frame (deprecated_selected_frame, &counter);
+  cur_frame = find_relative_frame (get_selected_frame (), &counter);
   if (counter != 0)
     {
       /* Ooops, can't restore, tell user where we are. */
       warning ("Couldn't restore frame in current thread, at frame 0");
-      print_stack_frame (deprecated_selected_frame, -1, 0);
+      print_stack_frame (get_selected_frame (), -1, 0);
     }
   else
     {
@@ -506,7 +495,7 @@ switch_to_thread (ptid_t ptid)
 static void
 restore_current_thread (ptid_t ptid, int print)
 {
-  if (! ptid_equal (ptid, inferior_ptid))
+  if (!ptid_equal (ptid, inferior_ptid))
     {
       switch_to_thread (ptid);
       if (print)
@@ -575,14 +564,17 @@ thread_apply_all_command (char *cmd, int from_tty)
 	switch_to_thread (tp->ptid);
 #ifdef HPUXHPPA
 	printf_filtered ("\nThread %d (%s):\n",
-			 tp->num,
-			 target_tid_to_str (inferior_ptid));
+			 tp->num, target_tid_to_str (inferior_ptid));
 #else
 	printf_filtered ("\nThread %d (%s):\n", tp->num,
 			 target_pid_to_str (inferior_ptid));
 #endif
-	execute_command (cmd, from_tty);
-	strcpy (cmd, saved_cmd); /* Restore exact command used previously */
+	/* APPLE LOCAL: Use safe_execute_command for this.  If the command 
+	   has an error for one thread, that's no reason not to run it for
+	   the next thread.  */
+
+	safe_execute_command (uiout, cmd, from_tty);
+	strcpy (cmd, saved_cmd);	/* Restore exact command used previously */
       }
 
   do_cleanups (saved_cmd_cleanup_chain);
@@ -779,16 +771,14 @@ _initialize_thread (void)
 
   add_prefix_cmd ("thread", class_run, thread_command,
 		  "Use this command to switch between threads.\n\
-The new thread ID must be currently known.", &thread_cmd_list, "thread ", 1,
-		  &cmdlist);
+The new thread ID must be currently known.", &thread_cmd_list, "thread ", 1, &cmdlist);
 
   add_prefix_cmd ("apply", class_run, thread_apply_command,
 		  "Apply a command to a list of threads.",
 		  &thread_apply_list, "apply ", 1, &thread_cmd_list);
 
   add_cmd ("all", class_run, thread_apply_all_command,
-	   "Apply a command to all threads.",
-	   &thread_apply_list);
+	   "Apply a command to all threads.", &thread_apply_list);
 
   if (!xdb_commands)
     add_com_alias ("t", "thread", class_run, 1);

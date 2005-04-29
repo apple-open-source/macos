@@ -26,7 +26,7 @@ Equipment Corporation.
 /*  
  *	PanoramiX definitions
  */
-/* $XFree86: xc/include/extensions/panoramiXext.h,v 3.6 2001/01/17 17:53:22 dawes Exp $ */
+/* $XFree86: xc/include/extensions/panoramiXext.h,v 3.7 2003/11/17 22:20:03 dawes Exp $ */
 
 /* THIS IS NOT AN X PROJECT TEAM SPECIFICATION */
 
@@ -44,7 +44,5 @@ typedef struct {
 } XPanoramiXInfo;    
 
 extern XPanoramiXInfo *XPanoramiXAllocInfo (
-#if NeedFunctionPrototypes
     void
-#endif
 );        

@@ -11,12 +11,6 @@ config_require(util_funcs)
 
      extern FindVarMethod var_extensible_disk;
 
-/*
- * config file parsing routines 
- */
-     void            disk_free_config(void);
-     void            disk_parse_config(const char *, char *);
-
 #include "mibdefs.h"
 
 #define DISKDEVICE 3
@@ -27,12 +21,5 @@ config_require(util_funcs)
 #define DISKUSED 8
 #define DISKPERCENT 9
 #define DISKPERCENTNODE 10
-
-     struct diskpart {
-         char            device[STRMAX];
-         char            path[STRMAX];
-         int             minimumspace;
-         int             minpercent;
-     };
 
 #endif                          /* _MIBGROUP_DISK_H */

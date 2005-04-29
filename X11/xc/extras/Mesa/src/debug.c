@@ -24,11 +24,15 @@
  */
 
 #include "mtypes.h"
+#include "context.h"
+#include "imports.h"
 #include "debug.h"
 
-void _mesa_print_state( const char *msg, GLuint state )
+
+void
+_mesa_print_state( const char *msg, GLuint state )
 {
-   fprintf(stderr,
+   _mesa_debug(NULL,
 	   "%s: (0x%x) %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
 	   msg,
 	   state,
@@ -60,9 +64,10 @@ void _mesa_print_state( const char *msg, GLuint state )
 
 
 
-void _mesa_print_tri_caps( const char *name, GLuint flags )
+void
+_mesa_print_tri_caps( const char *name, GLuint flags )
 {
-   fprintf(stderr,
+   _mesa_debug(NULL,
 	   "%s: (0x%x) %s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
 	   name,
 	   flags,

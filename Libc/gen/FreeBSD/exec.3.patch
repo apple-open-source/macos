@@ -1,0 +1,62 @@
+--- exec.3.orig	2003-09-10 12:24:32.000000000 -0700
++++ exec.3	2004-10-24 17:12:17.000000000 -0700
+@@ -39,7 +39,6 @@
+ .Nm execl ,
+ .Nm execlp ,
+ .Nm execle ,
+-.Nm exect ,
+ .Nm execv ,
+ .Nm execvp ,
+ .Nm execvP
+@@ -62,8 +61,6 @@
+ .Ek
+ .Fc
+ .Ft int
+-.Fn exect "const char *path" "char *const argv[]" "char *const envp[]"
+-.Ft int
+ .Fn execv "const char *path" "char *const argv[]"
+ .Ft int
+ .Fn execvp "const char *file" "char *const argv[]"
+@@ -106,7 +103,6 @@
+ pointer.
+ .Pp
+ The
+-.Fn exect ,
+ .Fn execv ,
+ .Fn execvp ,
+ and
+@@ -123,9 +119,7 @@
+ .Pp
+ The
+ .Fn execle
+-and
+-.Fn exect
+-functions also specify the environment of the executed process by following
++function also specify the environment of the executed process by following
+ the
+ .Dv NULL
+ pointer that terminates the list of arguments in the argument list
+@@ -203,11 +197,6 @@
+ these functions will execute the shell with the path of
+ the file as its first argument.
+ (If this attempt fails, no further searching is done.)
+-.Pp
+-The function
+-.Fn exect
+-executes a file with the program tracing facilities enabled (see
+-.Xr ptrace 2 ) .
+ .Sh RETURN VALUES
+ If any of the
+ .Fn exec
+@@ -237,10 +226,8 @@
+ .Xr malloc 3 .
+ .Pp
+ The
+-.Fn exect
+-and
+ .Fn execv
+-functions
++function
+ may fail and set
+ .Va errno
+ for any of the errors specified for the library function

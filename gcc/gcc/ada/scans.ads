@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,7 +31,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Types; use Types;
+with Types;  use Types;
+with Uintp;  use Uintp;
+with Urealp; use Urealp;
 
 package Scans is
 
@@ -63,7 +64,7 @@ package Scans is
 
       Tok_Operator_Symbol, -- op symbol    Name, Literal, Lit_Or_Name, Desig
 
-      Tok_Identifier,      -- identifier    Name, Lit_Or_Name, Desig
+      Tok_Identifier,      -- identifer    Name, Lit_Or_Name, Desig
 
       Tok_Double_Asterisk, -- **
 
@@ -186,12 +187,22 @@ package Scans is
 
       Tok_Dot_Dot,         -- ..           Sterm, Chtok
 
-      --  The following three entries are used only when scanning
-      --  project files.
+      --  The following three entries are used only when scanning project
+      --  files.
 
       Tok_Project,
       Tok_Extends,
       Tok_External,
+      Tok_Comment,
+
+      --  The following entry is used by the preprocessor and when scanning
+      --  project files.
+
+      Tok_End_Of_Line,
+
+      --  The following entry is used by the preprocessor
+
+      Tok_Special,
 
       No_Token);
       --  No_Token is used for initializing Token values to indicate that
@@ -378,6 +389,30 @@ package Scans is
    --  circuit is not activated. If the -dv switch is set, then this flag is
    --  initialized to True, and then reset when the version number is found.
    --  We do things this way to minimize the impact on comment scanning.
+
+   Character_Code : Char_Code;
+   --  Valid only when Token is Tok_Char_Literal.
+
+   Real_Literal_Value : Ureal;
+   --  Valid only when Token is Tok_Real_Literal
+
+   Int_Literal_Value : Uint;
+   --  Valid only when Token = Tok_Integer_Literal;
+
+   String_Literal_Id : String_Id;
+   --  Id for currently scanned string value.
+   --  Valid only when Token = Tok_String_Literal or Tok_Operator_Symbol.
+
+   Wide_Character_Found : Boolean := False;
+   --  Set True if wide character found.
+   --  Valid only when Token = Tok_String_Literal.
+
+   Special_Character : Character;
+   --  Valid only when Token = Tok_Special
+
+   Comment_Id : Name_Id := No_Name;
+   --  Valid only when Token = Tok_Comment. Store the string that follows
+   --  the two '-' of a comment.
 
    --------------------------------------------------------
    -- Procedures for Saving and Restoring the Scan State --

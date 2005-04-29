@@ -1,10 +1,18 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucdata.h,v 1.10.2.2 2003/02/08 23:50:39 kurt Exp $ */
-/*
- * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucdata.h,v 1.13.2.3 2004/01/01 18:16:31 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright 2001 Computing Research Labs, New Mexico State University
+/* Copyright 2001 Computing Research Labs, New Mexico State University
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,12 +32,10 @@
  * OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+/* $Id: ucdata.h,v 1.4 2004/03/30 01:32:51 jtownsen Exp $ */
+
 #ifndef _h_ucdata
 #define _h_ucdata
-
-/*
- * $Id: ucdata.h,v 1.3 2003/07/18 01:10:28 jtownsen Exp $
- */
 
 LDAP_BEGIN_DECL
 
@@ -114,8 +120,7 @@ LDAP_BEGIN_DECL
  * call this function with some set of masks.
  */
 LDAP_LUNICODE_F (int)
-ucisprop LDAP_P((unsigned long code, unsigned long mask1,
-		 unsigned long mask2));
+ucisprop LDAP_P((ac_uint4 code, ac_uint4 mask1, ac_uint4 mask2));
 
 #define ucisalpha(cc) ucisprop(cc, UC_LU|UC_LL|UC_LM|UC_LO|UC_LT, 0)
 #define ucisdigit(cc) ucisprop(cc, UC_ND, 0)
@@ -204,9 +209,9 @@ ucisprop LDAP_P((unsigned long code, unsigned long mask1,
  *
  **************************************************************************/
 
-LDAP_LUNICODE_F (unsigned long) uctoupper LDAP_P((unsigned long code));
-LDAP_LUNICODE_F (unsigned long) uctolower LDAP_P((unsigned long code));
-LDAP_LUNICODE_F (unsigned long) uctotitle LDAP_P((unsigned long code));
+LDAP_LUNICODE_F (ac_uint4) uctoupper LDAP_P((ac_uint4 code));
+LDAP_LUNICODE_F (ac_uint4) uctolower LDAP_P((ac_uint4 code));
+LDAP_LUNICODE_F (ac_uint4) uctotitle LDAP_P((ac_uint4 code));
 
 /**************************************************************************
  *
@@ -219,20 +224,20 @@ LDAP_LUNICODE_F (unsigned long) uctotitle LDAP_P((unsigned long code));
  * If it returns 0, there is no composition.  Any other value indicates a
  * composition was returned in comp.
  */
-LDAP_LUNICODE_F (int) uccomp LDAP_P((unsigned long node1, unsigned long node2,
-		      unsigned long *comp));
+LDAP_LUNICODE_F (int) uccomp LDAP_P((ac_uint4 node1, ac_uint4 node2,
+		      ac_uint4 *comp));
 
 /*
  * Does Hangul composition on the string str with length len, and returns
  * the length of the composed string.
  */
-LDAP_LUNICODE_F (int) uccomp_hangul LDAP_P((unsigned long *str, int len));
+LDAP_LUNICODE_F (int) uccomp_hangul LDAP_P((ac_uint4 *str, int len));
 
 /*
  * Does canonical composition on the string str with length len, and returns
  * the length of the composed string.
  */
-LDAP_LUNICODE_F (int) uccanoncomp LDAP_P((unsigned long *str, int len));
+LDAP_LUNICODE_F (int) uccanoncomp LDAP_P((ac_uint4 *str, int len));
 
 /**************************************************************************
  *
@@ -246,24 +251,24 @@ LDAP_LUNICODE_F (int) uccanoncomp LDAP_P((unsigned long *str, int len));
  * returned.
  */
 LDAP_LUNICODE_F (int)
-ucdecomp LDAP_P((unsigned long code, unsigned long *num,
-		 unsigned long **decomp));
+ucdecomp LDAP_P((ac_uint4 code, ac_uint4 *num,
+		 ac_uint4 **decomp));
 
 /*
  * Equivalent to ucdecomp() except that it includes compatibility
  * decompositions.
  */
 LDAP_LUNICODE_F (int)
-uckdecomp LDAP_P((unsigned long code, unsigned long *num,
-		 unsigned long **decomp));
+uckdecomp LDAP_P((ac_uint4 code, ac_uint4 *num,
+		 ac_uint4 **decomp));
 
 /*
  * If the code is a Hangul syllable, this routine decomposes it into the array
  * passed.  The array size should be at least 3.
  */
 LDAP_LUNICODE_F (int)
-ucdecomp_hangul LDAP_P((unsigned long code, unsigned long *num,
-			unsigned long decomp[]));
+ucdecomp_hangul LDAP_P((ac_uint4 code, ac_uint4 *num,
+			ac_uint4 decomp[]));
 
 /*  
  * This routine does canonical decomposition of the string in of length
@@ -272,16 +277,16 @@ ucdecomp_hangul LDAP_P((unsigned long code, unsigned long *num,
  * of the decomposed string if okay, and -1 on error.
  */
 LDAP_LUNICODE_F (int)
-uccanondecomp LDAP_P((const unsigned long *in, int inlen,
-		     unsigned long **out, int *outlen));
+uccanondecomp LDAP_P((const ac_uint4 *in, int inlen,
+		     ac_uint4 **out, int *outlen, void *ctx));
   
 /*  
  * Equivalent to uccanondecomp() except that it includes compatibility
  * decompositions.
  */
 LDAP_LUNICODE_F (int)
-uccompatdecomp LDAP_P((const unsigned long *in, int inlen,
-		     unsigned long **out, int *outlen));
+uccompatdecomp LDAP_P((const ac_uint4 *in, int inlen,
+		     ac_uint4 **out, int *outlen, void *ctx));
   
 /**************************************************************************
  *
@@ -293,7 +298,7 @@ uccompatdecomp LDAP_P((const unsigned long *in, int inlen,
  * This will return the combining class for a character to be used with the
  * Canonical Ordering algorithm.
  */
-LDAP_LUNICODE_F (unsigned long) uccombining_class LDAP_P((unsigned long code));
+LDAP_LUNICODE_F (ac_uint4) uccombining_class LDAP_P((ac_uint4 code));
 
 /**************************************************************************
  *
@@ -307,16 +312,16 @@ struct ucnumber {
 };
 
 LDAP_LUNICODE_F (int)
-ucnumber_lookup LDAP_P((unsigned long code, struct ucnumber *num));
+ucnumber_lookup LDAP_P((ac_uint4 code, struct ucnumber *num));
 
 LDAP_LUNICODE_F (int)
-ucdigit_lookup LDAP_P((unsigned long code, int *digit));
+ucdigit_lookup LDAP_P((ac_uint4 code, int *digit));
 
 /*
  * For compatibility with John Cowan's "uctype" package.
  */
-LDAP_LUNICODE_F (struct ucnumber) ucgetnumber LDAP_P((unsigned long code));
-LDAP_LUNICODE_F (int) ucgetdigit LDAP_P((unsigned long code));
+LDAP_LUNICODE_F (struct ucnumber) ucgetnumber LDAP_P((ac_uint4 code));
+LDAP_LUNICODE_F (int) ucgetdigit LDAP_P((ac_uint4 code));
 
 /**************************************************************************
  *

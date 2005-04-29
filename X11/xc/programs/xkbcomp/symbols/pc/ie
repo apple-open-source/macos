@@ -1,4 +1,4 @@
-// $XFree86: xc/programs/xkbcomp/symbols/pc/ie,v 1.3 2002/12/31 02:07:04 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/ie,v 1.4 2003/04/19 12:22:12 pascal Exp $
 
 // Irish keyboard map
 
@@ -35,8 +35,6 @@ xkb_symbols "basic" {
     //  - matches hardware (keys and engraved symbols) for Irish keyboards
 
     name[Group1] = "Irish";
-
-    key.type[Group1] = "FOUR_LEVEL_ALPHABETIC";
 
     //
     // Numeric row `1234567890-=
@@ -108,11 +106,9 @@ xkb_symbols "basic" {
     key <AB10> { [      slash,      question,             division,         questiondown ] };
 
 
-    key <SPCE> { type[Group1]="FOUR_LEVEL",
-                 [      space,         space,         nobreakspace,         nobreakspace ] };
+    key <SPCE> { [      space,         space,         nobreakspace,         nobreakspace ] };
 
-    key <RALT> { type[Group1]="ONE_LEVEL", [ ISO_Level3_Shift ] };
-    modifier_map Mod5 { ISO_Level3_Shift };
+    include "level3(ralt_switch)"
 
     // NB: putting Shift+<RALT> as Multi_key gives odd behaviour since the
     // order of pressing keys affects the result.
@@ -180,8 +176,6 @@ xkb_symbols "UnicodeExpert" {
 // This should eventually be a "Unicode Expert" layout like the Mac one.
 
     name[Group1] = "Irish (Unicode Expert)";
-
-    key.type[Group1] = "FOUR_LEVEL_ALPHABETIC";
 
     //
     // Numeric row `1234567890-=
@@ -251,12 +245,9 @@ xkb_symbols "UnicodeExpert" {
     key <AB09> { [     period,       greater,   dead_abovedot,  dead_abovedot ] };
     key <AB10> { [      slash,      question,   dead_belowdot,  dead_belowdot ] };
 
-    key <SPCE> { type[Group1]="FOUR_LEVEL",
-                 [      space,         space,           space,   nobreakspace ] };
+    key <SPCE> { [      space,         space,           space,   nobreakspace ] };
 
-    key <RALT>  { type[Group1]="ONE_LEVEL", [ ISO_Level3_Shift ]  };
-    modifier_map Mod5  { <RALT> };
+    include "level3(ralt_switch)"
 
     key <RWIN>  { type[Group1]="TWO_LEVEL", [ Multi_key, ISO_Next_Group ]  };
 };
-

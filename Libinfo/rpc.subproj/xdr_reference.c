@@ -21,6 +21,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+/*	$NetBSD: xdr_reference.c,v 1.13 2000/01/22 22:19:18 mycroft Exp	$ */
+
 /*
  * Sun RPC is a product of Sun Microsystems, Inc. and is provided for
  * unrestricted use provided that this legend is included on all tape
@@ -28,33 +31,35 @@
  * may copy or modify Sun RPC without charge, but are not authorized
  * to license or distribute it to anyone else except as part of a product or
  * program developed by the user.
- * 
+ *
  * SUN RPC IS PROVIDED AS IS WITH NO WARRANTIES OF ANY KIND INCLUDING THE
  * WARRANTIES OF DESIGN, MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
  * PURPOSE, OR ARISING FROM A COURSE OF DEALING, USAGE OR TRADE PRACTICE.
- * 
+ *
  * Sun RPC is provided with no support and without any obligation on the
  * part of Sun Microsystems, Inc. to assist in its use, correction,
  * modification or enhancement.
- * 
+ *
  * SUN MICROSYSTEMS, INC. SHALL HAVE NO LIABILITY WITH RESPECT TO THE
  * INFRINGEMENT OF COPYRIGHTS, TRADE SECRETS OR ANY PATENTS BY SUN RPC
  * OR ANY PART THEREOF.
- * 
+ *
  * In no event will Sun Microsystems, Inc. be liable for any lost revenue
  * or profits or other special, indirect and consequential damages, even if
  * Sun has been advised of the possibility of such damages.
- * 
+ *
  * Sun Microsystems, Inc.
  * 2550 Garcia Avenue
  * Mountain View, California  94043
  */
 
+#include <sys/cdefs.h>
 #if defined(LIBC_SCCS) && !defined(lint) 
-/*static char *sccsid = "from: @(#)xdr_reference.c 1.11 87/08/11 SMI";*/
-/*static char *sccsid = "from: @(#)xdr_reference.c	2.1 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: xdr_reference.c,v 1.4 2003/06/23 17:24:59 majka Exp $";
+static char *sccsid = "@(#)xdr_reference.c 1.11 87/08/11 SMI";
+static char *sccsid = "@(#)xdr_reference.c	2.1 88/07/29 4.0 RPCSRC";
+static char *rcsid = "$FreeBSD: src/lib/libc/xdr/xdr_reference.c,v 1.11 2002/03/22 21:53:26 obrien Exp $";
 #endif
+#include <sys/cdefs.h>
 
 /*
  * xdr_reference.c, Generic XDR routines impelmentation.
@@ -65,13 +70,13 @@ static char *rcsid = "$Id: xdr_reference.c,v 1.4 2003/06/23 17:24:59 majka Exp $
  * "pointers".  See xdr.h for more info on the interface to xdr.
  */
 
+#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <rpc/types.h>
 #include <rpc/xdr.h>
-
-#define LASTUNSIGNED	((u_int)0-1)
 
 /*
  * XDR an indirect pointer
@@ -84,13 +89,13 @@ static char *rcsid = "$Id: xdr_reference.c,v 1.4 2003/06/23 17:24:59 majka Exp $
  */
 bool_t
 xdr_reference(xdrs, pp, size, proc)
-	register XDR *xdrs;
+	XDR *xdrs;
 	caddr_t *pp;		/* the pointer to work on */
 	u_int size;		/* size of the object pointed to */
 	xdrproc_t proc;		/* xdr routine to handle the object */
 {
-	register caddr_t loc = *pp;
-	register bool_t stat;
+	caddr_t loc = *pp;
+	bool_t stat;
 
 	if (loc == NULL)
 		switch (xdrs->x_op) {
@@ -100,16 +105,17 @@ xdr_reference(xdrs, pp, size, proc)
 		case XDR_DECODE:
 			*pp = loc = (caddr_t) mem_alloc(size);
 			if (loc == NULL) {
-				(void) fprintf(stderr,
-				    "xdr_reference: out of memory\n");
+				warnx("xdr_reference: out of memory");
 				return (FALSE);
 			}
-			bzero(loc, (int)size);
+			memset(loc, 0, size);
 			break;
-		default: break;
-	}
 
-	stat = (*proc)(xdrs, loc, LASTUNSIGNED);
+		case XDR_ENCODE:
+			break;
+		}
+
+	stat = (*proc)(xdrs, loc);
 
 	if (xdrs->x_op == XDR_FREE) {
 		mem_free(loc, size);
@@ -140,7 +146,7 @@ xdr_reference(xdrs, pp, size, proc)
  */
 bool_t
 xdr_pointer(xdrs,objpp,obj_size,xdr_obj)
-	register XDR *xdrs;
+	XDR *xdrs;
 	char **objpp;
 	u_int obj_size;
 	xdrproc_t xdr_obj;

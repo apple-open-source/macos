@@ -1,0 +1,185 @@
+Microsoft Developer Studio Workspace File, Format Version 6.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "Acyclic"=..\..\..\tools\Projects\Acyclic.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ToolsSupport
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "ToolsSupport"=..\..\..\tools\projects\ToolsSupport.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "ccomps"=..\..\..\tools\projects\ccomps.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ToolsSupport
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "dijkstra"=..\..\..\tools\projects\dijkstra.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ToolsSupport
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "dot2gxl"=..\..\..\tools\projects\dot2gxl.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "gc"=..\..\..\tools\projects\gc.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ToolsSupport
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "gvcolor"=..\..\..\tools\projects\gvcolor.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "gxl2dot"=..\..\..\tools\projects\gxl2dot.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "nop"=..\..\..\tools\projects\nop.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ToolsSupport
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "sccmap"=..\..\..\tools\projects\sccmap.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ToolsSupport
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "tred"=..\..\..\tools\projects\tred.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ToolsSupport
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "unflatten"=..\..\..\tools\projects\unflatten.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ToolsSupport
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

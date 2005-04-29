@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -62,7 +60,7 @@ static IOCDMedia *			GetCDMediaObjectFromName 	( const char * ioBSDNamePtr );
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 QTOCDataFormat10Ptr
-CreateBufferFromIORegistry ( struct mount * mountPtr )
+CreateBufferFromIORegistry ( mount_t mountPtr )
 {
 
 	QTOCDataFormat10Ptr		TOCDataPtr			= NULL;
@@ -75,7 +73,7 @@ CreateBufferFromIORegistry ( struct mount * mountPtr )
 	
 	DebugAssert ( ( mountPtr != NULL ) );
 	
-	ioBSDNamePtr = mountPtr->mnt_stat.f_mntfromname;
+	ioBSDNamePtr = vfs_statfs ( mountPtr )->f_mntfromname;
 	DebugAssert ( ( ioBSDNamePtr != NULL ) );
 	
 	cdMediaPtr = GetCDMediaObjectFromName ( ioBSDNamePtr );
@@ -135,7 +133,7 @@ DisposeBufferFromIORegistry ( QTOCDataFormat10Ptr TOCDataPtr )
 	// for its first field, so we free the number of bytes specified by
 	// the length word, plus the length word itself.
 	IOFree ( TOCDataPtr,
-			( TOCDataPtr->TOCDataLength + sizeof ( TOCDataPtr->TOCDataLength ) ) );
+			( OSSwapBigToHostInt16 ( TOCDataPtr->TOCDataLength ) + sizeof ( TOCDataPtr->TOCDataLength ) ) );
 	
 	DebugLog ( ( "DisposeBufferFromIORegistry: Exiting...\n" ) );
 	

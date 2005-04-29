@@ -23,7 +23,7 @@ Except as contained in this notice, the name of The Open Group shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 ******************************************************************************/
-/* $XFree86: xc/programs/xsm/prop.c,v 1.5 2001/12/14 20:02:26 dawes Exp $ */
+/* $XFree86: xc/programs/xsm/prop.c,v 1.6 2003/03/26 20:44:00 tsi Exp $ */
 
 #include "xsm.h"
 #include "info.h"
@@ -191,7 +191,7 @@ SetProperty(ClientRec *client, SmProp *theProp, Bool freeIt)
 	    if (client->saveDiscardCommand)
 		XtFree (client->saveDiscardCommand);
 	    client->saveDiscardCommand =
-		(char *) XtNewString (theProp->vals[0].value);
+		(char *) XtNewString ((char *) theProp->vals[0].value);
 
 	    client->receivedDiscardCommand = True;
 	}
@@ -200,7 +200,7 @@ SetProperty(ClientRec *client, SmProp *theProp, Bool freeIt)
 	    if (client->discardCommand)
 		XtFree (client->discardCommand);
 	    client->discardCommand =
-		(char *) XtNewString (theProp->vals[0].value);
+		(char *) XtNewString ((char *) theProp->vals[0].value);
 	}
     }
     else if (strcmp (theProp->name, SmRestartStyleHint) == 0)

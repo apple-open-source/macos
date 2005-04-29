@@ -72,7 +72,7 @@
 #include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
-#include <sys/protosw.h>
+#include <sys/sysctl.h>
 
 #include <net/if.h>
 #include <net/if_var.h>
@@ -81,6 +81,8 @@
 #include <netinet/in.h>
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <err.h>
 
 #define	KERNEL 1
 #include <netinet6/ip6_mroute.h>
@@ -92,12 +94,12 @@
 #define	WID_GRP	(lflag ? 18 : (nflag ? 16 : 18)) /* width of group column */
 
 void
-mroute6pr(u_long mfcaddr, u_long mifaddr)
+mroute6pr(void)
 {
-	struct mf6c *mf6ctable[MF6CTBLSIZ], *mfcp;
+	struct mf6c **mf6ctable = 0, *mfcp;
 	struct mif6 mif6table[MAXMIFS];
 	struct mf6c mfc;
-	struct rtdetq rte, *rtep;
+	struct rtdetq *rtep;
 	register struct mif6 *mifp;
 	register mifi_t mifi;
 	register int i;
@@ -105,17 +107,17 @@ mroute6pr(u_long mfcaddr, u_long mifaddr)
 	register int saved_nflag;
 	mifi_t maxmif = 0;
 	long int waitings;
+	size_t len;
 
-	if (mfcaddr == 0 || mifaddr == 0) {
-		printf("No IPv6 multicast routing compiled into this"
-		       " system.\n");
+	len = sizeof(mif6table);
+	if (sysctlbyname("net.inet6.ip6.mif6table", mif6table, &len, 0, 9) == -1) {
+		printf("No IPv6 multicast routing compiled into this system.\n");
 		return;
 	}
 
 	saved_nflag = nflag;
 	nflag = 1;
 
-	kread(mifaddr, (char *)&mif6table, sizeof(mif6table));
 	banner_printed = 0;
 	for (mifi = 0, mifp = mif6table; mifi < MAXMIFS; ++mifi, ++mifp) {
 		struct ifnet ifnet;
@@ -124,7 +126,11 @@ mroute6pr(u_long mfcaddr, u_long mifaddr)
 		if (mifp->m6_ifp == NULL)
 			continue;
 
-		kread((u_long)mifp->m6_ifp, (char *)&ifnet, sizeof(ifnet));
+		/*
+		 *	m6_ifp should be ifindex instead of ifnet pointer
+		 *	
+		 *	kread((u_long)mifp->m6_ifp, (char *)&ifnet, sizeof(ifnet));
+		 */
 		maxmif = mifi;
 		if (!banner_printed) {
 			printf("\nIPv6 Multicast Interface Table\n"
@@ -144,12 +150,19 @@ mroute6pr(u_long mfcaddr, u_long mifaddr)
 	if (!banner_printed)
 		printf("\nIPv6 Multicast Interface Table is empty\n");
 
-	kread(mfcaddr, (char *)&mf6ctable, sizeof(mf6ctable));
+	len = sizeof(MF6CTBLSIZ * sizeof(struct mf6c));
+	mf6ctable = malloc(len);
+	if (mf6ctable == 0)
+		return;
+	if (sysctlbyname("net.inet6.ip6.mf6ctable", mf6ctable, &len, 0, 0) == -1) {
+		printf("No IPv6 multicast routing compiled into this system.\n");
+		free(mf6ctable);
+		return;
+	}
 	banner_printed = 0;
 	for (i = 0; i < MF6CTBLSIZ; ++i) {
 		mfcp = mf6ctable[i];
 		while(mfcp) {
-			kread((u_long)mfcp, (char *)&mfc, sizeof(mfc));
 			if (!banner_printed) {
 				printf ("\nIPv6 Multicast Forwarding Cache\n");
 				printf(" %-*.*s %-*.*s %s",
@@ -166,9 +179,12 @@ mroute6pr(u_long mfcaddr, u_long mifaddr)
 			printf(" %9llu", (unsigned long long)mfc.mf6c_pkt_cnt);
 
 			for (waitings = 0, rtep = mfc.mf6c_stall; rtep; ) {
+				/* The sysctl should return the number of packet waiting
+				 *	struct rtdetq rte;
+				 *	kread((u_long)rtep, (char *)&rte, sizeof(rte));
+				 *	rtep = rte.next;
+				 */
 				waitings++;
-				kread((u_long)rtep, (char *)&rte, sizeof(rte));
-				rtep = rte.next;
 			}
 			printf("   %3ld", waitings);
 
@@ -190,20 +206,21 @@ mroute6pr(u_long mfcaddr, u_long mifaddr)
 
 	printf("\n");
 	nflag = saved_nflag;
+
+	free(mf6ctable);
 }
 
 void
-mrt6_stats(u_long mstaddr)
+mrt6_stats(void)
 {
 	struct mrt6stat mrtstat;
+	size_t len;
 
-	if (mstaddr == 0) {
-		printf("No IPv6 multicast routing compiled into this"
-		       "system.\n");
+	len = sizeof(mrtstat);
+	if (sysctlbyname("net.inet6.ip6.mrt6stat", &mrtstat, &len, 0, 0) == -1) {
+		printf("No IPv6 multicast routing compiled into this system\n");
 		return;
 	}
-
-	kread(mstaddr, (char *)&mrtstat, sizeof(mrtstat));
 	printf("IPv6 multicast forwarding:\n");
 	printf(" %10llu multicast forwarding cache lookup%s\n",
 	    (unsigned long long)mrtstat.mrt6s_mfc_lookups,

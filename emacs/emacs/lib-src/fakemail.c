@@ -20,7 +20,7 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* This is needed to get the declaration of cuserid in GNU libc.  */
-#define _XOPEN_SOURCE 1
+/* #define _XOPEN_SOURCE 1 */
 
 #define NO_SHORTNAMES
 #include <../src/config.h>

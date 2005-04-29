@@ -1,7 +1,7 @@
 /*
  * KLPrincipalTranslator.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLPrincipalTranslator.c,v 1.8 2003/08/08 21:34:51 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLPrincipalTranslator.c,v 1.9 2004/12/10 21:22:29 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -190,8 +190,7 @@ static KLStatus __KLFindTranslator (const char               *inTranslatorName,
         if (translatorBundle == NULL) { err = KLError_ (klMemFullErr); }
     }
 
-#if MACDEV_DEBUG
-    if (err == klNoErr) {
+    if ((err == klNoErr) && (ddebuglevel () > 0)) {
         CFStringRef bundleIDString = CFBundleGetIdentifier (translatorBundle);
         if (bundleIDString != NULL) {
             char id[256];
@@ -205,7 +204,6 @@ static KLStatus __KLFindTranslator (const char               *inTranslatorName,
             dprintf ("KLFindTranslator: CFBundleGetIdentifier (translatorBundle) failed\n");
         }
     }
-#endif
     
     if (err == klNoErr) {
         dprintf ("KLFindTranslator: Loading '%s'...\n", bundleName);
@@ -282,8 +280,7 @@ static KLStatus __KLCallTranslator (KLPT_TranslatePrincipal inTranslator,
         err = inTranslator (inName, inInstance, inRealm, &newName, &newInstance, &newRealm, &changed);
     }
 
-#if MACDEV_DEBUG
-    if (err == klNoErr) {
+    if ((err == klNoErr) && (ddebuglevel () > 0)) {
         char *checkNewName = NULL;
         char *checkNewInstance = NULL;
         char *checkNewRealm = NULL;
@@ -312,7 +309,6 @@ static KLStatus __KLCallTranslator (KLPT_TranslatePrincipal inTranslator,
             inRelease (checkNewName, checkNewInstance, checkNewRealm);
         }
     }
-#endif // MACDEV_DEBUG
 	
     // No matter what bogus thing the translator does, try to pass something reasonable back
     if (changed && (newName != NULL) && (newInstance != NULL) && (newRealm != NULL)) {

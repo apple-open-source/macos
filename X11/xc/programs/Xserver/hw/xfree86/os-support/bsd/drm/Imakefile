@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bsd/drm/Imakefile,v 1.12 2002/10/30 12:52:24 alanh Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bsd/drm/Imakefile,v 1.15 2003/08/16 19:26:37 dawes Exp $
 XCOMM $PI: xc/programs/Xserver/hw/xfree86/os-support/linux/drm/Imakefile,v 1.7 1999/09/14 19:55:15 faith Exp $
 
 #define IHaveModules
@@ -14,18 +14,30 @@ MOBJ = drmmodule.o
 MTRR_DEFINES = -DHAS_MTRR_SUPPORT
 #endif
 
+#if defined(FreeBSDArchitecture)
+COMPATSRC = xf86drmCompat.c
+COMPATOBJ = xf86drmCompat.o
+OS_SUBDIR = freebsd
+#elif defined(NetBSDArchitecture)
+OS_SUBDIR = netbsd
+#elif defined(OpenBSDArchitecture)
+OS_SUBDIR = openbsd
+#else
+OS_SUBDIR = extensions
+#endif
+
  SRCS = xf86drm.c \
 	xf86drmHash.c \
 	xf86drmRandom.c \
 	xf86drmSL.c \
-	xf86drmCompat.c \
+	$(COMPATSRC) \
 	$(MSRC)
 
  OBJS = xf86drm.o \
 	xf86drmHash.o \
 	xf86drmRandom.o \
 	xf86drmSL.o \
-	xf86drmCompat.o \
+	$(COMPATOBJ) \
 	$(MOBJ)
 
 INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I. -I$(SERVERSRC)/include \
@@ -37,7 +49,7 @@ ModuleObjectRule()
 LibraryModuleTarget(drm,$(OBJS))
 NormalLintTarget($(SRCS))
 
-InstallLibraryModule(drm,$(MODULEDIR),freebsd)
+InstallLibraryModule(drm,$(MODULEDIR),$(OS_SUBDIR))
 
 #define IHaveSubdirs
 SUBDIRS = kernel
@@ -58,4 +70,4 @@ LinkSourceFile(xf86drmRandom.c,$(XF86OSSRC)/linux/drm)
 LinkSourceFile(xf86drmSL.c,$(XF86OSSRC)/linux/drm)
 LinkSourceFile(xf86drmCompat.c,$(XF86OSSRC)/linux/drm)
 
-InstallDriverSDKLibraryModule(drm,$(DRIVERSDKMODULEDIR),freebsd)
+InstallDriverSDKLibraryModule(drm,$(DRIVERSDKMODULEDIR),$(OS_SUBDIR))

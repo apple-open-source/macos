@@ -1402,7 +1402,7 @@ sample_sc()
 		struct sc_entry *se;
 		struct entry *te;
 
-		thread  = kd[i].arg5 & KDBG_THREAD_MASK;
+		thread  = kd[i].arg5;
 		debugid = kd[i].debugid;
 		type    = kd[i].debugid & DBG_FUNC_MASK;
 
@@ -1410,7 +1410,7 @@ sample_sc()
 		switched_out = (struct th_info *)0;
 		switched_in  = (struct th_info *)0;
 
-		now = kd[i].timestamp;
+		now = kd[i].timestamp & KDBG_TIMESTAMP_MASK;
 		
 		baseid = debugid & 0xffff0000;
 
@@ -1469,7 +1469,7 @@ sample_sc()
 	        else if (baseid == msc_base)
 		        code = 512 + ((debugid >> 2) & 0x1ff);
 		else if (type == mach_sched || type == mach_stkhandoff) {
-		        switched_out = find_thread((kd[i].arg5 & KDBG_THREAD_MASK));
+		        switched_out = find_thread(kd[i].arg5);
 			switched_in  = find_thread(kd[i].arg2);
 
 			if (in_idle) {

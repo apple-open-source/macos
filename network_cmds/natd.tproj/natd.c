@@ -38,6 +38,8 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <net/if.h>
+#include <ifaddrs.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
 
@@ -63,6 +65,8 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <mach/mach_time.h>
+#include <mach/clock_types.h>
 
 #include "natd.h"
 
@@ -149,6 +153,92 @@ static  int			dropIgnoredIncoming;
 static  int			logDropped;
 static	int			logFacility;
 
+#define	NATPORTMAP		1
+
+#ifdef NATPORTMAP
+#define				NATPMPORT	5351
+
+#define NATPMVERSION	0
+#define PUBLICADDRREQ	0
+#define MAPUDPREQ		1
+#define MAPTCPREQ		2
+#define MAPUDPTCPREQ	3
+#define SERVERREPLYOP   128
+#define PUBLICADDRRLY   SERVERREPLYOP+PUBLICADDRREQ
+
+#define SUCCESS					0
+#define NOTSUPPORTEDVERSION		1
+#define NOTAUTHORIZED			2
+#define NETWORKFAILURE			3
+#define OUTOFRESOURCES			4
+#define UNSUPPORTEDOPCODE		5
+#define MAXRETRY        10
+#define TIMER_RATE      250
+
+#define FAILED					-1
+
+typedef struct  stdportmaprequest{
+		char			version;
+		unsigned char   opcode;
+		unsigned short  result;
+		unsigned int	epoch;
+		char			data[4];
+	}stdportmaprequest;
+
+typedef struct  publicaddrreply{
+		char			version;
+		unsigned char   opcode;
+		unsigned short  result;
+		unsigned int	epoch;
+		struct in_addr  addr;
+	}publicaddrreply;
+typedef struct  publicportreq{
+		char			version;
+		unsigned char   opcode;
+		unsigned short  result;
+		unsigned int	epoch;
+		unsigned short  privateport;
+		unsigned short  publicport;
+		int				lifetime;		/* in second */
+	}publicportreq;
+typedef struct  stderrreply{
+		char			version;
+		unsigned char   opcode;
+		unsigned short  result;
+		unsigned int	epoch;
+	}stderrreply;
+
+
+static	int		enable_natportmap = 0; 
+static	struct in_addr		lastassignaliasAddr;
+static	int		portmapSock = -1;
+static	struct  in_addr *forwardedinterfaceaddr;
+static	char	**forwardedinterfacename;
+static	int		numofinterfaces = 0;			/* has to be at least one */
+static  u_short natPMPport;
+static int      numoftries=MAXRETRY;
+static struct itimerval itval;
+static	int		Natdtimerset = 0;
+static  double		secdivisor;
+
+
+static void		HandlePortMap( int fd );
+static void		SendPortMapResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, unsigned char origopcode, unsigned short result);
+static void		SendPublicAddress( int fd, struct sockaddr_in *clientaddr, int clientaddrlen );
+static void		SendPublicPortResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *reply, int  publicport);
+static void		Doubletime( struct timeval *tvp);
+static void		Stoptimer();
+static void		Natdtimer();
+static void		SendPortMapMulti( );
+static void		NotifyPublicAddress();
+static void		DoPortMapping( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *req);
+static void		NatPortMapPInit();
+static u_short  get_natportmap_port(void);
+
+extern int FindAliasPortOut(struct in_addr src_addr,  struct in_addr dst_addr, u_short src_port, u_short pub_port, u_char proto, int lifetime, char addmapping);
+
+#endif
+
 int main (int argc, char** argv)
 {
 	int			divertIn;
@@ -178,6 +268,9 @@ int main (int argc, char** argv)
 	running			= 1;
 	assignAliasAddr		= 0;
 	aliasAddr.s_addr	= INADDR_NONE;
+#ifdef NATPORTMAP
+	lastassignaliasAddr.s_addr	= INADDR_NONE;
+#endif
 	aliasOverhead		= 12;
 	dynamicMode		= 0;
  	logDropped		= 0;
@@ -288,8 +381,9 @@ int main (int argc, char** argv)
 
 			assignAliasAddr = 1;
 		}
-		else
+		else{
 			SetAliasAddressFromIfName (ifName);
+		}
 	}
 /*
  * Create socket for sending ICMP messages.
@@ -304,6 +398,33 @@ int main (int argc, char** argv)
  */
 	shutdown(icmpSock, SHUT_RD);
 
+
+#if NATPORTMAP
+	if ( enable_natportmap )
+	{
+		/* create socket to listen for port mapping  */
+		portmapSock = socket( AF_INET, SOCK_DGRAM, 0);
+		if ( portmapSock != -1 )
+		{
+		    natPMPport = get_natportmap_port();
+			addr.sin_family         = AF_INET;
+			addr.sin_addr.s_addr    = INADDR_ANY;
+			addr.sin_port           = NATPMPORT;
+
+			if (bind ( portmapSock,
+				  (struct sockaddr*) &addr,
+				  sizeof addr) == -1)
+				printf("Binding to NATPM port failed!\n");
+
+			/* NATPORTMAPP initial set up */
+			NatPortMapPInit();
+		}
+                if ( !Natdtimerset ){
+                        Natdtimerset = 1;
+                        signal(SIGALRM, Natdtimer);
+                }
+	}
+#endif
 /*
  * Become a daemon unless verbose mode was requested.
  */
@@ -321,7 +442,15 @@ int main (int argc, char** argv)
  * Set alias address if it has been given.
  */
 	if (aliasAddr.s_addr != INADDR_NONE)
+	{
 		PacketAliasSetAddress (aliasAddr);
+#ifdef NATPORTMAP
+		if ( (enable_natportmap) && (aliasAddr.s_addr != lastassignaliasAddr.s_addr) ){
+			lastassignaliasAddr.s_addr = aliasAddr.s_addr;
+			NotifyPublicAddress();
+		}
+#endif
+	}
 /*
  * We need largest descriptor number for select.
  */
@@ -339,6 +468,12 @@ int main (int argc, char** argv)
 
 	if (routeSock > fdMax)
 		fdMax = routeSock;
+
+#ifdef NATPORTMAP
+	if ( portmapSock > fdMax )
+		fdMax = portmapSock;
+			
+#endif
 
 	while (running) {
 
@@ -383,7 +518,10 @@ int main (int argc, char** argv)
  */
 		if (routeSock != -1)
 			FD_SET (routeSock, &readMask);
-
+#ifdef NATPORTMAP
+		if ( portmapSock != -1 )
+			FD_SET (portmapSock, &readMask);
+#endif
 		if (select (fdMax + 1,
 			    &readMask,
 			    &writeMask,
@@ -415,6 +553,11 @@ int main (int argc, char** argv)
 		if (routeSock != -1)
 			if (FD_ISSET (routeSock, &readMask))
 				HandleRoutingInfo (routeSock);
+#ifdef NATPORTMAP
+		if ( portmapSock != -1)
+			if (FD_ISSET (portmapSock, &readMask))
+				HandlePortMap( portmapSock );
+#endif
 	}
 
 	if (background)
@@ -674,6 +817,357 @@ static void HandleRoutingInfo (int fd)
 	}
 }
 
+#ifdef NATPORTMAP
+
+void getdivisor()
+{
+	struct mach_timebase_info info;
+
+	(void) mach_timebase_info (&info);
+
+	secdivisor = ( (double)info.denom / (double)info.numer)  * 1000;
+
+}
+
+unsigned int getuptime()
+{
+	uint64_t	now;
+	unsigned long	epochtime;
+
+        now = mach_absolute_time();
+	epochtime = (now / secdivisor) /USEC_PER_SEC; 
+	return( epochtime );
+
+}
+
+/* return NATPORTMAP port defined in /etc/servcies if there's one, else use NATPMPORT */
+static u_short get_natportmap_port(void)
+{
+	struct servent *ent;
+	
+	ent = getservbyname( "natportmap", "udp" );
+	if (ent != NULL){
+		return( ent->s_port );
+	}
+	return( NATPMPORT );
+}
+
+/* set up neccessary info for doing NatPortMapP */
+static void NatPortMapPInit()
+{
+	int i;
+	struct ifaddrs  *ifap, *ifa;
+
+	forwardedinterfaceaddr = (struct in_addr *)
+		malloc(numofinterfaces * sizeof(*forwardedinterfaceaddr));
+	bzero(forwardedinterfaceaddr, 
+	      numofinterfaces * sizeof(*forwardedinterfaceaddr));
+	/* interface address hasn't been set up, get interface address */
+	getifaddrs(&ifap);
+	for ( ifa= ifap; ifa; ifa=ifa->ifa_next)
+	{
+		struct sockaddr_in * a;
+		if (ifa->ifa_addr->sa_family != AF_INET) 
+		{
+			continue;
+		}
+		a = (struct sockaddr_in *)ifa->ifa_addr;
+		for ( i = 0; i < numofinterfaces; i++ )
+		{
+			if (strcmp(ifa->ifa_name, forwardedinterfacename[i])) 
+			{
+				continue;
+			}
+			if (forwardedinterfaceaddr[i].s_addr == 0) 
+			{
+				/* copy the first IP address */
+				forwardedinterfaceaddr[i] = a->sin_addr;
+			}
+			break;
+		}
+	}
+	freeifaddrs( ifap );
+	getdivisor();
+}
+
+/* SendPortMapResponse */
+/* send generic reponses to NATPORTMAP requests */
+static  void SendPortMapResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, unsigned char origopcode, unsigned short result)
+{
+	stderrreply reply;
+	int			bytes;
+	
+	reply.version = NATPMVERSION;
+	reply.opcode = origopcode + SERVERREPLYOP;
+	reply.result = result;
+	reply.epoch = getuptime();
+	bytes = sendto( fd, (void*)&reply, sizeof(reply), 0, (struct sockaddr*)clientaddr, clientaddrlen );
+	if ( bytes != sizeof(reply) )
+		printf( "PORTMAP::problem sending portmap reply - opcode %d\n", reply.opcode );
+}
+
+/* SendPublicAddress */
+/* return public address to requestor */
+static void SendPublicAddress( int fd, struct sockaddr_in *clientaddr, int clientaddrlen )
+{
+
+	publicaddrreply reply;
+	int				bytes;
+	
+	reply.version = NATPMVERSION;
+	reply.opcode = SERVERREPLYOP + PUBLICADDRREQ;
+	reply.result = SUCCESS;
+	reply.addr = lastassignaliasAddr;
+        reply.epoch = getuptime();
+
+	bytes = sendto (fd, (void*)&reply, sizeof(reply), 0, (struct sockaddr*)clientaddr, clientaddrlen);
+	if ( bytes != sizeof(reply) )
+		printf( "PORTMAP::problem sending portmap reply - opcode %d\n", reply.opcode );
+}
+
+/* SendPublicPortResponse */
+/* response for portmap request and portmap removal request */
+/* publicport <= 0 means error */
+static void SendPublicPortResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *reply, int  publicport)
+{
+
+	int				bytes;
+	
+	reply->version = NATPMVERSION;
+	reply->opcode = SERVERREPLYOP + reply->opcode;
+	if ( publicport <= 0)
+		/* error in port mapping */
+		reply->result = OUTOFRESOURCES;
+	else
+		reply->result = SUCCESS;
+        reply->epoch = getuptime();
+
+	if ( reply->lifetime )			/* not delete mapping */
+		reply->publicport = publicport;
+	bytes = sendto (fd, (void*)reply, sizeof(publicportreq), 0, (struct sockaddr*)clientaddr, clientaddrlen);
+	if ( bytes != sizeof(publicportreq) )
+		printf( "PORTMAP::problem sending portmap reply - opcode %d\n", reply->opcode );
+}
+
+/* SendPortMapMulti */
+/* send multicast to local network for new alias address */
+static void SendPortMapMulti()
+{
+
+	publicaddrreply reply;
+	int				bytes;
+	struct sockaddr_in multiaddr;
+	int				multisock;
+	int				i;
+	
+#define LOCALGROUP "224.0.0.1"
+	numoftries++;
+	memset(&multiaddr,0,sizeof(struct sockaddr_in));
+	multiaddr.sin_family=AF_INET;
+	multiaddr.sin_addr.s_addr=inet_addr(LOCALGROUP);
+	multiaddr.sin_port=htons(NATPMPORT);
+	reply.version = NATPMVERSION;
+	reply.opcode = SERVERREPLYOP + PUBLICADDRREQ;
+	reply.result = SUCCESS;
+	reply.addr = lastassignaliasAddr;
+	reply.epoch = 0;
+
+	/* send multicast to all forwarded interfaces */
+	for ( i = 0; i <  numofinterfaces; i++)
+	{
+		if (forwardedinterfaceaddr[i].s_addr == 0) 
+		{
+			continue;
+		}
+		multisock = socket( AF_INET, SOCK_DGRAM, 0);
+		
+		if ( multisock == -1 )
+		{
+			printf("cannot get socket for sending multicast\n");
+			return;
+		}
+		if (setsockopt(multisock, IPPROTO_IP, IP_MULTICAST_IF, &forwardedinterfaceaddr[i], sizeof(struct in_addr)) < 0) 
+		{
+			printf("setsockopt failed\n");
+			close(multisock);
+			continue;
+		}
+		bytes = sendto (multisock, (void*)&reply, sizeof(reply), 0, (struct sockaddr*)&multiaddr, sizeof(multiaddr));
+		if ( bytes != sizeof(reply) )
+			printf( "PORTMAP::problem sending multicast alias address - opcode %d\n", reply.opcode );
+		close(multisock);
+	}
+
+}
+
+/* double the time value */
+static void Doubletime( struct timeval *tvp)
+{
+
+        if ( tvp->tv_sec )
+                tvp->tv_sec *= 2;
+        if ( tvp->tv_usec )
+                tvp->tv_usec *= 2;
+        if (tvp->tv_usec >= 1000000) {
+               tvp->tv_sec += tvp->tv_usec / 1000000;
+               tvp->tv_usec = tvp->tv_usec % 1000000;
+        }
+}
+
+/* stop running natd timer */
+static void Stoptimer()
+{
+        itval.it_value.tv_usec = 0;
+        if (setitimer(ITIMER_REAL, &itval, (struct itimerval *)NULL) < 0)
+                printf( "setitimer err: %d\n", errno);
+}
+
+/* natdtimer */
+/* timer routine to send new public IP address */
+static void Natdtimer()
+{
+	if ( !enable_natportmap )
+		return;
+		
+	SendPortMapMulti();
+	
+	if ( numoftries < MAXRETRY ){
+		Doubletime( &itval.it_value);
+		itval.it_interval = itval.it_value;
+		if (setitimer(ITIMER_REAL, &itval, (struct itimerval *)NULL) < 0)
+				printf( "setitimer err: %d\n", errno);
+	}
+	else
+	{
+		Stoptimer();
+		return;
+	}
+	
+}
+
+/* NotifyPublicAddress */
+/* Advertise new public address */
+static void NotifyPublicAddress()
+{
+	if ( numoftries <  MAXRETRY)
+	{
+		/* there is an old timer running, cancel it */
+		Stoptimer();
+	}
+	/* send up new timer */
+	numoftries = 0;
+	SendPortMapMulti();
+	itval.it_value.tv_sec = 0;
+	itval.it_value.tv_usec = TIMER_RATE;
+	itval.it_interval.tv_sec = 0;
+	itval.it_interval.tv_usec = TIMER_RATE;
+	if (setitimer(ITIMER_REAL, &itval, (struct itimerval *)NULL) < 0)
+			printf( "setitimer err: %d\n", errno);
+
+}
+
+/* DoPortMapping */
+/* find/add/remove port mapping from alias manager */
+void DoPortMapping( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *req)
+{
+	u_char		proto = IPPROTO_TCP;
+	int		aliasport;
+	
+	if ( req->opcode == MAPUDPREQ)
+		proto = IPPROTO_UDP;
+	if ( req->lifetime == 0)
+	{
+		/* remove port mapping */
+		if ( !FindAliasPortOut(  clientaddr->sin_addr, lastassignaliasAddr, req->privateport, req->publicport, proto, req->lifetime, 0))
+			/* FindAliasPortOut returns no error, port successfully removed, return no error response to client */
+			SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, 1 );
+		else
+			/* deleting port fails, return error */
+			SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, -1 );
+	}
+	else 
+	{
+		/* look for port mapping - public port is ignored in this case */
+		/* create port mapping - map provided public port to private port if public port is not 0 */
+		aliasport = FindAliasPortOut(  clientaddr->sin_addr, lastassignaliasAddr, req->privateport, req->publicport, proto, req->lifetime, 1);
+		/* aliasport should be non zero if mapping is successfully, else -1 is returned, alias port shouldn't be zero???? */
+		SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, aliasport );
+			
+	}
+}
+
+/* HandlePortMap */
+/* handle all packets sent to NATPORTMAP port  */
+static void HandlePortMap( int fd )
+{
+#define		MAXBUFFERSIZE		100
+
+        struct sockaddr_in	clientaddr;
+        int			clientaddrlen;
+		unsigned char		buffer[MAXBUFFERSIZE];
+		int							bytes;
+		unsigned short				result = SUCCESS;
+		struct stdportmaprequest	*req;
+
+        clientaddrlen = sizeof( clientaddr );
+        bytes = recvfrom( fd, buffer, sizeof(buffer), 0, (struct sockaddr*)&clientaddr, &clientaddrlen);
+        if ( bytes == -1 )
+        {
+                printf( "Read NATPM port error\n");
+                return;
+        }
+        req = (struct stdportmaprequest*)buffer;
+		
+#ifdef DEBUG
+		{
+			int i;
+			
+			for ( i = 0; i<bytes; i++)
+			{
+				printf("%d", buffer[i]);
+			}
+			printf("\n");
+		}
+#endif			
+		/* check client version */
+		if ( req->version > NATPMVERSION )
+			result = NOTSUPPORTEDVERSION;
+		else if ( !enable_natportmap )
+			/* natd wasn't launched with portmapping enabled */
+			result = NOTAUTHORIZED;
+			
+		if ( result )
+		{
+			SendPortMapResponse( fd, &clientaddr, clientaddrlen, req->opcode, result );
+			return;
+		}
+			
+		switch ( req->opcode )
+		{
+			case PUBLICADDRREQ:
+			{
+				SendPublicAddress(fd, &clientaddr, clientaddrlen);
+				break;
+			}
+			
+			case MAPUDPREQ:
+			case MAPTCPREQ:
+			case MAPUDPTCPREQ:
+			{
+				DoPortMapping( fd, &clientaddr, clientaddrlen, (publicportreq*)req);
+				break;
+			}
+			
+			
+			default:
+				SendPortMapResponse( fd, &clientaddr, clientaddrlen, req->opcode, UNSUPPORTEDOPCODE );
+		}
+			
+}
+
+
+#endif
+
 static void PrintPacket (struct ip* ip)
 {
 	printf ("%s", FormatPacket (ip));
@@ -827,6 +1321,18 @@ SetAliasAddressFromIfName(const char *ifn)
 		errx(1, "%s: cannot get interface address", ifn);
 
 	PacketAliasSetAddress(sin->sin_addr);
+#ifdef NATPORTMAP
+	if ( (enable_natportmap) && (sin->sin_addr.s_addr != lastassignaliasAddr.s_addr) )
+	{
+		lastassignaliasAddr.s_addr = sin->sin_addr.s_addr;
+		/* make sure the timer handler was set before setting timer */
+		if ( !Natdtimerset ){
+			Natdtimerset = 1;	
+			signal(SIGALRM, Natdtimer); 
+		}
+		NotifyPublicAddress();
+	}
+#endif
 	syslog(LOG_INFO, "Aliasing to %s, mtu %d bytes",
 	       inet_ntoa(sin->sin_addr), ifMTU);
 	}
@@ -894,7 +1400,11 @@ enum Option {
 	ProxyRule,
  	LogDenied,
  	LogFacility,
-	PunchFW
+	PunchFW,
+#ifdef NATPORTMAP
+	NATPortMap,
+	ToInterfaceName
+#endif
 };
 
 enum Param {
@@ -1120,7 +1630,26 @@ static struct OptionInfo optionTable[] = {
 	        "basenumber:count",
 		"punch holes in the firewall for incoming FTP/IRC DCC connections",
 		"punch_fw",
-		NULL }
+		NULL },
+
+#ifdef NATPORTMAP
+	{ NATPortMap,
+		0,
+		YesNo,
+		"[yes|no]",
+		"enable NATPortMap protocol",
+		"enable_natportmap",
+		NULL },
+		
+	{ ToInterfaceName,
+		0,
+		String,
+		"network_if_name",
+		"take aliasing address to interface",
+		"natportmap_interface",
+		NULL },
+
+#endif
 };
 	
 static void ParseOption (const char* option, const char* parms)
@@ -1308,6 +1837,37 @@ static void ParseOption (const char* option, const char* parms)
 	case PunchFW:
 		SetupPunchFW(strValue);
 		break;
+
+#ifdef NATPORTMAP
+	case NATPortMap:
+		enable_natportmap = yesNoValue;
+		break;
+
+
+	case ToInterfaceName:
+	{
+		if (forwardedinterfacename != NULL)
+		{
+			if ( realloc(forwardedinterfacename, (numofinterfaces+1) * sizeof(*forwardedinterfacename)) == NULL){
+				printf("realloc error, cannot allocate memory for fowarded interface name.\n");
+				return;
+			}
+		}
+		else {
+			if ( (forwardedinterfacename = malloc( sizeof(*forwardedinterfacename) )) == NULL ){
+				printf("malloc error, cannot allocate memory for fowarded interface name.\n");
+				return;
+			}
+		}
+		
+		forwardedinterfacename[numofinterfaces] = strdup(strValue);
+		numofinterfaces++;
+
+		break;
+	}
+
+#endif
+
 	}
 }
 

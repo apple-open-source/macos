@@ -53,7 +53,7 @@ public interface Array
    * @param The name of the SQL type of the elements in this array.
    * @exception SQLException If an error occurs.
    */
-  public String getBaseTypeName() throws SQLException;
+  String getBaseTypeName() throws SQLException;
 
   /**
    * Returns the JDBC type identifier of the elements in this
@@ -64,7 +64,7 @@ public interface Array
    * @exception SQLException If an error occurs.
    * @see Types
    */
-  public int getBaseType() throws SQLException;
+  int getBaseType() throws SQLException;
 
   /**
    * Returns the contents of this array.  This object returned
@@ -73,7 +73,7 @@ public interface Array
    * @return The contents of the array as an array of Java objects.
    * @exception SQLException If an error occurs.
    */
-  public Object getArray() throws SQLException;
+  Object getArray() throws SQLException;
 
   /**
    * Returns the contents of this array.  The specified
@@ -84,7 +84,7 @@ public interface Array
    * @return The contents of the array as an array of Java objects.
    * @exception SQLException If an error occurs.
    */
-  public Object getArray(Map map) throws SQLException;
+  Object getArray(Map map) throws SQLException;
 
   /**
    * Returns a portion of this array starting at <code>index</code>
@@ -99,7 +99,7 @@ public interface Array
    * @return The requested portion of the array.
    * @exception SQLException If an error occurs.
    */
-  public Object getArray(long index, int count) throws SQLException;
+  Object getArray(long index, int count) throws SQLException;
 
   /**
    * This method returns a portion of this array starting at <code>index</code>
@@ -116,7 +116,7 @@ public interface Array
    * @return The requested portion of the array.
    * @exception SQLException If an error occurs.
    */
-  public Object getArray(long index, int count, Map map) throws SQLException;
+  Object getArray(long index, int count, Map map) throws SQLException;
 
   /**
    * Returns the elements in the array as a <code>ResultSet</code>.
@@ -128,7 +128,7 @@ public interface Array
    * @exception SQLException If an error occurs.
    * @see ResultSet
    */
-  public ResultSet getResultSet() throws SQLException;
+  ResultSet getResultSet() throws SQLException;
 
   /**
    * This method returns the elements in the array as a <code>ResultSet</code>.
@@ -143,7 +143,7 @@ public interface Array
    * @exception SQLException If an error occurs.
    * @see ResultSet
    */
-  public ResultSet getResultSet(Map map) throws SQLException;
+  ResultSet getResultSet(Map map) throws SQLException;
 
   /**
    * This method returns a portion of the array as a <code>ResultSet</code>.
@@ -160,18 +160,18 @@ public interface Array
    * @exception SQLException If an error occurs.
    * @see ResultSet
    */
-  public ResultSet getResultSet(long index, int count) throws SQLException;
+  ResultSet getResultSet(long index, int count) throws SQLException;
   
   /**
    * This method returns a portion of the array as a <code>ResultSet</code>.
    * The returned portion will start at <code>index</code> into the
-   * array and up to <cod>count</code> elements will be returned.
-   * <p>
-   * Each row of the result set will have two columns.  The first will be
+   * array and up to <code>count</code> elements will be returned.
+   *
+   * <p> Each row of the result set will have two columns.  The first will be
    * the index into the array of that row's contents.  The second will be
    * the actual value of that array element.  The specified <code>Map</code>
    * will be used to override selected default mappings of SQL types to
-   * Java classes.
+   * Java classes.</p>
    *
    * @param offset The index into the array to start returning elements from.
    * @param length The requested number of elements to return.
@@ -180,6 +180,6 @@ public interface Array
    * @exception SQLException If an error occurs.
    * @see ResultSet
    */  
-  public ResultSet getResultSet(long index, int count, Map map)
+  ResultSet getResultSet(long index, int count, Map map)
     throws SQLException;
 }

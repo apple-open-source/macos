@@ -1,8 +1,8 @@
-/* $XFree86: xc/programs/xterm/xstrings.c,v 1.5 2002/08/17 19:52:27 dickey Exp $ */
+/* $XFree86: xc/programs/xterm/xstrings.c,v 1.7 2003/11/13 01:16:38 dickey Exp $ */
 
 /************************************************************
 
-Copyright 2000-2001,2002 by Thomas E. Dickey
+Copyright 2000-2002,2003 by Thomas E. Dickey
 
                         All Rights Reserved
 
@@ -62,7 +62,7 @@ x_strcasecmp(const char *s1, const char *s2)
 	return 1;
 
     while (len-- != 0) {
-	if (toupper(*s1) != toupper(*s2))
+	if (toupper(CharOf(*s1)) != toupper(CharOf(*s2)))
 	    return 1;
 	s1++, s2++;
     }
@@ -79,7 +79,7 @@ x_strdup(const char *s)
     char *result = 0;
 
     if (s != 0) {
-	char *t = malloc(strlen(s) + 1);
+	char *t = (char *) malloc(strlen(s) + 1);
 	if (t != 0) {
 	    strcpy(t, s);
 	}
@@ -120,7 +120,7 @@ x_strtrim(char *s)
 	char *t = x_strdup(base);
 	s = t;
 	d = s;
-	while (isspace(*s)) {
+	while (isspace(CharOf(*s))) {
 	    ++s;
 	}
 	while ((*d++ = *s++) != '\0') {
@@ -128,7 +128,7 @@ x_strtrim(char *s)
 	}
 	if (*t != '\0') {
 	    s = t + strlen(t);
-	    while (s != t && isspace(s[-1])) {
+	    while (s != t && isspace(CharOf(s[-1]))) {
 		*--s = '\0';
 	    }
 	}

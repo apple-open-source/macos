@@ -1,7 +1,7 @@
 /*
  * LoginSessions.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/LoginSessions.h,v 1.8 2003/04/23 21:41:46 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/LoginSessions.h,v 1.15 2005/01/27 22:35:03 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -34,22 +34,23 @@
 #define kMachIPCMaxServicePrefixLength   256
 #define kServiceNameMaxLength            (kMachIPCMaxServicePrefixLength + kSecuritySessionStringMaxLength + 3)
 
-enum {
-    kLoginSessionWindowServer = 1,
-    kLoginSessionControllingTerminal,
-    kLoginSessionNone
-};
+#define loginSessionHasGraphicsAccess  0x00000001
+#define loginSessionCallerUsesGUI      0x00000002
+#define loginSessionHasTerminalAccess  0x00000004
 
-typedef u_int32_t LoginSessionType;
+typedef u_int32_t LoginSessionAttributes;
 
 #if __cplusplus
 extern "C" {
 #endif
+    
+const char *LoginSessionGetSecuritySessionName (void);
 
-const char *LoginSessionGetServiceName (const char *inServicePrefix);
-const char *LoginSessionGetSecuritySessionName ();
-LoginSessionType LoginSessionGetSessionUIType ();
-uid_t LoginSessionGetSessionUID ();
+boolean_t LoginSessionIsRootSession (void);
+
+LoginSessionAttributes LoginSessionGetSessionAttributes (void);
+
+uid_t LoginSessionGetSessionUID (void);
 
 #if __cplusplus
 }

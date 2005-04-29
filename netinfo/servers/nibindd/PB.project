@@ -5,7 +5,7 @@
         FRAMEWORKS = (); 
         H_FILES = (nibind_globals.h); 
         OTHER_LINKED = (nibind_globals.c, nibind_main.c, nibind_prot_proc.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, nibindd.8, nibind_prot.x, rpcgen_HACK.sed); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, com.apple.nibindd.plist, nibindd.8, nibind_prot.x, rpcgen_HACK.sed); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

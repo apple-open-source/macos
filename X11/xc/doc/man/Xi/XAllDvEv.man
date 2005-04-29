@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XAllDvEv.man,v 1.2 2001/01/27 18:20:20 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XAllDvEv.man,v 1.3 2003/04/28 22:18:14 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,15 +17,9 @@
 .SH NAME
 XAllowDeviceEvents \- release queued events
 .SH SYNTAX
-XAllowDeviceEvents\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fIevent_mode\fP\^, \fItime\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^; 
-.br
-      int \fIevent_mode\fP\^; 
-.br
-      Time \fItime\fP\^; 
+.HP
+int XAllowDeviceEvents\^(\^Display *\fIdisplay\fP\^, XDevice *\fIdevice\fP\^,
+int \fIevent_mode\fP\^, Time \fItime\fP\^); 
 .SH ARGUMENTS
 .TP 12
 .I display

@@ -3,7 +3,7 @@
 // XKB keyboard by Hrafnkell Eiriksson - hkelle@rhi.hi.is
 //     fixes by Olafur Osvaldsson - oli@isnic.is
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/is,v 1.3 2002/11/26 01:57:25 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/is,v 1.4 2003/04/19 12:22:12 pascal Exp $
 
 default partial alphanumeric_keys
 xkb_symbols "basic" {
@@ -27,9 +27,7 @@ xkb_symbols "basic" {
     key <BKSL>	{ [      plus,   asterisk,        grave,   dead_breve ]	};
     key <AB10>	{ [     thorn,      THORN, dead_belowdot, dead_abovedot ] };
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    include "level3(ralt_switch_multikey)"
 };
 
 partial alphanumeric_keys
@@ -38,7 +36,6 @@ xkb_symbols "Sundeadkeys" {
     // modify the default Icelandic layout to use Sun dead keys
 
     include "pc/is(basic)"
-
 
     key <TLDE>	{ [SunFA_Circum,     degree,      notsign,    notsign ]	};
     key <AE12>	{ [SunFA_Acute, SunFA_Grave, SunFA_Cedilla, SunFA_Cedilla ] };

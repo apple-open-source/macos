@@ -1,6 +1,78 @@
+2004-10-28  Tom Yu  <tlyu@mit.edu>
+
+	* misc.c (check_min_life): Actually return a value on success.
+
+2004-10-27  Tom Yu  <tlyu@mit.edu>
+
+	* misc.c, misc.h: New function check_min_life(), containing common
+	code from wrapper functions.  New function chpass_util_wrapper(),
+	which does min_life checking prior to calling
+	kadm5_chpass_principal_util().
+
+	* schpw.c (process_chpw_request): Call chpass_util_wrapper().
+
+2004-09-21  Tom Yu  <tlyu@mit.edu>
+
+	* ovsec_kadmd.c (kadm_svc_run): Don't use rpc_dtablesize().
+
+2004-08-20  Alexandra Ellwood <lxs@mit.edu>
+
+        * ovsec_kadmd.c (main), server_stubs.c (*): 
+        renamed acl_* functions to kadm5int_acl_*
+
+2004-06-26  Tom Yu  <tlyu@mit.edu>
+
+	* ovsec_kadmd.c (log_badverf): Fix a missed rpc_u_int32.
+
+2004-06-25  Tom Yu  <tlyu@mit.edu>
+
+	* ovsec_kadmd.c (log_badverf): Use rpcproc_t instead of
+	rpc_u_int32 in procnames.
+
+2004-06-15  Tom Yu  <tlyu@mit.edu>
+
+	* kadm_rpc_svc.c (check_rpcsec_auth, gss_to_krb5_name): New
+	functions to check service name for RPCSEC_GSS.
+	(kadm_1): Add service name check for RPCSEC_GSS.
+
+	* ovsec_kadmd.c (main): Setup logging calllbacks for RPCSEC_GSS.
+	Use GSS_C_N_NAME for acceptor name for RPCSEC_GSS.
+	(log_badverf): Handle null client and server names.
+
+	* server_stubs.c (rqst2name): New function to return appropriate
+	gss_name_t for a given auth flavor (RPCSEC_GSS and AUTH_GSSAPI use
+	different field names).
+
+2004-05-27  Tom Yu  <tlyu@mit.edu>
+
+	* kadm_rpc_svc.c (kadm_1): Allow RPCSEC_GSS; remove
+	AUTH_GSSAPI_COMPAT.
+
+	* misc.h (kadm_1): Conditionalize prototype on SVC_GETARGS rather
+	than on an inclusion-protection macro.
+
+	* ovsec_kadmd.c (main): Add preliminary support for RPCSEC_GSS.
+	(do_schpw, kadm_svc_run): Update some names.
+
+2004-03-20  Ken Raeburn  <raeburn@mit.edu>
+
+	* ovsec_kadmd.c (main): Use any handy krb5 context to register
+	the KDB keytab type, we don't need to pluck it out of the GSSAPI
+	krb5 mechanism.
+	(gctx): Variable deleted.
+
+2004-02-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (OBJS, $(PROG)): Link against apputils lib instead
+	of using LIBOBJS.
+
 2003-09-02  Alexandra Ellwood  <lxs@mit.edu>
 
 	* ovsec_kadmd.c: Added Apple password server support.
+
+2003-08-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (OBJS): Use @LIBOBJS@.
 
 2003-05-27  Tom Yu  <tlyu@mit.edu>
 

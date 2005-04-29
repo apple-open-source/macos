@@ -41,7 +41,7 @@
  *
  */
 /*
- * $Id: index.c,v 1.213 2005/02/14 16:42:08 shadow Exp $
+ * $Id: index.c,v 1.6 2005/03/05 00:36:56 dasenbro Exp $
  */
 #include <config.h>
 

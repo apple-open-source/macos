@@ -1,4 +1,4 @@
-# Copyright (C) 92, 93, 94, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1992 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-dejagnu@prep.ai.mit.edu
+# bug-dejagnu@gnu.org
 
-# This file was written by Rob Savoye. (rob@cygnus.com)
+# This file was written by Rob Savoye. (rob@welcomehome.org)
 
 #
 # Most of the procedures found here mimic their unix counter-part. 
@@ -25,12 +25,13 @@
 #
 
 #
-# Gets the directories in a directory
+# Gets the directories in a directory, or in a directory tree.
 #     args: the first is the dir to look in, the next
 #         is the pattern to match. It
 #         defaults to *. Patterns are csh style
 #   	  globbing rules
-#     returns: a list of dirs or NULL
+#     options: -all  search the tree recursively
+#     returns: a list of dirs or NULL; the root directory is not returned.
 #
 proc getdirs { args } {
     if { [lindex $args 0] == "-all" } {
@@ -72,7 +73,7 @@ proc getdirs { args } {
 		    }
 		}
 	    }
-	}
+	}	
     } else {
 	perror "$tmp"
 	return ""
@@ -86,54 +87,32 @@ proc getdirs { args } {
 }
 
 #
-# Finds all the files recursively
-#     rootdir - this is the directory to start the search
-#   	  from. This is and all subdirectories are search for
-#   	  filenames. Directory names are not included in the
-#   	  list, but the filenames have path information. 
-#     pattern - this is the pattern to match. Patterns are csh style
-#   	  globbing rules.
-#     returns: a list or a NULL.
+# Finds paths of all non-directory files, recursively, whose names match
+# a pattern.  Certain directory name are not searched (see proc getdirs).
+#     rootdir - search in this directory and its subdirectories, recursively.
+#     pattern - specified with Tcl string match "globbing" rules.
+#     returns: a possibly empty list of pathnames.
 #
 proc find { rootdir pattern } {
-    # first find all the directories
-    set dirs "$rootdir "
-    while 1 {
-	set tmp $rootdir
-	set rootdir ""
-	if [string match "" $tmp] {
-	    break
-	}
-	foreach i $tmp {
-	    set j [getdirs $i]
-	    if ![string match "" $j] {
-		append dirs "$j "
-		set rootdir $j
-		unset j
-	    } else {
-		set rootdir ""
-	    }
-	}
-	set tmp ""
+    set files [list]
+    if { [string length $rootdir] == 0 || [string length $pattern] == 0 } {
+	return $files
     }
+
+    # find all the directories
+    set dirs [concat [getdirs -all $rootdir] $rootdir]
     
-    # find all the files that match the pattern
+    # find all the files in the directories that match the pattern
     foreach i $dirs {
 	verbose "Looking in $i" 3
-	set tmp [glob -nocomplain $i/$pattern]
-	if { [llength $tmp] != 0 } {
-	    foreach j $tmp {
-		if ![file isdirectory $j] {
-		    lappend files $j
-		    verbose "Adding $j to file list" 3
-		}
+	foreach match [glob -nocomplain $i/$pattern] {
+	    if ![file isdirectory $match] {
+		lappend files $match
+		verbose "Adding $match to file list" 3
 	    }
 	}
     }
-    
-    if ![info exists files] {
-	lappend files ""
-    }
+
     return $files
 }
 
@@ -308,13 +287,12 @@ proc psource { file } {
 # file names (ie: the "foo" in make check RUNTESTFLAGS="bar.exp=foo").
 # "glob" style expressions are supported as well as multiple files (with
 # spaces between them).
-# Eg: RUNTESTFLAGS="bar.exp=foo1.c foo2.c foo3*.c bar*.c"
+# Eg: RUNTESTFLAGS="bar.exp=foo1.c foo2.c foo3*.c bar/baz*.c"
 #
 proc runtest_file_p { runtests testcase } {
     if [string length [lindex $runtests 1]] {
-	set basename [file tail $testcase]
 	foreach ptn [lindex $runtests 1] {
-	    if [string match $ptn $basename] {
+	    if [string match "*/$ptn" $testcase] {
 		return 1
 	    }
 	    if [string match $ptn $testcase] {

@@ -2,7 +2,7 @@
 
 AT_BANNER([Autoconf base layer.])
 
-# Copyright 2000, 2001 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -192,8 +192,8 @@ AT_SETUP([AC_CACHE_CHECK])
 AT_DATA([configure.ac],
 [[AC_INIT
 AC_CACHE_CHECK([for nothing],
-               [ac_nothing],
-               [ac_nothing=found])
+	       [ac_nothing],
+	       [ac_nothing=found])
 ]])
 
 AT_CHECK_AUTOCONF
@@ -212,16 +212,16 @@ AT_DATA([configure.ac],
 [[AC_INIT
 
 if AC_TRY_COMMAND([(echo "The Cat in the Hat";
-                    echo "The Hat in the Cat" >&2)
-                  | grep \^The\ Cat\ in\ the\ Hat\$ >/dev/null]); then
+		    echo "The Hat in the Cat" >&2)
+		  | grep \^The\ Cat\ in\ the\ Hat\$ >/dev/null]); then
   :
 else
   AC_MSG_ERROR([Didn't see the Cat in the Hat!])
 fi
 
 if AC_TRY_COMMAND([(echo "The Cat in the Hat";
-                    echo "The Hat in the Cat" >&2)
-                  | grep \^The\ Hat\ in\ the\ Cat\$ >/dev/null]); then
+		    echo "The Hat in the Cat" >&2)
+		  | grep \^The\ Hat\ in\ the\ Cat\$ >/dev/null]); then
   AC_MSG_ERROR([Saw the Hat in the Cat!])
 fi
 ]])

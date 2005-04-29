@@ -1,10 +1,10 @@
 /*
- * "$Id: ppd.h,v 1.12 2003/08/03 16:31:13 jlovell Exp $"
+ * "$Id: ppd.h,v 1.16 2005/01/04 22:10:39 jlovell Exp $"
  *
  *   PostScript Printer Description definitions for the Common UNIX Printing
  *   System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -16,9 +16,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -293,10 +293,9 @@ extern int		ppdCollect(ppd_file_t *ppd, ppd_section_t section,
 extern int		ppdConflicts(ppd_file_t *ppd);
 extern int		ppdEmit(ppd_file_t *ppd, FILE *fp,
 			        ppd_section_t section);
-#if defined(__APPLE__)
+/* Apple addition */
 extern int		ppdEmitAfterOrder(ppd_file_t *ppd, FILE *fp,
 			        ppd_section_t section, int limitOrder, float minOrder);
-#endif	/* __APPLE__ */
 extern int		ppdEmitFd(ppd_file_t *ppd, int fd,
 			          ppd_section_t section);
 extern int		ppdEmitJCL(ppd_file_t *ppd, FILE *fp, int job_id,
@@ -338,5 +337,5 @@ extern void		ppdSetConformance(ppd_conform_t c);
 #endif /* !_CUPS_PPD_H_ */
 
 /*
- * End of "$Id: ppd.h,v 1.12 2003/08/03 16:31:13 jlovell Exp $".
+ * End of "$Id: ppd.h,v 1.16 2005/01/04 22:10:39 jlovell Exp $".
  */

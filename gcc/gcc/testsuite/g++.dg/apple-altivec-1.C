@@ -1,5 +1,5 @@
 /* APPLE LOCAL file AltiVec */
-/* { dg-do compile { target powerpc-apple-darwin* } } */
+/* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-options "-faltivec" } */
 
 void foo() {

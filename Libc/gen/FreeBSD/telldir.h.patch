@@ -1,0 +1,11 @@
+--- telldir.h.orig	2003-05-20 15:21:03.000000000 -0700
++++ telldir.h	2004-11-19 17:43:13.000000000 -0800
+@@ -61,6 +61,7 @@
+ 
+ struct dirent	*_readdir_unlocked(DIR *);
+ void 		_reclaim_telldir(DIR *);
+-void 		_seekdir(DIR *, long);
++void 		_seekdir(DIR *, long) __DARWIN_ALIAS(_seekdir);
++long		telldir(DIR *) __DARWIN_ALIAS(telldir);
+ 
+ #endif

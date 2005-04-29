@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)erf.3	6.4 (Berkeley) 4/20/91
-.\"	$Id: erf.3,v 1.3 2003/08/17 20:36:46 scp Exp $
+.\"	$Id: erf.3,v 1.4 2004/12/20 21:35:45 scp Exp $
 .\"
 .Dd January 30, 2003
 .Dt ERF 3
@@ -43,20 +43,22 @@
 .Fd #include <math.h>
 .Ft double
 .Fn erf "double x"
-.\\.Fn float
-.\\.Fn erff "float x"
+.Ft long double
+.Fn erfl "long double x"
+.Fn float
+.Fn erff "float x"
 .Ft double
 .Fn erfc "double x"
-.\\.Ft float
-.\\.Fn erfcf "float x"
+.Ft long double
+.Fn erfcl "long double x"
+.Ft float
+.Fn erfcf "float x"
 .Sh DESCRIPTION
 These functions calculate the error function of
 .Fa x .
 .Pp
 The
 .Fn erf
-.\\and
-.\\.Fn erff
 function calculates the error function of x; where
 .Bd -filled -offset indent
 .if n \{\
@@ -68,18 +70,18 @@ erf\|(x) :=
 .Pp
 The
 .Fn erfc
-.\\and
-.\\.Fn erfcf
 function calculates the complementary error function of
 .Fa x ;
 that is
 .Fn erfc
-subtracts the result of the error function
+computes the difference of the error function
 .Fn erf x
 from 1.0.
 This is useful, since for large
 .Fa x
-places disappear.
+use of
+.Fn erfc
+avoids loss of precision due to cancellation.
 .Sh SPECIAL VALUES
 .Fn erf "±0"
 returns ±0.
@@ -100,13 +102,3 @@ The
 and
 .Fn erfc
 functions conform to ISO/IEC 9899:1999(E).
-.\\.Sh STANDARDS
-.\\The
-.\\.Fn erf
-.\\,
-.\\.Fn erff
-.\\,
-.\\.Fn erfc
-.\\and
-.\\.Fn erfcf
-.\\functions conform to ISO/IEC 9899:1999(E).

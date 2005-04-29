@@ -1,0 +1,35 @@
+--- sysctl.3.orig	2004-07-02 16:52:10.000000000 -0700
++++ sysctl.3	2004-10-24 17:35:54.000000000 -0700
+@@ -182,13 +182,21 @@
+ }
+ .Ed
+ .Pp
++Note:  Implementation of
++.Fn printkproc
++-- to print whatever data deemed necessary from the large
++.Vt kinfo_proc
++structure (
++.In sysctl.h
++) -- is left as an exercise for the reader.
++.Pp
+ The top level names are defined with a CTL_ prefix in
+ .In sys/sysctl.h ,
+ and are as follows.
+ The next and subsequent levels down are found in the include files
+ listed here, and described in separate sections below.
+ .Pp
+-.Bl -column CTLXMACHDEPXXX "Next level namesXXXXXX" -offset indent
++.Bl -column CTLXMACHDEP "Next level names" -offset indent
+ .It Sy "Name	Next level names	Description"
+ .It "CTL_DEBUG	sys/sysctl.h	Debugging"
+ .It "CTL_VFS	sys/mount.h	File system"
+@@ -197,7 +205,8 @@
+ .It "CTL_MACHDEP	sys/sysctl.h	Machine dependent"
+ .It "CTL_NET	sys/socket.h	Networking"
+ .It "CTL_USER	sys/sysctl.h	User-level"
+-.It "CTL_VM	vm/vm_param.h	Virtual memory"
++.It "CTL_VM	sys/resources.h	Virtual memory (struct loadavg)"
++.It "CTL_VM	sys/vmmeter.h	Virtual memory (struct vmtotal)"
+ .El
+ .Pp
+ For example, the following retrieves the maximum number of processes allowed

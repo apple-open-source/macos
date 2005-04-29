@@ -71,7 +71,7 @@
 				<key>LCPEchoInterval</key>
 				<integer>10</integer>
 				<key>Logfile</key>
-				<string>/tmp/ppp.log</string>
+				<string>/var/log/ppp.log</string>
 				<key>VerboseLogging</key>
 				<integer>0</integer>
 				<key>__INACTIVE__</key>

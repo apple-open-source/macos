@@ -1,4 +1,3 @@
-/* APPLE LOCAL method encoding */
 /* Encoding tests for ObjC class layouts.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-lobjc" } */
@@ -32,7 +31,7 @@ struct Nested {
 };
 
 @interface Int1: Object {
-  char a, b;
+  signed char a, b;
   Int2 *int2;
   struct Nested nested;
 }

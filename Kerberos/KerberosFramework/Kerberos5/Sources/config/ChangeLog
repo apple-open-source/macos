@@ -1,3 +1,273 @@
+2004-12-17  Jeffrey Altman <jaltman@mit.edu>
+
+        * win-pre.in: add -debug switch to LOPTS if DEBUG_SYMBOLS 
+
+2004-12-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (*-*-netbsd*): Use -fPIC instead of -fpic, which
+	won't work on sparc64 at least.
+
+2004-12-15  Jeffrey Altman <jaltman@mit.edu>
+
+        * win-pre.in; optionally build debug symbols for release builds
+                      and rename krb5support_32.dll to k5sprt32.dll
+
+2004-11-19  Tom Yu  <tlyu@mit.edu>
+
+	* pre.in (KRB5_INCSUBDIRS): Add KRB5_INCDIR/gssrpc.
+
+2004-10-06  Tom Yu  <tlyu@mit.edu>
+
+	* pre.in (datadir, EXAMPLEDIR): Add directory for examples.
+
+2004-09-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* lib.in (binutils.versions, osf1.exports): New file targets.
+	(clean-libs): Delete them.
+	* pre.in (SHLIB_EXPORT_FILE_DEP): Use @SHLIB_EXPORT_FILE_DEP@.
+	* shlib.conf: Set it to $(SHLIB_EXPORT_FILE) by default.
+	(alpha*-dec-osf*): Use osf1.exports instead of adding commands to
+	generate a temporary file.
+	(*-*-linux*, *-*-gnu*, *-*-k*bsd*-gnu): Use binutils.versions.
+
+2004-09-22  Tom Yu  <tlyu@mit.edu>
+
+	* pre.in (UTIL_LIB): Set if we need libutil.
+
+	* shlib.conf (alpha*-dec-osf*): Only use -Wl,-oldstyle_liblookup
+	if using native linker, with check for native linker if gcc is
+	being used.
+
+2004-09-21  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (*-*-linux*, *-*-gnu*, *-*-k*bsd*-gnu): Don't use the
+	linker option --retain-symbols-file, it doesn't work for shared
+	libraries.
+
+2004-09-17  Tom Yu  <tlyu@mit.edu>
+
+	* pre.in (INSTALL_SCRIPT): New variable; use to install scripts,
+	as we don't want to strip scripts.
+
+2004-08-19  Sam Hartman  <hartmans@mit.edu>
+
+	* shlib.conf: Add support for gnu hurd and for BSD kernels with
+	glibc; use the Linux shared library procedure 
+
+2004-07-11  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (alpha*-dec-osf*): Use $(PTHREAD_CFLAGS) in
+	CC_LINK_SHARED and CC_LINK_STATIC.
+
+2004-07-09  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (alpha*-dec-osf*): Use $(PTHREAD_CFLAGS) in
+	LDCOMBINE.
+
+2004-06-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (*-*-darwin*, *-*-rhapsody*): Don't set PICFLAGS or
+	LDFLAGS.  Force static libraries only always, instead of just as
+	the default.
+	(*-*-aix*): The initfini argument should be "-binitfini".  Use
+	-bernotok, not -berok.  Do use the INIT_FINI_PREP command in
+	constructing MAKE_SHLIB_COMMAND.
+
+	* pre.in (PTHREAD_CFLAGS): New variable.
+	(ALL_CFLAGS): Include it.
+
+	* win-pre.in (SLIB): New variable.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* mac-config.README, mac-config.cache, mac-mf.sed, mac-post.in,
+	mac-pre.in: Files deleted.
+
+2004-06-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* pre.in (AUTOCONF, AUTOHEADER): Always set to autoconf and
+	autoheader respectively.
+	(AUTOCONFFLAGS, AUTOHEADERFLAGS): Always set to empty.
+	* post.in (Makefile): Always run autoconf with --include, don't
+	bother with --localdir any more.  Don't delete autom4te.cache
+	here.
+	(clean-unix): Delete autom4te.cache.
+
+	* shlib.conf (*-*-darwin*, *-*-rhapsody*): Add
+	-Wl,-search_paths_first to linker flags.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* lib.in (lib*, clean-*, install-*): Use $(LIBBASE) instead of
+	$(LIB).
+	* pre.in (SHLIB_EXPORT_FILE): Likewise.
+	* shlib.conf: Likewise.
+
+2004-05-30  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (*-*-aix*): Use linker options for library
+	finalization.
+
+2004-05-27  Ken Raeburn  <raeburn@mit.edu>
+
+	* win-pre.in (CP): Copy nul: plus the file, to avoid carrying over
+	the original modification time, since some of our makefiles depend
+	on $(CP) updating the timestamp.  Use binary mode for the copy,
+	because default/ASCII seems to cause a ^Z to be added to the
+	file.
+
+2004-05-12  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (*-*-linux*): Use GNU linker's --retain-symbols-file
+	option to implement export list.
+
+2004-05-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* libobj.in (OBJS.ST, OBJS.SH, OBJS.PF): Depend on Makefile.
+
+	* pre.in (SUPPORT_LIBNAME, SUPPORT_DEPLIB, SUPPORT_LIB): New
+	variables.
+	(KRB5_BASE_LIBS): Add $(SUPPORT_LIB).
+
+2004-05-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (alpha*-dec-osf*): Do remember to set
+	use_linker_init_option and use_linker_fini_option.
+	(mips-sgi-irix*): Set LDCOMBINE_TAIL only if not using gcc.
+
+2004-04-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (alpha*-dec-osf*): Add support for export list, using
+	a temporary file, and init/fini functions.
+	(mips-sgi-irix*): Previous support should not be used with gcc.
+
+	* pre.in (EXTRA_FILES): New variable.
+	* post.in (clean-unix): Delete extra files.
+
+	* shlib.conf: Initialize use_linker_init_option and
+	use_linker_fini_option to no.
+	(mips-sgi-irix*): Add link-time support for library
+	initialization and finalization.
+	(*-*-solaris*): Likewise, for native compiler.  Change "pic" mode
+	to "PIC", libkrb5 seems to need it now.
+
+2004-04-28  Ken Raeburn  <raeburn@mit.edu>
+
+	* libobj.in (.c.so): Add -DSHARED to compile options.
+
+2004-04-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* lib.in (PARSE_OBJLISTS): New variable.
+	(lib$(LIB)$(STLIBEXT), lib$(LIB)$(SHLIBVEXT)): Use it.
+	(lib$(LIB)$(PFLIBEXT)): Use it.
+
+	* shlib.conf (INIT_FINI_PREP): New variable.  Default to a no-op,
+	but let each platform set setup routines to process
+	initialization and finalization options for the default
+	MAKE_SHLIB_COMMAND value.
+	(case mips-sgi-irix*): Define LDCOMBINE_TAIL to use the library's
+	export list.
+
+2004-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* pre.in (PERL): New variable.
+	* lib.in (lib$(LIB)$(SHLIBVEXT)): Use one perl invocation rather
+	than n+1 sed invocations.
+
+2004-04-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* pre.in (DO_MAKE_SHLIB, SHLIB_STATIC_TARGET, LDCOMBINE,
+	LDCOMBINE_TAIL): Delete unused variables.
+	(SHLIB_EXPORT_FILE, SHLIB_EXPORT_FILE_DEP, MAKE_SHLIB_COMMAND):
+	New variables.
+	* lib.in (lib$(LIB)$(SHLIBVEXT)): Depend on
+	SHLIB_EXPORT_FILE_DEP.  Set objlist to the list of object files
+	before invoking MAKE_SHLIB_COMMAND, instead of wrapping the list
+	with LDCOMBINE and LDCOMBINE_TAIL.
+	* shlib.conf: Set MAKE_SHLIB_COMMAND, using LDCOMBINE and
+	LDCOMBINE_TAIL in the common case.
+	(case *-*-aix*): Specify new commands, taken from makeshlib.sh,
+	but assume the export list is provided externally.
+
+2004-03-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (default_static, default_shared): New variables to
+	set.
+
+2004-03-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* ac-archive: New directory.
+	* ac-archive/README: New file.
+	* ac-archive/acx_pthread.m4: New file, data taken from autoconf
+	macro archive at sourceforge.
+
+2004-03-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* pre.in (SUBDIRS): Use autoconf substitution trick to make
+	SUBDIRS contain @subdirs@ only for the directory containing the
+	configure script, and only LOCAL_SUBDIRS elsewhere.
+	(top_srcdir): Define, set by configure.
+
+	* post.in (RECURSE_TARGETS): Drop MY_SUBDIRS support.
+
+2004-02-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* pre.in (APPUTILS_DEPLIB, APPUTILS_LIB): New vars.
+	* post.in (daemon.c): Delete rule for copying source file.
+
+2004-02-18  Tom Yu  <tlyu@mit.edu>
+
+	* shlib.conf (alpha-*-dec-osf*, mips-sgi-irix*): Use $(CC) instead
+	of ld for building shared libraries.
+
+2004-02-12  Tom Yu  <tlyu@mit.edu>
+
+	* shlib.conf (*-*-solaris-*): Remove exitsleep.
+
+	* pre.in (FAKEDEST, FAKEPREFIX, FAKELIBDIR): Support variables for
+	the _RLD_ROOT hack.
+
+	* shlib.conf: For alpha/Tru64 and Irix, construct _RLD_ROOT values
+	pointing to a fake destdir, as well as to the real root directory.
+	Previously, pointing _RLD_ROOT at a non-existent directory and
+	putting everything in LD_LIBRARY_PATH caused other installed
+	utilities with RPATHs which were run by the test suite to fail to
+	run.
+
+2004-02-09  Tom Yu  <tlyu@mit.edu>
+
+	* config.guess: Update from autoconf-2.59.
+
+	* config.sub: Update from autoconf-2.59.
+
+	* install-sh: Update from autoconf-2.59.
+
+2003-11-26  Jeffrey Altman <jaltman@mit.edu>
+
+    * win-pre.in (KFWFLAGS): conditionally define USE_LEASH=1
+      to enable access to Leash apis for kinit dialogs within 
+      gssapi32.dll
+
+2003-12-05  Tom Yu  <tlyu@mit.edu>
+
+	* shlib.conf: Add Solaris support for LD_PRELOAD.
+
+2003-09-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* post.in (configure): Make configure depend on configure.in and
+	aclocal.m4 only if maintainer mode is enabled.
+
+2003-09-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* shlib.conf (*-*-linux*): Use $(CC) for linking shared libraries,
+	and -Wl to pass linker flags in, so it can supply the necessary
+	support libraries.
+
+2003-08-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* post.in (daemon.c): New rule for copying daemon.c locally from
+	master copy in lib/krb5/posix.
+
 2003-05-27  Ken Raeburn  <raeburn@mit.edu>
 
 	* win-pre.in (CPPFLAGS): Define KRB5_DEPRECATED=1.

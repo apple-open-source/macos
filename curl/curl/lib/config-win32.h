@@ -1,6 +1,9 @@
 /* config.h.  Generated automatically by configure.  */
 /* config.h.in.  Generated automatically from configure.in by autoheader.  */
 
+#ifndef __CONFIG_WIN32_H
+#define __CONFIG_WIN32_H
+
 /* Define if on AIX 3.
    System headers sometimes define this.
    We just want to avoid a redefinition error message.  */
@@ -27,7 +30,21 @@
 #define ssize_t int
 
 /* Define this to 'int' if socklen_t is not an available typedefed type */
+#if !defined(ENABLE_IPV6) && ((_MSC_VER < 1300) || !defined(USE_SSLEAY))
 #define socklen_t int
+#endif
+
+/* The size of a `curl_off_t', as computed by sizeof. */
+#ifdef SIZEOF_CURL_OFF_T
+#undef SIZEOF_CURL_OFF_T
+#endif
+
+/* Borland lacks _lseeki64(), so we don't support >2GB files */
+#ifdef __BORLANDC__
+#define SIZEOF_CURL_OFF_T 4
+#else
+#define SIZEOF_CURL_OFF_T 8
+#endif
 
 /* Define if you have the ANSI C header files.  */
 #define STDC_HEADERS 1
@@ -36,7 +53,7 @@
 /* #define TIME_WITH_SYS_TIME 1 */
 
 /* Define cpu-machine-OS */
-#define OS "win32"
+#define OS "i386-pc-win32"
 
 /* The number of bytes in a long double.  */
 #define SIZEOF_LONG_DOUBLE 16
@@ -89,6 +106,11 @@
 /* Define if you have the strstr function.  */
 #define HAVE_STRSTR 1
 
+/* Define if you have the strtoll function.  */
+#if defined(__MINGW32__) || defined(__WATCOMC__)
+#define HAVE_STRTOLL 1
+#endif
+
 /* Define if you have the tcgetattr function.  */
 /*#define HAVE_TCGETATTR 1*/
 
@@ -98,6 +120,11 @@
 /* Define if you have the uname function.  */
 /*#define HAVE_UNAME 1*/
 
+/* Define if you have utime() */
+#ifndef __BORLANDC__
+#define HAVE_UTIME 1
+#endif
+
 /* Define if you have the <alloca.h> header file.  */
 /*#define HAVE_ALLOCA_H 1*/
 
@@ -105,7 +132,10 @@
 #define HAVE_MALLOC_H 1
 
 /* Define if you have the <arpa/inet.h> header file.  */
-#define HAVE_ARPA_INET_H 1
+/* #define HAVE_ARPA_INET_H 1 */
+
+/* Define if you have the <assert.h> header file.  */
+#define HAVE_ASSERT_H 1
 
 /* Define if you have the <crypto.h> header file.  */
 /* #undef HAVE_CRYPTO_H */
@@ -123,7 +153,7 @@
 /* #undef HAVE_GETOPT_H */
 
 /* Define if you have the <netdb.h> header file.  */
-#define HAVE_NETDB_H 1
+/* #define HAVE_NETDB_H 1 */
 
 /* Define if you have the <netinet/in.h> header file.  */
 /*#define HAVE_NETINET_IN_H 1*/
@@ -144,19 +174,24 @@
 /*#define HAVE_SYS_SOCKET_H 1*/
 
 /* Define if you have the <sys/sockio.h> header file.  */
-#define HAVE_SYS_SOCKIO_H 1
+/* #define HAVE_SYS_SOCKIO_H 1 */
 
 /* Define if you have the <sys/stat.h> header file.  */
 #define HAVE_SYS_STAT_H 1
+
+/* Define if you have the <sys/utime.h> header file */
+#ifndef __BORLANDC__
+#define HAVE_SYS_UTIME_H 1
+#endif
 
 /* Define if you have the <sys/types.h> header file.  */
 #define HAVE_SYS_TYPES_H 1
 
 /* Define if you have the <termio.h> header file.  */
-#define HAVE_TERMIO_H 1
+/* #define HAVE_TERMIO_H 1 */
 
 /* Define if you have the <termios.h> header file.  */
-#define HAVE_TERMIOS_H 1
+/* #define HAVE_TERMIOS_H 1 */
 
 /* Name of package */
 #define PACKAGE "curl"
@@ -169,6 +204,12 @@
 
 /* Define if you have the <winsock.h> header file.  */
 #define HAVE_WINSOCK_H 1
+
+/* Define if you have the <winsock2.h> header file.  */
+#define HAVE_WINSOCK2_H 1
+
+/* Define if you have the <ws2tcpip.h> header file.  */
+#define HAVE_WS2TCPIP_H 1
 
 /* Define if you have the <stdlib.h> header file.  */
 #define HAVE_STDLIB_H 1
@@ -188,40 +229,20 @@
 /* Define this to if in_addr_t is not an available typedefed type */
 #define in_addr_t unsigned long
 
+/* use ioctlsocket() for non-blocking sockets */
+#define HAVE_IOCTLSOCKET
+
 /*************************************************
  * This section is for compiler specific defines.*
  *************************************************/
-#ifdef MINGW32 /* Borland and MS don't have this */
+/* Borland and MS don't have this */
+#if defined(__MINGW32__) || defined(__WATCOMC__) || defined(__LCC__)
 
 /* Define if you have the <unistd.h> header file.  */
 #define HAVE_UNISTD_H 1
 
+#else
+
 #endif
 
-/**************************************************
- *This is to eliminate the warnings when compiled *
- * using MS VC++ compiler	  			  *
- **************************************************/
-#if 0
-
-#pragma warning (disable: 4244)	/* truncation from 'const int' to 'char' */
-#pragma warning (disable: 4127)	/* conditional expression is constant */
-#pragma warning (disable: 4706)	/* assignment within conditional expression */
-#pragma warning (disable: 4761)	/* integral size mismatch in argument */
-#pragma warning (disable: 4101)	/* unreferenced local variable */
-#pragma warning (disable: 4131)	/* uses old-style declarator */
-#pragma warning (disable: 4057)	/* const char *' differs in indirection to
-                                   slightly different base types from
-                                   'unsigned char [x] */
-#pragma warning (disable: 4100)	/* unreferenced formal parameter */
-#pragma warning (disable: 4055)	/* type cast' : from data pointer 'void *' to
-                                   function pointer
-                                   'void *(__cdecl *)(char *,int ) */
-#pragma warning (disable: 4701)	/* local variable may be used without having
-                                   been initialized */
-#pragma warning (disable: 4715)	/* ToHour' : not all control paths return a
-                                   value */
-#pragma warning (disable: 4115) /* warning C4115: '_RPC_ASYNC_STATE' : named
-                                   type definition in parentheses */
-#pragma warning (disable: 4206) /* this does what? */
 #endif

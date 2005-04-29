@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -31,8 +30,8 @@
 
 with Ada.Text_IO;
 
-with MDLL.Tools;
-with MDLL.Files;
+with MDLL.Utl;
+with MDLL.Fil;
 
 package body MDLL is
 
@@ -58,7 +57,7 @@ package body MDLL is
 
       use type OS_Lib.Argument_List;
 
-      Base_Filename : constant String := MDLL.Files.Ext_To (Lib_Filename);
+      Base_Filename : constant String := MDLL.Fil.Ext_To (Lib_Filename);
 
       Def_File : aliased String := Def_Filename;
       Jnk_File : aliased String := Base_Filename & ".jnk";
@@ -70,6 +69,7 @@ package body MDLL is
       Bas_Opt  : aliased String := "-Wl,--base-file," & Bas_File;
       Lib_Opt  : aliased String := "-mdll";
       Out_Opt  : aliased String := "-o";
+      Adr_Opt  : aliased String := "-Wl,--image-base=" & Lib_Address;
 
       All_Options : constant Argument_List := Options & Largs_Options;
 
@@ -92,11 +92,12 @@ package body MDLL is
       ---------------------
 
       procedure Build_Reloc_DLL is
-
          --  Objects plus the export table (.exp) file
 
-         Objects_Exp_File : OS_Lib.Argument_List
+         Objects_Exp_File : constant OS_Lib.Argument_List
            := Exp_File'Unchecked_Access & Ofiles;
+
+         Success : Boolean;
 
       begin
          if not Quiet then
@@ -112,50 +113,50 @@ package body MDLL is
 
          --  1) Build base file with objects files.
 
-         Tools.Gcc (Output_File => Jnk_File,
-                    Files       => Ofiles,
-                    Options     => All_Options,
-                    Base_File   => Bas_File,
-                    Build_Lib   => True);
+         Utl.Gcc (Output_File => Jnk_File,
+                  Files       => Ofiles,
+                  Options     => All_Options,
+                  Base_File   => Bas_File,
+                  Build_Lib   => True);
 
          --  2) Build exp from base file.
 
-         Tools.Dlltool (Def_File, Dll_File, Lib_File,
-                        Base_File    => Bas_File,
-                        Exp_Table    => Exp_File,
-                        Build_Import => False);
+         Utl.Dlltool (Def_File, Dll_File, Lib_File,
+                      Base_File    => Bas_File,
+                      Exp_Table    => Exp_File,
+                      Build_Import => False);
 
          --  3) Build base file with exp file and objects files.
 
-         Tools.Gcc (Output_File => Jnk_File,
-                    Files       => Objects_Exp_File,
-                    Options     => All_Options,
-                    Base_File   => Bas_File,
-                    Build_Lib   => True);
+         Utl.Gcc (Output_File => Jnk_File,
+                  Files       => Objects_Exp_File,
+                  Options     => All_Options,
+                  Base_File   => Bas_File,
+                  Build_Lib   => True);
 
          --  4) Build new exp from base file and the lib file (.a)
 
-         Tools.Dlltool (Def_File, Dll_File, Lib_File,
-                        Base_File    => Bas_File,
-                        Exp_Table    => Exp_File,
-                        Build_Import => Build_Import);
+         Utl.Dlltool (Def_File, Dll_File, Lib_File,
+                      Base_File    => Bas_File,
+                      Exp_Table    => Exp_File,
+                      Build_Import => Build_Import);
 
          --  5) Build the dynamic library
 
-         Tools.Gcc (Output_File => Dll_File,
-                    Files       => Objects_Exp_File,
-                    Options     => All_Options,
-                    Build_Lib   => True);
+         Utl.Gcc (Output_File => Dll_File,
+                  Files       => Objects_Exp_File,
+                  Options     => Adr_Opt'Unchecked_Access & All_Options,
+                  Build_Lib   => True);
 
-         Tools.Delete_File (Exp_File);
-         Tools.Delete_File (Bas_File);
-         Tools.Delete_File (Jnk_File);
+         OS_Lib.Delete_File (Exp_File, Success);
+         OS_Lib.Delete_File (Bas_File, Success);
+         OS_Lib.Delete_File (Jnk_File, Success);
 
       exception
          when others =>
-            Tools.Delete_File (Exp_File);
-            Tools.Delete_File (Bas_File);
-            Tools.Delete_File (Jnk_File);
+            OS_Lib.Delete_File (Exp_File, Success);
+            OS_Lib.Delete_File (Bas_File, Success);
+            OS_Lib.Delete_File (Jnk_File, Success);
             raise;
       end Build_Reloc_DLL;
 
@@ -164,6 +165,7 @@ package body MDLL is
       -------------------------
 
       procedure Ada_Build_Reloc_DLL is
+         Success : Boolean;
       begin
          if not Quiet then
             Text_IO.Put_Line ("Building relocatable DLL...");
@@ -178,7 +180,7 @@ package body MDLL is
 
          --  1) Build base file with objects files.
 
-         Tools.Gnatbind (Afiles, Options & Bargs_Options);
+         Utl.Gnatbind (Afiles, Options & Bargs_Options);
 
          declare
             Params : OS_Lib.Argument_List :=
@@ -186,20 +188,19 @@ package body MDLL is
               Lib_Opt'Unchecked_Access &
               Bas_Opt'Unchecked_Access & Ofiles & All_Options;
          begin
-            Tools.Gnatlink (Afiles (Afiles'Last).all,
-                            Params);
+            Utl.Gnatlink (Afiles (Afiles'Last).all, Params);
          end;
 
          --  2) Build exp from base file.
 
-         Tools.Dlltool (Def_File, Dll_File, Lib_File,
-                        Base_File    => Bas_File,
-                        Exp_Table    => Exp_File,
-                        Build_Import => False);
+         Utl.Dlltool (Def_File, Dll_File, Lib_File,
+                      Base_File    => Bas_File,
+                      Exp_Table    => Exp_File,
+                      Build_Import => False);
 
          --  3) Build base file with exp file and objects files.
 
-         Tools.Gnatbind (Afiles, Options & Bargs_Options);
+         Utl.Gnatbind (Afiles, Options & Bargs_Options);
 
          declare
             Params : OS_Lib.Argument_List :=
@@ -210,42 +211,41 @@ package body MDLL is
               Ofiles &
               All_Options;
          begin
-            Tools.Gnatlink (Afiles (Afiles'Last).all,
-                            Params);
+            Utl.Gnatlink (Afiles (Afiles'Last).all, Params);
          end;
 
          --  4) Build new exp from base file and the lib file (.a)
 
-         Tools.Dlltool (Def_File, Dll_File, Lib_File,
-                        Base_File    => Bas_File,
-                        Exp_Table    => Exp_File,
-                        Build_Import => Build_Import);
+         Utl.Dlltool (Def_File, Dll_File, Lib_File,
+                      Base_File    => Bas_File,
+                      Exp_Table    => Exp_File,
+                      Build_Import => Build_Import);
 
          --  5) Build the dynamic library
 
-         Tools.Gnatbind (Afiles, Options & Bargs_Options);
+         Utl.Gnatbind (Afiles, Options & Bargs_Options);
 
          declare
             Params : OS_Lib.Argument_List :=
               Out_Opt'Unchecked_Access & Dll_File'Unchecked_Access &
               Lib_Opt'Unchecked_Access &
               Exp_File'Unchecked_Access &
+              Adr_Opt'Unchecked_Access &
               Ofiles &
               All_Options;
          begin
-            Tools.Gnatlink (Afiles (Afiles'Last).all,
-                            Params);
+            Utl.Gnatlink (Afiles (Afiles'Last).all, Params);
          end;
 
-         Tools.Delete_File (Exp_File);
-         Tools.Delete_File (Bas_File);
-         Tools.Delete_File (Jnk_File);
+         OS_Lib.Delete_File (Exp_File, Success);
+         OS_Lib.Delete_File (Bas_File, Success);
+         OS_Lib.Delete_File (Jnk_File, Success);
 
       exception
          when others =>
-            Tools.Delete_File (Exp_File);
-            Tools.Delete_File (Bas_File);
-            Tools.Delete_File (Jnk_File);
+            OS_Lib.Delete_File (Exp_File, Success);
+            OS_Lib.Delete_File (Bas_File, Success);
+            OS_Lib.Delete_File (Jnk_File, Success);
             raise;
       end Ada_Build_Reloc_DLL;
 
@@ -254,6 +254,7 @@ package body MDLL is
       -------------------------
 
       procedure Build_Non_Reloc_DLL is
+         Success : Boolean;
       begin
          if not Quiet then
             Text_IO.Put_Line ("building non relocatable DLL...");
@@ -269,22 +270,22 @@ package body MDLL is
 
          --  Build exp table and the lib .a file.
 
-         Tools.Dlltool (Def_File, Dll_File, Lib_File,
-                        Exp_Table    => Exp_File,
-                        Build_Import => Build_Import);
+         Utl.Dlltool (Def_File, Dll_File, Lib_File,
+                      Exp_Table    => Exp_File,
+                      Build_Import => Build_Import);
 
          --  Build the DLL
 
-         Tools.Gcc (Output_File => Dll_File,
-                    Files       => Exp_File'Unchecked_Access & Ofiles,
-                    Options     => All_Options,
-                    Build_Lib   => True);
+         Utl.Gcc (Output_File => Dll_File,
+                  Files       => Exp_File'Unchecked_Access & Ofiles,
+                  Options     => Adr_Opt'Unchecked_Access & All_Options,
+                  Build_Lib   => True);
 
-         Tools.Delete_File (Exp_File);
+         OS_Lib.Delete_File (Exp_File, Success);
 
       exception
          when others =>
-            Tools.Delete_File (Exp_File);
+            OS_Lib.Delete_File (Exp_File, Success);
             raise;
       end Build_Non_Reloc_DLL;
 
@@ -295,6 +296,7 @@ package body MDLL is
       --  Build a non relocatable DLL with Ada code.
 
       procedure Ada_Build_Non_Reloc_DLL is
+         Success : Boolean;
       begin
          if not Quiet then
             Text_IO.Put_Line ("building non relocatable DLL...");
@@ -310,31 +312,31 @@ package body MDLL is
 
          --  Build exp table and the lib .a file.
 
-         Tools.Dlltool (Def_File, Dll_File, Lib_File,
-                        Exp_Table    => Exp_File,
-                        Build_Import => Build_Import);
+         Utl.Dlltool (Def_File, Dll_File, Lib_File,
+                      Exp_Table    => Exp_File,
+                      Build_Import => Build_Import);
 
          --  Build the DLL
 
-         Tools.Gnatbind (Afiles, Options & Bargs_Options);
+         Utl.Gnatbind (Afiles, Options & Bargs_Options);
 
          declare
             Params : OS_Lib.Argument_List :=
               Out_Opt'Unchecked_Access & Dll_File'Unchecked_Access &
               Lib_Opt'Unchecked_Access &
               Exp_File'Unchecked_Access &
+              Adr_Opt'Unchecked_Access &
               Ofiles &
               All_Options;
          begin
-            Tools.Gnatlink (Afiles (Afiles'Last).all,
-                            Params);
+            Utl.Gnatlink (Afiles (Afiles'Last).all, Params);
          end;
 
-         Tools.Delete_File (Exp_File);
+         OS_Lib.Delete_File (Exp_File, Success);
 
       exception
          when others =>
-            Tools.Delete_File (Exp_File);
+            OS_Lib.Delete_File (Exp_File, Success);
             raise;
       end Ada_Build_Non_Reloc_DLL;
 
@@ -371,7 +373,7 @@ package body MDLL is
       --  Build an import library.
       --  this is to build only a .a library to link against a DLL.
 
-      Base_Filename : constant String := MDLL.Files.Ext_To (Lib_Filename);
+      Base_Filename : constant String := MDLL.Fil.Ext_To (Lib_Filename);
 
       --------------------------
       -- Build_Import_Library --
@@ -391,8 +393,8 @@ package body MDLL is
                               " to use dynamic library " & Dll_File);
          end if;
 
-         Tools.Dlltool (Def_File, Dll_File, Lib_File,
-                        Build_Import => True);
+         Utl.Dlltool (Def_File, Dll_File, Lib_File,
+                      Build_Import => True);
       end Build_Import_Library;
 
    begin

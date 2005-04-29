@@ -1,36 +1,18 @@
 /*
 ** grammar for xgc syntax
 */
-/* $XFree86: xc/programs/xgc/gram.y,v 1.3 2000/02/17 14:00:36 dawes Exp $ */
+/* $XFree86: xc/programs/xgc/gram.y,v 1.4 2003/05/07 21:02:07 herrb Exp $ */
 
 %{
 #define YYDEBUG 1
 
 #include <stdio.h>
 #include <X11/X.h>
-#include "constants.h"
+#include <X11/Intrinsic.h>
+#include "xgc.h"
 
 extern int yylineno;
-extern FILE *yyin;
-int yylex();
-void yyerror();
 
-extern void GC_change_function();
-extern void GC_change_foreground();
-extern void GC_change_background();
-extern void GC_change_linewidth();
-extern void GC_change_linestyle();
-extern void GC_change_capstyle();
-extern void GC_change_joinstyle();
-extern void GC_change_fillstyle();
-extern void GC_change_fillrule();
-extern void GC_change_arcmode();
-extern void GC_change_dashlist();
-extern void GC_change_planemask();
-extern void GC_change_font();
-extern void change_test();
-extern void change_percent();
-extern void run_test();
 %}
 
 %union
@@ -109,8 +91,7 @@ stmt		: error
 
 %%
 void
-yyerror(s)
-     const char *s;
+yyerror(const char *s)
 {
   fprintf(stderr, "xgc: syntax error, line %d\n", yylineno);
 }

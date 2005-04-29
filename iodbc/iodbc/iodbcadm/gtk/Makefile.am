@@ -1,7 +1,7 @@
 #
 #  Makefile.am
 #
-#  $Id: Makefile.am,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+#  $Id: Makefile.am,v 1.2 2004/08/10 22:20:28 luesang Exp $
 #
 #  The iODBC driver manager.
 #  
@@ -67,22 +67,23 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-DATEBUILD		= `date +%d/%m/%Y_%T`
+DATEBUILD			= `date +%d/%m/%Y_%T`
 
 if GTK
-lib_LTLIBRARIES		= libiodbcadm-gtk.la
+noinst_LTLIBRARIES		= libiodbcadm-gtk.la
 endif
 
-INCLUDES		= \
+INCLUDES			= \
 	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/iodbc \
 	-I$(top_srcdir)/iodbcadm \
 	-I$(top_srcdir)/iodbcinst \
 	@GTK_CFLAGS@
 
-CFLAGS			= @CFLAGS@ -D__GTK__ -DDATEBUILD=\"$(DATEBUILD)\"
+AM_CFLAGS			= \
+	@CFLAGS@ -D__GTK__ -DDATEBUILD=\"$(DATEBUILD)\"
 
-libiodbcadm_gtk_la_LDFLAGS	= -static
+libiodbcadm_gtk_la_LDFLAGS	= #-static
 libiodbcadm_gtk_la_LIBADD	= @GTK_LIBS@
 libiodbcadm_gtk_la_SOURCES	= \
 	administrator.c \
@@ -93,17 +94,16 @@ libiodbcadm_gtk_la_SOURCES	= \
 	dsnchooser.c \
 	errorbox.c \
 	filedsn.c \
-	loginbox.c \
 	main.c \
 	messagebox.c \
 	translatorchooser.c 
+EXTRA_libiodbcadm_gtk_la_SOURCES = question.xpm
 
-confirm.c: $(top_srcdir)/drvproxy/gtk/confirm.c question.xpm
-	${RM} confirm.c
-	${LN_S} $(top_srcdir)/drvproxy/gtk/confirm.c confirm.c
+CLEANFILES	= confirm.c question.xpm
 
-question.xpm: $(top_srcdir)/drvproxy/gtk/question.xpm
-	${RM} question.xpm
-	${LN_S} $(top_srcdir)/drvproxy/gtk/question.xpm question.xpm
+confirm.c: $(top_srcdir)/drvproxy/gtk/confirm.c
+	-rm -f question.xpm confirm.c
+	$(LN_S) $(top_srcdir)/drvproxy/gtk/question.xpm question.xpm
+	$(LN_S) $(top_srcdir)/drvproxy/gtk/confirm.c confirm.c
 
-noinst_HEADERS	= error.xpm img.xpm odbc4.xpm gui.h
+noinst_HEADERS			= error.xpm img.xpm odbc4.xpm gui.h

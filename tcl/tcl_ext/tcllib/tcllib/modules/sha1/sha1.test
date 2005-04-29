@@ -1,0 +1,70 @@
+# -*- tcl -*-
+# sha1.test:  tests for the sha1 commands
+#
+# This file contains a collection of tests for one or more of the Tcl
+# built-in commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2001 by ActiveState Tool Corp.
+# All rights reserved.
+#
+# RCS: @(#) $Id: sha1.test,v 1.4 2004/02/14 05:59:22 andreas_kupries Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+package require sha1
+if {[catch {package present Trf}]} {
+    puts "sha1 [package present sha1] (pure Tcl)"
+} else {
+    puts "sha1 [package present sha1] (Trf based)"
+}
+
+
+test sha1-1.0 {sha1} {
+    catch {::sha1::sha1} result
+    set result
+} [tcltest::wrongNumArgs "::sha1::sha1" "msg" 0]
+
+test sha1-1.1 {sha1} {
+    catch {::sha1::hmac} result
+    set result
+} [tcltest::wrongNumArgs "::sha1::hmac" "key text" 0]
+
+test sha1-1.2 {sha1} {
+    catch {::sha1::hmac key} result
+    set result
+} [tcltest::wrongNumArgs "::sha1::hmac" "key text" 1]
+
+
+foreach {n msg expected} {
+    1 "abc"
+    "a9993e364706816aba3e25717850c26c9cd0d89d"
+    2 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
+    "84983e441c3bd26ebaae4aa1f95129e5e54670f1"
+} {
+    test sha1-2.$n {sha1} {
+	::sha1::sha1 $msg
+    } $expected ; # {}
+}
+
+foreach {n key text expected} {
+    1 ""     ""      "fbdb1d1b18aa6c08324b7d64b71fb76370690e1d"
+    2 "foo"  "hello" "4c883e9bc42763641bba04185d492de00de7ce2c"
+    3 "bar"  "world" "a905e79f51faa446cb5a3888b577e34577ef7fce"
+    4 "key"  "text"  "369e2959eb49450338b212748f77d8ded74847bb"
+    5 "sha1" "hmac"  "2660aeeccf432596e56f8f8260de971322e8935b"
+    6 "hmac" "sha1"  "170523fd610da92dd4b4fb948a01a8365d66511a"
+    7 "sha1" "sha1"  "5154473317173f66212fc59365233ffd9cbaab94"
+    8 "hmac" "hmac"  "9e08393f6ac829c4385930ea38567dad582d958f"
+    9 "01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh==" "hello world"
+    "6541c34492618a052c12cb9f88fb795d97595b34"
+} {
+    test sha1-3.$n {hmac} {
+	::sha1::hmac $key $text
+    } $expected ; # {}
+}
+
+::tcltest::cleanupTests

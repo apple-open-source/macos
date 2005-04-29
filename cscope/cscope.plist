@@ -1,0 +1,24 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>cscope</string>
+	<key>OpenSourceVersion</key>
+	<string>15.5</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://cscope.sourceforge.net/</string>
+	<key>OpenSourceURL</key>
+	<string>http://voxel.dl.sourceforge.net/sourceforge/cscope/cscope-15.5.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>2e8e66735254328399dc50757b270bcc3e9002d3</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-07-09</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Minor compile fixes.</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>cscope.txt</string>
+</dict>
+</plist>

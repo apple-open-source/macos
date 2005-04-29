@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -80,10 +80,7 @@
 
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
-#define KERNEL
 #include <nfs/nfs.h>
-#undef KERNEL
-#include <nfs/nqnfs.h>
 
 #include <arpa/inet.h>
 
@@ -110,10 +107,18 @@
 #define	ALTF_MNTUDP	0x80
 #define ALTF_RESVPORT	0x100
 #define ALTF_SEQPACKET	0x200
-#define ALTF_NQNFS	0x400
+#define ALTF_UDP	0x400
 #define ALTF_SOFT	0x800
 #define ALTF_TCP	0x1000
 #define ALTF_NFSV2	0x2000
+#define ALTF_NOLOCKS	0x4000
+#define ALTF_ATTRCACHE	0x8000
+#define ALTF_RSIZE	0x10000
+#define ALTF_WSIZE	0x20000
+#define ALTF_READAHEAD	0x40000
+#define ALTF_NFSVERS	0x80000
+#define ALTF_TIMEO	0x100000
+#define ALTF_RETRANS	0x200000
 
 struct mntopt mopts[] = {
 	MOPT_STDOPTS,
@@ -133,10 +138,28 @@ struct mntopt mopts[] = {
 #ifdef ISO
 	{ "seqpacket", 0, ALTF_SEQPACKET, 1 },
 #endif
-	{ "nqnfs", 0, ALTF_NQNFS, 1 },
+	{ "udp", 0, ALTF_UDP, 1 },
 	{ "soft", 0, ALTF_SOFT, 1 },
 	{ "tcp", 0, ALTF_TCP, 1 },
 	{ "nfsv2", 0, ALTF_NFSV2, 1 },
+	{ "acregmin=", 0, ALTF_ATTRCACHE, 1 },
+	{ "acregmax=", 0, ALTF_ATTRCACHE, 1 },
+	{ "acdirmin=", 0, ALTF_ATTRCACHE, 1 },
+	{ "acdirmax=", 0, ALTF_ATTRCACHE, 1 },
+	{ "actimeo=", 0, ALTF_ATTRCACHE, 1 },
+	{ "ac", 1, ALTF_ATTRCACHE, 1 },
+	{ "locks", 1, ALTF_NOLOCKS, 1 },
+	{ "lockd", 1, ALTF_NOLOCKS, 1 },
+	{ "lock", 1, ALTF_NOLOCKS, 1 },
+	{ "nlm", 1, ALTF_NOLOCKS, 1 },
+	{ "rsize=", 0, ALTF_RSIZE, 1 },
+	{ "wsize=", 0, ALTF_WSIZE, 1 },
+	{ "rwsize=", 0, ALTF_RSIZE|ALTF_WSIZE, 1 },
+	{ "readahead=", 0, ALTF_READAHEAD, 1 },
+	{ "nfsvers=", 0, ALTF_NFSVERS, 1 },
+	{ "vers=", 0, ALTF_NFSVERS, 1 },
+	{ "timeo=", 0, ALTF_TIMEO, 1 },
+	{ "retrans=", 0, ALTF_RETRANS, 1 },
 	{ NULL }
 };
 
@@ -156,9 +179,13 @@ struct nfs_args nfsdefargs = {
 	NFS_RETRANS,
 	NFS_MAXGRPS,
 	NFS_DEFRAHEAD,
-	NQ_DEFLEASE,
-	NQ_DEADTHRESH,
+	0,
+	0,
 	(char *)0,
+	NFS_MINATTRTIMO,
+	NFS_MAXATTRTIMO,
+	NFS_MINDIRATTRTIMO,
+	NFS_MAXDIRATTRTIMO,
 };
 
 struct nfhret {
@@ -214,7 +241,7 @@ main(argc, argv)
 	struct nfs_args nfsargs;
 	struct nfsd_cargs ncd;
 	int mntflags, altflags, i, nfssvc_flag, num;
-	char name[MAXPATHLEN], *p, *spec;
+	char name[MAXPATHLEN], *p, *p2, *spec;
 #ifdef NFSKERB
 	uid_t last_ruid;
 
@@ -266,11 +293,7 @@ main(argc, argv)
 			nfsargsp->flags |= NFSMNT_NOCONN;
 			break;
 		case 'D':
-			num = strtol(optarg, &p, 10);
-			if (*p || num <= 0)
-				errx(1, "illegal -D value -- %s", optarg);
-			nfsargsp->deadthresh = num;
-			nfsargsp->flags |= NFSMNT_DEADTHRESH;
+			warnx("NQNFS not supported; -D option deprecated");
 			break;
 		case 'd':
 			nfsargsp->flags |= NFSMNT_DUMBTIMR;
@@ -326,12 +349,12 @@ main(argc, argv)
 #endif
 			if(altflags & ALTF_NFSV3) {
 				if (force2)
-					errx(1,"conflicting version options");
+					errx(1,"conflicting NFS version options");
 				force3 = 1;
 			}
 			if(altflags & ALTF_NFSV2) {
 				if (force3)
-					errx(1,"conflicting version options");
+					errx(1,"conflicting NFS version options");
 				force2 = 1;
 				nfsargsp->flags &= ~NFSMNT_NFSV3;
 			}
@@ -345,17 +368,169 @@ main(argc, argv)
 			if(altflags & ALTF_SEQPACKET)
 				nfsargsp->sotype = SOCK_SEQPACKET;
 #endif
-			if(altflags & ALTF_NQNFS) {
-				if (force2)
-					errx(1,"nqnfs only available with v3");
-				force3 = 1;
-				nfsargsp->flags |= NFSMNT_NQNFS;
-			}
 			if(altflags & ALTF_SOFT)
 				nfsargsp->flags |= NFSMNT_SOFT;
+			if(altflags & ALTF_UDP) {
+				nfsargsp->sotype = SOCK_DGRAM;
+				nfsproto = IPPROTO_UDP;
+			}
 			if(altflags & ALTF_TCP) {
 				nfsargsp->sotype = SOCK_STREAM;
 				nfsproto = IPPROTO_TCP;
+			}
+			if(altflags & ALTF_NOLOCKS)
+				nfsargsp->flags |= NFSMNT_NOLOCKS;
+			if(altflags & ALTF_ATTRCACHE) {
+				if ((p = strcasestr(optarg, "actimeo="))) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((num < 0) || ((*p != '\0') && (*p != ',')))
+						errx(1, "illegal actimeo value -- %s", p2);
+					nfsargsp->acregmin = num;
+					nfsargsp->acregmax = nfsargsp->acregmin;
+					nfsargsp->acdirmin = nfsargsp->acregmin;
+					nfsargsp->acdirmax = nfsargsp->acregmin;
+					nfsargsp->flags |= NFSMNT_ACREGMIN;
+					nfsargsp->flags |= NFSMNT_ACREGMAX;
+					nfsargsp->flags |= NFSMNT_ACDIRMIN;
+					nfsargsp->flags |= NFSMNT_ACDIRMAX;
+				}
+				if ((p = strcasestr(optarg, "acregmin="))) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((num < 0) || ((*p != '\0') && (*p != ',')))
+						errx(1, "illegal acregmin value -- %s", p2);
+					nfsargsp->acregmin = num;
+					nfsargsp->flags |= NFSMNT_ACREGMIN;
+				}
+				if ((p = strcasestr(optarg, "acregmax="))) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((num < 0) || ((*p != '\0') && (*p != ',')))
+						errx(1, "illegal acregmax value -- %s", p2);
+					nfsargsp->acregmax = num;
+					nfsargsp->flags |= NFSMNT_ACREGMAX;
+				}
+				if ((p = strcasestr(optarg, "acdirmin="))) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((num < 0) || ((*p != '\0') && (*p != ',')))
+						errx(1, "illegal acdirmin value -- %s", p2);
+					nfsargsp->acdirmin = num;
+					nfsargsp->flags |= NFSMNT_ACDIRMIN;
+				}
+				if ((p = strcasestr(optarg, "acdirmax="))) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((num < 0) || ((*p != '\0') && (*p != ',')))
+						errx(1, "illegal acdirmax value -- %s", p2);
+					nfsargsp->acdirmax = num;
+					nfsargsp->flags |= NFSMNT_ACDIRMAX;
+				}
+				if ((p = strcasestr(optarg, "noac"))) {
+					nfsargsp->acregmin = 0;
+					nfsargsp->acregmax = 0;
+					nfsargsp->acdirmin = 0;
+					nfsargsp->acdirmax = 0;
+					nfsargsp->flags |= NFSMNT_ACREGMIN;
+					nfsargsp->flags |= NFSMNT_ACREGMAX;
+					nfsargsp->flags |= NFSMNT_ACDIRMIN;
+					nfsargsp->flags |= NFSMNT_ACDIRMAX;
+				}
+			}
+			if(altflags & ALTF_RSIZE) {
+				p = strcasestr(optarg, "rwsize=");
+				if (!p)
+					p = strcasestr(optarg, "rsize=");
+				if (p) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((*p == 'k') || (*p == 'K')) {
+						num *= 1024;
+						p++;
+					}
+					if ((num <= 0) || ((*p != '\0') && (*p != ',')))
+						errx(1, "illegal rsize value -- %s", p2);
+					nfsargsp->rsize = num;
+					nfsargsp->flags |= NFSMNT_RSIZE;
+				}
+			}
+			if(altflags & ALTF_WSIZE) {
+				p = strcasestr(optarg, "rwsize=");
+				if (!p)
+					p = strcasestr(optarg, "wsize=");
+				if (p) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((*p == 'k') || (*p == 'K')) {
+						num *= 1024;
+						p++;
+					}
+					if ((num <= 0) || ((*p != '\0') && (*p != ',')))
+						errx(1, "illegal wsize value -- %s", p2);
+					nfsargsp->wsize = num;
+					nfsargsp->flags |= NFSMNT_WSIZE;
+				}
+			}
+			if(altflags & ALTF_READAHEAD) {
+				if ((p = strcasestr(optarg, "readahead="))) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((num < 0) || ((*p != '\0') && (*p != ',')))
+						errx(1, "illegal readahead value -- %s", p2);
+					nfsargsp->readahead = num;
+					nfsargsp->flags |= NFSMNT_READAHEAD;
+				}
+			}
+			if(altflags & ALTF_NFSVERS) {
+				if ((p = strcasestr(optarg, "vers="))) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((*p != '\0') && (*p != ','))
+						num = 0;
+					switch (num) {
+					case 2:
+						if (force3)
+							errx(1, "conflicting NFS version options");
+						force2 = 1;
+						nfsargsp->flags &= ~NFSMNT_NFSV3;
+						break;
+					case 3:
+						if (force2)
+							errx(1, "conflicting NFS version options");
+						force3 = 1;
+						break;
+					default:
+						errx(1, "illegal NFS version value -- %s", p2);
+						break;
+					}
+				}
+			}
+			if(altflags & ALTF_TIMEO) {
+				/* need to make sure not to accidentally grab "actimeo=" */
+				p = optarg - 1;
+				do {
+					p++;
+					p = strcasestr(p, "timeo=");
+				} while (p && (p > optarg) && (*(p-1) != ','));
+				if (p) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((num <= 0) || ((*p != '\0') && (*p != ',')))
+						errx(1, "illegal timeout value -- %s", p2);
+					nfsargsp->timeo = num;
+					nfsargsp->flags |= NFSMNT_TIMEO;
+				}
+			}
+			if(altflags & ALTF_RETRANS) {
+				if ((p = strcasestr(optarg, "retrans="))) {
+					p2 = strchr(p, '=') + 1;
+					num = strtol(p2, &p, 10);
+					if ((num <= 0) || ((*p != '\0') && (*p != ',')))
+						errx(1, "illegal retrans value -- %s", p2);
+					nfsargsp->retrans = num;
+					nfsargsp->flags |= NFSMNT_RETRANS;
+				}
 			}
 			altflags = 0;
 			break;
@@ -368,10 +543,7 @@ main(argc, argv)
 			break;
 #endif
 		case 'q':
-			if (force2)
-				errx(1,"nqnfs only available with v3");
-			force3 = 1;
-			nfsargsp->flags |= NFSMNT_NQNFS;
+			warnx("NQNFS not supported; -q option deprecated");
 			break;
 		case 'R':
 			num = strtol(optarg, &p, 10);
@@ -381,6 +553,10 @@ main(argc, argv)
 			break;
 		case 'r':
 			num = strtol(optarg, &p, 10);
+			if ((*p == 'k') || (*p == 'K')) {
+				num *= 1024;
+				p++;
+			}
 			if (*p || num <= 0)
 				errx(1, "illegal -r value -- %s", optarg);
 			nfsargsp->rsize = num;
@@ -402,6 +578,10 @@ main(argc, argv)
 			break;
 		case 'w':
 			num = strtol(optarg, &p, 10);
+			if ((*p == 'k') || (*p == 'K')) {
+				num *= 1024;
+				p++;
+			}
 			if (*p || num <= 0)
 				errx(1, "illegal -w value -- %s", optarg);
 			nfsargsp->wsize = num;
@@ -439,11 +619,11 @@ main(argc, argv)
 
 	if (mount("nfs", name, mntflags, nfsargsp))
 		err(1, "%s", name);
-	if (nfsargsp->flags & (NFSMNT_NQNFS | NFSMNT_KERB)) {
+	if (nfsargsp->flags & NFSMNT_KERB) {
 		if ((opflags & ISBGRND) == 0) {
 			if (i = fork()) {
 				if (i == -1)
-					err(1, "nqnfs 1");
+					err(1, "nfskerb 1");
 				exit(0);
 			}
 			(void) setsid();
@@ -715,7 +895,7 @@ tryagain:
 				opflags &= ~BGRND;
 				if (i = fork()) {
 					if (i == -1)
-						err(1, "nqnfs 2");
+						err(1, "nfskerb 2");
 					exit(0);
 				}
 				(void) setsid();
@@ -808,8 +988,8 @@ __dead void
 usage()
 {
 	(void)fprintf(stderr, "usage: mount_nfs %s\n%s\n%s\n%s\n",
-"[-23bcdiKklMPqsT] [-a maxreadahead] [-D deadthresh]",
-"\t[-g maxgroups] [-L leaseterm] [-m realm] [-o options] [-R retrycnt]",
+"[-23bcdiKkLlMPsT] [-a maxreadahead]",
+"\t[-g maxgroups] [-m realm] [-o options] [-R retrycnt]",
 "\t[-r readsize] [-t timeout] [-w writesize] [-x retrans]",
 "\trhost:path node");
 	exit(1);

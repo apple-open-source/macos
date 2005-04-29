@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_span.c,v 1.8 2002/10/30 12:51:39 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_span.c,v 1.9 2003/09/28 20:15:20 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -40,7 +40,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r128_span.h"
 #include "r128_tex.h"
 
-#include "swrast/s_pb.h"	/* for PB_SIZE */
+#include "swrast/swrast.h"
 
 #define DBG 0
 
@@ -219,8 +219,8 @@ do {									\
 
 #define WRITE_DEPTH_PIXELS()						\
 do {									\
-   GLint ox[PB_SIZE];							\
-   GLint oy[PB_SIZE];							\
+   GLint ox[MAX_WIDTH];							\
+   GLint oy[MAX_WIDTH];							\
    for ( i = 0 ; i < n ; i++ ) {					\
       ox[i] = x[i] + dPriv->x;						\
    }									\
@@ -253,8 +253,8 @@ do {									\
    GLint i, remaining = n;						\
 									\
    while ( remaining > 0 ) {						\
-      GLint ox[PB_SIZE];						\
-      GLint oy[PB_SIZE];						\
+      GLint ox[MAX_WIDTH];						\
+      GLint oy[MAX_WIDTH];						\
       GLint count;							\
 									\
       if ( remaining <= 128 ) {						\
@@ -296,8 +296,8 @@ do {									\
 
 #define WRITE_DEPTH_PIXELS()						\
 do {									\
-   GLint ox[PB_SIZE];							\
-   GLint oy[PB_SIZE];							\
+   GLint ox[MAX_WIDTH];							\
+   GLint oy[MAX_WIDTH];							\
    for ( i = 0 ; i < n ; i++ ) {					\
       ox[i] = x[i] + dPriv->x;						\
    }									\
@@ -330,8 +330,8 @@ do {									\
    GLint i, remaining = n;						\
 									\
    while ( remaining > 0 ) {						\
-      GLint ox[PB_SIZE];						\
-      GLint oy[PB_SIZE];						\
+      GLint ox[MAX_WIDTH];						\
+      GLint oy[MAX_WIDTH];						\
       GLint count;							\
 									\
       if ( remaining <= 128 ) {						\
@@ -378,20 +378,35 @@ do {									\
 
 
 
-static void r128DDSetReadBuffer( GLcontext *ctx,
-				 GLframebuffer *colorBuffer,
-				 GLenum mode )
+/*
+ * This function is called to specify which buffer to read and write
+ * for software rasterization (swrast) fallbacks.  This doesn't necessarily
+ * correspond to glDrawBuffer() or glReadBuffer() calls.
+ */
+static void r128DDSetBuffer( GLcontext *ctx,
+                             GLframebuffer *colorBuffer,
+                             GLuint bufferBit )
 {
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
 
-   switch ( mode ) {
-   case GL_FRONT_LEFT:
-      rmesa->readOffset = rmesa->r128Screen->frontOffset;
-      rmesa->readPitch  = rmesa->r128Screen->frontPitch;
+   switch ( bufferBit ) {
+   case FRONT_LEFT_BIT:
+      if ( rmesa->sarea->pfCurrentPage == 1 ) {
+         rmesa->drawOffset = rmesa->readOffset = rmesa->r128Screen->backOffset;
+         rmesa->drawPitch  = rmesa->readPitch  = rmesa->r128Screen->backPitch;
+      } else {
+         rmesa->drawOffset = rmesa->readOffset = rmesa->r128Screen->frontOffset;
+         rmesa->drawPitch  = rmesa->readPitch  = rmesa->r128Screen->frontPitch;
+      }
       break;
-   case GL_BACK_LEFT:
-      rmesa->readOffset = rmesa->r128Screen->backOffset;
-      rmesa->readPitch  = rmesa->r128Screen->backPitch;
+   case BACK_LEFT_BIT:
+      if ( rmesa->sarea->pfCurrentPage == 1 ) {
+         rmesa->drawOffset = rmesa->readOffset = rmesa->r128Screen->frontOffset;
+         rmesa->drawPitch  = rmesa->readPitch  = rmesa->r128Screen->frontPitch;
+      } else {
+         rmesa->drawOffset = rmesa->readOffset = rmesa->r128Screen->backOffset;
+         rmesa->drawPitch  = rmesa->readPitch  = rmesa->r128Screen->backPitch;
+      }
       break;
    default:
       break;
@@ -404,7 +419,7 @@ void r128DDInitSpanFuncs( GLcontext *ctx )
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
    struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
 
-   swdd->SetReadBuffer = r128DDSetReadBuffer;
+   swdd->SetBuffer = r128DDSetBuffer;
 
    switch ( rmesa->r128Screen->cpp ) {
    case 2:

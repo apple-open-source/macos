@@ -39,7 +39,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XcmsClr.man,v 3.4 2001/01/27 18:20:06 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XcmsClr.man,v 3.5 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -150,7 +150,7 @@ contains:
 .Ds 0
 .TA .5i 1i 2.5i
 .ta .5i 1i 2.5i
-typedef unsigned long XcmsColorFormat;			/* Color Specification Format */
+typedef unsigned long XcmsColorFormat;			/\(** Color Specification Format */
 
 typedef struct {
 	union {
@@ -166,7 +166,7 @@ typedef struct {
 	} spec;
 	unsigned long pixel;
 	XcmsColorFormat format;
-} XcmsColor;			/* Xcms Color Structure */
+} XcmsColor;			/\(** Xcms Color Structure */
 .De
 .LP
 .Ds 0
@@ -175,20 +175,20 @@ typedef struct {
 typedef double XcmsFloat;
 
 typedef struct {
-	unsigned short red;	/* 0x0000 to 0xffff */
-	unsigned short green;	/* 0x0000 to 0xffff */
-	unsigned short blue;	/* 0x0000 to 0xffff */
-} XcmsRGB;		/* RGB Device */
+	unsigned short red;	/\(** 0x0000 to 0xffff */
+	unsigned short green;	/\(** 0x0000 to 0xffff */
+	unsigned short blue;	/\(** 0x0000 to 0xffff */
+} XcmsRGB;		/\(** RGB Device */
 .De
 .LP
 .Ds 0
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	XcmsFloat red;	/* 0.0 to 1.0 */
-	XcmsFloat green;	/* 0.0 to 1.0 */
-	XcmsFloat blue;	/* 0.0 to 1.0 */
-} XcmsRGBi;		/* RGB Intensity */
+	XcmsFloat red;	/\(** 0.0 to 1.0 */
+	XcmsFloat green;	/\(** 0.0 to 1.0 */
+	XcmsFloat blue;	/\(** 0.0 to 1.0 */
+} XcmsRGBi;		/\(** RGB Intensity */
 .De
 .LP
 .Ds 0
@@ -196,59 +196,59 @@ typedef struct {
 .ta .5i 2.5i
 typedef struct {
 	XcmsFloat X;
-	XcmsFloat Y;	/* 0.0 to 1.0 */
+	XcmsFloat Y;	/\(** 0.0 to 1.0 */
 	XcmsFloat Z;
-} XcmsCIEXYZ;		/* CIE XYZ */
+} XcmsCIEXYZ;		/\(** CIE XYZ */
 .De
 .LP
 .Ds 0
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	XcmsFloat u_prime;	/* 0.0 to ~0.6 */
-	XcmsFloat v_prime;	/* 0.0 to ~0.6 */
-	XcmsFloat Y; 	/* 0.0 to 1.0 */
-} XcmsCIEuvY;		/* CIE u'v'Y */
+	XcmsFloat u_prime;	/\(** 0.0 to ~0.6 */
+	XcmsFloat v_prime;	/\(** 0.0 to ~0.6 */
+	XcmsFloat Y; 	/\(** 0.0 to 1.0 */
+} XcmsCIEuvY;		/\(** CIE u'v'Y */
 .De
 .LP
 .Ds 0
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	XcmsFloat x; 	/* 0.0 to ~.75 */
-	XcmsFloat y; 	/* 0.0 to ~.85 */
-	XcmsFloat Y; 	/* 0.0 to 1.0 */
-} XcmsCIExyY;		/* CIE xyY */
+	XcmsFloat x; 	/\(** 0.0 to ~.75 */
+	XcmsFloat y; 	/\(** 0.0 to ~.85 */
+	XcmsFloat Y; 	/\(** 0.0 to 1.0 */
+} XcmsCIExyY;		/\(** CIE xyY */
 .De
 .LP
 .Ds 0
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	XcmsFloat L_star; 	/* 0.0 to 100.0 */
+	XcmsFloat L_star; 	/\(** 0.0 to 100.0 */
 	XcmsFloat a_star;
 	XcmsFloat b_star;
-} XcmsCIELab;		/* CIE L*a*b* */
+} XcmsCIELab;		/\(** CIE L*a*b* */
 .De
 .LP
 .Ds 0
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	XcmsFloat L_star; 	/* 0.0 to 100.0 */
+	XcmsFloat L_star; 	/\(** 0.0 to 100.0 */
 	XcmsFloat u_star;
 	XcmsFloat v_star;
-} XcmsCIELuv;		/* CIE L*u*v* */
+} XcmsCIELuv;		/\(** CIE L*u*v* */
 .De
 .LP
 .Ds 0
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	XcmsFloat H; 	/* 0.0 to 360.0 */
-	XcmsFloat V; 	/* 0.0 to 100.0 */
-	XcmsFloat C; 	/* 0.0 to 100.0 */
-} XcmsTekHVC;		/* TekHVC */
+	XcmsFloat H; 	/\(** 0.0 to 360.0 */
+	XcmsFloat V; 	/\(** 0.0 to 100.0 */
+	XcmsFloat C; 	/\(** 0.0 to 100.0 */
+} XcmsTekHVC;		/\(** TekHVC */
 .De
 .LP
 .Ds 0
@@ -259,7 +259,7 @@ typedef struct {
 	XcmsFloat pad1;
 	XcmsFloat pad2;
 	XcmsFloat pad3;
-} XcmsPad;		/* four doubles */
+} XcmsPad;		/\(** four doubles */
 .De
 .SH DESCRIPTION
 The

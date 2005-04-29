@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: print.c,v 1.43 2003/03/21 17:26:39 abe Exp $";
+static char *rcsid = "$Id: print.c,v 1.45 2004/03/12 14:52:01 abe Exp $";
 #endif
 
 
@@ -646,8 +646,13 @@ print_file()
 	 * Print the header line if this is the second pass and the
 	 * header hasn't already been printed.
 	 */
-	    (void) printf("%-*.*s %*s", CmdColW, CmdColW, CMDTTL,
-		PidColW, PIDTTL);
+	    (void) printf("%-*.*s %*s", CmdColW, CmdColW, CMDTTL, PidColW,
+		PIDTTL);
+
+#if	defined(HASZONES)
+	    if (Fzone)
+	        (void) printf(" %-*s", ZoneColW, ZONETTL);
+#endif	/* defined(HASZONES) */
 
 #if	defined(HASPPID)
 	    if (Fppid)
@@ -707,6 +712,21 @@ print_file()
 		PidColW = len;
 	} else
 	    (void) printf(" %*d", PidColW, Lp->pid);
+
+#if	defined(HASZONES)
+/*
+ * Size or print the zone.
+ */
+	if (Fzone) {
+	    if (!PrPass) {
+		if (Lp->zn) {
+		    if ((len = strlen(Lp->zn)) > ZoneColW)
+			ZoneColW = len;
+		}
+	    } else
+		(void) printf(" %-*s", ZoneColW, Lp->zn ? Lp->zn : "");
+	}
+#endif	/* defined(HASZONES) */
 
 #if	defined(HASPPID)
 	if (Fppid) {
@@ -1171,6 +1191,11 @@ print_init()
 	FsColW = strlen(FSTTL);
 	NiColW = strlen(NiTtl);
 #endif	/* defined(HASFSTRUCT) */
+
+#if	defined(HASZONES)
+	if (Fzone)
+	    ZoneColW = strlen(ZONETTL);
+#endif	/* defined(HASZONES) */
 
 }
 
@@ -2579,6 +2604,37 @@ printunkaf(fam, ty)
 	    break;
 #endif	/* defined(AF_USER) */
 
+#if	defined(pseudo_AF_KEY)
+	case pseudo_AF_KEY:
+	    p = "pseudo_";
+	    s = "KEY";
+	    break;
+#endif	/* defined(pseudo_AF_XTP) */
+
+#if	defined(AF_KEY)		/* Security Association DB socket */
+	case AF_KEY:			
+	    s = "KEY";
+	    break;
+#endif	/* defined(AF_KEY) */
+
+#if	defined(AF_NCA)		/* NCA socket */
+	case AF_NCA:			
+	    s = "NCA";
+	    break;
+#endif	/* defined(AF_NCA) */
+
+#if	defined(AF_POLICY)		/* Security Policy DB socket */
+	case AF_POLICY:
+	    s = "POLICY";
+	    break;
+#endif	/* defined(AF_POLICY) */
+
+#if	defined(AF_PPP)		/* PPP socket */
+	case AF_PPP:			
+	    s = "PPP";
+	    break;
+#endif	/* defined(AF_PPP) */
+
 	default:
 	    if (!ty)
 		(void) snpf(Namech, Namechl, "%#x", fam);
@@ -2590,7 +2646,8 @@ printunkaf(fam, ty)
 	if (!ty)
 	    (void) snpf(Namech, Namechl, "%sAF_%s", p, s);
 	else
-	    (void) snpf(Namech,Namechl,"no further information on %sAF_%s",p,s);
+	    (void) snpf(Namech, Namechl, "no further information on %sAF_%s",
+		p, s);
 	return;
 }
 

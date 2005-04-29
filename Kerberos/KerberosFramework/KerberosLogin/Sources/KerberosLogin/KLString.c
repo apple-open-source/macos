@@ -1,7 +1,7 @@
 /*
  * KLString.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLString.c,v 1.10 2003/08/22 16:21:02 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLString.c,v 1.18 2004/12/10 21:22:30 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -28,7 +28,7 @@
 
 // ---------------------------------------------------------------------------
 
-KLStatus __KerberosLoginError (KLStatus inError, char *file, int line)
+KLStatus __KerberosLoginError (KLStatus inError, const char *function, const char *file, int line)
 {
     KLStatus err = inError;
     
@@ -76,12 +76,12 @@ KLStatus __KerberosLoginError (KLStatus inError, char *file, int line)
             err = klParameterErr;
             break;
 	}
-#if MACDEV_DEBUG
-    if (err != klNoErr) {
-        dprintf ("KLError_ (%ld) (remapped to %ld '%s') at %s: %d\n", 
-                 inError, err, error_message (err), file, line);
+
+    if (err && (ddebuglevel () > 0)) {
+        dprintf ("%s() remapped %ld to %ld ('%s') at %s: %d", 
+                 function, inError, err, error_message (err), file, line);
     }
-#endif
+
     return err;
 }
 
@@ -91,14 +91,14 @@ KLStatus __KLRemapKerberos4Error (int inError)
     KLStatus err = inError;
 
     if ((err > 0) && (err < MAX_KRB_ERRORS)) {
-        return err + ERROR_TABLE_BASE_krb;
+        err += ERROR_TABLE_BASE_krb;
     }
-#if MACDEV_DEBUG
-    if (err != klNoErr) {
-        dprintf ("__KLRemapKerberos4Error (%ld) remapped to %ld '%s'\n",
+    
+    if (err && (ddebuglevel () > 0)) {
+        dprintf ("__KLRemapKerberos4Error (%ld) remapped to %ld '%s'",
                  inError, err, error_message (err));
     }
-#endif
+
     return err;
 }
 
@@ -127,18 +127,17 @@ KLStatus __KLCreateString (const char *inString, char **outString)
 
 // ---------------------------------------------------------------------------
 
-KLStatus __KLCreateStringFromCFString (CFStringRef inString, char **outString)
+KLStatus __KLCreateStringFromCFString (CFStringRef inString, CFStringEncoding inEncoding, char **outString)
 {
     KLStatus err = klNoErr;
     char *string = NULL;
     CFIndex stringLength = 0;
-    CFStringEncoding encoding = __KLApplicationGetTextEncoding ();
     
     if (inString  == NULL) { err = KLError_ (klParameterErr); }
     if (outString == NULL) { err = KLError_ (klParameterErr); }
     
     if (err == klNoErr) {
-        stringLength = CFStringGetMaximumSizeForEncoding (CFStringGetLength (inString), encoding) + 1;
+        stringLength = CFStringGetMaximumSizeForEncoding (CFStringGetLength (inString), inEncoding) + 1;
     }
 
     if (err == klNoErr) {
@@ -147,7 +146,7 @@ KLStatus __KLCreateStringFromCFString (CFStringRef inString, char **outString)
     }
 
     if (err == klNoErr) {
-        if (CFStringGetCString (inString, string, stringLength, encoding) != true) {
+        if (CFStringGetCString (inString, string, stringLength, inEncoding) != true) {
             err = KLError_ (klMemFullErr);
         }
     }
@@ -528,101 +527,109 @@ KLStatus __KLDisposeStringArray (KLStringArray inArray)
 #pragma mark -
 
 // ---------------------------------------------------------------------------
+
+static CFTypeRef __KLBundleGetValueForInfoDictionaryKey (CFBundleRef inBundle, CFStringRef inKey)
+{
+    CFDictionaryRef dictionary = NULL;
+    CFTypeRef value = NULL;
+    
+    if (__KLAllowHomeDirectoryAccess ()) {
+        // Accesses user's homedir to get localization information
+        dictionary = CFBundleGetLocalInfoDictionary (inBundle);
+    } else {
+        dictionary = CFBundleGetInfoDictionary (inBundle);
+    }
+    if (dictionary != NULL) {
+        value = CFDictionaryGetValue (dictionary, inKey);
+    }
+    
+    return value;
+}
+
+// ---------------------------------------------------------------------------
+// WARNING: DO NOT CALL KLError() from this function since it is called by error_message()!!
+
+CFStringRef __KLGetCFStringForInfoDictionaryKey (const char *inKeyString)
+{
+    CFStringRef key = NULL;
+    CFStringRef value = NULL;
+    
+    if (inKeyString != NULL) {     
+        key = CFStringCreateWithCString (kCFAllocatorDefault, inKeyString, kCFStringEncodingASCII);
+        if (key != NULL) {
+            // Try to find the key, first searching in the framework, then in the main bundle
+            CFBundleRef frameworkBundle = CFBundleGetBundleWithIdentifier (CFSTR ("edu.mit.Kerberos"));
+            if (frameworkBundle != NULL) {
+                value = (CFStringRef) __KLBundleGetValueForInfoDictionaryKey (frameworkBundle, key);
+            }
+        
+            if (value == NULL) {
+                CFBundleRef mainBundle = CFBundleGetMainBundle ();
+                if (mainBundle != NULL) {
+                    value = (CFStringRef) __KLBundleGetValueForInfoDictionaryKey (mainBundle, key);
+                }
+            }
+
+            if ((value != NULL) && (CFGetTypeID (value) != CFStringGetTypeID ())) {
+                value = NULL;  // Only return CFStrings
+            }
+            
+            CFRelease (key);
+        }
+    }
+    
+    return value;
+}
+
+// ---------------------------------------------------------------------------
+
 KLStatus __KLGetLocalizedString (const char *inKeyString, char **outString)
 {
     KLStatus err = klNoErr;
-    CFStringRef key = NULL;
     CFStringRef value = NULL;
     
     if (inKeyString == NULL || outString == NULL) { err = KLError_ (klParameterErr); }
     
     if (err == klNoErr) {
-        key = CFStringCreateWithCString (kCFAllocatorDefault, inKeyString, kCFStringEncodingASCII);
-        if (key == NULL) { err = KLError_ (klMemFullErr); }
-    }
-    
-    // Try to find the key, first searching in the framework, then in the main bundle
-    if (err == klNoErr) {
-        CFBundleRef frameworkBundle = CFBundleGetBundleWithIdentifier (CFSTR ("edu.mit.Kerberos"));
-        if (frameworkBundle != NULL) {
-            value = (CFStringRef) CFBundleGetValueForInfoDictionaryKey (frameworkBundle, key);
-        }
-        
-        if (value == NULL) {
-            CFBundleRef mainBundle = CFBundleGetMainBundle ();
-            if (mainBundle != NULL) {
-                value = (CFStringRef) CFBundleGetValueForInfoDictionaryKey (mainBundle, key);
-            }
-        }
-    }
-    
-    // If we got a key, try to pull it out
-    if (err == klNoErr) {
-        if ((value != NULL) && (CFGetTypeID (value) == CFStringGetTypeID ())) {
-            err = __KLCreateStringFromCFString (value, outString);
+        value = __KLGetCFStringForInfoDictionaryKey (inKeyString);
+        if (value != NULL) {
+            err = __KLCreateStringFromCFString (value, __KLApplicationGetTextEncoding(), outString);
             if (err == klNoErr) {
-                dprintf ("KLGetLocalizedString: Looking up key \"%s\" returned \"%s\"\n", inKeyString, *outString);
+                dprintf ("__KLGetStringForInfoDictionaryKey: Looking up key \"%s\" returned \"%s\"\n", inKeyString, *outString);
             }
         } else {
+            // We failed to look it up.   Use the key so we return something.
             err = __KLCreateString (inKeyString, outString);
         }
     }
-
-    if (key != NULL) { CFRelease (key); }
-
+    
     return KLError_ (err);
 }
 
-// ---------------------------------------------------------------------------
-
-KLStatus __KLGetApplicationNameString (char **outApplicationName)
-{
-    KLStatus err = klNoErr;
-    Str255 name;
-
-    if (outApplicationName == NULL) { err = KLError_ (klParameterErr); }
-
-    if (err == klNoErr) {
-        ProcessSerialNumber currentProcessSN = {0L, kCurrentProcess};
-        ProcessInfoRec info;
-
-        info.processInfoLength = sizeof (ProcessInfoRec);
-        info.processName = name;
-        info.processAppSpec = NULL;
-
-        err = GetProcessInformation (&currentProcessSN, &info);
-    }
-
-    if (err == klNoErr) {
-        err = __KLCreateStringFromBuffer (&name[1], name[0], outApplicationName);
-    }
-
-    return KLError_ (err);
-}
 
 // ---------------------------------------------------------------------------
 
-// GAAAAAH!
 // This algorithm was pirated from the Security framework.
 // If it stops working, check what they are doing.  See OSXCode::main()
 
 // Note: The public CFURLCopyFileSystemPath fails to resolve relative URLs as
 // produced by CFURL methods. We need to call an internal(!) method of CF to get
 // the full path.
+
 extern CFStringRef CFURLCreateStringWithFileSystemPath(CFAllocatorRef allocator,
                                                        CFURLRef anURL, CFURLPathStyle fsType, 
                                                        Boolean resolveAgainstBase);
 
-KLStatus __KLGetApplicationIconPathString (char **outApplicationIconPath)
+KLStatus __KLGetApplicationPathString (char **outApplicationPath)
 {
     KLStatus err = klNoErr;
-    char *applicationIconPath = NULL;
-    CFStringRef iconPathString = NULL;
+    char *applicationPath = NULL;
+    CFStringRef pathString = NULL;
     CFURLRef bundleURL = NULL;
     CFURLRef resourcesURL = NULL;
     CFURLRef executableURL = NULL;
     
-    if (outApplicationIconPath == NULL) { err = KLError_ (klParameterErr); }
+    if (outApplicationPath == NULL) { err = KLError_ (klParameterErr); }
 
     // First, try to see if it is a real
     if (err == klNoErr) {
@@ -635,17 +642,17 @@ KLStatus __KLGetApplicationIconPathString (char **outApplicationIconPath)
             // Is it a bundle?
             if ((bundleURL != NULL) && (resourcesURL != NULL)) {
                 if (!CFEqual (bundleURL, resourcesURL)) {
-                    iconPathString = CFURLCreateStringWithFileSystemPath (kCFAllocatorDefault, bundleURL,
+                    pathString = CFURLCreateStringWithFileSystemPath (kCFAllocatorDefault, bundleURL,
                                                                           kCFURLPOSIXPathStyle, true);
-                } else {
-                    iconPathString = CFURLCreateStringWithFileSystemPath (kCFAllocatorDefault, executableURL,
+                } else if (executableURL != NULL) {
+                    pathString = CFURLCreateStringWithFileSystemPath (kCFAllocatorDefault, executableURL,
                                                                           kCFURLPOSIXPathStyle, true);
                 }
                 
-                if (iconPathString == NULL) {
+                if (pathString == NULL) {
                     err = KLError_ (klMemFullErr); // couldn't write
                 } else {
-                    err = __KLCreateStringFromCFString (iconPathString, &applicationIconPath);
+                    err = __KLCreateStringFromCFString (pathString, kCFStringEncodingUTF8, &applicationPath);
                 }
             }
         }
@@ -653,9 +660,9 @@ KLStatus __KLGetApplicationIconPathString (char **outApplicationIconPath)
     
     // If we haven't gotten a string and we haven't gotten a fatal error, try dyld
     // Note that this doesn't work on CFM apps because you get a path to LaunchCFMApp
-    if ((err == klNoErr) && (applicationIconPath == NULL)) {
+    if ((err == klNoErr) && (applicationPath == NULL)) {
         char *pathBuffer = NULL;
-        unsigned long pathSize = 0;
+        uint32_t pathSize = 0;
     
         // Make a tiny stupid buffer to get the length of the path
         if (err == klNoErr) {
@@ -680,7 +687,7 @@ KLStatus __KLGetApplicationIconPathString (char **outApplicationIconPath)
             if (_NSGetExecutablePath (pathBuffer, &pathSize) != 0) {
                 err = KLError_ (klMemFullErr);
             } else {
-                err = __KLCreateString (pathBuffer, &applicationIconPath);
+                err = __KLCreateString (pathBuffer, &applicationPath);
             }
         }
         
@@ -688,16 +695,16 @@ KLStatus __KLGetApplicationIconPathString (char **outApplicationIconPath)
     }
     
     if (err == klNoErr) {
-        dprintf ("__KLGetApplicationIconPathString returning path '%s'\n", applicationIconPath);
-        *outApplicationIconPath = applicationIconPath;
-        applicationIconPath = NULL;
+        dprintf ("__KLGetApplicationPathString returning path '%s'\n", applicationPath);
+        *outApplicationPath = applicationPath;
+        applicationPath = NULL;
     }
     
-    if (bundleURL           != NULL) { CFRelease (bundleURL); }
-    if (resourcesURL        != NULL) { CFRelease (resourcesURL); }
-    if (executableURL       != NULL) { CFRelease (executableURL); }
-    if (iconPathString      != NULL) { CFRelease (iconPathString); }
-    if (applicationIconPath != NULL) { KLDisposeString (applicationIconPath); }
+    if (bundleURL       != NULL) { CFRelease (bundleURL); }
+    if (resourcesURL    != NULL) { CFRelease (resourcesURL); }
+    if (executableURL   != NULL) { CFRelease (executableURL); }
+    if (pathString      != NULL) { CFRelease (pathString); }
+    if (applicationPath != NULL) { KLDisposeString (applicationPath); }
     
     return KLError_ (err);
 }
@@ -705,13 +712,14 @@ KLStatus __KLGetApplicationIconPathString (char **outApplicationIconPath)
 #pragma mark -
 
 // ---------------------------------------------------------------------------
+// WARNING: DO NOT CALL KLError() from this function since it is called by error_message()!!
 
 CFStringEncoding __KLApplicationGetTextEncoding (void)
 {
     typedef TextEncoding (*GetApplicationTextEncodingProcPtr) (void);
     GetApplicationTextEncodingProcPtr GetApplicationTextEncodingPtr = NULL;
 
-    if (__KLIsKerberosLoginServer ()) {
+    if (__KLIsKerberosAgent ()) {
         return kCFStringEncodingUTF8;  // KerberosLoginServer only does UTF8
     }
 

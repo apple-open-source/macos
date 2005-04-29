@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002-2003, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -22,6 +22,9 @@
 
 #include "unicode/utypes.h"
 #include "unicode/uset.h"
+#include "uset_imp.h"
+#include "ucase.h"
+#include "udataswp.h"
 
 /* indexes[] entries */
 enum {
@@ -163,6 +166,7 @@ enum {
 /*
  * Properties in vector word 2
  * Bits
+ * 31..24   More binary properties
  * 13..11   Joining Type
  * 10.. 5   Joining Group
  *  4.. 0   Decomposition Type
@@ -174,6 +178,12 @@ enum {
 #define UPROPS_JG_SHIFT         5
 
 #define UPROPS_DT_MASK          0x0000001f
+
+enum {
+    UPROPS_V2_S_TERM=24,                        /* new in ICU 3.0 and Unicode 4.0.1 */
+    UPROPS_V2_VARIATION_SELECTOR,
+    UPROPS_V2_TOP                               /* must be <=32 */
+};
 
 /**
  * Get a properties vector word for a code point.
@@ -201,19 +211,11 @@ U_CFUNC int32_t
 uprv_getMaxValues(int32_t column);
 
 /**
- * Unicode property names and property value names are compared
- * "loosely". Property[Value]Aliases.txt say:
- *   "With loose matching of property names, the case distinctions, whitespace,
- *    and '_' are ignored."
- *
- * This function does just that, for ASCII (char *) name strings.
- * It is almost identical to ucnv_compareNames() but also ignores
- * ASCII White_Space characters (U+0009..U+000d).
- *
+ * Get the Hangul Syllable Type for c.
  * @internal
  */
-U_CAPI int32_t U_EXPORT2
-uprv_comparePropertyNames(const char *name1, const char *name2);
+U_CFUNC UHangulSyllableType
+uchar_getHST(UChar32 c);
 
 /** Turn a bit index into a bit flag. @internal */
 #define FLAG(n) ((uint32_t)1<<(n))
@@ -277,21 +279,6 @@ enum {
 };
 
 /**
- * Is this character a "white space" in the sense of ICU rule parsers?
- * @internal
- */
-U_CAPI UBool U_EXPORT2
-uprv_isRuleWhiteSpace(UChar32 c);
-
-/**
- * Get the set of "white space" characters in the sense of ICU rule
- * parsers.  Caller must close/delete result.
- * @internal
- */
-U_CAPI USet* U_EXPORT2
-uprv_openRuleWhiteSpaceSet(UErrorCode* ec);
-
-/**
  * Get the maximum length of a (regular/1.0/extended) character name.
  * @return 0 if no character names available.
  */
@@ -315,10 +302,10 @@ uprv_getMaxISOCommentLength();
  * Fills set with characters that are used in Unicode character names.
  * Includes all characters that are used in regular/Unicode 1.0/extended names.
  * Just empties the set if no character names are available.
- * @param set USet to receive characters. Existing contents are deleted.
+ * @param sa USetAdder to receive characters.
  */
 U_CAPI void U_EXPORT2
-uprv_getCharNameCharacters(USet* set);
+uprv_getCharNameCharacters(USetAdder *sa);
 
 #if 0
 /* 
@@ -328,12 +315,44 @@ urename.h and unames.c changed accordingly.
 /**
  * Fills set with characters that are used in Unicode character names.
  * Just empties the set if no ISO comments are available.
- * @param set USet to receive characters. Existing contents are deleted.
+ * @param sa USetAdder to receive characters.
  */
 U_CAPI void U_EXPORT2
-uprv_getISOCommentCharacters(USet* set);
+uprv_getISOCommentCharacters(USetAdder *sa);
 */
 #endif
+
+/**
+ * Constants for which data and implementation files provide which properties.
+ * Used by UnicodeSet for service-specific property enumeration.
+ * @internal
+ */
+enum UPropertySource {
+    /** No source, not a supported property. */
+    UPROPS_SRC_NONE,
+    /** From uchar.c/uprops.icu */
+    UPROPS_SRC_CHAR,
+    /** Hangul_Syllable_Type, from uchar.c/uprops.icu */
+    UPROPS_SRC_HST,
+    /** From unames.c/unames.icu */
+    UPROPS_SRC_NAMES,
+    /** From unorm.cpp/unorm.icu */
+    UPROPS_SRC_NORM,
+    /** From ucase.c/ucase.icu */
+    UPROPS_SRC_CASE,
+    /** From ubidi.c/ubidi.icu */
+    UPROPS_SRC_BIDI,
+    /** One more than the highes UPropertySource (UPROPS_SRC_) constant. */
+    UPROPS_SRC_COUNT
+};
+typedef enum UPropertySource UPropertySource;
+
+/**
+ * @see UPropertySource
+ * @internal
+ */
+U_CAPI UPropertySource U_EXPORT2
+uprops_getSource(UProperty which);
 
 /**
  * Enumerate each core properties data trie and add the
@@ -341,17 +360,42 @@ uprv_getISOCommentCharacters(USet* set);
  * @internal
  */
 U_CAPI void U_EXPORT2
-uchar_addPropertyStarts(USet *set, UErrorCode *pErrorCode);
+uchar_addPropertyStarts(USetAdder *sa, UErrorCode *pErrorCode);
+
+/**
+ * Same as uchar_addPropertyStarts() but only for Hangul_Syllable_Type.
+ * @internal
+ */
+U_CAPI void U_EXPORT2
+uhst_addPropertyStarts(USetAdder *sa, UErrorCode *pErrorCode);
 
 /**
  * Return a set of characters for property enumeration.
  * For each two consecutive characters (start, limit) in the set,
  * all of the properties for start..limit-1 are all the same.
  *
- * @param set USet to receive result. Existing contents are lost.
+ * @param sa USetAdder to receive result. Existing contents are lost.
  * @internal
  */
 U_CAPI void U_EXPORT2
-uprv_getInclusions(USet* set, UErrorCode *pErrorCode);
+uprv_getInclusions(USetAdder *sa, UErrorCode *pErrorCode);
+
+/**
+ * Swap the ICU Unicode properties file. See uchar.c.
+ * @internal
+ */
+U_CAPI int32_t U_EXPORT2
+uprops_swap(const UDataSwapper *ds,
+            const void *inData, int32_t length, void *outData,
+            UErrorCode *pErrorCode);
+
+/**
+ * Swap the ICU Unicode character names file. See uchar.c.
+ * @internal
+ */
+U_CAPI int32_t U_EXPORT2
+uchar_swapNames(const UDataSwapper *ds,
+                const void *inData, int32_t length, void *outData,
+                UErrorCode *pErrorCode);
 
 #endif

@@ -61,6 +61,10 @@ extern u_short getport(struct sockaddr_in *, u_long, u_long, u_int);
 	[v setServer:serv];
 	[v setSource:serversrc];
 	[v setVfsType:type];
+	
+	/* Information derived dynamically this way is not necessarily trustworthy: */
+	[v addMntArg:MNT_NOSUID];
+	[v addMntArg:MNT_NODEV];
 
 	[type release];
 	[serversrc release];
@@ -130,7 +134,7 @@ extern u_short getport(struct sockaddr_in *, u_long, u_long, u_int);
 
 	memset(&server_exports, 0, sizeof(exports));
 
-	status = clnt_call(cl, MOUNTPROC_EXPORT, xdr_void, NULL, xdr_exports, &server_exports, tv);
+	status = clnt_call(cl, MOUNTPROC_EXPORT, (xdrproc_t)xdr_void, NULL, (xdrproc_t)xdr_exports, (caddr_t)&server_exports, tv);
 	clnt_destroy(cl);
 	if (status != RPC_SUCCESS) return nil;
 
@@ -138,6 +142,7 @@ extern u_short getport(struct sockaddr_in *, u_long, u_long, u_int);
 
 	v = [[HostVnode alloc] init];
 	[v setName:hname];
+	[v setServerDepth:0];
 
 	x = [String uniqueString:"nfs"];
 	[v setVfsType:x];
@@ -201,10 +206,7 @@ extern u_short getport(struct sockaddr_in *, u_long, u_long, u_int);
 	h = gethostbyname([n value]);
 	if (h == NULL) return nil;
 
-	sub = [self vnodeForHost:n];
-	if (sub == nil) return nil;
-
-	return (Vnode *)sub;
+	return [self vnodeForHost:n];
 }
 
 @end

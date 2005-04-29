@@ -45,7 +45,7 @@ in this Software without prior written authorization from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/lbxproxy/include/wire.h,v 1.7 2001/12/14 20:00:56 dawes Exp $ */
+/* $XFree86: xc/programs/lbxproxy/include/wire.h,v 1.8 2003/11/17 22:20:49 dawes Exp $ */
 
 #ifdef DEBUG 		/* Need this here because lbx.h undef's DEBUG */
 extern int lbxDebug;
@@ -119,29 +119,23 @@ typedef struct _LbxStreamComp {
 typedef struct _LbxCmapAllMethod {
     char *methodName;
     void (*resolver)(
-#if NeedFunctionPrototypes
         LbxVisualPtr /* pVisual */,
         CARD16* /* red */,
         CARD16* /* green */,
         CARD16* /* blue */
-#endif
     );
     Pixel (*findfree)(
-#if NeedFunctionPrototypes
         ColormapPtr /* pmap */,
         CARD32  /* red */,
         CARD32  /* green */,
         CARD32  /* blue */
-#endif
     );
     Entry * (* findbest)(
-#if NeedFunctionPrototypes
         ColormapPtr /* pmap */,
         CARD32  /* red */,
         CARD32  /* green */,
         CARD32  /* blue */,
         int     /* channels */
-#endif
         );
 
 } LbxCmapAllMethod;
@@ -188,9 +182,7 @@ typedef struct _XServer {
      * "real" clients associated with this server.
      */
     int			(**requestVector) (
-#if NeedNestedPrototypes
 	ClientPtr /* pClient */
-#endif
     );
 
     /*
@@ -256,111 +248,84 @@ extern char 		* display;
 extern int 		lbxMaxServers;
 
 extern void WriteReqToServer(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     int /*len*/,
     char * /*buf*/,
     Bool /*checkLargeRequest*/
-#endif
 );
 
 extern void _write_to_server(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     Bool /*compressed*/,
     int /*len*/,
     char* /*buf*/,
     Bool /*checkLarge*/,
     Bool /*startOfRequest*/
-#endif
 );
 
 extern void WriteToServer(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     int /*len*/,
     char * /*buf*/,
     Bool /*startOfRequest*/,
     Bool /*checkLargeRequest*/
-#endif
 );
 
 extern void WriteToServerUncompressed(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     int /*len*/,
     char * /*buf*/,
     Bool /* startOfRequest */
-#endif
 );
 
 extern Bool NewClient(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     int /*setuplen*/
-#endif
 );
 
 extern void CloseClient(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void ModifySequence(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     int /*num*/
-#endif
 );
 
 extern void AllowMotion(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     int /*num*/
-#endif
 );
 
 extern void SendIncrementPixel(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     XID /*cmap*/,
     unsigned long /*pixel*/
-#endif
 );
 
 extern void SendAllocColor(
-#if NeedFunctionPrototypes
     ClientPtr /* pClient */,
     XID       /* cmap */,
     CARD32    /* pixel */,
     CARD16    /* red */,
     CARD16    /* green */,
     CARD16    /* blue */
-#endif
 );
 
 extern void SendGetModifierMapping(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void SendGetKeyboardMapping(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void SendQueryFont(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     XID /*fid*/
-#endif
 );
 
 extern void SendChangeProperty(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     Window /*win*/,
     Atom /*prop*/,
@@ -368,11 +333,9 @@ extern void SendChangeProperty(
     int /*format*/,
     int /*mode*/,
     unsigned long /*num*/
-#endif
 );
 
 extern void SendGetProperty(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     Window /*win*/,
     Atom /*prop*/,
@@ -380,27 +343,21 @@ extern void SendGetProperty(
     Bool /*delete*/,
     unsigned long /*off*/,
     unsigned long /*len*/
-#endif
 );
 
 extern void SendInvalidateTag(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     XID /*tag*/
-#endif
 );
 
 extern void SendTagData(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     XID /*tag*/,
     unsigned long /*len*/,
     pointer /*data*/
-#endif
 );
 
 extern void SendGetImage(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     Drawable /*drawable*/,
     int /*x*/,
@@ -409,23 +366,16 @@ extern void SendGetImage(
     unsigned int /*height*/,
     unsigned long /*planeMask*/,
     int /*format*/
-#endif
 );
 
 extern int ServerProcStandardEvent(
-#if NeedFunctionPrototypes
     ClientPtr /*sc*/
-#endif
 );
 
 extern void CloseServer(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern Bool ConnectToServer(
-#if NeedFunctionPrototypes
     char * /*dpy_name*/
-#endif
 );

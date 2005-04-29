@@ -1,9 +1,0 @@
-This directory contains the same files as the library directory of the
-Tk4.0p3 distribution, with the following changes:
-
-init.tcl has been added (it is from the Tcl4.0p3 sources)
-prolog.ps and obsolete.tcl have been removed
-combobox.tcl, downarrow.xbm, and uparrow.xbm added
-misc.tcl added
-
-tclIndex has been updated to reflect the above changes

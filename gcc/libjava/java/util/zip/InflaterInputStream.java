@@ -1,5 +1,6 @@
 /* InflaterInputStream.java - Input stream filter for decompressing
-   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,54 +43,143 @@ import java.io.InputStream;
 import java.io.IOException;
 
 /**
+ * This filter stream is used to decompress data compressed in the "deflate"
+ * format. The "deflate" format is described in RFC 1951.
+ *
+ * This stream may form the basis for other decompression filters, such
+ * as the <code>GZIPInputStream</code>.
+ *
+ * @author John Leuner
  * @author Tom Tromey
- * @date May 17, 1999
+ * @since 1.1
  */
-
-/* Written using on-line Java Platform 1.2 API Specification
- * and JCL book.
- * Believed complete and correct.
- */
-
 public class InflaterInputStream extends FilterInputStream
 {
-  protected void fill () throws IOException
+  /**
+   * Decompressor for this filter 
+   */
+  protected Inflater inf;
+
+  /**
+   * Byte array used as a buffer 
+   */
+  protected byte[] buf;
+
+  /**
+   * Size of buffer   
+   */
+  protected int len;
+
+  // We just use this if we are decoding one byte at a time with the
+  // read() call.
+  private byte[] onebytebuffer = new byte[1];
+
+  /**
+   * Create an InflaterInputStream with the default decompresseor
+   * and a default buffer size.
+   *
+   * @param in the InputStream to read bytes from
+   */
+  public InflaterInputStream(InputStream in) 
   {
+    this(in, new Inflater(), 4096);
+  }
+
+  /**
+   * Create an InflaterInputStream with the specified decompresseor
+   * and a default buffer size.
+   *
+   * @param in the InputStream to read bytes from
+   * @param inf the decompressor used to decompress data read from in
+   */
+  public InflaterInputStream(InputStream in, Inflater inf) 
+  {
+    this(in, inf, 4096);
+  }
+
+  /**
+   * Create an InflaterInputStream with the specified decompresseor
+   * and a specified buffer size.
+   *
+   * @param in the InputStream to read bytes from
+   * @param inf the decompressor used to decompress data read from in
+   * @param size size of the buffer to use
+   */
+  public InflaterInputStream(InputStream in, Inflater inf, int size) 
+  {
+    super(in);
+
+    if (in == null)
+      throw new NullPointerException("in may not be null");
+    if (inf == null)
+      throw new NullPointerException("inf may not be null");
+    if (size < 0)
+      throw new IllegalArgumentException("size may not be negative");
+    
+    this.inf = inf;
+    this.buf = new byte [size];
+  }
+
+  /**
+   * Returns 0 once the end of the stream (EOF) has been reached.
+   * Otherwise returns 1.
+   */
+  public int available() throws IOException
+  {
+    // According to the JDK 1.2 docs, this should only ever return 0
+    // or 1 and should not be relied upon by Java programs.
+    if (inf == null)
+      throw new IOException("stream closed");
+    return inf.finished() ? 0 : 1;
+  }
+
+  /**
+   * Closes the input stream
+   */
+  public synchronized void close() throws IOException
+  {
+    inf = null;
+    super.close();
+  }
+
+  /**
+   * Fills the buffer with more data to decompress.
+   */
+  protected void fill() throws IOException
+  {
+    if (in == null)
+      throw new ZipException ("InflaterInputStream is closed");
+    
     len = in.read(buf, 0, buf.length);
-    if (len != -1)
+
+    if (len >= 0)
       inf.setInput(buf, 0, len);
   }
 
-  public InflaterInputStream (InputStream in)
-  {
-    this (in, new Inflater (), 512);
+  /**
+   * Reads one byte of decompressed data.
+   *
+   * The byte is in the lower 8 bits of the int.
+   */
+  public int read() throws IOException
+  { 
+    int nread = read(onebytebuffer, 0, 1);
+    if (nread > 0)
+      return onebytebuffer[0] & 0xff;
+    return -1;
   }
 
-  public InflaterInputStream (InputStream in, Inflater infl)
-  {
-    this (in, infl, 512);
-  }
-
-  public InflaterInputStream (InputStream in, Inflater infl, int bufsize)
-  {
-    super (in);
-    this.inf = infl;
-    this.buf = new byte[bufsize];
-  }
-
-  public int read () throws IOException
-  {
-    byte[] buf = new byte[1];
-    int r = read (buf, 0, 1);
-    if (r != -1)
-      r = buf[0] & 0xff;
-    return r;
-  }
-
-  public int read (byte[] buf, int off, int len) throws IOException
+  /**
+   * Decompresses data into the byte array
+   *
+   * @param b the array to read and decompress data into
+   * @param off the offset indicating where the data should be placed
+   * @param len the number of bytes to decompress
+   */
+  public int read(byte[] b, int off, int len) throws IOException
   {
     if (inf == null)
-      throw new IOException ("stream closed");
+      throw new IOException("stream closed");
     if (len == 0)
       return 0;
     if (inf.finished())
@@ -99,10 +189,11 @@ public class InflaterInputStream extends FilterInputStream
     while (count == 0)
       {
 	if (inf.needsInput())
-	  fill ();
+	  fill();
+	
 	try
 	  {
-	    count = inf.inflate(buf, off, len);	
+	    count = inf.inflate(b, off, len);
 	    if (count == 0)
 	      {
 		if (this.len == -1)
@@ -111,63 +202,46 @@ public class InflaterInputStream extends FilterInputStream
 		    return -1;
 		  }
 		if (inf.needsDictionary())
-		  throw new ZipException ("Inflater needs Dictionary");
+		  throw new ZipException("Inflater needs Dictionary");
 	      }
-	  }
-	catch (DataFormatException dfe)
+	  } 
+	catch (DataFormatException dfe) 
 	  {
-	    throw new ZipException (dfe.getMessage());
+	    throw new ZipException(dfe.getMessage());
 	  }
       }
     return count;
   }
 
-  public void close () throws IOException
-  {
-    inf = null;
-    super.close ();
-  }
-
-  public int available () throws IOException
-  {
-    // According to the JDK 1.2 docs, this should only ever return 0
-    // or 1 and should not be relied upon by Java programs.
-    if (inf == null)
-      throw new IOException ("stream closed");
-    return inf.finished () ? 0 : 1;
-  }
-
-  public long skip (long n) throws IOException
+  /**
+   * Skip specified number of bytes of uncompressed data
+   *
+   * @param n number of bytes to skip
+   */
+  public long skip(long n) throws IOException
   {
     if (inf == null)
-      throw new IOException ("stream closed");
+      throw new IOException("stream closed");
+    if (n < 0)
+      throw new IllegalArgumentException();
 
     if (n == 0)
       return 0;
 
-    int min = (int) Math.min(n, 1024);
-    byte[] buf = new byte[min];
+    int buflen = (int) Math.min(n, 2048);
+    byte[] tmpbuf = new byte[buflen];
 
-    long s = 0;
-    while (n > 0)
+    long skipped = 0L;
+    while (n > 0L)
       {
-	int r = read (buf, 0, min);
-	if (r == -1)
+	int numread = read(tmpbuf, 0, buflen);
+	if (numread <= 0)
 	  break;
-	n -= r;
-	s += r;
-	min = (int) Math.min(n, 1024);
+	n -= numread;
+	skipped += numread;
+	buflen = (int) Math.min(n, 2048);
       }
 
-    return s;
-  }
-
-  // Buffer for delivering uncompressed data to inflater.
-  protected byte[] buf;
-
-  // Inflater used to decompress data.
-  protected Inflater inf;
-
-  // Number of read bytes in buf.
-  protected int len;
+    return skipped;
+ }
 }

@@ -1,0 +1,253 @@
+# Commands covered:  ::dom::document
+#
+# This file contains a collection of tests for one or more of the 
+# TclDOM commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998-2002 Zveno Pty Ltd.
+#
+# $Id: document.test,v 1.8 2003/01/23 19:47:02 balls Exp $
+
+package require tcltest; namespace import -force ::tcltest::*
+source testutils.tcl
+testPackage dom
+
+set doc [::dom::DOMImplementation create]
+
+test document-1.1 {cget -doctype} -constraints {!dom_libxml2} -body {
+    ::dom::document cget $doc -doctype
+} -result {}
+test document-1.2 {cget -implementation} -constraints {dom_c} -body {
+    ::dom::document cget $doc -implementation
+} -result {::dom::DOMImplementation}
+test document-1.2 {cget -implementation} -constraints {dom_tcl} -body {
+    ::dom::document cget $doc -implementation
+} -result {::dom::tcl::DOMImplementation}
+test document-1.2 {cget -implementation} -constraints {dom_libxml2} -body {
+    ::dom::document cget $doc -implementation
+} -result {::dom::libxml2::DOMImplementation}
+test document-1.3 {cget -documentElement} -body {
+    ::dom::document cget $doc -documentElement
+} -result {}
+test document-1.4 {error: cget too few arguments} -body {
+    catch {::dom::document cget $doc}
+} -result 1
+test document-1.5 {error: cget too many arguments} -body {
+    catch {::dom::document cget $doc -foo bar}
+} -result 1
+test document-1.6 {error: cget unknown option} -body {
+    catch {::dom::document cget $doc -foo}
+} -result 1
+test document-1.7 {cget -version} -constraints {dom_tcl} -body {
+    ::dom::document cget $doc -version
+} -result 1.0
+
+test document-2.1 {configure} -body {
+    ::dom::document configure $doc -documentElement
+} -result {}
+test document-2.2 {error: configure read-only option} -body {
+    set result [catch {::dom::document configure $doc -documentElement $doc} msg]
+    list $result $msg
+} -result {1 {attribute "-documentElement" is read-only}}
+test document-2.3 {configure -version} -constraints {dom_tcl} -body {
+    ::dom::document configure $doc -version 1.0
+} -result {}
+test document-2.4 {error: configure -version} -constraints {dom_tcl} -body {
+    catch {::dom::document configure $doc -version 1.1}
+} -result 1
+test document-2.5 {configure -encoding} -constraints {dom_tcl} -body {
+    ::dom::document configure $doc -encoding ISO-8859-1
+    ::dom::document cget $doc -encoding
+} -result ISO-8859-1
+test document-2.6 {configure -standalone} -constraints {dom_tcl} -body {
+    ::dom::document configure $doc -standalone 1
+    ::dom::document cget $doc -standalone
+} -result yes
+
+test document-3.1 {create document element} -body {
+    set top [::dom::document createElement $doc Test]
+    ::dom::node appendChild $doc $top
+    ok
+} -result {}
+test document-3.2 {element node type} -body {
+    ::dom::node cget $top -nodeType
+} -result element
+test document-3.3 {element name} -body {
+    ::dom::node cget $top -nodeName
+} -result Test
+test document-3.4 {document element set} -body {
+    ::dom::document cget $doc -documentElement
+} -result $top
+test document-3.5 {error: no element name} -body {
+    catch {::dom::document createElement $doc}
+} -result 1
+test document-3.6 {error: invalid element name} -body {
+    expectError {
+    	::dom::document createElement $top {Has Space}
+    } {invalid * name *}
+} -result 1
+test document-3.7 {error: too many arguments} -body {
+    catch {::dom::document createElement $doc Foo Bar}
+} -result 1
+
+test document-4.1 {create documentFragment} -body {
+    set frag [::dom::document createDocumentFragment $top]
+    ok
+} -result {}
+test document-4.2 {documentFragment node type} -body {
+    ::dom::node cget $frag -nodeType
+} -result documentFragment
+test document-4.3 {error: documentFragment too many arguments} -body {
+    catch {::dom::document createDocumentFragment $top Foo}
+} -result 1
+
+test document-5.1 {create textNode} -body {
+    set text [::dom::document createTextNode $top {Sample Data}]
+    ok;
+} -result {}
+test document-5.2 {textNode node type} -body {
+    ::dom::node cget $text -nodeType
+} -result textNode
+test document-5.3 {textNode node name} -body {
+    ::dom::node cget $text -nodeName
+} -result {#text}
+test document-5.4 {textNode node value} -body {
+    ::dom::node cget $text -nodeValue
+} -result {Sample Data}
+test document-5.5 {error: textNode too few arguments} -body {
+    catch {::dom::document createTextNode $top}
+} -result 1
+test document-5.6 {error: textNode too many arguments} -body {
+    catch {::dom::document createTextNode $top {More Sample Data} Foo}
+} -result 1
+
+test document-6.1 {create comment} -body {
+    set comm [::dom::document createComment $top {Comment Data}]
+    ok;
+} -result {}
+test document-6.2 {comment node type} -body {
+    ::dom::node cget $comm -nodeType
+} -result comment
+test document-6.3 {comment node name} -body {
+    ::dom::node cget $comm -nodeName
+} -result {#comment}
+test document-6.4 {comment node value} -body {
+    ::dom::node cget $comm -nodeValue
+} -result {Comment Data}
+test document-6.5 {error: comment too few arguments} -body {
+    catch {::dom::document createComment $top}
+} -result 1
+test document-6.6 {error: comment too many arguments} -body {
+    catch {::dom::document createComment $top {More Comment Data} Foo}
+} -result 1
+
+# dom::tcl and dom::libxml2 treat CDATA Sections as plain text
+
+test document-7.1 {create CDATASection} -body {
+    set cdata [::dom::document createCDATASection $top {CDATASection <Data>}]
+    ok
+} -result {}
+test document-7.2 {CDATASection node type} -constraints {dom_c} -body {
+    ::dom::node cget $cdata -nodeType
+} -result CDATASection
+test document-7.2 {CDATASection node type} -constraints {dom_tcl || dom_libxml2} -body {
+    ::dom::node cget $cdata -nodeType
+} -result textNode
+test document-7.3 {CDATASection node name} -constraints {dom_c} -body {
+    ::dom::node cget $cdata -nodeName
+} -result {#cdata-section}
+test document-7.3 {CDATASection node name} -constraints {dom_tcl || dom_libxml2} -body {
+    ::dom::node cget $cdata -nodeName
+} -result {#text}
+test document-7.4 {CDATASection node value} -body {
+    ::dom::node cget $cdata -nodeValue
+} -result {CDATASection <Data>}
+test document-7.5 {error: CDATASection too few arguments} -body {
+    catch {::dom::document createCDATASection $top}
+} -result 1
+test document-7.6 {error: CDATASection too many arguments} -body {
+    catch {::dom::document createCDATASection $top {More CDATA} Foo}
+} -result 1
+
+test document-8.1 {create processingInstruction} -body {
+    set pi [::dom::document createProcessingInstruction $top target {PI Data}]
+    ok;
+} -result {}
+test document-8.2 {processingInstruction node type} -body {
+    ::dom::node cget $pi -nodeType
+} -result processingInstruction
+test document-8.3 {processingInstruction node name} -body {
+    ::dom::node cget $pi -nodeName
+} -result target
+test document-8.4 {processingInstruction node value} -body {
+    ::dom::node cget $pi -nodeValue
+} -result {PI Data}
+test document-8.5 {error: processingInstruction too few arguments} -body {
+    catch {::dom::document createProcessingInstruction $top}
+} -result 1
+test document-8.6 {error: processingInstruction too many arguments} -body {
+    catch {::dom::document createProcessingInstruction $top target data Extra}
+} -result 1
+
+# TBD: Attribute
+# TBD: EntityReference
+
+test document-10.1 {getElementsByTagName - document element} -constraints {!dom_libxml2} -body {
+    set docTestElements [::dom::document getElementsByTagName $doc Test]
+    list [llength [set $docTestElements]] [set $docTestElements]
+} -result [list 1 [list $top]]
+
+test document-10.2 {add some elements - set up for successive tests} -body {
+    set child1 [::dom::document createElement $top Child1]
+    ::dom::node appendChild $top $child1
+    set child2 [::dom::document createElement $top Child2]
+    ::dom::node appendChild $top $child2
+    set child3 [::dom::document createElement $top Test]
+    ::dom::node appendChild $top $child3
+    ok
+} -result {}
+test document-10.3 {getElementsByTagName - continued} -constraints {!dom_libxml2} -body {
+    set result [set $docTestElements]
+    list [llength $result] $result
+} -result [list 2 [list $top $child3]]
+
+test document-10.4 {getElementsByTagName - element} -constraints {!dom_libxml2} -body {
+    set result [::dom::document getElementsByTagName $top Child2]
+    list [llength [set $result]] [set $result]
+} -result [list 1 [list $child2]]
+
+test document-10.5 {getElementsByTagName - remove node} -constraints {!dom_libxml2} -body {
+    dom::node removeChild $top $child3
+    list [llength [set $docTestElements]] [set $docTestElements]
+} -result [list 1 [list $top]]
+
+test document-10.6 {getElementsByTagName - read-only variable} -constraints {!dom_libxml2} -body {
+    expectError {
+	lappend $docTestElements -foo-
+    } {*: Read-only variable}
+} -result 1
+
+test document-10.7 {getElementsByTagName - unset variable} -constraints {!dom_libxml2} -body {
+    unset $docTestElements
+    ok
+} -result {}
+
+set testXML "<?xml version=\"1.0\"?><Test><a>aaa<b>bbb</b>aaa</a></Test>"
+test document-11.1 {importNode} -constraints {dom_c} -body {
+	# bug 3620
+	global testXML
+	set doc [::dom::DOMImplementation parse $testXML]
+	set copy [::dom::DOMImplementation create]
+	set root [::dom::document cget $doc -documentElement]
+	set result [catch {::dom::document importNode $copy $root -deep 1} node]
+	::dom::node insert $copy $node
+	set xml [::dom::DOMImplementation serialize $copy]
+	list $result $xml
+} -result {0 {<?xml version='1.0'?>
+<!DOCTYPE Test>
+<Test><a>aaa<b>bbb</b>aaa</a></Test>}}
+
+
+# cleanup
+::tcltest::cleanupTests
+return

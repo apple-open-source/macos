@@ -141,7 +141,10 @@
 #define R200_EMIT_PP_CUBIC_OFFSETS_4                70
 #define R200_EMIT_PP_CUBIC_FACES_5                  71
 #define R200_EMIT_PP_CUBIC_OFFSETS_5                72
-#define RADEON_MAX_STATE_PACKETS                    73
+#define RADEON_EMIT_PP_TEX_SIZE_0                   73
+#define RADEON_EMIT_PP_TEX_SIZE_1                   74
+#define RADEON_EMIT_PP_TEX_SIZE_2                   75
+#define RADEON_MAX_STATE_PACKETS                    76
 
 
 /* Commands understood by cmd_buffer ioctl.  More can be added but
@@ -211,11 +214,11 @@ typedef union {
 
 #define RADEON_NR_SAREA_CLIPRECTS	12
 
-/* There are 2 heaps (local/AGP).  Each region within a heap is a
+/* There are 2 heaps (local/GART).  Each region within a heap is a
  * minimum of 64k, and there are at most 64 of them per heap.
  */
 #define RADEON_LOCAL_TEX_HEAP		0
-#define RADEON_AGP_TEX_HEAP		1
+#define RADEON_GART_TEX_HEAP		1
 #define RADEON_NR_TEX_HEAPS		2
 #define RADEON_NR_TEX_REGIONS		64
 #define RADEON_LOG_TEX_GRANULARITY	16
@@ -323,12 +326,6 @@ typedef struct {
 
 
 typedef struct {
-	unsigned char next, prev;
-	unsigned char in_use;
-	int age;
-} drm_radeon_tex_region_t;
-
-typedef struct {
 	/* The channel for communication of state information to the
 	 * kernel on firing a vertex buffer with either of the
 	 * obsoleted vertex/index ioctls.
@@ -350,8 +347,8 @@ typedef struct {
 	unsigned int last_dispatch;
 	unsigned int last_clear;
 
-	drm_radeon_tex_region_t tex_list[RADEON_NR_TEX_HEAPS][RADEON_NR_TEX_REGIONS+1];
-	int tex_age[RADEON_NR_TEX_HEAPS];
+	drm_tex_region_t tex_list[RADEON_NR_TEX_HEAPS][RADEON_NR_TEX_REGIONS+1];
+	unsigned int tex_age[RADEON_NR_TEX_HEAPS];
 	int ctx_owner;
         int pfState;                /* number of 3d windows (0,1,2ormore) */
         int pfCurrentPage;	    /* which buffer is being displayed? */
@@ -391,6 +388,9 @@ typedef struct {
 #define DRM_IOCTL_RADEON_INIT_HEAP  DRM_IOW( 0x55, drm_radeon_mem_init_heap_t)
 #define DRM_IOCTL_RADEON_IRQ_EMIT   DRM_IOWR( 0x56, drm_radeon_irq_emit_t)
 #define DRM_IOCTL_RADEON_IRQ_WAIT   DRM_IOW( 0x57, drm_radeon_irq_wait_t)
+/* added by Charl P. Botha - see radeon_cp.c for details */
+#define DRM_IOCTL_RADEON_CP_RESUME  DRM_IO(0x58)
+#define DRM_IOCTL_RADEON_SETPARAM   DRM_IOW(0x59, drm_radeon_setparam_t)
 
 typedef struct drm_radeon_init {
 	enum {
@@ -401,7 +401,7 @@ typedef struct drm_radeon_init {
 	unsigned long sarea_priv_offset;
 	int is_pci;
 	int cp_mode;
-	int agp_size;
+	int gart_size;
 	int ring_size;
 	int usec_timeout;
 
@@ -416,7 +416,7 @@ typedef struct drm_radeon_init {
 	unsigned long ring_offset;
 	unsigned long ring_rptr_offset;
 	unsigned long buffers_offset;
-	unsigned long agp_textures_offset;
+	unsigned long gart_textures_offset;
 } drm_radeon_init_t;
 
 typedef struct drm_radeon_cp_stop {
@@ -503,7 +503,7 @@ typedef struct drm_radeon_tex_image {
 } drm_radeon_tex_image_t;
 
 typedef struct drm_radeon_texture {
-	int offset;
+	unsigned int offset;
 	int pitch;
 	int format;
 	int width;			/* Texture image coordinates */
@@ -526,12 +526,19 @@ typedef struct drm_radeon_indirect {
 /* 1.3: An ioctl to get parameters that aren't available to the 3d
  * client any other way.  
  */
-#define RADEON_PARAM_AGP_BUFFER_OFFSET     1 /* card offset of 1st agp buffer */
+#define RADEON_PARAM_GART_BUFFER_OFFSET    1 /* card offset of 1st GART buffer */
 #define RADEON_PARAM_LAST_FRAME            2
 #define RADEON_PARAM_LAST_DISPATCH         3
 #define RADEON_PARAM_LAST_CLEAR            4
+/* Added with DRM version 1.6. */
 #define RADEON_PARAM_IRQ_NR                5
-#define RADEON_PARAM_AGP_BASE              6 /* card offset of agp base */
+#define RADEON_PARAM_GART_BASE             6 /* card offset of GART base */
+/* Added with DRM version 1.8. */
+#define RADEON_PARAM_REGISTER_HANDLE       7 /* for drmMap() */
+#define RADEON_PARAM_STATUS_HANDLE         8
+#define RADEON_PARAM_SAREA_HANDLE          9
+#define RADEON_PARAM_GART_TEX_HANDLE       10
+#define RADEON_PARAM_SCRATCH_OFFSET        11
 
 typedef struct drm_radeon_getparam {
 	int param;
@@ -540,14 +547,14 @@ typedef struct drm_radeon_getparam {
 
 /* 1.6: Set up a memory manager for regions of shared memory:
  */
-#define RADEON_MEM_REGION_AGP 1
-#define RADEON_MEM_REGION_FB  2
+#define RADEON_MEM_REGION_GART 1
+#define RADEON_MEM_REGION_FB   2
 
 typedef struct drm_radeon_mem_alloc {
 	int region;
 	int alignment;
 	int size;
-	int *region_offset;	/* offset from start of fb or agp */
+	int *region_offset;	/* offset from start of fb or GART */
 } drm_radeon_mem_alloc_t;
 
 typedef struct drm_radeon_mem_free {
@@ -571,6 +578,18 @@ typedef struct drm_radeon_irq_emit {
 typedef struct drm_radeon_irq_wait {
 	int irq_seq;
 } drm_radeon_irq_wait_t;
+
+
+/* 1.10: Clients tell the DRM where they think the framebuffer is located in
+ * the card's address space, via a new generic ioctl to set parameters
+ */
+
+typedef struct drm_radeon_setparam {
+	unsigned int param;
+	int64_t      value;
+} drm_radeon_setparam_t;
+
+#define RADEON_SETPARAM_FB_LOCATION    1 /* determined framebuffer location */
 
 
 #endif

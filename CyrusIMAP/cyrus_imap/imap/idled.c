@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: idled.c,v 1.23 2004/07/27 16:19:44 rjs3 Exp $ */
+/* $Id: idled.c,v 1.5 2005/03/05 00:36:54 dasenbro Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

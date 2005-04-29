@@ -101,6 +101,8 @@ int variable_context = 0;
 /* The set of shell assignments which are made only in the environment
    for a single command. */
 HASH_TABLE *temporary_env = (HASH_TABLE *)NULL;
+/* Count of all errors processing temporary_env assignments */
+int temporary_env_errors = 0; 
 
 /* Some funky variables which are known about specially.  Here is where
    "$*", "$1", and all the cruft is kept. */
@@ -1889,6 +1891,9 @@ assign_in_env (string)
   name = savestring (string);
   value = (char *)NULL;
 
+  if (temporary_env == 0)	/* force creation so that temporary_env_errors is reset later */
+    temporary_env = hash_create (TEMPENV_HASH_BUCKETS);
+
   if (name[offset] == '=')
     {
       name[offset] = 0;
@@ -1899,6 +1904,7 @@ assign_in_env (string)
 	  if (readonly_p (var))
 	    err_readonly (name);
 	  free (name);
+	  temporary_env_errors++;
   	  return (0);
 	}
 
@@ -1908,9 +1914,6 @@ assign_in_env (string)
       value = expand_string_unsplit_to_string (temp, 0);
       free (temp);
     }
-
-  if (temporary_env == 0)
-    temporary_env = hash_create (TEMPENV_HASH_BUCKETS);
 
   var = hash_lookup (name, temporary_env);
   if (var == 0)
@@ -2658,6 +2661,7 @@ dispose_temporary_env (pushf)
   hash_flush (temporary_env, pushf);
   hash_dispose (temporary_env);
   temporary_env  = (HASH_TABLE *)NULL;
+  temporary_env_errors = 0;
 
   array_needs_making = 1;
 

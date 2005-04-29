@@ -4,11 +4,11 @@
 
 <article>
 <title>XFree86 on Darwin and Mac OS X
-<author>Torrey T. Lyons, <email>torrey@mrcla.com</email>
-<date>12 December 2001
+<author>Torrey T. Lyons
+<date>15 December 2003
 
 <ident>
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Darwin.sgml,v 1.9 2001/12/13 07:09:05 torrey Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Darwin.sgml,v 1.10 2003/12/15 20:47:41 torrey Exp $
 </ident>
 
 <toc>
@@ -69,7 +69,7 @@ typically means any card that has been shipped by Apple. If a card works
 for you with the Mac OS&nbsp;X GUI, it will work on the same machine with
 XFree86. If you have a pure Darwin installation, you may need to download
 additional third-party drivers from
-<htmlurl url="http://www.opensource.apple.com/projects/darwin/"
+<htmlurl url="http://developer.apple.com/darwin/"
 name="Apple's Darwin site">. IOKit drivers are typically installed in
 <tt>/System/Library/Extensions/</tt> or <tt>/Library/Extensions/</tt>.
 
@@ -94,10 +94,12 @@ the XFree86 FTP server at <url
 url="ftp://ftp.xfree86.org/pub/XFree86/&relvers;/binaries/">.
 Follow the instructions in the <htmlurl
 url="http://www.xfree86.org/&relvers;/Install.html" name="Install">
-document to install it. This will create two new directory trees,
-<tt>/usr/X11R6</tt> and <tt>/etc/X11</tt> For Mac OS&nbsp;X Quartz
-support, download the optional Xquartz.tgz tarball. With Quartz support,
-the XDarwin application will be installed in <tt>/Applications</tt>.
+document to install it. This will create three new directory trees,
+<tt>/usr/X11R6</tt>, <tt>/etc/X11</tt> and <tt>/etc/fonts</tt>. On
+Mac OS&nbsp;X the Xquartz.tgz tarball is required in addition to the
+other tarballs required on other platforms. With Mac OS&nbsp;X Quartz
+support, the XDarwin application will be installed in
+<tt>/Applications</tt>.
 
 <p>
 If you get the precompiled binaries you can skip ahead to the section
@@ -149,12 +151,17 @@ sudo make install.man >& man.log
 </verb></tscreen>
 
 <sect>Run the X Window System<label id="running">
+
+<sect1>Setting Your Path
 <p>
 You need to add the X Window System executables to your path. Your path
 is the list of directories to be searched for executable commands. 
 The X11 commands are located in <tt>/usr/X11R6/bin</tt>, which needs to be
-added to your path. XDarwin does this for you by default and can also add
-additional directories where you have installed command line applications.
+added to your path. In Quartz mode, the XDarwin application does this for
+you automatically. It can also be configured to add additional directories
+where you have installed command line applications. When running from the
+Darwin console, you will need to set the path correctly for your shell as
+XDarwin will not do this for you.
 
 <p>
 More experienced users will have already set their path correctly using the
@@ -171,24 +178,21 @@ of pages to be searched when you are looking for documentation. The X11 man
 pages are located in <tt>/usr/X11R6/man</tt> and the <tt>MANPATH</tt>
 environment variable contains the list of directories to search.
 
+<sect1>Starting the X Server
 <p>
 On Mac OS&nbsp;X, you can run XFree86 from the Darwin
 text console or in parallel with Aqua. To get to the text
 console in Mac OS&nbsp;X you need to logout and type ``&gt;console'' as
 the user name. This will shutdown Core Graphics and
-bring up the console login prompt. Login again as your user. 
-
-<p>
+bring up the console login prompt. Login again as your user.
 From the text console you can start the X Window System by typing
-``exec startx''. After a brief wait at least one terminal window should
-pop up for you. So far it probably isn't very impressive as you might not
-even have a window manager running to allow you to move windows around.
+``exec startx''.
 
 <p>
 When you are ready to quit XFree86 type ``exit'' in the main
 terminal window or quit with the window manager if you have one
-running. Unfortunately the X server does not shutdown correctly and if
-you did not start with ``exec startx'', you 
+running. Unfortunately in IOKit mode, the X server does not shutdown
+correctly and if you did not start with ``exec startx'', you 
 will get an apparently frozen screen with only a spinning beachball
 cursor on it. Nothing you type shows up on the screen, but in fact
 your keystrokes are being received by the console. Type
@@ -206,10 +210,29 @@ to always use a particular mode in the preferences, or you can specify
 the ``-fullscreen'' or ``-rootless'' options on the command line instead
 of ``-quartz''.
 
+<sect1>Double-clickable X11 Executables
 <p>
-<bf/Customize the X Window System/
-<p>
+Mac OS&nbsp;X 10.3 can be configured to automatically launch XDarwin when
+you double-click an X11 executable in the Finder. When an executable file
+is double-clicked Launch Services checks to see if it is linked against
+the X11 libraries. If it is, Launch Services opens the default X server.
+To set the default X server, do the following:
 
+<itemize>
+<item>Create a simple file which ends in ''.x11app''.
+<item>Open the file with Get Info in the Finder.
+<item>Under ''Open with:'' select the XDarwin application.
+<item>Select ''Change All...'' to set XDarwin as the default.
+</itemize>
+
+<p>
+On Mac OS&nbsp;X 10.3 the default X server is started when an X11
+executable is double-clicked, whether or not its extension is
+''.x11app''. On previous versions of Mac OS&nbsp;X, an X11 executable must
+have a ''.x11app'' extension for this to work.
+
+<sect1>Customize the X Window System
+<p>
 The X Window System is very customizable and you will certainly want to
 change some things. There is a lot you can do to control how your windows
 look, how the windows are moved, resized, etc. You will likely want to
@@ -224,18 +247,16 @@ following pages contain collections of window managers and other X
 window system clients:
 
 <itemize>
+<item> <htmlurl url="http://darwinports.opendarwin.org/"
+name="DarwinPorts">: An easy way to install various open-source software
+products on Darwin and Mac OS&nbsp;X.
+
 <item> <htmlurl url="http://fink.sourceforge.net/" name="Fink">: A
 package manager that will easily download, compile, and install lots
 of open source software from the Internet.
 
 <item> <htmlurl url="http://gnu-darwin.sourceforge.net/" name="GNU-Darwin">:
 A source for tons of software ported to Darwin.
-
-<item> <htmlurl url="http://softrak.stepwise.com/Apps/WebObjects/Softrak"
-name="Stepwise's Softrak site">
-
-<item> <htmlurl url="http://www.darwinfo.org/ports/"
-name="Darwinfo's ports page">
 
 </itemize>
 

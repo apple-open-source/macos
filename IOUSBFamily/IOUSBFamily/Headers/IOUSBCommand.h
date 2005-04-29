@@ -82,6 +82,8 @@ protected:
 	IOMemoryDescriptor	*_bufferMemoryDescriptor;
 	bool			_multiTransferTransaction;
 	bool			_finalTransferInTransaction;
+        bool			_useTimeStamp;
+        AbsoluteTime		_timeStamp;
     };
     ExpansionData * 		_expansionData;
     
@@ -120,6 +122,8 @@ public:
     void			SetBufferMemoryDescriptor(IOMemoryDescriptor *bufferMemoryDescriptor);
     void			SetMultiTransferTransaction(bool);
     void			SetFinalTransferInTransaction(bool);
+    void			SetUseTimeStamp(bool);
+    void			SetTimeStamp(AbsoluteTime timeStamp);
     usbCommand 			GetSelector(void);
     IOUSBDeviceRequestPtr 	GetRequest(void);
     USBDeviceAddress 		GetAddress(void);
@@ -144,6 +148,8 @@ public:
     IOMemoryDescriptor *	GetBufferMemoryDescriptor(void);
     bool			GetMultiTransferTransaction(void);
     bool			GetFinalTransferInTransaction(void);
+    bool			GetUseTimeStamp(void);
+    AbsoluteTime		GetTimeStamp(void);
 };
 
 
@@ -163,8 +169,11 @@ protected:
     IOUSBIsocFrame *		_frameList;
     IOReturn			_status;
     
-    struct ExpansionData { 
-    UInt32			_updateFrequency;
+    struct ExpansionData
+    {
+        UInt32			_updateFrequency;
+        bool			_useTimeStamp;
+        AbsoluteTime		_timeStamp;
     };
     ExpansionData * 		_expansionData;
 
@@ -188,6 +197,8 @@ public:
     void 		SetFrameList(IOUSBIsocFrame *fl) 	{_frameList = fl;}
     void 		SetStatus(IOReturn stat) 		{_status = stat;}
     void		SetUpdateFrequency( UInt32 fr) 		{ _expansionData->_updateFrequency = fr;}
+    void		SetUseTimeStamp(bool useIt)             { _expansionData->_useTimeStamp= useIt;}
+    void		SetTimeStamp(AbsoluteTime timeStamp)	{ _expansionData->_timeStamp= timeStamp;}
     
     usbCommand 		GetSelector(void) 	{return _selector;}
     USBDeviceAddress 	GetAddress(void) 	{return _address;}
@@ -198,7 +209,10 @@ public:
     UInt64 		GetStartFrame(void) 	{return _startFrame;}
     UInt32 		GetNumFrames(void) 	{return _numFrames;}
     IOUSBIsocFrame* 	GetFrameList(void) 	{return _frameList;}
-    UInt32		GetUpdateFrequency(void){return _expansionData->_updateFrequency; };
+    UInt32		GetUpdateFrequency(void){return _expansionData->_updateFrequency;}
+    IOReturn		GetStatus(void)		{return _status;}
+    bool                GetUseTimeStamp(void)	{return _expansionData->_useTimeStamp;}
+    AbsoluteTime	GetTimeStamp(void)	{return _expansionData->_timeStamp;}
 };
 
 

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>AclSubjectTypes</key>
+	<array>
+		<string>CSSM_ACL_SUBJECT_TYPE_PASSWORD</string>
+		<string>CSSM_ACL_SUBJECT_TYPE_PROTECTED_PASSWORD</string>
+		<string>CSSM_ACL_SUBJECT_TYPE_PUBLIC_KEY</string>
+		<string>CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE</string>
+		<string>CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT</string>
+	</array>
+	<key>AuthTags</key>
+	<array>
+		<string>CSSM_ACL_AUTHORIZATION_ANY</string>
+	</array>
+	<key>CspCustomFlags</key>
+	<integer>0</integer>
+	<key>CspFlags</key>
+	<string>CSSM_CSP_STORES_PRIVATE_KEYS | CSSM_CSP_STORES_PUBLIC_KEYS | CSSM_CSP_STORES_SESSION_KEYS</string>
+	<key>CspType</key>
+	<string>CSSM_CSP_SOFTWARE</string>
+	<key>MdsFileDescription</key>
+	<string>Built-in CSPDL CSP Primary info</string>
+	<key>MdsFileType</key>
+	<string>PluginSpecific</string>
+	<key>MdsRecordType</key>
+	<string>MDS_CDSADIR_CSP_PRIMARY_RECORDTYPE</string>
+	<key>ModuleID</key>
+	<string>{87191ca3-0fc9-11d4-849a-000502b52122}</string>
+	<key>ModuleName</key>
+	<string>AppleCSPDL</string>
+	<key>ProductVersion</key>
+	<string>1.0</string>
+	<key>SSID</key>
+	<integer>0</integer>
+	<key>SampleTypes</key>
+	<array>
+		<string>CSSM_SAMPLE_TYPE_PASSWORD</string>
+		<string>CSSM_SAMPLE_TYPE_HASHED_PASSWORD</string>
+		<string>CSSM_SAMPLE_TYPE_PROTECTED_PASSWORD</string>
+		<string>CSSM_SAMPLE_TYPE_PROMPTED_PASSWORD</string>
+		<string>CSSM_SAMPLE_TYPE_SIGNED_NONCE</string>
+		<string>CSSM_SAMPLE_TYPE_SIGNED_SECRET</string>
+		<string>CSSM_SAMPLE_TYPE_BIOMETRIC</string>
+		<string>CSSM_SAMPLE_TYPE_PROTECTED_BIOMETRIC</string>
+		<string>CSSM_SAMPLE_TYPE_PROMPTED_BIOMETRIC</string>
+		<string>CSSM_SAMPLE_TYPE_THRESHOLD</string>
+		<string>CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT</string>
+		<string>CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK</string>
+		<string>CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK</string>
+		<string>CSSM_SAMPLE_TYPE_PROCESS</string>
+		<string>CSSM_SAMPLE_TYPE_COMMENT</string>
+		<string>CSSM_SAMPLE_TYPE_RETRY_ID</string>
+	</array>
+	<key>UseeTags</key>
+	<array/>
+	<key>Vendor</key>
+	<string>Apple Computer, Inc.</string>
+</dict>
+</plist>

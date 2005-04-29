@@ -1,0 +1,11 @@
+--- hash_bigkey.c.orig	Sun Feb 16 09:29:09 2003
++++ hash_bigkey.c	Sat Oct 18 18:30:43 2003
+@@ -72,7 +72,7 @@
+ #include <db.h>
+ #include "hash.h"
+ #include "page.h"
+-#include "extern.h"
++#include "hash_extern.h"
+ 
+ static int collect_key(HTAB *, BUFHEAD *, int, DBT *, int);
+ static int collect_data(HTAB *, BUFHEAD *, int, int);

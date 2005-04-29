@@ -1,4 +1,4 @@
-# Copyright (C) 1998 Free Software Foundation, Inc.
+# Copyright (C) 1998 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-gcc@prep.ai.mit.edu
+# bug-dejagnu@gnu.org
 
 # For MN10300 evaluation boards we use gdb to load and execute programs.
 

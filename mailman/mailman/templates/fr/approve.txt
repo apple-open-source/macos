@@ -4,7 +4,7 @@ Votre demande à %(requestaddr)s :
 
 a été envoyée à la personne qui gère la liste. 
 
-C'est probablement parceque vous essayez de vous abonner
+C'est probablement parce que vous essayez de vous abonner
 à une liste 'fermée'. 
 
 Vous recevrez par courrier électronique la décision de

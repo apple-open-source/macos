@@ -109,7 +109,7 @@ DependSubdirs($(SUBDIRS))
 #define DarwinArchEnv
 #endif
 
-PBXBUILD = DarwinArchEnv pbxbuild
+PBXBUILD = DarwinArchEnv xcodebuild OBJROOT=$(PBXBUILDDIR) SYMROOT=$(PBXBUILDDIR)
 PBXBUILDSTYLE = Development
 PBXBUILDDIR= ./build
 

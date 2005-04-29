@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)wbuf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/wbuf.c,v 1.10 2002/08/13 09:30:41 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/wbuf.c,v 1.11 2004/06/08 05:45:32 das Exp $");
 
 #include <stdio.h>
 #include "local.h"
@@ -65,7 +65,7 @@ __swbuf(c, fp)
 	 * calls might wrap _w from negative to positive.
 	 */
 	fp->_w = fp->_lbfsize;
-	if (cantwrite(fp))
+	if (prepwrite(fp) != 0)
 		return (EOF);
 	c = (unsigned char)c;
 

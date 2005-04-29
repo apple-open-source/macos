@@ -28,14 +28,24 @@
 */
 /*
 	$Log: IOFireWireUserClient.cpp,v $
-	Revision 1.104.2.3.8.2  2004/09/23 02:26:58  niels
-	navy 9_22
-	
-	Revision 1.104.2.3.8.1  2004/09/13 21:10:10  niels
+	Revision 1.110  2005/01/18 23:40:16  collin
 	*** empty log message ***
 	
-	Revision 1.104.2.3  2004/05/11 22:38:43  niels
+	Revision 1.109  2004/09/16 04:28:21  collin
 	*** empty log message ***
+	
+	Revision 1.108  2004/05/12 00:00:08  niels
+	3626775 - Brego 7L8: Digidesign Pro Tools LE FireWire 002 system doesn't work
+	3641955 - Digi 002 Pro Tools LE fails to launch on 10.3.4 7H46
+	
+	Revision 1.107  2004/03/25 00:08:59  niels
+	fix panic allocating large physical address spaces
+	
+	Revision 1.106  2004/03/25 00:00:59  niels
+	fix panic allocating large physical address spaces
+	
+	Revision 1.105  2004/03/25 00:00:23  niels
+	fix panic allocating large physical address spaces
 	
 	Revision 1.104  2004/02/17 23:13:23  niels
 	*** empty log message ***
@@ -371,6 +381,9 @@ IOFireWireUserClient :: start( IOService * provider )
 	}
 #endif
 
+#if 0
+	// turn off because sadly the proc structure is now opaque
+	
 	// borrowed from bsd/vm/vm_unix.c, function pid_for_task() which has some other weird crap
 	// going on too... I just took this part:
 	if ( result )
@@ -385,6 +398,7 @@ IOFireWireUserClient :: start( IOService * provider )
 		else
 			result = false ;
 	}
+#endif
 
 	return result ;
 }
@@ -418,9 +432,13 @@ IOFireWireUserClient :: clientClose ()
 {
 	clipMaxRec2K( false );	// Make sure maxRec isn't clipped
 
-	IOReturn result = userClose() ;
+	IOReturn	result = userClose() ;
 
-	if ( result == kIOReturnNotOpen )
+	if ( getProvider() && fOwner->isOpen() )
+	{
+		DebugLog("IOFireWireUserClient :: clientClose(): client left user client open, should call close. Closing...\n") ;
+	}
+	else if ( result == kIOReturnNotOpen )
 	{
 		result = kIOReturnSuccess ;
 	}
@@ -678,6 +696,16 @@ copyUserData (
 		IOVirtualAddress		kernBuffer, 
 		IOByteCount 			bytes ) const
 {
+	if( (userBuffer == NULL) || (kernBuffer == NULL) )
+	{
+		return kIOReturnNoMemory;
+	}
+	
+	if( bytes == 0 )
+	{
+		return kIOReturnSuccess;
+	}
+	
 	IOMemoryDescriptor *	desc 	= IOMemoryDescriptor :: withAddress (	userBuffer, bytes, kIODirectionOut, 
 																			fTask ) ;
 	if ( ! desc )
@@ -708,6 +736,16 @@ IOFireWireUserClient :: copyToUserBuffer (
 	IOByteCount 			bytes,
 	IOByteCount & 			bytesCopied )
 {
+	if( (userBuffer == NULL) || (kernelBuffer == NULL) )
+	{
+		return kIOReturnNoMemory;
+	}
+
+	if( bytes == 0 )
+	{
+		return kIOReturnSuccess;
+	}
+
 	IOMemoryDescriptor *	mem = IOMemoryDescriptor::withAddress( userBuffer, bytes, kIODirectionIn, fTask ) ;
 	if ( ! mem )
 		return kIOReturnNoMemory ;
@@ -1188,6 +1226,7 @@ IOFireWireUserClient :: localConfigDirectory_addEntry_Buffer (
 	const char *			descCString,
 	UInt32					descLen ) const
 {
+	
 	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
 	if ( !object )
 	{
@@ -1209,8 +1248,9 @@ IOFireWireUserClient :: localConfigDirectory_addEntry_Buffer (
 	}
 	else
 	{
+		data->appendBytes( NULL, kr_size );  // force internal buffer allocation
 		copyUserData( (IOVirtualAddress)buffer, (IOVirtualAddress)data->getBytesNoCopy(), kr_size ) ;
-	
+		
 		OSString * desc = NULL ;
 		if ( descCString )
 		{
@@ -2690,15 +2730,9 @@ IOFireWireUserClient :: userAsyncCommand_Submit(
 		cmd = IOFWUserCommand :: withSubmitParams( params, this ) ;
 
 		if ( ! cmd )
-		{
-			DebugLog("IOFireWireUserClient::userAsyncCommand_Submit: IOFWUserCommand::withSubmitParams failed\n") ;
 			error = kIOReturnNoMemory ;
-		}
 		else
-		{
 			error = fExporter->addObject( *cmd, NULL, outResult->kernCommandRef ) ;
-			DebugLog("fExporter->addObject error=%x\n", error ) ;
-		}
 	}
 
 	if ( cmd )
@@ -2710,15 +2744,11 @@ IOFireWireUserClient :: userAsyncCommand_Submit(
 			cmd->setAsyncReference( asyncRef ) ;
 			
 			error = cmd->submit( params, outResult ) ;
-			DebugLog("cmd->submit error=%x\n", error ) ;
-			
 		}
 		
 		cmd->release() ;		// we need to release this in all cases
 	}
 
-	DebugLog("error=%x\n", error ) ;
-	
 	return error ;
 }
 

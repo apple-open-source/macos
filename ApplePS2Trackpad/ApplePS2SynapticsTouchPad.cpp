@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.2 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -124,7 +121,7 @@ ApplePS2SynapticsTouchPad::probe( IOService * provider, SInt32 * score )
     request->commands[12].command = kPS2C_ReadDataPort;
     request->commands[12].inOrOut = 0;
     request->commands[13].command = kPS2C_SendMouseCommandAndCompareAck;
-    request->commands[13].inOrOut = kDP_SetDefaults;
+    request->commands[13].inOrOut = kDP_SetDefaultsAndDisable;
     request->commandsCount = 14;
     device->submitRequestAndBlock(request);
 
@@ -216,6 +213,14 @@ bool ApplePS2SynapticsTouchPad::start( IOService * provider )
 
     setTouchPadEnable(true);
 
+    //
+	// Install our power control handler.
+	//
+
+	_device->installPowerControlAction( this, (PS2PowerControlAction) 
+             &ApplePS2SynapticsTouchPad::setDevicePowerState );
+	_powerControlHandlerInstalled = true;
+
     return true;
 }
 
@@ -249,6 +254,13 @@ void ApplePS2SynapticsTouchPad::stop( IOService * provider )
 
     if ( _interruptHandlerInstalled )  _device->uninstallInterruptAction();
     _interruptHandlerInstalled = false;
+
+    //
+    // Uninstall the power control handler.
+    //
+
+    if ( _powerControlHandlerInstalled ) _device->uninstallPowerControlAction();
+    _powerControlHandlerInstalled = false;
 
 	super::stop(provider);
 }
@@ -350,7 +362,8 @@ void ApplePS2SynapticsTouchPad::setTouchPadEnable( bool enable )
     request->commands[0].command = kPS2C_SendMouseCommandAndCompareAck;
     request->commands[0].inOrOut = (enable)?kDP_Enable:kDP_SetDefaultsAndDisable;
     request->commandsCount = 1;
-    _device->submitRequest(request); // asynchronous, auto-free'd
+    _device->submitRequestAndBlock(request);
+    _device->freeRequest(request);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -557,4 +570,54 @@ IOReturn ApplePS2SynapticsTouchPad::setParamProperties( OSDictionary * dict )
     }
 
     return super::setParamProperties(dict);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2SynapticsTouchPad::setDevicePowerState( UInt32 whatToDo )
+{
+    switch ( whatToDo )
+    {
+        case kPS2C_DisableDevice:
+            
+            //
+            // Disable touchpad (synchronous).
+            //
+
+            setTouchPadEnable( false );
+            break;
+
+        case kPS2C_EnableDevice:
+
+            //
+            // Must not issue any commands before the device has
+            // completed its power-on self-test and calibration.
+            //
+
+            IOSleep(1000);
+
+            setTouchPadModeByte( _touchPadModeByte );
+
+            //
+            // Enable the mouse clock (should already be so) and the
+            // mouse IRQ line.
+            //
+
+            setCommandByte( kCB_EnableMouseIRQ, kCB_DisableMouseClock );
+
+            //
+            // Clear packet buffer pointer to avoid issues caused by
+            // stale packet fragments.
+            //
+
+            _packetByteCount = 0;
+
+            //
+            // Finally, we enable the trackpad itself, so that it may
+            // start reporting asynchronous events.
+            //
+
+            setTouchPadEnable( true );
+            break;
+    }
 }

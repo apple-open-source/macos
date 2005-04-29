@@ -30,6 +30,7 @@
             installhdrs.make, 
             installsrc.make, 
             javapackage.make, 
+            javawrapper.make, 
             library.make, 
             Makefile.preamble.template, 
             Makefile.postamble.template, 

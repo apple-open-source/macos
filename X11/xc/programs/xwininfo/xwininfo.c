@@ -2,6 +2,7 @@
 /*
 
 Copyright 1987, 1998  The Open Group
+Copyright 1999 Sun Microsystems, Inc.
 
 Permission to use, copy, modify, distribute, and sell this software and its
 documentation for any purpose is hereby granted without fee, provided that
@@ -14,19 +15,21 @@ in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
 OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+HOLDERS INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL
+INDIRECT OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING
+FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
+WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-Except as contained in this notice, the name of The Open Group shall
-not be used in advertising or otherwise to promote the sale, use or
-other dealings in this Software without prior written authorization
-from The Open Group.
+Except as contained in this notice, the name of a copyright holder
+shall not be used in advertising or otherwise to promote the sale, use
+or other dealings in this Software without prior written authorization
+of the copyright holder.
 
 */
-/* $XFree86: xc/programs/xwininfo/xwininfo.c,v 1.8 2001/12/14 20:02:35 dawes Exp $ */
+/* $XFree86: xc/programs/xwininfo/xwininfo.c,v 1.10 2003/09/20 16:08:32 herrb Exp $ */
 
 
 /*
@@ -47,6 +50,9 @@ from The Open Group.
 #include <X11/Xos.h>
 #include <X11/extensions/shape.h>
 #include <X11/Xmu/WinUtil.h>
+#ifndef NO_I18N
+#include <X11/Xlocale.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -58,28 +64,26 @@ typedef struct {
 	char *name;
 } binding;
 
-#if NeedFunctionPrototypes
-extern void scale_init(void);
-extern char *nscale(int, int, int, char *);
-extern char *xscale(int);
-extern char *yscale(int);
-extern char *bscale(int);
-extern int bad_window_handler(Display *, XErrorEvent *);
-extern int main(int, char **);
-extern char *LookupL(long, binding *);
-extern char *Lookup(int, binding *);
-extern void Display_Window_Id(Window, int);
-extern void Display_Stats_Info(Window);
-extern void Display_Bits_Info(Window);
-extern void Display_Event_Mask(long);
-extern void Display_Events_Info(Window);
-extern void Display_Tree_Info(Window, int);
-extern void display_tree_info_1(Window, int, int);
-extern void Display_Hints(XSizeHints *);
-extern void Display_Size_Hints(Window);
-extern void Display_Window_Shape(Window);
-extern void Display_WM_Info(Window);
-#endif
+void scale_init(void);
+char *nscale(int, int, int, char *);
+char *xscale(int);
+char *yscale(int);
+char *bscale(int);
+int bad_window_handler(Display *, XErrorEvent *);
+int main(int, char **);
+char *LookupL(long, binding *);
+char *Lookup(int, binding *);
+void Display_Window_Id(Window, int);
+void Display_Stats_Info(Window);
+void Display_Bits_Info(Window);
+void Display_Event_Mask(long);
+void Display_Events_Info(Window);
+void Display_Tree_Info(Window, int);
+void display_tree_info_1(Window, int, int);
+void Display_Hints(XSizeHints *);
+void Display_Size_Hints(Window);
+void Display_Window_Shape(Window);
+void Display_WM_Info(Window);
 
 static char *window_id_format = "0x%lx";
 
@@ -87,7 +91,7 @@ static char *window_id_format = "0x%lx";
  * Report the syntax for calling xwininfo:
  */
 void
-usage()
+usage(void)
 {
     fprintf (stderr,
 	"usage:  %s [-options ...]\n\n", program_name);
@@ -151,7 +155,8 @@ int yp=0, ymm=0;
 int bp=0, bmm=0;
 int english = 0, metric = 0;
 
-void scale_init()
+void
+scale_init(void)
 {
   getdsp(yp,  DisplayHeight);
   getdsp(ymm, DisplayHeightMM);
@@ -165,9 +170,8 @@ void scale_init()
 #define YARD (3*12)
 #define FOOT (12)
 
-char *nscale(n, np, nmm, nbuf)
-     int n, np, nmm;
-     char *nbuf;
+char *
+nscale(int n, int np, int nmm, char *nbuf)
 {
   sprintf(nbuf, "%d", n);
   if(metric||english) {
@@ -220,8 +224,8 @@ char *nscale(n, np, nmm, nbuf)
 }	  
   
 char xbuf[BUFSIZ];
-char *xscale(x)
-     int x;
+char *
+xscale(int x)
 {
   if(!xp) {
     scale_init();
@@ -230,8 +234,8 @@ char *xscale(x)
 }
 
 char ybuf[BUFSIZ];
-char *yscale(y)
-     int y;
+char *
+yscale(int y)
 {
   if(!yp) {
     scale_init();
@@ -240,8 +244,8 @@ char *yscale(y)
 }
 
 char bbuf[BUFSIZ];
-char *bscale(b)
-     int b;
+char *
+bscale(int b)
 {
   if(!bp) {
     scale_init();
@@ -256,9 +260,7 @@ char *bscale(b)
 
 /* ARGSUSED */
 int
-bad_window_handler(disp, err)
-    Display *disp;
-    XErrorEvent *err;
+bad_window_handler(Display *disp, XErrorEvent *err)
 {
     char badid[20];
 
@@ -270,9 +272,7 @@ bad_window_handler(disp, err)
 
 
 int
-main(argc, argv)
-     int argc;
-     char **argv;
+main(int argc, char **argv)
 {
   register int i;
   int tree = 0, stats = 0, bits = 0, events = 0, wm = 0, size  = 0, shape = 0;
@@ -280,6 +280,15 @@ main(argc, argv)
   Window window;
 
   INIT_NAME;
+
+#ifndef NO_I18N
+  {
+     char *lc;
+     lc = setlocale(LC_ALL, "");
+     if(!lc)
+        fprintf(stderr, "can not set locale properly\n");
+  }
+#endif
 
   /* Open display, handle command line arguments */
   Setup_Display_And_Screen(&argc, argv);
@@ -412,9 +421,8 @@ main(argc, argv)
  */
 static char _lookup_buffer[100];
 
-char *LookupL(code, table)
-    long code;
-    binding *table;
+char *
+LookupL(long code, binding *table)
 {
 	char *name;
 
@@ -432,9 +440,8 @@ char *LookupL(code, table)
 	return(name);
 }
 
-char *Lookup(code, table)
-    int code;
-    binding *table;
+char *
+Lookup(int code, binding *table)
 {
     return LookupL((long)code, table);
 }
@@ -444,11 +451,13 @@ char *Lookup(code, table)
  */
 
 void
-Display_Window_Id(window, newline_wanted)
-    Window window;
-    Bool newline_wanted;
+Display_Window_Id(Window window, Bool newline_wanted)
 {
+#ifdef NO_I18N
     char *win_name;
+#else
+    XTextProperty tp;
+#endif
     
     printf(window_id_format, window);         /* print id # in hex/dec */
 
@@ -458,12 +467,34 @@ Display_Window_Id(window, newline_wanted)
 	if (window == RootWindow(dpy, screen)) {
 	    printf(" (the root window)");
 	}
+#ifdef NO_I18N
 	if (!XFetchName(dpy, window, &win_name)) { /* Get window name if any */
 	    printf(" (has no name)");
 	} else if (win_name) {
 	    printf(" \"%s\"", win_name);
 	    XFree(win_name);
-	} else
+	}
+#else
+	if (!XGetWMName(dpy, window, &tp)) { /* Get window name if any */
+	    printf(" (has no name)");
+        } else if (tp.nitems > 0) {
+            printf(" \"");
+            {
+                int count = 0, i, ret;
+                char **list = NULL;
+                ret = XmbTextPropertyToTextList(dpy, &tp, &list, &count);
+                if((ret == Success || ret > 0) && list != NULL){
+                    for(i=0; i<count; i++)
+                        printf("%s", list[i]);
+                    XFreeStringList(list);
+                } else {
+                    printf("%s", tp.value);
+                }
+            }
+            printf("\"");
+	}
+#endif
+	else
 	    printf(" (has no name)");
     }
 
@@ -532,8 +563,7 @@ static binding _visual_classes[] = {
 	{ 0, 0 }};
 
 void
-Display_Stats_Info(window)
-     Window window;
+Display_Stats_Info(Window window)
 {
   XWindowAttributes win_attributes;
   XVisualInfo vistemplate, *vinfo;
@@ -724,8 +754,7 @@ static binding _bool[] = {
 	{ 0, 0 } };
 
 void
-Display_Bits_Info(window)
-     Window window;
+Display_Bits_Info(Window window)
 {
   XWindowAttributes win_attributes;
 
@@ -779,8 +808,7 @@ static binding _event_mask_names[] = {
 	{ 0, 0 } };
 
 void
-Display_Event_Mask(mask)
-     long mask;
+Display_Event_Mask(long mask)
 {
   long bit, bit_mask;
 
@@ -795,8 +823,7 @@ Display_Event_Mask(mask)
  * Display info on events
  */
 void
-Display_Events_Info(window)
-     Window window;
+Display_Events_Info(Window window)
 {
   XWindowAttributes win_attributes;
 
@@ -822,20 +849,19 @@ Display_Events_Info(window)
 
 /*
  * Display root, parent, and (recursively) children information
+ * recurse - true to show children information
  */
 void
-Display_Tree_Info(window, recurse)
-     Window window;
-     int recurse;		/* true if should show children's children */
+Display_Tree_Info(Window window, int recurse)
 {
     display_tree_info_1(window, recurse, 0);
 }
 
+/*
+ * level - recursion level
+ */
 void
-display_tree_info_1(window, recurse, level)
-     Window window;
-     int recurse;
-     int level;			/* recursion level */
+display_tree_info_1(Window window, int recurse, int level)
 {
   int i, j;
   int rel_x, rel_y, abs_x, abs_y;
@@ -907,8 +933,7 @@ display_tree_info_1(window, recurse, level)
  * Display a set of size hints
  */
 void
-Display_Hints(hints)
-     XSizeHints *hints;
+Display_Hints(XSizeHints *hints)
 {
 	long flags;
 
@@ -986,8 +1011,7 @@ Display_Hints(hints)
  * Display Size Hints info
  */
 void
-Display_Size_Hints(window)
-     Window window;
+Display_Size_Hints(Window window)
 {
 	XSizeHints *hints = XAllocSizeHints();
 	long supplied;
@@ -1013,8 +1037,7 @@ Display_Size_Hints(window)
 
 
 void
-Display_Window_Shape (window)
-    Window  window;
+Display_Window_Shape (Window window)
 {
     Bool    ws, bs;
     int	    xws, yws, xbs, ybs;
@@ -1054,8 +1077,7 @@ static binding _state_hints[] = {
 	{ 0, 0 } };
 
 void
-Display_WM_Info(window)
-     Window window;
+Display_WM_Info(Window window)
 {
         XWMHints *wmhints;
 	long flags;

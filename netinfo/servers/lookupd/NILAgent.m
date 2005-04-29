@@ -84,7 +84,7 @@ static NILAgent *_sharedNILAgent = nil;
 	_sharedNILAgent = [_sharedNILAgent init];
 	if (_sharedNILAgent == nil) return nil;
 
-	system_log(LOG_DEBUG, "Allocated NILAgent 0x%08x\n", (int)_sharedNILAgent);
+	system_log(LOG_DEBUG, "Allocated NILAgent 0x%08x", (int)_sharedNILAgent);
 
 	return _sharedNILAgent;
 }
@@ -96,7 +96,7 @@ static NILAgent *_sharedNILAgent = nil;
 
 - (void)dealloc
 {
-	system_log(LOG_DEBUG, "Deallocated NILAgent 0x%08x\n", (int)self);
+	system_log(LOG_DEBUG, "Deallocated NILAgent 0x%08x", (int)self);
 	[super dealloc];
 	_sharedNILAgent = nil;
 }

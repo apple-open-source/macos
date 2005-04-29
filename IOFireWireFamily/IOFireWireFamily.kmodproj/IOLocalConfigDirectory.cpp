@@ -158,6 +158,36 @@ IOReturn IOLocalConfigDirectory::checkROMState( void )
 	return kIOReturnSuccess;
 }
 
+// incrementGeneration
+//
+//
+
+IOReturn IOLocalConfigDirectory::incrementGeneration( void )
+{
+	IOReturn status = kIOReturnSuccess;
+	
+	unsigned int numEntries = fEntries->getCount();
+
+    unsigned int i;
+    for( i = 0; i < numEntries; i++ ) 
+	{
+		IOConfigEntry * entry = OSDynamicCast( IOConfigEntry, fEntries->getObject(i) );
+        if( entry == NULL )
+		{
+			IOLog( __FILE__" %d internal error!\n", __LINE__ );
+            status = kIOReturnInternalError;
+			break;
+		}
+
+        if( (entry->fType == kConfigImmediateKeyType) && (entry->fKey == kConfigGenerationKey) )
+		{
+			entry->fValue++;
+		}
+	}
+
+	return status;
+}
+
 // compile
 //
 //
@@ -201,10 +231,6 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
         switch(entry->fType) 
 		{
             case kConfigImmediateKeyType:
-                if(entry->fKey == kConfigGenerationKey)
-				{
-                    entry->fValue++;
-                }
 				val = entry->fValue;
                 break;
             case kConfigOffsetKeyType:

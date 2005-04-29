@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/os2_init.c,v 3.16 2002/05/31 18:46:01 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/os2_init.c,v 3.19 2004/02/14 00:10:17 dawes Exp $ */
 /*
  * (c) Copyright 1994 by Holger Veit
  *			<Holger.Veit@gmd.de>
@@ -38,6 +38,7 @@
 #define INCL_DOSSEMAPHORES
 #define INCL_DOSMODULEMGR
 #define INCL_DOSFILEMGR
+#include <float.h>
 #include "X.h"
 #include "Xmd.h"
 #include "input.h"
@@ -57,6 +58,7 @@ void os2KbdBitBucketThread();
 HEV hevPopupPending;
 extern HEV hKbdSem;
 extern BOOL os2HRTimerFlag;
+static unsigned short cw;
 extern void os2_checkinstallation(); /* os2_diag.c */
 
 void xf86OpenConsole()
@@ -154,6 +156,11 @@ void xf86OpenConsole()
 		VioTid);
 	rc=DosSetPriority(2,3,0,VioTid);
 
+/* We have to set the codepage before the keyboard monitor is registered */
+	rc = KbdSetCp(0,0,fd);
+	if(rc != 0)
+		FatalError("xf86OpenConsole: cannot set keyboard codepage, rc=%d\n",rc);
+
 /* Start up the kbd monitor thread */
 	VioTid=_beginthread(os2KbdMonitorThread,NULL,0x4000,(void *)NULL);
 	xf86Msg(X_INFO,"Started Kbd monitor thread, Tid=%d\n",VioTid);
@@ -163,10 +170,6 @@ void xf86OpenConsole()
 	rc = DosQuerySysInfo(5,5,&drive,sizeof(drive));
 	rc = DosSuppressPopUps(0x0001L,drive+96);     /* Disable popups */
 	
-	rc = KbdSetCp(0,0,fd);
-	if(rc != 0)
-		FatalError("xf86OpenConsole: cannot set keyboard codepage, rc=%d\n",rc);
-
 	hwid.cb = sizeof(hwid);	/* fix crash on P9000 */
 	rc = KbdGetHWID(&hwid, fd);
 	if (rc == 0) {
@@ -187,6 +190,19 @@ void xf86OpenConsole()
 /* Start up the Kbd bit-bucket thread. We don't want to leave the kbd events in the driver queue */
 	VioTid=_beginthread(os2KbdBitBucketThread,NULL,0x2000,(void *)NULL);
 	xf86Msg(X_INFO,"Started Kbd bit-bucket thread, Tid=%d\n",VioTid);
+	
+/* fg271103: set control word of FPU to default value to prevent SIGFPE in GLX (and elsewhere?) */
+
+#define DEFAULT_X86_FPU 0x037f
+	
+	cw = _control87(DEFAULT_X86_FPU, 0xFFFF);
+	xf86Msg(X_INFO,"Checking FPCW: %#x\n",cw);
+
+	if (cw != DEFAULT_X86_FPU) {
+		cw = _control87(0,0);
+		xf86Msg(X_INFO,"Set FPCW to %#x\n",cw);
+	}
+
     }
     return;
 }
@@ -208,20 +224,17 @@ void xf86CloseConsole()
 }
 
 /* ARGSUSED */
+
 int xf86ProcessArgument (argc, argv, i)
 int argc;
 char *argv[];
 int i;
 {
-	if (!strcmp(argv[i], "-os2HRTimer")) {
-		os2HRTimerFlag = TRUE;
-		return 1;
-	}
 	return 0;
 }
 
 void xf86UseMsg()
 {
-        xf86Msg(X_INFO,"-os2HRTimer    -use the OS/2 high-resolution timer driver (TIMER0.SYS)\n");
 	return;
 }
+

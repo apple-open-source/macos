@@ -1,9 +1,9 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2002
+# Copyright (c) 1996-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: memp001.tcl,v 1.1.1.1 2003/02/15 04:56:15 zarzycki Exp $
+# $Id: memp001.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
 #
 
 # TEST	memp001
@@ -174,7 +174,7 @@ proc mem_chk { flags } {
 	env_cleanup $testdir
 
 	set cachearg " -cachesize {0 400000 3}"
-	set ret [catch {eval {berkdb_env -create -mode 0644}\
+	set ret [catch {eval {berkdb_env_noerr -create -mode 0644}\
 	    $cachearg {-region_init -home $testdir} $flags} env]
 	if { $ret != 0 } {
 		# If the env open failed, it may be because we're on a platform

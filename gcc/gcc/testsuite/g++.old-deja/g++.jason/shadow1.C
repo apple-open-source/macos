@@ -1,5 +1,5 @@
-// Special g++ Options: -Wshadow
-// Build don't link:
+// { dg-do assemble  }
+// { dg-options "-Wshadow" }
 
 class x {
 public:
@@ -8,7 +8,7 @@ private:
         int foo;
 };
 
-void x::fun() { };
+void x::fun() { }
 
 main ()
 {

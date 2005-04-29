@@ -171,8 +171,11 @@ static int options (int argc, char * const * argv)
     int err = 0;
     
     krb5_deltat lifetime = 0;
+    int seenLifetime = 0;
     krb5_deltat startTime = 0;
+    int seenStartTime = 0;
     krb5_deltat renewableLife = 0;
+    int seenRenewableLife = 0;
     
     int forwardable = 0;
     int seenForwardable = 0;
@@ -191,35 +194,38 @@ static int options (int argc, char * const * argv)
             case 'V':
                 verbose = 1;
                 break;
-            
+                
             case 'l':
                 /* Lifetime */
                 err = krb5_string_to_deltat(optarg, &lifetime);
-                if (err || !lifetime) {
+                if (err) {
                     printerr ("Invalid lifetime '%s'\n", optarg);
                     return usage ();
                 }
+                seenLifetime = 1;
                 break;
-
+                
             case 's':
                 /* Start Time */
                 err = krb5_string_to_timestamp(optarg, &startTime);
-                if (err || !startTime) {
+                if (err) {
                     printerr ("Invalid start time '%s'\n", optarg);
                     return usage ();
                 } else {
                     /* Got an absolute time; create the offset: */
                     startTime -= time(0);
                 }
+                seenStartTime = 1;
                 break;
             
             case 'r':
                 /* Renewable Lifetime */
                 err = krb5_string_to_deltat(optarg, &renewableLife);
-                if (err || !renewableLife)  {
+                if (err)  {
                     printerr ("Invalid renewable lifetime '%s'\n", optarg);
                     return usage ();
                 }
+                seenRenewableLife = 1;
                 break;
             
             case 'f':
@@ -398,7 +404,7 @@ static int options (int argc, char * const * argv)
         return 1;
     }
     
-    if (lifetime) {
+    if (seenLifetime) {
         err = KLLoginOptionsSetTicketLifetime (loginOptions, lifetime);
         if (err != klNoErr) {
             printerr ("Unable to set ticket lifetime: %s\n", error_message (err));
@@ -406,7 +412,7 @@ static int options (int argc, char * const * argv)
         }
     }
 
-    if (startTime) {
+    if (seenStartTime) {
         err = KLLoginOptionsSetTicketStartTime (loginOptions, startTime);
         if (err != klNoErr) {
             printerr ("Unable to set ticket start time: %s\n", error_message (err));
@@ -414,7 +420,7 @@ static int options (int argc, char * const * argv)
         }
     }
     
-    if (renewableLife) {
+    if (seenRenewableLife) {
         err = KLLoginOptionsSetRenewableLifetime (loginOptions, renewableLife);
         if (err != klNoErr) {
             printerr ("Unable to set ticket renewable lifetime: %s\n", error_message (err));
@@ -432,7 +438,7 @@ static int options (int argc, char * const * argv)
     }
 
     if (seenProxiable) {
-        err = KLLoginOptionsSetForwardable (loginOptions, proxiable);
+        err = KLLoginOptionsSetProxiable (loginOptions, proxiable);
         if (err != klNoErr) {
             printerr ("Unable to set ticket %s proxiable: %s\n", 
                     proxiable ? "" : "not ", error_message (err));

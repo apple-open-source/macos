@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XAIcSize.man,v 1.2 2001/01/27 18:19:56 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XAIcSize.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,27 +144,13 @@
 .SH NAME
 XAllocIconSize, XSetIconSizes, XGetIconSizes, XIconSize \- allocate icon size structure and set or read a window's WM_ICON_SIZES property
 .SH SYNTAX
-XIconSize *XAllocIconSize\^(\|)
+XIconSize *XAllocIconSize\^(void\^);
 .LP
-XSetIconSizes\^(\^\fIdisplay\fP, \fIw\fP, \fIsize_list\fP, \fIcount\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XIconSize *\fIsize_list\fP\^;
-.br
-      int \fIcount\fP\^;
+int XSetIconSizes\^(\^Display *\fIdisplay\fP, Window \fIw\fP, XIconSize
+*\fIsize_list\fP, int \fIcount\fP\^);
 .LP
-Status XGetIconSizes\^(\^\fIdisplay\fP, \fIw\fP, \fIsize_list_return\fP, \fIcount_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XIconSize **\fIsize_list_return\fP\^;
-.br
-      int *\fIcount_return\fP\^;
+Status XGetIconSizes\^(\^Display *\fIdisplay\fP, Window \fIw\fP, XIconSize
+**\fIsize_list_return\fP, int \fIcount_return\fP\^);
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

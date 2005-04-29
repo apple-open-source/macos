@@ -1,0 +1,11 @@
+--- hash_page.c.orig	Thu Mar 21 14:46:26 2002
++++ hash_page.c	Sat Oct 18 18:31:10 2003
+@@ -74,7 +74,7 @@
+ #include <db.h>
+ #include "hash.h"
+ #include "page.h"
+-#include "extern.h"
++#include "hash_extern.h"
+ 
+ static u_int32_t	*fetch_bitmap(HTAB *, int);
+ static u_int32_t	 first_free(u_int32_t);

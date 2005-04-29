@@ -1,4 +1,4 @@
-.TH SNMPD.CONF 5 "28 Feb 2003" VVERSIONINFO "Net-SNMP"
+.TH SNMPD.CONF 5 "08 Feb 2002" VVERSIONINFO "Net-SNMP"
 .UC 4
 .SH NAME
 SYSCONFDIR/snmp/snmpd.conf - configuration file for the Net-SNMP SNMP agent.
@@ -7,8 +7,9 @@ SYSCONFDIR/snmp/snmpd.conf - configuration file for the Net-SNMP SNMP agent.
 is the configuration file which defines how the Net-SNMP SNMP agent
 operates.  These files may contain any of the directives found in the
 .B DIRECTIVES
-section below.  This file is not required for the agent to
-operate and respond to requests.
+section below.  If this file is not found (or does not contain any
+access control directives), the agent will run but will not respond
+to any requests.
 .SH PLEASE READ FIRST
 First, make sure you have read the
 .I snmp_config(5) 
@@ -98,6 +99,14 @@ maintain consistency of information for consecutive table queries.
 The cache can be flushed by a snmp-set request of integer(1) to
 EXTENSIBLEDOTMIB.VERSIONMIBNUM.VERCLEARCACHE.
 .RE
+.IP "extend NAME PROG ARGS"
+.IP "extend MIBNUM NAME PROG ARGS"
+.IP
+This is similar to the 'exec' directive, but uses a different MIB output
+structure (for both forms) which covers multi-line output as standard.
+See NET-SNMP-EXTEND-MIB for details.
+Output is cached for each entry separately, controlled by the
+NET-SNMP-AGENT-MIB::nsCacheTable.
 .IP "execfix NAME PROG ARGS"
 This registers a command that knows how to fix errors with the given
 exec or sh NAME.  When EXTENSIBLEDOTMIB.SHELLMIBNUM.1.ERRORFIX for a
@@ -114,6 +123,27 @@ if not specified, the associated entry in the
 EXTENSIBLEDOTMIB.DISKMIBNUM.1.ERRORFLAG MIB table will be set to (1) and
 a descriptive error message will be returned to queries of
 EXTENSIBLEDOTMIB.DISKMIBNUM.1.ERRORMSG.
+.IP "includeAllDisks MINPERCENT%"
+.IP
+Adds  all  the  disks  that can be found on the system using the
+setmntent(3) and getmntent(3), or fopen(3) and getmntent(3),  or
+setfsent(3)  and  getfsent(3) system calls. If none of the above
+system calls are available then it adds the root partition  "/",
+(which  is  assumed to exist on any UNIX based system) using the
+statfs(2) system call.
+.IP
+There can only be one 'includeAllDisks' directive in the config-
+uration  file.  It  can  be  used in conjunction with the 'disk'
+directive. They may be used in any order. The  'disk'  directive
+overrides  the  disk  usage  specified  by the 'includeAllDisks'
+directive, no matter in which order they are  specified  in  the
+configuration file.
+.IP
+The 'includeAllDisks' directive only includes the disks that are
+mounted when the snmpd daemon  is  started.  It  cannot  include
+disks  that are dynamically loadable, such as with automount. So
+the preferred way is to mount all the disks that will ever  need
+to be monitored before starting the snmpd daemon.
 .IP "load MAX1"
 .IP "load MAX1 MAX5"
 .IP "load MAX1 MAX5 MAX15"
@@ -142,13 +172,21 @@ line in your snmpd.conf file:
 See README.agentx for further details.
 .IP "AgentXSocket addr"
 This defines the address the master agent listens at.
-The default is /var/agentx/master. Another possibility is localhost:705
+The default is /var/agentx/master. By default the Unix Domain socket is
+accessible only to subagents which have the same userid as the agent.
+Another possibility is localhost:705
 .IP "AgentXTimeout addr"
 Defines the timeout period for an AgentX request.
 Default is 1 second.
 .IP "AgentXRetries addr"
 Defines the number of retries for an AgentX request.
 Default is 5 retries.
+.P
+You can also put the following in your subagent.conf file (where
+"subagent" is the name you used in your init_snmp("subagent") api call:
+.IP "agentPingInterval NUM"
+This makes the subagent try and reconnect every NUM seconds to the
+master if it ever becomes (or starts) disconnected.
 .SH SMUX SUB-AGENTS
 To enable and SMUX based sub-agent, such as
 .IR gated ,
@@ -179,8 +217,8 @@ IPv6 support has been enabled, the \fIrocommunity6\fR and
 \fIrwcommunity6\fR tokens will also be available.  This section
 defines how to configure the snmpd program to accept various types and
 levels of access.
-.IP "rouser USER [noauth|auth|priv] [OID]"
-.IP "rwuser USER [noauth|auth|priv] [OID]"
+.IP "rouser USER [noauth|auth|priv [OID]]"
+.IP "rwuser USER [noauth|auth|priv [OID]]"
 Creates a SNMPv3 USM user in the VACM access configuration tables.  It
 is more efficient (and powerful) to use the combined \fIgroup\fR,
 \fIaccess\fR, and \fIview\fR directives instead, but these wrapper
@@ -190,8 +228,8 @@ The minimum level of authentication and privacy the user must use is
 specified by the first token (which defaults to "auth").  The OID
 parameter restricts access for that user to everything below the given
 OID.
-.IP "rocommunity COMMUNITY [SOURCE] [OID]"
-.IP "rwcommunity COMMUNITY [SOURCE] [OID]"
+.IP "rocommunity COMMUNITY [SOURCE [OID]]"
+.IP "rwcommunity COMMUNITY [SOURCE [OID]]"
 These create read-only and read-write communities that can be used to
 access the agent.  They are a quick wrapper around the more complex
 and powerful \fIcom2sec\fR, \fIgroup\fR, \fIaccess\fR, and \fIview\fR
@@ -204,8 +242,8 @@ directives.
 The format of the SOURCE is token is described in the \fIcom2sec\fR
 directive section below.  The OID token restricts access for that
 community to everything below that given OID.
-.IP "rocommunity6 COMMUNITY [SOURCE] [OID]"
-.IP "rwcommunity6 COMMUNITY [SOURCE] [OID]"
+.IP "rocommunity6 COMMUNITY [SOURCE [OID]]"
+.IP "rwcommunity6 COMMUNITY [SOURCE [OID]]"
 They are the alternative directives to the \fIrocommunity\fR,
 \fIrwcommunity\fR for the transport domain UDPIPv6. They are only
 valid in specifing \fIUDPIPv6\fR as transport domain.
@@ -213,14 +251,20 @@ valid in specifing \fIUDPIPv6\fR as transport domain.
 The format of the SOURCE is token is described in the \fIcom2sec6\fR
 directive section below.  The OID token restricts access for that
 community to everything below that given OID.
-.IP "com2sec NAME SOURCE COMMUNITY"
+.IP "com2sec [-Cn CONTEXT] NAME SOURCE COMMUNITY"
 This directive specifies the mapping from a source/community pair to
 a security name. SOURCE can be a hostname, a subnet, or the word
 \fI"default"\fR.
 A subnet can be specified as IP/MASK or IP/BITS.
+For example, given a directive
+"com2sec myLocal 10.10.10.0/24 public"
+then this would match requests from IP addresses 10.10.10.0 through
+to 10.10.10.255, but not one from 10.10.11.1 or similar.
 The first source/community combination that matches the incoming packet
-is selected.
-.IP "com2sec6 NAME SOURCE COMMUNITY"
+is selected.  If a CONTEXT is specified, the community name gets
+mapped to the SNMPv3 CONTEXT of the same name, otherwise the default context
+("") is used.
+.IP "com2sec6  [-Cn CONTEXT] NAME SOURCE COMMUNITY"
 This directive is the IPv6 version of \fIcom2sec\fR.
 A subnet can be specified as IPv6/IPv6MASK or IPv6/BITS.
 It is only valid in specifing \fIUDPIPv6\fR as transport domain.
@@ -291,23 +335,28 @@ group	public	v2c	public
 group	public	usm	public
 view 	all	included	.1
 access	public	""	any	noauth	exact	all	none	none
+.fi
+.RE
 .SH SNMPv3 CONFIGURATION
 .PP
 .IP "engineID STRING"
 The snmpd agent needs to be configured with an engineID to be able to
 respond to SNMPv3 messages.  With this configuration file line, the
-engineID will be configured from STRING.  The default value of the
-engineID is configured with the first IP address found for the
-hostname of the machine.
-.IP "createUser username (MD5|SHA) authpassphrase [DES] [privpassphrase]"
+engineID will be configured from STRING.  If this directive is omitted,
+the default value of the engineID is built from 2 fairly random elements:
+a random number and the current time in seconds.
+.IP "createUser [-e ENGINEID] username (MD5|SHA) authpassphrase [DES] [privpassphrase]"
 .IP
-MD5 and SHA are the authentication types to use, but you must have
-built the package with openssl installed in order to use SHA.  The
+MD5 and SHA are the authentication types to use.  The
 only privacy protocol currently supported is DES.  If the privacy
 passphrase is not specified, it is assumed to be the same as the
 authentication passphrase.  Note that the users created will be
 useless unless they are also added to the VACM access control tables
 described above.
+.IP
+SHA authentication and DES privacy require OpenSSL to be installed and
+the agent to be built with OpenSSL support.  MD5 authentication may be
+used without OpenSSL.
 .IP
 Warning: the minimum pass phrase length is 8 characters.
 .IP
@@ -327,6 +376,31 @@ password for that user) and replaced with the key that is derived from
 it.  This key is a localized key, so that if it is stolen it can not
 be used to access other agents.  If the password is stolen, however,
 it can be.
+.IP
+If you need to localize the user to a particular EngineID (this is
+useful mostly in the similar snmptrapd.conf file), you can use the -e
+argument to specify an EngineID as a hex value (EG, "0x01020304").
+.IP
+If you want to generate either your master or localized keys directly,
+replace the given password with a hexstring (preceeded by a "0x") and
+precede the hex string by a -m or -l token (respectively).  EGs:
+.IP
+.RS
+.nf
+[these keys are *not* secure but are easy to visually parse for
+counting purposes.  Please generate random keys instead of using
+these examples]
+
+createUser myuser SHA -l 0x0001020304050607080900010203040506070809 AES -l 0x00010203040506070809000102030405
+createUser myuser SHA -m 0x0001020304050607080900010203040506070809 AES -m 0x0001020304050607080900010203040506070809
+.fi
+.RE
+.IP
+Due to the way localization happens, localized privacy keys are
+expected to be the length needed by the algorithm (128 bits for all
+supported algorithms).  Master encryption keys, though, need to be the
+length required by the authentication algorithm not the length
+required by the encrypting algorithm (MD5: 16 bytes, SHA: 20 bytes).
 .IP
 .SH SETTING SYSTEM INFORMATION
 .IP "syslocation STRING"
@@ -434,11 +508,15 @@ traps.  The default value is disabled(2).  Ordinarily the corresponding
 object (snmpEnableAuthenTraps.0) is read-write, but setting its value
 via this token makes the object read-only, and attempts to set the
 value of the object will result in a notWritable error response.
-.IP "override OID TYPE VALUE"
+.IP "override [-rw] OID TYPE VALUE"
 This directive allows you to override a particular OID with a
-different value (and possibly a different type of value).
-.\" The -rw flag will allow snmp SETs to modify it's value as well.
-An example:
+different value (and possibly a different type of value).  The -rw
+flag will allow snmp SETs to modify it's value as well. (note that if
+you're overriding original functionality, that functionality will be
+entirely lost.  Thus SETS will do nothing more than modify the
+internal overridden value and will not perform any of the original
+functionality intended to be provided by the MIB object.  It's an
+emulation only.)  An example:
 .IP
 override sysDescr.0 octet_str "my own sysDescr"
 .IP
@@ -452,13 +530,12 @@ value and later the numbering within the ifTable changes it's index
 ordering you'll end up with problems and your modified value won't
 appear in the right place in the table.
 .IP
-Valid TYPEs are: integer, uinteger, octet_str, bit_str, object_id,
-counter, gauge, null.  Note that setting an object to "null"
-effectively delete's it as being accessible.  No VALUE needs to be
-given if the object type is null.
+Valid TYPEs are: integer, uinteger, octet_str, object_id, counter,
+null (for gauge's, use "uinteger"; for bit strings, use "octet_str").
+Note that setting an object to "null" effectively delete's it as being
+accessible.  No VALUE needs to be given if the object type is null.
 .IP
-More types should be available in the future, as well as writable
-object support.
+More types should be available in the future.
 .SH "SETTING UP TRAP AND/OR INFORM DESTINATIONS"
 .IP "trapcommunity STRING"
 This defines the default community string to be used when sending traps.
@@ -508,7 +585,6 @@ manual page for details.
 .IP
 Examples:
 .RS
-.IP
 .nf
 # assigns the entire mib tree on remotehost1 to the context of the
 # same name:
@@ -521,6 +597,8 @@ proxy -v 1 -c public remotehost .1.3.6.1.4.1.2021
 # oid to local .1.3.6.1.3.10 oid (another way to access mulitple hosts
 # without using contexts)
 proxy -v 3 -l noAuthNoPriv -u user remotehost .1.3.6.1.3.10 .1.3.6.1.2.1.1
+.fi
+.RE
 .SH "PASS-THROUGH CONTROL"
 .IP "pass MIBOID EXEC"
 (If you're writing perl scripts, please see the embedded perl support
@@ -593,7 +671,7 @@ pass .1.3.6.1.4.1.2021.255 /path/to/local/passtest
 .IP "pass_persist MIBOID EXEC"
 Passes entire control of MIBOID to the EXEC program.  
 Similar to pass, but the EXEC program continues to run after the initial
-request is answered.
+request is answered.  Also, pass and pass_persist block till they return.
 .IP
 Upon initialization, EXEC is passed the string "PING\\n" in stdin,
 and it should respond by printing "PONG\\n" to stdout.
@@ -664,26 +742,20 @@ Calls perl to evaluate an expression.  Normally you'd want to do
 something like register a function to call when an OID is requested,
 but you can really do anything perl related you want.  For example:
 .IP
-.RS
 perl print "hello world\\n";
-.RE
 .IP
 is the most basic hello world example.
 .IP
 The init script by default initializes a $agent variable which
 is a pointer to a NetSnmp::agent object through which you can register
 callbacks when a section of the OID tree is hit:
-.IP
-.RS
 .nf
 perl use Data::Dumper;
 perl sub myroutine  { print "got called: ",Dumper(@_),"\\n"; }
 perl $agent->register('mylink', '.1.3.6.1.8765', \\&myroutine);
 .fi
-.RE
 .IP
 Sourcing an external file:
-.IP
 .RS
 .nf
 perl 'do /path/to/file.pl';
@@ -735,6 +807,11 @@ the examples below).  NAME is merely an arbitrary name of your
 choosing for administrative purposes only.  OPTIONS include the
 following possibilities:
 .RS
+.IP "-t"
+Use a threshold monitor instead of a boolean monitor.  This means that
+expression should be a low and high value.  If the given OID passes
+beyond the high value, a rising alarm will triggered.  A falling alarm
+will then be triggered after it falls below the low value.
 .IP "-r FREQUENCY"
 Monitors the given expression every FREQUENCY seconds.  The default is
 600 (10 minutes). 
@@ -751,6 +828,10 @@ Specifies additional object values to be delivered with in the
 resulting trap in addition to the normal trap objects.  This is useful
 for obtaining other columns in the table for the row that triggered
 the expression.  See the examples below for more details.
+.IP "-e EVENTNAME"
+Specifies an event name that describes what to do when the trigger is
+fired.  Currently, this must be the name of a notificationEvent event
+as described below.
 .RE
 .IP
 The following example configuration checks the hrSWRunPerfTable table
@@ -767,8 +848,9 @@ out alright.
 .nf
 rouser me
 monitor -u me -o sysUpTime.0 -o hrSWRunName "high process memory" hrSWRunPerfMem > 10000
-.RE
 .fi
+.fi
+.RE
 .IP
 The above line would produce a trap which, when formated by snmptrapd, would
 look like:
@@ -777,11 +859,48 @@ look like:
 .nf
 2002-04-05 13:33:53 localhost.localdomain [udp:127.0.0.1:32931]:
         sysUpTimeInstance = Timeticks: (1629) 0:00:16.29        snmpTrapOID.0 = OID: mteTriggerFired    mteHotTrigger = high process memory     mteHotTargetName =      mteHotContextName =     mteHotOID = OID: hrSWRunPerfMem.1968    mteHotValue = 28564     hrSWRunName.1968 = "xemacs"
-.RE
 .fi
+.RE
 .IP
 This shows my xemacs process using 28Mb of resident memory.  Which,
 considering it's xemacs, is not that surprising.
+.IP
+Threshold example:
+.RS
+.nf
+.IP
+monitor -t -r 15 -o prNames -o prErrMessage "process table" prErrorFlag 0 1
+.fi
+.RE
+.IP "notificationEvent NAME NOTIFICATION [[-w] OID_OBJECT ...]"
+This will create a notification event, which can be fired by attaching
+it to a monitor using a monitor's -e switch and an identical NAME
+field.  The NOTIFICATION to be sent should be the OID of a
+notification.  Additional objects can be included, and by default the
+suffix of the row/object being monitored will be appended to the
+object identifier unless it's told not to be a wild-card object by
+prefixing it with the -w switch.  EG, if you're monitoring the ifTable
+and you want your trap to include the ifDescr object for the row that
+was discovered, don't add the -w switch and the .INDEX field will be
+appended.  If the OID is fully qualified (EG, "sysContact.0") and no
+instance suffix should be appended to it then add a -w switch before
+it.  See the linkUpDownNotifications token below for example usage of
+this token to send the linkUp and linkDown traps.
+.IP "linkUpDownNotifications yes"
+This will make the DISMAN-EVENT-MIB support watch the ifTable to
+determine when a network interface is taken up or down.  When this
+happens, a linkUp or linkDown notification will be triggered.  This is
+exactly equivalent to doing:
+.RS
+.IP
+.nf
+notificationEvent  linkUpTrap    linkUp   ifIndex ifAdminStatus ifOperStatus
+notificationEvent  linkDownTrap  linkDown ifIndex ifAdminStatus ifOperStatus
+
+monitor  -r 60 -e linkUpTrap   "Generate linkUp" ifOperStatus != 2
+monitor  -r 60 -e linkDownTrap "Generate linkDown" ifOperStatus == 2
+.fi
+.RE
 .IP "defaultMonitors yes"
 By default, the agent and the DISMAN-EVENT-MIB support do nothing
 until configured.  Typically people wish to watch a bunch of tables
@@ -814,12 +933,32 @@ referenced by "modulename".  The types of handlers available for
 insertion are:
 .RS
 .nf
-debug        - Prints out lots of debugging information when -Dhelper:debug
-               is passed to the snmpd application.
+stash_cache  - Caches information returned from the lower level.  This
+               greatly help the performance of the agent, at the cost
+               of caching the data such that its no longer "live" for
+               30 seconds (in this future, this will be configurable).
+               Note that this means snmpd will use more memory as well
+               while the information is cached.  Currently this only
+               works for handlers registered using the table_iterator
+               support, which is only a few mib tables.  To use it,
+               you need to make sure to install it before the
+               table_iterator point in the chain, so to do this:
+
+                  injectHandler stash_cache NAME table_iterator
+
+               If you want a table to play with, try walking the
+               nsModuleTable with and without this injected.
+
+debug        - Prints out lots of debugging information when
+               the -Dhelper:debug flag is passed to the snmpd
+               application.
+
 read_only    - Forces turning off write support for the given module.
+
 serialize    - If a module is failing to handle multiple requests
                properly (using the new 5.0 module API), this will force
                the module to only receive one request at a time.
+
 bulk_to_next - If a module registers to handle getbulk support, but
                for some reason is failing to implement it properly,
                this module will convert all getbulk requests to

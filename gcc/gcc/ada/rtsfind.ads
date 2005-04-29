@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -50,6 +49,25 @@ package Rtsfind is
    --    of Ada.Calendar. This is part of a temporary implementation of
    --    delays; eventually, packages implementing delays will be found
    --    relative to the package that declares the time type.
+
+   --    Names of the form Ada_Finalization_xxx are second level children
+   --    of Ada.Finalization.
+
+   --    Names of the form Ada_Interrupts_xxx are second level children
+   --    of Ada.Interrupts. This is needed for Ada.Interrupts.Names which
+   --    is used by pragma Interrupt_State.
+
+   --    Names of the form Ada_Real_Time_xxx are second level children
+   --    of Ada.Real_Time.
+
+   --    Names of the form Ada_Streams_xxx are second level children
+   --    of Ada.Streams.
+
+   --    Names of the form Ada_Text_IO_xxx are second level children
+   --    of Ada.Text_IO.
+
+   --    Names of the form Ada_Wide_Text_IO_xxx are second level children
+   --    of Ada.Wide_Text_IO.
 
    --    Names of the form Interfaces_xxx are first level children of
    --    Interfaces_CPP refers to package Interfaces.CPP
@@ -108,6 +126,10 @@ package Rtsfind is
 
       Ada_Finalization_List_Controller,
 
+      --  Children of Ada.Interrupts
+
+      Ada_Interrupts_Names,
+
       --  Children of Ada.Real_Time
 
       Ada_Real_Time_Delays,
@@ -154,29 +176,26 @@ package Rtsfind is
       System_Assertions,
       System_Aux_DEC,
       System_Bit_Ops,
+      System_Boolean_Array_Operations,
       System_Checked_Pools,
+      System_Compare_Array_Signed_16,
+      System_Compare_Array_Signed_32,
+      System_Compare_Array_Signed_64,
+      System_Compare_Array_Signed_8,
+      System_Compare_Array_Unsigned_16,
+      System_Compare_Array_Unsigned_32,
+      System_Compare_Array_Unsigned_64,
+      System_Compare_Array_Unsigned_8,
       System_Exception_Table,
       System_Exceptions,
-      System_Exn_Flt,
       System_Exn_Int,
-      System_Exn_LFlt,
-      System_Exn_LInt,
       System_Exn_LLF,
       System_Exn_LLI,
-      System_Exn_SFlt,
-      System_Exn_SInt,
-      System_Exn_SSI,
-      System_Exp_Flt,
       System_Exp_Int,
-      System_Exp_LFlt,
       System_Exp_LInt,
-      System_Exp_LLF,
       System_Exp_LLI,
       System_Exp_LLU,
       System_Exp_Mod,
-      System_Exp_SFlt,
-      System_Exp_SInt,
-      System_Exp_SSI,
       System_Exp_Uns,
       System_Fat_Flt,
       System_Fat_LFlt,
@@ -200,6 +219,7 @@ package Rtsfind is
       System_Interrupts,
       System_Machine_Code,
       System_Mantissa,
+      System_Memcop,
       System_Pack_03,
       System_Pack_05,
       System_Pack_06,
@@ -259,6 +279,7 @@ package Rtsfind is
       System_Pack_63,
       System_Parameters,
       System_Partition_Interface,
+      System_PolyORB_Interface,
       System_Pool_Global,
       System_Pool_Empty,
       System_Pool_Local,
@@ -278,6 +299,7 @@ package Rtsfind is
       System_String_Ops_Concat_5,
       System_Task_Info,
       System_Tasking,
+      System_Threads,
       System_Unsigned_Types,
       System_Val_Bool,
       System_Val_Char,
@@ -332,6 +354,10 @@ package Rtsfind is
      Ada_Finalization_List_Controller .. Ada_Finalization_List_Controller;
    --  Range of values for children of Ada.Finalization
 
+   subtype Ada_Interrupts_Child is Ada_Child range
+     Ada_Interrupts_Names .. Ada_Interrupts_Names;
+   --  Range of values for children of Ada.Interrupts
+
    subtype Ada_Real_Time_Child is Ada_Child
      range Ada_Real_Time_Delays .. Ada_Real_Time_Delays;
    --  Range of values for children of Ada.Real_Time
@@ -374,40 +400,6 @@ package Rtsfind is
        System_Tasking_Async_Delays_Enqueue_RT;
    --  Range of values for children of System.Tasking.Async_Delays
 
-   OK_To_Use_In_No_Run_Time_Mode : array (RTU_Id) of Boolean :=
-     (Ada_Tags                => True,
-      Ada_Exceptions          => True,
-      Interfaces              => True,
-      System                  => True,
-      System_Fat_Flt          => True,
-      System_Fat_LFlt         => True,
-      System_Fat_LLF          => True,
-      System_Fat_SFlt         => True,
-      System_Machine_Code     => True,
-      System_Storage_Elements => True,
-      System_Unsigned_Types   => True,
-      System_Secondary_Stack  => True,
-      others                  => False);
-   --  This array defines the set of packages that can legitimately be
-   --  accessed by Rtsfind in No_Run_Time mode. Any attempt to load
-   --  any other package in this mode will result in a message noting
-   --  use of a feature not supported in high integrity mode.
-
-   OK_To_Use_In_Ravenscar_Mode : array (RTU_Id) of Boolean :=
-     (System_Interrupts                             => True,
-      System_Tasking                                => True,
-      System_Tasking_Protected_Objects              => True,
-      System_Tasking_Restricted_Stages              => True,
-      System_Tasking_Protected_Objects_Single_Entry => True,
-      System_Task_Info                              => True,
-      System_Parameters                             => True,
-      Ada_Real_Time                                 => True,
-      Ada_Real_Time_Delays                          => True,
-      others                                        => False);
-   --  This array defines the set of packages that can legitimately be
-   --  accessed by Rtsfind in Ravenscar mode, in addition to the
-   --  No_Run_Time units which are also allowed.
-
    --------------------------
    -- Runtime Entity Table --
    --------------------------
@@ -436,6 +428,7 @@ package Rtsfind is
 
      RE_Null,
 
+     RE_Exceptions_Available_In_HIE,     -- Ada.Exceptions
      RE_Code_Loc,                        -- Ada.Exceptions
      RE_Current_Target_Exception,        -- Ada.Exceptions (JGNAT use only)
      RE_Exception_Id,                    -- Ada.Exceptions
@@ -456,10 +449,20 @@ package Rtsfind is
      RE_Simple_List_Controller,          -- Ada.Finalization.List_Controller
      RE_List_Controller,                 -- Ada.Finalization.List_Controller
 
-     RE_Interrupt_Id,                    -- Ada.Interrupts
+     RE_Interrupt_ID,                    -- Ada.Interrupts
+     RE_Is_Reserved,                     -- Ada.Interrupts
+     RE_Is_Attached,                     -- Ada.Interrupts
+     RE_Current_Handler,                 -- Ada.Interrupts
+     RE_Attach_Handler,                  -- Ada.Interrupts
+     RE_Exchange_Handler,                -- Ada.Interrupts
+     RE_Detach_Handler,                  -- Ada.Interrupts
+     RE_Reference,                       -- Ada.Interrupts
+
+     RE_Names,                           -- Ada.Interupts.Names
 
      RE_Root_Stream_Type,                -- Ada.Streams
      RE_Stream_Element,                  -- Ada.Streams
+     RE_Stream_Element_Count,            -- Ada.Streams
      RE_Stream_Element_Offset,           -- Ada.Streams
      RE_Stream_Element_Array,            -- Ada.Streams
 
@@ -491,8 +494,9 @@ package Rtsfind is
      RE_Tag,                             -- Ada.Tags
      RE_Address_Array,                   -- Ada.Tags
 
+     RE_Abort_Task,                      -- Ada.Task_Identification
      RE_Current_Task,                    -- Ada.Task_Identification
-     RO_AT_Task_ID,                      -- Ada.Task_Identification
+     RO_AT_Task_Id,                      -- Ada.Task_Identification
 
      RO_CA_Time,                         -- Ada.Calendar
 
@@ -583,7 +587,34 @@ package Rtsfind is
      RE_Bit_Or,                          -- System.Bit_Ops
      RE_Bit_Xor,                         -- System.Bit_Ops
 
+     RE_Boolean_Array,                   -- System_Boolean_Array_Operations,
+     RE_Vector_Not,                      -- System_Boolean_Array_Operations,
+     RE_Vector_And,                      -- System_Boolean_Array_Operations,
+     RE_Vector_Or,                       -- System_Boolean_Array_Operations,
+     RE_Vector_Nand,                     -- System_Boolean_Array_Operations,
+     RE_Vector_Nor,                      -- System_Boolean_Array_Operations,
+     RE_Vector_Nxor,                     -- System_Boolean_Array_Operations,
+     RE_Vector_Xor,                      -- System_Boolean_Array_Operations,
+
      RE_Checked_Pool,                    -- System.Checked_Pools
+
+     RE_Compare_Array_S8,                -- System.Compare_Array_Signed_8
+     RE_Compare_Array_S8_Unaligned,      -- System.Compare_Array_Signed_8
+
+     RE_Compare_Array_S16,               -- System.Compare_Array_Signed_16
+
+     RE_Compare_Array_S32,               -- System.Compare_Array_Signed_16
+
+     RE_Compare_Array_S64,               -- System.Compare_Array_Signed_16
+
+     RE_Compare_Array_U8,                -- System.Compare_Array_Unsigned_8
+     RE_Compare_Array_U8_Unaligned,      -- System.Compare_Array_Unsigned_8
+
+     RE_Compare_Array_U16,               -- System.Compare_Array_Unsigned_16
+
+     RE_Compare_Array_U32,               -- System.Compare_Array_Unsigned_16
+
+     RE_Compare_Array_U64,               -- System.Compare_Array_Unsigned_16
 
      RE_Register_Exception,              -- System.Exception_Table
 
@@ -601,45 +632,19 @@ package Rtsfind is
      RE_Subprogram_Descriptors_Record,   -- System.Exceptions
      RE_Subprogram_Descriptors_Ptr,      -- System.Exceptions
 
-     RE_Exn_Float,                       -- System.Exn_Flt
-
      RE_Exn_Integer,                     -- System.Exn_Int
-
-     RE_Exn_Long_Float,                  -- System.Exn_LFlt
-
-     RE_Exn_Long_Integer,                -- System.Exn_LInt
 
      RE_Exn_Long_Long_Float,             -- System.Exn_LLF
 
      RE_Exn_Long_Long_Integer,           -- System.Exn_LLI
 
-     RE_Exn_Short_Float,                 -- System.Exn_SFlt
-
-     RE_Exn_Short_Integer,               -- System.Exn_SInt
-
-     RE_Exn_Short_Short_Integer,         -- System.Exn_SSI
-
-     RE_Exp_Float,                       -- System.Exp_Flt
-
      RE_Exp_Integer,                     -- System.Exp_Int
-
-     RE_Exp_Long_Float,                  -- System.Exp_LFlt
-
-     RE_Exp_Long_Integer,                -- System.Exp_LInt
-
-     RE_Exp_Long_Long_Float,             -- System.Exp_LLF
 
      RE_Exp_Long_Long_Integer,           -- System.Exp_LLI
 
      RE_Exp_Long_Long_Unsigned,          -- System.Exp_LLU
 
      RE_Exp_Modular,                     -- System.Exp_Mod
-
-     RE_Exp_Short_Float,                 -- System.Exp_SFlt
-
-     RE_Exp_Short_Integer,               -- System.Exp_SInt
-
-     RE_Exp_Short_Short_Integer,         -- System.Exp_SSI
 
      RE_Exp_Unsigned,                    -- System.Exp_Uns
 
@@ -702,12 +707,16 @@ package Rtsfind is
      RE_Install_Handlers,                -- System.Interrupts
      RE_Register_Interrupt_Handler,      -- System.Interrupts
      RE_Static_Interrupt_Protection,     -- System.Interrupts
+     RE_System_Interrupt_Id,             -- System.Interrupts
 
      RE_Asm_Insn,                        -- System.Machine_Code
      RE_Asm_Input_Operand,               -- System.Machine_Code
      RE_Asm_Output_Operand,              -- System.Machine_Code
 
      RE_Mantissa_Value,                  -- System_Mantissa
+
+     RE_memcpy,                          -- System_Memcop
+     RE_memmove,                         -- System_Memcop
 
      RE_Bits_03,                         -- System.Pack_03
      RE_Get_03,                          -- System.Pack_03
@@ -995,6 +1004,7 @@ package Rtsfind is
      RE_Size_Type,                       -- System.Parameters
      RE_Unspecified_Size,                -- System.Parameters
 
+     RE_DSA_Implementation,              -- System.Partition_Interface
      RE_Get_Active_Partition_Id,         -- System.Partition_Interface
      RE_Get_Passive_Partition_Id,        -- System.Partition_Interface
      RE_Get_Local_Partition_Id,          -- System.Partition_Interface
@@ -1002,12 +1012,16 @@ package Rtsfind is
      RE_Get_Unique_Remote_Pointer,       -- System.Partition_Interface
      RE_RACW_Stub_Type,                  -- System.Partition_Interface
      RE_RACW_Stub_Type_Access,           -- System.Partition_Interface
-     RE_Raise_Program_Error_For_E_4_18,  -- System.Partition_Interface
+     RE_RAS_Proxy_Type,                  -- System.Partition_Interface
+     RE_RAS_Proxy_Type_Access,           -- System.Partition_Interface
      RE_Raise_Program_Error_Unknown_Tag, -- System.Partition_Interface
      RE_Register_Passive_Package,        -- System.Partition_Interface
      RE_Register_Receiving_Stub,         -- System.Partition_Interface
      RE_RCI_Info,                        -- System.Partition_Interface
+     RE_RCI_Subp_Info,                   -- System.Partition_Interface
+     RE_RCI_Subp_Info_Array,             -- System.Partition_Interface
      RE_Subprogram_Id,                   -- System.Partition_Interface
+     RE_Get_RAS_Info,                    -- System.Partition_Interface
 
      RE_Global_Pool_Object,              -- System.Pool_Global
 
@@ -1020,6 +1034,133 @@ package Rtsfind is
      RE_Params_Stream_Type,              -- System.RPC
      RE_Partition_ID,                    -- System.RPC
      RE_RPC_Receiver,                    -- System.RPC
+
+     RE_To_PolyORB_String,               -- System.PolyORB_Interface
+     RE_To_Standard_String,              -- System.PolyORB_Interface
+     RE_Caseless_String_Eq,              -- System.PolyORB_Interface
+     RE_TypeCode,                        -- System.PolyORB_Interface
+     RE_Any,                             -- System.PolyORB_Interface
+     RE_Mode_In,                         -- System.PolyORB_Interface
+     RE_Mode_Out,                        -- System.PolyORB_Interface
+     RE_Mode_Inout,                      -- System.PolyORB_Interface
+     RE_NamedValue,                      -- System.PolyORB_Interface
+     RE_Result_Name,                     -- System.PolyORB_Interface
+     RE_Object_Ref,                      -- System.PolyORB_Interface
+     RE_Create_Any,                      -- System.PolyORB_Interface
+     RE_Any_Aggregate_Build,             -- System.PolyORB_Interface
+     RE_Add_Aggregate_Element,           -- System.PolyORB_Interface
+     RE_Get_Aggregate_Element,           -- System.PolyORB_Interface
+     RE_Content_Type,                    -- System.PolyORB_Interface
+     RE_Any_Member_Type,                 -- System.PolyORB_Interface
+     RE_Get_Nested_Sequence_Length,      -- System.PolyORB_Interface
+     RE_Extract_Union_Value,             -- System.PolyORB_Interface
+     RE_NVList_Ref,                      -- System.PolyORB_Interface
+     RE_NVList_Create,                   -- System.PolyORB_Interface
+     RE_NVList_Add_Item,                 -- System.PolyORB_Interface
+     RE_Request_Access,                  -- System.PolyORB_Interface
+     RE_Request_Create,                  -- System.PolyORB_Interface
+     RE_Request_Invoke,                  -- System.PolyORB_Interface
+     RE_Request_Arguments,               -- System.PolyORB_Interface
+     RE_Request_Set_Out,                 -- System.PolyORB_Interface
+     RE_Request_Raise_Occurrence,        -- System.PolyORB_Interface
+     RE_Nil_Exc_List,                    -- System.PolyORB_Interface
+     RE_Servant,                         -- System.PolyORB_Interface
+     RE_Copy_Any_Value,                  -- System.PolyORB_Interface
+     RE_Set_Result,                      -- System.PolyORB_Interface
+     RE_Register_Obj_Receiving_Stub,     -- System.PolyORB_Interface
+     RE_Register_Pkg_Receiving_Stub,     -- System.PolyORB_Interface
+     RE_Is_Nil,                          -- System.PolyORB_Interface
+     RE_Entity_Ptr,                      -- System.PolyORB_Interface
+     RE_Entity_Of,                       -- System.PolyORB_Interface
+     RE_Inc_Usage,                       -- System.PolyORB_Interface
+     RE_Set_Ref,                         -- System.PolyORB_Interface
+     RE_Get_Local_Address,               -- System.PolyORB_Interface
+     RE_Get_Reference,                   -- System.PolyORB_Interface
+     RE_Local_Oid_To_Address,            -- System.PolyORB_Interface
+     RE_RCI_Locator,                     -- System.PolyORB_Interface
+     RE_Asynchronous_P_To_Sync_Scope,    -- System.PolyORB_Interface
+     RE_Buffer_Stream_Type,              -- System.PolyORB_Interface
+     RE_Allocate_Buffer,                 -- System.PolyORB_Interface
+     RE_Release_Buffer,                  -- System.PolyORB_Interface
+     RE_BS_To_Any,                       -- System.PolyORB_Interface
+     RE_Any_To_BS,                       -- System.PolyORB_Interface
+
+     RE_FA_AD,                           -- System.PolyORB_Interface
+     RE_FA_AS,                           -- System.PolyORB_Interface
+     RE_FA_B,                            -- System.PolyORB_Interface
+     RE_FA_C,                            -- System.PolyORB_Interface
+     RE_FA_F,                            -- System.PolyORB_Interface
+     RE_FA_I,                            -- System.PolyORB_Interface
+     RE_FA_LF,                           -- System.PolyORB_Interface
+     RE_FA_LI,                           -- System.PolyORB_Interface
+     RE_FA_LLF,                          -- System.PolyORB_Interface
+     RE_FA_LLI,                          -- System.PolyORB_Interface
+     RE_FA_LLU,                          -- System.PolyORB_Interface
+     RE_FA_LU,                           -- System.PolyORB_Interface
+     RE_FA_SF,                           -- System.PolyORB_Interface
+     RE_FA_SI,                           -- System.PolyORB_Interface
+     RE_FA_SSI,                          -- System.PolyORB_Interface
+     RE_FA_SSU,                          -- System.PolyORB_Interface
+     RE_FA_SU,                           -- System.PolyORB_Interface
+     RE_FA_U,                            -- System.PolyORB_Interface
+     RE_FA_WC,                           -- System.PolyORB_Interface
+     RE_FA_String,                       -- System.PolyORB_Interface
+     RE_FA_ObjRef,                       -- System.PolyORB_Interface
+
+     RE_TA_AD,                           -- System.PolyORB_Interface
+     RE_TA_AS,                           -- System.PolyORB_Interface
+     RE_TA_B,                            -- System.PolyORB_Interface
+     RE_TA_C,                            -- System.PolyORB_Interface
+     RE_TA_F,                            -- System.PolyORB_Interface
+     RE_TA_I,                            -- System.PolyORB_Interface
+     RE_TA_LF,                           -- System.PolyORB_Interface
+     RE_TA_LI,                           -- System.PolyORB_Interface
+     RE_TA_LLF,                          -- System.PolyORB_Interface
+     RE_TA_LLI,                          -- System.PolyORB_Interface
+     RE_TA_LLU,                          -- System.PolyORB_Interface
+     RE_TA_LU,                           -- System.PolyORB_Interface
+     RE_TA_SF,                           -- System.PolyORB_Interface
+     RE_TA_SI,                           -- System.PolyORB_Interface
+     RE_TA_SSI,                          -- System.PolyORB_Interface
+     RE_TA_SSU,                          -- System.PolyORB_Interface
+     RE_TA_SU,                           -- System.PolyORB_Interface
+     RE_TA_U,                            -- System.PolyORB_Interface
+     RE_TA_WC,                           -- System.PolyORB_Interface
+     RE_TA_String,                       -- System.PolyORB_Interface
+     RE_TA_ObjRef,                       -- System.PolyORB_Interface
+     RE_TA_TC,                           -- System.PolyORB_Interface
+
+     RE_TC_Alias,                        -- System.PolyORB_Interface
+     RE_TC_Build,                        -- System.PolyORB_Interface
+     RE_Set_TC,                          -- System.PolyORB_Interface
+     RE_TC_Any,                          -- System.PolyORB_Interface
+     RE_TC_AD,                           -- System.PolyORB_Interface
+     RE_TC_AS,                           -- System.PolyORB_Interface
+     RE_TC_B,                            -- System.PolyORB_Interface
+     RE_TC_C,                            -- System.PolyORB_Interface
+     RE_TC_F,                            -- System.PolyORB_Interface
+     RE_TC_I,                            -- System.PolyORB_Interface
+     RE_TC_LF,                           -- System.PolyORB_Interface
+     RE_TC_LI,                           -- System.PolyORB_Interface
+     RE_TC_LLF,                          -- System.PolyORB_Interface
+     RE_TC_LLI,                          -- System.PolyORB_Interface
+     RE_TC_LLU,                          -- System.PolyORB_Interface
+     RE_TC_LU,                           -- System.PolyORB_Interface
+     RE_TC_SF,                           -- System.PolyORB_Interface
+     RE_TC_SI,                           -- System.PolyORB_Interface
+     RE_TC_SSI,                          -- System.PolyORB_Interface
+     RE_TC_SSU,                          -- System.PolyORB_Interface
+     RE_TC_SU,                           -- System.PolyORB_Interface
+     RE_TC_U,                            -- System.PolyORB_Interface
+     RE_TC_Void,                         -- System.PolyORB_Interface
+     RE_TC_Opaque,                       -- System.PolyORB_Interface,
+     RE_TC_WC,                           -- System.PolyORB_Interface
+     RE_TC_Array,                        -- System.PolyORB_Interface,
+     RE_TC_Sequence,                     -- System.PolyORB_Interface,
+     RE_TC_String,                       -- System.PolyORB_Interface,
+     RE_TC_Struct,                       -- System.PolyORB_Interface,
+     RE_TC_Union,                        -- System.PolyORB_Interface,
+     RE_TC_Object,                       -- System.PolyORB_Interface,
 
      RE_IS_Is1,                          -- System.Scalar_Values
      RE_IS_Is2,                          -- System.Scalar_Values
@@ -1034,6 +1175,7 @@ package Rtsfind is
      RE_IS_Ilf,                          -- System.Scalar_Values
      RE_IS_Ill,                          -- System.Scalar_Values
 
+     RE_Default_Secondary_Stack_Size,    -- System.Secondary_Stack
      RE_Mark_Id,                         -- System.Secondary_Stack
      RE_SS_Allocate,                     -- System.Secondary_Stack
      RE_SS_Pool,                         -- System.Secondary_Stack
@@ -1047,6 +1189,7 @@ package Rtsfind is
      RE_Shared_Var_WOpen,                -- System.Shared_Storage
 
      RE_Abort_Undefer_Direct,            -- System.Standard_Library
+     RE_Exception_Code,                  -- System.Standard_Library
      RE_Exception_Data_Ptr,              -- System.Standard_Library
 
      RE_Integer_Address,                 -- System.Storage_Elements
@@ -1055,6 +1198,8 @@ package Rtsfind is
      RE_To_Address,                      -- System.Storage_Elements
 
      RE_Root_Storage_Pool,               -- System.Storage_Pools
+     RE_Allocate_Any,                    -- System_Storage_Pools,
+     RE_Deallocate_Any,                  -- System_Storage_Pools,
 
      RE_Thin_Pointer,                    -- System.Stream_Attributes
      RE_Fat_Pointer,                     -- System.Stream_Attributes
@@ -1099,11 +1244,12 @@ package Rtsfind is
      RE_W_U,                             -- System.Stream_Attributes
      RE_W_WC,                            -- System.Stream_Attributes
 
+     RE_Block_Stream_Ops_OK,             -- System.Stream_Attributes
+
      RE_Str_Concat,                      -- System.String_Ops
      RE_Str_Concat_CC,                   -- System.String_Ops
      RE_Str_Concat_CS,                   -- System.String_Ops
      RE_Str_Concat_SC,                   -- System.String_Ops
-     RE_Str_Equal,                       -- System.String_Ops
      RE_Str_Normalize,                   -- System.String_Ops
      RE_Wide_Str_Normalize,              -- System.String_Ops
 
@@ -1113,22 +1259,22 @@ package Rtsfind is
 
      RE_Str_Concat_5,                    -- System.String_Ops_Concat_5
 
-     RE_Free_Task_Image,                 -- System.Task_Info
      RE_Task_Info_Type,                  -- System.Task_Info
-     RE_Task_Image_Type,                 -- System_Task_Info
      RE_Unspecified_Task_Info,           -- System.Task_Info
 
      RE_Library_Task_Level,              -- System.Tasking
 
      RE_Task_Procedure_Access,           -- System.Tasking
 
-     RO_ST_Task_ID,                      -- System.Tasking
+     RO_ST_Task_Id,                      -- System.Tasking
 
      RE_Call_Modes,                      -- System.Tasking
      RE_Simple_Call,                     -- System.Tasking
      RE_Conditional_Call,                -- System.Tasking
      RE_Asynchronous_Call,               -- System.Tasking
      RE_Timed_Call,                      -- System.Tasking
+
+     RE_Ada_Task_Control_Block,          -- System.Tasking
 
      RE_Task_List,                       -- System.Tasking
 
@@ -1163,15 +1309,23 @@ package Rtsfind is
      RE_Get_GNAT_Exception,              -- System.Soft_Links
      RE_Update_Exception,                -- System.Soft_Links
 
+     RE_ATSD,                            -- System.Threads
+     RE_Thread_Body_Enter,               -- System.Threads
+     RE_Thread_Body_Exceptional_Exit,    -- System.Threads
+     RE_Thread_Body_Leave,               -- System.Threads
+
      RE_Bits_1,                          -- System.Unsigned_Types
      RE_Bits_2,                          -- System.Unsigned_Types
      RE_Bits_4,                          -- System.Unsigned_Types
      RE_Float_Unsigned,                  -- System.Unsigned_Types
+     RE_Long_Unsigned,                   -- System.Unsigned_Types
      RE_Long_Long_Unsigned,              -- System.Unsigned_Types
      RE_Packed_Byte,                     -- System.Unsigned_Types
      RE_Packed_Bytes1,                   -- System.Unsigned_Types
      RE_Packed_Bytes2,                   -- System.Unsigned_Types
      RE_Packed_Bytes4,                   -- System.Unsigned_Types
+     RE_Short_Unsigned,                  -- System.Unsigned_Types
+     RE_Short_Short_Unsigned,            -- System.Unsigned_Types
      RE_Unsigned,                        -- System.Unsigned_Types
 
      RE_Value_Boolean,                   -- System.Val_Bool
@@ -1358,6 +1512,7 @@ package Rtsfind is
 
      RE_Null                             => RTU_Null,
 
+     RE_Exceptions_Available_In_HIE      => Ada_Exceptions,
      RE_Code_Loc                         => Ada_Exceptions,
      RE_Current_Target_Exception         => Ada_Exceptions, -- of JGNAT
      RE_Exception_Id                     => Ada_Exceptions,
@@ -1378,10 +1533,20 @@ package Rtsfind is
      RE_Simple_List_Controller           => Ada_Finalization_List_Controller,
      RE_List_Controller                  => Ada_Finalization_List_Controller,
 
-     RE_Interrupt_Id                     => Ada_Interrupts,
+     RE_Interrupt_ID                     => Ada_Interrupts,
+     RE_Is_Reserved                      => Ada_Interrupts,
+     RE_Is_Attached                      => Ada_Interrupts,
+     RE_Current_Handler                  => Ada_Interrupts,
+     RE_Attach_Handler                   => Ada_Interrupts,
+     RE_Exchange_Handler                 => Ada_Interrupts,
+     RE_Detach_Handler                   => Ada_Interrupts,
+     RE_Reference                        => Ada_Interrupts,
+
+     RE_Names                            => Ada_Interrupts_Names,
 
      RE_Root_Stream_Type                 => Ada_Streams,
      RE_Stream_Element                   => Ada_Streams,
+     RE_Stream_Element_Count             => Ada_Streams,
      RE_Stream_Element_Offset            => Ada_Streams,
      RE_Stream_Element_Array             => Ada_Streams,
 
@@ -1413,8 +1578,9 @@ package Rtsfind is
      RE_Tag                              => Ada_Tags,
      RE_Address_Array                    => Ada_Tags,
 
+     RE_Abort_Task                       => Ada_Task_Identification,
      RE_Current_Task                     => Ada_Task_Identification,
-     RO_AT_Task_ID                       => Ada_Task_Identification,
+     RO_AT_Task_Id                       => Ada_Task_Identification,
 
      RO_CA_Time                          => Ada_Calendar,
      RO_CA_Delay_For                     => Ada_Calendar_Delays,
@@ -1505,6 +1671,33 @@ package Rtsfind is
 
      RE_Checked_Pool                     => System_Checked_Pools,
 
+     RE_Boolean_Array                    => System_Boolean_Array_Operations,
+     RE_Vector_Not                       => System_Boolean_Array_Operations,
+     RE_Vector_And                       => System_Boolean_Array_Operations,
+     RE_Vector_Or                        => System_Boolean_Array_Operations,
+     RE_Vector_Nand                      => System_Boolean_Array_Operations,
+     RE_Vector_Nor                       => System_Boolean_Array_Operations,
+     RE_Vector_Nxor                      => System_Boolean_Array_Operations,
+     RE_Vector_Xor                       => System_Boolean_Array_Operations,
+
+     RE_Compare_Array_S8                 => System_Compare_Array_Signed_8,
+     RE_Compare_Array_S8_Unaligned       => System_Compare_Array_Signed_8,
+
+     RE_Compare_Array_S16                => System_Compare_Array_Signed_16,
+
+     RE_Compare_Array_S32                => System_Compare_Array_Signed_32,
+
+     RE_Compare_Array_S64                => System_Compare_Array_Signed_64,
+
+     RE_Compare_Array_U8                 => System_Compare_Array_Unsigned_8,
+     RE_Compare_Array_U8_Unaligned       => System_Compare_Array_Unsigned_8,
+
+     RE_Compare_Array_U16                => System_Compare_Array_Unsigned_16,
+
+     RE_Compare_Array_U32                => System_Compare_Array_Unsigned_32,
+
+     RE_Compare_Array_U64                => System_Compare_Array_Unsigned_64,
+
      RE_Register_Exception               => System_Exception_Table,
 
      RE_All_Others_Id                    => System_Exceptions,
@@ -1521,45 +1714,19 @@ package Rtsfind is
      RE_Subprogram_Descriptors_Record    => System_Exceptions,
      RE_Subprogram_Descriptors_Ptr       => System_Exceptions,
 
-     RE_Exn_Float                        => System_Exn_Flt,
-
      RE_Exn_Integer                      => System_Exn_Int,
-
-     RE_Exn_Long_Float                   => System_Exn_LFlt,
-
-     RE_Exn_Long_Integer                 => System_Exn_LInt,
 
      RE_Exn_Long_Long_Float              => System_Exn_LLF,
 
      RE_Exn_Long_Long_Integer            => System_Exn_LLI,
 
-     RE_Exn_Short_Float                  => System_Exn_SFlt,
-
-     RE_Exn_Short_Integer                => System_Exn_SInt,
-
-     RE_Exn_Short_Short_Integer          => System_Exn_SSI,
-
-     RE_Exp_Float                        => System_Exp_Flt,
-
      RE_Exp_Integer                      => System_Exp_Int,
-
-     RE_Exp_Long_Float                   => System_Exp_LFlt,
-
-     RE_Exp_Long_Integer                 => System_Exp_LInt,
-
-     RE_Exp_Long_Long_Float              => System_Exp_LLF,
 
      RE_Exp_Long_Long_Integer            => System_Exp_LLI,
 
      RE_Exp_Long_Long_Unsigned           => System_Exp_LLU,
 
      RE_Exp_Modular                      => System_Exp_Mod,
-
-     RE_Exp_Short_Float                  => System_Exp_SFlt,
-
-     RE_Exp_Short_Integer                => System_Exp_SInt,
-
-     RE_Exp_Short_Short_Integer          => System_Exp_SSI,
 
      RE_Exp_Unsigned                     => System_Exp_Uns,
 
@@ -1622,12 +1789,16 @@ package Rtsfind is
      RE_Install_Handlers                 => System_Interrupts,
      RE_Register_Interrupt_Handler       => System_Interrupts,
      RE_Static_Interrupt_Protection      => System_Interrupts,
+     RE_System_Interrupt_Id              => System_Interrupts,
 
      RE_Asm_Insn                         => System_Machine_Code,
      RE_Asm_Input_Operand                => System_Machine_Code,
      RE_Asm_Output_Operand               => System_Machine_Code,
 
      RE_Mantissa_Value                   => System_Mantissa,
+
+     RE_memcpy                           => System_Memcop,
+     RE_memmove                          => System_Memcop,
 
      RE_Bits_03                          => System_Pack_03,
      RE_Get_03                           => System_Pack_03,
@@ -1915,6 +2086,7 @@ package Rtsfind is
      RE_Size_Type                        => System_Parameters,
      RE_Unspecified_Size                 => System_Parameters,
 
+     RE_DSA_Implementation               => System_Partition_Interface,
      RE_Get_Active_Partition_Id          => System_Partition_Interface,
      RE_Get_Passive_Partition_Id         => System_Partition_Interface,
      RE_Get_Local_Partition_Id           => System_Partition_Interface,
@@ -1922,12 +2094,143 @@ package Rtsfind is
      RE_Get_Unique_Remote_Pointer        => System_Partition_Interface,
      RE_RACW_Stub_Type                   => System_Partition_Interface,
      RE_RACW_Stub_Type_Access            => System_Partition_Interface,
-     RE_Raise_Program_Error_For_E_4_18   => System_Partition_Interface,
+     RE_RAS_Proxy_Type                   => System_Partition_Interface,
+     RE_RAS_Proxy_Type_Access            => System_Partition_Interface,
      RE_Raise_Program_Error_Unknown_Tag  => System_Partition_Interface,
      RE_Register_Passive_Package         => System_Partition_Interface,
      RE_Register_Receiving_Stub          => System_Partition_Interface,
      RE_RCI_Info                         => System_Partition_Interface,
+     RE_RCI_Subp_Info                    => System_Partition_Interface,
+     RE_RCI_Subp_Info_Array              => System_Partition_Interface,
      RE_Subprogram_Id                    => System_Partition_Interface,
+     RE_Get_RAS_Info                     => System_Partition_Interface,
+
+     RE_To_PolyORB_String                => System_PolyORB_Interface,
+     RE_To_Standard_String               => System_PolyORB_Interface,
+     RE_Caseless_String_Eq               => System_PolyORB_Interface,
+     RE_TypeCode                         => System_PolyORB_Interface,
+     RE_Any                              => System_PolyORB_Interface,
+     RE_Mode_In                          => System_PolyORB_Interface,
+     RE_Mode_Out                         => System_PolyORB_Interface,
+     RE_Mode_Inout                       => System_PolyORB_Interface,
+     RE_NamedValue                       => System_PolyORB_Interface,
+     RE_Result_Name                      => System_PolyORB_Interface,
+     RE_Object_Ref                       => System_PolyORB_Interface,
+     RE_Create_Any                       => System_PolyORB_Interface,
+     RE_Any_Aggregate_Build              => System_PolyORB_Interface,
+     RE_Add_Aggregate_Element            => System_PolyORB_Interface,
+     RE_Get_Aggregate_Element            => System_PolyORB_Interface,
+     RE_Content_Type                     => System_PolyORB_Interface,
+     RE_Any_Member_Type                  => System_PolyORB_Interface,
+     RE_Get_Nested_Sequence_Length       => System_PolyORB_Interface,
+     RE_Extract_Union_Value              => System_PolyORB_Interface,
+     RE_NVList_Ref                       => System_PolyORB_Interface,
+     RE_NVList_Create                    => System_PolyORB_Interface,
+     RE_NVList_Add_Item                  => System_PolyORB_Interface,
+     RE_Request_Access                   => System_PolyORB_Interface,
+     RE_Request_Create                   => System_PolyORB_Interface,
+     RE_Request_Invoke                   => System_PolyORB_Interface,
+     RE_Request_Arguments                => System_PolyORB_Interface,
+     RE_Request_Set_Out                  => System_PolyORB_Interface,
+     RE_Request_Raise_Occurrence         => System_PolyORB_Interface,
+     RE_Nil_Exc_List                     => System_PolyORB_Interface,
+     RE_Servant                          => System_PolyORB_Interface,
+     RE_Copy_Any_Value                   => System_PolyORB_Interface,
+     RE_Set_Result                       => System_PolyORB_Interface,
+     RE_Register_Obj_Receiving_Stub      => System_PolyORB_Interface,
+     RE_Register_Pkg_Receiving_Stub      => System_PolyORB_Interface,
+     RE_Is_Nil                           => System_PolyORB_Interface,
+     RE_Entity_Ptr                       => System_PolyORB_Interface,
+     RE_Entity_Of                        => System_PolyORB_Interface,
+     RE_Inc_Usage                        => System_PolyORB_Interface,
+     RE_Set_Ref                          => System_PolyORB_Interface,
+     RE_Get_Local_Address                => System_PolyORB_Interface,
+     RE_Get_Reference                    => System_PolyORB_Interface,
+     RE_Local_Oid_To_Address             => System_PolyORB_Interface,
+     RE_RCI_Locator                      => System_PolyORB_Interface,
+     RE_Asynchronous_P_To_Sync_Scope     => System_PolyORB_Interface,
+     RE_Buffer_Stream_Type               => System_PolyORB_Interface,
+     RE_Allocate_Buffer                  => System_PolyORB_Interface,
+     RE_Release_Buffer                   => System_PolyORB_Interface,
+     RE_BS_To_Any                        => System_PolyORB_Interface,
+     RE_Any_To_BS                        => System_PolyORB_Interface,
+
+     RE_FA_AD                            => System_PolyORB_Interface,
+     RE_FA_AS                            => System_PolyORB_Interface,
+     RE_FA_B                             => System_PolyORB_Interface,
+     RE_FA_C                             => System_PolyORB_Interface,
+     RE_FA_F                             => System_PolyORB_Interface,
+     RE_FA_I                             => System_PolyORB_Interface,
+     RE_FA_LF                            => System_PolyORB_Interface,
+     RE_FA_LI                            => System_PolyORB_Interface,
+     RE_FA_LLF                           => System_PolyORB_Interface,
+     RE_FA_LLI                           => System_PolyORB_Interface,
+     RE_FA_LLU                           => System_PolyORB_Interface,
+     RE_FA_LU                            => System_PolyORB_Interface,
+     RE_FA_SF                            => System_PolyORB_Interface,
+     RE_FA_SI                            => System_PolyORB_Interface,
+     RE_FA_SSI                           => System_PolyORB_Interface,
+     RE_FA_SSU                           => System_PolyORB_Interface,
+     RE_FA_SU                            => System_PolyORB_Interface,
+     RE_FA_U                             => System_PolyORB_Interface,
+     RE_FA_WC                            => System_PolyORB_Interface,
+     RE_FA_String                        => System_PolyORB_Interface,
+     RE_FA_ObjRef                        => System_PolyORB_Interface,
+
+     RE_TA_AD                            => System_PolyORB_Interface,
+     RE_TA_AS                            => System_PolyORB_Interface,
+     RE_TA_B                             => System_PolyORB_Interface,
+     RE_TA_C                             => System_PolyORB_Interface,
+     RE_TA_F                             => System_PolyORB_Interface,
+     RE_TA_I                             => System_PolyORB_Interface,
+     RE_TA_LF                            => System_PolyORB_Interface,
+     RE_TA_LI                            => System_PolyORB_Interface,
+     RE_TA_LLF                           => System_PolyORB_Interface,
+     RE_TA_LLI                           => System_PolyORB_Interface,
+     RE_TA_LLU                           => System_PolyORB_Interface,
+     RE_TA_LU                            => System_PolyORB_Interface,
+     RE_TA_SF                            => System_PolyORB_Interface,
+     RE_TA_SI                            => System_PolyORB_Interface,
+     RE_TA_SSI                           => System_PolyORB_Interface,
+     RE_TA_SSU                           => System_PolyORB_Interface,
+     RE_TA_SU                            => System_PolyORB_Interface,
+     RE_TA_U                             => System_PolyORB_Interface,
+     RE_TA_WC                            => System_PolyORB_Interface,
+     RE_TA_String                        => System_PolyORB_Interface,
+     RE_TA_ObjRef                        => System_PolyORB_Interface,
+     RE_TA_TC                            => System_PolyORB_Interface,
+
+     RE_TC_Alias                         => System_PolyORB_Interface,
+     RE_TC_Build                         => System_PolyORB_Interface,
+     RE_Set_TC                           => System_PolyORB_Interface,
+     RE_TC_Any                           => System_PolyORB_Interface,
+     RE_TC_AD                            => System_PolyORB_Interface,
+     RE_TC_AS                            => System_PolyORB_Interface,
+     RE_TC_B                             => System_PolyORB_Interface,
+     RE_TC_C                             => System_PolyORB_Interface,
+     RE_TC_F                             => System_PolyORB_Interface,
+     RE_TC_I                             => System_PolyORB_Interface,
+     RE_TC_LF                            => System_PolyORB_Interface,
+     RE_TC_LI                            => System_PolyORB_Interface,
+     RE_TC_LLF                           => System_PolyORB_Interface,
+     RE_TC_LLI                           => System_PolyORB_Interface,
+     RE_TC_LLU                           => System_PolyORB_Interface,
+     RE_TC_LU                            => System_PolyORB_Interface,
+     RE_TC_SF                            => System_PolyORB_Interface,
+     RE_TC_SI                            => System_PolyORB_Interface,
+     RE_TC_SSI                           => System_PolyORB_Interface,
+     RE_TC_SSU                           => System_PolyORB_Interface,
+     RE_TC_SU                            => System_PolyORB_Interface,
+     RE_TC_U                             => System_PolyORB_Interface,
+     RE_TC_Void                          => System_PolyORB_Interface,
+     RE_TC_Opaque                        => System_PolyORB_Interface,
+     RE_TC_WC                            => System_PolyORB_Interface,
+     RE_TC_Array                         => System_PolyORB_Interface,
+     RE_TC_Sequence                      => System_PolyORB_Interface,
+     RE_TC_String                        => System_PolyORB_Interface,
+     RE_TC_Struct                        => System_PolyORB_Interface,
+     RE_TC_Union                         => System_PolyORB_Interface,
+     RE_TC_Object                        => System_PolyORB_Interface,
 
      RE_Global_Pool_Object               => System_Pool_Global,
 
@@ -1954,6 +2257,7 @@ package Rtsfind is
      RE_IS_Ilf                           => System_Scalar_Values,
      RE_IS_Ill                           => System_Scalar_Values,
 
+     RE_Default_Secondary_Stack_Size     => System_Secondary_Stack,
      RE_Mark_Id                          => System_Secondary_Stack,
      RE_SS_Allocate                      => System_Secondary_Stack,
      RE_SS_Mark                          => System_Secondary_Stack,
@@ -1967,6 +2271,7 @@ package Rtsfind is
      RE_Shared_Var_WOpen                 => System_Shared_Storage,
 
      RE_Abort_Undefer_Direct             => System_Standard_Library,
+     RE_Exception_Code                   => System_Standard_Library,
      RE_Exception_Data_Ptr               => System_Standard_Library,
 
      RE_Integer_Address                  => System_Storage_Elements,
@@ -1975,6 +2280,8 @@ package Rtsfind is
      RE_To_Address                       => System_Storage_Elements,
 
      RE_Root_Storage_Pool                => System_Storage_Pools,
+     RE_Allocate_Any                     => System_Storage_Pools,
+     RE_Deallocate_Any                   => System_Storage_Pools,
 
      RE_Thin_Pointer                     => System_Stream_Attributes,
      RE_Fat_Pointer                      => System_Stream_Attributes,
@@ -2019,8 +2326,9 @@ package Rtsfind is
      RE_W_U                              => System_Stream_Attributes,
      RE_W_WC                             => System_Stream_Attributes,
 
+     RE_Block_Stream_Ops_OK              => System_Stream_Attributes,
+
      RE_Str_Concat                       => System_String_Ops,
-     RE_Str_Equal                        => System_String_Ops,
      RE_Str_Normalize                    => System_String_Ops,
      RE_Wide_Str_Normalize               => System_String_Ops,
      RE_Str_Concat_CC                    => System_String_Ops,
@@ -2033,22 +2341,22 @@ package Rtsfind is
 
      RE_Str_Concat_5                     => System_String_Ops_Concat_5,
 
-     RE_Free_Task_Image                  => System_Task_Info,
      RE_Task_Info_Type                   => System_Task_Info,
-     RE_Task_Image_Type                  => System_Task_Info,
      RE_Unspecified_Task_Info            => System_Task_Info,
 
      RE_Library_Task_Level               => System_Tasking,
 
      RE_Task_Procedure_Access            => System_Tasking,
 
-     RO_ST_Task_ID                       => System_Tasking,
+     RO_ST_Task_Id                       => System_Tasking,
 
      RE_Call_Modes                       => System_Tasking,
      RE_Simple_Call                      => System_Tasking,
      RE_Conditional_Call                 => System_Tasking,
      RE_Asynchronous_Call                => System_Tasking,
      RE_Timed_Call                       => System_Tasking,
+
+     RE_Ada_Task_Control_Block           => System_Tasking,
 
      RE_Task_List                        => System_Tasking,
 
@@ -2083,15 +2391,23 @@ package Rtsfind is
      RE_Get_GNAT_Exception               => System_Soft_Links,
      RE_Update_Exception                 => System_Soft_Links,
 
+     RE_ATSD                             => System_Threads,
+     RE_Thread_Body_Enter                => System_Threads,
+     RE_Thread_Body_Exceptional_Exit     => System_Threads,
+     RE_Thread_Body_Leave                => System_Threads,
+
      RE_Bits_1                           => System_Unsigned_Types,
      RE_Bits_2                           => System_Unsigned_Types,
      RE_Bits_4                           => System_Unsigned_Types,
      RE_Float_Unsigned                   => System_Unsigned_Types,
+     RE_Long_Unsigned                    => System_Unsigned_Types,
      RE_Long_Long_Unsigned               => System_Unsigned_Types,
      RE_Packed_Byte                      => System_Unsigned_Types,
      RE_Packed_Bytes1                    => System_Unsigned_Types,
      RE_Packed_Bytes2                    => System_Unsigned_Types,
      RE_Packed_Bytes4                    => System_Unsigned_Types,
+     RE_Short_Unsigned                   => System_Unsigned_Types,
+     RE_Short_Short_Unsigned             => System_Unsigned_Types,
      RE_Unsigned                         => System_Unsigned_Types,
 
      RE_Value_Boolean                    => System_Val_Bool,
@@ -2304,6 +2620,63 @@ package Rtsfind is
      RE_Expunge_Unactivated_Tasks        => System_Tasking_Stages,
      RE_Terminated                       => System_Tasking_Stages);
 
+   --------------------------------
+   -- Configurable Run-Time Mode --
+   --------------------------------
+
+   --  Part of the job of Rtsfind is to enforce run-time restrictions in
+   --  configurable run-time mode. This is done by monitoring implicit access
+   --  to the run time library requested by calls to the RTE function. A call
+   --  may be invalid in configurable run-time mode for either of the
+   --  following two reasons:
+
+   --     1. File in which entity lives is not present in run-time library
+   --     2. File is present, but entity is not defined in the file
+
+   --  In normal mode, either or these two situations is a fatal error
+   --  that indicates that the run-time library is incorrectly configured,
+   --  and a fatal error message is issued to signal this error.
+
+   --  In configurable run-time mode, either of these two situations indicates
+   --  simply that the corresponding operation is not available in the current
+   --  run-time that is use. This is not a configuration error, but rather a
+   --  natural result of a limited run-time. This situation is signalled by
+   --  raising the exception RE_Not_Available. The caller must respond to
+   --  this exception by posting an appropriate error message.
+
+   ----------------------
+   -- No_Run_Time_Mode --
+   ----------------------
+
+   --  For backwards compatibility with previous versions of GNAT, the
+   --  compiler recognizes the pragma No_Run_Time. This provides a special
+   --  version of configurable run-time mode that operates with the standard
+   --  run-time library, but allows only a subset of entities to be
+   --  accessed. If any other entity is accessed, then it is treated
+   --  as a configurable run-time violation, and the exception
+   --  RE_Not_Availble is raised.
+
+   --  The following array defines the set of units that contain entities
+   --  that can be referenced in No_Run_Time mode. For each of these units,
+   --  all entities defined in the unit can be used in this mode.
+
+   OK_No_Run_Time_Unit : constant array (RTU_Id) of Boolean :=
+     (Ada_Exceptions          => True,
+      Ada_Tags                => True,
+      Interfaces              => True,
+      System                  => True,
+      System_Parameters       => True,
+      System_Fat_Flt          => True,
+      System_Fat_LFlt         => True,
+      System_Fat_LLF          => True,
+      System_Fat_SFlt         => True,
+      System_Machine_Code     => True,
+      System_Secondary_Stack  => True,
+      System_Storage_Elements => True,
+      System_Task_Info        => True,
+      System_Unsigned_Types   => True,
+      others                  => False);
+
    -----------------
    -- Subprograms --
    -----------------
@@ -2314,20 +2687,33 @@ package Rtsfind is
    --  Initialize_Snames (since names it enters into name table must come
    --  after names entered by Snames).
 
+   RE_Not_Available : exception;
+   --  Raised by RTE if the requested entity is not available. This can
+   --  occur either because the file in which the entity should be found
+   --  does not exist, or because the entity is not present in the file.
+
    function RTE (E : RE_Id) return Entity_Id;
    --  Given the entity defined in the above tables, as identified by the
    --  corresponding value in the RE_Id enumeration type, returns the Id
    --  of the corresponding entity, first loading in (parsing, analyzing and
-   --  expanding) its spec if the unit has not already been loaded. If the
-   --  unit cannot be found, or if it does not contain the specified entity,
-   --  then an appropriate error message is output ("run-time configuration
-   --  error") and an Unrecoverable_Error exception is raised. There is one
-   --  situation in which RTE can generate an error message, and that is if
-   --  an unuathorized entity is accessed in high integrity mode. If this
-   --  occurs, the result returned may be Empty, and the caller must deal
-   --  with this possibility if the call to RTE may occur in high integrity
-   --  mode (often this will have been ruled out by specific checks for
-   --  high integrity mode prior to the RTE call).
+   --  expanding) its spec if the unit has not already been loaded.
+   --
+   --  Note: In the case of a package, RTE can return either an entity that
+   --  is declared at the top level of the package, or the package entity
+   --  itself. If an entity within the package has the same simple name as
+   --  the package, then the entity within the package is returned rather
+   --
+   --  If RTE returns, the returned value is the required entity
+   --
+   --  If the entity is not available, then an error message is given. The
+   --  form of the message depends on whether we are in configurable run time
+   --  mode or not. In configurable run time mode, a missing entity is not
+   --  that surprising and merely says that the particular construct is not
+   --  supported by the run-time in use. If we are not in configurable run
+   --  time mode, a missing entity is some kind of run-time configuration
+   --  error. In either case, the result of the call is to raise the exception
+   --  RE_Not_Available, which should terminate the expansion of the current
+   --  construct.
 
    function Is_RTE (Ent : Entity_Id; E : RE_Id) return Boolean;
    --  This function determines if the given entity corresponds to the entity
@@ -2336,6 +2722,28 @@ package Rtsfind is
    --  this call, if the unit is not loaded, then a result of False is returned
    --  immediately, since obviously Ent cannot be the entity in question if the
    --  corresponding unit has not been loaded.
+
+   function Is_RTU (Ent : Entity_Id;  U : RTU_Id) return Boolean;
+   pragma Inline (Is_RTU);
+   --  This function determines if the given entity corresponds to the entity
+   --  for the unit referenced by U. If this unit has not been loaded, the
+   --  answer will always be False. If the unit has been loaded, then the
+   --  entity id values are compared and True is returned if Ent is the
+   --  entity for this unit.
+
+   function RTE_Available (E : RE_Id) return Boolean;
+   --  Returns true if a call to RTE will succeed without raising an
+   --  exception and without generating an error message, i.e. if the
+   --  call will obtain the desired entity without any problems.
+
+   function RTU_Loaded (U : RTU_Id) return Boolean;
+   pragma Inline (RTU_Loaded);
+   --  Returns true if indicated unit has already been successfully loaded.
+   --  If the unit has not been loaded, returns False. Note that this does
+   --  not mean that an attempt to load it subsequently would fail.
+
+   procedure Set_RTU_Loaded (N : Node_Id);
+   --  Register the predefined unit N as already loaded.
 
    procedure Text_IO_Kludge (Nam : Node_Id);
    --  In Ada 83, and hence for compatibility in Ada 9X, package Text_IO has

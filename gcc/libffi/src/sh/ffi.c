@@ -1,5 +1,5 @@
 /* -----------------------------------------------------------------------
-   ffi.c - Copyright (c) 2002 Kaz Kojima
+   ffi.c - Copyright (c) 2002, 2003, 2004 Kaz Kojima
    
    SuperH Foreign Function Interface 
 
@@ -220,7 +220,7 @@ void ffi_prep_args(char *stack, extended_cif *ecif)
 	    greg += n;
 #endif
 	  memcpy (argp, *p_argv, z);
-	  argp += z;
+	  argp += n * sizeof (int);
 	}
     }
 
@@ -315,7 +315,7 @@ void ffi_prep_args(char *stack, extended_cif *ecif)
 	    }
 #endif
 	  memcpy (argp, *p_argv, z);
-	  argp += z;
+	  argp += n * sizeof (int);
 	}
     }
 
@@ -471,16 +471,22 @@ ffi_prep_closure (ffi_closure* closure,
 		  void *user_data)
 {
   unsigned int *tramp;
+  unsigned short insn;
 
   FFI_ASSERT (cif->abi == FFI_GCC_SYSV);
 
   tramp = (unsigned int *) &closure->tramp[0];
+  /* Set T bit if the function returns a struct pointed with R2.  */
+  insn = (return_type (cif->rtype) == FFI_TYPE_STRUCT
+	  ? 0x0018 /* sett */
+	  : 0x0008 /* clrt */);
+
 #ifdef __LITTLE_ENDIAN__
-  tramp[0] = 0xd301d202;
-  tramp[1] = 0x0009422b;
+  tramp[0] = 0xd301d102;
+  tramp[1] = 0x0000412b | (insn << 16);
 #else
-  tramp[0] = 0xd202d301;
-  tramp[1] = 0x422b0009;
+  tramp[0] = 0xd102d301;
+  tramp[1] = 0x412b0000 | insn;
 #endif
   *(void **) &tramp[2] = (void *)closure;          /* ctx */
   *(void **) &tramp[3] = (void *)ffi_closure_SYSV; /* funaddr */
@@ -507,7 +513,7 @@ ffi_prep_closure (ffi_closure* closure,
 
 #ifdef __LITTLE_ENDIAN__
 #define OFS_INT8	0
-#define OFS_INT16	2
+#define OFS_INT16	0
 #else
 #define OFS_INT8	3
 #define OFS_INT16	2
@@ -533,10 +539,10 @@ ffi_closure_helper_SYSV (ffi_closure *closure, void *rvalue,
 
   /* Copy the caller's structure return value address so that the closure
      returns the data directly to the caller.  */
-  if (cif->rtype->type == FFI_TYPE_STRUCT)
+  if (cif->rtype->type == FFI_TYPE_STRUCT && STRUCT_VALUE_ADDRESS_WITH_ARG)
     {
       rvalue = *pgr++;
-      ireg = STRUCT_VALUE_ADDRESS_WITH_ARG ? 1 : 0;
+      ireg = 1;
     }
   else
     ireg = 0;
@@ -717,6 +723,6 @@ ffi_closure_helper_SYSV (ffi_closure *closure, void *rvalue,
 
   (closure->fun) (cif, rvalue, avalue, closure->user_data);
 
-  /* Tell ffi_closure_osf how to perform return type promotions.  */
-  return cif->rtype->type;
+  /* Tell ffi_closure_SYSV how to perform return type promotions.  */
+  return return_type (cif->rtype);
 }

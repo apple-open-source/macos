@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/Xlocale.h,v 1.4 2001/12/14 19:54:09 dawes Exp $ */
+/* $XFree86: xc/lib/X11/Xlocale.h,v 1.5 2003/11/17 22:20:11 dawes Exp $ */
 
 #ifndef _XLOCALE_H_
 #define _XLOCALE_H_
@@ -47,10 +47,8 @@ from The Open Group.
 
 _XFUNCPROTOBEGIN
 extern char *_Xsetlocale(
-#if NeedFunctionPrototypes
     int /* category */,
     _Xconst char* /* name */
-#endif
 );
 _XFUNCPROTOEND
 

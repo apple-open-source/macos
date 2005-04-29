@@ -11,7 +11,7 @@
  *	Guy DESBIEF
  */
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/cirrus/cir_driver.c,v 1.68 2001/06/13 23:34:09 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/cirrus/cir_driver.c,v 1.69 2003/06/18 16:17:38 eich Exp $ */
 
 /* All drivers should typically include these */
 #include "xf86.h"
@@ -56,8 +56,8 @@ static Bool alp_loaded = FALSE;
 
 /*
  * This contains the functions needed by the server after loading the
- * driver module.  It must be supplied, and gets added the driver list by
- * the Module Setup funtion in the dynamic case.  In the static case a
+ * driver module.  It must be supplied, and gets added to the driver list by
+ * the Module Setup function in the dynamic case.  In the static case a
  * reference to this is compiled in, and this requires that the name of
  * this DriverRec be an upper-case version of the driver name.
  */
@@ -102,7 +102,7 @@ PciChipsets CIRPciChipsets[] = {
 	{ PCI_CHIP_GD5464,	PCI_CHIP_GD5464,	RES_SHARED_VGA },
 	{ PCI_CHIP_GD5464BD,PCI_CHIP_GD5464BD,	RES_SHARED_VGA },
 	{ PCI_CHIP_GD5465,	PCI_CHIP_GD5465,	RES_SHARED_VGA },
-        { PCI_CHIP_GD7548,      PCI_CHIP_GD7548,        RES_SHARED_VGA },
+	{ PCI_CHIP_GD7548,	PCI_CHIP_GD7548,	RES_SHARED_VGA },
 	{ -1,				-1,					RES_UNDEFINED}
 };
 
@@ -111,7 +111,7 @@ PciChipsets CIRPciChipsets[] = {
  * list is used to tell the loader that it is OK for symbols here to be
  * unresolved providing that it hasn't been told that they haven't been
  * told that they are essential via a call to xf86LoaderReqSymbols() or
- * xf86LoaderReqSymLists().  The purpose is this is to avoid warnings about
+ * xf86LoaderReqSymLists().  The purpose of this is to avoid warnings about
  * unresolved symbols that are not required.
  */
 
@@ -275,10 +275,10 @@ CIRProbe(DriverPtr drv, int flags)
  	   they should be handled in this driver (as opposed to their
  	   own driver). */
 	pPci = xf86GetPciInfoForEntity(usedChips[i]);
- 	if (pPci->chipType == PCI_CHIP_GD5462 ||
+ 	if (pPci && (pPci->chipType == PCI_CHIP_GD5462 ||
  	    pPci->chipType == PCI_CHIP_GD5464 ||
  	    pPci->chipType == PCI_CHIP_GD5464BD ||
- 	    pPci->chipType == PCI_CHIP_GD5465) {
+ 	    pPci->chipType == PCI_CHIP_GD5465)) {
  	    
  	    if (!lg_loaded) {
  		if (!xf86LoadDrvSubModule(drv, "cirrus_laguna")) 

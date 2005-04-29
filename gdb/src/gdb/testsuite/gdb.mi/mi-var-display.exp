@@ -189,7 +189,7 @@ mi_gdb_test "-var-create weird * weird" \
 	"create local variable weird"
 
 mi_gdb_test "-var-list-children weird" \
-	"\\^done,numchild=\"11\",children=\{child=\{name=\"weird.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"weird.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child={name=\"weird.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\},child=\{name=\"weird.long_int\",exp=\"long_int\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.int_ptr_ptr\",exp=\"int_ptr_ptr\",numchild=\"1\",type=\"int \\*\\*\"\},child=\{name=\"weird.long_array\",exp=\"long_array\",numchild=\"10\",type=\"long int \\\[10\\\]\"\},child=\{name=\"weird.func_ptr\",exp=\"func_ptr\",numchild=\"0\",type=\"void \\(\\*\\)\\(\\)\"\},child=\{name=\"weird.func_ptr_struct\",exp=\"func_ptr_struct\",numchild=\"0\",type=\"struct _struct_decl \\(\\*\\)\\(\\)\"\},child=\{name=\"weird.func_ptr_ptr\",exp=\"func_ptr_ptr\",numchild=\"0\",type=\"struct _struct_decl \\*\\(\\*\\)\\(\\)\"\},child=\{name=\"weird.u1\",exp=\"u1\",numchild=\"4\",type=\"union \{\\.\\.\\.\}\"\},child=\{name=\"weird.s2\",exp=\"s2\",numchild=\"4\",type=\"struct \{\\.\\.\\.\}\"\}\}" \
+	"\\^done,numchild=\"11\",children=\\\[child=\{name=\"weird.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"weird.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child={name=\"weird.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\},child=\{name=\"weird.long_int\",exp=\"long_int\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.int_ptr_ptr\",exp=\"int_ptr_ptr\",numchild=\"1\",type=\"int \\*\\*\"\},child=\{name=\"weird.long_array\",exp=\"long_array\",numchild=\"10\",type=\"long int \\\[10\\\]\"\},child=\{name=\"weird.func_ptr\",exp=\"func_ptr\",numchild=\"0\",type=\"void \\(\\*\\)\\((void|)\\)\"\},child=\{name=\"weird.func_ptr_struct\",exp=\"func_ptr_struct\",numchild=\"0\",type=\"struct _struct_decl \\(\\*\\)\\((int, char \\*, long int|)\\)\"\},child=\{name=\"weird.func_ptr_ptr\",exp=\"func_ptr_ptr\",numchild=\"0\",type=\"struct _struct_decl \\*\\(\\*\\)\\((int, char \\*, long int|)\\)\"\},child=\{name=\"weird.u1\",exp=\"u1\",numchild=\"4\",type=\"union \{\\.\\.\\.\}\"\},child=\{name=\"weird.s2\",exp=\"s2\",numchild=\"4\",type=\"struct \{\\.\\.\\.\}\"\}\\\]" \
 	"get children local variable weird"
 
 
@@ -334,18 +334,7 @@ mi_gdb_test "200-break-insert do_special_tests" \
 	"200\\^done,bkpt=\{number=\"2\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"do_special_tests\",file=\".*var-cmd.c\",line=\"282\",times=\"0\"\}" \
 	"break-insert operation"
 
-send_gdb "-exec-continue\n"
-gdb_expect {
-    -re "\\^running\r\n${mi_gdb_prompt}\\*stopped,reason=\"breakpoint-hit\",bkptno=\"2\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"do_special_tests\",args=\\\[\\\],file=\".*var-cmd.c\",line=\"282\"\}\r\n$mi_gdb_prompt$" {
-	pass "continue to do_special_tests"
-    }
-    -re ".*$mi_gdb_prompt$" {
-	fail "continue to do_special_tests (2)"
-    }
-    timeout {
-	fail "continue to do_special_tests (timeout)"
-    }
-}
+mi_execute_to -exec-continue breakpoint-hit do_special_tests {} {.*var-cmd.c} 282 {} {continue to do_special_tests}
 
 # Test: c_variable-7.10
 # Desc: create union u
@@ -380,7 +369,7 @@ mi_gdb_test "-var-info-num-children u" \
 # Test: c_variable-7.15
 # Desc: children of u
 mi_gdb_test "-var-list-children u" \
-	"\\^done,numchild=\"2\",children=\{child=\{name=\"u.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"u.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\}\}" \
+	"\\^done,numchild=\"2\",children=\\\[child=\{name=\"u.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"u.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\}\\\]" \
 	"get children of u"
 
 # Test: c_variable-7.20
@@ -416,7 +405,7 @@ mi_gdb_test "-var-info-num-children anonu" \
 # Test: c_variable-7.25
 # Desc: children of anonu
 mi_gdb_test "-var-list-children anonu" \
-	"\\^done,numchild=\"3\",children=\{child=\{name=\"anonu.a\",exp=\"a\",numchild=\"0\",type=\"int\"\},child=\{name=\"anonu.b\",exp=\"b\",numchild=\"0\",type=\"char\"\},child=\{name=\"anonu.c\",exp=\"c\",numchild=\"0\",type=\"long int\"\}\}" \
+	"\\^done,numchild=\"3\",children=\\\[child=\{name=\"anonu.a\",exp=\"a\",numchild=\"0\",type=\"int\"\},child=\{name=\"anonu.b\",exp=\"b\",numchild=\"0\",type=\"char\"\},child=\{name=\"anonu.c\",exp=\"c\",numchild=\"0\",type=\"long int\"\}\\\]" \
 	"get children of anonu"
 
 # Test: c_variable-7.30
@@ -453,7 +442,7 @@ mi_gdb_test "-var-info-num-children s" \
 # Test: c_variable-7.35
 # Desc: children of s
 mi_gdb_test "-var-list-children s" \
-	"\\^done,numchild=\"6\",children=\{child=\{name=\"s.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"s.unsigned_integer\",exp=\"unsigned_integer\",numchild=\"0\",type=\"unsigned int\"\},child=\{name=\"s.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child=\{name=\"s.signed_character\",exp=\"signed_character\",numchild=\"0\",type=\"signed char\"\},child=\{name=\"s.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\},child=\{name=\"s.array_of_10\",exp=\"array_of_10\",numchild=\"10\",type=\"int \\\[10\\\]\"\}\}" \
+	"\\^done,numchild=\"6\",children=\\\[child=\{name=\"s.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"s.unsigned_integer\",exp=\"unsigned_integer\",numchild=\"0\",type=\"unsigned int\"\},child=\{name=\"s.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child=\{name=\"s.signed_character\",exp=\"signed_character\",numchild=\"0\",type=\"signed char\"\},child=\{name=\"s.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\},child=\{name=\"s.array_of_10\",exp=\"array_of_10\",numchild=\"10\",type=\"int \\\[10\\\]\"\}\\\]" \
 	"get children of s"
 #} {integer unsigned_integer character signed_character char_ptr array_of_10}
 
@@ -490,7 +479,7 @@ mi_gdb_test "-var-info-num-children anons" \
 # Test: c_variable-7.45
 # Desc: children of anons
 mi_gdb_test "-var-list-children anons" \
-	"\\^done,numchild=\"3\",children=\{child=\{name=\"anons.a\",exp=\"a\",numchild=\"0\",type=\"int\"\},child=\{name=\"anons.b\",exp=\"b\",numchild=\"0\",type=\"char\"\},child=\{name=\"anons.c\",exp=\"c\",numchild=\"0\",type=\"long int\"\}\}" \
+	"\\^done,numchild=\"3\",children=\\\[child=\{name=\"anons.a\",exp=\"a\",numchild=\"0\",type=\"int\"\},child=\{name=\"anons.b\",exp=\"b\",numchild=\"0\",type=\"char\"\},child=\{name=\"anons.c\",exp=\"c\",numchild=\"0\",type=\"long int\"\}\\\]" \
 	"get children of anons"
 
 
@@ -550,7 +539,7 @@ clear_xfail "*-*-*"
 # Test: c_variable-7.70
 # Desc: create anone
 mi_gdb_test "-var-create anone * anone" \
-	"&\"Duplicate variable object name\\\\n\".*\\^error,msg=\"Duplicate variable object name\"" \
+	".*\\^error,msg=\"Duplicate variable object name\"" \
 	"create duplicate local variable anone"
 
 

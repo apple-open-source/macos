@@ -1,5 +1,5 @@
 /* -----------------------------------------------------------------------
-   ffi.c - Copyright (c) 1998 Cygnus Solutions
+   ffi.c - Copyright (c) 1998 Red Hat, Inc.
 	   Copyright (c) 2000 Hewlett Packard Company
    
    IA64 Foreign Function Interface 
@@ -28,6 +28,7 @@
 #include <ffi_common.h>
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "ia64_flags.h"
 
@@ -92,33 +93,33 @@ static bool is_homogeneous_fp_aggregate(ffi_type * type, int n,
       switch((*ptr) -> type) {
 	case FFI_TYPE_FLOAT:
 	  if (type_set && element != FFI_TYPE_FLOAT) return 0;
-	  if (--n < 0) return FALSE;
+	  if (--n < 0) return false;
 	  type_set = 1;
 	  element = FFI_TYPE_FLOAT;
 	  break;
 	case FFI_TYPE_DOUBLE:
 	  if (type_set && element != FFI_TYPE_DOUBLE) return 0;
-	  if (--n < 0) return FALSE;
+	  if (--n < 0) return false;
 	  type_set = 1;
 	  element = FFI_TYPE_DOUBLE;
 	  break;
 	case FFI_TYPE_STRUCT:
 	  if (!is_homogeneous_fp_aggregate(type, n, &struct_element))
-	      return FALSE;
-	  if (type_set && struct_element != element) return FALSE;
+	      return false;
+	  if (type_set && struct_element != element) return false;
 	  n -= (type -> size)/float_type_size(element);
 	  element = struct_element;
-	  if (n < 0) return FALSE;
+	  if (n < 0) return false;
 	  break;
 	/* case FFI_TYPE_LONGDOUBLE:
 	  Not yet implemented.	*/
 	default:
-	  return FALSE;
+	  return false;
       }
       ptr++;
     }
   *element_type = element;
-  return TRUE;
+  return true;
    
 } 
 
@@ -195,7 +196,7 @@ ffi_prep_args(struct ia64_args *stack, extended_cif *ecif, int bytes)
 	      *fp_argp++ = *(float *)(* p_argv);
 	    }
 	  /* Also put it into the integer registers or memory: */
-	    *(UINT64 *) argp = *(UINT32 *)(* p_argv);
+	  *(UINT64 *) argp = *(UINT32 *)(* p_argv);
 	  break;
 
 	case FFI_TYPE_DOUBLE:
@@ -203,14 +204,14 @@ ffi_prep_args(struct ia64_args *stack, extended_cif *ecif, int bytes)
 	  if (fp_argp - stack->fp_regs < 8)
 	    *fp_argp++ = *(double *)(* p_argv);
 	  /* Also put it into the integer registers or memory: */
-	    *(double *) argp = *(double *)(* p_argv);
+	  *(double *) argp = *(double *)(* p_argv);
 	  break;
 
 	case FFI_TYPE_STRUCT:
 	  {
 	      size_t sz = (*p_arg)->size;
 	      unsigned short element_type;
-              z = ((*p_arg)->size + SIZEOF_ARG - 1)/SIZEOF_ARG;
+              z = ((*p_arg)->size + FFI_SIZEOF_ARG - 1)/FFI_SIZEOF_ARG;
 	      if (is_homogeneous_fp_aggregate(*p_arg, 8, &element_type)) {
 		int i;
 		int nelements = sz/float_type_size(element_type);
@@ -251,7 +252,7 @@ ffi_status
 ffi_prep_cif_machdep(ffi_cif *cif)
 {
   long i, avn;
-  bool is_simple = TRUE;
+  bool is_simple = true;
   long simple_flag = FFI_SIMPLE_V;
   /* Adjust cif->bytes to include space for the 2 scratch words,
      r8 register contents, spare word,
@@ -281,11 +282,11 @@ ffi_prep_cif_machdep(ffi_cif *cif)
 	  simple_flag = FFI_ADD_LONG_ARG(simple_flag);
 	  break;
 	default:
-	  is_simple = FALSE;
+	  is_simple = false;
       }
     }
   } else {
-    is_simple = FALSE;
+    is_simple = false;
   }
 
   /* Set the return type flag */
@@ -300,7 +301,7 @@ ffi_prep_cif_machdep(ffi_cif *cif)
         size_t sz = cif -> rtype -> size;
   	unsigned short element_type;
 
-	is_simple = FALSE;
+	is_simple = false;
   	if (is_homogeneous_fp_aggregate(cif -> rtype, 8, &element_type)) {
 	  int nelements = sz/float_type_size(element_type);
 	  if (nelements <= 1) {
@@ -341,12 +342,12 @@ ffi_prep_cif_machdep(ffi_cif *cif)
       break;
 
     case FFI_TYPE_FLOAT:
-      is_simple = FALSE;
+      is_simple = false;
       cif->flags = FFI_TYPE_FLOAT;
       break;
 
     case FFI_TYPE_DOUBLE:
-      is_simple = FALSE;
+      is_simple = false;
       cif->flags = FFI_TYPE_DOUBLE;
       break;
 
@@ -546,7 +547,7 @@ ffi_prep_incoming_args_UNIX(struct ia64_args *args, void **rvalue,
   register unsigned int i;
   register unsigned int avn;
   register void **p_argv;
-  register unsigned long *argp = args -> out_regs;
+  register long *argp = args -> out_regs;
   unsigned fp_reg_num = 0;
   register ffi_type **p_arg;
 
@@ -575,17 +576,15 @@ ffi_prep_incoming_args_UNIX(struct ia64_args *args, void **rvalue,
 	case FFI_TYPE_FLOAT:
 	  z = 1;
 	  /* Convert argument back to float in place from the saved value */
-	  if (fp_reg_num < 8) {
+	  if (argp - args->out_regs < 8 && fp_reg_num < 8) {
 	      *(float *)argp = args -> fp_regs[fp_reg_num++];
-	  } else {
-	      *(float *)argp = *(double *)argp;
 	  }
 	  *p_argv = (void *)argp;
 	  break;
 
 	case FFI_TYPE_DOUBLE:
 	  z = 1;
-	  if (fp_reg_num < 8) {
+	  if (argp - args->out_regs < 8 && fp_reg_num < 8) {
 	      *p_argv = args -> fp_regs + fp_reg_num++;
 	  } else {
 	      *p_argv = (void *)argp;
@@ -596,8 +595,9 @@ ffi_prep_incoming_args_UNIX(struct ia64_args *args, void **rvalue,
 	  {
 	      size_t sz = (*p_arg)->size;
 	      unsigned short element_type;
-              z = ((*p_arg)->size + SIZEOF_ARG - 1)/SIZEOF_ARG;
-	      if (is_homogeneous_fp_aggregate(*p_arg, 8, &element_type)) {
+              z = ((*p_arg)->size + FFI_SIZEOF_ARG - 1)/FFI_SIZEOF_ARG;
+	      if (argp - args->out_regs < 8
+		  && is_homogeneous_fp_aggregate(*p_arg, 8, &element_type)) {
 		int nelements = sz/float_type_size(element_type);
 		if (nelements + fp_reg_num >= 8) {
 		  /* hard case NYI.	*/

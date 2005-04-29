@@ -1,3 +1,99 @@
+2004-11-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* kt_file.c (krb5_ktfile_wresolve): Initialize mutex here too.
+
+2004-11-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* kt_file.c (struct _krb5_ktfile_data): Add mutex and buffer.
+	(KTFILEBUFP, KTLOCK, KTUNLOCK, KTCHECKLOCK): New macros.
+	(krb5_ktfile_resolve): Initialize mutex.
+	(krb5_ktfile_close): Zap data buffer before freeing.
+	(krb5_ktfile_get_entry, krb5_ktfile_start_seq_get,
+	krb5_ktfile_get_next, krb5_ktfile_end_get, krb5_ktfile_add,
+	krb5_ktfile_remove): Lock and unlock the mutex.
+	(krb5_ktfileint_open): Check that the mutex is locked.  Set the
+	stdio buffer to the new buffer in the ktfile data.
+	(krb5_ktfileint_write_entry, krb5_ktfileint_find_slot): Check that
+	the mutex is locked.  Don't call setbuf.  Flush the stdio buffer
+	after writing.
+
+2004-11-23  Tom Yu  <tlyu@mit.edu>
+
+	* kt_file.c (krb5_ktfileint_open): Update previous change by
+	explicitly setting errno=0 prior to calling fopen().  Also, return
+	EMFILE, not ENFILE, for compatibility with Solaris 8, which does
+	set errno when out of file descriptors.
+
+2004-11-19  Tom Yu  <tlyu@mit.edu>
+
+	* kt_file.c (krb5_ktfileint_open): Patch from Roland Dowdeswell to
+	return ENFILE when fopen() returns NULL but doesn't set errno.
+
+2004-06-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* kt_file.c (krb5_ktf_keytab_externalize,
+	krb5_ktf_keytab_internalize): Don't test macintosh.
+
+2004-06-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* kt_file.c (krb5_kt_default_vno): Replaced variable with macro.
+
+2004-05-27  Ezra Peisach  <epeisach@mit.edu>
+
+	* ktbase.c: Include kt-int.h
+
+	* kt-int.h: Create file with prototypes for krb5int_kt_initialize and 
+	krb5int_kt_finalize(void);
+
+
+2004-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* ktbase.c: Include ctype.h.
+	(k5_typehead_lock): Use new partial initializer.
+	(krb5int_kt_initialize): New function; finish mutex
+	initialization.
+	(krb5int_kt_finalize): New function; destroy the mutex and free
+	storage associated with registered types.
+
+2004-04-13  Jeffrey Altman <jaltman@mit.edu>
+
+    * ktbase.c:
+      Since we have to reserve all the single letter
+      prefixes make them apply to all platforms
+
+2004-04-13  Jeffrey Altman <jaltman@mit.edu>
+
+    * ktbase.c:  On Windows, improve the treat drive letter
+      prefix string as a FILE: keytab change to work if the
+      default keytab type was changed to not be of type FILE:
+
+2004-04-08  Jeffrey Altman <jaltman@mit.edu>
+
+    * ktbase.c:  Restore the thread safety fixes
+
+2004-04-08  Jeffrey Altman <jaltman@mit.edu>
+
+    * ktbase.c:  On Windows, if we see a colon do not assume it means
+      we found a prefix string unless the length of the prefix is 
+      not equal to one.  If it is one, it means we found a drive letter
+      and not a prefix.  
+
+2004-03-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* ktbase.c: Include k5-thread.h.
+	(k5_typehead_lock): New mutex variable.
+	(krb5_kt_register, krb5_kt_resolve): Lock it while accessing the
+	type list.
+	(krb5_kt_register): Ops table is now const.
+	(struct krb5_kt_typelist): "next" pointer now points to const.
+	(krb5_kt_typelist_wrfile, krb5_kt_typelist_file,
+	krb5_kt_typelist_srvtab): Now const.
+	(kt_typehead): Now points to const.
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
+
 2003-05-22  Tom Yu  <tlyu@mit.edu>
 
 	* kt_file.c (krb5_ktfile_get_entry): Check principal name prior to

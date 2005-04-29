@@ -1,0 +1,30 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                changeActiveUser = id; 
+                changePasswordForSelectedCache = id; 
+                customizeToolbar = id; 
+                destroyTicketsForSelectedCache = id; 
+                getTickets = id; 
+                renewTicketsForSelectedCache = id; 
+                showTicketInfo = id; 
+                showWindow = id; 
+                validateTicketsForSelectedCache = id; 
+            }; 
+            CLASS = TicketListController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                cacheCollectionTableColumn = NSTableColumn; 
+                cacheCollectionTableView = NSTableView; 
+                cacheCollectionTimeRemainingTableColumn = NSTableColumn; 
+                ticketsOutlineView = NSOutlineView; 
+                ticketsTableColumn = NSTableColumn; 
+                ticketsTimeRemainingTableColumn = NSTableColumn; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }
+    ); 
+    IBVersion = 1; 
+}

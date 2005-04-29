@@ -1,3 +1,70 @@
+2004-07-29  Sam Hartman  <hartmans@mit.edu>
+
+	* libgssapi_krb5.exports: Add lucid context routines and gss_krb5_set_allowable_enctypes
+
+2004-07-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (SHLIB_EXPDEPS): Use _DEPLIB variables.
+	(SHLIB_EXPLIBS): Add $(SUPPORT_LIB).
+
+	* gss_libinit.c (gssint_lib_init): Initialize new keytab-name
+	mutex, and register two new key values.
+
+2004-06-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (OBJFILELIST, OBJFILEDEP) [DOS]: Depend on locally
+	built objects too.
+	(OBJFILE, LIBOBJS) [DOS]: Define.
+	($(BUILDTOP)/include/gssapi/gssapi.h generic/gssapi.h
+	krb5/gssapi_err_krb5.h generic/gssapi_err_generic.h
+	krb5/gssapi_krb5.h) [DOS]: Disable dependencies on Windows.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (MAC_SUBDIRS): Don't set.
+
+2004-06-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (SHLIB_EXPLIBS): Add $(LIBS).
+
+2004-06-10  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (krb5/gssapi_krb5.h): Depend on recursion rule.
+
+2004-06-08  Sam Hartman  <hartmans@mit.edu>
+
+	* configure.in: If stdint.h exists, include in gssapi_krb5.h
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBBASE): Renamed from LIB.
+
+2004-06-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* gss_libinit.c (gssint_lib_init): Initialize error tables here.
+	(gssint_initialize_library): Don't do it directly here.  Make sure
+	gssint_lib_init has been called, and return the status.
+	(gssint_lib_fini): Remove error tables here.
+	(gssint_cleanup_library): Function deleted.
+	(initialized): Variable deleted.
+
+2004-05-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* libgssapi_krb5.exports: Remove et_*, generic_*, gssint_*,
+	initialize_*, kg_* symbols.
+
+2004-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* gss_libinit.c: Include k5-platform.h.
+	(gssint_lib_init, gssint_lib_fini): New init/fini functions.
+	Create and clean up the mutex in kg_vdb.
+	(gssint_initialize_library): Verify the library initializer has
+	run successfully.
+
+2004-04-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* libgssapi_krb5.exports: New file.
+
 2003-07-17  Tom Yu  <tlyu@mit.edu>
 
 	* gss_libinit.c (gssint_initialize_library): Don't call

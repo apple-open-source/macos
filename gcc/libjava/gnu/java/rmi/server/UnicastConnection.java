@@ -1,5 +1,6 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
+/* UnicastConnection.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2002, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,20 +36,17 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package gnu.java.rmi.server;
 
-import java.lang.Runnable;
-import java.net.Socket;
-import java.net.ServerSocket;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectInput;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
 import java.rmi.RemoteException;
 
 public class UnicastConnection 
@@ -104,6 +102,7 @@ void acceptConnection() throws IOException {
 void makeConnection(int protocol) throws IOException {
     //Use BufferedXXXStream would be more efficient
 	din = new DataInputStream(new BufferedInputStream(sock.getInputStream()));
+
 	dout = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
 
 	// Send header
@@ -139,19 +138,47 @@ DataOutputStream getDataOutputStream() throws IOException {
 	return (dout);
 }
 
+/*
+*
+* get ObjectInputStream for reading more objects
+*
+*/
 ObjectInputStream getObjectInputStream() throws IOException {
 	if (oin == null) {
-        oin = new RMIObjectInputStream(din);
+		throw new IOException("no ObjectInputtream for reading more objects");
 	}
 	return (oin);
 }
 
+/**
+*
+* starts ObjectInputStream.
+*
+*/
+ObjectInputStream startObjectInputStream() throws IOException {
+	return (oin = new RMIObjectInputStream(din));
+}
+
+/**
+*
+* get ObjectOutputStream for sending more objects
+*
+*/
 ObjectOutputStream getObjectOutputStream() throws IOException {
 	if (oout == null) {
-		oout = new RMIObjectOutputStream(dout);
-	}
+		throw new IOException("no ObjectOutputStream for sending more objects");
+	} 
 	return (oout);
 }
+
+/**
+*
+* starts ObjectOutputStream.
+*
+*/
+ObjectOutputStream startObjectOutputStream() throws IOException {
+	return (oout = new RMIObjectOutputStream(dout));
+} 
 
 void disconnect() {
 	try {
@@ -199,5 +226,6 @@ public void run() {
 	}
     }while(true);
 }
+
 
 }

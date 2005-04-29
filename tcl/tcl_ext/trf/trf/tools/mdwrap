@@ -1,0 +1,5 @@
+# -*- tcl -*-
+
+package require Memchan ; # should be ok, we are in 'unix'
+cd ..                   ; # back to top dir (digests.* is there)
+source tools/md         ; # jump to the regular app

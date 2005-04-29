@@ -59,7 +59,7 @@ static int ttyfd;
 void static save_tty_state(void);
 void static disable_tty_echo(void);
 void static restore_tty_state(void);
-static RETSIGTYPE sigint_handler(int);
+RETSIGTYPE sigint_handler(int);
 
 char *fm_getpassword(prompt)
 char *prompt;
@@ -188,7 +188,7 @@ static void restore_tty_state(void)
 #endif
 }
 
-static RETSIGTYPE sigint_handler(int signum)
+RETSIGTYPE sigint_handler(int signum)
 {
     restore_tty_state();
     report(stderr, GT_("\nCaught SIGINT... bailing out.\n"));

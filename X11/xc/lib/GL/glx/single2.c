@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/single2.c,v 1.4 2002/02/22 21:32:54 dawes Exp $ */
+/* $XFree86: xc/lib/GL/glx/single2.c,v 1.11 2004/02/11 20:01:21 dawes Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -126,10 +126,30 @@ void glGetClipPlane(GLenum plane, GLdouble *equation)
     __GLX_SINGLE_END();
 }
 
+#define CASE_ARRAY_ENABLE(enum_name,array,dest,gl_type) \
+    case GL_ ## enum_name ## _ARRAY: \
+      *dest = (gl_type) state->vertArray. array .enable ; break
+#define CASE_ARRAY_SIZE(enum_name,array,dest,gl_type) \
+    case GL_ ## enum_name ## _ARRAY_SIZE: \
+      *dest = (gl_type) state->vertArray. array .size ; break
+#define CASE_ARRAY_TYPE(enum_name,array,dest,gl_type) \
+    case GL_ ## enum_name ## _ARRAY_TYPE: \
+      *dest = (gl_type) state->vertArray. array .type ; break
+#define CASE_ARRAY_STRIDE(enum_name,array,dest,gl_type) \
+    case GL_ ## enum_name ## _ARRAY_STRIDE: \
+      *dest = (gl_type) state->vertArray. array .stride ; break
+
+#define CASE_ARRAY_ALL(enum_name,array,dest,gl_type) \
+	CASE_ARRAY_ENABLE(enum_name,array,dest,gl_type); \
+	CASE_ARRAY_STRIDE(enum_name,array,dest,gl_type); \
+	CASE_ARRAY_TYPE(enum_name,array,dest,gl_type); \
+	CASE_ARRAY_SIZE(enum_name,array,dest,gl_type)
+
 void glGetBooleanv(GLenum val, GLboolean *b)
 {
     const GLenum origVal = val;
     __GLX_SINGLE_DECLARE_VARIABLES();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
     xGLXSingleReply reply;
 
     if (val == GL_TRANSPOSE_MODELVIEW_MATRIX_ARB) {
@@ -165,124 +185,131 @@ void glGetBooleanv(GLenum val, GLboolean *b)
 	*/
 	switch (val) {
 	  case GL_PACK_ROW_LENGTH:
-	    *b = (GLboolean)gc->state.storePack.rowLength;
+	    *b = (GLboolean)state->storePack.rowLength;
 	    break;
 	  case GL_PACK_IMAGE_HEIGHT:
-	    *b = (GLboolean)gc->state.storePack.imageHeight;
+	    *b = (GLboolean)state->storePack.imageHeight;
 	    break;
 	  case GL_PACK_SKIP_ROWS:
-	    *b = (GLboolean)gc->state.storePack.skipRows;
+	    *b = (GLboolean)state->storePack.skipRows;
 	    break;
 	  case GL_PACK_SKIP_PIXELS:
-	    *b = (GLboolean)gc->state.storePack.skipPixels;
+	    *b = (GLboolean)state->storePack.skipPixels;
 	    break;
 	  case GL_PACK_SKIP_IMAGES:
-	    *b = (GLboolean)gc->state.storePack.skipImages;
+	    *b = (GLboolean)state->storePack.skipImages;
 	    break;
 	  case GL_PACK_ALIGNMENT:
-	    *b = (GLboolean)gc->state.storePack.alignment;
+	    *b = (GLboolean)state->storePack.alignment;
 	    break;
 	  case GL_PACK_SWAP_BYTES:
-	    *b = (GLboolean)gc->state.storePack.swapEndian;
+	    *b = (GLboolean)state->storePack.swapEndian;
 	    break;
 	  case GL_PACK_LSB_FIRST:
-	    *b = (GLboolean)gc->state.storePack.lsbFirst;
+	    *b = (GLboolean)state->storePack.lsbFirst;
 	    break;
 	  case GL_UNPACK_ROW_LENGTH:
-	    *b = (GLboolean)gc->state.storeUnpack.rowLength;
+	    *b = (GLboolean)state->storeUnpack.rowLength;
 	    break;
 	  case GL_UNPACK_IMAGE_HEIGHT:
-	    *b = (GLboolean)gc->state.storeUnpack.imageHeight;
+	    *b = (GLboolean)state->storeUnpack.imageHeight;
 	    break;
 	  case GL_UNPACK_SKIP_ROWS:
-	    *b = (GLboolean)gc->state.storeUnpack.skipRows;
+	    *b = (GLboolean)state->storeUnpack.skipRows;
 	    break;
 	  case GL_UNPACK_SKIP_PIXELS:
-	    *b = (GLboolean)gc->state.storeUnpack.skipPixels;
+	    *b = (GLboolean)state->storeUnpack.skipPixels;
 	    break;
 	  case GL_UNPACK_SKIP_IMAGES:
-	    *b = (GLboolean)gc->state.storeUnpack.skipImages;
+	    *b = (GLboolean)state->storeUnpack.skipImages;
 	    break;
 	  case GL_UNPACK_ALIGNMENT:
-	    *b = (GLboolean)gc->state.storeUnpack.alignment;
+	    *b = (GLboolean)state->storeUnpack.alignment;
 	    break;
 	  case GL_UNPACK_SWAP_BYTES:
-	    *b = (GLboolean)gc->state.storeUnpack.swapEndian;
+	    *b = (GLboolean)state->storeUnpack.swapEndian;
 	    break;
 	  case GL_UNPACK_LSB_FIRST:
-	    *b = (GLboolean)gc->state.storeUnpack.lsbFirst;
+	    *b = (GLboolean)state->storeUnpack.lsbFirst;
 	    break;
 	  case GL_VERTEX_ARRAY:
-	    *b = (GLboolean)gc->state.vertArray.vertex.enable;
+	    *b = (GLboolean)state->vertArray.vertex.enable;
 	    break;
 	  case GL_VERTEX_ARRAY_SIZE:
-	    *b = (GLboolean)gc->state.vertArray.vertex.size;
+	    *b = (GLboolean)state->vertArray.vertex.size;
 	    break;
 	  case GL_VERTEX_ARRAY_TYPE:
-	    *b = (GLboolean)gc->state.vertArray.vertex.type;
+	    *b = (GLboolean)state->vertArray.vertex.type;
 	    break;
 	  case GL_VERTEX_ARRAY_STRIDE:
-	    *b = (GLboolean)gc->state.vertArray.vertex.stride;
+	    *b = (GLboolean)state->vertArray.vertex.stride;
 	    break;
 	  case GL_NORMAL_ARRAY:
-	    *b = (GLboolean)gc->state.vertArray.normal.enable;
+	    *b = (GLboolean)state->vertArray.normal.enable;
 	    break;
 	  case GL_NORMAL_ARRAY_TYPE:
-	    *b = (GLboolean)gc->state.vertArray.normal.type;
+	    *b = (GLboolean)state->vertArray.normal.type;
 	    break;
 	  case GL_NORMAL_ARRAY_STRIDE:
-	    *b = (GLboolean)gc->state.vertArray.normal.stride;
+	    *b = (GLboolean)state->vertArray.normal.stride;
 	    break;
 	  case GL_COLOR_ARRAY:
-	    *b = (GLboolean)gc->state.vertArray.color.enable;
+	    *b = (GLboolean)state->vertArray.color.enable;
 	    break;
 	  case GL_COLOR_ARRAY_SIZE:
-	    *b = (GLboolean)gc->state.vertArray.color.size;
+	    *b = (GLboolean)state->vertArray.color.size;
 	    break;
 	  case GL_COLOR_ARRAY_TYPE:
-	    *b = (GLboolean)gc->state.vertArray.color.type;
+	    *b = (GLboolean)state->vertArray.color.type;
 	    break;
 	  case GL_COLOR_ARRAY_STRIDE:
-	    *b = (GLboolean)gc->state.vertArray.color.stride;
+	    *b = (GLboolean)state->vertArray.color.stride;
 	    break;
 	  case GL_INDEX_ARRAY:
-	    *b = (GLboolean)gc->state.vertArray.index.enable;
+	    *b = (GLboolean)state->vertArray.index.enable;
 	    break;
 	  case GL_INDEX_ARRAY_TYPE:
-	    *b = (GLboolean)gc->state.vertArray.index.type;
+	    *b = (GLboolean)state->vertArray.index.type;
 	    break;
 	  case GL_INDEX_ARRAY_STRIDE:
-	    *b = (GLboolean)gc->state.vertArray.index.stride;
+	    *b = (GLboolean)state->vertArray.index.stride;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY:
-	    *b = (GLboolean)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].enable;
+	    *b = (GLboolean)state->vertArray.texCoord[state->vertArray.activeTexture].enable;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_SIZE:
-	    *b = (GLboolean)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].size;
+	    *b = (GLboolean)state->vertArray.texCoord[state->vertArray.activeTexture].size;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_TYPE:
-	    *b = (GLboolean)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].type;
+	    *b = (GLboolean)state->vertArray.texCoord[state->vertArray.activeTexture].type;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_STRIDE:
-	    *b = (GLboolean)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].stride;
+	    *b = (GLboolean)state->vertArray.texCoord[state->vertArray.activeTexture].stride;
 	    break;
 	  case GL_EDGE_FLAG_ARRAY:
-	    *b = (GLboolean)gc->state.vertArray.edgeFlag.enable;
+	    *b = (GLboolean)state->vertArray.edgeFlag.enable;
 	    break;
 	  case GL_EDGE_FLAG_ARRAY_STRIDE:
-	    *b = (GLboolean)gc->state.vertArray.edgeFlag.stride;
+	    *b = (GLboolean)state->vertArray.edgeFlag.stride;
 	    break;
+
+	  CASE_ARRAY_ALL(SECONDARY_COLOR, secondaryColor, b, GLboolean);
+
+	  CASE_ARRAY_ENABLE(FOG_COORDINATE, fogCoord, b, GLboolean);
+	  CASE_ARRAY_TYPE(FOG_COORDINATE, fogCoord, b, GLboolean);
+	  CASE_ARRAY_STRIDE(FOG_COORDINATE, fogCoord, b, GLboolean);
+
 	  case GL_MAX_ELEMENTS_VERTICES:
-	    *b = (GLboolean)gc->state.vertArray.maxElementsVertices;
+	    *b = (GLboolean)state->vertArray.maxElementsVertices;
 	    break;
 	  case GL_MAX_ELEMENTS_INDICES:
-	    *b = (GLboolean)gc->state.vertArray.maxElementsIndices;
+	    *b = (GLboolean)state->vertArray.maxElementsIndices;
 	    break;
 	  case GL_MAX_CLIENT_ATTRIB_STACK_DEPTH:
 	    *b = (GLboolean)__GL_CLIENT_ATTRIB_STACK_DEPTH;
 	    break;
 	  case GL_CLIENT_ACTIVE_TEXTURE_ARB:
-	    *b = (GLboolean)(gc->state.vertArray.activeTexture + GL_TEXTURE0_ARB);
+	    *b = (GLboolean)(state->vertArray.activeTexture + GL_TEXTURE0_ARB);
 	    break;
 	  default:
 	    /*
@@ -306,6 +333,7 @@ void glGetDoublev(GLenum val, GLdouble *d)
 {
     const GLenum origVal = val;
     __GLX_SINGLE_DECLARE_VARIABLES();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
     xGLXSingleReply reply;
 
     if (val == GL_TRANSPOSE_MODELVIEW_MATRIX_ARB) {
@@ -341,124 +369,131 @@ void glGetDoublev(GLenum val, GLdouble *d)
 	*/
 	switch (val) {
 	  case GL_PACK_ROW_LENGTH:
-	    *d = (GLdouble)gc->state.storePack.rowLength;
+	    *d = (GLdouble)state->storePack.rowLength;
 	    break;
 	  case GL_PACK_IMAGE_HEIGHT:
-	    *d = (GLdouble)gc->state.storePack.imageHeight;
+	    *d = (GLdouble)state->storePack.imageHeight;
 	    break;
 	  case GL_PACK_SKIP_ROWS:
-	    *d = (GLdouble)gc->state.storePack.skipRows;
+	    *d = (GLdouble)state->storePack.skipRows;
 	    break;
 	  case GL_PACK_SKIP_PIXELS:
-	    *d = (GLdouble)gc->state.storePack.skipPixels;
+	    *d = (GLdouble)state->storePack.skipPixels;
 	    break;
 	  case GL_PACK_SKIP_IMAGES:
-	    *d = (GLdouble)gc->state.storePack.skipImages;
+	    *d = (GLdouble)state->storePack.skipImages;
 	    break;
 	  case GL_PACK_ALIGNMENT:
-	    *d = (GLdouble)gc->state.storePack.alignment;
+	    *d = (GLdouble)state->storePack.alignment;
 	    break;
 	  case GL_PACK_SWAP_BYTES:
-	    *d = (GLdouble)gc->state.storePack.swapEndian;
+	    *d = (GLdouble)state->storePack.swapEndian;
 	    break;
 	  case GL_PACK_LSB_FIRST:
-	    *d = (GLdouble)gc->state.storePack.lsbFirst;
+	    *d = (GLdouble)state->storePack.lsbFirst;
 	    break;
 	  case GL_UNPACK_ROW_LENGTH:
-	    *d = (GLdouble)gc->state.storeUnpack.rowLength;
+	    *d = (GLdouble)state->storeUnpack.rowLength;
 	    break;
 	  case GL_UNPACK_IMAGE_HEIGHT:
-	    *d = (GLdouble)gc->state.storeUnpack.imageHeight;
+	    *d = (GLdouble)state->storeUnpack.imageHeight;
 	    break;
 	  case GL_UNPACK_SKIP_ROWS:
-	    *d = (GLdouble)gc->state.storeUnpack.skipRows;
+	    *d = (GLdouble)state->storeUnpack.skipRows;
 	    break;
 	  case GL_UNPACK_SKIP_PIXELS:
-	    *d = (GLdouble)gc->state.storeUnpack.skipPixels;
+	    *d = (GLdouble)state->storeUnpack.skipPixels;
 	    break;
 	  case GL_UNPACK_SKIP_IMAGES:
-	    *d = (GLdouble)gc->state.storeUnpack.skipImages;
+	    *d = (GLdouble)state->storeUnpack.skipImages;
 	    break;
 	  case GL_UNPACK_ALIGNMENT:
-	    *d = (GLdouble)gc->state.storeUnpack.alignment;
+	    *d = (GLdouble)state->storeUnpack.alignment;
 	    break;
 	  case GL_UNPACK_SWAP_BYTES:
-	    *d = (GLdouble)gc->state.storeUnpack.swapEndian;
+	    *d = (GLdouble)state->storeUnpack.swapEndian;
 	    break;
 	  case GL_UNPACK_LSB_FIRST:
-	    *d = (GLdouble)gc->state.storeUnpack.lsbFirst;
+	    *d = (GLdouble)state->storeUnpack.lsbFirst;
 	    break;
 	  case GL_VERTEX_ARRAY:
-	    *d = (GLdouble)gc->state.vertArray.vertex.enable;
+	    *d = (GLdouble)state->vertArray.vertex.enable;
 	    break;
 	  case GL_VERTEX_ARRAY_SIZE:
-	    *d = (GLdouble)gc->state.vertArray.vertex.size;
+	    *d = (GLdouble)state->vertArray.vertex.size;
 	    break;
 	  case GL_VERTEX_ARRAY_TYPE:
-	    *d = (GLdouble)gc->state.vertArray.vertex.type;
+	    *d = (GLdouble)state->vertArray.vertex.type;
 	    break;
 	  case GL_VERTEX_ARRAY_STRIDE:
-	    *d = (GLdouble)gc->state.vertArray.vertex.stride;
+	    *d = (GLdouble)state->vertArray.vertex.stride;
 	    break;
 	  case GL_NORMAL_ARRAY:
-	    *d = (GLdouble)gc->state.vertArray.normal.enable;
+	    *d = (GLdouble)state->vertArray.normal.enable;
 	    break;
 	  case GL_NORMAL_ARRAY_TYPE:
-	    *d = (GLdouble)gc->state.vertArray.normal.type;
+	    *d = (GLdouble)state->vertArray.normal.type;
 	    break;
 	  case GL_NORMAL_ARRAY_STRIDE:
-	    *d = (GLdouble)gc->state.vertArray.normal.stride;
+	    *d = (GLdouble)state->vertArray.normal.stride;
 	    break;
 	  case GL_COLOR_ARRAY:
-	    *d = (GLdouble)gc->state.vertArray.color.enable;
+	    *d = (GLdouble)state->vertArray.color.enable;
 	    break;
 	  case GL_COLOR_ARRAY_SIZE:
-	    *d = (GLdouble)gc->state.vertArray.color.size;
+	    *d = (GLdouble)state->vertArray.color.size;
 	    break;
 	  case GL_COLOR_ARRAY_TYPE:
-	    *d = (GLdouble)gc->state.vertArray.color.type;
+	    *d = (GLdouble)state->vertArray.color.type;
 	    break;
 	  case GL_COLOR_ARRAY_STRIDE:
-	    *d = (GLdouble)gc->state.vertArray.color.stride;
+	    *d = (GLdouble)state->vertArray.color.stride;
 	    break;
 	  case GL_INDEX_ARRAY:
-	    *d = (GLdouble)gc->state.vertArray.index.enable;
+	    *d = (GLdouble)state->vertArray.index.enable;
 	    break;
 	  case GL_INDEX_ARRAY_TYPE:
-	    *d = (GLdouble)gc->state.vertArray.index.type;
+	    *d = (GLdouble)state->vertArray.index.type;
 	    break;
 	  case GL_INDEX_ARRAY_STRIDE:
-	    *d = (GLdouble)gc->state.vertArray.index.stride;
+	    *d = (GLdouble)state->vertArray.index.stride;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY:
-	    *d = (GLdouble)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].enable;
+	    *d = (GLdouble)state->vertArray.texCoord[state->vertArray.activeTexture].enable;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_SIZE:
-	    *d = (GLdouble)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].size;
+	    *d = (GLdouble)state->vertArray.texCoord[state->vertArray.activeTexture].size;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_TYPE:
-	    *d = (GLdouble)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].type;
+	    *d = (GLdouble)state->vertArray.texCoord[state->vertArray.activeTexture].type;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_STRIDE:
-	    *d = (GLdouble)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].stride;
+	    *d = (GLdouble)state->vertArray.texCoord[state->vertArray.activeTexture].stride;
 	    break;
 	  case GL_EDGE_FLAG_ARRAY:
-	    *d = (GLdouble)gc->state.vertArray.edgeFlag.enable;
+	    *d = (GLdouble)state->vertArray.edgeFlag.enable;
 	    break;
 	  case GL_EDGE_FLAG_ARRAY_STRIDE:
-	    *d = (GLdouble)gc->state.vertArray.edgeFlag.stride;
+	    *d = (GLdouble)state->vertArray.edgeFlag.stride;
 	    break;
+
+	  CASE_ARRAY_ALL(SECONDARY_COLOR, secondaryColor, d, GLdouble);
+
+	  CASE_ARRAY_ENABLE(FOG_COORDINATE, fogCoord, d, GLdouble);
+	  CASE_ARRAY_TYPE(FOG_COORDINATE, fogCoord, d, GLdouble);
+	  CASE_ARRAY_STRIDE(FOG_COORDINATE, fogCoord, d, GLdouble);
+
 	  case GL_MAX_ELEMENTS_VERTICES:
-	    *d = (GLdouble)gc->state.vertArray.maxElementsVertices;
+	    *d = (GLdouble)state->vertArray.maxElementsVertices;
 	    break;
 	  case GL_MAX_ELEMENTS_INDICES:
-	    *d = (GLdouble)gc->state.vertArray.maxElementsIndices;
+	    *d = (GLdouble)state->vertArray.maxElementsIndices;
 	    break;
 	  case GL_MAX_CLIENT_ATTRIB_STACK_DEPTH:
 	    *d = (GLdouble)__GL_CLIENT_ATTRIB_STACK_DEPTH;
 	    break;
 	  case GL_CLIENT_ACTIVE_TEXTURE_ARB:
-	    *d = (GLdouble)(gc->state.vertArray.activeTexture + GL_TEXTURE0_ARB);
+	    *d = (GLdouble)(state->vertArray.activeTexture + GL_TEXTURE0_ARB);
 	    break;
 	  default:
 	    /*
@@ -482,6 +517,7 @@ void glGetFloatv(GLenum val, GLfloat *f)
 {
     const GLenum origVal = val;
     __GLX_SINGLE_DECLARE_VARIABLES();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
     xGLXSingleReply reply;
 
     if (val == GL_TRANSPOSE_MODELVIEW_MATRIX_ARB) {
@@ -517,124 +553,131 @@ void glGetFloatv(GLenum val, GLfloat *f)
 	*/
 	switch (val) {
 	  case GL_PACK_ROW_LENGTH:
-	    *f = (GLfloat)gc->state.storePack.rowLength;
+	    *f = (GLfloat)state->storePack.rowLength;
 	    break;
 	  case GL_PACK_IMAGE_HEIGHT:
-	    *f = (GLfloat)gc->state.storePack.imageHeight;
+	    *f = (GLfloat)state->storePack.imageHeight;
 	    break;
 	  case GL_PACK_SKIP_ROWS:
-	    *f = (GLfloat)gc->state.storePack.skipRows;
+	    *f = (GLfloat)state->storePack.skipRows;
 	    break;
 	  case GL_PACK_SKIP_PIXELS:
-	    *f = (GLfloat)gc->state.storePack.skipPixels;
+	    *f = (GLfloat)state->storePack.skipPixels;
 	    break;
 	  case GL_PACK_SKIP_IMAGES:
-	    *f = (GLfloat)gc->state.storePack.skipImages;
+	    *f = (GLfloat)state->storePack.skipImages;
 	    break;
 	  case GL_PACK_ALIGNMENT:
-	    *f = (GLfloat)gc->state.storePack.alignment;
+	    *f = (GLfloat)state->storePack.alignment;
 	    break;
 	  case GL_PACK_SWAP_BYTES:
-	    *f = (GLfloat)gc->state.storePack.swapEndian;
+	    *f = (GLfloat)state->storePack.swapEndian;
 	    break;
 	  case GL_PACK_LSB_FIRST:
-	    *f = (GLfloat)gc->state.storePack.lsbFirst;
+	    *f = (GLfloat)state->storePack.lsbFirst;
 	    break;
 	  case GL_UNPACK_ROW_LENGTH:
-	    *f = (GLfloat)gc->state.storeUnpack.rowLength;
+	    *f = (GLfloat)state->storeUnpack.rowLength;
 	    break;
 	  case GL_UNPACK_IMAGE_HEIGHT:
-	    *f = (GLfloat)gc->state.storeUnpack.imageHeight;
+	    *f = (GLfloat)state->storeUnpack.imageHeight;
 	    break;
 	  case GL_UNPACK_SKIP_ROWS:
-	    *f = (GLfloat)gc->state.storeUnpack.skipRows;
+	    *f = (GLfloat)state->storeUnpack.skipRows;
 	    break;
 	  case GL_UNPACK_SKIP_PIXELS:
-	    *f = (GLfloat)gc->state.storeUnpack.skipPixels;
+	    *f = (GLfloat)state->storeUnpack.skipPixels;
 	    break;
 	  case GL_UNPACK_SKIP_IMAGES:
-	    *f = (GLfloat)gc->state.storeUnpack.skipImages;
+	    *f = (GLfloat)state->storeUnpack.skipImages;
 	    break;
 	  case GL_UNPACK_ALIGNMENT:
-	    *f = (GLfloat)gc->state.storeUnpack.alignment;
+	    *f = (GLfloat)state->storeUnpack.alignment;
 	    break;
 	  case GL_UNPACK_SWAP_BYTES:
-	    *f = (GLfloat)gc->state.storeUnpack.swapEndian;
+	    *f = (GLfloat)state->storeUnpack.swapEndian;
 	    break;
 	  case GL_UNPACK_LSB_FIRST:
-	    *f = (GLfloat)gc->state.storeUnpack.lsbFirst;
+	    *f = (GLfloat)state->storeUnpack.lsbFirst;
 	    break;
 	  case GL_VERTEX_ARRAY:
-	    *f = (GLfloat)gc->state.vertArray.vertex.enable;
+	    *f = (GLfloat)state->vertArray.vertex.enable;
 	    break;
 	  case GL_VERTEX_ARRAY_SIZE:
-	    *f = (GLfloat)gc->state.vertArray.vertex.size;
+	    *f = (GLfloat)state->vertArray.vertex.size;
 	    break;
 	  case GL_VERTEX_ARRAY_TYPE:
-	    *f = (GLfloat)gc->state.vertArray.vertex.type;
+	    *f = (GLfloat)state->vertArray.vertex.type;
 	    break;
 	  case GL_VERTEX_ARRAY_STRIDE:
-	    *f = (GLfloat)gc->state.vertArray.vertex.stride;
+	    *f = (GLfloat)state->vertArray.vertex.stride;
 	    break;
 	  case GL_NORMAL_ARRAY:
-	    *f = (GLfloat)gc->state.vertArray.normal.enable;
+	    *f = (GLfloat)state->vertArray.normal.enable;
 	    break;
 	  case GL_NORMAL_ARRAY_TYPE:
-	    *f = (GLfloat)gc->state.vertArray.normal.type;
+	    *f = (GLfloat)state->vertArray.normal.type;
 	    break;
 	  case GL_NORMAL_ARRAY_STRIDE:
-	    *f = (GLfloat)gc->state.vertArray.normal.stride;
+	    *f = (GLfloat)state->vertArray.normal.stride;
 	    break;
 	  case GL_COLOR_ARRAY:
-	    *f = (GLfloat)gc->state.vertArray.color.enable;
+	    *f = (GLfloat)state->vertArray.color.enable;
 	    break;
 	  case GL_COLOR_ARRAY_SIZE:
-	    *f = (GLfloat)gc->state.vertArray.color.size;
+	    *f = (GLfloat)state->vertArray.color.size;
 	    break;
 	  case GL_COLOR_ARRAY_TYPE:
-	    *f = (GLfloat)gc->state.vertArray.color.type;
+	    *f = (GLfloat)state->vertArray.color.type;
 	    break;
 	  case GL_COLOR_ARRAY_STRIDE:
-	    *f = (GLfloat)gc->state.vertArray.color.stride;
+	    *f = (GLfloat)state->vertArray.color.stride;
 	    break;
 	  case GL_INDEX_ARRAY:
-	    *f = (GLfloat)gc->state.vertArray.index.enable;
+	    *f = (GLfloat)state->vertArray.index.enable;
 	    break;
 	  case GL_INDEX_ARRAY_TYPE:
-	    *f = (GLfloat)gc->state.vertArray.index.type;
+	    *f = (GLfloat)state->vertArray.index.type;
 	    break;
 	  case GL_INDEX_ARRAY_STRIDE:
-	    *f = (GLfloat)gc->state.vertArray.index.stride;
+	    *f = (GLfloat)state->vertArray.index.stride;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY:
-	    *f = (GLfloat)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].enable;
+	    *f = (GLfloat)state->vertArray.texCoord[state->vertArray.activeTexture].enable;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_SIZE:
-	    *f = (GLfloat)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].size;
+	    *f = (GLfloat)state->vertArray.texCoord[state->vertArray.activeTexture].size;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_TYPE:
-	    *f = (GLfloat)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].type;
+	    *f = (GLfloat)state->vertArray.texCoord[state->vertArray.activeTexture].type;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_STRIDE:
-	    *f = (GLfloat)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].stride;
+	    *f = (GLfloat)state->vertArray.texCoord[state->vertArray.activeTexture].stride;
 	    break;
 	  case GL_EDGE_FLAG_ARRAY:
-	    *f = (GLfloat)gc->state.vertArray.edgeFlag.enable;
+	    *f = (GLfloat)state->vertArray.edgeFlag.enable;
 	    break;
 	  case GL_EDGE_FLAG_ARRAY_STRIDE:
-	    *f = (GLfloat)gc->state.vertArray.edgeFlag.stride;
+	    *f = (GLfloat)state->vertArray.edgeFlag.stride;
 	    break;
+
+	  CASE_ARRAY_ALL(SECONDARY_COLOR, secondaryColor, f, GLfloat);
+
+	  CASE_ARRAY_ENABLE(FOG_COORDINATE, fogCoord, f, GLfloat);
+	  CASE_ARRAY_TYPE(FOG_COORDINATE, fogCoord, f, GLfloat);
+	  CASE_ARRAY_STRIDE(FOG_COORDINATE, fogCoord, f, GLfloat);
+
 	  case GL_MAX_ELEMENTS_VERTICES:
-	    *f = (GLfloat)gc->state.vertArray.maxElementsVertices;
+	    *f = (GLfloat)state->vertArray.maxElementsVertices;
 	    break;
 	  case GL_MAX_ELEMENTS_INDICES:
-	    *f = (GLfloat)gc->state.vertArray.maxElementsIndices;
+	    *f = (GLfloat)state->vertArray.maxElementsIndices;
 	    break;
 	  case GL_MAX_CLIENT_ATTRIB_STACK_DEPTH:
 	    *f = (GLfloat)__GL_CLIENT_ATTRIB_STACK_DEPTH;
 	    break;
 	  case GL_CLIENT_ACTIVE_TEXTURE_ARB:
-	    *f = (GLfloat)(gc->state.vertArray.activeTexture + GL_TEXTURE0_ARB);
+	    *f = (GLfloat)(state->vertArray.activeTexture + GL_TEXTURE0_ARB);
 	    break;
 	  default:
 	    /*
@@ -658,6 +701,7 @@ void glGetIntegerv(GLenum val, GLint *i)
 {
     const GLenum origVal = val;
     __GLX_SINGLE_DECLARE_VARIABLES();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
     xGLXSingleReply reply;
 
     if (val == GL_TRANSPOSE_MODELVIEW_MATRIX_ARB) {
@@ -693,124 +737,131 @@ void glGetIntegerv(GLenum val, GLint *i)
 	*/
 	switch (val) {
 	  case GL_PACK_ROW_LENGTH:
-	    *i = (GLint)gc->state.storePack.rowLength;
+	    *i = (GLint)state->storePack.rowLength;
 	    break;
 	  case GL_PACK_IMAGE_HEIGHT:
-	    *i = (GLint)gc->state.storePack.imageHeight;
+	    *i = (GLint)state->storePack.imageHeight;
 	    break;
 	  case GL_PACK_SKIP_ROWS:
-	    *i = (GLint)gc->state.storePack.skipRows;
+	    *i = (GLint)state->storePack.skipRows;
 	    break;
 	  case GL_PACK_SKIP_PIXELS:
-	    *i = (GLint)gc->state.storePack.skipPixels;
+	    *i = (GLint)state->storePack.skipPixels;
 	    break;
 	  case GL_PACK_SKIP_IMAGES:
-	    *i = (GLint)gc->state.storePack.skipImages;
+	    *i = (GLint)state->storePack.skipImages;
 	    break;
 	  case GL_PACK_ALIGNMENT:
-	    *i = (GLint)gc->state.storePack.alignment;
+	    *i = (GLint)state->storePack.alignment;
 	    break;
 	  case GL_PACK_SWAP_BYTES:
-	    *i = (GLint)gc->state.storePack.swapEndian;
+	    *i = (GLint)state->storePack.swapEndian;
 	    break;
 	  case GL_PACK_LSB_FIRST:
-	    *i = (GLint)gc->state.storePack.lsbFirst;
+	    *i = (GLint)state->storePack.lsbFirst;
 	    break;
 	  case GL_UNPACK_ROW_LENGTH:
-	    *i = (GLint)gc->state.storeUnpack.rowLength;
+	    *i = (GLint)state->storeUnpack.rowLength;
 	    break;
 	  case GL_UNPACK_IMAGE_HEIGHT:
-	    *i = (GLint)gc->state.storeUnpack.imageHeight;
+	    *i = (GLint)state->storeUnpack.imageHeight;
 	    break;
 	  case GL_UNPACK_SKIP_ROWS:
-	    *i = (GLint)gc->state.storeUnpack.skipRows;
+	    *i = (GLint)state->storeUnpack.skipRows;
 	    break;
 	  case GL_UNPACK_SKIP_PIXELS:
-	    *i = (GLint)gc->state.storeUnpack.skipPixels;
+	    *i = (GLint)state->storeUnpack.skipPixels;
 	    break;
 	  case GL_UNPACK_SKIP_IMAGES:
-	    *i = (GLint)gc->state.storeUnpack.skipImages;
+	    *i = (GLint)state->storeUnpack.skipImages;
 	    break;
 	  case GL_UNPACK_ALIGNMENT:
-	    *i = (GLint)gc->state.storeUnpack.alignment;
+	    *i = (GLint)state->storeUnpack.alignment;
 	    break;
 	  case GL_UNPACK_SWAP_BYTES:
-	    *i = (GLint)gc->state.storeUnpack.swapEndian;
+	    *i = (GLint)state->storeUnpack.swapEndian;
 	    break;
 	  case GL_UNPACK_LSB_FIRST:
-	    *i = (GLint)gc->state.storeUnpack.lsbFirst;
+	    *i = (GLint)state->storeUnpack.lsbFirst;
 	    break;
 	  case GL_VERTEX_ARRAY:
-	    *i = (GLint)gc->state.vertArray.vertex.enable;
+	    *i = (GLint)state->vertArray.vertex.enable;
 	    break;
 	  case GL_VERTEX_ARRAY_SIZE:
-	    *i = (GLint)gc->state.vertArray.vertex.size;
+	    *i = (GLint)state->vertArray.vertex.size;
 	    break;
 	  case GL_VERTEX_ARRAY_TYPE:
-	    *i = (GLint)gc->state.vertArray.vertex.type;
+	    *i = (GLint)state->vertArray.vertex.type;
 	    break;
 	  case GL_VERTEX_ARRAY_STRIDE:
-	    *i = (GLint)gc->state.vertArray.vertex.stride;
+	    *i = (GLint)state->vertArray.vertex.stride;
 	    break;
 	  case GL_NORMAL_ARRAY:
-	    *i = (GLint)gc->state.vertArray.normal.enable;
+	    *i = (GLint)state->vertArray.normal.enable;
 	    break;
 	  case GL_NORMAL_ARRAY_TYPE:
-	    *i = (GLint)gc->state.vertArray.normal.type;
+	    *i = (GLint)state->vertArray.normal.type;
 	    break;
 	  case GL_NORMAL_ARRAY_STRIDE:
-	    *i = (GLint)gc->state.vertArray.normal.stride;
+	    *i = (GLint)state->vertArray.normal.stride;
 	    break;
 	  case GL_COLOR_ARRAY:
-	    *i = (GLint)gc->state.vertArray.color.enable;
+	    *i = (GLint)state->vertArray.color.enable;
 	    break;
 	  case GL_COLOR_ARRAY_SIZE:
-	    *i = (GLint)gc->state.vertArray.color.size;
+	    *i = (GLint)state->vertArray.color.size;
 	    break;
 	  case GL_COLOR_ARRAY_TYPE:
-	    *i = (GLint)gc->state.vertArray.color.type;
+	    *i = (GLint)state->vertArray.color.type;
 	    break;
 	  case GL_COLOR_ARRAY_STRIDE:
-	    *i = (GLint)gc->state.vertArray.color.stride;
+	    *i = (GLint)state->vertArray.color.stride;
 	    break;
 	  case GL_INDEX_ARRAY:
-	    *i = (GLint)gc->state.vertArray.index.enable;
+	    *i = (GLint)state->vertArray.index.enable;
 	    break;
 	  case GL_INDEX_ARRAY_TYPE:
-	    *i = (GLint)gc->state.vertArray.index.type;
+	    *i = (GLint)state->vertArray.index.type;
 	    break;
 	  case GL_INDEX_ARRAY_STRIDE:
-	    *i = (GLint)gc->state.vertArray.index.stride;
+	    *i = (GLint)state->vertArray.index.stride;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY:
-	    *i = (GLint)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].enable;
+	    *i = (GLint)state->vertArray.texCoord[state->vertArray.activeTexture].enable;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_SIZE:
-	    *i = (GLint)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].size;
+	    *i = (GLint)state->vertArray.texCoord[state->vertArray.activeTexture].size;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_TYPE:
-	    *i = (GLint)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].type;
+	    *i = (GLint)state->vertArray.texCoord[state->vertArray.activeTexture].type;
 	    break;
 	  case GL_TEXTURE_COORD_ARRAY_STRIDE:
-	    *i = (GLint)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].stride;
+	    *i = (GLint)state->vertArray.texCoord[state->vertArray.activeTexture].stride;
 	    break;
 	  case GL_EDGE_FLAG_ARRAY:
-	    *i = (GLint)gc->state.vertArray.edgeFlag.enable;
+	    *i = (GLint)state->vertArray.edgeFlag.enable;
 	    break;
 	  case GL_EDGE_FLAG_ARRAY_STRIDE:
-	    *i = (GLint)gc->state.vertArray.edgeFlag.stride;
+	    *i = (GLint)state->vertArray.edgeFlag.stride;
 	    break;
+
+	  CASE_ARRAY_ALL(SECONDARY_COLOR, secondaryColor, i, GLint);
+
+	  CASE_ARRAY_ENABLE(FOG_COORDINATE, fogCoord, i, GLint);
+	  CASE_ARRAY_TYPE(FOG_COORDINATE, fogCoord, i, GLint);
+	  CASE_ARRAY_STRIDE(FOG_COORDINATE, fogCoord, i, GLint);
+
 	  case GL_MAX_ELEMENTS_VERTICES:
-	    *i = (GLint)gc->state.vertArray.maxElementsVertices;
+	    *i = (GLint)state->vertArray.maxElementsVertices;
 	    break;
 	  case GL_MAX_ELEMENTS_INDICES:
-	    *i = (GLint)gc->state.vertArray.maxElementsIndices;
+	    *i = (GLint)state->vertArray.maxElementsIndices;
 	    break;
 	  case GL_MAX_CLIENT_ATTRIB_STACK_DEPTH:
 	    *i = (GLint)__GL_CLIENT_ATTRIB_STACK_DEPTH;
 	    break;
 	  case GL_CLIENT_ACTIVE_TEXTURE_ARB:
-	    *i = (GLint)(gc->state.vertArray.activeTexture + GL_TEXTURE0_ARB);
+	    *i = (GLint)(state->vertArray.activeTexture + GL_TEXTURE0_ARB);
 	    break;
 	  default:
 	    /*
@@ -979,11 +1030,39 @@ const GLubyte *glGetString(GLenum name)
 	  case GL_RENDERER:
 	    gc->renderer = s;
 	    break;
-	  case GL_VERSION:
-	    gc->version = s;
-	    break;
+	  case GL_VERSION: {
+	     double server_version = strtod((char *)s, NULL);
+	     double client_version = strtod(__glXGLClientVersion, NULL);
+
+	     if ( server_version <= client_version ) {
+		gc->version = s;
+	     }
+	     else {
+		gc->version = Xmalloc( strlen(__glXGLClientVersion)
+				       + strlen((char *)s) + 4 );
+		if ( gc->version == NULL ) {
+		   /* If we couldn't allocate memory for the new string,
+		    * make a best-effort and just copy the client-side version
+		    * to the string and use that.  It probably doesn't
+		    * matter what is done here.  If there not memory available
+		    * for a short string, the system is probably going to die
+		    * soon anyway.
+		    */
+		   strcpy((char *)s, __glXGLClientVersion);
+		}
+		else {
+		   sprintf( (char *)gc->version, "%s (%s)",
+			    __glXGLClientVersion, s );
+		   Xfree( s );
+		   s = gc->version;
+		}
+	     }
+	     break;
+	  }
 	  case GL_EXTENSIONS:
-	    gc->extensions = s;
+	    gc->extensions = (GLubyte *)__glXCombineExtensionStrings( (const char *)s, __glXGLClientExtensions );
+	    XFree( s );
+	    s = gc->extensions;
 	    break;
 	}
     }
@@ -994,6 +1073,7 @@ const GLubyte *glGetString(GLenum name)
 GLboolean glIsEnabled(GLenum cap)
 {
     __GLX_SINGLE_DECLARE_VARIABLES();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
     xGLXSingleReply reply;
     GLboolean retval = 0;
 
@@ -1001,17 +1081,21 @@ GLboolean glIsEnabled(GLenum cap)
 
     switch(cap) {
       case GL_VERTEX_ARRAY:
-	  return gc->state.vertArray.vertex.enable;
+	  return state->vertArray.vertex.enable;
       case GL_NORMAL_ARRAY:
-	  return gc->state.vertArray.normal.enable;
+	  return state->vertArray.normal.enable;
       case GL_COLOR_ARRAY:
-	  return gc->state.vertArray.color.enable;
+	  return state->vertArray.color.enable;
       case GL_INDEX_ARRAY:
-	  return gc->state.vertArray.index.enable;
+	  return state->vertArray.index.enable;
       case GL_TEXTURE_COORD_ARRAY:
-	  return gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].enable;
+	  return state->vertArray.texCoord[state->vertArray.activeTexture].enable;
       case GL_EDGE_FLAG_ARRAY:
-	  return gc->state.vertArray.edgeFlag.enable;
+	  return state->vertArray.edgeFlag.enable;
+      case GL_SECONDARY_COLOR_ARRAY:
+	  return state->vertArray.secondaryColor.enable;
+      case GL_FOG_COORDINATE_ARRAY:
+	  return state->vertArray.fogCoord.enable;
     }
 
     __GLX_SINGLE_LOAD_VARIABLES();
@@ -1026,28 +1110,35 @@ GLboolean glIsEnabled(GLenum cap)
 void glGetPointerv(GLenum pname, void **params)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
     Display *dpy = gc->currentDpy;
 
     if (!dpy) return;
 
     switch(pname) {
       case GL_VERTEX_ARRAY_POINTER:
-	  *params = (void *)gc->state.vertArray.vertex.ptr;
+	  *params = (void *)state->vertArray.vertex.ptr;
 	  return;
       case GL_NORMAL_ARRAY_POINTER:
-	  *params = (void *)gc->state.vertArray.normal.ptr;
+	  *params = (void *)state->vertArray.normal.ptr;
 	  return;
       case GL_COLOR_ARRAY_POINTER:
-	  *params = (void *)gc->state.vertArray.color.ptr;
+	  *params = (void *)state->vertArray.color.ptr;
 	  return;
       case GL_INDEX_ARRAY_POINTER:
-	  *params = (void *)gc->state.vertArray.index.ptr;
+	  *params = (void *)state->vertArray.index.ptr;
 	  return;
       case GL_TEXTURE_COORD_ARRAY_POINTER:
-	  *params = (void *)gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].ptr;
+	  *params = (void *)state->vertArray.texCoord[state->vertArray.activeTexture].ptr;
 	  return;
       case GL_EDGE_FLAG_ARRAY_POINTER:
-	  *params = (void *)gc->state.vertArray.edgeFlag.ptr;
+	  *params = (void *)state->vertArray.edgeFlag.ptr;
+	return;
+      case GL_SECONDARY_COLOR_ARRAY_POINTER:
+	  *params = (void *)state->vertArray.secondaryColor.ptr;
+	return;
+      case GL_FOG_COORDINATE_ARRAY_POINTER:
+	  *params = (void *)state->vertArray.fogCoord.ptr;
 	return;
       case GL_FEEDBACK_BUFFER_POINTER:
 	*params = (void *)gc->feedbackBuf;

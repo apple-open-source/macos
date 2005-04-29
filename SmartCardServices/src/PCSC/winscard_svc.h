@@ -33,17 +33,78 @@
 #ifndef __winscard_svc_h__
 #define __winscard_svc_h__
 
+#include "winscard_msg.h"
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-	LONG MSGFunctionDemarshall(psharedSegmentMsg);
+	enum pcsc_adm_commands
+	{
+		CMD_FUNCTION = 0xF1,
+		CMD_CLIENT_DIED = 0xF4
+	};
+
+	typedef union request_message_union
+	{
+		request_header header;
+		establish_request establish;
+		release_request release;
+		connect_request connect;
+		reconnect_request reconnect;
+		disconnect_request disconnect;
+		begin_request begin;
+		end_request end;
+		cancel_request cancel;
+		status_request status;
+		transmit_request transmit;
+	} request_message;
+
+	typedef union reply_message_union
+	{
+		reply_header header;
+		establish_reply establish;
+		release_reply release;
+		connect_reply connect;
+		reconnect_reply reconnect;
+		disconnect_reply disconnect;
+		begin_reply begin;
+		end_reply end;
+		cancel_reply cancel;
+		status_reply status;
+		transmit_reply transmit;
+	} reply_message;
+
+	typedef struct request_object_struct
+	{
+		unsigned int mtype; /* One of enum pcsc_adm_commands */
+		unsigned int socket;
+		void *additional_data;
+		request_message message;
+	} request_object;
+
+	typedef struct reply_object_struct
+	{
+		void *additional_data;
+		reply_message message;
+	} reply_object;
+
+
+	/* Server only functions. */
+	int MSGServerSetupCommonChannel();
+	void MSGServerCleanupCommonChannel(int, char *);
+	int MSGServerProcessCommonChannelRequest();
+	int MSGServerProcessEvents(request_object *request, int blockAmount);
+
+
+	LONG MSGFunctionDemarshall(const request_object *request,
+		reply_object *reply);
 	LONG MSGAddContext(SCARDCONTEXT, DWORD);
 	LONG MSGRemoveContext(SCARDCONTEXT, DWORD);
 	LONG MSGAddHandle(SCARDCONTEXT, DWORD, SCARDHANDLE);
 	LONG MSGRemoveHandle(SCARDCONTEXT, DWORD, SCARDHANDLE);
-	LONG MSGCleanupClient(psharedSegmentMsg);
+	LONG MSGCleanupClient(request_object *);
 
 #ifdef __cplusplus
 }

@@ -906,7 +906,7 @@ static void boot_ConstSubs(char *tag)
 #endif
 	char *name = EXP_NAME;
 	double val = constant(name);
-	my_newCONSTSUB(stash, name, newSViv(val));
+	my_newCONSTSUB(stash, name, newSViv( (I32) val));
     }
 }
 
@@ -955,7 +955,7 @@ __AUTOLOAD()
     if(errno != 0) 
 	croak("Your vendor has not defined Apache::Constants macro `%s'", name);
     else 
-        my_newCONSTSUB(stash, name, newSViv(val));
+        my_newCONSTSUB(stash, name, newSViv( (I32) val));
 
 const char *
 SERVER_VERSION()

@@ -1,8 +1,8 @@
 #
 #   xmp.rb - irb version of gotoken xmp
-#   	$Release Version: 0.7.1$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:49 $
+#   	$Release Version: 0.9$
+#   	$Revision: 1.3 $
+#   	$Date: 2002/07/09 11:17:16 $
 #   	by Keiju ISHITSUKA(Nippon Rational Inc.)
 #
 # --
@@ -10,21 +10,23 @@
 #   
 #
 
-require "irb/irb"
+require "irb"
 require "irb/frame"
 
 class XMP
-  @RCS_ID='-$Id: xmp.rb,v 1.1.1.1 2002/05/27 17:59:49 jkh Exp $-'
+  @RCS_ID='-$Id: xmp.rb,v 1.3 2002/07/09 11:17:16 keiju Exp $-'
 
   def initialize(bind = nil)
+    IRB.init_config(nil)
     #IRB.parse_opts
     #IRB.load_modules
 
+    IRB.conf[:PROMPT_MODE] = :XMP
+
     bind = IRB::Frame.top(1) unless bind
-    main = eval("self", bind)
+    ws = IRB::WorkSpace.new(bind)
     @io = StringInputMethod.new
-    @irb = IRB::Irb.new(main, bind, @io)
-    @irb.context.prompt_mode = :XMP
+    @irb = IRB::Irb.new(ws, @io)
     @irb.context.ignore_sigint = false
 
 #    IRB.conf[:IRB_RC].call(@irb.context) if IRB.conf[:IRB_RC]

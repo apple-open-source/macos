@@ -33,6 +33,7 @@ void test01()
 
   typedef insert_iterator<list<int> > test_iterator;
   typedef iterator<output_iterator_tag, void, void, void, void> base_iterator;
+  li = l.begin();
   test_iterator  r_it(l, li);
   base_iterator* base = &r_it;
 
@@ -56,6 +57,7 @@ void test02()
 
   std::list<int> li;
   std::list<int>::iterator liit;
+  liit = li.begin();
   iterator_type it01(li, liit);
   iterator_type it02 = std::inserter(li, liit);
 }
@@ -63,11 +65,11 @@ void test02()
 // Check data member 'container' accessible.
 class test_dm : public std::insert_iterator<std::list<int> >
 {
-  container_type l;
-  container_type::iterator i;
   container_type* p;
 public:
-  test_dm(): std::insert_iterator<std::list<int> >(l, i), p(container) { }
+  test_dm(container_type& l, container_type::iterator i)
+  : std::insert_iterator<std::list<int> >(l, i), p(container)
+  { }
 };
 
 int main() 

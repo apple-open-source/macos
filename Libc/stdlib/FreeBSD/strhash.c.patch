@@ -1,0 +1,19 @@
+--- strhash.c.orig	2004-08-27 15:27:37.000000000 -0700
++++ strhash.c	2004-08-27 15:29:08.000000000 -0700
+@@ -85,6 +85,7 @@
+ 
+ static int _hash(int size, char *key);
+ static hash_node *list_find(caddr_t key, hash_node *head);
++static int assign_key(char *key, hash_node *node);
+ 
+ 
+ /*
+@@ -242,8 +243,6 @@
+     else{
+ 	if (datum){
+ 
+-	    static int assign_key();
+-
+ 	    hash_node *new = (hash_node *)malloc(sizeof(hash_node));
+ 
+ 	    if (!new || !assign_key(key, new)){

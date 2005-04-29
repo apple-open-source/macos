@@ -63,7 +63,7 @@ struct poptOption poptHelpOptions[] = {
 /**
  * @param table		option(s)
  */
-/*@observer@*/ /*@null@*/ static const char *const
+/*@observer@*/ /*@null@*/ static const char *
 getTableTranslationDomain(/*@null@*/ const struct poptOption *table)
 	/*@*/
 {
@@ -81,10 +81,10 @@ getTableTranslationDomain(/*@null@*/ const struct poptOption *table)
  * @param opt		option(s)
  * @param translation_domain	translation domain
  */
-/*@observer@*/ /*@null@*/ static const char *const
+/*@observer@*/ /*@null@*/ static const char *
 getArgDescrip(const struct poptOption * opt,
 		/*@-paramuse@*/		/* FIX: wazzup? */
-		/*@null@*/ UNUSED(const char * translation_domain))
+		/*@null@*/ const char * translation_domain)
 		/*@=paramuse@*/
 	/*@*/
 {
@@ -115,7 +115,7 @@ static /*@only@*/ /*@null@*/ char *
 singleOptionDefaultValue(int lineLength,
 		const struct poptOption * opt,
 		/*@-paramuse@*/	/* FIX: i18n macros disable with lclint */
-		/*@null@*/ UNUSED(const char * translation_domain))
+		/*@null@*/ const char * translation_domain)
 		/*@=paramuse@*/
 	/*@*/
 {

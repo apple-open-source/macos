@@ -63,9 +63,16 @@
 
 #include <bits/concept_check.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define multiset _Release_multiset
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
-
 // Forward declaration of operators < and ==, needed for friend declaration.
 
 template <class _Key, class _Compare = less<_Key>,
@@ -80,8 +87,9 @@ template <class _Key, class _Compare, class _Alloc>
 inline bool operator<(const multiset<_Key,_Compare,_Alloc>& __x, 
                       const multiset<_Key,_Compare,_Alloc>& __y);
 
+/* APPLE LOCAL libstdc++ debug mode */
 template <class _Key, class _Compare, class _Alloc>
-class multiset
+class _GLIBCXX_RELEASE_CLASS(multiset) multiset
 {
   // concept requirements
   __glibcpp_class_requires(_Key, _SGIAssignableConcept)
@@ -269,6 +277,13 @@ inline void swap(multiset<_Key,_Compare,_Alloc>& __x,
 }
 
 } // namespace std
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef multiset
+#  include <debug/dbg_multiset.h>
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #endif /* __GLIBCPP_INTERNAL_MULTISET_H */
 

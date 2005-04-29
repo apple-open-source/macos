@@ -1,0 +1,35 @@
+[vset    compress zip]
+[include compress/header.inc]
+
+[para]
+
+The command is based on the deflate compression algorithm as specified
+in RFC 1951 ([uri http://www.rfc-editor.org/rfc/rfc1951.txt]) and as
+implemented by the zlib compression library
+([uri http://www.gzip.org/zlib/]).
+See also RFC 1950 ([uri http://www.rfc-editor.org/rfc/rfc1950.txt])
+
+[para]
+[list_begin definitions]
+
+[call [cmd [vset compress]] [opt [arg options...]] [opt [arg data]]]
+
+[list_begin definitions]
+[include compress/options.inc]
+
+[lst_item "[option -nowrap] [arg boolean]"]
+
+If set to [const true] the command will not create the zip specific
+header (See RFC 1950) normally written before the compressed data. The
+options defaults to [const false].
+
+It has to be used when writing a [syscmd gzip] emulation in Tcl as
+gzip creates a different header.
+
+
+[include common/options.inc]
+[list_end]
+[list_end]
+
+[keywords {rfc 1950} {rfc 1951} {rfc 1952}]
+[include compress/footer.inc]

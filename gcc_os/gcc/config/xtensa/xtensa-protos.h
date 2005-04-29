@@ -1,5 +1,5 @@
 /* Prototypes of target machine for GNU compiler for Xtensa.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright 2001,2002 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -70,6 +70,7 @@ extern int xtensa_expand_conditional_move PARAMS ((rtx *, int));
 extern int xtensa_expand_scc PARAMS ((rtx *));
 extern int xtensa_expand_block_move PARAMS ((rtx *));
 extern int xtensa_emit_move_sequence PARAMS ((rtx *, enum machine_mode));
+extern bool xtensa_copy_incoming_a7 PARAMS ((rtx *, enum machine_mode));
 extern void xtensa_emit_block_move PARAMS ((rtx *, rtx *, int));
 extern void xtensa_expand_nonlocal_goto PARAMS ((rtx *));
 extern void xtensa_emit_loop_end PARAMS ((rtx, rtx *));
@@ -77,7 +78,7 @@ extern char * xtensa_emit_call PARAMS ((int, rtx *));
 
 #ifdef TREE_CODE
 extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx));
-extern void xtensa_va_start PARAMS ((int, tree, rtx));
+extern void xtensa_va_start PARAMS ((tree, rtx));
 extern rtx xtensa_va_arg PARAMS ((tree, tree));
 #endif /* TREE_CODE */
 
@@ -86,9 +87,10 @@ extern void print_operand_address PARAMS ((FILE *, rtx));
 extern void xtensa_output_literal
   PARAMS ((FILE *, rtx, enum machine_mode, int labelno));
 extern void xtensa_reorg PARAMS ((rtx));
+extern rtx xtensa_return_addr PARAMS ((int, rtx));
 extern rtx xtensa_builtin_saveregs PARAMS ((void));
 extern enum reg_class xtensa_preferred_reload_class
-  PARAMS ((rtx, enum reg_class));
+  PARAMS ((rtx, enum reg_class, int));
 extern enum reg_class xtensa_secondary_reload_class
   PARAMS ((enum reg_class, enum machine_mode, rtx, int));
 extern int a7_overlap_mentioned_p PARAMS ((rtx x));

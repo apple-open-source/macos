@@ -27,7 +27,7 @@
 #include "gamma_vb.h"
 #include "glint_dri.h"
 
-#include "mem.h"
+#include "imports.h"
 
 gammaScreenPtr gammaCreateScreen( __DRIscreenPrivate *sPriv )
 {
@@ -36,15 +36,12 @@ gammaScreenPtr gammaCreateScreen( __DRIscreenPrivate *sPriv )
    int i;
 
 #if 0
-   /* Check the DRI version */
-   {
-      int major, minor, patch;
-      if ( XF86DRIQueryVersion( sPriv->display, &major, &minor, &patch ) ) {
-         if ( major != 3 || minor != 1 || patch < 0 ) {
-	    __driUtilMessage( "r128 DRI driver expected DRI version 3.1.x but got version %d.%d.%d", major, minor, patch );
-            return GL_FALSE;
-         }
-      }
+   /* Check the DRI externsion version */
+   if ( sPriv->driMajor != 3 || sPriv->driMinor != 1 ) {
+      __driUtilMessage( "Gamma DRI driver expected DRI version 4.0.x "
+                        "but got version %d.%d.%d",
+                        sPriv->driMajor, sPriv->driMinor, sPriv->driPatch );
+      return NULL;
    }
 
    /* Check that the DDX driver version is compatible */

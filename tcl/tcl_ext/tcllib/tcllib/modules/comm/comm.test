@@ -1,0 +1,79 @@
+# -*- tcl -*-
+# Tests for the comm module.
+#
+# Sourcing this file into Tcl runs the tests and generates output for errors.
+# No output means no errors were found.
+#
+# Copyright (c) 2001 by ActiveState Tool Corp.
+# All rights reserved.
+#
+# RCS: @(#) $Id: comm.test,v 1.3 2004/01/15 06:36:12 andreas_kupries Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+if { [lsearch $auto_path [file dirname [info script]]] == -1 } {
+    set auto_path [linsert $auto_path 0 [file dirname [info script]]]
+}
+
+package require comm
+puts "comm [package present comm]"
+
+# ------------------------------------------------------------------------
+#
+# First order of things is to spawn a separate tclsh into the background
+# and have it execute comm too, with some general code to respond to our
+# requests
+
+set path(spawn) [makeFile {
+    ##puts [set fh [open ~/foo w]] $argv ; close $fh
+
+    source [lindex $argv 0].tcl ; # load 'comm'
+    # and wait for commands. But first send our
+    # own server socket to the initiator
+    ::comm::comm send [lindex $argv 1] [list slaveat [::comm::comm self]]
+    vwait forever
+} spawn]
+
+proc slaveat {id} {
+    puts "Slave @ $id"
+    proc slave {} [list return $id]
+    set ::go .
+}
+
+puts "self @ [::comm::comm self]"
+
+exec \
+	[info nameofexecutable] $path(spawn) \
+	[file rootname [info script]] [::comm::comm self] &
+
+puts "Waiting for spawned comm system to boot"
+# Wait for the slave to initialize itself.
+vwait ::go
+
+puts "Running tests"
+#::comm::comm debug 1
+# ------------------------------------------------------------------------
+
+test comm-1.0 {set remote variable} {
+    ::comm::comm send [slave] {set foo b}
+} {b}
+
+test comm-1.1 {set remote variable, async} {
+    ::comm::comm send -async [slave] {set fox a}
+} {}
+
+test comm-1.2 {get remote variables} {
+    ::comm::comm send [slave] {list $foo $fox}
+} {b a}
+
+test comm-1.3 {close remote} {
+    ::comm::comm send -async [slave] {{exit}}
+} {}
+
+::comm::comm abort
+
+::tcltest::cleanupTests
+return

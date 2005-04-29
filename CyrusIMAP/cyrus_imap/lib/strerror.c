@@ -1,5 +1,5 @@
 /* strerror.c -- replacement strerror() routine
- $Id: strerror.c,v 1.6 2003/02/13 20:15:42 rjs3 Exp $
+ $Id: strerror.c,v 1.5 2005/03/05 00:37:19 dasenbro Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

@@ -31,11 +31,25 @@
                                          /* int16_t is defined in <machine/types.h> */
                                          /* int32_t is defined in <machine/types.h> */
                                          /* int64_t is defined in <machine/types.h> */
+#ifndef _UINT8_T_DECLARED
+#define _UINT8_T_DECLARED
 typedef u_int8_t              uint8_t;   /* u_int8_t is defined in <machine/types.h> */
-typedef u_int16_t            uint16_t;   /* u_int16_t is defined in <machine/types.h> */
-typedef u_int32_t            uint32_t;   /* u_int32_t is defined in <machine/types.h> */
-typedef u_int64_t            uint64_t;   /* u_int64_t is defined in <machine/types.h> */
+#endif /*_UINT8_T_DECLARED */
 
+#ifndef _UINT16_T_DECLARED
+#define _UINT16_T_DECLARED
+typedef u_int16_t            uint16_t;   /* u_int16_t is defined in <machine/types.h> */
+#endif /* _UINT16_T_DECLARED */
+
+#ifndef _UINT32_T_DECLARED
+#define _UINT32_T_DECLARED
+typedef u_int32_t            uint32_t;   /* u_int32_t is defined in <machine/types.h> */
+#endif /* _UINT32_T_DECLARED */
+
+#ifndef _UINT64_T_DECLARED
+#define _UINT64_T_DECLARED
+typedef u_int64_t            uint64_t;   /* u_int64_t is defined in <machine/types.h> */
+#endif /* _UINT64_T_DECLARED */
 
 /* 7.18.1.2 Minumun-width integer types */
 typedef int8_t           int_least8_t;
@@ -65,9 +79,15 @@ typedef uint64_t        uint_fast64_t;
 
 
 /* 7.18.1.5 Greatest-width integer types */
+#ifndef _INTMAX_T_DECLARED
+#define _INTMAX_T_DECLARED
 typedef long long                intmax_t;
-typedef unsigned long long      uintmax_t;
+#endif /* _INTMAX_T_DECLARED */
 
+#ifndef _UINTMAX_T_DECLARED
+#define _UINTMAX_T_DECLARED
+typedef unsigned long long      uintmax_t;
+#endif /* _UINTMAX_T_DECLARED */
 
 /* "C++ implementations should define these macros only when
  *  __STDC_LIMIT_MACROS is defined before <stdint.h> is included."
@@ -161,7 +181,17 @@ typedef unsigned long long      uintmax_t;
 
 #define SIZE_MAX          UINT32_MAX
 
-#define WCHAR_MAX         INT32_MAX
+#ifndef WCHAR_MIN
+#  define WCHAR_MIN       0
+#endif
+
+#ifndef WCHAR_MAX
+#  ifdef __WCHAR_MAX__
+#    define WCHAR_MAX     __WCHAR_MAX__
+#  else
+#    define WCHAR_MAX     0x7fffffff
+#  endif
+#endif
 
 /* We have no wint_t yet, so no WINT_{MIN,MAX}.
    Should end up being {U}INT32_{MIN,MAX}, depending.  */

@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,9 +24,6 @@
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
 #include "colormac.h"
 #include "context.h"
@@ -35,7 +32,6 @@
 #include "macros.h"
 #include "mmath.h"
 #include "mtypes.h"
-#endif
 
 
 
@@ -339,7 +335,7 @@ _mesa_RenderMode( GLenum mode )
    ASSERT_OUTSIDE_BEGIN_END_WITH_RETVAL(ctx, 0);
 
    if (MESA_VERBOSE & VERBOSE_API)
-      fprintf(stderr, "glRenderMode %s\n", _mesa_lookup_enum_by_nr(mode));
+      _mesa_debug(ctx, "glRenderMode %s\n", _mesa_lookup_enum_by_nr(mode));
 
    FLUSH_VERTICES(ctx, _NEW_RENDERMODE);
 

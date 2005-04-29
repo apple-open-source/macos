@@ -1,4 +1,4 @@
-/* $Id: unprint.c,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $ */
+/* $Id: unprint.c,v 1.1.1.4 2004/12/22 23:49:40 jlovell Exp $ */
 /*
  * Generate PPM files from printer output
  *
@@ -24,10 +24,12 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-#include "../lib/libprintut.h"
+#include <gimp-print/util.h>
 #include<stdio.h>
 #include<stdlib.h>
+#ifdef HAVE_LIMITS_H
 #include<limits.h>
+#endif
 #include<string.h>
 
 #ifdef __GNUC__
@@ -39,7 +41,7 @@
  */
 typedef struct {
   unsigned char unidirectional;
-  unsigned char microweave;
+  unsigned char printer_weave;
   int page_management_units; /* dpi */
   int relative_horizontal_units; /* dpi */
   int absolute_horizontal_units; /* dpi, assumed to be >= relative */
@@ -85,7 +87,7 @@ typedef struct {
  * actually read in the data.  This optimization may be worthwhile.
  */
 
-#define MAX_INKS 7
+#define MAX_INKS 11
 typedef struct {
    unsigned char *line[MAX_INKS];
    int startx[MAX_INKS];
@@ -104,6 +106,7 @@ unsigned short sh;
 int eject = 0;
 int global_counter = 0;
 int global_count = 0;
+unsigned color_mask = 0xffffffff;
 
 pstate_t pstate;
 int unweave;
@@ -118,22 +121,62 @@ line_type **page=NULL;
    Yellow   4       4        3
    L.Mag.   17      257      4
    L.Cyan   18      258      5
-   L.Yellow NA      NA       6
+   L.Black  16      256      6
+   D.Yellow 36      516      7
+   Red      7       N/A      8
+   Blue     8       N/A      9
+   P.Black  64      N/A      0
+   Gloss    9       N/A      10
  */
 
 /* convert either Epson1 or Epson2 color encoding into a sequential encoding */
-#define seqcolor(c) (((c)&3)+(((c)&276)?3:0))  /* Intuitive, huh? */
+static inline int
+seqcolor(int c)
+{
+  switch (c)
+    {
+    case 0:
+    case 64:
+      return 0;
+    case 1:
+      return 1;
+    case 2:
+      return 2;
+    case 4:
+      return 3;
+    case 17:
+    case 257:
+      return 4;
+    case 18:
+    case 258:
+      return 5;
+    case 16:
+    case 256:
+      return 6;
+    case 36:
+    case 516:
+      return 7;
+    case 7:
+      return 8;
+    case 8:
+      return 9;
+    case 9:
+      return 10;
+    default:
+      return 0;
+    }
+}
 
 extern void merge_line(line_type *p, unsigned char *l, int startl, int stopl,
 		       int color);
 extern void expand_line (unsigned char *src, unsigned char *dst, int height,
 			 int skip, int left_ignore);
-extern void write_output (FILE *fp_w, int dontwrite);
-extern void find_white (unsigned char *buf,int npix, int *left, int *right);
-extern int update_page (unsigned char *buf, int bufsize, int m, int n,
+extern void write_output (FILE *fp_w, int dontwrite, int allblack);
+extern void find_white (unsigned char *buff,int npix, int *left, int *right);
+extern int update_page (unsigned char *buff, int buffsize, int m, int n,
 			int color, int density);
 extern void parse_escp2 (FILE *fp_r);
-extern void reverse_bit_order (unsigned char *buf, int n);
+extern void reverse_bit_order (unsigned char *buff, int n);
 extern int rle_decode (unsigned char *inbuf, int n, int max);
 extern void parse_canon (FILE *fp_r);
 
@@ -142,7 +185,7 @@ unsigned get_mask_2[] = { 6, 4, 2, 0 };
 unsigned get_mask_4[] = { 4, 0 };
 
 static inline int
-get_bits(unsigned char *p, int index)
+get_bits(unsigned char *p, int idx)
 {
   /*
    * p is a pointer to a bit stream, ordered MSb first.  Extract the
@@ -154,17 +197,17 @@ get_bits(unsigned char *p, int index)
   switch (pstate.bpp)
     {
     case 1:
-      return (p[index >> 3] >> (7 - (index & 7))) & 1;
+      return (p[idx >> 3] >> (7 - (idx & 7))) & 1;
     case 2:
-      b = get_mask_2[index & 3];
-      return (p[index >> 2] >> b) & 3;
+      b = get_mask_2[idx & 3];
+      return (p[idx >> 2] >> b) & 3;
     case 4:
-      b = get_mask_4[index & 1];
-      return (p[index >> 1] >> b) & 0xf;
+      b = get_mask_4[idx & 1];
+      return (p[idx >> 1] >> b) & 0xf;
     case 8:
-      return p[index];
+      return p[idx];
     default:
-      addr = (index * pstate.bpp);
+      addr = (idx * pstate.bpp);
       value = 0;
       for (b = 0; b < pstate.bpp; b++)
 	{
@@ -181,7 +224,7 @@ static unsigned clr_mask_2[] = { 0xfc, 0, 0xf3, 0, 0xcf, 0, 0x3f, 0 };
 static unsigned clr_mask_4[] = { 0xf0, 0, 0, 0, 0xf, 0, 0, 0 };
 
 static inline void
-set_bits(unsigned char *p,int index,int value)
+set_bits(unsigned char *p,int idx,int value)
 {
 
   /*
@@ -194,48 +237,52 @@ set_bits(unsigned char *p,int index,int value)
   switch (pstate.bpp)
     {
     case 1:
-      b = (7 - (index & 7));
-      p[index >> 3] &= clr_mask_1[b];
-      p[index >> 3] |= value << b;
+      b = (7 - (idx & 7));
+      p[idx >> 3] &= clr_mask_1[b];
+      p[idx >> 3] |= value << b;
       break;
     case 2:
-      b = get_mask_2[index & 3];
-      p[index >> 2] &= clr_mask_2[b];
-      p[index >> 2] |= value << b;
+      b = get_mask_2[idx & 3];
+      p[idx >> 2] &= clr_mask_2[b];
+      p[idx >> 2] |= value << b;
       break;
     case 4:
-      b = get_mask_4[index & 1];
-      p[index >> 1] &= clr_mask_4[b];
-      p[index >> 1] |= value << b;
+      b = get_mask_4[idx & 1];
+      p[idx >> 1] &= clr_mask_4[b];
+      p[idx >> 1] |= value << b;
       break;
     case 8:
-      p[index] = value;
+      p[idx] = value;
       break;
     default:
       for (b = pstate.bpp - 1; b >= 0; b--)
 	{
 	  if (value & 1)
-	    p[(index * pstate.bpp + b) / 8] |=
-	      1 << (7 - ((index * pstate.bpp + b) % 8));
+	    p[(idx * pstate.bpp + b) / 8] |=
+	      1 << (7 - ((idx * pstate.bpp + b) % 8));
 	  else
-	    p[(index * pstate.bpp + b) / 8] &=
-	      ~(1 << (7 - ((index * pstate.bpp + b) % 8)));
+	    p[(idx * pstate.bpp + b) / 8] &=
+	      ~(1 << (7 - ((idx * pstate.bpp + b) % 8)));
 	  value/=2;
 	}
     }
 }
 
-static float ink_colors[8][4] =
+static float ink_colors[MAX_INKS][4] =
 {{ 0,   0,  0,  1 },		/* K */
  { 1,  .1,  1,  1 },		/* M */
- { .1,  1,  1,  1 },		/* C */
+ { .1, .7, .7,  1 },		/* C */
  { 1,   1, .1,  1 },		/* Y */
  { 1,  .7,  1,  1 },		/* m */
- { .7,  1,  1,  1 },		/* c */
- { 1,   1, .7,  1 },		/* y */
- { 1,   1,  1,  1 }};
+ { .4,  1,  1,  1 },		/* c */
+ { .7, .7, .7,  1 },		/* k */
+ { .7, .7,  0,  1 },		/* dY */
+ { 1,   0,  0,  1 },		/* R */
+ { 0,   0,  1,  1 },		/* B */
+ { 1,   1,  1,  1 },		/* Gloss */
+};
 
-static float quadtone_inks[] = { 0.0, .5, .25, .75 };
+static float quadtone_inks[] = { 0.0, .25, .5, .75 };
 
 static float bpp_shift[] = { 0, 1, 3, 7, 15, 31, 63, 127, 255 };
 
@@ -244,7 +291,7 @@ mix_ink(ppmpixel p, int color, unsigned int amount, float *ink, int quadtone)
 {
   /* this is pretty crude */
 
-  if (amount)
+  if (((1 << color) & color_mask) && amount)
     {
       int i;
       float size;
@@ -302,7 +349,7 @@ merge_line(line_type *p, unsigned char *l, int startl, int stopl, int color)
     {
       width = ((p->stopx[color] - p->startx[color] + 1) * pstate.bpp + 7) / 8;
       owidth = ((oldstop - p->startx[color] + 1) * pstate.bpp + 7) / 8;
-      p->line[color] = xrealloc(p->line[color], width);
+      p->line[color] = stp_realloc(p->line[color], width);
       memset((p->line[color] + owidth), 0, (width - owidth));
     }
   /*
@@ -320,7 +367,7 @@ merge_line(line_type *p, unsigned char *l, int startl, int stopl, int color)
 	  set_bits(p->line[color], i + shift, pvalue);
 	}
     }
-  free(l);
+  stp_free(l);
 }
 
 void
@@ -361,7 +408,7 @@ expand_line (unsigned char *src, unsigned char *dst, int height, int skip,
 int donothing;
 
 void
-write_output(FILE *fp_w, int dontwrite)
+write_output(FILE *fp_w, int dontwrite, int allblack)
 {
   int c, l, p, left, right, first, last, width, height, i;
   unsigned int amount;
@@ -387,7 +434,7 @@ write_output(FILE *fp_w, int dontwrite)
   if (width < 0)
     width=0;
 
-  out_row = malloc(sizeof(ppmpixel) * width);
+  out_row = stp_malloc(sizeof(ppmpixel) * width);
   fprintf(stderr, "Writing output...\n");
 
   /* write out the PPM header */
@@ -402,7 +449,8 @@ write_output(FILE *fp_w, int dontwrite)
 	{
 	  for (c = 0; c < MAX_INKS; c++)
 	    {
-	      float *ink = ink_colors[c];
+	      int inknum = allblack ? 0 : c;
+	      float *ink = ink_colors[inknum];
 	      if (lt->line[c])
 		{
 		  if (dontwrite)
@@ -424,11 +472,11 @@ write_output(FILE *fp_w, int dontwrite)
 	for (i = 0; i < oversample; i++)
 	  fwrite(out_row, sizeof(ppmpixel), width, fp_w);
     }
-  free(out_row);
+  stp_free(out_row);
 }
 
 void
-find_white(unsigned char *buf,int npix, int *left, int *right)
+find_white(unsigned char *buff,int npix, int *left, int *right)
 {
 
   /*
@@ -443,7 +491,7 @@ find_white(unsigned char *buf,int npix, int *left, int *right)
   bits = npix * pstate.bpp;
   bytes = bits / 8;
   extra = bits % 8;
-  words = bytes / sizeof(long);
+  words = bytes / sizeof(int);
 
   /*
    * First, find the leftmost pixel.  We first identify the word
@@ -451,15 +499,15 @@ find_white(unsigned char *buf,int npix, int *left, int *right)
    * the byte.  It does seem like this is unnecessarily complex, perhaps?
    */
   max = words;
-  for (i = 0; (i < max) && (((long *)buf)[i] == 0); i++)
+  for (i = 0; (i < max) && (((int *)buff)[i] == 0); i++)
     ;
-  max = (i < words) ? (i + 1) * sizeof(long) : bytes;
+  max = (i < words) ? (i + 1) * sizeof(int) : bytes;
 
-  i *= sizeof(long);		/* Convert from longs to bytes */
-  for (; (i < max) && (buf[i] == 0); i++)
+  i *= sizeof(int);		/* Convert from ints to bytes */
+  for (; (i < max) && (buff[i] == 0); i++)
     ;
   max = (i < bytes) ? 8 : extra;
-  for (j = 0; (j < max) && !(buf[i] & (1 << (7 - j))); j++)
+  for (j = 0; (j < max) && !(buff[i] & (1 << (7 - j))); j++)
     ;
   *left = (i * 8 + j) / pstate.bpp;
   *right = 0;
@@ -469,7 +517,7 @@ find_white(unsigned char *buf,int npix, int *left, int *right)
     return;
 
   /* right side, this is a little trickier */
-  for (i = 0; (i < extra) && !(buf[bytes] & (1 << (i + 8 - extra))); i++)
+  for (i = 0; (i < extra) && !(buff[bytes] & (1 << (i + 8 - extra))); i++)
     ;
   if (i < extra)
     {
@@ -478,32 +526,32 @@ find_white(unsigned char *buf,int npix, int *left, int *right)
     }
   *right = extra;  /*temporarily store right in bits to avoid rounding error*/
 
-  for (i = 0; (i < bytes % sizeof(long)) && !(buf[bytes - 1 - i]); i++)
+  for (i = 0; (i < bytes % sizeof(int)) && !(buff[bytes - 1 - i]); i++)
     ;
-  if (i < bytes % sizeof(long))
+  if (i < bytes % sizeof(int))
     {
-      for (j = 0; (j < 8) && !(buf[bytes - 1 - i] & (1 << j)); j++)
+      for (j = 0; (j < 8) && !(buff[bytes - 1 - i] & (1 << j)); j++)
 	;
       *right = (*right + i * 8 + j) / pstate.bpp;
       return;
     }
   *right += i * 8;
 
-  for (i = 0; (i < words) && !(((int *)buf)[words - 1 - i]); i++)
+  for (i = 0; (i < words) && !(((int *)buff)[words - 1 - i]); i++)
     ;
 
   if (i < words)
     {
-      *right += i * sizeof(long) * 8;
+      *right += i * sizeof(int) * 8;
       for (j = 0;
-	   (j < sizeof(long)) && !(buf[(words - i) * sizeof(long) - 1 - j]);
+	   (j < sizeof(int)) && !(buff[(words - i) * sizeof(int) - 1 - j]);
 	   j++)
 	;
-      if (j < sizeof(long))
+      if (j < sizeof(int))
 	{
 	  *right += j * 8;
-	  max = (words - i) * sizeof(long) - 1 - j;
-	  for (j = 0; (j < 8) && !(buf[max] & (1 << j)); j++)
+	  max = (words - i) * sizeof(int) - 1 - j;
+	  for (j = 0; (j < 8) && !(buff[max] & (1 << j)); j++)
 	    ;
 	  if (j < 8)
 	    {
@@ -516,8 +564,8 @@ find_white(unsigned char *buf,int npix, int *left, int *right)
 }
 
 int
-update_page(unsigned char *buf, /* I - pixel data               */
-	    int bufsize,        /* I - size of buf in bytes     */
+update_page(unsigned char *buff, /* I - pixel data               */
+	    int buffsize,        /* I - size of buff in bytes     */
 	    int m,              /* I - height of area in pixels */
 	    int n,              /* I - width of area in pixels  */
 	    int color,          /* I - color of pixel data      */
@@ -552,10 +600,11 @@ update_page(unsigned char *buf, /* I - pixel data               */
        * have unpredictable results.  But, that's a pretty acurate statement
        * for a real printer, too!
        */
-      page = (line_type **) xcalloc(pstate.bottom_margin - pstate.top_margin,
-				    sizeof(line_type *));
+      page = (line_type **)
+	stp_zalloc((pstate.bottom_margin - pstate.top_margin) *
+		   sizeof(line_type *));
     }
-  if (pstate.microweave)
+  if (pstate.printer_weave)
     sep = 1;
   else
     sep = pstate.nozzle_separation;
@@ -568,13 +617,13 @@ update_page(unsigned char *buf, /* I - pixel data               */
 		  pstate.bottom_margin, y);
 	  return(1);
 	}
-      find_white(buf + mi * ((n * pstate.bpp + 7) / 8), n,
+      find_white(buff + mi * ((n * pstate.bpp + 7) / 8), n,
 		 &left_white, &right_white);
       if (left_white == n)
 	continue; /* ignore blank lines */
       if (!(page[y]))
 	{
-	  page[y] = (line_type *) xcalloc(sizeof(line_type), 1);
+	  page[y] = (line_type *) stp_zalloc(sizeof(line_type));
 	  if (y < pstate.top_edge)
 	    pstate.top_edge = y;
 	  if (y > pstate.bottom_edge)
@@ -604,8 +653,8 @@ update_page(unsigned char *buf, /* I - pixel data               */
 	pstate.right_edge = page[y]->stopx[color];
       width = page[y]->stopx[color] - page[y]->startx[color];
       page[y]->line[color] =
-	xcalloc(((width * skip + 1) * pstate.bpp + 7) / 8, 1);
-      expand_line(buf + mi * ((n * pstate.bpp + 7) / 8), page[y]->line[color],
+	stp_zalloc(((width * skip + 1) * pstate.bpp + 7) / 8);
+      expand_line(buff + mi * ((n * pstate.bpp + 7) / 8), page[y]->line[color],
 		  width+1, skip, left_white);
       if (oldline)
 	merge_line(page[y], oldline, oldstart, oldstop, color);
@@ -726,7 +775,7 @@ parse_escp2_data(FILE *fp_r)
   bandsize = m * ((n * pstate.bpp + 7) / 8);
   if (valid_bufsize < bandsize)
     {
-      buf = realloc(buf, bandsize);
+      buf = stp_realloc(buf, bandsize);
       valid_bufsize = bandsize;
     }
   switch (c)
@@ -815,7 +864,9 @@ parse_escp2_extended(FILE *fp_r)
 	}
       else
 	{
+/*
 	  fprintf(stderr,"Warning!  Commands in unrecognised remote mode %s ignored.\n", buf);
+*/
 	  do
 	    {
 	      while((!eject) && (ch!=0x1b))
@@ -827,7 +878,7 @@ parse_escp2_extended(FILE *fp_r)
       break;
     case 'G': /* select graphics mode */
       /* FIXME: this is supposed to have more side effects */
-      pstate.microweave = 0;
+      pstate.printer_weave = 0;
       pstate.dotsize = 0;
       pstate.bpp = 1;
       break;
@@ -864,11 +915,11 @@ parse_escp2_extended(FILE *fp_r)
 	  break;
 	}
       break;
-    case 'i': /* set MicroWeave mode */
+    case 'i': /* set printer weave mode */
       if (bufsize != 1)
-	fprintf(stderr,"Malformed microweave setting command.\n");
+	fprintf(stderr,"Malformed printer weave setting command.\n");
       else
-	pstate.microweave = buf[0] % 0x30;
+	pstate.printer_weave = buf[0] % 0x30;
       break;
     case 'e': /* set dot size */
       if ((bufsize != 2) || (buf[0] != 0))
@@ -910,14 +961,15 @@ parse_escp2_extended(FILE *fp_r)
       pstate.yposition = 0;
       if (pstate.top_margin + pstate.bottom_margin > pstate.page_height)
 	pstate.page_height = pstate.top_margin + pstate.bottom_margin;
-      page = (line_type **) xcalloc(pstate.bottom_margin - pstate.top_margin,
-				    sizeof(line_type *));
       fprintf(stderr, "Setting top margin to %d (%.3f)\n",
 	      pstate.top_margin,
 	      (double) pstate.top_margin / pstate.page_management_units);
       fprintf(stderr, "Setting bottom margin to %d (%.3f)\n",
 	      pstate.bottom_margin,
 	      (double) pstate.bottom_margin / pstate.page_management_units);
+      page = (line_type **)
+	stp_zalloc((pstate.bottom_margin - pstate.top_margin) *
+		   sizeof(line_type *));
       break;
     case 'V': /* set absolute vertical position */
       i = 0;
@@ -1101,7 +1153,7 @@ parse_escp2_command(FILE *fp_r)
       else
 	{
 	  pstate.unidirectional = 0;
-	  pstate.microweave = 0;
+	  pstate.printer_weave = 0;
 	  pstate.dotsize = 0;
 	  pstate.bpp = 1;
 	  pstate.page_management_units = 360;
@@ -1145,6 +1197,9 @@ parse_escp2_command(FILE *fp_r)
       get2("Error reading absolute horizontal position.\n");
       pstate.xposition = sh * (pstate.relative_horizontal_units /
 			       pstate.absolute_horizontal_units);
+      break;
+    case 0x0:			/* Exit remote mode */
+      get2("Error exiting remote mode.\n");
       break;
     case 0x6: /* flush buffers */
       /* Woosh.  Consider them flushed. */
@@ -1204,15 +1259,15 @@ parse_escp2(FILE *fp_r)
  * reverse the bit order in an array of bytes - does not reverse byte order!
  */
 void
-reverse_bit_order(unsigned char *buf, int n)
+reverse_bit_order(unsigned char *buff, int n)
 {
   int i;
   unsigned char a;
   if (!n) return; /* nothing to do */
 
   for (i= 0; i<n; i++) {
-    a= buf[i];
-    buf[i]=
+    a= buff[i];
+    buff[i]=
       (a & 0x01) << 7 |
       (a & 0x02) << 5 |
       (a & 0x04) << 3 |
@@ -1284,7 +1339,7 @@ parse_canon(FILE *fp_r)
 {
 
   int m=0;
-  int currentcolor,currentbpp,density,eject;
+  int currentcolor,currentbpp,density,l_eject;
   int cmdcounter;
   int delay_c=0, delay_m=0, delay_y=0, delay_C=0,
     delay_M=0, delay_Y=0, delay_K=0, currentdelay=0;
@@ -1292,8 +1347,8 @@ parse_canon(FILE *fp_r)
   global_counter=0;
 
   page= 0;
-  eject=pstate.got_graphics=currentbpp=currentcolor=density=0;
-  while ((!eject)&&(fread(&ch,1,1,fp_r))){
+  l_eject=pstate.got_graphics=currentbpp=currentcolor=density=0;
+  while ((!l_eject)&&(fread(&ch,1,1,fp_r))){
     global_counter++;
    if (ch==0xd) { /* carriage return */
      pstate.xposition=0;
@@ -1303,7 +1358,7 @@ parse_canon(FILE *fp_r)
      continue;
    }
    if (ch==0xc) { /* form feed */
-     eject=1;
+     l_eject=1;
      continue;
    }
    if (ch=='B') {
@@ -1338,15 +1393,15 @@ parse_canon(FILE *fp_r)
      if (ch=='K') /* 0x4b */ {
        if (sh!=2 || buf[0]!=0x00 ) {
 	 fprintf(stderr,"Error initializing printer with ESC [ K\n");
-	 eject=1;
+	 l_eject=1;
 	 continue;
        }
        if (page) {
-	 eject=1;
+	 l_eject=1;
 	 continue;
        } else {
 	 pstate.unidirectional=0;
-	 pstate.microweave=0;
+	 pstate.printer_weave=0;
 	 pstate.dotsize=0;
 	 pstate.bpp=1;
 	 pstate.page_management_units=360;
@@ -1373,7 +1428,7 @@ parse_canon(FILE *fp_r)
      break;
 
    case '@': /* 0x40 */
-     eject=1;
+     l_eject=1;
      break;
 
    case '(': /* 0x28 */
@@ -1442,7 +1497,8 @@ parse_canon(FILE *fp_r)
 	       pstate.relative_horizontal_units,
 	       pstate.relative_vertical_units);
 
-       page=(line_type **)xcalloc(pstate.bottom_margin,sizeof(line_type *));
+       page= (line_type **) stp_zalloc(pstate.bottom_margin *
+				       sizeof(line_type *));
        break;
      case 'e': /* 0x65 - vertical head movement */
        pstate.yposition+= (buf[1]+256*buf[0]);
@@ -1496,6 +1552,7 @@ main(int argc,char *argv[])
   FILE *fp_r, *fp_w;
   int force_extraskip = -1;
   int no_output = 0;
+  int all_black = 0;
 
   unweave = 0;
   pstate.nozzle_separation = 6;
@@ -1511,6 +1568,29 @@ main(int argc,char *argv[])
 		fp_w = stdout;
 	      else
 		fp_r = stdin;
+	      break;
+	    case 'm':
+	      if (argv[arg][2])
+		{
+		  s = argv[arg] + 2;
+		}
+	      else
+		{
+		  if (argc <= arg + 1)
+		    {
+		      fprintf(stderr, "Missing color mask\n");
+		      exit(-1);
+		    }
+		  else
+		    {
+		      s = argv[++arg];
+		    }
+		}
+	      if (!sscanf(s, "%x", &color_mask))
+		{
+		  fprintf(stderr,"Error parsing mask\n");
+		  exit(-1);
+		}
 	      break;
 	    case 'n':
 	      if (argv[arg][2])
@@ -1558,6 +1638,9 @@ main(int argc,char *argv[])
 		  exit(-1);
 		}
 	      break;
+	    case 'b':
+	      all_black = 1;
+	      break;
 	    case 'q':
 	      no_output = 1;
 	      break;
@@ -1598,7 +1681,7 @@ main(int argc,char *argv[])
     pstate.nozzle_separation = 1;
   }
   pstate.nozzles = 96;
-  buf = malloc(256 * 256);
+  buf = stp_malloc(256 * 256);
   valid_bufsize = 256 * 256;
 
   UNPRINT = getenv("UNPRINT");
@@ -1619,7 +1702,7 @@ main(int argc,char *argv[])
       parse_escp2(fp_r);
     }
   fprintf(stderr,"Done reading.\n");
-  write_output(fp_w, no_output);
+  write_output(fp_w, no_output, all_black);
   fclose(fp_w);
   fprintf(stderr,"Image dump complete.\n");
 

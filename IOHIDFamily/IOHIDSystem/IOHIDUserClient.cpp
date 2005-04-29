@@ -132,9 +132,9 @@ IOExternalMethod * IOHIDUserClient::getTargetAndMethodForIndex(
 /* 2 */  { NULL, (IOMethod) &IOHIDSystem::setCursorEnable,
             kIOUCScalarIScalarO, 1, 0 },
 /* 3 */  { NULL, (IOMethod) &IOHIDSystem::extPostEvent,
-            kIOUCStructIStructO, sizeof(struct evioLLEvent), 0 },
+            kIOUCStructIStructO, 0xffffffff, 0 },
 /* 4 */  { NULL, (IOMethod) &IOHIDSystem::extSetMouseLocation,
-            kIOUCStructIStructO, sizeof(Point), 0 },
+            kIOUCStructIStructO, 0xffffffff, 0 },
 /* 5 */  { NULL, (IOMethod) &IOHIDSystem::extGetButtonEventNum,
             kIOUCScalarIScalarO, 1, 1 },
 /* 6 */  { NULL, (IOMethod) &IOHIDSystem::extSetBounds,
@@ -191,9 +191,9 @@ IOExternalMethod * IOHIDParamUserClient::getTargetAndMethodForIndex(
 /* 1 */  { NULL, NULL, kIOUCScalarIScalarO, 1, 0 },
 /* 2 */  { NULL, NULL, kIOUCScalarIScalarO, 1, 0 },
 /* 3 */  { NULL, (IOMethod) &IOHIDSystem::extPostEvent,
-            kIOUCStructIStructO, sizeof(struct evioLLEvent), 0 },
+            kIOUCStructIStructO, 0xffffffff, 0 },
 /* 4 */  { NULL, (IOMethod) &IOHIDSystem::extSetMouseLocation,
-            kIOUCStructIStructO, sizeof(Point), 0 },
+            kIOUCStructIStructO, 0xffffffff, 0 },
     };
 
     if( (index >= 3)

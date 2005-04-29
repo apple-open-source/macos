@@ -32,16 +32,11 @@
  *
  *
  */
+/* $XFree86: xc/lib/X11/IdOfPr.c,v 1.2 2003/04/13 19:22:16 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
-
-/*
- *      EXTERNS
- */
-extern XcmsColorSpace **_XcmsDIColorSpaces;
-extern XcmsColorSpace **_XcmsDDColorSpaces;
-void _XcmsCopyISOLatin1Lowered();
+#include "Cv.h"
 
 
 /*

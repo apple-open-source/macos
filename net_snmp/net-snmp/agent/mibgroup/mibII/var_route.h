@@ -5,7 +5,10 @@
 #ifndef _MIBGROUP_VAR_ROUTE_H
 #define _MIBGROUP_VAR_ROUTE_H
 
-config_require(mibII/ip util_funcs)
+#if !defined(NETSNMP_ENABLE_MFD_REWRITES)
+config_require(mibII/ip)
+#endif
+config_require(util_funcs)
     config_arch_require(solaris2, kernel_sunos5)
 
      void            init_var_route(void);
@@ -18,5 +21,9 @@ config_require(mibII/ip util_funcs)
 #endif
 
      extern FindVarMethod var_ipRouteEntry;
+
+#if !defined(hpux11) && !defined(solaris2)
+     RTENTRY **netsnmp_get_routes(size_t *out_numroutes);
+#endif
 
 #endif                          /* _MIBGROUP_VAR_ROUTE_H */

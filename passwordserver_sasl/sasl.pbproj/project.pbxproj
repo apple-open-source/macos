@@ -8,7 +8,7 @@
 		772ABEDD024BAEBF05DD284B = {
 			isa = PBXTargetDependency;
 			target = 777A3D81024BAC7C05DD284B;
-			targetProxy = 84C04FC20549A382005DCF0F;
+			targetProxy = BAAF6F7B07D121EC00BEBF9B;
 		};
 		7733E6E90238127C05DD284B = {
 			fileRef = 777745B10236D8FA05DD284B;
@@ -19,37 +19,37 @@
 		7733E6EF023812C505DD284B = {
 			isa = PBXTargetDependency;
 			target = 77F5D6B80236D6E205DD284B;
-			targetProxy = 84C04FCE0549A382005DCF0F;
+			targetProxy = BAAF6F8807D121EC00BEBF9B;
 		};
 		7733E6F0023812C905DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7BFD0236E3D505DD284B;
-			targetProxy = 84C04FCB0549A382005DCF0F;
+			targetProxy = BAAF6F8407D121EC00BEBF9B;
 		};
 		7733E6F1023812CC05DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C080236E43005DD284B;
-			targetProxy = 84C04FCD0549A382005DCF0F;
+			targetProxy = BAAF6F8707D121EC00BEBF9B;
 		};
 		7733E6F2023812CE05DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C130236E47005DD284B;
-			targetProxy = 84C04FCC0549A382005DCF0F;
+			targetProxy = BAAF6F8607D121EC00BEBF9B;
 		};
 		7733E6F3023812D005DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C1E0236E56505DD284B;
-			targetProxy = 84C04FC40549A382005DCF0F;
+			targetProxy = BAAF6F7D07D121EC00BEBF9B;
 		};
 		7733E6F4023812D305DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C290236E5AF05DD284B;
-			targetProxy = 84C04FC30549A382005DCF0F;
+			targetProxy = BAAF6F7C07D121EC00BEBF9B;
 		};
 		7733E6F5023812D505DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C360236E66305DD284B;
-			targetProxy = 84C04FC70549A382005DCF0F;
+			targetProxy = BAAF6F8007D121EC00BEBF9B;
 		};
 		7733E7110238197D05DD284B = {
 			fileEncoding = 30;
@@ -357,14 +357,7 @@
 			isa = PBXToolTarget;
 			name = include;
 			productName = include;
-			productReference = 777745BE0236DB2A05DD284B;
-		};
-		777745BE0236DB2A05DD284B = {
-			explicitFileType = "compiled.mach-o.executable";
-			isa = PBXFileReference;
-			path = makemd5;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61DD07A9C09100255A4E;
 		};
 		777745C00236DB3305DD284B = {
 			fileRef = 77753A710236D84505DD284B;
@@ -434,7 +427,7 @@
 		777745CB0236DBE605DD284B = {
 			isa = PBXTargetDependency;
 			target = 777745BD0236DB2A05DD284B;
-			targetProxy = 84C04FC90549A382005DCF0F;
+			targetProxy = BAAF6F8207D121EC00BEBF9B;
 		};
 		777745CC0236DCA805DD284B = {
 			fileEncoding = 30;
@@ -504,14 +497,7 @@
 			name = sasldb;
 			productInstallPath = /usr/local/lib;
 			productName = sasldb;
-			productReference = 777A3D82024BAC7C05DD284B;
-		};
-		777A3D82024BAC7C05DD284B = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libsasldb.a;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61E407A9C09100255A4E;
 		};
 		777A3D87024BAC9305DD284B = {
 			fileRef = 773841580236DD5105DD284B;
@@ -774,14 +760,7 @@
 			name = plugin_anonymous;
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_anonymous;
-			productReference = 777E7BFE0236E3D505DD284B;
-		};
-		777E7BFE0236E3D505DD284B = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libanonymous.2.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61EA07A9C09100255A4E;
 		};
 		777E7BFF0236E3DB05DD284B = {
 			fileRef = 777745CC0236DCA805DD284B;
@@ -870,14 +849,7 @@
 			name = plugin_cram;
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_cram;
-			productReference = 777E7C090236E43005DD284B;
-		};
-		777E7C090236E43005DD284B = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libcrammd5.2.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61E607A9C09100255A4E;
 		};
 		777E7C0B0236E43605DD284B = {
 			fileRef = 777745CC0236DCA805DD284B;
@@ -966,14 +938,7 @@
 			name = plugin_digest;
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_digest;
-			productReference = 777E7C140236E47005DD284B;
-		};
-		777E7C140236E47005DD284B = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libdigestmd5.2.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61E307A9C09100255A4E;
 		};
 		777E7C150236E47705DD284B = {
 			fileRef = 777745CC0236DCA805DD284B;
@@ -1062,14 +1027,7 @@
 			name = plugin_login;
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_login;
-			productReference = 777E7C1F0236E56505DD284B;
-		};
-		777E7C1F0236E56505DD284B = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = login.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61E507A9C09100255A4E;
 		};
 		777E7C210236E57605DD284B = {
 			fileRef = 777745CC0236DCA805DD284B;
@@ -1160,14 +1118,7 @@
 			name = plugin_otp;
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_otp;
-			productReference = 777E7C2A0236E5AF05DD284B;
-		};
-		777E7C2A0236E5AF05DD284B = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libotp.2.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61E707A9C09100255A4E;
 		};
 		777E7C2C0236E5B805DD284B = {
 			fileRef = 777745CC0236DCA805DD284B;
@@ -1262,14 +1213,7 @@
 			name = plugin_plain;
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_plain;
-			productReference = 777E7C370236E66305DD284B;
-		};
-		777E7C370236E66305DD284B = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libplain.2.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61E907A9C09100255A4E;
 		};
 		777E7C390236E66F05DD284B = {
 			fileRef = 777E7BCB0236DDED05DD284B;
@@ -1517,7 +1461,7 @@
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
-				PRODUCT_NAME = libsasl2.2.0.1.dylib;
+				PRODUCT_NAME = libsasl2.2.dylib;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -1528,12 +1472,12 @@
 			name = lib;
 			productInstallPath = /usr/lib;
 			productName = lib;
-			productReference = 843E1F1105472B830071DCEE;
+			productReference = BA9D61E807A9C09100255A4E;
 		};
 		777E7CA10236E7A305DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C8A0236E74C05DD284B;
-			targetProxy = 84C04FCA0549A382005DCF0F;
+			targetProxy = BAAF6F8307D121EC00BEBF9B;
 		};
 		77853DF40236ED9905DD284B = {
 			fileRef = 777E7C6E0236E73C05DD284B;
@@ -1874,7 +1818,7 @@
 				7733E6F4023812D305DD284B,
 				7733E6F5023812D505DD284B,
 				8410ED9105484EF500FDB992,
-				AA74DD1C0662A243001C5861,
+				BA16F58907D762E30049DA77,
 			);
 			isa = PBXAggregateTarget;
 			name = ALL;
@@ -1882,20 +1826,20 @@
 		};
 		77F5D6A70236D6B705DD284B = {
 			children = (
-				77F5D6B90236D6E205DD284B,
-				777745BE0236DB2A05DD284B,
-				777E7BFE0236E3D505DD284B,
-				777E7C090236E43005DD284B,
-				777E7C140236E47005DD284B,
-				777E7C1F0236E56505DD284B,
-				777E7C2A0236E5AF05DD284B,
-				777E7C370236E66305DD284B,
-				777A3D82024BAC7C05DD284B,
-				843E1F1105472B830071DCEE,
-				843E1F1705472B9A0071DCEE,
-				84C98634054846530094A32F,
-				84C9863D054846870094A32F,
-				8417724B0549A1DD005994D5,
+				BA9D61DD07A9C09100255A4E,
+				BA9D61DF07A9C09100255A4E,
+				BA9D61E007A9C09100255A4E,
+				BA9D61E107A9C09100255A4E,
+				BA9D61E207A9C09100255A4E,
+				BA9D61E307A9C09100255A4E,
+				BA9D61E407A9C09100255A4E,
+				BA9D61E507A9C09100255A4E,
+				BA9D61E607A9C09100255A4E,
+				BA9D61E707A9C09100255A4E,
+				BA9D61E807A9C09100255A4E,
+				BA9D61E907A9C09100255A4E,
+				BA9D61EA07A9C09100255A4E,
+				BA9D61EB07A9C09200255A4E,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -1967,14 +1911,7 @@
 			name = plugin_sasldb;
 			productInstallPath = /usr/lib/sasl2/disabled;
 			productName = plugin_sasldb;
-			productReference = 77F5D6B90236D6E205DD284B;
-		};
-		77F5D6B90236D6E205DD284B = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libsasldb.2.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61E007A9C09100255A4E;
 		};
 //770
 //771
@@ -1989,7 +1926,7 @@
 		8410ED9105484EF500FDB992 = {
 			isa = PBXTargetDependency;
 			target = 84C98633054846530094A32F;
-			targetProxy = 84C04FC50549A382005DCF0F;
+			targetProxy = BAAF6F7E07D121EC00BEBF9B;
 		};
 		84118E800546FEAE00C5C0FC = {
 			fileRef = 777E7C630236E73C05DD284B;
@@ -2075,14 +2012,7 @@
 			name = plugin_kerberos4;
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_kerberos4;
-			productReference = 8417724B0549A1DD005994D5;
-		};
-		8417724B0549A1DD005994D5 = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libkerberos4.2.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61DF07A9C09100255A4E;
 		};
 		841772550549A2B4005994D5 = {
 			fileRef = 777E7BC20236DDED05DD284B;
@@ -2111,7 +2041,7 @@
 		841772630549A2ED005994D5 = {
 			isa = PBXTargetDependency;
 			target = 8417724A0549A1DD005994D5;
-			targetProxy = 84C04FC60549A382005DCF0F;
+			targetProxy = BAAF6F7F07D121EC00BEBF9B;
 		};
 		841772640549A306005994D5 = {
 			buildActionMask = 8;
@@ -2122,13 +2052,6 @@
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 1;
-		};
-		843E1F1105472B830071DCEE = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libsasl2.2.dylib;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		843E1F1205472B9A0071DCEE = {
 			buildActionMask = 2147483647;
@@ -2191,14 +2114,7 @@
 			name = plugin_gssapi;
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_gssapi;
-			productReference = 843E1F1705472B9A0071DCEE;
-		};
-		843E1F1705472B9A0071DCEE = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libgssapiv2.2.0.18.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61EB07A9C09200255A4E;
 		};
 		8481F5A205472D6A00B2B3B0 = {
 			buildActionMask = 12;
@@ -2247,97 +2163,6 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
-		};
-		84C04FC20549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777A3D81024BAC7C05DD284B;
-			remoteInfo = sasldb;
-		};
-		84C04FC30549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C290236E5AF05DD284B;
-			remoteInfo = plugin_otp;
-		};
-		84C04FC40549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C1E0236E56505DD284B;
-			remoteInfo = plugin_login;
-		};
-		84C04FC50549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 84C98633054846530094A32F;
-			remoteInfo = plugin_ntlm;
-		};
-		84C04FC60549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 8417724A0549A1DD005994D5;
-			remoteInfo = plugin_kerberos4;
-		};
-		84C04FC70549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C360236E66305DD284B;
-			remoteInfo = plugin_plain;
-		};
-		84C04FC80549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 843E1F1605472B9A0071DCEE;
-			remoteInfo = plugin_gssapi;
-		};
-		84C04FC90549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777745BD0236DB2A05DD284B;
-			remoteInfo = include;
-		};
-		84C04FCA0549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C8A0236E74C05DD284B;
-			remoteInfo = lib;
-		};
-		84C04FCB0549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7BFD0236E3D505DD284B;
-			remoteInfo = plugin_anonymous;
-		};
-		84C04FCC0549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C130236E47005DD284B;
-			remoteInfo = plugin_digest;
-		};
-		84C04FCD0549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C080236E43005DD284B;
-			remoteInfo = plugin_cram;
-		};
-		84C04FCE0549A382005DCF0F = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 77F5D6B80236D6E205DD284B;
-			remoteInfo = plugin_sasldb;
 		};
 		84C0502D0549A8A1005DCF0F = {
 			fileEncoding = 30;
@@ -2413,14 +2238,7 @@
 			name = plugin_ntlm;
 			productInstallPath = /usr/local/lib;
 			productName = plugin_ntlm;
-			productReference = 84C98634054846530094A32F;
-		};
-		84C98634054846530094A32F = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libntlm.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61E207A9C09100255A4E;
 		};
 		84C98638054846870094A32F = {
 			buildActionMask = 2147483647;
@@ -2484,14 +2302,7 @@
 			name = plugin_mysql;
 			productInstallPath = /usr/lib/sasl2/disabled;
 			productName = plugin_mysql;
-			productReference = 84C9863D054846870094A32F;
-		};
-		84C9863D054846870094A32F = {
-			explicitFileType = "compiled.mach-o.dylib";
-			isa = PBXFileReference;
-			path = libsql.so;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = BA9D61E107A9C09100255A4E;
 		};
 		84DECA06054847E400C45D20 = {
 			fileEncoding = 30;
@@ -2643,7 +2454,7 @@
 		84F5210E0549A0CF00E96C8F = {
 			isa = PBXTargetDependency;
 			target = 843E1F1605472B9A0071DCEE;
-			targetProxy = 84C04FC80549A382005DCF0F;
+			targetProxy = BAAF6F8107D121EC00BEBF9B;
 		};
 //840
 //841
@@ -2659,11 +2470,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			inputPaths = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			outputPaths = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "cd \"${DSTROOT}/usr/lib/sasl2\"\nrm -f \"libgssapiv2.2.so\"\nln -s \"libgssapiv2.2.0.18.so\" \"libgssapiv2.2.so\"\nmkdir -p \"${DSTROOT}/usr/lib/sasl2/openldap\"\ncd \"${DSTROOT}/usr/lib/sasl2/openldap\"\nrm -f \"libgssapiv2.la\" \"libgssapiv2.2.so\"\nln -s \"../libgssapiv2.la\" .\nln -s \"../libgssapiv2.2.so\" .";
@@ -2720,23 +2527,222 @@
 			settings = {
 			};
 		};
-		AA74DD1B0662A243001C5861 = {
+//AA0
+//AA1
+//AA2
+//AA3
+//AA4
+//BA0
+//BA1
+//BA2
+//BA3
+//BA4
+		BA16F58807D762E30049DA77 = {
 			containerPortal = 77F5D69C0236D69405DD284B;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = 84C9863C054846870094A32F;
 			remoteInfo = plugin_mysql;
 		};
-		AA74DD1C0662A243001C5861 = {
+		BA16F58907D762E30049DA77 = {
 			isa = PBXTargetDependency;
 			target = 84C9863C054846870094A32F;
-			targetProxy = AA74DD1B0662A243001C5861;
+			targetProxy = BA16F58807D762E30049DA77;
 		};
-//AA0
-//AA1
-//AA2
-//AA3
-//AA4
+		BA9D61DD07A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
+			path = makemd5;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61DF07A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libkerberos4.2.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61E007A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libsasldb.2.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61E107A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libsql.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61E207A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libntlm.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61E307A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libdigestmd5.2.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61E407A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libsasldb.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61E507A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = login.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61E607A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libcrammd5.2.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61E707A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libotp.2.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61E807A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libsasl2.2.dylib;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61E907A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libplain.2.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61EA07A9C09100255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libanonymous.2.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BA9D61EB07A9C09200255A4E = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libgssapiv2.2.0.18.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		BAAF6F7B07D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777A3D81024BAC7C05DD284B;
+			remoteInfo = sasldb;
+		};
+		BAAF6F7C07D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C290236E5AF05DD284B;
+			remoteInfo = plugin_otp;
+		};
+		BAAF6F7D07D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C1E0236E56505DD284B;
+			remoteInfo = plugin_login;
+		};
+		BAAF6F7E07D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 84C98633054846530094A32F;
+			remoteInfo = plugin_ntlm;
+		};
+		BAAF6F7F07D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 8417724A0549A1DD005994D5;
+			remoteInfo = plugin_kerberos4;
+		};
+		BAAF6F8007D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C360236E66305DD284B;
+			remoteInfo = plugin_plain;
+		};
+		BAAF6F8107D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 843E1F1605472B9A0071DCEE;
+			remoteInfo = plugin_gssapi;
+		};
+		BAAF6F8207D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777745BD0236DB2A05DD284B;
+			remoteInfo = include;
+		};
+		BAAF6F8307D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C8A0236E74C05DD284B;
+			remoteInfo = lib;
+		};
+		BAAF6F8407D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7BFD0236E3D505DD284B;
+			remoteInfo = plugin_anonymous;
+		};
+		BAAF6F8607D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C130236E47005DD284B;
+			remoteInfo = plugin_digest;
+		};
+		BAAF6F8707D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C080236E43005DD284B;
+			remoteInfo = plugin_cram;
+		};
+		BAAF6F8807D121EC00BEBF9B = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 77F5D6B80236D6E205DD284B;
+			remoteInfo = plugin_sasldb;
+		};
+//BA0
+//BA1
+//BA2
+//BA3
+//BA4
 //F50
 //F51
 //F52
@@ -2765,7 +2771,7 @@
 			isa = PBXShellScriptBuildPhase;
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "cd \"${DSTROOT}/usr/lib\"\nrm -f \"libsasl2.dylib\" \"libsasl2.2.dylib\" \nln -s \"libsasl2.2.0.1.dylib\" \"libsasl2.2.dylib\"\nln -s \"libsasl2.2.0.1.dylib\" \"libsasl2.dylib\"\nmkdir -p \"${DSTROOT}/usr/local/OpenSourceLicenses\"\ncp \"${SRCROOT}/cyrus_sasl/COPYING\" \"${DSTROOT}/usr/local/OpenSourceLicenses/passwordserver_sasl.txt\"\n";
+			shellScript = "cd \"${DSTROOT}/usr/lib\"\nrm -f \"libsasl2.2.0.15.dylib\" \"libsasl2.dylib\" \"libsasl2.2.0.1.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.15.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.1.dylib\"\nmkdir -p \"${DSTROOT}/usr/local/OpenSourceLicenses\"\ncp \"${SRCROOT}/cyrus_sasl/COPYING\" \"${DSTROOT}/usr/local/OpenSourceLicenses/passwordserver_sasl.txt\"\n";
 		};
 	};
 	rootObject = 77F5D69C0236D69405DD284B;

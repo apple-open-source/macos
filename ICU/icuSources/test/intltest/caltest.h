@@ -1,8 +1,8 @@
-/********************************************************************
+/***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
+ * Copyright (c) 1997-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
+ ***********************************************************************/
 
 #ifndef __CalendarTest__
 #define __CalendarTest__
@@ -168,11 +168,54 @@ public:
         int times, UCalendarDateFields field, UCalendarDateFields field2, 
         UErrorCode& errorCode);
 
+    void TestYWOY(void);
+    void TestJD(void);
+
     void yearAddTest(Calendar& cal, UErrorCode& status);
  
 public: // package
     // test subroutine use by TestDOWProgression
     virtual void marchByDelta(Calendar* cal, int32_t delta);
+
+ public:
+    // for other tests' use
+    static UnicodeString fieldName(UCalendarDateFields f);
+    static UnicodeString calToStr(const Calendar & cal);
+    
+    // List of non-installed locales with interesting calendars
+
+    /**
+     * @return the count of 'other' locales to test
+     */
+    static int32_t testLocaleCount();
+
+    /**
+     * @param i index of 'other' locale to return
+     * @return locale ID
+     */
+    static const char* testLocaleID(int32_t i);
+
+    /**
+     * Clone the specified calendar, and determine its earliest supported date
+     * by setting the extended year to the minimum value.
+     * @param cal Calendar (will be cloned)
+     * @param isGregorian output: returns 'TRUE' if the calendar's class is GregorianCalendar
+     * @param status error code 
+     */
+    static UDate minDateOfCalendar(const Calendar& cal, UBool &isGregorian, UErrorCode& status);
+
+    /**
+     * Construct a calendar of the specified locale, and determine its earliest supported date
+     * by setting the extended year to the minimum value.
+     * @param locale locale of calendar to check
+     * @param isGregorian output: returns 'TRUE' if the calendar's class is GregorianCalendar
+     * @param status error code 
+     */
+    static UDate minDateOfCalendar(const Locale& locale, UBool &isGregorian, UErrorCode& status);
+
+  // internal - for other test use
+ public:
+
 };
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

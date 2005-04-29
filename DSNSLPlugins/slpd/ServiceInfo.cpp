@@ -874,9 +874,10 @@ SLPReturnError ParseOutRegDereg(	const char* buffer,
 		UInt16		i;
 		UInt8		numAuths;
 		
+#ifdef ENABLE_SLP_LOGGING
         if ( isRegStylePacket && GETFUN( buffer ) != SRVREG )
             SLP_LOG( SLP_LOG_DEBUG, "Converting a deregistration packet from a Mac OS 9.1 -> 10.1 machine" );
-            
+#endif            
 		if ( messageLength > length )
 		{
 			SLP_LOG( SLP_LOG_ERR, "ParseOutRegDereg (SRVREG), message's length (%ld) says its longer than the message (%ld) itself!", messageLength, length );
@@ -977,8 +978,9 @@ SLPReturnError ParseOutRegDereg(	const char* buffer,
 		UInt16		i;
 		UInt8		numAuths;
 		
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "Parsing a correctly formed deregistration packet from a non Mac OS 9.1 -> 10.1 machine" );
-        
+#endif        
 		if ( messageLength > length )
 		{
 			SLP_LOG( SLP_LOG_ERR, "ParseOutRegDereg (SRVDEREG), message's length (%ld) says its longer than the message (%ld) itself!", messageLength, length );
@@ -1078,7 +1080,9 @@ SLPReturnError ParseOutRegDereg(	const char* buffer,
     else
     {
         error = PARSE_ERROR;
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_MSG, "Parsing an incorrectly formed reg/dereg packet!" );
+#endif
     }
 	
 	return error;

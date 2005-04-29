@@ -1,0 +1,8 @@
+2002-12-09  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* pixmap.c (Tkimgpixmap_Init): Had to be changed to use '1.3' too.
+
+2002-12-03  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Start of logging.
+	* tkimg/pixmap: PIXMAP image type.

@@ -6,6 +6,9 @@
  *  Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * $Log: IOFWBufferFillIsochPort.h,v $
+ * Revision 1.4  2004/05/04 22:52:19  niels
+ * *** empty log message ***
+ *
  * Revision 1.3  2004/01/22 01:49:59  niels
  * fix user space physical address space getPhysicalSegments
  *
@@ -51,7 +54,8 @@ class IOFWBufferFillIsochPort : public IOFWIsochPort
 		IOFWIsochResourceFlags		fIsochResourceFlags ;
 		UInt32						fFlags ;
 		UInt8 *						fBackingStore ;
-	
+		UInt64						fChannels ;
+		
 	protected:
 	
 		
@@ -76,20 +80,31 @@ class IOFWBufferFillIsochPort : public IOFWIsochPort
 		unsigned int						gotIsochAll( IOVirtualRange packets[], unsigned int maxPacketCount ) ;
 		void								pushIsoch() ;
 
-		void								setIsochResourceFlags( IOFWIsochResourceFlags flags )			{ fIsochResourceFlags = flags ; }
-		IOFWIsochResourceFlags				getIsochResourceFlags() const									{ return fIsochResourceFlags ; }
-		void								setFlags( UInt32 flags )										{ fFlags = flags ; }
-		UInt32								getFlags()														{ return fFlags ; }
+		virtual IOReturn					setIsochResourceFlags( IOFWIsochResourceFlags flags ) ;
+		virtual IOFWIsochResourceFlags		getIsochResourceFlags() const ;
+		virtual IOReturn					setFlags( UInt32 flags ) ;
+		virtual UInt32						getFlags() ;
+		virtual IOReturn					setChannels( UInt64 channelMask ) ;
 
-		AbsoluteTime						getInterruptTime() ;
+		virtual AbsoluteTime				getInterruptTime() ;
 		
-	protected :
+	public :
 	
 		virtual bool						init( 
 													IOFireWireBus &			bus, 
 													IOByteCount				expectedBytesPerSecond, 
 													UInt32					interruptMicroseconds, 
+													UInt64					channelMask,
 													PacketProc				packetProc,
 													OSObject *				target ) ;
+#if 0
+		virtual bool						initWithBufferSize( 
+													IOFireWireBus &			bus, 
+													IOByteCount				bufferSize, 
+													UInt32					interruptMicroseconds, 
+													UInt64					channels,
+													PacketProc				packetProc,
+													OSObject *				target ) ;
+#endif
 		virtual void						free () ;
 } ;

@@ -1,0 +1,47 @@
+--- wcsxfrm.3.orig	Fri Mar 11 08:31:43 2005
++++ wcsxfrm.3	Fri Mar 11 09:44:27 2005
+@@ -41,7 +41,8 @@
+ .Dt WCSXFRM 3
+ .Os
+ .Sh NAME
+-.Nm wcsxfrm
++.Nm wcsxfrm ,
++.Nm wcsxfrm_l
+ .Nd transform a wide string under locale
+ .Sh LIBRARY
+ .Lb libc
+@@ -49,6 +50,9 @@
+ .In wchar.h
+ .Ft size_t
+ .Fn wcsxfrm "wchar_t * restrict dst" "const wchar_t * restrict src" "size_t n"
++.In xlocale.h
++.Ft size_t
++.Fn wcsxfrm_l "wchar_t * restrict dst" "const wchar_t * restrict src" "size_t n" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn wcsxfrm
+@@ -80,6 +84,14 @@
+ is equivalent to comparing
+ two original strings with
+ .Fn wcscoll .
++.Pp
++While the
++.Fn wcsxfrm
++function uses the current locale, the
++.Fn wcsxfrm_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ Upon successful completion,
+ .Fn wcsxfrm
+@@ -94,7 +106,8 @@
+ .Xr setlocale 3 ,
+ .Xr strxfrm 3 ,
+ .Xr wcscmp 3 ,
+-.Xr wcscoll 3
++.Xr wcscoll 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn wcsxfrm

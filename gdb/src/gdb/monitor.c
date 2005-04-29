@@ -521,7 +521,6 @@ monitor_expect (char *string, char *buf, int buflen)
   char *p = string;
   int obuflen = buflen;
   int c;
-  extern struct target_ops *targ_ops;
 
   if (monitor_debug_p)
     {
@@ -568,12 +567,6 @@ monitor_expect (char *string, char *buf, int buflen)
 	      else
 		return 0;
 	    }
-	}
-      else if ((c == '\021' || c == '\023') &&
-	       (STREQ (targ_ops->to_shortname, "m32r")
-		|| STREQ (targ_ops->to_shortname, "mon2000")))
-	{			/* m32r monitor emits random DC1/DC3 chars */
-	  continue;
 	}
       else
 	{
@@ -894,7 +887,7 @@ char *
 monitor_supply_register (int regno, char *valstr)
 {
   ULONGEST val;
-  unsigned char regbuf[MAX_REGISTER_RAW_SIZE];
+  unsigned char regbuf[MAX_REGISTER_SIZE];
   char *p;
 
   val = 0;
@@ -928,7 +921,7 @@ monitor_supply_register (int regno, char *valstr)
 
   /* supply register stores in target byte order, so swap here */
 
-  store_unsigned_integer (regbuf, REGISTER_RAW_SIZE (regno), val);
+  store_unsigned_integer (regbuf, DEPRECATED_REGISTER_RAW_SIZE (regno), val);
 
   supply_register (regno, regbuf);
 
@@ -1052,12 +1045,11 @@ monitor_wait_cleanup (void *old_timeout)
 
 
 
-void
+static void
 monitor_wait_filter (char *buf,
 		     int bufmax,
 		     int *ext_resp_len,
-		     struct target_waitstatus *status
-)
+		     struct target_waitstatus *status)
 {
   int resp_len;
   do
@@ -1179,9 +1171,9 @@ monitor_fetch_register (int regno)
   char *regbuf;
   int i;
 
-  regbuf  = alloca (MAX_REGISTER_RAW_SIZE * 2 + 1);
-  zerobuf = alloca (MAX_REGISTER_RAW_SIZE);
-  memset (zerobuf, 0, MAX_REGISTER_RAW_SIZE);
+  regbuf  = alloca (MAX_REGISTER_SIZE * 2 + 1);
+  zerobuf = alloca (MAX_REGISTER_SIZE);
+  memset (zerobuf, 0, MAX_REGISTER_SIZE);
 
   if (current_monitor->regname != NULL)
     name = current_monitor->regname (regno);
@@ -1235,7 +1227,7 @@ monitor_fetch_register (int regno)
      spaces, but stop reading if something else is seen.  Some monitors
      like to drop leading zeros.  */
 
-  for (i = 0; i < REGISTER_RAW_SIZE (regno) * 2; i++)
+  for (i = 0; i < DEPRECATED_REGISTER_RAW_SIZE (regno) * 2; i++)
     {
       int c;
       c = readchar (timeout);
@@ -1352,7 +1344,7 @@ monitor_store_register (int regno)
 
   val = read_register (regno);
   monitor_debug ("MON storeg %d %s\n", regno,
-		 phex (val, REGISTER_RAW_SIZE (regno)));
+		 phex (val, DEPRECATED_REGISTER_RAW_SIZE (regno)));
 
   /* send the register deposit command */
 
@@ -1524,33 +1516,6 @@ monitor_write_memory (CORE_ADDR memaddr, char *myaddr, int len)
 
 
 static int
-monitor_write_even_block (CORE_ADDR memaddr, char *myaddr, int len)
-{
-  unsigned int val;
-  int written = 0;;
-  /* Enter the sub mode */
-  monitor_printf (current_monitor->setmem.cmdl, memaddr);
-  monitor_expect_prompt (NULL, 0);
-
-  while (len)
-    {
-      val = extract_unsigned_integer (myaddr, 4);	/* REALLY */
-      monitor_printf ("%x\r", val);
-      myaddr += 4;
-      memaddr += 4;
-      written += 4;
-      monitor_debug (" @ %s\n", paddr (memaddr));
-      /* If we wanted to, here we could validate the address */
-      monitor_expect_prompt (NULL, 0);
-    }
-  /* Now exit the sub mode */
-  monitor_printf (current_monitor->getreg.term_cmd);
-  monitor_expect_prompt (NULL, 0);
-  return written;
-}
-
-
-static int
 monitor_write_memory_bytes (CORE_ADDR memaddr, char *myaddr, int len)
 {
   unsigned char val;
@@ -1700,17 +1665,6 @@ monitor_write_memory_block (CORE_ADDR memaddr, char *myaddr, int len)
   if ((len > 8) && (((len & 0x07)) == 0) && current_monitor->setmem.cmdll)
     {
       return monitor_write_memory_longlongs (memaddr, myaddr, len);
-    }
-#endif
-#if 0
-  if (len > 4)
-    {
-      int sublen;
-      written = monitor_write_even_block (memaddr, myaddr, len);
-      /* Adjust calling parameters by written amount */
-      memaddr += written;
-      myaddr += written;
-      len -= written;
     }
 #endif
   written = monitor_write_memory_bytes (memaddr, myaddr, len);
@@ -2096,7 +2050,7 @@ monitor_insert_breakpoint (CORE_ADDR addr, char *shadow)
     addr = ADDR_BITS_REMOVE (addr);
 
   /* Determine appropriate breakpoint size for this address.  */
-  bp = memory_breakpoint_from_pc (&addr, &bplen);
+  bp = gdbarch_breakpoint_from_pc (current_gdbarch, &addr, &bplen);
 
   for (i = 0; i < current_monitor->num_breakpoints; i++)
     {
@@ -2332,6 +2286,8 @@ init_monitor_ops (struct target_ops *ops)
 }
 
 /* Define additional commands that are usually only used by monitors.  */
+
+extern initialize_file_ftype _initialize_remote_monitors; /* -Wmissing-prototypes */
 
 void
 _initialize_remote_monitors (void)

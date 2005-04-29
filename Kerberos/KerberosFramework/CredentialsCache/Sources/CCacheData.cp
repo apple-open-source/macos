@@ -1,7 +1,7 @@
 /*
  * CCICCacheData.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/CCacheData.cp,v 1.20 2003/03/17 20:46:29 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/CCacheData.cp,v 1.21 2004/09/08 20:42:19 lxs Exp $
  */
 
 #include "CCacheData.h"
@@ -74,7 +74,19 @@ CCICCacheData::Destroy () {
 // Make the ccache default in the parent context
 void
 CCICCacheData::SetDefault () {
-	mContext -> SetDefault (*this);
+    //dprintf ("CCICCacheData::SetDefault(): setting self (%s) to default", 
+    //         GetPrincipal((GetCredentialsVersion() & cc_credentials_v5) ? cc_credentials_v5 : cc_credentials_v4).c_str());
+    UpdateLastDefaultTime ();
+    mContext -> SetDefault (*this);
+}
+
+// Make the ccache default in the parent context
+void
+CCICCacheData::UpdateLastDefaultTime () {
+    //dprintf ("CCICCacheData::UpdateLastDefaultTime(): updating lastDefaultTime for self (%s)", 
+    //         GetPrincipal((GetCredentialsVersion() & cc_credentials_v5) ? cc_credentials_v5 : cc_credentials_v4).c_str());
+    mHasBeenDefault = true;
+    mLastDefaultTime = mContext -> NewTimeStamp ();
 }
 
 // What versions of creds can be stored in here?

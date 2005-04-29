@@ -1,9 +1,6 @@
 /*-
- * Copyright (c) 1993
- *	The Regents of the University of California.  All rights reserved.
- *
- * This code is derived from software contributed to Berkeley by
- * Paul Borman at Krystal Technologies.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,18 +10,11 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -35,32 +25,25 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wctomb.c,v 1.3 2002/10/27 10:41:21 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wctomb.c,v 1.8 2004/07/29 06:18:40 tjr Exp $");
 
-#include <errno.h>
 #include <stdlib.h>
-#include <limits.h>
-#include <stddef.h>
-#include <rune.h>
+#include <wchar.h>
+#include "mblocal.h"
 
 int
 wctomb(char *s, wchar_t wchar)
 {
-	char *e;
+	static const mbstate_t initial;
+	static mbstate_t mbs;
+	size_t rval;
 
-	if (s == NULL)
+	if (s == NULL) {
 		/* No support for state dependent encodings. */
-		return (0);	
-
-	if (wchar == L'\0') {
-		*s = '\0';
-		return (1);
+		mbs = initial;
+		return (0);
 	}
-
-	sputrune(wchar, s, MB_CUR_MAX, &e);
-	if (e == NULL) {
-		errno = EILSEQ;
+	if ((rval = __wcrtomb(s, wchar, &mbs)) == (size_t)-1)
 		return (-1);
-	}
-	return (e - s);
+	return ((int)rval);
 }

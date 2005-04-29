@@ -41,6 +41,7 @@ XcursorImageCreate
 XcursorImageDestroy
 XcursorImagesCreate
 XcursorImagesDestroy
+XcursorImageHash
 XcursorXcFileLoad
 XcursorXcFileLoadAllImages
 XcursorXcFileLoadImage
@@ -51,4 +52,4 @@ XcursorLibraryLoadImages
 XcursorShapeLoadImage
 XcursorShapeLoadImages
 XcursorTryShapeCursor
-/* $XFree86: xc/lib/Xcursor/Xcursor-def.cpp,v 1.2 2002/09/30 22:02:17 alanh Exp $ */
+/* $XFree86: xc/lib/Xcursor/Xcursor-def.cpp,v 1.3 2004/01/13 19:08:04 dawes Exp $ */

@@ -112,8 +112,6 @@
 *      [3] Hart, Et. Al., Computer Approximations, Wiley and sons, New York,   *
 *          1968.                                                               *
 *******************************************************************************/
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
 
 #include      "math.h"
 #include      "fenv.h"
@@ -238,7 +236,7 @@ static const double eps        = 2.22e-16;
 static const double pnt68      = 0.6796875e+0;
 static const hexdouble Huge    = HEXDOUBLE(0x7FF00000, 0x00000000);
 
-static const double twoTo52      = 4503599627370496.0;                  // 2^52
+static const double twoTo52      = 0x1.0p+52; // 4503599627370496.0;
 static const double pi  =  3.14159265358979311600e+00; /* 0x400921FB, 0x54442D18 */
 
 /*******************************************************************************
@@ -490,8 +488,3 @@ double lgamma_r ( double x, int *psigngam )
     
     return g;
 }
-
-#else       /* __APPLE_CC__ version */
-#error Version gcc-932 or higher required.  Compilation terminated.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

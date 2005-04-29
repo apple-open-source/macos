@@ -12,13 +12,16 @@ works
 
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 ftp download with post- and pre-transfer delete operations
  </name>
  <command>
 ftp://%HOSTIP:%FTPPORT/121 -Q "-DELE after_transfer" -Q "DELE before_transfer"
 </command>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -32,5 +35,6 @@ TYPE I
 SIZE 121
 RETR 121
 DELE after_transfer
+QUIT
 </protocol>
 </verify>

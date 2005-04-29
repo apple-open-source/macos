@@ -31,6 +31,7 @@
  * stdio does not expect.
  */
 #include <stdio.h>
+#include <sys/types.h>
 #include <NetInfo/socket_lock.h>
 #include "ni_globals.h"
 

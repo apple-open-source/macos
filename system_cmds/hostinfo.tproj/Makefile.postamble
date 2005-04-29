@@ -120,3 +120,10 @@
 #
 # Note: on MS Windows, executables, have an extension, so rules and dependencies
 #       for generated tools should use $(EXECUTABLE_EXT) on the end.
+
+SHAREDIR = /usr/share
+MANDIR   = $(SHAREDIR)/man/man8
+
+install-man-pages:
+	$(MKDIRS) $(DSTROOT)$(MANDIR)
+	install -c -m 444 hostinfo.8 $(DSTROOT)$(MANDIR)/hostinfo.8

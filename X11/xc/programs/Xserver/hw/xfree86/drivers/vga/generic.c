@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vga/generic.c,v 1.62 2002/12/03 01:58:58 dickey Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vga/generic.c,v 1.65 2003/10/30 17:37:15 tsi Exp $ */
 /*
  * Copyright (C) 1998 The XFree86 Project, Inc.  All Rights Reserved.
  *
@@ -72,22 +72,22 @@
 
 
 /* Forward definitions */
-static const OptionInfoRec *      GenericAvailableOptions(int chipid, int busid);
-static void       GenericIdentify(int);
-static Bool       GenericProbe(DriverPtr, int);
-static Bool       GenericPreInit(ScrnInfoPtr, int);
-static Bool       GenericScreenInit(int, ScreenPtr, int, char **);
-static Bool       GenericSwitchMode(int, DisplayModePtr, int);
-static void       GenericAdjustFrame(int, int, int, int);
-static Bool       GenericEnterVT(int, int);
-static void       GenericLeaveVT(int, int);
-static void       GenericFreeScreen(int, int);
-static int        VGAFindIsaDevice(GDevPtr dev);
+static const OptionInfoRec *GenericAvailableOptions(int chipid, int busid);
+static void                 GenericIdentify(int);
+static Bool                 GenericProbe(DriverPtr, int);
+static Bool                 GenericPreInit(ScrnInfoPtr, int);
+static Bool                 GenericScreenInit(int, ScreenPtr, int, char **);
+static Bool                 GenericSwitchMode(int, DisplayModePtr, int);
+static void                 GenericAdjustFrame(int, int, int, int);
+static Bool                 GenericEnterVT(int, int);
+static void                 GenericLeaveVT(int, int);
+static void                 GenericFreeScreen(int, int);
+static int                  VGAFindIsaDevice(GDevPtr dev);
 #ifdef SPECIAL_FB_BYTE_ACCESS
-static Bool       GenericMapMem(ScrnInfoPtr scrp);
+static Bool                 GenericMapMem(ScrnInfoPtr scrp);
 #endif
 
-static int GenericValidMode(int, DisplayModePtr, Bool, int);
+static ModeStatus GenericValidMode(int, DisplayModePtr, Bool, int);
 
 /* The root of all evil... */
 DriverRec VGA =
@@ -110,10 +110,10 @@ typedef enum
 
 static const OptionInfoRec GenericOptions[] =
 {
-    { OPTION_SHADOW_FB,         "ShadowFB",     OPTV_BOOLEAN,   {0}, FALSE },
-    { OPTION_VGA_CLOCKS,        "VGAClocks",    OPTV_BOOLEAN,   {0}, FALSE },
-    { OPTION_KGA_UNIVERSAL,     "KGAUniversal", OPTV_BOOLEAN,   {0}, FALSE },
-    { -1,                       NULL,           OPTV_NONE,      {0}, FALSE }
+    { OPTION_SHADOW_FB,     "ShadowFB",     OPTV_BOOLEAN, {0}, FALSE },
+    { OPTION_VGA_CLOCKS,    "VGAClocks",    OPTV_BOOLEAN, {0}, FALSE },
+    { OPTION_KGA_UNIVERSAL, "KGAUniversal", OPTV_BOOLEAN, {0}, FALSE },
+    { -1,                   NULL,           OPTV_NONE,    {0}, FALSE }
 };
 
 static const char *vgahwSymbols[] =
@@ -137,12 +137,14 @@ static const char *vgahwSymbols[] =
     NULL
 };
 
+#ifdef XFree86LOADER
 static const char *miscfbSymbols[] =
 {
     "xf1bppScreenInit",
     "xf4bppScreenInit",
     NULL
 };
+#endif
 
 static const char *fbSymbols[] =
 {
@@ -524,7 +526,6 @@ GenericPreInit(ScrnInfoPtr pScreenInfo, int flags)
 	xf86FreeInt10(pInt);
     }
 
-
     {
 	static resRange unusedmem[] =   { {ResShrMemBlock, 0xB0000, 0xB7FFF},
 					  {ResShrMemBlock, 0xB8000, 0xBFFFF},
@@ -544,7 +545,13 @@ GenericPreInit(ScrnInfoPtr pScreenInfo, int flags)
     {
 	case 1:  Module = "xf1bpp"; Sym = "xf1bppScreenInit";  break;
 	case 4:  Module = "xf4bpp"; Sym = "xf4bppScreenInit";  break;
-	default: Module = "fb";                                break;
+	case 8:  Module = "fb";                                break;
+
+	default:
+	    xf86DrvMsg(pScreenInfo->scrnIndex, X_ERROR,
+		"Given depth (%d) is not supported by this driver.\n",
+		pScreenInfo->depth);
+	    return FALSE;
     }
 
     xf86PrintDepthBpp(pScreenInfo);
@@ -1557,7 +1564,7 @@ GenericFreeScreen(int scrnIndex, int flags)
 }
 
 
-static int
+static ModeStatus
 GenericValidMode(int scrnIndex, DisplayModePtr pMode, Bool Verbose, int flags)
 {
     if (pMode->Flags & V_INTERLACE)

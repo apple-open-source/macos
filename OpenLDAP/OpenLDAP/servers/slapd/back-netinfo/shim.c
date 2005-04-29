@@ -212,7 +212,7 @@ dsstatus dsrecord_to_entry(BackendDB *be, dsrecord *rec, Entry **pEntry)
 		return status;
 	}
 
-	if (dnNormalize2(NULL, &ent->e_name, &ent->e_nname) != LDAP_SUCCESS)
+	if (dnNormalize(0, NULL, NULL, &ent->e_name, &ent->e_nname, NULL) != LDAP_SUCCESS)
 	{
 		ch_free(ent->e_name.bv_val);
 		return DSStatusInvalidPath;
@@ -279,7 +279,7 @@ dsstatus entry_to_dsrecord(BackendDB *be, u_int32_t super, Entry *e, dsrecord **
 {
 	dsrecord *rec;
 	Attribute *attr;
-	LDAPRDN *rdn;
+	LDAPRDN rdn;
 	u_int32_t tmp, sel;
 	struct atmap map;
 	dsattribute *a;
@@ -292,7 +292,7 @@ dsstatus entry_to_dsrecord(BackendDB *be, u_int32_t super, Entry *e, dsrecord **
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
 
 	/* If the RDN type is not "name", set the _rdn meta-attribute. */
-	if (dnExtractRdn(&e->e_name, &_rdn) != LDAP_SUCCESS)
+	if (dnExtractRdn(&e->e_name, &_rdn, NULL) != LDAP_SUCCESS)
 	{
 		return DSStatusInvalidPath;
 	}
@@ -305,7 +305,7 @@ dsstatus entry_to_dsrecord(BackendDB *be, u_int32_t super, Entry *e, dsrecord **
 
 	ch_free(_rdn.bv_val);
 
-	if (slap_bv2ad(&rdn[0][0]->la_attr, &ad, &text) != LDAP_SUCCESS)
+	if (slap_bv2ad(&rdn[0][0].la_attr, &ad, &text) != LDAP_SUCCESS)
 	{
 		ldap_rdnfree(rdn);
 		return DSStatusFailed;
@@ -321,7 +321,7 @@ dsstatus entry_to_dsrecord(BackendDB *be, u_int32_t super, Entry *e, dsrecord **
 		return status;
 	}
 
-	status = (map.x500ToNiTransform)(be, &rdnValue, &rdn[0][0]->la_value, map.type, map.x500ToNiArg);
+	status = (map.x500ToNiTransform)(be, &rdnValue, &rdn[0][0].la_value, map.type, map.x500ToNiArg);
 	if (status != DSStatusOK)
 	{
 		schemamap_atmap_release(&map);
@@ -552,6 +552,25 @@ static Attribute *dsattribute_to_attribute(BackendDB *be, dsrecord *rec, dsattri
 #endif
 		return NULL;
 	}
+	
+	if ( a->count && attr->a_desc->ad_type->sat_equality &&
+		 attr->a_desc->ad_type->sat_equality->smr_normalize ) {
+		int i;
+
+		attr->a_nvals = ch_malloc((a->count + 1)*sizeof(struct berval));
+		for ( i = 0; i < a->count; i++ ) {
+			attr->a_desc->ad_type->sat_equality->smr_normalize(
+				SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
+				attr->a_desc->ad_type->sat_syntax,
+				attr->a_desc->ad_type->sat_equality,
+				&attr->a_vals[i], &attr->a_nvals[i],
+				NULL );
+		}
+		attr->a_nvals[i].bv_val = NULL;
+		attr->a_nvals[i].bv_len = 0;
+	} else {
+		attr->a_nvals = attr->a_vals;
+	}
 
 	schemamap_atmap_release(&map);
 
@@ -681,11 +700,12 @@ int dsstatus_to_ldap_err(dsstatus status)
  * Calls send_ldap_result() with a mapped dsstatus and 
  * message.
  */
-int netinfo_back_op_result(BackendDB *be, Connection *conn, Operation *op, dsstatus status)
+int netinfo_back_op_result(	struct slap_op *op, struct slap_rep *rs, 
+	dsstatus status)
 {
 	int rc;
 	char *message, *statusMessage;
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	BerVarray refs;
 
 	refs = NULL;
@@ -710,7 +730,7 @@ int netinfo_back_op_result(BackendDB *be, Connection *conn, Operation *op, dssta
 		status, rc, message);
 #endif
 
-	send_ldap_result(conn, op, rc, NULL, message, refs, NULL);
+	send_ldap_result(op, rs);
 
 	ch_free(message);
 
@@ -841,7 +861,7 @@ dsstatus dnMakeGlobal(BackendDB *be, struct berval *globalDN, struct berval *loc
 			 * Concatenate local record DN with backend
 			 * suffix.
 			 */
-			build_new_dn(globalDN, &di->suffix, localDN);
+			build_new_dn(globalDN, &di->suffix, localDN, NULL);
 		}
 		else
 		{
@@ -886,7 +906,7 @@ dsstatus netinfo_back_local_dn(BackendDB *be, u_int32_t dsid, struct berval *loc
 	dsrecord *r = NULL;
 	dsstatus status;
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
-	LDAPDN *dn = NULL;
+	LDAPDN dn = NULL;
 	u_int32_t depth;
 
 	/*
@@ -918,7 +938,7 @@ dsstatus netinfo_back_local_dn(BackendDB *be, u_int32_t dsid, struct berval *loc
 		dsrecord *parent;
 		dsdata *rdnKey, *rdnValue;
 		dsattribute *rdnSelector, *rdnAttribute;
-		LDAPRDN *rdn;
+		LDAPRDN rdn;
 		LDAPAVA *ava;
 		struct atmap map;
 		char tmp[32];
@@ -1000,7 +1020,7 @@ dsstatus netinfo_back_local_dn(BackendDB *be, u_int32_t dsid, struct berval *loc
 			if (status != DSStatusOK)
 			{
 				dsdata_release(rdnValue);
-				ldap_avafree(ava);
+				ldapava_free(ava, NULL);
 				schemamap_atmap_release(&map);
 				goto out;
 			}
@@ -1016,7 +1036,7 @@ dsstatus netinfo_back_local_dn(BackendDB *be, u_int32_t dsid, struct berval *loc
 		status = dsengine_fetch(di->engine, r->super, &parent);
 		if (status != DSStatusOK)
 		{
-			ldap_avafree(ava);
+			ldapava_free(ava, NULL);
 			goto out;
 		}
 		dsrecord_release(r);
@@ -1026,16 +1046,13 @@ dsstatus netinfo_back_local_dn(BackendDB *be, u_int32_t dsid, struct berval *loc
 		 * Commit the AVA to the DN. Note that we presently
 		 * do not support multi-valued RDNs. 
 		 */
-		rdn = (LDAPRDN *)ch_malloc(sizeof(LDAPRDN) + 2 * sizeof(LDAPAVA *));
-		rdn[0] = (LDAPAVA **)(rdn + 1);
-		rdn[0][0] = ava;
-		rdn[0][1] = NULL;
+		rdn = (LDAPRDN)ch_malloc(2 * sizeof(LDAPAVA *));
+		rdn[0] = ava;
+		rdn[1] = NULL;
 
-		dn = (LDAPDN *)ch_realloc(dn, sizeof(LDAPDN) +
-			(depth + 1) * sizeof(LDAPRDN *));
-		dn[0] = (LDAPRDN **)(dn + 1);
-		dn[0][depth - 1] = rdn;
-		dn[0][depth] = NULL;
+		dn = (LDAPDN)ch_realloc(dn, (depth + 1) * sizeof(LDAPRDN *));
+		(LDAPRDN *)(dn[depth - 1]) = rdn;
+		dn[depth] = NULL;
 
 		depth++;
 	}
@@ -1069,7 +1086,7 @@ dsstatus
 netinfo_back_parse_dn(BackendDB *be, struct berval *path, dsrecord **pr)
 {
 	dsrecord *r;
-	LDAPDN *dn;
+	LDAPDN dn;
 	int i, max;
 	dsattribute *a;
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
@@ -1113,7 +1130,7 @@ netinfo_back_parse_dn(BackendDB *be, struct berval *path, dsrecord **pr)
 		 * Check that the RDN is not multi-valued; we don't
 		 * permit those.
 		 */
-		if (dn[0][i][0][1] != NULL)
+		if (dn[i][1] != NULL)
 		{
 			status = DSStatusInvalidPath;
 			goto out;
@@ -1122,7 +1139,7 @@ netinfo_back_parse_dn(BackendDB *be, struct berval *path, dsrecord **pr)
 		/*
 		 * Find the attribute description.
 		 */
-		if (slap_bv2ad(&dn[0][i][0][0]->la_attr, &ad, &text) != LDAP_SUCCESS)
+		if (slap_bv2ad(&dn[i][0][0].la_attr, &ad, &text) != LDAP_SUCCESS)
 		{
 			status = DSStatusInvalidKey;
 			goto out;
@@ -1138,7 +1155,7 @@ netinfo_back_parse_dn(BackendDB *be, struct berval *path, dsrecord **pr)
 			goto out;
 		}
 
-		status = (map.x500ToNiTransform)(be, &value, &dn[0][i][0][0]->la_value, DataTypeCaseUTF8Str, map.x500ToNiArg);
+		status = (map.x500ToNiTransform)(be, &value, &dn[i][0][0].la_value, DataTypeCaseUTF8Str, map.x500ToNiArg);
 		if (status != DSStatusOK)
 		{
 			schemamap_atmap_release(&map);
@@ -1294,9 +1311,10 @@ dsstatus netinfo_back_dn_pathcreate(BackendDB *be, struct berval *ndn, u_int32_t
  *
  * IMPORTANT NOTE: Caller acquires engine lock.
  */
-dsstatus netinfo_back_send_referrals(BackendDB *be, Connection *conn, Operation *op, struct berval *nbase)
+dsstatus netinfo_back_send_referrals(struct slap_op *op, 
+	struct slap_rep *rs, struct berval *nbase)
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	struct netinfo_referral **p;
 
 #ifdef NO_NETINFO_REFERRALS
@@ -1314,7 +1332,10 @@ dsstatus netinfo_back_send_referrals(BackendDB *be, Connection *conn, Operation 
 		if (dnIsSuffix(nbase, &(*p)->nnc))
 		{
 			/* Yes! */
-			send_ldap_result(conn, op, LDAP_REFERRAL, (*p)->nc.bv_val, NULL, (*p)->refs, NULL);
+			rs->sr_err = LDAP_REFERRAL;
+			rs->sr_ref = (*p)->refs;
+			rs->sr_matched = (*p)->nc.bv_val;
+			send_ldap_result(op, rs);
 			return DSStatusOK;
 		}
 	}
@@ -1327,16 +1348,15 @@ dsstatus netinfo_back_send_referrals(BackendDB *be, Connection *conn, Operation 
  *
  * IMPORTANT NOTE: Caller acquires engine lock.
  */
-dsstatus netinfo_back_send_references(BackendDB *be, Connection *conn, Operation *op, struct berval *relativeBase, int scope)
+dsstatus netinfo_back_send_references(struct slap_op *op, struct slap_rep *rs, struct berval *relativeBase)
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	struct netinfo_referral *parent;
 	Entry *e;
 	int i;
 	BerVarray refs;
-	BerVarray v2refs;
 
-	if (scope == LDAP_SCOPE_BASE)
+	if (op->ors_scope == LDAP_SCOPE_BASE)
 		return DSStatusOK;
 
 	if (di->parent == NULL)
@@ -1360,12 +1380,12 @@ dsstatus netinfo_back_send_references(BackendDB *be, Connection *conn, Operation
 	else
 	{
 		if (parent->nc.bv_len > 0)
-			build_new_dn(&e->e_name, &parent->nc, relativeBase);
+			build_new_dn(&e->e_name, &parent->nc, relativeBase, NULL);
 		else
 			ber_dupbv(&e->e_name, relativeBase);
 	}
 
-	if (dnNormalize2(NULL, &e->e_name, &e->e_nname) != LDAP_SUCCESS)
+	if (dnNormalize(0, NULL, NULL, &e->e_name, &e->e_nname, NULL) != LDAP_SUCCESS)
 	{
 		ch_free(e->e_name.bv_val);
 		return DSStatusInvalidPath;
@@ -1395,7 +1415,7 @@ dsstatus netinfo_back_send_references(BackendDB *be, Connection *conn, Operation
 		 * scope when chasing if the original scope was one-
 		 * level.
 		 */
-		if (scope == LDAP_SCOPE_SUBTREE)
+		if (op->ors_scope == LDAP_SCOPE_SUBTREE)
 			strcpy(p, "??sub");
 		else
 			strcpy(p, "??one");
@@ -1403,13 +1423,12 @@ dsstatus netinfo_back_send_references(BackendDB *be, Connection *conn, Operation
 
 	refs[parent->count].bv_val = NULL;
 	refs[parent->count].bv_len = 0;
-	v2refs = NULL;
 
-	send_search_reference(be, conn, op, e, refs, NULL, &v2refs);
+	rs->sr_ref = refs;
+	send_search_reference(op, rs);
     
 	entry_free(e);
 	ber_bvarray_free(refs);
-	ber_bvarray_free(v2refs);
 
 	return DSStatusOK;
 }
@@ -1427,14 +1446,12 @@ void netinfo_back_entry_free(Entry *ent)
 }
 
 int netinfo_back_entry_release(
-	BackendDB *be,
-	Connection *c,
-	Operation *o,
-	Entry *e,
+	struct slap_op *op, 
+	Entry *e, 
 	int rw)
 {
 	
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 
 	/* lock engine in case cache is being modified */
 

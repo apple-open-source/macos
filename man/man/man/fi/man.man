@@ -1,0 +1,286 @@
+.\" From rkoski@pp.weppi.fi Sun Jun 28 12:50:44 1998
+.\"
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\" Translated into Finnish by Teppo Kankaanpää (photon@clinet.fi)
+.\" Proofread by Raimo Koski (rkoski@pp.weppi.fi)
+.\" Reconstructed man.man from man.1 - aeb
+.\"
+.\" TERM man_page man-sivu     Näin se oli sotin sivuillakin..
+.\" TERM manual_page ohjesivu
+.\" TERM section osasto        Osasto kuvaa melko hyvin manin luonnetta
+.\" TERM pager näytinohjelma   Tulee ihan IBM ja sen näyttimet mieleen...
+.\" TERM debugging_info,debugging_information debuggaustiedot
+.\" TERM preprocessor esikäsittelyohjelma,esikäsittelijä Mikä olisi parempi?
+.\" TERM message_catalog viestikirjasto
+.\" TERM search_path hakupolku
+.\" TERM owner_mode käyttöoikeudet
+.\" TERM suid suid
+.\" TERM arguments parametrit
+.\"
+.TH MAN 1 "4. Kesäkuuta 1998" "Linux" "Käyttäjän sovellusohjelmat"
+.LO 1
+.SH NIMI
+man \- muotoile ja näytä on-line -ohjesivuja
+.br
+manpath \- määritä käyttäjän hakupolku man-sivuihin
+.SH "YLEISKATSAUS"
+man [\-acdfhkKtwW] [\-m järjestelmä] [\-p merkkijono] [\-C konfiguraatiotiedosto] [\-M polku]
+[\-P selausohjelma] [\-S sektiolista] [sektio] nimi ...
+.SH KUVAUS
+.B man
+muotoilee ja näyttää on-line -ohjesivuja. Tämä versio tuntee
+ympäristömuuttujat
+.B MANPATH
+ja
+.BR "(MAN)PAGER" ,
+joten sinulla voi olla oma(t) kokoelmasi man-sivuja ja voit valita minkä tahansa
+ohjelman näyttämään muotoillut sivut. Jos
+.I sektio
+on annettu,
+.B man
+etsii sivuja vain siitä sektiosta.
+Voit myös määritellä, missä järjestyksessä sektiot läpikäydään
+sivuja haettaessa ja minkä esikäsittelyohjelmien läpi lähdetiedostot
+ajetaan, joko komentorivioptioiden tai ympäristömuuttujien avulla.
+Jos
+.I nimi
+sisältää / -merkin, yritetään se ensin käsitellä tiedostonimenä,
+joten voit kirjoittaa
+.B "man ./foo.5"
+tai vaikkapa
+.B "man /cd/foo/bar.1.gz\fR.\fP"
+.SH OPTIOT
+.TP
+.B \-\^C " config_file"
+Määrittele käytettävä man.conf -tiedosto. Oletus on
+.BR @man_config_file@ .
+(Katso
+.BR man.conf (5).)
+.TP
+.B \-\^M " polku"
+Määrittele hakemistolista, joista man-sivuja etsitään.
+Jos optiota ei käytetä, katsotaan lista ympäristömuuttujasta
+.BR MANPATH .
+Jos tällaista ympäristömuuttujaa ei löydy, oletuslista haetaan
+tiedostosta
+.BR @man_config_file@ .
+Jos
+.B MANPATH
+sisältää tyhjän merkkijonon, käytetään myös tällöin oletuslistaa.
+.TP
+.B \-\^P " pager"
+Määrittele, millä ohjelmalla sivuja katsotaan.
+Tämä optio kumoaa
+.BR MANPAGER "-ympäristömuuttujan"
+vaikutuksen, joka taas löytyessään kumoaa
+.BR PAGER "-ympäristömuuttujan"
+vaikutuksen. Oletuksena
+.B man
+käyttää komentoa
+.BR @pager@ .
+.TP
+.B \-\^S " sektiolista"
+Sektiolista on kaksoispisteillä eroteltu lista sektioista, jotka
+käydään läpi sivua haettaessa.  Tämä optio kumoaa
+.BR MANSECT "-ympäristömuuttujan"
+vaikutuksen.
+.TP
+.B \-\^a
+Oletuksena
+.B man
+lopettaa toimintansa näytettyään ensimmäisen löytämänsä
+man-sivun.  Tätä optiota käyttämällä
+.B man
+pakotetaan näyttämään
+.I kaikki
+täsmäävät man-sivut.
+.TP
+.B \-\^c
+Uudelleenmuotoile lähteenä oleva man-sivu, vaikka päivitetty cat-sivu
+löytyisi.  Tämä voi olla käytännöllistä, jos cat-sivu muotoiltiin
+näytölle, jolle mahtuu eri määrä kirjaimia.
+.TP
+.B \-\^d
+Älä näytä itse man-sivua, vaan vain debuggaustiedot.
+.TP
+.B \-\^D
+Näytä sekä sivu että debuggaustiedot.
+.TP
+.B \-\^f
+Vastaa komentoa
+.BR whatis .
+.TP
+.B \-\^h
+Näytä vain pieni ohje ohjelman käytöstä.
+.TP
+.B \-\^k
+Vastaa komentoa
+.BR apropos .
+.TP
+.B \-\^K
+Etsi määriteltyä merkkijonoa *kaikista* man-sivuista.  Varoitus:
+tämä on todennäköisesti hyvin hidasta!  Sektion määrittely auttaa.
+(Omalla koneellani etsintä kestää minuutin 500 man-sivua kohden)
+.TP
+.B \-\^m " järjestelmä"
+Määrittele etsittäväksi vaihtoehtoinen kokoelma man-sivuja,
+pohjautuen annettuun järjestelmänimeen.
+.TP
+.B \-\^p " merkkijono"
+Määrittele esikäsittelijöiden lista, jotka ajetaan ennen
+.BR nroff ":ia"
+tai
+.BR troff ":ia."
+Kaikkiin järjestelmiin ei ole asennettu kaikkia esikäsittelyohjelmia.
+Jotkin näistä ja niitä vastaavista kirjaimista ovat
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v) ja refer (r).
+Tämä optio kumoaa
+.BR MANROFFSEQ "-ympäristömuuttujan"
+vaikutuksen.
+.TP
+.B \-\^t
+Käytä komentoa
+.B @troff@
+man-sivun muotoiluun ja ohjaa tuloste
+.BR vakiotulosteeseen .
+Tämä tuloste saatetaan joutua ohjaamaan jonkin filtterin läpi ennen
+tulostamista.
+.TP
+.B \-\^w \fRtai\fP \-\-path
+Älä näytä man-sivuja, mutta näytä sijainnit sivuille, jotka
+muotoiltaisiin tai näytettäisiin.  Jos mitään parametria ei anneta,
+tulostetaan (vakiotulosteeseen) lista hakemistoista, joista
+.B man
+etsisi sivuja.  Jos
+.B manpath
+on linkitetty man-ohjelmaan, vastaa "manpath" samaa, kuin "man --path".
+.TP
+.B \-\^W
+Kuten \-\^w, mutta tulosta jokainen tiedostonimi omalle rivilleen ilman
+mitään lisätietoja.  Tämä on hyödyllinen komennoissa, kuten
+.ft CW
+.B "man -aW man | xargs ls -l"
+.ft
+
+.SH CAT-SIVUT
+Man yrittää tallentaa muotoillut man-sivut säästääkseen
+muotoiluun kuluneen ajan seuraavalla kerralla, kun näitä
+sivuja tarvitaan.  Perinteisesti muotoillut sivut .../manX:stä
+on tallennettu .../catX:ään (... on hakupolku), mutta 
+.BR @man_config_file@ ":issa"
+voidaan säätää jokin muu hakemistosijoittelu.
+Jos tarvittavaa cat-hakemistoa ei löydy, ei cat-sivuja tallenneta.
+.PP
+On mahdollista asettaa
+.BR man "in"
+suid:ksi käyttäjä man.  Jos man omistaa cat-hakemiston, jonka
+käyttöoikeudet ovat 0755 (vain man-käyttäjän
+kirjoitettavissa) ja cat-tiedostojen käyttöoikeudet ovat 0644 tai 0444
+(vain man-käyttäjän
+tai ei kenenkään kirjoitettavissa), ei tavallinen käyttäjä voi
+muuttaa cat-sivuja tai laittaa muita tiedostoja cat-hakemistoon.
+Jos
+.BR man "ille"
+ei ole määritelty suidia, silloin cat-hakemiston
+käyttöoikeuksien pitäisi olla 0777,
+jolloin jokainen käyttäjä voisi jättää cat-sivuja sinne.
+.PP
+Optio
+.B \-c
+pakottaa muotoilemaan sivun uudelleen, vaikka uusi cat-sivu löytyisikin.
+.SH YMPÄRISTÖMUUTTUJAT
+.TP
+.B MANPATH
+Jos
+.B MANPATH
+on asetettu, sen arvoa käytetään polkuna man-sivuja etsittäessä.
+.TP
+.B MANROFFSEQ
+Jos
+.B MANROFFSEQ
+on asetettu, sen arvoa käytetään määrittelemään esikäsittelijät,
+jotka ajetaan ennen
+.BR nroff "ia"
+tai
+.BR troff "ia."
+Oletuksena sivut ajetaan
+tbl(1)-esikäsittelijän läpi ennen
+.BR nroff "ia."
+.TP
+.B MANSECT
+Jos
+.B MANSECT
+on asetettu, sen arvoa käytetään määrittelemään, mistä sektioista
+sivuja etsitään.
+.TP
+.B MANWIDTH
+Jos
+.B MANWIDTH
+on asetettu, sen arvo kertoo leveyden, jolla sivut näytetään ruudulla.
+Muuten sivut näytetään koko ruudun levyisinä.
+.TP
+.B MANPAGER
+Jos
+.B MANPAGER
+on asetettu, sen arvo kertoo ohjelman nimen, jota käytetään man-sivujen
+esittämiseen.  Muuten käytetään ympäristömuuttujaa
+.BR PAGER .
+Jos sitäkään ei ole asetettu, käytetään komentoa
+.BR @pager@ .
+.TP
+.B LANG
+Jos
+.B LANG
+on asetettu, sen arvo määrittelee alihakemiston nimen, mistä
+man etsii ensin sivuja.  Niinpä komento 'LANG=fi man 1 foo'
+saa manin etsimään ensin sivua .../fi/man1/foo.1.
+Jos tätä ei löydy, etsii man sivua .../man1/foo.1.
+Merkit ... tarkoittavat hakupolkua.
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+Ympäristömuuttujat
+.B NLSPATH
+ja
+.B LC_MESSAGES
+(tai
+.BR LANG ,
+jos jälkimmäistä ei ole asetettu) kertovat käytettävän viestikirjaston.
+(Englanninkieliset viestit on käännetty ohjelman sisään,
+joten ne eivät tarvitse erillistä viestikirjastoa.)
+Huomaa, että man saattaa käyttää ohjelmia, kuten col(1), jotka
+käyttävät myös esimerkiksi muuttujaa LC_CTYPE.
+.TP
+.B PATH
+.BR PATH ":ia"
+käytetään muodostamaan oletushakupolkua man-sivuille.
+.TP
+.B SYSTEM
+.B SYSTEM "-ympäristömuuttujaa"
+käytetään vaihtoehtoisen järjestelmän oletusnimeksi (optiota
+.B \-m
+käytettäessä).
+.SH BUGIT
+Optio
+.B \-t
+toimii vain, jos troffin kaltainen ohjelma on asennettu.
+.br
+Jos näet tavuviivojen tilalla vilkkuvan \e255:n tai <AD>:n,
+aseta ympäristömuuttuja 'LESSCHARSET=latin1'.
+.SH "KATSO MYÖS"
+apropos(1) whatis(1) less(1) groff(1). 
+
+

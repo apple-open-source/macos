@@ -1,0 +1,899 @@
+/*
+ * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*
+ * Modification History
+ *
+ * August 5, 2004			Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
+
+#include "scutil.h"
+#include "commands.h"
+#include "net.h"
+#include "net_interface.h"
+#include "net_protocol.h"
+#include "net_service.h"
+#include "net_set.h"
+
+#include <unistd.h>
+
+
+__private_extern__ Boolean			net_changed	= FALSE;
+
+__private_extern__ CFMutableArrayRef		new_interfaces	= NULL;
+
+__private_extern__ CFArrayRef			interfaces	= NULL;
+__private_extern__ CFArrayRef			services	= NULL;
+__private_extern__ CFArrayRef			protocols	= NULL;
+__private_extern__ CFArrayRef			sets		= NULL;
+
+__private_extern__ SCNetworkInterfaceRef	net_interface	= NULL;
+__private_extern__ SCNetworkServiceRef		net_service	= NULL;
+__private_extern__ SCNetworkProtocolRef		net_protocol	= NULL;
+__private_extern__ SCNetworkSetRef		net_set		= NULL;
+
+__private_extern__ CFNumberRef			CFNumberRef_0	= NULL;
+__private_extern__ CFNumberRef			CFNumberRef_1	= NULL;
+
+
+/* -------------------- */
+
+
+__private_extern__
+CFNumberRef
+_copy_number(const char *arg)
+{
+	int	val;
+
+	if (sscanf(arg, "%d", &val) != 1) {
+		return NULL;
+	}
+
+	return CFNumberCreate(NULL, kCFNumberIntType, &val);
+}
+
+
+/* -------------------- */
+
+
+__private_extern__
+CFIndex
+_find_option(const char *option, optionsRef options, const int nOptions)
+{
+	CFIndex	i;
+
+	for (i = 0; i < nOptions; i++) {
+		if (strcasecmp(option, options[i].option) == 0) {
+			return i;
+		}
+	}
+
+	return kCFNotFound;
+}
+
+
+__private_extern__
+CFIndex
+_find_selection(CFStringRef choice, selections choices[], unsigned int *flags)
+{
+	CFIndex	i;
+
+	i = 0;
+	while (choices[i].selection != NULL) {
+		if (CFStringCompare(choice,
+				    choices[i].selection,
+				    kCFCompareCaseInsensitive) == kCFCompareEqualTo) {
+			if (flags != NULL) {
+				*flags = choices[i].flags;
+			}
+			return i;
+		}
+		i++;
+	}
+
+	return kCFNotFound;
+}
+
+
+__private_extern__
+Boolean
+_process_options(optionsRef options, int nOptions, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	while (argc > 0) {
+		CFIndex	optionIndex	= kCFNotFound;
+
+		optionIndex = _find_option(argv[0], options, nOptions);
+		if (optionIndex == kCFNotFound) {
+			SCPrint(TRUE, stdout, CFSTR("set what?\n"));
+			return FALSE;
+		}
+		argv++;
+		argc--;
+
+		switch (options[optionIndex].type) {
+			case isOther :
+				// all option processing is managed by the "handler"
+				break;
+			case isHelp :
+				SCPrint(TRUE, stdout, CFSTR("%s\n"), options[optionIndex].info);
+				return FALSE;
+			case isChooseOne : {
+				CFStringRef	choice;
+				selections	*choices	= (selections *)options[optionIndex].info;
+				unsigned int	flags;
+				CFIndex		i;
+
+				if (argc < 1) {
+					SCPrint(TRUE, stdout,
+						CFSTR("%s not specified\n"),
+						options[optionIndex].description != NULL ? options[optionIndex].description : "selection");
+					return FALSE;
+				}
+
+				choice = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+				i = _find_selection(choice, choices, &flags);
+				CFRelease(choice);
+
+				if (i != kCFNotFound) {
+					if (choices[i].flags & selectionNotAvailable) {
+						SCPrint(TRUE, stdout,
+							CFSTR("cannot select %s\n"),
+							options[optionIndex].description != NULL ? options[optionIndex].description : "selection");
+							return FALSE;
+					}
+
+					CFDictionarySetValue(newConfiguration,
+							     *(options[optionIndex].key),
+							     *(choices[i].key));
+				} else {
+					SCPrint(TRUE, stdout,
+						CFSTR("invalid %s\n"),
+						options[optionIndex].description != NULL ? options[optionIndex].description : "selection");
+					return FALSE;
+				}
+
+				argv++;
+				argc--;
+				break;
+			}
+			case isChooseMultiple :
+				if (argc < 1) {
+					SCPrint(TRUE, stdout,
+						CFSTR("%s(s) not specified\n"),
+						options[optionIndex].description != NULL ? options[optionIndex].description : "selection");
+					return FALSE;
+				}
+
+				if (strlen(argv[0]) > 0) {
+					CFIndex			i;
+					CFIndex			n;
+					CFMutableArrayRef	chosen;
+					CFStringRef		str;
+					CFArrayRef		str_array;
+
+					str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+					str_array = CFStringCreateArrayBySeparatingStrings(NULL, str, CFSTR(","));
+					CFRelease(str);
+
+					chosen = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+					n = CFArrayGetCount(str_array);
+					for (i = 0; i < n; i++) {
+						CFStringRef	choice;
+						selections	*choices	= (selections *)options[optionIndex].info;
+						unsigned int	flags;
+						CFIndex		j;
+
+						choice = CFArrayGetValueAtIndex(str_array, i);
+						j = _find_selection(choice, choices, &flags);
+
+						if (j != kCFNotFound) {
+							if (choices[j].flags & selectionNotAvailable) {
+								SCPrint(TRUE, stdout,
+									CFSTR("cannot select %s\n"),
+									options[optionIndex].description != NULL ? options[optionIndex].description : "selection");
+								CFArrayRemoveAllValues(chosen);
+								break;
+							}
+
+							CFArrayAppendValue(chosen, *(choices[j].key));
+						} else {
+							SCPrint(TRUE, stdout,
+								CFSTR("invalid %s\n"),
+								options[optionIndex].description != NULL ? options[optionIndex].description : "selection");
+							CFArrayRemoveAllValues(chosen);
+							break;
+						}
+					}
+					CFRelease(str_array);
+
+					if (CFArrayGetCount(chosen) > 0) {
+						CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), chosen);
+					} else {
+						CFDictionaryRemoveValue(newConfiguration, *(options[optionIndex].key));
+					}
+					CFRelease(chosen);
+				} else {
+					CFDictionaryRemoveValue(newConfiguration, *(options[optionIndex].key));
+				}
+
+				argv++;
+				argc--;
+				break;
+			case isBoolean :
+				if (argc < 1) {
+					SCPrint(TRUE, stdout,
+						CFSTR("%s not specified\n"),
+						options[optionIndex].description != NULL ? options[optionIndex].description : "enable/disable");
+					return FALSE;
+				}
+
+				if        ((strcasecmp(argv[0], "disable") == 0) ||
+					   (strcasecmp(argv[0], "0"      ) == 0)) {
+					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), CFNumberRef_0);
+				} else if ((strcasecmp(argv[0], "enable") == 0) ||
+					   (strcasecmp(argv[0], "1"     ) == 0)) {
+					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), CFNumberRef_1);
+				} else {
+					SCPrint(TRUE, stdout, CFSTR("invalid value\n"));
+					return FALSE;
+				}
+
+				argv++;
+				argc--;
+				break;
+			case isNumber :
+				if (argc < 1) {
+					SCPrint(TRUE, stdout,
+						CFSTR("%s not specified\n"),
+						options[optionIndex].description != NULL ? options[optionIndex].description : "value");
+					return FALSE;
+				}
+
+				if (strlen(argv[0]) > 0) {
+					CFNumberRef	num;
+
+					num = _copy_number(argv[0]);
+					if (num != NULL) {
+						CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), num);
+						CFRelease(num);
+					} else {
+						SCPrint(TRUE, stdout, CFSTR("invalid value\n"));
+						return FALSE;
+					}
+				} else {
+					CFDictionaryRemoveValue(newConfiguration, *(options[optionIndex].key));
+				}
+
+				argv++;
+				argc--;
+				break;
+			case isString :
+				if (argc < 1) {
+					SCPrint(TRUE, stdout,
+						CFSTR("%s not specified\n"),
+						options[optionIndex].description != NULL ? options[optionIndex].description : "value");
+					return FALSE;
+				}
+
+				if (strlen(argv[0]) > 0) {
+					CFStringRef	str;
+
+					str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), str);
+					CFRelease(str);
+				} else {
+					CFDictionaryRemoveValue(newConfiguration, *(options[optionIndex].key));
+				}
+
+				argv++;
+				argc--;
+				break;
+			case isStringArray :
+				if (argc < 1) {
+					SCPrint(TRUE, stdout,
+						CFSTR("%s(s) not specified\n"),
+						options[optionIndex].description != NULL ? options[optionIndex].description : "value");
+					return FALSE;
+				}
+
+				if (strlen(argv[0]) > 0) {
+					CFStringRef	str;
+					CFArrayRef	str_array;
+
+					str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+					str_array = CFStringCreateArrayBySeparatingStrings(NULL, str, CFSTR(","));
+					CFRelease(str);
+
+					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), str_array);
+					CFRelease(str_array);
+				} else {
+					CFDictionaryRemoveValue(newConfiguration, *(options[optionIndex].key));
+				}
+
+				argv++;
+				argc--;
+				break;
+		}
+
+		if (options[optionIndex].handler != NULL) {
+			CFStringRef	key;
+			int		nArgs;
+
+			key = options[optionIndex].key != NULL ? *(options[optionIndex].key) : NULL;
+			nArgs = (*options[optionIndex].handler)(key,
+								options[optionIndex].description,
+								options[optionIndex].info,
+								argc,
+								argv,
+								newConfiguration);
+			if (nArgs < 0) {
+				return FALSE;
+			}
+
+			argv += nArgs;
+			argc -= nArgs;
+		}
+	}
+
+	return TRUE;
+}
+
+
+/* -------------------- */
+
+
+#define	N_QUICK	32
+
+__private_extern__
+void
+_show_entity(CFDictionaryRef entity, CFStringRef prefix)
+{
+	CFArrayRef		array;
+	const void *		keys_q[N_QUICK];
+	const void **		keys	= keys_q;
+	CFIndex			i;
+	CFIndex			n;
+	CFMutableArrayRef	sorted;
+
+	n = CFDictionaryGetCount(entity);
+	if (n > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
+		keys = CFAllocatorAllocate(NULL, n * sizeof(CFTypeRef), 0);
+	}
+	CFDictionaryGetKeysAndValues(entity, keys, NULL);
+
+	array  = CFArrayCreate(NULL, keys, n, &kCFTypeArrayCallBacks);
+	sorted = CFArrayCreateMutableCopy(NULL, n, array);
+	if (n > 1) {
+		CFArraySortValues(sorted,
+				  CFRangeMake(0, n),
+				  (CFComparatorFunction)CFStringCompare,
+				  NULL);
+	}
+
+	for (i = 0; i < n; i++) {
+		CFStringRef	key;
+		CFTypeRef	value;
+
+		key   = CFArrayGetValueAtIndex(sorted, i);
+		value = CFDictionaryGetValue(entity, key);
+		if (isA_CFArray(value)) {
+			CFStringRef	str;
+
+			str = CFStringCreateByCombiningStrings(NULL, value, CFSTR(", "));
+			SCPrint(TRUE, stdout, CFSTR("%@    %@ = (%@)\n"), prefix, key, str);
+			CFRelease(str);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("%@    %@ = %@\n"), prefix, key, value);
+		}
+	}
+
+	CFRelease(sorted);
+	CFRelease(array);
+	if (keys != keys_q) {
+		CFAllocatorDeallocate(NULL, keys);
+	}
+
+	return;
+}
+
+
+/* -------------------- */
+
+
+static Boolean
+commitRequired(int argc, char **argv, const char *command)
+{
+	if (net_changed) {
+		if ((currentInput != NULL)			&&
+		    isatty(fileno(currentInput->fp))		&&
+		    ((argc < 1) || (strcmp(argv[0], "!") != 0))
+		   ) {
+			SCPrint(TRUE, stdout,
+				CFSTR("configuration changes have not been committed\n"
+				      "use \"commit\" to save changes"));
+			if (command != NULL) {
+				SCPrint(TRUE, stdout,
+					CFSTR(" or \"%s !\" to abandon changes"),
+					command);
+			}
+			SCPrint(TRUE, stdout, CFSTR("\n"));
+			return TRUE;
+		}
+
+		SCPrint(TRUE, stdout, CFSTR("configuration changes abandoned\n"));
+	}
+
+	return FALSE;
+}
+
+
+__private_extern__
+void
+do_net_init()
+{
+	int	one	= 1;
+	int	zero	= 0;
+
+	CFNumberRef_0 = CFNumberCreate(NULL, kCFNumberIntType, &zero);
+	CFNumberRef_1 = CFNumberCreate(NULL, kCFNumberIntType, &one);
+
+	return;
+}
+
+
+__private_extern__
+void
+do_net_open(int argc, char **argv)
+{
+	CFStringRef	prefsID	= NULL;
+
+	if (prefs != NULL) {
+		if (commitRequired(argc, argv, "close")) {
+			return;
+		}
+		do_net_close(0, NULL);
+	}
+
+	if (argc > 0) {
+		prefsID = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+	}
+
+	prefs = SCPreferencesCreate(NULL, CFSTR("scutil --net"), prefsID);
+	if (prefsID != NULL) CFRelease(prefsID);
+
+	if (prefs == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+		return;
+	}
+
+	net_changed = FALSE;
+
+	net_set = SCNetworkSetCopyCurrent(prefs);
+	if (net_set != NULL) {
+		CFStringRef	setName;
+
+		setName = SCNetworkSetGetName(net_set);
+		if (setName != NULL) {
+			SCPrint(TRUE, stdout, CFSTR("set \"%@\" selected\n"), setName);
+		} else {
+			SCPrint(TRUE, stdout,
+				CFSTR("set ID \"%@\" selected\n"),
+				SCNetworkSetGetSetID(net_set));
+		}
+	}
+
+	return;
+}
+
+
+__private_extern__
+void
+do_net_commit(int argc, char **argv)
+{
+	if (!SCPreferencesCommitChanges(prefs)) {
+		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+		return;
+	}
+
+	net_changed = FALSE;
+
+	return;
+}
+
+
+__private_extern__
+void
+do_net_apply(int argc, char **argv)
+{
+	if (!SCPreferencesApplyChanges(prefs)) {
+		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+	}
+	return;
+}
+
+
+__private_extern__
+void
+do_net_close(int argc, char **argv)
+{
+	if (commitRequired(argc, argv, "close")) {
+		return;
+	}
+
+	if (net_interface != NULL) {
+		CFRelease(net_interface);
+		net_interface = NULL;
+	}
+
+	if (net_service != NULL) {
+		CFRelease(net_service);
+		net_service = NULL;
+	}
+
+	if (net_protocol != NULL) {
+		CFRelease(net_protocol);
+		net_protocol = NULL;
+	}
+
+	if (net_set != NULL) {
+		CFRelease(net_set);
+		net_set = NULL;
+	}
+
+	if (interfaces != NULL) {
+		CFRelease(interfaces);
+		interfaces = NULL;
+	}
+
+	if (services != NULL) {
+		CFRelease(services);
+		services = NULL;
+	}
+
+	if (protocols != NULL) {
+		CFRelease(protocols);
+		protocols = NULL;
+	}
+
+	if (sets != NULL) {
+		CFRelease(sets);
+		sets = NULL;
+	}
+
+	if (new_interfaces != NULL) {
+		CFRelease(new_interfaces);
+		new_interfaces = NULL;
+	}
+
+	if (prefs != NULL) {
+		CFRelease(prefs);
+		prefs = NULL;
+	}
+
+	net_changed = FALSE;
+
+	return;
+}
+
+
+__private_extern__
+void
+do_net_quit(int argc, char **argv)
+{
+	if (commitRequired(argc, argv, "quit")) {
+		return;
+	}
+
+	termRequested = TRUE;
+	return;
+}
+
+
+/* -------------------- */
+
+
+typedef void (*net_func) (int argc, char **argv);
+
+static const struct {
+	char		*key;
+	net_func	create;
+	net_func	disable;
+	net_func	enable;
+	net_func	select;
+	net_func	set;
+	net_func	show;
+	net_func	remove;
+} net_keys[] = {
+
+	{ "interfaces", NULL            , NULL            , NULL            ,
+			NULL            , NULL            , show_interfaces ,
+			NULL                                                },
+
+	{ "interface",  create_interface, NULL            , NULL            ,
+			select_interface, set_interface   , show_interface  ,
+			NULL                                                },
+
+	{ "services",   NULL            , NULL            , NULL            ,
+			NULL            , NULL            , show_services   ,
+			NULL                                                },
+
+	{ "service",    create_service  , disable_service , enable_service  ,
+			select_service  , set_service     , show_service    ,
+			remove_service                                      },
+
+	{ "protocols",  NULL            , NULL            , NULL            ,
+			NULL            , NULL            , show_protocols  ,
+			NULL                                                },
+
+	{ "protocol",   create_protocol , disable_protocol, enable_protocol ,
+			select_protocol , set_protocol    , show_protocol   ,
+			remove_protocol                                     },
+
+	{ "sets",       NULL            , NULL            , NULL            ,
+			NULL            , NULL            , show_sets       ,
+			NULL                                                },
+
+	{ "set",        create_set      , NULL            , NULL            ,
+			select_set      , set_set         , show_set        ,
+			remove_set                                          }
+
+};
+#define	N_NET_KEYS	(sizeof(net_keys) / sizeof(net_keys[0]))
+
+
+static int
+findNetKey(char *key)
+{
+	int	i;
+
+	for (i = 0; i < (int)N_NET_KEYS; i++) {
+		if (strcmp(key, net_keys[i].key) == 0) {
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+
+/* -------------------- */
+
+
+__private_extern__
+void
+do_net_create(int argc, char **argv)
+{
+	char	*key;
+	int	i;
+
+	key = argv[0];
+	argv++;
+	argc--;
+
+	i = findNetKey(key);
+	if (i < 0) {
+		SCPrint(TRUE, stderr, CFSTR("create what?\n"));
+		return;
+	}
+
+	if (*net_keys[i].create == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("create what?\n"));
+	}
+
+	(*net_keys[i].create)(argc, argv);
+	return;
+}
+
+
+__private_extern__
+void
+do_net_disable(int argc, char **argv)
+{
+	char	*key;
+	int	i;
+
+	key = argv[0];
+	argv++;
+	argc--;
+
+	i = findNetKey(key);
+	if (i < 0) {
+		SCPrint(TRUE, stderr, CFSTR("disable what?\n"));
+		return;
+	}
+
+	if (*net_keys[i].disable == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("disable what?\n"));
+	}
+
+	(*net_keys[i].disable)(argc, argv);
+	return;
+}
+
+
+__private_extern__
+void
+do_net_enable(int argc, char **argv)
+{
+	char	*key;
+	int	i;
+
+	key = argv[0];
+	argv++;
+	argc--;
+
+	i = findNetKey(key);
+	if (i < 0) {
+		SCPrint(TRUE, stderr, CFSTR("enable what?\n"));
+		return;
+	}
+
+	if (*net_keys[i].enable == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("enable what?\n"));
+	}
+
+	(*net_keys[i].enable)(argc, argv);
+	return;
+}
+
+
+__private_extern__
+void
+do_net_remove(int argc, char **argv)
+{
+	char	*key;
+	int	i;
+
+	key = argv[0];
+	argv++;
+	argc--;
+
+	i = findNetKey(key);
+	if (i < 0) {
+		SCPrint(TRUE, stderr, CFSTR("remove what?\n"));
+		return;
+	}
+
+	if (*net_keys[i].remove == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("remove what?\n"));
+	}
+
+	(*net_keys[i].remove)(argc, argv);
+	return;
+}
+
+
+__private_extern__
+void
+do_net_select(int argc, char **argv)
+{
+	char	*key;
+	int	i;
+
+	key = argv[0];
+	argv++;
+	argc--;
+
+	i = findNetKey(key);
+	if (i < 0) {
+		SCPrint(TRUE, stderr, CFSTR("select what?\n"));
+		return;
+	}
+
+	if (*net_keys[i].select == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("select what?\n"));
+	}
+
+	(*net_keys[i].select)(argc, argv);
+	return;
+}
+
+
+__private_extern__
+void
+do_net_set(int argc, char **argv)
+{
+	char	*key;
+	int	i;
+
+	key = argv[0];
+	argv++;
+	argc--;
+
+	i = findNetKey(key);
+	if (i < 0) {
+		SCPrint(TRUE, stderr, CFSTR("set what?\n"));
+		return;
+	}
+
+	(*net_keys[i].set)(argc, argv);
+	return;
+}
+
+
+__private_extern__
+void
+do_net_show(int argc, char **argv)
+{
+	char	*key;
+	int	i;
+
+	key = argv[0];
+	argv++;
+	argc--;
+
+	i = findNetKey(key);
+	if (i < 0) {
+		SCPrint(TRUE, stderr, CFSTR("show what?\n"));
+		return;
+	}
+
+	(*net_keys[i].show)(argc, argv);
+	return;
+}
+
+
+#include "SCPreferencesInternal.h"
+#include <fcntl.h>
+#include <unistd.h>
+__private_extern__
+void
+do_net_snapshot(int argc, char **argv)
+{
+	if (prefs == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("network configuration not open\n"));
+		return;
+	}
+
+	if (prefs != NULL) {
+		SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+
+		if (prefsPrivate->prefs != NULL) {
+			int		fd;
+			static int	n_snapshot	= 0;
+			char		*path;
+			CFDataRef	xmlData;
+
+			asprintf(&path, "/tmp/prefs_snapshot_%d", n_snapshot++);
+			fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+			free(path);
+
+			xmlData = CFPropertyListCreateXMLData(NULL, prefsPrivate->prefs);
+			if (xmlData != NULL) {
+				(void) write(fd, CFDataGetBytePtr(xmlData), CFDataGetLength(xmlData));
+				CFRelease(xmlData);
+			} else {
+				SCLog(TRUE, LOG_ERR, CFSTR("CFPropertyListCreateXMLData() failed"));
+			}
+
+			(void) close(fd);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("prefs have not been accessed\n"));
+		}
+	}
+
+	return;
+}

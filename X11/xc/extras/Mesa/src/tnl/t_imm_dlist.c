@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  3.5
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 
@@ -32,7 +32,7 @@
 #include "dlist.h"
 #include "debug.h"
 #include "mmath.h"
-#include "mem.h"
+#include "imports.h"
 #include "state.h"
 
 #include "t_context.h"
@@ -69,7 +69,7 @@ static void build_normal_lengths( struct immediate *IM )
 {
    GLuint i;
    GLfloat len;
-   GLfloat (*data)[3] = IM->Normal + IM->Start;
+   GLfloat (*data)[4] = IM->Attrib[VERT_ATTRIB_NORMAL] + IM->Start;
    GLfloat *dest = IM->NormalLengthPtr;
    GLuint *flags = IM->Flag + IM->Start;
    GLuint count = IM->Count - IM->Start;
@@ -85,7 +85,7 @@ static void build_normal_lengths( struct immediate *IM )
    
    for (i = 0 ; i < count ; ) {
       dest[i] = len;
-      if (flags[++i] & VERT_NORM) {
+      if (flags[++i] & VERT_BIT_NORMAL) {
 	 len = (GLfloat) LEN_3FV( data[i] );
 	 if (len > 0.0F) len = 1.0F / len;
       }
@@ -96,7 +96,7 @@ static void fixup_normal_lengths( struct immediate *IM )
 {
    GLuint i;
    GLfloat len = 1.0F;  /* just to silence warnings */
-   GLfloat (*data)[3] = IM->Normal;
+   GLfloat (*data)[4] = IM->Attrib[VERT_ATTRIB_NORMAL];
    GLfloat *dest = IM->NormalLengthPtr;
    GLuint *flags = IM->Flag;
 
@@ -107,7 +107,7 @@ static void fixup_normal_lengths( struct immediate *IM )
    } 
 
    if (i < IM->Count) {
-      while (!(flags[i] & (VERT_NORM|VERT_END_VB))) {
+      while (!(flags[i] & (VERT_BIT_NORMAL|VERT_BIT_END_VB))) {
 	 dest[i] = len;
 	 i++;
       }
@@ -128,7 +128,7 @@ _tnl_compile_cassette( GLcontext *ctx, struct immediate *IM )
    GLuint new_beginstate;
 
    if (MESA_VERBOSE & VERBOSE_DISPLAY_LIST)
-      fprintf(stderr, "_tnl_compiled_cassette IM: %d\n", IM->id); 
+      _mesa_debug(ctx, "_tnl_compiled_cassette IM: %d\n", IM->id); 
 
    if (IM->FlushElt) {
       ASSERT (IM->FlushElt == FLUSH_ELT_LAZY); 
@@ -141,8 +141,8 @@ _tnl_compile_cassette( GLcontext *ctx, struct immediate *IM )
     * array-elements have been translated away by now, so it's ok to
     * remove it.)
     */
-   IM->OrFlag &= ~VERT_ELT;	
-   IM->AndFlag &= ~VERT_ELT;	
+   IM->OrFlag &= ~VERT_BIT_ELT;	
+   IM->AndFlag &= ~VERT_BIT_ELT;	
 
    _tnl_fixup_input( ctx, IM );
 
@@ -224,17 +224,17 @@ static void fixup_compiled_primitives( GLcontext *ctx, struct immediate *IM )
 	 _mesa_error( ctx, GL_INVALID_OPERATION, "glBegin/glEnd");
 
       for (i = IM->Start ; i <= IM->Count ; i += IM->PrimitiveLength[i])
-	 if (IM->Flag[i] & (VERT_BEGIN|VERT_END_VB))
+	 if (IM->Flag[i] & (VERT_BIT_BEGIN|VERT_BIT_END_VB))
 	    break;
 
       /* Would like to just ignore vertices upto this point.  Can't
        * set copystart because it might skip materials?
        */
       ASSERT(IM->Start == IM->CopyStart);
-      if (i > IM->CopyStart || !(IM->Flag[IM->Start] & VERT_BEGIN)) {
+      if (i > IM->CopyStart || !(IM->Flag[IM->Start] & VERT_BIT_BEGIN)) {
 	 IM->Primitive[IM->CopyStart] = GL_POLYGON+1;
 	 IM->PrimitiveLength[IM->CopyStart] = i - IM->CopyStart;
-	 if (IM->Flag[i] & VERT_END_VB) {
+	 if (IM->Flag[i] & VERT_BIT_END_VB) {
 	    IM->Primitive[IM->CopyStart] |= PRIM_LAST;
 	    IM->LastPrimitive = IM->CopyStart;
 	 }
@@ -246,7 +246,7 @@ static void fixup_compiled_primitives( GLcontext *ctx, struct immediate *IM )
 	 _mesa_error( ctx, GL_INVALID_OPERATION, "glBegin/glEnd");
 
       if (IM->CopyStart == IM->Start &&
-	  IM->Flag[IM->Start] & (VERT_END|VERT_END_VB))
+	  IM->Flag[IM->Start] & (VERT_BIT_END | VERT_BIT_END_VB))
       {
       }
       else
@@ -258,16 +258,16 @@ static void fixup_compiled_primitives( GLcontext *ctx, struct immediate *IM )
          /* one of these should be true, else we'll be in an infinite loop 
 	  */
          ASSERT(IM->PrimitiveLength[IM->Start] > 0 ||
-                IM->Flag[IM->Start] & (VERT_END|VERT_END_VB));
+                IM->Flag[IM->Start] & (VERT_BIT_END | VERT_BIT_END_VB));
 
 	 for (i = IM->Start ; i <= IM->Count ; i += IM->PrimitiveLength[i])
-	    if (IM->Flag[i] & (VERT_END|VERT_END_VB)) {
+	    if (IM->Flag[i] & (VERT_BIT_END | VERT_BIT_END_VB)) {
 	       IM->PrimitiveLength[IM->CopyStart] = i - IM->CopyStart;
-	       if (IM->Flag[i] & VERT_END_VB) {
+	       if (IM->Flag[i] & VERT_BIT_END_VB) {
 		  IM->Primitive[IM->CopyStart] |= PRIM_LAST;
 		  IM->LastPrimitive = IM->CopyStart;
 	       }
-	       if (IM->Flag[i] & VERT_END) {
+	       if (IM->Flag[i] & VERT_BIT_END) {
 		  IM->Primitive[IM->CopyStart] |= PRIM_END;
 	       }
 	       break;
@@ -295,8 +295,7 @@ execute_compiled_cassette( GLcontext *ctx, void *data )
    TNLvertexcassette *node = (TNLvertexcassette *)data;
    struct immediate *IM = node->IM;
 
-   if (MESA_VERBOSE & VERBOSE_DISPLAY_LIST)
-      fprintf(stderr, "execute_compiled_cassette IM: %d\n", IM->id); 
+/*     _mesa_debug("%s\n", __FUNCTION__); */
 
    IM->Start = node->Start;
    IM->CopyStart = node->Start;
@@ -312,15 +311,13 @@ execute_compiled_cassette( GLcontext *ctx, void *data )
    IM->MaterialOrMask = node->MaterialOrMask;
    IM->MaterialAndMask = node->MaterialAndMask;
 
-
    if ((MESA_VERBOSE & VERBOSE_DISPLAY_LIST) &&
        (MESA_VERBOSE & VERBOSE_IMMEDIATE))
       _tnl_print_cassette( IM );
 
    if (MESA_VERBOSE & VERBOSE_DISPLAY_LIST) {
-      fprintf(stderr, "Run cassette %d, rows %d..%d, beginstate %x ",
-	      IM->id,
-	      IM->Start, IM->Count, IM->BeginState);
+      _mesa_debug(ctx, "Run cassette %d, rows %d..%d, beginstate %x ",
+                  IM->id, IM->Start, IM->Count, IM->BeginState);
       _tnl_print_vert_flags("orflag", IM->OrFlag);
    }
 
@@ -367,12 +364,6 @@ execute_compiled_cassette( GLcontext *ctx, void *data )
 	    IM->Primitive[IM->LastPrimitive] & PRIM_MODE_MASK;
       }
 
-/*        fprintf(stderr, "%s: IM->Primitive[%d]: %x, CurrExecPrim: %x\n", */
-/*  	      __FUNCTION__, */
-/*  	      IM->LastPrimitive, */
-/*  	      IM->Primitive[IM->LastPrimitive],  */
-/*  	      ctx->Driver.CurrentExecPrimitive); */
-
       _tnl_get_exec_copy_verts( ctx, IM );
 
       if (IM->NormalLengthPtr) 
@@ -408,8 +399,8 @@ print_compiled_cassette( GLcontext *ctx, void *data )
    TNLvertexcassette *node = (TNLvertexcassette *)data;
    struct immediate *IM = node->IM;
 
-   fprintf(stderr, "TNL-VERTEX-CASSETTE, id %u, rows %u..%u\n",
-	   node->IM->id, node->Start, node->Count);
+   _mesa_debug(ctx, "TNL-VERTEX-CASSETTE, id %u, rows %u..%u\n",
+               node->IM->id, node->Start, node->Count);
 
    IM->Start = node->Start;
    IM->CopyStart = node->Start;
@@ -432,7 +423,7 @@ _tnl_BeginCallList( GLcontext *ctx, GLuint list )
 {
    (void) ctx;
    (void) list;
-   FLUSH_CURRENT(ctx, 0);	/* Current immediate is emptied on CallList */
+   FLUSH_CURRENT(ctx, 0);
 }
 
 
@@ -580,17 +571,15 @@ static void loopback_compiled_cassette( GLcontext *ctx, struct immediate *IM )
    void (GLAPIENTRY *texcoordfv[MAX_TEXTURE_UNITS])( GLenum, const GLfloat * );
    GLuint maxtex = 0;
    GLuint p, length, prim = 0;
-
-/*     _tnl_print_vert_flags(__FUNCTION__, orflag); */
-
-   if (orflag & VERT_OBJ_234)
+   
+   if (orflag & VERT_BITS_OBJ_234)
       vertex = (void (GLAPIENTRY *)(const GLfloat *)) glVertex4fv;
    else
       vertex = (void (GLAPIENTRY *)(const GLfloat *)) glVertex3fv;
    
-   if (orflag & VERT_TEX_ANY) {
+   if (orflag & VERT_BITS_TEX_ANY) {
       for (j = 0 ; j < ctx->Const.MaxTextureUnits ; j++) {
-	 if (orflag & VERT_TEX(j)) {
+	 if (orflag & VERT_BIT_TEX(j)) {
 	    maxtex = j+1;
 	    if ((IM->TexSize & TEX_SIZE_4(j)) == TEX_SIZE_4(j))
 	       texcoordfv[j] = glMultiTexCoord4fvARB;
@@ -614,49 +603,49 @@ static void loopback_compiled_cassette( GLcontext *ctx, struct immediate *IM )
       }
 
       for ( i = p ; i <= p+length ; i++) {
-	 if (flags[i] & VERT_TEX_ANY) {
+	 if (flags[i] & VERT_BITS_TEX_ANY) {
 	    GLuint k;
 	    for (k = 0 ; k < maxtex ; k++) {
-	       if (flags[i] & VERT_TEX(k)) {
-		  texcoordfv[k]( GL_TEXTURE0_ARB + k, IM->TexCoord[k][i] );
+	       if (flags[i] & VERT_BIT_TEX(k)) {
+		  texcoordfv[k]( GL_TEXTURE0_ARB + k,
+                                 IM->Attrib[VERT_ATTRIB_TEX0 + k][i] );
 	       }
 	    }
 	 }
 
-	 if (flags[i] & VERT_NORM) {
-	    glNormal3fv(IM->Normal[i]);
-	 }
+	 if (flags[i] & VERT_BIT_NORMAL) 
+	    glNormal3fv(IM->Attrib[VERT_ATTRIB_NORMAL][i]);
 
-	 if (flags[i] & VERT_RGBA) {
-	    glColor4fv( IM->Color[i] );
-	 }
+	 if (flags[i] & VERT_BIT_COLOR0) 
+	    glColor4fv( IM->Attrib[VERT_ATTRIB_COLOR0][i] );
 
-	 if (flags[i] & VERT_SPEC_RGB)
-	    _glapi_Dispatch->SecondaryColor3fvEXT( IM->SecondaryColor[i] );
+	 if (flags[i] & VERT_BIT_COLOR1)
+	    _glapi_Dispatch->SecondaryColor3fvEXT( IM->Attrib[VERT_ATTRIB_COLOR1][i] );
 
-	 if (flags[i] & VERT_FOG_COORD)
-	    _glapi_Dispatch->FogCoordfEXT( IM->FogCoord[i] );
+	 if (flags[i] & VERT_BIT_FOG)
+	    _glapi_Dispatch->FogCoordfEXT( IM->Attrib[VERT_ATTRIB_FOG][i][0] );
 
-	 if (flags[i] & VERT_INDEX)
+	 if (flags[i] & VERT_BIT_INDEX)
 	    glIndexi( IM->Index[i] );
 
-	 if (flags[i] & VERT_EDGE)
+	 if (flags[i] & VERT_BIT_EDGEFLAG)
 	    glEdgeFlag( IM->EdgeFlag[i] );
 
-	 if (flags[i] & VERT_MATERIAL) 
+	 if (flags[i] & VERT_BIT_MATERIAL) 
 	    emit_material( IM->Material[i], IM->MaterialMask[i] );
 
-	 if (flags[i]&VERT_OBJ_234) {
-	    vertex( IM->Obj[i] );
-	 }
-	 else if (flags[i] & VERT_EVAL_C1)
-	    glEvalCoord1f( IM->Obj[i][0] );
-	 else if (flags[i] & VERT_EVAL_P1)
-	    glEvalPoint1( (GLint) IM->Obj[i][0] );
-	 else if (flags[i] & VERT_EVAL_C2)
-	    glEvalCoord2f( IM->Obj[i][0], IM->Obj[i][1] );
-	 else if (flags[i] & VERT_EVAL_P2)
-	    glEvalPoint2( (GLint) IM->Obj[i][0], (GLint) IM->Obj[i][1] );
+	 if (flags[i]&VERT_BITS_OBJ_234) 
+	    vertex( IM->Attrib[VERT_ATTRIB_POS][i] );
+	 else if (flags[i] & VERT_BIT_EVAL_C1)
+	    glEvalCoord1f( IM->Attrib[VERT_ATTRIB_POS][i][0] );
+	 else if (flags[i] & VERT_BIT_EVAL_P1)
+	    glEvalPoint1( (GLint) IM->Attrib[VERT_ATTRIB_POS][i][0] );
+	 else if (flags[i] & VERT_BIT_EVAL_C2)
+	    glEvalCoord2f( IM->Attrib[VERT_ATTRIB_POS][i][0],
+                           IM->Attrib[VERT_ATTRIB_POS][i][1] );
+	 else if (flags[i] & VERT_BIT_EVAL_P2)
+	    glEvalPoint2( (GLint) IM->Attrib[VERT_ATTRIB_POS][i][0],
+                          (GLint) IM->Attrib[VERT_ATTRIB_POS][i][1] );
       }
 
       if (prim & PRIM_END) {

@@ -23,7 +23,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from The Open Group.
 .\"
-.\" $XFree86: xc/programs/xlogo/xlogo.man,v 1.10 2002/10/12 16:06:48 herrb Exp $
+.\" $XFree86: xc/programs/xlogo/xlogo.man,v 1.11 2003/05/24 15:26:19 herrb Exp $
 .\"
 .TH XLOGO 1 __xorgversion__
 .SH NAME
@@ -41,7 +41,7 @@ following:
 .B \-render
 This option indicates that the logo should be drawn with anti-aliased edges using the RENDER extension.
 .TP 8
-.B \-shape
+.B \-sharp
 If -render is also specified, this forces the edges to be rendered in sharp mode, (ie. 1-bit alpha channel).
 .TP 8
 .B \-shape

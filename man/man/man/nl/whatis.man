@@ -1,0 +1,32 @@
+.\" Man page for whatis
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.TH whatis 1 "Jan 5, 1991"
+.LO 1
+.SH NAAM
+whatis \- zoek gegeven woorden in de whatis database
+.SH SYNTAX
+.BI whatis
+woord ...
+.SH BESCHRIJVING
+.B whatis
+zoekt naar de opgegeven woorden in een aantal database bestanden
+die korte beschrijvingen van systeem\%commando's bevatten 
+en stuurt het resultaat naar standaard uitvoer.
+De opgegeven woorden moeten als volledige woorden gevonden worden.
+
+De whatis database bestanden wordem aangemaakt met behulp van
+het commando @makewhatis@.
+.SH "ZIE OOK"
+apropos(1), man(1).

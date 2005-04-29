@@ -2,6 +2,12 @@ dnl Process this with autoconf to create configure
 
 AC_INIT(zlib.h)
 
+# This works around the fact that libtool configuration may change LD
+# for this particular configuration, but some shells, instead of
+# keeping the changes in LD private, export them just because LD is
+# exported.
+ORIGINAL_LD_FOR_MULTILIBS=$LD
+
 dnl We may get other options which we dont document:
 dnl --with-target-subdir, --with-multisrctop, --with-multisubdir
 
@@ -26,7 +32,7 @@ fi
 AC_CANONICAL_SYSTEM
 
 # This works around an automake problem.
-mkinstalldirs="`cd $ac_aux_dir && pwd`/mkinstalldirs"
+mkinstalldirs="`cd $ac_aux_dir && ${PWDCMD-pwd}`/mkinstalldirs"
 AC_SUBST(mkinstalldirs)
 
 AM_INIT_AUTOMAKE(zlib, 1.1.3)
@@ -107,7 +113,23 @@ AC_SUBST(target_all)
 
 AC_CHECK_HEADERS(unistd.h)
 
-AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
+if test -n "$with_cross_host" &&
+   test x"$with_cross_host" != x"no"; then
+  toolexecdir='$(exec_prefix)/$(target_alias)'
+  toolexeclibdir='$(toolexecdir)/lib'
+else
+  toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
+  toolexeclibdir='$(libdir)'
+fi
+if test "$GCC" = yes && $CC -print-multi-os-directory > /dev/null 2>&1; then
+  multiosdir=/`$CC -print-multi-os-directory`
+else
+  multiosdir=
+fi
+toolexeclibdir=${toolexeclibdir}${multiosdir}
+AC_SUBST(toolexecdir)
+AC_SUBST(toolexeclibdir)
+
 AM_CONDITIONAL(TARGET_LIBRARY, test -n "$with_target_subdir")
 
 if test "${multilib}" = "yes"; then
@@ -118,6 +140,7 @@ fi
 
 AC_OUTPUT(Makefile,
 [if test -n "$CONFIG_FILES"; then
+  LD="${ORIGINAL_LD_FOR_MULTILIBS}"
   ac_file=Makefile . ${zlib_basedir}/../config-ml.in
 fi],
 srcdir=${srcdir}
@@ -129,4 +152,5 @@ CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
 zlib_basedir=${zlib_basedir}
 CC="${CC}"
 CXX="${CXX}"
+ORIGINAL_LD_FOR_MULTILIBS="${ORIGINAL_LD_FOR_MULTILIBS}"
 )

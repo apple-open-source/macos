@@ -127,6 +127,10 @@ int MAIN(int argc, char **argv)
 		else if (strcmp(*argv,"-des3") == 0)
 			enc=EVP_des_ede3_cbc();
 #endif
+#ifndef NO_IDEA
+		else if (strcmp(*argv,"-idea") == 0)
+			enc=EVP_idea_cbc();
+#endif
 		else if (strcmp(*argv,"-passout") == 0)
 			{
 			if (--argc < 1) goto bad;
@@ -143,6 +147,9 @@ bad:
 		BIO_printf(bio_err,"usage: genrsa [args] [numbits]\n");
 		BIO_printf(bio_err," -des            encrypt the generated key with DES in cbc mode\n");
 		BIO_printf(bio_err," -des3           encrypt the generated key with DES in ede cbc mode (168 bit key)\n");
+#ifndef NO_IDEA
+		BIO_printf(bio_err," -idea           encrypt the generated key with IDEA in cbc mode\n");
+#endif
 		BIO_printf(bio_err," -out file       output the key to 'file\n");
 		BIO_printf(bio_err," -passout arg    output file pass phrase source\n");
 		BIO_printf(bio_err," -f4             use F4 (0x10001) for the E value\n");

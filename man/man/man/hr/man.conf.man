@@ -1,0 +1,56 @@
+.\" @(#)man.conf
+.\"
+.\" 9. studenog 1998. preveo Matej Vela <mvela@public.srce.hr>, META.
+.TH MAN.CONF 5 "30. o¾ujka 1994."
+.SH IME
+man.conf \- konfiguracijski podaci za man
+.SH OPIS
+Ovu datoteku èita
+.BR man (1),
+a sadr¾i
+(a) informacije o izgradnji staze pretra¾ivanja za man,
+(b) pune staze i imena raznih programa kao ¹to je
+.BR nroff ", " eqn ", " tbl
+itd. koje man koristi, te
+(c) popis programa za dekomprimiranje datoteka s navedenim nastavcima.
+Neka druga verzija ove datoteke mo¾e se odrediti pomoæu
+.LP
+.RS
+man -C osobni_man.conf ...
+.RE
+.LP
+Imenima naredbi mogu se dodati opcije.
+Opcije korisne za
+.B nroff
+mogu se naæi u
+.BR grotty (1).
+Na primjer, umjesto predodreðenog reda
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+mo¾ete napisati
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+kako biste iskljuèili potcrtavanje i precrtavanje.
+.SH "TAKOÐER POGLEDAJTE"
+.BR col (1),
+.BR (g)eqn (1),
+.BR (g)pic (1),
+.BR groff (1),
+.BR grotty (1),
+.BR (g)refer (1),
+.BR (g)tbl (1),
+.BR less (1),
+.BR man (1),
+te
+.BR compress (1),
+.BR gzip (1).

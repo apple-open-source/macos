@@ -2,7 +2,7 @@
 
 AT_BANNER([Low level compiling/preprocessing macros.])
 
-# Copyright 2000, 2001 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -117,19 +117,19 @@ AT_DATA([configure.ac],
 [[AC_INIT
 
 AC_RUN_IFELSE([AC_LANG_PROGRAM([], [exit (0)])],
-              [],
-              [AC_MSG_ERROR([saw `exit 0' as a failure])])
+	      [],
+	      [AC_MSG_ERROR([saw `exit 0' as a failure])])
 
 AC_RUN_IFELSE([AC_LANG_PROGRAM([], [exit (2)])],
-              [AC_MSG_ERROR([saw `exit 2' as a success])],
-              [status=$?
+	      [AC_MSG_ERROR([saw `exit 2' as a success])],
+	      [status=$?
 test $status != 2 &&
   AC_MSG_ERROR([did not get as 2 exit status: $status])])
 
 # The old stinky one.
 AC_TRY_RUN([int main () { exit (3); }],
-           [AC_MSG_ERROR([saw `exit 3' as a success])],
-           [status=$?
+	   [AC_MSG_ERROR([saw `exit 3' as a success])],
+	   [status=$?
 test $status != 3 &&
   AC_MSG_ERROR([did not get 3 as exit status: $status])])
 
@@ -146,6 +146,6 @@ AT_CLEANUP
 
 AT_CHECK_MACRO([AC_TRY_LINK_FUNC],
 [AC_TRY_LINK_FUNC(printf,,
-                  [AC_MSG_ERROR([cannot find `printf'])])
+		  [AC_MSG_ERROR([cannot find `printf'])])
 AC_TRY_LINK_FUNC(Be_doomed_if_your_libc_has_a_function_named_like_this,
-                 [AC_MSG_ERROR([found a nonexistent function])])])
+		 [AC_MSG_ERROR([found a nonexistent function])])])

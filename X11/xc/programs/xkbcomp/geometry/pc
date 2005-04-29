@@ -24,7 +24,7 @@
 //other dealings in this Software without prior written authorization
 //from The Open Group.
 //
-// $XFree86: xc/programs/xkbcomp/geometry/pc,v 3.11 2001/12/14 20:01:58 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/geometry/pc,v 3.15 2003/09/27 13:31:57 pascal Exp $
 
 default xkb_geometry "pc101" {
 
@@ -59,9 +59,9 @@ default xkb_geometry "pc101" {
     indicator.offColor= "green30";
     indicator.top= 67;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 382; };
-    indicator "CapsLock"    { left= 407; };
-    indicator "ScrollLock"  { left= 433; };
+    indicator "Num Lock"     { left= 382; };
+    indicator "Caps Lock"    { left= 407; };
+    indicator "Scroll Lock"  { left= 433; };
     text.top= 55;
     text.color= "black";
     text "NumLockLabel"		{ left= 378; text="Num\nLock"; };
@@ -219,9 +219,9 @@ xkb_geometry "pc102" {
     indicator.offColor= "green30";
     indicator.top= 67;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 382; };
-    indicator "CapsLock"    { left= 407; };
-    indicator "ScrollLock"  { left= 433; };
+    indicator "Num Lock"     { left= 382; };
+    indicator "Caps Lock"    { left= 407; };
+    indicator "Scroll Lock"  { left= 433; };
     text.top= 55;
     text.color= "black";
     text "NumLockLabel"		{ left= 378; text="Num\nLock"; };
@@ -378,9 +378,9 @@ xkb_geometry "pc104" {
     indicator.offColor= "green30";
     indicator.top= 67;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 382; };
-    indicator "CapsLock"    { left= 407; };
-    indicator "ScrollLock"  { left= 433; };
+    indicator "Num Lock"     { left= 382; };
+    indicator "Caps Lock"    { left= 407; };
+    indicator "Scroll Lock"  { left= 433; };
     text.top= 55;
     text.color= "black";
     text "NumLockLabel"		{ left= 378; text="Num\nLock"; };
@@ -537,9 +537,9 @@ xkb_geometry "pc105" {
     indicator.offColor= "green30";
     indicator.top= 67;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 382; };
-    indicator "CapsLock"    { left= 407; };
-    indicator "ScrollLock"  { left= 433; };
+    indicator "Num Lock"     { left= 382; };
+    indicator "Caps Lock"    { left= 407; };
+    indicator "Scroll Lock"  { left= 433; };
     text.top= 55;
     text.color= "black";
     text "NumLockLabel"		{ left= 378; text="Num\nLock"; };
@@ -700,9 +700,9 @@ xkb_geometry "jp106" {
     indicator.offColor= "green30";
     indicator.top= 40;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 379; };
-    indicator "CapsLock"    { left= 404; };
-    indicator "ScrollLock"  { left= 429; };
+    indicator "Num Lock"     { left= 379; };
+    indicator "Caps Lock"    { left= 404; };
+    indicator "Scroll Lock"  { left= 429; };
     text.top= 28;
     text.color= "black";
     text "NumLockLabel"		{ left= 378; text="Num\nLock"; };
@@ -862,9 +862,9 @@ xkb_geometry "abnt2" {
     indicator.offColor= "green30";
     indicator.top= 40;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 379; };
-    indicator "CapsLock"    { left= 404; };
-    indicator "ScrollLock"  { left= 429; };
+    indicator "Num Lock"     { left= 379; };
+    indicator "Caps Lock"    { left= 404; };
+    indicator "Scroll Lock"  { left= 429; };
     text.top= 28;
     text.color= "black";
     text "NumLockLabel"		{ left= 378; text="Num\nLock"; };
@@ -988,3 +988,172 @@ xkb_geometry "abnt2" {
 
 }; // End of "abnt2" geometry
 
+
+// Created by Alexander Pohoyda <alexander.pohoyda@gmx.net>
+
+xkb_geometry "pc86" {
+    description = "Noname keyboard with 86 keys, DE";
+    width = 287;
+    height = 143;
+    baseColor = "grey20";
+
+    shape "EDGE" { cornerRadius = 2, { [287, 143] } };
+    shape "LED"  { cornerRadius = 2, { [3, 3] } };
+    shape "LEDS" { cornerRadius = 0, { [75, 5] } };
+    shape "KEYS" { cornerRadius = 0, { [271, 109] } };
+
+    outline "Edges" {
+        top = 0;
+        left = 0;
+        shape = "EDGE";
+        color = "black";
+    };
+
+    solid "KeyPanel" {
+	shape = "KEYS";
+	left = 8;
+	top = 22;
+	color = "grey70";
+    };
+
+    solid "LedPanel" {
+	shape = "LEDS";
+	left = 212;
+	top = 10;
+	color = "black";
+    };
+
+    indicator.onColor = "green";
+    indicator.offColor = "green30";
+    indicator.top = 11;
+    indicator.shape = "LED";
+    indicator "Num Lock"     { left = 212 + 7; };
+    indicator "Caps Lock"    { left = 212 + 23; };
+    indicator "Scroll Lock"  { left = 212 + 39; };
+    text.fontSize = 6;
+    text.top = 10;
+    text.color = "white";
+    text "NumLockLabel"     { left = 212 + 7 + 5; text = "Num\nLock"; };
+    text "CapsLockLabel"    { left = 212 + 23 + 5; text = "Caps\nLock"; };
+    text "ScrollLockLabel"  { left = 212 + 39 + 5; text = "Scroll\nLock"; };
+
+    shape.cornerRadius = 1;
+    shape "SMALL"  { { [15, 12] }, { [1.5, 0], [13.5, 10] } };
+    shape "NARR"   { { [13, 18] }, { [1.5, 0], [11.5, 14] } };
+    shape "NORM"   { { [18, 18] }, { [3, 0], [15, 14] } };
+    shape "NORM_1" { { [22, 18] }, { [4, 0], [22, 18] },
+                                   { [7, 0], [19, 14] } };
+    shape "WIDER"  { { [23, 18] }, { [3, 0], [20, 14] } };
+    shape "WIDEST" { { [27, 18] }, { [3, 0], [24, 14] } };
+    shape "SPCE"   { { [75, 18] }, { [3, 0], [72, 14] } };
+
+    section "Function" {
+	key.shape = "SMALL";
+	key.gap = 0.99;
+	key.color = "grey30";
+	left = 8;
+	top = 22;
+	row {
+	    top = 1;
+	    keys {  <ESC>,
+	    	    <FK01>, <FK02>, <FK03>, <FK04>,
+		    <FK05>, <FK06>, <FK07>, <FK08>,
+		    <FK09>, <FK10>, <FK11>, <FK12>,
+		    <NMLK>, <PRSC>, <SCLK>, <PAUS>
+	    };
+	};
+    }; // End of "Function" section
+
+    section "Control" {
+	key.shape = "NORM";
+	key.gap = 1;
+	key.color = "grey30";
+        left = 8;
+	top = 111;
+	row {
+	    top = 1;
+	    keys { <LCTL>, <FN>, <LALT>,
+	           { <SPCE>, shape="SPCE", 39 }, <RALT>,
+		   <INS>, <DELE>
+	    };
+	};
+    }; // End of "Control" section
+
+    section "Editing" {
+        key.shape = "NARR";
+	key.gap = 1;
+	key.color = "grey30";
+	left = 265;
+	top = 34;
+        row.vertical = True;
+	row {
+	    top = 1;
+	    keys { <HOME>, <PGUP>, <PGDN>, <END> };
+	};
+    }; // End of "Editing" section
+
+    section "Navigation" {
+	key.gap = 1;
+	key.shape = "NARR";
+	key.color = "grey30";
+	left = 236;
+	top = 92;
+	row {
+	    left = 14;
+	    top = 1;
+	    keys { <UP> };
+	};
+	row {
+	    top = 20;
+	    keys { <LEFT>, <DOWN>, <RGHT> };
+	};
+    }; // End of "Navigation" section
+
+    section "Alpha" {
+	key.gap = 1;
+	key.shape = "NORM";
+	key.color = "grey10";
+        left = 8;
+	top = 35;
+	row {
+	    top = 1;
+	    keys { { <AE01>, shape="NORM_1" }, <AE02>, <AE03>, <AE04>,
+		   <AE05>, <AE06>, <AE07>, <AE08>, <AE09>,
+		   <AE10>, <AE11>, <AE12>,
+                   { <BKSP>, shape="WIDER", color="grey30" }
+	    };
+	};
+	row {
+	    top = 20;
+	    keys { { <TAB>, shape="NARR", color="grey30" },
+		   <AD01>, <AD02>, <AD03>, <AD04>, <AD05>, 
+		   <AD06>, <AD07>, <AD08>, <AD09>, <AD10>, 
+		   <AD11>, <AD12>, { <AD13>, shape="NARR" }
+	    };
+	};
+	row {
+	    top = 39;
+	    keys { { <CAPS>, color="grey30" },
+		   <AC01>, <AC02>, <AC03>, <AC04>, <AC05>, 
+		   <AC06>, <AC07>, <AC08>, <AC09>, <AC10>, 
+		   <AC11>, { <RTRN>, shape="WIDEST", color="grey30" }
+	    };
+	};
+	row {
+	    top = 58;
+	    keys { { <LFSH>, shape="WIDEST", color="grey30" },
+		    <AB01>, <AB02>, <AB03>, <AB04>, <AB05>, 
+		    <AB06>, <AB07>, <AB08>, <AB09>, <AB10>,
+		    { <RTSH>, shape="WIDER", color="grey30" }
+	    };
+	};
+	row {
+            left = 57;
+	    top = 77;
+	    keys { <AE00>, <LSGT> };
+	};
+    }; // End of "Alpha" section
+
+    alias <AC00> = <CAPS>;
+    alias <AA00> = <LCTL>;
+}; // End of "pc86" geometry

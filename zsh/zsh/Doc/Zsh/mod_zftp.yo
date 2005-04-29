@@ -31,15 +31,25 @@ cindex(zftp, subcommands)
 
 startitem()
 cindex(FTP, starting a session)
-item(tt(open) var(host) [ var(user) [ var(password) [ var(account) ] ] ])(
+item(tt(open) var(host)[tt(:)var(port)] [ var(user) [ var(password) [ var(account) ] ] ])(
 Open a new FTP session to var(host), which may be the name of a TCP/IP
-connected host or an IP number in the standard dot notation.
+connected host or an IP number in the standard dot notation.  If the
+argument is in the form var(host)tt(:)var(port), open a connection to
+TCP port var(port) instead of the standard FTP port 21.  This may be
+the name of a TCP service or a number:  see the description of
+tt(ZFTP_PORT) below for more information.
+
+If IPv6 addresses in colon format are used, the var(host) should be
+surrounded by quoted square brackets to distinguish it from the var(port),
+for example tt('[fe80::203:baff:fe02:8b56]').  For consistency this is
+allowed with all forms of var(host).
+
 Remaining arguments are passed to the tt(login) subcommand.  Note that
 if no arguments beyond var(host) are supplied, tt(open) will em(not)
 automatically call tt(login).  If no arguments at all are supplied,
 tt(open) will use the parameters set by the tt(params) subcommand.
 
-After a successful open, the shell variables tt(ZFTP_HOST),
+After a successful open, the shell variables tt(ZFTP_HOST), tt(ZFTP_PORT),
 tt(ZFTP_IP) and tt(ZFTP_SYSTEM) are available; see `Variables'
 below.
 )
@@ -222,7 +232,7 @@ control connection are sent to standard error.
 xitem(tt(close))
 item(tt(quit))(
 Close the current data connection.  This unsets the shell parameters
-tt(ZFTP_HOST), tt(ZFTP_IP), tt(ZFTP_SYSTEM), tt(ZFTP_USER),
+tt(ZFTP_HOST), tt(ZFTP_PORT), tt(ZFTP_IP), tt(ZFTP_SYSTEM), tt(ZFTP_USER),
 tt(ZFTP_ACCOUNT), tt(ZFTP_PWD), tt(ZFTP_TYPE) and tt(ZFTP_MODE).
 )
 item(tt(session) [ var(sessname) ])(
@@ -277,6 +287,18 @@ Readonly.  The hostname of the current remote server.  If the host was
 opened as an IP number, tt(ZFTP_HOST) contains that instead; this
 saves the overhead for a name lookup, as IP numbers are most commonly
 used when a nameserver is unavailable.
+)
+vindex(ZFTP_PORT)
+item(tt(ZFTP_PORT))(
+Readonly.  The number of the remote TCP port to which the connection is
+open (even if the port was originally specified as a named service).
+Usually this is the standard FTP port, 21.
+
+In the unlikely event that your system does not have the appropriate
+conversion functions, this appears in network byte order.  If your
+system is little-endian, the port then consists of two swapped bytes and the
+standard port will be reported as 5376.  In that case, numeric ports passed
+to tt(zftp open) will also need to be in this format.
 )
 vindex(ZFTP_SYSTEM)
 item(tt(ZFTP_SYSTEM))(

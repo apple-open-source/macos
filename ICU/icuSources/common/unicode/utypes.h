@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1996-2003, International Business Machines
+*   Copyright (C) 1996-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -37,6 +37,19 @@
 #include "unicode/utf.h"
 #include "unicode/uversion.h"
 #include "unicode/uconfig.h"
+
+#ifdef U_HIDE_DRAFT_API
+#include "unicode/udraft.h"
+#endif
+
+#ifdef U_HIDE_DEPRECATED_API
+#include "unicode/udeprctd.h"
+#endif
+
+#ifdef U_HIDE_DEPRECATED_API
+#include "unicode/uobslete.h"
+#endif
+
 
 /*!
  * \file
@@ -75,7 +88,7 @@
  *
  * <p>Those "invariant characters" should be all the uppercase and lowercase
  * latin letters, the digits, the space, and "basic punctuation".
- * Also, '\n', '\r', '\t' should be available.</p>
+ * Also, '\\n', '\\r', '\\t' should be available.</p>
  *
  * <p>The list of "invariant characters" is:<br>
  * \code
@@ -125,15 +138,6 @@
  * This letter is part of the common data file name.
  * @stable ICU 2.0
  */
-
-#ifdef __APPLE__
-#undef U_IS_BIG_ENDIAN
-#if __BIG_ENDIAN__
-#define U_IS_BIG_ENDIAN		1
-#else	// __BIG_ENDIAN__
-#define U_IS_BIG_ENDIAN		0
-#endif	// __BIG_ENDIAN__
-#endif	// __APPLE__
 
 /**
  * \def U_ICUDATA_TYPE_LITLETTER
@@ -278,7 +282,7 @@ typedef double UDate;
  * \code
  *      class Derived {
  *      public:
- *          static UClassID getStaticClassID();
+ *          static UClassID U_EXPORT2 getStaticClassID();
  *      private:
  *          static char fgClassID;
  *      }
@@ -311,6 +315,13 @@ typedef void* UClassID;
  */
 
 /**
+ * \def U_DATA_API
+ * Set to export library symbols from inside the stubdata library,
+ * and to import them from outside.
+ * @draft ICU 3.0
+ */
+
+/**
  * \def U_COMMON_API
  * Set to export library symbols from inside the common library,
  * and to import them from outside.
@@ -335,64 +346,72 @@ typedef void* UClassID;
  * \def U_LAYOUTEX_API
  * Set to export library symbols from inside the layout extensions library,
  * and to import them from outside.
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
 
 /**
- * \def U_USTDIO_API
+ * \def U_IO_API
  * Set to export library symbols from inside the ustdio library,
  * and to import them from outside.
  * @stable ICU 2.0
  */
 
 #if defined(U_COMBINED_IMPLEMENTATION)
+#define U_DATA_API     U_EXPORT
 #define U_COMMON_API   U_EXPORT
 #define U_I18N_API     U_EXPORT
 #define U_LAYOUT_API   U_EXPORT
 #define U_LAYOUTEX_API U_EXPORT
-#define U_USTDIO_API   U_EXPORT
+#define U_IO_API       U_EXPORT
 #elif defined(U_STATIC_IMPLEMENTATION)
+#define U_DATA_API
 #define U_COMMON_API
 #define U_I18N_API
 #define U_LAYOUT_API
 #define U_LAYOUTEX_API
-#define U_USTDIO_API
+#define U_IO_API
 #elif defined(U_COMMON_IMPLEMENTATION)
+#define U_DATA_API     U_IMPORT
 #define U_COMMON_API   U_EXPORT
 #define U_I18N_API     U_IMPORT
 #define U_LAYOUT_API   U_IMPORT
 #define U_LAYOUTEX_API U_IMPORT
-#define U_USTDIO_API   U_IMPORT
+#define U_IO_API       U_IMPORT
 #elif defined(U_I18N_IMPLEMENTATION)
+#define U_DATA_API     U_IMPORT
 #define U_COMMON_API   U_IMPORT
 #define U_I18N_API     U_EXPORT
 #define U_LAYOUT_API   U_IMPORT
 #define U_LAYOUTEX_API U_IMPORT
-#define U_USTDIO_API   U_IMPORT
+#define U_IO_API       U_IMPORT
 #elif defined(U_LAYOUT_IMPLEMENTATION)
+#define U_DATA_API     U_IMPORT
 #define U_COMMON_API   U_IMPORT
 #define U_I18N_API     U_IMPORT
 #define U_LAYOUT_API   U_EXPORT
 #define U_LAYOUTEX_API U_IMPORT
-#define U_USTDIO_API   U_IMPORT
+#define U_IO_API       U_IMPORT
 #elif defined(U_LAYOUTEX_IMPLEMENTATION)
+#define U_DATA_API     U_IMPORT
 #define U_COMMON_API   U_IMPORT
 #define U_I18N_API     U_IMPORT
 #define U_LAYOUT_API   U_IMPORT
 #define U_LAYOUTEX_API U_EXPORT
-#define U_USTDIO_API   U_IMPORT
-#elif defined(U_USTDIO_IMPLEMENTATION)
+#define U_IO_API       U_IMPORT
+#elif defined(U_IO_IMPLEMENTATION)
+#define U_DATA_API     U_IMPORT
 #define U_COMMON_API   U_IMPORT
 #define U_I18N_API     U_IMPORT
 #define U_LAYOUT_API   U_IMPORT
 #define U_LAYOUTEX_API U_IMPORT
-#define U_USTDIO_API   U_EXPORT
+#define U_IO_API       U_EXPORT
 #else
+#define U_DATA_API     U_IMPORT
 #define U_COMMON_API   U_IMPORT
 #define U_I18N_API     U_IMPORT
 #define U_LAYOUT_API   U_IMPORT
 #define U_LAYOUTEX_API U_IMPORT
-#define U_USTDIO_API   U_IMPORT
+#define U_IO_API       U_IMPORT
 #endif
 
 /**
@@ -405,6 +424,7 @@ typedef void* UClassID;
 #else
 #define U_STANDARD_CPP_NAMESPACE
 #endif
+
 
 /*===========================================================================*/
 /* Global delete operator                                                    */
@@ -537,9 +557,9 @@ typedef enum UErrorCode {
     U_MEMORY_ALLOCATION_ERROR =  7,     /**< Memory allocation error */
     U_INDEX_OUTOFBOUNDS_ERROR =  8,     /**< Trying to access the index that is out of bounds */
     U_PARSE_ERROR             =  9,     /**< Equivalent to Java ParseException */
-    U_INVALID_CHAR_FOUND      = 10,     /**< In the Character conversion routines: Invalid character or sequence was encountered. In other APIs: Invalid character or code point name. */
-    U_TRUNCATED_CHAR_FOUND    = 11,     /**< In the Character conversion routines: More bytes are required to complete the conversion successfully */
-    U_ILLEGAL_CHAR_FOUND      = 12,     /**< In codeset conversion: a sequence that does NOT belong in the codepage has been encountered */
+    U_INVALID_CHAR_FOUND      = 10,     /**< Character conversion: Unmappable input sequence. In other APIs: Invalid character. */
+    U_TRUNCATED_CHAR_FOUND    = 11,     /**< Character conversion: Incomplete input sequence. */
+    U_ILLEGAL_CHAR_FOUND      = 12,     /**< Character conversion: Illegal input sequence/combination of input units.. */
     U_INVALID_TABLE_FORMAT    = 13,     /**< Conversion table file found, but corrupted */
     U_INVALID_TABLE_FILE      = 14,     /**< Conversion table file not found */
     U_BUFFER_OVERFLOW_ERROR   = 15,     /**< A result would not fit in the supplied buffer */
@@ -555,6 +575,9 @@ typedef enum UErrorCode {
                                              It is very possible that a circular alias definition has occured */
     U_ENUM_OUT_OF_SYNC_ERROR  = 25,     /**< UEnumeration out of sync with underlying collection */
     U_INVARIANT_CONVERSION_ERROR = 26,  /**< Unable to convert a UChar* string to char* with the invariant converter. */
+    U_INVALID_STATE_ERROR     = 27,     /**< Requested operation can not be completed with ICU in its current state */
+    U_COLLATOR_VERSION_MISMATCH = 28,   /**< Collator version is not compatible with the base version */
+    U_USELESS_COLLATOR_ERROR  = 29,     /**< Collator is options only and no base is specified */
 
     U_STANDARD_ERROR_LIMIT,             /**< This must always be the last value to indicate the limit for standard errors */
     /*
@@ -633,40 +656,49 @@ typedef enum UErrorCode {
     U_BRK_UNDEFINED_VARIABLE,              /**< Use of an undefined $Variable in an RBBI rule.    */
     U_BRK_INIT_ERROR,                      /**< Initialization failure.  Probable missing ICU Data. */
     U_BRK_RULE_EMPTY_SET,                  /**< Rule contains an empty Unicode Set.               */
+    U_BRK_UNRECOGNIZED_OPTION,             /**< !!option in RBBI rules not recognized.            */
+    U_BRK_MALFORMED_RULE_TAG,              /**< The {nnn} tag on a rule is mal formed             */
     U_BRK_ERROR_LIMIT,                     /**< This must always be the last value to indicate the limit for Break Iterator failures */
 
     /*
      * The error codes in the range 0x10300-0x103ff are reserved for regular expression related errrs
      */
-     U_REGEX_ERROR_START=0x10300,          /**< Start of codes indicating Regexp failures          */
-     U_REGEX_INTERNAL_ERROR,               /**< An internal error (bug) was detected.              */
-     U_REGEX_RULE_SYNTAX,                  /**< Syntax error in regexp pattern.                    */
-     U_REGEX_INVALID_STATE,                /**< RegexMatcher in invalid state for requested operation */
-     U_REGEX_BAD_ESCAPE_SEQUENCE,          /**< Unrecognized backslash escape sequence in pattern  */
-     U_REGEX_PROPERTY_SYNTAX,              /**< Incorrect Unicode property                         */
-     U_REGEX_UNIMPLEMENTED,                /**< Use of regexp feature that is not yet implemented. */
-     U_REGEX_MISMATCHED_PAREN,             /**< Incorrectly nested parentheses in regexp pattern.  */
-     U_REGEX_NUMBER_TOO_BIG,               /**< Decimal number is too large.                       */
-     U_REGEX_BAD_INTERVAL,                 /**< Error in {min,max} interval                        */
-     U_REGEX_MAX_LT_MIN,                   /**< In {min,max}, max is less than min.                */
-     U_REGEX_INVALID_BACK_REF,             /**< Back-reference to a non-existent capture group.    */
-     U_REGEX_INVALID_FLAG,                 /**< Invalid value for match mode flags.                */
-     U_REGEX_LOOK_BEHIND_LIMIT,            /**< Look-Behind pattern matches must have a bounded maximum length.    */
-     U_REGEX_SET_CONTAINS_STRING,          /**< Regexps cannot have UnicodeSets containing strings.*/
-     U_REGEX_ERROR_LIMIT,                  /**< This must always be the last value to indicate the limit for regexp errors */
+    U_REGEX_ERROR_START=0x10300,          /**< Start of codes indicating Regexp failures          */
+    U_REGEX_INTERNAL_ERROR,               /**< An internal error (bug) was detected.              */
+    U_REGEX_RULE_SYNTAX,                  /**< Syntax error in regexp pattern.                    */
+    U_REGEX_INVALID_STATE,                /**< RegexMatcher in invalid state for requested operation */
+    U_REGEX_BAD_ESCAPE_SEQUENCE,          /**< Unrecognized backslash escape sequence in pattern  */
+    U_REGEX_PROPERTY_SYNTAX,              /**< Incorrect Unicode property                         */
+    U_REGEX_UNIMPLEMENTED,                /**< Use of regexp feature that is not yet implemented. */
+    U_REGEX_MISMATCHED_PAREN,             /**< Incorrectly nested parentheses in regexp pattern.  */
+    U_REGEX_NUMBER_TOO_BIG,               /**< Decimal number is too large.                       */
+    U_REGEX_BAD_INTERVAL,                 /**< Error in {min,max} interval                        */
+    U_REGEX_MAX_LT_MIN,                   /**< In {min,max}, max is less than min.                */
+    U_REGEX_INVALID_BACK_REF,             /**< Back-reference to a non-existent capture group.    */
+    U_REGEX_INVALID_FLAG,                 /**< Invalid value for match mode flags.                */
+    U_REGEX_LOOK_BEHIND_LIMIT,            /**< Look-Behind pattern matches must have a bounded maximum length.    */
+    U_REGEX_SET_CONTAINS_STRING,          /**< Regexps cannot have UnicodeSets containing strings.*/
+    U_REGEX_ERROR_LIMIT,                  /**< This must always be the last value to indicate the limit for regexp errors */
 
-     /*
-      * The error code in the range 0x10400-0x104ff are reserved for IDNA related error codes
-      */
-      U_IDNA_ERROR_START=0x10400,
-      U_IDNA_PROHIBITED_CODEPOINT_FOUND_ERROR,
-      U_IDNA_UNASSIGNED_CODEPOINT_FOUND_ERROR,
-      U_IDNA_CHECK_BIDI_ERROR,
-      U_IDNA_STD3_ASCII_RULES_ERROR,
-      U_IDNA_ACE_PREFIX_ERROR,
-      U_IDNA_VERIFICATION_ERROR,
-      U_IDNA_LABEL_TOO_LONG_ERROR,
-      U_IDNA_ERROR_LIMIT,
+    /*
+     * The error code in the range 0x10400-0x104ff are reserved for IDNA related error codes
+     */
+    U_IDNA_ERROR_START=0x10400,
+    U_IDNA_PROHIBITED_ERROR,
+    U_IDNA_UNASSIGNED_ERROR,
+    U_IDNA_CHECK_BIDI_ERROR,
+    U_IDNA_STD3_ASCII_RULES_ERROR,
+    U_IDNA_ACE_PREFIX_ERROR,
+    U_IDNA_VERIFICATION_ERROR,
+    U_IDNA_LABEL_TOO_LONG_ERROR,
+    U_IDNA_ERROR_LIMIT,
+    /*
+     * Aliases for StringPrep
+     */
+    U_STRINGPREP_PROHIBITED_ERROR = U_IDNA_PROHIBITED_ERROR,
+    U_STRINGPREP_UNASSIGNED_ERROR = U_IDNA_UNASSIGNED_ERROR,
+    U_STRINGPREP_CHECK_BIDI_ERROR = U_IDNA_CHECK_BIDI_ERROR,
+
 
     U_ERROR_LIMIT=U_IDNA_ERROR_LIMIT      /**< This must always be the last value to indicate the limit for UErrorCode (last error code +1) */
 } UErrorCode;
@@ -706,15 +738,8 @@ typedef enum UErrorCode {
  * in the UErrorCode enum above.
  * @stable ICU 2.0
  */
-U_CAPI const char * U_EXPORT2
+U_STABLE const char * U_EXPORT2
 u_errorName(UErrorCode code);
 
-
-
-/*===========================================================================*/
-/* Include header for platform utilies */
-/*===========================================================================*/
-
-#include "unicode/putil.h"
 
 #endif /* _UTYPES */

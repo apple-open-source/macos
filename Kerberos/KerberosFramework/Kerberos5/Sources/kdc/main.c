@@ -56,6 +56,7 @@ void usage (char *);
 
 krb5_sigtype request_exit (int);
 krb5_sigtype request_hup  (int);
+krb5_sigtype request_network  (int);
 
 void setup_signal_handlers (void);
 
@@ -200,7 +201,7 @@ init_realm(char *progname, kdc_realm_t *rdp, char *realm, char *def_dbname,
     else
 	rdp->realm_ports = strdup(def_udp_ports);
     if (rparams && rparams->realm_kdc_tcp_ports)
-	rdp->realm_tcp_ports = strdup(rparams->realm_kdc_ports);
+	rdp->realm_tcp_ports = strdup(rparams->realm_kdc_tcp_ports);
     else
 	rdp->realm_tcp_ports = strdup(def_tcp_ports);
 
@@ -379,6 +380,18 @@ request_hup(int signo)
 #endif
 }
 
+krb5_sigtype
+request_network(int signo)
+{
+    signal_requests_network = 1;
+
+#ifdef POSIX_SIGTYPE
+    return;
+#else
+    return(0);
+#endif
+}
+
 void
 setup_signal_handlers(void)
 {
@@ -390,10 +403,13 @@ setup_signal_handlers(void)
     (void) sigaction(SIGTERM, &s_action, (struct sigaction *) NULL);
     s_action.sa_handler = request_hup;
     (void) sigaction(SIGHUP, &s_action, (struct sigaction *) NULL);
+    s_action.sa_handler = request_network;
+    (void) sigaction(SIGUSR1, &s_action, (struct sigaction *) NULL);
 #else  /* POSIX_SIGNALS */
     signal(SIGINT, request_exit);
     signal(SIGTERM, request_exit);
     signal(SIGHUP, request_hup);
+    signal(SIGUSR1, request_network);
 #endif /* POSIX_SIGNALS */
 
     return;
@@ -408,7 +424,7 @@ setup_sam(void)
 void
 usage(char *name)
 {
-    fprintf(stderr, "usage: %s [-d dbpathname] [-r dbrealmname] [-R replaycachename ]\n\t[-m] [-k masterenctype] [-M masterkeyname] [-p port] [-4 v4mode] [-X] [-n]\n", name);
+    fprintf(stderr, "usage: %s [-d dbpathname] [-r dbrealmname] [-R replaycachename ]\n\t[-m] [-k masterenctype] [-a] [-M masterkeyname] [-p port] [-4 v4mode] [-X] [-n]\n", name);
     return;
 }
 
@@ -432,10 +448,13 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
     char                *v4mode = 0;
 #endif
     extern char *optarg;
-#ifdef ATHENA_DES3_KLUDGE
-    extern struct krb5_keytypes krb5_enctypes_list[];
-    extern int krb5_enctypes_length;
+    
+#ifdef APPLE_KDC_MODS
+      const   char    *arg_string = "r:ad:mM:k:R:e:p:s:n4:X3";
+#else
+      const   char    *arg_string = "r:d:mM:k:R:e:p:s:n4:X3";
 #endif
+
 
     if (!krb5_aprof_init(DEFAULT_KDC_PROFILE, KDC_PROFILE_ENV, &aprof)) {
 	hierarchy[0] = "kdcdefaults";
@@ -463,7 +482,7 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
      * Loop through the option list.  Each time we encounter a realm name,
      * use the previously scanned options to fill in for defaults.
      */
-    while ((c = getopt(argc, argv, "r:d:mM:k:R:e:p:s:n4:X3")) != -1) {
+    while ((c = getopt(argc, argv, arg_string)) != -1) {
 	switch(c) {
 	case 'r':			/* realm name for db */
 	    if (!find_realm_data(optarg, (krb5_ui_4) strlen(optarg))) {
@@ -481,6 +500,11 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
 		}
 	    }
 	    break;
+#ifdef APPLE_KDC_MODS
+      	case 'a':                       /* Apple password server mod */
+ 	    kdc_notify_pws_apple = 1;
+            break;
+#endif
 	case 'd':			/* pathname for db */
 	    db_name = optarg;
 	    break;
@@ -524,19 +548,6 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
 		enable_v4_crossrealm(argv[0]);
 #endif
 		break;
-	case '3':
-#ifdef ATHENA_DES3_KLUDGE
-	    if (krb5_enctypes_list[krb5_enctypes_length-1].etype
-		!= ENCTYPE_LOCAL_DES3_HMAC_SHA1) {
-		fprintf(stderr,
-			"internal inconsistency in enctypes_list"
-			" while disabling\n"
-			"des3-marc-hmac-sha1 enctype\n");
-		exit(1);
-	    }
-	    krb5_enctypes_length--;
-	    break;
-#endif
 	case '?':
 	default:
 	    usage(argv[0]);

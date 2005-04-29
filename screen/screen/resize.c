@@ -21,9 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: resize.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
-
 #include <sys/types.h>
 #include <signal.h>
 #ifndef sun
@@ -57,7 +54,7 @@ extern int Z0width, Z1width;
 extern int captionalways;
 
 #if defined(TIOCGWINSZ) || defined(TIOCSWINSZ)
-  struct winsize glwz;
+struct winsize glwz;
 #endif
 
 static struct mline mline_zero = {
@@ -131,6 +128,10 @@ int change_flag;
       debug("CheckScreenSize: No change -> return.\n");
       return;
     }
+#ifdef BLANKER_PRG
+  KillBlanker();
+#endif
+  ResetIdle();
   ChangeScreenSize(wi, he, change_flag);
 /* XXX Redisplay logic */
 #if 0
@@ -371,7 +372,7 @@ struct display *norefdisp;
   p = Layer2Window(l);
 
   if (oldflayer && (l == oldflayer || Layer2Window(oldflayer) == p))
-    while(oldflayer->l_next)
+    while (oldflayer->l_next)
       oldflayer = oldflayer->l_next;
     
   if (p)
@@ -384,7 +385,7 @@ struct display *norefdisp;
 		flayer = cv->c_layer;
 		if (flayer->l_next)
 		  d->d_kaablamm = 1;
-	        while(flayer->l_next)
+	        while (flayer->l_next)
 		  ExitOverlayPage();
 	      }
 	  }
@@ -399,9 +400,10 @@ struct display *norefdisp;
     }
   else
     {
-      if (flayer->l_next && display)
-	D_kaablamm = 1;
-      while(flayer->l_next)
+      if (flayer->l_next)
+        for (cv = flayer->l_cvlist; cv; cv = cv->c_lnext)
+	  cv->c_display->d_kaablamm = 1;
+      while (flayer->l_next)
 	ExitOverlayPage();
     }
   if (p)

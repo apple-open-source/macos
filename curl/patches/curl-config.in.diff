@@ -1,0 +1,11 @@
+--- curl-config.in.orig	Fri Dec 24 03:59:44 2004
++++ curl-config.in	Fri Mar  4 10:00:13 2005
+@@ -127,7 +127,7 @@
+        	;;
+ 
+     --libs)
+-       	echo -L@libdir@ -lcurl @LDFLAGS@ @LIBS@
++       	echo -L@libdir@ -lcurl @LIBS@
+        	;;
+ 
+     *)

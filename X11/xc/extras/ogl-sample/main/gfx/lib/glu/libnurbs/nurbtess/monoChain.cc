@@ -33,6 +33,8 @@
 **
 ** $Date$ $Revision$
 */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/nurbtess/monoChain.cc,v 1.2 2003/10/22 19:20:57 tsi Exp $ */
+
 /*
 ** $Header: //depot/main/gfx/lib/glu/libnurbs/nurbtess/monoChain.cc#4 $
 */
@@ -61,17 +63,17 @@ extern Int isCusp(directedLine *v);
 extern Int deleteRepeatDiagonals(Int num_diagonals, directedLine** diagonal_vertices, directedLine** new_vertices);
 
 //for debug purpose only
-static void drawDiagonals(Int num_diagonals, directedLine** diagonal_vertices)
-{
-  Int i,k;
-  for(i=0; i<num_diagonals; i++)
-    {
-      glBegin(GL_LINE);
-      glVertex2fv(diagonal_vertices[2*i]->head());
-      glVertex2fv(diagonal_vertices[2*i+1]->head());
-      glEnd();
-    }
-}
+//static void drawDiagonals(Int num_diagonals, directedLine** diagonal_vertices)
+//{
+//  Int i;
+//  for(i=0; i<num_diagonals; i++)
+//    {
+//      glBegin(GL_LINE);
+//      glVertex2fv(diagonal_vertices[2*i]->head());
+//      glVertex2fv(diagonal_vertices[2*i+1]->head());
+//      glEnd();
+//    }
+//}
 
 /*given (x_1, y_1) and (x_2, y_2), and y
  *return x such that (x,y) is on the line
@@ -346,7 +348,6 @@ static Int compEdges(directedLine *e1, directedLine *e2)
     e2_Ymin = head2[1];
   }
 
-  
   /*Real e1_Ymax = max(head1[1], tail1[1]);*/ /*max(e1->head()[1], e1->tail()[1]);*/
   /*Real e1_Ymin = min(head1[1], tail1[1]);*/ /*min(e1->head()[1], e1->tail()[1]);*/
   /*Real e2_Ymax = max(head2[1], tail2[1]);*/ /*max(e2->head()[1], e2->tail()[1]);*/
@@ -549,10 +550,12 @@ Int MC_sweepY(Int nVertices, monoChain** sortedVertices, sweepRange** ret_ranges
 	{	  
 //printf("%i,%i\n", isAbove(dline, dline), isAbove(dline, dlinePrev));
 	  errOccur = 1;
+#if 1
 	  goto JUMP_HERE;
-      
+#else
 	  fprintf(stderr, "error in MC_sweepY\n");
 	  exit(1);
+#endif
 	}
     }
 
@@ -639,9 +642,6 @@ void MC_findDiagonals(Int total_num_edges, monoChain** sortedVertices,
   num_diagonals = k/2;
 }
 	  
-	  
-	    
-
 directedLine* MC_partitionY(directedLine *polygons, sampledLine **retSampledLines)
 {
 //printf("enter mc_partitionY\n");
@@ -930,5 +930,3 @@ ret_p2->rootLinkSet(root1);
   *retSampledLines = newSampledLines;
   return ret_polygons;
 }
-      
-

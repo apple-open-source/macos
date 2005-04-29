@@ -1,4 +1,4 @@
-XCOMM  $XFree86: xc/nls/XLC_LOCALE/ja_JP.UTF-8,v 1.1 2002/10/17 01:12:57 dawes Exp $
+XCOMM  $XFree86: xc/nls/XLC_LOCALE/ja_JP.UTF-8,v 1.2 2003/08/06 14:04:00 eich Exp $
 XCOMM 
 
 XCOMM 
@@ -32,23 +32,8 @@ fs1 {
   }
 }
 
-XCOMM ISO10646-1 is put after iso8859-1 to make usually better-looking
-XCOMM iso8859-x fonts are picked up before iso10646-1 fonts.
-XCOMM Moreover, some iso10646-1 fonts don't have any glyph at all
-XCOMM in ISO8859-X ranges.
-
-XCOMM fs2 class
-fs2 {
-  charset {
-    name  ISO10646-1
-  }
-  font  {
-    primary ISO10646-1
-  }
-}
-
-XCOMM 	fs3 class (Kanji)
-fs3	{
+XCOMM 	fs2 class (Kanji)
+fs2	{
 	charset	{
 		name	JISX0208.1983-0:GL
 	}
@@ -57,8 +42,8 @@ fs3	{
 	}
 }
 
-XCOMM   fs4 class (Korean Character)
-fs4	{
+XCOMM   fs3 class (Korean Character)
+fs3	{
 	charset	{
 		name	KSC5601.1987-0:GL
 	}
@@ -67,8 +52,8 @@ fs4	{
 	}
 }
 
-XCOMM   fs5 class (Chinese Han Character)
-fs5	{
+XCOMM   fs4 class (Chinese Han Character)
+fs4	{
 	charset	{
 		name	GB2312.1980-0:GL
 	}
@@ -76,8 +61,8 @@ fs5	{
 		primary	GB2312.1980-0:GL
 	}
 }
-XCOMM	fs6 class (Half Kana)
-fs6	{
+XCOMM	fs5 class (Half Kana)
+fs5	{
 	charset	{
 		name	JISX0201.1976-0:GR
 	}
@@ -86,6 +71,21 @@ fs6	{
 		vertical_rotate	all
 	}
 }
+XCOMM ISO10646-1 is put last to make usually better-looking
+XCOMM other fonts are picked up before iso10646-1 fonts.
+XCOMM Moreover, some iso10646-1 fonts don't have any glyph at all
+XCOMM in ISO8859-X ranges.
+
+XCOMM fs6 class
+fs6 {
+  charset {
+    name  ISO10646-1
+  }
+  font  {
+    primary ISO10646-1
+  }
+}
+
 END XLC_FONTSET
 
 XCOMM 

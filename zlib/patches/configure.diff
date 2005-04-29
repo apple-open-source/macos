@@ -1,0 +1,20 @@
+--- configure.orig	Tue Dec 28 22:14:50 2004
++++ configure	Tue Dec 28 22:26:55 2004
+@@ -89,7 +89,8 @@
+              SHAREDLIB=libz$shared_ext
+              SHAREDLIBV=libz.$VER$shared_ext
+              SHAREDLIBM=libz.$VER1$shared_ext
+-             LDSHARED=${LDSHARED-"$cc -dynamiclib -install_name $libdir/$SHAREDLIBV -compatibility_version $VER2 -current_version $VER"};;
++             LDSHARED=${LDSHARED-"$cc $cflags -dynamiclib -install_name $libdir/$SHAREDLIBM -compatibility_version $VER1 -current_version $VER"}
++             LDTEST=NO;;
+   *)             LDSHARED=${LDSHARED-"$cc -shared"};;
+   esac
+ else
+@@ -156,6 +157,7 @@
+   echo Checking for shared library support...
+   # we must test in two steps (cc then ld), required at least on SunOS 4.x
+   if test "`($CC -c $SFLAGS $test.c) 2>&1`" = "" &&
++     test "$LDTEST" = "NO" ||
+      test "`($LDSHARED -o $test$shared_ext $test.o) 2>&1`" = ""; then
+     CFLAGS="$SFLAGS"
+     LIBS="$SHAREDLIBV"

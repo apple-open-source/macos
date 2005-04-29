@@ -1,7 +1,7 @@
 /*
  * mach_server_utilities.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/mach_server_utilities.c,v 1.4 2003/07/18 18:58:15 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/mach_server_utilities.c,v 1.9 2004/11/30 22:56:09 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -45,15 +45,17 @@
 #include <pwd.h>
 
 #include <Kerberos/mach_server_utilities.h>
+#include <Kerberos/mach_client_utilities.h>
 #include "notifyServer.h"
 
-
 // Global variables for servers (used by demux)
-static mach_port_t  gBootPort;
-static mach_port_t  gServerPort;
+static mach_port_t  gBootPort = MACH_PORT_NULL;
+static mach_port_t  gServicePort = MACH_PORT_NULL;
+static mach_port_t  gNotifyPort = MACH_PORT_NULL;
+static mach_port_t  gServerPortSet = MACH_PORT_NULL;
 static boolean_t    gReadyToQuit = false;
 static boolean_t  (*gServerDemuxProc)(mach_msg_header_t *, mach_msg_header_t *);
-static char         gServerName [kServiceNameMaxLength];
+static char         gServiceName [kServiceNameMaxLength];
 static uid_t        gServerUID = 0;
 
 static boolean_t 
@@ -66,7 +68,7 @@ mach_server_allow_client (mach_msg_header_t *request);
 mach_port_t
 mach_server_get_server_port ()
 {
-    return gServerPort;
+    return gServicePort;
 }
 
 #pragma mark -
@@ -74,101 +76,117 @@ mach_server_get_server_port ()
 // ---------------------------------------------------------------------------
 
 kern_return_t
-mach_server_init (const char *inServiceNamePrefix, boolean_t (*inDemuxProc)(mach_msg_header_t *, mach_msg_header_t *))
+mach_server_run_server (boolean_t (*inDemuxProc)(mach_msg_header_t *, mach_msg_header_t *))
 {
     kern_return_t err = KERN_SUCCESS;
+    mach_port_t   previousNotifyPort = MACH_PORT_NULL;
     boolean_t     active = false;
-    const char   *serviceName = LoginSessionGetServiceName (inServiceNamePrefix);
-    
+        
     // Set up the globals so the demux can find them
     gServerDemuxProc = inDemuxProc;
     gServerUID = LoginSessionGetSessionUID ();
-
-    strncpy (gServerName, serviceName, kServiceNameMaxLength);
-    gServerName [kServiceNameMaxLength - 1] = '\0';
+    
+    if (err == KERN_SUCCESS) {
+        err = ENOMEM;  // Assume failure
+        
+        CFBundleRef mainBundle = CFBundleGetMainBundle ();
+        if (mainBundle != NULL) {
+            CFStringRef mainBundleID = CFBundleGetIdentifier (mainBundle);
+            if (mainBundleID != NULL) {
+                if (CFStringGetCString (mainBundleID, gServiceName, kServiceNameMaxLength, 
+                                        kCFStringEncodingASCII) == TRUE) {
+                    err = KERN_SUCCESS;
+                }
+            }
+        }
+    }
     
     // Get the bootstrap port
     if (err == KERN_SUCCESS) {
         err = task_get_bootstrap_port (mach_task_self (), &gBootPort);
+        dprintf ("task_get_bootstrap_port(): port is %lx (err = %ld '%s')", 
+                 gBootPort, err, mach_error_string (err));
     }
-
+    
     // Does our service exist already?
     if (err == KERN_SUCCESS) {
-        err = bootstrap_status (gBootPort, gServerName, &active);
-    }
-    
-    if (err == BOOTSTRAP_UNKNOWN_SERVICE) {
-        err = KERN_SUCCESS;
-    }
-    
-    // Create the server port
-    if (err == KERN_SUCCESS) {
-        err = mach_port_allocate (mach_task_self (), MACH_PORT_RIGHT_RECEIVE, &gServerPort);
-    }
-    
-    if (err == KERN_SUCCESS) {
-        err = mach_port_insert_right (mach_task_self (), gServerPort, gServerPort, MACH_MSG_TYPE_MAKE_SEND);
-    }
-    
-    // Ask for notification when the bootstrap server becomes a dead name (Puma)
-    if (err == KERN_SUCCESS) {
-        mach_port_t previousNotifyPort;
-        err = mach_port_request_notification (mach_task_self (), gBootPort, MACH_NOTIFY_DEAD_NAME,
-                                              true, gServerPort, MACH_MSG_TYPE_MAKE_SEND_ONCE, &previousNotifyPort);
-        dprintf ("requesting notification for dead name of %lx returned '%s', err = %ld\n",
-                    gBootPort, mach_error_string (err), err);
-    }
-
-    // Ask for notification when the server port has no more senders (Jaguar?)
-    // A send-once right != a send right so our send-once right will not interfere with the notification
-    if (err == KERN_SUCCESS) {
-        mach_port_t previousNotifyPort;
-        err = mach_port_request_notification (mach_task_self (), gServerPort, MACH_NOTIFY_NO_SENDERS,
-                                              true, gServerPort, MACH_MSG_TYPE_MAKE_SEND_ONCE, &previousNotifyPort);
-        dprintf ("requesting notification for no senders of %lx returned '%s', err = %ld\n",
-                    gServerPort, mach_error_string (err), err);
-    }
-
-    // Register the server port
-    if (err == KERN_SUCCESS) {
-        err = bootstrap_register (gBootPort, gServerName, gServerPort);
-    }
-    
-    // The bootstrap server copied our server rights, so decrement the right
-    if (err == KERN_SUCCESS) {
-        err = mach_port_mod_refs (mach_task_self (), gServerPort, MACH_PORT_RIGHT_SEND, -1);
-        dprintf ("mach_port_mod_refs (MACH_PORT_RIGHT_SEND, -1) on %lx returned '%s', err = %ld\n",
-                    gServerPort, mach_error_string (err), err);
-    }
-     
-    return err;   
-}
-
-// ---------------------------------------------------------------------------
-
-kern_return_t
-mach_server_run_server ()
-{
-    kern_return_t err = KERN_SUCCESS;
-    
-    if (err == KERN_SUCCESS) {
-        dprintf ("\"%s\": entering main server loop. ServerPort = %lx, BootstrapPort = %lx\n", 
-                    gServerName, gServerPort, gBootPort);
-        // ask for MACH_RCV_TRAILER_SENDER so we can check the uid in the mach_msg_security_trailer_t
-        err = mach_msg_server (mach_server_demux, kMachIPCMaxMsgSize, gServerPort,
-                                MACH_RCV_TRAILER_ELEMENTS (MACH_RCV_TRAILER_SENDER));
-        if (gReadyToQuit) {
-            err = KERN_SUCCESS;
-        } else {
-            dprintf ("%s: mach_msg_server: returned '%s', err = %ld\n", gServerName, 
-                        mach_error_string (err), err);
+        if (bootstrap_status (gBootPort, gServiceName, &active) == KERN_SUCCESS) {
+            dprintf ("'%s' state is %ld", gServiceName, active);
         }
     }
- 
-    return err;   
-
+    
+    if (err == KERN_SUCCESS) {   
+        // We are an on-demand server so our port already exists.  Just ask for it.
+        err = bootstrap_check_in (gBootPort, (char *) gServiceName, &gServicePort);
+        dprintf ("bootstrap_check_in('%s'): port is %ld (err = %ld '%s')", 
+                 gServiceName, gServicePort, err, mach_error_string (err));
+    }
+    
+    if (err == KERN_SUCCESS) {
+        if (bootstrap_status (gBootPort, gServiceName, &active) == KERN_SUCCESS) {
+            dprintf ("'%s' state is now %ld", gServiceName, active);
+        }
+    }
+    
+    // Create the port set that the server will listen on
+    if (err == KERN_SUCCESS) {
+        err = mach_port_allocate (mach_task_self (), MACH_PORT_RIGHT_PORT_SET, &gServerPortSet);
+    }    
+    
+    // Add the service port to the port set
+    if (err == KERN_SUCCESS) {
+        err = mach_port_move_member (mach_task_self (), gServicePort, gServerPortSet);
+    }    
+    
+    // Create the notification port:
+    if (err == KERN_SUCCESS) {
+        err = mach_port_allocate (mach_task_self (), MACH_PORT_RIGHT_RECEIVE, &gNotifyPort);
+    }    
+    
+    // Ask for notification when the server port has no more senders
+    // A send-once right != a send right so our send-once right will not interfere with the notification
+    if (err == KERN_SUCCESS) {
+        err = mach_port_request_notification (mach_task_self (), gServicePort, MACH_NOTIFY_NO_SENDERS, true, 
+                                              gNotifyPort, MACH_MSG_TYPE_MAKE_SEND_ONCE, &previousNotifyPort);
+        dprintf ("requesting notification for no senders of %lx returned '%s', err = %ld\n",
+                 gServicePort, mach_error_string (err), err);
+    }
+    
+    // Add the notify port to the port set
+    if (err == KERN_SUCCESS) {
+        err = mach_port_move_member (mach_task_self (), gNotifyPort, gServerPortSet);
+    }    
+    
+    if (err == KERN_SUCCESS) {
+        dprintf ("\"%s\": starting up. ServicePort = %lx, BootstrapPort = %lx\n", 
+                 gServiceName, gServicePort, gBootPort);
+    }
+    
+    while ((err == KERN_SUCCESS) && !gReadyToQuit) {
+        // Handle one message at a time so we can check to see if the server wants to quit
+        // ask for MACH_RCV_TRAILER_SENDER so we can check the uid in the mach_msg_security_trailer_t
+        err = mach_msg_server_once (mach_server_demux, kMachIPCMaxMsgSize, gServerPortSet,
+                                    MACH_RCV_TRAILER_ELEMENTS (MACH_RCV_TRAILER_SENDER));
+    }
+    
+    // Regardless of whether there was an error, unregister ourselves from no senders notifications 
+    // so we don't get launchen again by the notification message when we quit
+    // A send-once right != a send right so our send-once right will not interfere with the notification
+    if (gServicePort != MACH_PORT_NULL) {
+        kern_return_t terr = mach_port_request_notification (mach_task_self (), gServicePort, MACH_NOTIFY_NO_SENDERS, 
+                                                             true, MACH_PORT_NULL, MACH_MSG_TYPE_MAKE_SEND_ONCE, 
+                                                             &previousNotifyPort);
+        dprintf ("removing notification for no senders of %lx returned '%s', err = %ld\n", 
+                 previousNotifyPort, mach_error_string (err), err);
+        if (!err) { err = terr; }
+    }
+    
+    // free allocated port sets
+    if (gNotifyPort    != MACH_PORT_NULL) { mach_port_deallocate (mach_task_self (), gNotifyPort); }
+    if (gServerPortSet != MACH_PORT_NULL) { mach_port_deallocate (mach_task_self (), gServerPortSet); }
+    
+    return KerberosIPCError_ (err);    
 }
-
 
 #pragma mark -
 
@@ -191,15 +209,15 @@ mach_server_allow_client (mach_msg_header_t *request)
             return true;
         } else if (clientUID == 0) {
             dprintf ("%s: WARNING, seteuid root client approved for server uid %ld\n", 
-                        gServerName, clientUID, gServerUID);
+                        gServiceName, clientUID, gServerUID);
             return true;
         } else {
             dprintf ("%s: client uid %ld not allowed to connect to server uid %ld\n", 
-                        gServerName, clientUID, gServerUID);
+                        gServiceName, clientUID, gServerUID);
         }
     } else {
         dprintf ("%s: Invalid trailer type %ld (should be %ld), length %ld (should be %ld)\n", 
-                    gServerName, 
+                    gServiceName, 
                     trailer->msgh_trailer_type, MACH_MSG_TRAILER_FORMAT_0,
                     trailer->msgh_trailer_size, MACH_MSG_TRAILER_FORMAT_0_SIZE);
     }
@@ -212,17 +230,9 @@ mach_server_allow_client (mach_msg_header_t *request)
 boolean_t
 mach_server_quit_self ()
 {
-    kern_return_t err = KERN_SUCCESS;
-    
-    dprintf ("%s: attempting to destroy server port %lx.\n", gServerName, gServerPort);
-    err = mach_port_destroy (mach_task_self (), gServerPort);
-    if (err == KERN_SUCCESS) {
-        gReadyToQuit = true;
-    } else {
-        dprintf ("%s: failed to destroy server port %lx (err = %ld) '%s'\n", 
-                gServerName, gServerPort, err, mach_error_string (err));
-        
-    }
+    // Do not unregister our port because then we won't get automatically launched again.
+    dprintf ("mach_server_quit_self(): quitting...");
+    gReadyToQuit = true;
     return gReadyToQuit;
 }
 
@@ -289,13 +299,14 @@ mach_server_demux (mach_msg_header_t *request, mach_msg_header_t *reply)
     return false;
 }
 
+#pragma mark -
 
 // ---------------------------------------------------------------------------
 
 kern_return_t 
 do_mach_notify_port_deleted (mach_port_t notify, mach_port_name_t name)
 {
-    dprintf ("%s: Received MACH_NOTIFY_PORT_DELETED... quitting self\n", gServerName);
+    dprintf ("%s: Received MACH_NOTIFY_PORT_DELETED... quitting self\n", gServiceName);
     mach_server_quit_self ();
     return KERN_SUCCESS;
 }
@@ -305,7 +316,7 @@ do_mach_notify_port_deleted (mach_port_t notify, mach_port_name_t name)
 kern_return_t 
 do_mach_notify_port_destroyed (mach_port_t notify, mach_port_t rights)
 {
-    dprintf ("%s: Received MACH_NOTIFY_PORT_DESTROYED... quitting self\n", gServerName);
+    dprintf ("%s: Received MACH_NOTIFY_PORT_DESTROYED... quitting self\n", gServiceName);
     mach_server_quit_self ();
     return KERN_SUCCESS;
 }
@@ -315,7 +326,7 @@ do_mach_notify_port_destroyed (mach_port_t notify, mach_port_t rights)
 kern_return_t 
 do_mach_notify_no_senders (mach_port_t notify, mach_port_mscount_t mscount)
 {
-    dprintf ("%s: Received MACH_NOTIFY_NO_SENDERS... quitting self\n", gServerName);
+    dprintf ("%s: Received MACH_NOTIFY_NO_SENDERS... quitting self\n", gServiceName);
     mach_server_quit_self ();
     return KERN_SUCCESS;
 }
@@ -325,7 +336,7 @@ do_mach_notify_no_senders (mach_port_t notify, mach_port_mscount_t mscount)
 kern_return_t 
 do_mach_notify_send_once (mach_port_t notify)
 {
-    dprintf ("%s: Received MACH_NOTIFY_SEND_ONCE\n", gServerName);
+    dprintf ("%s: Received MACH_NOTIFY_SEND_ONCE\n", gServiceName);
     return KERN_SUCCESS;
 }
 
@@ -334,7 +345,8 @@ do_mach_notify_send_once (mach_port_t notify)
 kern_return_t 
 do_mach_notify_dead_name (mach_port_t notify, mach_port_name_t name)
 {
-    dprintf ("%s: Received MACH_NOTIFY_DEAD_NAME... quitting self\n", gServerName);
+    dprintf ("%s: Received MACH_NOTIFY_DEAD_NAME... quitting self\n", gServiceName);
     mach_server_quit_self ();
     return KERN_SUCCESS;
 }
+

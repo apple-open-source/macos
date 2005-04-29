@@ -1,5 +1,5 @@
-// Build don't link: 
-// Special g++ Options:  -Wall -Weffc++
+// { dg-do assemble  }
+// { dg-options "-Wall -Weffc++" }
 
 //1 g++/12952 un-named variables in a catch block
 //Wall or Wunused should not give warnings here
@@ -12,7 +12,7 @@ void f (void) {
    catch( int)
     {    
     }
-};
+}
 
 //
 //2 g++/12923 __attribute__((__unused__)) not working for objects
@@ -77,7 +77,7 @@ int foofunc(T x){
   Mutex sm(2);
   AutoMutex m(&sm);
   return 0;
-};
+}
 
 
 //5 sanity check to make sure other attributes cannot be used
@@ -88,7 +88,7 @@ public:
   virtual long retcntr() {return counter;};
   Mutex2(int i = 0): counter(i) {};
   virtual ~Mutex2() {};
-} __attribute__ ((warn));  // WARNING - 
+} __attribute__ ((warn));  // { dg-warning "" } 
 
 
 

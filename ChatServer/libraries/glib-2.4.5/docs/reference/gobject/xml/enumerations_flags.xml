@@ -1,0 +1,582 @@
+<refentry id="gobject-Enumeration-and-Flag-Types">
+<refmeta>
+<refentrytitle>Enums and Flags</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GOBJECT Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Enums and Flags</refname><refpurpose>Enumeration and flags types</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib-object.h&gt;
+
+
+struct      <link linkend="GEnumClass">GEnumClass</link>;
+struct      <link linkend="GFlagsClass">GFlagsClass</link>;
+#define     <link linkend="G-ENUM-CLASS-TYPE-CAPS">G_ENUM_CLASS_TYPE</link>               (class)
+#define     <link linkend="G-ENUM-CLASS-TYPE-NAME-CAPS">G_ENUM_CLASS_TYPE_NAME</link>          (class)
+#define     <link linkend="G-TYPE-IS-ENUM-CAPS">G_TYPE_IS_ENUM</link>                  (type)
+#define     <link linkend="G-ENUM-CLASS-CAPS">G_ENUM_CLASS</link>                    (class)
+#define     <link linkend="G-IS-ENUM-CLASS-CAPS">G_IS_ENUM_CLASS</link>                 (class)
+#define     <link linkend="G-TYPE-IS-FLAGS-CAPS">G_TYPE_IS_FLAGS</link>                 (type)
+#define     <link linkend="G-FLAGS-CLASS-CAPS">G_FLAGS_CLASS</link>                   (class)
+#define     <link linkend="G-IS-FLAGS-CLASS-CAPS">G_IS_FLAGS_CLASS</link>                (class)
+#define     <link linkend="G-FLAGS-CLASS-TYPE-CAPS">G_FLAGS_CLASS_TYPE</link>              (class)
+#define     <link linkend="G-FLAGS-CLASS-TYPE-NAME-CAPS">G_FLAGS_CLASS_TYPE_NAME</link>         (class)
+struct      <link linkend="GEnumValue">GEnumValue</link>;
+struct      <link linkend="GFlagsValue">GFlagsValue</link>;
+<link linkend="GEnumValue">GEnumValue</link>* <link linkend="g-enum-get-value">g_enum_get_value</link>                (<link linkend="GEnumClass">GEnumClass</link> *enum_class,
+                                             <link linkend="gint">gint</link> value);
+<link linkend="GEnumValue">GEnumValue</link>* <link linkend="g-enum-get-value-by-name">g_enum_get_value_by_name</link>        (<link linkend="GEnumClass">GEnumClass</link> *enum_class,
+                                             const <link linkend="gchar">gchar</link> *name);
+<link linkend="GEnumValue">GEnumValue</link>* <link linkend="g-enum-get-value-by-nick">g_enum_get_value_by_nick</link>        (<link linkend="GEnumClass">GEnumClass</link> *enum_class,
+                                             const <link linkend="gchar">gchar</link> *nick);
+<link linkend="GFlagsValue">GFlagsValue</link>* <link linkend="g-flags-get-first-value">g_flags_get_first_value</link>        (<link linkend="GFlagsClass">GFlagsClass</link> *flags_class,
+                                             <link linkend="guint">guint</link> value);
+<link linkend="GFlagsValue">GFlagsValue</link>* <link linkend="g-flags-get-value-by-name">g_flags_get_value_by_name</link>      (<link linkend="GFlagsClass">GFlagsClass</link> *flags_class,
+                                             const <link linkend="gchar">gchar</link> *name);
+<link linkend="GFlagsValue">GFlagsValue</link>* <link linkend="g-flags-get-value-by-nick">g_flags_get_value_by_nick</link>      (<link linkend="GFlagsClass">GFlagsClass</link> *flags_class,
+                                             const <link linkend="gchar">gchar</link> *nick);
+<link linkend="GType">GType</link>       <link linkend="g-enum-register-static">g_enum_register_static</link>          (const <link linkend="gchar">gchar</link> *name,
+                                             const <link linkend="GEnumValue">GEnumValue</link> *const_static_values);
+<link linkend="GType">GType</link>       <link linkend="g-flags-register-static">g_flags_register_static</link>         (const <link linkend="gchar">gchar</link> *name,
+                                             const <link linkend="GFlagsValue">GFlagsValue</link> *const_static_values);
+<link linkend="void">void</link>        <link linkend="g-enum-complete-type-info">g_enum_complete_type_info</link>       (<link linkend="GType">GType</link> g_enum_type,
+                                             <link linkend="GTypeInfo">GTypeInfo</link> *info,
+                                             const <link linkend="GEnumValue">GEnumValue</link> *const_values);
+<link linkend="void">void</link>        <link linkend="g-flags-complete-type-info">g_flags_complete_type_info</link>      (<link linkend="GType">GType</link> g_flags_type,
+                                             <link linkend="GTypeInfo">GTypeInfo</link> *info,
+                                             const <link linkend="GFlagsValue">GFlagsValue</link> *const_values);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GEnumClass"/>struct GEnumClass</title>
+<indexterm><primary>GEnumClass</primary></indexterm><programlisting>struct GEnumClass {
+
+  GTypeClass  g_type_class;
+
+  gint	      minimum;
+  gint	      maximum;
+  guint	      n_values;
+  GEnumValue *values;
+};
+</programlisting>
+<para>
+The class of an enumeration type holds information about its 
+possible values.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="GTypeClass">GTypeClass</link> <structfield>g_type_class</structfield></term>
+<listitem><simpara>
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gint">gint</link> <structfield>minimum</structfield></term>
+<listitem><simpara>the smallest possible value.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gint">gint</link> <structfield>maximum</structfield></term>
+<listitem><simpara>the largest possible value.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="guint">guint</link> <structfield>n_values</structfield></term>
+<listitem><simpara>the number of possible values.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GEnumValue">GEnumValue</link> *<structfield>values</structfield></term>
+<listitem><simpara>an array of <link linkend="GEnumValue"><type>GEnumValue</type></link> structs describing the 
+individual values.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GFlagsClass"/>struct GFlagsClass</title>
+<indexterm><primary>GFlagsClass</primary></indexterm><programlisting>struct GFlagsClass {
+
+  GTypeClass   g_type_class;
+  
+  guint	       mask;
+  guint	       n_values;
+  GFlagsValue *values;
+};
+</programlisting>
+<para>
+The class of a flags type holds information about its 
+possible values.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="GTypeClass">GTypeClass</link> <structfield>g_type_class</structfield></term>
+<listitem><simpara>
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="guint">guint</link> <structfield>mask</structfield></term>
+<listitem><simpara>a mask covering all possible values.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="guint">guint</link> <structfield>n_values</structfield></term>
+<listitem><simpara>the number of possible values.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GFlagsValue">GFlagsValue</link> *<structfield>values</structfield></term>
+<listitem><simpara>an array of <link linkend="GFlagsValue"><type>GFlagsValue</type></link> structs describing the 
+individual values.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-ENUM-CLASS-TYPE-CAPS"/>G_ENUM_CLASS_TYPE()</title>
+<indexterm><primary>G_ENUM_CLASS_TYPE</primary></indexterm><programlisting>#define G_ENUM_CLASS_TYPE(class)       (G_TYPE_FROM_CLASS (class))
+</programlisting>
+<para>
+Returns the type identifier from a given <link linkend="GEnumClass"><type>GEnumClass</type></link> structure.
+</para><variablelist role="params">
+<varlistentry><term><parameter>class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GEnumClass"><type>GEnumClass</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-ENUM-CLASS-TYPE-NAME-CAPS"/>G_ENUM_CLASS_TYPE_NAME()</title>
+<indexterm><primary>G_ENUM_CLASS_TYPE_NAME</primary></indexterm><programlisting>#define G_ENUM_CLASS_TYPE_NAME(class)  (g_type_name (G_ENUM_CLASS_TYPE (class)))
+</programlisting>
+<para>
+Returns the static type name from a given <link linkend="GEnumClass"><type>GEnumClass</type></link> structure.
+</para><variablelist role="params">
+<varlistentry><term><parameter>class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GEnumClass"><type>GEnumClass</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-TYPE-IS-ENUM-CAPS"/>G_TYPE_IS_ENUM()</title>
+<indexterm><primary>G_TYPE_IS_ENUM</primary></indexterm><programlisting>#define G_TYPE_IS_ENUM(type)	       (G_TYPE_FUNDAMENTAL (type) == G_TYPE_ENUM)
+</programlisting>
+<para>
+Returns whether <parameter>type</parameter> "is a" <literal>G_TYPE_ENUM</literal>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>type</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GType"><type>GType</type></link> ID.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-ENUM-CLASS-CAPS"/>G_ENUM_CLASS()</title>
+<indexterm><primary>G_ENUM_CLASS</primary></indexterm><programlisting>#define G_ENUM_CLASS(class)	       (G_TYPE_CHECK_CLASS_CAST ((class), G_TYPE_ENUM, GEnumClass))
+</programlisting>
+<para>
+Casts a derived <link linkend="GEnumClass"><type>GEnumClass</type></link> structure into a <link linkend="GEnumClass"><type>GEnumClass</type></link> structure.
+</para><variablelist role="params">
+<varlistentry><term><parameter>class</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GEnumClass"><type>GEnumClass</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-IS-ENUM-CLASS-CAPS"/>G_IS_ENUM_CLASS()</title>
+<indexterm><primary>G_IS_ENUM_CLASS</primary></indexterm><programlisting>#define G_IS_ENUM_CLASS(class)	       (G_TYPE_CHECK_CLASS_TYPE ((class), G_TYPE_ENUM))
+</programlisting>
+<para>
+Checks whether <parameter>class</parameter> "is a" valid <link linkend="GEnumClass"><type>GEnumClass</type></link> structure of type <literal>G_TYPE_ENUM</literal>
+or derived.
+</para><variablelist role="params">
+<varlistentry><term><parameter>class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GEnumClass"><type>GEnumClass</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-TYPE-IS-FLAGS-CAPS"/>G_TYPE_IS_FLAGS()</title>
+<indexterm><primary>G_TYPE_IS_FLAGS</primary></indexterm><programlisting>#define G_TYPE_IS_FLAGS(type)	       (G_TYPE_FUNDAMENTAL (type) == G_TYPE_FLAGS)
+</programlisting>
+<para>
+Returns whether <parameter>type</parameter> "is a" <literal>G_TYPE_FLAGS</literal>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>type</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GType"><type>GType</type></link> ID.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-FLAGS-CLASS-CAPS"/>G_FLAGS_CLASS()</title>
+<indexterm><primary>G_FLAGS_CLASS</primary></indexterm><programlisting>#define G_FLAGS_CLASS(class)	       (G_TYPE_CHECK_CLASS_CAST ((class), G_TYPE_FLAGS, GFlagsClass))
+</programlisting>
+<para>
+Casts a derived <link linkend="GFlagsClass"><type>GFlagsClass</type></link> structure into a <link linkend="GFlagsClass"><type>GFlagsClass</type></link> structure.
+</para><variablelist role="params">
+<varlistentry><term><parameter>class</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GFlagsClass"><type>GFlagsClass</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-IS-FLAGS-CLASS-CAPS"/>G_IS_FLAGS_CLASS()</title>
+<indexterm><primary>G_IS_FLAGS_CLASS</primary></indexterm><programlisting>#define G_IS_FLAGS_CLASS(class)        (G_TYPE_CHECK_CLASS_TYPE ((class), G_TYPE_FLAGS))
+</programlisting>
+<para>
+Checks whether <parameter>class</parameter> "is a" valid <link linkend="GFlagsClass"><type>GFlagsClass</type></link> structure of type <literal>G_TYPE_FLAGS</literal>
+or derived.
+</para><variablelist role="params">
+<varlistentry><term><parameter>class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GFlagsClass"><type>GFlagsClass</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-FLAGS-CLASS-TYPE-CAPS"/>G_FLAGS_CLASS_TYPE()</title>
+<indexterm><primary>G_FLAGS_CLASS_TYPE</primary></indexterm><programlisting>#define G_FLAGS_CLASS_TYPE(class)      (G_TYPE_FROM_CLASS (class))
+</programlisting>
+<para>
+Returns the type identifier from a given <link linkend="GFlagsClass"><type>GFlagsClass</type></link> structure.
+</para><variablelist role="params">
+<varlistentry><term><parameter>class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GFlagsClass"><type>GFlagsClass</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-FLAGS-CLASS-TYPE-NAME-CAPS"/>G_FLAGS_CLASS_TYPE_NAME()</title>
+<indexterm><primary>G_FLAGS_CLASS_TYPE_NAME</primary></indexterm><programlisting>#define G_FLAGS_CLASS_TYPE_NAME(class) (g_type_name (G_FLAGS_TYPE (class)))
+</programlisting>
+<para>
+Returns the static type name from a given <link linkend="GFlagsClass"><type>GFlagsClass</type></link> structure.
+</para><variablelist role="params">
+<varlistentry><term><parameter>class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GFlagsClass"><type>GFlagsClass</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GEnumValue"/>struct GEnumValue</title>
+<indexterm><primary>GEnumValue</primary></indexterm><programlisting>struct GEnumValue {
+
+  gint	 value;
+  gchar *value_name;
+  gchar *value_nick;
+};
+</programlisting>
+<para>
+A structure which contains a single enum value, it's name, and it's
+nickname.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="gint">gint</link> <structfield>value</structfield></term>
+<listitem><simpara>the enum value
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gchar">gchar</link> *<structfield>value_name</structfield></term>
+<listitem><simpara>the name of the value
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gchar">gchar</link> *<structfield>value_nick</structfield></term>
+<listitem><simpara>the nickname of the value
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GFlagsValue"/>struct GFlagsValue</title>
+<indexterm><primary>GFlagsValue</primary></indexterm><programlisting>struct GFlagsValue {
+
+  guint	 value;
+  gchar *value_name;
+  gchar *value_nick;
+};
+</programlisting>
+<para>
+A structure which contains a single flags value, it's name, and it's
+nickname.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="guint">guint</link> <structfield>value</structfield></term>
+<listitem><simpara>the flags value
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gchar">gchar</link> *<structfield>value_name</structfield></term>
+<listitem><simpara>the name of the value
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gchar">gchar</link> *<structfield>value_nick</structfield></term>
+<listitem><simpara>the nickname of the value
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-enum-get-value"/>g_enum_get_value ()</title>
+<indexterm><primary>g_enum_get_value</primary></indexterm><programlisting><link linkend="GEnumValue">GEnumValue</link>* g_enum_get_value                (<link linkend="GEnumClass">GEnumClass</link> *enum_class,
+                                             <link linkend="gint">gint</link> value);</programlisting>
+<para>
+Returns the <link linkend="GEnumValue"><type>GEnumValue</type></link> for a value.
+</para><variablelist role="params">
+<varlistentry><term><parameter>enum_class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GEnumClass"><type>GEnumClass</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara>the value to look up
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GEnumValue"><type>GEnumValue</type></link> for <parameter>value</parameter>, or <literal>NULL</literal> if <parameter>value</parameter> is not 
+a member of the enumeration
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-enum-get-value-by-name"/>g_enum_get_value_by_name ()</title>
+<indexterm><primary>g_enum_get_value_by_name</primary></indexterm><programlisting><link linkend="GEnumValue">GEnumValue</link>* g_enum_get_value_by_name        (<link linkend="GEnumClass">GEnumClass</link> *enum_class,
+                                             const <link linkend="gchar">gchar</link> *name);</programlisting>
+<para>
+Looks up a <link linkend="GEnumValue"><type>GEnumValue</type></link> by name.
+</para><variablelist role="params">
+<varlistentry><term><parameter>enum_class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GEnumClass"><type>GEnumClass</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>name</parameter>&nbsp;:</term>
+<listitem><simpara>the name to look up
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GEnumValue"><type>GEnumValue</type></link> with name <parameter>name</parameter>, or <literal>NULL</literal> if the enumeration doesn'
+t have a member with that name
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-enum-get-value-by-nick"/>g_enum_get_value_by_nick ()</title>
+<indexterm><primary>g_enum_get_value_by_nick</primary></indexterm><programlisting><link linkend="GEnumValue">GEnumValue</link>* g_enum_get_value_by_nick        (<link linkend="GEnumClass">GEnumClass</link> *enum_class,
+                                             const <link linkend="gchar">gchar</link> *nick);</programlisting>
+<para>
+Looks up a <link linkend="GEnumValue"><type>GEnumValue</type></link> by nickname.
+</para><variablelist role="params">
+<varlistentry><term><parameter>enum_class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GEnumClass"><type>GEnumClass</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>nick</parameter>&nbsp;:</term>
+<listitem><simpara>the nickname to look up
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GEnumValue"><type>GEnumValue</type></link> with nickname <parameter>nick</parameter>, or <literal>NULL</literal> if the enumeration doesn'
+t have a member with that nickname
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-flags-get-first-value"/>g_flags_get_first_value ()</title>
+<indexterm><primary>g_flags_get_first_value</primary></indexterm><programlisting><link linkend="GFlagsValue">GFlagsValue</link>* g_flags_get_first_value        (<link linkend="GFlagsClass">GFlagsClass</link> *flags_class,
+                                             <link linkend="guint">guint</link> value);</programlisting>
+<para>
+Returns the first <link linkend="GFlagsValue"><type>GFlagsValue</type></link> which is set in <parameter>value</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>flags_class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GFlagsClass"><type>GFlagsClass</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara>the value
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the first <link linkend="GFlagsValue"><type>GFlagsValue</type></link> which is set in <parameter>value</parameter>, or <literal>NULL</literal> if none is set
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-flags-get-value-by-name"/>g_flags_get_value_by_name ()</title>
+<indexterm><primary>g_flags_get_value_by_name</primary></indexterm><programlisting><link linkend="GFlagsValue">GFlagsValue</link>* g_flags_get_value_by_name      (<link linkend="GFlagsClass">GFlagsClass</link> *flags_class,
+                                             const <link linkend="gchar">gchar</link> *name);</programlisting>
+<para>
+Looks up a <link linkend="GFlagsValue"><type>GFlagsValue</type></link> by name.
+</para><variablelist role="params">
+<varlistentry><term><parameter>flags_class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GFlagsClass"><type>GFlagsClass</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>name</parameter>&nbsp;:</term>
+<listitem><simpara>the name to look up
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GFlagsValue"><type>GFlagsValue</type></link> with name <parameter>name</parameter>, or <literal>NULL</literal> if there is no flag with
+that name
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-flags-get-value-by-nick"/>g_flags_get_value_by_nick ()</title>
+<indexterm><primary>g_flags_get_value_by_nick</primary></indexterm><programlisting><link linkend="GFlagsValue">GFlagsValue</link>* g_flags_get_value_by_nick      (<link linkend="GFlagsClass">GFlagsClass</link> *flags_class,
+                                             const <link linkend="gchar">gchar</link> *nick);</programlisting>
+<para>
+Looks up a <link linkend="GFlagsValue"><type>GFlagsValue</type></link> by nickname.
+</para><variablelist role="params">
+<varlistentry><term><parameter>flags_class</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GFlagsClass"><type>GFlagsClass</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>nick</parameter>&nbsp;:</term>
+<listitem><simpara>the nickname to look up
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GFlagsValue"><type>GFlagsValue</type></link> with nickname <parameter>nick</parameter>, or <literal>NULL</literal> if there is no flag
+with that nickname
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-enum-register-static"/>g_enum_register_static ()</title>
+<indexterm><primary>g_enum_register_static</primary></indexterm><programlisting><link linkend="GType">GType</link>       g_enum_register_static          (const <link linkend="gchar">gchar</link> *name,
+                                             const <link linkend="GEnumValue">GEnumValue</link> *const_static_values);</programlisting>
+<para>
+Registers a new static enumeration type with the name <parameter>name</parameter>. 
+</para>
+<para>
+It is normally more convenient to let 
+<link linkend="glib-mkenums">glib-mkenums</link> generate a 
+<link linkend="my-enum-get-type"><function>my_enum_get_type()</function></link> function from a usual C enumeration definition
+than to write one yourself using <link linkend="g-enum-register-static"><function>g_enum_register_static()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>name</parameter>&nbsp;:</term>
+<listitem><simpara>A nul-terminated string used as the name of the new type.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>const_static_values</parameter>&nbsp;:</term>
+<listitem><simpara>An array of <link linkend="GEnumValue"><type>GEnumValue</type></link> structs for the possible
+  enumeration values. The array is terminated by a struct with all 
+  members being 0.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>The new type identifier.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-flags-register-static"/>g_flags_register_static ()</title>
+<indexterm><primary>g_flags_register_static</primary></indexterm><programlisting><link linkend="GType">GType</link>       g_flags_register_static         (const <link linkend="gchar">gchar</link> *name,
+                                             const <link linkend="GFlagsValue">GFlagsValue</link> *const_static_values);</programlisting>
+<para>
+Registers a new static flags type with the name <parameter>name</parameter>. 
+</para>
+<para>
+It is normally more convenient to let 
+<link linkend="glib-mkenums">glib-mkenums</link> generate a 
+<link linkend="my-flags-get-type"><function>my_flags_get_type()</function></link> function from a usual C enumeration definition
+than to write one yourself using <link linkend="g-flags-register-static"><function>g_flags_register_static()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>name</parameter>&nbsp;:</term>
+<listitem><simpara>A nul-terminated string used as the name of the new type.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>const_static_values</parameter>&nbsp;:</term>
+<listitem><simpara>An array of <link linkend="GFlagsValue"><type>GFlagsValue</type></link> structs for the possible
+  flags values. The array is terminated by a struct with all members being 0.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>The new type identifier.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-enum-complete-type-info"/>g_enum_complete_type_info ()</title>
+<indexterm><primary>g_enum_complete_type_info</primary></indexterm><programlisting><link linkend="void">void</link>        g_enum_complete_type_info       (<link linkend="GType">GType</link> g_enum_type,
+                                             <link linkend="GTypeInfo">GTypeInfo</link> *info,
+                                             const <link linkend="GEnumValue">GEnumValue</link> *const_values);</programlisting>
+<para>
+This function is meant to be called from the <link linkend="complete-type-info"><function>complete_type_info()</function></link> function 
+of a <link linkend="GTypePlugin"><type>GTypePlugin</type></link> implementation, as in the following example:
+<informalexample>
+<programlisting>
+static void
+my_enum_complete_type_info (GTypePlugin     *plugin,
+                            GType            g_type,
+                            GTypeInfo       *info,
+                            GTypeValueTable *value_table)
+{
+  static const GEnumValue values[] = {
+    { MY_ENUM_FOO, "MY_ENUM_FOO", "foo" },
+    { MY_ENUM_BAR, "MY_ENUM_BAR", "bar" }
+  };  
+   
+  g_enum_complete_type_info (type, info, values);  
+}
+</programlisting>
+</informalexample>
+</para><variablelist role="params">
+<varlistentry><term><parameter>g_enum_type</parameter>&nbsp;:</term>
+<listitem><simpara>the type identifier of the type being completed
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>info</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypeInfo"><type>GTypeInfo</type></link> struct to be filled in
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>const_values</parameter>&nbsp;:</term>
+<listitem><simpara>An array of <link linkend="GEnumValue"><type>GEnumValue</type></link> structs for the possible
+  enumeration values. The array is terminated by a struct with all 
+  members being 0.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-flags-complete-type-info"/>g_flags_complete_type_info ()</title>
+<indexterm><primary>g_flags_complete_type_info</primary></indexterm><programlisting><link linkend="void">void</link>        g_flags_complete_type_info      (<link linkend="GType">GType</link> g_flags_type,
+                                             <link linkend="GTypeInfo">GTypeInfo</link> *info,
+                                             const <link linkend="GFlagsValue">GFlagsValue</link> *const_values);</programlisting>
+<para>
+This function is meant to be called from the <link linkend="complete-type-info"><function>complete_type_info()</function></link> function 
+of a <link linkend="GTypePlugin"><type>GTypePlugin</type></link> implementation, see the example for 
+<link linkend="g-enumeration-complete-type-info"><function>g_enumeration_complete_type_info()</function></link> above.
+</para><variablelist role="params">
+<varlistentry><term><parameter>g_flags_type</parameter>&nbsp;:</term>
+<listitem><simpara>the type identifier of the type being completed
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>info</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypeInfo"><type>GTypeInfo</type></link> struct to be filled in
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>const_values</parameter>&nbsp;:</term>
+<listitem><simpara>An array of <link linkend="GFlagsValue"><type>GFlagsValue</type></link> structs for the possible
+  enumeration values. The array is terminated by a struct with all 
+  members being 0.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

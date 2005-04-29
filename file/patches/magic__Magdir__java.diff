@@ -1,0 +1,20 @@
+--- magic/Magdir/java.orig	2004-08-06 14:26:50.000000000 -0700
++++ magic/Magdir/java	2004-08-06 14:26:56.000000000 -0700
+@@ -1,9 +1,14 @@
+ #------------------------------------------------------------
+ # Java ByteCode
+ # From Larry Schwimmer (schwim@cs.stanford.edu)
+-0	belong		0xcafebabe	compiled Java class data,
+->6	beshort x	version %d.
+->4	beshort x	\b%d
++#
++# The Java magic number is the same as the Mach-O fat file magic number.
++# To make the file(1) command work with both, the Java Bytecode magic was
++# merged with the Mach-O magic in the file mach.
++#
++#0	belong		0xcafebabe	compiled Java class data,
++#>6	beshort x	version %d.
++#>4	beshort x	\b%d
+ #------------------------------------------------------------
+ # Java serialization
+ # From Martin Pool (m.pool@pharos.com.au)

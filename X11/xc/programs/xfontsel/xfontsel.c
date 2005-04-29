@@ -31,7 +31,7 @@ Author:	Ralph R. Swick, DEC/MIT Project Athena
 	one weekend in November, 1989
 Modified: Mark Leisher <mleisher@crl.nmsu.edu> to deal with UCS sample text.
 */
-/* $XFree86: xc/programs/xfontsel/xfontsel.c,v 1.7 2001/10/28 03:34:32 tsi Exp $ */
+/* $XFree86: xc/programs/xfontsel/xfontsel.c,v 1.8 2003/05/27 22:27:05 tsi Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -797,9 +797,11 @@ static int strcmpn(const char *s1, const char *s2)
 
 
 /* Order is *, (nil), rest */
-int AlphabeticSort(fval1, fval2)
-    FieldValue *fval1, *fval2;
+int AlphabeticSort(_Xconst void *fval1, _Xconst void *fval2)
 {
+#   define fval1 ((_Xconst FieldValue *)fval1)
+#   define fval2 ((_Xconst FieldValue *)fval2)
+
     if (fval1->string && !strcmp(fval1->string, "*"))
 	return -1;
     if (fval2->string && !strcmp(fval2->string, "*"))
@@ -808,14 +810,20 @@ int AlphabeticSort(fval1, fval2)
 	return -1;
     if (!fval2->string)
 	return 1;
+
     return strcmpn(fval1->string, fval2->string);
+
+#   undef fval1
+#   undef fval2
 }
 
 
 /* Order is *, (nil), rest */
-int NumericSort(fval1, fval2)
-    FieldValue *fval1, *fval2;
+int NumericSort(_Xconst void *fval1, _Xconst void *fval2)
 {
+#   define fval1 ((_Xconst FieldValue *)fval1)
+#   define fval2 ((_Xconst FieldValue *)fval2)
+
     if (fval1->string && !strcmp(fval1->string, "*"))
 	return -1;
     if (fval2->string && !strcmp(fval2->string, "*"))
@@ -824,7 +832,11 @@ int NumericSort(fval1, fval2)
 	return -1;
     if (!fval2->string)
 	return 1;
+
     return atoi(fval1->string) - atoi(fval2->string);
+
+#   undef fval1
+#   undef fval2
 }
 
 

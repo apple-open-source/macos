@@ -1,4 +1,4 @@
-#   Copyright (C) 1997, 1999, 2000 Free Software Foundation, Inc.
+#   Copyright (C) 1997, 1999, 2000, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,60 +14,19 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
-# Define g++ callbacks for dg.exp.
-
 load_lib dg.exp
 load_lib file-format.exp
 load_lib target-supports.exp
 load_lib scanasm.exp
+# APPLE LOCAL begin
+load_lib langutils-dg.exp
+# APPLE LOCAL end
 
-proc g++-dg-test { prog do_what extra_tool_flags } {
-    # Set up the compiler flags, based on what we're going to do.
+# Define g++ callbacks for dg.exp.
 
-    switch $do_what {
-	"preprocess" {
-	    set compile_type "preprocess"
-	    set output_file "[file rootname [file tail $prog]].i"
-	}
-	"compile" {
-	    set compile_type "assembly"
-	    set output_file "[file rootname [file tail $prog]].s"
-	}
-	"assemble" {
-	    set compile_type "object"
-	    set output_file "[file rootname [file tail $prog]].o"
-	}
-	"link" {
-	    set compile_type "executable"
-	    set output_file "[file rootname [file tail $prog]].exe"
-	    # The following line is needed for targets like the i960 where
-	    # the default output file is b.out.  Sigh.
-	}
-	"run" {
-	    set compile_type "executable"
-	    # FIXME: "./" is to cope with "." not being in $PATH.
-	    # Should this be handled elsewhere?
-	    # YES.
-	    set output_file "./[file rootname [file tail $prog]].exe"
-	    # This is the only place where we care if an executable was
-	    # created or not.  If it was, dg.exp will try to run it.
-	    remote_file build delete $output_file;
-	}
-	default {
-	    perror "$do_what: not a valid dg-do keyword"
-	    return ""
-	}
-    }
-    set options ""
-    if { $extra_tool_flags != "" } {
-	lappend options "additional_flags=$extra_tool_flags"
-    }
+# APPLE LOCAL move proc g++-dg-test to langutils-dg.exp proc ${tool}-dg-test
 
-    set comp_output [g++_target_compile "$prog" "$output_file" "$compile_type" $options];
-
-    return [list $comp_output $output_file]
-}
-
+# APPLE LOCAL move proc search_for to langutils-dg.exp
 
 proc g++-dg-prune { system text } {
     set text [prune_gcc_output $text]

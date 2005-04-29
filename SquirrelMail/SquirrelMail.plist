@@ -1,0 +1,22 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>SquirrelMail</string>
+        <key>OpenSourceVersion</key>
+        <string>1.4.4</string>
+        <key>OpenSourceURL</key>
+        <string>http://umn.dl.sourceforge.net/sourceforge/squirrelmail/squirrelmail-1.4.4.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+        <string>0e51e293f8f3e27e8ae35ef5b34248e19f0f5075</string>
+        <key>OpenSourceImportDate</key>
+        <string>2005-01-24</string>
+        <key>OpenSourceModifications</key>
+        <array/>
+        <key>OpenSourceLicense</key>
+        <string>GPL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>SquirrelMail.txt</string>
+</dict>
+</array>
+</plist>

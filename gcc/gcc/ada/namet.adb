@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -120,6 +119,7 @@ package body Namet is
       end loop;
    end Add_Str_To_Name_Buffer;
 
+
    --------------
    -- Finalize --
    --------------
@@ -139,18 +139,17 @@ package body Namet is
 
    begin
       if Debug_Flag_H then
-
          for J in F'Range loop
             F (J) := 0;
          end loop;
 
-         for I in Hash_Index_Type loop
-            if Hash_Table (I) = No_Name then
+         for J in Hash_Index_Type loop
+            if Hash_Table (J) = No_Name then
                F (0) := F (0) + 1;
 
             else
                Write_Str ("Hash_Table (");
-               Write_Int (Int (I));
+               Write_Int (Int (J));
                Write_Str (") has ");
 
                declare
@@ -160,7 +159,7 @@ package body Namet is
 
                begin
                   C := 0;
-                  N := Hash_Table (I);
+                  N := Hash_Table (J);
 
                   while N /= No_Name loop
                      N := Name_Entries.Table (N).Hash_Link;
@@ -177,7 +176,7 @@ package body Namet is
                      F (Max_Chain_Length) := F (Max_Chain_Length) + 1;
                   end if;
 
-                  N := Hash_Table (I);
+                  N := Hash_Table (J);
 
                   while N /= No_Name loop
                      S := Name_Entries.Table (N).Name_Chars_Index;
@@ -196,27 +195,27 @@ package body Namet is
 
          Write_Eol;
 
-         for I in Int range 0 .. Max_Chain_Length loop
-            if F (I) /= 0 then
+         for J in Int range 0 .. Max_Chain_Length loop
+            if F (J) /= 0 then
                Write_Str ("Number of hash chains of length ");
 
-               if I < 10 then
+               if J < 10 then
                   Write_Char (' ');
                end if;
 
-               Write_Int (I);
+               Write_Int (J);
 
-               if I = Max_Chain_Length then
+               if J = Max_Chain_Length then
                   Write_Str (" or greater");
                end if;
 
                Write_Str (" = ");
-               Write_Int (F (I));
+               Write_Int (F (J));
                Write_Eol;
 
-               if I /= 0 then
-                  Nsyms := Nsyms + F (I);
-                  Probes := Probes + F (I) * (1 + I) * 100;
+               if J /= 0 then
+                  Nsyms := Nsyms + F (J);
+                  Probes := Probes + F (J) * (1 + J) * 100;
                end if;
             end if;
          end loop;
@@ -267,15 +266,10 @@ package body Namet is
 
       --  Here we have at least some encoding that we must decode
 
-      --  Here we have to decode one or more Uhh or Whhhh sequences
-
-      declare
+      Decode : declare
          New_Len : Natural;
          Old     : Positive;
          New_Buf : String (1 .. Name_Buffer'Last);
-
-         procedure Insert_Character (C : Character);
-         --  Insert a new character into output decoded name
 
          procedure Copy_One_Character;
          --  Copy a character from Name_Buffer to New_Buf. Includes case
@@ -284,25 +278,50 @@ package body Namet is
          function Hex (N : Natural) return Natural;
          --  Scans past N digits using Old pointer and returns hex value
 
+         procedure Insert_Character (C : Character);
+         --  Insert a new character into output decoded name
+
+         ------------------------
+         -- Copy_One_Character --
+         ------------------------
+
          procedure Copy_One_Character is
             C : Character;
 
          begin
             C := Name_Buffer (Old);
 
-            if C = 'U' then
+            --  U (upper half insertion case)
+
+            if C = 'U'
+              and then Old < Name_Len
+              and then Name_Buffer (Old + 1) not in 'A' .. 'Z'
+              and then Name_Buffer (Old + 1) /= '_'
+            then
                Old := Old + 1;
                Insert_Character (Character'Val (Hex (2)));
 
-            elsif C = 'W' then
+            --  W (wide character insertion)
+
+            elsif C = 'W'
+              and then Old < Name_Len
+              and then Name_Buffer (Old + 1) not in 'A' .. 'Z'
+              and then Name_Buffer (Old + 1) /= '_'
+            then
                Old := Old + 1;
                Widechar.Set_Wide (Char_Code (Hex (4)), New_Buf, New_Len);
 
+            --  Any other character is copied unchanged
+
             else
-               Insert_Character (Name_Buffer (Old));
+               Insert_Character (C);
                Old := Old + 1;
             end if;
          end Copy_One_Character;
+
+         ---------
+         -- Hex --
+         ---------
 
          function Hex (N : Natural) return Natural is
             T : Natural := 0;
@@ -325,13 +344,17 @@ package body Namet is
             return T;
          end Hex;
 
+         ----------------------
+         -- Insert_Character --
+         ----------------------
+
          procedure Insert_Character (C : Character) is
          begin
             New_Len := New_Len + 1;
             New_Buf (New_Len) := C;
          end Insert_Character;
 
-      --  Actual decoding processing
+      --  Start of processing for Decode
 
       begin
          New_Len := 0;
@@ -343,7 +366,9 @@ package body Namet is
 
             --  Case of character literal, put apostrophes around character
 
-            if Name_Buffer (Old) = 'Q' then
+            if Name_Buffer (Old) = 'Q'
+              and then Old < Name_Len
+            then
                Old := Old + 1;
                Insert_Character (''');
                Copy_One_Character;
@@ -351,7 +376,11 @@ package body Namet is
 
             --  Case of operator name
 
-            elsif Name_Buffer (Old) = 'O' then
+            elsif Name_Buffer (Old) = 'O'
+              and then Old < Name_Len
+              and then Name_Buffer (Old + 1) not in 'A' .. 'Z'
+              and then Name_Buffer (Old + 1) /= '_'
+            then
                Old := Old + 1;
 
                declare
@@ -442,8 +471,7 @@ package body Namet is
 
          Name_Len := New_Len;
          Name_Buffer (1 .. New_Len) := New_Buf (1 .. New_Len);
-      end;
-
+      end Decode;
    end Get_Decoded_Name_String;
 
    -------------------------------------------
@@ -471,7 +499,10 @@ package body Namet is
 
          P := 1;
          while P < Name_Len loop
-            if Name_Buffer (P) = 'U' then
+            if Name_Buffer (P + 1) in 'A' .. 'Z' then
+               P := P + 1;
+
+            elsif Name_Buffer (P) = 'U' then
                for J in reverse P + 3 .. P + Name_Len loop
                   Name_Buffer (J + 3) := Name_Buffer (J);
                end loop;
@@ -506,9 +537,29 @@ package body Namet is
       end if;
    end Get_Decoded_Name_String_With_Brackets;
 
+   ------------------------
+   -- Get_Last_Two_Chars --
+   ------------------------
+
+   procedure Get_Last_Two_Chars (N : Name_Id; C1, C2 : out Character) is
+      NE  : Name_Entry renames Name_Entries.Table (N);
+      NEL : constant Int := Int (NE.Name_Len);
+
+   begin
+      if NEL >= 2 then
+         C1 := Name_Chars.Table (NE.Name_Chars_Index + NEL - 1);
+         C2 := Name_Chars.Table (NE.Name_Chars_Index + NEL - 0);
+      else
+         C1 := ASCII.NUL;
+         C2 := ASCII.NUL;
+      end if;
+   end Get_Last_Two_Chars;
+
    ---------------------
    -- Get_Name_String --
    ---------------------
+
+   --  Procedure version leaving result in Name_Buffer, length in Name_Len
 
    procedure Get_Name_String (Id : Name_Id) is
       S : Int;
@@ -523,6 +574,12 @@ package body Namet is
          Name_Buffer (J) := Name_Chars.Table (S + Int (J));
       end loop;
    end Get_Name_String;
+
+   ---------------------
+   -- Get_Name_String --
+   ---------------------
+
+   --  Function version returning a string
 
    function Get_Name_String (Id : Name_Id) return String is
       S : Int;
@@ -606,45 +663,15 @@ package body Namet is
    ----------
 
    function Hash return Hash_Index_Type is
-      subtype Int_1_12 is Int range 1 .. 12;
-      --  Used to avoid when others on case jump below
-
-      Even_Name_Len : Integer;
-      --  Last even numbered position (used for >12 case)
-
    begin
-
-      --  Special test for 12 (rather than counting on a when others for the
-      --  case statement below) avoids some Ada compilers converting the case
-      --  statement into successive jumps.
-
-      --  The case of a name longer than 12 characters is handled by taking
-      --  the first 6 odd numbered characters and the last 6 even numbered
-      --  characters
-
-      if Name_Len > 12 then
-         Even_Name_Len := (Name_Len) / 2 * 2;
-
-         return ((((((((((((
-           Character'Pos (Name_Buffer (01))) * 2 +
-           Character'Pos (Name_Buffer (Even_Name_Len - 10))) * 2 +
-           Character'Pos (Name_Buffer (03))) * 2 +
-           Character'Pos (Name_Buffer (Even_Name_Len - 08))) * 2 +
-           Character'Pos (Name_Buffer (05))) * 2 +
-           Character'Pos (Name_Buffer (Even_Name_Len - 06))) * 2 +
-           Character'Pos (Name_Buffer (07))) * 2 +
-           Character'Pos (Name_Buffer (Even_Name_Len - 04))) * 2 +
-           Character'Pos (Name_Buffer (09))) * 2 +
-           Character'Pos (Name_Buffer (Even_Name_Len - 02))) * 2 +
-           Character'Pos (Name_Buffer (11))) * 2 +
-           Character'Pos (Name_Buffer (Even_Name_Len))) mod Hash_Num;
-      end if;
-
       --  For the cases of 1-12 characters, all characters participate in the
       --  hash. The positioning is randomized, with the bias that characters
       --  later on participate fully (i.e. are added towards the right side).
 
-      case Int_1_12 (Name_Len) is
+      case Name_Len is
+
+         when 0 =>
+            return 0;
 
          when 1 =>
             return
@@ -760,6 +787,26 @@ package body Namet is
               Character'Pos (Name_Buffer (10))) * 2 +
               Character'Pos (Name_Buffer (12))) mod Hash_Num;
 
+         --  Names longer than 12 characters are handled by taking the first
+         --  6 odd numbered characters and the last 6 even numbered characters.
+
+         when others => declare
+               Even_Name_Len : constant Integer := (Name_Len) / 2 * 2;
+         begin
+            return ((((((((((((
+              Character'Pos (Name_Buffer (01))) * 2 +
+              Character'Pos (Name_Buffer (Even_Name_Len - 10))) * 2 +
+              Character'Pos (Name_Buffer (03))) * 2 +
+              Character'Pos (Name_Buffer (Even_Name_Len - 08))) * 2 +
+              Character'Pos (Name_Buffer (05))) * 2 +
+              Character'Pos (Name_Buffer (Even_Name_Len - 06))) * 2 +
+              Character'Pos (Name_Buffer (07))) * 2 +
+              Character'Pos (Name_Buffer (Even_Name_Len - 04))) * 2 +
+              Character'Pos (Name_Buffer (09))) * 2 +
+              Character'Pos (Name_Buffer (Even_Name_Len - 02))) * 2 +
+              Character'Pos (Name_Buffer (11))) * 2 +
+              Character'Pos (Name_Buffer (Even_Name_Len))) mod Hash_Num;
+         end;
       end case;
    end Hash;
 
@@ -768,7 +815,6 @@ package body Namet is
    ----------------
 
    procedure Initialize is
-
    begin
       Name_Chars.Init;
       Name_Entries.Init;
@@ -800,11 +846,19 @@ package body Namet is
    -- Is_Internal_Name --
    ----------------------
 
+   --  Version taking an argument
+
    function Is_Internal_Name (Id : Name_Id) return Boolean is
    begin
       Get_Name_String (Id);
       return Is_Internal_Name;
    end Is_Internal_Name;
+
+   ----------------------
+   -- Is_Internal_Name --
+   ----------------------
+
+   --  Version taking its input from Name_Buffer
 
    function Is_Internal_Name return Boolean is
    begin
@@ -852,6 +906,18 @@ package body Namet is
         and then C /= 'X';
    end Is_OK_Internal_Letter;
 
+   ----------------------
+   -- Is_Operator_Name --
+   ----------------------
+
+   function Is_Operator_Name (Id : Name_Id) return Boolean is
+      S : Int;
+   begin
+      pragma Assert (Id in Name_Entries.First .. Name_Entries.Last);
+      S := Name_Entries.Table (Id).Name_Chars_Index;
+      return Name_Chars.Table (S + 1) = 'O';
+   end Is_Operator_Name;
+
    --------------------
    -- Length_Of_Name --
    --------------------
@@ -890,7 +956,6 @@ package body Namet is
 
    function Name_Enter return Name_Id is
    begin
-
       Name_Entries.Increment_Last;
       Name_Entries.Table (Name_Entries.Last).Name_Chars_Index :=
         Name_Chars.Last;
@@ -969,8 +1034,8 @@ package body Namet is
 
                S := Name_Entries.Table (New_Id).Name_Chars_Index;
 
-               for I in 1 .. Name_Len loop
-                  if Name_Chars.Table (S + Int (I)) /= Name_Buffer (I) then
+               for J in 1 .. Name_Len loop
+                  if Name_Chars.Table (S + Int (J)) /= Name_Buffer (J) then
                      goto No_Match;
                   end if;
                end loop;
@@ -1005,9 +1070,9 @@ package body Namet is
 
          --  Set corresponding string entry in the Name_Chars table
 
-         for I in 1 .. Name_Len loop
+         for J in 1 .. Name_Len loop
             Name_Chars.Increment_Last;
-            Name_Chars.Table (Name_Chars.Last) := Name_Buffer (I);
+            Name_Chars.Table (Name_Chars.Last) := Name_Buffer (J);
          end loop;
 
          Name_Chars.Increment_Last;
@@ -1085,11 +1150,9 @@ package body Namet is
       if In_Character_Range (C) then
          declare
             CC : constant Character := Get_Character (C);
-
          begin
             if CC in 'a' .. 'z' or else CC in '0' .. '9' then
                Name_Buffer (Name_Len) := CC;
-
             else
                Name_Buffer (Name_Len) := 'U';
                Set_Hex_Chars (Natural (C));
@@ -1125,9 +1188,22 @@ package body Namet is
            and then Name_Buffer (J) /= 'p';
       end loop;
 
-      --  Find rightmost __ or $ separator if one exists
+      --  Find rightmost __ or $ separator if one exists. First we position
+      --  to start the search. If we have a character constant, position
+      --  just before it, otherwise position to last character but one
 
-      J := Name_Len - 1;
+      if Name_Buffer (Name_Len) = ''' then
+         J := Name_Len - 2;
+         while J > 0 and then Name_Buffer (J) /= ''' loop
+            J := J - 1;
+         end loop;
+
+      else
+         J := Name_Len - 1;
+      end if;
+
+      --  Loop to search for rightmost __ or $ (homonym) separator
+
       while J > 1 loop
 
          --  If $ separator, homonym separator, so strip it and keep looking

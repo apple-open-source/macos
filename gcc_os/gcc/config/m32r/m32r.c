@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "toplev.h"
 #include "ggc.h"
-#include "m32r-protos.h"
+#include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
 
@@ -74,6 +74,10 @@ static int    m32r_sched_reorder   PARAMS ((FILE *, int, rtx *, int *, int));
 static int    m32r_variable_issue  PARAMS ((FILE *, int, rtx, int));
 static int    m32r_issue_rate	   PARAMS ((void));
 
+static void m32r_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
+static void m32r_encode_section_info PARAMS ((tree, int));
+static const char *m32r_strip_name_encoding PARAMS ((const char *));
+static void init_idents PARAMS ((void));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -101,6 +105,11 @@ static int    m32r_issue_rate	   PARAMS ((void));
 #define TARGET_SCHED_INIT m32r_sched_init
 #undef TARGET_SCHED_REORDER
 #define TARGET_SCHED_REORDER m32r_sched_reorder
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO m32r_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING m32r_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -172,7 +181,7 @@ enum m32r_mode_class
 
 /* Value is 1 if register/mode pair is acceptable on arc.  */
 
-unsigned int m32r_hard_regno_mode_ok[FIRST_PSEUDO_REGISTER] =
+const unsigned int m32r_hard_regno_mode_ok[FIRST_PSEUDO_REGISTER] =
 {
   T_MODES, T_MODES, T_MODES, T_MODES, T_MODES, T_MODES, T_MODES, T_MODES,
   T_MODES, T_MODES, T_MODES, T_MODES, T_MODES, S_MODES, S_MODES, S_MODES,
@@ -263,7 +272,7 @@ static tree large_ident1;
 static tree large_ident2;
 
 static void
-init_idents PARAMS ((void))
+init_idents ()
 {
   if (small_ident1 == 0)
     {
@@ -320,15 +329,16 @@ m32r_handle_model_attribute (node, name, args, flags, no_add_attrs)
    or a constant of some sort.  RELOC indicates whether forming
    the initial value of DECL requires link-time relocations.  */
 
-void
-m32r_select_section (decl, reloc)
+static void
+m32r_select_section (decl, reloc, align)
      tree decl;
      int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
 {
   if (TREE_CODE (decl) == STRING_CST)
     {
       if (! flag_writable_strings)
-	const_section ();
+	readonly_data_section ();
       else
 	data_section ();
     }
@@ -344,10 +354,10 @@ m32r_select_section (decl, reloc)
 		   && !TREE_CONSTANT (DECL_INITIAL (decl))))
 	data_section ();
       else
-	const_section ();
+	readonly_data_section ();
     }
   else
-    const_section ();
+    readonly_data_section ();
 }
 
 /* Encode section information of DECL, which is either a VAR_DECL,
@@ -365,12 +375,16 @@ m32r_select_section (decl, reloc)
      large: prefixed with LARGE_FLAG_CHAR
 */
 
-void
-m32r_encode_section_info (decl)
+static void
+m32r_encode_section_info (decl, first)
      tree decl;
+     int first;
 {
   char prefix = 0;
   tree model = 0;
+
+  if (!first)
+    return;
 
   switch (TREE_CODE (decl))
     {
@@ -473,6 +487,17 @@ m32r_encode_section_info (decl)
 
       XSTR (XEXP (rtl, 0), 0) = newstr;
     }
+}
+
+/* Undo the effects of the above.  */
+
+static const char *
+m32r_strip_name_encoding (str)
+     const char *str;
+{
+  str += ENCODED_NAME_P (str);
+  str += *str == '*';
+  return str;
 }
 
 /* Do anything needed before RTL is emitted for each function.  */
@@ -1004,7 +1029,7 @@ extend_operand (op, mode)
     }
 }
 
-/* Return non-zero if the operand is an insn that is a small insn.
+/* Return nonzero if the operand is an insn that is a small insn.
    Allow const_int 0 as well, which is a placeholder for NOP slots.  */
 
 int
@@ -1021,7 +1046,7 @@ small_insn_p (op, mode)
   return get_attr_length (op) == 2;
 }
 
-/* Return non-zero if the operand is an insn that is a large insn.  */
+/* Return nonzero if the operand is an insn that is a large insn.  */
 
 int
 large_insn_p (op, mode)
@@ -1037,18 +1062,6 @@ large_insn_p (op, mode)
 
 /* Comparisons.  */
 
-/* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
-   return the mode to be used for the comparison.  */
-
-int
-m32r_select_cc_mode (op, x, y)
-     int op ATTRIBUTE_UNUSED;
-     rtx x ATTRIBUTE_UNUSED;
-     rtx y ATTRIBUTE_UNUSED;
-{
-  return (int) CCmode;
-}
-
 /* X and Y are two things to compare using CODE.  Emit the compare insn and
    return the rtx for compare [arg0 of the if_then_else].
    If need_compare is true then the comparison insn must be generated, rather
@@ -1060,9 +1073,8 @@ gen_compare (code, x, y, need_compare)
      rtx x, y;
      int need_compare;
 {
-  enum machine_mode mode = SELECT_CC_MODE (code, x, y);
   enum rtx_code compare_code, branch_code;
-  rtx cc_reg = gen_rtx_REG (mode, CARRY_REGNUM);
+  rtx cc_reg = gen_rtx_REG (CCmode, CARRY_REGNUM);
   int must_swap = 0;
 
   switch (code)
@@ -1108,7 +1120,7 @@ gen_compare (code, x, y, need_compare)
 	    {
 	      emit_insn (gen_cmp_eqsi_insn (x, y));
 		
-	      return gen_rtx (code, mode, cc_reg, const0_rtx);
+	      return gen_rtx (code, CCmode, cc_reg, const0_rtx);
 	    }
 	  break;
       
@@ -1148,7 +1160,7 @@ gen_compare (code, x, y, need_compare)
 		  abort ();
 		}
 	      
-	      return gen_rtx (code, mode, cc_reg, const0_rtx);
+	      return gen_rtx (code, CCmode, cc_reg, const0_rtx);
 	    }
 	  break;
 	  
@@ -1188,7 +1200,7 @@ gen_compare (code, x, y, need_compare)
 		  abort();
 		}
 	      
-	      return gen_rtx (code, mode, cc_reg, const0_rtx);
+	      return gen_rtx (code, CCmode, cc_reg, const0_rtx);
 	    }
 	  break;
 
@@ -1201,12 +1213,12 @@ gen_compare (code, x, y, need_compare)
       /* reg/reg equal comparison */
       if (compare_code == EQ
 	  && register_operand (y, SImode))
-	return gen_rtx (code, mode, x, y);
+	return gen_rtx (code, CCmode, x, y);
       
       /* reg/zero signed comparison */
       if ((compare_code == EQ || compare_code == LT)
 	  && y == const0_rtx)
-	return gen_rtx (code, mode, x, y);
+	return gen_rtx (code, CCmode, x, y);
       
       /* reg/smallconst equal comparison */
       if (compare_code == EQ
@@ -1215,7 +1227,7 @@ gen_compare (code, x, y, need_compare)
 	{
 	  rtx tmp = gen_reg_rtx (SImode);
 	  emit_insn (gen_cmp_ne_small_const_insn (tmp, x, y));
-	  return gen_rtx (code, mode, tmp, const0_rtx);
+	  return gen_rtx (code, CCmode, tmp, const0_rtx);
 	}
       
       /* reg/const equal comparison */
@@ -1223,7 +1235,7 @@ gen_compare (code, x, y, need_compare)
 	  && CONSTANT_P (y))
 	{
 	  rtx tmp = force_reg (GET_MODE (x), y);
-	  return gen_rtx (code, mode, x, tmp);
+	  return gen_rtx (code, CCmode, x, tmp);
 	}
     }
 
@@ -1259,7 +1271,7 @@ gen_compare (code, x, y, need_compare)
       abort ();
     }
 
-  return gen_rtx (branch_code, VOIDmode, cc_reg, CONST0_RTX (mode));
+  return gen_rtx (branch_code, VOIDmode, cc_reg, CONST0_RTX (CCmode));
 }
 
 /* Split a 2 word move (DI or DF) into component parts.  */
@@ -1379,7 +1391,7 @@ gen_split_move_double (operands)
   else
     abort ();
 
-  val = gen_sequence ();
+  val = get_insns ();
   end_sequence ();
   return val;
 }
@@ -1435,12 +1447,8 @@ m32r_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
   if (mode == BLKmode)
     abort ();
 
-  /* We must treat `__builtin_va_alist' as an anonymous arg.  */
-  if (current_function_varargs)
-    first_anon_arg = *cum;
-  else
-    first_anon_arg = (ROUND_ADVANCE_CUM (*cum, mode, type)
-		      + ROUND_ADVANCE_ARG (mode, type));
+  first_anon_arg = (ROUND_ADVANCE_CUM (*cum, mode, type)
+		    + ROUND_ADVANCE_ARG (mode, type));
 
   if (first_anon_arg < M32R_MAX_PARM_REGS)
     {
@@ -2173,7 +2181,7 @@ m32r_output_function_epilogue (file, size)
   m32r_compute_function_type (NULL_TREE);
 }
 
-/* Return non-zero if this function is known to have a null or 1 instruction
+/* Return nonzero if this function is known to have a null or 1 instruction
    epilogue.  */
 
 int
@@ -2303,14 +2311,13 @@ m32r_print_operand (file, x, code)
 
     case 'A' :
       {
-	REAL_VALUE_TYPE d;
 	char str[30];
 
 	if (GET_CODE (x) != CONST_DOUBLE
 	    || GET_MODE_CLASS (GET_MODE (x)) != MODE_FLOAT)
 	  fatal_insn ("bad insn for 'A'", x);
-	REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-	REAL_VALUE_TO_DECIMAL (d, "%.20e", str);
+
+	real_to_decimal (str, CONST_DOUBLE_REAL_VALUE (x), sizeof (str), 0, 1);
 	fprintf (file, "%s", str);
 	return;
       }
@@ -2582,7 +2589,7 @@ zero_and_one (operand1, operand2)
 	||((INTVAL (operand1) == 1) && (INTVAL (operand2) == 0)));
 }
 
-/* Return non-zero if the operand is suitable for use in a conditional move sequence.  */
+/* Return nonzero if the operand is suitable for use in a conditional move sequence.  */
 int
 conditional_move_operand (operand, mode)
      rtx operand;
@@ -2854,7 +2861,7 @@ m32r_output_block_move (insn, operands)
      stores are done without any increment, then the remaining ones can use
      the pre-increment addressing mode.
      
-     Note: expand_block_move() also relies upon this behaviour when building
+     Note: expand_block_move() also relies upon this behavior when building
      loops to copy large blocks.  */
   first_time = 1;
   

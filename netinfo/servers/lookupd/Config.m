@@ -43,13 +43,16 @@
 #import <sys/dir.h>
 #import <arpa/inet.h>
 
+extern ni_shared_handle_t *ni_raw_local(void);
+extern void ni_release_raw_local(void);
+
 @implementation Config
 
 - (char *)configDirNameForAgent:(char *)agent category:(LUCategory)cat
 {
 	char str[256];
 	char catname[64];
-	
+
 	if (cat == LUCategoryNull) strcpy(catname, "Global");
 	else 
 	{
@@ -62,7 +65,7 @@
 		sprintf(str, "%s Configuration", catname);
 		return copyString(str);
 	}
-	
+
 	if (cat == LUCategoryNull) sprintf(str, "%s Configuration", agent);
 	else sprintf(str, "%s %s Configuration", agent, catname);
 	return copyString(str);
@@ -163,7 +166,7 @@
 	[cdict release];
 	if (sourcePath != NULL) free(sourcePath);
 	if (sourceDomainName != NULL) free(sourceDomainName);
-	
+
 	[super dealloc];
 }
 
@@ -252,7 +255,6 @@
 
 	if (status != NI_OK)
 	{
-		ni_shared_release(sourceDomain);
 		sourceDomain = NULL;
 		return;
 	}
@@ -313,7 +315,7 @@
 	if (sourceDomain == NULL) return NO;
 	if (sourcePath == NULL)
 	{
-		ni_shared_release(sourceDomain);
+		if (sourceDomainIsRawLocal) ni_release_raw_local();
 		sourceDomain = NULL;
 		return NO;
 	}
@@ -325,7 +327,7 @@
 
 	if (status != NI_OK)
 	{
-		ni_shared_release(sourceDomain);
+		if (sourceDomainIsRawLocal) ni_release_raw_local();
 		sourceDomain = NULL;
 		return NO;
 	}
@@ -354,7 +356,7 @@
 
 	if (status != NI_OK)
 	{
-		ni_shared_release(sourceDomain);
+		if (sourceDomainIsRawLocal) ni_release_raw_local();
 		sourceDomain = NULL;
 		if (status == NI_NODIR) return YES;
 		return NO;
@@ -368,7 +370,7 @@
 
 	if (status != NI_OK)
 	{
-		ni_shared_release(sourceDomain);
+		if (sourceDomainIsRawLocal) ni_release_raw_local();
 		sourceDomain = NULL;
 		return YES;
 	}
@@ -384,7 +386,7 @@
 
 	ni_entrylist_free(&el);
 
-	if (sourceDomain != NULL) ni_shared_release(sourceDomain);
+	if (sourceDomainIsRawLocal) ni_release_raw_local();
 	sourceDomain = NULL;
 
 	return YES;
@@ -454,12 +456,12 @@
 				if (p[0] == sep[j] || (p[0] == '\0')) scanning = NO;
 			}
 		}
-	
+
 		/* back over trailing whitespace */
 		i--;
 		while ((buf[i] == ' ') || (buf[i] == '\t') || (buf[i] == '\n')) i--;
 		buf[++i] = '\0';
-	
+
 		tokens = appendString(buf, tokens);
 
 		/* check for end of line */
@@ -632,7 +634,6 @@
 	source = configSourceDefault;
 	if (sourcePath != NULL) freeString(sourcePath);
 	sourcePath = NULL;
-	if (sourceDomain != NULL) ni_shared_release(sourceDomain);
 	sourceDomain = NULL;
 
 	/* Check file:/etc/lookupd */
@@ -646,9 +647,12 @@
 		}
 	}
 
-	/* Check netinfo:/config/lookupd */
 	syslock_lock(rpcLock);
-	status = sa_find(&sourceDomain, &nid, "/config/lookupd", 30);
+	sourceDomain = ni_raw_local();
+	sourceDomainIsRawLocal = YES;
+	
+	/* Check netinfo:/config/lookupd */
+	status = sa_pathsearch(sourceDomain, &nid, "/config/lookupd");
 	syslock_unlock(rpcLock);
 	if (status == NI_OK)
 	{
@@ -659,7 +663,7 @@
 
 	/* Check netinfo:/locations/lookupd */
 	syslock_lock(rpcLock);
-	status = sa_find(&sourceDomain, &nid, "/locations/lookupd", 30);
+	status = sa_pathsearch(sourceDomain, &nid, "/locations/lookupd");
 	syslock_unlock(rpcLock);
 	if (status == NI_OK)
 	{
@@ -674,7 +678,7 @@
 	if (didSetConfig) return NO;
 
 	didSetConfig = YES;
-	
+
 	if (initsource == configSourceAutomatic) initsource = src;
 
 	if (sourcePath != NULL) freeString(sourcePath);
@@ -697,6 +701,7 @@
 		{
 			syslock_lock(rpcLock);
 			sourceDomain = ni_shared_open(NULL, domain);
+			sourceDomainIsRawLocal = NO;
 			syslock_unlock(rpcLock);
 		}
 	}
@@ -802,6 +807,7 @@
 	sourcePath = NULL;
 	sourceDomainName = NULL;
 	sourceDomain = NULL;
+	sourceDomainIsRawLocal = NO;
 
 	return self;
 }

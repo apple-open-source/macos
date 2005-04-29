@@ -1,5 +1,5 @@
 $ set def [.zlib]
-$ @build_zlib.com
+$ @make_vms.com
 $ set def [-.diff]
 $ @build_diff.com
 $ set def [-.vms]

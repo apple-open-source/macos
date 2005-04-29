@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/render2.c,v 1.3 2001/03/21 16:04:39 dawes Exp $ */
+/* $XFree86: xc/lib/GL/glx/render2.c,v 1.7 2004/01/31 22:44:58 alanh Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -35,6 +35,7 @@
 */
 
 #include "packrender.h"
+#include "size.h"
 
 /*
 ** This file contains routines that might need to be transported as
@@ -45,10 +46,10 @@
 void glCallLists(GLsizei n, GLenum type, const GLvoid *lists)
 {
     __GLX_DECLARE_VARIABLES();
+    __GLX_LOAD_VARIABLES();
 
     compsize = __glCallLists_size(n,type);
     cmdlen = __GLX_PAD(12 + compsize);
-    __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
     if (cmdlen <= gc->maxSmallRenderCommandSize) {
@@ -425,28 +426,21 @@ void glEnable(GLenum cap)
     __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
-    switch (cap) {
-#if 0
-      case GL_VERTEX_ARRAY_EXT:
-	  gc->state.vertArray.vertex.enable = GL_TRUE;
-	  return;
-      case GL_NORMAL_ARRAY_EXT:
-	  gc->state.vertArray.normal.enable = GL_TRUE;
-	  return;
-      case GL_COLOR_ARRAY_EXT:
-	  gc->state.vertArray.color.enable = GL_TRUE;
-	  return;
-      case GL_INDEX_ARRAY_EXT:
-	  gc->state.vertArray.index.enable = GL_TRUE;
-	  return;
-      case GL_TEXTURE_COORD_ARRAY_EXT:
-	  gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].enable = GL_TRUE;
-	  return;
-      case GL_EDGE_FLAG_ARRAY_EXT:
-	  gc->state.vertArray.edgeFlag.enable = GL_TRUE;
-	  return;
-#endif
+    switch(cap) {
+	case GL_COLOR_ARRAY:
+	case GL_EDGE_FLAG_ARRAY:
+	case GL_INDEX_ARRAY:
+	case GL_NORMAL_ARRAY:
+	case GL_TEXTURE_COORD_ARRAY:
+	case GL_VERTEX_ARRAY:
+	case GL_SECONDARY_COLOR_ARRAY:
+	case GL_FOG_COORDINATE_ARRAY:
+	    glEnableClientState(cap);
+	    return;
+	default:
+	    break;
     }
+
     __GLX_BEGIN(X_GLrop_Enable,8);
     __GLX_PUT_LONG(4,cap);
     __GLX_END(8);
@@ -459,29 +453,60 @@ void glDisable(GLenum cap)
     __GLX_LOAD_VARIABLES();
     if (!gc->currentDpy) return;
 
-    switch (cap) {
-#if 0
-      case GL_VERTEX_ARRAY_EXT:
-	  gc->state.vertArray.vertex.enable = GL_FALSE;
-	  return;
-      case GL_NORMAL_ARRAY_EXT:
-	  gc->state.vertArray.normal.enable = GL_FALSE;
-	  return;
-      case GL_COLOR_ARRAY_EXT:
-	  gc->state.vertArray.color.enable = GL_FALSE;
-	  return;
-      case GL_INDEX_ARRAY_EXT:
-	  gc->state.vertArray.index.enable = GL_FALSE;
-	  return;
-      case GL_TEXTURE_COORD_ARRAY_EXT:
-	  gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].enable = GL_FALSE;
-	  return;
-      case GL_EDGE_FLAG_ARRAY_EXT:
-	  gc->state.vertArray.edgeFlag.enable = GL_FALSE;
-	  return;
-#endif
+    switch(cap) {
+	case GL_COLOR_ARRAY:
+	case GL_EDGE_FLAG_ARRAY:
+	case GL_INDEX_ARRAY:
+	case GL_NORMAL_ARRAY:
+	case GL_TEXTURE_COORD_ARRAY:
+	case GL_VERTEX_ARRAY:
+	case GL_SECONDARY_COLOR_ARRAY:
+	case GL_FOG_COORDINATE_ARRAY:
+	    glDisableClientState(cap);
+	    return;
+	default:
+	    break;
     }
+
     __GLX_BEGIN(X_GLrop_Disable,8);
     __GLX_PUT_LONG(4,cap);
+    __GLX_END(8);
+}
+
+void glSampleCoverageARB( GLfloat value, GLboolean invert )
+{
+    __GLX_DECLARE_VARIABLES();
+
+    __GLX_LOAD_VARIABLES();
+    if (!gc->currentDpy) return;
+
+    __GLX_BEGIN(X_GLrop_SampleCoverageARB,12);
+    __GLX_PUT_FLOAT(4,value);
+    __GLX_PUT_CHAR(8,invert);
+    __GLX_END(12);
+}
+
+void glSampleMaskSGIS( GLfloat value, GLboolean invert )
+{
+    __GLX_DECLARE_VARIABLES();
+
+    __GLX_LOAD_VARIABLES();
+    if (!gc->currentDpy) return;
+
+    __GLX_BEGIN(X_GLvop_SampleMaskSGIS,12);
+    __GLX_PUT_FLOAT(4,value);
+    __GLX_PUT_CHAR(8,invert);
+    __GLX_END(12);
+}
+
+void glSamplePatternSGIS( GLenum pass )
+{
+    __GLX_DECLARE_VARIABLES();
+
+    __GLX_LOAD_VARIABLES();
+    if (!gc->currentDpy) return;
+
+    __GLX_BEGIN(X_GLvop_SamplePatternSGIS,8);
+    __GLX_PUT_LONG(4,pass);
     __GLX_END(8);
 }

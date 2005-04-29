@@ -6,9 +6,8 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.1.1.1 $                             --
 --                                                                          --
---            Copyright (C) 1991-1998, Florida State University             --
+--            Copyright (C) 1992-2002, Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,9 +27,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies Inc. in cooperation with Florida --
--- State University (http://www.gnat.com).                                  --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -139,6 +137,17 @@ separate (System.Task_Primitives.Operations)
 --  been elaborated.
 
 function Self return Task_ID is
+   ATCB_Magic_Code : constant := 16#ADAADAAD#;
+   --  This is used to allow us to catch attempts to call Self
+   --  from outside an Ada task, with high probability.
+   --  For an Ada task, Task_Wrapper.Magic_Number = ATCB_Magic_Code.
+
+   type Iptr is access Interfaces.C.unsigned;
+   function To_Iptr is new Unchecked_Conversion (Interfaces.C.unsigned, Iptr);
+
+   type Ptr is access Task_ID;
+   function To_Ptr is new Unchecked_Conversion (Interfaces.C.unsigned, Ptr);
+
    X      : Ptr;
    Result : Interfaces.C.int;
 

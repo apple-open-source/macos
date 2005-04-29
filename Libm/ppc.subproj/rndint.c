@@ -45,7 +45,7 @@
 *     02 Nov 01  ram added stubs for i386 routines.                            *
 *     08 Oct 01  ram removed <Limits.h> and <CoreServices/CoreServices.h>.     *
 *                    changed compiler errors to warnings.                      *
-*     05 Oct 01  ram added defines for LONG_MAX and LONG_MIN                   *
+*     05 Oct 01  ram added defines for INT32_MAX and INT32_MIN                 *
 *     18 Sep 01  ali <CoreServices/CoreServices.h> replaced "fp.h" & "fenv.h". *
 *     10 Sep 01  ali added more comments.                                      *
 *     09 Sep 01  ali added macros to detect PowerPC and correct compiler.      *
@@ -92,22 +92,19 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
+#include       "math.h"
 #include       "fp_private.h"
 #include       "fenv_private.h"
+#include       "limits.h"
 
-#define  LONG_MAX    2147483647
-#define  LONG_MIN    (-LONG_MAX - 1)
 
-static const double twoTo52      = 4503599627370496.0;                  // 2^52
-static const double doubleToLong = 4503603922337792.0; 			// 2^52 + 2^32
 static const hexdouble TOWARDZERO = HEXDOUBLE(0x00000000, 0x00000001);
 
-static const float twoTo23  = 8388608.0;
+static const float twoTo23  = 0x1.0p+23; // 8388608.0;
 
 #if !defined(BUILDING_FOR_CARBONCORE_LEGACY)
+
+static const double twoTo52      = 0x1.0p+52; // 4503599627370496.0;
 
 /*******************************************************************************
 *                                                                              *
@@ -144,14 +141,18 @@ double rint ( double x )
 {
       hexdouble argument;
       register double y;
-      unsigned long int xHead;
-      register long int target;
+      uint32_t xHead;
+      register int target;
       
       argument.d = x;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+
       xHead = argument.i.hi & 0x7fffffff;              // xHead <- high half of |x|
       target = ( argument.i.hi < 0x80000000 );         // flags positive sign
       
-      if ( xHead < 0x43300000ul ) 
+      if (likely( xHead < 0x43300000u )) 
 /*******************************************************************************
 *     Is |x| < 2.0^52?                                                         *
 *******************************************************************************/
@@ -195,14 +196,18 @@ float rintf ( float x )
 {
       hexsingle argument;
       register float y;
-      unsigned long int xHead;
-      register long int target;
+      uint32_t xHead;
+      register int target;
       
       argument.fval = x;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+
       xHead = argument.lval & 0x7fffffff;              // xHead <- |x|
-      target = ( (unsigned long)argument.lval < 0x80000000ul );         // flags positive sign
+      target = ( (uint32_t)argument.lval < 0x80000000u );         // flags positive sign
       
-      if ( xHead < 0x4b000000ul ) 
+      if (likely( xHead < 0x4b000000u )) 
 /*******************************************************************************
 *     Is |x| < 2.0^23?                                                         *
 *******************************************************************************/
@@ -221,15 +226,16 @@ float rintf ( float x )
                         if ( target )
                               return ( 0.0 );
                         else
-#if (__GNUC__>=3)
-                              return ( -0.0 );
-#else /* workaround gcc 2.x botch of -0 return. */
-                              {
+                             {
+#if defined(__GNUC__) && (__GNUC__<3)   /* workaround gcc2.x botch of -0 return. */
                               volatile hexsingle zInHex;
                               zInHex.lval = 0x80000000;
                               return zInHex.fval;
-                              }
+
+#else                       
+                              return ( -0.0 );
 #endif
+                              }
                      }
                   return y;
               }
@@ -265,15 +271,18 @@ double nearbyint ( double x )
 {
        double y, OldEnvironment;
       
-        if (x != x)
+       if (unlikely(x != x))
             return x;
             
        y = twoTo52;
        
        FEGETENVD( OldEnvironment );              /* save the environement */
 
-      if ( fabs ( x ) >= y )                     /* huge case is exact */
+      if (unlikely( fabs ( x ) >= y ))           /* huge case is exact */
+      {
+            FESETENVD( OldEnvironment );              /* restore old environment */
             return x;
+      }
       if ( x < 0 ) y = -y;                       /* negative case */
       y = ( x + y ) - y;                         /* force rounding */
       if ( y == 0.0 )                            /* zero results mirror sign of x */
@@ -287,47 +296,168 @@ float nearbyintf ( float x )
     double OldEnvironment;
     float y;
 
-    if (x != x)
+    if (unlikely(x != x))
         return x;
             
     y = twoTo23;
     
     FEGETENVD( OldEnvironment );              /* save the environement */
     
-    if ( fabs ( x ) >= y )                     /* huge case is exact */
+    if (unlikely( fabsf ( x ) >= y ))          /* huge case is exact */
+    {
+        FESETENVD( OldEnvironment );              /* restore old environment */
         return x;
+    }
     if ( x < 0 ) y = -y;                       /* negative case */
         y = ( x + y ) - y;                         /* force rounding */
     if ( y == 0.0 )                            /* zero results mirror sign of x */
-        y = copysign ( y, x );
+        y = copysignf ( y, x );
     FESETENVD( OldEnvironment );              /* restore old environment */
     return ( y );      
 }
-      
+  
 long int lrint ( double x )
 {
-    hexdouble hx;
-    
-    asm volatile ("fctiw %0,%1" : "=f"(hx.d) : "f"(x));
-    return hx.i.lo;    
+    if (sizeof(long int) == 4) // PPC32 ABI
+    {
+        hexdouble hx;
+        
+        asm volatile ("fctiw %0,%1" : "=f"(hx.d) : "f"(x));
+        __NOOP;
+        __NOOP;
+        __NOOP;
+        return hx.i.lo;    
+    }
+    else // (sizeof(long int) == 8) LP64 ABI
+    {
+        union { double d; uint64_t i;} hx;
+        asm volatile ("fctid %0,%1" : "=f"(hx.d) : "f"(x));
+        __NOOP;
+        __NOOP;
+        __NOOP;
+        return hx.i;
+    }
 }
 
 long int lrintf ( float x )
 {
-    hexdouble hx;
-    
-    asm volatile ("fctiw %0,%1" : "=f"(hx.d) : "f"(x));
-    return hx.i.lo;    
+    if (sizeof(long int) == 4) // PPC32 ABI
+    {
+        hexdouble hx;
+        
+        asm volatile ("fctiw %0,%1" : "=f"(hx.d) : "f"(x));
+        __NOOP;
+        __NOOP;
+        __NOOP;
+        return hx.i.lo;    
+    }
+    else // (sizeof(long int) == 8) LP64 ABI, PPC64 ISA
+    {
+        union { double d; uint64_t i;} hx;
+        asm volatile ("fctid %0,%1" : "=f"(hx.d) : "f"(x));
+        __NOOP;
+        __NOOP;
+        __NOOP;
+        return hx.i;
+    }
 }
 
 long long int llrint ( double x )
 {
-    return (long long int)rint( x );
+	double t;
+	long long int result;
+	double fenv;
+
+    if (sizeof(long int) == 8) // LP64 ABI, PPC64 ISA
+    {
+        union { double d; uint64_t i;} hx;
+        asm volatile ("fctid %0,%1" : "=f"(hx.d) : "f"(x));
+        __NOOP;
+        __NOOP;
+        __NOOP;
+        return hx.i;
+    }
+    
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_LONG_MIN;
+	}
+	
+	FEGETENVD(fenv);
+	t = rint ( x );
+	FESETENVD(fenv);
+	
+	if ( t < (double)LONG_LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MIN;
+	}
+	else if ( t > (double)LONG_LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long long int) t;
+	}
+	else
+	{
+		result = (long long int) t;
+	}
+	
+    return result;
 }
 
 long long int llrintf (float x)
 {
-    return (long long int)rintf ( x );
+	float t;
+	long long int result;
+	double fenv;
+	
+    if (sizeof(long int) == 8) // LP64 ABI, PPC64 ISA
+    {
+        union { double d; uint64_t i;} hx;
+        asm volatile ("fctid %0,%1" : "=f"(hx.d) : "f"(x));
+        __NOOP;
+        __NOOP;
+        __NOOP;
+        return hx.i;
+    }
+
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_LONG_MIN;
+	}
+	
+	FEGETENVD(fenv);
+	t = rintf ( x );
+	FESETENVD(fenv);
+	
+	if ( t < (float)LONG_LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MIN;
+	}
+	else if ( t > (float)LONG_LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long long int) t;
+	}
+	else
+	{
+		result = (long long int) t;
+	}
+	
+    return result;
 }
 
 /*******************************************************************************
@@ -344,14 +474,18 @@ double round ( double x )
 {      
       hexdouble argument, OldEnvironment;
       register double y, z;
-      register unsigned long int xHead;
-      register long int target;
+      uint32_t xHead;
+      register int target;
       
       argument.d = x;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+
       xHead = argument.i.hi & 0x7fffffff;              // xHead <- high half of |x|
       target = ( argument.i.hi < 0x80000000 );         // flag positive sign
       
-      if ( xHead < 0x43300000ul ) 
+      if (likely( xHead < 0x43300000u ))
 /*******************************************************************************
 *     Is |x| < 2.0^52?                                                        *
 *******************************************************************************/
@@ -362,14 +496,14 @@ double round ( double x )
 *******************************************************************************/
               {
                      FEGETENVD( OldEnvironment.d );     // get environment
-                  if ( xHead < 0x3fe00000ul ) 
+                  if ( xHead < 0x3fe00000u ) 
 /*******************************************************************************
 *     Is |x| < 0.5?                                                           *
 *******************************************************************************/
                      {
-                        if ( ( xHead | argument.i.lo ) != 0ul )
+                        if ( ( xHead | argument.i.lo ) != 0u )
                               OldEnvironment.i.lo |= FE_INEXACT;
-                            FESETENVD( OldEnvironment.d );
+                        FESETENVD_GRP( OldEnvironment.d );
                         if ( target ) 
                               return ( 0.0 );
                         else
@@ -379,7 +513,7 @@ double round ( double x )
 *     Is 0.5 ² |x| < 1.0?                                                      *
 *******************************************************************************/
                   OldEnvironment.i.lo |= FE_INEXACT;
-                     FESETENVD ( OldEnvironment.d );
+                  FESETENVD_GRP ( OldEnvironment.d );
                   if ( target )
                         return ( 1.0 );
                   else
@@ -428,50 +562,55 @@ float roundf ( float x )
       hexdouble OldEnvironment;
       hexsingle argument;
       register float y, z;
-      register unsigned long int xHead;
-      register long int target;
+      uint32_t xHead;
+      register int target;
       
       argument.fval = x;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+
       xHead = argument.lval & 0x7fffffff;              // xHead <- |x|
-      target = ( (unsigned long)argument.lval < 0x80000000ul );         // flags positive sign
+      target = ( (uint32_t)argument.lval < 0x80000000u );         // flags positive sign
       
-      if ( xHead < 0x4b000000ul ) 
+      if (likely( xHead < 0x4b000000u )) 
 /*******************************************************************************
 *     Is |x| < 2.0^52?                                                        *
 *******************************************************************************/
        {
-            if ( xHead < 0x3f800000ul ) 
+            if ( xHead < 0x3f800000u ) 
 /*******************************************************************************
 *     Is |x| < 1.0?                                                           *
 *******************************************************************************/
               {
                   FEGETENVD( OldEnvironment.d );     // get environment
-                  if ( xHead < 0x3f000000ul ) 
+                  if ( xHead < 0x3f000000u ) 
 /*******************************************************************************
 *     Is |x| < 0.5?                                                           *
 *******************************************************************************/
                      {
-                        if ( xHead != 0ul )
+                        if ( xHead != 0u )
                               OldEnvironment.i.lo |= FE_INEXACT;
-                            FESETENVD( OldEnvironment.d );
+                              FESETENVD_GRP( OldEnvironment.d );
                         if ( target ) 
                               return ( 0.0 );
                         else
-#if (__GNUC__>=3)
-                              return ( -0.0 );
-#else /* workaround gcc 2.x botch of -0 return. */
-                              {
+                             {
+#if defined(__GNUC__) && (__GNUC__<3)   /* workaround gcc2.x botch of -0 return. */
                               volatile hexsingle zInHex;
                               zInHex.lval = 0x80000000;
                               return zInHex.fval;
-                              }
+
+#else                       
+                              return ( -0.0 );
 #endif
+                              }
                      }
 /*******************************************************************************
 *     Is 0.5 ² |x| < 1.0?                                                      *
 *******************************************************************************/
                   OldEnvironment.i.lo |= FE_INEXACT;
-                     FESETENVD ( OldEnvironment.d );
+                  FESETENVD_GRP ( OldEnvironment.d );
                   if ( target )
                         return ( 1.0 );
                   else
@@ -528,195 +667,161 @@ float roundf ( float x )
 *                                                                              *
 *******************************************************************************/
 
+// These work just as well for the LP64 ABI
 long int lround ( double x )
-{       
-       register double y, z;
-       hexdouble argument, OldEnvironment;
-       register unsigned long int xhi;
-       register long int target;
-       const hexdouble kTZ = HEXDOUBLE(0x0, 0x1);
-       const hexdouble kUP = HEXDOUBLE(0x0, 0x2);
-       
-       argument.d = x;
-       xhi = argument.i.hi & 0x7fffffff;                    // high 32 bits of x
-       target = ( argument.i.hi < 0x80000000 );             // flag positive sign
-       
-       if ( xhi > 0x41e00000ul ) 
-/*******************************************************************************
-*     Is x is out of long range or NaN?                                        *
-*******************************************************************************/
-       {
-              FEGETENVD ( OldEnvironment.d );               // get environment
-              OldEnvironment.i.lo |= SET_INVALID;
-              FESETENVD ( OldEnvironment.d );               // set environment
-              if ( target )                                 // pin result
-                     return ( LONG_MAX );
-              else
-                     return ( LONG_MIN );
-       }
-       
-       if ( target ) 
-/*******************************************************************************
-*     Is sign of x "+"?                                                        *
-*******************************************************************************/
-       {
-              if ( x < 2147483647.5 ) 
-/*******************************************************************************
-*     x is in the range of a long.                                             *
-*******************************************************************************/
-              {
-                     y = ( x + doubleToLong ) - doubleToLong;    // round at binary point
-                     if ( y != x )       
-                     {                                           // inexact case
-                            FEGETENVD (OldEnvironment.d );       // save environment
-                            FESETENVD ( kTZ.d );                 // truncate rounding
-                            z = x + 0.5;                         // truncate x + 0.5
-                            argument.d = z + doubleToLong;
-                            FESETENVD( OldEnvironment.d );       // restore environment
-                            return ( ( long ) argument.i.lo );
-                     }
-                     
-                     argument.d = y + doubleToLong;              // force result into argument.i.lo
-                     return ( ( long ) argument.i.lo );          // return long result
-              }
-/*******************************************************************************
-*     Rounded positive x is out of the range of a long.                        *
-*******************************************************************************/
-              FEGETENVD ( OldEnvironment.d );
-              OldEnvironment.i.lo |= SET_INVALID;
-              FESETENVD ( OldEnvironment.d );
-              return ( LONG_MAX );                               // return pinned result
-              }
-/*******************************************************************************
-*     x < 0.0 and may or may not be out of the range of a long.                *
-*******************************************************************************/
-       if ( x > -2147483648.5 ) 
-/*******************************************************************************
-*     x is in the range of a long.                                             *
-*******************************************************************************/
-              {
-              y = ( x - doubleToLong ) + doubleToLong;           // round at binary point
-              if ( y != x ) 
-              {                                                  // inexact case
-                     FEGETENVD( OldEnvironment.d );              // save environment
-                     FESETENVD( kUP.d );                         // round up
-                     z = x - 0.5;                                // truncate x - 0.5
-                     argument.d = z + doubleToLong;
-                     FESETENVD( OldEnvironment.d );              // restore environment
-                     return ( ( long ) argument.i.lo );
-              }
-              
-              argument.d = y + doubleToLong;
-              return ( ( long ) argument.i.lo );                 //  return long result
-       }
-/*******************************************************************************
-*     Rounded negative x is out of the range of a long.                        *
-*******************************************************************************/
-       FEGETENVD( OldEnvironment.d );
-       OldEnvironment.i.lo |= SET_INVALID;
-       FESETENVD( OldEnvironment.d );
-       return ( LONG_MIN );                                      // return pinned result
+{
+	double t;
+	long int result;
+	double fenv;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_MAX;
+	}
+	
+	FEGETENVD(fenv);
+	t = round ( x );
+	FESETENVD(fenv);
+	
+	if ( t < (double)LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MIN;
+	}
+	else if ( t > (double)LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long int) t;
+	}
+	else
+	{
+		result = (long int) t;
+	}
+	
+    return result;
 }
 
 long int lroundf ( float x )
 {       
-       register float y, z;
-       hexdouble OldEnvironment;
-       hexsingle argument;
-       register unsigned long int xhi;
-       register long int target;
-       const hexdouble kTZ = HEXDOUBLE(0x0, 0x1);
-       const hexdouble kUP = HEXDOUBLE(0x0, 0x2);
-       
-       argument.fval = x;
-       xhi = argument.lval & 0x7fffffff;                    // high 32 bits of x
-       target = ( (unsigned long)argument.lval < 0x80000000ul );         // flags positive sign
- 
-       if ( xhi > 0x4f800000ul ) 
-/*******************************************************************************
-*     Is x is out of long range or NaN?                                        *
-*******************************************************************************/
-       {
-              FEGETENVD ( OldEnvironment.d );               // get environment
-              OldEnvironment.i.lo |= SET_INVALID;
-              FESETENVD ( OldEnvironment.d );               // set environment
-              if ( target )                                 // pin result
-                     return ( LONG_MAX );
-              else
-                     return ( LONG_MIN );
-       }
-       
-       if ( target ) 
-/*******************************************************************************
-*     Is sign of x is "+"?                                                     *
-*******************************************************************************/
-       {
-              if ( x < 2147483647.5 ) 
-/*******************************************************************************
-*     x is in the range of a long.                                             *
-*******************************************************************************/
-              {
-                     y = ( x + twoTo23 ) - twoTo23;    // round at binary point
-                     if ( y != x )       
-                     {                                           // inexact case
-                            FEGETENVD (OldEnvironment.d );       // save environment
-                            FESETENVD ( kTZ.d );                 // truncate rounding
-                            z = x + 0.5;                         // truncate x + 0.5
-                            argument.lval = z;			 // convert float to int
-                            FESETENVD( OldEnvironment.d );       // restore environment
-                            return ( ( long ) argument.lval );
-                     }
-                     
-                     argument.lval = y;			 	    // convert float to int
-                     return ( ( long ) argument.lval );             // return long result
-              }
-/*******************************************************************************
-*     Rounded positive x is out of the range of a long.                        *
-*******************************************************************************/
-              FEGETENVD ( OldEnvironment.d );
-              OldEnvironment.i.lo |= SET_INVALID;
-              FESETENVD ( OldEnvironment.d );
-              return ( LONG_MAX );                               // return pinned result
-              }
-/*******************************************************************************
-*     x < 0.0 and may or may not be out of the range of a long.                *
-*******************************************************************************/
-       if ( x > -2147483648.5 ) 
-/*******************************************************************************
-*     x is in the range of a long.                                             *
-*******************************************************************************/
-              {
-              y = ( x - twoTo23 ) + twoTo23;           // round at binary point
-              if ( y != x ) 
-              {                                                  // inexact case
-                     FEGETENVD( OldEnvironment.d );              // save environment
-                     FESETENVD( kUP.d );                         // round up
-                     z = x - 0.5;                                // truncate x - 0.5
-                     argument.lval = z;			 	 // convert float to int
-                     FESETENVD( OldEnvironment.d );              // restore environment
-                     return ( ( long ) argument.lval );
-              }
-              
-              argument.lval = y;			 	 // convert float to int
-              return ( ( long ) argument.lval );                 //  return long result
-       }
-/*******************************************************************************
-*     Rounded negative x is out of the range of a long.                        *
-*******************************************************************************/
-       FEGETENVD( OldEnvironment.d );
-       OldEnvironment.i.lo |= SET_INVALID;
-       FESETENVD( OldEnvironment.d );
-       return ( LONG_MIN );                                      // return pinned result
-}
+	float t;
+	long int result;
+	double fenv;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_MAX;
+	}
+	
+	FEGETENVD(fenv);
+	t = roundf ( x );
+	FESETENVD(fenv);
+	
+	if ( t < (float)LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MIN;
+	}
+	else if ( t > (float)LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long int) t;
+	}
+	else
+	{
+		result = (long int) t;
+	}
+	
+    return result;
+}       
 
 long long int llround ( double x )
-{
-    return (long long int)round ( x );
+{       
+	double t;
+	long long int result;
+	double fenv;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_LONG_MAX;
+	}
+	
+	FEGETENVD(fenv);
+	t = round ( x );
+	FESETENVD(fenv);
+	
+	if ( t < (double)LONG_LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MIN;
+	}
+	else if ( t > (double)LONG_LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long long int) t;
+	}
+	else
+	{
+		result = (long long int) t;
+	}
+	
+    return result;
 }
 
 long long int llroundf ( float x )
-{
-    return (long long int)roundf ( x );
+{       
+	float t;
+	long long int result;
+	double fenv;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_LONG_MAX;
+	}
+	
+	FEGETENVD(fenv);
+	t = roundf ( x );
+	FESETENVD(fenv);
+	
+	if ( t < (float)LONG_LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MIN;
+	}
+	else if ( t > (float)LONG_LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long long int) t;
+	}
+	else
+	{
+		result = (long long int) t;
+	}
+	
+    return result;
 }
 
 /*******************************************************************************
@@ -731,28 +836,31 @@ double trunc ( double x )
 {       
        hexdouble argument, OldEnvironment;
        register double y;
-       register unsigned long int xhi;
-       register long int target;
+       uint32_t xhi;
+       register int target;
        
        argument.d = x;
+       __NOOP;
+       __NOOP;
+       __NOOP;
        xhi = argument.i.hi & 0x7fffffff;                         // xhi <- high half of |x|
        target = ( argument.i.hi < 0x80000000 );                  // flag positive sign
        
-       if ( xhi < 0x43300000ul ) 
+       if (likely( xhi < 0x43300000u )) 
 /*******************************************************************************
 *     Is |x| < 2.0^53?                                                         *
 *******************************************************************************/
        {
-              if ( xhi < 0x3ff00000ul ) 
+              if ( xhi < 0x3ff00000u ) 
 /*******************************************************************************
 *     Is |x| < 1.0?                                                            *
 *******************************************************************************/
               {
-                     if ( ( xhi | argument.i.lo ) != 0ul ) 
+                     if ( ( xhi | argument.i.lo ) != 0u ) 
                      {                                          // raise deserved INEXACT
-                            FEGETENVD( OldEnvironment.d );
+                            FEGETENVD_GRP( OldEnvironment.d );
                             OldEnvironment.i.lo |= FE_INEXACT;
-                            FESETENVD( OldEnvironment.d );
+                            FESETENVD_GRP( OldEnvironment.d );
                      }
                      if ( target )                              // return properly signed zero
                             return ( 0.0 );
@@ -790,14 +898,18 @@ float truncf ( float x )
        hexdouble OldEnvironment;
        hexsingle argument;
        register float y;
-       register unsigned long int xhi;
-       register long int target;
+       uint32_t xhi;
+       register int target;
        
        argument.fval = x;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+
        xhi = argument.lval & 0x7fffffff;                         // xhi <- |x|
-       target = ( (unsigned long)argument.lval < 0x80000000ul );         // flags positive sign
+       target = ( (uint32_t)argument.lval < 0x80000000u );         // flags positive sign
        
-       if ( xhi < 0x4b000000ul ) 
+       if (likely( xhi < 0x4b000000u )) 
 /*******************************************************************************
 *     Is |x| < 2.0^23?                                                         *
 *******************************************************************************/
@@ -807,24 +919,25 @@ float truncf ( float x )
 *     Is |x| < 1.0?                                                            *
 *******************************************************************************/
               {
-                     if ( xhi != 0ul ) 
+                     if ( xhi != 0u ) 
                      {                                          // raise deserved INEXACT
-                            FEGETENVD( OldEnvironment.d );
+                            FEGETENVD_GRP( OldEnvironment.d );
                             OldEnvironment.i.lo |= FE_INEXACT;
-                            FESETENVD( OldEnvironment.d );
+                            FESETENVD_GRP( OldEnvironment.d );
                      }
                      if ( target )                              // return properly signed zero
                             return ( 0.0 );
                      else
-#if (__GNUC__>=3)
-                            return ( -0.0 );
-#else /* workaround gcc2.x botch of -0 return. */
                              {
+#if defined(__GNUC__) && (__GNUC__<3)   /* workaround gcc2.x botch of -0 return. */
                               volatile hexsingle zInHex;
                               zInHex.lval = 0x80000000;
                               return zInHex.fval;
-                              }
+
+#else                       
+                              return ( -0.0 );
 #endif
+                              }
               }
 /*******************************************************************************
 *     Is 1.0 < |x| < 2.0^23?                                                   *
@@ -866,67 +979,7 @@ float truncf ( float x )
 *                                                                              *
 *******************************************************************************/
 
-#ifdef notdef
-double modf ( double x, double *iptr )
-{
-      register double OldEnvironment, xtrunc;
-      register unsigned long int xHead, signBit;
-      hexdouble argument;
-      
-      argument.d = x;
-      xHead = argument.i.hi & 0x7fffffff;                    // |x| high bit pattern
-      signBit = ( argument.i.hi & 0x80000000 );              // isolate sign bit
-      
-      if ( xHead < 0x43300000ul ) 
-/*******************************************************************************
-*     Is |x| < 2.0^53?                                                         *
-*******************************************************************************/
-       {
-            if ( xHead < 0x3ff00000ul )      
-/*******************************************************************************
-*     Is |x| < 1.0?                                                            *
-*******************************************************************************/
-              {
-                  argument.i.hi = signBit;                    // truncate to zero
-                  argument.i.lo = 0ul;
-                  *iptr = argument.d;
-                  return ( x );
-              }
-/*******************************************************************************
-*     Is 1.0 < |x| < 2.0^52?                                                   *
-*******************************************************************************/
-              FEGETENVD( OldEnvironment );                    // save environment
-              // round toward zero
-              FESETENVD( TOWARDZERO.d );
-            if ( signBit == 0ul )                             // truncate to integer
-                  xtrunc = ( x + twoTo52 ) - twoTo52;
-            else
-                  xtrunc = ( x - twoTo52 ) + twoTo52;
-              // restore caller's env
-              FESETENVD( OldEnvironment );                    // restore environment
-            *iptr = xtrunc;                                   // store integral part
-            if ( x != xtrunc )                                // nonzero fraction
-                  return ( x - xtrunc );
-            else 
-              {                                               // zero with x's sign
-                  argument.i.hi = signBit;
-                  argument.i.lo = 0ul;
-                  return ( argument.d );
-              }
-       }
-      
-      *iptr = x;                                             // x is integral or NaN
-      if ( x != x )                                          // NaN is returned
-            return x;
-      else 
-       {                                                     // zero with x's sign
-            argument.i.hi = signBit;
-            argument.i.lo = 0ul;
-            return ( argument.d );
-       }
-}
-#else
-static const hexdouble twoTo53 = HEXDOUBLE(0x43300000, 0x00000000);
+static const double twoTo53 = 0x1.0p+53; // HEXDOUBLE(0x43300000, 0x00000000);
 
 double modf ( double x, double *iptr )
 {
@@ -935,7 +988,7 @@ double modf ( double x, double *iptr )
       
       register double FPR_negZero, FPR_zero, FPR_one, FPR_Two52, FPR_Two53, FPR_TowardZero, FPR_absx;
       
-      FPR_absx = __FABS( x );						FPR_Two53 = twoTo53.d;
+      FPR_absx = __FABS( x );						FPR_Two53 = twoTo53;
       FPR_one = 1.0;								argument.d = x;
 
       FPR_TowardZero = TOWARDZERO.d;				FPR_Two52 = twoTo52;	
@@ -947,7 +1000,7 @@ double modf ( double x, double *iptr )
 /*******************************************************************************
 *     Is |x| < 2.0^53?                                                         *
 *******************************************************************************/
-       if ( FPR_absx < FPR_Two53 ) 
+       if (likely( FPR_absx < FPR_Two53 )) 
        {
 /*******************************************************************************
 *     Is |x| < 1.0?                                                            *
@@ -995,7 +1048,6 @@ double modf ( double x, double *iptr )
                 return FPR_zero;							// truncate to zero
       }
 }
-#endif
 
 #else /* BUILDING_FOR_CARBONCORE_LEGACY */
 
@@ -1003,14 +1055,18 @@ float modff ( float x, float *iptr )
 {
       register double OldEnvironment;
       register float xtrunc;
-      register unsigned long int xHead, signBit;
+      register uint32_t xHead, signBit;
       hexsingle argument;
       
       argument.fval = x;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+
       xHead = argument.lval & 0x7fffffff;                    // |x| high bit pattern
       signBit = ( argument.lval & 0x80000000 );              // isolate sign bit
       
-      if ( xHead < 0x4b000000ul ) 
+      if (likely( xHead < 0x4b000000u )) 
 /*******************************************************************************
 *     Is |x| < 2.0^23?                                                         *
 *******************************************************************************/
@@ -1021,6 +1077,10 @@ float modff ( float x, float *iptr )
 *******************************************************************************/
               {
                   argument.lval = signBit;                    // truncate to zero
+                  __NOOP;
+                  __NOOP;
+                  __NOOP;
+
                   *iptr = argument.fval;
                   return ( x );
               }
@@ -1030,7 +1090,7 @@ float modff ( float x, float *iptr )
               FEGETENVD( OldEnvironment );                    // save environment
               // round toward zero
               FESETENVD( TOWARDZERO.d );
-            if ( signBit == 0ul )                             // truncate to integer
+            if ( signBit == 0u )                             // truncate to integer
                   xtrunc = ( x + twoTo23 ) - twoTo23;
             else
                   xtrunc = ( x - twoTo23 ) + twoTo23;
@@ -1042,6 +1102,10 @@ float modff ( float x, float *iptr )
             else 
               {                                               // zero with x's sign
                   argument.lval = signBit;
+                  __NOOP;
+                  __NOOP;
+                  __NOOP;
+                  
                   return ( argument.fval );
               }
        }
@@ -1052,13 +1116,12 @@ float modff ( float x, float *iptr )
       else 
        {                                                     // zero with x's sign
             argument.lval = signBit;
+            __NOOP;
+            __NOOP;
+            __NOOP;
+            
             return ( argument.fval );
        }
 }
 
 #endif /* BUILDING_FOR_CARBONCORE_LEGACY */
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

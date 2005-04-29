@@ -24,6 +24,8 @@
 //other dealings in this Software without prior written authorization
 //from The Open Group.
 //
+// $XFree86: xc/programs/xkbcomp/geometry/hp,v 1.9 2003/09/27 13:31:57 pascal Exp $
+
 default xkb_geometry "pc101" {
 
     description= "HP PC101";
@@ -274,3 +276,181 @@ xkb_geometry "hil" {
     }; // End of "Keypad" section
 
 }; // End of "default" geometry
+
+
+// Created by Alexander Pohoyda <alexander.pohoyda@gmx.net>
+// Geometry specification for HP Omnibook keyboards.
+// Compatible Models: 6100, 6000.
+
+xkb_geometry "omnibook" {
+    width = 282;
+    height = 128;
+    baseColor = "grey80";
+    labelColor = "white";
+
+    shape "FN0"  { cornerRadius = 1, { [15.5, 12] }, { [1, 0], [14.5, 11] } };
+    shape "NORM" { cornerRadius = 1, { [18, 16] }, { [2, 0], [16, 14] } };
+    shape "BKSP" { cornerRadius = 1, { [31, 16] }, { [2, 0], [29, 14] } };
+    shape "TABK" { cornerRadius = 1, { [27, 16] }, { [2, 0], [25, 14] } };
+    shape "CAPS" { cornerRadius = 1, { [32, 16] }, { [2, 0], [30, 14] } };
+    shape "RTSH" { cornerRadius = 1, { [45, 16] }, { [2, 0], [43, 14] } };
+    shape "MODK" { cornerRadius = 1, { [28, 16] }, { [2, 0], [26, 14] } };
+    shape "SPCE" { cornerRadius = 1, { [90, 16] }, { [2, 0], [88, 14] } };
+    shape "ARRS" { cornerRadius = 1, { [17, 12] }, { [2, 0], [15, 11] } };
+    
+    shape "LED"  { cornerRadius = 1, { [2, 4] } };
+
+    shape "KEYS" { cornerRadius = 1,
+                   { [0, 13],
+                     [197, 13], [197, 0],
+                     [280, 0], [280, 125],
+                     [224, 125], [224, 112],
+                     [0, 112] }
+    };
+
+    solid "KeyPanel" {
+	shape = "KEYS";
+	left = 1;
+	top = 1;
+	color = "black";
+    };
+
+    shape "NULL1" { cornerRadius = 1, { [54, 16] } };
+
+    solid "NullPanel1" {
+	shape = "NULL1";
+	left = 226;
+	top = 96;
+	color = "grey80";
+    };
+
+    shape "NULL2" { cornerRadius = 1, { [19, 14] } };
+
+    solid "NullPanel2" {
+	shape = "NULL2";
+	left = 243;
+	top = 97;
+	color = "black";
+    };
+
+    indicator.onColor = "green";
+    indicator.offColor = "grey10";
+    indicator.top = 4;
+    indicator.shape = "LED";
+    indicator "Caps Lock"    { left = 45; };
+    indicator "Num Lock"     { left = 60; };
+    indicator "Scroll Lock"  { left = 75; };
+    indicator "HDDActivity" { onColor = "red"; left = 90; };
+
+    key.color = "grey60";
+
+    section "Function" {
+        key.gap = 0.99;
+        left = 1;
+        top = 1;
+	key.shape = "FN0";
+	row {
+	    left = 197;
+	    top = 1;
+	    keys {  <PRSC>, <PAUS>, <INS>, <HOME>, <PGUP> };
+	};
+	row {
+	    top = 14;
+	    keys {  <ESC>,
+                    <FK01>, <FK02>, <FK03>, <FK04>,
+		    <FK05>, <FK06>, <FK07>, <FK08>,
+		    <FK09>, <FK10>, <FK11>, <FK12>,
+                    <SCLK>, <DELE>, <END>, <PGDN>
+	    };
+	};
+    }; // End of "Function" section
+
+    section "Control" {
+        left = 1;
+	top = 34;
+        key.gap = 1;
+	row {
+	    top = 62;
+	    key.shape = "NORM";
+	    keys { <LCTL>, <FN>, <LWIN>, <LALT>,
+		   { <SPCE>, "SPCE" }, <RALT>, <MENU>, <RCTL>
+	    };
+	};
+    }; // End of "Control" section
+
+    section "Navigation" {
+	key.shape = "ARRS";
+	left = 225;
+	top = 97;
+        key.gap = 1.4;
+	row {
+	    left= 18;
+	    top = 1;
+	    keys { <UP> };
+	};
+	row {
+	    top = 16;
+	    keys { <LEFT>, <DOWN>, <RGHT> };
+	};
+    }; // End of "Navigation" section
+
+    shape "STIK" { cornerRadius = 4, { [7, 7] } };
+
+    solid "STIK" {
+	priority = 255;
+	color = "red";
+	shape = "STIK";
+	top = 73;
+	left = 126;
+    };
+};
+
+// 86 keys
+xkb_geometry "omnibook_intl" {
+    include "hp(omnibook)"
+    description = "HP Omnibook 6000/6100, Intl";
+
+    shape "RTRN" { cornerRadius = 1,
+                   { [22, 0], [22, 33], [5, 33], [5, 16], [0, 16], [0, 0] },
+                   { [20, 0], [20, 31], [7, 31], [7, 14], [2, 14], [2, 0] } };
+    shape "LFSH" { cornerRadius = 1, { [23, 16] }, { [2, 0], [21, 14] } };
+
+    section "Alpha" {
+	key.gap = 1;
+	key.color = "grey60";
+	key.shape = "NORM";
+        left = 1;
+	top = 27;
+	row {
+	    top = 1;
+	    keys { <AE00>, <AE01>, <AE02>, <AE03>, <AE04>,
+		   <AE05>, <AE06>, <AE07>, <AE08>, <AE09>,
+		   <AE10>, <AE11>, <AE12>, { <BKSP>, "BKSP" }
+	    };
+	};
+	row {
+	    top = 18;
+	    keys { { <TAB>, "TABK" },
+		   <AD01>, <AD02>, <AD03>, <AD04>, <AD05>, 
+		   <AD06>, <AD07>, <AD08>, <AD09>, <AD10>, 
+		   <AD11>, <AD12>, { <RTRN>, "RTRN" }
+	    };
+	};
+	row {
+	    top = 35;
+	    keys { { <CAPS>, "CAPS" },
+		   <AC01>, <AC02>, <AC03>, <AC04>, <AC05>, 
+		   <AC06>, <AC07>, <AC08>, <AC09>, <AC10>, 
+		   <AC11>, <AC12>
+	    };
+	};
+	row {
+	    top = 52;
+	    keys { { <LFSH>, "LFSH" }, <LSGT>,
+		   <AB01>, <AB02>, <AB03>, <AB04>, <AB05>, 
+		   <AB06>, <AB07>, <AB08>, <AB09>, <AB10>,
+		   { <RTSH>, "RTSH" }
+	    };
+	};
+    }; // End of "Alpha" section
+};

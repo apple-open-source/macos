@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: dlsof.h,v 1.6 2002/10/08 20:16:56 abe Exp $
+ * $Id: dlsof.h,v 1.9 2004/03/10 23:50:16 abe Exp $
  */
 
 
@@ -42,19 +42,34 @@
 #include <dirent.h>
 #include <nlist.h>
 #include <setjmp.h>
-#include <signal.h>
 #include <string.h>
 #include <sys/conf.h>
 #include <sys/filedesc.h>
 #include <sys/ucred.h>
-#define m_stat	mnt_stat
-#define	KERNEL
+
+#if	DARWINV<800
 #include <sys/mount.h>
-#undef	KERNEL
+#define	m_stat	mnt_stat
+#else	/* DARWINV>=800 */
+#include <sys/mount_internal.h>
+#define	m_stat	mnt_vfsstat
+#endif	/* DARWINV>=800 */
+
+#if	DARWINV<800
+#include <sys/uio.h>
+#include <sys/vnode.h>
+#else	/* DARWINV>=800 */
+#include <sys/vnode.h>
+#define	_SYS_SYSTM_H_
+#include <sys/vnode_internal.h>
+#endif	/* DARWINV>=800 */
+
 #include <rpc/types.h>
+#define	KERNEL_PRIVATE
+#include <sys/socketvar.h>
+#undef	KERNEL_PRIVATE
 #include <sys/protosw.h>
 #include <sys/socket.h>
-#include <sys/socketvar.h>
 #include <sys/un.h>
 #include <sys/unpcb.h>
 
@@ -65,23 +80,22 @@
 #undef	KERNEL
 #include <net/ndrv.h>
 #  if	DARWINV>=530
-#define	KERNEL        1
+#define	KERNEL	1
 #include <net/ndrv_var.h>
-#undef  KERNEL
+#undef	KERNEL
 #  endif	/* DARWINV>=530 */
 # endif	/* defined(AF_NDRV) */
 
 # if	defined(AF_SYSTEM)
 #include <sys/queue.h>
-#define	KERNEL
 #include <sys/kern_event.h>
-#undef	KERNEL
 # endif	/* defined(AF_SYSTEM) */
 
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <net/route.h>
+#include <netinet6/ipsec.h>
 #include <netinet/in_pcb.h>
 #include <netinet/ip_var.h>
 #include <netinet/tcp.h>
@@ -89,8 +103,8 @@
 #include <netinet/tcp_fsm.h>
 #include <netinet/tcp_timer.h>
 #include <netinet/tcp_var.h>
-#include <sys/uio.h>
-#include <sys/vnode.h>
+#include <arpa/inet.h>
+
 #include <net/raw_cb.h>
 #include <sys/domain.h>
 #define	pmap	RPC_pmap
@@ -98,8 +112,14 @@
 #include <rpc/pmap_prot.h>
 #undef	pmap
 
+#include <sys/quota.h>
+
+#include <sys/event.h>
+
+#if	DARWINV<800
 #include <paths.h>
 #include <ufs/ufs/quota.h>
+#undef	MAXNAMLEN	/* to avoid redefinition */
 #include <ufs/ufs/inode.h>
 #include <nfs/rpcv2.h>
 #include <nfs/nfs.h>
@@ -109,46 +129,65 @@
 # if	DARWINV<600
 #include <hfs/hfs.h>
 #undef	offsetof
-# else	/* DARWINV>=600 */
+# else
 #define	KERNEL
 #include <hfs/hfs_cnode.h>
 #undef	KERNEL
-# endif        /* DARWINV<600 */
+# endif
+#endif	/* DARWINV<800 */
 
+#if	DARWINV<800
 #define	time	t1		/* hack to make dn_times() happy */
 #include <miscfs/devfs/devfsdefs.h>
 #undef	time
+#endif	/* DARWINV<800 */
 
-#define	KERNEL
+#if	DARWINV<800
+# if	defined(HASFDESCFS)
 #include <miscfs/fdesc/fdesc.h>
-#undef	KERNEL
+# endif	/* defined(HASFDESCFS) */
+#endif	/* DARWINV<800 */
+
+#if	DARWINV<800
 #include <sys/proc.h>
+#else	/* DARWINV>=800 */
+#define PROC_DEF_ENABLED
+#include <sys/proc_internal.h>
+#endif	/* DARWINV>=800 */
+
 #include <kvm.h>
 #undef	TRUE
 #undef	FALSE
 
+#if	DARWINV<800
 #include <sys/sysctl.h>
+#else	/* DARWINV>=800 */
+#include "/usr/include/sys/sysctl.h"
+#endif	/* DARWINV>=800 */
 
-/* kinfo_proc.kp_proc */
-#define	P_COMM		kp_proc.p_comm
-#define	P_PID		kp_proc.p_pid
-#define	P_STAT		kp_proc.p_stat
-#define	P_VMSPACE	kp_proc.p_vmspace
-
-/* kinfo_proc.kp_eproc */
-#define	P_ADDR		kp_eproc.e_paddr
-#define	P_PGID		kp_eproc.e_pgid
-#define	P_PPID		kp_eproc.e_ppid
-
-/* kinfo_proc.kp_eproc->e_paddr */
-#define	P_FD		p_fd
-
-#define	_KERNEL
+#if	DARWINV<800
 #define	KERNEL
 #include <sys/fcntl.h>
 #include <sys/file.h>
-#undef	_KERNEL
 #undef	KERNEL
+#else	/* DARWINV>=800 */
+#include <sys/fcntl.h>
+#include <sys/file_internal.h>
+#endif	/* DARWINV>=800 */
+
+# if	defined(HASKQUEUE)
+#include <sys/eventvar.h>
+# endif	/* defined(HASKQUEUE) */
+
+# if	defined(DTYPE_PSXSEM)
+#define	HASPSXSEM				/* has the POSIX semaphore file
+						 * type */
+# endif	/* defined(DTYPE_PSXSEM) */
+
+# if	defined(DTYPE_PSXSHM)
+#define	HASPSXSHM				/* has the POSIX shared memory
+						 * file type */
+# endif	/* defined(DTYPE_PSXSHM) */
 
 struct vop_advlock_args { int dummy; };	/* to pacify lf_advlock() prototype */
 #include <sys/lockf.h>
@@ -175,6 +214,7 @@ struct vop_advlock_args { int dummy; };	/* to pacify lf_advlock() prototype */
 typedef	u_long		KA_T;
 
 #define	KMEM		"/dev/kmem"
+#define	LOGINML		MAXLOGNAME
 #define MALLOC_P	void
 #define FREE_P		MALLOC_P
 #define MALLOC_S	size_t
@@ -186,7 +226,6 @@ typedef	u_long		KA_T;
 #define STRNCPY_L	size_t
 #define SWAP		"/dev/drum"
 
-#define LOGINML		MAXLOGNAME
 
 /*
  * Global storage definitions (including their structure definitions)
@@ -194,11 +233,8 @@ typedef	u_long		KA_T;
 
 struct file * Cfp;
 
-extern kvm_t *Kd;
-
-# if	defined(P_ADDR)
+extern int Kd;				/* KMEM descriptor */
 extern KA_T Kpa;
-# endif	/* defined(P_ADDR) */
 
 struct l_vfs {
 	KA_T addr;			/* kernel address */
@@ -234,10 +270,6 @@ struct mounts {
 #define	X_NCSIZE	"ncsize"
 #define	NL_NAME		n_name
 
-extern int Np;				/* number of kernel processes */
-
-extern struct kinfo_proc *P;		/* local process table copy */
-
 struct sfile {
 	char *aname;			/* argument file name */
 	char *name;			/* file name (after readlink()) */
@@ -253,6 +285,8 @@ struct sfile {
 
 };
 
+#define	XDR_VOID	(const xdrproc_t)xdr_void 
+#define	XDR_PMAPLIST	(const xdrproc_t)xdr_pmaplist
 
 /*
  * Definitions for rnmh.c
@@ -262,22 +296,26 @@ struct sfile {
 #include <sys/uio.h>
 #include <sys/namei.h>
 
-#ifndef offsetof
-#define offsetof(type, member)  ((size_t)(&((type *)0)->member))
-#endif /* offsetof */
+#  if	!defined(offsetof)
+#define	offsetof(type, member)	((size_t)(&((type *)0)->member))
+#  endif	/* !defined(offsetof) */
 
 #define	NCACHE		namecache	/* kernel's structure name */
 
 #define	NCACHE_NM	nc_name		/* name in NCACHE */
+
 #  if	DARWINV<700
 #define	NCACHE_NMLEN	nc_nlen		/* name length in NCACHE */
 #  endif	/* DARWINV<700 */
+
 #define	NCACHE_NXT	nc_hash.le_next	/* link in NCACHE */
 #define	NCACHE_NODEADDR	nc_vp		/* node address in NCACHE */
 #define	NCACHE_PARADDR	nc_dvp		/* parent node address in NCACHE */
 
+#  if	defined(HASNCVPID)
 #define	NCACHE_NODEID	nc_vpid		/* node ID in NCACHE */
 #define	NCACHE_PARID	nc_dvpid	/* parent node ID in NCACHE */
+#  endif	/* defined(HASNCVPID) */
 # endif  /* defined(HASNCACHE) */
 
 #endif	/* DARWIN_LSOF_H */

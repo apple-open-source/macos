@@ -73,7 +73,7 @@ const char *const sys_errlist[] = {
 	"Permission denied",			/* 13 - EACCES */
 	"Bad address",				/* 14 - EFAULT */
 	"Block device required",		/* 15 - ENOTBLK */
-	"Device busy",				/* 16 - EBUSY */
+	"Resource busy",			/* 16 - EBUSY */
 	"File exists",				/* 17 - EEXIST */
 	"Cross-device link",			/* 18 - EXDEV */
 	"Operation not supported by device",	/* 19 - ENODEV */
@@ -109,7 +109,7 @@ const char *const sys_errlist[] = {
 	"Protocol not available",		/* 42 - ENOPROTOOPT */
 	"Protocol not supported",		/* 43 - EPROTONOSUPPORT */
 	"Socket type not supported",		/* 44 - ESOCKTNOSUPPORT */
-	"Operation not supported",		/* 45 - EOPNOTSUPP */
+	"Operation not supported",		/* 45 - ENOTSUP */
 	"Protocol family not supported",	/* 46 - EPFNOSUPPORT */
 						/* 47 - EAFNOSUPPORT */
 	"Address family not supported by protocol family",
@@ -172,6 +172,15 @@ const char *const sys_errlist[] = {
 	"No message of desired type",		/* 91 - ENOMSG */
 	"Illegal byte sequence",		/* 92 - EILSEQ */
 	"Attribute not found",			/* 93 - ENOATTR */
+	"Bad message",				/* 94 - EBADMSG */
+	"EMULTIHOP (Reserved)",			/* 95 - EMULTIHOP */
+	"No message available on STREAM",	/* 96 - ENODATA */
+	"ENOLINK (Reserved)",			/* 97 - ENOLINK */
+	"No STREAM resources",			/* 98 - ENOSR */
+	"Not a STREAM",				/* 99 - ENOSTR */
+	"Protocol error",			/* 100 - EPROTO */
+	"STREAM ioctl timeout",			/* 101 - ETIME */
+	"Operation not supported on socket",	/* 102 - EOPNOTSUPP */
 };
 
 const int sys_nerr = sizeof(sys_errlist) / sizeof(sys_errlist[0]);

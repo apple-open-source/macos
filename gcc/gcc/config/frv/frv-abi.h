@@ -1,21 +1,21 @@
 /* Frv map GCC names to FR-V ABI.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -43,7 +43,8 @@ __asm__ (".text\n"							\
 	 "\t.type\t" #NEW ",@function\n"				\
 	 #NEW ":\n"							\
 	 "\tor\tgr11, gr0, gr10\n"					\
-	 "\tbra\t" #OLD "\n");
+	 ".L" #OLD " = " #OLD "\n"					\
+	 "\tbra\t.L" #OLD "\n");
 
 #ifdef L_sf_to_df
 #define DECLARE_LIBRARY_RENAMES RENAME_LIBRARY(__extendsfdf2,__ftod)

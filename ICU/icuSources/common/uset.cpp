@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002-2003, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -27,65 +27,22 @@
 #include "unicode/uniset.h"
 #include "cmemory.h"
 #include "unicode/ustring.h"
+#include "unicode/parsepos.h"
 
 U_CAPI USet* U_EXPORT2
 uset_open(UChar32 start, UChar32 end) {
     return (USet*) new UnicodeSet(start, end);
 }
 
-U_CAPI USet* U_EXPORT2
-uset_openPattern(const UChar* pattern, int32_t patternLength,
-                 UErrorCode* ec)
-{
-    UnicodeString pat(patternLength==-1, pattern, patternLength);
-    UnicodeSet* set = new UnicodeSet(pat, *ec);
-    /* test for NULL */
-    if(set == 0) {
-        *ec = U_MEMORY_ALLOCATION_ERROR;
-        return 0;
-    }
-    
-    if (U_FAILURE(*ec)) {
-        delete set;
-        set = NULL;
-    }
-    return (USet*) set;
-}
-
-U_CAPI USet* U_EXPORT2
-uset_openPatternOptions(const UChar* pattern, int32_t patternLength,
-                 uint32_t options,
-                 UErrorCode* ec)
-{
-    UnicodeString pat(patternLength==-1, pattern, patternLength);
-    UnicodeSet* set = new UnicodeSet(pat, options, *ec);
-    /* test for NULL */
-    if(set == 0) {
-        *ec = U_MEMORY_ALLOCATION_ERROR;
-        return 0;
-    }
-    
-    if (U_FAILURE(*ec)) {
-        delete set;
-        set = NULL;
-    }
-    return (USet*) set;
-}
-
-
 U_CAPI void U_EXPORT2
 uset_close(USet* set) {
     delete (UnicodeSet*) set;
 }
 
-U_CAPI int32_t U_EXPORT2
-uset_toPattern(const USet* set,
-               UChar* result, int32_t resultCapacity,
-               UBool escapeUnprintable,
-               UErrorCode* ec) {
-    UnicodeString pat;
-    ((const UnicodeSet*) set)->toPattern(pat, escapeUnprintable);
-    return pat.extract(result, resultCapacity, *ec);
+U_CAPI void U_EXPORT2
+uset_set(USet* set,
+     UChar32 start, UChar32 end) {
+    ((UnicodeSet*) set)->set(start, end);
 }
 
 U_CAPI void U_EXPORT2
@@ -133,8 +90,33 @@ uset_removeString(USet* set, const UChar* str, int32_t strLen) {
 }
 
 U_CAPI void U_EXPORT2
+uset_removeAll(USet* set, const USet* remove) {
+    ((UnicodeSet*) set)->removeAll(*(const UnicodeSet*)remove);
+}
+
+U_CAPI void U_EXPORT2
+uset_retain(USet* set, UChar32 start, UChar32 end) {
+    ((UnicodeSet*) set)->retain(start, end);
+}
+
+U_CAPI void U_EXPORT2
+uset_retainAll(USet* set, const USet* retain) {
+    ((UnicodeSet*) set)->retainAll(*(const UnicodeSet*)retain);
+}
+
+U_CAPI void U_EXPORT2
+uset_compact(USet* set) {
+    ((UnicodeSet*) set)->compact();
+}
+
+U_CAPI void U_EXPORT2
 uset_complement(USet* set) {
     ((UnicodeSet*) set)->complement();
+}
+
+U_CAPI void U_EXPORT2
+uset_complementAll(USet* set, const USet* complement) {
+    ((UnicodeSet*) set)->complementAll(*(const UnicodeSet*)complement);
 }
 
 U_CAPI void U_EXPORT2
@@ -161,6 +143,36 @@ U_CAPI UBool U_EXPORT2
 uset_containsString(const USet* set, const UChar* str, int32_t strLen) {
     UnicodeString s(strLen==-1, str, strLen);
     return ((const UnicodeSet*) set)->contains(s);
+}
+
+U_CAPI UBool U_EXPORT2
+uset_containsAll(const USet* set1, const USet* set2) {
+    return ((const UnicodeSet*) set1)->containsAll(* (const UnicodeSet*) set2);
+}
+
+U_CAPI UBool U_EXPORT2
+uset_containsNone(const USet* set1, const USet* set2) {
+    return ((const UnicodeSet*) set1)->containsNone(* (const UnicodeSet*) set2);
+}
+
+U_CAPI UBool U_EXPORT2
+uset_containsSome(const USet* set1, const USet* set2) {
+    return ((const UnicodeSet*) set1)->containsSome(* (const UnicodeSet*) set2);
+}
+
+U_CAPI UBool U_EXPORT2
+uset_equals(const USet* set1, const USet* set2) {
+    return *(const UnicodeSet*)set1 == *(const UnicodeSet*)set2;
+}
+
+U_CAPI int32_t U_EXPORT2
+uset_indexOf(const USet* set, UChar32 c) {
+    return ((UnicodeSet*) set)->indexOf(c);
+}
+
+U_CAPI UChar32 U_EXPORT2
+uset_charAt(const USet* set, int32_t index) {
+    return ((UnicodeSet*) set)->charAt(index);
 }
 
 U_CAPI int32_t U_EXPORT2

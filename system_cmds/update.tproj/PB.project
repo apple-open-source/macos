@@ -1,15 +1,16 @@
 {
     DOCICONFILES = (); 
     FILESTABLE = {
-        C_FILES = (); 
-        H_FILES = (); 
+        C_FILES = (update.c disk_power.c power_mgmt.c); 
+        H_FILES = (disk_power.h power_mgmt.h); 
         OTHER_LIBS = (); 
-        OTHER_LINKED = (update.c); 
+        OTHER_LINKED = (); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, update.8); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 
         PUBLIC_HEADERS = (); 
-        SUBPROJECTS = (); 
+        SUBPROJECTS = ();
+	FRAMEWORKS = (CoreFoundation.framework, IOKit.framework);
     }; 
     GENERATEMAIN = YES; 
     LANGUAGE = English; 

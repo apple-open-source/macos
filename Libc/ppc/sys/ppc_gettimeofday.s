@@ -28,23 +28,22 @@
 #include <machine/cpu_capabilities.h>
 #undef	__APPLE_API_PRIVATE
 
-LEAF(___commpage_gettimeofday)
+MI_ENTRY_POINT(___commpage_gettimeofday)
     ba	_COMM_PAGE_GETTIMEOFDAY
 
-	.globl cerror
-LEAF(___ppc_gettimeofday)
-        li      r0,SYS_gettimeofday               
-	mr	r12,r3				
-        sc                                      
-        b       1f                              
-        b       2f                              
-1:      BRANCH_EXTERN(cerror)                   
-2:     
-	mr.	r12,r12
-	beq	3f
-	stw	r3,0(r12)
-	stw	r4,4(r12)
-	li	r3,0
+
+/* This syscall is special cased: the timeval is returned in r3/r4.
+ * Note also that the "seconds" field of the timeval is a long, so
+ * it's size is mode dependent.
+ */
+MI_ENTRY_POINT(___ppc_gettimeofday)
+    mr      r12,r3              // save ptr to timeval
+    SYSCALL_NONAME(gettimeofday,0)
+	mr.     r12,r12             // was timeval ptr null?
+	beq     3f
+	stg     r3,0(r12)           // "stw" in 32-bit mode, "std" in 64-bit mode
+	stw     r4,GPR_BYTES(r12)
+	li      r3,0
 3:
 	blr
 

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XInternA.man,v 1.2 2001/01/27 18:20:01 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XInternA.man,v 1.3 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,41 +144,17 @@
 .SH NAME
 XInternAtom, XInternAtoms, XGetAtomName, XGetAtomNames \- create or return atom names
 .SH SYNTAX
-Atom XInternAtom\^(\^\fIdisplay\fP, \fIatom_name\fP\^, \fIonly_if_exists\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      char *\fIatom_name\fP\^;
-.br
-      Bool \fIonly_if_exists\fP\^;
-.LP
-Status XInternAtoms\^(\^\fIdisplay\fP, \fInames\fP\^, \fIcount\fP\^, \fIonly_if_exists\fP, \fIatoms_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      char **\fInames\fP\^;
-.br
-      int \fIcount\fP\^;
-.br
-      Bool \fIonly_if_exists\fP\^;
-.br
-      Atom *\fIatoms_return\fP\^;
-.LP
-char *XGetAtomName\^(\^\fIdisplay\fP, \fIatom\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Atom \fIatom\fP\^;
-.LP
-Status XGetAtomNames\^(\^\fIdisplay\fP, \fIatoms\fP, \fIcount\fP\^, \fInames_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Atom *\fIatoms\fP\^;
-.br
-      int \fIcount\fP\^;
-.br
-      char **\fInames_return\fP\^;
+.HP
+Atom XInternAtom\^(\^Display *\fIdisplay\fP\^, char *\fIatom_name\fP\^, Bool
+\fIonly_if_exists\fP\^); 
+.HP
+Status XInternAtoms\^(\^Display *\fIdisplay\fP\^, char **\fInames\fP\^, int
+\fIcount\fP\^, Bool \fIonly_if_exists\fP\^, Atom *\fIatoms_return\fP\^); 
+.HP
+char *XGetAtomName\^(\^Display *\fIdisplay\fP\^, Atom \fIatom\fP\^); 
+.HP
+Status XGetAtomNames\^(\^Display *\fIdisplay\fP\^, Atom *\fIatoms\fP\^, int
+\fIcount\fP\^, char **\fInames_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIatom\fP 1i
 Specifies the atom for the property name you want returned.

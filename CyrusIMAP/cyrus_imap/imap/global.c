@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: global.c,v 1.17 2004/11/23 17:40:15 shadow Exp $ */
+/* $Id: global.c,v 1.6 2005/03/06 23:59:16 dasenbro Exp $ */
 
 #include <config.h>
 
@@ -246,9 +246,12 @@ void global_sasl_init(int client, int server, const sasl_callback_t *callbacks)
 	fatal("could not init sasl (client)", EC_SOFTWARE);
     }
 
-    if(server && sasl_server_init(callbacks, "Cyrus")) {
-	fatal("could not init sasl (client)", EC_SOFTWARE);
+    if(server){
+    int r=sasl_server_init_alt(callbacks, "Cyrus");
+    if((r!=SASL_NOMECH)&&(r!=SASL_OK)){
+        fatal("could not init sasl (client)", EC_SOFTWARE);
     }
+    } 
 }
 
 /* this is a wrapper to call the cyrus configuration from SASL */

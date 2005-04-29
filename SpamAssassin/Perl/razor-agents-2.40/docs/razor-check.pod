@@ -1,0 +1,161 @@
+=head1 NAME
+
+C<razor-check> - Razor Filtering Agent 
+
+=head1 SYNOPSIS
+
+    razor-check [options]  [ mail1 [ mail2 .. ] ]
+
+    $ cat mbox | razor-check
+    $ razor-check ./mbox
+    $ razor-check -d mbox mail.1 mail.2 mail.3
+
+=head1 DESCRIPTION
+
+C<razor-check> checks a mail against the distributed Razor Catalogue by
+communicating with a Razor Catalogue Server. It should be invoked before
+the mail is delivered or processed by a human. C<razor-check> terminates
+with exit value C<0> if the signature for the mail is catalogued on the
+server (spam) or C<1> if the mail is not catalogued by the server (not a
+spam). C<razor-check> should be invoked against every incoming mail by
+mail processors (like procmail) or MTAs (like sendmail). An alternate
+method would be to call C<razor-check> from cron, at regular intervals,
+to identify and mark spam in queued mailboxes. 
+
+If C<razor-check> is passed more than one mail, it will check each against
+the database, printing out the serial number of every mail considered to
+be spam.  C<razor-check> supports mbox-formatted files with 1 or more mails in
+them as well as files containing a single RFC 822 (non-mbox) mail.  
+More than one file may be present on the command line, can be either
+a non-mbox or mbox in any order.
+However, more than one non-mbox mail cannot be read from stdin.
+
+=head1 USAGE 
+
+C<razor-check> is usually run by piping the contents of the mail to it,
+or by providing the name of the file that contains the mail message to
+be checked as the last argument. C<razor-check> takes the following
+arguments: 
+
+=over 4 
+
+=item C<-h> 
+
+Print a usage message and exit. 
+
+=item C<-v> 
+
+Print the version number and exit. 
+
+=item C<-d | --verbose> 
+
+Print debugging information. 
+
+=item C<-debuglevel=n | -dl=n> 
+
+Set debug level to 'n'.  Default is 3 without C<-d> option, 9 with.
+
+=item C<-whitelist=file>
+
+Specify file to use for whitelisting.  Overrides 'whitelist' option in 
+C<razor-agent.conf>.
+
+=item C<-s> 
+
+Simulate a check. Do everything except talk to the server. 
+
+=item C<-conf=filename> 
+
+Specifies an alternate configuration file. 
+If not specified, it is computed, see razor-agents(1) manpage for details.
+See razor-agent.conf(5) manpage for various configuration options.
+The default is C<E<lt>razorhomeE<gt>/razor-agent.conf>.
+
+=item C<-home=dir>
+
+Specify razorhome directory.  This is where the configuration file, logfiles,
+identities, and server files live.
+If not specified, it is computed, see razor-agents(1) manpage for details.
+
+=item C<-logfile=file>
+
+Specify file to log to instead of what is in the configuration file.
+The default is C<E<lt>razorhomeE<gt>/razor-agent.log>.
+
+=item C<-rs=razor.server.com> 
+
+Use this Razor Catalogue Server instead of reading C<servers.catalogue.lst>.
+
+=item C<-H> 
+
+Compute and print the signature of the mail contents and exit. If
+C<-e=integer> is not specified, all supported engines will be used. 
+
+=item C<-S=string> 
+
+Accept a list of pre-computed (with C<-H>) signatures on the command
+line, instead of computing one from mail content. Signatures can be
+submitted in hex or base64, but base64 is preferred. Requires
+C<-e=integer>. Usage: 
+
+C<razor-report -e 1 -S a8a3d545adb73f9733675571ffeaf10cba87745b>
+
+=item C<-e=integer> 
+
+Specify engine used to create signatures. Must be 1, 2, 3, or 4 in this
+version. Engine 1, or C<-e=1>, is used for Razor 1.x signatures. Used
+only with C<-S=string> or C<-H>. 
+
+=item C<-ep4=string> 
+
+String used by engine 4 when computing signatures. Published by the Razor
+Catalogue Servers and updated very frequently. Used only when C<-e=4>.
+
+
+=back
+
+=head1 RECIPES
+
+C<razor-check> is usually invoked from procmail(1). Here are some common
+ways of using it with procmail:
+
+=over 4
+
+=item To change the C<Subject> header if mail is spam:
+
+    :0 Wc
+    | razor-check
+    :0 Waf
+    | formail -i "Subject: Razor Warning: SPAM/UBE/UCE"
+
+=item To add a C<X-Razor2-Warning> header to spam:
+
+    :0 Wc
+    | razor-check
+    :0 Waf
+    | formail -A "X-Razor2-Warning: SPAM."
+
+=item To file spam in a mailbox
+
+    :0 Wc
+    | razor-check
+    :0 Wa
+    /home/foo/Mail/razor-caught
+
+=back
+
+=head1 AUTHORS
+
+Vipul Ved Prakash E<lt>mail@vipul.netE<gt>, and Chad Norwood E<lt>chad@samo.orgE<gt>
+
+=cut
+
+=head1 SEE ALSO
+
+razor-agents(1), razor-agent.conf(5), razor-admin(1), 
+razor-report(1), razor-revoke(1), razor-whitelist(5)
+
+=head1 LICENSE 
+
+This is free software, distributed under the ARTISTIC license.
+

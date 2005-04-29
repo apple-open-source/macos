@@ -63,7 +63,7 @@
 #include <openssl/opensslv.h>
 #include <openssl/crypto.h>
 
-const char MD2_version[]="MD2" OPENSSL_VERSION_PTEXT;
+const char *MD2_version="MD2" OPENSSL_VERSION_PTEXT;
 
 /* Implemented from RFC1319 The MD2 Message-Digest Algorithm
  */
@@ -73,7 +73,7 @@ const char MD2_version[]="MD2" OPENSSL_VERSION_PTEXT;
 static void md2_block(MD2_CTX *c, const unsigned char *d);
 /* The magic S table - I have converted it to hex since it is
  * basically just a random byte string. */
-static const MD2_INT S[256]={
+static MD2_INT S[256]={
 	0x29, 0x2E, 0x43, 0xC9, 0xA2, 0xD8, 0x7C, 0x01,
 	0x3D, 0x36, 0x54, 0xA1, 0xEC, 0xF0, 0x06, 0x13,
 	0x62, 0xA7, 0x05, 0xF3, 0xC0, 0xC7, 0x73, 0x8C,

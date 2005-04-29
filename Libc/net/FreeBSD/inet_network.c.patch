@@ -1,0 +1,45 @@
+--- inet_network.c.orig	2003-05-20 15:22:14.000000000 -0700
++++ inet_network.c	2005-02-24 16:50:11.000000000 -0800
+@@ -37,6 +37,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/net/inet_network.c,v 1.9 2002/03/22 21:52:29 obrien Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <sys/types.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+@@ -55,6 +57,7 @@
+ 	char c;
+ 	in_addr_t parts[4], *pp = parts;
+ 	int i;
++	locale_t loc = __current_locale();
+ 
+ again:
+ 	val = 0; base = 10;
+@@ -63,13 +66,13 @@
+ 	if (*cp == 'x' || *cp == 'X')
+ 		base = 16, cp++;
+ 	while ((c = *cp) != 0) {
+-		if (isdigit((unsigned char)c)) {
++		if (isdigit_l((unsigned char)c, loc)) {
+ 			val = (val * base) + (c - '0');
+ 			cp++;
+ 			continue;
+ 		}
+-		if (base == 16 && isxdigit((unsigned char)c)) {
+-			val = (val << 4) + (c + 10 - (islower((unsigned char)c) ? 'a' : 'A'));
++		if (base == 16 && isxdigit_l((unsigned char)c, loc)) {
++			val = (val << 4) + (c + 10 - (islower_l((unsigned char)c, loc) ? 'a' : 'A'));
+ 			cp++;
+ 			continue;
+ 		}
+@@ -81,7 +84,7 @@
+ 		*pp++ = val, cp++;
+ 		goto again;
+ 	}
+-	if (*cp && !isspace((unsigned char)*cp))
++	if (*cp && !isspace_l((unsigned char)*cp, loc))
+ 		return (INADDR_NONE);
+ 	*pp++ = val;
+ 	n = pp - parts;

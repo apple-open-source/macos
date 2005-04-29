@@ -12,16 +12,16 @@ NAME = diskdev_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = badsect.tproj clri.tproj dev_mkdb.tproj dump.tproj\
+TOOLS = clri.tproj dev_mkdb.tproj dump.tproj\
         dumpfs.tproj edquota.tproj fdisk.tproj fsck.tproj\
-        fsck_hfs.tproj fsck_msdos.tproj fstat.tproj mount.tproj\
+        fsck_hfs.tproj fsck_msdos.tproj mount.tproj\
         mountd.tproj mount_cd9660.tproj mount_devfs.tproj\
         mount_fdesc.tproj mount_hfs.tproj mount_nfs.tproj\
         mount_synthfs.tproj newfs.tproj newfs_hfs.tproj\
-        newfs_msdos.tproj pdisk.tproj quot.tproj quota.tproj\
-        quotacheck.tproj quotaon.tproj repquota.tproj restore.tproj\
-        showmount.tproj tunefs.tproj umount.tproj ufs.tproj\
-        vsdbutil.tproj vndevice.tproj
+        newfs_msdos.tproj quot.tproj quota.tproj quotacheck.tproj\
+        quotaon.tproj repquota.tproj restore.tproj showmount.tproj\
+        tunefs.tproj umount.tproj ufs.tproj vsdbutil.tproj\
+        vndevice.tproj
 
 LIBRARIES = disklib
 

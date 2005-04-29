@@ -41,11 +41,12 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XAWMHints.man,v 1.3 2001/02/07 22:35:20 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XAWMHints.man,v 1.5 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
-.ds xL Xlib \- C Language X Interface
+.ds xL Xlib \- C Language X Interface, \fRO'Reilly and Associates, Sebastopol,
+1991. 
 .ds xC Inter-Client Communication Conventions Manual
 .na
 .de Ds
@@ -146,22 +147,12 @@
 .SH NAME
 XAllocWMHints, XSetWMHints, XGetWMHints, XWMHints \- allocate window manager hints structure and set or read a window's WM_HINTS property
 .SH SYNTAX
-XWMHints *XAllocWMHints\^(\|)
-.LP
-XSetWMHints\^(\^\fIdisplay\fP, \fIw\fP, \fIwmhints\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XWMHints *\fIwmhints\fP\^;
-
-.LP
-XWMHints *XGetWMHints\^(\^\fIdisplay\fP, \fIw\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
+.HP
+XWMHints *XAllocWMHints\^(void\^); 
+.HP
+int XSetWMHints\^(\^Display *\fIdisplay\fP, Window \fIw\fP, XWMHints *\fIwmhints\fP\^);
+.HP
+XWMHints *XGetWMHints\^(\^Display *\fIdisplay\fP, Window \fIw\fP\^);
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.
@@ -226,7 +217,7 @@ The
 .ZN XWMHints
 structure contains:
 .LP
-/* Window manager hints mask bits */
+/\(** Window manager hints mask bits */
 .TS
 lw(.5i) lw(2.5i) lw(2.5i).
 T{
@@ -234,56 +225,56 @@ T{
 T}	T{
 .ZN InputHint
 T}	T{
-(1L << 0)
+(1L << 0);
 T}
 T{
 \&#define
 T}	T{
 .ZN StateHint
 T}	T{
-(1L << 1)
+(1L << 1);
 T}
 T{
 \&#define
 T}	T{
 .ZN IconPixmapHint
 T}	T{
-(1L << 2)
+(1L << 2);
 T}
 T{
 \&#define
 T}	T{
 .ZN IconWindowHint
 T}	T{
-(1L << 3)
+(1L << 3);
 T}
 T{
 \&#define
 T}	T{
 .ZN IconPositionHint
 T}	T{
-(1L << 4)
+(1L << 4);
 T}
 T{
 \&#define
 T}	T{
 .ZN IconMaskHint
 T}	T{
-(1L << 5)
+(1L << 5);
 T}
 T{
 \&#define
 T}	T{
 .ZN WindowGroupHint
 T}	T{
-(1L << 6)
+(1L << 6);
 T}
 T{
 \&#define
 T}	T{
 .ZN UrgencyHint
 T}	T{
-(1L << 8)
+(1L << 8);
 T}
 T{
 \&#define
@@ -294,26 +285,26 @@ T}	T{
 .br
 IconWindowHint|IconPositionHint|
 .br
-IconMaskHint|WindowGroupHint)
+IconMaskHint|WindowGroupHint);
 T}
 .TE
 .IN "XWMHints" "" "@DEF@"
 .Ds 0
 .TA .5i 2.5i
 .ta .5i 2.5i
-/* Values */
+/\(** Values */
 
 typedef struct {
-	long flags;	/* marks which fields in this structure are defined */
-	Bool input;	/* does this application rely on the window manager to
+	long flags;	/\(** marks which fields in this structure are defined */
+	Bool input;	/\(** does this application rely on the window manager to
 			get keyboard input? */
-	int initial_state;	/* see below */
-	Pixmap icon_pixmap;	/* pixmap to be used as icon */
-	Window icon_window;	/* window to be used as icon */
-	int icon_x, icon_y;	/* initial position of icon */
-	Pixmap icon_mask;	/* pixmap to be used as mask for icon_pixmap */
-	XID window_group;	/* id of related window group */
-	/* this structure may be extended in the future */
+	int initial_state;	/\(** see below */
+	Pixmap icon_pixmap;	/\(** pixmap to be used as icon */
+	Window icon_window;	/\(** window to be used as icon */
+	int icon_x, icon_y;	/\(** initial position of icon */
+	Pixmap icon_mask;	/\(** pixmap to be used as mask for icon_pixmap */
+	XID window_group;	/\(** id of related window group */
+	/\(** this structure may be extended in the future */
 } XWMHints;
 .De
 .LP
@@ -367,7 +358,7 @@ T}	T{
 T}	T{
 1
 T}	T{
-/* most applications start this way */
+/\(** most applications start this way */
 T}
 T{
 \&#define
@@ -376,7 +367,7 @@ T}	T{
 T}	T{
 3
 T}	T{
-/* application wants to start as an icon */
+/\(** application wants to start as an icon */
 T}
 .TE
 The icon_mask specifies which pixels of the icon_pixmap should be used as the
@@ -399,7 +390,7 @@ contents to be urgent, requiring the timely response of the user.  The
 window manager will make some effort to draw the user's attention to this
 window while this flag is set.  The client must provide some means by which the
 user can cause the urgency flag to be cleared (either mitigating
-the condition that made the window urgent or merely shutting off the alarm)
+the condition that made the window urgent or merely shutting off the alarm);
 or the window to be withdrawn.
 .SH DIAGNOSTICS
 .TP 1i

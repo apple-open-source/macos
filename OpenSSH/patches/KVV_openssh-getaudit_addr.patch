@@ -1,0 +1,29 @@
+diff -Naur ../OpenSSH.roots/OpenSSH/openssh/configure.ac ./configure.ac
+--- ../OpenSSH.roots/OpenSSH/openssh/configure.ac	2005-01-17 20:07:42.000000000 -0800
++++ ./configure.ac	2005-01-17 20:10:32.000000000 -0800
+@@ -697,10 +697,21 @@
+ 				  [Define if libbsm has `getaudit'.]
+ 				 )
+ 	     )
+-AC_CHECK_FUNC(getaudit_addr, AC_DEFINE(HAVE_GETAUDIT_ADDR,
+-				       1,
+-				       [Define if libbsm has `getaudit_addr'.]
+-				      )
++# Darwin - getaudit_addr is present, but currently returns ENOSYS
++AC_CHECK_FUNC(getaudit_addr,
++		[
++		case "$host" in
++		*-*-darwin7* | *-*-darwin8*)
++			AC_MSG_CHECKING(for getaudit_addr usability)
++			AC_MSG_RESULT(no)
++			;;
++		*) AC_DEFINE(HAVE_GETAUDIT_ADDR,
++						   1,
++						   [Define if libbsm has `getaudit_addr'.]
++						  )
++			;;
++		esac
++		]
+ 	     )
+ 
+ AC_FUNC_STRFTIME

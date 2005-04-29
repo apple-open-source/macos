@@ -32,6 +32,7 @@
 #include "IOHIDQueueClass.h"
 #include "IOHIDOutputTransactionClass.h"
 #include "IOHIDLibUserClient.h"
+#include "IOHIDPrivateKeys.h"
 
 __BEGIN_DECLS
 #include <mach/mach.h>
@@ -365,7 +366,6 @@ start(CFDictionaryRef propertyTable, io_service_t inService)
     // Now done with the master_port
     mach_port_deallocate(mach_task_self(), masterPort);
     masterPort = 0;
-
     
     kr = IORegistryEntryCreateCFProperties (fService,
                                             &properties,
@@ -375,7 +375,7 @@ start(CFDictionaryRef propertyTable, io_service_t inService)
     if ( !properties || (kr != kIOReturnSuccess))
         return kIOReturnError;
         
-    fDeviceElements = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);    
+    fDeviceElements = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);    
     if ( !fDeviceElements )
         return kIOReturnError;
         
@@ -708,7 +708,8 @@ IOReturn IOHIDDeviceClass::getElementValue(IOHIDElementCookie	elementCookie,
     // been processed.  We should query the element
     //  to get the current value.
     if ( (*(UInt64 *)&valueEvent->timestamp == 0) && 
-        (kr == kIOReturnSuccess))
+        (kr == kIOReturnSuccess) && 
+        (valueEvent->type == kIOHIDElementTypeFeature))
     {
         kr = queryElementValue (elementCookie,
                             valueEvent,
@@ -1083,67 +1084,66 @@ static bool CompareProperty( CFDictionaryRef element, CFDictionaryRef matching, 
 
 IOReturn 
 IOHIDDeviceClass::copyMatchingElements(CFDictionaryRef matchingDict, CFArrayRef *elements)
-{
-    CFMutableArrayRef	tempElements = 0;
-    CFDictionaryRef	element;
-    IOReturn		ret = kIOReturnSuccess;
-    
+{    
     if (!elements)
+        return kIOReturnBadArgument;
+     
+    if ( matchingDict )
     {
-        ret = kIOReturnBadArgument;
-        goto GET_MATCHING_ELEMENT_FINISH;
-    }
-        
-    if (!(tempElements = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks)))
-    {
-        ret = kIOReturnNoMemory;
-        goto GET_MATCHING_ELEMENT_FINISH;
-    }
-        
-    for (int i=0; i<fElementCount; i++)
-    {
-        if ( !(element = fElements[i].elementDictionaryRef) )
-            continue;
-            
-        // Compare properties.        
-        if (!matchingDict ||
-            (CompareProperty(element, matchingDict, CFSTR(kIOHIDElementCookieKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementTypeKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementCollectionTypeKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUsageKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUsagePageKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementMinKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementMaxKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementScaledMinKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementScaledMaxKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementSizeKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementReportSizeKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementReportCountKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementIsArrayKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementIsRelativeKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementIsWrappingKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementIsNonLinearKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementHasPreferredStateKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementHasNullStateKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementVendorSpecificKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUnitKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUnitExponentKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementNameKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementValueLocationKey))
-            && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementDuplicateIndexKey))))
-        {            
-            CFArrayAppendValue(tempElements, element);
+        CFMutableArrayRef	tempElements = 0;
+        CFDictionaryRef     element;
+
+        if (!(tempElements = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks)))
+        {
+            *elements = 0;
+            return kIOReturnNoMemory;
         }
+            
+        for (int i=0; i<fElementCount; i++)
+        {
+            if ( !(element = fElements[i].elementDictionaryRef) )
+                continue;
+                
+            // Compare properties.        
+            if (CompareProperty(element, matchingDict, CFSTR(kIOHIDElementCookieKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementTypeKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementCollectionTypeKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUsageKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUsagePageKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementMinKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementMaxKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementScaledMinKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementScaledMaxKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementSizeKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementReportSizeKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementReportCountKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementIsArrayKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementIsRelativeKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementIsWrappingKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementIsNonLinearKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementHasPreferredStateKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementHasNullStateKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementVendorSpecificKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUnitKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUnitExponentKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementNameKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementValueLocationKey))
+                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementDuplicateIndexKey)))
+            {            
+                CFArrayAppendValue(tempElements, element);
+            }
+        }
+
+        *elements = tempElements;
     }
-    
-    if (CFArrayGetCount(tempElements) == 0)
+    else if (!(*elements = CFArrayCreateCopy(kCFAllocatorDefault, fDeviceElements)))
+        return kIOReturnNoMemory;    
+
+    if (CFArrayGetCount(*elements) == 0)
     {
-        CFRelease(tempElements);
-        tempElements = 0;
+        CFRelease(*elements);
+        *elements = 0;
     }
-    
-GET_MATCHING_ELEMENT_FINISH:
-    *elements = tempElements;
     
     return kIOReturnSuccess;
 }
@@ -1641,7 +1641,7 @@ IOHIDDeviceClass::deviceSetInterruptReportHandlerCallback(void * 	self,
 
 // End added methods
 
-kern_return_t IOHIDDeviceClass::BuildElements (CFDictionaryRef properties, CFMutableSetRef set)
+kern_return_t IOHIDDeviceClass::BuildElements (CFDictionaryRef properties, CFMutableArrayRef array)
 {
     kern_return_t           	kr = kIOReturnSuccess;
     long			allocatedElementCount;
@@ -1655,7 +1655,7 @@ kern_return_t IOHIDDeviceClass::BuildElements (CFDictionaryRef properties, CFMut
     allocatedElementCount = 0;
     
     // recursively add leaf elements
-    kr = this->CreateLeafElements (properties, set, 0, &allocatedElementCount, CFSTR(kIOHIDElementKey), fElements);
+    kr = CreateLeafElements (properties, array, 0, &allocatedElementCount, CFSTR(kIOHIDElementKey), fElements);
     
 //    printf ("%ld elements allocated of %ld expected\n", allocatedElementCount, fElementCount);
     
@@ -1676,7 +1676,7 @@ struct StaticWalkElementsParams
 {
     IOHIDDeviceClass *		iohiddevice;
     CFDictionaryRef 		properties;
-    CFMutableSetRef		set;
+    CFMutableArrayRef		array;
     CFStringRef			key;
     IOHIDElementStruct *	elements;
     long			value;
@@ -1748,6 +1748,18 @@ long IOHIDDeviceClass::CountElements (CFDictionaryRef properties, CFTypeRef elem
             // recursively count leaf elements
             count += this->CountElements ((CFDictionaryRef) element, subElements, key);
         }
+        
+        if (CFDictionaryGetValue ((CFDictionaryRef) element, CFSTR(kIOHIDElementDuplicateValueSizeKey)))
+        {
+            CFNumberRef numberRef;
+            UInt32      duplicateCount;
+            
+            if ( (numberRef = (CFNumberRef) CFDictionaryGetValue ((CFDictionaryRef) element, CFSTR(kIOHIDElementReportCountKey)))
+                 && CFNumberGetValue(numberRef, kCFNumberLongType, &duplicateCount))
+            {
+                count += duplicateCount;
+            }
+        }
     }
     // this case should not happen, something else was found
     else
@@ -1767,14 +1779,14 @@ void IOHIDDeviceClass::StaticCreateLeafElements (const void * value, void * para
     StaticWalkElementsParams * params = (StaticWalkElementsParams *) parameter;
     
     // increment count by this sub element
-    kr = params->iohiddevice->CreateLeafElements(params->properties, params->set, (CFTypeRef) value, (long *) params->data, params->key, params->elements);
+    kr = params->iohiddevice->CreateLeafElements(params->properties, params->array, (CFTypeRef) value, (long *) params->data, params->key, params->elements);
     
     if (params->value == kIOReturnSuccess)
         params->value = kr;
 }
 
 // this function recersively creates the leaf elements, if zero is passed as element, it starts at top
-kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, CFMutableSetRef set,
+kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, CFMutableArrayRef array,
                     CFTypeRef element, long * allocatedElementCount, CFStringRef key, IOHIDElementStruct * elements)
 {
     kern_return_t 	kr = kIOReturnSuccess;
@@ -1785,6 +1797,7 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, 
     {
         // get the elements object
         element = CFDictionaryGetValue (properties, key);
+        properties = 0;
         isRootItem = true;
     }
     
@@ -1798,8 +1811,8 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, 
         StaticWalkElementsParams params;
         params.iohiddevice 	= this;
         params.properties 	= properties;
-        params.set 		= set;
-        params.key 		= key;
+        params.array 		= array;
+        params.key          = key;
         params.elements 	= elements;
         params.value 		= kIOReturnSuccess;
         params.data 		= allocatedElementCount;
@@ -1817,27 +1830,28 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, 
     // either a collection element or a leaf element
     else if (type == CFDictionaryGetTypeID())
     {
-        CFDictionaryRef dictionary = (CFDictionaryRef) element;
-
-        IOHIDElementStruct	hidelement;
-        CFTypeRef 		object;
-        long 			number;
+        CFMutableDictionaryRef  dictionary  = (CFMutableDictionaryRef) element;
+        CFDictionaryRef         tempElement = 0;
+        IOHIDElementStruct      hidelement;
+        CFTypeRef               object;
+        long                    number;
         
+        // Check to see if this is a duplicate item.  if so, skip processing.
+        object = CFDictionaryGetValue (dictionary, CFSTR(kIOHIDElementDuplicateIndexKey));
+        if (object != 0) return kr;
+
         // get the actual dictionary ref
-        if ( set )
-        {
-            CFMutableDictionaryRef tempDict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dictionary);
-            hidelement.elementDictionaryRef = tempDict;
-            
-            if (tempDict)
-            {
-                if (!isRootItem)
-                    CFDictionarySetValue(tempDict, CFSTR(kIOHIDElementParentCollectionKey), properties);
-    
-                CFSetAddValue(set, tempDict);
-                CFRelease(tempDict);
-                dictionary = tempDict;
-            }
+        if ( array )
+        {            
+            if (!isRootItem && properties)
+                CFDictionarySetValue(dictionary, CFSTR(kIOHIDElementParentCollectionKey), properties);
+
+            tempElement = CFDictionaryCreateCopy(kCFAllocatorDefault, dictionary);
+
+            CFArrayAppendValue(array, tempElement);
+            CFRelease(tempElement);
+
+            hidelement.elementDictionaryRef = tempElement;
         }
         
         // get the cookie element
@@ -1883,7 +1897,11 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, 
             elements[(*allocatedElementCount)++] = hidelement;
 
             // recursively create leaf elements
-            kr = this->CreateLeafElements (dictionary, set, subElements, allocatedElementCount, key, elements);
+            tempElement = CFDictionaryCreateCopy(kCFAllocatorDefault, dictionary);
+            
+            kr = this->CreateLeafElements (tempElement, array, subElements, allocatedElementCount, key, elements);
+            
+            CFRelease(tempElement);
         }
         // otherwise, this is a leaf, allocate and fill in our data
         else
@@ -1927,6 +1945,83 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, 
             
             // allocate and copy the data
             elements[(*allocatedElementCount)++] = hidelement;
+
+            // Check for duplicates
+            do
+            {
+                CFTypeRef   duplicateReportBitsNumber   = 0;
+                UInt32      duplicateSizeOffset         = 0;
+                UInt32      duplicateCount              = 0;
+                
+                object = CFDictionaryGetValue (dictionary, CFSTR(kIOHIDElementDuplicateValueSizeKey));
+                if (object == 0 || CFGetTypeID(object) != CFNumberGetTypeID())
+                    break;
+                if (!CFNumberGetValue((CFNumberRef) object, kCFNumberLongType, &duplicateSizeOffset))
+                    break;
+
+                object = CFDictionaryGetValue (dictionary, CFSTR(kIOHIDElementReportCountKey));
+                if (object == 0 || CFGetTypeID(object) != CFNumberGetTypeID())
+                    break;
+                if (!CFNumberGetValue((CFNumberRef) object, kCFNumberLongType, &duplicateCount))
+                    break;
+
+                object = CFDictionaryGetValue (dictionary, CFSTR(kIOHIDElementReportSizeKey));
+                if (object == 0 || CFGetTypeID(object) != CFNumberGetTypeID())
+                    break;
+                if (!CFNumberGetValue((CFNumberRef) object, kCFNumberLongType, &number))
+                    break;
+                hidelement.bytes = number >> 3;
+                hidelement.bytes += (number % 8) ? 1 : 0;
+                duplicateReportBitsNumber = object;
+
+                for ( unsigned i=0; i<duplicateCount; i++)
+                {
+                    hidelement.cookie ++;
+                    hidelement.valueLocation += duplicateSizeOffset;
+
+                    hidelement.elementDictionaryRef = 0;
+
+                    if ( array )
+                    {
+                        CFMutableDictionaryRef tempMutableDict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dictionary);
+
+                        if ( tempMutableDict )
+                        {
+
+                            CFDictionaryRemoveValue(tempMutableDict, CFSTR(kIOHIDElementReportSizeKey));
+                            CFDictionaryRemoveValue(tempMutableDict, CFSTR(kIOHIDElementReportCountKey));
+
+                            CFDictionarySetValue(tempMutableDict, CFSTR(kIOHIDElementSizeKey), duplicateReportBitsNumber);
+
+                            object = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &hidelement.cookie);
+                            CFDictionarySetValue(tempMutableDict, CFSTR(kIOHIDElementCookieKey), object);
+                            CFRelease( object );
+                            
+                            object = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &hidelement.valueLocation);
+                            CFDictionarySetValue(tempMutableDict, CFSTR(kIOHIDElementValueLocationKey), object);
+                            CFRelease( object );
+
+                            object = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &i);
+                            CFDictionarySetValue(tempMutableDict, CFSTR(kIOHIDElementDuplicateIndexKey), object);
+                            CFRelease( object );
+                        
+                            tempElement = CFDictionaryCreateCopy(kCFAllocatorDefault, tempMutableDict);
+
+                            CFArrayAppendValue(array, tempElement);
+                            CFRelease(tempMutableDict);
+                            CFRelease(tempElement);
+
+                            hidelement.elementDictionaryRef = tempElement;
+                        }
+                        
+                    }
+                
+                    elements[(*allocatedElementCount)++] = hidelement;
+
+                }
+                
+            } while ( 0 );
+
         }
     }
     // this case should not happen, something else was found
@@ -1944,14 +2039,14 @@ kern_return_t IOHIDDeviceClass::FindReportHandlers(CFDictionaryRef properties)
 
 
     // count the number of leaves and allocate
-    fReportHandlerElementCount = this->CountElements(properties, 0, CFSTR("InputReportElements"));
+    fReportHandlerElementCount = CountElements(properties, 0, CFSTR(kIOHIDInputReportElementsKey));
     fReportHandlerElements = new IOHIDElementStruct[fReportHandlerElementCount];
     
     // initialize allocation to zero
     allocatedElementCount = 0;
     
     // recursively add leaf elements
-    kr = this->CreateLeafElements (properties, 0, 0, &allocatedElementCount, CFSTR("InputReportElements"), fReportHandlerElements);
+    kr = CreateLeafElements (properties, 0, 0, &allocatedElementCount, CFSTR(kIOHIDInputReportElementsKey), fReportHandlerElements);
     
 //    printf ("%ld elements allocated of %ld expected\n", allocatedElementCount, fElementCount);
     

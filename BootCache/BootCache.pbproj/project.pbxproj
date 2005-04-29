@@ -111,7 +111,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 17.5.4;
+				MODULE_VERSION = 23;
 				OTHER_CFLAGS = "-no-cpp-precomp -Wall";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -147,11 +147,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>17.5.4</string>
+	<string>24</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>17.5.4</string>
+	<string>24</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>BootCache</key>
@@ -170,12 +170,16 @@
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel.bsd</key>
-		<string>5.1</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>5.1</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>8.0.0b2</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Local-Root</string>
@@ -463,11 +467,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>17.5.4</string>
+	<string>24</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>17.5.4</string>
+	<string>24</string>
 	<key>NSMainNibFile</key>
 	<string>BootCacheLoginPlugin</string>
 	<key>NSPrincipalClass</key>

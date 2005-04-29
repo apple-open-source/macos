@@ -38,7 +38,8 @@
 #include <sys/protosw.h>
 #include <sys/domain.h>
 #include <kern/thread.h>
-#include <net/if_var.h>
+#include <kern/locks.h>
+#include <net/if.h>
 
 #include "../../../Family/if_ppplink.h"
 #include "../../../Family/ppp_domain.h"
@@ -69,18 +70,18 @@ Globals
 
 int 		pptp_domain_inited = 0;
 
-
+extern lck_mtx_t   *ppp_domain_mutex; 
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 int pptp_domain_module_start(struct kmod_info *ki, void *data)
 {
-    boolean_t 	funnel_state;
+    //boolean_t 	funnel_state;
     int		ret;
 
-    funnel_state = thread_funnel_set(network_flock, TRUE);
+    //funnel_state = thread_funnel_set(network_flock, TRUE);
     ret = pptp_domain_init(0);
-    thread_funnel_set(network_flock, funnel_state);
+    //thread_funnel_set(network_flock, funnel_state);
 
     return ret;
 }
@@ -89,12 +90,12 @@ int pptp_domain_module_start(struct kmod_info *ki, void *data)
 ----------------------------------------------------------------------------- */
 int pptp_domain_module_stop(struct kmod_info *ki, void *data)
 {
-    boolean_t 	funnel_state;
+    //boolean_t 	funnel_state;
     int		ret;
 
-    funnel_state = thread_funnel_set(network_flock, TRUE);
+    //funnel_state = thread_funnel_set(network_flock, TRUE);
     ret = pptp_domain_terminate(0);
-    thread_funnel_set(network_flock, funnel_state);
+    //thread_funnel_set(network_flock, funnel_state);
 
     return ret;
 }
@@ -103,7 +104,7 @@ int pptp_domain_module_stop(struct kmod_info *ki, void *data)
 ----------------------------------------------------------------------------- */
 int pptp_domain_init(int init_arg)
 {
-    int 	ret;
+    int 	ret = KERN_SUCCESS;
     struct domain *pppdomain;
     
     log(LOGVAL, "PPTP domain init\n");
@@ -116,27 +117,30 @@ int pptp_domain_init(int init_arg)
         log(LOGVAL, "PPTP domain init : PF_PPP domain does not exist...\n");
         return KERN_FAILURE;
     }
-    
-    ret = pptp_rfc_init();
-    if (ret) {
-        log(LOGVAL, "PPTP domain init : can't init PPTP protocol RFC, err : %d\n", ret);
-        return ret;
-    }
-    
+	
+	lck_mtx_lock(ppp_domain_mutex);
+
     ret = pptp_add(pppdomain);
     if (ret) {
         log(LOGVAL, "PPTP domain init : can't add proto to PPTP domain, err : %d\n", ret);
         pptp_rfc_dispose();
-        return ret;
+        goto end;
     }
-
+    
+    ret = pptp_rfc_init();
+    if (ret) {
+        log(LOGVAL, "PPTP domain init : can't init PPTP protocol RFC, err : %d\n", ret);
+        goto end;
+    }
+    
     pptp_wan_init();
-
     ppp_mppe_init();
 
     pptp_domain_inited = 1;
 
-    return(KERN_SUCCESS);
+end:
+	lck_mtx_unlock(ppp_domain_mutex);
+    return ret;
 }
 
 
@@ -152,38 +156,43 @@ int pptp_domain_terminate(int term_arg)
     if (!pptp_domain_inited)
         return(KERN_SUCCESS);
 
+	lck_mtx_lock(ppp_domain_mutex);
+	
     ret = pptp_rfc_dispose();
     if (ret) {
         log(LOGVAL, "PPTP domain is in use and cannot terminate, err : %d\n", ret);
-        return ret;
+        goto end;
     }
 
     ret = pptp_wan_dispose();
     if (ret) {
         log(LOGVAL, "PPTP domain terminate : pptp_wan_dispose, err : %d\n", ret);
-        return ret;
+        goto end;
     }
 
     ppp_mppe_dispose();
     if (ret) {
         log(LOGVAL, "PPTP domain terminate : pptp_mppe_dispose, err : %d\n", ret);
-        return ret;
+        goto end;
     }
 
     pppdomain = pffinddomain(PF_PPP);
     if (!pppdomain) {
         // humm.. should not happen
         log(LOGVAL, "PPTP domain terminate : PF_PPP domain does not exist...\n");
-        return KERN_FAILURE;
+        ret = KERN_FAILURE;
+		goto end;
     }
     
     ret = pptp_remove(pppdomain);
     if (ret) {
         log(LOGVAL, "PPTP domain terminate : can't del proto from PPTP domain, err : %d\n", ret);
-        return ret;
+        goto end;
     }
 
     pptp_domain_inited = 0;
-    
-    return(KERN_SUCCESS);
+	
+end:
+	lck_mtx_unlock(ppp_domain_mutex);    
+    return ret;
 }

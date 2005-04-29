@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,9 @@
 /*
  * Modification History
  *
+ * October 30, 2003		Allan Nathanson <ajn@apple.com>
+ * - add plugin "stop()" function support
+ *
  * June 1, 2001			Allan Nathanson <ajn@apple.com>
  * - public API conversion
  *
@@ -46,6 +49,7 @@
 #include "configd_server.h"
 #include "plugin_support.h"
 
+__private_extern__
 Boolean	_configd_verbose		= FALSE;	/* TRUE if verbose logging enabled */
 
 __private_extern__
@@ -60,7 +64,7 @@ CFMutableSetRef	_plugins_verbose	= NULL;		/* bundle identifiers to enable verbos
 static CFMachPortRef termRequested	= NULL;		/* Mach port used to notify runloop of a shutdown request */
 
 
-static struct option longopts[] = {
+static const struct option longopts[] = {
 //	{ "no-bundles",		no_argument,		0,	'b' },
 //	{ "exclude-plugin",	required_argument,	0,	'B' },
 //	{ "no-fork",		no_argument,		0,	'd' },
@@ -75,7 +79,7 @@ static struct option longopts[] = {
 static void
 usage(const char *prog)
 {
-	SCPrint(TRUE, stderr, CFSTR("%s: [-d] [-v] [-V bundleID] [-b] [-B bundleID] [-t plugin-path]\n"), prog);
+	SCPrint(TRUE, stderr, CFSTR("%s: [-d] [-v] [-V bundleID] [-b] [-B bundleID] [-t bundle-path]\n"), prog);
 	SCPrint(TRUE, stderr, CFSTR("options:\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-d\tdisable daemon/run in foreground\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-v\tenable verbose logging\n"));
@@ -93,7 +97,7 @@ catcher(int signum)
 {
 	switch (signum) {
 		case SIGTERM :
-			if (termRequested) {
+			if (termRequested != NULL) {
 				mach_msg_empty_send_t	msg;
 				mach_msg_option_t	options;
 				kern_return_t		status;
@@ -115,6 +119,11 @@ catcher(int signum)
 							    MACH_PORT_NULL,		/* rcv_name */
 							    0,				/* timeout */
 							    MACH_PORT_NULL);		/* notify */
+				if (status == MACH_SEND_TIMED_OUT) {
+					mach_msg_destroy(&msg.header);
+				}
+			} else {
+				_exit(EX_OK);
 			}
 			break;
 	}
@@ -126,7 +135,17 @@ catcher(int signum)
 static void
 term(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
-	server_shutdown();
+	int	status	= EX_OK;
+	Boolean	wait;
+
+	wait = plugin_term(&status);
+	if (!wait) {
+		// if we are not waiting on a plugin
+		status = server_shutdown();
+		exit (status);
+	}
+
+	return;
 }
 
 
@@ -250,12 +269,15 @@ main(int argc, char * const argv[])
 {
 	Boolean			enableRestart	= (argc <= 1);	/* only if there are no arguments */
 	Boolean			forceForeground	= FALSE;
+	mach_port_limits_t	limits;
 	Boolean			loadBundles	= TRUE;
 	struct sigaction	nact;
 	int			opt;
 	extern int		optind;
 	const char		*prog		= argv[0];
+	CFRunLoopSourceRef	rls;
 	mach_port_t		service_port	= MACH_PORT_NULL;
+	kern_return_t		status;
 	CFStringRef		str;
 	const char		*testBundle	= NULL;
 
@@ -375,40 +397,33 @@ main(int argc, char * const argv[])
 		       strerror(errno));
 	}
 
-	/* add signal handler to catch a SIGTERM (if dynamic store) */
+	/* add signal handler to catch a SIGTERM */
+	if (sigaction(SIGTERM, &nact, NULL) == -1) {
+		SCLog(_configd_verbose, LOG_ERR,
+		      CFSTR("sigaction(SIGTERM, ...) failed: %s"),
+		      strerror(errno));
+	}
+
+	/* create the "shutdown requested" notification port */
+	termRequested = CFMachPortCreate(NULL, term, NULL, NULL);
+
+	// set queue limit
+	limits.mpl_qlimit = 1;
+	status = mach_port_set_attributes(mach_task_self(),
+					  CFMachPortGetPort(termRequested),
+					  MACH_PORT_LIMITS_INFO,
+					  (mach_port_info_t)&limits,
+					  MACH_PORT_LIMITS_INFO_COUNT);
+	if (status != KERN_SUCCESS) {
+		perror("mach_port_set_attributes");
+	}
+
+	// add to our runloop
+	rls = CFMachPortCreateRunLoopSource(NULL, termRequested, 0);
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+	CFRelease(rls);
+
 	if (testBundle == NULL) {
-		if (enableRestart) {
-			mach_port_limits_t	limits;
-			CFRunLoopSourceRef	rls;
-			kern_return_t		status;
-
-			/* add signal handler */
-			if (sigaction(SIGTERM, &nact, NULL) == -1) {
-				SCLog(_configd_verbose, LOG_ERR,
-				      CFSTR("sigaction(SIGTERM, ...) failed: %s"),
-				      strerror(errno));
-			}
-
-			/* create the "shutdown requested" notification port */
-			termRequested = CFMachPortCreate(NULL, term, NULL, NULL);
-
-			// set queue limit
-			limits.mpl_qlimit = 1;
-			status = mach_port_set_attributes(mach_task_self(),
-							  CFMachPortGetPort(termRequested),
-							  MACH_PORT_LIMITS_INFO,
-							  (mach_port_info_t)&limits,
-							  MACH_PORT_LIMITS_INFO_COUNT);
-			if (status != KERN_SUCCESS) {
-				perror("mach_port_set_attributes");
-			}
-
-			// add to our runloop
-			rls = CFMachPortCreateRunLoopSource(NULL, termRequested, 0);
-			CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-			CFRelease(rls);
-		}
-
 		/* initialize primary (store management) thread */
 		server_init(service_port, enableRestart);
 

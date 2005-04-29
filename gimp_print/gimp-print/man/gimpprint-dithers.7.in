@@ -1,6 +1,6 @@
 .\" t
-.\" $Id: gimpprint-dithers.7.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
-.\" Copyright (C) 2000 Roger Leigh <roger@whinlatter.uklinux.net>
+.\" $Id: gimpprint-dithers.7.in,v 1.1.1.3 2004/07/23 06:26:28 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <rleigh@debian.org>
 .\"
 .\" This program is free software; you can redistribute it and/or modify
 .\" it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
 .\" You should have received a copy of the GNU General Public License
 .\" along with this program; if not, write to the Free Software
 .\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-.TH GIMPPRINT-DITHERS 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.TH GIMPPRINT\-DITHERS 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
 .SH NAME
-gimpprint-dithers \- Gimp-Print dither algorithms
+gimpprint\-dithers \- Gimp-Print dither algorithms
 .SH DESCRIPTION
 Gimp-Print includes several dither algorithms.  Dithering attempts to reproduce
 various shades of gray (or all colors) from only a few different inks (black,
@@ -85,16 +85,16 @@ the terms of the GNU General Public License as published by the Free Software
 Foundation; either version 2 of the License, or (at your option) any later
 version.
 .PP
-This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net)
+This manual page was written by Roger Leigh (rleigh@debian.org)
 .SH SEE ALSO
-.BR gimpprint-color (7),
-.BR gimpprint-imagetypes (7),
-.BR gimpprint-inktypes (7),
-.BR gimpprint-mediasizes (7),
-.BR gimpprint-mediasources (7),
-.BR gimpprint-mediatypes (7),
-.BR gimpprint-models (7),
-.BR gimpprint-resolutions (7).
+.BR gimpprint\-color (7),
+.BR gimpprint\-imagetypes (7),
+.BR gimpprint\-inktypes (7),
+.BR gimpprint\-mediasizes (7),
+.BR gimpprint\-mediasources (7),
+.BR gimpprint\-mediatypes (7),
+.BR gimpprint\-models (7),
+.BR gimpprint\-resolutions (7).
 .\"#
 .\"# The following sets edit modes for GNU EMACS
 .\"# Local Variables:

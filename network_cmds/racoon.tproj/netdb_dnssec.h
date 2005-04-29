@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __NETDB_DNSSEC_H__
+#define __NETDB_DNSSEC_H__
+
 #ifndef T_CERT
 #define T_CERT	37		/* defined by RFC2538 section 2 */
 #endif
@@ -65,3 +68,7 @@ struct certinfo {
 
 extern void freecertinfo __P((struct certinfo *));
 extern int getcertsbyname __P((char *, struct certinfo **));
+
+
+#endif /* __NETDB_DNSSEC_H__ */
+

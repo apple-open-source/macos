@@ -1,6 +1,7 @@
 // natFileDescriptorWin32.cc - Native part of FileDescriptor class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation, Inc.
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software 
+   Foundation, Inc.
 
    This file is part of libgcj.
 
@@ -31,6 +32,9 @@ details.  */
 #include <java/lang/String.h>
 #include <java/lang/Thread.h>
 #include <java/io/FileNotFoundException.h>
+
+// FIXME: casting a FILE (pointer) to a jint will not work on Win64 --
+//        we should be using gnu.gcj.RawData's.
 
 void
 java::io::FileDescriptor::init(void)
@@ -82,7 +86,6 @@ java::io::FileDescriptor::open (jstring path, jint jflags) {
 
   HANDLE handle = NULL;
   DWORD access = 0;
-  DWORD share = FILE_SHARE_READ;
   DWORD create = OPEN_EXISTING;
   char buf[MAX_PATH] = "";
 
@@ -94,7 +97,6 @@ java::io::FileDescriptor::open (jstring path, jint jflags) {
   if ((jflags & READ) && (jflags & WRITE))
     {
       access = GENERIC_READ | GENERIC_WRITE;
-      share = 0;
       if (jflags & APPEND)
 	create = OPEN_ALWAYS;
       else
@@ -105,14 +107,13 @@ java::io::FileDescriptor::open (jstring path, jint jflags) {
   else
     {
       access = GENERIC_WRITE;
-      share = 0;
       if (jflags & APPEND)
 	create = OPEN_ALWAYS;
       else
         create = CREATE_ALWAYS;
     }
 
-  handle = CreateFile(buf, access, share, NULL, create, 0, NULL);
+  handle = CreateFile(buf, access, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, create, 0, NULL);
 
   if (handle == INVALID_HANDLE_VALUE)
     {
@@ -121,6 +122,13 @@ java::io::FileDescriptor::open (jstring path, jint jflags) {
       throw new FileNotFoundException (JvNewStringLatin1 (msg));
     }
 
+  // For APPEND mode, move the file pointer to the end of the file.
+  if (jflags & APPEND)
+    {
+      DWORD low = SetFilePointer (handle, 0, NULL, FILE_END);
+      if ((low == 0xffffffff) && (GetLastError () != NO_ERROR)) 
+        throw new FileNotFoundException (JvNewStringLatin1 (winerr ()));
+    }
   return (jint)handle;
 }
 
@@ -179,6 +187,58 @@ java::io::FileDescriptor::close (void)
     throw new IOException (JvNewStringLatin1 (winerr ()));
 }
 
+void
+java::io::FileDescriptor::setLength(jlong pos)
+{
+  LONG liOrigFilePointer;
+  LONG liNewFilePointer;
+  LONG liEndFilePointer;
+
+  // Get the original file pointer.
+  if (SetFilePointer((HANDLE) fd, (LONG) 0, &liOrigFilePointer,
+		     FILE_CURRENT) != (BOOL) 0
+      && (GetLastError() != NO_ERROR))
+    throw new IOException (JvNewStringLatin1 (winerr ()));
+
+  // Get the length of the file.
+  if (SetFilePointer((HANDLE) fd, (LONG) 0, &liEndFilePointer,
+		     FILE_END) != (BOOL) 0
+      && (GetLastError() != NO_ERROR))
+    throw new IOException (JvNewStringLatin1 (winerr ()));
+
+  if ((jlong)liEndFilePointer == pos)
+    {
+      // Restore the file pointer.
+      if (liOrigFilePointer != liEndFilePointer)
+	{
+	  if (SetFilePointer((HANDLE) fd, liOrigFilePointer, &liNewFilePointer,
+			     FILE_BEGIN) != (BOOL) 0
+	      && (GetLastError() != NO_ERROR))
+	    throw new IOException (JvNewStringLatin1 (winerr ()));
+	}
+      return;
+    }
+
+  // Seek to the new end of file.
+  if (SetFilePointer((HANDLE) fd, (LONG) pos, &liNewFilePointer,
+		     FILE_BEGIN) != (BOOL) 0
+      && (GetLastError() != NO_ERROR))
+    throw new IOException (JvNewStringLatin1 (winerr ()));
+
+  // Truncate the file at this point.
+  if (SetEndOfFile((HANDLE) fd) != (BOOL) 0 && (GetLastError() != NO_ERROR))
+    throw new IOException (JvNewStringLatin1 (winerr ()));
+
+  if (liOrigFilePointer < liNewFilePointer)
+    {
+      // Restore the file pointer.
+      if (SetFilePointer((HANDLE) fd, liOrigFilePointer, &liNewFilePointer,
+			 FILE_BEGIN) != (BOOL) 0
+	  && (GetLastError() != NO_ERROR))
+	throw new IOException (JvNewStringLatin1 (winerr ()));
+    }
+}
+
 jint
 java::io::FileDescriptor::seek (jlong pos, jint whence, jboolean eof_trunc)
 {
@@ -229,7 +289,13 @@ java::io::FileDescriptor::read(void)
   DWORD read;
 
   if (! ReadFile ((HANDLE)fd, &buf, 1, &read, NULL))
-    throw new IOException (JvNewStringLatin1 (winerr ()));
+    {
+      if (GetLastError () == ERROR_BROKEN_PIPE)
+        return -1;
+      else
+        throw new IOException (JvNewStringLatin1 (winerr ()));
+    }
+
   if (! read)
     return -1;
   else
@@ -246,13 +312,23 @@ java::io::FileDescriptor::read(jbyteArray buffer, jint offset, jint count)
   if (offset < 0 || count < 0 || offset + count > bsize)
     throw new java::lang::ArrayIndexOutOfBoundsException;
 
+  // Must return 0 if an attempt is made to read 0 bytes.
+  if (count == 0)
+    return 0;
+
   jbyte *bytes = elements (buffer) + offset;
 
   DWORD read;
   if (! ReadFile((HANDLE)fd, bytes, count, &read, NULL))
-    throw new IOException (JvNewStringLatin1 (winerr ()));
+    {
+      if (GetLastError () == ERROR_BROKEN_PIPE)
+        return -1;
+      else
+        throw new IOException (JvNewStringLatin1 (winerr ()));
+    }
 
   if (read == 0) return -1;
+
   return (jint)read;
 }
 

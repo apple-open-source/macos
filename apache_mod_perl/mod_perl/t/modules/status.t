@@ -1,4 +1,4 @@
-use Apache::test;
+use Apache::testold;
 
 my @tests = qw{
    script

@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:2221: Origin of test
+dnl ../doc/m4.texinfo:2222: Origin of test
 divert(-1)
 define(`foo', `Macro `foo'.')
 define(`bar', `Macro `bar'.')

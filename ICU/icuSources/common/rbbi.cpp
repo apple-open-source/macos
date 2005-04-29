@@ -1,14 +1,14 @@
+/*
+***************************************************************************
+*   Copyright (C) 1999-2004 International Business Machines Corporation   *
+*   and others. All rights reserved.                                      *
+***************************************************************************
+*/
 //
 //  file:  rbbi.c    Contains the implementation of the rule based break iterator
 //                   runtime engine and the API implementation for
 //                   class RuleBasedBreakIterator
 //
-/*
-***************************************************************************
-*   Copyright (C) 1999-2003 International Business Machines Corporation   *
-*   and others. All rights reserved.                                      *
-***************************************************************************
-*/
 
 #include "unicode/utypes.h"
 
@@ -17,6 +17,7 @@
 #include "unicode/rbbi.h"
 #include "unicode/schriter.h"
 #include "unicode/udata.h"
+#include "unicode/uclean.h"
 #include "rbbidata.h"
 #include "rbbirb.h"
 #include "cmemory.h"
@@ -30,11 +31,8 @@ U_NAMESPACE_BEGIN
 static const int16_t START_STATE = 1;     // The state number of the starting state
 static const int16_t STOP_STATE  = 0;     // The state-transition value indicating "stop"
 
-/**
- * Class ID.  (value is irrelevant; address is important)
- */
-const char
-RuleBasedBreakIterator::fgClassID = 0;
+
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(RuleBasedBreakIterator)
 
 
 //=======================================================================
@@ -48,8 +46,8 @@ RuleBasedBreakIterator::fgClassID = 0;
 RuleBasedBreakIterator::RuleBasedBreakIterator(RBBIDataHeader* data, UErrorCode &status)
 {
     init();
+    fData = new RBBIDataWrapper(data, status); // status checked in constructor
     if (U_FAILURE(status)) {return;}
-    fData = new RBBIDataWrapper(data, status);
     if(fData == 0) {
         status = U_MEMORY_ALLOCATION_ERROR;
         return;
@@ -65,8 +63,8 @@ RuleBasedBreakIterator::RuleBasedBreakIterator(RBBIDataHeader* data, UErrorCode 
 RuleBasedBreakIterator::RuleBasedBreakIterator(UDataMemory* udm, UErrorCode &status)
 {
     init();
+    fData = new RBBIDataWrapper(udm, status); // status checked in constructor
     if (U_FAILURE(status)) {return;}
-    fData = new RBBIDataWrapper(udm, status);
     if(fData == 0) {
         status = U_MEMORY_ALLOCATION_ERROR;
         return;
@@ -84,6 +82,7 @@ RuleBasedBreakIterator::RuleBasedBreakIterator( const UnicodeString  &rules,
                                                 UParseError          &parseError,
                                                 UErrorCode           &status)
 {
+    u_init(&status);      // Just in case ICU is not yet initialized
     init();
     if (U_FAILURE(status)) {return;}
     RuleBasedBreakIterator *bi = (RuleBasedBreakIterator *)
@@ -174,12 +173,11 @@ RuleBasedBreakIterator::operator=(const RuleBasedBreakIterator& that) {
 UBool RuleBasedBreakIterator::fTrace = FALSE;
 void RuleBasedBreakIterator::init() {
 
-    fText                = NULL;
-    fData                = NULL;
-    fCharMappings        = NULL;
-    fLastBreakTag        = 0;
-    fLastBreakTagValid   = TRUE;
-    fDictionaryCharCount = 0;
+    fText                 = NULL;
+    fData                 = NULL;
+    fLastRuleStatusIndex  = 0;
+    fLastStatusIndexValid = TRUE;
+    fDictionaryCharCount  = 0;
 
 #ifdef RBBI_DEBUG
     static UBool debugInitDone = FALSE;
@@ -221,7 +219,7 @@ RuleBasedBreakIterator::operator==(const BreakIterator& that) const {
     const RuleBasedBreakIterator& that2 = (const RuleBasedBreakIterator&) that;
     if (fText == that2.fText ||
         (fText != NULL && that2.fText != NULL && *that2.fText == *fText)) {
-        if (that2.fData == fData || 
+        if (that2.fData == fData ||
             (fData != NULL && that2.fData != NULL && *that2.fData == *fData)) {
             r = TRUE;
         }
@@ -281,8 +279,7 @@ RuleBasedBreakIterator::getText() const {
     // function is called while we're in that state, we have to fudge an
     // an iterator to return.
     if (nonConstThis->fText == NULL) {
-        // TODO:  do this in a way that does not do a default conversion!
-        nonConstThis->fText = new StringCharacterIterator("");
+        nonConstThis->fText = new StringCharacterIterator(UnicodeString());
     }
     return *nonConstThis->fText;
 }
@@ -328,8 +325,8 @@ RuleBasedBreakIterator::setText(const UnicodeString& newText) {
  */
 int32_t RuleBasedBreakIterator::first(void) {
     reset();
-    fLastBreakTag      = 0;
-    fLastBreakTagValid = TRUE;
+    fLastRuleStatusIndex  = 0;
+    fLastStatusIndexValid = TRUE;
     if (fText == NULL)
         return BreakIterator::DONE;
 
@@ -345,8 +342,8 @@ int32_t RuleBasedBreakIterator::first(void) {
 int32_t RuleBasedBreakIterator::last(void) {
     reset();
     if (fText == NULL) {
-        fLastBreakTag      = 0;
-        fLastBreakTagValid = TRUE;
+        fLastRuleStatusIndex  = 0;
+        fLastStatusIndexValid = TRUE;
         return BreakIterator::DONE;
     }
 
@@ -357,7 +354,7 @@ int32_t RuleBasedBreakIterator::last(void) {
     //     will work correctly.)
 
 
-    fLastBreakTagValid = FALSE;
+    fLastStatusIndexValid = FALSE;
     int32_t pos = fText->endIndex();
     fText->setIndex(pos);
 
@@ -401,17 +398,24 @@ int32_t RuleBasedBreakIterator::next(void) {
 int32_t RuleBasedBreakIterator::previous(void) {
     // if we're already sitting at the beginning of the text, return DONE
     if (fText == NULL || current() == fText->startIndex()) {
-        fLastBreakTag      = 0;
-        fLastBreakTagValid = TRUE;
+        fLastRuleStatusIndex  = 0;
+        fLastStatusIndexValid = TRUE;
         return BreakIterator::DONE;
     }
 
+    if (fData->fSafeRevTable != NULL || fData->fSafeFwdTable != NULL) {
+        return handlePrevious(fData->fReverseTable);
+    }
+
+    // old rule syntax
     // set things up.  handlePrevious() will back us up to some valid
     // break position before the current position (we back our internal
     // iterator up one step to prevent handlePrevious() from returning
     // the current position), but not necessarily the last one before
     // where we started
+
     int32_t start = current();
+
     fText->previous32();
     int32_t lastResult    = handlePrevious();
     int32_t result        = lastResult;
@@ -421,34 +425,31 @@ int32_t RuleBasedBreakIterator::previous(void) {
     // iterate forward from the known break position until we pass our
     // starting point.  The last break position before the starting
     // point is our return value
+
     for (;;) {
         result         = handleNext();
         if (result == BreakIterator::DONE || result >= start) {
             break;
         }
         lastResult     = result;
-        lastTag        = fLastBreakTag;
+        lastTag        = fLastRuleStatusIndex;
         breakTagValid  = TRUE;
     }
 
     // fLastBreakTag wants to have the value for section of text preceding
     // the result position that we are to return (in lastResult.)  If
     // the backwards rules overshot and the above loop had to do two or more
-    //  handleNext()s to move up to the desired return position, we will have a valid
-    //  tag value.  But, if handlePrevious() took us to exactly the correct result positon,
-    //  we wont have a tag value for that position, which is only set by handleNext().
-
+    // handleNext()s to move up to the desired return position, we will have a valid
+    // tag value. But, if handlePrevious() took us to exactly the correct result positon,
+    // we wont have a tag value for that position, which is only set by handleNext().
 
     // set the current iteration position to be the last break position
     // before where we started, and then return that value
     fText->setIndex(lastResult);
-    fLastBreakTag      = lastTag;       // for use by getRuleStatus()
-    fLastBreakTagValid = breakTagValid;
+    fLastRuleStatusIndex  = lastTag;       // for use by getRuleStatus()
+    fLastStatusIndexValid = breakTagValid;
     return lastResult;
 }
-
-
-
 
 /**
  * Sets the iterator to refer to the first boundary position following
@@ -460,27 +461,61 @@ int32_t RuleBasedBreakIterator::following(int32_t offset) {
     // if the offset passed in is already past the end of the text,
     // just return DONE; if it's before the beginning, return the
     // text's starting offset
-    fLastBreakTag = 0;
-    fLastBreakTagValid = TRUE;
+    fLastRuleStatusIndex  = 0;
+    fLastStatusIndexValid = TRUE;
     if (fText == NULL || offset >= fText->endIndex()) {
-        // fText->setToEnd();
-        // return BreakIterator::DONE;
         last();
         return next();
     }
     else if (offset < fText->startIndex()) {
-        // fText->setToStart();
-        // return fText->startIndex();
         return first();
     }
 
     // otherwise, set our internal iteration position (temporarily)
     // to the position passed in.  If this is the _beginning_ position,
     // then we can just use next() to get our return value
-    fText->setIndex(offset);
-    if (offset == fText->startIndex())
-        return handleNext();
 
+    int32_t result = 0;
+
+    if (fData->fSafeRevTable != NULL) {
+        // new rule syntax
+        /// todo synwee
+        fText->setIndex(offset);
+        // move forward one codepoint to prepare for moving back to a
+        // safe point.
+        // this handles offset being between a supplementary character
+        fText->next32();
+        // handlePrevious will move most of the time to < 1 boundary away
+        handlePrevious(fData->fSafeRevTable);
+        int32_t result = next();
+        while (result <= offset) {
+            result = next();
+        }
+        return result;
+    }
+    if (fData->fSafeFwdTable != NULL) {
+        // backup plan if forward safe table is not available
+        fText->setIndex(offset);
+        fText->previous32();
+        // handle next will give result >= offset
+        handleNext(fData->fSafeFwdTable);
+        // previous will give result 0 or 1 boundary away from offset,
+        // most of the time
+        // we have to
+        int32_t oldresult = previous();
+        while (oldresult > offset) {
+            int32_t result = previous();
+            if (result <= offset) {
+                return oldresult;
+            }
+            oldresult = result;
+        }
+        int32_t result = next();
+        if (result <= offset) {
+            return next();
+        }
+        return result;
+    }
     // otherwise, we have to sync up first.  Use handlePrevious() to back
     // us up to a known break position before the specified position (if
     // we can determine that the specified position is a break position,
@@ -488,8 +523,14 @@ int32_t RuleBasedBreakIterator::following(int32_t offset) {
     // position at or before our starting position.  Advance forward
     // from here until we've passed the starting position.  The position
     // we stop on will be the first break position after the specified one.
+    // old rule syntax
 
-    int32_t result = previous();
+    fText->setIndex(offset);
+    if (offset == fText->startIndex()) {
+        return handleNext();
+    }
+    result = previous();
+
     while (result != BreakIterator::DONE && result <= offset) {
         result = next();
     }
@@ -506,6 +547,7 @@ int32_t RuleBasedBreakIterator::following(int32_t offset) {
 int32_t RuleBasedBreakIterator::preceding(int32_t offset) {
     // if the offset passed in is already past the end of the text,
     // just return DONE; if it's before the beginning, return the
+
     // text's starting offset
     if (fText == NULL || offset > fText->endIndex()) {
         // return BreakIterator::DONE;
@@ -518,6 +560,51 @@ int32_t RuleBasedBreakIterator::preceding(int32_t offset) {
     // if we start by updating the current iteration position to the
     // position specified by the caller, we can just use previous()
     // to carry out this operation
+
+    if (fData->fSafeFwdTable != NULL) {
+        /// todo synwee
+        // new rule syntax
+        fText->setIndex(offset);
+        // move backwards one codepoint to prepare for moving forwards to a
+        // safe point.
+        // this handles offset being between a supplementary character
+        // TODO:  would it be better to just check for being in the middle of a surrogate pair,
+        //        rather than adjusting the position unconditionally?
+        //        (Change would interact with safe rules.)
+        fText->previous32();
+        handleNext(fData->fSafeFwdTable);
+        int32_t result = fText->getIndex();
+        while (result >= offset) {
+            result = previous();
+        }
+        return result;
+    }
+    if (fData->fSafeRevTable != NULL) {
+        // backup plan if forward safe table is not available
+        fText->setIndex(offset);
+        fText->next32();
+        // handle previous will give result <= offset
+        handlePrevious(fData->fSafeRevTable);
+
+        // next will give result 0 or 1 boundary away from offset,
+        // most of the time
+        // we have to
+        int32_t oldresult = next();
+        while (oldresult < offset) {
+            int32_t result = next();
+            if (result >= offset) {
+                return oldresult;
+            }
+            oldresult = result;
+        }
+        int32_t result = previous();
+        if (result >= offset) {
+            return previous();
+        }
+        return result;
+    }
+
+    // old rule syntax
     fText->setIndex(offset);
     return previous();
 }
@@ -533,6 +620,11 @@ UBool RuleBasedBreakIterator::isBoundary(int32_t offset) {
     // the beginning index of the iterator is always a boundary position by definition
     if (fText == NULL || offset == fText->startIndex()) {
         first();       // For side effects on current position, tag values.
+        return TRUE;
+    }
+
+    if (offset == fText->endIndex()) {
+        last();       // For side effects on current position, tag values.
         return TRUE;
     }
 
@@ -573,29 +665,29 @@ int32_t RuleBasedBreakIterator::current(void) const {
 //     vectors through here.  This method initializes the state machine to state 1
 //     and advances through the text character by character until we reach the end
 //     of the text or the state machine transitions to state 0.  We update our return
-//     value every time the state machine passes through a possible end state.
+//     value every time the state machine passes through an accepting state.
 //
 //-----------------------------------------------------------------------------------
-int32_t RuleBasedBreakIterator::handleNext(void) {
+int32_t RuleBasedBreakIterator::handleNext() {
+    return handleNext(fData->fForwardTable);
+}
+
+int32_t RuleBasedBreakIterator::handleNext(const RBBIStateTable *statetable) {
     if (fTrace) {
-        RBBIDebugPrintf("Handle Next   pos   char  state category  \n");
+        RBBIDebugPuts("Handle Next   pos   char  state category");
     }
 
     // No matter what, handleNext alway correctly sets the break tag value.
-    fLastBreakTagValid = TRUE;
+    fLastStatusIndexValid = TRUE;
 
     // if we're already at the end of the text, return DONE.
-    if (fText == NULL || fData == NULL || fText->getIndex() == fText->endIndex()) {
-        fLastBreakTag = 0;
+    if (fText == NULL || fData == NULL || fText->hasNext() == FALSE) {
+        fLastRuleStatusIndex = 0;
         return BreakIterator::DONE;
     }
 
-    // no matter what, we always advance at least one character forward
-    int32_t temp = fText->getIndex();
-    fText->next32();
-    int32_t result = fText->getIndex();
-    fText->setIndex(temp);
-
+    int32_t initialPosition = fText->getIndex();
+    int32_t result          = initialPosition;
     int32_t lookaheadResult = 0;
 
     // Initialize the state machine.  Begin in state 1
@@ -604,12 +696,12 @@ int32_t RuleBasedBreakIterator::handleNext(void) {
     UChar32            c               = fText->current32();
     RBBIStateTableRow *row;
     int32_t            lookaheadStatus = 0;
-    int32_t            lookaheadTag    = 0;
+    int32_t            lookaheadTagIdx = 0;
 
-    fLastBreakTag = 0;
+    fLastRuleStatusIndex = 0;
 
     row = (RBBIStateTableRow *)    // Point to starting row of state table.
-        (fData->fForwardTable->fTableData + (fData->fForwardTable->fRowLen * state));
+        (statetable->fTableData + (statetable->fRowLen * state));
 
     // Character Category fetch for starting character.
     //    See comments on character category code within loop, below.
@@ -622,15 +714,31 @@ int32_t RuleBasedBreakIterator::handleNext(void) {
     // loop until we reach the end of the text or transition to state 0
     for (;;) {
         if (c == CharacterIterator::DONE && fText->hasNext()==FALSE) {
-            // Note: CharacterIterator::DONE is 0xffff, which is also a legal
-            //       character value.  Check for DONE first, because it's quicker,
-            //       but also need to check fText->hasNext() to be certain.
+            // Reached end of input string.
+            //    Note: CharacterIterator::DONE is 0xffff, which is also a legal
+            //          character value.  Check for DONE first, because it's quicker,
+            //          but also need to check fText->hasNext() to be certain.
+
+            if (lookaheadResult > result) {
+                // We ran off the end of the string with a pending look-ahead match.
+                // Treat this as if the look-ahead condition had been met, and return
+                //  the match at the / position from the look-ahead rule.
+                result               = lookaheadResult;
+                fLastRuleStatusIndex = lookaheadTagIdx;
+                lookaheadStatus = 0;
+            } else if (result == initialPosition) {
+                // Ran off end, no match found.
+                // move forward one
+                fText->setIndex(initialPosition);
+                fText->next32();
+                fText->getIndex();
+            }
             break;
         }
         // look up the current character's character category, which tells us
         // which column in the state table to look at.
         // Note:  the 16 in UTRIE_GET16 refers to the size of the data being returned,
-        //        not the size of the character going in.
+        //        not the size of the character going in, which is a UChar32.
         //
         UTRIE_GET16(&fData->fTrie, c, category);
 
@@ -645,91 +753,89 @@ int32_t RuleBasedBreakIterator::handleNext(void) {
             category &= ~0x4000;
         }
 
-        if (fTrace) {
-            RBBIDebugPrintf("             %4d   ", fText->getIndex());
-            if (0x20<=c && c<0x7f) {
-                RBBIDebugPrintf("\"%c\"  ", c);
-            } else {
-                RBBIDebugPrintf("%5x  ", c);
+        #ifdef RBBI_DEBUG
+            if (fTrace) {
+                RBBIDebugPrintf("             %4d   ", fText->getIndex());
+                if (0x20<=c && c<0x7f) {
+                    RBBIDebugPrintf("\"%c\"  ", c);
+                } else {
+                    RBBIDebugPrintf("%5x  ", c);
+                }
+                RBBIDebugPrintf("%3d  %3d\n", state, category);
             }
-            RBBIDebugPrintf("%3d  %3d\n", state, category);
-        }
+        #endif
 
         // look up a state transition in the state table
         state = row->fNextState[category];
         row = (RBBIStateTableRow *)
-            (fData->fForwardTable->fTableData + (fData->fForwardTable->fRowLen * state));
+            (statetable->fTableData + (statetable->fRowLen * state));
 
         // Get the next character.  Doing it here positions the iterator
         //    to the correct position for recording matches in the code that
         //    follows.
-        //  TODO:  16 bit next, and a 16 bit TRIE lookup, with escape code
-        //         for non-BMP chars, would be faster.
         c = fText->next32();
 
-        if (row->fAccepting == 0 && row->fLookAhead == 0) {
+        if (row->fAccepting == -1) {
+            // Match found, common case, could have lookahead so we move on to check it
+            result = fText->getIndex();
+            /// added
+            fLastRuleStatusIndex = row->fTagIdx;   // Remember the break status (tag) values.
+        }
+
+        if (row->fLookAhead != 0) {
+            if (lookaheadStatus != 0
+                && row->fAccepting == lookaheadStatus) {
+                // Lookahead match is completed.  Set the result accordingly, but only
+                // if no other rule has matched further in the mean time.
+                result               = lookaheadResult;
+                fLastRuleStatusIndex = lookaheadTagIdx;
+                lookaheadStatus      = 0;
+                /// i think we have to back up to read the lookahead character again
+                /// fText->setIndex(lookaheadResult);
+                /// TODO: this is a simple hack since reverse rules only have simple
+                /// lookahead rules that we can definitely break out from.
+                /// we need to make the lookahead rules not chain eventually.
+                /// return result;
+                /// this is going to be the longest match again
+                goto continueOn;
+            }
+
+            int32_t  r = fText->getIndex();
+            lookaheadResult = r;
+            lookaheadStatus = row->fLookAhead;
+            lookaheadTagIdx = row->fTagIdx;
+            goto continueOn;
+        }
+
+
+        if (row->fAccepting == 0) {
             // No match, nothing of interest happening, common case.
             goto continueOn;
         }
 
-        if (row->fAccepting == -1) {
-            // Match found, common case, no lookahead involved.
-            //    (It's possible that some lookahead rule matched here also,
-            //     but since there's an unconditional match, we'll favor that.)
-            result          = fText->getIndex();
-            lookaheadStatus = 0;           // clear out any pending look-ahead matches.
-            fLastBreakTag   = row->fTag;   // Remember the break status (tag) value.
-            goto continueOn;
-        }
-
-        if (row->fAccepting == 0 && row->fLookAhead != 0) {
-            // Lookahead match point.  Remember it, but only if no other rule has
-            //                         unconitionally matched up to this point.
-            // TODO:  handle case where there's a pending match from a different rule -
-            //        where lookaheadStatus != 0  && lookaheadStatus != row->fLookAhead.
-            int32_t  r = fText->getIndex();
-            if (r > result) {
-                lookaheadResult = r;
-                lookaheadStatus = row->fLookAhead;
-                lookaheadTag   = row->fTag;
-            }
-            goto continueOn;
-        }
-
-        if (row->fAccepting != 0 && row->fLookAhead != 0) {
-            // Lookahead match is completed.  Set the result accordingly, but only
-            //   if no other rule has matched further in the mean time.
-            if (lookaheadResult > result) {
-                U_ASSERT(row->fAccepting == lookaheadStatus);   // TODO:  handle this case
-                //    of overlapping lookahead matches.
-                result          = lookaheadResult;
-                fLastBreakTag   = lookaheadTag;
-                lookaheadStatus = 0;
-            }
-            goto continueOn;
-        }
+        lookaheadStatus = 0;           // clear out any pending look-ahead matches.
 
 continueOn:
         if (state == STOP_STATE) {
+            // This is the normal exit from the lookup state machine.
+            // We have advanced through the string until it is certain that no
+            //   longer match is possible, no matter what characters follow.
             break;
         }
-
-        // c = fText->next32();
     }
 
-    // if we've run off the end of the text, and the very last character took us into
-    // a lookahead state, advance the break position to the lookahead position
-    // (the theory here is that if there are no characters at all after the lookahead
-    // position, that always matches the lookahead criteria)
-    //   TODO:  is this really the right behavior?
-    if (c == CharacterIterator::DONE &&
-        fText->hasNext()==FALSE &&
-        lookaheadResult == fText->endIndex()) {
-            result          = lookaheadResult;
-            fLastBreakTag   = lookaheadTag;
+    // The state machine is done.  Check whether it found a match...
+
+    // If the iterator failed to advance in the match engine, force it ahead by one.
+    //   (This really indicates a defect in the break rules.  They should always match
+    //    at least one character.)
+    if (result == initialPosition) {
+        result = fText->setIndex(initialPosition);
+        fText ->next32();
+        result = fText->getIndex();
     }
 
-
+    // Leave the iterator at our result position.
     fText->setIndex(result);
     if (fTrace) {
         RBBIDebugPrintf("result = %d\n\n", result);
@@ -737,18 +843,13 @@ continueOn:
     return result;
 }
 
-//-----------------------------------------------------------------------------------
+
+//----------------------------------------------------------------
 //
-//  handlePrevious()
+//   handlePrevious(void)     This is the variant used with old style rules
+//                            (Overshoot to a safe point, then move forward)
 //
-//      This method backs the iterator back up to a "safe position" in the text.
-//      This is a position that we know, without any context, must be a break position.
-//      The various calling methods then iterate forward from this safe position to
-//      the appropriate position to return.
-//
-//      The logic of this function is very similar to handleNext(), above.
-//
-//-----------------------------------------------------------------------------------
+//----------------------------------------------------------------
 int32_t RuleBasedBreakIterator::handlePrevious(void) {
     if (fText == NULL || fData == NULL) {
         return 0;
@@ -763,7 +864,7 @@ int32_t RuleBasedBreakIterator::handlePrevious(void) {
     int32_t            result          = fText->getIndex();
     int32_t            lookaheadStatus = 0;
     int32_t            lookaheadResult = 0;
-    int32_t            lookaheadTag    = 0;
+    int32_t            lookaheadTagIdx = 0;
     UChar32            c               = fText->current32();
     RBBIStateTableRow *row;
 
@@ -776,7 +877,7 @@ int32_t RuleBasedBreakIterator::handlePrevious(void) {
     }
 
     if (fTrace) {
-        RBBIDebugPrintf("Handle Prev   pos   char  state category  \n");
+        RBBIDebugPuts("Handle Prev   pos   char  state category");
     }
 
     // loop until we reach the beginning of the text or transition to state 0
@@ -798,15 +899,17 @@ int32_t RuleBasedBreakIterator::handlePrevious(void) {
             category &= ~0x4000;
         }
 
-        if (fTrace) {
-            RBBIDebugPrintf("             %4d   ", fText->getIndex());
-            if (0x20<=c && c<0x7f) {
-                RBBIDebugPrintf("\"%c\"  ", c);
-            } else {
-                RBBIDebugPrintf("%5x  ", c);
+        #ifdef RBBI_DEBUG
+            if (fTrace) {
+                RBBIDebugPrintf("             %4d   ", fText->getIndex());
+                if (0x20<=c && c<0x7f) {
+                    RBBIDebugPrintf("\"%c\"  ", c);
+                } else {
+                    RBBIDebugPrintf("%5x  ", c);
+                }
+                RBBIDebugPrintf("%3d  %3d\n", state, category);
             }
-            RBBIDebugPrintf("%3d  %3d\n", state, category);
-        }
+        #endif
 
         // look up a state transition in the backwards state table
         state = row->fNextState[category];
@@ -834,7 +937,7 @@ int32_t RuleBasedBreakIterator::handlePrevious(void) {
             if (r > result) {
                 lookaheadResult = r;
                 lookaheadStatus = row->fLookAhead;
-                lookaheadTag    = row->fTag;
+                lookaheadTagIdx = row->fTagIdx;
             }
             goto continueOn;
         }
@@ -845,8 +948,8 @@ int32_t RuleBasedBreakIterator::handlePrevious(void) {
             if (lookaheadResult > result) {
                 U_ASSERT(row->fAccepting == lookaheadStatus);   // TODO:  handle this case
                 //    of overlapping lookahead matches.
-                result          = lookaheadResult;
-                fLastBreakTag   = lookaheadTag;
+                result               = lookaheadResult;
+                fLastRuleStatusIndex = lookaheadTagIdx;
                 lookaheadStatus = 0;
             }
             goto continueOn;
@@ -867,6 +970,168 @@ continueOn:
     if (c == CharacterIterator::DONE && fText->hasPrevious()==FALSE) {
         result = fText->startIndex();
     }
+    fText->setIndex(result);
+
+    return result;
+}
+
+
+//-----------------------------------------------------------------------------------
+//
+//  handlePrevious()
+//
+//      This method backs the iterator back up to a "safe position" in the text.
+//      This is a position that we know, without any context, may be any position
+//      not more than 2 breaks away. Occasionally, the position may be less than
+//      one break away.
+//      The various calling methods then iterate forward from this safe position to
+//      the appropriate position to return.
+//
+//      The logic of this function is very similar to handleNext(), above.
+//
+//-----------------------------------------------------------------------------------
+int32_t RuleBasedBreakIterator::handlePrevious(const RBBIStateTable *statetable) {
+    if (fText == NULL || statetable == NULL) {
+        return 0;
+    }
+    // break tag is no longer valid after icu switched to exact backwards
+    // positioning.
+    fLastStatusIndexValid = FALSE;
+    if (statetable == NULL) {
+        return fText->setToStart();
+    }
+
+    int32_t            state              = START_STATE;
+    int32_t            category;
+    int32_t            lastCategory       = 0;
+    UBool              hasPassedStartText = !fText->hasPrevious();
+    UChar32            c                  = fText->previous32();
+    // previous character
+    int32_t            result             = fText->getIndex();
+    int32_t            lookaheadStatus    = 0;
+    int32_t            lookaheadResult    = 0;
+    int32_t            lookaheadTagIdx    = 0;
+    UBool              lookAheadHardBreak = (statetable->fFlags & RBBI_LOOKAHEAD_HARD_BREAK) != 0;
+
+    RBBIStateTableRow *row;
+
+    row = (RBBIStateTableRow *)
+        (statetable->fTableData + (state * statetable->fRowLen));
+    UTRIE_GET16(&fData->fTrie, c, category);
+    if ((category & 0x4000) != 0)  {
+        fDictionaryCharCount++;
+        category &= ~0x4000;
+    }
+
+    if (fTrace) {
+        RBBIDebugPuts("Handle Prev   pos   char  state category");
+    }
+
+    // loop until we reach the beginning of the text or transition to state 0
+    for (;;) {
+        // if (c == CharacterIterator::DONE && fText->hasPrevious()==FALSE) {
+        if (hasPassedStartText) {
+            // if we have already considered the start of the text
+            if (row->fLookAhead != 0 && lookaheadResult == 0) {
+                result = 0;
+            }
+            break;
+        }
+
+        // save the last character's category and look up the current
+        // character's category
+        lastCategory = category;
+        UTRIE_GET16(&fData->fTrie, c, category);
+
+        // Check the dictionary bit in the character's category.
+        //    Counter is only used by dictionary based iterators.
+        //
+        if ((category & 0x4000) != 0)  {
+            fDictionaryCharCount++;
+            category &= ~0x4000;
+        }
+
+        #ifdef RBBI_DEBUG
+            if (fTrace) {
+                RBBIDebugPrintf("             %4d   ", fText->getIndex());
+                if (0x20<=c && c<0x7f) {
+                    RBBIDebugPrintf("\"%c\"  ", c);
+                } else {
+                    RBBIDebugPrintf("%5x  ", c);
+                }
+                RBBIDebugPrintf("%3d  %3d\n", state, category);
+            }
+        #endif
+
+        // look up a state transition in the backwards state table
+        state = row->fNextState[category];
+        row = (RBBIStateTableRow *)
+            (statetable->fTableData + (state * statetable->fRowLen));
+
+        if (row->fAccepting == -1) {
+            // Match found, common case, could have lookahead so we move on to check it
+            result = fText->getIndex();
+            /// added
+            fLastRuleStatusIndex   = row->fTagIdx;   // Remember the break status (tag) value.
+        }
+
+        if (row->fLookAhead != 0) {
+            if (lookaheadStatus != 0
+                && row->fAccepting == lookaheadStatus) {
+                // Lookahead match is completed.  Set the result accordingly, but only
+                // if no other rule has matched further in the mean time.
+                result               = lookaheadResult;
+                fLastRuleStatusIndex = lookaheadTagIdx;
+                lookaheadStatus      = 0;
+                /// i think we have to back up to read the lookahead character again
+                /// fText->setIndex(lookaheadResult);
+                /// TODO: this is a simple hack since reverse rules only have simple
+                /// lookahead rules that we can definitely break out from.
+                /// we need to make the lookahead rules not chain eventually.
+                /// return result;
+                /// this is going to be the longest match again
+
+                /// syn wee todo hard coded for line breaks stuff
+                /// needs to provide a tag in rules to ensure a stop.
+
+                if (lookAheadHardBreak) {
+                    fText->setIndex(result);
+                    return result;
+                }
+                category = lastCategory;
+                fText->setIndex(result);
+
+                goto continueOn;
+            }
+
+            int32_t    r         = fText->getIndex();
+            lookaheadResult      = r;
+            lookaheadStatus      = row->fLookAhead;
+            fLastRuleStatusIndex = row->fTagIdx;
+            goto continueOn;
+        }
+
+        // not lookahead
+        if (row->fAccepting == 0) {
+            // No match, nothing of interest happening, common case.
+            goto continueOn;
+        }
+
+        lookaheadStatus = 0;     // clear out any pending look-ahead matches.
+
+continueOn:
+        if (state == STOP_STATE) {
+            break;
+        }
+
+        // then advance one character backwards
+        hasPassedStartText = !fText->hasPrevious();
+        c = fText->previous32();
+    }
+
+    // Note:  the result postion isn't what is returned to the user by previous(),
+    //        but where the implementation of previous() turns around and
+    //        starts iterating forward again.
     fText->setIndex(result);
 
     return result;
@@ -895,24 +1160,68 @@ RuleBasedBreakIterator::reset()
 //                     status while doing the next().
 //
 //-------------------------------------------------------------------------------
-int32_t  RuleBasedBreakIterator::getRuleStatus() const {
-    RuleBasedBreakIterator *nonConstThis  = (RuleBasedBreakIterator *)this;
-    if (fLastBreakTagValid == FALSE) {
+void RuleBasedBreakIterator::makeRuleStatusValid() {
+    if (fLastStatusIndexValid == FALSE) {
         //  No cached status is available.
         if (fText == NULL || current() == fText->startIndex()) {
             //  At start of text, or there is no text.  Status is always zero.
-            nonConstThis->fLastBreakTag = 0;
-            nonConstThis->fLastBreakTagValid = TRUE;
+            fLastRuleStatusIndex = 0;
+            fLastStatusIndexValid = TRUE;
         } else {
             //  Not at start of text.  Find status the tedious way.
             int32_t pa = current();
-            nonConstThis->previous();
-            int32_t pb = nonConstThis->next();
-            U_ASSERT(pa == pb);
+            previous();
+            int32_t pb = next();
+            if (pa != pb) {
+                // note: the if (pa != pb) test is here only to eliminate warnings for
+                //       unused local variables on gcc.  Logically, it isn't needed.
+                U_ASSERT(pa == pb);
+            }
         }
     }
-    return nonConstThis->fLastBreakTag;
+    U_ASSERT(fLastStatusIndexValid == TRUE);
+    U_ASSERT(fLastRuleStatusIndex >= 0  &&  fLastRuleStatusIndex < fData->fStatusMaxIdx);
 }
+
+
+int32_t  RuleBasedBreakIterator::getRuleStatus() const {
+    RuleBasedBreakIterator *nonConstThis  = (RuleBasedBreakIterator *)this;
+    nonConstThis->makeRuleStatusValid();
+
+    // fLastRuleStatusIndex indexes to the start of the appropriate status record
+    //                                                 (the number of status values.)
+    //   This function returns the last (largest) of the array of status values.
+    int32_t  idx = fLastRuleStatusIndex + fData->fRuleStatusTable[fLastRuleStatusIndex];
+    int32_t  tagVal = fData->fRuleStatusTable[idx];
+
+    return tagVal;
+}
+
+
+
+
+int32_t RuleBasedBreakIterator::getRuleStatusVec(
+             int32_t *fillInVec, int32_t capacity, UErrorCode &status)
+{
+    if (U_FAILURE(status)) {
+        return 0;
+    }
+
+    RuleBasedBreakIterator *nonConstThis  = (RuleBasedBreakIterator *)this;
+    nonConstThis->makeRuleStatusValid();
+    int32_t  numVals = fData->fRuleStatusTable[fLastRuleStatusIndex];
+    int32_t  numValsToCopy = numVals;
+    if (numVals > capacity) {
+        status = U_BUFFER_OVERFLOW_ERROR;
+        numValsToCopy = capacity;
+    }
+    int i;
+    for (i=0; i<numValsToCopy; i++) {
+        fillInVec[i] = fData->fRuleStatusTable[fLastRuleStatusIndex + i + 1];
+    }
+    return numVals;
+}
+
 
 
 //-------------------------------------------------------------------------------

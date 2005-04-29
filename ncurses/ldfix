@@ -1,0 +1,23 @@
+#!/usr/bin/perl -w
+
+use strict qw(vars);
+
+use Getopt::Long;
+
+Getopt::Long::Configure("bundling");
+my(@libs, @paths, @res);
+GetOptions("l=s" => \@libs, "L=s" => \@paths);
+
+LIB: foreach my $l (@libs) {
+	foreach my $p (@paths) {
+		my $f = "$p/lib${l}.a";
+		if (-e $f) {
+			push(@res, $f);
+			next LIB;
+		}
+	}
+	warn "Can't find $l in " . join(" ", @paths);
+	push(@res, $l);
+}
+
+print join(" ", @res), "\n";

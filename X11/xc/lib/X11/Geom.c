@@ -27,6 +27,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
+/* $XFree86: xc/lib/X11/Geom.c,v 1.3 2003/11/17 22:20:06 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xutil.h"
@@ -37,8 +38,8 @@ from The Open Group.
  * returns 0 if there was some problem, else the position bitmask.
  */
 
-#if NeedFunctionPrototypes
-int XGeometry (
+int
+XGeometry (
      Display *dpy,			/* user's display connection */
      int screen,			/* screen on which to do computation */
      _Xconst char *pos,			/* user provided geometry spec */
@@ -52,17 +53,6 @@ int XGeometry (
      register int *y,			/* always set on successful RETURN */
      register int *width,		/* always set on successful RETURN */
      register int *height)		/* always set on successful RETURN */
-#else
-int XGeometry (dpy, screen, pos, def, bwidth, fwidth, fheight, xadd, yadd, x, y, width, height)
-     Display *dpy;			/* user's display connection */
-     int screen;			/* screen on which to do computation */
-     char *pos;				/* user provided geometry spec */
-     char *def;				/* default geometry spec for window */
-     unsigned int bwidth;		/* border width */
-     unsigned int fwidth, fheight;	/* size of position units */
-     int xadd, yadd;			/* any additional interior space */
-     register int *x, *y, *width, *height;/* always set on successful RETURN */
-#endif
 {
 	int px, py;			/* returned values from parse */
 	unsigned int pwidth, pheight;	/* returned values from parse */

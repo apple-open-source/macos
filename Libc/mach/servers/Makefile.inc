@@ -10,7 +10,7 @@ SRVHDRS = bootstrap_defs.h netname_defs.h key_defs.h nm_defs.h ls_defs.h
 SRVHDRS := ${SRVHDRS:S/^/${.CURDIR}\/mach\/servers\//}
 SRVHDRS += ${SRVMIGHDRS}
 
-SRCS+= ${SRVMIGDEFS:S/.defs$/User.defs/}
+MISRCS+= ${SRVMIGDEFS:S/.defs$/User.defs/}
 
 CLEANFILES += ${SRVMIGHDRS} ${SRVMIGHDRS:S/.h$/User.c/} \
 		${SRVMIGHDRS:S/.h$/Server.c/}

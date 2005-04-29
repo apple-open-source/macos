@@ -1,0 +1,24 @@
+#!/usr/local/bin/xotclsh 
+# $Id: s.xo-whichPkg 1.3 01/03/09 13:20:13-00:00 neumann $
+package require XOTcl; namespace import -force xotcl::*
+
+@ @File {
+    description {
+      A small sample script to show which package is loaded from where
+      when a target package is loaded. <@p>
+      Usage: "xo-whichPkg -pkg PACKAGENAME"
+    }
+    authors {
+      Fredj Dridi dridi@nestroy.wi-inf.uni-essen.de
+    }
+    date "[::xotcl::rcs date {$Date: 01/03/09 13:20:13-00:00 $}]"
+}
+
+array set opts {
+  -pkg xotcl::comm::httpd
+}
+array set opts $argv
+
+package require xotcl::package
+package verbose 1
+puts stderr [package require $opts(-pkg)]

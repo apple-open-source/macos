@@ -21,10 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: sched.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
-
-
 #include <sys/types.h>
 #if !defined(sun) && !defined(B43) && !defined(ISC) && !defined(pyr) && !defined(_CX_UX)
 # include <time.h>
@@ -41,7 +37,7 @@ static struct event *nextev;
 static int calctimeout;
 
 static struct event *calctimo __P((void));
-#if (defined(sgi) && defined(SVR4)) || defined(__osf__)
+#if (defined(sgi) && defined(SVR4)) || defined(__osf__) || defined(M_UNIX)
 static int sgihack __P((void));
 #endif
 
@@ -194,8 +190,8 @@ sched()
 	      if (errno == EIO && sgihack())
 		continue;
 #endif
-#ifdef __osf__
-	      /* OSF/1 3.x bug: EBADF */
+#if defined(__osf__) || defined(M_UNIX)
+	      /* OSF/1 3.x, SCO bug: EBADF */
 	      /* OSF/1 4.x bug: EIO */
 	      if ((errno == EIO || errno == EBADF) && sgihack())
 		continue;
@@ -258,7 +254,7 @@ int timo;
 }
 
 
-#if (defined(sgi) && defined(SVR4)) || defined(__osf__)
+#if (defined(sgi) && defined(SVR4)) || defined(__osf__) || defined(M_UNIX)
 
 extern struct display *display, *displays;
 static int sgihack()

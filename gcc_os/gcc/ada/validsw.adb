@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.2 $
 --                                                                          --
---             Copyright (C) 2001 Free Software Foundation, Inc.            --
+--          Copyright (C) 2001-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -128,7 +127,12 @@ package body Validsw is
          C := Options (J);
          J := J + 1;
 
+         --  Turn on validity checking (gets turned off by Vn)
+
+         Validity_Checks_On := True;
+
          case C is
+
             when 'c' =>
                Validity_Check_Copies         := True;
 
@@ -204,6 +208,7 @@ package body Validsw is
                Validity_Check_Returns        := False;
                Validity_Check_Subscripts     := False;
                Validity_Check_Tests          := False;
+               Validity_Checks_On            := False;
 
             when ' ' =>
                null;
@@ -215,7 +220,6 @@ package body Validsw is
          end case;
       end loop;
 
-      Validity_Checks_On := True;
       OK := True;
       Err_Col := Options'Last + 1;
    end Set_Validity_Check_Options;

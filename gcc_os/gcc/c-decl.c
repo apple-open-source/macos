@@ -37,7 +37,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "expr.h"
 #include "c-tree.h"
-#include "c-lex.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "tm_p.h"
@@ -47,6 +46,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "c-common.h"
 #include "c-pragma.h"
+/* APPLE LOCAL lookup_tag improvement */
+#include "hashtab.h"
 
 /* APPLE LOCAL indexing dpatel */
 #include "genindex.h"
@@ -56,15 +57,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "dmp-tree.h"
 extern int c_dump_tree_p PARAMS ((FILE *, const char *, tree, int));
 extern lang_dump_tree_p_t c_prev_lang_dump_tree_p;
-#endif
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-#include "pfe/pfe-header.h"
-/* Defined in toplev.c, flag_keep_static_consts is used during PFE_LOAD
-   to regenerate DECL_RTLs.  */
-extern int flag_keep_static_consts;
 #endif
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
@@ -123,26 +115,21 @@ static int current_function_prototype_line;
 
 /* The current statement tree.  */
 
-static struct stmt_tree_s c_stmt_tree;
+static GTY(()) struct stmt_tree_s c_stmt_tree;
 
 /* The current scope statement stack.  */
 
-static tree c_scope_stmt_stack;
+static GTY(()) tree c_scope_stmt_stack;
 
 /* A list (chain of TREE_LIST nodes) of all LABEL_DECLs in the function
    that have names.  Here so we can clear out their names' definitions
    at the end of the function.  */
 
-static tree named_labels;
+static GTY(()) tree named_labels;
 
 /* A list of LABEL_DECLs from outer contexts that are currently shadowed.  */
 
-static tree shadowed_labels;
-
-/* Nonzero when store_parm_decls is called indicates a varargs function.
-   Value not meaningful after store_parm_decls.  */
-
-static int c_function_varargs;
+static GTY(()) tree shadowed_labels;
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -184,7 +171,7 @@ static int current_extern_inline;
 /* Note that the information in the `names' component of the global contour
    is duplicated in the IDENTIFIER_GLOBAL_VALUEs of all identifiers.  */
 
-struct binding_level
+struct binding_level GTY(())
   {
     /* A chain of _DECL nodes for all variables, constants, functions,
        and typedef types.  These are in the reverse of the order supplied.
@@ -197,7 +184,10 @@ struct binding_level
      * or NULL_TREE; and whose TREE_VALUE is a RECORD_TYPE, UNION_TYPE,
      * or ENUMERAL_TYPE node.
      */
-    tree tags;
+    /* APPLE LOCAL begin lookup_tag speedup */
+    tree tags_list;   /* Keep tags_list for lookup_tag_reverse */
+    htab_t GTY ((param_is (union tree_node)))  tags_ht;
+    /* APPLE LOCAL end lookup_tag speedup */
 
     /* For each level, a list of shadowed outer-level local definitions
        to be restored when this level is popped.
@@ -235,11 +225,9 @@ struct binding_level
     /* Nonzero means make a BLOCK if this level has any subblocks.  */
     char keep_if_subblocks;
 
-    /* APPLE LOCAL begin incomplete struct list optimisation */
     /* List of decls in `names' that have incomplete structure or
        union types.  */
     tree incomplete_list;
-    /* APPLE LOCAL end incomplete struct list optimisation */
 
     /* A list of decls giving the (reversed) specified order of parms,
        not including any forward-decls in the parmlist.
@@ -251,22 +239,24 @@ struct binding_level
 
 /* The binding level currently in effect.  */
 
-static struct binding_level *current_binding_level;
+static GTY(()) struct binding_level *current_binding_level;
 
 /* A chain of binding_level structures awaiting reuse.  */
 
-static struct binding_level *free_binding_level;
+static GTY((deletable (""))) struct binding_level *free_binding_level;
 
 /* The outermost binding level, for names of file scope.
    This is created when the compiler is started and exists
    through the entire run.  */
 
-static struct binding_level *global_binding_level;
+static GTY(()) struct binding_level *global_binding_level;
 
 /* Binding level structures are initialized by copying this one.  */
 
+/* APPLE LOCAL lookup_tag speedup */
+/* Add one more NULL for new binding level member tags_ht.  */
 static struct binding_level clear_binding_level
-  = {NULL, NULL, NULL, NULL, NULL, NULL_BINDING_LEVEL, 0, 0, 0, 0, 0, NULL,
+  = {NULL, NULL, NULL, NULL, NULL, NULL, NULL_BINDING_LEVEL, 0, 0, 0, 0, 0, NULL,
      NULL};
 
 /* Nonzero means unconditionally make a BLOCK for the next level pushed.  */
@@ -284,7 +274,7 @@ static int keep_next_if_subblocks;
    saved values of named_labels and shadowed_labels for
    a label binding level outside the current one.  */
 
-static struct binding_level *label_level_chain;
+static GTY(()) struct binding_level *label_level_chain;
 
 /* Functions called automatically at the beginning and end of execution.  */
 
@@ -293,7 +283,7 @@ tree static_ctors, static_dtors;
 /* Forward declarations.  */
 
 static struct binding_level * make_binding_level	PARAMS ((void));
-static void mark_binding_level		PARAMS ((void *));
+static void pop_binding_level		PARAMS ((struct binding_level **));
 static void clear_limbo_values		PARAMS ((tree));
 static int duplicate_decls		PARAMS ((tree, tree, int));
 static int redeclaration_error_message	PARAMS ((tree, tree));
@@ -309,186 +299,27 @@ static void layout_array_type		PARAMS ((tree));
 static tree c_make_fname_decl           PARAMS ((tree, int));
 static void c_expand_body               PARAMS ((tree, int, int));
 static void warn_if_shadowing		PARAMS ((tree, tree));
+static bool flexible_array_type_p	PARAMS ((tree));
+
+/* APPLE LOCAL begin lookup_tag speedup */
+static int check_for_loop_tags          PARAMS ((PTR *, PTR));
+static int set_type_context_value       PARAMS ((PTR *, PTR));
+static int tags_ht_eq_pointer           PARAMS ((const PTR, const PTR));
+static hashval_t tags_ht_hash_pointer   PARAMS ((const PTR));
+static PTR check_tree_value             PARAMS ((PTR *, PTR));
+PTR htab_traverse_1                     PARAMS ((htab_t, htab_trav, PTR));
+static htab_t create_tags_ht            PARAMS ((void));
+/* APPLE LOCAL end lookup_tag speedup */
+
 
-/* C-specific option variables.  */
-
-/* Nonzero means allow type mismatches in conditional expressions;
-   just make their values `void'.  */
-
-int flag_cond_mismatch;
-
-/* Nonzero means don't recognize the keyword `asm'.  */
-
-int flag_no_asm;
-
-/* Nonzero means do some things the same way PCC does.  */
-
-int flag_traditional;
-
-/* Nonzero means enable C89 Amendment 1 features.  */
-
-int flag_isoc94 = 0;
-
-/* Nonzero means use the ISO C99 dialect of C.  */
-
-int flag_isoc99 = 0;
-
-/* Nonzero means that we have builtin functions, and main is an int */
-
-int flag_hosted = 1;
-
-/* Nonzero means add default format_arg attributes for functions not
-   in ISO C.  */
-
-int flag_noniso_default_format_attributes = 1;
-
-/* Nonzero means to allow single precision math even if we're generally
-   being traditional.  */
-int flag_allow_single_precision = 0;
-
-/* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
-
-int flag_signed_bitfields = 1;
-int explicit_flag_signed_bitfields = 0;
-
-/* Nonzero means warn about use of implicit int.  */
-
-int warn_implicit_int;
-
-/* Nonzero means warn about usage of long long when `-pedantic'.  */
-
-int warn_long_long = 1;
-
-/* Nonzero means message about use of implicit function declarations;
- 1 means warning; 2 means error.  */
-
-int mesg_implicit_function_declaration = -1;
-
-/* Nonzero means give string constants the type `const char *'
-   to get extra warnings from them.  These warnings will be too numerous
-   to be useful, except in thoroughly ANSIfied programs.  */
-
-int flag_const_strings;
-
-/* Nonzero means warn about pointer casts that can drop a type qualifier
-   from the pointer target type.  */
-
-int warn_cast_qual;
-
-/* Nonzero means warn when casting a function call to a type that does
-   not match the return type (e.g. (float)sqrt() or (anything*)malloc()
-   when there is no previous declaration of sqrt or malloc.  */
-
-int warn_bad_function_cast;
-
-/* Warn about functions which might be candidates for format attributes.  */
-
-int warn_missing_format_attribute;
-
-/* Warn about traditional constructs whose meanings changed in ANSI C.  */
-
-int warn_traditional;
-
-/* Nonzero means warn about sizeof(function) or addition/subtraction
-   of function pointers.  */
-
-int warn_pointer_arith;
-
-/* Nonzero means warn for non-prototype function decls
-   or non-prototyped defs without previous prototype.  */
-
-int warn_strict_prototypes;
-
-/* Nonzero means warn for any global function def
-   without separate previous prototype decl.  */
-
-int warn_missing_prototypes;
-
-/* Nonzero means warn for any global function def
-   without separate previous decl.  */
-
-int warn_missing_declarations;
-
-/* Nonzero means warn about multiple (redundant) decls for the same single
-   variable or function.  */
-
-int warn_redundant_decls = 0;
-
-/* Nonzero means warn about extern declarations of objects not at
-   file-scope level and about *all* declarations of functions (whether
-   extern or static) not at file-scope level.  Note that we exclude
-   implicit function declarations.  To get warnings about those, use
-   -Wimplicit.  */
-
-int warn_nested_externs = 0;
-
-/* Warn about a subscript that has type char.  */
-
-int warn_char_subscripts = 0;
-
-/* Warn if a type conversion is done that might have confusing results.  */
-
-int warn_conversion;
-
-/* Warn if adding () is suggested.  */
-
-int warn_parentheses;
-
-/* Warn if initializer is not completely bracketed.  */
-
-int warn_missing_braces;
-
-/* Warn if main is suspicious.  */
-
-int warn_main;
-
-/* Warn about #pragma directives that are not recognised.  */
-
-int warn_unknown_pragmas = 0; /* Tri state variable.  */
-
-/* Warn about comparison of signed and unsigned values.
-   If -1, neither -Wsign-compare nor -Wno-sign-compare has been specified.  */
-
-int warn_sign_compare = -1;
-
-/* Warn about testing equality of floating point numbers.  */
-
-int warn_float_equal = 0;
-
-/* Nonzero means warn about use of multicharacter literals.  */
-
-int warn_multichar = 1;
-
-/* APPLE LOCAL begin AltiVec */
-/* Nonzero means warn about deprecated use of 'long' vector types.  */
-
-int warn_altivec_long_deprecated = 1; /* radar 2841709 */
-/* APPLE LOCAL end AltiVec */
-
-/* APPLE LOCAL begin -Wfour-char-constants  */
-/* Nonzero means warn about 'abcd' type constants (eg, MacOS OSTypes.)  */
-
-#ifndef WARN_FOUR_CHAR_CONSTANTS
-#define WARN_FOUR_CHAR_CONSTANTS 1
-#endif
-
-int warn_four_char_constants = WARN_FOUR_CHAR_CONSTANTS;
-/* APPLE LOCAL end -Wfour-char-constants  */
-
-/* Nonzero means `$' can be in an identifier.  */
-
-#ifndef DOLLARS_IN_IDENTIFIERS
-#define DOLLARS_IN_IDENTIFIERS 1
-#endif
-int dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
-
-/* APPLE LOCAL begin unavailable */
 /* States indicating how grokdeclarator() should handle declspecs marked
-   with __attribute__((deprecated)) or __attribute__((unavailable)).
-   An object declared as __attribute__((unavailable)) suppresses
-   any reports of being declared with unavailable or deprecated
-   items.  An object declared as __attribute__((deprecated))
-   suppresses warnings of uses of other deprecated items.  */
+   with __attribute__((deprecated)).  An object declared as
+   __attribute__((deprecated)) suppresses warnings of uses of other
+   deprecated items.  */
+/* APPLE LOCAL begin unavailable */
+/* Also add an __attribute__((unavailable)).  An object declared as
+   __attribute__((unavailable)) suppresses any reports of being
+   declared with unavailable or deprecated items.  */
 /* APPLE LOCAL end unavailable */
    
 enum deprecated_states {
@@ -500,392 +331,68 @@ enum deprecated_states {
 
 static enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
 
-/* Decode the string P as a language-specific option for C.
-   Return the number of strings consumed.  Should not complain
-   if it does not recognise the option.  */
-
-int
-c_decode_option (argc, argv)
-     int argc ATTRIBUTE_UNUSED;
-     char **argv;
+/* APPLE LOCAL begin lookup_tag speedup */
+/* Create tags_ht hash table */
+static htab_t
+create_tags_ht ()
 {
-  int strings_processed;
-  char *p = argv[0];
+  return htab_create_ggc (11, tags_ht_hash_pointer, tags_ht_eq_pointer, NULL);
+}
 
-  strings_processed = cpp_handle_option (parse_in, argc, argv, 0);
+/* Returns non-zero if TREE_PURPOSE (P1) and P2 are equal.  */
+static int
+tags_ht_eq_pointer (p1, p2)
+     const PTR p1;
+     const PTR p2;
+{
+  tree t1 = (tree) p1;
+  tree t2 = (tree) p2;
+  if (t1 && TREE_PURPOSE (t1))
+    return TREE_PURPOSE (t1) == t2;
+  else
+    return 0;
+}
 
-  if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
+/* Returns a hash code for P.  */
+static hashval_t
+tags_ht_hash_pointer (p)
+     const PTR p;
+{
+  hashval_t hash = 0;
+  unsigned int n = 0;
+  unsigned int r = 0;
+  const unsigned char *str;
+  tree t = (tree) p;
+  if (t && (TREE_CODE (t) == TREE_LIST) && TREE_PURPOSE (t))
     {
-      warning ("-traditional is deprecated and may be removed");
-      flag_traditional = 1;
-      flag_writable_strings = 1;
+      t = TREE_PURPOSE (t);
     }
-  else if (!strcmp (p, "-fallow-single-precision"))
-    flag_allow_single_precision = 1;
-  else if (!strcmp (p, "-fhosted") || !strcmp (p, "-fno-freestanding"))
-    {
-      flag_hosted = 1;
-      flag_no_builtin = 0;
-    }
-  else if (!strcmp (p, "-ffreestanding") || !strcmp (p, "-fno-hosted"))
-    {
-      flag_hosted = 0;
-      flag_no_builtin = 1;
-      /* warn_main will be 2 if set by -Wall, 1 if set by -Wmain */
-      if (warn_main == 2)
-	warn_main = 0;
-    }
-  else if (!strcmp (p, "-fnotraditional") || !strcmp (p, "-fno-traditional"))
-    {
-      flag_traditional = 0;
-      flag_writable_strings = 0;
-    }
-  else if (!strncmp (p, "-std=", 5))
-    {
-      /* Select the appropriate language standard.  We currently
-	 recognize:
-	 -std=iso9899:1990	same as -ansi
-	 -std=iso9899:199409	ISO C as modified in amend. 1
-	 -std=iso9899:1999	ISO C 99
-	 -std=c89		same as -std=iso9899:1990
-	 -std=c99		same as -std=iso9899:1999
-	 -std=gnu89		default, iso9899:1990 + gnu extensions
-	 -std=gnu99		iso9899:1999 + gnu extensions
-      */
-      const char *const argstart = &p[5];
 
-      if (!strcmp (argstart, "iso9899:1990")
-	  || !strcmp (argstart, "c89"))
-	{
-	iso_1990:
-	  flag_isoc94 = 0;
-	iso_1994:
-	  flag_traditional = 0;
-	  flag_writable_strings = 0;
-	  flag_no_asm = 1;
-	  flag_no_nonansi_builtin = 1;
-	  flag_noniso_default_format_attributes = 0;
-	  flag_isoc99 = 0;
-	}
-      else if (!strcmp (argstart, "iso9899:199409"))
-	{
-	  flag_isoc94 = 1;
-	  goto iso_1994;
-	}
-      else if (!strcmp (argstart, "iso9899:199x")
-	       || !strcmp (argstart, "iso9899:1999")
-	       || !strcmp (argstart, "c9x")
-	       || !strcmp (argstart, "c99"))
-	{
-	  flag_traditional = 0;
-	  flag_writable_strings = 0;
-	  flag_no_asm = 1;
-	  flag_no_nonansi_builtin = 1;
-	  flag_noniso_default_format_attributes = 0;
-	  flag_isoc99 = 1;
-	  flag_isoc94 = 1;
-	}
-      else if (!strcmp (argstart, "gnu89"))
-	{
-	  flag_traditional = 0;
-	  flag_writable_strings = 0;
-	  flag_no_asm = 0;
-	  flag_no_nonansi_builtin = 0;
-	  flag_noniso_default_format_attributes = 1;
-	  flag_isoc99 = 0;
-	  flag_isoc94 = 0;
-	}
-      else if (!strcmp (argstart, "gnu9x") || !strcmp (argstart, "gnu99"))
-	{
-	  flag_traditional = 0;
-	  flag_writable_strings = 0;
-	  flag_no_asm = 0;
-	  flag_no_nonansi_builtin = 0;
-	  flag_noniso_default_format_attributes = 1;
-	  flag_isoc99 = 1;
-	  flag_isoc94 = 1;
-	}
-      else
-	error ("unknown C standard `%s'", argstart);
-    }
-  else if (!strcmp (p, "-fdollars-in-identifiers"))
-    dollars_in_ident = 1;
-  else if (!strcmp (p, "-fno-dollars-in-identifiers"))
-    dollars_in_ident = 0;
-  else if (!strcmp (p, "-fsigned-char"))
-    flag_signed_char = 1;
-  else if (!strcmp (p, "-funsigned-char"))
-    flag_signed_char = 0;
-  else if (!strcmp (p, "-fno-signed-char"))
-    flag_signed_char = 0;
-  else if (!strcmp (p, "-fno-unsigned-char"))
-    flag_signed_char = 1;
-  else if (!strcmp (p, "-fsigned-bitfields")
-	   || !strcmp (p, "-fno-unsigned-bitfields"))
+  if (t && (TREE_CODE (t) == IDENTIFIER_NODE))
     {
-      flag_signed_bitfields = 1;
-      explicit_flag_signed_bitfields = 1;
-    }
-  else if (!strcmp (p, "-funsigned-bitfields")
-	   || !strcmp (p, "-fno-signed-bitfields"))
-    {
-      flag_signed_bitfields = 0;
-      explicit_flag_signed_bitfields = 1;
-    }
-  else if (!strcmp (p, "-fshort-enums"))
-    flag_short_enums = 1;
-  else if (!strcmp (p, "-fno-short-enums"))
-    flag_short_enums = 0;
-  else if (!strcmp (p, "-fshort-wchar"))
-    flag_short_wchar = 1;
-  else if (!strcmp (p, "-fno-short-wchar"))
-    flag_short_wchar = 0;
-  else if (!strcmp (p, "-fcond-mismatch"))
-    flag_cond_mismatch = 1;
-  else if (!strcmp (p, "-fno-cond-mismatch"))
-    flag_cond_mismatch = 0;
-  else if (!strcmp (p, "-fshort-double"))
-    flag_short_double = 1;
-  else if (!strcmp (p, "-fno-short-double"))
-    flag_short_double = 0;
-  else if (!strcmp (p, "-fasm"))
-    flag_no_asm = 0;
-  else if (!strcmp (p, "-fno-asm"))
-    flag_no_asm = 1;
-  /* APPLE LOCAL begin AltiVec */
-  else if (!strcmp (p, "-faltivec"))
-    flag_altivec = 1;
-  else if (!strcmp (p, "-fno-altivec"))
-    flag_altivec = 0;
-  /* APPLE LOCAL end AltiVec */
-  /* APPLE LOCAL begin constant cfstrings */
-  else if (!strcmp (p, "-fconstant-cfstrings"))
-    flag_constant_cfstrings = 1;
-  else if (!strcmp (p, "-fno-constant-cfstrings"))
-    flag_constant_cfstrings = 0;
-  /* APPLE LOCAL end constant cfstrings */
-  else if (!strcmp (p, "-fbuiltin"))
-    flag_no_builtin = 0;
-  else if (!strcmp (p, "-fno-builtin"))
-    flag_no_builtin = 1;
-  else if (!strncmp (p, "-fno-builtin-", strlen ("-fno-builtin-")))
-    disable_builtin_function (p + strlen ("-fno-builtin-"));
-  else if (p[0] == '-' && p[1] == 'f' && dump_switch_p (p + 2))
-    ;
-  else if (!strcmp (p, "-ansi"))
-    goto iso_1990;
-  else if (!strcmp (p, "-Werror-implicit-function-declaration"))
-    mesg_implicit_function_declaration = 2;
-  else if (!strcmp (p, "-Wimplicit-function-declaration"))
-    mesg_implicit_function_declaration = 1;
-  else if (!strcmp (p, "-Wno-implicit-function-declaration"))
-    mesg_implicit_function_declaration = 0;
-  else if (!strcmp (p, "-Wimplicit-int"))
-    warn_implicit_int = 1;
-  else if (!strcmp (p, "-Wno-implicit-int"))
-    warn_implicit_int = 0;
-  else if (!strcmp (p, "-Wimplicit"))
-    {
-      warn_implicit_int = 1;
-      if (mesg_implicit_function_declaration != 2)
-	mesg_implicit_function_declaration = 1;
-    }
-  else if (!strcmp (p, "-Wno-implicit"))
-    warn_implicit_int = 0, mesg_implicit_function_declaration = 0;
-  /* APPLE LOCAL begin long double */
-  else if (!strcmp (p, "-Wlong-double"))
-    warn_long_double = 1; 
-  else if (!strcmp (p, "-Wno-long-double"))
-    warn_long_double = 0;
-  /* APPLE LOCAL end long double */
-  else if (!strcmp (p, "-Wlong-long"))
-    warn_long_long = 1;
-  else if (!strcmp (p, "-Wno-long-long"))
-    warn_long_long = 0;
-  else if (!strcmp (p, "-Wwrite-strings"))
-    flag_const_strings = 1;
-  else if (!strcmp (p, "-Wno-write-strings"))
-    flag_const_strings = 0;
-  else if (!strcmp (p, "-Wcast-qual"))
-    warn_cast_qual = 1;
-  else if (!strcmp (p, "-Wno-cast-qual"))
-    warn_cast_qual = 0;
-  else if (!strcmp (p, "-Wbad-function-cast"))
-    warn_bad_function_cast = 1;
-  else if (!strcmp (p, "-Wno-bad-function-cast"))
-    warn_bad_function_cast = 0;
-  else if (!strcmp (p, "-Wno-missing-noreturn"))
-    warn_missing_noreturn = 0;
-  else if (!strcmp (p, "-Wmissing-format-attribute"))
-    warn_missing_format_attribute = 1;
-  else if (!strcmp (p, "-Wno-missing-format-attribute"))
-    warn_missing_format_attribute = 0;
-  else if (!strcmp (p, "-Wpointer-arith"))
-    warn_pointer_arith = 1;
-  else if (!strcmp (p, "-Wno-pointer-arith"))
-    warn_pointer_arith = 0;
-  else if (!strcmp (p, "-Wstrict-prototypes"))
-    warn_strict_prototypes = 1;
-  else if (!strcmp (p, "-Wno-strict-prototypes"))
-    warn_strict_prototypes = 0;
-  else if (!strcmp (p, "-Wmissing-prototypes"))
-    warn_missing_prototypes = 1;
-  else if (!strcmp (p, "-Wno-missing-prototypes"))
-    warn_missing_prototypes = 0;
-  else if (!strcmp (p, "-Wmissing-declarations"))
-    warn_missing_declarations = 1;
-  else if (!strcmp (p, "-Wno-missing-declarations"))
-    warn_missing_declarations = 0;
-  else if (!strcmp (p, "-Wredundant-decls"))
-    warn_redundant_decls = 1;
-  else if (!strcmp (p, "-Wno-redundant-decls"))
-    warn_redundant_decls = 0;
-  else if (!strcmp (p, "-Wnested-externs"))
-    warn_nested_externs = 1;
-  else if (!strcmp (p, "-Wno-nested-externs"))
-    warn_nested_externs = 0;
-  else if (!strcmp (p, "-Wtraditional"))
-    warn_traditional = 1;
-  else if (!strcmp (p, "-Wno-traditional"))
-    warn_traditional = 0;
-  else if (!strncmp (p, "-Wformat=", 9))
-    set_Wformat (atoi (p + 9));
-  else if (!strcmp (p, "-Wformat"))
-    set_Wformat (1);
-  else if (!strcmp (p, "-Wno-format"))
-    set_Wformat (0);
-  else if (!strcmp (p, "-Wformat-y2k"))
-    warn_format_y2k = 1;
-  else if (!strcmp (p, "-Wno-format-y2k"))
-    warn_format_y2k = 0;
-  else if (!strcmp (p, "-Wformat-extra-args"))
-    warn_format_extra_args = 1;
-  else if (!strcmp (p, "-Wno-format-extra-args"))
-    warn_format_extra_args = 0;
-  else if (!strcmp (p, "-Wformat-nonliteral"))
-    warn_format_nonliteral = 1;
-  else if (!strcmp (p, "-Wno-format-nonliteral"))
-    warn_format_nonliteral = 0;
-  else if (!strcmp (p, "-Wformat-security"))
-    warn_format_security = 1;
-  else if (!strcmp (p, "-Wno-format-security"))
-    warn_format_security = 0;
-  else if (!strcmp (p, "-Wchar-subscripts"))
-    warn_char_subscripts = 1;
-  else if (!strcmp (p, "-Wno-char-subscripts"))
-    warn_char_subscripts = 0;
-  else if (!strcmp (p, "-Wconversion"))
-    warn_conversion = 1;
-  else if (!strcmp (p, "-Wno-conversion"))
-    warn_conversion = 0;
-  else if (!strcmp (p, "-Wparentheses"))
-    warn_parentheses = 1;
-  else if (!strcmp (p, "-Wno-parentheses"))
-    warn_parentheses = 0;
-  else if (!strcmp (p, "-Wreturn-type"))
-    warn_return_type = 1;
-  else if (!strcmp (p, "-Wno-return-type"))
-    warn_return_type = 0;
-  else if (!strcmp (p, "-Wsequence-point"))
-    warn_sequence_point = 1;
-  else if (!strcmp (p, "-Wno-sequence-point"))
-    warn_sequence_point = 0;
-  else if (!strcmp (p, "-Wcomment"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wno-comment"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wcomments"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wno-comments"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wtrigraphs"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wno-trigraphs"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wundef"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wno-undef"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wimport"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wno-import"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wmissing-braces"))
-    warn_missing_braces = 1;
-  else if (!strcmp (p, "-Wno-missing-braces"))
-    warn_missing_braces = 0;
-  else if (!strcmp (p, "-Wmain"))
-    warn_main = 1;
-  else if (!strcmp (p, "-Wno-main"))
-    warn_main = -1;
-  else if (!strcmp (p, "-Wsign-compare"))
-    warn_sign_compare = 1;
-  else if (!strcmp (p, "-Wno-sign-compare"))
-    warn_sign_compare = 0;
-  else if (!strcmp (p, "-Wfloat-equal"))
-    warn_float_equal = 1;
-  else if (!strcmp (p, "-Wno-float-equal"))
-    warn_float_equal = 0;
-  else if (!strcmp (p, "-Wmultichar"))
-    warn_multichar = 1;
-  else if (!strcmp (p, "-Wno-multichar"))
-    warn_multichar = 0;
-  /* APPLE LOCAL begin -Wfour-char-constants  */
-  else if (!strcmp (p, "-Wfour-char-constants"))
-    warn_four_char_constants = 1;
-  else if (!strcmp (p, "-Wno-four-char-constants"))
-    warn_four_char_constants = 0;
-  /* APPLE LOCAL end -Wfour-char-constants  */
-  else if (!strcmp (p, "-Wdiv-by-zero"))
-    warn_div_by_zero = 1;
-  else if (!strcmp (p, "-Wno-div-by-zero"))
-    warn_div_by_zero = 0;
-  else if (!strcmp (p, "-Wunknown-pragmas"))
-    /* Set to greater than 1, so that even unknown pragmas in system
-       headers will be warned about.  */
-    warn_unknown_pragmas = 2;
-  else if (!strcmp (p, "-Wno-unknown-pragmas"))
-    warn_unknown_pragmas = 0;
-  /* APPLE LOCAL begin AltiVec */
-  else if (!strcmp (p, "-Waltivec-long-deprecated"))
-    warn_altivec_long_deprecated = 1; /* radar 2841709 */
-  else if (!strcmp (p, "-Wno-altivec-long-deprecated"))
-    warn_altivec_long_deprecated = 0; /* radar 2841709 */
-  /* APPLE LOCAL end AltiVec */
-  else if (!strcmp (p, "-Wall") || !strcmp (p, "-Wmost"))
-    {
-      /* We save the value of warn_uninitialized, since if they put
-	 -Wuninitialized on the command line, we need to generate a
-	 warning about not using it without also specifying -O.  */
-      if (warn_uninitialized != 1)
-	warn_uninitialized = 2;
-      warn_implicit_int = 1;
-      mesg_implicit_function_declaration = 1;
-      warn_return_type = 1;
-      set_Wunused (1);
-      warn_switch = 1;
-      set_Wformat (1);
-      warn_char_subscripts = 1;
-      warn_parentheses = 1;
-      warn_sequence_point = 1;
-      warn_missing_braces = 1;
-      /* We set this to 2 here, but 1 in -Wmain, so -ffreestanding can turn
-	 it off only if it's not explicit.  */
-      warn_main = 2;
-      /* Only warn about unknown pragmas that are not in system headers.  */
-      warn_unknown_pragmas = 1;
-      /* APPLE LOCAL begin -Wmost dpatel */
-      if (!strcmp (p, "-Wmost")) 
-	{
-          warn_parentheses = 0; 
-	}
-      /* APPLE LOCAL end -Wmost dpatel */
+#define TAGS_HT_HASHSTEP(r, c) ((r) * 67 + ((c) - 113));
+      n = IDENTIFIER_LENGTH (t);
+      str = IDENTIFIER_POINTER (t);
+      while (n--)
+	r = TAGS_HT_HASHSTEP (r, *str++);
+      hash = (hashval_t) (r + IDENTIFIER_LENGTH (t));
+#undef TAGS_HT_HASHSTEP
     }
   else
-    return strings_processed;
-
-  return 1;
+    hash = (hashval_t) ((long)p >> 3);
+  return hash;
 }
+
+/* Dump tags_ht statistics */
+static void
+print_tags_ht_hash_statistics ()
+{
+  fprintf (stderr, "Type hash: size %ld, %ld elements, %f collisions\n",
+           (long) htab_size (current_binding_level->tags_ht),
+           (long) htab_elements (current_binding_level->tags_ht),
+           htab_collisions (current_binding_level->tags_ht));
+}
+/* APPLE LOCAL end lookup_tag speedup */
 
 void
 c_print_identifier (file, node, indent)
@@ -913,7 +420,7 @@ c_print_identifier (file, node, indent)
    for a top-level tentative array defn that wasn't complete before.  */
 
 void
-finish_incomplete_decl (decl)
+c_finish_incomplete_decl (decl)
      tree decl;
 {
   if (TREE_CODE (decl) == VAR_DECL)
@@ -933,15 +440,34 @@ finish_incomplete_decl (decl)
     }
 }
 
-/* Create a new `struct binding_level'.  */
+/* Reuse or create a struct for this binding level.  */
 
 static struct binding_level *
 make_binding_level ()
 {
-  /* NOSTRICT */
-  /* APPLE LOCAL PFE - expand to pfe_malloc or xmalloc  */
-  return (struct binding_level *) 
-         PFE_MALLOC (sizeof (struct binding_level), PFE_ALLOC_BINDING_LEVEL);
+  if (free_binding_level)
+    {
+      struct binding_level *result = free_binding_level;
+      free_binding_level = result->level_chain;
+      return result;
+    }
+  else
+    return (struct binding_level *) ggc_alloc (sizeof (struct binding_level));
+}
+
+/* Remove a binding level from a list and add it to the level chain.  */
+
+static void
+pop_binding_level (lp)
+     struct binding_level **lp;
+{
+  struct binding_level *l = *lp;
+  *lp = l->level_chain;
+  
+  l->tags_ht = NULL;
+  memset (l, 0, sizeof (struct binding_level));
+  l->level_chain = free_binding_level;
+  free_binding_level = l;
 }
 
 /* APPLE LOCAL begin msg send super */
@@ -951,6 +477,28 @@ get_current_binding_level ()
   return current_binding_level;
 }
 /* APPLE LOCAL end msg send super */
+
+/* APPLE LOCAL begin Panther ObjC enhancements */
+void
+objc_mark_locals_volatile (enclosing_blk)
+     void *enclosing_blk;
+{
+  struct binding_level *scope;
+  
+  for (scope = current_binding_level; 
+       scope && scope != enclosing_blk && !scope->parm_flag;
+       scope = scope->level_chain)
+    {
+      tree decl;
+      
+      for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
+	{
+	  DECL_REGISTER (decl) = 0;
+	  TREE_THIS_VOLATILE (decl) = 1;
+	}
+    }	
+}     
+/* APPLE LOCAL end Panther ObjC enhancements */
   
 /* Nonzero if we are currently in the global binding level.  */
 
@@ -971,11 +519,13 @@ keep_next_level ()
 int
 kept_level_p ()
 {
+  /* APPLEL LOCAL lookup_tag speedup */
+  /* Check tags_ht instead of tags */
   return ((current_binding_level->keep_if_subblocks
 	   && current_binding_level->blocks != 0)
 	  || current_binding_level->keep
 	  || current_binding_level->names != 0
-	  || (current_binding_level->tags != 0
+	  || (current_binding_level->tags_ht != 0
 	      && !current_binding_level->tag_transparent));
 }
 
@@ -1017,17 +567,7 @@ pushlevel (tag_transparent)
       named_labels = 0;
     }
 
-  /* Reuse or create a struct for this binding level.  */
-
-  if (free_binding_level)
-    {
-      newlevel = free_binding_level;
-      free_binding_level = free_binding_level->level_chain;
-    }
-  else
-    {
-      newlevel = make_binding_level ();
-    }
+  newlevel = make_binding_level ();
 
   /* Add this level to the front of the chain (stack) of levels that
      are active.  */
@@ -1062,6 +602,18 @@ clear_limbo_values (block)
     clear_limbo_values (tem);
 }
 
+/* APPLE LOCAL begin lookup_tag speedup */
+static int
+set_type_context_value (slot, data)
+     PTR *slot;
+     PTR data;
+{
+  tree t = (tree) *slot;
+  TYPE_CONTEXT (TREE_VALUE (t)) = (tree) data;
+  return 1;
+}
+/* APPLE LOCAL end lookup_tag speedup */
+
 /* Exit a binding level.
    Pop the level off, and restore the state of the identifier-decl mappings
    that were in effect when this level was entered.
@@ -1087,12 +639,12 @@ poplevel (keep, reverse, functionbody)
   /* The chain of decls was accumulated in reverse order.
      Put it into forward order, just for cleanliness.  */
   tree decls;
-  tree tags = current_binding_level->tags;
+  /* APPLE LOCAL lookup_tag speedup */
+  /* Remove tree tags = current_binding_level->tags;  */
   tree subblocks = current_binding_level->blocks;
   tree block = 0;
   tree decl;
   int block_previously_created;
-
   keep |= current_binding_level->keep;
 
   /* This warning is turned off because it causes warnings for
@@ -1246,15 +798,34 @@ poplevel (keep, reverse, functionbody)
 	}
     }
 
+  /* Set the TYPE_CONTEXTs for all of the tagged types belonging to this
+     binding contour so that they point to the appropriate construct, i.e.
+     either to the current FUNCTION_DECL node, or else to the BLOCK node
+     we just constructed.
+
+     Note that for tagged types whose scope is just the formal parameter
+     list for some function type specification, we can't properly set
+     their TYPE_CONTEXTs here, because we don't have a pointer to the
+     appropriate FUNCTION_TYPE node readily available to us.  For those
+     cases, the TYPE_CONTEXTs of the relevant tagged type nodes get set
+     in `grokdeclarator' as soon as we have created the FUNCTION_TYPE
+     node which will represent the "scope" for these "parameter list local"
+     tagged types.  */
+
+  /* APPLE LOCAL begin lookup_tag speedup */
+  if (functionbody && current_binding_level->tags_ht)
+    htab_traverse (current_binding_level->tags_ht, 
+		   set_type_context_value, 
+		   current_function_decl);
+  else if (block && current_binding_level->tags_ht)
+    htab_traverse (current_binding_level->tags_ht, 
+		   set_type_context_value, 
+		   block);
+  /* APPLE LOCAL end lookup_tag speedup */
+
   /* Pop the current level, and free the structure for reuse.  */
 
-  {
-    struct binding_level *level = current_binding_level;
-    current_binding_level = current_binding_level->level_chain;
-
-    level->level_chain = free_binding_level;
-    free_binding_level = level;
-  }
+  pop_binding_level (&current_binding_level);
 
   /* Dispose of the block that we just made inside some higher level.  */
   if (functionbody)
@@ -1273,27 +844,6 @@ poplevel (keep, reverse, functionbody)
   else if (subblocks)
     current_binding_level->blocks
       = chainon (current_binding_level->blocks, subblocks);
-
-  /* Set the TYPE_CONTEXTs for all of the tagged types belonging to this
-     binding contour so that they point to the appropriate construct, i.e.
-     either to the current FUNCTION_DECL node, or else to the BLOCK node
-     we just constructed.
-
-     Note that for tagged types whose scope is just the formal parameter
-     list for some function type specification, we can't properly set
-     their TYPE_CONTEXTs here, because we don't have a pointer to the
-     appropriate FUNCTION_TYPE node readily available to us.  For those
-     cases, the TYPE_CONTEXTs of the relevant tagged type nodes get set
-     in `grokdeclarator' as soon as we have created the FUNCTION_TYPE
-     node which will represent the "scope" for these "parameter list local"
-     tagged types.  */
-
-  if (functionbody)
-    for (link = tags; link; link = TREE_CHAIN (link))
-      TYPE_CONTEXT (TREE_VALUE (link)) = current_function_decl;
-  else if (block)
-    for (link = tags; link; link = TREE_CHAIN (link))
-      TYPE_CONTEXT (TREE_VALUE (link)) = block;
 
   if (block)
     TREE_USED (block) = 1;
@@ -1333,17 +883,7 @@ push_label_level ()
 {
   struct binding_level *newlevel;
 
-  /* Reuse or create a struct for this binding level.  */
-
-  if (free_binding_level)
-    {
-      newlevel = free_binding_level;
-      free_binding_level = free_binding_level->level_chain;
-    }
-  else
-    {
-      newlevel = make_binding_level ();
-    }
+  newlevel = make_binding_level ();
 
   /* Add this level to the front of the chain (stack) of label levels.  */
 
@@ -1405,9 +945,7 @@ pop_label_level ()
   shadowed_labels = level->shadowed;
 
   /* Pop the current level, and free the structure for reuse.  */
-  label_level_chain = label_level_chain->level_chain;
-  level->level_chain = free_binding_level;
-  free_binding_level = level;
+  pop_binding_level (&label_level_chain);
 }
 
 /* Push a definition or a declaration of struct, union or enum tag "name".
@@ -1436,8 +974,18 @@ pushtag (name, type)
 	TYPE_NAME (type) = name;
     }
 
-  b->tags = tree_cons (name, type, b->tags);
-
+  /* APPLE LOCAL begin lookup_tag speedup */
+  b->tags_list = tree_cons (name, type, b->tags_list);
+  if (!b->tags_ht)
+    b->tags_ht = create_tags_ht ();
+  if (b->tags_ht && name) 
+    {
+      void **slot;
+      slot = htab_find_slot (b->tags_ht, name, INSERT);
+      *slot = tree_cons (name, type, NULL);
+    }
+  /* APPLE LOCAL end lookup_tag speedup */
+  
   /* Create a fake NULL-named TYPE_DECL node whose TREE_TYPE will be the
      tagged type we just added to the current binding level.  This fake
      NULL-named TYPE_DECL node helps dwarfout.c to know when it needs
@@ -1572,14 +1120,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
      match enough.  Ultimately, copy most of the information from the new
      decl to the old one, and keep using the old one.  */
 
-  if (flag_traditional && TREE_CODE (newdecl) == FUNCTION_DECL
-      && IDENTIFIER_IMPLICIT_DECL (DECL_NAME (newdecl)) == olddecl
-      && DECL_INITIAL (olddecl) == 0)
-    /* If -traditional, avoid error for redeclaring fcn
-       after implicit decl.  */
-    ;
-  else if (TREE_CODE (olddecl) == FUNCTION_DECL
-	   && DECL_BUILT_IN (olddecl))
+  if (TREE_CODE (olddecl) == FUNCTION_DECL && DECL_BUILT_IN (olddecl))
     {
       /* A function declaration for a built-in function.  */
       if (!TREE_PUBLIC (newdecl))
@@ -1746,13 +1287,33 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 		  break;
 		}
 
-	      if (simple_type_promotes_to (type) != NULL_TREE)
+	      if (c_type_promotes_to (type) != type)
 		{
 		  error ("an argument type that has a default promotion can't match an empty parameter name list declaration");
 		  break;
 		}
 	    }
 	}
+      error_with_decl (olddecl, "previous declaration of `%s'");
+
+      /* This is safer because the initializer might contain references
+	 to variables that were declared between olddecl and newdecl. This
+	 will make the initializer invalid for olddecl in case it gets
+	 assigned to olddecl below.  */
+      DECL_INITIAL (newdecl) = 0;
+    }
+  /* TLS cannot follow non-TLS declaration.  */
+  else if (TREE_CODE (olddecl) == VAR_DECL && TREE_CODE (newdecl) == VAR_DECL
+	   && !DECL_THREAD_LOCAL (olddecl) && DECL_THREAD_LOCAL (newdecl))
+    {
+      error_with_decl (newdecl, "thread-local declaration of `%s' follows non thread-local declaration");
+      error_with_decl (olddecl, "previous declaration of `%s'");
+    }
+  /* non-TLS declaration cannot follow TLS declaration.  */
+  else if (TREE_CODE (olddecl) == VAR_DECL && TREE_CODE (newdecl) == VAR_DECL
+	   && DECL_THREAD_LOCAL (olddecl) && !DECL_THREAD_LOCAL (newdecl))
+    {
+      error_with_decl (newdecl, "non thread-local declaration of `%s' follows thread-local declaration");
       error_with_decl (olddecl, "previous declaration of `%s'");
     }
   else
@@ -1828,12 +1389,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 		}
 	      /* Type for passing arg must be consistent
 		 with that declared for the arg.  */
-	      if (! comptypes (TREE_VALUE (parm), TREE_VALUE (type))
-		  /* If -traditional, allow `unsigned int' instead of `int'
-		     in the prototype.  */
-		  && (! (flag_traditional
-			 && TYPE_MAIN_VARIANT (TREE_VALUE (parm)) == integer_type_node
-			 && TYPE_MAIN_VARIANT (TREE_VALUE (type)) == unsigned_type_node)))
+	      if (! comptypes (TREE_VALUE (parm), TREE_VALUE (type)))
 		{
 		  error_with_decl (newdecl,
 				   "prototype for `%s' follows and argument %d doesn't match",
@@ -1968,11 +1524,6 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
       COPY_DECL_RTL (olddecl, newdecl);
 
       /* Merge the type qualifiers.  */
-      if (TREE_CODE (olddecl) == FUNCTION_DECL
-	  && DECL_BUILT_IN_NONANSI (olddecl) && TREE_THIS_VOLATILE (olddecl)
-	  && ! TREE_THIS_VOLATILE (newdecl))
-	TREE_THIS_VOLATILE (write_olddecl) = 0;
-
       if (TREE_READONLY (newdecl))
 	TREE_READONLY (write_olddecl) = 1;
 
@@ -2054,7 +1605,8 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
     }
 
   /* Merge the storage class information.  */
-  DECL_WEAK (newdecl) |= DECL_WEAK (olddecl);
+  merge_weak (newdecl, olddecl);
+
   /* For functions, static overrides non-static.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
@@ -2095,9 +1647,10 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	 inline, make sure we emit debug info for the inline before we
 	 throw it away, in case it was inlined into a function that hasn't
 	 been written out yet.  */
-      if (new_is_definition && DECL_INITIAL (olddecl) && TREE_USED (olddecl))
+      if (new_is_definition && DECL_INITIAL (olddecl))
 	{
-	  (*debug_hooks->outlining_inline_function) (olddecl);
+	  if (TREE_USED (olddecl))
+	    (*debug_hooks->outlining_inline_function) (olddecl);
 
 	  /* The new defn must not be inline.  */
 	  DECL_INLINE (newdecl) = 0;
@@ -2268,10 +1821,9 @@ pushdecl (x)
   struct binding_level *b = current_binding_level;
 
   /* Functions need the lang_decl data.  */
-  /* APPLE LOCAL PFE - expand to pfe_ggc_alloc_cleared or ggc_alloc_cleared  */
   if (TREE_CODE (x) == FUNCTION_DECL && ! DECL_LANG_SPECIFIC (x))
     DECL_LANG_SPECIFIC (x) = (struct lang_decl *)
-      GGC_ALLOC_CLEARED (sizeof (struct lang_decl), PFE_ALLOC_GGC_LANG_DECL);
+      ggc_alloc_cleared (sizeof (struct lang_decl));
 
   DECL_CONTEXT (x) = current_function_decl;
   /* A local extern declaration for a function doesn't constitute nesting.
@@ -2295,10 +1847,7 @@ pushdecl (x)
 		 IDENTIFIER_POINTER (name));
 
       t = lookup_name_current_level (name);
-      /* Don't type check externs here when -traditional.  This is so that
-	 code with conflicting declarations inside blocks will get warnings
-	 not errors.  X11 for instance depends on this.  */
-      if (! t && DECL_EXTERNAL (x) && TREE_PUBLIC (x) && ! flag_traditional)
+      if (! t && DECL_EXTERNAL (x) && TREE_PUBLIC (x))
 	{
 	  t = IDENTIFIER_GLOBAL_VALUE (name);
 	  /* Type decls at global scope don't conflict with externs declared
@@ -2317,9 +1866,8 @@ pushdecl (x)
 	}
 
       /* If this decl is `static' and an implicit decl was seen previously,
-	 warn.  But don't complain if -traditional,
-	 since traditional compilers don't complain.  */
-      if (! flag_traditional && TREE_PUBLIC (name)
+	 warn.  */
+      if (TREE_PUBLIC (name)
 	  /* Don't test for DECL_EXTERNAL, because grokdeclarator
 	     sets this for all functions.  */
 	  && ! TREE_PUBLIC (x)
@@ -2351,7 +1899,7 @@ pushdecl (x)
 	}
 
       /* If we are processing a typedef statement, generate a whole new
-	 ..._TYPE node (which will be just an variant of the existing
+	 ..._TYPE node (which will be just a variant of the existing
 	 ..._TYPE node with identical properties) and then install the
 	 TYPE_DECL node generated to represent the typedef name as the
 	 TYPE_NAME of this brand new (duplicate) ..._TYPE node.
@@ -2413,9 +1961,6 @@ pushdecl (x)
 	}
 
       /* Multiple external decls of the same identifier ought to match.
-	 Check against both global declarations (when traditional) and out of
-	 scope (limbo) block level declarations.
-
 	 We get warnings about inline functions where they are defined.
 	 Avoid duplicate warnings where they are used.  */
       if (TREE_PUBLIC (x)
@@ -2423,11 +1968,7 @@ pushdecl (x)
 	{
 	  tree decl;
 
-	  if (flag_traditional && IDENTIFIER_GLOBAL_VALUE (name) != 0
-	      && (DECL_EXTERNAL (IDENTIFIER_GLOBAL_VALUE (name))
-		  || TREE_PUBLIC (IDENTIFIER_GLOBAL_VALUE (name))))
-	    decl = IDENTIFIER_GLOBAL_VALUE (name);
-	  else if (IDENTIFIER_LIMBO_VALUE (name) != 0)
+	  if (IDENTIFIER_LIMBO_VALUE (name) != 0)
 	    /* Decls in limbo are always extern, so no need to check that.  */
 	    decl = IDENTIFIER_LIMBO_VALUE (name);
 	  else
@@ -2455,39 +1996,6 @@ pushdecl (x)
 	  warning_with_decl (x, "type mismatch with previous implicit declaration");
 	  warning_with_decl (IDENTIFIER_IMPLICIT_DECL (name),
 			     "previous implicit declaration of `%s'");
-	}
-
-      /* In PCC-compatibility mode, extern decls of vars with no current decl
-	 take effect at top level no matter where they are.  */
-      if (flag_traditional && DECL_EXTERNAL (x)
-	  && lookup_name (name) == 0)
-	{
-	  tree type = TREE_TYPE (x);
-
-	  /* But don't do this if the type contains temporary nodes.  */
-	  while (type)
-	    {
-	      if (type == error_mark_node)
-		break;
-	      if (TYPE_CONTEXT (type))
-		{
-		  warning_with_decl (x, "type of external `%s' is not global");
-		  /* By exiting the loop early, we leave TYPE nonzero,
-		     and thus prevent globalization of the decl.  */
-		  break;
-		}
-	      else if (TREE_CODE (type) == FUNCTION_TYPE
-		       && TYPE_ARG_TYPES (type) != 0)
-		/* The types might not be truly local,
-		   but the list of arg types certainly is temporary.
-		   Since prototypes are nontraditional,
-		   ok not to do the traditional thing.  */
-		break;
-	      type = TREE_TYPE (type);
-	    }
-
-	  if (type == 0)
-	    b = global_binding_level;
 	}
 
       /* This name is new in its binding level.
@@ -2646,7 +2154,6 @@ pushdecl (x)
 	    b->shadowed = tree_cons (name, oldlocal, b->shadowed);
 	}
 
-      /* APPLE LOCAL incomplete struct list optimisation */
       /* Keep list of variables in this level with incomplete type.
 	 If the input is erroneous, we can have error_mark in the type
 	 slot (e.g. "f(void a, ...)") - that doesn't count as an
@@ -2660,7 +2167,6 @@ pushdecl (x)
 	    element = TREE_TYPE (element);
 	  if (TREE_CODE (element) == RECORD_TYPE
 	      || TREE_CODE (element) == UNION_TYPE)
-	    /* APPLE LOCAL incomplete struct list optimisation */
 	    b->incomplete_list = tree_cons (NULL_TREE, x, b->incomplete_list);
 	}
     }
@@ -2725,14 +2231,11 @@ implicitly_declare (functionid)
   IDENTIFIER_IMPLICIT_DECL (functionid) = decl;
 
   /* ANSI standard says implicit declarations are in the innermost block.
-     So we record the decl in the standard fashion.
-     If flag_traditional is set, pushdecl does it top-level.  */
+     So we record the decl in the standard fashion.  */
   pushdecl (decl);
 
-  /* This is a no-op in c-lang.c or something real in objc-act.c.  */
-  /* APPLE LOCAL Objective-C++ */
-  if (compiling_objc)
-    objc_check_decl (decl);
+  /* APPLE LOCAL objc typedef */
+  /* objc_check_decl() call elided.  */
 
   rest_of_decl_compilation (decl, NULL, 0, 0);
 
@@ -2764,7 +2267,7 @@ implicit_decl_warning (id)
   if (flag_altivec && IDENTIFIER_GLOBAL_VALUE (id)
       && DECL_BUILT_IN_CLASS (IDENTIFIER_GLOBAL_VALUE (id)) == BUILT_IN_MD)
     return;
-  /* APPLE LOCAL begin AltiVec */
+  /* APPLE LOCAL end AltiVec */
       
   if (mesg_implicit_function_declaration == 2)
     error ("implicit declaration of function `%s'", name);
@@ -2784,17 +2287,8 @@ redeclaration_error_message (newdecl, olddecl)
 {
   if (TREE_CODE (newdecl) == TYPE_DECL)
     {
-      if (flag_traditional && TREE_TYPE (newdecl) == TREE_TYPE (olddecl))
-	return 0;
-      /* pushdecl creates distinct types for TYPE_DECLs by calling
-	 build_type_copy, so the above comparison generally fails.  We do
-	 another test against the TYPE_MAIN_VARIANT of the olddecl, which
-	 is equivalent to what this code used to do before the build_type_copy
-	 call.  The variant type distinction should not matter for traditional
-	 code, because it doesn't have type qualifiers.  */
-      if (flag_traditional
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (olddecl)) == TREE_TYPE (newdecl))
-	return 0;
+      /* Do not complain about type redeclarations where at least one
+	 declaration was in a system header.  */
       if (DECL_IN_SYSTEM_HEADER (olddecl) || DECL_IN_SYSTEM_HEADER (newdecl))
 	return 0;
       return 1;
@@ -2882,8 +2376,8 @@ lookup_label (id)
   /* Say where one reference is to the label,
      for the sake of the error if it is not defined.  */
   DECL_SOURCE_LINE (decl) = lineno;
-  /* APPLE LOCAL PFE - PFE_SAVESTRING is null when not building for pfe.  */
-  DECL_SOURCE_FILE (decl) = PFE_SAVESTRING ((char *)input_filename);
+  DECL_SOURCE_FILE (decl) = input_filename;
+
   IDENTIFIER_LABEL_VALUE (id) = decl;
 
   named_labels = tree_cons (NULL_TREE, decl, named_labels);
@@ -2984,11 +2478,8 @@ getdecls ()
 
 /* Return the list of type-tags (for structs, etc) of the current level.  */
 
-tree
-gettags ()
-{
-  return current_binding_level->tags;
-}
+/* APPLE LOCAL lookup_tag speedup */
+/* Remove gettags () function */
 
 /* Store the list of declarations of the current level.
    This is done for the parameter declarations of a function being defined,
@@ -3007,7 +2498,25 @@ static void
 storetags (tags)
      tree tags;
 {
-  current_binding_level->tags = tags;
+  /* APPLE LOCAL begin lookup_tag speedup */
+  if (!tags)
+    return;
+
+  if (!current_binding_level->tags_ht)
+    current_binding_level->tags_ht = create_tags_ht ();
+
+  if (current_binding_level->tags_ht)
+    {
+      tree t;
+      for (t = tags; TREE_CHAIN (t); t = TREE_CHAIN (t))
+	{
+	  void **slot;
+	  slot = htab_find_slot (current_binding_level->tags_ht, t, INSERT);
+	  *slot = tree_cons (TREE_PURPOSE (t), TREE_VALUE (t), NULL);
+	}
+    }
+  current_binding_level->tags_list = chainon (tags, current_binding_level->tags_list);
+  /* APPLE LOCAL end lookup_tag speedup */
 }
 
 /* Given NAME, an IDENTIFIER_NODE,
@@ -3032,12 +2541,23 @@ lookup_tag (code, name, binding_level, thislevel_only)
 
   for (level = binding_level; level; level = level->level_chain)
     {
-      tree tail;
-      for (tail = level->tags; tail; tail = TREE_CHAIN (tail))
+      /* APPLE LOCAL begin lookup_tag speedup */
+      tree tail = NULL_TREE;
+
+      if (level->tags_ht)
 	{
-	  if (TREE_PURPOSE (tail) == name)
+	  void **slot;
+	  slot = htab_find_slot (level->tags_ht, name, NO_INSERT);
+	  if (!slot)
+	    tail = NULL_TREE;
+	  else
+	    tail = (tree) *slot;
+
+	  if (tail)
 	    {
-	      if (TREE_CODE (TREE_VALUE (tail)) != code)
+	      if (TREE_CODE (TREE_VALUE (tail)) == code)
+		return TREE_VALUE (tail);
+	      else
 		{
 		  /* Definition isn't the kind we were looking for.  */
 		  pending_invalid_xref = name;
@@ -3050,9 +2570,9 @@ lookup_tag (code, name, binding_level, thislevel_only)
 		  if (thislevel)
 		    pending_xref_error ();
 		}
-	      return TREE_VALUE (tail);
 	    }
 	}
+      /* APPLE LOCAL end lookup_tag speedup */
       if (! level->tag_transparent)
 	{
 	  if (thislevel_only)
@@ -3079,6 +2599,57 @@ pending_xref_error ()
   pending_invalid_xref = 0;
 }
 
+/* APPLE LOCAL begin lookup_tag speedup */
+
+/* Used with htab_traverse_1 () to perform reverse lookup.  */
+static PTR
+check_tree_value (slot, data)
+     PTR *slot;
+     PTR data;
+{
+  tree tail = *slot;
+  if (tail && TREE_VALUE (tail) == (tree) data)
+      return TREE_PURPOSE (tail);
+
+  return NULL;
+}
+
+/* Similar to htab_traverse.
+   This function scans over the entire hash table calling
+   CALLBACK for each live entry.  If CALLBACK returns zero,
+   the iteration continues.  If CALLBACK returns non-zero,
+   the interation stops and non-zero returned value is returned.
+   INFO is passed as CALLBACK's second argument.  */
+
+#define EMPTY_ENTRY    ((PTR) 0)
+#define DELETED_ENTRY  ((PTR) 1)
+
+PTR
+htab_traverse_1 (htab, callback, info)
+     htab_t htab;
+     htab_trav callback;
+     PTR info;
+{
+  PTR *slot = htab->entries;
+  PTR *limit = slot + htab->size;
+  
+  do
+    {
+      PTR x = *slot;
+      PTR r;
+      if (x != EMPTY_ENTRY && x != DELETED_ENTRY)
+	{
+	  r= (*callback) (slot, info);
+	  if (r)
+	    return r;
+	}
+    }
+  while (++slot < limit);
+
+  return NULL;
+}
+/* APPLE LOCAL end lookup_tag speedup */
+
 /* Given a type, find the tag that was defined for it and return the tag name.
    Otherwise return 0.  */
 
@@ -3091,11 +2662,14 @@ lookup_tag_reverse (type)
   for (level = current_binding_level; level; level = level->level_chain)
     {
       tree tail;
-      for (tail = level->tags; tail; tail = TREE_CHAIN (tail))
+      /* APPLE LOCAL lookup_tag speedup */
+      /* Use 'tag_list' instead of 'tags' */
+      for (tail = level->tags_list; tail; tail = TREE_CHAIN (tail))
 	{
 	  if (TREE_VALUE (tail) == type)
 	    return TREE_PURPOSE (tail);
-	}
+
+      	}
     }
   return NULL_TREE;
 }
@@ -3140,27 +2714,6 @@ lookup_name_current_level (name)
   return t;
 }
 
-/* Mark ARG for GC.  */
-
-static void
-mark_binding_level (arg)
-     void *arg;
-{
-  struct binding_level *level = *(struct binding_level **) arg;
-
-  for (; level != 0; level = level->level_chain)
-    {
-      ggc_mark_tree (level->names);
-      ggc_mark_tree (level->tags);
-      ggc_mark_tree (level->shadowed);
-      ggc_mark_tree (level->blocks);
-      ggc_mark_tree (level->this_block);
-      ggc_mark_tree (level->parm_order);
-      /* APPLE LOCAL incomplete struct list optimisation  */
-      ggc_mark_tree (level->incomplete_list);
-    }
-}
-
 /* Create the predefined scalar types of C,
    and some nodes representing standard constants (0, 1, (void *) 0).
    Initialize the global binding level.
@@ -3192,14 +2745,7 @@ c_init_decl_processing ()
   boolean_true_node = integer_one_node;
   boolean_false_node = integer_zero_node;
 
-  /* With GCC, C99's _Bool is always of size 1.  */
-/* APPLE LOCAL begin size of bool  */
-#ifndef BOOL_TYPE_SIZE
-#define BOOL_TYPE_SIZE CHAR_TYPE_SIZE
-#endif
-/* `bool' has size and alignment `4', on Darwin.  */
   c_bool_type_node = make_unsigned_type (BOOL_TYPE_SIZE);
-/* APPLE LOCAL end size of bool  */
   TREE_SET_CODE (c_bool_type_node, BOOLEAN_TYPE);
   TYPE_MAX_VALUE (c_bool_type_node) = build_int_2 (1, 0);
   TREE_TYPE (TYPE_MAX_VALUE (c_bool_type_node)) = c_bool_type_node;
@@ -3217,82 +2763,18 @@ c_init_decl_processing ()
     = build_function_type (ptr_type_node,
 			   tree_cons (NULL_TREE, ptr_type_node, endlink));
 
-  /* Types which are common to the fortran compiler and libf2c.  When
-     changing these, you also need to be concerned with f/com.h.  */
-
-  if (TYPE_PRECISION (float_type_node)
-      == TYPE_PRECISION (long_integer_type_node))
-    {
-      g77_integer_type_node = long_integer_type_node;
-      g77_uinteger_type_node = long_unsigned_type_node;
-    }
-  else if (TYPE_PRECISION (float_type_node)
-	   == TYPE_PRECISION (integer_type_node))
-    {
-      g77_integer_type_node = integer_type_node;
-      g77_uinteger_type_node = unsigned_type_node;
-    }
-  else
-    g77_integer_type_node = g77_uinteger_type_node = NULL_TREE;
-
-  if (g77_integer_type_node != NULL_TREE)
-    {
-      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_integer"),
-			    g77_integer_type_node));
-      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_uinteger"),
-			    g77_uinteger_type_node));
-    }
-
-  if (TYPE_PRECISION (float_type_node) * 2
-      == TYPE_PRECISION (long_integer_type_node))
-    {
-      g77_longint_type_node = long_integer_type_node;
-      g77_ulongint_type_node = long_unsigned_type_node;
-    }
-  else if (TYPE_PRECISION (float_type_node) * 2
-	   == TYPE_PRECISION (long_long_integer_type_node))
-    {
-      g77_longint_type_node = long_long_integer_type_node;
-      g77_ulongint_type_node = long_long_unsigned_type_node;
-    }
-  else
-    g77_longint_type_node = g77_ulongint_type_node = NULL_TREE;
-
-  if (g77_longint_type_node != NULL_TREE)
-    {
-      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_longint"),
-			    g77_longint_type_node));
-      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_ulongint"),
-			    g77_ulongint_type_node));
-    }
-
   pedantic_lvalues = pedantic;
 
   make_fname_decl = c_make_fname_decl;
   start_fname_decls ();
 
-  incomplete_decl_finalize_hook = finish_incomplete_decl;
-
-  /* APPLE LOCAL new tree dump */
+  /* APPLE LOCAL begin new tree dump */
 #ifdef ENABLE_DMP_TREE
   /* For condensed tree dumps with debugger.  */
   c_prev_lang_dump_tree_p = set_dump_tree_p (c_dump_tree_p);
   SET_MAX_DMP_TREE_CODE(LAST_C_TREE_CODE);
 #endif
-
-  /* Record our roots.  */
-
-  ggc_add_tree_root (c_global_trees, CTI_MAX);
-  ggc_add_root (&c_stmt_tree, 1, sizeof c_stmt_tree, mark_stmt_tree);
-  ggc_add_tree_root (&c_scope_stmt_stack, 1);
-  ggc_add_tree_root (&named_labels, 1);
-  ggc_add_tree_root (&shadowed_labels, 1);
-  ggc_add_root (&current_binding_level, 1, sizeof current_binding_level,
-		mark_binding_level);
-  ggc_add_root (&label_level_chain, 1, sizeof label_level_chain,
-		mark_binding_level);
-  ggc_add_tree_root (&static_ctors, 1);
-  ggc_add_tree_root (&static_dtors, 1);
+  /* APPLE LOCAL end new tree dump */
 }
 
 /* Create the VAR_DECL for __FUNCTION__ etc. ID is the name to give the
@@ -3341,35 +2823,21 @@ c_make_fname_decl (id, type_dep)
    See tree.h for its possible values.
 
    If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  */
+   the name to be called if we can't opencode the function.  If
+   ATTRS is nonzero, use that for the function's attribute list.  */
 
 tree
-builtin_function (name, type, function_code, class, library_name)
+builtin_function (name, type, function_code, class, library_name, attrs)
      const char *name;
      tree type;
      int function_code;
      enum built_in_class class;
      const char *library_name;
+     tree attrs;
 {
-  /* APPLE LOCAL PFE */
-  tree decl = NULL;
-#ifdef PFE
-  /* If already loaded from the precompiled header, then use it.  */
-  if (pfe_operation == PFE_LOAD)
-    {
-       decl = lookup_name_current_level ( get_identifier (name));
-       if (decl)
-         return decl;
-    }
-#endif
-  decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
+  tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
-  /* If -traditional, permit redefining a builtin function any way you like.
-     (Though really, if the program redefines these functions,
-     it probably won't work right unless compiled with -fno-builtin.)  */
-  if (flag_traditional && name[0] != '_')
-    DECL_BUILT_IN_NONANSI (decl) = 1;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
   make_decl_rtl (decl, NULL);
@@ -3377,17 +2845,16 @@ builtin_function (name, type, function_code, class, library_name)
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
 
-  /* The return builtins leave the current function.  */
-  if (function_code == BUILT_IN_RETURN || function_code == BUILT_IN_EH_RETURN)
-    TREE_THIS_VOLATILE (decl) = 1;
-
   /* Warn if a function in the namespace for users
      is used without an occasion to consider it declared.  */
   if (name[0] != '_' || name[1] != '_')
     C_DECL_ANTICIPATED (decl) = 1;
 
   /* Possibly apply some default attributes to this built-in function.  */
-  decl_attributes (&decl, NULL_TREE, 0);
+  if (attrs)
+    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
+  else
+    decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -3407,7 +2874,7 @@ lang_build_type_variant (type, constp, volatilep)
    attributes.  */
 
 void
-insert_default_attributes (decl)
+c_insert_default_attributes (decl)
      tree decl;
 {
   if (!TREE_PUBLIC (decl))
@@ -3504,8 +2971,8 @@ shadow_tag_warned (declspecs, warned)
 /* Construct an array declarator.  EXPR is the expression inside [], or
    NULL_TREE.  QUALS are the type qualifiers inside the [] (to be applied
    to the pointer to which a parameter array is converted).  STATIC_P is
-   non-zero if "static" is inside the [], zero otherwise.  VLA_UNSPEC_P
-   is non-zero is the array is [*], a VLA of unspecified length which is
+   nonzero if "static" is inside the [], zero otherwise.  VLA_UNSPEC_P
+   is nonzero is the array is [*], a VLA of unspecified length which is
    nevertheless a complete type (not currently implemented by GCC),
    zero otherwise.  The declarator is constructed as an ARRAY_REF
    (to be decoded by grokdeclarator), whose operand 0 is what's on the
@@ -3527,9 +2994,9 @@ build_array_declarator (expr, quals, static_p, vla_unspec_p)
   if (pedantic && !flag_isoc99)
     {
       if (static_p || quals != NULL_TREE)
-	pedwarn ("ISO C89 does not support `static' or type qualifiers in parameter array declarators");
+	pedwarn ("ISO C90 does not support `static' or type qualifiers in parameter array declarators");
       if (vla_unspec_p)
-	pedwarn ("ISO C89 does not support `[*]' array declarators");
+	pedwarn ("ISO C90 does not support `[*]' array declarators");
     }
   if (vla_unspec_p)
     warning ("GCC does not yet properly implement `[*]' array declarators");
@@ -3538,7 +3005,7 @@ build_array_declarator (expr, quals, static_p, vla_unspec_p)
 
 /* Set the type of an array declarator.  DECL is the declarator, as
    constructed by build_array_declarator; TYPE is what appears on the left
-   of the [] and goes in operand 0.  ABSTRACT_P is non-zero if it is an
+   of the [] and goes in operand 0.  ABSTRACT_P is nonzero if it is an
    abstract declarator, zero otherwise; this is used to reject static and
    type qualifiers in abstract declarators, where they are not in the
    C99 grammar.  */
@@ -3612,6 +3079,9 @@ start_decl (declarator, declspecs, initialized, attributes)
 {
   tree decl;
   tree tem;
+  
+  /* An object declared as __attribute__((deprecated)) suppresses
+     warnings of uses of other deprecated items.  */
 
   /* APPLE LOCAL begin unavailable */
   /* An object declared as __attribute__((unavailable)) suppresses
@@ -3690,15 +3160,9 @@ start_decl (declarator, declspecs, initialized, attributes)
     switch (TREE_CODE (decl))
       {
       case TYPE_DECL:
-	/* typedef foo = bar  means give foo the same type as bar.
-	   We haven't parsed bar yet, so `finish_decl' will fix that up.
-	   Any other case of an initialization in a TYPE_DECL is an error.  */
-	if (pedantic || list_length (declspecs) > 1)
-	  {
-	    error ("typedef `%s' is initialized",
-		   IDENTIFIER_POINTER (DECL_NAME (decl)));
-	    initialized = 0;
-	  }
+	error ("typedef `%s' is initialized (use __typeof__ instead)",
+	       IDENTIFIER_POINTER (DECL_NAME (decl)));
+	initialized = 0;
 	break;
 
       case FUNCTION_DECL:
@@ -3776,9 +3240,19 @@ start_decl (declarator, declspecs, initialized, attributes)
   /* ANSI specifies that a tentative definition which is not merged with
      a non-tentative definition behaves exactly like a definition with an
      initializer equal to zero.  (Section 3.7.2)
-     -fno-common gives strict ANSI behavior.  Usually you don't want it.
-     This matters only for variables with external linkage.  */
-  if (! flag_no_common || ! TREE_PUBLIC (decl))
+
+     -fno-common gives strict ANSI behavior, though this tends to break
+     a large body of code that grew up without this rule.
+
+     Thread-local variables are never common, since there's no entrenched
+     body of code to break, and it allows more efficient variable references
+     in the presense of dynamic linking.  */
+
+  if (TREE_CODE (decl) == VAR_DECL
+      && !initialized
+      && TREE_PUBLIC (decl)
+      && !DECL_THREAD_LOCAL (decl)
+      && !flag_no_common)
     DECL_COMMON (decl) = 1;
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
@@ -3847,16 +3321,14 @@ finish_decl (decl, init, asmspec_tree)
     init = 0;
 
   if (init)
-    {
-      if (TREE_CODE (decl) != TYPE_DECL)
-	store_init_value (decl, init);
-      else
-	{
-	  /* typedef foo = bar; store the type of bar as the type of foo.  */
-	  TREE_TYPE (decl) = TREE_TYPE (init);
-	  DECL_INITIAL (decl) = init = 0;
-	}
-    }
+    store_init_value (decl, init);
+
+  /* APPLE LOCAL begin objc typedef */
+  if (flag_objc && (TREE_CODE (decl) == VAR_DECL
+		    || TREE_CODE (decl) == FUNCTION_DECL
+		    || TREE_CODE (decl) == FIELD_DECL))
+    objc_check_decl (decl);
+  /* APPLE LOCAL end objc typedef */
 
   /* Deduce size of array from initialization, if not already known */
   if (TREE_CODE (type) == ARRAY_TYPE
@@ -3958,11 +3430,8 @@ finish_decl (decl, init, asmspec_tree)
 
   if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
     {
-      /* This is a no-op in c-lang.c or something real in objc-act.c.  */
-      /* APPLE LOCAL Objective-C++ */
-      if (compiling_objc)
-	objc_check_decl (decl);
-
+      /* APPLE LOCAL objc typedef */
+      /* objc_check_decl() call elided.  */
       if (!DECL_CONTEXT (decl))
 	{
 	  if (DECL_INITIAL (decl) == NULL_TREE
@@ -4023,10 +3492,8 @@ finish_decl (decl, init, asmspec_tree)
 
   if (TREE_CODE (decl) == TYPE_DECL)
     {
-      /* This is a no-op in c-lang.c or something real in objc-act.c.  */
-      /* APPLE LOCAL Objective-C++ */
-      if (compiling_objc)
-	objc_check_decl (decl);
+      /* APPLE LOCAL objc typedef */
+      /* objc_check_decl() call elided.  */
       rest_of_decl_compilation (decl, NULL, DECL_CONTEXT (decl) == 0, 0);
     }
 
@@ -4035,17 +3502,6 @@ finish_decl (decl, init, asmspec_tree)
      computing them in the following function definition.  */
   if (current_binding_level == global_binding_level)
     get_pending_sizes ();
-}
-
-/* If DECL has a cleanup, build and return that cleanup here.
-   This is a callback called by expand_expr.  */
-
-tree
-maybe_build_cleanup (decl)
-     tree decl ATTRIBUTE_UNUSED;
-{
-  /* There are no cleanups in C.  */
-  return NULL_TREE;
 }
 
 /* Given a parsed parameter declaration,
@@ -4098,6 +3554,8 @@ clear_parm_order ()
   current_binding_level->parm_order = NULL_TREE;
 }
 
+static GTY(()) int compound_literal_number;
+
 /* Build a COMPOUND_LITERAL_EXPR.  TYPE is the type given in the compound
    literal, which may be an incomplete array type completed by the
    initializer; INIT is a CONSTRUCTOR that initializes the compound
@@ -4120,6 +3578,7 @@ build_compound_literal (type, init)
   DECL_CONTEXT (decl) = current_function_decl;
   TREE_USED (decl) = 1;
   TREE_TYPE (decl) = type;
+  TREE_READONLY (decl) = TREE_READONLY (type);
   store_init_value (decl, init);
 
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
@@ -4142,12 +3601,18 @@ build_compound_literal (type, init)
   if (TREE_STATIC (decl))
     {
       /* This decl needs a name for the assembler output.  We also need
-	 a unique suffix to be added to the name, for which DECL_CONTEXT
-	 must be set.  */
-      DECL_NAME (decl) = get_identifier ("__compound_literal");
-      DECL_CONTEXT (decl) = complit;
+	 a unique suffix to be added to the name.  */
+      char *name;
+
+      ASM_FORMAT_PRIVATE_NAME (name, "__compound_literal", 
+			       compound_literal_number);
+      compound_literal_number++;
+      DECL_NAME (decl) = get_identifier (name);
+      DECL_DEFER_OUTPUT (decl) = 1;
+      DECL_COMDAT (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      pushdecl (decl);
       rest_of_decl_compilation (decl, NULL, 1, 0);
-      DECL_CONTEXT (decl) = NULL_TREE;
     }
 
   return complit;
@@ -4223,6 +3688,40 @@ complete_array_type (type, initial_value, do_default)
   return value;
 }
 
+/* Determine whether TYPE is a structure with a flexible array member,
+   or a union containing such a structure (possibly recursively).  */
+
+static bool
+flexible_array_type_p (type)
+     tree type;
+{
+  tree x;
+  switch (TREE_CODE (type))
+    {
+    case RECORD_TYPE:
+      x = TYPE_FIELDS (type);
+      if (x == NULL_TREE)
+	return false;
+      while (TREE_CHAIN (x) != NULL_TREE)
+	x = TREE_CHAIN (x);
+      if (TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
+	  && TYPE_SIZE (TREE_TYPE (x)) == NULL_TREE
+	  && TYPE_DOMAIN (TREE_TYPE (x)) != NULL_TREE
+	  && TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (x))) == NULL_TREE)
+	return true;
+      return false;
+    case UNION_TYPE:
+      for (x = TYPE_FIELDS (type); x != NULL_TREE; x = TREE_CHAIN (x))
+	{
+	  if (flexible_array_type_p (TREE_TYPE (x)))
+	    return true;
+	}
+      return false;
+    default:
+    return false;
+  }
+}
+
 /* Given declspecs and a declarator,
    determine the name and type of the object declared
    and construct a ..._DECL node for it.
@@ -4260,6 +3759,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
      int initialized;
 {
   int specbits = 0;
+  /* APPLE LOCAL CW asm blocks */
+  int cw_asm_specbit = 0;
   tree spec;
   tree type = NULL_TREE;
   int longlong = 0;
@@ -4369,24 +3870,24 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
             {
               if (deprecated_state != DEPRECATED_UNAVAILABLE_SUPPRESS)
               	warn_deprecated_use (id);
-              #if 0
+#if 0
 	      returned_attrs 
 		= chainon (returned_attrs, 
 			   build_tree_list (get_identifier ("unavailable"),
 					    NULL_TREE));
-	      #endif
+#endif
             }
           else 
             {
               if (deprecated_state != DEPRECATED_SUPPRESS
                   && deprecated_state != DEPRECATED_UNAVAILABLE_SUPPRESS)
               	warn_deprecated_use (id);
-              #if 0
+#if 0
 	      returned_attrs 
 		= chainon (returned_attrs, 
 			   build_tree_list (get_identifier ("deprecated"),
 					    NULL_TREE));
- 	      #endif
+#endif
            }
         }
       /* APPLE LOCAL end unavailable */
@@ -4422,9 +3923,19 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		i = RID_ALTIVEC_BOOL;
 	    }
 	  /* APPLE LOCAL end AltiVec */	
+	  /* APPLE LOCAL begin CW asm blocks */
+	  /* Maybe remember that we saw an "asm".  Don't test
+	     -fasm-blocks here because we want to be able to report an
+	     error later.  */
+	  if (i == RID_ASM)
+	    {
+	      ++cw_asm_specbit;
+	      goto found;
+	    }
+	  /* APPLE LOCAL end CW asm blocks */
 	  if ((int) i <= (int) RID_LAST_MODIFIER)
 	    {
-	      if (i == RID_LONG && (specbits & (1 << (int) i)))
+	      if (i == RID_LONG && (specbits & (1 << (int) RID_LONG)))
 		{
 		  if (longlong)
 		    error ("`long long long' is too long for GCC");
@@ -4432,19 +3943,39 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		    {
 		      if (pedantic && !flag_isoc99 && ! in_system_header
 			  && warn_long_long)
-			pedwarn ("ISO C89 does not support `long long'");
+			pedwarn ("ISO C90 does not support `long long'");
 		      longlong = 1;
 		    }
 		}
 	      else if (specbits & (1 << (int) i))
-		pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		{
+		  if (i == RID_CONST || i == RID_VOLATILE || i == RID_RESTRICT)
+		    {
+		      if (!flag_isoc99)
+			pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		    }
+		  else
+		    error ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		}
+
+	      /* Diagnose "__thread extern".  Recall that this list
+		 is in the reverse order seen in the text.  */
+	      if (i == RID_THREAD
+		  && (specbits & (1 << (int) RID_EXTERN
+				  | 1 << (int) RID_STATIC)))
+		{
+		  if (specbits & 1 << (int) RID_EXTERN)
+		    error ("`__thread' before `extern'");
+		  else
+		    error ("`__thread' before `static'");
+		}
+
 	      specbits |= 1 << (int) i;
 	      goto found;
 	    }
 	}
       if (type)
 	error ("two or more data types in declaration of `%s'", name);
-	
       /* Actual typedefs come to us as TYPE_DECL nodes.  */
       else if (TREE_CODE (id) == TYPE_DECL)
 	{
@@ -4491,10 +4022,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
       if ((! (specbits & ((1 << (int) RID_LONG) | (1 << (int) RID_SHORT)
 			  | (1 << (int) RID_SIGNED)
 			  | (1 << (int) RID_UNSIGNED)
-			  | (1 << (int) RID_COMPLEX)
 			  /* APPLE LOCAL AltiVec */
 			  | (1 << (int) RID_ALTIVEC_VECTOR)
-			  | (1 << (int) RID_ALTIVEC_PIXEL))))
+			  | (1 << (int) RID_ALTIVEC_PIXEL)
+			  | (1 << (int) RID_COMPLEX))))
 	  /* Don't warn about typedef foo = bar.  */
 	  && ! (specbits & (1 << (int) RID_TYPEDEF) && initialized)
 	  && ! in_system_header)
@@ -4524,7 +4055,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
     {
       specbits &= ~(1 << (int) RID_LONG);
       type = long_double_type_node;
-      /* APPLE LOCAL long double dpatel */
+      /* APPLE LOCAL -Wlong-double dpatel */
       warn_about_long_double ();
     }
 
@@ -4566,13 +4097,11 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	{
 	  ok = 1;
 	  /* APPLE LOCAL AltiVec */
-	  if (!explicit_int && !explicit_bool && !defaulted_int 
-	      && !explicit_char && pedantic)
+	  if (!explicit_int && !explicit_bool && !defaulted_int && !explicit_char)
 	    {
-	      pedwarn ("long, short, signed or unsigned used invalidly for `%s'",
-		       name);
-	      if (flag_pedantic_errors)
-		ok = 0;
+	      error ("long, short, signed or unsigned used invalidly for `%s'",
+		     name);
+	      ok = 0;
 	    }
 	}
 
@@ -4595,9 +4124,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
   /* Decide whether an integer type is signed or not.
      Optionally treat bitfields as signed by default.  */
   if (specbits & 1 << (int) RID_UNSIGNED
-      /* Traditionally, all bitfields are unsigned.  */
-      || (bitfield && flag_traditional
-	  && (! explicit_flag_signed_bitfields || !flag_signed_bitfields))
       || (bitfield && ! flag_signed_bitfields
 	  && (explicit_int || defaulted_int || explicit_char
 	      /* A typedef for plain `int' without `signed'
@@ -4616,7 +4142,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
       else if (type == char_type_node)
 	type = unsigned_char_type_node;
       else if (typedef_decl)
-	type = unsigned_type (type);
+	type = c_common_unsigned_type (type);
       else
 	type = unsigned_type_node;
     }
@@ -4633,7 +4159,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
   if (specbits & 1 << (int) RID_COMPLEX)
     {
       if (pedantic && !flag_isoc99)
-	pedwarn ("ISO C89 does not support complex types");
+	pedwarn ("ISO C90 does not support complex types");
       /* If we just have "complex", it is equivalent to
 	 "complex double", but if any modifiers at all are specified it is
 	 the complex form of TYPE.  E.g, "complex short" is
@@ -4718,9 +4244,11 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	type = (explicit_bool
 		? vector_boolean_short_type_node
 		: vector_signed_short_type_node);
-      else if (type == unsigned_char_type_node || explicit_char && type == unsigned_type_node)
+      else if (type == unsigned_char_type_node
+	       || (explicit_char && type == unsigned_type_node))
 	type = vector_unsigned_char_type_node;
-      else if (type == signed_char_type_node || explicit_char && type == integer_type_node)
+      else if (type == signed_char_type_node
+	       || (explicit_char && type == integer_type_node))
 	type = vector_signed_char_type_node;
       else if (type == char_type_node && explicit_bool)
 	type = vector_boolean_char_type_node;
@@ -4771,6 +4299,12 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
     if (specbits & 1 << (int) RID_EXTERN) nclasses++;
     if (specbits & 1 << (int) RID_REGISTER) nclasses++;
     if (specbits & 1 << (int) RID_TYPEDEF) nclasses++;
+
+    /* "static __thread" and "extern __thread" are allowed.  */
+    if ((specbits & (1 << (int) RID_THREAD
+		     | 1 << (int) RID_STATIC
+		     | 1 << (int) RID_EXTERN)) == (1 << (int) RID_THREAD))
+      nclasses++;
     /* APPLE LOCAL private extern */
     if (specbits & 1 << (int) RID_PRIVATE_EXTERN) nclasses++;
 
@@ -4783,7 +4317,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	     && (specbits
 		 & ((1 << (int) RID_REGISTER)
 		    | (1 << (int) RID_AUTO)
-		    | (1 << (int) RID_TYPEDEF))))
+		    | (1 << (int) RID_TYPEDEF)
+		    | (1 << (int) RID_THREAD))))
       {
 	if (specbits & 1 << (int) RID_AUTO
 	    && (pedantic || current_binding_level == global_binding_level))
@@ -4792,8 +4327,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  error ("function definition declared `register'");
 	if (specbits & 1 << (int) RID_TYPEDEF)
 	  error ("function definition declared `typedef'");
+	if (specbits & 1 << (int) RID_THREAD)
+	  error ("function definition declared `__thread'");
 	specbits &= ~((1 << (int) RID_TYPEDEF) | (1 << (int) RID_REGISTER)
-		      | (1 << (int) RID_AUTO));
+		      | (1 << (int) RID_AUTO) | (1 << (int) RID_THREAD));
       }
     else if (decl_context != NORMAL && nclasses > 0)
       {
@@ -4816,7 +4353,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	      }
 	    specbits &= ~((1 << (int) RID_TYPEDEF) | (1 << (int) RID_REGISTER)
 			  | (1 << (int) RID_AUTO) | (1 << (int) RID_STATIC)
-			  | (1 << (int) RID_EXTERN));
+			  | (1 << (int) RID_EXTERN) | (1 << (int) RID_THREAD));
 	  }
       }
     else if (specbits & 1 << (int) RID_EXTERN && initialized && ! funcdef_flag)
@@ -4827,12 +4364,25 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	else
 	  error ("`%s' has both `extern' and initializer", name);
       }
-    else if (specbits & 1 << (int) RID_EXTERN && funcdef_flag
-	     && current_binding_level != global_binding_level)
-      error ("nested function `%s' declared `extern'", name);
-    else if (current_binding_level == global_binding_level
-	     && specbits & (1 << (int) RID_AUTO))
-      error ("top-level declaration of `%s' specifies `auto'", name);
+    else if (current_binding_level == global_binding_level)
+      {
+	if (specbits & 1 << (int) RID_AUTO)
+	  error ("top-level declaration of `%s' specifies `auto'", name);
+      }
+    else
+      {
+	if (specbits & 1 << (int) RID_EXTERN && funcdef_flag)
+	  error ("nested function `%s' declared `extern'", name);
+	else if ((specbits & (1 << (int) RID_THREAD
+			       | 1 << (int) RID_EXTERN
+			       | 1 << (int) RID_STATIC))
+		 == (1 << (int) RID_THREAD))
+	  {
+	    error ("function-scope `%s' implicitly auto and declared `__thread'",
+		   name);
+	    specbits &= ~(1 << (int) RID_THREAD);
+	  }
+      }
   }
 
   /* Now figure out the structure of the declarator proper.
@@ -4900,7 +4450,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  tree itype = NULL_TREE;
 	  tree size = TREE_OPERAND (declarator, 1);
 	  /* The index is a signed object `sizetype' bits wide.  */
-	  tree index_type = signed_type (sizetype);
+	  tree index_type = c_common_signed_type (sizetype);
 
 	  array_ptr_quals = TREE_TYPE (declarator);
 	  array_parm_static = TREE_STATIC (declarator);
@@ -4920,6 +4470,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	      error ("declaration of `%s' as array of functions", name);
 	      type = error_mark_node;
 	    }
+
+	  if (pedantic && flexible_array_type_p (type))
+	    pedwarn ("invalid use of structure with flexible array member");
 
 	  if (size == error_mark_node)
 	    type = error_mark_node;
@@ -4960,13 +4513,13 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		     even if it is (eg) a const variable with known value.  */
 		  size_varies = 1;
 
-		  if (pedantic)
+		  if (!flag_isoc99 && pedantic)
 		    {
 		      if (TREE_CONSTANT (size))
-			pedwarn ("ISO C89 forbids array `%s' whose size can't be evaluated",
+			pedwarn ("ISO C90 forbids array `%s' whose size can't be evaluated",
 				 name);
 		      else
-			pedwarn ("ISO C89 forbids variable-size array `%s'",
+			pedwarn ("ISO C90 forbids variable-size array `%s'",
 				 name);
 		    }
 		}
@@ -5008,12 +4561,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	    }
 	  else if (decl_context == FIELD)
 	    {
-	      /* ??? Need to check somewhere that this is a structure
-		 and not a union, that this field is last, and that
-		 this structure has at least one other named member.  */
-
 	      if (pedantic && !flag_isoc99 && !in_system_header)
-		pedwarn ("ISO C89 does not support flexible array members");
+		pedwarn ("ISO C90 does not support flexible array members");
 
 	      /* ISO C99 Flexible array members are effectively identical
 		 to GCC's zero-length array extension.  */
@@ -5085,13 +4634,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	      type = integer_type_node;
 	    }
 
-#ifndef TRADITIONAL_RETURN_FLOAT
-	  /* Traditionally, declaring return type float means double.  */
-
-	  if (flag_traditional && TYPE_MAIN_VARIANT (type) == float_type_node)
-	    type = double_type_node;
-#endif /* TRADITIONAL_RETURN_FLOAT */
-
 	  /* Construct the function type and go to the next
 	     inner layer of declarator.  */
 
@@ -5132,7 +4674,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  /* Set the TYPE_CONTEXTs for each tagged type which is local to
 	     the formal parameter list of this FUNCTION_TYPE to point to
 	     the FUNCTION_TYPE node itself.  */
-
+	  /* APPLE LOCAL lookup_tag speedup */
+	  /* Add last_function_parms check.  */
+	  if (last_function_parms)
 	  {
 	    tree link;
 
@@ -5379,11 +4923,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	if (type == error_mark_node)
 	  promoted_type = type;
 	else
-	  {
-	    promoted_type = simple_type_promotes_to (type);
-	    if (! promoted_type)
-	      promoted_type = type;
-	  }
+	  promoted_type = c_type_promotes_to (type);
 
 	DECL_ARG_TYPE (decl) = promoted_type;
 	DECL_ARG_TYPE_AS_WRITTEN (decl) = type_as_written;
@@ -5435,6 +4975,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  pedwarn ("invalid storage class for function `%s'", name);
 	if (specbits & (1 << (int) RID_REGISTER))
 	  error ("invalid storage class for function `%s'", name);
+	if (specbits & (1 << (int) RID_THREAD))
+	  error ("invalid storage class for function `%s'", name);
 	/* Function declaration not at top level.
 	   Storage classes other than `extern' are not allowed
 	   and `extern' makes no difference.  */
@@ -5446,9 +4988,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	decl = build_decl (FUNCTION_DECL, declarator, type);
 	decl = build_decl_attribute_variant (decl, decl_attr);
 
-	/* APPLE LOCAL PFE - expand to pfe_ggc_alloc_cleared or ggc_alloc_cleared  */
 	DECL_LANG_SPECIFIC (decl) = (struct lang_decl *)
-	  GGC_ALLOC_CLEARED (sizeof (struct lang_decl), PFE_ALLOC_GGC_LANG_DECL);
+	  ggc_alloc_cleared (sizeof (struct lang_decl));
 
 	if (pedantic && type_quals && ! DECL_IN_SYSTEM_HEADER (decl))
 	  pedwarn ("ISO C forbids qualified function types");
@@ -5500,6 +5041,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	   needed, and let dwarf2 know that the function is inlinable.  */
 	else if (flag_inline_trees == 2 && initialized)
 	  {
+	    if (!DECL_INLINE (decl))
+		DID_INLINE_FUNC (decl) = 1;
 	    DECL_INLINE (decl) = 1;
 	    DECL_DECLARED_INLINE_P (decl) = 0;
 	  }
@@ -5546,16 +5089,25 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	   the absence of both `static' and `register' makes it public.  */
 	if (current_binding_level == global_binding_level)
 	  {
-	    TREE_PUBLIC (decl)
-	      = !(specbits
-		  & ((1 << (int) RID_STATIC) | (1 << (int) RID_REGISTER)));
-	    TREE_STATIC (decl) = ! DECL_EXTERNAL (decl);
+	    TREE_PUBLIC (decl) = !(specbits & ((1 << (int) RID_STATIC)
+					       | (1 << (int) RID_REGISTER)));
+	    TREE_STATIC (decl) = !extern_ref;
 	  }
 	/* Not at top level, only `static' makes a static definition.  */
 	else
 	  {
 	    TREE_STATIC (decl) = (specbits & (1 << (int) RID_STATIC)) != 0;
-	    TREE_PUBLIC (decl) = DECL_EXTERNAL (decl);
+	    TREE_PUBLIC (decl) = extern_ref;
+	  }
+
+	if (specbits & 1 << (int) RID_THREAD)
+	  {
+	    if (targetm.have_tls)
+	      DECL_THREAD_LOCAL (decl) = 1;
+	    else
+	      /* A mere warning is sure to result in improper semantics
+		 at runtime.  Don't bother to allow this to compile.  */
+	      error ("thread-local storage not supported for this target");
 	  }
       }
 
@@ -5565,6 +5117,21 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
     if (specbits & (1 << (int) RID_REGISTER))
       DECL_REGISTER (decl) = 1;
 
+    /* APPLE LOCAL begin CW asm blocks */
+    if (cw_asm_specbit)
+      {
+	/* Record that this is a decl of a CW-style asm function.  */
+	if (flag_cw_asm_blocks)
+	  {
+	    DECL_CW_ASM_FUNCTION (decl) = 1;
+	    DECL_CW_ASM_NORETURN (decl) = 0;
+	    DECL_CW_ASM_FRAME_SIZE (decl) = -2;
+	  }
+	else
+	  error ("asm functions not enabled, use `-fasm-blocks'");
+      }
+    /* APPLE LOCAL end CW asm blocks */
+
     /* Record constancy and volatility.  */
     c_apply_type_quals_to_decl (type_quals, decl);
 
@@ -5572,7 +5139,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
        Otherwise, the fact that those components are volatile
        will be ignored, and would even crash the compiler.  */
     if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (decl)))
-      mark_addressable (decl);
+      c_mark_addressable (decl);
 
     decl_attributes (&decl, returned_attrs, 0);
 
@@ -5702,7 +5269,8 @@ get_parm_info (void_at_end)
   tree decl, t;
   tree types = 0;
   int erred = 0;
-  tree tags = gettags ();
+  /* APPLE LOCAL lookup_tag speedup */
+  tree tags = 0; 
   tree parms = getdecls ();
   tree new_parms = 0;
   tree order = current_binding_level->parm_order;
@@ -5802,12 +5370,25 @@ parmlist_tags_warning ()
   tree elt;
   static int already;
 
-  for (elt = current_binding_level->tags; elt; elt = TREE_CHAIN (elt))
+  /* APPLE LOCAL begin lookup_tag speedup */
+  if (!current_function_parms)
+    return;
+  /* APPLE LOCAL end lookup_tag speedup */
+
+  /* APPLE LOCAL lookup_tag speedup */
+  /* Directly use current_function_parm_tags list */
+  for (elt = current_function_parm_tags; elt; elt = TREE_CHAIN (elt))
     {
       enum tree_code code = TREE_CODE (TREE_VALUE (elt));
+      
+      /* APPLE LOCAL begin lookup_tag speedup */
+      if (TREE_CODE (elt) != TREE_LIST)
+	continue;
+      /* APPLE LOCAL end lookup_tag speedup */
+
       /* An anonymous union parm type is meaningful as a GNU extension.
 	 So don't warn for that.  */
-      if (code == UNION_TYPE && TREE_PURPOSE (elt) == 0 && !pedantic)
+      if ((code == UNION_TYPE) && (TREE_PURPOSE (elt) == 0) && !pedantic)
 	continue;
       if (TREE_PURPOSE (elt) != 0)
         {
@@ -5907,25 +5488,22 @@ start_struct (code, name)
     ref = lookup_tag (code, name, current_binding_level, 1);
   if (ref && TREE_CODE (ref) == code)
     {
-      C_TYPE_BEING_DEFINED (ref) = 1;
-      TYPE_PACKED (ref) = flag_pack_struct;
       if (TYPE_FIELDS (ref))
         {
 	  if (code == UNION_TYPE)
-	    error ("redefinition of `union %s'",
-		   IDENTIFIER_POINTER (name));
+	    error ("redefinition of `union %s'", IDENTIFIER_POINTER (name));
           else
-	    error ("redefinition of `struct %s'",
-		   IDENTIFIER_POINTER (name));
+	    error ("redefinition of `struct %s'", IDENTIFIER_POINTER (name));
 	}  
-
-      return ref;
     }
+  else
+    {
+      /* Otherwise create a forward-reference just so the tag is in scope.  */
 
-  /* Otherwise create a forward-reference just so the tag is in scope.  */
-
-  ref = make_node (code);
-  pushtag (name, ref);
+      ref = make_node (code);
+      pushtag (name, ref);
+    }
+  
   C_TYPE_BEING_DEFINED (ref) = 1;
   TYPE_PACKED (ref) = flag_pack_struct;
   return ref;
@@ -5949,12 +5527,44 @@ grokfield (filename, line, declarator, declspecs, width)
 
   if (declarator == NULL_TREE && width == NULL_TREE)
     {
-      /* This is an unnamed decl.  We only support unnamed
-	 structs/unions, so check for other things and refuse them.  */
-      if (TREE_CODE (TREE_VALUE (declspecs)) != RECORD_TYPE
-	  && TREE_CODE (TREE_VALUE (declspecs)) != UNION_TYPE)
+      /* This is an unnamed decl.
+
+	 If we have something of the form "union { list } ;" then this
+	 is the anonymous union extension.  Similarly for struct.
+
+	 If this is something of the form "struct foo;", then
+	   If MS extensions are enabled, this is handled as an
+	     anonymous struct.
+	   Otherwise this is a forward declaration of a structure tag.
+
+	 If this is something of the form "foo;" and foo is a TYPE_DECL, then
+	   If MS extensions are enabled and foo names a structure, then
+	     again this is an anonymous struct.
+	   Otherwise this is an error.
+
+	 Oh what a horrid tangled web we weave.  I wonder if MS consiously
+	 took this from Plan 9 or if it was an accident of implementation
+	 that took root before someone noticed the bug...  */
+
+      tree type = TREE_VALUE (declspecs);
+
+      if (flag_ms_extensions && TREE_CODE (type) == TYPE_DECL)
+	type = TREE_TYPE (type);
+      if (TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE)
 	{
-	  error ("unnamed fields of type other than struct or union are not allowed");
+	  if (flag_ms_extensions)
+	    ; /* ok */
+	  else if (flag_iso)
+	    goto warn_unnamed_field;
+	  else if (TYPE_NAME (type) == NULL)
+	    ; /* ok */
+	  else
+	    goto warn_unnamed_field;
+	}
+      else
+	{
+	warn_unnamed_field:
+	  warning ("declaration does not declare anything");
 	  return NULL_TREE;
 	}
     }
@@ -5964,9 +5574,8 @@ grokfield (filename, line, declarator, declspecs, width)
   finish_decl (value, NULL_TREE, NULL_TREE);
   DECL_INITIAL (value) = width;
 
-  /* APPLE LOCAL Objective-C++ */
-  if (compiling_objc)
-    objc_check_decl (value);
+  /* APPLE LOCAL objc typedef */
+  /* objc_check_decl() call elided.  */
   return value;
 }
 
@@ -5999,7 +5608,7 @@ finish_struct (t, fieldlist, attributes)
 	if (pedantic)
 	  pedwarn ("%s defined inside parms",
 		   TREE_CODE (t) == UNION_TYPE ? _("union") : _("structure"));
-	else if (! flag_traditional)
+	else
 	  warning ("%s defined inside parms",
 		   TREE_CODE (t) == UNION_TYPE ? _("union") : _("structure"));
       }
@@ -6169,6 +5778,11 @@ finish_struct (t, fieldlist, attributes)
 	  else if (! saw_named_field)
 	    error_with_decl (x, "flexible array member in otherwise empty struct");
 	}
+
+      if (pedantic && TREE_CODE (t) == RECORD_TYPE
+	  && flexible_array_type_p (TREE_TYPE (x)))
+	pedwarn_with_decl (x, "invalid use of structure with flexible array member");
+
       if (DECL_NAME (x))
 	saw_named_field = 1;
     }
@@ -6242,34 +5856,28 @@ finish_struct (t, fieldlist, attributes)
   /* If this structure or union completes the type of any previous
      variable declaration, lay it out and output its rtl.  */
 
-  /* APPLE LOCAL incomplete struct list optimisation  */
   if (current_binding_level->incomplete_list != NULL_TREE)
     {
-      /* APPLE LOCAL begin incomplete struct list optimisation  */
       tree prev = NULL_TREE;
+
       for (x = current_binding_level->incomplete_list; x; x = TREE_CHAIN (x))
         {
 	  tree decl = TREE_VALUE (x);
-	  /* APPLE LOCAL end incomplete struct list optimisation  */
 
 	  if (TYPE_MAIN_VARIANT (TREE_TYPE (decl)) == TYPE_MAIN_VARIANT (t)
 	      && TREE_CODE (decl) != TYPE_DECL)
 	    {
 	      layout_decl (decl, 0);
-	      /* This is a no-op in c-lang.c or something real in objc-act.c.  */
-	      /* APPLE LOCAL Objective-C++ */
-	      if (compiling_objc)
-		objc_check_decl (decl);
+	      /* APPLE LOCAL objc typedef */
+	      /* objc_check_decl() call elided.  */
 	      rest_of_decl_compilation (decl, NULL, toplevel, 0);
 	      if (! toplevel)
 		expand_decl (decl);
-	      /* APPLE LOCAL begin incomplete struct list optimisation  */
 	      /* Unlink X from the incomplete list.  */
 	      if (prev)
 		TREE_CHAIN (prev) = TREE_CHAIN (x);
 	      else
 	        current_binding_level->incomplete_list = TREE_CHAIN (x);
-	      /* APPLE LOCAL end incomplete struct list optimisation  */
 	    }
 	  else if (!COMPLETE_TYPE_P (TREE_TYPE (decl))
 		   && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
@@ -6283,20 +5891,17 @@ finish_struct (t, fieldlist, attributes)
 		  if (TREE_CODE (decl) != TYPE_DECL)
 		    {
 		      layout_decl (decl, 0);
-		      /* APPLE LOCAL Objective-C++ */
-		      if (compiling_objc)
-			objc_check_decl (decl);
+		      /* APPLE LOCAL objc typedef */
+		      /* objc_check_decl() call elided.  */
 		      rest_of_decl_compilation (decl, NULL, toplevel, 0);
 		      if (! toplevel)
 			expand_decl (decl);
 		    }
-		  /* APPLE LOCAL begin incomplete struct list optimisation  */
 		  /* Unlink X from the incomplete list.  */
 		  if (prev)
 		    TREE_CHAIN (prev) = TREE_CHAIN (x);
 		  else
 		    current_binding_level->incomplete_list = TREE_CHAIN (x);
-		  /* APPLE LOCAL end incomplete struct list optimisation  */
 		}
 	    }
 	}
@@ -6413,7 +6018,7 @@ finish_enum (enumtype, values, attributes)
 		   min_precision (maxnode, unsign));
   if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
     {
-      tree narrowest = type_for_size (precision, unsign);
+      tree narrowest = c_common_type_for_size (precision, unsign);
       if (narrowest == 0)
 	{
 	  warning ("enumeration values exceed range of largest integer");
@@ -6426,7 +6031,7 @@ finish_enum (enumtype, values, attributes)
     precision = TYPE_PRECISION (integer_type_node);
 
   if (precision == TYPE_PRECISION (integer_type_node))
-    enum_value_type = type_for_size (precision, 0);
+    enum_value_type = c_common_type_for_size (precision, 0);
   else
     enum_value_type = enumtype;
 
@@ -6554,11 +6159,11 @@ build_enumerator (name, value)
   /* Now create a declaration for the enum value name.  */
 
   type = TREE_TYPE (value);
-  type = type_for_size (MAX (TYPE_PRECISION (type),
-			     TYPE_PRECISION (integer_type_node)),
-			((flag_traditional
-			  || TYPE_PRECISION (type) >= TYPE_PRECISION (integer_type_node))
-			 && TREE_UNSIGNED (type)));
+  type = c_common_type_for_size (MAX (TYPE_PRECISION (type),
+				      TYPE_PRECISION (integer_type_node)),
+				 (TYPE_PRECISION (type)
+				  >= TYPE_PRECISION (integer_type_node)
+				  && TREE_UNSIGNED (type)));
 
   decl = build_decl (CONST_DECL, name, type);
   DECL_INITIAL (decl) = convert (type, value);
@@ -6598,7 +6203,6 @@ start_function (declspecs, declarator, attributes)
   current_function_returns_abnormally = 0;
   warn_about_return_type = 0;
   current_extern_inline = 0;
-  c_function_varargs = 0;
   named_labels = 0;
   shadowed_labels = 0;
 
@@ -6640,23 +6244,6 @@ start_function (declspecs, declarator, attributes)
         gen_indexing_info (INDEX_FUNCTION_BEGIN, name, lineno);
     }
   /* APPLE LOCAL end indexing dpatel */
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-/* FIXME: The only functions we can currently allow in a pfe dump file
-          are static inline functions.  This is because information
-          about other kinds of function is "lost".  For example,
-          c_expand_body(), called by finish_function(), generally
-          clobbers DECL_INITIAL and DECL_ARGUMENTS.  And, of course,
-          finish_function() calls free_after_parsing() and
-          free_after_compilation() which do most of the wiping out
-          of the function body info.  So until the time comes to
-          adddress these issues, all but static inlines cause an
-          error when trying to compile into a dump file.  */
-  if (pfe_operation == PFE_DUMP)
-    if (TREE_PUBLIC (decl1) || !DECL_INLINE (decl1))
-      error ("only static inline functions are allowed in the dump file");
-#endif /* PFE */
 
   if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (TREE_TYPE (decl1))))
     {
@@ -6824,12 +6411,10 @@ start_function (declspecs, declarator, attributes)
   /* Promote the value to int before returning it.  */
   if (c_promoting_integer_type_p (restype))
     {
-      /* It retains unsignedness if traditional
-	 or if not really getting wider.  */
+      /* It retains unsignedness if not really getting wider.  */
       if (TREE_UNSIGNED (restype)
-	  && (flag_traditional
-	      || (TYPE_PRECISION (restype)
-		  == TYPE_PRECISION (integer_type_node))))
+	  && (TYPE_PRECISION (restype)
+		  == TYPE_PRECISION (integer_type_node)))
 	restype = unsigned_type_node;
       else
 	restype = integer_type_node;
@@ -6842,21 +6427,22 @@ start_function (declspecs, declarator, attributes)
   if (TREE_ADDRESSABLE (DECL_ASSEMBLER_NAME (current_function_decl)))
     TREE_ADDRESSABLE (current_function_decl) = 1;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  /* If this was a function declared as an assembly function, change
+     the state to expect to see C decls, possibly followed by assembly
+     code.  */
+  if (DECL_CW_ASM_FUNCTION (current_function_decl))
+    {
+      cw_asm_state = cw_asm_decls;
+      cw_asm_in_decl = 0;
+    }
+  /* APPLE LOCAL end CW asm blocks */
+
   immediate_size_expand = old_immediate_size_expand;
 
   start_fname_decls ();
   
   return 1;
-}
-
-/* Record that this function is going to be a varargs function.
-   This is called before store_parm_decls, which is too early
-   to call mark_varargs directly.  */
-
-void
-c_mark_varargs ()
-{
-  c_function_varargs = 1;
 }
 
 /* Store the parameter declarations into the current function declaration.
@@ -6988,7 +6574,8 @@ store_parm_decls ()
 	    pushdecl (parm);
 	}
 
-      storetags (chainon (parmtags, gettags ()));
+      /* APPLE LOCAL lookup_tag speedup */
+      storetags (parmtags);
     }
   else
     {
@@ -7045,15 +6632,6 @@ store_parm_decls ()
 	      error_with_decl (found, "parameter `%s' declared void");
 	      TREE_TYPE (found) = integer_type_node;
 	      DECL_ARG_TYPE (found) = integer_type_node;
-	      layout_decl (found, 0);
-	    }
-
-	  /* Traditionally, a parm declared float is actually a double.  */
-	  if (found && flag_traditional
-	      && TYPE_MAIN_VARIANT (TREE_TYPE (found)) == float_type_node)
-	    {
-	      TREE_TYPE (found) = double_type_node;
-	      DECL_ARG_TYPE (found) = double_type_node;
 	      layout_decl (found, 0);
 	    }
 
@@ -7190,11 +6768,7 @@ store_parm_decls ()
 			     "prototype declaration");
 			}
 		    }
-		  /* If -traditional, allow `int' argument to match
-		     `unsigned' prototype.  */
-		  else if (! (flag_traditional
-			      && TYPE_MAIN_VARIANT (TREE_TYPE (parm)) == integer_type_node
-			      && TYPE_MAIN_VARIANT (TREE_VALUE (type)) == unsigned_type_node))
+		  else
 		    {
 		      error ("argument `%s' doesn't match prototype",
 			     IDENTIFIER_POINTER (DECL_NAME (parm)));
@@ -7329,13 +6903,6 @@ finish_function (nested, can_defer_p)
 
   DECL_CONTEXT (DECL_RESULT (fndecl)) = fndecl;
 
-  /* Obey `register' declarations if `setjmp' is called in this fn.  */
-  if (flag_traditional && current_function_calls_setjmp)
-    {
-      setjmp_protect (DECL_INITIAL (fndecl));
-      setjmp_protect_args ();
-    }
-
   if (MAIN_NAME_P (DECL_NAME (fndecl)) && flag_hosted)
     {
       if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (fndecl)))
@@ -7394,6 +6961,13 @@ finish_function (nested, can_defer_p)
   free_after_compilation (cfun);
   cfun = NULL;
 
+  /* APPLE LOCAL begin loop transposition */
+  /* Perform loop tranformations before doing inlining, but do not 
+     do it if syntax only is requested. */
+  if (!flag_syntax_only && flag_loop_transpose)
+    loop_transpose(fndecl);
+  /* APPLE LOCAL end loop transposition */
+
   if (! nested)
     {
       /* Generate RTL for the body of this function.  */
@@ -7401,7 +6975,7 @@ finish_function (nested, can_defer_p)
 
       /* Let the error reporting routines know that we're outside a
 	 function.  For a nested function, this value is used in
-	 pop_c_function_context and then reset via pop_function_context.  */
+	 c_pop_function_context and then reset via pop_function_context.  */
       current_function_decl = NULL;
     }
 }
@@ -7421,7 +6995,7 @@ c_expand_deferred_function (fndecl)
     }
 }
 
-/* Generate the RTL for the body of FNDECL.  If NESTED_P is non-zero,
+/* Generate the RTL for the body of FNDECL.  If NESTED_P is nonzero,
    then we are already in the process of generating RTL for another
    function.  If can_defer_p is zero, we won't attempt to defer the
    generation of RTL.  */
@@ -7488,10 +7062,6 @@ c_expand_body (fndecl, nested_p, can_defer_p)
      not safe to try to expand expressions involving them.  */
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
-
-  /* If this is a varargs function, inform function.c.  */
-  if (c_function_varargs)
-    mark_varargs ();
 
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
@@ -7576,7 +7146,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
       /* Stop pointing to the local nodes about to be freed.
 	 But DECL_INITIAL must remain nonzero so we know this
 	 was an actual function definition.
-	 For a nested function, this is done in pop_c_function_context.
+	 For a nested function, this is done in c_pop_function_context.
 	 If rest_of_compilation set this to 0, leave it 0.  */
       if (DECL_INITIAL (fndecl) != 0)
 	DECL_INITIAL (fndecl) = error_mark_node;
@@ -7609,6 +7179,35 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 }
 
 
+/* APPLE LOCAL begin lookup_tag speedup */
+/* Check tree code for input tree.
+   If it is RECORD_TYPE, or UNION_TYPE or enum, rasie error.
+   This function is used by check_for_loop_decls ().
+*/
+static int
+check_for_loop_tags (slot, data)
+     PTR *slot;
+     PTR data ATTRIBUTE_UNUSED;
+{
+  tree t = (tree) *slot;
+  if (TREE_PURPOSE (t) != 0)
+    {
+      enum tree_code code = TREE_CODE (TREE_VALUE (t));
+      
+      if (code == RECORD_TYPE)
+	error ("`struct %s' declared in `for' loop initial declaration",
+	       IDENTIFIER_POINTER (TREE_PURPOSE (t)));
+      else if (code == UNION_TYPE)
+	error ("`union %s' declared in `for' loop initial declaration",
+	       IDENTIFIER_POINTER (TREE_PURPOSE (t)));
+      else
+	error ("`enum %s' declared in `for' loop initial declaration",
+	       IDENTIFIER_POINTER (TREE_PURPOSE (t)));
+    }
+  return 1;
+}
+/* APPLE LOCAL end lookup_tag speedup */
+
 /* Check the declarations given in a for-loop for satisfying the C99
    constraints.  */
 void
@@ -7638,23 +7237,10 @@ check_for_loop_decls ()
      interpretation, to avoid creating an extension which later causes
      problems.  */
 
-  for (t = gettags (); t; t = TREE_CHAIN (t))
-    {
-      if (TREE_PURPOSE (t) != 0)
-        {
-          enum tree_code code = TREE_CODE (TREE_VALUE (t));
-	  
-          if (code == RECORD_TYPE)
-            error ("`struct %s' declared in `for' loop initial declaration",
-                   IDENTIFIER_POINTER (TREE_PURPOSE (t)));
-          else if (code == UNION_TYPE)
-            error ("`union %s' declared in `for' loop initial declaration",
-                   IDENTIFIER_POINTER (TREE_PURPOSE (t)));
-          else
-            error ("`enum %s' declared in `for' loop initial declaration",
-                   IDENTIFIER_POINTER (TREE_PURPOSE (t)));
-        }
-    }
+  /* APPLE LOCAL lookup_tag speedup */
+  /* Use htab_traverse instead of for loop to walk tags list */
+  if (current_binding_level->tags_ht)
+    htab_traverse (current_binding_level->tags_ht, check_for_loop_tags, NULL);
 
   for (t = getdecls (); t; t = TREE_CHAIN (t))
     {
@@ -7671,9 +7257,9 @@ check_for_loop_decls ()
    that keep track of the progress of compilation of the current function.
    Used for nested functions.  */
 
-struct c_language_function
+struct language_function GTY(())
 {
-  struct language_function base;
+  struct c_language_function base;
   tree named_labels;
   tree shadowed_labels;
   int returns_value;
@@ -7688,13 +7274,13 @@ struct c_language_function
    used during compilation of a C function.  */
 
 void
-push_c_function_context (f)
+c_push_function_context (f)
      struct function *f;
 {
-  struct c_language_function *p;
-  p = ((struct c_language_function *)
-       xmalloc (sizeof (struct c_language_function)));
-  f->language = (struct language_function *) p;
+  struct language_function *p;
+  p = ((struct language_function *)
+       ggc_alloc (sizeof (struct language_function)));
+  f->language = p;
 
   p->base.x_stmt_tree = c_stmt_tree;
   p->base.x_scope_stmt_stack = c_scope_stmt_stack;
@@ -7711,11 +7297,10 @@ push_c_function_context (f)
 /* Restore the variables used during compilation of a C function.  */
 
 void
-pop_c_function_context (f)
+c_pop_function_context (f)
      struct function *f;
 {
-  struct c_language_function *p
-    = (struct c_language_function *) f->language;
+  struct language_function *p = f->language;
   tree link;
 
   /* Bring back all the labels that were shadowed.  */
@@ -7745,71 +7330,24 @@ pop_c_function_context (f)
   current_extern_inline = p->extern_inline;
   current_binding_level = p->binding_level;
 
-  free (p);
-  f->language = 0;
+  f->language = NULL;
 }
 
-/* Mark the language specific parts of F for GC.  */
+/* Copy the DECL_LANG_SPECIFIC data associated with DECL.  */
 
 void
-mark_c_function_context (f)
-     struct function *f;
-{
-  struct c_language_function *p
-    = (struct c_language_function *) f->language;
-
-  if (p == 0)
-    return;
-
-  mark_c_language_function (&p->base);
-  ggc_mark_tree (p->shadowed_labels);
-  ggc_mark_tree (p->named_labels);
-  mark_binding_level (&p->binding_level);
-}
-
-/* Copy the DECL_LANG_SPECIFIC data associated with NODE.  */
-
-void
-copy_lang_decl (decl)
+c_dup_lang_specific_decl (decl)
      tree decl;
 {
   struct lang_decl *ld;
 
   if (!DECL_LANG_SPECIFIC (decl))
     return;
-  
-  /* APPLE LOCAL PFE - expand to pfe_ggc_alloc or ggc_alloc  */
-  ld = (struct lang_decl *) GGC_ALLOC (sizeof (struct lang_decl),
-  				       PFE_ALLOC_GGC_LANG_DECL);
+
+  ld = (struct lang_decl *) ggc_alloc (sizeof (struct lang_decl));
   memcpy ((char *) ld, (char *) DECL_LANG_SPECIFIC (decl),
 	  sizeof (struct lang_decl));
   DECL_LANG_SPECIFIC (decl) = ld;
-}
-
-/* Mark the language specific bits in T for GC.  */
-
-void
-lang_mark_tree (t)
-     tree t;
-{
-  if (TREE_CODE (t) == IDENTIFIER_NODE)
-    {
-      struct lang_identifier *i = (struct lang_identifier *) t;
-      ggc_mark_tree (i->global_value);
-      ggc_mark_tree (i->local_value);
-      ggc_mark_tree (i->label_value);
-      ggc_mark_tree (i->implicit_decl);
-      ggc_mark_tree (i->error_locus);
-      ggc_mark_tree (i->limbo_value);
-    }
-  else if (TYPE_P (t) && TYPE_LANG_SPECIFIC (t))
-    ggc_mark (TYPE_LANG_SPECIFIC (t));
-  else if (DECL_P (t) && DECL_LANG_SPECIFIC (t))
-    {
-      ggc_mark (DECL_LANG_SPECIFIC (t));
-      c_mark_lang_decl (&DECL_LANG_SPECIFIC (t)->base);
-      ggc_mark_tree (DECL_LANG_SPECIFIC (t)->pending_sizes);
-    }
 }
 
 /* The functions below are required for functionality of doing
@@ -7817,7 +7355,7 @@ lang_mark_tree (t)
    functions are not called from anywhere in the C front end, but as
    these changes continue, that will change.  */
 
-/* Returns non-zero if the current statement is a full expression,
+/* Returns nonzero if the current statement is a full expression,
    i.e. temporaries created during that statement should be destroyed
    at the end of the statement.  */
 
@@ -7927,140 +7465,636 @@ build_void_list_node ()
   return t;
 }
 
-/* APPLE LOCAL PFE */
-/*-------------------------------------------------------------------*/
-#ifdef PFE
+/* Return something to represent absolute declarators containing a *.
+   TARGET is the absolute declarator that the * contains.
+   TYPE_QUALS_ATTRS is a list of modifiers such as const or volatile
+   to apply to the pointer type, represented as identifiers, possible mixed
+   with attributes.
 
-/* Replaces c_init_decl_processing() when doing a pfe load operation.
-   Create the predefined scalar types of C, and some nodes
-   representing standard constants (0, 1, (void *) 0).
-   Initialize the global binding level.
-   Make definitions for built-in primitive functions.
-   
-   Same as c_init_decl_processing () but uses precompiled header.  */
+   We return an INDIRECT_REF whose "contents" are TARGET (inside a TREE_LIST,
+   if attributes are present) and whose type is the modifier list.  */
 
-void
-pfe_c_init_decl_processing ()
+tree
+make_pointer_declarator (type_quals_attrs, target)
+     tree type_quals_attrs, target;
 {
-  /* Use the binding_level structure from the precompiled headers.  */
-  if (pfe_operation != PFE_LOAD)
-    /* Actually this is an error. Caller should never call this function
-       if not loading from the precompiled header.  */
-    return; 
-
-  /* Adds some ggc roots, and reserved words for c-parse.in.  */
-  c_parse_init ();
-  
-  /* Here global_binding_level is already initialized from pfe_compiler_state_ptr.  */
-  global_binding_level->level_chain = current_binding_level;
-  current_binding_level = global_binding_level;
-  global_binding_level->keep = keep_next_level_flag;
-  keep_next_level_flag = 0;
-  global_binding_level->keep_if_subblocks = keep_next_if_subblocks;
-  keep_next_if_subblocks = 0;
-      
-  /* We must initialize this before any builtin functions (which might have
-     attributes) are declared.  (c_common_init is too late.)  */
-  pfe_c_common_nodes_and_builtins ();
-
-  lang_type_promotes_to = simple_type_promotes_to;
-
-  pedantic_lvalues = pedantic;
-  make_fname_decl = c_make_fname_decl;
-  /* Push current bindings for the function name VAR_DECLS. */
-  start_fname_decls ();
-
-  /* APPLE LOCAL new tree dump */
-#ifdef ENABLE_DMP_TREE
-  /* For condensed tree dumps with debugger.  */
-  c_prev_lang_dump_tree_p = set_dump_tree_p (c_dump_tree_p);
-  SET_MAX_DMP_TREE_CODE(LAST_C_TREE_CODE);
-#endif
-
-  /* Record our roots.  */
-
-  ggc_add_tree_root (c_global_trees, CTI_MAX);
-  ggc_add_root (&c_stmt_tree, 1, sizeof c_stmt_tree, mark_stmt_tree);
-  ggc_add_tree_root (&c_scope_stmt_stack, 1);
-  ggc_add_tree_root (&named_labels, 1);
-  ggc_add_tree_root (&shadowed_labels, 1);
-  ggc_add_root (&current_binding_level, 1, sizeof current_binding_level,
-		mark_binding_level);
-  ggc_add_root (&label_level_chain, 1, sizeof label_level_chain,
-		mark_binding_level);
-  ggc_add_tree_root (&static_ctors, 1);
-  ggc_add_tree_root (&static_dtors, 1);
+  tree quals, attrs;
+  tree itarget = target;
+  split_specs_attrs (type_quals_attrs, &quals, &attrs);
+  if (attrs != NULL_TREE)
+    itarget = tree_cons (attrs, target, NULL_TREE);
+  return build1 (INDIRECT_REF, quals, itarget);
 }
 
-/* Freeze/thaw struct binding_level.  */
-void
-pfe_freeze_thaw_binding_level (pp)
-     struct binding_level **pp;
-{
-  struct binding_level *p;
-  
-  /* By convention, pp is NULL when called from pfe_freeze_thaw_compiler_state()
-     to freeze/thaw the global_binding_level and move it to or from the pfe
-     header.  */
-     
-  if (pp == NULL)
+/* APPLE LOCAL begin loop transposition (currently unsafe) */
+/* This pass on trees is to transpose loops so that memory systems will 
+   not be overtaxed.
+   So it changes:
+    for(i=0;i<size0;i++)
+      for(j=0;j<size1;j++)
+        a = a + pointer[j][i];
+   into
+    for(j=0;j<size1;j++)
+      for(i=0;i<size0;i++)
+	a = a + pointer[j][i];
+
+   and
+    for(i=0;i<size0;i++)
+      {
+        for(j=0;j<size1;j++)
+          {
+            a = a + pointer[j][i];
+          }
+        pointer[i][i] = b * pointer[i][i];
+      }
+   into
+    for(j=0;j<size1;j++)
+      {
+        for(i=0;i<size0;i++)
+          {
+            a = a + pointer[j][i];
+          }
+      }
+    for(j=0;j<size1;j++)
+      {
+        pointer[i][i] = b * pointer[i][i];
+      }
+
+   Note this is experimental because it does not always get it right,
+   but works on SPEC 2000 and the bootstrap of gcc.
+   Here is a case it miscompiles:
+
+    struct {
+	double unew[1782225];
+    } COMMON;
+
+    double swimneg_1()
     {
-      if (PFE_FREEZING)
-	{
-	  pfe_compiler_state_ptr->global_binding_level = global_binding_level;
-	  p = PFE_FREEZE_THAW_PTR (&pfe_compiler_state_ptr->global_binding_level);
+	double ucheck = 0;
+	int i, j;
+	for(i = 1; i <= 1334;i++) {
+	    for(j = 1;j <= 1334;j++) {
+		ucheck += COMMON.unew[(i-1) + 1335*(j-1) ];
+	    }
+	    COMMON.unew[i + 1335*(i)] *= 2;
 	}
-      else
-	{
-	  p = PFE_FREEZE_THAW_PTR (&pfe_compiler_state_ptr->global_binding_level);
-	  global_binding_level = pfe_compiler_state_ptr->global_binding_level;
-	}
-    } 
-  else
-    p = PFE_FREEZE_THAW_PTR (pp);
-  
-  while (p)
-    {
-      PFE_FREEZE_THAW_WALK (p->names);
-      PFE_FREEZE_THAW_WALK (p->tags);
-      PFE_FREEZE_THAW_WALK (p->shadowed);
-      PFE_FREEZE_THAW_WALK (p->blocks);
-      PFE_FREEZE_THAW_WALK (p->this_block);
-      PFE_FREEZE_THAW_WALK (p->incomplete_list);
-      PFE_FREEZE_THAW_WALK (p->parm_order);
-      
-      p = PFE_FREEZE_THAW_PTR (&p->level_chain);
+	return ucheck;
     }
-}
 
-/* Freeze/thaw struct c_language_function.   */
-void 
-pfe_freeze_thaw_language_function (pp)
-     struct language_function **pp;
+    The loops are incorrectly transposed because it does not know 
+    that the modification of
+    COMMON.unew_[icheck_ + 1335*icheck_] (in the outer loop)
+    needs to be done right after the inner loop. */
+
+static tree perform_loop_transpose PARAMS ((tree *, int *, void *));
+static tree tree_contains_1 PARAMS ((tree *, int *, void *));
+static bool tree_contains PARAMS ((tree, tree));
+static tree should_transpose_for_loops_1 PARAMS ((tree *, int *, void *));
+static bool should_transpose_for_loops PARAMS ((tree, tree, tree, tree*));
+static tree find_tree_with_code_1 PARAMS ((tree *, int *, void *));
+static tree find_tree_with_code PARAMS ((tree, enum tree_code));
+static tree find_pointer PARAMS ((tree));
+
+static tree
+find_tree_with_code_1 (tp, walk_subtrees, data)
+    tree *tp;
+    int *walk_subtrees ATTRIBUTE_UNUSED;
+    void *data;
 {
-  struct c_language_function *p;
-  
-  p = (struct c_language_function *)PFE_FREEZE_THAW_PTR (pp);
-  if (!p)
-    return;
-  
-  pfe_freeze_thaw_common_language_function (&p->base);
-  PFE_FREEZE_THAW_WALK (p->named_labels);
-  PFE_FREEZE_THAW_WALK (p->shadowed_labels);
-  pfe_freeze_thaw_binding_level (&p->binding_level);
+  if (*tp == NULL_TREE)
+    return NULL_TREE;
+  if (TREE_CODE (*tp) == *((enum tree_code *)data))
+    return *tp;
+  return NULL_TREE;
 }
 
-/* Set the current_binding_level->names.  */
+static tree find_tree_with_code (body, code)
+    tree body;
+    enum tree_code code;
+{
+  enum tree_code temp = code;
+  return walk_tree_without_duplicates (&body, find_tree_with_code_1, (void *)&temp);
+}
+
+static tree
+find_pointer (t)
+    tree t;
+{
+  tree temp2 = find_tree_with_code (t, ARRAY_REF);
+  if (temp2)
+    return TREE_OPERAND (temp2, 0);
+  temp2 = find_tree_with_code (t, INDIRECT_REF);
+  if (temp2)
+    {
+      temp2 = TREE_OPERAND (temp2, 0);
+      if (TREE_CODE (temp2) == PLUS_EXPR)
+	{
+	  temp2 = TREE_OPERAND (temp2, 0);
+	  if (TREE_CODE (temp2) == PARM_DECL || TREE_CODE (temp2) == VAR_DECL)
+	    return temp2;
+	  return find_pointer (temp2);
+	}
+    }
+ return NULL_TREE;
+}
+
+typedef struct should_transpose_for_loops_t
+{
+  tree inner_var;
+  tree outer_var;
+  bool doit;
+  tree already_modified;
+} should_transpose_for_loops_t;
+
+/* If the transposition should be done, set data->doit to true and
+   return NULL.  If it should not, set data->doit to false and 
+   return *tp. */
+
+static tree
+should_transpose_for_loops_1 (tp, walk_subtrees, data)
+    tree *tp;
+    int *walk_subtrees;
+    void *data;
+{
+  tree assignment_to = *tp;
+  should_transpose_for_loops_t *temp = (should_transpose_for_loops_t*)data;
+  tree inner_var = temp->inner_var;
+  tree outer_var = temp->outer_var;
+  if (*tp == NULL_TREE)
+    return NULL_TREE;
+  /* We cannot do the transposition if any of these are in the loop. */
+  if (TREE_CODE (*tp) == LABEL_DECL || TREE_CODE (*tp) == GOTO_STMT 
+      || TREE_CODE (*tp) == FOR_STMT || TREE_CODE (*tp) == DO_STMT
+      || TREE_CODE (*tp) == WHILE_STMT || TREE_CODE (*tp) == IF_STMT
+      || TREE_CODE (*tp) == BREAK_STMT || TREE_CODE (*tp) == CONTINUE_STMT 
+      || TREE_CODE (*tp) == RETURN_EXPR)
+    {
+      temp->doit = false;
+      return *tp;
+    }
+  if (TREE_CODE (assignment_to) == MODIFY_EXPR)
+    {
+      tree temp1;
+      tree temp2 = find_pointer (TREE_OPERAND (assignment_to, 0));
+      /* We cannot do the transposition because the pointer temp2 is modified 
+         with a value dependent on itself.
+         (Note this could be better if it is only dependent on a non-forward 
+         loop dependent). */
+      if (temp2 != NULL_TREE 
+          && tree_contains (TREE_OPERAND (assignment_to, 1), temp2))
+        {
+          temp->doit = false;
+          return *tp;
+        }
+      for (temp1 = temp->already_modified;
+	   temp1 != NULL_TREE;
+	   temp1 = TREE_CHAIN (temp1))
+	{
+          tree temp3 = TREE_VALUE(temp1);
+          tree temp4 = TREE_OPERAND (assignment_to, 1);
+          /* We cannot do the transposition because the pointer temp3 is 
+             modified with a value dependent on itself or already has 
+             been modified. */
+          if (tree_contains (temp4, temp3)
+              || (temp2 != NULL_TREE && temp3 == temp2))
+            {
+              temp->doit = false;
+              return *tp;
+            }
+        }
+      /* If it is non-null, add temp2 to the list of already modified 
+	 pointers. */
+      if(temp2 != NULL_TREE)
+	temp->already_modified = 
+	       tree_cons(NULL_TREE, temp2, temp->already_modified);
+    }
+  /* Check for pointer[inner][outer], pointer[inner*outersize+outer] and 
+     array[inner][outer].  */
+  if ((TREE_CODE (assignment_to) == INDIRECT_REF 
+       && TREE_CODE (TREE_OPERAND (assignment_to, 0)) == PLUS_EXPR)
+      || (TREE_CODE (assignment_to) == ARRAY_REF 
+          && TREE_CODE (TREE_OPERAND (assignment_to, 1)) == PLUS_EXPR))
+    {
+      tree plus1_expr_assignment = TREE_OPERAND (assignment_to, 
+                            TREE_CODE (assignment_to) == ARRAY_REF ? 1 : 0);
+      tree side0 = TREE_OPERAND (plus1_expr_assignment, 0);
+      tree side1 = TREE_OPERAND (plus1_expr_assignment, 1);
+      STRIP_NOPS (side0);
+      STRIP_NOPS (side1);
+      /* This handles a[inner][outer].  */
+      if ((TREE_CODE (side0) == INDIRECT_REF
+            && tree_contains (side0, inner_var) 
+            && !tree_contains (side0, outer_var) 
+            && tree_contains (side1, outer_var)
+            && !tree_contains (side1, inner_var))
+          || (TREE_CODE (side1) == INDIRECT_REF
+              && tree_contains (side1, inner_var) 
+              && !tree_contains (side1, outer_var) 
+              && tree_contains (side0, outer_var)
+              && !tree_contains (side0, inner_var)))
+        {
+          *walk_subtrees = 0; /* already walked them */
+          temp->doit = true;
+          return NULL_TREE;
+        } 
+      else
+        {
+          tree side = NULL_TREE;
+          /* Handle array[inner*size+outer+offset] and pointer[inner*size+outer]
+             (FIXME need to handle array[inner*size+outer] 
+             (and pointer[inner*size+outer+offset]?) )*/
+          if (tree_contains (side0, inner_var) 
+              && tree_contains (side0, outer_var))
+            side = side0;
+          else if (tree_contains (side1, inner_var) 
+                   && tree_contains (side1, outer_var))
+            side = side1;
+          if (side && (TREE_CODE (side) == MULT_EXPR))
+            {
+              tree temp0 = TREE_OPERAND (side, 0);
+              tree temp1 = TREE_OPERAND (side, 1);
+              STRIP_NOPS (temp0);
+              STRIP_NOPS (temp1);
+              if (tree_contains (temp0, inner_var) 
+                  && tree_contains (temp0, outer_var))
+                side = temp0;
+              else if (tree_contains (temp1, inner_var) 
+                       && tree_contains (temp1, outer_var))
+                side = temp1;
+              else
+                side = NULL_TREE;
+            }
+          if (side && (TREE_CODE (side) == PLUS_EXPR))
+            {
+              tree side10 = TREE_OPERAND (side, 0);
+              tree side11 = TREE_OPERAND (side, 1);
+              STRIP_NOPS (side10);
+              STRIP_NOPS (side11);
+              if ((TREE_CODE (side10) == MULT_EXPR
+                    && tree_contains (side10, inner_var) 
+                    && !tree_contains (side10, outer_var)
+                    && tree_contains (side11, outer_var)
+		    && !tree_contains (side11, inner_var))
+                  || (TREE_CODE (side11) == MULT_EXPR
+                      && tree_contains (side11, inner_var)  
+                      && !tree_contains (side11, outer_var) 
+                      && tree_contains (side10, outer_var)
+                      && !tree_contains (side10, inner_var)))
+                {
+                  *walk_subtrees = 0; /* already walked them */
+                  temp->doit = true;
+                  return NULL;
+                }
+              else
+                {
+                  temp->doit = false;
+                  return *tp;
+                }
+            }
+        }
+    }
+  /* We cannot do the transposition if there is an assignment to the 
+     outer_var or inner_var.  */
+  if (TREE_CODE (assignment_to) == MODIFY_EXPR)
+    {
+      tree side1 = TREE_OPERAND (assignment_to, 1);
+      STRIP_NOPS (side1);
+      if (side1 == outer_var || side1 == inner_var)
+        {
+          temp->doit = false;
+          return *tp;
+        }
+    }
+  return NULL_TREE;
+}
+
+/* Return true if the loops should be interchanged based on body, inner
+   variable and outer variable, and also set already_modified to the pointers
+   that are modified during the loop.  */
+
+static bool
+should_transpose_for_loops (body, inner_var, outer_var, already_modified)
+    tree body, inner_var, outer_var, *already_modified;
+{
+  should_transpose_for_loops_t temp;
+  temp.inner_var = inner_var;
+  temp.outer_var = outer_var;
+  temp.already_modified = *already_modified;
+  temp.doit = false;
+  if (walk_tree (&body, should_transpose_for_loops_1, &temp, NULL))
+    return false;
+  *already_modified = temp.already_modified;
+  return temp.doit;
+}
+
+static tree
+tree_contains_1 (tp, walk_subtrees, data)
+    tree *tp;
+    int *walk_subtrees ATTRIBUTE_UNUSED;
+    void *data;
+{
+  if (*tp == data)
+    return data;
+  return NULL_TREE;
+}
+
+static bool
+tree_contains (body, x)
+     tree body, x;
+{
+  return walk_tree_without_duplicates (&body, tree_contains_1, (void *)x)
+       != NULL_TREE;
+}
+
+/* Look for two nested loops and transpose them if this is a good idea. 
+   Currently limited to FOR statements in C.  */
+
+static tree
+perform_loop_transpose (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees;
+     void *data ATTRIBUTE_UNUSED;
+{
+  tree already_modified = NULL_TREE;
+  if (*tp == NULL_TREE)
+    return NULL_TREE;
+  if (TREE_CODE (*tp) == FOR_STMT)
+    {
+      tree outer_loop = *tp;
+      tree inner_loop = TREE_OPERAND (outer_loop, 3);
+      tree before_inner_loop = NULL_TREE;
+      tree right_before_inner_loop = NULL_TREE;
+      /* If the loops contains a call or an if statement or is empty, 
+         do not do the transposition.  */
+      if (inner_loop == NULL_TREE 
+          || find_tree_with_code (inner_loop, CALL_EXPR) != NULL_TREE
+          || find_tree_with_code (inner_loop, IF_STMT) != NULL_TREE)
+          return NULL_TREE;
+      /* A compound stmt after the outer for loop.  */
+      if (TREE_CODE (inner_loop) == COMPOUND_STMT 
+          && TREE_OPERAND (inner_loop, 0) != NULL_TREE
+          && TREE_CODE (TREE_OPERAND (inner_loop, 0)) == SCOPE_STMT)
+        {
+          tree previous = NULL_TREE;
+          before_inner_loop = TREE_OPERAND (inner_loop, 0);
+          
+          /* If the outer loop contains variable definitions, do not 
+             do the transposition.  FIXME: if the only definition is
+             the inner loop variable we could do it.  */
+          if (TREE_OPERAND (before_inner_loop, 0) != NULL_TREE)
+	    return NULL_TREE;
+          
+          /* Find the inner loop if there is any.
+             FIXME: will not work if the inner loop is another compound loop.  */
+          for (inner_loop = before_inner_loop;
+               inner_loop != NULL_TREE && TREE_CODE (inner_loop) != FOR_STMT;
+               inner_loop = TREE_CHAIN (inner_loop))
+	    previous = inner_loop;
+          
+          /* If there is no inner loop do not do anything.  */
+          if (inner_loop == NULL_TREE)
+	    return NULL_TREE;
+          
+          /* If the inner_loop is equal to the start of the compound 
+             statement set the start to NULL. */
+          if (inner_loop == before_inner_loop)
+            before_inner_loop = NULL_TREE;
+          
+          right_before_inner_loop = previous;
+        }
+      /* We found the inner loop.  */
+      if (inner_loop != NULL_TREE && TREE_CODE (inner_loop) == FOR_STMT)
+        {
+          tree outer_init = TREE_OPERAND (outer_loop, 0);
+          tree inner_init = TREE_OPERAND (inner_loop, 0);
+          /* FIXME: does not handle C99/C++ style for init statements */
+          if (outer_init != NULL_TREE && inner_init != NULL_TREE
+              && TREE_CODE (outer_init) == EXPR_STMT 
+              && TREE_CODE (inner_init) == EXPR_STMT)
+            {
+              tree outer_init_expr = TREE_OPERAND (outer_init, 0);
+              tree inner_init_expr = TREE_OPERAND (inner_init, 0);
+              if (outer_init_expr != NULL_TREE && inner_init_expr != NULL_TREE
+                  && TREE_CODE (inner_init_expr) == MODIFY_EXPR
+                  && TREE_CODE (outer_init_expr) == MODIFY_EXPR)
+                {
+                  tree outer_var = TREE_OPERAND (outer_init_expr, 0);
+                  tree inner_var = TREE_OPERAND (inner_init_expr, 0);
+                  /* The inner_var should be independent of outer_var */
+                  if (!tree_contains (TREE_OPERAND (inner_init_expr, 1), 
+                                      outer_var)
+                      && !tree_contains (TREE_OPERAND (inner_loop, 1), 
+                                         outer_var)
+                      && !tree_contains (TREE_OPERAND (inner_loop, 2), 
+                                         outer_var)
+                      /* The outer loop variable should be independent of 
+                         inner_var also. */
+                      && !tree_contains (TREE_OPERAND (outer_loop, 1), 
+                                         inner_var)
+                      && !tree_contains (TREE_OPERAND (outer_loop, 2), 
+                                         inner_var))
+                    {
+                      tree inner_loop_body = TREE_OPERAND (inner_loop, 3);
+                      if (should_transpose_for_loops (inner_loop_body, 
+                               inner_var, outer_var, &already_modified))
+                        {
+                          tree newouter;
+                          tree newinner;
+                          /* Is the outter loop's body a compound statement?  */
+                          if (TREE_CODE (TREE_OPERAND (outer_loop, 3)) 
+                              == COMPOUND_STMT)
+                            {
+                              tree after_loop = TREE_CHAIN (inner_loop);
+                              tree find;
+                              tree allloops_stmt;
+                              tree outloopafter;
+                              tree outloopbefore;
+                              allloops_stmt = build_stmt (COMPOUND_STMT, 
+                                                          NULL_TREE);
+                              outloopbefore = build_stmt (FOR_STMT, outer_init,
+                                                 TREE_OPERAND (outer_loop, 1),
+                                                 TREE_OPERAND (outer_loop, 2), 
+                                                 NULL_TREE);
+                              outloopafter = build_stmt (FOR_STMT, outer_init,
+                                                 TREE_OPERAND (outer_loop, 1),
+                                                 TREE_OPERAND (outer_loop, 2), 
+                                                 NULL_TREE);
+                              newinner = build_stmt (FOR_STMT, outer_init,
+					         TREE_OPERAND (outer_loop, 1),
+                                                 TREE_OPERAND (outer_loop, 2), 
+                                                 inner_loop_body);
+                              newouter = build_stmt (FOR_STMT, inner_init, 
+                                                 TREE_OPERAND (inner_loop, 1),
+                                                 TREE_OPERAND (inner_loop, 2), 
+                                                 newinner);
+                              /* This new compound statement has no scope. */
+                              COMPOUND_STMT_NO_SCOPE (allloops_stmt) = 1;
+                              /* Move to the next statement in the chain of 
+                                 before_inner_loop if it is a scope statement */
+                              if (before_inner_loop != NULL_TREE 
+                                  && TREE_CODE (before_inner_loop) 
+                                     == SCOPE_STMT)
+                                {
+                                  if (right_before_inner_loop != NULL_TREE)
+                                    TREE_CHAIN (right_before_inner_loop) 
+                                       = NULL_TREE;
+                                  before_inner_loop 
+                                      = TREE_CHAIN (before_inner_loop);
+                                }
+                              /* Are there statements before the inner loop? */
+                              if (before_inner_loop != NULL_TREE)
+                                {
+                                  tree beforeloopbody 
+                                     = build_stmt (COMPOUND_STMT, NULL_TREE);
+                                  COMPOUND_STMT_NO_SCOPE (beforeloopbody) = 1;
+                                  beforeloopbody 
+                                     = build_stmt (COMPOUND_STMT, NULL_TREE);
+                                  COMPOUND_BODY (beforeloopbody) 
+                                     = before_inner_loop;
+                                  FOR_BODY (outloopbefore) = beforeloopbody;
+				  /* If the outer loop body depends on the inner
+				     variable we can't do the transposition. */
+				  if (tree_contains (outloopbefore, inner_var))
+				    return NULL_TREE;
+
+                                  for (find = already_modified;
+                                       find != NULL_TREE;
+                                       find = TREE_CHAIN (find))
+				    {
+                                      tree temp3 = TREE_VALUE(find);
+                                      if (tree_contains(outloopbefore, temp3))
+					/* We cannot do the transposition
+					   because there is a reference to
+					   something modified in the outer loop. */
+					return NULL_TREE;
+				    }
+                                  /* If the new before loop body is independent
+                                     of the outer variable, remove the loop 
+                                     and make the body the first statement in 
+                                     the chain of all the statements. */
+                                  if (!tree_contains (beforeloopbody, 
+                                                      outer_var))
+                                    {
+                                      COMPOUND_BODY (allloops_stmt) 
+                                           = beforeloopbody;
+                                      TREE_CHAIN (beforeloopbody) = newouter;
+                                    } 
+                                  else
+                                    {
+                                      COMPOUND_BODY (allloops_stmt) 
+                                          = outloopbefore;
+                                      TREE_CHAIN (outloopbefore) = newouter;
+                                    }
+                                }
+                              else
+				{
+				  COMPOUND_BODY (allloops_stmt) = newouter;
+				  outloopbefore = NULL_TREE;
+                                }
+                              if (after_loop != NULL_TREE 
+                                  && TREE_CHAIN (after_loop) == NULL_TREE)
+                                {
+                                  if (TREE_CODE (after_loop) != SCOPE_STMT)
+				    FOR_BODY (outloopafter) = after_loop;
+                                  else
+				    outloopafter = NULL_TREE;
+                                 } 
+                               else
+                                 {
+                                   tree afterloopbody 
+                                       = build_stmt (COMPOUND_STMT, NULL_TREE);
+                                   tree temp5;
+                                   COMPOUND_STMT_NO_SCOPE (afterloopbody) = 1;
+                                   COMPOUND_BODY (afterloopbody) = after_loop;
+                                   FOR_BODY (outloopafter) = afterloopbody;
+                                   for (temp5 = after_loop;
+                                        temp5 != NULL_TREE;
+                                        temp5 = TREE_CHAIN (temp5))
+                                     if (TREE_CODE (TREE_CHAIN (temp5)) 
+                                           == SCOPE_STMT)
+                                       TREE_CHAIN (temp5) = NULL_TREE;
+				   /* If the outer loop body depends on the inner
+				      variable, we cannot do the transposition. */
+				   if (tree_contains (afterloopbody, inner_var))
+				     return NULL_TREE;
+				   /* FIXME: need to check for the afterloopbody
+				      containing a pointer that gets modified
+				      before the inner loop has a chance to
+				      read it. */
+                                   for (find = already_modified;
+                                        find != NULL_TREE;
+                                        find = TREE_CHAIN (find))
+                                     {
+                                       tree temp3 = TREE_VALUE(find);
+				       /* If something references something that
+					  is stored into we cannot do the
+					  transposition. */
+                                       if (tree_contains(afterloopbody, temp3))
+					 return NULL_TREE;
+                                     }
+                                   /* If the stuff after the inner_loop is not 
+                                      dependent on the loop variable pull it 
+                                      out of the loop. */
+                                   if (!tree_contains (afterloopbody, outer_var))
+				     outloopafter = afterloopbody;
+                                }
+                              TREE_CHAIN (newouter) = outloopafter;
+                              if (outloopafter == NULL_TREE 
+                                  && outloopbefore == NULL_TREE)
+                                  allloops_stmt = newouter;
+                              TREE_CHAIN (allloops_stmt) 
+                                   = TREE_CHAIN (outer_loop);
+                              *walk_subtrees = 0;
+                              *tp = allloops_stmt;
+                              return NULL_TREE;
+                            }
+                          /* Do the transposition. */
+                          newinner = build_stmt (FOR_STMT, outer_init,
+                                                 TREE_OPERAND (outer_loop, 1),
+                                                 TREE_OPERAND (outer_loop, 2), 
+                                                 inner_loop_body);
+                          newouter = build_stmt (FOR_STMT, inner_init, 
+                                                 TREE_OPERAND (inner_loop, 1),
+                                                 TREE_OPERAND (inner_loop, 2), 
+                                                 newinner);
+                          TREE_CHAIN (newouter) = TREE_CHAIN (outer_loop);
+                          *tp = newouter;
+                          *walk_subtrees = 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+  return NULL_TREE;
+}
+
+/* The main entry point for the transposition.  */
 void
-pfe_setdecls (names)
-  tree names;
+loop_transpose (fn)
+  tree fn;
 {
-  current_binding_level->names = names;
+  timevar_push (TV_LOOP_TRANSPOSE);
+  walk_tree (&DECL_SAVED_TREE (fn), perform_loop_transpose, NULL, NULL);
+  timevar_pop (TV_LOOP_TRANSPOSE);
 }
+/* APPLE LOCAL end loop transposition */
 
-/*-------------------------------------------------------------------*/
+/* APPLE LOCAL begin CW asm blocks */
+/* Look for a struct or union tag, but quietly; don't complain if neither
+   is found, and don't autocreate. Used to identify struct/union tags
+   mentioned in CW asm operands.  */
+tree
+lookup_struct_or_union_tag (tree typename)
+{
+  tree rslt = lookup_tag (RECORD_TYPE, typename, current_binding_level, 0);
 
-DEFINE_CHECK_STRUCT_FUNCTION (c_language_function)
-DEFINE_CHECK_STRUCT_FUNCTION (binding_level)
+  pending_invalid_xref = 0;
+  if (!rslt)
+    rslt = lookup_tag (UNION_TYPE, typename, current_binding_level, 0);
+  pending_invalid_xref = 0;
+  return rslt;
+}
+/* APPLE LOCAL end CW asm blocks */
 
-#endif /* PFE */
+#include "gt-c-decl.h"

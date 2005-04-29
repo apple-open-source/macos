@@ -1,0 +1,32 @@
+#!/bin/sh
+MAN2HTML=/usr/bin/man2html
+MANSH=/home/httpd/cgi-aux/man/mansearchhelp.aux
+
+# Do we need lynxcgi URLs? For the moment our criterion is
+# 1) HTTP_USER_AGENT=Lynx*  and 2) HTTP_HOST is unset.
+AGENT="${HTTP_USER_AGENT-unknown}"
+case "$AGENT" in
+    Lynx*|lynx*)
+	HH="${HTTP_HOST-nohh}"
+	;;
+    *)
+	HH=nolynx
+	;;
+esac
+
+SERVER="${SERVER_NAME-localhost}"
+case "$HH" in
+    nohh)
+	CG="lynxcgi:/home/httpd/cgi-bin/man"
+	;;
+    *)
+	CG="http://$SERVER/cgi-bin/man"
+	;;
+esac
+
+if [ -r $MANSH ]; then
+	sed s#%cg#$CG#g $MANSH
+else
+	$MAN2HTML -E "man2html: cannot open $MANSH"
+fi
+exit 0

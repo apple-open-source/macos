@@ -1,6 +1,6 @@
 /**
  *******************************************************************************
- * Copyright (C) 2001-2003, International Business Machines Corporation and    *
+ * Copyright (C) 2001-2004, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  *
@@ -25,11 +25,8 @@ U_NAMESPACE_END
 
 #else
 
-#include "unicode/uobject.h"
 #include "unicode/unistr.h"
-#include "unicode/chariter.h"
 #include "unicode/locid.h"
-#include "unicode/ubrk.h"
 #include "unicode/strenum.h"
 
 #include "hash.h"
@@ -78,16 +75,16 @@ class U_COMMON_API LocaleKey : public ICUServiceKey {
      */
     static LocaleKey* createWithCanonicalFallback(const UnicodeString* primaryID, 
                                                   const UnicodeString* canonicalFallbackID,
-												  UErrorCode& status);
-	    
+                                                  UErrorCode& status);
+
     /**
      * Create a LocaleKey with canonical primary and fallback IDs.
      */
     static LocaleKey* createWithCanonicalFallback(const UnicodeString* primaryID, 
                                                   const UnicodeString* canonicalFallbackID, 
                                                   int32_t kind,
-												  UErrorCode& status);
-	    
+                                                  UErrorCode& status);
+
   protected:
     /**
      * PrimaryID is the user's requested locale string,
@@ -157,13 +154,14 @@ class U_COMMON_API LocaleKey : public ICUServiceKey {
     /**
      * UObject boilerplate.
      */
-    static inline UClassID getStaticClassID() { 
-        return (UClassID)&fgClassID;
-    }
+    static UClassID U_EXPORT2 getStaticClassID();
 
-    virtual UClassID getDynamicClassID() const {
-        return getStaticClassID();
-    }
+    virtual UClassID getDynamicClassID() const;
+
+    /**
+     * Destructor.
+     */
+    virtual ~LocaleKey();
 
 #ifdef SERVICE_DEBUG
  public:
@@ -171,8 +169,6 @@ class U_COMMON_API LocaleKey : public ICUServiceKey {
     virtual UnicodeString& debugClass(UnicodeString& result) const;
 #endif
 
- private:
-    static const char fgClassID;
 };
 
 /*
@@ -265,7 +261,7 @@ protected:
      * Return true if this id is one the factory supports (visible or 
      * otherwise).
      */
- 	virtual UBool isSupportedID(const UnicodeString& id, UErrorCode& status) const;
+     virtual UBool isSupportedID(const UnicodeString& id, UErrorCode& status) const;
 
    /**
      * Return the set of ids that this factory supports (visible or 
@@ -274,17 +270,13 @@ protected:
      */
     virtual const Hashtable* getSupportedIDs(UErrorCode& status) const;
 
- public:
+public:
     /**
      * UObject boilerplate.
      */
-    static inline UClassID getStaticClassID() { 
-        return (UClassID)&fgClassID;
-    }
+    static UClassID U_EXPORT2 getStaticClassID();
 
-    virtual UClassID getDynamicClassID() const {
-        return getStaticClassID();
-    }
+    virtual UClassID getDynamicClassID() const;
 
 #ifdef SERVICE_DEBUG
  public:
@@ -292,8 +284,6 @@ protected:
     virtual UnicodeString& debugClass(UnicodeString& result) const;
 #endif
 
- private:
-    static const char fgClassID;
 };
 
 /*
@@ -338,23 +328,19 @@ class U_COMMON_API SimpleLocaleKeyFactory : public LocaleKeyFactory {
     void updateVisibleIDs(Hashtable& result, UErrorCode& status) const;
 
  protected:
-	/**
+    /**
      * Return true if this id is equal to the locale name.
      */
- 	virtual UBool isSupportedID(const UnicodeString& id, UErrorCode& status) const;
+    virtual UBool isSupportedID(const UnicodeString& id, UErrorCode& status) const;
 
 
- public:
+public:
     /**
      * UObject boilerplate.
      */
-    static inline UClassID getStaticClassID() { 
-        return (UClassID)&fgClassID;
-    }
+    static UClassID U_EXPORT2 getStaticClassID();
 
-    virtual UClassID getDynamicClassID() const {
-        return getStaticClassID();
-    }
+    virtual UClassID getDynamicClassID() const;
 
 #ifdef SERVICE_DEBUG
  public:
@@ -362,8 +348,6 @@ class U_COMMON_API SimpleLocaleKeyFactory : public LocaleKeyFactory {
     virtual UnicodeString& debugClass(UnicodeString& result) const;
 #endif
 
- private:
-    static const char fgClassID;
 };
 
 /*
@@ -389,10 +373,17 @@ class U_COMMON_API ICUResourceBundleFactory : public LocaleKeyFactory
     ICUResourceBundleFactory();
 
     /**
-     * A service factory based on ICU resource data in resources
-     * with the given name.
+     * A service factory based on ICU resource data in resources with
+     * the given name.  This should be a 'path' that can be passed to
+     * ures_openAvailableLocales, such as U_ICUDATA or U_ICUDATA_COLL.
+     * The empty string is equivalent to U_ICUDATA.
      */
     ICUResourceBundleFactory(const UnicodeString& bundleName);
+
+    /**
+     * Destructor
+     */
+    virtual ~ICUResourceBundleFactory();
 
 protected:
     /**
@@ -406,17 +397,13 @@ protected:
      */
     virtual UObject* handleCreate(const Locale& loc, int32_t kind, const ICUService* service, UErrorCode& status) const;
 
- public:
+public:
     /**
      * UObject boilerplate.
      */
-    virtual UClassID getDynamicClassID() const {
-        return getStaticClassID();
-    }
+    static UClassID U_EXPORT2 getStaticClassID();
+    virtual UClassID getDynamicClassID() const;
 
-    static UClassID getStaticClassID() { 
-        return (UClassID)&fgClassID;
-    }
 
 #ifdef SERVICE_DEBUG
  public:
@@ -424,8 +411,6 @@ protected:
     virtual UnicodeString& debugClass(UnicodeString& result) const;
 #endif
 
- private:
-    static const char fgClassID;
 };
 
 /*
@@ -562,7 +547,6 @@ public:
   static UnicodeString& initNameFromLocale(const Locale& locale, UnicodeString& result);
   static const Hashtable* getAvailableLocaleNames(const UnicodeString& bundleID);
   static UBool isFallbackOf(const UnicodeString& root, const UnicodeString& child);
-  static UBool cleanup(void);
 };
 
 U_NAMESPACE_END

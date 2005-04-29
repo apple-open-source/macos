@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/xtrans/Xtransint.h,v 3.35 2002/11/26 01:12:30 dawes Exp $ */
+/* $XFree86: xc/lib/xtrans/Xtransint.h,v 3.42 2003/11/29 01:48:28 dawes Exp $ */
 
 /* Copyright 1993, 1994 NCR Corporation - Dayton, Ohio, USA
  *
@@ -81,106 +81,107 @@ from The Open Group.
 #endif
 
 #ifdef WIN32
-#define _WILLWINSOCK_
+# define _WILLWINSOCK_
 #endif
 
 #include "Xtrans.h"
 
 #ifdef XTRANSDEBUG
-#include <stdio.h>
+# include <stdio.h>
 #endif /* XTRANSDEBUG */
 
 #include <errno.h>
 
 #ifndef WIN32
-#ifndef Lynx
-#include <sys/socket.h>
-#else
-#include <socket.h>
-#endif
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#ifdef __UNIXOS2__
-#include <sys/ioctl.h>
-#endif
+# ifndef Lynx
+#  include <sys/socket.h>
+# else
+#  include <socket.h>
+# endif
+# include <netinet/in.h>
+# include <arpa/inet.h>
+# ifdef __UNIXOS2__
+#  include <sys/ioctl.h>
+# endif
 
 /*
  * Moved the setting of NEED_UTSNAME to this header file from Xtrans.c,
  * to avoid a race condition. JKJ (6/5/97)
  */
 
-#if (defined(_POSIX_SOURCE) && !defined(AIXV3) && !defined(__QNX__)) || defined(hpux) || defined(USG) || defined(SVR4) || defined(SCO)
-#ifndef NEED_UTSNAME
-#define NEED_UTSNAME
-#endif
-#include <sys/utsname.h>
-#endif
+# if (defined(_POSIX_SOURCE) && !defined(AIXV3) && !defined(__QNX__)) || defined(hpux) || defined(USG) || defined(SVR4) || defined(SCO)
+#  ifndef NEED_UTSNAME
+#   define NEED_UTSNAME
+#  endif
+#  include <sys/utsname.h>
+# endif
 
 /*
  * makedepend screws up on #undef OPEN_MAX, so we define a new symbol
  */
 
-#ifndef TRANS_OPEN_MAX
+# ifndef TRANS_OPEN_MAX
 
-#ifndef X_NOT_POSIX
-#ifdef _POSIX_SOURCE
-#include <limits.h>
-#else
-#define _POSIX_SOURCE
-#include <limits.h>
-#undef _POSIX_SOURCE
-#endif
-#endif
-#ifndef OPEN_MAX
-#ifdef __GNU__
-#define OPEN_MAX (sysconf(_SC_OPEN_MAX))
-#endif
-#ifdef SVR4
-#define OPEN_MAX 256
-#else
-#include <sys/param.h>
-#ifndef OPEN_MAX
-#ifdef __OSF1__
-#define OPEN_MAX 256
-#else
-#ifdef NOFILE
-#define OPEN_MAX NOFILE
-#else
-#if !defined(__UNIXOS2__) && !defined(__QNX__)
-#define OPEN_MAX NOFILES_MAX
-#else
-#define OPEN_MAX 256
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
-#ifdef __GNU__
-#define TRANS_OPEN_MAX OPEN_MAX
-#else /* !__GNU__ */
-#if OPEN_MAX > 256
-#define TRANS_OPEN_MAX 256
-#else
-#define TRANS_OPEN_MAX OPEN_MAX
-#endif
-#endif /*__GNU__*/
+#  ifndef X_NOT_POSIX
+#   ifdef _POSIX_SOURCE
+#    include <limits.h>
+#   else
+#    define _POSIX_SOURCE
+#    include <limits.h>
+#    undef _POSIX_SOURCE
+#   endif
+#  endif
+#  ifndef OPEN_MAX
+#   if defined(_SC_OPEN_MAX) && !defined(__UNIXOS2__)
+#    define OPEN_MAX (sysconf(_SC_OPEN_MAX))
+#   else
+#    ifdef SVR4
+#     define OPEN_MAX 256
+#    else
+#     include <sys/param.h>
+#     ifndef OPEN_MAX
+#      ifdef __OSF1__
+#       define OPEN_MAX 256
+#      else
+#       ifdef NOFILE
+#        define OPEN_MAX NOFILE
+#       else
+#        if !defined(__UNIXOS2__) && !defined(__QNX__)
+#         define OPEN_MAX NOFILES_MAX
+#        else
+#         define OPEN_MAX 256
+#        endif
+#       endif
+#      endif
+#     endif
+#    endif
+#   endif
+#  endif
+#  if defined(_SC_OPEN_MAX)
+#   define TRANS_OPEN_MAX OPEN_MAX
+#  else /* !__GNU__ */
+#   if OPEN_MAX > 256
+#    define TRANS_OPEN_MAX 256
+#   else
+#    define TRANS_OPEN_MAX OPEN_MAX
+#   endif
+#  endif /*__GNU__*/
 
-#endif /* TRANS_OPEN_MAX */
+# endif /* TRANS_OPEN_MAX */
 
-#ifdef __UNIXOS2__
-#define ESET(val)
-#else
-#define ESET(val) errno = val
-#endif
-#define EGET() errno
+# ifdef __UNIXOS2__
+#  define ESET(val)
+# else
+#  define ESET(val) errno = val
+# endif
+# define EGET() errno
 
 #else /* WIN32 */
 
-#include <limits.h>	/* for USHRT_MAX */
+# include <limits.h>	/* for USHRT_MAX */
 
-#define ESET(val) WSASetLastError(val)
-#define EGET() WSAGetLastError()
+# define ESET(val) WSASetLastError(val)
+# define EGET() WSAGetLastError()
 
 #endif /* WIN32 */
 
@@ -226,7 +227,7 @@ typedef struct _Xtransport {
 #endif /* TRANS_CLIENT */
 
 #ifdef TRANS_SERVER
-
+    char **	nolisten;
     XtransConnInfo (*OpenCOTSServer)(
 	struct _Xtransport *,	/* transport */
 	char *,			/* protocol */
@@ -283,10 +284,13 @@ typedef struct _Xtransport {
     );
 
 #ifdef TRANS_SERVER
+/* Flags */
+# define ADDR_IN_USE_ALLOWED	1
 
     int	(*CreateListener)(
 	XtransConnInfo,		/* connection */
-	char *			/* port */
+	char *,			/* port */
+	unsigned int		/* flags */
     );
 
     int	(*ResetListener)(

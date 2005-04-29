@@ -1,8 +1,17 @@
 /* filterindex.c - generate the list of candidate entries from a filter */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/filterindex.c,v 1.40.2.5 2003/05/14 20:04:55 hyc Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/filterindex.c,v 1.48.2.3 2004/03/18 01:01:03 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -16,26 +25,27 @@
 #include "back-ldbm.h"
 
 static ID_BLOCK	*presence_candidates(
-	Backend *be,
+	Operation *op,
 	AttributeDescription *desc );
 static ID_BLOCK	*equality_candidates(
-	Backend *be, AttributeAssertion *ava );
+	Operation *op, AttributeAssertion *ava );
 static ID_BLOCK	*approx_candidates(
-	Backend *be, AttributeAssertion *ava );
+	Operation *op, AttributeAssertion *ava );
 static ID_BLOCK	*substring_candidates(
-	Backend *be,
+	Operation *op,
 	SubstringsAssertion *sub );
 static ID_BLOCK	*list_candidates(
-	Backend *be,
+	Operation *op,
 	Filter *flist,
 	int ftype );
 
 ID_BLOCK *
 filter_candidates(
-    Backend	*be,
+    Operation	*op,
     Filter	*f
 )
 {
+	char *sub = "SUBTREE";
 	ID_BLOCK	*result;
 
 #ifdef NEW_LOGGING
@@ -58,7 +68,7 @@ filter_candidates(
 			result = NULL;
 			break;
 		case LDAP_COMPARE_TRUE:
-			result = idl_allids( be );
+			result = idl_allids( op->o_bd );
 			break;
 		}
 		break;
@@ -72,23 +82,28 @@ filter_candidates(
 #endif
 
 		/* an error is treated as an empty list */
-		if ( dn2idl( be, f->f_dn, DN_ONE_PREFIX, &result ) != 0
+		if ( dn2idl( op->o_bd, f->f_dn, DN_ONE_PREFIX, &result ) != 0
 				&& result != NULL ) {
 			idl_free( result );
 			result = NULL;
 		}
 		break;
 
+#ifdef SLAPD_FILTER_DN_CHILDREN
+	case SLAPD_FILTER_DN_CHILDREN:
+		sub = "CHILDREN";
+#endif
 	case SLAPD_FILTER_DN_SUBTREE:
 #ifdef NEW_LOGGING
 		LDAP_LOG( FILTER, DETAIL1, 
-			   "filter_candidates:  DN SUBTREE (%s)\n", f->f_dn, 0, 0 );
+		   "filter_candidates:  DN %s (%s)\n", sub, f->f_dn, 0 );
 #else
-		Debug( LDAP_DEBUG_FILTER, "\tDN SUBTREE\n", 0, 0, 0 );
+		Debug( LDAP_DEBUG_FILTER,
+			"\tDN %s\n", sub, 0, 0 );
 #endif
 
 		/* an error is treated as an empty list */
-		if ( dn2idl( be, f->f_dn, DN_SUBTREE_PREFIX, &result ) != 0
+		if ( dn2idl( op->o_bd, f->f_dn, DN_SUBTREE_PREFIX, &result ) != 0
 				&& result != NULL ) {
 			idl_free( result );
 			result = NULL;
@@ -104,7 +119,7 @@ filter_candidates(
 		Debug( LDAP_DEBUG_FILTER, "\tPRESENT\n", 0, 0, 0 );
 #endif
 
-		result = presence_candidates( be, f->f_desc );
+		result = presence_candidates( op, f->f_desc );
 		break;
 
 	case LDAP_FILTER_EQUALITY:
@@ -117,7 +132,7 @@ filter_candidates(
 		Debug( LDAP_DEBUG_FILTER, "\tEQUALITY\n", 0, 0, 0 );
 #endif
 
-		result = equality_candidates( be, f->f_ava );
+		result = equality_candidates( op, f->f_ava );
 		break;
 
 	case LDAP_FILTER_APPROX:
@@ -130,7 +145,7 @@ filter_candidates(
 		Debug( LDAP_DEBUG_FILTER, "\tAPPROX\n", 0, 0, 0 );
 #endif
 
-		result = approx_candidates( be, f->f_ava );
+		result = approx_candidates( op, f->f_ava );
 		break;
 
 	case LDAP_FILTER_SUBSTRINGS:
@@ -141,7 +156,7 @@ filter_candidates(
 		Debug( LDAP_DEBUG_FILTER, "\tSUBSTRINGS\n", 0, 0, 0 );
 #endif
 
-		result = substring_candidates( be, f->f_sub );
+		result = substring_candidates( op, f->f_sub );
 		break;
 
 	case LDAP_FILTER_GE:
@@ -151,7 +166,7 @@ filter_candidates(
 		Debug( LDAP_DEBUG_FILTER, "\tGE\n", 0, 0, 0 );
 #endif
 
-		result = presence_candidates( be, f->f_ava->aa_desc );
+		result = presence_candidates( op, f->f_ava->aa_desc );
 		break;
 
 	case LDAP_FILTER_LE:
@@ -161,7 +176,7 @@ filter_candidates(
 		Debug( LDAP_DEBUG_FILTER, "\tLE\n", 0, 0, 0 );
 #endif
 
-		result = presence_candidates( be, f->f_ava->aa_desc );
+		result = presence_candidates( op, f->f_ava->aa_desc );
 		break;
 
 	case LDAP_FILTER_AND:
@@ -171,7 +186,7 @@ filter_candidates(
 		Debug( LDAP_DEBUG_FILTER, "\tAND\n", 0, 0, 0 );
 #endif
 
-		result = list_candidates( be, f->f_and, LDAP_FILTER_AND );
+		result = list_candidates( op, f->f_and, LDAP_FILTER_AND );
 		break;
 
 	case LDAP_FILTER_OR:
@@ -181,7 +196,7 @@ filter_candidates(
 		Debug( LDAP_DEBUG_FILTER, "\tOR\n", 0, 0, 0 );
 #endif
 
-		result = list_candidates( be, f->f_or, LDAP_FILTER_OR );
+		result = list_candidates( op, f->f_or, LDAP_FILTER_OR );
 		break;
 
 	case LDAP_FILTER_NOT:
@@ -197,7 +212,7 @@ filter_candidates(
 		 * list could result in matching entries be excluded from
 		 * the returned candidate list.
 		 */
-		result = idl_allids( be );
+		result = idl_allids( op->o_bd );
 		break;
 	default:
 #ifdef NEW_LOGGING
@@ -208,7 +223,7 @@ filter_candidates(
 		/* unknown filters must not return NULL, to allow
 		 * extended filter processing to be done later.
 		 */
-		result = idl_allids( be );
+		result = idl_allids( op->o_bd );
 		break;
 	}
 
@@ -226,7 +241,7 @@ filter_candidates(
 
 static ID_BLOCK *
 presence_candidates(
-    Backend	*be,
+    Operation *op,
 	AttributeDescription *desc
 )
 {
@@ -243,13 +258,13 @@ presence_candidates(
 	Debug( LDAP_DEBUG_TRACE, "=> presence_candidates\n", 0, 0, 0 );
 #endif
 
-	idl = idl_allids( be );
+	idl = idl_allids( op->o_bd );
 
 	if( desc == slap_schema.si_ad_objectClass ) {
 		return idl;
 	}
 
-	rc = index_param( be, desc, LDAP_FILTER_PRESENT,
+	rc = index_param( op->o_bd, desc, LDAP_FILTER_PRESENT,
 		&dbname, &mask, &prefix );
 
 	if( rc != LDAP_SUCCESS ) {
@@ -278,7 +293,7 @@ presence_candidates(
 		return idl;
 	}
 
-	db = ldbm_cache_open( be, dbname, LDBM_SUFFIX, LDBM_WRCREAT );
+	db = ldbm_cache_open( op->o_bd, dbname, LDBM_SUFFIX, LDBM_WRCREAT );
 	
 	if ( db == NULL ) {
 #ifdef NEW_LOGGING
@@ -298,7 +313,7 @@ presence_candidates(
 		idl_free( idl );
 		idl = NULL;
 
-		rc = key_read( be, db, &prefix, &idl );
+		rc = key_read( op->o_bd, db, &prefix, &idl );
 
 		if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
@@ -323,7 +338,7 @@ presence_candidates(
 		}
 	}
 
-	ldbm_cache_close( be, db );
+	ldbm_cache_close( op->o_bd, db );
 
 #ifdef NEW_LOGGING
 	LDAP_LOG( FILTER, ENTRY, 
@@ -339,7 +354,7 @@ presence_candidates(
 
 static ID_BLOCK *
 equality_candidates(
-    Backend	*be,
+    Operation *op,
 	AttributeAssertion *ava
 )
 {
@@ -360,9 +375,9 @@ equality_candidates(
 #endif
 
 
-	idl = idl_allids( be );
+	idl = idl_allids( op->o_bd );
 
-	rc = index_param( be, ava->aa_desc, LDAP_FILTER_EQUALITY,
+	rc = index_param( op->o_bd, ava->aa_desc, LDAP_FILTER_EQUALITY,
 		&dbname, &mask, &prefix );
 
 	if( rc != LDAP_SUCCESS ) {
@@ -407,7 +422,7 @@ equality_candidates(
 		mr,
 		&prefix,
 		&ava->aa_value,
-		&keys );
+		&keys, op->o_tmpmemctx );
 
 	if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
@@ -436,7 +451,7 @@ equality_candidates(
 		return idl;
 	}
 
-	db = ldbm_cache_open( be, dbname, LDBM_SUFFIX, LDBM_WRCREAT );
+	db = ldbm_cache_open( op->o_bd, dbname, LDBM_SUFFIX, LDBM_WRCREAT );
 	
 	if ( db == NULL ) {
 #ifdef NEW_LOGGING
@@ -455,7 +470,7 @@ equality_candidates(
 		ID_BLOCK *save;
 		ID_BLOCK *tmp;
 
-		rc = key_read( be, db, &keys[i], &tmp );
+		rc = key_read( op->o_bd, db, &keys[i], &tmp );
 
 		if( rc != LDAP_SUCCESS ) {
 			idl_free( idl );
@@ -487,16 +502,16 @@ equality_candidates(
 		}
 
 		save = idl;
-		idl = idl_intersection( be, idl, tmp );
+		idl = idl_intersection( op->o_bd, idl, tmp );
 		idl_free( save );
 		idl_free( tmp );
 
 		if( idl == NULL ) break;
 	}
 
-	ber_bvarray_free( keys );
+	ber_bvarray_free_x( keys, op->o_tmpmemctx );
 
-	ldbm_cache_close( be, db );
+	ldbm_cache_close( op->o_bd, db );
 
 
 #ifdef NEW_LOGGING
@@ -513,7 +528,7 @@ equality_candidates(
 
 static ID_BLOCK *
 approx_candidates(
-    Backend	*be,
+    Operation *op,
 	AttributeAssertion *ava
 )
 {
@@ -534,9 +549,9 @@ approx_candidates(
 #endif
 
 
-	idl = idl_allids( be );
+	idl = idl_allids( op->o_bd );
 
-	rc = index_param( be, ava->aa_desc, LDAP_FILTER_APPROX,
+	rc = index_param( op->o_bd, ava->aa_desc, LDAP_FILTER_APPROX,
 		&dbname, &mask, &prefix );
 
 	if( rc != LDAP_SUCCESS ) {
@@ -586,7 +601,7 @@ approx_candidates(
 		mr,
 		&prefix,
 		&ava->aa_value,
-		&keys );
+		&keys, op->o_tmpmemctx );
 
 	if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
@@ -616,7 +631,7 @@ approx_candidates(
 		return idl;
 	}
 
-	db = ldbm_cache_open( be, dbname, LDBM_SUFFIX, LDBM_WRCREAT );
+	db = ldbm_cache_open( op->o_bd, dbname, LDBM_SUFFIX, LDBM_WRCREAT );
 	
 	if ( db == NULL ) {
 #ifdef NEW_LOGGING
@@ -636,7 +651,7 @@ approx_candidates(
 		ID_BLOCK *save;
 		ID_BLOCK *tmp;
 
-		rc = key_read( be, db, &keys[i], &tmp );
+		rc = key_read( op->o_bd, db, &keys[i], &tmp );
 
 		if( rc != LDAP_SUCCESS ) {
 			idl_free( idl );
@@ -666,16 +681,16 @@ approx_candidates(
 		}
 
 		save = idl;
-		idl = idl_intersection( be, idl, tmp );
+		idl = idl_intersection( op->o_bd, idl, tmp );
 		idl_free( save );
 		idl_free( tmp );
 
 		if( idl == NULL ) break;
 	}
 
-	ber_bvarray_free( keys );
+	ber_bvarray_free_x( keys, op->o_tmpmemctx );
 
-	ldbm_cache_close( be, db );
+	ldbm_cache_close( op->o_bd, db );
 
 #ifdef NEW_LOGGING
 	LDAP_LOG( FILTER, ENTRY, 
@@ -691,7 +706,7 @@ approx_candidates(
 
 static ID_BLOCK *
 list_candidates(
-    Backend	*be,
+    Operation *op,
     Filter	*flist,
     int		ftype
 )
@@ -708,7 +723,7 @@ list_candidates(
 
 	idl = NULL;
 	for ( f = flist; f != NULL; f = f->f_next ) {
-		if ( (tmp = filter_candidates( be, f )) == NULL &&
+		if ( (tmp = filter_candidates( op, f )) == NULL &&
 		    ftype == LDAP_FILTER_AND ) {
 #ifdef NEW_LOGGING
 			LDAP_LOG( FILTER, INFO, "list_candidates: NULL\n", 0, 0, 0 );
@@ -725,11 +740,11 @@ list_candidates(
 		if ( idl == NULL ) {
 			idl = tmp;
 		} else if ( ftype == LDAP_FILTER_AND ) {
-			idl = idl_intersection( be, idl, tmp );
+			idl = idl_intersection( op->o_bd, idl, tmp );
 			idl_free( tmp );
 			idl_free( tmp2 );
 		} else {
-			idl = idl_union( be, idl, tmp );
+			idl = idl_union( op->o_bd, idl, tmp );
 			idl_free( tmp );
 			idl_free( tmp2 );
 		}
@@ -748,7 +763,7 @@ list_candidates(
 
 static ID_BLOCK *
 substring_candidates(
-    Backend	*be,
+    Operation *op,
     SubstringsAssertion	*sub
 )
 {
@@ -769,9 +784,9 @@ substring_candidates(
 #endif
 
 
-	idl = idl_allids( be );
+	idl = idl_allids( op->o_bd );
 
-	rc = index_param( be, sub->sa_desc, LDAP_FILTER_SUBSTRINGS,
+	rc = index_param( op->o_bd, sub->sa_desc, LDAP_FILTER_SUBSTRINGS,
 		&dbname, &mask, &prefix );
 
 	if( rc != LDAP_SUCCESS ) {
@@ -817,7 +832,7 @@ substring_candidates(
 		mr,
 		&prefix,
 		sub,
-		&keys );
+		&keys, op->o_tmpmemctx );
 
 	if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
@@ -847,7 +862,7 @@ substring_candidates(
 		return idl;
 	}
 
-	db = ldbm_cache_open( be, dbname, LDBM_SUFFIX, LDBM_WRCREAT );
+	db = ldbm_cache_open( op->o_bd, dbname, LDBM_SUFFIX, LDBM_WRCREAT );
 	
 	if ( db == NULL ) {
 #ifdef NEW_LOGGING
@@ -867,7 +882,7 @@ substring_candidates(
 		ID_BLOCK *save;
 		ID_BLOCK *tmp;
 
-		rc = key_read( be, db, &keys[i], &tmp );
+		rc = key_read( op->o_bd, db, &keys[i], &tmp );
 
 		if( rc != LDAP_SUCCESS ) {
 			idl_free( idl );
@@ -897,16 +912,16 @@ substring_candidates(
 		}
 
 		save = idl;
-		idl = idl_intersection( be, idl, tmp );
+		idl = idl_intersection( op->o_bd, idl, tmp );
 		idl_free( save );
 		idl_free( tmp );
 
 		if( idl == NULL ) break;
 	}
 
-	ber_bvarray_free( keys );
+	ber_bvarray_free_x( keys, op->o_tmpmemctx );
 
-	ldbm_cache_close( be, db );
+	ldbm_cache_close( op->o_bd, db );
 
 #ifdef NEW_LOGGING
 	LDAP_LOG( FILTER, ENTRY, 

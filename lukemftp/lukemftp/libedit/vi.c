@@ -1,4 +1,4 @@
-/*	$NetBSD: vi.c,v 1.8 2000/09/04 22:06:33 lukem Exp $	*/
+/*	$NetBSD: vi.c,v 1.9 2002/03/18 16:01:01 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,10 +36,12 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * vi.c: Vi mode commands.
  */
-#include "sys.h"
 #include "el.h"
 
 private el_action_t	cv_action(EditLine *, int);

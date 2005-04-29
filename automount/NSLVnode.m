@@ -34,8 +34,11 @@
 #import "mount.h"
 #import "AMString.h"
 #import "NSLUtil.h"
+#import "vfs_sysctl.h"
 #import <CoreServices/CoreServices.h>
 #import <CoreServices/CoreServicesPriv.h>
+
+extern char *gLookupTarget;
 
 /* Re-enumerate folders at least once an hour: */
 
@@ -51,10 +54,12 @@ extern BOOL doServerMounts;
 
 static String *generateLinkTarget(Vnode *v);
 static void setupLink(Vnode *v);
-static BOOL anyChildMounted(const char *path);
 
 static char gLocalHostName[] = "localhost";
 static char gInvalidateCue[] = ".._invalidatecache";
+
+static char gAutomountInitializedTagFile[] = "/var/run/automount.initialized";
+static BOOL gAutomountInitialized = NO;
 
 extern BOOL gUserLoggedIn;
 
@@ -71,34 +76,43 @@ void NSLVnodeNewSearchResultAlert(SearchContextPtr callContext)
 }
 
 
+BOOL AutomounterInitializationComplete( void ) {
+	struct stat sb;
+	
+	if (!gAutomountInitialized && (stat(gAutomountInitializedTagFile, &sb) == 0)) {
+		gAutomountInitialized = YES;
+	}
+	return gAutomountInitialized;
+}
+
+
 
 @implementation NSLVnode
 
 - (NSLVnode *)init
 {
-	[super init];
-	
-	generation = 0;
-	apparentName = NULL;
-	NSLObjectType = kNetworkObjectTypeNone;
-	fixedEntry = NO;
-	havePopulated = NO;
-	
-    INIT_SEARCHRESULTLIST(&neighborhoodSearchResults, NSLObject.neighborhood);
-	neighborhoodSearchStarted = NO;
-	neighborhoodSearchComplete = NO;
-	
-    INIT_SEARCHRESULTLIST(&servicesSearchResults, NSLObject.neighborhood);
-	servicesSearchStarted = NO;
-	servicesSearchComplete = NO;
-	
-	lastNotification.tv_sec = 0;
-	lastNotification.tv_usec = 0;
-	lastSeen.tv_sec = 0;
-	lastSeen.tv_usec = 0;
-	mountInProgress = NO;
-	currentContentGeneration = 0;
-	
+	self = [super init];
+	if (self) {
+		generation = 0;
+		apparentName = NULL;
+		NSLObjectType = kNetworkObjectTypeNone;
+		fixedEntry = NO;
+		havePopulated = NO;
+		
+		INIT_SEARCHRESULTLIST(&neighborhoodSearchResults, NSLObject.neighborhood);
+		neighborhoodSearchStarted = NO;
+		neighborhoodSearchComplete = NO;
+		
+		INIT_SEARCHRESULTLIST(&servicesSearchResults, NSLObject.neighborhood);
+		servicesSearchStarted = NO;
+		servicesSearchComplete = NO;
+		
+		lastNotification.tv_sec = 0;
+		lastNotification.tv_usec = 0;
+		lastSeen.tv_sec = 0;
+		lastSeen.tv_usec = 0;
+		currentContentGeneration = 0;
+	};
 	return self;
 }
 
@@ -108,19 +122,18 @@ void NSLVnodeNewSearchResultAlert(SearchContextPtr callContext)
 {
 	NSLVnode *v;
 
-	v = [NSLVnode alloc];
+	v = [[NSLVnode alloc] init];
 	if (v == nil) {
 		sys_msg(debug, LOG_ERR, "NSLVnode.newNeighborhoodWithName: Failed to allocate NSLVnode; aborting.");
 		goto Error_Exit;
 	};
 	
-	[v init];
-	
+	[v setMap:map];
 	[v setApparentName:neighborhoodNameString];
 	[v setNSLObject:neighborhood type:kNetworkNeighborhood];
-	[v setMap:map];
 	[controller registerVnode:v];
 	[self addChild:v];
+	[v deferContentGeneration];		/* Must be called after 'addChild' to ensure proper 'path' */
 
 	return v;
 
@@ -131,20 +144,24 @@ Error_Exit:
 
 
 
-- (NSLVnode *)newServiceWithName:(String *)newServiceName service:(NSLService)service serviceURL:(char *)serverURL
+- (NSLVnode *)newServiceWithName:(String *)newServiceName service:(NSLServiceRef)service serviceURL:(char *)serverURL
 {
 	NSLVnode *v;
 	Server *newserver = nil;
 	String *serversrc = nil;
 	String *serviceURL = nil;
 
-	v = [NSLVnode alloc];
+	v = [[NSLVnode alloc] init];
 	if (v == nil) {
 		sys_msg(debug, LOG_ERR, "NSLVnode.newServerWithName: Failed to allocate NSLVnode; aborting.");
 		goto Error_Exit;
 	};
 	
-	[v init];
+	[v setVfsType:[String uniqueString:"url"]];
+	[v setType:NFLNK];
+	[v setMode:(S_ISVTX | 0755 | NFSMODE_LNK)];
+	[v setMap:map];
+	[v setApparentName:newServiceName];
 
 	if (serverURL) {
 		serviceURL = [String uniqueString:serverURL];
@@ -153,6 +170,7 @@ Error_Exit:
 			goto Error_Exit;
 		};
 	};
+	[v setUrlString:serviceURL];
 	
 	newserver = [controller serverWithName:newServiceName];
 	if (newserver == nil) {
@@ -172,26 +190,26 @@ Error_Exit:
 		sys_msg(debug, LOG_ERR, "NSLVnode.initAsServerWithName: Failed to allocate serversrc; aborting.");
 		goto Error_Exit;
 	};
-	
-	[v setApparentName:newServiceName];
-	[v setServer:newserver];
-	[v setSource:serversrc];
-	[v setUrlString:serviceURL];
-	[v setType:NFLNK];
-	[v setMode:(S_ISVTX | 0755 | NFSMODE_LNK)];
-
-	[v setVfsType:[String uniqueString:"url"]];
-	[v setNSLObject:service type:kNetworkServer];
 	/* [v setupOptions:opts]; */
-	[v setMap:map];
+	[v setServerDepth:0];
 	
 	[controller registerVnode:v];
-	// sys_msg(debug, LOG_DEBUG, "NSLVnode.newServiceWithName: Adding new offspring %s (%s)...", [[v apparentName] value], [[v link] value]);
-	[self addChild:v];
 
-	/* This relies on the superlink/child/map information to construct its path and must be done last... */
-	setupLink(v);
+	// sys_msg(debug, LOG_DEBUG, "NSLVnode.newServiceWithName: Adding new offspring %s (%s)...", [[v apparentName] value], [[v link] value]);
 	
+	[self addChild:v];
+	
+	[v setNSLObject:service type:kNetworkServer];
+	[v setServer:newserver];
+	[v setSource:serversrc];
+
+	/* Information derived from NSL is not necessarily trustworthy: */
+	[v addMntArg:MNT_NOSUID];
+	[v addMntArg:MNT_NODEV];
+	
+	/* This relies on the superlink/child/map information to construct its path and must be done last... */
+	if ([[self map] mountStyle] == kMountStyleParallel) setupLink(v);
+
 	return v;
 	
 Error_Exit:
@@ -231,8 +249,8 @@ Error_Exit:
 	[v setMode:([v mode] & ~S_ISVTX)];		/* Turn off the sticky bit: this is not a special mount-trigger link */
 	[v setApparentName:newSymlink];
 	[v setLink:targetString];
-    [v setFixedEntry:YES];
-	
+	[v setFixedEntry:YES];
+
 	return v;
 
 Error_Exit:
@@ -446,7 +464,9 @@ Error_Exit:
 
 - (void)setApparentName:(String *)n
 {
-	apparentName = [n retain];
+	[n retain];
+	[apparentName release];
+	apparentName = n;
 	
 	if (!strchr([n value], '/')) {
 		[self setName:n];
@@ -468,12 +488,12 @@ Error_Exit:
 - (void)freeNSLObject {
 	switch (NSLObjectType) {
 		case kNetworkNeighborhood:
-			if (NSLObject.neighborhood) NSLFreeNeighborhood(NSLObject.neighborhood);
+			if (NSLObject.neighborhood) NSLXReleaseNeighborhoodResult(NSLObject.neighborhood);
 			NSLObject.neighborhood = NULL;
 			break;
 			
 		case kNetworkServer:
-			if (NSLObject.service) CFRelease(NSLObject.service);
+			if (NSLObject.service) NSLXReleaseServiceResult(NSLObject.service);
 			NSLObject.service = NULL;
 			break;
 			
@@ -487,6 +507,7 @@ Error_Exit:
 
 
 - (void)setNSLObject:(const void *)object type:(NetworkObjectType)objecttype {
+	
 	[self freeNSLObject];
 	
 	NSLObjectType = objecttype;
@@ -503,15 +524,13 @@ Error_Exit:
 			break;
 		
 		case kNetworkServer:
-			NSLObject.service = (NSLService)object;
+			NSLObject.service = (NSLServiceRef)object;
 			break;
 		
 		default:
 			break;
 	};
 }
-
-
 
 - (BOOL)fixedEntry
 {
@@ -809,10 +828,17 @@ Error_Exit:
 #endif
 	};
 	
+#if 0
 	sys_msg(debug, LOG_DEBUG, "NSLVnode.populateCompletely(%s): populating neighborhood '%s', generation %d...",
 									waitForSearchCompletion ? "YES" : "NO",
 									[[self apparentName] value],
 									currentContentGeneration);
+#else
+	sys_msg(debug, LOG_DEBUG, "NSLVnode.populateCompletely(%s): populating neighborhood '%s' looking for '%s'...",
+									waitForSearchCompletion ? "YES" : "NO",
+									[[self apparentName] value],
+									gLookupTarget);
+#endif
 	
 	(void)[self populateWithNeighborhoodsWithGeneration:currentContentGeneration completely:waitForSearchCompletion];
 	(void)[self populateWithServicesWithGeneration:currentContentGeneration completely:waitForSearchCompletion];
@@ -846,18 +872,23 @@ Std_Exit: ;
 		/*
 			* Add a new neighborhood entry:
 			*/
-		char *neighborhoodname = NULL;
-		long neighborhoodnamelength;
+		CFStringRef neighborhoodNameRef=NULL;
+		char neighborhoodname[MAXNSLOBJECTNAMELENGTH];
 		
 		if (resultEntry->result.neighborhood == NULL) {
 			sys_msg(debug, LOG_ERR, "NSLVnode.processAddResult: resultEntry->result.neighborhood is NULL; aborting.");
 			goto Ignore_Entry;
 		};
-		NSLGetNameFromNeighborhood( resultEntry->result.neighborhood, &neighborhoodname, &neighborhoodnamelength );
-		if ((neighborhoodname == NULL) || (neighborhoodnamelength == 0)) {
-			sys_msg(debug, LOG_ERR, "NSLVnode.processAddResult: Failed to get neighborhood name for entry; aborting.");
+		neighborhoodNameRef = NSLXCopyNeighborhoodDisplayName( resultEntry->result.neighborhood );
+		if (neighborhoodNameRef == NULL) {
+			sys_msg(debug, LOG_ERR, "NSLVnode.processAddResult: Failed to get neighborhoodNameRef; aborting.");
 			goto Abort_Neighborhood_Entry;
 		};
+		
+		neighborhoodname[0] = (char)0;
+		(void)CFStringGetCString(neighborhoodNameRef, neighborhoodname, (CFIndex)sizeof(neighborhoodname), kCFStringEncodingUTF8);
+		
+		CFRelease(neighborhoodNameRef);
 		
 		targetNameString = [String uniqueString:neighborhoodname];
 		if (targetNameString == nil) {
@@ -910,22 +941,20 @@ Abort_Neighborhood_Entry:
 		
 Next_Neighborhood_Entry:
 		/* Release any data structures used to construct this new node: */
-		if (resultEntry->result.neighborhood) NSLFreeNeighborhood(resultEntry->result.neighborhood);
-		
+		if (resultEntry->result.neighborhood) NSLXReleaseNeighborhoodResult(resultEntry->result.neighborhood);
+		resultEntry->result.neighborhood = NULL;
 	} else if (searchType == kNetworkServer) {
 		/*
 			* Add a new server entry:
 			*/
-		CFStringRef urlStringRef = NULL;
 		CFStringRef serviceNameRef;
 		char servicename[MAXNSLOBJECTNAMELENGTH];
-		char url[MAXNSLOBJECTNAMELENGTH];
 		
 		if (resultEntry->result.service == NULL) {
 			sys_msg(debug, LOG_ERR, "NSLVnode.processAddResult: resultEntry->result.service is NULL; aborting.");
 			goto Ignore_Entry;
 		};
-		serviceNameRef = GetMainStringFromAttribute( resultEntry->result.service, kNSLNameAttrRef );
+		serviceNameRef = NSLXCopyServiceDisplayName( resultEntry->result.service );
 		if (serviceNameRef == NULL) {
 			sys_msg(debug, LOG_ERR, "NSLVnode.processAddResult: Failed to get serviceNameRef; aborting.");
 			goto Abort_Service_Entry;
@@ -937,6 +966,8 @@ Next_Neighborhood_Entry:
 		sys_msg(debug, LOG_DEBUG, "NSLVnode.processAddResult: resultEntry = 0x%x; serviceNameRef = 0x%x, servicename = '%s'...",
 							(unsigned long)resultEntry, (unsigned long)serviceNameRef, servicename);
 #endif
+		CFRelease(serviceNameRef);	// release from NSLXCopyServiceDisplayName
+		
 		if (servicename[0] == (char)0) {
 			sys_msg(debug, LOG_ERR, "NSLVnode.processAddResult: empty servicename string; aborting.");
 			goto Abort_Service_Entry;
@@ -953,7 +984,7 @@ Next_Neighborhood_Entry:
 			CFStringRef attributeStringRef = NULL;
 			char attributeCString[64];
 
-			attributeStringRef = GetMainStringFromAttribute( resultEntry->result.service, kNSLProtocolTypeKey );
+			attributeStringRef = CopyMainStringFromAttribute( resultEntry->result.service, kNSLProtocolTypeKey );
 			if (attributeStringRef == NULL) {
 					sys_msg(debug, LOG_DEBUG, "NSLVnode.processAddResult: kNSLProtocolTypeKey attributeStringRef is NULL.");
 					goto skip;
@@ -963,6 +994,7 @@ Next_Neighborhood_Entry:
 																			servicename,
 																			attributeCString);
 skip: ;
+			CFRelease(attributeStringRef);	// from CopyMainStringFromAttribute
 		};
 #endif
 			
@@ -972,18 +1004,10 @@ skip: ;
 			v = nil;
 		};
 		if (v == nil) {
-			urlStringRef = GetMainStringFromAttribute( resultEntry->result.service, kNSLURLAttrRef );
-			if (urlStringRef) {
-				(void)CFStringGetCString(urlStringRef, url, (CFIndex)sizeof(url), kCFStringEncodingUTF8);
-			}
-			else {
-				strcpy(url, "<No URL>");
-			}
-
-			sys_msg(debug, LOG_DEBUG, "NSLVnode.processAddResult: Adding server %s (%s)...", servicename, url);
+			sys_msg(debug, LOG_DEBUG, "NSLVnode.processAddResult: Adding server %s...", servicename);
 			
 			/* Note: newServiceWithName does not copy the NSL object AGAIN; it just takes over 'ownership' from the caller */
-			v = [self newServiceWithName:targetNameString service:resultEntry->result.service serviceURL:(urlStringRef ? url : nil)];
+			v = [self newServiceWithName:targetNameString service:resultEntry->result.service serviceURL:nil];	// delay resolution of url
 			if (v == nil) {
 				sys_msg(debug, LOG_ERR, "NSLVnode.processAddResult: Failed to allocate new service node; aborting.");
 				goto Abort_Service_Entry;
@@ -1001,7 +1025,8 @@ Abort_Service_Entry:
 
 Next_Service_Entry:
 		/* Release any data structures used to construct this new node: */
-		if(resultEntry->result.service) CFRelease(resultEntry->result.service);
+		if(resultEntry->result.service) NSLXReleaseServiceResult(resultEntry->result.service);
+		resultEntry->result.service = NULL;
 	} else {
 		sys_msg(debug, LOG_ERR, "NSLVnode.processAddResult: Unknown search target type (%d).", searchType);
 	};
@@ -1047,7 +1072,8 @@ Ignore_Entry: ;
 		
 Release_Neighborhood:
 		/* Release the result data structure: */
-		NSLFreeNeighborhood(resultEntry->result.neighborhood);
+		NSLXReleaseNeighborhoodResult(resultEntry->result.neighborhood);
+		resultEntry->result.neighborhood = NULL;
 	} else if (searchType == kNetworkServer) {
 		/*
 		 * Delete a server entry:
@@ -1059,7 +1085,7 @@ Release_Neighborhood:
 			sys_msg(debug, LOG_ERR, "NSLVnode.processDeleteResult: resultEntry->result.service is NULL; aborting.");
 			goto Ignore_Entry;
 		};
-		serviceNameRef = GetMainStringFromAttribute( resultEntry->result.service, kNSLNameAttrRef );
+		serviceNameRef = NSLXCopyServiceDisplayName( resultEntry->result.service );
 		if (serviceNameRef == NULL) {
 			sys_msg(debug, LOG_ERR, "NSLVnode.processDeleteResult: Failed to get serviceNameRef; aborting.");
 			goto Release_Server;
@@ -1071,6 +1097,8 @@ Release_Neighborhood:
 		sys_msg(debug, LOG_DEBUG, "NSLVnode.processDeleteResult: resultEntry = 0x%x; serviceNameRef = 0x%x, servicename = '%s'...",
 							(unsigned long)resultEntry, (unsigned long)serviceNameRef, servicename);
 #endif
+		CFRelease(serviceNameRef);		// from NSLXCopyServiceDisplayName
+		
 		if (servicename[0] == (char)0) {
 			sys_msg(debug, LOG_ERR, "NSLVnode.processDeleteResult: empty servicename string; aborting.");
 			goto Release_Server;
@@ -1086,7 +1114,8 @@ Release_Neighborhood:
 		
 Release_Server:
 		/* Release the result data structure: */
-		CFRelease(resultEntry->result.service);
+		NSLXReleaseServiceResult(resultEntry->result.service);
+		resultEntry->result.service = NULL;
 	};
 	
 	if (targetNameString) {
@@ -1099,7 +1128,27 @@ Release_Server:
 Ignore_Entry: ;
 }
 
-
+- (void)processUpdatedResult:(struct SearchResult *)resultEntry ofType:(NSLResultType)searchType
+{
+	sys_msg(debug_nsl, LOG_DEBUG, "NSLVnode.processUpdatedResult Processing kNSLXResultUpdated request...");
+	
+	// for either type of result, we should double check to see if its category has changed...
+	if (searchType == kNetworkNeighborhood) {
+		// Nothing to do - this should be handled entirely inside NSL...
+		
+		// Release the extra retain we put on this object before it was passed up:
+		NSLXReleaseNeighborhoodResult(resultEntry->result.neighborhood);
+	} else if (searchType == kNetworkServer) {
+		// if we've already cached the url for this service, we want to flush that as the url may have changed
+		if (urlString) {
+			[urlString release];
+			urlString = nil;
+		}
+		
+		// Release the extra retain we put on this object before it was passed up:
+		NSLXReleaseServiceResult(resultEntry->result.service);
+	};
+}
 
 - (BOOL)processSearchResults:(SearchContext *)searchContext
 {
@@ -1128,6 +1177,10 @@ Ignore_Entry: ;
 			[self processDeleteResult:resultEntry ofType:searchContext->searchTargetType];
 			break;
 		  
+		  case kNSLXResultUpdated:
+			[self processUpdatedResult:resultEntry ofType:searchContext->searchTargetType];
+			break;
+		  
 		  case kNSLXPreviousResultsInvalid:
 			sys_msg(debug, LOG_ERR, "NSLVnode.processSearchResults: Processing kNSLXPreviousResultsInvalid result...");
 			[self invalidateRecursively:YES notifyFinder:YES];
@@ -1143,8 +1196,6 @@ Ignore_Entry: ;
 		free(resultEntry);
 	};
 	
-	if (directoryChanged) [self markDirectoryChanged];
-	
 	return directoryChanged;
 }
 
@@ -1152,19 +1203,45 @@ Ignore_Entry: ;
 
 - (Vnode *)lookup:(String *)n
 {
+	char *target;
+	
 	[(NSLMap *)[self map] cleanupSearchContextList];
 
 	Vnode *vp = [super lookup:n];
 	if (vp) return vp;
+	
+	target = [n value];
+	
+	/* Don't bother populating the directory for invisible files... */
+	if (target[0] == '.') {
+		return nil;
+	};
+	
+	/* Don't bother populating for "Library" or "Developer" until the user has logged in: */
+	if (!gUserLoggedIn &&
+		((strcmp(target, "Library") == 0) || (strcmp(target, "Developer") == 0))) {
+		return nil;
+	}
 	
 	if (strcmp([n value], gInvalidateCue) == 0) {
 		/* Invalidate the contents of this directory: */
 		[self invalidateRecursively:NO notifyFinder:NO];
 		return nil;
 	} else {
-		if (gUserLoggedIn) [self populateCompletely:YES];	/* Look up the directory's contents in NSL if necessary */
+		if (gUserLoggedIn && AutomounterInitializationComplete()) [self populateCompletely:YES];	/* Look up the directory's contents in NSL if necessary */
 		return [super lookup:n];
 	};
+}
+
+- (void)generateDirectoryContents:(BOOL)waitForSearchCompletion
+{
+	/* Note the last time this directory's contents were seen: */
+	lastSeen.tv_sec = attributes.mtime.seconds;
+	lastSeen.tv_usec = attributes.mtime.useconds;
+
+	[self populateCompletely:waitForSearchCompletion];	/* Look up the directory's contents in NSL if necessary */
+	
+	[(NSLMap *)[self map] cleanupSearchContextList];
 }
 
 /*
@@ -1172,14 +1249,7 @@ Ignore_Entry: ;
  */
 - (Array *)dirlist
 {
-	/* Note the last time this directory's contents were seen: */
-	lastSeen.tv_sec = attributes.mtime.seconds;
-	lastSeen.tv_usec = attributes.mtime.useconds;
-
-	[self populateCompletely:NO];	/* Look up the directory's contents in NSL if necessary */
-	
-	[(NSLMap *)[self map] cleanupSearchContextList];
-
+	[self generateDirectoryContents:NO];
 	return [super dirlist];
 }
 
@@ -1231,6 +1301,7 @@ Error_Exit:
 	
 	/* Remove it... */
 	[controller destroyVnode: child];
+	
 	return NFS_OK;
 }
 
@@ -1246,7 +1317,7 @@ Error_Exit:
 	};
 }
 
--(NSLService)getNSLService
+-(NSLServiceRef)getNSLService
 {
 	if (NSLObjectType == kNetworkServer) {
 		return NSLObject.service;
@@ -1263,7 +1334,7 @@ Error_Exit:
 	if (urlString) {
 		return urlString;
 	} else {
-		NSLService service = [self getNSLService];
+		NSLServiceRef service = [self getNSLService];
 		CFStringRef urlStringRef = NULL;
 		char urlbuffer[MAXNSLOBJECTNAMELENGTH];
 
@@ -1274,15 +1345,11 @@ Error_Exit:
 			return nil;
 		};
 		
-		urlStringRef = GetMainStringFromAttribute( service, kNSLURLAttrRef );
-		if (urlStringRef == NULL) {
-			sys_msg(debug, LOG_DEBUG, "NSLVnode.urlString: No URL attribute in service record; calling NSLXResolveService...");
-			(void)NSLXResolveService(service);
-			urlStringRef = GetMainStringFromAttribute( service, kNSLURLAttrRef );
-		};
+		urlStringRef = NSLXCopyServicePreferredURLResultAsString( service );
 
 		if (urlStringRef) {
 			(void)CFStringGetCString(urlStringRef, urlbuffer, (CFIndex)sizeof(urlbuffer), kCFStringEncodingUTF8);
+			CFRelease(urlStringRef);
 		} else {
 			CFStringRef attributeStringRef = NULL;
 			char servicetype[64];
@@ -1291,7 +1358,7 @@ Error_Exit:
 			
 			sys_msg(debug, LOG_DEBUG, "NSLVnode.urlString: reconstituting URL for %s...", [[self apparentName] value]);
 			
-			attributeStringRef = GetMainStringFromAttribute( service, kNSLServiceTypeAttrRef );
+			attributeStringRef = CopyMainStringFromAttribute( service, kNSLServiceTypeAttrRef );
 			if (attributeStringRef == NULL) {
 				sys_msg(debug, LOG_DEBUG, "NSLVnode.urlString: kNSLServiceTypeAttrRef attributeStringRef is NULL; aborting.");
 				goto Error_Exit;
@@ -1302,7 +1369,9 @@ Error_Exit:
 				strcpy(servicetype, "afp");
 			};
 			
-			attributeStringRef = GetMainStringFromAttribute( service, kNSLIPAddressAttrRef );
+			CFRelease(attributeStringRef);	// from CopyMainStringFromAttribute
+
+			attributeStringRef = CopyMainStringFromAttribute( service, kNSLIPAddressAttrRef );
 			if (attributeStringRef == NULL) {
 				sys_msg(debug, LOG_DEBUG, "NSLVnode.urlString: kNSLIPAddressAttrRef attributeStringRef is NULL; aborting.");
 				goto Error_Exit;
@@ -1310,7 +1379,9 @@ Error_Exit:
 			(void)CFStringGetCString(attributeStringRef, hostaddress, (CFIndex)sizeof(hostaddress), kCFStringEncodingUTF8);
 			// sys_msg(debug, LOG_DEBUG, "NSLVnode.urlString: hostaddress = '%s'...", hostaddress);
 			
-			attributeStringRef = GetMainStringFromAttribute( service, kNSLPortAttrRef );
+			CFRelease(attributeStringRef);	// from CopyMainStringFromAttribute
+
+			attributeStringRef = CopyMainStringFromAttribute( service, kNSLPortAttrRef );
 			if (attributeStringRef == NULL) {
 				sys_msg(debug, LOG_DEBUG, "NSLVnode.urlString: kNSLPortAttrRef attributeStringRef is NULL; aborting.");
 				goto Error_Exit;
@@ -1320,6 +1391,8 @@ Error_Exit:
 			
 			snprintf(urlbuffer, sizeof(urlbuffer), "%s://%s:%s/", servicetype, hostaddress, portnumber);
 			sys_msg(debug, LOG_DEBUG, "NSLVnode.urlString: reconstituted URL = '%s'...", urlbuffer);
+
+			CFRelease(attributeStringRef);	// from CopyMainStringFromAttribute
 		};
 			
 		[self setUrlString:[String uniqueString:urlbuffer]];
@@ -1363,16 +1436,19 @@ Error_Exit:
 - (BOOL)needsAuthentication
 {
 	BOOL answer = YES;	/* Assume most NSL mount points require authentication. */
-	NSLService service = NULL;
+	NSLServiceRef service = NULL;
 	CFStringRef serviceType = NULL;
 	
 	service = [self getNSLService];
 	if (service)
-		serviceType = GetMainStringFromAttribute( service, kNSLServiceTypeAttrRef );
+		serviceType = NSLXCopyServicePreferredServiceTypeResultAsString( service );
 
 	if (serviceType && CFStringCompare(serviceType, CFSTR("nfs"), kCFCompareCaseInsensitive ) == kCFCompareEqualTo)
 		answer = NO;	/* Assume that NFS never requires authentication. */
 	
+	if (serviceType)
+		CFRelease(serviceType);		// from NSLXCopyServicePreferredServiceTypeResultAsString
+		
 	return answer;
 }
 
@@ -1395,15 +1471,17 @@ Error_Exit:
 {
 	int i, len;
 	Array *kids;
-	BOOL result;
+	BOOL result = NO;       /* No unmounts found in this hierarchy yet. */
+	Vnode *ancestorNode;
+	Vnode *serverNode;
 
+	if ([[self map] mountStyle] != kMountStyleParallel) return NO;
+	
 	kids = [self children];
 	len = 0;
 	if (kids != nil)
 		len = [kids count];
 
-	result = NO;	/* No unmounts found in this hierarchy yet. */
-	
 	if (len == 0)
 	{
 		if (mounted && ![self fakeMount] && [self server] != nil)
@@ -1414,13 +1492,30 @@ Error_Exit:
 			 * then mark the server unmounted, and return
 			 * that we found an unmount.
 			 */
-			if (!anyChildMounted([[self link] value]))
+			if (![self anyChildMounted:[[self link] value]])
 			{
 				sys_msg(debug, LOG_DEBUG, "Server %s unmounted", [[self path] value]);
 				[self setMounted: NO];
-				[self resetTime];
-				if ([self parent] != nil)
-					[[self parent] resetTime];
+				
+				/* Find the most distant ancestor node: */
+				serverNode = nil;
+				ancestorNode = [self parent];
+				while (ancestorNode) {
+					if ([ancestorNode server] == [self server]) {
+						serverNode = ancestorNode;
+					}
+					ancestorNode = [ancestorNode parent];
+				}
+				
+				if (serverNode) {
+					/* Mark all intervening nodes as unmounted to ensure a re-mount attempt: */
+					ancestorNode = [self parent];
+					while (ancestorNode) {
+						[ancestorNode setMounted:NO];
+						ancestorNode = (ancestorNode == serverNode) ? nil : [ancestorNode parent];
+					}
+				}
+				
 				result = YES;
 			}
 		}
@@ -1485,38 +1580,4 @@ static void setupLink(Vnode *v)
 	[x release];
 
 Error_Exit: ;
-}
-
-/*
- * Return YES if any child of the given path is currently mounted on.
- * If there are no children, return NO.
- *
- * Get the list of mount points.  If any mount-on path starts with
- * the passed-in path, return YES.  Otherwise, return NO.
- */
-static BOOL anyChildMounted(const char *path_in)
-{
-	int i, num, pathLen;
-	struct statfs *fsinfo;
-	char path[PATH_MAX];
-	
-	if (realpath(path_in, path) == NULL)
-	{
-		sys_msg(debug, LOG_ERR, "Couldn't get real path of %s (%s: %s)", path_in, path, strerror(errno));
-		return NO;
-	}
-	
-	pathLen = strlen(path);
-	
-	num = getmntinfo(&fsinfo, MNT_NOWAIT);
-	if (num == 0)
-		sys_msg(debug, LOG_ERR, "anyChildMounted: getmntinfo failed: %s", strerror(errno));
-	
-	for (i=0; i<num; ++i)
-	{
-		if (strncmp(path, fsinfo[i].f_mntonname, pathLen) == 0)
-			return YES;
-	}
-	
-	return NO;
 }

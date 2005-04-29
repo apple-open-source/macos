@@ -27,57 +27,17 @@
  * Authors:
  *    Rickard E. (Rik) Faith <faith@valinux.com>
  *    Gareth Hughes <gareth@valinux.com>
+ *
  */
 
 #include "drmP.h"
 
-int DRM(irq_busid)( DRM_IOCTL_ARGS )
-{
-#ifdef __FreeBSD__
-	drm_irq_busid_t id;
-	devclass_t pci;
-	device_t bus, dev;
-	device_t *kids;
-	int error, i, num_kids;
-
-	DRM_COPY_FROM_USER_IOCTL( id, (drm_irq_busid_t *)data, sizeof(id) );
-
-	pci = devclass_find("pci");
-	if (!pci)
-		return ENOENT;
-	bus = devclass_get_device(pci, id.busnum);
-	if (!bus)
-		return ENOENT;
-	error = device_get_children(bus, &kids, &num_kids);
-	if (error)
-		return error;
-
-	dev = 0;
-	for (i = 0; i < num_kids; i++) {
-		dev = kids[i];
-		if (pci_get_slot(dev) == id.devnum
-		    && pci_get_function(dev) == id.funcnum)
-			break;
-	}
-
-	free(kids, M_TEMP);
-
-	if (i != num_kids)
-		id.irq = pci_get_irq(dev);
-	else
-		id.irq = 0;
-	DRM_DEBUG("%d:%d:%d => IRQ %d\n",
-		  id.busnum, id.devnum, id.funcnum, id.irq);
-	
-	DRM_COPY_TO_USER_IOCTL( (drm_irq_busid_t *)data, id, sizeof(id) );
-
-	return 0;
-#else
-	/* don't support interrupt-driven drivers on Net yet */
-	return ENOENT;
-#endif
-}
-
+/*
+ * Beginning in revision 1.1 of the DRM interface, getunique will return
+ * a unique in the form pci:oooo:bb:dd.f (o=domain, b=bus, d=device, f=function)
+ * before setunique has been called.  The format for the bus-specific part of
+ * the unique is not defined for any other bus.
+ */
 int DRM(getunique)( DRM_IOCTL_ARGS )
 {
 	DRM_DEVICE;
@@ -96,10 +56,14 @@ int DRM(getunique)( DRM_IOCTL_ARGS )
 	return 0;
 }
 
+/* Deprecated in DRM version 1.1, and will return EBUSY when setversion has
+ * requested version 1.1 or greater.
+ */
 int DRM(setunique)( DRM_IOCTL_ARGS )
 {
 	DRM_DEVICE;
-	drm_unique_t	 u;
+	drm_unique_t u;
+	int domain, bus, slot, func, ret;
 
 	if (dev->unique_len || dev->unique)
 		return DRM_ERR(EBUSY);
@@ -112,31 +76,56 @@ int DRM(setunique)( DRM_IOCTL_ARGS )
 	dev->unique_len = u.unique_len;
 	dev->unique	= DRM(alloc)(u.unique_len + 1, DRM_MEM_DRIVER);
 
-	if(!dev->unique) return DRM_ERR(ENOMEM);
+	if (dev->unique == NULL)
+		return DRM_ERR(ENOMEM);
 
 	if (DRM_COPY_FROM_USER(dev->unique, u.unique, dev->unique_len))
 		return DRM_ERR(EFAULT);
 
 	dev->unique[dev->unique_len] = '\0';
 
-	dev->devname = DRM(alloc)(strlen(dev->name) + strlen(dev->unique) + 2,
-				  DRM_MEM_DRIVER);
-	if(!dev->devname) {
-		DRM(free)(dev->devname, sizeof(*dev->devname), DRM_MEM_DRIVER);
-		return DRM_ERR(ENOMEM);
-	}
-	sprintf(dev->devname, "%s@%s", dev->name, dev->unique);
-
+	/* Return error if the busid submitted doesn't match the device's actual
+	 * busid.
+	 */
+	ret = sscanf(dev->unique, "PCI:%d:%d:%d", &bus, &slot, &func);
+	if (ret != 3)
+		return DRM_ERR(EINVAL);
+	domain = bus >> 8;
+	bus &= 0xff;
+	
+	if ((domain != dev->pci_domain) ||
+	    (bus != dev->pci_bus) ||
+	    (slot != dev->pci_slot) ||
+	    (func != dev->pci_func))
+		return DRM_ERR(EINVAL);
 
 	return 0;
 }
 
 
+static int
+DRM(set_busid)(drm_device_t *dev)
+{
+
+	if (dev->unique != NULL)
+		return EBUSY;
+
+	dev->unique_len = 20;
+	dev->unique = DRM(alloc)(dev->unique_len + 1, DRM_MEM_DRIVER);
+	if (dev->unique == NULL)
+		return ENOMEM;
+
+	snprintf(dev->unique, dev->unique_len, "pci:%04x:%02x:%02x.%1x",
+	    dev->pci_domain, dev->pci_bus, dev->pci_slot, dev->pci_func);
+
+	return 0;
+}
+
 int DRM(getmap)( DRM_IOCTL_ARGS )
 {
 	DRM_DEVICE;
 	drm_map_t    map;
-	drm_map_t    *mapinlist;
+	drm_local_map_t    *mapinlist;
 	drm_map_list_entry_t *list;
 	int          idx;
 	int	     i = 0;
@@ -145,9 +134,9 @@ int DRM(getmap)( DRM_IOCTL_ARGS )
 
 	idx = map.offset;
 
-	DRM_LOCK;
-	if (idx < 0 || idx >= dev->map_count) {
-		DRM_UNLOCK;
+	DRM_LOCK();
+	if (idx < 0) {
+		DRM_UNLOCK();
 		return DRM_ERR(EINVAL);
 	}
 
@@ -165,7 +154,7 @@ int DRM(getmap)( DRM_IOCTL_ARGS )
 		i++;
 	}
 
-	DRM_UNLOCK;
+	DRM_UNLOCK();
 
  	if (!list)
 		return EINVAL;
@@ -186,7 +175,7 @@ int DRM(getclient)( DRM_IOCTL_ARGS )
 	DRM_COPY_FROM_USER_IOCTL( client, (drm_client_t *)data, sizeof(client) );
 
 	idx = client.idx;
-	DRM_LOCK;
+	DRM_LOCK();
 	TAILQ_FOREACH(pt, &dev->files, link) {
 		if (i==idx)
 		{
@@ -195,14 +184,14 @@ int DRM(getclient)( DRM_IOCTL_ARGS )
 			client.uid   = pt->uid;
 			client.magic = pt->magic;
 			client.iocs  = pt->ioctl_count;
-			DRM_UNLOCK;
+			DRM_UNLOCK();
 
 			*(drm_client_t *)data = client;
 			return 0;
 		}
 		i++;
 	}
-	DRM_UNLOCK;
+	DRM_UNLOCK();
 
 	DRM_COPY_TO_USER_IOCTL( (drm_client_t *)data, client, sizeof(client) );
 
@@ -217,7 +206,7 @@ int DRM(getstats)( DRM_IOCTL_ARGS )
 
 	memset(&stats, 0, sizeof(stats));
 	
-	DRM_LOCK;
+	DRM_LOCK();
 
 	for (i = 0; i < dev->counters; i++) {
 		if (dev->types[i] == _DRM_STAT_LOCK)
@@ -231,9 +220,60 @@ int DRM(getstats)( DRM_IOCTL_ARGS )
 	
 	stats.count = dev->counters;
 
-	DRM_UNLOCK;
+	DRM_UNLOCK();
 
 	DRM_COPY_TO_USER_IOCTL( (drm_stats_t *)data, stats, sizeof(stats) );
 
+	return 0;
+}
+
+#define DRM_IF_MAJOR	1
+#define DRM_IF_MINOR	2
+
+int DRM(setversion)(DRM_IOCTL_ARGS)
+{
+	DRM_DEVICE;
+	drm_set_version_t sv;
+	drm_set_version_t retv;
+	int if_version;
+
+	DRM_COPY_FROM_USER_IOCTL(sv, (drm_set_version_t *)data, sizeof(sv));
+
+	retv.drm_di_major = DRM_IF_MAJOR;
+	retv.drm_di_minor = DRM_IF_MINOR;
+	retv.drm_dd_major = DRIVER_MAJOR;
+	retv.drm_dd_minor = DRIVER_MINOR;
+	
+	DRM_COPY_TO_USER_IOCTL((drm_set_version_t *)data, retv, sizeof(sv));
+
+	if (sv.drm_di_major != -1) {
+		if (sv.drm_di_major != DRM_IF_MAJOR ||
+		    sv.drm_di_minor < 0 || sv.drm_di_minor > DRM_IF_MINOR)
+			return EINVAL;
+		if_version = DRM_IF_VERSION(sv.drm_di_major, sv.drm_dd_minor);
+		dev->if_version = DRM_MAX(if_version, dev->if_version);
+		if (sv.drm_di_minor >= 1) {
+			/*
+			 * Version 1.1 includes tying of DRM to specific device
+			 */
+			DRM(set_busid)(dev);
+		}
+	}
+
+	if (sv.drm_dd_major != -1) {
+		if (sv.drm_dd_major != DRIVER_MAJOR ||
+		    sv.drm_dd_minor < 0 || sv.drm_dd_minor > DRIVER_MINOR)
+			return EINVAL;
+#ifdef DRIVER_SETVERSION
+		DRIVER_SETVERSION(dev, &sv);
+#endif
+	}
+	return 0;
+}
+
+
+int DRM(noop)(DRM_IOCTL_ARGS)
+{
+	DRM_DEBUG("\n");
 	return 0;
 }

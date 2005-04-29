@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810tris.c,v 1.7 2002/10/30 12:51:33 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810tris.c,v 1.8 2003/09/28 20:15:12 alanh Exp $ */
 /**************************************************************************
 
 Copyright 2001 VA Linux Systems Inc., Fremont, California.
@@ -31,12 +31,10 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#include <stdio.h>
-#include <math.h>
-
 #include "glheader.h"
 #include "mtypes.h"
 #include "macros.h"
+#include "enums.h"
 #include "colormac.h"
 
 #include "swrast/swrast.h"
@@ -553,6 +551,9 @@ static void i810ChooseRenderState(GLcontext *ctx)
    GLuint flags = ctx->_TriangleCaps;
    GLuint index = 0;
 
+   if (I810_DEBUG & DEBUG_STATE)
+     fprintf(stderr,"\n%s\n",__FUNCTION__);
+
    if (flags & (ANY_FALLBACK_FLAGS|ANY_RASTER_FLAGS)) {
       if (flags & ANY_RASTER_FLAGS) {
 	 if (flags & DD_TRI_LIGHT_TWOSIDE)    index |= I810_TWOSIDE_BIT;
@@ -704,6 +705,39 @@ void i810RasterPrimitive( GLcontext *ctx,
    st1 &= ~ST1_ENABLE;
    aa &= ~AA_ENABLE;
 
+   if (I810_DEBUG & DEBUG_PRIMS) {
+      /* Prints reduced prim, and hw prim */
+      char *prim_name = "Unknown";
+      
+      switch(hwprim) {
+      case PR_LINES:
+	 prim_name = "Lines";
+	 break;
+      case PR_LINESTRIP:
+	 prim_name = "LineStrip";
+	 break;	 
+      case PR_TRIANGLES:
+	 prim_name = "Triangles";
+	 break;	 
+      case PR_TRISTRIP_0:
+	 prim_name = "TriStrip_0";
+	 break;	 
+      case PR_TRIFAN:
+	 prim_name = "TriFan";
+	 break;	 
+      case PR_POLYGON:
+	 prim_name = "Polygons";
+	 break;
+      default:
+	 break;
+      }
+
+      fprintf(stderr, "%s : rprim(%s), hwprim(%s)\n",
+	      __FUNCTION__,
+	      _mesa_lookup_enum_by_nr(rprim),
+	      prim_name);
+   }
+
    switch (rprim) {
    case GL_TRIANGLES:
       if (ctx->Polygon.StippleFlag)
@@ -752,7 +786,27 @@ void i810RasterPrimitive( GLcontext *ctx,
 /**********************************************************************/
 /*           Transition to/from hardware rasterization.               */
 /**********************************************************************/
+static char *fallbackStrings[] = {
+   "Texture",
+   "Draw buffer",
+   "Read buffer",
+   "Color mask",
+   "Render mode",
+   "Stencil",
+   "Stipple",
+   "User disable"
+};
 
+
+static char *getFallbackString(GLuint bit)
+{
+   int i = 0;
+   while (bit > 1) {
+      i++;
+      bit >>= 1;
+   }
+   return fallbackStrings[i];
+}
 
 void i810Fallback( i810ContextPtr imesa, GLuint bit, GLboolean mode )
 {
@@ -766,8 +820,9 @@ void i810Fallback( i810ContextPtr imesa, GLuint bit, GLboolean mode )
    if (mode) {
       imesa->Fallback |= bit;
       if (oldfallback == 0) {
-	 if (0) fprintf(stderr, "ENTER FALLBACK\n");
 	 I810_FIREVERTICES(imesa);
+	 if (I810_DEBUG & DEBUG_FALLBACKS) 
+	    fprintf(stderr, "ENTER FALLBACK %s\n", getFallbackString( bit ));
 	 _swsetup_Wakeup( ctx );
 	 imesa->RenderIndex = ~0;
       }
@@ -775,8 +830,9 @@ void i810Fallback( i810ContextPtr imesa, GLuint bit, GLboolean mode )
    else {
       imesa->Fallback &= ~bit;
       if (oldfallback == bit) {
-	 if (0) fprintf(stderr, "LEAVE FALLBACK\n");
 	 _swrast_flush( ctx );
+	 if (I810_DEBUG & DEBUG_FALLBACKS) 
+	    fprintf(stderr, "LEAVE FALLBACK %s\n", getFallbackString( bit ));
 	 tnl->Driver.Render.Start = i810RenderStart;
 	 tnl->Driver.Render.PrimitiveNotify = i810RenderPrimitive;
 	 tnl->Driver.Render.Finish = i810RenderFinish;

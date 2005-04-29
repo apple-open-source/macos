@@ -24,6 +24,7 @@ else
     'builtins:builtin command:compadd -k builtins'
     'functions:shell function:compadd -k functions'
     'aliases:alias:compadd -k aliases'
+    'suffix-aliases:suffix alias:_suffix_alias_files'
     'reserved-words:reserved word:compadd -k reswords'
     'jobs:: _jobs -t'
     'parameters:: _parameters -g "^*readonly*" -qS= -r "\n\t\- =["'
@@ -32,4 +33,12 @@ fi
 
 args=( "$@" )
 
+local -a cmdpath
+if zstyle -a ":completion:${curcontext}" command-path cmdpath &&
+   [[ $#cmdpath -gt 0 ]]
+then
+  local -a +h path
+  local -A +h commands
+  path=( $cmdpath )
+fi
 _alternative -O args "$defs[@]"

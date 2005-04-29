@@ -33,16 +33,18 @@ testtypes
     
     // genrb just includes the test as a string after converting to UTF-16
         
-    testincludeUTF:include{ "th18057.txt" }
+    testincludeUTF:include{ "riwords.txt" }
     // No unescaping is done.
     testinclude:include{ "translit_rules.txt" }
 
     // Genrb failed parsing \u0075 sequence this tests it 
-    CollationElements{
+    collations {
+      standard { 
 	Version{"x01"}
 	Sequence{ 
 		       "&'\u0075' = '\uFF55'" // LATIN SMALL LETTER U
 		}
+      }
     }
     
     string{ }

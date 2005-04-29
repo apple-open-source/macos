@@ -19,75 +19,61 @@
 
 # Load support procs.
 load_lib gcc-dg.exp
+load_lib dg-pch.exp
 
 # Initialize `dg'.
 dg-init
 
 set old_dg_do_what_default "${dg-do-what-default}"
 
+# APPLE LOCAL begin
+# Test MACOSX_DEPLOYMENT_TARGET 
+set macosx_deployment_target env(MACOSX_DEPLOYMENT_TARGET)
+setenv MACOSX_DEPLOYMENT_TARGET 10.2
+set test "cfstring-1.c"
+set f [open $test w]
+set v 0
+puts $f "#include \"cfstring-1.h\""
+puts $f "/* { dg-options \"-I./ -Winvalid-pch -save-temps\" } */"
+puts $f "void foo\(\) { x = 0; }"
+puts $f ""
+close $f
+set testh "cfstring-1.hs"
+set f [open $testh w]
+puts $f "int x;"
+puts $f ""
+close $f
+dg-pch $subdir $test [concat [list {-O0 -g}] $torture_without_loops] ".h"    
+set MACOSX_DEPLOYMENT_TARGET $macosx_deployment_target
+file delete $test
+file delete $testh
+# APPLE LOCAL end
+
 # Main loop.
 foreach test [lsort [glob -nocomplain $srcdir/$subdir/*.c]] {
-    global runtests torture_without_loops dg-do-what-default
-
-    # If we're only testing specific files and this isn't one of them, skip it.
-    if ![runtest_file_p $runtests $test] {
-	continue
-    }
-    set nshort "$subdir/[file tail $test]"
-    set bname "[file rootname [file tail $test]]"
-
-    catch { file delete "$bname.h.gch" }
-    catch { file delete "$bname.s" }
-    catch { file delete "$bname.s-gch" }
+    global torture_without_loops
 
     # We don't try to use the loop-optimizing options, since they are highly
     # unlikely to make any difference to PCH.  However, we do want to
     # add -O0 -g, since users who want PCH usually want debugging and quick
     # compiles.
-    set pch_torture [concat [list {-O0 -g}] $torture_without_loops]
-    foreach flags $pch_torture {
-	verbose "Testing $nshort, $flags" 1
-
-	# For the header files, the default is to precompile.
-	set dg-do-what-default precompile
-	catch { file delete "$bname.h" }
-	file copy "[file rootname $test].hs" "$bname.h"
-	dg-test -keep-output "$bname.h" $flags ""
-
-	# For the rest, the default is to compile to .s.
-	set dg-do-what-default compile
-
-	if { [ file exists "$bname.h.gch" ] } {
-	    # Ensure that the PCH file is used, not the original header.
-	    file delete "$bname.h"
-
-	    dg-test -keep-output $test $flags "-I."
-	    file delete "$bname.h.gch"
-	    if { [ file exists "$bname.s" ] } {
-		file rename "$bname.s" "$bname.s-gch"
-		file copy "[file rootname $test].hs" "$bname.h"
-		dg-test -keep-output $test $flags "-I."
-		set tmp [ diff "$bname.s" "$bname.s-gch" ]
-		if { $tmp == 0 } {
-		    untested "$nshort $flags assembly comparison"
-		} elseif { $tmp == 1 } {
-		    pass "$nshort $flags assembly comparison"
-		} else {
-		    fail "$nshort $flags assembly comparison"
-		}
-		file delete "$bname.h"
-		file delete "$bname.s"
-		file delete "$bname.s-gch"
-	    } else {
-		untested "$nshort $flags assembly comparison"
-	    }
-
-	} else {
-	    untested "$nshort $flags"
-	    untested "$nshort $flags assembly comparison"
-	}
-    }
+    dg-pch $subdir $test [concat [list {-O0 -g}] $torture_without_loops] ".h"
 }
+
+set test "largefile.c"
+set testh "largefile.hs"
+set f [open $test w]
+set v 0
+for { set v 0 } { $v < 10000 } { incr v } {
+    puts $f "#define MACRO_${v} \"1234567890\" \"$v\""
+}
+puts $f "#include \"largefile.h\""
+close $f
+set f [open $testh w]
+close $f
+dg-pch $subdir $test [concat [list {-O0 -g}] $torture_without_loops] ".h"    
+file delete $test
+file delete $testh
 
 set dg-do-what-default "$old_dg_do_what_default"
 

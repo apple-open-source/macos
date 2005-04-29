@@ -4293,17 +4293,17 @@ fi\
             else
               # the above command should be used before it gets too long
               oldobjs=$objlist
-	      test -z "$concat_cmds" || concat_cmds=$concat_cmds~
+	      test -z "$concat_cmds" || concat_cmds=$concat_cmds:
               eval concat_cmds=\"\${concat_cmds}$old_archive_cmds\"
               objlist=
             fi
           done
 	  RANLIB=$save_RANLIB
           oldobjs=$objlist
-          eval cmds=\"\$concat_cmds~$old_archive_cmds\"
+          eval cmds=\"\$concat_cmds:$old_archive_cmds\"
         fi
       fi
-      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'
+      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS=':'
       for cmd in $cmds; do
 	IFS="$save_ifs"
 	$show "$cmd"
@@ -4867,7 +4867,7 @@ relink_command=\"$relink_command\""
 
       # Do each command in the postinstall commands.
       eval cmds=\"$old_postinstall_cmds\"
-      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'
+      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS=':'
       for cmd in $cmds; do
 	IFS="$save_ifs"
 	$show "$cmd"

@@ -1,0 +1,5 @@
+# tDOM Tcl package index file
+
+package ifneeded tnc @VERSION@        \
+    "package require tdom; \
+     [list load [file join $dir tnc@VERSION@[info sharedlibextension] ] tnc]"

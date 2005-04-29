@@ -6,9 +6,8 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *                            $Revision: 1.1.1.3 $
  *                                                                          *
- *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2002 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -28,7 +27,7 @@
  * file might be covered by the  GNU Public License.                        *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -60,18 +59,15 @@ extern void update_setjmp_buf PARAMS ((tree));
    default.  */
 extern int default_pass_by_ref	PARAMS ((tree));
 
-/* GNU_TYPE is the type of a subprogram parameter.  Determine from the type if
-   it should be passed by reference.  */
+/* GNU_TYPE is the type of a subprogram parameter.  Determine from the type
+   if it should be passed by reference.  */
 extern int must_pass_by_ref	PARAMS ((tree));
 
-/* Elaboration routines for the front end */
-extern void elab_all_gnat       PARAMS ((void));
+/* This function returns the version of GCC being used.  Here it's GCC 3.  */
+extern int gcc_version		PARAMS ((void));
 
-/* Emit a label UNITNAME_LABEL and specify that it is part of source
-   file FILENAME.  If this is being written for SGI's Workshop
-   debugger, and we are writing Dwarf2 debugging information, add
-   additional debug info.  */
-extern void emit_unit_label	     PARAMS ((char *, char *));
+/* Elaboration routines for the front end.  */
+extern void elab_all_gnat       PARAMS ((void));
 
 /* Initialize DUMMY_NODE_TABLE.  */
 extern void init_dummy_type	PARAMS ((void));
@@ -163,11 +159,7 @@ extern const char *ref_filename;
 /* List of TREE_LIST nodes representing a block stack.  TREE_VALUE
    of each gives the variable used for the setjmp buffer in the current
    block, if any.  */
-extern tree gnu_block_stack;
-
-/* For most front-ends, this is the parser for the language.  For us, we
-   process the GNAT tree.  */
-extern int yyparse		PARAMS ((void));
+extern GTY(()) tree gnu_block_stack;
 
 /* This is the main program of the back-end.  It sets up all the table
    structures and then generates code.  */
@@ -235,9 +227,8 @@ extern void post_error_ne_tree_2 PARAMS ((const char *, Node_Id, Entity_Id,
 /* Set the node for a second '&' in the error message.  */
 extern void set_second_error_entity PARAMS ((Entity_Id));
 
-/* Surround EXP with a SAVE_EXPR, but handle unconstrained objects specially
-   since it doesn't make any sense to put them in a SAVE_EXPR.  */
-extern tree make_save_expr	PARAMS ((tree));
+/* Protect EXP from multiple evaluation.  This may make a SAVE_EXPR.  */
+extern tree protect_multiple_eval PARAMS ((tree));
 
 /* Signal abort, with "Gigi abort" as the error label, and error_gnat_node
    as the relevant node that provides the location info for the error.
@@ -355,12 +346,10 @@ enum standard_datatypes
   ADT_setjmp_decl,
   ADT_longjmp_decl,
   ADT_raise_nodefer_decl,
-  ADT_raise_constraint_error_decl,
-  ADT_raise_program_error_decl,
-  ADT_raise_storage_error_decl,
   ADT_LAST};
 
-extern tree gnat_std_decls[(int) ADT_LAST];
+extern GTY(()) tree gnat_std_decls[(int) ADT_LAST];
+extern GTY(()) tree gnat_raise_decls[(int) LAST_REASON_CODE + 1];
 
 #define longest_float_type_node gnat_std_decls[(int) ADT_longest_float_type]
 #define void_type_decl_node gnat_std_decls[(int) ADT_void_type_decl]
@@ -378,12 +367,6 @@ extern tree gnat_std_decls[(int) ADT_LAST];
 #define setjmp_decl gnat_std_decls[(int) ADT_setjmp_decl]
 #define longjmp_decl gnat_std_decls[(int) ADT_longjmp_decl]
 #define raise_nodefer_decl gnat_std_decls[(int) ADT_raise_nodefer_decl]
-#define raise_constraint_error_decl \
-     gnat_std_decls[(int) ADT_raise_constraint_error_decl]
-#define raise_program_error_decl \
-     gnat_std_decls[(int) ADT_raise_program_error_decl]
-#define raise_storage_error_decl \
-     gnat_std_decls[(int) ADT_raise_storage_error_decl]
 
 /* Routines expected by the gcc back-end. They must have exactly the same
    prototype and names as below.  */
@@ -435,36 +418,33 @@ extern tree pushdecl			PARAMS ((tree));
    in the gcc back-end and initialize the global binding level.  */
 extern void gnat_init_decl_processing	PARAMS ((void));
 extern void init_gigi_decls		PARAMS ((tree, tree));
+extern void gnat_init_gcc_eh		PARAMS ((void));
 
 /* Return an integer type with the number of bits of precision given by  
    PRECISION.  UNSIGNEDP is nonzero if the type is unsigned; otherwise
    it is a signed type.  */
-extern tree type_for_size		PARAMS ((unsigned, int));
+extern tree gnat_type_for_size		PARAMS ((unsigned, int));
 
 /* Return a data type that has machine mode MODE.  UNSIGNEDP selects
    an unsigned type; otherwise a signed type is returned.  */
-extern tree type_for_mode		PARAMS ((enum machine_mode, int));
+extern tree gnat_type_for_mode		PARAMS ((enum machine_mode, int));
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */
-extern tree unsigned_type		PARAMS ((tree));
+extern tree gnat_unsigned_type		PARAMS ((tree));
 
 /* Return the signed version of a TYPE_NODE, a scalar type.  */
-extern tree signed_type			PARAMS ((tree));
+extern tree gnat_signed_type		PARAMS ((tree));
 
 /* Return a type the same as TYPE except unsigned or signed according to
    UNSIGNEDP.  */
-extern tree signed_or_unsigned_type	PARAMS ((int, tree));
-
-/* This routine is called in tree.c to print an error message for invalid use
-   of an incomplete type.  */
-extern void incomplete_type_error	PARAMS ((tree, tree));
+extern tree gnat_signed_or_unsigned_type PARAMS ((int, tree));
 
 /* This function is called indirectly from toplev.c to handle incomplete 
    declarations, i.e. VAR_DECL nodes whose DECL_SIZE is zero.  To be precise,
    compile_file in toplev.c makes an indirect call through the function pointer
    incomplete_decl_finalize_hook which is initialized to this routine in
    init_decl_processing.  */
-extern void finish_incomplete_decl	PARAMS ((tree));
+extern void gnat_finish_incomplete_decl	PARAMS ((tree));
 
 /* Create an expression whose value is that of EXPR,
    converted to type TYPE.  The TREE_TYPE of the value
@@ -645,8 +625,10 @@ extern void update_pointer_to		PARAMS ((tree, tree));
 extern tree max_size			PARAMS ((tree, int));
 
 /* Remove all conversions that are done in EXP.  This includes converting
-   from a padded type or converting to a left-justified modular type.  */
-extern tree remove_conversions		PARAMS ((tree));
+   from a padded type or to a left-justified modular type.  If TRUE_ADDRESS
+   is nonzero, always return the address of the containing object even if
+   the address is not bit-aligned.  */
+extern tree remove_conversions		PARAMS ((tree, int));
 
 /* If EXP's type is an UNCONSTRAINED_ARRAY_TYPE, return an expression that
    refers to the underlying array.  If its type has TYPE_CONTAINS_TEMPLATE_P,
@@ -668,7 +650,7 @@ extern tree unchecked_convert		PARAMS ((tree, tree));
    The resulting type should always be the same as the input type.
    This function is simpler than the corresponding C version since
    the only possible operands will be things of Boolean type.  */
-extern tree truthvalue_conversion      PARAMS((tree));
+extern tree gnat_truthvalue_conversion      PARAMS((tree));
 
 /* Return the base type of TYPE.  */
 extern tree get_base_type	PARAMS((tree));
@@ -705,9 +687,9 @@ extern tree build_call_2_expr	PARAMS((tree, tree, tree));
 /* Likewise to call FUNDECL with no arguments.  */
 extern tree build_call_0_expr	PARAMS((tree));
 
-/* Call a function FCN that raises an exception and pass the line
-   number and file name, if requested.  */
-extern tree build_call_raise	PARAMS((tree));
+/* Call a function that raises an exception and pass the line number and file
+   name, if requested.  MSG says which exception function to call.  */
+extern tree build_call_raise	PARAMS((int));
 
 /* Return a CONSTRUCTOR of TYPE whose list is LIST.  */
 extern tree build_constructor	PARAMS((tree, tree));
@@ -741,8 +723,8 @@ extern tree build_allocator	PARAMS((tree, tree, tree, Entity_Id,
 extern tree fill_vms_descriptor PARAMS((tree, Entity_Id));
 
 /* Indicate that we need to make the address of EXPR_NODE and it therefore
-   should not be allocated in a register. Return 1 if successful.  */
-extern int mark_addressable	PARAMS((tree));
+   should not be allocated in a register.  Return true if successful.  */
+extern bool gnat_mark_addressable PARAMS((tree));
 
 /* These functions return the basic data type sizes and related parameters
    about the target machine.  */

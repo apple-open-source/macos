@@ -1,0 +1,250 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		014CEA490018CE3211CA2923 = {
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		014CEA4A0018CE3211CA2923 = {
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//010
+//011
+//012
+//013
+//014
+//080
+//081
+//082
+//083
+//084
+		08FB7793FE84155DC02AAC07 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				014CEA490018CE3211CA2923,
+				014CEA4A0018CE3211CA2923,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 08FB7794FE84155DC02AAC07;
+			projectDirPath = "";
+			targets = (
+				EE19EED407B2C7BF0083E1AA,
+			);
+		};
+		08FB7794FE84155DC02AAC07 = {
+			children = (
+				08FB7795FE84155DC02AAC07,
+				08FB779DFE84155DC02AAC07,
+				19C28FBDFE9D53C911CA2CBB,
+			);
+			isa = PBXGroup;
+			name = USBSimpleExample;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 = {
+			children = (
+				08FB7796FE84155DC02AAC07,
+			);
+			isa = PBXGroup;
+			name = Source;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		08FB7796FE84155DC02AAC07 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = main.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		08FB779DFE84155DC02AAC07 = {
+			children = (
+				09AB6884FE841BABC02AAC07,
+				130F0D2200FCB0C106CB154B,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//080
+//081
+//082
+//083
+//084
+//090
+//091
+//092
+//093
+//094
+		09AB6884FE841BABC02AAC07 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+//090
+//091
+//092
+//093
+//094
+//130
+//131
+//132
+//133
+//134
+		130F0D2200FCB0C106CB154B = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+//130
+//131
+//132
+//133
+//134
+//190
+//191
+//192
+//193
+//194
+		19C28FBDFE9D53C911CA2CBB = {
+			children = (
+				EE19EEDC07B2C7BF0083E1AA,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//190
+//191
+//192
+//193
+//194
+//EE0
+//EE1
+//EE2
+//EE3
+//EE4
+		EE19EED407B2C7BF0083E1AA = {
+			buildPhases = (
+				EE19EED507B2C7BF0083E1AA,
+				EE19EED607B2C7BF0083E1AA,
+				EE19EED807B2C7BF0083E1AA,
+				EE19EEDB07B2C7BF0083E1AA,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "-W -Wall -Wno-unused";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = USBSimpleExample;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = USBSimpleExample;
+			productInstallPath = "$(HOME)/bin";
+			productName = USBSimpleExample;
+			productReference = EE19EEDC07B2C7BF0083E1AA;
+			productType = "com.apple.product-type.tool";
+		};
+		EE19EED507B2C7BF0083E1AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE19EED607B2C7BF0083E1AA = {
+			buildActionMask = 2147483647;
+			files = (
+				EE19EED707B2C7BF0083E1AA,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE19EED707B2C7BF0083E1AA = {
+			fileRef = 08FB7796FE84155DC02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		EE19EED807B2C7BF0083E1AA = {
+			buildActionMask = 2147483647;
+			files = (
+				EE19EED907B2C7BF0083E1AA,
+				EE19EEDA07B2C7BF0083E1AA,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE19EED907B2C7BF0083E1AA = {
+			fileRef = 09AB6884FE841BABC02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE19EEDA07B2C7BF0083E1AA = {
+			fileRef = 130F0D2200FCB0C106CB154B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE19EEDB07B2C7BF0083E1AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE19EEDC07B2C7BF0083E1AA = {
+			explicitFileType = "compiled.mach-o.executable";
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = USBSimpleExample;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+	};
+	rootObject = 08FB7793FE84155DC02AAC07;
+}

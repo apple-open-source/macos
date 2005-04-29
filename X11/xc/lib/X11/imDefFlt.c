@@ -26,7 +26,7 @@ PERFORMANCE OF THIS SOFTWARE.
                                fujiwara@a80.tech.yk.fujitsu.co.jp
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/imDefFlt.c,v 1.4 2001/01/17 19:41:51 dawes Exp $ */
+/* $XFree86: xc/lib/X11/imDefFlt.c,v 1.5 2003/04/13 19:22:20 dawes Exp $ */
 
 #include <X11/Xatom.h>
 #define NEED_EVENTS
@@ -36,11 +36,11 @@ PERFORMANCE OF THIS SOFTWARE.
 #include "Ximint.h"
 
 Private long
-_XimTriggerCheck(im, ev, len, keylist)
-    Xim			 im;
-    XKeyEvent		*ev;
-    INT32		 len;
-    CARD32		*keylist;
+_XimTriggerCheck(
+    Xim			 im,
+    XKeyEvent		*ev,
+    INT32		 len,
+    CARD32		*keylist)
 {
     register long	 i;
     KeySym	 	 keysym;
@@ -67,27 +67,27 @@ _XimTriggerCheck(im, ev, len, keylist)
 }
 
 Private long
-_XimTriggerOnCheck(im, ev)
-    Xim		 im;
-    XKeyEvent	*ev;
+_XimTriggerOnCheck(
+    Xim		 im,
+    XKeyEvent	*ev)
 {
     return _XimTriggerCheck(im, ev, (INT32)im->private.proto.im_onkeylist[0],
 					&im->private.proto.im_onkeylist[1]);
 }
 
 Private long
-_XimTriggerOffCheck(im, ev)
-    Xim		 im;
-    XKeyEvent	*ev;
+_XimTriggerOffCheck(
+    Xim		 im,
+    XKeyEvent	*ev)
 {
     return _XimTriggerCheck(im, ev, (INT32)im->private.proto.im_offkeylist[0],
 					&im->private.proto.im_offkeylist[1]);
 }
 
 Private Bool
-_XimOnKeysCheck(ic, ev)
-    Xic		 ic;
-    XKeyEvent	*ev;
+_XimOnKeysCheck(
+    Xic		 ic,
+    XKeyEvent	*ev)
 {
     Xim		 im = (Xim)ic->core.im;
     long	 idx;
@@ -104,9 +104,9 @@ _XimOnKeysCheck(ic, ev)
 }
 
 Private Bool
-_XimOffKeysCheck(ic, ev)
-    Xic		 ic;
-    XKeyEvent	*ev;
+_XimOffKeysCheck(
+    Xic		 ic,
+    XKeyEvent	*ev)
 {
     Xim		 im = (Xim)ic->core.im;
     long	 idx;
@@ -123,8 +123,8 @@ _XimOffKeysCheck(ic, ev)
 }
 
 Private void
-_XimPendingFilter(ic)
-    Xic	 	 ic;
+_XimPendingFilter(
+    Xic	 	 ic)
 {
     Xim          im = (Xim)ic->core.im;
 
@@ -136,9 +136,9 @@ _XimPendingFilter(ic)
 }
 
 Private Bool
-_XimProtoKeypressFilter(ic, ev)
-    Xic		 ic;
-    XKeyEvent	*ev;
+_XimProtoKeypressFilter(
+    Xic		 ic,
+    XKeyEvent	*ev)
 {
 #ifdef XIM_CONNECTABLE
     Xim		im = (Xim)ic->core.im;
@@ -189,19 +189,19 @@ _XimProtoKeypressFilter(ic, ev)
 }
 
 Private Bool
-_XimFilterKeypress (d, w, ev, client_data)
-    Display		*d;
-    Window		 w;
-    XEvent		*ev;
-    XPointer		 client_data;
+_XimFilterKeypress(
+    Display		*d,
+    Window		 w,
+    XEvent		*ev,
+    XPointer		 client_data)
 {
     return _XimProtoKeypressFilter((Xic)client_data, (XKeyEvent *)ev );
 }
 
 Private Bool
-_XimProtoKeyreleaseFilter( ic, ev )
-    Xic		 ic;
-    XKeyEvent	*ev;
+_XimProtoKeyreleaseFilter(
+    Xic		 ic,
+    XKeyEvent	*ev)
 {
 #ifdef XIM_CONNECTABLE
     Xim		im = (Xim)ic->core.im;
@@ -252,18 +252,18 @@ _XimProtoKeyreleaseFilter( ic, ev )
 }
 
 Private Bool
-_XimFilterKeyrelease (d, w, ev, client_data)
-    Display		*d;
-    Window		 w;
-    XEvent		*ev;
-    XPointer		 client_data;
+_XimFilterKeyrelease(
+    Display		*d,
+    Window		 w,
+    XEvent		*ev,
+    XPointer		 client_data)
 {
     return _XimProtoKeyreleaseFilter((Xic)client_data, (XKeyEvent *)ev);
 }
 
 Private void 
-_XimRegisterKeyPressFilter(ic)
-    Xic		 ic ;
+_XimRegisterKeyPressFilter(
+    Xic		 ic)
 {
     if (ic->core.focus_window) {
 	if (!(ic->private.proto.registed_filter_event & KEYPRESS_MASK)) {
@@ -279,8 +279,8 @@ _XimRegisterKeyPressFilter(ic)
 }
 
 Private void 
-_XimRegisterKeyReleaseFilter(ic)
-    Xic		 ic ;
+_XimRegisterKeyReleaseFilter(
+    Xic		 ic)
 {
     if (ic->core.focus_window) {
 	if (!(ic->private.proto.registed_filter_event & KEYRELEASE_MASK)) {
@@ -296,8 +296,8 @@ _XimRegisterKeyReleaseFilter(ic)
 }
 
 Private void 
-_XimUnregisterKeyPressFilter(ic)
-    Xic		 ic ;
+_XimUnregisterKeyPressFilter(
+    Xic		 ic)
 {
     if (ic->core.focus_window) {
 	if (ic->private.proto.registed_filter_event & KEYPRESS_MASK) {
@@ -312,8 +312,8 @@ _XimUnregisterKeyPressFilter(ic)
 }
 
 Private void 
-_XimUnregisterKeyReleaseFilter(ic)
-    Xic		 ic ;
+_XimUnregisterKeyReleaseFilter(
+    Xic		 ic)
 {
     if (ic->core.focus_window) {
 	if (ic->private.proto.registed_filter_event & KEYRELEASE_MASK) {
@@ -328,8 +328,8 @@ _XimUnregisterKeyReleaseFilter(ic)
 }
 
 Public void
-_XimRegisterFilter(ic)
-    Xic		 ic;
+_XimRegisterFilter(
+    Xic		 ic)
 {
     _XimRegisterKeyPressFilter(ic);
     if (IS_FORWARD_EVENT(ic, KeyReleaseMask))
@@ -338,8 +338,8 @@ _XimRegisterFilter(ic)
 }
 
 Public void
-_XimUnregisterFilter(ic)
-    Xic		 ic;
+_XimUnregisterFilter(
+    Xic		 ic)
 {
     _XimUnregisterKeyPressFilter(ic);
     _XimUnregisterKeyReleaseFilter(ic);
@@ -347,8 +347,8 @@ _XimUnregisterFilter(ic)
 }
 
 Public void
-_XimReregisterFilter(ic)
-    Xic		 ic;
+_XimReregisterFilter(
+    Xic		 ic)
 {
     if (IS_FORWARD_EVENT(ic, KeyReleaseMask))
 	_XimRegisterKeyReleaseFilter(ic);
@@ -359,11 +359,11 @@ _XimReregisterFilter(ic)
 }
 
 Private Bool
-_XimFilterServerDestroy (d, w, ev, client_data)
-    Display		*d;
-    Window		 w;
-    XEvent		*ev;
-    XPointer		 client_data;
+_XimFilterServerDestroy(
+    Display		*d,
+    Window		 w,
+    XEvent		*ev,
+    XPointer		 client_data)
 {
     Xim			 im = (Xim)client_data;
 
@@ -381,8 +381,8 @@ _XimFilterServerDestroy (d, w, ev, client_data)
 }
 
 Public void 
-_XimRegisterServerFilter(im)
-    Xim		 im ;
+_XimRegisterServerFilter(
+    Xim		 im)
 {
     if (im->private.proto.im_window) {
 	if (!(im->private.proto.registed_filter_event & DESTROYNOTIFY_MASK)) {
@@ -400,8 +400,8 @@ _XimRegisterServerFilter(im)
 }
 
 Public void 
-_XimUnregisterServerFilter(im)
-    Xim		 im ;
+_XimUnregisterServerFilter(
+    Xim		 im)
 {
     if (im->private.proto.im_window) {
 	if (im->private.proto.registed_filter_event & DESTROYNOTIFY_MASK) {

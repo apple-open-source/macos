@@ -240,6 +240,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /*
  * __cntlzw - Count Leading Zeros Word
  */
+static inline int __cntlzw (int value) __attribute__((always_inline));
 static inline int 
 __cntlzw (int value)
 {
@@ -380,6 +381,7 @@ __cntlzw (int value)
  *
  *   ??? CW: float __setflm(float);
  */
+static inline double __setflm (double newflm) __attribute__((always_inline));
 static inline double 
 __setflm(double newflm)
 {
@@ -401,6 +403,7 @@ __setflm(double newflm)
 /*
  * __fabs - Floating-Point Absolute Value
  */
+static inline double __fabs (double value) __attribute__((always_inline));
 static inline double 
 __fabs (double value)
 {
@@ -414,6 +417,7 @@ __fabs (double value)
 /*
  * __fnabs - Floating Negative Absolute Value
  */
+static inline double __fnabs (double b) __attribute__((always_inline));
 static inline double 
 __fnabs (double b)
 {
@@ -432,6 +436,7 @@ __fnabs (double b)
  * value exceeds the range representable by a long.  Use the rounding
  * mode indicated in the FPSCR.
  */
+static inline double __fctiw (double b) __attribute__((always_inline));
 static inline double 
 __fctiw (double b)
 {
@@ -449,6 +454,7 @@ __fctiw (double b)
  * bits of the FP register.  Clip to LONG_MIN or LONG_MAX if the FP 
  * value exceeds the range representable by a long.
  */
+static inline double __fctiwz (double b) __attribute__((always_inline));
 static inline double 
 __fctiwz (double b)
 {
@@ -464,6 +470,7 @@ __fctiwz (double b)
  *
  *   (a * c + b) double precision
  */
+static inline double __fmadd (double a, double c, double b) __attribute__((always_inline));
 static inline double 
 __fmadd (double  a, double c, double b)
 {
@@ -482,6 +489,7 @@ __fmadd (double  a, double c, double b)
  * Double precision arguments are used to prevent the compiler from
  * issuing frsp instructions upstream.
  */
+static inline float __fmadds (double a, double c, double b) __attribute__((always_inline));
 static inline float 
 __fmadds (double  a, double c, double b)
 {
@@ -497,6 +505,7 @@ __fmadds (double  a, double c, double b)
  *
  *   (a * c - b) double precision
  */
+static inline double __fmsub (double a, double c, double b) __attribute__((always_inline));
 static inline double 
 __fmsub (double  a, double c, double b)
 {
@@ -515,6 +524,7 @@ __fmsub (double  a, double c, double b)
  * Double precision arguments are used to prevent the compiler from
  * issuing frsp instructions upstream.
  */
+static inline float __fmsubs (double a, double c, double b) __attribute__((always_inline));
 static inline float 
 __fmsubs (double  a, double c, double b)
 {
@@ -530,6 +540,7 @@ __fmsubs (double  a, double c, double b)
  *
  *   (a * c) double precision
  */
+static inline double __fmul (double a, double c) __attribute__((always_inline));
 static inline double 
 __fmul (double  a, double c)
 {
@@ -548,6 +559,7 @@ __fmul (double  a, double c)
  * Double precision arguments are used to prevent the compiler from
  * issuing frsp instructions upstream.
  */
+static inline float __fmuls (double a, double c) __attribute__((always_inline));
 static inline float 
 __fmuls (double  a, double c)
 {
@@ -563,6 +575,7 @@ __fmuls (double  a, double c)
  *
  *   -(a * c + b) double precision
  */
+static inline double __fnmadd (double a, double c, double b) __attribute__((always_inline));
 static inline double 
 __fnmadd (double  a, double c, double b)
 {
@@ -581,6 +594,7 @@ __fnmadd (double  a, double c, double b)
  * Double precision arguments are used to prevent the compiler from
  * issuing frsp instructions upstream.
  */
+static inline float __fnmadds (double a, double c, double b) __attribute__((always_inline));
 static inline float 
 __fnmadds (double  a, double c, double b)
 {
@@ -596,6 +610,7 @@ __fnmadds (double  a, double c, double b)
  *
  *   -(a * c - B) double precision
  */
+static inline double __fnmsub (double a, double c, double b) __attribute__((always_inline));
 static inline double 
 __fnmsub (double  a, double c, double b)
 {
@@ -614,6 +629,7 @@ __fnmsub (double  a, double c, double b)
  * Double precision arguments are used to prevent the compiler from
  * issuing frsp instructions upstream.
  */
+static inline float __fnmsubs (double a, double c, double b) __attribute__((always_inline));
 static inline float 
 __fnmsubs (double  a, double c, double b)
 {
@@ -632,6 +648,7 @@ __fnmsubs (double  a, double c, double b)
  *
  * ??? CW: float __fres(float)
  */
+static inline float __fres (float val) __attribute__((always_inline));
 static inline float 
 __fres (float val)
 {
@@ -645,6 +662,7 @@ __fres (float val)
 /*
  * __frsp - Floating Round to Single-Precision
  */
+static inline float __frsp (double d) __attribute__((always_inline));
 static inline float 
 __frsp (double d)
 {
@@ -660,6 +678,7 @@ __frsp (double d)
  *
  * Note: not valid on the PowerPC 601.
  */
+static inline double __frsqrte (double val) __attribute__((always_inline));
 static inline double 
 __frsqrte (double val)
 {
@@ -674,6 +693,7 @@ __frsqrte (double val)
 /*
  * __frsqrtes - Floating Reciprocal Square Root Estimate Single
  */
+static inline float __frsqrtes (double f) __attribute__((always_inline));
 static inline float 
 __frsqrtes (double f)
 {
@@ -691,6 +711,7 @@ __frsqrtes (double f)
  *
  * Note: not valid on the PowerPC 601.
  */
+static inline double __fsel (double test, double a, double b) __attribute__((always_inline));
 static inline double 
 __fsel (double test, double a, double b)
 {
@@ -709,6 +730,7 @@ __fsel (double test, double a, double b)
  * a float, discouraging the compiler from issuing a frsp instruction 
  * afterward.
  */
+static inline float __fsels (double test, double a, double b) __attribute__((always_inline));
 static inline float 
 __fsels (double test, double a, double b)
 {
@@ -725,6 +747,7 @@ __fsels (double test, double a, double b)
  * WARNING: Illegal instruction for PowerPC 603, 604, 750, 7400, 7410, 
  * 7450, and 7455
  */
+static inline double __fsqrt (double b) __attribute__((always_inline));
 static inline double
 __fsqrt(double d)
 {
@@ -741,6 +764,7 @@ __fsqrt(double d)
  * WARNING: Illegal instruction for PowerPC 603, 604, 750, 7400, 7410, 
  * 7450, and 7455
  */
+static inline float __fsqrts (float f) __attribute__((always_inline));
 static inline float 
 __fsqrts (float f)
 {
@@ -754,6 +778,7 @@ __fsqrts (float f)
 /*
  * __mulhw - Multiply High Word
  */
+static inline int __mulhw (int a, int b) __attribute__((always_inline));
 static inline int 
 __mulhw (int a, int b)
 {
@@ -767,6 +792,7 @@ __mulhw (int a, int b)
 /*
  * __mulhwu - Multiply High Word Unsigned
  */
+static inline unsigned int __mulhwu (unsigned int a, unsigned int b) __attribute__((always_inline));
 static inline unsigned int 
 __mulhwu (unsigned int a, unsigned int b)
 {
@@ -802,6 +828,7 @@ __mulhwu (unsigned int a, unsigned int b)
 /*
  * __mffs - Move from FPSCR
  */
+static inline double __mffs (void) __attribute__((always_inline));
 static inline double 
 __mffs (void)
 {
@@ -843,6 +870,7 @@ __mffs (void)
  * lhbrx for signed shorts.  This will do the required sign 
  * extension after load and byteswap.
  */
+static inline signed short __OSReadSwapSInt16 (signed short *base, int index) __attribute__((always_inline));
 static inline signed short 
 __OSReadSwapSInt16 (signed short *base, int index)
 {
@@ -857,6 +885,7 @@ __OSReadSwapSInt16 (signed short *base, int index)
 /*
  * __OSReadSwapUInt16
  */
+static inline unsigned short __OSReadSwapUInt16 (volatile void *base, int inex) __attribute__((always_inline));
 static inline unsigned short 
 __OSReadSwapUInt16 (volatile void *base, int index)
 {
@@ -871,6 +900,7 @@ __OSReadSwapUInt16 (volatile void *base, int index)
 /*
  * __astrcmp - assembly strcmp
  */
+static inline int astrcmp (const char *in_s1, const char *in_s2) __attribute__((always_inline));
 static inline int 
 astrcmp (const char *in_s1, const char *in_s2)
 {

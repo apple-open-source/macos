@@ -113,11 +113,14 @@ static const char *release = "Linux PCMCIA Card Services " CS_RELEASE;
 #ifdef UTS_RELEASE
 static const char *kernel = "kernel build: " UTS_RELEASE " " UTS_VERSION;
 #endif
+static const char *options = "options: " OPTIONS;
 #endif
 #ifdef __MACOSX__
 static const char *release = "Mac OS X PCMCIA Card Services " CS_RELEASE;
-#endif
+#ifdef PCMCIA_DEBUG
 static const char *options = "options: " OPTIONS;
+#endif
+#endif
 
 MODULE_AUTHOR("David Hinds <dahinds@users.sourceforge.net>");
 MODULE_DESCRIPTION("Linux PCMCIA Card Services " CS_RELEASE
@@ -161,7 +164,11 @@ static socket_state_t dead_socket = {
 };
 
 /* Table of sockets */
+#ifdef __MACOSX__
+cs_socket_t sockets = 0;
+#else
 socket_t sockets = 0;
+#endif
 socket_info_t *socket_table[MAX_SOCK];
 
 #ifdef HAS_PROC_BUS
@@ -1154,7 +1161,11 @@ static int get_card_services_info(servinfo_t *info)
 
 static int get_first_client(client_handle_t *handle, client_req_t *req)
 {
+#ifdef __MACOSX__
+    cs_socket_t s;
+#else
     socket_t s;
+#endif
     if (req->Attributes & CLIENT_THIS_SOCKET)
 	s = req->Socket;
     else
@@ -1428,7 +1439,11 @@ static int register_client(client_handle_t *handle, client_reg_t *req)
 {
     client_t *client;
     socket_info_t *s;
+#ifdef __MACOSX__
+    cs_socket_t ns;
+#else
     socket_t ns;
+#endif
     
     /* Look for unbound client with matching dev_info */
     client = NULL;
@@ -2626,11 +2641,10 @@ _EXPORT module_info *modules[] = {
 #ifdef __MACOSX__
 int init_pcmcia_cs(void)
 {
+#ifdef PCMCIA_DEBUG
     printk(KERN_INFO "%s\n", release);
-#ifdef UTS_RELEASE
-    printk(KERN_INFO "  %s\n", kernel);
-#endif
     printk(KERN_INFO "  %s\n", options);
+#endif
     DEBUG(0, "%s\n", version);
 
     return 0;

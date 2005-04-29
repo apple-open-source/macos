@@ -25,7 +25,7 @@
 /*
  * KerberosLoginPrivate.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Headers/Kerberos/KerberosLoginPrivate.h,v 1.18 2003/07/10 21:49:37 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Headers/Kerberos/KerberosLoginPrivate.h,v 1.23 2004/12/17 05:05:43 lxs Exp $
  */
 
 #ifndef __KERBEROSLOGINPRIVATE__
@@ -46,11 +46,13 @@
 extern "C" {
 #endif
 
-#if TARGET_OS_MAC
-#    if defined(__MWERKS__)
-#        pragma import on
-#    endif
-#endif
+enum {
+    klPromptMechanism_Autodetect = 0,
+    klPromptMechanism_GUI = 1,
+    klPromptMechanism_CLI = 2,
+    klPromptMechanism_None = 0xFFFFFFFF
+};
+typedef u_int32_t KLPromptMechanism;
 
 #define __KLInternalAcquireInitialTicketsForCache __KLAcquireInitialTicketsForCache
     
@@ -73,14 +75,13 @@ extern KLStatus __KLChangePasswordWithPasswordsCompat (KLPrincipal  inPrincipal,
                                                        const char *inOldPassword,
                                                        const char *inNewPassword);
         
-extern KLStatus __KLAcquireInitialTicketsForCache (const KLPrincipal  inPrincipal,
-                                                   KLLoginOptions     inLoginOptions,
-                                                   const char        *inCacheName,
-                                                   KLKerberosVersion  inKerberosVersion,
-                                                   KLPrincipal       *outPrincipal,
-                                                   char             **outCacheName);
+extern KLStatus __KLAcquireInitialTicketsForCache (const char          *inCacheName,
+                                                   KLKerberosVersion    inKerberosVersion,
+                                                   KLLoginOptions       inLoginOptions,
+                                                   KLPrincipal         *outPrincipal,
+                                                   char               **outCacheName);
 		
-extern void __KLSetApplicationPrompter (KLPrompterProcPtr inPrompter);
+extern KLStatus __KLSetApplicationPrompter (KLPrompterProcPtr inPrompter);
 
 extern krb5_error_code __KLPrompter (krb5_context  context,
                                      void         *data,
@@ -99,7 +100,29 @@ extern KLBoolean __KLAllowHomeDirectoryAccess (void);
 extern KLStatus  __KLSetAutomaticPrompting (KLBoolean inAllowAutomaticPrompting);
 extern KLBoolean __KLAllowAutomaticPrompting (void);
 
+extern KLStatus          __KLSetPromptMechanism (KLPromptMechanism inPromptMechanism);
+extern KLPromptMechanism __KLPromptMechanism (void);
+
+extern CFStringRef __KLGetCFStringForInfoDictionaryKey (const char *inKeyString);
 extern CFStringEncoding __KLApplicationGetTextEncoding (void);
+
+KLStatus __KLCreatePrincipalFromTriplet (const char  *inName,
+                                         const char  *inInstance,
+                                         const char  *inRealm,
+                                         KLKerberosVersion  inKerberosVersion,
+                                         KLPrincipal *outPrincipal);
+
+KLStatus __KLGetTripletFromPrincipal (KLPrincipal         inPrincipal,
+                                      KLKerberosVersion   inKerberosVersion,
+                                      char              **outName,
+                                      char              **outInstance,
+                                      char              **outRealm);
+
+KLStatus __KLCreatePrincipalFromKerberos5Principal (krb5_principal inPrincipal,
+                                                    KLPrincipal *outPrincipal);
+
+KLBoolean __KLPrincipalIsTicketGrantingService (KLPrincipal inPrincipal, KLKerberosVersion inVersion);
+
 
 #if TARGET_OS_MAC
 #    if defined(__MWERKS__)

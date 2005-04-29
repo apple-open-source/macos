@@ -30,7 +30,7 @@
 .\"
 .\" $FreeBSD: src/sbin/mount_ntfs/mount_ntfs.8,v 1.18 2002/08/21 18:11:03 trhodes Exp $
 .\"
-.Dd January 3, 1999
+.Dd November 11, 2004
 .Dt MOUNT_NTFS 8
 .Os
 .Sh NAME
@@ -39,11 +39,10 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl a
-.Op Fl i
+.Op Fl s
 .Op Fl u Ar uid
 .Op Fl g Ar gid
 .Op Fl m Ar mask
-.Op Fl W Ar u2wtable
 .Pa special
 .Pa node
 .Sh DESCRIPTION
@@ -66,8 +65,8 @@ The options are as follows:
 .It Fl a
 Force behaviour to return MS-DOS 8.3 names also on
 .Fn readdir .
-.It Fl i
-Make name lookup case insensitive for all names except POSIX names.
+.It Fl s
+Make name lookup case sensitive.
 .It Fl u Ar uid
 Set the owner of the files in the file system to
 .Ar uid .
@@ -81,15 +80,6 @@ on which the file system is being mounted.
 .It Fl m Ar mask
 Specify the maximum file permissions for files
 in the file system.
-.It Fl W Ar u2wtable
-Specify
-.Ux
-to
-.Tn Unicode
-translation table.
-See
-.Xr mount_msdosfs 8
-for the description of this option.
 .El
 .Sh FEATURES
 NTFS file attributes are accessed in following way:

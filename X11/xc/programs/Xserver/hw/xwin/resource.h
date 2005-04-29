@@ -27,7 +27,7 @@
  *
  * Authors:	Harold L Hunt II
  */
-/* $XFree86: xc/programs/Xserver/hw/xwin/resource.h,v 1.1 2002/10/17 08:18:21 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xwin/resource.h,v 1.2 2003/07/29 21:25:15 dawes Exp $ */
 
 #include "winms.h"
 
@@ -39,3 +39,8 @@
 #define IDM_APP_ABOUT		40001
 #define IDC_STATIC		-1
 #define IDI_XWIN		101
+#define IDM_TRAYICON_MENU	102
+#define ID_APP_EXIT		103
+#define ID_APP_HIDE_ROOT	104
+#define ID_APP_SHOW_ROOT	105
+#define ID_APP_ALWAYS_ON_TOP	106

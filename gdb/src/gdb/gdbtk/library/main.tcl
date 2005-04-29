@@ -1,5 +1,5 @@
 # GDBtk (Insight) entry point
-# Copyright 1997, 1998, 1999, 2002 Red Hat, Inc.
+# Copyright 1997, 1998, 1999, 2002, 2003 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -57,7 +57,7 @@ if {[info exists auto_path]} {
 # Require the packages we need.  Most are loaded already, but this will catch 
 # any odd errors... :
 
-foreach p {{Tcl 8.0} {Tk 8.0} {Itcl 3.0} {Itk 3.0} {Gdbtk 1.0} {combobox 1.0} {debug 1.0}} {
+foreach p {{Tcl 8.0} {Tk 8.0} {Itcl 3.0} {Itk 3.0} {Gdbtk 1.0} {combobox 2.2} {debug 1.0}} {
   if {[catch {package require [lindex $p 0] [lindex $p 1]} msg]} {
     if {![info exists ::env(GDBTK_TEST_RUNNING)] || $::env(GDBTK_TEST_RUNNING) == 0} {
       if {$::tcl_platform(platform) != "windows"} {
@@ -127,9 +127,6 @@ if {[info exists env(GDBTK_DEBUG)] && $env(GDBTK_DEBUG) != 0} {
 # For testing
 set _test(interactive) 0
 
-# initialize state variables
-initialize_gdbtk
-
 # set traces on state variables
 trace variable gdb_running w do_state_hook
 trace variable gdb_downloading w do_state_hook
@@ -149,6 +146,9 @@ pref_set_defaults
 pref_read
 
 init_disassembly_flavor
+
+# initialize state variables
+initialize_gdbtk
 
 # Arrange for session code to notice when file changes.
 add_hook file_changed_hook Session::notice_file_change

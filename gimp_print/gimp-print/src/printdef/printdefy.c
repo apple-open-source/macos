@@ -46,7 +46,7 @@ char *endstrip(const char *i);
 extern int yylex(void);
 void initialize_the_printer(const char *name, const char *driver);
 void output_the_printer(void);
-int yyerror(const char *s);
+static int yyerror(const char *s);
 
 const char *printfuncs[] =
 {
@@ -199,9 +199,9 @@ static const short yyrhs[] = {     7,
 #if YYDEBUG != 0
 static const short yyrline[] = { 0,
    125,   128,   131,   134,   137,   140,   143,   156,   159,   162,
-   165,   168,   171,   174,   177,   181,   183,   183,   186,   186,
-   186,   186,   186,   186,   186,   187,   187,   187,   187,   187,
-   189,   189,   191,   191,   193,   193
+   165,   168,   171,   174,   177,   181,   184,   184,   187,   187,
+   187,   187,   187,   187,   187,   188,   188,   188,   188,   188,
+   191,   191,   194,   194,   197,   197
 };
 #endif
 
@@ -1067,7 +1067,7 @@ yyerrhandle:
   yystate = yyn;
   goto yynewstate;
 }
-#line 195 "printdefy.y"
+#line 200 "printdefy.y"
 
 
 int

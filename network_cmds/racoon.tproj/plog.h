@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __PLOG_H__
+#define __PLOG_H__
+
 #define LC_DEFAULT_LOGF	"/var/log/racoon.log"
 
 #ifdef HAVE_STDARG_H
@@ -66,3 +69,6 @@ extern void plogv __P((int, const char *, struct sockaddr *,
 extern void plogdump __P((int, void *, size_t));
 extern void ploginit __P((void));
 extern void plogset __P((char *));
+
+#endif /* __PLOG_H__ */
+

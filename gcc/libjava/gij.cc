@@ -1,4 +1,4 @@
-/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -31,7 +31,8 @@ help ()
   printf ("  --cp LIST         set class path\n");
   printf ("  --classpath LIST  set class path\n");
   printf ("  -DVAR=VAL         define property VAR with value VAL\n");
-  printf ("  --help            print this help, then exit\n");
+  printf ("  -?, --help        print this help, then exit\n");
+  printf ("  -X                print help on supported -X options, then exit\n");
   printf ("  --ms=NUMBER       set initial heap size\n");
   printf ("  --mx=NUMBER       set maximum heap size\n");
   printf ("  --showversion     print version number, then keep going\n");
@@ -90,7 +91,7 @@ main (int argc, const char **argv)
       if (arg[1] == '-')
 	++arg;
 
-      if (! strcmp (arg, "-help"))
+      if (! strcmp (arg, "-help") || ! strcmp (arg, "-?"))
 	help ();
       else if (! strcmp (arg, "-version"))
 	{
@@ -131,6 +132,17 @@ main (int argc, const char **argv)
 	  // then the jar code will override this.  This is the
 	  // correct behavior.
 	  _Jv_Jar_Class_Path = argv[++i];
+	}
+      else if (! strcmp (arg, "-verbose:class"))
+	gcj::verbose_class_flag = true;
+      else if (arg[1] == 'X')
+	{
+	  if (arg[2] == '\0')
+	    {
+	      printf ("gij: currently no -X options are recognized\n");
+	      exit (0);
+	    }
+	  /* Ignore other -X options.  */
 	}
       else
 	{

@@ -1,16 +1,16 @@
 /***************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
  * are also available at http://curl.haxx.se/docs/copyright.html.
- * 
+ *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
  * furnished to do so, under the terms of the COPYING file.
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: file.c,v 1.1.1.3 2002/11/26 19:07:50 zarzycki Exp $
+ * $Id: file.c,v 1.71 2005/02/11 00:03:49 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -30,13 +30,16 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <ctype.h>
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
+#endif
 
 #include <errno.h>
 
 #if defined(WIN32) && !defined(__GNUC__) || defined(__MINGW32__)
-#include <winsock.h>
 #include <time.h>
 #include <io.h>
 #include <fcntl.h>
@@ -48,7 +51,6 @@
 #include <netinet/in.h>
 #endif
 #include <sys/time.h>
-#include <sys/resource.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -68,13 +70,9 @@
 #include <sys/param.h>
 #endif
 
-#ifdef HAVE_SYS_STAT_H
-#include <sys/stat.h>
-#endif
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
-
 
 #endif
 
@@ -83,46 +81,86 @@
 #include "progress.h"
 #include "sendf.h"
 #include "escape.h"
+#include "file.h"
+#include "speedcheck.h"
+#include "getinfo.h"
+#include "transfer.h"
+#include "url.h"
+#include "memory.h"
+#include "parsedate.h" /* for the week day and month names */
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
 
 /* The last #include file should be: */
-#ifdef MALLOCDEBUG
 #include "memdebug.h"
-#endif
 
-/* Emulate a connect-then-transfer protocol. We connect to the file here */
+/*
+ * Curl_file_connect() gets called from Curl_protocol_connect() to allow us to
+ * do protocol-specific actions at connect-time.  We emulate a
+ * connect-then-transfer protocol and "connect" to the file here
+ */
 CURLcode Curl_file_connect(struct connectdata *conn)
 {
-  char *actual_path = curl_unescape(conn->path, 0);
-  struct FILE *file;
+  char *real_path = curl_unescape(conn->path, 0);
+  struct FILEPROTO *file;
   int fd;
-#if defined(WIN32) || defined(__EMX__)
+#if defined(WIN32) || defined(MSDOS) || defined(__EMX__)
   int i;
+  char *actual_path;
 #endif
 
-  file = (struct FILE *)malloc(sizeof(struct FILE));
-  if(!file)
+  if(!real_path)
     return CURLE_OUT_OF_MEMORY;
 
-  memset(file, 0, sizeof(struct FILE));
+  file = (struct FILEPROTO *)calloc(sizeof(struct FILEPROTO), 1);
+  if(!file) {
+    free(real_path);
+    return CURLE_OUT_OF_MEMORY;
+  }
+
   conn->proto.file = file;
 
-#if defined(WIN32) || defined(__EMX__)
-  /* change path separators from '/' to '\\' for Windows and OS/2 */
+#if defined(WIN32) || defined(MSDOS) || defined(__EMX__)
+  /* If the first character is a slash, and there's
+     something that looks like a drive at the beginning of
+     the path, skip the slash.  If we remove the initial
+     slash in all cases, paths without drive letters end up
+     relative to the current directory which isn't how
+     browsers work.
+
+     Some browsers accept | instead of : as the drive letter
+     separator, so we do too.
+
+     On other platforms, we need the slash to indicate an
+     absolute pathname.  On Windows, absolute paths start
+     with a drive letter.
+  */
+  actual_path = real_path;
+  if ((actual_path[0] == '/') &&
+      actual_path[1] &&
+      (actual_path[2] == ':' || actual_path[2] == '|'))
+  {
+    actual_path[2] = ':';
+    actual_path++;
+  }
+
+  /* change path separators from '/' to '\\' for DOS, Windows and OS/2 */
   for (i=0; actual_path[i] != '\0'; ++i)
     if (actual_path[i] == '/')
       actual_path[i] = '\\';
 
-  fd = open(actual_path, O_RDONLY | O_BINARY);	/* no CR/LF translation! */
+  fd = open(actual_path, O_RDONLY | O_BINARY);  /* no CR/LF translation! */
+  file->path = actual_path;
 #else
-  fd = open(actual_path, O_RDONLY);
+  fd = open(real_path, O_RDONLY);
+  file->path = real_path;
 #endif
-  free(actual_path);
+  file->freepath = real_path; /* free this when done */
 
-  if(fd == -1) {
+  if(!conn->data->set.upload && (fd == -1)) {
     failf(conn->data, "Couldn't open file %s", conn->path);
+    Curl_file_done(conn, CURLE_FILE_COULDNT_READ_FILE);
     return CURLE_FILE_COULDNT_READ_FILE;
   }
   file->fd = fd;
@@ -130,55 +168,205 @@ CURLcode Curl_file_connect(struct connectdata *conn)
   return CURLE_OK;
 }
 
-/* This is the do-phase, separated from the connect-phase above */
-
-CURLcode Curl_file(struct connectdata *conn)
+CURLcode Curl_file_done(struct connectdata *conn,
+                        CURLcode status)
 {
-  /* This implementation ignores the host name in conformance with 
+  struct FILEPROTO *file = conn->proto.file;
+  (void)status; /* not used */
+  Curl_safefree(file->freepath);
+
+  if(file->fd != -1)
+    close(file->fd);
+
+  return CURLE_OK;
+}
+
+#if defined(WIN32) || defined(MSDOS) || defined(__EMX__)
+#define DIRSEP '\\'
+#else
+#define DIRSEP '/'
+#endif
+
+static CURLcode file_upload(struct connectdata *conn)
+{
+  struct FILEPROTO *file = conn->proto.file;
+  char *dir = strchr(file->path, DIRSEP);
+  FILE *fp;
+  CURLcode res=CURLE_OK;
+  struct SessionHandle *data = conn->data;
+  char *buf = data->state.buffer;
+  size_t nread;
+  size_t nwrite;
+  curl_off_t bytecount = 0;
+  struct timeval now = Curl_tvnow();
+
+  /*
+   * Since FILE: doesn't do the full init, we need to provide some extra
+   * assignments here.
+   */
+  conn->fread = data->set.fread;
+  conn->fread_in = data->set.in;
+  conn->upload_fromhere = buf;
+
+  if(!dir)
+    return CURLE_FILE_COULDNT_READ_FILE; /* fix: better error code */
+
+  if(!dir[1])
+     return CURLE_FILE_COULDNT_READ_FILE; /* fix: better error code */
+
+  fp = fopen(file->path, "wb");
+  if(!fp) {
+    failf(data, "Can't open %s for writing", file->path);
+    return CURLE_WRITE_ERROR;
+  }
+
+  if(-1 != data->set.infilesize)
+    /* known size of data to "upload" */
+    Curl_pgrsSetUploadSize(data, data->set.infilesize);
+
+  while (res == CURLE_OK) {
+    int readcount;
+    res = Curl_fillreadbuffer(conn, BUFSIZE, &readcount);
+    if(res)
+      break;
+
+    nread = (size_t)readcount;
+
+    if (nread <= 0)
+      break;
+
+    /* write the data to the target */
+    nwrite = fwrite(buf, 1, nread, fp);
+    if(nwrite != nread) {
+      res = CURLE_SEND_ERROR;
+      break;
+    }
+
+    bytecount += nread;
+
+    Curl_pgrsSetUploadCounter(data, bytecount);
+
+    if(Curl_pgrsUpdate(conn))
+      res = CURLE_ABORTED_BY_CALLBACK;
+    else
+      res = Curl_speedcheck(data, now);
+  }
+  if(!res && Curl_pgrsUpdate(conn))
+    res = CURLE_ABORTED_BY_CALLBACK;
+
+  fclose(fp);
+
+  return res;
+}
+
+/*
+ * Curl_file() is the protocol-specific function for the do-phase, separated
+ * from the connect-phase above. Other protocols merely setup the transfer in
+ * the do-phase, to have it done in the main transfer loop but since some
+ * platforms we support don't allow select()ing etc on file handles (as
+ * opposed to sockets) we instead perform the whole do-operation in this
+ * function.
+ */
+CURLcode Curl_file(struct connectdata *conn, bool *done)
+{
+  /* This implementation ignores the host name in conformance with
      RFC 1738. Only local files (reachable via the standard file system)
      are supported. This means that files on remotely mounted directories
      (via NFS, Samba, NT sharing) can be accessed through a file:// URL
   */
   CURLcode res = CURLE_OK;
-  struct stat statbuf;
-  double expected_size=-1;
+  struct_stat statbuf; /* struct_stat instead of struct stat just to allow the
+                          Windows version to have a different struct without
+                          having to redefine the simple word 'stat' */
+  curl_off_t expected_size=0;
+  bool fstated=FALSE;
   ssize_t nread;
   struct SessionHandle *data = conn->data;
   char *buf = data->state.buffer;
-  int bytecount = 0;
-  struct timeval start = Curl_tvnow();
-  struct timeval now = start;
+  curl_off_t bytecount = 0;
   int fd;
+  struct timeval now = Curl_tvnow();
+
+  *done = TRUE; /* unconditionally */
+
+  Curl_readwrite_init(conn);
+  Curl_initinfo(data);
+  Curl_pgrsStartNow(data);
+
+  if(data->set.upload)
+    return file_upload(conn);
 
   /* get the fd from the connection phase */
   fd = conn->proto.file->fd;
 
-/*VMS?? -- This only works reliable for STREAMLF files */
+  /* VMS: This only works reliable for STREAMLF files */
   if( -1 != fstat(fd, &statbuf)) {
     /* we could stat it, then read out the size */
-    expected_size = (double)statbuf.st_size;
+    expected_size = statbuf.st_size;
+    fstated = TRUE;
   }
 
-  /* Added by Dolbneff A.V & Spiridonoff A.V */
+  /* If we have selected NOBODY and HEADER, it means that we only want file
+     information. Which for FILE can't be much more than the file size and
+     date. */
+  if(conn->bits.no_body && data->set.include_header && fstated) {
+    CURLcode result;
+    snprintf(buf, sizeof(data->state.buffer),
+             "Content-Length: %" FORMAT_OFF_T "\r\n", expected_size);
+    result = Curl_client_write(data, CLIENTWRITE_BOTH, buf, 0);
+    if(result)
+      return result;
+
+    result = Curl_client_write(data, CLIENTWRITE_BOTH,
+                               (char *)"Accept-ranges: bytes\r\n", 0);
+    if(result)
+      return result;
+
+    if(fstated) {
+      struct tm *tm;
+      time_t clock = (time_t)statbuf.st_mtime;
+#ifdef HAVE_GMTIME_R
+      struct tm buffer;
+      tm = (struct tm *)gmtime_r(&clock, &buffer);
+#else
+      tm = gmtime(&clock);
+#endif
+      /* format: "Tue, 15 Nov 1994 12:45:26 GMT" */
+      snprintf(buf, BUFSIZE-1,
+               "Last-Modified: %s, %02d %s %4d %02d:%02d:%02d GMT\r\n",
+               Curl_wkday[tm->tm_wday?tm->tm_wday-1:6],
+               tm->tm_mday,
+               Curl_month[tm->tm_mon],
+               tm->tm_year + 1900,
+               tm->tm_hour,
+               tm->tm_min,
+               tm->tm_sec);
+      result = Curl_client_write(data, CLIENTWRITE_BOTH, buf, 0);
+    }
+    return result;
+  }
+
   if (conn->resume_from <= expected_size)
     expected_size -= conn->resume_from;
-  else
-    /* Is this error code suitable in such situation? */
-    return CURLE_FTP_BAD_DOWNLOAD_RESUME;
+  else {
+    failf(data, "failed to resume file:// transfer");
+    return CURLE_BAD_DOWNLOAD_RESUME;
+  }
 
-  if (expected_size == 0)
+  if (fstated && (expected_size == 0))
     return CURLE_OK;
 
   /* The following is a shortcut implementation of file reading
      this is both more efficient than the former call to download() and
      it avoids problems with select() and recv() on file descriptors
      in Winsock */
-  if(expected_size != -1)
+  if(fstated)
     Curl_pgrsSetDownloadSize(data, expected_size);
 
   if(conn->resume_from)
-    /* Added by Dolbneff A.V & Spiridonoff A.V */
     lseek(fd, conn->resume_from, SEEK_SET);
+
+  Curl_pgrsTime(data, TIMER_STARTTRANSFER);
 
   while (res == CURLE_OK) {
     nread = read(fd, buf, BUFSIZE-1);
@@ -190,33 +378,22 @@ CURLcode Curl_file(struct connectdata *conn)
       break;
 
     bytecount += nread;
-    /* NOTE: The following call to fwrite does CR/LF translation on
-       Windows systems if the target is stdout. Use -O or -o parameters
-       to prevent CR/LF translation (this then goes to a binary mode
-       file descriptor). */
 
     res = Curl_client_write(data, CLIENTWRITE_BODY, buf, nread);
     if(res)
       return res;
 
-    now = Curl_tvnow();
+    Curl_pgrsSetDownloadCounter(data, bytecount);
+
     if(Curl_pgrsUpdate(conn))
       res = CURLE_ABORTED_BY_CALLBACK;
+    else
+      res = Curl_speedcheck(data, now);
   }
-  now = Curl_tvnow();
   if(Curl_pgrsUpdate(conn))
     res = CURLE_ABORTED_BY_CALLBACK;
-
-  close(fd);
 
   return res;
 }
 
-/*
- * local variables:
- * eval: (load-file "../curl-mode.el")
- * end:
- * vim600: fdm=marker
- * vim: et sw=2 ts=2 sts=2 tw=78
- */
 #endif

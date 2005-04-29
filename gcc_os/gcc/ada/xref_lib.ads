@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---       Copyright (C) 1998-1999 Free Software Foundation, Inc.             --
+--       Copyright (C) 1998-2001 Free Software Foundation, Inc.             --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -21,7 +20,7 @@
 -- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
--- GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).   --
+-- Extensive contributions were provided by Ada Core Technologies Inc.   --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -68,10 +67,9 @@ package Xref_Lib is
    --  this procedure. Glob indicates if we should use the 'globbing
    --  patterns' (True) or the full regular expressions (False)
 
-   procedure Add_File (File : String);
-   --  Add a new file in the list of files to search for references.
-   --  File is considered to be a globbing regular expression, which is thus
-   --  expanded
+   procedure Add_Xref_File (File : String);
+   --  Add a new file in the list of files to search for references. File
+   --  is interpreted as a globbing regular expression, which is expanded.
 
    Invalid_Argument : exception;
    --  Exception raised when there is a syntax error in the command line
@@ -154,7 +152,6 @@ package Xref_Lib is
    --  Open a new ALI file
    --  if Dependencies is True, the insert every library file 'with'ed in
    --  the files database (used for gnatxref)
-
 
 private
    type Rec_DIR is limited record

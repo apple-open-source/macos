@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
 --          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
@@ -32,7 +31,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with GNAT.Exceptions; use GNAT.Exceptions;
+with System.Pure_Exceptions; use System.Pure_Exceptions;
 
 with Interfaces; use Interfaces;
 with Unchecked_Conversion;

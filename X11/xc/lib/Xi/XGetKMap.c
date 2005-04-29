@@ -45,7 +45,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ********************************************************/
-/* $XFree86: xc/lib/Xi/XGetKMap.c,v 3.4 2002/10/16 00:37:28 dawes Exp $ */
+/* $XFree86: xc/lib/Xi/XGetKMap.c,v 3.5 2003/11/17 22:20:21 dawes Exp $ */
 
 /***********************************************************************
  *
@@ -60,9 +60,8 @@ SOFTWARE.
 #include <X11/extensions/extutil.h>
 #include "XIint.h"
 
-KeySym 
-#if NeedFunctionPrototypes
-*XGetDeviceKeyMapping (
+KeySym *
+XGetDeviceKeyMapping (
     register	Display 	*dpy,
     XDevice			*dev,
 #if NeedWidePrototypes
@@ -72,14 +71,6 @@ KeySym
 #endif
     int				keycount,
     int				*syms_per_code)
-#else
-*XGetDeviceKeyMapping (dpy, dev, first, keycount, syms_per_code)
-    register	Display 	*dpy;
-    XDevice			*dev;
-    KeyCode			first;
-    int				keycount;
-    int				*syms_per_code;		/* RETURN */
-#endif
     {
     long nbytes;
     register KeySym *mapping = NULL;

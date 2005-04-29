@@ -25,14 +25,12 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_debug.c,v 1.3 2002/12/10 01:26:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_debug.c,v 1.4 2003/09/28 20:15:13 alanh Exp $ */
 
 /*
  * Author:
  *   Jeff Hartmann <jhartmann@2d3d.com>
  */
-#include <stdio.h>
-#include <unistd.h>
 
 #include "glheader.h"
 #include "context.h"
@@ -154,15 +152,15 @@ void i830DumpTextureState( i830ContextPtr imesa, int unit )
 
    if(t) {
       fprintf(stderr, "%s : unit %d\n", __FUNCTION__, unit);
-      fprintf(stderr, "MI0 : 0x%08x\n", t->Setup[I830_TEXREG_MI0]);
-      fprintf(stderr, "MI1 : 0x%08x\n", t->Setup[I830_TEXREG_MI1]);
-      fprintf(stderr, "MI2 : 0x%08x\n", t->Setup[I830_TEXREG_MI2]);
-      fprintf(stderr, "MI3 : 0x%08x\n", t->Setup[I830_TEXREG_MI3]);
-      fprintf(stderr, "MI4 : 0x%08x\n", t->Setup[I830_TEXREG_MI4]);
-      fprintf(stderr, "MI5 : 0x%08x\n", t->Setup[I830_TEXREG_MI5]);
-      fprintf(stderr, "MF : 0x%08x\n", t->Setup[I830_TEXREG_MF]);
-      fprintf(stderr, "MLC : 0x%08x\n", t->Setup[I830_TEXREG_MLC]);
-      fprintf(stderr, "MLL : 0x%08x\n", t->Setup[I830_TEXREG_MLL]);
+      fprintf(stderr, "TM0LI : 0x%08x\n", t->Setup[I830_TEXREG_TM0LI]);
+      fprintf(stderr, "TM0S0 : 0x%08x\n", t->Setup[I830_TEXREG_TM0S0]);
+      fprintf(stderr, "TM0S1 : 0x%08x\n", t->Setup[I830_TEXREG_TM0S1]);
+      fprintf(stderr, "TM0S2 : 0x%08x\n", t->Setup[I830_TEXREG_TM0S2]);
+      fprintf(stderr, "TM0S3 : 0x%08x\n", t->Setup[I830_TEXREG_TM0S3]);
+      fprintf(stderr, "TM0S4 : 0x%08x\n", t->Setup[I830_TEXREG_TM0S4]);
+      fprintf(stderr, "NOP0 : 0x%08x\n", t->Setup[I830_TEXREG_NOP0]);
+      fprintf(stderr, "NOP1 : 0x%08x\n", t->Setup[I830_TEXREG_NOP1]);
+      fprintf(stderr, "NOP2 : 0x%08x\n", t->Setup[I830_TEXREG_NOP2]);
       fprintf(stderr, "MCS : 0x%08x\n", t->Setup[I830_TEXREG_MCS]);
    }
 }
@@ -229,7 +227,6 @@ void i830VertexSanity( i830ContextPtr imesa, drmI830Vertex vertex )
 	      "internal state\n");
       fprintf(stderr, "Buffer size : %d\n", size);
       fprintf(stderr, "Vertex size : %d\n", vfmt_size);
-      sleep(10);
    }
 
    switch(sarea->vertex_prim) {
@@ -293,7 +290,6 @@ void i830VertexSanity( i830ContextPtr imesa, drmI830Vertex vertex )
 	 fprintf(stderr, "temp_size : %d\n", temp_size);
 	 fprintf(stderr, "remaining vertices : %d", 
 		 remaining / vfmt_size);
-	 sleep(10);
       }
    }
    if (1) {
@@ -308,11 +304,11 @@ void i830EmitHwStateLockedDebug( i830ContextPtr imesa )
    int i;
 
    if ((imesa->dirty & I830_UPLOAD_TEX0_IMAGE) && imesa->CurrentTexObj[0]) {
-      i830UploadTexImages(imesa, imesa->CurrentTexObj[0]);
+      i830UploadTexImagesLocked(imesa, imesa->CurrentTexObj[0]);
    }
 
    if ((imesa->dirty & I830_UPLOAD_TEX1_IMAGE) && imesa->CurrentTexObj[1]) {
-      i830UploadTexImages(imesa, imesa->CurrentTexObj[1]);
+      i830UploadTexImagesLocked(imesa, imesa->CurrentTexObj[1]);
    }
 
    if (imesa->dirty & I830_UPLOAD_CTX) {

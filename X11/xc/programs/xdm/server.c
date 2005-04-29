@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xdm/server.c,v 3.13 2001/12/14 20:01:23 dawes Exp $ */
+/* $XFree86: xc/programs/xdm/server.c,v 3.14 2003/04/12 16:42:14 herrb Exp $ */
 
 /*
  * xdm - display manager daemon
@@ -190,14 +190,26 @@ serverPause (unsigned t, int serverPid)
 #endif
 	for (;;) {
 #if defined(SYSV) && defined(X_NOT_POSIX)
+	    /*
+	     * wait() is unsafe.  Other Xserver or xdm processes may
+	     * exit at this time and this will remove the wait status.
+	     * This means the main loop will not restart the display.
+	     */
 	    pid = wait ((waitType *) 0);
 #else
 	    if (!receivedUsr1)
-		pid = wait ((waitType *) 0);
-	    else
 #ifndef X_NOT_POSIX
-		pid = waitpid (-1, (int *) 0, WNOHANG);
+		pid = waitpid (serverPid, (int *) 0, 0);
+	    else
+		pid = waitpid (serverPid, (int *) 0, WNOHANG);
 #else
+	    /*
+	     * If you have wait4() but not waitpid(), use that instead
+	     * of wait() and wait3() to make this code safe.  See
+	     * above comment.
+	     */
+	        pid = wait ((waitType *) 0);
+	    else
 		pid = wait3 ((waitType *) 0, WNOHANG,
 			     (struct rusage *) 0);
 #endif /* X_NOT_POSIX */

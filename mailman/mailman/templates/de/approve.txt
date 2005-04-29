@@ -2,7 +2,7 @@ Ihre Anfrage an %(requestaddr)s:
 
     %(cmd)s
 
-wurde an die Person, die die Liste betreut, weitergeleitet.
+wurde an den Besitzer der Mailingliste weitergeleitet.
 
 Das liegt wahrscheinlich daran, dass Sie eine sogenannte "geschlossene"
 Liste abonnieren möchten.
@@ -10,6 +10,6 @@ Liste abonnieren möchten.
 Sie werden eine Benachrichtigungs-Email mit der Entscheidung des
 Listenverwalters über Ihren Abonnementswunsch erhalten.
 
-Fragen betreffend die Abonnementspolitik der Liste richten Sie bitte an:
+Bei Fragen können Sie sich an den Besitzer der Liste wenden:
 
     %(adminaddr)s

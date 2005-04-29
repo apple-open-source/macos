@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 1988, 1989, 1990 The Regents of the University of California.
+ * Copyright (c) 1988, 1989, 1990, 1993
+ *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 1988, 1989 by Adam de Boor
  * Copyright (c) 1989 by Berkeley Softworks
  * All rights reserved.
@@ -35,8 +36,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)hash.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.bin/make/hash.h,v 1.8 1999/08/28 01:03:30 peter Exp $
+ *	@(#)hash.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.bin/make/hash.h,v 1.12 2002/09/17 21:29:06 jmallett Exp $
  */
 
 /* hash.h --
@@ -56,7 +57,7 @@ typedef struct Hash_Entry {
     struct Hash_Entry *next;		/* Used to link together all the
     					 * entries associated with the same
 					 * bucket. */
-    ClientData	      clientData;	/* Arbitrary piece of data associated
+    void *	      clientData;	/* Arbitrary piece of data associated
     					 * with key. */
     unsigned	      namehash;		/* hash value of key */
     char	      name[1];		/* key string */
@@ -86,11 +87,11 @@ typedef struct Hash_Search {
  */
 
 /*
- * ClientData Hash_GetValue(h)
+ * void * Hash_GetValue(h)
  *     Hash_Entry *h;
  */
 
-#define Hash_GetValue(h) ((h)->clientData)
+#define	Hash_GetValue(h) ((h)->clientData)
 
 /*
  * Hash_SetValue(h, val);
@@ -98,7 +99,7 @@ typedef struct Hash_Search {
  *     char *val;
  */
 
-#define Hash_SetValue(h, val) ((h)->clientData = (ClientData) (val))
+#define	Hash_SetValue(h, val) ((h)->clientData = (void *) (val))
 
 /*
  * Hash_Size(n) returns the number of words in an object of n bytes
@@ -106,12 +107,12 @@ typedef struct Hash_Search {
 
 #define	Hash_Size(n)	(((n) + sizeof (int) - 1) / sizeof (int))
 
-void Hash_InitTable __P((Hash_Table *, int));
-void Hash_DeleteTable __P((Hash_Table *));
-Hash_Entry *Hash_FindEntry __P((Hash_Table *, char *));
-Hash_Entry *Hash_CreateEntry __P((Hash_Table *, char *, Boolean *));
-void Hash_DeleteEntry __P((Hash_Table *, Hash_Entry *));
-Hash_Entry *Hash_EnumFirst __P((Hash_Table *, Hash_Search *));
-Hash_Entry *Hash_EnumNext __P((Hash_Search *));
+void Hash_InitTable(Hash_Table *, int);
+void Hash_DeleteTable(Hash_Table *);
+Hash_Entry *Hash_FindEntry(Hash_Table *, char *);
+Hash_Entry *Hash_CreateEntry(Hash_Table *, char *, Boolean *);
+void Hash_DeleteEntry(Hash_Table *, Hash_Entry *);
+Hash_Entry *Hash_EnumFirst(Hash_Table *, Hash_Search *);
+Hash_Entry *Hash_EnumNext(Hash_Search *);
 
 #endif /* _HASH */

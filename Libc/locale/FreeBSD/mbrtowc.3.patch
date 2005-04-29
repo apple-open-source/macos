@@ -1,0 +1,50 @@
+--- mbrtowc.3.orig	Fri Mar 11 19:44:47 2005
++++ mbrtowc.3	Fri Mar 11 19:55:59 2005
+@@ -28,7 +28,8 @@
+ .Dt MBRTOWC 3
+ .Os
+ .Sh NAME
+-.Nm mbrtowc
++.Nm mbrtowc ,
++.Nm mbrtowc_l
+ .Nd "convert a character to a wide-character code (restartable)"
+ .Sh LIBRARY
+ .Lb libc
+@@ -39,6 +40,12 @@
+ .Fa "wchar_t * restrict pwc" "const char * restrict s" "size_t n"
+ .Fa "mbstate_t * restrict ps"
+ .Fc
++.In xlocale.h
++.Ft size_t
++.Fo mbrtowc_l
++.Fa "wchar_t * restrict pwc" "const char * restrict s" "size_t n"
++.Fa "mbstate_t * restrict ps" "locale_t loc"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn mbrtowc
+@@ -86,6 +93,14 @@
+ .Vt mbstate_t
+ object, which is initialized to the initial conversion state
+ at program startup.
++.Pp
++While the
++.Fn mbrtowc
++function uses the current locale, the
++.Fn mbrtowc_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn mbrtowc
+@@ -131,7 +146,8 @@
+ .Xr mbtowc 3 ,
+ .Xr multibyte 3 ,
+ .Xr setlocale 3 ,
+-.Xr wcrtomb 3
++.Xr wcrtomb 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn mbrtowc

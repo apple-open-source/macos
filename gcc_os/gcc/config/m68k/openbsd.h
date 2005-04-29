@@ -1,5 +1,5 @@
 /* Configuration file for an m68k OpenBSD target.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -63,7 +63,7 @@ Boston, MA 02111-1307, USA.  */
 /* Specific options for DBX Output.  */
 
 /* This is BSD, so it wants DBX format.  */
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 /* Do not break .stabs pseudos into continuations.  */
 #define DBX_CONTIN_LENGTH 0
@@ -84,38 +84,3 @@ Boston, MA 02111-1307, USA.  */
    dwarf unwind information. egcs doesn't try too hard to check internal
    configuration files...  */
 #define DWARF2_UNWIND_INFO 0
-
-
-/* TODO: ASM_OUTPUT_MI_THUNK is busted. I need to figure out 
-   what bra func@PLTPC means under linux, and find the corresponding 
-   construction for our gas/pic setup.  */
-#if 0
-/* Taken from linux.h. Processor dependent optimized code to handle C++
-   multiple inheritance vtable lookup.  */
-
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
-do {									\
-  if (DELTA > 0 && DELTA <= 8)						\
-    asm_fprintf (FILE, "\taddq.l %I%d,4(%Rsp)\n", DELTA);		\
-  else if (DELTA < 0 && DELTA >= -8)					\
-    asm_fprintf (FILE, "\tsubq.l %I%d,4(%Rsp)\n", -DELTA);		\
-  else									\
-    asm_fprintf (FILE, "\tadd.l %I%d,4(%Rsp)\n", DELTA);		\
-									\
-  if (flag_pic)								\
-    {									\
-      fprintf (FILE, "\tbra.l ");					\
-      assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-      fprintf (FILE, "@PLTPC\n");					\
-    }									\
-  else									\
-    {									\
-      fprintf (FILE, "\tjmp ");						\
-      assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-      fprintf (FILE, "\n");						\
-    }									\
-} while (0)
-#endif
-

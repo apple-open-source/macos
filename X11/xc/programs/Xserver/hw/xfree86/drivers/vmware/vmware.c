@@ -6,7 +6,7 @@
 char rcsId_vmware[] =
     "Id: vmware.c,v 1.11 2001/02/23 02:10:39 yoel Exp $";
 #endif
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vmware/vmware.c,v 1.17 2003/02/18 19:10:36 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vmware/vmware.c,v 1.19 2003/10/30 17:37:16 tsi Exp $ */
 
 /*
  * TODO: support the vmware linux kernel fb driver (Option "UseFBDev").
@@ -432,7 +432,7 @@ VMWAREPreInit(ScrnInfoPtr pScrn, int flags)
            pVMWARE->PciInfo->ioBase[0] + SVGA_VALUE_PORT;
     }
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-               "VMware SVGA regs at (0x%04x, 0x%04x)\n",
+               "VMware SVGA regs at (0x%04lx, 0x%04lx)\n",
                pVMWARE->indexReg, pVMWARE->valueReg);
 
     id = VMXGetVMwareSvgaId(pVMWARE);
@@ -494,7 +494,7 @@ VMWAREPreInit(ScrnInfoPtr pScrn, int flags)
     xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED, 2, "bpp:   %d\n", pVMWARE->bitsPerPixel);
 
     xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED, 2, "vram:  %d\n", pVMWARE->videoRam);
-    xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED, 2, "pbase: %p\n", pVMWARE->memPhysBase);
+    xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED, 2, "pbase: 0x%08lx\n", pVMWARE->memPhysBase);
     xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED, 2, "mwidt: %d\n", pVMWARE->maxWidth);
     xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED, 2, "mheig: %d\n", pVMWARE->maxHeight);
 
@@ -578,11 +578,11 @@ VMWAREPreInit(ScrnInfoPtr pScrn, int flags)
     xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED,
                    2, "bpp:   %d\n", pVMWARE->bitsPerPixel);
     xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED,
-                   2, "w.red: %d\n", pVMWARE->weight.red);
+                   2, "w.red: %d\n", (int)pVMWARE->weight.red);
     xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED,
-                   2, "w.grn: %d\n", pVMWARE->weight.green);
+                   2, "w.grn: %d\n", (int)pVMWARE->weight.green);
     xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED,
-                   2, "w.blu: %d\n", pVMWARE->weight.blue);
+                   2, "w.blu: %d\n", (int)pVMWARE->weight.blue);
     xf86DrvMsgVerb(pScrn->scrnIndex, X_PROBED,
                    2, "vis:   %d\n", pVMWARE->defaultVisual);
 
@@ -646,7 +646,7 @@ VMWAREPreInit(ScrnInfoPtr pScrn, int flags)
     pScrn->chipset = (char*)xf86TokenToString(VMWAREChipsets, pVMWARE->PciInfo->chipType);
 
     if (!pScrn->chipset) {
-        xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "ChipID 0x%04 is not recognised\n", pVMWARE->PciInfo->chipType);
+        xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "ChipID 0x%04x is not recognised\n", pVMWARE->PciInfo->chipType);
         return FALSE;
     }
 
@@ -1303,7 +1303,7 @@ VMWAREFreeScreen(int scrnIndex, int flags)
    VMWAREFreeRec(xf86Screens[scrnIndex]);
 }
 
-static Bool
+static ModeStatus
 VMWAREValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     return MODE_OK;

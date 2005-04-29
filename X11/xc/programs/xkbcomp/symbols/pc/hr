@@ -1,12 +1,17 @@
 
 // based on
 // Croatian keyboards
-// by Vlatko Kosturjak (kost@iname.com)
+// by Vlatko Kosturjak (kost at linux.hr)
 // Taken from Slovenian keyboards
 // by Marko Samastur (markos@elite.org) and
 // Primoz Peterlin (primoz.peterlin@biofiz.mf.uni-lj.si)
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/hr,v 1.2 2002/11/22 04:03:28 dawes Exp $
+// Changelog
+// =========
+// 2003-04-03 Added <KPDL> (Delete/Separator)
+// 2000-02-06 Initial version
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/hr,v 1.4 2003/04/19 12:22:12 pascal Exp $
 
 default partial alphanumeric_keys
 xkb_symbols "basic" {
@@ -38,8 +43,8 @@ xkb_symbols "basic" {
 
     key <BKSL>	{ [    zcaron,     Zcaron,     currency,   dead_breve ]	};
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    key <KPDL>	{ [ KP_Delete,  KP_Seprator                           ]	};
+
+    include "level3(ralt_switch_multikey)"
 };
 

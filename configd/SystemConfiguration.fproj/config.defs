@@ -66,6 +66,7 @@ type task_move_send_t = MACH_MSG_TYPE_MOVE_SEND
 
 routine configopen	(	server		: mach_port_t;
 				name		: xmlData;
+				options		: xmlData;
 			 out	session		: mach_port_move_send_t;
 			 out	status		: int);
 

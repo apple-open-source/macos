@@ -30,7 +30,7 @@ OF THIS SOFTWARE.
              Yoshiyuki Segawa		(segawa@ossi.com)
 
 *****************************************************************/
-/* $XFree86: xc/lib/X11/lcEuc.c,v 3.12 2003/01/20 04:05:30 dawes Exp $ */
+/* $XFree86: xc/lib/X11/lcEuc.c,v 3.13 2003/08/22 13:29:16 pascal Exp $ */
 
 /*
  * An EUC locale.
@@ -115,23 +115,18 @@ euc_mbstowcs(
     int cs0flg = False;
     int cs1flg = False;
     int length = 0;
-    int num_conv;
     int unconv_num = 0;
 
     Bool new_char;
 
     const char *inbufptr = *from;
     wchar_t *outbufptr = (wchar_t *) *to;
-    wchar_t *outbuf_base = outbufptr;
 
     CodeSet *codesets = XLC_GENERIC(lcd, codeset_list); 
     int codeset_num = XLC_GENERIC(lcd, codeset_num);
     Ulong wc_shift = XLC_GENERIC(lcd, wc_shift_bits);
 
-    if (*from_left > *to_left)
-	*from_left = *to_left;
-
-    for (new_char = True; *from_left > 0;) {
+    for (new_char = True; *from_left > 0 && *to_left > 0;) {
 
 	ch = *inbufptr++;
 
@@ -148,6 +143,7 @@ euc_mbstowcs(
 	    length = CS0->length;
 	    *outbufptr++ = (wchar_t)ch;
 	    (*from_left)--;
+	    (*to_left)--;
 	    continue;
 	}
 	else if (ch == SS2) {				/* CS2 */
@@ -221,6 +217,7 @@ euc_mbstowcs(
 	if (--chr_len == 0) {
 	    wc_tmp |= wc_encode;
 	    *outbufptr++ = wc_tmp;
+	    (*to_left)--;
 
 	    new_char = True;
 	    sshift = False;
@@ -235,9 +232,6 @@ euc_mbstowcs(
 
     if (cs0flg == True || cs1flg == True)	/* error check on last char */
 	unconv_num++;
-
-    if ((num_conv = (int)(outbufptr - outbuf_base)) > 0)
-        *to_left = (*to_left) - num_conv;
 
     return unconv_num;
 }
@@ -255,21 +249,16 @@ euc_wcstombs(
 {
     const wchar_t *inbufptr = (const wchar_t *) *from;
     XPointer outbufptr = *to;
-    XPointer outbuf_base = outbufptr;
     wchar_t  wch;
     int length;
     Uchar tmp;
-    int num_conv;
     int unconv_num = 0;
 
     XLCd lcd = (XLCd)conv->state;
     CodeSet codeset;
     Ulong wc_shift = XLC_GENERIC(lcd, wc_shift_bits);
 
-    if (*from_left > *to_left)
-        *from_left = *to_left;
-
-    for (; *from_left > 0 ; (*from_left)-- ) {
+    for (; *from_left > 0 && *to_left > 0; (*from_left)-- ) {
 
 	wch = *inbufptr++;
 
@@ -282,8 +271,19 @@ euc_wcstombs(
 	length = codeset->length;
 	wch ^= (wchar_t)codeset->wc_encoding;
 
-	if (codeset->parse_info)	/* put out SS2 or SS3 */
+	if (codeset->parse_info) {	/* put out SS2 or SS3 */
+	    if (*to_left < length + 1) {
+	        unconv_num++;
+		break;
+	    }
 	    *outbufptr++ = *codeset->parse_info->encoding;
+	    (*to_left)--;
+        } else {
+	    if (*to_left < length) {
+		unconv_num++;
+		break;
+	    }
+	}
 
 	do {
 	    length--;
@@ -293,13 +293,11 @@ euc_wcstombs(
 		tmp = BIT8ON(tmp);
 
 	    *outbufptr++ = (Uchar)tmp;
+	    (*to_left)--;
 	} while (length);
     }
 
     *to = (XPointer)outbufptr;
-
-    if ((num_conv = (int)(outbufptr - outbuf_base)) > 0)
-	*to_left -= num_conv;
 
     return unconv_num;
 }

@@ -1,6 +1,31 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/perl_back.h,v 1.4.2.2 2003/03/13 01:09:09 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/perl_back.h,v 1.9.2.3 2004/04/28 23:23:16 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999 John C. Quillan.
+ * Portions Copyright 2002 myinternet Limited.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+
 #ifndef PERL_BACK_H
 #define PERL_BACK_H 1
+
+#include <EXTERN.h>
+#include <perl.h>
+#undef _	/* #defined by both Perl and ac/localize.h */
+#include "asperl_undefs.h"
+
+#include "portable.h"
+
+#include "slap.h"
 
 LDAP_BEGIN_DECL
 
@@ -23,7 +48,7 @@ extern ldap_pvt_thread_mutex_t  perl_interpreter_mutex;
 # define na	PL_na
 #endif
 
-#ifdef HAVE_WIN32_ASPERL
+#if defined( HAVE_WIN32_ASPERL ) || defined( USE_ITHREADS )
 /* pTHX is needed often now */
 # define PERL_INTERPRETER			my_perl
 # define PERL_BACK_XS_INIT_PARAMS		pTHX

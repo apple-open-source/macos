@@ -27,7 +27,8 @@
 
 int IOUSBIUnknown::factoryRefCount = 0;
 
-void *IOUSBLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
+void 
+*IOUSBLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
 {
     if (CFEqual(typeID, kIOUSBDeviceUserClientTypeID))
         return (void *) IOUSBDeviceClass::alloc();
@@ -36,7 +37,10 @@ void *IOUSBLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
     return NULL;
 }
 
-void IOUSBIUnknown::factoryAddRef()
+
+
+void 
+IOUSBIUnknown::factoryAddRef()
 {
     if (0 == factoryRefCount++) 
     {
@@ -47,9 +51,13 @@ void IOUSBIUnknown::factoryAddRef()
     }
 }
 
-void IOUSBIUnknown::factoryRelease()
+
+
+void 
+IOUSBIUnknown::factoryRelease()
 {
-    if (1 == factoryRefCount--) {
+    if (1 == factoryRefCount--) 
+	{
         CFUUIDRef factoryId = kIOUSBFactoryID;
     
         CFPlugInRemoveInstanceForFactory(factoryId);
@@ -58,6 +66,8 @@ void IOUSBIUnknown::factoryRelease()
     else if (factoryRefCount < 0)
         factoryRefCount = 0;
 }
+
+
 
 IOUSBIUnknown::IOUSBIUnknown(void *unknownVTable)
 : refCount(1)
@@ -68,18 +78,26 @@ IOUSBIUnknown::IOUSBIUnknown(void *unknownVTable)
     factoryAddRef();
 };
 
+
+
 IOUSBIUnknown::~IOUSBIUnknown()
 {
     factoryRelease();
 }
 
-unsigned long IOUSBIUnknown::addRef()
+
+
+unsigned long 
+IOUSBIUnknown::addRef()
 {
     refCount += 1;
     return refCount;
 }
 
-unsigned long IOUSBIUnknown::release()
+
+
+unsigned long 
+IOUSBIUnknown::release()
 {
     unsigned long retVal = refCount - 1;
 
@@ -95,6 +113,8 @@ unsigned long IOUSBIUnknown::release()
     return retVal;
 }
 
+
+
 HRESULT IOUSBIUnknown::
 genericQueryInterface(void *self, REFIID iid, void **ppv)
 {
@@ -102,13 +122,19 @@ genericQueryInterface(void *self, REFIID iid, void **ppv)
     return me->queryInterface(iid, ppv);
 }
 
-unsigned long IOUSBIUnknown::genericAddRef(void *self)
+
+
+unsigned long 
+IOUSBIUnknown::genericAddRef(void *self)
 {
     IOUSBIUnknown *me = ((InterfaceMap *) self)->obj;
     return me->addRef();
 }
 
-unsigned long IOUSBIUnknown::genericRelease(void *self)
+
+
+unsigned long 
+IOUSBIUnknown::genericRelease(void *self)
 {
     IOUSBIUnknown *me = ((InterfaceMap *) self)->obj;
     return me->release();

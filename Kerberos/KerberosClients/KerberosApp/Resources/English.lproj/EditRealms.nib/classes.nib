@@ -1,0 +1,84 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                addDomain = id; 
+                addRealm = id; 
+                addServer = id; 
+                addServerCancel = id; 
+                addServerOK = id; 
+                apply = id; 
+                cancel = id; 
+                configureRealmsWithDNSCheckboxWasHit = id; 
+                displayRealmInDialogPopupCheckboxWasHit = id; 
+                makeDefaultDomain = id; 
+                makeDefaultRealm = id; 
+                ok = id; 
+                portRadioButtonWasHit = id; 
+                removeDomain = id; 
+                removeRealm = id; 
+                removeServer = id; 
+                showWindow = id; 
+                typeRadioButtonWasHit = id; 
+                versionRadioButtonWasHit = id; 
+            }; 
+            CLASS = RealmsEditorController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                addDomainButton = NSButton; 
+                addRealmButton = NSButton; 
+                addServerButton = NSButton; 
+                addServerCancelButton = NSButton; 
+                addServerOKButton = NSButton; 
+                addServerWindow = NSWindow; 
+                adminRadioButtonCell = NSButtonCell; 
+                alternateV4RealmHeaderTextField = NSTextField; 
+                alternateV4RealmTextField = NSTextField; 
+                applyButton = NSButton; 
+                cancelButton = NSButton; 
+                configureRealmsAutomaticallyCheckbox = NSButton; 
+                customPortRadioButtonCell = NSButtonCell; 
+                customPortTextField = NSTextField; 
+                defaultPortRadioButtonCell = NSButtonCell; 
+                displayInDialogPopupCheckbox = NSButton; 
+                domainColumn = NSTableColumn; 
+                domainsTabViewItem = NSTabViewItem; 
+                domainsTableView = NSTableView; 
+                hostTextField = NSTextField; 
+                kdcRadioButtonCell = NSButtonCell; 
+                kpasswdRadioButtonCell = NSButtonCell; 
+                krb524RadioButtonCell = NSButtonCell; 
+                makeDefaultDomainButton = NSButton; 
+                makeDefaultRealmButton = NSButton; 
+                mappingDescriptionTextField = NSTextField; 
+                notCommonTextField = NSTextField; 
+                okButton = NSButton; 
+                portMatrix = NSMatrix; 
+                realmColumn = NSTableColumn; 
+                realmHeaderTextField = NSTextField; 
+                realmTabView = NSTabView; 
+                realmTextField = NSTextField; 
+                realmsTableView = NSTableView; 
+                removeDomainButton = NSButton; 
+                removeRealmButton = NSButton; 
+                removeServerButton = NSButton; 
+                serverColumn = NSTableColumn; 
+                serverPortColumn = NSTableColumn; 
+                serverTypeColumn = NSTableColumn; 
+                serverTypeMenu = NSMenu; 
+                serverVersionColumn = NSTableColumn; 
+                serverVersionMenu = NSMenu; 
+                serversTabViewItem = NSTabViewItem; 
+                serversTableView = NSTableView; 
+                settingsTabViewItem = NSTabViewItem; 
+                typeMatrix = NSMatrix; 
+                v4RadioButtonCell = NSButtonCell; 
+                v5RadioButtonCell = NSButtonCell; 
+                versionMatrix = NSMatrix; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }
+    ); 
+    IBVersion = 1; 
+}

@@ -1,5 +1,5 @@
                            MacsBug Interface for GDB
-                                   1/18/02
+                                  10/20/03
 
 1. Introduction
 
@@ -253,7 +253,15 @@
    the proper display.
 
 
-7. Changes in MacsBug 1.3
+7. Changes in MacsBug 1.4
+   
+   * Fixed bugs in TF and TV.
+   
+   * Improved register display efficiency which greatly improves overall
+     stepping speed.
+
+
+8. Changes in MacsBug 1.3
    
    * Fixed typeo in the FB help info in the reference to FUTURE-BREAK.
 
@@ -261,7 +269,7 @@
      memory is inaccessible.
 
 
-8. Changes in MacsBug 1.2
+9. Changes in MacsBug 1.2
    
    * Fixed all commands that potentially bcak up over gdb prompt to produce
      a contiguous display to ensure the line is cleared before writing.
@@ -282,7 +290,7 @@
      the width was fixed at 16 in groups of 2.
 
 
-9. Changes in MacsBug 1.1
+10. Changes in MacsBug 1.1
 
    * Removed all references to the install-MacsBug script which was documented
      but never installed in 1.0.

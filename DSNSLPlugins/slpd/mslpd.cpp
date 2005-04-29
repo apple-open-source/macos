@@ -196,7 +196,9 @@ SLPInternalError reset_slpd( int argc, char *pcArgv[], struct sockaddr_in *psin,
 {
     const char * pcFile;
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_STATE, "*** slpd reset ***" );
+#endif
 #ifdef EXTRA_MSGS
     if ((psa->pvMutex = SDGetMutex(MSLP_SERVER)) == NULL)
     {
@@ -249,11 +251,12 @@ SLPInternalError reset_slpd( int argc, char *pcArgv[], struct sockaddr_in *psin,
     * Copy the value of the registration file to file used by both
     * mslpd and all services which advertise themselves using libslp.
     */
+#ifdef ENABLE_SLP_LOGGING
     if ( SLPGetProperty("com.sun.slp.regfile") )
         SLP_LOG(SLP_LOG_DEBUG, "reset_slpd, handling regfile: %s", SLPGetProperty("com.sun.slp.regfile"));
     else
         SLP_LOG(SLP_LOG_DEBUG, "reset_slpd, regfile property is NULL!");
-        
+#endif        
     if ( pcFile )
     {
         fcopy(pcFile,SLPGetProperty("com.sun.slp.regfile"));
@@ -305,8 +308,9 @@ SLPInternalError reset_slpd( int argc, char *pcArgv[], struct sockaddr_in *psin,
     SDUnlock(psa->pvMutex);
 #endif /* EXTRA_MSGS */
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "reset_slpd finished" );
-    
+#endif    
     return SLP_OK;
 }
 
@@ -390,13 +394,14 @@ int main(int argc, char *pcArgv[])
         exit(0);
     }
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_STATE, "*** slpd started ***" );
-	
+#endif	
 // we need to close all the open file descriptors of who ever launched us!
 
 	if ( getrlimit(RLIMIT_NOFILE, &rlim) < 0 )
 	{
-		LOG(SLP_LOG_ERR, "Failed to getrlimit!");
+		SLPLOG(SLP_LOG_ERR, "Failed to getrlimit!");
 		rlim.rlim_cur = FD_SETSIZE;
 	}
 	
@@ -425,7 +430,7 @@ int main(int argc, char *pcArgv[])
     
 	if ( IsNetworkSetToTriggerDialup() )
 	{
-		LOG(SLP_LOG_ERR, "slpd: Network is set to auto dial ppp, - abort");
+		SLPLOG(SLP_LOG_ERR, "slpd: Network is set to auto dial ppp, - abort");
 		return 0;
 	}
 	
@@ -438,7 +443,7 @@ int main(int argc, char *pcArgv[])
    
     if ( err )
     {
-        LOG(SLP_LOG_ERR, "slpd: could not do initial setup - abort");
+        SLPLOG(SLP_LOG_ERR, "slpd: could not do initial setup - abort");
         return err;
     }
     
@@ -453,7 +458,7 @@ int main(int argc, char *pcArgv[])
     */
     if (mslpd_init_network(&sa) != SLP_OK)
     {
-    	LOG(SLP_LOG_FAIL, "slpd: could not init networking - abort");
+    	SLPLOG(SLP_LOG_FAIL, "slpd: could not init networking - abort");
         return -3;
     }
 
@@ -503,14 +508,16 @@ int main(int argc, char *pcArgv[])
     * the SAStore.store field will require locks.
     */
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_MSG, "slpd: initialization finished");
-    
+#endif    
     err = RunSLPInternalProcessListener( &sa );		// this is just going to listen for IPC communications
     
     CFRunLoopRun();		// this will run forever until interrupted from the command line or CFRunLoopStop
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_MSG, "slpd: exiting");
-    
+#endif    
     
     return _Signal;
 }
@@ -597,7 +604,9 @@ static int assign_defaults(SAState *psa, struct sockaddr_in *psin,
     if ( needToSetOverflow == SLP_TRUE )
     {
         SLPSetProperty( "com.apple.slp.daPrunedScopeList", daScopeListTemp );
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_RADMIN, "We have a scope list that is longer than can be advertised via multicasting.  Some SLP implementations may see a truncated list." );
+#endif
     }
     else
         SLPSetProperty( "com.apple.slp.daPrunedScopeList", NULL );
@@ -607,11 +616,12 @@ static int assign_defaults(SAState *psa, struct sockaddr_in *psin,
     
 #ifndef NDEBUG
 
+#ifdef ENABLE_SLP_LOGGING
 	if ( AreWeADirectoryAgent() )
         mslplog(SLP_LOG_DEBUG,"slpd as a DA started with scopes", SLPGetProperty("com.apple.slp.daScopeList"));
     else
         mslplog(SLP_LOG_DEBUG,"slpd as an SA started with scopes", SLPGetProperty("net.slp.useScopes"));
-  
+#endif  
 #endif /* NDEBUG */
 
 	/* set up the address for da discovery */
@@ -668,8 +678,9 @@ void propogate_all_advertisements(SAState *psa)
         
             if ( err )
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DA, "Error trying to propogate a registration to DA: %s", inet_ntoa(pdat->pDAE[i].sin.sin_addr) );		// just log this
-                
+#endif                
                 pdat->pDAE[i].iStrikes++;		// and give em a strike.
                 
                 needToCheckDAList = 1;		// look for any DAs that should be struck out
@@ -715,23 +726,26 @@ void propogate_registration( SAState *psa, const char* lang, const char* srvtype
                 
                 if ( err )
                 {
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_DA, "Error trying to propogate a registration to DA: %s", inet_ntoa(pdat->pDAE[i].sin.sin_addr) );		// just log this
-                    
+#endif                    
                     pdat->pDAE[i].iStrikes++;		// and give em a strike.
                     
                     needToCheckDAList = 1;		// look for any DAs that should be struck out
                 }
             }
         }
+#ifdef ENABLE_SLP_LOGGING
         else
         {
             SLP_LOG( SLP_LOG_DEBUG, "Skipping registration propigation with DA: %s, DA ScopeList: %s, service ScopeList: %s", inet_ntoa(pdat->pDAE[i].sin.sin_addr), pdat->pDAE[i].pcScopeList, pcSL );
         }
-        
+
         if ( err )
         {
             SLP_LOG( SLP_LOG_DA, "Error trying to propogate a registration to DA: %s", inet_ntoa(pdat->pDAE[i].sin.sin_addr) );		// just log this
         }
+#endif
     }  
     UnlockGlobalDATable();
     
@@ -770,13 +784,15 @@ void propogate_deregistration( SAState *psa, const char* lang, const char* srvty
                 
             if ( err )
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DA, "Error trying to propogate a registration to DA: %s", inet_ntoa(pdat->pDAE[i].sin.sin_addr) );		// just log this
-                
+#endif                
                 pdat->pDAE[i].iStrikes++;		// and give em a strike.
                 
                 needToCheckDAList = 1;		// look for any DAs that should be struck out
             }
         }
+#ifdef ENABLE_SLP_LOGGING
         else
         {
             SLP_LOG( SLP_LOG_DEBUG, "Skipping deregistration propigation with DA: %s, DA ScopeList: %s, service ScopeList: %s", inet_ntoa(pdat->pDAE[i].sin.sin_addr), pdat->pDAE[i].pcScopeList, pcSL );
@@ -786,6 +802,7 @@ void propogate_deregistration( SAState *psa, const char* lang, const char* srvty
         {
             SLP_LOG( SLP_LOG_DA, "Error trying to propogate a deregistration to DA: %s", inet_ntoa(pdat->pDAE[i].sin.sin_addr) );		// just log this
         }
+#endif
     }  
     UnlockGlobalDATable();
     
@@ -853,7 +870,9 @@ static SLPInternalError fcopy(const char *pc1, const char *pc2)
 static void exit_handler(int signo) 
 {
   /* free resources ! */
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_STATE, "*** slpd exit has been called: (%d) ***", signo );
+#endif
 
     close(global_resources.sdUDP);
     remove(SLPGetProperty("com.sun.slp.tempfile"));
@@ -862,12 +881,13 @@ static void exit_handler(int signo)
     close(global_resources.sdTCP);
 #endif /* SLPTCP */
   
+#ifdef ENABLE_SLP_LOGGING
     if ( signo == SIGHUP )
     {
         // we want to relaunch.  Question is are we a child of watchdog?
         SLP_LOG( SLP_LOG_SIGNAL, "slpd's parent pid is %d", getppid() );
     }
-  
+#endif  
     exit(0);
 }
 

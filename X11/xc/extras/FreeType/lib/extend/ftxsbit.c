@@ -18,6 +18,7 @@
  *  in certain TrueType files.
  *
  ******************************************************************/
+/* $XFree86: xc/extras/FreeType/lib/extend/ftxsbit.c,v 1.2 2003/10/21 18:10:09 tsi Exp $ */
 
 #include "ftxsbit.h"
 #include "ttobjs.h"
@@ -561,13 +562,12 @@
 
     for ( i = 0; i < eblc->num_strikes; i++, strike++ )
     {          /* loop through the tables and get all entries */
-      ULong                  indexTablesSize;
       TT_SBit_Line_Metrics*  metrics;
       Int                    count;
 
 
       strike->ranges_offset = GET_ULong();
-      indexTablesSize       = GET_ULong();  /* dont' save */
+      (void)                  GET_ULong();  /* dont' save */
 
       strike->num_ranges    = GET_ULong();
       strike->color_ref     = GET_ULong();
@@ -935,9 +935,7 @@
 
         TT_SBit_Component*  component_array;
         UShort              num_components;
-
-        Int i = 0;
-
+        Int                 i;
 
         if ( ACCESS_Frame( 2L ) )
           return error;

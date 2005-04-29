@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XGrServer.man,v 1.2 2001/01/27 18:20:00 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XGrServer.man,v 1.3 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,13 +144,10 @@
 .SH NAME
 XGrabServer, XUngrabServer \- grab the server
 .SH SYNTAX
-XGrabServer\^(\^\fIdisplay\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.LP
-XUngrabServer\^(\^\fIdisplay\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
+.HP
+int XGrabServer\^(\^Display *\fIdisplay\fP\^); 
+.HP
+int XUngrabServer\^(\^Display *\fIdisplay\fP\^);
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

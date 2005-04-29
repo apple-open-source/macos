@@ -1,8 +1,8 @@
 #
 #               getopts.rb - 
 #                       $Release Version: $
-#                       $Revision: 1.1.1.2 $
-#                       $Date: 2003/05/14 13:58:48 $
+#                       $Revision: 1.8.2.1 $
+#                       $Date: 2004/11/05 16:01:52 $
 #                       by Yasuo OHBA(SHL Japan Inc. Technology Dept.)
 #
 # --
@@ -15,7 +15,7 @@
 # rewritten by Akinori MUSHA <knu@ruby-lang.org>
 #
 
-$RCS_ID=%q$Header: /cvs/Darwin/ruby/ruby/lib/getopts.rb,v 1.1.1.2 2003/05/14 13:58:48 melville Exp $
+$RCS_ID=%q$Header: /src/ruby/lib/getopts.rb,v 1.8.2.1 2004/11/05 16:01:52 matz Exp $
 
 
 def getopts(single_options, *options)

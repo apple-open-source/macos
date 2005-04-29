@@ -1,6 +1,6 @@
 .TH LDAP.CONF 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/ldap.conf.5,v 1.12.2.7 2003/05/22 22:22:26 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/ldap.conf.5,v 1.23.2.3 2004/09/07 22:37:11 kurt Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .UC 6
 .SH NAME
@@ -49,6 +49,20 @@ in the
 .SH OPTIONS
 The different configuration options are:
 .TP
+.B URI <ldap[s]://[name[:port]] ...>
+Specifies the URI(s) of an LDAP server(s) to which the
+.I LDAP 
+library should connect.  The URI scheme may be either
+.BR ldap or
+.B ldaps 
+which refer to LDAP over TCP and LDAP over SSL (TLS) respectively.
+Each server's name can be specified as a
+domain-style name or an IP address literal.  Optionally, the
+server's name can followed by a ':' and the port number the LDAP
+server is listening on.  If no port number is provided, the default
+port for the scheme is used (389 for ldap://, 636 for ldaps://).
+A space separated list of URIs may be provided.
+.TP
 .B BASE <base>
 Specifies the default base DN to use when performing ldap operations.
 The base must be specified as a Distinguished Name in LDAP format.
@@ -60,7 +74,7 @@ This is a user\-only option.
 .TP
 .B HOST <name[:port] ...>
 Specifies the name(s) of an LDAP server(s) to which the
-.I ldap 
+.I LDAP 
 library should connect.  Each server's name can be specified as a
 domain-style name or an IP address and optionally followed by a ':' and
 the port number the ldap server is listening on.  A space separated
@@ -176,36 +190,6 @@ description).  The default is
 specifies the maximum security layer receive buffer
 size allowed.  0 disables security layers.  The default is 65536.
 .RE
-.TP
-.B SIZELIMIT <integer>
-Specifies a size limit to use when performing searches.  The
-number should be a non-negative integer.  \fISIZELIMIT\fP of zero (0)
-specifies unlimited search size.
-.TP
-.B TIMELIMIT <integer>
-Specifies a time limit to use when performing searches.  The
-number should be a non-negative integer.  \fITIMELIMIT\fP of zero (0)
-specifies unlimited search time to be used.
-.TP
-.B DEREF <when>
-Specifies how alias dereferencing is done when performing a search. The
-.B <when>
-can be specified as one of the following keywords:
-.RS
-.TP
-.B never
-Aliases are never dereferenced. This is the default.
-.TP
-.B searching
-Aliases are dereferenced in subordinates of the base object, but
-not in locating the base object of the search.
-.TP
-.B finding
-Aliases are only dereferenced when locating the base object of the search.
-.TP
-.B always
-Aliases are dereferenced both in searching and in locating the base object
-of the search.
 .SH TLS OPTIONS
 If OpenLDAP is built with Transport Layer Security support, there
 are more options you can specify.  These options are used when an
@@ -225,8 +209,8 @@ is always used before
 .B TLS_CACERTDIR.
 .TP
 .B TLS_CERT <filename>
-Specifies the file that contains the client certificate. This is
-a user\-only option.
+Specifies the file that contains the client certificate.
+This is a user\-only option.
 .TP
 .B TLS_KEY <filename>
 Specifies the file that contains the private key that matches the certificate
@@ -235,6 +219,11 @@ stored in the
 file. Currently, the private key must not be protected with a password, so
 it is of critical importance that the key file is protected carefully. This
 is a user\-only option.
+.TP
+.B TLS_CIPHER_SUITE <cipher-suite-spec>
+Specifies acceptable cipher suite and preference order.
+<cipher-suite-spec> should be a cipher specification for OpenSSL,
+e.g., HIGH:MEDIUM:+SSLv2.
 .TP
 .B TLS_RANDFILE <filename>
 Specifies the file to obtain random bits from when /dev/[u]random is
@@ -294,7 +283,7 @@ local ldap configuration file
 .SH AUTHOR
 Kurt Zeilenga, The OpenLDAP Project
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

@@ -28,6 +28,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
                                fujiwara@a80.tech.yk.fujitsu.co.jp
 
 ******************************************************************/
+/* $XFree86: xc/lib/X11/XimTrX.h,v 1.2 2003/11/17 22:20:10 dawes Exp $ */
 
 #ifndef _XIMTRX_H
 #define _XIMTRX_H
@@ -36,9 +37,7 @@ typedef struct _XIntrCallbackRec	*XIntrCallbackPtr;
 
 typedef struct _XIntrCallbackRec {
     Bool		 (*func)(
-#if NeedNestedPrototypes
 				 Xim, INT16, XPointer, XPointer
-#endif
 );
     XPointer		 call_data;
     XIntrCallbackPtr	 next;

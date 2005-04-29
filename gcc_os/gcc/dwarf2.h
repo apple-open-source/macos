@@ -239,6 +239,7 @@ enum dwarf_attribute
     DW_AT_src_coords = 0x2104,
     DW_AT_body_begin = 0x2105,
     DW_AT_body_end   = 0x2106,
+    DW_AT_GNU_vector = 0x2107,
     /* VMS Extensions.  */
     DW_AT_VMS_rtnbeg_pd_address = 0x2201
   };
@@ -398,10 +399,12 @@ enum dwarf_location_atom
     DW_OP_push_object_address = 0x97,
     DW_OP_call2 = 0x98,
     DW_OP_call4 = 0x99,
-    DW_OP_calli = 0x9a
+    DW_OP_call_ref = 0x9a,
+    /* GNU extensions.  */
+    DW_OP_GNU_push_tls_address = 0xe0
   };
 
-#define DW_OP_lo_user	0x80	/* Implementation-defined range start.  */
+#define DW_OP_lo_user	0xe0	/* Implementation-defined range start.  */
 #define DW_OP_hi_user	0xff	/* Implementation-defined range end.  */
 
 /* Type encodings.  */

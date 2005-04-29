@@ -3,7 +3,7 @@
  *
  * This file is very closely based on mivaltree.c.
  */
- /* $XFree86: xc/programs/Xserver/hw/darwin/quartz_1.3/rootlessValTree.c,v 1.1 2002/03/28 02:21:20 torrey Exp $ */
+ /* $XFree86: xc/programs/Xserver/hw/darwin/quartz_1.3/rootlessValTree.c,v 1.2 2003/11/10 18:21:48 tsi Exp $ */
 
 /*
  * mivaltree.c --
@@ -292,9 +292,8 @@ rootlessComputeClips (pParent, pScreen, universe, kind, exposed)
 		    }
 		    if (pChild->valdata)
 		    {
-			REGION_INIT(pScreen, 
-				    &pChild->valdata->after.borderExposed,
-				    NullBox, 0);
+			REGION_NULL(pScreen,
+				    &pChild->valdata->after.borderExposed);
 			if (HasParentRelativeBorder(pChild))
 			  {
 			    REGION_SUBTRACT(pScreen,
@@ -302,8 +301,7 @@ rootlessComputeClips (pParent, pScreen, universe, kind, exposed)
 					 &pChild->borderClip,
 					 &pChild->winSize);
 			}
-			REGION_INIT( pScreen, &pChild->valdata->after.exposed,
-						 NullBox, 0);
+			REGION_NULL(pScreen, &pChild->valdata->after.exposed);
 		    }
 		    if (pChild->firstChild)
 		    {
@@ -344,8 +342,8 @@ rootlessComputeClips (pParent, pScreen, universe, kind, exposed)
 
     borderVisible = pParent->valdata->before.borderVisible;
     resized = pParent->valdata->before.resized;
-    REGION_INIT( pScreen, &pParent->valdata->after.borderExposed, NullBox, 0);
-    REGION_INIT( pScreen, &pParent->valdata->after.exposed, NullBox, 0);
+    REGION_NULL(pScreen, &pParent->valdata->after.borderExposed);
+    REGION_NULL(pScreen, &pParent->valdata->after.exposed);
 
     /*
      * Since the borderClip must not be clipped by the children, we do
@@ -396,8 +394,8 @@ rootlessComputeClips (pParent, pScreen, universe, kind, exposed)
     
     if ((pChild = pParent->firstChild) && pParent->mapped)
     {
-	REGION_INIT(pScreen, &childUniverse, NullBox, 0);
-	REGION_INIT(pScreen, &childUnion, NullBox, 0);
+	REGION_NULL(pScreen, &childUniverse);
+	REGION_NULL(pScreen, &childUnion);
 	if ((pChild->drawable.y < pParent->lastChild->drawable.y) ||
 	    ((pChild->drawable.y == pParent->lastChild->drawable.y) &&
 	     (pChild->drawable.x < pParent->lastChild->drawable.x)))
@@ -598,8 +596,8 @@ rootlessMiValidateTree (pRoot, pChild, kind)
     if (pChild == NullWindow)
 	pChild = pRoot->firstChild;
 
-    REGION_INIT(pScreen, &childClip, NullBox, 0);
-    REGION_INIT(pScreen, &exposed, NullBox, 0);
+    REGION_NULL(pScreen, &childClip);
+    REGION_NULL(pScreen, &exposed);
 
     /*
      * compute the area of the parent window occupied
@@ -607,7 +605,7 @@ rootlessMiValidateTree (pRoot, pChild, kind)
      * is the area which can be divied up among the marked
      * children in their new configuration.
      */
-    REGION_INIT(pScreen, &totalClip, NullBox, 0);
+    REGION_NULL(pScreen, &totalClip);
     viewvals = 0;
     if (REGION_BROKEN (pScreen, &pRoot->clipList) &&
 	!REGION_BROKEN (pScreen, &pRoot->borderClip))
@@ -672,7 +670,7 @@ rootlessMiValidateTree (pRoot, pChild, kind)
 
 
     // calculate childUnion so we can subtract it from totalClip later
-    REGION_INIT(pScreen, &childUnion, NullBox, 0);
+    REGION_NULL(pScreen, &childUnion);
     if (kind != VTStack) {
       if (forward)
 	{
@@ -732,8 +730,8 @@ rootlessMiValidateTree (pRoot, pChild, kind)
     // REGION_SUBTRACT(pScreen, &totalClip, &totalClip, &childUnion);
     REGION_UNINIT(pScreen, &childUnion);
 
-    REGION_INIT( pScreen, &pRoot->valdata->after.exposed, NullBox, 0);
-    REGION_INIT( pScreen, &pRoot->valdata->after.borderExposed, NullBox, 0);
+    REGION_NULL(pScreen, &pRoot->valdata->after.exposed);
+    REGION_NULL(pScreen, &pRoot->valdata->after.borderExposed);
 
 
     REGION_UNINIT( pScreen, &totalClip);

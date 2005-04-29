@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2000 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -51,7 +50,8 @@
 --      subtree with an expression. Once the substitution is completed, the
 --      Expand routine must call Analyze on the resulting node to do any
 --      required semantic analysis. Note that references to children copied
---      from the old tree won't be reanalyzed, since their Analyze flag is set.
+--      from the old tree won't be reanalyzed, since their Analyzed flag
+--      is set.
 
 --    Nodes that are subexpressions (Nkind in N_Subexpr)
 
@@ -150,11 +150,19 @@ package Expander is
    procedure Expander_Mode_Save_And_Set (Status : Boolean);
    --  Saves the current setting of the Expander_Active flag on an internal
    --  stack and then sets the flag to the given value.
+   --
+   --  Note: this routine has no effect in ASIS_Mode. In ASIS_Mode, all
+   --  expansion activity is always off, since we want the original semantic
+   --  tree for ASIS purposes without any expansion. This is achieved by
+   --  setting Expander_Active False in ASIS_Mode. In situations such as
+   --  the call to Instantiate_Bodies in Frontend, Expander_Mode_Save_And_Set
+   --  may be called to temporarily turn the expander on, but this will have
+   --  no effect in ASIS mode.
 
    procedure Expander_Mode_Restore;
    --  Restores the setting of the Expander_Active flag using the top entry
    --  pushed onto the stack by Expander_Mode_Save_And_Reset, popping the
    --  stack, except that if any errors have been detected, then the state
-   --  of the flag is left set to False.
+   --  of the flag is left set to False. Disabled for ASIS_Mode (see above).
 
 end Expander;

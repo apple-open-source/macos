@@ -52,7 +52,7 @@ kexgss_client(Kex *kex)
 	BIGNUM *shared_secret = 0;	
 	unsigned char *kbuf;
 	unsigned char *hash;
-	unsigned char *serverhostkey;
+	unsigned char *serverhostkey = NULL;
 	char *msg;
 	char *lang;
 	int type = 0;
@@ -138,12 +138,14 @@ kexgss_client(Kex *kex)
 			/* If we've sent them data, they'd better be polite
 			 * and reply. */
 		
-			type = packet_read();
+			read_loop: type = packet_read();
 			switch (type) {
 			case SSH2_MSG_KEXGSS_HOSTKEY:
 				debug("Received KEXGSS_HOSTKEY");
+				if (serverhostkey)
+					fatal("Server host key received more than once");
 				serverhostkey=packet_get_string(&slen);
-				break;
+				goto read_loop;
 			case SSH2_MSG_KEXGSS_CONTINUE:
 				debug("Received GSSAPI_CONTINUE");
 				if (maj_status == GSS_S_COMPLETE) 

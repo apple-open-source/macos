@@ -2,6 +2,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         H_FILES = (
+	    _limits.h,
             alignment.h, 
             ansi.h, 
             asm_help.h, 

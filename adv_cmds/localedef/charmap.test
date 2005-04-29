@@ -1,0 +1,38 @@
+CHARMAP
+<mb_cur_max> 2
+<mb_cur_min> 2
+
+<acute-accent>	\047
+<grave-accent>	\140
+
+<A>	\x41
+<B>	\102
+<C>	C
+<D>	\104
+<E>	"E"
+<F> \d70
+
+<backslash> \\
+<double-E> "<E><E>"
+
+<A-grave>	\x60\x41
+<A-acute>	\x27\x41
+<a-grave>	\x60\x61
+<a-acute>	\x27\x61
+
+<j0101>...<j0104>	\x12\x34
+END CHARMAP
+
+WIDTH
+<A>...<D> 1
+<j0101>...<j0104>	2
+<no-such-symbol> 27
+
+<A-grave>	2
+<A-acute>	2
+<a-grave>	2
+<a-acute>	2
+
+WIDTH_DEFAULT 1
+
+END WIDTH

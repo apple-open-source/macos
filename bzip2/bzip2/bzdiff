@@ -37,7 +37,7 @@ if test -z "$FILES"; then
 	echo "Usage: $prog [${comp}_options] file [file]"
 	exit 1
 fi
-tmp=`tempfile -d /tmp -p bz` || {
+tmp=`mktemp -t bz` || {
       echo 'cannot create a temporary file' >&2
       exit 1
 }

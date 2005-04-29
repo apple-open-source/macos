@@ -21,7 +21,7 @@
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-/* $XFree86: xc/programs/Xserver/hw/kdrive/sis530/sisdraw.c,v 1.6 2001/05/29 04:54:12 keithp Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/kdrive/sis530/sisdraw.c,v 1.7 2003/11/10 18:22:08 tsi Exp $ */
 
 #include "sis.h"
 #include "sisdraw.h"
@@ -1529,7 +1529,7 @@ sisCopyWindow(WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
     dy = ptOldOrg.y - pWin->drawable.y;
     REGION_TRANSLATE(pWin->drawable.pScreen, prgnSrc, -dx, -dy);
 
-    REGION_INIT (pWin->drawable.pScreen, &rgnDst, NullBox, 0);
+    REGION_NULL(pWin->drawable.pScreen, &rgnDst);
     
     REGION_INTERSECT(pWin->drawable.pScreen, &rgnDst, &pWin->borderClip, prgnSrc);
 

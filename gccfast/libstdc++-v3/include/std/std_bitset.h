@@ -58,6 +58,13 @@
 #include <ostream>     // for ostream (operator<<)
 #include <istream>     // for istream (operator>>)
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define bitset _Release_bitset
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #define _GLIBCPP_BITSET_BITS_PER_WORD (CHAR_BIT*sizeof(unsigned long))
 #define _GLIBCPP_BITSET_WORDS(__n) \
@@ -635,8 +642,10 @@ namespace std
    *  carefully encapsulated.
    *  @endif
   */
+  /* APPLE LOCAL libstdc++ debug mode */
   template<size_t _Nb>
-    class bitset : private _Base_bitset<_GLIBCPP_BITSET_WORDS(_Nb)>
+    class _GLIBCXX_RELEASE_CLASS(bitset) bitset
+    : private _Base_bitset<_GLIBCPP_BITSET_WORDS(_Nb)>
   {
   private:
     typedef _Base_bitset<_GLIBCPP_BITSET_WORDS(_Nb)> _Base;
@@ -1248,5 +1257,12 @@ namespace std
 } // namespace std
 
 #undef _GLIBCPP_BITSET_WORDS
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef bitset
+#  include <debug/dbg_bitset.h>
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #endif /* _GLIBCPP_BITSET_H */

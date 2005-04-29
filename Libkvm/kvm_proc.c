@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.1 (the "License").  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -73,7 +72,6 @@ static char sccsid[] = "@(#)kvm_proc.c	8.4 (Berkeley) 8/20/94";
 #include <sys/param.h>
 #include <sys/user.h>
 #include <sys/proc.h>
-#include <sys/exec.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/tty.h>
@@ -87,8 +85,8 @@ static char sccsid[] = "@(#)kvm_proc.c	8.4 (Berkeley) 8/20/94";
 #include <mach/mach_types.h>
 #include <machine/vmparam.h>
 /* XXX: Don't know what this should be! */
-#warning Using bogus VM_MAX_USER_ADDRESS constant
-#define VM_MAXUSER_ADDRESS	VM_MAX_KERNEL_ADDRESS
+#warning Using VM_MAX_USER_ADDRESS = VM_MAX_ADDRESS
+#define VM_MAXUSER_ADDRESS	VM_MAX_ADDRESS
 #else
 #include <vm/vm.h>
 #include <vm/vm_param.h>
@@ -233,132 +231,7 @@ kvm_proclist(kd, what, arg, p, bp, maxcnt)
 	struct kinfo_proc *bp;
 	int maxcnt;
 {
-	register int cnt = 0;
-	struct eproc eproc;
-	struct pgrp pgrp;
-	struct session sess;
-	struct tty tty;
-	struct proc proc;
-	struct extern_proc extproc;
-
-	for (; cnt < maxcnt && p != 0; p = proc.p_list.le_next) {
-		if (KREAD(kd, (u_long)p, &proc)) {
-			_kvm_err(kd, kd->program, "can't read proc at %x", p);
-			return (-1);
-		}
-		if (KREAD(kd, (u_long)proc.p_cred, &eproc.e_pcred) == 0)
-			KREAD(kd, (u_long)eproc.e_pcred.pc_ucred,
-			      &eproc.e_ucred);
-
-		switch(what) {
-			
-		case KERN_PROC_PID:
-			if (proc.p_pid != (pid_t)arg)
-				continue;
-			break;
-
-		case KERN_PROC_UID:
-			if (eproc.e_ucred.cr_uid != (uid_t)arg)
-				continue;
-			break;
-
-		case KERN_PROC_RUID:
-			if (eproc.e_pcred.p_ruid != (uid_t)arg)
-				continue;
-			break;
-		}
-		/*
-		 * We're going to add another proc to the set.  If this
-		 * will overflow the buffer, assume the reason is because
-		 * nprocs (or the proc list) is corrupt and declare an error.
-		 */
-		if (cnt >= maxcnt) {
-			_kvm_err(kd, kd->program, "nprocs corrupt");
-			return (-1);
-		}
-		/*
-		 * gather eproc
-		 */
-		eproc.e_paddr = p;
-		if (KREAD(kd, (u_long)proc.p_pgrp, &pgrp)) {
-			_kvm_err(kd, kd->program, "can't read pgrp at %x",
-				 proc.p_pgrp);
-			return (-1);
-		}
-		eproc.e_sess = pgrp.pg_session;
-		eproc.e_pgid = pgrp.pg_id;
-		eproc.e_jobc = pgrp.pg_jobc;
-		if (KREAD(kd, (u_long)pgrp.pg_session, &sess)) {
-			_kvm_err(kd, kd->program, "can't read session at %x", 
-				pgrp.pg_session);
-			return (-1);
-		}
-		if ((proc.p_flag & P_CONTROLT) && sess.s_ttyp != NULL) {
-			if (KREAD(kd, (u_long)sess.s_ttyp, &tty)) {
-				_kvm_err(kd, kd->program,
-					 "can't read tty at %x", sess.s_ttyp);
-				return (-1);
-			}
-			eproc.e_tdev = tty.t_dev;
-			eproc.e_tsess = tty.t_session;
-			if (tty.t_pgrp != NULL) {
-				if (KREAD(kd, (u_long)tty.t_pgrp, &pgrp)) {
-					_kvm_err(kd, kd->program,
-						 "can't read tpgrp at &x", 
-						tty.t_pgrp);
-					return (-1);
-				}
-				eproc.e_tpgid = pgrp.pg_id;
-			} else
-				eproc.e_tpgid = -1;
-		} else
-			eproc.e_tdev = NODEV;
-		eproc.e_flag = sess.s_ttyvp ? EPROC_CTTY : 0;
-		if (sess.s_leader == p)
-			eproc.e_flag |= EPROC_SLEADER;
-		if (proc.p_wmesg)
-			(void)kvm_read(kd, (u_long)proc.p_wmesg, 
-			    eproc.e_wmesg, WMESGLEN);
-
-#ifdef sparc
-		(void)kvm_read(kd, (u_long)&proc.p_vmspace->vm_rssize,
-		    (char *)&eproc.e_vm.vm_rssize,
-		    sizeof(eproc.e_vm.vm_rssize));
-		(void)kvm_read(kd, (u_long)&proc.p_vmspace->vm_tsize,
-		    (char *)&eproc.e_vm.vm_tsize,
-		    3 * sizeof(eproc.e_vm.vm_rssize));	/* XXX */
-#else
-#ifdef notdef
-		(void)kvm_read(kd, (u_long)proc.p_vmspace,
-		    (char *)&eproc.e_vm, sizeof(eproc.e_vm));
-#else
-		(void) memset(&eproc.e_vm, 0, sizeof (eproc.e_vm));
-#endif
-#endif
-		eproc.e_xsize = eproc.e_xrssize = 0;
-		eproc.e_xccount = eproc.e_xswrss = 0;
-
-		switch (what) {
-
-		case KERN_PROC_PGRP:
-			if (eproc.e_pgid != (pid_t)arg)
-				continue;
-			break;
-
-		case KERN_PROC_TTY:
-			if ((proc.p_flag & P_CONTROLT) == 0 || 
-			     eproc.e_tdev != (dev_t)arg)
-				continue;
-			break;
-		}
-		
-		fill_externproc(&proc, &extproc);
-		bcopy(&extproc, &bp->kp_proc, sizeof(proc));
-		bcopy(&eproc, &bp->kp_eproc, sizeof(eproc));
-		++bp;
-		++cnt;
-	}
-	return (cnt);
+	return (-1);
 }
 
 /*
@@ -373,27 +246,7 @@ kvm_deadprocs(kd, what, arg, a_allproc, a_zombproc, maxcnt)
 	u_long a_zombproc;
 	int maxcnt;
 {
-	register struct kinfo_proc *bp = kd->procbase;
-	register int acnt, zcnt;
-	struct proc *p;
-
-	if (KREAD(kd, a_allproc, &p)) {
-		_kvm_err(kd, kd->program, "cannot read allproc");
-		return (-1);
-	}
-	acnt = kvm_proclist(kd, what, arg, p, bp, maxcnt);
-	if (acnt < 0)
-		return (acnt);
-
-	if (KREAD(kd, a_zombproc, &p)) {
-		_kvm_err(kd, kd->program, "cannot read zombproc");
-		return (-1);
-	}
-	zcnt = kvm_proclist(kd, what, arg, p, bp + acnt, maxcnt - acnt);
-	if (zcnt < 0)
-		zcnt = 0;
-
-	return (acnt + zcnt);
+	return (-1);
 }
 
 struct kinfo_proc *
@@ -628,30 +481,6 @@ ps_str_e(p, addr, n)
 	*n = p->ps_nenvstr;
 }
 
-/*
- * Determine if the proc indicated by p is still active.
- * This test is not 100% foolproof in theory, but chances of
- * being wrong are very low.
- */
-static int
-proc_verify(kd, kernp, p)
-	kvm_t *kd;
-	u_long kernp;
-	const struct proc *p;
-{
-	struct proc kernproc;
-
-	/*
-	 * Just read in the whole proc.  It's not that big relative
-	 * to the cost of the read system call.
-	 */
-	if (kvm_read(kd, kernp, (char *)&kernproc, sizeof(kernproc)) != 
-	    sizeof(kernproc))
-		return (0);
-	return (p->p_pid == kernproc.p_pid &&
-		(kernproc.p_stat != SZOMB || p->p_stat == SZOMB));
-}
-
 #if !defined(USRSTACK)
 #warning USRSTACK not defined! using VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS
 #define USRSTACK (VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS)
@@ -664,29 +493,7 @@ kvm_doargv(kd, kp, nchr, info)
 	int nchr;
 	int (*info)(struct ps_strings*, u_long *, int *);
 {
-	register const struct extern_proc *p = &kp->kp_proc;
-	register char **ap;
-	u_long addr;
-	int cnt;
-	struct ps_strings arginfo;
-
-	/*
-	 * Pointers are stored at the top of the user stack.
-	 */
-	if (p->p_stat == SZOMB || 
-	    kvm_uread(kd, p, USRSTACK - sizeof(arginfo), (char *)&arginfo,
-		      sizeof(arginfo)) != sizeof(arginfo))
-		return (0);
-
-	(*info)(&arginfo, &addr, &cnt);
-	ap = kvm_argv(kd, p, addr, cnt, nchr);
-	/*
-	 * For live kernels, make sure this process didn't go away.
-	 */
-	if (ap != 0 && ISALIVE(kd) &&
-	    !proc_verify(kd, (u_long)kp->kp_eproc.e_paddr, p))
-		ap = 0;
-	return (ap);
+	return (0);
 }
 
 /*
@@ -713,7 +520,7 @@ kvm_getenvv(kd, kp, nchr)
 /*
  * Read from user space.  The user context is given by p.
  */
-ssize_t
+int
 kvm_uread(kd, p, uva, buf, len)
 	kvm_t *kd;
 	register struct proc *p;
@@ -763,59 +570,17 @@ kvm_uread(kd, p, uva, buf, len)
 		uva += cc;
 		len -= cc;
 	}
-	return (ssize_t)(cp - buf);
+	return (int)(cp - buf);
 }
 /*
  * Fill in an eproc structure for the specified process.
  */
+#if 0
 void
 fill_externproc(p, exp)
 	register struct proc *p;
 	register struct extern_proc *exp;
 {
-	exp->p_forw = NULL;
-	exp->p_back = NULL;
-	exp->p_vmspace = NULL;
-	exp->p_sigacts = p->p_sigacts;
-	exp->p_flag  = p->p_flag;
-	exp->p_stat  = p->p_stat ;
-	exp->p_pid  = p->p_pid ;
-	exp->p_oppid  = p->p_oppid ;
-	exp->p_dupfd  = p->p_dupfd ;
-	/* Mach related  */
-	exp->user_stack  = p->user_stack ;
-	exp->exit_thread  = p->exit_thread ;
-	exp->p_debugger  = p->p_debugger ;
-	exp->sigwait  = p->sigwait ;
-	/* scheduling */
-	exp->p_estcpu  = p->p_estcpu ;
-	exp->p_cpticks  = p->p_cpticks ;
-	exp->p_pctcpu  = p->p_pctcpu ;
-	exp->p_wchan  = p->p_wchan ;
-	exp->p_wmesg  = p->p_wmesg ;
-	exp->p_swtime  = p->p_swtime ;
-	exp->p_slptime  = p->p_slptime ;
-	bcopy(&p->p_realtimer, &exp->p_realtimer,sizeof(struct itimerval));
-	bcopy(&p->p_rtime, &exp->p_rtime,sizeof(struct timeval));
-	exp->p_uticks  = p->p_uticks ;
-	exp->p_sticks  = p->p_sticks ;
-	exp->p_iticks  = p->p_iticks ;
-	exp->p_traceflag  = p->p_traceflag ;
-	exp->p_tracep  = p->p_tracep ;
-	exp->p_siglist  = p->p_siglist ;
-	exp->p_textvp  = p->p_textvp ;
-	exp->p_holdcnt  = 0 ;
-	exp->p_sigmask  = p->p_sigmask ;
-	exp->p_sigignore  = p->p_sigignore ;
-	exp->p_sigcatch  = p->p_sigcatch ;
-	exp->p_priority  = p->p_priority ;
-	exp->p_usrpri  = p->p_usrpri ;
-	exp->p_nice  = p->p_nice ;
-	bcopy(&p->p_comm, &exp->p_comm,MAXCOMLEN);
-	exp->p_comm[MAXCOMLEN] = '\0';
-	exp->p_pgrp  = p->p_pgrp ;
-	exp->p_addr  = NULL ;
-	exp->p_xstat  = p->p_xstat ;
-	exp->p_acflag  = p->p_acflag ;
 	exp->p_ru  = p->p_ru ;
 }
+#endif

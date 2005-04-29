@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Plugins</title>
+    </header>
+
+    <body>
+        <section>
+            <title>blojsom plugin architecture</title>
+            <p>
+                The blojsom plugin API was designed to be very straightforward. A developer that wants to write a plugin
+                for blojsom will implement the
+                <a href="javadoc/org/blojsom/plugin/BlojsomPlugin.html">BlojsomPlugin</a> interface.
+                This interface defines 4 methods that must be overridden:
+            </p>
+            <ul>
+                <li>
+                    <code>init(ServletConfig servletConfig, BlojsomConfiguration blojsomConfiguration)</code>: This method is
+                    called once when the plugin class is instantiated by blojsom. As a developer, you can
+                    retrieve any initialization parameters from
+                    <em>web.xml</em>.
+                </li>
+                <li>
+                    <code>process(HttpServletRequest httpServletRequest,
+                        HttpServletResponse httpServletResponse, BlogUser user, Map context, BlogEntry[] entries)</code>:
+                    After retrieving the blog entries for a request, blojsom will execute the plugins
+                    (their order is defined in the
+                    <em>blojsom-plugin-chain</em> property of the
+                    <code>plugin.properties</code> file). The
+                    <code>process()</code> method is where the plugin can manipulate the individual blog entries.
+                </li>
+                <li>
+                    <code>cleanup()</code>: The
+                    <code>cleanup()</code> method is called directly after the
+                    <code>process</code> method and is provided so that developers
+                    can perform any cleanup after processing a plugin request.
+                </li>
+                <li>
+                    <code>destroy()</code>: The
+                    <code>destroy()</code> method is called for each plugin when
+                    BlojsomServlet is taken out of service by the servlet container.
+                </li>
+            </ul>
+            <p>As a developer, you must ensure that any access to class member variables is thread-safe.
+            </p>
+            <p>
+                Also, if you are going to be adding any configuration parameters for your plugin to the
+                <em>web.xml</em>
+                file, then we ask that you use the "plugin-&lt;plugin-name&gt;" prefix. For example, the configuration
+                parameter in
+                <em>web.xml</em> for the macro expansion plugin to point to its configuration file is called
+                <em>plugin-macros-expansion</em>.
+            </p>
+            <p>
+                If you are considering writing a plugin, take a look at the source code for the
+                <a href="javadoc/org/blojsom/plugin/HyperlinkURLPlugin.html">Hyperlink URL plugin</a> or the
+                <a href="javadoc/org/blojsom/plugin/MacroExpansionPlugin.html">Macro Expansion plugin</a>.
+            </p>
+        </section>
+        <section>
+            <title>Using blojsom plugins</title>
+            <section>
+                <title>General blojsom plugin configuration</title>
+                <p>
+                    The general blojsom plugin configuration file is stored in <em>/WEB-INF/plugin.properties</em>.
+                </p>
+                <p>
+                    One of the initialization parameters defined in the
+                    <em>web.xml</em> for blojsom is called
+                    <em>plugin-configuration</em> and
+                    points to the plugin properties file for the application. Typically, this does not need to
+                    change from its value of
+                    <code>plugin.properties</code>. Looking at
+                    <em>/WEB-INF/plugin.properties</em>, you will see something like:
+                </p>
+                <source>
+                    href-hyperlinks=org.blojsom.plugin.hyperlink.HyperlinkURLPlugin
+                    macro-expansion=org.blojsom.plugin.macro.MacroExpansionPlugin
+                    simple-search=org.blojsom.plugin.search.SimpleSearchPlugin
+                </source>
+                <p>
+                    Each line in this file will follow the
+                    <em>plugin-short-name</em>=
+                    <em>plugin.class.name</em> convention.
+                    After blojsom starts up, it will try to instantiate each plugin defined in this file. After blojsom loads the plugin class, it will call its
+                    <code>init()</code> method
+                    and add it to the valid plugins. If there is an error loading a particular plugin, blojsom will log this and will make the plugin inactive, even if it is defined in the
+                    <em>&lt;flavor&gt;.blojsom-plugin-chain</em>.
+                </p>
+            </section>
+            <section>
+                <title>Individual user plugin configuration</title>
+                <p>
+                    An individual user's plugin configuration file is stored in <em>/WEB-INF/&lt;user-id&gt;/plugin.properties</em>. The
+                    user-id will change as appropriate.
+                </p>
+                <p>
+                    In the individual user directories, the <code>plugin.properties</code> file will only contain
+                    blojsom-plugin-chain references. The syntax for the value of the
+                    <em>&lt;flavor&gt;.blojsom-plugin-chain</em> property is a
+                    comma-separated list of the
+                    <em>plugin-short-name</em>s in the order in which they should be
+                    executed for the particular flavor. So, if we wanted to execute the macro expansion
+                    plugin before the href hyperlinks plugin for the HTML flavor, we would set the value of this property to:
+                </p>
+                <source>
+                    html.blojsom-plugin-chain=macro-expansion, href-hyperlinks
+                </source>
+            </section>
+        </section>
+        <section>
+            <title>blojsom plugin execution</title>
+            <p>
+                blojsom will still execute the plugins even if there are no blog entries retrieved for a
+                given request. You do not need to explicitly test for
+                <code>entries == null</code> at the
+                beginning of the
+                <code>process</code> method as this method is passed a
+                <code>BlogEntry[]</code>
+                array of length 0 if there were no blog entries retrieved for a particular request.
+            </p>
+        </section>
+        <section>
+            <title>blojsom plugins override</title>
+            <p>
+                You may override the plugins that get executed on a given request. The following table describes the URL parameters that affect the blojsom plugin chain.
+            </p>
+            <table>
+                <tr>
+                    <th>URL parameter</th>
+                    <th>Accepted values</th>
+                    <th>Usage</th>
+                </tr>
+                <tr>
+                    <td>plugins</td>
+                    <td>A comma-separated list of
+                        <em>plugin-short-name</em> that will override
+                        the plugin chain for the current requested flavor
+                    </td>
+                    <td>/blog/?plugins=href-hyperlinks,show-me-more</td>
+                </tr>
+            </table>
+        </section>
+    </body>
+</document>
+

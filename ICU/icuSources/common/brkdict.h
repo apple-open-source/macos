@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2000 IBM and others. All rights reserved.
+*   Copyright (C) 1999-2004 IBM and others. All rights reserved.
 **********************************************************************
 *   Date        Name        Description
 *   12/1/99     rtg         Ported from Java
@@ -14,7 +14,6 @@
 #include "unicode/utypes.h"
 #include "unicode/uobject.h"
 #include "ucmp8.h"
-#include "umemstrm.h"
 
 U_NAMESPACE_BEGIN
 
@@ -118,7 +117,7 @@ public:
      * representation.
      * @param in The given memory stream
      */
-    void readDictionaryFile(UMemoryStream* in);
+    void readDictionaryFile(const uint8_t * in);
 
     //=================================================================================
     // access to the words

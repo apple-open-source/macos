@@ -1,0 +1,22 @@
+"%(email)s" e-posta adresiniz, %(hostname)s üzerinde bulunan
+%(listname)s listesine üye olmasý için %(listname)s liste yöneticisi
+tarafýndan davet edildi. Daveti, Konu: baþlýðýný deðiþtirmeden
+bu mesajý yanýtlayarak kabul edebilirsiniz. 
+
+Ayrýca bu sayfayý da ziyaret edebilirsiniz:
+
+    %(confirmurl)s
+
+
+Veya bir mesaja aþaðýdaki satýrý -- sadece aþaðýdaki satýrý --
+yazarak %(requestaddr)s adresine gönderin:
+
+    confirm %(cookie)s
+
+Basitçe bu mesajý `yanýtlamak', çoðu e-posta okuma programýnda
+çalýþýr.
+
+Bu daveti reddetmek istiyorsanýz, lütfen bu mesajý gözardý edin.
+Eðer herhangi bir sorunuz varsa, lütfen %(listowner)s ile
+baðlantý kurun.
+

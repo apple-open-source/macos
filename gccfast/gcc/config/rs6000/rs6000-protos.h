@@ -117,7 +117,11 @@ extern int branch_comparison_operator PARAMS ((rtx, enum machine_mode));
 extern int branch_positive_comparison_operator PARAMS ((rtx,
 							enum machine_mode));
 #ifdef RS6000_LONG_BRANCH
-extern char* output_call PARAMS ((rtx, rtx, int));
+void add_compiler_stub PARAMS ((tree, tree, int));
+void output_compiler_stub PARAMS ((void));
+int no_previous_def PARAMS ((tree));
+tree get_prev_label PARAMS ((tree));
+extern char* output_call PARAMS ((rtx, rtx, int, char *));
 #endif
 extern int scc_comparison_operator PARAMS ((rtx, enum machine_mode));
 extern int trap_comparison_operator PARAMS ((rtx, enum machine_mode));

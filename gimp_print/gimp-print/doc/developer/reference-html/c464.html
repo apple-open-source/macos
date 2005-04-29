@@ -1,0 +1,1777 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML
+><HEAD
+><TITLE
+>ESC/P2</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.7"><LINK
+REL="HOME"
+TITLE="The Developer's Guide to Gimp-Print"
+HREF="book1.html"><LINK
+REL="PREVIOUS"
+TITLE="The driver file"
+HREF="x271.html"><LINK
+REL="NEXT"
+TITLE="Remote Mode Commands"
+HREF="x955.html"><META
+http-equiv="Content-Type"
+content="text/html; charset=UTF-8"></HEAD
+><BODY
+CLASS="chapter"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>The Developer's Guide to Gimp-Print</TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x271.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x955.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="AEN464"
+></A
+>Chapter 5. ESC/P2</H1
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="c464.html#AEN477"
+>Standard commands</A
+></DT
+><DT
+><A
+HREF="x955.html"
+>Remote Mode Commands</A
+></DT
+><DT
+><A
+HREF="x1669.html"
+>Appropriate Remote Commands</A
+></DT
+></DL
+></DIV
+><P
+>&#13;    This is a description of the ESC/P2 raster commands used by the
+    Gimp-Print printer driver, which is a subset of the complete
+    command set.  The full documents are found on <A
+HREF="http://www.ercipd.com/isv/edr_docs.htm"
+TARGET="_top"
+>&#13;    <I
+CLASS="citetitle"
+>http://www.ercipd.com/isv/edr_docs.htm</I
+></A
+>.
+    Note that these are <SPAN
+CLASS="emphasis"
+><I
+CLASS="emphasis"
+>not</I
+></SPAN
+> always correct, and
+    are certainly not complete.
+  </P
+><P
+>&#13;    All ESCP/2 raster commands begin with the <VAR
+CLASS="literal"
+>ESC</VAR
+>
+    character (0x1b), followed by either one or two command characters
+    and arguments where applicable.  Older commands generally have one
+    command character.  Newer commands usually have a
+    ‘<VAR
+CLASS="literal"
+>(</VAR
+>’ (left parenthesis) followed by
+    a command character and a byte count for the arguments that
+    follow.  The byte count is a 16-bit (2 byte) binary integer, in
+    little endian order.
+  </P
+><P
+>&#13;    All arguments listed here are of the form
+    <VAR
+CLASS="literal"
+>name[bytes]</VAR
+> where <VAR
+CLASS="literal"
+>[bytes]</VAR
+> is
+    the number of bytes that comprise the argument.  The arguments
+    themselves are usually one, two, or four byte integers, always
+    little endian (the least significant bits come first).  Presumably
+    this is to match Intel processors.
+  </P
+><P
+>&#13;    In some cases, the same command sequence identifies different
+    versions of the same command, depending upon the number of bytes
+    of arguments.
+  </P
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="AEN477"
+>Standard commands</A
+></H1
+><P
+></P
+><DIV
+CLASS="variablelist"
+><P
+><B
+>ESC/P2 Commands</B
+></P
+><DL
+><DT
+><VAR
+CLASS="literal"
+>ESC @</VAR
+></DT
+><DD
+><P
+>&#13;            Reset the printer.  Discards any output, ejects the
+            existing page, returns all settings to their default.
+            Always use this before printing a page.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (G <VAR
+CLASS="varname"
+>BC</VAR
+>=1
+            <VAR
+CLASS="varname"
+>ON1</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Turn on graphics mode.  <VAR
+CLASS="varname"
+>ON</VAR
+> should be
+            <CODE
+CLASS="constant"
+>1</CODE
+> (turn on graphics mode).
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (U <VAR
+CLASS="varname"
+>BC</VAR
+>=1
+            <VAR
+CLASS="varname"
+>UNIT1</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set basic unit of measurement used by printer.  This is
+            expressed in multiples of 1/3600".  At 720 DPI,
+            <VAR
+CLASS="varname"
+>UNIT</VAR
+> is <CODE
+CLASS="constant"
+>5</CODE
+>; at
+            360 DPI, <VAR
+CLASS="varname"
+>UNIT</VAR
+> is
+            <CODE
+CLASS="constant"
+>10</CODE
+>.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (U <VAR
+CLASS="varname"
+>BC</VAR
+>=5
+            <VAR
+CLASS="varname"
+>PAGEUNITS1</VAR
+> <VAR
+CLASS="varname"
+>VUNIT1</VAR
+>
+            <VAR
+CLASS="varname"
+>HUNIT1</VAR
+>
+            <VAR
+CLASS="varname"
+>BASEUNIT2</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set basic units of measurement used by the printer.
+            <VAR
+CLASS="varname"
+>PAGEUNIT</VAR
+> is the unit of page
+            measurement (for commands that set page dimensions and
+            the like).  <VAR
+CLASS="varname"
+>VUNIT</VAR
+> is the unit of
+            vertical measurement (for vertical movement commands).
+            <VAR
+CLASS="varname"
+>HUNIT</VAR
+> is the unit of horizontal
+            movement (for horizontal positioning commands).  All of
+            these units are expressed in
+            <VAR
+CLASS="varname"
+>BASEUNIT</VAR
+>, which is in reciprocal
+            inches.  Typically, <VAR
+CLASS="varname"
+>BASEUNIT</VAR
+> is
+            <CODE
+CLASS="constant"
+>1440</CODE
+>.  In 720 DPI mode,
+            <VAR
+CLASS="varname"
+>PAGEUNIT</VAR
+>, <VAR
+CLASS="varname"
+>VUNIT</VAR
+>,
+            and <VAR
+CLASS="varname"
+>HUNIT</VAR
+> are all
+            <CODE
+CLASS="constant"
+>2</CODE
+>; in 1440×720 DPI mode,
+            <VAR
+CLASS="varname"
+>PAGEUNIT</VAR
+> and <VAR
+CLASS="varname"
+>VUNIT</VAR
+>
+            are normally set to <CODE
+CLASS="constant"
+>2</CODE
+>;
+            <VAR
+CLASS="varname"
+>HUNIT</VAR
+> is set to
+            <CODE
+CLASS="constant"
+>1</CODE
+>.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (K <VAR
+CLASS="varname"
+>BC</VAR
+>=2
+            <VAR
+CLASS="varname"
+>ZERO1</VAR
+>
+            <VAR
+CLASS="varname"
+>GRAYMODE1</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set color or grayscale mode, on printers supporting an
+            explicit grayscale mode.  These printers can be
+            identified because they are advertised as having more
+            black nozzles than nozzles of individual colors.
+            Setting grayscale mode allows use of these extra nozzles
+            for faster printing.  <VAR
+CLASS="varname"
+>GRAYMODE</VAR
+> should
+            be <CODE
+CLASS="constant"
+>0</CODE
+> or <CODE
+CLASS="constant"
+>2</CODE
+> for
+            color, <CODE
+CLASS="constant"
+>1</CODE
+> for grayscale.
+            <VAR
+CLASS="varname"
+>ZERO</VAR
+> should always be
+            <CODE
+CLASS="constant"
+>0</CODE
+>.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (i <VAR
+CLASS="varname"
+>BC</VAR
+>=1
+            <VAR
+CLASS="varname"
+>MICROWEAVE1</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            If <VAR
+CLASS="varname"
+>MICROWEAVE</VAR
+> is
+            <CODE
+CLASS="constant"
+>1</CODE
+>, use microweave mode.  On older
+            printers, this is used to turn on microweave; on newer
+            printers, it prints one row at a time.  All printers
+            support this mode.  It should only be used at 720 (or
+            1440×720) DPI.  The Epson Stylus Pro series
+            indicates additional modes:
+          </P
+><P
+></P
+><DIV
+CLASS="variablelist"
+><DL
+><DT
+><CODE
+CLASS="constant"
+>2</CODE
+></DT
+><DD
+><P
+>&#13;                  “Full-overlap”
+                </P
+></DD
+><DT
+><CODE
+CLASS="constant"
+>3</CODE
+></DT
+><DD
+><P
+>&#13;                  “Four-pass”
+                </P
+></DD
+><DT
+><CODE
+CLASS="constant"
+>4</CODE
+></DT
+><DD
+><P
+>&#13;                  “Full-overlap 2”
+                </P
+></DD
+></DL
+></DIV
+><P
+>&#13;            Any of these commands can be used with the high four
+            bits set to either <CODE
+CLASS="constant"
+>3</CODE
+> or
+            <CODE
+CLASS="constant"
+>0</CODE
+>.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC U
+            <VAR
+CLASS="varname"
+>DIRECTION1</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            If <VAR
+CLASS="varname"
+>DIRECTION</VAR
+> is
+            <CODE
+CLASS="constant"
+>1</CODE
+>, print unidirectionally; if
+            <CODE
+CLASS="constant"
+>0</CODE
+>, print bidirectionally.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (s <VAR
+CLASS="varname"
+>BC</VAR
+>=1
+            <VAR
+CLASS="varname"
+>SPEED1</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            On some older printers, this controls the print head
+            speed.  <VAR
+CLASS="varname"
+>SPEED</VAR
+> of
+            <CODE
+CLASS="constant"
+>2</CODE
+> is 10 inches/sec;
+            <VAR
+CLASS="varname"
+>SPEED</VAR
+> of <CODE
+CLASS="constant"
+>0</CODE
+> or 1
+            is 20.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (e <VAR
+CLASS="varname"
+>BC</VAR
+>=2
+            <VAR
+CLASS="varname"
+>ZERO1</VAR
+>
+            <VAR
+CLASS="varname"
+>DOTSIZE1</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Choose print dotsize.  <VAR
+CLASS="varname"
+>DOTSIZE</VAR
+> can
+            take on various values, depending upon the printer.
+            Almost all printers support <CODE
+CLASS="constant"
+>0</CODE
+> and
+            <CODE
+CLASS="constant"
+>2</CODE
+>.  Variable dot size printers
+            allow a value of <VAR
+CLASS="varname"
+>16</VAR
+>.  Other than the
+            value of <VAR
+CLASS="varname"
+>16</VAR
+>, this appears to be
+            ignored at resolutions of 720 DPI and above.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (C <VAR
+CLASS="varname"
+>BC</VAR
+>=2
+            <VAR
+CLASS="varname"
+>PAGELENGTH2</VAR
+></VAR
+>, <VAR
+CLASS="literal"
+>ESC (C <VAR
+CLASS="varname"
+>BC</VAR
+>=4
+            <VAR
+CLASS="varname"
+>PAGELENGTH4</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set the length of the page in “pageunits”
+            (see <VAR
+CLASS="literal"
+>ESC (U</VAR
+> above).  The second form
+            of the command allows setting of longer page lengths on
+            new printers (these happen to be the printers that
+            support variable dot size).
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (c <VAR
+CLASS="varname"
+>BC</VAR
+>=4
+            <VAR
+CLASS="varname"
+>TOP2</VAR
+>
+            <VAR
+CLASS="varname"
+>LENGTH2</VAR
+></VAR
+>, <VAR
+CLASS="literal"
+>ESC (c <VAR
+CLASS="varname"
+>BC</VAR
+>=8
+            <VAR
+CLASS="varname"
+>TOP4</VAR
+>
+            <VAR
+CLASS="varname"
+>LENGTH4</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set the vertical page margins of the page in
+            “pageunits” (see <VAR
+CLASS="literal"
+>ESC (U</VAR
+>
+            above).  The margins are specified as the top of the
+            page and the length of the page.  The second form of the
+            command allows setting of longer page lengths on new
+            printers (these happen to be the printers that support
+            variable dot size).
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (S <VAR
+CLASS="varname"
+>BC</VAR
+>=8
+            <VAR
+CLASS="varname"
+>WIDTH4</VAR
+>
+            <VAR
+CLASS="varname"
+>LENGTH4</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set the width and length of the printed page region in
+            “pageunits” (see <VAR
+CLASS="literal"
+>ESC (U</VAR
+>
+            above).
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (v <VAR
+CLASS="varname"
+>BC</VAR
+>=2
+            <VAR
+CLASS="varname"
+>ADVANCE2</VAR
+></VAR
+>, <VAR
+CLASS="literal"
+>ESC (v <VAR
+CLASS="varname"
+>BC</VAR
+>=4
+            <VAR
+CLASS="varname"
+>ADVANCE4</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Feed vertically <VAR
+CLASS="varname"
+>ADVANCE</VAR
+>
+            “vertical units” (see <VAR
+CLASS="literal"
+>ESC
+            (U</VAR
+> above) from the current print head
+            position.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (V <VAR
+CLASS="varname"
+>BC</VAR
+>=2
+            <VAR
+CLASS="varname"
+>ADVANCE2</VAR
+></VAR
+>, <VAR
+CLASS="literal"
+>ESC (V <VAR
+CLASS="varname"
+>BC</VAR
+>=4
+            <VAR
+CLASS="varname"
+>ADVANCE4</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Feed vertically <VAR
+CLASS="varname"
+>ADVANCE</VAR
+>
+            “vertical units” (see <VAR
+CLASS="literal"
+>ESC
+            (U</VAR
+> above) from the top margin.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC ($ <VAR
+CLASS="varname"
+>BC</VAR
+>=4
+            <VAR
+CLASS="varname"
+>OFFSET4</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set horizontal position to <VAR
+CLASS="varname"
+>OFFSET</VAR
+>
+            from the left margin.  This command operates on printers
+            of the 740 class and newer (all printers with variable
+            dot size).
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC $
+            <VAR
+CLASS="varname"
+>OFFSET2</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set horizontal position to <VAR
+CLASS="varname"
+>OFFSET</VAR
+>
+            from the left margin.  This command operates on printers
+            of the 740 class and newer (all printers with variable
+            dot size).
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (\ <VAR
+CLASS="varname"
+>BC</VAR
+>=4
+            <VAR
+CLASS="varname"
+>UNITS2</VAR
+>
+            <VAR
+CLASS="varname"
+>OFFSET2</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set horizontal position to <VAR
+CLASS="varname"
+>OFFSET</VAR
+>
+            from the previous print head position, measured in
+            <VAR
+CLASS="varname"
+>UNITS</VAR
+>.  <VAR
+CLASS="varname"
+>UNITS</VAR
+> is
+            measured in inverse inches, and should be set to 1440 in
+            all cases.  This operates on all 1440 dpi printers that
+            do not support variable dot size.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (/ <VAR
+CLASS="varname"
+>BC</VAR
+>=4
+            <VAR
+CLASS="varname"
+>OFFSET4</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set horizontal position to <VAR
+CLASS="varname"
+>OFFSET</VAR
+>
+            from the previous print head position, measured in
+            “horizontal units” (see <VAR
+CLASS="literal"
+>ESC
+            (U</VAR
+> above).  This operates on all variable dot
+            size printers.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC \
+            <VAR
+CLASS="varname"
+>OFFSET2</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set horizontal position to <VAR
+CLASS="varname"
+>OFFSET</VAR
+>
+            from the previous print head position, measured in basic
+            unit of measurement (see <VAR
+CLASS="literal"
+>ESC (U</VAR
+>
+            above). This is used on all 720 dpi printers, and can
+            also be used on 1440 dpi printers in lower resolutions
+            to save a few bytes.  Note that
+            <VAR
+CLASS="varname"
+>OFFSET</VAR
+> may be negative.  The range of
+            values for this command is between
+            <CODE
+CLASS="constant"
+>-16384</CODE
+> and
+            <CODE
+CLASS="constant"
+>16383</CODE
+>.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC r
+            <VAR
+CLASS="varname"
+>COLOR1</VAR
+></VAR
+>, <VAR
+CLASS="literal"
+>ESC (r <VAR
+CLASS="varname"
+>BC</VAR
+>=2
+            <VAR
+CLASS="varname"
+>DENSITY1</VAR
+>
+            <VAR
+CLASS="varname"
+>COLOR1</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set the ink color.  The first form is used on four-color
+            printers; the second on six-color printers.
+            <VAR
+CLASS="varname"
+>DENSITY</VAR
+> is <CODE
+CLASS="constant"
+>0</CODE
+> for
+            dark inks, <CODE
+CLASS="constant"
+>1</CODE
+> for light.
+            <VAR
+CLASS="varname"
+>COLOR</VAR
+> is
+          </P
+><DIV
+CLASS="table"
+><A
+NAME="AEN728"
+></A
+><P
+><B
+>Table 5-1. Colors</B
+></P
+><TABLE
+BORDER="1"
+CLASS="CALSTABLE"
+><COL
+WIDTH="1*"
+TITLE="id"><COL
+WIDTH="1*"
+TITLE="color"><THEAD
+><TR
+><TH
+><VAR
+CLASS="varname"
+>COLOR</VAR
+></TH
+><TH
+>Color name</TH
+></TR
+></THEAD
+><TBODY
+><TR
+><TD
+><CODE
+CLASS="constant"
+>0</CODE
+></TD
+><TD
+>Black</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>1</CODE
+></TD
+><TD
+>Magenta</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>2</CODE
+></TD
+><TD
+>Cyan</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>4</CODE
+></TD
+><TD
+>Yellow</TD
+></TR
+></TBODY
+></TABLE
+></DIV
+><P
+>&#13;            This command is not used on variable dot size printers
+            in softweave mode.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC . <VAR
+CLASS="varname"
+>COMPRESS1</VAR
+>
+            <VAR
+CLASS="varname"
+>VSEP1</VAR
+> <VAR
+CLASS="varname"
+>HSEP1</VAR
+>
+            <VAR
+CLASS="varname"
+>LINES1</VAR
+> <VAR
+CLASS="varname"
+>WIDTH2</VAR
+>
+            data...</VAR
+></DT
+><DD
+><P
+>&#13;            Print data.  <VAR
+CLASS="varname"
+>COMPRESS</VAR
+> signifies the
+            compression mode.
+          </P
+><DIV
+CLASS="table"
+><A
+NAME="AEN767"
+></A
+><P
+><B
+>Table 5-2. Compression modes</B
+></P
+><TABLE
+BORDER="1"
+CLASS="CALSTABLE"
+><COL
+WIDTH="1*"
+TITLE="id"><COL
+WIDTH="1*"
+TITLE="compression"><THEAD
+><TR
+><TH
+><VAR
+CLASS="varname"
+>COMPRESS</VAR
+></TH
+><TH
+>Compression mode</TH
+></TR
+></THEAD
+><TBODY
+><TR
+><TD
+><CODE
+CLASS="constant"
+>0</CODE
+></TD
+><TD
+>No compression</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>1</CODE
+></TD
+><TD
+>&#13;                    TIFF compression (incorrectly documented as
+                    “run length encoded”)
+                  </TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>2</CODE
+></TD
+><TD
+>&#13;                    TIFF compression with a special command set.
+                  </TD
+></TR
+></TBODY
+></TABLE
+></DIV
+><P
+>&#13;            <VAR
+CLASS="varname"
+>VSEP</VAR
+> depends upon resolution and
+            printer type.  At 360 DPI, it is always
+            <CODE
+CLASS="constant"
+>10</CODE
+>.  At 720 DPI, it is normally
+            <CODE
+CLASS="constant"
+>5</CODE
+>5.  On the ESC 600, it is
+            <CODE
+CLASS="constant"
+>40</CODE
+> (8 × 5}).  On some other
+            printers, it varies.
+          </P
+><P
+>&#13;            <VAR
+CLASS="varname"
+>HSEP1</VAR
+> is <CODE
+CLASS="constant"
+>10</CODE
+> at
+            360 DPI and <CODE
+CLASS="constant"
+>5</CODE
+> at 720 or 1440 DPI
+            (1440 DPI cannot be printed in one pass; it is printed
+            in two passes, with the dots separated in each pass by
+            1/720").
+          </P
+><P
+>&#13;            <VAR
+CLASS="varname"
+>LINES</VAR
+> is the number of lines to be
+            printed.  It should be <CODE
+CLASS="constant"
+>1</CODE
+> in
+            microweave and 360 DPI.  At 720 DPI softweave, it should
+            be the number of lines to be actually printed.
+          </P
+><P
+>&#13;            <VAR
+CLASS="varname"
+>WIDTH</VAR
+> is the number of pixels to be
+            printed in each row.  Following this command, a carriage
+            return (<CODE
+CLASS="constant"
+>13</CODE
+> decimal,
+            <VAR
+CLASS="literal"
+>0A</VAR
+> hex) should be output to return
+            the print head position to the left margin.
+          </P
+><P
+>&#13;            The basic data format is a string of bytes, with data
+            from left to right on the page.  Within each byte, the
+            highest bit is first.
+          </P
+><P
+>&#13;            The TIFF compression is implemented as one count byte
+            followed by one or more data bytes.  There are two
+            cases:
+          </P
+><P
+></P
+><OL
+TYPE="1"
+><LI
+><P
+>&#13;                If the count byte is <CODE
+CLASS="constant"
+>128</CODE
+> or
+                less, it is followed by ([count] + 1) data bytes.
+                So if the count byte is <CODE
+CLASS="constant"
+>0</CODE
+>, it
+                is followed by 1 data byte; if it is
+                <CODE
+CLASS="constant"
+>128</CODE
+>, it is followed by 129 data
+                bytes.
+              </P
+></LI
+><LI
+><P
+>&#13;                If the count byte is greater than 128, it is
+                followed by one byte.  This byte is repeated (257 -
+                [count]) times.  So if [count] is 129, the next byte
+                is treated as though it were repeated 128 times; if
+                [count] is 255, it is treated as though it were
+                repeated twice.
+              </P
+></LI
+></OL
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC i <VAR
+CLASS="varname"
+>COLOR1</VAR
+>
+            <VAR
+CLASS="varname"
+>COMPRESS1</VAR
+> <VAR
+CLASS="varname"
+>BITS1</VAR
+>
+            <VAR
+CLASS="varname"
+>BYTES2</VAR
+> <VAR
+CLASS="varname"
+>LINES2</VAR
+>
+            data...</VAR
+></DT
+><DD
+><P
+>&#13;            Print data in the newer printers (that support variable
+            dot size), and Stylus Pro models.
+            <VAR
+CLASS="varname"
+>COLOR</VAR
+> is the color.
+          </P
+><DIV
+CLASS="table"
+><A
+NAME="AEN827"
+></A
+><P
+><B
+>Table 5-3. Extended Colors</B
+></P
+><TABLE
+BORDER="1"
+CLASS="CALSTABLE"
+><COL
+WIDTH="1*"
+TITLE="id"><COL
+WIDTH="1*"
+TITLE="color"><THEAD
+><TR
+><TH
+><VAR
+CLASS="varname"
+>COLOR</VAR
+></TH
+><TH
+>Color name</TH
+></TR
+></THEAD
+><TBODY
+><TR
+><TD
+><CODE
+CLASS="constant"
+>0</CODE
+></TD
+><TD
+>Black</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>1</CODE
+></TD
+><TD
+>Magenta</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>2</CODE
+></TD
+><TD
+>Cyan</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>4</CODE
+></TD
+><TD
+>Yellow</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>5</CODE
+></TD
+><TD
+>Alternate black (Stylus C70/C80)</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>6</CODE
+></TD
+><TD
+>Alternate black (Stylus C70/C80)</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>16</CODE
+></TD
+><TD
+>Gray (“light black”)</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>17</CODE
+></TD
+><TD
+>Light magenta</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>18</CODE
+></TD
+><TD
+>Light cyan</TD
+></TR
+></TBODY
+></TABLE
+></DIV
+><P
+>&#13;            <VAR
+CLASS="varname"
+>COMPRESS</VAR
+> signifies the compression
+            mode:
+          </P
+><DIV
+CLASS="table"
+><A
+NAME="AEN876"
+></A
+><P
+><B
+>Table 5-4. Compression modes</B
+></P
+><TABLE
+BORDER="1"
+CLASS="CALSTABLE"
+><COL
+WIDTH="1*"
+TITLE="id"><COL
+WIDTH="1*"
+TITLE="compression"><THEAD
+><TR
+><TH
+><VAR
+CLASS="varname"
+>COMPRESS</VAR
+></TH
+><TH
+>Compression mode</TH
+></TR
+></THEAD
+><TBODY
+><TR
+><TD
+><CODE
+CLASS="constant"
+>0</CODE
+></TD
+><TD
+>No compression</TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>1</CODE
+></TD
+><TD
+>&#13;                    TIFF compression (incorrectly documented as
+                    “run length encoded”)
+                  </TD
+></TR
+><TR
+><TD
+><CODE
+CLASS="constant"
+>2</CODE
+></TD
+><TD
+>&#13;                    TIFF compression with a special command set, or
+                    “run length encoding 2” on some
+                    printers.
+                  </TD
+></TR
+></TBODY
+></TABLE
+></DIV
+><P
+>&#13;            <VAR
+CLASS="varname"
+>BITS</VAR
+> is the number of bits per pixel.
+          </P
+><P
+>&#13;            <VAR
+CLASS="varname"
+>BYTES</VAR
+> is the number of bytes wide for
+            each row (ceiling(BITS × width_of_row, 8)}). Note
+            that this is different from the <VAR
+CLASS="literal"
+>ESC .</VAR
+>
+            command above.
+          </P
+><P
+>&#13;            <VAR
+CLASS="varname"
+>LINES</VAR
+> is the number of lines to be
+            printed.  This command is the only way to get variable
+            dot size printing.  In variable dot mode, the size of
+            the dots increases as the value (<CODE
+CLASS="constant"
+>1</CODE
+>,
+            <CODE
+CLASS="constant"
+>2</CODE
+>, or <CODE
+CLASS="constant"
+>3</CODE
+>)
+            increases.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (D <VAR
+CLASS="varname"
+>BC</VAR
+>=4
+            <VAR
+CLASS="varname"
+>BASE2</VAR
+> <VAR
+CLASS="varname"
+>VERTICAL1</VAR
+>
+            <VAR
+CLASS="varname"
+>HORIZONTAL1</VAR
+></VAR
+></DT
+><DD
+><P
+>&#13;            Set printer horizontal and vertical spacing.  It only
+            applies to variable dot size printers in softweave mode
+            (and possibly other high end printers).
+          </P
+><P
+>&#13;            <VAR
+CLASS="varname"
+>BASE</VAR
+> is the base unit for this
+            command; it must be <CODE
+CLASS="constant"
+>14400</CODE
+>.
+          </P
+><P
+>&#13;            <VAR
+CLASS="varname"
+>VERTICAL</VAR
+> is the distance in these
+            units between printed rows; it should be
+            ((separation_in_nozzles × <VAR
+CLASS="varname"
+>BASE</VAR
+>
+            ÷ 720).
+          </P
+><P
+>&#13;            <VAR
+CLASS="varname"
+>HORIZONTAL</VAR
+> is the horizontal
+            separation between dots in a row.  Depending upon the
+            printer, this should be either (14400 ÷ 720) or
+            (14400 ÷ 360).  The Stylus Pro 9000 manual
+            suggests that the settings should match the chosen
+            resolution, but that is apparently not the case (or not
+            always the case) on other printers.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC (R <VAR
+CLASS="varname"
+>BC</VAR
+>=8 00 R E M O T E
+            1</VAR
+></DT
+><DD
+><P
+>&#13;            Enters “remote mode”.  This is a special,
+            undocumented command set that is used to set up various
+            printer options, such as paper feed tray, and perform
+            utility functions such as head cleaning and alignment.
+            It does not appear that anything here is actually
+            required to make the printer print.  Our best
+            understanding of what is in a remote command sequence is
+            described in a separate section below.
+          </P
+></DD
+><DT
+><VAR
+CLASS="literal"
+>ESC 01 @EJL [sp] ID\r\n</VAR
+></DT
+><DD
+><P
+>&#13;            Return the printer ID.  This is considered a remote mode
+            command, although the syntax is that of a conventional
+            command.  This returns the following information:
+          </P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN937"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="screen"
+>@EJL ID\r
+MFG:EPSON;
+CMD:ESCPL2,BDC;
+MDL:[printer model];
+CLS:PRINTER;
+DES:EPSON [printer model];
+\f</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;            After all data has been sent, a form feed byte should be
+            sent.
+          </P
+></DD
+></DL
+></DIV
+><P
+>&#13;     All newer Epson printers (STC 440, STP 750) require the
+     following command to be sent at least once to enable printing
+     at all.  This command specifically takes the printer out of the
+     1284.4 packet mode communication protocol and enables normal
+     data transfer.  Sending it multiple times is is not harmful, so
+     it is normally sent at the beginning of each job:
+  </P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN941"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="screen"
+>ESC 01@EJL[space]1284.4[newline]@EJL[space][space][space][space]
+[space][newline]ESC@</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;    The proper sequence of initialization commands is:
+  </P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN944"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="screen"
+>magic command
+ESC @
+remote mode if needed
+ESC (G
+ESC (U
+ESC (K (if appropriate)
+ESC (i
+ESC U (if needed)
+ESC (s (if appropriate)
+ESC (e
+ESC (C
+ESC (c
+ESC (S
+ESC (D (if needed)
+ESC (V (optional -- this can be accomplished with ESC (v)</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;    For printing, the proper sequence is:
+  </P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN947"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="screen"
+>ESC (v</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;    and repeat for each color:
+  </P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN950"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="screen"
+>ESC ($ or ESC (\ or ESC \
+ESC (r or ESC r (if needed---not used with "ESC i" and not needed if the color
+has not changed from the previous printed line)
+ESC . or ESC i  ...data... [return] (0A hex)</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;    To terminate a page:
+  </P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN953"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="screen"
+>[formfeed] (0C hex)
+ESC @</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x271.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x955.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>The driver file</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+>&nbsp;</TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Remote Mode Commands</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

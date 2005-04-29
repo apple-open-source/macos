@@ -33,6 +33,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>	/* XXX for subjectaltname */
 #include <netinet/in.h>	/* XXX for subjectaltname */
+#include <arpa/inet.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -70,6 +71,8 @@
 #include "sainfo.h"
 #include "proposal.h"
 #include "crypto_openssl.h"
+#include "crypto_cssm.h"
+#include "open_dir.h"
 #include "dnssec.h"
 #include "sockmisc.h"
 #include "strnames.h"
@@ -109,7 +112,7 @@ struct dhgroup dh_modp8192;
 static int oakley_compute_keymat_x __P((struct ph2handle *, int, int));
 #ifdef HAVE_SIGNING_C
 static int get_cert_fromlocal __P((struct ph1handle *, int));
-static int oakley_check_certid __P((struct ph1handle *iph1));
+static int oakley_check_certid(u_int8_t idtype, int idlen, void* id, cert_t* cert_p);
 static int check_typeofcertname __P((int, int));
 static cert_t *save_certbuf __P((struct isakmp_gen *));
 #endif
@@ -1269,18 +1272,34 @@ oakley_validate_auth(iph1)
 			return ISAKMP_INTERNAL_ERROR;
 		}
 
-		/* compare ID payload and certificate name */
-		if (iph1->rmconf->verify_cert &&
-		    (error = oakley_check_certid(iph1)) != 0)
-			return error;
+		/* check cert ID */
+		if (iph1->rmconf->verify_cert) {
+		
+			struct ipsecdoi_id_b *id_b;
+			int idlen;
+			
+			if (iph1->id_p == NULL || iph1->cert_p == NULL) {
+				plog(LLV_ERROR, LOCATION, NULL, "no ID or CERT found.\n");
+				return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+			}
+			
+			id_b = (struct ipsecdoi_id_b *)iph1->id_p->v;
+			idlen = iph1->id_p->l - sizeof(*id_b);
+			
+		    if ((error = oakley_check_certid(id_b->type, idlen, id_b + 1, iph1->cert_p)) != 0)
+				return error;
+		}
 
 		/* verify certificate */
 		if (iph1->rmconf->verify_cert
 		 && iph1->rmconf->getcert_method == ISAKMP_GETCERT_PAYLOAD) {
 			switch (iph1->rmconf->certtype) {
 			case ISAKMP_CERT_X509SIGN:
-				error = eay_check_x509cert(&iph1->cert_p->cert,
-					lcconf->pathinfo[LC_PATHTYPE_CERT], 0);
+				if (iph1->rmconf->cert_verification == VERIFICATION_MODULE_SEC_FRAMEWORK)
+					error = crypto_cssm_check_x509cert(&iph1->cert_p->cert);
+				else
+					error = eay_check_x509cert(&iph1->cert_p->cert,
+						lcconf->pathinfo[LC_PATHTYPE_CERT], 0);
 				break;
 			default:
 				plog(LLV_ERROR, LOCATION, NULL,
@@ -1293,9 +1312,66 @@ oakley_validate_auth(iph1)
 					"the peer's certificate is not verified.\n");
 				return ISAKMP_NTYPE_INVALID_CERT_AUTHORITY;
 			}
+			
+		}
+		
+		/* check configured peers identifier against cert IDs 		  		*/
+		/* allows checking of specified ID against multiple ids in the cert */
+		/* such as multiple domain names									*/
+		if (iph1->rmconf->cert_verification_option == VERIFICATION_OPTION_PEERS_IDENTIFIER) {
+			u_int8_t doi_type = 255;
+			void *peers_id = NULL;
+			int	peers_id_len = 0;
+			
+			if (iph1->rmconf->idvtype_p == IDTYPE_ADDRESS) {
+				switch (((struct sockaddr *)(iph1->rmconf->idv_p->v))->sa_family) {							
+					case AF_INET:
+						doi_type = IPSECDOI_ID_IPV4_ADDR;
+						peers_id_len = sizeof(struct in_addr);
+						peers_id = &(((struct sockaddr_in *)(iph1->rmconf->idv_p->v))->sin_addr.s_addr);
+						break;
+#ifdef INET6
+					case AF_INET6:
+						doi_type = IPSECDOI_ID_IPV6_ADDR;
+						peers_id_len = sizeof(struct in6_addr);
+						peers_id = &(((struct sockaddr_in6 *)(iph1->rmconf->idv_p->v))->sin6_addr.s6_addr);
+						break;
+#endif
+					default:
+						plog(LLV_ERROR, LOCATION, NULL,
+							"unknown address type for peers identifier.\n");
+						return ISAKMP_NTYPE_AUTHENTICATION_FAILED;
+						break;
+				}
+				
+			} else {
+				doi_type = idtype2doi(iph1->rmconf->idvtype_p);
+				peers_id = iph1->rmconf->idv_p->v;
+				peers_id_len = iph1->rmconf->idv_p->l;
+			}
+
+			if ((error = oakley_check_certid(doi_type, peers_id_len, 
+					peers_id, iph1->cert_p)) != 0)
+				return error;			
 		}
 
+		if (iph1->rmconf->cert_verification_option == VERIFICATION_OPTION_OPEN_DIR) {
+			
+			vchar_t *user_id = NULL;
+			
+			user_id = eay_get_x509_common_name(&iph1->cert_p->cert);
+			
+			// the following functions will check if user_id == 0
+			if (open_dir_authorize_id(user_id, iph1->rmconf->open_dir_auth_group) == 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+				"the peer is not authorized for access.\n");
+				return ISAKMP_NTYPE_AUTHENTICATION_FAILED;
+			}
+			vfree(user_id);
+		}
+		
 		plog(LLV_DEBUG, LOCATION, NULL, "CERT validated\n");
+		
 
 		/* compute hash */
 		switch (iph1->etype) {
@@ -1445,33 +1521,36 @@ get_cert_fromlocal(iph1, my)
 		certfile = iph1->rmconf->peerscertfile;
 		certpl = &iph1->cert_p;
 	}
-	if (!certfile) {
+	if (!certfile && iph1->rmconf->identity_in_keychain == 0) {
 		plog(LLV_ERROR, LOCATION, NULL, "no CERT defined.\n");
 		return 0;
 	}
 
 	switch (iph1->rmconf->certtype) {
-	case ISAKMP_CERT_X509SIGN:
-	case ISAKMP_CERT_DNS:
-		/* make public file name */
-		getpathname(path, sizeof(path), LC_PATHTYPE_CERT, certfile);
-		cert = eay_get_x509cert(path);
-		if (cert) {
-			char *p = NULL;
-			p = eay_get_x509text(cert);
-			plog(LLV_DEBUG, LOCATION, NULL, "%s", p ? p : "\n");
-			racoon_free(p);
-		};
-		break;
-
-	default:
-		plog(LLV_ERROR, LOCATION, NULL,
-			"not supported certtype %d\n",
-			iph1->rmconf->certtype);
-		goto end;
+		case ISAKMP_CERT_X509SIGN:
+			if (iph1->rmconf->identity_in_keychain) {
+				cert = crypto_cssm_get_x509cert(iph1->rmconf->keychainCertRef);
+				break;
+			} // else fall thru
+		case ISAKMP_CERT_DNS:
+			/* make public file name */
+			getpathname(path, sizeof(path), LC_PATHTYPE_CERT, certfile);
+			cert = eay_get_x509cert(path);
+			break;
+	
+		default:
+			plog(LLV_ERROR, LOCATION, NULL,
+				"not supported certtype %d\n",
+				iph1->rmconf->certtype);
+			goto end;
 	}
-
-	if (!cert) {
+	
+	if (cert) {
+		char *p = NULL;
+		p = eay_get_x509text(cert);
+		plog(LLV_DEBUG, LOCATION, NULL, "%s", p ? p : "\n");
+		racoon_free(p);
+	} else {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to get %s CERT.\n",
 			my ? "my" : "peers");
@@ -1521,6 +1600,11 @@ oakley_getsign(iph1)
 
 	switch (iph1->rmconf->certtype) {
 	case ISAKMP_CERT_X509SIGN:
+		// cert in keychain - use cssm to sign
+		if (iph1->rmconf->identity_in_keychain) {
+			iph1->sig = crypto_cssm_getsign(iph1->rmconf->keychainCertRef, iph1->hash);
+			break;
+		} // else fall thru
 	case ISAKMP_CERT_DNS:
 		if (iph1->rmconf->myprivfile == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL, "no cert defined.\n");
@@ -1542,6 +1626,7 @@ oakley_getsign(iph1)
 
 		iph1->sig = eay_get_x509sign(iph1->hash,
 					privkey, &iph1->cert->cert);
+						
 		break;
 	default:
 		goto end;
@@ -1568,26 +1653,16 @@ end:
  * compare certificate name and ID value.
  */
 static int
-oakley_check_certid(iph1)
-	struct ph1handle *iph1;
+oakley_check_certid(u_int8_t idtype, int idlen, void* id, cert_t* cert_p)
 {
-	struct ipsecdoi_id_b *id_b;
 	vchar_t *name = NULL;
 	char *altname = NULL;
-	int idlen, type;
+	int type, len;
 	int error;
 
-	if (iph1->id_p == NULL || iph1->cert_p == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "no ID nor CERT found.\n");
-		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-	}
-
-	id_b = (struct ipsecdoi_id_b *)iph1->id_p->v;
-	idlen = iph1->id_p->l - sizeof(*id_b);
-
-	switch (id_b->type) {
+	switch (idtype) {
 	case IPSECDOI_ID_DER_ASN1_DN:
-		name = eay_get_x509asn1subjectname(&iph1->cert_p->cert);
+		name = eay_get_x509asn1subjectname(&cert_p->cert);
 		if (!name) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"failed to get subjectName\n");
@@ -1599,7 +1674,7 @@ oakley_check_certid(iph1)
 			vfree(name);
 			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 		}
-		error = memcmp(id_b + 1, name->v, idlen);
+		error = memcmp(id, name->v, idlen);
 		vfree(name);
 		if (error != 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
@@ -1607,21 +1682,28 @@ oakley_check_certid(iph1)
 			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 		}
 		return 0;
-	case IPSECDOI_ID_IPV4_ADDR:
+	case IPSECDOI_ID_IPV4_ADDR:			
 	case IPSECDOI_ID_IPV6_ADDR:
 	{
-		/*
-		 * converting to binary from string because openssl return
-		 * a string even if object is a binary.
-		 * XXX fix it !  access by ASN.1 directly without.
-		 */
-		struct addrinfo hints, *res;
-		caddr_t a = NULL;
+
+		/* 
+		 * Openssl returns the IPAddress as an ASN1 octet string (binary format)
+		 * followed by a trailing NULL.  5 bytes for IPv4 and 17 bytes for IPv6
+		 */	
+		#define SUBJ_ALT_NAME_IPV4_ADDRESS_LEN  5
+		#define SUBJ_ALT_NAME_IPV6_ADDRESS_LEN	17
+		
 		int pos;
+		
+		if (idtype == IPSECDOI_ID_IPV4_ADDR && idlen != sizeof(struct in_addr)
+			|| idtype == IPSECDOI_ID_IPV6_ADDR && idlen != sizeof(struct in6_addr)) {
+			plog(LLV_ERROR, LOCATION, NULL,
+					"invalid address length passed.\n");
+			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+		}
 
 		for (pos = 1; ; pos++) {
-			if (eay_get_x509subjectaltname(&iph1->cert_p->cert,
-					&altname, &type, pos) !=0) {
+			if (eay_get_x509subjectaltname(&cert_p->cert, &altname, &type, pos, &len) !=0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"failed to get subjectAltName\n");
 				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
@@ -1629,54 +1711,53 @@ oakley_check_certid(iph1)
 
 			/* it's the end condition of the loop. */
 			if (!altname) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"no proper subjectAltName.\n");
-				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+				return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 			}
 
-			if (check_typeofcertname(id_b->type, type) == 0)
-				break;
-
-			/* next name */
-			racoon_free(altname);
-			altname = NULL;
-		}
-		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = PF_UNSPEC;
-		hints.ai_socktype = SOCK_RAW;
-		hints.ai_flags = AI_NUMERICHOST;
-		error = getaddrinfo(altname, NULL, &hints, &res);
-		if (error != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"no proper subjectAltName.\n");
-			racoon_free(altname);
-			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
-		}
-		switch (res->ai_family) {
-		case AF_INET:
-			a = (caddr_t)&((struct sockaddr_in *)res->ai_addr)->sin_addr.s_addr;
-			break;
+			if (check_typeofcertname(idtype, type) != 0) {
+				/* wrong type - skip this one */
+				racoon_free(altname);
+				altname = NULL;
+				continue;
+			}
+		
+			if (len == SUBJ_ALT_NAME_IPV4_ADDRESS_LEN) { /* IPv4 */
+				if (idtype != IPSECDOI_ID_IPV4_ADDR) {
+					/* wrong IP address type - skip this one */				
+					racoon_free(altname);
+					altname = NULL;
+					continue;
+				}
+			}
 #ifdef INET6
-		case AF_INET6:
-			a = (caddr_t)&((struct sockaddr_in6 *)res->ai_addr)->sin6_addr.s6_addr;
-			break;
+			else if (len == SUBJ_ALT_NAME_IPV6_ADDRESS_LEN) { /* IPv6 */
+				if (idtype != IPSECDOI_ID_IPV6_ADDR) {
+					/* wrong IP address type - skip this one */				
+					racoon_free(altname);
+					altname = NULL;
+					continue;
+				}
+			}
 #endif
-		default:
-			plog(LLV_ERROR, LOCATION, NULL,
-				"family not supported: %d.\n", res->ai_family);
+			else {
+				/* invalid IP address length in certificate - bad or bogus certificate */
+				plog(LLV_ERROR, LOCATION, NULL,
+					"invalid IP address in certificate.\n");
+				racoon_free(altname);
+				altname = NULL;
+				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+			}
+			
+			/* compare the addresses */		
+			error = memcmp(id, altname, idlen);
 			racoon_free(altname);
-			freeaddrinfo(res);
-			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+			if (error != 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					"ID mismatched with subjectAltName.\n");
+				return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+			}
+			return 0;
 		}
-		error = memcmp(id_b + 1, a, idlen);
-		freeaddrinfo(res);
-		vfree(name);
-		if (error != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"ID mismatched with subjectAltName.\n");
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		return 0;
 	}
 	case IPSECDOI_ID_FQDN:
 	case IPSECDOI_ID_USER_FQDN:
@@ -1684,8 +1765,7 @@ oakley_check_certid(iph1)
 		int pos;
 
 		for (pos = 1; ; pos++) {
-			if (eay_get_x509subjectaltname(&iph1->cert_p->cert,
-					&altname, &type, pos) != 0){
+			if (eay_get_x509subjectaltname(&cert_p->cert, &altname, &type, pos, &len) != 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"failed to get subjectAltName\n");
 				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
@@ -1693,47 +1773,37 @@ oakley_check_certid(iph1)
 
 			/* it's the end condition of the loop. */
 			if (!altname) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"no proper subjectAltName.\n");
-				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+				return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 			}
 
-			if (check_typeofcertname(id_b->type, type) == 0)
-				break;
+			if (check_typeofcertname(idtype, type) != 0) {
+				/* wrong general type - skip this one */
+				racoon_free(altname);
+				altname = NULL;
+				continue;
+			}
 
-			/* next name */
+			if (idlen != strlen(altname)) {
+				/* wrong length - skip this one */
+				racoon_free(altname);
+				altname = NULL;
+				continue;
+			}
+			error = memcmp(id, altname, idlen);
 			racoon_free(altname);
-			altname = NULL;
+			if (error) {
+				plog(LLV_ERROR, LOCATION, NULL, "ID mismatched.\n");
+				return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+			}
+			return 0;
 		}
-		if (idlen != strlen(altname)) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"Invalid ID length in phase 1.\n");
-			racoon_free(altname);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		if (check_typeofcertname(id_b->type, type) != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"ID type mismatched. ID: %s CERT: %s.\n",
-				s_ipsecdoi_ident(id_b->type),
-				s_ipsecdoi_ident(type));
-			racoon_free(altname);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		error = memcmp(id_b + 1, altname, idlen);
-		if (error) {
-			plog(LLV_ERROR, LOCATION, NULL, "ID mismatched.\n");
-			racoon_free(altname);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		racoon_free(altname);
-		return 0;
 	}
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
 			"Inpropper ID type passed: %s.\n",
-			s_ipsecdoi_ident(id_b->type));
+			s_ipsecdoi_ident(idtype));
 		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-	}
+	}	
 	/*NOTREACHED*/
 }
 

@@ -1,6 +1,6 @@
 /* bc_generate.c -- sieve bytecode- almost flattened bytecode
  * Rob Siemborski
- * $Id: bc_generate.c,v 1.3 2004/08/11 18:43:15 ken3 Exp $
+ * $Id: bc_generate.c,v 1.3 2005/03/05 00:37:37 dasenbro Exp $
  */
 /***********************************************************
         Copyright 2001 by Carnegie Mellon University

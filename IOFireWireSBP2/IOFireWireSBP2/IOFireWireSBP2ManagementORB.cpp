@@ -36,7 +36,7 @@ extern const OSSymbol *gManagement_Agent_Offset_Symbol;
 
 OSDefineMetaClassAndStructors( IOFireWireSBP2ManagementORB, IOFWCommand );
 
-OSMetaClassDefineReservedUnused(IOFireWireSBP2ManagementORB, 0);
+//OSMetaClassDefineReservedUnused(IOFireWireSBP2ManagementORB, 0);
 OSMetaClassDefineReservedUnused(IOFireWireSBP2ManagementORB, 1);
 OSMetaClassDefineReservedUnused(IOFireWireSBP2ManagementORB, 2);
 OSMetaClassDefineReservedUnused(IOFireWireSBP2ManagementORB, 3);
@@ -54,16 +54,31 @@ bool IOFireWireSBP2ManagementORB::initWithLUN( IOFireWireSBP2LUN * lun, void * r
 {
     bool res = true;
     IOReturn status	= kIOReturnSuccess;
-    
+ 
+	// we want the expansion data member to be zeroed if it's available 
+	// so create and zero in a local then assign to the member when were done
+	
+	ExpansionData * exp_data = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
+	if( !exp_data )
+	{
+		return false;
+	}
+
+	bzero( exp_data, sizeof(ExpansionData) );
+	
+	fExpansionData = exp_data;
+   
     // store LUN & Unit
     fLUN = lun;
-    fUnit = fLUN->getFireWireUnit();
+	fUnit = fLUN->getFireWireUnit();
+
+    fExpansionData->fInCriticalSection = false;
 
     // init command fields
     fControl = fUnit->getController();
     fTimeout = 0;
     fSync = false;
-
+	
     // set completion routine and refcon
     fCompletionCallback = completion;
     fCompletionRefCon = refCon;
@@ -82,6 +97,8 @@ bool IOFireWireSBP2ManagementORB::initWithLUN( IOFireWireSBP2LUN * lun, void * r
     fResponseAddressSpace 	= NULL;
     fResponseAddress		= NULL;
     
+	fCompleting = false;
+	
     // init super
     res = IOFWCommand::initWithController( fControl );
 
@@ -291,6 +308,16 @@ void IOFireWireSBP2ManagementORB::free( void )
 
     if( fWriteCommandMemory != NULL )
         fWriteCommandMemory->release();
+
+	//
+	// free expansion data
+	//
+	
+	if( fExpansionData )
+	{
+		IOFree( fExpansionData, sizeof(ExpansionData) );
+		fExpansionData = NULL;
+	}
 
     IOFWCommand::free();
 }
@@ -528,12 +555,25 @@ IOReturn IOFireWireSBP2ManagementORB::execute( void )
         fWriteCommand->reinit( FWAddress(0x0000ffff, 0xf0000000 + (fManagementOffset << 2)),
                                fWriteCommandMemory,
                                IOFireWireSBP2ManagementORB::writeCompleteStatic, this, true );
-        status = fWriteCommand->submit();
-    }
-
+		
+		status = fLUN->getTarget()->beginIOCriticalSection();
+	}
+   
+	if( status == kIOReturnSuccess )
+	{
+		fExpansionData->fInCriticalSection = true;
+		status = fWriteCommand->submit();
+	}
+	
     if( status != kIOReturnSuccess )
     {
-        return status;
+		if( fExpansionData->fInCriticalSection )
+		{
+			fExpansionData->fInCriticalSection = false;
+			fLUN->getTarget()->endIOCriticalSection();
+		}
+        
+		return status;
     }
     
     return kIOReturnBusy;    // this means we are now busy working on this command
@@ -609,13 +649,37 @@ UInt32 IOFireWireSBP2ManagementORB::statusBlockWrite( UInt16 nodeID, FWAddress a
 		fFunction == kFWSBP2LogicalUnitReset )
 	{
 		// all tasks aborted once these babies complete
+		fCompleting = true;
 		clearAllTasksInSet();
+		fCompleting = false;
 	}
 
     // complete command
     complete( kIOReturnSuccess );    
 	
     return kFWResponseComplete;
+}
+
+//
+// suspendedNotify method
+//
+// called when a suspended message is received
+
+void IOFireWireSBP2ManagementORB::suspendedNotify( void )
+{
+    FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : suspendedNotify\n", (UInt32)this ) );
+
+	if( fStatus == kIOReturnBusy && !fCompleting )
+	{
+		if( fTimeoutTimerSet )
+		{    
+			// cancel timeout
+			fTimeoutCommand->cancel( kIOReturnAborted );
+		}
+
+		// complete command
+		complete( kIOFireWireBusReset );
+	}
 }
 
 //
@@ -626,7 +690,14 @@ IOReturn IOFireWireSBP2ManagementORB::complete( IOReturn state )
 {
     state = IOFWCommand::complete( state );
     FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : complete\n", (UInt32)this ) );
-    if( fCompletionCallback != NULL )
+ 
+	if( fExpansionData->fInCriticalSection )
+	{
+		fExpansionData->fInCriticalSection = false;
+		fLUN->getTarget()->endIOCriticalSection();
+	}
+
+	if( fCompletionCallback != NULL )
         (*fCompletionCallback)(fCompletionRefCon, state, this);
 
     return state;

@@ -1,0 +1,43 @@
+--- src/extract.c.~1.62.~	2004-06-29 03:11:13 -0700
++++ src/extract.c	2004-07-09 23:08:21 -0700
+@@ -912,11 +912,12 @@ extract_archive (void)
+ 	/* MSDOS does not implement links.  However, djgpp's link() actually
+ 	   copies the file.  */
+ 	status = link (link_name, file_name);
++	e = errno;
+
+ 	if (status == 0)
+ 	  {
+ 	    struct delayed_symlink *ds = delayed_symlink_head;
+-	    if (ds && stat (link_name, &st1) == 0)
++	    if (ds && lstat (link_name, &st1) == 0)
+ 	      for (; ds; ds = ds->next)
+ 		if (ds->dev == st1.st_dev
+ 		    && ds->ino == st1.st_ino
+@@ -932,17 +933,20 @@ extract_archive (void)
+ 		  }
+ 	    break;
+ 	  }
++
++	if ((e == EEXIST && strcmp (link_name, file_name) == 0)
++	    || (lstat (link_name, &st1) == 0
++		&& lstat (file_name, &st2) == 0
++		&& st1.st_dev == st2.st_dev
++		&& st1.st_ino == st2.st_ino))
++	  break;
++
++	errno = e;
+ 	if (maybe_recoverable (file_name, &interdir_made))
+ 	  goto again_link;
+
+ 	if (incremental_option && errno == EEXIST)
+ 	  break;
+-	e = errno;
+-	if (stat (link_name, &st1) == 0
+-	    && stat (file_name, &st2) == 0
+-	    && st1.st_dev == st2.st_dev
+-	    && st1.st_ino == st2.st_ino)
+-	  break;
+
+ 	link_error (link_name, file_name);
+ 	if (backup_option)

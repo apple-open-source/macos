@@ -265,7 +265,7 @@ int ASN1_TIME_print(BIO *bp, ASN1_TIME *tm)
 	return(0);
 }
 
-static const char mon[12][4]=
+static const char *mon[12]=
     {
     "Jan","Feb","Mar","Apr","May","Jun",
     "Jul","Aug","Sep","Oct","Nov","Dec"

@@ -273,7 +273,7 @@ certtest(ac, av)
 		}
 	    }
 
-		error = eay_check_x509cert(&c, certpath);
+		error = eay_check_x509cert(&c, certpath, 1);
 		if (error)
 			printf("ERROR: cert is invalid.\n");
 		printf("\n");

@@ -1,0 +1,278 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">
+
+<HTML>
+<HEAD>
+  <TITLE>XOTcl - Documentation -- ./../library/serialize/Serializer.xotcl</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="FFFFFF">
+  <h1>
+    <IMG SRC="./logo-100.jpg" ALT="./../library/serialize/Serializer.xotcl" ALIGN="MIDDLE">
+  ./../library/serialize/Serializer.xotcl</h1>
+  <HR>
+  <P>
+    <h2> Package/File Information </h2>
+    <b> Package required: </b> XOTcl 1.0
+    <BR>
+    <b> Package provided: </b> xotcl::serializer 0.3
+    <BR>
+    <BR>
+    <b>Defined Objects/Classes: </b>
+    <UL>
+      <LI>
+        <A HREF="#Serializer">
+          <em>Serializer</em>:
+        </A>
+        <a href="#Serializer-all">all</a>, <a href="#Serializer-deepSerialize">deepSerialize</a>, <a href="#Serializer-serialize">serialize</a>.
+        <BR>
+      </LI>
+    </UL>
+    <BR>
+    <b> Filename: </b>
+    <A HREF="./../library/serialize/Serializer.xotcl">
+      ./../library/serialize/Serializer.xotcl
+    </A>
+    <BR>
+    <BR>
+    <TABLE BORDER="0">
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Description:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+      This package provides the class Serializer, which can be used to
+      generate a snapshot of the current state of the workspace
+      in the form of XOTcl source code.
+    
+        </TD>
+      </TR>
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Authors:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+        Gustaf Neumann, Gustaf.Neumann@wu-wien.ac.at
+    
+        </TD>
+      </TR>
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Date:</em>
+        </TD>
+        <TD VALIGN="top">
+           $Date: 01/03/23 21:55:33+01:00 $ 
+        </TD>
+      </TR>
+    </TABLE>
+    <BR>
+    <HR>
+    <P>
+      <A NAME="Serializer">
+        
+      </A>
+      <h2> Class: <em> Serializer </em> </h2>
+      <b> Procs/Instprocs: </b> 
+      <a href="#Serializer-all">all</a>, <a href="#Serializer-deepSerialize">deepSerialize</a>, <a href="#Serializer-serialize">serialize</a>.
+      <TABLE BORDER="0">
+      </TABLE>
+      <h3>Instprocs</h3>
+      <UL>
+        <LI>
+          <A NAME="Serializer-serialize">
+            
+          </A>
+          <b>serialize </b>
+          <em>entity</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>entity</b>: Object or Class
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Serialize the specified object or class.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                Object or Class with all currently defined methods, 
+    variables, invariants, filters and mixins
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+      <h3>Procs</h3>
+      <UL>
+        <LI>
+          <A NAME="Serializer-all">
+            
+          </A>
+          <b>all </b>
+          <em>?-ignoreVarsRE&nbsp;RE?</em>
+          <em>?-ignore&nbsp;obj1&nbsp;obj2&nbsp;...?</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>?-ignoreVarsRE&nbsp;RE?</b>: provide regular expression; matching vars are ignored
+            </TD>
+          </TR>
+          <TR VALIGN="top">
+            <TD VALIGN="top">
+              
+            </TD>
+            <TD VALIGN="top">
+              <b>?-ignore&nbsp;obj1&nbsp;obj2&nbsp;...?</b>: provide a list of objects to be omitted
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Serialize all objects and classes that are currently 
+    defined (except the specified omissions and the current
+    Serializer object). 
+    <p>Examples:<br>
+    <tt>Serializer all -ignoreVarsRE {::b$}</tt><br>
+        do not serialize any instance variable named b (of any object)<p>
+    <tt>Serializer all -ignoreVarsRE {^::o1::.*text.*$|^::o2::x$}</tt><br>
+       do not serialize any variable of c1 whose name contains 
+       the string "text" and do not serialze the variable x of o2<p>
+    <tt>Serializer all - ignore obj1 obj2 ... </tt><br>
+       do not serizalze the specified objects
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                script
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Serializer-deepSerialize">
+            
+          </A>
+          <b>deepSerialize </b>
+          <em>objs</em>
+          <em>?-ignoreVarsRE&nbsp;RE?</em>
+          <em>?-ignore&nbsp;obj1&nbsp;obj2&nbsp;...?</em>
+          <em>?-map&nbsp;list?</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>objs</b>: Objects to be serialized
+            </TD>
+          </TR>
+          <TR VALIGN="top">
+            <TD VALIGN="top">
+              
+            </TD>
+            <TD VALIGN="top">
+              <b>?-ignoreVarsRE&nbsp;RE?</b>: provide regular expression; matching vars are ignored
+            </TD>
+          </TR>
+          <TR VALIGN="top">
+            <TD VALIGN="top">
+              
+            </TD>
+            <TD VALIGN="top">
+              <b>?-ignore&nbsp;obj1&nbsp;obj2&nbsp;...?</b>: provide a list of objects to be omitted
+            </TD>
+          </TR>
+          <TR VALIGN="top">
+            <TD VALIGN="top">
+              
+            </TD>
+            <TD VALIGN="top">
+              <b>?-map&nbsp;list?</b>: translate object names in serialized code
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Serialize object with all child objects (deep operation) 
+    except the specified omissions. For the description of 
+    <tt>ignore</tt> and <tt>igonoreVarsRE</tt> see 
+    <tt>Serizalizer all</tt>. <tt>map</tt> can be used
+    in addition to provide pairs of old-string and new-string
+    (like in the tcl command <tt>string map</tt>). This option
+    can be used to regenerate the serialized object under a different
+    object or under an different name, or to translate relative
+    object names in the serialized code.<p>
+ 
+    Examples:  
+    <tt>Serializer deepSerialize ::a::b::c -map {::a::b ::x::y}</tt><br>
+     Serialize the object <tt>c</tt> which is a child of <tt>a::b</tt>; 
+     the object will be reinitialized as object <tt>::x::y::c</tt>,
+     all references <tt>::a::b</tt> will be replaced by <tt>::x::y</tt>.<p>
+
+    <tt>Serializer deepSerialize ::a::b::c -map {::a::b [self]}</tt><br>
+     The serizalized object can be reinstantiated under some current object,
+     under which the script is evaluated.<p>
+
+    <tt>Serializer deepSerialize ::a::b::c -map {::a::b::c ${var}}</tt><br>
+     The serizalized object will be reinstantiated under a name specified
+     by the variable <tt>var<tt> in the recreation context.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                script
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <BR>
+  </P>
+  <HR>
+  <P>
+  </P>
+  <A HREF="./index.html">
+    Back to index page.
+  </A>
+  <BR>
+  <HR>
+  <P>
+  </P>
+</BODY>
+</HTML>
+

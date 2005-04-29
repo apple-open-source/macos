@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -44,9 +41,13 @@
 #include <IOKit/network/IOPacketQueue.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IODeviceMemory.h>
-#include <IOKit/IOInterruptEventSource.h>
+#include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/assert.h>
+
+extern "C" {
+#include <sys/kpi_mbuf.h>
+}
 
 #include "i82557Inline.h"
 #include "i82557eeprom.h"
@@ -124,54 +125,55 @@ enum {
 
 class Intel82557 : public IOEthernetController
 {
-	OSDeclareDefaultStructors(Intel82557)
+    OSDeclareDefaultStructors(Intel82557)
 
 public:
     IOPhysicalAddress              memBasePhysical;
     int                            irq;
     IOEthernetAddress              myAddress;
     IOEthernetInterface	*          netif;
-	IOKernelDebugger *             debugger;
+    IOKernelDebugger *             debugger;
     IOPCIDevice *                  pciNub;
     IOWorkLoop *                   workLoop;
 
-	IOInterruptEventSource *       interruptSrc;
-	IOOutputQueue *                transmitQueue;
-	IOTimerEventSource *           timerSrc;
-	IONetworkStats *               netStats;
-	IOEthernetStats *              etherStats;
-	IOMemoryMap *                  csrMap;
-	OSDictionary *                 mediumDict;
-	IONetworkMedium *              mediumTable[MEDIUM_TYPE_INVALID];
+    IOInterruptEventSource *       interruptSrc;
+    IOOutputQueue *                transmitQueue;
+    IOTimerEventSource *           timerSrc;
+    IONetworkStats *               netStats;
+    IOEthernetStats *              etherStats;
+    IOMemoryMap *                  csrMap;
+    OSDictionary *                 mediumDict;
+    IONetworkMedium *              mediumTable[MEDIUM_TYPE_INVALID];
 
-	IOMbufLittleMemoryCursor *     rxMbufCursor;
-	IOMbufLittleMemoryCursor *     txMbufCursor;
+    IOMbufLittleMemoryCursor *     rxMbufCursor;
+    IOMbufLittleMemoryCursor *     txMbufCursor;
 
     int                            txCount;
-	UInt32                         currentLevel;
-	bool                           enabledForNetif;
-	bool                           enabledForDebugger;
+    UInt32                         currentLevel;
+    bool                           enabledForNetif;
+    bool                           enabledForDebugger;
     bool                           promiscuousEnabled;
-    bool                           multicastEnabled;
-    bool                           allMulticastEnabled;
-	bool                           interruptEnabled;
+    bool                           interruptEnabled;
     bool                           packetsReceived;
     bool                           packetsTransmitted;
     bool                           verbose;
-	bool						   flowControl;
+    bool                           flowControl;
     bool                           cuIsIdle;
-	mediumType_t                   currentMediumType;
+    bool                           txWatchdogArmed;
+    UInt32                         txLastInterruptCount;
+    UInt32                         txPendingInterruptCount;
+    mediumType_t                   currentMediumType;
     UInt8                          phyAddr;
-	UInt32                         phyID;
+    UInt32                         phyID;
     UInt16                         phyStatusPrev;
     UInt8                          txThreshold8;
 
     /* descriptor and control block data structures */
-	pageBlock_t                    shared;
-	pageBlock_t                    rxRing;
-	pageBlock_t                    txRing;
+    pageBlock_t                    shared;
+    pageBlock_t                    rxRing;
+    pageBlock_t                    txRing;
 	
-	CSR_t *                        CSR_p;
+    CSR_t *                        CSR_p;
     overlay_t *                    overlay_p;
     IOPhysicalAddress              overlay_paddr;
     errorCounters_t *              errorCounters_p;
@@ -180,18 +182,18 @@ public:
 
     /* transmit-related */
     tcbQ_t                         tcbQ;
-	tcb_t *                        tcbList_p;
+    tcb_t *                        tcbList_p;
     int                            prevCUCommand;
 
     /* kernel debugger */
-	tcb_t *                        KDB_tcb_p;
+    tcb_t *                        KDB_tcb_p;
     void *                         KDB_buf_p;
     IOPhysicalAddress              KDB_buf_paddr;
     
     /* receive-related */
-	rfd_t *                        rfdList_p;	
-	rfd_t *                        headRfd;
-	rfd_t *                        tailRfd;
+    rfd_t *                        rfdList_p;	
+    rfd_t *                        headRfd;
+    rfd_t *                        tailRfd;
 
     /* power management support */
     IOService *	                   pmPolicyMaker;
@@ -201,6 +203,16 @@ public:
     thread_call_t                  powerOnThreadCall;
     bool                           magicPacketEnabled;
     bool                           magicPacketSupported;
+
+    static void interruptHandler( OSObject * target,
+                                  IOInterruptEventSource * src,
+                                  int count );
+
+    static bool interruptFilter( OSObject * target ,
+                                 IOFilterInterruptEventSource * src );
+
+    static void timeoutHandler( OSObject * target,
+                                IOTimerEventSource * src );
 
 	// --------------------------------------------------
 	// IOService (or its superclass) methods.
@@ -223,7 +235,7 @@ public:
 	virtual void sendPacket(void * pkt, UInt32 pkt_len);
 	virtual void receivePacket(void * pkt, UInt32 * pkt_len, UInt32 timeout);
 
-	virtual UInt32 outputPacket(struct mbuf * m, void * param);
+	virtual UInt32 outputPacket(mbuf_t m, void * param);
 
 	virtual void getPacketBufferConstraints(
                  IOPacketBufferConstraints * constraints) const;
@@ -245,6 +257,7 @@ public:
 	//-----------------------------------------------------------------------
 
 	virtual IOReturn getHardwareAddress( IOEthernetAddress * addr );
+	virtual IOReturn setHardwareAddress( const IOEthernetAddress * addr );
 	virtual IOReturn setPromiscuousMode( bool active );
 	virtual IOReturn setMulticastMode( bool active );
 	virtual IOReturn setMulticastList( IOEthernetAddress * addrs,
@@ -259,6 +272,7 @@ public:
 	bool coldInit();
 	bool enableAdapter(UInt32 level);
 	bool disableAdapter(UInt32 level);
+	bool resetAdapter(void);
 	bool setActivationLevel(UInt32 newLevel);
 	bool config();
 	void disableAdapterInterrupts();
@@ -269,7 +283,6 @@ public:
 	bool nop();
 	void sendPortCommand(port_command_t command, UInt arg);
 	bool getDefaultSettings();
-	void issueReset();
     bool isCSRValid();
     bool allocatePageBlock(pageBlock_t * p);
     void freePageBlock(pageBlock_t * p);
@@ -297,10 +310,10 @@ public:
 	bool _sendPacket(void * pkt, UInt len);
 	bool _receivePacket(void * pkt, UInt * len, UInt timeout);
 
-	bool updateRFDFromMbuf(rfd_t * rfd_p, struct mbuf * m);
-	struct mbuf * updateTCBForMbuf(tcb_t * tcb_p, struct mbuf * m);
+	bool updateRFDFromMbuf(rfd_t * rfd_p, mbuf_t m);
+	mbuf_t updateTCBForMbuf(tcb_t * tcb_p, mbuf_t m);
 
-	void interruptOccurred(IOInterruptEventSource * src, int count);
+	void interruptOccurred(IOInterruptEventSource * src);
 	bool receiveInterruptOccurred();
 	void transmitInterruptOccurred();
 	void timeoutOccurred(IOTimerEventSource * timer);

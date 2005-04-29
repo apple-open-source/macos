@@ -1,11 +1,7 @@
-/* $XFree86: xc/programs/xterm/proto.h,v 3.3 1998/10/25 07:12:47 dawes Exp $ */
+/* $XFree86: xc/programs/xterm/proto.h,v 3.4 2003/10/27 01:07:57 dickey Exp $ */
 
 #ifndef included_proto_h
 #define included_proto_h
-
-#ifdef HAVE_CONFIG_H
-#include <xtermcfg.h>
-#endif
 
 #define PROTO_XT_ACTIONS_ARGS \
 	(Widget w, XEvent *event, String *params, Cardinal *num_params)

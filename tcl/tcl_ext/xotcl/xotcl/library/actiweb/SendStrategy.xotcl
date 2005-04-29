@@ -1,0 +1,38 @@
+# $Id: s.SendStrategy.xotcl 1.5 01/03/23 21:55:32+01:00 neumann@somewhere.wu-wien.ac.at $
+package provide xotcl::actiweb::sendStrategy 0.8
+#
+# some simple sending strategy classes -- to be used as mixins
+# for web objects
+# 
+
+Class SendStrategy
+SendStrategy abstract instproc send {httpWrk string}
+
+#
+# send the response given from the place as plain text
+#
+Class Send=PlainString -superclass SendStrategy
+Send=PlainString instproc send {httpWrk string} {
+  $httpWrk sendMsg $string text/plain
+}
+
+#
+# send the response given from the place with content 
+# type of the obj, if it exists
+#
+Class Send=TypedString -superclass SendStrategy
+Send=TypedString instproc send {httpWrk string} {
+  $httpWrk sendMsg $string [my set contentType]
+}
+ 
+#
+# send file specified in obj's instvar filename
+#
+Class Send=File -superclass SendStrategy
+Send=File instproc send {httpWrk {response ""}} {
+  if {[my exists contentType]} {
+    $httpWrk sendFile [my set filename] [my set contentType]
+  } else {
+    $httpWrk sendFile [my set filename] ""
+  }
+}

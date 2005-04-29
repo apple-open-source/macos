@@ -1,9 +1,9 @@
 dnl
-dnl $XFree86: xc/programs/xterm/configure.in,v 3.56 2002/12/27 21:05:22 dickey Exp $
+dnl $XFree86: xc/programs/xterm/configure.in,v 3.62 2003/10/27 01:07:57 dickey Exp $
 dnl
 dnl ---------------------------------------------------------------------------
 dnl
-dnl Copyright 1997-2002 by Thomas E. Dickey
+dnl Copyright 1997-2002,2003 by Thomas E. Dickey
 dnl
 dnl                         All Rights Reserved
 dnl
@@ -41,6 +41,8 @@ openedition)	: ${CFLAGS="-O2 -Wc,dll -Wl,EDIT=NO"}
 		: ${CPPFLAGS="-D_ALL_SOURCE"}
 		: ${LIBS="/usr/lib/Xaw.x /usr/lib/SM.x /usr/lib/ICE.x /usr/lib/X11.x"}
 		: ${CC=c89};;
+darwin*)
+		: ${LDFLAGS}="${LDFLAGS} -Wl,-bind_at_load";;
 esac
 
 AC_PROG_CC
@@ -100,6 +102,7 @@ CF_TTY_GROUP
 ###	checks for compiler characteristics
 CF_ANSI_CC_CHECK
 AC_CONST
+CF_PROG_EXT
 
 ###	checks for system services and user specified options
 
@@ -127,25 +130,14 @@ AC_CHECK_FUNCS(grantpt, [], AC_CHECK_LIB(util,openpty))
 
 AC_PATH_PROG(XTERM_PATH,xterm)
 
-AC_CHECK_FUNCS( \
-	XkbStdBell \
-	)
+CF_XKB_BELL_EXT
 AC_CHECK_FUNCS(Xutf8LookupString, [],[
 	EXTRAHDRS="$EXTRAHDRS xutf8.h"
 	EXTRASRCS="$EXTRASRCS xutf8.c"
 	EXTRAOBJS="$EXTRAOBJS xutf8.o"
 ])
 
-AC_MSG_CHECKING(if we should use imake to help)
-CF_ARG_DISABLE(imake,
-	[  --disable-imake         disable use of imake for definitions],
-	[enable_imake=no],
-	[enable_imake=yes])
-AC_MSG_RESULT($enable_imake)
-if test "$enable_imake" = yes ; then
-	CF_IMAKE_CFLAGS($(MAIN_DEFINES))
-	CF_ADD_CFLAGS($IMAKE_CFLAGS)
-fi
+CF_WITH_IMAKE_CFLAGS('$(MAIN_DEFINES)')
 
 AC_MSG_CHECKING(for default terminal-id)
 AC_ARG_WITH(terminal-id,
@@ -260,6 +252,43 @@ CF_ARG_DISABLE(blink-cursor,
 	[enable_blink_curs=yes])
 AC_MSG_RESULT($enable_blink_curs)
 test "$enable_blink_curs" = no && AC_DEFINE(OPT_BLINK_CURS,0)
+
+AC_MSG_CHECKING(if you want to ignore Linux's broken palette-strings)
+
+case $host_os in #(vi
+linux*)
+	assume_broken_osc=yes ;; #(vi
+*)
+	assume_broken_osc=no ;;
+esac
+
+CF_ARG_OPTION(broken-osc,
+	[  --enable-broken-osc     allow broken Linux OSC-strings],
+	[enable_broken_osc=$enableval],
+	[enable_broken_osc=$enableval],
+	[$assume_broken_osc])
+AC_MSG_RESULT($enable_broken_osc)
+if test "$enable_broken_osc" = yes ; then
+	AC_DEFINE(OPT_BROKEN_OSC,1)
+else
+	AC_DEFINE(OPT_BROKEN_OSC,0)
+fi
+
+AC_MSG_CHECKING(if you want to allow broken string-terminators)
+CF_ARG_ENABLE(broken-st,
+	[  --enable-broken-st      allow broken string-terminators],
+	[enable_broken_st=yes],
+	[enable_broken_st=no])
+AC_MSG_RESULT($enable_broken_st)
+test "$enable_broken_st" = no && AC_DEFINE(OPT_BROKEN_ST,0)
+
+AC_MSG_CHECKING(if you want printable 128-159)
+CF_ARG_DISABLE(c1-print,
+	[  --disable-c1-print      disallow -k8 option for printable 128-159],
+	[enable_c1_print=no],
+	[enable_c1_print=yes])
+AC_MSG_RESULT($enable_c1_print)
+test "$enable_c1_print" = no && AC_DEFINE(OPT_C1_PRINT,0)
 
 if test "$enable_ansi_color" = yes ; then
 
@@ -377,6 +406,16 @@ if test "$enable_ximp" = no ; then
 	AC_DEFINE(OPT_INPUT_METHOD,0)
 fi
 
+AC_MSG_CHECKING(if you want support for load-vt-fonts)
+CF_ARG_ENABLE(load-vt-fonts,
+	[  --enable-load-vt-fonts  enable load-vt-fonts() action],
+	[enable_load_vt_fonts=yes],
+	[enable_load_vt_fonts=no])
+AC_MSG_RESULT($enable_load_vt_fonts)
+if test "$enable_load_vt_fonts" = yes ; then
+	AC_DEFINE(OPT_LOAD_VTFONTS,1)
+fi
+
 AC_MSG_CHECKING(if you want support for logging)
 CF_ARG_ENABLE(logging,
 	[  --enable-logging        enable logging],
@@ -411,6 +450,19 @@ CF_ARG_DISABLE(num-lock,
 	[enable_numlock=yes])
 AC_MSG_RESULT($enable_numlock)
 test "$enable_numlock" = no && AC_DEFINE(OPT_NUM_LOCK,0)
+
+AC_MSG_CHECKING(if you want support for pty-handshaking)
+
+CF_ARG_DISABLE(pty-handshake,
+	[  --disable-pty-handshake disable pty-handshake support],
+	[enable_pty_handshake=no],
+	[enable_pty_handshake=yes])
+AC_MSG_RESULT($enable_pty_handshake)
+if test "$enable_pty_handshake" = yes ; then
+	AC_DEFINE(OPT_PTY_HANDSHAKE,1)
+else
+	AC_DEFINE(OPT_PTY_HANDSHAKE,0)
+fi
 
 AC_MSG_CHECKING(if you want support for right-scrollbar)
 CF_ARG_DISABLE(rightbar,

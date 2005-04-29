@@ -1,0 +1,99 @@
+# procshd2.tcl --
+#
+#  Test file for compilation.
+#  This file contains a proc definintion, where the body is shared with
+#  another proc. The args are different for the two procs; in particualr,
+#  proc b will fail at run time.
+#  It checks that the compiler detects that the object is shared and creates a
+#  copy that it will then compile.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: procshd2.tbc,v 1.2 2000/05/30 22:19:09 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+5 0 37 10 0 0 24 0 4 5 5 -1 -1
+37
+-KE<!(H&s!/HW<!0E`<!55bpv/fvpv+i=6#.QA9v1cSs!z
+5
+9AfX!'!
+5
+KvDqv%!
+10
+x
+4
+,CHr@
+x
+1
+-v
+x
+3
+/MHw
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+1 1
+1
+Dv
+0 0 257
+x
+1
+.v
+x
+0
+
+x
+4
+4/;EF
+x
+4
+b4Z)<
+p
+1 0 15 3 0 0 4 0 4 1 1 -1 -1
+15
+w0E<!19N<!6)Ks!)'!!
+1
+z
+1
+/!
+3
+x
+6
+82_`FWnw
+x
+1
+Dv
+x
+3
+F<Fw
+0
+0
+0 0
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}

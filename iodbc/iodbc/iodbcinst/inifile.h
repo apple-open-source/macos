@@ -1,7 +1,7 @@
 /*
  *  inifile.h
  *
- *  $Id: inifile.h,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: inifile.h,v 1.2 2004/08/10 22:20:29 luesang Exp $
  *
  *  Read/Write .ini files
  *

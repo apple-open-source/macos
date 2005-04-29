@@ -47,11 +47,7 @@ SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 	int				sc_status;
 	task_t				task;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifySignal:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  pid = %d"), pid);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  sig = %d"), sig);
-
-	if (!store) {
+	if (store == NULL) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;
@@ -71,7 +67,7 @@ SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 
 	status = task_for_pid(mach_task_self(), pid, &task);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("task_for_pid(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifySignal task_for_pid(): %s"), mach_error_string(status));
 		_SCErrorSet(status);
 		return FALSE;
 	}
@@ -79,8 +75,10 @@ SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 	status = notifyviasignal(storePrivate->server, task, sig, (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
+#ifdef	DEBUG
 		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyviasignal(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifySignal notifyviasignal(): %s"), mach_error_string(status));
+#endif	/* DEBUG */
 		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);

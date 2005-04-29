@@ -1,7 +1,7 @@
 /*
  * CCISharedStaticData.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/SharedStaticData.h,v 1.14 2003/03/17 20:49:01 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/SharedStaticData.h,v 1.15 2004/10/22 20:48:32 lxs Exp $
  */
  
 /*

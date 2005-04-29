@@ -1,0 +1,29 @@
+.\" Man page for apropos
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\" Traduction française René Cougnenc - Mai 1995.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.TH apropos 1 "3 Mai 1995" "Manuel Linux" "Commandes utilisateur" 
+.LO 1
+.SH NOM
+apropos \- recherche de chaînes de caractères dans la base de données whatis
+.SH SYNOPSIS
+.BI apropos
+mot-clé ...
+.SH DESCRIPTION
+apropos  effectue  une recherche  de  chaînes  de caractères  dans  un
+ensemble de fichiers  de données contenant de  brèves descriptions des
+commandes système, et affiche le résultat sur la sortie standard.
+
+.SH "VOIR AUSSI"
+whatis(1), man(1).

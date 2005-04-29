@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtParTTab.man,v 1.2 2001/01/27 18:20:28 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtParTTab.man,v 1.3 2003/04/28 22:18:20 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,25 +131,15 @@
 .SH NAME
 XtParseTranslationTable, XtAugmentTranslations, XtOverrideTranslations, XtUninstallTranslations \- manage translation tables
 .SH SYNTAX
-XtTranslations XtParseTranslationTable(\fItable\fP)
-.br
-      String \fItable\fP;
-.LP
-void XtAugmentTranslations(\fIw\fP, \fItranslations\fP)
-.br
-      Widget \fIw\fP;
-.br
-      XtTranslations \fItranslations\fP;
-.LP
-void XtOverrideTranslations(\fIw\fP, \fItranslations\fP)
-.br
-      Widget \fIw\fP;
-.br
-      XtTranslations \fItranslations\fP;
-.LP
-void XtUninstallTranslations(\fIw\fP)
-.br
-      Widget \fIw\fP;
+.HP
+XtTranslations XtParseTranslationTable(String \fItable\fP); 
+.HP
+void XtAugmentTranslations(Widget \fIw\fP, XtTranslations \fItranslations\fP);
+.HP
+void XtOverrideTranslations(Widget \fIw\fP, XtTranslations
+\fItranslations\fP); 
+.HP
+void XtUninstallTranslations(Widget \fIw\fP); 
 .SH ARGUMENTS
 .IP \fItable\fP 1i
 Specifies the translation table to compile.

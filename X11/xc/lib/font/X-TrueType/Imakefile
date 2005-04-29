@@ -1,5 +1,5 @@
 XCOMM X-TrueType Server - TrueType rasterizer for X
-XCOMM $XFree86: xc/lib/font/X-TrueType/Imakefile,v 1.9 2002/02/13 21:32:48 dawes Exp $
+XCOMM $XFree86: xc/lib/font/X-TrueType/Imakefile,v 1.11 2004/02/07 04:45:19 dawes Exp $
 
 #define IHaveSubdirs
 #define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)"
@@ -16,7 +16,7 @@ INCLUDES = -I. -I$(FONTINCSRC) -I../include -I../fontcache \
 DEFINES = -DTT_MAKE_OPTION_SINGLE_OBJECT=1  -DTT_CONFIG_OPTION_EXTEND_ENGINE \
 	  $(FONTMODULEDEF) \
 	  $(XTT_DEBUG_FLAGS) $(XTT_CCONV_MOUDLE_DEFINES) \
-	  $(XTT_USE_OPT_ENC_DEFINES)
+	  $(XTT_USE_OPT_ENC_DEFINES) Freetype1BuildDefines
 
 #include "Imakefile.inc"
 
@@ -25,18 +25,6 @@ CCONVHEADERS = \
 #if XTrueTypeInstallCConvHeaders
 CCONVINSTDIR = XTrueTypeCConvIncDir
 InstallMultipleFlags($(CCONVHEADERS),$(CCONVINSTDIR),$(INSTINCFLAGS))
-#endif
-
-#if BuildFontLib && XTTInLibXFont
-#define DoNormalLib NormalLibFont
-#define DoSharedLib SharedLibFont
-#define DoDebugLib DebugLibFont
-#define DoProfileLib ProfileLibFont
-#include <Library.tmpl>
-LibraryObjectRule()
-
-SubdirLibraryRule($(OBJS))
-NormalLintTarget($(SRCS))
 #endif
 
 MakeSubdirs($(SUBDIRS))

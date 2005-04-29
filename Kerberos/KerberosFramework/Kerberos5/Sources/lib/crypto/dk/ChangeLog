@@ -1,3 +1,46 @@
+2004-03-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* derive.c (krb5_random2key): Don't compile.
+
+	* dk.h (krb5_derive_random): Declare.
+
+2004-02-24  Sam Hartman  <hartmans@avalanche-breakdown.mit.edu>
+
+	* dk.h: As below.
+
+	* checksum.c dk_decrypt.c dk_encrypt.c: Remove ENCTYPE_LOCAL_DES3_HMAC_SHA1
+
+2004-02-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* checksum.c, derive.c, dk_decrypt.c, dk_encrypt.c: Use ANSI C
+	style function definitions.
+
+2004-02-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* dk_decrypt.c (krb5_dk_decrypt_maybe_trunc_hmac): New argument
+	IVEC_MODE.  If clear, same old behavior.  If set, copy out next
+	to last block for CTS.
+	(krb5_dk_decrypt, krb5int_aes_dk_decrypt): Pass extra argument.
+	* dk_encrypt.c (krb5int_aes_dk_encrypt): For IV, copy out next to
+	last block for CTS.
+
+2003-07-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* checksum.c (krb5_dk_make_checksum, krb5_marc_dk_make_checksum):
+	Use new numeric fields for key/bolck sizes instead of calling
+	functions.
+	* derive.c (krb5_derive_key, krb5_derive_random): Likewise.
+	* dk_decrypt.c (krb5_dk_decrypt_maybe_trunc_hmac,
+	krb5_marc_dk_decrypt): Likewise.
+	* dk_encrypt.c (krb5_dk_encrypt_length, krb5_dk_encrypt,
+	krb5int_aes_encrypt_length, trunc_hmac, krb5int_aes_dk_encrypt,
+	krb5_marc_dk_encrypt_length, krb5_mark_dk_encrypt): Likewise.
+	* stringtokey.c (krb5int_dk_string_to_key): Likewise.
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
+
 2003-04-17  Ken Raeburn  <raeburn@mit.edu>
 
 	* dk_encrypt.c (krb5int_aes_dk_encrypt): Set output length

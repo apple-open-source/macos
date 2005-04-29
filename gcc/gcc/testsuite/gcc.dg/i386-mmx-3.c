@@ -1,9 +1,9 @@
 /* PR target/8870 */
 /* Originator: otaylor@redhat.com */
 /* { dg-do compile { target i?86-*-* x86_64-*-*} } */
-/* { dg-options "-O1 -mmmx -march=athlon" } */
+/* { dg-options "-O1 -mmmx -march=k8" } */
 
-typedef int v4hi __attribute__ ((mode (V4HI)));
+typedef short v4hi __attribute__ ((vector_size (8)));
 
 static inline v4hi cvtsi_v4hi (int i)
 {

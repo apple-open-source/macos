@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtAppASig.man,v 1.2 2001/01/27 18:20:23 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtAppASig.man,v 1.3 2003/04/28 22:18:18 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -130,21 +130,13 @@
 .SH NAME
 XtAppAddSignal, XtRemoveSignal, XtNoticeSignal \- register and remove a signal source
 .SH SYNTAX
-XtSignalId XtAppAddSignal(\fIapp_context\fP, \fIproc\fP, \fIclient_data\fP)
-.br
-      XtAppContext \fIapp_context\fP;
-.br
-      XtSignalCallbackProc \fIproc\fP;
-.br
-      XtPointer \fIclient_data\fP;
-.LP
-void XtRemoveSignal(\fIid\fP)
-.br
-      XtSignalId \fIid\fP;
-.LP
-void XtNoticeSignal(\fIid\fP)
-.br
-      XtSignalId \fIid\fP)
+.HP
+XtSignalId XtAppAddSignal(XtAppContext \fIapp_context\fP, XtSignalCallbackProc
+\fIproc\fP, XtPointer \fIclient_data\fP); 
+.HP
+void XtRemoveSignal(XtSignalId \fIid\fP); 
+.HP
+void XtNoticeSignal(XtSignalId \fIid\fP); 
 .SH ARGUMENTS
 .IP \fIapp_context\fP 1i
 Specifies the application context.

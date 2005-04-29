@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __PROPOSAL_H__
+#define __PROPOSAL_H__
+
 #include <sys/queue.h>
 
 /*
@@ -201,3 +204,6 @@ extern void print_proppair __P((int, struct prop_pair *));
 extern int set_proposal_from_policy __P((struct ph2handle *,
 	struct secpolicy *, struct secpolicy *));
 extern int set_proposal_from_proposal __P((struct ph2handle *));
+
+#endif /* __PROPOSAL_H__ */
+

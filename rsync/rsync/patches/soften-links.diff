@@ -9,8 +9,8 @@ polished version of this patch for inclusion in rsync?
 
 [Updated to latest CVS source by Wayne Davison.]
 
---- syscall.c	18 Feb 2004 22:33:21 -0000	1.30
-+++ syscall.c	22 Apr 2004 23:48:45 -0000
+--- orig/syscall.c	2004-08-02 21:56:59
++++ syscall.c	2004-04-22 23:48:45
 @@ -58,9 +58,14 @@ int do_symlink(char *fname1, char *fname
  #if HAVE_LINK
  int do_link(char *fname1, char *fname2)

@@ -1,0 +1,6 @@
+#if ($BLOJSOM_COMMENTS_ENABLED.booleanValue() && $entry.supportsComments())
+  <div id="entryCommentAndTrackbackCount">
+    (<a href="$entry.getLink()&amp;page=comments">$entry.getNumComments() comment(s)</a> and
+    <a href="$entry.getLink()&amp;page=trackback">$entry.getNumTrackbacks() trackback(s)</a>)
+  </div>
+#end

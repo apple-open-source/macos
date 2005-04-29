@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>ifd-ASEIIIeUSB</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.athena.AseIIIeUSB</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>CFPlugInDynamicRegisterFunction</key>
+	<string></string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>00000000-0000-0000-0000-000000000000</key>
+		<string>MyFactoryFunction</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>00000000-0000-0000-0000-000000000000</key>
+		<array>
+			<string>00000000-0000-0000-0000-000000000000</string>
+		</array>
+	</dict>
+	<key>CFPlugInUnloadFunction</key>
+	<string></string>
+	<key>NSPrincipalClass</key>
+	<string>0x60000</string>
+	<key>ifdCapabilities</key>
+	<string>0x00000000</string>
+	<key>ifdFriendlyName</key>
+	<string>AseIIIeUSB</string>
+	<key>ifdManufacturerString</key>
+	<string>Athena</string>
+	<key>ifdManufacturerURL</key>
+	<string>http://www.athena-scs.com/</string>
+	<key>ifdMaxSpeed</key>
+	<string>153600</string>
+	<key>ifdProductID</key>
+	<string>0x0802</string>
+	<key>ifdProductString</key>
+	<string>AseIIIeUSB</string>
+	<key>ifdProtocolSupport</key>
+	<string>0x00000001</string>
+	<key>ifdReadTimeOut</key>
+	<string>60000</string>
+	<key>ifdVendorID</key>
+	<string>0x0DC3</string>
+	<key>ifdVersionNumber</key>
+	<string>0x00000001</string>
+</dict>
+</plist>

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_tcl.c,v 1.1 2002/10/30 12:51:57 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_tcl.c,v 1.2 2003/09/28 20:15:30 alanh Exp $ */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -6,32 +6,42 @@ Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
 
 All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-on the rights to use, copy, modify, merge, publish, distribute, sub
-license, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice (including the next
-paragraph) shall be included in all copies or substantial portions of the
-Software.
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
-ATI, TUNGSTEN GRAPHICS AND/OR THEIR SUPPLIERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
- *
  */
+
+#include "glheader.h"
+#include "imports.h"
+#include "light.h"
+#include "mtypes.h"
+#include "enums.h"
+
+#include "array_cache/acache.h"
+#include "tnl/tnl.h"
+#include "tnl/t_pipeline.h"
 
 #include "radeon_context.h"
 #include "radeon_state.h"
@@ -40,16 +50,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "radeon_tcl.h"
 #include "radeon_swtcl.h"
 #include "radeon_maos.h"
-
-#include "mmath.h"
-#include "mtypes.h"
-#include "enums.h"
-#include "colormac.h"
-#include "light.h"
-
-#include "array_cache/acache.h"
-#include "tnl/tnl.h"
-#include "tnl/t_pipeline.h"
 
 
 
@@ -85,17 +85,18 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define HW_POLYGON          RADEON_CP_VC_CNTL_PRIM_TYPE_TRI_FAN
 
 
-static GLboolean discreet_prim[0x10] = {
-   0,				/* none */
-   1,				/* points */
-   1,				/* lines */
-   0,				/* line_strip */
-   1,				/* tri_list */
-   0,				/* tri_fan */
-   0,				/* tri_type_2 */
-   1,				/* rect list (unused) */
-   1,				/* 3 vert point */
-   1,				/* 3 vert line */
+static GLboolean discrete_prim[0x10] = {
+   0,				/* 0 none */
+   1,				/* 1 points */
+   1,				/* 2 lines */
+   0,				/* 3 line_strip */
+   1,				/* 4 tri_list */
+   0,				/* 5 tri_fan */
+   0,				/* 6 tri_type2 */
+   1,				/* 7 rect list (unused) */
+   1,				/* 8 3vert point */
+   1,				/* 9 3vert line */
+   0,
    0,
    0,
    0,
@@ -105,32 +106,23 @@ static GLboolean discreet_prim[0x10] = {
    
 
 #define LOCAL_VARS radeonContextPtr rmesa = RADEON_CONTEXT(ctx)
-#define ELTS_VARS  GLushort *dest
+#define ELT_TYPE  GLushort
 
 #define ELT_INIT(prim, hw_prim) \
    radeonTclPrimitive( ctx, prim, hw_prim | RADEON_CP_VC_CNTL_PRIM_WALK_IND )
 
-#define GET_ELTS() rmesa->tcl.Elts
+#define GET_MESA_ELTS() rmesa->tcl.Elts
 
-
-#define NEW_PRIMITIVE()  RADEON_NEWPRIM( rmesa )
-#define NEW_BUFFER()  radeonRefillCurrentDmaRegion( rmesa )
 
 /* Don't really know how many elts will fit in what's left of cmdbuf,
  * as there is state to emit, etc:
  */
 
-#if 0
-#define GET_CURRENT_VB_MAX_ELTS() \
-   ((RADEON_CMD_BUF_SZ - (rmesa->store.cmd_used + 16)) / 2) 
-#define GET_SUBSEQUENT_VB_MAX_ELTS() ((RADEON_CMD_BUF_SZ - 16) / 2) 
-#else
 /* Testing on isosurf shows a maximum around here.  Don't know if it's
  * the card or driver or kernel module that is causing the behaviour.
  */
-#define GET_CURRENT_VB_MAX_ELTS() 300
-#define GET_SUBSEQUENT_VB_MAX_ELTS() 300
-#endif
+#define GET_MAX_HW_ELTS() 300
+
 
 #define RESET_STIPPLE() do {			\
    RADEON_STATECHANGE( rmesa, lin );		\
@@ -149,37 +141,29 @@ static GLboolean discreet_prim[0x10] = {
 } while (0)
 
 
-/* How do you extend an existing primitive?
- */
-#define ALLOC_ELTS(nr)							\
-do {									\
-   if (rmesa->dma.flush == radeonFlushElts &&				\
-       rmesa->store.cmd_used + nr*2 < RADEON_CMD_BUF_SZ) {		\
-									\
-      dest = (GLushort *)(rmesa->store.cmd_buf + 			\
-			  rmesa->store.cmd_used);			\
-      rmesa->store.cmd_used += nr*2;					\
-   }									\
-   else {								\
-      if (rmesa->dma.flush)						\
-	 rmesa->dma.flush( rmesa );					\
-									\
-      radeonEmitAOS( rmesa,						\
-	  	     rmesa->tcl.aos_components,				\
-		     rmesa->tcl.nr_aos_components,			\
-		     0 );						\
-									\
-      dest = radeonAllocEltsOpenEnded( rmesa,				\
-				       rmesa->tcl.vertex_format,	\
-				       rmesa->tcl.hw_primitive,		\
-				       nr );				\
-   }									\
-} while (0) 
+
+#define ALLOC_ELTS(nr)	radeonAllocElts( rmesa, nr )
+
+static GLushort *radeonAllocElts( radeonContextPtr rmesa, GLuint nr ) 
+{
+   if (rmesa->dma.flush)
+      rmesa->dma.flush( rmesa );
+
+   radeonEmitAOS( rmesa,
+		rmesa->tcl.aos_components,
+		rmesa->tcl.nr_aos_components, 0 );
+
+   return radeonAllocEltsOpenEnded( rmesa,
+				    rmesa->tcl.vertex_format, 
+				    rmesa->tcl.hw_primitive, nr );
+}
+
+#define CLOSE_ELTS()  RADEON_NEWPRIM( rmesa )
 
 
 
 /* TODO: Try to extend existing primitive if both are identical,
- * discreet and there are no intervening state changes.  (Somewhat
+ * discrete and there are no intervening state changes.  (Somewhat
  * duplicates changes to DrawArrays code)
  */
 static void EMIT_PRIM( GLcontext *ctx, 
@@ -221,17 +205,15 @@ static void EMIT_PRIM( GLcontext *ctx,
 
 #ifdef MESA_BIG_ENDIAN
 /* We could do without (most of) this ugliness if dest was always 32 bit word aligned... */
-#define EMIT_ELT(offset, x) do {				\
+#define EMIT_ELT(dest, offset, x) do {				\
 	int off = offset + ( ( (GLuint)dest & 0x2 ) >> 1 );	\
 	GLushort *des = (GLushort *)( (GLuint)dest & ~0x2 );	\
 	(des)[ off + 1 - 2 * ( off & 1 ) ] = (GLushort)(x); } while (0)
 #else
-#define EMIT_ELT(offset, x) (dest)[offset] = (GLushort) (x)
+#define EMIT_ELT(dest, offset, x) (dest)[offset] = (GLushort) (x)
 #endif
-#define EMIT_TWO_ELTS(offset, x, y)  *(GLuint *)(dest+offset) = ((y)<<16)|(x);
-#define INCR_ELTS( nr ) dest += nr
-#define RELEASE_ELT_VERTS() \
-   radeonReleaseArrays( ctx, ~0 )
+
+#define EMIT_TWO_ELTS(dest, offset, x, y)  *(GLuint *)(dest+offset) = ((y)<<16)|(x);
 
 
 
@@ -267,7 +249,7 @@ void radeonTclPrimitive( GLcontext *ctx,
    GLuint newprim = hw_prim | RADEON_CP_VC_CNTL_TCL_ENABLE;
 
    if (newprim != rmesa->tcl.hw_primitive ||
-       !discreet_prim[hw_prim&0xf]) {
+       !discrete_prim[hw_prim&0xf]) {
       RADEON_NEWPRIM( rmesa );
       rmesa->tcl.hw_primitive = newprim;
    }
@@ -344,43 +326,43 @@ static void radeon_check_tcl_render( GLcontext *ctx,
 				     struct gl_pipeline_stage *stage )
 {
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
-   GLuint inputs = VERT_OBJ;
+   GLuint inputs = VERT_BIT_POS;
 
    if (ctx->RenderMode == GL_RENDER) {
       /* Make all this event-driven:
        */
       if (ctx->Light.Enabled) {
-	 inputs |= VERT_NORM;
+	 inputs |= VERT_BIT_NORMAL;
 
-	 if (ctx->Light.ColorMaterialEnabled) {
-	    inputs |= VERT_RGBA;
+	 if (1 || ctx->Light.ColorMaterialEnabled) {
+	    inputs |= VERT_BIT_COLOR0;
 	 }
       }
       else {
-	 inputs |= VERT_RGBA;
+	 inputs |= VERT_BIT_COLOR0;
 	 
 	 if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR) {
-	    inputs |= VERT_SPEC_RGB;
+	    inputs |= VERT_BIT_COLOR1;
 	 }
       }
 
       if (ctx->Texture.Unit[0]._ReallyEnabled) {
 	 if (ctx->Texture.Unit[0].TexGenEnabled) {
 	    if (rmesa->TexGenNeedNormals[0]) {
-	       inputs |= VERT_NORM;
+	       inputs |= VERT_BIT_NORMAL;
 	    }
 	 } else {
-	    inputs |= VERT_TEX(0);
+	    inputs |= VERT_BIT_TEX0;
 	 }
       }
 
       if (ctx->Texture.Unit[1]._ReallyEnabled) {
 	 if (ctx->Texture.Unit[1].TexGenEnabled) {
 	    if (rmesa->TexGenNeedNormals[1]) {
-	       inputs |= VERT_NORM;
+	       inputs |= VERT_BIT_NORMAL;
 	    }
 	 } else {
-	    inputs |= VERT_TEX(1);
+	    inputs |= VERT_BIT_TEX1;
 	 }
       }
 

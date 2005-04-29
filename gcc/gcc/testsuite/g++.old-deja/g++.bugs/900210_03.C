@@ -1,3 +1,4 @@
+// { dg-do assemble  }
 // g++ 1.36.1 bug 900210_03
 
 // g++ allows void* type values to be assigned to variables of other
@@ -10,17 +11,17 @@
 void* vp;
 char* cp;
 int* ip;
-enum {enum_value_1} * ep;
-struct { int member; } * sp;
+enum E {enum_value_1} * ep;
+struct S { int member; } * sp;
 void (*fp) (void);
 
 void global_function ()
 {
-  cp = vp;	/* ERROR -  */
-  ip = vp;	/* ERROR -  */
-  ep = vp;	/* ERROR -  */
-  sp = vp;	/* ERROR -  */
-  fp = vp;	/* ERROR -  */
+  cp = vp;	/* { dg-error "" }  */
+  ip = vp;	/* { dg-error "" }  */
+  ep = vp;	/* { dg-error "" }  */
+  sp = vp;	/* { dg-error "" }  */
+  fp = vp;	/* { dg-error "" }  */
 }
 
 int main () { return 0; }

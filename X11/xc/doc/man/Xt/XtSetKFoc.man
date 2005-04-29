@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtSetKFoc.man,v 1.3 2002/10/12 16:06:41 herrb Exp $
+.\" $XFree86: xc/doc/man/Xt/XtSetKFoc.man,v 1.4 2003/04/28 22:18:21 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,9 +131,8 @@
 .SH NAME
 XtSetKeyboardFocus \- focus events on a child widget
 .SH SYNTAX
-XtSetKeyboardFocus(\fIsubtree\fP, \fIdescendant\fP)
-.br
-     Widget \fIsubtree\fP, \fIdescendant\fP;
+.HP
+XtSetKeyboardFocus(Widget \fIsubtree\fP, Widget \fIdescendant\fP); 
 .SH ARGUMENTS
 .IP \fIsubtree\fP 1i
 Specifies either the widget in the subtree structure which is to receive the 

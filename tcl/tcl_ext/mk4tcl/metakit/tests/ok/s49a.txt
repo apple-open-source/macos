@@ -1,0 +1,7 @@
+ VIEW     1 rows = v1:V v2:V v3:V
+    0: subview 'v1'
+   VIEW     0 rows = p1:I
+    0: subview 'v2'
+   VIEW     0 rows = p1:I
+    0: subview 'v3'
+   VIEW     0 rows = v3:V

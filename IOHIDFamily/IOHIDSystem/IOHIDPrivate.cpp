@@ -40,10 +40,9 @@ void _DispatchKeyboardSpecialEvent(int key, bool down)
     
     matchingDictionary  = IOService::serviceMatching( "IOHIKeyboard" );
     
-    if ( matchingDictionary )
+    if( matchingDictionary ) 
     {
         iterator = IOService::getMatchingServices( matchingDictionary );
-        
         if( iterator )
         {
             while( (keyboard = (IOHIKeyboard*) iterator->getNextObject()) )
@@ -53,7 +52,7 @@ void _DispatchKeyboardSpecialEvent(int key, bool down)
             
             iterator->release();
         }
-    
+        
         matchingDictionary->release();
     }
 

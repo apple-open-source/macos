@@ -3,32 +3,331 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		05036BFE03D7612400C9149F = {
-			buildRules = (
-			);
 			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
 		};
-		05172F640433D27A00C91B53 = {
+		055110C7061A2F89000F34F9 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+			};
+			dependencies = (
+				055110F0061A2F8A000F34F9,
+				055110F2061A2F8A000F34F9,
+				055110F4061A2F8A000F34F9,
+			);
+			isa = PBXAggregateTarget;
+			name = All;
+			productName = All;
+		};
+		055110CB061A2F89000F34F9 = {
+			buildPhases = (
+				055110CC061A2F89000F34F9,
+				055110CF061A2F89000F34F9,
+				055110D1061A2F89000F34F9,
+			);
+			buildRules = (
+				B14394D2071DE39C0051A444,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = "MACOSX PART_OF_SYSTEM_FRAMEWORK";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_PATH = /usr/local/lib/system;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				PRODUCT_NAME = keymgr;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc ppc64 i386";
+				WARNING_CFLAGS = "-Wmost";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = regular;
+			productInstallPath = /usr/local/lib/system;
+			productName = libkeymgr.a;
+			productReference = 055110D3061A2F8A000F34F9;
+			productType = "com.apple.product-type.library.static";
+		};
+		055110CC061A2F89000F34F9 = {
+			buildActionMask = 2147483647;
+			files = (
+				055110CD061A2F89000F34F9,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055110CD061A2F89000F34F9 = {
+			fileRef = 059768A803D6494200C9149F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		055110CF061A2F89000F34F9 = {
+			buildActionMask = 2147483647;
+			files = (
+				055110D0061A2F89000F34F9,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055110D0061A2F89000F34F9 = {
+			fileRef = 0597689803D6472D00C9149F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		055110D1061A2F89000F34F9 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055110D3061A2F8A000F34F9 = {
+			explicitFileType = archive.ar;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = libkeymgr.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		055110D4061A2F8A000F34F9 = {
+			buildPhases = (
+				055110D5061A2F8A000F34F9,
+				055110D8061A2F8A000F34F9,
+				055110DA061A2F8A000F34F9,
+			);
+			buildRules = (
+				B14394D3071DE3A20051A444,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "MACOSX PART_OF_SYSTEM_FRAMEWORK";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_PATH = /usr/local/lib/system;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				PRODUCT_NAME = keymgr_debug;
+				SECTORDER_FLAGS = "";
+				UNSTRIPPED_PRODUCT = YES;
+				VALID_ARCHS = "ppc ppc64 i386";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = debug;
+			productInstallPath = /usr/local/lib/system;
+			productName = libkeymgr.a;
+			productReference = 055110DC061A2F8A000F34F9;
+			productType = "com.apple.product-type.library.static";
+		};
+		055110D5061A2F8A000F34F9 = {
+			buildActionMask = 2147483647;
+			files = (
+				055110D6061A2F8A000F34F9,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055110D6061A2F8A000F34F9 = {
+			fileRef = 059768A803D6494200C9149F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		055110D8061A2F8A000F34F9 = {
+			buildActionMask = 2147483647;
+			files = (
+				055110D9061A2F8A000F34F9,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055110D9061A2F8A000F34F9 = {
+			fileRef = 0597689803D6472D00C9149F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		055110DA061A2F8A000F34F9 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055110DC061A2F8A000F34F9 = {
+			explicitFileType = archive.ar;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = libkeymgr_debug.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		055110DD061A2F8A000F34F9 = {
+			buildPhases = (
+				055110DE061A2F8A000F34F9,
+				055110E1061A2F8A000F34F9,
+				055110E3061A2F8A000F34F9,
+			);
+			buildRules = (
+				B14394D4071DE3AA0051A444,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_GENERATE_PROFILING_CODE = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "MACOSX PART_OF_SYSTEM_FRAMEWORK";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_PATH = /usr/local/lib/system;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				PRODUCT_NAME = keymgr_profile;
+				PROFILING_CODE = YES;
+				SECTORDER_FLAGS = "";
+				UNSTRIPPED_PRODUCT = YES;
+				VALID_ARCHS = "ppc ppc64 i386";
+				WARNING_CFLAGS = "-Wmost";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = profiling;
+			productInstallPath = /usr/local/lib/system;
+			productName = libkeymgr.a;
+			productReference = 055110E5061A2F8A000F34F9;
+			productType = "com.apple.product-type.library.static";
+		};
+		055110DE061A2F8A000F34F9 = {
+			buildActionMask = 2147483647;
+			files = (
+				055110DF061A2F8A000F34F9,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055110DF061A2F8A000F34F9 = {
+			fileRef = 059768A803D6494200C9149F;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		055110E1061A2F8A000F34F9 = {
+			buildActionMask = 2147483647;
+			files = (
+				055110E2061A2F8A000F34F9,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055110E2061A2F8A000F34F9 = {
+			fileRef = 0597689803D6472D00C9149F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		055110E3061A2F8A000F34F9 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		055110E5061A2F8A000F34F9 = {
+			explicitFileType = archive.ar;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = libkeymgr_profile.a;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		055110EF061A2F8A000F34F9 = {
+			containerPortal = 0597689003D6465000C9149F;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 055110CB061A2F89000F34F9;
+			remoteInfo = "regular (Upgraded)";
+		};
+		055110F0061A2F8A000F34F9 = {
 			isa = PBXTargetDependency;
-			target = 0597689A03D6481200C9149F;
+			target = 055110CB061A2F89000F34F9;
+			targetProxy = 055110EF061A2F8A000F34F9;
+		};
+		055110F1061A2F8A000F34F9 = {
+			containerPortal = 0597689003D6465000C9149F;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 055110D4061A2F8A000F34F9;
+			remoteInfo = "debug (Upgraded)";
+		};
+		055110F2061A2F8A000F34F9 = {
+			isa = PBXTargetDependency;
+			target = 055110D4061A2F8A000F34F9;
+			targetProxy = 055110F1061A2F8A000F34F9;
+		};
+		055110F3061A2F8A000F34F9 = {
+			containerPortal = 0597689003D6465000C9149F;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 055110DD061A2F8A000F34F9;
+			remoteInfo = "profiling (Upgraded)";
+		};
+		055110F4061A2F8A000F34F9 = {
+			isa = PBXTargetDependency;
+			target = 055110DD061A2F8A000F34F9;
+			targetProxy = 055110F3061A2F8A000F34F9;
 		};
 		0597688C03D6465000C9149F = {
 			children = (
 				0597689703D646C100C9149F,
 				0597689803D6472D00C9149F,
 				059768A803D6494200C9149F,
-				059768AC03D64B2500C9149F,
 				05CA34F70433CFDF00C9149F,
 			);
 			isa = PBXGroup;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0597689003D6465000C9149F = {
+			buildSettings = {
+			};
 			buildStyles = (
 				05036BFE03D7612400C9149F,
 			);
@@ -38,371 +337,81 @@
 			productRefGroup = 0597689703D646C100C9149F;
 			projectDirPath = "";
 			targets = (
-				059768B003D64B7D00C9149F,
-				0597689503D646C100C9149F,
-				0597689A03D6481200C9149F,
-				059768A103D6488000C9149F,
-				05CA35040433D01200C9149F,
+				055110C7061A2F89000F34F9,
+				055110CB061A2F89000F34F9,
+				055110D4061A2F8A000F34F9,
+				055110DD061A2F8A000F34F9,
 			);
-		};
-		0597689103D646C100C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-				059768A903D6494200C9149F,
-				059768AD03D64B2500C9149F,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0597689203D646C100C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-				0597689903D6472D00C9149F,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0597689303D646C100C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0597689503D646C100C9149F = {
-			buildPhases = (
-				0597689103D646C100C9149F,
-				0597689203D646C100C9149F,
-				0597689303D646C100C9149F,
-			);
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DEBUGGING_SYMBOLS = NO;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				INSTALL_PATH = /usr/local/lib/system;
-				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = "-DMACOSX -DPART_OF_SYSTEM_FRAMEWORK";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				PRODUCT_NAME = libkeymgr.a;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-			);
-			isa = PBXLibraryTarget;
-			name = regular;
-			productInstallPath = /usr/local/lib/system;
-			productName = libkeymgr.a;
-			productReference = 0597689603D646C100C9149F;
-		};
-		0597689603D646C100C9149F = {
-			isa = PBXLibraryReference;
-			path = libkeymgr.a;
-			refType = 3;
 		};
 		0597689703D646C100C9149F = {
 			children = (
-				0597689603D646C100C9149F,
-				059768A003D6481200C9149F,
-				059768A703D6488000C9149F,
-				05CA35050433D01200C9149F,
+				055110D3061A2F8A000F34F9,
+				055110DC061A2F8A000F34F9,
+				055110E5061A2F8A000F34F9,
 			);
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0597689803D6472D00C9149F = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = keymgr.c;
 			refType = 4;
-		};
-		0597689903D6472D00C9149F = {
-			fileRef = 0597689803D6472D00C9149F;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0597689A03D6481200C9149F = {
-			buildPhases = (
-				0597689B03D6481200C9149F,
-				0597689C03D6481200C9149F,
-				0597689E03D6481200C9149F,
-			);
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				INSTALL_PATH = /usr/local/lib/system;
-				LIBRARY_STYLE = STATIC;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "-DMACOSX -DPART_OF_SYSTEM_FRAMEWORK";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				PRODUCT_NAME = libkeymgr_debug.a;
-				SECTORDER_FLAGS = "";
-				STRIP = true;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-			);
-			isa = PBXLibraryTarget;
-			name = debug;
-			productInstallPath = /usr/local/lib/system;
-			productName = libkeymgr.a;
-			productReference = 059768A003D6481200C9149F;
-		};
-		0597689B03D6481200C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-				059768AA03D6494200C9149F,
-				059768AE03D64B2500C9149F,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0597689C03D6481200C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-				0597689D03D6481200C9149F,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0597689D03D6481200C9149F = {
-			fileRef = 0597689803D6472D00C9149F;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0597689E03D6481200C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		059768A003D6481200C9149F = {
-			isa = PBXLibraryReference;
-			path = libkeymgr_debug.a;
-			refType = 3;
-		};
-		059768A103D6488000C9149F = {
-			buildPhases = (
-				059768A203D6488000C9149F,
-				059768A303D6488000C9149F,
-				059768A503D6488000C9149F,
-			);
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				DEBUGGING_SYMBOLS = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				INSTALL_PATH = /usr/local/lib/system;
-				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = "-DMACOSX -DPART_OF_SYSTEM_FRAMEWORK";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				PRODUCT_NAME = libkeymgr_profile.a;
-				PROFILING_CODE = YES;
-				SECTORDER_FLAGS = "";
-				STRIP = true;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-			);
-			isa = PBXLibraryTarget;
-			name = profiling;
-			productInstallPath = /usr/local/lib/system;
-			productName = libkeymgr.a;
-			productReference = 059768A703D6488000C9149F;
-		};
-		059768A203D6488000C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-				059768AB03D6494200C9149F,
-				059768AF03D64B2500C9149F,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		059768A303D6488000C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-				059768A403D6488000C9149F,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		059768A403D6488000C9149F = {
-			fileRef = 0597689803D6472D00C9149F;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		059768A503D6488000C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		059768A703D6488000C9149F = {
-			isa = PBXLibraryReference;
-			path = libkeymgr_profile.a;
-			refType = 3;
+			sourceTree = "<group>";
 		};
 		059768A803D6494200C9149F = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = keymgr.h;
 			refType = 4;
-		};
-		059768A903D6494200C9149F = {
-			fileRef = 059768A803D6494200C9149F;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		059768AA03D6494200C9149F = {
-			fileRef = 059768A803D6494200C9149F;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		059768AB03D6494200C9149F = {
-			fileRef = 059768A803D6494200C9149F;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		059768AC03D64B2500C9149F = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = frame.h;
-			refType = 4;
-		};
-		059768AD03D64B2500C9149F = {
-			fileRef = 059768AC03D64B2500C9149F;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		059768AE03D64B2500C9149F = {
-			fileRef = 059768AC03D64B2500C9149F;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		059768AF03D64B2500C9149F = {
-			fileRef = 059768AC03D64B2500C9149F;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		059768B003D64B7D00C9149F = {
-			buildPhases = (
-			);
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = All;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-				059768B103D64B9700C9149F,
-				059768B203D64B9700C9149F,
-				059768B303D64B9700C9149F,
-			);
-			isa = PBXAggregateTarget;
-			name = All;
-			productName = All;
-		};
-		059768B103D64B9700C9149F = {
-			isa = PBXTargetDependency;
-			target = 0597689503D646C100C9149F;
-		};
-		059768B203D64B9700C9149F = {
-			isa = PBXTargetDependency;
-			target = 0597689A03D6481200C9149F;
-		};
-		059768B303D64B9700C9149F = {
-			isa = PBXTargetDependency;
-			target = 059768A103D6488000C9149F;
+			sourceTree = "<group>";
 		};
 		05CA34F70433CFDF00C9149F = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = "basic-eh-app.cc";
 			path = "testcases/basic-eh-app.cc";
 			refType = 4;
+			sourceTree = "<group>";
 		};
-		05CA35010433D01200C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-				05CA35080433D08C00C9149F,
+//050
+//051
+//052
+//053
+//054
+//B10
+//B11
+//B12
+//B13
+//B14
+		B14394D2071DE39C0051A444 = {
+			compilerSpec = com.apple.compilers.gcc.3_5;
+			fileType = sourcecode.c;
+			isEditable = 1;
+			isa = PBXBuildRule;
+			outputFiles = (
 			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
 		};
-		05CA35020433D01200C9149F = {
-			buildActionMask = 2147483647;
-			files = (
-				05CA350B0433D1B300C9149F,
+		B14394D3071DE3A20051A444 = {
+			compilerSpec = com.apple.compilers.gcc.3_5;
+			fileType = sourcecode.c;
+			isEditable = 1;
+			isa = PBXBuildRule;
+			outputFiles = (
 			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
 		};
-		05CA35040433D01200C9149F = {
-			buildPhases = (
-				05CA35010433D01200C9149F,
-				05CA35020433D01200C9149F,
+		B14394D4071DE3AA0051A444 = {
+			compilerSpec = com.apple.compilers.gcc.3_5;
+			fileType = sourcecode.c;
+			isEditable = 1;
+			isa = PBXBuildRule;
+			outputFiles = (
 			);
-			buildSettings = {
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "basic-eh-app";
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-				05172F640433D27A00C91B53,
-			);
-			isa = PBXToolTarget;
-			name = "basic-eh-app";
-			productInstallPath = /usr/local/bin;
-			productName = "basic-eh-app 3.3";
-			productReference = 05CA35050433D01200C9149F;
-		};
-		05CA35050433D01200C9149F = {
-			isa = PBXExecutableFileReference;
-			path = "basic-eh-app";
-			refType = 3;
-		};
-		05CA35080433D08C00C9149F = {
-			fileRef = 05CA34F70433CFDF00C9149F;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		05CA350B0433D1B300C9149F = {
-			fileRef = 059768A003D6481200C9149F;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 	};
 	rootObject = 0597689003D6465000C9149F;

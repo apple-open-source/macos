@@ -1,20 +1,21 @@
 /* Program to generate "main" a Java(TM) class containing a main method.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA. 
 
@@ -26,42 +27,26 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "obstack.h"
 #include "jcf.h"
 #include "tree.h"
 #include "java-tree.h"
+#include "intl.h"
 
-static char * do_mangle_classname PARAMS ((const char *string));
+static char * do_mangle_classname (const char *string);
 
 struct obstack  name_obstack;
 struct obstack *mangle_obstack = &name_obstack;
-
-void
-gcc_obstack_init (obstack)
-     struct obstack *obstack;
-{
-  /* Let particular systems override the size of a chunk.  */
-#ifndef OBSTACK_CHUNK_SIZE
-#define OBSTACK_CHUNK_SIZE 0
-#endif
-  /* Let them override the alloc and free routines too.  */
-#ifndef OBSTACK_CHUNK_ALLOC
-#define OBSTACK_CHUNK_ALLOC xmalloc
-#endif
-#ifndef OBSTACK_CHUNK_FREE
-#define OBSTACK_CHUNK_FREE free
-#endif
-  _obstack_begin (obstack, OBSTACK_CHUNK_SIZE, 0,
-		  (void *(*) PARAMS ((long))) OBSTACK_CHUNK_ALLOC,
-		  (void (*) PARAMS ((void *))) OBSTACK_CHUNK_FREE);
-}
 
 static void usage (const char *) ATTRIBUTE_NORETURN;
 
 static void
 usage (const char *name)
 {
-  fprintf (stderr, "Usage: %s [OPTIONS]... CLASSNAMEmain [OUTFILE]\n", name);
+  fprintf (stderr, _("Usage: %s [OPTIONS]... CLASSNAMEmain [OUTFILE]\n"),
+	   name);
   exit (1);
 }
 
@@ -72,6 +57,8 @@ main (int argc, char **argv)
   FILE *stream;
   const char *mangled_classname;
   int i, last_arg;
+
+  gcc_init_libintl ();
 
   if (argc < 2)
     usage (argv[0]);
@@ -108,7 +95,7 @@ main (int argc, char **argv)
       stream = fopen (outfile, "w");
       if (stream == NULL)
 	{
-	  fprintf (stderr, "%s: Cannot open output file: %s\n",
+	  fprintf (stderr, _("%s: Cannot open output file: %s\n"),
 		   argv[0], outfile);
 	  exit (1);
 	}
@@ -145,7 +132,7 @@ main (int argc, char **argv)
   fprintf (stream, "}\n");
   if (stream != stdout && fclose (stream) != 0)
     {
-      fprintf (stderr, "%s: Failed to close output file %s\n",
+      fprintf (stderr, _("%s: Failed to close output file %s\n"),
 	       argv[0], argv[2]);
       exit (1);
     }
@@ -154,8 +141,7 @@ main (int argc, char **argv)
 
 
 static char *
-do_mangle_classname (string)
-     const char *string;
+do_mangle_classname (const char *string)
 {
   const char *ptr;
   int count = 0;

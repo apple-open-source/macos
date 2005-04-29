@@ -27,7 +27,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-#include <syslog.h>
+#include <asl.h>
 #include "common.h"
 #include "watcher.h"
 

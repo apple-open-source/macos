@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*******************************************************************************
@@ -20,7 +20,7 @@
 #include "unicode/ustring.h"
 #include "cstring.h"
 #include "filestrm.h"
-#include "cmemory.h"
+#include <stdlib.h>
 
 #define RESTEST_HEAP_CHECK 0
 
@@ -28,8 +28,13 @@
 #include "crestst.h"
 #include "unicode/ctest.h"
 
+#include "ucol_imp.h" /* collation */
+
+#define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
+
 static void TestOpenDirect(void);
 static void TestFallback(void);
+static void TestTable32(void);
 static void TestFileStream(void);
 /*****************************************************************************/
 
@@ -90,10 +95,13 @@ void addResourceBundleTest(TestNode** root)
 {
     addTest(root, &TestConstruction1, "tsutil/crestst/TestConstruction1");
     addTest(root, &TestOpenDirect, "tsutil/crestst/TestOpenDirect");
-    addTest(root, &TestResourceBundles, "tsutil/crestst/TestResourceBundle");
+    addTest(root, &TestResourceBundles, "tsutil/crestst/TestResourceBundles");
+    addTest(root, &TestTable32, "tsutil/crestst/TestTable32");
     addTest(root, &TestFallback, "tsutil/crestst/TestFallback");
     addTest(root, &TestAliasConflict, "tsutil/crestst/TestAliasConflict");
     addTest(root, &TestFileStream, "tsutil/crestst/TestFileStream");
+    addTest(root, &TestGetSize, "tsutil/crestst/TestGetSize");
+    addTest(root, &TestGetLocaleByType, "tsutil/crestst/TestGetLocaleByType");
 }
 
 
@@ -403,6 +411,7 @@ static void TestFallback()
 {
     UErrorCode status = U_ZERO_ERROR;
     UResourceBundle *fr_FR = NULL;
+    UResourceBundle *subResource = NULL;
     const UChar *junk; /* ignored */
     int32_t resultLen;
 
@@ -426,20 +435,20 @@ static void TestFallback()
     status = U_ZERO_ERROR;
 
     /* OK first one. This should be a Default value. */
-    junk = ures_getStringByKey(fr_FR, "%%PREEURO", &resultLen, &status);
+    subResource = ures_getByKey(fr_FR, "MeasurementSystem", NULL, &status);
     if(status != U_USING_DEFAULT_WARNING)
     {
-        log_data_err("Expected U_USING_DEFAULT_ERROR when trying to get %%PREEURO from fr_FR, got %s\n",
+        log_data_err("Expected U_USING_DEFAULT_ERROR when trying to get CurrencyMap from fr_FR, got %s\n",
             u_errorName(status));
     }
-
+    ures_close(subResource);
     status = U_ZERO_ERROR;
 
     /* and this is a Fallback, to fr */
-    junk = ures_getStringByKey(fr_FR, "DayNames", &resultLen, &status);
+    junk = ures_getStringByKey(fr_FR, "Countries", &resultLen, &status);
     if(status != U_USING_FALLBACK_WARNING)
     {
-        log_data_err("Expected U_USING_FALLBACK_ERROR when trying to get DayNames from fr_FR, got %s\n", 
+        log_data_err("Expected U_USING_FALLBACK_ERROR when trying to get Countries from fr_FR, got %s\n", 
             u_errorName(status));
     }
 
@@ -450,7 +459,7 @@ static void TestFallback()
 
 static void
 TestOpenDirect(void) {
-    UResourceBundle *translit_index, *item;
+    UResourceBundle *idna_rules, *item;
     UErrorCode errorCode;
 
     /*
@@ -459,19 +468,19 @@ TestOpenDirect(void) {
      * from root or similar
      */
     errorCode=U_ZERO_ERROR;
-    translit_index=ures_openDirect(NULL, "translit_index", &errorCode);
+    idna_rules=ures_openDirect("testdata", "idna_rules", &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_err("ures_openDirect(\"translit_index\") failed: %s\n", u_errorName(errorCode));
+        log_err("ures_openDirect(\"idna_rules\") failed: %s\n", u_errorName(errorCode));
         return;
     }
 
-    if(0!=uprv_strcmp("translit_index", ures_getLocale(translit_index, &errorCode))) {
-        log_err("ures_openDirect(\"translit_index\").getLocale()!=translit_index\n");
+    if(0!=uprv_strcmp("idna_rules", ures_getLocale(idna_rules, &errorCode))) {
+        log_err("ures_openDirect(\"idna_rules\").getLocale()!=idna_rules\n");
     }
     errorCode=U_ZERO_ERROR;
 
-    /* try an item in translit_index, must work */
-    item=ures_getByKey(translit_index, "RuleBasedTransliteratorIDs", NULL, &errorCode);
+    /* try an item in idna_rules, must work */
+    item=ures_getByKey(idna_rules, "UnassignedSet", NULL, &errorCode);
     if(U_FAILURE(errorCode)) {
         log_err("translit_index.getByKey(local key) failed: %s\n", u_errorName(errorCode));
         errorCode=U_ZERO_ERROR;
@@ -480,36 +489,197 @@ TestOpenDirect(void) {
     }
 
     /* try an item in root, must fail */
-    item=ures_getByKey(translit_index, "Languages", NULL, &errorCode);
+    item=ures_getByKey(idna_rules, "Languages", NULL, &errorCode);
     if(U_FAILURE(errorCode)) {
         errorCode=U_ZERO_ERROR;
     } else {
-        log_err("translit_index.getByKey(root key) succeeded!\n");
+        log_err("idna_rules.getByKey(root key) succeeded!\n");
         ures_close(item);
     }
-    ures_close(translit_index);
+    ures_close(idna_rules);
 
-    /* now make sure that "translit_index" will not work with ures_open() */
+    /* now make sure that "idna_rules" will not work with ures_open() */
     errorCode=U_ZERO_ERROR;
-    translit_index=ures_open(NULL, "translit_index", &errorCode);
+    idna_rules=ures_open("testdata", "idna_rules", &errorCode);
     if(U_FAILURE(errorCode) || errorCode==U_USING_DEFAULT_WARNING || errorCode==U_USING_FALLBACK_WARNING) {
         /* falling back to default or root is ok */
         errorCode=U_ZERO_ERROR;
-    } else if(0!=uprv_strcmp("translit_INDEX", ures_getLocale(translit_index, &errorCode))) {
+    } else if(0!=uprv_strcmp("idna_rules", ures_getLocale(idna_rules, &errorCode))) {
         /* Opening this file will work in "files mode" on Windows and the Mac,
            which have case insensitive file systems */
-        log_err("ures_open(\"translit_index\") succeeded, should fail! Got: %s\n", u_errorName(errorCode));
+        log_err("ures_open(\"idna_rules\") succeeded, should fail! Got: %s\n", u_errorName(errorCode));
     }
-    ures_close(translit_index);
+    ures_close(idna_rules);
 
     /* ures_openDirect("translit_index_WronG") must fail */
-    translit_index=ures_openDirect(NULL, "translit_index_WronG", &errorCode);
+    idna_rules=ures_openDirect(NULL, "idna_rules_WronG", &errorCode);
     if(U_FAILURE(errorCode)) {
         errorCode=U_ZERO_ERROR;
     } else {
-        log_err("ures_openDirect(\"translit_index_WronG\") succeeded, should fail!\n");
+        log_err("ures_openDirect(\"idna_rules_WronG\") succeeded, should fail!\n");
     }
-    ures_close(translit_index);
+    ures_close(idna_rules);
+
+    errorCode = U_USING_FALLBACK_WARNING;;
+    idna_rules=ures_openDirect("testdata", "idna_rules", &errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_err("ures_openDirect(\"idna_rules\") failed when U_USING_FALLBACK_WARNING was set prior to call: %s\n", u_errorName(errorCode));
+        return;
+    }
+    ures_close(idna_rules);
+}
+
+static int32_t
+parseTable32Key(const char *key) {
+    int32_t number;
+    char c;
+
+    number=0;
+    while((c=*key++)!=0) {
+        number<<=1;
+        if(c=='1') {
+            number|=1;
+        }
+    }
+    return number;
+}
+
+static void
+TestTable32(void) {
+    static const struct {
+        const char *key;
+        int32_t number;
+    } testcases[]={
+        { "ooooooooooooooooo", 0 },
+        { "oooooooooooooooo1", 1 },
+        { "ooooooooooooooo1o", 2 },
+        { "oo11ooo1ooo11111o", 25150 },
+        { "oo11ooo1ooo111111", 25151 },
+        { "o1111111111111111", 65535 },
+        { "1oooooooooooooooo", 65536 },
+        { "1ooooooo11o11ooo1", 65969 },
+        { "1ooooooo11o11oo1o", 65970 },
+        { "1ooooooo111oo1111", 65999 }
+    };
+
+    /* ### TODO UResourceBundle staticItem={ 0 }; - need to know the size */
+    UResourceBundle *res, *item;
+    const UChar *s;
+    const char *key;
+    UErrorCode errorCode;
+    int32_t i, j, number, parsedNumber, length, count;
+
+    errorCode=U_ZERO_ERROR;
+    res=ures_open(loadTestData(&errorCode), "testtable32", &errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_data_err("unable to open testdata/testtable32.res - %s\n", u_errorName(errorCode));
+        return;
+    }
+    if(ures_getType(res)!=URES_TABLE) {
+        log_data_err("testdata/testtable32.res has type %d instead of URES_TABLE\n", ures_getType(res));
+    }
+
+    count=ures_getSize(res);
+    if(count!=66000) {
+        log_err("testdata/testtable32.res should have 66000 entries but has %d\n", count);
+    }
+
+    /* get the items by index */
+    item=NULL;
+    for(i=0; i<count; ++i) {
+        item=ures_getByIndex(res, i, item, &errorCode);
+        if(U_FAILURE(errorCode)) {
+            log_err("unable to get item %d of %d in testdata/testtable32.res - %s\n",
+                    i, count, u_errorName(errorCode));
+            break;
+        }
+
+        key=ures_getKey(item);
+        parsedNumber=parseTable32Key(key);
+
+        switch(ures_getType(item)) {
+        case URES_STRING:
+            s=ures_getString(item, &length, &errorCode);
+            if(U_FAILURE(errorCode) || s==NULL) {
+                log_err("unable to access the string \"%s\" at %d in testdata/testtable32.res - %s\n",
+                        key, i, u_errorName(errorCode));
+                number=-1;
+            } else {
+                j=0;
+                U16_NEXT(s, j, length, number);
+            }
+            break;
+        case URES_INT:
+            number=ures_getInt(item, &errorCode);
+            if(U_FAILURE(errorCode)) {
+                log_err("unable to access the integer \"%s\" at %d in testdata/testtable32.res - %s\n",
+                        key, i, u_errorName(errorCode));
+                number=-1;
+            }
+            break;
+        default:
+            log_err("unexpected resource type %d for \"%s\" at %d in testdata/testtable32.res - %s\n",
+                    ures_getType(item), key, i, u_errorName(errorCode));
+            number=-1;
+            break;
+        }
+
+        if(number>=0 && number!=parsedNumber) {
+            log_err("\"%s\" at %d in testdata/testtable32.res has a string/int value of %d, expected %d\n",
+                    key, i, number, parsedNumber);
+        }
+    }
+
+    /* search for some items by key */
+    for(i=0; i<LENGTHOF(testcases); ++i) {
+        item=ures_getByKey(res, testcases[i].key, item, &errorCode);
+        if(U_FAILURE(errorCode)) {
+            log_err("unable to find the key \"%s\" in testdata/testtable32.res - %s\n",
+                    testcases[i].key, u_errorName(errorCode));
+            continue;
+        }
+
+        switch(ures_getType(item)) {
+        case URES_STRING:
+            s=ures_getString(item, &length, &errorCode);
+            if(U_FAILURE(errorCode) || s==NULL) {
+                log_err("unable to access the string \"%s\" in testdata/testtable32.res - %s\n",
+                        testcases[i].key, u_errorName(errorCode));
+                number=-1;
+            } else {
+                j=0;
+                U16_NEXT(s, j, length, number);
+            }
+            break;
+        case URES_INT:
+            number=ures_getInt(item, &errorCode);
+            if(U_FAILURE(errorCode)) {
+                log_err("unable to access the integer \"%s\" in testdata/testtable32.res - %s\n",
+                        testcases[i].key, u_errorName(errorCode));
+                number=-1;
+            }
+            break;
+        default:
+            log_err("unexpected resource type %d for \"%s\" in testdata/testtable32.res - %s\n",
+                    ures_getType(item), testcases[i].key, u_errorName(errorCode));
+            number=-1;
+            break;
+        }
+
+        if(number>=0 && number!=testcases[i].number) {
+            log_err("\"%s\" in testdata/testtable32.res has a string/int value of %d, expected %d\n",
+                    testcases[i].key, number, testcases[i].number);
+        }
+
+        key=ures_getKey(item);
+        if(0!=uprv_strcmp(key, testcases[i].key)) {
+            log_err("\"%s\" in testdata/testtable32.res claims to have the key \"%s\"\n",
+                    testcases[i].key, key);
+        }
+    }
+
+    ures_close(item);
+    ures_close(res);
 }
 
 static void TestFileStream(void){
@@ -517,7 +687,7 @@ static void TestFileStream(void){
     int32_t c1=0;
     UErrorCode status = U_ZERO_ERROR;
     const char* testdatapath = loadTestData(&status);
-    char* fileName = (char*) uprv_malloc(uprv_strlen(testdatapath) +10);
+    char* fileName = (char*) malloc(uprv_strlen(testdatapath) +10);
     FileStream* stream = NULL;
     /* these should not be closed */
     FileStream* pStdin  = T_FileStream_stdin();
@@ -525,8 +695,8 @@ static void TestFileStream(void){
     FileStream* pStderr = T_FileStream_stderr();
 
     const char* testline = "This is a test line";
-    int32_t bufLen =uprv_strlen(testline)+10;
-    char* buf = (char*) uprv_malloc(bufLen);
+    int32_t bufLen = (int32_t)strlen(testline)+10;
+    char* buf = (char*) malloc(bufLen);
     int32_t retLen = 0;
 
     if(pStdin==NULL){
@@ -544,52 +714,53 @@ static void TestFileStream(void){
     stream = T_FileStream_open(fileName, "r");
     if(stream==NULL){
         log_data_err("T_FileStream_open failed to open %s\n",fileName);
-    }
-    if(!T_FileStream_file_exists(fileName)){
+    } else {
+      if(!T_FileStream_file_exists(fileName)){
         log_data_err("T_FileStream_file_exists failed to verify existence of %s \n",fileName);
-    }
-
-    retLen=T_FileStream_read(stream,&c,1);
-    if(retLen==0){
+      }
+      
+      retLen=T_FileStream_read(stream,&c,1);
+      if(retLen==0){
         log_data_err("T_FileStream_read failed to read from %s \n",fileName);
-    }
-    retLen=0;
-    T_FileStream_rewind(stream);
-    T_FileStream_read(stream,&c1,1);
-    if(c!=c1){
+      }
+      retLen=0;
+      T_FileStream_rewind(stream);
+      T_FileStream_read(stream,&c1,1);
+      if(c!=c1){
         log_data_err("T_FileStream_rewind failed to rewind %s \n",fileName);
-    }
-    T_FileStream_rewind(stream);
-    c1 = T_FileStream_peek(stream);
-    if(c!=c1){
+      }
+      T_FileStream_rewind(stream);
+      c1 = T_FileStream_peek(stream);
+      if(c!=c1){
         log_data_err("T_FileStream_peek failed to peekd %s \n",fileName);
-    }
-    c = T_FileStream_getc(stream);
-    T_FileStream_ungetc(c,stream);
-    if(c!= T_FileStream_getc(stream)){
+      }
+      c = T_FileStream_getc(stream);
+      T_FileStream_ungetc(c,stream);
+      if(c!= T_FileStream_getc(stream)){
         log_data_err("T_FileStream_ungetc failed to d %s \n",fileName);
-    }
-
-    if(T_FileStream_size(stream)<=0){
+      }
+      
+      if(T_FileStream_size(stream)<=0){
         log_data_err("T_FileStream_size failed to d %s \n",fileName);
-    }
-    if(T_FileStream_error(stream)){
+      }
+      if(T_FileStream_error(stream)){
         log_data_err("T_FileStream_error shouldn't have an error %s\n",fileName);
-    }
-    if(!T_FileStream_error(NULL)){
+      }
+      if(!T_FileStream_error(NULL)){
         log_err("T_FileStream_error didn't get an error %s\n",fileName);
-    }
-    T_FileStream_putc(stream, 0x20);
-    if(!T_FileStream_error(stream)){
+      }
+      T_FileStream_putc(stream, 0x20);
+      if(!T_FileStream_error(stream)){
         /*
-         Warning 
-         writing to a read-only file may not consistently fail on all platforms
-         (e.g. HP-UX, FreeBSD, MacOSX)
+          Warning 
+          writing to a read-only file may not consistently fail on all platforms
+          (e.g. HP-UX, FreeBSD, MacOSX)
         */
         log_verbose("T_FileStream_error didn't get an error when writing to a readonly file %s\n",fileName);
-    }
+      }
 
-    T_FileStream_close(stream);
+      T_FileStream_close(stream);
+    }
     /* test writing function */
     stream=NULL;
     uprv_strcpy(fileName,testdatapath);
@@ -598,38 +769,165 @@ static void TestFileStream(void){
 
     if(stream == NULL){
         log_data_err("Could not open %s for writing\n",fileName);
-    }
-    c= '$';
-    T_FileStream_putc(stream,c);
-    T_FileStream_rewind(stream);
-    if(c != T_FileStream_getc(stream)){
+    } else {
+      c= '$';
+      T_FileStream_putc(stream,c);
+      T_FileStream_rewind(stream);
+      if(c != T_FileStream_getc(stream)){
         log_data_err("T_FileStream_putc failed %s\n",fileName);
-    }
+      }
 
-    T_FileStream_rewind(stream);
-    T_FileStream_writeLine(stream,testline);
-    T_FileStream_rewind(stream);
-    T_FileStream_readLine(stream,buf,bufLen);
-    if(uprv_strncmp(testline, buf,uprv_strlen(buf))!=0){
+      T_FileStream_rewind(stream);
+      T_FileStream_writeLine(stream,testline);
+      T_FileStream_rewind(stream);
+      T_FileStream_readLine(stream,buf,bufLen);
+      if(uprv_strncmp(testline, buf,uprv_strlen(buf))!=0){
         log_data_err("T_FileStream_writeLine failed %s\n",fileName);
-    }
+      }
 
-    T_FileStream_rewind(stream);
-    T_FileStream_write(stream,testline,uprv_strlen(testline));
-    T_FileStream_rewind(stream);
-    retLen = T_FileStream_read(stream, buf, bufLen);
-    if(uprv_strncmp(testline, buf,retLen)!=0){
+      T_FileStream_rewind(stream);
+      T_FileStream_write(stream,testline,(int32_t)strlen(testline));
+      T_FileStream_rewind(stream);
+      retLen = T_FileStream_read(stream, buf, bufLen);
+      if(uprv_strncmp(testline, buf,retLen)!=0){
         log_data_err("T_FileStream_write failed %s\n",fileName);
+      }
+
+      T_FileStream_close(stream);
     }
-
-    T_FileStream_close(stream);
-
     if(!T_FileStream_remove(fileName)){
         log_data_err("T_FileStream_remove failed to delete %s\n",fileName);
     }
 
 
-    uprv_free(fileName);
-    uprv_free(buf);
+    free(fileName);
+    free(buf);
 
 }
+
+static void TestGetSize(void) {
+    const struct {
+        const char* key;
+        int32_t size;
+    } test[] = {
+        { "zerotest", 1},
+        { "one", 1},
+        { "importtest", 1},
+        { "integerarray", 1},
+        { "emptyarray", 0},
+        { "emptytable", 0},
+        { "emptystring", 1}, /* empty string is still a string */
+        { "emptyint", 1}, 
+        { "emptybin", 1},
+        { "testinclude", 1},
+        { "collations", 1}, /* not 2 - there is hidden %%CollationBin */
+    };
+    
+    UErrorCode status = U_ZERO_ERROR;
+    
+    UResourceBundle *rb = NULL;
+    UResourceBundle *res = NULL;
+    UResourceBundle *helper = NULL;
+    const char* testdatapath = loadTestData(&status);
+    int32_t i = 0, j = 0;
+    int32_t size = 0;
+    
+    if(U_FAILURE(status))
+    {
+        log_err("Could not load testdata.dat %s\n", u_errorName(status));
+        return;
+    }
+    
+    rb = ures_open(testdatapath, "testtypes", &status);
+    if(U_FAILURE(status))
+    {
+        log_err("Could not testtypes resource bundle %s\n", u_errorName(status));
+        return;
+    }
+    
+    for(i = 0; i < sizeof(test)/sizeof(test[0]); i++) {
+        res = ures_getByKey(rb, test[i].key, res, &status);
+        if(U_FAILURE(status))
+        {
+            log_err("Couldn't find the key %s. Error: %s\n", test[i].key, u_errorName(status));
+            ures_close(rb);
+            return;
+        }
+        size = ures_getSize(res);
+        if(size != test[i].size) {
+            log_err("Expected size %i, got size %i for key %s\n", test[i].size, size, test[i].key);
+            for(j = 0; j < size; j++) {
+                helper = ures_getByIndex(res, j, helper, &status);
+                log_err("%s\n", ures_getKey(helper));
+            }
+        }
+    }
+    ures_close(helper); 
+    ures_close(res);
+    ures_close(rb);
+}
+
+static void TestGetLocaleByType(void) {
+    static const struct {
+        const char *requestedLocale;
+        const char *resourceKey;
+        const char *validLocale;
+        const char *actualLocale;
+    } test[] = {
+        { "te_IN_BLAH", "string_only_in_te_IN", "te_IN", "te_IN" },
+        { "te_IN_BLAH", "string_only_in_te", "te_IN", "te" },
+        { "te_IN_BLAH", "string_only_in_Root", "te_IN", "root" },
+        { "te_IN_BLAH_01234567890_01234567890_01234567890_01234567890_01234567890_01234567890", "array_2d_only_in_Root", "te_IN", "root" },
+        { "te_IN_BLAH@currency=euro", "array_2d_only_in_te_IN", "te_IN", "te_IN" },
+        { "te_IN_BLAH@collation=phonebook;calendar=thai", "array_2d_only_in_te", "te_IN", "te" }
+    };
+    
+    UErrorCode status = U_ZERO_ERROR;
+    
+    UResourceBundle *rb = NULL;
+    UResourceBundle *res = NULL;
+    const char* testdatapath = loadTestData(&status);
+    int32_t i = 0;
+    const char *locale = NULL;
+    
+    if(U_FAILURE(status))
+    {
+        log_err("Could not load testdata.dat %s\n", u_errorName(status));
+        return;
+    }
+    
+    for(i = 0; i < sizeof(test)/sizeof(test[0]); i++) {
+        rb = ures_open(testdatapath, test[i].requestedLocale, &status);
+        if(U_FAILURE(status))
+        {
+            log_err("Could not open resource bundle %s (error %s)\n", test[i].requestedLocale, u_errorName(status));
+            status = U_ZERO_ERROR;
+            continue;
+        }
+        
+        res = ures_getByKey(rb, test[i].resourceKey, res, &status);
+        if(U_FAILURE(status))
+        {
+            log_err("Couldn't find the key %s. Error: %s\n", test[i].resourceKey, u_errorName(status));
+            ures_close(rb);
+            status = U_ZERO_ERROR;
+            continue;
+        }
+        
+        locale = ures_getLocaleByType(res, ULOC_REQUESTED_LOCALE, &status);
+        if(locale) {
+            log_err("Requested locale should return NULL\n");
+        }
+        locale = ures_getLocaleByType(res, ULOC_VALID_LOCALE, &status);
+        if(!locale || strcmp(locale, test[i].validLocale) != 0) {
+            log_err("Expected valid locale to be %s. Got %s\n", test[i].requestedLocale, locale);
+        }
+        locale = ures_getLocaleByType(res, ULOC_ACTUAL_LOCALE, &status);
+        if(!locale || strcmp(locale, test[i].actualLocale) != 0) {
+            log_err("Expected actual locale to be %s. Got %s\n", test[i].requestedLocale, locale);
+        }
+        ures_close(rb);
+    }
+    ures_close(res);
+}
+

@@ -118,13 +118,57 @@ UInt32 IOFWPhysicalAddressSpace::doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddre
     pos = 0;
     while(pos < fLen) 
 	{
-        IOPhysicalLength lengthOfSegment;
+		bool found = false;
+		IOPhysicalLength lengthOfSegment;
         phys = fMem->getPhysicalSegment(pos, &lengthOfSegment);
-        if(addr.addressLo >= phys && addr.addressLo+len <= phys+lengthOfSegment) 
+		
+		if( (addr.addressLo >= phys) && (addr.addressLo < (phys+lengthOfSegment)) )
 		{
-            // OK, block is in space and is within one VM page
+			UInt32 union_length = (lengthOfSegment - (addr.addressLo - phys));
+			
+			// check if the request extends beyond this physical segment
+			if( len <= union_length )
+			{
+				found = true;
+			}
+			else
+			{
+				// look ahead for contiguous ranges
+				
+				IOPhysicalAddress contiguous_address = (phys + lengthOfSegment);
+				vm_size_t contiguous_pos = (pos + lengthOfSegment);
+				UInt32 contiguous_length = len - union_length;
+				IOPhysicalAddress contig_phys;
+				
+				while( contiguous_pos < fLen )
+				{
+					contig_phys = fMem->getPhysicalSegment( contiguous_pos, &lengthOfSegment );
+					if( contiguous_address != contig_phys )
+					{	
+						// not contiguous, bail
+						break;
+					}
+					
+					if( contiguous_length <= lengthOfSegment )
+					{
+						// fits in this segment - success
+						found = true;
+						break;
+					}
+
+					contiguous_length -= lengthOfSegment;
+					contiguous_pos += lengthOfSegment;
+					contiguous_address += lengthOfSegment;
+				}
+				
+			}
+		}
+
+		if( found )
+		{
+            // OK, block is in space
 			// Set position to exact start
-			*offset = pos + addr.addressLo - phys;
+			*offset = (pos + addr.addressLo - phys);
             *buf = fMem;
             res = kFWResponseComplete;
             break;
@@ -144,33 +188,75 @@ UInt32 IOFWPhysicalAddressSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddr
                                          const void *buf, IOFWRequestRefCon refcon)
 {
     UInt32 res = kFWResponseAddressError;
-
     vm_size_t pos;
     IOPhysicalAddress phys;
-
+	
 	if( !isTrustedNode( nodeID ) )
 		return kFWResponseAddressError;
-	
+		
     if(addr.addressHi != 0)
 		return kFWResponseAddressError;
 
     pos = 0;
     while(pos < fLen) 
 	{
-        IOPhysicalLength lengthOfSegment;
+		bool found = false;
+		IOPhysicalLength lengthOfSegment;
         phys = fMem->getPhysicalSegment(pos, &lengthOfSegment);
-        if(addr.addressLo >= phys && addr.addressLo+len <= phys+lengthOfSegment) 
+		
+		if( (addr.addressLo >= phys) && (addr.addressLo < (phys+lengthOfSegment)) )
 		{
-            // OK, block is in space and is within one VM page
-			// Set position to exact start
-            
-			fMem->writeBytes(pos + addr.addressLo - phys, buf, len);
+			UInt32 union_length = (lengthOfSegment - (addr.addressLo - phys));
+			
+			// check if the request extends beyond this physical segment
+			if( len <= union_length )
+			{
+				found = true;
+			}
+			else
+			{
+				// look ahead for contiguous ranges
+				
+				IOPhysicalAddress contiguous_address = (phys + lengthOfSegment);
+				vm_size_t contiguous_pos = (pos + lengthOfSegment);
+				UInt32 contiguous_length = len - union_length;
+				IOPhysicalAddress contig_phys;
+				
+				while( contiguous_pos < fLen )
+				{
+					contig_phys = fMem->getPhysicalSegment( contiguous_pos, &lengthOfSegment );
+					if( contiguous_address != contig_phys )
+					{	
+						// not contiguous, bail
+						break;
+					}
+					
+					if( contiguous_length <= lengthOfSegment )
+					{
+						// fits in this segment - success
+						found = true;
+						break;
+					}
+
+					contiguous_length -= lengthOfSegment;
+					contiguous_pos += lengthOfSegment;
+					contiguous_address += lengthOfSegment;
+				}
+				
+			}
+		}
+
+		if( found )
+		{
+            // OK, block is in space
+
+			fMem->writeBytes( pos + (addr.addressLo - phys), buf, len);
             res = kFWResponseComplete;
-            
-			break;
+            break;
         }
+		
         pos += lengthOfSegment;
     }
-	
+
     return res;
 }

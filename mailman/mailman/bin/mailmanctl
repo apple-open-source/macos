@@ -1,6 +1,6 @@
 #! @PYTHON@
 
-# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -288,6 +288,7 @@ def check_privs():
     uid = pwd.getpwnam(mm_cfg.MAILMAN_USER)[2]
     myuid = os.getuid()
     if myuid == 0:
+        # Set the process's supplimental groups.
         groups = [x[2] for x in grp.getgrall() if mm_cfg.MAILMAN_USER in x[3]]
         groups.append(gid)
         try:

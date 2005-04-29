@@ -50,40 +50,16 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 /*
  * fabs(x) returns the absolute value of x.
  */
 
-/* gcc 2.95 inlines fabs() and fabsf() of its own accord. But in case we ever get here ... */ 
-
-#define __FABS(x) \
-({ \
-    double __value, __arg = (x); \
-    asm volatile ("fabs %0,%1" : "=f" (__value): "f" (__arg)); \
-    __value; \
-})  
-
-#define __FABSF(x) \
-({ \
-    float __value, __arg = (x); \
-    asm volatile ("fabs %0,%1" : "=f" (__value): "f" (__arg)); \
-    __value; \
-})  
-
 double fabs(double x)
 {
-    return __FABS(x);
+    return __builtin_fabs(x);
 }
 
 float fabsf(float x)
 {
-    return __FABSF(x);
+    return __builtin_fabsf(x);
 }
-
-#else       /* __APPLE_CC__ version */
-#error Version gcc-932 or higher required.  Compilation terminated.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

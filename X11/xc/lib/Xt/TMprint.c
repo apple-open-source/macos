@@ -58,7 +58,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/TMprint.c,v 1.6 2001/12/14 19:56:31 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/TMprint.c,v 1.7 2003/04/21 16:34:29 herrb Exp $ */
 
 /*LINTLIBRARY*/
 #include "IntrinsicI.h"
@@ -659,20 +659,11 @@ static void PrintState(sb, tree, branchHead, includeRHS, accelWidget, dpy)
     UNLOCK_PROCESS;
 }
 
-#if NeedFunctionPrototypes
 String _XtPrintXlations(
     Widget		w,
     XtTranslations 	xlations,
     Widget		accelWidget,
-    _XtBoolean		includeRHS
-    )
-#else
-String _XtPrintXlations(w, xlations, accelWidget, includeRHS)
-    Widget		w;
-    XtTranslations 	xlations;
-    Widget		accelWidget;
-    Boolean		includeRHS;
-#endif
+    _XtBoolean		includeRHS)
 {
     register Cardinal 	i;
 #define STACKPRINTSIZE 250

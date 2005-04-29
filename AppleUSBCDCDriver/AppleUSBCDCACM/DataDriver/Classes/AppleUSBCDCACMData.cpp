@@ -144,13 +144,13 @@ exit:
 //		Inputs:		dataAddr - my address
 //				dataInterfaceNum - the data interface number
 //
-//		Outputs:	
+//		Outputs:	Pointer to the CDC driver
 //
 //		Desc:		Finds the initiating CDC driver and confirms the interface number
 //
 /****************************************************************************************************/
 
-IOReturn findCDCDriverAD(void *dataAddr, UInt8 dataInterfaceNum)
+AppleUSBCDC *findCDCDriverAD(void *dataAddr, UInt8 dataInterfaceNum)
 {
     AppleUSBCDCACMData	*me = (AppleUSBCDCACMData *)dataAddr;
     AppleUSBCDC		*CDCDriver = NULL;
@@ -159,14 +159,14 @@ IOReturn findCDCDriverAD(void *dataAddr, UInt8 dataInterfaceNum)
     OSDictionary	*matchingDictionary = NULL;
     
     XTRACE(me, 0, 0, "findCDCDriverAD");
-        
+	        
         // Get matching dictionary
        	
     matchingDictionary = IOService::serviceMatching("AppleUSBCDC");
     if (!matchingDictionary)
     {
         XTRACE(me, 0, 0, "findCDCDriverAD - Couldn't create a matching dictionary");
-        return kIOReturnError;
+        return NULL;
     }
     
 	// Get an iterator
@@ -176,7 +176,7 @@ IOReturn findCDCDriverAD(void *dataAddr, UInt8 dataInterfaceNum)
     {
         XTRACE(me, 0, 0, "findCDCDriverAD - No AppleUSBCDC driver found!");
         matchingDictionary->release();
-        return kIOReturnError;
+        return NULL;
     }
 
 #if 0    
@@ -214,18 +214,18 @@ IOReturn findCDCDriverAD(void *dataAddr, UInt8 dataInterfaceNum)
     if (!CDCDriver)
     {
         XTRACE(me, 0, 0, "findCDCDriverAD - CDC driver not found");
-        return kIOReturnError;
+        return NULL;
     }
    
     if (!driverOK)
     {
         XTRACE(me, kUSBAbstractControlModel, dataInterfaceNum, "findCDCDriverAD - Not my interface");
-        return kIOReturnError;
+        return NULL;
     }
     
     me->fConfigAttributes = CDCDriver->fbmAttributes;
 
-    return kIOReturnSuccess;
+    return CDCDriver;
     
 }/* end findCDCDriverAD */
 
@@ -854,7 +854,6 @@ void AppleUSBCDCACMData::dataReadComplete(void *obj, void *param, IOReturn rc, U
                 XTRACE(me, 0, rc, "dataReadComplete - clear stall failed (trying to continue)");
             }
         }
-
     }
     
         // Queue the read only if not aborted
@@ -864,10 +863,14 @@ void AppleUSBCDCACMData::dataReadComplete(void *obj, void *param, IOReturn rc, U
         ior = me->fPort.InPipe->Read(buffs->pipeMDP, &buffs->completionInfo, NULL);
         if (ior != kIOReturnSuccess)
         {
-            XTRACE(me, 0, rc, "dataReadComplete - Read io err");
+            XTRACE(me, buffs, rc, "dataReadComplete - Read io err");
 			buffs->dead = true;
-        }
-    }
+        } else {
+			 XTRACE(me, buffs, me->fPort.InPipe, "dataReadComplete - Read posted");
+		}
+    } else {
+		XTRACE(me, buffs, me->fPort.InPipe, "dataReadComplete - Read aborted");
+	}
 	
 }/* end dataReadComplete */
 
@@ -1000,7 +1003,7 @@ IOService* AppleUSBCDCACMData::probe( IOService *provider, SInt32 *score )
     OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface"));
     if (boolObj && boolObj->isTrue())
     {
-        ALERT(0, 0, "probe - provider doesn't want us to match");
+        XTRACE(this, 0, 0, "probe - Provider doesn't want us to match");
         return NULL;
     }
 
@@ -1070,7 +1073,8 @@ bool AppleUSBCDCACMData::start(IOService *provider)
 
     fPort.DataInterfaceNumber = fDataInterface->GetInterfaceNumber();
     
-    if (findCDCDriverAD(this, fPort.DataInterfaceNumber) != kIOReturnSuccess)
+	fCDCDriver = findCDCDriverAD(this, fPort.DataInterfaceNumber);
+    if (!fCDCDriver)
     {
         XTRACE(this, 0, 0, "start - Find CDC driver failed");
         return false;
@@ -1097,44 +1101,100 @@ bool AppleUSBCDCACMData::start(IOService *provider)
         ALERT(0, 0, "start - addEventSource(commandGate) failed");
         return false;
     }
-    
-         // Set up the values for the input buffer pool
-    
-    bufNumber = (OSNumber *)getProperty(inputTag);
+	
+		// Check for an input buffer pool override first
+	
+	fInBufPool = 0;
+	fOutBufPool = 0;
+		
+	bufNumber = (OSNumber *)provider->getProperty(inputTag);
     if (bufNumber)
     {
-        bufValue = bufNumber->unsigned16BitValue();
-        XTRACE(this, 0, bufValue, "start - Number of input buffers requested");
+		bufValue = bufNumber->unsigned16BitValue();
+		XTRACE(this, 0, bufValue, "start - Number of input buffers override value");
         if (bufValue <= kMaxInBufPool)
         {
             fInBufPool = bufValue;
         } else {
             fInBufPool = kMaxInBufPool;
         }
-    } else {
-        fInBufPool = kInBufPool;
+	} else {
+		fInBufPool = 0;
+	}
+    
+		// Now set up the real input buffer pool values (only if not overridden)
+    
+	if (fInBufPool == 0)
+	{
+		bufNumber = NULL;
+		bufNumber = (OSNumber *)getProperty(inputTag);
+		if (bufNumber)
+		{
+			bufValue = bufNumber->unsigned16BitValue();
+			XTRACE(this, 0, bufValue, "start - Number of input buffers requested");
+			if (bufValue <= kMaxInBufPool)
+			{
+				fInBufPool = bufValue;
+			} else {
+				fInBufPool = kMaxInBufPool;
+			}
+		} else {
+			fInBufPool = kInBufPool;
+		}
     }
-    
-        // Set up the values for the output buffer pool
-    
-    bufNumber = NULL;
-    bufNumber = (OSNumber *)getProperty(outputTag);
+	
+		// Check for an output buffer pool override
+		
+	bufNumber = NULL;
+	bufNumber = (OSNumber *)provider->getProperty(outputTag);
     if (bufNumber)
     {
-        bufValue = bufNumber->unsigned16BitValue();
-        XTRACE(this, 0, bufValue, "start - Number of output buffers requested");
-        if (bufValue <= kMaxOutBufPool)
+		bufValue = bufNumber->unsigned16BitValue();
+		XTRACE(this, 0, bufValue, "start - Number of output buffers override value");
+        if (bufValue <= kMaxInBufPool)
         {
             fOutBufPool = bufValue;
         } else {
             fOutBufPool = kMaxOutBufPool;
         }
-    } else {
-        fOutBufPool = kOutBufPool;
-    }
+	} else {
+		fOutBufPool = 0;
+	}
+    
+        // Now set up the real output buffer pool values (only if not overridden)
+    
+	if (fOutBufPool == 0)
+	{
+		bufNumber = NULL;
+		bufNumber = (OSNumber *)getProperty(outputTag);
+		if (bufNumber)
+		{
+			bufValue = bufNumber->unsigned16BitValue();
+			XTRACE(this, 0, bufValue, "start - Number of output buffers requested");
+			if (bufValue <= kMaxOutBufPool)
+			{
+				fOutBufPool = bufValue;
+			} else {
+				fOutBufPool = kMaxOutBufPool;
+			}
+		} else {
+			fOutBufPool = kOutBufPool;
+		}
+	}
     
     XTRACE(this, fInBufPool, fOutBufPool, "start - Buffer pools (input, output)");
-
+	
+		// Check Reset on Close
+	
+	OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("ResetOnClose"));
+    if (boolObj && boolObj->isTrue())
+    {
+		fResetOnClose = TRUE;
+        XTRACE(this, 0, 0, "start - Reset on close is on");
+    } else {
+		fResetOnClose = FALSE;
+	}
+	
     if (!createSerialStream())					// Publish SerialStream services
     {
         ALERT(0, 0, "start - createSerialStream failed");
@@ -1160,8 +1220,8 @@ bool AppleUSBCDCACMData::start(IOService *provider)
 	} else {
         XTRACE(this, 0, 0, "start - Remote wake up not supported");
     }
-
-    XTRACE(this, 0, 0, "start - successful and IOModemSerialStreamSync created");
+	
+	IOLog(DEBUG_NAME ": Version number - %s, Input buffers %d, Output buffers %d\n", VersionNumber, fInBufPool, fOutBufPool);
     
     return true;
     	
@@ -1450,7 +1510,7 @@ IOReturn AppleUSBCDCACMData::acquirePort(bool sleep, void *refCon)
     retain();
     ret = fCommandGate->runAction(acquirePortAction, (void *)sleep);
     release();
-    
+
     return ret;
 
 }/* end acquirePort */
@@ -1541,10 +1601,11 @@ IOReturn AppleUSBCDCACMData::acquirePortGated(bool sleep)
                 rtn = fPort.InPipe->Read(fPort.inPool[i].pipeMDP, &fPort.inPool[i].completionInfo, NULL);
                 if (rtn != kIOReturnSuccess)
                 {
-                    XTRACE(this, i, rtn, "acquirePortGated - Read for bulk-in pipe failed");
+                    XTRACE(this, &fPort.inPool[i], rtn, "acquirePortGated - Read for bulk-in pipe failed");
 					fPort.inPool[i].dead = true;
                     break;
                 }
+				XTRACE(this, &fPort.inPool[i], fPort.InPipe, "acquirePortGated - Read posted");
             }
         }
         if (rtn == kIOReturnSuccess)
@@ -1609,23 +1670,43 @@ IOReturn AppleUSBCDCACMData::releasePort(void *refCon)
     IOReturn	ret = kIOReturnSuccess;
     
     XTRACE(this, 0, 0, "releasePort");
-    
+	
+        // Abort any outstanding I/O (only if we're not terminated)
+
+	if (!fTerminate)
+	{
+		if (fPort.InPipe)
+			fPort.InPipe->Abort();
+		if (fPort.OutPipe)
+			fPort.OutPipe->Abort();
+	}
+
+	IOSleep(10);
+	
     retain();
     ret = fCommandGate->runAction(releasePortAction);
     release();
 
-#if 0        
         // Check the pipes before we leave (only if we're not terminated)
+		// and Reset on Close is true. This resets the data toggle on both ends
    
     if (!fTerminate)
     {
-        if (fPort.InPipe)
-            checkPipe(fPort.InPipe, true);
+		if (fResetOnClose)
+		{
+			if (fPort.InPipe)
+				checkPipe(fPort.InPipe, true);
     
-        if (fPort.OutPipe)
-            checkPipe(fPort.OutPipe, true);
+			if (fPort.OutPipe)
+				checkPipe(fPort.OutPipe, true);
+
+			ret = fDataInterface->GetDevice()->ResetDevice();
+			if (ret != kIOReturnSuccess)
+			{
+				XTRACE(this, 0, ret, "releasePort - ResetDevice failed");
+			}
+		}
     }
-#endif
         
     return ret;
 
@@ -1682,22 +1763,25 @@ IOReturn AppleUSBCDCACMData::releasePortGated()
 	
     setStateGated(0, (UInt32)STATE_ALL);		// Clear the entire state word - which also deactivates the port
 
-//#if 0    
+#if 0    
         // Abort any outstanding I/O
         
     if (fPort.InPipe)
         fPort.InPipe->Abort();
     if (fPort.OutPipe)
         fPort.OutPipe->Abort();
-//#endif
+#endif
         
-        // Tell the Control driver the port's been released
-
-	if (fControlDriver)
+        // Tell the Control driver the port's been released, only when not terminated (control driver may already be gone)
+		
+	if (!fTerminate)
 	{
-		fControlDriver->dataReleased();
+		if (fControlDriver)
+		{
+			fControlDriver->dataReleased();
+		}
 	}
-    
+	    
     fSessions--;					// reduce number of active sessions
             
     release(); 						// Dispose of the self-reference we took in acquirePortGated()
@@ -3006,7 +3090,12 @@ void AppleUSBCDCACMData::setLineCoding()
 	if (fControlDriver)
 	{
 		fControlDriver->USBSendSetLineCoding(fPort.BaudRate, fPort.StopBits, fPort.TX_Parity, fPort.CharLength);
-	}		
+	}
+	
+	fPort.LastBaudRate = fPort.BaudRate;
+	fPort.LastStopBits = fPort.StopBits;
+	fPort.LastTX_Parity = fPort.TX_Parity;
+	fPort.LastCharLength = fPort.CharLength;
 	
 }/* end setLineCoding */
 
@@ -3542,8 +3631,9 @@ void AppleUSBCDCACMData::resurrectRead()
 				rtn = fPort.InPipe->Read(fPort.inPool[i].pipeMDP, &fPort.inPool[i].completionInfo, NULL);
 				if (rtn != kIOReturnSuccess)
 				{
-					XTRACE(this, i, rtn, "resurrectRead - Read for bulk-in pipe failed, still dead");
+					XTRACE(this, &fPort.inPool[i], rtn, "resurrectRead - Read for bulk-in pipe failed, still dead");
 				} else {
+					XTRACE(this, &fPort.inPool[i], fPort.InPipe, "resurrectRead - Read posted");
 					fPort.inPool[i].dead = false;
 				}
 			}
@@ -3576,6 +3666,13 @@ IOReturn AppleUSBCDCACMData::message(UInt32 type, IOService *provider, void *arg
         case kIOMessageServiceIsTerminated:
             XTRACE(this, fSessions, type, "message - kIOMessageServiceIsTerminated");
 			
+				// As a precaution abort any I/O
+			
+			if (fPort.InPipe)
+				fPort.InPipe->Abort();
+			if (fPort.OutPipe)
+				fPort.OutPipe->Abort();
+			
             if (fSessions)
             {
                 if (!fTerminate)		// Check if we're already being terminated
@@ -3583,7 +3680,7 @@ IOReturn AppleUSBCDCACMData::message(UInt32 type, IOService *provider, void *arg
 		    // NOTE! This call below depends on the hard coded path of this KEXT. Make sure
 		    // that if the KEXT moves, this path is changed!
 		    KUNCUserNotificationDisplayNotice(
-			0,		// Timeout in seconds
+			10,		// Timeout in seconds
 			0,		// Flags (for later usage)
 			"",		// iconPath (not supported yet)
 			"",		// soundPath (not supported yet)

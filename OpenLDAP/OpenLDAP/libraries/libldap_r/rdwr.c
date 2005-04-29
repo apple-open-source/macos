@@ -1,12 +1,30 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/rdwr.c,v 1.18 2000/06/16 19:25:03 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/rdwr.c,v 1.19.2.3 2004/07/16 19:51:42 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* This work was initially developed by Kurt D. Zeilenga for inclusion
+ * in OpenLDAP Software.  Additional significant contributors include:
+ *     Stuart Lynne
+ */
+
 /*
-** This is an improved implementation of Reader/Writer locks does
-** not protect writers from starvation.  That is, if a writer is
-** currently waiting on a reader, any new reader will get
-** the lock before the writer.
-**
-** Does not support cancellation nor does any status checking.
-*/
+ * This is an improved implementation of Reader/Writer locks does
+ * not protect writers from starvation.  That is, if a writer is
+ * currently waiting on a reader, any new reader will get
+ * the lock before the writer.
+ *
+ * Does not support cancellation nor does any status checking.
+ */
 /* Adapted from publically available examples for:
  *	"Programming with Posix Threads"
  *		by David R Butenhof, Addison-Wesley 
@@ -41,6 +59,12 @@ struct ldap_int_thread_rdwr_s {
 	int ltrw_w_active;
 	int ltrw_r_wait;
 	int ltrw_w_wait;
+#ifdef LDAP_RDWR_DEBUG
+	/* keep track of who has these locks */
+#define	MAX_READERS	32
+	ldap_pvt_thread_t ltrw_readers[MAX_READERS];
+	ldap_pvt_thread_t ltrw_writer;
+#endif
 };
 
 int 
@@ -144,7 +168,11 @@ int ldap_pvt_thread_rdwr_rlock( ldap_pvt_thread_rdwr_t *rwlock )
 		assert( rw->ltrw_r_wait >= 0 ); 
 	}
 
+#ifdef LDAP_RDWR_DEBUG
+	rw->ltrw_readers[rw->ltrw_r_active] = ldap_pvt_thread_self();
+#endif
 	rw->ltrw_r_active++;
+
 
 	ldap_pvt_thread_mutex_unlock( &rw->ltrw_mutex );
 
@@ -176,6 +204,9 @@ int ldap_pvt_thread_rdwr_rtrylock( ldap_pvt_thread_rdwr_t *rwlock )
 		return LDAP_PVT_THREAD_EBUSY;
 	}
 
+#ifdef LDAP_RDWR_DEBUG
+	rw->ltrw_readers[rw->ltrw_r_active] = ldap_pvt_thread_self();
+#endif
 	rw->ltrw_r_active++;
 
 	ldap_pvt_thread_mutex_unlock( &rw->ltrw_mutex );
@@ -198,6 +229,22 @@ int ldap_pvt_thread_rdwr_runlock( ldap_pvt_thread_rdwr_t *rwlock )
 
 	ldap_pvt_thread_mutex_lock( &rw->ltrw_mutex );
 
+#ifdef LDAP_RDWR_DEBUG
+	/* Remove us from the list of readers */
+	{ int i, j;
+	ldap_pvt_thread_t self = ldap_pvt_thread_self();
+
+	for (i=0; i<rw->ltrw_r_active;i++)
+	{
+		if (rw->ltrw_readers[i] == self) {
+			for (j=i; j<rw->ltrw_r_active-1; j++)
+				rw->ltrw_readers[j] = rw->ltrw_readers[j+1];
+			rw->ltrw_readers[j] = 0;
+			break;
+		}
+	}
+	}
+#endif
 	rw->ltrw_r_active--;
 
 	assert( rw->ltrw_w_active >= 0 ); 
@@ -246,6 +293,9 @@ int ldap_pvt_thread_rdwr_wlock( ldap_pvt_thread_rdwr_t *rwlock )
 		assert( rw->ltrw_w_wait >= 0 ); 
 	}
 
+#ifdef LDAP_RDWR_DEBUG
+	rw->ltrw_writer = ldap_pvt_thread_self();
+#endif
 	rw->ltrw_w_active++;
 
 	ldap_pvt_thread_mutex_unlock( &rw->ltrw_mutex );
@@ -278,6 +328,9 @@ int ldap_pvt_thread_rdwr_wtrylock( ldap_pvt_thread_rdwr_t *rwlock )
 		return LDAP_PVT_THREAD_EBUSY;
 	}
 
+#ifdef LDAP_RDWR_DEBUG
+	rw->ltrw_writer = ldap_pvt_thread_self();
+#endif
 	rw->ltrw_w_active++;
 
 	ldap_pvt_thread_mutex_unlock( &rw->ltrw_mutex );
@@ -314,6 +367,9 @@ int ldap_pvt_thread_rdwr_wunlock( ldap_pvt_thread_rdwr_t *rwlock )
 		ldap_pvt_thread_cond_signal( &rw->ltrw_write );
 	}
 
+#ifdef LDAP_RDWR_DEBUG
+	rw->ltrw_writer = 0;
+#endif
 	ldap_pvt_thread_mutex_unlock( &rw->ltrw_mutex );
 
 	return 0;
@@ -379,8 +435,8 @@ int ldap_pvt_thread_rdwr_active(ldap_pvt_thread_rdwr_t *rwlock)
 	assert( rw->ltrw_r_active >= 0 ); 
 	assert( rw->ltrw_r_wait >= 0 ); 
 
-	return(ldap_pvt_thread_rdwr_readers(rw) +
-	       ldap_pvt_thread_rdwr_writers(rw));
+	return(ldap_pvt_thread_rdwr_readers(rwlock) +
+	       ldap_pvt_thread_rdwr_writers(rwlock));
 }
 
 #endif /* LDAP_DEBUG */

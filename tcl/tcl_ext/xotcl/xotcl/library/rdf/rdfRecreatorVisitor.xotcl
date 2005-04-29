@@ -1,0 +1,35 @@
+#$Id: s.rdfRecreatorVisitor.xotcl 1.9 01/03/23 21:55:32+01:00 neumann@somewhere.wu-wien.ac.at $
+package provide xotcl::rdf::recreatorVisitor 0.9
+package require xotcl::rdf::parser
+package require xotcl::xml::recreatorVisitor
+
+##############################################################################
+#
+# a visitor that recreates an RDF representation from a
+# node tree
+#
+#############################################################################
+Class RDFRecreatorVisitor -superclass XMLRecreatorVisitor
+    
+RDFRecreatorVisitor instproc appendLineFeed obj {
+  if {[set parseType [$obj getRDFAttribute parseType]] != ""} {
+    if {$parseType != "Resource"} {
+      # we have parseType == Literal 
+      # -> don't append "\n"
+      return ""
+    } 
+  }
+  return "\n"
+}
+
+RDFRecreatorVisitor instproc visit objName {
+  next
+  my instvar result
+  if {[$objName istype RDFResource]} {
+    foreach t [$objName array names rdfTypes] {
+      set ts [$objName prependRDFPrefix type]
+      append result "  [my insertIndent $objName]<$ts resource=\"$t\"/>\n"
+    }
+  }
+  return $result
+}

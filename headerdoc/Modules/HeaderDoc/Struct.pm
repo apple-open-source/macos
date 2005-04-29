@@ -4,22 +4,28 @@
 # Synopsis: Holds struct info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2003/07/29 21:57:54 $
+# Last Updated: $Date: 2004/10/13 00:09:33 $
 # 
-# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
-# The contents of this file constitute Original Code as defined in and are
-# subject to the Apple Public Source License Version 1.1 (the "License").
-# You may not use this file except in compliance with the License.  Please
-# obtain a copy of the License at http://www.apple.com/publicsource and
-# read it before using this file.
+# Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
-# This Original Code and all software distributed under the License are
-# distributed on an TAS ISU basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# @APPLE_LICENSE_HEADER_START@
+#
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 # EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
-# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the License for
-# the specific language governing rights and limitations under the
-# License.
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#
+# @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
 package HeaderDoc::Struct;
@@ -32,7 +38,7 @@ use HeaderDoc::APIOwner;
 @ISA = qw( HeaderDoc::HeaderElement );
 
 use vars qw($VERSION @ISA);
-$VERSION = '1.20';
+$VERSION = '$Revision: 1.11.2.10.2.25 $';
 
 use strict;
 
@@ -50,9 +56,30 @@ sub new {
 sub _initialize {
     my($self) = shift;
     $self->SUPER::_initialize();
-    $self->{ISUNION} = 0;
+    # $self->{ISUNION} = 0;
     $self->{FIELDS} = ();
+    $self->{CLASS} = "HeaderDoc::Struct";
 }
+
+sub clone {
+    my $self = shift;
+    my $clone = undef;
+    if (@_) {
+	$clone = shift;
+    } else {
+	$clone = HeaderDoc::Struct->new();
+    }
+
+    $self->SUPER::clone($clone);
+
+    # now clone stuff specific to function
+
+    $clone->{ISUNION} = $self->{ISUNION};
+    $clone->{FIELDS} = $self->{FIELDS};
+
+    return $clone;
+}
+
 
 sub isUnion {
     my $self = shift;
@@ -78,14 +105,31 @@ sub addField {
     return @{ $self->{FIELDS} };
 }
 
-sub processStructComment {
+sub processComment {
     my $self = shift;
     my $fieldArrayRef = shift;
+    my $filename = $self->filename();
+    my $linenum = $self->linenum();
     my @fields = @$fieldArrayRef;
-	foreach my $field (@fields) {
-		SWITCH: {
-            ($field =~ /^\/\*\!/)&& do {last SWITCH;}; # ignore opening /*!
-            (($field =~ s/^struct\s+//)  || ($field =~ s/^union\s+//))&& 
+
+    my $fieldCounter = 0;
+    my $lastField = scalar(@fields);
+    my $localDebug = 0;
+
+    while ($fieldCounter < $lastField) {
+	my $field = $fields[$fieldCounter];
+
+	print "FIELD WAS $field\n" if ($localDebug);
+	SWITCH: {
+            ($field =~ /^\/\*\!/o)&& do {
+                                my $copy = $field;
+                                $copy =~ s/^\/\*\!\s*//s;
+                                if (length($copy)) {
+                                        $self->discussion($copy);
+                                }
+                        last SWITCH;
+                        };
+            (($field =~ s/^struct(\s+)/$1/o)  || ($field =~ s/^union(\s+)/$1/o))&& 
             do {
                 my ($name, $disc);
                 ($name, $disc) = &getAPINameAndDisc($field); 
@@ -93,179 +137,163 @@ sub processStructComment {
                 if (length($disc)) {$self->discussion($disc);};
                 last SWITCH;
             };
-            ($field =~ s/^abstract\s+//) && do {$self->abstract($field); last SWITCH;};
-            ($field =~ s/^discussion\s+//) && do {$self->discussion($field); last SWITCH;};
-            ($field =~ s/^availability\s+//) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^updated\s+//) && do {$self->updated($field); last SWITCH;};
-            ($field =~ s/^field\s+//) && 
+            ($field =~ s/^abstract\s+//o) && do {$self->abstract($field); last SWITCH;};
+            ($field =~ s/^discussion\s+//o) && do {$self->discussion($field); last SWITCH;};
+            ($field =~ s/^availability\s+//o) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^since\s+//o) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^author\s+//o) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+	    ($field =~ s/^version\s+//o) && do {$self->attribute("Version", $field, 0); last SWITCH;};
+            ($field =~ s/^deprecated\s+//o) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
+            ($field =~ s/^updated\s+//o) && do {$self->updated($field); last SWITCH;};
+	    ($field =~ s/^attribute\s+//o) && do {
+		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+		    if (length($attname) && length($attdisc)) {
+			$self->attribute($attname, $attdisc, 0);
+		    } else {
+			warn "$filename:$linenum:Missing name/discussion for attribute\n";
+		    }
+		    last SWITCH;
+		};
+	    ($field =~ s/^attributelist\s+//o) && do {
+		    $field =~ s/^\s*//so;
+		    $field =~ s/\s*$//so;
+		    my ($name, $lines) = split(/\n/, $field, 2);
+		    $name =~ s/^\s*//so;
+		    $name =~ s/\s*$//so;
+		    $lines =~ s/^\s*//so;
+		    $lines =~ s/\s*$//so;
+		    if (length($name) && length($lines)) {
+			my @attlines = split(/\n/, $lines);
+			foreach my $line (@attlines) {
+			    $self->attributelist($name, $line);
+			}
+		    } else {
+			warn "$filename:$linenum:Missing name/discussion for attributelist\n";
+		    }
+		    last SWITCH;
+		};
+	    ($field =~ s/^attributeblock\s+//o) && do {
+		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+		    if (length($attname) && length($attdisc)) {
+			$self->attribute($attname, $attdisc, 1);
+		    } else {
+			warn "$filename:$linenum:Missing name/discussion for attributeblock\n";
+		    }
+		    last SWITCH;
+		};
+	    ($field =~ /^see(also|)\s+/o) &&
+		do {
+		    $self->see($field);
+		    last SWITCH;
+		};
+            ($field =~ s/^field\s+//o) && 
             do {
-				$field =~ s/^\s+|\s+$//g;
-	            $field =~ /(\w*)\s*(.*)/s;
+				$field =~ s/^\s+|\s+$//go;
+	            $field =~ /(\w*)\s*(.*)/so;
 	            my $fName = $1;
 	            my $fDesc = $2;
 	            my $fObj = HeaderDoc::MinorAPIElement->new();
 	            $fObj->outputformat($self->outputformat);
 	            $fObj->name($fName);
+		    $fObj->type("field");
 	            $fObj->discussion($fDesc);
 	            $self->addField($fObj);
 				last SWITCH;
 			};
-	    my $filename = $HeaderDoc::headerObject->name();
-            print "$filename:0:Unknown field: $field\n";
-		}
+            # To handle callbacks and their params and results, have to set up loop
+            ($field =~ s/^callback\s+//o) &&
+                do {
+                    $field =~ s/^\s+|\s+$//go;
+                    $field =~ /(\w*)\s*(.*)/so;
+                    my $cbName = $1;
+                    my $cbDesc = $2;
+                    my $callbackObj = HeaderDoc::MinorAPIElement->new();
+	            $callbackObj->outputformat($self->outputformat);
+                    $callbackObj->name($cbName);
+                    $callbackObj->discussion($cbDesc);
+                    $callbackObj->type("callback");
+                    # now get params and result that go with this callback
+                    print "Adding callback.  Callback name: $cbName.\n" if ($localDebug);
+                    $fieldCounter++;
+                    while ($fieldCounter < $lastField) {
+                        my $nextField = $fields[$fieldCounter];
+                        print "In callback: next field is '$nextField'\n" if ($localDebug);
+                        
+                        if ($nextField =~ s/^param\s+//o) {
+                            $nextField =~ s/^\s+|\s+$//go;
+                            $nextField =~ /(\w*)\s*(.*)/so;
+                            my $paramName = $1;
+                            my $paramDesc = $2;
+                            $callbackObj->addToUserDictArray({"$paramName" => "$paramDesc"});
+                        } elsif ($nextField eq "result") {
+                            $nextField =~ s/^\s+|\s+$//go;
+                            $nextField =~ /(\w*)\s*(.*)/so;
+                            my $resultName = $1;
+                            my $resultDesc = $2;
+                            $callbackObj->addToUserDictArray({"$resultName" => "$resultDesc"});
+                        } else {
+                            last;
+                        }
+                        $fieldCounter++;
+                    }
+                    $self-> addField($callbackObj);
+                    print "Adding callback to typedef.  Callback name: $cbName.\n" if ($localDebug);
+                    last SWITCH;
+                };
+            # param and result have to come last, since they should be handled differently, if part of a callback
+            # which is inside a struct (as above).  Otherwise, these cases below handle the simple typedef'd callback 
+            # (i.e., a typedef'd function pointer without an enclosing struct.
+            ($field =~ s/^param\s+//o) && 
+                do {
+                    $self->isFunctionPointer(1);
+                    $field =~ s/^\s+|\s+$//go;
+                    $field =~ /(\w*)\s*(.*)/so;
+                    my $fName = $1;
+                    my $fDesc = $2;
+                    my $fObj = HeaderDoc::MinorAPIElement->new();
+	            $fObj->outputformat($self->outputformat);
+                    $fObj->name($fName);
+                    $fObj->discussion($fDesc);
+                    $fObj->type("funcPtr");
+                    $self->addField($fObj);
+                    print "Adding param for function-pointer typedef.  Param name: $fName.\n" if ($localDebug);
+                    last SWITCH;
+                };
+	    {
+		# default case
+		# my $filename = $HeaderDoc::headerObject->name();
+	        # print "$filename:$linenum:Unknown field in Struct comment: $field\n";
+		my $struct_or_union = "struct";
+		if ($self->isUnion()) { $struct_or_union = "union"; }
+		if (length($field)) { warn "$filename:$linenum:Unknown field (\@$field) in $struct_or_union comment (".$self->name().")\n"; }
+	    }
 	}
+	++$fieldCounter;
+    }
 }
 
 sub setStructDeclaration {
     my $self = shift;
     my $dec = shift;
     my $localDebug = 0;
+    $self->declaration($dec);
     
     print "============================================================================\n" if ($localDebug);
     print "Raw declaration is: $dec\n" if ($localDebug);
+
+    # my $newdec = $self->structformat($dec, 1);
     
-    $dec =~ s/\t/  /g;
-    $dec =~ s/^\s+(.*)/$1/; # remove leading whitespace
-    $dec =~ s/</&lt;/g;
-    $dec =~ s/>/&gt;/g;
-
-    my $decline = $dec;
-    $decline =~ s/\s*{.*//smg;
-    my $endline = $dec;
-    $endline =~ s/.*}\s*//smg;
-    my $mid = $dec;
-    print "mid $mid\n" if ($localDebug);
-    # $mid =~ s/{\s*(.*)\s*}.*?/$1/smg;
-    $mid =~ s/^$decline.*?{//sm;
-    $mid =~ s/}.*?$endline$//sm;
-    $mid =~ s/^\n*//smg;
-    $mid =~ s/\n+$/\n/smg;
-    print "mid $mid\n" if ($localDebug);
-
-    my $newdec = "$decline {\n";
-
-    my @splitlines = split ('\n', $mid);
-
-    foreach my $line (@splitlines) {
-	$line =~ s/^\s*//;
-	$newdec .= "    ".$line."\n";
-    }
-    if ("$endline" eq ";") {
-	$newdec .= "}".$endline;
-    } else {
-	$newdec .= "} ".$endline;
-    };
-
-    print "new dec is:\n$newdec\n" if ($localDebug);
-    $dec = $newdec;
+    # print "new dec is:\n$newdec\n" if ($localDebug);
+    # $dec = $newdec;
 
     if (length ($dec)) {$dec = "<pre>\n$dec</pre>\n";};
     
-    print "Typedef: returning declaration:\n\t|$dec|\n" if ($localDebug);
+    print "Struct: returning declaration:\n\t|$dec|\n" if ($localDebug);
     print "============================================================================\n" if ($localDebug);
     $self->declarationInHTML($dec);
     return $dec;
 }
 
-sub documentationBlock {
-    my $self = shift;
-    my $contentString;
-    my $name = $self->name();
-    my $abstract = $self->abstract();
-    my $availability = $self->availability();
-    my $updated = $self->updated();
-    my $desc = $self->discussion();
-    my $declaration = $self->declarationInHTML();
-    my @fields = $self->fields();
-    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
-
-    
-    $contentString .= "<hr>";
-    my $uid = "//$apiUIDPrefix/c/tag/$name";
-    HeaderDoc::APIOwner->register_uid($uid);
-    $contentString .= "<a name=\"$uid\"></a>\n"; # apple_ref marker
-    $contentString .= "<table border=\"0\"  cellpadding=\"2\" cellspacing=\"2\" width=\"300\">";
-    $contentString .= "<tr>";
-    $contentString .= "<td valign=\"top\" height=\"12\" colspan=\"5\">";
-    $contentString .= "<h2><a name=\"$name\">$name</a></h2>\n";
-    $contentString .= "</td>";
-    $contentString .= "</tr></table>";
-    $contentString .= "<hr>";
-    if (length($abstract)) {
-        # $contentString .= "<b>Abstract:</b> $abstract\n";
-        $contentString .= "$abstract\n";
-    }
-    if (length($availability)) {
-        $contentString .= "<b>availability:</b> $availability\n";
-    }
-    if (length($updated)) {
-        $contentString .= "<b>updated:</b> $updated\n";
-    }
-    $contentString .= "<blockquote>$declaration</blockquote>\n";
-    # $contentString .= "<p>$desc</p>\n";
-    if (length($desc)) {$contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Discussion</font></h5><p>$desc</p>\n"; }
-    my $arrayLength = @fields;
-    if ($arrayLength > 0) {
-        $contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Field Descriptions</font></h5>\n";
-        $contentString .= "<blockquote>\n";
-        # $contentString .= "<table border=\"1\"  width=\"90%\">\n";
-        # $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
-	$contentString .= "<dl>\n";
-        foreach my $element (@fields) {
-            my $fName = $element->name();
-            my $fDesc = $element->discussion();
-            $contentString .= "<dt><tt>$fName</tt></dt><dd>$fDesc</dd>\n";
-        }
-        $contentString .= "</dl>\n</blockquote>\n";
-    }
-    # $contentString .= "<hr>\n";
-    return $contentString;
-}
-
-sub XMLdocumentationBlock {
-    my $self = shift;
-    my $contentString;
-    my $name = $self->name();
-    my $abstract = $self->abstract();
-    my $availability = $self->availability();
-    my $updated = $self->updated();
-    my $desc = $self->discussion();
-    my $declaration = $self->declarationInHTML();
-    my @fields = $self->fields();
-    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
-
-    my $type = "struct";
-    if ($self->isUnion()) {
-	$type = "union";
-    }
-    my $uid = "//$apiUIDPrefix/c/tag/$name";
-    HeaderDoc::APIOwner->register_uid($uid);
-    $contentString .= "<struct id=\"$uid\" type=\"$type\">\n"; # apple_ref marker
-    $contentString .= "<name>$name</name>\n";
-    if (length($abstract)) {
-        $contentString .= "<abstract>$abstract</abstract>\n";
-    }
-    if (length($availability)) {
-        $contentString .= "<availability>$availability</availability>\n";
-    }
-    if (length($updated)) {
-        $contentString .= "<updated>$updated</updated>\n";
-    }
-    $contentString .= "<declaration>$declaration</declaration>\n";
-    $contentString .= "<description>$desc</description>\n";
-    my $arrayLength = @fields;
-    if ($arrayLength > 0) {
-        $contentString .= "<fieldlist>\n";
-        foreach my $element (@fields) {
-            my $fName = $element->name();
-            my $fDesc = $element->discussion();
-            $contentString .= "<field><name>$fName</name><description>$fDesc</description></field>\n";
-        }
-        $contentString .= "</fieldlist>\n";
-    }
-    $contentString .= "</struct>\n";
-    return $contentString;
-}
 
 sub printObject {
     my $self = shift;
@@ -274,9 +302,11 @@ sub printObject {
     $self->SUPER::printObject();
     print "Field Descriptions:\n";
     my $fieldArrayRef = $self->{FIELDS};
-    my $arrayLength = @{$fieldArrayRef};
-    if ($arrayLength > 0) {
-        &printArray(@{$fieldArrayRef});
+    if ($fieldArrayRef) {
+	my $arrayLength = @{$fieldArrayRef};
+	if ($arrayLength > 0) {
+            &printArray(@{$fieldArrayRef});
+	}
     }
     print "\n";
 }

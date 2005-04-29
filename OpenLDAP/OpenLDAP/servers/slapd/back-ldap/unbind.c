@@ -1,38 +1,24 @@
 /* unbind.c - ldap backend unbind function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/unbind.c,v 1.12.2.4 2003/02/09 16:31:38 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/unbind.c,v 1.18.2.3 2004/01/01 18:16:37 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999-2003 Howard Chu.
+ * Portions Copyright 2000-2003 Pierangelo Masarati.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/* This is an altered version */
-/*
- * Copyright 1999, Howard Chu, All rights reserved. <hyc@highlandsun.com>
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author is not responsible for the consequences of use of this
- *    software, no matter how awful, even if they arise from flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- * 
- * 4. This notice may not be removed or altered.
- *
- *
- *
- * Copyright 2000, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- *
- * This software is being modified by Pierangelo Masarati.
- * The previously reported conditions apply to the modified code as well.
- * Changes in the original code are highlighted where required.
- * Credits for the original code go to the author, Howard Chu.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by the Howard Chu for inclusion
+ * in OpenLDAP Software and subsequently enhanced by Pierangelo
+ * Masarati.
  */
 
 #include "portable.h"
@@ -64,6 +50,7 @@ ldap_back_conn_destroy(
 #endif /* !NEW_LOGGING */
 
 	lc_curr.conn = conn;
+	lc_curr.local_dn = conn->c_ndn;
 	
 	ldap_pvt_thread_mutex_lock( &li->conn_mutex );
 	lc = avl_delete( &li->conntree, (caddr_t)&lc_curr, ldap_back_conn_cmp );
@@ -84,7 +71,7 @@ ldap_back_conn_destroy(
 		/*
 		 * Cleanup rewrite session
 		 */
-		rewrite_session_delete( li->rwinfo, conn );
+		rewrite_session_delete( li->rwmap.rwm_rw, conn );
 #endif /* ENABLE_REWRITE */
 
 		/*
@@ -92,14 +79,7 @@ ldap_back_conn_destroy(
 		 * and calling ldap_unbind on a corrupted header results
 		 * in a segmentation fault
 		 */
-		ldap_unbind(lc->ld);
-		if ( lc->bound_dn.bv_val ) {
-			ch_free( lc->bound_dn.bv_val );
-		}
-		if ( lc->cred.bv_val ) {
-			ch_free( lc->cred.bv_val );
-		}
-		ch_free( lc );
+		ldap_back_conn_free( lc );
 	}
 
 	/* no response to unbind */

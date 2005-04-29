@@ -1,6 +1,49 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86pciBus.c,v 3.68 2003/02/18 15:42:11 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86pciBus.c,v 3.78 2004/02/13 23:58:39 dawes Exp $ */
 /*
- * Copyright (c) 1997-2002 by The XFree86 Project, Inc.
+ * Copyright (c) 1997-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -270,8 +313,8 @@ FindPCIVideoInfo(void)
 	    }
 	    
 	    /*
-	     * 64-bit base addresses are checked for and avoided.
-	     * XXX Should deal with them on platforms that support them.
+	     * 64-bit base addresses are checked for and avoided on 32-bit
+	     * platforms.
 	     */
 	    if (pcrp->pci_base0) {
 		if (pcrp->pci_base0 & PCI_MAP_IO) {
@@ -454,7 +497,7 @@ FindPCIVideoInfo(void)
 		    memdone = TRUE;
 		} else
 		    xf86ErrorF(", ");
-		xf86ErrorF("0x%08x/%d", info->memBase[i], info->size[i]);
+		xf86ErrorF("0x%08lx/%d", info->memBase[i], info->size[i]);
 	    }
 	}
 	for (i = 0; i < 6; i++) {
@@ -465,12 +508,12 @@ FindPCIVideoInfo(void)
 		    iodone = TRUE;
 		} else
 		    xf86ErrorF(", ");
-		xf86ErrorF("0x%04x/%d", info->ioBase[i], info->size[i]);
+		xf86ErrorF("0x%04lx/%d", info->ioBase[i], info->size[i]);
 	    }
 	}
 	if (info->biosBase &&
 	    (info->biosBase < (memType)(-1 << info->biosSize)))
-	    xf86ErrorF(", BIOS @ 0x%08x/%d", info->biosBase, info->biosSize);
+	    xf86ErrorF(", BIOS @ 0x%08lx/%d", info->biosBase, info->biosSize);
 	xf86ErrorF("\n");
     }
 }
@@ -567,7 +610,7 @@ pciIoAccessEnable(void* arg)
     ErrorF("pciIoAccessEnable: 0x%05lx\n", *(PCITAG *)arg);
 #endif
     pArg->ctrl |= SETBITS | PCI_CMD_MASTER_ENABLE;
-    (*pArg->func)(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
+    pciWriteLong(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
 }
 
 static void
@@ -577,7 +620,7 @@ pciIoAccessDisable(void* arg)
     ErrorF("pciIoAccessDisable: 0x%05lx\n", *(PCITAG *)arg);
 #endif
     pArg->ctrl &= ~SETBITS;
-    (*pArg->func)(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
+    pciWriteLong(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
 }
 
 #undef SETBITS
@@ -589,7 +632,7 @@ pciIo_MemAccessEnable(void* arg)
     ErrorF("pciIo_MemAccessEnable: 0x%05lx\n", *(PCITAG *)arg);
 #endif
     pArg->ctrl |= SETBITS | PCI_CMD_MASTER_ENABLE;
-    (*pArg->func)(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
+    pciWriteLong(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
 }
 
 static void
@@ -599,7 +642,7 @@ pciIo_MemAccessDisable(void* arg)
     ErrorF("pciIo_MemAccessDisable: 0x%05lx\n", *(PCITAG *)arg);
 #endif
     pArg->ctrl &= ~SETBITS;
-    (*pArg->func)(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
+    pciWriteLong(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
 }
 
 #undef SETBITS
@@ -611,7 +654,7 @@ pciMemAccessEnable(void* arg)
     ErrorF("pciMemAccessEnable: 0x%05lx\n", *(PCITAG *)arg);
 #endif
     pArg->ctrl |= SETBITS | PCI_CMD_MASTER_ENABLE;
-    (*pArg->func)(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
+    pciWriteLong(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
 }
 
 static void
@@ -621,38 +664,48 @@ pciMemAccessDisable(void* arg)
     ErrorF("pciMemAccessDisable: 0x%05lx\n", *(PCITAG *)arg);
 #endif
     pArg->ctrl &= ~SETBITS;
-    (*pArg->func)(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
+    pciWriteLong(pArg->tag, PCI_CMD_STAT_REG, pArg->ctrl);
 }
 #undef SETBITS
 #undef pArg
 
 
 /* move to OS layer */
-#define PCI_PCI_BRDG_CTRL_BASE (PCI_PCI_BRIDGE_CONTROL_REG & 0xFC)
-#define SHIFT_BITS ((PCI_PCI_BRIDGE_CONTROL_REG & 0x3) << 3)
-#define SETBITS (CARD32)((PCI_PCI_BRIDGE_VGA_EN) << SHIFT_BITS)
+#define MASKBITS (PCI_PCI_BRIDGE_VGA_EN | PCI_PCI_BRIDGE_MASTER_ABORT_EN)
 static void
 pciBusAccessEnable(BusAccPtr ptr)
 {
+    PCITAG tag = ptr->busdep.pci.acc;
+    CARD16 ctrl;
+
 #ifdef DEBUG
     ErrorF("pciBusAccessEnable: bus=%d\n", ptr->busdep.pci.bus);
 #endif
-    (*ptr->busdep.pci.func)(ptr->busdep.pci.acc, PCI_PCI_BRDG_CTRL_BASE,
-			    SETBITS, SETBITS);
+    ctrl = pciReadWord(tag, PCI_PCI_BRIDGE_CONTROL_REG);
+    if ((ctrl & MASKBITS) != PCI_PCI_BRIDGE_VGA_EN) {
+	ctrl = (ctrl | PCI_PCI_BRIDGE_VGA_EN) &
+	    ~(PCI_PCI_BRIDGE_MASTER_ABORT_EN | PCI_PCI_BRIDGE_SECONDARY_RESET);
+	pciWriteWord(tag, PCI_PCI_BRIDGE_CONTROL_REG, ctrl);
+    }
 }
 
 /* move to OS layer */
 static void
 pciBusAccessDisable(BusAccPtr ptr)
 {
+    PCITAG tag = ptr->busdep.pci.acc;
+    CARD16 ctrl;
+
 #ifdef DEBUG
     ErrorF("pciBusAccessDisable: bus=%d\n", ptr->busdep.pci.bus);
 #endif
-    (*ptr->busdep.pci.func)(ptr->busdep.pci.acc, PCI_PCI_BRDG_CTRL_BASE,
-			    SETBITS, 0);
+    ctrl = pciReadWord(tag, PCI_PCI_BRIDGE_CONTROL_REG);
+    if (ctrl & MASKBITS) {
+	ctrl &= ~(MASKBITS | PCI_PCI_BRIDGE_SECONDARY_RESET);
+	pciWriteWord(tag, PCI_PCI_BRIDGE_CONTROL_REG, ctrl);
+    }
 }
-#undef SETBITS
-#undef SHIFT_BITS
+#undef MASKBITS
 
 /* move to OS layer */
 static void
@@ -740,22 +793,34 @@ restorePciState(PCITAG tag, pciSavePtr ptr)
 static void
 savePciBusState(BusAccPtr ptr)
 {
+    PCITAG tag = ptr->busdep.pci.acc;
+
     ptr->busdep.pci.save.control =
-	pciReadWord(ptr->busdep.pci.acc, PCI_PCI_BRIDGE_CONTROL_REG);
+	pciReadWord(tag, PCI_PCI_BRIDGE_CONTROL_REG) &
+	~PCI_PCI_BRIDGE_SECONDARY_RESET;
     /* Allow master aborts to complete normally on non-root buses */
     if (ptr->busdep.pci.save.control & PCI_PCI_BRIDGE_MASTER_ABORT_EN)
-	pciWriteWord(ptr->busdep.pci.acc, PCI_PCI_BRIDGE_CONTROL_REG,
-	    ptr->busdep.pci.save.control
-		     & ~PCI_PCI_BRIDGE_MASTER_ABORT_EN);
+	pciWriteWord(tag, PCI_PCI_BRIDGE_CONTROL_REG,
+	    ptr->busdep.pci.save.control & ~PCI_PCI_BRIDGE_MASTER_ABORT_EN);
 }
 
 /* move to OS layer */
+#define MASKBITS (PCI_PCI_BRIDGE_VGA_EN | PCI_PCI_BRIDGE_MASTER_ABORT_EN)
 static void
 restorePciBusState(BusAccPtr ptr)
 {
-    pciWriteWord(ptr->busdep.pci.acc, PCI_PCI_BRIDGE_CONTROL_REG,
-		 ptr->busdep.pci.save.control);
+    PCITAG tag = ptr->busdep.pci.acc;
+    CARD16 ctrl;
+
+    /* Only restore the bits we've changed (and don't cause resets) */
+    ctrl = pciReadWord(tag, PCI_PCI_BRIDGE_CONTROL_REG);
+    if ((ctrl ^ ptr->busdep.pci.save.control) & MASKBITS) {
+	ctrl &= ~(MASKBITS | PCI_PCI_BRIDGE_SECONDARY_RESET);
+	ctrl |= ptr->busdep.pci.save.control & MASKBITS;
+	pciWriteWord(tag, PCI_PCI_BRIDGE_CONTROL_REG, ctrl);
+    }
 }
+#undef MASKBITS
 
 /* move to OS layer */
 static void
@@ -827,12 +892,17 @@ correctPciSize(memType base, memType oldsize, memType newsize,
 #if defined(LONG64) || defined(WORD64)
 		      ||
 		      (B2M(pcrp->tag,PCIGETMEMORY64(basep[i])) == base)
+#else
+		      ||
+		      (!basep[i+1]
+		       && (B2M(pcrp->tag,PCIGETMEMORY(basep[i])) == base))
 #endif 
 		     ))) {
 		    pcrp->basesize[i] = new_bits;
 		    break;	/* to next device */
 		}
 	    }
+	    if (PCI_MAP_IS64BITMEM(basep[i])) i++;
 	}
     }
 
@@ -882,7 +952,7 @@ removeOverlapsWithBridges(int busIndex, resPtr target)
 		       target->block_end - target->block_begin,
 		       target->res_type);
 	xf86MsgVerb(X_INFO, 3,
-	    "PCI %s resource overlap reduced 0x%08x from 0x%08x to 0x%08x\n",
+	    "PCI %s resource overlap reduced 0x%08lx from 0x%08lx to 0x%08lx\n",
 	    ((target->res_type & ResPhysMask) == ResMem) ?  "Memory" : "I/O",
 	    range.rBegin, range.rEnd, target->block_end);
     }
@@ -987,28 +1057,38 @@ xf86GetPciRes(resPtr *activeRes, resPtr *inactiveRes)
 	    (subclass == PCI_SUBCLASS_BRIDGE_HOST))
 	    resMisc |= ResOverlap;
 	
-	if ((pcrp->pci_command & (PCI_CMD_IO_ENABLE | PCI_CMD_MEM_ENABLE)))
-	    res = activeRes;
-	else
-	    res = inactiveRes;
-	
 	basep = &pcrp->pci_base0;
 	for (i = 0; i < 6; i++) {
 	    if (basep[i]) {
-	        if (PCI_MAP_IS_IO(basep[i]))
-		    P_I_RANGE(range,pcrp->tag,PCIGETIO(basep[i]),
+	        if (PCI_MAP_IS_IO(basep[i])) {
+		    if (pcrp->pci_command & PCI_CMD_IO_ENABLE)
+			res = activeRes;
+		    else
+			res = inactiveRes;
+		    P_I_RANGE(range, pcrp->tag, PCIGETIO(basep[i]),
 			      pcrp->basesize[i], ResExcIoBlock | resMisc)
-		else if (!PCI_MAP_IS64BITMEM(basep[i])) 
-		    P_M_RANGE(range,pcrp->tag,PCIGETMEMORY(basep[i]),
-			   pcrp->basesize[i], ResExcMemBlock | resMisc)
-		else {
+		} else if (!PCI_MAP_IS64BITMEM(basep[i])) {
+		    if (pcrp->pci_command & PCI_CMD_MEM_ENABLE)
+			res = activeRes;
+		    else
+			res = inactiveRes;
+		    P_M_RANGE(range, pcrp->tag, PCIGETMEMORY(basep[i]),
+			      pcrp->basesize[i], ResExcMemBlock | resMisc)
+		} else {
 		    i++;
 #if defined(LONG64) || defined(WORD64)
-		    P_M_RANGE(range,pcrp->tag,PCIGETMEMORY64(basep[i-1]),
-			  pcrp->basesize[i-1], ResExcMemBlock | resMisc)
+		    P_M_RANGE(range,pcrp->tag,PCIGETMEMORY64(basep[i - 1]),
+			      pcrp->basesize[i - 1], ResExcMemBlock | resMisc)
 #else
+		    if (basep[i])
 		      continue;
+		    P_M_RANGE(range, pcrp->tag, PCIGETMEMORY(basep[i - 1]),
+			      pcrp->basesize[i - 1], ResExcMemBlock | resMisc)
 #endif
+		    if (pcrp->pci_command & PCI_CMD_MEM_ENABLE)
+			res = activeRes;
+		    else
+			res = inactiveRes;
 		}
 		if (range.rBegin) { /* catch cases where PCI base is unset */
 		    tmp = xf86AddResToList(NULL, &range, -1);
@@ -1017,15 +1097,16 @@ xf86GetPciRes(resPtr *activeRes, resPtr *inactiveRes)
 		}
 	    }
 	}
+
         /* Ignore disabled non-video ROMs */
-	if ((res == activeRes) &&
+	if ((pcrp->pci_command & PCI_CMD_MEM_ENABLE) &&
 	    (pcrp->pci_baserom & PCI_MAP_ROM_DECODE_ENABLE)) {
 	    P_M_RANGE(range,pcrp->tag,PCIGETROM(pcrp->pci_baserom),
 		  pcrp->basesize[6], ResExcMemBlock | resMisc);
 	    if (range.rBegin) {
 		tmp = xf86AddResToList(NULL, &range, -1);
-		removeOverlapsWithBridges(pcrp->busnum,tmp);
-		*res = xf86JoinResLists(tmp,*res);
+		removeOverlapsWithBridges(pcrp->busnum, tmp);
+		*activeRes = xf86JoinResLists(tmp, *activeRes);
 	    }
 	}
     }
@@ -1062,8 +1143,8 @@ xf86GetPciRes(resPtr *activeRes, resPtr *inactiveRes)
 				   pRes->block_end - pRes->block_begin,
 				   pRes->res_type);
 		    xf86MsgVerb(X_INFO, 3,
-				"PCI %s resource overlap reduced 0x%08x"
-				" from 0x%08x to 0x%08x\n",
+				"PCI %s resource overlap reduced 0x%08lx"
+				" from 0x%08lx to 0x%08lx\n",
 				((pRes->res_type & ResPhysMask) == ResMem) ?
 				 "Memory" : "I/O",
 				range.rBegin, range.rEnd, pRes->block_end);
@@ -1091,8 +1172,8 @@ xf86GetPciRes(resPtr *activeRes, resPtr *inactiveRes)
 				   pRes->block_end - pRes->block_begin,
 				   pRes->res_type);
 		    xf86MsgVerb(X_INFO, 3,
-				"PCI %s resource overlap reduced 0x%08x"
-				" from 0x%08x to 0x%08x\n",
+				"PCI %s resource overlap reduced 0x%08lx"
+				" from 0x%08lx to 0x%08lx\n",
 				((pRes->res_type & ResPhysMask) == ResMem) ?
 				 "Memory" : "I/O",
 				range.rBegin, range.rEnd, pRes->block_end);
@@ -1759,8 +1840,8 @@ xf86GetPciBridgeInfo(void)
 		    break;
 		}
 
-		if (pBusInfo && pBusInfo->funcs->pciGetBridgeBusses)
-		    (*pBusInfo->funcs->pciGetBridgeBusses)(secondary,
+		if (pBusInfo && pBusInfo->funcs->pciGetBridgeBuses)
+		    (*pBusInfo->funcs->pciGetBridgeBuses)(secondary,
 							   &primary,
 							   &secondary,
 							   &subordinate);
@@ -1898,8 +1979,8 @@ xf86GetPciBridgeInfo(void)
 		    break;
 		}
 
-		if (pBusInfo && pBusInfo->funcs->pciGetBridgeBusses)
-		    (*pBusInfo->funcs->pciGetBridgeBusses)(secondary,
+		if (pBusInfo && pBusInfo->funcs->pciGetBridgeBuses)
+		    (*pBusInfo->funcs->pciGetBridgeBuses)(secondary,
 							   &primary,
 							   &secondary,
 							   &subordinate);
@@ -2086,8 +2167,8 @@ xf86GetPciBridgeInfo(void)
 
 		if (pBusInfo) {
 		    PciBus->primary = PciBus->secondary = secondary;
-		    if (pBusInfo->funcs->pciGetBridgeBusses)
-			(*pBusInfo->funcs->pciGetBridgeBusses)
+		    if (pBusInfo->funcs->pciGetBridgeBuses)
+			(*pBusInfo->funcs->pciGetBridgeBuses)
 			    (secondary,
 			     &PciBus->primary,
 			     &PciBus->secondary,
@@ -2164,8 +2245,7 @@ xf86GetPciBridgeInfo(void)
 		}
 		*pnPciBus = PciBus = xnfcalloc(1, sizeof(PciBusRec));
 		pnPciBus = &PciBus->next;
-		PciBus->primary = -1;
-		PciBus->secondary = i;
+		PciBus->primary = PciBus->secondary = i;
 		PciBus->subclass = PCI_SUBCLASS_BRIDGE_HOST;
 		PciBus->brcontrol = PCI_PCI_BRIDGE_VGA_EN;
 		PciBus->preferred_io =
@@ -2275,7 +2355,6 @@ ValidatePci(void)
     pciConfigPtr pcrp, *pcrpp;
     CARD32 *basep;
     resPtr Sys;
-    resPtr Fix;
     resRange range;
     int n = 0, m, i;
 
@@ -2286,6 +2365,7 @@ ValidatePci(void)
      * the ones which have been assigned to a screen.
      */
     Sys = xf86DupResList(osRes);
+    /* Only validate graphics devices in use */
     for (i=0; i<xf86NumScreens; i++) {
 	for (m = 0; m < xf86Screens[i]->numEntities; m++)
 	    if ((pvp = xf86GetPciInfoForEntity(xf86Screens[i]->entityList[m])))
@@ -2328,6 +2408,7 @@ ValidatePci(void)
     }
     for (pcrpp = xf86PciInfo, pcrp = *pcrpp; pcrp; pcrp = *++(pcrpp)) {
 
+	/* These were handled above */
 	if (PCIINFOCLASSES(pcrp->pci_base_class, pcrp->pci_sub_class))
 	    continue;
 	
@@ -2350,13 +2431,16 @@ ValidatePci(void)
 			      pcrp->basesize[i], ResExcMemBlock)
 		} else {
 		    i++;
-#if defined(LONG64) || defined(WORD64)
 		    if (!(pcrp->pci_command & PCI_CMD_MEM_ENABLE))
 			continue;
+#if defined(LONG64) || defined(WORD64)
 		    P_M_RANGE(range, pcrp->tag, PCIGETMEMORY64(basep[i-1]),
 			      pcrp->basesize[i-1], ResExcMemBlock)
 #else
-		    continue;
+		    if (basep[i])
+		        continue;
+		    P_M_RANGE(range, pcrp->tag, PCIGETMEMORY(basep[i-1]),
+			      pcrp->basesize[i-1], ResExcMemBlock)
 #endif
 		} 
 		Sys = xf86AddResToList(Sys, &range, -1);
@@ -2458,7 +2542,6 @@ ValidatePci(void)
 	xf86MsgVerb(X_INFO, 3,"MEM/IO:\n");
 	xf86PrintResList(3,res_m_io);
 #endif
-	Fix = NULL;
 	for (i = 0; i < 6; i++) {
 	    int j;
 	    resPtr own = NULL;
@@ -2596,8 +2679,6 @@ initPciState(void)
  	    pcaccp->devnum = pvp->device; 
  	    pcaccp->funcnum = pvp->func;
  	    pcaccp->arg.tag = pciTag(pvp->bus, pvp->device, pvp->func);
- 	    pcaccp->arg.func =
-	        (WriteProcPtr)pciLongFunc(pcaccp->arg.tag,WRITE);
   	    pcaccp->ioAccess.AccessDisable = pciIoAccessDisable;
   	    pcaccp->ioAccess.AccessEnable = pciIoAccessEnable;
   	    pcaccp->ioAccess.arg = &pcaccp->arg;
@@ -2674,8 +2755,6 @@ initPciBusState(void)
 	    pbap->enable_f = pciBusAccessEnable;
 	    pbap->disable_f = pciBusAccessDisable;
 	    pbap->busdep.pci.acc = pciTag(pbp->brbus,pbp->brdev,pbp->brfunc);
-	    pbap->busdep.pci.func =
-		(SetBitsProcPtr)pciLongFunc(pbap->busdep.pci.acc,SET_BITS);
 	    savePciBusState(pbap);
 	    break;
 	case PCI_SUBCLASS_BRIDGE_ISA:

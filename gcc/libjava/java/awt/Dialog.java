@@ -39,17 +39,14 @@ exception statement from your version. */
 package java.awt;
 
 import java.awt.peer.DialogPeer;
-import java.awt.peer.WindowPeer;
-import java.awt.peer.ContainerPeer;
-import java.awt.peer.ComponentPeer;
 
 /**
-  * A dialog box widget class.
-  *
-  * @author Aaron M. Renn (arenn@urbanophile.com)
-  * @author Tom Tromey <tromey@redhat.com>
-  */
-public class Dialog extends Window implements java.io.Serializable
+ * A dialog box widget class.
+ *
+ * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Tom Tromey <tromey@redhat.com>
+ */
+public class Dialog extends Window
 {
 
 /*
@@ -73,13 +70,29 @@ private boolean modal;
 /**
   * @serial Indicates whether or not this dialog box is resizable.
   */
-private boolean resizable;
+private boolean resizable = true;
 
 /**
   * @serial The title string for this dialog box, which can be
   * <code>null</code>.
   */
 private String title;
+
+/**
+  * This field indicates whether the dialog is undecorated or not.
+  */
+private boolean undecorated = false;
+
+/**
+  * Indicates that we are blocked for modality in show
+  */
+private boolean blocked = false;
+
+/**
+  * Secondary EventQueue to handle AWT events while
+  * we are blocked for modality in show
+  */
+private EventQueue eq2 = null;
 
 /*************************************************************************/
 
@@ -89,9 +102,13 @@ private String title;
 
 /**
   * Initializes a new instance of <code>Dialog</code> with the specified
-  * parent, that is not resizable and not modal, and which has no title.
+  * parent, that is resizable and not modal, and which has no title.
   *
   * @param parent The parent frame of this dialog box.
+  *
+  * @exception IllegalArgumentException If the owner's GraphicsConfiguration
+  * is not from a screen device, or if owner is null. This exception is always
+  * thrown when GraphicsEnvironment.isHeadless() returns true.
   */
 public
 Dialog(Frame parent)
@@ -103,11 +120,15 @@ Dialog(Frame parent)
 
 /**
   * Initializes a new instance of <code>Dialog</code> with the specified
-  * parent and modality, that is not resizable and which has no title.
+  * parent and modality, that is resizable and which has no title.
   *
   * @param parent The parent frame of this dialog box.
-  * @param modal <true> if this dialog box is modal, <code>false</code>
-  * otherwise.
+  * @param modal <code>true</code> if this dialog box is modal,
+  * <code>false</code> otherwise.
+  *
+  * @exception IllegalArgumentException If the owner's GraphicsConfiguration
+  * is not from a screen device, or if owner is null. This exception is always
+  * thrown when GraphicsEnvironment.isHeadless() returns true.
   */
 public
 Dialog(Frame parent, boolean modal)
@@ -119,11 +140,15 @@ Dialog(Frame parent, boolean modal)
 
 /**
   * Initializes a new instance of <code>Dialog</code> with the specified
-  * parent, that is not resizable and not modal, and which has the specified
+  * parent, that is resizable and not modal, and which has the specified
   * title.
   *
   * @param parent The parent frame of this dialog box.
   * @param title The title string for this dialog box.
+  *
+  * @exception IllegalArgumentException If the owner's GraphicsConfiguration
+  * is not from a screen device, or if owner is null. This exception is always
+  * thrown when GraphicsEnvironment.isHeadless() returns true.
   */
 public
 Dialog(Frame parent, String title)
@@ -135,43 +160,118 @@ Dialog(Frame parent, String title)
 
 /**
   * Initializes a new instance of <code>Dialog</code> with the specified,
-  * parent, title, and modality, that is not resizable.
+  * parent, title, and modality, that is resizable.
   *
   * @param parent The parent frame of this dialog box.
   * @param title The title string for this dialog box.
-  * @param modal <true> if this dialog box is modal, <code>false</code>
-  * otherwise.
+  * @param modal <code>true</code> if this dialog box is modal,
+  * <code>false</code> otherwise.
+  *
+  * @exception IllegalArgumentException If owner is null or
+  * GraphicsEnvironment.isHeadless() returns true.
   */
 public
 Dialog(Frame parent, String title, boolean modal)
 {
-  super(parent);
+  this (parent, title, modal, parent.getGraphicsConfiguration ());
+}
 
-  this.title = title;
+/**
+ * Initializes a new instance of <code>Dialog</code> with the specified,
+ * parent, title, modality and <code>GraphicsConfiguration</code>,
+ * that is resizable.
+ *
+ * @param parent The parent frame of this dialog box.
+ * @param title The title string for this dialog box.
+ * @param modal <code>true</code> if this dialog box is modal,
+ * <code>false</code> otherwise.
+ * @param gc The <code>GraphicsConfiguration</code> object to use.
+ *
+ * @exception IllegalArgumentException If owner is null, the
+ * GraphicsConfiguration is not a screen device or
+ * GraphicsEnvironment.isHeadless() returns true.
+ *
+ * @since 1.4
+ */
+public
+Dialog (Frame parent, String title, boolean modal, GraphicsConfiguration gc)
+{
+  super (parent, gc);
+
+  // A null title is equivalent to an empty title  
+  this.title = (title != null) ? title : "";
   this.modal = modal;
-  resizable = false;
+  visible = false;
 
   setLayout(new BorderLayout());
 }
 
+/**
+ * Initializes a new instance of <code>Dialog</code> with the specified,
+ * parent, that is resizable.
+ *
+ * @exception IllegalArgumentException If parent is null. This exception is
+ * always thrown when GraphicsEnvironment.isHeadless() returns true.
+ *
+ * @since 1.2
+ */
 public
 Dialog (Dialog owner)
 {
-  this (owner, "", false);
+  this (owner, "", false, owner.getGraphicsConfiguration ());
 }
 
+/**
+ * Initializes a new instance of <code>Dialog</code> with the specified,
+ * parent and title, that is resizable.
+ *
+ * @exception IllegalArgumentException If parent is null. This exception is
+ * always thrown when GraphicsEnvironment.isHeadless() returns true.
+ *
+ * @since 1.2
+ */
 public
 Dialog (Dialog owner, String title)
 {
-  this (owner, title, false);
+  this (owner, title, false, owner.getGraphicsConfiguration ());
 }
 
+/**
+ * Initializes a new instance of <code>Dialog</code> with the specified,
+ * parent, title and modality, that is resizable.
+ *
+ * @exception IllegalArgumentException If parent is null. This exception is
+ * always thrown when GraphicsEnvironment.isHeadless() returns true.
+ *
+ * @since 1.2
+ */
 public
 Dialog (Dialog owner, String title, boolean modal)
 {
-  super (owner);
+  this (owner, title, modal, owner.getGraphicsConfiguration ());
+}
+
+/**
+ * Initializes a new instance of <code>Dialog</code> with the specified,
+ * parent, title, modality and <code>GraphicsConfiguration</code>,
+ * that is resizable.
+ *
+ * @exception IllegalArgumentException If parent is null, the
+ * GraphicsConfiguration is not a screen device or
+ * GraphicsEnvironment.isHeadless() returns true.
+ *
+ * @since 1.4
+ */
+public
+Dialog (Dialog parent, String title, boolean modal, GraphicsConfiguration gc)
+{
+  super (parent, parent.getGraphicsConfiguration ());
+
+  // A null title is equivalent to an empty title  
+  this.title = (title != null) ? title : "";
   this.modal = modal;
-  this.title = title;
+  visible = false;
+
   setLayout (new BorderLayout ());
 }
 
@@ -202,7 +302,9 @@ getTitle()
 public synchronized void
 setTitle(String title)
 {
-  this.title = title;
+  // A null title is equivalent to an empty title  
+  this.title = (title != null) ? title : "";
+
   if (peer != null)
     {
       DialogPeer d = (DialogPeer) peer;
@@ -289,11 +391,85 @@ addNotify()
 
 /**
   * Makes this dialog visible and brings it to the front.
+  * If the dialog is modal and is not already visible, this call will not
+  *  return until the dialog is hidden by someone calling hide or dispose.
+  * If this is the event dispatching thread we must ensure that another event
+  *  thread runs while the one which invoked this method is blocked. 
   */
-public void
+public synchronized void
 show()
 {
   super.show();
+  
+  if (isModal())
+    {
+      // If already shown (and blocked) just return
+      if (blocked)
+	return;
+
+      /* If show is called in the dispatch thread for a modal dialog it will
+         block so we must run another thread so the events keep being
+	 dispatched.*/
+      if (EventQueue.isDispatchThread ())
+        {
+	  EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue();
+          eq2 = new EventQueue ();
+	  eq.push (eq2);
+	}
+      
+      try 
+        {
+	  blocked = true;
+	  wait ();
+	  blocked = false;
+        } 
+      catch (InterruptedException e)
+        {
+	  blocked = false;
+        }
+	
+      if (eq2 != null)
+        {
+	  eq2.pop ();
+	  eq2 = null;
+	}
+    }  
+}
+
+/*************************************************************************/
+
+/**
+  * Hides the Dialog and then
+  * causes show() to return if it is currently blocked.
+  */
+
+public synchronized void 
+hide ()
+{
+  if (blocked)
+    {
+      notifyAll ();
+    }
+
+  super.hide();
+}
+
+/*************************************************************************/
+
+/**
+  * Disposes the Dialog and then causes show() to return
+  * if it is currently blocked.
+  */
+
+public synchronized void 
+dispose ()
+{
+  if (blocked)
+    {
+      notifyAll ();
+    }
+
+  super.dispose();
 }
 
 /*************************************************************************/
@@ -310,5 +486,30 @@ paramString()
 	  ",resizable=" + resizable + "," + super.paramString());
 }
 
+  /**
+   * Returns whether this frame is undecorated or not.
+   * 
+   * @since 1.4
+   */
+  public boolean isUndecorated ()
+  {
+    return undecorated;
+  }
+
+  /**
+   * Disables or enables decorations for this frame. This method can only be
+   * called while the frame is not displayable.
+   * 
+   * @exception IllegalComponentStateException If this frame is displayable.
+   * 
+   * @since 1.4
+   */
+  public void setUndecorated (boolean undecorated)
+  {
+    if (isDisplayable ())
+      throw new IllegalComponentStateException ();
+
+    this.undecorated = undecorated;
+  }
 } // class Dialog
 

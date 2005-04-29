@@ -4,7 +4,7 @@
 
 /*
 **********************************************************************
-*   Copyright (c) 2002, International Business Machines
+*   Copyright (c) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -38,21 +38,24 @@ public:
     ~RBBITableBuilder();
 
     void     build();
-    int32_t  getTableSize();            // Return the runtime size in bytes of
+    int32_t  getTableSize() const;      // Return the runtime size in bytes of
                                         //     the built state table
     void     exportTable(void *where);  // fill in the runtime state table.
                                         //     Sufficient memory must exist at
                                         //     the specified location.
+
 
 private:
     void     calcNullable(RBBINode *n);
     void     calcFirstPos(RBBINode *n);
     void     calcLastPos(RBBINode  *n);
     void     calcFollowPos(RBBINode *n);
+    void     calcChainedFollowPos(RBBINode *n);
     void     buildStateTable();
     void     flagAcceptingStates();
     void     flagLookAheadStates();
     void     flagTaggedStates();
+    void     mergeRuleStatusVals();
 
     // Set functions for UVector.
     //   TODO:  make a USet subclass of UVector
@@ -60,10 +63,20 @@ private:
     void     setAdd(UVector *dest, UVector *source);
     UBool    setEquals(UVector *a, UVector *b);
 
-    void     printSet(UVector *s);
-    void     printPosSets(RBBINode *n = NULL);
-    void     printStates();
+    void     sortedAdd(UVector **dest, int32_t val);
 
+public:
+#ifdef RBBI_DEBUG
+    void     printSet(UVector *s);
+    void     printPosSets(RBBINode *n /* = NULL*/);
+    void     printStates();
+    void     printRuleStatusTable();
+#else
+    #define  printSet(s)
+    #define  printPosSets(n)
+    #define  printStates()
+    #define  printRuleStatusTable()
+#endif
 
 private:
     RBBIRuleBuilder  *fRB;
@@ -74,6 +87,7 @@ private:
     UVector          *fDStates;            //  D states (Aho's terminology)
                                            //  Index is state number
                                            //  Contents are RBBIStateDescriptor pointers.
+
 
     RBBITableBuilder(const RBBITableBuilder &other); // forbid copying of this class
     RBBITableBuilder &operator=(const RBBITableBuilder &other); // forbid copying of this class
@@ -87,7 +101,8 @@ public:
     UBool            fMarked;
     int32_t          fAccepting;
     int32_t          fLookAhead;
-    int32_t          fTagVal;
+    UVector          *fTagVals;
+    int32_t          fTagsIdx;
     UVector          *fPositions;          // Set of parse tree positions associated
                                            //   with this state.  Unordered (it's a set).
                                            //   UVector contents are RBBINode *

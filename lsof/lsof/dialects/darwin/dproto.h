@@ -33,17 +33,30 @@
 
 
 /*
- * $Id: dproto.h,v 1.1 2000/11/27 18:25:08 abe Exp $
+ * $Id: dproto.h,v 1.2 2004/03/10 23:50:16 abe Exp $
  */
-
-
-#if	!defined(N_UNIXV)
-_PROTOTYPE(extern char *get_nlist_path,(int ap));
-#endif	/* !defined(N_UNIXV) */
 
 _PROTOTYPE(extern int is_file_named,(char *p, int cd));
 _PROTOTYPE(extern struct l_vfs *readvfs,(KA_T vm));
 
+#if	defined(HASKQUEUE)
+_PROTOTYPE(extern void process_kqueue,(KA_T ka));
+#endif	/* defined(HASKQUEUE) */
+
+#if	defined(HASPIPEFN)
+_PROTOTYPE(extern void process_pipe,(KA_T pa));
+#endif	/* defined(HASPIPEFN) */
+
+#if	defined(HASPSXSEM)
+_PROTOTYPE(extern void process_psxsem,(KA_T pa));
+#endif	/* defined(HASPSXSEM) */
+
+#if	defined(HASPSXSHM)
+_PROTOTYPE(extern void process_psxshm,(KA_T pa));
+#endif	/* defined(HASPSXSHM) */
+
 #if	defined(HAS9660FS)
 _PROTOTYPE(extern int read_iso_node,(struct vnode *v, dev_t *d, int *dd, unsigned long *ino, long *nl, unsigned long *sz));
 #endif	/* defined(HAS9660FS) */
+
+_PROTOTYPE(extern void process_socket,(KA_T sa));

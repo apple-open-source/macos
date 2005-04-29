@@ -1,5 +1,5 @@
 /*
- * "$Id: printdefy.y,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $"
+ * "$Id: printdefy.y,v 1.1.1.2 2004/05/03 21:30:32 jlovell Exp $"
  *
  *   Parse printer definition pseudo-XML
  *
@@ -35,7 +35,7 @@ char *endstrip(const char *i);
 extern int yylex(void);
 void initialize_the_printer(const char *name, const char *driver);
 void output_the_printer(void);
-int yyerror(const char *s);
+static int yyerror(const char *s);
 
 const char *printfuncs[] =
 {
@@ -179,18 +179,23 @@ density:		tBEGIN DENSITY VALUE ASSIGN tDOUBLE tEND
 ;
 
 Empty:
+;
 
 pstart: printerstart | printerstartalt
 ;
 
 parg: color | nocolor | model | language | brightness | gamma | contrast
 	| cyan | magenta | yellow | saturation | density
+;
 
 pargs: pargs parg | parg
+;
 
 Printer: pstart pargs printerend | pstart printerend
+;
 
 Printers: Printers Printer | Empty
+;
 
 %%
 

@@ -12,8 +12,7 @@ NAME = developer_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = asa ctags error fpr fsplit hexdump indent lorder\
-        mkdep rpcgen unifdef vgrind what 
+TOOLS = asa ctags error hexdump indent lorder mkdep rpcgen unifdef vgrind what 
 
 OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
 

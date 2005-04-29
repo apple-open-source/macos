@@ -160,7 +160,7 @@ public class ArrayList extends AbstractList
   /**
    * Guarantees that this list will have at least enough capacity to
    * hold minCapacity elements. This implementation will grow the list to
-   * max(current * 2, minCapacity) if (minCapacity > current). The JCL says
+   * max(current * 2, minCapacity) if (minCapacity &gt; current). The JCL says
    * explictly that "this method increases its capacity to minCap", while
    * the JDK 1.3 online docs specify that the list will grow to at least the
    * size specified.
@@ -558,7 +558,9 @@ public class ArrayList extends AbstractList
     // We serialize unused list entries to preserve capacity.
     int len = data.length;
     s.writeInt(len);
-    for (int i = 0; i < len; i++)
+    // it would be more efficient to just write "size" items,
+    // this need readObject read "size" items too.
+    for (int i = 0; i < size; i++)
       s.writeObject(data[i]);
   }
 
@@ -578,7 +580,7 @@ public class ArrayList extends AbstractList
     s.defaultReadObject();
     int capacity = s.readInt();
     data = new Object[capacity];
-    for (int i = 0; i < capacity; i++)
+    for (int i = 0; i < size; i++)
       data[i] = s.readObject();
   }
 }

@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2000, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -147,6 +146,7 @@ package body Opt is
       Tree_Read_Bool (Ada_83_Config);
       Tree_Read_Bool (All_Errors_Mode);
       Tree_Read_Bool (Assertions_Enabled);
+      Tree_Read_Bool (Enable_Overflow_Checks);
       Tree_Read_Bool (Full_List);
 
       --  Read and check version string
@@ -174,7 +174,7 @@ package body Opt is
       Tree_Read_Bool (No_Run_Time);
       Tree_Read_Data (Operating_Mode'Address,
                       Operating_Mode_Type'Object_Size / Storage_Unit);
-      Tree_Read_Bool (Software_Overflow_Checking);
+      Tree_Read_Bool (Suppress_Checks);
       Tree_Read_Bool (Try_Semantics);
       Tree_Read_Data (Wide_Character_Encoding_Method'Address,
                       WC_Encoding_Method'Object_Size / Storage_Unit);
@@ -200,6 +200,7 @@ package body Opt is
       Tree_Write_Bool (Ada_83_Config);
       Tree_Write_Bool (All_Errors_Mode);
       Tree_Write_Bool (Assertions_Enabled);
+      Tree_Write_Bool (Enable_Overflow_Checks);
       Tree_Write_Bool (Full_List);
       Tree_Write_Int  (Int (Gnat_Version_String'Length));
       Tree_Write_Data (Gnat_Version_String'Address,
@@ -213,7 +214,7 @@ package body Opt is
       Tree_Write_Bool (No_Run_Time);
       Tree_Write_Data (Operating_Mode'Address,
                        Operating_Mode_Type'Object_Size / Storage_Unit);
-      Tree_Write_Bool (Software_Overflow_Checking);
+      Tree_Write_Bool (Suppress_Checks);
       Tree_Write_Bool (Try_Semantics);
       Tree_Write_Data (Wide_Character_Encoding_Method'Address,
                        WC_Encoding_Method'Object_Size / Storage_Unit);

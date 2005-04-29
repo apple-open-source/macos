@@ -39,7 +39,7 @@ AC_DEFUN([AC_ISC_POSIX],
 )
 
 dnl
-dnl $Id: c-attribute.m4,v 1.3 2003/10/08 20:35:24 rjs3 Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 dnl
 
 dnl
@@ -71,7 +71,7 @@ AC_MSG_RESULT($ac_cv___attribute__)
 
 
 dnl
-dnl $Id: c-fpic.m4,v 1.2 2003/10/08 20:35:24 rjs3 Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 dnl
 
 dnl
@@ -108,7 +108,7 @@ AC_MSG_RESULT($ac_cv_fpic)
 
 dnl
 dnl Additional macros for configure.in packaged up for easier theft.
-dnl $Id: cyrus.m4,v 1.4 2003/10/08 20:35:24 rjs3 Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 dnl tjs@andrew.cmu.edu 6-may-1998
 dnl
 
@@ -155,7 +155,7 @@ AC_DEFUN([CMU_GUESS_RUNPATH_SWITCH], [
 dnl bsd_sockets.m4--which socket libraries do we need? 
 dnl Derrick Brashear
 dnl from Zephyr
-dnl $Id: bsd_sockets.m4,v 1.9 2003/10/08 20:35:24 rjs3 Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 
 dnl Hacked on by Rob Earhart to not just toss stuff in LIBS
 dnl It now puts everything required for sockets into LIB_SOCKET
@@ -292,7 +292,7 @@ fi
 AC_MSG_RESULT($ipv6_cv_socklen_t)])
 
 
-dnl $Id: berkdb.m4,v 1.19 2005/01/06 20:24:52 shadow Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 
 AC_DEFUN([CMU_DB_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS
@@ -561,7 +561,7 @@ AC_DEFUN([CYRUS_BERKELEY_DB_CHK],
 	CPPFLAGS=$cmu_save_CPPFLAGS
 ])
 
-dnl $Id: common.m4,v 1.11 2003/10/08 20:35:24 rjs3 Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 
 AC_DEFUN([CMU_TEST_LIBPATH], [
 changequote(<<, >>)
@@ -603,7 +603,7 @@ fi
 ])
 
 dnl afs.m4--AFS libraries, includes, and dependencies
-dnl $Id: afs.m4,v 1.28 2004/04/29 22:00:07 cg2v Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 dnl Chaskiel Grundman
 dnl based on kerberos_v4.m4
 dnl Derrick Brashear
@@ -909,7 +909,7 @@ fi])
 dnl libssl.m4--Ssl libraries and includes
 dnl Derrick Brashear
 dnl from KTH kafs and Arla
-dnl $Id: libssl.m4,v 1.9 2003/10/08 20:35:25 rjs3 Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 
 AC_DEFUN([CMU_LIBSSL_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS
@@ -1062,7 +1062,7 @@ AC_ARG_WITH(libssl-include,
 dnl kerberos_v4.m4--Kerberos 4 libraries and includes
 dnl Derrick Brashear
 dnl from KTH krb and Arla
-dnl $Id: kerberos_v4.m4,v 1.27 2004/02/05 18:28:47 cg2v Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 
 AC_DEFUN([CMU_KRB_SENDAUTH_PROTO], [
 AC_MSG_CHECKING(for krb_sendauth prototype)
@@ -1336,7 +1336,7 @@ AC_ARG_WITH(krb4-include,
 
 dnl sasl2.m4--sasl2 libraries and includes
 dnl Rob Siemborski
-dnl $Id: sasl2.m4,v 1.48 2004/09/13 21:06:34 shadow Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 
 AC_DEFUN([SASL_GSSAPI_CHK],[
  AC_ARG_ENABLE(gssapi, [  --enable-gssapi=<DIR>   enable GSSAPI authentication [yes] ],
@@ -1758,7 +1758,7 @@ AC_DEFUN([SASL2_CRYPT_CHK],[
 ])
 
 dnl libwrap.m4 --- do we have libwrap, the access control library?
-dnl $Id: libwrap.m4,v 1.9 2003/10/22 18:50:02 rjs3 Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 
 AC_DEFUN([CMU_LIBWRAP], [
   AC_REQUIRE([CMU_SOCKETS])
@@ -1788,7 +1788,7 @@ AC_DEFUN([CMU_LIBWRAP], [
 ])
 
 dnl look for the (ucd|net)snmp libraries
-dnl $Id: ucdsnmp.m4,v 1.10 2004/05/24 19:25:41 ken3 Exp $
+dnl $Id: aclocal.m4,v 1.6 2005/03/05 00:36:04 dasenbro Exp $
 
 AC_DEFUN([CMU_UCDSNMP], [
   AC_REQUIRE([CMU_SOCKETS])

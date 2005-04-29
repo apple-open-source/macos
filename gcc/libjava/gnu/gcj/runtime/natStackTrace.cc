@@ -45,6 +45,11 @@ details.  */
 #include <unwind.h>
 
 
+#ifdef INTERPRETER
+extern "C" void *_Unwind_FindEnclosingFunction (void *pc)
+  __attribute__((pure));
+#endif // INTERPRETER
+
 // Fill in this stack trace with MAXLEN elements starting at offset.
 void
 gnu::gcj::runtime::StackTrace::fillInStackTrace (jint maxlen, jint offset)
@@ -58,8 +63,8 @@ gnu::gcj::runtime::StackTrace::fillInStackTrace (jint maxlen, jint offset)
   if (len > 0)
     {
 #ifdef INTERPRETER
-      extern void _Jv_StartOfInterpreter (void);
-      extern void _Jv_EndOfInterpreter (void);
+      extern void *const _Jv_StartOfInterpreter;
+      extern void * _Jv_EndOfInterpreter;
 
       java::lang::Thread *thread = java::lang::Thread::currentThread();
       _Jv_MethodChain *interp_frame
@@ -70,16 +75,44 @@ gnu::gcj::runtime::StackTrace::fillInStackTrace (jint maxlen, jint offset)
       frame = (_Jv_frame_info *) _Jv_Malloc (len * sizeof (_Jv_frame_info));
       for (int n = 0; n < len; n++)
 	{
-	  frame[n].addr = p[n];
+	  void *pc = p[n];
+	  frame[n].addr = pc;
+
 #ifdef INTERPRETER
-	  if (p[n] >= &_Jv_StartOfInterpreter && p[n] <= &_Jv_EndOfInterpreter)
+	  frame[n].interp = 0;
+
+	  // If _Jv_StartOfInterpreter is NULL either we've never
+	  // entered the intepreter or _Unwind_FindEnclosingFunction
+	  // is broken.
+	  if (__builtin_expect (_Jv_StartOfInterpreter != NULL, false))
 	    {
-	      frame[n].interp = (void *) interp_frame->self;
-	      interp_frame = interp_frame->next;
+	      // _Jv_StartOfInterpreter marks the very first
+	      // instruction in the interpreter, but
+	      // _Jv_EndOfInterpreter is an upper bound.  If PC is
+	      // less than _Jv_EndOfInterpreter it might be in the
+	      // interpreter: we call _Unwind_FindEnclosingFunction to
+	      // find out.
+	      if (pc >= _Jv_StartOfInterpreter
+		  && (pc < _Jv_EndOfInterpreter
+		      || _Jv_EndOfInterpreter == NULL))
+		{
+		  if (_Unwind_FindEnclosingFunction (pc) 
+		      == _Jv_StartOfInterpreter)
+		    {
+		      frame[n].interp = (void *) interp_frame->self;
+		      interp_frame = interp_frame->next;
+		    }
+		  else
+		    {
+		      // We've found an address that we know is not within
+		      // the interpreter.  We use that to refine our upper
+		      // bound on where the interpreter ends.
+		      _Jv_EndOfInterpreter = pc;
+		    }
+		}
 	    }
-	  else
-	    frame[n].interp = 0;
 #endif // INTERPRETER
+
 	}
     }
   else
@@ -124,6 +157,16 @@ gnu::gcj::runtime::StackTrace::getCompiledMethodRef (gnu::gcj::RawData *addr)
 }
 
 java::lang::Class *
+gnu::gcj::runtime::StackTrace::getClass (gnu::gcj::RawData *p)
+{
+  gnu::gcj::runtime::MethodRef *ref = getCompiledMethodRef (p);
+  if (ref)
+    return ref->klass;
+  else
+    return NULL;
+}
+
+java::lang::Class *
 gnu::gcj::runtime::StackTrace::classAt (jint n)
 {
   _Jv_frame_info *frame = GET_FRAME (n);
@@ -137,12 +180,7 @@ gnu::gcj::runtime::StackTrace::classAt (jint n)
     }
 #endif // INTERPRETER
   
-  gnu::gcj::runtime::MethodRef *ref 
-    = getCompiledMethodRef ((gnu::gcj::RawData *)frame->addr);
-  if (ref)
-    return ref->klass;
-  else
-    return NULL;
+  return getClass ((gnu::gcj::RawData *)frame->addr);
 }
 
 java::lang::String*
@@ -195,4 +233,9 @@ gnu::gcj::runtime::StackTrace::update(void)
     }
 }
 
-
+void
+gnu::gcj::runtime::StackTrace::finalize(void)
+{
+  if (addrs != NULL)
+    _Jv_Free (addrs);
+}

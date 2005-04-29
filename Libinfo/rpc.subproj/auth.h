@@ -51,7 +51,7 @@
  *
  *	from: @(#)auth.h 1.17 88/02/08 SMI
  *	from: @(#)auth.h	2.3 88/08/07 4.0 RPCSRC
- *	$Id: auth.h,v 1.2 1999/10/14 21:56:52 wsanchez Exp $
+ *	$Id: auth.h,v 1.4 2004/11/25 19:41:19 emoy Exp $
  */
 
 /*
@@ -91,7 +91,7 @@ enum auth_stat {
 	AUTH_FAILED=7			/* some unknown reason */
 };
 
-typedef u_long u_int32;	/* 32-bit unsigned integers */
+typedef unsigned long u_int32;	/* 32-bit unsigned integers */
 
 union des_block {
 	struct {
@@ -111,7 +111,7 @@ __END_DECLS
 struct opaque_auth {
 	enum_t	oa_flavor;		/* flavor of auth */
 	caddr_t	oa_base;		/* address of more auth stuff */
-	u_int	oa_length;		/* not to exceed MAX_AUTH_BYTES */
+	unsigned int	oa_length;		/* not to exceed MAX_AUTH_BYTES */
 };
 
 
@@ -123,11 +123,20 @@ typedef struct {
 	struct	opaque_auth	ah_verf;
 	union	des_block	ah_key;
 	struct auth_ops {
-		void	(*ah_nextverf)();
-		int	(*ah_marshal)();	/* nextverf & serialize */
-		int	(*ah_validate)();	/* validate varifier */
-		int	(*ah_refresh)();	/* refresh credentials */
-		void	(*ah_destroy)();	/* destroy this structure */
+#ifdef __cplusplus
+		void	(*ah_nextverf)(...);
+		int	(*ah_marshal)(...);	/* nextverf & serialize */
+		int	(*ah_validate)(...);	/* validate varifier */
+		int	(*ah_refresh)(...);	/* refresh credentials */
+		void	(*ah_destroy)(...);	/* destroy this structure */
+#else
+	/* DO NOT REMOVE THE COMMENTED OUT ...: fixincludes needs to see them */
+		void	(*ah_nextverf)(/*...*/);
+		int	(*ah_marshal)(/*...*/);	/* nextverf & serialize */
+		int	(*ah_validate)(/*...*/);	/* validate varifier */
+		int	(*ah_refresh)(/*...*/);	/* refresh credentials */
+		void	(*ah_destroy)(/*...*/);	/* destroy this structure */
+#endif
 	} *ah_ops;
 	caddr_t ah_private;
 } AUTH;
@@ -187,7 +196,7 @@ __BEGIN_DECLS
 extern AUTH *authunix_create		__P((char *, int, int, int, int *));
 extern AUTH *authunix_create_default	__P((void));
 extern AUTH *authnone_create		__P((void));
-extern AUTH *authdes_create		__P((char *, u_int,
+extern AUTH *authdes_create		__P((char *, unsigned int,
 					     struct sockaddr_in *,
 					     des_block *));
 __END_DECLS

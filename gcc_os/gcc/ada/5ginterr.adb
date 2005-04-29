@@ -6,9 +6,8 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.1.1.1 $
 --                                                                          --
---              Copyright (C) 1998-1999 Free Software Fundation             --
+--              Copyright (C) 1998-2001 Free Software Fundation             --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,9 +27,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies Inc. in cooperation with Florida --
--- State University (http://www.gnat.com).                                  --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -68,6 +66,9 @@ with System.Tasking.Initialization;
 
 with System.Interrupt_Management;
 
+with System.Parameters;
+--  used for Single_Lock
+
 with Interfaces.C;
 --  used for int
 
@@ -75,6 +76,7 @@ with Unchecked_Conversion;
 
 package body System.Interrupts is
 
+   use Parameters;
    use Tasking;
    use Ada.Exceptions;
    use System.OS_Interface;
@@ -650,11 +652,21 @@ package body System.Interrupts is
          end loop;
 
          Initialization.Defer_Abort (Self_Id);
+
+         if Single_Lock then
+            STPO.Lock_RTS;
+         end if;
+
          STPO.Write_Lock (Self_Id);
          Self_Id.Common.State := Interrupt_Server_Idle_Sleep;
          STPO.Sleep (Self_Id, Interrupt_Server_Idle_Sleep);
          Self_Id.Common.State := Runnable;
          STPO.Unlock (Self_Id);
+
+         if Single_Lock then
+            STPO.Unlock_RTS;
+         end if;
+
          Initialization.Undefer_Abort (Self_Id);
 
          --  Undefer abort here to allow a window for this task

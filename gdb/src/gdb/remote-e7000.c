@@ -1,7 +1,7 @@
-/* Remote debugging interface for Hitachi E7000 ICE, for GDB
+/* Remote debugging interface for Renesas E7000 ICE, for GDB
 
    Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002 Free Software Foundation, Inc.
+   2002, 2003 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support. 
 
@@ -24,8 +24,8 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-/* The E7000 is an in-circuit emulator for the Hitachi H8/300-H and
-   Hitachi-SH processor.  It has serial port and a lan port.  
+/* The E7000 is an in-circuit emulator for the Renesas H8/300-H and
+   Renesas-SH processor.  It has serial port and a lan port.  
 
    The monitor command set makes it difficult to load large ammounts of
    data over the lan without using ftp - so try not to issue load
@@ -657,10 +657,6 @@ e7000_open (char *args, int from_tty)
     }
   serial_raw (e7000_desc);
 
-#ifdef GDB_TARGET_IS_H8300
-  h8300hmode = 1;
-#endif
-
   /* Start the remote connection; if error (0), discard this target.
      In particular, if the user quits, be sure to discard it
      (we'd be in an inconsistent state otherwise).  */
@@ -781,11 +777,11 @@ gbyte (void)
   return (high << 4) + low;
 }
 
-void
+static void
 fetch_regs_from_dump (int (*nextchar) (), char *want)
 {
   int regno;
-  char buf[MAX_REGISTER_RAW_SIZE];
+  char buf[MAX_REGISTER_SIZE];
 
   int thischar = nextchar ();
 
@@ -856,9 +852,9 @@ fetch_regs_from_dump (int (*nextchar) (), char *want)
 	      want++;
 	      break;
 #endif
-#ifdef FP_REGNUM
+#ifdef DEPRECATED_FP_REGNUM
 	    case 'f':
-	      regno = FP_REGNUM;
+	      regno = DEPRECATED_FP_REGNUM;
 	      want++;
 	      break;
 #endif
@@ -882,7 +878,7 @@ fetch_regs_from_dump (int (*nextchar) (), char *want)
 		internal_error (__FILE__, __LINE__, "failed internal consistency check");
 	    }
 	  store_signed_integer (buf,
-				REGISTER_RAW_SIZE (regno),
+				DEPRECATED_REGISTER_RAW_SIZE (regno),
 				(LONGEST) get_hex (&thischar));
 	  supply_register (regno, buf);
 	  break;
@@ -909,15 +905,18 @@ e7000_fetch_registers (void)
 	  wanted = want_sh3;
 	}
     }
-#ifdef GDB_TARGET_IS_H8300
   if (TARGET_ARCHITECTURE->arch == bfd_arch_h8300)
     {
-      if (h8300smode)
-	wanted = want_h8300s;
-      else
-	wanted = want_h8300h;
+      wanted = want_h8300h;
+      switch (TARGET_ARCHITECTURE->mach)
+	{
+	case bfd_mach_h8300s:
+	case bfd_mach_h8300sn:
+	case bfd_mach_h8300sx:
+	case bfd_mach_h8300sxn:
+	  wanted = want_h8300s;
+	}
     }
-#endif
 
   fetch_regs_from_dump (gch, wanted);
 
@@ -1812,7 +1811,7 @@ e7000_drain_command (char *args, int fromtty)
   puts_e7000debug ("end\r");
   putchar_e7000 (CTRLC);
 
-  while ((c = readchar (1) != -1))
+  while ((c = readchar (1)) != -1)
     {
       if (quit_flag)
 	{
@@ -1873,7 +1872,7 @@ why_stop (void)
 /* Suck characters, if a string match, then return the strings index
    otherwise echo them.  */
 
-int
+static int
 expect_n (char **strings)
 {
   char *(ptr[10]);
@@ -1964,7 +1963,7 @@ sub2_from_pc (void)
   char buf2[200];
 
   store_signed_integer (buf,
-			REGISTER_RAW_SIZE (PC_REGNUM),
+			DEPRECATED_REGISTER_RAW_SIZE (PC_REGNUM),
 			read_register (PC_REGNUM) - 2);
   supply_register (PC_REGNUM, buf);
   sprintf (buf2, ".PC %s\r", phex_nz (read_register (PC_REGNUM), 0));
@@ -2046,15 +2045,18 @@ e7000_wait (ptid_t ptid, struct target_waitstatus *status)
 	  wanted_nopc = want_nopc_sh3;
 	}
     }
-#ifdef GDB_TARGET_IS_H8300
   if (TARGET_ARCHITECTURE->arch == bfd_arch_h8300)
     {
-      if (h8300smode)
-	wanted_nopc = want_nopc_h8300s;
-      else
-	wanted_nopc = want_nopc_h8300h;
+      wanted_nopc = want_nopc_h8300h;
+      switch (TARGET_ARCHITECTURE->mach)
+	{
+	case bfd_mach_h8300s:
+	case bfd_mach_h8300sn:
+	case bfd_mach_h8300sx:
+	case bfd_mach_h8300sxn:
+	  wanted_nopc = want_nopc_h8300s;
+	}
     }
-#endif
   fetch_regs_from_dump (gch, wanted_nopc);
 
   /* And supply the extra ones the simulator uses */
@@ -2131,8 +2133,8 @@ static void
 init_e7000_ops (void)
 {
   e7000_ops.to_shortname = "e7000";
-  e7000_ops.to_longname = "Remote Hitachi e7000 target";
-  e7000_ops.to_doc = "Use a remote Hitachi e7000 ICE connected by a serial line;\n\
+  e7000_ops.to_longname = "Remote Renesas e7000 target";
+  e7000_ops.to_doc = "Use a remote Renesas e7000 ICE connected by a serial line;\n\
 or a network connection.\n\
 Arguments are the name of the device for the serial line,\n\
 the speed to connect at in bits per second.\n\
@@ -2164,6 +2166,8 @@ target e7000 foobar";
   e7000_ops.to_has_execution = 1;
   e7000_ops.to_magic = OPS_MAGIC;
 };
+
+extern initialize_file_ftype _initialize_remote_e7000; /* -Wmissing-prototypes */
 
 void
 _initialize_remote_e7000 (void)

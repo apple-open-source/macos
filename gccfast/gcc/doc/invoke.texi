@@ -359,7 +359,8 @@ in the following sections.
 -fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  @gol
 --param @var{name}=@var{value}
--O  -O0  -O1  -O2  -O3  -Os}
+@c APPLE LOCAL -fast
+-O  -O0  -O1  -O2  -O3  -Os -fast (APPLE ONLY)}
 
 @item Preprocessor Options
 @xref{Preprocessor Options,,Options Controlling the Preprocessor}.
@@ -539,6 +540,7 @@ in the following sections.
 -all_load -allowable_client -arch -arch_errors_fatal @gol
 -arch_only -bind_at_load -bundle -bundle_loader @gol
 -client_name -compatibility_version -current_version @gol
+-dead_strip -no_dead_strip_inits_and_terms @gol
 -dependency-file -dylib_file -dylinker_install_name @gol
 -dynamic -dynamiclib -exported_symbols_list @gol
 -filelist -flat_namespace -force_cpusubtype_ALL @gol
@@ -1686,6 +1688,16 @@ functions for use by the C++ runtime type identification features
 of the language, you can save some space by using this flag.  Note that
 exception handling uses the same information, but it will generate it as
 needed.
+
+@c APPLE LOCAL begin jet
+@item -fskip-unused-source
+@opindex fskip-unused-source
+Skip declarations in the input files that aren't actually needed.
+This flag doesn't change the meaning of correct source code, but it
+can suppress diagnostics about incorrect source code and suppress
+output of debugging information for the parts of the input that are
+skipped.
+@c APPLE LOCAL end jet
 
 @item -fstats
 @opindex fstats
@@ -7809,6 +7821,8 @@ output file being linked. See man ld(1) for more information.
 @item -client_name       
 @item -compatibility_version
 @item -current_version    
+@item -dead_strip
+@item -no_dead_strip_inits_and_terms
 @item -dependency-file
 @item -dylib_file    
 @item -dylinker_install_name
@@ -7865,6 +7879,8 @@ output file being linked. See man ld(1) for more information.
 @opindex client_name
 @opindex compatibility_version
 @opindex current_version
+@opindex dead_strip
+@opindex no_dead_strip_inits_and_terms
 @opindex dependency-file
 @opindex dylib_file
 @opindex dylinker_install_name

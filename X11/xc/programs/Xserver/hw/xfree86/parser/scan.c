@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/parser/scan.c,v 1.24 2003/01/04 20:20:23 paulo Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/parser/scan.c,v 1.31 2004/02/13 23:58:50 dawes Exp $ */
 /* 
  * 
  * Copyright (c) 1997  Metro Link Incorporated
@@ -26,6 +26,53 @@
  * in this Software without prior written authorization from Metro Link.
  * 
  */
+/*
+ * Copyright (c) 1997-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 
 /* View/edit this file with tab stops set to 4 */
 
@@ -65,7 +112,8 @@
 static int StringToToken (char *, xf86ConfigSymTabRec *);
 
 static FILE *configFile = NULL;
-static int configStart = 0;		/* start of the current token */
+static const char **builtinConfig = NULL;
+static int builtinIndex = 0;
 static int configPos = 0;		/* current readers position */
 static int configLineNo = 0;	/* linenumber */
 static char *configBuf, *configRBuf;	/* buffer for lines */
@@ -160,12 +208,24 @@ xf86getToken (xf86ConfigSymTabRec * tab)
 again:
 		if (!c)
 		{
-			if (fgets (configBuf, CONFIG_BUF_LEN - 1, configFile) == NULL)
+			char *ret;
+			if (configFile)
+				ret = fgets (configBuf, CONFIG_BUF_LEN - 1, configFile);
+			else {
+				if (builtinConfig[builtinIndex] == NULL)
+					ret = NULL;
+				else {
+					ret = strncpy(configBuf, builtinConfig[builtinIndex],
+							CONFIG_BUF_LEN);
+					builtinIndex++;
+				}
+			}
+			if (ret == NULL)
 			{
 				return (pushToken = EOF_TOKEN);
 			}
 			configLineNo++;
-			configStart = configPos = 0;
+			configPos = 0;
 			eol_seen = 1;
 		}
 
@@ -205,16 +265,13 @@ again:
 		/* GJA -- handle '-' and ','  * Be careful: "-hsync" is a keyword. */
 		else if ((c == ',') && !isalpha (configBuf[configPos]))
 		{
-			configStart = configPos;
 			return COMMA;
 		}
 		else if ((c == '-') && !isalpha (configBuf[configPos]))
 		{
-			configStart = configPos;
 			return DASH;
 		}
 
-		configStart = configPos;
 		/* 
 		 * Numbers are returned immediately ...
 		 */
@@ -359,7 +416,6 @@ xf86tokenString (void)
 	return configRBuf;
 }
 
-#if 1
 int
 xf86pathIsAbsolute(const char *path)
 {
@@ -367,7 +423,7 @@ xf86pathIsAbsolute(const char *path)
 		return 1;
 #ifdef __UNIXOS2__
 	if (path && (path[0] == '\\' || (path[1] == ':')))
-		return 0;
+		return 1;
 #endif
 	return 0;
 }
@@ -649,7 +705,6 @@ xf86openConfigFile(const char *path, const char *cmdline, const char *projroot)
 	int cmdlineUsed = 0;
 
 	configFile = NULL;
-	configStart = 0;		/* start of the current token */
 	configPos = 0;		/* current readers position */
 	configLineNo = 0;	/* linenumber */
 	pushToken = LOCK_TOKEN;
@@ -692,178 +747,6 @@ xf86openConfigFile(const char *path, const char *cmdline, const char *projroot)
 
 	return configPath;
 }
-#else
-/* 
- * xf86openConfigFile --
- *
- * Formerly findConfigFile(). This function take a pointer to a location
- * in which to place the actual name of the file that was opened.
- * This function uses the global character array xf86ConfigFile
- * This function returns the following results.
- *
- *  0   unable to open the config file
- *  1   file opened and ready to read
- *  
- */
-
-int
-xf86openConfigFile (char *filename)
-{
-#define MAXPTRIES   6
-	char *home = NULL;
-	char *xconfig = NULL;
-	char *xwinhome = NULL;
-	char *configPaths[MAXPTRIES];
-	int pcount = 0, idx;
-
-/* 
- * First open if necessary the config file.
- * If the -xf86config flag was used, use the name supplied there (root only).
- * If $XF86CONFIG is a pathname, use it as the name of the config file (root)
- * If $XF86CONFIG is set but doesn't contain a '/', append it to 'XF86Config'
- *   and search the standard places (root only).
- * If $XF86CONFIG is not set, just search the standard places.
- */
-	configFile = NULL;
-	configStart = 0;		/* start of the current token */
-	configPos = 0;		/* current readers position */
-	configLineNo = 0;	/* linenumber */
-	pushToken = LOCK_TOKEN;
-	while (!configFile)
-	{
-
-		/* 
-		 * configPaths[0]   is used as a buffer for -xf86config
-		 *                  and $XF86CONFIG if it contains a path
-		 * configPaths[1...MAXPTRIES-1] is used to store the paths of each of
-		 *                  the other attempts
-		 */
-		for (pcount = idx = 0; idx < MAXPTRIES; idx++)
-			configPaths[idx] = NULL;
-
-		/* 
-		 * First check if the -xf86config option was used.
-		 */
-		configPaths[pcount] = xf86confmalloc (PATH_MAX);
-		if (xf86ConfigFile[0])
-		{
-			strcpy (configPaths[pcount], xf86ConfigFile);
-			if ((configFile = fopen (configPaths[pcount], "r")) != 0)
-				break;
-			else
-				return 0;
-		}
-		/* 
-		 * Check if XF86CONFIG is set.
-		 */
-#ifndef __UNIXOS2__
-		if (getuid () == 0
-			&& (xconfig = getenv ("XF86CONFIG")) != 0
-			&& strchr (xconfig, '/'))
-#else
-		/* no root available, and filenames start with drive letter */
-		if ((xconfig = getenv ("XF86CONFIG")) != 0
-			&& isalpha (xconfig[0])
-			&& xconfig[1] == ':')
-#endif
-		{
-			strcpy (configPaths[pcount], xconfig);
-			if ((configFile = fopen (configPaths[pcount], "r")) != 0)
-				break;
-			else
-				return 0;
-		}
-
-#ifndef __UNIXOS2__
-		/* 
-		 * ~/XF86Config ...
-		 */
-		if (getuid () == 0 && (home = getenv ("HOME")) != NULL)
-		{
-			configPaths[++pcount] = xf86confmalloc (PATH_MAX);
-			strcpy (configPaths[pcount], home);
-			strcat (configPaths[pcount], "/" XCONFIGFILE);
-			if (xconfig)
-				strcat (configPaths[pcount], xconfig);
-			if ((configFile = fopen (configPaths[pcount], "r")) != 0)
-				break;
-		}
-
-		/* 
-		 * /etc/XF86Config
-		 */
-		configPaths[++pcount] = xf86confmalloc (PATH_MAX);
-		strcpy (configPaths[pcount], "/etc/" XCONFIGFILE);
-		if (xconfig)
-			strcat (configPaths[pcount], xconfig);
-		if ((configFile = fopen (configPaths[pcount], "r")) != 0)
-			break;
-
-		/* 
-		 * $(XCONFIGDIR)/XF86Config.<hostname>
-		 */
-
-		configPaths[++pcount] = xf86confmalloc (PATH_MAX);
-		if (getuid () == 0 && (xwinhome = getenv ("XWINHOME")) != NULL)
-			sprintf (configPaths[pcount], "%s/lib/X11/" XCONFIGFILE, xwinhome);
-		else
-			strcpy (configPaths[pcount], XCONFIGDIR "/" XCONFIGFILE);
-		if (getuid () == 0 && xconfig)
-			strcat (configPaths[pcount], xconfig);
-		strcat (configPaths[pcount], ".");
-		gethostname (configPaths[pcount] + strlen (configPaths[pcount]),
-					 MAXHOSTNAMELEN);
-		if ((configFile = fopen (configPaths[pcount], "r")) != 0)
-			break;
-#endif /* !__UNIXOS2__  */
-
-		/* 
-		 * $(XCONFIGDIR)/XF86Config
-		 */
-		configPaths[++pcount] = xf86confmalloc (PATH_MAX);
-#ifndef __UNIXOS2__
-		if (getuid () == 0 && xwinhome)
-			sprintf (configPaths[pcount], "%s/lib/X11/" XCONFIGFILE, xwinhome);
-		else
-			strcpy (configPaths[pcount], XCONFIGDIR "/" XCONFIGFILE);
-		if (getuid () == 0 && xconfig)
-			strcat (configPaths[pcount], xconfig);
-#else
-		/*
-		 * we explicitly forbid numerous config files everywhere for OS/2;
-		 * users should consider them lucky to have one in a standard place
-		 * and another one with the -xf86config option
-		 */
-		xwinhome = getenv ("X11ROOT");	/* get drive letter */
-		if (!xwinhome) {
-			fprintf (stderr,"X11ROOT environment variable not set\n");
-			exit(2);
-		}
-		strcpy (configPaths[pcount], __XOS2RedirRoot ("/XFree86/lib/X11/XConfig"));
-#endif
-
-		if ((configFile = fopen (configPaths[pcount], "r")) != 0)
-			break;
-
-		return 0;
-	}
-	configBuf = xf86confmalloc (CONFIG_BUF_LEN);
-	configRBuf = xf86confmalloc (CONFIG_BUF_LEN);
-	configPath = xf86confmalloc (PATH_MAX);
-
-	strcpy (configPath, configPaths[pcount]);
-
-	if (filename)
-		strcpy (filename, configPaths[pcount]);
-	for (idx = 0; idx <= pcount; idx++)
-		if (configPaths[idx] != NULL)
-			xf86conffree (configPaths[idx]);
-
-	configBuf[0] = '\0';		/* sanity ... */
-
-	return 1;
-}
-#endif
 
 void
 xf86closeConfigFile (void)
@@ -875,8 +758,24 @@ xf86closeConfigFile (void)
 	xf86conffree (configBuf);
 	configBuf = NULL;
 
-	fclose (configFile);
-	configFile = NULL;
+	if (configFile) {
+		fclose (configFile);
+		configFile = NULL;
+	} else {
+		builtinConfig = NULL;
+		builtinIndex = 0;
+	}
+}
+
+void
+xf86setBuiltinConfig(const char *config[])
+{
+	builtinConfig = config;
+	configPath = xf86configStrdup("<builtin configuration>");
+	configBuf = xf86confmalloc (CONFIG_BUF_LEN);
+	configRBuf = xf86confmalloc (CONFIG_BUF_LEN);
+	configBuf[0] = '\0';		/* sanity ... */
+
 }
 
 void
@@ -884,16 +783,6 @@ xf86parseError (char *format,...)
 {
 	va_list ap;
 
-#if 0
-	fprintf (stderr, "Parse error on line %d of section %s in file %s\n",
-			 configLineNo, configSection, configPath);
-	fprintf (stderr, "\t");
-	va_start (ap, format);
-	vfprintf (stderr, format, ap);
-	va_end (ap);
-
-	fprintf (stderr, "\n");
-#else
 	ErrorF ("Parse error on line %d of section %s in file %s\n\t",
 		 configLineNo, configSection, configPath);
 	va_start (ap, format);
@@ -901,8 +790,6 @@ xf86parseError (char *format,...)
 	va_end (ap);
 
 	ErrorF ("\n");
-#endif
-
 }
 
 void
@@ -910,16 +797,6 @@ xf86parseWarning (char *format,...)
 {
 	va_list ap;
 
-#if 0
-	fprintf (stderr, "Parse warning on line %d of section %s in file %s\n",
-			 configLineNo, configSection, configPath);
-	fprintf (stderr, "\t");
-	va_start (ap, format);
-	vfprintf (stderr, format, ap);
-	va_end (ap);
-
-	fprintf (stderr, "\n");
-#else
 	ErrorF ("Parse warning on line %d of section %s in file %s\n\t",
 		 configLineNo, configSection, configPath);
 	va_start (ap, format);
@@ -927,7 +804,6 @@ xf86parseWarning (char *format,...)
 	va_end (ap);
 
 	ErrorF ("\n");
-#endif
 }
 
 void
@@ -935,23 +811,12 @@ xf86validationError (char *format,...)
 {
 	va_list ap;
 
-#if 0
-	fprintf (stderr, "Data incomplete in file %s\n",
-			 configPath);
-	fprintf (stderr, "\t");
-	va_start (ap, format);
-	vfprintf (stderr, format, ap);
-	va_end (ap);
-
-	fprintf (stderr, "\n");
-#else
 	ErrorF ("Data incomplete in file %s\n\t", configPath);
 	va_start (ap, format);
 	VErrorF (format, ap);
 	va_end (ap);
 
 	ErrorF ("\n");
-#endif
 }
 
 void

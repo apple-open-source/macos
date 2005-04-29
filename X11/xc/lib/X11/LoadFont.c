@@ -24,19 +24,14 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/LoadFont.c,v 1.4 2001/12/14 19:54:02 dawes Exp $ */
+/* $XFree86: xc/lib/X11/LoadFont.c,v 1.5 2003/11/17 22:20:07 dawes Exp $ */
 
 #include "Xlibint.h"
 
-#if NeedFunctionPrototypes
-Font XLoadFont (
+Font
+XLoadFont (
     register Display *dpy,
     _Xconst char *name)
-#else
-Font XLoadFont (dpy, name)
-    register Display *dpy;
-    char *name;
-#endif
 {
     register long nbytes;
     Font fid;

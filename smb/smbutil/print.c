@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: print.c,v 1.6 2003/05/14 15:06:01 lindak Exp $
+ * $Id: print.c,v 1.7 2004/03/19 01:49:48 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/errno.h>
@@ -49,129 +49,13 @@
 
 #include "common.h"
 
-#ifndef APPLE
-int
-cmd_print(int argc, char *argv[])
-{
-	struct smb_ctx sctx, *ctx = &sctx;
-	smbfh fh;
-	off_t offset;
-	char buf[8192];
-	char *filename;
-	char fnamebuf[256];
-	int error, opt, i, file, count;
-
-	if (argc < 2)
-		view_usage();
-	error = smb_ctx_init(ctx, argc, argv, SMBL_SHARE, SMBL_SHARE, SMB_ST_PRINTER);
-	if (error)
-		exit(error);
-	error = smb_ctx_readrc(ctx);
-	if (error)
-		exit(error);
-	if (smb_rc)
-		rc_close(smb_rc);
-	while ((opt = getopt(argc, argv, STDPARAM_OPT)) != EOF) {
-		switch(opt){
-		    case STDPARAM_ARGS:
-			error = smb_ctx_opt(ctx, opt, optarg);
-			if (error)
-				exit(error);
-			break;
-		    default:
-			view_usage();
-			/*NOTREACHED*/
-		}
-	}
-	if (optind + 1 >= argc)
-		print_usage();
-	filename = argv[optind + 1];
-
-	if (strcmp(filename, "-") == 0) {
-		file = 0;	/* stdin */
-		filename = "stdin";
-	} else {
-		file = open(filename, O_RDONLY, 0);
-		if (file < 0) {
-			smb_error("could not open file %s\n", errno, filename);
-			exit(1);
-		}
-	}
-
-#ifdef APPLE
-reauth:
-#endif
-	error = smb_ctx_resolve(ctx);
-		exit(error);
-	error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
-#ifdef APPLE
-	if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
-		ctx->ct_ssn.ioc_password[0] = '\0';
-		goto reauth;
-	}
-#endif
-	if (error) {
-		smb_error("could not login to server %s", error, ctx->ct_ssn.ioc_srvname);
-		exit(error);
-	}
-	snprintf(fnamebuf, sizeof(fnamebuf), "%s_%s_%s", ctx->ct_ssn.ioc_user,
-	    ctx->ct_ssn.ioc_srvname, filename);
-	error = smb_smb_open_print_file(ctx, 0, 1, fnamebuf, &fh);
-#ifdef APPLE
-	if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
-		ctx->ct_ssn.ioc_password[0] = '\0';
-		goto reauth;
-	}
-#endif
-	if (error) {
-		smb_error("could not open print job", error);
-		exit(error);
-	}
-#ifdef APPLE
-	smb_save2keychain(ctx);
-#endif
-	offset = 0;
-	error = 0;
-	for(;;) {
-		count = read(file, buf, sizeof(buf));
-		if (count == 0)
-			break;
-		if (count < 0) {
-			error = errno;
-			smb_error("error reading input file\n", error);
-			break;
-		}
-		i = smb_write(ctx, fh, offset, count, buf);
-		if (i < 0) {
-			error = errno;
-			smb_error("error writing spool file\n", error);
-			break;
-		}
-		if (i != count) {
-			smb_error("incomplete write to spool file\n", 0);
-			error = EIO;
-			break;
-		}
-		offset += count;
-	}
-	close(file);
-	error = smb_smb_close_print_file(ctx, fh);
-	if (error)
-		smb_error("an error while closing spool file\n", error);
-	return error ? 1 : 0;
-}
-#endif /* !APPLE */
 
 
 void
 print_usage(void)
 {
 	printf("usage: smbutil print [connection options] //"
-#ifdef APPLE
 		"[workgroup;][user[:password]@]"
-#else
-		"[user@]"
-#endif
 		"server/share\n");
 	exit(1);
 }

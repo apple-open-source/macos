@@ -29,7 +29,7 @@
 /*
  * Author: Thomas E. Dickey <dickey@clark.net> 1998
  *
- * $Id: ditto.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $
+ * $Id: ditto.c,v 1.4 2001/09/15 21:53:37 tom Exp $
  *
  * The program illustrates how to set up multiple screens from a single
  * program.  Invoke the program by specifying another terminal on the same

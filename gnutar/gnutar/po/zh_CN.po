@@ -1,0 +1,1474 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2002 Free Software Foundation, Inc.
+# Wang Li <charles@linux.net.cn>, 2002.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: tar 1.13.25\n"
+"Report-Msgid-Bugs-To: bug-tar@gnu.org\n"
+"POT-Creation-Date: 2004-05-10 14:53+0300\n"
+"PO-Revision-Date: 2002-09-05 14:31+0800\n"
+"Last-Translator: Wang Li <charles@linux.net.cn>\n"
+"Language-Team: Chinese (simplified) <i18n-translation@lists.linux.net.cn>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=gb2312\n"
+"Content-Transfer-Encoding: 8-bit\n"
+
+#: lib/argmatch.c:133
+#, c-format
+msgid "invalid argument %s for %s"
+msgstr "%2$s 的参数 %1$s 无效"
+
+#: lib/argmatch.c:134
+#, c-format
+msgid "ambiguous argument %s for %s"
+msgstr "%2$s 的参数 %1$s 具有二义性"
+
+#: lib/argmatch.c:153
+#, c-format
+msgid "Valid arguments are:"
+msgstr "有效的参数为："
+
+#: lib/error.c:127 src/rmt.c:92
+msgid "Unknown system error"
+msgstr "未知的系统错误"
+
+#: lib/getopt.c:570 lib/getopt.c:589
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s：选项“%s”具有二义性\n"
+
+#: lib/getopt.c:622 lib/getopt.c:626
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s：选项“--%s”不接受参数\n"
+
+#: lib/getopt.c:635 lib/getopt.c:640
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s：选项“%c%s”不接受参数\n"
+
+#: lib/getopt.c:686 lib/getopt.c:708 lib/getopt.c:1039 lib/getopt.c:1061
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s：选项“%s”需要一个参数\n"
+
+#: lib/getopt.c:746 lib/getopt.c:749
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s：无法识别的选项“--%s”\n"
+
+#: lib/getopt.c:757 lib/getopt.c:760
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s：无法识别的选项“%c%s”\n"
+
+#: lib/getopt.c:815 lib/getopt.c:818
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s：非法选项 -- %c\n"
+
+#: lib/getopt.c:824 lib/getopt.c:827
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s：无效选项 -- %c\n"
+
+#: lib/getopt.c:882 lib/getopt.c:901 lib/getopt.c:1114 lib/getopt.c:1135
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s：选项需要一个参数 -- %c\n"
+
+#: lib/getopt.c:954 lib/getopt.c:973
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s：选项“-W %s”具有二义性\n"
+
+#: lib/getopt.c:997 lib/getopt.c:1018
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s：选项“-W %s”不接受参数\n"
+
+#: lib/human.c:483
+msgid "block size"
+msgstr "块大小"
+
+#: lib/quotearg.c:238
+msgid "`"
+msgstr "“"
+
+#: lib/quotearg.c:239
+msgid "'"
+msgstr "”"
+
+#: lib/xmalloc.c:53
+msgid "memory exhausted"
+msgstr "内存耗尽"
+
+#: src/buffer.c:139
+#, fuzzy, c-format
+msgid "Total bytes written: %s (%s, %s/s)\n"
+msgstr "总计写入字节数：%s (%sB，%sB/s)\n"
+
+#: src/buffer.c:216
+msgid "(pipe)"
+msgstr "(管道)"
+
+#: src/buffer.c:264
+msgid "Invalid value for record_size"
+msgstr "record_size 的无效值"
+
+#: src/buffer.c:267
+msgid "No archive name given"
+msgstr "未给出归档文件名"
+
+#: src/buffer.c:282
+#, c-format
+msgid "Cannot allocate memory for blocking factor %d"
+msgstr ""
+
+#: src/buffer.c:316
+msgid "Cannot verify stdin/stdout archive"
+msgstr "无法验证标准输入/标准输出归档文件"
+
+#: src/buffer.c:392
+#, c-format
+msgid "Archive not labeled to match %s"
+msgstr ""
+
+#: src/buffer.c:395 src/buffer.c:752
+#, c-format
+msgid "Volume %s does not match %s"
+msgstr "卷标 %s 不匹配 %s"
+
+#: src/buffer.c:433
+#, c-format
+msgid "Write checkpoint %d"
+msgstr "写入检查点 %d"
+
+#: src/buffer.c:592
+msgid "At beginning of tape, quitting now"
+msgstr "处于磁带的起点，现在退出"
+
+#: src/buffer.c:598
+msgid "Too many errors, quitting"
+msgstr "错误过多，退出"
+
+#: src/buffer.c:622
+#, fuzzy, c-format
+msgid "Read %s bytes from %s"
+msgstr "将 %s 改名为 %s"
+
+#: src/buffer.c:633
+#, fuzzy, c-format
+msgid "Unaligned block (%lu byte) in archive"
+msgid_plural "Unaligned block (%lu bytes) in archive"
+msgstr[0] "归档中未对齐的块 (%lu 字节)"
+msgstr[1] "归档中未对齐的块 (%lu 字节)"
+
+#: src/buffer.c:653
+#, fuzzy, c-format
+msgid "Record size = %lu block"
+msgid_plural "Record size = %lu blocks"
+msgstr[0] "记录大小 = %lu 块"
+msgstr[1] "记录大小 = %lu 块"
+
+#: src/buffer.c:670
+#, c-format
+msgid "Read checkpoint %d"
+msgstr "读入检查点 %d"
+
+#: src/buffer.c:761 src/extract.c:1082
+#, c-format
+msgid "Reading %s\n"
+msgstr "正在读入 %s\n"
+
+#: src/buffer.c:765
+msgid "WARNING: No volume header"
+msgstr "警告：没有卷头"
+
+#: src/buffer.c:773
+#, c-format
+msgid "%s is not continued on this volume"
+msgstr "%s 在本卷中不连续"
+
+#: src/buffer.c:787
+#, c-format
+msgid "%s is the wrong size (%s != %s + %s)"
+msgstr "%s 的大小错误 (%s != %s + %s)"
+
+#: src/buffer.c:799
+msgid "This volume is out of sequence"
+msgstr ""
+
+#: src/buffer.c:881
+msgid "Cannot backspace archive file; it may be unreadable without -i"
+msgstr ""
+
+#: src/buffer.c:927
+#, c-format
+msgid "%s: contains invalid volume number"
+msgstr ""
+
+#: src/buffer.c:979
+msgid "Volume number overflow"
+msgstr "卷编号溢出"
+
+#: src/buffer.c:998
+#, c-format
+msgid "`%s' command failed"
+msgstr "“%s”命令失败"
+
+#: src/buffer.c:1007
+#, c-format
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr "为 %2$s 准备卷 #%1$d 并按回车："
+
+#: src/buffer.c:1013
+msgid "EOF where user reply was expected"
+msgstr "需得到用户应答时文件结束"
+
+#: src/buffer.c:1018 src/buffer.c:1048
+msgid "WARNING: Archive is incomplete"
+msgstr "警告：归档文件不完整"
+
+#: src/buffer.c:1032
+#, c-format
+msgid ""
+" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
+" q          Abort tar\n"
+" !          Spawn a subshell\n"
+" ?          Print this list\n"
+msgstr ""
+
+#: src/buffer.c:1043
+msgid "No new volume; exiting.\n"
+msgstr ""
+
+#: src/compare.c:106
+#, fuzzy, c-format
+msgid "Could only read %lu of %lu byte"
+msgid_plural "Could only read %lu of %lu bytes"
+msgstr[0] "只能读取 %2$lu 中的 %1$lu 个字节"
+msgstr[1] "只能读取 %2$lu 中的 %1$lu 个字节"
+
+#: src/compare.c:117 src/compare.c:133
+msgid "Contents differ"
+msgstr "内容不同"
+
+#: src/compare.c:159 src/extract.c:748 src/incremen.c:497 src/list.c:233
+#: src/list.c:398 src/list.c:1244
+msgid "Unexpected EOF in archive"
+msgstr "归档文件中意外的 EOF"
+
+#: src/compare.c:213
+#, c-format
+msgid "Verify "
+msgstr "验证 "
+
+#: src/compare.c:220
+#, c-format
+msgid "%s: Unknown file type '%c', diffed as normal file"
+msgstr "%s：未知的文件类型“%c”，与普通文件不同"
+
+#: src/compare.c:243 src/compare.c:365 src/compare.c:417 src/compare.c:444
+msgid "File type differs"
+msgstr "文件类型不同"
+
+#: src/compare.c:250 src/compare.c:379 src/compare.c:423
+msgid "Mode differs"
+msgstr "访问模式不同"
+
+#: src/compare.c:253
+msgid "Uid differs"
+msgstr "Uid 不同"
+
+#: src/compare.c:255
+msgid "Gid differs"
+msgstr "Gid 不同"
+
+#: src/compare.c:258
+msgid "Mod time differs"
+msgstr "修改时间不同"
+
+#: src/compare.c:262 src/compare.c:452
+msgid "Size differs"
+msgstr "大小不同"
+
+#: src/compare.c:320
+#, c-format
+msgid "Not linked to %s"
+msgstr "没有连接到 %s"
+
+#: src/compare.c:343
+msgid "Symlink differs"
+msgstr "符号连接不同"
+
+#: src/compare.c:373
+msgid "Device number differs"
+msgstr "设备号不同"
+
+#: src/compare.c:564
+#, fuzzy, c-format
+msgid "VERIFY FAILURE: %d invalid header detected"
+msgid_plural "VERIFY FAILURE: %d invalid headers detected"
+msgstr[0] "验证失败：检测到 %d 个无效的头"
+msgstr[1] "验证失败：检测到 %d 个无效的头"
+
+#: src/create.c:145
+msgid "Generating negative octal headers"
+msgstr "正在生成负八进制头"
+
+#: src/create.c:196
+#, c-format
+msgid "value %s out of %s range %s..%s; substituting %s"
+msgstr "值 %s 超出了 %s 的范围 %s..%s；正在替换 %s"
+
+#: src/create.c:202
+#, c-format
+msgid "value %s out of %s range %s..%s"
+msgstr "值 %s 超出了 %s 的范围 %s..%s"
+
+#: src/create.c:462 src/create.c:525
+#, fuzzy, c-format
+msgid "%s: file name is too long (max %d); not dumped"
+msgstr "%s：文件未改变；未输出"
+
+#: src/create.c:472
+#, fuzzy, c-format
+msgid "%s: file name is too long (cannot be split); not dumped"
+msgstr "%s：文件未改变；未输出"
+
+#: src/create.c:499
+#, fuzzy, c-format
+msgid "%s: link name is too long; not dumped"
+msgstr "%s：文件未改变；未输出"
+
+#: src/create.c:865
+#, c-format
+msgid "%s: File shrank by %s byte; padding with zeros"
+msgid_plural "%s: File shrank by %s bytes; padding with zeros"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/create.c:891
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr "%s：在我们读入文件时文件发生变化"
+
+#: src/create.c:991
+#, c-format
+msgid "%s: file is on a different filesystem; not dumped"
+msgstr "%s：文件处于不同的文件系统之中；未输出"
+
+#: src/create.c:1151
+#, c-format
+msgid "%s: Unknown file type; file ignored"
+msgstr "%s：未知的文件类型；忽略文件"
+
+#: src/create.c:1250
+#, fuzzy, c-format
+msgid "Missing links to '%s'.\n"
+msgstr " 连接到 %s\n"
+
+#: src/create.c:1313
+#, c-format
+msgid "%s: file is unchanged; not dumped"
+msgstr "%s：文件未改变；未输出"
+
+#: src/create.c:1322
+#, c-format
+msgid "%s: file is the archive; not dumped"
+msgstr "%s：文件是归档文件；未输出"
+
+#: src/create.c:1357
+#, c-format
+msgid "%s: File removed before we read it"
+msgstr "%s：文件在我们读入之前就被删除了"
+
+#: src/create.c:1450
+#, c-format
+msgid "%s: socket ignored"
+msgstr ""
+
+#: src/create.c:1455
+#, c-format
+msgid "%s: door ignored"
+msgstr ""
+
+#: src/delete.c:209 src/list.c:169 src/update.c:160
+msgid "This does not look like a tar archive"
+msgstr "它似乎不像是一个 tar 归档文件"
+
+#: src/delete.c:215 src/list.c:183 src/update.c:165
+msgid "Skipping to next header"
+msgstr "跳转到下一个头"
+
+#: src/delete.c:280
+msgid "Deleting non-header from archive"
+msgstr "从归档文件中删除非头信息"
+
+#: src/extract.c:195
+#, c-format
+msgid "%s: implausibly old time stamp %s"
+msgstr ""
+
+#: src/extract.c:198
+#, c-format
+msgid "%s: time stamp %s is %lu s in the future"
+msgstr ""
+
+#: src/extract.c:346
+#, c-format
+msgid "%s: Unexpected inconsistency when making directory"
+msgstr "%s：创建目录时出现意外的不一致现象"
+
+#: src/extract.c:463
+#, c-format
+msgid "Current `%s' is newer"
+msgstr ""
+
+#: src/extract.c:575
+#, c-format
+msgid "%s: Directory renamed before its status could be extracted"
+msgstr "%s：目录名在其状态被解析之前就改变了"
+
+#: src/extract.c:640
+#, c-format
+msgid "%s: Was unable to backup this file"
+msgstr "%s：无法备份该文件"
+
+#: src/extract.c:707
+msgid "Extracting contiguous files as regular files"
+msgstr ""
+
+#: src/extract.c:894
+msgid "Attempting extraction of symbolic links as hard links"
+msgstr "正试图将符号连接解析为硬连接"
+
+#: src/extract.c:1091
+#, c-format
+msgid "%s: Cannot extract -- file is continued from another volume"
+msgstr "%s：无法解析 -- 文件一直持续到另一卷中"
+
+#: src/extract.c:1100
+msgid "Visible long name error"
+msgstr ""
+
+#: src/extract.c:1108
+#, c-format
+msgid "%s: Unknown file type '%c', extracted as normal file"
+msgstr "%s：未知的文件类型“%c”，作为普通文件进行解析"
+
+#: src/extract.c:1193
+msgid "Error is not recoverable: exiting now"
+msgstr "错误是不可恢复的：现在退出"
+
+#: src/incremen.c:193
+#, c-format
+msgid "%s: Directory has been renamed"
+msgstr "%s：目录已被删除"
+
+#: src/incremen.c:205
+#, c-format
+msgid "%s: Directory is new"
+msgstr "%s：目录是新的"
+
+#: src/incremen.c:354
+msgid "Invalid time stamp"
+msgstr "无效的时间标记"
+
+#: src/incremen.c:357
+msgid "Time stamp out of range"
+msgstr "时间标记超出范围"
+
+#: src/incremen.c:381
+msgid "Invalid device number"
+msgstr "无效的设备号"
+
+#: src/incremen.c:385
+msgid "Device number out of range"
+msgstr "设备号超出范围"
+
+#: src/incremen.c:393
+msgid "Invalid inode number"
+msgstr "无效的 i 结点号"
+
+#: src/incremen.c:397
+msgid "Inode number out of range"
+msgstr "i 结点号超出范围"
+
+#: src/incremen.c:523
+#, c-format
+msgid "%s: Deleting %s\n"
+msgstr "%s：正在删除 %s\n"
+
+#: src/incremen.c:528
+#, c-format
+msgid "%s: Cannot remove"
+msgstr "%s：无法删除"
+
+#: src/list.c:117
+#, c-format
+msgid "%s: Omitting"
+msgstr "%s：忽略"
+
+#: src/list.c:133
+#, c-format
+msgid "block %s: ** Block of NULs **\n"
+msgstr ""
+
+#: src/list.c:146
+#, c-format
+msgid "A lone zero block at %s"
+msgstr ""
+
+#: src/list.c:157
+#, c-format
+msgid "block %s: ** End of File **\n"
+msgstr "块 %s：** 文件结束 **\n"
+
+#: src/list.c:180 src/list.c:994 src/list.c:1219
+#, c-format
+msgid "block %s: "
+msgstr "块 %s："
+
+#: src/list.c:625
+#, c-format
+msgid "Blanks in header where numeric %s value expected"
+msgstr ""
+
+#: src/list.c:678
+#, c-format
+msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
+msgstr ""
+
+#: src/list.c:688
+#, c-format
+msgid "Archive octal value %.*s is out of %s range"
+msgstr "归档八进制值 %.*s 超出 %s 的范围"
+
+#: src/list.c:704
+msgid "Archive contains obsolescent base-64 headers"
+msgstr ""
+
+#: src/list.c:717
+#, c-format
+msgid "Archive signed base-64 string %s is out of %s range"
+msgstr ""
+
+#: src/list.c:748
+#, c-format
+msgid "Archive base-256 value is out of %s range"
+msgstr ""
+
+#: src/list.c:775
+#, c-format
+msgid "Archive contains %.*s where numeric %s value expected"
+msgstr ""
+
+#: src/list.c:796
+#, fuzzy, c-format
+msgid "Archive value %s is out of %s range %s.%s"
+msgstr "归档值 %s 超出 %s 的范围 %s..%s"
+
+#: src/list.c:1025
+msgid "Visible longname error"
+msgstr ""
+
+#: src/list.c:1150
+#, c-format
+msgid " link to %s\n"
+msgstr " 连接到 %s\n"
+
+#: src/list.c:1158
+#, c-format
+msgid " unknown file type %s\n"
+msgstr " 未知的文件类型 %s\n"
+
+#: src/list.c:1176
+#, c-format
+msgid "--Long Link--\n"
+msgstr ""
+
+#: src/list.c:1180
+#, c-format
+msgid "--Long Name--\n"
+msgstr ""
+
+#: src/list.c:1184
+#, c-format
+msgid "--Volume Header--\n"
+msgstr "--卷头--\n"
+
+#: src/list.c:1192
+#, c-format
+msgid "--Continued at byte %s--\n"
+msgstr "--从 %s 字节继续--\n"
+
+#: src/list.c:1196
+#, c-format
+msgid "--Mangled file names--\n"
+msgstr ""
+
+#: src/list.c:1224
+msgid "Creating directory:"
+msgstr "正在创建目录："
+
+#: src/mangle.c:54
+msgid "Unexpected EOF in mangled names"
+msgstr ""
+
+#: src/mangle.c:90 src/misc.c:387 src/misc.c:405
+#, c-format
+msgid "%s: Cannot rename to %s"
+msgstr "%s：无法重命名为 %s"
+
+#: src/mangle.c:93
+#, c-format
+msgid "Renamed %s to %s"
+msgstr "将 %s 改名为 %s"
+
+#: src/mangle.c:110
+#, c-format
+msgid "%s: Cannot symlink to %s"
+msgstr "%s：无法符号连接到 %s"
+
+#: src/mangle.c:113
+#, c-format
+msgid "Symlinked %s to %s"
+msgstr "将 %s 符号连接到 %s"
+
+#: src/mangle.c:117
+#, c-format
+msgid "Unknown demangling command %s"
+msgstr ""
+
+#: src/misc.c:378
+#, c-format
+msgid "Renaming %s to %s\n"
+msgstr "正在将 %s 改名为 %s\n"
+
+#: src/misc.c:410
+#, c-format
+msgid "Renaming %s back to %s\n"
+msgstr "将 %s 的名字改回 %s\n"
+
+#: src/misc.c:490
+msgid "Cannot save working directory"
+msgstr "无法保存工作目录"
+
+#: src/misc.c:496
+msgid "Cannot change working directory"
+msgstr "无法改变工作目录"
+
+#: src/misc.c:540 src/misc.c:549
+#, c-format
+msgid "%s: Cannot %s"
+msgstr "%s：无法 %s"
+
+#: src/misc.c:558
+#, c-format
+msgid "%s: Warning: Cannot %s"
+msgstr "%s：警告：无法 %s"
+
+#: src/misc.c:573
+#, c-format
+msgid "%s: Cannot change mode to %s"
+msgstr "%s：无法将模式改为 %s"
+
+#: src/misc.c:581
+#, c-format
+msgid "%s: Cannot change ownership to uid %lu, gid %lu"
+msgstr "%s：无法将所有权改为 uid %lu，gid %lu"
+
+#: src/misc.c:616
+#, c-format
+msgid "%s: Cannot hard link to %s"
+msgstr "%s：无法硬连接到 %s"
+
+#: src/misc.c:677 src/misc.c:718
+#, c-format
+msgid "%s: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Read error at byte %s, reading %lu bytes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/misc.c:690
+#, c-format
+msgid "%s: Warning: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/misc.c:778
+#, c-format
+msgid "%s: Cannot seek to %s"
+msgstr ""
+
+#: src/misc.c:794
+#, c-format
+msgid "%s: Warning: Cannot seek to %s"
+msgstr ""
+
+#: src/misc.c:812
+#, c-format
+msgid "%s: Cannot create symlink to %s"
+msgstr "%s：无法创建到 %s 的符号连接"
+
+#: src/misc.c:880
+#, fuzzy, c-format
+msgid "%s: Wrote only %lu of %lu byte"
+msgid_plural "%s: Wrote only %lu of %lu bytes"
+msgstr[0] "%1$s：只写入了 %3$lu 个中的 %2$lu 个字节"
+msgstr[1] "%1$s：只写入了 %3$lu 个中的 %2$lu 个字节"
+
+#: src/misc.c:906
+msgid "child process"
+msgstr "子进程"
+
+#: src/misc.c:915
+msgid "interprocess channel"
+msgstr ""
+
+#: src/names.c:368 src/names.c:417 src/names.c:461
+msgid "Missing file name after -C"
+msgstr "-C 之后缺少文件名"
+
+#: src/names.c:638 src/names.c:654
+#, c-format
+msgid "%s: Not found in archive"
+msgstr "%s：归档中找不到"
+
+#: src/names.c:641
+#, fuzzy, c-format
+msgid "%s: Required occurrence not found in archive"
+msgstr "%s：归档中找不到"
+
+#: src/names.c:1053
+#, fuzzy, c-format
+msgid "Removing leading `%s' from member names"
+msgstr "从成员名中删除开头的“%.*s”"
+
+#: src/names.c:1054
+#, fuzzy, c-format
+msgid "Removing leading `%s' from hard link targets"
+msgstr "从成员名中删除开头的“%.*s”"
+
+#: src/names.c:1067
+#, fuzzy
+msgid "Substituting `.' for empty member name"
+msgstr "从成员名中删除开头的“%.*s”"
+
+#: src/names.c:1068
+msgid "Substituting `.' for empty hard link target"
+msgstr ""
+
+#: src/rmt.c:144
+msgid "rmtd: Cannot allocate buffer space\n"
+msgstr "rmtd：无法分配缓冲区空间\n"
+
+#: src/rmt.c:146
+msgid "Cannot allocate buffer space"
+msgstr "无法分配缓冲区空间"
+
+#: src/rmt.c:256 src/tar.c:349
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "请用“%s --help”获得更多信息。\n"
+
+#: src/rmt.c:260
+#, c-format
+msgid ""
+"Usage: %s [OPTION]\n"
+"Manipulate a tape drive, accepting commands from a remote process.\n"
+"\n"
+"  --version  Output version info.\n"
+"  --help  Output this help.\n"
+msgstr ""
+"用法：%s [选项]\n"
+"操作磁带驱动器，接受来自远程进程的命令。\n"
+"\n"
+"  --version  输出版本信息。\n"
+"  --help  输出该求助。\n"
+
+#: src/rmt.c:267 src/tar.c:542
+#, fuzzy, c-format
+msgid ""
+"\n"
+"Report bugs to <%s>.\n"
+msgstr ""
+"\n"
+"将错误报告到 <bug-tar@gnu.org>。\n"
+
+#: src/rmt.c:300 src/tar.c:1300
+msgid ""
+"This program comes with NO WARRANTY, to the extent permitted by law.\n"
+"You may redistribute it under the terms of the GNU General Public License;\n"
+"see the file named COPYING for details."
+msgstr ""
+
+#: src/rmt.c:399 src/rmt.c:519 src/rmt.c:529
+msgid "Seek offset out of range"
+msgstr "Seek 操作的偏移量超出范围"
+
+#: src/rmt.c:412
+msgid "Seek direction out of range"
+msgstr "Seek 方向超出范围"
+
+#: src/rmt.c:451
+msgid "rmtd: Premature eof\n"
+msgstr ""
+
+#: src/rmt.c:453
+msgid "Premature end of file"
+msgstr ""
+
+#: src/rmt.c:561
+#, c-format
+msgid "rmtd: Garbage command %c\n"
+msgstr "rmtd：垃圾命令 %c\n"
+
+#: src/rmt.c:563
+msgid "Garbage command"
+msgstr "垃圾命令"
+
+#: src/rtapelib.c:292
+msgid "exec/tcp: Service not available"
+msgstr "exec/tcp：服务不可用"
+
+#: src/rtapelib.c:296
+msgid "stdin"
+msgstr "标准输入"
+
+#: src/rtapelib.c:299
+msgid "stdout"
+msgstr "标准输出"
+
+#: src/rtapelib.c:506
+msgid "Cannot execute remote shell"
+msgstr "无法执行远程 shell"
+
+#: src/tar.c:70
+#, c-format
+msgid "Options `-%s' and `-%s' both want standard input"
+msgstr "选项“-%s”和“-%s”都需要标准输出"
+
+#: src/tar.c:141
+#, fuzzy, c-format
+msgid "%s: Invalid archive format"
+msgstr "%s：无效的组"
+
+#: src/tar.c:165
+msgid "GNU features wanted on incompatible archive format"
+msgstr ""
+
+#: src/tar.c:353
+msgid ""
+"GNU `tar' saves many files together into a single tape or disk archive, and\n"
+"can restore individual files from the archive.\n"
+msgstr ""
+"GNU“tar”将许多文件保存到一个磁带或磁盘归档文件中，\n"
+"并可以从归档文件中恢复各个文件。\n"
+
+#: src/tar.c:357
+#, c-format
+msgid ""
+"\n"
+"Usage: %s [OPTION]... [FILE]...\n"
+"\n"
+"Examples:\n"
+"  %s -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
+"  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n"
+"  %s -xf archive.tar          # Extract all files from archive.tar.\n"
+msgstr ""
+"\n"
+"用法：%s [选项]... [文件]...\n"
+"\n"
+"示例：\n"
+"  %s -cf archive.tar foo bar  # 从文件 foo 和 bar 创建归档文件 archive."
+"tar。\n"
+"  %s -tvf archive.tar         # 详细列举归档文件 archive.tar 中的所有文件。\n"
+"  %s -xf archive.tar          # 解析归档文件 archive.tar 中的所有文件。\n"
+
+#: src/tar.c:364
+msgid ""
+"\n"
+"If a long option shows an argument as mandatory, then it is mandatory\n"
+"for the equivalent short option also.  Similarly for optional arguments.\n"
+msgstr ""
+"\n"
+"如果长选项表明参数是必需的，那么对等价的短选项\n"
+"来说它同样是必需的。对可选的参数来说也类似。\n"
+
+#: src/tar.c:369
+msgid ""
+"\n"
+"Main operation mode:\n"
+"  -t, --list              list the contents of an archive\n"
+"  -x, --extract, --get    extract files from an archive\n"
+"  -c, --create            create a new archive\n"
+"  -d, --diff, --compare   find differences between archive and file system\n"
+"  -r, --append            append files to the end of an archive\n"
+"  -u, --update            only append files newer than copy in archive\n"
+"  -A, --catenate          append tar files to an archive\n"
+"      --concatenate       same as -A\n"
+"      --delete            delete from the archive (not on mag tapes!)\n"
+msgstr ""
+"\n"
+"主要操作模式：\n"
+"  -t, --list              列出归档文件内容目录\n"
+"  -x, --extract, --get    从归档文件中解析文件\n"
+"  -c, --create            创建新的归档文件\n"
+"  -d, --diff, --compare   找出归档文件和文件系统的不同之处\n"
+"  -r, --append            将文件附加到归档文件之后\n"
+"  -u, --update            只附加比归档中新的文件\n"
+"  -A, --catenate          将 tar 文件附加到归档文件之后\n"
+"      --concatenate       与 -A 相同\n"
+"      --delete            从归档文件中删除 (不能在磁带上！)\n"
+
+#: src/tar.c:382
+#, fuzzy
+msgid ""
+"\n"
+"Operation modifiers:\n"
+"  -W, --verify               attempt to verify the archive after writing it\n"
+"      --remove-files         remove files after adding them to the archive\n"
+"  -k, --keep-old-files       don't replace existing files when extracting\n"
+"      --keep-newer-files     don't replace existing files that are newer\n"
+"                             than their archive copies\n"
+"      --overwrite            overwrite existing files when extracting\n"
+"      --no-overwrite-dir     preserve metadata of existing directories\n"
+"  -U, --unlink-first         remove each file prior to extracting over it\n"
+"      --recursive-unlink     empty hierarchies prior to extracting "
+"directory\n"
+"  -S, --sparse               handle sparse files efficiently\n"
+"  -O, --to-stdout            extract files to standard output\n"
+"  -G, --incremental          handle old GNU-format incremental backup\n"
+"  -g, --listed-incremental=FILE\n"
+"                             handle new GNU-format incremental backup\n"
+"      --ignore-failed-read   do not exit with nonzero on unreadable files\n"
+"      --occurrence[=NUM]     process only the NUMth occurrence of each file "
+"in\n"
+"                             the archive. This option is valid only in\n"
+"                             conjunction with one of the subcommands --"
+"delete,\n"
+"                             --diff, --extract or --list and when a list of\n"
+"                             files is given either on the command line or\n"
+"                             via -T option.\n"
+"                             NUM defaults to 1.\n"
+msgstr ""
+"\n"
+"操作修饰符：\n"
+"  -W, --verify               试图在写入归档之后对其进行验证\n"
+"      --remove-files         在将文件添加到归档之后删除文件\n"
+"  -k, --keep-old-files       在解析时不替换已存在的文件\n"
+"      --overwrite            在解析时覆盖已存在的文件\n"
+"      --overwrite-dir        在解析时覆盖目录元数据\n"
+"  -U, --unlink-first         在解析文件之前删除已存在的文件\n"
+"      --recursive-unlink     在解析目录之前清空目录结构\n"
+"  -S, --sparse               有效地出力离散文件\n"
+"  -O, --to-stdout            将文件解析到标准输出\n"
+"  -G, --incremental          处理旧 GNU-格式的增量备份\n"
+"  -g, --listed-incremental=FILE\n"
+"                             处理新 GNU-格式的增量备份\n"
+"      --ignore-failed-read   遇到不可读文件时不退出\n"
+
+#: src/tar.c:408
+msgid ""
+"\n"
+"Handling of file attributes:\n"
+"      --owner=NAME             force NAME as owner for added files\n"
+"      --group=NAME             force NAME as group for added files\n"
+"      --mode=CHANGES           force (symbolic) mode CHANGES for added "
+"files\n"
+"      --atime-preserve         don't change access times on dumped files\n"
+"  -m, --modification-time      don't extract file modified time\n"
+"      --same-owner             try extracting files with the same ownership\n"
+"      --no-same-owner          extract files as yourself\n"
+"      --numeric-owner          always use numbers for user/group names\n"
+"  -p, --same-permissions       extract permissions information\n"
+"      --no-same-permissions    do not extract permissions information\n"
+"      --preserve-permissions   same as -p\n"
+"  -s, --same-order             sort names to extract to match archive\n"
+"      --preserve-order         same as -s\n"
+"      --preserve               same as both -p and -s\n"
+msgstr ""
+"\n"
+"处理文件属性：\n"
+"      --owner=NAME             将被添加的文件所有者设置为 NAME\n"
+"      --group=NAME             将被添加的文件所属的组设置为 NAME\n"
+"      --mode=CHANGES           将被添加的文件的属性设置为 CHANGES\n"
+"      --atime-preserve         不要改变输出文件的访问时间\n"
+"  -m, --modification-time      不要解析文件的修改时间\n"
+"      --same-owner             试图以相同的所有权解析文件\n"
+"      --no-same-owner          以您自己的身份解析文件\n"
+"      --numeric-owner          总是用编号作为用户/组的名字\n"
+"  -p, --same-permissions       解析许可权限信息\n"
+"      --no-same-permissions    不要解析许可权限信息\n"
+"      --preserve-permissions   与 -p 相同\n"
+"  -s, --same-order             对要解析的名称进行排序以便与归档匹配\n"
+"      --preserve-order         与 -s 相同\n"
+"      --preserve               与 -p 和 -s 都相同\n"
+
+#: src/tar.c:426
+#, fuzzy
+msgid ""
+"\n"
+"Device selection and switching:\n"
+"  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
+"      --force-local              archive file is local even if has a colon\n"
+"      --rmt-command=COMMAND      use given rmt COMMAND instead of /etc/rmt\n"
+"      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
+"  -[0-7][lmh]                    specify drive and density\n"
+"  -M, --multi-volume             create/list/extract multi-volume archive\n"
+"  -L, --tape-length=NUM          change tape after writing NUM x 1024 bytes\n"
+"  -F, --info-script=FILE         run script at end of each tape (implies -"
+"M)\n"
+"      --new-volume-script=FILE   same as -F FILE\n"
+"      --volno-file=FILE          use/update the volume number in FILE\n"
+msgstr ""
+"\n"
+"设备选择与切换：\n"
+"  -f, --file=ARCHIVE             使用归档文件或设备 ARCHIVE\n"
+"      --force-local              即使含有冒号，归档文件也是本地文件\n"
+"      --rsh-command=COMMAND      用远程 COMMAND 代替 rsh\n"
+"  -[0-7][lmh]                    指定驱动器和密度\n"
+"  -M, --multi-volume             创建/列举/解析多卷归档文件\n"
+"  -L, --tape-length=NUM          在写入 NUM x 1024 个字节后更换磁带\n"
+"  -F, --info-script=FILE         在每个磁带末端运行脚本 (隐含 -M)\n"
+"      --new-volume-script=FILE   与 -F FILE 相同\n"
+"      --volno-file=FILE          使用/更新 FILE 中的卷编号\n"
+
+#: src/tar.c:440
+msgid ""
+"\n"
+"Device blocking:\n"
+"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
+"      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
+"  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
+"EOF)\n"
+"  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
+msgstr ""
+"\n"
+"设备分块：\n"
+"  -b, --blocking-factor=BLOCKS   每个记录 BLOCKS x 512 个字节\n"
+"      --record-size=SIZE         每个记录 SIZE 个字节，512 的倍数\n"
+"  -i, --ignore-zeros             忽略归档中全为零的块 (标示文件结束)\n"
+"  -B, --read-full-records        当我们读入时重新分块 (为 4.2BSD 管道提供)\n"
+
+#: src/tar.c:448
+msgid ""
+"\n"
+"Archive format selection:\n"
+"      --format=FMTNAME               create archive of the given format.\n"
+"                                     FMTNAME is one of the following:\n"
+"                                     v7        old V7 tar format\n"
+"                                     oldgnu    GNU format as per tar <= "
+"1.12\n"
+"                                     gnu       GNU tar 1.13 format\n"
+"                                     ustar     POSIX 1003.1-1988 (ustar) "
+"format\n"
+"                                     posix     POSIX 1003.1-2001 (pax) "
+"format\n"
+"      --old-archive, --portability   same as --format=v7\n"
+"      --posix                        same as --format=posix\n"
+"  --pax-option keyword[[:]=value][,keyword[[:]=value], ...]\n"
+"                                     control pax keywords\n"
+"  -V, --label=NAME                   create archive with volume name NAME\n"
+"              PATTERN                at list/extract time, a globbing "
+"PATTERN\n"
+"  -j, --bzip2                        filter the archive through bzip2\n"
+"  -z, --gzip, --ungzip               filter the archive through gzip\n"
+"  -Z, --compress, --uncompress       filter the archive through compress\n"
+"      --use-compress-program=PROG    filter through PROG (must accept -d)\n"
+msgstr ""
+
+#: src/tar.c:469
+#, fuzzy
+msgid ""
+"\n"
+"Local file selection:\n"
+"  -C, --directory=DIR          change to directory DIR\n"
+"  -T, --files-from=NAME        get names to extract or create from file "
+"NAME\n"
+"      --null                   -T reads null-terminated names, disable -C\n"
+"      --exclude=PATTERN        exclude files, given as a PATTERN\n"
+"  -X, --exclude-from=FILE      exclude patterns listed in FILE\n"
+"      --anchored               exclude patterns match file name start "
+"(default)\n"
+"      --no-anchored            exclude patterns match after any /\n"
+"      --ignore-case            exclusion ignores case\n"
+"      --no-ignore-case         exclusion is case sensitive (default)\n"
+"      --wildcards              exclude patterns use wildcards (default)\n"
+"      --no-wildcards           exclude patterns are plain strings\n"
+"      --wildcards-match-slash  exclude pattern wildcards match "
+"'/' (default)\n"
+"      --no-wildcards-match-slash exclude pattern wildcards do not match '/'\n"
+"  -P, --absolute-names         don't strip leading `/'s from file names\n"
+"  -h, --dereference            dump instead the files symlinks point to\n"
+"      --no-recursion           avoid descending automatically in "
+"directories\n"
+"  -l, --one-file-system        stay in local file system when creating "
+"archive\n"
+"  -K, --starting-file=NAME     begin at file NAME in the archive\n"
+"      --strip-path=NUM         strip NUM leading components from file names\n"
+"                               before extraction\n"
+msgstr ""
+"\n"
+"本地文件选择：\n"
+"  -C, --directory=DIR          进入目录 DIR\n"
+"  -T, --files-from=NAME        get names to extract or create from file "
+"NAME\n"
+"      --null                   -T 读入以 null 终止的名称，禁用 -C\n"
+"      --exclude=PATTERN        除去匹配 PATTERN 的文件\n"
+"  -X, --exclude-from=FILE      出去匹配在 FILE 中列出的模式的文件\n"
+"      --anchored               去除模式匹配文件起点 (默认)\n"
+"      --no-anchored            exclude patterns match after any /\n"
+"      --ignore-case            去除匹配时忽略大小写\n"
+"      --no-ignore-case         去除匹配时关心大小写 (默认)\n"
+"      --wildcards              在去除匹配时使用通配符 (默认)\n"
+"      --no-wildcards           在去除匹配时使用普通字符串\n"
+"      --wildcards-match-slash  去除模式通配符匹配“/” (默认)\n"
+"      --no-wildcards-match-slash 去除模式通配符不匹配“/”\n"
+"  -P, --absolute-names         不要从文件名中去掉最前头的“/”\n"
+"  -h, --dereference            dump instead the files symlinks point to\n"
+"      --no-recursion           avoid descending automatically in "
+"directories\n"
+"  -l, --one-file-system        创建归档文件时留在本地文件系统中\n"
+"  -K, --starting-file=NAME     从归档中的文件 NAME 开始\n"
+
+#: src/tar.c:494
+#, fuzzy
+msgid ""
+"  -N, --newer=DATE-OR-FILE     only store files newer than DATE-OR-FILE\n"
+"      --newer-mtime=DATE       compare date and time when data changed only\n"
+"      --after-date=DATE        same as -N\n"
+msgstr ""
+"  -N, --newer=DATE             只存储比 DATE 新的文件\n"
+"      --newer-mtime=DATE       只在数据发生变化时比较日期和时间\n"
+"      --after-date=DATE        与 -N 相同\n"
+
+#: src/tar.c:500
+msgid ""
+"      --backup[=CONTROL]       backup before removal, choose version "
+"control\n"
+"      --suffix=SUFFIX          backup before removal, override usual suffix\n"
+msgstr ""
+"      --backup[=CONTROL]       在删除前备份，选择版本控制\n"
+"      --suffix=SUFFIX          在删除前备份，覆盖常用后缀\n"
+
+#: src/tar.c:504
+#, fuzzy
+msgid ""
+"\n"
+"Informative output:\n"
+"      --help            print this help, then exit\n"
+"      --version         print tar program version number, then exit\n"
+"  -v, --verbose         verbosely list files processed\n"
+"      --checkpoint      print directory names while reading the archive\n"
+"      --check-links     print a message if not all links are dumped\n"
+"      --totals          print total bytes written while creating archive\n"
+"      --index-file=FILE send verbose output to FILE\n"
+"      --utc             print file modification dates in UTC\n"
+"  -R, --block-number    show block number within archive with each message\n"
+"  -w, --interactive     ask for confirmation for every action\n"
+"      --confirmation    same as -w\n"
+msgstr ""
+"\n"
+"提示性输出：\n"
+"      --help            打印该求助信息，而后退出\n"
+"      --version         打印 tar 程序的版本号，而后退出\n"
+"  -v, --verbose         详细列出处理的文件\n"
+"      --checkpoint      在读入归档文件时打印目录名\n"
+"      --totals          在创建归档文件时打印总计写入的字节数\n"
+"  -R, --block-number    在每条消息中都显示归档文件中的块编号\n"
+"  -w, --interactive     每一动作都请求确认\n"
+"      --confirmation    与 -w 相同\n"
+
+#: src/tar.c:519
+msgid ""
+"\n"
+"Compatibility options:\n"
+"  -o                                 when creating, same as --old-archive\n"
+"                                     when extracting, same as --no-same-"
+"owner\n"
+msgstr ""
+
+#: src/tar.c:526
+msgid ""
+"\n"
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+"The version control may be set with --backup or VERSION_CONTROL, values "
+"are:\n"
+"\n"
+"  t, numbered     make numbered backups\n"
+"  nil, existing   numbered if numbered backups exist, simple otherwise\n"
+"  never, simple   always make simple backups\n"
+msgstr ""
+"\n"
+"除非以 --suffix 或 SIMPLE_BACKUP_SUFFIX 设置备份后缀，否则备份后缀就"
+"是“~”。\n"
+"可以用 --backup 或 VERSION_CONTROL 设置版本控制，可能的值为：\n"
+"\n"
+"  t, numbered     进行编号备份\n"
+"  nil, existing   如果编号备份存在则进行编号备份，否则进行简单备份\n"
+"  never, simple   总是使用简单备份\n"
+
+#: src/tar.c:535
+#, c-format
+msgid ""
+"\n"
+"ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual "
+"date\n"
+"or a file name starting with `/' or `.', in which case the file's date is "
+"used.\n"
+"*This* `tar' defaults to `--format=%s -f%s -b%d'.\n"
+msgstr ""
+
+#: src/tar.c:568
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr "您不能在“-Acdtrux”中指定多个选项"
+
+#: src/tar.c:577
+msgid "Conflicting compression options"
+msgstr "冲突的压缩选项"
+
+#: src/tar.c:649
+#, c-format
+msgid "Old option `%c' requires an argument."
+msgstr "旧选项“%c”需要参数。"
+
+#: src/tar.c:702
+msgid "Invalid blocking factor"
+msgstr ""
+
+#: src/tar.c:777
+msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
+msgstr ""
+
+#: src/tar.c:807
+msgid "Invalid tape length"
+msgstr "无效的磁带长度"
+
+#: src/tar.c:831
+msgid "More than one threshold date"
+msgstr ""
+
+#: src/tar.c:841
+msgid "Date file not found"
+msgstr "找不到数据文件"
+
+#: src/tar.c:850
+#, c-format
+msgid "Substituting %s for unknown date format %s"
+msgstr ""
+
+#: src/tar.c:955
+msgid "Warning: the -y option is not supported; perhaps you meant -j?"
+msgstr "警告：不支持 -y 选项；您的意思可能是 -j？"
+
+#: src/tar.c:1027
+#, c-format
+msgid "%s: Invalid group"
+msgstr "%s：无效的组"
+
+#: src/tar.c:1036
+msgid "Invalid mode given on option"
+msgstr "选项中给出无效的访问模式"
+
+#: src/tar.c:1079
+#, fuzzy
+msgid "Invalid number"
+msgstr "无效的 i 结点号"
+
+#: src/tar.c:1097
+msgid "Invalid owner"
+msgstr "无效的所有者"
+
+#: src/tar.c:1121
+msgid "Invalid record size"
+msgstr "无效的记录大小"
+
+#: src/tar.c:1124
+#, c-format
+msgid "Record size must be a multiple of %d."
+msgstr "记录大小必须是 %d 的倍数。"
+
+#: src/tar.c:1158
+#, fuzzy
+msgid "Invalid number of elements"
+msgstr "无效的磁带长度"
+
+#: src/tar.c:1259
+msgid "Options `-[0-7][lmh]' not supported by *this* tar"
+msgstr "*本* tar 不支持选项“-[0-7][lmh]”"
+
+#: src/tar.c:1305
+msgid "Written by John Gilmore and Jay Fenlason."
+msgstr "由 John Gilmore 和 Jay Fenlason 编写。"
+
+#: src/tar.c:1340
+msgid "--occurrence is meaningless without a file list"
+msgstr ""
+
+#: src/tar.c:1346
+msgid "--occurrence cannot be used in the requested operation mode"
+msgstr ""
+
+#: src/tar.c:1364
+#, fuzzy
+msgid "Multiple archive files require `-M' option"
+msgstr "多个归档文件需要使用“-M”选项"
+
+#: src/tar.c:1369
+msgid "Cannot combine --listed-incremental with --newer"
+msgstr "无法在使用 --newer 的时候使用 --listed-incremental"
+
+#: src/tar.c:1384
+#, fuzzy, c-format
+msgid "%s: Volume label is too long (limit is %lu byte)"
+msgid_plural "%s: Volume label is too long (limit is %lu bytes)"
+msgstr[0] "%s：卷标过长 (限制为 %lu 字节)"
+msgstr[1] "%s：卷标过长 (限制为 %lu 字节)"
+
+#: src/tar.c:1394
+msgid "Cannot verify multi-volume archives"
+msgstr "无法验证多卷归档文件"
+
+#: src/tar.c:1396
+msgid "Cannot verify compressed archives"
+msgstr "无法验证压缩归档文件"
+
+#: src/tar.c:1402
+msgid "Cannot use multi-volume compressed archives"
+msgstr "无法使用多卷压缩归档文件"
+
+#: src/tar.c:1404
+msgid "Cannot update compressed archives"
+msgstr "无法恒心压缩归档文件"
+
+#: src/tar.c:1416
+msgid "--pax-option can be used only on POSIX archives"
+msgstr ""
+
+#: src/tar.c:1436
+msgid "Cowardly refusing to create an empty archive"
+msgstr "谨慎地拒绝创建空归档文件"
+
+#: src/tar.c:1457
+msgid "Options `-Aru' are incompatible with `-f -'"
+msgstr "选项“-Aru”与“-f -”不兼容"
+
+#: src/tar.c:1479
+#, c-format
+msgid "Treating date `%s' as %s + %ld nanoseconds"
+msgstr ""
+
+#: src/tar.c:1532
+msgid "You must specify one of the `-Acdtrux' options"
+msgstr "您必须从选项“-Acdtrux”中指定一个"
+
+#: src/tar.c:1584
+msgid "Error in writing to standard output"
+msgstr "写入标准输出时出错"
+
+#: src/tar.c:1586
+msgid "Error exit delayed from previous errors"
+msgstr ""
+
+#: src/update.c:86
+#, c-format
+msgid "%s: File shrank by %s byte"
+msgid_plural "%s: File shrank by %s bytes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/xheader.c:140
+#, c-format
+msgid "Keyword %s is unknown or not yet imlemented"
+msgstr ""
+
+#: src/xheader.c:166
+#, c-format
+msgid "Pattern %s cannot be used"
+msgstr ""
+
+#: src/xheader.c:176
+#, c-format
+msgid "Keyword %s cannot be overridden"
+msgstr ""
+
+#: src/xheader.c:490
+msgid "Malformed extended header: missing whitespace after the length"
+msgstr ""
+
+#: src/xheader.c:501
+msgid "Malformed extended header: missing equal sign"
+msgstr ""
+
+#~ msgid "Cannot close"
+#~ msgstr "无法关闭"
+
+#~ msgid "Cannot dup"
+#~ msgstr "无法进行 dup 操作"
+
+#~ msgid "Cannot use compressed or remote archives"
+#~ msgstr "无法使用压缩的或远程的归档文件"
+
+#~ msgid "tar (child)"
+#~ msgstr "tar (子进程)"
+
+#~ msgid "tar (grandchild)"
+#~ msgstr "tar (孙进程)"
+
+#~ msgid "Child died with signal %d"
+#~ msgstr "子进程因为信号 %d 而死去"
+
+#~ msgid "Child returned status %d"
+#~ msgstr "子进程返回状态 %d"
+
+#~ msgid "Member names contain `..'"
+#~ msgstr "成员名含有“..”"
+
+#~ msgid "%s: Member name contains `..'"
+#~ msgstr "%s：成员名称含有“..”"
+
+#~ msgid ""
+#~ "\n"
+#~ "Archive format selection:\n"
+#~ "  -V, --label=NAME                   create archive with volume name "
+#~ "NAME\n"
+#~ "              PATTERN                at list/extract time, a globbing "
+#~ "PATTERN\n"
+#~ "  -o, --old-archive, --portability   write a V7 format archive\n"
+#~ "      --posix                        write a POSIX format archive\n"
+#~ "  -j, --bzip2                        filter the archive through bzip2\n"
+#~ "  -z, --gzip, --ungzip               filter the archive through gzip\n"
+#~ "  -Z, --compress, --uncompress       filter the archive through compress\n"
+#~ "      --use-compress-program=PROG    filter through PROG (must accept -"
+#~ "d)\n"
+#~ msgstr ""
+#~ "\n"
+#~ "归档格式选择：\n"
+#~ "  -V, --label=NAME                   以卷名 NAME 创建归档\n"
+#~ "              PATTERN                在列举/解析时，使用带通配符的 "
+#~ "PATTERN\n"
+#~ "  -o, --old-archive, --portability   写入 V7 格式归档\n"
+#~ "      --posix                        写入 POSIX 格式归档\n"
+#~ "  -j, --bzip2                        通过 bzip2 过滤归档\n"
+#~ "  -z, --gzip, --ungzip               通过 gzip 过滤归档\n"
+#~ "  -Z, --compress, --uncompress       通过 compress 过滤归档\n"
+#~ "      --use-compress-program=PROG    通过 PROG(必须接受 -d) 过滤归档\n"
+
+#~ msgid "Generate data files for GNU tar test suite.\n"
+#~ msgstr "从 GNU tar 测试套件中生成数据文件。\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Usage: %s [OPTION]...\n"
+#~ msgstr ""
+#~ "\n"
+#~ "用法：%s [选项]...\n"
+
+#~ msgid "Written by F. Pinard."
+#~ msgstr "由 F. Pinard 编写。"

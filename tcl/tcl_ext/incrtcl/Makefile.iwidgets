@@ -1,0 +1,30 @@
+##
+# Makefile for iwidgets
+##
+# Daniel A. Steffen <das@users.sourceforge.net>
+##
+
+# Project info
+Project               = iwidgets
+
+Extra_CC_Flags        = -fno-common
+Extra_Configure_Flags = $(TEA_Configure_Flags)
+Extra_Environment     = $(TEA_Environment)
+Extra_Install_Flags   = INSTALL_ROOT=$(DSTROOT)
+
+GnuAfterInstall       = install-doc fix-link fix-owner -f Makefile.$(Project)
+
+# include TEA Tcl extension build support
+include ../TEA.make
+
+Install_Target        = install-libraries install-doc
+
+install-doc:
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"
+	$(_v) $(INSTALL_FILE) "$(Sources)/demos/html"/*.html \
+	        "$(DSTROOT)/$(TclExtHtmlDir)"
+
+fix-link:
+	cd $(DSTROOT)/$(TclExtLibDir) && $(LN) -fsh $(Project)?* $(Project)
+
+.PHONY: $(GnuAfterInstall)

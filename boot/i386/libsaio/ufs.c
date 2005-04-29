@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
  * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
+ * are subject to the Apple Public Source License Version 2.0 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
@@ -47,16 +47,16 @@ static long FindFileInDir(char *fileName, long *flags,
                           InodePtr fileInode, InodePtr dirInode);
 static char *ReadFileBlock(InodePtr fileInode, long fragNum, long blockOffset,
                            long length, char *buffer, long cache);
-static long ReadFile(InodePtr fileInode, long *length);
+static long ReadFile(InodePtr fileInode, long *length, void *base, long offset);
 
 #define kDevBlockSize (0x200)    // Size of each disk block.
-#define kDiskLableBlock (15)     // Block the DL is in.
+#define kDiskLabelBlock (15)     // Block the DL is in.
 
 #ifdef __i386__
 
 static CICell    gCurrentIH;
 static long long gPartitionBase;
-static char      *gDLBuf;
+static char      *gULBuf;
 static char      *gFSBuf;
 static struct fs *gFS;
 static long      gBlockSize;
@@ -99,18 +99,20 @@ long UFSInitPartition( CICell ih )
         return 0;
     }
 
+#if !BOOT1
     verbose("UFSInitPartition: %x\n", ih);
+#endif
 
     gCurrentIH = 0;
 
 #ifdef __i386__
-    if (!gDLBuf) gDLBuf = (char *) malloc(8192);
+    if (!gULBuf) gULBuf = (char *) malloc(UFS_LABEL_SIZE);
     if (!gFSBuf) gFSBuf = (char *) malloc(SBSIZE);
     if (!gTempName) gTempName = (char *) malloc(MAXNAMLEN + 1);
     if (!gTempName2) gTempName2 = (char *) malloc(MAXNAMLEN + 1);
     if (!gRootInodePtr) gRootInodePtr = (InodePtr) malloc(sizeof(Inode));
     if (!gFileInodePtr) gFileInodePtr = (InodePtr) malloc(sizeof(Inode));
-    if (!gDLBuf || !gFSBuf || !gTempName || !gTempName2 ||
+    if (!gULBuf || !gFSBuf || !gTempName || !gTempName2 ||
         !gRootInodePtr || !gFileInodePtr) return -1;
 #endif
 
@@ -125,37 +127,7 @@ long UFSInitPartition( CICell ih )
     byte_swap_superblock(gFS);
 
     if (gFS->fs_magic != FS_MAGIC) {
-#ifdef __i386__
-        return -1;  // not yet for Intel
-#else  /* !__i386__ */
-        disk_label_t *dl;
-        partition_t  *part;
-
-        // Did not find it... Look for the Disk Label.
-        // Look for the Disk Label
-        Seek(ih, 1ULL * kDevBlockSize * kDiskLableBlock);
-        Read(ih, (long)gDLBuf, 8192);
-    
-        dl = (disk_label_t *)gDLBuf;
-        byte_swap_disklabel_in(dl);
-    
-        if (dl->dl_version != DL_VERSION) {
-            return -1;
-        }
-    
-        part = &dl->dl_part[0];
-        gPartitionBase = (1ULL * (dl->dl_front + part->p_base) * dl->dl_secsize) -
-                         (1ULL * (dl->dl_label_blkno - kDiskLableBlock) * kDevBlockSize);
-    
-        // Re-read the Super Block.
-        Seek(ih, gPartitionBase + SBOFF);
-        Read(ih, (long)gFSBuf, SBSIZE);
-
-        gFS = (struct fs *)gFSBuf;
-        if (gFS->fs_magic != FS_MAGIC) {
-            return -1;
-        }
-#endif /* !__i386__ */
+        return -1;
     }
 
     // Calculate the block size and set up the block cache.
@@ -176,9 +148,16 @@ long UFSInitPartition( CICell ih )
 
 long UFSLoadFile( CICell ih, char * filePath )
 {
-    long ret, length, flags;
+    return UFSReadFile(ih, filePath, (void *)gFSLoadAddress, 0, 0);
+}
 
+long UFSReadFile( CICell ih, char * filePath, void * base, unsigned long offset, unsigned long length )
+{
+    long ret, flags;
+
+#if !BOOT1
     verbose("Loading UFS file: [%s] from %x.\n", filePath, (unsigned)ih);
+#endif
 
     if (UFSInitPartition(ih) == -1) return -1;
 
@@ -189,25 +168,24 @@ long UFSLoadFile( CICell ih, char * filePath )
     ret = ResolvePathToInode(filePath, &flags, gFileInodePtr, gRootInodePtr);
     if ((ret == -1) || ((flags & kFileTypeMask) != kFileTypeFlat)) return -1;
 
-#if 0
-    // System.config/Default.table will fail this check.
-    // Turn this back on when usage of System.config is deprecated.
-    if (flags & (kOwnerNotRoot | kPermGroupWrite | kPermOtherWrite)) return -1;
-#endif
-
-    ret = ReadFile(gFileInodePtr, &length);
+    ret = ReadFile(gFileInodePtr, &length, base, offset);
     if (ret == -1) return -1;
     
     return length;
 }
 
+#ifndef BOOT1
+
 long UFSGetDirEntry( CICell ih, char * dirPath, long * dirIndex,
-                     char ** name, long * flags, long * time )
+                     char ** name, long * flags, long * time,
+                     FinderInfo * finderInfo, long * infoValid)
 {
     long  ret, fileInodeNum, dirFlags;
     Inode tmpInode;
 
     if (UFSInitPartition(ih) == -1) return -1;
+
+    if (infoValid) *infoValid = 0;
 
     // Skip a leading '/' if present
     if (*dirPath == '/') dirPath++;
@@ -224,6 +202,52 @@ long UFSGetDirEntry( CICell ih, char * dirPath, long * dirIndex,
 
     return 0;
 }
+
+void
+UFSGetDescription(CICell ih, char *str, long strMaxLen)
+{
+    if (UFSInitPartition(ih) == -1) { return; }
+
+    struct ufslabel *ul;
+
+    // Look for the Disk Label
+    Seek(ih, 1ULL * UFS_LABEL_OFFSET);
+    Read(ih, (long)gULBuf, UFS_LABEL_SIZE);
+    
+    ul = (struct ufslabel *)gULBuf;
+    
+    unsigned char magic_bytes[] = UFS_LABEL_MAGIC;
+    int i;
+    unsigned char *p = (unsigned char *)&ul->ul_magic;
+    
+    for (i=0; i<sizeof(magic_bytes); i++, p++) {
+        if (*p != magic_bytes[i])
+            return;
+    }
+    strncpy(str, ul->ul_name, strMaxLen);
+}
+
+long
+UFSGetFileBlock(CICell ih, char *filePath, unsigned long long *firstBlock)
+{
+    long ret, flags;
+
+    if (UFSInitPartition(ih) == -1) return -1;
+
+    // Skip one or two leading '/'.
+    if (*filePath == '/') filePath++;
+    if (*filePath == '/') filePath++;
+
+    ret = ResolvePathToInode(filePath, &flags, gFileInodePtr, gRootInodePtr);
+    if ((ret == -1) || ((flags & kFileTypeMask) != kFileTypeFlat)) return -1;
+
+    *firstBlock = (gPartitionBase + 1ULL * gFileInodePtr->di_db[0] * gBlockSize) / 512ULL;
+
+    return 0;
+}
+
+
+#endif /* !BOOT1 */
 
 // Private functions
 
@@ -419,28 +443,40 @@ static char * ReadFileBlock( InodePtr fileInode, long fragNum, long blockOffset,
     return buffer;
 }
 
-static long ReadFile( InodePtr fileInode, long * length )
+static long ReadFile( InodePtr fileInode, long * length, void * base, long offset )
 {
-    long bytesLeft, curSize, curFrag = 0;
-    char *buffer, *curAddr = (char *)kLoadAddr;
+    long bytesLeft, curSize, curFrag;
+    char *buffer, *curAddr = (char *)base;
 
-#ifdef __i386__
-    curAddr = gFSLoadAddress;
-#endif
+    bytesLeft = fileInode->di_size;
 
-    bytesLeft = *length = fileInode->di_size;
+    if (offset > bytesLeft) {
+        printf("Offset is too large.\n");
+        return -1;
+    }
 
-    if (*length > kLoadSize) {
+    if ((*length == 0) || ((offset + *length) > bytesLeft)) {
+        *length = bytesLeft - offset;
+    }
+
+    if (bytesLeft > kLoadSize) {
         printf("File is too large.\n");
         return -1;
     }
 
-    while (bytesLeft) {
-        if (bytesLeft > gBlockSize) curSize = gBlockSize;
-        else curSize = bytesLeft;
+    bytesLeft = *length;
+    curFrag = (offset / gBlockSize) * gFragsPerBlock;
+    offset %= gBlockSize;
 
-        buffer = ReadFileBlock(fileInode, curFrag, 0, curSize, curAddr, 0);
+    while (bytesLeft) {
+        curSize = gBlockSize;
+        if (curSize > bytesLeft) curSize = bytesLeft;
+        if (offset != 0) curSize -= offset;
+
+        buffer = ReadFileBlock(fileInode, curFrag, offset, curSize, curAddr, 0);
         if (buffer == 0) break;
+
+        if (offset != 0) offset = 0;
 
         curFrag += gFragsPerBlock;
         curAddr += curSize;

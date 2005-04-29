@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xbiff/xbiff.c,v 1.3 2000/02/17 14:00:34 dawes Exp $ */
+/* $XFree86: xc/programs/xbiff/xbiff.c,v 1.4 2003/05/27 22:26:59 tsi Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -98,7 +98,7 @@ main (argc, argv)
     char **argv;
 {
     XtAppContext xtcontext;
-    Widget toplevel, w;
+    Widget toplevel;
 
     ProgramName = argv[0];
 
@@ -118,8 +118,8 @@ main (argc, argv)
     XtOverrideTranslations(toplevel,
 		   XtParseTranslationTable ("<Message>WM_PROTOCOLS: quit()"));
 
-    w = XtCreateManagedWidget ("mailbox", mailboxWidgetClass, toplevel,
-			       NULL, 0);
+    (void) XtCreateManagedWidget ("mailbox", mailboxWidgetClass, toplevel,
+				  NULL, 0);
     XtRealizeWidget (toplevel);
     (void) XSetWMProtocols (XtDisplay(toplevel), XtWindow(toplevel),
                             &wm_delete_window, 1);

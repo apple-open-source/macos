@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSContext.man,v 1.2 2001/01/27 18:20:03 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSContext.man,v 1.3 2003/04/28 22:17:56 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,38 +144,20 @@
 .SH NAME
 XSaveContext, XFindContext, XDeleteContext, XUniqueContext \- associative look-up routines
 .SH SYNTAX
-int XSaveContext(\^\fIdisplay\fP, \fIrid\fP, \fIcontext\fP, \fIdata\fP\^)
-.br
-      Display *\fIdisplay\fP\^;	
-.br
-      XID \fIrid\fP\^;
-.br
-      XContext \fIcontext\fP\^;
-.br
-      XPointer \fIdata\fP\^;
+.HP
+int XSaveContext(\^Display *\fIdisplay\fP\^, XID \fIrid\fP\^, XContext
+\fIcontext\fP\^, XPointer \fIdata\fP\^); 
+.HP
+int XFindContext(\^Display *\fIdisplay\fP\^, XID \fIrid\fP\^, XContext
+\fIcontext\fP\^, XPointer *\fIdata_return\fP\^); 
+.HP
+int XDeleteContext(\^Display *\fIdisplay\fP\^, XID \fIrid\fP, XContext
+\fIcontext\fP); 
 .LP
-int XFindContext(\^\fIdisplay\fP, \fIrid\fP, \fIcontext\fP, \fIdata_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XID \fIrid\fP\^;
-.br
-      XContext \fIcontext\fP\^;
-.br
-      XPointer *\fIdata_return\fP\^;	
-.LP
-int XDeleteContext(\^\fIdisplay\fP, \fIrid\fP, \fIcontext\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XID \fIrid\fP;
-.br
-      XContext \fIcontext\fP;
-.LP
-XContext XUniqueContext(\^)
+XContext XUniqueContext(void); 
 .SH ARGUMENTS
 .IP \fIcontext\fP 1i
-Specifies the context type to which the data belongs.
+Specifies the context type to which the data belongs. 
 .IP \fIdata\fP 1i
 Specifies the data to be associated with the window and type.
 .IP \fIdata_return\fP 1i

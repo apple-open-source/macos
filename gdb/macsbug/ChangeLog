@@ -1,3 +1,56 @@
+2005-01-21  Jim Ingham  <jingham@apple.com>
+
+	* MacsBug_display.c: gcc 4.0 doesn't allow static function
+	prototypes in a function body, so I moved the prototypes to
+	before the function that used to contain it.
+	* MacsBug_plugins.c: Ditto.
+	* gdb_plugin_support/gdb_io_redirection.c: Ditto.
+	* gdb_plugin_support/gdb_set.c: Ditto.
+	
+2005-01-06  Jim Ingham  <jingham@apple.com>
+
+	* MacsBug_display.c: Read all the registers into unsigned long
+	long's (since we now treat ALL the PPC registers as unsigned
+	long long, and then only print out the lower 32 bits for now.
+	
+2003-10-20  Ira Ruben  <iraruben@acm.org>
+
+	* Makefile: Add OPT to control -O level from command line.
+	VERSION set to 1.4.
+	* MacsBug.h: Fix typeo in stream dcl in struct DisasmData.
+	Declared current_pc_lines.
+	* MacsBug_display.c: Define current_pc_lines.
+	(disasm_pc): Fix comments, changed Disasm_pc_data struct.
+	(display_pc_area): Always do "x/0i 0", use gdb_get_register
+	instead of gdb_get_register, use x/Ni for N lines instead
+	of doing one at a time, add extra line if no symbol shown.
+	(save_stack): Use gdb_get_sp to get $sp and changed call
+	to gdb_read_memory.
+	(save_all_regs): Use gdb_get_register instead of gdb_get_int.
+	(__display_side_bar): Use gdb_get_register instead of
+	gdb_get_int, gdb_get_sp to get $sp, change gdb_read_memory
+	call.
+	* MacsBug_patches.c (fix_pc_area_if_necessary): Use
+	gdb_get_register instead of gdb_get_int and fix bug in
+	range checking.
+	* MacsBug_plugins.c (tf): Change call to gdb_get_register().
+	(tv): Ditto.
+	* MacsBug_testing.i (testb): Ditto plus some bug fixes.
+	* MacsBug_utils.c (format_disasm_line): Remove call to
+	gdb_internal_error, moved call to get_screen_size to fix bug
+	with max_rows and max_cols being unitialized, bump addr in
+	this routine instead of by caller.
+	(__disasm): Always do "x/0i 0", use gdb_get_register instead
+	of gdb_get_int, use x/Ni for N lines instead of doing one at
+	a time.
+	* README.html: Updated to summarize 1.4 changes.
+	* README.txt: Ditto.
+
+2003-08-22  Jim Ingham  <jingham@apple.com>
+
+	* Macsbug_patches.c (fix_pc_area_if_necessary): Call get_current_frame
+	to make sure the deprecated_selected_frame gets set.
+	
 2002-09-24  Klee Dienes  <kdienes@apple.com>
 
 	* Makefile (LDFLAGS): Disable link against -framework liberty.

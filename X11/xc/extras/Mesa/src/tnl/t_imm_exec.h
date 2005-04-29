@@ -1,9 +1,8 @@
-
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  5.0.2
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,8 +23,8 @@
  */
 
 
-#ifndef _T_VBXFORM_H
-#define _T_VBXFORM_H
+#ifndef _T_IMM_EXEC_H
+#define _T_IMM_EXEC_H
 
 #include "mtypes.h"
 #include "t_context.h"
@@ -37,7 +36,7 @@ extern void _tnl_flush_vertices( GLcontext *ctx, GLuint flush_flags );
 
 /* Called from imm_api.c and _tnl_flush_vertices:
  */
-extern void _tnl_flush_immediate( struct immediate *IM );
+extern void _tnl_flush_immediate( GLcontext *ctx, struct immediate *IM );
 
 /* Called from imm_dlist.c and _tnl_flush_immediate:
  */

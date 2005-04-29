@@ -1,5 +1,5 @@
-/* DSASignature.java
-   Copyright (C) 1999 Free Software Foundation, Inc.
+/* DSASignature.java --
+   Copyright (C) 1999, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,8 +35,16 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package gnu.java.security.provider;
 
+import gnu.java.security.der.DER;
+import gnu.java.security.der.DERReader;
+import gnu.java.security.der.DERValue;
+import gnu.java.security.der.DERWriter;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -52,8 +60,8 @@ import java.security.SignatureSpi;
 import java.security.interfaces.DSAPrivateKey;
 import java.security.interfaces.DSAPublicKey;
 import java.security.spec.AlgorithmParameterSpec;
+import java.util.ArrayList;
 import java.util.Random;
-import gnu.java.security.der.DEREncodingException;
 
 public class DSASignature extends SignatureSpi
 {
@@ -157,9 +165,14 @@ public class DSASignature extends SignatureSpi
       BigInteger s = sha.add( x.multiply( r ) );
       s = s.multiply( k.modInverse(q) ).mod( q );
 
-      DERWriter writer = new DERWriter();
-      return writer.joinarrays( writer.writeBigInteger( r ),  writer.writeBigInteger( s ) );
-
+      ByteArrayOutputStream bout = new ByteArrayOutputStream();
+      ArrayList seq = new ArrayList(2);
+      seq.set(0, new DERValue(DER.INTEGER, r));
+      seq.set(1, new DERValue(DER.INTEGER, s));
+      DERWriter.write(bout, new DERValue(DER.CONSTRUCTED | DER.SEQUENCE, seq));
+      return bout.toByteArray();
+    } catch (IOException ioe) {
+      throw new SignatureException();
     } catch ( ArithmeticException ae ) {
       throw new SignatureException();
     }
@@ -180,9 +193,12 @@ public class DSASignature extends SignatureSpi
   {
     //Decode sigBytes from ASN.1 DER encoding
     try {
-      DERReader reader = new DERReader( sigBytes );
-      BigInteger r = reader.getBigInteger();
-      BigInteger s = reader.getBigInteger();
+      DERReader in = new DERReader(sigBytes);
+      DERValue val = in.read();
+      if (!val.isConstructed())
+        throw new SignatureException("badly formed signature");
+      BigInteger r = (BigInteger) in.read().getValue();
+      BigInteger s = (BigInteger) in.read().getValue();
 
       BigInteger g = publicKey.getParams().getG();
       BigInteger p = publicKey.getParams().getP();
@@ -206,8 +222,8 @@ public class DSASignature extends SignatureSpi
 	return true;
       else
 	return false;
-    } catch ( DEREncodingException deree ) {
-      throw new SignatureException();
+    } catch (IOException ioe) {
+      throw new SignatureException("badly formed signature");
     }
   }
 

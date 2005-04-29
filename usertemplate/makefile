@@ -45,6 +45,7 @@ install:
 	
 # Set Symbolic Links
 	ln -s ../../Documents "$(DESTINATION)English.lproj/Library/Favorites/Documents"
+	ln -s "/Library/Application Support/Apple/iChat Icons/" "$(DESTINATION)English.lproj/Pictures/iChat Icons"
       #	ln -s ../.. "$(DESTINATION)English.lproj/Library/Favorites/Home"
 
 	rm $(DSTROOT)/System/Library/User\ Template/makefile*

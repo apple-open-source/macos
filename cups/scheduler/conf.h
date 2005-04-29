@@ -1,10 +1,10 @@
 /*
- * "$Id: conf.h,v 1.7 2003/09/05 01:14:50 jlovell Exp $"
+ * "$Id: conf.h,v 1.18 2005/01/04 22:10:45 jlovell Exp $"
  *
  *   Configuration file definitions for the Common UNIX Printing System (CUPS)
  *   scheduler.
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -16,9 +16,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  */
@@ -48,6 +48,19 @@
 
 #define PRINTCAP_BSD	0	/* Berkeley LPD format */
 #define PRINTCAP_SOLARIS 1	/* Solaris lpsched format */
+
+
+/*
+ * Notification types...
+ */
+
+typedef unsigned cups_notify_t;			/**** Notification type bits ****/
+enum						/* Not a typedef'd enum so we can OR */
+{
+  CUPS_NOTIFY_PRINTER_LIST	= 0x0001,	/* Printer list changed */
+  CUPS_NOTIFY_PRINTER_HISTORY	= 0x0002,	/* Printer history changed */
+  CUPS_NOTIFY_JOB		= 0x0004,	/* Job info changed */
+};
 
 
 /*
@@ -84,6 +97,8 @@ VAR char		*SystemGroups[MAX_SYSTEM_GROUPS],
 					/* Default language encoding */
 			*DefaultCharset		VALUE(NULL),
 					/* Default charset */
+			*DefaultLocale		VALUE(NULL),
+					/* Default locale */
 			*RIPCache		VALUE(NULL),
 					/* Amount of memory for RIPs */
 			*TempDir		VALUE(NULL),
@@ -144,10 +159,15 @@ VAR int			ClassifyOverride	VALUE(0),
 					/* Current filter level */
 			FilterNice		VALUE(0),
 					/* Nice value for filters */
+			ReloadTimeout		VALUE(0),
+					/* Timeout before reload from SIGHUP */
 			RootCertDuration	VALUE(300),
 					/* Root certificate update interval */
 			RunAsUser		VALUE(FALSE),
 					/* Run as unpriviledged user? */
+			DefaultShared		VALUE(TRUE),
+					/* Default printer-is-shared value */
+			RunUser,	/* User to run as, used for files */
 			PrintcapFormat		VALUE(PRINTCAP_BSD);
 					/* Format of printcap file? */
 VAR cups_file_t		*AccessFile		VALUE(NULL),
@@ -166,13 +186,15 @@ VAR const char		**MimeTypes		VALUE(NULL);
 #ifdef __APPLE__
 VAR int			MinCopies		VALUE(1);
 					/* Minimum number of copies per job */
+VAR int			AppleQuotas		VALUE(TRUE);
+					/* Use Apple PrintService Quotas instead of CUPS quotas */
+VAR int			ApplePreserveJobHistoryAttributes
+						VALUE(FALSE);
+					/* Preserve all attributes of history jobs */
 #endif  /* __APPLE__ */
-#ifdef HAVE_NOTIFY_POST
-VAR int			NotifyPaused		VALUE(1),
-					/* Are notifications paused */
-			NotifyPending		VALUE(0);
-					/* Printer list changed while notifications paused */
-#endif  /* HAVE_NOTIFY_POST */
+
+VAR cups_notify_t	NotifyPost	VALUE(0);
+					/* Pending notifications bit field */
 
 #ifdef HAVE_SSL
 VAR char		*ServerCertificate	VALUE(NULL);
@@ -180,10 +202,13 @@ VAR char		*ServerCertificate	VALUE(NULL);
 #  if defined(HAVE_LIBSSL) || defined(HAVE_GNUTLS)
 VAR char		*ServerKey		VALUE(NULL);
 					/* Server key file */
-#  else
+#  endif /* HAVE_LIBSSL || HAVE_GNUTLS */
+#  ifdef HAVE_CDSASSL
 VAR CFArrayRef		ServerCertificatesArray	VALUE(NULL);
 					/* Array containing certificates */
-#  endif /* HAVE_LIBSSL || HAVE_GNUTLS */
+VAR int			SSLVerifyCertificates	VALUE(FALSE);
+					/* Do certificate chain validation? */
+#  endif /* HAVE_CDSASSL */
 #endif /* HAVE_SSL */
 
 
@@ -203,5 +228,5 @@ extern int	LogPage(job_t *job, const char *page);
 
 
 /*
- * End of "$Id: conf.h,v 1.7 2003/09/05 01:14:50 jlovell Exp $".
+ * End of "$Id: conf.h,v 1.18 2005/01/04 22:10:45 jlovell Exp $".
  */

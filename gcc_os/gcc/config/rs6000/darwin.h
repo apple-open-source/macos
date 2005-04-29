@@ -40,7 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #define OUTPUT_COMPILER_STUB (1)
 
 /* Handle #pragma weak and #pragma pack.  */
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 
 /* The Darwin ABI always includes AltiVec, can't be (validly) turned
    off.  */
@@ -52,16 +52,40 @@ Boston, MA 02111-1307, USA.  */
   } while (0)
 /* APPLE LOCAL end -malign-mac68k sts */
 
-#define CPP_PREDEFINES "-D__ppc__ -D__POWERPC__ -D__NATURAL_ALIGNMENT__ -D__MACH__ -D__BIG_ENDIAN__ -D__APPLE__"
+#define TARGET_OS_CPP_BUILTINS()                \
+  do                                            \
+    {                                           \
+      builtin_define ("__ppc__");               \
+      builtin_define ("__POWERPC__");           \
+      builtin_define ("__NATURAL_ALIGNMENT__"); \
+      /* APPLE LOCAL XJR */                     \
+      SUBTARGET_OS_CPP_BUILTINS ();             \
+    }                                           \
+  while (0)
 
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
 /* APPLE LOCAL  dynamic-no-pic  */
-/* APPLE LOCAL  Altivec */
-#define CC1_SPEC "%{!static:%{!mdynamic-no-pic:-fPIC}} %{faltivec:-D__VEC__=10206 -D__ALTIVEC__=1}"
+/* APPLE LOCAL  AltiVec */
+#define CC1_SPEC "\
+%{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
+%{static: %{mdynamic-no-pic: %e conflicting code gen style switches are used}}\
+%{!static:%{!mdynamic-no-pic:-fPIC}} %{faltivec:-D__VEC__=10206 -D__ALTIVEC__=1}"
 
-/* APPLE LOCAL Altivec */
+/* APPLE LOCAL asm flags */
+#define ASM_SPEC "\
+  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
+  %{!Zforce_cpusubtype_ALL:%{faltivec:-force_cpusubtype_ALL}}\
+  %{!fast*:\
+    %{mcpu=970|mcpu=G5|mpowerpc64|mcpu=power4: -arch ppc970}\
+    %{!mcpu=970:%{!mcpu=G5:%{!mpowerpc64:%{!mcpu=power4: -arch %T}}}}}\
+  %{fast*:\
+    %{mcpu=G5|mcpu=970|mpowerpc64|mcpu=power4:-arch ppc970}\
+    %{!mcpu*:%{!mpowerpc64:-arch ppc970}}\
+    %{mcpu*|mpowerpc*:%{!mcpu=G5:%{!mcpu=970:%{!mpowerpc64:%{!mcpu=power4: -arch %T}}}}}}"
+
+/* APPLE LOCAL AltiVec */
 #define CPP_ALTIVEC_SPEC "%{faltivec:-D__VEC__=10206 -D__ALTIVEC__=1}"
 
 /* Make both r2 and r3 available for allocation.  */
@@ -76,7 +100,7 @@ Boston, MA 02111-1307, USA.  */
 #undef  RS6000_PIC_OFFSET_TABLE_REGNUM
 #define RS6000_PIC_OFFSET_TABLE_REGNUM 31
 
-/* APPLE LOCAL */
+/* APPLE LOCAL begin -pg fix */
 /* -pg has a problem which is normally concealed by -fPIC;
    either -mdynamic-no-pic or -static exposes the -pg problem, causing the
    crash.  FSF gcc for Darwin also has this bug.  The problem is that -pg
@@ -92,31 +116,45 @@ Boston, MA 02111-1307, USA.  */
 #define PIC_OFFSET_TABLE_REGNUM ((flag_pic || profile_flag) \
     ? RS6000_PIC_OFFSET_TABLE_REGNUM \
     : INVALID_REGNUM)
+/* APPLE LOCAL end -pg fix */
 
 /* Pad the outgoing args area to 16 bytes instead of the usual 8.  */
 
 #undef STARTING_FRAME_OFFSET
 #define STARTING_FRAME_OFFSET						\
+  /* APPLE LOCAL AltiVec */ \
   (RS6000_ALIGN (current_function_outgoing_args_size			\
    + RS6000_VARARGS_AREA						\
    + RS6000_SAVE_AREA, 16))
 
 #undef STACK_DYNAMIC_OFFSET
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
+  /* APPLE LOCAL AltiVec */ \
   (RS6000_ALIGN (current_function_outgoing_args_size			\
    + (STACK_POINTER_OFFSET), 16))
+
+/* APPLE LOCAL change from FSF3.4 */
+/* These are used by -fbranch-probabilities */
+#define HOT_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
+/* APPLE LOCAL begin - rarely executed bb optimization */
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
+                              "__TEXT,__unexecuted,regular,pure_instructions"
+#define SECTION_FORMAT_STRING ".section %s\n\t.align 2\n"
+/* APPLE LOCAL end - rarely executed bb optimization */
 
 /* APPLE LOCAL improve performance */
 /* Define cutoff for using external functions to save floating point.
    For Darwin, use the function for more than a few registers.  */
 
-#define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) > 60 && (FIRST_REG) < 64)
+/* APPLE LOCAL long-branch */
+#define FP_SAVE_INLINE(FIRST_REG) (((FIRST_REG) > 60 && (FIRST_REG) < 64) || TARGET_LONG_BRANCH)
 
 /* APPLE LOCAL begin AltiVec */
 /* Define cutoff for using external functions to save vector registers.  */
 
+/* APPLE LOCAL long-branch */
 #define VECTOR_SAVE_INLINE(FIRST_REG) \
-  ((FIRST_REG) >= LAST_ALTIVEC_REGNO - 1 && (FIRST_REG) <= LAST_ALTIVEC_REGNO)
+  (((FIRST_REG) >= LAST_ALTIVEC_REGNO - 1 && (FIRST_REG) <= LAST_ALTIVEC_REGNO) || TARGET_LONG_BRANCH)
 
 /* vector pixel and vector bool are aliases of other vector types.  */
 
@@ -135,16 +173,22 @@ Boston, MA 02111-1307, USA.  */
 #define RS6000_OUTPUT_BASENAME(FILE, NAME)	\
     assemble_name (FILE, NAME);
 
-/* APPLE LOCAL darwin native */
-/* move ASM_OUTPUT_LABEL to generic Darwin */
+/* APPLE LOCAL begin dynamic-no-pic */
+extern void darwin_rs6000_file_start (void);
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START darwin_rs6000_file_start
+/* APPLE LOCAL end dynamic-no-pic */
 
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
+/* Globalizing directive for a label.  */
+#undef GLOBAL_ASM_OP
+#define GLOBAL_ASM_OP "\t.globl "
+#undef TARGET_ASM_GLOBALIZE_LABEL
 
-#undef ASM_GLOBALIZE_LABEL
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.globl ", FILE);	\
-       RS6000_OUTPUT_BASENAME (FILE, NAME); putc ('\n', FILE);} while (0)
+/* APPLE LOCAL begin deep branch prediction pic-base */
+extern void darwin_file_end (void);
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END darwin_file_end
+/* APPLE LOCAL end deep branch prediction pic-base */
 
 /* This is how to output an internal label prefix.  rs6000.c uses this
    when generating traceback tables.  */
@@ -154,20 +198,17 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
   fprintf (FILE, "%s", PREFIX)
 
-/* APPLE LOCAL darwin native */
-/* move TEXT_SECTION_ASM_OP, DATA_SECTION_ASM_OP to generic Darwin */
-
 /* This says how to output an assembler line to define a global common
    symbol.  */
-/* ? */
 #undef  ASM_OUTPUT_ALIGNED_COMMON
-#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)	\
-  do { fputs (".comm ", (FILE));			\
-       RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
-       fprintf ((FILE), ",%d\n", (SIZE)); } while (0)
-
-/* APPLE LOCAL darwin native */
-/* move ASM_OUTPUT_SKIP to generic Darwin */
+#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)		\
+  do { int localsize = (SIZE);					\
+    /* 0 means an external reference to the assembler.  */	\
+       if (localsize == 0)					\
+	 localsize = 1;						\
+       fputs (".comm ", (FILE));				\
+       RS6000_OUTPUT_BASENAME ((FILE), (NAME));			\
+       fprintf ((FILE), ",%d\n", localsize); } while (0)
 
 /* Override the standard rs6000 definition.  */
 
@@ -175,6 +216,34 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_COMMENT_START ";"
 
 /* APPLE LOCAL don't define SAVE_FP_PREFIX and friends */
+
+/* This is how to output an assembler line that says to advance
+   the location counter to a multiple of 2**LOG bytes using the
+   "nop" instruction as padding.  */
+
+#define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG)                   \
+  do                                                          \
+    {                                                         \
+      if ((LOG) < 3)                                          \
+        {                                                     \
+          ASM_OUTPUT_ALIGN (FILE,LOG);                        \
+        }                                                     \
+      else /* nop == ori r0,r0,0 */                           \
+        fprintf (FILE, "\t.align32 %d,0x60000000\n", (LOG));  \
+    } while (0)
+
+#ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+/* This is supported in cctools 465 and later.  The macro test
+   above prevents using it in earlier build environments.  */
+#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP)	      \
+  if ((LOG) != 0)                                             \
+    {                                                         \
+      if ((MAX_SKIP) == 0)                                    \
+        fprintf ((FILE), "\t.p2align %d\n", (LOG));	      \
+      else                                                    \
+        fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP)); \
+    }
+#endif
 
 /* Generate insns to call the profiler.  */
 
@@ -281,41 +350,26 @@ extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs60
 	N_("Align structs and unions according to natural rules")},
 /* APPLE LOCAL end Macintosh alignment 2002-2-26 ff */
 
-/* APPLE LOCAL: AltiVec */
+/* APPLE LOCAL AltiVec */
 #undef DWARF_FRAME_REGISTERS
 #define DWARF_FRAME_REGISTERS 110
 
-/* APPLE LOCAL begin */
+/* APPLE LOCAL begin alignment */
 /* Make sure local alignments come from the type node, not the mode;
    mode-based alignments are wrong for vectors.  */
 #undef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)	(MAX (ALIGN, TYPE_ALIGN (TYPE)))
-/* APPLE LOCAL end */
+/* APPLE LOCAL end alignment */
 
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
-   support 64 bit powerpc either, so this just keeps things happy.  */
+   support 64 bit PowerPC either, so this just keeps things happy.  */
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
-
-/* APPLE LOCAL PFE  */
-#ifdef PFE
-/* Macro to call darwin_pfe_freeze_thaw_target_additions().  If this macro is
-   not defined then the target additions function is never called.  */
-#define PFE_TARGET_ADDITIONS(hdr) darwin_pfe_freeze_thaw_target_additions (hdr)
-
-/* Macro to call darwin_pfe_maybe_savestring to determine whether strings
-   should be allocated by pfe_savestring() or not.  */
-#define PFE_TARGET_MAYBE_SAVESTRING(s) darwin_pfe_maybe_savestring ((char *)(s))
-#endif
 
 /* APPLE LOCAL begin branch cost */
 #undef BRANCH_COST
 /* Better code is generated by saying conditional branches take 1 tick.  */
 #define BRANCH_COST	1
 /* APPLE LOCAL end branch cost */
-
-/* APPLE LOCAL thunks  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-  output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
 
 /* Get HOST_WIDE_INT and CONST_INT to be 32 bits, for compile time
    space/speed.  */
@@ -326,8 +380,13 @@ extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs60
 /* Address of indirect call must be computed here */
 #define MAGIC_INDIRECT_CALL_REG 12
 
-/* APPLE LOCAL begin size of bool  */
-/* For binary compatibility with 2.95; Darwin/PPC C APIs use bool from
-   stdbool.h, which was an int-sized enum in 2.95.  */
-#define BOOL_TYPE_SIZE INT_TYPE_SIZE
-/* APPLE LOCAL end size of bool  */
+/* APPLE LOCAL begin backport 3721776 fix from FSF mainline. */
+/* For binary compatibility with 2.95; Darwin C APIs use bool from
+   stdbool.h, which was an int-sized enum in 2.95.  Users can explicitly
+   choose to have sizeof(bool)==1 with the -mone-byte-bool switch. */
+extern const char *darwin_one_byte_bool;
+#define BOOL_TYPE_SIZE (darwin_one_byte_bool ? CHAR_TYPE_SIZE : INT_TYPE_SIZE)
+/* APPLE LOCAL end backport 3721776 fix from FSF mainline. */
+
+/* APPLE LOCAL OS pragma hook */
+/* Register generic Darwin pragmas as "OS" pragmas.  */

@@ -1,3 +1,61 @@
+2004-05-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (verify, t_afss2k): Link test programs against
+	thread support library.
+
+2004-04-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* string2key.c: Replaced with a new implementation.
+
+2004-02-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* afsstring2key.c, d3_cbc.c, d3_kysched.c, f_cbc.c, f_cksum.c,
+	f_parity.c, f_sched.c, key_sched.c, string2key.c, weak_key.c: Use
+	ANSI C style function definitions.
+
+2004-02-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* f_tables.h (DES_DO_ENCRYPT, DES_DO_DECRYPT): Allocate temporary
+	variable locally instead of taking the extra argument.
+	* d3_cbc.c (krb5int_des3_cbc_encrypt): Don't pass the extra
+	argument, and delete the automatic variable.
+	(krb5int_des3_cbc_decrypt): Likewise.
+	* f_cbc.c (krb5int_des_cbc_encrypt, krb5int_des_cbc_decrypt):
+	Likewise.
+	* f_cksum.c (mit_des_cbc_cksum): Likewise.
+
+	* afsstring2key.c (krb5_afs_encrypt): Drop EDFLAG as an argument,
+	make it local instead, since we always pass 0.
+	(afs_crypt): Call changed.
+	(krb5_afs_crypt_setkey, krb5_afs_encrypt): Use memcpy.
+
+2003-12-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* f_cbc.c (mit_des_zeroblock): Define, as a single cblock, not the
+	array of 8 that was used elsewhere.
+	* des_int.h (mit_des_zeroblock): Declare, and use a macro to stick
+	a krb5int prefix on it.
+
+2003-07-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* f_cbc.c (krb5int_des_cbc_decrypt): Move declarations that were
+	after statements after flattening blocks is previous change.
+	* d3_cbc.c (krb5int_des3_cbc_decrypt): Likewise.
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* f_cbc.c (krb5int_des_cbc_encrypt, krb5int_des_cbc_decrypt): New
+	functions broken out from mit_des_cbc_encrypt.
+	(mit_des_cbc_encrypt): Call them.
+	* d3_cbc.c (krb5int_des3_cbc_encrypt, krb5int_des3_cbc_decrypt):
+	New functions broken out from mit_des3_cbc_encrypt.
+	(mit_des3_cbc_encrypt): Call them.
+	* des_int.h (krb5int_des_cbc_encrypt, krb5int_des_cbc_decrypt,
+	krb5int_des3_cbc_encrypt, krb5int_des3_cbc_decrypt): Declare.
+	(mit_des_cbc_encrypt, mit_des3_cbc_encrypt): New macros.
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
+
 2003-03-06  Alexandra Ellwood  <lxs@mit.edu>
 
     * des_int.h: Added prototype for mit_afs_crypt which is used by

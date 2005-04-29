@@ -25,7 +25,7 @@
 #include <sys/time.h>
 #endif
 
-MODULE_ID("$Id: control.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $")
+MODULE_ID("$Id: control.c,v 1.3 2000/03/04 21:10:59 tom Exp $")
 
 /* terminfo test program control subroutines */
 

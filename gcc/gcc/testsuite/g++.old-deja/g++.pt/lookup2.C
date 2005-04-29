@@ -1,5 +1,5 @@
-// Build don't link:
-// Special g++ Options:
+// { dg-do assemble  }
+// { dg-options "-fpermissive" }
 
 class A
 {
@@ -15,6 +15,6 @@ protected:
 template <class T> class D : private B<T>
 {
 public:
-  void f2() { f1(); };
+  void f2() { f1(); }; // { dg-warning "" }
 };
 

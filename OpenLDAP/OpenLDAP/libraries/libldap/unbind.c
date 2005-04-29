@@ -1,13 +1,22 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/unbind.c,v 1.37.2.4 2003/02/09 17:02:18 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/*  Portions
- *  Copyright (c) 1990 Regents of the University of Michigan.
- *  All rights reserved.
+/* $OpenLDAP: pkg/ldap/libraries/libldap/unbind.c,v 1.44.2.3 2004/01/01 18:16:30 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *  unbind.c
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1990 Regents of the University of Michigan.
+ * All rights reserved.
+ */
+/* Portions Copyright (C) The Internet Society (1997)
+ * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
  */
 
 /* An Unbind Request looks like this:
@@ -79,20 +88,31 @@ ldap_ld_free(
 	int		err = LDAP_SUCCESS;
 
 	/* free LDAP structure and outstanding requests/responses */
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_lock( &ld->ld_req_mutex );
+#endif
 	while ( ld->ld_requests != NULL ) {
 		ldap_free_request( ld, ld->ld_requests );
 	}
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_unlock( &ld->ld_req_mutex );
+#endif
 
 	/* free and unbind from all open connections */
 	while ( ld->ld_conns != NULL ) {
 		ldap_free_connection( ld, ld->ld_conns, 1, close );
 	}
 
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_lock( &ld->ld_res_mutex );
+#endif
 	for ( lm = ld->ld_responses; lm != NULL; lm = next ) {
 		next = lm->lm_next;
 		ldap_msgfree( lm );
 	}
-
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_unlock( &ld->ld_res_mutex );
+#endif
 
 	if ( ld->ld_error != NULL ) {
 		LDAP_FREE( ld->ld_error );
@@ -158,6 +178,10 @@ ldap_ld_free(
 
 	ber_sockbuf_free( ld->ld_sb );   
    
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_destroy( &ld->ld_req_mutex );
+	ldap_pvt_thread_mutex_destroy( &ld->ld_res_mutex );
+#endif
 	LDAP_FREE( (char *) ld );
    
 	return( err );
@@ -178,6 +202,7 @@ ldap_send_unbind(
 	LDAPControl **cctrls )
 {
 	BerElement	*ber;
+	ber_int_t	id;
 
 #ifdef NEW_LOGGING
 	LDAP_LOG ( OPERATION, ENTRY, "ldap_send_unbind\n", 0, 0, 0 );
@@ -194,8 +219,9 @@ ldap_send_unbind(
 		return( ld->ld_errno );
 	}
 
+	LDAP_NEXT_MSGID( ld, id );
 	/* fill it in */
-	if ( ber_printf( ber, "{itn" /*}*/, ++ld->ld_msgid,
+	if ( ber_printf( ber, "{itn" /*}*/, id,
 	    LDAP_REQ_UNBIND ) == -1 ) {
 		ld->ld_errno = LDAP_ENCODING_ERROR;
 		ber_free( ber, 1 );
@@ -214,12 +240,18 @@ ldap_send_unbind(
 		return( ld->ld_errno );
 	}
 
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_lock( &ld->ld_req_mutex );
+#endif
+	ld->ld_errno = LDAP_SUCCESS;
 	/* send the message */
 	if ( ber_flush( sb, ber, 1 ) == -1 ) {
 		ld->ld_errno = LDAP_SERVER_DOWN;
 		ber_free( ber, 1 );
-		return( ld->ld_errno );
 	}
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_unlock( &ld->ld_req_mutex );
+#endif
 
-	return( LDAP_SUCCESS );
+	return( ld->ld_errno );
 }

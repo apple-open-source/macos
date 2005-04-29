@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_state_init.c,v 1.3 2003/02/22 06:21:11 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_state_init.c,v 1.5 2003/12/02 13:02:39 alanh Exp $ */
 /*
  * Copyright 2000, 2001 VA Linux Systems Inc., Fremont, California.
  *
@@ -28,19 +28,8 @@
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#include "radeon_context.h"
-#include "radeon_ioctl.h"
-#include "radeon_state.h"
-#include "radeon_tcl.h"
-#include "radeon_tex.h"
-#include "radeon_swtcl.h"
-#include "radeon_vtxfmt.h"
-
-#include "mem.h"
-#include "mmath.h"
-#include "enums.h"
-#include "colormac.h"
-#include "light.h"
+#include "glheader.h"
+#include "imports.h"
 #include "api_arrayelt.h"
 
 #include "swrast/swrast.h"
@@ -48,6 +37,14 @@
 #include "tnl/tnl.h"
 #include "tnl/t_pipeline.h"
 #include "swrast_setup/swrast_setup.h"
+
+#include "radeon_context.h"
+#include "radeon_ioctl.h"
+#include "radeon_state.h"
+#include "radeon_tcl.h"
+#include "radeon_tex.h"
+#include "radeon_swtcl.h"
+#include "radeon_vtxfmt.h"
 
 /* =============================================================
  * State initialization
@@ -129,13 +126,16 @@ TCL_CHECK( tcl_lit4, ctx->Light.Enabled && ctx->Light.Light[4].Enabled )
 TCL_CHECK( tcl_lit5, ctx->Light.Enabled && ctx->Light.Light[5].Enabled )
 TCL_CHECK( tcl_lit6, ctx->Light.Enabled && ctx->Light.Light[6].Enabled )
 TCL_CHECK( tcl_lit7, ctx->Light.Enabled && ctx->Light.Light[7].Enabled )
-TCL_CHECK( tcl_ucp0, ctx->Transform.ClipEnabled[0] )
-TCL_CHECK( tcl_ucp1, ctx->Transform.ClipEnabled[1] )
-TCL_CHECK( tcl_ucp2, ctx->Transform.ClipEnabled[2] )
-TCL_CHECK( tcl_ucp3, ctx->Transform.ClipEnabled[3] )
-TCL_CHECK( tcl_ucp4, ctx->Transform.ClipEnabled[4] )
-TCL_CHECK( tcl_ucp5, ctx->Transform.ClipEnabled[5] )
+TCL_CHECK( tcl_ucp0, (ctx->Transform.ClipPlanesEnabled & 0x1) )
+TCL_CHECK( tcl_ucp1, (ctx->Transform.ClipPlanesEnabled & 0x2) )
+TCL_CHECK( tcl_ucp2, (ctx->Transform.ClipPlanesEnabled & 0x4) )
+TCL_CHECK( tcl_ucp3, (ctx->Transform.ClipPlanesEnabled & 0x8) )
+TCL_CHECK( tcl_ucp4, (ctx->Transform.ClipPlanesEnabled & 0x10) )
+TCL_CHECK( tcl_ucp5, (ctx->Transform.ClipPlanesEnabled & 0x20) )
 TCL_CHECK( tcl_eyespace_or_fog, ctx->_NeedEyeCoords || ctx->Fog.Enabled ) 
+
+CHECK( txr0, (ctx->Texture.Unit[0]._ReallyEnabled & TEXTURE_RECT_BIT))
+CHECK( txr1, (ctx->Texture.Unit[1]._ReallyEnabled & TEXTURE_RECT_BIT))
 
 
 
@@ -249,6 +249,8 @@ void radeonInitState( radeonContextPtr rmesa )
    ALLOC_STATE( lit[5], tcl_lit5, LIT_STATE_SIZE, "LIT/light-5", 1 );
    ALLOC_STATE( lit[6], tcl_lit6, LIT_STATE_SIZE, "LIT/light-6", 1 );
    ALLOC_STATE( lit[7], tcl_lit7, LIT_STATE_SIZE, "LIT/light-7", 1 );
+   ALLOC_STATE( txr[0], txr0, TXR_STATE_SIZE, "TXR/txr-0", 0 );
+   ALLOC_STATE( txr[1], txr1, TXR_STATE_SIZE, "TXR/txr-1", 0 );
 
 
    /* Fill in the packet headers:
@@ -271,6 +273,8 @@ void radeonInitState( radeonContextPtr rmesa )
    rmesa->hw.tcl.cmd[TCL_CMD_0] = cmdpkt(RADEON_EMIT_SE_TCL_OUTPUT_VTX_FMT);
    rmesa->hw.mtl.cmd[MTL_CMD_0] = 
       cmdpkt(RADEON_EMIT_SE_TCL_MATERIAL_EMMISSIVE_RED);
+   rmesa->hw.txr[0].cmd[TXR_CMD_0] = cmdpkt(RADEON_EMIT_PP_TEX_SIZE_0);
+   rmesa->hw.txr[1].cmd[TXR_CMD_0] = cmdpkt(RADEON_EMIT_PP_TEX_SIZE_1);
    rmesa->hw.grd.cmd[GRD_CMD_0] = 
       cmdscl( RADEON_SS_VERT_GUARD_CLIP_ADJ_ADDR, 1, 4 );
    rmesa->hw.fog.cmd[FOG_CMD_0] = 
@@ -318,7 +322,7 @@ void radeonInitState( radeonContextPtr rmesa )
 					    RADEON_DST_BLEND_GL_ZERO );
 
    rmesa->hw.ctx.cmd[CTX_RB3D_DEPTHOFFSET] =
-      rmesa->radeonScreen->depthOffset;
+      rmesa->radeonScreen->depthOffset + rmesa->radeonScreen->fbLocation;
 
    rmesa->hw.ctx.cmd[CTX_RB3D_DEPTHPITCH] = 
       ((rmesa->radeonScreen->depthPitch &
@@ -408,57 +412,38 @@ void radeonInitState( radeonContextPtr rmesa )
    rmesa->hw.vpt.cmd[VPT_SE_VPORT_ZSCALE]  = 0x00000000;
    rmesa->hw.vpt.cmd[VPT_SE_VPORT_ZOFFSET] = 0x00000000;
 
-   rmesa->hw.tex[0].cmd[TEX_PP_TXFILTER] = RADEON_BORDER_MODE_OGL;
-   rmesa->hw.tex[0].cmd[TEX_PP_TXFORMAT] = 
-      (RADEON_TXFORMAT_ENDIAN_NO_SWAP |
-       RADEON_TXFORMAT_PERSPECTIVE_ENABLE |
-       RADEON_TXFORMAT_ST_ROUTE_STQ0 |
-       (2 << RADEON_TXFORMAT_WIDTH_SHIFT) |
-       (2 << RADEON_TXFORMAT_HEIGHT_SHIFT));
-   rmesa->hw.tex[0].cmd[TEX_PP_TXOFFSET] = 0x2000;
-   rmesa->hw.tex[0].cmd[TEX_PP_BORDER_COLOR] = 0;
-   rmesa->hw.tex[0].cmd[TEX_PP_TXCBLEND] =  
-      (RADEON_COLOR_ARG_A_ZERO |
-       RADEON_COLOR_ARG_B_ZERO |
-       RADEON_COLOR_ARG_C_CURRENT_COLOR |
-       RADEON_BLEND_CTL_ADD |
-       RADEON_SCALE_1X |
-       RADEON_CLAMP_TX);
-   rmesa->hw.tex[0].cmd[TEX_PP_TXABLEND] = 
-      (RADEON_ALPHA_ARG_A_ZERO |
-       RADEON_ALPHA_ARG_B_ZERO |
-       RADEON_ALPHA_ARG_C_CURRENT_ALPHA |
-       RADEON_BLEND_CTL_ADD |
-       RADEON_SCALE_1X |
-       RADEON_CLAMP_TX);
-   rmesa->hw.tex[0].cmd[TEX_PP_TFACTOR] = 0;
+   for ( i = 0 ; i < ctx->Const.MaxTextureUnits ; i++ ) {
+      rmesa->hw.tex[i].cmd[TEX_PP_TXFILTER] = RADEON_BORDER_MODE_OGL;
+      rmesa->hw.tex[i].cmd[TEX_PP_TXFORMAT] = 
+	  (RADEON_TXFORMAT_ENDIAN_NO_SWAP |
+	   RADEON_TXFORMAT_PERSPECTIVE_ENABLE |
+	   (i << 24) | /* This is one of RADEON_TXFORMAT_ST_ROUTE_STQ[012] */
+	   (2 << RADEON_TXFORMAT_WIDTH_SHIFT) |
+	   (2 << RADEON_TXFORMAT_HEIGHT_SHIFT));
 
-   rmesa->hw.tex[1].cmd[TEX_PP_TXFILTER] = RADEON_BORDER_MODE_OGL;
-   rmesa->hw.tex[1].cmd[TEX_PP_TXFORMAT] = 
-      (RADEON_TXFORMAT_ENDIAN_NO_SWAP |
-       RADEON_TXFORMAT_PERSPECTIVE_ENABLE |
-       RADEON_TXFORMAT_ST_ROUTE_STQ1 |
-       (2 << RADEON_TXFORMAT_WIDTH_SHIFT) |
-       (2 << RADEON_TXFORMAT_HEIGHT_SHIFT));
-   rmesa->hw.tex[1].cmd[TEX_PP_TXOFFSET] = 0x8000;
-   rmesa->hw.tex[1].cmd[TEX_PP_BORDER_COLOR] = 0;
-   rmesa->hw.tex[1].cmd[TEX_PP_TXCBLEND] =     
-      (RADEON_COLOR_ARG_A_ZERO |
-       RADEON_COLOR_ARG_B_ZERO |
-       RADEON_COLOR_ARG_C_CURRENT_COLOR |
-       RADEON_BLEND_CTL_ADD |
-       RADEON_SCALE_1X |
-       RADEON_CLAMP_TX);
-   rmesa->hw.tex[1].cmd[TEX_PP_TXABLEND] = 
-      (RADEON_ALPHA_ARG_A_ZERO |
-       RADEON_ALPHA_ARG_B_ZERO |
-       RADEON_ALPHA_ARG_C_CURRENT_ALPHA |
-       RADEON_BLEND_CTL_ADD |
-       RADEON_SCALE_1X |
-       RADEON_CLAMP_TX);
-   rmesa->hw.tex[1].cmd[TEX_PP_TFACTOR] = 0;
+      /* Initialize the texture offset to the start of the card texture heap */
+      rmesa->hw.tex[i].cmd[TEX_PP_TXOFFSET] =
+	  rmesa->radeonScreen->texOffset[RADEON_CARD_HEAP];
 
-   /* Can oly add ST1 at the time of doing some multitex but can keep
+      rmesa->hw.tex[i].cmd[TEX_PP_BORDER_COLOR] = 0;
+      rmesa->hw.tex[i].cmd[TEX_PP_TXCBLEND] =  
+	  (RADEON_COLOR_ARG_A_ZERO |
+	   RADEON_COLOR_ARG_B_ZERO |
+	   RADEON_COLOR_ARG_C_CURRENT_COLOR |
+	   RADEON_BLEND_CTL_ADD |
+	   RADEON_SCALE_1X |
+	   RADEON_CLAMP_TX);
+      rmesa->hw.tex[i].cmd[TEX_PP_TXABLEND] = 
+	  (RADEON_ALPHA_ARG_A_ZERO |
+	   RADEON_ALPHA_ARG_B_ZERO |
+	   RADEON_ALPHA_ARG_C_CURRENT_ALPHA |
+	   RADEON_BLEND_CTL_ADD |
+	   RADEON_SCALE_1X |
+	   RADEON_CLAMP_TX);
+      rmesa->hw.tex[i].cmd[TEX_PP_TFACTOR] = 0;
+   }
+
+   /* Can only add ST1 at the time of doing some multitex but can keep
     * it after that.  Errors if DIFFUSE is missing.
     */
    rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] = 
@@ -535,15 +520,6 @@ void radeonInitState( radeonContextPtr rmesa )
    ctx->Driver.Fogfv( ctx, GL_FOG_COLOR, ctx->Fog.Color );
    ctx->Driver.Fogfv( ctx, GL_FOG_COORDINATE_SOURCE_EXT, 0 );
    
-   
-   /* Set up vector and scalar state commands:
-    */
-/*     upload_matrix( rmesa, ctx->ModelView.m, MODEL ); */
-/*     upload_matrix_t( rmesa, ctx->ModelView.inv, MODEL_IT ); */
-/*     upload_matrix( rmesa, ctx->TextureMatrix[0].m, TEXMAT_0 ); */
-/*     upload_matrix( rmesa, ctx->TextureMatrix[1].m, TEXMAT_1 ); */
-/*     upload_matrix( rmesa, ctx->_ModelProjectMatrix.m, TEXMAT_2 ); */
-
    rmesa->hw.grd.cmd[GRD_VERT_GUARD_CLIP_ADJ] = IEEE_ONE;
    rmesa->hw.grd.cmd[GRD_VERT_GUARD_DISCARD_ADJ] = IEEE_ONE;
    rmesa->hw.grd.cmd[GRD_HORZ_GUARD_CLIP_ADJ] = IEEE_ONE;

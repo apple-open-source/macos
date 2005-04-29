@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "DviP.h"
 
+int
 DviGetAndPut(dw, cp)
     DviWidget	dw;
     int		*cp;
@@ -67,6 +68,7 @@ GetWord(dw, Buffer, Length)
 	return Buffer;
 } 
 
+int
 GetNumber(dw)
 	DviWidget	dw;
 {

@@ -76,19 +76,25 @@ EXPORT SLPInternalError set_multicast_sender_interf(SOCKET sd)
     ttl =  (SLPGetProperty("net.slp.multicastTTL"))?(unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endPtr, 10):255;
     iErr = setsockopt( sd, IPPROTO_IP, IP_MULTICAST_TTL, (char*)&ttl, sizeof(ttl) );
     
+#ifdef ENABLE_SLP_LOGGING
     if (iErr < 0)
         mslplog(SLP_LOG_DEBUG,"set_multicast_sender_interf: Could not set multicast TTL",strerror(errno));
+#endif
 
     iErr = setsockopt( sd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop) );
     
+#ifdef ENABLE_SLP_LOGGING
     if (iErr < 0)
         mslplog(SLP_LOG_DEBUG,"set_multicast_sender_interf: Could not set ip multicast loopback option",strerror(errno));
+#endif
 
     iErr = GetOurIPAdrs( &ia, NULL );
 
     if (iErr < 0) 
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "an error occurred trying to get our IP Address" );
+#endif
         err = SLP_NETWORK_INIT_FAILED;
     } 
     else 
@@ -105,8 +111,9 @@ EXPORT SLPInternalError set_multicast_sender_interf(SOCKET sd)
             if ((iErr= setsockopt(sd,IPPROTO_IP,IP_MULTICAST_IF,
                         (char*)&ia, sizeof(struct in_addr))) != 0) 
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DEBUG, "an error occurred calling setsockopt default mc interface",strerror(iErr));
-
+#endif
                 err = SLP_NETWORK_INIT_FAILED;
             }
         }
@@ -148,17 +155,20 @@ EXPORT SLPInternalError join_group(SOCKET sdUDP, struct in_addr iaMC, struct in_
     mreq.imr_multiaddr = iaMC;
     mreq.imr_interface = iaInterf;
     err = setsockopt(sdUDP,IPPROTO_IP,IP_ADD_MEMBERSHIP, (char*)&mreq,sizeof(mreq));
+#ifdef ENABLE_SLP_LOGGING
     if (err < 0) 
     {        
         SLP_LOG( SLP_LOG_DEBUG, "Received an error trying to setsockopt IP_ADD_MEMBERSHIP" );
     }
-    
+#endif    
     if ( returnErr == SLP_OK )
     {
         err = setsockopt(sdUDP,IPPROTO_IP,IP_MULTICAST_TTL,(char*)&ttl,sizeof(ttl));
         if (err < 0) 
         {
+#ifdef ENABLE_SLP_LOGGING
             mslplog(SLP_LOG_DEBUG, "join_group: Could not set multicast TTL",strerror(errno));
+#endif
             returnErr = SLP_NETWORK_INIT_FAILED;
         }
     }
@@ -168,10 +178,12 @@ EXPORT SLPInternalError join_group(SOCKET sdUDP, struct in_addr iaMC, struct in_
         u_char	loop = 1;	// enable
         err = setsockopt( sdUDP, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop) );
         
+#ifdef ENABLE_SLP_LOGGING
         if (err < 0)
         {
             mslplog(SLP_LOG_DEBUG,"join_group: Could not set ip multicast loopback option",strerror(errno));
         }
+#endif
     }
     
     return returnErr;
@@ -195,7 +207,9 @@ int mcast_join( SOCKET sockfd, const struct sockaddr* sa, int salen, const char*
 
                 if ( ioctl( sockfd, SIOCGIFADDR, &ifreq ) < 0 )
                 {
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_DEBUG, "Error trying to set interface name %s for multicasting: %s", ifname, strerror(errno) );
+#endif
                     return -1;
                 }
                     

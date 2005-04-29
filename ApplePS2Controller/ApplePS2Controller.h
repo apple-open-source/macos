@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -29,7 +26,6 @@
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOWorkLoop.h>
-#include <IOKit/IOCommandQueue.h>
 #include <IOKit/ps2/ApplePS2Device.h>
 
 class ApplePS2KeyboardDevice;
@@ -166,10 +162,13 @@ class ApplePS2Controller : public IOService
 public:                                // interrupt-time variables and functions
   IOInterruptEventSource * _interruptSourceKeyboard;
   IOInterruptEventSource * _interruptSourceMouse;
+  IOInterruptEventSource * _interruptSourceQueue;
 
 #if DEBUGGER_SUPPORT
-  void lockController(void);
-  void unlockController(void);
+  bool                     _debuggingEnabled;
+
+  void lockController(int * state);
+  void unlockController(int state);
 
   bool doEscape(UInt8 key);
   bool dequeueKeyboardData(UInt8 * key);
@@ -177,8 +176,9 @@ public:                                // interrupt-time variables and functions
 #endif DEBUGGER_SUPPORT
 
 private:
-  IOCommandQueue *         _commandQueue;
   IOWorkLoop *             _workLoop;
+  queue_head_t             _requestQueue;
+  IOSimpleLock *           _requestQueueLock;
 
   OSObject *               _interruptTargetKeyboard;
   OSObject *               _interruptTargetMouse;
@@ -187,12 +187,18 @@ private:
   bool                     _interruptInstalledKeyboard;
   bool                     _interruptInstalledMouse;
 
+  OSObject *               _powerControlTargetKeyboard;
+  OSObject *               _powerControlTargetMouse;
+  PS2PowerControlAction    _powerControlActionKeyboard;
+  PS2PowerControlAction    _powerControlActionMouse;
+  bool                     _powerControlInstalledKeyboard;
+  bool                     _powerControlInstalledMouse;
+
   ApplePS2MouseDevice *    _mouseDevice;          // mouse nub
   ApplePS2KeyboardDevice * _keyboardDevice;       // keyboard nub
 
 #if DEBUGGER_SUPPORT
-  usimple_lock_data_t      _controllerLock;       // mach simple spin lock
-  int                      _controllerLockOldSpl; // spl before lock taken
+  IOSimpleLock *           _controllerLock;       // mach simple spin lock
 
   KeyboardQueueElement *   _keyboardQueueAlloc;   // queues' allocation space
   queue_head_t             _keyboardQueue;        // queue of available keys
@@ -202,9 +208,14 @@ private:
   UInt16                   _modifierState;
 #endif DEBUGGER_SUPPORT
 
+  thread_call_t            _powerChangeThreadCall;
+  UInt32                   _currentPowerState;
+  bool                     _hardwareOffline;
+
   virtual void  dispatchDriverInterrupt(PS2DeviceType deviceType, UInt8 data);
   virtual void  interruptOccurred(IOInterruptEventSource *, int);
-  virtual void  processRequest(PS2Request * request, void *, void *, void *);
+  virtual void  processRequest(PS2Request * request);
+  virtual void  processRequestQueue(IOInterruptEventSource *, int);
   static  void  submitRequestAndBlockCompletion(void *, void * param);
 
   virtual UInt8 readDataPort(PS2DeviceType deviceType);
@@ -214,6 +225,19 @@ private:
 #if OUT_OF_ORDER_DATA_CORRECTION_FEATURE
   virtual UInt8 readDataPort(PS2DeviceType deviceType, UInt8 expectedByte);
 #endif
+
+  static void setPowerStateCallout(thread_call_param_t param0,
+                                   thread_call_param_t param1);
+
+  static IOReturn setPowerStateAction(OSObject * target,
+                                      void * arg0, void * arg1,
+                                      void * arg2, void * arg3);
+
+  virtual void setPowerStateGated(UInt32 newPowerState);
+
+  virtual void dispatchDriverPowerControl(UInt32 whatToDo);
+
+  virtual void free(void);
 
 public:
   virtual bool init(OSDictionary * properties);
@@ -231,6 +255,15 @@ public:
   virtual void         freeRequest(PS2Request * request);
   virtual bool         submitRequest(PS2Request * request);
   virtual void         submitRequestAndBlock(PS2Request * request);
+
+  virtual IOReturn setPowerState(unsigned long powerStateOrdinal,
+                                 IOService *   policyMaker);
+
+  virtual void installPowerControlAction(PS2DeviceType         deviceType,
+                                         OSObject *            target, 
+                                         PS2PowerControlAction action);
+
+  virtual void uninstallPowerControlAction(PS2DeviceType deviceType);
 };
 
 #endif /* _APPLEPS2CONTROLLER_H */

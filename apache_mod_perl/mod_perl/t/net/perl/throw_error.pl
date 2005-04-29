@@ -1,3 +1,4 @@
+#!perl
 my $r = shift;
 
 $r->custom_response(500, "/perl/server_error.pl");

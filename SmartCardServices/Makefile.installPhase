@@ -3,6 +3,7 @@
 MAN_DIR=$(DSTROOT)/usr/share/man/man8
 PCSCDIR=$(DSTROOT)/usr/libexec/SmartCardServices
 PKCS11_DIR=$(DSTROOT)/Library/Application\ Support/Mozilla/
+EXTENSIONS_DIR=$(DSTROOT)/System/Library/Extensions
 
 build:
 	@echo null build.
@@ -19,14 +20,34 @@ install:
 	mkdir -p $(PCSCDIR)/services
 	chmod 755 $(PCSCDIR)
 	cp -r installPhase/drivers/*.bundle $(PCSCDIR)/drivers/
-	chmod 644 $(PCSCDIR)/drivers/ccidDriver.bundle/Contents/Info.plist
-	/usr/bin/strip -S $(PCSCDIR)/drivers/ccidDriver.bundle/Contents/MacOS/ccidDriver
-	mkdir -p $(PCSCDIR)/StartupItem
-	cp -r installPhase/SmartcardServices $(PCSCDIR)/StartupItem
-	rm -rf $(PCSCDIR)/StartupItem/SmartcardServices/CVS
-	chmod 755 $(PCSCDIR)/StartupItem/SmartcardServices/SmartcardServices
-	chmod 644 $(PCSCDIR)/StartupItem/SmartcardServices/StartupParameters.plist
-
+	-rm -rf $(PCSCDIR)/drivers/*.bundle/CVS
+	-rm -rf $(PCSCDIR)/drivers/*.bundle/Contents/CVS
+	-rm -rf $(PCSCDIR)/drivers/*.bundle/Contents/MacOS/CVS
+	chmod 755 $(PCSCDIR)/drivers/*.bundle
+	chmod 755 $(PCSCDIR)/drivers/*.bundle/Contents
+	chmod 755 $(PCSCDIR)/drivers/*.bundle/Contents/MacOS
+	chmod 644 $(PCSCDIR)/drivers/*.bundle/Contents/*.*
+	chmod 644 $(PCSCDIR)/drivers/*.bundle/Contents/MacOS/*
+	/usr/bin/strip -S $(PCSCDIR)/drivers/*.bundle/Contents/MacOS/*
+	mkdir -p $(EXTENSIONS_DIR)
+	chmod 755 $(DSTROOT)/System
+	chmod 755 $(DSTROOT)/System/Library
+	chmod 755 $(EXTENSIONS_DIR)
+	cp -r installPhase/Extensions/*.kext $(EXTENSIONS_DIR)/
+	-rm -rf $(EXTENSIONS_DIR)/*.kext/CVS
+	-rm -rf $(EXTENSIONS_DIR)/*.kext/Contents/CVS
+	-rm -rf $(EXTENSIONS_DIR)/*.kext/Contents/MacOS/CVS
+	-rm -rf $(EXTENSIONS_DIR)/*.kext/Contents/Resources/CVS
+	-rm -rf $(EXTENSIONS_DIR)/*.kext/Contents/Resources/*.lproj/CVS
+	chmod 755 $(EXTENSIONS_DIR)/*.kext
+	chmod 755 $(EXTENSIONS_DIR)/*.kext/Contents
+	chmod 755 $(EXTENSIONS_DIR)/*.kext/Contents/MacOS
+	-chmod 755 $(EXTENSIONS_DIR)/*.kext/Contents/Resources
+	-chmod 755 $(EXTENSIONS_DIR)/*.kext/Contents/Resources/*.lproj
+	chmod 644 $(EXTENSIONS_DIR)/*.kext/Contents/*.*
+	chmod 644 $(EXTENSIONS_DIR)/*.kext/Contents/MacOS/*
+	-chmod 644 $(EXTENSIONS_DIR)/*.kext/Contents/Resources/*.lproj/*.*
+	/usr/bin/strip -S $(EXTENSIONS_DIR)/*.kext/Contents/MacOS/*
 
 # Copy over man pages
 
@@ -37,15 +58,11 @@ install:
 
 # Deleting CVS subdirectories from the copy phase
 
-	rm -rf `find $(PCSCDIR) -name CVS`
+	rm -rf `find $(PCSCDIR)/drivers -name CVS`
 
 	mkdir -p $(PKCS11_DIR)
 	cp installPhase/PKCS11/pkcs11.shlb $(PKCS11_DIR)
 	chmod 755 $(PKCS11_DIR)/pkcs11.shlb
-
-# Copying over full Info.plist for cards
-
-	cp installPhase/services/Info.plist.commonAccessCard $(PCSCDIR)/services/commonAccessCard.bundle/Contents/Info.plist
 
 installhdrs:
 	@echo null installhdrs.

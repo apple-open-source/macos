@@ -1,6 +1,6 @@
 Summary: procmail mail delivery agent
 Name: procmail
-Version: 3.21
+Version: 3.22
 Release: 1
 Copyright: GPL
 Group: Daemons
@@ -37,6 +37,8 @@ make BASENAME=$RPM_BUILD_ROOT/usr VISIBLE_BASENAME=/usr install
 %doc [A-Z]* examples
 
 %changelog
+* Mon Sep 10 2001 Philip Guenther <guenther@sendmail.com>
+  - 3.22-1
 * Thu Jun 29 2001 Philip Guenther <guenther@sendmail.com>
   - 3.21-1
 * Thu Jun 28 2001 Philip Guenther <guenther@sendmail.com>

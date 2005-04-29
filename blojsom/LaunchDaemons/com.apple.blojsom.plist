@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.blojsom</string>
+	<key>Disabled</key>
+	<true/>
+	<key>OnDemand</key>
+	<false/>
+	<key>Program</key>
+	<string>/Library/Java/Home/bin/java</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>java</string>
+		<string>-Djava.endorsed.dirs=/Library/Tomcat/common/endorsed</string>
+		<string>-classpath</string>
+		<string>/Library/Java/Home/lib/tools.jar:/Library/Tomcat/bin/bootstrap.jar</string>
+		<string>-Dcatalina.base=/Library/Tomcat/blojsom_root</string>
+		<string>-Dcatalina.home=/Library/Tomcat</string>
+		<string>-Djava.io.tmpdir=/Library/Tomcat/blojsom_root/temp</string>
+		<string>org.apache.catalina.startup.Bootstrap</string>
+		<string>start</string>
+	</array>
+	<key>ServiceIPC</key>
+	<false/>
+	<key>UserName</key>
+	<string>appserver</string>
+</dict>
+</plist>

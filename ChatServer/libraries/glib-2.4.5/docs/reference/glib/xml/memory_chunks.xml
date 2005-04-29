@@ -1,0 +1,431 @@
+<refentry id="glib-Memory-Chunks">
+<refmeta>
+<refentrytitle>Memory Chunks</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Memory Chunks</refname><refpurpose>efficient way to allocate groups of equal-sized chunks of memory.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+struct      <link linkend="GMemChunk">GMemChunk</link>;
+#define     <link linkend="G-ALLOC-AND-FREE-CAPS">G_ALLOC_AND_FREE</link>
+#define     <link linkend="G-ALLOC-ONLY-CAPS">G_ALLOC_ONLY</link>
+
+<link linkend="GMemChunk">GMemChunk</link>*  <link linkend="g-mem-chunk-new">g_mem_chunk_new</link>                 (const <link linkend="gchar">gchar</link> *name,
+                                             <link linkend="gint">gint</link> atom_size,
+                                             <link linkend="gulong">gulong</link> area_size,
+                                             <link linkend="gint">gint</link> type);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-mem-chunk-alloc">g_mem_chunk_alloc</link>               (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-mem-chunk-alloc0">g_mem_chunk_alloc0</link>              (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);
+<link linkend="void">void</link>        <link linkend="g-mem-chunk-free">g_mem_chunk_free</link>                (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk,
+                                             <link linkend="gpointer">gpointer</link> mem);
+<link linkend="void">void</link>        <link linkend="g-mem-chunk-destroy">g_mem_chunk_destroy</link>             (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);
+
+#define     <link linkend="g-mem-chunk-create">g_mem_chunk_create</link>              (type, pre_alloc, alloc_type)
+#define     <link linkend="g-chunk-new">g_chunk_new</link>                     (type, chunk)
+#define     <link linkend="g-chunk-new0">g_chunk_new0</link>                    (type, chunk)
+#define     <link linkend="g-chunk-free">g_chunk_free</link>                    (mem, mem_chunk)
+
+<link linkend="void">void</link>        <link linkend="g-mem-chunk-reset">g_mem_chunk_reset</link>               (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);
+<link linkend="void">void</link>        <link linkend="g-mem-chunk-clean">g_mem_chunk_clean</link>               (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);
+<link linkend="void">void</link>        <link linkend="g-blow-chunks">g_blow_chunks</link>                   (void);
+
+<link linkend="void">void</link>        <link linkend="g-mem-chunk-info">g_mem_chunk_info</link>                (void);
+<link linkend="void">void</link>        <link linkend="g-mem-chunk-print">g_mem_chunk_print</link>               (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+Memory chunks provide an efficient way to allocate equal-sized pieces of
+memory, called atoms. They are used extensively within GLib itself.
+For example, the
+<link linkend="glib-Doubly-Linked-lists">Doubly Linked Lists</link>
+use memory chunks to allocate space for elements of the lists.
+</para>
+<para>
+There are two types of memory chunks, <link linkend="G-ALLOC-ONLY-CAPS"><type>G_ALLOC_ONLY</type></link>, and <link linkend="G-ALLOC-AND-FREE-CAPS"><type>G_ALLOC_AND_FREE</type></link>.
+<itemizedlist>
+<listitem><para>
+<link linkend="G-ALLOC-ONLY-CAPS"><type>G_ALLOC_ONLY</type></link> chunks only allow allocation of atoms. The atoms can never
+be freed individually. The memory chunk can only be free in its entirety.
+</para></listitem>
+<listitem><para>
+<link linkend="G-ALLOC-AND-FREE-CAPS"><type>G_ALLOC_AND_FREE</type></link> chunks do allow atoms to be freed individually.
+The disadvantage of this is that the memory chunk has to keep track of which
+atoms have been freed. This results in more memory being used and a slight
+degradation in performance.
+</para></listitem>
+
+</itemizedlist>
+</para>
+<para>
+To create a memory chunk use <link linkend="g-mem-chunk-new"><function>g_mem_chunk_new()</function></link> or the convenience macro
+<link linkend="g-mem-chunk-create"><function>g_mem_chunk_create()</function></link>.
+</para>
+<para>
+To allocate a new atom use <link linkend="g-mem-chunk-alloc"><function>g_mem_chunk_alloc()</function></link>, <link linkend="g-mem-chunk-alloc0"><function>g_mem_chunk_alloc0()</function></link>,
+or the convenience macros <link linkend="g-chunk-new"><function>g_chunk_new()</function></link> or <link linkend="g-chunk-new0"><function>g_chunk_new0()</function></link>. 
+</para>
+<para>
+To free an atom use <link linkend="g-mem-chunk-free"><function>g_mem_chunk_free()</function></link>, or the convenience macro
+<link linkend="g-chunk-free"><function>g_chunk_free()</function></link>. (Atoms can only be freed if the memory chunk is created
+with the type set to <link linkend="G-ALLOC-AND-FREE-CAPS"><type>G_ALLOC_AND_FREE</type></link>.)
+</para>
+<para>
+To free any blocks of memory which are no longer being used, use
+<link linkend="g-mem-chunk-clean"><function>g_mem_chunk_clean()</function></link>. To clean all memory chunks, use <link linkend="g-blow-chunks"><function>g_blow_chunks()</function></link>.
+</para>
+<para>
+To reset the memory chunk, freeing all of the atoms, use <link linkend="g-mem-chunk-reset"><function>g_mem_chunk_reset()</function></link>.
+</para>
+<para>
+To destroy a memory chunk, use <link linkend="g-mem-chunk-destroy"><function>g_mem_chunk_destroy()</function></link>.
+</para>
+<para>
+To help debug memory chunks, use <link linkend="g-mem-chunk-info"><function>g_mem_chunk_info()</function></link> and <link linkend="g-mem-chunk-print"><function>g_mem_chunk_print()</function></link>.
+</para>
+
+<example>
+<title>Using a <structname>GMemChunk</structname></title>
+<programlisting>
+  GMemChunk *mem_chunk;
+  gchar *mem[10000];
+  gint i;
+
+  /* Create a GMemChunk with atoms 50 bytes long, and memory blocks holding
+     100 bytes. Note that this means that only 2 atoms fit into each memory
+     block and so isn't very efficient. */
+  mem_chunk = g_mem_chunk_new ("test mem chunk", 50, 100, G_ALLOC_AND_FREE);
+
+  /* Now allocate 10000 atoms. */
+  for (i = 0; i &lt; 10000; i++)
+    {
+      mem[i] = g_chunk_new (gchar, mem_chunk);
+
+      /* Fill in the atom memory with some junk. */
+      for (j = 0; j &lt; 50; j++)
+	mem[i][j] = i * j;
+    }
+
+  /* Now free all of the atoms. Note that since we are going to destroy the
+     GMemChunk, this wouldn't normally be used. */
+  for (i = 0; i &lt; 10000; i++)
+    {
+      g_mem_chunk_free (mem_chunk, mem[i]);
+    }
+
+  /* We are finished with the GMemChunk, so we destroy it. */
+  g_mem_chunk_destroy (mem_chunk);
+</programlisting></example>
+
+<example>
+<title>Using a <structname>GMemChunk</structname> with data structures</title>
+<programlisting>
+  GMemChunk *array_mem_chunk;
+  GRealArray *array;
+
+  /* Create a GMemChunk to hold GRealArray structures, using the
+     g_mem_chunk_create(<!-- -->) convenience macro. We want 1024 atoms in each
+     memory block, and we want to be able to free individual atoms. */
+  array_mem_chunk = g_mem_chunk_create (GRealArray, 1024, G_ALLOC_AND_FREE);
+
+  /* Allocate one atom, using the g_chunk_new(<!-- -->) convenience macro. */
+  array = g_chunk_new (GRealArray, array_mem_chunk);
+
+  /* We can now use array just like a normal pointer to a structure. */
+  array->data            = NULL;
+  array->len             = 0;
+  array->alloc           = 0;
+  array->zero_terminated = (zero_terminated ? 1 : 0);
+  array->clear           = (clear ? 1 : 0);
+  array->elt_size        = elt_size;
+
+  /* We can free the element, so it can be reused. */
+  g_chunk_free (array, array_mem_chunk);
+
+  /* We destroy the GMemChunk when we are finished with it. */
+  g_mem_chunk_destroy (array_mem_chunk);
+</programlisting></example>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GMemChunk"/>struct GMemChunk</title>
+<indexterm><primary>GMemChunk</primary></indexterm><programlisting>struct GMemChunk;</programlisting>
+<para>
+The <link linkend="GMemChunk"><type>GMemChunk</type></link> struct is an opaque data structure representing a memory
+chunk. It should be accessed only through the use of the following functions.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-ALLOC-AND-FREE-CAPS"/>G_ALLOC_AND_FREE</title>
+<indexterm><primary>G_ALLOC_AND_FREE</primary></indexterm><programlisting>#define G_ALLOC_AND_FREE  2
+</programlisting>
+<para>
+Specifies the type of a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+Used in <link linkend="g-mem-chunk-new"><function>g_mem_chunk_new()</function></link> and <link linkend="g-mem-chunk-create"><function>g_mem_chunk_create()</function></link> to specify that atoms
+will be freed individually.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-ALLOC-ONLY-CAPS"/>G_ALLOC_ONLY</title>
+<indexterm><primary>G_ALLOC_ONLY</primary></indexterm><programlisting>#define G_ALLOC_ONLY	  1
+</programlisting>
+<para>
+Specifies the type of a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+Used in <link linkend="g-mem-chunk-new"><function>g_mem_chunk_new()</function></link> and <link linkend="g-mem-chunk-create"><function>g_mem_chunk_create()</function></link> to specify that atoms
+will never be freed individually.
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-mem-chunk-new"/>g_mem_chunk_new ()</title>
+<indexterm><primary>g_mem_chunk_new</primary></indexterm><programlisting><link linkend="GMemChunk">GMemChunk</link>*  g_mem_chunk_new                 (const <link linkend="gchar">gchar</link> *name,
+                                             <link linkend="gint">gint</link> atom_size,
+                                             <link linkend="gulong">gulong</link> area_size,
+                                             <link linkend="gint">gint</link> type);</programlisting>
+<para>
+Creates a new <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>name</parameter>&nbsp;:</term>
+<listitem><simpara>a string to identify the <link linkend="GMemChunk"><type>GMemChunk</type></link>. It is not copied so it
+should be valid for the lifetime of the <link linkend="GMemChunk"><type>GMemChunk</type></link>. It is only used in
+<link linkend="g-mem-chunk-print"><function>g_mem_chunk_print()</function></link>, which is used for debugging.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>atom_size</parameter>&nbsp;:</term>
+<listitem><simpara>the size, in bytes, of each element in the <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>area_size</parameter>&nbsp;:</term>
+<listitem><simpara>the size, in bytes, of each block of memory allocated to contain
+the atoms.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>type</parameter>&nbsp;:</term>
+<listitem><simpara>the type of the <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+<link linkend="G-ALLOC-AND-FREE-CAPS"><type>G_ALLOC_AND_FREE</type></link> is used if the atoms will be freed individually.
+<link linkend="G-ALLOC-ONLY-CAPS"><type>G_ALLOC_ONLY</type></link> should be used if atoms will never be freed individually.
+<link linkend="G-ALLOC-ONLY-CAPS"><type>G_ALLOC_ONLY</type></link> is quicker, since it does not need to track free atoms,
+but it obviously wastes memory if you no longer need many of the atoms.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the new <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-mem-chunk-alloc"/>g_mem_chunk_alloc ()</title>
+<indexterm><primary>g_mem_chunk_alloc</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_mem_chunk_alloc               (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);</programlisting>
+<para>
+Allocates an atom of memory from a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>mem_chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a pointer to the allocated atom.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-mem-chunk-alloc0"/>g_mem_chunk_alloc0 ()</title>
+<indexterm><primary>g_mem_chunk_alloc0</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_mem_chunk_alloc0              (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);</programlisting>
+<para>
+Allocates an atom of memory from a <link linkend="GMemChunk"><type>GMemChunk</type></link>, setting the memory to 0.
+</para><variablelist role="params">
+<varlistentry><term><parameter>mem_chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a pointer to the allocated atom.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-mem-chunk-free"/>g_mem_chunk_free ()</title>
+<indexterm><primary>g_mem_chunk_free</primary></indexterm><programlisting><link linkend="void">void</link>        g_mem_chunk_free                (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk,
+                                             <link linkend="gpointer">gpointer</link> mem);</programlisting>
+<para>
+Frees an atom in a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+This should only be called if the <link linkend="GMemChunk"><type>GMemChunk</type></link> was created with
+<link linkend="G-ALLOC-AND-FREE-CAPS"><type>G_ALLOC_AND_FREE</type></link>. Otherwise it will simply return.
+</para><variablelist role="params">
+<varlistentry><term><parameter>mem_chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>mem</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to the atom to free.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-mem-chunk-destroy"/>g_mem_chunk_destroy ()</title>
+<indexterm><primary>g_mem_chunk_destroy</primary></indexterm><programlisting><link linkend="void">void</link>        g_mem_chunk_destroy             (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);</programlisting>
+<para>
+Frees all of the memory allocated for a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>mem_chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-mem-chunk-create"/>g_mem_chunk_create()</title>
+<indexterm><primary>g_mem_chunk_create</primary></indexterm><programlisting>#define     g_mem_chunk_create(type, pre_alloc, alloc_type)</programlisting>
+<para>
+A convenience macro for creating a new <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+It calls <link linkend="g-mem-chunk-new"><function>g_mem_chunk_new()</function></link>, using the given type to create the <link linkend="GMemChunk"><type>GMemChunk</type></link>
+name. The atom size is determined using <function><link linkend="sizeof"><function>sizeof()</function></link></function>, and the
+area size is calculated by multiplying the <parameter>pre_alloc</parameter> parameter with
+the atom size.
+</para><variablelist role="params">
+<varlistentry><term><parameter>type</parameter>&nbsp;:</term>
+<listitem><simpara>the type of the atoms, typically a structure name.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>pre_alloc</parameter>&nbsp;:</term>
+<listitem><simpara>the number of atoms to store in each block of memory.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>alloc_type</parameter>&nbsp;:</term>
+<listitem><simpara>the type of the <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+<link linkend="G-ALLOC-AND-FREE-CAPS"><type>G_ALLOC_AND_FREE</type></link> is used if the atoms will be freed individually.
+<link linkend="G-ALLOC-ONLY-CAPS"><type>G_ALLOC_ONLY</type></link> should be used if atoms will never be freed individually.
+<link linkend="G-ALLOC-ONLY-CAPS"><type>G_ALLOC_ONLY</type></link> is quicker, since it does not need to track free atoms,
+but it obviously wastes memory if you no longer need many of the atoms.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the new <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-chunk-new"/>g_chunk_new()</title>
+<indexterm><primary>g_chunk_new</primary></indexterm><programlisting>#define     g_chunk_new(type, chunk)</programlisting>
+<para>
+A convenience macro to allocate an atom of memory from a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+It calls <link linkend="g-mem-chunk-alloc"><function>g_mem_chunk_alloc()</function></link> and casts the returned atom to a pointer to
+the given type, avoiding a type cast in the source code.
+</para><variablelist role="params">
+<varlistentry><term><parameter>type</parameter>&nbsp;:</term>
+<listitem><simpara>the type of the <link linkend="GMemChunk"><type>GMemChunk</type></link> atoms, typically a structure name.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a pointer to the allocated atom, cast to a pointer to <parameter>type</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-chunk-new0"/>g_chunk_new0()</title>
+<indexterm><primary>g_chunk_new0</primary></indexterm><programlisting>#define     g_chunk_new0(type, chunk)</programlisting>
+<para>
+A convenience macro to allocate an atom of memory from a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+It calls <link linkend="g-mem-chunk-alloc0"><function>g_mem_chunk_alloc0()</function></link> and casts the returned atom to a pointer to
+the given type, avoiding a type cast in the source code.
+</para><variablelist role="params">
+<varlistentry><term><parameter>type</parameter>&nbsp;:</term>
+<listitem><simpara>the type of the <link linkend="GMemChunk"><type>GMemChunk</type></link> atoms, typically a structure name.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a pointer to the allocated atom, cast to a pointer to <parameter>type</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-chunk-free"/>g_chunk_free()</title>
+<indexterm><primary>g_chunk_free</primary></indexterm><programlisting>#define     g_chunk_free(mem, mem_chunk)</programlisting>
+<para>
+A convenience macro to free an atom of memory from a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+It simply switches the arguments and calls <link linkend="g-mem-chunk-free"><function>g_mem_chunk_free()</function></link>
+It is included simply to complement the other convenience macros, <link linkend="g-chunk-new"><function>g_chunk_new()</function></link>
+and <link linkend="g-chunk-new0"><function>g_chunk_new0()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>mem</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to the atom to be freed.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>mem_chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-mem-chunk-reset"/>g_mem_chunk_reset ()</title>
+<indexterm><primary>g_mem_chunk_reset</primary></indexterm><programlisting><link linkend="void">void</link>        g_mem_chunk_reset               (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);</programlisting>
+<para>
+Resets a GMemChunk to its initial state.
+It frees all of the currently allocated blocks of memory.
+</para><variablelist role="params">
+<varlistentry><term><parameter>mem_chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-mem-chunk-clean"/>g_mem_chunk_clean ()</title>
+<indexterm><primary>g_mem_chunk_clean</primary></indexterm><programlisting><link linkend="void">void</link>        g_mem_chunk_clean               (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);</programlisting>
+<para>
+Frees any blocks in a <link linkend="GMemChunk"><type>GMemChunk</type></link> which are no longer being used.
+</para><variablelist role="params">
+<varlistentry><term><parameter>mem_chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-blow-chunks"/>g_blow_chunks ()</title>
+<indexterm><primary>g_blow_chunks</primary></indexterm><programlisting><link linkend="void">void</link>        g_blow_chunks                   (void);</programlisting>
+<para>
+Calls <link linkend="g-mem-chunk-clean"><function>g_mem_chunk_clean()</function></link> on all <link linkend="GMemChunk"><type>GMemChunk</type></link> objects.
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-mem-chunk-info"/>g_mem_chunk_info ()</title>
+<indexterm><primary>g_mem_chunk_info</primary></indexterm><programlisting><link linkend="void">void</link>        g_mem_chunk_info                (void);</programlisting>
+<para>
+Outputs debugging information for all <link linkend="GMemChunk"><type>GMemChunk</type></link> objects currently in use.
+It outputs the number of <link linkend="GMemChunk"><type>GMemChunk</type></link> objects currently allocated,
+and calls <link linkend="g-mem-chunk-print"><function>g_mem_chunk_print()</function></link> to output information on each one.
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-mem-chunk-print"/>g_mem_chunk_print ()</title>
+<indexterm><primary>g_mem_chunk_print</primary></indexterm><programlisting><link linkend="void">void</link>        g_mem_chunk_print               (<link linkend="GMemChunk">GMemChunk</link> *mem_chunk);</programlisting>
+<para>
+Outputs debugging information for a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+It outputs the name of the <link linkend="GMemChunk"><type>GMemChunk</type></link> (set with <link linkend="g-mem-chunk-new"><function>g_mem_chunk_new()</function></link>),
+the number of bytes used, and the number of blocks of memory allocated.
+</para><variablelist role="params">
+<varlistentry><term><parameter>mem_chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GMemChunk"><type>GMemChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

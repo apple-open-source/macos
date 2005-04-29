@@ -1,7 +1,5 @@
 // Red Hat bugzilla 65210
 // { dg-do run }
-// APPLE LOCAL Apple has specific long double warning message then FSF
-// { dg-options "-Wno-long-double" { target *-apple-darwin* } } 
 
 struct A {
     int a;

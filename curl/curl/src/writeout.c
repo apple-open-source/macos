@@ -1,16 +1,16 @@
 /***************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
  * are also available at http://curl.haxx.se/docs/copyright.html.
- * 
+ *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
  * furnished to do so, under the terms of the COPYING file.
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: writeout.c,v 1.1.1.3 2002/11/26 19:08:07 zarzycki Exp $
+ * $Id: writeout.c,v 1.27 2004/12/21 19:59:35 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -52,10 +52,14 @@ typedef enum {
   VAR_SPEED_DOWNLOAD,
   VAR_SPEED_UPLOAD,
   VAR_HTTP_CODE,
+  VAR_HTTP_CODE_PROXY,
   VAR_HEADER_SIZE,
   VAR_REQUEST_SIZE,
   VAR_EFFECTIVE_URL,
   VAR_CONTENT_TYPE,
+  VAR_NUM_CONNECTS,
+  VAR_REDIRECT_TIME,
+  VAR_REDIRECT_COUNT,
   VAR_NUM_OF_VARS /* must be the last */
 } replaceid;
 
@@ -65,9 +69,10 @@ struct variable {
 };
 
 
-static struct variable replacements[]={
+static const struct variable replacements[]={
   {"url_effective", VAR_EFFECTIVE_URL},
   {"http_code", VAR_HTTP_CODE},
+  {"http_connect", VAR_HTTP_CODE_PROXY},
   {"time_total", VAR_TOTAL_TIME},
   {"time_namelookup", VAR_NAMELOOKUP_TIME},
   {"time_connect", VAR_CONNECT_TIME},
@@ -80,7 +85,10 @@ static struct variable replacements[]={
   {"speed_download", VAR_SPEED_DOWNLOAD},
   {"speed_upload", VAR_SPEED_UPLOAD},
   {"content_type", VAR_CONTENT_TYPE},
-  {NULL, 0}
+  {"num_connects", VAR_NUM_CONNECTS},
+  {"time_redirect", VAR_REDIRECT_TIME},
+  {"num_redirects", VAR_REDIRECT_COUNT},
+  {NULL, VAR_NONE}
 };
 
 void ourWriteOut(CURL *curl, char *writeinfo)
@@ -108,7 +116,7 @@ void ourWriteOut(CURL *curl, char *writeinfo)
           keepit=*end;
           *end=0; /* zero terminate */
           for(i=0; replacements[i].name; i++) {
-            if(strequal(ptr, replacements[i].name)) {
+            if(curl_strequal(ptr, replacements[i].name)) {
               switch(replacements[i].id) {
               case VAR_EFFECTIVE_URL:
                 if((CURLE_OK ==
@@ -118,18 +126,39 @@ void ourWriteOut(CURL *curl, char *writeinfo)
                 break;
               case VAR_HTTP_CODE:
                 if(CURLE_OK ==
-                   curl_easy_getinfo(curl, CURLINFO_HTTP_CODE, &longinfo))
-                  fprintf(stream, "%03d", longinfo);
+                   curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &longinfo))
+                  fprintf(stream, "%03ld", longinfo);
+                break;
+              case VAR_HTTP_CODE_PROXY:
+                if(CURLE_OK ==
+                   curl_easy_getinfo(curl, CURLINFO_HTTP_CONNECTCODE,
+                                     &longinfo))
+                  fprintf(stream, "%03ld", longinfo);
                 break;
               case VAR_HEADER_SIZE:
                 if(CURLE_OK ==
                    curl_easy_getinfo(curl, CURLINFO_HEADER_SIZE, &longinfo))
-                  fprintf(stream, "%d", longinfo);
+                  fprintf(stream, "%ld", longinfo);
                 break;
               case VAR_REQUEST_SIZE:
                 if(CURLE_OK ==
                    curl_easy_getinfo(curl, CURLINFO_REQUEST_SIZE, &longinfo))
-                  fprintf(stream, "%d", longinfo);
+                  fprintf(stream, "%ld", longinfo);
+                break;
+              case VAR_NUM_CONNECTS:
+                if(CURLE_OK ==
+                   curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS, &longinfo))
+                  fprintf(stream, "%ld", longinfo);
+                break;
+              case VAR_REDIRECT_COUNT:
+                if(CURLE_OK ==
+                   curl_easy_getinfo(curl, CURLINFO_REDIRECT_COUNT, &longinfo))
+                  fprintf(stream, "%ld", longinfo);
+                break;
+              case VAR_REDIRECT_TIME:
+                if(CURLE_OK ==
+                   curl_easy_getinfo(curl, CURLINFO_REDIRECT_TIME, &doubleinfo))
+                  fprintf(stream, "%.3f", doubleinfo);
                 break;
               case VAR_TOTAL_TIME:
                 if(CURLE_OK ==
@@ -182,7 +211,6 @@ void ourWriteOut(CURL *curl, char *writeinfo)
                     curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &stringp))
                    && stringp)
                   fputs(stringp, stream);
-                break;
               default:
                 break;
               }
@@ -224,5 +252,5 @@ void ourWriteOut(CURL *curl, char *writeinfo)
       ptr++;
     }
   }
-  
+
 }

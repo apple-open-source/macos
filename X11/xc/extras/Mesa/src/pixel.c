@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.4
+ * Version:  5.0.1
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,19 +23,13 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
+#include "imports.h"
 #include "colormac.h"
 #include "context.h"
 #include "macros.h"
-#include "mem.h"
 #include "pixel.h"
 #include "mtypes.h"
-#endif
-
 
 
 /**********************************************************************/
@@ -239,7 +233,6 @@ _mesa_PixelStorei( GLenum pname, GLint param )
          FLUSH_VERTICES(ctx, _NEW_PACKUNPACK);
          ctx->Unpack.ClientStorage = param ? GL_TRUE : GL_FALSE;
          break;
-
       default:
 	 _mesa_error( ctx, GL_INVALID_ENUM, "glPixelStore" );
 	 return;
@@ -869,7 +862,7 @@ _mesa_transform_rgba(const GLcontext *ctx, GLuint n, GLfloat rgba[][4])
    const GLfloat bb = ctx->Pixel.PostColorMatrixBias[2];
    const GLfloat as = ctx->Pixel.PostColorMatrixScale[3];
    const GLfloat ab = ctx->Pixel.PostColorMatrixBias[3];
-   const GLfloat *m = ctx->ColorMatrix.m;
+   const GLfloat *m = ctx->ColorMatrixStack.Top->m;
    GLuint i;
    for (i = 0; i < n; i++) {
       const GLfloat r = rgba[i][RCOMP];
@@ -905,11 +898,10 @@ _mesa_lookup_rgba(const struct gl_color_table *table,
             GLuint i;
             for (i = 0; i < n; i++) {
                GLint j = IROUND(rgba[i][RCOMP] * scale);
-               GLfloat c = CHAN_TO_FLOAT(lut[CLAMP(j, 0, 1)]);
+               GLfloat c = CHAN_TO_FLOAT(lut[CLAMP(j, 0, max)]);
                rgba[i][RCOMP] = rgba[i][GCOMP] =
                   rgba[i][BCOMP] = rgba[i][ACOMP] = c;
             }
-
          }
          else {
             const GLint max = table->Size - 1;

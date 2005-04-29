@@ -1,0 +1,7 @@
+Version 1.38
+
+- interval timers for non-UNIX platforms?
+- nanosleep for non-UNIX platforms (that do not have usleep?)
+- any patches that Douglas has stashed away?
+- pthread_delay_np if no nanosleep?
+

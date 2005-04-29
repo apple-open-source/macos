@@ -29,21 +29,19 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: kiconv.c,v 1.6 2002/05/14 22:20:05 lindak Exp $
+ * $Id: kiconv.c,v 1.8 2004/12/13 00:25:21 lindak Exp $
  */
 
 #include <sys/types.h>
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 #include <sys/sysctl.h>
 #include <ctype.h>
 #include <errno.h>
 #include <string.h>
 
-#ifdef APPLE
 #include <sys/types.h>
 #include <unistd.h>
 extern uid_t real_uid, eff_uid;
-#endif
 
 int
 kiconv_add_xlat_table(const char *to, const char *from, const u_char *table)
@@ -61,7 +59,6 @@ kiconv_add_xlat_table(const char *to, const char *from, const u_char *table)
 	din.ia_data = table;
 	din.ia_datalen = 256;
 	olen = sizeof(dout);
-#ifdef APPLE
         seteuid(eff_uid); /* restore setuid root briefly */
 	if (sysctlbyname("net.smb.fs.iconv.add", &dout, &olen, &din, sizeof(din)) == -1) {
 		int e = errno;
@@ -69,10 +66,6 @@ kiconv_add_xlat_table(const char *to, const char *from, const u_char *table)
 		return e;
 	}
         seteuid(real_uid); /* and back to real user */
-#else
-	if (sysctlbyname("kern.iconv.add", &dout, &olen, &din, sizeof(din)) == -1)
-		return errno;
-#endif
 	return 0;
 }
 

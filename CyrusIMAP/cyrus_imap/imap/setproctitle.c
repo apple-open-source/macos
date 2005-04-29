@@ -1,5 +1,5 @@
 /* setproctitle -- set process title shown by ps(1)
- $Id: setproctitle.c,v 1.16 2003/02/13 20:15:30 rjs3 Exp $
+ $Id: setproctitle.c,v 1.5 2005/03/05 00:37:05 dasenbro Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

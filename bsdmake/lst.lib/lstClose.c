@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstClose.c,v 1.7 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-

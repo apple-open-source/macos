@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,23 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Sat Feb 23 2002.
- *  Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGenerateOFLabel.c,v 1.16 2003/08/04 05:24:16 ssen Exp $
+ *  $Id: BLGenerateOFLabel.c,v 1.20 2005/02/08 05:17:22 ssen Exp $
  *
  *  $Log: BLGenerateOFLabel.c,v $
+ *  Revision 1.20  2005/02/08 05:17:22  ssen
+ *  fix some open source usage
+ *
+ *  Revision 1.19  2005/02/03 00:42:27  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.18  2004/04/20 21:40:44  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.17  2003/10/17 00:10:39  ssen
+ *  add more const
+ *
  *  Revision 1.16  2003/08/04 05:24:16  ssen
  *  Add #ifndef _OPEN_SOURCE so that some stuff isn't in darwin
  *
@@ -83,3 +93,139 @@
  *
  */
 
+#include <CoreFoundation/CoreFoundation.h>
+
+#include <sys/types.h>
+
+#include "bless.h"
+#include "bless_private.h"
+
+static const unsigned char clut[] =
+  {
+    0x00, /* 0x00 0x00 0x00 white */
+    0xF6, /* 0x11 0x11 0x11 */
+    0xF7, /* 0x22 0x22 0x22 */
+
+    0x2A, /* 0x33 = 1*6^2 + 1*6 + 1 = 43 colors */
+
+    0xF8, /* 0x44 */
+    0xF9, /* 0x55 */
+
+    0x55, /* 0x66 = 2*(36 + 6 + 1) = 86 colors */
+
+    0xFA, /* 0x77 */
+    0xFB, /* 0x88 */
+
+    0x80, /* 0x99 = (3*43) = 129 colors*/
+
+    0xFC, /* 0xAA */
+    0xFD, /* 0xBB */
+
+    0xAB, /* 0xCC = 4*43 = 172 colors */
+
+    0xFE, /* 0xDD */
+    0xFF, /* 0xEE */
+
+    0xD6, /* 0xFF = 5*43 = 215 */
+  };
+
+static int makeLabelOfSize(const char *label, char *bitmapData,
+        uint16_t width, uint16_t height, uint16_t *newwidth);
+
+static int refitToWidth(char *bitmapData,
+        uint16_t width, uint16_t height, uint16_t newwidth);
+
+int BLGenerateOFLabel(BLContextPtr context,
+                    const unsigned char label[],
+                    CFDataRef* data) {
+                    
+                    
+        uint16_t width = 340;
+        uint16_t height = 12;
+        uint16_t newwidth;
+        int err;
+        int i;
+        CFDataRef bits = NULL;
+        unsigned char *bitmapData;
+
+        contextprintf(context, kBLLogLevelError,
+		      "CoreGraphics is not available for rendering\n");
+	return 1;
+	
+        bitmapData = malloc(width*height+5);
+        if(!bitmapData) {
+                contextprintf(context, kBLLogLevelError,
+                    "Could not alloc CoreGraphics backing store\n");
+                return 1;
+        }
+        bzero(bitmapData, width*height+5);
+
+        err = makeLabelOfSize(label, bitmapData+5, width, height, &newwidth);
+	if(err) {
+	  free(bitmapData);
+	  *data = NULL;
+	  return 2;
+	}
+
+	// cap at 300 pixels wide.
+	if(newwidth > width) newwidth = width;
+	
+	err = refitToWidth(bitmapData+5, width, height, newwidth);
+	if(err) {
+	  free(bitmapData);
+	  *data = NULL;
+	  return 3;
+	}
+
+	bitmapData = realloc(bitmapData, newwidth*height+5);
+	if(NULL == bitmapData) {
+                contextprintf(context, kBLLogLevelError,
+                    "Could not realloc to shrink CoreGraphics backing store\n");
+		
+                return 4;
+	}
+
+        bitmapData[0] = 1;
+        *(uint16_t *)&bitmapData[1] = CFSwapInt16HostToBig(newwidth);
+        *(uint16_t *)&bitmapData[3] = CFSwapInt16HostToBig(height);
+        
+        for(i=5; i < newwidth*height+5; i++) {
+            bitmapData[i] = clut[bitmapData[i] >> 4];
+        }
+
+	//	bits = CFDataCreate(kCFAllocatorDefault, bitmapData, newwidth*height+5);
+	bits = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, bitmapData, newwidth*height+5, kCFAllocatorMalloc);
+	//        free(bitmapData);
+        
+	if(bits == NULL) {
+                contextprintf(context, kBLLogLevelError,
+                    "Could not create CFDataRef\n");
+		return 6;
+	}
+
+        *data = (void *)bits;
+        
+        return 0;
+}
+
+static int makeLabelOfSize(const char *label, char *bitmapData,
+						   uint16_t width, uint16_t height, uint16_t *newwidth) {
+	return 1;
+}
+
+/*
+ * data is of the form:
+ *  111111000111111000111111000 ->
+ *  111111111111111111
+ */
+
+static int refitToWidth(char *bitmapData,
+        uint16_t width, uint16_t height, uint16_t newwidth)
+{
+  uint16_t row;
+  for(row=0; row < height; row++) {
+    bcopy(&bitmapData[row*width], &bitmapData[row*newwidth], newwidth);
+  }
+
+  return 0;
+}

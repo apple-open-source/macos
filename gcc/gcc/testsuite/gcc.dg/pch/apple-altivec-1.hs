@@ -1,1 +1,2 @@
-/* { dg-options "-faltivec -Wno-long-double" } */
+/* APPLE LOCAL file AltiVec */
+/* { dg-options "-faltivec" } */

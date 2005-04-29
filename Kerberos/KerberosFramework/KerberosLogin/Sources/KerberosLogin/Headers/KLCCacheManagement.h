@@ -1,7 +1,7 @@
 /*
  * KLCCacheManagement.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLCCacheManagement.h,v 1.1 2003/04/14 17:25:25 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLCCacheManagement.h,v 1.3 2004/12/17 05:12:34 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -26,38 +26,43 @@
  * or implied warranty.
  */
 
+/* CCache information */
+struct OpaqueKLCCache;
+typedef struct OpaqueKLCCache * KLCCache;
+
+
+KLTime __KLCheckAddresses ();
+KLStatus __KLFreeAddressList ();
+
 KLStatus __KLCreateNewCCacheWithCredentials (KLPrincipal        inPrincipal,
-                                             krb5_context       inContext,
-                                             krb5_creds        *inV5Creds,
-                                             CREDENTIALS       *inV4Creds,
-                                             cc_ccache_t       *outCCache);
-KLStatus __KLStoreKerberos5CredentialsInCCache (krb5_context inContext, krb5_creds *inV5Creds, const cc_ccache_t inCCache);
-KLStatus __KLStoreKerberos4CredentialsInCCache (CREDENTIALS *inV4Creds, const cc_ccache_t inCCache);
+                                             krb5_creds        *inV5Creds, 
+                                             CREDENTIALS       *inV4Creds, 
+                                             KLCCache          *outCCache);
+KLStatus __KLGetCCacheByName (const char *inCacheName, KLCCache *outCCache);
+KLStatus __KLGetSystemDefaultCCache (KLCCache *outCCache);
+KLStatus __KLGetFirstCCacheForPrincipal (KLPrincipal inPrincipal, KLCCache *outCCache);
+KLStatus __KLCloseCCache (KLCCache inCCache);
+KLStatus __KLDestroyCCache (KLCCache inCCache);
 
-KLStatus __KLGetKerberos5TgtForCCache (const cc_ccache_t inCCache, krb5_context inContext, krb5_creds *outCreds);
-KLStatus __KLGetKerberos4TgtForCCache (const cc_ccache_t inCCache, CREDENTIALS *outCreds);
+KLStatus __KLMoveCCache (KLCCache inSourceCCache, KLCCache inDestinationCCache);
 
-KLStatus __KLGetSystemDefaultCCache (cc_ccache_t *outCCache);
-KLStatus __KLGetFirstCCacheForPrincipal (const KLPrincipal inPrincipal, cc_ccache_t *outCCache);
-KLStatus __KLGetCCacheByName (const char *inCacheName, cc_ccache_t *outCCache);
+KLStatus __KLSetDefaultCCache (KLCCache *ioCCache);
 
-KLBoolean __KLCCacheHasKerberos4 (const cc_ccache_t inCCache);
-KLBoolean __KLCCacheHasKerberos5 (const cc_ccache_t inCCache);
+KLStatus __KLCCacheExists (KLCCache inCCache);
+                           
+KLBoolean __KLCCacheHasKerberos4 (KLCCache inCCache);
+KLBoolean __KLCCacheHasKerberos5 (KLCCache inCCache);
 
-KLStatus __KLGetValidTgtForCCache (const cc_ccache_t inCCache, KLKerberosVersion inVersion, cc_credentials_t *outCreds);
-KLStatus __KLCacheHasValidTickets (const cc_ccache_t inCCache, KLKerberosVersion inVersion);
+KLStatus __KLGetValidV5TgtForCCache (KLCCache inCCache, krb5_creds **outV5Creds);
+KLStatus __KLGetValidV4TgtForCCache (KLCCache inCCache, CREDENTIALS *outV4Creds);
 
-KLStatus __KLGetPrincipalForCCache (const cc_ccache_t inCCache, KLPrincipal *outPrincipal);
-KLStatus __KLGetNameForCCache (const cc_ccache_t inCCache, char **outName);
-KLStatus __KLGetPrincipalAndNameForCCache (const cc_ccache_t inCCache, KLPrincipal *outPrincipal, char **outName);
+KLStatus __KLCacheHasValidTickets (KLCCache inCCache, KLKerberosVersion inVersion);
 
-KLStatus __KLGetCCacheExpirationTime (const cc_ccache_t inCCache, KLKerberosVersion inVersion, KLTime *outExpirationTime);
-KLStatus __KLGetCredsExpirationTime (const cc_credentials_t inCreds, KLTime *outExpirationTime);
+KLStatus __KLGetCCacheExpirationTime (KLCCache inCCache, KLKerberosVersion inVersion, KLTime *outExpirationTime);
+KLStatus __KLGetCCacheStartTime (KLCCache inCCache, KLKerberosVersion inVersion, KLTime *outStartTime);
 
-KLStatus __KLGetCCacheStartTime (const cc_ccache_t inCCache, KLKerberosVersion inVersion, KLTime *outStartTime);
-KLStatus __KLGetCredsStartTime (const cc_credentials_t inCreds, KLTime *outStartTime);
-
-KLStatus __KLCredsAreValid (const cc_credentials_t inCreds);
-
-KLTime __KLCheckAddresses (void);
-KLStatus __KLFreeAddressList (void);
+KLStatus __KLGetKrb5CCacheAndContextForCCache (KLCCache inCCache, krb5_ccache *outCCache, krb5_context *outContext);
+KLStatus __KLGetPrincipalForCCache (KLCCache inCCache, KLPrincipal *outPrincipal);
+KLStatus __KLGetNameForCCacheVersion (KLCCache inCCache, KLKerberosVersion inVersion, char **outName);
+KLStatus __KLGetNameForCCache (KLCCache inCCache, char **outName);
+KLStatus __KLGetPrincipalAndNameForCCache (KLCCache inCCache, KLPrincipal *outPrincipal, char **outName);

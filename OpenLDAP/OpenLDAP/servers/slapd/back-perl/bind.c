@@ -1,26 +1,19 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/bind.c,v 1.9.2.3 2002/06/20 20:12:34 kurt Exp $ */
-/*
- *	 Copyright 1999, John C. Quillan, All rights reserved.
- *	 Portions Copyright 2002, myinternet Limited. All rights reserved.
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/bind.c,v 1.17.2.5 2004/04/28 23:23:16 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *	 Redistribution and use in source and binary forms are permitted only
- *	 as authorized by the OpenLDAP Public License.	A copy of this
- *	 license is available at http://www.OpenLDAP.org/license.html or
- *	 in file LICENSE in the top-level directory of the distribution.
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999 John C. Quillan.
+ * Portions Copyright 2002 myinternet Limited.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-
-#include "portable.h"
-/* init.c - initialize Perl backend */
-	
-#include <stdio.h>
-
-#include "slap.h"
-#ifdef HAVE_WIN32_ASPERL
-#include "asperl_undefs.h"
-#endif
-
-#include <EXTERN.h>
-#include <perl.h>
 
 #include "perl_back.h"
 
@@ -32,20 +25,12 @@
  **********************************************************/
 int
 perl_back_bind(
-	Backend *be,
-	Connection *conn,
 	Operation *op,
-	struct berval *dn,
-	struct berval *ndn,
-	int method,
-	struct berval *cred,
-	struct berval *edn
-)
+	SlapReply *rs )
 {
-	int return_code;
 	int count;
 
-	PerlBackend *perl_back = (PerlBackend *) be->be_private;
+	PerlBackend *perl_back = (PerlBackend *) op->o_bd->be_private;
 
 #ifdef HAVE_WIN32_ASPERL
 	PERL_SET_CONTEXT( PERL_INTERPRETER );
@@ -58,8 +43,8 @@ perl_back_bind(
 
 		PUSHMARK(SP);
 		XPUSHs( perl_back->pb_obj_ref );
-		XPUSHs(sv_2mortal(newSVpv( dn->bv_val , 0)));
-		XPUSHs(sv_2mortal(newSVpv( cred->bv_val , cred->bv_len)));
+		XPUSHs(sv_2mortal(newSVpv( op->o_req_dn.bv_val , 0)));
+		XPUSHs(sv_2mortal(newSVpv( op->orb_cred.bv_val , op->orb_cred.bv_len)));
 		PUTBACK;
 
 #ifdef PERL_IS_5_6
@@ -74,7 +59,7 @@ perl_back_bind(
 			croak("Big trouble in back_bind\n");
 		}
 
-		return_code = POPi;
+		rs->sr_err = POPi;
 							 
 
 		PUTBACK; FREETMPS; LEAVE;
@@ -82,11 +67,11 @@ perl_back_bind(
 
 	ldap_pvt_thread_mutex_unlock( &perl_interpreter_mutex );	
 
-	Debug( LDAP_DEBUG_ANY, "Perl BIND returned 0x%04x\n", return_code, 0, 0 );
+	Debug( LDAP_DEBUG_ANY, "Perl BIND returned 0x%04x\n", rs->sr_err, 0, 0 );
 
 	/* frontend will send result on success (0) */
-	if( return_code != LDAP_SUCCESS )
-		send_ldap_result( conn, op, return_code, NULL, NULL, NULL, NULL );
+	if( rs->sr_err != LDAP_SUCCESS )
+		send_ldap_result( op, rs );
 
-	return ( return_code );
+	return ( rs->sr_err );
 }

@@ -1,0 +1,30 @@
+--- freopen.c.orig	2004-10-28 23:51:35.000000000 -0700
++++ freopen.c	2004-10-28 23:53:14.000000000 -0700
+@@ -136,6 +136,8 @@
+ 	 * descriptor (if any) was associated with it.  If it was attached to
+ 	 * a descriptor, defer closing it; freopen("/dev/stdin", "r", stdin)
+ 	 * should work.  This is unnecessary if it was not a Unix file.
++	 *
++	 * For UNIX03, we always close if it was open.
+ 	 */
+ 	if (fp->_flags == 0) {
+ 		fp->_flags = __SEOF;	/* hold on to it */
+@@ -146,11 +148,18 @@
+ 		if (fp->_flags & __SWR)
+ 			(void) __sflush(fp);
+ 		/* if close is NULL, closing is a no-op, hence pointless */
++#if __DARWIN_UNIX03
++		if (fp->_close)
++			(void) (*fp->_close)(fp->_cookie);
++		isopen = 0;
++		wantfd = -1;
++#else /* !__DARWIN_UNIX03 */
+ 		isopen = fp->_close != NULL;
+ 		if ((wantfd = fp->_file) < 0 && isopen) {
+ 			(void) (*fp->_close)(fp->_cookie);
+ 			isopen = 0;
+ 		}
++#endif /* __DARWIN_UNIX03 */
+ 	}
+ 
+ 	/* Get a new descriptor to refer to the new file. */

@@ -123,8 +123,8 @@
 
 	[obj[where] release];
 
-	for (i = where; i < count; i++) obj[i] = obj[i + 1];
 	count--;
+	for (i = where; i < count; i++) obj[i] = obj[i + 1];
 	if (count > 0)
 	{
 		obj = (id *)realloc(obj, count * sizeof(id));

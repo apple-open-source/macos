@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2003, International Business Machines Corporation and    *
+* Copyright (C) 1997-2004, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -32,6 +32,8 @@
 #include "unicode/locid.h"
 #include "cpputils.h"
 #include "ustrfmt.h"
+#include "cstring.h"
+#include "putilimp.h"
 
 // *****************************************************************************
 // class ChoiceFormat
@@ -39,7 +41,7 @@
 
 U_NAMESPACE_BEGIN
 
-const char        ChoiceFormat::fgClassID = 0; // Value is irrelevant
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ChoiceFormat)
 
 // Special characters used by ChoiceFormat.  There are two characters
 // used interchangeably to indicate <=.  Either is parsed, but only
@@ -52,8 +54,8 @@ const char        ChoiceFormat::fgClassID = 0; // Value is irrelevant
 #define MINUS        ((UChar)0x002D)   /*-*/
 #define INFINITY     ((UChar)0x221E)
 
-const UChar ChoiceFormat::fgPositiveInfinity[] = {INFINITY, 0};
-const UChar ChoiceFormat::fgNegativeInfinity[] = {MINUS, INFINITY, 0};
+static const UChar gPositiveInfinity[] = {INFINITY, 0};
+static const UChar gNegativeInfinity[] = {MINUS, INFINITY, 0};
 #define POSITIVE_INF_STRLEN 1
 #define NEGATIVE_INF_STRLEN 2
 
@@ -132,7 +134,6 @@ UBool
 ChoiceFormat::operator==(const Format& that) const
 {
     if (this == &that) return TRUE;
-    if (this->getDynamicClassID() != that.getDynamicClassID()) return FALSE;  // not the same class
     if (!NumberFormat::operator==(that)) return FALSE;
     ChoiceFormat& thatAlias = (ChoiceFormat&)that;
     if (fCount != thatAlias.fCount) return FALSE;
@@ -196,7 +197,7 @@ ChoiceFormat::stod(const UnicodeString& string)
     char source[256];
     char* end;
 
-    string.extract(0, string.length(), source, sizeof(source), "");    /* invariant codepage */
+    string.extract(0, string.length(), source, (int32_t)sizeof(source), US_INV);    /* invariant codepage */
     return uprv_strtod(source,&end);
 }
 
@@ -212,7 +213,7 @@ ChoiceFormat::dtos(double value,
     char temp[256];
 
     uprv_dtostr(value, temp, 3, TRUE);
-    string = UnicodeString(temp, "");    /* invariant codepage */
+    string = UnicodeString(temp, -1, US_INV);    /* invariant codepage */
     return string;
 }
 
@@ -322,9 +323,9 @@ ChoiceFormat::applyPattern(const UnicodeString& pattern,
 
             double limit;
             buf.trim();
-            if (!buf.compare(fgPositiveInfinity, POSITIVE_INF_STRLEN)) {
+            if (!buf.compare(gPositiveInfinity, POSITIVE_INF_STRLEN)) {
                 limit = uprv_getInfinity();
-            } else if (!buf.compare(fgNegativeInfinity, NEGATIVE_INF_STRLEN)) {
+            } else if (!buf.compare(gNegativeInfinity, NEGATIVE_INF_STRLEN)) {
                 limit = -uprv_getInfinity();
             } else {
                 limit = stod(buf);
@@ -566,6 +567,19 @@ ChoiceFormat::getFormats(int32_t& cnt) const
 }
 
 // -------------------------------------
+// Formats an int64 number, it's actually formatted as
+// a double.  The returned format string may differ
+// from the input number because of this.
+
+UnicodeString&
+ChoiceFormat::format(int64_t number, 
+                     UnicodeString& appendTo, 
+                     FieldPosition& status) const
+{
+    return format((double) number, appendTo, status);
+}
+
+// -------------------------------------
 // Formats a long number, it's actually formatted as
 // a double.  The returned format string may differ
 // from the input number because of this.
@@ -626,10 +640,11 @@ ChoiceFormat::format(const Formattable* objs,
 
     UnicodeString buffer;
     for (int32_t i = 0; i < cnt; i++) {
-        double objDouble = (objs[i].getType() == Formattable::kLong) ?
-            ((double) objs[i].getLong()) : objs[i].getDouble();
-        buffer.remove();
-        appendTo += format(objDouble, buffer, pos);
+        double objDouble = objs[i].getDouble(status);
+        if (U_SUCCESS(status)) {
+            buffer.remove();
+            appendTo += format(objDouble, buffer, pos);
+        }
     }
 
     return appendTo;

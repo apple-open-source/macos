@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 // Origin: Mark Mitchell <mark@codesourcery.com>
 
 template <class T>
@@ -14,7 +14,7 @@ struct D : public B<T> {
 
 void g() {
   B<int>* bi = new D<int>;
-};
+}
 
 template <class T>
 void B<T>::f() {}

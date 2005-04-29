@@ -1,3 +1,37 @@
+2004-05-27  Tom Yu  <tlyu@mit.edu>
+
+	* client.c: rpcint_32 -> int32_t.
+
+	* server.c: Update names of AUTH_GSSAPI functions.
+
+2004-04-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* lib/helpers.exp (expect_kadm_ok): Check for "ERROR" messages and
+	report them.
+
+2004-02-27  Ken Raeburn  <raeburn@mit.edu>
+
+	* lib/helpers.exp (expect_kadm_ok): Check for eof and report a
+	specific error for that case.
+
+2004-02-13  Tom Yu  <tlyu@mit.edu>
+
+	* config/unix.exp (PRIOCNTL_HACK): Use "==" instead of "eq", which
+	is not present in tcl-8.3.
+
+2004-02-12  Tom Yu  <tlyu@mit.edu>
+
+	* configure.in: Invoke KRB5_AC_PRIOCNTL_HACK.
+
+	* config/unix.exp (PRIOCNTL_HACK): Wrap "spawn" to do priocntl
+	things to work around Solaris 9 pty-close bug.
+
+2003-12-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* lib/helpers.exp (expect_kadm_ok, eof_client): Accept and ignore
+	debugging messages starting "marshall_new_creds" or "gssapi_", and
+	blank lines.
+
 2003-01-07  Ken Raeburn  <raeburn@mit.edu>
 
 	* Makefile.ov: Deleted.

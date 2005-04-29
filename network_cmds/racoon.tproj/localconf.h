@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __LOCALCONF_H__
+#define __LOCALCONF_H__
+
 /* local configuration */
 
 #define LC_DEFAULT_CF	SYSCONFDIR "/racoon.conf"
@@ -111,3 +114,7 @@ extern vchar_t *getpskfromkeychain __P((const char *));
 extern void getpathname __P((char *, int, int, const char *));
 extern int sittype2doi __P((int));
 extern int doitype2doi __P((int));
+
+
+#endif /* __LOCALCONF_H__ */
+

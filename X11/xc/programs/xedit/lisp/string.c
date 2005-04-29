@@ -27,12 +27,12 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/string.c,v 1.22 2002/12/04 05:27:58 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/string.c,v 1.26 2003/11/27 17:28:43 paulo Exp $ */
 
-#include "helper.h"
-#include "read.h"
-#include "string.h"
-#include "private.h"
+#include "lisp/helper.h"
+#include "lisp/read.h"
+#include "lisp/string.h"
+#include "lisp/private.h"
 #include <ctype.h>
 
 #define CHAR_LESS		1
@@ -368,7 +368,7 @@ Lisp_Char(LispBuiltin *builtin)
  schar simple-string index
  */
 {
-    char *string;
+    unsigned char *string;
     long offset, length;
 
     LispObj *ostring, *oindex;
@@ -379,7 +379,7 @@ Lisp_Char(LispBuiltin *builtin)
     CHECK_STRING(ostring);
     CHECK_INDEX(oindex);
     offset = FIXNUM_VALUE(oindex);
-    string = THESTR(ostring);
+    string = (unsigned char*)THESTR(ostring);
     length = STRLEN(ostring);
 
     if (offset >= length)
@@ -549,9 +549,8 @@ Lisp_MakeString(LispBuiltin *builtin)
     long length;
     char *string, initial;
 
-    LispObj *size, *initial_element, *element_type;
+    LispObj *size, *initial_element;
 
-    element_type = ARGUMENT(2);
     initial_element = ARGUMENT(1);
     size = ARGUMENT(0);
 
@@ -598,6 +597,12 @@ Lisp_ParseInteger(LispBuiltin *builtin)
     LispCheckSequenceStartEnd(builtin, ostring, ostart, oend,
 			      &start, &end, &length);
     string = THESTR(ostring);
+    if (oradix == UNSPEC)
+	radix = 10;
+    else {
+	CHECK_INDEX(oradix);
+	radix = FIXNUM_VALUE(oradix);
+    }
     if (radix < 2 || radix > 36)
 	LispDestroy("%s: :RADIX %ld must be in the range 2 to 36",
 		    STRFUN(builtin), radix);
@@ -725,10 +730,8 @@ Lisp_ReadFromString(LispBuiltin *builtin)
     LispObj *stream, *result;
     long length, start, end, bytes_read;
 
-    LispObj *ostring, *eof_error_p, *eof_value,
-	    *ostart, *oend, *preserve_white_space;
+    LispObj *ostring, *eof_error_p, *eof_value, *ostart, *oend;
 
-    preserve_white_space = ARGUMENT(5);
     oend = ARGUMENT(4);
     ostart = ARGUMENT(3);
     eof_value = ARGUMENT(2);

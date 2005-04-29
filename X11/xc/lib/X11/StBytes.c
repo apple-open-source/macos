@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/StBytes.c,v 1.4 2001/12/14 19:54:07 dawes Exp $ */
+/* $XFree86: xc/lib/X11/StBytes.c,v 1.5 2003/11/17 22:20:08 dawes Exp $ */
 
 #include <X11/Xlibint.h>
 #include <X11/Xatom.h>
@@ -82,19 +82,11 @@ char *XFetchBytes (dpy, nbytes)
 }
 
 int
-#if NeedFunctionPrototypes
 XStoreBuffer (
     register Display *dpy,
     _Xconst char *bytes,
     int nbytes,
     register int buffer)
-#else
-XStoreBuffer (dpy, bytes, nbytes, buffer)
-    register Display *dpy;
-    char *bytes;
-    int nbytes;
-    register int buffer;
-#endif
 {
     if ((buffer < 0) || (buffer > 7)) return 0;
     return XChangeProperty(dpy, RootWindow(dpy, 0), n_to_atom[buffer], 
@@ -102,17 +94,10 @@ XStoreBuffer (dpy, bytes, nbytes, buffer)
 }
 
 int
-#if NeedFunctionPrototypes
 XStoreBytes (
     register Display *dpy,
     _Xconst char *bytes,
     int nbytes)
-#else
-XStoreBytes (dpy, bytes, nbytes)
-    register Display *dpy;
-    char *bytes;
-    int nbytes;
-#endif
 {
     return XStoreBuffer (dpy, bytes, nbytes, 0);
 }

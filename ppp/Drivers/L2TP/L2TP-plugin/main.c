@@ -58,8 +58,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <syslog.h>
+#include <ifaddrs.h>
 #include <sys/ioctl.h>
-#include <net/dlil.h>
 #include <net/if.h>
 #include <net/if_dl.h>
 #include <net/route.h>
@@ -72,6 +72,7 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 
 
+#include "../../../Controller/PPPControllerPriv.h"
 #include "../../../Controller/ppp_msg.h"
 #include "../../../Family/ppp_defs.h"
 #include "../../../Family/if_ppp.h"
@@ -80,8 +81,10 @@
 #include "../../../Helpers/pppd/pppd.h"
 #include "../../../Helpers/pppd/fsm.h"
 #include "../../../Helpers/pppd/lcp.h"
+#include "../../../Helpers/vpnd/RASSchemaDefinitions.h"
+#include "../../../Helpers/vpnd/cf_utils.h"
 #include "l2tp.h"
-#include "ipsec_utils.h"
+#include "../../../Helpers/vpnd/ipsec_utils.h"
 
 
 /* -----------------------------------------------------------------------------
@@ -94,6 +97,31 @@
 
 
 #define L2TP_DEFAULT_RECV_TIMEOUT      60 /* seconds */
+
+#define L2TP_MIN_HDR_SIZE 220		/* IPSec + Nat Traversal + L2TP/UDP + PPP */
+
+#define	L2TP_RETRY_CONNECT_CODE			1
+
+#define L2TP_DEFAULT_WAIT_IF_TIMEOUT      10 /* seconds */
+
+/* 
+	Private IPv4 addresses 
+	10.0.0.0 - 10.255.255.255
+	172.16.0.0 - 172.31.255.255
+	192.168.0.0 - 192.168.255.255
+*/
+
+#define IN_PRIVATE_CLASSA_NETNUM	(u_int32_t)0xA000000 /* 10.0.0.0 */
+#define IN_PRIVATE_CLASSA(i)		(((u_int32_t)(i) & IN_CLASSA_NET) == IN_PRIVATE_CLASSA_NETNUM)		
+
+#define IN_PRIVATE_CLASSB_NETNUM	(u_int32_t)0xAC100000 /* 172.16.0.0 - 172.31.0.0 */
+#define IN_PRIVATE_CLASSB(i)		(((u_int32_t)(i) & 0xFFF00000) == IN_PRIVATE_CLASSB_NETNUM)		
+						
+#define IN_PRIVATE_CLASSC_NETNUM	(u_int32_t)0xC0A80000 /* 192.168.0.0 */
+#define IN_PRIVATE_CLASSC(i)		(((u_int32_t)(i) & 0xFFFF0000) == IN_PRIVATE_CLASSC_NETNUM)								
+
+#define IN_PRIVATE(i)				(IN_PRIVATE_CLASSA(i) || IN_PRIVATE_CLASSB(i) || IN_PRIVATE_CLASSC(i))
+
 
 /* -----------------------------------------------------------------------------
  PPP globals
@@ -121,6 +149,7 @@ static int	opt_hello_timeout = 0;			/* default - only send for network change ev
 static int     	opt_recv_timeout = L2TP_DEFAULT_RECV_TIMEOUT;
 static char	opt_ipsecsharedsecret[MAXSECRETLEN];	/* IPSec Shared Secret */
 static char     *opt_ipsecsharedsecrettype = "use";	 /* use, key, keychain */
+static int	opt_wait_if_timeout = L2TP_DEFAULT_WAIT_IF_TIMEOUT;
 
 struct	l2tp_parameters our_params;
 struct 	l2tp_parameters peer_params;
@@ -142,12 +171,19 @@ static u_int8_t interface[17];
 static pthread_t resolverthread = 0;
 static int 	resolverfds[2];
 static int 	peer_route_set = 0;		/* has a route to the peer been set ? */
-static int 	need_stop_racoon = 0;
+static int	echo_timer_running = 0;
+static int	transport_up = 1;
+static int	wait_interface_timer_running = 0;
+
+static CFMutableDictionaryRef	ipsec_dict = NULL;
 
 extern int 		kill_link;
 extern CFStringRef	serviceidRef;		/* from pppd/sys_MacOSX.c */
 extern SCDynamicStoreRef cfgCache;		/* from pppd/sys_MacOSX.c */
  
+extern CFPropertyListRef 		userOptions;	/* from pppd/sys_MacOSX.c */
+extern CFPropertyListRef 		systemOptions;	/* from pppd/sys_MacOSX.c */
+
 /* option descriptors */
 option_t l2tp_options[] = {
     { "l2tpnoload", o_bool, &opt_noload,
@@ -179,6 +215,8 @@ option_t l2tp_options[] = {
       "Set plugin receive timeout" },    
     { "l2tphellotimeout", o_int, &opt_hello_timeout,
       "Set timeout for hello messages: zero = send only for network change events" },    
+    { "l2tpwaitiftimeout", o_int, &opt_wait_if_timeout,
+      "How long do we wait for our transport interface to come back after interface events" },    
     { NULL }
 };
 
@@ -189,7 +227,7 @@ option_t l2tp_options[] = {
 
 void l2tp_process_extra_options();
 void l2tp_check_options();
-int l2tp_connect();
+int l2tp_connect(int *errorcode);
 void l2tp_disconnect();
 void l2tp_close_fds();
 void l2tp_cleanup();
@@ -205,6 +243,9 @@ static boolean_t l2tp_set_host_gateway(int cmd, struct in_addr host, struct in_a
 static int l2tp_set_peer_route();
 static int l2tp_clean_peer_route();
 static void l2tp_ip_up(void *arg, int p);
+static void l2tp_start_wait_interface ();
+static void l2tp_stop_wait_interface ();
+static void l2tp_wait_interface_timeout (void *arg);
 
  
 /* -----------------------------------------------------------------------------
@@ -259,6 +300,18 @@ void l2tp_check_options()
         opt_timeoutcap = L2TP_DEFAULT_TIMEOUT_CAP;
     }
         
+	/*
+		reuse pppd redial functionality to retry connection
+		retry every 3 seconds for the duration of the extra time
+		do not report busy state
+	 */  
+	if (extraconnecttime) {
+		busycode = L2TP_RETRY_CONNECT_CODE;
+		redialtimer = 3 ;
+		redialcount = extraconnecttime / redialtimer;
+		hasbusystate = 0;
+	}
+		
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -271,6 +324,38 @@ void l2tp_process_extra_options()
     }
 }
 
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static void l2tp_start_wait_interface ()
+{
+    if (wait_interface_timer_running != 0)
+        return;
+
+    TIMEOUT (l2tp_wait_interface_timeout, 0, opt_wait_if_timeout);
+    wait_interface_timer_running = 1;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static void l2tp_stop_wait_interface ()
+{
+    if (wait_interface_timer_running) {
+        UNTIMEOUT (l2tp_wait_interface_timeout, 0);
+        wait_interface_timer_running = 0;
+    }
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static void l2tp_wait_interface_timeout (void *arg)
+{
+    if (wait_interface_timer_running != 0) {
+        wait_interface_timer_running = 0;
+		// our transport interface didn't come back, take down the connection
+		l2tp_link_failure();
+    }
+}
+
 /* ----------------------------------------------------------------------------- 
 called back everytime we go out of select, and data needs to be read
 the hook is called and has a chance to get data out of its file descriptor
@@ -279,7 +364,9 @@ or get awaken when connection is closed
 ----------------------------------------------------------------------------- */
 void l2tp_wait_input()
 {
-    int err;
+    int err, found;
+    struct ifaddrs *ifap = NULL;
+	u_int16_t	reliable;
 
     if (eventsockfd != -1 && is_ready_fd(eventsockfd)) {
     
@@ -303,9 +390,53 @@ void l2tp_wait_input()
                         }
                         else {
                             // don't disconnect if an address has been removed
-                            if (ev_msg->event_code == KEV_INET_ADDR_DELETED)
+                            if (ev_msg->event_code == KEV_INET_ADDR_DELETED) {
+								/* stop reliability layer */
+								reliable = 0;
+								setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
+								transport_up = 0;
                                 break;
-                                
+							}
+							
+							
+                            /* check if address still exist */
+                            found = 0;
+                            if (getifaddrs(&ifap) == 0) {
+                                struct ifaddrs *ifa;
+                                for (ifa = ifap; ifa && !found ; ifa = ifa->ifa_next) {
+                                    found = (ifa->ifa_name  
+                                            && ifa->ifa_addr
+                                            && !strncmp(ifa->ifa_name, interface, sizeof(interface))
+                                            && ifa->ifa_addr->sa_family == AF_INET
+                                            && ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == our_address.sin_addr.s_addr);
+                                }
+                                freeifaddrs(ifap);
+                            }
+                            if (found == 0) {
+                                // we don't have the address on the interface, disconnect immediatly
+                                l2tp_link_failure();
+                            }
+
+							/* 
+								Our transport interface comes back with the same address.
+								Stop waiting for interface. 
+								A smarter algorithm should be implemented here.
+							*/
+							transport_up = 1;
+							l2tp_stop_wait_interface();
+
+							/* If we are behind a NAT, let's flust security association to force renegotiation and 
+							  reacquisition of the correct port */
+							if (!opt_noipsec) {
+								if (IN_PRIVATE(our_address.sin_addr.s_addr) && !IN_PRIVATE(peer_address.sin_addr.s_addr)) {
+									IPSecRemoveSecurityAssociations((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address);
+								}
+							}
+
+							/* restart reliability layer */
+                            reliable = 1;
+							setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
+
                             /* reassert the tunnel by sending hello request */
                             if (l2tp_send_hello(ctrlsockfd, &our_params)) {
                                 error("L2TP error on control channel sending Hello message after network change\n");
@@ -313,6 +444,19 @@ void l2tp_wait_input()
                             }
                         }
                     }
+					else {
+						if (ev_msg->event_code == KEV_INET_NEW_ADDR || ev_msg->event_code == KEV_INET_CHANGED_ADDR) {
+							if (transport_up == 0) {
+								
+								/* 
+									Another interface got an address while our underlying transport interface was still down.
+									Take is as a clue to disconnect our link, but give some time for our interface to come back. 
+									A smarter algorithm should be implemented here.
+								*/
+                                l2tp_start_wait_interface();
+							}
+						}
+					}
                     break;
             }
         }
@@ -343,12 +487,24 @@ void *l2tp_resolver_thread(void *arg)
 {
     struct hostent 	*host;
     char		result = -1;
+	int			count, fd;
+	u_int8_t	rd8; 
 
     if (pthread_detach(pthread_self()) == 0) {
         
         // try to resolve the name
         if (host = gethostbyname(remoteaddress)) {
-            peer_address.sin_addr = *(struct in_addr *)host->h_addr;
+
+			for (count = 0; host->h_addr_list[count]; count++);
+		
+			rd8 = 0;
+			fd = open("/dev/random", O_RDONLY);
+			if (fd) {
+				read(fd, &rd8, sizeof(rd8));
+				close(fd);
+			}
+
+            peer_address.sin_addr = *(struct in_addr *)host->h_addr_list[rd8 % count];
             result = 0;
         }
     }
@@ -362,7 +518,7 @@ void *l2tp_resolver_thread(void *arg)
 get the socket ready to start doing PPP.
 That is, open the socket and start the L2TP dialog
 ----------------------------------------------------------------------------- */
-int l2tp_connect()
+int l2tp_connect(int *errorcode)
 {
     char 		dev[32], name[MAXPATHLEN], c; 
     int 		err = 0, optlen, rcvlen;  
@@ -372,6 +528,11 @@ int l2tp_connect()
     struct kev_request	kev_req;
     struct sockaddr_in	from;
     struct sockaddr_in 	any_address;
+	u_int32_t baudrate;
+	char				*errstr;
+	int					host_name_specified;
+
+	*errorcode = 0;
 
     if (cfgCache == NULL || serviceidRef == NULL) {
         goto fail;
@@ -382,16 +543,17 @@ int l2tp_connect()
 
     hungup = 0;
     kill_link = 0;
-    
+
     routeraddress[0] = 0;
     interface[0] = 0;
+	host_name_specified = 0;
 
     /* unknown src and dst addresses */
     bzero(&any_address, sizeof(any_address));
     any_address.sin_len = sizeof(any_address);
     any_address.sin_family = AF_INET;
-    any_address.sin_port = 0;
-    any_address.sin_addr.s_addr = INADDR_ANY;
+    any_address.sin_port = htons(0);
+    any_address.sin_addr.s_addr = htonl(INADDR_ANY);
 
     our_address = any_address;
     peer_address = any_address;
@@ -424,6 +586,25 @@ int l2tp_connect()
         }
     }
 
+	/* now that we know our interface, adjust the MTU if necessary */
+	if (interface[0]) {
+		int min_mtu = get_if_mtu(interface) - L2TP_MIN_HDR_SIZE;
+		if (lcp_allowoptions[0].mru > min_mtu)	/* defines out mtu */
+			lcp_allowoptions[0].mru = min_mtu;
+
+		/* Don't adjust MRU, radar 3974763 */ 
+#if 0
+		if (lcp_wantoptions[0].mru > min_mtu)	/* defines out mru */
+			lcp_wantoptions[0].mru = min_mtu;
+		if (lcp_wantoptions[0].neg_mru > min_mtu)	/* defines our mru */
+			lcp_wantoptions[0].neg_mru = min_mtu;
+#endif
+	}
+	
+	/* let's say our underlying transport is up */
+	transport_up = 1;
+	wait_interface_timer_running = 0;
+
     eventsockfd = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
     if (eventsockfd != -1) {
         // L2TP can survive without event socket anyway
@@ -432,7 +613,6 @@ int l2tp_connect()
         kev_req.kev_subclass = KEV_INET_SUBCLASS;
         ioctl(eventsockfd, SIOCSKEVFILT, &kev_req);
     }
-
 
     if (strcmp(opt_mode, MODE_ANSWER)) {		/* not for answer mode */
         /* open the L2TP socket control socket */
@@ -460,23 +640,11 @@ int l2tp_connect()
                     goto fail;
             }
         }
-
-        if (!opt_noipsec) {
-            info("L2TP:  starting racoon...\n");
-            /* start racoon */
-            if ((err = start_racoon(0 /* bundle */, 0 /* "racoon.l2tp" */)) < 0) {
-                error("L2TP: cannot start racoon...\n");
-                goto fail;
-            }
-            /* XXX if we started racoon, we will need to stop it */
-            /* racoon should probably provide a control API */
-            need_stop_racoon = (err == 0);
-        }
     } 
     
-    set_flag(ctrlsockfd, debug, L2TP_FLAG_DEBUG);
-    set_flag(ctrlsockfd, 1, L2TP_FLAG_CONTROL);
-    set_flag(ctrlsockfd, our_params.seq_required, L2TP_FLAG_SEQ_REQ);
+    l2tp_set_flag(ctrlsockfd, kdebugflag & 1, L2TP_FLAG_DEBUG);
+    l2tp_set_flag(ctrlsockfd, 1, L2TP_FLAG_CONTROL);
+    l2tp_set_flag(ctrlsockfd, our_params.seq_required, L2TP_FLAG_SEQ_REQ);
 
     /* ask the kernel extension to make and assign a new tunnel id to the tunnel */
     optlen = 2;
@@ -504,7 +672,7 @@ int l2tp_connect()
         /* build the peer address */
         peer_address.sin_len = sizeof(peer_address);
         peer_address.sin_family = AF_INET;
-        peer_address.sin_port = L2TP_UDP_PORT;
+        peer_address.sin_port = htons(L2TP_UDP_PORT);
         if (inet_aton(remoteaddress, &peer_address.sin_addr) == 0) {
                 
             if (pipe(resolverfds) < 0) {
@@ -534,22 +702,25 @@ int l2tp_connect()
             
             if (c) {
                 error("L2TP: Host '%s' not found...\n", remoteaddress);
+				*errorcode = L2TP_RETRY_CONNECT_CODE; /* wait and retry if necessary */
                 devstatus = EXIT_L2TP_NOSERVER;
                 goto fail;
             }
+			host_name_specified = 1;
         }
         
-        info("L2TP connecting to server '%s' (%s)...\n", remoteaddress, inet_ntoa(peer_address.sin_addr));
+        notice("L2TP connecting to server '%s' (%s)...\n", remoteaddress, inet_ntoa(peer_address.sin_addr));
 
         /* get the source address that will be used to reach the peer */
-        if (get_src_address((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address)) {
+        if (get_src_address((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, 0)) {
             error("L2TP: cannot get our local address...\n");
+			*errorcode = L2TP_RETRY_CONNECT_CODE; /* wait and retry if necessary */
             goto fail;
         }
 
         /* bind the socket in the kernel with take an ephemeral port */
         /* on return, it ouraddress will contain actual port selected */
-        our_address.sin_port = opt_udpport;
+        our_address.sin_port = htons(opt_udpport);
         l2tp_set_ouraddress(ctrlsockfd, (struct sockaddr *)&our_address);
         
         /* set our peer address */
@@ -561,27 +732,88 @@ int l2tp_connect()
         
         /* install IPSec filters for our address and peer address */
         if (!opt_noipsec) {
-            struct sockaddr_in addr = orig_peer_address;
-            addr.sin_port = 0;	// allow port to change
 
-            configure_racoon(&our_address, &peer_address, &addr, IPPROTO_UDP, opt_ipsecsharedsecret, opt_ipsecsharedsecrettype);
-            
-            if (require_secure_transport((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, IPPROTO_UDP, "out")
-                || require_secure_transport((struct sockaddr *)&peer_address, (struct sockaddr *)&our_address, IPPROTO_UDP, "in")
-                || require_secure_transport((struct sockaddr *)&addr, (struct sockaddr *)&our_address, IPPROTO_UDP, "in")) {
-                error("L2TP: cannot configure secure transport...\n");
-                goto fail;
-            }
+			CFStringRef				secret_string = NULL;
+			CFStringRef				auth_method = NULL;
+			CFDataRef				certificate = NULL;
+			CFDictionaryRef			useripsec_dict = NULL;
+			
+            struct sockaddr_in addr = orig_peer_address;
+            addr.sin_port = htons(0);	// allow port to change
+
+			auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
+			
+			if (userOptions) {
+				useripsec_dict = CFDictionaryGetValue(userOptions, kSCEntNetIPSec);
+				if (useripsec_dict) {
+					/* XXX as a simplification, the authentication method is set in the main dictionary
+						instead of having an array of proposals with one proposal with the
+						requested authentication method
+					  */
+					auth_method = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecProposalAuthenticationMethod);
+					if (!isString(auth_method) || CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret)) {
+						auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
+						secret_string = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecSharedSecret);
+						if (!isString(secret_string)) {
+							error("L2TP: no user shared secret found.\n");
+							goto fail;
+						}
+					}
+					else if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate)) {
+						certificate = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecLocalCertificate);
+						if (!isData(certificate)) {
+							error("L2TP: no user certificate  found.\n");
+							goto fail;
+						}
+					}
+					else {
+						error("L2TP: incorrect authentication method.\n");
+						goto fail;
+					}
+				}
+			}
+
+			if (ipsec_dict) {
+				CFRelease(ipsec_dict);
+				ipsec_dict = NULL;
+			}
+			
+			ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
+				(struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, 
+				(host_name_specified ? remoteaddress : NULL),
+				auth_method, 1); 
+	
+			if (!ipsec_dict) {
+				error("L2TP: cannot create L2TP configuration.\n");
+				goto fail;
+			}
+			
+			if (secret_string) {
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, secret_string);
+			}
+			else if (certificate) {
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecLocalCertificate, certificate);
+			}
+			else {
+				/* set the authentication information */
+				secret_string = CFStringCreateWithCString(0, opt_ipsecsharedsecret, kCFStringEncodingUTF8);
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, secret_string);
+				if (!strcmp(opt_ipsecsharedsecrettype, "key")) 
+					CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecretEncryption, kRASValIPSecSharedSecretEncryptionKey);
+				else if (!strcmp(opt_ipsecsharedsecrettype, "keychain")) 
+					CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecretEncryption, kRASValIPSecSharedSecretEncryptionKeychain);
+				CFRelease(secret_string);
+			}
+
+
+			if (IPSecApplyConfiguration(ipsec_dict, &errstr)
+				|| IPSecInstallPolicies(ipsec_dict, -1, &errstr)) {
+				error("L2TP: cannot configure secure transport (%s).\n", errstr);
+				goto fail;
+			}
         }
 
         err = l2tp_outgoing_call(ctrlsockfd, (struct sockaddr *)&peer_address, &our_params, &peer_params, opt_recv_timeout);
-
-        /* remove the generic rule */
-        if (!opt_noipsec) {
-            struct sockaddr_in addr = orig_peer_address;
-            addr.sin_port = 0;
-            remove_secure_transport((struct sockaddr *)&addr, (struct sockaddr *)&orig_our_address, IPPROTO_UDP, "in");
-        }
 
         /* setup the specific route */
         l2tp_set_peer_route();
@@ -601,7 +833,7 @@ int l2tp_connect()
             //-------------------------------------------------   
             struct sockaddr_in listen_address;
             
-            info("L2TP listening...\n");
+            notice("L2TP listening...\n");
     
             listenfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP);
             if (listenfd < 0) {
@@ -609,13 +841,13 @@ int l2tp_connect()
                     goto fail;
             }
     
-            set_flag(listenfd, debug, L2TP_FLAG_DEBUG);
-            set_flag(listenfd, 1, L2TP_FLAG_CONTROL);
+            l2tp_set_flag(listenfd, kdebugflag & 1, L2TP_FLAG_DEBUG);
+            l2tp_set_flag(listenfd, 1, L2TP_FLAG_CONTROL);
     
             /* bind the socket in the kernel with L2TP port */
             listen_address.sin_len = sizeof(peer_address);
             listen_address.sin_family = AF_INET;
-            listen_address.sin_port = L2TP_UDP_PORT;
+            listen_address.sin_port = htons(L2TP_UDP_PORT);
             listen_address.sin_addr.s_addr = INADDR_ANY;
             l2tp_set_ouraddress(listenfd, (struct sockaddr *)&listen_address);
     
@@ -623,21 +855,35 @@ int l2tp_connect()
     
             /* add security policies */
             if (!opt_noipsec) {
-                if (configure_racoon(&our_address, &peer_address, 0, IPPROTO_UDP, opt_ipsecsharedsecret, opt_ipsecsharedsecrettype)
-                    || require_secure_transport((struct sockaddr *)&any_address, (struct sockaddr *)&listen_address, IPPROTO_UDP, "in"))  {
-                    error("L2TP: cannot configure secure transport...\n");
-                    goto fail;
-                }
-            }
-    
+			
+				CFStringRef				secret_string;
+
+				if (ipsec_dict) 
+					CFRelease(ipsec_dict);
+
+				ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
+					(struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, 
+					(host_name_specified ? remoteaddress : NULL),
+					kRASValIPSecProposalAuthenticationMethodSharedSecret, 0); 
+
+				/* set the authentication information */
+				secret_string = CFStringCreateWithCString(0, opt_ipsecsharedsecret, kCFStringEncodingUTF8);
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, secret_string);
+				if (!strcmp(opt_ipsecsharedsecrettype, "key")) 
+					CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecretEncryption, kRASValIPSecSharedSecretEncryptionKey);
+				else if (!strcmp(opt_ipsecsharedsecrettype, "keychain")) 
+					CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecretEncryption, kRASValIPSecSharedSecretEncryptionKeychain);
+				CFRelease(secret_string);
+
+				if (IPSecApplyConfiguration(ipsec_dict, &errstr)
+					|| IPSecInstallPolicies(ipsec_dict, -1, &errstr)) {
+					error("L2TP: cannot configure secure transport (%s).\n", errstr);
+					goto fail;
+				}
+			}
             /* wait indefinitely and read the duplicated SCCRQ from the listen socket and ignore for now */
             err = l2tp_recv(listenfd, control_buf, MAX_CNTL_BUFFER_SIZE, &rcvlen, (struct sockaddr*)&from, -1, "SCCRQ");
             
-            /* remove security policies */
-            if (!opt_noipsec) {            
-                remove_secure_transport((struct sockaddr *)&any_address, (struct sockaddr *)&listen_address, IPPROTO_UDP, "in");            
-            }            
-
             if (err == 0) {
                 setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0);
             }
@@ -650,7 +896,7 @@ int l2tp_connect()
         //		process incoming connection		
         //-------------------------------------------------
         if (err == 0) {
-            info("L2TP incoming call in progress");
+            notice("L2TP incoming call in progress");
 
             err = l2tp_incoming_call(ctrlsockfd, &our_params, &peer_params, opt_recv_timeout);
         }
@@ -671,7 +917,7 @@ int l2tp_connect()
         goto fail1;
     }
     
-    info("L2TP connection established.");
+    notice("L2TP connection established.");
 
     /* start hello timer */
     if (opt_hello_timeout) {
@@ -686,9 +932,9 @@ int l2tp_connect()
         goto fail;
     }
 
-    set_flag(datasockfd, 0, L2TP_FLAG_CONTROL);
-    set_flag(datasockfd, debug, L2TP_FLAG_DEBUG);
-    set_flag(datasockfd, peer_params.seq_required, L2TP_FLAG_SEQ_REQ);
+    l2tp_set_flag(datasockfd, 0, L2TP_FLAG_CONTROL);
+    l2tp_set_flag(datasockfd, kdebugflag & 1, L2TP_FLAG_DEBUG);
+    l2tp_set_flag(datasockfd, peer_params.seq_required, L2TP_FLAG_SEQ_REQ);
 
     l2tp_set_ouraddress(datasockfd, (struct sockaddr *)&our_address);
     /* set the peer address of the data socket */
@@ -698,6 +944,9 @@ int l2tp_connect()
     l2tp_set_ourparams(datasockfd, &our_params);
     l2tp_set_peerparams(datasockfd, &peer_params);
     l2tp_reset_timers(datasockfd, 0);
+	
+	baudrate = get_if_baudrate(interface);
+	l2tp_set_baudrate(datasockfd, baudrate);
         
     return datasockfd;
  
@@ -713,7 +962,7 @@ run the disconnector
 ----------------------------------------------------------------------------- */
 void l2tp_disconnect()
 {
-    info("L2TP disconnecting...\n");
+    notice("L2TP disconnecting...\n");
     
     if (hello_timer_running) {
         UNTIMEOUT(l2tp_hello_timeout, 0);
@@ -739,7 +988,15 @@ void l2tp_disconnect()
 
     l2tp_close_fds();
 
-    info("L2TP disconnected\n");
+    notice("L2TP disconnected\n");
+}
+
+/* ----------------------------------------------------------------------------- 
+----------------------------------------------------------------------------- */
+int l2tp_set_baudrate(int fd, u_int32_t baudrate)
+{
+	setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_BAUDRATE, &baudrate, 4);
+    return 0;
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -804,9 +1061,10 @@ int l2tp_change_peeraddress(int fd, struct sockaddr *peer)
 {
     struct sockaddr_in src;
     int err = 0;
+	char *errstr;
 
     if (peer->sa_len != peer_address.sin_len) {
-        error("L2TP received and invalid server address...\n");
+        error("L2TP received an invalid server address...\n");
         return -1;
     }
     
@@ -815,16 +1073,15 @@ int l2tp_change_peeraddress(int fd, struct sockaddr *peer)
         /* reset IPSec filters */
         if (!opt_noipsec) {
             if (!strcmp(opt_mode, MODE_CONNECT)) {
-                cleanup_racoon(&our_address, &peer_address);
+                IPSecRemoveConfiguration(ipsec_dict, &errstr);
                 // security associations are base on IP addresses only
                 if (((struct sockaddr_in *)peer)->sin_addr.s_addr != ((struct sockaddr_in *)&peer_address)->sin_addr.s_addr)
-                    remove_security_associations((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address);
-                remove_secure_transport((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, IPPROTO_UDP, "out");
-                remove_secure_transport((struct sockaddr *)&peer_address, (struct sockaddr *)&our_address, IPPROTO_UDP, "in");
+                    IPSecRemoveSecurityAssociations((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address);
+                IPSecRemovePolicies(ipsec_dict, -1, &errstr);
             }
         }
     
-        if (get_src_address((struct sockaddr *)&src, peer)) {
+        if (get_src_address((struct sockaddr *)&src, peer, 0)) {
             error("L2TP: cannot get our local address...\n");
             return -1;
         }
@@ -834,9 +1091,9 @@ int l2tp_change_peeraddress(int fd, struct sockaddr *peer)
             our_address = src;
             /* outgoing call use ephemeral ports, incoming call reuse L2TP_UDP_PORT */
             if (!strcmp(opt_mode, MODE_CONNECT))
-                our_address.sin_port = 0;
+                our_address.sin_port = htons(0);
             else 
-                our_address.sin_port = L2TP_UDP_PORT;
+                our_address.sin_port = htons(L2TP_UDP_PORT);
             l2tp_set_ouraddress(fd, (struct sockaddr *)&our_address);
         }
             
@@ -846,13 +1103,40 @@ int l2tp_change_peeraddress(int fd, struct sockaddr *peer)
 
         /* install new IPSec filters */
         if (!opt_noipsec) {
-            if (!strcmp(opt_mode, MODE_CONNECT))
-                configure_racoon(&our_address, &peer_address, 0, IPPROTO_UDP, opt_ipsecsharedsecret, opt_ipsecsharedsecrettype);
-            if (require_secure_transport((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, IPPROTO_UDP, "out")
-                || require_secure_transport((struct sockaddr *)&peer_address, (struct sockaddr *)&our_address, IPPROTO_UDP, "in")) {
-                error("L2TP: cannot configure secure transport...\n");
-                return -1;
-            }
+            if (!strcmp(opt_mode, MODE_CONNECT)) {
+
+				CFStringRef				dst_string;
+				CFMutableDictionaryRef	policy0;
+				CFMutableArrayRef		policy_array;
+				CFNumberRef				dst_port_num;
+				int						val;
+				
+				dst_string = CFStringCreateWithCString(0, addr2ascii(AF_INET, &peer_address.sin_addr, sizeof(peer_address.sin_addr), 0), kCFStringEncodingASCII);
+				val = ntohs(peer_address.sin_port); /* because there is no uint16 type */
+				dst_port_num = CFNumberCreate(0, kCFNumberIntType, &val);
+
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecRemoteAddress, dst_string);
+				
+				/* create the policies */
+				policy_array = (CFMutableArrayRef)CFDictionaryGetValue(ipsec_dict, kRASPropIPSecPolicies);
+				if (CFArrayGetCount(policy_array) > 1)
+					CFArrayRemoveValueAtIndex(policy_array, 1);
+					
+				policy0 = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(policy_array, 0);
+				CFDictionarySetValue(policy0, kRASPropIPSecPolicyRemotePort, dst_port_num);
+				CFArraySetValueAtIndex(policy_array, 0, policy0);
+								
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecPolicies, policy_array);
+
+				CFRelease(dst_string);
+				CFRelease(dst_port_num);
+				
+				if (IPSecApplyConfiguration(ipsec_dict, &errstr)
+					|| IPSecInstallPolicies(ipsec_dict, -1, &errstr)) {
+					error("L2TP: cannot reconfigure secure transport (%s).\n", errstr);
+					return -1;
+				}
+			}
         }
     }
     
@@ -931,8 +1215,8 @@ close the socket descriptors
 ----------------------------------------------------------------------------- */
 void l2tp_close_fds()
 {
-    struct sockaddr_in addr;
-
+	char *errstr;
+	
     if (hello_timer_running) {
         UNTIMEOUT(l2tp_hello_timeout, 0);
         hello_timer_running = 0;
@@ -952,25 +1236,15 @@ void l2tp_close_fds()
     
     if (!opt_noipsec) {
              
-        /* remove policies */        
-        remove_secure_transport((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, IPPROTO_UDP, "out");
-        remove_secure_transport((struct sockaddr *)&peer_address, (struct sockaddr *)&our_address, IPPROTO_UDP, "in");
-        addr = peer_address;
-        addr.sin_port = 0;
-        remove_secure_transport((struct sockaddr *)&addr, (struct sockaddr *)&our_address, IPPROTO_UDP, "in");
-
+		if (ipsec_dict) {
+			IPSecRemoveConfiguration(ipsec_dict, &errstr);
+			IPSecRemovePolicies(ipsec_dict, -1, &errstr);
+			CFRelease(ipsec_dict);
+			ipsec_dict = NULL;
+		}
         if (strcmp(opt_mode, MODE_ANSWER)) {
-            cleanup_racoon(&our_address, &peer_address);   
-            remove_security_associations((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address);
+            IPSecRemoveSecurityAssociations((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address);
         }
-
-#if 0
-        // don't stop racoon
-        if (need_stop_racoon) {
-            info("L2TP:  stopping racoon...\n");
-            stop_racoon();
-        }
-#endif
     }
 }
 
@@ -1151,7 +1425,7 @@ l2tp_set_host_gateway(int cmd, struct in_addr host, struct in_addr gateway, char
 /* -----------------------------------------------------------------------------
 set or clear a flag 
 ----------------------------------------------------------------------------- */
-int set_flag(int fd, int set, u_int32_t flag)
+int l2tp_set_flag(int fd, int set, u_int32_t flag)
 {
     int 	error, optlen;
     u_int32_t	flags;
@@ -1173,7 +1447,7 @@ void l2tp_reset_timers (int fd, int connect_mode)
     u_int16_t		timeout, timeoutcap, retries;
 
     /* use non adaptative time for initial packet */
-    set_flag(fd, !connect_mode, L2TP_FLAG_ADAPT_TIMER);
+    l2tp_set_flag(fd, !connect_mode, L2TP_FLAG_ADAPT_TIMER);
 
     if (connect_mode) {
         timeout = opt_connect_timeout;

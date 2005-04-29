@@ -13,7 +13,7 @@
 /*  understand and accept it fully.                                        */
 /*                                                                         */
 /***************************************************************************/
-/* $XFree86: xc/extras/freetype2/src/type42/t42parse.c,v 1.2 2002/09/18 17:11:39 tsi Exp $ */
+
 
 #include "t42parse.h"
 #include "t42error.h"
@@ -629,9 +629,8 @@
           goto Fail;
         }
 
-        v = (FT_Byte)( 16 * t42_hexval( *cur ) + t42_hexval( *(cur + 1) ) );
-	cur++;
-	cur++;
+        v = (FT_Byte)( 16 * t42_hexval( cur[0] ) + t42_hexval( cur[1] ) );
+        cur += 2;
         string_size++;
       }
 
@@ -965,7 +964,7 @@
   {
     FT_UNUSED( face );
 
-    FT_MEM_SET( loader, 0, sizeof ( *loader ) );
+    FT_MEM_ZERO( loader, sizeof ( *loader ) );
     loader->num_glyphs = 0;
     loader->num_chars  = 0;
 

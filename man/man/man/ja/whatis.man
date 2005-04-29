@@ -1,0 +1,34 @@
+.\" Man page for whatis
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Japanese Version Copyright (c) 1997 HANATAKA Shinya
+.\"         all rights reserved.
+.\" Translated Thu Jan 29 01:52:06 JST 1998
+.\"         by HANATAKA Shinya <hanataka@abyss.rim.or.jp>
+.\"
+.TH whatis 1 "Jan 5, 1991"
+.LO 1
+.SH 名前
+whatis \- whatis データベースから完全な単語を検索する
+.SH 書式
+.BI whatis
+keyword ...
+.SH 説明
+whatis はシステムのコマンドに関する説明とキーワードを含んだデータ
+ベースの集合を検索し、結果を標準出力に表示する。完全にマッチした単語
+のみが表示される。
+
+whatis データベースは /usr/sbin/makewhatis コマンドを使用して作成する。
+.SH 関連項目
+apropos(1), man(1).

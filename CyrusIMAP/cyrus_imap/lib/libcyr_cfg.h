@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: libcyr_cfg.h,v 1.7 2004/03/09 15:05:58 ken3 Exp $
+ * $Id: libcyr_cfg.h,v 1.4 2005/03/05 00:37:16 dasenbro Exp $
  */
 
 #ifndef INCLUDED_LIBCYR_CFG_H

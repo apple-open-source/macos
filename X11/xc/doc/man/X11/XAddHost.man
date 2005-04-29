@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XAddHost.man,v 1.2 2001/01/27 18:19:56 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XAddHost.man,v 1.4 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,55 +144,24 @@
 .SH NAME
 XAddHost, XAddHosts, XListHosts, XRemoveHost, XRemoveHosts, XSetAccessControl, XEnableAccessControl, XDisableAccessControl, XHostAddress \- control host access and host control structure
 .SH SYNTAX
-XAddHost\^(\^\fIdisplay\fP, \fIhost\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XHostAddress *\fIhost\fP\^;	
-.LP
-XAddHosts\^(\^\fIdisplay\fP, \fIhosts\fP, \fInum_hosts\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XHostAddress *\fIhosts\fP\^;
-.br
-      int \fInum_hosts\fP\^;
-.LP
-XHostAddress *XListHosts\^(\^\fIdisplay\fP, \fInhosts_return\fP, \fIstate_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int *\fInhosts_return\fP\^;
-.br
-      Bool *\fIstate_return\fP\^;
-.LP
-XRemoveHost\^(\^\fIdisplay\fP, \fIhost\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XHostAddress *\fIhost\fP\^;
-.LP
-XRemoveHosts\^(\^\fIdisplay\fP, \fIhosts\fP, \fInum_hosts\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XHostAddress *\fIhosts\fP\^;
-.br
-      int \fInum_hosts\fP\^;
-.LP
-XSetAccessControl\^(\^\fIdisplay\fP, \fImode\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int \fImode\fP\^;
-.LP
-XEnableAccessControl\^(\^\fIdisplay\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.LP
-XDisableAccessControl\^(\^\fIdisplay\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
+.HP
+int XAddHost\^(\^Display *\fIdisplay\fP, XHostAddress *\fIhost\fP\^); 
+.HP
+int XAddHosts\^(\^Display *\fIdisplay\fP, XHostAddress *\fIhosts\fP, 
+int \fInum_hosts\fP\^);
+.HP
+XHostAddress *XListHosts\^(\^Display *\fIdisplay\fP, int *\fInhosts_return\fP,
+Bool \fIstate_return\fP\^);
+.HP
+int XRemoveHost\^(\^Display *\fIdisplay\fP, XHostAddress *\fIhost\fP\^);
+.HP
+int XRemoveHosts\^(\^Display *\fIdisplay\fP, XHostAddress *\fIhosts\fP, int \fInum_hosts\fP\^);
+.HP
+int XSetAccessControl\^(\^Display *\fIdisplay\fP, int \fImode\fP\^);
+.HP
+int XEnableAccessControl\^(\^Display *\fIdisplay\fP\^);
+.HP
+int XDisableAccessControl\^(\^Display *\fIdisplay\fP\^);
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.
@@ -329,9 +298,9 @@ structure contains:
 .TA .5i 3i
 .ta .5i 3i
 typedef struct {
-	int family;	/* for example FamilyInternet */
-	int length;	/* length of address, in bytes */
-	char *address;	/* pointer to where to find the address */
+	int family;	/\(** for example FamilyInternet */
+	int length;	/\(** length of address, in bytes */
+	char *address;	/\(** pointer to where to find the address */
 } XHostAddress;
 .De
 .LP

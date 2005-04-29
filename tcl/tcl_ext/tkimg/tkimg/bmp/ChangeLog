@@ -1,0 +1,13 @@
+2002-11-20  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Makefile.in:
+	* configure.in: New configuration variable PHIMTYPE, contains name
+	  of image type (in contrast to library name and package
+	  name). Inserted in 'init.c'. The configure variable TK_XINCLUDES
+	  has to placed in variable, to avoid problem on platforms placing
+	  a shell comment into it. More in the Makefile.
+
+2002-11-19  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Start of logging.
+	* tkimg/bmp: BMP photo image type.

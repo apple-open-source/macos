@@ -1,3 +1,73 @@
+2004-04-04  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c (isabsolute): Remove this function.
+	* config.h (ISABSOLUTE): Define.
+
+2003-11-10  Mark D. Baushke  <mdb@cvshome.org>
+
+	* filesubr.c (xresolvepath): New function.
+
+2003-08-07  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in (pdf ps): New recursive targets to be ignored for
+	Automake's benefit.
+
+2002-03-21  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Remove unecessary dependence on $(srcdir) to
+	fix the dist target.
+	(distdir): Use new automake generated target (copied from src).
+
+2002-12-19  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Remove reference to options.h.
+	* startserver.c: Ditto.
+	* options.h: Remove file and move relevant content...
+	* config.h: ...here.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* options.h: Remove prototype of STDC exit().
+
+2002-08-24  Larry Jones  <lawrence.jones@eds.com>
+
+	* options.h: Remove PATCH_PROGRAM.
+
+2002-08-16  Derek Price  <derek@ximbiot.com>
+
+	* options.h: Remove RELATIVE_REPOS & move CVS_BADROOT...
+	* config.h: ...here.
+
+2001-09-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with automake 1.5.
+
+2001-03-14  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.in (installcheck): New target.
+
+2001-02-14  Larry Jones  <larry.jones@sdrc.com>
+
+	* Makefile.in: Remove references to rtag.c & rtag.o.
+
+2000-12-21  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.in: Targets added to please Automake
+
+1999-03-27  Jim Kingdon  <http://www.cyclic.com>
+
+	* Makefile.in (LIB_OBJECTS, LIB_SOURCES): Remove vasprintf.
+
+1999-02-26  Jim Kingdon  <http://www.cyclic.com>
+
+	* options.h: Make RELATIVE_REPOS the default, as in
+	../src/options.h.in.
+
+1998-08-24  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* Makefile.in (rcscmds.o): New rule, so we can supply -I for
+	diffrun.h.
+
 1998-04-09  Jim Kingdon  <kingdon@harvey.cyclic.com>
 
 	* filesubr.c (link_file): Remove; no longer used.

@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,1999,2000,2001 Free Software Foundation, Inc.         *
+ * Copyright (c) 1998-2003,2004 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,11 +29,12 @@
 /****************************************************************************
  *  Author: Zeyd M. Ben-Halim <zmbenhal@netcom.com> 1992,1995               *
  *     and: Eric S. Raymond <esr@snark.thyrsus.com>                         *
+ *     and: Thomas E. Dickey 1996-2002                                      *
  ****************************************************************************/
 
 
 /*
- * $Id: curses.priv.h,v 1.1.1.3 2002/02/15 21:55:34 jevans Exp $
+ * $Id: curses.priv.h,v 1.255 2004/02/01 01:05:58 Stanislav.Ievlev Exp $
  *
  *	curses.priv.h
  *
@@ -110,6 +111,9 @@ extern int errno;
 #define USE_FUNC_POLL 0
 #endif
 
+/* include signal.h before curses.h to work-around defect in glibc 2.1.3 */
+#include <signal.h>
+
 /* Alessandro Rubini's GPM (general-purpose mouse) */
 #if HAVE_LIBGPM && HAVE_GPM_H
 #define USE_GPM_SUPPORT 1
@@ -126,7 +130,9 @@ extern int errno;
 
 /* EMX mouse support */
 #ifdef __EMX__
-#define USE_EMX_MOUSE
+#define USE_EMX_MOUSE 1
+#else
+#define USE_EMX_MOUSE 0
 #endif
 
 #define DEFAULT_MAXCLICK 166
@@ -138,12 +144,15 @@ extern int errno;
  */
 #if !NCURSES_EXT_FUNCS
 #undef HAVE_SIZECHANGE
+#define HAVE_SIZECHANGE 0
 #endif
 
-#if HAVE_SIZECHANGE
+#if HAVE_SIZECHANGE && defined(SIGWINCH)
 #define USE_SIZECHANGE 1
 #else
+#define USE_SIZECHANGE 0
 #undef USE_SIGWINCH
+#define USE_SIGWINCH 0
 #endif
 
 /*
@@ -216,13 +225,17 @@ struct tries {
 #define S_QUOTE '\''
 #define D_QUOTE '"'
 
+#define VT_ACSC "``aaffggiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~"
+
 /*
  * Structure for palette tables
  */
 
 typedef struct
 {
-    short red, green, blue;
+    short red, green, blue;	/* what color_content() returns */
+    short r, g, b;		/* params to init_color() */
+    int init;			/* true if we called init_color() */
 }
 color_t;
 
@@ -244,14 +257,26 @@ color_t;
 #endif
 
 #include <curses.h>	/* we'll use -Ipath directive to get the right one! */
+#include <term.h>
 
 struct ldat
 {
-	NCURSES_CH_T	*text;	    	/* text of the line */
-	NCURSES_SIZE_T	firstchar;  	/* first changed character in the line */
-	NCURSES_SIZE_T	lastchar;   	/* last changed character in the line */
-	NCURSES_SIZE_T	oldindex;   	/* index of the line at last update */
+	NCURSES_CH_T	*text;		/* text of the line */
+	NCURSES_SIZE_T	firstchar;	/* first changed character in the line */
+	NCURSES_SIZE_T	lastchar;	/* last changed character in the line */
+	NCURSES_SIZE_T	oldindex;	/* index of the line at last update */
 };
+
+typedef enum {
+	M_XTERM	= -1		/* use xterm's mouse tracking? */
+	,M_NONE = 0		/* no mouse device */
+#if USE_GPM_SUPPORT
+	,M_GPM			/* use GPM */
+#endif
+#if USE_SYSMOUSE
+	,M_SYSMOUSE		/* FreeBSD sysmouse on console */
+#endif
+} MouseType;
 
 /*
  * Structure for soft labels.
@@ -259,9 +284,9 @@ struct ldat
 
 typedef struct
 {
-	char *text;             /* text for the label */
+	char *ent_text;         /* text for the label */
 	char *form_text;        /* formatted text (left/center/...) */
-	int x;                  /* x coordinate of this field */
+	int ent_x;              /* x coordinate of this field */
 	char dirty;             /* this label has changed */
 	char visible;           /* field is visible */
 } slk_ent;
@@ -269,13 +294,12 @@ typedef struct
 typedef struct {
 	char dirty;             /* all labels have changed */
 	char hidden;            /* soft labels are hidden */
-	struct _win_st *win;
+	WINDOW *win;
 	slk_ent *ent;
-	char*  buffer;           /* buffer for labels */
-	short  maxlab;           /* number of available labels */
-	short  labcnt;           /* number of allocated labels */
-	short  maxlen;           /* length of labels */
-        chtype attr;             /* soft label attribute */
+	short  maxlab;          /* number of available labels */
+	short  labcnt;          /* number of allocated labels */
+	short  maxlen;          /* length of labels */
+	chtype attr;            /* soft label attribute */
 } SLK;
 
 typedef struct {
@@ -284,17 +308,26 @@ typedef struct {
 	int oldindex, newindex;
 } HASHMAP;
 
+typedef	struct {
+	int	line;           /* lines to take, < 0 => from bottom*/
+	int	(*hook)(WINDOW *, int); /* callback for user        */
+	WINDOW *w;              /* maybe we need this for cleanup   */
+} ripoff_t;
+
 struct screen {
 	int             _ifd;           /* input file ptr for screen        */
 	FILE            *_ofp;          /* output file ptr for screen       */
 	char            *_setbuf;       /* buffered I/O for output          */
 	int		_buffered;      /* setvbuf uses _setbuf data        */
 	int             _checkfd;       /* filedesc for typeahead check     */
-	struct term     *_term;         /* terminal type information        */
+	TERMINAL        *_term;         /* terminal type information        */
 	short           _lines;         /* screen lines                     */
 	short           _columns;       /* screen columns                   */
+
 	short           _lines_avail;   /* lines available for stdscr       */
 	short           _topstolen;     /* lines stolen from top            */
+	ripoff_t	_rippedoff[5];	/* list of lines stolen		    */
+	int		_rip_count;	/* ...and total lines stolen	    */
 
 	WINDOW          *_curscr;       /* current screen                   */
 	WINDOW          *_newscr;       /* virtual screen to be updated to  */
@@ -305,7 +338,8 @@ struct screen {
 	bool            _tried;         /* keypad mode was initialized      */
 	bool            _keypad_on;     /* keypad mode is currently on      */
 
-	unsigned int    _fifo[FIFO_SIZE];       /* input push-back buffer   */
+	bool		_called_wgetch;	/* check for recursion in wgetch()  */
+	int    	        _fifo[FIFO_SIZE];       /* input push-back buffer   */
 	short           _fifohead,      /* head of fifo queue               */
 	                _fifotail,      /* tail of fifo queue               */
 	                _fifopeek,      /* where to peek for next char      */
@@ -314,9 +348,11 @@ struct screen {
 	int             _endwin;        /* are we out of window mode?       */
 	attr_t          _current_attr;  /* terminal attribute current set   */
 	int             _coloron;       /* is color enabled?                */
+	int		_color_defs;	/* are colors modified		    */
 	int             _cursor;        /* visibility of the cursor         */
 	int             _cursrow;       /* physical cursor row              */
 	int             _curscol;       /* physical cursor column           */
+	bool		_notty;		/* true if we cannot switch non-tty */
 	int             _nl;            /* True if NL -> CR/NL is on        */
 	int             _raw;           /* True if in raw mode              */
 	int             _cbreak;        /* 1 if in cbreak mode              */
@@ -383,7 +419,7 @@ struct screen {
 #endif
 	chtype          _xmc_suppress;  /* attributes to suppress if xmc     */
 	chtype          _xmc_triggers;  /* attributes to process if xmc      */
-	chtype          _acs_map[ACS_LEN];
+	chtype          _acs_map[ACS_LEN]; /* the real alternate-charset map */
 
 	/* used in lib_vidattr.c */
 	bool            _use_rmso;	/* true if we may use 'rmso'         */
@@ -404,6 +440,7 @@ struct screen {
 	/*
 	 * These are the data that support the mouse interface.
 	 */
+	MouseType	_mouse_type;
 	int             _maxclick;
 	bool            (*_mouse_event) (SCREEN *);
 	bool            (*_mouse_inline)(SCREEN *);
@@ -411,6 +448,16 @@ struct screen {
 	void            (*_mouse_resume)(SCREEN *);
 	void            (*_mouse_wrap)  (SCREEN *);
 	int             _mouse_fd;      /* file-descriptor, if any */
+	NCURSES_CONST char *_mouse_xtermcap; /* string to enable/disable mouse */
+#if USE_SYSMOUSE
+	MEVENT		_sysmouse_fifo[FIFO_SIZE];
+	int		_sysmouse_head;
+	int		_sysmouse_tail;
+	int		_sysmouse_char_width;	/* character width */
+	int		_sysmouse_char_height;	/* character height */
+	int		_sysmouse_old_buttons;
+	int		_sysmouse_new_buttons;
+#endif
 
 	/*
 	 * This supports automatic resizing
@@ -441,6 +488,14 @@ struct screen {
 
 	bool            _cleanup;	/* cleanup after int/quit signal */
 	int             (*_outch)(int);	/* output handler if not putc */
+
+	/* recent versions of 'screen' have partially-working support for
+	 * UTF-8, but do not permit ACS at the same time (see tty_update.c).
+	 */
+#if USE_WIDEC_SUPPORT
+	bool		_posix_locale;
+	bool		_screen_acs_fix;
+#endif
 };
 
 extern NCURSES_EXPORT_VAR(SCREEN *) _nc_screen_chain;
@@ -449,26 +504,18 @@ extern NCURSES_EXPORT_VAR(SCREEN *) _nc_screen_chain;
 #include <nomacros.h>
 #endif
 
-/*
- * The margins are used in resizeterm() to retain the original layout after
- * resizing.
- */
 	WINDOWLIST {
+	WINDOW	win;	/* first, so WINDOW_EXT() works */
 	WINDOWLIST *next;
-#if HAVE_RESIZETERM
-	int	l_margin;
-	int	r_margin;
-	int	t_margin;
-	int	b_margin;
+#ifdef _XOPEN_SOURCE_EXTENDED
+	char addch_work[(MB_LEN_MAX * 9) + 1];
+	int addch_used;
+	int addch_x;
+	int addch_y;
 #endif
-	WINDOW	win;
 };
 
-typedef	struct {
-	int	line;                   /* lines to take, < 0 => from bottom*/
-	int	(*hook)(struct _win_st *, int); /* callback for user        */
-	struct _win_st *w;              /* maybe we need this for cleanup   */
-} ripoff_t;
+#define WINDOW_EXT(win,field) (((WINDOWLIST *)(win))->field)
 
 /* The terminfo source is assumed to be 7-bit ASCII */
 #define is7bits(c)	((unsigned)(c) < 128)
@@ -523,18 +570,29 @@ typedef	struct {
 #define O_BINARY 0
 #endif
 
+#ifdef TRACE
+#define TRACE_OUTCHARS(n) _nc_outchars += (n);
+#else
+#define TRACE_OUTCHARS(n) /* nothing */
+#endif
+
 #define UChar(c)	((unsigned char)(c))
 #define ChCharOf(c)	((c) & (chtype)A_CHARTEXT)
 #define ChAttrOf(c)     ((c) & (chtype)A_ATTRIBUTES)
 
+#ifndef MB_LEN_MAX
+#define MB_LEN_MAX 8 /* should be >= MB_CUR_MAX, but that may be a function */
+#endif
+
 #if USE_WIDEC_SUPPORT /* { */
+#define NulChar		0,0,0,0	/* FIXME: see CCHARW_MAX */
 #define CharOf(c)	((c).chars[0])
 #define AttrOf(c)	((c).attr)
 #define AddAttr(c,a)	(c).attr |= a
 #define RemAttr(c,a)	(c).attr &= ~(a)
 #define SetAttr(c,a)	(c).attr = a
-#define NewChar(ch)	{ ChAttrOf(ch), { ChCharOf(ch) } }
-#define NewChar2(c,a)	{ a, { c } }
+#define NewChar(ch)	{ ChAttrOf(ch), { ChCharOf(ch), NulChar } }
+#define NewChar2(c,a)	{ a, { c, NulChar } }
 #define CharEq(a,b)	(!memcmp(&a, &b, sizeof(a)))
 #define SetChar(ch,c,a)	do { 							    \
 			    NCURSES_CH_T *_cp = &ch;				    \
@@ -546,9 +604,14 @@ typedef	struct {
 #define CARG_CH_T	const NCURSES_CH_T *
 #define PUTC_DATA	char PUTC_buf[MB_LEN_MAX]; int PUTC_i, PUTC_n; \
 			mbstate_t PUT_st; wchar_t PUTC_ch
+#define PUTC_INIT	memset (&PUT_st, '\0', sizeof (PUT_st));		    \
+			PUTC_i = 0
 #define PUTC(ch,b)	do { if(!isnac(ch)) { 					    \
-			    memset (&PUT_st, '\0', sizeof (PUT_st));		    \
-			    PUTC_i = 0;						    \
+			if (Charable(ch)) {					    \
+			    fputc(CharOf(ch), b);				    \
+			    TRACE_OUTCHARS(1);					    \
+			} else {						    \
+			    PUTC_INIT;						    \
 			    do {						    \
 				PUTC_ch = PUTC_i < CCHARW_MAX ?			    \
 					    (ch).chars[PUTC_i] : L'\0';		    \
@@ -558,10 +621,11 @@ typedef	struct {
 				    --PUTC_n;					    \
 				if (PUTC_n <= 0)				    \
 				    break;					    \
-				fwrite(PUTC_buf, PUTC_n, 1, b);			    \
+				fwrite(PUTC_buf, (unsigned) PUTC_n, 1, b);	    \
 				++PUTC_i;					    \
 			    } while (PUTC_ch != L'\0');				    \
-			} } while (0)
+			    TRACE_OUTCHARS(PUTC_i);				    \
+			} } } while (0)
 
 #define BLANK		{ WA_NORMAL, ' ' }
 #define ISBLANK(ch)	((ch).chars[0] == L' ' && (ch).chars[1] == L'\0')
@@ -569,9 +633,10 @@ typedef	struct {
 #define WA_NAC		1
 #define isnac(ch)	(AttrOf(ch) & WA_NAC)
 #define if_WIDEC(code)  code
-#define Charable(ch)	(!isnac(ch) &&  			   	\
-			 (ch).chars[1] == L'\0' &&			\
-                         (wctob(CharOf(ch)) == (char)CharOf(ch)))
+#define Charable(ch)	((SP != 0 && SP->_posix_locale)			\
+			 || (!isnac(ch) &&				\
+			     (ch).chars[1] == L'\0' &&			\
+                             _nc_is_charable(CharOf(ch))))
 
 #define L(ch)		L ## ch
 #else /* }{ */
@@ -652,59 +717,83 @@ typedef	struct {
 #define T_RETURN(fmt) "return }" fmt
 
 #ifdef TRACE
+
+#define START_TRACE() \
+	if ((_nc_tracing & TRACE_MAXIMUM) == 0) { \
+	    int t = _nc_getenv_num("NCURSES_TRACE"); \
+	    if (t >= 0) \
+		trace((unsigned) t); \
+	}
+
 #define TR(n, a)	if (_nc_tracing & (n)) _tracef a
 #define T(a)		TR(TRACE_CALLS, a)
 #define TPUTS_TRACE(s)	_nc_tputs_trace = s;
 #define TRACE_RETURN(value,type) return _nc_retrace_##type(value)
+
 #define returnAttr(code) TRACE_RETURN(code,attr_t)
 #define returnChar(code) TRACE_RETURN(code,chtype)
+#define returnBool(code) TRACE_RETURN(code,bool)
+#define returnBits(code) TRACE_RETURN(code,unsigned)
 #define returnCode(code) TRACE_RETURN(code,int)
 #define returnPtr(code)  TRACE_RETURN(code,ptr)
 #define returnSP(code)   TRACE_RETURN(code,sp)
 #define returnVoid       T((T_RETURN(""))); return
 #define returnWin(code)  TRACE_RETURN(code,win)
-extern NCURSES_EXPORT(SCREEN *) _nc_retrace_sp (SCREEN *);
-extern NCURSES_EXPORT(WINDOW *) _nc_retrace_win (WINDOW *);
-extern NCURSES_EXPORT(attr_t) _nc_retrace_attr_t (attr_t);
-extern NCURSES_EXPORT(attr_t) _nc_retrace_chtype (chtype);
-extern NCURSES_EXPORT(char *) _nc_retrace_ptr (char *);
-extern NCURSES_EXPORT(char *) _nc_varargs (const char *, va_list);
-extern NCURSES_EXPORT(const char *) _nc_altcharset_name(attr_t, chtype);
-extern NCURSES_EXPORT(int) _nc_retrace_int (int);
-extern NCURSES_EXPORT(void) _nc_fifo_dump (void);
+
+extern NCURSES_EXPORT(NCURSES_BOOL)     _nc_retrace_bool (NCURSES_BOOL);
+extern NCURSES_EXPORT(SCREEN *)         _nc_retrace_sp (SCREEN *);
+extern NCURSES_EXPORT(WINDOW *)         _nc_retrace_win (WINDOW *);
+extern NCURSES_EXPORT(attr_t)           _nc_retrace_attr_t (attr_t);
+extern NCURSES_EXPORT(char *)           _nc_retrace_ptr (char *);
+extern NCURSES_EXPORT(char *)           _nc_trace_ttymode(TTY *tty);
+extern NCURSES_EXPORT(char *)           _nc_varargs (const char *, va_list);
+extern NCURSES_EXPORT(chtype)           _nc_retrace_chtype (chtype);
+extern NCURSES_EXPORT(const char *)     _nc_altcharset_name(attr_t, chtype);
+extern NCURSES_EXPORT(int)              _nc_retrace_int (int);
+extern NCURSES_EXPORT(unsigned)         _nc_retrace_unsigned (unsigned);
+extern NCURSES_EXPORT(void)             _nc_fifo_dump (void);
 extern NCURSES_EXPORT_VAR(const char *) _nc_tputs_trace;
-extern NCURSES_EXPORT_VAR(long) _nc_outchars;
-extern NCURSES_EXPORT_VAR(unsigned) _nc_tracing;
+extern NCURSES_EXPORT_VAR(long)         _nc_outchars;
+extern NCURSES_EXPORT_VAR(unsigned)     _nc_tracing;
+
 #if USE_WIDEC_SUPPORT
 extern NCURSES_EXPORT(const char *) _nc_viswbuf2 (int, const wchar_t *);
+extern NCURSES_EXPORT(const char *) _nc_viswbufn (const wchar_t *, int);
 extern NCURSES_EXPORT(const char *) _nc_viscbuf2 (int, const cchar_t *, int);
 extern NCURSES_EXPORT(const char *) _nc_viscbuf (const cchar_t *, int);
 #endif
-#else
+
+#else /* !TRACE */
+
+#define START_TRACE() /* nothing */
+
 #define T(a)
 #define TR(n, a)
 #define TPUTS_TRACE(s)
+
 #define returnAttr(code) return code
+#define returnBits(code) return code
+#define returnBool(code) return code
 #define returnChar(code) return code
 #define returnCode(code) return code
 #define returnPtr(code)  return code
 #define returnSP(code)   return code
 #define returnVoid       return
 #define returnWin(code)  return code
-#endif
+
+#endif /* TRACE/!TRACE */
+
+extern NCURSES_EXPORT(const char *) _nc_visbuf2 (int, const char *);
+extern NCURSES_EXPORT(const char *) _nc_visbufn (const char *, int);
 
 #define empty_module(name) \
 extern	NCURSES_EXPORT(void) name (void); \
 	NCURSES_EXPORT(void) name (void) { }
 
-/* used in _nc_visbuf() whether or not we're tracing */
-extern NCURSES_EXPORT(const char *) _nc_visbuf2 (int, const char *);
-
 #define ALL_BUT_COLOR ((chtype)~(A_COLOR))
 #define IGNORE_COLOR_OFF FALSE
-#define NONBLANK_ATTR (A_BOLD|A_DIM|A_BLINK)
+#define NONBLANK_ATTR (A_NORMAL|A_BOLD|A_DIM|A_BLINK)
 #define XMC_CHANGES(c) ((c) & SP->_xmc_suppress)
-
 
 #define toggle_attr_on(S,at) {\
    if (PAIR_NUMBER(at) > 0)\
@@ -741,7 +830,7 @@ extern NCURSES_EXPORT(const char *) _nc_visbuf2 (int, const char *);
 		: ((enter_insert_mode && exit_insert_mode) \
 		  ? SP->_smir_cost + SP->_rmir_cost + (SP->_ip_cost * count) \
 		  : ((insert_character != 0) \
-		    ? (SP->_ich1_cost * count) \
+		    ? ((SP->_ich1_cost + SP->_ip_cost) * count) \
 		    : INFINITY)))
 
 #if USE_XMC_SUPPORT
@@ -760,6 +849,19 @@ extern NCURSES_EXPORT(const char *) _nc_visbuf2 (int, const char *);
 #else
 #define UpdateAttrs(a)	if (SP->_current_attr != (a)) \
 				vidattr((a));
+#endif
+
+/*
+ * Macros to make additional parameter to implement wgetch_events()
+ */
+#ifdef NCURSES_WGETCH_EVENTS
+#define EVENTLIST_0th(param) param
+#define EVENTLIST_1st(param) param
+#define EVENTLIST_2nd(param) , param
+#else
+#define EVENTLIST_0th(param) void
+#define EVENTLIST_1st(param) /* nothing */
+#define EVENTLIST_2nd(param) /* nothing */
 #endif
 
 #if NCURSES_EXPANDED && NCURSES_EXT_FUNCS
@@ -794,6 +896,13 @@ extern NCURSES_EXPORT(void) _nc_expanded (void);
 #define getcwd(buf,len) getwd(buf)
 #endif
 
+/* charable.c */
+#if USE_WIDEC_SUPPORT
+extern NCURSES_EXPORT(bool) _nc_is_charable(wchar_t);
+extern NCURSES_EXPORT(int) _nc_to_char(wint_t);
+extern NCURSES_EXPORT(wint_t) _nc_to_widechar(int);
+#endif
+
 /* doupdate.c */
 #if USE_XMC_SUPPORT
 extern NCURSES_EXPORT(void) _nc_do_xmc_glitch (attr_t);
@@ -813,6 +922,15 @@ extern NCURSES_EXPORT(int) _nc_msec_cost (const char *const, int);  /* used by '
 extern NCURSES_EXPORT(int) _nc_wchstrlen(const cchar_t *);
 #endif
 
+/* lib_color.c */
+extern NCURSES_EXPORT(bool) _nc_reset_colors(void);
+
+/* lib_getch.c */
+extern NCURSES_EXPORT(int) _nc_wgetch(WINDOW *, unsigned long *, int EVENTLIST_2nd(_nc_eventlist *));
+
+/* lib_insch.c */
+extern NCURSES_EXPORT(void) _nc_insert_ch(WINDOW *, chtype);
+
 /* lib_mvcur.c */
 #define INFINITY	1000000	/* cost: too high to use */
 
@@ -831,6 +949,12 @@ extern NCURSES_EXPORT(int) _nc_has_mouse (void);
 
 /* lib_mvcur.c */
 #define INFINITY	1000000	/* cost: too high to use */
+#define BAUDBYTE	9	/* 9 = 7 bits + 1 parity + 1 stop */
+
+/* lib_setup.c */
+extern NCURSES_EXPORT(char *) _nc_get_locale(void);
+extern NCURSES_EXPORT(int) _nc_unicode_locale(void);
+extern NCURSES_EXPORT(int) _nc_locale_breaks_acs(void);
 
 /* lib_wacs.c */
 #if USE_WIDEC_SUPPORT
@@ -838,9 +962,10 @@ extern NCURSES_EXPORT(void) _nc_init_wacs(void);
 #endif
 
 typedef struct {
-    char *s_head;
-    char *s_tail;
-    size_t s_size;
+    char *s_head;	/* beginning of the string (may be null) */
+    char *s_tail;	/* end of the string (may be null) */
+    size_t s_size;	/* current remaining size available */
+    size_t s_init;	/* total size available */
 } string_desc;
 
 /* strings.c */
@@ -872,14 +997,15 @@ extern NCURSES_EXPORT(char *) _nc_printf_string (const char *, va_list);
 extern NCURSES_EXPORT(void) _nc_add_to_try (struct tries **, const char *, unsigned short);
 extern NCURSES_EXPORT(char *) _nc_expand_try (struct tries *, unsigned short, int *, size_t);
 extern NCURSES_EXPORT(int) _nc_remove_key (struct tries **, unsigned short);
-extern NCURSES_EXPORT(int) _nc_remove_string (struct tries **, char *);
+extern NCURSES_EXPORT(int) _nc_remove_string (struct tries **, const char *);
 
 /* elsewhere ... */
+extern NCURSES_EXPORT(NCURSES_CH_T) _nc_render (WINDOW *, NCURSES_CH_T);
 extern NCURSES_EXPORT(WINDOW *) _nc_makenew (int, int, int, int, int);
 extern NCURSES_EXPORT(char *) _nc_home_terminfo (void);
 extern NCURSES_EXPORT(char *) _nc_trace_buf (int, size_t);
-extern NCURSES_EXPORT(NCURSES_CH_T) _nc_render (WINDOW *, NCURSES_CH_T);
-extern NCURSES_EXPORT(int)  _nc_access (const char *, int);
+extern NCURSES_EXPORT(char *) _nc_trace_bufcat (int, const char *);
+extern NCURSES_EXPORT(int) _nc_access (const char *, int);
 extern NCURSES_EXPORT(int) _nc_baudrate (int);
 extern NCURSES_EXPORT(int) _nc_freewin (WINDOW *);
 extern NCURSES_EXPORT(int) _nc_getenv_num (const char *);
@@ -887,7 +1013,7 @@ extern NCURSES_EXPORT(int) _nc_keypad (bool);
 extern NCURSES_EXPORT(int) _nc_ospeed (int);
 extern NCURSES_EXPORT(int) _nc_outch (int);
 extern NCURSES_EXPORT(int) _nc_setupscreen (short, short const, FILE *);
-extern NCURSES_EXPORT(int) _nc_timed_wait (int, int, int *);
+extern NCURSES_EXPORT(int) _nc_timed_wait(int, int, int * EVENTLIST_2nd(_nc_eventlist *));
 extern NCURSES_EXPORT(int) _nc_waddch_nosync (WINDOW *, const NCURSES_CH_T);
 extern NCURSES_EXPORT(void) _nc_do_color (int, int, bool, int (*)(int));
 extern NCURSES_EXPORT(void) _nc_flush (void);
@@ -896,7 +1022,6 @@ extern NCURSES_EXPORT(void) _nc_hash_map (void);
 extern NCURSES_EXPORT(void) _nc_init_keytry (void);
 extern NCURSES_EXPORT(void) _nc_keep_tic_dir (const char *);
 extern NCURSES_EXPORT(void) _nc_make_oldhash (int i);
-extern NCURSES_EXPORT(void) _nc_outstr (const char *str);
 extern NCURSES_EXPORT(void) _nc_scroll_oldhash (int n, int top, int bot);
 extern NCURSES_EXPORT(void) _nc_scroll_optimize (void);
 extern NCURSES_EXPORT(void) _nc_scroll_window (WINDOW *, int const, short const, short const, NCURSES_CH_T);
@@ -915,6 +1040,13 @@ extern NCURSES_EXPORT(void) _nc_resize_margins (WINDOW *);
 #define _nc_resize_margins(wp) /* nothing */
 #endif
 
+#ifdef NCURSES_WGETCH_EVENTS
+extern NCURSES_EXPORT(int) _nc_eventlist_timeout(_nc_eventlist *);
+#else
+#define wgetch_events(win, evl) wgetch(win)
+#define wgetnstr_events(win, str, maxlen, evl) wgetnstr(win, str, maxlen)
+#endif
+
 /*
  * Not everyone has vsscanf(), but we'd like to use it for scanw().
  */
@@ -927,9 +1059,7 @@ extern NCURSES_EXPORT_VAR(int *) _nc_oldnums;
 
 #define USE_SETBUF_0 0
 
-#define NC_BUFFERED(flag) \
-	if ((SP->_buffered != 0) != flag) \
-		_nc_set_buffer(SP->_ofp, flag)
+#define NC_BUFFERED(flag) _nc_set_buffer(SP->_ofp, flag)
 
 #define NC_OUTPUT ((SP != 0) ? SP->_ofp : stdout)
 
@@ -977,6 +1107,12 @@ extern NCURSES_EXPORT(int) _nc_slk_initialize (WINDOW *, int);
 #define MAX_SKEY_LEN(fmt) (SLK_STDFMT(fmt)? MAX_SKEY_LEN_OLD : MAX_SKEY_LEN_PC)
 
 extern NCURSES_EXPORT(int) _nc_ripoffline (int line, int (*init)(WINDOW *,int));
+
+/*
+ * Common error messages
+ */
+#define MSG_NO_MEMORY "Out of memory"
+#define MSG_NO_INPUTS "Premature EOF"
 
 #ifdef __cplusplus
 }

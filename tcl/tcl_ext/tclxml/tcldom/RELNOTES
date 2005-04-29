@@ -1,0 +1,147 @@
+Release notes for TclDOM version 2.6:
+
+Bugs fixed in this release:
+
+#454549, #629806, #678525, #679081, #691267
+
+Known bugs:
+
+#606621, #606623, #606629, #637578, #639041, #643407, #654539, #681100, #681114
+
+Tcl implementation:
+
+  Supported:
+    * DOM Level 1
+    * DOM Level 2 Events, createElementNS
+    * DOM Level 3 Core: Document interface XML Declaration attributes,
+      Node interface "isSameNode" method
+
+  Not supported:
+    * most other DOM Level 2 features.
+    * most of DOM Level 3
+
+TclDOM/libxml2 implementation:
+
+  Supported:
+    * DOMImplementation, document, node and event commands
+    * DOM Level 2 Events
+    * Live NamedNodeMaps
+    * DOM Level 3 Core: Node interface "isSameNode" method
+
+  Not supported:
+    * [TODO: list DOM Level 1 features not yet implemented]
+    * Live NodeLists
+
+TclDOMPro implementation:
+
+    * [TODO: list feature set]
+
+=================================================================
+
+Release notes for TclDOM version 2.5:
+
+Bugs fixed in this release:
+
+#628165, #630724, #612067, #637131, #644106.
+
+Known bugs:
+
+Tcl implementation:
+
+  Supported:
+    * DOM Level 1
+    * DOM Level 2 Events, createElementNS
+    * DOM Level 3 Core: Document interface XML Declaration attributes
+
+  Not supported:
+    * most other DOM Level 2 features.
+    * most of DOM Level 3
+
+TclDOM/libxml2 implementation:
+
+  Supported:
+    * DOMImplementation, document, node and event commands
+    * DOM Level 2 Events
+    * Live NamedNodeMaps
+
+  Not supported:
+    * [TODO: list DOM Level 1 features not yet implemented]
+    * Live NodeLists
+
+TclDOMPro implementation:
+
+    * [TODO: list feature set]
+
+=================================================================
+
+Release notes for TclDOM version 2.4:
+
+Bugs fixed in this release:
+
+#614355, #602782, #623064
+
+Known bugs:
+
+Tcl implementation:
+
+  Supported:
+    * DOM Level 1
+    * DOM Level 2 Events, createElementNS
+
+  Not supported:
+    * most other DOM Level 2 features.
+    * DOM Level 3
+
+TclDOM/libxml2 implementation:
+
+  Supported:
+    * DOMImplementation, document, node and event commands
+    * DOM Level 2 Events
+    * Live NamedNodeMaps
+
+  Not supported:
+    * [TODO: list DOM Level 1 features not yet implemented]
+    * Live NodeLists
+
+TclDOMPro implementation:
+
+    * [TODO: list feature set]
+
+=================================================================
+
+Release notes for TclDOM version 2.3:
+
+Bugs fixed in this release:
+
+#525505, #590914, #602619, #608012
+
+Known bugs:
+
+Tcl implementation:
+
+  Supported:
+    * DOM Level 1
+    * DOM Level 2 Events, createElementNS
+
+  Not supported:
+    * most other DOM Level 2 features.
+    * DOM Level 3
+
+TclDOM/libxml2 implementation:
+
+  Supported:
+    * DOMImplementation, document, node and event commands
+    * DOM Level 2 Events
+    * Live NamedNodeMaps
+
+  Not supported:
+    * [TODO: list DOM Level 1 features not yet implemented]
+    * Live NodeLists
+
+TclDOMPro implementation:
+
+    * [TODO: list feature set]
+
+===
+
+$Id: RELNOTES,v 1.11 2003/03/09 11:12:41 balls Exp $

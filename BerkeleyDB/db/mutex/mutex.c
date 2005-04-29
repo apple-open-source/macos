@@ -1,14 +1,14 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999-2002
+ * Copyright (c) 1999-2003
  *	Sleepycat Software.  All rights reserved.
  */
 
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: mutex.c,v 1.1.1.1 2003/02/15 04:56:09 zarzycki Exp $";
+static const char revid[] = "$Id: mutex.c,v 1.2 2004/03/30 01:23:45 jtownsen Exp $";
 #endif /* not lint */
 
 #ifndef NO_SYSTEM_INCLUDES
@@ -75,7 +75,7 @@ __db_mutex_setup(dbenv, infop, ptr, flags)
 	/*
 	 * Set up to initialize the mutex.
 	 */
-	iflags = LF_ISSET(MUTEX_THREAD | MUTEX_SELF_BLOCK);
+	iflags = LF_ISSET(MUTEX_LOGICAL_LOCK | MUTEX_THREAD | MUTEX_SELF_BLOCK);
 	switch (infop->type) {
 	case REGION_TYPE_LOCK:
 		offset = P_TO_UINT32(mutex) + DB_FCNTL_OFF_LOCK;

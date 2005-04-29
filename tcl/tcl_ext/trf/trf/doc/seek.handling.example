@@ -1,0 +1,155 @@
+
+Handling of seeking on a transformation.
+
+______________________________________________________________________
+Explained by example. Covers possible problems and solutions too.
+
+______________________________________________________________________
+The transformation:	oct	(conversion of bytes into octal encoding)
+
+Ratio:			1 real character encoded into 3 characters
+
+Assumptions:		Attached to a seekable channel,
+			Configured to encode written bytes and to decode
+			read bytes
+
+Wording:		Transform is 'up', the channel below 'down'.
+
+______________________________________________________________________
+Basics:		Per up-character written, seek 3 characters in down.
+		So:	tell.up = tell.down / 3
+
+Do:		Create down-channel, seek 5 bytes bytes from start,
+		stack up, tell.
+
+		What is the position ?
+
+			tell.down % 3 == 2, tel.down / 3 = 1 ?
+
+		The problem is one of phases. The octal encoding may
+		start at arbitrary positions and not aligned to 0-phase,
+		so a simple division is not quite right.
+
+Solution:	Use position in down current during stacking as zero-point,
+		calculate positions relative to this place.
+
+		So:	tell.up = (tell.down - offset) / 3 
+
+		In the example above:	tell.up = 0 = (5-5)/3. Ok.
+
+
+Do:		Create down channel, stack up, seek 2 characters, force
+		seek policy 'transform identity', seek 1 byte back,
+		restore old policy (*), seek 1 character forward, tell.
+
+		What is the position ?
+
+		Trace:	Seek 2 chars up			= 6 characters down.
+			Seek 1 char up back, identity!	= Place 5 down.
+			Seek 1 char up, normal		= Place 8
+
+			8 % 3 == 2, out of phase again, fractional position!
+
+		The problem is that we forced the down-channel into a
+		different phase relative to the one established by the first
+		two actions.
+
+Solution:	Use the position in down just before restoration of natural
+		seek policy as *new* zero-point, again calculate positions
+		relative to this place.
+
+More complications:
+
+*	A transform reads many bytes ahead if the user requests
+ 	more than it has buffered. It additionally remembers the
+ 	data not yet consumed by the caller.
+ 
+ 	This introduces an additional offset between up and down
+ 	positions.
+ 
+ 	Example:
+ 		Create down channel, stack up.
+ 		=>	up/down position == 0, empty buffers.
+ 
+ 		Read 10 characters.
+ 		=>	Transform reads 4K ahead, transforms them
+ 			into 1365 decoded characters and 1 character
+ 			untransformed. 10 decoded characters are
+ 			delivered.
+ 
+ 		=>	tell.down == 4096.
+ 		=>	tell.up == 10
+ 		
+ 			offset = 4096 - 10*3 = 4066
+ 
+ 	Conclusions for the code
+ 
+ 	-	Reading from the buffer has to decrement the offset.
+ 
+ 	-	Seeking within the limits of the buffer changes only
+ 		the offset. Reading while within the limits of the
+ 		buffer has to take the data from the up position,
+ 		possibly from inside the buffers, and not from the
+ 		start. Of course, it may cause a reload too, as usual.
+ 
+ 	-	Tell should not go to the down channel while within
+ 		the limits of the buffers. Hm, this way it will almost
+ 		never talk to the down channel, because the offsets
+ 		generated from the read-aheads are sufficient.
+ 
+ 	-	Seeking behind or before the buffer discards it. And
+ 		has to seek the down channel to its new position too.
+ 
+ 	-	Tell'ing could go down if there is no offset. But all
+ 		of the above nearly amounts to keeping our own
+ 		location, so we can use that.
+ 
+ 	-	A write has to restore the real down position
+ 		associated with the up position, it can use the offset
+ 		for this. Read buffers must be discarded to prevent
+ 		the system from returning false data. The write
+ 		*could* try to update the buffers too, but I don't
+ 		think that this is worth the effort.
+
+*	The above covered seeking from start and relative to the current
+	position.
+
+	Now how do the seek relative to the end ?
+
+	Especially if the end in the down-channel is a fractional position
+	upward.
+
+	Round to nearest non-fractional below end of down as logical end ? 
+	Or the next non-fractional greater than the real 'end' ?
+
+	'oct' and similar transformations *are* able to handle incomplete
+	blocks at the end.
+
+	des in ecb and cbc mode on the other hand is not able to do this.
+
+	Hm, ...
+
+
+(*) Oops, not yet possible with the defined interface!
+
+
+Question:
+
+*	Any real life examples of non-linear functions between seek locations
+	of up and down, still computable without effort ?
+
+	If no, I might reduce the basic transform information from a
+	function vector to two numbers simply specifying the ratio
+	between them. 2 numbers to express things like 3:4, f.e. for base64.
+
+	This should make it simpler for 'tcl level transforms' too.
+
+	And I am able to handle basically *all* stuff in the generic level
+
+*	And I haven't thought about 'encode on read'. Returns 3 characters
+	per character below. So a seek position above is a fraction below!
+
+	OTOH, from the texts above (send earlier) it seems that I have to
+	keep separate up and down locations anyway so it shouldn't be that
+	much of hassle. Especially if I only allow seeking in multiples of
+	the ratio (3 here).

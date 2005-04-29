@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1993, 1994, 1996, 1997, 2000, 2001, 2002
+# Copyright (C) 1992, 1993, 1994, 1996, 1997, 2000, 2001, 2002, 2004
 # Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -56,7 +56,7 @@ proc default_objc_version { } {
 	set tmp [remote_exec host "$compiler -v"]
 	set status [lindex $tmp 0];
 	set output [lindex $tmp 1];
-	regexp "version.*$" $output version
+	regexp " version \[^\n\r\]*" $output version
 	if { $status == 0 && [info exists version] } then {
 	    clone_output "$compiler_name $version\n"
 	} else {
@@ -107,16 +107,8 @@ proc objc_init { args } {
     if ![info exists tmpdir] then {
 	set tmpdir /tmp
     }
-    if { [target_info needs_status_wrapper]!="" && ![info exists gluefile] } {
-	set gluefile ${tmpdir}/objc-testglue.o;
-	set result [build_wrapper $gluefile];
-	if { $result != "" } {
-	    set gluefile [lindex $result 0];
-	    set wrap_flags [lindex $result 1];
-	} else {
-	    unset gluefile
-	}
-    }
+
+    objc_maybe_build_wrapper "${tmpdir}/objc-testglue.o"
 
     set objc_libgcc_s_path "${rootme}"
     set compiler [lindex $OBJC_UNDER_TEST 0]
@@ -128,7 +120,7 @@ proc objc_init { args } {
 	    if { "$mldir" == "." } {
 		continue
 	    }
-	    if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] == 1 } {
+	    if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] >= 1 } {
 		append objc_libgcc_s_path ":${rootme}/${mldir}"
 	    }
 	}
@@ -162,20 +154,28 @@ proc objc_target_compile { source dest type options } {
     if [target_info exists objc,no_label_values] {
 	lappend options "additional_flags=-DNO_LABEL_VALUES"
     }
+    # TOOL_OPTIONS must come first, so that it doesn't override testcase
+    # specific options.
     if [info exists TOOL_OPTIONS] {
-	lappend options "additional_flags=$TOOL_OPTIONS"
+	set options [concat "additional_flags=$TOOL_OPTIONS" $options];
     }
 
-    # APPLE LOCAL DejaGNU
-    # Libobjc header inclusion logic has been moved below.
+    # If we have built libobjc along with the compiler (which usually
+    # _is not_ the case on Mac OS X systems), point the test harness
+    # at it (and associated headers).
 
     set objcpath "[get_multilibs]"
+
     set libobjc_dir [lookfor_file ${objcpath} libobjc/.libs/libobjc.a]
+    if { $libobjc_dir == ""} {
+      verbose "see if we have -fgnu-runtime in [target_info name]"
+      if [regexp ".*-fgnu-runtime.*" [target_info name]] {
+        set libobjc_dir [lookfor_file ${objcpath} libobjc/.libs/libobjc-gnu.a]
+      }
+    }
     if { $libobjc_dir != "" } {
-	# APPLE LOCAL begin DejaGNU
 	set objc_include_dir "${srcdir}/../../libobjc"
 	lappend options "additional_flags=-I${objc_include_dir}"
-	# APPLE LOCAL end DejaGNU
 	set libobjc_dir [file dirname ${libobjc_dir}]
 	set objc_link_flags "-L${libobjc_dir}"
 	lappend options "additional_flags=${objc_link_flags}"
@@ -187,12 +187,17 @@ proc objc_target_compile { source dest type options } {
     # called LD_LIBRARYN32_PATH (for the N32 ABI) and LD_LIBRARY64_PATH
     # (for the 64-bit ABI).  The right way to do this would be to modify
     # unix.exp -- but that's not an option since it's part of DejaGNU
-    # proper, so we do it here.  We really only need to do 
-    # this on IRIX, but it shouldn't hurt to do it anywhere else.
+    # proper, so we do it here.
+    # The same applies to Darwin (DYLD_LIBRARY_PATH), Solaris 32 bit
+    # (LD_LIBRARY_PATH_32), Solaris 64 bit (LD_LIBRARY_PATH_64), and HP-UX
+    # (SHLIB_PATH).
     setenv  LD_LIBRARY_PATH     $ld_library_path
     setenv  SHLIB_PATH          $ld_library_path
     setenv  LD_LIBRARYN32_PATH  $ld_library_path
     setenv  LD_LIBRARY64_PATH   $ld_library_path
+    setenv  LD_LIBRARY_PATH_32  $ld_library_path
+    setenv  LD_LIBRARY_PATH_64  $ld_library_path
+    setenv  DYLD_LIBRARY_PATH   $ld_library_path
 
     return [target_compile $source $dest $type $options]
 }

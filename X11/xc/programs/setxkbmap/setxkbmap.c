@@ -23,7 +23,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/programs/setxkbmap/setxkbmap.c,v 3.7 2003/01/20 04:15:08 dawes Exp $ */
+/* $XFree86: xc/programs/setxkbmap/setxkbmap.c,v 3.8 2003/11/17 22:20:50 dawes Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -158,15 +158,7 @@ void printKeymap( void );
 /***====================================================================***/
 
 Bool
-#if NeedFunctionPrototypes
 addToList(int *sz,int *num,char ***listIn,char *newVal)
-#else
-addToList(sz,num,listIn,newVal)
-    int *	sz;
-    int *	num;
-    char ***	listIn;
-    char *	newVal;
-#endif
 {
 register int i;
 char **list;
@@ -204,13 +196,7 @@ char **list;
 /***====================================================================***/
 
 void
-#if NeedFunctionPrototypes
 usage(int argc,char **argv)
-#else
-usage(argc,argv)
-    int		argc;
-    char **	argv;
-#endif
 {
     MSG1("Usage: %s [args] [<layout> [<variant> [<option> ... ]]]\n",argv[0]);
     MSG("Where legal args are:\n");
@@ -236,13 +222,7 @@ usage(argc,argv)
 }
 
 void
-#if NeedFunctionPrototypes
 dumpNames(Bool wantRules,Bool wantCNames)
-#else
-dumpNames(wantRules,wantCNames)
-    Bool	wantRules;
-    Bool	wantCNames;
-#endif
 {
     if (wantRules) {
 	if (svValue[MODEL_NDX])	 MSG1("model:      %s\n",svValue[MODEL_NDX]);
@@ -274,14 +254,7 @@ dumpNames(wantRules,wantCNames)
 /***====================================================================***/
 
 void
-#if NeedFunctionPrototypes
 trySetString(int which,char *newVal,int src)
-#else
-trySetString(which,newVal,src)
-    int		which;
-    char *	newVal;
-    int		src;
-#endif
 {
     if (svValue[which]!=NULL) {
 	if (svSrc[which]==src) {
@@ -304,16 +277,7 @@ trySetString(which,newVal,src)
 }
 
 Bool
-#if NeedFunctionPrototypes
 setOptString(int *arg,int argc,char **argv,int which,int src)
-#else
-setOptString(arg,argc,argv,which,src)
-    int *	arg;
-    int 	argc;
-    char **	argv;
-    int		what;
-    int		src;
-#endif
 {
 int	ndx;
 char *	opt;
@@ -348,13 +312,7 @@ char *	opt;
 /***====================================================================***/
 
 int
-#if NeedFunctionPrototypes
 parseArgs(int argc,char **argv)
-#else
-parseArgs(argc,argv)
-    int		argc;
-    char **	argv;
-#endif
 {
 int 	i;
 Bool	ok;
@@ -454,13 +412,7 @@ unsigned	present;
 }
 
 Bool
-#if NeedFunctionPrototypes
 getDisplay(int argc,char **argv)
-#else
-getDisplay(argc,argv)
-    int		argc;
-    char **	argv;
-#endif
 {
 int	major,minor,why;
 
@@ -505,11 +457,7 @@ int	major,minor,why;
 /***====================================================================***/
 
 Bool
-#if NeedFunctionPrototypes
 getServerValues(void)
-#else
-getServerValues()
-#endif
 {
 XkbRF_VarDefsRec 	vd;
 char *			tmp= NULL;
@@ -540,13 +488,7 @@ char *			tmp= NULL;
 /***====================================================================***/
 
 FILE *
-#if NeedFunctionPrototypes
 findFileInPath(char *name,char *subdir)
-#else
-findFileInPath(name,subdir)
-    char *	name;
-    char *	subdir;
-#endif
 {
 register int	i;
 char		buf[PATH_MAX];
@@ -577,15 +519,7 @@ FILE *		fp;
 /***====================================================================***/
 
 Bool
-#if NeedFunctionPrototypes
 addStringToOptions(char *opt_str,int *sz_opts,int *num_opts,char ***opts)
-#else
-addStringToOptions(opt_str,sz_opts,num_opts,opts)
-    char *	opt_str;
-    int *	sz_opts;
-    int *	num_opts;
-    char ***	opts;
-#endif
 {
 char 	*tmp,*str,*next;
 Bool	ok= True;
@@ -608,14 +542,7 @@ Bool	ok= True;
 /***====================================================================***/
 
 char *
-#if NeedFunctionPrototypes
 stringFromOptions(char *orig,int numNew,char **newOpts)
-#else
-stringFromOptions(orig,numNew,newOpts)
-    char *	orig;
-    int		numNew;
-    char **	newOpts;
-#endif
 {
 int	len,i,nOut;
 
@@ -651,12 +578,7 @@ int	len,i,nOut;
 /***====================================================================***/
 
 Bool
-#if NeedFunctionPrototypes
 applyConfig(char *name)
-#else
-applyConfig(name)
-    char *	name;
-#endif
 {
 FILE *	fp;
 Bool	ok;
@@ -721,11 +643,7 @@ Bool	ok;
 }
 
 Bool
-#if NeedFunctionPrototypes
 applyRules(void)
-#else
-applyRules()
-#endif
 {
 int	i;
 char *	rfName;
@@ -804,13 +722,7 @@ char *	rfName;
 /* Primitive sanity check - filter out 'map names' (inside parenthesis) */
 /* that can confuse xkbcomp parser */
 Bool
-#if NeedFunctionPrototypes
 checkName(char *name, char* string)
-#else
-checkName()
-    char *name;
-    char *string;
-#endif
 {
    char *i = name, *opar = NULL;
    Bool ret = True;
@@ -852,11 +764,7 @@ checkName()
 }
 
 void
-#if NeedFunctionPrototypes
 printKeymap(void)
-#else
-printKeymap()
-#endif
 {
     MSG("xkb_keymap {\n");
     if (svValue[KEYCODES_NDX])
@@ -873,11 +781,7 @@ printKeymap()
 }
 
 Bool
-#if NeedFunctionPrototypes
 applyComponentNames(void)
-#else
-applyComponentNames()
-#endif
 {
     if(!checkName(svValue[TYPES_NDX],    "types"))
 	return False;
@@ -926,13 +830,7 @@ applyComponentNames()
 
 
 int
-#if NeedFunctionPrototypes
 main(int argc,char **argv)
-#else
-main(argc,argv)
-    int		argc;
-    char **	argv;
-#endif
 {
     if ((!parseArgs(argc,argv))||(!getDisplay(argc,argv)))
 	exit(-1);

@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/Imakefile,v 1.31 2003/02/17 17:06:44 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/Imakefile,v 1.33 2003/08/29 08:50:54 twini Exp $
 XCOMM
 XCOMM This is an Imakefile for the SIS driver.  
 XCOMM
@@ -73,6 +73,7 @@ InstallDriverSDKNonExecFile(sis300_accel.c,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis300_accel.h,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis310_accel.c,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis310_accel.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_accel.h,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis_accel.c,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(init.c,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(init.h,$(DRIVERSDKDIR)/drivers/sis)
@@ -91,6 +92,7 @@ InstallDriverSDKNonExecFile(sis_dac.h,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis_dga.c,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis_dri.c,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis_dri.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_common.h,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis_driver.c,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis_driver.h,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis_opt.c,$(DRIVERSDKDIR)/drivers/sis)
@@ -103,5 +105,8 @@ InstallDriverSDKNonExecFile(sis_vb.h,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis_vga.c,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis_video.c,$(DRIVERSDKDIR)/drivers/sis)
 InstallDriverSDKNonExecFile(sis6326_video.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_accel.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(vgatypes.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(vstruct.h,$(DRIVERSDKDIR)/drivers/sis)
 
 InstallDriverSDKObjectModule(sis,$(DRIVERSDKMODULEDIR),drivers)

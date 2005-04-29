@@ -1,0 +1,137 @@
+# -- CVS $Id: INSTALL,v 1.1.1.1 1997/02/05 20:51:09 aku Exp $
+#
+
+Installation and compilation instructions
+with regard to the Trf extension to TCL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+o	This extension requires a patched tcl, version 7.6 or higher.
+	Please look in the 'patches' subdirectory for the appropriate
+	patch-files.  A tcl-installation with integrated plus-patches
+	doesn't need the patch, its part of these too.
+
+	Warning: My patches were added to the plus-patches for 7.6
+	some time later. Please check that you have the youngest
+	available one.
+
+	The basic patch has to be applied in the subdirectory 'generic',
+	the one with extension '.byteorder' in the tcl main directory
+	(the one above 'generic' et.al.)
+
+	Please note: The tests socket-7.3, iocmd-9.5, -9.6 and -9.7 will
+	fail. This is due to the new channel option '-byteorder'. The
+	generated tclsh/wish is perfectly ok nevertheless. I changed the
+	core, but did not adapt the tests.
+
+
+o	Some functionality of this package depends on the external
+	packages 'zlib' and 'libdes'. If you don't have them, the
+	commands 'zip', 'adler', 'crc-zlib' and 'des' will not be
+	available. More precise, they will fail with an error message. 
+
+	doc/README.* are the original README-files of
+	zlib-1.0.4 and libdes-3.23. They contain pointers
+	to the distributions.
+
+	Please read doc/INSTALL.optional before their installation.
+
+
+o	That you are reading this text means, that you extracted
+	the gzipped tar-archive in a directory of your choice.
+	This operation should have created a subdirectory with
+	the name 'trf<version>'.  It is refered to as
+	"source-directory" from now on.
+
+
+o	'cd' into the source-directory, e.g. make it your working
+	directory, then start the automatic setup by typing
+	'configure'.  If your system does not understand the
+	'#!' notation of specifying script-interpreters, you
+	have to type 'sh configure' (or '/bin/sh configure', ...).
+
+	See 'INSTALL.configure' for more information about
+	'configure' (it is the unchanged file 'INSTALL' as part
+	of the 'autoconf' package).
+
+
+o	The configure script searches for tcl.h in the following
+	places:
+
+	-1	$(TCL_INCLUDE_DIR)
+	-2	../tcl8.0/generic
+	-3	../tcl8.0b*/generic
+	-4	../tcl8.0a*/generic
+	-5	../tcl7.6/generic
+	-6	../tcl/generic
+	-7	../tcl
+	-8	$(prefix)
+	-9	/usr/local/include
+	-10	/usr/include
+
+	By default $(TCL_INCLUDE_DIR) is empty and $(prefix) points
+	to the location of an installed 'tclsh' or is /usr/local if
+	tclsh could not be found via $PATH.
+
+	Use the following options to overide the defaults:
+
+		--prefix=DIR		   -> $(prefix)=DIR
+		--with-tcl=DIR		   -> $(TCL_INCLUDE_DIR)=DIR/include
+		--with-tcl-include-dir=DIR -> $(TCL_INCLUDE_DIR)=DIR
+
+
+o	To find libtcl.a (libtcl.so.??) the paths
+
+	-1	$(TCL_LIB_DIR)
+	-2	../tcl8.0/unix
+	-3	../tcl8.0b*/unix
+	-4	../tcl8.0a*/unix
+	-5	../tcl7.6/unix
+	-6	../tcl/unix
+	-7	../tcl
+	-8	$(exec_prefix)
+	-9	/usr/local/include
+	-10	/usr/include
+
+	are searched. $(TCL_LIB_DIR) is empty by default, but
+	can be set via --with-tcl or --with-tcl-lib-dir.
+
+		--with-tcl=DIR		-> $(TCL_LIB_DIR)=DIR/lib
+		--with-tcl-lib-dir=DIR	-> $(TCL_LIB_DIR)=DIR
+
+	$(exec_prefix) contains the same value as $(prefix) by
+	default, but can be set explicitly via --exec-prefix
+
+
+o	Another notable configure option is --enable-shared whose
+	appearance commands the script to configure the Makefile
+	for creation of shared libraries (as required for dynamic
+	loading).
+
+
+o	Now start the compilation by typing 'make'.
+	The makefile will then check number and names of the files
+	in the package, generate dependency information, compile
+	them and at last build the library.
+
+	The tool 'get-manifest' used during file check requires
+	the directory /tmp.
+
+
+o	To check the extension, type 'make test' or 'make check'.
+	This will build a tclsh containing just tcl and trf and
+	then runs some test-scripts checking the behaviour of the
+	created library.
+
+
+o	At last type 'make install' to install the generated library
+	and the exported header. This installation conforms to the
+	rules set by the package loader mechanism of the tcl-core. 
+
+
+o	To install a tclsh containing just tcl and trf please type
+	'make install-bin'.  With the advent of dynamic loading this
+	should not be necessary anymore.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Enjoy
+	Andreas Kupries (a.kupries@westend.com)

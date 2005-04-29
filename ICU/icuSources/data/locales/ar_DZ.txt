@@ -1,37 +1,25 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/ar_DZ.xml
 // *
 // ***************************************************************************
-
-ar_DZ {
-    Version{"2.0"}
-    DateTimePatterns { 
-        "z h:mm:ss a",
-        "h:mm:ss a",
-        "h:mm:ss a",
-        "h:mm a",
-        "EEEE d MMMM yyyy",
-        "d MMMM yyyy",
-        "dd/MM/yyyy",
-        "d/M/yyyy",
-        "{1} {0}",
-    }     
-    NumberElements { 
-          "\u066B",
-          "\u066C",
-          ";",
-          "\u066A",
-          "0",
-          "#",
-          "-",
-          "E",
-          "\u2030",
-          "\u221E",
-          "\u066B",
-    }    
-//    LocaleString { "ar_DZ" }
-//    ShortCountry { "DZA" }
-    LocaleID:int { 0x1401 }
+ar_DZ{
+    NumberElements{
+        "٫",
+        "٬",
+        ";",
+        "٪",
+        "0",
+        "#",
+        "-",
+        "E",
+        "‰",
+        "∞",
+        "�",
+        "+",
+    }
+    Version{"1.2"}
 }

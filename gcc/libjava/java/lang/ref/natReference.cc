@@ -1,6 +1,6 @@
 // natReference.cc - Native code for References
 
-/* Copyright (C) 2001, 2002  Free Software Foundation
+/* Copyright (C) 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -67,6 +67,8 @@ static int hash_count = 0;
 // Number of slots total in HASH.  Must be power of 2.
 static int hash_size = 0;
 
+#define DELETED_REFERENCE  ((jobject) -1)
+
 static object_list *
 find_slot (jobject key)
 {
@@ -89,7 +91,10 @@ find_slot (jobject key)
 	    return &hash[deleted_index];
 	}
       else if (ptr->weight == DELETED)
-	deleted_index = index;
+	{
+	  deleted_index = index;
+	  JvAssert (ptr->reference == DELETED_REFERENCE);
+	}
       index = (index + step) & (hash_size - 1);
       JvAssert (index != start_index);
     }
@@ -132,6 +137,11 @@ remove_from_hash (jobject obj)
   java::lang::ref::Reference *ref
     = reinterpret_cast<java::lang::ref::Reference *> (obj);
   object_list *head = find_slot (ref->copy);
+
+  // We might have found a new slot.  We can just ignore that here.
+  if (head->reference != ref->copy)
+    return;
+
   object_list **link = &head->next;
   head = head->next;
 
@@ -147,6 +157,19 @@ remove_from_hash (jobject obj)
       *link = head->next;
       _Jv_Free (head);
     }
+}
+
+// Return list head if object is in hash, NULL otherwise.
+object_list *
+in_hash (jobject obj)
+{
+  // The hash table might not yet be initialized.
+  if (hash == NULL)
+    return NULL;
+  object_list *head = find_slot (obj);
+  if (head->reference != obj)
+    return NULL;
+  return head;
 }
 
 // FIXME what happens if an object's finalizer creates a Reference to
@@ -168,7 +191,7 @@ add_to_hash (java::lang::ref::Reference *the_reference)
   // Use `copy' here because the `referent' field has been cleared.
   jobject referent = the_reference->copy;
   object_list *item = find_slot (referent);
-  if (item->reference == NULL)
+  if (item->reference == NULL || item->reference == DELETED_REFERENCE)
     {
       // New item, so make an entry for the finalizer.
       item->reference = referent;
@@ -202,6 +225,29 @@ add_to_hash (java::lang::ref::Reference *the_reference)
   *link = n;
 }
 
+// Add a FINALIZE entry if one doesn't exist.
+static void
+maybe_add_finalize (object_list *entry, jobject obj)
+{
+  object_list **link = &entry->next;
+  object_list *iter = *link;
+  while (iter && iter->weight < FINALIZE)
+    {
+      link = &iter->next;
+      iter = *link;
+    }
+
+  // We want at most one FINALIZE entry in the queue.
+  if (iter && iter->weight == FINALIZE)
+    return;
+
+  object_list *n = (object_list *) _Jv_Malloc (sizeof (object_list));
+  n->reference = obj;
+  n->weight = FINALIZE;
+  n->next = *link;
+  *link = n;
+}
+
 // This is called when an object is ready to be finalized.  This
 // actually implements the appropriate Reference semantics.
 static void
@@ -217,6 +263,7 @@ finalize_referred_to_object (jobject obj)
       // run, all the object's references have been processed, and the
       // object is unreachable.  There is, at long last, no way to
       // resurrect it.
+      list->reference = DELETED_REFERENCE;
       list->weight = DELETED;
       --hash_count;
       return;
@@ -225,16 +272,21 @@ finalize_referred_to_object (jobject obj)
   enum weight w = head->weight;
   if (w == FINALIZE)
     {
+      // Update the list first, as _Jv_FinalizeString might end up
+      // looking at this data structure.
+      list->next = head->next;
+      _Jv_Free (head);
+
       // If we have a Reference A to a Reference B, and B is
       // finalized, then we have to take special care to make sure
       // that B is properly deregistered.  This is super gross.  FIXME
       // will it fail if B's finalizer resurrects B?
       if (java::lang::ref::Reference::class$.isInstance (obj))
 	finalize_reference (obj);
+      else if (obj->getClass() == &java::lang::String::class$)
+	_Jv_FinalizeString (obj);
       else
 	_Jv_FinalizeObject (obj);
-      list->next = head->next;
-      _Jv_Free (head);
     }
   else if (w != SOFT || _Jv_GCCanReclaimSoftReference (obj))
     {
@@ -247,9 +299,7 @@ finalize_referred_to_object (jobject obj)
 	{
 	  java::lang::ref::Reference *ref
 	    = reinterpret_cast<java::lang::ref::Reference *> (head->reference);
-	  // If the copy is already NULL then the user must have
-	  // called Reference.clear().
-	  if (ref->copy != NULL)
+	  if (! ref->cleared)
 	    ref->enqueue ();
 
 	  object_list *next = head->next;
@@ -275,6 +325,23 @@ finalize_reference (jobject ref)
   remove_from_hash (ref);
   // The user might have a subclass of Reference with a finalizer.
   _Jv_FinalizeObject (ref);
+}
+
+void
+_Jv_RegisterStringFinalizer (jobject str)
+{
+  // This function might be called before any other Reference method,
+  // so we must ensure the class is initialized.
+  _Jv_InitClass (&java::lang::ref::Reference::class$);
+  JvSynchronize sync (java::lang::ref::Reference::lock);
+  // If the object is in our hash table, then we might need to add a
+  // new FINALIZE entry.  Otherwise, we just register an ordinary
+  // finalizer.
+  object_list *entry = in_hash (str);
+  if (entry)
+    maybe_add_finalize (entry, str);
+  else
+    _Jv_RegisterFinalizer ((void *) str, _Jv_FinalizeString);
 }
 
 void

@@ -2,15 +2,18 @@ LIBRARY Xft
 VERSION LIBRARY_VERSION
 EXPORTS
 
+#ifndef __UNIXOS2__
 XftConfigAddDir
 XftConfigAddEdit
 XftConfigGetCache
 XftConfigSetCache
 XftConfigSubstitute
 _XftConfigCompareValue
+#endif
 XftColorAllocName
 XftColorAllocValue
 XftColorFree
+#ifndef __UNIXOS2__
 XftCoreConvert16
 XftCoreConvert32
 XftCoreConvertUtf8
@@ -28,6 +31,7 @@ XftSubstPrint
 XftTestPrint
 XftValueListPrint
 XftValuePrint
+#endif
 XftDefaultGetBool
 XftDefaultGetDouble
 XftDefaultGetInteger
@@ -35,14 +39,20 @@ XftDefaultHasRender
 XftDefaultParseBool
 XftDefaultSet
 XftDefaultSubstitute
+#ifndef __UNIXOS2__
 XftDisplayGetFontSet
+#endif
 XftDrawChange
+#ifndef __UNIXOS2__
 XftDrawCorePrepare
+#endif
 XftDrawCreate
 XftDrawCreateBitmap
 XftDrawDestroy
 XftDrawRect
+#ifndef __UNIXOS2__
 XftDrawRenderPrepare
+#endif
 XftDrawSetClip
 XftDrawString16
 XftDrawString32
@@ -58,6 +68,7 @@ XftFontOpen
 XftFontOpenName
 XftFontOpenPattern
 XftFontOpenXlfd
+#ifndef __UNIXOS2__
 XftGlyphExists
 _XftFontDebug
 XftFontSetAdd
@@ -78,7 +89,9 @@ XftExprCreateOp
 XftExprCreateString
 XftExprDestroy
 XftTestCreate
+#endif
 XftInit
+#ifndef __UNIXOS2__
 XftConfigLexFile
 XftConfigPushInput
 XftConfig_create_buffer
@@ -94,8 +107,10 @@ XftConfiglex
 XftConfigrestart
 XftListAppend
 XftListFontSets
+#endif
 XftListFonts
 XftListFontsPatternObjects
+#ifndef __UNIXOS2__
 XftListMatch
 XftListValueCompare
 XftListValueListCompare
@@ -106,8 +121,10 @@ XftObjectSetDestroy
 XftObjectSetVaBuild
 XftFontSetMatch
 XftNameConstant
+#endif
 XftNameParse
 XftNameUnparse
+#ifndef __UNIXOS2__
 XftPatternAdd
 XftPatternAddBool
 XftPatternAddDouble
@@ -131,7 +148,9 @@ XftUtf8Len
 XftUtf8ToUcs4
 _XftDownStr
 _XftGetInt
+#endif
 _XftMatchSymbolic
+#ifndef __UNIXOS2__
 _XftSaveString
 _XftSplitField
 _XftSplitStr
@@ -140,19 +159,26 @@ _XftStrCmpIgnoreCase
 XftCoreAddFonts
 XftCoreClose
 XftCoreOpen
+#endif
 XftXlfdParse
 XftInitFtLibrary
+#ifndef __UNIXOS2__
 XftConfigDirs
 XftDirScan
 XftDirSave
+#endif
 XftDrawPicture
 XftDrawSrcPicture
+#ifndef __UNIXOS2__
 XftGlyphLoad
 XftGlyphCheck
 XftFreeTypeGlyphExists
 XftFreeTypeOpen
 XftFreeTypeClose
 XftRenderString16
+#else
+XftCharExists
+XftDrawCharSpec
+#endif  /* __UNIXOS2__ */
 
-
-/* $XFree86: xc/lib/Xft/Xft-def.cpp,v 1.4 2002/09/18 01:25:00 dawes Exp $ */
+/* $XFree86: xc/lib/Xft/Xft-def.cpp,v 1.6 2003/06/18 16:17:34 eich Exp $ */

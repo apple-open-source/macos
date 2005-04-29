@@ -1,0 +1,28 @@
+#!/bin/sh
+# Watch the CVS repository for changes in memchan, retrieve the
+# changed files and invoke the handler script which propagate the
+# changes to other parts of the system.
+
+cd `dirname $0`/..
+
+CVSROOT
+CVSROOT=:pserver:anonymous@cvs1:/cvsroot/memchan
+
+if [ 0 -lt `cvs -d $CVSROOT diff memchan 2>/dev/null | wc -l` ]
+then
+	out=$HOME/logs/memchan
+	mkdir -p `dirname $out`
+
+	cvs -d $CVSROOT co memchan >$out 2>&1
+	mkdir -p memchan/htdocs/state
+
+        # Use a new htdocs_setup script immediately.
+        # Without this copying it would take effect
+        # only after with the change after the current
+        # one.
+
+        cp ./memchan/tools/htdocs_setup ./tools/htdocs_setup
+
+	(sleep 60 ; ./tools/htdocs_setup ) &
+fi
+exit

@@ -12,32 +12,19 @@ xkb_symbols "basic" {
 
     name[Group1] = "Slovak";
 
-    key <TLDE>	{ type[Group1]="FOUR_LEVEL",
-                  [ semicolon, dead_abovering,    grave,   asciitilde ]	};
-    key <AE01>	{ type[Group1]="FOUR_LEVEL",
-                  [      plus,          1,       exclam,   dead_tilde ]	};
-    key <AE02>	{ type[Group1]="FOUR_LEVEL",
-                  [    lcaron,          2,           at,   dead_caron ]	};
-    key <AE03>	{ type[Group1]="FOUR_LEVEL",
-                  [    scaron,          3,   numbersign, dead_circumflex ] };
-    key <AE04>	{ type[Group1]="FOUR_LEVEL",
-                  [    ccaron,          4,       dollar,   dead_breve ]	};
-    key <AE05>	{ type[Group1]="FOUR_LEVEL",
-                  [    tcaron,          5,      percent, dead_abovering ] };
-    key <AE06>	{ type[Group1]="FOUR_LEVEL",
-                  [    zcaron,          6,  asciicircum,  dead_ogonek ]	};
-    key <AE07>	{ type[Group1]="FOUR_LEVEL",
-                  [    yacute,          7,    ampersand,   dead_grave ]	};
-    key <AE08>	{ type[Group1]="FOUR_LEVEL",
-                  [    aacute,          8,     asterisk, dead_abovedot ] };
-    key <AE09>	{ type[Group1]="FOUR_LEVEL",
-                  [    iacute,          9,    braceleft,   dead_acute ]	};
-    key <AE10>	{ type[Group1]="FOUR_LEVEL",
-                  [    eacute,          0,   braceright, dead_doubleacute ] };
-    key <AE11>	{ type[Group1]="FOUR_LEVEL",
-                  [     equal,    percent,     NoSymbol, dead_diaeresis ] };
-    key <AE12>	{ type[Group1]="FOUR_LEVEL",
-                  [dead_acute, dead_caron,  dead_macron, dead_cedilla ]	};
+    key <TLDE>	{ [ semicolon, dead_abovering,    grave,   asciitilde ]	};
+    key <AE01>	{ [      plus,          1,       exclam,   dead_tilde ]	};
+    key <AE02>	{ [    lcaron,          2,           at,   dead_caron ]	};
+    key <AE03>	{ [    scaron,          3,   numbersign, dead_circumflex ] };
+    key <AE04>	{ [    ccaron,          4,       dollar,   dead_breve ]	};
+    key <AE05>	{ [    tcaron,          5,      percent, dead_abovering ] };
+    key <AE06>	{ [    zcaron,          6,  asciicircum,  dead_ogonek ]	};
+    key <AE07>	{ [    yacute,          7,    ampersand,   dead_grave ]	};
+    key <AE08>	{ [    aacute,          8,     asterisk, dead_abovedot ] };
+    key <AE09>	{ [    iacute,          9,    braceleft,   dead_acute ]	};
+    key <AE10>	{ [    eacute,          0,   braceright, dead_doubleacute ] };
+    key <AE11>	{ [     equal,    percent,     NoSymbol, dead_diaeresis ] };
+    key <AE12>	{ [dead_acute, dead_caron,  dead_macron, dead_cedilla ]	};
 
     key <AD01>	{ [         q,          Q,    backslash,     NoSymbol ]	};
     key <AD02>	{ [         w,          W,          bar,     Nosymbol ]	};
@@ -85,9 +72,7 @@ xkb_symbols "basic" {
     key <KPDL>	{ type[Group1]="FOUR_LEVEL_KEYPAD",
                   [ KP_Delete,      comma,    KP_Delete,   KP_Decimal ]	};
 
-    key <RALT>	{ type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]	};
-    modifier_map Mod5   { <RALT> };			
+    include "level3(ralt_switch_multikey)"
 };
 
 // Use <BKSL> instead of <LSGT> (useful for keyboard without <LSGT> key)

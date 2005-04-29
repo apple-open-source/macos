@@ -59,8 +59,8 @@ The libdpstkXm library contains four Motif widgets.  The DPS Scrolling Widget
 is a DPS drawing area that automatically manages issues such as scrolling,
 scaling, client-side backing store, incremental redisplay, etc. The Font
 Selection Box, and its associated Font Preview, present a convenient and pow-
-erful interface for choosing scalable fonts.  Finally, the Color Picker pre-
-sents an interface for choosing colours using either of the RGB or HSV
+erful interface for choosing scalable fonts.  Finally, the Color Picker
+presents an interface for choosing colours using either of the RGB or HSV
 spaces.  The latter three widgets are documented in [DPTX]; some summary
 Scrolling Widget documentation is available in the doc subdirectory of the
 DPS.tar.gz file, available from <URL:ftp://dps.source-
@@ -164,7 +164,7 @@ Developers. 15 April 1993.
 
 [PSWRAP] Display PostScript System. pswrap Reference Manual. 15 April 1993.
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/dps.sgml,v 1.2 2003/01/20 03:43:07 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/dps.sgml,v 1.2 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.dps,v 1.4 2003/01/20 04:10:01 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.dps,v 1.6 2003/10/19 19:57:14 dawes Exp $

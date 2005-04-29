@@ -68,7 +68,7 @@ if :; then :; else
 fi
 
 # This works around an automake problem.
-mkinstalldirs="`cd $ac_aux_dir && pwd`/mkinstalldirs"
+mkinstalldirs="`cd $ac_aux_dir && ${PWDCMD-pwd}`/mkinstalldirs"
 AC_SUBST(mkinstalldirs)
 
 AC_CANONICAL_SYSTEM
@@ -144,20 +144,7 @@ AC_PROG_INSTALL
 
 AM_MAINTAINER_MODE
 
-# We need AC_EXEEXT to keep automake happy in cygnus mode.  However,
-# at least currently, we never actually build a program, so we never
-# need to use $(EXEEXT).  Moreover, the test for EXEEXT normally
-# fails, because we are probably configuring with a cross compiler
-# which cant create executables.  So we include AC_EXEEXT to keep
-# automake happy, but we don't execute it, since we don't care about
-# the result.
-if false; then
-  # autoconf 2.50 runs AC_EXEEXT by default, and the macro expands
-  # to nothing, so nothing would remain between `then' and `fi' if it
-  # were not for the `:' below.
-  :
-  AC_EXEEXT
-fi
+AC_EXEEXT
 
 # configure.host sets the following important variables
 #	libgcj_cflags    - host specific C compiler flags
@@ -286,3 +273,27 @@ AC_DEFUN([AM_LC_MESSAGES],
         [Define if your <locale.h> file defines LC_MESSAGES.])
     fi
   fi])
+
+AC_DEFUN([CHECK_FOR_BROKEN_MINGW_LD],
+[
+AC_MSG_CHECKING(whether 'ld' is at least 2.13)
+LD_PROG=`$CC --print-prog-name=ld`
+LD_VERSION=`$LD_PROG --version`
+LD_VERSION_MAJOR=`echo "$LD_VERSION" | head -1 | cut -d '.' -f 1 | cut -d ' ' -f 4`
+LD_VERSION_MINOR=`echo "$LD_VERSION" | head -1 | cut -d '.' -f 2`
+if expr "$LD_VERSION_MAJOR" \> 2 > /dev/null; then
+  LD_OK="ok"
+else
+  if expr "$LD_VERSION_MAJOR" = 2 && expr "$LD_VERSION_MINOR" \>= 13 > /dev/null; then
+    LD_OK="ok"
+  fi
+fi
+if test "x$LD_OK" != x; then
+  AC_MSG_RESULT([yes; major=$LD_VERSION_MAJOR, minor=$LD_VERSION_MINOR])
+else
+  AC_MSG_RESULT([no; major=$LD_VERSION_MAJOR, minor=$LD_VERSION_MINOR])
+  AC_MSG_WARN([ld <2.13 detected; enabling JV_LINKER_CANNOT_8BYTE_ALIGN_STATICS hack...])
+  AC_DEFINE(JV_LINKER_CANNOT_8BYTE_ALIGN_STATICS, 1,
+            [Indicate that linker is not able to 8-byte align static data])
+fi[]dnl
+])# CHECK_FOR_BROKEN_MINGW_LD

@@ -1,0 +1,106 @@
+# -*- tcl -*-
+# md5.test:  tests for the md5 commands
+#
+# This file contains a collection of tests for one or more of the Tcl
+# built-in commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2001 by ActiveState Tool Corp.
+# All rights reserved.
+#
+# RCS: @(#) $Id: md5x.test,v 1.5.2.1 2004/05/24 03:13:33 andreas_kupries Exp $
+
+# -------------------------------------------------------------------------
+# Initialize the test package
+#
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+# -------------------------------------------------------------------------
+# Ensure we test _this_ local copy and one installed somewhere else.
+#
+package forget md5
+catch {namespace delete ::md5}
+if {[catch {source [file join [file dirname [info script]] md5x.tcl]} msg]} {
+    puts "skipped [file tail [info script]]: $msg"
+    return
+}
+
+# -------------------------------------------------------------------------
+# Setup any constraints
+#
+
+# -------------------------------------------------------------------------
+# Now the package specific tests....
+# -------------------------------------------------------------------------
+
+if {[info command ::md5::md5c] != {}} {
+    puts "- md5 [package present md5] (critcl based)"
+} elseif {[package provide Trf] != {} && ![catch {::md5 -- test}]} {
+    puts "- md5 [package present md5] (Trf based)"
+} else {
+    puts "- md5 [package present md5] (pure Tcl)"
+}
+
+# -------------------------------------------------------------------------
+
+test md5-1.0 {md5} {
+    catch {::md5::md5} result
+    set result
+} {wrong # args: should be "md5 ?-hex? -filename file | string"}
+# [tcltest::wrongNumArgs "md5" "?-hex? -filename file | string" 0]
+
+test md5-1.1 {md5} {
+    catch {::md5::hmac} result
+    set result
+} {wrong # args: should be "hmac ?-hex? -key key -filename file | string"}
+# [tcltest::wrongNumArgs "hmac" "?-hex? -key key -filename file | string" 0]
+
+test md5-1.2 {md5} {
+    catch {::md5::hmac key} result
+    set result
+} {wrong # args: should be "hmac ?-hex? -key key -filename file | string"}
+# [tcltest::wrongNumArgs "hmac" "?-hex? -key key -filename file | string" 1]
+
+
+foreach {n msg expected} {
+    1    ""
+    "D41D8CD98F00B204E9800998ECF8427E"
+    2    "a"
+    "0CC175B9C0F1B6A831C399E269772661"
+    3    "abc"
+    "900150983CD24FB0D6963F7D28E17F72"
+    4    "message digest"
+    "F96B697D7CB7938D525A2F31AAF161D0"
+    5    "abcdefghijklmnopqrstuvwxyz"
+    "C3FCD3D76192E4007DFB496CCA67E13B"
+    6    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    "D174AB98D277D9F5A5611C2C9F419D9F"
+    7    "12345678901234567890123456789012345678901234567890123456789012345678901234567890"
+    "57EDF4A22BE3C955AC49DA2E2107B67A"
+} {
+    test md5-2.$n {md5} {
+	::md5::md5 -hex $msg
+    } $expected ; # {}
+}
+
+foreach {n key text expected} {
+    1 ""     ""      "74E6F7298A9C2D168935F58C001BAD88"
+    2 "foo"  "hello" "EF2AC8901530DB30AA56929ADFE5E13B"
+    3 "bar"  "world" "DFC05594B019ED51535922A1295446E8"
+    4 "key"  "text"  "D0CA6177C61C975FD2F8C07D8C6528C6"
+    5 "md5"  "hmac"  "D189F362DAF86A5C8E14BA4ABA91B260"
+    6 "hmac" "md5"   "480343CF0F2D5931EC4923E81059FB84"
+    7 "md5"  "md5"   "92C5FB986E345F21F181047AB939EC77"
+    8 "hmac" "hmac"  "08ABBE58A55219789E3EEDE153808A56"
+    9 "01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh==" "hello world"
+    "CF0237466F9B3C773858A1892B474C9E"
+} {
+    test md5-3.$n {hmac} {
+	::md5::hmac -hex -key $key $text
+    } $expected ; # {}
+}
+
+::tcltest::cleanupTests

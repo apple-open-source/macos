@@ -27,7 +27,7 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/admin.h,v 1.52 2002/10/08 20:20:27 tlyu Exp $
+ * $Header: /cvs/krbdev/krb5/src/lib/kadm5/admin.h,v 1.54 2004/08/21 02:31:09 tlyu Exp $
  */
 
 #ifndef __KADM5_ADMIN_H__
@@ -121,7 +121,9 @@ typedef long		kadm5_ret_t;
 #define KADM5_CONFIG_DICT_FILE		0x020000
 #define KADM5_CONFIG_MKEY_FROM_KBD	0x040000
 #define KADM5_CONFIG_KPASSWD_PORT	0x080000
-    
+#define KADM5_CONFIG_OLD_AUTH_GSSAPI	0x100000
+#define KADM5_CONFIG_NO_AUTH		0x200000
+
 /*
  * permission bits
  */
@@ -287,6 +289,9 @@ krb5_error_code kadm5_free_config_params(krb5_context context,
 
 krb5_error_code kadm5_free_realm_params(krb5_context kcontext,
 					kadm5_config_params *params);
+
+krb5_error_code kadm5_get_admin_service_name(krb5_context, char *,
+					     char *, size_t);
 #endif
 
 kadm5_ret_t    kadm5_init(char *client_name, char *pass,

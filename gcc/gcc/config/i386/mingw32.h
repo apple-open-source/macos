@@ -1,70 +1,44 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using GNU tools and the Windows32 API Library.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Most of this is the same as for cygwin, except for changing some
-   specs.  */
+#undef TARGET_VERSION
+#define TARGET_VERSION fprintf (stderr, " (x86 MinGW)"); 
 
-/* Mingw GCC, unlike Cygwin's, must be relocatable. This macro must 
-   be defined before any other files are included.  */
-#ifndef WIN32_NO_ABSOLUTE_INST_DIRS
-#define WIN32_NO_ABSOLUTE_INST_DIRS 1
-#endif
-
-#include "i386/cygwin.h"
-
-#define TARGET_EXECUTABLE_SUFFIX ".exe"
-
-/* See i386/crtdll.h for an altervative definition.  */
+/* See i386/crtdll.h for an alternative definition.  */
 #define EXTRA_OS_CPP_BUILTINS()					\
   do								\
     {								\
       builtin_define ("__MSVCRT__");				\
       builtin_define ("__MINGW32__");			   	\
+      builtin_define ("_WIN32");				\
+      builtin_define_std ("WIN32");				\
+      builtin_define_std ("WINNT");				\
     }								\
   while (0)
 
-#undef TARGET_OS_CPP_BUILTINS	/* From cygwin.h.  */
-#define TARGET_OS_CPP_BUILTINS()					\
-  do									\
-    {									\
-	builtin_define ("_WIN32");					\
-	builtin_define_std ("WIN32");					\
-	builtin_define_std ("WINNT");					\
-	builtin_define ("_X86_=1");					\
-	builtin_define ("__stdcall=__attribute__((__stdcall__))");	\
-	builtin_define ("__cdecl=__attribute__((__cdecl__))");		\
-	builtin_define ("__declspec(x)=__attribute__((x))");		\
-	if (!flag_iso)							\
-	  {								\
-	    builtin_define ("_stdcall=__attribute__((__stdcall__))");	\
-	    builtin_define ("_cdecl=__attribute__((__cdecl__))");	\
-	  }								\
-	EXTRA_OS_CPP_BUILTINS ();					\
-	builtin_assert ("system=winnt");				\
-    }									\
-  while (0)
-
-/* Specific a different directory for the standard include files.  */
+/* Override the standard choice of /usr/include as the default prefix
+   to try when searching for header files.  */
 #undef STANDARD_INCLUDE_DIR
-#define STANDARD_INCLUDE_DIR "/usr/local/mingw32/include"
+#define STANDARD_INCLUDE_DIR "/mingw/include"
 #undef STANDARD_INCLUDE_COMPONENT
 #define STANDARD_INCLUDE_COMPONENT "MINGW"
 
@@ -89,18 +63,22 @@ Boston, MA 02111-1307, USA.  */
 /* Include in the mingw32 libraries with libgcc */
 #undef LIBGCC_SPEC
 #define LIBGCC_SPEC \
-  "%{mthreads:-lmingwthrd} -lmingw32 -lgcc -lmoldname -lmsvcrt"
+  "%{mthreads:-lmingwthrd} -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt"
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "%{shared|mdll:dllcrt2%O%s} \
   %{!shared:%{!mdll:crt2%O%s}} %{pg:gcrt2%O%s}"
 
-/* MS runtime does not need a separate math library.  */
-#undef MATH_LIBRARY
-#define MATH_LIBRARY ""
+/* Override startfile prefix defaults.  */
+#ifndef STANDARD_STARTFILE_PREFIX_1
+#define STANDARD_STARTFILE_PREFIX_1 "/mingw/lib/"
+#endif
+#ifndef STANDARD_STARTFILE_PREFIX_2
+#define STANDARD_STARTFILE_PREFIX_2 ""
+#endif
 
 /* Output STRING, a string representing a filename, to FILE.
-   We canonicalize it to be in Unix format (backslashe are replaced
+   We canonicalize it to be in Unix format (backslashes are replaced
    forward slashes.  */
 #undef OUTPUT_QUOTED_STRING
 #define OUTPUT_QUOTED_STRING(FILE, STRING)               \
@@ -127,6 +105,6 @@ do {						         \
   putc ('\"', asm_file);			         \
 } while (0)
 
-/* Define as short unsigned for compatability with MS runtime.  */
+/* Define as short unsigned for compatibility with MS runtime.  */
 #undef WINT_TYPE
 #define WINT_TYPE "short unsigned int"

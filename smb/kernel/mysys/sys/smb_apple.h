@@ -5,14 +5,12 @@
 #include <sys/mbuf.h>
 #include <sys/mount.h>
 #include <sys/namei.h>
-#include <sys/socketvar.h>
 #include <sys/ubc.h>
 #include <miscfs/specfs/specdev.h>
 #include <miscfs/devfs/devfs.h>
 #include <machine/spl.h>
-#include <kern/thread_act.h>
+#include <kern/thread.h>
 #include <kern/thread_call.h>
-#include <kern/wait_queue.h>
 #include <string.h>
 
 #ifndef PRIVSYM
@@ -26,7 +24,7 @@
 #define vnode_pager_setsize ubc_setsize /* works since n_size is quad */
 
 #define VFS_SET(a, b, c)
-#define vop_defaultop vn_default_error
+#define vnop_defaultop vn_default_error
 #define VNODEOP_SET(a)
 
 #define _kern_iconv	_net_smb_fs_iconv
@@ -115,8 +113,8 @@ struct smbnode;
 struct smb_cred;
 extern int	smbfs_smb_flush __P((struct smbnode *, struct smb_cred *));
 extern int	smb_smb_flush __P((struct smbnode *, struct smb_cred *));
-extern int	smbfs_0extend __P((struct vnode *, u_quad_t, u_quad_t,
-				 struct smb_cred *, struct proc *, int));
+extern int	smbfs_0extend __P((vnode_t, u_int16_t, u_quad_t, u_quad_t,
+				 struct smb_cred *, int));
 
 extern unsigned		splbio __P((void));
 extern void		splx __P((unsigned));
@@ -128,18 +126,13 @@ extern int selwait;
 extern void		m_cat __P((struct mbuf *, struct mbuf *));
 extern int		tvtohz __P((struct timeval *));
 
-extern void wait_queue_sub_init __P((wait_queue_sub_t, int));
-extern kern_return_t wait_subqueue_unlink_all __P((wait_queue_sub_t));
+extern void		smb_vhashrem __P((struct smbnode *));
 
+typedef int	 vnop_t __P((void *));
 
-extern void		smb_vhashrem __P((struct smbnode *, struct proc *));
-
-typedef int	 vop_t __P((void *));
-
-#define vn_todev(vp) ((vp)->v_type == VBLK || (vp)->v_type == VCHR ? \
-		      (vp)->v_rdev : NODEV)
+#define vn_todev(vp) (vnode_vtype(vp) == VBLK || vnode_vtype(vp) == VCHR ? \
+		      vnode_specrdev(vp) : NODEV)
 #define RFNOWAIT	(1<<6)
-#define kthread_exit(a)
 #define simplelock	slock
 
 typedef __const char *  c_caddr_t;
@@ -169,6 +162,8 @@ void timevalsub(struct timeval *, struct timeval *);
 			(vvp)->tv_nsec += 1000000000;		   \
 		}						   \
 	} while (0)
+
+#if SMB_TRACE_ENABLED
 
 extern int smbtraceindx;
 #define SMBTBUFSIZ 8912 
@@ -209,4 +204,7 @@ extern uint smbtracemask; /* 32 bits - trace points over 31 are unconditional */
 		 SMBTRACEX(SMBTRC_CONTINUE, (a2), (a3), (a4))) : \
 		0 \
 )
+
+# endif
+
 #endif /* KERNEL */

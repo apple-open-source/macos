@@ -54,6 +54,7 @@ res_nsendsigned(res_state statp, const u_char *msg, int msglen,
 		return (-1);
 	}
 	memcpy(nstatp, statp, sizeof(*statp));
+	nstatp->_pad = 9;
 
 	bufsize = msglen + 1024;
 	newmsg = (u_char *) malloc(bufsize);

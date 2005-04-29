@@ -28,15 +28,15 @@ $ if f$search("SYS$SYSTEM:MMS.EXE").eqs.""
 $  then
 $   dele example.obj;*,minigzip.obj;*
 $   CALL MAKE adler32.OBJ "CC ''CCOPT' adler32" -
-                adler32.c zutil.h zlib.h zconf.h
+                adler32.c zlib.h zconf.h
 $   CALL MAKE compress.OBJ "CC ''CCOPT' compress" -
                 compress.c zlib.h zconf.h
 $   CALL MAKE crc32.OBJ "CC ''CCOPT' crc32" -
-                crc32.c zutil.h zlib.h zconf.h
+                crc32.c zlib.h zconf.h
 $   CALL MAKE deflate.OBJ "CC ''CCOPT' deflate" -
-                deflatec.c deflate.h zutil.h zlib.h zconf.h
+                deflate.c deflate.h zutil.h zlib.h zconf.h
 $   CALL MAKE gzio.OBJ "CC ''CCOPT' gzio" -
-                gsio.c zutil.h zlib.h zconf.h
+                gzio.c zutil.h zlib.h zconf.h
 $   CALL MAKE infblock.OBJ "CC ''CCOPT' infblock" -
                 infblock.c zutil.h zlib.h zconf.h infblock.h
 $   CALL MAKE infcodes.OBJ "CC ''CCOPT' infcodes" -
@@ -61,12 +61,12 @@ $   write sys$output "Building example..."
 $   CALL MAKE example.OBJ "CC ''CCOPT' example" -
                 example.c zlib.h zconf.h
 $   call make example.exe "LINK example,libz.olb/lib" example.obj libz.olb
-$   write sys$output "Building minigzip..."
-$   CALL MAKE minigzip.OBJ "CC ''CCOPT' minigzip" -
-                minigzip.c zlib.h zconf.h
-$   call make minigzip.exe - 
-                "LINK minigzip,libz.olb/lib,x11vms:xvmsutils.olb/lib" - 
-                minigzip.obj libz.olb
+$!   write sys$output "Building minigzip..."
+$!   CALL MAKE minigzip.OBJ "CC ''CCOPT' minigzip" -
+$!              minigzip.c zlib.h zconf.h
+$!  call make minigzip.exe - 
+$!              "LINK minigzip,libz.olb/lib,x11vms:xvmsutils.olb/lib" - 
+$!              minigzip.obj libz.olb
 $  else
 $   mms/macro=('comp')
 $  endif

@@ -23,25 +23,24 @@
  * Author: Katsuhisa Yano	TOSHIBA Corp.
  *			   	mopi@osa.ilab.toshiba.co.jp
  */
-/* $XFree86: xc/lib/X11/omTextPer.c,v 1.5 2001/10/28 03:32:35 tsi Exp $ */
+/* $XFree86: xc/lib/X11/omTextPer.c,v 1.7 2003/11/17 22:20:12 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "XomGeneric.h"
 #include <stdio.h>
 
 static Status
-_XomGenericTextPerCharExtents(oc, type, text, length, ink_buf, logical_buf,
-			      buf_size, num_chars, overall_ink, overall_logical)
-    XOC oc;
-    XOMTextType type;
-    XPointer text;
-    int length;
-    XRectangle *ink_buf;
-    XRectangle *logical_buf;
-    int buf_size;
-    int *num_chars;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
+_XomGenericTextPerCharExtents(
+    XOC oc,
+    XOMTextType type,
+    XPointer text,
+    int length,
+    XRectangle *ink_buf,
+    XRectangle *logical_buf,
+    int buf_size,
+    int *num_chars,
+    XRectangle *overall_ink,
+    XRectangle *overall_logical)
 {
     XlcConv conv;
     XFontStruct *font;
@@ -163,25 +162,11 @@ _XomGenericTextPerCharExtents(oc, type, text, length, ink_buf, logical_buf,
 }
 
 Status
-#if NeedFunctionPrototypes
 _XmbGenericTextPerCharExtents(XOC oc, _Xconst char *text, int length,
 			      XRectangle *ink_buf, XRectangle *logical_buf,
 			      int buf_size, int *num_chars,
 			      XRectangle *overall_ink,
 			      XRectangle *overall_logical)
-#else
-_XmbGenericTextPerCharExtents(oc, text, length, ink_buf, logical_buf,
-			      buf_size, num_chars, overall_ink, overall_logical)
-    XOC oc;
-    _Xconst char *text;	
-    int length;
-    XRectangle *ink_buf;
-    XRectangle *logical_buf;
-    int buf_size;
-    int *num_chars;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     return _XomGenericTextPerCharExtents(oc, XOMMultiByte, (XPointer) text,
 					 length, ink_buf, logical_buf, buf_size,
@@ -190,25 +175,11 @@ _XmbGenericTextPerCharExtents(oc, text, length, ink_buf, logical_buf,
 }
 
 Status
-#if NeedFunctionPrototypes
 _XwcGenericTextPerCharExtents(XOC oc, _Xconst wchar_t *text, int length,
 			      XRectangle *ink_buf, XRectangle *logical_buf,
 			      int buf_size, int *num_chars,
 			      XRectangle *overall_ink,
 			      XRectangle *overall_logical)
-#else
-_XwcGenericTextPerCharExtents(oc, text, length, ink_buf, logical_buf,
-			      buf_size, num_chars, overall_ink, overall_logical)
-    XOC oc;
-    _Xconst wchar_t *text;
-    int length;
-    XRectangle *ink_buf;
-    XRectangle *logical_buf;
-    int buf_size;
-    int *num_chars;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     return _XomGenericTextPerCharExtents(oc, XOMWideChar, (XPointer) text,
 					 length, ink_buf, logical_buf, buf_size,
@@ -217,26 +188,11 @@ _XwcGenericTextPerCharExtents(oc, text, length, ink_buf, logical_buf,
 }
 
 Status
-#if NeedFunctionPrototypes
 _Xutf8GenericTextPerCharExtents(XOC oc, _Xconst char *text, int length,
 				XRectangle *ink_buf, XRectangle *logical_buf,
 				int buf_size, int *num_chars,
 				XRectangle *overall_ink,
 				XRectangle *overall_logical)
-#else
-_Xutf8GenericTextPerCharExtents(oc, text, length, ink_buf, logical_buf,
-				buf_size, num_chars, overall_ink,
-				overall_logical)
-    XOC oc;
-    _Xconst char *text;	
-    int length;
-    XRectangle *ink_buf;
-    XRectangle *logical_buf;
-    int buf_size;
-    int *num_chars;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     return _XomGenericTextPerCharExtents(oc, XOMUtf8String, (XPointer) text,
 					 length, ink_buf, logical_buf, buf_size,

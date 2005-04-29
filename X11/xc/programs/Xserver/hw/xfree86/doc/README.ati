@@ -70,8 +70,8 @@ the accelerator's CRTC.
 The driver currently supports the SuperVGA capabilities of all ATI adapters
 except some early Mach8 and Mach32 adapters that do not provide the required
 functionality.  This support works for monochrome, 16-colour and 256-colour
-video modes, if one of the following ATI graphics controller chips is pre-
-sent:
+video modes, if one of the following ATI graphics controller chips is
+present:
 
      VGAWonder series:  18800, 18800-1, 28800-2, 28800-4, 28800-5, 28800-6
         Mach32 series:  68800-3, 68800-6, 68800AX, 68800LX
@@ -703,7 +703,7 @@ newer driver API of XFree86 4.0 and later.
 The introduction of version 6 is a first swipe at porting the driver to non-
 Intel architectures.
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/ati.sgml,v 3.43 2003/02/25 19:31:02 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/ati.sgml,v 3.43 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.ati,v 3.63 2003/02/25 21:32:35 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.ati,v 3.65 2003/10/19 19:57:13 dawes Exp $

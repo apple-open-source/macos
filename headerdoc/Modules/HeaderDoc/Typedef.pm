@@ -4,22 +4,28 @@
 # Synopsis: Holds typedef info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2003/07/29 20:41:19 $
+# Last Updated: $Date: 2004/10/13 00:09:34 $
 # 
-# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
-# The contents of this file constitute Original Code as defined in and are
-# subject to the Apple Public Source License Version 1.1 (the "License").
-# You may not use this file except in compliance with the License.  Please
-# obtain a copy of the License at http://www.apple.com/publicsource and
-# read it before using this file.
+# Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
-# This Original Code and all software distributed under the License are
-# distributed on an TAS ISU basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# @APPLE_LICENSE_HEADER_START@
+#
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 # EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
-# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the License for
-# the specific language governing rights and limitations under the
-# License.
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#
+# @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
 package HeaderDoc::Typedef;
@@ -33,7 +39,7 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '1.20';
+$VERSION = '$Revision: 1.12.2.8.2.36 $';
 
 
 sub new {
@@ -49,11 +55,34 @@ sub new {
 sub _initialize {
     my($self) = shift;
     $self->SUPER::_initialize();
-    $self->{RESULT} = undef;
+    # $self->{RESULT} = undef;
     $self->{FIELDS} = ();
-    $self->{ISFUNCPTR} = 0;
-    $self->{ISENUMLIST} = 0;
+    # $self->{ISFUNCPTR} = 0;
+    # $self->{ISENUMLIST} = 0;
+    $self->{CLASS} = "HeaderDoc::Typedef";
 }
+
+sub clone {
+    my $self = shift;
+    my $clone = undef;
+    if (@_) {
+	$clone = shift;
+    } else {
+	$clone = HeaderDoc::Typedef->new();
+    }
+
+    $self->SUPER::clone($clone);
+
+    # now clone stuff specific to function
+
+    $clone->{RESULT} = $self->{RESULT};
+    $clone->{FIELDS} = $self->{FIELDS};
+    $clone->{ISFUNCPTR} = $self->{ISFUNCPTR};
+    $clone->{ISENUMLIST} = $self->{ISENUMLIST};
+
+    return $clone;
+}
+
 
 sub result {
     my $self = shift;
@@ -74,20 +103,17 @@ sub fields {
 
 sub addField {
     my $self = shift;
+    my $localDebug = 0;
     if (@_) { 
-        push (@{$self->{FIELDS}}, @_);
+	foreach my $field (@_) {
+		print "added field $field->{NAME} ($field->{TYPE})\n" if ($localDebug);
+		push(@{$self->{FIELDS}}, $field);
+	}
+        # push (@{$self->{FIELDS}}, @_);
     }
     return @{ $self->{FIELDS} };
 }
 
-sub isFunctionPointer {
-    my $self = shift;
-
-    if (@_) {
-        $self->{ISFUNCPTR} = shift;
-    }
-    return $self->{ISFUNCPTR};
-}
 
 sub isEnumList {
     my $self = shift;
@@ -99,19 +125,29 @@ sub isEnumList {
 }
 
 
-sub processTypedefComment {
+sub processComment {
     my $self = shift;
     my $fieldArrayRef = shift;
     my @fields = @$fieldArrayRef;
     my $lastField = scalar(@fields);
+    my $filename = $self->filename();
+    my $linenum = $self->linenum();
     my $fieldCounter = 0;
     my $localDebug = 0;
     
     while ($fieldCounter < $lastField) {
         my $field = $fields[$fieldCounter];
+	print "FIELD WAS $field\n" if ($localDebug);
         SWITCH: {
-            ($field =~ /^\/\*\!/)&& do {last SWITCH;}; # ignore opening /*!
-            ($field =~ s/^typedef\s+//) && 
+            ($field =~ /^\/\*\!/o)&& do {
+                                my $copy = $field;
+                                $copy =~ s/^\/\*\!\s*//s;
+                                if (length($copy)) {
+                                        $self->discussion($copy);
+                                }
+                        last SWITCH;
+                        };
+            ($field =~ s/^(typedef|function)(\s+)/$2/o) && 
                 do {
                     my ($name, $disc);
                     ($name, $disc) = &getAPINameAndDisc($field); 
@@ -119,14 +155,59 @@ sub processTypedefComment {
                     if (length($disc)) {$self->discussion($disc);};
                     last SWITCH;
                 };
-            ($field =~ s/^abstract\s+//) && do {$self->abstract($field); last SWITCH;};
-            ($field =~ s/^availability\s+//) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^updated\s+//) && do {$self->updated($field); last SWITCH;};
-            ($field =~ s/^discussion\s+//) && do {$self->discussion($field); last SWITCH;};
-            ($field =~ s/^field\s+//) &&
+            ($field =~ s/^abstract\s+//o) && do {$self->abstract($field); last SWITCH;};
+            ($field =~ s/^availability\s+//o) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^since\s+//o) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^author\s+//o) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+	    ($field =~ s/^version\s+//o) && do {$self->attribute("Version", $field, 0); last SWITCH;};
+            ($field =~ s/^deprecated\s+//o) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
+            ($field =~ s/^updated\s+//o) && do {$self->updated($field); last SWITCH;};
+	    ($field =~ s/^attribute\s+//o) && do {
+		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+		    if (length($attname) && length($attdisc)) {
+			$self->attribute($attname, $attdisc, 0);
+		    } else {
+			warn "$filename:$linenum:Missing name/discussion for attribute\n";
+		    }
+		    last SWITCH;
+		};
+	    ($field =~ s/^attributelist\s+//o) && do {
+		    $field =~ s/^\s*//so;
+		    $field =~ s/\s*$//so;
+		    my ($name, $lines) = split(/\n/, $field, 2);
+		    $name =~ s/^\s*//so;
+		    $name =~ s/\s*$//so;
+		    $lines =~ s/^\s*//so;
+		    $lines =~ s/\s*$//so;
+		    if (length($name) && length($lines)) {
+			my @attlines = split(/\n/, $lines);
+			foreach my $line (@attlines) {
+			    $self->attributelist($name, $line);
+			}
+		    } else {
+			warn "$filename:$linenum:Missing name/discussion for attributelist\n";
+		    }
+		    last SWITCH;
+		};
+	    ($field =~ s/^attributeblock\s+//o) && do {
+		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+		    if (length($attname) && length($attdisc)) {
+			$self->attribute($attname, $attdisc, 1);
+		    } else {
+			warn "$filename:$linenum:Missing name/discussion for attributeblock\n";
+		    }
+		    last SWITCH;
+		};
+	    ($field =~ /^see(also|)\s+/o) &&
+		do {
+		    $self->see($field);
+		    last SWITCH;
+		};
+            ($field =~ s/^discussion\s+//o) && do {$self->discussion($field); last SWITCH;};
+            ($field =~ s/^field\s+//o) &&
                 do {
-                    $field =~ s/^\s+|\s+$//g;
-                    $field =~ /(\w*)\s*(.*)/s;
+                    $field =~ s/^\s+|\s+$//go;
+                    $field =~ /(\w*)\s*(.*)/so;
                     my $fName = $1;
                     my $fDesc = $2;
                     my $fObj = HeaderDoc::MinorAPIElement->new();
@@ -138,11 +219,11 @@ sub processTypedefComment {
                     print "Adding field for typedef.  Field name: $fName.\n" if ($localDebug);
                     last SWITCH;
                 };
-            ($field =~ s/^constant\s+//) &&
+            ($field =~ s/^constant\s+//o) &&
                 do {
                     $self->isEnumList(1);
-                    $field =~ s/^\s+|\s+$//g;
-                    $field =~ /(\w*)\s*(.*)/s;
+                    $field =~ s/^\s+|\s+$//go;
+                    $field =~ /(\w*)\s*(.*)/so;
                     my $fName = $1;
                     my $fDesc = $2;
                     my $fObj = HeaderDoc::MinorAPIElement->new();
@@ -150,15 +231,15 @@ sub processTypedefComment {
                     $fObj->name($fName);
                     $fObj->discussion($fDesc);
                     $fObj->type("constant");
-                    $self->addField($fObj);
-                    print "Adding constant for enum.  Constant name: $fName.\n" if ($localDebug);
+                    $self->addConstant($fObj);
+                    # print "Adding constant for enum.  Constant name: $fName.\n" if ($localDebug);
                     last SWITCH;
                 };
             # To handle callbacks and their params and results, have to set up loop
-            ($field =~ s/^callback\s+//) &&
+            ($field =~ s/^callback\s+//o) &&
                 do {
-                    $field =~ s/^\s+|\s+$//g;
-                    $field =~ /(\w*)\s*(.*)/s;
+                    $field =~ s/^\s+|\s+$//go;
+                    $field =~ /(\w*)\s*(.*)/so;
                     my $cbName = $1;
                     my $cbDesc = $2;
                     my $callbackObj = HeaderDoc::MinorAPIElement->new();
@@ -173,15 +254,15 @@ sub processTypedefComment {
                         my $nextField = $fields[$fieldCounter];
                         print "In callback: next field is '$nextField'\n" if ($localDebug);
                         
-                        if ($nextField =~ s/^param\s+//) {
-                            $nextField =~ s/^\s+|\s+$//g;
-                            $nextField =~ /(\w*)\s*(.*)/s;
+                        if ($nextField =~ s/^param\s+//o) {
+                            $nextField =~ s/^\s+|\s+$//go;
+                            $nextField =~ /(\w*)\s*(.*)/so;
                             my $paramName = $1;
                             my $paramDesc = $2;
                             $callbackObj->addToUserDictArray({"$paramName" => "$paramDesc"});
                         } elsif ($nextField eq "result") {
-                            $nextField =~ s/^\s+|\s+$//g;
-                            $nextField =~ /(\w*)\s*(.*)/s;
+                            $nextField =~ s/^\s+|\s+$//go;
+                            $nextField =~ /(\w*)\s*(.*)/so;
                             my $resultName = $1;
                             my $resultDesc = $2;
                             $callbackObj->addToUserDictArray({"$resultName" => "$resultDesc"});
@@ -197,11 +278,11 @@ sub processTypedefComment {
             # param and result have to come last, since they should be handled differently, if part of a callback
             # which is inside a struct (as above).  Otherwise, these cases below handle the simple typedef'd callback 
             # (i.e., a typedef'd function pointer without an enclosing struct.
-            ($field =~ s/^param\s+//) && 
+            ($field =~ s/^param\s+//o) && 
                 do {
                     $self->isFunctionPointer(1);
-                    $field =~ s/^\s+|\s+$//g;
-                    $field =~ /(\w*)\s*(.*)/s;
+                    $field =~ s/^\s+|\s+$//go;
+                    $field =~ /(\w*)\s*(.*)/so;
                     my $fName = $1;
                     my $fDesc = $2;
                     my $fObj = HeaderDoc::MinorAPIElement->new();
@@ -213,14 +294,17 @@ sub processTypedefComment {
                     print "Adding param for function-pointer typedef.  Param name: $fName.\n" if ($localDebug);
                     last SWITCH;
                 };
-            ($field =~ s/^result\s+//) && 
+            ($field =~ s/^result\s+//o || s/^return\s+//o) && 
                 do {
                     $self->isFunctionPointer(1);
                     $self->result($field);
                     last SWITCH;
                 };
-	    my $filename = $HeaderDoc::headerObject->name();
-            print "$filename:0:Unknown field: $field\n";
+	    # my $filename = $HeaderDoc::headerObject->name();
+	    my $filename = $self->filename();
+	    my $linenum = $self->linenum();
+            # print "$filename:$linenum:Unknown field in Typedef comment: $field\n";
+	    if (length($field)) { warn "$filename:$linenum:Unknown field (\@$field) in typedef comment (".$self->name().")\n"; }
         }
         $fieldCounter++;
     }
@@ -231,278 +315,20 @@ sub setTypedefDeclaration {
     my $dec = shift;
     my $decType;
     my $localDebug = 0;
-    
-    print "============================================================================\n" if ($localDebug);
-    print "Raw declaration is: $dec\n" if ($localDebug);
-    
-    # if ($dec =~/{/ || $dec =~/enum/ || $dec =~/struct/) { # typedef'd struct of anything
-    if ($dec =~/\)\s*\(/ || $dec =~/\)\(/) { # typedef'd function pointer, in the form type (*name)(args)
-        $decType = "funcPtr";
-	my $test = $dec;
-	$test =~s/^\s*typedef\s*(.*)\s*\(.*\)\s*\(.*\)\s*;\s*$/$1/s;
-	if ($test eq $dec) { $decType = "struct"; }
-	else {
-	    print "test is $test, dec is $dec\n" if ($localDebug);
-	    my $count = 0;
-	    while ($test =~ /\{/g) { $count++; };
-	    print "count is $count\n" if ($localDebug);
-	    while ($test =~ /\}/g) { $count--; };
-	    print "count is $count\n" if ($localDebug);
-	    if ($count != 0) {$decType = "struct"; };
-	}
-    } else {          # simple function pointer
-        $decType = "struct";
+    my $filename = $self->filename();
+    my $linenum = $self->linenum();
+
+    if ($self->isFunctionPointer() && $dec =~ /typedef(\s+\w+)*\s+\{/o) {
+	# Somebody put in an @param instead of an @field
+	$self->isFunctionPointer(0);
+	warn("$filename:$linenum:Typedef markup invalid.  Non-callback typedefs\n");
+	warn("should use  \@field, not \@param.\n");
     }
-    
-    if ($decType eq "struct") {
-        print "processing struct-like typedef\n" if ($localDebug); 
-	    $dec =~ s/\t/  /g;
-	    if (length ($dec)) {$dec = "<pre>\n$dec</pre>\n";};
-	} elsif ($decType eq "funcPtr") {
-        print "processing funcPtr-like typedef\n" if ($localDebug); 
-		if ($dec =~ /^EXTERN_API_C/) {
-	        $dec =~ s/^EXTERN_API_C\(\s*(\w+)\s*\)(.*)/$1 $2/;
-	    }
 
-	    $dec =~ s/</&lt;/g;
-	    $dec =~ s/>/&gt;/g;
-	    my $preOpeningParen = $dec;
-	    $preOpeningParen =~ s/^\s+(.*)/$1/; # remove leading whitespace
-	    # $preOpeningParen =~ s/(\w[^(]+)\(([^)]+)\)\s*;/$1/;
-	    $preOpeningParen =~ s/(.*)\(.*;/$1/s;
+    $self->declaration($dec);
 
-	    my $withinParens = $dec;
-	    $withinParens =~ s/.*\(.*\)\s*\((.*)\).*;/$1/s;
-
-	    my @preParenParts = split ('(\(.*\)\s\()(.*)\);', $preOpeningParen);
-
-
-	    # my @preParenParts = split ('\s+', $preOpeningParen);
-	    # &printArray(@preParenParts);
-	    my $funcName = pop @preParenParts;
-
-	    # my $return = join (' ', @preParenParts);
-	    my $return = $funcName;
-	    $return =~ s/(.*)\(.*/$1/;
-	    $return =~ s/^\s*//;
-	    $return =~ s/\s*$//;
-	    $funcName =~ s/.*\((.*)\)/$1/;
-	    $funcName =~ s/^\s*//;
-	    $funcName =~ s/\s*$//;
-
-	    my $remainder = $withinParens;
-
-	    my @parensElements = split(/,/, $remainder);
-	    
-	    # eliminate this, unless we want to format args and their types separately
-# 	    my @paramNames;
-# 	    foreach my $element (@parensElements) {
-# 	        my @paramElements = split(/\s+/, $element);
-# 	        my $paramName = $paramElements[$#paramElements];
-# 	        if ($paramName ne "void") { # some programmers write myFunc(void)
-# 	            push(@paramNames, $paramName);
-# 	        }
-# 	    }
-	    my $longstring = "";
-            foreach my $element (@parensElements) {
-		$element =~s/\n/ /g;
-		$element =~s/^\s*//smg;
-		$element =~s/\s*$//smg;
-		if ($longstring eq "") {
-		    $longstring = "\n&nbsp;&nbsp;&nbsp;&nbsp;$element";
-		} else {
-		    $longstring = "$longstring,<BR>\n&nbsp;&nbsp;&nbsp;&nbsp;$element";
-		}
-            }
-	    # $dec = "<tt>$return <b>$funcName</b> ($remainder);</tt><br>\n";
-	    if ($remainder =~/^\s*$/ || $remainder =~/^\s*void\s*$/) {
-		if ($self->outputformat() eq "html") {
-	            $dec = "<tt>$return (<b>$funcName</b>) (void);</tt><br>\n";
-		} elsif ($self->outputformat() eq "hdxml") {
-	            $dec = "$return (<funcname>$funcName</funcname>) (void);\n";
-		} else {
-		    print "UNKNOWN OUTPUT FORMAT!\n";
-	            $dec = "$return (<funcname>$funcName</funcname>) (void);\n";
-		}
-	    } else {
-		if ($self->outputformat() eq "html") {
-	            $dec = "<tt>$return (<b>$funcName</b>) (<BR>$longstring<BR>);</tt><br>\n";
-		} elsif ($self->outputformat() eq "hdxml") {
-	            $dec = "$return (<funcname>$funcName</funcname>) (<argstring>$longstring</argstring>);\n";
-		} else {
-		    print "UNKNOWN OUTPUT FORMAT!\n";
-	            $dec = "$return (<funcname>$funcName</funcname>) (<argstring>$longstring</argstring>);\n";
-		}
-	    }
-	}
-    print "Typedef: returning declaration:\n\t|$dec|\n" if ($localDebug);
-    print "============================================================================\n" if ($localDebug);
     $self->declarationInHTML($dec);
     return $dec;
-}
-
-sub documentationBlock {
-    my $self = shift;
-    my $name = $self->name();
-    my $abstract = $self->abstract();
-    my $availability = $self->availability();
-    my $updated = $self->updated();
-    my $desc = $self->discussion();
-    my $result = $self->result();
-    my $declaration = $self->declarationInHTML();
-    my @fields = $self->fields();
-    my $fieldHeading;
-    my $contentString;
-    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
-    
-    SWITCH: {
-        if ($self->isFunctionPointer()) {$fieldHeading = "Parameter Descriptions"; last SWITCH; }
-        if ($self->isEnumList()) {$fieldHeading = "Constants"; last SWITCH; }
-        $fieldHeading = "Field Descriptions";
-    }
-
-    $contentString .= "<hr>";
-    my $uid = "//$apiUIDPrefix/c/tdef/$name";
-    HeaderDoc::APIOwner->register_uid($uid);
-    $contentString .= "<a name=\"$uid\"></a>\n"; # apple_ref marker
-    $contentString .= "<table border=\"0\"  cellpadding=\"2\" cellspacing=\"2\" width=\"300\">";
-    $contentString .= "<tr>";
-    $contentString .= "<td valign=\"top\" height=\"12\" colspan=\"5\">";
-    $contentString .= "<h2><a name=\"$name\">$name</a></h2>\n";
-    $contentString .= "</td>";
-    $contentString .= "</tr></table>";
-    $contentString .= "<hr>";
-    if (length($abstract)) {
-        # $contentString .= "<b>Abstract:</b> $abstract<br>\n";
-        $contentString .= "$abstract\n";
-    }
-    if (length($availability)) {
-        $contentString .= "<b>Availability:</b> $availability<br>\n";
-    }
-    if (length($updated)) {
-        $contentString .= "<b>Updated:</b> $updated<br>\n";
-    }
-    $contentString .= "<blockquote>$declaration</blockquote>\n";
-
-    if (length($desc)) {$contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Discussion</font></h5><p>$desc</p>\n"; }
-
-    my $arrayLength = @fields;
-    if ($arrayLength > 0) {
-        $contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">$fieldHeading</font></h5>\n";
-        $contentString .= "<blockquote>\n";
-        # $contentString .= "<table border=\"1\"  width=\"90%\">\n";
-        # $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
-	$contentString .= "<dl>";
-        
-        foreach my $element (@fields) {
-            my $fName = $element->name();
-            my $fDesc = $element->discussion();
-            my $fType = $element->type();
-            
-            if (($fType eq 'field') || ($fType eq 'constant') || ($fType eq 'funcPtr')){
-                # $contentString .= "<tr><td><tt>$fName</tt></td><td>$fDesc</td></tr>\n";
-                $contentString .= "<dt><tt>$fName</tt></dt><dd>$fDesc</dd>\n";
-            } elsif ($fType eq 'callback') {
-                my @userDictArray = $element->userDictArray(); # contains elements that are hashes of param name to param doc
-                my $paramString;
-                foreach my $hashRef (@userDictArray) {
-                    while (my ($param, $disc) = each %{$hashRef}) {
-                        $paramString .= "<dt><b><tt>$param</tt></b></dt>\n<dd>$disc</dd>\n";
-                    }
-                    if (length($paramString)) {$paramString = "<dl>\n".$paramString."\n</dl>\n";};
-                }
-                # $contentString .= "<tr><td><tt>$fName</tt></td><td>$fDesc<br>$paramString</td></tr>\n";
-                $contentString .= "<dt><tt>$fName</tt></dt><dd>$fDesc<br>$paramString</dd>\n";
-            } else {
-		my $filename = $HeaderDoc::headerObject->name();
-                print "$filename:0:warning: Typedef field with name $fName has unknown type: $fType\n";
-            }
-        }
-        
-        # $contentString .= "</table>\n</blockquote>\n";
-        $contentString .= "</dl>\n</blockquote>\n";
-    }
-    if (length($result)) {
-        $contentString .= "<dl><dt><i>function result</i></dt><dd>$result</dd></dl>\n";
-    }
-    # if (length($desc)) {$contentString .= "<p>$desc</p>\n"; }
-    # $contentString .= "<hr>\n";
-    return $contentString;
-}
-
-sub XMLdocumentationBlock {
-    my $self = shift;
-    my $name = $self->name();
-    my $abstract = $self->abstract();
-    my $availability = $self->availability();
-    my $updated = $self->updated();
-    my $desc = $self->discussion();
-    my $result = $self->result();
-    my $declaration = $self->declarationInHTML();
-    my @fields = $self->fields();
-    my $fieldHeading;
-    my $contentString;
-    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
-    
-    SWITCH: {
-        if ($self->isFunctionPointer()) {$fieldHeading = "Parameter Descriptions"; last SWITCH; }
-        if ($self->isEnumList()) {$fieldHeading = "Constants"; last SWITCH; }
-        $fieldHeading = "Field Descriptions";
-    }
-
-    my $type = "simple";
-    if ($self->isFunctionPointer()) {
-	$type = "funcPtr";
-    }
-    my $uid = "//$apiUIDPrefix/c/tdef/$name";
-    HeaderDoc::APIOwner->register_uid($uid);
-    $contentString .= "<typedef id=\"$uid\" type=\"$type\">\n"; # apple_ref marker
-    $contentString .= "<name>$name</name>\n";
-    if (length($abstract)) {
-        $contentString .= "<abstract>$abstract</abstract>\n";
-    }
-    if (length($availability)) {
-        $contentString .= "<availability>$availability</availability>\n";
-    }
-    if (length($updated)) {
-        $contentString .= "<updated>$updated</updated>\n";
-    }
-    $contentString .= "<declaration>$declaration</declaration>\n";
-    $contentString .= "<description>$desc</description>\n";
-    my $arrayLength = @fields;
-    if ($arrayLength > 0) {
-        $contentString .= "<fieldlist>\n";
-        
-        foreach my $element (@fields) {
-            my $fName = $element->name();
-            my $fDesc = $element->discussion();
-            my $fType = $element->type();
-            
-            if (($fType eq 'field') || ($fType eq 'constant') || ($fType eq 'funcPtr')){
-                $contentString .= "<field type=\"$fType\"><name>$fName</name><description>$fDesc</description></field>\n";
-            } elsif ($fType eq 'callback') {
-                my @userDictArray = $element->userDictArray(); # contains elements that are hashes of param name to param doc
-                my $paramString;
-                foreach my $hashRef (@userDictArray) {
-                    while (my ($param, $disc) = each %{$hashRef}) {
-                        $paramString .= "<ref><parameter>$param</parameter><discussion>$disc</discussion></ref>\n";
-                    }
-                    if (length($paramString)) {$paramString = "<dl>\n".$paramString."\n<dl>\n";};
-                }
-                $contentString .= "<field type=\"$fType\"><name>$fName</name><description>$fDesc</description><reflist>$paramString</reflist></field>\n";
-            } else {
-		my $filename = $HeaderDoc::headerObject->name();
-                print "$filename:0:warning: Typedef field with name $fName has unknown type: $fType\n";
-            }
-        }
-        
-        $contentString .= "</fieldlist>\n";
-    }
-    if (length($result)) {
-        $contentString .= "<result>$result</result>\n";
-    }
-    $contentString .= "</typedef>\n";
-    return $contentString;
 }
 
 
@@ -518,9 +344,11 @@ sub printObject {
     }
 
     my $fieldArrayRef = $self->{FIELDS};
-    my $arrayLength = @{$fieldArrayRef};
-    if ($arrayLength > 0) {
-        &printArray(@{$fieldArrayRef});
+    if ($fieldArrayRef) {
+        my $arrayLength = @{$fieldArrayRef};
+        if ($arrayLength > 0) {
+            &printArray(@{$fieldArrayRef});
+        }
     }
     print "is function pointer: $self->{ISFUNCPTR}\n";
     print "is enum list: $self->{ISENUMLIST}\n";

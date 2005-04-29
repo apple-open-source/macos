@@ -1,5 +1,3 @@
-/*	$NetBSD: hexdump.c,v 1.7 1997/10/19 02:34:06 lukem Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,27 +31,25 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)hexdump.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: hexdump.c,v 1.7 1997/10/19 02:34:06 lukem Exp $");
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/hexdump/hexdump.c,v 1.7 2002/09/04 23:29:01 dwmalone Exp $");
 
 #include <sys/types.h>
-
-#include <errno.h>
+#include <locale.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
 #include "hexdump.h"
 
 FS *fshead;				/* head of format strings */
@@ -61,17 +57,15 @@ int blocksize;				/* data block size */
 int exitval;				/* final exit value */
 int length = -1;			/* max bytes to read */
 
-int	main __P((int, char **));
-
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	FS *tfs;
 	char *p;
 
-	if (!(p = strrchr(argv[0], 'o')) || strcmp(p, "od"))
+	(void)setlocale(LC_ALL, "");
+
+	if (!(p = rindex(argv[0], 'o')) || strcmp(p, "od"))
 		newsyntax(argc, &argv);
 	else
 		oldsyntax(argc, &argv);

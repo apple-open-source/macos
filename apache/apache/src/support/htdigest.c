@@ -103,7 +103,7 @@ static void add_password(char *user, char *realm, FILE *f)
     char *pw;
     AP_MD5_CTX context;
     unsigned char digest[16];
-    char string[MAX_STRING_LEN];
+    char *string = NULL;
     char pwin[MAX_STRING_LEN];
     char pwv[MAX_STRING_LEN];
     unsigned int i;
@@ -124,11 +124,14 @@ static void add_password(char *user, char *realm, FILE *f)
     fprintf(f, "%s:%s:", user, realm);
 
     /* Do MD5 stuff */
-    sprintf(string, "%s:%s:%s", user, realm, pw);
+    asprintf(&string, "%s:%s:%s", user, realm, pw);
 
     ap_MD5Init(&context);
     ap_MD5Update(&context, (unsigned char *) string, strlen(string));
     ap_MD5Final(digest, &context);
+    if(string) {
+	    free(string);
+    }
 
     for (i = 0; i < 16; i++)
 	fprintf(f, "%02x", digest[i]);

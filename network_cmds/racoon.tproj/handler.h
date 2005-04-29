@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __HANDLER_H__
+#define __HANDLER_H__
+
 /* Phase 1 handler */
 /*
  * main mode:
@@ -433,3 +436,6 @@ extern int check_recvdpkt __P((struct sockaddr *,
 extern int add_recvdpkt __P((struct sockaddr *, struct sockaddr *,
 	vchar_t *, vchar_t *));
 extern void init_recvdpkt __P((void));
+
+#endif /* __HANDLER_H__ */
+

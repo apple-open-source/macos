@@ -84,6 +84,7 @@ DESCRIPTION
 .#define bfd_mach_mcf5206e 10
 .#define bfd_mach_mcf5307  11
 .#define bfd_mach_mcf5407  12
+.#define bfd_mach_mcf528x  13
 .  bfd_arch_vax,       {* DEC Vax *}
 .  bfd_arch_i960,      {* Intel 960 *}
 .    {* The order of the following is important.
@@ -138,6 +139,7 @@ DESCRIPTION
 .#define bfd_mach_mips5400		5400
 .#define bfd_mach_mips5500		5500
 .#define bfd_mach_mips6000		6000
+.#define bfd_mach_mips7000		7000
 .#define bfd_mach_mips8000		8000
 .#define bfd_mach_mips10000		10000
 .#define bfd_mach_mips12000		12000
@@ -147,6 +149,7 @@ DESCRIPTION
 .#define bfd_mach_mipsisa32             32
 .#define bfd_mach_mipsisa32r2           33
 .#define bfd_mach_mipsisa64             64
+.#define bfd_mach_mipsisa64r2           65
 .  bfd_arch_i386,      {* Intel 386 *}
 .#define bfd_mach_i386_i386 1
 .#define bfd_mach_i386_i8086 2
@@ -163,10 +166,14 @@ DESCRIPTION
 .  bfd_arch_m88k,      {* Motorola 88xxx *}
 .  bfd_arch_m98k,      {* Motorola 98xxx *}
 .  bfd_arch_pyramid,   {* Pyramid Technology *}
-.  bfd_arch_h8300,     {* Hitachi H8/300 *}
-.#define bfd_mach_h8300   1
-.#define bfd_mach_h8300h  2
-.#define bfd_mach_h8300s  3
+.  bfd_arch_h8300,     {* Renesas H8/300 (formerly Hitachi H8/300) *}
+.#define bfd_mach_h8300    1
+.#define bfd_mach_h8300h   2
+.#define bfd_mach_h8300s   3
+.#define bfd_mach_h8300hn  4
+.#define bfd_mach_h8300sn  5
+.#define bfd_mach_h8300sx  6
+.#define bfd_mach_h8300sxn 7
 .  bfd_arch_pdp11,     {* DEC PDP-11 *}
 .  bfd_arch_powerpc,   {* PowerPC *}
 .#define bfd_mach_ppc		32
@@ -195,6 +202,10 @@ DESCRIPTION
 .#define bfd_mach_rs6k_rsc	6003
 .#define bfd_mach_rs6k_rs2	6002
 .  bfd_arch_hppa,      {* HP PA RISC *}
+.#define bfd_mach_hppa10	10
+.#define bfd_mach_hppa11	11
+.#define bfd_mach_hppa20	20
+.#define bfd_mach_hppa20w	25
 .  bfd_arch_d10v,      {* Mitsubishi D10V *}
 .#define bfd_mach_d10v		1
 .#define bfd_mach_d10v_ts2	2
@@ -209,8 +220,8 @@ DESCRIPTION
 .  bfd_arch_z8k,       {* Zilog Z8000 *}
 .#define bfd_mach_z8001		1
 .#define bfd_mach_z8002		2
-.  bfd_arch_h8500,     {* Hitachi H8/500 *}
-.  bfd_arch_sh,        {* Hitachi SH *}
+.  bfd_arch_h8500,     {* Renesas H8/500 (formerly Hitachi H8/500) *}
+.  bfd_arch_sh,        {* Renesas / SuperH SH (formerly Hitachi SH) *}
 .#define bfd_mach_sh            1
 .#define bfd_mach_sh2        0x20
 .#define bfd_mach_sh_dsp     0x2d
@@ -219,12 +230,17 @@ DESCRIPTION
 .#define bfd_mach_sh3_dsp    0x3d
 .#define bfd_mach_sh3e       0x3e
 .#define bfd_mach_sh4        0x40
+.#define bfd_mach_sh4_nofpu  0x41
+.#define bfd_mach_sh4a       0x4a
+.#define bfd_mach_sh4a_nofpu 0x4b
+.#define bfd_mach_sh4al_dsp  0x4d
 .#define bfd_mach_sh5        0x50
 .  bfd_arch_alpha,     {* Dec Alpha *}
 .#define bfd_mach_alpha_ev4  0x10
 .#define bfd_mach_alpha_ev5  0x20
 .#define bfd_mach_alpha_ev6  0x30
 .  bfd_arch_arm,       {* Advanced Risc Machines ARM.  *}
+.#define bfd_mach_arm_unknown	0
 .#define bfd_mach_arm_2		1
 .#define bfd_mach_arm_2a	2
 .#define bfd_mach_arm_3		3
@@ -235,29 +251,34 @@ DESCRIPTION
 .#define bfd_mach_arm_5T	8
 .#define bfd_mach_arm_5TE	9
 .#define bfd_mach_arm_XScale	10
+.#define bfd_mach_arm_ep9312	11
+.#define bfd_mach_arm_iWMMXt	12
 .  bfd_arch_ns32k,     {* National Semiconductors ns32000 *}
 .  bfd_arch_w65,       {* WDC 65816 *}
 .  bfd_arch_tic30,     {* Texas Instruments TMS320C30 *}
 .  bfd_arch_tic4x,     {* Texas Instruments TMS320C3X/4X *}
-.#define bfd_mach_c3x           30
-.#define bfd_mach_c4x           40
+.#define bfd_mach_tic3x         30
+.#define bfd_mach_tic4x         40
 .  bfd_arch_tic54x,    {* Texas Instruments TMS320C54X *}
 .  bfd_arch_tic80,     {* TI TMS320c80 (MVP) *}
 .  bfd_arch_v850,      {* NEC V850 *}
 .#define bfd_mach_v850          1
 .#define bfd_mach_v850e 	'E'
+.#define bfd_mach_v850e1	'1'
 .  bfd_arch_arc,       {* ARC Cores *}
 .#define bfd_mach_arc_5         5
 .#define bfd_mach_arc_6         6
 .#define bfd_mach_arc_7         7
 .#define bfd_mach_arc_8         8
-.  bfd_arch_m32r,      {* Mitsubishi M32R/D *}
+.  bfd_arch_m32r,      {* Renesas M32R (formerly Mitsubishi M32R/D) *}
 .#define bfd_mach_m32r		1 {* For backwards compatibility.  *}
 .#define bfd_mach_m32rx		'x'
+.#define bfd_mach_m32r2		'2'
 .  bfd_arch_mn10200,   {* Matsushita MN10200 *}
 .  bfd_arch_mn10300,   {* Matsushita MN10300 *}
 .#define bfd_mach_mn10300		300
 .#define bfd_mach_am33		330
+.#define bfd_mach_am33_2	332
 .  bfd_arch_fr30,
 .#define bfd_mach_fr30		0x46523330
 .  bfd_arch_frv,
@@ -265,8 +286,10 @@ DESCRIPTION
 .#define bfd_mach_frvsimple	2
 .#define bfd_mach_fr300		300
 .#define bfd_mach_fr400		400
+.#define bfd_mach_fr450		450
 .#define bfd_mach_frvtomcat	499	{* fr500 prototype *}
 .#define bfd_mach_fr500		500
+.#define bfd_mach_fr550		550
 .  bfd_arch_mcore,
 .  bfd_arch_ia64,      {* HP/Intel ia64 *}
 .#define bfd_mach_ia64_elf64	64
@@ -293,19 +316,22 @@ DESCRIPTION
 .  bfd_arch_xstormy16,
 .#define bfd_mach_xstormy16	1
 .  bfd_arch_msp430,    {* Texas Instruments MSP430 architecture.  *}
-.#define bfd_mach_msp110         110
 .#define bfd_mach_msp11          11
+.#define bfd_mach_msp110         110
 .#define bfd_mach_msp12          12
 .#define bfd_mach_msp13          13
 .#define bfd_mach_msp14          14
-.#define bfd_mach_msp41          41
+.#define bfd_mach_msp15          15
+.#define bfd_mach_msp16          16  
 .#define bfd_mach_msp31          31
 .#define bfd_mach_msp32          32
 .#define bfd_mach_msp33          33
+.#define bfd_mach_msp41          41
+.#define bfd_mach_msp42          42
 .#define bfd_mach_msp43          43
 .#define bfd_mach_msp44          44
-.#define bfd_mach_msp15          15
-.#define bfd_mach_msp16          16  
+.  bfd_arch_xtensa,    {* Tensilica's Xtensa cores.  *}
+.#define bfd_mach_xtensa	1
 .  bfd_arch_last
 .  };
 */
@@ -334,10 +360,9 @@ DESCRIPTION
 .     all the entries for that arch can be accessed via <<next>>.  *}
 .  bfd_boolean the_default;
 .  const struct bfd_arch_info * (*compatible)
-.	PARAMS ((const struct bfd_arch_info *a,
-.	         const struct bfd_arch_info *b));
+.    (const struct bfd_arch_info *a, const struct bfd_arch_info *b);
 .
-.  bfd_boolean (*scan) PARAMS ((const struct bfd_arch_info *, const char *));
+.  bfd_boolean (*scan) (const struct bfd_arch_info *, const char *);
 .
 .  const struct bfd_arch_info *next;
 .}
@@ -397,6 +422,7 @@ extern const bfd_arch_info_type bfd_vax_arch;
 extern const bfd_arch_info_type bfd_we32k_arch;
 extern const bfd_arch_info_type bfd_w65_arch;
 extern const bfd_arch_info_type bfd_xstormy16_arch;
+extern const bfd_arch_info_type bfd_xtensa_arch;
 extern const bfd_arch_info_type bfd_z8k_arch;
 
 static const bfd_arch_info_type * const bfd_archures_list[] =
@@ -454,6 +480,7 @@ static const bfd_arch_info_type * const bfd_archures_list[] =
     &bfd_w65_arch,
     &bfd_we32k_arch,
     &bfd_xstormy16_arch,
+    &bfd_xtensa_arch,
     &bfd_z8k_arch,
 #endif
   0
@@ -464,7 +491,7 @@ FUNCTION
 	bfd_printable_name
 
 SYNOPSIS
-	const char *bfd_printable_name(bfd *abfd);
+	const char *bfd_printable_name (bfd *abfd);
 
 DESCRIPTION
 	Return a printable string representing the architecture and machine
@@ -473,8 +500,7 @@ DESCRIPTION
 */
 
 const char *
-bfd_printable_name (abfd)
-     bfd *abfd;
+bfd_printable_name (bfd *abfd)
 {
   return abfd->arch_info->printable_name;
 }
@@ -484,7 +510,7 @@ FUNCTION
 	bfd_scan_arch
 
 SYNOPSIS
-	const bfd_arch_info_type *bfd_scan_arch(const char *string);
+	const bfd_arch_info_type *bfd_scan_arch (const char *string);
 
 DESCRIPTION
 	Figure out if BFD supports any cpu which could be described with
@@ -493,8 +519,7 @@ DESCRIPTION
 */
 
 const bfd_arch_info_type *
-bfd_scan_arch (string)
-     const char *string;
+bfd_scan_arch (const char *string)
 {
   const bfd_arch_info_type * const *app, *ap;
 
@@ -516,7 +541,7 @@ FUNCTION
 	bfd_arch_list
 
 SYNOPSIS
-	const char **bfd_arch_list(void);
+	const char **bfd_arch_list (void);
 
 DESCRIPTION
 	Return a freshly malloced NULL-terminated vector of the names
@@ -524,7 +549,7 @@ DESCRIPTION
 */
 
 const char **
-bfd_arch_list ()
+bfd_arch_list (void)
 {
   int vec_length = 0;
   const char **name_ptr;
@@ -544,7 +569,7 @@ bfd_arch_list ()
     }
 
   amt = (vec_length + 1) * sizeof (char **);
-  name_list = (const char **) bfd_malloc (amt);
+  name_list = bfd_malloc (amt);
   if (name_list == NULL)
     return NULL;
 
@@ -569,10 +594,8 @@ FUNCTION
 	bfd_arch_get_compatible
 
 SYNOPSIS
-	const bfd_arch_info_type *bfd_arch_get_compatible(
-		const bfd *abfd,
-	        const bfd *bbfd,
-		bfd_boolean accept_unknowns);
+	const bfd_arch_info_type *bfd_arch_get_compatible
+	  (const bfd *abfd, const bfd *bbfd, bfd_boolean accept_unknowns);
 
 DESCRIPTION
 	Determine whether two BFDs' architectures and machine types
@@ -583,10 +606,9 @@ DESCRIPTION
 */
 
 const bfd_arch_info_type *
-bfd_arch_get_compatible (abfd, bbfd, accept_unknowns)
-     const bfd *abfd;
-     const bfd *bbfd;
-     bfd_boolean accept_unknowns;
+bfd_arch_get_compatible (const bfd *abfd,
+			 const bfd *bbfd,
+			 bfd_boolean accept_unknowns)
 {
   const bfd * ubfd = NULL;
 
@@ -635,16 +657,14 @@ FUNCTION
 	bfd_set_arch_info
 
 SYNOPSIS
-	void bfd_set_arch_info(bfd *abfd, const bfd_arch_info_type *arg);
+	void bfd_set_arch_info (bfd *abfd, const bfd_arch_info_type *arg);
 
 DESCRIPTION
 	Set the architecture info of @var{abfd} to @var{arg}.
 */
 
 void
-bfd_set_arch_info (abfd, arg)
-     bfd *abfd;
-     const bfd_arch_info_type *arg;
+bfd_set_arch_info (bfd *abfd, const bfd_arch_info_type *arg)
 {
   abfd->arch_info = arg;
 }
@@ -654,9 +674,8 @@ INTERNAL_FUNCTION
 	bfd_default_set_arch_mach
 
 SYNOPSIS
-	bfd_boolean bfd_default_set_arch_mach(bfd *abfd,
-		enum bfd_architecture arch,
-		unsigned long mach);
+	bfd_boolean bfd_default_set_arch_mach
+	  (bfd *abfd, enum bfd_architecture arch, unsigned long mach);
 
 DESCRIPTION
 	Set the architecture and machine type in BFD @var{abfd}
@@ -666,10 +685,9 @@ DESCRIPTION
 */
 
 bfd_boolean
-bfd_default_set_arch_mach (abfd, arch, mach)
-     bfd *abfd;
-     enum bfd_architecture arch;
-     unsigned long mach;
+bfd_default_set_arch_mach (bfd *abfd,
+			   enum bfd_architecture arch,
+			   unsigned long mach)
 {
   abfd->arch_info = bfd_lookup_arch (arch, mach);
   if (abfd->arch_info != NULL)
@@ -685,7 +703,7 @@ FUNCTION
 	bfd_get_arch
 
 SYNOPSIS
-	enum bfd_architecture bfd_get_arch(bfd *abfd);
+	enum bfd_architecture bfd_get_arch (bfd *abfd);
 
 DESCRIPTION
 	Return the enumerated type which describes the BFD @var{abfd}'s
@@ -693,8 +711,7 @@ DESCRIPTION
 */
 
 enum bfd_architecture
-bfd_get_arch (abfd)
-     bfd *abfd;
+bfd_get_arch (bfd *abfd)
 {
   return abfd->arch_info->arch;
 }
@@ -704,7 +721,7 @@ FUNCTION
 	bfd_get_mach
 
 SYNOPSIS
-	unsigned long bfd_get_mach(bfd *abfd);
+	unsigned long bfd_get_mach (bfd *abfd);
 
 DESCRIPTION
 	Return the long type which describes the BFD @var{abfd}'s
@@ -712,8 +729,7 @@ DESCRIPTION
 */
 
 unsigned long
-bfd_get_mach (abfd)
-     bfd *abfd;
+bfd_get_mach (bfd *abfd)
 {
   return abfd->arch_info->mach;
 }
@@ -723,7 +739,7 @@ FUNCTION
 	bfd_arch_bits_per_byte
 
 SYNOPSIS
-	unsigned int bfd_arch_bits_per_byte(bfd *abfd);
+	unsigned int bfd_arch_bits_per_byte (bfd *abfd);
 
 DESCRIPTION
 	Return the number of bits in one of the BFD @var{abfd}'s
@@ -731,8 +747,7 @@ DESCRIPTION
 */
 
 unsigned int
-bfd_arch_bits_per_byte (abfd)
-     bfd *abfd;
+bfd_arch_bits_per_byte (bfd *abfd)
 {
   return abfd->arch_info->bits_per_byte;
 }
@@ -742,7 +757,7 @@ FUNCTION
 	bfd_arch_bits_per_address
 
 SYNOPSIS
-	unsigned int bfd_arch_bits_per_address(bfd *abfd);
+	unsigned int bfd_arch_bits_per_address (bfd *abfd);
 
 DESCRIPTION
 	Return the number of bits in one of the BFD @var{abfd}'s
@@ -750,8 +765,7 @@ DESCRIPTION
 */
 
 unsigned int
-bfd_arch_bits_per_address (abfd)
-     bfd *abfd;
+bfd_arch_bits_per_address (bfd *abfd)
 {
   return abfd->arch_info->bits_per_address;
 }
@@ -762,17 +776,15 @@ INTERNAL_FUNCTION
 
 SYNOPSIS
 	const bfd_arch_info_type *bfd_default_compatible
-	(const bfd_arch_info_type *a,
-	const bfd_arch_info_type *b);
+	  (const bfd_arch_info_type *a, const bfd_arch_info_type *b);
 
 DESCRIPTION
 	The default function for testing for compatibility.
 */
 
 const bfd_arch_info_type *
-bfd_default_compatible (a, b)
-     const bfd_arch_info_type *a;
-     const bfd_arch_info_type *b;
+bfd_default_compatible (const bfd_arch_info_type *a,
+			const bfd_arch_info_type *b)
 {
   if (a->arch != b->arch)
     return NULL;
@@ -794,7 +806,8 @@ INTERNAL_FUNCTION
 	bfd_default_scan
 
 SYNOPSIS
-	bfd_boolean bfd_default_scan(const struct bfd_arch_info *info, const char *string);
+	bfd_boolean bfd_default_scan
+	  (const struct bfd_arch_info *info, const char *string);
 
 DESCRIPTION
 	The default function for working out whether this is an
@@ -802,9 +815,7 @@ DESCRIPTION
 */
 
 bfd_boolean
-bfd_default_scan (info, string)
-     const bfd_arch_info_type *info;
-     const char *string;
+bfd_default_scan (const bfd_arch_info_type *info, const char *string)
 {
   const char *ptr_src;
   const char *ptr_tst;
@@ -857,7 +868,7 @@ bfd_default_scan (info, string)
     }
 
   /* Given that PRINTABLE_NAME has the form: <arch> ":" <mach>; Do not
-     attempt to match just <mach>, it could be ambigious.  This test
+     attempt to match just <mach>, it could be ambiguous.  This test
      is left until later.  */
 
   /* NOTE: The below is retained for compatibility only.  Please do
@@ -956,6 +967,10 @@ bfd_default_scan (info, string)
       arch = bfd_arch_m68k;
       number = bfd_mach_mcf5407;
       break;
+    case 5282:
+      arch = bfd_arch_m68k;
+      number = bfd_mach_mcf528x;
+      break;
 
     case 32000:
       arch = bfd_arch_we32k;
@@ -1013,15 +1028,14 @@ FUNCTION
 	bfd_get_arch_info
 
 SYNOPSIS
-	const bfd_arch_info_type * bfd_get_arch_info(bfd *abfd);
+	const bfd_arch_info_type *bfd_get_arch_info (bfd *abfd);
 
 DESCRIPTION
 	Return the architecture info struct in @var{abfd}.
 */
 
 const bfd_arch_info_type *
-bfd_get_arch_info (abfd)
-     bfd *abfd;
+bfd_get_arch_info (bfd *abfd)
 {
   return abfd->arch_info;
 }
@@ -1032,21 +1046,17 @@ FUNCTION
 
 SYNOPSIS
 	const bfd_arch_info_type *bfd_lookup_arch
-		(enum bfd_architecture
-		arch,
-		unsigned long machine);
+	  (enum bfd_architecture arch, unsigned long machine);
 
 DESCRIPTION
-	Look for the architecure info structure which matches the
+	Look for the architecture info structure which matches the
 	arguments @var{arch} and @var{machine}. A machine of 0 matches the
 	machine/architecture structure which marks itself as the
 	default.
 */
 
 const bfd_arch_info_type *
-bfd_lookup_arch (arch, machine)
-     enum bfd_architecture arch;
-     unsigned long machine;
+bfd_lookup_arch (enum bfd_architecture arch, unsigned long machine)
 {
   const bfd_arch_info_type * const *app, *ap;
 
@@ -1070,7 +1080,7 @@ FUNCTION
 
 SYNOPSIS
 	const char *bfd_printable_arch_mach
-		(enum bfd_architecture arch, unsigned long machine);
+	  (enum bfd_architecture arch, unsigned long machine);
 
 DESCRIPTION
 	Return a printable string representing the architecture and
@@ -1080,9 +1090,7 @@ DESCRIPTION
 */
 
 const char *
-bfd_printable_arch_mach (arch, machine)
-     enum bfd_architecture arch;
-     unsigned long machine;
+bfd_printable_arch_mach (enum bfd_architecture arch, unsigned long machine)
 {
   const bfd_arch_info_type *ap = bfd_lookup_arch (arch, machine);
 
@@ -1096,7 +1104,7 @@ FUNCTION
 	bfd_octets_per_byte
 
 SYNOPSIS
-	unsigned int bfd_octets_per_byte(bfd *abfd);
+	unsigned int bfd_octets_per_byte (bfd *abfd);
 
 DESCRIPTION
 	Return the number of octets (8-bit quantities) per target byte
@@ -1105,8 +1113,7 @@ DESCRIPTION
 */
 
 unsigned int
-bfd_octets_per_byte (abfd)
-     bfd *abfd;
+bfd_octets_per_byte (bfd *abfd)
 {
   return bfd_arch_mach_octets_per_byte (bfd_get_arch (abfd),
 					bfd_get_mach (abfd));
@@ -1117,8 +1124,8 @@ FUNCTION
 	bfd_arch_mach_octets_per_byte
 
 SYNOPSIS
-	unsigned int bfd_arch_mach_octets_per_byte(enum bfd_architecture arch,
-                                                   unsigned long machine);
+	unsigned int bfd_arch_mach_octets_per_byte
+	  (enum bfd_architecture arch, unsigned long machine);
 
 DESCRIPTION
 	See bfd_octets_per_byte.
@@ -1128,9 +1135,8 @@ DESCRIPTION
 */
 
 unsigned int
-bfd_arch_mach_octets_per_byte (arch, mach)
-     enum bfd_architecture arch;
-     unsigned long mach;
+bfd_arch_mach_octets_per_byte (enum bfd_architecture arch,
+			       unsigned long mach)
 {
   const bfd_arch_info_type *ap = bfd_lookup_arch (arch, mach);
 

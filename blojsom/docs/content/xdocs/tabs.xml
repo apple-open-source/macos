@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tabs PUBLIC "-//APACHE//DTD Cocoon Documentation Tab V1.0//EN" "tab-cocoon-v10.dtd">
+
+<tabs software="blojsom"
+  title="blojsom"
+  copyright="@year@ David A. Czarnecki"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+
+  <!-- The rules are:
+    @dir will always have '/@indexfile' added.
+    @indexfile gets appended to @dir if the tab is selected. Defaults to 'index.html'
+    @href is not modified unless it is root-relative and obviously specifies a
+    directory (ends in '/'), in which case /index.html will be added
+  -->
+
+  <tab label="Home" dir="" indexfile="index.html"/>
+
+  <tab label="Web-based Administration" dir="administration/"/>
+  <tab label="Plugins" dir="plugins/"/>
+  <tab label="Contributed" dir="contributed/"/>
+  
+
+</tabs>

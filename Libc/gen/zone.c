@@ -63,18 +63,18 @@ void NXDestroyZone(malloc_zone_t *zone) {
 NXZone *NXZoneFromPtr(void *ptr) {
     NXZone	*zone = malloc_zone_from_ptr(ptr);
     if (!zone) {
-        fprintf(stderr, "*** malloc[%d]: NXZoneFromPtr() did not find any zone for %p; returning default\n", getpid(), ptr);
+        malloc_printf("*** NXZoneFromPtr() did not find any zone for %p; returning default\n", ptr);
         zone = NX_NOZONE;
     }
     return zone;
 }
 
 void NXAddRegion(void *start, size_t size, malloc_zone_t *zone) {
-    fprintf(stderr, "*** malloc[%d]: OBSOLETE: NXAddRegion()\n", getpid());
+    malloc_printf("*** OBSOLETE: NXAddRegion()\n");
 }
 
 void NXRemoveRegion(void *start) {
-    fprintf(stderr, "*** malloc[%d]: OBSOLETE: NXRemoveRegion()\n", getpid());
+    malloc_printf("*** OBSOLETE: NXRemoveRegion()\n");
 }
 
 void NXZonePtrInfo(void *ptr) {
@@ -95,13 +95,13 @@ void _NXMallocDumpZones(void) {
 void NXMergeZone(malloc_zone_t *z) {
     static char warned = 0;
     if (!warned) {
-        fprintf(stderr, "*** malloc[%d]: NXMergeZone() now obsolete, does nothing\n", getpid());
+        malloc_printf("*** NXMergeZone() now obsolete, does nothing\n");
         warned = 1;
     }
 }
 
 boolean_t NXProtectZone(malloc_zone_t *zone, int protection) {
-    fprintf(stderr, "*** malloc[%d]: NXProtectZone() is obsolete\n", getpid());
+    malloc_printf("*** NXProtectZone() is obsolete\n");
     return 0;
 }
 
@@ -109,13 +109,13 @@ malloc_zone_t *NXCreateChildZone(malloc_zone_t *parentzone, size_t startsize, si
     // We can not remove this one as it is still used by IndexingKit
     static char warned = 0;
     if (!warned) {
-        fprintf(stderr, "*** malloc[%d]: NXCreateChildZone() now obsolete, has been defined to create new zone\n", getpid());
+        malloc_printf("*** NXCreateChildZone() now obsolete, has been defined to create new zone\n");
         warned = 1;
     }
     return NXCreateZone(startsize, granularity, canfree);
 }
 
 void _NXMallocDumpFrees(void) {
-    fprintf(stderr, "*** malloc[%d]: OBSOLETE: _NXMallocDumpFrees()\n", getpid());
+    malloc_printf("*** OBSOLETE: _NXMallocDumpFrees()\n");
 }
 

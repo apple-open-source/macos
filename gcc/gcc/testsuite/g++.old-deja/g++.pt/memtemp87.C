@@ -1,10 +1,10 @@
-// Build don't link:
-// crash test - XFAIL *-*-*
+// { dg-do assemble { xfail *-*-* } }
 
 // by Paul Burchard <burchard@pobox.com>, Level Set Systems, Inc.
-// Copyright (C) 1999 Free Software Foundation
+// Copyright (C) 1999, 2002 Free Software Foundation
 
 class Q {
+public:
 	template<class>
 	class X {
 	};
@@ -12,5 +12,5 @@ class Q {
 template<template<class> class>
 class Y {
 };
-Q::template X<int> x; // ERROR - template syntax
+Q::template X<int> x; // { dg-error "" } template syntax
 

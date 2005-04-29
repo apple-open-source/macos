@@ -57,14 +57,14 @@ char *des_options()
 	{
 #ifdef DES_PTR
 	if (sizeof(DES_LONG) != sizeof(long))
-		return("des(ptr,int)");
+		return ("des(ptr,int)");
 	else
-		return("des(ptr,long)");
+		return ("des(ptr,long)");
 #else
 	if (sizeof(DES_LONG) != sizeof(long))
-		return("des(idx,int)");
+		return ("des(idx,int)");
 	else
-		return("des(idx,long)");
+		return ("des(idx,long)");
 #endif
 	}
 		

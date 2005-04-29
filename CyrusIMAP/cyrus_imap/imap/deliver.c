@@ -41,7 +41,7 @@
  *
  */
 
-/* $Id: deliver.c,v 1.174 2004/05/22 03:45:48 rjs3 Exp $ */
+/* $Id: deliver.c,v 1.5 2005/03/05 00:36:48 dasenbro Exp $ */
 
 #include <config.h>
 

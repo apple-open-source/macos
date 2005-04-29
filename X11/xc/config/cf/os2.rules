@@ -2,7 +2,7 @@ XCOMM $Xorg: os2.rules,v 1.3 2000/08/17 19:41:48 cpqbld Exp $
 
 
 
-XCOMM platform:  $XFree86: xc/config/cf/os2.rules,v 3.23 2002/05/31 16:31:19 dawes Exp $
+XCOMM platform:  $XFree86: xc/config/cf/os2.rules,v 3.24 2003/10/21 17:41:44 tsi Exp $
 
 .SUFFIXES: .Osuf .c .CCsuf
 
@@ -44,14 +44,14 @@ depend:: $(DEPEND)
 #ifdef UseInstalled
 #define DependDependency() /**/
 #else
-#define DependDependency() 						@@\
+#define DependDependency()						@@\
 DependDependencyStatement()						@@\
 									@@\
 NoCmpScript($(DEPEND))							@@\
 									@@\
 $(DEPEND):								@@\
 	@echo "checking $@ over in $(DEPENDSRC) first..."; \		@@\
-	cd $(DEPENDSRC) && $(MAKE); \					@@\
+	cd $(DEPENDSRC) && $(MAKE) makedependonly; \			@@\
 	echo "okay, continuing in $(CURRENT_DIR)"
 
 #endif /* UseInstalled */
@@ -90,7 +90,7 @@ depend::								@@\
 #ifdef UseInstalled
 #define RmanDependency() /**/
 #else
-#define RmanDependency() 						@@\
+#define RmanDependency()						@@\
 NoCmpScript(ProgramTargetName($(RMAN)))					@@\
 									@@\
 ProgramTargetName($(RMAN)):						@@\

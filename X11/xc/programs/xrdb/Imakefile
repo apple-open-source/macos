@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:56 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/xrdb/Imakefile,v 3.6 2002/11/14 21:01:21 tsi Exp $
+XCOMM $XFree86: xc/programs/xrdb/Imakefile,v 3.7 2003/05/27 17:58:26 tsi Exp $
 
 #ifdef PatheticCpp
         CPPDEFS = -DPATHETICCPP
@@ -13,7 +13,7 @@ XCOMM $XFree86: xc/programs/xrdb/Imakefile,v 3.6 2002/11/14 21:01:21 tsi Exp $
 #endif
 XCOMM Due to ill make parsing the cpp is passed directly in source file
         DEFINES = -DCPP="\"$(CPP)\"" $(CPPDEFS)
-        DEPLIBS = $(DEPXMUULIB) $(DEPXLIB)
-LOCAL_LIBRARIES = $(XMUULIB) $(XLIB)
+        DEPLIBS = $(DEPXMUULIB) $(DEPXONLYLIB)
+LOCAL_LIBRARIES = $(XMUULIB) $(XONLYLIB)
 
 SimpleProgramTarget(xrdb)

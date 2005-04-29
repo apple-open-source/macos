@@ -109,6 +109,9 @@ CXX_OBJS = $(CXX_AND_OBJCP_OBJS) cp/cp-parse.o cp/cp-lang.o cp/cp-idebug.o \
  stub-objc.o cp/cp-dmp-tree.o
 # APPLE LOCAL end Objective-C++
  
+# APPLE LOCAL jet
+CXX_AND_OBJCP_OBJS += cp/jet.o
+
 # Use loose warnings for this front end.
 cp-warn =
 
@@ -149,6 +152,8 @@ $(parsedir)/cp/cp-parse.y: $(srcdir)/cp/cp-parse.in
 	$(SHELL) $(srcdir)/move-if-change tmp-cp-parse.y $(parsedir)/cp/cp-parse.y
 
 gtype-cp.h gt-cp-call.h gt-cp-decl.h gt-cp-decl2.h : s-gtype; @true
+# APPLE LOCAL jet
+gt-cp-jet.h: s-gtype; @true
 # APPLE LOCAL Objective-C++
 gt-cp-cp-parse.h gt-cp-pt.h gt-cp-repo.h gt-cp-spew.h : s-gtype; @true
 gt-cp-tree.h gt-cp-mangle.h : s-gtype; @true
@@ -266,12 +271,13 @@ CXX_TREE_H = $(TREE_H) cp/cp-tree.h c-common.h cp/cp-tree.def c-common.def \
 	function.h varray.h $(SYSTEM_H) $(CONFIG_H) $(TARGET_H) $(GGC_H) \
 	$(srcdir)/../include/hashtab.h $(srcdir)/../include/splay-tree.h
 
-# APPLE LOCAL Objective-C++
+# APPLE LOCAL Objective-C++ and jet
 cp/spew.o: cp/spew.c $(CXX_TREE_H) $(parsedir)/cp/cp-parse.h flags.h cp/lex.h \
-  toplev.h gt-cp-spew.h
+  toplev.h cp/jet.h gt-cp-spew.h
+# APPLE LOCAL jet
 cp/lex.o: cp/lex.c $(CXX_TREE_H) $(parsedir)/cp/cp-parse.h flags.h cp/lex.h \
   c-pragma.h toplev.h output.h mbchar.h input.h diagnostic.h \
-  cp/operators.def $(TM_P_H)
+  cp/operators.def cp/jet.h $(TM_P_H)
 cp/cp-lang.o: cp/cp-lang.c $(CXX_TREE_H) toplev.h langhooks.h $(LANGHOOKS_DEF_H) \
   c-common.h
 cp/decl.o: cp/decl.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h stack.h \
@@ -334,6 +340,11 @@ cp/cp-parse.o: $(parsedir)/cp/cp-parse.c $(CXX_TREE_H) flags.h cp/lex.h except.h
   $(SYSTEM_H) toplev.h gt-cp-cp-parse.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(BIG_SWITCHFLAG) \
 	$(parsedir)/cp/cp-parse.c $(OUTPUT_OPTION)
+
+# APPLE LOCAL begin jet
+cp/jet.o: cp/jet.c $(CXX_TREE_H) $(TM_H) c-pragma.h cp/jet.h \
+	$(HASHTAB_H) gt-cp-jet.h
+# APPLE LOCAL end jet
 
 # APPLE LOCAL begin indexing
 cp/decl.o: genindex.h

@@ -25,5 +25,8 @@
  */
 #include "SYS.h"
 
-UNIX_SYSCALL(connect, 3)
+PSEUDO(connect$UNIX2003, connect, 3)
+	ret
+
+UNIX_SYSCALL_ERR(connect, 3, cerror_cvt)
 	ret

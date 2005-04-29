@@ -10,7 +10,5 @@ void foo (void) {}
 extern int foobar asm ("_baz");
 int foobar = 3;
 
-/* APPLE LOCAL BEGIN currently fails on darwin (Radar 3191432) mrs */
-/* { dg-final { scan-assembler-not "\\*_bar" { xfail *-*-darwin* } } } */
-/* { dg-final { scan-assembler-not "\\*_baz" { xfail *-*-darwin* } } } */
-/* APPLE LOCAL END currently fails on darwin (Radar 3191432) mrs */
+/* { dg-final { scan-assembler-not "\\*_bar" } } */
+/* { dg-final { scan-assembler-not "\\*_baz" } } */

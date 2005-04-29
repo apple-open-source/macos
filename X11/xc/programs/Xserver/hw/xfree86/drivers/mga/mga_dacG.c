@@ -2,7 +2,7 @@
  * MGA-1064, MGA-G100, MGA-G200, MGA-G400, MGA-G550 RAMDAC driver
  */
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_dacG.c,v 1.51 2002/09/16 18:05:55 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_dacG.c,v 1.55 2004/02/20 16:59:49 tsi Exp $ */
 
 /*
  * This is a first cut at a non-accelerated version to work with the
@@ -208,16 +208,13 @@ MGAGSetPCLK( ScrnInfoPtr pScrn, long f_out )
 	/* Pixel clock values */
 	int m, n, p, s;
 
-	/* The actual frequency output by the clock */
-	double f_pll;
-
 	if(MGAISGx50(pMga)) {
 	    pReg->Clock = f_out;
 	    return;
 	}
 
 	/* Do the calculations for m, n, p and s */
-	f_pll = MGAGCalcClock( pScrn, f_out, &m, &n, &p, &s );
+	(void) MGAGCalcClock( pScrn, f_out, &m, &n, &p, &s );
 
 	/* Values for the pixel clock PLL registers */
 	pReg->DacRegs[ MGA1064_PIX_PLLC_M ] = m & 0x1F;
@@ -247,7 +244,7 @@ MGAGInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	/* 0x48: */	   0,    0,    0,    0,    0,    0,    0,    0
 	};
 
-	int i, weight555 = FALSE;
+	int i;
 	int hd, hs, he, ht, vd, vs, ve, vt, wd;
 	int BppShift;
 	MGAPtr pMga;
@@ -411,7 +408,6 @@ MGAGInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 		pReg->DacRegs[ MGA1064_MUL_CTL ] = MGA1064_MUL_CTL_16bits;
 		if ( (pLayout->weight.red == 5) && (pLayout->weight.green == 5)
 					&& (pLayout->weight.blue == 5) ) {
-		    weight555 = TRUE;
 		    pReg->DacRegs[ MGA1064_MUL_CTL ] = MGA1064_MUL_CTL_15bits;
 		}
 		break;
@@ -479,7 +475,8 @@ MGAGInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	pReg->ExtVga[2]	= ((vt & 0xc00) >> 10) |
 				((vd & 0x400) >> 8) |
 				((vd & 0xc00) >> 7) |
-				((vs & 0xc00) >> 5);
+				((vs & 0xc00) >> 5) |
+				((vd & 0x400) >> 3); /* linecomp */
 	if (pLayout->bitsPerPixel == 24)
 		pReg->ExtVga[3]	= (((1 << BppShift) * 3) - 1) | 0x80;
 	else
@@ -498,17 +495,19 @@ MGAGInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 				((vd & 0x100) >> 7 ) |
 				((vs & 0x100) >> 6 ) |
 				((vd & 0x100) >> 5 ) |
-				0x10 |
+				((vd & 0x100) >> 4 ) | /* linecomp */
 				((vt & 0x200) >> 4 ) |
 				((vd & 0x200) >> 3 ) |
 				((vs & 0x200) >> 2 );
-	pVga->CRTC[9]	= ((vd & 0x200) >> 4) | 0x40; 
+	pVga->CRTC[9]	= ((vd & 0x200) >> 4) |
+			  ((vd & 0x200) >> 3); /* linecomp */
 	pVga->CRTC[16] = vs & 0xFF;
 	pVga->CRTC[17] = (ve & 0x0F) | 0x20;
 	pVga->CRTC[18] = vd & 0xFF;
 	pVga->CRTC[19] = wd & 0xFF;
 	pVga->CRTC[21] = vd & 0xFF;
 	pVga->CRTC[22] = (vt + 1) & 0xFF;
+	pVga->CRTC[24] = vd & 0xFF; /* linecomp */
 
 	MGA_NOT_HAL(pReg->DacRegs[MGA1064_CURSOR_BASE_ADR_LOW] = pMga->FbCursorOffset >> 10);
 	MGA_NOT_HAL(pReg->DacRegs[MGA1064_CURSOR_BASE_ADR_HI] = pMga->FbCursorOffset >> 18);
@@ -549,6 +548,14 @@ MGAGInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
             MGACRTC2GetPitch(pScrn, &ModeInfo); 
             MGACRTC2GetDisplayStart(pScrn, &ModeInfo,0,0,0);
         }
+
+#if X_BYTE_ORDER == X_BIG_ENDIAN
+	/* Disable byte-swapping for big-endian architectures - the XFree
+	   driver seems to like a little-endian framebuffer -ReneR */
+	/* pReg->Option |= 0x80000000; */
+	pReg->Option &= ~0x80000000;
+#endif
+
 	return(TRUE);
 }
 
@@ -671,6 +678,14 @@ MGAGRestore(ScrnInfoPtr pScrn, vgaRegPtr vgaReg, MGARegPtr mgaReg,
 	}
 
         if(!pMga->SecondCrtc) {
+           /* Do not set the memory config for primary cards as it
+              should be correct already. Only on little endian architectures
+              since we need to modify the byteswap bit. -ReneR */
+#if X_BYTE_ORDER == X_BIG_ENDIAN
+           optionMask = OPTION1_MASK;
+#else
+           optionMask = (pMga->Primary) ? OPTION1_MASK_PRIMARY : OPTION1_MASK;
+#endif
 
 MGA_NOT_HAL(
 	   /*
@@ -695,10 +710,6 @@ MGA_NOT_HAL(
 		 continue; 
 	      outMGAdac(i, mgaReg->DacRegs[i]);
 	   }
-	   
-	   /* Do not set the memory config for primary cards as it
-	      should be correct already */
-	   optionMask = (pMga->Primary) ? OPTION1_MASK_PRIMARY : OPTION1_MASK; 
 	   
 	   if (!MGAISGx50(pMga)) {
 	      /* restore pci_option register */
@@ -940,6 +951,7 @@ MGAGSetCursorPosition(ScrnInfoPtr pScrn, int x, int y)
     MGAPtr pMga = MGAPTR(pScrn);
     x += 64;
     y += 64;
+
 #ifdef USEMGAHAL
     MGA_HAL(
 	    x += pMga->HALGranularityOffX;
@@ -1034,7 +1046,8 @@ MGAG_ddc1Read(ScrnInfoPtr pScrn)
 static void
 MGAG_I2CGetBits(I2CBusPtr b, int *clock, int *data) 
 {
-  MGAPtr pMga = MGAPTR(xf86Screens[b->scrnIndex]);
+  ScrnInfoPtr pScrn = xf86Screens[b->scrnIndex];
+  MGAPtr pMga = MGAPTR(pScrn);
   unsigned char val;
   
    /* Get the result. */
@@ -1055,7 +1068,8 @@ MGAG_I2CGetBits(I2CBusPtr b, int *clock, int *data)
 static void
 MGAG_I2CPutBits(I2CBusPtr b, int clock, int data)
 {
-  MGAPtr pMga = MGAPTR(xf86Screens[b->scrnIndex]);
+  ScrnInfoPtr pScrn = xf86Screens[b->scrnIndex]; 
+  MGAPtr pMga = MGAPTR(pScrn);
   unsigned char drv, val;
 
   val = (clock ? DDC_SCL_MASK : 0) | (data ? DDC_SDA_MASK : 0);
@@ -1128,6 +1142,7 @@ MGAGRamdacInit(ScrnInfoPtr pScrn)
     				HARDWARE_CURSOR_TRUECOLOR_AT_8BPP;
 
     MGAdac->LoadPalette 	   = MGAGLoadPalette;
+    MGAdac->RestorePalette	   = MGAGRestorePalette;
 
     if ( pMga->Bios2.PinID && pMga->Bios2.PclkMax != 0xFF )
     {

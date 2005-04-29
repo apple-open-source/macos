@@ -124,7 +124,7 @@ krb5_get_init_creds_password(krb5_context context, krb5_creds *creds, krb5_princ
    ret = krb5_get_init_creds(context, creds, client, prompter, data,
 			     start_time, in_tkt_service, options,
 			     krb5_get_as_key_password, (void *) &pw0,
-			     use_master, &as_reply);
+			     &use_master, &as_reply);
 
    /* check for success */
 
@@ -146,10 +146,14 @@ krb5_get_init_creds_password(krb5_context context, krb5_creds *creds, krb5_princ
    if (!use_master) {
       use_master = 1;
 
+      if (as_reply) {
+	  krb5_free_kdc_rep( context, as_reply);
+	  as_reply = NULL;
+      }
       ret2 = krb5_get_init_creds(context, creds, client, prompter, data,
 				 start_time, in_tkt_service, options,
 				 krb5_get_as_key_password, (void *) &pw0,
-				 use_master, &as_reply);
+				 &use_master, &as_reply);
       
       if (ret2 == 0) {
 	 ret = 0;
@@ -195,7 +199,7 @@ krb5_get_init_creds_password(krb5_context context, krb5_creds *creds, krb5_princ
 				  prompter, data,
 				  start_time, "kadmin/changepw", &chpw_opts,
 				  krb5_get_as_key_password, (void *) &pw0,
-				  use_master, NULL)))
+				  &use_master, NULL)))
       goto cleanup;
 
    prompt[0].prompt = "Enter new password";
@@ -283,7 +287,7 @@ krb5_get_init_creds_password(krb5_context context, krb5_creds *creds, krb5_princ
    ret = krb5_get_init_creds(context, creds, client, prompter, data,
 			     start_time, in_tkt_service, options,
 			     krb5_get_as_key_password, (void *) &pw0,
-			     use_master, &as_reply);
+			     &use_master, &as_reply);
 
 cleanup:
    krb5int_set_prompt_types(context, 0);
@@ -372,9 +376,11 @@ cleanup:
 void krb5int_populate_gic_opt (
     krb5_context context, krb5_get_init_creds_opt *opt,
     krb5_flags options, krb5_address * const *addrs, krb5_enctype *ktypes,
-    krb5_preauthtype *pre_auth_types)
+    krb5_preauthtype *pre_auth_types, krb5_creds *creds)
 {
   int i;
+  krb5_int32 starttime;
+
     krb5_get_init_creds_opt_init(opt);
     if (addrs)
       krb5_get_init_creds_opt_set_address_list(opt, (krb5_address **) addrs);
@@ -394,8 +400,11 @@ void krb5int_populate_gic_opt (
     if (options&KDC_OPT_PROXIABLE)
 	krb5_get_init_creds_opt_set_proxiable(opt, 1);
     else krb5_get_init_creds_opt_set_proxiable(opt, 0);
-    
-
+    if (creds && creds->times.endtime) {
+        krb5_timeofday(context, &starttime);
+        if (creds->times.starttime) starttime = creds->times.starttime;
+        krb5_get_init_creds_opt_set_tkt_life(opt, creds->times.endtime - starttime);
+    }
 }
 
 /*
@@ -431,6 +440,7 @@ krb5_get_in_tkt_with_password(krb5_context context, krb5_flags options,
     krb5_get_init_creds_opt opt;
     char * server;
     krb5_principal server_princ, client_princ;
+    int use_master = 0;
 
     pw0array[0] = '\0';
     pw0.data = pw0array;
@@ -446,7 +456,7 @@ krb5_get_in_tkt_with_password(krb5_context context, krb5_flags options,
     }
     krb5int_populate_gic_opt(context, &opt,
 			     options, addrs, ktypes,
-			     pre_auth_types);
+			     pre_auth_types, creds);
     retval = krb5_unparse_name( context, creds->server, &server);
     if (retval)
       return (retval);
@@ -457,7 +467,7 @@ krb5_get_in_tkt_with_password(krb5_context context, krb5_flags options,
 					   krb5_prompter_posix,  NULL,
 					   0, server, &opt,
 				      krb5_get_as_key_password, &pw0,
-				      0, ret_as_reply);
+				      &use_master, ret_as_reply);
 	  krb5_free_unparsed_name( context, server);
 	if (retval) {
 	  return (retval);

@@ -64,7 +64,6 @@ typedef int32_t ufs_daddr_t;
 #include <sys/sysctl.h>
 #include <ufs/ufs/ufsmount.h>
 #include <ufs/ffs/fs.h>
-
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -75,6 +74,12 @@ typedef int32_t ufs_daddr_t;
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
+
+#ifdef __APPLE__
+#include "get_compat.h"
+#else
+#define COMPAT_MODE(func, mode) 1
+#endif
 
 #define UNITS_SI 1
 #define UNITS_2 2
@@ -147,12 +152,20 @@ main(int argc, char *argv[])
 	const char *fstype;
 	char *mntpath, *mntpt, **vfslist;
 	long mntsize;
-	int ch, i, rv, tflag = 0;
+	int ch, i, rv, tflag = 0, kludge_tflag = 0;
+	const char *options = "abgHhiklmnPt:T:";
+	if (COMPAT_MODE("bin/df", "unix2003")) {
+		/* Unix2003 requires -t be "include total capicity". which df
+		  already does, but it conflits with the old -t so we need to
+		  *not* expect a string after -t (we provide -T in both cases
+		  to cover the old use of -t) */
+		options = "abgHhiklmnPtT:";
+	}
 
 	fstype = "ufs";
 
 	vfslist = NULL;
-	while ((ch = getopt(argc, argv, "abgHhiklmnPt:")) != -1)
+	while ((ch = getopt(argc, argv, options)) != -1)
 		switch (ch) {
 		case 'a':
 			aflag = 1;
@@ -184,7 +197,7 @@ main(int argc, char *argv[])
 			break;
 		case 'l':
 			if (tflag)
-				errx(1, "-l and -t are mutually exclusive.");
+				errx(1, "-l and -T are mutually exclusive.");
 			if (vfslist != NULL)
 				break;
 			vfslist = makevfslist(makenetvfslist());
@@ -197,11 +210,17 @@ main(int argc, char *argv[])
 			nflag = 1;
 			break;
 		case 't':
+			/* Unix2003 uses -t for something we do by default */
+			if (COMPAT_MODE("bin/df", "unix2003")) {
+			    kludge_tflag = 1;
+			    break;
+			}
+		case 'T':
 			if (vfslist != NULL) {
 				if (tflag)
-					errx(1, "only one -t option may be specified");
+					errx(1, "only one -%c option may be specified", ch);
 				else
-					errx(1, "-l and -t are mutually exclusive.");
+					errx(1, "-l and -%c are mutually exclusive.", ch);
 			}
 			tflag++;
 			fstype = optarg;
@@ -213,6 +232,16 @@ main(int argc, char *argv[])
 		}
 	argc -= optind;
 	argv += optind;
+
+	/* If we are in unix2003 mode, have seen a -t but no -T and the first
+	  non switch arg isn't a file, let's pretend they used -T on it.
+	  This makes the Lexmark printer installer happy (PR-3918471) */
+	if (tflag == 0 && kludge_tflag && *argv && stat(*argv, &stbuf) < 0
+	  && errno == ENOENT) {
+	    tflag = 1;
+	    fstype = *argv++;
+	    vfslist = makevfslist(fstype);
+	}
 
 	mntsize = getmntinfo(&mntbuf, MNT_NOWAIT);
 	bzero(&maxwidths, sizeof(maxwidths));
@@ -239,7 +268,7 @@ main(int argc, char *argv[])
 				rv = 1;
 				continue;
 			}
-		} else if (S_ISCHR(stbuf.st_mode)) {
+		} else if (S_ISCHR(stbuf.st_mode) || S_ISBLK(stbuf.st_mode)) {
 			if ((mntpt = getmntpt(*argv)) == 0) {
 				mdev.fspec = *argv;
 				mntpath = strdup("/tmp/df.XXXXXX");
@@ -582,8 +611,9 @@ void
 usage(void)
 {
 
+	char *t_flag = COMPAT_MODE("bin/df", "unix2003") ? "[-t]" : "[-t type]";
 	(void)fprintf(stderr,
-	    "usage: df [-b | -H | -h | -k | -m | -P] [-ailn] [-t type] [file | filesystem ...]\n");
+	    "usage: df [-b | -H | -h | -k | -m | -P] [-ailn] [-T type] %s [file | filesystem ...]\n", t_flag);
 	exit(EX_USAGE);
 }
 
@@ -655,7 +685,7 @@ makenetvfslist(void)
 		*strptr = ',';
 		free(listptr[i]);
 	}
-	*(--strptr) = NULL;
+	*(--strptr) = '\0';
 
 	free(listptr);
 	return (str);

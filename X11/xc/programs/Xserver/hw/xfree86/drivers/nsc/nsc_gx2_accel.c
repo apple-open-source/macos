@@ -1,7 +1,7 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_gx2_accel.c,v 1.4 2003/02/21 16:51:09 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_gx2_accel.c,v 1.5 2003/11/03 05:11:20 tsi Exp $ */
 /*
  * $Workfile: nsc_gx2_accel.c $
- * $Revision: 1.1.1.1 $
+ * $Revision: 1.1.1.2 $
  * $Author: jharper $
  *
  * File Contents: This file is consists of main Xfree
@@ -168,7 +168,6 @@ static int Geodesrcx;
 static int Geodesrcy;
 static int Geodewidth;
 static int Geodeheight;
-static int Geodebpp;
 static int GeodeCounter;
 
 #if !defined(STB_X)
@@ -180,7 +179,9 @@ static unsigned int gu2_xshift = 1;
 static unsigned int gu2_yshift = 1;
 static unsigned int gu2_bpp = 1;
 static unsigned int SetCPUToScreen = 0;
+#if IMGWRITE_SUPPORT
 static unsigned int SetImageWriteRect = 0;
+#endif
 static unsigned int ImgBufOffset;
 
 #define GU2_WAIT_PENDING while(READ_GP32(MGP_BLT_STATUS) & MGP_BS_BLT_PENDING)
@@ -693,7 +694,6 @@ GX2SetupForImageWrite(ScrnInfoPtr pScreenInfo,
    /* SAVE TRANSPARENCY FLAG */
    GeodeTransparent = (transparency_color == -1) ? 0 : 1;
    GeodeTransColor = transparency_color;
-   Geodebpp = bpp;
 }
 
 void
@@ -704,7 +704,9 @@ GX2SubsequentImageWriteRect(ScrnInfoPtr pScreenInfo,
    Geodedsty = y;
    Geodewidth = w;
    Geodeheight = h;
+#if IMGWRITE_SUPPORT
    SetImageWriteRect = 1;
+#endif
 
 }
 
@@ -740,7 +742,6 @@ GX2SetupForScanlineImageWrite(ScrnInfoPtr pScreenInfo,
    /* SAVE TRANSPARENCY FLAG */
    GeodeTransparent = (transparency_color == -1) ? 0 : 1;
    GeodeTransColor = transparency_color;
-   Geodebpp = bpp;
 }
 
 /*----------------------------------------------------------------------------
@@ -1611,8 +1612,9 @@ OPTGX2SubsequentImageWriteRect(ScrnInfoPtr pScreenInfo,
    Geodedsty = y;
    Geodewidth = w;
    Geodeheight = h;
-
+#if IMGWRITE_SUPPORT
    SetImageWriteRect = 1;
+#endif
 }
 
 /*----------------------------------------------------------------------------
@@ -1638,7 +1640,6 @@ OPTGX2SetupForScanlineImageWrite(ScrnInfoPtr pScreenInfo,
 				 int rop, unsigned int planemask,
 				 int transparency_color, int bpp, int depth)
 {
-   Geodebpp = bpp;
    OPTGX2SetupForScreenToScreenCopy(pScreenInfo,
 				    0, 0, rop, planemask, transparency_color);
 }

@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xmag/xmag.c,v 1.11 2003/01/19 04:44:45 paulo Exp $ */
+/* $XFree86: xc/programs/xmag/xmag.c,v 1.14 2003/09/21 13:05:51 herrb Exp $ */
 
 
 #include <stdlib.h>		/* for exit() and abs() */
@@ -71,8 +71,6 @@ typedef struct {
   Widget    scaleShell, scaleInstance, pixShell, pixLabel, cmapWinList [2];
   } hlStruct, *hlPtr;
 
-static XtIntervalId hlId;
-
 
 
 /* global variables */
@@ -90,8 +88,6 @@ static unsigned int srcWidth, srcHeight;
 
 /* forward declarations */
 
-#if NeedFunctionPrototypes
-/* xmag.c */
 static int Error(Display *, XErrorEvent *);
 static void CloseAP(Widget, XEvent *, String *, Cardinal *);
 static void SetCmapPropsAP(Widget, XEvent *, String *, Cardinal *);
@@ -123,47 +119,6 @@ static void PopupNewScale(hlPtr);
 static void RedoOldScale(hlPtr);
 static void InitCursors(void);
 static void ParseSourceGeom(void);
-#else
-static void 
-  CloseAP(), 
-  SetCmapPropsAP(),
-  UnsetCmapPropsAP(),
-  NewAP(), 
-  ReplaceAP(),
-  PopupPixelAP(), 
-  UpdatePixelAP(), 
-  PopdownPixelAP(), 
-  SelectRegionAP(), 
-  CheckPoints(), 
-  HighlightTO(),
-  CloseCB(), 
-  ReplaceCB(),
-  NewCB(), 
-  SelectCB(),
-  SetupGC(), 
-  ResizeEH(), 
-  DragEH(), 
-  StartRootPtrGrab(), 
-  CreateRoot(), 
-  GetImageAndAttributes(),
-  PopupNewScale(), 
-  RedoOldScale(),
-  InitCursors(), 
-  ParseSourceGeom();
-
-static Window
-  FindWindow();
-
-static int
-  Error(),
-  Get_XColors();
-
-static Pixel
-  GetMaxIntensity(),
-  GetMinIntensity();
-#endif
-
-
 
 /* application resources */
 
@@ -579,12 +534,17 @@ FindWindow(int x, int y)	/* Locatation of cursor */
 {
   XWindowAttributes wa;
   Window findW = DefaultRootWindow(dpy), stopW, childW;
-  XTranslateCoordinates(dpy, findW, findW,
-			x, y, &x, &y, &stopW);
+
+  /* Setup for first window find */
+  stopW = findW;
+
   while (stopW) {
     XTranslateCoordinates(dpy, findW, stopW, 
 			  x, y, &x, &y, &childW);
     findW = stopW;
+    /* If child is not InputOutput (for example, InputOnly) */
+    /* then don't continue, return the present findW which */
+    /* can be the root, or a root child of class InputOutput */
     if (childW &&
 	XGetWindowAttributes(dpy, childW, &wa) &&
 	wa.class != InputOutput)
@@ -729,7 +689,7 @@ StartRootPtrGrab(int new, 	/* do we cretate a new scale instance? */
   XtAddRawEventHandler
     (root, PointerMotionMask|ButtonPressMask|ButtonReleaseMask, 
      True, DragEH, (XtPointer)hlData);
-  hlId = XtAppAddTimeOut(app, HLINTERVAL, HighlightTO, (XtPointer)hlData);
+  (void) XtAppAddTimeOut(app, HLINTERVAL, HighlightTO, (XtPointer)hlData);
 }
 
 
@@ -884,7 +844,11 @@ GetMaxIntensity(hlPtr data)
       mptr = tptr;
     tptr++;
   }
-  return mptr->pixel;
+  /* Null pointer protection */
+  if(mptr)
+    return mptr->pixel;
+  else
+    return WhitePixel(dpy, scr);
 }
 
 /*
@@ -905,13 +869,17 @@ GetMinIntensity(hlPtr data)
       mptr = tptr; 
     tptr++;
   }
-  return mptr->pixel;
+  /* Null pointer protection */
+  if(mptr)
+    return mptr->pixel;
+  else
+    return BlackPixel(dpy, scr);
 }
 
 
 
 
-static Widget pane1, pane2, pane3, cclose, replace, new, select_w, paste, label;
+static Widget pane1, pane2, pane3, cclose, replace, new, select_w, paste;
 
 /*
  * PopupNewScale() -- Create and popup a new scale composite.
@@ -945,8 +913,8 @@ PopupNewScale(hlPtr data)
   paste = XtCreateManagedWidget("paste", commandWidgetClass, pane2,
 			      (Arg *) NULL, 0);
   XtAddCallback(paste, XtNcallback, PasteCB, (XtPointer)data);
-  label = XtCreateManagedWidget("helpLabel", labelWidgetClass, pane2,
-				(Arg *) NULL, 0);
+  (void) XtCreateManagedWidget("helpLabel", labelWidgetClass, pane2,
+			       (Arg *) NULL, 0);
   pane3 = XtCreateManagedWidget("pane2", panedWidgetClass, pane1,
 				(Arg *) NULL, 0);
   data->scaleInstance = 

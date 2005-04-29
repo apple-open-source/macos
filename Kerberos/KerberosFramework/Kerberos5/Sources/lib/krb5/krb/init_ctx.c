@@ -66,6 +66,7 @@
    des-crc for now.  */
 #define DEFAULT_ETYPE_LIST	\
 	"aes256-cts-hmac-sha1-96 " \
+	"aes128-cts-hmac-sha1-96 " \
 	"des3-cbc-sha1 arcfour-hmac-md5 " \
 	"des-cbc-crc des-cbc-md5 des-cbc-md4 "
 
@@ -108,8 +109,9 @@ init_common (krb5_context *context, krb5_boolean secure)
 	krb5_data seed;
 	int tmp;
 
-	/* Initialize error tables */
-	krb5_init_ets(ctx);
+	retval = krb5int_initialize_library();
+	if (retval)
+	    return retval;
 
 #if (defined(_WIN32))
 	/* 
@@ -127,7 +129,9 @@ init_common (krb5_context *context, krb5_boolean secure)
 	if (retval)
 		return retval;
 #else /* assume UNIX for now */
-	krb5int_initialize_library ();
+	retval = krb5int_initialize_library ();
+	if (retval)
+	    return retval;
 #endif
 
 	*context = 0;
@@ -235,7 +239,6 @@ cleanup:
 void KRB5_CALLCONV
 krb5_free_context(krb5_context ctx)
 {
-     krb5_free_ets(ctx);
      krb5_os_free_context(ctx);
 
      if (ctx->in_tkt_ktypes) {

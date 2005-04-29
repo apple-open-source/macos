@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: mboxlist.c,v 1.240 2004/07/26 18:08:03 ken3 Exp $
+ * $Id: mboxlist.c,v 1.5 2005/03/05 00:36:58 dasenbro Exp $
  */
 
 #include <config.h>
@@ -60,6 +60,7 @@
 #include <syslog.h>
 
 #include <sys/ipc.h>
+#include <sys/msg.h>
 
 #include "acl.h"
 #include "annotate.h"

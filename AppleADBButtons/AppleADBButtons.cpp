@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -31,11 +28,33 @@
 #define super IOHIKeyboard
 OSDefineMetaClassAndStructors(AppleADBButtons,IOHIKeyboard)
 
-bool displayWranglerFound( OSObject *, void *, IOService * );
 void button_data ( IOService * us, UInt8 adbCommand, IOByteCount length, UInt8 * data );
 void asyncFunc ( void * );
 static void check_eject_held(thread_call_param_t arg);
 
+
+bool AppleADBButtons::init(OSDictionary * properties)
+{
+	if ( !super::init(properties) )
+		return false;
+	
+	/*
+	 * Initialize minimal state.
+	 */
+	_pADBKeyboard = 0;
+	_cachedKeyboardFlags = 0;
+	_eject_released = true;  //initially assume eject button is released
+	_publishNotify = 0;
+	_terminateNotify = 0;
+	/*
+		Inability to allocate thread that handles eject should not cause 
+		failure.  Use _peject_timer after making sure it's not NULL.
+	*/
+	_peject_timer = thread_call_allocate((thread_call_func_t)check_eject_held, (thread_call_param_t)this);
+	_register_for_button = OSSymbol::withCString("register_for_button");
+
+	return TRUE;
+}
 
 // **********************************************************************************
 // start
@@ -47,12 +66,11 @@ bool AppleADBButtons::start ( IOService * theNub )
     
     for ( i = 0; i < kMax_registrations; i++ ) {
         keycodes[i] = kNullKey;
-        downHandlers[i] = NULL;
+        downHandlerThreadCalls[i] = NULL;
     }
 
     adbDevice = (IOADBDevice *)theNub;
 
-    register_for_button = OSSymbol::withCString("register_for_button");
     _initial_handler_id = adbDevice->handlerID();
     if (_initial_handler_id == 0xc0)
     {
@@ -69,49 +87,110 @@ bool AppleADBButtons::start ( IOService * theNub )
         return false;
     }
 
-    addNotification( gIOPublishNotification,serviceMatching("IODisplayWrangler"),	// look for the display wrangler
-                     (IOServiceNotificationHandler)displayWranglerFound, this, 0 );
-    _eject_released = true;  //initially assume eject button is released
-    _peject_timer = thread_call_allocate((thread_call_func_t)check_eject_held, (thread_call_param_t)this);
-    _get_handler_id = OSSymbol::withCString("get_handler_id");
-    _get_device_flags = OSSymbol::withCString("get_device_flags");
+	_publishNotify = addNotification( 
+						gIOPublishNotification, serviceMatching("AppleADBKeyboard"),
+						&AppleADBButtons::_publishNotificationHandler,
+						this, 0 );
+
+	_terminateNotify = addNotification( 
+						gIOTerminatedNotification, serviceMatching("AppleADBKeyboard"),
+						&AppleADBButtons::_terminateNotificationHandler,
+						this, 0 );
 
     return true;
 }
+
+void AppleADBButtons::free()
+{
+	if ( _publishNotify )
+	{
+		_publishNotify->remove();
+		_publishNotify = 0;
+	}
+
+	if ( _terminateNotify )
+	{
+		_terminateNotify->remove();
+		_terminateNotify = 0;
+	}
+
+	if (_register_for_button) 
+	{
+		_register_for_button->release();
+		_register_for_button = 0;
+	}
+
+	if ( _peject_timer )
+	{
+		thread_call_cancel( _peject_timer );
+		thread_call_free( _peject_timer );
+	}
+
+    for ( int i = 0; i < kMax_registrations; i++ ) {
+        if ( downHandlerThreadCalls[i] ) {
+            thread_call_free ( downHandlerThreadCalls[i] );
+        }
+    }
+
+	super::free();
+}
+
+bool AppleADBButtons::_publishNotificationHandler( void * target, 
+                                void * ref, IOService * newService )
+{
+	if ( target )
+	{
+		AppleADBButtons *self = (AppleADBButtons *)target;
+
+		if ( !self->_pADBKeyboard && newService )
+			self->_pADBKeyboard = OSDynamicCast( IOHIKeyboard, newService );
+	}
+
+	return true;
+}
+    
+bool AppleADBButtons::_terminateNotificationHandler( void * target, 
+				void * ref, IOService * service )
+{
+	if ( target )
+		((AppleADBButtons *)target)->_pADBKeyboard = 0;
+
+	return true;
+}
+
 
 IOReturn AppleADBButtons::callPlatformFunction(const OSSymbol *functionName,
                                                             bool waitForFunction,
                                                             void *param1, void *param2,
                                                             void *param3, void *param4)
-{  
-    if (functionName == register_for_button)
-    {
-        registerForButton((unsigned int)param1, (IOService *)param2,
-	    (button_handler)param3, (bool)param4);
-        return kIOReturnSuccess;
-    }
-    return kIOReturnBadArgument;
+{
+	if ( functionName == _register_for_button )
+	{
+		registerForButton( (unsigned int)param1, (IOService *)param2,
+			(button_handler)param3, (bool)param4 );
 
+		return kIOReturnSuccess;
+	}
+
+	return kIOReturnBadArgument;
 }
 
+// **********************************************************************************
+// doesKeyLock
+//
+// If the key physically locks (like the num lock key), return true
+// **********************************************************************************
+bool AppleADBButtons::doesKeyLock(unsigned key)
+{
+	if ( key == NX_KEYTYPE_NUM_LOCK )
+		return TRUE;
+
+	return super::doesKeyLock( key );
+}
 
 UInt64 AppleADBButtons::getGUID()
 {
   return(kAppleOnboardGUID);
-}
-
-// **********************************************************************************
-// displayWranglerFound
-//
-// The Display Wrangler has appeared.  We will be calling its
-// ActivityTickle method when there is user activity.
-// **********************************************************************************
-bool displayWranglerFound( OSObject * us, void * ref, IOService * yourDevice )
-{
- if ( yourDevice != NULL ) {
-     ((AppleADBButtons *)us)->displayManager = yourDevice;
- }
- return true;
 }
 
 UInt32 AppleADBButtons::interfaceID()
@@ -131,25 +210,29 @@ UInt32 AppleADBButtons::deviceType()
     }
 
     //If initial id is 31 then this is a post-WallStreet PowerBook
-    if (_initial_handler_id == 31)
+    if ( _initial_handler_id == 31 )
     {
-	mach_timespec_t     	t;
-	unsigned 		fake_ID;
-	
-	t.tv_sec = 2; //Wait for keyboard driver for up to 2 seconds
-	t.tv_nsec = 0;
-	_pADBKeyboard = waitForService(serviceMatching("AppleADBKeyboard"), &t);
-	if (_pADBKeyboard)
-	{	    
-	    _pADBKeyboard->callPlatformFunction(_get_handler_id, false, 
-		(void *)&fake_ID, 0, 0, 0);
-	    return fake_ID;
+		if ( _pADBKeyboard )
+		{
+			return _pADBKeyboard->deviceType();
+		}
+		else
+		{
+			return 195; //Gestalt.h domestic (ANSI) Powerbook keyboard
+		}
 	}
-        else return 195; //Gestalt.h domestic (ANSI) Powerbook keyboard
-    } 
     
     return adbDevice->handlerID();
 }
+
+void AppleADBButtons::setDeviceFlags(unsigned flags)
+{
+    if ( _pADBKeyboard )
+        _pADBKeyboard->setDeviceFlags(flags);
+        
+    super::setDeviceFlags(flags);
+}
+
 
 // **********************************************************************************
 // registerForButton
@@ -164,8 +247,7 @@ IOReturn AppleADBButtons::registerForButton ( unsigned int keycode, IOService * 
     for ( i = 0; i < kMax_registrations; i++ ) {
         if ( keycodes[i] == kNullKey ) {
             if ( down ) {
-                registrants[i] = registrant;
-                downHandlers[i] = handler;
+                downHandlerThreadCalls[i] = thread_call_allocate( (thread_call_func_t) handler, (thread_call_param_t)registrant);
                 keycodes[i] = keycode;
                 break;
             }
@@ -188,7 +270,7 @@ void button_data ( IOService * us, UInt8 adbCommand, IOByteCount length, UInt8 *
 // packet
 //
 // **********************************************************************************
-IOReturn AppleADBButtons::packet (UInt8 * data, IOByteCount, UInt8 adbCommand )
+IOReturn AppleADBButtons::packet (UInt8 * data, IOByteCount count, UInt8 adbCommand )
 {
     unsigned int	keycode;
     bool		down;
@@ -204,11 +286,7 @@ IOReturn AppleADBButtons::packet (UInt8 * data, IOByteCount, UInt8 adbCommand )
         keycode &= 0x7f;
         dispatchButtonEvent(keycode,down);
     }
-    
-    if ( displayManager != NULL ) {			// if there is a display manager, tell
-        displayManager->activityTickle(kIOPMSuperclassPolicy1);	// it there is user activity
-    }
-    
+        
     return kIOReturnSuccess;
 }
 
@@ -228,30 +306,23 @@ void AppleADBButtons::dispatchButtonEvent (unsigned int keycode, bool down )
     for ( i = 0; i < kMax_registrations; i++ ) {
         if ( keycodes[i] == keycode ) {
             if ( down ) {
-                if (downHandlers[i] != NULL ) {
-                    thread_call_func((thread_call_func_t)downHandlers[i],
-                                     (thread_call_param_t)registrants[i],
-                                     true);
+                if (downHandlerThreadCalls[i] != NULL ) {
+                    thread_call_enter(downHandlerThreadCalls[i]);
                 }
             }
         }
     }
     
     //Copy the device flags (modifier flags) from the ADB keyboard driver
-    if (_initial_handler_id == 31)
+    if ((_initial_handler_id == 31) && _pADBKeyboard)
     {
-	mach_timespec_t     	t;
-	unsigned 		adb_keyboard_flags;
-	
-	t.tv_sec = 1; //Wait for keyboard driver for up to 1 second
-	t.tv_nsec = 0;
-	_pADBKeyboard = waitForService(serviceMatching("AppleADBKeyboard"), &t);
-	if (_pADBKeyboard)
-	{	    
-	    _pADBKeyboard->callPlatformFunction(_get_device_flags, false, 
-		(void *)&adb_keyboard_flags, 0, 0, 0);
-	    super::setDeviceFlags(adb_keyboard_flags);
-	}
+        UInt32  currentFlags;
+        
+        currentFlags = deviceFlags() & ~_cachedKeyboardFlags;
+        _cachedKeyboardFlags = _pADBKeyboard->deviceFlags();
+        currentFlags |= _cachedKeyboardFlags;
+                    
+        setDeviceFlags(currentFlags);
     }
 
     //Only dispatch keycodes that this driver understands.  
@@ -271,27 +342,31 @@ void AppleADBButtons::dispatchButtonEvent (unsigned int keycode, bool down )
 	    dispatchKeyboardEvent(keycode, down, now);
 	    break;
 	case kEject:
-	    if (down)
-	    {
-		AbsoluteTime 	deadline;
-		OSNumber 	*plist_time;
-
-		_eject_released = false;
-		_eject_delay = 250;	//.25 second default
-		plist_time = OSDynamicCast( OSNumber, getProperty("Eject Delay Milliseconds"));
-		if (plist_time)
+		if ( _peject_timer )
 		{
-		    _eject_delay = plist_time->unsigned32BitValue();
+			if ( down )
+			{
+				AbsoluteTime	deadline;
+				OSNumber		*plist_time;
+
+				_eject_released = false;
+				_eject_delay = 250;	//.25 second default
+				plist_time = OSDynamicCast( OSNumber, getProperty("Eject Delay Milliseconds"));
+				if ( plist_time )
+				{
+					_eject_delay = plist_time->unsigned32BitValue();
+				}
+				clock_interval_to_deadline(_eject_delay, kMillisecondScale, &deadline);
+				thread_call_enter_delayed(_peject_timer, deadline);
+			}
+			else
+			{
+				_eject_released = true;
+				thread_call_cancel( _peject_timer );
+				dispatchKeyboardEvent( kEject, FALSE, now );
+			}
 		}
-		clock_interval_to_deadline(_eject_delay, kMillisecondScale, &deadline);
-		thread_call_enter_delayed(_peject_timer, deadline);
-	    }
-	    else
-	    {
-		_eject_released = true;
-		thread_call_cancel(_peject_timer);
-		dispatchKeyboardEvent(kEject, FALSE, now);
-	    }
+
 	default:  //Don't dispatch anything else
 	    break;
     }

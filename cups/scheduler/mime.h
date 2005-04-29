@@ -1,9 +1,9 @@
 /*
- * "$Id: mime.h,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $"
+ * "$Id: mime.h,v 1.6 2005/01/27 01:06:40 jlovell Exp $"
  *
  *   MIME type/conversion database definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  */
@@ -45,7 +45,7 @@ extern "C" {
 #  define MIME_MAX_SUPER	16		/* Maximum size of supertype name */
 #  define MIME_MAX_TYPE		IPP_MAX_NAME	/* Maximum size of type name */
 #  define MIME_MAX_FILTER	256		/* Maximum size of filter pathname */
-#  define MIME_MAX_BUFFER	8192		/* Maximum size of file buffer */
+#  define MIME_MAX_BUFFER	4096		/* Maximum size of file buffer */
 
 
 /*
@@ -115,6 +115,13 @@ typedef struct				/**** MIME Database ****/
 } mime_t;
 
 
+typedef struct mime_type_list_str	/**** MIME Type List ****/
+{
+  mime_type_t		    *src;	/* Source type */
+  struct mime_type_list_str *next;	/* Next type */
+} mime_type_list_t;
+
+
 /*
  * Functions...
  */
@@ -135,7 +142,7 @@ extern mime_type_t	*mimeType(mime_t *mime, const char *super, const char *type);
 extern mime_filter_t	*mimeAddFilter(mime_t *mime, mime_type_t *src, mime_type_t *dst,
 			               int cost, const char *filter);
 extern mime_filter_t	*mimeFilter(mime_t *mime, mime_type_t *src, mime_type_t *dst,
-			            int *num_filters, int max_depth);
+			            int *num_filters, mime_type_list_t *list);
 
 #  ifdef _cplusplus
 }
@@ -143,5 +150,5 @@ extern mime_filter_t	*mimeFilter(mime_t *mime, mime_type_t *src, mime_type_t *ds
 #endif /* !_CUPS_MIME_H_ */
 
 /*
- * End of "$Id: mime.h,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $".
+ * End of "$Id: mime.h,v 1.6 2005/01/27 01:06:40 jlovell Exp $".
  */

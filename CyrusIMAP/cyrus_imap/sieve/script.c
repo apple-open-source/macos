@@ -1,6 +1,6 @@
 /* script.c -- sieve script functions
  * Larry Greenfield
- * $Id: script.c,v 1.62 2004/07/15 15:02:51 ken3 Exp $
+ * $Id: script.c,v 1.4 2005/03/05 00:37:38 dasenbro Exp $
  */
 /***********************************************************
         Copyright 1999 by Carnegie Mellon University

@@ -1,6 +1,0 @@
-if { [board_info $board obj_format] == "a.out" }  {
-    set_board_info addl_link_flags "-N"
-    set_board_info gdb_load_offset "0x40050000"
-}
-
-load_base_board_description "cygmon"

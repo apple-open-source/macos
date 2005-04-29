@@ -1,7 +1,7 @@
 /*
  * CCIException.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/Exception.h,v 1.2 2003/03/17 20:48:23 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/Exception.h,v 1.3 2004/10/22 20:48:29 lxs Exp $
  */
  
 #pragma once

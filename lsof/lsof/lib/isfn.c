@@ -284,7 +284,6 @@ is_file_named(p, cd)
 {
 	char *ep;
 	int f = 0;
-	int h;
 	struct sfile *s = (struct sfile *)NULL;
 	struct hsfile *sh;
 	size_t sz;

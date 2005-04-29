@@ -1,21 +1,21 @@
 /* Shared functions related to mangling names for the GNU compiler
    for the Java(TM) language.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA. 
 
@@ -27,15 +27,17 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "jcf.h"
 #include "tree.h"
 #include "java-tree.h"
 #include "obstack.h"
 #include "toplev.h"
 
-static void append_unicode_mangled_name PARAMS ((const char *, int));
+static void append_unicode_mangled_name (const char *, int);
 #ifndef HAVE_AS_UTF8
-static int  unicode_mangling_length PARAMS ((const char *, int));
+static int  unicode_mangling_length (const char *, int);
 #endif
 
 extern struct obstack *mangle_obstack;
@@ -51,9 +53,7 @@ extern struct obstack *mangle_obstack;
    frequently that they could be cached.  */
 
 void
-append_gpp_mangled_name (name, len)
-     const char *name;
-     int len;
+append_gpp_mangled_name (const char *name, int len)
 {
   int encoded_len = unicode_mangling_length (name, len);
   int needs_escapes = encoded_len > 0;
@@ -74,9 +74,7 @@ append_gpp_mangled_name (name, len)
    which case `__U' will be mangled `__U_'.  */
 
 static void
-append_unicode_mangled_name (name, len)
-     const char *name;
-     int len;
+append_unicode_mangled_name (const char *name, int len)
 {
   const unsigned char *ptr;
   const unsigned char *limit = (const unsigned char *)name + len;
@@ -127,9 +125,7 @@ append_unicode_mangled_name (name, len)
    escapes.  If no escapes are needed, return 0.  */
 
 static int
-unicode_mangling_length (name, len)
-     const char *name; 
-     int len; 
+unicode_mangling_length (const char *name, int len)
 {
   const unsigned char *ptr;
   const unsigned char *limit = (const unsigned char *)name + len;
@@ -197,9 +193,7 @@ unicode_mangling_length (name, len)
    so frequently that they could be cached.  */
 
 void
-append_gpp_mangled_name (name, len)
-     const char *name;
-     int len;
+append_gpp_mangled_name (const char *name, int len)
 {
   const unsigned char *ptr;
   const unsigned char *limit = (const unsigned char *)name + len;

@@ -7,15 +7,7 @@
  * ----------------------------------------------------------------------------
  */
 
-/*
- * Ported from FreeBSD to Linux, only minimal changes.  --marekm
- */
-
-/*
- * Adapted from shadow-19990607 by Tudor Bosman, tudorb@jm.nu
- */
-
-/* $Id: md5crypt.h,v 1.1.1.2 2001/02/25 20:54:16 zarzycki Exp $ */
+/* $Id: md5crypt.h,v 1.4 2003/05/18 14:46:46 djm Exp $ */
 
 #ifndef _MD5CRYPT_H
 #define _MD5CRYPT_H
@@ -24,8 +16,8 @@
 
 #if defined(HAVE_MD5_PASSWORDS) && !defined(HAVE_MD5_CRYPT)
 
-int is_md5_salt(const char *salt);
-char *md5_crypt(const char *pw, const char *salt);
+int is_md5_salt(const char *);
+char *md5_crypt(const char *, const char *);
 
 #endif /* defined(HAVE_MD5_PASSWORDS) && !defined(HAVE_MD5_CRYPT) */
 

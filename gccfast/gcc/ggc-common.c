@@ -1,3 +1,4 @@
+/* APPLE LOCAL entire file pch */
 /* Simple garbage collection for the GNU compiler.
    Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
@@ -32,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 # include <sys/resource.h>
 #endif
 #include "toplev.h"
+#include "hosthooks.h"
 
 #ifdef HAVE_MMAP_FILE
 # include <sys/mman.h>
@@ -464,21 +466,26 @@ gt_pch_save (f)
 
   mmi.size = ggc_pch_total_size (state.d);
 
-  /* Try to arrange things so that no relocation is necessary,
-     but don't try very hard.  On most platforms, this will always work,
-     and on the rest it's a lot of work to do better.  */
+  /* Try to arrange things so that no relocation is necessary, but
+     don't try very hard.  On most platforms, this will always work,
+     and on the rest it's a lot of work to do better.  
+     (The extra work goes in HOST_HOOKS_GT_PCH_GET_ADDRESS and
+     HOST_HOOKS_GT_PCH_USE_ADDRESS.)  */
+  mmi.preferred_base = host_hooks.gt_pch_get_address (mmi.size);
+      
 #if HAVE_MMAP_FILE
-  mmi.preferred_base = mmap (NULL, mmi.size, 
-			     PROT_READ | PROT_WRITE, MAP_PRIVATE,
-			     fileno (state.f), 0);
-  if (mmi.preferred_base == (void *)-1)
-    mmi.preferred_base = NULL;
-  else
-    munmap (mmi.preferred_base, mmi.size);
-#else /* HAVE_MMAP_FILE */
-  mmi.preferred_base = NULL;
+  if (mmi.preferred_base == NULL)
+    {
+      mmi.preferred_base = mmap (NULL, mmi.size,
+				 PROT_READ | PROT_WRITE, MAP_PRIVATE,
+				 fileno (state.f), 0);
+      if (mmi.preferred_base == (void *) MAP_FAILED)
+	mmi.preferred_base = NULL;
+      else
+	munmap (mmi.preferred_base, mmi.size);
+    }
 #endif /* HAVE_MMAP_FILE */
-
+  
   ggc_pch_this_base (state.d, mmi.preferred_base);
 
   state.ptrs = xmalloc (state.count * sizeof (*state.ptrs));
@@ -556,6 +563,7 @@ gt_pch_restore (f)
   size_t i;
   struct mmap_info mmi;
   void *addr;
+  bool needs_read;
 
   /* Delete any deletable objects.  This makes ggc_pch_read much
      faster, as it can be sure that no GCable objects remain other
@@ -588,14 +596,43 @@ gt_pch_restore (f)
   if (fread (&mmi, sizeof (mmi), 1, f) != 1)
     fatal_io_error ("can't read PCH file");
   
+  if (host_hooks.gt_pch_use_address (mmi.preferred_base, mmi.size))
+    {
 #if HAVE_MMAP_FILE
-  addr = mmap (mmi.preferred_base, mmi.size, 
-	       PROT_READ | PROT_WRITE, MAP_PRIVATE,
-	       fileno (f), mmi.offset);
+      void *mmap_result;
+
+      mmap_result = mmap (mmi.preferred_base, mmi.size,
+			  PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED,
+			  fileno (f), mmi.offset);
+
+      /* The file might not be mmap-able.  */
+      needs_read = mmap_result == MAP_FAILED;
+
+      /* Sanity check for broken MAP_FIXED.  */
+      if (! needs_read && mmap_result != mmi.preferred_base)
+	abort ();
 #else
-  addr = (void *)-1;
+      needs_read = true;
 #endif
-  if (addr == (void *)-1)
+      addr = mmi.preferred_base;
+    }
+  else
+    {
+#if HAVE_MMAP_FILE
+      addr = mmap (mmi.preferred_base, mmi.size,
+		   PROT_READ | PROT_WRITE, MAP_PRIVATE,
+		   fileno (f), mmi.offset);
+      
+      needs_read = addr == (void *) MAP_FAILED;
+
+#else /* HAVE_MMAP_FILE */
+      needs_read = true;
+#endif /* HAVE_MMAP_FILE */
+      if (needs_read)
+	addr = xmalloc (mmi.size);
+    }
+
+  if (needs_read)
     {
       addr = xmalloc (mmi.size);
       if (fseek (f, mmi.offset, SEEK_SET) != 0
@@ -605,6 +642,7 @@ gt_pch_restore (f)
   else if (fseek (f, mmi.offset + mmi.size, SEEK_SET) != 0)
     fatal_io_error ("can't read PCH file");
 
+  
   ggc_pch_read (f, addr);
 
   if (addr != mmi.preferred_base)

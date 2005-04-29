@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,61 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Apr 19 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetOpenFirmwareBootDevice.c,v 1.14 2003/07/25 01:16:25 ssen Exp $
+ *  $Id: BLGetOpenFirmwareBootDevice.c,v 1.26 2005/02/08 00:18:47 ssen Exp $
  *
  *  $Log: BLGetOpenFirmwareBootDevice.c,v $
+ *  Revision 1.26  2005/02/08 00:18:47  ssen
+ *  Implement support for offline updating of BootX and OF labels
+ *  in Apple_Boot partitions, and also for RAIDs. Only works
+ *  in --device mode so far
+ *
+ *  Revision 1.25  2005/02/07 21:22:38  ssen
+ *  Refact lookupServiceForName and code for BLDeviceNeedsBooter
+ *
+ *  Revision 1.24  2005/02/03 00:42:29  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.23  2005/01/26 01:25:30  ssen
+ *  Finish v1 booting support. Also prepare for the day that
+ *  unbootable RAIDs will not publish IOBoot entries.
+ *
+ *  Revision 1.22  2005/01/25 19:37:10  ssen
+ *  Apple_Boot_RAID partitions don't have booters themselves,
+ *  so don't look for one.
+ *
+ *  Revision 1.21  2005/01/16 02:11:53  ssen
+ *  misc changes to support updating booters
+ *
+ *  Revision 1.20  2005/01/16 00:10:12  ssen
+ *  <rdar://problem/3861859> bless needs to try getProperty(kIOBootDeviceKey)
+ *  Implement -getBoot and -info functionality. If boot-device is
+ *  set to the Apple_Boot for one of the RAID members, we map
+ *  this back to the top-level RAID device and print that out. This
+ *  enables support in Startup Disk
+ *
+ *  Revision 1.19  2005/01/14 22:29:59  ssen
+ *  <rdar://problem/3861859> bless needs to try getProperty(kIOBootDeviceKey)
+ *  When determining the "OF path" for a device, figure out if it's
+ *  part of a RAID set, and if so, find the booter for the primary
+ *  path. Otherwise, find a normal booter, or else no booter at all
+ *
+ *  Revision 1.18  2004/05/17 23:28:35  ssen
+ *  Validate arguments a bit
+ *  Bug #:
+ *  Submitted by:
+ *  Reviewed by:
+ *
+ *  Revision 1.17  2004/04/20 21:40:45  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.16  2003/10/24 22:46:36  ssen
+ *  don't try to compare IOKit objects to NULL, since they are really mach port integers
+ *
+ *  Revision 1.15  2003/10/17 00:10:39  ssen
+ *  add more const
+ *
  *  Revision 1.14  2003/07/25 01:16:25  ssen
  *  When mapping OF -> device, if we found an Apple_Boot, try to
  *  find the corresponding partition that is the real root filesystem
@@ -112,11 +160,10 @@ int getPNameAndPType(BLContextPtr context,
 			    unsigned char pname[],
 			    unsigned char ptype[]);
 
-static int getExternalBooter(BLContextPtr context,
-                             unsigned long pNum,
-			     unsigned char parentDev[],
-			     unsigned long * extpNum);
-
+int getExternalBooter(BLContextPtr context,
+                      mach_port_t iokitPort,
+					  io_service_t dataPartition,
+ 					 io_service_t *booterPartition);
 
 /*
  * Get OF string for device
@@ -126,166 +173,149 @@ static int getExternalBooter(BLContextPtr context,
  * For new world, add a tbxi
  */
 
-int BLGetOpenFirmwareBootDevice(BLContextPtr context, unsigned char mntfrm[], char ofstring[]) {
+int BLGetOpenFirmwareBootDevice(BLContextPtr context, const unsigned char mntfrm[], char ofstring[]) {
 
     int err;
 
     kern_return_t           kret;
     mach_port_t             ourIOKitPort;
-    io_iterator_t           services;
-    io_object_t             obj;
+    io_service_t            service;
 
-    unsigned long extPnum = 0;
-    dk_firmware_path_t      OFDev;
-    int                     devfd;
-    unsigned char           parentDev[MAXPATHLEN];
-    unsigned char           rawDev[MAXPATHLEN];
-    unsigned long           pNum;
+	int32_t					needsBooter	= 0;
+	int32_t					isBooter	= 0;
+		
+    io_string_t				ofpath;
+    unsigned char			device[MAXPATHLEN];
+	char *split = ofpath;
+	char tbxi[5];
+    
+    CFTypeRef               bootData = NULL;
 
-    int isNewWorld = BLIsNewWorld(context);
-    int isWholeDevice = 0;
+    if(!mntfrm || 0 != strncmp(mntfrm, "/dev/", 5)) return 1;
 
-    sprintf(rawDev, "/dev/r%s", mntfrm + 5);
-
-    devfd = open(rawDev, O_RDONLY, 0);
-    if(devfd < 0) return 1;
-
-    err = ioctl(devfd, DKIOCGETFIRMWAREPATH, &OFDev);
-    if(err) {
-      contextprintf(context, kBLLogLevelError,  "Error getting OF path: %s\n", strerror(errno) );
-      close(devfd);
-      return 2;
-    }
-
-    close(devfd);
-
-    /*      get
-
-	    OpenFirmwareDevice = "/pci@f2000000/pci-bridge@D/mac-io@7/ata-4@1f000/@0:9";
-	    PartitionMapDeviceNode = /dev/disk0;
-	    PartitionNumber = 15;
-	    PartitionType = Apple_HFS;
-
-	    from IOKit...
-    */
-
+	strcpy(device, mntfrm);
+    
     // Obtain the I/O Kit communication handle.
     if((kret = IOMasterPort(bootstrap_port, &ourIOKitPort)) != KERN_SUCCESS) {
       return 2;
     }
 
-    kret = IOServiceGetMatchingServices(ourIOKitPort,
-					IOBSDNameMatching(ourIOKitPort,
-							  0,
-							  (unsigned char *)mntfrm + 5),
-					&services);
-    if (kret != KERN_SUCCESS) {
-      return 3;
+    err = BLGetRAIDBootDataForDevice(context, mntfrm, &bootData);
+    if(err) {
+        contextprintf(context, kBLLogLevelError,  "Error while determining if %s is a RAID\n", mntfrm );
+        return 3;
     }
+    
+    if(bootData) {
+        CFDictionaryRef primary = NULL;
+        CFStringRef bootpath = NULL;
+		CFStringRef name = NULL;
+        io_string_t iostring;
+        
+        // update name with the primary partition
+        if(CFGetTypeID(bootData) == CFArrayGetTypeID() ) {
+			if(CFArrayGetCount(bootData) == 0) {
+				contextprintf(context, kBLLogLevelError,  "RAID set has no bootable members\n" );
+				return 3;				
+			}
+			
+            primary = CFArrayGetValueAtIndex(bootData,0);
+            CFRetain(primary);
+        } else if(CFGetTypeID(bootData) == CFDictionaryGetTypeID()) {
+            primary = bootData;
+            CFRetain(primary);
+        }
+        
+        bootpath = CFDictionaryGetValue(primary, CFSTR(kIOBootDevicePathKey));
+        if(bootpath == NULL || CFGetTypeID(bootpath) != CFStringGetTypeID()) {
+            CFRelease(primary);
+            CFRelease(bootData);
+            contextprintf(context, kBLLogLevelError,  "Could not find boot path entry for %s\n" , name);
+            return 4;            
+        }
+        
+        if(!CFStringGetCString(bootpath,iostring,sizeof(iostring),kCFStringEncodingUTF8)) {
+            CFRelease(primary);
+            CFRelease(bootData);
+            contextprintf(context, kBLLogLevelError,  "Invalid UTF8 for path entry for %s\n" , name);
+            return 4;                        
+        }
 
-    // Should only be one IOKit object for this volume. (And we only want one.)
-    obj = IOIteratorNext(services);
-    if (!obj) {
-      return 4;
+		contextprintf(context, kBLLogLevelVerbose,  "Primary OF boot path is %s\n" , iostring);
+        
+        service = IORegistryEntryFromPath(ourIOKitPort, iostring );
+        if(service == 0) {
+            CFRelease(primary);
+            CFRelease(bootData);
+            contextprintf(context, kBLLogLevelError,  "Could not find IOKit entry for %s\n" , iostring);
+            return 4;                                    
+        }
+
+        CFRelease(primary);
+        CFRelease(bootData);
+		
+		name = IORegistryEntryCreateCFProperty( service, CFSTR(kIOBSDNameKey),
+												kCFAllocatorDefault, 0);
+
+		if(name == NULL || CFStringGetTypeID() != CFGetTypeID(name)) {
+			IOObjectRelease(service);
+            contextprintf(context, kBLLogLevelError,  "Could not find bsd name for %s\n" , iostring);
+			return 5;
+		}
+
+		IOObjectRelease(service); service = 0;
+		
+		if(!CFStringGetCString(name,device+5,sizeof(iostring)-5,kCFStringEncodingUTF8)) {
+			CFRelease(name);
+            contextprintf(context, kBLLogLevelError,  "Could not find bsd name for %s\n" , iostring);
+			return 5;
+		}
+		
+		CFRelease(name);
     }
+    
+    // by this point, "service" should point at the data partition, or potentially
+    // a RAID member. We'll need to map it to a booter partition if necessary
 
-    {
-      CFTypeRef isWhole = NULL;
-
-      isWhole = IORegistryEntryCreateCFProperty( obj, CFSTR(kIOMediaWholeKey),
-						 kCFAllocatorDefault, 0);
-
-      if(CFGetTypeID(isWhole) !=CFBooleanGetTypeID()) {
-	contextprintf(context, kBLLogLevelError,  "Wrong type of IOKit entry for kIOMediaWholeKey\n" );
-	CFRelease(isWhole);
-	IOObjectRelease(obj);
-	obj = NULL;
-	IOObjectRelease(services);
-	services = NULL;
-	return 3;
-      }
-
-      isWholeDevice = (isWhole == kCFBooleanTrue) ;
-      CFRelease(isWhole);
-		contextprintf(context, kBLLogLevelVerbose,  "Device is whole: %d\n", isWholeDevice );
-    }
-
-    for(;;) {
-      CFTypeRef value = NULL;
-
-      if(isWholeDevice) {
-	break;
-      }
-
-      // Okay, it's partitioned. There might be helper partitions, though...
-
-
-      value = IORegistryEntryCreateCFProperty(obj, CFSTR(kIOMediaContentKey),
-					      kCFAllocatorDefault, 0);
-
-      if(CFGetTypeID(value) != CFStringGetTypeID()) {
-	contextprintf(context, kBLLogLevelError,  "Wrong type of IOKit entry for kIOMediaContentKey\n" );
-	if(value) CFRelease(value);
-	IOObjectRelease(obj);
-	obj = NULL;
-	IOObjectRelease(services);
-	services = NULL;
-	return 4;
+	err = BLDeviceNeedsBooter(context, device,
+							  &needsBooter,
+							  &isBooter,
+							  &service);
+	if(err) {
+		contextprintf(context, kBLLogLevelError,  "Could not determine if partition needs booter\n" );		
+		return 10;
+	}
+	
+	if(!needsBooter && !isBooter) {
+		err = BLGetIOServiceForDeviceName(context, (unsigned char *)device + 5, &service);
+		if(err) {
+			contextprintf(context, kBLLogLevelError,  "Can't find IOService for %s\n", device + 5 );
+			return 10;		
+		}
+		
+	}
+	
+	kret = IORegistryEntryGetPath(service, kIODeviceTreePlane, ofpath);
+	if(kret != KERN_SUCCESS) {
+		contextprintf(context, kBLLogLevelError,  "Could not get path in device plane for service\n" );
+		IOObjectRelease(service);
+		return 11;
 	}
 
+	IOObjectRelease(service);
 
-      if(CFStringCompare((CFStringRef)value, CFSTR("Apple_HFS"), 0)
-	 == kCFCompareEqualTo) {
-		contextprintf(context, kBLLogLevelVerbose,  "Apple_HFS partition. No external loader\n" );
-	// it's an HFS partition. no loader needed
-	CFRelease(value);
-	break;
-      }
+	split = ofpath;
 
-      if(CFStringCompare((CFStringRef)value, CFSTR("Apple_Boot"), 0) == kCFCompareEqualTo
-	 || CFStringCompare((CFStringRef)value, CFSTR("Apple_Loader"), 0) == kCFCompareEqualTo) {
-	  contextprintf(context, kBLLogLevelVerbose,  "Apple_Boot or Apple_Loader partition is an external loader\n" );
-	  // it's an loader itself
-	  CFRelease(value);
-	  break;
-      }
-      
-      CFRelease(value);
-
-      contextprintf(context, kBLLogLevelVerbose,  "NOT Apple_HFS partition. Looking for external loader\n" );
-
-      if(BLGetParentDevice(context, mntfrm, parentDev, &pNum)) {
-	return 6;
-      }
-
-      IOObjectRelease(obj);
-      obj = NULL;
-      IOObjectRelease(services);
-      services = NULL;
-      
-	err = getExternalBooter(context, pNum, parentDev, &extPnum);
-      if(err) {
-	return 10;
-      }
-
-      break;
-    }
-
-    if (extPnum) {
-      char *split = OFDev.path;
-      split = strsep(&split, ":");
-      sprintf(ofstring, "%s:%ld", split, extPnum);
-    } else {
-      strcpy(ofstring, OFDev.path);
-    }
+	strsep(&split, ":");
 	
-    if (isNewWorld) {
-	char tbxi[5];
-
-	strcat(ofstring, ",\\\\:");
-	strcat(ofstring, blostype2string(kBL_OSTYPE_PPC_TYPE_BOOTX, tbxi));
-    }
-
+	if(split == NULL) {
+		contextprintf(context, kBLLogLevelError,  "Bad path in device plane for service\n" );
+		IOObjectRelease(service);
+		return 11;		
+	}
+	
+	sprintf(ofstring, "%s,\\\\:%s", split, blostype2string(kBL_OSTYPE_PPC_TYPE_BOOTX, tbxi));
+	
     return 0;
 }
 
@@ -353,10 +383,10 @@ int getPNameAndPType(BLContextPtr context,
 
   
   IOObjectRelease(obj);
-  obj = NULL;
+  obj = 0;
 
   IOObjectRelease(services);
-  services = NULL;
+  services = 0;
 
     contextprintf(context, kBLLogLevelVerbose,  "looking at partition %s, type %s, name %s\n", target, ptype, pname );
 
@@ -364,50 +394,64 @@ int getPNameAndPType(BLContextPtr context,
 
 }
 
-static
 int getExternalBooter(BLContextPtr context,
-                      unsigned long pNum,
-		      unsigned char parentDev[],
-		      unsigned long * extpNum) {
-
-  unsigned char target[MAXPATHLEN];
-  unsigned char targetPName[MAXPATHLEN];
-  unsigned char targetPType[MAXPATHLEN];
-  
-  int isNewWorld = BLIsNewWorld(context);
-  
-  *extpNum = pNum - 1;
-  
-    
-  snprintf(target, MAXPATHLEN, "%ss%ld", parentDev+5, *extpNum);
-  // inspect partition N-1.
-  // if the partition type is Apple_Boot, and the name is "eXternal booter",
-  //    then it's a combined booter
-  // if the partition type is Apple_Loader, then look at N-2 if we're new world,
-  //    else make an object for oldWorld
-  
-  getPNameAndPType(context, target, targetPName, targetPType);
-
-  if(!strcmp(targetPType, "Apple_Boot")
-     && !strcmp(targetPName, "eXternal booter")) {
-    return 0;
-  } else if(!strcmp(targetPType, "Apple_Loader")
-		&& !strcmp(targetPName, "SecondaryLoader")) {
-    if(!isNewWorld) {
-      return 0;
-    } else {
-      *extpNum = pNum - 2;
-      snprintf(target, MAXPATHLEN, "%ss%ld", parentDev+5, *extpNum);
-      getPNameAndPType(context, target, targetPName, targetPType);
-      
-      if(!strcmp(targetPType, "Apple_Boot")
-	 && !strcmp(targetPName, "MOSX_OF3_Booter")) {
+                      mach_port_t iokitPort,
+					  io_service_t dataPartition,
+					  io_service_t *booterPartition)
+{
+	CFStringRef name = NULL;
+	CFStringRef content = NULL;
+	char cname[MAXPATHLEN];
+	char *spos = NULL;
+	io_service_t booter = 0;
+	int partnum = 0;
+	int errnum;
 	
-	return 0;
-      }
+	name = (CFStringRef)IORegistryEntryCreateCFProperty(
+														dataPartition,
+														CFSTR(kIOBSDNameKey),
+														kCFAllocatorDefault,
+														0);
+	
+	if(!CFStringGetCString(name, cname, sizeof(cname), kCFStringEncodingUTF8)) {
+        CFRelease(name);
+        return 1;
     }
-  }
-  
-  *extpNum = 0;
-  return 1;
+
+	CFRelease(name);
+	
+	spos = strrchr(cname, 's');
+	if(spos == NULL || spos == &cname[2]) {
+		contextprintf(context, kBLLogLevelError,  "Can't determine partition for %s\n", cname );
+		return 2;
+	}
+	
+	partnum = atoi(spos+1);
+	sprintf(spos, "s%d", partnum-1);
+	
+	errnum = BLGetIOServiceForDeviceName(context, cname, &booter);
+	if(errnum) {
+		contextprintf(context, kBLLogLevelError,  "Could not find IOKit entry for %s\n" , cname);
+		return 4;
+	}
+	
+	content = (CFStringRef)IORegistryEntryCreateCFProperty(
+														booter,
+														CFSTR(kIOMediaContentKey),
+														kCFAllocatorDefault,
+														0);
+	if(content == NULL || CFGetTypeID(content) != CFStringGetTypeID()) {
+		contextprintf(context, kBLLogLevelError,  "Invalid content type for %s\n" , cname);
+		IOObjectRelease(booter);
+		return 5;		
+	}
+	
+	if(!CFEqual(CFSTR("Apple_Boot"), content)) {
+		contextprintf(context, kBLLogLevelError,  "Booter partition %s is not Apple_Boot\n" , cname);
+		IOObjectRelease(booter);
+		return 6;
+	}
+	
+	*booterPartition = booter;
+	return 0;
 }

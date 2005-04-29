@@ -135,10 +135,11 @@ __private_extern__ void _askNicelyThenSleepSystem(void)
     sendNotification(PowerMangerScheduledSleep);
 }
 
+/*
 __private_extern__ void _doNiceShutdown(void)
 {
 }
-
+*/
 
 __private_extern__ CFArrayRef _copyBatteryInfo(void) 
 {
@@ -198,10 +199,10 @@ __private_extern__ CFUserNotificationRef _showUPSWarning(void)
     return note_ref;
 #endif // STANDALONE    
 }
-
+/*
 __private_extern__ CFUserNotificationRef _showLowBatteryWarning(void)
 {
-/*
+
 // _showLowBatteryWarning is a no-op until
 // we resolve the TalkingAlerts issue. Need this to generate a speakable alert,
 // but the plumbing involved in doing that from configd is complicated.
@@ -250,6 +251,6 @@ __private_extern__ CFUserNotificationRef _showLowBatteryWarning(void)
     }
 
     return note_ref;
-*/
-}
 
+}
+*/

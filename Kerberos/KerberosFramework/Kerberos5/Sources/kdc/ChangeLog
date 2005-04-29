@@ -1,3 +1,114 @@
+2004-09-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* network.c (closedown_network): Free each connection data
+	structure while closing file descriptors.
+
+	* kdc_util.h (sockaddr2p): Don't declare.
+
+2004-07-23  Tom Yu  <tlyu@mit.edu>
+
+	* kerberos_v4.c (kerberos_v4): Duplicate backdating fix for
+	APPL_REQUEST as well.  Fix comments.
+
+2004-06-07  Ezra Peisach  <epeisach@mit.edu.edu>
+
+	* network.c (paddr): Use unsigned int for length.
+	(kdc_conn_type): Declare CONN_ enumerated types in connection as
+	distinct type.
+	(add_fd): Declare as taking enum type instead of simply
+	integer. Prevents assignment of interger to an enum.
+	(process_tcp_connection): Remove variable assigned to but never used.
+
+2004-05-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* network.c: Include foreachaddr.h, not foreachaddr.c.
+
+2004-04-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* network.c (setup_a_tcp_listener): Try to turn the IPV6_V6ONLY
+	socket option on, not off, and do it before calling bind.
+	(setup_tcp_listener_ports): Don't do it here any more.
+	(setup_udp_port): Ignore AF_DLI addresses.
+
+2004-03-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* network.c (delete_fd): Free pointed-to data after removing it
+	from the connection set.
+	(kill_tcp_connection): Move delete_fd call to the end.
+	(accept_tcp_connection): Decrement connection counter again if we
+	drop the incoming connection for lack of buffer space.
+
+2004-03-15  Sam Hartman  <hartmans@mit.edu>
+
+	* kdc_preauth.c (verify_sam_response): Free unparsed names
+
+2004-03-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (MY_SUBDIRS): Deleted.
+
+2004-03-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Removed.  Directory configured from top level
+	now.
+	* Makefile.in (thisconfigdir, mydir): Updated.
+	(MY_SUBDIRS): Define to just ".".
+
+2004-03-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Don't check for --enable-athena and don't define
+	ATHENA_DES3_KLUDGE.
+
+2004-02-25  Ken Raeburn  <raeburn@mit.edu>
+
+	* network.c (setup_a_tcp_listener): Call setreuseaddr before
+	calling bind.
+	(setup_tcp_listener_ports): Don't call setreuseaddr.  Log info
+	about socket option IPV6_V6ONLY in unsupported and success cases.
+
+2004-02-24  Sam Hartman  <hartmans@avalanche-breakdown.mit.edu>
+
+	* kerberos_v4.c (compat_decrypt_key): As below.
+
+	* kdc_preauth.c (enctype_requires_etype_info_2): As below.
+
+	* main.c (initialize_realms): Remove support for marc 3des with length
+
+2004-02-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (OBJS, krb5kdc, fakeka): Link against apputils lib
+	instead of using LIBOBJ.
+
+2004-02-19  Ken Hornstein  <kenh@mit.edu>
+
+	* fakeka.c (main): Bug from David Thompson <thomas@cs.wisc.edu>.
+	Bug originally introduced during conversion from bcopy() to
+	memcpy().
+
+2004-02-12  Sam Hartman  <hartmans@mit.edu>
+
+	* kdc_util.c (validate_tgs_request): Fix logic error
+
+2004-02-09  Tom Yu  <tlyu@mit.edu>
+
+	* main.c (init_realm): Apply patch from Will Fiveash to use
+	correct TCP listening ports.
+
+2004-02-06  Sam Hartman  <hartmans@avalanche-breakdown.mit.edu>
+
+	* kdc_util.c:  Ignore unknown TGS options
+
+2004-01-05  Sam Hartman  <hartmans@mit.edu>
+
+	* kerberos_v4.c (kerberos_v4): Only backdate the rquest in the
+	issued ticket.  Client libraries tend to verify that the
+	backdating falls within clockskew.  a
+
+2003-08-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Call KRB5_AC_NEED_DAEMON instead of checking
+	whether daemon() prototype is needed.
+	* Makefile.in (OBJS, fakeka): Use @LIBOBJS@.
+
 2003-06-03  Tom Yu  <tlyu@mit.edu>
 
 	* extern.h (master_princ): Remove realm_mkvno, realm_tgskey,
@@ -30,6 +141,8 @@
 	krb5_data pointer.
 
 2003-05-22  Sam Hartman  <hartmans@mit.edu>
+
+	* do_tgs_req.c (process_tgs_req): LOG transited check disabled as info not error
 
 	* kdc_util.c (validate_as_request): Only reject options we
 	understand and believe are inappropriate for AS requests. Per

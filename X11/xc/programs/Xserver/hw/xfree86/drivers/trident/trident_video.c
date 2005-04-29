@@ -1,5 +1,5 @@
 /*
- * Copyright 1992-2000 by Alan Hourihane, Wigan, England.
+ * Copyright 1992-2003 by Alan Hourihane, North Wales, UK.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -21,7 +21,7 @@
  *
  * Author:  Alan Hourihane, alanh@fairlite.demon.co.uk
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/trident_video.c,v 1.31 2002/12/22 18:54:43 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/trident_video.c,v 1.46 2004/01/21 22:51:19 alanh Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -67,7 +67,7 @@ static void tridentSetVideoContrast(TRIDENTPtr pTrident,int value);
 static void tridentSetVideoParameters(TRIDENTPtr pTrident, int brightness, 
 				      int saturation, int hue);
 void tridentFixFrame(ScrnInfoPtr pScrn, int *fixFrame);
-static void WaitForSync(ScrnInfoPtr pScrn);
+static void WaitForVBlank(ScrnInfoPtr pScrn);
 
 #define MAKE_ATOM(a) MakeAtom(a, sizeof(a) - 1, TRUE)
 
@@ -85,6 +85,7 @@ void TRIDENTInitVideo(ScreenPtr pScreen)
      * The following has been tested on:
      *
      * 9525         : flags: None
+     * Image985     : flags: None
      * Cyber9397(DVD) : flags: VID_ZOOM_NOMINI
      * CyberBlade/i7: flags: VID_ZOOM_INV | VID_ZOOM_MINI
      * CyberBlade/i1: flags: VID_ZOOM_INV | VID_ZOOM_MINI
@@ -106,8 +107,10 @@ void TRIDENTInitVideo(ScreenPtr pScreen)
     if (pTrident->Chipset == CYBER9397 || pTrident->Chipset == CYBER9397DVD)
 	pTrident->videoFlags = VID_ZOOM_NOMINI;
 
-    if (pTrident->Chipset == CYBER9397DVD || pTrident->Chipset >= CYBER9525DVD)
-	pTrident->videoFlags |= VID_DOUBLE_LINEBUFFER_FOR_WIDE_SRC;
+    if (pTrident->Chipset == CYBER9397DVD || 
+	pTrident->Chipset == CYBER9525DVD ||
+	pTrident->Chipset >= BLADE3D)
+		pTrident->videoFlags |= VID_DOUBLE_LINEBUFFER_FOR_WIDE_SRC;
 
     newAdaptor = TRIDENTSetupImageVideo(pScreen);
     TRIDENTInitOffscreenImages(pScreen);
@@ -139,7 +142,7 @@ void TRIDENTInitVideo(ScreenPtr pScreen)
 
     if (pTrident->videoFlags)
 	xf86DrvMsgVerb(pScrn->scrnIndex,X_INFO,3,
-		       "Trident Video Flags: %s %s %s\n",
+		       "Trident Video Flags: %s %s %s %s\n",
 		   pTrident->videoFlags & VID_ZOOM_INV ? "VID_ZOOM_INV" : "",
 		   pTrident->videoFlags & VID_ZOOM_MINI ? "VID_ZOOM_MINI" : "",                   pTrident->videoFlags & VID_OFF_SHIFT_4 ? "VID_OFF_SHIFT_4"
 		   : "",
@@ -166,11 +169,7 @@ static XF86VideoFormatRec Formats[NUM_FORMATS] =
   {8, PseudoColor},  {15, TrueColor}, {16, TrueColor}, {24, TrueColor}
 };
 
-#ifdef TRIDENT_XV_GAMMA
-#define NUM_ATTRIBUTES 6
-#else
 #define NUM_ATTRIBUTES 5
-#endif
 
 static XF86AttributeRec Attributes[NUM_ATTRIBUTES] =
 {
@@ -181,33 +180,10 @@ static XF86AttributeRec Attributes[NUM_ATTRIBUTES] =
     {XvSettable | XvGettable, 0, 7,           "XV_CONTRAST"}
 };
 
-#if 0
-# define NUM_IMAGES 4
-#else
-# define NUM_IMAGES 4
-#endif
+#define NUM_IMAGES 3
 
 static XF86ImageRec Images[NUM_IMAGES] =
 {
-#if 0
-    {
-	0x35315652,
-        XvRGB,
-	LSBFirst,
-	{'R','V','1','5',
-	  0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
-	16,
-	XvPacked,
-	1,
-	15, 0x001F, 0x03E0, 0x7C00,
-	0, 0, 0,
-	0, 0, 0,
-	0, 0, 0,
-	{'R','V','B',0,
-	  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-	XvTopToBottom
-   },
-#endif
    {
 	0x36315652,
         XvRGB,
@@ -254,6 +230,9 @@ void TRIDENTResetVideo(ScrnInfoPtr pScrn)
     int vgaIOBase = VGAHWPTR(pScrn)->IOBase;
     int red, green, blue;
     int tmp;
+
+    WaitForVBlank(pScrn);
+    OUTW(vgaIOBase + 4, 0x848E);
 
     if (pTrident->Chipset >= CYBER9388) {
     	OUTW(vgaIOBase + 4, 0x80B9); 
@@ -326,8 +305,6 @@ void TRIDENTResetVideo(ScrnInfoPtr pScrn)
     	tridentSetVideoParameters(pTrident,pPriv->Brightness,pPriv->Saturation,
                             pPriv->HUE);
     }
-
-    OUTW(vgaIOBase + 4, 0x848E);
 }
 
 
@@ -383,7 +360,7 @@ TRIDENTSetupImageVideo(ScreenPtr pScreen)
     pPriv->fixFrame = 100;
 
     /* gotta uninit this someplace */
-    REGION_INIT(pScreen, &pPriv->clip, NullBox, 0); 
+    REGION_NULL(pScreen, &pPriv->clip);
 
     pTrident->adaptor = adapt;
 
@@ -407,37 +384,6 @@ TRIDENTSetupImageVideo(ScreenPtr pScreen)
 }
 
 
-static Bool
-RegionsEqual(RegionPtr A, RegionPtr B)
-{
-    int *dataA, *dataB;
-    int num;
-
-    num = REGION_NUM_RECTS(A);
-    if(num != REGION_NUM_RECTS(B))
-	return FALSE;
-
-    if((A->extents.x1 != B->extents.x1) ||
-       (A->extents.x2 != B->extents.x2) ||
-       (A->extents.y1 != B->extents.y1) ||
-       (A->extents.y2 != B->extents.y2))
-	return FALSE;
-
-    dataA = (int*)REGION_RECTS(A);
-    dataB = (int*)REGION_RECTS(B);
-
-    while(num--) {
-	if((dataA[0] != dataB[0]) || (dataA[1] != dataB[1]))
-	   return FALSE;
-	dataA += 2; 
-	dataB += 2;
-    }
-
-    return TRUE;
-}
-
-#define DummyScreen screenInfo.screens[0]
-
 static void 
 TRIDENTStopVideo(ScrnInfoPtr pScrn, pointer data, Bool shutdown)
 {
@@ -449,9 +395,9 @@ TRIDENTStopVideo(ScrnInfoPtr pScrn, pointer data, Bool shutdown)
 
   if(shutdown) {
      if(pPriv->videoStatus & CLIENT_VIDEO_ON) {
-	 OUTW(vgaIOBase + 4, 0x0091);
-	 WaitForSync(pScrn);
-	 OUTW(vgaIOBase + 4, 0x848E);
+    	WaitForVBlank(pScrn);
+	OUTW(vgaIOBase + 4, 0x848E);
+	OUTW(vgaIOBase + 4, 0x0091);
      }
      if(pPriv->linear) {
 	xf86FreeOffscreenLinear(pPriv->linear);
@@ -615,55 +561,6 @@ TRIDENTQueryBestSize(
   if(*p_w > 16384) *p_w = 16384;
 }
 
-
-static void
-TRIDENTCopyData(
-  unsigned char *src,
-  unsigned char *dst,
-  int srcPitch,
-  int dstPitch,
-  int h,
-  int w
-){
-    w <<= 1;
-    while(h--) {
-	memcpy(dst, src, w);
-	src += srcPitch;
-	dst += dstPitch;
-    }
-}
-
-static void
-TRIDENTCopyMungedData(
-   unsigned char *src1,
-   unsigned char *src2,
-   unsigned char *src3,
-   unsigned char *dst1,
-   int srcPitch,
-   int srcPitch2,
-   int dstPitch,
-   int h,
-   int w
-){
-   CARD32 *dst = (CARD32*)dst1;
-   int i, j;
-
-   dstPitch >>= 2;
-   w >>= 1;
-
-   for(j = 0; j < h; j++) {
-	for(i = 0; i < w; i++) {
-	    dst[i] = src1[i << 1] | (src1[(i << 1) + 1] << 16) |
-		     (src3[i] << 8) | (src2[i] << 24);
-	}
-	dst += dstPitch;
-	src1 += srcPitch;
-	if(j & 1) {
-	    src2 += srcPitch2;
-	    src3 += srcPitch2;
-	}
-   }
-}
 
 static FBLinearPtr
 TRIDENTAllocateMemory(
@@ -852,7 +749,7 @@ TRIDENTDisplayVideo(
     	} else {
     	    OUTW(0x3C4, 0x0097); /* 1x line buffers */
     	}
-    	OUTW(vgaIOBase + 4, 0x8097); 
+    	OUTW(vgaIOBase + 4, 0x0097); 
     	OUTW(vgaIOBase + 4, 0x00BA);
     	OUTW(vgaIOBase + 4, 0x00BB);
     	OUTW(vgaIOBase + 4, 0xFFBC);
@@ -888,7 +785,7 @@ TRIDENTPutImage(
    TRIDENTPtr pTrident = TRIDENTPTR(pScrn);
    INT32 x1, x2, y1, y2;
    unsigned char *dst_start;
-   int pitch, new_size, offset, offset2 = 0, offset3 = 0;
+   int new_size, offset, offset2 = 0, offset3 = 0;
    int srcPitch, srcPitch2 = 0, dstPitch;
    int top, left, npixels, nlines, bpp;
    BoxRec dstBox;
@@ -915,7 +812,6 @@ TRIDENTPutImage(
    dstBox.y2 -= pScrn->frameY0;
 
    bpp = pScrn->bitsPerPixel >> 3;
-   pitch = bpp * pScrn->displayWidth;
 
    dstPitch = ((width << 1) + 15) & ~15;
    new_size = ((dstPitch * height) + bpp - 1) / bpp;
@@ -960,23 +856,23 @@ TRIDENTPutImage(
 	   offset3 = tmp;
 	}
 	nlines = ((((y2 + 0xffff) >> 16) + 1) & ~1) - top;
-	TRIDENTCopyMungedData(buf + (top * srcPitch) + (left >> 1), 
-			  buf + offset2, buf + offset3, dst_start,
-			  srcPitch, srcPitch2, dstPitch, nlines, npixels);
+	xf86XVCopyYUV12ToPacked(buf + (top * srcPitch) + (left >> 1), 
+				buf + offset2, buf + offset3, dst_start,
+				srcPitch, srcPitch2, dstPitch, nlines, npixels);
 	break;
     case FOURCC_UYVY:
     case FOURCC_YUY2:
     default:
 	buf += (top * srcPitch) + left;
 	nlines = ((y2 + 0xffff) >> 16) - top;
-	TRIDENTCopyData(buf, dst_start, srcPitch, dstPitch, nlines, npixels);
+	xf86XVCopyPacked(buf, dst_start, srcPitch, dstPitch, nlines, npixels);
         break;
     }
 
     /* update cliplist */
-    if(!RegionsEqual(&pPriv->clip, clipBoxes)) {
+    if(!REGION_EQUAL(pScrn->pScreen, &pPriv->clip, clipBoxes)) {
     	/* update cliplist */
-        REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
+        REGION_COPY(pScrn->pScreen, &pPriv->clip, clipBoxes);
         xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes);
     }
 
@@ -987,6 +883,8 @@ TRIDENTPutImage(
 	     x1, y1, x2, y2, &dstBox, src_w, src_h, drw_w, drw_h);
 
     pPriv->videoStatus = CLIENT_VIDEO_ON;
+
+    pTrident->VideoTimerCallback = TRIDENTVideoTimerCallback;
 
     return Success;
 }
@@ -1046,7 +944,7 @@ TRIDENTAllocateSurface(
     XF86SurfacePtr surface
 ){
     FBLinearPtr linear;
-    int pitch, fbpitch, size, bpp;
+    int pitch, size, bpp;
     OffscreenPrivPtr pPriv;
 
     if((w > 1024) || (h > 1024))
@@ -1055,7 +953,6 @@ TRIDENTAllocateSurface(
     w = (w + 1) & ~1;
     pitch = ((w << 1) + 15) & ~15;
     bpp = pScrn->bitsPerPixel >> 3;
-    fbpitch = bpp * pScrn->displayWidth;
     size = ((pitch * h) + bpp - 1) / bpp;
 
     if(!(linear = TRIDENTAllocateMemory(pScrn, NULL, size)))
@@ -1101,10 +998,9 @@ TRIDENTStopSurface(
     if(pPriv->isOn) {
 	TRIDENTPtr pTrident = TRIDENTPTR(surface->pScrn);
     	int vgaIOBase = VGAHWPTR(surface->pScrn)->IOBase;
-
-	OUTW(vgaIOBase + 4, 0x0091);
-	WaitForSync(surface->pScrn);
+	WaitForVBlank(surface->pScrn);
  	OUTW(vgaIOBase + 4, 0x848E);
+	OUTW(vgaIOBase + 4, 0x0091);
 	pPriv->isOn = FALSE;
     }
 
@@ -1249,9 +1145,9 @@ TRIDENTVideoTimerCallback(ScrnInfoPtr pScrn, Time time)
     if(pPriv->videoStatus & TIMER_MASK) {
 	if(pPriv->videoStatus & OFF_TIMER) {
 	    if(pPriv->offTime < time) {
-		OUTW(vgaIOBase + 4, 0x0091);
-		WaitForSync(pScrn);
+		WaitForVBlank(pScrn);
   		OUTW(vgaIOBase + 4, 0x848E);
+		OUTW(vgaIOBase + 4, 0x0091);
 		pPriv->videoStatus = FREE_TIMER;
 		pPriv->freeTime = time + FREE_DELAY;
 	    }
@@ -1369,7 +1265,10 @@ tridentFixFrame(ScrnInfoPtr pScrn, int *fixFrame)
 	case CYBERBLADEI7D:
 	case CYBERBLADEI1:
 	case CYBERBLADEI1D:
-	    pTrident->hsync -= 8;
+	    if (pScrn->depth == 24)
+		pTrident->hsync -= 7;
+	    else
+		pTrident->hsync -= 6;
 	    break;
 	case CYBERBLADEAI1:
 	    pTrident->hsync -= 7;
@@ -1399,10 +1298,16 @@ tridentFixFrame(ScrnInfoPtr pScrn, int *fixFrame)
 }
     
 static void
-WaitForSync(ScrnInfoPtr	pScrn)
+WaitForVBlank(ScrnInfoPtr pScrn)
 {
     register vgaHWPtr hwp = VGAHWPTR(pScrn);
 
-    while (!(hwp->readST01(hwp)&0x8)) {};
-    while (hwp->readST01(hwp)&0x8) {};
+    /* We have to wait for one full VBlank to let the video engine start/stop.
+     * So the first may be waiting for too short a period as it may already
+     * be part way through the video frame. So we wait a second time to ensure
+     * full vblank has passed. 
+     * - Alan.
+     */
+    WAITFORVSYNC;
+    WAITFORVSYNC;
 }

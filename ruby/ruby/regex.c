@@ -12,7 +12,7 @@
    Library General Public License for more details.
 
    You should have received a copy of the GNU Library General Public
-   License along with the GNU C Library; see the file COPYING.LIB.  If not,
+   License along with the GNU C Library; see the file LGPL.  If not,
    write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 /* Multi-byte extension added May, 1993 by t^2 (Takahiro Tanimoto)
@@ -51,7 +51,7 @@
 # include <sys/types.h>
 #endif
 
-#ifndef __STDC__
+#if !defined(__STDC__) && !defined(_MSC_VER)
 # define volatile
 #endif
 
@@ -69,19 +69,11 @@ extern int rb_prohibit_interrupt;
 extern int rb_trap_pending;
 void rb_trap_exec _((void));
 
-# define CHECK_INTS if (!rb_prohibit_interrupt) {\
-    if (rb_trap_pending) rb_trap_exec();\
-}
-
-#define xmalloc ruby_xmalloc
-#define xcalloc ruby_xcalloc
-#define xrealloc ruby_xrealloc
-#define xfree ruby_xfree
-
-void *xmalloc _((size_t));
-void *xcalloc _((size_t,size_t));
-void *xrealloc _((void*,size_t));
-void xfree _((void*));
+# define CHECK_INTS do {\
+    if (!rb_prohibit_interrupt) {\
+	if (rb_trap_pending) rb_trap_exec();\
+    }\
+} while (0)
 #endif
 
 /* Make alloca work the best possible way.  */
@@ -193,6 +185,12 @@ static int current_mbctype = MBCTYPE_ASCII;
 
 #ifdef RUBY
 #include "util.h"
+void rb_warn _((char*));
+# define re_warning(x) rb_warn(x)
+#endif
+
+#ifndef re_warning
+# define re_warning(x)
 #endif
 
 static void
@@ -429,7 +427,6 @@ re_set_syntax(syntax)
     return 0;
 }
 
-
 /* Macros for re_compile_pattern, which is found below these definitions.  */
 
 #define TRANSLATE_P() ((options&RE_OPTION_IGNORECASE) && translate)
@@ -477,6 +474,19 @@ re_set_syntax(syntax)
 
 #define WC2MBC1ST(c)							\
  ((current_mbctype != MBCTYPE_UTF8) ? ((c<0x100) ? (c) : (((c)>>8)&0xff)) : utf8_firstbyte(c))
+
+typedef unsigned int (*mbc_startpos_func_t) _((const char *string, unsigned int pos));
+
+static unsigned int asc_startpos _((const char *string, unsigned int pos));
+static unsigned int euc_startpos _((const char *string, unsigned int pos));
+static unsigned int sjis_startpos _((const char *string, unsigned int pos));
+static unsigned int utf8_startpos _((const char *string, unsigned int pos));
+
+static const mbc_startpos_func_t mbc_startpos_func[4] = {
+  asc_startpos, euc_startpos, sjis_startpos, utf8_startpos
+};
+
+#define mbc_startpos(start, pos) (*mbc_startpos_func[current_mbctype])((start), (pos))
 
 static unsigned int
 utf8_firstbyte(c)
@@ -547,7 +557,7 @@ print_mbc(c)
    reset the pointers that pointed into the old allocation to point to
    the correct places in the new allocation.  If extending the buffer
    results in it being larger than 1 << 16, then flag memory exhausted.  */
-#define EXTEND_BUFFER							\
+#define EXTEND_BUFFER						\
   do { char *old_buffer = bufp->buffer;					\
     if (bufp->allocated == (1L<<16)) goto too_big;			\
     bufp->allocated *= 2;						\
@@ -694,7 +704,18 @@ set_list_bits(c1, c2, b)
 }
 
 static int
-is_in_list(c, b)
+is_in_list_sbc(c, b)
+    unsigned long c;
+    const unsigned char *b;
+{
+  unsigned short size;
+
+  size = *b++;
+  return ((int)c / BYTEWIDTH < (int)size && b[c / BYTEWIDTH] & 1 << c % BYTEWIDTH);
+}
+  
+static int
+is_in_list_mbc(c, b)
     unsigned long c;
     const unsigned char *b;
 {
@@ -702,9 +723,6 @@ is_in_list(c, b)
   unsigned short i, j;
 
   size = *b++;
-  if ((int)c / BYTEWIDTH < (int)size && b[c / BYTEWIDTH] & 1 << c % BYTEWIDTH) {
-    return 1;
-  }
   b += size + 2;
   size = EXTRACT_UNSIGNED(&b[-2]);
   if (size == 0) return 0;
@@ -719,7 +737,16 @@ is_in_list(c, b)
   }
   if (i < size && EXTRACT_MBC(&b[i*8]) <= c)
     return 1;
+
   return 0;
+}
+
+static int
+is_in_list(c, b)
+    unsigned long c;
+    const unsigned char *b;
+{
+  return is_in_list_sbc(c, b) || (current_mbctype ? is_in_list_mbc(c, b) : 0);
 }
 
 static void
@@ -828,7 +855,7 @@ print_partial_compiled_pattern(start, end)
 	  unsigned bit;
 	  unsigned char map_byte = p[c];
 
-	  putchar ('/');
+	  putchar('/');
 
 	  for (bit = 0; bit < BYTEWIDTH; bit++)
 	    if (map_byte & (1 << bit))
@@ -836,10 +863,10 @@ print_partial_compiled_pattern(start, end)
 	}
 	p += mcnt;
 	mcnt = EXTRACT_UNSIGNED_AND_INCR(p);
-	printf("/");
+	putchar('/');
 	while (mcnt--) {
 	  print_mbc(EXTRACT_MBC_AND_INCR(p));
-	  printf("-");
+	  putchar('-');
 	  print_mbc(EXTRACT_MBC_AND_INCR(p));
 	}
 	break;
@@ -984,8 +1011,8 @@ calculate_must_string(start, end)
 {
   int mcnt;
   int max = 0;
-  char *p = start;
-  char *pend = end;
+  unsigned char *p = start;
+  unsigned char *pend = end;
   char *must = 0;
 
   if (start == NULL) return 0;
@@ -1011,6 +1038,7 @@ calculate_must_string(start, end)
       break;
 
     case duplicate:
+    case option_set:
       p++;
       break;
 
@@ -1036,7 +1064,6 @@ calculate_must_string(start, end)
     case push_dummy_failure:
     case start_paren:
     case stop_paren:
-    case option_set:
       break;
 
     case charset:
@@ -1053,7 +1080,7 @@ calculate_must_string(start, end)
       EXTRACT_NUMBER_AND_INCR(mcnt, p);
       if (mcnt > 0) p += mcnt;
       if ((enum regexpcode)p[-3] == jump) {
-       p -= 2;
+	p -= 2;
 	EXTRACT_NUMBER_AND_INCR(mcnt, p);
 	if (mcnt > 0) p += mcnt;
       }
@@ -1272,13 +1299,9 @@ re_compile_pattern(pattern, size, bufp)
 
   if (bufp->allocated == 0) {
     bufp->allocated = INIT_BUF_SIZE;
-    if (bufp->buffer)
-      /* EXTEND_BUFFER loses when bufp->allocated is 0.  */
-      bufp->buffer = (char*)xrealloc(bufp->buffer, INIT_BUF_SIZE);
-    else
-      /* Caller did not allocate a buffer.  Do it for them.  */
-      bufp->buffer = (char*)xmalloc(INIT_BUF_SIZE);
-    if (!bufp->buffer) goto memory_exhausted;
+    /* EXTEND_BUFFER loses when bufp->allocated is 0.  */
+    bufp->buffer = (char*)xrealloc(bufp->buffer, INIT_BUF_SIZE);
+    if (!bufp->buffer) goto memory_exhausted; /* this not happen */
     begalt = b = bufp->buffer;
   }
 
@@ -1430,8 +1453,7 @@ re_compile_pattern(pattern, size, bufp)
 	int size;
 	unsigned last = (unsigned)-1;
 
-	if ((size = EXTRACT_UNSIGNED(&b[(1 << BYTEWIDTH) / BYTEWIDTH]))
-	    || current_mbctype) {
+	if ((size = EXTRACT_UNSIGNED(&b[(1 << BYTEWIDTH) / BYTEWIDTH])) || current_mbctype) {
 	  /* Ensure the space is enough to hold another interval
 	     of multi-byte chars in charset(_not)?.  */
 	  size = (1 << BYTEWIDTH) / BYTEWIDTH + 2 + size*8 + 8;
@@ -1442,12 +1464,13 @@ re_compile_pattern(pattern, size, bufp)
 	if (range && had_char_class) {
 	  FREE_AND_RETURN(stackb, "invalid regular expression; can't use character class as an end value of range");
 	}
-	PATFETCH(c);
+	PATFETCH_RAW(c);
 
 	if (c == ']') {
 	  if (p == p0 + 1) {
 	    if (p == pend)
 	      FREE_AND_RETURN(stackb, "invalid regular expression; empty character class");
+            re_warning("character class has `]' without escape");
 	  }
 	  else 
 	    /* Stop if this isn't merely a ] inside a bracket
@@ -1464,6 +1487,13 @@ re_compile_pattern(pattern, size, bufp)
 	  had_mbchar++;
 	}
 	had_char_class = 0;
+
+	if (c == '-' && ((p != p0 + 1 && *p != ']') ||
+                         (p[0] == '-' && p[1] != ']') ||
+                         range))
+          re_warning("character class has `-' without escape");
+        if (c == '[' && *p != ':')
+          re_warning("character class has `[' without escape");
 
 	/* \ escapes characters when inside [...].  */
 	if (c == '\\') {
@@ -1566,32 +1596,7 @@ re_compile_pattern(pattern, size, bufp)
 	    break;
 	  }
 	}
-
-	/* Get a range.  */
-	if (range) {
-	  if (last > c)
-	    goto invalid_pattern;
-
-	  range = 0;
-	  if (had_mbchar == 0) {
-	    for (;last<=c;last++)
-	      SET_LIST_BIT(last);
-	  }
-	  else if (had_mbchar == 2) {
-	    set_list_bits(last, c, b);
-	  }
-	  else {
-	    /* restriction: range between sbc and mbc */
-	    goto invalid_pattern;
-	  }
-	}
-	else if (p[0] == '-' && p[1] != ']') {
-	  last = c;
-	  PATFETCH(c1);
-	  range = 1;
-	  goto range_retry;
-	}
-	else if (c == '[' && *p == ':') {
+        else if (c == '[' && *p == ':') { /* [:...:] */
 	  /* Leave room for the null.  */
 	  char str[CHAR_CLASS_MAX_LENGTH + 1];
 
@@ -1603,7 +1608,7 @@ re_compile_pattern(pattern, size, bufp)
 	    FREE_AND_RETURN(stackb, "invalid regular expression; re can't end '[[:'");
 
 	  for (;;) {
-	    PATFETCH (c);
+	    PATFETCH_RAW(c);
 	    if (c == ':' || c == ']' || p == pend
 		|| c1 == CHAR_CLASS_MAX_LENGTH)
 	      break;
@@ -1611,9 +1616,9 @@ re_compile_pattern(pattern, size, bufp)
 	  }
 	  str[c1] = '\0';
 
-	  /* If isn't a word bracketed by `[:' and:`]':
-	     undo the ending character, the letters, and leave 
-	     the leading `:' and `[' (but set bits for them).  */
+	  /* If isn't a word bracketed by `[:' and `:]':
+	     undo the ending character, the letters, and
+	     the leading `:' and `['.  */
 	  if (c == ':' && *p == ']') {
 	    int ch;
 	    char is_alnum = STREQ(str, "alnum");
@@ -1657,23 +1662,57 @@ re_compile_pattern(pattern, size, bufp)
 		SET_LIST_BIT(ch);
 	    }
 	    had_char_class = 1;
+            continue;
 	  }
 	  else {
-	    c1++;
+	    c1 += 2;
 	    while (c1--)    
 	      PATUNFETCH;
-	    SET_LIST_BIT(TRANSLATE_P()?translate['[']:'[');
-	    SET_LIST_BIT(TRANSLATE_P()?translate[':']:':');
-	    had_char_class = 0;
-	    last = ':';
+            re_warning("character class has `[' without escape");
+            c = '[';
 	  }
 	}
-	else if (had_mbchar == 0 && (!current_mbctype || !had_num_literal)) {
-	  SET_LIST_BIT(c);
-	  had_num_literal = 0;
+
+	/* Get a range.  */
+	if (range) {
+	  if (last > c)
+	    goto invalid_pattern;
+
+	  range = 0;
+	  if (had_mbchar == 0) {
+	    if (TRANSLATE_P()) {
+	      for (;last<=c;last++) 
+		SET_LIST_BIT(translate[last]);
+	    }
+	    else {
+	      for (;last<=c;last++) 
+		SET_LIST_BIT(last);
+	    }
+	  }
+	  else if (had_mbchar == 2) {
+	    set_list_bits(last, c, b);
+	  }
+	  else {
+	    /* restriction: range between sbc and mbc */
+	    goto invalid_pattern;
+	  }
 	}
-	else
-	  set_list_bits(c, c, b);
+	else if (p[0] == '-' && p[1] != ']') {
+	  last = c;
+	  PATFETCH_RAW(c1);
+	  range = 1;
+	  goto range_retry;
+	}
+	else {
+	  if (TRANSLATE_P()) c = (unsigned char)translate[c];
+	  if (had_mbchar == 0 && (!current_mbctype || !had_num_literal)) {
+	    SET_LIST_BIT(c);
+	    had_num_literal = 0;
+	  }
+	  else {
+	    set_list_bits(c, c, b);
+	  }
+	}
 	had_mbchar = 0;
       }
 
@@ -1682,9 +1721,9 @@ re_compile_pattern(pattern, size, bufp)
       while ((int)b[-1] > 0 && b[b[-1] - 1] == 0) 
 	b[-1]--; 
       if (b[-1] != (1 << BYTEWIDTH) / BYTEWIDTH)
-	memmove(&b[b[-1]], &b[(1 << BYTEWIDTH) / BYTEWIDTH],
+	memmove(&b[(unsigned char)b[-1]], &b[(1 << BYTEWIDTH) / BYTEWIDTH],
 		2 + EXTRACT_UNSIGNED(&b[(1 << BYTEWIDTH) / BYTEWIDTH])*8);
-      b += b[-1] + 2 + EXTRACT_UNSIGNED(&b[b[-1]])*8;
+      b += b[-1] + 2 + EXTRACT_UNSIGNED(&b[(unsigned char)b[-1]])*8;
       break;
 
     case '(':
@@ -1693,155 +1732,143 @@ re_compile_pattern(pattern, size, bufp)
 	int push_option = 0;
 	int casefold = 0;
 
-      PATFETCH(c);
-      if (c == '?') {
-	int negative = 0;
+	PATFETCH(c);
+	if (c == '?') {
+	  int negative = 0;
 
-	PATFETCH_RAW(c);
-	switch (c) {
-	case 'x': case 'p': case 'm': case 'i': case '-':
-	  for (;;) {
-	    switch (c) {
-	    case '-':
-	      negative = 1;
-	      break;
+	  PATFETCH_RAW(c);
+	  switch (c) {
+	  case 'x': case 'm': case 'i': case '-':
+	    for (;;) {
+	      switch (c) {
+	      case '-':
+		negative = 1;
+		break;
 
-	    case ':':
-	    case ')':
-	      break;
+	      case ':':
+	      case ')':
+		break;
 
-	    case 'x':
-	      if (negative)
-		options &= ~RE_OPTION_EXTENDED;
-	      else
-		options |= RE_OPTION_EXTENDED;
-	      break;
+	      case 'x':
+		if (negative)
+		  options &= ~RE_OPTION_EXTENDED;
+		else
+		  options |= RE_OPTION_EXTENDED;
+		break;
 
-	    case 'p':
-	      if (negative) {
-		if ((options&RE_OPTION_POSIXLINE) == RE_OPTION_POSIXLINE) {
-		  options &= ~RE_OPTION_POSIXLINE;
+	      case 'm':
+		if (negative) {
+		  if (options&RE_OPTION_MULTILINE) {
+		    options &= ~RE_OPTION_MULTILINE;
+		  }
 		}
-	      }
-	      else if ((options&RE_OPTION_POSIXLINE) != RE_OPTION_POSIXLINE) {
-		options |= RE_OPTION_POSIXLINE;
-	      }
-	      push_option = 1;
-	      break;
-
-	    case 'm':
-	      if (negative) {
-		if (options&RE_OPTION_MULTILINE) {
-		  options &= ~RE_OPTION_MULTILINE;
+		else if (!(options&RE_OPTION_MULTILINE)) {
+		  options |= RE_OPTION_MULTILINE;
 		}
-	      }
-	      else if (!(options&RE_OPTION_MULTILINE)) {
-		options |= RE_OPTION_MULTILINE;
-	      }
-	      push_option = 1;
-	      break;
+		push_option = 1;
+		break;
 
-	    case 'i':
-	      if (negative) {
-		if (options&RE_OPTION_IGNORECASE) {
-		  options &= ~RE_OPTION_IGNORECASE;
+	      case 'i':
+		if (negative) {
+		  if (options&RE_OPTION_IGNORECASE) {
+		    options &= ~RE_OPTION_IGNORECASE;
+		  }
 		}
-	      }
-	      else if (!(options&RE_OPTION_IGNORECASE)) {
-		options |= RE_OPTION_IGNORECASE;
-	      }
+		else if (!(options&RE_OPTION_IGNORECASE)) {
+		  options |= RE_OPTION_IGNORECASE;
+		}
 		casefold = 1;
-	      break;
+		break;
 
-	    default:
-	      FREE_AND_RETURN(stackb, "undefined (?...) inline option");
+	      default:
+		FREE_AND_RETURN(stackb, "undefined (?...) inline option");
+	      }
+	      if (c == ')') {
+		c = '#';	/* read whole in-line options */
+		break;
+	      }
+	      if (c == ':') break;
+	      PATFETCH_RAW(c);
 	    }
-	    if (c == ')') {
-	      c = '#';	/* read whole in-line options */
-	      break;
+	    break;
+
+	  case '#':
+	    for (;;) {
+	      PATFETCH(c);
+	      if (c == ')') break;
 	    }
-	    if (c == ':') break;
-	    PATFETCH_RAW(c);
+	    c = '#';
+	    break;
+
+	  case ':':
+	  case '=':
+	  case '!':
+	  case '>':
+	    break;
+
+	  default:
+	    FREE_AND_RETURN(stackb, "undefined (?...) sequence");
 	  }
-	  break;
-
-	case '#':
-	  for (;;) {
-	    PATFETCH(c);
-	    if (c == ')') break;
-	  }
-	  c = '#';
-	  break;
-
-	case ':':
-	case '=':
-	case '!':
-	case '>':
-	  break;
-
-	default:
-	  FREE_AND_RETURN(stackb, "undefined (?...) sequence");
-	}
 	}
 	else {
 	  PATUNFETCH;
 	  c = '(';
 	}
 	if (c == '#') {
-	if (push_option) {
-	  BUFPUSH(option_set);
-	  BUFPUSH(options);
-	}
+	  if (push_option) {
+	    BUFPUSH(option_set);
+	    BUFPUSH(options);
+	  }
 	  if (casefold) {
 	    if (options & RE_OPTION_IGNORECASE)
 	      BUFPUSH(casefold_on);
 	    else
 	      BUFPUSH(casefold_off);
-      }
+	  }
 	  break;
-      }
-      if (stackp+8 >= stacke) {
-	DOUBLE_STACK(int);
-      }
+	}
+	if (stackp+8 >= stacke) {
+	  DOUBLE_STACK(int);
+	}
 
-      /* Laststart should point to the start_memory that we are about
-	 to push (unless the pattern has RE_NREGS or more ('s).  */
-      /* obsolete: now RE_NREGS is just a default register size. */
-      *stackp++ = b - bufp->buffer;    
-      *stackp++ = fixup_alt_jump ? fixup_alt_jump - bufp->buffer + 1 : 0;
-      *stackp++ = begalt - bufp->buffer;
-      switch (c) {
-      case '(':
-	BUFPUSH(start_memory);
-	BUFPUSH(regnum);
-	*stackp++ = regnum++;
-	*stackp++ = b - bufp->buffer;
-	BUFPUSH(0);
-	/* too many ()'s to fit in a byte. (max 254) */
-	if (regnum >= RE_REG_MAX) goto too_big;
-	break;
+	/* Laststart should point to the start_memory that we are about
+	   to push (unless the pattern has RE_NREGS or more ('s).  */
+	/* obsolete: now RE_NREGS is just a default register size. */
+	*stackp++ = b - bufp->buffer;    
+	*stackp++ = fixup_alt_jump ? fixup_alt_jump - bufp->buffer + 1 : 0;
+	*stackp++ = begalt - bufp->buffer;
+	switch (c) {
+	case '(':
+	  BUFPUSH(start_memory);
+	  BUFPUSH(regnum);
+	  *stackp++ = regnum++;
+	  *stackp++ = b - bufp->buffer;
+	  BUFPUSH(0);
+	  /* too many ()'s to fit in a byte. (max 254) */
+	  if (regnum >= RE_REG_MAX) goto too_big;
+	  break;
 
-      case '=':
-      case '!':
-      case '>':
-	BUFPUSH(start_nowidth);
-	*stackp++ = b - bufp->buffer;
-	BUFPUSH(0);	/* temporary value */
-	BUFPUSH(0);
-	if (c != '!') break;
+	case '=':
+	case '!':
+	case '>':
+	  BUFPUSH(start_nowidth);
+	  *stackp++ = b - bufp->buffer;
+	  BUFPUSH(0);	/* temporary value */
+	  BUFPUSH(0);
+	  if (c != '!') break;
 
-	BUFPUSH(on_failure_jump);
-	*stackp++ = b - bufp->buffer;
-	BUFPUSH(0);	/* temporary value */
-	BUFPUSH(0);
-	break;
+	  BUFPUSH(on_failure_jump);
+	  *stackp++ = b - bufp->buffer;
+	  BUFPUSH(0);	/* temporary value */
+	  BUFPUSH(0);
+	  break;
 
-      case ':':
-	BUFPUSH(start_paren);
-	pending_exact = 0;
-      default:
-	break;
-      }
+	case ':':
+	  BUFPUSH(start_paren);
+	  pending_exact = 0;
+	default:
+	  break;
+	}
 	if (push_option) {
 	  BUFPUSH(option_set);
 	  BUFPUSH(options);
@@ -1852,11 +1879,11 @@ re_compile_pattern(pattern, size, bufp)
 	  else
 	    BUFPUSH(casefold_off);
 	}
-      *stackp++ = c;
-      *stackp++ = old_options;
-      fixup_alt_jump = 0;
-      laststart = 0;
-      begalt = b;
+	*stackp++ = c;
+	*stackp++ = old_options;
+	fixup_alt_jump = 0;
+	laststart = 0;
+	begalt = b;
       }
       break;
 
@@ -2154,6 +2181,7 @@ re_compile_pattern(pattern, size, bufp)
 
     unfetch_interval:
       /* If an invalid interval, match the characters as literals.  */
+      re_warning("regexp has invalid interval");
       p = beg_interval;
       beg_interval = 0;
 
@@ -2205,9 +2233,9 @@ re_compile_pattern(pattern, size, bufp)
 	while ((int)b[-1] > 0 && b[b[-1] - 1] == 0) 
 	  b[-1]--; 
 	if (b[-1] != (1 << BYTEWIDTH) / BYTEWIDTH)
-	  memmove(&b[b[-1]], &b[(1 << BYTEWIDTH) / BYTEWIDTH],
+	  memmove(&b[(unsigned char)b[-1]], &b[(1 << BYTEWIDTH) / BYTEWIDTH],
 		  2 + EXTRACT_UNSIGNED(&b[(1 << BYTEWIDTH) / BYTEWIDTH])*8);
-	b += b[-1] + 2 + EXTRACT_UNSIGNED(&b[b[-1]])*8;
+	b += b[-1] + 2 + EXTRACT_UNSIGNED(&b[(unsigned char)b[-1]])*8;
 	break;
 
       case 'w':
@@ -2277,22 +2305,22 @@ re_compile_pattern(pattern, size, bufp)
       case '1': case '2': case '3':
       case '4': case '5': case '6':
       case '7': case '8': case '9':
-	  PATUNFETCH;
+	PATUNFETCH;
 	p0 = p;
 
-	  had_mbchar = 0;
-	  c1 = 0;
-	  GET_UNSIGNED_NUMBER(c1);
-	  if (!ISDIGIT(c)) PATUNFETCH;
+	had_mbchar = 0;
+	c1 = 0;
+	GET_UNSIGNED_NUMBER(c1);
+	if (!ISDIGIT(c)) PATUNFETCH;
 
 	if (9 < c1 && c1 >= regnum) {
-	    /* need to get octal */
+	  /* need to get octal */
 	  c = scan_oct(p0, 3, &numlen) & 0xff;
 	  p = p0 + numlen;
-	    c1 = 0;
-	    had_num_literal = 1;
-	    goto numeric_char;
-	  }
+	  c1 = 0;
+	  had_num_literal = 1;
+	  goto numeric_char;
+	}
 
 	laststart = b;
 	BUFPUSH(duplicate);
@@ -2334,6 +2362,10 @@ re_compile_pattern(pattern, size, bufp)
 	break;
 
     default:
+      if (c == ']')
+        re_warning("regexp has `]' without escape");
+      else if (c == '}')
+        re_warning("regexp has `}' without escape");
     normal_char:		/* Expects the character in `c'.  */
       had_mbchar = 0;
       if (ismbchar(c)) {
@@ -2344,9 +2376,10 @@ re_compile_pattern(pattern, size, bufp)
       nextp = p + mbclen(c) - 1;
       if (!pending_exact || pending_exact + *pending_exact + 1 != b
 	  || *pending_exact >= (c1 ? 0176 : 0177)
-	  || *nextp == '+' || *nextp == '?'
-	  || *nextp == '*' || *nextp == '^'
-	  || *nextp == '{') {
+	  || (nextp < pend &&
+	      (   *nextp == '+' || *nextp == '?'
+	       || *nextp == '*' || *nextp == '^'
+	       || *nextp == '{'))) {
 	laststart = b;
 	BUFPUSH(exactn);
 	pending_exact = b;
@@ -2379,7 +2412,6 @@ re_compile_pattern(pattern, size, bufp)
   /* set optimize flags */
   laststart = bufp->buffer;
   if (laststart != b) {
-    if (*laststart == start_memory) laststart += 3;
     if (*laststart == dummy_failure_jump) laststart += 3;
     else if (*laststart == try_next) laststart += 3;
     if (*laststart == anychar_repeat) {
@@ -2591,9 +2623,9 @@ insert_op_2(op, there, current_end, num_1, num_2)
 #define trans_eq(c1, c2, translate) (translate?(translate[c1]==translate[c2]):((c1)==(c2)))
 static int
 slow_match(little, lend, big, bend, translate)
-     unsigned char *little, *lend;
-     unsigned char *big, *bend;
-     unsigned char *translate;
+     const unsigned char *little, *lend;
+     const unsigned char *big, *bend;
+     const unsigned char *translate;
 {
   int c;
 
@@ -2609,14 +2641,14 @@ slow_match(little, lend, big, bend, translate)
 
 static int
 slow_search(little, llen, big, blen, translate)
-     unsigned char *little;
+     const unsigned char *little;
      int llen;
-     unsigned char *big;
+     const unsigned char *big;
      int blen;
-     char *translate;
+     const char *translate;
 {
-  unsigned char *bsave = big;
-  unsigned char *bend = big + blen;
+  const unsigned char *bsave = big;
+  const unsigned char *bend = big + blen;
   register int c;
   int fescape = 0;
 
@@ -2686,12 +2718,12 @@ bm_init_skip(skip, pat, m, translate)
 
 static int
 bm_search(little, llen, big, blen, skip, translate)
-     unsigned char *little;
+     const unsigned char *little;
      int llen;
-     unsigned char *big;
+     const unsigned char *big;
      int blen;
      int *skip;
-     unsigned char *translate;
+     const unsigned char *translate;
 {
   int i, j, k;
 
@@ -2798,8 +2830,11 @@ re_compile_fastmap(bufp)
 
       case casefold_on:
 	bufp->options |= RE_MAY_IGNORECASE;
+	options |= RE_OPTION_IGNORECASE;
+	continue;
+
       case casefold_off:
-	options ^= RE_OPTION_IGNORECASE;
+	options &= ~RE_OPTION_IGNORECASE;
 	continue;
 
       case option_set:
@@ -2889,6 +2924,7 @@ re_compile_fastmap(bufp)
 
       case duplicate:
 	bufp->can_be_null = 1;
+	if (*p >= bufp->re_nsub) break;
 	fastmap['\n'] = 1;
       case anychar_repeat:
       case anychar:
@@ -3080,33 +3116,27 @@ re_adjust_startpos(bufp, string, size, startpos, range)
 
   /* Adjust startpos for mbc string */
   if (current_mbctype && startpos>0 && !(bufp->options&RE_OPTIMIZE_BMATCH)) {
-    int i = 0;
+    int i = mbc_startpos(string, startpos);
 
-    if (range > 0) {
-      while (i<size) {
-	i += mbclen(string[i]);
-	if (startpos <= i) {
-	  startpos = i;
-	  break;
-	}
+    if (i < startpos) {
+      if (range > 0) {
+	startpos = i + mbclen(string[i]);
       }
-    }
-    else {
-      int w;
-
-      while (i<size) {
-	w = mbclen(string[i]);
-	if (startpos < i + w) {
+      else {
+	int len = mbclen(string[i]);
+	if (i + len <= startpos)
+	  startpos = i + len;
+	else
 	  startpos = i;
-	  break;
-	}
-	i += w;
       }
     }
   }
   return startpos;
 }
 
+
+static int re_match_exec _((struct re_pattern_buffer *, const char *, int, int, int,
+			    struct re_registers *));
 
 /* Using the compiled pattern in BUFP->buffer, first tries to match
    STRING, starting first at index STARTPOS, then at STARTPOS + 1, and
@@ -3128,7 +3158,7 @@ re_search(bufp, string, size, startpos, range, regs)
      struct re_registers *regs;
 {
   register char *fastmap = bufp->fastmap;
-  int val, anchor = 0;
+  int val, anchor = 0, initpos = startpos;
 
   /* Check for out-of-range starting position.  */
   if (startpos < 0  ||  startpos > size)
@@ -3170,7 +3200,7 @@ re_search(bufp, string, size, startpos, range, regs)
     }
   }
   if (bufp->options & RE_OPTIMIZE_ANCHOR) {
-    if (bufp->options&RE_OPTION_SINGLELINE) {
+    if (bufp->options&RE_OPTION_MULTILINE && range > 0) {
       goto begbuf_match;
     }
     anchor = 1;
@@ -3257,7 +3287,7 @@ re_search(bufp, string, size, startpos, range, regs)
     if (startpos > size) return -1;
     if ((anchor || !bufp->can_be_null) && range > 0 && size > 0 && startpos == size)
       return -1;
-    val = re_match(bufp, string, size, startpos, regs);
+    val = re_match_exec(bufp, string, size, startpos, initpos, regs);
     if (val >= 0) return startpos;
     if (val == -2) return -2;
 
@@ -3490,6 +3520,16 @@ re_match(bufp, string_arg, size, pos, regs)
      struct re_pattern_buffer *bufp;
      const char *string_arg;
      int size, pos;
+     struct re_registers *regs;
+{
+  return re_match_exec(bufp, string_arg, size, pos, pos, regs);
+}
+
+static int
+re_match_exec(bufp, string_arg, size, pos, beg, regs)
+     struct re_pattern_buffer *bufp;
+     const char *string_arg;
+     int size, pos, beg;
      struct re_registers *regs;
 {
   register unsigned char *p = (unsigned char*)bufp->buffer;
@@ -3821,19 +3861,25 @@ re_match(bufp, string_arg, size, pos, regs)
 	  int cc, c;
 
 	  PREFETCH;
-	  cc = c = (unsigned char)*d++;
+	  c = (unsigned char)*d++;
 	  if (ismbchar(c)) {
 	    if (d + mbclen(c) - 1 <= dend) {
+	      cc = c;
 	      MBC2WC(c, d);
+	      not = is_in_list_mbc(c, p);
+	      if (!not) {
+		part = not = is_in_list_sbc(cc, p);
+	      }
+	    } else {
+	      not = is_in_list(c, p);
 	    }
 	  }
-	  else if (TRANSLATE_P())
-	    cc = c = (unsigned char)translate[c];
-
-	  not = is_in_list(c, p);
-	  if (!not && cc != c) {
-	      part = not = is_in_list(cc, p);
+	  else {
+	    if (TRANSLATE_P())
+	      c = (unsigned char)translate[c];
+	    not = is_in_list(c, p);
 	  }
+
 	  if (*(p - 1) == (unsigned char)charset_not) {
 	    not = !not;
 	  }
@@ -3855,8 +3901,7 @@ re_match(bufp, string_arg, size, pos, regs)
 
       case endline:
 	if (AT_STRINGS_END(d)) {
-	  if (size == 0 || d[-1] != '\n')
-	    break;
+	  break;
 	}
 	else if (*d == '\n')
 	  break;
@@ -3877,8 +3922,7 @@ re_match(bufp, string_arg, size, pos, regs)
 	/* Match at the very end of the data. */
       case endbuf2:
 	if (AT_STRINGS_END(d)) {
-	  if (size == 0 || d[-1] != '\n')
-	    break;
+	  break;
 	}
 	/* .. or newline just before the end of the data. */
 	if (*d == '\n' && AT_STRINGS_END(d+1))
@@ -3903,7 +3947,7 @@ re_match(bufp, string_arg, size, pos, regs)
 
 	/* Match at the starting position. */
       case begpos:
-	if (d - string == pos)
+	if (d - string == beg)
 	  break;
 	goto fail;
 
@@ -4411,7 +4455,7 @@ static const unsigned char mbctab_ascii[] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
 static const unsigned char mbctab_euc[] = { /* 0xA1-0xFE */
@@ -4423,33 +4467,52 @@ static const unsigned char mbctab_euc[] = { /* 0xA1-0xFE */
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
 };
 
-static const unsigned char mbctab_sjis[] = { /* 0x80-0x9f,0xE0-0xFF */
+static const unsigned char mbctab_sjis[] = { /* 0x81-0x9F,0xE0-0xFC */
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0
+};
+
+static const unsigned char mbctab_sjis_trail[] = { /* 0x40-0x7E,0x80-0xFC */
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0
 };
 
 static const unsigned char mbctab_utf8[] = {
@@ -4468,7 +4531,7 @@ static const unsigned char mbctab_utf8[] = {
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-  3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 0, 0
+  3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 0, 0,
 };
 
 const unsigned char *re_mbctab = mbctab_ascii;
@@ -4496,3 +4559,85 @@ re_mbcinit(mbctype)
     break;
   }
 }
+
+#define mbc_isfirst(t, c) (t)[(unsigned char)(c)]
+#define mbc_len(t, c)     ((t)[(unsigned char)(c)]+1)
+
+static unsigned int
+asc_startpos(string, pos)
+     const char *string;
+     unsigned int pos;
+{
+  return pos;
+}
+
+#define euc_islead(c)  ((unsigned char)((c) - 0xa1) > 0xfe - 0xa1)
+#define euc_mbclen(c)  mbc_len(mbctab_euc, (c))
+static unsigned int
+euc_startpos(string, pos)
+     const char *string;
+     unsigned int pos;
+{
+  unsigned int i = pos, w;
+
+  while (i > 0 && !euc_islead(string[i])) {
+    --i;
+  }
+  if (i == pos || i + (w = euc_mbclen(string[i])) > pos) {
+    return i;
+  }
+  i += w;
+  return i + ((pos - i) & ~1);
+}
+
+#define sjis_isfirst(c) mbc_isfirst(mbctab_sjis, (c))
+#define sjis_istrail(c) mbctab_sjis_trail[(unsigned char)(c)]
+#define sjis_mbclen(c)  mbc_len(mbctab_sjis, (c))
+static unsigned int
+sjis_startpos(string, pos)
+     const char *string;
+     unsigned int pos;
+{
+  unsigned int i = pos, w;
+
+  if (i > 0 && sjis_istrail(string[i])) {
+    do {
+      if (!sjis_isfirst(string[--i])) {
+	++i;
+	break;
+      }
+    } while (i > 0);
+  }
+  if (i == pos || i + (w = sjis_mbclen(string[i])) > pos) {
+    return i;
+  }
+  i += w;
+  return i + ((pos - i) & ~1);
+}
+
+#define utf8_islead(c)  ((unsigned char)((c) & 0xc0) != 0x80)
+#define utf8_mbclen(c)  mbc_len(mbctab_utf8, (c))
+static unsigned int
+utf8_startpos(string, pos)
+     const char *string;
+     unsigned int pos;
+{
+  unsigned int i = pos, w;
+
+  while (i > 0 && !utf8_islead(string[i])) {
+    --i;
+  }
+  if (i == pos || i + (w = utf8_mbclen(string[i])) > pos) {
+    return i;
+  }
+  return i + w;
+}
+
+/*
+  vi: sw=2 ts=8
+  Local variables:
+  mode		 : C
+  c-file-style	 : "gnu"
+  tab-width	 : 8
+  End		 :
+*/

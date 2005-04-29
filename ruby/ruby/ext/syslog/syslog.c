@@ -4,10 +4,11 @@
  * <amos+ruby@utdallas.edu>
  *
  * $RoughId: syslog.c,v 1.21 2002/02/25 12:21:17 knu Exp $
- * $Id: syslog.c,v 1.1.1.2 2003/05/14 13:58:47 melville Exp $
+ * $Id: syslog.c,v 1.8.2.1 2004/04/05 07:45:24 matz Exp $
  */
 
 #include "ruby.h"
+#include "util.h"
 #include <syslog.h>
 
 /* Syslog class */
@@ -54,7 +55,6 @@ static VALUE mSyslog_close(VALUE self)
 static VALUE mSyslog_open(int argc, VALUE *argv, VALUE self)
 {
     VALUE ident, opt, fac;
-    int mask;
 
     if (syslog_opened) {
         rb_raise(rb_eRuntimeError, "syslog already open");
@@ -146,7 +146,7 @@ static VALUE mSyslog_log(int argc, VALUE *argv, VALUE self)
     VALUE pri;
 
     if (argc < 2) {
-        rb_raise(rb_eArgError, "wrong # of arguments(%d for 2+)", argc);
+        rb_raise(rb_eArgError, "wrong number of arguments (%d for 2+)", argc);
     }
 
     argc--;

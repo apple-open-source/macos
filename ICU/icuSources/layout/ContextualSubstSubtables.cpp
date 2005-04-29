@@ -1,7 +1,6 @@
 /*
- * @(#)ContextualSubstSubtables.cpp	1.11 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -57,20 +56,20 @@ le_bool ContextualSubstitutionBase::matchGlyphIDs(const TTGlyphID *glyphArray, l
 
     while (glyphCount > 0) {
         if (! glyphIterator->next()) {
-            return false;
+            return FALSE;
         }
 
         TTGlyphID glyph = (TTGlyphID) glyphIterator->getCurrGlyphID();
 
         if (glyph != SWAPW(glyphArray[match])) {
-            return false;
+            return FALSE;
         }
 
         glyphCount -= 1;
         match += direction;
     }
 
-    return true;
+    return TRUE;
 }
 
 le_bool ContextualSubstitutionBase::matchGlyphClasses(const le_uint16 *classArray, le_uint16 glyphCount,
@@ -88,7 +87,7 @@ le_bool ContextualSubstitutionBase::matchGlyphClasses(const le_uint16 *classArra
 
     while (glyphCount > 0) {
         if (! glyphIterator->next()) {
-            return false;
+            return FALSE;
         }
 
         LEGlyphID glyph = glyphIterator->getCurrGlyphID();
@@ -101,7 +100,7 @@ le_bool ContextualSubstitutionBase::matchGlyphClasses(const le_uint16 *classArra
             // table. If we're looking for such a class, pretend that
             // we found it.
             if (classDefinitionTable->hasGlyphClass(matchClass)) {
-                return false;
+                return FALSE;
             }
         }
 
@@ -109,7 +108,7 @@ le_bool ContextualSubstitutionBase::matchGlyphClasses(const le_uint16 *classArra
         match += direction;
     }
 
-    return true;
+    return TRUE;
 }
 
 le_bool ContextualSubstitutionBase::matchGlyphCoverages(const Offset *coverageTableOffsetArray, le_uint16 glyphCount,
@@ -128,18 +127,18 @@ le_bool ContextualSubstitutionBase::matchGlyphCoverages(const Offset *coverageTa
         const CoverageTable *coverageTable = (const CoverageTable *) (offsetBase + coverageTableOffset);
 
         if (! glyphIterator->next()) {
-            return false;
+            return FALSE;
         }
 
         if (coverageTable->getGlyphCoverage((LEGlyphID) glyphIterator->getCurrGlyphID()) < 0) {
-            return false;
+            return FALSE;
         }
 
         glyphCount -= 1;
         glyph += direction;
     }
 
-    return true;
+    return TRUE;
 }
 
 le_uint32 ContextualSubstitutionSubtable::process(const LookupProcessor *lookupProcessor, GlyphIterator *glyphIterator,
@@ -326,7 +325,7 @@ le_uint32 ChainingContextualSubstitutionSubtable::process(const LookupProcessor 
     }
 }
 
-const LETag emptyTag = 0;
+static const LETag emptyTag = 0;
 
 le_uint32 ChainingContextualSubstitutionFormat1Subtable::process(const LookupProcessor *lookupProcessor, GlyphIterator *glyphIterator,
                                                               const LEFontInstance *fontInstance) const
@@ -364,7 +363,7 @@ le_uint32 ChainingContextualSubstitutionFormat1Subtable::process(const LookupPro
                 }
 
                 tempIterator.prev();
-                if (! matchGlyphIDs(chainSubRuleTable->backtrackGlyphArray, backtrackGlyphCount, &tempIterator, true)) {
+                if (! matchGlyphIDs(chainSubRuleTable->backtrackGlyphArray, backtrackGlyphCount, &tempIterator, TRUE)) {
                     continue;
                 }
 
@@ -438,7 +437,7 @@ le_uint32 ChainingContextualSubstitutionFormat2Subtable::process(const LookupPro
 
                 tempIterator.prev();
                 if (! matchGlyphClasses(chainSubClassRuleTable->backtrackClassArray, backtrackGlyphCount,
-                    &tempIterator, backtrackClassDefinitionTable, true)) {
+                    &tempIterator, backtrackClassDefinitionTable, TRUE)) {
                     continue;
                 }
 
@@ -485,7 +484,7 @@ le_uint32 ChainingContextualSubstitutionFormat3Subtable::process(const LookupPro
 
     tempIterator.prev();
     if (! ContextualSubstitutionBase::matchGlyphCoverages(backtrackCoverageTableOffsetArray,
-        backtrkGlyphCount, &tempIterator, (const char *) this, true)) {
+        backtrkGlyphCount, &tempIterator, (const char *) this, TRUE)) {
         return 0;
     }
 

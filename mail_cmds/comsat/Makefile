@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = comsat.c
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble comsat.8
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble comsat.8 comsat.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

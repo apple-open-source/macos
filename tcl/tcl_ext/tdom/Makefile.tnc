@@ -1,0 +1,20 @@
+##
+# Makefile for tdom-tnc
+##
+# Daniel A. Steffen <das@users.sourceforge.net>
+##
+
+# Project info
+Project               = tnc
+
+Extra_Configure_Flags = $(TEA_Configure_Flags)
+Extra_CC_Flags        = -fno-common -DUSE_TDOM_STUBS=1
+Extra_LD_Flags        = -L$(TclFramework)
+Extra_Environment     = CC=gcc $(TEA_Environment)
+
+GnuAfterInstall       = strip -f Makefile.$(Project)
+
+# include TEA Tcl extension build support
+include ../TEA.make
+
+Sources               = $(SRCROOT)/tdom/extensions/$(Project)

@@ -33,6 +33,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
+/* $XFree86: xc/lib/Xt/PassivGrab.c,v 3.7 2003/10/24 15:47:35 tsi Exp $ */
 
 /*
 
@@ -527,18 +528,10 @@ void _XtDestroyServerGrabs(w, closure, call_data)
  * the grab.  The grab will remain in effect until the key is released.
  */
 
-#if NeedFunctionPrototypes
 XtServerGrabPtr _XtCheckServerGrabsOnWidget (
     XEvent 		*event,
     Widget		widget,
-    _XtBoolean		isKeyboard
-    )
-#else
-XtServerGrabPtr _XtCheckServerGrabsOnWidget (event, widget, isKeyboard)
-    XEvent 		*event;
-    Widget		widget;
-    Boolean		isKeyboard;
-#endif
+    _XtBoolean		isKeyboard)
 {
     register XtServerGrabPtr grab;
     XtServerGrabRec 	tempGrab;
@@ -809,25 +802,13 @@ void   UngrabKeyOrButton (widget, keyOrButton, modifiers, isKeyboard)
 			     &tempGrab);
 }
 
-#if NeedFunctionPrototypes
 void  XtGrabKey (
     Widget	widget,
     _XtKeyCode	keycode,
     Modifiers	modifiers,
     _XtBoolean	owner_events,
     int 	pointer_mode,
-    int 	keyboard_mode
-    )
-#else
-void  XtGrabKey (widget, keycode, modifiers, owner_events,
-		 pointer_mode, keyboard_mode)
-    Widget	widget;
-    KeyCode	keycode;
-    Modifiers	modifiers;
-    Boolean	owner_events;
-    int 	pointer_mode;
-    int 	keyboard_mode;
-#endif
+    int 	keyboard_mode)
 {
     WIDGET_TO_APPCON(widget);
 
@@ -838,7 +819,6 @@ void  XtGrabKey (widget, keycode, modifiers, owner_events,
     UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 void  XtGrabButton(
     Widget	widget,
     int		button,
@@ -848,22 +828,7 @@ void  XtGrabButton(
     int 	pointer_mode,
     int 	keyboard_mode,
     Window 	confine_to,
-    Cursor 	cursor
-    )
-#else
-void  XtGrabButton(widget, button, modifiers, owner_events,
-		   event_mask, pointer_mode, keyboard_mode,
-		   confine_to, cursor)
-    Widget	widget;
-    int		button;
-    Modifiers	modifiers;
-    Boolean	owner_events;
-    unsigned int event_mask;
-    int 	pointer_mode;
-    int 	keyboard_mode;
-    Window 	confine_to;
-    Cursor 	cursor;
-#endif
+    Cursor 	cursor)
 {
     WIDGET_TO_APPCON(widget);
 
@@ -880,18 +845,10 @@ void  XtGrabButton(widget, button, modifiers, owner_events,
  * combination.
  */
 
-#if NeedFunctionPrototypes
 void   XtUngrabKey (
     Widget	widget,
     _XtKeyCode	keycode,
-    Modifiers	modifiers
-    )
-#else
-void   XtUngrabKey (widget, keycode, modifiers)
-    Widget	widget;
-    KeyCode	keycode;
-    Modifiers	modifiers;
-#endif
+    Modifiers	modifiers)
 {
     WIDGET_TO_APPCON(widget);
 
@@ -999,23 +956,12 @@ static void   UngrabDevice(widget, time, isKeyboard)
 /*
  * Active grab of keyboard. clear any client side grabs so we dont lock
  */
-#if NeedFunctionPrototypes
 int XtGrabKeyboard (
     Widget	widget,
     _XtBoolean	owner_events,
     int 	pointer_mode,
     int 	keyboard_mode,
-    Time	time
-    )
-#else
-int XtGrabKeyboard (widget, owner_events,
-		    pointer_mode, keyboard_mode, time)
-    Widget	widget;
-    Boolean	owner_events;
-    int 	pointer_mode;
-    int 	keyboard_mode;
-    Time	time;
-#endif
+    Time	time)
 {
     int retval;
     WIDGET_TO_APPCON(widget);
@@ -1050,7 +996,6 @@ void   XtUngrabKeyboard(widget, time)
 /*
  * grab the pointer
  */
-#if NeedFunctionPrototypes
 int XtGrabPointer (
     Widget	widget,
     _XtBoolean	owner_events,
@@ -1059,21 +1004,7 @@ int XtGrabPointer (
     int 	keyboard_mode,
     Window 	confine_to,
     Cursor 	cursor,
-    Time	time
-    )
-#else
-int XtGrabPointer (widget, owner_events, event_mask,
-		   pointer_mode, keyboard_mode, 
-		   confine_to, cursor, time)
-    Widget	widget;
-    Boolean	owner_events;
-    unsigned int event_mask;
-    int 	pointer_mode;
-    int 	keyboard_mode;
-    Window 	confine_to;
-    Cursor 	cursor;
-    Time	time;
-#endif
+    Time	time)
 {
     int retval;
     WIDGET_TO_APPCON(widget);

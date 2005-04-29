@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $                              --
 --                                                                          --
---          Copyright (C) 1992-1999, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,11 +21,12 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
 with Atree;    use Atree;
+with Errout;   use Errout;
 with Opt;      use Opt;
 with Restrict; use Restrict;
 with Sem_Ch8;  use Sem_Ch8;
@@ -64,7 +64,17 @@ package body Sem_Ch2 is
 
    procedure Analyze_Identifier (N : Node_Id) is
    begin
-      Find_Direct_Name (N);
+      --  Ignore call if prior errors, and identifier has no name, since
+      --  this is the result of some kind of previous error generating a
+      --  junk identifier.
+
+      if Chars (N) in Error_Name_Or_No_Name
+        and then Total_Errors_Detected /= 0
+      then
+         return;
+      else
+         Find_Direct_Name (N);
+      end if;
    end Analyze_Identifier;
 
    -----------------------------

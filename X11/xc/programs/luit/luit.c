@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-/* $XFree86: xc/programs/luit/luit.c,v 1.10 2003/02/24 01:10:25 dawes Exp $ */
+/* $XFree86: xc/programs/luit/luit.c,v 1.11 2003/09/08 14:25:30 eich Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -544,6 +544,10 @@ parent(int pid, int pty)
     installHandler(SIGWINCH, sigwinchHandler);
 #endif
     installHandler(SIGCHLD, sigchldHandler);
+
+    rc = copyTermios(0, pty);
+    if(rc < 0)
+        FatalError("Couldn't copy terminal settings\n");
 
     rc = setRawTermios();
     if(rc < 0)

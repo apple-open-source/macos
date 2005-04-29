@@ -1,0 +1,11 @@
+--- /Volumes/XDisk/tmp/Libc/gen/FreeBSD/getlogin.c.orig	2003-10-29 02:45:01.000000000 -0800
++++ /Volumes/XDisk/tmp/Libc/gen/FreeBSD/getlogin.c	2004-10-24 17:08:28.000000000 -0700
+@@ -87,7 +87,7 @@
+ }
+ 
+ int
+-getlogin_r(char *logname, int namelen)
++getlogin_r(char *logname, size_t namelen)
+ {
+ 	char	*result;
+ 	int	len;

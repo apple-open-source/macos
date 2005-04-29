@@ -23,7 +23,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from The Open Group.
 .\"
-.\" $XFree86: xc/programs/xwininfo/xwininfo.man,v 1.8 2001/12/14 20:02:35 dawes Exp $
+.\" $XFree86: xc/programs/xwininfo/xwininfo.man,v 1.9 2004/01/12 21:43:20 herrb Exp $
 .\"
 .TH XWININFO 1 __xorgversion__
 .SH NAME
@@ -179,7 +179,7 @@ xwininfo: Window id: 0x60000f "xterm"
   Save Under State: no
   Map State: IsViewable
   Override Redirect State: no
-  Corners:  +2+85  -699+85  -699-6.4  +2-623
+  Corners:  +2+85  -699+85  -699-623  +2-623
   -geometry 80x24+0+58
 
 .SH ENVIRONMENT

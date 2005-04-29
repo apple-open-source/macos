@@ -58,7 +58,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/Callback.c,v 1.8 2001/12/14 19:56:08 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Callback.c,v 1.9 2003/04/21 16:34:26 herrb Exp $ */
 
 #include "IntrinsicI.h"
 
@@ -144,20 +144,12 @@ void _XtAddCallbackOnce(callbacks, callback, closure)
     _XtAddCallback(callbacks, callback, closure);
 } /* _XtAddCallbackOnce */
 
-#if NeedFunctionPrototypes
 void XtAddCallback(
     Widget	    widget,
     _Xconst char*   name,
     XtCallbackProc  callback,
     XtPointer	    closure
     )
-#else
-void XtAddCallback(widget, name, callback, closure)
-    Widget	    widget;
-    String	    name;
-    XtCallbackProc  callback;
-    XtPointer	    closure;
-#endif
 {
     InternalCallbackList *callbacks;
     Widget hookobj;
@@ -222,18 +214,11 @@ static void AddCallbacks(
 	*cl++ = *newcallbacks++;
 } /* AddCallbacks */
 
-#if NeedFunctionPrototypes
 void XtAddCallbacks(
     Widget	    widget,
     _Xconst char*   name,
     XtCallbackList  xtcallbacks
     )
-#else
-void XtAddCallbacks(widget, name, xtcallbacks)
-    Widget	    widget;
-    String	    name;
-    XtCallbackList  xtcallbacks;
-#endif
 {
     InternalCallbackList* callbacks;
     Widget hookobj;
@@ -320,20 +305,12 @@ void _XtRemoveCallback (callbacks, callback, closure)
     }
 } /* _XtRemoveCallback */
 
-#if NeedFunctionPrototypes
 void XtRemoveCallback (
     Widget	    widget,
     _Xconst char*   name,
     XtCallbackProc  callback,
     XtPointer	    closure
     )
-#else
-void XtRemoveCallback (widget, name, callback, closure)
-    Widget	    widget;
-    String	    name;
-    XtCallbackProc  callback;
-    XtPointer	    closure;
-#endif
 {
     InternalCallbackList *callbacks;
     Widget hookobj;
@@ -365,17 +342,10 @@ void XtRemoveCallback (widget, name, callback, closure)
 } /* XtRemoveCallback */
 
 
-#if NeedFunctionPrototypes
 void XtRemoveCallbacks (widget, name, xtcallbacks)
     Widget	    widget;
     _Xconst char*   name;
     XtCallbackList  xtcallbacks;
-#else
-void XtRemoveCallbacks (widget, name, xtcallbacks)
-    Widget	    widget;
-    String	    name;
-    XtCallbackList  xtcallbacks;
-#endif
 {
     InternalCallbackList *callbacks;
     Widget hookobj;
@@ -461,15 +431,9 @@ void _XtRemoveAllCallbacks (callbacks)
     }
 } /* _XtRemoveAllCallbacks */
 
-#if NeedFunctionPrototypes
 void XtRemoveAllCallbacks(widget, name)
     Widget widget;
     _Xconst char* name;
-#else
-void XtRemoveAllCallbacks(widget, name)
-    Widget widget;
-    String name;
-#endif
 {
     InternalCallbackList *callbacks;
     Widget hookobj;
@@ -560,18 +524,11 @@ XtCallbackList _XtGetCallbackList(callbacks)
     return ToList(icl);
 }
 
-#if NeedFunctionPrototypes
 void XtCallCallbacks(
     Widget   widget,
     _Xconst char* name,
     XtPointer call_data
     )
-#else
-void XtCallCallbacks(widget, name, call_data)
-    Widget   widget;
-    String   name;
-    XtPointer call_data;
-#endif
 {
     InternalCallbackList *callbacks;
     InternalCallbackList icl;
@@ -616,16 +573,10 @@ void XtCallCallbacks(widget, name, call_data)
 } /* XtCallCallbacks */
 
 
-#if NeedFunctionPrototypes
 XtCallbackStatus XtHasCallbacks(
      Widget		widget,
      _Xconst char*	callback_name
      )
-#else
-XtCallbackStatus XtHasCallbacks(widget, callback_name)
-     Widget		widget;
-     String		callback_name;
-#endif
 {
     InternalCallbackList *callbacks;
     XtCallbackStatus retval = XtCallbackHasSome;

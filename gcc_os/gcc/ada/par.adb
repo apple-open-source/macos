@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.3 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -974,7 +973,12 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
    --  of implementation defined pragmas. The second parameter records the
    --  location of the semicolon following the pragma (this is needed for
    --  correct processing of the List and Page pragmas). The returned value
-   --  is a copy of Pragma_Node, or Error if an error is found.
+   --  is a copy of Pragma_Node, or Error if an error is found. Note that
+   --  at the point where Prag is called, the right paren ending the pragma
+   --  has been scanned out, and except in the case of pragma Style_Checks,
+   --  so has the following semicolon. For Style_Checks, the caller delays
+   --  the scanning of the semicolon so that it will be scanned using the
+   --  settings from the Style_Checks pragma preceding it.
 
    -------------------------
    -- Subsidiary Routines --
@@ -1054,7 +1058,7 @@ begin
 
    if Configuration_Pragmas then
       declare
-         Ecount  : constant Int := Errors_Detected;
+         Ecount  : constant Int := Total_Errors_Detected;
          Pragmas : List_Id := Empty_List;
          P_Node  : Node_Id;
 
@@ -1070,7 +1074,7 @@ begin
             else
                P_Node := P_Pragma;
 
-               if Errors_Detected > Ecount then
+               if Total_Errors_Detected > Ecount then
                   return Error_List;
                end if;
 

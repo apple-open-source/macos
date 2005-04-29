@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/Xxf86misc/XF86Misc.c,v 3.12 2002/11/20 04:04:57 dawes Exp $ */
+/* $XFree86: xc/lib/Xxf86misc/XF86Misc.c,v 3.13 2003/04/03 16:15:47 dawes Exp $ */
 
 /*
  * Copyright (c) 1995, 1996  The XFree86 Project, Inc
@@ -352,5 +352,55 @@ Bool XF86MiscGetFilePaths(dpy, filpaths)
     UnlockDisplay(dpy);
     SyncHandle();
     return True;
+}
+
+Status XF86MiscPassMessage(dpy, screen, msgtype, msgval, retmsg)
+    Display* dpy;
+    int screen;
+    const char* msgtype;
+    const char* msgval;
+    char** retmsg;
+{
+    XExtDisplayInfo *info = find_display (dpy);
+    xXF86MiscPassMessageReply rep;
+    xXF86MiscPassMessageReq *req;
+    int len;
+
+    XF86MiscCheckExtension (dpy, info, False);
+
+    LockDisplay(dpy);
+    GetReq(XF86MiscPassMessage, req);
+    req->reqType = info->codes->major_opcode;
+    req->xf86miscReqType = X_XF86MiscPassMessage;
+    req->screen = screen;
+    if ((len = strlen(msgtype))) {
+	req->typelen =  len + 1;
+	len = (req->typelen + 3) >> 2;
+	SetReqLen(req,len,len);
+	Data(dpy, msgtype, req->typelen);
+    }
+    if ((len = strlen(msgval))) {
+	req->vallen =  len + 1;
+	len = (req->vallen + 3) >> 2;
+	SetReqLen(req,len,len);
+	Data(dpy, msgval, req->vallen);
+    }
+    if (!_XReply(dpy, (xReply *)&rep, 0, xFalse)) {
+	UnlockDisplay(dpy);
+	SyncHandle();
+	return BadImplementation;
+    }
+
+    if (rep.mesglen) {
+        if (!(*retmsg = Xcalloc(rep.mesglen + 1, 1))) {
+            _XEatData(dpy, ((rep.mesglen+3) & ~3));
+            return BadAlloc;
+        }
+        _XReadPad(dpy, *retmsg, rep.mesglen);
+    }
+
+    UnlockDisplay(dpy);
+    SyncHandle();
+    return rep.status;
 }
 

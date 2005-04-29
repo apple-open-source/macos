@@ -1,0 +1,85 @@
+.\""Copyright (c) 2001 Apple Computer, Inc. All Rights Reserved.
+.\"The contents of this file constitute Original Code as defined in and are 
+.\"subject to the Apple Public Source License Version 1.2 (the 'License'). 
+.\"You may not use this file except in compliance with the
+.\"License. Please obtain a copy of the License at 
+.\"http://www.apple.com/publicsource and read it before using this file.
+.\"
+.\"This Original Code and all software distributed under the License are 
+.\"distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
+.\"EXPRESS OR IMPLIED, AND APPLE
+.\"HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT LIMITATION, ANY 
+.\"WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+.\"QUIET ENJOYMENT OR NON-INFRINGEMENT. Please see the License for the 
+.\"specific language governing rights and limitations under the License."
+.Dd February 14, 2001
+.Dt "update_prebinding" 1
+.Os
+.Sh NAME
+.Nm update_prebinding
+.Nd Update prebinding information when new system libraries or frameworks are installed
+.Sh SYNOPSIS
+.Nm
+.Op Fl root Ar directory
+.Op Fl force
+.Op Fl debug
+.Sh DESCRIPTION
+.Nm update_prebinding
+ensures that prebinding information is up-to-date after new versions
+of system libraries are installed.  Prebinding information is
+pre-calculated address information for libraries used by a given
+library.  By pre-determining where a function in another library is
+destined to be placed, the dynamic linker does not have to resolve
+symbols at application startup time, and the application can launch
+faster.
+.Pp
+Because each recompilation of a library may place functions at
+different addresses, a newly installed library's prebinding
+information might not match the libraries already on the disk.  When
+the dynamic linker determines that prebinding information for a
+library could be invalid, it defaults to resolving all the names for
+that library, and for all libraries referenced by that library, losing
+any advantage of having the prebinding information.
+.Pp
+The
+.Ar -root
+option specifies the directory tree to search for changed files.
+This is usually the root directory.  update_prebinding will look for
+dependent libraries within this directory hierarchy, but will not go
+to different file systems.  The argument allows you to update
+prebinding information for a specific file to match a non-running
+version of the operating system on another partition.
+update_prebinding uses the root to find the system libraries for that
+version of the OS.  The
+.Ar root
+argument is not intended to limit update_prebinding's effect to a
+particular set of libraries.  By default, update_prebinding only
+changes a file if the prebinding is out of date.
+.Pp
+The
+.Ar -force
+option ensures that all files examined are re-prebound, even if the
+prebinding is otherwise up-to-date.  The command update_prebinding
+-root / -force will prebind all binaries on the root volume, even if
+otherwise correct.
+.Pp
+The
+.Ar -debug
+option prints out additional information while the
+prebinding is being updated.
+.Sh Issues
+update_prebinding only work on libraries that have been compiled and
+linked with the prebinding information added.  Applications still gain
+the benefits of prebinding as long as the system libraries used by the
+application have been correctly prebound.
+.Pp
+Updating prebinding for a given library can fail if any of its
+dependent libraries are invalid -- not prebound, expected load address
+conflicting with other loaded libraries, or missing architecture in a
+fat library.  To test if an application is able to use prebinding
+information, set the environment variable DYLD_PREBIND_DEBUG.  (See
+.Xr dyld 1
+for details on this option.)
+.Pp
+.Sh SEE ALSO
+.Xr dyld 1

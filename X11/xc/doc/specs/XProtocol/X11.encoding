@@ -1,4 +1,5 @@
 .\" $Xorg: X11.encoding,v 1.3 2000/08/17 19:42:23 cpqbld Exp $
+.\" $XFree86: xc/doc/specs/XProtocol/X11.encoding,v 1.2 2003/07/09 15:27:26 tsi Exp $
 \&
 .sp 1
 .ps 11
@@ -614,6 +615,8 @@ HOST
 		0	Internet
 		1	DECnet
 		2	Chaos
+		5	ServerInterpreted
+		6	InternetV6
 	1			unused
 	2	n		length of address
 	n	LISTofBYTE		address

@@ -29,15 +29,12 @@ in this Software without prior written authorization from The Open Group.
  * Author:  Jim Fulton, MIT X Consortium
  */
 
-/* $XFree86: xc/programs/xdpyinfo/xdpyinfo.c,v 3.28 2002/09/26 02:56:51 keithp Exp $ */
+/* $XFree86: xc/programs/xdpyinfo/xdpyinfo.c,v 3.30 2003/11/17 22:20:51 dawes Exp $ */
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #ifdef MULTIBUFFER
 #include <X11/extensions/multibuf.h>
-#endif
-#ifdef XIE
-#include <X11/extensions/XIElib.h>
 #endif
 #include <X11/extensions/XTest.h>
 #include <X11/extensions/sync.h>
@@ -509,73 +506,6 @@ print_multibuf_info(Display *dpy, char *extname)
     }
     return 1;
 } /* end print_multibuf_info */
-#endif
-
-
-#ifdef XIE
-/* XIE stuff */
-
-char *subset_names[] = { NULL, "FULL", "DIS" };
-char *align_names[] = { NULL, "Alignable", "Arbitrary" };
-char *group_names[] = { /* 0  */ "Default",
-			    /* 2  */ "ColorAlloc",
-			    /* 4  */ "Constrain",
-			    /* 6  */ "ConvertFromRGB",
-			    /* 8  */ "ConvertToRGB",
-			    /* 10 */ "Convolve",
-			    /* 12 */ "Decode",
-			    /* 14 */ "Dither",
-			    /* 16 */ "Encode",
-			    /* 18 */ "Gamut",
-			    /* 20 */ "Geometry",
-			    /* 22 */ "Histogram",
-			    /* 24 */ "WhiteAdjust"
-			    };
-
-static int
-print_xie_info(Display *dpy, char *extname)
-{
-    XieExtensionInfo *xieInfo;
-    int i;
-    int ntechs;
-    XieTechnique *techs;
-    XieTechniqueGroup prevGroup;
-
-    if (!XieInitialize(dpy, &xieInfo ))
-	return 0;
-
-    print_standard_extension_info(dpy, extname,
-	xieInfo->server_major_rev, xieInfo->server_minor_rev);
-
-    printf("  service class: %s\n", subset_names[xieInfo->service_class]);
-    printf("  alignment: %s\n", align_names[xieInfo->alignment]);
-    printf("  uncnst_mantissa: %d\n", xieInfo->uncnst_mantissa);
-    printf("  uncnst_min_exp: %d\n", xieInfo->uncnst_min_exp);
-    printf("  uncnst_max_exp: %d\n", xieInfo->uncnst_max_exp);
-    printf("  cnst_levels:"); 
-    for (i = 0; i < xieInfo->n_cnst_levels; i++)
-	printf(" %ld", xieInfo->cnst_levels[i]);
-    printf("\n");
-
-    if (!XieQueryTechniques(dpy, xieValAll, &ntechs, &techs))
-	return 1;
-
-    prevGroup = -1;
-
-    for (i = 0; i < ntechs; i++)
-    {
-	if (techs[i].group != prevGroup)
-	{
-	    printf("  technique group: %s\n", group_names[techs[i].group >> 1]);
-	    prevGroup = techs[i].group;
-	}
-	printf("    %s\tspeed: %d  needs_param: %s  number: %d\n",
-	       techs[i].name,
-	       techs[i].speed, (techs[i].needs_param ? "True " : "False"),
-	       techs[i].number);
-    }
-    return 1;
-} /* end print_xie_info */
 #endif
 
 static int
@@ -1078,9 +1008,7 @@ print_xinerama_info(Display *dpy, char *extname)
 
 
 typedef int (*ExtensionPrintFunc)(
-#if NeedFunctionPrototypes
     Display *, char *
-#endif
 );
 
 typedef struct {
@@ -1111,9 +1039,6 @@ ExtensionPrintInfo known_extensions[] =
 #ifdef XF86MISC
     {XF86MISCNAME, print_XF86Misc_info, False},
 #endif /* XF86MISC */
-#ifdef XIE
-    {xieExtName, print_xie_info, False},
-#endif
     {XTestExtensionName, print_xtest_info, False},
     {"DOUBLE-BUFFER", print_dbe_info, False},
     {"RECORD", print_record_info, False},
@@ -1127,7 +1052,6 @@ ExtensionPrintInfo known_extensions[] =
     {"XINERAMA", print_xinerama_info, False},
 #endif
     /* add new extensions here */
-    /* wish list: PEX */
 };
 
 int num_known_extensions = sizeof known_extensions / sizeof known_extensions[0];

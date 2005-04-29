@@ -19,6 +19,9 @@ install_i386:: all $(INSTALLDIR)
 	cp $(SYMROOT)/cdboot $(INSTALLDIR)
 	cd $(INSTALLDIR); chmod u+w cdboot
 
+clean::
+	rm -f $(SYMROOT)/cdboot
+
 include ../MakeInc.dir
 
 #dependencies

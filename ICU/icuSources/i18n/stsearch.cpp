@@ -17,7 +17,7 @@
 
 U_NAMESPACE_BEGIN
 
-const char StringSearch::fgClassID=0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(StringSearch)
 
 // public constructors and destructors -----------------------------------
 
@@ -42,15 +42,15 @@ StringSearch::StringSearch(const UnicodeString &pattern,
     uprv_free(m_search_);
     m_search_ = NULL;
 
-	// !!! dlf m_collator_ is an odd beast.  basically it is an aliasing
-	// wrapper around the internal collator and rules, which (here) are
-	// owned by this stringsearch object.  this means 1) it's destructor
-	// _should not_ delete the ucollator or rules, and 2) changes made
-	// to the exposed collator (setStrength etc) _should_ modify the 
-	// ucollator.  thus the collator is not a copy-on-write alias, and it
-	// needs to distinguish itself not merely from 'stand alone' colators
-	// but also from copy-on-write ones.  it needs additional state, which
-	// setUCollator should set.
+    // !!! dlf m_collator_ is an odd beast.  basically it is an aliasing
+    // wrapper around the internal collator and rules, which (here) are
+    // owned by this stringsearch object.  this means 1) it's destructor
+    // _should not_ delete the ucollator or rules, and 2) changes made
+    // to the exposed collator (setStrength etc) _should_ modify the 
+    // ucollator.  thus the collator is not a copy-on-write alias, and it
+    // needs to distinguish itself not merely from 'stand alone' colators
+    // but also from copy-on-write ones.  it needs additional state, which
+    // setUCollator should set.
 
     if (U_SUCCESS(status)) {
               int32_t  length;
@@ -212,6 +212,11 @@ StringSearch::~StringSearch()
     }
 }
 
+StringSearch *
+StringSearch::clone() const {
+    return new StringSearch(*this);
+}
+
 // operator overloading ---------------------------------------------
 StringSearch & StringSearch::operator=(const StringSearch &that)
 {
@@ -360,11 +365,21 @@ int32_t StringSearch::handleNext(int32_t position, UErrorCode &status)
             // StringSearch instead of SearchIterator because m_strsrch_ is
             // not accessible in SearchIterator
             if (position + m_strsrch_->pattern.defaultShiftSize 
-				> m_search_->textLength) {
+                > m_search_->textLength) {
                 setMatchNotFound();
                 return USEARCH_DONE;
             }
-			ucol_setOffset(m_strsrch_->textIter, position, &status);
+            if (m_search_->matchedLength <= 0) {
+                // the flipping direction issue has already been handled 
+                // in next()
+                // for boundary check purposes. this will ensure that the
+                // next match will not preceed the current offset
+                // note search->matchedIndex will always be set to something
+                // in the code
+                m_search_->matchedIndex = position - 1;
+            }
+
+            ucol_setOffset(m_strsrch_->textIter, position, &status);
             while (TRUE) {
                 if (m_search_->isCanonicalMatch) {
                     // can't use exact here since extra accents are allowed.
@@ -385,14 +400,14 @@ int32_t StringSearch::handleNext(int32_t position, UErrorCode &status)
                                                   m_search_->matchedLength))
 #endif
                 ) {
-					if (m_search_->matchedIndex == USEARCH_DONE) {
-						ucol_setOffset(m_strsrch_->textIter, 
-							           m_search_->textLength, &status);
-					}
-					else {
-						ucol_setOffset(m_strsrch_->textIter, 
-							           m_search_->matchedIndex, &status);
-					}
+                    if (m_search_->matchedIndex == USEARCH_DONE) {
+                        ucol_setOffset(m_strsrch_->textIter, 
+                                       m_search_->textLength, &status);
+                    }
+                    else {
+                        ucol_setOffset(m_strsrch_->textIter, 
+                                       m_search_->matchedIndex, &status);
+                    }
                     return m_search_->matchedIndex;
                 }
             }

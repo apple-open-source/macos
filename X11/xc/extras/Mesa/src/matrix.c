@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -34,52 +34,17 @@
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
+#include "imports.h"
 #include "buffers.h"
 #include "context.h"
 #include "enums.h"
 #include "macros.h"
 #include "matrix.h"
-#include "mem.h"
 #include "mmath.h"
 #include "mtypes.h"
-
 #include "math/m_matrix.h"
-#endif
 
-
-/**********************************************************************/
-/*                        API functions                               */
-/**********************************************************************/
-
-
-#define GET_ACTIVE_MATRIX(ctx, mat, flags, where)		\
-do {									\
-   if (MESA_VERBOSE&VERBOSE_API) fprintf(stderr, "%s\n", where);	\
-   switch (ctx->Transform.MatrixMode) {					\
-      case GL_MODELVIEW:						\
-	 mat = &ctx->ModelView;						\
-	 flags |= _NEW_MODELVIEW;					\
-	 break;								\
-      case GL_PROJECTION:						\
-	 mat = &ctx->ProjectionMatrix;					\
-	 flags |= _NEW_PROJECTION;					\
-	 break;								\
-      case GL_TEXTURE:							\
-	 mat = &ctx->TextureMatrix[ctx->Texture.CurrentUnit];		\
-	 flags |= _NEW_TEXTURE_MATRIX;					\
-	 break;								\
-      case GL_COLOR:							\
-	 mat = &ctx->ColorMatrix;					\
-	 flags |= _NEW_COLOR_MATRIX;					\
-	 break;								\
-      default:								\
-         _mesa_problem(ctx, where);					\
-   }									\
-} while (0)
 
 
 void
@@ -88,10 +53,7 @@ _mesa_Frustum( GLdouble left, GLdouble right,
                GLdouble nearval, GLdouble farval )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLmatrix *mat = 0;
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
-
-   GET_ACTIVE_MATRIX( ctx,  mat, ctx->NewState, "glFrustrum" );
 
    if (nearval <= 0.0 ||
        farval <= 0.0 ||
@@ -103,9 +65,11 @@ _mesa_Frustum( GLdouble left, GLdouble right,
       return;
    }
 
-   _math_matrix_frustum( mat, (GLfloat) left, (GLfloat) right, 
+   _math_matrix_frustum( ctx->CurrentStack->Top,
+                         (GLfloat) left, (GLfloat) right, 
 			 (GLfloat) bottom, (GLfloat) top, 
 			 (GLfloat) nearval, (GLfloat) farval );
+   ctx->NewState |= ctx->CurrentStack->DirtyFlag;
 }
 
 
@@ -115,10 +79,11 @@ _mesa_Ortho( GLdouble left, GLdouble right,
              GLdouble nearval, GLdouble farval )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLmatrix *mat = 0;
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   GET_ACTIVE_MATRIX( ctx,  mat, ctx->NewState, "glOrtho" );
+   if (MESA_VERBOSE & VERBOSE_API)
+      _mesa_debug(ctx, "glFrustum(%f, %f, %f, %f, %f, %f)\n",
+                  left, right, bottom, top, nearval, farval);
 
    if (left == right ||
        bottom == top ||
@@ -128,9 +93,11 @@ _mesa_Ortho( GLdouble left, GLdouble right,
       return;
    }
 
-   _math_matrix_ortho( mat, (GLfloat) left, (GLfloat) right, 
+   _math_matrix_ortho( ctx->CurrentStack->Top,
+                       (GLfloat) left, (GLfloat) right, 
 		       (GLfloat) bottom, (GLfloat) top, 
 		       (GLfloat) nearval, (GLfloat) farval );
+   ctx->NewState |= ctx->CurrentStack->DirtyFlag;
 }
 
 
@@ -140,19 +107,43 @@ _mesa_MatrixMode( GLenum mode )
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
+   if (ctx->Transform.MatrixMode == mode && mode != GL_TEXTURE)
+      return;
+   FLUSH_VERTICES(ctx, _NEW_TRANSFORM);
+
    switch (mode) {
-      case GL_MODELVIEW:
-      case GL_PROJECTION:
-      case GL_TEXTURE:
-      case GL_COLOR:
-	 if (ctx->Transform.MatrixMode == mode)
-	    return;
-         ctx->Transform.MatrixMode = mode;
-	 FLUSH_VERTICES(ctx, _NEW_TRANSFORM);
-         break;
-      default:
+   case GL_MODELVIEW:
+      ctx->CurrentStack = &ctx->ModelviewMatrixStack;
+      break;
+   case GL_PROJECTION:
+      ctx->CurrentStack = &ctx->ProjectionMatrixStack;
+      break;
+   case GL_TEXTURE:
+      ctx->CurrentStack = &ctx->TextureMatrixStack[ctx->Texture.CurrentUnit];
+      break;
+   case GL_COLOR:
+      ctx->CurrentStack = &ctx->ColorMatrixStack;
+      break;
+   case GL_MATRIX0_NV:
+   case GL_MATRIX1_NV:
+   case GL_MATRIX2_NV:
+   case GL_MATRIX3_NV:
+   case GL_MATRIX4_NV:
+   case GL_MATRIX5_NV:
+   case GL_MATRIX6_NV:
+   case GL_MATRIX7_NV:
+      if (!ctx->Extensions.NV_vertex_program) {
          _mesa_error( ctx,  GL_INVALID_ENUM, "glMatrixMode" );
+         return;
+      }
+      ctx->CurrentStack = &ctx->ProgramMatrixStack[mode - GL_MATRIX0_NV];
+      break;
+   default:
+      _mesa_error( ctx,  GL_INVALID_ENUM, "glMatrixMode" );
+      return;
    }
+
+   ctx->Transform.MatrixMode = mode;
 }
 
 
@@ -161,51 +152,22 @@ void
 _mesa_PushMatrix( void )
 {
    GET_CURRENT_CONTEXT(ctx);
+   struct matrix_stack *stack = ctx->CurrentStack;
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
-      fprintf(stderr, "glPushMatrix %s\n",
-	      _mesa_lookup_enum_by_nr(ctx->Transform.MatrixMode));
+      _mesa_debug(ctx, "glPushMatrix %s\n",
+                  _mesa_lookup_enum_by_nr(ctx->Transform.MatrixMode));
 
-   switch (ctx->Transform.MatrixMode) {
-      case GL_MODELVIEW:
-         if (ctx->ModelViewStackDepth >= MAX_MODELVIEW_STACK_DEPTH - 1) {
-            _mesa_error( ctx,  GL_STACK_OVERFLOW, "glPushMatrix");
-            return;
-         }
-         _math_matrix_copy( &ctx->ModelViewStack[ctx->ModelViewStackDepth++],
-                      &ctx->ModelView );
-         break;
-      case GL_PROJECTION:
-         if (ctx->ProjectionStackDepth >= MAX_PROJECTION_STACK_DEPTH - 1) {
-            _mesa_error( ctx,  GL_STACK_OVERFLOW, "glPushMatrix");
-            return;
-         }
-         _math_matrix_copy( &ctx->ProjectionStack[ctx->ProjectionStackDepth++],
-                      &ctx->ProjectionMatrix );
-         break;
-      case GL_TEXTURE:
-         {
-            GLuint t = ctx->Texture.CurrentUnit;
-            if (ctx->TextureStackDepth[t] >= MAX_TEXTURE_STACK_DEPTH - 1) {
-               _mesa_error( ctx,  GL_STACK_OVERFLOW, "glPushMatrix");
-               return;
-            }
-	    _math_matrix_copy( &ctx->TextureStack[t][ctx->TextureStackDepth[t]++],
-                         &ctx->TextureMatrix[t] );
-         }
-         break;
-      case GL_COLOR:
-         if (ctx->ColorStackDepth >= MAX_COLOR_STACK_DEPTH - 1) {
-            _mesa_error( ctx,  GL_STACK_OVERFLOW, "glPushMatrix");
-            return;
-         }
-         _math_matrix_copy( &ctx->ColorStack[ctx->ColorStackDepth++],
-                      &ctx->ColorMatrix );
-         break;
-      default:
-         _mesa_problem(ctx, "Bad matrix mode in _mesa_PushMatrix");
+   if (stack->Depth + 1 >= stack->MaxDepth) {
+      _mesa_error( ctx,  GL_STACK_OVERFLOW, "glPushMatrix" );
+      return;
    }
+   _math_matrix_copy( &stack->Stack[stack->Depth + 1],
+                      &stack->Stack[stack->Depth] );
+   stack->Depth++;
+   stack->Top = &(stack->Stack[stack->Depth]);
+   ctx->NewState |= stack->DirtyFlag;
 }
 
 
@@ -214,56 +176,20 @@ void
 _mesa_PopMatrix( void )
 {
    GET_CURRENT_CONTEXT(ctx);
+   struct matrix_stack *stack = ctx->CurrentStack;
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
-      fprintf(stderr, "glPopMatrix %s\n",
-	      _mesa_lookup_enum_by_nr(ctx->Transform.MatrixMode));
+      _mesa_debug(ctx, "glPopMatrix %s\n",
+                  _mesa_lookup_enum_by_nr(ctx->Transform.MatrixMode));
 
-   switch (ctx->Transform.MatrixMode) {
-      case GL_MODELVIEW:
-         if (ctx->ModelViewStackDepth==0) {
-            _mesa_error( ctx,  GL_STACK_UNDERFLOW, "glPopMatrix");
-            return;
-         }
-         _math_matrix_copy( &ctx->ModelView,
-			    &ctx->ModelViewStack[--ctx->ModelViewStackDepth] );
-	 ctx->NewState |= _NEW_MODELVIEW;
-         break;
-      case GL_PROJECTION:
-         if (ctx->ProjectionStackDepth==0) {
-            _mesa_error( ctx,  GL_STACK_UNDERFLOW, "glPopMatrix");
-            return;
-         }
-
-         _math_matrix_copy( &ctx->ProjectionMatrix,
-			    &ctx->ProjectionStack[--ctx->ProjectionStackDepth] );
-	 ctx->NewState |= _NEW_PROJECTION;
-         break;
-      case GL_TEXTURE:
-         {
-            GLuint t = ctx->Texture.CurrentUnit;
-            if (ctx->TextureStackDepth[t]==0) {
-               _mesa_error( ctx,  GL_STACK_UNDERFLOW, "glPopMatrix");
-               return;
-            }
-	    _math_matrix_copy(&ctx->TextureMatrix[t],
-			      &ctx->TextureStack[t][--ctx->TextureStackDepth[t]]);
-	    ctx->NewState |= _NEW_TEXTURE_MATRIX;
-         }
-         break;
-      case GL_COLOR:
-         if (ctx->ColorStackDepth==0) {
-            _mesa_error( ctx,  GL_STACK_UNDERFLOW, "glPopMatrix");
-            return;
-         }
-         _math_matrix_copy(&ctx->ColorMatrix,
-			   &ctx->ColorStack[--ctx->ColorStackDepth]);
-	 ctx->NewState |= _NEW_COLOR_MATRIX;
-         break;
-      default:
-         _mesa_problem(ctx, "Bad matrix mode in _mesa_PopMatrix");
+   if (stack->Depth == 0) {
+      _mesa_error( ctx,  GL_STACK_UNDERFLOW, "glPopMatrix" );
+      return;
    }
+   stack->Depth--;
+   stack->Top = &(stack->Stack[stack->Depth]);
+   ctx->NewState |= stack->DirtyFlag;
 }
 
 
@@ -272,10 +198,13 @@ void
 _mesa_LoadIdentity( void )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLmatrix *mat = 0;
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
-   GET_ACTIVE_MATRIX(ctx, mat, ctx->NewState, "glLoadIdentity");
-   _math_matrix_set_identity( mat );
+
+   if (MESA_VERBOSE & VERBOSE_API)
+      _mesa_debug(ctx, "glLoadIdentity()");
+
+   _math_matrix_set_identity( ctx->CurrentStack->Top );
+   ctx->NewState |= ctx->CurrentStack->DirtyFlag;
 }
 
 
@@ -283,11 +212,18 @@ void
 _mesa_LoadMatrixf( const GLfloat *m )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLmatrix *mat = 0;
    if (!m) return;
+   if (MESA_VERBOSE & VERBOSE_API)
+      _mesa_debug(ctx,
+          "glLoadMatrix(%f %f %f %f, %f %f %f %f, %f %f %f %f, %f %f %f %f\n",
+          m[0], m[4], m[8], m[12],
+          m[1], m[5], m[9], m[13],
+          m[2], m[6], m[10], m[14],
+          m[3], m[7], m[11], m[15]);
+
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
-   GET_ACTIVE_MATRIX(ctx, mat, ctx->NewState, "glLoadMatrix");
-   _math_matrix_loadf( mat, m );
+   _math_matrix_loadf( ctx->CurrentStack->Top, m );
+   ctx->NewState |= ctx->CurrentStack->DirtyFlag;
 }
 
 
@@ -311,11 +247,17 @@ void
 _mesa_MultMatrixf( const GLfloat *m )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLmatrix *mat = 0;
    if (!m) return;
+   if (MESA_VERBOSE & VERBOSE_API)
+      _mesa_debug(ctx,
+          "glMultMatrix(%f %f %f %f, %f %f %f %f, %f %f %f %f, %f %f %f %f\n",
+          m[0], m[4], m[8], m[12],
+          m[1], m[5], m[9], m[13],
+          m[2], m[6], m[10], m[14],
+          m[3], m[7], m[11], m[15]);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
-   GET_ACTIVE_MATRIX( ctx,  mat, ctx->NewState, "glMultMatrix" );
-   _math_matrix_mul_floats( mat, m );
+   _math_matrix_mul_floats( ctx->CurrentStack->Top, m );
+   ctx->NewState |= ctx->CurrentStack->DirtyFlag;
 }
 
 
@@ -345,9 +287,8 @@ _mesa_Rotatef( GLfloat angle, GLfloat x, GLfloat y, GLfloat z )
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
    if (angle != 0.0F) {
-      GLmatrix *mat = 0;
-      GET_ACTIVE_MATRIX( ctx,  mat, ctx->NewState, "glRotate" );
-      _math_matrix_rotate( mat, angle, x, y, z );
+      _math_matrix_rotate( ctx->CurrentStack->Top, angle, x, y, z);
+      ctx->NewState |= ctx->CurrentStack->DirtyFlag;
    }
 }
 
@@ -365,10 +306,9 @@ void
 _mesa_Scalef( GLfloat x, GLfloat y, GLfloat z )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLmatrix *mat = 0;
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
-   GET_ACTIVE_MATRIX(ctx, mat, ctx->NewState, "glScale");
-   _math_matrix_scale( mat, x, y, z );
+   _math_matrix_scale( ctx->CurrentStack->Top, x, y, z);
+   ctx->NewState |= ctx->CurrentStack->DirtyFlag;
 }
 
 
@@ -386,10 +326,9 @@ void
 _mesa_Translatef( GLfloat x, GLfloat y, GLfloat z )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLmatrix *mat = 0;
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
-   GET_ACTIVE_MATRIX(ctx, mat, ctx->NewState, "glTranslate");
-   _math_matrix_translate( mat, x, y, z );
+   _math_matrix_translate( ctx->CurrentStack->Top, x, y, z);
+   ctx->NewState |= ctx->CurrentStack->DirtyFlag;
 }
 
 
@@ -463,13 +402,14 @@ _mesa_set_viewport( GLcontext *ctx, GLint x, GLint y,
    const GLfloat n = ctx->Viewport.Near;
    const GLfloat f = ctx->Viewport.Far;
 
+   if (MESA_VERBOSE & VERBOSE_API)
+      _mesa_debug(ctx, "glViewport %d %d %d %d\n", x, y, width, height);
+
    if (width < 0 || height < 0) {
-      _mesa_error( ctx,  GL_INVALID_VALUE, "glViewport" );
+      _mesa_error( ctx,  GL_INVALID_VALUE,
+                   "glViewport(%d, %d, %d, %d)", x, y, width, height );
       return;
    }
-
-   if (MESA_VERBOSE & VERBOSE_API)
-      fprintf(stderr, "glViewport %d %d %d %d\n", x, y, width, height);
 
    /* clamp width, and height to implementation dependent range */
    width  = CLAMP( width,  1, MAX_WIDTH );
@@ -525,7 +465,7 @@ _mesa_DepthRange( GLclampd nearval, GLclampd farval )
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
-      fprintf(stderr, "glDepthRange %f %f\n", nearval, farval);
+      _mesa_debug(ctx, "glDepthRange %f %f\n", nearval, farval);
 
    n = (GLfloat) CLAMP( nearval, 0.0, 1.0 );
    f = (GLfloat) CLAMP( farval, 0.0, 1.0 );

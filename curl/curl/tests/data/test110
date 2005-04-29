@@ -11,6 +11,9 @@ but we emulate that
 
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 FTP download resume with set limit
  </name>
@@ -20,7 +23,7 @@ ftp://%HOSTIP:%FTPPORT/110 -C 20
 <file name="log/ftpserver.cmd">
 REPLY EPSV 500 no such command
 </file>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -36,5 +39,6 @@ TYPE I
 SIZE 110
 REST 20
 RETR 110
+QUIT
 </protocol>
 </verify>

@@ -1,0 +1,674 @@
+# Commands covered:  ::dom::nodeIterator
+#
+# This file contains a collection of tests for one or more of the 
+# TclDOM commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1999-2000 Ajuba Solutions
+#
+# $Id: iterator.test,v 1.3 2002/08/11 11:22:48 balls Exp $
+
+package require tcltest; namespace import -force ::tcltest::*
+source testutils.tcl
+testPackage dom
+
+proc IterateXML {xml showList} {
+    set document [::dom::DOMImplementation parse $xml]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-show $showList]
+	set result {}
+	for {set i 0} {$i < 50} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+		if {[dom::node cget $node -nodeName] != "#text"} {
+			lappend result [dom::node cget $node -nodeName]
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	for {set i 0} {$i < 50} {incr i} {
+		set node [dom::nodeIterator previousNode $iterator]
+		if {$node == ""} break;
+		if {[dom::node cget $node -nodeName] != "#text"} {
+			lappend result [dom::node cget $node -nodeName]
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	return $result
+}
+
+set xml1 {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.<A>aaa<B>bbb</B><C>ccc<D>ddd</D>ccc2</C>aaa2</A></Test>}
+
+test iterator-1.1 {argument parsing} -constraints {dom_c} -body {
+    list [catch {dom::nodeIterator} msg] $msg
+} -result {1 {wrong # args: should be "dom::nodeIterator method handle ?arg ...?"}}
+test iterator-1.2 {argument parsing} -constraints {dom_c} -body {
+    list [catch {dom::nodeIterator foo} msg] $msg
+} -result {1 {bad method "foo": must be cget, configure, previousNode, or nextNode}}
+test iterator-1.3 {argument parsing} -constraints {dom_c} -body {
+    list [catch {dom::nodeIterator cget blah} msg] $msg
+} -result {1 {token not found}}
+
+test iterator-2.1 {iterator creation} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test></Test>}]
+	set result [catch {dom::DocumentTraversal createNodeIterator $document} \
+	    iterator]
+	set handle [string range $iterator 0 7]
+	list $result $handle
+} -result {0 iterator}
+
+test iterator-2.2 {iterator creation} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test></Test>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result [catch {dom::nodeIterator nextNode $iterator} first]
+	set handle [string range $first 0 3]
+	list $result $handle
+} -result {0 node}
+
+test iterator-3.1 {iterator cget -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document -show \
+		[list element textNode]]
+	set result [catch {::dom::nodeIterator cget $iterator -show} value]
+	list $result $value
+} -result {0 {element textNode}}
+
+test iterator-3.2 {iterator configure -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document -show \
+		[list element textNode]]
+	set result [catch {::dom::nodeIterator configure $iterator -show} value]
+	list $result $value
+} -result {0 {element textNode}}
+
+test iterator-3.3 {iterator configure -show readonly} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document -show \
+		[list element textNode]]
+	set result [catch {::dom::nodeIterator configure $iterator \
+		-show [list element]} value]
+	list $result $value
+} -result {1 {no modification allowed error: an attempt was made to modify an object where modifications are not allowed}}
+
+test iterator-3.4 {iterator cget -filter} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-filter nodeFilter]
+	set result [catch {::dom::nodeIterator cget $iterator -filter} value]
+	list $result $value
+} -result {0 nodeFilter}
+
+test iterator-3.5 {iterator configure -filter} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-filter nodeFilter]
+	set result [catch {::dom::nodeIterator configure $iterator -filter} value]
+	list $result $value
+} -result {0 nodeFilter}
+
+test iterator-3.6 {iterator configure -filter readonly} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-filter nodeFilter]
+	set result [catch {::dom::nodeIterator configure $iterator \
+		-filter someFilter} value]
+	list $result $value
+} -result {1 {no modification allowed error: an attempt was made to modify an object where modifications are not allowed}}
+
+test iterator-3.7 {iterator cget -expandEntities} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result [catch {::dom::nodeIterator cget $iterator \
+		-expandEntities} value]
+	list $result $value
+} -result {0 0}
+
+test iterator-3.8 {iterator configure -expandEntities} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result [catch {::dom::nodeIterator configure $iterator \
+		-expandEntities} value]
+	list $result $value
+} -result {0 0}
+
+test iterator-3.9 {iterator configure -expandEntities readonly} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result [catch {::dom::nodeIterator configure $iterator \
+		-expandEntities 1} value]
+	list $result $value
+} -result {1 {no modification allowed error: an attempt was made to modify an object where modifications are not allowed}}
+
+test iterator-4.1 {basic iteration} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+		lappend result [dom::node cget $node -nodeType]
+		lappend result [dom::node cget $node -nodeName]
+		lappend result [dom::node cget $node -nodeValue]
+	}
+	set result	
+} -result {document #document {} documentType Test {} element Test {} textNode #text {This } element b {} textNode #text is textNode #text text.}
+
+test iterator-4.2 {basic iteration with -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-show [list element textNode]]
+	set result {}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+		lappend result [dom::node cget $node -nodeType]
+		lappend result [dom::node cget $node -nodeName]
+		lappend result [dom::node cget $node -nodeValue]
+	}
+	set result	
+} -result {element Test {} textNode #text {This } element b {} textNode #text is textNode #text text.}
+
+test iterator-4.3 {basic reverse iteration} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+	}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::nodeIterator previousNode $iterator]
+		if {$node == ""} break;
+		lappend result [dom::node cget $node -nodeType]
+		lappend result [dom::node cget $node -nodeName]
+		lappend result [dom::node cget $node -nodeValue]
+	}
+	set result	
+} -result {textNode #text text. textNode #text is element b {} textNode #text {This } element Test {} documentType Test {} document #document {}}
+
+test iterator-4.4 {basic reverse iteration with -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-show [list element textNode]]
+	set result {}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+	}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::nodeIterator previousNode $iterator]
+		if {$node == ""} break;
+		lappend result [dom::node cget $node -nodeType]
+		lappend result [dom::node cget $node -nodeName]
+		lappend result [dom::node cget $node -nodeValue]
+	}
+	set result	
+} -result {textNode #text text. textNode #text is element b {} textNode #text {This } element Test {}}
+
+test iterator-4.5 {complex iteration} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {#document Test Test {This } b is text. A aaa B bbb C ccc D ddd ccc2 aaa2}
+
+test iterator-4.6 {complex iteration} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+	}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator previousNode $iterator]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {aaa2 ccc2 ddd D ccc C bbb B aaa A text. is b {This } Test Test #document}
+
+test iterator-4.7 {basic iteration both directions} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	set node [dom::nodeIterator nextNode $iterator]
+	lappend result [dom::node cget $node -nodeName]
+	set node [dom::nodeIterator previousNode $iterator]
+	lappend result [dom::node cget $node -nodeName]
+	set result	
+} -result {#document #document}
+
+test iterator-4.8 {backup before start of list} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	set node [dom::nodeIterator previousNode $iterator]
+	set	node
+} -result {}
+
+test iterator-4.9 {backup before start of list then forward} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	set node [dom::nodeIterator previousNode $iterator]
+	set node [dom::nodeIterator previousNode $iterator]
+	set node [dom::nodeIterator previousNode $iterator]
+	set node [dom::nodeIterator previousNode $iterator]
+	set node [dom::nodeIterator nextNode $iterator]
+	lappend result [dom::node cget $node -nodeName]
+	set	result
+} -result {#document}
+
+test iterator-4.10 {inserts while iterating} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+			if {$name == "A"} {
+				set new [dom::document createTextNode $document "New Text"]
+				dom::node insertBefore $node $new \
+					[dom::node cget $node -firstChild]
+			}
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {#document Test Test {This } b is text. A {New Text} aaa B bbb C ccc D ddd ccc2 aaa2}
+
+test iterator-4.11 {deletions while iterating} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+			if {$name == "A"} {
+				dom::node removeChild $node [dom::node cget $node -firstChild]
+			}
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {#document Test Test {This } b is text. A B bbb C ccc D ddd ccc2 aaa2}
+
+test iterator-4.12 {reference node deletion while iterating} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+			if {$name == "B"} {
+				dom::node removeChild [dom::node cget $node -parent] $node
+			}
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {#document Test Test {This } b is text. A aaa B C ccc D ddd ccc2 aaa2}
+
+test iterator-4.13 {reference node deletion while iterating II} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+			if {$name == "C"} {
+				set nodeToDelete $node
+			} elseif {$name == "D"} {
+				dom::node removeChild [dom::node cget $nodeToDelete -parent] \
+					$nodeToDelete
+			}
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {#document Test Test {This } b is text. A aaa B bbb C ccc D aaa2}
+
+test iterator-4.14 {deletion of trailing reference node} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test><Test>xxx<A/></Test>}]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result {}
+	set node {}
+	for {set i 0} {$i < 9} {incr i} {
+		set refNode $node
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+	}
+	set node [dom::nodeIterator previousNode $iterator]
+	dom::node removeChild [dom::node cget $refNode -parent] $refNode
+	set node [dom::nodeIterator previousNode $iterator]
+	lappend result [dom::node cget $node -nodeName]
+	set result
+} -result {Test}
+
+test iterator-4.15 {complex iteration with filter} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		set value [dom::node cget $node -nodeValue]
+		if {$value == "aaa"} {
+			return $::dom::reject 
+		} else {
+			return $::dom::accept 
+		}
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-filter nodeFilter]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	rename nodeFilter {}
+	set result	
+} -result {#document Test Test {This } b is text. A B bbb C ccc D ddd ccc2 aaa2}
+
+test iterator-4.16 {complex iteration} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-show [list document textNode]]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+	}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator previousNode $iterator]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {aaa2 ccc2 ddd ccc bbb aaa text. is {This } #document}
+
+test iterator-4.17 {complex iteration} -constraints {dom_c} -body {
+	set xml1 {<?xml version="1.0"?><!DOCTYPE Test><A>a<B>b<C>c<D>d</D></C></B></A>}
+	IterateXML $xml1 [list document element]
+} -result {#document A B C D D C B A #document}
+
+test iterator-4.18 {complex iteration} -constraints {dom_c} -body {
+	set xml1 {<?xml version="1.0"?><!DOCTYPE Test><Test><A>a</A><B>b</B><C>c</C><D>d</D></Test>}
+	IterateXML $xml1 [list document element]
+} -result {#document Test A B C D D C B A Test #document}
+
+test iterator-4.19 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document element textNode]
+} -result {#document Test A a B b C c D d d D c C b B a A Test #document}
+
+set xml1 {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>test<A><B><C><D><E>eee</E><F>fff</F><G>ggg</G></D>ccc<H><I>iii</I><J>jjj</J><K>kkk</K></H>ccc2</C></B></A></Test>}
+
+test iterator-4.20 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document element textNode]
+} -result {#document Test test A B C D E eee F fff G ggg ccc H I iii J jjj K kkk ccc2 ccc2 kkk K jjj J iii I H ccc ggg G fff F eee E D C B A test Test #document}
+
+test iterator-4.21 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document textNode]
+} -result {#document test eee fff ggg ccc iii jjj kkk ccc2 ccc2 kkk jjj iii ccc ggg fff eee test #document}
+
+set xml1 {<?xml version="1.0"?>
+<!DOCTYPE Test><Test><A>a<B>b<C>c<D>d<E>e<F>f</F></E></D></C></B></A></Test>}
+
+test iterator-4.22 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document element textNode]
+} -result {#document Test A a B b C c D d E e F f f F e E d D c C b B a A Test #document}
+
+test iterator-4.23 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document textNode]
+} -result {#document a b c d e f f e d c b a #document}
+
+
+set xml1 {<?xml version="1.0"?>
+<!DOCTYPE Test><Test><A><B><C><D><E><F>f</F>e</E>d</D>c</C>b</B>a</A></Test>}
+
+test iterator-4.24 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document textNode]
+} -result {#document f e d c b a a b c d e f #document}
+
+set xml1 {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>test
+<A><B><C>
+    <D2><D3><D><E>eee</E><F>fff</F><G>ggg</G></D></D3></D2>ccc
+    <H2><H3><H><I>iii</I><J>jjj</J><K2><K3><K4><K>kkk</K></K4></K3></K2></H></H3></H2>ccc2
+</C></B></A></Test>}
+
+test iterator-4.25 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document element textNode]
+} -result {#document Test {test
+} A B C {
+    } D2 D3 D E eee F fff G ggg {ccc
+    } H2 H3 H I iii J jjj K2 K3 K4 K kkk {ccc2
+} {ccc2
+} kkk K K4 K3 K2 jjj J iii I H H3 H2 {ccc
+    } ggg G fff F eee E D D3 D2 {
+    } C B A {test
+} Test #document}
+
+set xml1 {<?xml version="1.0"?>
+<!DOCTYPE Test><Test>test<A>a<B>b<C>c<D2><D3><D><E>e</E><F>f</F><G>g</G></D></D3></D2>c2<H2><H3><H><I>i</I><J>j</J><K2><K3><K4><K>k</K></K4></K3></K2></H></H3></H2>c3</C></B></A></Test>}
+
+test iterator-4.26 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document element textNode]
+} -result {#document Test test A a B b C c D2 D3 D E e F f G g c2 H2 H3 H I i J j K2 K3 K4 K k c3 c3 k K K4 K3 K2 j J i I H H3 H2 c2 g G f F e E D D3 D2 c C b B a A test Test #document}
+
+
+test iterator-4.27 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document textNode]
+} -result {#document test a b c e f g c2 i j k c3 c3 k j i c2 g f e c b a test #document}
+
+set xml1 {<?xml version="1.0"?>
+<!DOCTYPE Test><Test><A><B><C><D><X><x1/><x2/><x3/><E><e1/><e2/><e3/></E>x</X><F><f1/><f2/>f</F></D><G><g1/><g2/>g</G></C><H><h1/><h2/>h</H></B></A></Test>}
+
+test iterator-4.28 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document element textNode]
+} -result {#document Test A B C D X x1 x2 x3 E e1 e2 e3 x F f1 f2 f G g1 g2 g H h1 h2 h h h2 h1 H g g2 g1 G f f2 f1 F x e3 e2 e1 E x3 x2 x1 X D C B A Test #document}
+
+
+test iterator-4.29 {complex iteration} -constraints {dom_c} -body {
+	IterateXML $xml1 [list document textNode]
+} -result {#document x f g h h g f x #document}
+
+set xml1 {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.<A>aaa<B>bbb</B><C>ccc<D>ddd</D>ccc2</C>aaa2</A></Test>}
+
+test iterator-4.30 {complex iteration with filter} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		set value [dom::node cget $node -nodeName]
+		if {$value == "A"} {
+			return $::dom::reject 
+		} else {
+			return $::dom::accept
+		}
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-filter nodeFilter]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	rename nodeFilter {}
+	set result	
+} -result {#document Test Test {This } b is text. aaa B bbb C ccc D ddd ccc2 aaa2}
+
+test iterator-4.31 {complex reverse iteration} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		set value [dom::node cget $node -nodeName]
+		if {$value == "A"} {
+			return $::dom::reject 
+		} else {
+			return $::dom::accept
+		}
+	}
+    set document [::dom::DOMImplementation parse $xml1] 
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-filter nodeFilter]
+	set result {}
+	for {set i 0} {$i < 30} {incr i} {
+		set node [dom::nodeIterator nextNode $iterator]
+		if {$node == ""} break;
+	}
+	for {set i 0} {$i < 30} {incr i} {
+		set node [dom::nodeIterator previousNode $iterator]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	rename nodeFilter {}
+	set result	
+} -result {aaa2 ccc2 ddd D ccc C bbb B aaa text. is b {This } Test Test #document}
+
+test iterator-5.1 {iterator destruction} -constraints {dom_c} -body {
+	global xml1
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document]
+	set result [catch {::dom::DocumentTraversal destroy $iterator} errmsg]
+	list $result $errmsg
+} -result {0 {}}
+
+test iterator-6.1 {delete document in filter proc} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		global document
+		dom::DOMImplementation destroy $document
+		return $::dom::accept
+	}
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-filter nodeFilter]
+	set node [::dom::nodeIterator nextNode $iterator]
+	set result [catch {::dom::nodeIterator nextNode $iterator} errmsg]
+	rename nodeFilter {}
+	list $result $errmsg
+} -result {0 {}}
+
+test iterator-6.2 {delete document in filter proc} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		global document
+		dom::DOMImplementation destroy $document
+		return $::dom::accept
+	}
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-filter nodeFilter]
+	set node [::dom::nodeIterator nextNode $iterator]
+	set result [catch {::dom::node cget $node -nodeName} errmsg]
+	rename nodeFilter {}
+	list $result $errmsg
+} -result {1 {token not found}}
+
+test iterator-6.3 {delete iterator in filter proc} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		global iterator
+		dom::DocumentTraversal destroy $iterator
+		return $::dom::accept
+	}
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-filter nodeFilter]
+	set node [::dom::nodeIterator nextNode $iterator]
+	set result [catch {::dom::nodeIterator nextNode $iterator} errmsg]
+	rename nodeFilter {}
+	list $result $errmsg
+} -result {1 {token not found}}
+
+test iterator-6.4 {recursively invoke filter proc} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		global iterator
+		set node [::dom::nodeIterator nextNode $iterator]
+		return $::dom::accept
+	}
+    set document [::dom::DOMImplementation parse $xml1]
+	set iterator [dom::DocumentTraversal createNodeIterator $document \
+		-filter nodeFilter]
+	expectError {
+	    ::dom::nodeIterator nextNode $iterator
+	} {too many nested calls * (infinite loop?)}
+	rename nodeFilter {}
+	ok
+} -result {}
+
+::tcltest::cleanupTests
+return

@@ -1,4 +1,4 @@
-# Copyright (C) 92, 93, 94, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1992 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-dejagnu@prep.ai.mit.edu
+# bug-dejagnu@gnu.org
 
-# This file was written by Rob Savoye. (rob@cygnus.com)
+# This file was written by Rob Savoye. (rob@welcomehome.org)
 
 # load various protocol support modules
 
@@ -179,7 +179,10 @@ proc local_exec { commandline inp outp timeout } {
     # command in order to execute the execution. (English. Gotta love it.)
     if { ! $got_eof } {
 	verbose "killing $pid $pgid";
-	exec sh -c "exec > /dev/null 2>&1 && (kill -2 $pgid || kill -2 $pid) && sleep 5 && (kill -15 $pgid || kill $pid) && sleep 5 && (kill -9 $pgid || kill -9 $pid)" &;
+	# This is very, very nasty. SH, instead of EXPECT, is used to
+	# run this in the background since, on older CYGWINs, a
+	# strange file I/O error occures.
+	exec sh -c "exec > /dev/null 2>&1 && (kill -2 $pgid || kill -2 $pid) && sleep 5 && (kill -15 $pgid || kill $pid) && sleep 5 && (kill -9 $pgid || kill -9 $pid) &";
     }
     # This will hang if the kill doesn't work. Nothin' to do, and it's not ok.
     catch "close -i $spawn_id";
@@ -314,10 +317,11 @@ proc standard_close { host } {
 	}
 	if { $pid > 0 } {
 	    verbose "doing kill, pid is $pid";
-	    # This is very, very nasty. Then again, if after did something
-	    # reasonable...
+	    # This is very, very nasty. SH, instead of EXPECT, is used
+	    # to run this in the background since, on older CYGWINs, a
+	    # strange file I/O error occures.
 	    set pgid "-[join $pid { -}]";
-	    exec sh -c "exec > /dev/null 2>&1 && (kill -2 $pgid || kill -2 $pid) && sleep 5 && (kill $pgid || kill $pid) && sleep 5 && (kill -9 $pgid || kill -9 $pid)" &;
+	    exec sh -c "exec > /dev/null 2>&1 && (kill -2 $pgid || kill -2 $pid) && sleep 5 && (kill $pgid || kill $pid) && sleep 5 && (kill -9 $pgid || kill -9 $pid) &";
 	}
 	verbose "pid is $pid";
 	catch "close -i $shell_id";
@@ -407,7 +411,42 @@ proc remote_download { dest file args } {
 #
 
 proc standard_download {dest file destfile} {
-    return [rsh_download $dest $file $destfile];
+    set orig_destfile $destfile
+
+    if [board_info $dest exists nfsdir] {
+	set destdir [board_info $dest nfsdir]
+	if [board_info $dest exists nfsroot_server] {
+	    set dest [board_info $dest nfsroot_server];
+	} else {
+	    set dest "";
+	}
+	set destfile "$destdir/$destfile";
+    }
+
+    if { "$dest" != "" } {
+	set result [rsh_download $dest $file $destfile];
+	if { $result == $destfile } {
+	    return $orig_destfile;
+	} else {
+	    return $result;
+	}
+    }
+
+    set result [catch "exec cp -p $file $destfile" output];
+    if [regexp "same file|are identical" $output] {
+	set result 0
+	set output ""
+    } else {
+	# try to make sure we can read it
+	# and write it (in case we copy onto it again)
+	catch {exec chmod u+rw $destfile}
+    }
+    if { $result != 0 || $output != "" } {
+	perror "remote_download to $dest of $file to $destfile: $output"
+	return "";
+    } else {
+	return $orig_destfile;
+    }
 }
 
 proc remote_upload {dest srcfile args} {
@@ -429,6 +468,38 @@ proc remote_upload {dest srcfile args} {
 }
 
 proc standard_upload { dest srcfile destfile } {
+    set orig_srcfile $srcfile
+
+    if [board_info $dest exists nfsdir] {
+	set destdir [board_info $dest nfsdir]
+	if [board_info $dest exists nfsroot_server] {
+	    set dest [board_info $dest nfsroot_server];
+	} else {
+	    set dest "";
+	}
+	set srcfile "$destdir/$srcfile";
+    }
+
+    if { "$dest" != "" } {
+	return [rsh_upload $dest $srcfile $destfile];
+    }
+
+    set result [catch "exec cp -p $srcfile $destfile" output];
+    if [regexp "same file|are identical" $output] {
+	set result 0
+	set output ""
+    } else {
+	# try to make sure we can read it
+	# and write it (in case we copy onto it again)
+	catch {exec chmod u+rw $destfile}
+    }
+    if { $result != 0 || $output != "" } {
+	perror "remote_upload to $dest of $file to $destfile: $output"
+	return "";
+    } else {
+	return $destfile;
+    }
+
     return [rsh_upload $dest $srcfile $destfile];
 }
 
@@ -581,7 +652,7 @@ proc standard_send { dest string } {
 }
 
 proc file_on_host { op file args } {
-    return [eval remote_file host \"$op\" '\$file\" $args];
+    return [eval remote_file host \"$op\" \"$file\" $args];
 }
 
 proc file_on_build { op file args } {
@@ -602,7 +673,7 @@ proc remote_raw_file { dest args } {
 
 proc standard_file { dest op args } {
     set file [lindex $args 0];
-    verbose "dest in standard_file is $dest";
+    verbose "dest in proc standard_file is $dest" 3;
     if { ![is_remote $dest] } {
 	switch $op {
 	    cmp {
@@ -781,12 +852,29 @@ proc remote_raw_spawn { dest commandline } {
 proc standard_spawn { dest commandline } {
     global board_info
 
+    if ![board_info $dest exists rsh_prog] {
+        if { [which remsh] != 0 } {
+            set RSH remsh
+        } else {
+            set RSH rsh
+        }
+    } else {
+        set RSH [board_info $dest rsh_prog];
+    }
+
+    if ![board_info $dest exists username] {
+        set rsh_useropts ""
+    } else {
+        set rsh_useropts "-l $username"
+    }
+
     if [board_info $dest exists hostname] {
 	set remote [board_info $dest hostname];
     } else {
 	set remote $dest;
     }
-    spawn rsh $remote $commandline;
+
+    spawn $RSH $rsh_useropts $remote $commandline;
     set board_info($dest,fileid) $spawn_id;
     return $spawn_id;
 }
@@ -1050,21 +1138,31 @@ proc standard_wait { dest timeout } {
 proc check_for_board_status  { variable } {
     upvar $variable output;
 
+    # If all programs of this board have a wrapper that always outputs a
+    # status message, then the absence of it means that the program
+    # crashed, regardless of status found elsewhere (e.g. simulator exit
+    # code).
+    if { [target_info needs_status_wrapper] != "" } then {  
+       set nomatch_return 2  
+    } else {
+       set nomatch_return -1
+    }
+
     if [regexp "(^|\[\r\n\])\\*\\*\\* EXIT code" $output] {
 	regsub "^.*\\*\\*\\* EXIT code " $output "" result;
 	regsub "\[\r\n\].*$" $result "" result;
-	regsub -all "(^|\[\r\n\])\\*\\*\\* EXIT code \[^\r\n\]*(\[\r\n\]\[\r\n\]?|$)" $output "" output;
+        regsub -all "(^|\[\r\n\]|\r\n)\\*\\*\\* EXIT code \[^\r\n\]*(\[\r\n\]\[\r\n\]?|$)" $output "" output;
 	regsub "^\[^0-9\]*" $result "" result
 	regsub "\[^0-9\]*$" $result "" result
 	verbose "got board status $result" 3
 	verbose "output is $output" 3
 	if { $result == "" } {
-	    return -1;
+	    return $nomatch_return
 	} else {
-	    return [expr $result];
+	    return [expr $result]
 	}
     } else {
-	return -1;
+	return $nomatch_return;
     }
 }
 

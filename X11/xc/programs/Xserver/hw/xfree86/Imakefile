@@ -3,7 +3,7 @@ XCOMM $XConsortium: Imakefile /main/12 1996/12/16 12:31:46 rws $
 
 
 
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/Imakefile,v 3.82 2003/02/17 17:06:40 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/Imakefile,v 3.86 2003/10/08 14:58:25 dawes Exp $
 
 #include <Server.tmpl>
 #define IHaveSubdirs
@@ -71,10 +71,6 @@ INT10DIR = int10
 VBEDIR = vbe
 #endif
 
-#if BuildXF86Setup
-XF86SETUPDIR = XF86Setup
-#endif
-
 #if DoLoadableServer
 LOADERDIR = loader
 #endif
@@ -95,8 +91,8 @@ SUBDIRS = os-support common $(I2CDIR) $(XAADIR) $(XF1BPPDIR) $(XF4BPPDIR) \
           $(XF8_32BPPDIR) $(XF8_16BPPDIR) $(XF24_32BPPDIR) $(SHADOWFBDIR) \
 	  drivers $(LOADERDIR) $(VGAHWDIR) $(FBDEVHWDIR) $(RAMDACDIR) \
 	  $(RACDIR) $(DDCDIR) $(INPUTDIR) $(INT10DIR) $(VBEDIR) parser \
-          scanpci doc dummylib $(XF86CFGDIRS) $(XF86SETUPDIR) etc \
-          $(DRIVERSDK) $(XF8_32WIDDIR)
+          scanpci doc dummylib $(XF86CFGDIRS) etc $(DRIVERSDK) \
+	  $(XF8_32WIDDIR) getconfig
 
 #if !defined(OS2Architecture) && !defined(cygwinArchitecture)
 XF86CONFIG = XF86Config
@@ -105,7 +101,39 @@ XF98CONFIG = XF98Config
 XF86CONFIG = XF86Conf
 #endif
 
-all:: $(XF86CONFIG) $(XF98CONFIG)
+SAMPLE_CONFIG_FILES = $(XF86CONFIG) $(XF98CONFIG)
+
+all:: $(SAMPLE_CONFIG_FILES) xf86Build.h
+
+CHANGELOGFILE = CHANGELOG
+
+#if defined(BuildDate)
+    BUILD_DATE = BuildDate
+#else
+    BUILD_DATE = 0
+#endif
+
+#if defined(ChangelogDate)
+    CLOG_DATE = ChangelogDate
+#else
+    CLOG_DATE = 0
+#endif
+
+includes:: xf86Build.h
+
+clean::
+	RemoveFile(xf86Build.h)
+	RemoveFile(build.new)
+
+xf86Build.h: FRC
+	RemoveFile(build.new)
+	echo "#define BUILD_DATE $(BUILD_DATE)" > build.new
+	echo "#define CLOG_DATE $(CLOG_DATE)" >> build.new
+	@if cmp -s build.new $@; then :; \
+	else (set -x; RemoveFile($@); $(MV) build.new $@); fi
+	RemoveFile(build.new)
+
+FRC:
 
 #if defined(i386BsdArchitecture) && !defined(FreeBSDArchitecture)
 MANPAGE=Concat(FileManDir,/XF86Config.0)
@@ -159,7 +187,7 @@ CppFileTarget($(XF86CONFIG), XF86Conf.cpp, \
     -DDPI100FONTPATH=$(DPI100FONTPATH) \
     -DDPI75USFONTPATH=$(DPI75USFONTPATH) \
     -DDPI100USFONTPATH=$(DPI100USFONTPATH) \
-    -DMANPAGE=$(MANPAGE) -DMODULEPATH=\"$(MODULEDIR)\", \
+    -DMANPAGE=$(MANPAGE) '-DMODULEPATH="$(MODULEDIR)"', \
     $(ICONFIGFILES))
 CppFileTarget($(XF98CONFIG), XF98Conf.cpp, \
     -DRGBPATH=$(RGBPATH) -DMISCFONTPATH=$(MISCFONTPATH) \
@@ -175,8 +203,9 @@ CppFileTarget($(XF98CONFIG), XF98Conf.cpp, \
     -DNETBSDOLDMOUSEDEV=$(NETBSDOLDMOUSEDEV) \
     -DNETBSDNEWMOUSEDEV=$(NETBSDNEWMOUSEDEV) \
     -DLINUXMOUSEDEV=$(LINUXMOUSEDEV) \
-    -DMANPAGE=$(MANPAGE) -DMODULEPATH=\"$(MODULEDIR)\", \
+    -DMANPAGE=$(MANPAGE) '-DMODULEPATH="$(MODULEDIR)"', \
     $(ICONFIGFILES))
+
 InstallDriverSDKNonExecFile($(XF86CONFIG),$(DRIVERSDKDIR))
 InstallDriverSDKNonExecFile($(XF98CONFIG),$(DRIVERSDKDIR))
 

@@ -41,7 +41,7 @@
 #include "global.h"
 #include "constants.h"
 
-static char const rcsid[] = "$Id: vpinit.c,v 1.1.1.1 2001/02/07 01:24:31 wsanchez Exp $";
+static char const rcsid[] = "$Id: vpinit.c,v 1.2 2004/07/09 21:34:45 nicolai Exp $";
 
 #if !NOMALLOC
 char	**vpdirs;	/* directories (including current) in view path */

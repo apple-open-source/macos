@@ -1,0 +1,96 @@
+.\" Copyright (c) 1999 Ottavio G. Rizzo <rizzo@pluto.linux.it>
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139,
+.\" USA.
+.\" 
+.\" Traducere de Ovidiu Constantin <ovidiu.soft@xnet.ro>
+.TH MAKEWHATIS 8 "22 Ianuarie 1999" 
+.SH NUME
+makewhatis \- Creazã baza de date whatis
+.SH SUMAR
+.BI "makewhatis [-u] [-v] [-w] [-s " secþiuni " ] [-c [" cale_cat "]] [" cale_man "]"
+.SH DESCRIERE
+.B makewhatis
+citeºte toate paginile de manual conþinute în
+.IR secþiunile " date în " cale_man 
+sau paginile preformatate conþinute în
+.IR secþiunile " din " cale_cat .
+Pentru fiecare paginã, scrie o linie în baza de date whatis; fiecare
+linie constã în numele paginii ºi o scurtã descriere, separate de o
+liniutã. Descrierea este extrasã folosind conþinutul secþiunii NUME din
+pagina de manual.
+.LP
+Din moment ce alte limbi folosesc un termen diferit pentru secþiunea NUME,
+.B makewhatis
+recunoaºte termenii echivalenþi în cehã, italianã, finlandezã, francezã,
+germanã ºi spaniolã.
+.LP
+Dacã nici un argument
+.I cale_man
+nu este furnizat,
+.I /usr/man
+este considerat implicit.
+.SH OPÞIUNI
+.TP
+.B -u
+Actualizeazã baza de date cu pagini noi.
+.TP
+.B -v
+Operaþii explicite
+.TP
+.B -w
+Foloseºte cale_man obþinutã din `man --path`
+.TP 
+.BI -s " secþiuni"
+Cautã în
+.I secþiuni
+ale
+.IR cale_man " sau " cale_cat .
+Dacã opþiunea este absentã, valoarea sa este consideratã a fi
+.I  \'1 2 3 4 5 6 7 8 9 n l\'
+.TP 
+.BI -c " cale_cat"
+Paginile preformatate de manual aflate în
+.I cale_cat
+sunt scanate. Dacã argumentul nu este furnizat, este considerat a fi
+primul director existent între
+.IR /usr/man/preformat " ºi " /usr/man .
+.SH EXEMPLE
+.PP
+Pentru a recrea doar 
+.IR /usr/X11R6/man/whatis " ºi " /usr/local/man/whatis
+.IP 
+makewhatis /usr/X11R6/man /usr/local/man
+.PP
+Pentru a recrea toate bazele de date, inclusiv cele cu traducerile
+finlandeze, franceze ºi italiene
+.IP
+LANGUAGE=fi:fr:it makewhatis -w
+.SH ERORI
+.B makewhatis
+ar putea sã nu manipuleze prea bine paginile de manual scrise cu
+macrouri troff nestandard, cum ar fi paginile Tcl/Tk.
+.PP
+.B makewhatis
+nu funcþioneaza pentru traducerile preformatate.
+.SH VEZI ªI
+.BR apropos (1),
+.BR man (1),
+.BR whatis (1)

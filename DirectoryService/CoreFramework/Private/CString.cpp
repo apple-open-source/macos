@@ -519,6 +519,7 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 	register char  *cpTemp = caTemp;
 	uInt32			ulArg;
 	sInt32			lArg;
+	double			dArg;
 	int				nArg;
 	char		   *szpArg;
 	StringPtr		spArg;
@@ -651,6 +652,12 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 						cpTemp = caTemp;
 					}
 					Append ( szpArg );
+					break;
+					
+				case 'f':
+				case 'g':
+					dArg = va_arg ( args, double );
+					cpTemp += ::sprintf ( cpTemp, "%f", dArg );
 					break;
 
 				default:

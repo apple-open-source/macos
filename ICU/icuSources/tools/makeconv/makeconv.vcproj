@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding = "Windows-1252"?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="7.00"
+	Version="7.10"
 	Name="makeconv"
 	SccProjectName=""
 	SccLocalPath="">
@@ -39,17 +39,14 @@
 				CompileAs="0"/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="copy $(TargetPath) ..\..\..\bin
+				CommandLine="copy &quot;$(TargetPath)&quot; ..\..\..\bin
 "
-				Outputs="..\..\..\bin\$(InputName).exe"/>
+				Outputs="..\..\..\bin\$(TargetFileName)"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="icuucd.lib icutud.lib"
 				OutputFile=".\Debug/makeconv.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
-				AdditionalLibraryDirectories="..\..\..\lib"
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile=".\Debug/makeconv.pdb"
 				SubSystem="1"/>
@@ -69,7 +66,13 @@
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
 				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
@@ -96,17 +99,14 @@
 				CompileAs="0"/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="copy $(TargetPath) ..\..\..\bin
+				CommandLine="copy &quot;$(TargetPath)&quot; ..\..\..\bin
 "
-				Outputs="..\..\..\bin\$(InputName).exe"/>
+				Outputs="..\..\..\bin\$(TargetFileName)"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="icuuc.lib icutu.lib"
 				OutputFile=".\Release/makeconv.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
-				AdditionalLibraryDirectories="..\..\..\lib"
 				ProgramDatabaseFile=".\Release/makeconv.pdb"
 				SubSystem="1"/>
 			<Tool
@@ -125,13 +125,24 @@
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
 				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 	</Configurations>
+	<References>
+	</References>
 	<Files>
 		<Filter
 			Name="Source Files"
 			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat">
+			<File
+				RelativePath=".\gencnvex.c">
+			</File>
 			<File
 				RelativePath=".\genmbcs.c">
 			</File>

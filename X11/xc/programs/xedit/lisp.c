@@ -27,7 +27,7 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp.c,v 1.20 2002/12/04 05:27:56 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp.c,v 1.21 2003/05/23 14:56:51 tsi Exp $ */
 
 #include "xedit.h"
 #include "lisp/lisp.h"
@@ -261,10 +261,10 @@ EditModeCallback(Widget w, XtPointer client_data, XtPointer call_data)
 	return;
 
     XawTextSourceClearEntities(source,
-			       XawTextSourceScan(source, 0, XawsdLeft,
-						 XawstAll, 1, True),
-			       XawTextSourceScan(source, 0, XawsdRight,
-						 XawstAll, 1, True));
+			       XawTextSourceScan(source, 0, XawstAll,
+						 XawsdLeft, 1, True),
+			       XawTextSourceScan(source, 0, XawstAll,
+						 XawsdRight, 1, True));
     XeditLispUnsetEditMode(item);
     if (info)
 	XeditLispSetEditMode(item, info->symbol);

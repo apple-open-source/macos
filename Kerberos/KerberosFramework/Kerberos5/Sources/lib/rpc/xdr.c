@@ -50,9 +50,9 @@ static char sccsid[] = "@(#)xdr.c 1.35 87/08/12";
 /*
  * constants specific to the xdr "protocol"
  */
-#define XDR_FALSE	((rpc_int32) 0)
-#define XDR_TRUE	((rpc_int32) 1)
-#define LASTUNSIGNED	((unsigned int) 0-1)
+#define XDR_FALSE	((long) 0)
+#define XDR_TRUE	((long) 1)
+#define LASTUNSIGNED	((u_int) 0-1)
 
 /*
  * for unit alignment
@@ -64,9 +64,7 @@ static char xdr_zero[BYTES_PER_XDR_UNIT] = { 0, 0, 0, 0 };
  * Not a filter, but a convenient utility nonetheless
  */
 void
-gssrpc_xdr_free(proc, objp)
-	xdrproc_t proc;
-	void *objp;
+xdr_free(xdrproc_t proc, void *objp)
 {
 	XDR x;
 	
@@ -78,9 +76,7 @@ gssrpc_xdr_free(proc, objp)
  * XDR nothing
  */
 bool_t
-xdr_void(xdrs, addr )
-	XDR *xdrs;
-	void *addr;
+xdr_void(XDR *xdrs, void *addr)
 {
 
 	return (TRUE);
@@ -90,147 +86,120 @@ xdr_void(xdrs, addr )
  * XDR integers
  */
 bool_t
-xdr_int(xdrs, ip)
-	XDR *xdrs;
-	int *ip;
+xdr_int(XDR *xdrs, int *ip)
 {
+	long l;
 
-#ifdef lint
-	(void) (xdr_short(xdrs, (short *)ip));
-	return (xdr_long(xdrs, (rpc_int32 *)ip));
-#else
-	if (sizeof (int) >=  4) {
-	  long l;
-          switch (xdrs->x_op) {
-          case XDR_ENCODE:
-	    l = *ip;
-            return (xdr_long(xdrs, &l));    
+	switch (xdrs->x_op) {
 
-          case XDR_DECODE:
-            if (!xdr_long(xdrs, &l)) {
-	      return (FALSE);
-	    }
-	    *ip = l;
-	    return (TRUE);
+	case XDR_ENCODE:
+		if (*ip > 0x7fffffffL || *ip < -0x7fffffffL - 1L)
+			return (FALSE);
 
-          case XDR_FREE:
-            return (TRUE);    
-          }
-	} else {
-		return (xdr_short(xdrs, (short *)ip));
+		l = (long) *ip;
+		return (XDR_PUTLONG(xdrs, &l));
+
+	case XDR_DECODE:
+		if (!XDR_GETLONG(xdrs, &l))
+			return (FALSE);
+
+		if (l > INT_MAX || l < INT_MIN)
+			return (FALSE);
+
+		*ip = (int) l;
+
+	case XDR_FREE:
+		return (TRUE);
 	}
 	/*NOTREACHED*/
 	return(FALSE);
-#endif
 }
 
 /*
  * XDR unsigned integers
  */
 bool_t
-xdr_u_int(xdrs, up)
-	XDR *xdrs;
-	unsigned int *up;
+xdr_u_int(XDR *xdrs, u_int *up)
 {
-#ifdef lint
-	(void) (xdr_short(xdrs, (short *)up));
-	return (xdr_u_long(xdrs, (rpc_u_int32 *)up));
-#else
-	if (sizeof (unsigned int) >=  4) {
-	  unsigned long l;
-          switch (xdrs->x_op) {
-          case XDR_ENCODE:
-	    l = *up;
-            return (xdr_u_long(xdrs, &l));    
+	u_long l;
 
-          case XDR_DECODE:
-            if (!xdr_u_long(xdrs, &l)) {
-	      return (FALSE);
-	    }
-	    *up = l;
-	    return (TRUE);
+	switch (xdrs->x_op) {
 
-          case XDR_FREE:
-            return (TRUE);    
-          }
-	} else {
-		return (xdr_short(xdrs, (short *)up));
+	case XDR_ENCODE:
+		if (*up > 0xffffffffUL)
+			return (FALSE);
+
+		l = (u_long)*up;
+		return (XDR_PUTLONG(xdrs, (long *) &l));
+
+	case XDR_DECODE:
+		if (!XDR_GETLONG(xdrs, (long *) &l))
+			return (FALSE);
+
+		if (l > UINT_MAX)
+			return (FALSE);
+
+		*up = (u_int) l;
+		return (TRUE);
+
+	case XDR_FREE:
+		return (TRUE);
 	}
 	/*NOTREACHED*/
 	return(FALSE);
-#endif
 }
 
 /*
  * XDR long integers
- * same as xdr_u_long - open coded to save a proc call!
  */
 bool_t
-xdr_long(xdrs, lp)
-	register XDR *xdrs;
-	long *lp;
+xdr_long(XDR *xdrs, long *lp)
 {
-  if (xdrs->x_op == XDR_ENCODE) {
-    if (sizeof (long) > 4) {
-      /* See if the dereferenced value fits in 4 bytes. If not, return FALSE.
-       * Check by loading value into a rpc_int32, then loading back and comparing
-       * results.
-       */
-      rpc_int32 i = (int) *lp;
-      long l = i;
-      if (l != *lp) {
+
+	switch (xdrs->x_op) {
+	case XDR_ENCODE:
+		if (*lp > 0x7fffffffL || *lp < -0x7fffffffL - 1L)
+			return (FALSE);
+
+		return (XDR_PUTLONG(xdrs, lp));
+
+	case XDR_DECODE:
+		return (XDR_GETLONG(xdrs, lp));
+
+	case XDR_FREE:
+		return (TRUE);
+	}
 	return (FALSE);
-      }
-    }
-    return (XDR_PUTLONG(xdrs, lp));
-  }
-  if (xdrs->x_op == XDR_DECODE)
-    return (XDR_GETLONG(xdrs, lp));
-
-  if (xdrs->x_op == XDR_FREE)
-    return (TRUE);
-
-  return (FALSE);
 }
 
 /*
  * XDR unsigned long integers
- * same as xdr_long - open coded to save a proc call!
  */
 bool_t
-xdr_u_long(xdrs, ulp)
-	register XDR *xdrs;
-	unsigned long *ulp;
+xdr_u_long(XDR *xdrs, u_long *ulp)
 {
-  if (xdrs->x_op == XDR_ENCODE) {
-    if (sizeof (unsigned long) > 4) {
-      /* See if the dereferenced value fits in 4 bytes. If not, return FALSE.
-       * Check by loading value into a rpc_int32, then loading back and comparing
-       * results.
-       */
-      unsigned int ui = *ulp;
-      unsigned long ul = ui;
-      if (ul != *ulp) {
+
+	switch (xdrs->x_op) {
+	case XDR_ENCODE:
+		if (*ulp > 0xffffffffUL)
+			return (FALSE);
+
+		return (XDR_PUTLONG(xdrs, (long *) ulp));
+
+	case XDR_DECODE:
+		return (XDR_GETLONG(xdrs, (long *) ulp));
+
+	case XDR_FREE:
+		return (TRUE);
+	}
 	return (FALSE);
-      }
-    }
-    return (XDR_PUTLONG(xdrs, (long *)ulp));
-  }
-  if (xdrs->x_op == XDR_DECODE) {
-    return (XDR_GETLONG(xdrs, (long *)ulp));
-  }
-  if (xdrs->x_op == XDR_FREE)
-    return (TRUE);
-  return (FALSE);
 }
 
 /*
  * XDR short integers
  */
 bool_t
-xdr_short(xdrs, sp)
-	register XDR *xdrs;
-	short *sp;
+xdr_short(register XDR *xdrs, short *sp)
 {
 	long l;
 
@@ -244,6 +213,9 @@ xdr_short(xdrs, sp)
 		if (!XDR_GETLONG(xdrs, &l)) {
 			return (FALSE);
 		}
+		if (l > SHRT_MAX || l < SHRT_MIN)
+			return (FALSE);
+
 		*sp = (short) l;
 		return (TRUE);
 
@@ -257,23 +229,21 @@ xdr_short(xdrs, sp)
  * XDR unsigned short integers
  */
 bool_t
-xdr_u_short(xdrs, usp)
-	register XDR *xdrs;
-	unsigned short *usp;
+xdr_u_short(register XDR *xdrs, u_short *usp)
 {
-	unsigned long l;
+	u_long l;
 
 	switch (xdrs->x_op) {
 
 	case XDR_ENCODE:
-		l = (unsigned long) *usp;
+		l = (u_long) *usp;
 		return (XDR_PUTLONG(xdrs, (long *) &l));
 
 	case XDR_DECODE:
 		if (!XDR_GETLONG(xdrs, (long *) &l)) {
 			return (FALSE);
 		}
-		*usp = (unsigned short) l;
+		*usp = (u_short) l;
 		return (TRUE);
 
 	case XDR_FREE:
@@ -287,9 +257,7 @@ xdr_u_short(xdrs, usp)
  * XDR a char
  */
 bool_t
-xdr_char(xdrs, cp)
-	XDR *xdrs;
-	char *cp;
+xdr_char(XDR *xdrs, char *cp)
 {
 	int i;
 
@@ -305,11 +273,9 @@ xdr_char(xdrs, cp)
  * XDR an unsigned char
  */
 bool_t
-xdr_u_char(xdrs, cp)
-	XDR *xdrs;
-	unsigned char *cp;
+xdr_u_char(XDR *xdrs, u_char *cp)
 {
-	unsigned int u;
+	u_int u;
 
 	u = (*cp);
 	if (!xdr_u_int(xdrs, &u)) {
@@ -323,9 +289,7 @@ xdr_u_char(xdrs, cp)
  * XDR booleans
  */
 bool_t
-xdr_bool(xdrs, bp)
-	register XDR *xdrs;
-	bool_t *bp;
+xdr_bool(register XDR *xdrs, bool_t *bp)
 {
 	long lb;
 
@@ -352,9 +316,7 @@ xdr_bool(xdrs, bp)
  * XDR enumerations
  */
 bool_t
-xdr_enum(xdrs, ep)
-	XDR *xdrs;
-	enum_t *ep;
+xdr_enum(XDR *xdrs, enum_t *ep)
 {
 #ifndef lint
 	enum sizecheck { SIZEVAL };	/* used to find the size of an enum */
@@ -362,8 +324,10 @@ xdr_enum(xdrs, ep)
 	/*
 	 * enums are treated as ints
 	 */
-	if (sizeof (enum sizecheck) == sizeof (rpc_int32)) {
-		return (xdr_int32(xdrs, (rpc_int32 *)ep));
+	if (sizeof (enum sizecheck) == sizeof (long)) {
+		return (xdr_long(xdrs, (long *)ep));
+	} else if (sizeof (enum sizecheck) == sizeof (int)) {
+		return (xdr_int(xdrs, (int *)ep));
 	} else if (sizeof (enum sizecheck) == sizeof (short)) {
 		return (xdr_short(xdrs, (short *)ep));
 	} else {
@@ -381,12 +345,9 @@ xdr_enum(xdrs, ep)
  * cp points to the opaque object and cnt gives the byte length.
  */
 bool_t
-xdr_opaque(xdrs, cp, cnt)
-	register XDR *xdrs;
-	caddr_t cp;
-	register unsigned int cnt;
+xdr_opaque(XDR *xdrs, caddr_t cp, u_int cnt)
 {
-	register unsigned int rndup;
+	register u_int rndup;
 	static int crud[BYTES_PER_XDR_UNIT];
 
 	/*
@@ -433,14 +394,14 @@ xdr_opaque(xdrs, cp, cnt)
  * If *cpp is NULL maxsize bytes are allocated
  */
 bool_t
-xdr_bytes(xdrs, cpp, sizep, maxsize)
-	register XDR *xdrs;
-	char **cpp;
-	register unsigned int *sizep;
-	unsigned int maxsize;
+xdr_bytes(
+	XDR *xdrs,
+	char **cpp,
+	u_int *sizep,
+	u_int maxsize)
 {
 	register char *sp = *cpp;  /* sp is the actual string pointer */
-	register unsigned int nodesize;
+	register u_int nodesize;
 
 	/*
 	 * first deal with the length since xdr bytes are counted
@@ -488,60 +449,58 @@ xdr_bytes(xdrs, cpp, sizep, maxsize)
  * Implemented here due to commonality of the object.
  */
 bool_t
-xdr_netobj(xdrs, np)
-	XDR *xdrs;
-	struct netobj *np;
+xdr_netobj(XDR *xdrs, struct netobj *np)
 {
 
 	return (xdr_bytes(xdrs, &np->n_bytes, &np->n_len, MAX_NETOBJ_SZ));
 }
 
 bool_t
-xdr_int32(xdrs, ip)
-	XDR *xdrs;
-	rpc_int32 *ip;
+xdr_int32(XDR *xdrs, int32_t *ip)
 {
-  long l;
-  switch (xdrs->x_op) {
-  case XDR_ENCODE:
-    l = *ip;
-    return (xdr_long(xdrs, &l));    
-    
-  case XDR_DECODE:
-    if (!xdr_long(xdrs, &l)) {
-      return (FALSE);
-    }
-    *ip = l;
-    return (TRUE);
-    
-  case XDR_FREE:
-    return (TRUE);    
-  }
-  return(FALSE);
+	long l;
+
+	switch (xdrs->x_op) {
+
+	case XDR_ENCODE:
+		l = *ip;
+		return (xdr_long(xdrs, &l));    
+
+	case XDR_DECODE:
+		if (!xdr_long(xdrs, &l)) {
+			return (FALSE);
+		}
+		*ip = l;
+		return (TRUE);
+
+	case XDR_FREE:
+		return (TRUE);    
+	}
+	return (FALSE);
 }
 
 bool_t
-xdr_u_int32(xdrs, up)
-	XDR *xdrs;
-	rpc_u_int32 *up;
+xdr_u_int32(XDR *xdrs, uint32_t *up)
 {
-  unsigned long ul;
-  switch (xdrs->x_op) {
-  case XDR_ENCODE:
-    ul = *up;
-    return (xdr_u_long(xdrs, &ul));    
-    
-  case XDR_DECODE:
-    if (!xdr_u_long(xdrs, &ul)) {
-      return (FALSE);
-    }
-    *up = ul;
-    return (TRUE);
-    
-  case XDR_FREE:
-    return (TRUE);    
-  }
-  return(FALSE);
+	u_long ul;
+
+	switch (xdrs->x_op) {
+
+	case XDR_ENCODE:
+		ul = *up;
+		return (xdr_u_long(xdrs, &ul));    
+
+	case XDR_DECODE:
+		if (!xdr_u_long(xdrs, &ul)) {
+			return (FALSE);
+		}
+		*up = ul;
+		return (TRUE);
+
+	case XDR_FREE:
+		return (TRUE);    
+	}
+	return (FALSE);
 }
 
 /*
@@ -556,12 +515,13 @@ xdr_u_int32(xdrs, up)
  * If there is no specific or default routine an error is returned.
  */
 bool_t
-xdr_union(xdrs, dscmp, unp, choices, dfault)
-	register XDR *xdrs;
-	enum_t *dscmp;		/* enum to decide which arm to work on */
-	char *unp;		/* the union itself */
-	struct xdr_discrim *choices;	/* [value, xdr proc] for each arm */
-	xdrproc_t dfault;	/* default xdr routine */
+xdr_union(
+	XDR *xdrs,
+	enum_t *dscmp,		/* enum to decide which arm to work on */
+	char *unp,		/* the union itself */
+	struct xdr_discrim *choices,	/* [value, xdr proc] for each arm */
+	xdrproc_t dfault	/* default xdr routine */
+	)
 {
 	register enum_t dscm;
 
@@ -605,14 +565,11 @@ xdr_union(xdrs, dscmp, unp, choices, dfault)
  * of the string as specified by a protocol.
  */
 bool_t
-xdr_string(xdrs, cpp, maxsize)
-	register XDR *xdrs;
-	char **cpp;
-	unsigned int maxsize;
+xdr_string(XDR *xdrs, char **cpp, u_int maxsize)
 {
 	register char *sp = *cpp;  /* sp is the actual string pointer */
-	unsigned int size;
-	unsigned int nodesize;
+	u_int size;
+	u_int nodesize;
 
 	/*
 	 * first deal with the length since xdr strings are counted-strings
@@ -671,9 +628,7 @@ xdr_string(xdrs, cpp, maxsize)
  * routines like clnt_call
  */
 bool_t
-xdr_wrapstring(xdrs, cpp)
-	XDR *xdrs;
-	char **cpp;
+xdr_wrapstring(XDR *xdrs, char **cpp)
 {
 	if (xdr_string(xdrs, cpp, LASTUNSIGNED)) {
 		return (TRUE);

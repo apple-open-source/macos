@@ -62,6 +62,14 @@ __RCSID("$FreeBSD: src/usr.bin/du/du.c,v 1.28 2002/12/30 18:13:07 mike Exp $");
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
+#include <sys/param.h>
+#include <sys/mount.h>
+
+#ifdef __APPLE__
+#include "get_compat.h"
+#else
+#define COMPAT_MODE(func, mode) 1
+#endif
 
 #define	KILO_SZ(n) (n)
 #define	MEGA_SZ(n) ((n) * (n))
@@ -130,18 +138,25 @@ main(int argc, char *argv[])
 		switch (ch) {
 			case 'H':
 				Hflag = 1;
+				Pflag = Lflag = 0;
 				break;
 			case 'I':
 				ignoreadd(optarg);
 				break;
 			case 'L':
-				if (Pflag)
+				if (Pflag && COMPAT_MODE("bin/du", "legacy")) {
 					usage();
+				} else {
+					Hflag = Pflag = 0;
+				}
 				Lflag = 1;
 				break;
 			case 'P':
-				if (Lflag)
+				if (Lflag && COMPAT_MODE("bin/du", "legacy")) {
 					usage();
+				} else {
+					Hflag = Lflag = 0;
+				}
 				Pflag = 1;
 				break;
 			case 'a':
@@ -268,6 +283,9 @@ main(int argc, char *argv[])
 				}
 				break;
 			case FTS_DC:			/* Ignore. */
+				if (COMPAT_MODE("bin/du", "unix2003")) {
+					errx(1, "Can't follow symlink cycle from %s to %s", p->fts_path, p->fts_cycle->fts_path);
+				}
 				break;
 			case FTS_DNR:			/* Warn, continue. */
 			case FTS_ERR:
@@ -275,6 +293,14 @@ main(int argc, char *argv[])
 				warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
 				rval = 1;
 				break;
+			case FTS_SLNONE:
+				if (COMPAT_MODE("bin/du", "unix2003")) {
+					struct stat sb;
+					int rc = stat(p->fts_path, &sb);
+					if (rc < 0 && errno == ELOOP) {
+						errx(1, "Too many symlinks at %s", p->fts_path);
+					}
+				}
 			default:
 				if (ignorep(p))
 					break;
@@ -351,8 +377,9 @@ linkchk(FTSENT *p)
 	dev = p->fts_statp->st_dev;
 	if ((start = files) != NULL)
 		for (fp = start + nfiles - 1; fp >= start; --fp)
-			if (ino == fp->inode && dev == fp->dev)
+			if (ino == fp->inode && dev == fp->dev) {
 				return (1);
+			}
 
 	if (nfiles == maxfiles && (files = realloc((char *)files,
 	    (u_int)(sizeof(ID) * (maxfiles += 128)))) == NULL)
@@ -446,6 +473,16 @@ ignorep(FTSENT *ent)
 {
 	struct ignentry *ign;
 
+	if (S_ISDIR(ent->fts_statp->st_mode) && !strcmp("fd", ent->fts_name)) {
+		struct statfs sfsb;
+		int rc = statfs(ent->fts_accpath, &sfsb);
+		if (rc >= 0 && !strcmp("fdesc", sfsb.f_fstypename)) {
+			/* Don't cd into /dev/fd/N since one of those is likely to be
+			  the cwd as of the start of du which causes all manner of
+			  unpleasant surprises */
+			return 1;
+		}
+	}
 	SLIST_FOREACH(ign, &ignores, next)
 		if (fnmatch(ign->mask, ent->fts_name, 0) != FNM_NOMATCH)
 			return 1;

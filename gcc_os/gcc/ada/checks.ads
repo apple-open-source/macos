@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -496,6 +495,11 @@ package Checks is
    --  Inserts code that will check for the value of Expr being valid, in
    --  the sense of the 'Valid attribute returning True. Constraint_Error
    --  will be raised if the value is not valid.
+
+   procedure Remove_Checks (Expr : Node_Id);
+   --  Remove all checks from Expr except those that are only executed
+   --  conditionally (on the right side of And Then/Or Else. This call
+   --  removes only embedded checks (Do_Range_Check, Do_Overflow_Check).
 
 private
 

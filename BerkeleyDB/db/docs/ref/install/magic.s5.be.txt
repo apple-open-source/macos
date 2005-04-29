@@ -1,5 +1,5 @@
 # Berkeley DB
-#	$Id: magic.s5.be.txt,v 1.1.1.1 2003/02/15 04:56:00 zarzycki Exp $
+#	$Id: magic.s5.be.txt,v 1.2 2004/03/30 01:22:51 jtownsen Exp $
 #
 # System V /etc/magic files: big-endian version.
 #

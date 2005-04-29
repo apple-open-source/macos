@@ -1,11 +1,13 @@
 #include <Carbon/Carbon.h>
 
 #include "MachIPCInterface.h"
-#include "ClassicProtocol.h"
-#include "HandleBuffer.h"
 #include "ContextData.h"
 #include "CCacheData.h"
-#include "ClassicSupport.h"
+#ifdef Classic_Ticket_Sharing
+#  include "ClassicSupport.h"
+#  include "ClassicProtocol.h"
+#  include "HandleBuffer.h"
+#endif
 
 std::list <Handle>			CCIClassicSupport::sDiffs;
 CCIUInt32				CCIClassicSupport::sFirstSeqNo = 0;

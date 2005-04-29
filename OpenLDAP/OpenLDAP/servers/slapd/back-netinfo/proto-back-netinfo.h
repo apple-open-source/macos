@@ -116,9 +116,8 @@ extern int dsstatus_to_ldap_err LDAP_P((
  * dsstatus code.
  */
 extern int netinfo_back_op_result LDAP_P((
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
+	struct slap_op *op, 
+	struct slap_rep *rs, 
 	dsstatus status));
 
 /*
@@ -169,20 +168,17 @@ extern dsstatus netinfo_back_dn_pathcreate LDAP_P((
  * if we should look in the local store instead.
  */
 extern dsstatus netinfo_back_send_referrals LDAP_P((
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
+	struct slap_op *op, 
+	struct slap_rep *rs, 
 	struct berval *nbase));
 
 /*
  * Send search continuation results.
  */
 extern dsstatus netinfo_back_send_references LDAP_P((
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
-	struct berval *relativeBase,
-	int scope));
+	struct slap_op *op, 
+	struct slap_rep *rs, 
+	struct berval *relativeBase));
 
 /*
  * Make a distinguished name store-relative (ie. strip off
@@ -310,16 +306,12 @@ extern void schemamap_atmap_release LDAP_P((struct atmap *atmap));
 /* in authz.c */
 
 extern dsstatus netinfo_back_authorize LDAP_P((
-	BackendDB *be,
-	Connection *conn,
 	Operation *op,
 	dsrecord *r,
 	AttributeDescription *desc,
 	slap_access_t access));
 
 extern dsstatus netinfo_back_access_allowed LDAP_P((
-	BackendDB *be,
-	Connection *conn,
 	Operation *op,
 	u_int32_t dsid,
 	AttributeDescription *desc,

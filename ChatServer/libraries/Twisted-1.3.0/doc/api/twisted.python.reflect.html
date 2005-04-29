@@ -1,0 +1,562 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.python.reflect</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.python.html">Package&nbsp;python</a> ::
+        Module&nbsp;reflect
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.python.reflect.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.python.reflect</h2>
+
+Standardized versions of various cool and/or strange things that you 
+can do with Python's reflection capabilities.
+<hr/>
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.reflect.Accessor.html"><code>Accessor</code></a></b></td>
+  <td>Extending this class will give you explicit accessor methods; a method 
+called <code>set_foo</code>, for example, is the same as an if statement 
+in <a href="twisted.python.reflect.Accessor.html#__setattr__" 
+class="link"><code>__setattr__</code></a> looking for 
+<code>'foo'</code>.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.reflect.AccessorType.html"><code>AccessorType</code></a></b></td>
+  <td>Metaclass that generates properties automatically.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.reflect.Accessor.html"><code>OriginalAccessor</code></a></b></td>
+  <td>Extending this class will give you explicit accessor methods; a method 
+called <code>set_foo</code>, for example, is the same as an if statement 
+in <a href="twisted.python.reflect.Accessor.html#__setattr__" 
+class="link"><code>__setattr__</code></a> looking for 
+<code>'foo'</code>.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.reflect.PropertyAccessor.html"><code>PropertyAccessor</code></a></b></td>
+  <td>A mixin class for Python 2.2 that uses AccessorType.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.reflect.QueueMethod.html"><code>QueueMethod</code></a></b></td>
+  <td>I represent a method that doesn't exist yet.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.reflect.Settable.html"><code>Settable</code></a></b></td>
+  <td>A mixin class for syntactic sugar.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.reflect.Summer.html"><code>Summer</code></a></b></td>
+  <td>Extend from this class to get the capability to maintain 'related 
+sums'.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_reclass"></a><span class="summary-sig"><span class="summary-sig-name">_reclass</span>(<span class=summary-sig-arg>clazz</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_safe_repr"></a><span class="summary-sig"><span class="summary-sig-name">_safe_repr</span>(<span class=summary-sig-arg>o</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_startswith"></a><span class="summary-sig"><span class="summary-sig-name">_startswith</span>(<span class=summary-sig-arg>s</span>,
+          <span class=summary-sig-arg>sub</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="accumulateBases"></a><span class="summary-sig"><span class="summary-sig-name">accumulateBases</span>(<span class=summary-sig-arg>classObj</span>,
+          <span class=summary-sig-arg>l</span>,
+          <span class=summary-sig-arg>baseClass</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#accumulateClassDict" class="summary-sig-name"><code>accumulateClassDict</code></a>(<span class=summary-sig-arg>classObj</span>,
+          <span class=summary-sig-arg>attr</span>,
+          <span class=summary-sig-arg>adict</span>,
+          <span class=summary-sig-arg>baseClass</span>)</span></code>
+<br />
+Accumulate all attributes of a given name in a class heirarchy into a 
+single dictionary.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#accumulateClassList" class="summary-sig-name"><code>accumulateClassList</code></a>(<span class=summary-sig-arg>classObj</span>,
+          <span class=summary-sig-arg>attr</span>,
+          <span class=summary-sig-arg>listObj</span>,
+          <span class=summary-sig-arg>baseClass</span>)</span></code>
+<br />
+Accumulate all attributes of a given name in a class heirarchy into a 
+single list.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#accumulateMethods" class="summary-sig-name"><code>accumulateMethods</code></a>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>dict</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>curClass</span>)</span></code>
+<br />
+accumulateMethods(instance, dict, prefix) I recurse through the bases 
+of instance.__class__, and add methods beginning with 'prefix' to 'dict', 
+in the form of {'methodname':*instance*method_object}.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#addMethodNamesToDict" class="summary-sig-name"><code>addMethodNamesToDict</code></a>(<span class=summary-sig-arg>classObj</span>,
+          <span class=summary-sig-arg>dict</span>,
+          <span class=summary-sig-arg>prefix</span>,
+          <span class=summary-sig-arg>baseClass</span>)</span></code>
+<br />
+addMethodNamesToDict(classObj, dict, prefix, baseClass=None) -&gt; 
+dict this goes through 'classObj' (and its bases) and puts method names 
+starting with 'prefix' in 'dict' with a value of 1.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#allYourBase" class="summary-sig-name"><code>allYourBase</code></a>(<span class=summary-sig-arg>classObj</span>,
+          <span class=summary-sig-arg>baseClass</span>)</span></code>
+<br />
+allYourBase(classObj, baseClass=None) -&gt; list of all base classes 
+that are subclasses of baseClass, unless it is None, in which case all 
+bases will be added.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#filenameToModuleName" class="summary-sig-name"><code>filenameToModuleName</code></a>(<span class=summary-sig-arg>fn</span>)</span></code>
+<br />
+Convert a name in the filesystem to the name of the Python module it 
+is.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="findInstances"></a><span class="summary-sig"><span class="summary-sig-name">findInstances</span>(<span class=summary-sig-arg>start</span>,
+          <span class=summary-sig-arg>t</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="fullFuncName"></a><span class="summary-sig"><span class="summary-sig-name">fullFuncName</span>(<span class=summary-sig-arg>func</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#funcinfo" class="summary-sig-name"><code>funcinfo</code></a>(<span class=summary-sig-arg>function</span>)</span></code>
+<br />
+this is more documentation for myself than useful code.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getcurrent"></a><span class="summary-sig"><span class="summary-sig-name">getcurrent</span>(<span class=summary-sig-arg>clazz</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="isinst"></a><span class="summary-sig"><span class="summary-sig-name">isinst</span>(<span class=summary-sig-arg>inst</span>,
+          <span class=summary-sig-arg>clazz</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="isLike"></a><span class="summary-sig"><span class="summary-sig-name">isLike</span>(<span class=summary-sig-arg>a</span>,
+          <span class=summary-sig-arg>b</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="isOfType"></a><span class="summary-sig"><span class="summary-sig-name">isOfType</span>(<span class=summary-sig-arg>start</span>,
+          <span class=summary-sig-arg>goal</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="isSame"></a><span class="summary-sig"><span class="summary-sig-name">isSame</span>(<span class=summary-sig-arg>a</span>,
+          <span class=summary-sig-arg>b</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#macro" class="summary-sig-name"><code>macro</code></a>(<span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>filename</span>,
+          <span class=summary-sig-arg>source</span>,
+          <span class="summary-sig-kwarg">**identifiers</span>)</span></code>
+<br />
+macro(name, source, **identifiers)</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="modgrep"></a><span class="summary-sig"><span class="summary-sig-name">modgrep</span>(<span class=summary-sig-arg>goal</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#namedAny" class="summary-sig-name"><code>namedAny</code></a>(<span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Get a fully named package, module, module-global object, or 
+attribute.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#namedObject" class="summary-sig-name"><code>namedClass</code></a>(<span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Get a fully named module-global object.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#namedModule" class="summary-sig-name"><code>namedModule</code></a>(<span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Return a module given its name.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#namedObject" class="summary-sig-name"><code>namedObject</code></a>(<span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Get a fully named module-global object.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#objgrep" class="summary-sig-name"><code>objgrep</code></a>(<span class=summary-sig-arg>start</span>,
+          <span class=summary-sig-arg>goal</span>,
+          <span class=summary-sig-arg>eq</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>paths</span>,
+          <span class=summary-sig-arg>seen</span>,
+          <span class=summary-sig-arg>showUnknowns</span>)</span></code>
+<br />
+An insanely CPU-intensive process for finding stuff.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#prefixedMethodNames" class="summary-sig-name"><code>prefixedMethodNames</code></a>(<span class=summary-sig-arg>classObj</span>,
+          <span class=summary-sig-arg>prefix</span>)</span></code>
+<br />
+A list of method names with a given prefix in a given class.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#prefixedMethods" class="summary-sig-name"><code>prefixedMethods</code></a>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>prefix</span>)</span></code>
+<br />
+A list of methods with a given prefix on a given instance.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="qual"></a><span class="summary-sig"><span class="summary-sig-name">qual</span>(<span class=summary-sig-arg>clazz</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.reflect.html#safe_repr" class="summary-sig-name"><code>safe_repr</code></a>(<span class=summary-sig-arg>obj</span>)</span></code>
+<br />
+safe_repr(anything) -&gt; string Returns a string representation of an 
+object (or a traceback, if that object's __repr__ raised an 
+exception)</td></tr>
+</table><br />
+
+
+<!-- =========== START OF VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.python.reflect.html#IS"><code>IS</code></a></b> = <span title="2">2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.python.reflect.html#ISNT"><code>ISNT</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.python.reflect.html#WAS"><code>WAS</code></a></b> = <span title="1">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="accumulateClassDict"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">accumulateClassDict</span>(<span class=sig-arg>classObj</span>,
+          <span class=sig-arg>attr</span>,
+          <span class=sig-arg>adict</span>,
+          <span class=sig-arg>baseClass</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Accumulate all attributes of a given name in a class heirarchy into 
+  a single dictionary.</p>
+  <p>Assuming all class attributes of this name are dictionaries. If any 
+  of the dictionaries being accumulated have the same key, the one 
+  highest in the class heirarchy wins. (XXX: If &quot;higest&quot; means 
+  &quot;closest to the starting class&quot;.)</p>
+  Ex:
+<pre class="literalblock">
+
+</pre>
+  <p>| class Soy: | properties = {&quot;taste&quot;: &quot;bland&quot;} | 
+  | class Plant: | properties = {&quot;colour&quot;: &quot;green&quot;} | 
+  | class Seaweed(Plant): | pass | | class Lunch(Soy, Seaweed): | 
+  properties = {&quot;vegan&quot;: 1 } | | dct = {} | | 
+  accumulateClassDict(Lunch, &quot;properties&quot;, dct) | | print 
+  dct</p>
+  {&quot;taste&quot;: &quot;bland&quot;, &quot;colour&quot;: 
+  &quot;green&quot;, &quot;vegan&quot;: 1}
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="accumulateClassList"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">accumulateClassList</span>(<span class=sig-arg>classObj</span>,
+          <span class=sig-arg>attr</span>,
+          <span class=sig-arg>listObj</span>,
+          <span class=sig-arg>baseClass</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Accumulate all attributes of a given name in a class heirarchy into 
+  a single list.</p>
+  Assuming all class attributes of this name are lists.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="accumulateMethods"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">accumulateMethods</span>(<span class=sig-arg>obj</span>,
+          <span class=sig-arg>dict</span>,
+          <span class=sig-arg>prefix</span>=<span class=sig-default>''</span>,
+          <span class=sig-arg>curClass</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  accumulateMethods(instance, dict, prefix) I recurse through the 
+  bases of instance.__class__, and add methods beginning with 'prefix' to 
+  'dict', in the form of {'methodname':*instance*method_object}.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="addMethodNamesToDict"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">addMethodNamesToDict</span>(<span class=sig-arg>classObj</span>,
+          <span class=sig-arg>dict</span>,
+          <span class=sig-arg>prefix</span>,
+          <span class=sig-arg>baseClass</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>addMethodNamesToDict(classObj, dict, prefix, baseClass=None) -&gt; 
+  dict this goes through 'classObj' (and its bases) and puts method names 
+  starting with 'prefix' in 'dict' with a value of 1. if baseClass isn't 
+  None, methods will only be added if classObj is-a baseClass</p>
+  If the class in question has the methods 'prefix_methodname' and 
+  'prefix_methodname2', the resulting dict should look something like: 
+  {&quot;methodname&quot;: 1, &quot;methodname2&quot;: 1}.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="allYourBase"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">allYourBase</span>(<span class=sig-arg>classObj</span>,
+          <span class=sig-arg>baseClass</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  allYourBase(classObj, baseClass=None) -&gt; list of all base classes 
+  that are subclasses of baseClass, unless it is None, in which case all 
+  bases will be added.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="filenameToModuleName"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">filenameToModuleName</span>(<span class=sig-arg>fn</span>)</span>
+  </h3>
+  <p>Convert a name in the filesystem to the name of the Python module it 
+  is.</p>
+  This is agressive about getting a module name back from a file; it 
+  will always return a string. Agressive means 'sometimes wrong'; it 
+  won't look at the Python path or try to do any error checking: don't 
+  use this method unless you already know that the filename you're 
+  talking about is a Python module.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="funcinfo"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">funcinfo</span>(<span class=sig-arg>function</span>)</span>
+  </h3>
+  this is more documentation for myself than useful code.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="macro"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">macro</span>(<span class=sig-arg>name</span>,
+          <span class=sig-arg>filename</span>,
+          <span class=sig-arg>source</span>,
+          <span class="sig-kwarg">**identifiers</span>)</span>
+  </h3>
+  <p>macro(name, source, **identifiers)</p>
+  This allows you to create macro-like behaviors in python. See 
+  twisted.python.hook for an example of its usage.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="namedAny"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">namedAny</span>(<span class=sig-arg>name</span>)</span>
+  </h3>
+  Get a fully named package, module, module-global object, or 
+  attribute.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="namedObject"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">namedClass</span>(<span class=sig-arg>name</span>)</span>
+  </h3>
+  Get a fully named module-global object.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="namedModule"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">namedModule</span>(<span class=sig-arg>name</span>)</span>
+  </h3>
+  Return a module given its name.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="namedObject"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">namedObject</span>(<span class=sig-arg>name</span>)</span>
+  </h3>
+  Get a fully named module-global object.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="objgrep"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">objgrep</span>(<span class=sig-arg>start</span>,
+          <span class=sig-arg>goal</span>,
+          <span class=sig-arg>eq</span>=<span class=sig-default>&lt;function&nbsp;isLike&nbsp;at&nbsp;0x81596f4&gt;</span>,
+          <span class=sig-arg>path</span>=<span class=sig-default>''</span>,
+          <span class=sig-arg>paths</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>seen</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>showUnknowns</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  An insanely CPU-intensive process for finding stuff.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="prefixedMethodNames"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">prefixedMethodNames</span>(<span class=sig-arg>classObj</span>,
+          <span class=sig-arg>prefix</span>)</span>
+  </h3>
+  A list of method names with a given prefix in a given class.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="prefixedMethods"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">prefixedMethods</span>(<span class=sig-arg>obj</span>,
+          <span class=sig-arg>prefix</span>)</span>
+  </h3>
+  A list of methods with a given prefix on a given instance.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="safe_repr"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">safe_repr</span>(<span class=sig-arg>obj</span>)</span>
+  </h3>
+  safe_repr(anything) -&gt; string Returns a string representation of 
+  an object (or a traceback, if that object's __repr__ raised an 
+  exception)
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="IS"></a>
+<h3>IS</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="2">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="ISNT"></a>
+<h3>ISNT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="0">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="WAS"></a>
+<h3>WAS</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="1">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:02 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

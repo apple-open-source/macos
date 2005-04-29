@@ -1,6 +1,6 @@
 /*  
 **********************************************************************
-*   Copyright (C) 2002-2003, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  ucnv_u32.c
@@ -15,81 +15,24 @@
 */
 
 #include "unicode/utypes.h"
+
+#if !UCONFIG_NO_CONVERSION
+
 #include "unicode/ucnv.h"
-#include "unicode/ucnv_err.h"
 #include "ucnv_bld.h"
 #include "ucnv_cnv.h"
 #include "cmemory.h"
 
 #define MAXIMUM_UCS2            0x0000FFFF
 #define MAXIMUM_UTF             0x0010FFFF
-#define MAXIMUM_UCS4            0x7FFFFFFF
 #define HALF_SHIFT              10
 #define HALF_BASE               0x0010000
 #define HALF_MASK               0x3FF
 #define SURROGATE_HIGH_START    0xD800
-#define SURROGATE_HIGH_END      0xDBFF
 #define SURROGATE_LOW_START     0xDC00
-#define SURROGATE_LOW_END       0xDFFF
 
 /* -SURROGATE_LOW_START + HALF_BASE */
 #define SURROGATE_LOW_BASE      9216
-
-/**
- * Calls invalid char callback when an invalid character sequence is encountered.
- * It presumes that the converter has a callback to call.
- *
- * @returns true when callback fails
- */
-static UBool
-T_UConverter_toUnicode_InvalidChar_Callback(UConverterToUnicodeArgs * args,
-                                            UConverterCallbackReason reason,
-                                            UErrorCode *err)
-{
-    UConverter *converter = args->converter;
-
-    if (U_SUCCESS(*err))
-    {
-        if (reason == UCNV_ILLEGAL) {
-            *err = U_ILLEGAL_CHAR_FOUND;
-        } else {
-            *err = U_INVALID_CHAR_FOUND;
-        }
-    }
-
-    /* copy the toUBytes to the invalidCharBuffer */
-    uprv_memcpy(converter->invalidCharBuffer,
-                converter->toUBytes,
-                converter->invalidCharLength);
-
-    /* Call the ErrorFunction */
-    args->converter->fromCharErrorBehaviour(converter->toUContext,
-                                            args,
-                                            converter->invalidCharBuffer,
-                                            converter->invalidCharLength,
-                                            reason,
-                                            err);
-
-    return (UBool)U_FAILURE(*err);
-}
-
-static UBool
-T_UConverter_toUnicode_InvalidChar_OffsetCallback(UConverterToUnicodeArgs * args,
-                                                  int32_t currentOffset,
-                                                  UConverterCallbackReason reason,
-                                                  UErrorCode *err)
-{
-    int32_t *saveOffsets = args->offsets;
-    UBool result;
-    
-    result = T_UConverter_toUnicode_InvalidChar_Callback(args, reason, err);
-
-    while (saveOffsets < args->offsets)
-    {
-        *(saveOffsets++) = currentOffset;
-    }
-    return result;
-}
 
 /* UTF-32BE ----------------------------------------------------------------- */
 
@@ -105,8 +48,7 @@ T_UConverter_toUnicode_UTF32_BE(UConverterToUnicodeArgs * args,
     uint32_t ch, i;
 
     /* UTF-8 returns here for only non-offset, this needs to change.*/
-    if (args->converter->toUnicodeStatus && myTarget < targetLimit)
-    {
+    if (args->converter->toUnicodeStatus && myTarget < targetLimit) {
         i = args->converter->toULength;       /* restore # of bytes consumed */
 
         ch = args->converter->toUnicodeStatus - 1;/*Stores the previously calculated ch from a previous call*/
@@ -114,58 +56,39 @@ T_UConverter_toUnicode_UTF32_BE(UConverterToUnicodeArgs * args,
         goto morebytes;
     }
 
-    while (mySource < sourceLimit && myTarget < targetLimit)
-    {
+    while (mySource < sourceLimit && myTarget < targetLimit) {
         i = 0;
         ch = 0;
 morebytes:
-        while (i < sizeof(uint32_t))
-        {
-            if (mySource < sourceLimit)
-            {
+        while (i < sizeof(uint32_t)) {
+            if (mySource < sourceLimit) {
                 ch = (ch << 8) | (uint8_t)(*mySource);
                 toUBytes[i++] = (char) *(mySource++);
             }
-            else
-            {
-                if (args->flush)
-                {
-                    if (U_SUCCESS(*err))
-                    {
-                        *err = U_TRUNCATED_CHAR_FOUND;
-                        args->converter->toUnicodeStatus = MAXIMUM_UCS4;
-                    }
-                }
-                else
-                {   /* stores a partially calculated target*/
-                    /* + 1 to make 0 a valid character */
-                    args->converter->toUnicodeStatus = ch + 1;
-                    args->converter->toULength = (int8_t) i;
-                }
+            else {
+                /* stores a partially calculated target*/
+                /* + 1 to make 0 a valid character */
+                args->converter->toUnicodeStatus = ch + 1;
+                args->converter->toULength = (int8_t) i;
                 goto donefornow;
             }
         }
 
-        if (ch <= MAXIMUM_UTF)
-        {
+        if (ch <= MAXIMUM_UTF && !U_IS_SURROGATE(ch)) {
             /* Normal valid byte when the loop has not prematurely terminated (i < inBytes) */
             if (ch <= MAXIMUM_UCS2) 
             {
                 /* fits in 16 bits */
                 *(myTarget++) = (UChar) ch;
             }
-            else
-            {
+            else {
                 /* write out the surrogates */
-                ch -= HALF_BASE;
-                *(myTarget++) = (UChar) ((ch >> HALF_SHIFT) + SURROGATE_HIGH_START);
-                ch = (ch & HALF_MASK) + SURROGATE_LOW_START;
-                if (myTarget < targetLimit)
-                {
+                *(myTarget++) = U16_LEAD(ch);
+                ch = U16_TRAIL(ch);
+                if (myTarget < targetLimit) {
                     *(myTarget++) = (UChar)ch;
                 }
-                else
-                {
+                else {
                     /* Put in overflow buffer (not handled here) */
                     args->converter->UCharErrorBuffer[0] = (UChar) ch;
                     args->converter->UCharErrorBufferLength = 1;
@@ -174,25 +97,15 @@ morebytes:
                 }
             }
         }
-        else
-        {
-            args->source = (const char *) mySource;
-            args->target = myTarget;
-            args->converter->invalidCharLength = (int8_t)i;
-            if (T_UConverter_toUnicode_InvalidChar_Callback(args, UCNV_ILLEGAL, err))
-            {
-                /* Stop if the error wasn't handled */
-                break;
-            }
-            args->converter->invalidCharLength = 0;
-            mySource = (unsigned char *) args->source;
-            myTarget = args->target;
+        else {
+            args->converter->toULength = (int8_t)i;
+            *err = U_ILLEGAL_CHAR_FOUND;
+            break;
         }
     }
 
 donefornow:
-    if (mySource < sourceLimit && myTarget >= targetLimit && U_SUCCESS(*err))
-    {
+    if (mySource < sourceLimit && myTarget >= targetLimit && U_SUCCESS(*err)) {
         /* End of target buffer */
         *err = U_BUFFER_OVERFLOW_ERROR;
     }
@@ -214,8 +127,7 @@ T_UConverter_toUnicode_UTF32_BE_OFFSET_LOGIC(UConverterToUnicodeArgs * args,
     uint32_t ch, i;
     int32_t offsetNum = 0;
 
-    if (args->converter->toUnicodeStatus && myTarget < targetLimit)
-    {
+    if (args->converter->toUnicodeStatus && myTarget < targetLimit) {
         i = args->converter->toULength;       /* restore # of bytes consumed */
 
         ch = args->converter->toUnicodeStatus - 1;/*Stores the previously calculated ch from a previous call*/
@@ -223,61 +135,42 @@ T_UConverter_toUnicode_UTF32_BE_OFFSET_LOGIC(UConverterToUnicodeArgs * args,
         goto morebytes;
     }
 
-    while (mySource < sourceLimit && myTarget < targetLimit)
-    {
+    while (mySource < sourceLimit && myTarget < targetLimit) {
         i = 0;
         ch = 0;
 morebytes:
-        while (i < sizeof(uint32_t))
-        {
-            if (mySource < sourceLimit)
-            {
+        while (i < sizeof(uint32_t)) {
+            if (mySource < sourceLimit) {
                 ch = (ch << 8) | (uint8_t)(*mySource);
                 toUBytes[i++] = (char) *(mySource++);
             }
-            else
-            {
-                if (args->flush)
-                {
-                    if (U_SUCCESS(*err))
-                    {
-                        *err = U_TRUNCATED_CHAR_FOUND;
-                        args->converter->toUnicodeStatus = MAXIMUM_UCS4;
-                    }
-                }
-                else
-                {   /* stores a partially calculated target*/
-                    /* + 1 to make 0 a valid character */
-                    args->converter->toUnicodeStatus = ch + 1;
-                    args->converter->toULength = (int8_t) i;
-                }
+            else {
+                /* stores a partially calculated target*/
+                /* + 1 to make 0 a valid character */
+                args->converter->toUnicodeStatus = ch + 1;
+                args->converter->toULength = (int8_t) i;
                 goto donefornow;
             }
         }
 
-        if (ch <= MAXIMUM_UTF)
-        {
+        if (ch <= MAXIMUM_UTF && !U_IS_SURROGATE(ch)) {
             /* Normal valid byte when the loop has not prematurely terminated (i < inBytes) */
-            if (ch <= MAXIMUM_UCS2) 
-            {
+            if (ch <= MAXIMUM_UCS2) {
                 /* fits in 16 bits */
                 *(myTarget++) = (UChar) ch;
                 *(myOffsets++) = offsetNum;
             }
-            else
-            {
+            else {
                 /* write out the surrogates */
-                ch -= HALF_BASE;
-                *(myTarget++) = (UChar) ((ch >> HALF_SHIFT) + SURROGATE_HIGH_START);
+                *(myTarget++) = U16_LEAD(ch);
                 *myOffsets++ = offsetNum;
-                ch = (ch & HALF_MASK) + SURROGATE_LOW_START;
+                ch = U16_TRAIL(ch);
                 if (myTarget < targetLimit)
                 {
                     *(myTarget++) = (UChar)ch;
                     *(myOffsets++) = offsetNum;
                 }
-                else
-                {
+                else {
                     /* Put in overflow buffer (not handled here) */
                     args->converter->UCharErrorBuffer[0] = (UChar) ch;
                     args->converter->UCharErrorBufferLength = 1;
@@ -286,21 +179,10 @@ morebytes:
                 }
             }
         }
-        else
-        {
-            args->source = (const char *) mySource;
-            args->target = myTarget;
-            args->converter->invalidCharLength = (int8_t)i;
-            args->offsets = myOffsets;
-            if (T_UConverter_toUnicode_InvalidChar_OffsetCallback(args, offsetNum, UCNV_ILLEGAL, err))
-            {
-                /* Stop if the error wasn't handled */
-                break;
-            }
-            args->converter->invalidCharLength = 0;
-            mySource = (unsigned char *) args->source;
-            myTarget = args->target;
-            myOffsets = args->offsets;
+        else {
+            args->converter->toULength = (int8_t)i;
+            *err = U_ILLEGAL_CHAR_FOUND;
+            break;
         }
         offsetNum += i;
     }
@@ -331,33 +213,48 @@ T_UConverter_fromUnicode_UTF32_BE(UConverterFromUnicodeArgs * args,
 
     temp[0] = 0;
 
-    if (args->converter->fromUnicodeStatus)
-    {
-        ch = args->converter->fromUnicodeStatus;
-        args->converter->fromUnicodeStatus = 0;
+    if (args->converter->fromUChar32) {
+        ch = args->converter->fromUChar32;
+        args->converter->fromUChar32 = 0;
         goto lowsurogate;
     }
 
-    while (mySource < sourceLimit && myTarget < targetLimit)
-    {
+    while (mySource < sourceLimit && myTarget < targetLimit) {
         ch = *(mySource++);
 
-        if (SURROGATE_HIGH_START <= ch && ch < SURROGATE_LOW_START)
-        {
+        if (UTF_IS_SURROGATE(ch)) {
+            if (U_IS_LEAD(ch)) {
 lowsurogate:
-            if (mySource < sourceLimit)
-            {
-                ch2 = *mySource;
-                if (SURROGATE_LOW_START <= ch2 && ch2 <= SURROGATE_LOW_END)
-                {
-                    ch = ((ch - SURROGATE_HIGH_START) << HALF_SHIFT) + ch2 + SURROGATE_LOW_BASE;
-                    mySource++;
+                if (mySource < sourceLimit) {
+                    ch2 = *mySource;
+                    if (U_IS_TRAIL(ch2)) {
+                        ch = ((ch - SURROGATE_HIGH_START) << HALF_SHIFT) + ch2 + SURROGATE_LOW_BASE;
+                        mySource++;
+                    }
+                    else {
+                        /* this is an unmatched trail code unit (2nd surrogate) */
+                        /* callback(illegal) */
+                        args->converter->fromUChar32 = ch;
+                        *err = U_ILLEGAL_CHAR_FOUND;
+                        break;
+                    }
+                }
+                else {
+                    /* ran out of source */
+                    args->converter->fromUChar32 = ch;
+                    if (args->flush) {
+                        /* this is an unmatched trail code unit (2nd surrogate) */
+                        /* callback(illegal) */
+                        *err = U_ILLEGAL_CHAR_FOUND;
+                    }
+                    break;
                 }
             }
-            else if (!args->flush)
-            {
-                /* ran out of source */
-                args->converter->fromUnicodeStatus = ch;
+            else {
+                /* this is an unmatched trail code unit (2nd surrogate) */
+                /* callback(illegal) */
+                args->converter->fromUChar32 = ch;
+                *err = U_ILLEGAL_CHAR_FOUND;
                 break;
             }
         }
@@ -367,22 +264,18 @@ lowsurogate:
         temp[2] = (uint8_t) (ch >> 8);  /* unsigned cast implicitly does (ch & FF) */
         temp[3] = (uint8_t) (ch);       /* unsigned cast implicitly does (ch & FF) */
 
-        for (indexToWrite = 0; indexToWrite <= sizeof(uint32_t) - 1; indexToWrite++)
-        {
-            if (myTarget < targetLimit)
-            {
+        for (indexToWrite = 0; indexToWrite <= sizeof(uint32_t) - 1; indexToWrite++) {
+            if (myTarget < targetLimit) {
                 *(myTarget++) = temp[indexToWrite];
             }
-            else
-            {
+            else {
                 args->converter->charErrorBuffer[args->converter->charErrorBufferLength++] = temp[indexToWrite];
                 *err = U_BUFFER_OVERFLOW_ERROR;
             }
         }
     }
 
-    if (mySource < sourceLimit && myTarget >= targetLimit && U_SUCCESS(*err))
-    {
+    if (mySource < sourceLimit && myTarget >= targetLimit && U_SUCCESS(*err)) {
         *err = U_BUFFER_OVERFLOW_ERROR;
     }
 
@@ -406,33 +299,48 @@ T_UConverter_fromUnicode_UTF32_BE_OFFSET_LOGIC(UConverterFromUnicodeArgs * args,
 
     temp[0] = 0;
 
-    if (args->converter->fromUnicodeStatus)
-    {
-        ch = args->converter->fromUnicodeStatus;
-        args->converter->fromUnicodeStatus = 0;
+    if (args->converter->fromUChar32) {
+        ch = args->converter->fromUChar32;
+        args->converter->fromUChar32 = 0;
         goto lowsurogate;
     }
 
-    while (mySource < sourceLimit && myTarget < targetLimit)
-    {
+    while (mySource < sourceLimit && myTarget < targetLimit) {
         ch = *(mySource++);
 
-        if (SURROGATE_HIGH_START <= ch && ch < SURROGATE_LOW_START)
-        {
+        if (UTF_IS_SURROGATE(ch)) {
+            if (U_IS_LEAD(ch)) {
 lowsurogate:
-            if (mySource < sourceLimit)
-            {
-                ch2 = *mySource;
-                if (SURROGATE_LOW_START <= ch2 && ch2 <= SURROGATE_LOW_END)
-                {
-                    ch = ((ch - SURROGATE_HIGH_START) << HALF_SHIFT) + ch2 + SURROGATE_LOW_BASE;
-                    mySource++;
+                if (mySource < sourceLimit) {
+                    ch2 = *mySource;
+                    if (U_IS_TRAIL(ch2)) {
+                        ch = ((ch - SURROGATE_HIGH_START) << HALF_SHIFT) + ch2 + SURROGATE_LOW_BASE;
+                        mySource++;
+                    }
+                    else {
+                        /* this is an unmatched trail code unit (2nd surrogate) */
+                        /* callback(illegal) */
+                        args->converter->fromUChar32 = ch;
+                        *err = U_ILLEGAL_CHAR_FOUND;
+                        break;
+                    }
+                }
+                else {
+                    /* ran out of source */
+                    args->converter->fromUChar32 = ch;
+                    if (args->flush) {
+                        /* this is an unmatched trail code unit (2nd surrogate) */
+                        /* callback(illegal) */
+                        *err = U_ILLEGAL_CHAR_FOUND;
+                    }
+                    break;
                 }
             }
-            else if (!args->flush)
-            {
-                /* ran out of source */
-                args->converter->fromUnicodeStatus = ch;
+            else {
+                /* this is an unmatched trail code unit (2nd surrogate) */
+                /* callback(illegal) */
+                args->converter->fromUChar32 = ch;
+                *err = U_ILLEGAL_CHAR_FOUND;
                 break;
             }
         }
@@ -442,15 +350,12 @@ lowsurogate:
         temp[2] = (uint8_t) (ch >> 8);  /* unsigned cast implicitly does (ch & FF) */
         temp[3] = (uint8_t) (ch);       /* unsigned cast implicitly does (ch & FF) */
 
-        for (indexToWrite = 0; indexToWrite <= sizeof(uint32_t) - 1; indexToWrite++)
-        {
-            if (myTarget < targetLimit)
-            {
+        for (indexToWrite = 0; indexToWrite <= sizeof(uint32_t) - 1; indexToWrite++) {
+            if (myTarget < targetLimit) {
                 *(myTarget++) = temp[indexToWrite];
                 *(myOffsets++) = offsetNum;
             }
-            else
-            {
+            else {
                 args->converter->charErrorBuffer[args->converter->charErrorBufferLength++] = temp[indexToWrite];
                 *err = U_BUFFER_OVERFLOW_ERROR;
             }
@@ -458,8 +363,7 @@ lowsurogate:
         offsetNum++;
     }
 
-    if (mySource < sourceLimit && myTarget >= targetLimit && U_SUCCESS(*err))
-    {
+    if (mySource < sourceLimit && myTarget >= targetLimit && U_SUCCESS(*err)) {
         *err = U_BUFFER_OVERFLOW_ERROR;
     }
 
@@ -472,65 +376,44 @@ static UChar32
 T_UConverter_getNextUChar_UTF32_BE(UConverterToUnicodeArgs* args,
                                    UErrorCode* err)
 {
-    UChar myUCharBuf[2];
-    UChar *myUCharPtr;
-    const unsigned char *mySource;
+    const uint8_t *mySource;
     UChar32 myUChar;
     int32_t length;
 
-    while (args->source < args->sourceLimit)
+    mySource = (const uint8_t *)args->source;
+    if (mySource >= (const uint8_t *)args->sourceLimit)
     {
-        if (args->source + 4 > args->sourceLimit) 
-        {
-            /* got a partial character */
-            *err = U_TRUNCATED_CHAR_FOUND;
-            return 0xffff;
-        }
-
-        /* Don't even try to do a direct cast because the value may be on an odd address. */
-        mySource = (unsigned char *) args->source;
-        myUChar = (mySource[0] << 24)
-                | (mySource[1] << 16)
-                | (mySource[2] << 8)
-                | (mySource[3]);
-
-        args->source = (const char *)(mySource + 4);
-        if (myUChar <= MAXIMUM_UTF && myUChar >= 0) {
-            return myUChar;
-        }
-
-        uprv_memcpy(args->converter->invalidCharBuffer, mySource, 4);
-        args->converter->invalidCharLength = 4;
-
-        myUCharPtr = myUCharBuf;
-        *err = U_ILLEGAL_CHAR_FOUND;
-        args->target = myUCharPtr;
-        args->targetLimit = myUCharBuf + 2;
-        args->converter->fromCharErrorBehaviour(args->converter->toUContext,
-                                        args,
-                                        (const char *)mySource,
-                                        4,
-                                        UCNV_ILLEGAL,
-                                        err);
-
-        if(U_SUCCESS(*err)) {
-            length = (uint16_t)(args->target - myUCharBuf);
-            if(length > 0) {
-                return ucnv_getUChar32KeepOverflow(args->converter, myUCharBuf, length);
-            }
-            /* else (callback did not write anything) continue */
-        } else if(*err == U_BUFFER_OVERFLOW_ERROR) {
-            *err = U_ZERO_ERROR;
-            return ucnv_getUChar32KeepOverflow(args->converter, myUCharBuf, 2);
-        } else {
-            /* break on error */
-            /* ### what if a callback set an error but _also_ generated output?! */
-            return 0xffff;
-        }
+        /* no input */
+        *err = U_INDEX_OUTOFBOUNDS_ERROR;
+        return 0xffff;
     }
 
-    /* no input or only skipping callbacks */
-    *err = U_INDEX_OUTOFBOUNDS_ERROR;
+    length = (int32_t)((const uint8_t *)args->sourceLimit - mySource);
+    if (length < 4) 
+    {
+        /* got a partial character */
+        uprv_memcpy(args->converter->toUBytes, mySource, length);
+        args->converter->toULength = (int8_t)length;
+        args->source = (const char *)(mySource + length);
+        *err = U_TRUNCATED_CHAR_FOUND;
+        return 0xffff;
+    }
+
+    /* Don't even try to do a direct cast because the value may be on an odd address. */
+    myUChar = ((UChar32)mySource[0] << 24)
+            | ((UChar32)mySource[1] << 16)
+            | ((UChar32)mySource[2] << 8)
+            | ((UChar32)mySource[3]);
+
+    args->source = (const char *)(mySource + 4);
+    if ((uint32_t)myUChar <= MAXIMUM_UTF && !U_IS_SURROGATE(myUChar)) {
+        return myUChar;
+    }
+
+    uprv_memcpy(args->converter->toUBytes, mySource, 4);
+    args->converter->toULength = 4;
+
+    *err = U_ILLEGAL_CHAR_FOUND;
     return 0xffff;
 }
 
@@ -613,44 +496,28 @@ morebytes:
             }
             else
             {
-                if (args->flush)
-                {
-                    if (U_SUCCESS(*err))
-                    {
-                        *err = U_TRUNCATED_CHAR_FOUND;
-                        args->converter->toUnicodeStatus = 0;
-                    }
-                }
-                else
-                {   /* stores a partially calculated target*/
-                    /* + 1 to make 0 a valid character */
-                    args->converter->toUnicodeStatus = ch + 1;
-                    args->converter->toULength = (int8_t) i;
-                }
+                /* stores a partially calculated target*/
+                /* + 1 to make 0 a valid character */
+                args->converter->toUnicodeStatus = ch + 1;
+                args->converter->toULength = (int8_t) i;
                 goto donefornow;
             }
         }
 
-        if (ch <= MAXIMUM_UTF)
-        {
+        if (ch <= MAXIMUM_UTF && !U_IS_SURROGATE(ch)) {
             /* Normal valid byte when the loop has not prematurely terminated (i < inBytes) */
-            if (ch <= MAXIMUM_UCS2) 
-            {
+            if (ch <= MAXIMUM_UCS2) {
                 /* fits in 16 bits */
                 *(myTarget++) = (UChar) ch;
             }
-            else
-            {
+            else {
                 /* write out the surrogates */
-                ch -= HALF_BASE;
-                *(myTarget++) = (UChar) ((ch >> HALF_SHIFT) + SURROGATE_HIGH_START);
-                ch = (ch & HALF_MASK) + SURROGATE_LOW_START;
-                if (myTarget < targetLimit)
-                {
+                *(myTarget++) = U16_LEAD(ch);
+                ch = U16_TRAIL(ch);
+                if (myTarget < targetLimit) {
                     *(myTarget++) = (UChar)ch;
                 }
-                else
-                {
+                else {
                     /* Put in overflow buffer (not handled here) */
                     args->converter->UCharErrorBuffer[0] = (UChar) ch;
                     args->converter->UCharErrorBufferLength = 1;
@@ -659,19 +526,10 @@ morebytes:
                 }
             }
         }
-        else
-        {
-            args->source = (const char *) mySource;
-            args->target = myTarget;
-            args->converter->invalidCharLength = (int8_t)i;
-            if (T_UConverter_toUnicode_InvalidChar_Callback(args, UCNV_ILLEGAL, err))
-            {
-                /* Stop if the error wasn't handled */
-                break;
-            }
-            args->converter->invalidCharLength = 0;
-            mySource = (unsigned char *) args->source;
-            myTarget = args->target;
+        else {
+            args->converter->toULength = (int8_t)i;
+            *err = U_ILLEGAL_CHAR_FOUND;
+            break;
         }
     }
 
@@ -724,25 +582,15 @@ morebytes:
             }
             else
             {
-                if (args->flush)
-                {
-                    if (U_SUCCESS(*err))
-                    {
-                        *err = U_TRUNCATED_CHAR_FOUND;
-                        args->converter->toUnicodeStatus = 0;
-                    }
-                }
-                else
-                {   /* stores a partially calculated target*/
-                    /* + 1 to make 0 a valid character */
-                    args->converter->toUnicodeStatus = ch + 1;
-                    args->converter->toULength = (int8_t) i;
-                }
+                /* stores a partially calculated target*/
+                /* + 1 to make 0 a valid character */
+                args->converter->toUnicodeStatus = ch + 1;
+                args->converter->toULength = (int8_t) i;
                 goto donefornow;
             }
         }
 
-        if (ch <= MAXIMUM_UTF)
+        if (ch <= MAXIMUM_UTF && !U_IS_SURROGATE(ch))
         {
             /* Normal valid byte when the loop has not prematurely terminated (i < inBytes) */
             if (ch <= MAXIMUM_UCS2) 
@@ -751,13 +599,11 @@ morebytes:
                 *(myTarget++) = (UChar) ch;
                 *(myOffsets++) = offsetNum;
             }
-            else
-            {
+            else {
                 /* write out the surrogates */
-                ch -= HALF_BASE;
-                *(myTarget++) = (UChar) ((ch >> HALF_SHIFT) + SURROGATE_HIGH_START);
+                *(myTarget++) = U16_LEAD(ch);
                 *(myOffsets++) = offsetNum;
-                ch = (ch & HALF_MASK) + SURROGATE_LOW_START;
+                ch = U16_TRAIL(ch);
                 if (myTarget < targetLimit)
                 {
                     *(myTarget++) = (UChar)ch;
@@ -775,19 +621,9 @@ morebytes:
         }
         else
         {
-            args->source = (const char *) mySource;
-            args->target = myTarget;
-            args->converter->invalidCharLength = (int8_t)i;
-            args->offsets = myOffsets;
-            if (T_UConverter_toUnicode_InvalidChar_OffsetCallback(args, offsetNum, UCNV_ILLEGAL, err))
-            {
-                /* Stop if the error wasn't handled */
-                break;
-            }
-            args->converter->invalidCharLength = 0;
-            mySource = (unsigned char *) args->source;
-            myTarget = args->target;
-            myOffsets = args->offsets;
+            args->converter->toULength = (int8_t)i;
+            *err = U_ILLEGAL_CHAR_FOUND;
+            break;
         }
         offsetNum += i;
     }
@@ -818,10 +654,10 @@ T_UConverter_fromUnicode_UTF32_LE(UConverterFromUnicodeArgs * args,
 
     temp[3] = 0;
 
-    if (args->converter->fromUnicodeStatus)
+    if (args->converter->fromUChar32)
     {
-        ch = args->converter->fromUnicodeStatus;
-        args->converter->fromUnicodeStatus = 0;
+        ch = args->converter->fromUChar32;
+        args->converter->fromUChar32 = 0;
         goto lowsurogate;
     }
 
@@ -829,22 +665,41 @@ T_UConverter_fromUnicode_UTF32_LE(UConverterFromUnicodeArgs * args,
     {
         ch = *(mySource++);
 
-        if (SURROGATE_HIGH_START <= ch && ch < SURROGATE_LOW_START)
-        {
-lowsurogate:
-            if (mySource < sourceLimit)
+        if (UTF_IS_SURROGATE(ch)) {
+            if (U_IS_LEAD(ch))
             {
-                ch2 = *mySource;
-                if (SURROGATE_LOW_START <= ch2 && ch2 <= SURROGATE_LOW_END)
+lowsurogate:
+                if (mySource < sourceLimit)
                 {
-                    ch = ((ch - SURROGATE_HIGH_START) << HALF_SHIFT) + ch2 + SURROGATE_LOW_BASE;
-                    mySource++;
+                    ch2 = *mySource;
+                    if (U_IS_TRAIL(ch2)) {
+                        ch = ((ch - SURROGATE_HIGH_START) << HALF_SHIFT) + ch2 + SURROGATE_LOW_BASE;
+                        mySource++;
+                    }
+                    else {
+                        /* this is an unmatched trail code unit (2nd surrogate) */
+                        /* callback(illegal) */
+                        args->converter->fromUChar32 = ch;
+                        *err = U_ILLEGAL_CHAR_FOUND;
+                        break;
+                    }
+                }
+                else {
+                    /* ran out of source */
+                    args->converter->fromUChar32 = ch;
+                    if (args->flush) {
+                        /* this is an unmatched trail code unit (2nd surrogate) */
+                        /* callback(illegal) */
+                        *err = U_ILLEGAL_CHAR_FOUND;
+                    }
+                    break;
                 }
             }
-            else if (!args->flush)
-            {
-                /* ran out of source */
-                args->converter->fromUnicodeStatus = ch;
+            else {
+                /* this is an unmatched trail code unit (2nd surrogate) */
+                /* callback(illegal) */
+                args->converter->fromUChar32 = ch;
+                *err = U_ILLEGAL_CHAR_FOUND;
                 break;
             }
         }
@@ -893,10 +748,10 @@ T_UConverter_fromUnicode_UTF32_LE_OFFSET_LOGIC(UConverterFromUnicodeArgs * args,
 
     temp[3] = 0;
 
-    if (args->converter->fromUnicodeStatus)
+    if (args->converter->fromUChar32)
     {
-        ch = args->converter->fromUnicodeStatus;
-        args->converter->fromUnicodeStatus = 0;
+        ch = args->converter->fromUChar32;
+        args->converter->fromUChar32 = 0;
         goto lowsurogate;
     }
 
@@ -904,22 +759,42 @@ T_UConverter_fromUnicode_UTF32_LE_OFFSET_LOGIC(UConverterFromUnicodeArgs * args,
     {
         ch = *(mySource++);
 
-        if (SURROGATE_HIGH_START <= ch && ch < SURROGATE_LOW_START)
-        {
-lowsurogate:
-            if (mySource < sourceLimit)
+        if (UTF_IS_SURROGATE(ch)) {
+            if (U_IS_LEAD(ch))
             {
-                ch2 = *mySource;
-                if (SURROGATE_LOW_START <= ch2 && ch2 <= SURROGATE_LOW_END)
+lowsurogate:
+                if (mySource < sourceLimit)
                 {
-                    ch = ((ch - SURROGATE_HIGH_START) << HALF_SHIFT) + ch2 + SURROGATE_LOW_BASE;
-                    mySource++;
+                    ch2 = *mySource;
+                    if (U_IS_TRAIL(ch2))
+                    {
+                        ch = ((ch - SURROGATE_HIGH_START) << HALF_SHIFT) + ch2 + SURROGATE_LOW_BASE;
+                        mySource++;
+                    }
+                    else {
+                        /* this is an unmatched trail code unit (2nd surrogate) */
+                        /* callback(illegal) */
+                        args->converter->fromUChar32 = ch;
+                        *err = U_ILLEGAL_CHAR_FOUND;
+                        break;
+                    }
+                }
+                else {
+                    /* ran out of source */
+                    args->converter->fromUChar32 = ch;
+                    if (args->flush) {
+                        /* this is an unmatched trail code unit (2nd surrogate) */
+                        /* callback(illegal) */
+                        *err = U_ILLEGAL_CHAR_FOUND;
+                    }
+                    break;
                 }
             }
-            else if (!args->flush)
-            {
-                /* ran out of source */
-                args->converter->fromUnicodeStatus = ch;
+            else {
+                /* this is an unmatched trail code unit (2nd surrogate) */
+                /* callback(illegal) */
+                args->converter->fromUChar32 = ch;
+                *err = U_ILLEGAL_CHAR_FOUND;
                 break;
             }
         }
@@ -959,65 +834,44 @@ static UChar32
 T_UConverter_getNextUChar_UTF32_LE(UConverterToUnicodeArgs* args,
                                    UErrorCode* err)
 {
-    UChar myUCharBuf[2];
-    UChar *myUCharPtr;
-    const unsigned char *mySource;
+    const uint8_t *mySource;
     UChar32 myUChar;
     int32_t length;
 
-    while (args->source < args->sourceLimit)
+    mySource = (const uint8_t *)args->source;
+    if (mySource >= (const uint8_t *)args->sourceLimit)
     {
-        if (args->source + 4 > args->sourceLimit) 
-        {
-            /* got a partial character */
-            *err = U_TRUNCATED_CHAR_FOUND;
-            return 0xffff;
-        }
-
-        /* Don't even try to do a direct cast because the value may be on an odd address. */
-        mySource = (unsigned char *) args->source;
-        myUChar = (mySource[0])
-                | (mySource[1] << 8)
-                | (mySource[2] << 16)
-                | (mySource[3] << 24);
-
-        args->source = (const char *)(mySource + 4);
-        if (myUChar <= MAXIMUM_UTF && myUChar >= 0) {
-            return myUChar;
-        }
-
-        uprv_memcpy(args->converter->invalidCharBuffer, mySource, 4);
-        args->converter->invalidCharLength = 4;
-
-        myUCharPtr = myUCharBuf;
-        *err = U_ILLEGAL_CHAR_FOUND;
-        args->target = myUCharPtr;
-        args->targetLimit = myUCharBuf + 2;
-        args->converter->fromCharErrorBehaviour(args->converter->toUContext,
-                                        args,
-                                        (const char *)mySource,
-                                        4,
-                                        UCNV_ILLEGAL,
-                                        err);
-
-        if(U_SUCCESS(*err)) {
-            length = (uint16_t)(args->target - myUCharBuf);
-            if(length > 0) {
-                return ucnv_getUChar32KeepOverflow(args->converter, myUCharBuf, length);
-            }
-            /* else (callback did not write anything) continue */
-        } else if(*err == U_BUFFER_OVERFLOW_ERROR) {
-            *err = U_ZERO_ERROR;
-            return ucnv_getUChar32KeepOverflow(args->converter, myUCharBuf, 2);
-        } else {
-            /* break on error */
-            /* ### what if a callback set an error but _also_ generated output?! */
-            return 0xffff;
-        }
+        /* no input */
+        *err = U_INDEX_OUTOFBOUNDS_ERROR;
+        return 0xffff;
     }
 
-    /* no input or only skipping callbacks */
-    *err = U_INDEX_OUTOFBOUNDS_ERROR;
+    length = (int32_t)((const uint8_t *)args->sourceLimit - mySource);
+    if (length < 4) 
+    {
+        /* got a partial character */
+        uprv_memcpy(args->converter->toUBytes, mySource, length);
+        args->converter->toULength = (int8_t)length;
+        args->source = (const char *)(mySource + length);
+        *err = U_TRUNCATED_CHAR_FOUND;
+        return 0xffff;
+    }
+
+    /* Don't even try to do a direct cast because the value may be on an odd address. */
+    myUChar = ((UChar32)mySource[3] << 24)
+            | ((UChar32)mySource[2] << 16)
+            | ((UChar32)mySource[1] << 8)
+            | ((UChar32)mySource[0]);
+
+    args->source = (const char *)(mySource + 4);
+    if ((uint32_t)myUChar <= MAXIMUM_UTF && !U_IS_SURROGATE(myUChar)) {
+        return myUChar;
+    }
+
+    uprv_memcpy(args->converter->toUBytes, mySource, 4);
+    args->converter->toULength = 4;
+
+    *err = U_ILLEGAL_CHAR_FOUND;
     return 0xffff;
 }
 
@@ -1253,12 +1107,12 @@ _UTF32ToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
             T_UConverter_toUnicode_UTF32_BE(pArgs, pErrorCode);
             pArgs->source=source;
             pArgs->sourceLimit=sourceLimit;
+            state=8;
             break;
         }
-        cnv->mode=0; /* reset */
-    } else {
-        cnv->mode=state;
     }
+
+    cnv->mode=state;
 }
 
 static UChar32
@@ -1270,7 +1124,7 @@ _UTF32GetNextUChar(UConverterToUnicodeArgs *pArgs,
     case 9:
         return T_UConverter_getNextUChar_UTF32_LE(pArgs, pErrorCode);
     default:
-        return ucnv_getNextUCharFromToUImpl(pArgs, _UTF32ToUnicodeWithOffsets, FALSE, pErrorCode);
+        return UCNV_GET_NEXT_UCHAR_USE_TO_U;
     }
 }
 
@@ -1323,3 +1177,5 @@ const UConverterSharedData _UTF32Data = {
     NULL, NULL, &_UTF32StaticData, FALSE, &_UTF32Impl, 
     0
 };
+
+#endif

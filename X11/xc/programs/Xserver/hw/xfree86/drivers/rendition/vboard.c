@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/rendition/vboard.c,v 1.16 2002/12/11 17:23:33 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/rendition/vboard.c,v 1.19 2003/11/06 18:38:04 tsi Exp $ */
 /*
  * includes
  */
@@ -50,7 +50,7 @@ verite_initboard(ScrnInfoPtr pScreenInfo)
     /* Note that CS ucode must wait on address in csucode_base
      * when initialized for later context switch code to work. */
 
-    ErrorF("Loading csucode @ 0x%x + 0x800\n", pRendition->board.vmem_base);
+    ErrorF("Loading csucode @ %p + 0x800\n", pRendition->board.vmem_base);
     vmb=pRendition->board.vmem_base;
     offset=pRendition->board.csucode_base;
     for (c=0; c<sizeof(csrisc)/sizeof(vu32); c++, offset+=sizeof(vu32))
@@ -81,8 +81,8 @@ verite_initboard(ScrnInfoPtr pScreenInfo)
     if (pc != pRendition->board.csucode_base){
 	xf86DrvMsg(pScreenInfo->scrnIndex, X_ERROR,
 		   ("VERITE_INITBOARD -- PC != CSUCODEBASE\n"));
-	ErrorF ("RENDITION: PC == 0x%x   --  CSU == 0x%x\n",
-		pc,pRendition->board.csucode_base);
+	ErrorF ("RENDITION: PC == 0x%x   --  CSU == 0x%lx\n",
+		pc,(unsigned long)pRendition->board.csucode_base);
     }
 
     /* reset memory endian */
@@ -105,7 +105,7 @@ verite_initboard(ScrnInfoPtr pScreenInfo)
     pRendition->board.ucode_entry=c;
 
 #ifdef DEBUG
-    ErrorF("UCode_Entry == 0x%x\n",pRendition->board.ucode_entry); */
+    ErrorF("UCode_Entry == 0x%x\n",pRendition->board.ucode_entry); 
 #endif
 
     /* Everything's OK */
@@ -228,10 +228,10 @@ verite_check_csucode(ScrnInfoPtr pScreenInfo)
   offset=pRendition->board.csucode_base;
   for (c=0; c<sizeof(csrisc)/sizeof(vu32); c++, offset+=sizeof(vu32))
     if (csrisc[c] != verite_read_memory32(vmb, offset)) {
-      ErrorF("csucode mismatch in word %02d: 0x%08x should be 0x%08x\n",
+      ErrorF("csucode mismatch in word %02d: 0x%08lx should be 0x%08lx\n",
 	     c,
-	     verite_read_memory32(vmb, offset),
-	     csrisc[c]);
+	     (unsigned long)verite_read_memory32(vmb, offset),
+	     (unsigned long)csrisc[c]);
       mismatches++;
     }
 #ifdef DEBUG

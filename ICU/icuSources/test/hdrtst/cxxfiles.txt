@@ -1,4 +1,4 @@
-# Copyright (c) 2001-2003 International Business Machines 
+# Copyright (c) 2001-2004 International Business Machines 
 # Corporation and others. All Rights Reserved.
 bidi.h
 brkiter.h
@@ -58,3 +58,24 @@ usetiter.h
 loengine.h
 #the following are C++ also
 ustream.h
+symtable.h
+#layout, layoutex are C++ only
+LayoutEngine.h
+LEFontInstance.h
+LEGlyphFilter.h
+LELanguages.h
+LEScripts.h
+LESwaps.h
+LETypes.h
+ParagraphLayout.h
+RunArrays.h
+# currency...
+curramt.h
+currunit.h
+measfmt.h
+measunit.h
+measure.h
+# platform specific
+pmacos.h
+pos400.h
+pwin32.h

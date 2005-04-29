@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,6 +48,7 @@ static Boolean                __gDiskArbStatusLock                  = FALSE;
 
 static int                    __gDiskArbAck                         = 0;
 static CFMutableDictionaryRef __gDiskArbCallbackList                = NULL;
+static CFMutableSetRef        __gDiskArbEjectList                   = NULL;
 static int                    __gDiskArbHandlesUnrecognized         = 0;
 static int                    __gDiskArbHandlesUnrecognizedPriority = 0;
 static int                    __gDiskArbHandlesUnrecognizedTypes    = 0;
@@ -477,10 +478,10 @@ static struct statfs * __DiskArbGetFileSystemStatus( char * disk )
                 break;
             }
 
-	    if ( strcmp( mountList[mountListIndex].f_mntonname, disk ) == 0 )
-	    {
-		break;
-	    }
+            if ( strcmp( mountList[mountListIndex].f_mntonname, disk ) == 0 )
+            {
+                break;
+            }
         }
         else
         {
@@ -607,6 +608,13 @@ static void __DiskArbCallback_EjectPostNotification( char * disk, int status, pi
     __gDiskArbNotificationComplete |= kDiskArbCompletedPostEject;
 }
 
+static void __DiskArbCallback_EjectPostNotificationApplier( const void * value, void * context )
+{
+    DADiskRef disk = ( DADiskRef ) value;
+
+    __DiskArbCallback_EjectPostNotification( __DiskArbGetDiskID( disk ), context ? EBUSY : 0, context ? -1 : 0 );
+}
+
 static void __DiskArbCallback_UnmountPostNotification( char * disk, int status, pid_t dissenter )
 {
     CFArrayRef callbacks;
@@ -679,7 +687,10 @@ static void __DiskArbDiskAppearedCallback( DADiskRef disk, void * context )
 
             callback = CFArrayGetValueAtIndex( callbacks, index );
 
-            ( callback )( __DiskArbGetDiskID( disk ), flags, mountpoint, content, path, sequence );
+            if ( callback )
+            {
+                ( callback )( __DiskArbGetDiskID( disk ), flags, mountpoint, content, path, sequence );
+            }
         }
     }
 
@@ -698,7 +709,10 @@ static void __DiskArbDiskAppearedCallback( DADiskRef disk, void * context )
 
             callback = CFArrayGetValueAtIndex( callbacks, index );
 
-            ( callback )( __DiskArbGetDiskID( disk ), flags, mountpoint, content );
+            if ( callback )
+            {
+                ( callback )( __DiskArbGetDiskID( disk ), flags, mountpoint, content );
+            }
         }
     }
 
@@ -717,7 +731,10 @@ static void __DiskArbDiskAppearedCallback( DADiskRef disk, void * context )
 
             callback = CFArrayGetValueAtIndex( callbacks, index );
 
-            ( callback )( __DiskArbGetDiskID( disk ), flags, mountpoint, content, path, sequence, time, filesystem, name );
+            if ( callback )
+            {
+                ( callback )( __DiskArbGetDiskID( disk ), flags, mountpoint, content, path, sequence, time, filesystem, name );
+            }
         }
     }
 
@@ -738,7 +755,10 @@ static void __DiskArbDiskAppearedCallback( DADiskRef disk, void * context )
 
                 callback = CFArrayGetValueAtIndex( callbacks, index );
 
-                ( callback )( __DiskArbGetDiskID( disk ), flags, mountpoint );
+                if ( callback )
+                {
+                    ( callback )( __DiskArbGetDiskID( disk ), flags, mountpoint );
+                }
             }
         }
     }
@@ -909,9 +929,11 @@ static void __DiskArbDiskDisappearedCallback( DADiskRef disk, void * context )
 {
     CFDictionaryRef description;
 
-    description = DADiskCopyDescription( disk );
-
     CFSetRemoveValue( __gDiskArbUnmountList, disk );
+
+    CFSetRemoveValue( __gDiskArbEjectList, disk );
+
+    description = DADiskCopyDescription( disk );
 
     if ( description )
     {
@@ -939,7 +961,7 @@ static void __DiskArbDiskEjectCallback( DADiskRef disk, DADissenterRef dissenter
 
         if ( media )
         {
-            io_iterator_t services = NULL;
+            io_iterator_t services = IO_OBJECT_NULL;
 
             IORegistryEntryCreateIterator( media, kIOServicePlane, kIORegistryIterateRecursively, &services );
 
@@ -957,6 +979,8 @@ static void __DiskArbDiskEjectCallback( DADiskRef disk, DADissenterRef dissenter
 
                         if ( child )
                         {
+                            CFSetRemoveValue( __gDiskArbEjectList, child );
+
                             __DiskArbCallback_EjectPostNotification( __DiskArbGetDiskID( child ), status ? EBUSY : 0, status ? -1 : 0 );
 
                             CFRelease( child );
@@ -972,6 +996,8 @@ static void __DiskArbDiskEjectCallback( DADiskRef disk, DADissenterRef dissenter
             IOObjectRelease( media );
         }
 
+        CFSetRemoveValue( __gDiskArbEjectList, disk );
+
         __DiskArbCallback_EjectPostNotification( __DiskArbGetDiskID( disk ), status ? EBUSY : 0, status ? -1 : 0 );
 
         if ( ( ( ( int ) context ) & kDiskArbUnmountAndEjectFlag ) )
@@ -985,6 +1011,49 @@ static void __DiskArbDiskEjectCallback( DADiskRef disk, DADissenterRef dissenter
     }
     else
     {
+        io_service_t media;
+
+        media = DADiskCopyIOMedia( disk );
+
+        if ( media )
+        {
+            io_iterator_t services = IO_OBJECT_NULL;
+
+            IORegistryEntryCreateIterator( media, kIOServicePlane, kIORegistryIterateRecursively, &services );
+
+            if ( services )
+            {
+                io_service_t service;
+
+                while ( ( service = IOIteratorNext( services ) ) )
+                {
+                    if ( IOObjectConformsTo( service, kIOMediaClass ) )
+                    {
+                        DADiskRef child;
+
+                        child = DADiskCreateFromIOMedia( kCFAllocatorDefault, __gDiskArbSession, service );
+
+                        if ( child )
+                        {
+                            CFSetRemoveValue( __gDiskArbEjectList, child );
+
+                            __DiskArbCallback_EjectPostNotification( __DiskArbGetDiskID( child ), 0, 0 );
+
+                            CFRelease( child );
+                        }
+                    }
+
+                    IOObjectRelease( service );
+                }
+
+                IOObjectRelease( services );
+            }
+
+            IOObjectRelease( media );
+        }
+
+        CFSetRemoveValue( __gDiskArbEjectList, disk );
+
         __DiskArbCallback_EjectPostNotification( __DiskArbGetDiskID( disk ), 0, 0 );
     }
 }
@@ -1004,7 +1073,7 @@ static DADissenterRef __DiskArbDiskEjectApprovalCallback( DADiskRef disk, void *
 
         if ( media )
         {
-            io_iterator_t services = NULL;
+            io_iterator_t services = IO_OBJECT_NULL;
 
             IORegistryEntryCreateIterator( media, kIOServicePlane, kIORegistryIterateRecursively, &services );
 
@@ -1068,6 +1137,8 @@ static DADissenterRef __DiskArbDiskEjectApprovalCallback( DADiskRef disk, void *
                                 }
                             }
 
+                            CFSetSetValue( __gDiskArbEjectList, child );
+
                             CFRelease( child );
                         }
                     }
@@ -1117,16 +1188,16 @@ static void __DiskArbDiskMountCallback( DADiskRef disk, DADissenterRef dissenter
 
 static DADissenterRef __DiskArbDiskMountApprovalCallback( DADiskRef disk, void * context )
 {
-    CFArrayRef      callbacks   = NULL;
-    char *          content     = NULL;
-    DADissenterRef  dissenter   = NULL;
-    char *          filesystem  = NULL;
-    unsigned        flags       = 0;
-    char *          name        = NULL;
-    char *          path        = NULL;
-    int             removable   = FALSE;
-    int             whole       = FALSE;
-    int             writable    = FALSE;
+    CFArrayRef     callbacks  = NULL;
+    char *         content    = NULL;
+    DADissenterRef dissenter  = NULL;
+    char *         filesystem = NULL;
+    unsigned       flags      = 0;
+    char *         name       = NULL;
+    char *         path       = NULL;
+    int            removable  = FALSE;
+    int            whole      = FALSE;
+    int            writable   = FALSE;
 
     content    = __DiskArbCopyDiskDescriptionMediaContent( disk );
     filesystem = __DiskArbCopyDiskDescriptionVolumeKind( disk );
@@ -1163,7 +1234,10 @@ static DADissenterRef __DiskArbDiskMountApprovalCallback( DADiskRef disk, void *
 ///w:start
                     if ( ( __gDiskArbAck & kDiskArbEjectDevice ) )
                     {
-                        DiskArbEjectRequest_async_auto( __DiskArbGetDiskID( disk ), 0 );
+                        if ( removable )
+                        {
+                            DiskArbEjectRequest_async_auto( __DiskArbGetDiskID( disk ), 0 );
+                        }
 
                         __gDiskArbAck &= ~kDiskArbEjectDevice;
 
@@ -1211,6 +1285,11 @@ static DADissenterRef __DiskArbDiskMountApprovalCallback( DADiskRef disk, void *
             }
         }
     }
+
+    if ( content    )  free( content    );
+    if ( filesystem )  free( filesystem );
+    if ( name       )  free( name       );
+    if ( path       )  free( path       );
 
     return dissenter;
 }
@@ -1347,7 +1426,7 @@ static void __DiskArbDiskUnmountCallback( DADiskRef disk, DADissenterRef dissent
 
             if ( media )
             {
-                io_iterator_t services = NULL;
+                io_iterator_t services = IO_OBJECT_NULL;
 
                 IORegistryEntryCreateIterator( media, kIOServicePlane, kIORegistryIterateRecursively, &services );
 
@@ -1485,9 +1564,9 @@ static DADissenterRef __DiskArbDiskUnmountApprovalCallback( DADiskRef disk, void
                 }
             }
         }
-    }
 
-    CFSetSetValue( __gDiskArbUnmountList, disk );
+        CFSetSetValue( __gDiskArbUnmountList, disk );
+    }
 
     return dissenter;
 }
@@ -1499,6 +1578,10 @@ static void __DiskArbIdleCallback( void * context )
     CFSetApplyFunction( __gDiskArbUnmountList, __DiskArbCallback_UnmountPostNotificationApplier, ( void * ) 1 );
 
     CFSetRemoveAllValues( __gDiskArbUnmountList );
+
+    CFSetApplyFunction( __gDiskArbEjectList, __DiskArbCallback_EjectPostNotificationApplier, ( void * ) 1 );
+
+    CFSetRemoveAllValues( __gDiskArbEjectList );
 
     callbacks = __DiskArbGetCallbackHandler( kDA_NOTIFICATIONS_COMPLETE );
 
@@ -1540,11 +1623,15 @@ static void __DiskArbIdleCallback( void * context )
 
 void DiskArbAddCallbackHandler( int type, void * callback, int overwrite )
 {
-	if ( __gDiskArbCallbackList == NULL )
+    if ( __gDiskArbCallbackList == NULL )
     {
         __gDiskArbCallbackList = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 
         assert( __gDiskArbCallbackList );
+
+        __gDiskArbEjectList = CFSetCreateMutable( kCFAllocatorDefault, 0, &kCFTypeSetCallBacks );
+
+        assert( __gDiskArbEjectList );
 
         __gDiskArbRegisterList = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 
@@ -1682,7 +1769,7 @@ kern_return_t DiskArbDiskAppearedWithMountpointPing_auto( char * disk, unsigned 
     {
         struct statfs * fs;
 
-        fs = __DiskArbGetFileSystemStatus( mountpoint ? mountpoint : disk );
+        fs = __DiskArbGetFileSystemStatus( mountpoint );
 
         if ( fs )
         {
@@ -1898,7 +1985,7 @@ void DiskArbNoOp( void )
 
 kern_return_t DiskArbRefresh_auto( void )
 {
-    io_iterator_t services = NULL;
+    io_iterator_t services = IO_OBJECT_NULL;
 
     IOServiceGetMatchingServices( kIOMasterPortDefault, IOServiceMatching( kIOMediaClass ), &services );
 

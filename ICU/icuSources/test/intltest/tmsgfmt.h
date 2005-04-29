@@ -1,8 +1,8 @@
-/********************************************************************
+/***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
+ * Copyright (c) 1997-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
+ ***********************************************************************/
 
 
 #ifndef _TESTMESSAGEFORMAT
@@ -62,6 +62,11 @@ public:
      * and more than 10 subformats.
      */
     void TestUnlimitedArgsAndSubformats();
+
+    /**
+     * Test RBNF extensions to MessageFormat.
+     */
+    void TestRBNF();
 
     //
     /** 

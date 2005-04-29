@@ -346,7 +346,7 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     /* opcode and operand follow...							*/
     
     if (*src++ != ':') {
-	gdb_internal_error("reformat error searching for ':'");
+	//gdb_internal_error("reformat error searching for ':'");
     	gdb_fprintf(disasm_info->stream, COLOR_RED "### Reformat error searching for ':' (raw source line follows)...\n"
     	                                "%s" COLOR_OFF "\n", src0);
 	return (NULL);
@@ -405,6 +405,8 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     /* where, +dddddd is offset, aaaaaaaa is adddress, xxxxxxxx is instruction.		*/
     
     memset(formatted, ' ', 50);
+    if (disasm_info->flags & WRAP_TO_SIDEBAR)
+	get_screen_size(&max_rows, &max_cols);
         	  
     if (strcmp(function, curr_function) != 0 || (disasm_info->flags & ALWAYS_SHOW_NAME)) {
     	strcpy(curr_function, function);
@@ -461,7 +463,6 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     /* the right side of the line.							*/
     
     if (disasm_info->flags & WRAP_TO_SIDEBAR) {
-    	get_screen_size(&max_rows, &max_cols);
     	if ((len = strlen(formatted) - 1) < max_cols-12)
     	    gdb_fprintf(disasm_info->stream, "%s", formatted);
     	else {
@@ -483,6 +484,8 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     	}
     } else
     	gdb_fprintf(disasm_info->stream, "%s", formatted);
+    
+    disasm_info->addr += 4;
     
     return (NULL);
 }
@@ -509,7 +512,19 @@ void __disasm(char *arg, int from_tty)
     
     if (argc < 3)
     	gdb_error("usage: __disasm addr n [noPC] (wrong number of arguments)");
-    	
+    
+    /* Sometimes gdb will print an extra line at the start of the first x/i done in a	*/
+    /* session.  For example, for Cocoa inferiors, it will print something like,	*/
+    
+    /*      Current language:  auto; currently objective-c				*/
+    
+    /* This will confuse the disassembly reformatting.  We can fake gdb out, however,	*/
+    /* by giving it "x/0i 0".  It won't do anything if gdb has nothing additional to	*/
+    /* say.  But if it does, the additional stuff is all it will say.  This will print	*/
+    /* to the current output stream which is where we want it to go.			*/
+    
+    gdb_execute_command("x/0i 0");
+    
     addr  = gdb_get_int(argv[1]);
     limit = addr + 4 * gdb_get_int(argv[2]);
    
@@ -521,16 +536,15 @@ void __disasm(char *arg, int from_tty)
     
     show_sidebar = (gdb_target_running() && !macsbug_screen && sidebar_state && isatty(STDOUT_FILENO));
     
-    disasm_info.pc        = gdb_get_int("$pc");
+    if (!gdb_get_register("$pc", &disasm_info.pc))
+    	disasm_info.pc = gdb_get_int("$pc");
+    	
     disasm_info.max_width = -1;
     disasm_info.flags	  = (nopc ? 0 : FLAG_PC) | (show_sidebar ? WRAP_TO_SIDEBAR : 0);
     disasm_info.stream    = prev_stdout;
     
-    while (addr < limit) {
-    	disasm_info.addr = addr;
-    	gdb_execute_command("x/i 0x%lX", addr);
-    	addr += 4;
-    }
+    disasm_info.addr = addr;
+    gdb_execute_command("x/%di 0x%lX", (limit-addr)/4, addr);
     
     gdb_close_output(redirect_stdout);
     

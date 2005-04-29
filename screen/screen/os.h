@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: os.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
+ * $Id: os.h,v 1.10 1994/05/31 12:32:22 mlschroe Exp $ FAU
  */
 
 #include <stdio.h>

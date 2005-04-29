@@ -107,7 +107,12 @@ struct symbol {
 
 static bool issymchar( char c )
 {
-    return (c > ' ');
+    return ((c > ' ') && (c != ':'));
+}
+
+static bool iswhitespace( char c )
+{
+    return ((c == ' ') || (c == '\t'));
 }
 
 /*
@@ -175,6 +180,7 @@ static uint32_t
 store_symbols(char * file, struct symbol * symbols, uint32_t idx, uint32_t max_symbols)
 {
     char *   where;
+    char *   name;
     char *   eol;
     char *   next;
     uint32_t strtabsize;
@@ -199,23 +205,31 @@ store_symbols(char * file, struct symbol * symbols, uint32_t idx, uint32_t max_s
 	eol++;
 
 	*eol = 0;
-
 	where = eol - 1;
 	indirect = NULL;
 	indirect_len = 0;
-	while (issymchar(*where)) {
-	    if (':' == *where)
-	    {
-		indirect = where + 1;
-		indirect_len = (eol - indirect + 1);
-		eol = where;
-		*eol = 0;
-	    }
+	while (issymchar(*where))
 	    where--;
-	}
-	where++;
+        name = where + 1;
+	while (iswhitespace(*where))
+	    where--;
+        if (':' == *where)
+        {
+            indirect = name;
+            indirect_len = (eol - indirect + 1);
 
-	if (where[0] == '.')
+            eol = where - 1;
+            while (!issymchar(*eol))
+                eol--;
+            eol++;
+            *eol = 0;
+            where = eol - 1;
+            while (issymchar(*where))
+                where--;
+            name = where + 1;
+        }
+
+	if (name[0] == '.')
 	    continue;
 
 	if(idx >= max_symbols)
@@ -223,8 +237,8 @@ store_symbols(char * file, struct symbol * symbols, uint32_t idx, uint32_t max_s
 	    fprintf(stderr, "symbol[%d] overflow %s\n", idx, where);
 	    exit(1);
 	}
-	symbols[idx].name = where;
-	symbols[idx].name_len = (eol - where + 1);
+	symbols[idx].name = name;
+	symbols[idx].name_len = (eol - name + 1);
 	symbols[idx].indirect = indirect;
 	symbols[idx].indirect_len = indirect_len;
 	strtabsize += symbols[idx].name_len + symbols[idx].indirect_len;
@@ -389,15 +403,7 @@ int main(int argc, char * argv[])
 	for (export_idx = 0; export_idx < num_export_syms; export_idx++)
 	{
 	    boolean_t found = true;
-	    if (!bsearch(export_symbols[export_idx].name, import_symbols, 
-			    num_import_syms, sizeof(struct symbol), &bsearch_cmp))
-	    {
-		if (require_imports)
-		    fprintf(stderr, "exported name not in import list: %s\n", 
-				export_symbols[export_idx].name);
-		found = false;
-	    }
-    
+
 	    if (export_symbols[export_idx].indirect)
 	    {
 		if (!bsearch(export_symbols[export_idx].indirect, import_symbols, 
@@ -408,7 +414,19 @@ int main(int argc, char * argv[])
 				    export_symbols[export_idx].indirect);
 		    found = false;
 		}
-	    }
+	    } 
+            else
+            {
+                if (!bsearch(export_symbols[export_idx].name, import_symbols, 
+                                num_import_syms, sizeof(struct symbol), &bsearch_cmp))
+                {
+                    if (require_imports)
+                        fprintf(stderr, "exported name not in import list: %s\n", 
+                                    export_symbols[export_idx].name);
+                    found = false;
+                }
+            }
+    
 	    if (found && !diff)
 		continue;
 	    if (!found && diff)
@@ -470,6 +488,14 @@ int main(int argc, char * argv[])
 	if (!export_symbols[export_idx].name)
 	    continue;
 
+        if (export_idx
+          && export_symbols[export_idx - 1].name
+          && !strcmp(export_symbols[export_idx - 1].name, export_symbols[export_idx].name))
+        {
+            fprintf(stderr, "duplicate export: %s\n", export_symbols[export_idx - 1].name);
+            err = kKXKextManagerErrorAlreadyLoaded;
+	    goto finish;
+        }
 	nl.n_sect  = 0;
 	nl.n_desc  = 0;
 
@@ -506,9 +532,16 @@ int main(int argc, char * argv[])
 	if (!export_symbols[export_idx].name)
 	    continue;
 	err = writeFile(fd, export_symbols[export_idx].name, 
-		    export_symbols[export_idx].name_len + export_symbols[export_idx].indirect_len);
-	if (kKXKextManagerErrorNone != err)
-	    goto finish;
+		    export_symbols[export_idx].name_len);
+        if (kKXKextManagerErrorNone != err)
+            goto finish;
+        if (export_symbols[export_idx].indirect)
+        {
+            err = writeFile(fd, export_symbols[export_idx].indirect, 
+                        export_symbols[export_idx].indirect_len);
+            if (kKXKextManagerErrorNone != err)
+                goto finish;
+        }
     }
 
     err = writeFile(fd, &zero, strtabpad - strtabsize);
@@ -529,3 +562,4 @@ finish:
         exit(0);
     return(0);
 }
+

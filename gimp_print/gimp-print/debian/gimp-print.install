@@ -1,0 +1,4 @@
+debian/install/usr/lib/gimp/1.2/plug-ins/print  usr/lib/gimp/1.2/plug-ins
+doc/*.html                                      usr/share/doc/gimp-print/html
+doc/*.png                                       usr/share/doc/gimp-print/html
+samples/*.png                                   usr/share/doc/gimp-print/samples

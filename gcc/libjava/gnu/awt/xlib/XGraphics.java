@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2003  Free Software Foundation
+/* Copyright (C) 2000, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -20,6 +20,7 @@ import gnu.gcj.xlib.XImage;
 import gnu.gcj.xlib.Drawable;
 import gnu.gcj.xlib.Window;
 import gnu.gcj.xlib.Drawable;
+import gnu.gcj.xlib.Pixmap;
 import gnu.gcj.xlib.Visual;
 import gnu.awt.j2d.DirectRasterGraphics;
 import gnu.awt.j2d.MappedRaster;
@@ -46,10 +47,18 @@ public class XGraphics implements Cloneable, DirectRasterGraphics
 
   public Object clone()
   {
-    XGraphics gfxCopy = (XGraphics) super.clone();
-    gfxCopy.context = context.create();
-    
-    return gfxCopy;
+    try
+      {
+	XGraphics gfxCopy = (XGraphics) super.clone();
+	gfxCopy.context = context.create();
+	
+	return gfxCopy;
+      }
+    catch (CloneNotSupportedException ex)
+      {
+	// This should never happen.
+	throw new InternalError ();
+      }
   }
 
   public void dispose()
@@ -58,16 +67,17 @@ public class XGraphics implements Cloneable, DirectRasterGraphics
     context = null;
     config = null;
     clipBounds = null;
+    metrics = null;
     
     if (lContext != null)
-      {
-	lContext.dispose();
-      }	    
+    {
+      lContext.dispose();
+    }	    
   }
 
   public XGraphics(Drawable drawable, XGraphicsConfiguration config)
   {
-    context = new GC(drawable);
+    context = GC.create(drawable);
     this.config = config;
   }  
   
@@ -88,10 +98,13 @@ public class XGraphics implements Cloneable, DirectRasterGraphics
     
   public void setFont(Font font)
   {
-    if ((metrics != null) && font.equals(metrics.getFont())) return;
-
+    if (font == null)
+      return;
+    if ((metrics != null) && font.equals(metrics.getFont()))
+      return;
     metrics = config.getXFontMetrics(font);
-    context.setFont(metrics.xfont);
+    if (metrics != null)
+      context.setFont(metrics.xfont);
   }
     
   public FontMetrics getFontMetrics(Font font)
@@ -120,12 +133,15 @@ public class XGraphics implements Cloneable, DirectRasterGraphics
        expose. */
     Rectangle newClipBounds = clip.getBounds();
     
+    /* FIXME: decide whether this test code is worth anything
+     * (as of 2004-01-29, it prints frequently)
     if ((clipBounds != null) && !clipBounds.contains(newClipBounds))
       {
 	System.err.println("warning: old clip ("+ clipBounds +") does " +
 			   "not fully contain new clip (" +
 			   newClipBounds + ")");
       }
+     */
     clipBounds = newClipBounds;
     Rectangle[] rects = { clipBounds };
     context.setClipRectangles(rects);
@@ -155,13 +171,13 @@ public class XGraphics implements Cloneable, DirectRasterGraphics
   public void drawArc(int x, int y, int width, int height, int
 		      startAngle, int arcAngle)
   {
-    throw new UnsupportedOperationException("not implemented");
+    context.drawArc (x, y, width, height, startAngle, arcAngle);
   }
     
   public void fillArc(int x, int y, int width, int height, int
 		      startAngle, int arcAngle)
   {
-    throw new UnsupportedOperationException("not implemented");
+    context.fillArc (x, y, width, height, startAngle, arcAngle);
   }
     
   public void drawPolyline(int[] xPoints, int[] yPoints, int
@@ -190,6 +206,15 @@ public class XGraphics implements Cloneable, DirectRasterGraphics
   public boolean drawImage(Image img, int x, int y,
 			   ImageObserver observer)
   {
+    if (img instanceof XOffScreenImage)
+    {
+      // FIXME: have to enforce clip, or is it OK as-is?
+      XOffScreenImage offScreenImage = (XOffScreenImage) img;
+      Pixmap pixmap = offScreenImage.getPixmap ();
+      context.copyArea (pixmap, 0, 0, x, y,
+        offScreenImage.getWidth (), offScreenImage.getHeight ());
+      return true;
+    }
     if (clipBounds == null)
       return false; // ***FIXME***
 

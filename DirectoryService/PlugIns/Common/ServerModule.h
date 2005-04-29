@@ -33,9 +33,7 @@
 #include <CoreFoundation/CFPlugInCOM.h>
 #endif
 
-#include "DirServicesTypes.h"
-#include "PrivateTypes.h"
-#include "PluginData.h"
+#include <DirectoryServiceCore/PluginData.h>
 
 
 //-----------------------------------------------------------------------------
@@ -63,6 +61,7 @@ namespace DSServerPlugin {
 // kPlugin and kPluginInterface are used to identify the plug-in type in
 // each bundle's Info.plist. See CFBundle / CFPlugIn docs for details.
 #define kPluginVersionStr		CFSTR( "CFBundleVersion" )
+#define kPluginShortVersionStr		CFSTR( "CFBundleShortVersionString" )
 #define kPluginConfigAvailStr	CFSTR( "CFBundleConfigAvail" )
 #define kPluginConfigFileStr	CFSTR( "CFBundleConfigFile" )
 #define kPluginNameStr			CFSTR( "CFPluginNameString" )

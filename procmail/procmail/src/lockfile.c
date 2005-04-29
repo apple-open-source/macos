@@ -15,9 +15,9 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: lockfile.c,v 1.1.1.2 2001/07/20 19:38:17 bbraun Exp $";
+ "$Id: lockfile.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
 #endif
-static /*const*/char rcsdate[]="$Date: 2001/07/20 19:38:17 $";
+static /*const*/char rcsdate[]="$Date: 2003/10/14 23:13:23 $";
 #include "includes.h"
 #include "sublib.h"
 #include "exopen.h"
@@ -43,8 +43,8 @@ static int xcreat(name,tim)const char*const name;time_t*const tim;
   i=lastdirsep(name)-name;
   if(!(p=malloc(i+UNIQnamelen)))
      return exitflag=1;
-  strncpy(p,name,i);
-  if(unique(p,p+i,0,LOCKperm,0,doCHECK|doLOCK))
+  memcpy(p,name,i);
+  if(unique(p,p+i,i+UNIQnamelen,LOCKperm,0,doCHECK|doLOCK))
      stat(p,&stbuf),*tim=stbuf.st_mtime,j=myrename(p,name);
   free(p);
   return j;

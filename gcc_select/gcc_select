@@ -1,14 +1,15 @@
 #!/bin/sh
 
-# gcc_select [-n] [-force] [2 | 3 | 3.x] [-h | --help] [-v | --version]
+# gcc_select [-n] [-force] [2 | 3 | 3.x | 4.x ] [-h | --help] [-v | --version]
 #            [-l | --list] [-root]
 #            
 #
-# Switch the default gcc to either 2.x or 3.x.
+# Switch the default gcc to any of 2.x, 3.x, or 4.x.
 #
 #  2             Select gcc 2.95.2 as the default compiler.
 #  3             Select gcc 3.1 as the default compiler.
 #  3.x           Select gcc 3.x as the default compiler.
+#  4.x           Select gcc 4.x as the default compiler.
 #  -force        Ensure the links are correct for the specified version.
 #                even if the one specified is the current version.
 #  -h            Display this help info.
@@ -20,11 +21,11 @@
 #  -l		 Display available compiler versions.
 #  --list	 Same as -l.
 #           
-# This script will switch the current compiler installation from 2.x
-# to 3.x or vice versa (or echo the commands to do it if -n is used).
+# This script will switch the current compiler installation around
+# among 2.x, 3.x, and 4.x (or echo the commands to do it if -n is used).
 # The current version is displayed if no arguments are specified.
 #
-# Note, for documentation completeness, there is one additional option.
+# Note, for documentation completeness, there are three additional options.
 #
 #  -dstroot dir  Install the sym links in a /usr directory within the
 #		 specified dir or the dir itself if it specifies a usr
@@ -32,34 +33,29 @@
 #                allowed, in which case, the sytem is changed to the
 #                requested compiler, i.e., the same effect as not
 #                specifying it at all. 
+#  --wrap SCRIPT Forces all possible mechanisms for invoking the
+#		 compiler to be diverted from /usr/bin/NAME to
+#		 /usr/bin/NAME.real, and /usr/bin/NAME will become
+#		 a symbolic link to SCRIPT.  Will fail if binaries
+#		 are already diverted.
+#  --unwrap	 Restores diversions created by --wrap.
 #
-# This is a special option NOT for general use.  It is deliberately 
-# omitted from the --help info.  It is intended for internal build
-# procedures to install the sym links in the specified dir instead
-# of the system.
+# These are special options NOT for general use.  They are deliberately 
+# omitted from the --help info.  They are intended for internal build
+# procedures.
 #
-# Copyright Apple Computer, Inc. 2002, 2003
+# Copyright Apple Computer, Inc. 2002, 2003, 2004, 2005
 
 #######################################################################
 
-GCC_SELECT_VERSION="2.5"
+GCC_SELECT_VERSION="2.14"
 
 #######################################################################
 
 # List of headers in & underneath /usr/include that need to be symlinked
 # to a compiler-specific version.
 
-symlink_hdrs0="assert.h		\
-	float.h			\
-	inttypes.h		\
-	stdarg.h  	 	\
-	stdbool.h 	 	\
-	stdint.h  	 	\
-	varargs.h 	 	\
-	va-ppc.h"
-symlink_hdrs1="machine/limits.h"
-
-# Note, in the above list va-ppc.h is only for gcc2.
+symlink_hdrs0="stdint.h"
 
 # List of libraries in /usr/lib and /usr/local/lib that need to be 
 # symlinked to a compiler-specific version.
@@ -89,7 +85,7 @@ switch_it()
 {
     local f who status argc=$# cwd="`/bin/pwd`"
     local n="\n`echo "usage: ${0##*/}" | sed -e 's/./ /g'`"
-    local usage="${0##*/} [-n] [-force] [2 | 3 | 3.x] [-h | --help] [-v | --version]$n [-l | --list] [-root]"
+    local usage="${0##*/} [-n] [-force] [2 | 3 | 3.x | 4.x ] [-h | --help] [-v | --version]$n [-l | --list] [-root]"
     
     #
     # Collect the arguments...
@@ -103,10 +99,12 @@ switch_it()
     installing=
     show_help=
     root=
+    wrapper=
+    unwrap=0
     
     while [ $# -gt 0 ] ; do 
 	case $1 in
-	    2* | -2* | 3* | -3*)
+	    2* | -2* | 3* | -3* | 4.* | -4.* )
 		if [[ "$switchto_cc" != "0" && "$switchto_cc" != "$1" ]]; then
 		    echo -e "usage: $usage"
 		    echo    "       Inconsistent compiler versions specified."
@@ -140,6 +138,40 @@ switch_it()
 		installing=1
 		shift
 		;;
+	    -wrap | --wrap)
+	        if [ $unwrap -ne 0 ]; then
+	            echo "Cannot specify both --wrap and --unwrap."
+	            exit 1
+	        fi
+	        shift
+
+	        if [ -z "$1" ]; then
+		    cat <<WRAP_HELP
+Invalid --wrap option, please specify wrapper script after --wrap.
+
+Writing Wrapper Scripts
+-----------------------
+Wrapper scripts should pass \$0 (argv[0]) through to the underlying program,
+since drivers may use $0 to determine behavior.  Here are a couple of
+examples of how to write clean wrappers:
+	sh no-op wrapper: exec -a "\$0" "\$0.real" "\$@"
+ 	perl no-op wrapper: exec {"\$0.real"} (\$0, @ARGV);
+WRAP_HELP
+	            exit 1
+                fi
+
+	        wrapper="$1"
+	        shift
+	        ;;
+	    -unwrap | --unwrap)
+	        if [ -n "$wrapper" ]; then
+	            echo "Cannot specify both --wrap and --unwrap."
+	            exit 1
+	        fi
+
+	        unwrap=1
+	        shift
+	        ;;
 	    -root)
 	    	root=1
 	    	shift
@@ -163,6 +195,7 @@ switch_it()
 	echo "2          Select gcc 2.95.2 as the default compiler."
 	echo "3          Select gcc 3.1 as the default compiler."
 	echo "3.x        Select gcc 3.x as the default compiler."
+	echo "4.x        Select gcc 4.x as the default compiler."
 	echo "-force     Ensure the links are correct for the specified version"
 	echo "           even if it maches the current default version."
 	echo "-h         Display this help info."
@@ -180,7 +213,7 @@ switch_it()
     if [ "$list_versions" ]; then
       echo "Available compiler versions:"
       cd /usr/include/gcc/darwin
-      command ls -d [23]*
+      command ls -d [234]*
       exit 1
     fi
     #
@@ -188,11 +221,107 @@ switch_it()
     # the version number it displays when we do a cc -v...
     #
     actual_ver="`cc -v 2>&1  | grep -i 'gcc version'`"
-    current_cc="`echo \"$actual_ver\" | sed -e 's/.*gcc version \([^ ]*\).*/\1/'`"
-    if [[ ! "$current_cc" == 2* && ! "$current_cc" == 3* ]]; then
-        echo "Error trying to determine current cc version (got $current_cc)"
-        exit 1
+    #current_cc="`echo \"$actual_ver\" | sed -e 's/.*gcc version \([^ ]*\).*/\1/'`"
+    current_cc="`echo \"$actual_ver\" | sed -e 's/.*gcc version \([0-9]*\.[0-9]*\).*/\1/'`"
+    if [[ ! "$current_cc" == 2* && ! "$current_cc" == 3* && ! "$current_cc" == 4* ]]; then
+        if [ $unwrap -eq 1 ]; then
+            if [ -z "$forced" -o -z "$switchto_cc" ]; then
+                echo "To restore from an invalid GCC wrapper, use gcc_select --force --unwrap 3.3"
+                exit 1
+            else
+                current_cc=$switchto_cc
+            fi
+        else
+            echo "Error trying to determine current cc version (got $current_cc)"
+            exit 1
+        fi
     fi
+
+    # Handle wrapping and unwrapping
+    if [ -n "$wrapper" ]; then
+        if [ ! -f "$wrapper" ]; then
+            echo "GCC wrapper doesn't exist."
+            exit 1
+        fi
+
+        for driver in $usr/bin/{gcc,g++,c++,cpp,gcov}-* ; do
+            case "$driver" in
+                *.real)
+                    # Ignore
+                    ;;
+                *)
+                    if [ -L "$driver" -a -f "$driver.real" ]; then
+                        echo "Sorry, $driver is already wrapped and we're trying to wrap it again."
+                        if [ -z "$forced"  ]; then exit 1 ; fi
+                    fi
+
+                    if [ -f "$driver.real" ]; then
+                        echo "Error, $driver already appears to be wrapped but there is no link to it."
+                        if [ -z "$forced" ]; then exit 1 ; fi
+                    fi
+
+                    if [ -L "$driver" ]; then
+                        $dashn ln -sf "`readlink $driver`.real" "$driver.real" || {
+                            echo "Couldn't symlink $driver.real to `readlink $driver`.real"
+                            if [ -z "$forced" ]; then exit 1 ; fi
+                        }
+                    else
+                        $dashn mv "$driver" "$driver.real" || {
+                            echo "Couldn't move $driver to $driver.real"
+                            if [ -z "$forced" ]; then exit 1 ; fi
+                        }
+                    fi
+
+                    $dashn ln -sf "$wrapper" "$driver" || {
+                        echo "Couldn't make symbolic link from $driver to $wrapper"
+                        $dashn mv "$driver.real" "$driver" || echo "...and couldn't restore $driver.real to $driver"
+                        if [ -z "$forced" ]; then exit 1 ; fi
+                    }
+                    ;;
+            esac
+        done
+
+        # Re-select current version so that symlinks go to .real
+        forced=1
+    elif [ $unwrap -ne 0 ]; then
+        for driver in $usr/bin/{gcc,g++,c++,cpp,gcov}-*; do
+           case "$driver" in
+                *.real)
+                    if [ -L "$driver" ]; then
+                        $dashn rm -f "$driver" || {
+                            echo "Couldn't remove $driver"
+                            if [ -z "$forced" ]; then exit 1 ; fi
+                        }
+                    fi
+                    ;;
+                *)
+                    DRIVER_LINK=
+                    if [ -f "$driver.real" -o -L "$driver.real" ]; then DRIVER_LINK=1 ; fi
+
+                    if [ -L "$driver" -a -n "$DRIVER_LINK" ]; then
+                        $dashn rm -f "$driver" || {
+                            echo "Couldn't remove symbolic link $driver"
+                            if [ -z "$forced" ]; then exit 1 ; fi
+                        }
+
+                        if [ -f "$driver.real" ]; then
+                            $dashn mv "$driver.real" "$driver" || {
+                                echo "Couldn't move $driver.real to $driver"
+                                if [ -z "$forced" ]; then exit 1 ; fi
+                            }
+                        fi
+                    else
+                       echo "Sorry, $driver does not appear to be wrapped."
+                       if [ -z "$forced" ] ; then exit 1 ; fi
+                    fi
+                    ;;
+            esac
+        done
+
+        # Re-select current version so that symlinks *don't* go to .real
+        forced=1
+    fi
+
     # No arguments means display only the current compiler version...
     #   
     if [ $argc -eq 0 ] || [ $argc -eq 1 -a "$show_ver" ]; then
@@ -234,7 +363,7 @@ switch_it()
     #
     # If actually modifying the system do additional checks...
     #
-    if [ ! "$installing" ]; then
+    if [ ! "$installing" -a "$switchto_cc" != "0" ]; then
 	#
 	# If what we want to switch to is the same as the current installation
 	# we have nothing more to do (unless we're "forced" to do it)...
@@ -250,12 +379,12 @@ switch_it()
 	# accidentally clobber non-symlink files while creating the symlinks. 
 	#
         list=
-        for driver in cc c++ gcc g++; do
+        for driver in cc c++ gcc g++ cc.real c++.real gcc.real g++.real; do
 	  if [ -e /usr/bin/$driver -a ! -L /usr/bin/$driver ]; then
 	    list="$list /usr/bin/$driver"
 	  fi
 	done
-        for header in $symlink_hdrs0 $symlink_hdrs1; do
+        for header in $symlink_hdrs0 ; do
           if [ -e /usr/include/$header -a ! -L /usr/include/$header ]; then
             list="$list /usr/include/$header"
           fi
@@ -293,7 +422,6 @@ switch_it()
 	fi
     fi # usr
     
-	
     #
     # Make sure that the compiler we are switching to has all the indispensable
     # drivers, headers and libraries.  Here we check only files common to all
@@ -304,25 +432,49 @@ switch_it()
     for file_or_dir in \
 	/usr/bin/gcc$switchto_cc_driver 		\
 	/usr/bin/g++$switchto_cc_driver 		\
-	/usr/include/gcc/darwin/$switchto_cc/assert.h	\
-        /usr/include/gcc/darwin/$switchto_cc/float.h	\
-        /usr/include/gcc/darwin/$switchto_cc/inttypes.h	\
-        /usr/include/gcc/darwin/$switchto_cc/stdarg.h	\
-        /usr/include/gcc/darwin/$switchto_cc/stdbool.h	\
         /usr/include/gcc/darwin/$switchto_cc/stdint.h	\
-        /usr/include/gcc/darwin/$switchto_cc/varargs.h	\
-	/usr/libexec/gcc/darwin/ppc/$switchto_cc/ 	\
-	/usr/lib/gcc/darwin/$switchto_cc/ 		\
 	/usr/include/gcc/darwin/$switchto_cc/ ; do
       if [ ! -e $file_or_dir ]; then
 	missing="$missing $file_or_dir"
       fi
     done
+
+    # The following headers are compiler-provided on systems prior to Tiger,
+    # and on Tiger systems with compilers prior to gcc 4.0.
+    if [ $os_version -lt 100400 -o $switchto_cc \< 4.0 ]; then
+      for file_or_dir in \
+          /usr/include/gcc/darwin/$switchto_cc/float.h    \
+          /usr/include/gcc/darwin/$switchto_cc/stdarg.h   \
+          /usr/include/gcc/darwin/$switchto_cc/stdbool.h  \
+          /usr/include/gcc/darwin/$switchto_cc/varargs.h  \
+          /usr/include/gcc/darwin/$switchto_cc/ ; do
+        if [ ! -e $file_or_dir ]; then
+          missing="$missing $file_or_dir"
+        fi
+      done
+    fi
+
     if [ "$missing" != "" ]; then
         show_list "The following is missing from your gcc $switchto_cc compiler installation." \
                   "Reinstall the $switchto_cc compiler, or use another release." $missing
         exit 1
     fi
+
+    if [ $switchto_cc \< 3.5 ]; then
+      if [ ! -e /usr/libexec/gcc/darwin/ppc/$switchto_cc ]; then
+        "Files in /usr/libexec/gcc/darwin/ppc/$switchto_cc are missing from your gcc
+        "compiler installation.  Reinstall the $switchto_cc compiler, or use another release." 
+        exit 1
+      fi
+      if [ ! -e /usr/lib/gcc/darwin/ppc/$switchto_cc ]; then
+        "Files in /usr/lib/gcc/darwin/ppc/$switchto_cc are missing from your gcc
+        "compiler installation.  Reinstall the $switchto_cc compiler, or use another release." 
+        exit 1
+      fi
+      # 3.5 and above
+      # We ought to have an else clause here that checks that 
+      # /usr/libexec/gcc/ppc-apple-darwin/4.0.0 exists here.
+    fi 
 
     if [ "$dashn" != "" ]; then
       echo "Commands that would be executed if \"-n\" were not specified:"
@@ -332,6 +484,22 @@ switch_it()
     #
     $dashn mkdir -p $usr/bin
     $dashn rm -f $usr/bin/cc $usr/bin/c++
+
+    # Handle wrappers
+    if [ -L $usr/bin/gcc$switchto_cc_driver -o -n "$wrapper" ]; then
+        $dashn ln -sf gcc$switchto_cc_driver.real $usr/bin/cc.real
+        $dashn ln -sf g++$switchto_cc_driver.real $usr/bin/c++.real
+        for driver in gcc g++ gcov; do
+            $dashn ln -sf $driver$switchto_cc_driver.real $usr/bin/$driver.real
+        done
+    else
+        $dashn rm -f $usr/bin/cc.real
+        $dashn rm -f $usr/bin/c++.real
+        for driver in gcc g++ gcov; do
+            $dashn rm -f $usr/bin/$driver.real
+        done
+    fi
+
     $dashn ln -sf gcc$switchto_cc_driver $usr/bin/cc
     $dashn ln -sf g++$switchto_cc_driver $usr/bin/c++
     for driver in gcc g++ gcov; do
@@ -340,9 +508,6 @@ switch_it()
 	$dashn ln -sf $driver$switchto_cc_driver $usr/bin/$driver
       fi
     done
-    # we shall use the cxxfilt in the binutils package for _all_ compiler releases
-    $dashn rm -f $usr/bin/c++filt
-    $dashn ln -sf ../libexec/binutils/cxxfilt $usr/bin/c++filt
 
     # Change the various "default" sym links for
     # directories.
@@ -375,19 +540,19 @@ switch_it()
       $dashn ln -sf gcc/darwin/default/libgcc.a $usr/lib/libcc_dynamic.a
     fi
 
+    # For gcc 3.5 and above, some of the symlinks we just set up point to nowhere.
+    # Get rid of them.
+    if [ $switchto_cc \> 3.3 ]; then
+      $dashn rm -f $usr/lib/gcc/darwin/default
+      $dashn rm -f $usr/lib/libcc_dynamic.a
+    fi
+
     # Set up header symlinks...
     $dashn mkdir -p $usr/include
     for header in $symlink_hdrs0; do
       $dashn rm -f $usr/include/$header
       if [ -e /usr/include/gcc/darwin/default/$header ]; then
         $dashn ln -sf gcc/darwin/default/$header $usr/include/$header
-      fi
-    done
-    for header in $symlink_hdrs1; do    
-      $dashn rm -f $usr/include/$header   
-      if [ -e /usr/include/gcc/darwin/default/$header ]; then
-        $dashn mkdir -p $usr/include/$(dirname $header)   
-        $dashn ln -sf ../gcc/darwin/default/$header $usr/include/$header   
       fi
     done
     # Set up man page symlinks...
@@ -402,6 +567,11 @@ switch_it()
         $dashn ln -sf $manpage$switchto_cc_driver.1 $usr/share/man/man1/$manpage.1
       fi
     done
+    $dashn rm -rf $usr/share/man/man1/cc.1    
+    if [ -e /usr/share/man/man1/gcc.1 ]; then
+	$dashn ln -sf gcc.1 $usr/share/man/man1/cc.1
+    fi
+    
     #
     # We determine which compiler is currently installed by looking at
     # the version number it displays when we do a cc -v...
@@ -410,7 +580,7 @@ switch_it()
       if [ "$dashn" == "" ]; then
         actual_ver="`cc -v 2>&1  | grep -i 'gcc version'`"
         current_cc="`echo \"$actual_ver\" | sed -e 's/.*gcc version \([^ ]*\).*/\1/'`"
-        if [[ ! "$current_cc" == 2* && ! "$current_cc" == 3* ]]; then
+        if [[ ! "$current_cc" == 2* && ! "$current_cc" == 3* && ! "$current_cc" == 4* ]]; then
       	    echo "Error trying to determine current cc version (got $current_cc)"
      	    exit 1
         fi
@@ -462,8 +632,8 @@ show_list()
 ### main() ############################################################
 #######################################################################
 
-os_major="`uname -r | sed -e 's/\([^\.]*\).*/\1/'`"
-if [ $os_major -lt 6 ]; then
+os_version=$(sw_vers -productVersion | awk -F. '{ printf "%02d%02d%02d", $1, $2, $3 }')
+if [ $os_version -lt 100200 ]; then
   echo "You must be using MacOS X 10.2 (Jaguar) or later."
   exit 1
 fi

@@ -24,11 +24,14 @@
  * without specific, written prior permission.
  */
 
+/* $XFree86: xc/programs/xmh/tocintrnl.h,v 1.2 2003/05/27 22:27:08 tsi Exp $ */
+
 /* Includes for modules implementing toc stuff. */
 
 #ifndef _tocinternal_h
 #define _tocinternal_h
 
+#include "xmh.h"
 #include <X11/IntrinsicP.h>	/* %%% */
 #include "tsource.h"
 
@@ -47,7 +50,7 @@ typedef struct _MsgRec {
     int		msgid;		/* Message id for this message. */
     short	length;		/* #/chars for this msg's entry in scanfile */
     unsigned char num_scrns;	/* How many scrns are currently showing msg */
-    unsigned	fate:2;		/* What will be done to this message */
+    FateType	fate:2;		/* What will be done to this message */
     unsigned	changed:1;	/* True iff this entry needs to be saved */
     unsigned	visible:1;	/* Whether we should show this message */
     unsigned	temporary:1;	/* Whether we should delete this message when

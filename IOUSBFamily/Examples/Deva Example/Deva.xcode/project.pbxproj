@@ -1,0 +1,346 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		014CEA490018CE3211CA2923 = {
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		014CEA4A0018CE3211CA2923 = {
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//010
+//011
+//012
+//013
+//014
+//080
+//081
+//082
+//083
+//084
+		08FB7793FE84155DC02AAC07 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				014CEA490018CE3211CA2923,
+				014CEA4A0018CE3211CA2923,
+			);
+			hasScannedForEncodings = 0;
+			isa = PBXProject;
+			mainGroup = 08FB7794FE84155DC02AAC07;
+			projectDirPath = "";
+			targets = (
+				EE4E2E5507B2B74D0003BA82,
+			);
+		};
+		08FB7794FE84155DC02AAC07 = {
+			children = (
+				08FB7795FE84155DC02AAC07,
+				08FB779DFE84155DC02AAC07,
+				19C28FBDFE9D53C911CA2CBB,
+			);
+			isa = PBXGroup;
+			name = Deva;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 = {
+			children = (
+				08FB7796FE84155DC02AAC07,
+				F5F3CFCE024BECB101CE2351,
+				F5F3CFCF024BECB101CE2351,
+				F5F3CFD2024BEE5301CE2351,
+				F5F3CFD3024BEE5301CE2351,
+				F5F3CFD6024BEED801CE2351,
+				F5F3CFD7024BEED801CE2351,
+			);
+			isa = PBXGroup;
+			name = Source;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		08FB7796FE84155DC02AAC07 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = main.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		08FB779DFE84155DC02AAC07 = {
+			children = (
+				09AB6884FE841BABC02AAC07,
+				F5F3CFCA024ABDDC01CE2351,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//080
+//081
+//082
+//083
+//084
+//090
+//091
+//092
+//093
+//094
+		09AB6884FE841BABC02AAC07 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+//090
+//091
+//092
+//093
+//094
+//190
+//191
+//192
+//193
+//194
+		19C28FBDFE9D53C911CA2CBB = {
+			children = (
+				EE4E2E6307B2B74D0003BA82,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//190
+//191
+//192
+//193
+//194
+//EE0
+//EE1
+//EE2
+//EE3
+//EE4
+		EE4E2E5507B2B74D0003BA82 = {
+			buildPhases = (
+				EE4E2E5607B2B74D0003BA82,
+				EE4E2E5A07B2B74D0003BA82,
+				EE4E2E5F07B2B74D0003BA82,
+				EE4E2E6207B2B74D0003BA82,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "-W -Wall -Wno-unused";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Deva;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = Deva;
+			productInstallPath = "$(HOME)/bin";
+			productName = Deva;
+			productReference = EE4E2E6307B2B74D0003BA82;
+			productType = "com.apple.product-type.tool";
+		};
+		EE4E2E5607B2B74D0003BA82 = {
+			buildActionMask = 2147483647;
+			files = (
+				EE4E2E5707B2B74D0003BA82,
+				EE4E2E5807B2B74D0003BA82,
+				EE4E2E5907B2B74D0003BA82,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE4E2E5707B2B74D0003BA82 = {
+			fileRef = F5F3CFCE024BECB101CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE4E2E5807B2B74D0003BA82 = {
+			fileRef = F5F3CFD2024BEE5301CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE4E2E5907B2B74D0003BA82 = {
+			fileRef = F5F3CFD6024BEED801CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE4E2E5A07B2B74D0003BA82 = {
+			buildActionMask = 2147483647;
+			files = (
+				EE4E2E5B07B2B74D0003BA82,
+				EE4E2E5C07B2B74D0003BA82,
+				EE4E2E5D07B2B74D0003BA82,
+				EE4E2E5E07B2B74D0003BA82,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE4E2E5B07B2B74D0003BA82 = {
+			fileRef = 08FB7796FE84155DC02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		EE4E2E5C07B2B74D0003BA82 = {
+			fileRef = F5F3CFCF024BECB101CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE4E2E5D07B2B74D0003BA82 = {
+			fileRef = F5F3CFD3024BEE5301CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE4E2E5E07B2B74D0003BA82 = {
+			fileRef = F5F3CFD7024BEED801CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE4E2E5F07B2B74D0003BA82 = {
+			buildActionMask = 2147483647;
+			files = (
+				EE4E2E6007B2B74D0003BA82,
+				EE4E2E6107B2B74D0003BA82,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE4E2E6007B2B74D0003BA82 = {
+			fileRef = 09AB6884FE841BABC02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE4E2E6107B2B74D0003BA82 = {
+			fileRef = F5F3CFCA024ABDDC01CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE4E2E6207B2B74D0003BA82 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE4E2E6307B2B74D0003BA82 = {
+			explicitFileType = "compiled.mach-o.executable";
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = Deva;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+//EE0
+//EE1
+//EE2
+//EE3
+//EE4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F5F3CFCA024ABDDC01CE2351 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		F5F3CFCE024BECB101CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = something.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F5F3CFCF024BECB101CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = something.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F5F3CFD2024BEE5301CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = deva.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F5F3CFD3024BEE5301CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = deva.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F5F3CFD6024BEED801CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = printInterpretedError.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F5F3CFD7024BEED801CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = printInterpretedError.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+	};
+	rootObject = 08FB7793FE84155DC02AAC07;
+}

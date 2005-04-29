@@ -40,7 +40,7 @@
 #
 exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
 #!perl -w
-# $Id: mkimap,v 1.16 2004/06/29 18:16:54 rjs3 Exp $
+# $Id: mkimap,v 1.5 2005/03/05 00:37:39 dasenbro Exp $
 
 if ($] !~ /^5\..*/) {
   # uh-oh. this isn't perl 5.

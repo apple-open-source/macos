@@ -1,6 +1,6 @@
 #define VERSION "\
- v3.21 2001/06/29\n\
-    Copyright (c) 1990-1999, Stephen R. van den Berg\t<srb@cuci.nl>\n\
+ v3.22 2001/09/10\n\
+    Copyright (c) 1990-2001, Stephen R. van den Berg\t<srb@cuci.nl>\n\
     Copyright (c) 1997-2001, Philip A. Guenther\t\t<guenther@sendmail.com>\n\
 \n\
 Submit questions/answers to the procmail-related mailinglist by sending to:\n\

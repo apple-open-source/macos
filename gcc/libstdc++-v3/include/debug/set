@@ -1,4 +1,3 @@
-/* APPLE LOCAL file libstdc++ debug mode */
 // Debugging set/multiset implementation -*- C++ -*-
 
 // Copyright (C) 2003
@@ -29,23 +28,11 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _GLIBCXX_EXT_DEBUG_SET_H
-#define _GLIBCXX_EXT_DEBUG_SET_H
+#ifndef _GLIBCXX_DEBUG_SET
+#define _GLIBCXX_DEBUG_SET 1
 
 #include <set>
+#include <debug/set.h>
+#include <debug/multiset.h>
 
-#ifdef _GLIBCXX_DEBUG
-// We already have debug implementations in std::, so pull them in.
-namespace __gnu_debug
-{
-  using std::set;
-  using std::multiset;
-} // namespace __gnu_debug
-
-#else
-// Include the debug implementation, which will reside in __gnu_debug
-#  include <debug/dbg_set.h>
-#  include <debug/dbg_multiset.h>
 #endif
-
-#endif /* _GLIBCXX_EXT_DEBUG_SET_H */

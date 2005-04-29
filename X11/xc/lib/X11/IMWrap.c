@@ -57,7 +57,7 @@ from The Open Group.
 
 */
 
-/* $XFree86: xc/lib/X11/IMWrap.c,v 3.8 2001/12/14 19:54:01 dawes Exp $ */
+/* $XFree86: xc/lib/X11/IMWrap.c,v 3.9 2003/11/17 22:20:07 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xlcint.h"
@@ -176,7 +176,6 @@ XLocaleOfIM(im)
  * on-demand input method instantiation.
  */
 Bool
-#if NeedFunctionPrototypes
 XRegisterIMInstantiateCallback(
     Display	*display,
     XrmDatabase	 rdb,
@@ -184,16 +183,6 @@ XRegisterIMInstantiateCallback(
     char	*res_class,
     XIDProc	 callback,
     XPointer	 client_data)
-#else
-XRegisterIMInstantiateCallback( display, rdb, res_name, res_class, callback,
-				client_data)
-    Display	*display;
-    XrmDatabase	 rdb;
-    char	*res_name;
-    char	*res_class;
-    XIDProc	 callback;
-    XPointer	 client_data;
-#endif
 {
     XLCd	lcd = _XOpenLC( (char *)NULL );
 
@@ -208,7 +197,6 @@ XRegisterIMInstantiateCallback( display, rdb, res_name, res_class, callback,
  * Unregister to a input method instantiation callback.
  */
 Bool
-#if NeedFunctionPrototypes
 XUnregisterIMInstantiateCallback(
     Display	*display,
     XrmDatabase	 rdb,
@@ -216,16 +204,6 @@ XUnregisterIMInstantiateCallback(
     char	*res_class,
     XIDProc	 callback,
     XPointer	 client_data)
-#else
-XUnregisterIMInstantiateCallback( display, rdb, res_name, res_class, callback,
-				  client_data )
-    Display	*display;
-    XrmDatabase	 rdb;
-    char	*res_name;
-    char	*res_class;
-    XIDProc	 callback;
-    XPointer	 client_data;
-#endif
 {
     XLCd	lcd = _XlcCurrentLC();
 

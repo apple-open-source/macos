@@ -45,6 +45,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
+/* $XFree86: xc/lib/Xt/CallbackI.h,v 1.4 2003/10/24 15:47:35 tsi Exp $ */
 
 /****************************************************************
  *
@@ -68,67 +69,49 @@ typedef struct internalCallbackRec {
 } InternalCallbackRec, *InternalCallbackList;
 
 typedef Boolean (*_XtConditionProc)(
-#if NeedFunctionPrototypes
     XtPointer	/* data */
-#endif
 );
 
 extern void _XtAddCallback(
-#if NeedFunctionPrototypes
     InternalCallbackList*	/* callbacks */,
     XtCallbackProc		/* callback */,
     XtPointer 			/* closure */
-#endif
 );
 
 extern void _XtAddCallbackOnce(
-#if NeedFunctionPrototypes
     InternalCallbackList*	/* callbacks */,
     XtCallbackProc		/* callback */,
     XtPointer 			/* closure */
-#endif
 );
 
 extern InternalCallbackList _XtCompileCallbackList(
-#if NeedFunctionPrototypes
     XtCallbackList		/* xtcallbacks */
-#endif
 );
 
 extern XtCallbackList _XtGetCallbackList(
-#if NeedFunctionPrototypes
     InternalCallbackList*	/* callbacks */
-#endif
 );
 
 extern void _XtRemoveAllCallbacks(
-#if NeedFunctionPrototypes
     InternalCallbackList*	/* callbacks */
-#endif
 );
 
 extern void _XtRemoveCallback(
-#if NeedFunctionPrototypes
     InternalCallbackList*	/* callbacks */,
     XtCallbackProc		/* callback */,
     XtPointer			/* closure */
-#endif
 );
 
 extern void _XtPeekCallback(
-#if NeedFunctionPrototypes
     Widget			/* widget */,
     XtCallbackList		/* callbacks */,
     XtCallbackProc *		/* callback */,
     XtPointer *			/* closure */
-#endif
 );
 
 extern void _XtCallConditionalCallbackList(
-#if NeedFunctionPrototypes
     Widget			/* widget */,
     XtCallbackList		/* callbacks */,
     XtPointer			/* call_data */,
     _XtConditionProc		/* cond_proc */
-#endif
 );

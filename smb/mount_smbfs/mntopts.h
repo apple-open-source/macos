@@ -31,7 +31,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)mntopts.h	8.7 (Berkeley) 3/29/95
- *	$Id: mntopts.h,v 1.3 2001/08/07 05:37:22 conrad Exp $
+ *	$Id: mntopts.h,v 1.4 2004/03/19 01:49:47 lindak Exp $
  */
 
 struct mntopt {
@@ -43,29 +43,16 @@ struct mntopt {
 
 /* User-visible MNT_ flags. */
 #define MOPT_ASYNC		{ "async",	0, MNT_ASYNC, 0 }
-#ifndef APPLE
-#define MOPT_NOATIME		{ "atime",	1, MNT_NOATIME, 0 }
-#endif
 #define MOPT_NODEV		{ "dev",	1, MNT_NODEV, 0 }
 #define MOPT_NOEXEC		{ "exec",	1, MNT_NOEXEC, 0 }
 #define MOPT_NOSUID		{ "suid",	1, MNT_NOSUID, 0 }
-#ifndef APPLE
-#define MOPT_NOSYMFOLLOW	{ "symfollow",  1, MNT_NOSYMFOLLOW, 0 }
-#endif
 #define MOPT_RDONLY		{ "rdonly",	0, MNT_RDONLY, 0 }
 #define MOPT_SYNC		{ "sync",	0, MNT_SYNCHRONOUS, 0 }
 #define MOPT_UNION		{ "union",	0, MNT_UNION, 0 }
 #define MOPT_USERQUOTA		{ "userquota",	0, 0, 0 }
 #define MOPT_GROUPQUOTA		{ "groupquota",	0, 0, 0 }
-#ifdef APPLE
 #define MOPT_BROWSE		{ "browse",	1, MNT_DONTBROWSE, 0 }
 #define MOPT_AUTOMOUNTED	{ "automounted",0, MNT_AUTOMOUNTED, 0 }
-#endif
-#ifndef APPLE
-#define MOPT_NOCLUSTERR		{ "clusterr",	1, MNT_NOCLUSTERR, 0 }
-#define MOPT_NOCLUSTERW		{ "clusterw",	1, MNT_NOCLUSTERW, 0 }
-#define MOPT_SUIDDIR		{ "suiddir",	0, MNT_SUIDDIR, 0 }
-#endif
 
 /* Control flags. */
 #define MOPT_FORCE		{ "force",	0, MNT_FORCE, 0 }
@@ -82,7 +69,6 @@ struct mntopt {
 	MOPT_AUTO
 
 /* Standard options which all mounts can understand. */
-#ifdef APPLE
 #define MOPT_STDOPTS							\
 	MOPT_USERQUOTA,							\
 	MOPT_GROUPQUOTA,						\
@@ -94,22 +80,6 @@ struct mntopt {
 	MOPT_UNION,								\
         MOPT_BROWSE,							\
         MOPT_AUTOMOUNTED
-#else
-#define MOPT_STDOPTS							\
-	MOPT_USERQUOTA,							\
-	MOPT_GROUPQUOTA,						\
-	MOPT_FSTAB_COMPAT,						\
-	MOPT_NOATIME,							\
-	MOPT_NODEV,							\
-	MOPT_NOEXEC,							\
-	MOPT_SUIDDIR,		/* must be before MOPT_NOSUID */	\
-	MOPT_NOSUID,							\
-	MOPT_NOSYMFOLLOW,						\
-	MOPT_RDONLY,							\
-	MOPT_UNION,							\
-	MOPT_NOCLUSTERR,						\
-	MOPT_NOCLUSTERW
-#endif /* APPLE */
 
 void getmntopts __P((const char *, const struct mntopt *, int *, int *));
 extern int getmnt_silent;

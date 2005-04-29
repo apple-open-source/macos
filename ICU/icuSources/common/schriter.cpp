@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 1998-2001, International Business Machines Corporation and   *
+* Copyright (C) 1998-2004, International Business Machines Corporation and   *
 * others. All Rights Reserved.                                               *
 ******************************************************************************
 *
@@ -18,7 +18,7 @@
 
 U_NAMESPACE_BEGIN
 
-const char StringCharacterIterator::fgClassID = 0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(StringCharacterIterator)
 
 StringCharacterIterator::StringCharacterIterator()
   : UCharCharacterIterator(),

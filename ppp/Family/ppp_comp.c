@@ -77,15 +77,17 @@
 #include <sys/mbuf.h>
 #include <sys/socket.h>
 #include <net/if.h>
+#if 0
 #include <net/netisr.h>
+#endif
 #include <sys/syslog.h>
 #include <netinet/in.h>
 
 
 #include "ppp_defs.h"		// public ppp values
-#include "ppp_fam.h"
 #include "ppp_ip.h"
 #include "if_ppplink.h"		// public link API
+#include "ppp_domain.h"
 #include "ppp_if.h"
 #include "ppp_domain.h"
 #include "ppp_comp.h"
@@ -115,7 +117,7 @@ struct ppp_comp {
     void	(*comp_reset) 
                 (void *state);			/* Reset a compressor */
     int		(*compress) 			/* Compress a packet */
-                (void *state, struct mbuf **m);
+                (void *state, mbuf_t *m);
     void	(*comp_stat) 			/* Return compression statistics */
                 (void *state, struct compstat *stats);
 
@@ -132,9 +134,9 @@ struct ppp_comp {
     void	(*decomp_reset) 		/* Reset a decompressor */
                 (void *state);
     int		(*decompress) 			/* Decompress a packet. */
-                (void *state, struct mbuf **m);
+                (void *state, mbuf_t *m);
     void	(*incomp) 			/* Update state for an incompressible packet received */
-                (void *state, struct mbuf *m);	
+                (void *state, mbuf_t m);	
     void	(*decomp_stat) 			/* Return decompression statistics */
                 (void *state, struct compstat *stats);
 };
@@ -267,7 +269,7 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
     if (nb > sizeof(ccp_option))
         nb = sizeof(ccp_option);
 
-    if (error = copyin(odp->ptr, ccp_option, nb))
+    if (error = copyin(CAST_USER_ADDR_T(odp->ptr), ccp_option, nb))
         return (error);
 
     if (ccp_option[1] < 2)	/* preliminary check on the length byte */
@@ -276,7 +278,7 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
     cp = ppp_comp_find(ccp_option[0]);
     if (cp == 0) {
         LOGDBG(wan->net, (LOGVAL, "ppp%d: no compressor for [%x %x %x], %x\n",
-                wan->net->if_unit, ccp_option[0], ccp_option[1],
+                ifnet_unit(wan->net), ccp_option[0], ccp_option[1],
                 ccp_option[2], nb));
 
         return EINVAL;	/* no handler found */
@@ -289,7 +291,7 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
         wan->xc_state = cp->comp_alloc(ccp_option, nb);
         if (!wan->xc_state) {
             error = ENOMEM;
-            LOGDBG(wan->net, (LOGVAL, "ppp%d: comp_alloc failed\n", wan->net->if_unit));
+            LOGDBG(wan->net, (LOGVAL, "ppp%d: comp_alloc failed\n", ifnet_unit(wan->net)));
         }
         wan->sc_flags &= ~SC_COMP_RUN;
     }
@@ -300,7 +302,7 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
         wan->rc_state = cp->decomp_alloc(ccp_option, nb);
         if (!wan->rc_state) {
             error = ENOMEM;
-            LOGDBG(wan->net, (LOGVAL, "ppp%d: decomp_alloc failed\n", wan->net->if_unit));
+            LOGDBG(wan->net, (LOGVAL, "ppp%d: decomp_alloc failed\n", ifnet_unit(wan->net)));
         }
         wan->sc_flags &= ~SC_DECOMP_RUN;
     }
@@ -326,15 +328,15 @@ Handle a CCP packet.  `rcvd' is 1 if the packet was received,
 0 if it is about to be transmitted.
 mbuf points to the ccp payload (doesn't include FF03 and 80FD)
 ----------------------------------------------------------------------------- */
-void ppp_comp_ccp(struct ppp_if *wan, struct mbuf *m, int rcvd)
+void ppp_comp_ccp(struct ppp_if *wan, mbuf_t m, int rcvd)
 {
-    u_char 	*p = mtod(m, u_char *);
+    u_char 	*p = mbuf_data(m);
     int 	slen;
     
     slen = CCP_LENGTH(p);
-    if (slen > m->m_pkthdr.len) {
+    if (slen > mbuf_pkthdr_len(m)) {
         LOGDBG(wan->net, (LOGVAL, "ppp_comp_ccp: not enough data in mbuf (expected = %d, got = %d)\n",
-		   slen, m->m_pkthdr.len));
+		   slen, mbuf_pkthdr_len(m)));
 	return;
     }
     
@@ -355,7 +357,7 @@ void ppp_comp_ccp(struct ppp_if *wan, struct mbuf *m, int rcvd)
 		if (wan->rc_state
 		    && (*wan->rcomp->decomp_init)
 			(wan->rc_state, p + CCP_HDRLEN, slen - CCP_HDRLEN,
-			 wan->net->if_unit, 0, wan->mru, wan->net->if_flags & IFF_DEBUG)) {
+			 ifnet_unit(wan->net), 0, wan->mru, ifnet_flags(wan->net) & IFF_DEBUG)) {
 		    wan->sc_flags |= SC_DECOMP_RUN;
 		    wan->sc_flags &= ~(SC_DC_ERROR | SC_DC_FERROR);
 		}
@@ -364,7 +366,7 @@ void ppp_comp_ccp(struct ppp_if *wan, struct mbuf *m, int rcvd)
 		if (wan->xc_state
 		    && (*wan->xcomp->comp_init)
 			(wan->xc_state, p + CCP_HDRLEN, slen - CCP_HDRLEN,
-			 wan->net->if_unit, 0, wan->net->if_mtu, wan->net->if_flags & IFF_DEBUG)) {
+			 ifnet_unit(wan->net), 0, ifnet_mtu(wan->net), ifnet_flags(wan->net) & IFF_DEBUG)) {
 		    wan->sc_flags |= SC_COMP_RUN;
 		}
 	    }
@@ -406,7 +408,7 @@ void ppp_comp_close(struct ppp_if *wan)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void ppp_comp_logmbuf(char *msg, struct mbuf *m) 
+void ppp_comp_logmbuf(char *msg, mbuf_t m) 
 {
     int 	i, lcount, copycount, count;
     char 	lbuf[16], *data;
@@ -416,15 +418,15 @@ void ppp_comp_logmbuf(char *msg, struct mbuf *m)
 
     log(LOGVAL, "%s: \n", msg);
 
-    for (count = m->m_len, data = mtod(m, char*); m != NULL; ) {
+    for (count = mbuf_len(m), data = mbuf_data(m); m != NULL; ) {
         /* build a line of output */
         for(lcount = 0; lcount < sizeof(lbuf); lcount += copycount) {
             if (!count) {
-                m = m->m_next;
+                m = mbuf_next(m);
                 if (m == NULL)
                     break;
-                count = m->m_len;
-                data  = mtod(m,char*);
+                count = mbuf_len(m);
+                data  = mbuf_data(m);
             }
             copycount = (count > sizeof(lbuf) - lcount) ? sizeof(lbuf) - lcount : count;
             bcopy(data, &lbuf[lcount], copycount);
@@ -455,7 +457,7 @@ return codes :
 0 : compression not done, buffer has not changed, lenght is unchanged
 < 0 : compression not done because of error, return -error 
 ----------------------------------------------------------------------------- */
-int ppp_comp_compress(struct ppp_if *wan, struct mbuf **m)
+int ppp_comp_compress(struct ppp_if *wan, mbuf_t *m)
 {    
     if (wan->xc_state == 0 || (wan->sc_flags & SC_CCP_UP) == 0)
         return COMP_NOTDONE;
@@ -465,7 +467,7 @@ int ppp_comp_compress(struct ppp_if *wan, struct mbuf **m)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_comp_incompress(struct ppp_if *wan, struct mbuf *m)
+int ppp_comp_incompress(struct ppp_if *wan, mbuf_t m)
 {
     
     if ((wan->rc_state == 0) || (wan->sc_flags & (SC_DC_ERROR | SC_DC_FERROR)))
@@ -479,7 +481,7 @@ int ppp_comp_incompress(struct ppp_if *wan, struct mbuf *m)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_comp_decompress(struct ppp_if *wan, struct mbuf **m)
+int ppp_comp_decompress(struct ppp_if *wan, mbuf_t *m)
 {
     int err;
     

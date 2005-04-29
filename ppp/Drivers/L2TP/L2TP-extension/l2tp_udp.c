@@ -26,9 +26,11 @@
 #include <sys/socket.h>
 #include <sys/syslog.h>
 #include <sys/protosw.h>
+#include <kern/locks.h>
+
 #include <net/if_types.h>
+#include <net/if.h>
 #include <net/route.h>
-#include <net/dlil.h>
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/in_var.h>
@@ -47,14 +49,13 @@ Definitions
 /* -----------------------------------------------------------------------------
 Declarations
 ----------------------------------------------------------------------------- */
-extern void    m_copydata __P((struct mbuf *, int, int, caddr_t));
 
-void	l2tp_ip_input(struct mbuf *, int len);
+void	l2tp_ip_input(mbuf_t , int len);
 
 /* -----------------------------------------------------------------------------
 Globals
 ----------------------------------------------------------------------------- */
-
+extern lck_mtx_t	*ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 intialize L2TP/UDP layer
@@ -76,25 +77,26 @@ int l2tp_udp_dispose()
 /* -----------------------------------------------------------------------------
 callback from udp
 ----------------------------------------------------------------------------- */
-void l2tp_udp_input(struct socket *so, caddr_t  arg, int waitflag)
+void l2tp_udp_input(socket_t so, void *arg, int waitflag)
 {
-    int flags = MSG_DONTWAIT;
-    struct mbuf *mp = 0, *m1 = 0;
-    struct sockaddr *from;
-    struct uio auio;
+    mbuf_t mp = 0, m1 = 0;
+	size_t recvlen = 1000000000;
+    struct sockaddr from;
+    struct msghdr msg;
+		
+    do {
     
-    auio.uio_resid = 1000000000;
-    auio.uio_procp = 0;
-    while (soreceive(so, &from, &auio, &mp, 0, &flags) == 0) {
-    
+		bzero(&from, sizeof(from));
+		bzero(&msg, sizeof(msg));
+		msg.msg_namelen = sizeof(from);
+		msg.msg_name = &from;
+	
+		if (sock_receivembuf(so, &msg, &mp, MSG_DONTWAIT, &recvlen) != 0)
+			break;
+
         if (mp == 0) 
             break;
 
-        if (from == 0) {
-            m_freem(mp);	
-            break;
-        }
-        
         /* let's make life simpler for upper layers, and make everything contiguous
         could be more efficient dealing with the original mbuf, but ppp doesn't like much
         to mbuf chain, neither data compression nor IP layer
@@ -102,100 +104,100 @@ void l2tp_udp_input(struct socket *so, caddr_t  arg, int waitflag)
         */
         
         /* ??? test if already in a contiguous block ??? */
-        m1 = m_getpacket();
-        if (m1) {
-                m_copydata(mp, 0, mp->m_pkthdr.len, mtod(m1, caddr_t));
-                m1->m_len = mp->m_pkthdr.len;
-                m1->m_pkthdr.len = mp->m_pkthdr.len;
-                l2tp_rfc_lower_input(so, m1, from);
+        if (mbuf_getpacket(MBUF_WAITOK, &m1) == 0) {
+                mbuf_copydata(mp, 0, mbuf_pkthdr_len(mp), mbuf_data(m1));
+                mbuf_setlen(m1, mbuf_pkthdr_len(mp));
+                mbuf_pkthdr_setlen(m1, mbuf_pkthdr_len(mp));
+				lck_mtx_lock(ppp_domain_mutex);
+                l2tp_rfc_lower_input(so, m1, &from);
+				lck_mtx_unlock(ppp_domain_mutex);
         }
-
-        if (from)
-            FREE(from, M_SONAME);
         
-        m_freem(mp);	
-    }
+        mbuf_freem(mp);	
+		
+    } while (1);
 
 }
 
 /* -----------------------------------------------------------------------------
 called from pppenet_proto when data need to be sent
 ----------------------------------------------------------------------------- */
-int l2tp_udp_output(struct socket *so, struct mbuf *m, struct sockaddr* to)
+int l2tp_udp_output(socket_t so, mbuf_t m, struct sockaddr* to)
 {
-
+	int result;
+	
     if (so == 0 || to == 0) {
-        m_freem(m);	
+        mbuf_freem(m);	
         return EINVAL;
     }
-
-    return sosend(so, 0 /* to */, 0, m, 0, MSG_DONTWAIT);
+	lck_mtx_unlock(ppp_domain_mutex);
+    result = sock_sendmbuf(so, 0, m, MSG_DONTWAIT, 0);
+	lck_mtx_lock(ppp_domain_mutex);
+	
+	return result;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int l2tp_udp_setpeer(struct socket *so, struct sockaddr *addr)
+int l2tp_udp_setpeer(socket_t so, struct sockaddr *addr)
 {
+	int result;
+	
     if (so == 0)
         return EINVAL;
-        
-    return soconnect(so, addr);
+    
+	lck_mtx_unlock(ppp_domain_mutex);
+    result = sock_connect(so, addr, 0);
+	lck_mtx_lock(ppp_domain_mutex);
+	
+	return result;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int l2tp_udp_attach(struct socket **socket, struct sockaddr *addr)
+int l2tp_udp_attach(socket_t *socket, struct sockaddr *addr)
 {
-    int 		err, val;
-    struct sockaddr 	*sa;
-    struct socket	*so = 0;
-    struct sockopt	sopt;
+    int				val;
+	errno_t			err;
+    socket_t		so = 0;
+	
+	lck_mtx_unlock(ppp_domain_mutex);
     
     /* open a UDP socket for use by the L2TP client */
-    if (err = socreate(AF_INET, &so, SOCK_DGRAM, 0)) 
+    if (err = sock_socket(AF_INET, SOCK_DGRAM, 0, l2tp_udp_input, 0, &so)) 
         goto fail;
 
-    so->so_upcall = l2tp_udp_input;
-    so->so_upcallarg = 0;
-    so->so_rcv.sb_flags |= SB_UPCALL;
-    
     /* configure the socket to reuse port */
-    bzero(&sopt, sizeof(sopt));
-    sopt.sopt_dir = SOPT_SET;
-    sopt.sopt_level = SOL_SOCKET;
-    sopt.sopt_name = SO_REUSEPORT;
     val = 1;
-    sopt.sopt_val = &val;
-    sopt.sopt_valsize = sizeof(val);
-    if (err = sosetopt(so, &sopt))
+    if (err = sock_setsockopt(so, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)))
         goto fail;
         
-    if (err = sobind(so, addr))
+    if (err = sock_bind(so, addr))
         goto fail;
 
     /* fill in the incomplete part of the address assigned by UDP */ 
-    if (err = (so->so_proto->pr_usrreqs->pru_sockaddr)(so, &sa))
+    if (err = sock_getsockname(so, addr, addr->sa_len))
         goto fail;
-
-    if (addr->sa_len == sa->sa_len)
-        bcopy(sa, addr, sa->sa_len);
-    FREE(sa, M_SONAME);
     
+	lck_mtx_lock(ppp_domain_mutex);
     *socket = so;
     return 0;
     
 fail:
     if (so) 
-        soclose(so);
+        sock_close(so);
+	lck_mtx_lock(ppp_domain_mutex);
     return err;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int l2tp_udp_detach(struct socket *so)
+int l2tp_udp_detach(socket_t so)
 {
+	lck_mtx_unlock(ppp_domain_mutex);
     if (so)
-        soclose(so); 		/* close the UDP socket */
+        sock_close(so); 		/* close the UDP socket */
+	lck_mtx_lock(ppp_domain_mutex);
     return 0;
 }
 

@@ -41,6 +41,11 @@ is organized among the following audiences:
 
 <h3>Other Resources</h3>
 
+<p>The <a href="http://www.washington.edu/computing/mailman/">University of
+Washington</a> has some very nice documentation on their installation of
+Mailman.  It may be specific to UW's set up at times, but you might find it
+useful as a general help guide too.
+
 <p>The <a href="faq.html">Frequently Asked Questions (FAQ)</a> is
 available to answer the most common questions.  See also the community
 driven <a href="http://www.python.org/cgi-bin/faqw-mm.py">Mailman

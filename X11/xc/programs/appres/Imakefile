@@ -1,6 +1,11 @@
 XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:53:48 cpqbld Exp $
-        DEPLIBS = $(DEPXTOOLLIB) $(DEPXLIB)
-LOCAL_LIBRARIES = $(XTOOLLIB) $(XLIB)
+
+
+
+XCOMM $XFree86: xc/programs/appres/Imakefile,v 1.2 2003/05/27 17:58:21 tsi Exp $
+
+        DEPLIBS = $(DEPXTOOLLIB) $(DEPXONLYLIB)
+LOCAL_LIBRARIES = $(XTOOLLIB) $(XONLYLIB)
            SRCS = appres.c 
            OBJS = appres.o 
 

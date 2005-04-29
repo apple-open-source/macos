@@ -59,7 +59,7 @@ opendir (const char *name)
 
   strcat (strcat (strcpy (name_buf, name), slash), "*.*");
 
-  dirp = (DIR *) malloc (sizeof (DIR));
+  dirp = (DIR *) xmalloc (sizeof (DIR));
   if (dirp == (DIR *)0)
     return (DIR *)0;
 
@@ -74,14 +74,14 @@ opendir (const char *name)
 
   do
     {
-      dp = (struct _dircontents *) malloc (sizeof (struct _dircontents));
+      dp = (struct _dircontents *) xmalloc (sizeof (struct _dircontents));
       if (dp == (struct _dircontents *)0)
 	{
 	  free_dircontents (dirp->dd_contents);
 	  return (DIR *)0;
 	}
 
-      dp->_d_entry = malloc (strlen (find_buf.name) + 1);
+      dp->_d_entry = xmalloc (strlen (find_buf.name) + 1);
       if (dp->_d_entry == (char *)0)
 	{
 	  free (dp);

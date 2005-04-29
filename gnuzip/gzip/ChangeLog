@@ -1,3 +1,478 @@
+2002-09-30  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h, configure.in (AM_INIT_AUTOMAKE):
+	Revision 1.3.5, dated today.
+
+	* util.c (fprint_off): Fix bug in printing values greater than
+	10 * 2**32 bytes.  Bug reported by Bryan Andersen.
+
+	* Makefile.am (match.$(OBJEXT)): Use .S as extension for $(ASCPP),
+	to keep gcc happy.
+	* configure.in: Likewise.
+	Upgrade assembly-language checking for Autoconf 2.54, using cache vars.
+	(AC_PROG_CPP, AC_OBJEXT): Add.
+
+	* match.c: Accept __i386 and __i386__ as synonyms for i386.
+	Bug reported by "fork __" <bouloumag@hotmail.com>.
+	
+2002-09-29  Paul Eggert  <eggert@twinsun.com>
+
+	* gzip.texi (Overview): Suggest how to use gunzip on zip files.
+
+	* zless.1, zless.in: Use LESSOPEN, not PAGER.
+	Suggested by <antos@MAST.queensu.ca>.
+
+2002-09-28  Paul Eggert  <eggert@twinsun.com>
+
+	* zforce.in: Use shell pattern matching instead of 'expr', which
+	mishandles names like "+".  Remove old check for 14-byte file
+	names on hosts with broken "mv" implementations, as such systems
+	aren't in use any more and it's better nowadays to support file
+	names longer than 14 bytes.  Rely on "mv"'s error-reporting.
+	This fixes a portability bug reported by Ralf Neubauer, along
+	with some other bugs.
+	
+	Remove dangling output symlinks properly.
+	Bug reported by Kalle Olavi Niemitalo.
+	* gzip.c (lstat): New macro, for platforms lacking lstat.
+	(do_stat): Use it.
+	(name_too_long, check_ofname): Use lstat instead of stat.
+
+2002-09-27  Paul Eggert  <eggert@twinsun.com>
+
+	* zforce.in: Use "gzip -lv", not "gzip -v".  Patch by Ralf
+	Neubauer.
+
+	* configure.in (ASCPP): Don't use test -a, as POSIX says it's
+	not portable.
+	* znew.in: Likewise.
+	* zmore.in: Likewise.  Similarly, don't use test -o, or test -t
+	with no operand.
+
+	* gzexe.in (PATH): Set to same as other programs.
+	Don't assume "tail +22" works; POSIX removed this.
+	Check against compressing "tail".
+	Check against "skip=" line with no integer.
+	* zgrep.in: Exit with status 2 if trouble, for consistency with grep.
+	
+	* gzip.c (main): Avoid core dump in diagnostic message if
+	incorrect suffix is given.
+
+2002-09-26  Paul Eggert  <eggert@twinsun.com>
+
+	* zdiff.in: Use "trap -" instead of "trap".  Patch by Nicolas Boullis.
+	Use names, not numbers, for signals.  Patch by Andrew Stribblehill.
+	
+	* NEWS, README, revision.h, configure.in (AM_INIT_AUTOMAKE):
+	Revision 1.3.4, dated today.
+
+	* README-alpha: Upgrade to Autoconf 2.54 and Automake 1.7.
+	* configure.in (AC_PREREQ): Move to start, and increase to 2.54.
+	(AC_INIT, AM_INIT_AUTOMAKE, AC_CONFIG_SRCDIR, AC_CONFIG_FILES,
+	AC_OUTPUT): Use modern style.
+	(AC_OBJEXT, AC_EXEEXT): Remove; obsolete.
+	(AC_GNU_SOURCE): Add.
+	(AC_HEADER_STDC): Renamed from AC_STDC_HEADERS.
+	(AC_CHECK_HEADERS): Remove stdlib.h, string.h, unistd.h; now done
+	by Autoconf.
+	(AC_SUBST): Remove CFLAGS; now done by Autoconf.
+
+	* gzip.texi: Use the GNU FDL for distribution terms, following the
+	recipe in the Texinfo manual.  Use Automake-generated variables
+	for date and version.
+	* fdl.texi, mdate-sh: New files.
+	* Makefile.am (AM_MAKEINFOFLAGS): Add --no-split.
+	(gzip_TEXINFOS): New macro.
+
+	* tailor.h (NO_DIR): Define to 1, not the empty string.
+	* gzip.c (NO_DIR): Define to 0 if not defined.  All uses changed.
+	(usage): Don't put '#if' inside printf, as the C standard says
+	that it is not portable if printf is a macro.
+
+	Don't lose output when decompressing truncated input.
+	Bug reported by Nadav Har'El.
+	* inflate.c (GETBYTE): New macro.
+	(NEXTBYTE): Use it.
+	(inflate_dynamic, inflate_block): Add a local variable w, needed
+	by GETBYTE.
+
+2002-03-08  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h, gzip.texi,
+	configure.in (AM_INIT_AUTOMAKE): Revision 1.3.3, dated today.
+
+	* README-alpha: Now using latest stable GNU tools.
+	Using the latest tools allows gzip to build correctly on hosts
+	conforming to POSIX 1003.1-2001.
+	
+	* configure.in (match): Use AC_LIBOBJ; Autoconf 2.53 requires it.
+	(LIBOBJS): No longer need to subst, since AC_LIBOBJ does it.
+	(AC_PREREQ): Bump to 2.53.
+
+	* Makefile.am (install-exec-hook, remove-installed-links):
+	Work even when configured with --program-transform-name.
+
+	* gzip.c (license_msg): Update copyright.
+	(z_len): Now of type size_t.
+	
+2001-11-03  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h, gzip.texi, configure.in (AM_INIT_AUTOMAKE):
+	Revision 1.3.2, dated today.
+
+	* Makefile.am (LN_S): New macro.
+	(install-exec-hook): Depend on remove-installed-links.
+	Affect $(DESTDIR)$(bindir), not just $(bindir).
+	(uninstall-local, remove-installed-links): New rules.
+	* README-alpha: This release built with autoconf 2.52f.
+	* TODO: Add rsync patch.
+	* configure.in: Add AC_PREREQ(2.52) and AC_PROG_LN_S.
+	* gzip.1, zmore.1: Fix troff glitches, using Eric S. Raymond's
+	suggestions for inspiration.
+	* m4/shell.m4(AC_PROG_SHELL): Add commentary and cleanup.
+
+	* gzip.texi, gzip.1: Add pointers to RFCs 1951 and 1952.
+	Mention that gzip --list reports file sizes modulo 2^32.
+	* gzip.1: Remove incorrect report of 2 GB bug.  Add copyright notice.
+	
+2001-09-30  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h, gzip.texi, configure.in (AM_INIT_AUTOMAKE):
+	Revision 1.3.1, dated today.
+
+	* INSTALL, getopt.c, getopt.h, getopt1.c, install-sh, missing,
+	  mkinstalldirs, texinfo.tex:
+	Sync with latest version in other packages.
+
+	* acinclude.m4, config.guess, config.sub: Remove.
+	* depcomp, rpmatch.c, yesno.c: New files.
+
+	* ChangeLog, README, NEWS, TODO, configure.in, zgrep.in, zmore.in:
+	Add copyright notice.
+
+	* Makefile.am (ACLOCAL_AMFLAGS): New macro.
+	(ACINCLUDE_INPUTS): Remove all but shell.m4.
+	($(srcdir)/acinclude.m4): Remove.
+	(gzip_sources): Add yesno.c.
+
+	* TODO: Add i18n.
+
+	* configure.in (AC_CANONICAL_HOST): Remove.
+	(AC_AIX, AC_MINIX): Move earlier.
+	(AC_REPLACE_FUNCS): Add rpmatch.
+
+	* gzip.c (main):
+	Report error if -b operand is not a nonnegative integer.
+	(treat_file): Don't assume tab width is 8, or that characters are
+	one column wide.
+	(make_ofname): Use WARN to warn about unchanged files.
+	(get_method): "get newer version of gzip" -> "not supported"
+	(check_ofname): Use yesno instead of checking for 'y' ourselves.
+	(treat_file): Do not assume link count fits in int.
+	
+	* gzip.h (yesno): New decl.
+
+	* util.c (display_ratio): Use floating point to compute ratio:
+	this avoids problems with integer overflow.
+
+	* zgrep.in: Add support for --, -H, -h, -L, -l, -C, -d, -m and
+	their long equivalents.  Warn that -r and -d are not supported.
+
+	* zmore.in:
+	Check that file is readable before attempting to decompress it.
+
+2000-10-09  Paul Eggert  <eggert@twinsun.com>
+
+	* configure.in (AC_CHECK_FUNCS): Add lstat.
+
+2000-07-20  Paul Eggert  <eggert@twinsun.com>
+
+	Use a POSIX-compliant shell instead of /bin/sh.
+	Idea suggested by Albert Chin-A-Young <china@thewrittenword.com>.
+
+	* m4/shell.m4: New file.
+	* configure.in (AC_PROG_SHELL): Add it.
+	* Makefile.am (ACINCLUDE_INPUTS): Add $(M4DIR)/shell.m4.
+	(.in): Replace /bin/sh with $(SHELL).
+
+2000-04-17  Bruno Haible  <haible@clisp.cons.org>
+
+	* Makefile.am (install-exec-hook): If hard links fail, try symlinks.
+
+2000-04-02  Jim Meyering  <meyering@ascend.com>
+
+	* Makefile.am (install-exec-hook): Remove link targets before
+	installing.
+
+2000-01-02  Albert Chin-A-Young  <china@thewrittenword.com>
+
+	* gzip.texi: Add direntry.
+
+1999-12-21  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h, gzip.texi: Revision 1.3, dated today.
+	* gzip.c (license_msg, usage, version, help, license):
+	Adjust to current GNU coding standards.
+	(total_in, total_out): Remove unnecessary initialization.
+	* zip.c (file_read): Report read errors.
+	* util.c (fill_inbuf): Likewise.
+	* gzip.c (main): Don't assume EOF == -1.
+	* unlzw.c (unlzw): Likewise.
+	* util.c (copy, fill_inbuf): Likewise.
+
+1999-11-18  Paul Eggert  <eggert@twinsun.com>
+
+	* m4/largefile.m4 (AC_SYS_LARGEFILE_FLAGS):
+	Work around a bug in the QNX shell, which doesn't
+	propagate exit status of failed commands inside shell assignments.
+
+1999-10-07  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h, gzip.texi:
+	Revision 1.2.4294967306 dated today.  This is the successor to
+	revision 1.2.4.4294967305; automake requires the new (shorter) number.
+
+	Convert to automake.
+
+	* Makefile.am, gunzip.1, zcat.1, zcmp.1, AUTHORS: New files.
+
+	* revision.h (VERSION): Remove; moved to config.h.
+
+	* configure.in (AM_INIT_AUTOMAKE, AM_CONFIG_HEADER,
+	AC_CANONICAL_HOST, AC_OBJEXT): Add.
+	(AC_PROG_CPP): Remove.
+	(AC_SYS_LARGEFILE): Add, replacing older inline code.
+	(ASCPP): Use $OBJEXT.
+	(LIBOBJS): Add match.o if needed.
+	(AC_PROG_INSTALL): Remove.
+	(AC_EXT, AC_C_CONST): Add.
+	(AC_CHECK_HEADERS): Add, replacing lots of AC_HEADER_CHECKs.
+	All instances of defined(NO_TIME_H) changed to !defined(HAVE_TIME_H),
+	etc.
+	(AC_CHECK_FUNCS): Add utime.
+	(SEDCMD): Use $interpval, not $ac_cv_sys_interpreter.
+	(AC_PREFIX_PROGRAM): Add, replacing AC_PREFIX.
+	(ZCAT, G): Remove.
+	(LIBOBJS): Add.
+	(OBJA): Remove; LIBOBJS now does this.
+
+	* bits.c, gzip.c, deflate.c, inflate.c, lzw.c, trees.c, unlzh.c,
+	unlzw.c, unpack.c, unzip.c, util.c, zip.c: Include <config.h>
+	first; this is needed for proper large-file support, given the new
+	way of configuring large files.
+
+	* gzip.c: Include <sys/types.h>; Ultrix needs this.
+	(TIME_OPT): Use STRUCT_UTIMBUF instead of empty string.
+	(help): Add bug-report address.
+	(do_stat): Depend on HAVE_LSTAT, not S_IFLNK, S_ISLNK, and NO_SYMLINK.
+
+1999-06-25  Paul Eggert  <eggert@twinsun.com>
+
+	* inflate.c (huft_build):
+	Set n to length of v, to detect improper tables.
+	Don't accidentally grow j past z.
+
+1999-06-24  Paul Eggert  <eggert@twinsun.com>
+
+	* Makefile.in (check): Update texinfo.tex size.
+
+	* configure.in (ASMV):
+	Define with AC_DEFINE; do not manipulate DEFS directly,
+	as this doesn't work with recent autoconf versions.
+
+1999-02-06  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h, gzip.texi: Revision 1.2.4.4294967305,
+	dated today.  This merges the changes from gzip 1.2.4a, which fix
+	some typographical errors in the documentation and update the
+	bug-reporting address.
+
+1999-01-27  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h (VERSION, REVDATE):
+	Revision 1.2.4.4294967304, dated today.
+
+	Port to autoconf 2.13.
+
+	* Makefile.in (next, next-fat, coherent):
+	Update dirent headers to match Autoconf 2.13.
+	* configure.in (AC_RETSIGTYP): Remove; superseded by AC_TYPE_SIGNAL.
+	(AC_DYNIX_SEQ, AC_XENIX_DIR, AC_DIR_HEADER): Remove; superseded by
+	AC_HEADER_DIRENT.
+	* tailor.h (HAVE_DIRENT_H, HAVE_SYS_DIR_H):
+	Define instad of DIRENT, SYSDIR.
+	* gzip.c (NAMLEN): Renamed from NLENGTH. Depend on Autoconf 2.13 names
+	HAVE_DIRENT_H, HAVE_SYS_NDIR_H, HAVE_SYS_DIR_H, HAVE_NDIR_H
+	instead of the oldfashioned names DIRENT, SYSDIR, SYSNDIR, NDIR.
+	(CLOSEDIR): New macro.
+	(progerror): New function.
+	(treat_stdin, treat_file, creat_outfile, get_istat, check_ofname,
+	treat_dir): Use it, for brevity.
+	(treat_dir): Report any I/O errors when reading directories.
+
+	* COPYING, INSTALL, doc/texinfo.tex, install-sh:
+	Update to latest public versions.
+
+1998-11-18  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h (VERSION, REVDATE):
+	Revision 1.2.4.4294967303, dated today.
+
+	* gzip.c (get_method): Don't complain about trailing zeros at
+	the end of a gzipped file, as they're commonly appended to fill
+	out a block (e.g. by GNU tar).
+
+	* configure.in (CPPFLAGS, LDFLAGS, LIBS): Add large-file support
+	for HP-UX 10.20 and later.
+
+	* getopt.c, getopt.h, texinfo.tex: Sync with latest version at gnu.org.
+	* getopt1.c: New file.
+	* Makefile.in (SRCS): Add getopt1.c.
+	(OBJS): Add getopt1$O.
+	(getopt1$O): New dependency.
+	(check): Adjust desired size of compressed texinfo.tex to 55637,
+	to reflect the 1998-11-13 edition of texinfo.tex.
+
+	* gpl.texinfo: Remove; its addresses were out of date and
+	these days the GPL isn't reprinted in manuals anyway.
+	* gzip.texi: Remove reference to gpl.texinfo.
+	* Makefile.in (GENFILES): Remove gpl.texinfo.
+
+1998-11-13  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h (VERSION, REVDATE):
+	Revision 1.2.4.4294967302, dated today.
+
+	* gzip.c (input_eof): New function.
+	(treat_stdin, treat_file): Use it to fix premature detection of EOF
+	bug when a gzipped file concatenation boundary is at a multiple of
+	INBUFSIZ.
+
+	* Makefile.in (installman): Fix bug when installing from subdirectory.
+	($(srcdir)/gzip.info): Renamed from gzip.info.
+	($(srcdir)/gzip.info, realclean): Do not split gzip.info.
+
+1998-10-26  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h (VERSION, REVDATE):
+	Revision 1.2.4.4294967301, dated today.
+
+	* TODO: Update bug reporting address.
+
+	* Makefile.in (datadir, libdir): Remove unused macros.
+	(mandir): Let configure set it.
+	(manextdir): New macro.
+	(alldirs): Remove datadir, libdir; add manextdir.
+	(TEXI2HTML): New macro.
+	(installman, uninstall): Install into manextdir, not mandir.
+	(install-strip): New rule.
+	(installdirs): No need to build $(prefix)/man separately,
+	as it's now in alldirs.
+	(match$O): Compile with $(CFLAGS).
+	(gzip_1.html): New rule.
+
+	* gzip.c (get_istat): Remove lint by initializing z_suffix_errno.
+	(check_ofname): Do not assume unsigned char.
+
+	* util.c (strlwr): Don't assume char is unsigned.
+	(warning): Renamed from `warn'.
+
+	* gzip.h (tolow): Use tolower instead of relying on 'A'-'a'.
+	(warning): Renamed from warn.
+
+	* trees.c (warning): Renamed from warn.
+
+1998-10-14  Paul Eggert  <eggert@twinsun.com>
+
+	Merge patches from Debian.
+
+	* NEWS, README, revision.h (VERSION, REVDATE):
+	Revision 1.2.4.4294967300, dated today.
+
+	* README, algorithm.doc, gzip.texi: Update maintainer address.
+
+	* gzexe.in, zdiff.in, znew.in:
+	Close security hole portably, using `set -C'.
+
+	* zgrep.in: Add -A, -B.
+
+	* gzexe.in: Use `gzip', not full path, to run gzip.
+
+	* zdiff.in: Report proper exit status.
+
+	* gzip.h (base_name): Renamed from basename.  All uses changed.
+
+	* gzip.c (z_suffix): Now char *, so that there's no limit to length.
+	All uses change.
+	(main): If --quiet, abort gzip when SIGPIPE received.
+	(get_suffix): Don't assume z_suffix's address is a constant.
+	(get_istat): Likewise.
+	Check for buffer overflow.
+	Preserve errno correctly.
+	(make_ofname): Check for buffer overflow.
+
+	* util.c (fill_inbuf): Flush window before reporting read error.
+
+	* inflate.c (inflate_dynamic): Don't dump core if tl == NULL.
+
+	* Makefile.in (GENFILES): Add zless.in.
+	(SCRIPTS): Add zless.
+	(default): Build all programs, not just gzip.
+	(all): Add zless.
+	(installbin): Install zegrep, zfgrep.
+	(installman): Install zless man page.
+	(install_compress): Don't install compress.
+	(zless): New rule.
+
+1998-09-16  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h: Bump version number to 1.2.4.4294967299.
+
+	* tailor.h (UNLINK_READONLY_BUG): New macro.
+	* gzip.h (unlink): New decl.
+	* util.c (xunlink): New function.
+	* gzip.c
+	(treat_file, create_outfile, check_ofname, copy_stat, abort_gzip):
+	Use xunlink rather than unlink.
+	Do not chmod the file; xunlink will do that if need be.
+
+1998-05-21  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h: Bump version number to 1.2.4.4294967298.
+	* Makefile.in (prefix): Set from @prefix@.
+	(distclean): Remove config.cache.
+
+1998-01-15  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, revision.h:
+	Bump version number to indicate large-file support.
+
+1997-10-08  Paul Eggert  <eggert@twinsun.com>
+
+	* gzip.c (CHAR_BIT): Define if <limits.h> doesn't.
+	(OFF_T_MIN, OFF_T_MAX): New macros.
+	(do_list): Revert to fixed format, but this time don't assume
+	that 9 digits suffice; use a width taken from the maximum value
+	that off_t can represent.
+	(off_t): Do not typedef; autoconf handles this now.
+	* gzip.c, util.c (<limits.h>): Include if HAVE_LIMITS_H.
+	* gzip.h, util.c (fprint_off): Now takes int width argument.
+	* configure.in (AC_HAVE_HEADERS): Check for limits.h.
+	(AC_TYPE_OFF_T): Use this instead of grepping sys/types.h for off_t.
+	(AC_TYPE_SIZE_T): Use this instead of obsolescent AC_SIZE_T.
+	* tailor.h (NO_OFF_T): Remove.
+	(off_t): Define this instead.
+
+1997-10-03  Paul Eggert  <eggert@twinsun.com>
+
+	* Makefile.in, bits.c, configure.in, deflate.c, gzip.c, gzip.h,
+	inflate.c, trees.c, unlzw.c, unpack.c, unzip.c, util.c, zip.c:
+	Adjust to Solaris 2.6, which has large files but small off_t by default.
+	* gzip.c: Output more reasonable message if input file is too large.
+	* gzip.c, util.c: Propagate errno from point of error to `perror'.
+	* unzip.c: Allow uncompressing files larger than 4 gigabytes.
+	http://www.gzip.org/4g.patch (1996-07-21)
+
 Wed Aug 18 09:34:23 1993  Jean-loup Gailly  (jloup@chorus.fr)
 
 	* version 1.2.4
@@ -585,3 +1060,25 @@ Sat Oct 31 12:46:00 1992  Jean-loup Gailly  (jloup@chorus.fr)
 	* Alpha version 0.1 released (under time pressure), so it's not
 	  much tested, sorry.
 
+
+Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation,
+Inc.
+	
+Copyright (C) 1992, 1993 Jean-loup Gailly
+
+This file is part of gzip (GNU zip).
+
+gzip is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+gzip is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with gzip; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.

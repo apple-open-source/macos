@@ -81,15 +81,18 @@ struct column {
 
 static char   **data = NULL;
 static char   **indices = NULL;
-static int      index_width = sizeof("index") - 1;
+static int      index_width = sizeof("index ") - 1;
 static int      fields;
 static int      entries;
 static int      allocated;
+static int      end_of_table = 1;
 static int      headers_only = 0;
 static int      no_headers = 0;
 static int      max_width = 0;
+static int      column_width = 0;
 static int      brief = 0;
 static int      show_index = 0;
+static const char    *left_justify_flag = "";
 static char    *field_separator = NULL;
 static char    *table_name;
 static oid      name[MAX_OID_LEN];
@@ -99,10 +102,10 @@ static size_t   rootlen;
 static int      localdebug;
 static int      exitval = 0;
 static int      use_getbulk = 1;
-static int      max_getbulk = 25;
+static int      max_getbulk = 10;
 
 void            usage(void);
-void            get_field_names(char *);
+void            get_field_names(void);
 void            get_table_entries(netsnmp_session * ss);
 void            getbulk_table_entries(netsnmp_session * ss);
 void            print_table(void);
@@ -135,6 +138,29 @@ optProc(int argc, char *const *argv, int opt)
 		}
 		optind++;
                 break;
+            case 'c':
+		if (optind < argc) {
+		    if (argv[optind]) {
+			column_width = atoi(argv[optind]);
+			if (column_width <= 2) {
+			    usage();
+			    fprintf(stderr, "Bad -Cc option: %s\n", 
+				    argv[optind]);
+			    exit(1);
+			}
+                        /* Reduce by one for space at end of column */
+                        column_width -= 1;
+		    }
+		} else {
+		    usage();
+                    fprintf(stderr, "Bad -Cc option: no argument given\n");
+		    exit(1);
+		}
+		optind++;
+                break;
+            case 'l':
+                left_justify_flag = "-";
+                break;
             case 'f':
 		if (optind < argc) {
 		    field_separator = argv[optind];
@@ -160,6 +186,24 @@ optProc(int argc, char *const *argv, int opt)
             case 'i':
                 show_index = 1;
                 break;
+            case 'r':
+		if (optind < argc) {
+		    if (argv[optind]) {
+			max_getbulk = atoi(argv[optind]);
+			if (max_getbulk == 0) {
+			    usage();
+			    fprintf(stderr, "Bad -Cc option: %s\n", 
+				    argv[optind]);
+			    exit(1);
+			}
+		    }
+		} else {
+		    usage();
+                    fprintf(stderr, "Bad -Cr option: no argument given\n");
+		    exit(1);
+		}
+		optind++;
+                break;
             default:
                 fprintf(stderr, "Bad option after -C: %c\n", optarg[-1]);
                 usage();
@@ -180,10 +224,14 @@ usage(void)
 	    "  -C APPOPTS\t\tSet various application specific behaviours:\n");
     fprintf(stderr, "\t\t\t  b:       brief field names\n");
     fprintf(stderr, "\t\t\t  B:       do not use GETBULK requests\n");
+    fprintf(stderr, "\t\t\t  c<NUM>:  print table in columns of <NUM> chars width\n");
     fprintf(stderr, "\t\t\t  f<STR>:  print table delimitied with <STR>\n");
     fprintf(stderr, "\t\t\t  h:       print only the column headers\n");
     fprintf(stderr, "\t\t\t  H:       print no column headers\n");
     fprintf(stderr, "\t\t\t  i:       print index values\n");
+    fprintf(stderr, "\t\t\t  l:       left justify output\n");
+    fprintf(stderr, "\t\t\t  r<NUM>:  for GETBULK: set max-repeaters to <NUM>\n");
+    fprintf(stderr, "\t\t\t           for GETNEXT: retrieve <NUM> entries at a time\n");
     fprintf(stderr, "\t\t\t  w<NUM>:  print table in parts of <NUM> chars width\n");
 }
 
@@ -205,7 +253,7 @@ int
 main(int argc, char *argv[])
 {
     netsnmp_session session, *ss;
-    char           *tblname;
+    int            total_entries = 0;
 
     setvbuf(stdout, NULL, _IOLBF, 1024);
     netsnmp_ds_set_boolean(NETSNMP_DS_LIBRARY_ID, 
@@ -233,6 +281,7 @@ main(int argc, char *argv[])
     if (optind + 1 != argc) {
         fprintf(stderr, "Must have exactly one table name\n");
         usage();
+        exit(1);
     }
 
     rootlen = MAX_OID_LEN;
@@ -242,15 +291,8 @@ main(int argc, char *argv[])
     }
     localdebug = netsnmp_ds_get_boolean(NETSNMP_DS_LIBRARY_ID, 
                                         NETSNMP_DS_LIB_DUMP_PACKET);
-    tblname = strrchr(argv[optind], '.');
-    if (!tblname)
-        tblname = strrchr(argv[optind], ':');
-    if (tblname)
-        ++tblname;
-    else
-        tblname = argv[optind];
 
-    get_field_names(tblname);
+    get_field_names();
     reverse_fields();
 
     /*
@@ -267,23 +309,48 @@ main(int argc, char *argv[])
         exit(1);
     }
 
+#ifndef DISABLE_SNMPV1
     if (ss->version == SNMP_VERSION_1)
         use_getbulk = 0;
-    if (!headers_only) {
-        if (use_getbulk)
-            getbulk_table_entries(ss);
-        else
-            get_table_entries(ss);
-    }
+#endif
+
+    do {
+        entries = 0;
+        allocated = 0;
+        if (!headers_only) {
+            if (use_getbulk)
+                getbulk_table_entries(ss);
+            else
+                get_table_entries(ss);
+        }
+
+        if (exitval) {
+            snmp_close(ss);
+            SOCK_CLEANUP;
+            return exitval;
+        }
+
+        if (entries || headers_only)
+            print_table();
+
+        if (data) {
+            free (data);
+            data = NULL;
+        }
+
+        if (indices) {
+            free (indices);
+            indices = NULL;
+        }
+
+        total_entries += entries;
+
+    } while (!end_of_table);
 
     snmp_close(ss);
     SOCK_CLEANUP;
-    if (exitval)
-        return exitval;
 
-    if (entries || headers_only)
-        print_table();
-    else
+    if (total_entries == 0)
         printf("%s: No entries\n", table_name);
 
     return 0;
@@ -292,18 +359,22 @@ main(int argc, char *argv[])
 void
 print_table(void)
 {
-    int             entry, field, first_field, last_field =
-        0, width, part = 0;
+    int             entry, field, first_field, last_field = 0, width, part = 0;
     char          **dp;
     char            string_buf[SPRINT_MAX_LEN];
     char           *index_fmt = NULL;
+    static int      first_pass = 1;
 
-    if (!no_headers && !headers_only)
+    if (!no_headers && !headers_only && first_pass)
         printf("SNMP table: %s\n\n", table_name);
 
     for (field = 0; field < fields; field++) {
-        if (field_separator == NULL)
-            sprintf(string_buf, "%%%ds", column[field].width + 1);
+        if (column_width != 0)
+            sprintf(string_buf, "%%%s%d.%ds", left_justify_flag,
+                    column_width + 1, column_width );
+        else if (field_separator == NULL)
+            sprintf(string_buf, "%%%s%ds", left_justify_flag,
+                    column[field].width + 1);
         else if (field == 0 && !show_index)
             sprintf(string_buf, "%%s");
         else
@@ -311,8 +382,10 @@ print_table(void)
         column[field].fmt = strdup(string_buf);
     }
     if (show_index) {
-        if (field_separator == NULL)
-            sprintf(string_buf, "%%%ds", index_width);
+        if (column_width)
+            sprintf(string_buf, "\nindex: %%s\n");
+        else if (field_separator == NULL)
+            sprintf(string_buf, "%%%s%ds", left_justify_flag, index_width);
         else
             sprintf(string_buf, "%%s");
         index_fmt = strdup(string_buf);
@@ -324,43 +397,73 @@ print_table(void)
             printf("\nSNMP table %s, part %d\n\n", table_name, part);
         first_field = last_field;
         dp = data;
-        if (show_index && !no_headers) {
+        if (show_index && !no_headers && !column_width) {
             width = index_width;
             printf(index_fmt, "index");
         } else
             width = 0;
         for (field = first_field; field < fields; field++) {
-            width += column[field].width + 1;
-            if (field != first_field && width > max_width
-                && max_width != 0)
-                break;
-            if (!no_headers)
+            if (max_width)
+            {
+                if (column_width) {
+                    if (!no_headers && first_pass) {
+                        width += column_width + 1;
+                        if (field != first_field && width > max_width) {
+                            printf("\n");
+                            width = column_width + 1;
+                        }
+                    }
+                }
+                else {
+                    width += column[field].width + 1;
+                    if (field != first_field && width > max_width)
+                        break;
+                }
+            }
+            if (!no_headers && first_pass)
                 printf(column[field].fmt, column[field].label);
         }
         last_field = field;
-        if (!no_headers)
+        if (!no_headers && first_pass)
             printf("\n");
         for (entry = 0; entry < entries; entry++) {
+            width = 0;
             if (show_index)
+            {
+                if (!column_width)
+                    width = index_width;
                 printf(index_fmt, indices[entry]);
+            }
             for (field = first_field; field < last_field; field++) {
+                if (column_width && max_width) {
+                    width += column_width + 1;
+                    if (field != first_field && width > max_width) {
+                        printf("\n");
+                        width = column_width + 1;
+                    }
+                }
                 printf(column[field].fmt, dp[field] ? dp[field] : "?");
             }
             dp += fields;
             printf("\n");
         }
     }
+
+    first_pass = 0;
 }
 
 void
-get_field_names(char *tblname)
+get_field_names(void)
 {
     u_char         *buf = NULL, *name_p = NULL;
     size_t          buf_len = 0, out_len = 0;
+#ifndef DISABLE_MIB_LOADING
     struct tree    *tbl = NULL;
+#endif /* DISABLE_MIB_LOADING */
     int             going = 1;
 
-    tbl = find_tree_node(tblname, -1);
+#ifndef DISABLE_MIB_LOADING
+    tbl = get_tree(root, rootlen, get_tree_head());
     if (tbl) {
         tbl = tbl->child_list;
         if (tbl) {
@@ -368,8 +471,10 @@ get_field_names(char *tblname)
             tbl = tbl->child_list;
         } else {
             root[rootlen++] = 1;
+            going = 0;
         }
     }
+#endif /* DISABLE_MIB_LOADING */
 
     if (sprint_realloc_objid
         (&buf, &buf_len, &out_len, 1, root, rootlen - 1)) {
@@ -384,6 +489,7 @@ get_field_names(char *tblname)
     fields = 0;
     while (going) {
         fields++;
+#ifndef DISABLE_MIB_LOADING
         if (tbl) {
             if (tbl->access == MIB_ACCESS_NOACCESS) {
                 fields--;
@@ -398,8 +504,11 @@ get_field_names(char *tblname)
             if (!tbl)
                 going = 0;
         } else {
+#endif /* DISABLE_MIB_LOADING */
             root[rootlen] = fields;
+#ifndef DISABLE_MIB_LOADING
         }
+#endif /* DISABLE_MIB_LOADING */
         out_len = 0;
         if (sprint_realloc_objid
             (&buf, &buf_len, &out_len, 1, root, rootlen + 1)) {
@@ -434,7 +543,7 @@ get_field_names(char *tblname)
         column[fields - 1].subid = root[rootlen];
     }
     if (fields == 0) {
-        fprintf(stderr, "Was that a table? %s\n", buf);
+        fprintf(stderr, "Was that a table? %s\n", table_name);
         exit(1);
     }
     *name_p = 0;
@@ -486,7 +595,6 @@ get_table_entries(netsnmp_session * ss)
     char           *cp;
     char           *name_p = NULL;
     char          **dp;
-    int             end_of_table = 0;
     int             have_current_index;
 
     /*
@@ -496,7 +604,8 @@ get_table_entries(netsnmp_session * ss)
      *   3) optimize to remove a sparse column from get-requests
      */
 
-    while (running) {
+    while (running &&
+           ((max_width && !column_width) || (entries < max_getbulk))) {
         /*
          * create PDU for GETNEXT request and add object name to request 
          */
@@ -666,6 +775,7 @@ get_table_entries(netsnmp_session * ss)
                 running = 0;
                 if (response->errstat == SNMP_ERR_NOSUCHNAME) {
                     printf("End of MIB\n");
+                    end_of_table = 1;
                 } else {
                     fprintf(stderr, "Error in packet.\nReason: %s\n",
                             snmp_errstring(response->errstat));
@@ -717,7 +827,7 @@ getbulk_table_entries(netsnmp_session * ss)
 
     while (running) {
         /*
-         * create PDU for GETNEXT request and add object name to request 
+         * create PDU for GETBULK request and add object name to request 
          */
         pdu = snmp_pdu_create(SNMP_MSG_GETBULK);
         pdu->non_repeaters = 0;

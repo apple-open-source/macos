@@ -1,7 +1,7 @@
 #
 #  Makefile.am
 #
-#  $Id: Makefile.am,v 1.1.1.2 2002/04/30 00:40:23 miner Exp $
+#  $Id: Makefile.am,v 1.2 2004/08/10 22:20:27 luesang Exp $
 #
 #  The iODBC driver manager.
 #  
@@ -103,7 +103,6 @@ libiodbcadm_la_LIBADD	= \
 	../iodbcadm/gtk/dsnchooser.lo \
 	../iodbcadm/gtk/errorbox.lo \
 	../iodbcadm/gtk/filedsn.lo \
-	../iodbcadm/gtk/loginbox.lo \
 	../iodbcadm/gtk/messagebox.lo \
 	../iodbcadm/gtk/translatorchooser.lo \
 	@GTK_LIBS@ \
@@ -120,8 +119,7 @@ endif
 libiodbcadm_la_SOURCES	= \
 	Info.c \
 	drvconn.c \
-	error.c \
-	login.c 
+	error.c 
 
 iodbcadm_gtk_SOURCES	=
 iodbcadm_gtk_LDADD	= \

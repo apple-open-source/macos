@@ -32,9 +32,11 @@
  *
  *
  */
+/* $XFree86: xc/lib/X11/AddSF.c,v 1.2 2003/04/13 19:22:14 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
+#include "Cv.h"
 
 /*
  *      DEFINES
@@ -42,18 +44,6 @@
 #define NextUnregDdCsID(lastid) \
 	    (XCMS_UNREG_ID(lastid) ? ++lastid : XCMS_FIRST_UNREG_DD_ID)
 #define MIN(x,y) ((x) > (y) ? (y) : (x))
-
-
-/*
- *      EXTERNS
- */
-extern XPointer *_XcmsPushPointerArray();
-extern XcmsColorFormat _XcmsRegFormatOfPrefix();
-extern XcmsFunctionSet **_XcmsSCCFuncSets;
-extern XcmsFunctionSet **_XcmsSCCFuncSetsInit;
-extern XcmsColorSpace **_XcmsDDColorSpaces;
-extern XcmsColorSpace **_XcmsDDColorSpacesInit;
-
 
 
 /*

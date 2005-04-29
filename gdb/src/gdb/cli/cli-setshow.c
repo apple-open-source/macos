@@ -1,6 +1,6 @@
 /* Handle set and show GDB commands.
 
-   Copyright 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include <readline/tilde.h>
+#include "readline/tilde.h"
 #include "value.h"
 #include <ctype.h>
 #include "gdb_string.h"
@@ -197,56 +197,62 @@ do_setshow_command (char *arg, int from_tty, struct cmd_list_element *c)
 	  {
 	    int i;
 	    int len;
-	    int nmatches;
+	    int nmatches = 0;
 	    const char *match = NULL;
 	    char *p;
 
 	    /* if no argument was supplied, print an informative error message */
-	    if (arg == NULL)
+	    if (arg != NULL)
 	      {
-		char msg[1024];
-		strcpy (msg, "Requires an argument. Valid arguments are ");
+		p = strchr (arg, ' ');
+		
+		if (p)
+		  len = p - arg;
+		else
+		  len = strlen (arg);
+		
+		nmatches = 0;
+		for (i = 0; c->enums[i]; i++)
+		  if (strncmp (arg, c->enums[i], len) == 0)
+		    {
+		      if (c->enums[i][len] == '\0')
+			{
+			  match = c->enums[i];
+			  nmatches = 1;
+			  break; /* exact match. */
+			}
+		      else
+			{
+			  match = c->enums[i];
+			  nmatches++;
+			}
+		    }
+	      }
+	    if (nmatches == 1)
+	      *(const char **) c->var = match;
+	    else
+	      {
+		/* If there was an error, print an informative
+		   error message.  */
+		struct ui_file *tmp_error_stream = mem_fileopen ();
+		make_cleanup_ui_file_delete (tmp_error_stream);
+
+		if (arg == NULL)
+		  fprintf_unfiltered (tmp_error_stream, "Requires an argument.");
+		else if (nmatches <= 0)
+		  fprintf_unfiltered (tmp_error_stream, "Undefined item: \"%s\".", arg);		
+		else if (nmatches > 1)
+		  fprintf_unfiltered  (tmp_error_stream, "Ambiguous item \"%s\".", arg);
+		fprintf_unfiltered (tmp_error_stream, " Valid arguments are ");
 		for (i = 0; c->enums[i]; i++)
 		  {
 		    if (i != 0)
-		      strcat (msg, ", ");
-		    strcat (msg, c->enums[i]);
+		      fprintf_unfiltered (tmp_error_stream, ", ");
+		    fputs_unfiltered (c->enums[i], tmp_error_stream);
 		  }
-		strcat (msg, ".");
-		error (msg);
+		fprintf_unfiltered (tmp_error_stream, ".");
+		error_stream (tmp_error_stream);
 	      }
-
-	    p = strchr (arg, ' ');
-
-	    if (p)
-	      len = p - arg;
-	    else
-	      len = strlen (arg);
-
-	    nmatches = 0;
-	    for (i = 0; c->enums[i]; i++)
-	      if (strncmp (arg, c->enums[i], len) == 0)
-		{
-		  if (c->enums[i][len] == '\0')
-		    {
-		      match = c->enums[i];
-		      nmatches = 1;
-		      break; /* exact match. */
-		    }
-		  else
-		    {
-		      match = c->enums[i];
-		      nmatches++;
-		    }
-		}
-
-	    if (nmatches <= 0)
-	      error ("Undefined item: \"%s\".", arg);
-
-	    if (nmatches > 1)
-	      error ("Ambiguous item \"%s\".", arg);
-
-	    *(const char **) c->var = match;
 	  }
 	  break;
 	default:
@@ -271,8 +277,14 @@ do_setshow_command (char *arg, int from_tty, struct cmd_list_element *c)
 	 it doesn't want to see the doc string.  */
       if (!ui_out_is_mi_like_p (uiout)) 
 	{
-	  print_doc_line (gdb_stdout, c->doc + 5);
-	  
+	  long length;
+	  char *output;
+
+	  print_doc_line (stb->stream, c->doc + 5);
+	  output = ui_file_xstrdup (stb->stream, &length);
+	  ui_out_text (uiout, output);
+	  xfree (output);
+	  ui_file_rewind (stb->stream);
 	  ui_out_text (uiout, " is ");
 	  ui_out_wrap_hint (uiout, "    ");
 	}
@@ -359,28 +371,35 @@ do_setshow_command (char *arg, int from_tty, struct cmd_list_element *c)
 void
 cmd_show_list (struct cmd_list_element *list, int from_tty, char *prefix)
 {
-  ui_out_tuple_begin (uiout, "showlist");
+  struct cleanup *showlist_chain;
+
+  showlist_chain = make_cleanup_ui_out_tuple_begin_end (uiout, "showlist");
   for (; list != NULL; list = list->next)
     {
       /* If we find a prefix, run its list, prefixing our output by its
          prefix (with "show " skipped).  */
       if (list->prefixlist && !list->abbrev_flag)
 	{
-	  ui_out_tuple_begin (uiout, "optionlist");
+	  struct cleanup *optionlist_chain
+	    = make_cleanup_ui_out_tuple_begin_end (uiout, "optionlist");
 	  ui_out_field_string (uiout, "prefix", list->prefixname + 5);
 	  cmd_show_list (*list->prefixlist, from_tty, list->prefixname + 5);
-	  ui_out_tuple_end (uiout);
+	  /* Close the tuple.  */
+	  do_cleanups (optionlist_chain);
 	}
       if (list->type == show_cmd)
 	{
-	  ui_out_tuple_begin (uiout, "option");
+	  struct cleanup *option_chain
+	    = make_cleanup_ui_out_tuple_begin_end (uiout, "option");
 	  ui_out_text (uiout, prefix);
 	  ui_out_field_string (uiout, "name", list->name);
 	  ui_out_text (uiout, ":  ");
 	  do_setshow_command ((char *) NULL, from_tty, list);
-	  ui_out_tuple_end (uiout);
+          /* Close the tuple.  */
+	  do_cleanups (option_chain);
 	}
     }
-  ui_out_tuple_end (uiout);
+  /* Close the tuple.  */
+  do_cleanups (showlist_chain);
 }
 

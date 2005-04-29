@@ -1,6 +1,6 @@
 /* ObjectStreamConstants.java -- Interface containing constant values
    used in reading and writing serialized objects
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -40,48 +40,50 @@ exception statement from your version. */
 package java.io;
 
 /**
-   This interface contains constants that are used in object
-   serialization.  This interface is used by ObjectOutputStream,
-   ObjectInputStream, ObjectStreamClass, and possibly other classes.
-   The values for these constants are specified in Javasoft's "Object
-   Serialization Specification" TODO: add reference
-*/
+ * This interface contains constants that are used in object
+ * serialization.  This interface is used by <code>ObjectOutputStream</code>,
+ * <code>ObjectInputStream</code>, and <code>ObjectStreamClass</code>.
+ * The values for these constants are specified by the Java library
+ * specification.
+ */
 public interface ObjectStreamConstants
 {
-  public final static int PROTOCOL_VERSION_1 = 1;
-  public final static int PROTOCOL_VERSION_2 = 2;
+  // FIXME: Javadoc comment these values.
+  int PROTOCOL_VERSION_1 = 1;
+  int PROTOCOL_VERSION_2 = 2;
 
-  final static short STREAM_MAGIC = (short)0xaced;
-  final static short STREAM_VERSION = 5;
+  short STREAM_MAGIC = (short)0xaced;
+  short STREAM_VERSION = 5;
 
-  final static byte TC_NULL = (byte)112;            //0x70
-  final static byte TC_REFERENCE = (byte)113;       //0x71
-  final static byte TC_CLASSDESC = (byte)114;       //0x72
-  final static byte TC_OBJECT = (byte)115;          //0x73
-  final static byte TC_STRING = (byte)116;          //0x74
-  final static byte TC_ARRAY = (byte)117;           //0x75
-  final static byte TC_CLASS = (byte)118;           //0x76
-  final static byte TC_BLOCKDATA = (byte)119;       //0x77
-  final static byte TC_ENDBLOCKDATA = (byte)120;    //0x78
-  final static byte TC_RESET = (byte)121;           //0x79
-  final static byte TC_BLOCKDATALONG = (byte)122;   //0x7A
-  final static byte TC_EXCEPTION = (byte)123;       //0x7B
-  final static byte TC_LONGSTRING = (byte)124;      //0x7C
-  final static byte TC_PROXYCLASSDESC = (byte)125;  //0x7D
+  byte TC_NULL = (byte)112;            //0x70
+  byte TC_REFERENCE = (byte)113;       //0x71
+  byte TC_CLASSDESC = (byte)114;       //0x72
+  byte TC_OBJECT = (byte)115;          //0x73
+  byte TC_STRING = (byte)116;          //0x74
+  byte TC_ARRAY = (byte)117;           //0x75
+  byte TC_CLASS = (byte)118;           //0x76
+  byte TC_BLOCKDATA = (byte)119;       //0x77
+  byte TC_ENDBLOCKDATA = (byte)120;    //0x78
+  byte TC_RESET = (byte)121;           //0x79
+  byte TC_BLOCKDATALONG = (byte)122;   //0x7A
+  byte TC_EXCEPTION = (byte)123;       //0x7B
+  byte TC_LONGSTRING = (byte)124;      //0x7C
+  byte TC_PROXYCLASSDESC = (byte)125;  //0x7D
 
-  final static byte TC_BASE = TC_NULL;
-  final static byte TC_MAX = TC_PROXYCLASSDESC;
+  byte TC_BASE = TC_NULL;
+  byte TC_MAX = TC_PROXYCLASSDESC;
 
-  final static int baseWireHandle = 0x7e0000;
+  int baseWireHandle = 0x7e0000;
 
-  final static byte SC_WRITE_METHOD = 0x01;
-  final static byte SC_SERIALIZABLE = 0x02;
-  final static byte SC_EXTERNALIZABLE = 0x04;
-  final static byte SC_BLOCK_DATA = 0x08;
+  byte SC_WRITE_METHOD = 0x01;
+  byte SC_SERIALIZABLE = 0x02;
+  byte SC_EXTERNALIZABLE = 0x04;
+  byte SC_BLOCK_DATA = 0x08;
 
-  final static SerializablePermission SUBSTITUTION_PERMISSION
+  SerializablePermission SUBSTITUTION_PERMISSION
     = new SerializablePermission("enableSubstitution");
 
-  final static SerializablePermission SUBCLASS_IMPLEMENTATION_PERMISSION
+  SerializablePermission SUBCLASS_IMPLEMENTATION_PERMISSION
     = new SerializablePermission("enableSubclassImplementation");
 }
+

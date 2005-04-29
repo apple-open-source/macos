@@ -114,23 +114,6 @@ extern void waitforparent(void);
 char **Argv;	/* used to set the information displayed with ps(1) */
 int    Argc;
 
-static void
-closeall(void)
-{
-	int i;
-
-	for (i = getdtablesize() - 1; i >= 0; i--) close(i);
-
-	/*
-	 * We keep 0, 1 & 2 open to avoid using them. If we didn't, a
-	 * library routine might do a printf to our descriptor and screw
-	 * us up.
-	 */
-	open("/dev/null", O_RDWR, 0);
-	dup(0);
-	dup(0);
-}
-
 void
 catch_sighup(void)
 {
@@ -207,12 +190,6 @@ main(int argc, char *argv[])
 	}
 
 	if (argc != 1) usage(myname);
-
-	if (debug == 0)
-	{
-		closeall();
-		if (standalone == 1) daemon(1, 1);
-	}
 
 	db_tag = malloc(strlen(argv[0]) + 1);
 	strcpy(db_tag, argv[0]);
@@ -291,7 +268,8 @@ main(int argc, char *argv[])
 		exit(status);
 	}
 
-	setproctitle("netinfod %s (%s)", db_tag, i_am_clone ? "clone" : "master");
+	if (standalone == 0)
+		setproctitle("netinfod %s (%s)", db_tag, i_am_clone ? "clone" : "master");
 
 	if (i_am_clone)
 	{
@@ -313,8 +291,11 @@ main(int argc, char *argv[])
 		initialize_readall_proxies(-1 == max_readall_proxies ?
 			MAX_READALL_PROXIES : max_readall_proxies);
 
-		system_log(LOG_DEBUG, "starting notify thread");
-		(void) notify_start();
+		if (strcmp(db_tag, "local"))
+		{
+			system_log(LOG_DEBUG, "starting notify thread");
+			notify_start();
+		}
 	}
 
 	/* Shutdown gracefully after this point */

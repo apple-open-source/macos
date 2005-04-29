@@ -28,7 +28,7 @@
  *  This is source code modified by FUJITSU LIMITED under the Joint
  *  Development Agreement for the CDE/Motif PST.
  */
-/* $XFree86: xc/lib/X11/omDefault.c,v 1.5 2001/01/17 19:41:56 dawes Exp $ */
+/* $XFree86: xc/lib/X11/omDefault.c,v 1.7 2003/11/17 22:20:12 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "XomGeneric.h"
@@ -41,11 +41,11 @@
 #define FreeLocalBuf(ptr)	if (ptr != local_buf) Xfree(ptr)
 
 static Bool
-wcs_to_mbs(oc, to, from, length)
-    XOC oc;
-    char *to;
-    _Xconst wchar_t *from;
-    int length;
+wcs_to_mbs(
+    XOC oc,
+    char *to,
+    _Xconst wchar_t *from,
+    int length)
 {
     XlcConv conv;
     int to_left, ret;
@@ -64,11 +64,11 @@ wcs_to_mbs(oc, to, from, length)
 }
 
 static Bool
-utf8_to_mbs(oc, to, from, length)
-    XOC oc;
-    char *to;
-    _Xconst char *from;
-    int length;
+utf8_to_mbs(
+    XOC oc,
+    char *to,
+    _Xconst char *from,
+    int length)
 {
     XlcConv conv;
     int to_left, ret;
@@ -87,27 +87,13 @@ utf8_to_mbs(oc, to, from, length)
 }
 
 int
-#if NeedFunctionPrototypes
 _XmbDefaultTextEscapement(XOC oc, _Xconst char *text, int length)
-#else
-_XmbDefaultTextEscapement(oc, text, length)
-    XOC oc;
-    _Xconst char *text;
-    int length;
-#endif
 {
     return XTextWidth(*oc->core.font_info.font_struct_list, text, length);
 }
 
 int
-#if NeedFunctionPrototypes
 _XwcDefaultTextEscapement(XOC oc, _Xconst wchar_t *text, int length)
-#else
-_XwcDefaultTextEscapement(oc, text, length)
-    XOC oc;
-    _Xconst wchar_t *text;
-    int length;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -130,14 +116,7 @@ err:
 }
 
 int
-#if NeedFunctionPrototypes
 _Xutf8DefaultTextEscapement(XOC oc, _Xconst char *text, int length)
-#else
-_Xutf8DefaultTextEscapement(oc, text, length)
-    XOC oc;
-    _Xconst char *text;
-    int length;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -160,17 +139,8 @@ err:
 }
 
 int
-#if NeedFunctionPrototypes
 _XmbDefaultTextExtents(XOC oc, _Xconst char *text, int length,
 		       XRectangle *overall_ink, XRectangle *overall_logical)
-#else
-_XmbDefaultTextExtents(oc, text, length, overall_ink, overall_logical)
-    XOC oc;
-    _Xconst char *text;
-    int length;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     int direction, logical_ascent, logical_descent;
     XCharStruct overall;
@@ -196,17 +166,8 @@ _XmbDefaultTextExtents(oc, text, length, overall_ink, overall_logical)
 }
 
 int
-#if NeedFunctionPrototypes
 _XwcDefaultTextExtents(XOC oc, _Xconst wchar_t *text, int length,
 		       XRectangle *overall_ink, XRectangle *overall_logical)
-#else
-_XwcDefaultTextExtents(oc, text, length, overall_ink, overall_logical)
-    XOC oc;
-    _Xconst wchar_t *text;
-    int length;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -229,17 +190,8 @@ err:
 }
 
 int
-#if NeedFunctionPrototypes
 _Xutf8DefaultTextExtents(XOC oc, _Xconst char *text, int length,
 			 XRectangle *overall_ink, XRectangle *overall_logical)
-#else
-_Xutf8DefaultTextExtents(oc, text, length, overall_ink, overall_logical)
-    XOC oc;
-    _Xconst char *text;
-    int length;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -262,25 +214,11 @@ err:
 }
 
 Status
-#if NeedFunctionPrototypes
 _XmbDefaultTextPerCharExtents(XOC oc, _Xconst char *text, int length,
 			      XRectangle *ink_buf, XRectangle *logical_buf,
 			      int buf_size, int *num_chars,
 			      XRectangle *overall_ink,
 			      XRectangle *overall_logical)
-#else
-_XmbDefaultTextPerCharExtents(oc, text, length, ink_buf, logical_buf, buf_size,
-			      num_chars, overall_ink, overall_logical)
-    XOC oc;
-    _Xconst char *text;	
-    int length;
-    XRectangle *ink_buf;
-    XRectangle *logical_buf;
-    int buf_size;
-    int *num_chars;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     XFontStruct *font = *oc->core.font_info.font_struct_list;
     XCharStruct *def, *cs, overall;
@@ -346,25 +284,11 @@ _XmbDefaultTextPerCharExtents(oc, text, length, ink_buf, logical_buf, buf_size,
 }
 
 Status
-#if NeedFunctionPrototypes
 _XwcDefaultTextPerCharExtents(XOC oc, _Xconst wchar_t *text, int length,
 			      XRectangle *ink_buf, XRectangle *logical_buf,
 			      int buf_size, int *num_chars,
 			      XRectangle *overall_ink,
 			      XRectangle *overall_logical)
-#else
-_XwcDefaultTextPerCharExtents(oc, text, length, ink_buf, logical_buf, buf_size,
-			      num_chars, overall_ink, overall_logical)
-    XOC oc;
-    _Xconst wchar_t *text;
-    int length;
-    XRectangle *ink_buf;
-    XRectangle *logical_buf;
-    int buf_size;
-    int *num_chars;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -389,26 +313,11 @@ err:
 }
 
 Status
-#if NeedFunctionPrototypes
 _Xutf8DefaultTextPerCharExtents(XOC oc, _Xconst char *text, int length,
 				XRectangle *ink_buf, XRectangle *logical_buf,
 				int buf_size, int *num_chars,
 				XRectangle *overall_ink,
 				XRectangle *overall_logical)
-#else
-_Xutf8DefaultTextPerCharExtents(oc, text, length, ink_buf, logical_buf,
-				buf_size, num_chars, overall_ink,
-				overall_logical)
-    XOC oc;
-    _Xconst char *text;
-    int length;
-    XRectangle *ink_buf;
-    XRectangle *logical_buf;
-    int buf_size;
-    int *num_chars;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -433,19 +342,8 @@ err:
 }
 
 int
-#if NeedFunctionPrototypes
 _XmbDefaultDrawString(Display *dpy, Drawable d, XOC oc, GC gc, int x, int y,
 		      _Xconst char *text, int length)
-#else
-_XmbDefaultDrawString(dpy, d, oc, gc, x, y, text, length)
-    Display *dpy;
-    Drawable d;
-    XOC oc;
-    GC gc;
-    int x, y;
-    _Xconst char *text;
-    int length;
-#endif
 {
     XFontStruct *font = *oc->core.font_info.font_struct_list;
 
@@ -456,19 +354,8 @@ _XmbDefaultDrawString(dpy, d, oc, gc, x, y, text, length)
 }
 
 int
-#if NeedFunctionPrototypes
 _XwcDefaultDrawString(Display *dpy, Drawable d, XOC oc, GC gc, int x, int y,
 		      _Xconst wchar_t *text, int length)
-#else
-_XwcDefaultDrawString(dpy, d, oc, gc, x, y, text, length)
-    Display *dpy;
-    Drawable d;
-    XOC oc;
-    GC gc;
-    int x, y;
-    _Xconst wchar_t *text;
-    int length;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -491,19 +378,8 @@ err:
 }
 
 int
-#if NeedFunctionPrototypes
 _Xutf8DefaultDrawString(Display *dpy, Drawable d, XOC oc, GC gc, int x, int y,
 			_Xconst char *text, int length)
-#else
-_Xutf8DefaultDrawString(dpy, d, oc, gc, x, y, text, length)
-    Display *dpy;
-    Drawable d;
-    XOC oc;
-    GC gc;
-    int x, y;
-    _Xconst char *text;
-    int length;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -526,38 +402,16 @@ err:
 }
 
 void
-#if NeedFunctionPrototypes
 _XmbDefaultDrawImageString(Display *dpy, Drawable d, XOC oc, GC gc, int x,
 			   int y, _Xconst char *text, int length)
-#else
-_XmbDefaultDrawImageString(dpy, d, oc, gc, x, y, text, length)
-    Display *dpy;
-    Drawable d;
-    XOC oc;
-    GC gc;
-    int x, y;
-    _Xconst char *text;
-    int length;
-#endif
 {
     XSetFont(dpy, gc, (*oc->core.font_info.font_struct_list)->fid);
     XDrawImageString(dpy, d, gc, x, y, text, length);
 }
 
 void
-#if NeedFunctionPrototypes
 _XwcDefaultDrawImageString(Display *dpy, Drawable d, XOC oc, GC gc, int x,
 			   int y, _Xconst wchar_t *text, int length)
-#else
-_XwcDefaultDrawImageString(dpy, d, oc, gc, x, y, text, length)
-    Display *dpy;
-    Drawable d;
-    XOC oc;
-    GC gc;
-    int x, y;
-    _Xconst wchar_t *text;
-    int length;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -575,19 +429,8 @@ err:
 }
 
 void
-#if NeedFunctionPrototypes
 _Xutf8DefaultDrawImageString(Display *dpy, Drawable d, XOC oc, GC gc, int x,
 			     int y, _Xconst char *text, int length)
-#else
-_Xutf8DefaultDrawImageString(dpy, d, oc, gc, x, y, text, length)
-    Display *dpy;
-    Drawable d;
-    XOC oc;
-    GC gc;
-    int x, y;
-    _Xconst char *text;
-    int length;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);

@@ -36,7 +36,7 @@
  */
 #include "panel.priv.h"
 
-MODULE_ID("$Id: p_new.c,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $")
+MODULE_ID("$Id: p_new.c,v 1.6 2000/12/10 02:20:44 tom Exp $")
 
 #ifdef TRACE
 static char* stdscr_id;

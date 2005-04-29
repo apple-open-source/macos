@@ -1,7 +1,8 @@
 /* Copyright (C) 2000 Free Software Foundation, Inc.  */
 
 /* { dg-do preprocess } */
-/* { dg-options "-fno-show-column" } */
+/* APPLE LOCAL Wextra-tokens */
+/* { dg-options "-fno-show-column -Wextra-tokens" } */
 
 /* Tests all directives that do not permit excess tokens at the end of
    the line.  */

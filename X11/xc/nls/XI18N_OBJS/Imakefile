@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.1 2000/12/12 13:00:42 coskrey Exp $
 
 
 
-XCOMM $XFree86: xc/nls/XI18N_OBJS/Imakefile,v 1.7 2003/01/15 03:59:47 dawes Exp $
+XCOMM $XFree86: xc/nls/XI18N_OBJS/Imakefile,v 1.8 2003/08/06 14:04:00 eich Exp $
 
 #ifndef Win32Architecture
 # define XI18NTarget(name)						@@\
@@ -61,6 +61,7 @@ XI18NTarget(vi_VN.tcvn)
 XI18NTarget(vi_VN.viscii)
 XI18NTarget(zh_CN)
 XI18NTarget(zh_CN.gbk)
+XI18NTarget(zh_CN.UTF-8)
 XI18NTarget(zh_HK.big5hkscs)
 XI18NTarget(zh_TW)
 XI18NTarget(zh_TW.big5)

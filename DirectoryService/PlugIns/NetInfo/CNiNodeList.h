@@ -65,16 +65,18 @@ public:
 	void	 	UnLock				( void );
 	bool	 	IsPresent			( const char *inStr );
 	bool	 	IsPresent			( const char *inStr, tDataList **inListPtr );
-	bool	 	IsOpen				( const char *inStr, void **outDomain, char **outDomName, ni_id *outDirID );
+	bool	 	IsOpen				( const char *inStr, char **outDomName );
 
 	sInt32	   	AddNode				( const char *inStr, tDataList *inListPtr, bool inRegistered, uInt32 inLocalOrParent = 0 );
 	void	   *DeleteNode			( const char *inStr );
+	void	   *RetrieveLocalDomain	( const char *inStr );
 
-	bool		SetDomainInfo		( const char *inStr, void *inDomain, char *inDomName, ni_id *inDirID );
-	void		SetAllDirty			( void );
-	void		CleanAllDirty		( const uInt32 inSignature );
+	bool		SetDomainInfo		( const char *inStr, void *inDomain, char *inDomName );
+	void		CleanUpUnknownConnections ( const uInt32 inSignature );
 	uInt32		CheckForLocalOrParent
 									( const char *inName );
+	void*		RetrieveNode		( const char *inName );
+	void		AdjustForParent		( void );
 
 protected:
 

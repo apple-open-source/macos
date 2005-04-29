@@ -104,13 +104,15 @@ HEADERS = xpm.h
 	 CrBufFrI.c CrDatFrP.c CrPFrBuf.c RdFToI.c WrFFrI.c \
 	 CrBufFrP.c CrIFrBuf.c CrPFrDat.c RdFToP.c WrFFrP.c \
 	 CrDatFrI.c CrIFrDat.c RdFToDat.c WrFFrDat.c \
-	 Attrib.c CrIFrP.c CrPFrI.c Image.c Info.c RdFToBuf.c WrFFrBuf.c
+	 Attrib.c CrIFrP.c CrPFrI.c Image.c Info.c RdFToBuf.c WrFFrBuf.c \
+	 s_popen.c
 
   OBJS = data.o create.o misc.o rgb.o scan.o parse.o hashtab.o \
 	 CrBufFrI.o CrDatFrP.o CrPFrBuf.o RdFToI.o WrFFrI.o \
 	 CrBufFrP.o CrIFrBuf.o CrPFrDat.o RdFToP.o WrFFrP.o \
 	 CrDatFrI.o CrIFrDat.o RdFToDat.o WrFFrDat.o \
-	 Attrib.o CrIFrP.o CrPFrI.o Image.o Info.o RdFToBuf.o WrFFrBuf.o
+	 Attrib.o CrIFrP.o CrPFrI.o Image.o Info.o RdFToBuf.o WrFFrBuf.o \
+	 s_popen.o
 
        INCLUDES = -I.
        LINTLIBS = $(LINTXTOLL) $(LINTXLIB) 

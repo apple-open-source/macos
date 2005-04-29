@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,14 +23,15 @@
 /*
  * @OSF_COPYRIGHT@
  */
+#ifndef _MACH_EXTERNS_H_
+#define _MACH_EXTERNS_H_
 
-#include <mach/boolean.h>
-#include <mach/error.h>
-#include <mach/message.h>
-#include <mach/vm_types.h>
+#include <mach/mach_types.h>
+#include <sys/cdefs.h>
 
+__BEGIN_DECLS
 extern void mig_init(void *);
 extern void mach_init_ports(void);
-extern void mig_allocate(vm_address_t *, vm_size_t);
-extern void mig_deallocate(vm_address_t, vm_size_t);
+__END_DECLS
 
+#endif /* _MACH_EXTERNS_H_ */

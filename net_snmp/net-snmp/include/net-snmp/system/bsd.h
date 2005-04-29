@@ -1,4 +1,4 @@
-#include "generic.h"
+#include <net-snmp/system/generic.h>
 
 /*
  * the bsd route symbol adds an 's' at the end to this symbol name 
@@ -17,3 +17,4 @@
 #define ARP_SCAN_FOUR_ARGUMENTS 1
 
 #define UTMP_HAS_NO_TYPE 1
+#define UTMP_HAS_NO_PID 1

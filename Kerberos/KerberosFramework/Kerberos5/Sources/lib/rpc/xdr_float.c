@@ -84,9 +84,7 @@ static struct sgl_limits {
 #endif /* vax */
 
 bool_t
-xdr_float(xdrs, fp)
-	register XDR *xdrs;
-	register float *fp;
+xdr_float(XDR *xdrs, float *fp)
 {
 #if defined(vax)
 	struct ieee_single is;
@@ -118,7 +116,7 @@ xdr_float(xdrs, fp)
 		is.mantissa = (vs.mantissa1 << 16) | vs.mantissa2;
 	shipit:
 		is.sign = vs.sign;
-		return (XDR_PUTLONG(xdrs, (rpc_int32 *)&is));
+		return (XDR_PUTLONG(xdrs, (int32_t *)&is));
 #endif
 
 	case XDR_DECODE:
@@ -130,7 +128,7 @@ xdr_float(xdrs, fp)
 		return (TRUE);
 #else
 		vsp = (struct vax_single *)fp;
-		if (!XDR_GETLONG(xdrs, (rpc_int32 *)&is))
+		if (!XDR_GETLONG(xdrs, (int32_t *)&is))
 			return (FALSE);
 		for (i = 0, lim = sgl_limits;
 			i < sizeof(sgl_limits)/sizeof(struct sgl_limits);
@@ -196,11 +194,9 @@ static struct dbl_limits {
 
 
 bool_t
-xdr_double(xdrs, dp)
-	register XDR *xdrs;
-	double *dp;
+xdr_double(XDR *xdrs, double *dp)
 {
-	register rpc_int32 *lp;
+	register int32_t *lp;
 #if defined(vax)
 	struct	ieee_double id;
 	struct	vax_double vd;
@@ -212,8 +208,8 @@ xdr_double(xdrs, dp)
 
 	case XDR_ENCODE:
 #if !defined(vax)
-		lp = (rpc_int32 *)dp;
-		if (sizeof(rpc_int32) == sizeof(long)) {
+		lp = (int32_t *)dp;
+		if (sizeof(int32_t) == sizeof(long)) {
 		  return (XDR_PUTLONG(xdrs, lp++) && XDR_PUTLONG(xdrs, lp));
 		} else {
 		  long lg1 = *lp++;;
@@ -241,14 +237,14 @@ xdr_double(xdrs, dp)
 				((vd.mantissa4 >> 3) & MASK(13));
 	shipit:
 		id.sign = vd.sign;
-		lp = (rpc_int32 *)&id;
+		lp = (int32_t *)&id;
 		return (XDR_PUTLONG(xdrs, lp++) && XDR_PUTLONG(xdrs, lp));
 #endif
 
 	case XDR_DECODE:
 #if !defined(vax)
-		lp = (rpc_int32 *)dp;
-		if (sizeof(rpc_int32) == sizeof(long)) {
+		lp = (int32_t *)dp;
+		if (sizeof(int32_t) == sizeof(long)) {
 		  return (XDR_GETLONG(xdrs, lp++) && XDR_GETLONG(xdrs, lp));
 		} else {
 		  long lg1, lg2;
@@ -259,7 +255,7 @@ xdr_double(xdrs, dp)
 		  return flag;
 		}
 #else
-		lp = (rpc_int32 *)&id;
+		lp = (int32_t *)&id;
 		if (!XDR_GETLONG(xdrs, lp++) || !XDR_GETLONG(xdrs, lp))
 			return (FALSE);
 		for (i = 0, lim = dbl_limits;

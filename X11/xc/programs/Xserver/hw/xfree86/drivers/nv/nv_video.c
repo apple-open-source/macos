@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/nv_video.c,v 1.11 2002/11/26 23:41:59 mvojkovi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/nv_video.c,v 1.21 2003/11/10 18:22:24 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -18,10 +18,10 @@
 #include "fourcc.h"
 
 #include "nv_include.h"
+#include "nv_dma.h"
 
-
-#define OFF_DELAY 	450  /* milliseconds */
-#define FREE_DELAY 	10000
+#define OFF_DELAY 	500  /* milliseconds */
+#define FREE_DELAY 	5000
 
 #define OFF_TIMER 	0x01
 #define FREE_TIMER	0x02
@@ -29,11 +29,7 @@
 
 #define TIMER_MASK      (OFF_TIMER | FREE_TIMER)
 
-
-
-#ifndef XvExtension
-void NVInitVideo(ScreenPtr pScreen) {}
-#else
+#define NUM_BLIT_PORTS 32
 
 typedef struct _NVPortPrivRec {
    short        brightness;
@@ -49,13 +45,15 @@ typedef struct _NVPortPrivRec {
    Time         videoTime;
    Bool		grabbedByV4L;
    Bool         iturbt_709;
+   Bool         blitter;
    FBLinearPtr  linear;
    int pitch;
    int offset;
 } NVPortPrivRec, *NVPortPrivPtr;
 
 
-static XF86VideoAdaptorPtr NVSetupImageVideo(ScreenPtr);
+static XF86VideoAdaptorPtr NVSetupOverlayVideo(ScreenPtr);
+static XF86VideoAdaptorPtr NVSetupBlitVideo(ScreenPtr);
 
 static void NVStopOverlay (ScrnInfoPtr);
 static void NVPutOverlayImage(ScrnInfoPtr pScrnInfo,
@@ -69,10 +67,14 @@ static void NVPutOverlayImage(ScrnInfoPtr pScrnInfo,
                               short dst_w, short dst_h,
                               RegionPtr cliplist);
 
-static int  NVSetPortAttribute(ScrnInfoPtr, Atom, INT32, pointer);
-static int  NVGetPortAttribute(ScrnInfoPtr, Atom ,INT32 *, pointer);
+static int  NVSetOverlayPortAttribute(ScrnInfoPtr, Atom, INT32, pointer);
+static int  NVGetOverlayPortAttribute(ScrnInfoPtr, Atom ,INT32 *, pointer);
+static int  NVSetBlitPortAttribute(ScrnInfoPtr, Atom, INT32, pointer);
+static int  NVGetBlitPortAttribute(ScrnInfoPtr, Atom ,INT32 *, pointer);
+
 
 static void NVStopOverlayVideo(ScrnInfoPtr, pointer, Bool);
+static void NVStopBlitVideo(ScrnInfoPtr, pointer, Bool);
 
 static int  NVPutImage( ScrnInfoPtr, short, short, short, short, short, short, short, short, int, unsigned char*, short, short, Bool, RegionPtr, pointer);
 static void NVQueryBestSize(ScrnInfoPtr, Bool, short, short, short, short, unsigned int *, unsigned int *, pointer);
@@ -127,14 +129,36 @@ XF86AttributeRec NVAttributes[NUM_ATTRIBUTES] =
    {XvSettable | XvGettable, 0, 1, "XV_ITURBT_709"}
 };
 
-#define NUM_IMAGES_ALL 4
+#define NUM_IMAGES_YUV 4
+#define NUM_IMAGES_ALL 5
+
+#define FOURCC_RGB 0x0000003
+#define XVIMAGE_RGB \
+   { \
+        FOURCC_RGB, \
+        XvRGB, \
+        LSBFirst, \
+        { 0x03, 0x00, 0x00, 0x00, \
+          0x00,0x00,0x00,0x10,0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}, \
+        32, \
+        XvPacked, \
+        1, \
+        24, 0x00ff0000, 0x0000ff00, 0x000000ff, \
+        0, 0, 0, \
+        0, 0, 0, \
+        0, 0, 0, \
+        {'B','G','R','X',\
+          0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, \
+        XvTopToBottom \
+   }
 
 static XF86ImageRec NVImages[NUM_IMAGES_ALL] =
 {
     XVIMAGE_YUY2,
     XVIMAGE_YV12,
     XVIMAGE_UYVY,
-    XVIMAGE_I420
+    XVIMAGE_I420,
+    XVIMAGE_RGB
 };
 
 static void 
@@ -158,7 +182,6 @@ NVResetVideo (ScrnInfoPtr pScrnInfo)
 {
     NVPtr          pNv     = NVPTR(pScrnInfo);
     NVPortPrivPtr  pPriv   = GET_OVERLAY_PRIVATE(pNv);
-    RIVA_HW_INST  *pRiva   = &(pNv->riva);
     int            satSine, satCosine;
     double         angle;
     
@@ -171,11 +194,11 @@ NVResetVideo (ScrnInfoPtr pScrnInfo)
     if (satCosine < -1024)
         satCosine = -1024;
     
-    pRiva->PMC[0x00008910/4] = (pPriv->brightness << 16) | pPriv->contrast;
-    pRiva->PMC[0x00008914/4] = (pPriv->brightness << 16) | pPriv->contrast;
-    pRiva->PMC[0x00008918/4] = (satSine << 16) | (satCosine & 0xffff);
-    pRiva->PMC[0x0000891C/4] = (satSine << 16) | (satCosine & 0xffff);
-    pRiva->PMC[0x00008b00/4] = pPriv->colorKey;
+    pNv->PMC[0x8910/4] = (pPriv->brightness << 16) | pPriv->contrast;
+    pNv->PMC[0x8914/4] = (pPriv->brightness << 16) | pPriv->contrast;
+    pNv->PMC[0x8918/4] = (satSine << 16) | (satCosine & 0xffff);
+    pNv->PMC[0x891C/4] = (satSine << 16) | (satCosine & 0xffff);
+    pNv->PMC[0x8b00/4] = pPriv->colorKey;
 }
 
 
@@ -184,9 +207,8 @@ static void
 NVStopOverlay (ScrnInfoPtr pScrnInfo)
 {
     NVPtr          pNv     = NVPTR(pScrnInfo);
-    RIVA_HW_INST  *pRiva   = &(pNv->riva);
 
-    pRiva->PMC[0x00008704/4] = 1;
+    pNv->PMC[0x00008704/4] = 1;
 }
 
 static FBLinearPtr
@@ -242,38 +264,60 @@ static void NVFreeOverlayMemory(ScrnInfoPtr pScrnInfo)
 }
 
 
+static void NVFreeBlitMemory(ScrnInfoPtr pScrnInfo)
+{
+    NVPtr               pNv   = NVPTR(pScrnInfo);
+    NVPortPrivPtr  pPriv   = GET_BLIT_PRIVATE(pNv);
+
+    if(pPriv->linear) {
+        xf86FreeOffscreenLinear(pPriv->linear);
+        pPriv->linear = NULL;
+    }
+}
+
+
 void NVInitVideo (ScreenPtr pScreen)
 {
     ScrnInfoPtr 	pScrn = xf86Screens[pScreen->myNum];
     XF86VideoAdaptorPtr *adaptors, *newAdaptors = NULL;
     XF86VideoAdaptorPtr overlayAdaptor = NULL;
+    XF86VideoAdaptorPtr blitAdaptor = NULL;
     NVPtr         	pNv   = NVPTR(pScrn);
     int 		num_adaptors;
 
-    if((pScrn->bitsPerPixel != 8) && (pNv->riva.Architecture >= NV_ARCH_10))
-    {
-	overlayAdaptor = NVSetupImageVideo(pScreen);
+    if((pScrn->bitsPerPixel != 8) && (pNv->Architecture >= NV_ARCH_10)) {
+	overlayAdaptor = NVSetupOverlayVideo(pScreen);
   
 	if(overlayAdaptor)
 	    NVInitOffscreenImages(pScreen);
     }
 
+    if((pScrn->bitsPerPixel != 8) && !pNv->NoAccel)
+        blitAdaptor = NVSetupBlitVideo(pScreen);
+
     num_adaptors = xf86XVListGenericAdaptors(pScrn, &adaptors);
     
-    if(overlayAdaptor) {
-	int size = num_adaptors + 1;
+    if(blitAdaptor || overlayAdaptor) {
+        int size = num_adaptors;
+
+        if(overlayAdaptor) size++;
+        if(blitAdaptor)    size++;
 
         if((newAdaptors = xalloc(size * sizeof(XF86VideoAdaptorPtr*)))) {
-	    if(num_adaptors)
-		memcpy(newAdaptors, adaptors,
-			num_adaptors * sizeof(XF86VideoAdaptorPtr));
-
-	    if(overlayAdaptor) {
-		newAdaptors[num_adaptors] = overlayAdaptor;
-		num_adaptors++;
+            if(num_adaptors) {
+                 memcpy(newAdaptors, adaptors,
+                        num_adaptors * sizeof(XF86VideoAdaptorPtr));
+            }
+            if(overlayAdaptor) {
+                newAdaptors[num_adaptors] = overlayAdaptor;
+                num_adaptors++;
 	    }
+            if(blitAdaptor) {
+                newAdaptors[num_adaptors] = blitAdaptor;
+                num_adaptors++;
+            }
 	    adaptors = newAdaptors;
-	}
+        }
     }
 
     if (num_adaptors)
@@ -284,8 +328,63 @@ void NVInitVideo (ScreenPtr pScreen)
 }
 
 
+static XF86VideoAdaptorPtr
+NVSetupBlitVideo (ScreenPtr pScreen)
+{
+    ScrnInfoPtr pScrnInfo = xf86Screens[pScreen->myNum];
+    NVPtr       pNv       = NVPTR(pScrnInfo);
+    XF86VideoAdaptorPtr adapt;
+    NVPortPrivPtr       pPriv;
+    int         i;
+
+    if (!(adapt = xcalloc(1, sizeof(XF86VideoAdaptorRec) +
+                             sizeof(NVPortPrivRec) +
+                             (sizeof(DevUnion) * NUM_BLIT_PORTS))))
+    {
+        return NULL;
+    }
+
+    adapt->type                 = XvWindowMask | XvInputMask | XvImageMask;
+    adapt->flags                = 0;
+    adapt->name                 = "NV Video Blitter";
+    adapt->nEncodings           = 1;
+    adapt->pEncodings           = &DummyEncoding;
+    adapt->nFormats             = NUM_FORMATS_ALL;
+    adapt->pFormats             = NVFormats;
+    adapt->nPorts               = NUM_BLIT_PORTS;
+    adapt->pPortPrivates        = (DevUnion*)(&adapt[1]);
+
+    pPriv = (NVPortPrivPtr)(&adapt->pPortPrivates[NUM_BLIT_PORTS]);
+    for(i = 0; i < NUM_BLIT_PORTS; i++)
+       adapt->pPortPrivates[i].ptr = (pointer)(pPriv);
+
+    adapt->pAttributes          = NULL;
+    adapt->nAttributes          = 0;
+    adapt->pImages              = NVImages;
+    adapt->nImages              = NUM_IMAGES_ALL;
+    adapt->PutVideo             = NULL;
+    adapt->PutStill             = NULL;
+    adapt->GetVideo             = NULL;
+    adapt->GetStill             = NULL;
+    adapt->StopVideo            = NVStopBlitVideo;
+    adapt->SetPortAttribute     = NVSetBlitPortAttribute;
+    adapt->GetPortAttribute     = NVGetBlitPortAttribute;
+    adapt->QueryBestSize        = NVQueryBestSize;
+    adapt->PutImage             = NVPutImage;
+    adapt->QueryImageAttributes = NVQueryImageAttributes;
+
+    pPriv->videoStatus          = 0;
+    pPriv->grabbedByV4L         = FALSE;
+    pPriv->blitter              = TRUE;
+    pPriv->doubleBuffer         = FALSE;
+
+    pNv->blitAdaptor            = adapt;
+
+    return adapt;
+}
+
 static XF86VideoAdaptorPtr 
-NVSetupImageVideo (ScreenPtr pScreen)
+NVSetupOverlayVideo (ScreenPtr pScreen)
 {
     ScrnInfoPtr pScrnInfo = xf86Screens[pScreen->myNum];
     NVPtr       pNv       = NVPTR(pScrnInfo);
@@ -313,14 +412,14 @@ NVSetupImageVideo (ScreenPtr pScreen)
     adapt->pAttributes          = NVAttributes;
     adapt->nAttributes          = NUM_ATTRIBUTES;
     adapt->pImages              = NVImages;
-    adapt->nImages              = NUM_IMAGES_ALL;
+    adapt->nImages              = NUM_IMAGES_YUV;
     adapt->PutVideo             = NULL;
     adapt->PutStill             = NULL;
     adapt->GetVideo             = NULL;
     adapt->GetStill             = NULL;
     adapt->StopVideo            = NVStopOverlayVideo;
-    adapt->SetPortAttribute     = NVSetPortAttribute;
-    adapt->GetPortAttribute     = NVGetPortAttribute;
+    adapt->SetPortAttribute     = NVSetOverlayPortAttribute;
+    adapt->GetPortAttribute     = NVGetOverlayPortAttribute;
     adapt->QueryBestSize        = NVQueryBestSize;
     adapt->PutImage             = NVPutImage;
     adapt->QueryImageAttributes = NVQueryImageAttributes;
@@ -328,11 +427,12 @@ NVSetupImageVideo (ScreenPtr pScreen)
     pPriv->videoStatus		= 0;
     pPriv->currentBuffer	= 0;
     pPriv->grabbedByV4L		= FALSE;
+    pPriv->blitter              = FALSE;
 
     NVSetPortDefaults (pScrnInfo, pPriv);
     
     /* gotta uninit this someplace */
-    REGION_INIT(pScreen, &pPriv->clip, NullBox, 0); 
+    REGION_NULL(pScreen, &pPriv->clip);
     
     pNv->overlayAdaptor		= adapt;
     
@@ -349,41 +449,6 @@ NVSetupImageVideo (ScreenPtr pScreen)
     NVResetVideo(pScrnInfo);
 
     return adapt;
-}
-
-/*
- * RegionsEqual
- */
-static Bool RegionsEqual
-(
-    RegionPtr A,
-    RegionPtr B
-)
-{
-    int *dataA, *dataB;
-    int num;
-    
-    num = REGION_NUM_RECTS(A);
-    if (num != REGION_NUM_RECTS(B))
-        return FALSE;
-    
-    if ((A->extents.x1 != B->extents.x1) ||
-        (A->extents.x2 != B->extents.x2) ||
-        (A->extents.y1 != B->extents.y1) ||
-        (A->extents.y2 != B->extents.y2))
-        return FALSE;
-    
-    dataA = (int*)REGION_RECTS(A);
-    dataB = (int*)REGION_RECTS(B);
-    
-    while(num--)
-    {
-        if((dataA[0] != dataB[0]) || (dataA[1] != dataB[1]))
-            return FALSE;
-        dataA += 2; 
-        dataB += 2;
-    }
-    return TRUE;
 }
 
 static void
@@ -408,12 +473,12 @@ NVPutOverlayImage (
 {
     NVPtr          pNv     = NVPTR(pScrnInfo);
     NVPortPrivPtr  pPriv   = GET_OVERLAY_PRIVATE(pNv);
-    RIVA_HW_INST  *pRiva   = &(pNv->riva);
     int buffer = pPriv->currentBuffer;
 
     /* paint the color key */
     if(pPriv->autopaintColorKey && 
-       (pPriv->grabbedByV4L || !RegionsEqual(&pPriv->clip, clipBoxes)))
+       (pPriv->grabbedByV4L ||
+	!REGION_EQUAL(pScrnInfo->pScreen, &pPriv->clip, clipBoxes)))
     {
 	/* we always paint V4L's color key */
 	if(!pPriv->grabbedByV4L)
@@ -421,13 +486,19 @@ NVPutOverlayImage (
         xf86XVFillKeyHelper(pScrnInfo->pScreen, pPriv->colorKey, clipBoxes);
     }
 
-    pRiva->PMC[(0x8900/4) + buffer] = offset;
-    pRiva->PMC[(0x8928/4) + buffer] = (height << 16) | width;
-    pRiva->PMC[(0x8930/4) + buffer] = ((y1 << 4) & 0xffff0000) | (x1 >> 12);
-    pRiva->PMC[(0x8938/4) + buffer] = (src_w << 20) / drw_w;
-    pRiva->PMC[(0x8940/4) + buffer] = (src_h << 20) / drw_h;
-    pRiva->PMC[(0x8948/4) + buffer] = (dstBox->y1 << 16) | dstBox->x1;
-    pRiva->PMC[(0x8950/4) + buffer] = ((dstBox->y2 - dstBox->y1) << 16) |
+    if(pNv->CurrentLayout.mode->Flags & V_DBLSCAN) {
+        dstBox->y1 <<= 1;
+        dstBox->y2 <<= 1;
+        drw_h <<= 1;
+    }
+
+    pNv->PMC[(0x8900/4) + buffer] = offset;
+    pNv->PMC[(0x8928/4) + buffer] = (height << 16) | width;
+    pNv->PMC[(0x8930/4) + buffer] = ((y1 << 4) & 0xffff0000) | (x1 >> 12);
+    pNv->PMC[(0x8938/4) + buffer] = (src_w << 20) / drw_w;
+    pNv->PMC[(0x8940/4) + buffer] = (src_h << 20) / drw_h;
+    pNv->PMC[(0x8948/4) + buffer] = (dstBox->y1 << 16) | dstBox->x1;
+    pNv->PMC[(0x8950/4) + buffer] = ((dstBox->y2 - dstBox->y1) << 16) |
                                	       (dstBox->x2 - dstBox->x1);
 
     dstPitch |= 1 << 20;   /* use color key */
@@ -437,14 +508,104 @@ NVPutOverlayImage (
     if(pPriv->iturbt_709)
         dstPitch |= 1 << 24;
 
-    pRiva->PMC[(0x8958/4) + buffer] = dstPitch;
-    pRiva->PMC[0x00008704/4] = 0;
-    pRiva->PMC[0x8700/4] = 1 << (buffer << 2);
+    pNv->PMC[(0x8958/4) + buffer] = dstPitch;
+    pNv->PMC[0x00008704/4] = 0;
+    pNv->PMC[0x8700/4] = 1 << (buffer << 2);
 
     pPriv->videoStatus = CLIENT_VIDEO_ON;
 }
 
 
+
+static void
+NVPutBlitImage (
+    ScrnInfoPtr pScrnInfo,
+    int         offset,
+    int         id,
+    int         dstPitch,
+    BoxPtr      dstBox,
+    int         x1,
+    int         y1,
+    int         x2,
+    int         y2,
+    short       width,
+    short       height,
+    short       src_w,
+    short       src_h,
+    short       drw_w,
+    short       drw_h,
+    RegionPtr   clipBoxes
+)
+{
+    NVPtr          pNv     = NVPTR(pScrnInfo);
+    NVPortPrivPtr  pPriv   = GET_BLIT_PRIVATE(pNv);
+    BoxPtr         pbox    = REGION_RECTS(clipBoxes);
+    int            nbox    = REGION_NUM_RECTS(clipBoxes);
+    CARD32         dsdx, dtdy, size, point, srcpoint, format;
+
+    dsdx = (src_w << 20) / drw_w;
+    dtdy = (src_h << 20) / drw_h;
+
+    size = ((dstBox->y2 - dstBox->y1) << 16) | (dstBox->x2 - dstBox->x1);
+    point = (dstBox->y1 << 16) | dstBox->x1;
+
+    dstPitch |= (STRETCH_BLIT_SRC_FORMAT_ORIGIN_CENTER << 16) |
+                (STRETCH_BLIT_SRC_FORMAT_FILTER_BILINEAR << 24);
+
+    srcpoint = ((y1 << 4) & 0xffff0000) | (x1 >> 12);
+
+    switch(id) {
+    case FOURCC_RGB:
+        format = STRETCH_BLIT_FORMAT_X8R8G8B8;
+        break;
+    case FOURCC_UYVY:
+        format = STRETCH_BLIT_FORMAT_UYVY;
+        break;
+    default:
+        format = STRETCH_BLIT_FORMAT_YUYV;
+        break;
+    }
+
+    if(pNv->CurrentLayout.depth == 15) {
+        NVDmaStart(pNv, SURFACE_FORMAT, 1);
+        NVDmaNext (pNv, SURFACE_FORMAT_DEPTH15);
+    }
+
+    NVDmaStart(pNv, STRETCH_BLIT_FORMAT, 1);
+    NVDmaNext (pNv, format);
+
+    while(nbox--) {
+       NVDmaStart(pNv, RECT_SOLID_COLOR, 1);
+       NVDmaNext (pNv, 0);
+
+       NVDmaStart(pNv, STRETCH_BLIT_CLIP_POINT, 6);
+       NVDmaNext (pNv, (pbox->y1 << 16) | pbox->x1); 
+       NVDmaNext (pNv, ((pbox->y2 - pbox->y1) << 16) | (pbox->x2 - pbox->x1));
+       NVDmaNext (pNv, point);
+       NVDmaNext (pNv, size);
+       NVDmaNext (pNv, dsdx);
+       NVDmaNext (pNv, dtdy);
+
+       NVDmaStart(pNv, STRETCH_BLIT_SRC_SIZE, 4);
+       NVDmaNext (pNv, (height << 16) | width);
+       NVDmaNext (pNv, dstPitch);
+       NVDmaNext (pNv, offset);
+       NVDmaNext (pNv, srcpoint);
+       pbox++;
+    }
+
+    if(pNv->CurrentLayout.depth == 15) {
+        NVDmaStart(pNv, SURFACE_FORMAT, 1);
+        NVDmaNext (pNv, SURFACE_FORMAT_DEPTH16);
+    }
+
+    NVDmaKickoff(pNv);
+    SET_SYNC_FLAG(pNv->AccelInfoRec);
+
+    pPriv->videoStatus = FREE_TIMER;
+    pPriv->videoTime = currentTime.milliseconds + FREE_DELAY;
+    pNv->VideoTimerCallback = NVVideoTimerCallback;
+}
 
 /*
  * StopVideo
@@ -463,18 +624,13 @@ static void NVStopOverlayVideo
     
     REGION_EMPTY(pScrnInfo->pScreen, &pPriv->clip);   
 
-    if(Exit)
-    {
+    if(Exit) {
 	if(pPriv->videoStatus & CLIENT_VIDEO_ON) 
             NVStopOverlay(pScrnInfo);
 	NVFreeOverlayMemory(pScrnInfo);
 	pPriv->videoStatus = 0;
-	pNv->VideoTimerCallback = NULL;
-    } 
-    else 
-    {
-	if(pPriv->videoStatus & CLIENT_VIDEO_ON) 
-        {
+    } else { 
+	if(pPriv->videoStatus & CLIENT_VIDEO_ON) {
 	    pPriv->videoStatus = OFF_TIMER | CLIENT_VIDEO_ON;
 	    pPriv->videoTime = currentTime.milliseconds + OFF_DELAY; 
 	    pNv->VideoTimerCallback = NVVideoTimerCallback;
@@ -482,9 +638,16 @@ static void NVStopOverlayVideo
     }
 }
 
+static void NVStopBlitVideo
+(
+    ScrnInfoPtr pScrnInfo,
+    pointer     data,
+    Bool        Exit
+)
+{
+}
 
-
-static int NVSetPortAttribute
+static int NVSetOverlayPortAttribute
 (
     ScrnInfoPtr pScrnInfo, 
     Atom        attribute,
@@ -554,9 +717,7 @@ static int NVSetPortAttribute
 }
 
 
-
-
-static int NVGetPortAttribute
+static int NVGetOverlayPortAttribute
 (
     ScrnInfoPtr  pScrnInfo, 
     Atom         attribute,
@@ -588,6 +749,28 @@ static int NVGetPortAttribute
     return Success;
 }
 
+static int NVSetBlitPortAttribute
+(
+    ScrnInfoPtr pScrnInfo,
+    Atom        attribute,
+    INT32       value,
+    pointer     data
+)
+{
+    return BadMatch;
+}
+
+static int NVGetBlitPortAttribute
+(
+    ScrnInfoPtr  pScrnInfo,
+    Atom         attribute,
+    INT32       *value,
+    pointer      data
+)
+{
+    return BadMatch;
+}
+
 
 /*
  * QueryBestSize
@@ -613,30 +796,7 @@ static void NVQueryBestSize
     *p_w = drw_w;
     *p_h = drw_h; 
 }
-/*
- * CopyData
- */
-static void NVCopyData422
-(
-  unsigned char *src,
-  unsigned char *dst,
-  int            srcPitch,
-  int            dstPitch,
-  int            h,
-  int            w
-)
-{
-    w <<= 1;
-    while(h--)
-    {
-        memcpy(dst, src, w);
-        src += srcPitch;
-        dst += dstPitch;
-    }
-}
-/*
- * CopyMungedData
- */
+
 static void NVCopyData420
 (
     unsigned char *src1,
@@ -694,6 +854,83 @@ static void NVCopyData420
         }
    }
 }
+
+
+static void NVMoveDWORDS(
+   CARD32* dest,
+   CARD32* src,
+   int dwords )
+{
+     while(dwords & ~0x03) {
+        *dest = *src;
+        *(dest + 1) = *(src + 1);
+        *(dest + 2) = *(src + 2);
+        *(dest + 3) = *(src + 3);
+        src += 4;
+        dest += 4;
+        dwords -= 4;
+     }
+     if(!dwords) return;
+     *dest = *src;
+     if(dwords == 1) return;
+     *(dest + 1) = *(src + 1);
+     if(dwords == 2) return;
+     *(dest + 2) = *(src + 2);
+}
+
+#if X_BYTE_ORDER == X_BIG_ENDIAN
+static void NVMoveDWORDSSwapped(
+   CARD32* dest,
+   CARD8* src,
+   int dwords )
+{
+     while(dwords--) {
+        *dest++ = (src[3] << 24) | (src[2] << 16) | (src[1] << 8) | src[0];
+        src += 4;
+     }
+}
+#endif
+
+static void NVCopyData422
+(
+  unsigned char *src,
+  unsigned char *dst,
+  int            srcPitch,
+  int            dstPitch,
+  int            h,
+  int            w
+)
+{
+    w >>= 1;  /* pixels to DWORDS */
+    while(h--) {
+        NVMoveDWORDS((CARD32*)dst, (CARD32*)src, w);
+        src += srcPitch;
+        dst += dstPitch;
+    }
+}
+
+static void NVCopyDataRGB
+(
+  unsigned char *src,
+  unsigned char *dst,
+  int            srcPitch,
+  int            dstPitch,
+  int            h,
+  int            w
+)
+{
+    while(h--) {
+#if X_BYTE_ORDER == X_BIG_ENDIAN
+        NVMoveDWORDSSwapped((CARD32*)dst, (CARD8*)src, w);
+#else
+        NVMoveDWORDS((CARD32*)dst, (CARD32*)src, w);
+#endif
+        src += srcPitch;
+        dst += dstPitch;
+    }
+}
+
+
 /*
  * PutImage
  */
@@ -721,9 +958,9 @@ static int NVPutImage
     NVPtr pNv = NVPTR(pScrnInfo);
     INT32 xa, xb, ya, yb;
     unsigned char *dst_start;
-    int pitch, newSize, offset, s2offset, s3offset;
+    int newSize, offset, s2offset, s3offset;
     int srcPitch, srcPitch2, dstPitch;
-    int top, left, npixels, nlines, bpp;
+    int top, left, right, bottom, npixels, nlines, bpp;
     Bool skip = FALSE;
     BoxRec dstBox;
     CARD32 tmp;
@@ -744,10 +981,12 @@ static int NVPutImage
     /* make the compiler happy */
     s2offset = s3offset = srcPitch2 = 0;
     
-    if(src_w > (drw_w << 3))
-	drw_w = src_w >> 3;
-    if(src_h > (drw_h << 3))
-	drw_h = src_h >> 3;
+    if(!pPriv->blitter) {
+       if(src_w > (drw_w << 3))
+          drw_w = src_w >> 3;
+       if(src_h > (drw_h << 3))
+          drw_h = src_h >> 3;
+    }
 
     /* Clip */
     xa = src_x;
@@ -764,15 +1003,14 @@ static int NVPutImage
                               width, height))
     	return Success;
     
-    dstBox.x1 -= pScrnInfo->frameX0;
-    dstBox.x2 -= pScrnInfo->frameX0;
-    dstBox.y1 -= pScrnInfo->frameY0;
-    dstBox.y2 -= pScrnInfo->frameY0;
+    if(!pPriv->blitter) {
+        dstBox.x1 -= pScrnInfo->frameX0;
+        dstBox.x2 -= pScrnInfo->frameX0;
+        dstBox.y1 -= pScrnInfo->frameY0;
+        dstBox.y2 -= pScrnInfo->frameY0;
+    }
 
     bpp = pScrnInfo->bitsPerPixel >> 3;
-    pitch = bpp * pScrnInfo->displayWidth;
-
-    dstPitch = ((width << 1) + 63) & ~63;
 
     switch(id) {
     case FOURCC_YV12:
@@ -781,12 +1019,19 @@ static int NVPutImage
         s2offset = srcPitch * height;
         srcPitch2 = ((width >> 1) + 3) & ~3;
         s3offset = (srcPitch2 * (height >> 1)) + s2offset;
+        dstPitch = ((width << 1) + 63) & ~63;
         break;
     case FOURCC_UYVY:
     case FOURCC_YUY2:
-    default:
-        srcPitch = (width << 1);
+        srcPitch = width << 1;
+        dstPitch = ((width << 1) + 63) & ~63;
         break;
+    case FOURCC_RGB:
+        srcPitch = width << 2;
+        dstPitch = ((width << 2) + 63) & ~63;
+        break;
+    default:
+        return BadImplementation;
     }
 
     newSize = height * dstPitch / bpp;
@@ -803,15 +1048,14 @@ static int NVPutImage
     offset = pPriv->linear->offset * bpp;
 
     if(pPriv->doubleBuffer) {
-        RIVA_HW_INST  *pRiva   = &(pNv->riva);
         int mask = 1 << (pPriv->currentBuffer << 2);
 
 #if 0
         /* burn the CPU until the next buffer is available */
-        while(pRiva->PMC[0x00008700/4] & mask);
+        while(pNv->PMC[0x00008700/4] & mask);
 #else
         /* overwrite the newest buffer if there's not one free */
-        if(pRiva->PMC[0x00008700/4] & mask) {
+        if(pNv->PMC[0x00008700/4] & mask) {
            if(!pPriv->currentBuffer)
               offset += (newSize * bpp) >> 1;
            skip = TRUE;
@@ -823,15 +1067,28 @@ static int NVPutImage
 
     dst_start = pNv->FbStart + offset;
         
-    /* copy data */
-    top = ya >> 16;
-    left = (xa >> 16) & ~1;
-    npixels = ((((xb + 0xffff) >> 16) + 1) & ~1) - left;
+    /* We need to enlarge the copied rectangle by a pixel so the HW 
+       filtering doesn't pick up junk laying outside of the source */
+
+    left = (xa - 0x00010000) >> 16;
+    if(left < 0) left = 0;
+    top = (ya - 0x00010000) >> 16;
+    if(top < 0) top = 0;
+    right = (xb + 0x0001ffff) >> 16;
+    if(right > width) right = width;
+    bottom = (yb + 0x0001ffff) >> 16;
+    if(bottom > height) bottom = height;
+
+    if(pPriv->blitter) NVSync(pScrnInfo);
 
     switch(id) {
     case FOURCC_YV12:
     case FOURCC_I420:
+        left &= ~1;
+        npixels = ((right + 1) & ~1) - left;
         top &= ~1;
+        nlines = ((bottom + 1) & ~1) - top;
+
         dst_start += (left << 1) + (top * dstPitch);
         tmp = ((top >> 1) * srcPitch2) + (left >> 1);
         s2offset += tmp;
@@ -841,27 +1098,50 @@ static int NVPutImage
            s2offset = s3offset;
            s3offset = tmp;
         }
-        nlines = ((((yb + 0xffff) >> 16) + 1) & ~1) - top;
-        NVCopyData420(buf + (top * srcPitch) + left, buf + s2offset,
-                           buf + s3offset, dst_start, srcPitch, srcPitch2,
-                           dstPitch, nlines, npixels);
+        NVCopyData420(buf + (top * srcPitch) + left,
+				buf + s2offset, buf + s3offset,
+				dst_start, srcPitch, srcPitch2,
+				dstPitch, nlines, npixels);
         break;
     case FOURCC_UYVY:
     case FOURCC_YUY2:
-    default:
+        left &= ~1;
+        npixels = ((right + 1) & ~1) - left;
+        nlines = bottom - top;
+        
         left <<= 1;
         buf += (top * srcPitch) + left;
-        nlines = ((yb + 0xffff) >> 16) - top;
         dst_start += left + (top * dstPitch);
+
         NVCopyData422(buf, dst_start, srcPitch, dstPitch, nlines, npixels);
         break;
+    case FOURCC_RGB:
+        npixels = right - left;
+        nlines = bottom - top;
+
+        left <<= 2;
+        buf += (top * srcPitch) + left;
+        dst_start += left + (top * dstPitch);
+
+        NVCopyDataRGB(buf, dst_start, srcPitch, dstPitch, nlines, npixels);
+        break;
+    default:
+        return BadImplementation;
     }
 
     if(!skip) {
-       NVPutOverlayImage(pScrnInfo, offset, id, dstPitch, &dstBox, 
-                         xa, ya, xb, yb,
-                         width, height, src_w, src_h, drw_w, drw_h, clipBoxes);
-       pPriv->currentBuffer ^= 1;
+       if(pPriv->blitter) {
+            NVPutBlitImage(pScrnInfo, offset, id, dstPitch, &dstBox,
+                           xa, ya, xb, yb,
+                           width, height, src_w, src_h, drw_w, drw_h,
+                           clipBoxes);
+       } else {
+            NVPutOverlayImage(pScrnInfo, offset, id, dstPitch, &dstBox, 
+                             xa, ya, xb, yb,
+                             width, height, src_w, src_h, drw_w, drw_h, 
+                             clipBoxes);
+            pPriv->currentBuffer ^= 1;
+       }
     } 
 
     return Success;
@@ -912,11 +1192,19 @@ static int NVQueryImageAttributes
             break;
         case FOURCC_UYVY:
         case FOURCC_YUY2:
-        default:
             size = *w << 1;
             if (pitches)
                 pitches[0] = size;
             size *= *h;
+            break;
+        case FOURCC_RGB:
+            size = *w << 2;
+            if(pitches)
+               pitches[0] = size;
+            size *= *h;
+            break;
+        default:
+            *w = *h = size = 0;
             break;
     }
     return size;
@@ -930,8 +1218,8 @@ static void NVVideoTimerCallback
 {
     NVPtr         pNv = NVPTR(pScrnInfo);
     NVPortPrivPtr pOverPriv = NULL;
-
-    pNv->VideoTimerCallback = NULL;
+    NVPortPrivPtr pBlitPriv = NULL;
+    Bool needCallback = FALSE;
 
     if(!pScrnInfo->vtSema) return; 
 
@@ -941,21 +1229,39 @@ static void NVVideoTimerCallback
 	   pOverPriv = NULL;
     }
 
+    if(pNv->blitAdaptor) {
+        pBlitPriv = GET_BLIT_PRIVATE(pNv);
+        if(!pBlitPriv->videoStatus)
+           pBlitPriv = NULL;
+    }
+   
     if(pOverPriv) {
          if(pOverPriv->videoTime < currentTime) {
 	    if(pOverPriv->videoStatus & OFF_TIMER) {
 		NVStopOverlay(pScrnInfo);
 		pOverPriv->videoStatus = FREE_TIMER;
                 pOverPriv->videoTime = currentTime + FREE_DELAY;
-		pNv->VideoTimerCallback = NVVideoTimerCallback;
+                needCallback = TRUE;
 	    } else
             if(pOverPriv->videoStatus & FREE_TIMER) {
 		NVFreeOverlayMemory(pScrnInfo);
 		pOverPriv->videoStatus = 0;
 	    }	
-	 } else
-	    pNv->VideoTimerCallback = NVVideoTimerCallback;
+	 } else {
+            needCallback = TRUE;
+         }
     }
+
+    if(pBlitPriv) {
+        if(pBlitPriv->videoTime < currentTime) {
+            NVFreeBlitMemory(pScrnInfo);
+            pBlitPriv->videoStatus = 0;              
+        } else {
+            needCallback = TRUE;
+        }
+    }
+
+    pNv->VideoTimerCallback = needCallback ? NVVideoTimerCallback : NULL;
 }
 
 
@@ -973,7 +1279,6 @@ NVAllocSurface (
 {
     NVPtr pNv = NVPTR(pScrnInfo);
     NVPortPrivPtr pPriv = GET_OVERLAY_PRIVATE(pNv); 
-    CARD8 *address;
     int size, bpp;
 
     bpp = pScrnInfo->bitsPerPixel >> 3;
@@ -992,7 +1297,6 @@ NVAllocSurface (
     if(!pPriv->linear) return BadAlloc;
 
     pPriv->offset = pPriv->linear->offset * bpp;
-    address = pPriv->offset + pNv->FbStart;
 
     surface->width = w;
     surface->height = h;
@@ -1006,7 +1310,6 @@ NVAllocSurface (
     NVStopOverlay(pScrnInfo);
     pPriv->videoStatus = 0;
     REGION_EMPTY(pScrnInfo->pScreen, &pPriv->clip);
-    pNv->VideoTimerCallback = NULL;
     pPriv->grabbedByV4L = TRUE;
 
     return Success;
@@ -1049,7 +1352,7 @@ NVGetSurfaceAttribute (
     NVPtr pNv = NVPTR(pScrnInfo);
     NVPortPrivPtr pPriv = GET_OVERLAY_PRIVATE(pNv);
     
-    return NVGetPortAttribute(pScrnInfo, attribute, value, (pointer)pPriv);
+    return NVGetOverlayPortAttribute(pScrnInfo, attribute, value, (pointer)pPriv);
 }
 
 static int
@@ -1062,7 +1365,7 @@ NVSetSurfaceAttribute(
     NVPtr pNv = NVPTR(pScrnInfo);
     NVPortPrivPtr pPriv = GET_OVERLAY_PRIVATE(pNv);
    
-    return NVSetPortAttribute(pScrnInfo, attribute, value, (pointer)pPriv);
+    return NVSetOverlayPortAttribute(pScrnInfo, attribute, value, (pointer)pPriv);
 }
 
 static int
@@ -1154,7 +1457,3 @@ NVInitOffscreenImages (ScreenPtr pScreen)
 {
     xf86XVRegisterOffscreenImages(pScreen, NVOffscreenImages, 2);
 }
-
-#endif
-
-

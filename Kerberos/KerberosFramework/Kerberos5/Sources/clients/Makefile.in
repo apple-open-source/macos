@@ -3,7 +3,7 @@ myfulldir=clients
 mydir=.
 BUILDTOP=$(REL)..
 
-LOCAL_SUBDIRS= klist kinit kdestroy kpasswd ksu kvno
+LOCAL_SUBDIRS= klist kinit kdestroy kpasswd ksu kvno kcpytkt kdeltkt
 
 NO_OUTPRE=1
 all-windows::
@@ -22,6 +22,12 @@ all-windows::
 	@echo Making all in clients\kvno
 	cd ..\kvno
 	$(MAKE) -$(MFLAGS)
+	@echo Making all in clients\kcpytkt
+	cd ..\kcpytkt
+	$(MAKE) -$(MFLAGS)
+	@echo Making all in clients\kdeltkt
+	cd ..\kdeltkt
+	$(MAKE) -$(MFLAGS)
 	cd ..
 
 clean-windows::
@@ -39,5 +45,11 @@ clean-windows::
 	$(MAKE) -$(MFLAGS) clean
 	@echo Making clean in clients\kvno
 	cd ..\kvno
+	$(MAKE) -$(MFLAGS) clean
+	@echo Making clean in clients\kcpytkt
+	cd ..\kcpytkt
+	$(MAKE) -$(MFLAGS) clean
+	@echo Making clean in clients\kdeltkt
+	cd ..\kdeltkt
 	$(MAKE) -$(MFLAGS) clean
 	cd ..

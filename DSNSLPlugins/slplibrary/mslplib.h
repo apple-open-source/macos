@@ -149,7 +149,9 @@ extern TESTEXPORT SLPInternalError process_reply(const char *pcSendBuf,
 			      void *pvCallback, CBType cbCallbackType);
 			    
 /* ------------------------------------------------------- mslplib_prlist.c */
+#ifdef USE_PR_LIST
 extern void prlist_modify(char **ppcList, struct sockaddr_in sin);
+#endif
 extern int recalc_sendBuf(char *pcBuf, int iLen, const char *pcList);
 
 /* ------------------------------------------------------- mslplib_regipc.c */

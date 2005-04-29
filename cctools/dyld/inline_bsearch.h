@@ -103,6 +103,7 @@ bsearch(key, base0, nmemb, size, compar)
 
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
+#include <string.h>
 
 static
 inline

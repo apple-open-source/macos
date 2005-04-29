@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2001, International Business Machines Corporation and
+ * Copyright (c) 1997-2003, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -8,14 +8,11 @@
 #define _INTLTESTNUMBERFORMAT
 
 
-#include <stdlib.h>
-
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/numfmt.h"
-#include "unicode/fmtable.h"
 #include "unicode/locid.h"
 #include "intltest.h"
 
@@ -60,7 +57,7 @@ private:
 
 public:
 
-    virtual ~IntlTestNumberFormat() {}
+    virtual ~IntlTestNumberFormat();
 
     /*
      * Return a random double that isn't too large.

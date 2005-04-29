@@ -1,0 +1,981 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.oscar.BOSConnection</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.protocols.html">Package&nbsp;protocols</a> ::
+        <a href="twisted.protocols.oscar.html">Module&nbsp;oscar</a> ::
+        Class&nbsp;BOSConnection
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.protocols.oscar.BOSConnection.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class BOSConnection</h2>
+
+<pre class="base-tree">
+<a href="twisted.internet.protocol.BaseProtocol.html"><code>BaseProtocol</code></a> --+            
+               |            
+        <a href="twisted.internet.protocol.Protocol.html"><code>Protocol</code></a> --+        
+                   |        
+     <a href="twisted.protocols.oscar.OscarConnection.html"><code>OscarConnection</code></a> --+    
+                       |    
+               <a href="twisted.protocols.oscar.SNACBased.html"><code>SNACBased</code></a> --+
+                           |
+                          <b>BOSConnection</b>
+</pre><br />
+
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__init__"></a><span class="summary-sig"><span class="summary-sig-name">__init__</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>username</span>,
+          <span class=summary-sig-arg>cookie</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbConnectService"></a><span class="summary-sig"><span class="summary-sig-name">_cbConnectService</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>,
+          <span class=summary-sig-arg>d</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbGetAway"></a><span class="summary-sig"><span class="summary-sig-name">_cbGetAway</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbGetChatInfoForInvite"></a><span class="summary-sig"><span class="summary-sig-name">_cbGetChatInfoForInvite</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>info</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbGetInfo"></a><span class="summary-sig"><span class="summary-sig-name">_cbGetInfo</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbInitSSI"></a><span class="summary-sig"><span class="summary-sig-name">_cbInitSSI</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>,
+          <span class=summary-sig-arg>d</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbJoinChat"></a><span class="summary-sig"><span class="summary-sig-name">_cbJoinChat</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>chat</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbRequestSelfInfo"></a><span class="summary-sig"><span class="summary-sig-name">_cbRequestSelfInfo</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>,
+          <span class=summary-sig-arg>d</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbRequestSSI"></a><span class="summary-sig"><span class="summary-sig-name">_cbRequestSSI</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>,
+          <span class=summary-sig-arg>args</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbSendMessageAck"></a><span class="summary-sig"><span class="summary-sig-name">_cbSendMessageAck</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbWarnUser"></a><span class="summary-sig"><span class="summary-sig-name">_cbWarnUser</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#activateSSI" class="summary-sig-name"><code>activateSSI</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+active the data stored on the server (use buddy list, permit deny 
+settings, etc.)</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#addItemSSI" class="summary-sig-name"><code>addItemSSI</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>item</span>,
+          <span class=summary-sig-arg>groupID</span>,
+          <span class=summary-sig-arg>buddyID</span>)</span></code>
+<br />
+add an item to the SSI server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#chatMemberJoined" class="summary-sig-name"><code>chatMemberJoined</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>chat</span>,
+          <span class=summary-sig-arg>member</span>)</span></code>
+<br />
+called when a member joins the chat</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#chatMemberLeft" class="summary-sig-name"><code>chatMemberLeft</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>chat</span>,
+          <span class=summary-sig-arg>member</span>)</span></code>
+<br />
+called when a member leaves the chat</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#chatReceiveMessage" class="summary-sig-name"><code>chatReceiveMessage</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>chat</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+<br />
+called when someone in a chatroom sends us a message in the chat</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#connectService" class="summary-sig-name"><code>connectService</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>service</span>,
+          <span class=summary-sig-arg>wantCallback</span>,
+          <span class=summary-sig-arg>extraData</span>)</span></code>
+<br />
+connect to another service if wantCallback, we return a Deferred that 
+gets called back when the service is online.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#createChat" class="summary-sig-name"><code>createChat</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>shortName</span>)</span></code>
+<br />
+create a chat room</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="delItemSSI"></a><span class="summary-sig"><span class="summary-sig-name">delItemSSI</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>item</span>,
+          <span class=summary-sig-arg>groupID</span>,
+          <span class=summary-sig-arg>buddyID</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="endModifySSI"></a><span class="summary-sig"><span class="summary-sig-name">endModifySSI</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getAway"></a><span class="summary-sig"><span class="summary-sig-name">getAway</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getInfo"></a><span class="summary-sig"><span class="summary-sig-name">getInfo</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#initDone" class="summary-sig-name"><code>initDone</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+called when we get the rate information, which means we should do 
+other init.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#initSSI" class="summary-sig-name"><code>initSSI</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+this sends the rate request for family 0x13 (Server Side Information) 
+so we can then use it</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#joinChat" class="summary-sig-name"><code>joinChat</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>exchange</span>,
+          <span class=summary-sig-arg>fullName</span>,
+          <span class=summary-sig-arg>instance</span>)</span></code>
+<br />
+join a chat room</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="modifyItemSSI"></a><span class="summary-sig"><span class="summary-sig-name">modifyItemSSI</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>item</span>,
+          <span class=summary-sig-arg>groupID</span>,
+          <span class=summary-sig-arg>buddyID</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#offlineBuddy" class="summary-sig-name"><code>offlineBuddy</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>)</span></code>
+<br />
+called when a buddy goes offline</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_01_05" class="summary-sig-name"><code>oscar_01_05</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>,
+          <span class=summary-sig-arg>d</span>)</span></code>
+<br />
+data for a new service connection d might be a deferred to be called 
+back when the service is ready</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_01_07" class="summary-sig-name"><code>oscar_01_07</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+rate paramaters</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_01_10" class="summary-sig-name"><code>oscar_01_10</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+we've been warned</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_01_13" class="summary-sig-name"><code>oscar_01_13</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+MOTD</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_02_03" class="summary-sig-name"><code>oscar_02_03</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+location rights response</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_03_03" class="summary-sig-name"><code>oscar_03_03</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+buddy list rights response</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_03_0B" class="summary-sig-name"><code>oscar_03_0B</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+buddy update</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_03_0C" class="summary-sig-name"><code>oscar_03_0C</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+buddy offline</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_04_05" class="summary-sig-name"><code>oscar_04_05</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+ICBM parms response</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_04_07" class="summary-sig-name"><code>oscar_04_07</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+ICBM message (instant message)</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_09_03" class="summary-sig-name"><code>oscar_09_03</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+BOS rights response</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_0B_02" class="summary-sig-name"><code>oscar_0B_02</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+stats reporting interval</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#oscar_13_03" class="summary-sig-name"><code>oscar_13_03</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+SSI rights response</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="parseUser"></a><span class="summary-sig"><span class="summary-sig-name">parseUser</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>count</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#receiveChatInvite" class="summary-sig-name"><code>receiveChatInvite</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>exchange</span>,
+          <span class=summary-sig-arg>fullName</span>,
+          <span class=summary-sig-arg>instance</span>,
+          <span class=summary-sig-arg>shortName</span>,
+          <span class=summary-sig-arg>inviteTime</span>)</span></code>
+<br />
+called when someone invites us to a chat room</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#receiveMessage" class="summary-sig-name"><code>receiveMessage</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>multiparts</span>,
+          <span class=summary-sig-arg>flags</span>)</span></code>
+<br />
+called when someone sends us a message</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#receiveSendFileRequest" class="summary-sig-name"><code>receiveSendFileRequest</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>file</span>,
+          <span class=summary-sig-arg>description</span>,
+          <span class=summary-sig-arg>cookie</span>)</span></code>
+<br />
+called when someone tries to send a file to us</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#receiveWarning" class="summary-sig-name"><code>receiveWarning</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>newLevel</span>,
+          <span class=summary-sig-arg>user</span>)</span></code>
+<br />
+called when someone warns us.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#requestSelfInfo" class="summary-sig-name"><code>requestSelfInfo</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+ask for the OSCARUser for ourselves</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#requestSSI" class="summary-sig-name"><code>requestSSI</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>timestamp</span>,
+          <span class=summary-sig-arg>revision</span>)</span></code>
+<br />
+request the server side information if the deferred gets None, it 
+means the SSI is the same</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#sendMessage" class="summary-sig-name"><code>sendMessage</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>wantAck</span>,
+          <span class=summary-sig-arg>autoResponse</span>,
+          <span class=summary-sig-arg>offline</span>)</span></code>
+<br />
+send a message to user (not an OSCARUseR).</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#setAway" class="summary-sig-name"><code>setAway</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>away</span>)</span></code>
+<br />
+set the away message, or return (if away == None)</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#setIdleTime" class="summary-sig-name"><code>setIdleTime</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>idleTime</span>)</span></code>
+<br />
+set our idle time.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#setProfile" class="summary-sig-name"><code>setProfile</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>profile</span>)</span></code>
+<br />
+set the profile.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#startModifySSI" class="summary-sig-name"><code>startModifySSI</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+tell the OSCAR server to be on the lookout for SSI modifications</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.BOSConnection.html#updateBuddy" class="summary-sig-name"><code>updateBuddy</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>)</span></code>
+<br />
+called when a buddy changes status, with the OSCARUser for that 
+buddy.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="warnUser"></a><span class="summary-sig"><span class="summary-sig-name">warnUser</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>user</span>,
+          <span class=summary-sig-arg>anon</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from SNACBased</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.SNACBased.html#_ebDeferredError" class="summary-sig-name"><code>_ebDeferredError</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>,
+          <span class=summary-sig-arg>fam</span>,
+          <span class=summary-sig-arg>sub</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.SNACBased.html#clientReady" class="summary-sig-name"><code>clientReady</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+called when the client is ready to be online</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.SNACBased.html#oscar_" class="summary-sig-name"><code>oscar_</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.SNACBased.html#oscar_01_03" class="summary-sig-name"><code>oscar_01_03</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.SNACBased.html#oscar_01_0A" class="summary-sig-name"><code>oscar_01_0A</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+change of rate information.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.SNACBased.html#oscar_01_18" class="summary-sig-name"><code>oscar_01_18</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+<br />
+host versions, in the same format as we sent</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.SNACBased.html#oscar_Data" class="summary-sig-name"><code>oscar_Data</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.SNACBased.html#oscar_unknown" class="summary-sig-name"><code>oscar_unknown</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>snac</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.SNACBased.html#sendSNAC" class="summary-sig-name"><code>sendSNAC</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>fam</span>,
+          <span class=summary-sig-arg>sub</span>,
+          <span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>flags</span>)</span></code>
+<br />
+send a snac and wait for the response by returning a Deferred.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.SNACBased.html#sendSNACnr" class="summary-sig-name"><code>sendSNACnr</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>fam</span>,
+          <span class=summary-sig-arg>sub</span>,
+          <span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>flags</span>)</span></code>
+<br />
+send a snac, but don't bother adding a deferred, we don't care.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from OscarConnection</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.OscarConnection.html#connectionLost" class="summary-sig-name"><code>connectionLost</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.OscarConnection.html#connectionMade" class="summary-sig-name"><code>connectionMade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when a connection is made.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.OscarConnection.html#dataReceived" class="summary-sig-name"><code>dataReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Called whenever data is received.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.OscarConnection.html#disconnect" class="summary-sig-name"><code>disconnect</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+send the disconnect flap, and sever the connection</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.OscarConnection.html#readFlap" class="summary-sig-name"><code>readFlap</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.OscarConnection.html#sendFLAP" class="summary-sig-name"><code>sendFLAP</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>channel</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.OscarConnection.html#sendKeepAlive" class="summary-sig-name"><code>sendKeepAlive</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.OscarConnection.html#setKeepAlive" class="summary-sig-name"><code>setKeepAlive</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>t</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.oscar.OscarConnection.html#stopKeepAlive" class="summary-sig-name"><code>stopKeepAlive</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Protocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Protocol.html#connectionFailed" class="summary-sig-name"><code>connectionFailed</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(Deprecated)</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.BaseProtocol.html#makeConnection" class="summary-sig-name"><code>makeConnection</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>transport</span>)</span></code>
+<br />
+Make a connection to a transport and a server.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.oscar.BOSConnection.html#capabilities"><code>capabilities</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.protocols.oscar.BOSConnection.html#snacFamilies"><code>snacFamilies</code></a></b> = <span title="{1: (3, 272, 1435), 2: (1, 272, 1435), 3: (1, 272, 1435), 4: (1, 272, 1435), 6: (1, 272, 1435), 8: (1, 260, 1), 9: (1, 272, 1435), 10: (1, 272, 1435), 11: (1, 260, 1), 12: (1, 260, 1), 19: (3, 272, 1435)}"><code>{1:&nbsp;(3,&nbsp;272,&nbsp;1435),&nbsp;2:&nbsp;(1,&nbsp;272,&nbsp;1435),&nbsp;3:<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Protocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.internet.protocol.Protocol.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class twisted.internet.interfaces.IProtocol at 0x8278f0c&gt;,)"><code>(&lt;class&nbsp;twisted.internet.interfaces.IPr<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#connected"><code>connected</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#transport"><code>transport</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="activateSSI"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">activateSSI</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  active the data stored on the server (use buddy list, permit deny 
+  settings, etc.)
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="addItemSSI"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">addItemSSI</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>item</span>,
+          <span class=sig-arg>groupID</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>buddyID</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  add an item to the SSI server. if buddyID == 0, then this should be 
+  a group. this gets a callback when it's finished, but you can probably 
+  ignore it.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="chatMemberJoined"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">chatMemberJoined</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>chat</span>,
+          <span class=sig-arg>member</span>)</span>
+  </h3>
+  called when a member joins the chat
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="chatMemberLeft"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">chatMemberLeft</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>chat</span>,
+          <span class=sig-arg>member</span>)</span>
+  </h3>
+  called when a member leaves the chat
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="chatReceiveMessage"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">chatReceiveMessage</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>chat</span>,
+          <span class=sig-arg>user</span>,
+          <span class=sig-arg>message</span>)</span>
+  </h3>
+  called when someone in a chatroom sends us a message in the chat
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="connectService"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">connectService</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>service</span>,
+          <span class=sig-arg>wantCallback</span>=<span class=sig-default>0</span>,
+          <span class=sig-arg>extraData</span>=<span class=sig-default>''</span>)</span>
+  </h3>
+  connect to another service if wantCallback, we return a Deferred 
+  that gets called back when the service is online. if extraData, append 
+  that to our request.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="createChat"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">createChat</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>shortName</span>)</span>
+  </h3>
+  create a chat room
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="initDone"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">initDone</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  called when we get the rate information, which means we should do 
+  other init. stuff.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="initSSI"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">initSSI</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  this sends the rate request for family 0x13 (Server Side 
+  Information) so we can then use it
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="joinChat"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">joinChat</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>exchange</span>,
+          <span class=sig-arg>fullName</span>,
+          <span class=sig-arg>instance</span>)</span>
+  </h3>
+  join a chat room
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="offlineBuddy"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">offlineBuddy</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>user</span>)</span>
+  </h3>
+  called when a buddy goes offline
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_01_05"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_01_05</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>,
+          <span class=sig-arg>d</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  data for a new service connection d might be a deferred to be called 
+  back when the service is ready
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_01_07"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_01_07</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  rate paramaters
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_01_10"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_01_10</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  we've been warned
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_01_13"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_01_13</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  MOTD
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_02_03"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_02_03</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  location rights response
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_03_03"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_03_03</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  buddy list rights response
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_03_0B"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_03_0B</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  buddy update
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_03_0C"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_03_0C</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  buddy offline
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_04_05"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_04_05</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  ICBM parms response
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_04_07"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_04_07</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  ICBM message (instant message)
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_09_03"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_09_03</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  BOS rights response
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_0B_02"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_0B_02</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  stats reporting interval
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="oscar_13_03"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">oscar_13_03</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>snac</span>)</span>
+  </h3>
+  SSI rights response
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="receiveChatInvite"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">receiveChatInvite</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>user</span>,
+          <span class=sig-arg>message</span>,
+          <span class=sig-arg>exchange</span>,
+          <span class=sig-arg>fullName</span>,
+          <span class=sig-arg>instance</span>,
+          <span class=sig-arg>shortName</span>,
+          <span class=sig-arg>inviteTime</span>)</span>
+  </h3>
+  called when someone invites us to a chat room
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="receiveMessage"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">receiveMessage</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>user</span>,
+          <span class=sig-arg>multiparts</span>,
+          <span class=sig-arg>flags</span>)</span>
+  </h3>
+  called when someone sends us a message
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="receiveSendFileRequest"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">receiveSendFileRequest</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>user</span>,
+          <span class=sig-arg>file</span>,
+          <span class=sig-arg>description</span>,
+          <span class=sig-arg>cookie</span>)</span>
+  </h3>
+  called when someone tries to send a file to us
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="receiveWarning"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">receiveWarning</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>newLevel</span>,
+          <span class=sig-arg>user</span>)</span>
+  </h3>
+  called when someone warns us. user is either None (if it was 
+  anonymous) or an OSCARUser
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="requestSelfInfo"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">requestSelfInfo</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  ask for the OSCARUser for ourselves
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="requestSSI"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">requestSSI</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>timestamp</span>=<span class=sig-default>0</span>,
+          <span class=sig-arg>revision</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  request the server side information if the deferred gets None, it 
+  means the SSI is the same
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendMessage"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendMessage</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>user</span>,
+          <span class=sig-arg>message</span>,
+          <span class=sig-arg>wantAck</span>=<span class=sig-default>0</span>,
+          <span class=sig-arg>autoResponse</span>=<span class=sig-default>0</span>,
+          <span class=sig-arg>offline</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  send a message to user (not an OSCARUseR). message can be a string, 
+  or a multipart tuple. if wantAck, we return a Deferred that gets a 
+  callback when the message is sent. if autoResponse, this message is an 
+  autoResponse, as if from an away message. if offline, this is an 
+  offline message (ICQ only, I think)
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="setAway"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">setAway</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>away</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  set the away message, or return (if away == None)
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="setIdleTime"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">setIdleTime</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>idleTime</span>)</span>
+  </h3>
+  set our idle time. don't call more than once with a non-0 idle 
+  time.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="setProfile"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">setProfile</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>profile</span>)</span>
+  </h3>
+  set the profile. send None to not set a profile (different from '' 
+  for a blank one)
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="startModifySSI"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">startModifySSI</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  tell the OSCAR server to be on the lookout for SSI modifications
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="updateBuddy"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">updateBuddy</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>user</span>)</span>
+  </h3>
+  called when a buddy changes status, with the OSCARUser for that 
+  buddy.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="capabilities"></a>
+<h3>capabilities</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="snacFamilies"></a>
+<h3>snacFamilies</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{1: (3, 272, 1435), 2: (1, 272, 1435), 3: (1, 272, 1435), 4: (1, 272, 1435), 6: (1, 272, 1435), 8: (1, 260, 1), 9: (1, 272, 1435), 10: (1, 272, 1435), 11: (1, 260, 1), 12: (1, 260, 1), 19: (3, 272, 1435)}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{1: (3, 272, 1435),
+ 2: (1, 272, 1435),
+ 3: (1, 272, 1435),
+ 4: (1, 272, 1435),
+ 6: (1, 272, 1435),
+ 8: (1, 260, 1),
+ 9: (1, 272, 1435),
+ 10: (1, 272, 1435),
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:11 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

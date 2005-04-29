@@ -688,8 +688,7 @@ valid until the next call to @code{strerrno}.
 
 */
 
-/* APPLE LOCAL remove const qualifier */
-/* const */ char *
+const char *
 strerrno (errnoval)
   int errnoval;
 {
@@ -739,8 +738,7 @@ to an errno value.  If no translation is found, returns 0.
 
 int
 strtoerrno (name)
-     /* APPLE LOCAL remove const qualifier */
-     /*const*/ char *name;
+     const char *name;
 {
   int errnoval = 0;
 

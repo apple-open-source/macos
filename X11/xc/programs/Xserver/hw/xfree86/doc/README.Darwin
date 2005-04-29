@@ -1,8 +1,8 @@
                        XFree86 on Darwin and Mac OS X
 
-                     Torrey T. Lyons, <torrey@mrcla.com>
+                               Torrey T. Lyons
 
-                              12 December 2001
+                              15 December 2003
 
 1.  Introduction
 
@@ -66,11 +66,12 @@ Developers' Tools.
 
 If you don't feel the need to live on the cutting edge, you can save some
 time and effort by using the precompiled binaries available on the XFree86
-FTP server at <URL:ftp://ftp.xfree86.org/pub/XFree86/4.3.0/binaries/>.  Fol-
+FTP server at <URL:ftp://ftp.xfree86.org/pub/XFree86/4.4.0/binaries/>.  Fol-
 low the instructions in the Install document to install it. This will create
-two new directory trees, /usr/X11R6 and /etc/X11 For Mac OS X Quartz support,
-download the optional Xquartz.tgz tarball. With Quartz support, the XDarwin
-application will be installed in /Applications.
+three new directory trees, /usr/X11R6, /etc/X11 and /etc/fonts. On Mac OS X
+the Xquartz.tgz tarball is required in addition to the other tarballs
+required on other platforms. With Mac OS X Quartz support, the XDarwin appli-
+cation will be installed in /Applications.
 
 If you get the precompiled binaries you can skip ahead to the section on run-
 ning the X Window System (section 4., page 1) On the other hand, if you want
@@ -114,11 +115,16 @@ the command line:
 
 4.  Run the X Window System
 
+4.1  Setting Your Path
+
 You need to add the X Window System executables to your path. Your path is
 the list of directories to be searched for executable commands.  The X11 com-
-mands are located in /usr/X11R6/bin, which needs to be added to your path.
-XDarwin does this for you by default and can also add additional directories
-where you have installed command line applications.
+mands are located in /usr/X11R6/bin, which needs to be added to your path. In
+Quartz mode, the XDarwin application does this for you automatically. It can
+also be configured to add additional directories where you have installed
+command line applications. When running from the Darwin console, you will
+need to set the path correctly for your shell as XDarwin will not do this for
+you.
 
 More experienced users will have already set their path correctly using the
 initialization files for their shell. In this case, you can inform XDarwin
@@ -132,25 +138,23 @@ of pages to be searched when you are looking for documentation. The X11 man
 pages are located in /usr/X11R6/man and the MANPATH environment variable con-
 tains the list of directories to search.
 
+4.2  Starting the X Server
+
 On Mac OS X, you can run XFree86 from the Darwin text console or in parallel
 with Aqua. To get to the text console in Mac OS X you need to logout and type
 ``>console'' as the user name. This will shutdown Core Graphics and bring up
-the console login prompt. Login again as your user.
-
-From the text console you can start the X Window System by typing ``exec
-startx''. After a brief wait at least one terminal window should pop up for
-you. So far it probably isn't very impressive as you might not even have a
-window manager running to allow you to move windows around.
+the console login prompt. Login again as your user.  From the text console
+you can start the X Window System by typing ``exec startx''.
 
 When you are ready to quit XFree86 type ``exit'' in the main terminal window
-or quit with the window manager if you have one running. Unfortunately the X
-server does not shutdown correctly and if you did not start with ``exec
-startx'', you will get an apparently frozen screen with only a spinning
-beachball cursor on it. Nothing you type shows up on the screen, but in fact
-your keystrokes are being received by the console. Type ``logout'' to return
-to normalcy after a brief delay. With Darwin, this should put you back at the
-text console login prompt. With Mac OS X, Core Graphics will restart and you
-should be given a login window.
+or quit with the window manager if you have one running. Unfortunately in
+IOKit mode, the X server does not shutdown correctly and if you did not start
+with ``exec startx'', you will get an apparently frozen screen with only a
+spinning beachball cursor on it. Nothing you type shows up on the screen, but
+in fact your keystrokes are being received by the console. Type ``logout'' to
+return to normalcy after a brief delay. With Darwin, this should put you back
+at the text console login prompt. With Mac OS X, Core Graphics will restart
+and you should be given a login window.
 
 To start XFree86 in Quartz mode you can launch the XDarwin application in the
 /Applications folder, or from the command line type ``startx -- -quartz''. By
@@ -159,7 +163,28 @@ rootless mode. You can change the default to always use a particular mode in
 the preferences, or you can specify the ``-fullscreen'' or ``-rootless''
 options on the command line instead of ``-quartz''.
 
-Customize the X Window System
+4.3  Double-clickable X11 Executables
+
+Mac OS X 10.3 can be configured to automatically launch XDarwin when you dou-
+ble-click an X11 executable in the Finder. When an executable file is double-
+clicked Launch Services checks to see if it is linked against the X11
+libraries. If it is, Launch Services opens the default X server.  To set the
+default X server, do the following:
+
+   o Create a simple file which ends in ''.x11app''.
+
+   o Open the file with Get Info in the Finder.
+
+   o Under ''Open with:'' select the XDarwin application.
+
+   o Select ''Change All...'' to set XDarwin as the default.
+
+On Mac OS X 10.3 the default X server is started when an X11 executable is
+double-clicked, whether or not its extension is ''.x11app''. On previous ver-
+sions of Mac OS X, an X11 executable must have a ''.x11app'' extension for
+this to work.
+
+4.4  Customize the X Window System
 
 The X Window System is very customizable and you will certainly want to
 change some things. There is a lot you can do to control how your windows
@@ -173,18 +198,17 @@ There are many window managers that have been ported to Darwin. The following
 pages contain collections of window managers and other X window system
 clients:
 
+   o  DarwinPorts: An easy way to install various open-source software prod-
+     ucts on Darwin and Mac OS X.
+
    o  Fink: A package manager that will easily download, compile, and install
      lots of open source software from the Internet.
 
    o  GNU-Darwin: A source for tons of software ported to Darwin.
 
-   o  Stepwise's Softrak site
-
-   o  Darwinfo's ports page
-
 Good luck!
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Darwin.sgml,v 1.9 2001/12/13 07:09:05 torrey Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Darwin.sgml,v 1.10 torrey Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.Darwin,v 1.13 2003/02/24 04:03:21 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.Darwin,v 1.20 2004/02/24 03:49:41 dawes Exp $

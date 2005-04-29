@@ -10,6 +10,8 @@
 	<integer>3</integer>
 	<key>DHCPAllocateLinkLocalAtRetryCount</key>
 	<integer>2</integer>
+	<key>DHCPRouterARPAtRetryCount</key>
+	<integer>6</integer>
 	<key>DHCPFailureConfiguresLinkLocal</key>
 	<true/>
 	<key>DHCPSuccessDeconfiguresLinkLocal</key>
@@ -43,6 +45,8 @@
 	<integer>1</integer>
 	<key>ARPRetryTimeSeconds</key>
 	<real>0.3</real>
+	<key>RouterARPEnabled</key>
+	<true/>
 	<key>MustBroadcast</key>
 	<false/>
 	<key>Verbose</key>

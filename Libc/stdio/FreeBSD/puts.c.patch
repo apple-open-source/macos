@@ -1,8 +1,8 @@
---- puts.c.orig	Tue May 20 15:22:43 2003
-+++ puts.c	Thu Jul 31 13:21:00 2003
-@@ -47,6 +47,9 @@
- #include "fvwrite.h"
+--- /Volumes/XDisk/tmp/Libc/stdio/FreeBSD/puts.c.orig	2004-03-10 01:15:38.000000000 -0800
++++ /Volumes/XDisk/tmp/Libc/stdio/FreeBSD/puts.c	2004-10-24 17:08:31.000000000 -0700
+@@ -48,6 +48,9 @@
  #include "libc_private.h"
+ #include "local.h"
  
 +// 3340719: __puts_null__ is used if string is NULL.  Shared by fputs.c
 +__private_extern__ char const __puts_null__[] = "(null)";
@@ -10,7 +10,7 @@
  /*
   * Write the given string to stdout, appending a newline.
   */
-@@ -55,12 +58,15 @@
+@@ -56,12 +59,15 @@
  	char const *s;
  {
  	int retval;

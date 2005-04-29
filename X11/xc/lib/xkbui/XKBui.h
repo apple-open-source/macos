@@ -26,6 +26,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
+/* $XFree86: xc/lib/xkbui/XKBui.h,v 3.1 2003/11/17 22:20:25 dawes Exp $ */
 
 #include <X11/Xlib.h>
 #include <X11/XKBlib.h>
@@ -113,103 +114,79 @@ typedef struct _XkbUI_Select {
 _XFUNCPROTOBEGIN
 
 extern	XkbUI_ViewPtr XkbUI_SimpleInit(
-#if NeedFunctionPrototypes
 	Display *		/* dpy */,
 	Window			/* win */,
 	int			/* width */,
 	int			/* height */
-#endif
 );
 
 extern	XkbUI_ViewPtr XkbUI_Init(
-#if NeedFunctionPrototypes
 	Display *		/* dpy */,
 	Window			/* win */,
 	int			/* width */,
 	int			/* height */,
 	XkbDescPtr		/* xkb */,
 	XkbUI_ViewOptsPtr	/* view */
-#endif
 );
 
 extern Status XkbUI_SetViewOpts(
-#if NeedFunctionPrototypes
 	XkbUI_ViewPtr		/* view */,
 	XkbUI_ViewOptsPtr	/* opts */
-#endif
 );
 
 extern Status XbUI_GetViewOpts(
-#if NeedFunctionPrototypes
 	XkbUI_ViewPtr		/* view */,
 	XkbUI_ViewOptsPtr	/* opts_rtrn */
-#endif
 );
 
 extern	Status XkbUI_SetCanvasSize(
-#if NeedFunctionPrototypes
 	XkbUI_ViewPtr		/* view */,
 	int			/* width */,
 	int			/* height */
-#endif
 );
 
 extern	Status XkbUI_GetCanvasSize(
-#if NeedFunctionPrototypes
 	XkbUI_ViewPtr		/* view */,
 	int *			/* width_rtrn */,
 	int *			/* height_rtrn */
-#endif
 );
 
 extern Bool XkbUI_SetKeyAppearance(
-#if NeedFunctionPrototypes
 	XkbUI_ViewPtr		/* view */,
 	KeyCode			/* kc */,
 	unsigned		/* flags */
-#endif
 );
 
 extern Bool XkbUI_SetKeyAppearanceByName(
-#if NeedFunctionPrototypes
 	XkbUI_ViewPtr		/* view */,
 	XkbKeyNamePtr		/* name */,
 	unsigned		/* flags */
-#endif
 );
 
 extern Bool XkbUI_ResetKeyAppearance(
-#if NeedFunctionPrototypes
 	XkbUI_ViewPtr		/* view */,
 	unsigned int		/* mask */,
 	unsigned int		/* values */
-#endif
 );
 
 extern Bool XkbUI_DrawRegion(
-#if NeedFunctionPrototypes
 	XkbUI_ViewPtr		/* view */,
 	XRectangle *		/* viewport */
-#endif
 );
 
 extern Bool XkbUI_DrawChanged(
-#if NeedFunctionPrototypes
 	XkbUI_ViewPtr		/* view */,
 	XRectangle *		/* viewport */,
 	XkbChangesPtr		/* changes */,
 	int			/* num_keys */,
 	XkbKeyNamePtr		/* keys */
-#endif
 );
 
 extern Bool XkbUI_Select(
-#if NeedFunctionPrototypes
 	XkbUI_ViewPtr		/* view */,
 	XPoint *		/* coord */,
 	unsigned int		/* which */,
 	XkbSectionPtr		/* section */
-#endif
 );
 
 _XFUNCPROTOEND

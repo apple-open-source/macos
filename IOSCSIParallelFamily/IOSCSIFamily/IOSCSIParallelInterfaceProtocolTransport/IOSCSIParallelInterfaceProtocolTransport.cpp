@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,15 +21,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * Copyright (c) 2000-2001 Apple Computer, Inc.  All rights reserved.
- *
- * HISTORY
- *
- *		12.21.2000	CJS  Started SCSI Parallel Interface Transport Layer
- *
- */
 
+#include <libkern/c++/OSNumber.h>
+#include <libkern/c++/OSDictionary.h>
+#include <libkern/c++/OSString.h>
 #include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOWorkLoop.h>
@@ -705,15 +700,12 @@ IOSCSIParallelInterfaceProtocolTransport::InspectDevice ( IOSCSIDevice * scsiDev
 	obj = getProperty ( kIOPropertyProtocolCharacteristicsKey );
 	if ( obj == NULL )
 	{
-		
 		dict = OSDictionary::withCapacity ( 3 );
-		created = true;
-		
 	}
 	
 	else
 	{
-		dict = OSDynamicCast ( OSDictionary, obj );
+		dict = OSDictionary::withDictionary ( obj );
 	}
 	
 	if ( dict != NULL )
@@ -741,14 +733,9 @@ IOSCSIParallelInterfaceProtocolTransport::InspectDevice ( IOSCSIDevice * scsiDev
 			dict->setObject ( kIOPropertySCSILogicalUnitNumberKey, LUN );
 		}
 		
-	}
-	
-	if ( created == true )
-	{
-		
 		setProperty ( kIOPropertyProtocolCharacteristicsKey, dict );
 		dict->release ( );
-		created = false;
+		dict = NULL;
 		
 	}
 	

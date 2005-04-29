@@ -31,11 +31,14 @@
 Notice===
 
  */
+/* $XFree86: xc/extras/X-TrueType/ARABIC/main.c,v 1.3 2003/10/22 16:25:24 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"
@@ -49,7 +52,10 @@ typedef enum
     MULEARABIC1,
     MULEARABIC2,
     CP1256,
-    XATERM /* "extended" font used by xaterm */
+    XATERM, /* "extended" font used by xaterm */
+    ISIRI_3342,
+    IRANSYSTEM,
+    URDUNAQSH
 } CharSetMagic;
 
 static CharSetRelation const charSetRelations[] = {
@@ -63,6 +69,12 @@ static CharSetRelation const charSetRelations[] = {
 		      CP1256, { 0x00, 0xff,    0,    0, 0x20 } },
     { "xaterm",      NULL, "fontspecific",
 		      XATERM, { 0x00, 0xff, 0x00, 0x01, 0x20 } },
+    { "isiri",       NULL, "3342",
+		  ISIRI_3342, { 0x00, 0xff, 0x00, 0x01, 0x20 } },
+    { "iransystem",  NULL, "0",
+		  IRANSYSTEM, { 0x00, 0xff, 0x00, 0x01, 0x20 } },
+    { "urdunaqsh",   NULL, "0",
+		   URDUNAQSH, { 0x00, 0xff, 0x00, 0x01, 0x20 } },
     { NULL, NULL, NULL, 0, { 0, 0, 0, 0, 0 } }
 };
 
@@ -73,6 +85,9 @@ CODECONV_TEMPLATE(cc_mulearabic2_to_ucs2);
 CODECONV_TEMPLATE(cc_cp1256_to_ucs2);
 CODECONV_TEMPLATE(cc_xaterm_to_ucs2);
 CODECONV_TEMPLATE(cc_xaterm_tophalf_to_ucs2);
+CODECONV_TEMPLATE(cc_isiri_3342_to_ucs2);
+CODECONV_TEMPLATE(cc_iransystem_to_ucs2);
+CODECONV_TEMPLATE(cc_urdunaqsh_to_ucs2);
 static MapIDRelation const mapIDRelations[] = {
     { MULEARABIC0,    EPlfmISO,     EEncISO10646,
 				cc_mulearabic0_to_ucs2,		NULL },
@@ -104,6 +119,24 @@ static MapIDRelation const mapIDRelations[] = {
                                 cc_xaterm_to_ucs2,              NULL },
     { XATERM,         EPlfmMS,      EEncMSUnicode,
                                 cc_xaterm_to_ucs2,              NULL },
+    { ISIRI_3342,     EPlfmISO,     EEncISO10646,
+                                cc_isiri_3342_to_ucs2,          NULL },
+    { ISIRI_3342,     EPlfmUnicode, EEncAny,
+                                cc_isiri_3342_to_ucs2,          NULL },
+    { ISIRI_3342,     EPlfmMS,      EEncMSUnicode,
+                                cc_isiri_3342_to_ucs2,          NULL },
+    { IRANSYSTEM,     EPlfmISO,     EEncISO10646,
+                                cc_iransystem_to_ucs2,          NULL },
+    { IRANSYSTEM,     EPlfmUnicode, EEncAny,
+                                cc_iransystem_to_ucs2,          NULL },
+    { IRANSYSTEM,     EPlfmMS,      EEncMSUnicode,
+                                cc_iransystem_to_ucs2,          NULL },
+    { URDUNAQSH,      EPlfmISO,     EEncISO10646,
+                                cc_urdunaqsh_to_ucs2,           NULL },
+    { URDUNAQSH,      EPlfmUnicode, EEncAny,
+                                cc_urdunaqsh_to_ucs2,           NULL },
+    { URDUNAQSH,      EPlfmMS,      EEncMSUnicode,
+                                cc_urdunaqsh_to_ucs2,           NULL },
     { -1, 0, 0, NULL, NULL }
 };
 

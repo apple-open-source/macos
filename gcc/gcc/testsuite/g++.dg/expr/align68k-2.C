@@ -3,6 +3,11 @@
 // Origin: Matt Austern <austern@apple.com>
 // { dg-do run }
 
+#ifdef __LP64__
+/* mac68k align not going to be supported for 64-bit, so skip entirely.  */
+int main () { return 0; }
+#else
+
 #pragma options align=mac68k
 
 typedef struct PMR {
@@ -36,3 +41,5 @@ int main(void)
 
   return !ok;
 }
+
+#endif /* __LP64__ */

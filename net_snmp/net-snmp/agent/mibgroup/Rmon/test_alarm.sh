@@ -2,9 +2,6 @@
 
 # Rmon Alarms/Events testing script
 # $Log: test_alarm.sh,v $
-# Revision 1.1.1.1  2003/05/29 00:03:06  rbraun
-# Import of net-snmp 5.0.8
-#
 # Revision 5.0  2002/04/20 07:30:01  hardaker
 # cvs file version number change
 #

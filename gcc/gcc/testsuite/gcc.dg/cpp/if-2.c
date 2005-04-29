@@ -18,7 +18,7 @@
 #endif
 
 #if 'abcd' /* { dg-warning "multi-character character constant" "multi-character charconst" } */
-# /* APPLE LOCAL enable the warning with the -Wfour-char-constants flag */
+# /* APPLE LOCAL -Wfour-char-constants */
 # /* { dg-options "-Wfour-char-constants" { target *-apple-darwin* } } */
 #endif
 

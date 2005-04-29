@@ -24,7 +24,7 @@
 //other dealings in this Software without prior written authorization
 //from The Open Group.
 //
-// $XFree86: xc/programs/xkbcomp/geometry/sun,v 1.6 2001/12/14 20:01:58 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/geometry/sun,v 1.7 2003/08/09 14:30:47 pascal Exp $
 //
 xkb_geometry "type4" {
 
@@ -144,10 +144,10 @@ xkb_geometry "type4" {
     indicator.offColor= "green30";
     indicator.top= 43;
     indicator.shape= "LED";
-    indicator "CapsLock"	{ left= 364; };
-    indicator "Compose"	{ left= 383; };
-    indicator "ScrollLock"	{ left= 402; };
-    indicator "NumLock"	{ left= 421; };
+    indicator "Caps Lock"	{ left= 364; };
+    indicator "Compose"		{ left= 383; };
+    indicator "Scroll Lock"	{ left= 402; };
+    indicator "Num Lock"	{ left= 421; };
     text.top= 34;
     text.color= "black";
     text "CapsLockLabel"	{ left= 364; text="Caps\nLock"; };
@@ -871,9 +871,9 @@ xkb_geometry "type5_se" {
     indicator.offColor= "green30";
     indicator.shape= "LED";
     indicator "Caps Lock" { left= 75; top= 103; priority= 5; };
-    indicator "Compose" { left= 314; top= 142; priority= 5; };
+    indicator "Compose"	  { left= 314; top= 142; priority= 5; };
     indicator "Scroll Lock" { left= 378; top= 29; };
-    indicator "Num Lock" { left= 426; top= 66; };
+    indicator "Num Lock"  { left= 426; top= 66; };
 };
 
 xkb_geometry "type5c_se" {
@@ -1157,10 +1157,10 @@ xkb_geometry "type5c_se" {
     indicator.onColor= "green";
     indicator.offColor= "green30";
     indicator.shape= "LED";
-    indicator "Caps Lock" { left= 75; top= 103; priority= 5; };
-    indicator "Compose" { left= 314; top= 142; priority= 5; };
+    indicator "Caps Lock"   { left= 75; top= 103; priority= 5; };
+    indicator "Compose"     { left= 314; top= 142; priority= 5; };
     indicator "Scroll Lock" { left= 378; top= 29; };
-    indicator "Num Lock" { left= 426; top= 66; };
+    indicator "Num Lock"    { left= 426; top= 66; };
 };
 
 xkb_geometry "type4_se" {
@@ -1325,10 +1325,10 @@ xkb_geometry "type4_se" {
     indicator.offColor= "green30";
     indicator.top= 43;
     indicator.shape= "LED";
-    indicator "CapsLock"	{ left= 364; };
-    indicator "Compose"	{ left= 383; };
-    indicator "ScrollLock"	{ left= 402; };
-    indicator "NumLock"	{ left= 421; };
+    indicator "Caps Lock"	{ left= 364; };
+    indicator "Compose"		{ left= 383; };
+    indicator "Scroll Lock"	{ left= 402; };
+    indicator "Num Lock"	{ left= 421; };
     text.top= 32;
     text.color= "black";
     text "CapsLockLabel"	{ left= 364; text="Caps\nLock"; };

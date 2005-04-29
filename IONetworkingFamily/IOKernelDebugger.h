@@ -71,7 +71,7 @@ typedef enum {
     kIODebuggerLockTaken = 0x1
 } IODebuggerLockState;
 
-/*! class IOKernelDebugger : public IOService
+/*! @class IOKernelDebugger
     @abstract Kernel debugger nub.
     @discussion This object interfaces with the KDP
     (kernel debugger protocol) module and dispatches KDP requests to its
@@ -118,14 +118,15 @@ protected:
 
 /*! @function kdpReceiveDispatcher
     @abstract The KDP receive dispatch function.
-    @discussion Field KDP receive requests, then dispatches the call to the
+    @discussion Field KDP receives requests, then dispatches the call to the
     registered receiver handler.
     @param buffer KDP receive buffer. The buffer allocated by KDP has room
            for 1518 bytes. The receive handler must not overflow this buffer.
     @param length The amount of data received and placed into the buffer.
            Set to 0 if a frame was not received during the poll interval.
     @param timeout The amount of time to poll in milliseconds while waiting
-           for a frame to arrive. */
+           for a frame to arrive. 
+*/
 
     static void kdpReceiveDispatcher(void *   buffer,
                                      UInt32 * length,
@@ -137,12 +138,13 @@ protected:
     registered transmit handler.
     @param buffer KDP transmit buffer. This buffer contains a KDP frame to
            be sent on the network.
-    @param length The number of bytes in the transmit buffer. */
+    @param length The number of bytes in the transmit buffer. 
+*/
 
     static void kdpTransmitDispatcher(void * buffer, UInt32 length);
 
 /*! @function free
-    @abstract Free the IOKernelDebugger instance. */
+    @abstract Frees the IOKernelDebugger instance. */
 
     virtual void free();
 
@@ -152,7 +154,8 @@ protected:
     IOKernelDebugger object surrenders its status as the active debugger nub.
     Until another IOKernelDebugger object gets promoted, this function will
     handle polled transmit requests from KDP. This function does nothing
-    useful. */
+    useful. 
+*/
 
     static void nullTxHandler( IOService * target,
                                void *      buffer,
@@ -164,7 +167,8 @@ protected:
     IOKernelDebugger object surrenders its status as the active debugger nub.
     Until another IOKernelDebugger object gets promoted, this function will
     handle polled receive requests from KDP. This function does nothing
-    except to log a warning message. */
+    except to log a warning message. 
+*/
 
     static void nullRxHandler( IOService * target,
                                void *      buffer,
@@ -172,86 +176,92 @@ protected:
                                UInt32      timeout );
 
 /*! @function registerHandler
-    @abstract Register the target and the handler functions.
+    @abstract Registers the target and the handler functions.
     @discussion This method is called by handleOpen() and handleClose()
     to register or unregister the target and its handler functions.
     @param target The target object.
     @param txHandler The transmit handler function. The null handler is
     registered if the argument is zero.
     @param rxHandler The receive handler function. The null handler is
-    registered if the argument is zero. */
+    registered if the argument is zero. 
+*/
 
     static void registerHandler( IOService *          target,
                                  IODebuggerTxHandler  txHandler = 0,
                                  IODebuggerRxHandler  rxHandler = 0 );
 
 /*! @function powerStateWillChangeTo
-    @abstract Handle notification that the network controller will change
+    @abstract Handles notification that the network controller will change
     power state.
     @discussion If the controller is about to become unusable, then the
-    controller's handlers are unregistered, and the controller disabled.
+    controller's handlers are unregistered, and the controller is disabled.
     @param flags Describe the capability of the controller in the new power 
            state.
     @param stateNumber The number of the state in the state array that the 
            controller is switching to.
-    @param policyMaker The policy-maker that manages the controller's
+    @param policyMaker The policy maker that manages the controller's
            power state.
-    @result The constant 3000000, to indicate a maximum of 3 seconds for the 
+    @result Returns the constant 3000000, to indicate a maximum of 3 seconds for the 
             preparation to complete, and an acknowledgement delivered to the
-            policy-maker. */
+            policy maker. 
+*/
 
     virtual IOReturn powerStateWillChangeTo( IOPMPowerFlags  flags,
                                              UInt32          stateNumber,
                                              IOService *     policyMaker );
 
 /*! @function powerStateDidChangeTo
-    @abstract Handle notification that the network controller did change
+    @abstract Handles notification that the network controller did change
     power state.
     @discussion If the controller became usable, then the controller is 
     re-enabled, and the controller's handlers are re-registered.
-    @param flags Describe the capability of the controller in the new power 
+    @param flags Description of the capability of the controller in the new power 
            state.
     @param stateNumber The number of the state in the state array that the 
            controller is switching to.
-    @param policyMaker The policy-maker that manages the controller's
+    @param policyMaker The policy maker that manages the controller's
            power state.
-    @result The constant 3000000, to indicate a maximum of 3 seconds for the 
+    @result Returns the constant 3000000, to indicate a maximum of 3 seconds for the 
             preparation to complete, and an acknowledgement delivered to the
-            policy-maker. */
+            policy maker. 
+*/
 
     virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags  flags,
                                             UInt32          stateNumber,
                                             IOService *     policyMaker );
 
 /*! @function handleOpen
-    @abstract Handle a client open.
+    @abstract Handles a client open.
     @discussion This method is called by IOService::open() to handle an
     open from a client (IOKDP) with the arbitration lock held.
     @param forClient The client (IOKDP) requesting the open.
     @param options Options passed to the open() call. Not used.
     @param arg A family defined argument passed to the open() call. Not used.
-    @result true on success, false otherwise. */
+    @result Returns true on success, false otherwise. 
+*/
 
     virtual bool handleOpen( IOService *    forClient,
                              IOOptionBits   options,
                              void *         arg );
 
 /*! @function handleClose
-    @abstract Handle a client close.
+    @abstract Handles a client close.
     @discussion This method is called by IOService::close() to handle a
     close from a client with the arbitration lock held.
     @param forClient The client (IOKDP) requesting the close.
-    @param options Options passed to the close() call. Not used. */
+    @param options Options passed to the close() call. Not used. 
+*/
 
     virtual void handleClose( IOService *   forClient,
                               IOOptionBits  options );
 
 /*! @function handleIsOpen
-    @abstract Query whether a client has an open on this object.
+    @abstract Queries whether a client has an open on this object.
     @discussion This method is called by IOService::isOpen() with the
     arbitration lock held.
-    @result true if the specified client, or any client if none (0) is
-    specified, presently has an open on this object. */
+    @result Returns true if the specified client, or any client if none (0) is
+    specified, presently has an open on this object. 
+*/
 
     virtual bool handleIsOpen( const IOService * forClient ) const;
 
@@ -260,39 +270,43 @@ protected:
 public:
 
 /*! @function lock
-    @abstract Take the debugger lock conditionally.
-    @discussion Take the debugger lock if the object given matches the
+    @abstract Takes the debugger lock conditionally.
+    @discussion This method takes the debugger lock if the object given matches the
     target registered by registerHandler().
     @param target The target or provider of an IOKernelDebugger object.
-    @result kIODebuggerLockTaken if the lock was taken, or 0 otherwise. */
+    @result Returns kIODebuggerLockTaken if the lock was taken, or 0 otherwise. 
+*/
 
     static IODebuggerLockState lock( IOService * target );
 
 /*! @function unlock
-    @abstract Release the debugger lock.
-    @discussion Release the debugger lock if the kIODebuggerLockTaken flag is
-    set in the argument. */
+    @abstract Releases the debugger lock.
+    @discussion This method releases the debugger lock if the kIODebuggerLockTaken flag is
+    set in the argument. 
+*/
 
     static void unlock( IODebuggerLockState state );
 
 /*! @function init
-    @abstract Initialize an IOKernelDebugger instance.
+    @abstract Initializes an IOKernelDebugger instance.
     @param target The target object that implements the debugger handlers.
     @param txHandler The target's transmit handler. A pointer to a 'C' function.
     @param rxHandler The target's receive handler. A pointer to a 'C' function.
-    @result true if the instance initialized successfully, false otherwise. */
+    @result Returns true if the instance initialized successfully, false otherwise. 
+*/
 
     virtual bool init( IOService *          target,
                        IODebuggerTxHandler  txHandler,
                        IODebuggerRxHandler  rxHandler );
 
 /*! @function debugger
-    @abstract A factory method that performs allocation and initialization
+    @abstract Factory method that performs allocation and initialization
     of an IOKernelDebugger object.
     @param target The target object that implements the debugger handlers.
     @param txHandler The target's transmit handler. A pointer to a 'C' function.
     @param rxHandler The target's receive handler. A pointer to a 'C' function.
-    @result An IOKernelDebugger instance on success, 0 otherwise. */
+    @result Returns an IOKernelDebugger instance on success, 0 otherwise. 
+*/
 
     static IOKernelDebugger * debugger( IOService *          target,
                                         IODebuggerTxHandler  txHandler,

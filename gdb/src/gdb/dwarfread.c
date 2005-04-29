@@ -1,7 +1,7 @@
 /* DWARF debugging format support for GDB.
 
    Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    Written by Fred Fish at Cygnus Support.  Portions based on dbxread.c,
    mipsread.c, coffread.c, and dwarfread.c from a Data General SVR4 gdb port.
@@ -21,6 +21,64 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+
+/*
+   If you are looking for DWARF-2 support, you are in the wrong file.
+   Go look in dwarf2read.c.  This file is for the original DWARF,
+   also known as DWARF-1.
+
+   DWARF-1 is slowly headed for obsoletion.
+
+   In gcc HEAD 2003-11-29 16:28:31 UTC, no targets prefer dwarf-1.
+
+   In gcc 3.3.2, these targets prefer dwarf-1:
+
+     i[34567]86-sequent-ptx4*
+     i[34567]86-sequent-sysv4*
+     mips-sni-sysv4
+     sparc-hal-solaris2*
+
+   In gcc 3.2.2, these targets prefer dwarf-1:
+
+     i[34567]86-dg-dgux*
+     i[34567]86-sequent-ptx4*
+     i[34567]86-sequent-sysv4*
+     m88k-dg-dgux*
+     mips-sni-sysv4
+     sparc-hal-solaris2*
+
+   In gcc 2.95.3, these targets prefer dwarf-1:
+
+     i[34567]86-dg-dgux*
+     i[34567]86-ncr-sysv4*
+     i[34567]86-sequent-ptx4*
+     i[34567]86-sequent-sysv4*
+     i[34567]86-*-osf1*
+     i[34567]86-*-sco3.2v5*
+     i[34567]86-*-sysv4*
+     i860-alliant-*
+     i860-*-sysv4*
+     m68k-atari-sysv4*
+     m68k-cbm-sysv4*
+     m68k-*-sysv4*
+     m88k-dg-dgux*
+     m88k-*-sysv4*
+     mips-sni-sysv4
+     mips-*-gnu*
+     sh-*-elf*
+     sh-*-rtemself*
+     sparc-hal-solaris2*
+     sparc-*-sysv4*
+
+   Some non-gcc compilers produce dwarf-1: 
+
+     PR gdb/1179 was from a user with Diab C++ 4.3.
+     Other users have also reported using Diab compilers with dwarf-1.
+     On 2003-06-09 the gdb list received a report from a user
+       with Absoft ProFortran f77 which is dwarf-1.
+
+   -- chastain 2003-12-01
+*/
 
 /*
 
@@ -44,7 +102,6 @@
 #include "defs.h"
 #include "symtab.h"
 #include "gdbtypes.h"
-#include "symfile.h"
 #include "objfiles.h"
 #include "elf/dwarf.h"
 #include "buildsym.h"
@@ -661,7 +718,7 @@ static void
 read_lexical_block_scope (struct dieinfo *dip, char *thisdie, char *enddie,
 			  struct objfile *objfile)
 {
-  register struct context_stack *new;
+  struct context_stack *new;
 
   push_context (0, dip->at_low_pc);
   process_dies (thisdie + dip->die_length, enddie, objfile);
@@ -822,7 +879,8 @@ decode_die_type (struct dieinfo *dip)
     }
   else if (dip->at_user_def_type)
     {
-      if ((type = lookup_utype (dip->at_user_def_type)) == NULL)
+      type = lookup_utype (dip->at_user_def_type);
+      if (type == NULL)
 	{
 	  type = alloc_utype (dip->at_user_def_type, NULL);
 	}
@@ -876,7 +934,8 @@ struct_type (struct dieinfo *dip, char *thisdie, char *enddie,
   char *nextdie;
   int anonymous_size;
 
-  if ((type = lookup_utype (dip->die_ref)) == NULL)
+  type = lookup_utype (dip->die_ref);
+  if (type == NULL)
     {
       /* No forward references created an empty type, so install one now */
       type = alloc_utype (dip->die_ref, NULL);
@@ -908,7 +967,7 @@ struct_type (struct dieinfo *dip, char *thisdie, char *enddie,
       && *dip->at_name != '~'
       && *dip->at_name != '.')
     {
-      TYPE_TAG_NAME (type) = obconcat (&objfile->type_obstack,
+      TYPE_TAG_NAME (type) = obconcat (&objfile->objfile_obstack,
 				       "", "", dip->at_name);
     }
   /* Use whatever size is known.  Zero is a valid size.  We might however
@@ -937,6 +996,13 @@ struct_type (struct dieinfo *dip, char *thisdie, char *enddie,
       switch (mbr.die_tag)
 	{
 	case TAG_member:
+	  /* Static fields can be either TAG_global_variable (GCC) or else
+	     TAG_member with no location (Diab).  We could treat the latter like
+	     the former... but since we don't support the former, just avoid
+	     crashing on the latter for now.  */
+	  if (mbr.at_location == NULL)
+	    break;
+
 	  /* Get space to record the next field's data.  */
 	  new = (struct nextfield *) alloca (sizeof (struct nextfield));
 	  new->next = list;
@@ -944,7 +1010,7 @@ struct_type (struct dieinfo *dip, char *thisdie, char *enddie,
 	  /* Save the data.  */
 	  list->field.name =
 	    obsavestring (mbr.at_name, strlen (mbr.at_name),
-			  &objfile->type_obstack);
+			  &objfile->objfile_obstack);
 	  FIELD_TYPE (list->field) = decode_die_type (&mbr);
 	  FIELD_BITPOS (list->field) = 8 * locval (&mbr);
 	  FIELD_STATIC_KIND (list->field) = 0;
@@ -1109,7 +1175,8 @@ decode_array_element_type (char *scan)
   attribute = target_to_host (scan, SIZEOF_ATTRIBUTE, GET_UNSIGNED,
 			      current_objfile);
   scan += SIZEOF_ATTRIBUTE;
-  if ((nbytes = attribute_size (attribute)) == -1)
+  nbytes = attribute_size (attribute);
+  if (nbytes == -1)
     {
       bad_array_element_type_complaint (DIE_ID, DIE_NAME, attribute);
       typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
@@ -1129,7 +1196,8 @@ decode_array_element_type (char *scan)
 	case AT_user_def_type:
 	  die_ref = target_to_host (scan, nbytes, GET_UNSIGNED,
 				    current_objfile);
-	  if ((typep = lookup_utype (die_ref)) == NULL)
+	  typep = lookup_utype (die_ref);
+	  if (typep == NULL)
 	    {
 	      typep = alloc_utype (die_ref, NULL);
 	    }
@@ -1294,14 +1362,16 @@ dwarf_read_array_type (struct dieinfo *dip)
 		 "DIE @ 0x%x \"%s\", array not row major; not handled correctly",
 		 DIE_ID, DIE_NAME);
     }
-  if ((sub = dip->at_subscr_data) != NULL)
+  sub = dip->at_subscr_data;
+  if (sub != NULL)
     {
       nbytes = attribute_size (AT_subscr_data);
       blocksz = target_to_host (sub, nbytes, GET_UNSIGNED, current_objfile);
       subend = sub + nbytes + blocksz;
       sub += nbytes;
       type = decode_subscript_data_item (sub, subend);
-      if ((utype = lookup_utype (dip->die_ref)) == NULL)
+      utype = lookup_utype (dip->die_ref);
+      if (utype == NULL)
 	{
 	  /* Install user defined type that has not been referenced yet. */
 	  alloc_utype (dip->die_ref, type);
@@ -1350,7 +1420,8 @@ read_tag_pointer_type (struct dieinfo *dip)
   struct type *utype;
 
   type = decode_die_type (dip);
-  if ((utype = lookup_utype (dip->die_ref)) == NULL)
+  utype = lookup_utype (dip->die_ref);
+  if (utype == NULL)
     {
       utype = lookup_pointer_type (type);
       alloc_utype (dip->die_ref, utype);
@@ -1469,7 +1540,8 @@ read_subroutine_type (struct dieinfo *dip, char *thisdie, char *enddie)
   /* Check to see if we already have a partially constructed user
      defined type for this DIE, from a forward reference. */
 
-  if ((ftype = lookup_utype (dip->die_ref)) == NULL)
+  ftype = lookup_utype (dip->die_ref);
+  if (ftype == NULL)
     {
       /* This is the first reference to one of these types.  Make
          a new one and place it in the user defined types. */
@@ -1549,7 +1621,7 @@ read_enumeration (struct dieinfo *dip, char *thisdie, char *enddie,
    of the enumeration and return a type pointer for the enumeration.
 
    At the same time, for each member of the enumeration, create a
-   symbol for it with namespace VAR_NAMESPACE and class LOC_CONST,
+   symbol for it with domain VAR_DOMAIN and class LOC_CONST,
    and give it the type of the enumeration itself.
 
    NOTES
@@ -1583,7 +1655,8 @@ enum_type (struct dieinfo *dip, struct objfile *objfile)
   int nbytes;
   int unsigned_enum = 1;
 
-  if ((type = lookup_utype (dip->die_ref)) == NULL)
+  type = lookup_utype (dip->die_ref);
+  if (type == NULL)
     {
       /* No forward references created an empty type, so install one now */
       type = alloc_utype (dip->die_ref, NULL);
@@ -1596,14 +1669,15 @@ enum_type (struct dieinfo *dip, struct objfile *objfile)
       && *dip->at_name != '~'
       && *dip->at_name != '.')
     {
-      TYPE_TAG_NAME (type) = obconcat (&objfile->type_obstack,
+      TYPE_TAG_NAME (type) = obconcat (&objfile->objfile_obstack,
 				       "", "", dip->at_name);
     }
   if (dip->at_byte_size != 0)
     {
       TYPE_LENGTH (type) = dip->at_byte_size;
     }
-  if ((scan = dip->at_element_list) != NULL)
+  scan = dip->at_element_list;
+  if (scan != NULL)
     {
       if (dip->short_element_list)
 	{
@@ -1629,17 +1703,17 @@ enum_type (struct dieinfo *dip, struct objfile *objfile)
 			    objfile);
 	  scan += TARGET_FT_LONG_SIZE (objfile);
 	  list->field.name = obsavestring (scan, strlen (scan),
-					   &objfile->type_obstack);
+					   &objfile->objfile_obstack);
 	  scan += strlen (scan) + 1;
 	  nfields++;
 	  /* Handcraft a new symbol for this enum member. */
-	  sym = (struct symbol *) obstack_alloc (&objfile->symbol_obstack,
+	  sym = (struct symbol *) obstack_alloc (&objfile->objfile_obstack,
 						 sizeof (struct symbol));
 	  memset (sym, 0, sizeof (struct symbol));
-	  SYMBOL_NAME (sym) = create_name (list->field.name,
-					   &objfile->symbol_obstack);
+	  DEPRECATED_SYMBOL_NAME (sym) = create_name (list->field.name,
+					   &objfile->objfile_obstack);
 	  SYMBOL_INIT_LANGUAGE_SPECIFIC (sym, cu_language);
-	  SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
+	  SYMBOL_DOMAIN (sym) = VAR_DOMAIN;
 	  SYMBOL_CLASS (sym) = LOC_CONST;
 	  SYMBOL_TYPE (sym) = type;
 	  SYMBOL_VALUE (sym) = FIELD_BITPOS (list->field);
@@ -1658,7 +1732,7 @@ enum_type (struct dieinfo *dip, struct objfile *objfile)
 	    TYPE_FLAGS (type) |= TYPE_FLAG_UNSIGNED;
 	  TYPE_NFIELDS (type) = nfields;
 	  TYPE_FIELDS (type) = (struct field *)
-	    obstack_alloc (&objfile->symbol_obstack, sizeof (struct field) * nfields);
+	    obstack_alloc (&objfile->objfile_obstack, sizeof (struct field) * nfields);
 	  /* Copy the saved-up fields into the field vector.  */
 	  for (n = 0; (n < nfields) && (list != NULL); list = list->next)
 	    {
@@ -1694,7 +1768,7 @@ static void
 read_func_scope (struct dieinfo *dip, char *thisdie, char *enddie,
 		 struct objfile *objfile)
 {
-  register struct context_stack *new;
+  struct context_stack *new;
 
   /* AT_name is absent if the function is described with an
      AT_abstract_origin tag.
@@ -1745,7 +1819,7 @@ handle_producer (char *producer)
   /* If this compilation unit was compiled with g++ or gcc, then set the
      processing_gcc_compilation flag. */
 
-  if (STREQN (producer, GCC_PRODUCER, strlen (GCC_PRODUCER)))
+  if (DEPRECATED_STREQN (producer, GCC_PRODUCER, strlen (GCC_PRODUCER)))
     {
       char version = producer[strlen (GCC_PRODUCER)];
       processing_gcc_compilation = (version == '2' ? 2 : 1);
@@ -1753,7 +1827,7 @@ handle_producer (char *producer)
   else
     {
       processing_gcc_compilation =
-	STREQN (producer, GPLUS_PRODUCER, strlen (GPLUS_PRODUCER));
+	strncmp (producer, GPLUS_PRODUCER, strlen (GPLUS_PRODUCER)) == 0;
     }
 
   /* Select a demangling style if we can identify the producer and if
@@ -1763,7 +1837,7 @@ handle_producer (char *producer)
 
   if (AUTO_DEMANGLING)
     {
-      if (STREQN (producer, GPLUS_PRODUCER, strlen (GPLUS_PRODUCER)))
+      if (DEPRECATED_STREQN (producer, GPLUS_PRODUCER, strlen (GPLUS_PRODUCER)))
 	{
 #if 0
 	  /* For now, stay with AUTO_DEMANGLING for g++ output, as we don't
@@ -1771,7 +1845,7 @@ handle_producer (char *producer)
 	  set_demangling_style (GNU_DEMANGLING_STYLE_STRING);
 #endif
 	}
-      else if (STREQN (producer, LCC_PRODUCER, strlen (LCC_PRODUCER)))
+      else if (DEPRECATED_STREQN (producer, LCC_PRODUCER, strlen (LCC_PRODUCER)))
 	{
 	  set_demangling_style (LUCID_DEMANGLING_STYLE_STRING);
 	}
@@ -1811,8 +1885,8 @@ read_file_scope (struct dieinfo *dip, char *thisdie, char *enddie,
   if (objfile->ei.entry_point >= dip->at_low_pc &&
       objfile->ei.entry_point < dip->at_high_pc)
     {
-      objfile->ei.entry_file_lowpc = dip->at_low_pc;
-      objfile->ei.entry_file_highpc = dip->at_high_pc;
+      objfile->ei.deprecated_entry_file_lowpc = dip->at_low_pc;
+      objfile->ei.deprecated_entry_file_highpc = dip->at_high_pc;
     }
   set_cu_language (dip);
   if (dip->at_producer != NULL)
@@ -2298,7 +2372,6 @@ psymtab_to_symtab_1 (struct partial_symtab *pst)
 		  wrap_here ("");
 		  gdb_flush (gdb_stdout);
 		}
-	      sort_symtab_syms (pst->symtab);
 	      do_cleanups (old_chain);
 	    }
 	  pst->readin = 1;
@@ -2391,7 +2464,8 @@ add_enum_psymbol (struct dieinfo *dip, struct objfile *objfile)
   unsigned short blocksz;
   int nbytes;
 
-  if ((scan = dip->at_element_list) != NULL)
+  scan = dip->at_element_list;
+  if (scan != NULL)
     {
       if (dip->short_element_list)
 	{
@@ -2407,7 +2481,7 @@ add_enum_psymbol (struct dieinfo *dip, struct objfile *objfile)
       while (scan < listend)
 	{
 	  scan += TARGET_FT_LONG_SIZE (objfile);
-	  add_psymbol_to_list (scan, strlen (scan), VAR_NAMESPACE, LOC_CONST,
+	  add_psymbol_to_list (scan, strlen (scan), VAR_DOMAIN, LOC_CONST,
 			       &objfile->static_psymbols, 0, 0, cu_language,
 			       objfile);
 	  scan += strlen (scan) + 1;
@@ -2439,31 +2513,31 @@ add_partial_symbol (struct dieinfo *dip, struct objfile *objfile)
     {
     case TAG_global_subroutine:
       add_psymbol_to_list (dip->at_name, strlen (dip->at_name),
-			   VAR_NAMESPACE, LOC_BLOCK,
+			   VAR_DOMAIN, LOC_BLOCK,
 			   &objfile->global_psymbols,
 			   0, dip->at_low_pc, cu_language, objfile);
       break;
     case TAG_global_variable:
       add_psymbol_to_list (dip->at_name, strlen (dip->at_name),
-			   VAR_NAMESPACE, LOC_STATIC,
+			   VAR_DOMAIN, LOC_STATIC,
 			   &objfile->global_psymbols,
 			   0, 0, cu_language, objfile);
       break;
     case TAG_subroutine:
       add_psymbol_to_list (dip->at_name, strlen (dip->at_name),
-			   VAR_NAMESPACE, LOC_BLOCK,
+			   VAR_DOMAIN, LOC_BLOCK,
 			   &objfile->static_psymbols,
 			   0, dip->at_low_pc, cu_language, objfile);
       break;
     case TAG_local_variable:
       add_psymbol_to_list (dip->at_name, strlen (dip->at_name),
-			   VAR_NAMESPACE, LOC_STATIC,
+			   VAR_DOMAIN, LOC_STATIC,
 			   &objfile->static_psymbols,
 			   0, 0, cu_language, objfile);
       break;
     case TAG_typedef:
       add_psymbol_to_list (dip->at_name, strlen (dip->at_name),
-			   VAR_NAMESPACE, LOC_TYPEDEF,
+			   VAR_DOMAIN, LOC_TYPEDEF,
 			   &objfile->static_psymbols,
 			   0, 0, cu_language, objfile);
       break;
@@ -2475,14 +2549,14 @@ add_partial_symbol (struct dieinfo *dip, struct objfile *objfile)
       if (!dip->has_at_byte_size)
 	break;
       add_psymbol_to_list (dip->at_name, strlen (dip->at_name),
-			   STRUCT_NAMESPACE, LOC_TYPEDEF,
+			   STRUCT_DOMAIN, LOC_TYPEDEF,
 			   &objfile->static_psymbols,
 			   0, 0, cu_language, objfile);
       if (cu_language == language_cplus)
 	{
 	  /* For C++, these implicitly act as typedefs as well. */
 	  add_psymbol_to_list (dip->at_name, strlen (dip->at_name),
-			       VAR_NAMESPACE, LOC_TYPEDEF,
+			       VAR_DOMAIN, LOC_TYPEDEF,
 			       &objfile->static_psymbols,
 			       0, 0, cu_language, objfile);
 	}
@@ -2725,7 +2799,7 @@ scan_compilation_units (char *thisdie, char *enddie, file_ptr dbfoff,
 
 	  pst->texthigh = di.at_high_pc;
 	  pst->read_symtab_private = (char *)
-	    obstack_alloc (&objfile->psymbol_obstack,
+	    obstack_alloc (&objfile->objfile_obstack,
 			   sizeof (struct dwfinfo));
 	  DBFOFF (pst) = dbfoff;
 	  DBROFF (pst) = curoff;
@@ -2776,14 +2850,12 @@ new_symbol (struct dieinfo *dip, struct objfile *objfile)
 
   if (dip->at_name != NULL)
     {
-      sym = (struct symbol *) obstack_alloc (&objfile->symbol_obstack,
+      sym = (struct symbol *) obstack_alloc (&objfile->objfile_obstack,
 					     sizeof (struct symbol));
       OBJSTAT (objfile, n_syms++);
       memset (sym, 0, sizeof (struct symbol));
-      SYMBOL_NAME (sym) = create_name (dip->at_name,
-				       &objfile->symbol_obstack);
       /* default assumptions */
-      SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
+      SYMBOL_DOMAIN (sym) = VAR_DOMAIN;
       SYMBOL_CLASS (sym) = LOC_STATIC;
       SYMBOL_TYPE (sym) = decode_die_type (dip);
 
@@ -2793,7 +2865,7 @@ new_symbol (struct dieinfo *dip, struct objfile *objfile)
          C++ symbol lookups by a factor of about 20. */
 
       SYMBOL_LANGUAGE (sym) = cu_language;
-      SYMBOL_INIT_DEMANGLED_NAME (sym, &objfile->symbol_obstack);
+      SYMBOL_SET_NAMES (sym, dip->at_name, strlen (dip->at_name), objfile);
       switch (dip->die_tag)
 	{
 	case TAG_label:
@@ -2889,12 +2961,12 @@ new_symbol (struct dieinfo *dip, struct objfile *objfile)
 	case TAG_union_type:
 	case TAG_enumeration_type:
 	  SYMBOL_CLASS (sym) = LOC_TYPEDEF;
-	  SYMBOL_NAMESPACE (sym) = STRUCT_NAMESPACE;
+	  SYMBOL_DOMAIN (sym) = STRUCT_DOMAIN;
 	  add_symbol_to_list (sym, list_in_scope);
 	  break;
 	case TAG_typedef:
 	  SYMBOL_CLASS (sym) = LOC_TYPEDEF;
-	  SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
+	  SYMBOL_DOMAIN (sym) = VAR_DOMAIN;
 	  add_symbol_to_list (sym, list_in_scope);
 	  break;
 	default:
@@ -2938,15 +3010,15 @@ synthesize_typedef (struct dieinfo *dip, struct objfile *objfile,
   if (dip->at_name != NULL)
     {
       sym = (struct symbol *)
-	obstack_alloc (&objfile->symbol_obstack, sizeof (struct symbol));
+	obstack_alloc (&objfile->objfile_obstack, sizeof (struct symbol));
       OBJSTAT (objfile, n_syms++);
       memset (sym, 0, sizeof (struct symbol));
-      SYMBOL_NAME (sym) = create_name (dip->at_name,
-				       &objfile->symbol_obstack);
+      DEPRECATED_SYMBOL_NAME (sym) = create_name (dip->at_name,
+				       &objfile->objfile_obstack);
       SYMBOL_INIT_LANGUAGE_SPECIFIC (sym, cu_language);
       SYMBOL_TYPE (sym) = type;
       SYMBOL_CLASS (sym) = LOC_TYPEDEF;
-      SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
+      SYMBOL_DOMAIN (sym) = VAR_DOMAIN;
       add_symbol_to_list (sym, list_in_scope);
     }
 }
@@ -3106,7 +3178,8 @@ decode_modified_type (char *modifiers, unsigned int modcount, int mtype)
 	  nbytes = attribute_size (AT_user_def_type);
 	  die_ref = target_to_host (modifiers, nbytes, GET_UNSIGNED,
 				    current_objfile);
-	  if ((typep = lookup_utype (die_ref)) == NULL)
+	  typep = lookup_utype (die_ref);
+	  if (typep == NULL)
 	    {
 	      typep = alloc_utype (die_ref, NULL);
 	    }
@@ -3142,8 +3215,12 @@ decode_modified_type (char *modifiers, unsigned int modcount, int mtype)
 		     DIE_ID, DIE_NAME);	/* FIXME */
 	  break;
 	default:
-	  if (!(MOD_lo_user <= (unsigned char) modifier
+	  if (!(MOD_lo_user <= (unsigned char) modifier))
+#if 0
+/* This part of the test would always be true, and it triggers a compiler
+   warning.  */
 		&& (unsigned char) modifier <= MOD_hi_user))
+#endif
 	    {
 	      complaint (&symfile_complaints,
 			 "DIE @ 0x%x \"%s\", unknown type modifier %u", DIE_ID,
@@ -3455,7 +3532,8 @@ completedieinfo (struct dieinfo *dip, struct objfile *objfile)
     {
       attr = target_to_host (diep, SIZEOF_ATTRIBUTE, GET_UNSIGNED, objfile);
       diep += SIZEOF_ATTRIBUTE;
-      if ((nbytes = attribute_size (attr)) == -1)
+      nbytes = attribute_size (attr);
+      if (nbytes == -1)
 	{
 	  complaint (&symfile_complaints,
 		     "DIE @ 0x%x \"%s\", unknown attribute length, skipped remaining attributes",

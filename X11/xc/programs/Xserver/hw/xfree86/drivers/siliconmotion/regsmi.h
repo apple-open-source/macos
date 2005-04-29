@@ -26,13 +26,14 @@ Silicon Motion shall not be used in advertising or otherwise to promote the
 sale, use or other dealings in this Software without prior written
 authorization from the XFree86 Project and SIlicon Motion.
 */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/siliconmotion/regsmi.h,v 1.2 2002/01/25 21:56:09 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/siliconmotion/regsmi.h,v 1.3 2003/10/08 11:13:01 eich Exp $ */
 
 #ifndef _REGSMI_H
 #define _REGSMI_H
 
 #define SMI_LYNX_SERIES(chip)	((chip & 0xF0F0) == 0x0010)
 #define SMI_LYNX3D_SERIES(chip)	((chip & 0xF0F0) == 0x0020)
+#define SMI_COUGAR_SERIES(chip)	((chip & 0xF0F0) == 0x0030)
 #define SMI_LYNXEM_SERIES(chip) ((chip & 0xFFF0) == 0x0710)
 #define SMI_LYNXM_SERIES(chip)	((chip & 0xFF00) == 0x0700)
 
@@ -45,6 +46,7 @@ authorization from the XFree86 Project and SIlicon Motion.
 #define SMI_LYNXEM			PCI_CHIP_SMI710
 #define SMI_LYNXEMplus		PCI_CHIP_SMI712
 #define SMI_LYNX3DM			PCI_CHIP_SMI720
+#define SMI_COUGAR3DR       PCI_CHIP_SMI731
 
 /* I/O Functions */
 static __inline__ CARD8
@@ -114,6 +116,8 @@ VGAOUT8(SMIPtr pSmi, int port, CARD8 data)
 #define READ_VPR(pSmi, vpr)			MMIO_IN32(pSmi->VPRBase, vpr)
 #define WRITE_CPR(pSmi, cpr, data)	MMIO_OUT32(pSmi->CPRBase, cpr, data); DEBUG((VERBLEV, "CPR%02X = %08X\n", cpr, data))
 #define READ_CPR(pSmi, cpr)			MMIO_IN32(pSmi->CPRBase, cpr)
+#define WRITE_FPR(pSmi, fpr, data)	MMIO_OUT32(pSmi->FPRBase, fpr, data); DEBUG((VERBLEV, "FPR%02X = %08X\n", fpr, data))
+#define READ_FPR(pSmi, fpr)			MMIO_IN32(pSmi->FPRBase, fpr)
 
 /* 2D Engine commands */
 #define SMI_TRANSPARENT_SRC		0x00000100
@@ -203,5 +207,66 @@ VGAOUT8(SMIPtr pSmi, int port, CARD8 data)
 #define RGB16_565         0
 #define RGB16_555         1
 #define RGB32_888         2
+
+/* register defines so we're not hardcoding numbers */
+
+#define FPR00						0x0000
+
+/* video window formats - I=indexed, P=packed */
+#define FPR00_FMT_8I				0x0
+#define FPR00_FMT_15P				0x1
+#define FPR00_FMT_16P				0x2
+#define FPR00_FMT_32P				0x3
+#define FPR00_FMT_24P				0x4
+#define FPR00_FMT_8P				0x5
+#define FPR00_FMT_YUV422			0x6
+#define FPR00_FMT_YUV420			0x7
+
+/* possible bit definitions for FPR00 - VWI = Video Window 1 */
+#define FPR00_VWIENABLE				0x00000008
+#define FPR00_VWITILE				0x00000010
+#define FPR00_VWIFILTER2			0x00000020
+#define FPR00_VWIFILTER4			0x00000040
+#define FPR00_VWIKEYENABLE			0x00000080
+#define FPR00_VWIGDF_SHIFT			16
+#define FPR00_VWIGDENABLE			0x00080000
+#define FPR00_VWIGDTILE				0x00100000
+
+#define FPR00_MASKBITS				0x0000FFFF
+
+#define FPR04						0x0004
+#define FPR08						0x0008
+#define FPR0C						0x000C
+#define FPR10						0x0010
+#define FPR14						0x0014
+#define FPR18						0x0018
+#define FPR1C						0x001C
+#define FPR20						0x0020
+#define FPR24						0x0024
+#define FPR58						0x0058
+#define FPR5C						0x005C
+#define FPR68						0x0068
+#define FPRB0						0x00B0
+#define FPRB4						0x00B4
+#define FPRC4						0x00C4
+#define FPRCC						0x00CC
+
+#define FPR158                      0x0158
+#define FPR158_MASK_MAXBITS         0x07FF
+#define FPR158_MASK_BOUNDARY        0x0800
+#define FPR15C                      0x015C
+#define FPR15C_MASK_HWCCOLORS       0x0000FFFF
+#define FPR15C_MASK_HWCADDREN       0xFFFF0000
+#define FPR15C_MASK_HWCENABLE       0x80000000
+
+/* panel sizes returned by the bios */
+
+#define PANEL_640x480	0x00
+#define PANEL_800x600	0x01
+#define PANEL_1024x768	0x02
+#define PANEL_1280x1024 0x03
+#define PANEL_1600x1200 0x04
+#define PANEL_1400x1050 0x0A
+
 
 #endif /* _REGSMI_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -576,7 +576,5 @@ extern void DAUnregisterApprovalCallback( DAApprovalSessionRef session, void * c
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-
-#include <DiskArbitration/DiskArbitrationPrivate.h>
 
 #endif /* !__DISKARBITRATION_DISKARBITRATION__ */

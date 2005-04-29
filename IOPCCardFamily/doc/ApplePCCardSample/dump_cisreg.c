@@ -46,10 +46,10 @@
 
 #include <IOKit/IOKitLib.h>
 
-#include "../../pccard/cs_types.h"
-#include "../../pccard/cs.h"
-#include "../../pccard/cistpl.h"
-#include "../../pccard/cisreg.h"
+#include <Kernel/IOKit/pccard/cs_types.h>
+#include <Kernel/IOKit/pccard/cs.h>
+#include <Kernel/IOKit/pccard/cistpl.h>
+#include <Kernel/IOKit/pccard/cisreg.h>
 //#include <pcmcia/ds.h>
 
 /*====================================================================*/
@@ -83,7 +83,7 @@ static int lookup_dev(char *name)
 
 static io_registry_entry_t lookup_dev(char *name)
 {
-    mach_port_t                 masterPort = NULL;
+    mach_port_t                 masterPort = 0;
     io_iterator_t	        iterator;
     io_registry_entry_t	        nub = 0;
     kern_return_t		rc;

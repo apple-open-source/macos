@@ -126,21 +126,11 @@ EOF
         error "Could not commit ${x}"
     done
 
-    # Update `gcc/version.c'.  There are other version files
-    # as well, which should have release status updated.
+    # Update `gcc/version.c'.
     for x in gcc/version.c; do 
       y=`basename ${x}`
       (changedir `dirname ${SOURCE_DIRECTORY}/${x}` && \
           sed -e 's|= \".*\"|= \"'${RELEASE}'\"|g' < ${y} > ${y}.new && \
-	  mv ${y}.new ${y} && \
-          ${CVS} ci -m 'Update version' ${y}) || \
-	  error "Could not update ${x}"
-    done
-    for x in gcc/f/version.c libf2c/libF77/Version.c \
-             libf2c/libI77/Version.c libf2c/libU77/Version.c; do
-      y=`basename ${x}`
-      (changedir `dirname ${SOURCE_DIRECTORY}/${x}` && \
-          sed -e 's/experimental\|prerelease/release/g' < ${y} > ${y}.new && \
 	  mv ${y}.new ${y} && \
           ${CVS} ci -m 'Update version' ${y}) || \
 	  error "Could not update ${x}"
@@ -282,12 +272,13 @@ build_tarfiles() {
   done
   build_tarfile gcc-core-${RELEASE} ${EXCLUDES} \
     `basename ${SOURCE_DIRECTORY}`
+}
 
-  # Build .bz2 files.
+# Build .bz2 files.
+build_bzip2() {
   for f in ${FILE_LIST}; do
     bzfile=${f%.gz}.bz2
     (zcat $f | ${BZIP2} > ${bzfile}) || error "Could not create ${bzfile}"
-    FILE_LIST="${FILE_LIST} ${bzfile}"
   done
 }
 
@@ -298,7 +289,7 @@ build_diffs() {
   old_vers=${old_file%.tar.gz}
   old_vers=${old_vers#gcc-}
   inform "Building diffs against version $old_vers"
-  for f in gcc gcc-g++ gcc-g77 gcc-java gcc-objc gcc-testsuite gcc-core; do
+  for f in gcc gcc-ada gcc-g++ gcc-g77 gcc-java gcc-objc gcc-testsuite gcc-core; do
     old_tar=${old_dir}/${f}-${old_vers}.tar.gz
     new_tar=${WORKING_DIRECTORY}/${f}-${RELEASE}.tar.gz
     if [ -e $old_tar ] && [ -e $new_tar ]; then
@@ -336,9 +327,11 @@ upload_files() {
   # Make sure the directory exists on the server.
   if [ $LOCAL -eq 0 ]; then
     ${SSH} -l ${GCC_USERNAME} ${GCC_HOSTNAME} mkdir ${FTP_PATH}
+    UPLOAD_PATH="${GCC_USERNAME}@${GCC_HOSTNAME}:${FTP_PATH}"
   else
     mkdir -p "${FTP_PATH}" \
       || error "Could not create \`${FTP_PATH}'"
+    UPLOAD_PATH=${FTP_PATH}
   fi
 
   for x in gcc*.gz gcc*.bz2; do
@@ -346,8 +339,7 @@ upload_files() {
       # Make sure the file will be readable on the server.
       chmod a+r ${x}
       # Copy it.
-      ${SCP} ${x} ${FTP_PATH} || \
-        error "Could not upload ${x}"
+      ${SCP} ${x} ${UPLOAD_PATH} || error "Could not upload ${x}"
     fi
   done
 }
@@ -426,12 +418,13 @@ SNAPSHOT=0
 LOCAL=0
 
 # Major operation modes.
+MODE_BZIP2=0
 MODE_DIFFS=0
 MODE_SOURCES=0
 MODE_TARFILES=0
 MODE_UPLOAD=0
 
-# Files generated to upload.
+# .gz files generated to create .bz2 files from.
 FILE_LIST=""
 
 # Programs we use.
@@ -562,11 +555,12 @@ export TZ
 # Handle the major modes.
 while [ $# -ne 0 ]; do
     case $1 in
+    bzip2)    MODE_BZIP2=1;;
     diffs)    MODE_DIFFS=1;;
     sources)  MODE_SOURCES=1;;
     tarfiles) MODE_TARFILES=1;;
     upload)   MODE_UPLOAD=1;;
-    all)      MODE_SOURCES=1; MODE_TARFILES=1; MODE_DIFFS=1; MODE_UPLOAD=1;;
+    all)      MODE_SOURCES=1; MODE_TARFILES=1; MODE_DIFFS=1; MODE_BZIP2=1; MODE_UPLOAD=1;;
     *)        error "Unknown mode $1";;
     esac
     shift
@@ -593,6 +587,11 @@ if [ $MODE_DIFFS -ne 0 ]; then
       build_diffs $old_tar
     done
   fi
+fi
+
+# Build bzip2 files
+if [ $MODE_BZIP2 -ne 0 ]; then
+  build_bzip2
 fi
 
 # Upload them to the FTP server.

@@ -42,6 +42,7 @@ BUNDLE_EXTENSION = bundle
 HEADER_PATHS = -I../bootplib\
                -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
 FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
+NEXTSTEP_PB_CFLAGS = -fconstant-cfstrings
 FRAMEWORKS = -framework CoreFoundation -framework IOKit\
              -framework SystemConfiguration
 

@@ -1,10 +1,10 @@
 /*
- * $XFree86: xc/programs/xterm/fontutils.h,v 1.10 2000/12/30 19:15:46 dickey Exp $
+ * $XFree86: xc/programs/xterm/fontutils.h,v 1.12 2003/10/27 01:07:57 dickey Exp $
  */
 
 /************************************************************
 
-Copyright 1998,1999,2000 by Thomas E. Dickey
+Copyright 1998-2000,2003 by Thomas E. Dickey
 
                         All Rights Reserved
 
@@ -37,20 +37,15 @@ authorization.
 #ifndef included_fontutils_h
 #define included_fontutils_h 1
 
-#include <ptyx.h>
-#include <proto.h>
+#include <xterm.h>
 
-#if OPT_WIDE_CHARS
-#define VT_FONTSET(n,b,w,wb) n, b, w, wb
-#else
-#define VT_FONTSET(n,b,w,wb) n, b
-#endif
-
+extern const VTFontNames * xtermFontName(char *normal);
+extern int lookupRelativeFontSize(TScreen * screen, int old, int relative);
 extern int xtermLoadFont (TScreen *screen,
-			  VT_FONTSET(char *nfontname, char *bfontname, char *wfontname, char *wbfontname),
+			  const VTFontNames *fonts,
 			  Bool doresize, int fontnum);
 extern void HandleSetFont PROTO_XT_ACTIONS_ARGS;
-extern void SetVTFont (int i, Bool doresize, VT_FONTSET(char *name1, char *name2, char *name3, char *name4));
+extern void SetVTFont (int i, Bool doresize, const VTFontNames *fonts);
 extern void xtermComputeFontInfo (TScreen *screen, struct _vtwin *win, XFontStruct *font, int sbwidth);
 extern void xtermSaveFontInfo (TScreen *screen, XFontStruct *font);
 extern void xtermSetCursorBox (TScreen *screen);
@@ -65,9 +60,22 @@ extern Bool xtermMissingChar(unsigned ch, XFontStruct *font);
 extern void xtermDrawBoxChar(TScreen *screen, int ch, unsigned flags, GC gc, int x, int y);
 #endif
 
+#if OPT_LOAD_VTFONTS
+extern void HandleLoadVTFonts PROTO_XT_ACTIONS_ARGS;
+#endif
+
+#if OPT_LOAD_VTFONTS || OPT_WIDE_CHARS
+extern Bool xtermLoadVTFonts(XtermWidget w, char *aName, char *cName);
+#endif
+
 #if OPT_SHIFT_FONTS
 extern void HandleSmallerFont PROTO_XT_ACTIONS_ARGS;
 extern void HandleLargerFont PROTO_XT_ACTIONS_ARGS;
+#endif
+
+#if OPT_WIDE_CHARS
+extern int ucs2dec(int);
+extern int dec2ucs(int);
 #endif
 
 #endif /* included_fontutils_h */

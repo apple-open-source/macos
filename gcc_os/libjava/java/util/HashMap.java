@@ -1,6 +1,6 @@
 /* HashMap.java -- a class providing a basic hashtable data structure,
    mapping Object --> Object
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -162,7 +162,7 @@ public class HashMap extends AbstractMap
    *
    * @author Eric Blake <ebb9@email.byu.edu>
    */
-  static class HashEntry extends BasicMapEntry
+  static class HashEntry extends AbstractMap.BasicMapEntry
   {
     /**
      * The next entry in the linked list. Package visible for use by subclass.
@@ -177,6 +177,15 @@ public class HashMap extends AbstractMap
     HashEntry(Object key, Object value)
     {
       super(key, value);
+    }
+
+    /**
+     * Called when this entry is accessed via {@link #put(Object, Object)}.
+     * This version does nothing, but in LinkedHashMap, it must do some
+     * bookkeeping for access-traversal mode.
+     */
+    void access()
+    {
     }
 
     /**
@@ -338,8 +347,12 @@ public class HashMap extends AbstractMap
     while (e != null)
       {
         if (equals(key, e.key))
-          // Must use this method for necessary bookkeeping in LinkedHashMap.
-          return e.setValue(value);
+          {
+            e.access(); // Must call this for bookkeeping in LinkedHashMap.
+            Object r = e.value;
+            e.value = value;
+            return r;
+          }
         else
           e = e.next;
       }
@@ -368,20 +381,18 @@ public class HashMap extends AbstractMap
   public void putAll(Map m)
   {
     Iterator itr = m.entrySet().iterator();
-
-    for (int msize = m.size(); msize > 0; msize--)
+    int msize = m.size();
+    while (msize-- > 0)
       {
         Map.Entry e = (Map.Entry) itr.next();
         // Optimize in case the Entry is one of our own.
-        if (e instanceof BasicMapEntry)
+        if (e instanceof AbstractMap.BasicMapEntry)
           {
-            BasicMapEntry entry = (BasicMapEntry) e;
+            AbstractMap.BasicMapEntry entry = (AbstractMap.BasicMapEntry) e;
             put(entry.key, entry.value);
           }
         else
-          {
-            put(e.getKey(), e.getValue());
-          }
+          put(e.getKey(), e.getValue());
       }
   }
   
@@ -520,7 +531,7 @@ public class HashMap extends AbstractMap
         public boolean remove(Object o)
         {
           // Test against the size of the HashMap to determine if anything
-          // really got removed. This is neccessary because the return value
+          // really got removed. This is necessary because the return value
           // of HashMap.remove() is ambiguous in the null case.
           int oldsize = size;
           HashMap.this.remove(o);
@@ -634,7 +645,6 @@ public class HashMap extends AbstractMap
   void addEntry(Object key, Object value, int idx, boolean callRemove)
   {
     HashEntry e = new HashEntry(key, value);
-
     e.next = buckets[idx];
     buckets[idx] = e;
   }
@@ -647,17 +657,19 @@ public class HashMap extends AbstractMap
    * @return the matching entry, if found, or null
    * @see #entrySet()
    */
-  private HashEntry getEntry(Object o)
+  // Package visible, for use in nested classes.
+  final HashEntry getEntry(Object o)
   {
-    if (!(o instanceof Map.Entry))
+    if (! (o instanceof Map.Entry))
       return null;
     Map.Entry me = (Map.Entry) o;
-    int idx = hash(me.getKey());
+    Object key = me.getKey();
+    int idx = hash(key);
     HashEntry e = buckets[idx];
     while (e != null)
       {
-        if (e.equals(me))
-          return e;
+        if (equals(e.key, key))
+          return equals(e.value, me.getValue()) ? e : null;
         e = e.next;
       }
     return null;
@@ -698,9 +710,8 @@ public class HashMap extends AbstractMap
   {
     Iterator itr = m.entrySet().iterator();
     int msize = m.size();
-    this.size = msize;
-
-    for (; msize > 0; msize--)
+    size = msize;
+    while (msize-- > 0)
       {
 	Map.Entry e = (Map.Entry) itr.next();
 	Object key = e.getKey();
@@ -710,14 +721,13 @@ public class HashMap extends AbstractMap
   }
 
   /**
-   * Increases the size of the HashMap and rehashes all keys to new array
-   * indices; this is called when the addition of a new value would cause
-   * size() > threshold. Note that the existing Entry objects are reused in
-   * the new hash table.
-   * <p>
+   * Increases the size of the HashMap and rehashes all keys to new
+   * array indices; this is called when the addition of a new value
+   * would cause size() &gt; threshold. Note that the existing Entry
+   * objects are reused in the new hash table.
    *
-   * This is not specified, but the new size is twice the current size plus
-   * one; this number is not always prime, unfortunately.
+   * <p>This is not specified, but the new size is twice the current size
+   * plus one; this number is not always prime, unfortunately.
    */
   private void rehash()
   {
@@ -742,9 +752,7 @@ public class HashMap extends AbstractMap
                 dest.next = e;
               }
             else
-              {
-                buckets[idx] = e;
-              }
+              buckets[idx] = e;
 
             HashEntry next = e.next;
             e.next = null;
@@ -797,13 +805,14 @@ public class HashMap extends AbstractMap
     // Read the threshold and loadFactor fields.
     s.defaultReadObject();
 
-    // Read and use capacity.
+    // Read and use capacity, followed by key/value pairs.
     buckets = new HashEntry[s.readInt()];
     int len = s.readInt();
-
-    // Read and use key/value pairs.
-    for ( ; len > 0; len--)
-      put(s.readObject(), s.readObject());
+    while (len-- > 0)
+      {
+        Object key = s.readObject();
+        addEntry(key, s.readObject(), hash(key), false);
+      }
   }
 
   /**

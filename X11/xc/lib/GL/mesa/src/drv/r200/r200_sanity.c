@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_sanity.c,v 1.1 2002/10/30 12:51:52 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_sanity.c,v 1.2 2003/09/28 20:15:24 alanh Exp $ */
 /**************************************************************************
 
 Copyright 2002 ATI Technologies Inc., Ontario, Canada, and
@@ -32,6 +32,9 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Keith Whitwell <keith@tungstengraphics.com>
  *
  */
+
+#include "glheader.h"
+#include "imports.h"
 
 #include "r200_context.h"
 #include "r200_ioctl.h"
@@ -122,6 +125,18 @@ static struct {
    { R200_SE_VTX_STATE_CNTL, 1, "R200_SE_VTX_STATE_CNTL" }, 
    { R200_RE_POINTSIZE, 1, "R200_RE_POINTSIZE" }, 
    { R200_SE_TCL_INPUT_VTX_VECTOR_ADDR_0, 4, "R200_SE_TCL_INPUT_VTX_VECTOR_ADDR_0" },
+   { R200_PP_CUBIC_FACES_0, 1, "R200_PP_CUBIC_FACES_0" }, /* 61 */
+   { R200_PP_CUBIC_OFFSET_F1_0, 5, "R200_PP_CUBIC_OFFSET_F1_0" }, /* 62 */
+   { R200_PP_CUBIC_FACES_1, 1, "R200_PP_CUBIC_FACES_1" },
+   { R200_PP_CUBIC_OFFSET_F1_1, 5, "R200_PP_CUBIC_OFFSET_F1_1" },
+   { R200_PP_CUBIC_FACES_2, 1, "R200_PP_CUBIC_FACES_2" },
+   { R200_PP_CUBIC_OFFSET_F1_2, 5, "R200_PP_CUBIC_OFFSET_F1_2" },
+   { R200_PP_CUBIC_FACES_3, 1, "R200_PP_CUBIC_FACES_3" },
+   { R200_PP_CUBIC_OFFSET_F1_3, 5, "R200_PP_CUBIC_OFFSET_F1_3" },
+   { R200_PP_CUBIC_FACES_4, 1, "R200_PP_CUBIC_FACES_4" },
+   { R200_PP_CUBIC_OFFSET_F1_4, 5, "R200_PP_CUBIC_OFFSET_F1_4" },
+   { R200_PP_CUBIC_FACES_5, 1, "R200_PP_CUBIC_FACES_5" },
+   { R200_PP_CUBIC_OFFSET_F1_5, 5, "R200_PP_CUBIC_OFFSET_F1_5" },
 };
 
 struct reg_names {
@@ -1307,10 +1322,3 @@ int r200SanityCmdBuffer( r200ContextPtr rmesa,
 
    return 0;
 }
-
-
-/* Do the same job to a native command stream 
- *    -- pull apart packets after they are built.
- *    -- understand SCALAR, VECTOR stores
- *    -- understand INDIRECT registers & trace down into indirect buffers.
- */

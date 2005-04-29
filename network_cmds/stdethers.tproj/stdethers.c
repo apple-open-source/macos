@@ -69,8 +69,6 @@ static char rcsid[] = "$OpenBSD: stdethers.c,v 1.3 1997/09/11 19:47:33 deraadt E
 
 char *ProgramName = "stdethers";
 
-extern int   ether_line(char *, struct ether_addr *, char *);
-
 #ifndef NTOA_FIX
 #define	NTOA(x) (char *)ether_ntoa(x)
 #else

@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: cyrusdb.c,v 1.9 2004/01/20 01:11:03 ken3 Exp $ */
+/* $Id: cyrusdb.c,v 1.5 2005/03/05 00:37:12 dasenbro Exp $ */
 
 #include <config.h>
 #include <stdlib.h>

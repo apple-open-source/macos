@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -145,6 +144,7 @@ package body Eval_Fat is
    ---------------
 
    function Copy_Sign (RT : R; Value, Sign : T) return T is
+      pragma Warnings (Off, RT);
       Result : T;
 
    begin
@@ -838,6 +838,8 @@ package body Eval_Fat is
    -------------
 
    function Scaling (RT : R; X : T; Adjustment : UI) return T is
+      pragma Warnings (Off, RT);
+
    begin
       if Rbase (X) = Radix then
          return UR_From_Components
@@ -894,6 +896,8 @@ package body Eval_Fat is
    ----------------
 
    function Truncation (RT : R; X : T) return T is
+      pragma Warnings (Off, RT);
+
    begin
       return UR_From_Uint (UR_Trunc (X));
    end Truncation;

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = msdosfs ;
-export deferred SRCROOT = /sources/msdosfs-wheat ;
+export deferred SRCROOT = /Volumes/Speedy/sources/msdosfs ;
 
 # User-defined project-wide settings for project
 
@@ -33,7 +33,7 @@ export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_NAME = com.apple.filesystems.msdosfs ;
 export deferred MODULE_START = msdosfs_module_start ;
 export deferred MODULE_STOP = msdosfs_module_stop  ;
-export deferred MODULE_VERSION = 1.3 ;
+export deferred MODULE_VERSION = 1.4 ;
 export deferred OTHER_CFLAGS = -Wno-format ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;

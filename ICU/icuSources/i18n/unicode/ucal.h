@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 1996-2003, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) 1996-2004, International Business Machines Corporation and others. All Rights Reserved.
 *******************************************************************************
 */
 
@@ -8,6 +8,7 @@
 
 #include "unicode/utypes.h"
 #include "unicode/uenum.h"
+#include "unicode/uloc.h"
 
 #if !UCONFIG_NO_FORMATTING
 
@@ -26,7 +27,7 @@
  *
  * <p>
  * Types of <code>UCalendar</code> interpret a <code>UDate</code>
- * according to the rules of a specific calendar system. The U_CAPI
+ * according to the rules of a specific calendar system. The U_STABLE
  * provides the enum UCalendarType with UCAL_TRADITIONAL and
  * UCAL_GREGORIAN.
  * <p>
@@ -35,7 +36,7 @@
  * <code>UCalendar</code> whose time fields have been initialized
  * with the current date and time. We need to specify the type of
  * calendar to be opened and the  timezoneId.
- * <blockquote>
+ * \htmlonly<blockquote>\endhtmlonly
  * <pre>
  * \code
  * UCalendar *caldef;
@@ -46,7 +47,7 @@
  * caldef=ucal_open(tzID, u_strlen(tzID), NULL, UCAL_TRADITIONAL, &status);
  * \endcode
  * </pre>
- * </blockquote>
+ * \htmlonly</blockquote>\endhtmlonly
  *
  * <p>
  * A <code>UCalendar</code> object can produce all the time field values
@@ -73,7 +74,7 @@
  * combinations of fields.  The most recent combination, as determined by the
  * most recently set single field, will be used.
  *
- * <blockquote>
+ * \htmlonly<blockquote>\endhtmlonly
  * <pre>
  * \code
  * UCAL_MONTH + UCAL_DAY_OF_MONTH
@@ -83,18 +84,18 @@
  * UCAL_DAY_OF_WEEK + UCAL_WEEK_OF_YEAR
  * \endcode
  * </pre>
- * </blockquote>
+ * \htmlonly</blockquote>\endhtmlonly
  *
  * For the time of day:
  *
- * <blockquote>
+ * \htmlonly<blockquote>\endhtmlonly
  * <pre>
  * \code
  * UCAL_HOUR_OF_DAY
  * UCAL_AM_PM + UCAL_HOUR
  * \endcode
  * </pre>
- * </blockquote>
+ * \htmlonly</blockquote>\endhtmlonly
  *
  * <p>
  * <strong>Note:</strong> for some non-Gregorian calendars, different
@@ -159,46 +160,136 @@ typedef enum UCalendarType UCalendarType;
  * @stable ICU 2.0
  */
 enum UCalendarDateFields {
-  /** Era field */
+  /** 
+   * Era field
+   * @stable ICU 2.6 
+   */
   UCAL_ERA,
-  /** Year field */
+  /**
+   * Year field
+   * @stable ICU 2.6 
+   */
   UCAL_YEAR,
-  /** Month field */
+  /**
+   * Month field
+   * @stable ICU 2.6 
+   */
   UCAL_MONTH,
-  /** Week of year field */
+  /**
+   * Week of year field
+   * @stable ICU 2.6 
+   */
   UCAL_WEEK_OF_YEAR,
-  /** Week of month field */
+  /**
+   * Week of month field
+   * @stable ICU 2.6 
+   */
   UCAL_WEEK_OF_MONTH,
-  /** Date field */
+  /**
+   * Date field
+   * @stable ICU 2.6 
+   */
   UCAL_DATE,
-  /** Day of year field */
+  /**
+   * Day of year field
+   * @stable ICU 2.6 
+   */
   UCAL_DAY_OF_YEAR,
-  /** Day of week field */
+  /**
+   * Day of week field
+   * @stable ICU 2.6 
+   */
   UCAL_DAY_OF_WEEK,
-  /** Day of week in month field */
+  /**
+   * Day of week in month field
+   * @stable ICU 2.6 
+   */
   UCAL_DAY_OF_WEEK_IN_MONTH,
-  /** AM/PM field */
+  /**
+   * AM/PM field
+   * @stable ICU 2.6 
+   */
   UCAL_AM_PM,
-  /** Hour field */
+  /**
+   * Hour field
+   * @stable ICU 2.6 
+   */
   UCAL_HOUR,
-  /** Hour of day field */
+  /**
+   * Hour of day field
+   * @stable ICU 2.6 
+   */
   UCAL_HOUR_OF_DAY,
-  /** Minute field */
+  /**
+   * Minute field
+   * @stable ICU 2.6 
+   */
   UCAL_MINUTE,
-  /** Second field */
+  /**
+   * Second field
+   * @stable ICU 2.6 
+   */
   UCAL_SECOND,
-  /** Millisecond field */
+  /**
+   * Millisecond field
+   * @stable ICU 2.6 
+   */
   UCAL_MILLISECOND,
-  /** Zone offset field */
+  /**
+   * Zone offset field
+   * @stable ICU 2.6 
+   */
   UCAL_ZONE_OFFSET,
-  /** DST offset field */
+  /**
+   * DST offset field
+   * @stable ICU 2.6 
+   */
   UCAL_DST_OFFSET,
-  /** Year / week of year */
+  /**
+   * Year / week of year 
+   * @stable ICU 2.6
+   */
   UCAL_YEAR_WOY,
-  /** Day of week, localized (1..7) */
+  /**
+   * Day of week, localized (1..7) 
+   * @stable ICU 2.6
+   */
+#ifndef U_HIDE_DRAFT_API
+
   UCAL_DOW_LOCAL,
-  /** Field count */
-  UCAL_FIELD_COUNT
+  /**
+   * Year of this calendar system, encompassing all supra-year fields. For example, in Gregorian/Julian calendars, positive Extended Year values indicate years AD,  1 BC = 0 extended, 2 BC = -1 extended, and so on. 
+   * @draft ICU 2.8 
+   */
+  UCAL_EXTENDED_YEAR,       
+  /**
+   * Modified Julian day number, encompassing all date-related fields.  Demarcates at local midnight.
+   * @draft ICU 2.8
+   */
+  UCAL_JULIAN_DAY, 
+  /**
+   * Ranges from 0 to 23:59:59.999 (regardless of DST).  This field behaves <em>exactly</em> like a composite of all time-related fields, not including the zone fields.  As such, it also reflects discontinuities of those fields on DST transition days.  On a day of DST onset, it will jump forward.  On a day of DST cessation, it will jump backward.  This reflects the fact that is must be combined with the DST_OFFSET field to obtain a unique local time value.
+   * @draft ICU 2.8
+   */
+  UCAL_MILLISECONDS_IN_DAY,
+
+#endif /* U_HIDE_DRAFT_API */
+  
+  /**
+   * Field count
+   * @stable ICU 2.6
+   */
+  UCAL_FIELD_COUNT,
+
+#ifndef U_HIDE_DRAFT_API
+
+  /**
+   * Synonym for UCAL_DATE
+   * @draft ICU 2.8
+   **/
+  UCAL_DAY_OF_MONTH=UCAL_DATE
+
+#endif /*U_HIDE_DRAFT_API*/
 };
 
 /** @stable ICU 2.0 */
@@ -288,9 +379,9 @@ typedef enum UCalendarAMPMs UCalendarAMPMs;
  * uenum_close(), or NULL upon failure. In case of failure *ec will
  * indicate the error.
  *
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
-U_CAPI UEnumeration* U_EXPORT2
+U_DRAFT UEnumeration* U_EXPORT2
 ucal_openTimeZones(UErrorCode* ec);
 
 /**
@@ -307,9 +398,9 @@ ucal_openTimeZones(UErrorCode* ec);
  * uenum_close(), or NULL upon failure. In case of failure *ec will
  * indicate the error.
  *
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
-U_CAPI UEnumeration* U_EXPORT2
+U_DRAFT UEnumeration* U_EXPORT2
 ucal_openCountryTimeZones(const char* country, UErrorCode* ec);
 
 /**
@@ -326,9 +417,9 @@ ucal_openCountryTimeZones(const char* country, UErrorCode* ec);
  * @return The result string length, not including the terminating
  * null
  *
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 ucal_getDefaultTimeZone(UChar* result, int32_t resultCapacity, UErrorCode* ec);
 
 /**
@@ -338,9 +429,9 @@ ucal_getDefaultTimeZone(UChar* result, int32_t resultCapacity, UErrorCode* ec);
  *
  * @param ec input/output error code
  *
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
-U_CAPI void U_EXPORT2
+U_DRAFT void U_EXPORT2
 ucal_setDefaultTimeZone(const UChar* zoneID, UErrorCode* ec);
 
 /**
@@ -357,9 +448,9 @@ ucal_setDefaultTimeZone(const UChar* zoneID, UErrorCode* ec);
  * effect. This is always a non-negative number, most commonly either
  * 3,600,000 (one hour) or zero.
  *
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 ucal_getDSTSavings(const UChar* zoneID, UErrorCode* ec);
 
 /**
@@ -368,7 +459,7 @@ ucal_getDSTSavings(const UChar* zoneID, UErrorCode* ec);
  * @return The current date and time.
  * @stable ICU 2.0
  */
-U_CAPI UDate U_EXPORT2 
+U_STABLE UDate U_EXPORT2 
 ucal_getNow(void);
 
 /**
@@ -383,7 +474,7 @@ ucal_getNow(void);
  * @return A pointer to a UCalendar, or 0 if an error occurred.
  * @stable ICU 2.0
  */
-U_CAPI UCalendar* U_EXPORT2 
+U_STABLE UCalendar* U_EXPORT2 
 ucal_open(const UChar*   zoneID,
           int32_t        len,
           const char*    locale,
@@ -396,7 +487,7 @@ ucal_open(const UChar*   zoneID,
  * @param cal The UCalendar to close.
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_close(UCalendar *cal);
 
 /**
@@ -408,7 +499,7 @@ ucal_close(UCalendar *cal);
  * @param status A pointer to an UErrorCode to receive any errors.
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_setTimeZone(UCalendar*    cal,
                  const UChar*  zoneID,
                  int32_t       len,
@@ -445,7 +536,7 @@ typedef enum UCalendarDisplayNameType UCalendarDisplayNameType;
  * @return             The total buffer size needed; if greater than resultLength, the output was truncated.
  * @stable ICU 2.0
  */
-U_CAPI int32_t U_EXPORT2 
+U_STABLE int32_t U_EXPORT2 
 ucal_getTimeZoneDisplayName(const UCalendar*          cal,
                             UCalendarDisplayNameType  type,
                             const char*               locale,
@@ -461,7 +552,7 @@ ucal_getTimeZoneDisplayName(const UCalendar*          cal,
  * @return TRUE if cal is currently in daylight savings time, FALSE otherwise
  * @stable ICU 2.0
  */
-U_CAPI UBool U_EXPORT2 
+U_STABLE UBool U_EXPORT2 
 ucal_inDaylightTime(const UCalendar*  cal,
                     UErrorCode*       status );
 
@@ -492,7 +583,7 @@ typedef enum UCalendarAttribute UCalendarAttribute;
  * @see ucal_setAttribute
  * @stable ICU 2.0
  */
-U_CAPI int32_t U_EXPORT2 
+U_STABLE int32_t U_EXPORT2 
 ucal_getAttribute(const UCalendar*    cal,
                   UCalendarAttribute  attr);
 
@@ -507,7 +598,7 @@ ucal_getAttribute(const UCalendar*    cal,
  * @see ucal_getAttribute
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_setAttribute(UCalendar*          cal,
                   UCalendarAttribute  attr,
                   int32_t             newValue);
@@ -521,18 +612,18 @@ ucal_setAttribute(UCalendar*          cal,
  * @see ucal_countAvailable
  * @stable ICU 2.0
  */
-U_CAPI const char* U_EXPORT2 
+U_STABLE const char* U_EXPORT2 
 ucal_getAvailable(int32_t index);
 
 /**
  * Determine how many locales have calendars available.
  * This function is most useful as determining the loop ending condition for
- * calls to \Ref{ucal_getAvailable}.
+ * calls to \ref ucal_getAvailable.
  * @return The number of locales for which calendars are available.
  * @see ucal_getAvailable
  * @stable ICU 2.0
  */
-U_CAPI int32_t U_EXPORT2 
+U_STABLE int32_t U_EXPORT2 
 ucal_countAvailable(void);
 
 /**
@@ -546,7 +637,7 @@ ucal_countAvailable(void);
  * @see ucal_setDateTime
  * @stable ICU 2.0
  */
-U_CAPI UDate U_EXPORT2 
+U_STABLE UDate U_EXPORT2 
 ucal_getMillis(const UCalendar*  cal,
                UErrorCode*       status);
 
@@ -561,7 +652,7 @@ ucal_getMillis(const UCalendar*  cal,
  * @see ucal_setDateTime
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_setMillis(UCalendar*   cal,
                UDate        dateTime,
                UErrorCode*  status );
@@ -580,7 +671,7 @@ ucal_setMillis(UCalendar*   cal,
  * @see ucal_setDateTime
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_setDate(UCalendar*   cal,
              int32_t      year,
              int32_t      month,
@@ -604,7 +695,7 @@ ucal_setDate(UCalendar*   cal,
  * @see ucal_setDate
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_setDateTime(UCalendar*   cal,
                  int32_t      year,
                  int32_t      month,
@@ -623,7 +714,7 @@ ucal_setDateTime(UCalendar*   cal,
  * @return TRUE if cal1 and cal2 are equivalent, FALSE otherwise.
  * @stable ICU 2.0
  */
-U_CAPI UBool U_EXPORT2 
+U_STABLE UBool U_EXPORT2 
 ucal_equivalentTo(const UCalendar*  cal1,
                   const UCalendar*  cal2);
 
@@ -642,7 +733,7 @@ ucal_equivalentTo(const UCalendar*  cal1,
  * @see ucal_roll
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_add(UCalendar*           cal,
          UCalendarDateFields  field,
          int32_t              amount,
@@ -663,7 +754,7 @@ ucal_add(UCalendar*           cal,
  * @see ucal_add
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_roll(UCalendar*           cal,
           UCalendarDateFields  field,
           int32_t              amount,
@@ -685,7 +776,7 @@ ucal_roll(UCalendar*           cal,
  * @see ucal_clear
  * @stable ICU 2.0
  */
-U_CAPI int32_t U_EXPORT2 
+U_STABLE int32_t U_EXPORT2 
 ucal_get(const UCalendar*     cal,
          UCalendarDateFields  field,
          UErrorCode*          status );
@@ -705,7 +796,7 @@ ucal_get(const UCalendar*     cal,
  * @see ucal_clear
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_set(UCalendar*           cal,
          UCalendarDateFields  field,
          int32_t              value);
@@ -725,7 +816,7 @@ ucal_set(UCalendar*           cal,
  * @see ucal_clear
  * @stable ICU 2.0
  */
-U_CAPI UBool U_EXPORT2 
+U_STABLE UBool U_EXPORT2 
 ucal_isSet(const UCalendar*     cal,
            UCalendarDateFields  field);
 
@@ -743,7 +834,7 @@ ucal_isSet(const UCalendar*     cal,
  * @see ucal_clear
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_clearField(UCalendar*           cal,
                 UCalendarDateFields  field);
 
@@ -757,7 +848,7 @@ ucal_clearField(UCalendar*           cal,
  * @see ucal_clearField
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 ucal_clear(UCalendar* calendar);
 
 /**
@@ -796,12 +887,13 @@ typedef enum UCalendarLimitType UCalendarLimitType;
  * @return The requested value.
  * @stable ICU 2.0
  */
-U_CAPI int32_t U_EXPORT2 
+U_STABLE int32_t U_EXPORT2 
 ucal_getLimit(const UCalendar*     cal,
               UCalendarDateFields  field,
               UCalendarLimitType   type,
               UErrorCode*          status);
 
+#ifdef U_USE_UCAL_OBSOLETE_2_8
 /**
  * Get an available TimeZone ID.
  * A Timezone ID is a string of the form "America/Los Angeles".
@@ -812,7 +904,7 @@ ucal_getLimit(const UCalendar*     cal,
  * @see ucal_countAvailableTZIDs
  * @obsolete ICU 2.8. Use ucal_openTimeZoneEnumeration instead since this API will be removed in that release.
  */
-U_CAPI const UChar* U_EXPORT2 
+U_OBSOLETE const UChar* U_EXPORT2 
 ucal_getAvailableTZIDs(int32_t      rawOffset,
                        int32_t      index,
                        UErrorCode*  status);
@@ -820,14 +912,25 @@ ucal_getAvailableTZIDs(int32_t      rawOffset,
 /**
  * Determine how many TimeZones exist with a certain offset.
  * This function is most useful as determining the loop ending condition for
- * calls to \Ref{ucal_getAvailableTZIDs}.
+ * calls to \ref ucal_getAvailableTZIDs.
  * @param rawOffset The desired GMT offset.
  * @return The number of TimeZones with rawOffset.
  * @see ucal_getAvailableTZIDs
  * @obsolete ICU 2.8.  Use ucal_openTimeZoneEnumeration instead since this API will be removed in that release.
  */
-U_CAPI int32_t U_EXPORT2 
+U_OBSOLETE int32_t U_EXPORT2 
 ucal_countAvailableTZIDs(int32_t rawOffset);
+#endif
+
+/** Get the locale for this calendar object. You can choose between valid and actual locale.
+ *  @param cal The calendar object
+ *  @param type type of the locale we're looking for (valid or actual) 
+ *  @param status error code for the operation
+ *  @return the locale name
+ * @draft ICU 2.8 likely to change in ICU 3.0, based on feedback
+ */
+U_DRAFT const char * U_EXPORT2
+ucal_getLocaleByType(const UCalendar *cal, ULocDataLocaleType type, UErrorCode* status);
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

@@ -35,7 +35,6 @@ _Unwind_RaiseException_Phase2(struct _Unwind_Exception *exc,
 {
   _Unwind_Reason_Code code;
 
-  Dprintf("in _Unwind_RaiseException_Phase2\n");
   while (1)
     {
       _Unwind_FrameState fs;
@@ -43,25 +42,20 @@ _Unwind_RaiseException_Phase2(struct _Unwind_Exception *exc,
 
       code = uw_frame_state_for (context, &fs);
 
-      Dprintf("got frame state in _Unwind_RaiseException_Phase2\n");
       /* Identify when we've reached the designated handler context.  */
       match_handler = (uw_identify_context (context) == exc->private_2
 		       ? _UA_HANDLER_FRAME : 0);
 
       if (code != _URC_NO_REASON)
-	{
-	  Dprintf("some error encountered\n");
 	/* Some error encountered.  Usually the unwinder doesn't
 	   diagnose these and merely crashes.  */
 	return _URC_FATAL_PHASE2_ERROR;
-	}
-      Dprintf("about to run personality %p, context %p\n", (void *)fs.personality, context);
+
       /* Unwind successful.  Run the personality routine, if any.  */
       if (fs.personality)
 	{
 	  code = (*fs.personality) (1, _UA_CLEANUP_PHASE | match_handler,
 				    exc->exception_class, exc, context);
-	  Dprintf("personality returns %d (m_h is %d)\n", code, match_handler);
 	  if (code == _URC_INSTALL_CONTEXT)
 	    break;
 	  if (code != _URC_CONTINUE_UNWIND) 
@@ -78,7 +72,6 @@ _Unwind_RaiseException_Phase2(struct _Unwind_Exception *exc,
   return code;
 }
 
-
 /* Raise an exception, passing along the given exception object.  */
 
 _Unwind_Reason_Code
@@ -87,22 +80,20 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
   struct _Unwind_Context this_context, cur_context;
   _Unwind_Reason_Code code;
 
-  Dprintf("begin unwind exc %p\n", exc);
+  /* Set up this_context to describe the current stack frame.  */
   uw_init_context (&this_context);
-  Dprintf("in _Unwind_RaiseException begin, set context %p from %p\n",
-	 &cur_context, &this_context);
   cur_context = this_context;
 
-  Dprintf("begin search, exc %p\n", exc);
   /* Phase 1: Search.  Unwind the stack, calling the personality routine
      with the _UA_SEARCH_PHASE flag set.  Do not modify the stack yet.  */
   while (1)
     {
       _Unwind_FrameState fs;
 
+      /* Set up fs to describe the FDE for the caller of cur_context.  The
+	 first time through the loop, that means __cxa_throw.  */
       code = uw_frame_state_for (&cur_context, &fs);
 
-      Dprintf("got a frame state\n");
       if (code == _URC_END_OF_STACK)
 	/* Hit end of stack with no handler found.  */
 	return _URC_END_OF_STACK;
@@ -123,23 +114,20 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
 	    return _URC_FATAL_PHASE1_ERROR;
 	}
 
+      /* Update cur_context to describe the same frame as fs.  */
       uw_update_context (&cur_context, &fs);
     }
-  Dprintf("finished search\n");
+
   /* Indicate to _Unwind_Resume and associated subroutines that this
      is not a forced unwind.  Further, note where we found a handler.  */
   exc->private_1 = 0;
   exc->private_2 = uw_identify_context (&cur_context);
 
-  Dprintf("in _Unwind_RaiseException begin, set context %p from %p\n",
-	 &cur_context, &this_context);
   cur_context = this_context;
   code = _Unwind_RaiseException_Phase2 (exc, &cur_context);
   if (code != _URC_INSTALL_CONTEXT)
     return code;
 
-  Dprintf("about to install context, this=%p, cur=%p\n",
-	 &this_context, &cur_context);
   uw_install_context (&this_context, &cur_context);
 }
 
@@ -159,6 +147,7 @@ _Unwind_ForcedUnwind_Phase2(struct _Unwind_Exception *exc,
       _Unwind_FrameState fs;
       int action;
 
+      /* Set up fs to describe the FDE for the caller of cur_context.  */
       code = uw_frame_state_for (context, &fs);
       if (code != _URC_NO_REASON && code != _URC_END_OF_STACK)
 	return _URC_FATAL_PHASE2_ERROR;
@@ -187,6 +176,7 @@ _Unwind_ForcedUnwind_Phase2(struct _Unwind_Exception *exc,
 	    return _URC_FATAL_PHASE2_ERROR;
 	}
 
+      /* Update cur_context to describe the same frame as fs.  */
       uw_update_context (context, &fs);
     }
 
@@ -226,12 +216,8 @@ _Unwind_Resume (struct _Unwind_Exception *exc)
   struct _Unwind_Context this_context, cur_context;
   _Unwind_Reason_Code code;
 
-  Dprintf("_Unwind_Resume begin exc %p\n", exc);
   uw_init_context (&this_context);
   cur_context = this_context;
-
-  Dprintf("_Unwind_Resume after init context exc %p cur_context %p\n",
-	 exc, &cur_context);
 
   /* Choose between continuing to process _Unwind_RaiseException
      or _Unwind_ForcedUnwind.  */

@@ -1,0 +1,8 @@
+pkg-config 0.15
+===
+
+ - add PKG_CONFIG_LIBDIR for cross-compiling (David Schleef)
+ - add --libs-only-other/--cflags-only-other (Zack Rusin)
+ - apply man page fixes (Pter Breitenlohner)
+ - C portability fix (David Robins)
+ - fix to win32 build (Tor Lillqvist)

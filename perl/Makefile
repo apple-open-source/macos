@@ -32,6 +32,25 @@ CC_Optimize     =
 Extra_CC_Flags  = 
 Configure_Flags = -ds -e -Dprefix='$(Install_Prefix)' -Dccflags='$(CFLAGS)' -Dldflags='$(LDFLAGS)' -Dman3ext=3pm -Duseithreads -Duseshrplib
 
+##---------------------------------------------------------------------
+# Patch pyconfig.h just after running configure
+#
+# Makefile.ed is used to workaround a bug in dyld (3661976).  It can be
+# removed when dyld is fixed.
+##---------------------------------------------------------------------
+ConfigStamp2 = $(ConfigStamp)2
+
+configure:: $(ConfigStamp2)
+
+$(ConfigStamp2): $(ConfigStamp)
+	$(_v) sed -e 's/@PREPENDFILE@/$(PREPENDFILE)/' \
+	    -e 's/@APPENDFILE@/$(APPENDFILE)/' \
+	    -e 's/@VERSION@/$(_VERSION)/' < $(SRCROOT)/config.h.ed | \
+	    ed - ${BuildDirectory}/config.h
+	$(_v) ed - ${BuildDirectory}/Makefile < $(SRCROOT)/Makefile.ed
+	$(_v) ed - ${BuildDirectory}/GNUmakefile < $(SRCROOT)/Makefile.ed
+	$(_v) $(TOUCH) $(ConfigStamp2)
+
 ##--------------------------------------------------------------------------
 # We need to strip $(DSTROOT) from Config.pm and .packlist.
 #
@@ -41,8 +60,11 @@ Configure_Flags = -ds -e -Dprefix='$(Install_Prefix)' -Dccflags='$(CFLAGS)' -Dld
 # by default.
 #
 # We do both of these things in the fix-dstroot.pl script
+#
+# Setting DYLD_IGNORE_PREBINDING is used to workaround a bug in dyld (3661976).
+# It can be removed when dyld is fixed.
 ##--------------------------------------------------------------------------
-MINIPERL = DYLD_LIBRARY_PATH="$(BuildDirectory)" "$(BuildDirectory)/miniperl"
+MINIPERL = DYLD_IGNORE_PREBINDING=all DYLD_LIBRARY_PATH="$(BuildDirectory)" "$(BuildDirectory)/miniperl"
 
 fix-dstroot:
 	$(_v) $(MINIPERL) -I$(BuildDirectory)/lib $(SRCROOT)/fix-dstroot.pl $(DSTROOT)

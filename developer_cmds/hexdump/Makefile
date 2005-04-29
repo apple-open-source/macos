@@ -19,7 +19,7 @@ CFILES = conv.c display.c hexdump.c hexsyntax.c odsyntax.c parse.c
 OTHERSRCS = hexdump.1 Makefile Makefile.postamble Makefile.preamble\
             od.1
 
-
+NEXTSTEP_PB_CFLAGS += -D__FBSDID=__RCSID
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = tool.make

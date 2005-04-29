@@ -1,7 +1,6 @@
 /*
- * @(#)loengine.cpp	1.0 00/12/07
  *
- * (C) Copyright IBM Corp. 1998, 1999, 2000 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -14,4 +13,6 @@
  * exported by the build...
  */
 
-const char ICULayoutEngine::fgClassID=0;
+#ifndef U_HIDE_OBSOLETE_API
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ICULayoutEngine)
+#endif

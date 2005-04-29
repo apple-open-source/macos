@@ -2,7 +2,8 @@
 
     TREELANG Compiler common definitions (treelang.h)
 
-    Copyright (C) 1986, 87, 89, 92-96, 1997, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+    Copyright (C) 1986, 87, 89, 92-96, 1997, 1999, 2000, 2001, 2002, 2003, 2004
+    Free Software Foundation, Inc.
 
     This program is free software; you can redistribute it and/or modify it
     under the terms of the GNU General Public License as published by the
@@ -30,6 +31,8 @@
 
 */
 
+#include "input.h"
+
 /* Parse structure type.  */
 enum category_enum 
 { /* These values less likely to be there by chance unlike 0/1,
@@ -39,21 +42,20 @@ enum category_enum
   parameter_category = 333
 };
 
-/* Input file name and FILE.  */
-extern unsigned char* in_fname;
+/* Input file FILE.  */
 extern FILE* yyin;
 
 /* Forward references to satisfy mutually recursive definitions.  */
 struct token_part;
 struct production_part;
 struct prod_token_parm_item;
-typedef struct GTY(()) prod_token_parm_item item;
+typedef struct prod_token_parm_item item;
 
 /* A token from the input file.  */
 
 struct token_part GTY(())
 {
-  unsigned int lineno;
+  location_t location;
   unsigned int charno;
   unsigned int length; /* The value.  */
   unsigned char* chars;
@@ -61,7 +63,8 @@ struct token_part GTY(())
 
 /* Definitions for fields in production.  */
 #define NESTING_LEVEL(a) a->tp.pro.info[0]  /* Level used for variable definitions.  */
-#define NUMERIC_TYPE(a)  a->tp.pro.info[1]  /* Numeric type used in type definitions and expressions.  */
+/* Numeric type used in type definitions and expressions.  */
+#define NUMERIC_TYPE(a)  a->tp.pro.info[1]  
 #define SUB_COUNT 5
 #define SYMBOL_TABLE_NAME(a) (a->tp.pro.sub[0]) /* Name token.  */
 #define EXPRESSION_TYPE(a) (a->tp.pro.sub[1]) /* Type identifier.  */
@@ -70,7 +73,8 @@ struct token_part GTY(())
 #define VARIABLE(a) (a->tp.pro.sub[2]) /* Parameter variable ptr.  */
 #define VAR_INIT(a) (a->tp.pro.sub[2]) /* Variable init.  */
 #define OP2(a) (a->tp.pro.sub[3]) /* Exp operand2.  */
-#define FIRST_PARMS(a) (a->tp.pro.sub[3]) /* Function parameters linked via struct tree_parameter_list.  */
+/* Function parameters linked via struct tree_parameter_list.  */
+#define FIRST_PARMS(a) (a->tp.pro.sub[3])
 #define OP3(a) (a->tp.pro.sub[4]) /* Exp operand3.  */
 #define STORAGE_CLASS_TOKEN(a) (a->tp.pro.sub[4]) /* Storage class token.  */
 #define STORAGE_CLASS(a) a->tp.pro.flag1 /* Values in treetree.h.  */
@@ -150,3 +154,4 @@ void mark_production_used (struct prod_token_parm_item *pp);
 void mark_token_used (struct prod_token_parm_item *tt);
 void treelang_debug (void);
 
+void sanity_check (struct prod_token_parm_item *item);

@@ -37,7 +37,7 @@
  * appear at fixed offsets into the file. Don't make HOWMANY
  * too high unless you have a very fast CPU.
  *
- * $Id: names.h,v 1.1 2003/07/02 18:01:22 eseidel Exp $
+ * $Id: names.h,v 1.24 2004/03/22 19:09:12 christos Exp $
  */
 
 /*
@@ -60,6 +60,7 @@
 #define	L_HTML	11		/* HTML */
 #define	L_BCPL	12		/* BCPL */
 #define	L_M4	13		/* M4 */
+#define	L_PO	14		/* PO */
 
 static const struct {
 	const char *human;
@@ -71,7 +72,7 @@ static const struct {
 	{ "make commands",				"text/x-makefile" },
 	{ "PL/1 program",				"text/x-pl1" },
 	{ "assembler program",				"text/x-asm" },
-	{ "English",					"text/plain, English" },
+	{ "English",					"text/plain" },
 	{ "Pascal program",				"text/x-pascal" },
 	{ "mail",					"text/x-mail" },
 	{ "news",					"text/x-news" },
@@ -79,7 +80,8 @@ static const struct {
 	{ "HTML document",				"text/html", },
 	{ "BCPL program",				"text/x-bcpl" },
 	{ "M4 macro language pre-processor",		"text/x-m4" },
-	{ "can't happen error on names.h/types",	"error/x-error" },
+	{ "PO (gettext message catalogue)",             "text/x-po" },
+	{ "cannot happen error on names.h/types",	"error/x-error" },
 	{ 0, 0}
 };
 
@@ -125,6 +127,7 @@ static struct names {
 } names[] = {
 	/* These must be sorted by eye for optimal hit rate */
 	/* Add to this list only after substantial meditation */
+	{"msgid",	L_PO},
 	{"dnl",		L_M4},
 	{"import",	L_JAVA},
 	{"\"libhdr\"",	L_BCPL},
@@ -181,6 +184,8 @@ static struct names {
 	{"HREF=",	L_HTML},
 	{"<body",	L_HTML},
 	{"<BODY",	L_HTML},
+	{"<html",	L_HTML},
+	{"<HTML",	L_HTML},
 	{NULL,		0}
 };
 #define NNAMES ((sizeof(names)/sizeof(struct names)) - 1)

@@ -1,3 +1,48 @@
+2004-10-01  Ken Raeburn  <raeburn@mit.edu>
+
+	* kcmd.c (kcmd_connect): Set *addrfamilyp with the address family
+	actually used.
+
+2004-09-22  Tom Yu  <tlyu@mit.edu>
+
+	* configure.in: Use KRB5_AC_LIBUTIL.
+
+	* Makefile.in (kshd, klogind): Use UTIL_LIB.
+
+2004-09-08  Tom Yu  <tlyu@mit.edu>
+
+	* login.c (main): Don't overwrite "PATH" environment variable if
+	it's already set.
+
+2004-07-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* compat_recv.c: Only include sys/select.h if it's available.
+
+2004-07-11  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Use KRB5_AC_INET6.
+
+2004-05-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* setenv.c: Include string.h.
+
+2004-05-24  Ezra Peisach  <epeisach@mit.edu>
+
+	* krsh.c (main): Invoke krb5_free_context at exit.
+
+2004-02-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (kshd, klogind): Link against apputils lib.
+
+2003-08-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Call KRB5_AC_NEED_DAEMON instead of checking
+	whether daemon() prototype is needed.
+
+	* krshd.c (ignore_signals): Split out from cleanup().
+	(doit): Call it when the shell process has completed, before
+	calling syslog.
+
 2003-05-23  Ken Raeburn  <raeburn@mit.edu>
 
 	* configure.in: Don't use libkrb524.a any more.
@@ -20,6 +65,13 @@
 
 	* krshd.c (main): Use LOG_AUTH syslog facility, not LOG_DAEMON,
 	for consistency with krlogind.c.
+
+2003-03-28  Ken Raeburn  <raeburn@mit.edu>
+
+	* kcmd.c (kcmd_connect): Log errors if a connect to port 0 is
+	attempted.  Report port number in connection failure.
+	(setup_secondary_channel): Use socklen_t for socket address
+	length.
 
 2003-03-04  Ken Raeburn  <raeburn@mit.edu>
 

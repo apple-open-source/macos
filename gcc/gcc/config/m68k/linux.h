@@ -1,48 +1,40 @@
 /* Definitions for Motorola 68k running Linux-based GNU systems with
    ELF format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-#define LINUX_DEFAULT_ELF
-#define MOTOROLA		/* Use Motorola syntax */
-#define USE_GAS			/* But GAS wants jbsr instead of jsr */
-
-/* TODO: convert includes to ${tm_file} list in config.gcc.  */
-#include <m68k/m68k.h>
-
-/* Make sure CC1 is undefined.  */
-#undef CC1_SPEC
-
-#include "dbxelf.h"
-#include "elfos.h"
-#include "svr4.h"
-#include <linux.h>		/* some common stuff */
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
 
-/* 68020 with 68881 */
+/* Default target comes from config.gcc.  */
+
+#undef TARGET_DEFAULT
+#ifdef TARGET_CPU_DEFAULT
+#define TARGET_DEFAULT TARGET_CPU_DEFAULT
+#else
 #define TARGET_DEFAULT (MASK_BITFIELD|MASK_68881|MASK_68020)
+#endif
 
 /* for 68k machines this only needs to be TRUE for the 68000 */
 
-#undef STRICT_ALIGNMENT     
+#undef STRICT_ALIGNMENT
 #define STRICT_ALIGNMENT 0
 
 #undef SUBTARGET_SWITCHES
@@ -74,64 +66,42 @@ Boston, MA 02111-1307, USA.  */
 
 #define ASM_COMMENT_START "|"
 
-/* How to refer to registers in assembler output.
-   This sequence is indexed by compiler's hard-register-number.
-   Motorola format uses different register names than defined in m68k.h.  */
-
-#undef REGISTER_NAMES
-
-#ifndef SUPPORT_SUN_FPA
-
-#define REGISTER_NAMES \
-{"%d0", "%d1", "%d2", "%d3", "%d4", "%d5", "%d6", "%d7", \
- "%a0", "%a1", "%a2", "%a3", "%a4", "%a5", "%a6", "%sp", \
- "%fp0", "%fp1", "%fp2", "%fp3", "%fp4", "%fp5", "%fp6", "%fp7" }
-
-#else /* SUPPORTED_SUN_FPA */
-
-#define REGISTER_NAMES \
-{"%d0", "%d1", "%d2", "%d3", "%d4", "%d5", "%d6", "%d7", \
- "%a0", "%a1", "%a2", "%a3", "%a4", "%a5", "%a6", "%sp", \
- "%fp0", "%fp1", "%fp2", "%fp3", "%fp4", "%fp5", "%fp6", "%fp7", \
- "%fpa0", "%fpa1", "%fpa2", "%fpa3", "%fpa4", "%fpa5", "%fpa6", "%fpa7", \
- "%fpa8", "%fpa9", "%fpa10","%fpa11","%fpa12","%fpa13","%fpa14","%fpa15", \
- "%fpa16","%fpa17","%fpa18","%fpa19","%fpa20","%fpa21","%fpa22","%fpa23", \
- "%fpa24","%fpa25","%fpa26","%fpa27","%fpa28","%fpa29","%fpa30","%fpa31" }
-
-#endif /* defined SUPPORT_SUN_FPA */
-
 #undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
- 
+
 #undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE "int"
-  
+
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "long int"
-   
+
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD
 
-#define CPP_PREDEFINES \
-  "-D__ELF__ -Dunix -Dmc68000 -Dmc68020 -D__gnu_linux__ -Dlinux -Asystem=unix -Asystem=posix -Acpu=m68k -Amachine=m68k"
+/* Target OS builtins.  */
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	LINUX_TARGET_OS_CPP_BUILTINS();		\
+	builtin_define_std ("mc68000");		\
+	builtin_define_std ("mc68020");		\
+   }						\
+  while (0)
+
+#define TARGET_OBJFMT_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__ELF__");		\
+    }						\
+  while (0)
 
 #undef CPP_SPEC
-#ifdef USE_GNULIBC_1
 #if TARGET_DEFAULT & MASK_68881
 #define CPP_SPEC \
-  "%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{!msoft-float:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE}"
+  "%{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__} %{!msoft-float:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 #else
 #define CPP_SPEC \
-  "%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{m68881:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE}"
-#endif
-#else
-#if TARGET_DEFAULT & MASK_68881
-#define CPP_SPEC \
-  "%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{!msoft-float:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
-#else
-#define CPP_SPEC \
-  "%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{m68881:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
-#endif
+  "%{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__} %{m68881:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 #endif
 
 /* We override the ASM_SPEC from svr4.h because we must pass -m68040 down
@@ -158,30 +128,12 @@ Boston, MA 02111-1307, USA.  */
 /* If ELF is the default format, we should not use /lib/elf.  */
 
 #undef	LINK_SPEC
-#ifdef USE_GNULIBC_1
-#ifndef LINUX_DEFAULT_ELF
-#define LINK_SPEC "-m m68kelf %{shared} %{symbolic:-shared -Bsymbolic} \
-  %{!shared:%{!symbolic: \
-    %{!static: \
-      %{rdynamic:-export-dynamic} \
-      %{!dynamic-linker*:-dynamic-linker /lib/elf/ld-linux.so.1} \
-      %{!rpath*:-rpath /lib/elf/}} %{static}}}"
-#else
-#define LINK_SPEC "-m m68kelf %{shared} %{symbolic:-shared -Bsymbolic} \
-  %{!shared:%{!symbolic: \
-    %{!static: \
-      %{rdynamic:-export-dynamic} \
-      %{!dynamic-linker*:-dynamic-linker /lib/ld-linux.so.1}} \
-    %{static}}}"
-#endif
-#else
 #define LINK_SPEC "-m m68kelf %{shared} \
   %{!shared: \
     %{!static: \
       %{rdynamic:-export-dynamic} \
       %{!dynamic-linker*:-dynamic-linker /lib/ld.so.1}} \
     %{static}}"
-#endif
 
 /* For compatibility with linux/a.out */
 
@@ -196,7 +148,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_RETURN_CASE_JUMP				\
   do {							\
-    if (TARGET_5200)					\
+    if (TARGET_COLDFIRE)				\
       {							\
 	if (ADDRESS_REG_P (operands[0]))		\
 	  return "jmp %%pc@(2,%0:l)";			\
@@ -273,7 +225,7 @@ Boston, MA 02111-1307, USA.  */
    the precise function being called is known, FUNC is its
    FUNCTION_DECL; otherwise, FUNC is 0.  For m68k/SVR4 generate the
    result in d0, a0, or fp0 as appropriate.  */
-   
+
 #undef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
   (TREE_CODE (VALTYPE) == REAL_TYPE && TARGET_68881			\
@@ -308,18 +260,6 @@ do {									\
    ? gen_rtx_REG ((MODE), 16)						\
    : gen_rtx_REG ((MODE), 0))
 
-/* In m68k svr4, a symbol_ref rtx can be a valid PIC operand if it is
-   an operand of a function call.  */
-#undef LEGITIMATE_PIC_OPERAND_P
-#define LEGITIMATE_PIC_OPERAND_P(X) \
-  ((! symbolic_operand (X, VOIDmode) \
-    && ! (GET_CODE (X) == CONST_DOUBLE && mem_for_const_double (X) != 0	\
-	  && GET_CODE (mem_for_const_double (X)) == MEM			\
-	  && symbolic_operand (XEXP (mem_for_const_double (X), 0),	\
-			       VOIDmode))) 				\
-   || (GET_CODE (X) == SYMBOL_REF && SYMBOL_REF_FLAG (X))       	\
-   || PCREL_GENERAL_OPERAND_OK)
-
 /* For m68k SVR4, structures are returned using the reentrant
    technique.  */
 #undef PCC_STATIC_STRUCT_RETURN
@@ -343,7 +283,7 @@ do {									\
    scope  - the scope of the flush (see the cpush insn)
    cache  - which cache to flush (see the cpush insn)
    len    - a factor relating to the number of flushes to perform:
-   	    len/16 lines, or len/4096 pages.  */
+	    len/16 lines, or len/4096 pages.  */
 
 #define CLEAR_INSN_CACHE(BEG, END)					\
 {									\
@@ -351,11 +291,13 @@ do {									\
   unsigned long _end = (unsigned long) (END);				\
   register unsigned long _len __asm ("%d4") = (_end - _beg + 32);	\
   __asm __volatile							\
-    ("move%.l %#123, %/d0\n\t"	/* system call nr */			\
-     "move%.l %#1, %/d2\n\t"	/* clear lines */			\
-     "move%.l %#3, %/d3\n\t"	/* insn+data caches */			\
-     "trap %#0"								\
+    ("move%.l #123, %/d0\n\t"	/* system call nr */			\
+     "move%.l #1, %/d2\n\t"	/* clear lines */			\
+     "move%.l #3, %/d3\n\t"	/* insn+data caches */			\
+     "trap #0"								\
      : /* no outputs */							\
      : "d" (_beg), "d" (_len)						\
      : "%d0", "%d2", "%d3");						\
 }
+
+#define TARGET_ASM_FILE_END file_end_indicate_exec_stack

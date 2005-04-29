@@ -36,8 +36,10 @@
 static char sccsid[] = "@(#)popen.c	8.1 (Berkeley) 6/6/93";
 #endif
 static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/popen.c,v 1.5 2001/12/18 20:52:09 mikeh Exp $";
+  "$FreeBSD: src/usr.bin/mail/popen.c,v 1.7 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */
+#include <sys/cdefs.h>
+
 
 #include "rcv.h"
 #include <sys/wait.h>
@@ -63,9 +65,9 @@ struct child {
 	struct	child *link;
 };
 static struct child *child;
-static struct child *findchild __P((int));
-static void delchild __P((struct child *));
-static int file_pid __P((FILE *));
+static struct child *findchild(int);
+static void delchild(struct child *);
+static int file_pid(FILE *);
 
 FILE *
 Fopen(path, mode)

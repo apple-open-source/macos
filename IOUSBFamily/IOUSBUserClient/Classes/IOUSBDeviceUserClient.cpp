@@ -20,28 +20,18 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include <libkern/OSByteOrder.h>
 
-#include <IOKit/assert.h>
-#include <IOKit/IOLib.h>
-#include <IOKit/IOBufferMemoryDescriptor.h>
-#include <IOKit/IOMessage.h>
+//================================================================================================
+//
+//   Headers
+//
+//================================================================================================
+//
+#include <IOKit/usb/IOUSBDeviceUserClient.h>
+#include <sys/proc.h>
 
-#include <IOKit/usb/IOUSBDevice.h>
-#include <IOKit/usb/IOUSBInterface.h>
-#include <IOKit/usb/IOUSBPipe.h>
-#include <IOKit/usb/IOUSBLog.h>
-
-#include "IOUSBDeviceUserClient.h"
 
 #define super IOUserClient
-
-struct AsyncPB {
-    OSAsyncReference 		fAsyncRef;
-    UInt32 			fMax;
-    IOMemoryDescriptor 		*fMem;
-    IOUSBDevRequestDesc		req;
-};
 
 //=============================================================================================
 //
@@ -69,16 +59,27 @@ struct AsyncPB {
 //=============================================================================================
 //
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
 #define super IOUserClient
+
+enum {
+    kMethodObjectThis = 0,
+    kMethodObjectOwner
+};
+
+//================================================================================================
+//
+//   IOUSBDeviceUserClient Methods
+//
+//================================================================================================
+//
 OSDefineMetaClassAndStructors(IOUSBDeviceUserClient, IOUserClient)
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-enum {
-        kMethodObjectThis = 0,
-        kMethodObjectOwner
-    };
-    
 const IOExternalMethod 
 IOUSBDeviceUserClient::sMethods[kNumUSBDeviceMethods] = {
     { //    kUSBDeviceUserClientOpen
@@ -276,6 +277,7 @@ IOUSBDeviceUserClient::getAsyncTargetAndMethodForIndex(IOService **target, UInt3
 bool
 IOUSBDeviceUserClient::initWithTask(task_t owningTask,void *security_id , UInt32 type )
 {
+    USBLog(7, "+%s[%p]::initWithTask", getName(), this);
     if (!super::initWithTask(owningTask, security_id , type))
         return false;
     
@@ -288,6 +290,7 @@ IOUSBDeviceUserClient::initWithTask(task_t owningTask,void *security_id , UInt32
     fGate = NULL;
     fDead = false;
     SetExternalMethodVectors();
+    USBLog(7, "-%s[%p]::initWithTask", getName(), this);
     return true;
 }
 
@@ -296,8 +299,8 @@ IOUSBDeviceUserClient::initWithTask(task_t owningTask,void *security_id , UInt32
 bool 
 IOUSBDeviceUserClient::start( IOService * provider )
 {
-    IOWorkLoop	*			workLoop = NULL;
-    IOCommandGate *			commandGate = NULL;
+    IOWorkLoop	*		workLoop = NULL;
+    IOCommandGate *		commandGate = NULL;
 
     USBLog(7, "+%s[%p]::start(%p)", getName(), this, provider);
 
@@ -346,7 +349,7 @@ IOUSBDeviceUserClient::start( IOService * provider )
     
     DecrementOutstandingIO();
 
-    USBLog(7, "-%s[%p]::start(%p)", getName(), this, provider);
+    USBLog(7, "-%s[%p]::start", getName(), this);
 
     return true;
     
@@ -436,7 +439,7 @@ void
 IOUSBDeviceUserClient::ReqComplete(void *obj, void *param, IOReturn res, UInt32 remaining)
 {
     void *	args[1];
-    AsyncPB * pb = (AsyncPB *)param;
+    IOUSBDeviceUserClientAsyncParamBlock * pb = (IOUSBDeviceUserClientAsyncParamBlock *)param;
     IOUSBDeviceUserClient *me = OSDynamicCast(IOUSBDeviceUserClient, (OSObject*)obj);
 
     if (!me)
@@ -801,7 +804,7 @@ IOUSBDeviceUserClient::DeviceReqInAsync(OSAsyncReference asyncRef, IOUSBDevReque
 {
     IOReturn 			ret = kIOReturnSuccess;
     IOUSBCompletion		tap;
-    AsyncPB * 			pb = NULL;
+    IOUSBDeviceUserClientAsyncParamBlock * 			pb = NULL;
     IOMemoryDescriptor *	mem = NULL;
 
     if(inCount != sizeof(IOUSBDevRequestTO))
@@ -824,7 +827,7 @@ IOUSBDeviceUserClient::DeviceReqInAsync(OSAsyncReference asyncRef, IOUSBDevReque
 	}
 	if (ret == kIOReturnSuccess)
 	{
-	    pb = (AsyncPB *)IOMalloc(sizeof(AsyncPB));
+	    pb = (IOUSBDeviceUserClientAsyncParamBlock *)IOMalloc(sizeof(IOUSBDeviceUserClientAsyncParamBlock));
 	    if(!pb) 
 		ret = kIOReturnNoMemory;
 	}
@@ -923,7 +926,7 @@ IOUSBDeviceUserClient::DeviceReqOutAsync(OSAsyncReference asyncRef, IOUSBDevRequ
 {
     IOReturn 			ret = kIOReturnSuccess;
     IOUSBCompletion		tap;
-    AsyncPB * 			pb = NULL;
+    IOUSBDeviceUserClientAsyncParamBlock * 			pb = NULL;
     IOMemoryDescriptor *	mem = NULL;
 
     if(inCount != sizeof(IOUSBDevRequestTO))
@@ -946,7 +949,7 @@ IOUSBDeviceUserClient::DeviceReqOutAsync(OSAsyncReference asyncRef, IOUSBDevRequ
 	}
 	if (ret == kIOReturnSuccess)
 	{
-	    pb = (AsyncPB *)IOMalloc(sizeof(AsyncPB));
+	    pb = (IOUSBDeviceUserClientAsyncParamBlock *)IOMalloc(sizeof(IOUSBDeviceUserClientAsyncParamBlock));
 	    if(!pb) 
 		ret = kIOReturnNoMemory;
 	}
@@ -1070,6 +1073,18 @@ IOUSBDeviceUserClient::clientClose( void )
     //
     IOSleep(1);
     
+    if ( fOutstandingIO == 0 )
+    {
+        USBLog(5, "+%s[%p]::clientClose closing provider", getName(), this);
+        fOwner->close(this);
+        if ( fDead) release();
+    }
+    else
+    {
+        USBLog(5, "+%s[%p]::clientClose will close provider later", getName(), this);
+        fNeedToClose = true;
+    }
+    
     fTask = NULL;
     	
     terminate();			// this will call stop eventually
@@ -1086,12 +1101,14 @@ IOUSBDeviceUserClient::clientDied( void )
 {
     IOReturn ret;
     
-    USBLog(3, "+%s[%p]::clientDied", getName(), this);
+    USBLog(5, "+%s[%p]::clientDied", getName(), this);
 
+    retain();                       // We will release once any outstandingIO is finished
+    
     fDead = true;			// don't send mach messages in this case
     ret = super::clientDied();		// this just calls clientClose
 
-    USBLog(3, "-%s[%p]::clientDied", getName(), this);
+    USBLog(5, "-%s[%p]::clientDied", getName(), this);
 
     return ret;
 }
@@ -1118,7 +1135,7 @@ IOUSBDeviceUserClient::stop(IOService * provider)
 void 
 IOUSBDeviceUserClient::free()
 {
-    
+    USBLog(7,"IOUSBDeviceUserClient::free");
     if (fGate)
     {
 	if (fWorkLoop)
@@ -1215,6 +1232,7 @@ IOUSBDeviceUserClient::DecrementOutstandingIO(void)
 	{
 	    USBLog(3, "%s[%p]::DecrementOutstandingIO isInactive = %d, outstandingIO = %d - closing device", getName(), this, isInactive(), fOutstandingIO);
 	    fOwner->close(this);
+            if ( fDead) release();
 	}
 	return;
     }
@@ -1256,6 +1274,7 @@ IOUSBDeviceUserClient::ChangeOutstandingIO(OSObject *target, void *param1, void 
 	    {
 		USBLog(3, "%s[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %d - closing device", me->getName(), me, me->isInactive(), me->fOutstandingIO);
 		me->fOwner->close(me);
+                if ( me->fDead) me->release();
 	    }
 	    break;
 	    
@@ -1297,4 +1316,26 @@ IOUSBDeviceUserClient::GetGatedOutstandingIO(OSObject *target, void *param1, voi
 }
 
 
+// padding methods
+//
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  0);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  1);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  2);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  3);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  4);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  5);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  6);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  7);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  8);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  9);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient, 10);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient, 11);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient, 12);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient, 13);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient, 14);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient, 15);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient, 16);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient, 17);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient, 18);
+OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient, 19);
 

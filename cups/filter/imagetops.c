@@ -1,9 +1,9 @@
 /*
- * "$Id: imagetops.c,v 1.1.1.12 2003/04/18 19:52:30 jlovell Exp $"
+ * "$Id: imagetops.c,v 1.3 2005/01/04 22:10:43 jlovell Exp $"
  *
  *   Image file to PostScript filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2003 by Easy Software Products.
+ *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -162,6 +162,8 @@ main(int  argc,		/* I - Number of command-line arguments */
   xppi = 0;
   yppi = 0;
   hue  = 0;
+  left = 0;
+  top  = 0;
   sat  = 100;
   g    = 1.0;
   b    = 1.0;
@@ -287,9 +289,6 @@ main(int  argc,		/* I - Number of command-line arguments */
   * Scale as necessary...
   */
 
-  xprint = (PageRight - PageLeft) / 72.0;
-  yprint = (PageTop - PageBottom) / 72.0;
-
   if (zoom == 0.0 && xppi == 0)
   {
     xppi = img->xppi;
@@ -299,8 +298,8 @@ main(int  argc,		/* I - Number of command-line arguments */
   if (yppi == 0)
     yppi = xppi;
 
-  fprintf(stderr, "DEBUG: Before scaling: xprint=%.1f, yprint=%.1f, xppi=%d, yppi=%d, zoom=%.2f\n",
-          xprint, yprint, xppi, yppi, zoom);
+  fprintf(stderr, "DEBUG: Before scaling: xppi=%d, yppi=%d, zoom=%.2f\n",
+          xppi, yppi, zoom);
 
   if (xppi > 0)
   {
@@ -308,6 +307,20 @@ main(int  argc,		/* I - Number of command-line arguments */
     * Scale the image as neccesary to match the desired pixels-per-inch.
     */
     
+    if (Orientation & 1)
+    {
+      xprint = (PageTop - PageBottom) / 72.0;
+      yprint = (PageRight - PageLeft) / 72.0;
+    }
+    else
+    {
+      xprint = (PageRight - PageLeft) / 72.0;
+      yprint = (PageTop - PageBottom) / 72.0;
+    }
+
+    fprintf(stderr, "DEBUG: Before scaling: xprint=%.1f, yprint=%.1f\n",
+            xprint, yprint);
+
     xinches = (float)img->xsize / (float)xppi;
     yinches = (float)img->ysize / (float)yppi;
 
@@ -342,16 +355,6 @@ main(int  argc,		/* I - Number of command-line arguments */
 	xsize       = yprint;
 	yprint      = xprint;
 	xprint      = xsize;
-
-	xsize       = PageLeft;
-	PageLeft    = PageBottom;
-	PageBottom  = PageWidth - PageRight;
-	PageRight   = PageTop;
-	PageTop     = PageLength - xsize;
-
-	xsize       = PageWidth;
-	PageWidth   = PageLength;
-	PageLength  = xsize;
       }
     }
   }
@@ -361,7 +364,12 @@ main(int  argc,		/* I - Number of command-line arguments */
     * Scale percentage of page size...
     */
 
+    xprint = (PageRight - PageLeft) / 72.0;
+    yprint = (PageTop - PageBottom) / 72.0;
     aspect = (float)img->yppi / (float)img->xppi;
+
+    fprintf(stderr, "DEBUG: Before scaling: xprint=%.1f, yprint=%.1f\n",
+            xprint, yprint);
 
     fprintf(stderr, "DEBUG: img->xppi = %d, img->yppi = %d, aspect = %f\n",
             img->xppi, img->yppi, aspect);
@@ -455,6 +463,9 @@ main(int  argc,		/* I - Number of command-line arguments */
   xprint = xinches / xpages;
   yprint = yinches / ypages;
 
+  fprintf(stderr, "DEBUG: xpages = %dx%.2fin, ypages = %dx%.2fin\n",
+          xpages, xprint, ypages, yprint);
+
  /*
   * Update the page size for custom sizes...
   */
@@ -466,6 +477,10 @@ main(int  argc,		/* I - Number of command-line arguments */
 		length;		/* New length in points */
     char	s[255];		/* New custom page size... */
 
+
+   /*
+    * Use the correct width and length for the current orientation...
+    */
 
     if (Orientation & 1)
     {
@@ -495,15 +510,15 @@ main(int  argc,		/* I - Number of command-line arguments */
     if (length < ppd->custom_min[1])
       length = ppd->custom_min[1];
 
+    fprintf(stderr, "DEBUG: Updated custom page size to %.2f x %.2f inches...\n",
+            width / 72.0, length / 72.0);
+
    /*
     * Set the new custom size...
     */
 
     sprintf(s, "Custom.%.0fx%.0f", width, length);
     ppdMarkOption(ppd, "PageSize", s);
-
-    fprintf(stderr, "DEBUG: Updated custom page size to %.2f x %.2f inches...\n",
-            width / 72.0, length / 72.0);
 
    /*
     * Update page variables...
@@ -515,8 +530,6 @@ main(int  argc,		/* I - Number of command-line arguments */
     PageRight  = width - ppd->custom_margins[2];
     PageBottom = ppd->custom_margins[1];
     PageTop    = length - ppd->custom_margins[3];
-
-    UpdatePageVars();
   }
 
  /*
@@ -586,8 +599,30 @@ main(int  argc,		/* I - Number of command-line arguments */
            "ifelse %.3f mul } bind settransfer\n", g, b);
 
   WriteCommon();
-  WriteLabelProlog(cupsGetOption("page-label", num_options, options),
-                   PageBottom, PageTop, PageWidth);
+  switch (Orientation)
+  {
+    case 0 :
+	WriteLabelProlog(cupsGetOption("page-label", num_options, options),
+                	 PageBottom, PageTop, PageWidth);
+        break;
+
+    case 1 :
+	WriteLabelProlog(cupsGetOption("page-label", num_options, options),
+                	 PageLeft, PageRight, PageLength);
+        break;
+
+    case 2 :
+	WriteLabelProlog(cupsGetOption("page-label", num_options, options),
+                	 PageLength - PageTop, PageLength - PageBottom,
+			 PageWidth);
+        break;
+
+    case 3 :
+	WriteLabelProlog(cupsGetOption("page-label", num_options, options),
+                	 PageWidth - PageRight, PageWidth - PageLeft,
+			 PageLength);
+        break;
+  }
 
   if (realcopies > 1)
   {
@@ -605,8 +640,6 @@ main(int  argc,		/* I - Number of command-line arguments */
 
   row = malloc(img->xsize * abs(colorspace) + 3);
 
-  UpdatePageVars();
-
   fprintf(stderr, "DEBUG: XPosition=%d, YPosition=%d, Orientation=%d\n",
           XPosition, YPosition, Orientation);
   fprintf(stderr, "DEBUG: xprint=%.0f, yprint=%.0f\n", xprint, yprint);
@@ -614,6 +647,123 @@ main(int  argc,		/* I - Number of command-line arguments */
           PageLeft, PageRight, PageWidth);
   fprintf(stderr, "DEBUG: PageBottom=%.0f, PageTop=%.0f, PageLength=%.0f\n",
           PageBottom, PageTop, PageLength);
+
+  switch (Orientation)
+  {
+    case 0 :
+	switch (XPosition)
+	{
+	  case -1 :
+              left = PageLeft;
+	      break;
+	  default :
+              left = (PageRight + PageLeft - xprint * 72) / 2;
+	      break;
+	  case 1 :
+              left = PageRight - xprint * 72;
+	      break;
+	}
+
+	switch (YPosition)
+	{
+	  case -1 :
+	      top = PageBottom + yprint * 72;
+	      break;
+	  default :
+	      top = (PageTop + PageBottom + yprint * 72) / 2;
+	      break;
+	  case 1 :
+	      top = PageTop;
+	      break;
+	}
+	break;
+
+    case 1 :
+	switch (XPosition)
+	{
+	  case -1 :
+              left = PageBottom;
+	      break;
+	  default :
+              left = (PageTop + PageBottom - xprint * 72) / 2;
+	      break;
+	  case 1 :
+              left = PageTop - xprint * 72;
+	      break;
+	}
+
+	switch (YPosition)
+	{
+	  case -1 :
+	      top = PageLeft + yprint * 72;
+	      break;
+	  default :
+	      top = (PageRight + PageLeft + yprint * 72) / 2;
+	      break;
+	  case 1 :
+	      top = PageRight;
+	      break;
+	}
+	break;
+
+    case 2 :
+	switch (XPosition)
+	{
+	  case 1 :
+              left = PageLeft;
+	      break;
+	  default :
+              left = (PageRight + PageLeft - xprint * 72) / 2;
+	      break;
+	  case -1 :
+              left = PageRight - xprint * 72;
+	      break;
+	}
+
+	switch (YPosition)
+	{
+	  case 1 :
+	      top = PageBottom + yprint * 72;
+	      break;
+	  default :
+	      top = (PageTop + PageBottom + yprint * 72) / 2;
+	      break;
+	  case -1 :
+	      top = PageTop;
+	      break;
+	}
+	break;
+
+    case 3 :
+	switch (XPosition)
+	{
+	  case 1 :
+              left = PageBottom;
+	      break;
+	  default :
+              left = (PageTop + PageBottom - xprint * 72) / 2;
+	      break;
+	  case -1 :
+              left = PageTop - xprint * 72;
+	      break;
+	}
+
+	switch (YPosition)
+	{
+	  case 1 :
+	      top = PageLeft + yprint * 72;
+	      break;
+	  default :
+	      top = (PageRight + PageLeft + yprint * 72) / 2;
+	      break;
+	  case -1 :
+	      top = PageRight;
+	      break;
+	}
+	break;
+  }
+
+  fprintf(stderr, "DEBUG: left=%.2f, top=%.2f\n", left, top);
 
   for (page = 1; Copies > 0; Copies --)
     for (xpage = 0; xpage < xpages; xpage ++)
@@ -636,46 +786,22 @@ main(int  argc,		/* I - Number of command-line arguments */
 	switch (Orientation)
 	{
 	  case 1 : /* Landscape */
-              printf("%.0f 0 translate 90 rotate\n", PageLength);
+              printf("%.0f 0 translate 90 rotate\n", PageWidth);
               break;
 	  case 2 : /* Reverse Portrait */
               printf("%.0f %.0f translate 180 rotate\n", PageWidth, PageLength);
               break;
 	  case 3 : /* Reverse Landscape */
-              printf("0 %.0f translate -90 rotate\n", PageWidth);
+              printf("0 %.0f translate -90 rotate\n", PageLength);
               break;
 	}
+
+        puts("gsave");
 
 	x0 = img->xsize * xpage / xpages;
 	x1 = img->xsize * (xpage + 1) / xpages - 1;
 	y0 = img->ysize * ypage / ypages;
 	y1 = img->ysize * (ypage + 1) / ypages - 1;
-
-        switch (XPosition)
-	{
-	  case -1 :
-              left = PageLeft;
-	      break;
-	  default :
-	      left = (PageLeft + PageRight - xprint * 72.0) * 0.5;
-	      break;
-	  case 1 :
-	      left = PageRight - xprint * 72.0;
-	      break;
-	}
-
-        switch (YPosition)
-	{
-	  case -1 :
-	      top = PageBottom + 72.0 * yprint;
-	      break;
-	  default :
-	      top = (PageBottom + PageTop + yprint * 72.0) * 0.5;
-	      break;
-	  case 1 :
-	      top = PageTop;
-	      break;
-	}
 
         printf("%.1f %.1f translate\n", left, top);
 
@@ -757,7 +883,8 @@ main(int  argc,		/* I - Number of command-line arguments */
 	}
 
 	puts("grestore");
-	WriteLabels(Orientation);
+	WriteLabels(0);
+	puts("grestore");
 	puts("showpage");
       }
 
@@ -902,5 +1029,5 @@ ps_ascii85(ib_t *data,		/* I - Data to print */
 
 
 /*
- * End of "$Id: imagetops.c,v 1.1.1.12 2003/04/18 19:52:30 jlovell Exp $".
+ * End of "$Id: imagetops.c,v 1.3 2005/01/04 22:10:43 jlovell Exp $".
  */

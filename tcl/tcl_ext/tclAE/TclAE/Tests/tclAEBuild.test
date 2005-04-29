@@ -1,0 +1,220 @@
+## -*-Tcl-*-
+ # ###################################################################
+ #  TclAE - AppleEvent extension for Tcl
+ # 
+ #  FILE: "tclAEBuild.test"
+ #                                    created: 8/30/2000 {7:41:54 AM} 
+ #                                last update: 2/28/03 {5:14:28 PM} 
+ #  Author: Jonathan Guyer
+ #  E-mail: jguyer@his.com
+ #    mail: POMODORO no seisan
+ #     www: http://www.his.com/jguyer/
+ #  
+ # ========================================================================
+ #               Copyright © 2000 Jonathan Guyer
+ #                      All rights reserved
+ # ========================================================================
+ # Permission to use, copy, modify, and distribute this software and its
+ # documentation for any purpose and without fee is hereby granted,
+ # provided that the above copyright notice appear in all copies and that
+ # both that the copyright notice and warranty disclaimer appear in
+ # supporting documentation.
+ # 
+ # Jonathan Guyer disclaims all warranties with regard to this software,
+ # including all implied warranties of merchantability and fitness.  In
+ # no event shall Jonathan Guyer be liable for any special, indirect or
+ # consequential damages or any damages whatsoever resulting from loss of
+ # use, data or profits, whether in an action of contract, negligence or
+ # other tortuous action, arising out of or in connection with the use or
+ # performance of this software.
+ # ========================================================================
+ #  Description: 
+ # 
+ #   This file contains a collection of tests for one or more of
+ #   the TclAE commands.  Sourcing this file into Tcl runs the
+ #   tests and generates output for errors.  No output means no
+ #   errors were found.
+ #   
+ #  History
+ # 
+ #  modified   by  rev reason
+ #  ---------- --- --- -----------
+ #  2000-08-30 JEG 1.0 original
+ # ###################################################################
+ ##
+
+if {[info tclversion] < 8.0} {
+    alpha::package require alphatest
+    
+    if {[catch {alpha::package require tclAE}]} {
+	catch {puts "Cannot load TclAE"}
+    }
+
+    # Only run the test if we can load the TclAE package
+    set alphatest::testConfig(tclAE) [expr {[info commands tclAE::send] != ""}]
+    set alphatest::testConfig(tclAEalphaTcl) [set alphatest::testConfig(tclAE)]
+    set alphatest::testConfig(tclAEshlb) 0
+    set alphatest::testConfig(tclAEalpha) [set alphatest::testConfig(tclAE)]
+    
+    # No env variable in Alpha 7.x
+    # Path must terminate with ':' or it won't convert properly to a folder alias
+    set testPath [file join $HOME {}]
+} else {
+    if {[lsearch [namespace children] ::tcltest] == -1} {
+	package require tcltest
+	namespace import ::tcltest::*
+    }
+
+    if {[catch {package require tclAE}]} {
+	catch {puts "Cannot load TclAE"}
+    }
+    
+    # Only run the test if we can load the TclAE package
+    set ::tcltest::testConstraints(tclAE) [expr {[info commands tclAE::send] != ""}]
+    set ::tcltest::testConstraints(tclAEshlb) [set ::tcltest::testConstraints(tclAE)]
+    set ::tcltest::testConstraints(tclAEalphaTcl) 0
+    
+    if {$tcl_platform(platform) == "macintosh"} {    
+    set testPath $env(SYS_FOLDER)
+}
+    if {$tcl_platform(platform) == "unix" && $tcl_platform(os) == "Darwin"} {
+        set ::tcltest::testConstraints(macOnly) 1
+    }
+    
+    if {[info exists alpha::platform]} {
+        switch -- ${alpha::platform} {
+          "alpha" {
+	      set creatorCode "'ALFA'"
+# 	      set ::tcltest::testConstraints(tclAEalpha) [set ::tcltest::testConstraints(tclAE)]
+          }
+	  "tk" {
+	      set creatorCode "'AlTk'"
+# 	      set ::tcltest::testConstraints(tclAEalphatk) [set ::tcltest::testConstraints(tclAE)]
+	  }
+        }
+    } else {
+	set creatorCode "'WiSH'"
+# 	set ::tcltest::testConstraints(tclAEwish) [set ::tcltest::testConstraints(tclAE)]
+    }
+}
+
+
+test tclAEBuild-1.1 {tclAE::build noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::build} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::build theAEGizmo"}}
+
+test tclAEBuild-1.2.1 {tclAE::build badgizmo} {macOnly tclAEshlb} {
+    catch {tclAE::build "obj \{"} msg
+    regsub {(OSErr )(12345|-1740)} $msg {\1(12345|-1740)} msg
+    list $msg
+} {{Couldn't build descriptor: OSErr (12345|-1740)}}
+test tclAEBuild-1.2.2 {tclAE::build badgizmo} {macOnly tclAEalphaTcl} {
+    catch {tclAE::build "obj \{"} msg
+    list $msg
+} {{Missing keyword in record}}
+
+test tclAEBuild-1.3.1 {tclAE::build tag} {macOnly tclAEshlb} {
+    catch {tclAE::build TEXT} enumAEDesc
+    list $enumAEDesc
+} {TEXT}
+test tclAEBuild-1.3.2 {tclAE::build tag} {macOnly tclAEalphaTcl} {
+    catch {tclAE::build TEXT} enumAEDesc
+    regsub {(tclAEDesc.)[0-9]+} $enumAEDesc {\1nnn} tag
+    catch {tclAE::disposeDesc $enumAEDesc}
+    list $tag
+} {tclAEDesc.nnn}
+
+test tclAEBuild-1.4 {tclAE::build enum} {macOnly tclAE} {
+    catch {tclAE::build TEXT} enumAEDesc
+    catch {tclAE::print $enumAEDesc} gizmo
+    catch {tclAE::disposeDesc $enumAEDesc}
+    list $gizmo
+} {TEXT}
+
+test tclAEBuild-1.5 {tclAE::build list} {macOnly tclAE} {
+    catch {tclAE::build "\[4, “some text”, bool(«01»)\]"} listAEDesc
+    catch {tclAE::print $listAEDesc} gizmo
+    catch {tclAE::disposeDesc $listAEDesc}
+    regsub {bool\(«0(.)»\)} $gizmo  {\1} gizmo
+    list $gizmo
+} {{[4, “some text”, 1]}}
+
+test tclAEBuild-1.6 {tclAE::build parameters} {macOnly tclAEshlb} {
+    catch {tclAE::build "long(4)"} anAEDesc
+    set long 256
+    catch {tclAE::build "\[${anAEDesc}, long(${long}), TEXT([tclAE::encode "a «Mac™ish» ¡string!"])\]"} paramAEDesc
+    catch {tclAE::disposeDesc $anAEDesc}
+    catch {tclAE::disposeDesc $paramAEDesc}
+    list $paramAEDesc
+} {{[4, 256, “a «Mac™ish» ¡string!”]}}
+
+
+test tclAEBuild-2.1 {tclAE::send noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::send} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::send ?options? <application> <AEClass> <AEEventID> [<event parameters>]*"}}
+
+test tclAEBuild-2.2.1 {tclAE::send -r} {macOnly tclAEshlb} {
+    catch {tclAE::send -r -s syso "GMT "} replyAEDesc
+    regsub {(aevt\\ansr\{'----':)-?[0-9]+(.*\})} $replyAEDesc "\\1nnn\}" gizmo
+    catch {tclAE::disposeDesc $replyAEDesc}
+    set gizmo
+} {aevt\ansr{'----':nnn}}
+test tclAEBuild-2.2.2 {tclAE::send -r} {macOnly tclAE} {
+    catch {tclAE::send -r -s syso "GMT "} replyAEDesc
+    catch {tclAE::print $replyAEDesc} gizmo
+    regsub {(aevt\\ansr\{'----':)-?[0-9]+(.*\})} $gizmo "\\1nnn\}" gizmo
+    catch {tclAE::disposeDesc $replyAEDesc}
+    set gizmo
+} {aevt\ansr{'----':nnn}}
+
+test tclAEBuild-2.3 {tclAE::send -p -r} {macOnly tclAE} {
+    catch {tclAE::send -p -r -s syso "GMT "} gizmo
+    regsub {(aevt\\ansr\{'----':)-?[0-9]+(.*\})} $gizmo "\\1nnn\}" gizmo
+    set gizmo
+} {aevt\ansr{'----':nnn}}
+
+test tclAEBuild-2.4 {tclAE::send -t} {macOnly tclAE emptyTest} {
+} {1}
+
+test tclAEBuild-2.5 {tclAE::send -q} {macOnly tclAE emptyTest} {
+    currentReplyHandler testHandler 1
+    proc testHandler {gizmo} {
+        test tclAEBuild-2.6a {-q} {macOnly tclAE} {
+            regsub {(aevt\\ansr\{'----':“)[^”]+(”\})} $gizmo {\1owner\2} gizmo
+            list $gizmo
+        } {{aevt\ansr{'----':“owner”}}}    
+    }
+    catch {tclAE::send -q 'ALFA' ownn getd} msg
+    list $msg
+} {{}}
+
+proc testHandler {theAppleEvent theReplyAE} {
+    test tclAEBuild-2.6a {-Q testHandler} {macOnly tclAE} {
+	regsub {(aevt\\ansr\{'----':)-?[0-9]+(.*\})} $theAppleEvent "\\1nnnn\}" gizmo
+	list $gizmo
+    } {{aevt\ansr{'----':nnnn}}}    
+}
+test tclAEBuild-2.6 {tclAE::send -Q testHandler} {macOnly tclAEalpha} {
+    catch {tclAE::send -Q testHandler $creatorCode syso "GMT "} msg
+    list $msg
+} {{}}
+
+test tclAEBuild-2.7 {tclAE::send bad event} {macOnly tclAE} {
+    catch {tclAE::send -p -r 'MACS' BADD EVNT} gizmo
+    regsub {(aevt\\ansr\{errn:-1708)(.*\})} $gizmo "\\1\}" gizmo
+    list $gizmo
+} {{aevt\ansr{errn:-1708}}}
+
+
+
+::tcltest::cleanupTests
+rename testHandler ""
+unset creatorCode
+return
+
+
+
+
+

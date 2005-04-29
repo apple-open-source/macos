@@ -1,5 +1,5 @@
 /* GNU m4 -- A simple macro processor
-   Copyright (C) 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1992, 1993, 1994, 2004 Free Software Foundation, Inc.
   
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 
 #include <sys/stat.h>
 
-#if __STDC__
+#ifdef __STDC__
 #include <stdarg.h>
 #else
 #include <varargs.h>
@@ -220,7 +220,7 @@ debug_message_prefix (void)
 | left quote) and %r (optional right quote).			       |
 `---------------------------------------------------------------------*/
 
-#if __STDC__
+#ifdef __STDC__
 static void
 trace_format (const char *fmt, ...)
 #else
@@ -228,7 +228,7 @@ static void
 trace_format (...)
 #endif
 {
-#if ! __STDC__
+#ifndef __STDC__
   const char *fmt;
 #endif
   va_list args;
@@ -240,7 +240,7 @@ trace_format (...)
   int slen;
   int maxlen;
 
-#if __STDC__
+#ifdef __STDC__
   va_start (args, fmt);
 #else
   va_start (args);

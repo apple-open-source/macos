@@ -1,0 +1,352 @@
+# -*- tcl -*-
+# statistics.test --
+#    Test cases for the ::math::statistics package
+#
+# Note:
+#    The tests assume tcltest 2.1, in order to compare
+#    floating-point results
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest 2.1
+    namespace import ::tcltest::*
+} else {
+    # Ensure that 2.1 or higher present.
+
+    if {![package vsatisfies [package present tcltest] 2.1]} {
+	puts "Aborting tests for math::statistics."
+	puts "Requiring tcltest 2.1, have [package present tcltest]"
+	return
+    }
+}
+
+source [file join [file dirname [info script]] statistics.tcl]
+
+puts "math::statistics [package present math::statistics]"
+
+
+set ::data_uniform  [list 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0]
+set ::data_missing  [list 1.0 1.0 1.0 {} 1.0 {} {} 1.0 1.0 1.0 1.0 1.0 1.0]
+set ::data_linear   [list 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0 10.0]
+set ::data_empty    [list {} {} {}]
+set ::data_missing2 [list 1.0 2.0 3.0 {} 4.0 5.0 6.0 7.0 8.0 9.0 10.0]
+
+#
+# Create and register (in that order!) custom matching procedures
+#
+proc matchTolerant { expected actual } {
+   set match 1
+   foreach a $actual e $expected {
+      if { abs($e-$a)>0.0001*abs($e) &&
+           abs($e-$a)>0.0001*abs($a)     } {
+         set match 0
+         break
+      }
+   }
+   return $match
+}
+proc matchTolerant2 { expected actual } {
+   set match 1
+   foreach a $actual e $expected {
+      if { abs($e-$a)>0.025*abs($e) &&
+           abs($e-$a)>0.025*abs($a)     } {
+         set match 0
+         break
+      }
+   }
+   return $match
+}
+proc matchAlmostZero { expected actual } {
+   set match 1
+   foreach a $actual {
+      if { abs($a)>1.0e-6 } {
+         set match 0
+         break
+      }
+   }
+   return $match
+}
+customMatch tolerant   matchTolerant
+customMatch tolerant2  matchTolerant2
+customMatch almostzero matchAlmostZero
+
+#
+# Test cases
+#
+test "BasicStats-1.0" "Basic statistics - uniform data" -match tolerant -body {
+  set all_data [::math::statistics::BasicStats all $::data_uniform]
+} -result [list 1.0 1.0 1.0 [llength $::data_uniform] 0.0 0.0]
+
+test "BasicStats-1.1" "Basic statistics - empty data" -match glob -body {
+  catch {
+     set all_data [::math::statistics::BasicStats all $::data_empty]
+  } msg
+  set msg
+} -result "Too*"
+
+#
+# Result must be the same as for 1.0! Hence ::data_empty and ::data_uniform
+#
+test "BasicStats-1.2" "Basic statistics - missing data" -match tolerant -body {
+  set all_data [::math::statistics::BasicStats all $::data_missing]
+} -result [list 1.0 1.0 1.0 [llength $::data_uniform] 0.0 0.0]
+
+test "BasicStats-1.3" "Basic statistics - linear data - mean" -match tolerant -body {
+  set value [::math::statistics::mean $::data_linear]
+} -result 5.5
+
+test "BasicStats-1.3" "Basic statistics - linear data - min" -match tolerant  -body {
+  set value [::math::statistics::min $::data_linear]
+} -result 1.0
+
+test "BasicStats-1.4" "Basic statistics - linear data - max" -match tolerant  -body {
+  set value [::math::statistics::max $::data_linear]
+} -result 10.0
+
+test "BasicStats-1.5" "Basic statistics - linear data - number" -match tolerant  -body {
+  set value [::math::statistics::number $::data_linear]
+} -result 10
+
+test "BasicStats-1.6" "Basic statistics - missing data - number" -match tolerant  -body {
+  set value [::math::statistics::number $::data_missing2]
+} -result 10
+
+test "BasicStats-1.7" "Basic statistics - missing data - stdev" -match almostzero -body {
+  set value1 [::math::statistics::stdev  $::data_linear]
+  set value2 [::math::statistics::stdev  $::data_missing2]
+  expr {abs($value1-$value2)}
+} -result 0.001 ;# Zero is impossible
+
+test "BasicStats-1.8" "Basic statistics - missing data - var" -match almostzero -body {
+  set value1 [::math::statistics::stdev  $::data_linear]
+  set value2 [::math::statistics::var    $::data_missing2]
+  expr {$value1*$value1-$value2}
+} -result 0.001 ;# Zero is impossible
+
+#
+# This test was added because the calculation of the standard deviation
+# could fail with uniform data (the difference of two almost equal
+# values became a small negative number)
+#
+test "BasicStats-2.1" "Basic statistics - uniform data caused sqrt domain error" -body {
+  set values [list]
+  set count 0
+  for { set i 0 } { $i < 20 } { incr i } {
+     lappend values 0.6
+     set value2 [::math::statistics::mean $values]
+     incr count
+  }
+  set count
+} -result 20 ;# We can finish the loop
+
+#
+# Histograms
+#
+test "Histogram-1.0" "Histogram - uniform data" -match glob -body {
+  set values [::math::statistics::histogram {0 2} $::data_uniform]
+} -result [list 0 [llength $::data_uniform] 0]
+
+test "Histogram-1.1" "Histogram - missing data" -match glob -body {
+  set values [::math::statistics::histogram {0 2} $::data_missing]
+} -result [list 0 [::math::statistics::number $::data_missing] 0]
+
+test "Histogram-1.2" "Histogram - linear data" -match glob -body {
+  set values [::math::statistics::histogram {1.5 4.5 9.5} $::data_linear]
+} -result {1 3 5 1}
+
+test "Histogram-1.3" "Histogram - linear data 2" -match glob -body {
+  set values [::math::statistics::histogram {1.5 2.5 10.5} $::data_linear]
+} -result {1 1 8 0}
+
+#
+# Quantiles
+#
+test "Quantiles-1.0" "Quantiles - raw data" -match tolerant -body {
+  set values [::math::statistics::quantiles $::data_linear {0.25 0.55 0.95}]
+} -result {3.0 6.0 10.0}
+
+  set limits    {1.0 2.0 3.0 4.0}
+  set data_hist {0 10 20 10 0}
+  set values [::math::statistics::quantiles $limits $data_hist {0.25 0.5 0.9}]
+
+test "Quantiles-1.1" "Quantiles - histogram" -match tolerant -body {
+  set limits    {1.0 2.0 3.0 4.0}
+  set data_hist {0 10 20 10 0}
+  set values [::math::statistics::quantiles $limits $data_hist {0.25 0.5 0.9}]
+} -result {2.0 2.5 3.6}
+
+#
+# Generate histogram limits
+#
+
+test "Limits-1.0" "Limits - based on mean/stdev" -match tolerant -body {
+  set values [::math::statistics::mean-histogram-limits 1.0 1.0 4]
+} -result {0.0 0.75 1.25 2.0}
+
+test "Limits-1.1" "Limits - based on mean/stdev" -match tolerant -body {
+  set values [::math::statistics::mean-histogram-limits 1.0 1.0 9]
+} -result {-2.0 -1.0 0.0 0.75 1.0 1.25 2.0 3.0 4.0}
+
+test "Limits-1.2" "Limits - based on mean/stdev" -match tolerant -body {
+  set values [::math::statistics::mean-histogram-limits 0.0 1.0 11]
+} -result {-3.0 -2.4 -1.8 -1.2 -0.6 0.0 0.6 1.2 1.8 2.4 3.0}
+
+test "Limits-2.0" "Limits - based on min/max" -match tolerant -body {
+  set values [::math::statistics::minmax-histogram-limits -2.0 2.0 9]
+} -result {-2.0 -1.5 -1.0 -0.5 0.0 0.5 1.0 1.5 2.0}
+
+test "Limits-2.1" "Limits - based on min/max" -match tolerant -body {
+  set values [::math::statistics::minmax-histogram-limits -2.0 2.0 2]
+} -result {-2.0 2.0}
+
+#
+# To do: design test cases for the following functions:
+# - t-test-mean
+# - estimate-mean-stdev
+# - autocorr
+# - crosscorr
+# - linear-model
+# - linear-residuals
+# - pdf-*
+# - cdf-*
+# - random-*
+# - histogram-*
+#
+# Crude test cases for Student's t test
+#
+test "Students-t-test-1.0" "Student's t - same sample" -match glob -body {
+  set sample [::math::statistics::random-normal 0.0 1.0 40]
+  set mean   0.0
+  set stdev  1.0
+  set confidence 0.95
+
+  set result [::math::statistics::t-test-mean $sample $mean $stdev $confidence]
+} -result 1
+
+test "Students-t-test-1.1" "Student's t - different sample" -match glob -body {
+  set sample [::math::statistics::random-normal 0.0 1.0 40]
+  set mean   10.0
+  set stdev   1.0
+  set confidence 0.95
+
+  set result [::math::statistics::t-test-mean $sample $mean $stdev $confidence]
+} -result 0
+
+test "Students-t-test-1.2" "Student's t - small sample" -match glob -body {
+  set sample [::math::statistics::random-normal 0.0 1.0 2]
+  set mean    2.0
+  set stdev   1.0
+  set confidence 0.90
+
+  set result [::math::statistics::t-test-mean $sample $mean $stdev $confidence]
+} -result 1
+
+#
+# Test private procedures
+#
+test "Cdf-toms322-1.0" "TOMS322 - erf(x)" -match tolerant2 -body {
+  set result {}
+  foreach z {4.417 3.891 3.291 2.576 2.241 1.960 1.645 1.150 0.674
+             0.319 0.126 0.063 0.0125} {
+     set prob [::math::statistics::Cdf-toms322 1 5000 [expr {$z*$z}]]
+     lappend result [expr {1.0-$prob}]
+  }
+  set result
+} -result {1.e-5 1.e-4 1.e-3 1.e-2 0.025 0.050 0.100 0.250 0.500
+           0.750 0.900 0.950 0.990 }
+
+test "Cdf-toms322-2.0" "TOMS322 - inverse erf(x)" -match tolerant2 -body {
+  set result {}
+  foreach p {0.5120 0.5948 0.7019 0.7996  0.8997  0.9505  0.9901  0.9980 } {
+     set z [::math::statistics::Inverse-cdf-normal 0.0 1.0 $p]
+     lappend result $z
+  }
+  set result
+} -result    {0.03  0.24   0.53   0.84    1.28    1.65    2.33    2.88 }
+
+#
+# Correlation coefficients
+#
+test "Correlation-1.0" "Correlation - linear data" -match tolerant -body {
+  set corr [::math::statistics::corr $::data_linear $::data_linear]
+} -result 1.0
+test "Correlation-1.1" "Correlation - linear/uniform" -match almostzero -body {
+  set corr [::math::statistics::corr $::data_linear $::data_uniform]
+} -result 0.0
+
+#
+# Test list procedures
+#
+proc matchListElements { expected actual } {
+   if { [llength $expected] != [llength $actual] } {
+      return 0
+   } else {
+      set match 1
+      foreach a $actual e $expected {
+         if { $a != $e } {
+            set match 0
+            break
+         }
+      }
+   }
+   return $match
+}
+customMatch matchList  matchListElements
+
+set ::data_list {1 2 3 4 5 6 7 8 9 10}
+set ::data_pairs {{1 2} {3 4} {5 6} {7 8} {9 10}}
+
+test "Filter-1.0" "True filter" -match matchList -body {
+   set data [::math::statistics::filter x $::data_list 1]
+} -result $::data_list
+
+test "Filter-1.1" "False filter" -match matchList -body {
+   set data [::math::statistics::filter x $::data_list 0]
+} -result {}
+
+test "Filter-1.2" "Even filter" -match matchList -body {
+   set data [::math::statistics::filter x $::data_list {$x%2==0}]
+} -result {2 4 6 8 10}
+
+test "Filter-2.1" "filter with parameter" -match matchList -body {
+   set param 3.0
+   set data [::math::statistics::filter x $::data_list {$x > $param}]
+} -result {4 5 6 7 8 9 10}
+
+test "Map-1.0" "Identity map" -match matchList -body {
+   set data [::math::statistics::map x $::data_list {$x}]
+} -result $::data_list
+
+test "Map-1.1" "Is-even map" -match matchList -body {
+   set data [::math::statistics::map x $::data_list {$x%2==0}]
+} -result {0 1 0 1 0 1 0 1 0 1}
+
+test "Map-1.2" "Double map" -match matchList -body {
+   set data [::math::statistics::map x $::data_list {$x*2}]
+} -result {2 4 6 8 10 12 14 16 18 20}
+
+test "Map-2.1" "map with parameter" -match matchList -body {
+   set param 3.0
+   set data [::math::statistics::map x $::data_list {$x + $param}]
+} -result {4.0 5.0 6.0 7.0 8.0 9.0 10.0 11.0 12.0 13.0}
+
+test "Samplescount-1.0" "Single sublist" -match matchList -body {
+   set data [::math::statistics::samplescount x [list $::data_list]]
+} -result {10}
+
+test "Samplescount-1.0" "List of singleton sublist" -match matchList -body {
+   set data [::math::statistics::samplescount x $::data_list]
+} -result {1 1 1 1 1 1 1 1 1 1}
+
+test "Samplescount-1.1" "Pairs sublist" -match matchList -body {
+   set data [::math::statistics::samplescount x $::data_pairs]
+} -result {2 2 2 2 2}
+
+test "Samplescount-1.2" "Select uneven sublist" -match matchList -body {
+   set data [::math::statistics::samplescount x $::data_pairs {$x%2}]
+} -result {1 1 1 1 1}
+
+test "Samplescount-2.1" "Count with parameter" -match matchList -body {
+   set param 3.0
+   set data [::math::statistics::samplescount x $::data_pairs {$x>$param}]
+} -result {0 1 2 2 2}
+

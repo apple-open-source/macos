@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tseng/tseng_driver.c,v 1.91 2002/07/24 01:47:34 tsi Exp $ 
+ * $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tseng/tseng_driver.c,v 1.98 2003/11/03 05:11:44 tsi Exp $ 
  *
  * Copyright 1990,91 by Thomas Roell, Dinkelscherben, Germany.
  *
@@ -49,10 +49,8 @@
 #include "xf86Resources.h"
 #include "xf86int10.h"
 
-#ifdef XvExtension
 #include "xf86xv.h"
 #include "Xv.h"
-#endif
 
 /*** Chip-specific includes ***/
 
@@ -245,11 +243,13 @@ static const char *vgaHWSymbols[] = {
   NULL
 };
 
+#ifdef XFree86LOADER
 static const char* miscfbSymbols[] = {
   "xf1bppScreenInit",
   "xf4bppScreenInit",
   NULL
 };
+#endif
 
 static const char* fbSymbols[] = {
   "fbPictureInit",
@@ -358,7 +358,7 @@ TsengFreeRec(ScrnInfoPtr pScrn)
     pScrn->driverPrivate = NULL;
 }
 
-static t_tseng_type
+static Bool
 TsengPCI2Type(ScrnInfoPtr pScrn, int ChipID)
 {
     TsengPtr pTseng = TsengPTR(pScrn);
@@ -465,7 +465,7 @@ TsengLock(void)
 static Bool
 ET4000MinimalProbe(void)
 {
-    unsigned char temp, origVal, newVal;
+    unsigned char origVal, newVal;
     int iobase;
 
     PDEBUG("	ET4000MinimalProbe\n");
@@ -479,7 +479,7 @@ ET4000MinimalProbe(void)
      * Check first that there is a ATC[16] register and then look at
      * CRTC[33]. If both are R/W correctly it's a ET4000 !
      */
-    temp = inb(iobase + 0x0A);
+    (void) inb(iobase + 0x0A);
     TsengUnlock();		       /* only ATC 0x16 is protected by KEY */
     outb(0x3C0, 0x16 | 0x20);
     origVal = inb(0x3C1);
@@ -620,7 +620,8 @@ TsengPreInitPCI(ScrnInfoPtr pScrn)
     if (pTseng->pEnt->device->chipset && *pTseng->pEnt->device->chipset) {
 	/* chipset given as a string in the config file */
 	pScrn->chipset = pTseng->pEnt->device->chipset;
-	pTseng->ChipType = xf86StringToToken(TsengChipsets, pScrn->chipset);
+	pTseng->ChipType =
+	    (t_tseng_type)xf86StringToToken(TsengChipsets, pScrn->chipset);
 	/* FIXME: still need to probe for W32p revision here */
 	from = X_CONFIG;
     } else if (pTseng->pEnt->device->chipID >= 0) {
@@ -786,7 +787,7 @@ ET4000DetailedProbe(t_tseng_type * chiptype, t_w32_revid * rev)
  *      determine bus interface type
  *      (also determines Lin Mem address mask, because that depends on bustype)
  *
- * We don't need to bother with PCI busses here: TsengPreInitPCI() took care
+ * We don't need to bother with PCI buses here: TsengPreInitPCI() took care
  * of that. This code isn't called if it's a PCI bus anyway.
  */
 
@@ -870,7 +871,7 @@ TsengFindNonPciBusType(ScrnInfoPtr pScrn)
 	    pTseng->LinFbAddressMask = 0x3FC00000;	/* A29..A22 */
 	    break;
 	}
-	if (Is_W32p_cd && (pTseng->LinFbAddressMask = 0x3FC00000))
+	if (Is_W32p_cd && (pTseng->LinFbAddressMask == 0x3FC00000))
 	    pTseng->LinFbAddressMask |= 0xC0000000;	/* A31,A30 decoded from PCI config space */
 	break;
     case TYPE_ET6000:
@@ -883,7 +884,7 @@ TsengFindNonPciBusType(ScrnInfoPtr pScrn)
     }
 }
 
-/* The TsengPreInit() part for non-PCI busses */
+/* The TsengPreInit() part for non-PCI buses */
 static Bool
 TsengPreInitNoPCI(ScrnInfoPtr pScrn)
 {
@@ -899,7 +900,8 @@ TsengPreInitNoPCI(ScrnInfoPtr pScrn)
     if (pTseng->pEnt->device->chipset && *pTseng->pEnt->device->chipset) {
 	/* chipset given as a string in the config file */
 	pScrn->chipset = pTseng->pEnt->device->chipset;
-	pTseng->ChipType = xf86StringToToken(TsengChipsets, pScrn->chipset);
+	pTseng->ChipType =
+	    (t_tseng_type)xf86StringToToken(TsengChipsets, pScrn->chipset);
 	from = X_CONFIG;
     } else if (pTseng->pEnt->device->chipID > 0) {
 	/* chipset given as a PCI ID in the config file */
@@ -1404,10 +1406,10 @@ TsengGetLinFbAddress(ScrnInfoPtr pScrn)
 	/* check for possible errors in given linear base address */
 	if ((pTseng->LinFbAddress & (~pTseng->LinFbAddressMask)) != 0) {
 	    xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-		"MemBase out of range. Must be <= 0x%x on 0x%x boundary.\n",
+		"MemBase out of range. Must be <= 0x%lx on 0x%lx boundary.\n",
 		pTseng->LinFbAddressMask, ~(pTseng->LinFbAddressMask | 0xFF000000) + 1);
 	    pTseng->LinFbAddress &= ~pTseng->LinFbAddressMask;
-	    xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "    Clipping MemBase to: 0x%x.\n",
+	    xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "    Clipping MemBase to: 0x%lx.\n",
 		pTseng->LinFbAddress);
 	    range[0].rBegin = pTseng->LinFbAddress;
 	    range[0].rEnd = pTseng->LinFbAddress + 16 * 1024 * 1024;
@@ -2765,7 +2767,7 @@ TsengAdjustFrame(int scrnIndex, int x, int y, int flags)
 
 }
 
-ModeStatus
+static ModeStatus
 TsengValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
 
@@ -2975,14 +2977,12 @@ static void
 TsengRestore(ScrnInfoPtr pScrn, vgaRegPtr vgaReg, TsengRegPtr tsengReg,
 	     int flags)
 {
-    vgaHWPtr hwp;
     TsengPtr pTseng;
     unsigned char tmp;
     int iobase = VGAHWPTR(pScrn)->IOBase;
 
     PDEBUG("	TsengRestore\n");
 
-    hwp = VGAHWPTR(pScrn);
     pTseng = TsengPTR(pScrn);
 
     TsengProtect(pScrn, TRUE);

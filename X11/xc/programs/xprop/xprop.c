@@ -27,7 +27,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xprop/xprop.c,v 1.12 2002/12/02 22:10:23 tsi Exp $ */
+/* $XFree86: xc/programs/xprop/xprop.c,v 1.16 2003/10/31 21:49:48 herrb Exp $ */
 
 
 #include <X11/Xlib.h>
@@ -219,7 +219,7 @@ Scan_Long (const char *string, long *value)
 }
 
 static const char *
-Scan_Octal (const char *string, long *value)
+Scan_Octal (const char *string, unsigned long *value)
 {
     if (sscanf(string, "%lo", value)!=1)
 	Fatal_Error("Bad octal number: %s.", string);
@@ -406,7 +406,7 @@ static propertyRec windowPropTable[] = {
     {"RECTANGLE",	XA_RECTANGLE,	 "16iicc",    RECTANGLE_DFORMAT },
     {"RGB_COLOR_MAP",	XA_RGB_COLOR_MAP,"32xcccccccxx",RGB_COLOR_MAP_DFORMAT},
     {"STRING",		XA_STRING,	 "8s",	      0 },
-    {"WINDOW",		XA_WINDOW,	 "32x",	      ": window id # $0\n" },
+    {"WINDOW",		XA_WINDOW,	 "32x",	      ": window id # $0+\n" },
     {"VISUALID",	XA_VISUALID,	 "32x",	      ": visual id # $0\n" },
     {"WM_COLORMAP_WINDOWS",	0,	 "32x",       ": window id # $0+\n"},
     {"WM_COMMAND",	XA_WM_COMMAND,	 "8s",	      " = { $0+ }\n" },
@@ -899,7 +899,7 @@ static const char *
 Handle_Backslash (const char *dformat)
 {
     char c;
-    long i;
+    unsigned long i;
 
     if (!(c = *(dformat++)))
 	return dformat;
@@ -1384,8 +1384,8 @@ Set_Property (Display *dpy, Window w, const char *propname, const char *value)
 	static unsigned short data16[MAXELEMENTS];
 	static unsigned long data32[MAXELEMENTS];
 	unsigned long intvalue;
-	unsigned char * value2 = strdup(value);
-	unsigned char * tmp = strtok(value2,",");
+	char * value2 = strdup(value);
+	char * tmp = strtok(value2,",");
 	nelements = 1;
 	intvalue = strtoul(tmp, NULL, 0);
 	switch(size) {
@@ -1424,8 +1424,8 @@ Set_Property (Display *dpy, Window w, const char *propname, const char *value)
 	static unsigned short data16[MAXELEMENTS];
 	static unsigned long data32[MAXELEMENTS];
 	unsigned long intvalue;
-	unsigned char * value2 = strdup(value);
-	unsigned char * tmp = strtok(value2,",");
+	char * value2 = strdup(value);
+	char * tmp = strtok(value2,",");
 	nelements = 1;
 	intvalue = strtoul(tmp, NULL, 0);
 	switch(size) {
@@ -1581,7 +1581,7 @@ Parse_Format_Mapping (int *argc, char ***argv)
 	Fatal_Error("Bad format: %s.", format);
 
     dformat = NULL;
-    if (ARGC>0 && Is_A_DFormat(ARGV[1])) {
+    if (ARGC>1 && Is_A_DFormat(ARGV[1])) {
 	ARGV++; ARGC--; dformat = OPTION;
     }
 

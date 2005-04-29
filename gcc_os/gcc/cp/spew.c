@@ -29,22 +29,17 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "cp-tree.h"
 #include "cpplib.h"
-#include "c-lex.h"
+#include "c-pragma.h"
+/* APPLE LOCAL AltiVec */
+extern int altivec_context;
 #include "lex.h"
 /* APPLE LOCAL Objective-C++ */
 #include "cp-parse.h"
 #include "flags.h"
 #include "obstack.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "intl.h"
 #include "timevar.h"
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-#include "pfe/pfe-header.h"
-#endif
 
 #ifdef SPEW_DEBUG
 #define SPEW_INLINE
@@ -57,12 +52,12 @@ Boston, MA 02111-1307, USA.  */
    backtracking.  */
 
 /* fifo of tokens recognized and available to parser.  */
-struct token
+struct token GTY(())
 {
   /* The values for YYCHAR will fit in a short.  */
   short		yychar;
   unsigned int	lineno;
-  YYSTYPE	yylval;
+  YYSTYPE GTY ((desc ("%1.yychar"))) yylval;
 };
 
 /* Since inline methods can refer to text which has not yet been seen,
@@ -75,63 +70,82 @@ struct token
    This function's FUNCTION_DECL will have a bit set in its common so
    that we know to watch out for it.  */
 
-struct unparsed_text
+#define TOKEN_CHUNK_SIZE 20
+struct token_chunk GTY(())
+{
+  struct token_chunk *next;
+  struct token toks[TOKEN_CHUNK_SIZE];
+};
+
+struct unparsed_text GTY(())
 {
   struct unparsed_text *next;	/* process this one next */
   tree decl;		/* associated declaration */
-  const char *filename;	/* name of file we were processing */
-  int lineno;		/* line number we got the text from */
+  location_t locus;     /* location we got the text from */
   int interface;	/* remembering interface_unknown and interface_only */
 
-  struct token *pos;	/* current position, when rescanning */
-  struct token *limit;	/* end of saved text */
+  struct token_chunk * tokens; /* Start of the token list.  */
+
+  struct token_chunk *last_chunk; /* End of the token list.  */
+  short last_pos;	/* Number of tokens used in the last chunk of
+			   TOKENS.  */
+
+  short cur_pos;	/* Current token in 'cur_chunk', when rescanning.  */
+  struct token_chunk *cur_chunk;  /* Current chunk, when rescanning.  */
 };
 
 /* Stack of state saved off when we return to an inline method or
    default argument that has been stored for later parsing.  */
-struct feed
+struct feed GTY(())
 {
   struct unparsed_text *input;
-  const char *filename;
-  int lineno;
+  location_t locus;
   int yychar;
-  YYSTYPE yylval;
+  YYSTYPE GTY ((desc ("%1.yychar"))) yylval;
   int first_token;
-  struct obstack token_obstack;
+  struct obstack GTY ((skip (""))) token_obstack;
   struct feed *next;
-};  
+};
 
-static struct obstack feed_obstack;
-static struct feed *feed;
+static GTY(()) struct feed *feed;
 
 static SPEW_INLINE void do_aggr PARAMS ((void));
 static SPEW_INLINE int identifier_type PARAMS ((tree));
 static void scan_tokens PARAMS ((int));
 static void feed_defarg PARAMS ((tree));
 static void finish_defarg PARAMS ((void));
+static void yylexstring PARAMS ((struct token *));
 static int read_token PARAMS ((struct token *));
 
 static SPEW_INLINE int num_tokens PARAMS ((void));
 static SPEW_INLINE struct token *nth_token PARAMS ((int));
-static SPEW_INLINE int add_token PARAMS ((struct token *));
+static SPEW_INLINE int next_token PARAMS ((struct token *));
 static SPEW_INLINE int shift_token PARAMS ((void));
 static SPEW_INLINE void push_token PARAMS ((struct token *));
 static SPEW_INLINE void consume_token PARAMS ((void));
 static SPEW_INLINE int read_process_identifier PARAMS ((YYSTYPE *));
 
 static SPEW_INLINE void feed_input PARAMS ((struct unparsed_text *));
-static SPEW_INLINE void snarf_block PARAMS ((const char *, int));
+static SPEW_INLINE struct token * space_for_token
+  PARAMS ((struct unparsed_text *t));
+static SPEW_INLINE struct token * remove_last_token
+  PARAMS ((struct unparsed_text *t));
+static struct unparsed_text * alloc_unparsed_text
+  PARAMS ((const location_t *, tree decl, int interface));
+
+static void snarf_block PARAMS ((struct unparsed_text *t));
 static tree snarf_defarg PARAMS ((void));
+static void snarf_parenthesized_expression (struct unparsed_text *);
 static int frob_id PARAMS ((int, int, tree *));
 
 /* The list of inline functions being held off until we reach the end of
    the current class declaration.  */
-static struct unparsed_text *pending_inlines;
-static struct unparsed_text *pending_inlines_tail;
+static GTY(()) struct unparsed_text *pending_inlines;
+static GTY(()) struct unparsed_text *pending_inlines_tail;
 
 /* The list of previously-deferred inline functions currently being parsed.
    This exists solely to be a GC root.  */
-static struct unparsed_text *processing_these_inlines;
+static GTY(()) struct unparsed_text *processing_these_inlines;
 
 static void begin_parsing_inclass_inline PARAMS ((struct unparsed_text *));
 
@@ -148,61 +162,43 @@ static enum cpp_ttype last_token;
 static tree last_token_id;
 
 /* From lex.c: */
-/* the declaration found for the last IDENTIFIER token read in.
-   yylex must look this up to detect typedefs, which get token type TYPENAME,
-   so it is left around in case the identifier is not a typedef but is
-   used in a context which makes it a reference to a variable.  */
+/* the declaration found for the last IDENTIFIER token read in.  yylex
+   must look this up to detect typedefs, which get token type
+   tTYPENAME, so it is left around in case the identifier is not a
+   typedef but is used in a context which makes it a reference to a
+   variable.  */
 extern tree lastiddecl;		/* let our brains leak out here too */
 extern int	yychar;		/*  the lookahead symbol		*/
 extern YYSTYPE	yylval;		/*  the semantic value of the		*/
 				/*  lookahead symbol			*/
 /* The token fifo lives in this obstack.  */
-struct obstack token_obstack;
-int first_token;
-
-/* Sometimes we need to save tokens for later parsing.  If so, they are
-   stored on this obstack.  */
-struct obstack inline_text_obstack;
-char *inline_text_firstobj;
+static struct obstack token_obstack;
+static int first_token;
 
 /* When we see a default argument in a method declaration, we snarf it as
    text using snarf_defarg.  When we get up to namespace scope, we then go
    through and parse all of them using do_pending_defargs.  Since yacc
    parsers are not reentrant, we retain defargs state in these two
    variables so that subsequent calls to do_pending_defargs can resume
-   where the previous call left off. DEFARG_FNS is a tree_list where 
+   where the previous call left off. DEFARG_FNS is a tree_list where
    the TREE_TYPE is the current_class_type, TREE_VALUE is the FUNCTION_DECL,
    and TREE_PURPOSE is the list unprocessed dependent functions.  */
 
-static tree defarg_fns;     /* list of functions with unprocessed defargs */
-static tree defarg_parm;    /* current default parameter */
-static tree defarg_depfns;  /* list of unprocessed fns met during current fn. */
-static tree defarg_fnsdone; /* list of fns with circular defargs */
+/* list of functions with unprocessed defargs */
+static GTY(()) tree defarg_fns;
+/* current default parameter */
+static GTY(()) tree defarg_parm;
+/* list of unprocessed fns met during current fn.  */
+static GTY(()) tree defarg_depfns;
+/* list of fns with circular defargs */
+static GTY(()) tree defarg_fnsdone;
 
 /* Initialize obstacks. Called once, from cxx_init.  */
 
 void
 init_spew ()
 {
-  gcc_obstack_init (&inline_text_obstack);
-  inline_text_firstobj = (char *) obstack_alloc (&inline_text_obstack, 0);
   gcc_obstack_init (&token_obstack);
-  gcc_obstack_init (&feed_obstack);
-  ggc_add_tree_root (&defarg_fns, 1);
-  ggc_add_tree_root (&defarg_parm, 1);
-  ggc_add_tree_root (&defarg_depfns, 1);
-  ggc_add_tree_root (&defarg_fnsdone, 1);
-
-  ggc_add_root (&pending_inlines, 1, sizeof (struct unparsed_text *),
-		mark_pending_inlines);
-  ggc_add_root (&processing_these_inlines, 1, sizeof (struct unparsed_text *),
-		mark_pending_inlines);
-}
-
-void
-clear_inline_text_obstack ()
-{
-  obstack_free (&inline_text_obstack, inline_text_firstobj);
 }
 
 /* Subroutine of read_token.  */
@@ -213,27 +209,15 @@ read_process_identifier (pyylval)
   tree id = pyylval->ttype;
 
   /* APPLE LOCAL AltiVec */
-  /* APPLE LOCAL Objective-C++ */
+  /* APPLE LOCAL begin Objective-C++ */
   if (C_IS_RESERVED_WORD (id) 
-      && (!compiling_objc 
+      && (!flag_objc 
 	  || (!OBJC_IS_AT_KEYWORD (C_RID_CODE (id))
 	      && (!OBJC_IS_PQ_KEYWORD (C_RID_CODE (id)) || objc_pq_context))) 
       && altivec_treat_as_keyword (id))
     {
-      /* Possibly replace the IDENTIFIER_NODE with a magic cookie.
-	 Can't put yylval.code numbers in ridpointers[].  Bleah.  */
-
       switch (C_RID_CODE (id))
 	{
-	case RID_BITAND: pyylval->code = BIT_AND_EXPR;	return '&';
-	case RID_AND_EQ: pyylval->code = BIT_AND_EXPR;	return ASSIGN;
-	case RID_BITOR:	 pyylval->code = BIT_IOR_EXPR;	return '|';
-	case RID_OR_EQ:	 pyylval->code = BIT_IOR_EXPR;	return ASSIGN;
-	case RID_XOR:	 pyylval->code = BIT_XOR_EXPR;	return '^';
-	case RID_XOR_EQ: pyylval->code = BIT_XOR_EXPR;	return ASSIGN;
-	case RID_NOT_EQ: pyylval->code = NE_EXPR;	return EQCOMPARE;
-
-	  /* APPLE LOCAL begin Objective-C++ */
 	  /* Turn non-typedefed refs to "id" into plain identifiers; this
 	     allows constructs like "void foo(id id);" to work.  */
 	case RID_ID:
@@ -241,7 +225,7 @@ read_process_identifier (pyylval)
 	    tree decl = NULL_TREE, next_tok;
 	    enum cpp_ttype next_tok_type;
 	    
-	    if (!compiling_objc || objc_need_raw_identifier)
+	    if (!flag_objc || objc_need_raw_identifier)
 	      return IDENTIFIER;   /* short & sweet */
 	
 	    decl = lookup_name (id, /*prefer_type=*/1);
@@ -250,14 +234,16 @@ read_process_identifier (pyylval)
 	      return IDENTIFIER;
 
 	    /* Last gasp -- a trailing semicolon!!!! */
-	    next_tok_type = c_lex (&next_tok);
-	    _cpp_backup_tokens (parse_in, 1);
+	    /* APPLE LOCAL begin jet */
+	    next_tok_type = c_get_token (&next_tok);
+	    c_backup_tokens (/* parse_in, */ 1);
+	    /* APPLE LOCAL end jet */
 	    if (next_tok_type == CPP_SEMICOLON)
 	      return IDENTIFIER;
 	  }
-	  goto get_ridpointer;
+	  break;
 	case RID_CLASS:
-	  if (compiling_objc && objc_need_raw_identifier 
+	  if (flag_objc && objc_need_raw_identifier 
 	      && !processing_template_decl)
 	    {
 	      /* Suppress the warning for now.
@@ -265,13 +251,11 @@ read_process_identifier (pyylval)
 		 "this will be a hard error in the future"); */
 	      return IDENTIFIER;
 	    }
-	  /* fall through */
-	default: 
-	get_ridpointer:
-	  /* APPLE LOCAL end Objective-C++ */
-	  pyylval->ttype = ridpointers[C_RID_CODE (id)];
-	  return C_RID_YYCODE (id);
+	  break;
 	}
+      /* APPLE LOCAL end Objective-C++ */
+      pyylval->ttype = ridpointers[C_RID_CODE (id)];
+      return C_RID_YYCODE (id);
     }
 
   /* Make sure that user does not collide with our internal naming
@@ -290,6 +274,44 @@ read_process_identifier (pyylval)
   return IDENTIFIER;
 }
 
+/* Concatenate strings before returning them to the parser.  This isn't quite
+   as good as having it done in the lexer, but it's better than nothing.  */
+
+static void
+yylexstring (t)
+     struct token *t;
+{
+  enum cpp_ttype next_type;
+  tree next;
+
+  /* APPLE LOCAL jet */ 
+  next_type = c_get_token (&next);
+  if (next_type == CPP_STRING || next_type == CPP_WSTRING)
+    {
+      varray_type strings;
+
+      VARRAY_TREE_INIT (strings, 32, "strings");
+      VARRAY_PUSH_TREE (strings, t->yylval.ttype);
+
+      do
+	{
+	  VARRAY_PUSH_TREE (strings, next);
+	  /* APPLE LOCAL jet */ 
+	  next_type = c_get_token (&next);
+	}
+      while (next_type == CPP_STRING || next_type == CPP_WSTRING);
+
+      t->yylval.ttype = combine_strings (strings);
+      last_token_id = t->yylval.ttype;
+    }
+
+  /* We will have always read one token too many.  */
+  /* APPLE LOCAL jet */
+  c_backup_tokens (/* parse_in, */ 1);
+
+  t->yychar = STRING;
+}
+
 /* Read the next token from the input file.  The token is written into
    T, and its type number is returned.  */
 static int
@@ -298,7 +320,8 @@ read_token (t)
 {
  retry:
 
-  last_token = c_lex (&last_token_id);
+  /* APPLE LOCAL jet */
+  last_token = c_get_token (&last_token_id);
   t->yylval.ttype = last_token_id;
 
   switch (last_token)
@@ -379,7 +402,7 @@ read_token (t)
     case CPP_EOF:
       t->yychar = 0;
       break;
-      
+
     case CPP_NAME:
       t->yychar = read_process_identifier (&t->yylval);
       break;
@@ -392,72 +415,103 @@ read_token (t)
 
     case CPP_STRING:
     case CPP_WSTRING:
-      t->yychar = STRING;
+      yylexstring (t);
       break;
 
-    /* APPLE LOCAL Objective-C++ begin */
+      /* APPLE LOCAL begin CW asm blocks */
+      /* Convert a lexer-returned beginning-of-line token into a
+	 parser token.  */
+    case CPP_BOL:
+      return CW_ASM_BOL;
+    case CPP_EOL:
+      return CW_ASM_EOL;
+      /* APPLE LOCAL end CW asm blocks */
+
+    /* APPLE LOCAL begin Objective-C++ */
       /* This token is Objective-C specific.  It gives the next token
 	 special significance.  */
     case CPP_ATSIGN:
       t->yychar = '@';
-      if (compiling_objc) {
-	enum cpp_ttype after_at = last_token;
-	tree after_at_id = last_token_id;
-	enum rid last_rid;
+      if (flag_objc)
+	{
+	  enum cpp_ttype after_at = last_token;
+	  tree after_at_id = last_token_id;
+	  enum rid last_rid;
 
-	last_token = c_lex (&last_token_id);
-	last_rid = C_RID_CODE (last_token_id);
+	  /* APPLE LOCAL jet */
+	  last_token = c_get_token (&last_token_id);
+	  last_rid = C_RID_CODE (last_token_id);
 	
-	/* NB: Some of the @... keywords are the same as the "non-@" C++ 
-	   keywords -- 'class', 'public', 'private', 'protected'.  */
-	if (last_token == CPP_NAME
-	    && C_IS_RESERVED_WORD (last_token_id))
-	  {
-	    switch (last_rid) {
-	      case RID_CLASS:
-		last_rid = RID_AT_CLASS;
-		goto at_keyword_found;
-	      case RID_PUBLIC:
-		last_rid = RID_AT_PUBLIC;
-		goto at_keyword_found;
-	      case RID_PROTECTED:
-		last_rid = RID_AT_PROTECTED;
-		goto at_keyword_found;
-	      case RID_PRIVATE:
-		last_rid = RID_AT_PRIVATE;
-		goto at_keyword_found;
-	      case RID_AT_INTERFACE: 
-	      case RID_AT_IMPLEMENTATION:
-	      case RID_AT_PROTOCOL:
-	      case RID_AT_ALIAS:
-	      case RID_AT_ENCODE:
-	      case RID_AT_DEFS:
-	      case RID_AT_END:
-	      case RID_AT_SELECTOR:
-	      /* The following may actually be found in the lexer stream
-		 after being pushed back onto it.  */
-	      case RID_AT_CLASS:
-	      case RID_AT_PUBLIC:
-	      case RID_AT_PROTECTED:
-	      case RID_AT_PRIVATE:	 
-	      at_keyword_found:
-		t->yylval.ttype = last_token_id;
-		t->yychar = rid_to_yy [(int) last_rid];
-		break;
-	      default:
-		goto unget_cpp;
+	  /* NB: Some of the @... keywords are the same as the "non-@" C++ 
+	     keywords -- 'class', 'public', 'private', 'protected'.  */
+	  if (last_token == CPP_NAME
+	      && C_IS_RESERVED_WORD (last_token_id))
+	    {
+	      switch (last_rid)
+		{
+		case RID_CLASS:
+		  last_rid = RID_AT_CLASS;
+		  goto at_keyword_found;
+		case RID_PUBLIC:
+		  last_rid = RID_AT_PUBLIC;
+		  goto at_keyword_found;
+		case RID_PROTECTED:
+		  last_rid = RID_AT_PROTECTED;
+		  goto at_keyword_found;
+		case RID_PRIVATE:
+		  last_rid = RID_AT_PRIVATE;
+		  goto at_keyword_found;
+		/* APPLE LOCAL begin Panther ObjC enhancements */
+		case RID_THROW:
+		  last_rid = RID_AT_THROW;
+		  goto at_keyword_found;
+		case RID_TRY:
+		  last_rid = RID_AT_TRY;
+		  goto at_keyword_found;
+		case RID_CATCH:
+		  last_rid = RID_AT_CATCH;
+		  goto at_keyword_found;
+		/* APPLE LOCAL end Panther ObjC enhancements */
+		case RID_AT_INTERFACE: 
+		case RID_AT_IMPLEMENTATION:
+		case RID_AT_PROTOCOL:
+		case RID_AT_ALIAS:
+		case RID_AT_ENCODE:
+		case RID_AT_DEFS:
+		case RID_AT_END:
+		case RID_AT_SELECTOR:
+		/* APPLE LOCAL begin Panther ObjC enhancements */
+		case RID_AT_FINALLY:
+		case RID_AT_SYNCHRONIZED:
+		case RID_AT_THROW:
+		case RID_AT_TRY:
+		case RID_AT_CATCH:
+		/* APPLE LOCAL end Panther ObjC enhancements */
+		  /* The following may actually be found in the lexer stream
+		     after being pushed back onto it.  */
+		case RID_AT_CLASS:
+		case RID_AT_PUBLIC:
+		case RID_AT_PROTECTED:
+		case RID_AT_PRIVATE:
+		at_keyword_found:
+		  t->yylval.ttype = last_token_id;
+		  t->yychar = rid_to_yy [(int) last_rid];
+		  break;
+		default:
+		  goto unget_cpp;
+		}
 	    }
-	  }
-	else
-	  {
+	  else
+	    {
 	    unget_cpp:
-	    _cpp_backup_tokens (parse_in, 1);
-	    last_token = after_at;
-	    last_token_id = after_at_id;
-	  }  
-      }
+	      /* APPLE LOCAL jet */
+	      c_backup_tokens (/* parse_in, */ 1);
+	      last_token = after_at;
+	      last_token_id = after_at_id;
+	    }
+	}
       break;
-    /* APPLE LOCAL Objective-C++ end */
+      /* APPLE LOCAL end Objective-C++ */
 
     default:
       yyerror ("parse error");
@@ -478,28 +532,28 @@ feed_input (input)
     abort ();
 #endif
 
-  f = obstack_alloc (&feed_obstack, sizeof (struct feed));
+  f = ggc_alloc (sizeof (struct feed));
 
-  /* The token list starts just after the struct unparsed_text in memory.  */
-  input->pos = (struct token *) (input + 1);
+  input->cur_chunk = input->tokens;
+  input->cur_pos = 0;
 
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tfeeding %s:%d [%d tokens]\n",
-	     input->filename, input->lineno, input->limit - input->pos);
+	     input->locus.file, input->locus.line, input->limit - input->pos);
 #endif
 
   f->input = input;
-  f->filename = input_filename;
-  f->lineno = lineno;
+  f->locus.file = input_filename;
+  f->locus.line = lineno;
   f->yychar = yychar;
   f->yylval = yylval;
   f->first_token = first_token;
   f->token_obstack = token_obstack;
   f->next = feed;
 
-  input_filename = input->filename;
-  lineno = input->lineno;
+  input_filename = input->locus.file;
+  lineno = input->locus.line;
   yychar = YYEMPTY;
   yylval.ttype = NULL_TREE;
   first_token = 0;
@@ -512,8 +566,8 @@ end_input ()
 {
   struct feed *f = feed;
 
-  input_filename = f->filename;
-  lineno = f->lineno;
+  input_filename = f->locus.file;
+  lineno = f->locus.line;
   yychar = f->yychar;
   yylval = f->yylval;
   first_token = f->first_token;
@@ -521,48 +575,12 @@ end_input ()
   token_obstack = f->token_obstack;
   feed = f->next;
 
-  obstack_free (&feed_obstack, f);
-
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\treturning to %s:%d\n", input_filename, lineno);
 #endif
 }
 
-/* GC callback to mark memory pointed to by the pending inline queue.  */
-void
-mark_pending_inlines (pi)
-     PTR pi;
-{
-  struct unparsed_text *up = * (struct unparsed_text **)pi;
-
-  while (up)
-    {
-      struct token *t = (struct token *) (up + 1);
-      struct token *l = up->limit;
-
-      while (t < l)
-	{
-	  /* Some of the possible values for yychar use yylval.code
-	     instead of yylval.ttype.  We only have to worry about
-	     yychars that could have been returned by read_token.  */
-	  switch (t->yychar)
-	    {
-	    case '+':	    case '-':	    case '*':	    case '/':
-	    case '%':	    case '&':	    case '|':	    case '^':
-	    case '>':	    case '<':	    case LSHIFT:    case RSHIFT:
-	    case ASSIGN:    case MIN_MAX:   case EQCOMPARE: case ARITHCOMPARE:
-	      t++;
-	      continue;
-	    }
-	  if (t->yylval.ttype)
-	    ggc_mark_tree (t->yylval.ttype);
-	  t++;
-	}
-      up = up->next;
-    }
-}
-  
 /* Token queue management.  */
 
 /* Return the number of tokens available on the fifo.  */
@@ -592,20 +610,27 @@ static const struct token Tpad = { EMPTY, 0 UNION_INIT_ZERO };
 
 /* Copy the next token into T and return its value.  */
 static SPEW_INLINE int
-add_token (t)
+next_token (t)
      struct token *t;
 {
   if (!feed)
     return read_token (t);
 
-  if (feed->input->pos < feed->input->limit)
+  if (feed->input->cur_chunk != feed->input->last_chunk
+      || feed->input->cur_pos != feed->input->last_pos)
     {
-      memcpy (t, feed->input->pos, sizeof (struct token));
-      return (feed->input->pos++)->yychar;
+      if (feed->input->cur_pos == TOKEN_CHUNK_SIZE)
+	{
+	  feed->input->cur_chunk = feed->input->cur_chunk->next;
+	  feed->input->cur_pos = 0;
+	}
+      memcpy (t, feed->input->cur_chunk->toks + feed->input->cur_pos,
+	      sizeof (struct token));
+      feed->input->cur_pos++;
+      return t->yychar;
     }
-  
-  memcpy (t, &Teosi, sizeof (struct token));
-  return END_OF_SAVED_INPUT;
+
+  return 0;
 }
 
 /* Shift the next token onto the fifo.  */
@@ -614,7 +639,7 @@ shift_token ()
 {
   size_t point = obstack_object_size (&token_obstack);
   obstack_blank (&token_obstack, sizeof (struct token));
-  return add_token ((struct token *) (obstack_base (&token_obstack) + point));
+  return next_token ((struct token *) (obstack_base (&token_obstack) + point));
 }
 
 /* Consume the next token out of the fifo.  */
@@ -691,7 +716,7 @@ scan_tokens (n)
 	goto pad_tokens;
     }
   return;
-  
+
  pad_tokens:
   while (num_tokens () <= n)
     obstack_grow (&token_obstack, &Tpad, sizeof (struct token));
@@ -717,17 +742,17 @@ identifier_type (decl)
     {
       if (TREE_CODE (DECL_TEMPLATE_RESULT (decl)) == TYPE_DECL)
 	return PTYPENAME;
-      else if (looking_for_template) 
+      else if (looking_for_template)
 	return PFUNCNAME;
     }
   if (looking_for_template && really_overloaded_fn (decl))
     {
       /* See through a baselink.  */
-      if (TREE_CODE (decl) == TREE_LIST)
-	decl = TREE_VALUE (decl);
+      if (TREE_CODE (decl) == BASELINK)
+	decl = BASELINK_FUNCTIONS (decl);
 
       for (t = decl; t != NULL_TREE; t = OVL_CHAIN (t))
-	if (DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (t))) 
+	if (DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (t)))
 	  return PFUNCNAME;
     }
   if (TREE_CODE (decl) == NAMESPACE_DECL)
@@ -748,11 +773,11 @@ identifier_type (decl)
   if (t && t == decl)
     return SELFNAME;
 
-  return TYPENAME;
+  return tTYPENAME;
 }
 
 /* token[0] == AGGR (struct/union/enum)
-   Thus, token[1] is either a TYPENAME or a TYPENAME_DEFN.
+   Thus, token[1] is either a tTYPENAME or a TYPENAME_DEFN.
    If token[2] == '{' or ':' then it's TYPENAME_DEFN.
    It's also a definition if it's a forward declaration (as in 'struct Foo;')
    which we can tell if token[2] == ';' *and* token[-1] != FRIEND or NEW.  */
@@ -761,10 +786,10 @@ static SPEW_INLINE void
 do_aggr ()
 {
   int yc1, yc2;
-  
+
   scan_tokens (2);
   yc1 = nth_token (1)->yychar;
-  if (yc1 != TYPENAME && yc1 != IDENTIFIER && yc1 != PTYPENAME)
+  if (yc1 != tTYPENAME && yc1 != IDENTIFIER && yc1 != PTYPENAME)
     return;
   yc2 = nth_token (2)->yychar;
   if (yc2 == ';')
@@ -779,7 +804,7 @@ do_aggr ()
 
   switch (yc1)
     {
-    case TYPENAME:
+    case tTYPENAME:
       nth_token (1)->yychar = TYPENAME_DEFN;
       break;
     case PTYPENAME:
@@ -791,12 +816,12 @@ do_aggr ()
     default:
       abort ();
     }
-}  
+}
 
 void
 see_typename ()
 {
-  /* Only types expected, not even namespaces. */
+  /* Only types expected, not even namespaces.  */
   looking_for_typename = 2;
   if (yychar < 0)
     if ((yychar = yylex ()) < 0) yychar = 0;
@@ -851,7 +876,7 @@ yylex ()
     {
     case EMPTY:
       /* This is a lexical no-op.  */
-#ifdef SPEW_DEBUG    
+#ifdef SPEW_DEBUG
       if (spew_debug)
 	debug_yychar (yychr);
 #endif
@@ -870,14 +895,21 @@ yylex ()
     case IDENTIFIER:
     {
       int peek;
-      
+
+      /* APPLE LOCAL begin CW asm blocks */
+      /* If we're doing asm, lookahead is unnecessary and confuses
+	 things, so don't do it.  */
+      if (cw_asm_block)
+	break;
+      /* APPLE LOCAL end CW asm blocks */
+
       scan_tokens (1);
       peek = nth_token (1)->yychar;
       yychr = frob_id (yychr, peek, &nth_token (0)->yylval.ttype);
       /* APPLE LOCAL Objective-C++ */
       /* Allow evil ObjC constructs like 'Class class;' -- but warn
 	 the user sternly.  */
-      if (compiling_objc && peek == AGGR
+      if (flag_objc && peek == AGGR
 	  && nth_token (1)->yylval.ttype == ridpointers[RID_CLASS])
 	{
 	  /* Suppress the warning for now.
@@ -890,12 +922,12 @@ yylex ()
       break;
     }
     case IDENTIFIER_DEFN:
-    case TYPENAME:
+    case tTYPENAME:
     case TYPENAME_DEFN:
     case PTYPENAME:
     case PTYPENAME_DEFN:
       /* If we see a SCOPE next, restore the old value.
-	 Otherwise, we got what we want. */
+	 Otherwise, we got what we want.  */
       looking_for_typename = old_looking_for_typename;
       looking_for_template = 0;
       break;
@@ -949,6 +981,38 @@ yylex ()
       looking_for_typename = 2;
       break;
 
+      /* APPLE LOCAL begin CW asm blocks */
+    case ASM_KEYWORD:
+      /* If CW-style asm is allowed, then "asm" can appear in a
+	 top-level context where it might either be a
+	 storage-class-like use designating an asm function, or a
+	 global asm statement.  This code sniffs ahead by a couple
+	 tokens to see which it is (the asm statement must have a '('
+	 plus optional const|volatile).  */
+      if (flag_cw_asm_blocks)
+	{
+	  struct token *tokx, *toky;
+	  scan_tokens (1);
+	  tokx = nth_token (1);
+	  if (tokx->yychar == '(' || tokx->yychar == '{')
+	    /* do nothing */ ;
+	  else if ((tokx->yylval.ttype == ridpointers[RID_CONST])
+		   || (tokx->yylval.ttype == ridpointers[RID_VOLATILE]))
+	    {
+	      scan_tokens (2);
+	      toky = nth_token (2);
+	      if (toky->yychar == '(')
+		/* do nothing */ ;
+	      else
+		yychr = SCSPEC;
+	    }
+	  else
+	    /* OK, must be in a function declaration.  */
+	    yychr = SCSPEC;
+	}
+      break;
+      /* APPLE LOCAL end CW asm blocks */
+
     default:
       break;
     }
@@ -964,13 +1028,13 @@ yylex ()
   yychar = yychr;
   {
     struct token *tok = nth_token (0);
-    
+
     yylval = tok->yylval;
     if (tok->lineno)
       lineno = tok->lineno;
   }
 
-#ifdef SPEW_DEBUG    
+#ifdef SPEW_DEBUG
   if (spew_debug)
     debug_yychar (yychr);
 #endif
@@ -981,7 +1045,7 @@ yylex ()
 }
 
 /* Unget character CH from the input stream.
-   If RESCAN is non-zero, then we want to `see' this
+   If RESCAN is nonzero, then we want to `see' this
    character as the next input token.  */
 
 void
@@ -993,13 +1057,6 @@ yyungetc (ch, rescan)
   if (yychar == YYEMPTY || rescan == 0)
     {
       struct token fake;
-
-      /* If we're putting back a brace, undo the change in indent_level
-	 from the first time we saw it.  */
-      if (ch == '{')
-	indent_level--;
-      else if (ch == '}')
-	indent_level++;
 
       fake.yychar = ch;
       fake.yylval.ttype = 0;
@@ -1023,7 +1080,7 @@ frob_id (yyc, peek, idp)
 {
   tree trrr;
   int old_looking_for_typename = 0;
-  
+
   if (peek == SCOPE)
     {
       /* Don't interfere with the setting from an 'aggr' prefix.  */
@@ -1038,13 +1095,13 @@ frob_id (yyc, peek, idp)
       yyc = identifier_type (trrr);
       switch(yyc)
         {
-          case TYPENAME:
+          case tTYPENAME:
 	    /* APPLE LOCAL begin Objective-C++ */
 	    /* For the most part, we allow the parser to view ObjC classes as C++
 	       types, so that they may get used in all the C++-ish contexts.  But,
 	       when we see a '<', we keep the ObjC-ness, lest the compiler start
 	       looking for template arguments (instead of protocols).  */
-	    if (compiling_objc && peek == '<') 
+	    if (flag_objc && peek == '<') 
 	      {
 		tree objc_interface_decl = is_class_name (*idp);
 		
@@ -1060,7 +1117,7 @@ frob_id (yyc, peek, idp)
           case NSNAME:
           case PTYPENAME:
 	    /* If this got special lookup, remember it.  In these
-	       cases, we know it can't be a declarator-id. */
+	       cases, we know it can't be a declarator-id.  */
             if (got_scope || got_object)
               *idp = trrr;
             /* FALLTHROUGH */
@@ -1073,7 +1130,7 @@ frob_id (yyc, peek, idp)
         }
     }
   /* APPLE LOCAL begin Objective-C++ */
-  else if (compiling_objc)
+  else if (flag_objc)
     {
       tree objc_interface_decl = is_class_name (*idp);
 
@@ -1200,26 +1257,100 @@ process_next_inline (i)
       extract_interface_info ();
     }
 }
+
+/* Create a new token at the end of the token list in T.  */
+static SPEW_INLINE struct token *
+space_for_token (t)
+     struct unparsed_text *t;
+{
+  if (t->last_pos != TOKEN_CHUNK_SIZE)
+    return t->last_chunk->toks + (t->last_pos++);
 
+  t->last_chunk->next = ggc_alloc_cleared (sizeof (*t->last_chunk->next));
+  t->last_chunk = t->last_chunk->next;
+  t->last_chunk->next = NULL;
+
+  t->last_pos = 1;
+  return t->last_chunk->toks;
+}
+
+/* Shrink the token list in T by one token.  */
+static SPEW_INLINE struct token *
+remove_last_token (t)
+     struct unparsed_text *t;
+{
+  struct token *result = t->last_chunk->toks + t->last_pos - 1;
+  if (t->last_pos == 0)
+    abort ();
+  t->last_pos--;
+  if (t->last_pos == 0 && t->last_chunk != t->tokens)
+    {
+      struct token_chunk *c;
+      c = t->tokens;
+      while (c->next != t->last_chunk)
+	c = c->next;
+      c->next = NULL;
+      t->last_chunk = c;
+      t->last_pos = ARRAY_SIZE (c->toks);
+    }
+  return result;
+}
+
+/* Allocate an 'unparsed_text' structure, ready to use space_for_token.  */
+static struct unparsed_text *
+alloc_unparsed_text (locus, decl, interface)
+     const location_t *locus;
+     tree decl;
+     int interface;
+{
+  struct unparsed_text *r;
+  r = ggc_alloc_cleared (sizeof (*r));
+  r->decl = decl;
+  r->locus = *locus;
+  r->interface = interface;
+  r->tokens = r->last_chunk = ggc_alloc_cleared (sizeof (*r->tokens));
+  return r;
+}
+
+/* Accumulate the tokens that make up a parenthesized expression in T,
+   having already read the opening parenthesis.  */
+
+static void
+snarf_parenthesized_expression (struct unparsed_text *t)
+{
+  int yyc;
+  int level = 1;
+
+  while (1)
+    {
+      yyc = next_token (space_for_token (t));
+      if (yyc == '(')
+	++level;
+      else if (yyc == ')' && --level == 0)
+	break;
+      else if (yyc == 0)
+	{
+	  error ("%Hend of file read inside definition", &t->locus);
+	  break;
+	}
+    }
+}
 
 /* Subroutine of snarf_method, deals with actual absorption of the block.  */
 
-static SPEW_INLINE void
-snarf_block (starting_file, starting_line)
-     const char *starting_file;
-     int starting_line;
+static void
+snarf_block (t)
+     struct unparsed_text *t;
 {
   int blev = 1;
   int look_for_semicolon = 0;
   int look_for_lbrac = 0;
   int look_for_catch = 0;
   int yyc;
-  struct token tmp;
-  size_t point;
+  struct token *current;
 
   if (yychar == '{')
-    /* We incremented indent_level in yylex; undo that.  */
-    indent_level--;
+    ;
   else if (yychar == '=')
     look_for_semicolon = 1;
   else if (yychar == ':' || yychar == RETURN_KEYWORD || yychar == TRY)
@@ -1233,17 +1364,14 @@ snarf_block (starting_file, starting_line)
     yyerror ("parse error in method specification");
 
   /* The current token is the first one to be recorded.  */
-  tmp.yychar = yychar;
-  tmp.yylval = yylval;
-  tmp.lineno = lineno;
-  obstack_grow (&inline_text_obstack, &tmp, sizeof (struct token));
+  current = space_for_token (t);
+  current->yychar = yychar;
+  current->yylval = yylval;
+  current->lineno = lineno;
 
   for (;;)
     {
-      point = obstack_object_size (&inline_text_obstack);
-      obstack_blank (&inline_text_obstack, sizeof (struct token));
-      yyc = add_token ((struct token *)
-		       (obstack_base (&inline_text_obstack) + point));
+      yyc = next_token (space_for_token (t));
 
       if (yyc == '{')
 	{
@@ -1257,37 +1385,40 @@ snarf_block (starting_file, starting_line)
 	    {
 	      if (!look_for_catch)
 		break;
-	      
-	      if (add_token (&tmp) != CATCH)
+
+	      if (next_token (space_for_token (t)) != CATCH)
 		{
-		  push_token (&tmp);
+		  push_token (remove_last_token (t));
 		  break;
 		}
 
 	      look_for_lbrac = 1;
-	      obstack_grow (&inline_text_obstack, &tmp, sizeof (struct token));
 	    }
 	}
       else if (yyc == ';')
 	{
 	  if (look_for_lbrac)
 	    {
+	      struct token *fake;
+
 	      error ("function body for constructor missing");
 	      /* fake a { } to avoid further errors */
-	      tmp.yylval.ttype = 0;
-	      tmp.yychar = '{';
-	      obstack_grow (&inline_text_obstack, &tmp, sizeof (struct token));
-	      tmp.yychar = '}';
-	      obstack_grow (&inline_text_obstack, &tmp, sizeof (struct token));
+	      fake = space_for_token (t);
+	      fake->yylval.ttype = 0;
+	      fake->yychar = '{';
+	      fake = space_for_token (t);
+	      fake->yylval.ttype = 0;
+	      fake->yychar = '}';
 	      break;
 	    }
 	  else if (look_for_semicolon && blev == 0)
 	    break;
 	}
+      else if (yyc == '(' && blev == 0)
+	snarf_parenthesized_expression (t);
       else if (yyc == 0)
 	{
-	  error_with_file_and_line (starting_file, starting_line,
-				    "end of file read inside definition");
+	  error ("%Hend of file read inside definition", &t->locus);
 	  break;
 	}
     }
@@ -1299,40 +1430,34 @@ void
 snarf_method (decl)
      tree decl;
 {
-  int starting_lineno = lineno;
-  const char *starting_filename = input_filename;
-  size_t len;
-
   struct unparsed_text *meth;
+  location_t starting;
+  starting.file = input_filename;
+  starting.line = lineno;
 
-  /* Leave room for the header, then absorb the block.  */
-  obstack_blank (&inline_text_obstack, sizeof (struct unparsed_text));
-  snarf_block (starting_filename, starting_lineno);
+  meth = alloc_unparsed_text (&starting, decl, (interface_unknown ? 1
+						: (interface_only ? 0 : 2)));
 
-  len = obstack_object_size (&inline_text_obstack);
-  meth = (struct unparsed_text *) obstack_finish (&inline_text_obstack);
+  snarf_block (meth);
+  /* Add three END_OF_SAVED_INPUT tokens.  We used to provide an
+     infinite stream of END_OF_SAVED_INPUT tokens -- but that can
+     cause the compiler to get stuck in an infinite loop when
+     encountering invalid code.  We need more than one because the
+     parser sometimes peeks ahead several tokens.  */
+  memcpy (space_for_token (meth), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (meth), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (meth), &Teosi, sizeof (struct token));
 
   /* Happens when we get two declarations of the same function in the
      same scope.  */
   if (decl == void_type_node
       || (current_class_type && TYPE_REDEFINED (current_class_type)))
-    {
-      obstack_free (&inline_text_obstack, (char *)meth);
-      return;
-    }
-
-  meth->decl = decl;
-  meth->filename = starting_filename;
-  meth->lineno = starting_lineno;
-  meth->limit = (struct token *) ((char *)meth + len);
-  meth->interface = (interface_unknown ? 1 : (interface_only ? 0 : 2));
-  meth->next = 0;
+    return;
 
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tsaved method of %d tokens from %s:%d\n",
-	     meth->limit - (struct token *) (meth + 1),
-	     starting_filename, starting_lineno);
+	     meth->limit, starting.file, starting.line);
 #endif
 
   DECL_PENDING_INLINE_INFO (decl) = meth;
@@ -1345,29 +1470,25 @@ snarf_method (decl)
   pending_inlines_tail = meth;
 }
 
-/* Consume a no-commas expression - a default argument - and save it
-   on the inline_text_obstack.  */
+/* Consume a no-commas expression - a default argument - and return
+   a DEFAULT_ARG tree node.  */
 
 static tree
 snarf_defarg ()
 {
-  int starting_lineno = lineno;
-  const char *starting_filename = input_filename;
   int yyc;
   int plev = 0;
-  size_t point;
-  size_t len;
   struct unparsed_text *buf;
   tree arg;
+  location_t starting;
+  starting.file = input_filename;
+  starting.line = lineno;
 
-  obstack_blank (&inline_text_obstack, sizeof (struct unparsed_text));
+  buf = alloc_unparsed_text (&starting, 0, 0);
 
   for (;;)
     {
-      point = obstack_object_size (&inline_text_obstack);
-      obstack_blank (&inline_text_obstack, sizeof (struct token));
-      yyc = add_token ((struct token *)
-		       (obstack_base (&inline_text_obstack) + point));
+      yyc = next_token (space_for_token (buf));
 
       if (plev <= 0 && (yyc == ')' || yyc == ','))
 	break;
@@ -1377,32 +1498,27 @@ snarf_defarg ()
 	--plev;
       else if (yyc == 0)
 	{
-	  error_with_file_and_line (starting_filename, starting_lineno,
-				    "end of file read inside default argument");
+	  error ("%Hend of file read inside default argument", &starting);
 	  goto done;
 	}
     }
 
   /* Unget the last token.  */
-  push_token ((struct token *) (obstack_base (&inline_text_obstack) + point));
-  /* This is the documented way to shrink a growing obstack block.  */
-  obstack_blank (&inline_text_obstack, - (int) sizeof (struct token));
+  push_token (remove_last_token (buf));
+  /* Add three END_OF_SAVED_INPUT tokens.  We used to provide an
+     infinite stream of END_OF_SAVED_INPUT tokens -- but that can
+     cause the compiler to get stuck in an infinite loop when
+     encountering invalid code.  We need more than one because the
+     parser sometimes peeks ahead several tokens.  */
+  memcpy (space_for_token (buf), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (buf), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (buf), &Teosi, sizeof (struct token));
 
  done:
-  len = obstack_object_size (&inline_text_obstack);
-  buf = (struct unparsed_text *) obstack_finish (&inline_text_obstack);
-
-  buf->decl = 0;
-  buf->filename = starting_filename;
-  buf->lineno = starting_lineno;
-  buf->limit = (struct token *) ((char *)buf + len);
-  buf->next = 0;
-  
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tsaved defarg of %d tokens from %s:%d\n",
-	     buf->limit - (struct token *) (buf + 1),
-	     starting_filename, starting_lineno);
+	     buf->limit, starting.file, starting.line);
 #endif
 
   arg = make_node (DEFAULT_ARG);
@@ -1434,7 +1550,7 @@ add_defarg_fn (decl)
     TREE_VALUE (defarg_fns) = decl;
   else
     {
-      defarg_fns = tree_cons (NULL_TREE, decl, defarg_fns);  
+      defarg_fns = tree_cons (NULL_TREE, decl, defarg_fns);
       TREE_TYPE (defarg_fns) = current_class_type;
     }
 }
@@ -1463,7 +1579,7 @@ finish_defarg ()
     error ("parse error at end of saved function text");
 
   end_input ();
-}  
+}
 
 /* Main function for deferred parsing of default arguments.  Called from
    the parser.  */
@@ -1477,7 +1593,7 @@ do_pending_defargs ()
   for (; defarg_fns;)
     {
       tree current = defarg_fns;
-      
+
       tree defarg_fn = TREE_VALUE (defarg_fns);
       if (defarg_parm == NULL_TREE)
 	{
@@ -1517,7 +1633,7 @@ do_pending_defargs ()
 
       poplevel (0, 0, 0);
       pop_nested_class ();
-      
+
       defarg_fns = TREE_CHAIN (defarg_fns);
       if (defarg_depfns)
         {
@@ -1525,8 +1641,8 @@ do_pending_defargs ()
              of defarg_fns. We will need to reprocess this function, and
              check for circular dependencies.  */
           tree a, b;
-          
-          for (a = defarg_depfns, b = TREE_PURPOSE (current); a && b; 
+
+          for (a = defarg_depfns, b = TREE_PURPOSE (current); a && b;
                a = TREE_CHAIN (a), b = TREE_CHAIN (b))
             if (TREE_VALUE (a) != TREE_VALUE (b))
               goto different;
@@ -1542,8 +1658,8 @@ do_pending_defargs ()
               cp_warning_at ("circular dependency in default args of `%#D'", defarg_fn);
               /* No need to say what else is dependent, as they will be
                  picked up in another pass.  */
-              
-              /* Immediately repeat, but marked so that we break the loop. */
+
+              /* Immediately repeat, but marked so that we break the loop.  */
               defarg_fns = current;
               TREE_PURPOSE (current) = error_mark_node;
             }
@@ -1555,7 +1671,7 @@ do_pending_defargs ()
 }
 
 /* After parsing all the default arguments, we must clear any that remain,
-   which will be part of a circular dependency. */
+   which will be part of a circular dependency.  */
 void
 done_pending_defargs ()
 {
@@ -1563,7 +1679,7 @@ done_pending_defargs ()
     {
       tree fn = TREE_VALUE (defarg_fnsdone);
       tree parms;
-      
+
       if (TREE_CODE (fn) == FUNCTION_DECL)
         parms = TYPE_ARG_TYPES (TREE_TYPE (fn));
       else
@@ -1610,7 +1726,7 @@ replace_defarg (arg, init)
     }
 }
 
-#ifdef SPEW_DEBUG    
+#ifdef SPEW_DEBUG
 /* debug_yychar takes a yychar (token number) value and prints its name.  */
 
 static void
@@ -1619,7 +1735,7 @@ debug_yychar (yy)
 {
   if (yy<256)
     fprintf (stderr, "->%d < %c >\n", lineno, yy);
-  else if (yy == IDENTIFIER || yy == TYPENAME)
+  else if (yy == IDENTIFIER || yy == tTYPENAME)
     {
       const char *id;
       if (TREE_CODE (yylval.ttype) == IDENTIFIER_NODE)
@@ -1674,32 +1790,4 @@ yyerror (msgid)
     error ("%s before `%s' token", string, NAME (last_token));
 }
 
-/* APPLE LOCAL PFE */
-/*-------------------------------------------------------------------*/
-#ifdef PFE
-
-/* Freeze/thaw struct unparsed_text.  */
-void 
-pfe_freeze_thaw_unparsed_text (pp)
-     struct unparsed_text **pp;
-{
-  struct unparsed_text *p = (struct unparsed_text *)PFE_FREEZE_THAW_PTR (pp);
-  
-  while (p)
-    {
-      PFE_FREEZE_THAW_WALK (p->decl);			/* NEEDED? */
-      pfe_freeze_thaw_ptr_fp (&p->filename);
-      pfe_freeze_thaw_ptr_fp (&p->pos);
-      pfe_freeze_thaw_ptr_fp (&p->limit);
-
-      p = (struct unparsed_text *)PFE_FREEZE_THAW_PTR (&p->next);
-      /* FIXME: Freeze/thaw tokens? */
-    }
-}
-
-/*-------------------------------------------------------------------*/
-
-DEFINE_CHECK_STRUCT_FUNCTION (unparsed_text)
-
-#endif /* PFE */
-
+#include "gt-cp-spew.h"

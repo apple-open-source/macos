@@ -32,8 +32,10 @@ if ![info exists TORTURE_OPTIONS] {
     # Also note that -finline-functions is explicitly included in one of the
     # items below, even though -O3 is also specified, because some ports may
     # choose to disable inlining functions by default, even when optimizing.
+    # APPLE LOCAL debugging
     set TORTURE_OPTIONS [list \
 	{ -O0 } \
+	{ -gfull } \
 	{ -O1 } \
 	{ -O2 } \
 	{ -O3 -fomit-frame-pointer } \
@@ -81,7 +83,7 @@ proc objc-torture-compile { src option } {
 
     # Run the compiler and analyze the results.
     set options ""
-    lappend options "additional_flags=-w $option -I${srcdir}/../../libobjc"
+    lappend options "additional_flags=-w $option"
 
     set comp_output [objc_target_compile "$src" "$output" object $options];
     objc_check_compile $testcase $option $output $comp_output
@@ -160,7 +162,7 @@ proc objc-torture-execute { src args } {
 	verbose "Testing $testcase, $option" 1
 
 	set options ""
-	lappend options "additional_flags=-w $option -I${srcdir}/../../libobjc"
+	lappend options "additional_flags=-w $option"
 	if { $additional_flags != "" } {
 	    lappend options "additional_flags=$additional_flags";
 	}

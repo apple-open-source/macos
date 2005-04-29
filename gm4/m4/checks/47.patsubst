@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:2604: Origin of test
+dnl ../doc/m4.texinfo:2605: Origin of test
 patsubst(`GNUs not Unix', `^', `OBS: ')
 dnl @result{}OBS: GNUs not Unix
 patsubst(`GNUs not Unix', `\<', `OBS: ')

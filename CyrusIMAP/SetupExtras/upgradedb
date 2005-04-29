@@ -1,0 +1,220 @@
+#!/bin/sh
+#
+# Upgrade cyrus mail database
+#
+
+BACKUP="1 2 3 4 5 6 7 8 9"
+USER_DIR="a b c d e f g h i j k l m n o p q r s t u v w x y z"
+CY_PATH="/usr/bin/cyrus/bin"
+IMAPD_CONF="/etc/imapd.conf"
+IMAPD_CONF_TMP="/etc/imapd.conf.upgrade.tmp"
+OBOSLETE_DIR="/etc/postfix/obsolete_files"
+MASTER_CF="/etc/postfix/master.cf"
+MASTER_CF_PERSONAL="/etc/postfix/master.cf.personal"
+MASTER_CF_NULL_CLIENT="/etc/postfix/master.cf.nullclient"
+MASTER_CF_DEFAULT_SERVER="/etc/postfix/master.cf.defaultserver"
+MASTER_CF_TMP="/etc/postfix/master.cf.upgrade.tmp"
+
+###################
+# Upgrade master postfix master.cf
+
+if [ -e "$MASTER_CF" ] ; then
+  if /usr/bin/grep "user=cyrus " "$MASTER_CF" > /dev/null ; then
+    sed -e 's/user=cyrus /user=cyrusimap /' "$MASTER_CF" > "$MASTER_CF_TMP"
+    if [ -e "$MASTER_CF_TMP" ] ; then
+      /bin/rm "$MASTER_CF"
+      /bin/mv "$MASTER_CF_TMP" "$MASTER_CF"
+    fi
+  fi
+fi
+
+
+###################
+# Create a directory for oboslete config files
+
+if [ ! -d "$OBOSLETE_DIR" ] ; then
+  /bin/mkdir "$OBOSLETE_DIR"
+fi
+
+
+###################
+# Move obsolete config files
+
+if [ -d "$OBOSLETE_DIR" ] ; then
+  if [ -e "$MASTER_CF_PERSONAL" ] ; then
+      /bin/mv "$MASTER_CF_PERSONAL" "$OBOSLETE_DIR/"
+  fi
+  if [ -e "$MASTER_CF_NULL_CLIENT" ] ; then
+      /bin/mv "$MASTER_CF_NULL_CLIENT" "$OBOSLETE_DIR/"
+  fi
+  if [ -e "$MASTER_CF_DEFAULT_SERVER" ] ; then
+      /bin/mv "$MASTER_CF_DEFAULT_SERVER" "$OBOSLETE_DIR/"
+  fi
+fi
+
+
+###################
+# Do we need to upgrade this mail database
+
+if [ ! -e "$CY_PATH"/ctl_mboxlist.old ] ; then
+  # No upgrade tool, database conversion not necessary
+  exit 0
+fi
+
+###################
+# Is there an imap config file
+
+if [ ! -e "$IMAPD_CONF" ] ; then
+  echo "Unable to upgrade mail database due to missing config file: $IMAPD_CONF" 
+  exit 0
+fi
+
+
+###################
+# Get the path to the mail database and verify that it exists
+
+DB_PATH="`/usr/bin/grep "configdirectory" "$IMAPD_CONF" | sed 's/^.*://' | sed -e 's/^ *//'`"
+
+if [ ! -d "$DB_PATH" ] ; then
+  echo "Mail database path: $DB_PATH does not exist" 
+  exit 0
+fi
+
+
+###################
+# Upgrade mail databases
+
+cd "$DB_PATH"
+
+###################
+# Delete old mail db files
+
+if [ -d "$DB_PATH/db" ] ; then
+  cd "$DB_PATH/db"
+  /bin/rm -rf *
+fi
+
+
+###################
+# Delete backups
+
+for X in $BACKUP
+do
+  if [ -d "$DB_PATH/db.backup$X" ] ; then
+    cd "$DB_PATH/db.backup$X"
+    for backup_file in *
+    do
+      /bin/rm "$backup_file"
+    done
+  fi
+done
+
+
+###################
+# Delete deliver and tls session database files
+
+if [ -e "$DB_PATH/deliver.db" ] ; then
+  /bin/rm "$DB_PATH/deliver.db"
+fi
+
+if [ -e "$DB_PATH/tls_sessions.db" ] ; then
+  /bin/rm "$DB_PATH/tls_sessions.db"
+fi
+
+
+###################
+# Upgrade mailboxes.db if it exists
+
+# First check for mailboxes.db
+#  If it exists set mboxlist_db key to berkeley in imapd.conf
+#  Then convert the mailboxes.db file form Berkeley DB to test
+#  Remove the mboxlist_db key from imapd.conf
+#  Import mailboxes into new mailboxes.db as skiplist
+if [  -e "$DB_PATH/mailboxes.db" ] ; then
+
+  ###################
+  # Set mboxlist_db key to berkeley in imapd.conf
+  if /usr/bin/grep "mboxlist_db" "$IMAPD_CONF" > /dev/null ; then
+    sed -e '/mboxlist_db/d' "$IMAPD_CONF" > "$IMAPD_CONF_TMP"
+    if [ -e "$IMAPD_CONF_TMP" ] ; then
+      /bin/rm "$IMAPD_CONF"
+      /bin/mv "$IMAPD_CONF_TMP" "$IMAPD_CONF"
+    fi
+  fi
+
+  if ! /usr/bin/grep "mboxlist_db" "$IMAPD_CONF" > /dev/null ; then
+    echo "mboxlist_db: berkeley" >> "$IMAPD_CONF"
+  fi
+
+  ###################
+  # Create skipstamp so that cyrus doesn't complain
+  /usr/bin/sudo -u cyrusimap touch "$DB_PATH/db/skipstamp"
+
+  ###################
+  # Convert mailboxes.db to text file
+  /usr/bin/sudo -u cyrusimap "$CY_PATH/ctl_mboxlist.old" -d > "$DB_PATH/mailboxes.txt"
+  /usr/bin/sudo -u cyrusimap /bin/mv "$DB_PATH/mailboxes.db" "$DB_PATH/mailboxes.db.old"
+
+  ###################
+  # Remove newly created db files
+  if [ -d "$DB_PATH/db" ] ; then
+    cd "$DB_PATH/db"
+    /bin/rm -rf *
+  fi
+
+  ###################
+  # Create skipstamp so that cyrus doesn't complain
+  /usr/bin/sudo -u cyrusimap touch "$DB_PATH/db/skipstamp"
+
+  ###################
+  # Remove mboxlist_db key from config file
+  sed -e '/mboxlist_db/d' "$IMAPD_CONF" > "$IMAPD_CONF_TMP"
+  if [ -e "$IMAPD_CONF_TMP" ] ; then
+    /bin/rm "$IMAPD_CONF"
+    /bin/mv "$IMAPD_CONF_TMP" "$IMAPD_CONF"
+  fi
+
+  ###################
+  # Set default mboxlist_db key to skiplist
+  echo "mboxlist_db: skiplist" >> "$IMAPD_CONF"
+
+  ###################
+  # Import user mailboxes to new skiplist format
+  if [ -e "$DB_PATH/mailboxes.txt" ] ; then
+    /usr/bin/sudo -u cyrusimap "$CY_PATH/ctl_mboxlist" -u < "$DB_PATH/mailboxes.txt"
+    /bin/rm "$DB_PATH/mailboxes.txt"
+  fi
+fi
+
+###################
+# Convert individual user seen.db files to skiplist
+#  Go to each user directory from a - z and look for .seen files and convert
+
+for dir in $USER_DIR
+do
+  if [ -d "$DB_PATH/user/$dir" ] ; then
+    cd "$DB_PATH/user/$dir"
+    WORKING_DIR=`pwd`
+    for file in `find . -name \*.seen`
+    do
+      /bin/mv "$WORKING_DIR/$file" "$WORKING_DIR/$file.old"
+      /usr/bin/sudo -u cyrusimap "$CY_PATH/cvt_cyrusdb" "$WORKING_DIR/$file.old" flat "$WORKING_DIR/$file" skiplist >/dev/null
+    done
+  fi
+done
+
+###################
+# Remove seenstate_db key from config file
+if [ -e "$IMAPD_CONF" ] ; then
+  if /usr/bin/grep "seenstate_db" "$IMAPD_CONF" > /dev/null ; then
+    sed -e '/seenstate_db/d' "$IMAPD_CONF" > "$IMAPD_CONF_TMP"
+    if [ -e "$IMAPD_CONF_TMP" ] ; then
+      /bin/rm "$IMAPD_CONF"
+      /bin/mv "$IMAPD_CONF_TMP" "$IMAPD_CONF"
+    fi
+  fi
+
+  if ! /usr/bin/grep "seenstate_db" "$IMAPD_CONF" > /dev/null ; then
+    echo "seenstate_db: skiplist" >> "$IMAPD_CONF"
+  fi
+fi

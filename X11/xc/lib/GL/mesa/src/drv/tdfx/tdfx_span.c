@@ -23,7 +23,7 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_span.c,v 1.7 2002/10/30 12:52:00 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_span.c,v 1.8 2003/09/28 20:15:37 alanh Exp $ */
 
 /*
  * Original rewrite:
@@ -1307,21 +1307,19 @@ static void tdfxSpanRenderFinish( GLcontext *ctx )
 }
 
 /* Set the buffer used for reading */
-static void tdfxDDSetReadBuffer( GLcontext *ctx,
-				 GLframebuffer *buffer, GLenum mode )
+static void tdfxDDSetBuffer( GLcontext *ctx,
+                             GLframebuffer *buffer, GLuint bufferBit )
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    (void) buffer;
 
-   switch ( mode ) {
-   case GL_FRONT_LEFT:
-      fxMesa->ReadBuffer = GR_BUFFER_FRONTBUFFER;
+   switch ( bufferBit ) {
+   case FRONT_LEFT_BIT:
+      fxMesa->DrawBuffer = fxMesa->ReadBuffer = GR_BUFFER_FRONTBUFFER;
       break;
-
-   case GL_BACK_LEFT:
-      fxMesa->ReadBuffer = GR_BUFFER_BACKBUFFER;
+   case BACK_LEFT_BIT:
+      fxMesa->DrawBuffer = fxMesa->ReadBuffer = GR_BUFFER_BACKBUFFER;
       break;
-
    default:
       break;
    }
@@ -1336,7 +1334,7 @@ void tdfxDDInitSpanFuncs( GLcontext *ctx )
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference( ctx );
 
-   swdd->SetReadBuffer = tdfxDDSetReadBuffer;
+   swdd->SetBuffer = tdfxDDSetBuffer;
 
    if ( VISUAL_EQUALS_RGBA(ctx->Visual, 5, 6, 5, 0) )
    {

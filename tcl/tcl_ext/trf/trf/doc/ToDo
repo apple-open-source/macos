@@ -1,0 +1,78 @@
+
+>> byte counter (message digest) - see gIOT test suite for
+>> implementation using 'transform'.
+	suggested by Oliver.Stephens@arm.com
+
+>> Remove dependency from Memchan in the tests.
+	sug. by Robert Karen <robert@namsb.namsi.com>
+
+
+
+> #if (TCL_MAJOR_VERSION < 8)
+> #define Tcl_GetStringResult(interp) (interp->result)
+> #endif
+
+sinnvoll fuer einige stellen ?
+
+
+<>	Stubs! in Trf, for TrfCrypt.
+
+<>	tools/md5sum
+	=>	make independent of TCL_POOL code!	/done/
+
+<>	documentation!
+	prepare for C2MAN	/done/
+
+<>	rewrite manual		/done/
+
+<>	add tests for uu/base64/ascii85
+			 ~~~~~~/done
+
+<>	change rs-ecc to restrict length information to the legal range!
+	(errors may destroy the length byte too !!!)
+	/done/
+
+<>	Rework manual, new installation guide.
+	/done/
+
+<>	add	md5/haval/sha file-digests, sign with pgp
+	=>	place in separate files on ftp-server!
+	/partly done, digests/
+
+--------
+<>	Rewrite adaptor code for DES to use SSLeay instead of libdes.
+
+<>	Write code to use Blowfish, IDEA, RC4 from SSLeay as well!
+
+<>	Write code to use RSA functionality of SSLeay
+
+
+**	Change code to guide the user in case of unknown options
+	and/or subcommands:
+
+	Larry Virden wrote	(11/16/1998):
+
+> One of the things I like about tcl commands is this behavior:
+> 
+> % string
+> wrong # args: should be "string option arg ?arg ...?"
+> % string option
+> bad option "option": must be compare, first, index, last, length,
+> match, range, tolower, toupper, trim, trimleft, trimright, wordend,
+> or wordstart 
+> 
+> 
+> In other words, commands attempt to let the user know what is expected.
+> 
+> It would be great if trf, and the other extensions, continued this tradition.
+> 
+> Thus, if I typed 
+> 
+> % package require Trf
+> 1.3
+> % zip
+> wrong # args: should be "zip ..."
+> (where the ... is really the usage statement for zip"
+> % zip usage
+> bad option "option": must be ...
+> (where the ... is really the valid options.

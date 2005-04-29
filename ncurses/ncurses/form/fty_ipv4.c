@@ -13,7 +13,7 @@
 
 #include "form.priv.h"
 
-MODULE_ID("$Id: fty_ipv4.c,v 1.1.1.1 2001/11/29 20:40:52 jevans Exp $")
+MODULE_ID("$Id: fty_ipv4.c,v 1.4 2000/12/09 23:46:12 tom Exp $")
 
 /*---------------------------------------------------------------------------
 |   Facility      :  libnform  

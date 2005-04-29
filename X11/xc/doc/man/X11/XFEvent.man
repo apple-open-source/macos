@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XFEvent.man,v 1.2 2001/01/27 18:19:59 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XFEvent.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,11 +144,8 @@
 .SH NAME
 XFilterEvent \- filter X events for an input method
 .SH SYNTAX
-Bool XFilterEvent\^(\^\fIevent\fP\^, \fIw\fP\^)
-.br
-      XEvent *\fIevent\fP\^;
-.br
-      Window \fIw\fP\^;
+.HP
+Bool XFilterEvent\^(\^XEvent *\fIevent\fP\^, Window \fIw\fP\^); 
 .SH ARGUMENTS
 .ds Ev event to filter
 .IP \fIevent\fP 1i

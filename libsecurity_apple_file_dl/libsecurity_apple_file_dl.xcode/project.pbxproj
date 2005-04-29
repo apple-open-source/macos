@@ -1,0 +1,389 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		4094B042057EA50B00B44BCC = {
+			containerPortal = 4CA1FEAB052A3C3800F22E42;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 4C3180540540C0AB006FC739;
+			remoteInfo = security_apple_file_dl;
+		};
+		4094B098057EA68B00B44BCC = {
+			children = (
+				4094B099057EA68B00B44BCC,
+				4094B09A057EA68B00B44BCC,
+			);
+			isa = PBXGroup;
+			path = mds;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4094B099057EA68B00B44BCC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = dl_common.mdsinfo;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4094B09A057EA68B00B44BCC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = dl_primary.mdsinfo;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//400
+//401
+//402
+//403
+//404
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+		4C31804F0540C0AB006FC739 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C3180540540C0AB006FC739 = {
+			buildPhases = (
+				4C31804F0540C0AB006FC739,
+				4CCBFF75058000DB00981D43,
+				4CCBFF76058000DD00981D43,
+			);
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
+				PRODUCT_NAME = security_apple_file_dl;
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+			);
+			isa = PBXFrameworkTarget;
+			name = security_apple_file_dl;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_apple_file_dl;
+			productReference = 4C3180550540C0AB006FC739;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string></string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string></string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string></string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+</dict>
+</plist>
+";
+		};
+		4C3180550540C0AB006FC739 = {
+			explicitFileType = wrapper.framework;
+			isa = PBXFileReference;
+			path = security_apple_file_dl.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		4C7502A60540C7A600056564 = {
+			isa = PBXTargetDependency;
+			target = 4C3180540540C0AB006FC739;
+			targetProxy = 4094B042057EA50B00B44BCC;
+		};
+		4C789C89055AF8E500B6FC95 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			children = (
+				4CA1FEBF052A3C8100F22E42,
+				C28436DB0534880F000AE0FC,
+				C2196B68053B59D4005808D4,
+				4094B098057EA68B00B44BCC,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4CA1FEA9052A3C3800F22E42 = {
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		4CA1FEAA052A3C3800F22E42 = {
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		4CA1FEAB052A3C3800F22E42 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				4CA1FEA9052A3C3800F22E42,
+				4CA1FEAA052A3C3800F22E42,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42;
+			projectDirPath = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42,
+				4C3180540540C0AB006FC739,
+			);
+		};
+		4CA1FEB9052A3C8100F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+				C28436E10534880F000AE0FC,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEBA052A3C8100F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+				C28436E00534880F000AE0FC,
+				C2196B69053B59D4005808D4,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEBB052A3C8100F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEBD052A3C8100F22E42 = {
+			buildPhases = (
+				4CA1FEB9052A3C8100F22E42,
+				4CA1FEBA052A3C8100F22E42,
+				4CA1FEBB052A3C8100F22E42,
+				4C789C89055AF8E500B6FC95,
+				4CD0D503055B1122001715CB,
+			);
+			buildSettings = {
+				BUILD_VARIANTS = "normal debug";
+				CURRENT_PROJECT_VERSION = 3;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers\" \"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders\"";
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS) -fno-enforce-eh-specs -fno-implement-inlines -fcoalesce-templates";
+				OPT_INLINEFLAGS = "-finline-functions --param max-inline-insns-single=100 --param max-inline-insns-auto=150 --param max-inline-insns=180 --param min-inline-insns=60";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_apple_file_dl;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				4C7502A60540C7A600056564,
+			);
+			isa = PBXLibraryTarget;
+			name = libsecurity_apple_file_dl;
+			productInstallPath = /usr/local/lib;
+			productName = libsecurity_apple_file_dl;
+			productReference = 4CA1FEBE052A3C8100F22E42;
+		};
+		4CA1FEBE052A3C8100F22E42 = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = security_apple_file_dl;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		4CA1FEBF052A3C8100F22E42 = {
+			children = (
+				4CA1FEBE052A3C8100F22E42,
+				4C3180550540C0AB006FC739,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4CCBFF75058000DB00981D43 = {
+			buildActionMask = 2147483647;
+			dstPath = SecurityPieces/Resources/Security;
+			dstSubfolderSpec = 16;
+			files = (
+				4CCBFF770580010D00981D43,
+				4CCBFF780580010D00981D43,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CCBFF76058000DD00981D43 = {
+			buildActionMask = 8;
+			dstPath = /usr/local/SecurityPieces/Resources/Security;
+			dstSubfolderSpec = 0;
+			files = (
+				4CCBFF790580011000981D43,
+				4CCBFF7A0580011000981D43,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		4CCBFF770580010D00981D43 = {
+			fileRef = 4094B099057EA68B00B44BCC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4CCBFF780580010D00981D43 = {
+			fileRef = 4094B09A057EA68B00B44BCC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4CCBFF790580011000981D43 = {
+			fileRef = 4094B099057EA68B00B44BCC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4CCBFF7A0580011000981D43 = {
+			fileRef = 4094B09A057EA68B00B44BCC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4CD0D503055B1122001715CB = {
+			buildActionMask = 8;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework/Versions/A\"\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework\"\ndone";
+		};
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+//C20
+//C21
+//C22
+//C23
+//C24
+		C2196B68053B59D4005808D4 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = AppleDLBuiltin.cpp;
+			path = lib/AppleDLBuiltin.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		C2196B69053B59D4005808D4 = {
+			fileRef = C2196B68053B59D4005808D4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C28436DB0534880F000AE0FC = {
+			children = (
+				C28436DC0534880F000AE0FC,
+				C28436DD0534880F000AE0FC,
+				C28436DE0534880F000AE0FC,
+			);
+			isa = PBXGroup;
+			path = lib;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		C28436DC0534880F000AE0FC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = AppleDLPlugin.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		C28436DD0534880F000AE0FC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = AppleFileDL.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		C28436DE0534880F000AE0FC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = AppleFileDL.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		C28436E00534880F000AE0FC = {
+			fileRef = C28436DD0534880F000AE0FC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C28436E10534880F000AE0FC = {
+			fileRef = C28436DE0534880F000AE0FC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42;
+}

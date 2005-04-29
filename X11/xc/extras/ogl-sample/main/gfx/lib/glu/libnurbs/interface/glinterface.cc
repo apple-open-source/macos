@@ -32,7 +32,7 @@
 ** compliant with the OpenGL(R) version 1.2.1 Specification.
 **
 */
-/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/interface/glinterface.cc,v 1.3 2001/04/03 02:18:40 dawes Exp $ */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/interface/glinterface.cc,v 1.4 2004/02/01 02:12:07 dawes Exp $ */
 
 #include "gluos.h"
 #include <GL/gl.h>
@@ -426,7 +426,7 @@ gluGetNurbsProperty(GLUnurbs *r, GLenum property, GLfloat *value)
 }
 
 extern "C" void GLAPIENTRY
-gluNurbsCallback(GLUnurbs *r, GLenum which, GLvoid (*fn)(GLvoid))
+gluNurbsCallback(GLUnurbs *r, GLenum which, GLvoid (*fn)())
 {
     switch (which) {
     case GLU_NURBS_BEGIN:

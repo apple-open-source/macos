@@ -218,16 +218,17 @@ IOPMCopyUPSShutdownLevels(CFTypeRef whichUPS)
     }
 
     prefs_file = SCPreferencesCreate( kCFAllocatorDefault, kIOPMAppName, kIOPMPrefsPath );
-    if(!prefs_file) return kIOReturnError;
+    if(!prefs_file) return NULL;
 
     tmp_dict = SCPreferencesGetValue(prefs_file, whichUPS);
     if(!isA_CFDictionary(tmp_dict)) {
         ret_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     } else {
-        ret_dict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, tmp_dict);
+        ret_dict = CFDictionaryCreateMutableCopy(0, 0, tmp_dict);
     }
-    
+    if(!ret_dict) goto exit;
+        
     // Merge in the default values
     _mergeUnspecifiedUPSThresholds(whichUPS, ret_dict);
     

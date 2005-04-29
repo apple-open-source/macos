@@ -4,12 +4,8 @@
 # stdio sources
 .PATH: ${.CURDIR}/stdio
 
-CFLAGS+= -DHEXFLOAT
-
-SRCS += hexfloat.c
-
 .include "Makefile.fbsd_begin"
-FBSDSRCS= _flock_stub.c asprintf.c clrerr.c fclose.c fdopen.c feof.c ferror.c \
+FBSDMISRCS= _flock_stub.c asprintf.c clrerr.c fclose.c fdopen.c feof.c ferror.c \
 	fflush.c fgetc.c fgetln.c fgetpos.c fgets.c fgetwc.c fgetws.c \
 	fileno.c findfp.c flags.c fopen.c fprintf.c fpurge.c fputc.c fputs.c \
 	fputwc.c fputws.c fread.c freopen.c fscanf.c fseek.c fsetpos.c \
@@ -22,10 +18,29 @@ FBSDSRCS= _flock_stub.c asprintf.c clrerr.c fclose.c fdopen.c feof.c ferror.c \
 	unlocked.c vasprintf.c vfprintf.c vfscanf.c vfwprintf.c vfwscanf.c \
 	vprintf.c vscanf.c vsnprintf.c vsprintf.c vsscanf.c vswprintf.c \
 	vswscanf.c vwprintf.c vwscanf.c wbuf.c wprintf.c wscanf.c wsetup.c
-FBSDORIGHDRS= floatio.h fvwrite.h glue.h local.h
+FBSDHDRS= floatio.h fvwrite.h glue.h local.h
 .include "Makefile.fbsd_end"
 
+# also build 64-bit long double versions (ppc only)
+LDBLSRCS += asprintf.c fprintf.c fscanf.c fwprintf.c fwscanf.c printf.c \
+	    scanf.c snprintf.c sprintf.c sscanf.c swprintf.c swscanf.c \
+	    vasprintf.c vfprintf.c vfscanf.c vfwprintf.c vfwscanf.c \
+	    vprintf.c vscanf.c vsnprintf.c vsprintf.c vsscanf.c vswprintf.c \
+	    vswscanf.c vwprintf.c vwscanf.c wprintf.c wscanf.c
+
+.for _src in vfprintf-fbsd.c vfwprintf-fbsd.c
+CFLAGS-${_src} += -fshort-enums
+# add altivec options on per file basis, since it now disables inlining
+.if (${MACHINE_ARCH} == ppc) || (${MACHINE_ARCH} == ppc64)
+CFLAGS-${_src} += -faltivec -DALTIVEC
+.endif
+.endfor
+
+UNIX03SRCS+= freopen.c fwrite.c
+
 .if ${LIB} == "c"
+MAN3+=	getwc_l.3 putwc_l.3 printf_l.3 scanf_l.3 wprintf_l.3 wscanf_l.3
+
 .include "Makefile.fbsd_begin"
 FBSDMAN3= fclose.3 ferror.3 fflush.3 fgetln.3 fgets.3 fgetws.3 flockfile.3 \
 	fopen.3 fputs.3 fputws.3 fread.3 fseek.3 funopen.3 fwide.3 getc.3 \
@@ -39,9 +54,11 @@ MLINKS+=ferror.3 ferror_unlocked.3 \
 	ferror.3 fileno.3 ferror.3 fileno_unlocked.3
 MLINKS+=fflush.3 fpurge.3
 MLINKS+=fgets.3 gets.3
+MLINKS+=fgetws.3 fgetws_l.3
 MLINKS+=flockfile.3 ftrylockfile.3 flockfile.3 funlockfile.3
 MLINKS+=fopen.3 fdopen.3 fopen.3 freopen.3
 MLINKS+=fputs.3 puts.3
+MLINKS+=fputws.3 fputws_l.3
 MLINKS+=fread.3 fwrite.3
 MLINKS+=fseek.3 fgetpos.3 fseek.3 fseeko.3 fseek.3 fsetpos.3 fseek.3 ftell.3 \
 	fseek.3 ftello.3 fseek.3 rewind.3
@@ -49,21 +66,36 @@ MLINKS+=funopen.3 fropen.3 funopen.3 fwopen.3
 MLINKS+=getc.3 fgetc.3 getc.3 getc_unlocked.3 getc.3 getchar.3 \
 	getc.3 getchar_unlocked.3 getc.3 getw.3
 MLINKS+=getwc.3 fgetwc.3 getwc.3 getwchar.3
+MLINKS+=getwc_l.3 fgetwc_l.3 getwc_l.3 getwchar_l.3
 MLINKS+=mktemp.3 mkdtemp.3 mktemp.3 mkstemp.3 mktemp.3 mkstemps.3
 MLINKS+=printf.3 asprintf.3 printf.3 fprintf.3 \
 	printf.3 snprintf.3 printf.3 sprintf.3 \
 	printf.3 vasprintf.3 \
 	printf.3 vfprintf.3 printf.3 vprintf.3 printf.3 vsnprintf.3 \
 	printf.3 vsprintf.3
+MLINKS+=printf_l.3 asprintf_l.3 printf_l.3 fprintf_l.3 \
+	printf_l.3 snprintf_l.3 printf_l.3 sprintf_l.3 \
+	printf_l.3 vasprintf_l.3 \
+	printf_l.3 vfprintf_l.3 printf_l.3 vprintf_l.3 printf_l.3 vsnprintf_l.3 \
+	printf_l.3 vsprintf_l.3
 MLINKS+=putc.3 fputc.3 putc.3 putc_unlocked.3 putc.3 putchar.3 \
 	putc.3 putchar_unlocked.3 putc.3 putw.3
 MLINKS+=putwc.3 fputwc.3 putwc.3 putwchar.3
+MLINKS+=putwc_l.3 fputwc_l.3 putwc_l.3 putwchar_l.3
 MLINKS+=scanf.3 fscanf.3 scanf.3 sscanf.3 scanf.3 vfscanf.3 scanf.3 vscanf.3 \
 	scanf.3 vsscanf.3
+MLINKS+=scanf_l.3 fscanf_l.3 scanf_l.3 sscanf_l.3 scanf_l.3 vfscanf_l.3 \
+	scanf_l.3 vscanf_l.3 scanf_l.3 vsscanf_l.3
 MLINKS+=setbuf.3 setbuffer.3 setbuf.3 setlinebuf.3 setbuf.3 setvbuf.3
 MLINKS+=tmpnam.3 tempnam.3 tmpnam.3 tmpfile.3
+MLINKS+=ungetwc.3 ungetwc_l.3
 MLINKS+=wprintf.3 fwprintf.3 wprintf.3 swprintf.3 \
 	wprintf.3 vwprintf.3 wprintf.3 vfwprintf.3 wprintf.3 vswprintf.3
+MLINKS+=wprintf_l.3 fwprintf_l.3 wprintf_l.3 swprintf_l.3 \
+	wprintf_l.3 vwprintf_l.3 wprintf_l.3 vfwprintf_l.3 \
+	wprintf_l.3 vswprintf_l.3
 MLINKS+=wscanf.3 fwscanf.3 wscanf.3 swscanf.3 wscanf.3 vwscanf.3 \
 	wscanf.3 vswscanf.3 wscanf.3 vfwscanf.3
+MLINKS+=wscanf_l.3 fwscanf_l.3 wscanf_l.3 swscanf_l.3 wscanf_l.3 vwscanf_l.3 \
+	wscanf_l.3 vswscanf_l.3 wscanf_l.3 vfwscanf_l.3
 .endif

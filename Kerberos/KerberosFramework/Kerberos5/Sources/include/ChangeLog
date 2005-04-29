@@ -1,3 +1,639 @@
+2005-01-04  Jeffrey Altman <jaltman@mit.edu>
+
+        * win-mac.h: define NEED_INSIXADDR_ANY for ipv6 symbol
+
+2005-01-21  Ezra Peisach  <epeisach@mit.edu>
+
+	* k5-thread.h (k5_os_mutex_lock): Under Irix, invoke
+	k5_pthread_mutex_lock() with the k5_os_mutex, not the
+	pthread_mutex_t.
+	(k5_pthread_assert_locked,unlocked): If DEBUG_THREADS not use, provide
+	correct prototype. Add missing close paren.
+
+2005-01-14  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h [HAVE_PTHREAD && HAVE_PRAGMA_WEAK_REF]: Mark
+	pthread_self and pthread_equal as weak references.
+
+2005-01-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h (k5_os_mutex) [pthread case]: Add new field "owner"
+	if DEBUG_THREADS.
+	(k5_pthread_mutex_lock, k5_pthread_mutex_unlock,
+	k5_pthread_assert_locked): New macros/functions; if DEBUG_THREADS,
+	and thread support loaded, set or check the owner field.
+	(K5_OS_MUTEX_PARTIAL_INITIALIZER) [pthread case && DEBUG_THREADS]:
+	Set the owner field.  If PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP
+	is defined, use it.
+	(k5_os_mutex_lock, k5_os_mutex_unlock, k5_os_mutex_assert_locked)
+	[pthread case]: Use k5_pthread_ versions.
+	(k5_mutex_destroy): Update the location data with the mutex
+	locked, before destroying it.
+	(k5_mutex_unlock): Update the location data while the mutex is
+	still locked, and check the assertion that the mutex really is
+	locked.  Convert inline function to macro.
+
+	* k5-thread.h (krb5int_mutex_lock_update_stats,
+	krb5int_mutex_unlock_update_stats, krb5int_mutex_report_stats)
+	[!DEBUG_THREADS_STATS]: Declare KRB5_CALLCONV.
+
+2005-01-04  Jeffrey Altman <jaltman@mit.edu>
+
+        * krb5.hin: add prototype for krb5_is_thread_safe
+
+2004-12-21  Tom Yu  <tlyu@mit.edu>
+
+	* krb5.hin: Flag krb5_principal2salt as KRB5_CALLCONV_WRONG.
+
+2004-12-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-int.h (KRB5INT_ACCESS_STRUCT_VERSION): Bump to 9.
+	(struct _krb5int_access): Add function pointer field use_dns_kdc.
+
+2004-10-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* fake-addrinfo.h: Include errno.h earlier.
+
+2004-10-28  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h (return_after_yield, k5_mutex_lock) [__GNUC__]: Add
+	macro versions so debugging line numbers will be useful.
+	(DEBUG_THREADS_SLOW): Don't define.
+
+2004-10-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* fake-addrinfo.h (AI_ADDRCONFIG, AI_V4MAPPED, AI_ALL): If not
+	defined, or when completely faking getaddrinfo, define them as
+	zero.
+
+2004-10-01  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Check for struct if_laddrconf, as for struct
+	lifconf.
+
+2004-09-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Use AC_MSG_NOTICE for krb4 messages instead of
+	AC_MSG_RESULT, because there's no corresponding AC_MSG_CHECKING.
+
+2004-09-21  Tom Yu  <tlyu@mit.edu>
+
+	* configure.in: Remove KRB5_AC_NEED_BIND_8_COMPAT.
+
+2004-09-15  Tom Yu  <tlyu@mit.edu>
+
+	* configure.in: Check for h_errno declaration in netdb.h.
+
+	* port-sockets.h: Explicitly declare h_errno if it's missing.
+
+2004-09-10  Tom Yu  <tlyu@mit.edu>
+
+	* port-sockets.h: Remove _XOPEN_SOURCE_EXTENDED hack for netdb.h,
+	as it can cause inconsistencies between headers.  It significantly
+	broke HP-UX 10.20 anyway.
+
+2004-09-01  Jeffrey Altman <jaltman@mit.edu>
+
+        * krb5.hin: define KRB5_TC_NOTICKET for use with krb5_cc_set_flags
+
+2004-08-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* fake-addrinfo.h (fai_add_hosts_by_name): Handle case where
+	returned ai_canonname is null.
+
+2004-08-14  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h (k5_os_nothread_mutex_assert_locked,
+	k5_os_nothread_mutex_assert_unlocked, k5_os_mutex_assert_locked,
+	k5_os_mutex_assert_unlocked): Assertion macros should always have
+	type void.
+
+2004-08-12  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h (k5_os_nothread_mutex_finish_init,
+	k5_os_nothread_mutex_init, k5_os_nothread_mutex_destroy,
+	k5_os_nothread_mutex_lock, k5_os_nothread_mutex_unlock)
+	[!DEBUG_THREADS]: Replace macros with inline functions, to gain
+	type checking and eliminate gratuitous compiler warnings.
+	(k5_pthread_assert_unlocked, k5_pthread_assert_locked): Likewise.
+	(k5_os_mutex_finish_init) [HAVE_PTHREAD &&
+	!USE_PTHREAD_LOCK_ONLY_IF_LOADED]: Likewise.
+	(return_after_yield): New inline function.
+	(k5_os_mutex_lock) [HAVE_PTHREAD]: Change back to a macro,
+	calling return_after_yield.
+
+2004-08-09  Tom Yu  <tlyu@mit.edu>
+
+	* configure.in: Solaris getpwnam_r returns struct passwd*, not
+	struct pwd*.
+
+2004-08-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: If getpwnam_r is available, determine its return
+	type.
+
+2004-08-07  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Look for sched.h and sched_yield.
+	* k5-thread.h: Only include sched.h if it's available.
+	(MAYBE_SCHED_YIELD): Only use sched_yield if sched.h and
+	sched_yield are available; if weak references are supported and
+	sched_yield isn't available by default, check for it at run time.
+
+2004-08-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h [HAVE_PTHREAD]: Include sched.h if
+	DEBUG_THREADS_SLOW is defined.
+	(MAYBE_SCHED_YIELD) [HAVE_PTHREAD]: Define, to call sched_yield or
+	not, depending on DEBUG_THREADS_SLOW.
+	(k5_os_mutex_lock, k5_os_mutex_unlock) [HAVE_PTHREAD]: Use
+	MAYBE_SCHED_YIELD.
+	(DEBUG_THREADS_SLOW): Define.
+
+2004-08-03  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Actually check for pthread_mutex_lock.
+
+	* k5-int.h (krb5_rc_recover_or_initialize): Declare.
+
+2004-07-28  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h [HAVE_PRAGMA_WEAK_REF]: Declare the pthread mutex
+	functions as weak.
+	(USE_PTHREAD_LOCK_ONLY_IF_LOADED): Define if pthread_mutex_lock
+	isn't available by default.
+
+2004-07-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* fake-addrinfo.h: Include k5-thread.h.
+	(struct fac): Add a mutex.
+	(plant_face, find_face): Check that mutex is already locked.
+	(krb5int_lock_fac, krb5int_unlock_fac): Declare.
+	(fai_add_hosts_by_name): Use them to lock and unlock the mutex.
+
+2004-07-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Look for "struct lifconf" and maybe define
+	HAVE_STRUCT_LIFCONF.
+
+2004-07-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* fake-addrinfo.h (struct face, struct fac): Always declare.
+	(krb5int_fac): Renamed from fac, and made extern.  Always
+	declare.
+
+2004-07-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in, port-sockets.h: Don't check for macsock.h.
+
+	* fake-addrinfo.h: Don't include netdb.h, since port-sockets.h
+	already does.
+	* port-sockets.h: Define _XOPEN_SOURCE_EXTENDED around inclusion
+	of netdb.h if it's not defined and not Windows, as fake-addrinfo.h
+	used to do; otherwise just include it normally.
+
+	* port-sockets.h (inet_ntop): Cast NULL to desired return pointer
+	type.
+
+2004-07-15  Alexandra Ellwood  <lxs@mit.edu>
+
+	* k5-int.h (krb5_os_context) 
+        Removed default_ccprincipal field from krb5_context
+
+2004-07-14  Jeffrey Altman <jaltman@mit.edu>
+
+    * k5-int.h: define for WIN32 the macro krb5int_zap_data to 
+      utilize the Win32 API SecureZeroMemory which is guaranteed
+      by Microsoft not to be optimized out by the compiler.
+      Both memset and ZeroMemory will be optimized out by the 
+      compiler when possible.
+
+2004-07-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-platform.h (k5_call_init_function) [DELAY_INITIALIZER]
+	[__GNUC__]: Use a statement expression so any line number info
+	printed by assertion failures is useful.
+
+	* k5-thread.h (k5_os_mutex_init, k5_os_mutex_destroy): If
+	USE_PTHREAD_LOCK_ONLY_IF_LOADED is defined, use pthread_mutex_init
+	and _destroy only if pthread support is loaded.
+	(k5_key_t): Add a couple new values for GSSAPI ccache name
+	manipulation.
+
+2004-07-11  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h (k5_os_mutex_lock, k5_os_mutex_unlock,
+	k5_os_mutex_assert_locked, k5_os_mutex_assert_unlocked)
+	[USE_PTHREAD_LOCK_ONLY_IF_LOADED]: Fix typo in accessing
+	non-pthread versions.
+
+	* configure.in: Check krb5_cv_inet6_with_dinet6 as well as
+	krb5_cv_inet6 when deciding whether to test for in6addr_any.  If
+	gcc is in use, suppress pedantic warnings about "inline".
+
+	* fake-addrinfo.h (in6addr_any): If we need to define a static
+	copy, rename it with a macro first.
+
+2004-07-09  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h: Test HAVE_PTHREAD instead of HAVE_PTHREAD_H.
+
+	* win-mac.h (KRB5_USE_INET6, ENABLE_THREADS): Define.
+
+2004-07-07  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h [! HAVE_PTHREAD_H]: Don't explicitly disable thread
+	support when pthread.h is missing.
+	(k5_os_mutex, K5_OS_MUTEX_PARTIAL_INITIALIZER,
+	k5_os_mutex_finish_init, k5_os_mutex_init, k5_os_mutex_destroy,
+	k5_os_mutex_lock, k5_os_mutex_unlock, k5_os_mutex_assert_unlocked,
+	k5_os_mutex_assert_locked) [_WIN32]: Define Windows versions;
+	still not enabled by default.
+
+2004-07-06  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h: Use K5_THREAD_H for multiple inclusion protection.
+	(k5_debug_mutex_stats, k5_mutex_init_stats,
+	k5_mutex_finish_init_stats, K5_MUTEX_STATS_INIT): Add some dummy
+	support for recording statistics on how long mutexes are held,
+	etc.  Incomplete implementation started, but code not enabled.
+	(k5_mutex_t): Add statistics field.
+	(K5_MUTEX_PARTIAL_INITIALIZER, k5_mutex_init_1, k5_mutex_init):
+	Initialize it.
+
+	* configure.in: Check for getpwuid_r.
+
+2004-07-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h: Restructured mutex code.
+	(k5_debug_loc): New type, may contain file/line info if
+	DEBUG_THREADS_LOC is defined.
+	(k5_os_nothread_*): Dummy implementation of mutex lock for a
+	single-threded process.  Uses a flag and assert() if DEBUG_THREADS
+	is defined, does nothing interesting otherwise.
+	(k5_os_mutex*, k5_once*): General implementations, with dummy or
+	POSIX or POSIX-if-loaded-otherwise-dummy variants.
+	(k5_mutex_*): Combine OS-specific mutex implementation with
+	optional file/line tracking, and provide a place to instrument for
+	other debugging or performance data.
+
+2004-07-01  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Test for 'inline' support.
+	* k5-platform.h (inline): Don't define here.
+	* win-mac.h (inline): Define as __inline.
+
+2004-06-30  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h (k5_debug_assert_locked, k5_debug_assert_unlocked):
+	New macros.
+	(k5_assert_locked, k5_assert_unlocked): New macros, may or may not
+	call the debug macros.
+	(K5_MUTEX_DEBUG_INITIALIZER): Use current file and line.
+	(k5_mutex_debug_finish_init, k5_mutex_debug_init,
+	k5_mutex_debug_destroy): Save current file and line.
+	(k5_mutex_debug_lock): Verify that the lock was unlocked before,
+	and set the state to locked.
+	(k5_mutex_debug_unlock): Verify that the mutex was locked before,
+	and set the state to unlocked.
+	(k5_debug_assert_locked, k5_debug_assert_unlocked): Use
+	k5_mutex_debug_check_init instead of checking initialized==1.
+
+2004-06-25  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-platform.h (JOIN4, JOIN4_2, JOIN3, JOIN3_2): Unused macros
+	deleted.
+	(JOIN__2, JOIN__2_2): Renamed from JOIN2 and JOIN2_2.  Insert
+	two underscores between the tokens supplied.  All uses changed to
+	use new macros, and not use identifiers with leading underscores.
+
+2004-06-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-int.h: Don't test macintosh, __MWERKS__, applec, or THINK_C.
+
+2004-06-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-platform.h (MAKE_INIT_FUNCTION, CALL_INIT_FUNCTION,
+	INITIALIZER_RAN): Use the linker-driven version for Windows.  The
+	auxinit function definition needs an argument list.
+	(MAKE_FINI_FUNCTION): Likewise.
+
+	* win-mac.h (HAVE_STRERROR, SYS_ERRLIST_DECLARED): Define.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (all-mac, clean-mac): Targets deleted.
+
+2004-06-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in ($(srcdir)/krb5/autoconf.stmp): Always use
+	--include, don't try --localdir.
+	(all-recurse): Depend on krb5/autoconf.h.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Check number of arguments to getpwnam_r and
+	getpwuid_r and define some new macros if they're the
+	four-argument draft POSIX versions.
+
+2004-06-03  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Check for getpwnam_r, gmtime_r, and localtime_r.
+
+2004-06-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h: Error out at compile time if thread support is
+	enabled but the thread system isn't pthreads.  (This is after the
+	code disabling thread support for non-pthreads systems, so it's a
+	placeholder for now that should never get invoked.)
+
+	* k5-int.h (struct krb5_rc_st, struct _krb5_rc_ops, krb5_rc_ops):
+	Move type definitions to rc-int.h.
+	(krb5_rc_register_type, krb5_rc_dfl_ops): Move declarations to
+	rc-int.h.
+
+2004-05-30  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-int.h (krb5int_crypto_init, krb5int_prng_init): Declare.
+
+2004-05-12  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h: On IRIX, with threads enabled, reject gcc older
+	than v3.
+
+2004-05-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* foreachaddr.c: Implementation moved to lib/krb5/os/localaddr.c.
+	* foreachaddr.h: New file.
+	(krb5int_foreach_localaddr): Declare.
+	(foreach_localaddr): New macro.
+
+2004-04-30  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-thread.h (k5_mutex_debug_check_init,
+	k5_mutex_debug_update_loc): New macros.
+	(k5_mutex_debug_lock, k5_mutex_debug_unlock): Use them.
+	(k5_mutex_lock, k5_mutex_unlock) [ENABLE_THREADS &&
+	DEBUG_THREADS]: Use them instead of k5_mutex_debug_lock and
+	k5_mutex_debug_unlock.
+	(enum k5_mutex_debug_states): New enum.
+	(K5_MUTEX_DEBUG_LOCKED, K5_MUTEX_DEBUG_UNLOCKED): Change to
+	enumerator values.
+	(k5_mutex_debug_info): Use the enum type.  Reorder fields.
+	(K5_MUTEX_DEBUG_INITIALIZER): Update for new field order.
+
+	* k5-int.h: Include k5-thread.h.
+	(struct krb5_rc_st): Add a mutex.
+
+2004-04-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-platform.h (DELAY_INITIALIZER): Don't define.
+	(CONSTRUCTOR_ATTR_WORKS, DESTRUCTOR_ATTR_WORKS): Don't define.
+	(USE_LINKER_FINI_OPTION): Don't define.
+	(MAYBE_DUMMY_INIT): New macro, to optionally produce a dummy
+	initializer for the linker to reference in the case where other
+	options indicate we don't want to use it.
+	(MAKE_INIT_FUNCTION): Use it in some versions.  Set the exported
+	function name to have a __auxinit suffix.
+	(MAKE_FINI_FUNCTION) [!SHARED]: Declare the function static, and
+	do nothing to try to cause it to get invoked.
+
+2004-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-platform.h (DELAY_INITIALIZER): New macro, defined always.
+	(CONSTRUCTOR_ATTR_WORKS, DESTRUCTOR_ATTR_WORKS): New macro,
+	defined for Linux and NetBSD, and Solaris with gcc.
+	(USE_LINKER_FINI_OPTION): New macro, defined on IRIX, and on
+	Solaris with native compiler.
+	(JOIN2, JOIN2_2, JOIN3, JOIN3_2, JOIN4, JOIN4_2): New utility
+	macros.
+	(k5_init_t): New typedef, for some platforms.
+	(MAKE_INIT_FUNCTION, MAKE_FINI_FUNCTION, CALL_INIT_FUNCTION,
+	INITIALIZER_RAN, PROGRAM_EXITING): New macros for library
+	initialization and finalization support.
+
+	* k5-thread.h: Use k5_mutex_init instead of K5_MUTEX_INITIALIZER
+	for multiple-inclusion protection.
+	(K5_MUTEX_DEBUG_INITIALIZER): Change initial initialized flag to
+	2.
+	(k5_mutex_debug_finish_init): New macro, verifies value 2 and
+	changes it to 1.
+	(k5_mutex_debug_lock): Test various values of initialized and
+	locked flags separately, so assertion failure message is more
+	immediately informative.
+	(K5_MUTEX_PARTIAL_INITIALIZER): Rename from K5_MUTEX_INITIALIZER.
+	(k5_mutex_finish_init): New macro.
+	(pthread_once, pthread_mutexattr_setrobust_np): Consider
+	declaring weak based on availability.
+	(K5_PTHREADS_LOADED): New macro, tests to see if pthread
+	functions are available, if weak references are supported.
+	(k5_mutex_lock, k5_mutex_unlock): On IRIX, redefine to bypass
+	pthread code if pthread library isn't loaded.
+	(k5_once_t): New typedef.
+	(K5_ONCE_INIT, k5_once): New macros.
+
+	* Makefile.in (autoconf.stmp): Depend on aclocal.m4.
+
+	* k5-platform.h: Include limits.h before testing for SIZE_MAX.
+
+	* k5-thread.h (k5_key_t): New enumerator typedef.
+	(k5_key_register, k5_getspecific, k5_setspecific): New macros.
+	(krb5int_key_register, krb5int_getspecific, krb5int_setspecific,
+	krb5int_key_delete): Declare.
+
+2004-04-16  Sam Hartman  <hartmans@mit.edu>
+
+	* k5-int.h: krb5int_populate_gic_opt now takes credentials  so it
+	can get lifetime related options out of them 
+
+2004-04-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-int.h (krb5int_prng_cleanup): Declare.
+
+2004-03-25  Sam Hartman  <hartmans@mit.edu>
+
+	* configure.in: Check for mkstemp
+
+2004-03-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LOCAL_SUBDIRS): Renamed from MY_SUBDIRS.
+
+2004-03-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* krb5.hin (krb5_kt_register): Ops table is now const.
+
+	* k5-thread.h: New file.
+
+2004-02-26  Jeffrey Altman <jaltman@mit.edu>
+
+    * k5-int.h: change prototype declarations necessary to support
+      the use of krb5_get_init_creds_password's use_master as an
+      in/out parameter
+
+2004-02-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* win-mac.h (GETSOCKNAME_ARG2_TYPE, GETSOCKNAME_ARG3_TYPE): Set
+	proper values for Windows here.
+	(GETPEERNAME_ARG2_TYPE, GETPEERNAME_ARG3_TYPE): Map to the
+	getsockname versions.
+
+2004-02-24  Sam Hartman  <hartmans@avalanche-breakdown.mit.edu>
+
+	* krb5.hin: Remove des3 with 32-bit length
+
+2004-01-04 Jeffrey Altman <jaltman@mit.edu>
+
+    * win-mac.h: conditionally define strcasecmp/strncasecmp macros 
+      only if they do not already exist.
+
+2003-12-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Check for flock, fchmod, chmod, strftime,
+	strptime, geteuid, setenv, unsetenv, getenv, gethostbyname2,
+	getifaddrs, stdarg.h, unistd.h, paths.h, regex.h, regexp.h,
+	regexpr.h, fcntl.h, memory.h, ifaddrs.h, and sys/filio.h, as was
+	previously done in the krb5 library configure script.
+
+2003-12-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* fake-addrinfo.h: Include stdio.h.
+
+2003-12-18  Jeffrey Altman <jaltman@mit.edu>
+
+    * k5-int.h: add new functions to krb5int_access for use by gssapi
+
+2003-12-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-platform.h (SIZE_MAX): Provide default definition if stdint.h
+	doesn't define it.
+
+2003-12-15  Jeffrey Altman <jaltman@mit.edu>
+
+  * win-mac.h: source code written to the C99 standard assumes there
+    are standard definitions for the MAX sizes of C types including
+    size_t.  The MAX preprocessor variables are declared in limits.h
+    but limits.h is not included by any of the other header files.
+    We will therefore include it via win-mac.h.  We must also add a
+    declaration of SIZE_MAX (for size_t) because Microsoft does not
+    provide one.  
+
+2003-12-15  Jeffrey Altman <jaltman@mit.edu>
+
+  * k5-platform.h: apply casts (unsigned char) to the assignments from
+    64-bit ints to unsigned char fields to avoid warnings 
+
+2003-12-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* krb5.hin (KRB5_AUTH_CONTEXT_USE_SUBKEY): New macro.
+
+	* k5-int.h (struct krb5_keytypes): Added field required_ctype.
+	(krb5int_c_mandatory_cksumtype): New declaration.
+	(krb5int_generate_and_set_subkey): Declare.
+	(memset) [__GNUC__ && __GLIBC__]: Undef, to reduce compilation
+	warnings in zap() macro with volatile pointer.
+
+	* k5-platform.h: New header file.  Manages inline-function and
+	64-bit support, in platform-specific ways.
+	* fake-addrinfo.h: Include k5-platform.h.
+	(inline): Don't define here.
+	* k5-int.h: Include k5-platform.h.
+	(krb5_ui_8, krb5_int64): New typedefs.
+	(krb5_ser_pack_int64, krb5_ser_unpack_int64): New function decls.
+
+2003-10-08  Tom Yu  <tlyu@mit.edu>
+
+	* k5-int.h: Add prototypes for decode_krb5_safe_with_body and
+	encode_krb5_safe_with_body.
+
+2003-09-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in ($(srcdir)/krb5/autoconf.h.in): Depend on
+	autoconf.stmp only if maintainer mode is enabled.
+
+2003-09-12  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Check for setsid() and <paths.h>.
+
+2003-08-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* fake-addrinfo.h (WRAP_GETADDRINFO, COPY_FIRST_CANONNAME): Don't
+	define on Linux unless HAVE_GETADDRINFO is defined, for libc5
+	compatibility.
+
+2003-08-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* krb5.hin (struct _krb5_donot_replay, krb5_rc_default)
+	(krb5_rc_resolve_type, krb5_rc_resolve_full, krb5_rc_get_type)
+	(krb5_rc_default_type, krb5_rc_default_name, krb5_auth_to_rep):
+	Private declarations moved...
+	* k5-int.h: ...to here.
+
+	* configure.in: Don't test for labs, memmove or bcopy.
+	* k5-int.h (labs, HAVE_LABS): Never define.
+	* win-mac.h (HAVE_LABS): Don't define.
+
+	* configure.in: Check for some C99 headers and types.
+
+	* fake-addrinfo.h (inline): Supported by Sun Forte Developer 7
+	compiler.
+
+	* foreachaddr.c (foreach_localaddr) [HAVE_IFADDRS_H]: Skip over
+	any returned data structure with a NULL ifa_addr field.
+
+2003-08-21  Ken Raeburn  <raeburn@mit.edu>
+
+	* fake-addrinfo.h (getnameinfo): Define to my_fake_getnameinfo
+	only if HAVE_GETADDRINFO is defined.
+
+2003-08-20  Ken Raeburn  <raeburn@mit.edu>
+
+	* fake-addrinfo.h (inline): Move definitions further up, before
+	first use.  Do use __inline__ for gcc without c99 support.
+	(GET_SERV_BY_NAME) [!GETSERVBYNAME_R_RETURNS_INT]: Fix invocation
+	for IRIX definition.
+	* socket-utils.h: Include port-sockets.h to get a definition for
+	struct sockaddr_storage.
+
+	First cut at adding local caching to the getaddrinfo support.
+	Still needs work.
+	* fake-addrinfo.h: Delete the unused WRAP_GETNAMEINFO support.
+	(HAVE_GETADDRINFO) [__APPLE__ && __MACH__]: Don't undefine.
+	(FAI_CACHE) [__APPLE__ && __MACH__]: Define.
+	(system_getaddrinfo, system_freeaddrinfo, system_getnameinfo):
+	New functions.
+	(gaiptr, faiptr, gniptr): Variables deleted.  Change references
+	to use the system_* functions above.
+	(getaddrinfo, freeaddrinfo) [FAI_CACHE]: Define as macros to the
+	my_fake_* versions.
+	(protoname, socktypename, familyname): Use caller-supplied
+	buffers instead of local static buffers.
+	(debug_dump_getaddrinfo_args): Provide a buffer.
+	(NEED_FAKE_GETNAMEINFO): Define if HAVE_GETADDRINFO is not
+	defined.
+	(inline): Rework macros to test for C99 and IRIX.
+	(NEED_FAKE_GETADDRINFO): Define if FAI_CACHE is defined.
+	(fai_add_entry) [KRB5_USE_INET6]: Support IPv6.
+	(CACHE_ENTRY_LIFETIME): New macro.
+	(struct face, struct fac): New types.
+	(fac): New static variable.
+	(plant_face, find_face): New functions.
+	(fai_add_hosts_by_name) [FAI_CACHE]: Check the cache before
+	looking up the hostname.  Add the looked-up host info to the
+	cache.
+	(fake_getaddrinfo): Call GET_SERV_BY_NAME instead of
+	conditionally calling getservbyname or getservbyname_r.  Don't
+	pass AF_INET to fai_add_hosts_by_name.
+	(fake_getnameinfo): Define only if NEED_FAKE_GETNAMEINFO is
+	defined.
+	(gai_strerror): Define if either HAVE_FAKE_GETADDRINFO or
+	NEED_FAKE_GETNAMEINFO is defined.
+	(getaddrinfo): Do define function if FAI_CACHE is defined.
+	(getnameinfo): Define only if NEED_FAKE_GETNAMEINFO is defined.
+
+2003-08-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Check for mode_t.
+
 2003-07-31  Jeffrey Altman  <jaltman@mit.edu>
 
 	* krb5.hin: krb5_get_host_realm and krb5_free_host_realm should
@@ -9,9 +645,17 @@
 
         * fake-addrinfo.h: Don't use broken getaddrinfo on Mac OS X
 
+2003-07-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-int.h (krb5int_zap_data, zap): New macros; call memset with
+	volatile cast for now.
+	(struct krb5_enc_provider, struct krb5_hash_provider, struct
+	krb5_keyhash_provider): Use numeric values for block size,
+	key size, hash size, etc, instead of function pointers.
+
 2003-07-21  Alexandra Ellwood  <lxs@mit.edu>
 
-        * krb5_32.def: Export krb5_principal2salt.
+        * krb5.hin: Export krb5_principal2salt.
 
 2003-07-09  Alexandra Ellwood  <lxs@mit.edu>
 
@@ -137,6 +781,11 @@
 	* port-sockets.h (inet_ntop) [!_WIN32 && !HAVE_MACSOCK_H]: Define
 	as a macro if not provided by the OS.
 
+2003-04-28  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-int.h (struct _krb5_context): Change os_context to be an
+	array of one _krb5_os_context instead of a void pointer.
+
 2003-04-17  Sam Hartman  <hartmans@mit.edu>
 
 	* k5-int.h: Add encode_krb5_setpw_req
@@ -147,6 +796,12 @@
 	Move krb5*_chpw internals to k5int.h
 
 	* k5-int.h: Add prototypes for set-password helper functions
+
+2003-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in ($(srcdir)/krb5/autoconf.stmp): Try running
+	autoheader with --include, and if that doesn't work, try
+	--localdir.
 
 2003-04-07  Ken Raeburn  <raeburn@mit.edu>
 

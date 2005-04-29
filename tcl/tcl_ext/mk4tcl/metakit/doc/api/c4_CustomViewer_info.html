@@ -1,0 +1,101 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+A custom view is a view which can be accessed like any other view, using
+row and property operations, but which is fully managed by a customized
+"viewer" class.  The viewer will eventually handle all requests for the
+view, such as defining its structure and size, as well as providing the
+actual data values when requested.
+<P>
+
+Custom views are read-only in this version, and cannot propagate changes.
+<P>
+
+To implement a custom view, you must derive your viewer from this base
+class and define each of the virtual members.  Then create a new object
+of this type on the heap and pass it to the <A HREF="c4_View.html" >c4_View</A> constructor.  Your
+viewer will automatically be destroyed when the last reference to its
+view goes away.  See the DBF2MK sample code for an example of a viewer.
+
+<P>
+
+
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_CustomViewer_GetItem_intintc4_Bytes___"><dt>
+	  <nobr>
+	  virtual bool 
+	  <b>GetItem</b> (int row_, int col_, <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; buf_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Fetch one data item, return it as a generic data value</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_CustomViewer_GetSize___"><dt>
+	  <nobr>
+	  virtual int 
+	  <b>GetSize</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the number of rows in this view</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_CustomViewer_GetTemplate___"><dt>
+	  <nobr>
+	  virtual <A HREF="c4_View.html" >c4_View</A> 
+	  <b>GetTemplate</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the structure of this view (initialization, called once)</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_CustomViewer_c4_CustomViewer__"><dt>
+	  <nobr>
+	  
+	  <b>c4_CustomViewer</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Constructor, must be overriden in derived class</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_CustomViewer__c4_CustomViewer___"><dt>
+	  <nobr>
+	  virtual 
+	  <b>~c4_CustomViewer</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Destructor</font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_CustomViewer</b>
+</font>
+
+</body></html>

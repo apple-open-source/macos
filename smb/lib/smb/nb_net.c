@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_net.c,v 1.7 2002/03/22 22:22:11 lindak Exp $
+ * $Id: nb_net.c,v 1.8 2004/03/19 01:49:47 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -133,11 +133,9 @@ nb_enum_if(struct nb_ifdesc **iflist, int maxif)
 	for (i = 0; i < ifc.ifc_len;
 	     i += len, ifrqp = (struct ifreq *)((caddr_t)ifrqp + len)) {
 		len = _SIZEOF_ADDR_IFREQ(*ifrqp);
-#ifdef APPLE
 		/* XXX for now, avoid IP6 broadcast performance costs */
 		if (ifrqp->ifr_addr.sa_family != AF_INET)
 			continue;
-#endif
 		if (ioctl(s, SIOCGIFFLAGS, ifrqp) != 0)
 			continue;
 		iflags = ifrqp->ifr_flags;

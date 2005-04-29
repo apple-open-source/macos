@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_screen.c,v 1.8 2002/12/16 16:18:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_screen.c,v 1.10 2003/09/28 20:15:20 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -41,7 +41,12 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r128_vb.h"
 
 #include "context.h"
-#include "mem.h"
+#include "imports.h"
+
+#include "utils.h"
+#include "vblank.h"
+
+#include "glxextensions.h"
 
 #if 1
 /* Including xf86PciInfo.h introduces a bunch of errors...
@@ -64,6 +69,9 @@ r128CreateScreen( __DRIscreenPrivate *sPriv )
 {
    r128ScreenPtr r128Screen;
    R128DRIPtr r128DRIPriv = (R128DRIPtr)sPriv->pDevPriv;
+
+   if ( ! driCheckDriDdxDrmVersions( sPriv, "Rage128", 4, 0, 4, 0, 2, 2 ) )
+      return NULL;
 
    /* Allocate the private area */
    r128Screen = (r128ScreenPtr) CALLOC( sizeof(*r128Screen) );
@@ -172,6 +180,22 @@ r128CreateScreen( __DRIscreenPrivate *sPriv )
 
    r128Screen->driScreen = sPriv;
 
+   if ( driCompareGLXAPIVersion( 20030813 ) >= 0 ) {
+      PFNGLXSCRENABLEEXTENSIONPROC glx_enable_extension =
+          (PFNGLXSCRENABLEEXTENSIONPROC) glXGetProcAddress( (const GLubyte *) "__glXScrEnableExtension" );
+      void * const psc = sPriv->psc->screenConfigs;
+
+      if ( glx_enable_extension != NULL ) {
+	 if ( r128Screen->irq != 0 ) {
+	    (*glx_enable_extension)( psc, "GLX_SGI_swap_control" );
+	    (*glx_enable_extension)( psc, "GLX_SGI_video_sync" );
+	    (*glx_enable_extension)( psc, "GLX_MESA_swap_control" );
+	 }
+
+	 (*glx_enable_extension)( psc, "GLX_MESA_swap_frame_usage" );
+      }
+   }
+
    return r128Screen;
 }
 
@@ -200,58 +224,8 @@ r128DestroyScreen( __DRIscreenPrivate *sPriv )
 /* Initialize the fullscreen mode.
  */
 static GLboolean
-r128OpenFullScreen( __DRIcontextPrivate *driContextPriv )
+r128OpenCloseFullScreen( __DRIcontextPrivate *driContextPriv )
 {
-#if 0
-   r128ContextPtr rmesa = (r128ContextPtr)driContextPriv->driverPrivate;
-   drmR128Fullscreen fullscreen;
-   GLint ret;
-
-   /* FIXME: Do we need to check this?
-    */
-   if ( !r128Ctx->glCtx->Visual.doubleBufferMode )
-      return GL_TRUE;
-
-   LOCK_HARDWARE( rmesa );
-   r128WaitForIdleLocked( rmesa );
-
-   /* Ignore errors.  If this fails, we simply don't do page flipping.
-    */
-   fullscreen.func = DRM_R128_INIT_FULLSCREEN;
-   ret = drmCommandWrite( rmesa->driFd, DRM_R128_FULLSCREEN, 
-                          &fullscreen, sizeof(drmR128Fullscreen) );
-
-   UNLOCK_HARDWARE( rmesa );
-
-   rmesa->doPageFlip = ( ret == 0 );
-#endif
-
-   return GL_TRUE;
-}
-
-/* Shut down the fullscreen mode.
- */
-static GLboolean
-r128CloseFullScreen( __DRIcontextPrivate *driContextPriv )
-{
-#if 0
-   r128ContextPtr rmesa = (r128ContextPtr)driContextPriv->driverPrivate;
-   drmR128Fullscreen fullscreen;
-   LOCK_HARDWARE( rmesa );
-   r128WaitForIdleLocked( rmesa );
-
-   /* Don't care if this fails, we're not page flipping anymore.
-    */
-   fullscreen.func = DRM_R128_CLEANUP_FULLSCREEN;
-   drmCommandWrite( rmesa->driFd, DRM_R128_FULLSCREEN, 
-                    &fullscreen, sizeof(drmR128Fullscreen) );
-
-   UNLOCK_HARDWARE( rmesa );
-
-   rmesa->doPageFlip = GL_FALSE;
-   rmesa->currentPage = 0;
-#endif
-
    return GL_TRUE;
 }
 
@@ -260,8 +234,7 @@ r128CloseFullScreen( __DRIcontextPrivate *driContextPriv )
  * data.
  */
 static GLboolean
-r128CreateBuffer( Display *dpy,
-                  __DRIscreenPrivate *driScrnPriv,
+r128CreateBuffer( __DRIscreenPrivate *driScrnPriv,
                   __DRIdrawablePrivate *driDrawPriv,
                   const __GLcontextModes *mesaVis,
                   GLboolean isPixmap )
@@ -290,19 +263,15 @@ r128DestroyBuffer(__DRIdrawablePrivate *driDrawPriv)
 
 /* Copy the back color buffer to the front color buffer */
 static void
-r128SwapBuffers(Display *dpy, void *drawablePrivate)
+r128SwapBuffers(__DRIdrawablePrivate *dPriv)
 {
-   __DRIdrawablePrivate *dPriv = (__DRIdrawablePrivate *) drawablePrivate;
-   (void) dpy;
-
    if (dPriv->driContextPriv && dPriv->driContextPriv->driverPrivate) {
       r128ContextPtr rmesa;
       GLcontext *ctx;
       rmesa = (r128ContextPtr) dPriv->driContextPriv->driverPrivate;
       ctx = rmesa->glCtx;
       if (ctx->Visual.doubleBufferMode) {
-         _mesa_swapbuffers( ctx );  /* flush pending rendering comands */
-
+         _mesa_notifySwapBuffers( ctx );  /* flush pending rendering comands */
          if ( rmesa->doPageFlip ) {
             r128PageFlip( dPriv );
          }
@@ -313,7 +282,7 @@ r128SwapBuffers(Display *dpy, void *drawablePrivate)
    }
    else {
       /* XXX this shouldn't be an error but we can't handle it for now */
-      _mesa_problem(NULL, "r128SwapBuffers: drawable has no context!\n");
+      _mesa_problem(NULL, "%s: drawable has no context!", __FUNCTION__);
    }
 }
 
@@ -325,31 +294,6 @@ r128InitDriver( __DRIscreenPrivate *sPriv )
 {
    sPriv->private = (void *) r128CreateScreen( sPriv );
 
-   /* Check the DRI version */
-   {
-      int major, minor, patch;
-      if ( XF86DRIQueryVersion( sPriv->display, &major, &minor, &patch ) ) {
-         if ( major != 4 || minor < 0 ) {
-            __driUtilMessage( "R128 DRI driver expected DRI version 4.0.x but got version %d.%d.%d", major, minor, patch );
-            return GL_FALSE;
-         }
-      }
-   }
-
-   /* Check that the DDX driver version is compatible */
-   if ( sPriv->ddxMajor != 4 ||
-	sPriv->ddxMinor < 0 ) {
-      __driUtilMessage( "R128 DRI driver expected DDX driver version 4.0.x but got version %d.%d.%d", sPriv->ddxMajor, sPriv->ddxMinor, sPriv->ddxPatch );
-      return GL_FALSE;
-   }
-
-   /* Check that the DRM driver version is compatible */
-   if ( sPriv->drmMajor != 2 ||
-	sPriv->drmMinor < 2 ) {
-      __driUtilMessage( "R128 DRI driver expected DRM driver version 2.2.x but got version %d.%d.%d", sPriv->drmMajor, sPriv->drmMinor, sPriv->drmPatch );
-      return GL_FALSE;
-   }
-
    if ( !sPriv->private ) {
       r128DestroyScreen( sPriv );
       return GL_FALSE;
@@ -359,28 +303,48 @@ r128InitDriver( __DRIscreenPrivate *sPriv )
 }
 
 
-
-/* This function is called by libGL.so as soon as libGL.so is loaded.
- * This is where we'd register new extension functions with the
- * dispatcher.
+/**
+ * This function is called by libGL.so as soon as libGL.so is loaded.
+ * This is where we register new extension functions with the dispatcher.
+ *
+ * \todo This interface has been deprecated, so we should probably remove
+ *       this function before the next XFree86 release.
  */
 void __driRegisterExtensions( void )
 {
+   PFNGLXENABLEEXTENSIONPROC glx_enable_extension;
+
+   if ( driCompareGLXAPIVersion( 20030317 ) >= 0 ) {
+      glx_enable_extension = (PFNGLXENABLEEXTENSIONPROC)
+	  glXGetProcAddress( (const GLubyte *) "__glXEnableExtension" );
+
+      if ( glx_enable_extension != NULL ) {
+	 glx_enable_extension( "GLX_SGI_swap_control", GL_FALSE );
+	 glx_enable_extension( "GLX_SGI_video_sync", GL_FALSE );
+	 glx_enable_extension( "GLX_MESA_swap_control", GL_FALSE );
+      }
+   }
 }
 
 
 static struct __DriverAPIRec r128API = {
-   r128InitDriver,
-   r128DestroyScreen,
-   r128CreateContext,
-   r128DestroyContext,
-   r128CreateBuffer,
-   r128DestroyBuffer,
-   r128SwapBuffers,
-   r128MakeCurrent,
-   r128UnbindContext,
-   r128OpenFullScreen,
-   r128CloseFullScreen
+   .InitDriver      = r128InitDriver,
+   .DestroyScreen   = r128DestroyScreen,
+   .CreateContext   = r128CreateContext,
+   .DestroyContext  = r128DestroyContext,
+   .CreateBuffer    = r128CreateBuffer,
+   .DestroyBuffer   = r128DestroyBuffer,
+   .SwapBuffers     = r128SwapBuffers,
+   .MakeCurrent     = r128MakeCurrent,
+   .UnbindContext   = r128UnbindContext,
+   .OpenFullScreen  = r128OpenCloseFullScreen,
+   .CloseFullScreen = r128OpenCloseFullScreen,
+   .GetSwapInfo     = NULL,
+   .GetMSC          = driGetMSC32,
+   .WaitForMSC      = driWaitForMSC32,
+   .WaitForSBC      = NULL,
+   .SwapBuffersMSC  = NULL
+
 };
 
 

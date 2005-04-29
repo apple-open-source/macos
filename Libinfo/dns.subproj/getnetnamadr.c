@@ -64,7 +64,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)getnetbyaddr.c	8.1 (Berkeley) 6/4/93";
 static char sccsid_[] = "from getnetnamadr.c	1.4 (Coimbra) 93/06/03";
-static char rcsid[] = "$Id: getnetnamadr.c,v 1.4 2003/02/18 17:29:23 majka Exp $";
+static char rcsid[] = "$Id: getnetnamadr.c,v 1.5 2004/10/07 17:33:33 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
@@ -232,7 +232,7 @@ static	char *net_aliases[MAXALIASES], *netbuf = NULL;
 
 struct netent *
 getnetbyaddr(net, net_type)
-	register long net;
+	register uint32_t net;
 	register int net_type;
 {
 	unsigned int netbr[4];

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Simple Obfuscation Plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                This plugin will encode the characters of a string into their hex equivalent making it a very simple
+                way to obfuscate data such as e-mail addresses that you do not want to expose to crawlers or e-mail
+                spammers.
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                simple-obfuscation=org.blojsom.plugin.obfuscation.SimpleObfuscationPlugin
+            </source>
+            <p>
+
+                You may then add "simple-obfuscation" to the
+                <strong>end</strong> one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=...,simple-obfuscation
+            </source>
+        </section>
+        <section>
+            <title>usage and URL parameters</title>
+        </section>
+        <section>
+            <title>usage parameters</title>
+            <p>
+                There are no URL parameters to control the operation of the Simple Obfuscation plugin.
+
+            </p>
+        </section>
+        <section>
+            <title>context attributes and types</title>
+            <p>
+                The following table describes the context attributes that are available and their associated type.
+            </p>
+            <table>
+                <tr>
+                    <th>Context key</th>
+                    <th>Input or Output</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>BLOJSOM_PLUGIN_SIMPLE_OBFUSCATION</td>
+                    <td>Output</td>
+                    <td>
+                        <code>org.blojsom.plugin.obfuscation.SimpleObfuscationPlugin</code> objects
+                    </td>
+                    <td>You may then make use of the <code>obfuscate</code> method in your templates. If a
+                    <code>null</code> value is passed to the obfuscate method, a null is returned. If a blank
+                        value is passed to the obfuscate, a blank value is returned. Otherwise, the obfuscate method
+                        will return a string of the form <code>%xx...</code>.</td>
+                </tr>
+            </table>
+        </section>
+    </body>
+</document>
+

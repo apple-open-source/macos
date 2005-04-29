@@ -3,10 +3,10 @@ XCOMM
 XCOMM
 XCOMM
 XCOMM
-XCOMM $XFree86: xc/config/makedepend/Imakefile,v 3.12 2002/05/31 16:31:20 dawes Exp $
+XCOMM $XFree86: xc/config/makedepend/Imakefile,v 3.13 2003/10/21 17:41:44 tsi Exp $
 
-    SRCS = include.c main.c parse.c pr.c cppsetup.c ifparser.c 
-    OBJS = include.o main.o parse.o pr.o cppsetup.o ifparser.o 
+    SRCS = include.c main.c parse.c pr.c cppsetup.c ifparser.c
+    OBJS = include.o main.o parse.o pr.o cppsetup.o ifparser.o
 
 XCOMM Some compilers generate fatal errors if an -L directory does
 XCOMM not exist.  Since BUILDLIBDIR may not exist yet suppress its use.
@@ -35,7 +35,7 @@ EXTRAINC_DEFINES = -DEXTRAINCDIR=\"$(EXTRAINCDIR)\"
 #endif
 INC_DEFINES = $(PREINC_DEFINES) $(STDINC_DEFINES) $(POSTINC_DEFINES) \
 	      $(EXTRAINC_DEFINES)
-OSUF = .Osuf
+OSUF = Concat(.,Osuf)
 OSUF_DEFINES = -DOBJSUFFIX=\"$(OSUF)\"
 MAIN_DEFINES = $(INC_DEFINES) $(SIGNAL_DEFINES) $(OSUF_DEFINES)
 INCLUDES = -I$(IMAKESRC) -I$(TOP)/include $(TOP_X_INCLUDES)/X11
@@ -47,6 +47,8 @@ INCLUDES = -I$(IMAKESRC) -I$(TOP)/include $(TOP_X_INCLUDES)/X11
 #endif
 
 AllTarget(HostProgramTargetName(makedepend))
+
+makedependonly:: HostProgramTargetName(makedepend)
 
 /*
  * bootstrapping: want to build the real makedepend

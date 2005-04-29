@@ -1,0 +1,81 @@
+<!-- #bbinclude "header.html"
+  #PAGETITLE#="KerberosDebug API"
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML> 
+<HEAD>  
+	<TITLE> Kerberos Errors API </TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
+<CENTER>
+	<TABLE BORDER=0 CELLSPACING=8>
+		<TR> 
+			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
+			<TD><BR><H1>Macintosh Development</H1></TD> 
+		</TR>
+	</TABLE> <P>
+	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
+	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] <BR>
+	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">Kerberos for Macintosh</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
+</CENTER> <HR>
+<!-- end bbinclude -->
+<TABLE BORDER=0 CELLSPACING=4>
+    <TR> 
+      <TD><IMG SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif"></TD>
+      <TD><B><FONT SIZE="+3">Kerberos Errors API</FONT></B></TD>
+    </TR>
+</TABLE>
+<BLOCKQUOTE>
+
+<B><FONT SIZE="+2">Functions:</FONT></B>
+<BLOCKQUOTE>
+
+<PRE><CODE>int ddebug (void);</CODE></PRE>
+
+<P><CODE>ddebug()</CODE> returns whether or not debugging is enabled.  Use
+this function when you want to perform some computationally expensive operation
+for debugging purposes only.</P>
+
+<HR>
+
+<PRE><CODE>void dprintf (const char *format, ...);</CODE></PRE>
+
+<P> <CODE>dprintf()</CODE> prints out a formatted error string.  Uses the same 
+format syntax as the <CODE>printf()</CODE> family of functions. </P>
+
+<HR>
+
+<PRE><CODE>void dprintmem (const void *inBuffer, size_t inLength);</CODE></PRE>
+
+<P> <CODE>dprintmem()</CODE> prints a block of memory in hexadecimal and ASCII
+formats.  Useful for debugging networking code. </P>
+
+<HR>
+
+<PRE><CODE>void dprintbootstrap (task_t inTask);</CODE></PRE>
+
+<P><CODE>dprintbootstrap()</CODE> prints the state of the callers Mach bootstrap.
+Displays the output of <CODE>bootstrap_info()</CODE>.</P>
+
+</BLOCKQUOTE>
+</BLOCKQUOTE>
+<!-- #bbinclude "footer.html" -->
+<HR> 
+<P> 
+	<FONT SIZE="+1"> <B> 
+		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
+	</B> </FONT> <BR>
+	Last updated on $Date: 2004/12/08 21:40:08 $ <BR> 
+	Last modified by $Author: lxs $<BR>
+
+</P>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY> </HTML>
+<!-- end bbinclude -->

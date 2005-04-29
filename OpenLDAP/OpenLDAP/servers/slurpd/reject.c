@@ -1,10 +1,18 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/reject.c,v 1.7.2.6 2003/03/03 17:10:11 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slurpd/reject.c,v 1.14.2.3 2004/01/01 18:16:42 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright (c) 1996 Regents of the University of Michigan.
+/* Portions Copyright (c) 1996 Regents of the University of Michigan.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms are permitted
@@ -13,6 +21,10 @@
  * may not be used to endorse or promote products derived from this
  * software without specific prior written permission. This software
  * is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by the University of Michigan
+ * (as part of U-MICH LDAP).
  */
 
 
@@ -96,11 +108,11 @@ write_reject(
 #endif
     } else {
 	fseek( rfp, 0, 2 );
-	if ( errmsg != NULL ) {
-	    fprintf( rfp, "%s: %s\n", ERROR_STR, errmsg );
-	} else {
-	    fprintf( rfp, "%s: %s\n", ERROR_STR, ldap_err2string( lderr ));
+	fprintf( rfp, "%s: %s", ERROR_STR, ldap_err2string( lderr ));
+	if ( errmsg && *errmsg ) {
+	    fprintf( rfp, ": %s", errmsg );
 	}
+	fprintf( rfp, "\n" );
 	if ((rc = re->re_write( ri, re, rfp )) < 0 ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG ( SLURPD, ERR, "write_reject: "

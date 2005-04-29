@@ -1,0 +1,16 @@
+<article>
+
+  <artheader>
+    <title>Zveno - XML Specialists</title>
+    <description>Zveno website entrance page</description>
+  </artheader>
+
+  <section role="links">
+    <AboutZveno>zveno_information/about-zveno.html</AboutZveno>
+    <XMLSpecialist>zveno_information/about-zveno.html</XMLSpecialist>
+    <XMLNav>zveno_information/xml-resources.html</XMLNav>
+    <Tools>open_source/</Tools>
+    <Training>courses/</Training>
+    <Consulting>zveno_information/about-zveno.html</Consulting>
+  </section>
+</article>

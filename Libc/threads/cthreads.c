@@ -30,10 +30,11 @@
  *	fixed kernel cache set up of cproc info
  *
  */
+#include "pthread_internals.h"
 #include <stdlib.h>
+#include <sys/queue.h>
 #include "cthreads.h"
 #include "cthread_internals.h"
-#include "pthread_internals.h"
 /*
  * C Threads imports:
  */
@@ -79,6 +80,33 @@ extern void _notify_fork_child(void);
 
 static pthread_t psaved_self = 0;
 static pthread_lock_t psaved_self_global_lock = LOCK_INITIALIZER;
+static pthread_lock_t pthread_atfork_lock = LOCK_INITIALIZER;
+struct pthread_atfork_entry {
+        TAILQ_ENTRY(pthread_atfork_entry) qentry;
+        void (*prepare)(void);
+        void (*parent)(void);
+        void (*child)(void);
+};
+static TAILQ_HEAD(pthread_atfork_queue_head, pthread_atfork_entry) pthread_atfork_queue = TAILQ_HEAD_INITIALIZER(pthread_atfork_queue);
+
+int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
+{
+	struct pthread_atfork_entry *e;
+ 
+	e = malloc(sizeof(struct pthread_atfork_entry));
+	if (e == NULL)
+		return (ENOMEM);
+ 
+	e->prepare = prepare;
+	e->parent = parent;
+	e->child = child;
+
+	_spin_lock(&pthread_atfork_lock);
+	TAILQ_INSERT_TAIL(&pthread_atfork_queue, e, qentry);
+	_spin_unlock(&pthread_atfork_lock);
+
+	return 0; 
+}
 
 void _cthread_fork_prepare()
 /*
@@ -88,9 +116,17 @@ void _cthread_fork_prepare()
  * state in the child, which comes up with only the forking thread running.
  */
 {
-       _spin_lock(&psaved_self_global_lock);
-       psaved_self = pthread_self();
-       _spin_lock(&psaved_self->lock);
+	struct pthread_atfork_entry *e;
+
+	_spin_lock(&pthread_atfork_lock);
+	TAILQ_FOREACH_REVERSE(e, &pthread_atfork_queue, qentry, pthread_atfork_queue_head) {
+		if (e->prepare != NULL)
+			e->prepare();
+	}
+
+	_spin_lock(&psaved_self_global_lock);
+	psaved_self = pthread_self();
+	_spin_lock(&psaved_self->lock);
 	_malloc_fork_prepare();
 }
 
@@ -100,9 +136,17 @@ void _cthread_fork_parent()
  * Releases locks acquired by cthread_fork_prepare().
  */
 {
+	struct pthread_atfork_entry *e;
+
 	_malloc_fork_parent();
         _spin_unlock(&psaved_self->lock);
         _spin_unlock(&psaved_self_global_lock);
+
+	TAILQ_FOREACH(e, &pthread_atfork_queue, qentry) {
+		if (e->parent != NULL)
+			e->parent();
+	}
+	_spin_unlock(&pthread_atfork_lock);
 
 }
 
@@ -114,6 +158,7 @@ void _cthread_fork_child()
  */
 {
 	pthread_t p = psaved_self;
+	struct pthread_atfork_entry *e;
         
 	_pthread_set_self(p);
         _spin_unlock(&psaved_self_global_lock);   
@@ -122,7 +167,7 @@ void _cthread_fork_child()
 	p->kernel_thread = mach_thread_self();
 	p->reply_port = mach_reply_port();
 	p->mutexes = NULL;
-	p->cleanup_stack = NULL;
+	p->__cleanup_stack = NULL;
 	p->death = MACH_PORT_NULL;
 	p->joiner = NULL;
 	p->detached |= _PTHREAD_CREATE_PARENT;
@@ -140,6 +185,12 @@ void _cthread_fork_child()
 	__is_threaded = 0;
 
 	mig_init(1);		/* enable multi-threaded mig interfaces */
+
+	TAILQ_FOREACH(e, &pthread_atfork_queue, qentry) {
+		if (e->child != NULL)
+			e->child();
+	}
+	LOCK_INIT(pthread_atfork_lock);
 	
 }
 

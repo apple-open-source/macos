@@ -70,9 +70,9 @@
 #include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
-#include <sys/protosw.h>
 #include <sys/mbuf.h>
 #include <sys/time.h>
+#include <sys/sysctl.h>
 
 #include <net/if.h>
 #include <netinet/in.h>
@@ -85,11 +85,9 @@
 #include "netstat.h"
 
 void
-mroutepr(mfcaddr, vifaddr)
-	u_long mfcaddr, vifaddr;
+mroutepr(void)
 {
-	u_int mrtproto;
-	struct mfc *mfctable[MFCTBLSIZ];
+	struct mfc **mfctable = 0;
 	struct vif viftable[MAXVIFS];
 	struct mfc mfc, *m;
 	register struct vif *v;
@@ -98,16 +96,17 @@ mroutepr(mfcaddr, vifaddr)
 	register int banner_printed;
 	register int saved_nflag;
 	vifi_t maxvif = 0;
-
-	if (mfcaddr == 0 || vifaddr == 0) {
-		printf("No IPv4 multicast routing compiled into this system.\n");
-		return;
-	}
+	size_t len;
 
 	saved_nflag = nflag;
 	nflag = 1;
 
-	kread(vifaddr, (char *)&viftable, sizeof(viftable));
+	len = MAXVIFS * sizeof(struct vif);
+	if (sysctlbyname("net.inet.ip.viftable", viftable, &len, 0, 0) == -1) {
+		printf("No IPv4 multicast routing compiled into this system.\n");
+		return;
+	}
+
 	banner_printed = 0;
 	for (vifi = 0, v = viftable; vifi < MAXVIFS; ++vifi, ++v) {
 		if (v->v_lcl_addr.s_addr == 0)
@@ -133,13 +132,21 @@ mroutepr(mfcaddr, vifaddr)
 	if (!banner_printed)
 		printf("\nVirtual Interface Table is empty\n");
 
-	kread(mfcaddr, (char *)&mfctable, sizeof(mfctable));
+	if (sysctlbyname("net.inet.ip.mfctable", 0, &len, 0, 0) == -1) {
+		printf("No IPv4 multicast routing compiled into this system.\n");
+		return;
+	}
+	mfctable = malloc(len);
+	if (mfctable == 0)
+		return;
+	if (sysctlbyname("net.inet.ip.mfctable", mfctable, &len, 0, 0) == -1) {
+		printf("No IPv4 multicast routing compiled into this system.\n");
+		return;
+	}
 	banner_printed = 0;
 	for (i = 0; i < MFCTBLSIZ; ++i) {
 		m = mfctable[i];
 		while(m) {
-			kread((u_long)m, (char *)&mfc, sizeof mfc);
-
 			if (!banner_printed) {
 				printf("\nIPv4 Multicast Forwarding Cache\n"
 				       " Origin          Group            "
@@ -165,21 +172,22 @@ mroutepr(mfcaddr, vifaddr)
 
 	printf("\n");
 	nflag = saved_nflag;
+	
+	free(mfctable);
 }
 
 
 void
-mrt_stats(mstaddr)
-	u_long mstaddr;
+mrt_stats()
 {
 	struct mrtstat mrtstat;
+	size_t len = sizeof(struct mrtstat);
 
-	if (mstaddr == 0) {
+	if(sysctlbyname("net.inet.ip.mrtstat", &mrtstat, &len, 0, 0) == -1) {
 		printf("No IPv4 multicast routing compiled into this system.\n");
 		return;
 	}
 
-	kread(mstaddr, (char *)&mrtstat, sizeof(mrtstat));
 	printf("IPv4 multicast forwarding:\n");
 	printf(" %10lu multicast forwarding cache lookup%s\n",
 	  mrtstat.mrts_mfc_lookups, plural(mrtstat.mrts_mfc_lookups));

@@ -224,21 +224,27 @@ getfdtype(IO *io)
 		if (ioctl(io->fd, FIODTYPE, &type) == -1) {
 			err(1, "%s", io->name);
 		} else {
+#ifdef __APPLE__		/* MacOSX uses enumeration for type not a bitmask */
+			if (type == D_TAPE)
+				io->flags |= ISTAPE;
+			else if (type == D_DISK || type == D_TTY) {
+#else  /* !__APPLE__ */
 			if (type & D_TAPE)
 				io->flags |= ISTAPE;
-#ifdef __APPLE__
-			else if (type & D_DISK) {
-#else
 			else if (type & (D_DISK | D_MEM)) {
 				if (type & D_DISK) {
 					const int one = 1;
 
 					(void)ioctl(io->fd, DIOCWLABEL, &one);
 				}
-#endif
+#endif /* __APPLE__ */
 				io->flags |= ISSEEK;
 			}
+#ifdef __APPLE__
+			if (S_ISCHR(sb.st_mode) && (type != D_TAPE))
+#else  /* !__APPLE__ */
 			if (S_ISCHR(sb.st_mode) && (type & D_TAPE) == 0)
+#endif /* __APPLE__ */
 				io->flags |= ISCHR;
 		}
 		return;

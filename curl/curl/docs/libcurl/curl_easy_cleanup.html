@@ -1,72 +1,58 @@
-<HTML>
-<BODY>
-<PRE>
-<!-- Manpage converted by man2html 3.0.1 -->
-       curl_easy_cleanup - End a libcurl easy session
+<html><head>
+<title>curl_easy_cleanup man page</title>
+<meta name="generator" content="roffit 0.7">
+<STYLE type="text/css">
+P.level0 {
+ padding-left: 2em;
+}
 
+P.level1 {
+ padding-left: 4em;
+}
 
-</PRE>
-<H2>SYNOPSIS</H2><PRE>
-       <B>#include</B> <B>&lt;curl/curl.h&gt;</B>
+P.level2 {
+ padding-left: 6em;
+}
 
-       <B>void</B> <B>curl_easy_cleanup(CURL</B> <B>*</B><I>handle</I><B>);</B>
+span.emphasis {
+ font-style: italic;
+}
 
+span.bold {
+ font-weight: bold;
+}
 
-</PRE>
-<H2>DESCRIPTION</H2><PRE>
-       This  function  must  be  the last function to call for an
-       easy session. It is the  opposite  of  the  <I>curl</I><B>_</B><I>easy</I><B>_</B><I>init</I>
-       function  and must be called with the same <I>handle</I> as input
-       that the curl_easy_init call returned.
+span.manpage {
+ font-weight: bold;
+}
 
-       This will effectively close all  connections  this  handle
-       has  used and possibly has kept open until now. Don't call
-       this function if you intend to transfer more files.
+h2.nroffsh {
+ background-color: #e0e0e0;
+}
 
-       When you've called this, you can  safely  remove  all  the
-       strings you've previously told libcurl to use, as it won't
-       use them anymore now.
+span.nroffip {
+ font-weight: bold;
+ font-size: 120%;
+ font-family: monospace;
+}
 
+p.roffit {
+ text-align: center;
+ font-size: 80%;
+}
+</STYLE>
+</head><body>
 
-</PRE>
-<H2>RETURN VALUE</H2><PRE>
-       None
-
-
-</PRE>
-<H2>SEE ALSO</H2><PRE>
-       <B>curl_easy_init(3)</B>,
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</PRE>
-<HR>
-<ADDRESS>
-Man(1) output converted with
-<a href="http://www.oac.uci.edu/indiv/ehood/man2html.html">man2html</a>
-</ADDRESS>
-</BODY>
-</HTML>
+<p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
+<p class="level0">curl_easy_cleanup - End a libcurl easy session <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
+<p class="level0"><span Class="bold">#include &lt;curl/curl.h&gt;</span> 
+<p class="level0"><span Class="bold">void curl_easy_cleanup(CURL * handle );</span> 
+<p class="level0"><a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
+<p class="level0">This function must be the last function to call for an easy session. It is the opposite of the <a class="emphasis" href="./curl_easy_init.html">curl_easy_init(3)</a> function and must be called with the same <span Class="emphasis">handle</span> as input that the curl_easy_init call returned. 
+<p class="level0">This will effectively close all connections this handle has used and possibly has kept open until now. Don't call this function if you intend to transfer more files. 
+<p class="level0">When you've called this, you can safely remove all the strings you've previously told libcurl to use, as it won't use them anymore now. <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
+<p class="level0">None <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
+<p class="level0"><a class="manpage" href="./curl_easy_init.html">curl_easy_init (3)</a> <span Class="manpage"> </span> 
+<p class="level0"><p class="roffit">
+ This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
+</body></html>

@@ -723,10 +723,6 @@ open_file (pfile, filename)
       if (! isatty (file->fd))
 	setmode (file->fd, O_BINARY);
 #endif
-      /* APPLE LOCAL begin read-from-stdin */
-      if ( CPP_OPTION(pfile, stdin_diag_filename != NULL ) && fcntl(file->fd, F_SETFL, O_NONBLOCK) != 0 )
-         file->fd = -1;
-      /* APPLE LOCAL end read-from-stdin */
     }
   else
     file->fd = open (file->name, O_RDONLY | O_NOCTTY | O_BINARY, 0666);
@@ -759,6 +755,8 @@ open_file (pfile, filename)
   return 0;
 }
 
+static bool invalid_pch_found;
+
 static struct include_file *
 validate_pch (pfile, filename, pchname)
      cpp_reader *pfile;
@@ -772,6 +770,8 @@ validate_pch (pfile, filename, pchname)
     return NULL;
   if ((file->pch & 2) == 0)
     file->pch = pfile->cb.valid_pch (pfile, pchname, file->fd);
+  if (! INCLUDE_PCH_P (file))
+    invalid_pch_found = true;
   if (CPP_OPTION (pfile, print_include_names))
     {
       unsigned int i;
@@ -788,7 +788,6 @@ validate_pch (pfile, filename, pchname)
   file->fd = -1;
   return NULL;
 }
-
 
 /* Like open_file, but also look for a precompiled header if (a) one exists
    and (b) it is valid.  */
@@ -1114,31 +1113,41 @@ read_include_file (pfile, inc)
   /* APPLE LOCAL begin read-from-stdin */
   else if ( CPP_OPTION(pfile, stdin_diag_filename) != NULL )
     {
-      int line = 0;
-      size = 8 * 1024;
-      buf = (uchar *) xmalloc (size + 1);
-      offset = 0;
-      do {
+      if (CPP_OPTION(pfile, predictive_compilation_size) >= 0)
+      {
+	count = 0;
+	size = CPP_OPTION(pfile, predictive_compilation_size);
+	offset = 0;
+	buf = (uchar *) xmalloc (size + 1);
+	if (size > 0)
+	{
+	    while ((count = read (inc->fd, buf + offset, size - offset)) > 0)
+	    {
+	      offset += count;
+	      if (offset == size)
+		break;
+	    }
+	} 
+	CPP_OPTION(pfile, predictive_compilation_size) = -1;
+        if (count == 0)
+          count = 1;
+      }
+      else
+      {
+        size = 8 * 1024;
+        buf = (uchar *) xmalloc (size + 1);
+        offset = 0;
         while ((count = read (inc->fd, buf + offset, size - offset)) > 0)
-	  {
-	    line++;
+        {
 	    offset += count;
 	    if (offset == size)
 	      {
 	        size *= 2;
 	        buf = xrealloc (buf, size + 1);
 	      }
-	  }
-      } while (count == -1 && errno == EAGAIN && line == 0);
-
-      if (count < 0) 
-      {
-        if ( errno != EAGAIN )
-	  goto perror_fail;
-	more_to_read_from_stdin = true;
+        }
       }
-      else
-        more_to_read_from_stdin = false;
+      more_to_read_from_stdin = (count > 0);
 
       if (offset + 1 < size)
 	buf = xrealloc (buf, offset + 1);
@@ -1792,8 +1801,19 @@ handle_missing_header (pfile, fname, angle_brackets)
      the missing file, and we don't know what directory this missing
      file exists in.  */
   else
-    cpp_errno (pfile, CPP_OPTION (pfile, deps.style) && ! print_dep
-	       ? DL_WARNING: DL_ERROR, fname);
+    {
+      cpp_errno (pfile, (CPP_OPTION (pfile, deps.style) && !print_dep
+			 ? DL_WARNING : DL_ERROR), fname);
+      if (invalid_pch_found 
+	  && !(CPP_OPTION (pfile, deps.style) && !print_dep))
+	{
+	  cpp_error (pfile, DL_ERROR, 
+	     "one or more PCH files were found, but they were invalid");
+	  if (!cpp_get_options (pfile)->warn_invalid_pch)
+	    cpp_error (pfile, DL_ERROR, 
+		       "use -Winvalid-pch for more information");
+	}
+    }
 }
 
 /* Handles #include-family directives (distinguished by TYPE),
@@ -1807,6 +1827,8 @@ _cpp_execute_include (pfile, header, type)
 {
   bool stacked = false;
   struct include_file *inc;
+
+  invalid_pch_found = false;
 
   inc = find_include_file (pfile, header, type);
 
@@ -1949,6 +1971,19 @@ search_from (pfile, type)
 	  if (dlen > 1)
 	    dlen--;
 	}
+      /* APPLE LOCAL begin read-from-stdin */
+      else if (buffer->inc->name && strlen(buffer->inc->name) == 0
+	       && CPP_OPTION(pfile, stdin_diag_filename) != NULL)
+        {
+          buffer->dir.name = CPP_OPTION(pfile, stdin_diag_filename);
+          dlen = lbasename (buffer->dir.name) - buffer->dir.name;
+          if (dlen <= 0)
+            goto use_cwd;      
+	  /* Drop a trailing '/'.  */
+	  if (dlen > 1)
+	    dlen--;
+        }
+      /* APPLE LOCAL end read-from-stdin */
       else
 	{
 	use_cwd:
@@ -2554,6 +2589,7 @@ find_include_file_in_hashtable (pfile, fname, name, type, path)
       }
     if (CPP_OPTION (pfile, header_map))
       {
+      const char *saved_fname = fname;
       struct search_path *hmap_path = hmap_lookup_path (pfile, &fname);
       
       if (hmap_path != CPP_OPTION (pfile, bracket_include))
@@ -2565,6 +2601,8 @@ find_include_file_in_hashtable (pfile, fname, name, type, path)
           return file;
           }
         }
+      /* The header map search was not successful - restore clobbered fname. */
+      fname = saved_fname;
       }
     if (!slash_in_fname)
       {

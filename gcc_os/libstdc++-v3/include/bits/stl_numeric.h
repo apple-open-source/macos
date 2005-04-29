@@ -61,6 +61,10 @@
 #ifndef _CPP_BITS_STL_NUMERIC_H
 #define _CPP_BITS_STL_NUMERIC_H 1
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/debug.h>
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
 
@@ -70,6 +74,9 @@ namespace std
     {
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first != __last; ++__first)
 	__init = __init + *__first;
@@ -83,6 +90,9 @@ namespace std
     {
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first != __last; ++__first)
 	__init = __binary_op(__init, *__first);
@@ -97,6 +107,9 @@ namespace std
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIterator1>)
       __glibcpp_function_requires(_InputIteratorConcept<_InputIterator2>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	__init = __init + (*__first1 * *__first2);
@@ -114,6 +127,9 @@ namespace std
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIterator1>)
       __glibcpp_function_requires(_InputIteratorConcept<_InputIterator2>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	__init = __binary_op1(__init, __binary_op2(*__first1, *__first2));
@@ -130,6 +146,9 @@ namespace std
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last) return __result;
       *__result = *__first;
@@ -151,6 +170,9 @@ namespace std
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last) return __result;
       *__result = *__first;
@@ -172,6 +194,9 @@ namespace std
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last) return __result;
       *__result = *__first;
@@ -194,6 +219,9 @@ namespace std
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last) return __result;
       *__result = *__first;

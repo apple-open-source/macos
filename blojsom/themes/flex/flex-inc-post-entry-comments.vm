@@ -1,0 +1,50 @@
+<div id="comments">
+#foreach ($entryComment in $entry.getComments())
+  <div id="comment">
+    <div id="commentHeader">
+      <span id="commentAuthor"><a href="mailto:$entryComment.getAuthorEmail()">$entryComment.getAuthor()</a>,</span>
+      <span id="commentAuthorUrl"><a href="$entryComment.getAuthorURL()">$entryComment.getAuthorURL()</a></span>
+      <span id="commentDate">Left on: $entryComment.getCommentDate().</span>
+    </div>
+    <div id="commentText">$entryComment.getComment()</div>
+  </div>
+#end
+</div>
+#if ($BLOJSOM_COMMENTS_ENABLED.booleanValue() && $entry.supportsComments())
+<div id="commentInput">
+  <form name="commentform" method="post" action=".">
+    <input type="hidden" name="comment" value="y"/>
+    <input type="hidden" name="page" value="comments"/>
+    <input type="hidden" name="category" value="$BLOJSOM_REQUESTED_CATEGORY.getCategory()"/>
+    <input type="hidden" name="permalink" value="$entry.getPermalink()"/>
+    <table>
+      <tr>
+        <td>Author (<font color="red">*</font>):</td>
+        <td><input type="text" name="author" value="#if ($BLOJSOM_COMMENT_PLUGIN_AUTHOR)$BLOJSOM_COMMENT_PLUGIN_AUTHOR#end"/></td>
+      </tr>
+      <tr>
+        <td>E-mail:</td>
+        <td><input type="text" name="authorEmail" value="#if ($BLOJSOM_COMMENT_PLUGIN_AUTHOR_EMAIL)$BLOJSOM_COMMENT_PLUGIN_AUTHOR_EMAIL#end"/></td>
+      </tr>
+      <tr>
+        <td>URL: </td>
+        <td><input type="text" name="authorURL" value="#if ($BLOJSOM_COMMENT_PLUGIN_AUTHOR_URL)$BLOJSOM_COMMENT_PLUGIN_AUTHOR_URL#end"/></td>
+      </tr>
+      <tr>
+        <td>Comment (<font color="red">*</font>):</td>
+        <td><textarea name="commentText" rows="7" cols="70"></textarea></td>
+      </tr>
+      <tr>
+        <td>Remember me?</td>
+        <td><input type="checkbox" name="remember" #if ($BLOJSOM_COMMENT_PLUGIN_REMEMBER_ME)CHECKED#end/></td>
+      </tr>
+      <tr>
+        <td colspan="2" class="form-buttons" align="right">
+          <input type="submit" name="submit" value="Submit Comment"/>
+          <input type="reset" name="reset" value="Reset"/>
+        </td>
+      </tr>
+    </table>
+  </form>
+</div>
+#end

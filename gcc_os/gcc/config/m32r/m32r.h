@@ -185,7 +185,7 @@ Boston, MA 02111-1307, USA.  */
 
 extern int target_flags;
 
-/* If non-zero, tell the linker to do relaxing.
+/* If nonzero, tell the linker to do relaxing.
    We don't do anything with the option, other than recognize it.
    LINK_SPEC handles passing -relax to the linker.
    This can cause incorrect debugging information as line numbers may
@@ -421,10 +421,6 @@ extern enum m32r_sdata m32r_sdata;
 
 /* Target machine storage layout.  */
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN 1
@@ -441,15 +437,6 @@ extern enum m32r_sdata m32r_sdata;
    which will be used only when compiling libgcc2.c.  Typically the
    value will be set based on preprocessor defines.  */
 /*#define LIBGCC2_WORDS_BIG_ENDIAN 1*/
-
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
@@ -475,10 +462,6 @@ extern enum m32r_sdata m32r_sdata;
    PROMOTE_MODE.  */
 /*#define PROMOTE_FUNCTION_RETURN*/
 
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
-
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
 
@@ -497,7 +480,7 @@ extern enum m32r_sdata m32r_sdata;
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  */
@@ -651,7 +634,7 @@ extern enum m32r_sdata m32r_sdata;
 ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
-extern unsigned int m32r_hard_regno_mode_ok[FIRST_PSEUDO_REGISTER];
+extern const unsigned int m32r_hard_regno_mode_ok[FIRST_PSEUDO_REGISTER];
 extern unsigned int m32r_mode_class[];
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
 ((m32r_hard_regno_mode_ok[REGNO] & m32r_mode_class[MODE]) != 0)
@@ -989,7 +972,7 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
  { ARG_POINTER_REGNUM,	 STACK_POINTER_REGNUM },	\
  { ARG_POINTER_REGNUM,   FRAME_POINTER_REGNUM }}
 
-/* A C expression that returns non-zero if the compiler is allowed to
+/* A C expression that returns nonzero if the compiler is allowed to
    try to replace register number FROM-REG with register number
    TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
    defined, and will usually be the constant 1, since most of the
@@ -1101,7 +1084,7 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
    pointer to them is passed in a reg if one is available (and that is what
    we're given).
    This macro is only used in this file.  */
-#define PASS_IN_REG_P(CUM, MODE, TYPE, NAMED) \
+#define PASS_IN_REG_P(CUM, MODE, TYPE) \
   (ROUND_ADVANCE_CUM ((CUM), (MODE), (TYPE)) < M32R_MAX_PARM_REGS)
 
 /* Determine where to put an argument to a function.
@@ -1119,14 +1102,7 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
 /* On the M32R the first M32R_MAX_PARM_REGS args are normally in registers
    and the rest are pushed.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  (PASS_IN_REG_P ((CUM), (MODE), (TYPE), (NAMED))			\
-   ? gen_rtx_REG ((MODE), ROUND_ADVANCE_CUM ((CUM), (MODE), (TYPE)))	\
-   : 0)
-
-/* ??? Quick hack to try to get varargs working the normal way.  */
-#define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED) \
-  (((! current_function_varargs || (NAMED))				\
-    && PASS_IN_REG_P ((CUM), (MODE), (TYPE), (NAMED)))			\
+  (PASS_IN_REG_P ((CUM), (MODE), (TYPE))			\
    ? gen_rtx_REG ((MODE), ROUND_ADVANCE_CUM ((CUM), (MODE), (TYPE)))	\
    : 0)
 
@@ -1438,12 +1414,7 @@ do {									\
 
 /* Condition code usage.  */
 
-/* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
-   return the mode to be used for the comparison.  */
-#define SELECT_CC_MODE(OP, X, Y) \
-((enum machine_mode)m32r_select_cc_mode ((int)OP, X, Y))
-
-/* Return non-zero if SELECT_CC_MODE will never return MODE for a
+/* Return nonzero if SELECT_CC_MODE will never return MODE for a
    floating point inequality comparison.  */
 #define REVERSIBLE_CC_MODE(MODE) 1 /*???*/
 
@@ -1543,14 +1514,14 @@ do {									\
 #define SDATA_SECTION_ASM_OP	"\t.section .sdata"
 #define SBSS_SECTION_ASM_OP	"\t.section .sbss"
 /* This one is for svr4.h.  */
-#undef  CONST_SECTION_ASM_OP
-#define CONST_SECTION_ASM_OP	"\t.section .rodata"
+#undef  READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP	"\t.section .rodata"
 
 /* A list of names for sections other than the standard two, which are
    `in_text' and `in_data'.  You need not define this macro
    on a system with no other sections (that GCC needs to use).  */
 #undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_sbss, in_const
+#define EXTRA_SECTIONS in_sdata, in_sbss
 
 /* One or more functions to be defined in "varasm.c".  These
    functions should do jobs analogous to those of `text_section' and
@@ -1558,7 +1529,6 @@ do {									\
    macro if you do not define `EXTRA_SECTIONS'.  */
 #undef  EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS	\
-  CONST_SECTION_FUNCTION	\
   SDATA_SECTION_FUNCTION	\
   SBSS_SECTION_FUNCTION
 
@@ -1584,25 +1554,8 @@ sbss_section ()								\
     }									\
 }									\
 
-/* A C statement or statements to switch to the appropriate section for
-   output of EXP.  You can assume that EXP is either a `VAR_DECL' node
-   or a constant of some sort.  RELOC indicates whether the initial value
-   of EXP requires link-time relocations.  */
-#undef  SELECT_SECTION
-#define SELECT_SECTION(EXP, RELOC, ALIGN) \
-  m32r_select_section ((EXP), (RELOC))
-
-/* A C statement or statements to switch to the appropriate section for
-   output of RTX in mode MODE.  You can assume that RTX
-   is some kind of constant in RTL.  The argument MODE is redundant
-   except in the case of a `const_int' rtx.  Select the section by
-   calling `text_section' or one of the alternatives for other
-   sections.
-
-   Do not define this macro if you put all constants in the read-only
-   data section.  */
-
-#undef SELECT_RTX_SECTION
+#undef  TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION  m32r_select_section
 
 /* Define this macro if jump tables (for tablejump insns) should be
    output in the text section, along with the assembler instructions.
@@ -1646,18 +1599,6 @@ sbss_section ()								\
  /*|| SMALL_NAME_P (SYMBOL_NAME)*/ \
  || MEDIUM_NAME_P (SYMBOL_NAME) \
  || LARGE_NAME_P (SYMBOL_NAME))
-
-#define ENCODE_SECTION_INFO(DECL) m32r_encode_section_info (DECL)
-
-/* Decode SYM_NAME and store the real name part in VAR, sans
-   the characters that encode section info.  Define this macro if
-   ENCODE_SECTION_INFO alters the symbol's name string.  */
-/* Note that we have to handle symbols like "%*start".  */
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME) \
-do {							\
-  (VAR) = (SYMBOL_NAME) + ENCODED_NAME_P (SYMBOL_NAME);	\
-  (VAR) += *(VAR) == '*';				\
-} while (0)
 
 /* PIC */
 
@@ -1719,40 +1660,14 @@ do {							\
    no longer contain unusual constructs.  */
 #define ASM_APP_OFF ""
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-/* On the M32R we need to ensure the next instruction starts on a 32 bit
-   boundary [the previous insn must either be 2 16 bit insns or 1 32 bit].  */
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-  do					\
-    {					\
-      assemble_name (FILE, NAME);	\
-      fputs (":\n", FILE);		\
-    }					\
-  while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)	\
-  do					\
-    {					\
-      fputs ("\t.global\t", FILE);	\
-      assemble_name (FILE, NAME);	\
-      fputs ("\n", FILE);		\
-    }					\
-  while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 #undef  ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(FILE, NAME) 	\
-  do						\
-    {						\
-      const char * real_name;			\
-      STRIP_NAME_ENCODING (real_name, (NAME));	\
-      asm_fprintf (FILE, "%U%s", real_name);	\
-    }						\
-  while (0)           
+#define ASM_OUTPUT_LABELREF(FILE, NAME) \
+  asm_fprintf (FILE, "%U%s", (*targetm.strip_name_encoding) (NAME))
 
 /* If -Os, don't force line number labels to begin at the beginning of
    the word; we still want the assembler to try to put things in parallel,
@@ -1835,12 +1750,7 @@ extern char m32r_punct_chars[256];
 
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
-   reference whose address is ADDR.  ADDR is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on
-   the section that the address refers to.  On these machines,
-   define the macro `ENCODE_SECTION_INFO' to store the information
-   into the `symbol_ref', and then check for it here.  */
+   reference whose address is ADDR.  ADDR is an RTL expression.  */
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) \
   m32r_print_operand_address (FILE, ADDR)
 
@@ -1942,7 +1852,7 @@ extern char m32r_punct_chars[256];
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
   do								\
     {								\
-      ASM_GLOBALIZE_LABEL (FILE, NAME);				\
+      (*targetm.asm_out.globalize_label) (FILE, NAME);		\
       ASM_OUTPUT_ALIGNED_COMMON (FILE, NAME, SIZE, ALIGN);	\
     }								\
   while (0)
@@ -1950,13 +1860,9 @@ extern char m32r_punct_chars[256];
 /* Debugging information.  */
 
 /* Generate DBX and DWARF debugging information.  */
-#undef	DBX_DEBUGGING_INFO
-#undef	DWARF_DEBUGGING_INFO
-#undef	DWARF2_DEBUGGING_INFO
-
-#define DBX_DEBUGGING_INFO
-#define DWARF_DEBUGGING_INFO
-#define DWARF2_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
+#define DWARF_DEBUGGING_INFO 1
+#define DWARF2_DEBUGGING_INFO 1
 
 /* Prefer STABS (for now).  */
 #undef  PREFERRED_DEBUGGING_TYPE

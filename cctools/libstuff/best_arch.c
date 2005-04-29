@@ -387,61 +387,16 @@ cpu_type_t cputype,
 cpu_subtype_t cpusubtype1,
 cpu_subtype_t cpusubtype2)
 {
+	/*
+	 * We now combine any i386 subtype to the ALL subtype.
+	 */
+	if(cputype == CPU_TYPE_I386)
+	    return(CPU_SUBTYPE_I386_ALL);
+
 	if(cpusubtype1 == cpusubtype2)
 	    return(cpusubtype1);
 
 	switch(cputype){
-	case CPU_TYPE_I386:
-	    /*
-	     * For compatiblity with pre-Rhapsody CR1 systems the subtypes that
-	     * previously existed are handled the same as before.  So going in
-	     * we know we don't have an exact match because of the test done
-	     * at the beginning of the routine.
-	     */
-	    if((cpusubtype1 == CPU_SUBTYPE_I386_ALL ||
-	        /* cpusubtype1 == CPU_SUBTYPE_386 || same as above */
-	        cpusubtype1 == CPU_SUBTYPE_486 ||
-	        cpusubtype1 == CPU_SUBTYPE_486SX ||
-	        cpusubtype1 == CPU_SUBTYPE_586) &&
-	       (cpusubtype2 == CPU_SUBTYPE_I386_ALL ||
-	        /* cpusubtype2 == CPU_SUBTYPE_386 || same as above */
-	        cpusubtype2 == CPU_SUBTYPE_486 ||
-	        cpusubtype2 == CPU_SUBTYPE_486SX ||
-	        cpusubtype2 == CPU_SUBTYPE_586)){
-		/* return the highest subtype of the two */
-		if(cpusubtype1 == CPU_SUBTYPE_586 ||
-		   cpusubtype2 == CPU_SUBTYPE_586)
-		    return(CPU_SUBTYPE_586);
-		if(cpusubtype1 == CPU_SUBTYPE_486SX ||
-		   cpusubtype2 == CPU_SUBTYPE_486SX)
-		    return(CPU_SUBTYPE_486SX);
-		if(cpusubtype1 == CPU_SUBTYPE_486 ||
-		   cpusubtype2 == CPU_SUBTYPE_486)
-		    return(CPU_SUBTYPE_486);
-		break; /* logically can't get here */
-	    }
-	    /*
-	     * If either is a MODEL_ALL type select the one with the highest
-	     * family type.  Note that only the old group of subtypes (ALL, 386,
-	     * 486, 486SX, 586) can ever have MODEL_ALL (a model number of
-	     * zero).  Since the cases both subtypes being in the old group are
-	     * handled above this makes the the highest family type the one that
-	     * is not MODEL_ALL.
-	     */
-	    if(CPU_SUBTYPE_INTEL_MODEL(cpusubtype1) ==
-	       CPU_SUBTYPE_INTEL_MODEL_ALL)
-		return(cpusubtype2);
-	    if(CPU_SUBTYPE_INTEL_MODEL(cpusubtype2) ==
-	       CPU_SUBTYPE_INTEL_MODEL_ALL)
-		return(cpusubtype1);
-	    /*
-	     * For all other families and models they must match exactly to
-	     * combine and since that test was done at the start of this routine
-	     * we know these do not match and do not combine.
-	     */
-	    return((cpu_subtype_t)-1);
-	    break; /* logically can't get here */
-
 	case CPU_TYPE_MC680x0:
 	    if(cpusubtype1 != CPU_SUBTYPE_MC680x0_ALL &&
 	       cpusubtype1 != CPU_SUBTYPE_MC68030_ONLY &&

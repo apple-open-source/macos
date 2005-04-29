@@ -1,16 +1,16 @@
 /***************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
  * are also available at http://curl.haxx.se/docs/copyright.html.
- * 
+ *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
  * furnished to do so, under the terms of the COPYING file.
@@ -18,10 +18,12 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: dict.c,v 1.1.1.3 2002/11/26 19:07:49 zarzycki Exp $
+ * $Id: dict.c,v 1.39 2005/02/09 13:06:40 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
+
+#ifndef CURL_DISABLE_DICT
 
 /* -- WIN32 approved -- */
 #include <stdio.h>
@@ -29,13 +31,16 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <ctype.h>
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
+#endif
 
 #include <errno.h>
 
 #if defined(WIN32) && !defined(__GNUC__) || defined(__MINGW32__)
-#include <winsock.h>
 #include <time.h>
 #include <io.h>
 #else
@@ -44,7 +49,6 @@
 #endif
 #include <netinet/in.h>
 #include <sys/time.h>
-#include <sys/resource.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -76,13 +80,13 @@
 
 #include "progress.h"
 #include "strequal.h"
+#include "dict.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
 
-CURLcode Curl_dict(struct connectdata *conn)
+CURLcode Curl_dict(struct connectdata *conn, bool *done)
 {
-  int nth;
   char *word;
   char *ppath;
   char *database = NULL;
@@ -91,9 +95,12 @@ CURLcode Curl_dict(struct connectdata *conn)
                           by RFC 2229 */
   CURLcode result=CURLE_OK;
   struct SessionHandle *data=conn->data;
+  curl_socket_t sockfd = conn->sock[FIRSTSOCKET];
 
   char *path = conn->path;
-  long *bytecount = &conn->bytecount;
+  curl_off_t *bytecount = &conn->bytecount;
+
+  *done = TRUE; /* unconditionally */
 
   if(conn->bits.user_passwd) {
     /* AUTH is missing */
@@ -102,7 +109,7 @@ CURLcode Curl_dict(struct connectdata *conn)
   if (strnequal(path, DICT_MATCH, sizeof(DICT_MATCH)-1) ||
       strnequal(path, DICT_MATCH2, sizeof(DICT_MATCH2)-1) ||
       strnequal(path, DICT_MATCH3, sizeof(DICT_MATCH3)-1)) {
-      
+
     word = strchr(path, ':');
     if (word) {
       word++;
@@ -119,7 +126,7 @@ CURLcode Curl_dict(struct connectdata *conn)
         }
       }
     }
-      
+
     if ((word == NULL) || (*word == (char)0)) {
       failf(data, "lookup word is missing");
     }
@@ -129,21 +136,15 @@ CURLcode Curl_dict(struct connectdata *conn)
     if ((strategy == NULL) || (*strategy == (char)0)) {
       strategy = (char *)".";
     }
-    if ((nthdef == NULL) || (*nthdef == (char)0)) {
-      nth = 0;
-    }
-    else {
-      nth = atoi(nthdef);
-    }
-      
-    result = Curl_sendf(conn->firstsocket, conn,
-                        "CLIENT " LIBCURL_NAME " " LIBCURL_VERSION "\n"
+
+    result = Curl_sendf(sockfd, conn,
+                        "CLIENT " LIBCURL_NAME " " LIBCURL_VERSION "\r\n"
                         "MATCH "
                         "%s "    /* database */
                         "%s "    /* strategy */
-                        "%s\n"   /* word */
-                        "QUIT\n",
-                        
+                        "%s\r\n" /* word */
+                        "QUIT\r\n",
+
                         database,
                         strategy,
                         word
@@ -151,15 +152,15 @@ CURLcode Curl_dict(struct connectdata *conn)
     if(result)
       failf(data, "Failed sending DICT request");
     else
-      result = Curl_Transfer(conn, conn->firstsocket, -1, FALSE, bytecount,
-                             -1, NULL); /* no upload */      
+      result = Curl_Transfer(conn, FIRSTSOCKET, -1, FALSE, bytecount,
+                             -1, NULL); /* no upload */
     if(result)
       return result;
   }
   else if (strnequal(path, DICT_DEFINE, sizeof(DICT_DEFINE)-1) ||
            strnequal(path, DICT_DEFINE2, sizeof(DICT_DEFINE2)-1) ||
            strnequal(path, DICT_DEFINE3, sizeof(DICT_DEFINE3)-1)) {
-    
+
     word = strchr(path, ':');
     if (word) {
       word++;
@@ -172,57 +173,51 @@ CURLcode Curl_dict(struct connectdata *conn)
         }
       }
     }
-      
+
     if ((word == NULL) || (*word == (char)0)) {
       failf(data, "lookup word is missing");
     }
     if ((database == NULL) || (*database == (char)0)) {
       database = (char *)"!";
     }
-    if ((nthdef == NULL) || (*nthdef == (char)0)) {
-      nth = 0;
-    }
-    else {
-      nth = atoi(nthdef);
-    }
-      
-    result = Curl_sendf(conn->firstsocket, conn,
-                        "CLIENT " LIBCURL_NAME " " LIBCURL_VERSION "\n"
+
+    result = Curl_sendf(sockfd, conn,
+                        "CLIENT " LIBCURL_NAME " " LIBCURL_VERSION "\r\n"
                         "DEFINE "
                         "%s "     /* database */
-                        "%s\n"    /* word */
-                        "QUIT\n",
+                        "%s\r\n"  /* word */
+                        "QUIT\r\n",
                         database,
                         word);
     if(result)
       failf(data, "Failed sending DICT request");
     else
-      result = Curl_Transfer(conn, conn->firstsocket, -1, FALSE, bytecount,
+      result = Curl_Transfer(conn, FIRSTSOCKET, -1, FALSE, bytecount,
                              -1, NULL); /* no upload */
-    
+
     if(result)
       return result;
-      
+
   }
   else {
-      
+
     ppath = strchr(path, '/');
     if (ppath) {
       int i;
-	
+
       ppath++;
       for (i = 0; ppath[i]; i++) {
         if (ppath[i] == ':')
           ppath[i] = ' ';
       }
-      result = Curl_sendf(conn->firstsocket, conn,
-                          "CLIENT " LIBCURL_NAME " " LIBCURL_VERSION "\n"
-                          "%s\n"
-                          "QUIT\n", ppath);
+      result = Curl_sendf(sockfd, conn,
+                          "CLIENT " LIBCURL_NAME " " LIBCURL_VERSION "\r\n"
+                          "%s\r\n"
+                          "QUIT\r\n", ppath);
       if(result)
         failf(data, "Failed sending DICT request");
       else
-        result = Curl_Transfer(conn, conn->firstsocket, -1, FALSE, bytecount,
+        result = Curl_Transfer(conn, FIRSTSOCKET, -1, FALSE, bytecount,
                                -1, NULL);
       if(result)
         return result;
@@ -231,11 +226,4 @@ CURLcode Curl_dict(struct connectdata *conn)
 
   return CURLE_OK;
 }
-
-/*
- * local variables:
- * eval: (load-file "../curl-mode.el")
- * end:
- * vim600: fdm=marker
- * vim: et sw=2 ts=2 sts=2 tw=78
- */
+#endif /*CURL_DISABLE_DICT*/

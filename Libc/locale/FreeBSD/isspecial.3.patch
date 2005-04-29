@@ -1,0 +1,12 @@
+--- isspecial.3.orig	Fri Mar 11 19:25:22 2005
++++ isspecial.3	Fri Mar 11 19:26:16 2005
+@@ -48,7 +48,8 @@
+ returns non-zero if the character tests true.
+ .Sh SEE ALSO
+ .Xr ctype 3 ,
+-.Xr iswspecial 3
++.Xr iswspecial 3 ,
++.Xr isalnum_l
+ .Sh HISTORY
+ The
+ .Fn isspecial

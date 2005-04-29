@@ -23,6 +23,8 @@
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 // THE USE OR PERFORMANCE OF THIS SOFTWARE.
 //
+// $XFree86: xc/programs/xkbcomp/geometry/sgi/indigo,v 3.4 2003/10/24 20:38:20 tsi Exp $
+//
 default xkb_geometry "pc101" {
 
     // This is an approximate layout for a 101-key (US/ASCII) SGI
@@ -158,9 +160,9 @@ default xkb_geometry "pc101" {
     indicator.offColor= "green30";
     indicator.top= 64.5;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 386; };
-    indicator "CapsLock"    { left= 411; };
-    indicator "ScrollLock"  { left= 436; };
+    indicator "Num Lock"     { left= 386; };
+    indicator "Caps Lock"    { left= 411; };
+    indicator "Scroll Lock"  { left= 436; };
     text.top= 52;
     text.color= "black";
     text "NumLockLabel"		{ left= 382.5; text="Num\nLock"; };
@@ -354,9 +356,9 @@ xkb_geometry "pc102" {
     indicator.offColor= "green30";
     indicator.top= 64.5;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 384; };
-    indicator "CapsLock"    { left= 409; };
-    indicator "ScrollLock"  { left= 434; };
+    indicator "Num Lock"     { left= 384; };
+    indicator "Caps Lock"    { left= 409; };
+    indicator "Scroll Lock"  { left= 434; };
     text.top= 52;
     text.color= "black";
     text "NumLockLabel"		{ left= 380.5; text="Num\nLock"; };

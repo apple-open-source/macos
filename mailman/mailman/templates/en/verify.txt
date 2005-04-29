@@ -16,7 +16,7 @@ Note that simply sending a `reply' to this message should work from
 most mail readers, since that usually leaves the Subject: line in
 the right form (additional "Re:" text in the Subject: is okay).
 
-If you do not wish to be subscribed from this list, please simply
+If you do not wish to be subscribed to this list, please simply
 disregard this message.  If you think you are being maliciously
 subscribed to the list, or have any other questions, send them to
 %(listadmin)s.

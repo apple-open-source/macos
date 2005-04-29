@@ -1,0 +1,943 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		0163D35A00AFC78E896F146B = {
+			buildRules = (
+			);
+			buildSettings = {
+				TEMP_DIR = "${OBJROOT}/Development.build/$(PROJECT_NAME).build/$(TARGET_NAME).build";
+				UNSTRIPPED_PRODUCT = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		0163D35B00AFC78E896F146B = {
+			buildRules = (
+			);
+			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				DEPLOYMENT_LOCATION = YES;
+				DEPLOYMENT_POSTPROCESSING = YES;
+				INSTALL_ROOT = "${SRCROOT}/../";
+				OPTIMIZATION_CFLAGS = "-Os -mcpu=750";
+				TEMP_DIR = "${OBJROOT}/Deployment.build/$(PROJECT_NAME).build/$(TARGET_NAME).build";
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		0163D3AB00AFC8D7896F146B = {
+			children = (
+				0163D3AC00AFC8D7896F146B,
+				0163D3AD00AFC8D7896F146B,
+				0163D3EF00AFCCFE896F146B,
+				0163D3AE00AFC8D7896F146B,
+				0163D3AF00AFC8D7896F146B,
+				0163D3B000AFC8D7896F146B,
+				0163D3B100AFC8D7896F146B,
+				F562017A00E8330B016F146B,
+			);
+			isa = PBXGroup;
+			path = Headers;
+			refType = 4;
+		};
+		0163D3AC00AFC8D7896F146B = {
+			isa = PBXFileReference;
+			path = MW_TclAE.pch;
+			refType = 4;
+		};
+		0163D3AD00AFC8D7896F146B = {
+			isa = PBXFileReference;
+			path = MW_TclAE_Carbon.pch;
+			refType = 4;
+		};
+		0163D3AE00AFC8D7896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAE.h;
+			refType = 4;
+		};
+		0163D3AF00AFC8D7896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEid.h;
+			refType = 4;
+		};
+		0163D3B000AFC8D7896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEInt.h;
+			refType = 4;
+		};
+		0163D3B100AFC8D7896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclMacOSError.h;
+			refType = 4;
+		};
+		0163D3B600AFC909896F146B = {
+			children = (
+				0163D3BD00AFC909896F146B,
+				0163D3B700AFC909896F146B,
+				0163D3B800AFC909896F146B,
+				F7D130C2041F8EB300A80003,
+				0163D3B900AFC909896F146B,
+				0163D3BA00AFC909896F146B,
+				0163D3BB00AFC909896F146B,
+				0163D3BE00AFC909896F146B,
+			);
+			isa = PBXGroup;
+			path = Sources;
+			refType = 4;
+		};
+		0163D3B700AFC909896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEBuild.c;
+			refType = 4;
+		};
+		0163D3B800AFC909896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEDesc.c;
+			refType = 4;
+		};
+		0163D3B900AFC909896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEHandler.c;
+			refType = 4;
+		};
+		0163D3BA00AFC909896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEInit.c;
+			refType = 4;
+		};
+		0163D3BB00AFC909896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEObjects.c;
+			refType = 4;
+		};
+		0163D3BD00AFC909896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEAddress.c;
+			refType = 4;
+		};
+		0163D3BE00AFC909896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclMacOSError.c;
+			refType = 4;
+		};
+		0163D3C700AFC96C896F146B = {
+			children = (
+				0163D3C800AFC96C896F146B,
+				F5E09A4800E89C91016F146B,
+				F5D9263C00EAF9DF016F146B,
+				F5E09A5000E89CF3016F146B,
+				F5D9263300EAF755016F146B,
+				F54F6AEA02A16593016F146B,
+			);
+			isa = PBXGroup;
+			path = Resources;
+			refType = 4;
+		};
+		0163D3C800AFC96C896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = TclAE.r;
+			refType = 4;
+		};
+		0163D3CB00AFC99C896F146B = {
+			isa = PBXFileReference;
+			path = aete.tcl;
+			refType = 4;
+		};
+		0163D3CC00AFC99C896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclIndex;
+			refType = 4;
+		};
+		0163D3CD00AFC9D4896F146B = {
+			children = (
+				F725687B04427D7B0006B583,
+				F7D130C7041F8F7500A80003,
+				0163D3CB00AFC99C896F146B,
+				F7D130C6041F8F7500A80003,
+				0163D3CC00AFC99C896F146B,
+			);
+			isa = PBXGroup;
+			path = Tcl;
+			refType = 4;
+		};
+		0163D3D800AFCA90896F146B = {
+			children = (
+				0163D3DA00AFCA90896F146B,
+			);
+			isa = PBXGroup;
+			name = Help;
+			path = "../for Alpha/Help";
+			refType = 4;
+		};
+		0163D3DA00AFCA90896F146B = {
+			children = (
+				0163D3DB00AFCA90896F146B,
+				F7D130C8041F8FD300A80003,
+				F7D130D0041F8FF600A80003,
+				0163D3DD00AFCA90896F146B,
+				0163D3DE00AFCA90896F146B,
+				0163D3DF00AFCA90896F146B,
+				F7D130CD041F8FF500A80003,
+				F7D130CE041F8FF500A80003,
+				F7D130CF041F8FF500A80003,
+			);
+			isa = PBXGroup;
+			path = "TclAE Help";
+			refType = 4;
+		};
+		0163D3DB00AFCA90896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = index.html;
+			refType = 4;
+		};
+		0163D3DD00AFCA90896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEdesc.html;
+			refType = 4;
+		};
+		0163D3DE00AFCA90896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEglossary.html;
+			refType = 4;
+		};
+		0163D3DF00AFCA90896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEhandler.html;
+			refType = 4;
+		};
+		0163D3E200AFCACA896F146B = {
+			children = (
+				0163D3E300AFCACA896F146B,
+				0163D3E400AFCACA896F146B,
+				0163D3E500AFCACA896F146B,
+				0163D3E700AFCACA896F146B,
+			);
+			isa = PBXGroup;
+			name = Tests;
+			path = ../Tests;
+			refType = 4;
+		};
+		0163D3E300AFCACA896F146B = {
+			isa = PBXFileReference;
+			path = tclAEBuild.test;
+			refType = 4;
+		};
+		0163D3E400AFCACA896F146B = {
+			isa = PBXFileReference;
+			path = tclAEDesc.test;
+			refType = 4;
+		};
+		0163D3E500AFCACA896F146B = {
+			isa = PBXFileReference;
+			path = tclAEHandler.test;
+			refType = 4;
+		};
+		0163D3E700AFCACA896F146B = {
+			isa = PBXFileReference;
+			path = tclAETarget.test;
+			refType = 4;
+		};
+		0163D3ED00AFCB10896F146B = {
+			isa = PBXFileReference;
+			name = libtclstub8.4.a;
+			path = /Library/Frameworks/Tcl.framework/libtclstub8.4.a;
+			refType = 0;
+		};
+		0163D3EF00AFCCFE896F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MW_TclAE_CarbonX.h;
+			refType = 4;
+		};
+//010
+//011
+//012
+//013
+//014
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				0163D35A00AFC78E896F146B,
+				0163D35B00AFC78E896F146B,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				F587F33C00EADB64016F146B,
+				F57109EE00E81598016F146B,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				0163D3AB00AFC8D7896F146B,
+				0163D3B600AFC909896F146B,
+				F54E290201B719C6016F146B,
+				0163D3C700AFC96C896F146B,
+				0163D3CD00AFC9D4896F146B,
+				0163D3D800AFCA90896F146B,
+				0163D3E200AFCACA896F146B,
+				089C1671FE841209C02AAC07,
+				19C28FB4FE9D528D11CA2CBB,
+			);
+			isa = PBXGroup;
+			name = TclAE;
+			refType = 4;
+		};
+		089C1671FE841209C02AAC07 = {
+			children = (
+				F52717E0029E25EF016F146B,
+				08EA7FFBFE8413EDC02AAC07,
+				0163D3ED00AFCB10896F146B,
+				F56EB7040332112C016F146B,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+		};
+		08EA7FFBFE8413EDC02AAC07 = {
+			isa = PBXFrameworkReference;
+			name = Carbon.framework;
+			path = /System/Library/Frameworks/Carbon.framework;
+			refType = 0;
+		};
+//080
+//081
+//082
+//083
+//084
+//190
+//191
+//192
+//193
+//194
+		19C28FB4FE9D528D11CA2CBB = {
+			children = (
+				F57109ED00E81598016F146B,
+				F587F33B00EADB64016F146B,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//F50
+//F51
+//F52
+//F53
+//F54
+		F52717E0029E25EF016F146B = {
+			isa = PBXFrameworkReference;
+			name = ApplicationServices.framework;
+			path = /System/Library/Frameworks/ApplicationServices.framework;
+			refType = 0;
+		};
+		F52718B1029E2A3B016F146B = {
+			fileRef = 08EA7FFBFE8413EDC02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54E290201B719C6016F146B = {
+			children = (
+				F5710A0A00E82805016F146B,
+				F54E290301B719C6016F146B,
+			);
+			isa = PBXGroup;
+			path = Tools;
+			refType = 4;
+		};
+		F54E290301B719C6016F146B = {
+			children = (
+				F54E290401B719C6016F146B,
+				F54E290501B719C6016F146B,
+				F54E290601B719C6016F146B,
+			);
+			isa = PBXGroup;
+			path = AEGizmos;
+			refType = 4;
+		};
+		F54E290401B719C6016F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AEBuildCarbon.c;
+			refType = 4;
+		};
+		F54E290501B719C6016F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AEPrintCarbon.c;
+			refType = 4;
+		};
+		F54E290601B719C6016F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AEPrintCarbon.h;
+			refType = 4;
+		};
+		F54E290701B719C6016F146B = {
+			fileRef = F54E290601B719C6016F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54E290901B719C6016F146B = {
+			fileRef = F54E290501B719C6016F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54F6AEA02A16593016F146B = {
+			isa = PBXExecutableFileReference;
+			path = macRoman2utf8.tcl;
+			refType = 4;
+		};
+		F562017A00E8330B016F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = TclAE_X.exp;
+			refType = 2;
+		};
+		F56299ED00EB8A91016F146B = {
+			fileRef = 0163D3CB00AFC99C896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56EB7040332112C016F146B = {
+			isa = PBXFrameworkReference;
+			name = Tcl.framework;
+			path = /Library/Frameworks/Tcl.framework;
+			refType = 0;
+		};
+		F56EB89E03322002016F146B = {
+			buildActionMask = 8;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# ensure we can overwrite a previous install\nif [ -d \"${INSTALL_ROOT}${INSTALL_PATH}/${PRODUCT_NAME}.${WRAPPER_EXTENSION}\" ]; then\n    chmod -RH u+w \"${INSTALL_ROOT}${INSTALL_PATH}/${PRODUCT_NAME}.${WRAPPER_EXTENSION}\"\nfi";
+		};
+		F57109ED00E81598016F146B = {
+			isa = PBXLibraryReference;
+			path = tclAE2.0.dylib;
+			refType = 3;
+		};
+		F57109EE00E81598016F146B = {
+			buildPhases = (
+				F57109EF00E81598016F146B,
+				F57109F000E81598016F146B,
+				F57109F100E81598016F146B,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 2.0;
+				DYLIB_CURRENT_VERSION = 2.0;
+				DYLIB_INSTALLED_NAME = tclAE.dylib;
+				EXPORTED_SYMBOLS_FILE = TclAE_X.exp;
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = /Developer/Headers/FlatCarbon;
+				INSTALL_PATH = /Library/Tcl/tclAE2.0/Contents/MacOS/;
+				LIBRARY_SEARCH_PATHS = /Library/Frameworks/Tcl.framework;
+				LIBRARY_STYLE = DYNAMIC;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-DTCLAE_USE_FRAMEWORK_INCLUDES";
+				OTHER_LDFLAGS = "-ltclstub8.4 -seg1addr 0x8000000";
+				PREBINDING = YES;
+				PRECOMPILE_PREFIX_HEADER = YES;
+				PREFIX_HEADER = Headers/MW_TclAE_CarbonX.h;
+				PRODUCT_NAME = tclAE2.0.dylib;
+				REZ_EXECUTABLE = YES;
+				SKIP_INSTALL = YES;
+				TCLSH_PROG = /usr/bin/tclsh;
+				USE_GCC3_PFE_SUPPORT = YES;
+				WARNING_CFLAGS = "-Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = TclAELibrary;
+			productInstallPath = /Library/Tcl/tclAE2.0/Contents/MacOS/;
+			productName = TclAE.dylib;
+			productReference = F57109ED00E81598016F146B;
+		};
+		F57109EF00E81598016F146B = {
+			buildActionMask = 2147483647;
+			files = (
+				F57109F300E815E1016F146B,
+				F57109F400E815E1016F146B,
+				F57109F500E815E1016F146B,
+				F57109F600E815E1016F146B,
+				F57109F700E815E1016F146B,
+				F5710A0C00E8283E016F146B,
+				F54E290701B719C6016F146B,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F57109F000E81598016F146B = {
+			buildActionMask = 2147483647;
+			files = (
+				F57109F800E815E1016F146B,
+				F57109F900E815E1016F146B,
+				F57109FA00E815E1016F146B,
+				F57109FB00E815E1016F146B,
+				F57109FC00E815E1016F146B,
+				F57109FE00E815E1016F146B,
+				F57109FF00E815E1016F146B,
+				F5710A0E00E8289D016F146B,
+				F54E290901B719C6016F146B,
+				F7D130C3041F8EB300A80003,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F57109F100E81598016F146B = {
+			buildActionMask = 2147483647;
+			files = (
+				F52718B1029E2A3B016F146B,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F57109F300E815E1016F146B = {
+			fileRef = 0163D3EF00AFCCFE896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109F400E815E1016F146B = {
+			fileRef = 0163D3AE00AFC8D7896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109F500E815E1016F146B = {
+			fileRef = 0163D3AF00AFC8D7896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109F600E815E1016F146B = {
+			fileRef = 0163D3B000AFC8D7896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109F700E815E1016F146B = {
+			fileRef = 0163D3B100AFC8D7896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109F800E815E1016F146B = {
+			fileRef = 0163D3B700AFC909896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109F900E815E1016F146B = {
+			fileRef = 0163D3B800AFC909896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109FA00E815E1016F146B = {
+			fileRef = 0163D3B900AFC909896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109FB00E815E1016F146B = {
+			fileRef = 0163D3BA00AFC909896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109FC00E815E1016F146B = {
+			fileRef = 0163D3BB00AFC909896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109FE00E815E1016F146B = {
+			fileRef = 0163D3BD00AFC909896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57109FF00E815E1016F146B = {
+			fileRef = 0163D3BE00AFC909896F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5710A0A00E82805016F146B = {
+			children = (
+				F5710A0D00E8289D016F146B,
+				F5710A0B00E8283E016F146B,
+			);
+			isa = PBXGroup;
+			path = osxMacTcl;
+			refType = 4;
+		};
+		F5710A0B00E8283E016F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = osxMacTcl.h;
+			refType = 4;
+		};
+		F5710A0C00E8283E016F146B = {
+			fileRef = F5710A0B00E8283E016F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5710A0D00E8289D016F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = osxMacTcl.c;
+			refType = 4;
+		};
+		F5710A0E00E8289D016F146B = {
+			fileRef = F5710A0D00E8289D016F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F587F33B00EADB64016F146B = {
+			isa = PBXBundleReference;
+			path = tclAE2.0;
+			refType = 3;
+		};
+		F587F33C00EADB64016F146B = {
+			buildPhases = (
+				F56EB89E03322002016F146B,
+				F587F33F00EADB64016F146B,
+				F587F35000EADBCE016F146B,
+				F5D9264500EB00C6016F146B,
+				F5D9263A00EAF8F2016F146B,
+			);
+			buildSettings = {
+				INSTALL_PATH = .;
+				PRODUCT_NAME = tclAE2;
+				WRAPPER_EXTENSION = 0;
+			};
+			dependencies = (
+				F587F33D00EADB64016F146B,
+			);
+			isa = PBXBundleTarget;
+			name = TclAE;
+			productInstallPath = .;
+			productName = TclAE.bundle;
+			productReference = F587F33B00EADB64016F146B;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>tclAE2.0.dylib</string>
+	<key>CFBundleGetInfoString</key>
+	<string>tclAE version 2.0, Copyright © 1990-2004 by Jonathan E. Guyer, Daniel A. Steffen, Peter J. Keleher &amp; Tim Endres.</string>
+	<key>CFBundleIconFile</key>
+	<string>tclAE.icns</string>
+	<key>CFBundleIdentifier</key>
+	<string>net.jguyer.tclae</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>tclAE</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.0</string>
+	<key>CFBundleSignature</key>
+	<string>MACS</string>
+	<key>CFBundleVersion</key>
+	<string>2.0</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 1990-2004 by Jonathan E. Guyer, Daniel A. Steffen, Peter J. Keleher &amp; Tim Endres.</string>
+</dict>
+</plist>
+";
+		};
+		F587F33D00EADB64016F146B = {
+			isa = PBXTargetDependency;
+			target = F57109EE00E81598016F146B;
+		};
+		F587F33F00EADB64016F146B = {
+			buildActionMask = 2147483647;
+			files = (
+				F5D9263E00EAF9DF016F146B,
+				F587F34A00EADB64016F146B,
+				F56299ED00EB8A91016F146B,
+				F7D130D1041F907900A80003,
+				F7D130D3041F907C00A80003,
+				F725687C04427D7B0006B583,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F587F34A00EADB64016F146B = {
+			fileRef = F5E09A5000E89CF3016F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F587F35000EADBCE016F146B = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				F587F35100EADBCE016F146B,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F587F35100EADBCE016F146B = {
+			fileRef = F57109ED00E81598016F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5D9263300EAF755016F146B = {
+			children = (
+				F5D9263600EAF790016F146B,
+				F5D9263B00EAF98A016F146B,
+			);
+			isa = PBXGroup;
+			path = tclAEClassic;
+			refType = 4;
+		};
+		F5D9263600EAF790016F146B = {
+			children = (
+				F5D9263700EAF790016F146B,
+			);
+			isa = PBXGroup;
+			path = Contents;
+			refType = 4;
+		};
+		F5D9263700EAF790016F146B = {
+			children = (
+				F5D9263800EAF790016F146B,
+			);
+			isa = PBXGroup;
+			path = MacOSClassic;
+			refType = 4;
+		};
+		F5D9263800EAF790016F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAE2.0;
+			refType = 4;
+		};
+		F5D9263A00EAF8F2016F146B = {
+			buildActionMask = 12;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "${SYSTEM_DEVELOPER_DIR}/Tools/SetFile -a B \"${TARGET_BUILD_DIR}/${PRODUCT_NAME}.${WRAPPER_EXTENSION}\"\n/bin/chmod a+x \"${SRCROOT}/Resources/macRoman2utf8.tcl\"\n\"${TCLSH_PROG}\" \"${SRCROOT}/Resources/macRoman2utf8.tcl\" \"${TARGET_BUILD_DIR}/${PRODUCT_NAME}.${WRAPPER_EXTENSION}/Contents/Resources/\"*.tcl";
+		};
+		F5D9263B00EAF98A016F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAE2.0;
+			refType = 4;
+		};
+		F5D9263C00EAF9DF016F146B = {
+			children = (
+				F5D9263D00EAF9DF016F146B,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = English.lproj;
+			refType = 4;
+		};
+		F5D9263D00EAF9DF016F146B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = English;
+			path = InfoPlist.strings;
+			refType = 4;
+		};
+		F5D9263E00EAF9DF016F146B = {
+			fileRef = F5D9263C00EAF9DF016F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5D9264500EB00C6016F146B = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 1;
+			files = (
+				F5D9264600EB00C6016F146B,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5D9264600EB00C6016F146B = {
+			fileRef = F5E09A4800E89C91016F146B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E09A4800E89C91016F146B = {
+			isa = PBXFileReference;
+			path = pkgIndex.tcl;
+			refType = 4;
+		};
+		F5E09A5000E89CF3016F146B = {
+			isa = PBXFileReference;
+			path = tclAE.icns;
+			refType = 4;
+		};
+//F50
+//F51
+//F52
+//F53
+//F54
+//F70
+//F71
+//F72
+//F73
+//F74
+		F725687B04427D7B0006B583 = {
+			isa = PBXFileReference;
+			path = aebuild.tcl;
+			refType = 4;
+		};
+		F725687C04427D7B0006B583 = {
+			fileRef = F725687B04427D7B0006B583;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7D130C2041F8EB300A80003 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEDescObj.c;
+			refType = 4;
+		};
+		F7D130C3041F8EB300A80003 = {
+			fileRef = F7D130C2041F8EB300A80003;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7D130C6041F8F7500A80003 = {
+			isa = PBXFileReference;
+			path = oserrors.tcl;
+			refType = 4;
+		};
+		F7D130C7041F8F7500A80003 = {
+			isa = PBXFileReference;
+			path = aelegacy.tcl;
+			refType = 4;
+		};
+		F7D130C8041F8FD300A80003 = {
+			children = (
+				F7D130CA041F8FD300A80003,
+				F7D130CB041F8FD300A80003,
+				F7D130CC041F8FD300A80003,
+			);
+			isa = PBXGroup;
+			path = style;
+			refType = 4;
+		};
+		F7D130CA041F8FD300A80003 = {
+			isa = PBXFileReference;
+			path = Alpha.png;
+			refType = 4;
+		};
+		F7D130CB041F8FD300A80003 = {
+			isa = PBXFileReference;
+			path = tclae.css;
+			refType = 4;
+		};
+		F7D130CC041F8FD300A80003 = {
+			isa = PBXFileReference;
+			path = velum.png;
+			refType = 4;
+		};
+		F7D130CD041F8FF500A80003 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAElegacy.html;
+			refType = 4;
+		};
+		F7D130CE041F8FF500A80003 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEobjects.html;
+			refType = 4;
+		};
+		F7D130CF041F8FF500A80003 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEsend.html;
+			refType = 4;
+		};
+		F7D130D0041F8FF600A80003 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclAEcheaters.html;
+			refType = 4;
+		};
+		F7D130D1041F907900A80003 = {
+			fileRef = F7D130C7041F8F7500A80003;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7D130D3041F907C00A80003 = {
+			fileRef = F7D130C6041F8F7500A80003;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

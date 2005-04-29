@@ -1,0 +1,84 @@
+--- wcscoll.c.orig	2004-11-25 11:38:47.000000000 -0800
++++ wcscoll.c	2005-02-18 18:17:11.000000000 -0800
+@@ -27,13 +27,15 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/string/wcscoll.c,v 1.3 2004/04/07 09:47:56 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <errno.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <wchar.h>
+ #include "collate.h"
+ 
+-static char *__mbsdup(const wchar_t *);
++static char *__mbsdup(const wchar_t *, locale_t);
+ 
+ /*
+  * Placeholder implementation of wcscoll(). Attempts to use the single-byte
+@@ -41,12 +43,13 @@
+  * with extended character sets.
+  */
+ int
+-wcscoll(const wchar_t *ws1, const wchar_t *ws2)
++wcscoll_l(const wchar_t *ws1, const wchar_t *ws2, locale_t loc)
+ {
+ 	char *mbs1, *mbs2;
+ 	int diff, sverrno;
+ 
+-	if (__collate_load_error || MB_CUR_MAX > 1)
++	NORMALIZE_LOCALE(loc);
++	if (loc->__collate_load_error || MB_CUR_MAX_L(loc) > 1)
+ 		/*
+ 		 * Locale has no special collating order, could not be
+ 		 * loaded, or has an extended character set; do a fast binary
+@@ -54,7 +57,7 @@
+ 		 */
+ 		return (wcscmp(ws1, ws2));
+ 
+-	if ((mbs1 = __mbsdup(ws1)) == NULL || (mbs2 = __mbsdup(ws2)) == NULL) {
++	if ((mbs1 = __mbsdup(ws1, loc)) == NULL || (mbs2 = __mbsdup(ws2, loc)) == NULL) {
+ 		/*
+ 		 * Out of memory or illegal wide chars; fall back to wcscmp()
+ 		 * but leave errno indicating the error. Callers that don't
+@@ -67,7 +70,7 @@
+ 		return (wcscmp(ws1, ws2));
+ 	}
+ 
+-	diff = strcoll(mbs1, mbs2);
++	diff = strcoll_l(mbs1, mbs2, loc);
+ 	sverrno = errno;
+ 	free(mbs1);
+ 	free(mbs2);
+@@ -76,8 +79,14 @@
+ 	return (diff);
+ }
+ 
++int
++wcscoll(const wchar_t *ws1, const wchar_t *ws2)
++{
++	return wcscoll_l(ws1, ws2, __current_locale());
++}
++
+ static char *
+-__mbsdup(const wchar_t *ws)
++__mbsdup(const wchar_t *ws, locale_t loc)
+ {
+ 	static const mbstate_t initial;
+ 	mbstate_t st;
+@@ -87,12 +96,12 @@
+ 
+ 	wcp = ws;
+ 	st = initial;
+-	if ((len = wcsrtombs(NULL, &wcp, 0, &st)) == (size_t)-1)
++	if ((len = wcsrtombs_l(NULL, &wcp, 0, &st, loc)) == (size_t)-1)
+ 		return (NULL);
+ 	if ((mbs = malloc(len + 1)) == NULL)
+ 		return (NULL);
+ 	st = initial;
+-	wcsrtombs(mbs, &ws, len + 1, &st);
++	wcsrtombs_l(mbs, &ws, len + 1, &st, loc);
+ 
+ 	return (mbs);
+ }

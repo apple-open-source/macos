@@ -1,0 +1,894 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+   <TITLE></TITLE>
+   <META NAME="Author" CONTENT="">
+   <META NAME="GENERATOR" CONTENT="Mozilla/3.01Gold (Win95; I) [Netscape]">
+</HEAD>
+<BODY>
+
+<H1>Tclodbc v. 2.3 Reference</H1>
+
+<H2>Contents</H2>
+
+<UL>
+<LI><A HREF="#Loading">Installing and Loading the Package</A></LI>
+
+<LI><A HREF="#Connection">Creating a Database Connection</A></LI>
+
+<LI><A HREF="#Database">Database Object</A></LI>
+
+<LI><A HREF="#Statement">Statement Object</A></LI>
+
+<LI><A HREF="#Changes">Changes from previous versions</A></LI>
+</UL>
+
+<H1>
+<HR WIDTH="100%"><A NAME="Loading"></A>Installing and Loading the Package</H1>
+
+<P>The extension is actually a shared function library. The actual form
+of such library depends of the used operating system. For example, in windows
+systems these libraries have the extension .dll in their name. The tclodbc
+library is thus names tclodbc.dll under windows. </P>
+
+<P>The extension is installed as a tcl package. The installation is most
+easily done with an included installation script, <I>setup.tcl</I>. </P>
+
+<P>After installation the extension is loaded simply by command:</P>
+
+<P><B><TT>package require tclodbc</TT></B></P>
+
+<P>This command adds the command <I><TT>database </TT></I>to the tcl command
+interpreter (or actually loads the package on demand). Command <I><TT>database
+</TT></I>is used for creating database connection objects as well as for
+configuring the system data sources.</P>
+
+<H2>Quick start for windows users</H2>
+
+<P>Unzip the distribution file to an arbitrary directory. With pkunzip,
+switch -d is required to create subdirectories. After that, run the installation
+script. </P>
+
+<P><TT>c:\temp&gt;<B>pkunzip -d tclodbc.zip</B></TT></P>
+
+<P><TT>c:\temp&gt;<B>tclsh setup.tcl <BR>
+</B>Installation successful.</TT></P>
+
+<H1>
+<HR WIDTH="100%"><A NAME="Connection"></A>Creating a Database Connection</H1>
+
+<P><B><TT>database connect <I>id datasource ?userid? ?password?<BR>
+</I></TT></B>or <BR>
+<B><TT>database connect <I>id connectionstring</I></TT></B></P>
+
+<UL>
+<P>Create a database object identified by id. The object is connected to
+a ODBC data source. The first form of the command is applied to a datasource
+name, with userid and password where neccessary. The second form uses a
+ODBC connection string of the form &quot;Attribute1=Value1;Attribute2=Value2&quot;.
+The command returns the id, which is used to refer to the database object.</P>
+
+<P>Example: <BR>
+<TT>% database connect db employeebase sysadm xxxxxx <BR>
+db</TT></P>
+
+<P>Example 2: <BR>
+<TT>% database connect db &quot;DRIVER=Microsoft Paradox Driver (*.db);DBQ=C:\\db&quot;
+<BR>
+db</TT></P>
+
+<P>This is the default command. The keyword &quot;connect&quot; can be
+omitted. It should be used when it is possible that given id may be one
+of the other command keywords.</P>
+</UL>
+
+<P><B><TT>database configure <I>operation driver attributes</I></TT></B></P>
+
+<UL>
+<P>Configure ODBC datasources. A datasource may be added to the system,
+reconfigured, or removed. First argument defines the operation from the
+set: </P>
+
+<UL>
+<LI>add_dsn - add datasource for current user </LI>
+
+<LI>config_dsn - config datasource </LI>
+
+<LI>remove_dsn - remove datasource </LI>
+
+<LI>add_sys_dsn - add system datasource, visible for all users </LI>
+
+<LI>config_sys_dsn - configure system datasource </LI>
+
+<LI>remove_sys_dsn - remove system datasource</LI>
+</UL>
+
+<P>Driver argument specifies the driver to be used and the attributes argument
+a list of driver specific attribute name and value pairs. Usually at least
+the data source name (DSN) parameter should be provided, the rest are driver
+dependent.</P>
+
+<P>This form of database command does not create a connection to the database,
+even if one is added. Connection is created with some of the commands described
+above.</P>
+
+<P>Example: <BR>
+<TT>% set driver &quot;Microsoft Access Driver (*.mdb)&quot; <BR>
+% set attributes [list &quot;DSN=mydsn&quot; &quot;DBQ=c:\mydb.mdb&quot;
+&quot;FIL=MS Access&quot;] <BR>
+% database -configure add_dsn $driver $attributes <BR>
+OK</TT></P>
+</UL>
+
+<P><B><TT>database datasources</TT></B></P>
+
+<UL>
+<P>Returns a list of currently configured ODBC data sources in pairs {{datasource
+name} {driver name}}</P>
+</UL>
+
+<P><B><TT>database drivers</TT></B></P>
+
+<UL>
+<P>Returns a list of currently configured ODBC drivers in pairs {{driver
+name} {list of driver attributes}}</P>
+</UL>
+
+<H1>
+<HR WIDTH="100%"><A NAME="Database"></A>Database Object Interface</H1>
+
+<P>Database object is a dynamically allocated object, created by the database
+command. The object provides the following methods. The methods are called
+as commands after the database object identifier.</P>
+
+<P><B><I><TT>&lt;any valid SQL-clause&gt; ?argtypedefs? ?args?</TT></I></B></P>
+
+<UL>
+<P>Almost all necessary functionality can be provided through this simple
+syntax. The given SQL-clause is executed in the DBMS, and the result, if
+any, is returned in a tcl list. </P>
+
+<P>If the command returns a single column result set, the returned string
+is a straightforward list or an empty string, if nothing is found. If the
+command returns a multiple column result set, a tcl list of lists is returned,
+where a sublist represents a single row of the result. If the SQL-clause
+does not return a result set (as with update, insert or delete clause), 
+the command returns an integer value giving the amount of rows touched.</P>
+
+<P>SQL-arguments may be given after the SQL-clause, while the argument
+positions are marked with '?' in the SQL- clause. This mechanism is more
+useful with precompiled statements and explained with statement object
+interface in detail. A simpler mechanism of argument substitution is the
+natural way of using tcl variables for substituting values straight to
+the SQL-clause. </P>
+
+<P>Examples: <BR>
+<TT>% database db employeebase sysadm xxxxxx <BR>
+db <BR>
+% set ids [db &quot;select id from employees where salary &lt; 1000&quot;] <BR>
+{222 333 444} <BR>
+% set id [lindex $ids 0] <BR>
+222 <BR>
+% db &quot;select firstname, surname from employees, where id = $id&quot;
+<BR>
+{{Jonathan Clarke}} <BR>
+% db &quot;update employees set salary = 2000 where id = $id&quot; <BR>
+1</TT></P>
+</UL>
+
+<P><B><TT>disconnect </TT></B></P>
+
+<UL>
+<P>disconnect disconnects the database object from the data source and
+clears it from the interpreter. </P>
+</UL>
+
+<UL>
+<P>Example: <BR>
+<TT>% database db employeebase sysadm xxxxxx <BR>
+db <BR>
+% db disconnect <BR>
+OK</TT></P>
+</UL>
+
+<P><B><TT>set <I>option value</I></TT></B></P>
+
+<UL>
+<P>Set command is used for setting various connection-specific attributes.
+Currently supported options and their valid values are listed in following
+table. Check some odbc reference for detailed description of the different
+options.</P>
+
+<CENTER><TABLE BORDER=1 CELLPADDING=5 >
+<TR>
+<TH><B><FONT SIZE=+1>Option</FONT></B></TH>
+
+<TH><B><FONT SIZE=+1>Values</FONT></B></TH>
+</TR>
+
+<TR>
+<TD><TT>autocommit</TT></TD>
+
+<TD><TT>boolean (0/1, on/off)</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>concurrency</TT></TD>
+
+<TD><TT>readonly<BR>
+lock<BR>
+values<BR>
+rowver</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>maxrows</TT></TD>
+
+<TD><TT>numeric value</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>timeout</TT></TD>
+
+<TD><TT>numeric value</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>maxlength</TT></TD>
+
+<TD><TT>numeric value</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>multisets</TT></TD>
+
+<TD><TT>boolean</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>rowsetsize</TT></TD>
+
+<TD><TT>numeric value</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>cursortype</TT></TD>
+
+<TD><TT>static<BR>
+dynamic<BR>
+forwardonly<BR>
+keysetdriven</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>encoding<BR>
+(requires tcl 8.1)</TT></TD>
+
+<TD><TT>any valid encoding name</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>noscan</TT></TD>
+
+<TD><TT>boolean (0/1, on/off)</TT></TD>
+</TR>
+</TABLE></CENTER>
+
+<P>In tcl 8.1 strings are stored in unicode form, but ODBC API uses only
+old-fashioned 8-bit character strings. Therefore it is possible to set
+an encoding to a database object. This encoding is used when transforming
+strings from and to the database. While encoding is a connection specific
+value, it is even possible to have simultaneous connection to databases
+with different encodings, and transfer data correctly from one to another.
+Encoding defaults to system encoding, which is suitable in most cases.
+</P>
+
+<P>For example: An ODBC-connection is by default in an autocommit-mode.
+This means that any statement is commited at once, thus leaving no records
+locked. If special transaction handling should be used, the connection
+may be set in non-autocommit mode. After this the commit and rollback methods
+are used for transaction handling.</P>
+
+<P>Examples: <BR>
+<TT>% database db artbase sysadm xxxxxx <BR>
+db <BR>
+% db set autocommit off <BR>
+OK <BR>
+% db &quot;update article set groupid=5 where artid &gt; 1000&quot; <BR>
+12 <BR>
+% db rollback <BR>
+OK <BR>
+% db &quot;update article set groupid=6 where artid &gt; 1000&quot; <BR>
+12 <BR>
+% db commit <BR>
+OK</TT></P>
+</UL>
+
+<P><B><TT>get <I>option</I></TT></B></P>
+
+<UL>
+<P>Get command is used for querying current value of various connection-specific
+attributes. Theck the table above for list of supported options. </P>
+</UL>
+
+<P><B><TT>commit </TT></B></P>
+
+<UL>
+<P>With connection in autocommit mode, method commit commits the current
+transaction. See examples in autocommit section.</P>
+</UL>
+
+<P><B><TT>rollback </TT></B></P>
+
+<UL>
+<P>With connection in autocommit mode, method rollback cancels the current
+transaction. See examples in autocommit section.</P>
+</UL>
+
+<P><B><TT>tables <I>?matchpattern?</I></TT></B></P>
+
+<UL>
+<P>Method tables lists all tables in the database which name matches argument. 
+Note, that match is determined using sql syntax, with % and _ as wildcards.
+With no argument, all tables are listed. The result is a list
+of kvintuples: {TABLE_QUALIFIER TABLE_OWNER TABLE_NAME TABLE_TYPE REMARKS}
+</P>
+</UL>
+
+<P><B><TT>columns <I>?tablename?</I></TT></B></P>
+
+<UL>
+<P>Method columns lists the columns in the database, or the columns in
+the specified table, if one given. The result is a list of: {TABLE_QUALIFIER
+TABLE_OWNER TABLE_NAME COLUMN_NAME DATA_TYPE TYPE_NAME PRECISION LENGTH
+SCALE RADIX NULLABLE REMARKS}</P>
+</UL>
+
+<P><B><TT>indexes <I>tablename</I></TT></B></P>
+
+<UL>
+<P>Method indexes lists the indexes of a specified table. The result is
+a list of: {TABLE_QUALIFIER TABLE_OWNER TABLE_NAME NON_UNIQUE INDEX_QUALIFIER
+INDEX_NAME TYPE SEQ_IN_INDEX COLUMN_NAME COLLATION CARDINALITY PAGES FILTER_CONDITION}</P>
+</UL>
+
+<P><B><TT>typeinfo <I>typeid</I></TT></B></P>
+
+<UL>
+<P>Method typeinfo returns driver specific information of given sql type.
+The information is a tuple of: {TYPE_NAME DATA_TYPE PRECISION LITERAL_PREFIX LITERAL_SUFFIX
+CREATE_PARAMS NULLABLE CASE_SENSITIVE SEARCHABLE UNSIGNED_ATTRIBUTE MONEY AUTO_INCREMENT LOCAL_TYPE_NAME
+MINIMUM_SCALE MAXIMUM_SCALE}</P>
+</UL>
+
+<P><B><TT>statement <I>id &lt;sql clause&gt;|tables|columns|typeinfo ?argtypedefs?
+</I></TT></B></P>
+
+<UL>
+<P>Method statement creates new statement objects of one of the three types:
+sql query, table query or column query, depending of the last argument:
+valid sql-clause, or an identifier 'tables' or 'columns'. </P>
+
+<P>Statements are similar to queries executed directly on a database object,
+but when created, statement it is merely precompiled for furher use. This
+is useful for efficiency reasons, should the same query be executed several
+times. Precompiled statements may be used with sql argumens.</P>
+
+<P>A statement is given a textual id similar to database object. Further,
+the statement object is called simply by its id, following possible query
+arguments. The command returns the id</P>
+
+<P>Tclodbc tries automatically determine proper argument types for each
+argument. Some drivers do not support this function, and therefore the
+user may explicitly define the correct argument types.</P>
+
+<P>The syntax of an argument type definition is the following:</P>
+
+<P>?type? ?scale? ?precision?</P>
+
+<P>The type cast is interpreted from the left, so that e.g. the scale and
+precision may be left out, if not needed. </P>
+
+<P>Currently recognised sql type names are standard types: </P>
+
+<UL>
+<LI>CHAR</LI>
+
+<LI>NUMERIC</LI>
+
+<LI>DECIMAL </LI>
+
+<LI>INTEGER </LI>
+
+<LI>SMALLINT</LI>
+
+<LI>FLOAT</LI>
+
+<LI>REAL</LI>
+
+<LI>DOUBLE</LI>
+
+<LI>VARCHAR </LI>
+</UL>
+
+<P>and the extended types: </P>
+
+<UL>
+<LI>DATE </LI>
+
+<LI>TIME </LI>
+
+<LI>TIMESTAMP</LI>
+
+<LI>LONGVARCHAR</LI>
+
+<LI>BINARY</LI>
+
+<LI>VARBINARY</LI>
+
+<LI>LONGVARBINARY</LI>
+
+<LI>BIGINT</LI>
+
+<LI>TINYINT</LI>
+
+<LI>BIT </LI>
+</UL>
+
+<P>Also datatypes standard numerical counterparts may be used instead of
+the string names.</P>
+
+<P>Examples: <BR>
+<TT>% db statement s &quot;select fullname from article where id=132&quot;
+<BR>
+s <BR>
+% s <BR>
+{FullName132} <BR>
+% db statement s2 &quot;select fullname from article where id1=?&quot;
+INTEGER<BR>
+s2 <BR>
+% s2 132 <BR>
+{FullName132} </TT></P>
+</UL>
+
+<P><B><TT>eval <I>proc &lt;sql clause&gt; ?argtypedefs? ?args?</I></TT></B></P>
+
+<UL>
+<P>Method eval first executes the given sql clause, and then evaluates
+the given tcl procedure for each row in the result set. The argument count
+of the procedure must match the column count in the query. Only single
+row is read in the memory at a time this saving memory compared to e.g:
+foreach i [db &quot;select...&quot;] {...}</P>
+
+<P>This command is particulary useful, when large tables are to be iterated
+once. In this case we do not neccessarily need a separate statement object,
+but also do not want to read the whole table to memory at one time. </P>
+
+<P>Example: <BR>
+<TT>% proc output {name value} {puts $name $value} <BR>
+% db eval output &quot;select name, value from table1&quot; <BR>
+{{ab 123}{cd 456}}</TT></P>
+</UL>
+
+<P><B><TT>read <I>arrayspec &lt;sql clause&gt; ?argtypedefs? ?args?</I></TT></B></P>
+
+<UL>
+<P>Method read reads data from the database to a tcl array or arrays. The
+first data columnn is used as index for the array, and the rest of the
+columns are stored as to the array. The basic case is a query that results
+two columns, first of which is a key of a table, and the next a description
+of some sort for the key value.</P>
+
+<P>The array may be specified in two ways. The first way is to specify
+a list of array names which are used for array names for each data column.
+Thus, the count of given names must be equal to the count of returned data
+columns (minus the first column containing the key). (Example 1) </P>
+
+<P>The second way is to specify only a single arrayname, which is used
+as two-dimensional array. The array index in this case is constructed from
+the key column value and column label, separated by comma. (Example 2)</P>
+
+<P>It should be noted, that it is not recommended to read large tables
+to arrays for two reasons. First, if the data is subject to changes in
+multi-user database, the changes do not reflect to the data already read
+in the array. The other thing is memory consumption. Is the table is large,
+it also consumes pretty much memory if read in at once. It is recommended
+to use either database eval command, or separate statement object to do
+the iteration of large amounts of data. On the other hand, this command
+provides a very simple syntax for reading relatively stable name-value
+parameter pairs to tcl array, from which they are easily referenced. </P>
+
+<P>Example 1: <BR>
+<TT>% db read {name description} &quot;select id, name, description from
+table2&quot; <BR>
+OK <BR>
+% puts $name(123) <BR>
+Name123<BR>
+% puts $description(123) <BR>
+Description123</TT></P>
+
+<P>Example 2: <BR>
+<TT>% db read table2 &quot;select id, name, description from table2&quot;
+<BR>
+OK <BR>
+% puts $table2(123,name) <BR>
+Name123<BR>
+% puts $table2(123,description) <BR>
+Description123</TT></P>
+</UL>
+
+<H1>
+<HR WIDTH="100%"><A NAME="Statement"></A>Statement Object Interface </H1>
+
+<P>Statement object is a dynamically allocated object, created by the statement
+method of a database object command. The object provides the following
+methods. The methods are called as commands after the statement object
+identifier.</P>
+
+<P><B><I><TT>run ?args?</TT></I></B></P>
+
+<UL>
+<P>Command run executes the statement and returns the whole result set
+immediately. The command may be followed with the list of sql arguments,
+if the statement expects them.</P>
+
+<P>Empty argument is interpreted as null value. Notice that the arguments
+are given as a list of arguments. Therefore an argument given as {} is
+a empty list of arguments, while {{}} is a list of one argument, which
+is null. Safest way to create argument lists is through the tcl list command.</P>
+
+<P>This is the default command. The keyword &quot;run&quot; can be omitted.
+It should be used when it is possible that given argument value may be
+one of the other command keywords.</P>
+
+<P>Example:<BR>
+<TT>% database db employeebase sysadm xxxxxx <BR>
+db <BR>
+% db statement readall &quot;select * from employees&quot; <BR>
+readall <BR>
+% readall <BR>
+{{xx yy zz} {aa bb cc} {rr tt yy}} <BR>
+% db statement read_salary &quot;select salary from employees where id
+= ?&quot; <BR>
+read_salary <BR>
+% read_salary 222 <BR>
+2000 <BR>
+% db statement update_salary &quot;update employees set salary = ? where
+id = ?&quot; <BR>
+update_salary <BR>
+% update_salary {3000 222} <BR>
+1 </TT></P>
+</UL>
+
+<P><B><TT>execute <I>?args?</I></TT></B></P>
+
+<UL>
+<P>Method execute executes the given statement, but does not return the
+result set. If the statement returns a result set, rows may be read one
+by one with method fetch.</P>
+</UL>
+
+<P><B><TT>moreresults</TT></B></P>
+
+<UL>
+<P>The result of SQL queries is a list of list of rows when the database
+has been configure with <TT>multisets</TT> true.</P>
+<P>Example:
+<PRE>
+   db set multisets 1
+   db statement ssss "XXXX"
+   puts [ssss execute]
+   set i 0
+   while {1} {
+      puts "---- RESULTS $i"
+      while {[set row [ssss fetch]] != {}} {
+           puts $row
+      }
+      if {![ssss moreresults]} {
+           break
+      }
+      incr i
+   }
+</PRE>
+</P>
+</UL>
+
+<P><B><TT>fetch ?arrayName? ?columnNames?</TT></B></P>
+
+<UL>
+<P>Method fetch is used for reading one row from the result set at a time
+after executing it by method execute. Sometimes, if the result set is large,
+it is not convenient to load it to memory at once, but rather traverse
+thru it one record at a time e.g. making neccessary output or update one
+by one.</P>
+
+<P>The first form without <I>arrayName </I>returns the row data, or an
+empty string when there is nothing more to read. </P>
+
+<P>Example:<BR>
+<TT>% db statement emp_data &quot;select * from employees&quot; <BR>
+emp_data<BR>
+% emp_data execute<BR>
+OK<BR>
+% while {[set row [emp_data fetch]] != {}} {puts [lindex $row 5]}<BR>
+2000<BR>
+3000<BR>
+4000<BR>
+%</TT></P>
+
+<P>The other form reads the data to an array. Statement column labels or,
+if given, defined column names are used as array indices. If the column
+labels are explicitly defined, their count must match the number of actual
+data columns. </P>
+
+<P>This provides a convenient way for storing the data straight to named
+array instead of indexing a straight list. Here the command returns a boolean
+value indicating successful fetch or do data condition.</P>
+
+<P>Example (same result as above, with substantially more readable code):<BR>
+<TT>% db statement emp_data &quot;select * from employees&quot; <BR>
+emp_data<BR>
+% emp_data execute<BR>
+OK<BR>
+% while {[read_salary fetch row]} {puts $row(Salary}}<BR>
+2000<BR>
+3000<BR>
+4000<BR>
+%</TT></P>
+</UL>
+
+<P><B><TT>rowcount </TT></B></P>
+
+<UL>
+<P>Method rowcount returns the number of rows affected by last execution
+of insert, update or delete statement. Certain drivers support also
+getting the count of rows in open result set after select command,
+but this is not generally applicable.</P>
+</UL>
+
+<P><B><TT>columns <I>?attribute attribute ...?</I> </TT></B></P>
+
+<UL>
+<P>Method columns returns a list of statement columns attributes. ODBC
+supports various column attributes. The returned attributes are specified
+with arguments. The default attribute, in none given, is column label.</P>
+
+<P>Currently supported attributes are: </P>
+
+<UL>
+<LI>label - column label </LI>
+
+<LI>name - column name in the original table, if available </LI>
+
+<LI>displaysize - the maximum string length of the column data </LI>
+
+<LI>type - standard numeric sql type </LI>
+
+<LI>typename - db specific type name string </LI>
+
+<LI>precision - the precision of the column, if applicable </LI>
+
+<LI>scale - the scale of the column, if applicable </LI>
+
+<LI>nullable - 1 if the column is nullable </LI>
+
+<LI>updatable - 1 if the column is updatable </LI>
+
+<LI>tablename - source table of the column, if available </LI>
+
+<LI>qualifiername - qualifier name of the table, if available </LI>
+
+<LI>owner - owner name of the table, if available </LI>
+</UL>
+</UL>
+
+<P><B><TT>set <I>option value</I></TT></B></P>
+
+<UL>
+<P>Set command is used for setting statement-specific attributes. Currently
+supported options and their valid values are listed in following table.
+Check some odbc reference for detailed description of the different options.</P>
+
+<CENTER><TABLE BORDER=1 CELLPADDING=5 >
+<TR>
+<TH><B><FONT SIZE=+1>Option</FONT></B></TH>
+
+<TD><B><FONT SIZE=+1>Values</FONT></B></TD>
+</TR>
+
+<TR>
+<TD><TT>concurrency</TT></TD>
+
+<TD><TT>readonly<BR>
+lock<BR>
+values<BR>
+rowver</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>maxrows</TT></TD>
+
+<TD><TT>numeric value</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>timeout</TT></TD>
+
+<TD><TT>numeric value</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>maxlength</TT></TD>
+
+<TD><TT>numeric value</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>rowsetsize</TT></TD>
+
+<TD><TT>numeric value</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>cursortype</TT></TD>
+
+<TD><TT>static<BR>
+dynamic<BR>
+forwardonly<BR>
+keysetdriven</TT></TD>
+</TR>
+
+<TR>
+<TD><TT>noscan</TT></TD>
+
+<TD><TT>boolean (0/1, on/off)</TT></TD>
+</TR>
+</TABLE></CENTER>
+</UL>
+
+<P><B><TT>get <I>option</I></TT></B></P>
+
+<UL>
+<P>Get command is used for querying current attribute values. Theck the
+table above for list of supported options. </P>
+</UL>
+
+<P><B><TT>drop </TT></B></P>
+
+<UL>
+<P>Method drop drops the statement from the memory and clears the command
+from the interpreter.</P>
+</UL>
+
+<P><B><TT>eval <I>proc ?args?</I></TT></B></P>
+
+<UL>
+<P>See <I>database eval</I> for description.</P>
+</UL>
+
+<P><B><TT>read <I>arrayspec ?args?</I></TT></B></P>
+
+<UL>
+<P>See <I>database read </I>for description.</P>
+</UL>
+
+<H1>
+<HR WIDTH="100%"><A NAME="Changes"></A>Changes from Previous Versions</H1>
+
+<H2>v. 1.5</H2>
+
+<UL>
+<P>Autocommit on|off command is replaced with more general set and get
+commands, which are used for setting all kinds of database connection object
+properties. Old syntax is still supported.</P>
+
+<P>Some drivers returned last non-null values in a column having a null
+value. Bug was corrected.</P>
+</UL>
+
+<H2>v. 1.6</H2>
+
+<UL>
+<P>Argument type definition was moved from statement execution to statement
+object creation. Now tclodbc tries to determine the argument types automatically,
+if the driver supports it, but if it does not, the user has the option
+of giving types explicitly. The old syntax is still supported, too.</P>
+</UL>
+
+<H2>v. 1.7</H2>
+
+<UL>
+<P>The sources completely rewritten to allow conditional compling for both
+tcl 7.6 and 8.0. Under tcl 7.6 tcl-objects are implemented using reference
+counted DStrings instead of Tcl_Obj's. The performance in some situations
+may not be exactly the same as with tcl 8.0, but it works anyway. The command
+interface has no changes since the previous version.</P>
+</UL>
+
+<H2>v. 2.0</H2>
+
+<UL>
+<P>Added couple of configuration options to database and statement set
+and get commands. Added arrayName option to the <I>statement fetch </I>command.
+Removed global private interpreter to ensure thread safety, which is nice
+with thread safe tcl 8.1 interpreter. </P>
+
+<P>Added <I>read </I>an <I>eval </I>command to both database and statement
+objects.</P>
+
+<P>Unicode support is added with tcl 8.1. Now it is possible to specify
+encoding to a database connection. UTF-8 is used as string internal representation,
+but any strings passed from and to an odbc connection are encoded as specified.
+More details in tcl 8.1 documentation.</P>
+
+<P>Distribution version now includes compiled dll's for tcl 7.6, 8.0 and
+8.1, all in one zipfile. Installation to a tcl package automated with a
+simple installation script.</P>
+
+<P>Corrected bug related to large column handling. Now should be able to 
+handle properly even large variable length binary columns. There remains
+still problems with some drivers.</P>
+</UL>
+
+<H2>v. 2.1</H2>
+
+<UL>
+<P>Configuration option noscan for database and statement objects. This is 
+particularily useful when storing tcl strings as string literals.
+</P>
+
+<P>Added <I>typeinfo </I> command for database object</P>
+
+<P>Added <I>rowcount </I> command for statement object</P>
+
+<P>Some  bugs are fixed, most of them relating to variable length
+column handling. </P>
+
+<h3>Removed old syntax:</h3>
+
+<p>Syntax: db autocommit on/off was removed. Correct syntax for the same thing
+is:<br>db <i>set</i> autocommit on/off</P>
+
+<p>Also, statement object argument typecast was finally removed from 
+statement execution time. Correct syntax is to define statement arguments
+at statement object creation time.</P>
+
+</UL>
+
+<H2>v. 2.2</H2>
+<UL>
+
+<p>Binary column handling changed. In earlier versions binary data was handled in hexadecimal
+form if the driver supported binary-character conversion. Now binary data is handled in native
+binary form. Example code of binary data handling is added to samples.
+</p>
+
+<p>Bugfix in long column handling: handle also SQL_NO_TOTAL return value from SqlGetData(). 
+</p>
+
+<p>Corrected a misspelling in option name <i>maxlength</i>. The earlier misspelled form 
+<i>maxlenght</i> is still supported for compatibility reasons.
+</p>
+
+</UL>
+
+<H2>v. 2.3</H2>
+<UL>
+
+<p>Return value from update/insert/delete statement changed. Earlier returned always "OK" for
+successful execution. Now returns the count of rows updated/inserted/deleted. If now rows were
+touched, returns 0, which normally means an error.
+</p>
+
+<p>Bugfix in setting database options. Some options always raised an error: 
+unknown encoding ..."
+</p>
+
+<p>Now works also with MS Access MEMO fields. Older version returns some carbage in memo text
+data after actul value.
+</p>
+
+</UL>
+
+</BODY>
+</HTML>

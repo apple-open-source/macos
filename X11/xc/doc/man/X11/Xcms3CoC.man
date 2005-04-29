@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/Xcms3CoC.man,v 1.2 2001/01/27 18:20:06 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/Xcms3CoC.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,19 +144,12 @@
 .SH NAME
 XcmsCCCOfColormap, XcmsSetCCCOfColormap \- query and modify CCC of a colormap
 .SH SYNTAX
-XcmsCCC XcmsCCCOfColormap\^(\^\fIdisplay\fP, \fIcolormap\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.LP
-XcmsCCC XcmsSetCCCOfColormap\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \fIccc\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      XcmsCCC \fIccc\fP\^;
+.HP
+XcmsCCC XcmsCCCOfColormap\^(\^Display *\fIdisplay\fP\^, Colormap
+\fIcolormap\fP\^);
+.HP
+XcmsCCC XcmsSetCCCOfColormap\^(\^Display *\fIdisplay\fP\^, Colormap
+\fIcolormap\fP\^, XcmsCCC \fIccc\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

@@ -495,7 +495,7 @@ if test -z "$show_help"; then
     # Only attempt this if the compiler in the base compile
     # command doesn't match the default compiler.
     if test -n "$available_tags" && test -z "$tagname"; then
-      # APPLE LOCAL begin handle ~ in pathnames 2002-01-14 sts
+      # APPLE LOCAL begin handle ~ in pathnames 2002-01-14 --sts
       # Since CC may have args with shell metachars in them, add
       # doublequotes to args so it looks the same as $base_compile.
       qCC=
@@ -515,13 +515,13 @@ if test -z "$show_help"; then
 	  qCC="$qCC $argu"
         fi
       done
-      # APPLE LOCAL end handle ~ in pathnames 2002-01-14 sts 
+      # APPLE LOCAL end handle ~ in pathnames 2002-01-14 --sts 
       case $base_compile in
-      # APPLE LOCAL handle ~ in pathnames 2002-01-14 sts 
+      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts 
       "$qCC "*) ;;
       # Blanks in the command may have been stripped by the calling shell,
       # but not from the CC environment variable when ltconfig was run.
-      # APPLE LOCAL handle ~ in pathnames 2002-01-14 sts 
+      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts 
       "`$echo $qCC` "*) ;;
       *)
         for z in $available_tags; do
@@ -1064,6 +1064,11 @@ EOF
                   if test -z "$pic_object" || test "$pic_object" = none ; then
                     arg="$non_pic_object"
                   fi
+		else
+		  # If the PIC object exists, use it instead.
+		  # $xdir was prepended to $pic_object above.
+		  non_pic_object="$pic_object"
+		  non_pic_objects="$non_pic_objects $non_pic_object"
                 fi
               else
                 # Only an error if not doing a dry-run.
@@ -1132,6 +1137,19 @@ EOF
 	  prev=
 	  compile_command="$compile_command $wl$qarg"
 	  finalize_command="$finalize_command $wl$qarg"
+	  continue
+	  ;;
+	framework)
+	  case $host in
+	   *-*-darwin*)
+	     case "$deplibs " in
+	       *" $qarg.framework "*) ;;
+	       *) deplibs="$deplibs $qarg.framework" # this is fixed later
+		  ;;
+	     esac
+	     ;;
+	  esac
+	  prev=
 	  continue
 	  ;;
 	*)
@@ -1386,6 +1404,10 @@ EOF
 	prev=xlinker
 	continue
 	;;
+      -framework)
+	prev=framework
+	continue
+	;;
 
       # Some other compiler flag.
       -* | +*)
@@ -1472,6 +1494,11 @@ EOF
             if test -z "$pic_object" || test "$pic_object" = none ; then
               arg="$non_pic_object"
             fi
+	  else
+	    # If the PIC object exists, use it instead.
+	    # $xdir was prepended to $pic_object above.
+	    non_pic_object="$pic_object"
+	    non_pic_objects="$non_pic_objects $non_pic_object"
           fi
         else
           # Only an error if not doing a dry-run.
@@ -1864,6 +1891,13 @@ EOF
 	*) . ./$lib ;;
 	esac
 
+	case $host in
+	    *-*-darwin*)
+	  # Convert "-framework foo" to "foo.framework" in dependency_libs
+		test -n "$dependency_libs" && dependency_libs=`$echo "X$dependency_libs" | $Xsed -e 's/-framework \([^ $]*\)/\1.framework/g'`
+		;;
+	esac
+
 	if test "$linkmode,$pass" = "lib,link" ||
 	   test "$linkmode,$pass" = "prog,scan" ||
 	   { test $linkmode = oldlib && test $linkmode = obj; }; then
@@ -2105,9 +2139,10 @@ EOF
 	    else
 	      $show "extracting exported symbol list from \`$soname'"
 	      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'
-	      eval cmds=\"$extract_expsyms_cmds\"
+	      cmds=$extract_expsyms_cmds
 	      for cmd in $cmds; do
 		IFS="$save_ifs"
+		eval cmd=\"$cmd\"
 		$show "$cmd"
 		$run eval "$cmd" || exit $?
 	      done
@@ -2118,9 +2153,10 @@ EOF
 	    if test -f "$output_objdir/$newlib"; then :; else
 	      $show "generating import library for \`$soname'"
 	      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'
-	      eval cmds=\"$old_archive_from_expsyms_cmds\"
+	      cmds=$old_archive_from_expsyms_cmds
 	      for cmd in $cmds; do
 		IFS="$save_ifs"
+		eval cmd=\"$cmd\"
 		$show "$cmd"
 		$run eval "$cmd" || exit $?
 	      done
@@ -2469,6 +2505,7 @@ EOF
       case $outputname in
       lib*)
 	name=`$echo "X$outputname" | $Xsed -e 's/\.la$//' -e 's/^lib//'`
+	eval shared_ext=\"$shrext\"
 	eval libname=\"$libname_spec\"
 	;;
       *)
@@ -2480,6 +2517,7 @@ EOF
 	if test "$need_lib_prefix" != no; then
 	  # Add the "lib" prefix for modules if required
 	  name=`$echo "X$outputname" | $Xsed -e 's/\.la$//'`
+	  eval shared_ext=\"$shrext\"
 	  eval libname=\"$libname_spec\"
 	else
 	  libname=`$echo "X$outputname" | $Xsed -e 's/\.la$//'`
@@ -2667,7 +2705,16 @@ EOF
 	# Clear the version info if we defaulted, and they specified a release.
 	if test -z "$vinfo" && test -n "$release"; then
 	  major=
-	  verstring="0.0"
+	  case $version_type in
+	  darwin)
+	    # we can't check for "0.0" in archive_cmds due to quoting
+	    # problems, so we reset it completely
+	    verstring=
+	    ;;
+	  *)
+	    verstring="0.0"
+	    ;;
+	  esac
 	  if test "$need_version" = no; then
 	    versuffix=
 	  else
@@ -3043,6 +3090,14 @@ EOF
 	    fi
 	  fi
 	fi
+	# Time to change all our "foo.framework" stuff back to "-framework foo"
+	case $host in
+	    *-*-darwin*)
+		newdeplibs=`$echo "X $newdeplibs" | $Xsed -e 's% \([^ $]*\).framework% -framework \1%g'`
+		dependency_libs=`$echo "X $dependency_libs" | $Xsed -e 's% \([^ $]*\).framework% -framework \1%g'`
+		;;
+	esac
+	# Done checking deplibs!
 	# Done checking deplibs!
 	deplibs=$newdeplibs
       fi
@@ -3111,6 +3166,7 @@ EOF
 
 	# Get the real and link names of the library.
 	eval library_names=\"$library_names_spec\"
+	eval shared_ext=\"$shrext\"
 	set dummy $library_names
 	realname="$2"
 	shift; shift
@@ -3228,11 +3284,13 @@ EOF
 
 	# Do each of the archive commands.
 	if test -n "$export_symbols" && test -n "$archive_expsym_cmds"; then
-	  eval cmds=\"$archive_expsym_cmds\"
+	  eval test_cmds=\"$archive_expsym_cmds\"
+	  cmds=$archive_expsym_cmds
 	else
-	  eval cmds=\"$archive_cmds\"
+	  eval test_cmds=\"$archive_cmds\"
+	  cmds=$archive_cmds
 	fi
-        if len=`expr "X$cmds" : ".*"` &&
+        if len=`expr "X$test_cmds" : ".*"` &&
            test $len -le $max_cmd_len; then
           :
         else
@@ -3308,6 +3366,7 @@ EOF
           IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'
           for cmd in $concat_cmds; do
             IFS="$save_ifs"
+	    eval cmd=\"$cmd\"
             $show "$cmd"
             $run eval "$cmd" || exit $?
           done
@@ -3325,9 +3384,9 @@ EOF
 
 	  # Do each of the archive commands.
           if test -n "$export_symbols" && test -n "$archive_expsym_cmds"; then
-            eval cmds=\"$archive_expsym_cmds\"
-          else
-            eval cmds=\"$archive_cmds\"
+	    cmds=$archive_expsym_cmds
+	  else
+	    cmds=$archive_cmds
           fi
 
 	  # Append the command to remove the reloadable object files
@@ -3337,6 +3396,7 @@ EOF
         IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'
         for cmd in $cmds; do
           IFS="$save_ifs"
+	  eval cmd=\"$cmd\"
           $show "$cmd"
           $run eval "$cmd" || exit $?
         done
@@ -3553,6 +3613,19 @@ EOF
 	# On Rhapsody replace the C library is the System framework
 	compile_deplibs=`$echo "X $compile_deplibs" | $Xsed -e 's/ -lc / -framework System /'`
 	finalize_deplibs=`$echo "X $finalize_deplibs" | $Xsed -e 's/ -lc / -framework System /'`
+	;;
+      esac
+
+      case $host in
+      *-*-darwin*)
+      # Don't allow lazy linking, it breaks C++ global constructors
+	if test "$tagname" = CXX ; then
+	   compile_command="$compile_command ${wl}-bind_at_load"
+	   finalize_command="$finalize_command ${wl}-bind_at_load"
+	fi
+      # Time to change all our "foo.framework" stuff back to "-framework foo"
+	compile_deplibs=`$echo "X $compile_deplibs" | $Xsed -e 's% \([^ $]*\).framework% -framework \1%g'`
+	finalize_deplibs=`$echo "X $finalize_deplibs" | $Xsed -e 's% \([^ $]*\).framework% -framework \1%g'`
 	;;
       esac
 
@@ -4873,7 +4946,7 @@ relink_command=\"$relink_command\""
 
       # Do each command in the postinstall commands.
       eval cmds=\"$old_postinstall_cmds\"
-      # APPLE LOCAL begin handle ~ in pathnames 2002-01-14 sts
+      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts
       IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='@'
       for cmd in $cmds; do
 	IFS="$save_ifs"

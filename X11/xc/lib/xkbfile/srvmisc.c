@@ -24,7 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/lib/xkbfile/srvmisc.c,v 3.4 2001/10/28 03:32:47 tsi Exp $ */
+/* $XFree86: xc/lib/xkbfile/srvmisc.c,v 3.5 2003/11/17 22:20:23 dawes Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -37,12 +37,7 @@
 #include "XKBfileInt.h"
 
 Bool
-#if NeedFunctionPrototypes
 XkbWriteToServer(XkbFileInfo *result)
-#else
-XkbWriteToServer(result)
-    XkbFileInfo *	result;
-#endif
 {
 XkbDescPtr		xkb;
 Display *		dpy;
@@ -88,15 +83,7 @@ Display *		dpy;
 }
 
 unsigned
-#if NeedFunctionPrototypes
 XkbReadFromServer(Display *dpy,unsigned need,unsigned want,XkbFileInfo *result)
-#else
-XkbReadFromServer(dpy,need,want,result)
-    Display *		dpy;
-    unsigned 		need;
-    unsigned		want;
-    XkbFileInfo	*	result;
-#endif
 {
 unsigned which= need|want;
 unsigned tmp = 0;
@@ -133,13 +120,7 @@ unsigned tmp = 0;
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbChangeKbdDisplay(Display *newDpy,XkbFileInfo *result)
-#else
-XkbChangeKbdDisplay(newDpy,result)
-    Display *		newDpy;
-    XkbFileInfo *	result;
-#endif
 {
 register int	i;
 XkbDescPtr	xkb;

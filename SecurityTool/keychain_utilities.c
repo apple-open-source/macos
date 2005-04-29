@@ -1,40 +1,42 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- *  keychain_utilities.c
- *  security
  *
- *  Created by Michael Brouwer on Tue May 07 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
+ * keychain_utilities.c
  */
 
 #include "keychain_utilities.h"
+#include "security.h"
 
 #include <Security/cssmapi.h>
+#include <Security/SecAccess.h>
+#include <Security/SecACL.h>
+#include <Security/SecTrustedApplication.h>
 #include <Security/SecKeychainItem.h>
+#include <Security/SecTrustedApplicationPriv.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/param.h>
+
+#include "readline.h"
 
 SecKeychainRef
 keychain_open(const char *name)
@@ -43,7 +45,7 @@ keychain_open(const char *name)
 	OSStatus result = SecKeychainOpen(name, &keychain);
 	if (result)
 	{
-		fprintf(stderr, "SecKeychainOpen(%s) returned %ld(0x%lx)\n", name, result, result);
+		sec_error("SecKeychainOpen %s: %s", name, sec_errstr(result));
 	}
 
 	return keychain;
@@ -83,7 +85,7 @@ print_keychain_name(FILE *stream, SecKeychainRef keychain)
 	OSStatus status = SecKeychainGetPath(keychain, &ioPathLength, pathName);
 	if (status)
 	{
-		fprintf(stderr, "SecKeychainGetPath() returned %ld(0x%lx)\n", status, status);
+		sec_perror("SecKeychainGetPath", status);
 		result = 1;
 		goto loser;
 	}
@@ -94,13 +96,253 @@ loser:
 	return result;
 }
 
+static void
+print_cfdata(FILE *stream, CFDataRef data)
+{
+	if (data)
+		return print_buffer(stream, CFDataGetLength(data), CFDataGetBytePtr(data));
+	else
+		fprintf(stream, "<NULL>");
+}
+
+static void
+print_cfstring(FILE *stream, CFStringRef string)
+{
+	if (!string)
+		fprintf(stream, "<NULL>");
+	else
+	{
+		const char *utf8 = CFStringGetCStringPtr(string, kCFStringEncodingUTF8);
+		if (utf8)
+			fprintf(stream, "%s", utf8);
+		else
+		{
+			CFRange rangeToProcess = CFRangeMake(0, CFStringGetLength(string));
+			while (rangeToProcess.length > 0)
+			{
+				UInt8 localBuffer[256];
+				CFIndex usedBufferLength;
+				CFIndex numChars = CFStringGetBytes(string, rangeToProcess,
+					kCFStringEncodingUTF8, '?', FALSE, localBuffer,
+					sizeof(localBuffer), &usedBufferLength);
+				if (numChars == 0)
+					break;   // Failed to convert anything...
+
+				fprintf(stream, "%.*s", (int)usedBufferLength, localBuffer);
+				rangeToProcess.location += numChars;
+				rangeToProcess.length -= numChars;
+			}
+		}
+	}
+}
+
+static int
+print_access(FILE *stream, SecAccessRef access, Boolean interactive)
+{
+	CFArrayRef aclList = NULL;
+	CFIndex aclix, aclCount;
+	int result = 0;
+	OSStatus status;
+
+	status = SecAccessCopyACLList(access, &aclList);
+	if (status)
+	{
+		sec_perror("SecAccessCopyACLList", status);
+		result = 1;
+		goto loser;
+	}
+
+	aclCount = CFArrayGetCount(aclList);
+	fprintf(stream, "access: %lu entries\n", aclCount);
+	for (aclix = 0; aclix < aclCount; ++aclix)
+	{
+		CFArrayRef applicationList = NULL;
+		CFStringRef description = NULL;
+		CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR promptSelector = {};
+		CFIndex appix, appCount;
+
+		SecACLRef acl = (SecACLRef)CFArrayGetValueAtIndex(aclList, aclix);
+		CSSM_ACL_AUTHORIZATION_TAG tags[64]; // Pick some upper limit
+		uint32 tagix, tagCount = sizeof(tags) / sizeof(*tags);
+		status = SecACLGetAuthorizations(acl, tags, &tagCount);
+		if (status)
+		{
+			sec_perror("SecACLGetAuthorizations", status);
+			result = 1;
+			goto loser;
+		}
+
+		fprintf(stream, "    entry %lu:\n        authorizations (%lu):", aclix, tagCount);
+		for (tagix = 0; tagix < tagCount; ++tagix)
+		{
+			CSSM_ACL_AUTHORIZATION_TAG tag = tags[tagix];
+			switch (tag)
+			{
+			case CSSM_ACL_AUTHORIZATION_ANY:
+				fputs(" any", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_LOGIN:
+				fputs(" login", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_GENKEY:
+				fputs(" genkey", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_DELETE:
+				fputs(" delete", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_EXPORT_WRAPPED:
+				fputs(" export_wrapped", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_EXPORT_CLEAR:
+				fputs(" export_clear", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_IMPORT_WRAPPED:
+				fputs(" import_wrapped", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_IMPORT_CLEAR:
+				fputs(" import_clear", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_SIGN:
+				fputs(" sign", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_ENCRYPT:
+				fputs(" encrypt", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_DECRYPT:
+				fputs(" decrypt", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_MAC:
+				fputs(" mac", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_DERIVE:
+				fputs(" derive", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_DBS_CREATE:
+				fputs(" dbs_create", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_DBS_DELETE:
+				fputs(" dbs_delete", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_DB_READ:
+				fputs(" db_read", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_DB_INSERT:
+				fputs(" db_insert", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_DB_MODIFY:
+				fputs(" db_modify", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_DB_DELETE:
+				fputs(" db_delete", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_CHANGE_ACL:
+				fputs(" change_acl", stream);
+				break;
+			case CSSM_ACL_AUTHORIZATION_CHANGE_OWNER:
+				fputs(" change_owner", stream);
+				break;
+			default:
+				fprintf(stream, " tag=%lu", tag);
+				break;
+			}
+		}
+		fputc('\n', stream);
+
+		status = SecACLCopySimpleContents(acl, &applicationList, &description, &promptSelector);
+		if (status)
+		{
+			sec_perror("SecACLCopySimpleContents", status);
+			continue;
+		}
+
+		if (promptSelector.flags & CSSM_ACL_KEYCHAIN_PROMPT_REQUIRE_PASSPHRASE)
+			fputs("        require-password\n", stream);
+		else
+			fputs("        don't-require-password\n", stream);
+
+		fputs("        description: ", stream);
+		print_cfstring(stream, description);
+		fputc('\n', stream);
+
+		if (applicationList)
+		{
+			appCount = CFArrayGetCount(applicationList);
+			fprintf(stream, "        applications (%lu):\n", appCount);
+		}
+		else
+		{
+			appCount = 0;
+			fprintf(stream, "        applications: <null>\n");
+		}
+
+		for (appix = 0; appix < appCount; ++appix)
+		{
+			const UInt8* bytes;
+			SecTrustedApplicationRef app = (SecTrustedApplicationRef)CFArrayGetValueAtIndex(applicationList, appix);
+			CFDataRef data = NULL;
+			fprintf(stream, "            %lu: ", appix);
+			status = SecTrustedApplicationCopyData(app, &data);
+			if (status)
+			{
+				sec_perror("SecTrustedApplicationCopyData", status);
+				continue;
+			}
+
+			bytes = CFDataGetBytePtr(data);
+			if (bytes && bytes[0] == 0x2f) {
+				fprintf(stream, "%s", (const char *)bytes);
+				if ((status = SecTrustedApplicationValidateWithPath(app, (const char *)bytes)) == noErr) {
+					fprintf(stream, " (OK)");
+				} else {
+					fprintf(stream, " (status %ld)", status);
+				}
+				fprintf(stream, "\n");
+			} else {
+				print_cfdata(stream, data);
+				fputc('\n', stream);
+			}
+			if (data)
+				CFRelease(data);
+		}
+
+		if (applicationList)
+			CFRelease(applicationList);
+
+		if (description)
+			CFRelease(description);
+
+		if (interactive)
+		{
+			char buffer[10] = {};
+			fprintf(stderr, "Remove this acl? ");
+			if (readline(buffer, sizeof(buffer)) && buffer[0] == 'y')
+			{
+				fprintf(stderr, "removing acl\n");
+				status = SecACLRemove(acl);
+				if (status)
+				{
+					sec_perror("SecACLRemove", status);
+					continue;
+				}
+			}
+		}
+	}
+
+loser:
+	if (aclList)
+		CFRelease(aclList);
+
+	return result;
+}
+
 int
-print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean show_data, Boolean show_raw_data)
+print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean show_data, Boolean show_raw_data, Boolean show_acl, Boolean interactive)
 {
 	int result = 0;
 	unsigned int ix;
 	OSStatus status;
 	SecKeychainRef keychain = NULL;
+	SecAccessRef access = NULL;
 	SecItemClass itemClass = 0;
 	UInt32 itemID;
 	SecKeychainAttributeList *attrList = NULL;
@@ -111,7 +353,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 	status = SecKeychainItemCopyKeychain(item, &keychain);
 	if (status)
 	{
-		fprintf(stderr, "SecKeychainItemCopyKeychain() returned %ld(0x%lx)\n", status, status);
+		sec_perror("SecKeychainItemCopyKeychain", status);
 		result = 1;
 		goto loser;
 	}
@@ -126,7 +368,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 	status = SecKeychainItemCopyAttributesAndData(item, NULL, &itemClass, NULL, NULL, NULL);
 	if (status)
 	{
-		fprintf(stderr, "SecKeychainItemCopyAttributesAndData() returned %ld(0x%lx)\n", status, status);
+		sec_perror("SecKeychainItemCopyAttributesAndData", status);
 		result = 1;
 		goto loser;
 	}
@@ -155,7 +397,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 	status = SecKeychainAttributeInfoForItemID(keychain, itemID, &info);
 	if (status)
 	{
-		fprintf(stderr, "SecKeychainAttributeInfoForItemID() returned %ld(0x%lx)\n", status, status);
+		sec_perror("SecKeychainAttributeInfoForItemID", status);
 		result = 1;
 		goto loser;
 	}
@@ -165,14 +407,14 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		show_data ? &data : NULL);
 	if (status)
 	{
-		fprintf(stderr, "SecKeychainItemCopyAttributesAndData() returned %ld(0x%lx)\n", status, status);
+		sec_perror("SecKeychainItemCopyAttributesAndData", status);
 		result = 1;
 		goto loser;
 	}
 
 	if (info->count != attrList->count)
 	{
-		fprintf(stderr, "info count: %ld != attribute count: %ld\n", info->count, attrList->count);
+		sec_error("info count: %ld != attribute count: %ld", info->count, attrList->count);
 		result = 1;
 		goto loser;
 	}
@@ -184,7 +426,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		SecKeychainAttribute *attribute = &attrList->attr[ix];
 		if (tag != attribute->tag)
 		{
-			fprintf(stderr, "attribute %d of %ld info tag: %ld != attribute tag: %ld\n", ix, info->count, tag, attribute->tag);
+			sec_error("attribute %d of %ld info tag: %ld != attribute tag: %ld", ix, info->count, tag, attribute->tag);
 			result = 1;
 			goto loser;
 		}
@@ -247,7 +489,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		status = SecKeychainItemGetDLDBHandle(item, &dldbHandle);
 		if (status)
 		{
-			fprintf(stderr, "SecKeychainItemGetDLDBHandle() returned %ld(0x%lx)\n", status, status);
+			sec_perror("SecKeychainItemGetDLDBHandle", status);
 			result = 1;
 			goto loser;
 		}
@@ -255,7 +497,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		status = SecKeychainItemGetUniqueRecordID(item, &uniqueRecordID);
 		if (status)
 		{
-			fprintf(stderr, "SecKeychainItemGetUniqueRecordID() returned %ld(0x%lx)\n", status, status);
+			sec_perror("SecKeychainItemGetUniqueRecordID", status);
 			result = 1;
 			goto loser;
 		}
@@ -263,7 +505,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		status = CSSM_DL_DataGetFromUniqueRecordId(dldbHandle, uniqueRecordID, NULL, &data);
 		if (status)
 		{
-			fprintf(stderr, "CSSM_DL_DataGetFromUniqueRecordId() returned %ld(0x%lx)\n", status, status);
+			sec_perror("CSSM_DL_DataGetFromUniqueRecordId", status);
 			result = 1;
 			goto loser;
 		}
@@ -276,19 +518,59 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		free(data.Data);
 	}
 
+	if (show_acl)
+	{
+		status = SecKeychainItemCopyAccess(item, &access);
+		if (status == errSecNoAccessForItem)
+			fprintf(stream, "no access control for this item\n");
+		else
+		{
+			if (status)
+			{
+				sec_perror("SecKeychainItemCopyAccess", status);
+				result = 1;
+				goto loser;
+			}
+	
+			result = print_access(stream, access, interactive);
+			if (result)
+				goto loser;
+
+			if (interactive)
+			{
+				char buffer[10] = {};
+				fprintf(stderr, "Update access? ");
+				if (readline(buffer, sizeof(buffer)) && buffer[0] == 'y')
+				{
+					fprintf(stderr, "Updating access\n");
+					status = SecKeychainItemSetAccess(item, access);
+					if (status)
+					{
+						sec_perror("SecKeychainItemSetAccess", status);
+						result = 1;
+						goto loser;
+					}
+				}
+			}
+		}
+	}
+
 loser:
+	if (access)
+		CFRelease(access);
+
 	if (attrList)
 	{
 		status = SecKeychainItemFreeAttributesAndData(attrList, data);
 		if (status)
-			fprintf(stderr, "SecKeychainItemFreeAttributesAndData() returned %ld(0x%lx)\n", status, status);
+			sec_perror("SecKeychainItemFreeAttributesAndData", status);
 	}
 
 	if (info)
 	{
 		status = SecKeychainFreeAttributeInfo(info);
 		if (status)
-			fprintf(stderr, "SecKeychainFreeAttributeInfo() returned %ld(0x%lx)\n", status, status);
+			sec_perror("SecKeychainFreeAttributeInfo", status);
 	}
 
 	if (keychain)
@@ -298,7 +580,7 @@ loser:
 }
 
 static void
-print_buffer_hex(FILE *stream, UInt32 length, void *data)
+print_buffer_hex(FILE *stream, UInt32 length, const void *data)
 {
 	uint8 *p = (uint8 *) data;
 	while (length--)
@@ -309,7 +591,7 @@ print_buffer_hex(FILE *stream, UInt32 length, void *data)
 }
 
 static void
-print_buffer_ascii(FILE *stream, UInt32 length, void *data)
+print_buffer_ascii(FILE *stream, UInt32 length, const void *data)
 {
 	uint8 *p = (uint8 *) data;
 	while (length--)
@@ -330,7 +612,7 @@ print_buffer_ascii(FILE *stream, UInt32 length, void *data)
 }
 
 void
-print_buffer(FILE *stream, UInt32 length, void *data)
+print_buffer(FILE *stream, UInt32 length, const void *data)
 {
 	uint8 *p = (uint8 *) data;
 	Boolean hex = FALSE;
@@ -486,14 +768,16 @@ malloc_enc64_with_lines(const unsigned char *inbuf,
 }
 
 void
-print_buffer_pem(FILE *stream, const char *headerString, UInt32 length, void *data)
+print_buffer_pem(FILE *stream, const char *headerString, UInt32 length, const void *data)
 {
 	unsigned char *buf;
 	unsigned bufLen;
 
-	fprintf(stream, "-----BEGIN %s-----\n", headerString);
+	if (headerString)
+		fprintf(stream, "-----BEGIN %s-----\n", headerString);
 	buf = malloc_enc64_with_lines(data, length, 64, &bufLen);
 	fwrite(buf, bufLen, 1, stream);
 	free(buf);
-	fprintf(stream, "-----END %s-----\n", headerString);
+	if (headerString)
+		fprintf(stream, "-----END %s-----\n", headerString);
 }

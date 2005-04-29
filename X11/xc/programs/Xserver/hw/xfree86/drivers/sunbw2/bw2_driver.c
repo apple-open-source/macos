@@ -20,7 +20,7 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sunbw2/bw2_driver.c,v 1.3 2001/05/04 19:05:45 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sunbw2/bw2_driver.c,v 1.4 2003/10/30 17:37:11 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -52,8 +52,8 @@ static void	BW2AdjustFrame(int scrnIndex, int x, int y, int flags);
 
 /* Optional functions */
 static void	BW2FreeScreen(int scrnIndex, int flags);
-static int	BW2ValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose,
-			     int flags);
+static ModeStatus BW2ValidMode(int scrnIndex, DisplayModePtr mode,
+			       Bool verbose, int flags);
 
 void BW2Sync(ScrnInfoPtr pScrn);
 
@@ -555,7 +555,7 @@ BW2FreeScreen(int scrnIndex, int flags)
 /* Checks if a mode is suitable for the selected chipset. */
 
 /* Optional */
-static int
+static ModeStatus
 BW2ValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     if (mode->Flags & V_INTERLACE)

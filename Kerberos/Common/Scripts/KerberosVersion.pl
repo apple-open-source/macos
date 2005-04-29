@@ -2,11 +2,14 @@
 
 use strict;
 use File::Find; 
+use Encode;
+Encode::perlio_ok ("utf16") or die ("can't read utf16");
 
+my $kfm = "KfM";
 my $version;
 my $versionString;
-my $copyright = "Copyright 2003 Massachusetts Institute of Technology";
-my $shortCopyright = "Copyright 2003 MIT";
+my $copyright = "Copyright 2004 Massachusetts Institute of Technology";
+my $shortCopyright = "Copyright 2004 MIT";
 my $root;
 
 my $usage = "Usage: KerberosVersion --version version --versionString string <root>\n";
@@ -22,25 +25,30 @@ $versionString or die $usage;
 find (\&fixplists, $root); 
 
 sub fixplists { 
-    if (-f $File::Find::name && ($_ =~ /Info(|-macos|-macosclassic).plist/)) {
-        print "Processing $File::Find::name...\n";
+    my $stringsFile = $File::Find::name;
+
+    if (-f $stringsFile && ($_ =~ /^(Info|version)\.plist$/)) {
+        print "Processing '$stringsFile'...\n";
         my $plist;
-        open PLIST, "$File::Find::name" or die "$0: Can't open $File::Find::name: $!\n";
+        open (my $input, "<$stringsFile") or die "$0: Can't open '$stringsFile': $!\n";
         {
+            # Ignore end-of-line delimiters in the file
             local $/;
-            undef $/; # Ignore end-of-line delimiters in the file
-            $plist = <PLIST>;
+            undef $/; 
+            $plist = <$input>;
         }
-        close PLIST;
+        close $input;
         
-        # replace version strings
+# replace version strings
         $plist =~ s@(<key>CFBundleVersion</key>\s*<string>)[^<]*(</string>)@${1}${versionString}${2}@xg;
         $plist =~ s@(<key>CFBundleShortVersionString</key>\s*<string>)[^<]*(</string>)@${1}${version}${2}@xg;
         $plist =~ s@(<key>CFBundleGetInfoString</key>\s*<string>)[^<]*(</string>)@${1}${versionString} ${copyright}${2}@xg;
-        $plist =~ s@(<key>KLSDisplayVersion</key>\s*<string>)[^<]*(</string>)@${1}${versionString} ${shortCopyright}${2}@xg;
+        $plist =~ s@(<key>KfMDisplayVersion</key>\s*<string>)[^<]*(</string>)@${1}${versionString}${2}@xg;
+        $plist =~ s@(<key>KfMDisplayCopyright</key>\s*<string>)[^<]*(</string>)@${1}${shortCopyright}${2}@xg;
+        $plist =~ s@(<key>NSHumanReadableCopyright</key>\s*<string>)[^<]*(</string>)@${1}${copyright}${2}@xg;
         
-        open PLIST, ">$File::Find::name" or die "$0: Can't open $File::Find::name for writing: $!\n";
-        print PLIST $plist;
-        close PLIST;
+        open (my $output, ">$stringsFile") or die "$0: Can't open '$stringsFile' for writing: $!\n";
+        print $output $plist;
+        close $output;
     }
 }

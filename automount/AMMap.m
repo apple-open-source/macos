@@ -28,6 +28,9 @@
 #import "AMString.h"
 #import "automount.h"
 #import "log.h"
+#import "vfs_sysctl.h"
+#import <sys/stat.h>
+#import <sys/mount.h>
 #import <netdb.h>
 #import <syslog.h>
 #import <string.h>
@@ -44,6 +47,8 @@
 #import <URLMount/URLMount.h>
 #import <URLMount/URLMountPrivate.h>
 
+#define AUTOFSMOUNTTARGET "autofs"
+
 extern CFRunLoopRef gMainRunLoop;
 
 #ifndef innetgr
@@ -51,6 +56,7 @@ extern int innetgr(const char *, const char *, const char *, const char *);
 #endif
 extern int doing_timeout;
 extern BOOL doServerMounts;
+extern char *gLookupTarget;
 
 @implementation Map
 
@@ -74,6 +80,21 @@ typedef union {
 
 static char * bootstrap_error_string(int errNum);
 
+- (id)init
+{
+	[super init];
+	
+	NFSMountOptions = 0;
+	
+	AMInfoServicePort = MACH_PORT_NULL;
+	AMInfoPortContext = NULL;
+	AMInforeqRLS = NULL;
+
+	[self setMountStyle: kMountStyleParallel];
+	
+	return self;
+}
+
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir
 {
 	return [self initWithParent:p directory:dir from:nil mountdirectory:nil];
@@ -86,26 +107,36 @@ static char * bootstrap_error_string(int errNum);
 
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt
 {
-	[super init];
+	return [self initWithParent:p directory:dir from:ds mountdirectory:mnt withRootVnodeClass:[Vnode class]];
+}
 
-	if (mnt)
-	{
-		mountPoint = mnt;
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt withRootVnodeClass:(Class)rootVnodeClass
+{
+	char mountdirpath[MAXPATHLEN];
+	
+	[self init];
+
+	if (mnt == NULL) mnt = [controller mountDirectory];
+	if (strcasecmp([mnt value], AUTOFSMOUNTTARGET) != 0) {
+		[self setMountDirectory: mnt];
+		[self setMountStyle: kMountStyleParallel];
 	} else {
-		mountPoint = [controller mountDirectory];
+		snprintf(mountdirpath, sizeof(mountdirpath), "%s/%s", [[p path] value], [dir value]);
+		[self setMountDirectory: [String uniqueString:mountdirpath]];
+		[self setMountStyle: kMountStyleAutoFS];
 	};
-	if (mountPoint != nil) [mountPoint retain];
 
-	name = [String uniqueString:"-null"];
-	hostname = NULL;
+	if (ds) {
+		[self setName: ds];
+	} else {
+		[self setName: [String uniqueString:"-null"]];
+	};
 
-	root = [[Vnode alloc] init];
+	root = [[rootVnodeClass alloc] init];
 	[root setMap:self];
 	[root setName:dir];
 	if (p != nil) [p addChild:root];
 	[controller registerVnode:root];
-	AMInfoServicePort = MACH_PORT_NULL;
-	AMInfoPortContext = NULL;
     
 	return self;
 }
@@ -122,9 +153,9 @@ static char * bootstrap_error_string(int errNum);
 
 - (void)setName:(String *)n
 {
-	if (name != nil) [name release];
+	[n retain];
+	[name release];
 	name = n;
-	[name retain];
 }
 
 - (String *)name
@@ -134,8 +165,9 @@ static char * bootstrap_error_string(int errNum);
 
 - (void)setHostname:(String *)hn
 {
-	if (hostname != nil) [hostname release];
-	hostname = [hn retain];
+	[hn retain];
+	[hostname release];
+	hostname = hn;
 }
 
 - (String *)hostname
@@ -159,7 +191,33 @@ static char * bootstrap_error_string(int errNum);
 
 - (unsigned int)didAutoMount
 {
-	return 0;
+	struct Vnode *rootVnode;
+	int result;
+	struct stat sb;
+	struct statfs sfs;
+
+	rootVnode = [self root];
+	
+	/* Look up and save off the fsid of the newly mounted map: */
+	result = statfs([[rootVnode path] value], &sfs);
+	if (result != 0) {
+		sys_msg(debug, LOG_ERR, "Can't determine status of autofs map on %s (%s)", [[rootVnode path] value], strerror(errno));
+		return errno == 0 ? 1 : errno;
+	}
+	[self setFSID:&sfs.f_fsid];
+
+	if ([self mountStyle] == kMountStyleAutoFS) {
+		/* Hash the root vnode: Pick up the root node id assigned by autofs: */
+		result = stat([[rootVnode path] value], &sb);
+		if (result) {
+			sys_msg(debug, LOG_ERR, "Couldn't determine root node id for autofs node '%s' (%s)?!", [[rootVnode path] value], strerror(errno));
+			return errno == 0 ? 1 : errno;
+		}
+		[rootVnode setNodeID:sb.st_ino];
+		[rootVnode setHashKey:sfs.f_fsid nodeID:sb.st_ino];
+	}
+	
+	return [self registerAMInfoService];
 }
 
 - (Vnode *)root
@@ -169,14 +227,24 @@ static char * bootstrap_error_string(int errNum);
 
 - (void)setMountDirectory:(String *)mnt
 {
-	if (mountPoint != nil) [mountPoint release];
+	[mnt retain];
+	[mountPoint release];
 	mountPoint = mnt;
-	[mountPoint retain];
 }
 
 - (String *)mountPoint
 {
 	return mountPoint;
+}
+
+- (void)setNFSMountOptions:(int)mountOptions
+{
+	NFSMountOptions = mountOptions;
+}
+
+- (int)NFSMountOptions
+{
+	return NFSMountOptions;
 }
 
 - (int)mountArgs
@@ -194,11 +262,6 @@ static char * bootstrap_error_string(int errNum);
 	return &mountedMapFSID;
 }
 
-- (unsigned int)mount:(Vnode *)v
-{
-	return [self mount:v withUid:99];
-}
-
 BOOL AbandonMountSequence( void )
 {
 	/* If there's a mount in progress in a subnode and this process is NOT the submounter,
@@ -206,7 +269,7 @@ BOOL AbandonMountSequence( void )
 	return (gForkedMountInProgress || gBlockedMountDependency) && !gSubMounter;
 }
 
-- (unsigned int)mount:(Vnode *)v withUid:(int)uid
+- (int)mount:(Vnode *)v withUid:(int)uid
 {
 	unsigned int i, len = 0, status = 0, substatus, fail = 0;
 	Array *kids;
@@ -295,16 +358,18 @@ Mount_Done:
 		status = 0;
 	}
 
+	if ([v serverDepth] == 0) [[v server] reset];
+
 	sys_msg(debug_mount, LOG_DEBUG, "Mount at %s returning final status = %d", [[v path] value], status);
 	return status;
 }
 
-- (unsigned int)attemptUnmountChildren:(Vnode *)v withRemountOnFailure:(BOOL)remountOnFailure
+- (int)attemptUnmountChildren:(Vnode *)v usingForce:(int)use_force withRemountOnFailure:(BOOL)remountOnFailure
 {
 	int i, len;
 	Array *kids;
 	Vnode *k;
-	unsigned int status;
+	int status;
 
 	kids = [v children];
 	len = 0;
@@ -313,10 +378,10 @@ Mount_Done:
 	for (i = 0; i < len; i++)
 	{
 		k = [kids objectAtIndex:i];
-		status = [self unmount:k withRemountOnFailure:remountOnFailure];
+		status = [self unmount:k withRemountOnFailure:(remountOnFailure || (doServerMounts && [k server]))];
 		if ((status != 0) && remountOnFailure)
 		{
-			[self mount:v];
+			[self mount:v withUid:99];
 			return 1;
 		}
 	}
@@ -324,25 +389,36 @@ Mount_Done:
 	return 0;
 }
 
-- (unsigned int)unmount:(Vnode *)v withRemountOnFailure:(BOOL)remountOnFailure
+- (int)unmount:(Vnode *)v withRemountOnFailure:(BOOL)remountOnFailure
+{
+	return [self unmount:v usingForce:0 withRemountOnFailure:remountOnFailure];
+}
+
+- (int)unmount:(Vnode *)v usingForce:(int)use_force withRemountOnFailure:(BOOL)remountOnFailure
 {
 	struct timeval tv;
-	unsigned int status;
+	int status;
 
-	if (v == nil) return 0;
+	if ((v == nil) || [v fakeMount]) return 0;
 
-	if (([v mounted]) &&
+	if ([v mounted] &&
 		([v server] != nil) &&
 		(![[v server] isLocalHost]))
 	{
-		if (doing_timeout && [v vfsType] && (strcasecmp([[v vfsType] value], "url") == 0)) return 1;
-		if ([v mountTimeToLive] == 0) return 1;
+		if (doing_timeout) {
+			if ([v vfsType] && (strcasecmp([[v vfsType] value], "url") == 0)) return 1;
+			if ([v mountTimeToLive] == 0) return 1;
 
-		gettimeofday(&tv, NULL);
-		if (tv.tv_sec < ([v mountTime] + [v mountTimeToLive])) return 1;
+			gettimeofday(&tv, NULL);
+			if (tv.tv_sec < ([v mountTime] + [v mountTimeToLive])) return 1;
 
-		sys_msg(debug, LOG_DEBUG, "Checking %s %s %s",
-			[[v path] value], [[[v server] name] value], [[v link] value]);
+		};
+		
+		if ([[v map] mountStyle] == kMountStyleParallel) {
+			sys_msg(debug, LOG_DEBUG, "Checking %s from server '%s' (on %s)", [[v path] value], [[[v server] name] value], [[v link] value]);
+		} else {
+			sys_msg(debug, LOG_DEBUG, "Checking %s from server '%s'", [[v path] value], [[[v server] name] value]);
+		};
 
 		if ([v children]) {
 			/*
@@ -350,25 +426,107 @@ Mount_Done:
 			   important to re-mount any nodes that get unmounted if any node
 			   cannot be unmounted (e.g. is busy)
 			 */
-			status = [self attemptUnmountChildren:v withRemountOnFailure:doServerMounts];
+			status = [self attemptUnmountChildren:v usingForce:use_force withRemountOnFailure:doServerMounts];
 			if (status != 0) return status;
 		}
 		
-		status = [controller attemptUnmount:v];
+		status = [controller attemptUnmount:v usingForce:use_force];
 		if (status != 0) 
 		{
-			[self mount:v];
+			[self mount:v withUid:99];
 			return 1;
 		}
 		return 0;
 	} else {
 		if ([v children]) {
-			status = [self attemptUnmountChildren:v withRemountOnFailure:remountOnFailure];
+			status = [self attemptUnmountChildren:v usingForce:use_force withRemountOnFailure:(remountOnFailure || (doServerMounts && [v server]))];
 			if (status != 0) return status;
 		}
 	}
 	
 	return 0;
+}
+
+- (int)unmountAutomounts:(int)use_force
+{
+	return [self unmount:root usingForce:use_force withRemountOnFailure:NO];
+}
+
+- (AMMountStyle)mountStyle
+{
+	return mountStyle;
+}
+
+- (void) setMountStyle:(AMMountStyle)style
+{
+	mountStyle = style;
+}
+
+- (int)handle_autofsreq:(struct autofs_userreq *)req
+{
+	VNodeHashKey hashKey;
+    char pathbuffer[MAXPATHLEN + 1];
+	String *path = nil;
+	Vnode *v = nil;
+	int result = 0;
+	struct autofs_mounterreq mounter_req;
+	size_t mounter_reqlen = sizeof(mounter_req);
+
+	/* Locate the node to be mounted: try a hash-lookup first */
+	hashKey.fsid = *[self mountedFSID];
+	hashKey.nodeid = req->au_ino;	
+	v = [controller vnodeWithKey:&hashKey];
+	if (v == nil) {
+		/* Try to locate the node using the path specified: */
+		strncpy(pathbuffer, req->au_name, sizeof(pathbuffer) - 1);
+		pathbuffer[sizeof(pathbuffer) - 1] = (char)0;		/* Make sure the string's terminated */
+		path = [String uniqueString:pathbuffer];
+		if (path == nil) {
+			result = ENOMEM;
+			goto Send_Response;
+		}
+		
+		v = [self lookupVnodePath:path from:root];
+	}
+	if (v == nil) {
+		result = ENOENT;
+		goto Send_Response;
+	}
+
+	if ([v server]) {
+		/* make sure this process is marked as the node's mounter: */
+		mounter_req.amu_ino = req->au_ino;
+		mounter_req.amu_pid = getpid();
+		mounter_req.amu_uid = 0;
+		mounter_req.amu_flags = ([v vfsType] && strcmp([[v vfsType] value], "nfs")) ? AUTOFS_MOUNTERREQ_UID : 0;
+		sys_msg(debug, LOG_DEBUG, "Trying to become mounter for autofs node '%s' (fsid [%ld,%ld], node %ld, pid=%ld)...",
+									[[v path] value],
+									[self mountedFSID]->val[0], [self mountedFSID]->val[1],
+									req->au_ino,
+									getpid());
+		result = sysctl_fsid(AUTOFS_CTL_MOUNTER, [self mountedFSID], NULL, 0, &mounter_req, mounter_reqlen);
+		if (result != 0) {
+			sys_msg(debug, LOG_ERR, "Couldn't become mounter for autofs node '%s' (%s)?!", [[v path] value], strerror(errno));
+		}
+
+		/* Now do the mount */
+		sys_msg(debug, LOG_DEBUG, "handle_autofsreq: mounting '%s'...", [[v path] value]);
+		result =[[v map] mount:v withUid:req->au_uid];
+		[[v server] reset];
+		if (gForkedMountInProgress || gBlockedMountDependency) {
+			sys_msg(debug, LOG_DEBUG, "handle_autofsreq: forked mount in progress...");
+		} else {
+			sys_msg(debug, LOG_DEBUG, "\tresult = %d (%s)?!", result, strerror(result ? errno : 0));
+		}
+	} else {
+		sys_msg(debug, LOG_DEBUG, "handle_autofsreq: populating '%s'...", [[v path] value]);
+		gLookupTarget = "[ autofs trigger ]";
+		[v generateDirectoryContents:NO];
+		result = 0;
+	}
+	
+Send_Response:
+	return result;
 }
 
 void AMInfoMsgCallback(CFMachPortRef CFPort, void *msg, CFIndex size, void *info) {
@@ -394,8 +552,9 @@ void AMInfoMsgCallback(CFMachPortRef CFPort, void *msg, CFIndex size, void *info
 	mach_port_t parent_bp;
 	kern_return_t ret;
 	Boolean freeAMInfoPortContext = false;
-	CFRunLoopSourceRef inforeqSource = NULL;
 	unsigned int result = -1;
+	
+	sys_msg(debug, LOG_DEBUG, "registerAMInfoService: allocating and registering AMInfoServicePort for Map 0x%08lx...", self);
 	
 	AMInfoPortContext = calloc(1, sizeof(*AMInfoPortContext));
 	if (AMInfoPortContext == NULL) {
@@ -417,15 +576,15 @@ void AMInfoMsgCallback(CFMachPortRef CFPort, void *msg, CFIndex size, void *info
 	}
 
     /* Create a run loop source for the service port with some minimal context passed on: */
-	inforeqSource = CFMachPortCreateRunLoopSource(NULL, AMInfoServicePort, 0);
-	if (inforeqSource == NULL)
+	AMInforeqRLS = CFMachPortCreateRunLoopSource(NULL, AMInfoServicePort, 0);
+	if (AMInforeqRLS == NULL)
 	{
 		sys_msg(debug, LOG_ERR, "registerAMInfoService: could not create CFRunLoopSource");
 		goto Err_Exit;
 	}
 
 	/* Set up to read messages from the Mach port in the main event loop: */
-	CFRunLoopAddSource(gMainRunLoop, inforeqSource, kCFRunLoopDefaultMode);
+	CFRunLoopAddSource(gMainRunLoop, AMInforeqRLS, kCFRunLoopDefaultMode);
 
 	/*
 	 * Declare a service name associated with this server.
@@ -459,13 +618,9 @@ void AMInfoMsgCallback(CFMachPortRef CFPort, void *msg, CFIndex size, void *info
 	goto Std_Exit;
 
 Err_Exit:
-	if (AMInfoServicePort != MACH_PORT_NULL) {
-		CFRelease(AMInfoServicePort);
-		AMInfoServicePort = MACH_PORT_NULL;
-	};
-
+	/* No special cleanup necessary */;
+	
 Std_Exit:
-	if (inforeqSource != NULL) CFRelease(inforeqSource);
 	if (AMInfoPortContext && freeAMInfoPortContext) free(AMInfoPortContext);
 	
     return result;
@@ -496,14 +651,15 @@ Std_Exit:
 	bzero(&rsp, sizeof(rsp));
 	rsp.header = *msg;
 	rsp.body.result = -1;
+	str = (char *)&rsp.body.returnBuffer;
 	
 	/* Check if any unknown or unsupported options are being requested: */
-	if (body->request & ~(AMI_MOUNTOPTIONS | AMI_URL | AMI_MOUNTDIR)) {
+	if (body->request & ~(AMI_MOUNTOPTIONS | AMI_URL | AMI_MOUNTDIR | AMI_TRIGGERPATH)) {
 		rsp.body.result = EINVAL;
 		goto Send_Response;
 	};
-	
-	/* Locate the node for the path specified: */
+
+	/* Convert the string to Unique string */
 	strncpy(pathbuffer, body->path, sizeof(pathbuffer) - 1);
 	pathbuffer[sizeof(pathbuffer) - 1] = (char)0;		/* Make sure the string's terminated */
 	path = [String uniqueString:pathbuffer];
@@ -511,17 +667,42 @@ Std_Exit:
 		rsp.body.result = ENOMEM;
 		goto Send_Response;
 	};
+		
+	/* Generate the trigger path for given real path */
+	if (body->request & AMI_TRIGGERPATH) {
+		String *triggerPath = nil;
 	
+		triggerPath = [controller findDirByMountDir:path];
+		if (triggerPath == nil) {
+			rsp.body.result = EINVAL;
+			goto Send_Response;
+		}
+	
+		rsp.body.triggerPathOffset = str - (char *)&rsp.body.triggerPathOffset;
+		len = [triggerPath length];
+		if (len < (MAXPATHLEN-1)) {
+			len = MAXPATHLEN-1;
+		}
+		strncpy(str, [triggerPath value], len);
+		
+		str[len] = 0;
+		str += len + 1; 	/* include terminating byte in count */
+		str += (( 4 - ((unsigned long)str & 3)) & 3);  /* Round up to nearest 4-byte multiple */
+
+		[triggerPath release];
+		
+		/* currently AMI_TRIGGERPATH message is not combined with any other AMI messages.
+		 * Send the successs message back */
+		rsp.body.result = 0;
+		goto Send_Response;
+	} else {
+		rsp.body.triggerPathOffset = 0;
+	}
+
+	/* Locate the node for the path specified: Not REQUIRED for AMI_TRIGGERPATH */
 	v = [self lookupVnodePath:path from:[[controller rootMap] root]];
 	if (v == nil) {
 		rsp.body.result = ENOENT;
-		goto Send_Response;
-	};
-	
-	if (([v server] == nil) ||
-		([v source] == nil) ||
-		([v urlString] == nil)) {
-		rsp.body.result = EINVAL;
 		goto Send_Response;
 	};
 	
@@ -530,19 +711,21 @@ Std_Exit:
 		rsp.body.mountOptions = 0;  /* kMarkAutomounted | kUseUIProxy | kMountAll */
 		if ([v mntArgs] & MNT_DONTBROWSE) rsp.body.mountOptions |= kMarkDontBrowse;
 	};
-	
-	str = (char *)&rsp.body.returnBuffer;
 
 	/* Generate the server URL string: */
 	if (body->request & AMI_URL) {
 		rsp.body.URLOffset = str - (char *)&rsp.body.URLOffset;
-		len = strlen([[v urlString] value]);
-		if (len > (MAXURLLENGTH-1)) {
-			len = MAXURLLENGTH-1;
+		if ([v urlString]) {
+			len = strlen([[v urlString] value]);
+			if (len > (MAXURLLENGTH-1)) {
+				len = MAXURLLENGTH-1;
+			};
+			strncpy(str, [[v urlString] value], len);
+		} else {
+			len = 0;
 		};
-		strncpy(str, [[v urlString] value], len);
 		str[len] = (char)0;
-		str += len;
+		str += len + 1;			/* Include terminating null byte in count */
 		str += ((4 - ((unsigned long)str & 3)) & 3);		/* Round up to nearest 4-byte multiple */
 	} else {
 		rsp.body.URLOffset = 0;
@@ -551,13 +734,21 @@ Std_Exit:
 	/* Generate the target mount path: */
 	if (body->request & AMI_MOUNTDIR) {
 		rsp.body.mountDirOffset = str - (char *)&rsp.body.mountDirOffset;
-		len = strlen([[v link] value]);
-		if (len > (MAXPATHLEN-1)) {
-			len = MAXPATHLEN-1;
+		if ([v link]) {
+			len = strlen([[v link] value]);
+			if (len > (MAXPATHLEN-1)) {
+				len = MAXPATHLEN-1;
+			};
+			strncpy(str, [[v link] value], len);
+		} else {
+			len = strlen([[v path] value]);
+			if (len > (MAXPATHLEN-1)) {
+				len = MAXPATHLEN-1;
+			};
+			strncpy(str, [[v path] value], len);
 		};
-		strncpy(str, [[v link] value], len);
 		str[len] = (char)0;
-		str += len;
+		str += len + 1;			/* Include terminating null byte in count */
 		str += ((4 - ((unsigned long)str & 3)) & 3);		/* Round up to nearest 4-byte multiple */
 	} else {
 		rsp.body.mountDirOffset = 0;
@@ -565,13 +756,13 @@ Std_Exit:
 	
 	rsp.body.result = 0;
 	
+Send_Response:
 	/* Generate a response message: */
 	rsp.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_MOVE_SEND_ONCE, 0);
 	rsp.header.msgh_size = str - (char *)&rsp.header;
 	rsp.header.msgh_local_port = MACH_PORT_NULL;
 	rsp.header.msgh_id = msg->msgh_id + 100;
 	
-Send_Response:
 #if 0
 	sys_msg(debug, LOG_DEBUG, "handlePendingAMInfoRequests: sending %d-byte response to port 0x%lx.",
 						str - (char *)&rsp.header,
@@ -595,12 +786,22 @@ Send_Response:
 
 - (int)deregisterAMInfoService
 {
+	if (AMInforeqRLS) {
+		sys_msg(debug, LOG_DEBUG, "deregisterAMInfoService: releasing AMInforeqRLS for Map 0x%08x.", self);
+		CFRunLoopRemoveSource(gMainRunLoop, AMInforeqRLS, kCFRunLoopDefaultMode);
+		CFRelease(AMInforeqRLS);
+		AMInforeqRLS = NULL;
+	}
+	
 	if (AMInfoServicePort) {
+		sys_msg(debug, LOG_DEBUG, "deregisterAMInfoService: releasing AMInfoServicePort for Map 0x%08x.", self);
+		CFMachPortInvalidate(AMInfoServicePort);
 		CFRelease(AMInfoServicePort);
 		AMInfoServicePort = MACH_PORT_NULL;
 	};
 	
 	if (AMInfoPortContext) {
+		sys_msg(debug, LOG_DEBUG, "deregisterAMInfoService: releasing AMInfoPortContext for Map 0x%08x.", self);
 		free(AMInfoPortContext);
 		AMInfoPortContext = NULL;
 	};
@@ -635,6 +836,7 @@ Send_Response:
 
 	p = 0;
 	s = [path value];
+	gLookupTarget = s;
 
 	n = v;
 	while (s != NULL)
@@ -689,6 +891,7 @@ Send_Response:
 
 	p = 0;
 	s = [path value];
+	gLookupTarget = s;
 
 	n = v;
 	while (s != NULL)
@@ -730,6 +933,8 @@ Send_Response:
 	struct fattr f;
 	sattr *a;
 
+	gLookupTarget = [s value];
+	
 	n = [v lookup:s];
 	if (n != nil) return n;
 
@@ -752,6 +957,8 @@ Send_Response:
 - (Vnode *)symlink:(String *)l name:(String *)s atVnode:(Vnode *)v
 {
 	Vnode *n;
+
+	gLookupTarget = [s value];
 
 	n = [v lookup:s];
 	if (n != nil) return n;
@@ -1191,5 +1398,11 @@ static char * bootstrap_error_string(int errNum) {
 	
 	return mach_error_string(errNum);
 } 
+
+/* Currently only defined for -static and -fstab mounts */
+-(String *)findTriggerPath:(Vnode *)curRoot findPath:(String *)findPath
+{
+	return nil;
+}
 
 @end

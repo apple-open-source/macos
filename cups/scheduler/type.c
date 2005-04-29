@@ -1,9 +1,9 @@
 /*
- * "$Id: type.c,v 1.1.1.10 2003/04/11 21:07:49 jlovell Exp $"
+ * "$Id: type.c,v 1.8 2005/01/04 22:10:46 jlovell Exp $"
  *
  *   MIME typing routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -27,7 +27,7 @@
  *   mimeAddTypeRule()  - Add a detection rule for a file type.
  *   mimeFileType()     - Determine the type of a file.
  *   mimeType()         - Lookup a file type.
- *   compare()          - Compare two MIME super/type names.
+ *   mime_compare()     - Compare two MIME super/type names.
  *   checkrules()       - Check each rule in a list.
  *   patmatch()         - Pattern matching...
  */
@@ -46,12 +46,21 @@
 #include <cups/debug.h>
 
 
+typedef struct mime_file_buf_struct
+{
+  int		offset,			/* Offset in file for buffer */
+		length;			/* Length of data in buffer */
+  unsigned char buffer[MIME_MAX_BUFFER];/* Input buffer */
+} mime_file_buf_t;
+
+
 /*
  * Local functions...
  */
 
-static int	compare(mime_type_t **, mime_type_t **);
-static int	checkrules(const char *, cups_file_t *, mime_magic_t *);
+static int	mime_compare(mime_type_t **, mime_type_t **);
+static int	checkrules(const char *filename, cups_file_t *fp, 
+			mime_magic_t *rules, mime_file_buf_t *buf);
 static int	patmatch(const char *, const char *);
 
 
@@ -118,7 +127,7 @@ mimeAddType(mime_t     *mime,	/* I - MIME database */
 
   if (mime->num_types > 1)
     qsort(mime->types, mime->num_types, sizeof(mime_type_t *),
-          (int (*)(const void *, const void *))compare);
+          (int (*)(const void *, const void *))mime_compare);
 
   return (temp);
 }
@@ -175,7 +184,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 
   while (*rule != '\0')
   {
-    while (isspace(*rule))
+    while (isspace(*rule & 255))
       rule ++;
 
     if (*rule == '(')
@@ -285,13 +294,13 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
       invert = 1;
       rule ++;
     }
-    else if (isalnum(*rule))
+    else if (isalnum(*rule & 255))
     {
      /*
       * Read an extension name or a function...
       */
 
-      for (ptr = name; isalnum(*rule) && (ptr - name) < (sizeof(name) - 1);)
+      for (ptr = name; isalnum(*rule & 255) && (ptr - name) < (sizeof(name) - 1);)
         *ptr++ = *rule++;
 
       *ptr       = '\0';
@@ -313,7 +322,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	  while ((ptr - value[num_values]) < (sizeof(value[0]) - 1) &&
 	         *rule != '\0' && *rule != ',' && *rule != ')')
 	  {
-	    if (isspace(*rule))
+	    if (isspace(*rule & 255))
 	    {
 	     /*
 	      * Ignore whitespace...
@@ -346,7 +355,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	      while (*rule != '>' && *rule != '\0' &&
 	             (ptr - value[num_values]) < (sizeof(value[0]) - 1))
 	      {
-	        if (isxdigit(rule[0]) && isxdigit(rule[1]))
+	        if (isxdigit(rule[0] & 255) && isxdigit(rule[1] & 255))
 		{
 		  if (isdigit(*rule))
 		    *ptr = (*rule++ - '0') << 4;
@@ -499,15 +508,15 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	    if (length[1] == 1)
 	      temp->value.charv = value[1][0];
 	    else
-	      temp->value.charv = strtol(value[1], NULL, 0);
+	      temp->value.charv = (char)strtol(value[1], NULL, 0);
 	    break;
 	case MIME_MAGIC_SHORT :
 	    temp->offset       = strtol(value[0], NULL, 0);
-	    temp->value.shortv = strtol(value[1], NULL, 0);
+	    temp->value.shortv = (short)strtol(value[1], NULL, 0);
 	    break;
 	case MIME_MAGIC_INT :
 	    temp->offset     = strtol(value[0], NULL, 0);
-	    temp->value.intv = strtol(value[1], NULL, 0);
+	    temp->value.intv = (int)strtol(value[1], NULL, 0);
 	    break;
 	case MIME_MAGIC_LOCALE :
 	    if (length[0] > (sizeof(temp->value.localev) - 1))
@@ -546,7 +555,7 @@ mimeFileType(mime_t     *mime,		/* I - MIME database */
   cups_file_t	*fp;			/* File pointer */
   mime_type_t	**types;		/* File types */
   const char	*filename;		/* Base filename of file */
-
+  mime_file_buf_t buf;
 
  /*
   * Range check input parameters...
@@ -575,8 +584,11 @@ mimeFileType(mime_t     *mime,		/* I - MIME database */
   * Then check it against all known types...
   */
 
+  buf.offset = 0;
+  buf.length = 0;
+
   for (i = mime->num_types, types = mime->types; i > 0; i --, types ++)
-    if (checkrules(filename, fp, (*types)->rules))
+    if (checkrules(filename, fp, (*types)->rules, &buf))
       break;
 
  /*
@@ -633,7 +645,7 @@ mimeType(mime_t     *mime,	/* I - MIME database */
 
   match = (mime_type_t **)bsearch(&keyptr, mime->types, mime->num_types,
                                   sizeof(mime_type_t *),
-                                  (int (*)(const void *, const void *))compare);
+                                  (int (*)(const void *, const void *))mime_compare);
 
   if (match == NULL)
     return (NULL);
@@ -643,12 +655,12 @@ mimeType(mime_t     *mime,	/* I - MIME database */
 
 
 /*
- * 'compare()' - Compare two MIME super/type names.
+ * 'mime_compare()' - Compare two MIME super/type names.
  */
 
 static int			/* O - Result of comparison */
-compare(mime_type_t **t0,	/* I - First type */
-        mime_type_t **t1)	/* I - Second type */
+mime_compare(mime_type_t **t0,	/* I - First type */
+	     mime_type_t **t1)	/* I - Second type */
 {
   int	i;			/* Result of comparison */
 
@@ -667,7 +679,8 @@ compare(mime_type_t **t0,	/* I - First type */
 static int				/* O - 1 if match, 0 if no match */
 checkrules(const char   *filename,	/* I - Filename */
            cups_file_t  *fp,		/* I - File to check */
-           mime_magic_t *rules)		/* I - Rules to check */
+           mime_magic_t *rules,		/* I - Rules to check */
+	   mime_file_buf_t *buf)	/* I - Input buffer */
 {
   int		n;			/* Looping var */
   int		region;			/* Region to look at */
@@ -675,10 +688,7 @@ checkrules(const char   *filename,	/* I - Filename */
 		result,			/* Result of test */
 		intv;			/* Integer value */
   short		shortv;			/* Short value */
-  unsigned char	buffer[MIME_MAX_BUFFER],/* Input buffer */
-		*bufptr;		/* Current buffer position */
-  int		bufoffset,		/* Offset in file for buffer */
-		buflength;		/* Length of data in buffer */
+  const unsigned char *bufptr;		/* Current buffer position */
 
 
   if (rules == NULL)
@@ -689,8 +699,6 @@ checkrules(const char   *filename,	/* I - Filename */
   else
     logic = rules->parent->op;
 
-  bufoffset = -1;
-  buflength = 0;
   result    = 0;
 
   while (rules != NULL)
@@ -710,28 +718,28 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * Load the buffer if necessary...
 	  */
 
-          if (bufoffset < 0 || rules->offset < bufoffset ||
-	      (rules->offset + rules->length) > (bufoffset + buflength))
+          if (buf->offset < 0 || rules->offset < buf->offset ||
+	      (rules->offset + rules->length) > (buf->offset + buf->length))
 	  {
 	   /*
 	    * Reload file buffer...
 	    */
 
             cupsFileSeek(fp, rules->offset);
-	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
-	    bufoffset = rules->offset;
+	    buf->length = cupsFileRead(fp, (char *)buf->buffer, sizeof(buf->buffer));
+	    buf->offset = rules->offset;
 	  }
 
          /*
 	  * Test for ASCII printable characters plus standard control chars.
 	  */
 
-	  if ((rules->offset + rules->length) > (bufoffset + buflength))
-	    n = bufoffset + buflength - rules->offset;
+	  if ((rules->offset + rules->length) > (buf->offset + buf->length))
+	    n = buf->offset + buf->length - rules->offset;
 	  else
 	    n = rules->length;
 
-          bufptr = buffer + rules->offset - bufoffset;
+          bufptr = buf->buffer + rules->offset - buf->offset;
 	  while (n > 0)
 	    if ((*bufptr >= 32 && *bufptr <= 126) ||
 	        (*bufptr >= 8 && *bufptr <= 13) ||
@@ -751,28 +759,28 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * Load the buffer if necessary...
 	  */
 
-          if (bufoffset < 0 || rules->offset < bufoffset ||
-	      (rules->offset + rules->length) > (bufoffset + buflength))
+          if (buf->offset < 0 || rules->offset < buf->offset ||
+	      (rules->offset + rules->length) > (buf->offset + buf->length))
 	  {
 	   /*
 	    * Reload file buffer...
 	    */
 
             cupsFileSeek(fp, rules->offset);
-	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
-	    bufoffset = rules->offset;
+	    buf->length = cupsFileRead(fp, (char *)buf->buffer, sizeof(buf->buffer));
+	    buf->offset = rules->offset;
 	  }
 
          /*
 	  * Test for 8-bit printable characters plus standard control chars.
 	  */
 
-	  if ((rules->offset + rules->length) > (bufoffset + buflength))
-	    n = bufoffset + buflength - rules->offset;
+	  if ((rules->offset + rules->length) > (buf->offset + buf->length))
+	    n = buf->offset + buf->length - rules->offset;
 	  else
 	    n = rules->length;
 
-          bufptr = buffer + rules->offset - bufoffset;
+          bufptr = buf->buffer + rules->offset - buf->offset;
 
 	  while (n > 0)
 	    if (*bufptr >= 128 ||
@@ -794,16 +802,19 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * Load the buffer if necessary...
 	  */
 
-          if (bufoffset < 0 || rules->offset < bufoffset ||
-	      (rules->offset + rules->length) > (bufoffset + buflength))
+          if (buf->offset < 0 || rules->offset < buf->offset ||
+	      (rules->offset + rules->length) > (buf->offset + buf->length))
 	  {
 	   /*
 	    * Reload file buffer...
 	    */
 
-            cupsFileSeek(fp, rules->offset);
-	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
-	    bufoffset = rules->offset;
+	    if (buf->offset != rules->offset)
+	    {
+	      cupsFileSeek(fp, rules->offset);
+	      buf->offset = rules->offset;
+	    }
+	    buf->length = cupsFileRead(fp, (char *)buf->buffer, sizeof(buf->buffer));
 	  }
 
          /*
@@ -811,10 +822,10 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * short then don't compare - it can't match...
 	  */
 
-	  if ((rules->offset + rules->length) > (bufoffset + buflength))
+	  if ((rules->offset + rules->length) > (buf->offset + buf->length))
 	    result = 0;
 	  else
-            result = (memcmp(buffer + rules->offset - bufoffset,
+            result = (memcmp(buf->buffer + rules->offset - buf->offset,
 	                     rules->value.stringv, rules->length) == 0);
 	  break;
 
@@ -823,16 +834,16 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * Load the buffer if necessary...
 	  */
 
-          if (bufoffset < 0 || rules->offset < bufoffset ||
-	      (rules->offset + rules->length) > (bufoffset + buflength))
+          if (buf->offset < 0 || rules->offset < buf->offset ||
+	      (rules->offset + rules->length) > (buf->offset + buf->length))
 	  {
 	   /*
 	    * Reload file buffer...
 	    */
 
             cupsFileSeek(fp, rules->offset);
-	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
-	    bufoffset = rules->offset;
+	    buf->length = cupsFileRead(fp, (char *)buf->buffer, sizeof(buf->buffer));
+	    buf->offset = rules->offset;
 	  }
 
          /*
@@ -840,10 +851,10 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * short then don't compare - it can't match...
 	  */
 
-	  if ((rules->offset + rules->length) > (bufoffset + buflength))
+	  if ((rules->offset + rules->length) > (buf->offset + buf->length))
 	    result = 0;
 	  else
-            result = (strncasecmp(buffer + rules->offset - bufoffset,
+            result = (strncasecmp((char *)buf->buffer + rules->offset - buf->offset,
 	                          rules->value.stringv, rules->length) == 0);
 	  break;
 
@@ -852,15 +863,15 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * Load the buffer if necessary...
 	  */
 
-          if (bufoffset < 0 || rules->offset < bufoffset)
+          if (buf->offset < 0 || rules->offset < buf->offset)
 	  {
 	   /*
 	    * Reload file buffer...
 	    */
 
             cupsFileSeek(fp, rules->offset);
-	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
-	    bufoffset = rules->offset;
+	    buf->length = cupsFileRead(fp, (char *)buf->buffer, sizeof(buf->buffer));
+	    buf->offset = rules->offset;
 	  }
 
 	 /*
@@ -868,10 +879,10 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * can't match...
 	  */
 
-	  if (buflength < 1)
+	  if (buf->length < 1)
 	    result = 0;
 	  else
-	    result = (buffer[rules->offset - bufoffset] == rules->value.charv);
+	    result = (buf->buffer[rules->offset - buf->offset] == rules->value.charv);
 	  break;
 
       case MIME_MAGIC_SHORT :
@@ -879,16 +890,16 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * Load the buffer if necessary...
 	  */
 
-          if (bufoffset < 0 || rules->offset < bufoffset ||
-	      (rules->offset + 2) > (bufoffset + buflength))
+          if (buf->offset < 0 || rules->offset < buf->offset ||
+	      (rules->offset + 2) > (buf->offset + buf->length))
 	  {
 	   /*
 	    * Reload file buffer...
 	    */
 
             cupsFileSeek(fp, rules->offset);
-	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
-	    bufoffset = rules->offset;
+	    buf->length = cupsFileRead(fp, (char *)buf->buffer, sizeof(buf->buffer));
+	    buf->offset = rules->offset;
 	  }
 
 	 /*
@@ -896,11 +907,11 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * can't match...
 	  */
 
-	  if (buflength < 2)
+	  if (buf->length < 2)
 	    result = 0;
 	  else
 	  {
-	    bufptr = buffer + rules->offset - bufoffset;
+	    bufptr = buf->buffer + rules->offset - buf->offset;
 	    shortv = (bufptr[0] << 8) | bufptr[1];
 	    result = (shortv == rules->value.shortv);
 	  }
@@ -911,16 +922,16 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * Load the buffer if necessary...
 	  */
 
-          if (bufoffset < 0 || rules->offset < bufoffset ||
-	      (rules->offset + 4) > (bufoffset + buflength))
+          if (buf->offset < 0 || rules->offset < buf->offset ||
+	      (rules->offset + 4) > (buf->offset + buf->length))
 	  {
 	   /*
 	    * Reload file buffer...
 	    */
 
             cupsFileSeek(fp, rules->offset);
-	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
-	    bufoffset = rules->offset;
+	    buf->length = cupsFileRead(fp, (char *)buf->buffer, sizeof(buf->buffer));
+	    buf->offset = rules->offset;
 	  }
 
 	 /*
@@ -928,11 +939,11 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * can't match...
 	  */
 
-	  if (buflength < 4)
+	  if (buf->length < 4)
 	    result = 0;
 	  else
 	  {
-	    bufptr = buffer + rules->offset - bufoffset;
+	    bufptr = buf->buffer + rules->offset - buf->offset;
 	    intv   = (((((bufptr[0] << 8) | bufptr[1]) << 8) | bufptr[2]) << 8) |
 	             bufptr[3];;
 	    result = (intv == rules->value.intv);
@@ -952,16 +963,16 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * Load the buffer if necessary...
 	  */
 
-          if (bufoffset < 0 || rules->offset < bufoffset ||
-	      (rules->offset + rules->region) > (bufoffset + buflength))
+          if (buf->offset < 0 || rules->offset < buf->offset ||
+	      (rules->offset + rules->region) > (buf->offset + buf->length))
 	  {
 	   /*
 	    * Reload file buffer...
 	    */
 
             cupsFileSeek(fp, rules->offset);
-	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
-	    bufoffset = rules->offset;
+	    buf->length = cupsFileRead(fp, (char *)buf->buffer, sizeof(buf->buffer));
+	    buf->offset = rules->offset;
 	  }
 
          /*
@@ -969,17 +980,17 @@ checkrules(const char   *filename,	/* I - Filename */
 	  * short then don't compare - it can't match...
 	  */
 
-	  if ((rules->offset + rules->length) > (bufoffset + buflength))
+	  if ((rules->offset + rules->length) > (buf->offset + buf->length))
 	    result = 0;
 	  else
 	  {
-	    if (buflength > rules->region)
+	    if (buf->length > rules->region)
 	      region = rules->region - rules->length;
 	    else
-	      region = buflength - rules->length;
+	      region = buf->length - rules->length;
 
 	    for (n = 0; n < region; n ++)
-	      if ((result = (memcmp(buffer + rules->offset - bufoffset + n,
+	      if ((result = (memcmp(buf->buffer + rules->offset - buf->offset + n,
 	                            rules->value.stringv, rules->length) == 0)) != 0)
 		break;
           }
@@ -987,7 +998,7 @@ checkrules(const char   *filename,	/* I - Filename */
 
       default :
           if (rules->child != NULL)
-	    result = checkrules(filename, fp, rules->child);
+	    result = checkrules(filename, fp, rules->child, buf);
 	  else
 	    result = 0;
 	  break;
@@ -1128,5 +1139,5 @@ patmatch(const char *s,		/* I - String to match against */
 
 
 /*
- * End of "$Id: type.c,v 1.1.1.10 2003/04/11 21:07:49 jlovell Exp $".
+ * End of "$Id: type.c,v 1.8 2005/01/04 22:10:46 jlovell Exp $".
  */

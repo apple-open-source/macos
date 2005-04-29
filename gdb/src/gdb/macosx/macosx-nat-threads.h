@@ -3,14 +3,14 @@
 
 #include <pthread.h>
 
-typedef void* (*pthread_fn_t) (void *arg);
+typedef void *(*pthread_fn_t) (void *arg);
 
 void gdb_pthread_kill (pthread_t pthread);
 pthread_t gdb_pthread_fork (pthread_fn_t function, void *arg);
 
 #define gdb_thread_exit pthread_exit
 #define gdb_thread_fork gdb_pthread_fork
-#define gdb_thread_kill	gdb_pthread_kill
+#define gdb_thread_kill gdb_pthread_kill
 
 typedef pthread_t gdb_thread_t;
 typedef pthread_fn_t gdb_thread_fn_t;

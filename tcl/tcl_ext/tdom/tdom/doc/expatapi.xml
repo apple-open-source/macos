@@ -1,0 +1,257 @@
+  <manpage id="expatapi" cat="fun" title="expatapi">
+    <namesection>
+      <name>CheckExpatParserObj, CHandlerSetInstall, CHandlerSetRemove,
+         CHandlerSetCreate, CHandlerSetGetUserData, GetExpatInfo</name>
+
+      <desc>Functions to create, install and remove expat parser object
+extensions.</desc>
+    </namesection>
+  <synopsis>
+    <syntax>#include &lt;tclexpat.h&gt;
+
+int 
+<fun>CheckExpatParserObj</fun> (<m>interp</m>, <m>nameObj</m>)  
+
+int
+<fun>CHandlerSetInstall</fun> (<m>interp</m>, <m>expatObj</m>, <m>handlerSet</m>)
+
+int 
+<fun>CHandlerSetRemove</fun> (<m>interp</m>, <m>expatObj</m>, <m>handlerSetName</m>)
+
+CHandlerSet*
+<fun>CHandlerSetCreate</fun> (<m>handlerSetName</m>)
+
+CHandlerSet*
+<fun>CHandlerSetGet</fun> (<m>interp</m>, <m>expatObj</m>, <m>handlerSetName</m>)
+
+void*
+<fun>CHandlerSetGetUserData</fun> (<m>interp</m>, <m>expatObj</m>, <m>handlerSetName</m>)
+
+TclGenExpatInfo*
+<fun>GetExpatInfo</fun> (<m>interp</m>, <m>expatObj</m>)
+</syntax>
+  </synopsis>
+
+  <section>
+    <title>ARGUMENTS</title>
+    <arglist>
+      <argdef>
+        <argtype>Tcl_Interp</argtype>
+        <name name="interp">*interp</name>
+        <argmode>in</argmode>
+        <desc>Interpreter with the expat parser object.</desc>
+      </argdef>
+      <argdef>
+        <argtype>Tcl_Obj</argtype>
+        <name name="expatObj">*expatObj</name>
+        <argmode>in</argmode>
+        <desc>A Tcl Object containing the command name of the expat parser object to be queried or modified.</desc>
+      </argdef>
+      <argdef>
+        <argtype>char</argtype>
+        <name>*handlerSetName</name>
+        <argmode>in</argmode>
+        <desc>Identifier of the handler set.</desc>
+      </argdef>
+      <argdef>
+        <argtype>CHandlerSet</argtype>
+        <name name="handlerSet">*handlerSet</name>
+        <argmode>in</argmode>
+        <desc>Pointer to a C handler set.</desc>
+      </argdef>
+      <argdef>
+        <argtype>Tcl_Obj</argtype>
+        <name name="nameObj">*nameObj</name>
+        <desc>A Tcl Object containing the name of a expat parser object</desc>
+      </argdef>
+    </arglist>
+  </section>
+
+  <section>
+    <title>DESCRIPTION</title>
+<p>The functions described in this manual allows to add C level coded event
+handler to an tDOM Tcl expat parser objects. A tDOM Tcl expat parser object is
+able to have several Tcl scripts and C functions associated with an specific
+event. If the event occurs, first the Tcl scripts then the C functions
+associated with the event are called in turn.</p>  
+
+<p>A tDOM Tcl expat parser extension is an ordinary Tcl extension and loaded
+like every other Tcl extension. It must install at least one new Tcl Level
+command, that manipulates a tDOM Tcl expat parser object.</p>
+
+<p>A C level handler set is a data structure like this:</p>
+
+<example>
+typedef struct CHandlerSet {
+    struct CHandlerSet *nextHandlerSet;
+    char *name;                     /* refname of the handler set */
+    int ignoreWhiteCDATAs;          /* ignore 'white' CDATA sections */
+
+    void *userData;                 /* Handler set specific Data Structure;
+                                       the C handler set extention has to
+                                       malloc the needed structure in his
+                                       init func and has to provide a
+                                       cleanup func (to free it). */
+
+    CHandlerSet_userDataReset        resetProc;
+    CHandlerSet_userDataFree         freeProc;
+
+    /* C func for element start */
+    XML_StartElementHandler          elementstartcommand;
+    /* C func for element end */
+    XML_EndElementHandler            elementendcommand;
+    /* C func for character data */
+    XML_CharacterDataHandler         datacommand;
+    /* C func for namespace decl start */
+    XML_StartNamespaceDeclHandler    startnsdeclcommand;
+    /* C func for namespace decl end */
+    XML_EndNamespaceDeclHandler      endnsdeclcommand;
+    /* C func for processing instruction */
+    XML_ProcessingInstructionHandler picommand;
+    /* C func for default data */
+    XML_DefaultHandler               defaultcommand;
+    /* C func for unparsed entity declaration */
+    XML_NotationDeclHandler          notationcommand;
+    /* C func for external entity */
+    XML_ExternalEntityRefHandler     externalentitycommand;
+    /* C func for unknown encoding */
+    XML_UnknownEncodingHandler       unknownencodingcommand;
+    /* C func for comments */
+    XML_CommentHandler               commentCommand;
+    /* C func for &quot;not standalone&quot; docs */
+    XML_NotStandaloneHandler         notStandaloneCommand;
+    /* C func for CDATA section start */
+    XML_StartCdataSectionHandler     startCdataSectionCommand;
+    /* C func for CDATA section end */
+    XML_EndCdataSectionHandler       endCdataSectionCommand;
+    /* C func for !ELEMENT decl's */
+    XML_ElementDeclHandler           elementDeclCommand;
+    /* C func for !ATTLIST decl's */
+    XML_AttlistDeclHandler           attlistDeclCommand;
+    /* C func for !DOCTYPE decl's */
+    XML_StartDoctypeDeclHandler      startDoctypeDeclCommand;
+    /* C func for !DOCTYPE decl ends */
+    XML_EndDoctypeDeclHandler        endDoctypeDeclCommand;
+    /* C func for !ENTITY decls's */
+    XML_EntityDeclHandler            entityDeclCommand;
+} CHandlerSet;
+</example>
+
+    <p>The types and the arguments of the event functions (XML_*) are exactly
+the same like the expat lib handler functions and described in detail in
+expat.h, see there. The extension has only to provided the handler functions
+needed; it's perfectly OK to leave unused handler slots as the are (they are
+initialized to NULL by CHandlerSetCreate).</p>
+
+
+    <p>The <m>name</m> of this structure is used to identify the handler set.
+</p>
+
+
+    <p>If the flag <m>ignoreWhiteCDATAs</m> is set, element content which
+contain only whitespace isn't reported with the datacommand.  </p>
+
+
+    <p>The <m>userData</m> element points to the handler set specific data. The
+event handler functions are called with this pointer as userData argument.
+</p>
+
+    <p><m>resetProc</m> and <m>freeProc</m> must have arguments that match the
+type</p>
+    <syntax>void (Tcl_Interp *interp, void *userData)</syntax>
+
+    <p><m>resetProc</m> is called in case the parser is reseted with
+<samp>&lt;parserObj&gt; reset</samp> and should do any necessary cleanup and
+reinitializing to prepare the C handler set for a new XML document. The
+<m>freeProc</m> is called, if the parser is deleted and should do memory
+cleanup etc.  </p>
+
+    <p> <m>CHandlerSetCreate</m> create a C handler set, gives it the name
+<m>name</m> and initializes any other element with NULL.</p>
+
+    <p> <m>CHandlerSetInstall</m> adds the <m>handlerSet</m> to the parser
+<m>expatObj</m>. The parser has to be a tDOM Tcl expat parser object in the
+interpreter <m>interp</m>. The name of the C handler set has to be unique for
+the parser. Returns 0 in case of success. Returns 1 if <m>expatObj</m> isn't a
+parser object in the interpreter <m>interp</m>. Returns 2 if this parser has
+already a C handler set with the handlerSet name.</p>
+
+<p> <m>CHandlerSetRemove</m> removes the C handler set referenced by the
+<m>handlerSetName</m> from the parser <m>expatObj</m>. The parser has to be a
+tDOM Tcl expat parser object in the interpreter
+<m>interp</m>. <m>CHandlerSetRemove</m> calls the freeProc function of the C
+handler set structure, removes the handler set from the C handler set list and
+frees the handler structure. Returns 0 in case of success. Returns 1 if
+<m>expatObj</m> isn't a parser object in the interpreter <m>interp</m>. Returns
+2 if this parser hasn't a C handler set named <m>handlerSetName</m>.</p>
+
+<p><m>CheckExpatParserObj</m> returns 1, if <m>nameObj</m> is a tDOM Tcl expat
+parser object in the interpreter <m>interp</m>, otherwise it returns
+0. Example:</p>
+
+<example>
+int
+TclExampleObjCmd(dummy, interp, objc, objv)
+     ClientData dummy;
+     Tcl_Interp *interp;
+     int objc;
+     Tcl_Obj *CONST objv[];
+{
+    char          *method;
+    CHandlerSet   *handlerSet;
+    int            methodIndex, result;
+    simpleCounter *counter;
+    
+
+    static char *exampleMethods[] = {
+        &quot;enable&quot;, &quot;getresult&quot;, &quot;remove&quot;,
+        NULL
+    };
+    enum exampleMethod {
+        m_enable, m_getresult, m_remove
+    };
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs (interp, 1, objv, example_usage);
+        return TCL_ERROR;
+    }
+
+    if (!CheckExpatParserObj (interp, objv[1])) {
+        Tcl_SetResult (interp, &quot;First argument has to be a expat parser object&quot;, NULL);
+        return TCL_ERROR;
+    }
+    /* ... */
+</example>
+
+    <p> <m>CHandlerSetGet</m> returns a pointer to the C handler Set referenced
+by the name <m>handlerSetName</m> of the parser object
+<m>expatObj</m>. <m>expatObj</m> has to be an expat parser object in the
+interpreter <m>interp</m>. Returns NULL in case of error.</p>
+
+    <p><m>CHandlerSetGetUserData</m> returns a pointer to the userData of the C
+handler set referenced by the name <m>handlerSetName</m> of the parser object
+<m>expatObj</m>. <m>expatObj</m> has to be an expat parser object in the
+interpreter <m>interp</m>. Returns NULL in case of error.</p>
+
+
+    <p> <m>GetExpatInfo</m> Is a helper function that returns a pointer to the
+TclGenExpatInfo structure of the tDOM Tcl expat parser object
+<m>expatObj</m>. The <m>expatObj</m> has to be a tDOM Tcl expat parser object
+in the interpreter <m>interp</m>. This is most useful, to set the application
+status of the parser object.</p>
+
+
+    <p>See the simple but full functionally example in the extensions/example
+dir or the more complex example tnc in the extensions/tnc dir (a simple DTD
+validation extension).</p>
+
+  </section>
+
+  <seealso>
+    <ref>expat</ref>
+  </seealso>
+
+  <keywords>
+    <keyword>C handler set</keyword>
+  </keywords>
+</manpage>

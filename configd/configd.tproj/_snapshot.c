@@ -78,7 +78,7 @@ _expandStore(CFDictionaryRef storeData)
 			if (data) {
 				CFPropertyListRef	plist;
 
-				if (!_SCUnserialize(&plist, data, NULL, NULL)) {
+				if (!_SCUnserialize(&plist, data, NULL, 0)) {
 					goto done;
 				}
 
@@ -130,8 +130,6 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	CFDataRef			xmlData;
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreSnapshot:"));
-
 	/* check credentials */
 
 	mySession = getSession(storePrivate->server);
@@ -151,7 +149,7 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 	xmlData = CFPropertyListCreateXMLData(NULL, expandedStoreData);
 	CFRelease(expandedStoreData);
 	if (!xmlData) {
-		SCLog(TRUE, LOG_ERR, CFSTR("CFPropertyListCreateXMLData() failed"));
+		SCLog(TRUE, LOG_ERR, CFSTR("__SCDynamicStoreSnapshot CFPropertyListCreateXMLData() failed"));
 		close(fd);
 		return kSCStatusFailed;
 	}
@@ -169,7 +167,7 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 
 	xmlData = CFPropertyListCreateXMLData(NULL, patternData);
 	if (!xmlData) {
-		SCLog(TRUE, LOG_ERR, CFSTR("CFPropertyListCreateXMLData() failed"));
+		SCLog(TRUE, LOG_ERR, CFSTR("__SCDynamicStoreSnapshot CFPropertyListCreateXMLData() failed"));
 		close(fd);
 		return kSCStatusFailed;
 	}
@@ -187,7 +185,7 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 
 	xmlData = CFPropertyListCreateXMLData(NULL, sessionData);
 	if (!xmlData) {
-		SCLog(TRUE, LOG_ERR, CFSTR("CFPropertyListCreateXMLData() failed"));
+		SCLog(TRUE, LOG_ERR, CFSTR("__SCDynamicStoreSnapshot CFPropertyListCreateXMLData() failed"));
 		close(fd);
 		return kSCStatusFailed;
 	}
@@ -205,17 +203,11 @@ _snapshot(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Snapshot configuration database."));
-
 	if (!mySession) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
 	}
 
 	*sc_status = __SCDynamicStoreSnapshot(mySession->store);
-	if (*sc_status != kSCStatusOK) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreSnapshot(): %s"), SCErrorString(*sc_status));
-	}
-
 	return KERN_SUCCESS;
 }

@@ -1,3 +1,4 @@
+#!perl
 shift->send_http_header("text/plain");
 
 unless($My::config_is_perl) {

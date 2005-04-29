@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -241,18 +241,14 @@ intpr(nfsstataddr, display)
 		       nfsstats.rpccnt[NFSPROC_READDIR],
 		       nfsstats.rpccnt[NFSPROC_READDIRPLUS],
 		       nfsstats.rpccnt[NFSPROC_ACCESS]);
-		printf("%9.9s %9.9s %9.9s %9.9s %9.9s %9.9s %9.9s %9.9s\n",
-		       "Mknod", "Fsstat", "Fsinfo", "PathConf", "Commit",
-		       "GLease", "Vacate", "Evict");
-		printf("%9d %9d %9d %9d %9d %9d %9d %9d\n",
+		printf("%9.9s %9.9s %9.9s %9.9s %9.9s\n",
+		       "Mknod", "Fsstat", "Fsinfo", "PathConf", "Commit");
+		printf("%9d %9d %9d %9d %9d\n",
 		       nfsstats.rpccnt[NFSPROC_MKNOD],
 		       nfsstats.rpccnt[NFSPROC_FSSTAT],
 		       nfsstats.rpccnt[NFSPROC_FSINFO],
 		       nfsstats.rpccnt[NFSPROC_PATHCONF],
-		       nfsstats.rpccnt[NFSPROC_COMMIT],
-		       nfsstats.rpccnt[NQNFSPROC_GETLEASE],
-		       nfsstats.rpccnt[NQNFSPROC_VACATED],
-		       nfsstats.rpccnt[NQNFSPROC_EVICTED]);
+		       nfsstats.rpccnt[NFSPROC_COMMIT]);
 		printf("Rpc Info:\n");
 		printf("%9.9s %9.9s %9.9s %9.9s %9.9s\n",
 		       "TimedOut", "Invalid", "X Replies", "Retries", "Requests");
@@ -312,18 +308,14 @@ intpr(nfsstataddr, display)
 		       nfsstats.srvrpccnt[NFSPROC_READDIR],
 		       nfsstats.srvrpccnt[NFSPROC_READDIRPLUS],
 		       nfsstats.srvrpccnt[NFSPROC_ACCESS]);
-		printf("%9.9s %9.9s %9.9s %9.9s %9.9s %9.9s %9.9s %9.9s\n",
-		       "Mknod", "Fsstat", "Fsinfo", "PathConf", "Commit",
-		       "GLease", "Vacate", "Evict");
-		printf("%9d %9d %9d %9d %9d %9d %9d %9d\n",
+		printf("%9.9s %9.9s %9.9s %9.9s %9.9s\n",
+		       "Mknod", "Fsstat", "Fsinfo", "PathConf", "Commit");
+		printf("%9d %9d %9d %9d %9d\n",
 		       nfsstats.srvrpccnt[NFSPROC_MKNOD],
 		       nfsstats.srvrpccnt[NFSPROC_FSSTAT],
 		       nfsstats.srvrpccnt[NFSPROC_FSINFO],
 		       nfsstats.srvrpccnt[NFSPROC_PATHCONF],
-		       nfsstats.srvrpccnt[NFSPROC_COMMIT],
-		       nfsstats.srvrpccnt[NQNFSPROC_GETLEASE],
-		       nfsstats.srvrpccnt[NQNFSPROC_VACATED],
-		       nfsstats.srvrpccnt[NQNFSPROC_EVICTED]);
+		       nfsstats.srvrpccnt[NFSPROC_COMMIT]);
 		printf("Server Ret-Failed\n");
 		printf("%17d\n", nfsstats.srvrpc_errs);
 		printf("Server Faults\n");
@@ -336,13 +328,6 @@ intpr(nfsstataddr, display)
 		       nfsstats.srvcache_idemdonehits,
 		       nfsstats.srvcache_nonidemdonehits,
 		       nfsstats.srvcache_misses);
-		printf("Server Lease Stats:\n");
-		printf("%9.9s %9.9s %9.9s\n",
-		       "Leases", "PeakL", "GLeases");
-		printf("%9d %9d %9d\n",
-		       nfsstats.srvnqnfs_leases,
-		       nfsstats.srvnqnfs_maxleases,
-		       nfsstats.srvnqnfs_getleases);
 		printf("Server Write Gathering:\n");
 		printf("%9.9s %9.9s %9.9s\n",
 		       "WriteOps", "WriteRPC", "Opsaved");

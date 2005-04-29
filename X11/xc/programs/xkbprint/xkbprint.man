@@ -1,6 +1,6 @@
 .\" $Xorg: xkbprint.man,v 1.3 2000/08/17 19:54:50 cpqbld Exp $
 .\"
-.\" $XFree86: xc/programs/xkbprint/xkbprint.man,v 1.7 2001/01/27 18:21:16 dawes Exp $
+.\" $XFree86: xc/programs/xkbprint/xkbprint.man,v 1.8 2003/05/29 21:48:12 herrb Exp $
 .\"
 .TH XKBPRINT 1 __xorgversion__
 .SH NAME
@@ -13,7 +13,7 @@ xkbprint \- print an XKB keyboard description
 The
 .I xkbprint
 comman generates a printable or encapsulated PostScript description of the 
-XKB keyboard description specifed by \fIsource\fP.  The \fIsource\fP can be 
+XKB keyboard description specified by \fIsource\fP.  The \fIsource\fP can be 
 any compiled keymap (.xkm) file that includes a geometry description or an 
 X display specification.  If an \fIoutput_file\fP is specified, xkbprint 
 writes to it.  If no output file is specified, xkbprint creates replaces

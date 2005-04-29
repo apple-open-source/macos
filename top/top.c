@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -37,6 +34,7 @@ boolean_t	top_opt_O_ascend;
 top_sort_key_t	top_opt_o;
 boolean_t	top_opt_o_ascend;
 boolean_t	top_opt_r;
+boolean_t	top_opt_S;
 unsigned	top_opt_s;
 boolean_t	top_opt_t;
 boolean_t	top_opt_U;
@@ -138,6 +136,7 @@ top_p_opts_parse(int a_argc, char **a_argv)
 	top_opt_o = TOP_SORT_pid;
 	top_opt_o_ascend = FALSE;
 	top_opt_r = TRUE;
+	top_opt_S = FALSE;
 	top_opt_s = 1;
 	top_opt_t = FALSE;
 	top_opt_U = FALSE;
@@ -152,9 +151,9 @@ top_p_opts_parse(int a_argc, char **a_argv)
 	/* Iteratively process command line arguments. */
 	while ((c = getopt(a_argc, a_argv,
 #ifdef TOP_DEPRECATED
-	    "ac:deFfhkLl:n:O:o:Rrs:TtU:uWwXx"
+	    "ac:deFfhkLl:n:O:o:RrSs:TtU:uWwXx"
 #else
-	    "c:FfhLl:n:O:o:Rrs:TtU:WwXx"
+	    "c:FfhLl:n:O:o:RrSs:TtU:WwXx"
 #endif
 	    )) != -1) {
 		switch (c) {
@@ -341,6 +340,9 @@ top_p_opts_parse(int a_argc, char **a_argv)
 		case 'r':
 			top_opt_r = TRUE;
 			break;
+		case 'S':
+			top_opt_S = TRUE;
+			break;
 		case 's': {
 			char	*p;
 
@@ -418,6 +420,7 @@ top_p_opts_parse(int a_argc, char **a_argv)
 		case 'x':
 			top_opt_x = TRUE;
 			top_opt_s = 1;
+			top_opt_S = FALSE;
 			break;
 #endif
 		case '?':

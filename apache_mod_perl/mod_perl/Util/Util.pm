@@ -68,6 +68,10 @@ representation.
 
  my $esc = Apache::Util::escape_html($html);
 
+This function will correctly escape US-ASCII output. If you are using
+a different character set such as UTF8, or need more control on
+the escaping process, use HTML::Entities.
+
 =item escape_uri
 
 This function replaces all unsafe characters in the $string with their
@@ -97,7 +101,7 @@ Example:
  This would correctly translate the query string
  ``name=Fred+Flintstone&town=Bedrock'' into the hash: 
 
- data => 'Fred Flintstone',
+ name => 'Fred Flintstone',
  town => 'Bedrock'
 
 =item parsedate

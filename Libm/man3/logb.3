@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)floor.3	6.5 (Berkeley) 4/19/91
-.\"	$Id: logb.3,v 1.3 2003/08/17 20:36:47 scp Exp $
+.\"	$Id: logb.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
 .Dd July 24, 2003
 .Dt LOGB 3
@@ -42,13 +42,13 @@
 .Fd #include <math.h>
 .Ft double
 .Fn logb "double x"
+.Ft long double
+.Fn logbl "long double x"
 .Ft float
 .Fn logbf "float x"
 .Sh DESCRIPTION
 The
 .Fn logb
-and
-.Fn logbf
 functions return the exponent of x, represented as a floating-point number. 
 .Sh SPECIAL VALUES
 .Fn logb "±0"
@@ -61,6 +61,4 @@ returns +infinity.
 .Sh STANDARDS
 The
 .Fn logb
-and
-.Fn logbf
 functions conform to ISO/IEC 9899:1999(E).

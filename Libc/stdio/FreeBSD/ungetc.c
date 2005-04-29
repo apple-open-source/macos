@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)ungetc.c	8.2 (Berkeley) 11/3/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/ungetc.c,v 1.14 2002/08/13 09:30:41 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/ungetc.c,v 1.16 2004/03/10 12:41:11 tjr Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -96,11 +96,10 @@ ungetc(int c, FILE *fp)
 {
 	int ret;
 
-	if (c == EOF)
-		return (EOF);
 	if (!__sdidinit)
 		__sinit();
 	FLOCKFILE(fp);
+	ORIENT(fp, -1);
 	ret = __ungetc(c, fp);
 	FUNLOCKFILE(fp);
 	return (ret);
@@ -112,8 +111,6 @@ ungetc(int c, FILE *fp)
 int
 __ungetc(int c, FILE *fp)
 {
-
-	ORIENT(fp, -1);
 
 	if (c == EOF)
 		return (EOF);

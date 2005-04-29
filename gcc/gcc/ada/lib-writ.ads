@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,14 +32,10 @@ package Lib.Writ is
    -- Format of Library Information --
    -----------------------------------
 
-   --  Note: the contents of the ali file are summarized in the GNAT
-   --  user's guide, so if any non-trivial changes are made to this
-   --  section, they should be reflected in the user's guide.
-
    --  This section  describes the format of the library information that is
    --  associated with object files. The exact method of this association is
    --  potentially implementation dependent and is described and implemented
-   --  in package From the point of view of the description here, all we
+   --  in package ali. From the point of view of the description here, all we
    --  need to know is that the information is represented as a string of
    --  characters that is somehow associated with an object file, and can be
    --  retrieved. If no library information exists for a given object file,
@@ -50,6 +45,48 @@ package Lib.Writ is
    --  The library information is written as a series of lines of the form:
 
    --    Key_Character parameter parameter ...
+
+   --  The following sections describe the format of these lines in detail
+
+   --------------------------------------
+   -- Making Changes to the ALI Format --
+   --------------------------------------
+
+   --  A number of tools use ali.adb to parse ali files. This means
+   --  that changes to this format can cause old versions of these tools
+   --  to be incompatible with new versions of the compiler. Any changes
+   --  to ali file formats must be carefully evaluated to understand any
+   --  such possible conflicts, and in particular, it is very undesirable
+   --  to create conflicts between older versions of GPS and newer versions
+   --  of the compiler.
+
+   --  If the following guidelines are respected, downward compatibility
+   --  problems (old tools reading new ali files) should be minimized:
+
+   --    The basic key character format must be kept.
+
+   --    The V line must be the first line, this is checked by ali.adb
+   --    even in Ignore_Errors mode, and is used to verify that the file
+   --    at hand is indeed likely intended to be an ali file.
+
+   --    The P line must be present, though may be modified in contents
+   --    according to remaining guidelines. Again, ali.adb assumes the
+   --    P line is present even in Ignore_Errors mode.
+
+   --    New modifiers can generally be added (in particular adding new
+   --    two letter modifiers to the P or U lines is always safe)
+
+   --    Adding entirely new lines (with a new key letter) to the ali
+   --    file is always safe, at any point (other than before the V
+   --    line), since suchy lines will be ignored.
+
+   --  Following the guidelines in this section should ensure that this
+   --  problem is minimized and that old tools will be able to deal
+   --  successfully with new ali formats. Note that this does not apply
+   --  to the compiler itself, which always requires consistency between
+   --  the ali files and the binder. That is because one of the main
+   --  functions of the binder is to ensure consistency of the partition,
+   --  and this can be compromised if the ali files are inconsistent.
 
    ------------------
    -- Header Lines --
@@ -72,6 +109,10 @@ package Lib.Writ is
    --      Examples of such changes are modifications in the format of the
    --      library info described in this package, or modifications to
    --      calling sequences, or to the way that data is represented.
+
+   --    Note: the V line absolutely must be the first line, and no change
+   --    to the ALI format should change this, since even in Ignore_Errors
+   --    mode, Scan_ALI insists on finding a V line.
 
    --  ---------------------
    --  -- M  Main Program --
@@ -131,8 +172,6 @@ package Lib.Writ is
    --      zero or more two letter codes that indicate configuration
    --      pragmas and other parameters that apply:
    --
-   --      Present if the unit uses tasking directly or indirectly and
-   --      has one or more valid xxx_Policy pragmas that apply to the unit.
    --      The arguments are as follows:
    --
    --         CE   Compilation errors. If this is present it means that the
@@ -141,6 +180,9 @@ package Lib.Writ is
    --              file contents may not be completely reliable, but the
    --              format will be correct and complete. Note that NO is
    --              always present if CE is present.
+   --
+   --         DB   Detect_Blocking pragma is in effect for all units in
+   --              this file.
    --
    --         FD   Configuration pragmas apply to all the units in this
    --              file specifying a possibly non-standard floating point
@@ -164,7 +206,8 @@ package Lib.Writ is
    --              can be produced (e.g. when a package spec is compiled
    --              instead of the body, or a subunit on its own).
    --
-   --         NR   No_Run_Time pragma in effect for all units in this file
+   --         NR   No_Run_Time. Indicates that a pragma No_Run_Time applies
+   --              to all units in the file.
    --
    --         NS   Normalize_Scalars pragma in effect for all units in
    --              this file
@@ -172,6 +215,15 @@ package Lib.Writ is
    --         Qx   A valid Queueing_Policy pragma applies to all the units
    --              in this file, where x is the first character (upper case)
    --              of the policy name (e.g. 'P' for Priority_Queueing).
+   --
+   --         SL   Indicates that the unit is an Interface to a Standalone
+   --              Library. Note that this indication is never given by the
+   --              compiler, but is added by the Project Manager in gnatmake
+   --              when an Interface ALI file is copied to the library
+   --              directory.
+
+   --         SS   This unit references System.Secondary_Stack (that is,
+   --              the unit makes use of the secondary stack facilities).
    --
    --         Tx   A valid Task_Dispatching_Policy pragma applies to all
    --              the units in this file, where x is the first character
@@ -194,16 +246,26 @@ package Lib.Writ is
    --      possible cases. These values are checked for consistency by the
    --      binder and then copied to the generated binder output file.
 
+   --    Note: The P line must be present. Even in Ignore_Errors mode,
+   --    Scan_ALI insists on finding a P line. So if changes are made to
+   --    the ALI format, they should not include removing the P line!
+
    --  ---------------------
    --  -- R  Restrictions --
    --  ---------------------
 
-   --    R <<restriction-characters>>
+   --  The R line records the status of restrictions generated by pragma
+   --  Restrictions encountered, as well as information on what the compiler
+   --  has been able to determine with respect to restrictions violations.
+   --  The format is:
 
-   --      This line records information regarding restrictions. The
-   --      parameter is a string of characters, one for each entry in
-   --      Restrict.Compilation_Unit_Restrictions, in order. There are
-   --      three settings possible settings for each restriction:
+   --    R <<restriction-characters>> <<restriction-param-id-entries>>
+
+   --      The first parameter is a string of characters that records
+   --      information regarding restrictions that do not take parameter
+   --      not take parameter values. It is a string of characters, one
+   --      character for each value (in order) in All_Boolean_Restrictions.
+   --      There are three possible settings for each restriction:
 
    --        r   Restricted. Unit was compiled under control of a pragma
    --            Restrictions for the corresponding restriction. In
@@ -223,6 +285,82 @@ package Lib.Writ is
    --      i.e. to detect cases where one unit has "r" and another unit
    --      has "v", which is not permitted, since these restrictions
    --      are partition-wide.
+
+   --  The second parameter, which immediately follows the first (with
+   --  no separating space) gives restriction information for identifiers
+   --  for which a parameter is given.
+
+   --      The parameter is a string of entries, one for each value in
+   --      Restrict.All_Parameter_Restrictions. Each entry has two
+   --      components in sequence, the first indicating whether or not
+   --      there is a restriction, and the second indicating whether
+   --      or not the compiler detected violations. In the boolean case
+   --      it is not necessary to separate these, since if a restriction
+   --      is set, and violated, that is an error. But in the parameter
+   --      case, this is not true. For example, we can have a unit with
+   --      a pragma Restrictions (Max_Tasks => 4), where the compiler
+   --      can detect that there are exactly three tasks declared. Both
+   --      of these pieces of information must be passed to the binder.
+   --      The parameter of 4 is important in case the total number of
+   --      tasks in the partition is greater than 4. The parameter of
+   --      3 is important in case some other unit has a restrictions
+   --      pragma with Max_Tasks=>2.
+
+   --      The component for the presence of restriction has one of two
+   --      possible forms:
+
+   --         n   No pragma for this restriction is present in the
+   --             set of units for this ali file.
+
+   --         rN  At least one pragma for this restriction is present
+   --             in the set of units for this ali file. The value N
+   --             is the minimum parameter value encountered in any
+   --             such pragma. N is in the range of Integer (a value
+   --             larger than N'Last causes the pragma to be ignored).
+
+   --      The component for the violation detection has one of three
+   --      possible forms:
+
+   --         n   No violations were detected by the compiler
+
+   --         vN  A violation was detected. N is either the maximum or total
+   --             count of violations (depending on the checking type) in
+   --             all the units represented by the ali file). Note that
+   --             this setting is only allowed for restrictions that are
+   --             in Checked_[Max|Sum]_Parameter_Restrictions. The value
+   --             here is known to be exact by the compiler and is in the
+   --             range of Natural.
+
+   --         vN+ A violation was detected. The compiler cannot determine
+   --             the exact count of violations, but it is at least N.
+
+   --      There are no spaces within the parameter string, so the entry
+   --      described above in the header of this section for Max_Tasks would
+   --      appear as the string r4v3.
+
+   --      Note: The restrictions line is required to be present. Even in
+   --      Ignore_Errors mode, Scan_ALI expects to find an R line and will
+   --      signal a fatal error if it is missing. This means that future
+   --      changes to the ALI file format must retain the R line.
+
+   --  ------------------------
+   --  -- I Interrupt States --
+   --  ------------------------
+
+   --    I interrupt-number interrupt-state line-number
+
+   --      This line records information from an Interrupt_State pragma.
+   --      There is one line for each separate pragma, and if no such
+   --      pragmas are used, then no I lines are present.
+
+   --      The interrupt-number is an unsigned positive integer giving
+   --      the value of the interrupt as defined in Ada.Interrupts.Names.
+
+   --      The interrupt-state is one of r/s/u for Runtime/System/User
+
+   --      The line number is an unsigned decimal integer giving the
+   --      line number of the corresponding Interrupt_State pragma.
+   --      This is used in consistency messages.
 
    ----------------------------
    -- Compilation Unit Lines --
@@ -323,11 +461,13 @@ package Lib.Writ is
    --      One of these lines is present for each unit that is mentioned in
    --      an explicit with clause by the current unit. The first parameter
    --      is the unit name in internal format. The second parameter is the
-   --      file name of the file that must be compiled to compile this unit
-   --      (which is usually the file for the body, except for packages
-   --      which have no body). The third parameter is the file name of the
-   --      library information file that contains the results of compiling
-   --      this unit. The optional modifiers are used as follows:
+   --      file name of the file that must be compiled to compile this unit.
+   --      It is usually the file for the body, except for packages
+   --      which have no body; for units that need a body, if the source file
+   --      for the body cannot be found, the file name of the spec is used
+   --      instead. The third parameter is the file name of the library
+   --      information file that contains the results of compiling this unit.
+   --      The optional modifiers are used as follows:
    --
    --        E   pragma Elaborate applies to this unit
    --
@@ -438,6 +578,11 @@ package Lib.Writ is
    --      allows a reader of the ALI file to determine the exact mapping
    --      of physical line numbers back to the original source.
 
+   --      Files with a zero checksum and a non-zero time stamp are in general
+   --      files on which the compilation depends but which are not Ada files
+   --      with further dependencies. This includes preprocessor data files
+   --      and preprocessor definition files.
+
    --      Note: blank lines are ignored when the library information is
    --      read, and separate sections of the file are separated by blank
    --      lines to ease readability. Blanks between fields are also
@@ -456,6 +601,35 @@ package Lib.Writ is
 
    --  The cross-reference data follows the dependency lines. See
    --  the spec of Lib.Xref for details on the format of this data.
+
+   ----------------------
+   -- Global_Variables --
+   ----------------------
+
+   --  The table structure defined here stores one entry for each
+   --  Interrupt_State pragma encountered either in the main source or
+   --  in an ancillary with'ed source. Since interrupt state values
+   --  have to be consistent across all units in a partition, we may
+   --  as well detect inconsistencies at compile time when we can.
+
+   type Interrupt_State_Entry is record
+      Interrupt_Number : Pos;
+      --  Interrupt number value
+
+      Interrupt_State : Character;
+      --  Set to r/s/u for Runtime/System/User
+
+      Pragma_Loc : Source_Ptr;
+      --  Location of pragma setting this value in place
+   end record;
+
+   package Interrupt_States is new Table.Table (
+     Table_Component_Type => Interrupt_State_Entry,
+     Table_Index_Type     => Nat,
+     Table_Low_Bound      => 1,
+     Table_Initial        => 30,
+     Table_Increment      => 200,
+     Table_Name           => "Name_Interrupt_States");
 
    -----------------
    -- Subprograms --
@@ -476,5 +650,9 @@ package Lib.Writ is
    --  date ALI file. If it *can* find an existing up to date ALI file, then
    --  it reads this file and sets the Lib.Compilation_Arguments table from
    --  the A lines in this file.
+
+   procedure Add_Preprocessing_Dependency (S : Source_File_Index);
+   --  Indicate that there is a dependency to be added on a preprocessing
+   --  data file or on a preprocessing definition file.
 
 end Lib.Writ;

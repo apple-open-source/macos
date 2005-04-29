@@ -24,41 +24,25 @@
 #include <stdint.h>
 #include <mach/clock.h>
 #include <mach/mach_time.h>
+#define __APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+#undef  __APPLE_API_PRIVATE
 
 extern mach_port_t clock_port;
 
-inline static uint64_t
-fast_get_nano_from_abs(int scale)
-{
-    uint64_t value;
-    asm (
-        "rdtsc                  \n\t"
-        "movl   %%edx,%%esi     \n\t"
-        "mull   %%ecx           \n\t"
-        "movl   %%edx,%%edi     \n\t"
-        "movl   %%esi,%%eax     \n\t"
-        "mull   %%ecx           \n\t"
-        "xorl   %%ecx,%%ecx     \n\t"
-        "addl   %%edi,%%eax     \n\t"
-        "adcl   %%ecx,%%edx         "
-                : "=A"(value) : "c"(scale) : "%esi", "%edi");
-        return value;
-}
+#define COMM_PAGE_VERSION \
+	(*((short *) _COMM_PAGE_VERSION))
+	
+#define COMM_PAGE_NANOTIME() \
+	(((uint64_t (*)()) _COMM_PAGE_NANOTIME)())
 
 uint64_t
 mach_absolute_time(void) {
-        static int scale = 0;
-
-        if (__builtin_expect(scale == 0, 0)) {
-                mach_timebase_info_data_t info;
-                mach_timebase_info(&info);
-                scale = info.numer;
-        }
-        if (__builtin_expect(scale == 1, 0)) {
+        if (__builtin_expect(COMM_PAGE_VERSION == 1, 0)) {
                 mach_timespec_t now;
                 (void)clock_get_time(clock_port, &now);
                 return (uint64_t)now.tv_sec * NSEC_PER_SEC + now.tv_nsec;
 	}
-	return fast_get_nano_from_abs(scale);
+	return COMM_PAGE_NANOTIME();
 }
 #endif

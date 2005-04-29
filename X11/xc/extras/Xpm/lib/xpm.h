@@ -22,7 +22,7 @@
  * used in advertising or otherwise to promote the sale, use or other dealings
  * in this Software without prior written authorization from GROUPE BULL.
  */
-/* $XFree86: xc/extras/Xpm/lib/xpm.h,v 1.2 2001/08/22 23:36:44 dawes Exp $ */
+/* $XFree86: xc/extras/Xpm/lib/xpm.h,v 1.3 2003/11/17 22:20:02 dawes Exp $ */
 
 /*****************************************************************************\
 * xpm.h:                                                                      *
@@ -85,16 +85,6 @@ typedef unsigned long Pixel;	/* Index into colormap */
 # define PIXEL_ALREADY_TYPEDEFED
 #endif
 
-/* make sure we know whether function prototypes are needed or not */
-#ifndef NeedFunctionPrototypes
-# if defined(__STDC__) || defined(__cplusplus) || defined(c_plusplus)
-#  define NeedFunctionPrototypes 1
-# else
-#  define NeedFunctionPrototypes 0
-# endif
-#endif
-
-
 /* Return ErrorStatus codes:
  * null     if full success
  * positive if partial success
@@ -150,23 +140,19 @@ typedef struct {
 }      XpmInfo;
 
 typedef int (*XpmAllocColorFunc)(
-#if NeedFunctionPrototypes
     Display*			/* display */,
     Colormap			/* colormap */,
     char*			/* colorname */,
     XColor*			/* xcolor */,
     void*			/* closure */
-#endif
 );
 
 typedef int (*XpmFreeColorsFunc)(
-#if NeedFunctionPrototypes
     Display*			/* display */,
     Colormap			/* colormap */,
     Pixel*			/* pixels */,
     int				/* npixels */,
     void*			/* closure */
-#endif
 );
 
 typedef struct {
@@ -290,13 +276,8 @@ typedef struct {
 
 
 /* macros for forward declarations of functions with prototypes */
-#if NeedFunctionPrototypes
 #define FUNC(f, t, p) extern t f p
 #define LFUNC(f, t, p) static t f p
-#else
-#define FUNC(f, t, p) extern t f()
-#define LFUNC(f, t, p) static t f()
-#endif
 
 
 /*

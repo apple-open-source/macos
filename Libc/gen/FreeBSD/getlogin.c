@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)getlogin.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/getlogin.c,v 1.8 2002/03/29 22:43:41 markm Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/getlogin.c,v 1.9 2003/10/29 10:45:01 tjr Exp $");
 
 #include <sys/param.h>
 #include <errno.h>
@@ -64,11 +64,7 @@ getlogin_basic(int *status)
 	static char logname[MAXLOGNAME];
 
 	if (_logname_valid == 0) {
-#ifdef __NETBSD_SYSCALLS
-		if (_getlogin(logname, sizeof(logname) - 1) < 0) {
-#else
 		if (_getlogin(logname, sizeof(logname)) < 0) {
-#endif
 			*status = errno;
 			return (NULL);
 		}

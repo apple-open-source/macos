@@ -2,12 +2,16 @@
 
 out_status=0
 
+if [ $# -eq 0 ] ; then
+   quiet=quiet
+fi
+
 if [ -z "$bits" ] ; then
     bits='1-bit 2-bit'
 fi
 
 if [ -z "$dither_types" ] ; then
-    dither_types='monochrome gray color photo cmyk photocmyk'
+    dither_types='gray color photo cmyk photocmyk'
 fi
 
 if [ -z "$image_types" ] ; then
@@ -15,26 +19,38 @@ if [ -z "$image_types" ] ; then
 fi
 
 if [ -z "$algos" ] ; then
-    algos='Adaptive EvenTone Ordered Fast VeryFast Floyd'
+    algos='Adaptive Ordered Fast VeryFast Floyd EvenTone HybridUniTone'
 fi
 
 if [ -z "$print_image" ] ; then
     image='no-image'
 fi
 
-for bits in $bits ; do
-    for dither_type in $dither_types  ; do
-	for image_type in $image_types ; do
-	    for algo in $algos ; do
-		./testdither $image $bits $dither_type $image_type $algo
+if [ -z "$STP_DATA_PATH" ] ; then
+    STP_DATA_PATH=`pwd`/../src/main
+    export STP_DATA_PATH
+fi
+
+if [ -z "$STP_MODULE_PATH" ] ; then
+    STP_MODULE_PATH=`pwd`/../src/main:`pwd`/../src/main/.libs
+    export STP_MODULE_PATH
+fi
+
+for algo in $algos ; do
+    echo -n "Testing $algo:"
+    for bit in $bits ; do
+        for dither_type in $dither_types  ; do
+	    for image_type in $image_types ; do
+		./testdither $quiet $image $bit $dither_type $image_type $algo
 		status=$?
 		if [ "$status" -ne 0 ] ; then
-		    echo ./testdither $image $bits $dither_type $image_type $algo failed
+		    echo ./testdither $image $bit $dither_type $image_type $algo failed
 		    out_status=`expr $out_status + 1`
 		fi
 	    done
 	done
     done
+    echo
 done
 
 exit $out_status

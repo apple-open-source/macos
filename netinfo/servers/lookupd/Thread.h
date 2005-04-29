@@ -45,6 +45,7 @@
 #define ThreadStateIdle 1
 #define ThreadStateActive 2
 #define ThreadStateSleeping 3
+#define ThreadStateExitRequested 4
 
 @interface Thread : Root
 {
@@ -56,6 +57,7 @@
 	void *server;
 	unsigned long dataLen;
 	unsigned long state;
+	int notify_token;
 }
 
 + (void)shutdown;
@@ -73,16 +75,16 @@
 - (thread_type)thread;
 - (void)setThread:(thread_type)t;
 
-- (unsigned long)state;
-- (void)setState:(unsigned long)s;
+- (unsigned int)state;
+- (void)setState:(unsigned int)s;
 
 - (void)setName:(char *)n;
 
 - (void *)data;
 - (void)setData:(void *)d;
 
-- (unsigned long)dataLen;
-- (void)setDataLen:(unsigned long)l;
+- (unsigned int)dataLen;
+- (void)setDataLen:(unsigned int)l;
 
 - (void *)server;
 - (void)setServer:(void *)s;
@@ -119,7 +121,7 @@
 
 - (void)yield;
 
-- (void)sleep:(unsigned long)sec;
-- (void)usleep:(unsigned long)msec;
+- (void)sleep:(unsigned int)sec;
+- (void)usleep:(unsigned int)msec;
 
 @end

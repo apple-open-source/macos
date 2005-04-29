@@ -17,8 +17,8 @@ LinkSourceFile(compsize.c,$(LIBSRC)/GL/glx)
                 -I$(LIBSRC)/GL/glx -I$(LIBSRC)/GL/include -I$(SERVERSRC)/mi \
                 -I$(SERVERSRC)/include -I$(FONTINCSRC) -I$(SERVERSRC)/render \
                 -I$(SERVERSRC)/GL/include -I$(SERVERSRC)/GL/glx \
-                -I$(SERVERSRC)/hw/apple -F$(AS)/Frameworks \
-		$(XPLUGIN_INCLUDE)
+                -I$(SERVERSRC)/hw/apple -F$(AS)/Frameworks $(GL_INCLUDES) \
+		-I$(MESASRCDIR)/src $(XPLUGIN_INCLUDE)
 
       DEFINES = $(GLX_DEFINES)
 

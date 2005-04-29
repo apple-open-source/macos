@@ -60,6 +60,8 @@ mach_port_t     mach_host_self_ = MACH_PORT_NULL;
 __private_extern__ kern_return_t _host_mach_msg_trap_return_;
 
 vm_size_t	vm_page_size;
+vm_size_t	vm_page_mask;
+int		vm_page_shift;
 
 /*
  * Forward internal declarations for automatic mach_init during
@@ -71,9 +73,11 @@ void (*_atfork_child_routine)(void);
 static void mach_atfork_child_routine(void);
 static boolean_t first = TRUE;
 static void (*previous_atfork_child_routine)(void);
+static boolean_t mach_init_inited = FALSE;
 extern int mach_init(void);
 extern void _pthread_set_self(void *);
 extern void cthread_set_self(void *);
+extern void other_libc_init(void);
 
 
 static void mach_atfork_child_routine(void)
@@ -90,6 +94,7 @@ static void mach_atfork_child_routine(void)
 	if (previous_atfork_child_routine) {
 		(*previous_atfork_child_routine)();
 	}
+	mach_init_inited = FALSE;
 	mach_init();
 }
 
@@ -137,7 +142,25 @@ int mach_init_doit(int forkchild)
 	 *	Cache some other valuable system constants
 	 */
 
+#if defined(__ppc64__) /* NGK hack for now */
+	vm_page_size = 4096;
+#else
 	(void)host_page_size(host, &vm_page_size);
+#endif
+	vm_page_mask = vm_page_size - 1;
+	if (vm_page_size == 0) {
+		/* guard against unlikely craziness */
+		vm_page_shift = 0;
+	} else {
+		/*
+		 * Unfortunately there's no kernel interface to get the
+		 * vm_page_shift, but it's easy enough to calculate.
+		 */
+		for (vm_page_shift = 0;
+		     (vm_page_size & (1 << vm_page_shift)) == 0;
+		     vm_page_shift++)
+			continue;
+	}
 
 	mach_port_deallocate(mach_task_self_, host);
 
@@ -189,12 +212,35 @@ int mach_init_doit(int forkchild)
 			     VM_PROT_NONE, VM_PROT_NONE, VM_INHERIT_COPY);
 		/* ignore result, we don't care if it failed */
 	}
+
 	return(0);
 }
 
+#ifdef __DYNAMIC__
+/* libc_initializer is the dyld initializer for libc (3760827) */
+static void libc_initializer() __attribute__((constructor));
+static void
+libc_initializer()
+{
+	mach_init();
+}
+#endif /* __DYNAMIC__ */
+
+/* mach_init may get called from the initializer and from crt.c, but only
+ * call mach_init_doit() once */
 int mach_init(void)
 {
-        return(mach_init_doit(0));
+	int ret;
+
+	if (mach_init_inited)
+		return(0);
+	mach_init_inited = TRUE;
+	ret = mach_init_doit(0);
+
+	/* Do other Libc initialization */
+	other_libc_init();
+
+	return ret;
 }
 
 int	(*mach_init_routine)(void) = mach_init;

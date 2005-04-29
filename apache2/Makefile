@@ -5,13 +5,15 @@
 # Untar, build, create a binary distribution, install into /opt/apache2
 #
 PROJECT_NAME=httpd
-PROJECT_VERSION=2.0.52
+PROJECT_VERSION=2.0.53
 PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
 PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
 FINAL_DIR=/opt/apache2
+VERSIONS_DIR=/usr/local/OpenSourceVersions
+LICENSE_DIR=/usr/local/OpenSourceLicenses
 DST_DIR=$(DSTROOT)/opt/apache2
 
-PROJECT_FILES=Makefile
+PROJECT_FILES=Makefile apache2.plist apache2.txt htdigest.c.patch
 
 # These includes provide the proper paths to system utilities
 
@@ -31,7 +33,7 @@ install:: build do_install
 
 clean:: do_clean
 
-configure:: do_untar do_configure
+configure:: do_untar do_patch do_configure
 
 installhdrs:: do_installhdrs
 
@@ -42,6 +44,10 @@ do_untar:
 	if [ ! -e $(PROJECT_DIR)/README ]; then\
 		$(GNUTAR) -xzf $(PROJECT_ARCHIVE);\
 	fi
+
+do_patch:
+	$(ECHO) "Applying security patch to htdigest.c"
+	$(CD) $(PROJECT_DIR)/support; patch -i ../../htdigest.c.patch
 
 # Custom configuration:
 #
@@ -67,7 +73,7 @@ do_build:
 	$(ECHO) "Building $(PROJECT_NAME) in $(PROJECT_DIR)..."
 	$(CD) $(PROJECT_DIR); export LIBTOOL_CMD_SEP=; make
 
-do_install: $(DST_ROOT) 
+do_install: $(DSTROOT) $(DSTROOT)$(VERSIONS_DIR) $(DSTROOT)$(LICENSE_DIR)
 	$(ECHO) "Installing $(PROJECT)..."
 	$(CD) $(PROJECT_DIR); export LIBTOOL_CMD_SEP=; make install DESTDIR=$(DSTROOT)
 	$(CD) $(DST_DIR); sed \
@@ -91,6 +97,8 @@ do_install: $(DST_ROOT)
 	$(CHMOD) 644 $(DST_DIR)/manual/programs/*
 	$(CHMOD) 644 $(DST_DIR)/manual/mod/*
 	$(CHMOD) 644 $(DST_DIR)/manual/urlmapping.*
+	$(INSTALL) -m 444 -o root -g wheel apache2.plist $(DSTROOT)$(VERSIONS_DIR)
+	$(INSTALL) -m 444 -o root -g wheel apache2.txt $(DSTROOT)$(LICENSE_DIR)
 	$(INSTALL) -d -m 700 $(DST_DIR)/conf/ssl.crt
 	$(INSTALL) -d -m 700 $(DST_DIR)/conf/ssl.key
 	$(CHOWN) -R root:wheel $(DST_DIR)
@@ -110,5 +118,11 @@ do_clean:
 	$(ECHO) "Cleaning $(PROJECT_NAME)..."
 	-$(RM) -rf $(PROJECT_DIR)
 
-$(DST_ROOT):
+$(DSTROOT):
+	$(MKDIRS) $@
+
+$(DSTROOT)$(VERSIONS_DIR):
+	$(MKDIRS) $@
+
+$(DSTROOT)$(LICENSE_DIR):
 	$(MKDIRS) $@

@@ -1,5 +1,5 @@
 /* DefaultPolicy.java 
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -47,16 +47,13 @@ import java.security.*;
   */
 public class DefaultPolicy extends Policy
 {
-  static Permissions allPermissions = new Permissions();
-  
-  static
-  {
-    allPermissions.add(new AllPermission());
-  }
+  static Permission allPermission = new AllPermission();
 
   public PermissionCollection getPermissions(CodeSource codesource)
   {
-    return allPermissions;
+    Permissions perms = new Permissions();
+    perms.add(allPermission);
+    return perms;
   }
   
   public void refresh()

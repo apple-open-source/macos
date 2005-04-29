@@ -1,0 +1,29 @@
+# This program runs ksh regression tests
+
+unset ENV
+export PATH PWD SHELL
+PWD=`pwd`
+SHELL=${SHELL-ksh}
+case $0 in
+/*)	d=`dirname $0`;;
+*/*)	d=$PWD/`dirname $0`;;
+*)	d=$PWD;;
+esac
+case $SHELL in
+/*)	;;
+*/*)	SHELL=$d/$SHELL;;
+*)	SHELL=$(whence $SHELL);;
+esac
+PATH=/bin:/usr/bin
+if	[[ -d /usr/ucb ]]
+then	PATH=$PATH:/usr/ucb
+fi
+PATH=$PATH:$d
+for i in ${*-*.sh}
+do	echo test $i begins at `date`
+	if	$SHELL $i
+	then echo test $i passed at `date`
+	else	rval=$?
+		echo test $i failed at `date` with exit code $rval
+	fi
+done

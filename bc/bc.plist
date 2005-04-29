@@ -1,0 +1,27 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>bc</string>
+        <key>OpenSourceVersion</key>
+        <string>1.06</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.gnu.org/software/bc/</string>
+        <key>OpenSourceURL</key>
+        <string>http://ftp.gnu.org/gnu/bc/bc-1.06.tar.gz</string>
+        <key>OpenSourceMD5</key>
+        <string>d44b5dddebd8a7a7309aea6c36fda117</string>
+        <key>OpenSourceImportDate</key>
+        <string>2004-10-24</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        	<string>Force POSIX mode (3695459).</string>
+        	<string>Build fixes.</string>
+        </array>
+        <key>OpenSourceLicense</key>
+        <string>GPL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>bc.txt</string>
+</dict>
+</array>
+</plist>

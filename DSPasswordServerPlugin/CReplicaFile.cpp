@@ -37,7 +37,7 @@
 
 #include "CReplicaFile.h"
 
-#define errmsg(A, args...)			syslog(LOG_INFO,(A),##args)
+#define errmsg(A, args...)			syslog(LOG_ALERT,(A),##args)
 
 //----------------------------------------------------------------------------------------------------
 //	MergeReplicaLists
@@ -163,6 +163,7 @@ CReplicaFile::CReplicaFile()
 	mReplicaArray = NULL;
 	mDirty = false;
 	mSelfName[0] = 0;
+	bzero( &mReplicaFileModDate, sizeof(mReplicaFileModDate) );
 	
 	LoadXMLData( kPWReplicaFile );
 	
@@ -641,6 +642,54 @@ CReplicaFile::SetSyncDate( const char *inReplicaName, CFDateRef inSyncDate )
 
 
 //----------------------------------------------------------------------------------------------------
+//	SetEntryModDate
+//
+// Should be updated for changes to these keys:
+// IP, DNS, ReplicaPolicy, ReplicaStatus, IDRangeBegin, IDRangeEnd
+//----------------------------------------------------------------------------------------------------
+
+void
+CReplicaFile::SetEntryModDate( const char *inReplicaName )
+{
+	CFDateRef nowDate = CFDateCreate( kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() );
+	if ( nowDate != NULL ) {
+		this->SetKeyWithDate( inReplicaName, CFSTR(kPWReplicaEntryModDateKey), nowDate );
+		CFRelease( nowDate );
+	}
+}
+
+
+void
+CReplicaFile::SetEntryModDate( CFMutableDictionaryRef inReplicaDict )
+{
+	CFDateRef nowDate = CFDateCreate( kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() );
+	if ( nowDate != NULL ) {
+		AddOrReplaceValueStatic( inReplicaDict, CFSTR(kPWReplicaEntryModDateKey), nowDate );
+		CFRelease( nowDate );
+	}
+}
+
+
+//----------------------------------------------------------------------------------------------------
+//	SetKeyWithDate
+//----------------------------------------------------------------------------------------------------
+
+void
+CReplicaFile::SetKeyWithDate( const char *inReplicaName, CFStringRef inKeyString, CFDateRef inSyncDate )
+{
+	CFMutableDictionaryRef repDict;
+	
+	repDict = this->GetReplicaByName( inReplicaName );
+	if ( repDict == NULL )
+		return;
+	
+	this->AddOrReplaceValue( repDict, inKeyString, inSyncDate );
+	CFRelease( repDict );
+	mDirty = true;
+}
+
+
+//----------------------------------------------------------------------------------------------------
 //	GetReplicaByName
 //
 //	Returns: The dictionary for the replica. The object is retained and must be released by the
@@ -669,8 +718,9 @@ CReplicaFile::GetNameOfReplica( CFMutableDictionaryRef inReplicaDict, char *outR
 {
 	CFStringRef nameString;
 	
-	if ( inReplicaDict == NULL )
+	if ( inReplicaDict == NULL || outReplicaName == NULL )
 		return;
+	*outReplicaName = '\0';
 	
 	if ( ! CFDictionaryGetValueIfPresent( inReplicaDict, CFSTR(kPWReplicaNameKey), (const void **)&nameString ) )
 			return;
@@ -678,7 +728,7 @@ CReplicaFile::GetNameOfReplica( CFMutableDictionaryRef inReplicaDict, char *outR
 	CFStringGetCString( nameString, outReplicaName, 256, kCFStringEncodingUTF8 );
 }
 
-		
+
 bool
 CReplicaFile::GetNameFromIPAddress( const char *inIPAddress, char *outReplicaName )
 {
@@ -951,6 +1001,9 @@ CReplicaFile::AddIPAddress( CFMutableDictionaryRef inReplicaData, const char *in
 	
 	CFRelease( ipString );
 	
+	if ( result )
+		this->SetEntryModDate( inReplicaData );
+			
 	return result;
 }
 
@@ -1002,6 +1055,7 @@ CReplicaFile::ReplaceOrAddIPAddress( CFMutableDictionaryRef inReplicaData, const
 				
 				CFDictionaryReplaceValue( inReplicaData, CFSTR(kPWReplicaIPKey), newIPString );
 				CFRelease( newIPString );
+				this->SetEntryModDate( inReplicaData );
 			}
 			else
 			{
@@ -1133,8 +1187,8 @@ CReplicaFile::LoadXMLData( const char *inFilePath )
 	CFStringRef myReplicaDataFilePathRef;
 	CFURLRef myReplicaDataFileRef;
 	CFReadStreamRef myReadStreamRef;
-	CFPropertyListRef myPropertyListRef;
-	CFStringRef errorString;
+	CFPropertyListRef myPropertyListRef = NULL;
+	CFStringRef errorString = NULL;
 	CFPropertyListFormat myPLFormat;
 	struct timespec modDate;
 	
@@ -1159,15 +1213,12 @@ CReplicaFile::LoadXMLData( const char *inFilePath )
 	if ( myReadStreamRef == NULL )
 		return -1;
 	
-	errmsg( "reloading replica list from disk." );
-	
-	CFReadStreamOpen( myReadStreamRef );
-	
-	errorString = NULL;
-	myPLFormat = kCFPropertyListXMLFormat_v1_0;
-	myPropertyListRef = CFPropertyListCreateFromStream( kCFAllocatorDefault, myReadStreamRef, 0, kCFPropertyListMutableContainersAndLeaves, &myPLFormat, &errorString );
-	
-	CFReadStreamClose( myReadStreamRef );
+	if ( CFReadStreamOpen( myReadStreamRef ) )
+	{
+		myPLFormat = kCFPropertyListXMLFormat_v1_0;
+		myPropertyListRef = CFPropertyListCreateFromStream( kCFAllocatorDefault, myReadStreamRef, 0, kCFPropertyListMutableContainersAndLeaves, &myPLFormat, &errorString );
+		CFReadStreamClose( myReadStreamRef );
+	}
 	CFRelease( myReadStreamRef );
 	
 	if ( errorString != NULL )
@@ -1181,7 +1232,7 @@ CReplicaFile::LoadXMLData( const char *inFilePath )
 	
 	if ( myPropertyListRef == NULL )
 	{
-		errmsg( "could not load the replica file because the property list is empty." );
+		errmsg( "could not load the replica file." );
 		return -1;
 	}
 	
@@ -1216,6 +1267,21 @@ CReplicaFile::SaveXMLData( void )
 	}
 	
 	return result;
+}
+
+
+//----------------------------------------------------------------------------------------------------
+//  SaveXMLData
+//
+//  Returns: -1 = error, 0 = ok.
+//
+//	Saves the replica file to an alternate location and does not clear the "dirty" flag.
+//----------------------------------------------------------------------------------------------------
+
+int
+CReplicaFile::SaveXMLData( const char *inSaveFile )
+{
+	return this->SaveXMLData( (CFPropertyListRef) mReplicaDict, inSaveFile );
 }
 
 
@@ -1262,9 +1328,11 @@ CReplicaFile::SaveXMLData( CFPropertyListRef inListToWrite, const char *inSaveFi
 	if ( myWriteStreamRef == NULL )
 		return -1;
 	
-	errmsg( "saving replica list to file." );
-	
-	CFWriteStreamOpen( myWriteStreamRef );
+	if ( ! CFWriteStreamOpen( myWriteStreamRef ) )
+	{
+		CFRelease( myWriteStreamRef );
+		return -1;
+	}
 	
 	errorString = NULL;
 	CFPropertyListWriteToStream( inListToWrite, myWriteStreamRef, kCFPropertyListXMLFormat_v1_0, &errorString );
@@ -1363,11 +1431,15 @@ CReplicaFile::StripSyncDates( void )
 	UInt32 repIndex;
 	UInt32 repCount = this->ReplicaCount();
 	CFMutableDictionaryRef curReplica;
+	CFDateRef nowDate = CFDateCreate( kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() );
 	
 	// strip parent
 	curReplica = (CFMutableDictionaryRef) this->GetParent();
 	if ( curReplica != NULL )
+	{
 		CFDictionaryRemoveValue( curReplica, CFSTR(kPWReplicaSyncDateKey) );
+		this->AddOrReplaceValue( curReplica, CFSTR(kPWReplicaEntryModDateKey), nowDate );
+	}
 	
 	// strip replicas
 	for ( repIndex = 0; repIndex < repCount; repIndex++ )
@@ -1377,7 +1449,11 @@ CReplicaFile::StripSyncDates( void )
 			continue;
 		
 		CFDictionaryRemoveValue( curReplica, CFSTR(kPWReplicaSyncDateKey) );
+		this->AddOrReplaceValue( curReplica, CFSTR(kPWReplicaEntryModDateKey), nowDate );
 	}
+	
+	if ( nowDate != NULL )
+		CFRelease( nowDate );
 	
 	mDirty = true;
 }
@@ -1390,8 +1466,15 @@ CReplicaFile::StripSyncDates( void )
 UInt8
 CReplicaFile::GetReplicaSyncPolicy( CFDictionaryRef inReplicaDict )
 {
+	return this->GetReplicaSyncPolicy( inReplicaDict, kReplicaSyncAnytime );
+}
+
+
+UInt8
+CReplicaFile::GetReplicaSyncPolicy( CFDictionaryRef inReplicaDict, UInt8 inDefaultPolicy )
+{
 	char valueStr[256];
-	UInt8 returnValue = kReplicaSyncAnytime;
+	UInt8 returnValue = inDefaultPolicy;
 	
 	if ( this->GetCStringFromDictionary( inReplicaDict, CFSTR(kPWReplicaPolicyKey), sizeof(valueStr), valueStr ) )
 	{
@@ -1473,6 +1556,7 @@ CReplicaFile::SetReplicaSyncPolicy( CFMutableDictionaryRef inRepDict, CFStringRe
 		return false;
 
 	this->AddOrReplaceValue( inRepDict, CFSTR(kPWReplicaPolicyKey), inPolicyString );
+	this->SetEntryModDate( inRepDict );
 	mDirty = true;
 	
 	return true;
@@ -1534,6 +1618,7 @@ CReplicaFile::SetReplicaStatus( CFMutableDictionaryRef repDict, ReplicaStatus in
 	{
 		this->AddOrReplaceValue( repDict, CFSTR(kPWReplicaStatusKey), statusString );
 		CFRelease( statusString );
+		this->SetEntryModDate( repDict );
 		mDirty = true;
 	}
 }
@@ -1793,8 +1878,105 @@ bool ConvertBinaryToHex( const unsigned char *inData, long len, char *outHexStr 
 	return result;
 }
 
+#pragma mark -
+#pragma mark C API
+#pragma mark -
+
+CFDictionaryRef pwsf_GetStatusForReplicas( void )
+{
+	CReplicaFile replicaFile;
+	CFDictionaryRef repDict;
+	CFMutableDictionaryRef outputDict;
+	unsigned long repIndex, repCount;
+	
+	repCount = replicaFile.ReplicaCount();
+	outputDict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+	if ( outputDict == NULL )
+		return NULL;
+	
+	// parent
+	repDict = (CFMutableDictionaryRef) replicaFile.GetParent();
+	if ( repDict == NULL ) {
+		errmsg( "The replica file is invalid." );
+		CFRelease( outputDict );
+		return NULL;
+	}
+	pwsf_AddReplicaStatus( &replicaFile, repDict, outputDict );
+	
+	// replicas
+	for ( repIndex = 0; repIndex < repCount; repIndex++ )
+	{
+		repDict = replicaFile.GetReplica( repIndex );
+		if ( repDict == NULL ) {
+			errmsg( "The replica file is invalid." );
+			CFRelease( outputDict );
+			return NULL;
+		}
+		
+		pwsf_AddReplicaStatus( &replicaFile, repDict, outputDict );
+	}
+	
+	return (CFDictionaryRef)outputDict;
+}
 
 
+void pwsf_AddReplicaStatus( CReplicaFile *inReplicaFile, CFDictionaryRef inDict, CFMutableDictionaryRef inOutDict )
+{
+	CFArrayRef ipArray;
+	CFStringRef nameString;
+	CFStringRef valueString;
+	ReplicaStatus replicaStatus;
+	CFIndex index, count;
+	
+	ipArray = inReplicaFile->GetIPAddresses( (CFMutableDictionaryRef)inDict );
+	if ( ipArray == NULL )
+		return;
+	
+	replicaStatus = inReplicaFile->GetReplicaStatus( inDict );
+	valueString = pwsf_GetReplicaStatusString( replicaStatus );
+	
+	count = CFArrayGetCount( ipArray );
+	for ( index = 0; index < count; index++ )
+	{
+		nameString = (CFStringRef) CFArrayGetValueAtIndex( ipArray, index );
+		if ( nameString == NULL )
+			continue;
+		
+		CFDictionaryAddValue( inOutDict, nameString, valueString );
+	}
+	
+	// add DNS if we have it
+	if ( CFDictionaryGetValueIfPresent( inDict, CFSTR(kPWReplicaDNSKey), (const void **)&nameString ) )
+		CFDictionaryAddValue( inOutDict, nameString, valueString );
+	
+	// clean up
+	CFRelease( valueString );
+	CFRelease( ipArray );
+}
 
+
+CFStringRef pwsf_GetReplicaStatusString( ReplicaStatus replicaStatus )
+{
+	char *result = "Unknown";
+	CFStringRef outString;
+	
+	switch( replicaStatus )
+	{
+		case kReplicaActive:
+			result = kPWReplicaStatusActiveValue;
+			break;
+		
+		case kReplicaPermissionDenied:
+			result = kPWReplicaStatusPermDenyValue;
+			break;
+			
+		case kReplicaNotFound:
+			result = kPWReplicaStatusNotFoundValue;
+			break;
+	}
+	
+	outString = CFStringCreateWithCString( kCFAllocatorDefault, result, kCFStringEncodingUTF8 );
+	return outString;
+}
 
 		

@@ -98,11 +98,6 @@ bool PlatformInterface::init ( IOService* device, AppleOnboardAudio* provider, U
 	mComboInAssociation = kGPIO_Selector_NotAssociated;		//	[3453799]
 	mComboOutAssociation = kGPIO_Selector_NotAssociated;	//	[3453799]
 	
-	for ( UInt32 index=0; index < kNumberOfActionSelectors; index++ )
-	{
-		mComboStateMachine[index] = kComboStateMachine_handle_jack_insert;
-	}
-
 	switch ( KPlatformSupport_bitAddress_mask & ( supportSelectors >> kPlatformSupportDBDMA_bitAddress ) )
 	{
 		case kPlatformSupport_MAPPED:		platformInterfaceDBDMA = PlatformDBDMAFactory::createPlatform ( OSString::withCString ( kPlatformDBDMAMappedString ) );					break;
@@ -189,6 +184,16 @@ void	PlatformInterface::free ( void )
 	
 	debugIOLog ( 3, "+ PlatformInterface::free" );
 	
+	if ( comboDelayTimer )											//	[3787193]
+	{
+		if ( 0 != mWorkLoop )
+		{
+			mWorkLoop->removeEventSource ( comboDelayTimer );
+		}
+		comboDelayTimer->release ();
+		comboDelayTimer = 0;
+	}
+
 	unregisterNonDetectInterrupts ();
 	unregisterDetectInterrupts ();
 
@@ -378,15 +383,15 @@ IOReturn PlatformInterface::performPowerStateChange ( IOService * device, UInt32
 					{
 						registerNonDetectInterrupts ( (IOService*)this );
 					}
-		}
-	}
-	if ( 0 != platformInterfaceGPIO )
-	{
-		if ( platformInterfaceGPIO->needsCheckDetectStatusOnWake () && !platformInterfaceGPIO->needsRegisterInterruptsOnWake () )
-		{
-			checkDetectStatus ( device );
-		}
-	}
+				}
+			}
+			if ( 0 != platformInterfaceGPIO )
+			{
+				if ( platformInterfaceGPIO->needsCheckDetectStatusOnWake () && !platformInterfaceGPIO->needsRegisterInterruptsOnWake () )
+				{
+					checkDetectStatus ( device );
+				}
+			}
 			break;
 	}
 	debugIOLog ( 6, "- PlatformInterface::performPowerStateChange ( %p, %ld, %ld ) returns 0x%lX", device, currentPowerState, pendingPowerState, result );
@@ -882,7 +887,9 @@ void	PlatformInterface::unregisterNonDetectInterrupts ( void )
 void PlatformInterface::setWorkLoop ( IOWorkLoop* inWorkLoop )
 {
 	debugIOLog ( 5, "+ PlatformInterface::setWorkLoop ( %p )", inWorkLoop );
+	
 	FailIf ( 0 == inWorkLoop, Exit );
+	FailIf ( 0 != mWorkLoop, Exit );
 	
 	mWorkLoop = inWorkLoop;
 	
@@ -906,11 +913,208 @@ void PlatformInterface::setWorkLoop ( IOWorkLoop* inWorkLoop )
 	{
 		platformInterfaceI2S->setWorkLoop ( inWorkLoop );
 	}
+
+	comboDelayTimer = IOTimerEventSource::timerEventSource ( this, comboDelayTimerCallback );		//	[3787193]
+	if ( comboDelayTimer )
+	{
+		mWorkLoop->addEventSource ( comboDelayTimer );
+	}
+
 Exit:
 	debugIOLog ( 5, "- PlatformInterface::setWorkLoop ( %p )", inWorkLoop );
 	return;
 }					
 
+
+
+//	--------------------------------------------------------------------------------
+void	PlatformInterface::triggerComboOneShot ()
+{
+    AbsoluteTime				fireTime;
+    UInt64						nanos;
+
+	debugIOLog ( 6, "+ PlatformInterface::triggerComboOneShot ()" );
+	if ( comboDelayTimer )
+	{
+		comboDelayTimer->cancelTimeout ();
+		clock_get_uptime ( &fireTime );
+		absolutetime_to_nanoseconds ( fireTime, &nanos );
+		nanos += kComboJackDelay;
+		nanoseconds_to_absolutetime ( nanos, &fireTime );
+		comboDelayTimer->wakeAtTime ( fireTime );
+	}
+	debugIOLog ( 6, "- PlatformInterface::triggerComboOneShot ()" );
+}
+
+//	--------------------------------------------------------------------------------
+void	comboDelayTimerCallback ( OSObject *owner, IOTimerEventSource *device )
+{
+	PlatformInterface *			platformInterface;
+
+	platformInterface = OSDynamicCast ( PlatformInterface, owner );
+	FailIf ( 0 == platformInterface, Exit );
+	platformInterface->platformRunComboDelayTasks ();
+Exit:
+	return;
+}
+
+
+//	--------------------------------------------------------------------------------
+//	The interrupts produced counts for each interrupt source will not be balanced
+//	against the interrupts consumed counts if an interrupt associated with a jack
+//	has occurred.  Check for inequality between the produced and consumed count
+//	and mark the interrupt source as needing parsing of the current hardware state
+//	while balancing the consumed count to the produced count.  Then complete by
+//	parsing the hardware states that need parsing and posting messages to the
+//	provider AppleOnboardAudio object.  Note that the interrupts produced count
+//	can only diverge from the interrupts consumed count for interrupts that are
+//	associated with a combo jack (see each of the individual interrupt handlers
+//	where the 'triggerComboOneShot()' method is invoked only after incrementing
+//	the produced count if the interrupt is associated with a combo jack).  
+void PlatformInterface::platformRunComboDelayTasks ( void )
+{
+	GpioAttributes			analogJackState;
+	GPIOSelector			association;
+	
+	debugIOLog ( 6, "+ PlatformInterface::platformRunComboDelayTasks ()" );
+	
+	analogJackState = kGPIO_Unknown;
+	association = getComboOutAssociation ();
+	if ( mComboOutInterruptsConsumed != mComboOutInterruptsProduced )
+	{
+		mComboOutInterruptsConsumed = mComboOutInterruptsProduced;
+		if ( kGPIO_Selector_HeadphoneDetect == getComboOutAssociation () )
+		{
+			analogJackState = getHeadphoneConnected ();
+		}
+		else if ( kGPIO_Selector_LineOutDetect == getComboOutAssociation () )
+		{
+			analogJackState = getLineOutConnected ();
+		}
+		else if ( kGPIO_Selector_SpeakerDetect == getComboOutAssociation () )
+		{
+			analogJackState = getSpeakerConnected ();
+		}
+		
+		debugIOLog ( 6, "  analogJackState %d", analogJackState );
+		if ( kGPIO_Connected == analogJackState )
+		{
+			if ( kGPIO_TypeIsAnalog == getComboOutJackTypeConnected () )
+			{
+				if ( kGPIO_Selector_HeadphoneDetect == association )
+				{
+					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kHeadphoneStatus, kInserted )" );
+					mProvider->protectedInterruptEventHandler ( kHeadphoneStatus, kInserted );
+				}
+				else if ( kGPIO_Selector_LineOutDetect == association )
+				{
+					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kLineOutStatus, kInserted )" );
+					mProvider->protectedInterruptEventHandler ( kLineOutStatus, kInserted );
+				}
+				else if ( kGPIO_Selector_SpeakerDetect == association )
+				{
+					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kExtSpeakersStatus, kInserted )" );
+					mProvider->protectedInterruptEventHandler ( kExtSpeakersStatus, kInserted );
+				}
+			}
+			else
+			{
+				debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kDigitalOutStatus, kInserted )" );
+				mProvider->protectedInterruptEventHandler ( kDigitalOutStatus, kInserted );
+			}
+		}
+		else if ( kGPIO_Disconnected == analogJackState )
+		{
+			//	If the jack is removed then the target selector for posting a kRemoved new value
+			//	to the AppleOnboardAudio protectedInterruptEventHandler must be determined based
+			//	on the type of jack that was removed and not based on the current analog state.
+			//	Note that the jack always reports an analog when the jack is removed.
+#if 0
+			debugIOLog ( 6, "  mProvider->parseOutputDetectCollection () = '%lX'", mProvider->parseOutputDetectCollection () );
+			switch ( mProvider->parseOutputDetectCollection () )
+			{
+				case kIOAudioOutputPortSubTypeSPDIF:
+					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kDigitalOutStatus, kRemoved )" );
+					mProvider->protectedInterruptEventHandler ( kDigitalOutStatus, kRemoved );
+					break;
+				case kIOAudioOutputPortSubTypeHeadphones:
+					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kHeadphoneStatus, kRemoved )" );
+					mProvider->protectedInterruptEventHandler ( kHeadphoneStatus, kRemoved );
+					break;
+				case kIOAudioOutputPortSubTypeLine:
+					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kLineOutStatus, kRemoved )" );
+					mProvider->protectedInterruptEventHandler ( kLineOutStatus, kRemoved );
+					break;
+				case kIOAudioOutputPortSubTypeExternalSpeaker:
+					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kExtSpeakersStatus, kRemoved )" );
+					mProvider->protectedInterruptEventHandler ( kExtSpeakersStatus, kRemoved );
+					break;
+			}
+#else
+			debugIOLog ( 6, "  mProvider->getDetectCollection () = 0x%lX", mProvider->getDetectCollection () );
+			if ( kSndHWDigitalOutput & mProvider->getDetectCollection () )
+			{
+				debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kDigitalOutStatus, kRemoved )" );
+				mProvider->protectedInterruptEventHandler ( kDigitalOutStatus, kRemoved );
+			}
+			else if( kSndHWLineOutput & mProvider->getDetectCollection () )
+			{
+				debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kLineOutStatus, kRemoved )" );
+				mProvider->protectedInterruptEventHandler ( kLineOutStatus, kRemoved );
+			}
+			else if( kSndHWCPUHeadphone & mProvider->getDetectCollection () )
+			{
+				debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kHeadphoneStatus, kRemoved )" );
+				mProvider->protectedInterruptEventHandler ( kHeadphoneStatus, kRemoved );
+			}
+			else if( kSndHWCPUExternalSpeaker & mProvider->getDetectCollection () )
+			{
+				debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kExtSpeakersStatus, kRemoved )" );
+				mProvider->protectedInterruptEventHandler ( kExtSpeakersStatus, kRemoved );
+			}
+#endif
+		}
+	}
+	
+	analogJackState = kGPIO_Unknown;
+	association = getComboInAssociation ();
+	if ( mComboInInterruptsConsumed != mComboInInterruptsProduced )
+	{
+		mComboInInterruptsConsumed = mComboInInterruptsProduced;
+		if ( kGPIO_Selector_LineInDetect == getComboInAssociation () )
+		{
+			analogJackState = getLineInConnected ();
+		}
+		
+		if ( kGPIO_Connected == analogJackState )
+		{
+			if ( kGPIO_TypeIsAnalog == getComboInJackTypeConnected () )
+			{
+				if ( kGPIO_Selector_LineInDetect == association )
+				{
+					mProvider->protectedInterruptEventHandler ( kLineInStatus, kInserted );
+				}
+			}
+			else
+			{
+				mProvider->protectedInterruptEventHandler ( kDigitalInStatus, kInserted );
+			}
+		}
+		else if ( kGPIO_Disconnected == analogJackState )
+		{
+			if ( kSndHWDigitalInput & mProvider->getDetectCollection () )
+			{
+				mProvider->protectedInterruptEventHandler ( kDigitalInStatus, kRemoved );
+			}
+			else if( kSndHWLineInput & mProvider->getDetectCollection () )
+			{
+				mProvider->protectedInterruptEventHandler ( kLineInStatus, kRemoved );
+			}
+		}
+	}
+	
+	debugIOLog ( 6, "- PlatformInterface::platformRunComboDelayTasks ()" );
+}
 
 
 #pragma mark ---------------------------
@@ -977,20 +1181,8 @@ void PlatformInterface::comboInDetectInterruptHandler ( OSObject * owner, IOInte
 	cg = platformInterface->mProvider->getCommandGate ();
 	if ( 0 != cg )
 	{
-		IOSleep ( 10 );
-		if ( kGPIO_Selector_LineInDetect == platformInterface->getComboInAssociation () )
-		{
-			platformInterface->RunComboStateMachine ( cg, 
-													  platformInterface,
-													  platformInterface->getLineInConnected () , 
-													  platformInterface->getComboInJackTypeConnected () , 
-													  kGPIO_Selector_LineInDetect 
-													 );
-		}
-		else
-		{
-			FailMessage ( TRUE );
-		}
+		platformInterface->mComboInInterruptsProduced++;
+		platformInterface->triggerComboOneShot ();
 	}
 Exit:
 	debugIOLog ( 6, "- comboInDetectInterruptHandler ( %p, %p, %ld, %p ) ", owner, source, count, arg4 );
@@ -1016,29 +1208,8 @@ void PlatformInterface::comboOutDetectInterruptHandler ( OSObject * owner, IOInt
 	cg = platformInterface->mProvider->getCommandGate ();
 	if ( 0 != cg )
 	{
-		IOSleep ( 10 );
-		if ( kGPIO_Selector_HeadphoneDetect == platformInterface->getComboOutAssociation () )
-		{
-			platformInterface->RunComboStateMachine ( cg, 
-													  platformInterface, 
-													  platformInterface->getHeadphoneConnected () , 
-													  platformInterface->getComboOutJackTypeConnected () , 
-													  kGPIO_Selector_HeadphoneDetect 
-													 );
-		}
-		else if ( kGPIO_Selector_LineOutDetect == platformInterface->getComboOutAssociation () )
-		{
-			platformInterface->RunComboStateMachine ( cg, 
-													  platformInterface, 
-													  platformInterface->getLineOutConnected () , 
-													  platformInterface->getComboOutJackTypeConnected () , 
-													  kGPIO_Selector_LineOutDetect 
-													 );
-		}
-		else
-		{
-			FailMessage ( TRUE );
-		}
+		platformInterface->mComboOutInterruptsProduced++;
+		platformInterface->triggerComboOneShot ();
 	}
 Exit:
 	debugIOLog ( 6, "- comboOutDetectInterruptHandler ( %p, %p, %ld, %p ) ", owner, source, count, arg4 );
@@ -1125,12 +1296,8 @@ void PlatformInterface::headphoneDetectInterruptHandler ( OSObject * owner, IOIn
 		}
 		else
 		{
-			platformInterface->RunComboStateMachine ( cg, 
-													  platformInterface, 
-													  theAnalogJackState, 
-													  platformInterface->getComboOutJackTypeConnected (), 
-													  kGPIO_Selector_HeadphoneDetect 
-													 );
+			platformInterface->mComboOutInterruptsProduced++;
+			platformInterface->triggerComboOneShot ();
 		}
 	}
 Exit:
@@ -1166,12 +1333,8 @@ void PlatformInterface::lineInDetectInterruptHandler ( OSObject * owner, IOInter
 		}
 		else
 		{
-			platformInterface->RunComboStateMachine ( cg, 
-													  platformInterface, 
-													  theAnalogJackState, 
-													  platformInterface->getComboInJackTypeConnected () , 
-													  kGPIO_Selector_LineInDetect 
-													 );
+			platformInterface->mComboInInterruptsProduced++;
+			platformInterface->triggerComboOneShot ();
 		}
 	}
 Exit:
@@ -1205,12 +1368,8 @@ void PlatformInterface::lineOutDetectInterruptHandler ( OSObject * owner, IOInte
 		}
 		else
 		{
-			platformInterface->RunComboStateMachine ( cg, 
-													  platformInterface, 
-													  theAnalogJackState, 
-													  platformInterface->getComboOutJackTypeConnected () , 
-													  kGPIO_Selector_LineOutDetect 
-													 );
+			platformInterface->mComboOutInterruptsProduced++;
+			platformInterface->triggerComboOneShot ();
 		}
 	}
 Exit:
@@ -1228,190 +1387,6 @@ void PlatformInterface::poll ( void )
 		platformInterfaceGPIO->poll ();
 	}
 }
-
-//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	Radar 3517297
-//	Arguments:		detectState		Indicates the state of the analog detect ( for example, the Line Output
-//									detect ) .  Values may be either kGPIO_Connected or kGPIO_Disconnected.
-//
-//					typeSenseState	Indicates the state of the metal / plastic sense.  Values may be either
-//									kGPIO_TypeIsAnalog or kGPIO_TypeIsDigital.
-//
-//					analogJackType	Indicates the type of analog jack that is serving as a combo jack.  May
-//									include kGPIO_HeadphoneDetect, kGPIO_LineInDetect, kGPIO_LineOutDetect,
-//									kGPIO_SpeakerDetect.  Note that the 'analogJackType' indicates whether
-//									an input jack or output jack is in use and is used to determine whether
-//									a digital input or digital output message is to be posted when the
-//									'typeSenseState' indicates kGPIO_TypeIsDigital.
-//
-void PlatformInterface::RunComboStateMachine ( IOCommandGate * cg, PlatformInterface * platformInterface, UInt32 detectState, UInt32 typeSenseState, UInt32 analogJackType )
-{
-	
-	FailIf ( 0 == cg, Exit );
-	FailIf ( 0 == platformInterface, Exit );
-	FailIf ( 0 == platformInterface->mProvider, Exit );
-
-	debugIOLog ( 5, "+ RunComboStateMachine ( %p, %p, %ld, %ld, %ld ) , power state = %d", cg, platformInterface, detectState, typeSenseState, analogJackType, platformInterface->mProvider->getPowerState () );
-
-	if ( platformInterface->mProvider->getPowerState ()  == kIOAudioDeviceSleep )  goto Exit;		// don't advance the state machine if we are asleep ( we'll run this code on wake ) 
-
-	switch ( mComboStateMachine[analogJackType] )
-	{
-		case kComboStateMachine_handle_jack_insert:
-			//	When no jack is inserted then the only events that can occur is insertion of metal or plastic jacks.
-			if ( kGPIO_Connected == detectState )
-			{
-				if ( kGPIO_TypeIsAnalog == typeSenseState )
-				{
-					switch ( analogJackType )
-					{
-						case kGPIO_Selector_LineInDetect:
-							debugIOLog ( 5, "  RunComboStateMachine 'Handle Jack Insert' posting ANALOG INSERT of 'Line Input' jack" );
-							cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kLineInStatus, (void*) kGPIO_Connected, (void*) 0 );
-							break;
-						case kGPIO_Selector_LineOutDetect:
-							debugIOLog ( 5, "  RunComboStateMachine 'Handle Jack Insert' posting ANALOG INSERT of 'Line Output' jack" );
-							cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kLineOutStatus, (void*) kGPIO_Connected, (void*) 0 );
-							break;
-						case kGPIO_Selector_HeadphoneDetect:
-							debugIOLog ( 5, "  RunComboStateMachine 'Handle Jack Insert' posting ANALOG INSERT of 'Line Headphone' jack" );
-							cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kHeadphoneStatus, (void*) kGPIO_Connected, (void*) 0 );
-							break;
-					}
-					mComboStateMachine[analogJackType] = kComboStateMachine_handle_metal_change;
-				} 
-				else 
-				{
-					debugIOLog ( 5, "kGPIO_TypeIsAnalog != typeSenseState" );
-					if ( kGPIO_Selector_LineInDetect == analogJackType )
-					{
-						debugIOLog ( 5, "  RunComboStateMachine 'Handle Jack Insert' posting DIGITAL INPUT INSERT" );
-						cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kDigitalInInsertStatus, (void*) kGPIO_Connected, (void*) 0 );
-					} 
-					else 
-					{
-						debugIOLog ( 5, "  RunComboStateMachine 'Handle Jack Insert' posting DIGITAL OUTPUT INSERT" );
-						cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kDigitalOutStatus, (void*) kGPIO_Connected, (void*) 0 );
-					}
-					mComboStateMachine[analogJackType] = kComboStateMachine_handle_plastic_change;
-				}
-			}
-			break;
-		case kComboStateMachine_handle_metal_change:
-			//	[3564007]
-			switch ( analogJackType )
-			{
-				case kGPIO_Selector_LineInDetect:
-					debugIOLog ( 5, "  RunComboStateMachine 'Handle Metal Change' posting ANALOG EXTRACT of 'Line Input' jack" );
-					cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kLineInStatus, (void*) kGPIO_Disconnected, (void*) 0 );
-					break;
-				case kGPIO_Selector_LineOutDetect:
-					debugIOLog ( 5, "  RunComboStateMachine 'Handle Metal Change' posting ANALOG EXTRACT of 'Line Output' jack" );
-					cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kLineOutStatus, (void*) kGPIO_Disconnected, (void*) 0 );
-					break;
-				case kGPIO_Selector_HeadphoneDetect:
-					debugIOLog ( 5, "  RunComboStateMachine 'Handle Metal Change' posting ANALOG EXTRACT of 'Line Headphone' jack" );
-					cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kHeadphoneStatus, (void*) kGPIO_Disconnected, (void*) 0 );
-					break;
-			}
-			if ( kGPIO_Disconnected == detectState )
-			{
-				mComboStateMachine[analogJackType] = kComboStateMachine_handle_jack_insert;
-			}
-			else if ( kGPIO_TypeIsAnalog == typeSenseState )
-			{
-				switch ( analogJackType )
-				{
-					case kGPIO_Selector_LineInDetect:
-						debugIOLog ( 5, "  RunComboStateMachine 'Handle Metal Change' posting ANALOG INSERT of 'Line Input' jack" );
-						cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kLineInStatus, (void*) kGPIO_Connected, (void*) 0 );
-						break;
-					case kGPIO_Selector_LineOutDetect:
-						debugIOLog ( 5, "  RunComboStateMachine 'Handle Metal Change' posting ANALOG INSERT of 'Line Output' jack" );
-						cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kLineOutStatus, (void*) kGPIO_Connected, (void*) 0 );
-						break;
-					case kGPIO_Selector_HeadphoneDetect:
-						debugIOLog ( 5, "  RunComboStateMachine 'Handle Metal Change' posting ANALOG INSERT of 'Line Headphone' jack" );
-						cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kHeadphoneStatus, (void*) kGPIO_Connected, (void*) 0 );
-						break;
-				}
-				mComboStateMachine[analogJackType] = kComboStateMachine_handle_metal_change;
-			}
-			else
-			{
-				if ( kGPIO_Selector_LineInDetect == analogJackType )
-				{
-					debugIOLog ( 5, "  RunComboStateMachine 'Handle Metal Change' posting DIGITAL INPUT INSERT" );
-					cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kDigitalInInsertStatus, (void*) kGPIO_Connected, (void*) 0 );
-				}
-				else
-				{
-					debugIOLog ( 5, "  RunComboStateMachine 'Handle Metal Change' posting DIGITAL OUTPUT INSERT" );
-					cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kDigitalOutStatus, (void*) kGPIO_Connected, (void*) 0 );
-				}
-				mComboStateMachine[analogJackType] = kComboStateMachine_handle_plastic_change;
-			}
-			break;
-		case kComboStateMachine_handle_plastic_change:
-			//	When plastic is inserted then the only events that can occur is that the plastic can be extracted or
-			//	the jack type can change to metal.  In either case, digital jack extraction must be posted.
-			if ( kGPIO_Selector_LineInDetect == analogJackType )	//	Check is to determine INPUT v.s. OUTPUT ( there is only one kind of input connector ) 
-			{
-				debugIOLog ( 5, "  RunComboStateMachine 'Handle Plastic Change' posting DIGITAL INPUT EXTRACT" );
-				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kDigitalInRemoveStatus, (void*) kGPIO_Disconnected, (void*) 0 );
-			}
-			else
-			{
-				debugIOLog ( 5, "  RunComboStateMachine 'Handle Plastic Change' posting DIGITAL OUTPUT EXTRACT" );
-				cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kDigitalOutStatus, (void*) kGPIO_Disconnected, (void*) 0 );
-			}
-			if ( kGPIO_Disconnected == detectState )
-			{
-				//	Handle digital jack extraction
-				mComboStateMachine[analogJackType] = kComboStateMachine_handle_jack_insert;
-			}
-			else if ( kGPIO_TypeIsAnalog == typeSenseState )
-			{
-				//	Handle direct transition from plastic digital jack to metal analog jack
-				debugIOLog ( 5, "  RunComboStateMachine 'Handle Plastic Change' posting change to DIGITAL INPUT INSERT" );
-				switch ( analogJackType )
-				{
-					case kGPIO_Selector_LineInDetect:
-						debugIOLog ( 5, "  RunComboStateMachine 'Handle Plastic Change' posting ANALOG INSERT of 'Line Input' jack" );
-						cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kLineInStatus, (void*) kGPIO_Connected, (void*) 0 );
-						break;
-					case kGPIO_Selector_LineOutDetect:
-						debugIOLog ( 5, "  RunComboStateMachine 'Handle Plastic Change' posting ANALOG INSERT of 'Line Output' jack" );
-						cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kLineOutStatus, (void*) kGPIO_Connected, (void*) 0 );
-						break;
-					case kGPIO_Selector_HeadphoneDetect:
-						debugIOLog ( 5, "  RunComboStateMachine 'Handle Plastic Change' posting ANALOG INSERT of 'Line Headphone' jack" );
-						cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kHeadphoneStatus, (void*) kGPIO_Connected, (void*) 0 );
-						break;
-				}
-				mComboStateMachine[analogJackType] = kComboStateMachine_handle_metal_change;
-			}
-			else
-			{
-				if ( kGPIO_Selector_LineInDetect == analogJackType )
-				{
-					debugIOLog ( 5, "  RunComboStateMachine 'Handle Plastic Change' posting DIGITAL INPUT INSERT" );
-					cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kDigitalInInsertStatus, (void*) kGPIO_Connected, (void*) 0 );
-				}
-				else
-				{
-					debugIOLog ( 5, "  RunComboStateMachine 'Handle Plastic Change' posting DIGITAL OUTPUT INSERT" );
-					cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void*) kDigitalOutStatus, (void*) kGPIO_Connected, (void*) 0 );
-				}
-			}
-			break;
-	}
-	
-	debugIOLog ( 5, "- RunComboStateMachine ( %p, %p, %ld, %ld, %ld ) ", cg, platformInterface, detectState, typeSenseState, analogJackType );
-Exit:
-	return;
-}
-
 
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //	[3453799]	This method now tests the combo-in association and if the combo-in is associated
@@ -1440,12 +1415,8 @@ void PlatformInterface::speakerDetectInterruptHandler ( OSObject * owner, IOInte
 		}
 		else
 		{
-			platformInterface->RunComboStateMachine ( cg, 
-													  platformInterface, 
-													  theAnalogJackState, 
-													  platformInterface->getComboOutJackTypeConnected () , 
-													  kGPIO_Selector_SpeakerDetect 
-													 );
+			platformInterface->mComboOutInterruptsProduced++;
+			platformInterface->triggerComboOneShot ();
 		}
 	}
 	

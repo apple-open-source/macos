@@ -29,6 +29,7 @@ PROF_LIBS = $(LIBS)
 
 
 HEADER_PATHS = -I../BSDPClient -I../bootplib
+NEXTSTEP_PB_CFLAGS = -fconstant-cfstrings -mdynamic-no-pic
 FRAMEWORKS = -framework CoreFoundation
 
 

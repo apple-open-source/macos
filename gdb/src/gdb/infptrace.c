@@ -208,6 +208,7 @@ ptrace_wait (ptid_t ptid, int *status)
   return wstate;
 }
 
+#ifndef KILL_INFERIOR
 void
 kill_inferior (void)
 {
@@ -229,6 +230,7 @@ kill_inferior (void)
   ptrace_wait (null_ptid, &status);
   target_mourn_inferior ();
 }
+#endif /* KILL_INFERIOR */
 
 #ifndef CHILD_RESUME
 
@@ -302,7 +304,7 @@ detach (int signal)
   ptrace (PT_DETACH, PIDGET (inferior_ptid), (PTRACE_ARG3_TYPE) 1,
           signal);
   if (errno)
-    perror_with_name ("ptrace");
+    print_sys_errmsg ("ptrace", errno);
   attach_flag = 0;
 }
 #endif /* ATTACH_DETACH */
@@ -357,14 +359,14 @@ fetch_register (int regno)
   /* This isn't really an address.  But ptrace thinks of it as one.  */
   CORE_ADDR regaddr;
   char mess[128];		/* For messages */
-  register int i;
+  int i;
   unsigned int offset;		/* Offset of registers within the u area.  */
-  char *buf = alloca (MAX_REGISTER_RAW_SIZE);
+  char buf[MAX_REGISTER_SIZE];
   int tid;
 
   if (CANNOT_FETCH_REGISTER (regno))
     {
-      memset (buf, '\0', REGISTER_RAW_SIZE (regno));	/* Supply zeroes */
+      memset (buf, '\0', DEPRECATED_REGISTER_RAW_SIZE (regno));	/* Supply zeroes */
       supply_register (regno, buf);
       return;
     }
@@ -376,7 +378,7 @@ fetch_register (int regno)
   offset = U_REGS_OFFSET;
 
   regaddr = register_addr (regno, offset);
-  for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (PTRACE_XFER_TYPE))
+  for (i = 0; i < DEPRECATED_REGISTER_RAW_SIZE (regno); i += sizeof (PTRACE_XFER_TYPE))
     {
       errno = 0;
       *(PTRACE_XFER_TYPE *) & buf[i] = ptrace (PT_READ_U, tid,
@@ -421,10 +423,10 @@ store_register (int regno)
   /* This isn't really an address.  But ptrace thinks of it as one.  */
   CORE_ADDR regaddr;
   char mess[128];		/* For messages */
-  register int i;
+  int i;
   unsigned int offset;		/* Offset of registers within the u area.  */
   int tid;
-  char *buf = alloca (MAX_REGISTER_RAW_SIZE);
+  char buf[MAX_REGISTER_SIZE];
 
   if (CANNOT_STORE_REGISTER (regno))
     {
@@ -443,7 +445,7 @@ store_register (int regno)
   regcache_collect (regno, buf);
 
   /* Store the local buffer into the inferior a chunk at the time. */
-  for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (PTRACE_XFER_TYPE))
+  for (i = 0; i < DEPRECATED_REGISTER_RAW_SIZE (regno); i += sizeof (PTRACE_XFER_TYPE))
     {
       errno = 0;
       ptrace (PT_WRITE_U, tid, (PTRACE_ARG3_TYPE) regaddr,
@@ -629,7 +631,7 @@ static void
 udot_info (char *dummy1, int dummy2)
 {
 #if defined (KERNEL_U_SIZE)
-  int udot_off;			/* Offset into user struct */
+  long udot_off;			/* Offset into user struct */
   int udot_val;			/* Value from user struct at udot_off */
   char mess[128];		/* For messages */
 #endif
@@ -657,12 +659,13 @@ udot_info (char *dummy1, int dummy2)
 	    {
 	      printf_filtered ("\n");
 	    }
-	  printf_filtered ("%04x:", udot_off);
+	  printf_filtered ("%s:", paddr (udot_off));
 	}
       udot_val = ptrace (PT_READ_U, PIDGET (inferior_ptid), (PTRACE_ARG3_TYPE) udot_off, 0);
       if (errno != 0)
 	{
-	  sprintf (mess, "\nreading user struct at offset 0x%x", udot_off);
+	  sprintf (mess, "\nreading user struct at offset 0x%s",
+		   paddr_nz (udot_off));
 	  perror_with_name (mess);
 	}
       /* Avoid using nonportable (?) "*" in print specs */

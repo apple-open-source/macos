@@ -362,7 +362,7 @@ namespace IOFireWireLib {
 			{
 				// have kernel channel force stop proc call user dcl program force stop proc
 
-				LocalIsochPort * port = const_cast<LocalIsochPort*>( dynamic_cast<LocalIsochPort*>( IOFireWireIUnknown::InterfaceMap<IsochPort>::GetThis( reinterpret_cast<IsochPort*>( ::CFArrayGetValueAtIndex( mListeners, index ) ) ) ) ) ;
+				LocalIsochPort * port = (LocalIsochPort*) IOFireWireIUnknown::InterfaceMap<IsochPort>::GetThis( (IsochPort*) ::CFArrayGetValueAtIndex( mListeners, index ) ) ;
 				if ( port )
 				{
 					error = ::IOConnectMethodScalarIScalarO( connection, kLocalIsochPort_SetChannel, 2, 0, port->mKernPortRef, mKernChannelRef ) ;
@@ -372,7 +372,7 @@ namespace IOFireWireLib {
 			}
 		}
 		
-		if ( !error )
+		if ( !error && mTalker )
 		{
 			LocalIsochPort * port = dynamic_cast<LocalIsochPort*>( IOFireWireIUnknown::InterfaceMap<IsochPort>::GetThis( mTalker ) ) ;
 			if ( port )

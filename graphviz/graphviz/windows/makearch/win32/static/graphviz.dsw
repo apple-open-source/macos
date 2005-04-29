@@ -1,0 +1,326 @@
+Microsoft Developer Studio Workspace File, Format Version 6.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "agraph"=..\..\..\agraph\agraph.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "cdt"=..\..\..\cdt\cdt.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "circo"=..\..\..\graphviz\circo\circo.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "circogen"=..\..\..\dotneato\circogen\circogen.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "common"=..\..\..\dotneato\common\common.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name gd
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name graph
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name pathplan
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "dot"=..\..\..\graphviz\dot\dot.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name common
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name dotgen
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name cdt
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "dotgen"=..\..\..\dotneato\dotgen\dotgen.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name gd
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name graph
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name pathplan
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "dotty"=..\..\..\dotty\dotty.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name dot
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name lefty
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "gd"=..\..\..\gd\gd.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "gfx"=..\..\..\lefty\gfx\gfx.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "graph"=..\..\..\graph\graph.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "gvrender"=..\..\..\dotneato\gvrender\gvrender.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "lefty"=..\..\..\lefty\lefty.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name gfx
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "lneato"=..\..\..\lneato\lneato.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name lefty
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name neato
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "neato"=..\..\..\graphviz\neato\neato.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name common
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name neatogen
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name cdt
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name pack
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "neatogen"=..\..\..\dotneato\neatogen\neatogen.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name gd
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name graph
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name pathplan
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "pack"=..\..\..\dotneato\pack\pack.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "pathplan"=..\..\..\pathplan\pathplan.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "twopi"=..\..\..\graphviz\twopi\twopi.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name twopigen
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "twopigen"=..\..\..\dotneato\twopigen\twopigen.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pack
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

@@ -1,0 +1,148 @@
+@import "/blojsom_resources/includes/apple_stylesheet_overrides.css";
+
+body
+{
+	background : white url(/blojsom_resources/images/striped_background.gif) repeat;
+}
+
+#header_logo_img
+{
+	width: 100px;
+	height: 100px;
+	background: url(/blojsom_resources/images/grayx.jpg) no-repeat top right;
+	position: relative;
+	top: -10px;
+}
+
+.span_header
+{
+	background: url(/blojsom_resources/images/span_header.png) no-repeat;
+	height: 8px;
+	line-height: 4px;
+	font-size: 4px;
+}
+
+.span_body
+{
+	background: url(/blojsom_resources/images/span_body.png) repeat-y;
+	border: 0px none transparent;
+	height: 86px;
+}
+
+.span_footer
+{
+	height: 8px;
+	background: url(/blojsom_resources/images/span_footer.png) no-repeat;
+	font-size: 4px;
+	line-height: 4px;
+}
+
+.side_box_header
+{
+	height: 8px;
+	background: url(/blojsom_resources/images/side_box_header.png) no-repeat;
+	font-size: 4px;
+	line-height: 4px;
+}
+
+.side_box_body
+{
+	background: url(/blojsom_resources/images/side_box_body.png) repeat-y;
+	border: 0px none transparent;
+}
+
+.side_box_footer
+{
+	background: url(/blojsom_resources/images/side_box_footer.png) no-repeat;
+	height: 8px;
+	font-size: 2px;
+	line-height: 2px;
+}
+
+.main_box_header
+{
+	height: 8px;
+	background: url(/blojsom_resources/images/main_box_header.png) no-repeat;
+	font-size: 4px;
+	line-height: 4px;
+}
+
+.main_box_body
+{
+	width: 600px;
+	background: repeat-y url(/blojsom_resources/images/main_box_body.png);
+	border-right: 0px none transparent;
+	border-bottom: 0px none transparent;
+	border-left: 0px none transparent;
+	border-style: none;
+	border-width: 0px;
+}
+
+.main_box_footer
+{
+	height: 8px;
+	background: url(/blojsom_resources/images/main_box_footer.png) no-repeat;
+	font-size: 2px;
+	line-height: 2px;
+}
+
+a.selected_category
+{
+	font-weight: bold;
+	color: black;
+}
+
+.dialog_600_header
+{
+	background: url(/blojsom_resources/images/dialog_600_header.png) no-repeat;
+}
+
+.dialog_600_body
+{
+	background: url(/blojsom_resources/images/dialog_600_body.png) repeat-y;
+	border: 0px none transparent;
+	padding-top: 0px;
+	padding-bottom: 0px;
+}
+
+.dialog_600_footer
+{
+	background: url(/blojsom_resources/images/dialog_600_footer.png) no-repeat;
+}
+
+.dialog_500_header
+{
+	background: url(/blojsom_resources/images/dialog_500_header.png) no-repeat;
+}
+
+.dialog_500_body
+{
+	width: 500px;
+	background: url(/blojsom_resources/images/dialog_500_body.png) repeat-y;
+	border: 0px none transparent;
+	padding-top: 0px;
+	padding-bottom: 0px;
+}
+
+.dialog_500_footer
+{
+	background: url(/blojsom_resources/images/dialog_500_footer.png) no-repeat;
+}
+
+.dialog_400_header
+{
+	background: url(/blojsom_resources/images/dialog_400_header.png) no-repeat;
+}
+
+.dialog_400_body
+{
+	background: url(/blojsom_resources/images/dialog_400_body.png) repeat-y;
+	border: 0px none transparent;
+	padding-top: 0px;
+	padding-bottom: 0px;
+}
+
+.dialog_400_footer
+{
+	background: url(/blojsom_resources/images/dialog_400_footer.png) no-repeat;
+}

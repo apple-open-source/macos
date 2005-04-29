@@ -220,7 +220,7 @@ acsp_data_input(int unit, u_char *packet, int len)
         return;
     }
 
-    if (pkt->flags & ACSP_FLAG_ACK && ext->timer_state == ACSP_TIMERSTATE_PACKET && pkt->seq == ext->last_seq) {
+    if (ntohs(pkt->flags) & ACSP_FLAG_ACK && ext->timer_state == ACSP_TIMERSTATE_PACKET && pkt->seq == ext->last_seq) {
             UNTIMEOUT(acsp_timeout, ext);
             ext->timer_state = ACSP_TIMERSTATE_STOPPED;
     }
@@ -266,7 +266,7 @@ acsp_output(acsp_ext *ext)
                     ptr = ext->out.data;	// add address, control, and proto
                     *ptr++ = 0xff;
                     *ptr++ = 0x03;
-                    *((u_int16_t*)ptr) = PPP_ACSP;
+                    *((u_int16_t*)ptr) = htons(PPP_ACSP);
                     ptr += 2;
                     
                     if (ext->out.action == ACSP_ACTION_SEND_WITH_TIMEOUT) {
@@ -455,7 +455,9 @@ static struct in_addr	primary_router;		// address of primary router (before PPP 
 
 extern CFStringRef 		serviceidRef;
 extern SCDynamicStoreRef	cfgCache;
-extern int publish_dns_entry(CFStringRef str, CFStringRef property, int clean);
+extern int publish_dns_entry(CFStringRef property1, CFTypeRef ref1, 
+						CFStringRef property2, CFTypeRef ref2,
+						CFStringRef property3, CFTypeRef ref3, int clean);
 extern int route_interface(int cmd, struct in_addr host, struct in_addr mask, char iftype, char *ifname, int is_host);
 extern int route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr gateway, int use_gway_flag);
 
@@ -525,7 +527,7 @@ static void acsp_plugin_check_options(void)
                     if (CFGetTypeID(strRef) == CFStringGetTypeID()) {
                         CFStringGetCString((CFStringRef)strRef, sopt, 32, kCFStringEncodingUTF8);
                     } else if (CFGetTypeID(strRef) == CFDataGetTypeID()) {
-                        string = CFStringCreateWithCharacters(NULL, (UniChar *)CFDataGetBytePtr(strRef), 									CFDataGetLength(ref)/sizeof(UniChar));                 
+                        string = CFStringCreateWithCharacters(NULL, (UniChar *)CFDataGetBytePtr(strRef), CFDataGetLength(strRef)/sizeof(UniChar));                 
                         if (string) {
                             CFStringGetCString(string, sopt, 32, kCFStringEncodingUTF8);
                             CFRelease(string);
@@ -542,7 +544,7 @@ static void acsp_plugin_check_options(void)
             primary_router.s_addr = 0;
     } else {
         /* open the prefs file */
-        if ((prefs = SCPreferencesCreate(0, SCSTR("pppd"), kRASServerPrefsFileName)) != 0) {
+        if ((prefs = SCPreferencesCreate(0, CFSTR("pppd"), kRASServerPrefsFileName)) != 0) {
             // get servers list from the plist
             if ((servers_list = SCPreferencesGetValue(prefs, kRASServers)) != 0) {
                 if ((idRef = CFStringCreateWithCString(0, serverid , kCFStringEncodingMacRoman)) != 0) {
@@ -936,7 +938,7 @@ static void acsp_plugin_process(void *context, ACSP_Input *acsp_in, ACSP_Output 
         case ACSP_NOTIFICATION_PACKET:
             switch (theContext->state) {                        
                 case PLUGIN_RCVSTATE_LISTEN:
-                    if (pkt->flags & ACSP_FLAG_START == 0) {
+                    if (ntohs(pkt->flags) & ACSP_FLAG_START == 0) {
                         error("ACSP plugin: received first packet with no start flag\n");
                         break;
                     } else
@@ -948,7 +950,7 @@ static void acsp_plugin_process(void *context, ACSP_Input *acsp_in, ACSP_Output 
                     if (pkt->seq == theContext->next_seq) {
                         if (acsp_plugin_read(theContext, acsp_in) == 0) {
                             theContext->next_seq++;
-                            if (pkt->flags & ACSP_FLAG_END) {
+                            if (ntohs(pkt->flags) & ACSP_FLAG_END) {
                                 theContext->state = PLUGIN_STATE_DONE;
                                 if (theContext->ip_up)
                                     acsp_plugin_install_config(theContext);
@@ -957,12 +959,12 @@ static void acsp_plugin_process(void *context, ACSP_Input *acsp_in, ACSP_Output 
                             break;					// bad packet or error - send no ack
                     }					
                         
-                    if (pkt->flags & ACSP_FLAG_REQUIRE_ACK)
+                    if (ntohs(pkt->flags) & ACSP_FLAG_REQUIRE_ACK)
                         acsp_plugin_send_ack(theContext, acsp_in, acsp_out);
                     break;
                 
                 case PLUGIN_SENDSTATE_WAITING_ACK:
-                    if (pkt->flags & ACSP_FLAG_ACK)	// if ack - process it - otherwise drop the packet
+                    if (ntohs(pkt->flags) & ACSP_FLAG_ACK)	// if ack - process it - otherwise drop the packet
                         if (theContext->next_to_send) {
                             acsp_plugin_send(theContext, acsp_in, acsp_out);
                             theContext->next_seq++;
@@ -1022,14 +1024,14 @@ static void acsp_plugin_send(acsp_plugin_context* context, ACSP_Input* acsp_in, 
     space = MIN(context->buf_size, acsp_in->mtu) - 4;
     
     if (context->state == PLUGIN_STATE_INITIAL) {
-        pkt->flags = ACSP_FLAG_START;
+        pkt->flags = htons(ACSP_FLAG_START);
         context->next_to_send = context->list;
     } else
         pkt->flags = 0;
 
     pkt->type = context->type;
     pkt->seq = context->next_seq;
-    pkt->flags |= ACSP_FLAG_REQUIRE_ACK;
+    pkt->flags = htons(ntohs(pkt->flags) | ACSP_FLAG_REQUIRE_ACK);
     pkt->reserved = 0;
     len = ACSP_HDR_SIZE;
 
@@ -1037,9 +1039,10 @@ static void acsp_plugin_send(acsp_plugin_context* context, ACSP_Input* acsp_in, 
         case CI_ROUTES:
             route_data = (acsp_route_data*)pkt->data;
             while (context->next_to_send && space >= len + sizeof(acsp_route_data)) {
+                /* XXX bytes order may be wrong */
                 route_data->address = ((acsp_route*)context->next_to_send)->address.s_addr;
                 route_data->mask = ((acsp_route*)context->next_to_send)->mask.s_addr;
-                route_data->flags = ((acsp_route*)context->next_to_send)->flags;
+                route_data->flags = htons(((acsp_route*)context->next_to_send)->flags);
                 route_data->reserved = 0;
                 len += sizeof(acsp_route_data);
                 context->next_to_send = ((acsp_route*)(context->next_to_send))->next;
@@ -1049,6 +1052,7 @@ static void acsp_plugin_send(acsp_plugin_context* context, ACSP_Input* acsp_in, 
     	case CI_DOMAINS:
             domain_data = (acsp_domain_data*)pkt->data;
             while (context->next_to_send && space >= (len + (slen = strlen(((acsp_domain*)(context->next_to_send))->name)) + 6)) {
+                /* XXX bytes order may be wrong */
                 domain_data->server = ((acsp_domain*)(context->next_to_send))->server.s_addr;
                 domain_data->len = slen;
                 memcpy(domain_data->name, ((acsp_domain*)(context->next_to_send))->name, slen);
@@ -1060,9 +1064,10 @@ static void acsp_plugin_send(acsp_plugin_context* context, ACSP_Input* acsp_in, 
     }
     
     if (context->next_to_send == 0)
-        pkt->flags |= ACSP_FLAG_END;
+		pkt->flags = htons(ntohs(pkt->flags) | ACSP_FLAG_END);
     acsp_out->action = ACSP_ACTION_SEND_WITH_TIMEOUT;
-    context->last_pkt_len = pkt->len = len;
+    context->last_pkt_len = len;
+    pkt->len = htons(len);
     acsp_out->data_len = len + 4;
     acsp_out->data = context->buf;
 }
@@ -1091,8 +1096,8 @@ static void acsp_plugin_send_ack(acsp_plugin_context* context, ACSP_Input* acsp_
     outPkt = (acsp_packet*)(context->buf + 4);	// leave space for address, control, and protocol
     outPkt->type = context->type;
     outPkt->seq = inPkt->seq;
-    outPkt->flags = ACSP_FLAG_ACK;
-    outPkt->len = ACSP_HDR_SIZE;
+    outPkt->flags = htons(ACSP_FLAG_ACK);
+    outPkt->len = htons(ACSP_HDR_SIZE);
     outPkt->reserved = 0;
         
     acsp_out->action = ACSP_ACTION_SEND;
@@ -1109,7 +1114,7 @@ static int acsp_plugin_read(acsp_plugin_context* context, ACSP_Input* acsp_in)
     acsp_packet 	*pkt;
     acsp_route		*route;
     acsp_domain		*domain;
-    int			len;
+    int			len, domain_len;
     acsp_route_data	*route_data;
     acsp_domain_data	*domain_data;
     
@@ -1130,7 +1135,7 @@ static int acsp_plugin_read(acsp_plugin_context* context, ACSP_Input* acsp_in)
                 }
                 route->address.s_addr = route_data->address;
                 route->mask.s_addr = route_data->mask;
-                route->flags = route_data->flags;
+                route->flags = ntohs(route_data->flags);
                 route->installed = 0;
                 route->next = (acsp_route*)context->list;
                 context->list = route;
@@ -1146,18 +1151,19 @@ static int acsp_plugin_read(acsp_plugin_context* context, ACSP_Input* acsp_in)
                     error("ACSP plugin: no memory\n");
                     return -1;
                 }
-                if ((domain->name = malloc(domain_data->len + 1)) == 0) {
+                domain_len = ntohs(domain_data->len);
+                if ((domain->name = malloc(domain_len + 1)) == 0) {
                     error("ACSP plugin: no memory\n");
                     free(domain);
                     return -1;
                 }
                 domain->server.s_addr = domain_data->server;
-                memcpy(domain->name, domain_data->name, domain_data->len);
-                *(domain->name + domain_data->len) = 0;	// zero terminate
+                memcpy(domain->name, domain_data->name, domain_len);
+                *(domain->name + domain_len) = 0;	// zero terminate
                 domain->next = (acsp_domain*)context->list;
                 context->list = domain;
-                len -= (domain_data->len + 6);
-                domain_data = (acsp_domain_data*)(domain_data->name + domain_data->len);
+                len -= (domain_len + 6);
+                domain_data = (acsp_domain_data*)(domain_data->name + domain_len);
             }
             break;
         
@@ -1259,6 +1265,9 @@ static void acsp_plugin_add_routes(acsp_plugin_context* context)
         addr.s_addr = 0; 
         
         // remove current default route
+		cifdefaultroute(0, 0, 0);
+		cifroute();
+#if 0
         if (route_gateway(RTM_DELETE, addr, addr, addr, 1) == 0)
             error("ACSP plugin: error removing default route\n");
         // add new default route on previous primary interface
@@ -1266,6 +1275,7 @@ static void acsp_plugin_add_routes(acsp_plugin_context* context)
             error("ACSP plugin: error adding default route\n");
             return;
         }    
+#endif
         
         while (route) {
             route->installed = 1;
@@ -1293,15 +1303,21 @@ static void acsp_plugin_remove_routes(acsp_plugin_context* context)
 {
     acsp_route	*route = (acsp_route*)context->list;  
 
-    // remove only the public routes
-    // the private routes will be removed when the intefaces is removed
     while (route) {
-        if (route->flags & ACSP_ROUTEFLAGS_PUBLIC && route->installed) {
-            if (route_gateway(RTM_DELETE, route->address, route->mask, primary_router, 0) == 0) {
-                error("ACSP plugin: error removing route\n");
-            } else
-                route->installed = 0;
-        }
+        if (route->installed) {
+			route->installed = 0;
+			if (route->flags & ACSP_ROUTEFLAGS_PRIVATE) {
+				if (route_interface(RTM_DELETE, route->address, route->mask, IFT_PPP, ifname, 0) == 0) {
+					error("ACSP plugin: error removing private net route\n");
+					route->installed = 1;
+				} 
+			} else if (route->flags & ACSP_ROUTEFLAGS_PUBLIC) {
+				if (route_gateway(RTM_DELETE, route->address, route->mask, primary_router, 0) == 0) {
+					error("ACSP plugin: error removing public net route\n");
+					route->installed = 1;
+				}
+			}
+		}
         route = route->next;
     }
 }
@@ -1315,21 +1331,32 @@ static void acsp_plugin_add_domains(acsp_plugin_context* context)
     CFStringRef	str;
     acsp_domain	*domain = (acsp_domain*)context->list;    
     int 	err, clean = 1;
-
+	long	order = 100000;
+	CFNumberRef num;
+	
+	num = CFNumberCreate(NULL, kCFNumberLongType, &order);
+	if (num == 0) {
+		error("ACSP plugin: error adding domain name - could not create CFNumber\n");
+		return;
+	}
+		
     while (domain) {
         if (str = CFStringCreateWithCString(NULL, domain->name, kCFStringEncodingUTF8)) {
-            err = publish_dns_entry(str, kSCPropNetDNSSearchDomains, clean);
-            CFRelease(str);
+			err = publish_dns_entry(kSCPropNetDNSSearchDomains, str, kSCPropNetDNSSupplementalMatchDomains, str, kSCPropNetDNSSupplementalMatchOrders, num, clean);
+			CFRelease(str);
             if (err == 0) {
                 error("ACSP plugin: error adding domain name\n");
-                return;
+				goto end;
             }
         } else {
             error("ACSP plugin: error adding domain name - could not create CFString\n");
-            return;
+			goto end;
         }
         domain = domain->next;
         clean = 0;
     }
+
+end:
+	CFRelease(num);
 }
 

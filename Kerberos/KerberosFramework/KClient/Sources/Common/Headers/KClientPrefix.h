@@ -24,8 +24,8 @@
 
 #define KClientDeprecated_
 
-#include "KClient.h"
-#include "KClientTypes.h"
+#include <Kerberos/KClient.h>
+#include <Kerberos/KClientTypes.h>
 #include "KClientException.h"
 
 #endif /* __cplusplus */

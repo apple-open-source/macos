@@ -1,3 +1,3 @@
-use Apache::test;
+use Apache::testold;
 
 print fetch "/dirmagic";

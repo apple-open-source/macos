@@ -1,0 +1,205 @@
+# -*- tcl -*-
+# rules/manpage-nroff
+#
+# (c) 2001 Andreas Kupries <andreas_kupries@sourceforge.net>
+#
+# [expand] definitions to convert a tcl based manpage definition into
+# a manpage based upon *roff markup. Additional definition files allow
+# the conversion into HTML and XML.
+#
+################################################################
+
+proc here {} [list return [file dirname [info script]]]
+
+source [file join [here] manpage.api]       ; # api, defines all required commands with errors.
+
+# Called before the first pass
+proc init_hook {} {setpasses 2}
+
+# Called before the first output.
+proc begin_hook {} {
+    # Reset the syn flag
+    global state
+    set state(syn) 0
+    return
+}
+
+# Called after the last output.
+proc end_hook {} {}
+
+################################################################
+## Backend for *roff markup
+
+
+proc manpage_begin {command section version module shortdesc description} {
+    cpush mp
+    set     hdr ""
+    append  hdr "[nr_comment {}]\n"
+    append  hdr "[nr_comment {Copyright (c) 2000 Andreas Kupries}]\n"
+    append  hdr "[nr_comment {All right reserved}]\n"
+    append  hdr "[nr_comment {}]\n"
+    append  hdr "[nr_comment "CVS: \$Id\$ $command.$section"]\n"
+    append  hdr "[nr_comment {}]\n"
+    append  hdr ".so man.macros\n"
+    append  hdr ".TH \"[string trimleft $command :]\" $section $version $module \"$shortdesc\"\n"
+    append  hdr ".BS\n"
+    append  hdr "[nr_comment {Note: do not modify the .SH NAME line immediately below!}]\n"
+    append  hdr ".SH NAME\n"
+    append  hdr "$command \\- $description"
+    return $hdr
+}
+
+proc manpage_end {} {
+    # Strip empty lines out of the generated nroff source. They mess
+    # up the nroff formatting.
+    regsub -all "\[\t \]*\n(\[\t \]*\n)*\[\t \]*" [cpop mp] "\n" data
+    return $data
+}
+
+proc section     {name}     {return ".SH \"$name\""}
+proc para        {}         {nr_p}
+
+
+global    state
+array set state {syn 0 call {}}
+
+proc require {pkg {version {}}} {
+    if {$version != {}} {
+	return "[x_synopsis]package require [nr_bld]$pkg $version[nr_rst]\n[nl]"
+    } else {
+	return "[x_synopsis]package require [nr_bld]$pkg[nr_rst]\n[nl]"
+    }
+}
+
+proc call {cmd args} {
+    global state
+    if {[exppass] == 1} {
+	append state(call) "$cmd [join $args " "][nr_rst]\n[nl]\n"
+    }
+    return "[lst_item "$cmd [join $args " "][nr_rst]"]"
+}
+
+proc description {} {
+    global state
+    if {$state(call) == {}} {
+	return .BE\n[section DESCRIPTION]
+    } else {
+	return [x_synopsis]$state(call).BE\n[section DESCRIPTION]
+    }
+}
+
+proc x_synopsis {} {
+    global state
+    if {!$state(syn)} {
+	set state(syn) 1
+	return [section SYNOPSIS]\n
+    } else {
+	return ""
+    }
+}
+
+################################################################
+
+global    list_state
+array set list_state {level -1}
+
+proc list_begin  {what} {
+    global list_state
+
+    switch -exact -- $what {
+	enum - bullet - definitions {}
+	default {return -code error "Unknown list type $what"}
+    }
+
+    incr list_state(level)
+    set  list_state(l,$list_state(level)) $what
+    set  list_state(l,$list_state(level),id) 0
+
+    if {$list_state(level) > 0} {
+	return [nr_in]
+    } else {
+	return {}
+    }
+}
+
+proc list_end {} {
+    global list_state
+    catch {unset list_state(l,$list_state(level))}
+    catch {unset list_state(l,$list_state(level),id)}
+
+    incr list_state(level) -1
+
+    if {$list_state(level) >= 0} {
+	return [nr_out]
+    } else {
+	return {}
+    }
+}
+
+proc bullet {} {
+    global list_state
+    switch -exact -- $list_state(l,$list_state(level)) {
+	bullet  {return ".TP\n*"}
+	default {return -code error "Illegal use of bullet in non-bullet list"}
+    }
+}
+
+proc enum {} {
+    global list_state
+    switch -exact -- $list_state(l,$list_state(level)) {
+	enum    {return ".IP \[[incr list_state(l,$list_state(level),id)]\]\n"}
+	default {return -code error "Illegal use of bullet in non-bullet list"}
+    }
+}
+
+proc lst_item {text} {
+    global list_state
+    switch -exact -- $list_state(l,$list_state(level)) {
+	definitions {return ".TP\n$text"}
+	default     {return -code error "Illegal use of bullet in non-bullet list"}
+    }
+}
+
+################################################################
+
+proc see_also {args} {return "[section {SEE ALSO}]\n[join $args ", "]"}
+proc keywords {args} {return "[section KEYWORDS]\n[join $args ", "]"}
+
+proc nl     {}     {nr_vspace}
+proc arg    {text} {return [nr_ul]$text[nr_rst]}
+proc cmd    {text} {return [nr_bld]$text[nr_rst]}
+proc emph   {text} {return [nr_ul]$text[nr_rst]}
+proc strong {text} {return [nr_bld]$text[nr_rst]}
+proc opt    {text} {return ?$text?}
+
+################################################################
+# nroff specific commands
+
+proc nr_bld     {}       {return \\fB}
+proc nr_ul      {}       {return \\fI}
+proc nr_rst     {}       {return \\fR}
+proc nr_p       {}       {return .PP}
+proc nr_comment {text}   {return "'\\\" $text"}
+proc nr_enum    {num}    {return ".IP \[$num\]"}
+proc nr_vspace  {}       {return .sp}
+proc nr_blt     {text}   {return ".TP\n$text"}
+proc nr_bltn    {n text} {return ".TP $n\n$text"}
+
+proc nr_in      {}       {return .RS}
+proc nr_out     {}       {return .RE}
+
+################################################################
+
+proc setx {v string} {
+    upvar $v _
+    set _ $string
+    return
+}
+
+proc appendx {v string} {
+    upvar $v _
+    append _ $string
+    return
+}
+
+################################################################

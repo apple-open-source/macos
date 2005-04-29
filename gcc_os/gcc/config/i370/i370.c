@@ -101,12 +101,14 @@ static label_node_t * mvs_get_label PARAMS ((int));
 static void i370_label_scan PARAMS ((void));
 #ifdef TARGET_HLASM
 static bool i370_hlasm_assemble_integer PARAMS ((rtx, unsigned int, int));
+static void i370_globalize_label PARAMS ((FILE *, const char *));
 #endif
 static void i370_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void i370_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 #ifdef LONGEXTERNAL
 static int mvs_hash_alias PARAMS ((const char *));
 #endif
+static void i370_encode_section_info PARAMS ((tree, int));
 
 /* ===================================================== */
 /* defines and functions specific to the HLASM assembler */
@@ -300,15 +302,31 @@ static const unsigned char ebcasc[256] =
 #define TARGET_ASM_ALIGNED_SI_OP NULL
 #undef TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER i370_hlasm_assemble_integer
+#undef TARGET_ASM_GLOBALIZE_LABEL
+#define TARGET_ASM_GLOBALIZE_LABEL i370_globalize_label
 #endif
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE i370_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE i370_output_function_epilogue
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO i370_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* Set global variables as needed for the options enabled.  */
+
+void
+override_options ()
+{
+  /* We're 370 floating point, not IEEE floating point.  */
+  memset (real_format_for_mode, 0, sizeof real_format_for_mode);
+  real_format_for_mode[SFmode - QFmode] = &i370_single_format;
+  real_format_for_mode[DFmode - QFmode] = &i370_double_format;
+}
+
+
 /* Map characters from one character set to another.
    C is the character to be translated.  */
 
@@ -1413,6 +1431,19 @@ i370_output_function_prologue (f, l)
   /* find all labels in this routine */
   i370_label_scan ();
 }
+
+static void
+i370_globalize_label (stream, name)
+     FILE *stream;
+     const char *name;
+{
+  char temp[MAX_MVS_LABEL_SIZE + 1];
+  if (mvs_check_alias (name, temp) == 2)
+    fprintf (stream, "%s\tALIAS\tC'%s'\n", temp, name);
+  fputs ("\tENTRY\t", stream);
+  assemble_name (stream, name);
+  putc ('\n', stream);
+}
 #endif /* TARGET_HLASM */
 
 
@@ -1425,7 +1456,7 @@ i370_output_function_prologue (f, l)
    -- subtracts stackframe size from the stack pointer.
    -- stores backpointer to old caller stack.
   
-   XXX hack alert -- if the global var int leaf_function is non-zero, 
+   XXX hack alert -- if the global var int leaf_function is nonzero, 
    then this is a leaf, and it might be possible to optimize the prologue
    into doing even less, e.g. not grabbing a new stackframe or maybe just a
    partial stack frame.
@@ -1554,3 +1585,15 @@ i370_output_function_epilogue (file, l)
   for (i = function_base_page; i < mvs_page_num; i++)
     fprintf (file, "\tDC\tA(PG%d)\n", i);
 }
+
+/* Mark external references.  */
+
+static void
+i370_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl))
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+

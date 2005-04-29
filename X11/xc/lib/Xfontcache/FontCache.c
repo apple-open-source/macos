@@ -27,7 +27,7 @@
  *
  *	Id: FontCache.c,v 1.8 1999/01/31 12:52:49 akiyama Exp $
  */
-/* $XFree86: xc/lib/Xfontcache/FontCache.c,v 1.3 2002/10/16 00:37:28 dawes Exp $ */
+/* $XFree86: xc/lib/Xfontcache/FontCache.c,v 1.4 2003/10/15 22:05:14 herrb Exp $ */
 
 /* THIS IS NOT AN X CONSORTIUM STANDARD */
 
@@ -51,7 +51,8 @@ static char *fontcache_extension_name = FONTCACHENAME;
  *                                                                           *
  *****************************************************************************/
 
-static int close_display();
+static int close_display(Display *, XExtCodes *);
+
 static /* const */ XExtensionHooks fontcache_extension_hooks = {
     NULL,				/* create_gc */
     NULL,				/* copy_gc */
@@ -80,9 +81,8 @@ static XEXT_GENERATE_CLOSE_DISPLAY (close_display, fontcache_info)
  *                                                                           *
  *****************************************************************************/
 
-Bool FontCacheQueryExtension (dpy, event_basep, error_basep)
-    Display *dpy;
-    int *event_basep, *error_basep;
+Bool
+FontCacheQueryExtension(Display *dpy, int *event_basep, int *error_basep)
 {
     XExtDisplayInfo *info = find_display (dpy);
 
@@ -95,10 +95,8 @@ Bool FontCacheQueryExtension (dpy, event_basep, error_basep)
     }
 }
 
-Bool FontCacheQueryVersion(dpy, majorVersion, minorVersion)
-    Display* dpy;
-    int* majorVersion;
-    int* minorVersion;
+Bool
+FontCacheQueryVersion(Display *dpy, int *majorVersion, int *minorVersion)
 {
     XExtDisplayInfo *info = find_display (dpy);
     xFontCacheQueryVersionReply rep;
@@ -122,9 +120,8 @@ Bool FontCacheQueryVersion(dpy, majorVersion, minorVersion)
     return True;
 }
 
-Bool FontCacheGetCacheSettings(dpy, cacheinfo)
-    Display* dpy;
-    FontCacheSettings *cacheinfo;
+Bool
+FontCacheGetCacheSettings(Display *dpy, FontCacheSettings *cacheinfo)
 {
     XExtDisplayInfo *info = find_display (dpy);
     xFontCacheGetCacheSettingsReply rep;
@@ -151,9 +148,8 @@ Bool FontCacheGetCacheSettings(dpy, cacheinfo)
     return True;
 }
 
-Bool FontCacheChangeCacheSettings(dpy, cacheinfo)
-    Display* dpy;
-    FontCacheSettings *cacheinfo;
+Bool
+FontCacheChangeCacheSettings(Display *dpy, FontCacheSettings *cacheinfo)
 {
     XExtDisplayInfo *info = find_display (dpy);
     xFontCacheChangeCacheSettingsReq *req;
@@ -174,9 +170,8 @@ Bool FontCacheChangeCacheSettings(dpy, cacheinfo)
     return True;
 }
 
-Bool FontCacheGetCacheStatistics(dpy, cachestats)
-    Display* dpy;
-    FontCacheStatistics *cachestats;
+Bool
+FontCacheGetCacheStatistics(Display *dpy, FontCacheStatistics *cachestats)
 {
     XExtDisplayInfo *info = find_display (dpy);
     xFontCacheGetCacheStatisticsReply rep;

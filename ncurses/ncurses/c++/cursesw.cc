@@ -19,13 +19,14 @@
   modified by Ulrich Drepper  (drepper@karlsruhe.gmd.de)
           and Anatoly Ivasyuk (anatoly@nick.csh.rit.edu)
 
-  modified by Juergen Pfeifer (juergen.pfeifer@gmx.net)
+  modified by Juergen Pfeifer
+  and Thomas Dickey (noting that more than 70% of this file has been changed)
 */
 
 #include "internal.h"
 #include "cursesw.h"
 
-MODULE_ID("$Id: cursesw.cc,v 1.1.1.2 2002/01/03 23:53:03 jevans Exp $")
+MODULE_ID("$Id: cursesw.cc,v 1.26 2003/10/25 15:02:46 tom Exp $")
 
 #define COLORS_NEED_INITIALIZATION  -1
 #define COLORS_NOT_INITIALIZED       0

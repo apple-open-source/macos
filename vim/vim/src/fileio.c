@@ -37,6 +37,10 @@
 # include <utime.h>		/* for struct utimbuf */
 #endif
 
+#if defined(HAVE_COPYFILE_H)
+#include <copyfile.h>
+#endif
+
 #define BUFSIZE		8192	/* size of normal write buffer */
 #define SMBUFSIZE	256	/* size of emergency write buffer */
 
@@ -2407,6 +2411,9 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
     vim_acl_T	    acl = NULL;		/* ACL copied from original file to
 					   backup or new file */
 #endif
+#ifdef HAVE_COPYFILE
+    copyfile_state_t	copyfile_state = NULL;
+#endif
 
     if (fname == NULL || *fname == NUL)	/* safety check */
 	return FAIL;
@@ -2786,6 +2793,13 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
     if (!newfile)
 	acl = mch_get_acl(fname);
 #endif
+#ifdef HAVE_COPYFILE
+    if (!newfile && copyfile(fname, NULL, 0, COPYFILE_XATTR | COPYFILE_CHECK))
+    {
+	copyfile_state = copyfile_init();
+	copyfile(fname, NULL, copyfile_state, 0);
+    }
+#endif
 
     /*
      * If 'backupskip' is not empty, don't make a backup for some files.
@@ -3089,6 +3103,10 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
 #endif
 #ifdef HAVE_ACL
 			mch_set_acl(backup, acl);
+#endif
+#ifdef HAVE_COPYFILE
+			if (copyfile_state)
+			copyfile(NULL, backup, copyfile_state, COPYFILE_XATTR);
 #endif
 			break;
 		    }
@@ -3693,6 +3711,11 @@ restore_backup:
     if (!backup_copy)
 	mch_set_acl(wfname, acl);
 #endif
+#ifdef HAVE_COPYFILE
+    if (!backup_copy && copyfile_state)
+	copyfile(NULL, wfname, copyfile_state, COPYFILE_XATTR);
+#endif
+
 
 #ifdef UNIX
     /* When creating a new file, set its owner/group to that of the original
@@ -3986,6 +4009,10 @@ nofail:
 #endif
 #ifdef HAVE_ACL
     mch_free_acl(acl);
+#endif
+#ifdef HAVE_COPYFILE
+    if (copyfile_state)
+	copyfile_free(copyfile_state);
 #endif
 
     if (errmsg != NULL)

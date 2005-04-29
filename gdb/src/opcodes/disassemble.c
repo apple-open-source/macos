@@ -68,6 +68,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define ARCH_vax
 #define ARCH_w65
 #define ARCH_xstormy16
+#define ARCH_xtensa
 #define ARCH_z8k
 #define ARCH_frv
 #define ARCH_iq2000
@@ -140,9 +141,12 @@ disassembler (abfd)
 #endif
 #ifdef ARCH_h8300
     case bfd_arch_h8300:
-      if (bfd_get_mach(abfd) == bfd_mach_h8300h)
+      if (bfd_get_mach (abfd) == bfd_mach_h8300h
+	  || bfd_get_mach (abfd) == bfd_mach_h8300hn)
 	disassemble = print_insn_h8300h;
-      else if (bfd_get_mach(abfd) == bfd_mach_h8300s)
+      else if (bfd_get_mach (abfd) == bfd_mach_h8300s
+	       || bfd_get_mach (abfd) == bfd_mach_h8300sn
+	       || bfd_get_mach (abfd) == bfd_mach_h8300sx)
 	disassemble = print_insn_h8300s;
       else
 	disassemble = print_insn_h8300;
@@ -343,6 +347,11 @@ disassembler (abfd)
       disassemble = print_insn_xstormy16;
       break;
 #endif
+#ifdef ARCH_xtensa
+    case bfd_arch_xtensa:
+      disassemble = print_insn_xtensa;
+      break;
+#endif
 #ifdef ARCH_z8k
     case bfd_arch_z8k:
       if (bfd_get_mach(abfd) == bfd_mach_z8001)
@@ -387,4 +396,22 @@ disassembler_usage (stream)
 #endif
 
   return;
+}
+
+void
+disassemble_init_for_target (struct disassemble_info * info)
+{
+  if (info == NULL)
+    return;
+
+  switch (info->arch)
+    {
+#ifdef ARCH_arm
+    case bfd_arch_arm:
+      info->symbol_is_valid = arm_symbol_is_valid;
+      break;
+#endif
+    default:
+      break;
+    }
 }

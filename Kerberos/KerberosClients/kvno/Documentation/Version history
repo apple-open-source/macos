@@ -1,17 +1,49 @@
 ========================================================================
 kvno Version History
 ========================================================================
-Current version:	1.0a1
-Date:				June , 2003
+Current version:	1.1fc2
+Date:				December 17, 2004
 Author:				lxs@mit.edu
 ========================================================================
 
-kvno 1.0
-Not Released
-
-First Public Release
+kvno 1.1
+Released as part of KfM 5.5
 
 ========================================================================
+
+	kvno 1.1fc2
+	December 17, 2004
+
+	[RT 2820] fixed kvno error handling
+		
+	========================================================================
+
+	kvno 1.1fc1
+	December 6, 2004
+
+	Moved to final candidate
+		
+	========================================================================
+
+	kvno 1.1b1
+	January 31, 2004
+
+	[RT 2178] kvno should always get fresh credentials
+	[RT 2179] kvno should honor etype option 
+		
+	========================================================================
+
+kvno 1.0
+Released as part of KfM 5.0
+
+========================================================================
+
+	kvno 1.0fc1
+	September 18, 2003
+
+	Moved to final candidate
+		
+	========================================================================
 
 	kvno 1.0a1
 	June 10, 2002

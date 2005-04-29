@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: MKparametrized.sh,v 1.1.1.1 2001/11/29 20:40:53 jevans Exp $
+# $Id: MKparametrized.sh,v 1.5 2000/10/01 00:57:24 tom Exp $
 #
 # MKparametrized.sh -- generate indirection vectors for various sort methods
 #

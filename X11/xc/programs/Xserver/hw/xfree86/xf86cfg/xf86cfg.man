@@ -26,7 +26,7 @@
 .\"
 .\" Author: Paulo César Pereira de Andrade <pcpa@conectiva.com.br>
 .\"
-.\" $XFree86: xc/programs/Xserver/hw/xfree86/xf86cfg/xf86cfg.man,v 1.9 2002/12/30 14:34:02 herrb Exp $
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/xf86cfg/xf86cfg.man,v 1.10 2003/05/29 21:48:10 herrb Exp $
 .\"
 .TH xf86cfg 1 __vendorversion__
 .SH NAME
@@ -94,7 +94,7 @@ enters a text mode interface.
 .TP 8
 .I -nomodules
 When built with support for loading modules, this options changes xf86cfg
-behaviour, so that it will not load any modules, and thus start quickier.
+behaviour, so that it will not load any modules, and thus start quicker.
 
 .SH ENVIRONMENT
 .TP 8

@@ -116,13 +116,17 @@ DNSLIBS=
 DNSFLAGS=
 !endif
 
+!if defined(KRB5_KFW_COMPILE)
+KFWFLAGS=-DUSE_LEASH=1
+!endif
+
 #
 # The name of the C compiler for the target
 #
 CC=cl
 
 PDB_OPTS=-Fd$(OUTPRE)\ -FD
-CPPFLAGS=-I$(SRCTOP)\include -I$(SRCTOP)\include\krb5 $(DNSFLAGS) -DKRB5_PRIVATE=1 -DWIN32_LEAN_AND_MEAN -DKRB5_DEPRECATED=1
+CPPFLAGS=-I$(SRCTOP)\include -I$(SRCTOP)\include\krb5 $(DNSFLAGS) -DKRB5_PRIVATE=1 -DWIN32_LEAN_AND_MEAN -DKRB5_DEPRECATED=1 $(KFWFLAGS)
 CCOPTS=-nologo /W3 $(PDB_OPTS) $(DLL_FILE_DEF)
 LOPTS=-nologo -incremental:no
 
@@ -138,6 +142,10 @@ LOPTS=-nologo -incremental:no
 # CCOPTS2 was for non-DLL compiles (EXEs, for example)
 #
 !ifdef NODEBUG
+!ifdef DEBUG_SYMBOL
+CCOPTS=/ZI $(CCOPTS)
+LOPTS=$(LOPTS) -debug
+!endif
 CCOPTS=/Os /MD $(CCOPTS)
 LOPTS=$(LOPTS)
 !else
@@ -151,7 +159,7 @@ EXE_LINKOPTS=$(LOPTS)
 
 RM=$(BUILDTOP)\config\rm.bat
 LIBECHO=$(BUILDTOP)\util\windows\$(OUTPRE)libecho
-CP=copy
+CP=copy/b nul:+
 MV=ren
 LN=copy
 LIBCMD=lib
@@ -166,7 +174,7 @@ CLIB=$(BUILDTOP)\lib\$(OUTPRE)comerr32.lib
 PLIB=$(BUILDTOP)\lib\$(OUTPRE)xpprof32.lib
 KLIB=$(BUILDTOP)\lib\$(OUTPRE)krb5_32.lib
 K4LIB=$(BUILDTOP)\lib\$(OUTPRE)krb4_32.lib
-
+SLIB=$(BUILDTOP)\lib\$(OUTPRE)k5sprt32.lib
 GLIB=$(BUILDTOP)\lib\$(OUTPRE)gssapi32.lib
 WLIB=
 

@@ -24,12 +24,13 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
+/* $XFree86: xc/lib/X11/WMGeom.c,v 1.4 2003/11/17 22:20:08 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xutil.h"
 
-static int _GeometryMaskToGravity();
-
+static int _GeometryMaskToGravity(
+    int mask);
 
 /*
  * This routine given a user supplied positional argument and a default
@@ -40,8 +41,8 @@ static int _GeometryMaskToGravity();
  * be considered "negative".
  */
 
-#if NeedFunctionPrototypes
-int XWMGeometry (
+int
+XWMGeometry (
     Display *dpy,			/* user's display connection */
     int screen,				/* screen on which to do computation */
     _Xconst char *user_geom,		/* user provided geometry spec */
@@ -53,20 +54,6 @@ int XWMGeometry (
     int *width_return,			/* size of window */
     int *height_return,			/* size of window */
     int *gravity_return)		/* gravity of window */
-#else
-int XWMGeometry (dpy, screen, user_geom, def_geom, bwidth, hints,
-		 x_return, y_return, width_return, height_return, 
-		 gravity_return)
-    Display *dpy;			/* user's display connection */
-    int screen;				/* screen on which to do computation */
-    char *user_geom;			/* user provided geometry spec */
-    char *def_geom;			/* default geometry spec for window */
-    unsigned int bwidth;		/* border width */
-    XSizeHints *hints;			/* usually WM_NORMAL_HINTS */
-    int *x_return, *y_return;		/* location of window */
-    int *width_return, *height_return;	/* size of window */
-    int *gravity_return;		/* gravity of window */
-#endif
 {
     int ux, uy;				/* returned values from parse */
     unsigned int uwidth, uheight;	/* returned values from parse */
@@ -179,8 +166,8 @@ int XWMGeometry (dpy, screen, user_geom, def_geom, bwidth, hints,
 }
 
 
-static int _GeometryMaskToGravity (mask)
-    int mask;
+static int _GeometryMaskToGravity(
+    int mask)
 {
     switch (mask & (XNegative|YNegative)) {
       case 0:

@@ -18,6 +18,7 @@ routine		InternalIPC_TellServerToBecomeUser (
                         inServerUID		: CCIUInt32;
                     out	outResult		: CCIResult);
 					
+#ifdef Classic_Ticket_Sharing
 routine		InternalIPC_GetDiffs (
 						inServerPort	: mach_port_t;
                         inServerID		: CCIUInt32;
@@ -31,12 +32,13 @@ routine		InternalIPC_FabricateInitialDiffs (
 					out	outDiffs		: CCacheDiffs, dealloc;
 					out	outResult		: CCIResult);
 
+#endif
+
 routine		InternalIPC_CheckServerID (
 						inServerPort	: mach_port_t;
                         inServerID		: CCIUInt32;
 					out	outCorrect		: CCIUInt32;
 					out	outResult		: CCIResult);
-
 #include "Context.defs"
 #include "CCache.defs"
 #include "Credentials.defs"

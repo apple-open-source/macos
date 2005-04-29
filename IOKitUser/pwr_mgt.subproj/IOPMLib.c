@@ -31,9 +31,9 @@
 
 io_connect_t IOPMFindPowerManagement( mach_port_t master_device_port )
 {
-io_connect_t	fb;
-kern_return_t	kr;
-io_service_t	obj = NULL;
+    io_connect_t	fb;
+    kern_return_t	kr;
+    io_service_t	obj = MACH_PORT_NULL;
 
     obj = IORegistryEntryFromPath( master_device_port, kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
     if( obj ) {
@@ -65,17 +65,18 @@ IOReturn IOPMGetAggressiveness ( io_connect_t fb, unsigned long type, unsigned l
 
 IOReturn IOPMSetAggressiveness ( io_connect_t fb, unsigned long type, unsigned long aggressiveness )
 {
-   mach_msg_type_number_t	len = 0;
+   mach_msg_type_number_t	len = 1;
    kern_return_t	        err;
    int		                params[2];
+   int                      ret_val = kIOReturnSuccess;
 
     params[0] = (int)type;
     params[1] = (int)aggressiveness;
 
-    err = io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMSetAggressiveness, params, 2, NULL, &len);
+    err = io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMSetAggressiveness, params, 2, &ret_val, &len);
 
     if (err==KERN_SUCCESS)
-      return kIOReturnSuccess;
+      return ret_val;
     else
       return kIOReturnError;
 }
@@ -83,13 +84,14 @@ IOReturn IOPMSetAggressiveness ( io_connect_t fb, unsigned long type, unsigned l
 
 IOReturn IOPMSleepSystem ( io_connect_t fb )
 {
-    mach_msg_type_number_t	len = 0;
+    mach_msg_type_number_t	len = 1;
     kern_return_t  err;
-
-    err = io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMSleepSystem, NULL, 0, NULL, &len);
+    int             ret_val = kIOReturnSuccess;
+    
+    err = io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMSleepSystem, NULL, 0, &ret_val, &len);
 
     if (err==KERN_SUCCESS)
-      return kIOReturnSuccess;
+      return ret_val;
     else
       return kIOReturnError;
 }
@@ -139,15 +141,15 @@ io_connect_t IORegisterApp( void * refcon,
                             io_object_t * notifier )
 
 {
-    io_connect_t		fb;
+    io_connect_t		fb = MACH_PORT_NULL;
     kern_return_t		kr;
     
-    *notifier = NULL;
+    *notifier = MACH_PORT_NULL;
 
-    if ( theDriver != NULL ) {
+    if ( theDriver != MACH_PORT_NULL ) {
         kr = IOServiceOpen(theDriver,mach_task_self(), 0, &fb);
         if ( kr == kIOReturnSuccess ) {
-            if ( fb != NULL ) {
+            if ( fb != MACH_PORT_NULL ) {
                 kr = IOServiceAddInterestNotification(*thePortRef,theDriver,kIOAppPowerStateInterest,
                                                         callback,refcon,notifier);
                 if ( kr == KERN_SUCCESS ) {
@@ -156,13 +158,13 @@ io_connect_t IORegisterApp( void * refcon,
             }
         }
     }
-    if ( fb != NULL ) {
+    if ( fb != MACH_PORT_NULL ) {
         IOServiceClose(fb);
     }
-    if ( *notifier != NULL ) {
+    if ( *notifier != MACH_PORT_NULL ) {
         IOObjectRelease(*notifier);
     }
-    return NULL;
+    return MACH_PORT_NULL;
 }
 
 
@@ -172,20 +174,20 @@ io_connect_t IORegisterForSystemPower ( void * refcon,
                                         io_object_t * root_notifier )
 {
     mach_port_t			master_device_port;
-    io_connect_t		fb = NULL;
+    io_connect_t		fb = MACH_PORT_NULL;
     IONotificationPortRef	notify = NULL;
     kern_return_t		kr;
-    io_service_t		obj = NULL;
+    io_service_t		obj = MACH_PORT_NULL;
      
-    *root_notifier = NULL;
+    *root_notifier = MACH_PORT_NULL;
 
     IOMasterPort(bootstrap_port,&master_device_port);
     notify = IONotificationPortCreate( master_device_port );
     obj = IORegistryEntryFromPath( master_device_port, kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
-    if( obj != NULL ) {
+    if( obj != MACH_PORT_NULL ) {
         kr = IOServiceOpen( obj,mach_task_self(), 0, &fb);
         if ( kr == kIOReturnSuccess ) {
-            if ( fb != NULL ) {
+            if ( fb != MACH_PORT_NULL ) {
                 kr = IOServiceAddInterestNotification(notify,obj,kIOAppPowerStateInterest,
                                                         callback,refcon,root_notifier);
                 IOObjectRelease(obj);
@@ -196,20 +198,20 @@ io_connect_t IORegisterForSystemPower ( void * refcon,
             }
         }
     }
-    if ( obj != NULL ) {
+    if ( obj != MACH_PORT_NULL ) {
         IOObjectRelease(obj);
     }
-    if ( notify != NULL ) {
+    if ( notify != MACH_PORT_NULL ) {
         IONotificationPortDestroy(notify);
     }
-    if ( fb != NULL ) {
+    if ( fb != MACH_PORT_NULL ) {
         IOServiceClose(fb);
     }
-    if ( *root_notifier != NULL ) {
+    if ( *root_notifier != MACH_PORT_NULL ) {
         IOObjectRelease(*root_notifier);
     }
     
-    return NULL;
+    return MACH_PORT_NULL;
 }
 
 
@@ -217,7 +219,7 @@ IOReturn IODeregisterApp ( io_object_t * notifier )
 {
     if ( *notifier ) {
         IOObjectRelease(*notifier);
-        *notifier = NULL;
+        *notifier = MACH_PORT_NULL;
     }
     return kIOReturnSuccess;
 }
@@ -227,7 +229,7 @@ IOReturn IODeregisterForSystemPower ( io_object_t * root_notifier )
 {
     if ( *root_notifier ) {
         IOObjectRelease(*root_notifier);
-        *root_notifier = NULL;
+        *root_notifier = MACH_PORT_NULL;
     }
     return kIOReturnSuccess;
 }

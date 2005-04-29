@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,18 +49,17 @@ CFStringRef
 SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 			       CFStringEncoding		*nameEncoding)
 {
-	CFDictionaryRef		dict		= NULL;
+	CFDictionaryRef		dict;
 	CFStringRef		key;
 	CFStringRef		name		= NULL;
 	Boolean			tempSession	= FALSE;
 
-	if (!store) {
+	if (store == NULL) {
 		store = SCDynamicStoreCreate(NULL,
 					     CFSTR("SCDynamicStoreCopyComputerName"),
 					     NULL,
 					     NULL);
-		if (!store) {
-			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+		if (store == NULL) {
 			return NULL;
 		}
 		tempSession = TRUE;
@@ -69,7 +68,7 @@ SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 	key  = SCDynamicStoreKeyCreateComputerName(NULL);
 	dict = SCDynamicStoreCopyValue(store, key);
 	CFRelease(key);
-	if (!dict) {
+	if (dict == NULL) {
 		goto done;
 	}
 	if (!isA_CFDictionary(dict)) {
@@ -78,13 +77,13 @@ SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 	}
 
 	name = isA_CFString(CFDictionaryGetValue(dict, kSCPropSystemComputerName));
-	if (!name) {
+	if (name == NULL) {
 		_SCErrorSet(kSCStatusNoKey);
 		goto done;
 	}
 	CFRetain(name);
 
-	if (nameEncoding) {
+	if (nameEncoding != NULL) {
 		CFNumberRef	num;
 
 		num = CFDictionaryGetValue(dict,
@@ -99,21 +98,21 @@ SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
     done :
 
 	if (tempSession)	CFRelease(store);
-	if (dict)		CFRelease(dict);
+	if (dict != NULL)	CFRelease(dict);
 	return name;
 }
 
 
 Boolean
-SCPreferencesSetComputerName(SCPreferencesRef	session,
+SCPreferencesSetComputerName(SCPreferencesRef	prefs,
 			     CFStringRef	name,
 			     CFStringEncoding	encoding)
 {
 	CFDictionaryRef		dict;
-	CFMutableDictionaryRef	newDict	= NULL;
+	CFMutableDictionaryRef	newDict;
 	CFNumberRef		num;
-	Boolean			ok	= FALSE;
-	CFStringRef		path	= NULL;
+	Boolean			ok;
+	CFStringRef		path;
 
 	if (!isA_CFString(name)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -126,8 +125,8 @@ SCPreferencesSetComputerName(SCPreferencesRef	session,
 					kSCPrefSystem,
 					kSCCompSystem);
 
-	dict = SCPreferencesPathGetValue(session, path);
-	if (dict) {
+	dict = SCPreferencesPathGetValue(prefs, path);
+	if (dict != NULL) {
 		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 	} else {
 		newDict = CFDictionaryCreateMutable(NULL,
@@ -142,13 +141,103 @@ SCPreferencesSetComputerName(SCPreferencesRef	session,
 	CFDictionarySetValue(newDict, kSCPropSystemComputerNameEncoding, num);
 	CFRelease(num);
 
-	ok = SCPreferencesPathSetValue(session, path, newDict);
-	if (!ok) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesPathSetValue() failed"));
+	ok = SCPreferencesPathSetValue(prefs, path, newDict);
+
+	CFRelease(path);
+	CFRelease(newDict);
+
+	return ok;
+}
+
+
+#ifndef	kSCPropNetHostName
+#define	kSCPropNetHostName	CFSTR("HostName")
+#endif
+
+
+CFStringRef
+SCPreferencesGetHostName(SCPreferencesRef	prefs)
+{
+	CFDictionaryRef	dict;
+	CFStringRef	name;
+	CFStringRef	path;
+
+	path = CFStringCreateWithFormat(NULL,
+					NULL,
+					CFSTR("/%@/%@"),
+					kSCPrefSystem,
+					kSCCompSystem);
+	dict = SCPreferencesPathGetValue(prefs, path);
+	CFRelease(path);
+
+	if (!isA_CFDictionary(dict)) {
+		_SCErrorSet(kSCStatusNoKey);
+		return NULL;
 	}
 
-	if (path)	CFRelease(path);
-	if (newDict)	CFRelease(newDict);
+	name = isA_CFString(CFDictionaryGetValue(dict, kSCPropNetHostName));
+	if (name == NULL) {
+		_SCErrorSet(kSCStatusNoKey);
+		return NULL;
+	}
+
+	return name;
+}
+
+
+Boolean
+SCPreferencesSetHostName(SCPreferencesRef	prefs,
+			 CFStringRef		name)
+{
+	CFDictionaryRef		dict;
+	CFMutableDictionaryRef	newDict;
+	Boolean			ok;
+	CFStringRef		path;
+
+	if (name != NULL) {
+		CFIndex	len;
+
+		if (!isA_CFString(name)) {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return FALSE;
+		}
+
+		len = CFStringGetLength(name);
+		if (len == 0) {
+			name = NULL;
+		}
+	}
+
+	path = CFStringCreateWithFormat(NULL,
+					NULL,
+					CFSTR("/%@/%@"),
+					kSCPrefSystem,
+					kSCCompSystem);
+
+	dict = SCPreferencesPathGetValue(prefs, path);
+	if (dict != NULL) {
+		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+	} else {
+		newDict = CFDictionaryCreateMutable(NULL,
+						    0,
+						    &kCFTypeDictionaryKeyCallBacks,
+						    &kCFTypeDictionaryValueCallBacks);
+	}
+
+	if (name != NULL) {
+		CFDictionarySetValue(newDict, kSCPropNetHostName, name);
+	} else {
+		CFDictionaryRemoveValue(newDict, kSCPropNetHostName);
+	}
+
+	if (CFDictionaryGetCount(newDict) > 0) {
+		ok = SCPreferencesPathSetValue(prefs, path, newDict);
+	} else {
+		ok = SCPreferencesPathRemoveValue(prefs, path);
+	}
+
+	CFRelease(path);
+	CFRelease(newDict);
 
 	return ok;
 }
@@ -168,18 +257,17 @@ SCDynamicStoreKeyCreateHostNames(CFAllocatorRef allocator)
 CFStringRef
 SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 {
-	CFDictionaryRef		dict		= NULL;
+	CFDictionaryRef		dict;
 	CFStringRef		key;
 	CFStringRef		name		= NULL;
 	Boolean			tempSession	= FALSE;
 
-	if (!store) {
+	if (store == NULL) {
 		store = SCDynamicStoreCreate(NULL,
 					     CFSTR("SCDynamicStoreCopyLocalHostName"),
 					     NULL,
 					     NULL);
-		if (!store) {
-			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+		if (store == NULL) {
 			return NULL;
 		}
 		tempSession = TRUE;
@@ -188,7 +276,7 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 	key  = SCDynamicStoreKeyCreateHostNames(NULL);
 	dict = SCDynamicStoreCopyValue(store, key);
 	CFRelease(key);
-	if (!dict) {
+	if (dict == NULL) {
 		goto done;
 	}
 	if (!isA_CFDictionary(dict)) {
@@ -197,7 +285,7 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 	}
 
 	name = isA_CFString(CFDictionaryGetValue(dict, kSCPropNetLocalHostName));
-	if (!name) {
+	if (name == NULL) {
 		_SCErrorSet(kSCStatusNoKey);
 		goto done;
 	}
@@ -206,7 +294,7 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
     done :
 
 	if (tempSession)	CFRelease(store);
-	if (dict)		CFRelease(dict);
+	if (dict != NULL)	CFRelease(dict);
 	return name;
 }
 
@@ -275,21 +363,21 @@ _SC_CFStringIsValidDNSName(CFStringRef name)
 
 	clean = _SC_stringIsValidDNSName(str);
 
-	if (str)	CFAllocatorDeallocate(NULL, str);
+	if (str != NULL)	CFAllocatorDeallocate(NULL, str);
 	return clean;
 }
 
 
 Boolean
-SCPreferencesSetLocalHostName(SCPreferencesRef	session,
+SCPreferencesSetLocalHostName(SCPreferencesRef	prefs,
 			      CFStringRef	name)
 {
 	CFDictionaryRef		dict;
-	CFMutableDictionaryRef	newDict	= NULL;
-	Boolean			ok	= FALSE;
-	CFStringRef		path	= NULL;
+	CFMutableDictionaryRef	newDict;
+	Boolean			ok;
+	CFStringRef		path;
 
-	if (name) {
+	if (name != NULL) {
 		CFIndex	len;
 
 		if (!isA_CFString(name)) {
@@ -320,8 +408,8 @@ SCPreferencesSetLocalHostName(SCPreferencesRef	session,
 					kSCCompNetwork,
 					kSCCompHostNames);
 
-	dict = SCPreferencesPathGetValue(session, path);
-	if (dict) {
+	dict = SCPreferencesPathGetValue(prefs, path);
+	if (dict != NULL) {
 		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 	} else {
 		newDict = CFDictionaryCreateMutable(NULL,
@@ -330,26 +418,20 @@ SCPreferencesSetLocalHostName(SCPreferencesRef	session,
 						    &kCFTypeDictionaryValueCallBacks);
 	}
 
-	if (name) {
+	if (name != NULL) {
 		CFDictionarySetValue(newDict, kSCPropNetLocalHostName, name);
 	} else {
 		CFDictionaryRemoveValue(newDict, kSCPropNetLocalHostName);
 	}
 
 	if (CFDictionaryGetCount(newDict) > 0) {
-		ok = SCPreferencesPathSetValue(session, path, newDict);
-		if (!ok) {
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesPathSetValue() failed"));
-		}
+		ok = SCPreferencesPathSetValue(prefs, path, newDict);
 	} else {
-		ok = SCPreferencesPathRemoveValue(session, path);
-		if (!ok) {
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesPathRemoveValue() failed"));
-		}
+		ok = SCPreferencesPathRemoveValue(prefs, path);
 	}
 
-	if (path)	CFRelease(path);
-	if (newDict)	CFRelease(newDict);
+	CFRelease(path);
+	CFRelease(newDict);
 
 	return ok;
 }

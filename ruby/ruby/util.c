@@ -2,24 +2,23 @@
 
   util.c -
 
-  $Author: melville $
-  $Date: 2003/05/14 13:58:45 $
+  $Author: matz $
+  $Date: 2004/09/21 09:35:28 $
   created at: Fri Mar 10 17:22:34 JST 1995
 
-  Copyright (C) 1993-2000 Yukihiro Matsumoto
+  Copyright (C) 1993-2003 Yukihiro Matsumoto
 
 **********************************************************************/
 
-#include <stdio.h>
+#include "ruby.h"
+
 #include <ctype.h>
+#include <stdio.h>
 #include <errno.h>
 
-#ifdef NT
+#ifdef _WIN32
 #include "missing/file.h"
 #endif
-
-#define INLINE_DEFINE
-#include "ruby.h"
 
 #include "util.h"
 #ifndef HAVE_STRING_H
@@ -28,9 +27,9 @@ char *strchr _((char*,char));
 
 unsigned long
 scan_oct(start, len, retlen)
-const char *start;
-int len;
-int *retlen;
+    const char *start;
+    int len;
+    int *retlen;
 {
     register const char *s = start;
     register unsigned long retval = 0;
@@ -45,9 +44,9 @@ int *retlen;
 
 unsigned long
 scan_hex(start, len, retlen)
-const char *start;
-int len;
-int *retlen;
+    const char *start;
+    int len;
+    int *retlen;
 {
     static char hexdigit[] = "0123456789abcdef0123456789ABCDEF";
     register const char *s = start;
@@ -76,24 +75,7 @@ int *retlen;
 #   define S_ISDIR(m) ((m & S_IFMT) == S_IFDIR)
 #endif
 
-#ifdef NT
-#include "missing/file.h"
-#endif
-
-static char *
-check_dir(dir)
-    char *dir;
-{
-    struct stat st;
-
-    if (dir == NULL) return NULL;
-    if (stat(dir, &st) < 0) return NULL;
-    if (!S_ISDIR(st.st_mode)) return NULL;
-    if (eaccess(dir, W_OK) < 0) return NULL;
-    return dir;
-}
-
-#if defined(MSDOS) || defined(__CYGWIN32__) || defined(NT)
+#if defined(MSDOS) || defined(__CYGWIN32__) || defined(_WIN32)
 /*
  *  Copyright (c) 1993, Intergraph Corporation
  *
@@ -180,14 +162,14 @@ ruby_add_suffix(str, suffix)
     int baselen;
     int extlen = strlen(suffix);
     char *s, *t, *p;
-    int slen;
+    long slen;
     char buf[1024];
 
     if (RSTRING(str)->len > 1000)
         rb_fatal("Cannot do inplace edit on long filename (%ld characters)",
 		 RSTRING(str)->len);
 
-#if defined(DJGPP) || defined(__CYGWIN32__) || defined(NT)
+#if defined(DJGPP) || defined(__CYGWIN32__) || defined(_WIN32)
     /* Style 0 */
     slen = RSTRING(str)->len;
     rb_str_cat(str, suffix, extlen);
@@ -217,19 +199,25 @@ ruby_add_suffix(str, suffix)
     if (*suffix == '.') {        /* Style 1 */
         if (strEQ(ext, suffix)) goto fallback;
 	strcpy(p, suffix);
-    } else if (suffix[1] == '\0') {  /* Style 2 */
+    }
+    else if (suffix[1] == '\0') {  /* Style 2 */
         if (extlen < 4) { 
 	    ext[extlen] = *suffix;
 	    ext[++extlen] = '\0';
-        } else if (baselen < 8) {
+        }
+	else if (baselen < 8) {
    	    *p++ = *suffix;
-	} else if (ext[3] != *suffix) {
+	}
+	else if (ext[3] != *suffix) {
 	    ext[3] = *suffix;
-	} else if (buf[7] != *suffix) {
+	}
+	else if (buf[7] != *suffix) {
 	    buf[7] = *suffix;
-	} else goto fallback;
+	}
+	else goto fallback;
 	strcpy(p, ext);
-    } else { /* Style 3:  Panic */
+    }
+    else { /* Style 3:  Panic */
 fallback:
 	(void)memcpy(p, strEQ(ext, suffix1) ? suffix2 : suffix1, 5);
     }
@@ -237,7 +225,7 @@ fallback:
     memcpy(RSTRING(str)->ptr, buf, RSTRING(str)->len);
 }
 
-#if defined(__CYGWIN32__) || defined(NT)
+#if defined(__CYGWIN32__) || defined(_WIN32)
 static int 
 valid_filename(char *s)
 {
@@ -254,10 +242,10 @@ valid_filename(char *s)
     /*
     // It doesn't exist, so see if we can open it.
     */
-    
+
     if ((fd = _open(s, O_CREAT, 0666)) >= 0) {
 	_close(fd);
-	_unlink (s);	/* don't leave it laying around */
+	_unlink(s);	/* don't leave it laying around */
 	return 1;
     }
     return 0;
@@ -308,6 +296,8 @@ mblen(const char *s, size_t n)
     if (s) {
 	if (n == 0 || *s == 0)
 	    return 0;
+	else if (!s[1])
+	    return 1;
 	return dbcs_table[(unsigned char)*s] + 1;
     }
     else
@@ -366,7 +356,7 @@ __crt0_glob_function(char *path)
     info.count = 0;
     info.head = 0;
 
-    rb_iglob(buf, push_element, (VALUE)&info);
+    rb_globi(buf, push_element, (VALUE)&info);
 
     if (buf != path_buffer)
 	ruby_xfree(buf);
@@ -394,31 +384,25 @@ __crt0_glob_function(char *path)
 
 /* mm.c */
 
-static int mmkind, mmsize, high, low;
-
 #define A ((int*)a)
 #define B ((int*)b)
 #define C ((int*)c)
 #define D ((int*)d)
 
-static void mmprepare(base, size) void *base; int size;
-{
-#ifdef DEBUG
- if (sizeof(int) != 4) die("sizeof(int) != 4");
- if (size <= 0) die("mmsize <= 0");
-#endif
+#define mmprepare(base, size) do {\
+ if (((long)base & (0x3)) == 0)\
+   if (size >= 16) mmkind = 1;\
+   else            mmkind = 0;\
+ else              mmkind = -1;\
+ high = (size & (~0xf));\
+ low  = (size &  0x0c);\
+} while (0)\
 
- if (((long)base & (4-1)) == 0 && ((long)base & (4-1)) == 0)
-   if (size >= 16) mmkind = 1;
-   else            mmkind = 0;
- else              mmkind = -1;
- 
- mmsize = size;
- high = (size & (-16));
- low  = (size & 0x0c);
-}
+#define mmarg mmkind, size, high, low
 
-static void mmswap(a, b) register char *a, *b;
+static void mmswap_(a, b, mmarg)
+    register char *a, *b;
+    int mmarg;
 {
  register int s;
  if (a == b) return;
@@ -435,13 +419,17 @@ static void mmswap(a, b) register char *a, *b;
    if (low != 0) { s = A[0]; A[0] = B[0]; B[0] = s;
      if (low >= 8) { s = A[1]; A[1] = B[1]; B[1] = s;
        if (low == 12) {s = A[2]; A[2] = B[2]; B[2] = s;}}}
- }else{
-   register char *t = a + mmsize;
+ }
+ else {
+   register char *t = a + size;
    do {s = *a; *a++ = *b; *b++ = s;} while (a < t);
  }
 }
+#define mmswap(a,b) mmswap_((a),(b),mmarg)
 
-static void mmrot3(a, b, c) register char *a, *b, *c;
+static void mmrot3_(a, b, c, mmarg)
+    register char *a, *b, *c;
+    int mmarg;
 {
  register int s;
  if (mmkind >= 0) {
@@ -452,16 +440,18 @@ static void mmrot3(a, b, c) register char *a, *b, *c;
        s = A[1]; A[1] = B[1]; B[1] = C[1]; C[1] = s;
        s = A[2]; A[2] = B[2]; B[2] = C[2]; C[2] = s;
        s = A[3]; A[3] = B[3]; B[3] = C[3]; C[3] = s; a += 16; b += 16; c += 16;
-     }while (a < t);
+     } while (a < t);
    }
    if (low != 0) { s = A[0]; A[0] = B[0]; B[0] = C[0]; C[0] = s;
      if (low >= 8) { s = A[1]; A[1] = B[1]; B[1] = C[1]; C[1] = s;
        if (low == 12) {s = A[2]; A[2] = B[2]; B[2] = C[2]; C[2] = s;}}}
- }else{
-   register char *t = a + mmsize;
+ }
+ else {
+   register char *t = a + size;
    do {s = *a; *a++ = *b; *b++ = *c; *c++ = s;} while (a < t);
  }
 }
+#define mmrot3(a,b,c) mmrot3_((a),(b),(c),mmarg)
 
 /* qs6.c */
 /*****************************************************/
@@ -473,154 +463,163 @@ static void mmrot3(a, b, c) register char *a, *b, *c;
 /*****************************************************/
 
 typedef struct { char *LL, *RR; } stack_node; /* Stack structure for L,l,R,r */
-#define PUSH(ll,rr) {top->LL = (ll); top->RR = (rr); ++top;}  /* Push L,l,R,r */
-#define POP(ll,rr)  {--top; ll = top->LL; rr = top->RR;}      /* Pop L,l,R,r */
+#define PUSH(ll,rr) do { top->LL = (ll); top->RR = (rr); ++top; } while (0)  /* Push L,l,R,r */
+#define POP(ll,rr)  do { --top; ll = top->LL; rr = top->RR; } while (0)      /* Pop L,l,R,r */
 
-#define med3(a,b,c) ((*cmp)(a,b)<0 ?                                   \
-                       ((*cmp)(b,c)<0 ? b : ((*cmp)(a,c)<0 ? c : a)) : \
-                       ((*cmp)(b,c)>0 ? b : ((*cmp)(a,c)<0 ? a : c)))
+#define med3(a,b,c) ((*cmp)(a,b,d)<0 ?                                   \
+                       ((*cmp)(b,c,d)<0 ? b : ((*cmp)(a,c,d)<0 ? c : a)) : \
+                       ((*cmp)(b,c,d)>0 ? b : ((*cmp)(a,c,d)<0 ? a : c)))
 
-void ruby_qsort (base, nel, size, cmp) void* base; int nel; int size; int (*cmp)();
+void ruby_qsort (base, nel, size, cmp, d)
+     void* base;
+     const int nel;
+     const int size;
+     int (*cmp)();
+     void *d;
 {
- register char *l, *r, *m;          	/* l,r:left,right group   m:median point */
- register int  t, eq_l, eq_r;       	/* eq_l: all items in left group are equal to S */
- char *L = base;                    	/* left end of curren region */
- char *R = (char*)base + size*(nel-1); 	/* right end of current region */
- int  chklim = 63;                      /* threshold of ordering element check */
- stack_node stack[32], *top = stack;    /* 32 is enough for 32bit CPU */
+  register char *l, *r, *m;          	/* l,r:left,right group   m:median point */
+  register int  t, eq_l, eq_r;       	/* eq_l: all items in left group are equal to S */
+  char *L = base;                    	/* left end of curren region */
+  char *R = (char*)base + size*(nel-1); /* right end of current region */
+  int  chklim = 63;                     /* threshold of ordering element check */
+  stack_node stack[32], *top = stack;   /* 32 is enough for 32bit CPU */
+  int mmkind, high, low;
 
- if (nel <= 1) return;        /* need not to sort */
- mmprepare(base, size);
- goto start;
-  
- nxt:
- if (stack == top) return;    /* return if stack is empty */
- POP(L,R);
-   
- for (;;) {
-   start:
-   if (L + size == R) {if ((*cmp)(L,R) > 0) mmswap(L,R); goto nxt;}/* 2 elements */
-   
-   l = L; r = R;
-   t = (r - l + size) / size;  /* number of elements */
-   m = l + size * (t >> 1);    /* calculate median value */
-   
-   if (t >= 60) {
-     register char *m1;
-     register char *m3;
-     if (t >= 200) {
-       t = size*(t>>3); /* number of bytes in splitting 8 */
-       {
-       register char *p1 = l  + t;
-       register char *p2 = p1 + t;
-       register char *p3 = p2 + t;
-       m1 = med3(p1, p2, p3);
-       p1 = m  + t;
-       p2 = p1 + t;
-       p3 = p2 + t;
-       m3 = med3(p1, p2, p3);
-       }
-     }else{
-       t = size*(t>>2); /* number of bytes in splitting 4 */
-       m1 = l + t;
-       m3 = m + t;
-     }
-     m = med3(m1, m, m3);
-   }
-   
-   if ((t = (*cmp)(l,m)) < 0) {                             /*3-5-?*/
-     if ((t = (*cmp)(m,r)) < 0) {                           /*3-5-7*/
-       if (chklim && nel >= chklim) {   /* check if already ascending order */
-         char *p;
-         chklim = 0;
-         for (p=l; p<r; p+=size) if ((*cmp)(p,p+size) > 0) goto fail;
-         goto nxt;
-       }
-       fail: goto loopA;                                    /*3-5-7*/
-     }
-     if (t > 0) {
-       if ((*cmp)(l,r) <= 0) {mmswap(m,r); goto loopA;}     /*3-5-4*/
-       mmrot3(r,m,l); goto loopA;                           /*3-5-2*/
-     }
-     goto loopB;                                            /*3-5-5*/
-   }
-   
-   if (t > 0) {                                             /*7-5-?*/
-     if ((t = (*cmp)(m,r)) > 0) {                           /*7-5-3*/
-       if (chklim && nel >= chklim) {   /* check if already ascending order */
-         char *p;
-         chklim = 0;
-         for (p=l; p<r; p+=size) if ((*cmp)(p,p+size) < 0) goto fail2;
-         while (l<r) {mmswap(l,r); l+=size; r-=size;}  /* reverse region */
-         goto nxt;
-       }
-       fail2: mmswap(l,r); goto loopA;                      /*7-5-3*/
-     }
-     if (t < 0) {
-       if ((*cmp)(l,r) <= 0) {mmswap(l,m); goto loopB;}     /*7-5-8*/
-       mmrot3(l,m,r); goto loopA;                           /*7-5-6*/
-     }
-     mmswap(l,r); goto loopA;                               /*7-5-5*/
-   }
-    
-   if ((t = (*cmp)(m,r)) < 0)  {goto loopA;}                /*5-5-7*/
-   if (t > 0) {mmswap(l,r); goto loopB;}                    /*5-5-3*/
-   
-   /* deteming splitting type in case 5-5-5 */              /*5-5-5*/
-   for (;;) {
-     if ((l += size) == r)      goto nxt;                   /*5-5-5*/
-     if (l == m) continue;
-     if ((t = (*cmp)(l,m)) > 0) {mmswap(l,r); l = L; goto loopA;}  /*575-5*/
-     if (t < 0)                 {mmswap(L,l); l = L; goto loopB;}  /*535-5*/
-   }
-   
-   loopA: eq_l = 1; eq_r = 1;  /* splitting type A */ /* left <= median < right */
-   for (;;) {
-     for (;;) {
-       if ((l += size) == r)
-         {l -= size; if (l != m) mmswap(m,l); l -= size; goto fin;}
-       if (l == m) continue;
-       if ((t = (*cmp)(l,m)) > 0) {eq_r = 0; break;}
-       if (t < 0) eq_l = 0;
-     }
-     for (;;) {
-       if (l == (r -= size))
-         {l -= size; if (l != m) mmswap(m,l); l -= size; goto fin;}
-       if (r == m) {m = l; break;}
-       if ((t = (*cmp)(r,m)) < 0) {eq_l = 0; break;}
-       if (t == 0) break;
-     }
-     mmswap(l,r);    /* swap left and right */
-   }
-   
-   loopB: eq_l = 1; eq_r = 1;  /* splitting type B */ /* left < median <= right */
-   for (;;) {
-     for (;;) {
-       if (l == (r -= size))
-         {r += size; if (r != m) mmswap(r,m); r += size; goto fin;}
-       if (r == m) continue;
-       if ((t = (*cmp)(r,m)) < 0) {eq_l = 0; break;}
-       if (t > 0) eq_r = 0;
-     }
-     for (;;) {
-       if ((l += size) == r)
-         {r += size; if (r != m) mmswap(r,m); r += size; goto fin;}
-       if (l == m) {m = r; break;}
-       if ((t = (*cmp)(l,m)) > 0) {eq_r = 0; break;}
-       if (t == 0) break;
-     }
-     mmswap(l,r);    /* swap left and right */
-   }
-   
-   fin:
-   if (eq_l == 0)                         /* need to sort left side */
-     if (eq_r == 0)                       /* need to sort right side */
-       if (l-L < R-r) {PUSH(r,R); R = l;} /* sort left side first */
-       else           {PUSH(L,l); L = r;} /* sort right side first */
-     else R = l;                          /* need to sort left side only */
-   else if (eq_r == 0) L = r;             /* need to sort right side only */
-   else goto nxt;                         /* need not to sort both sides */
- }
+  if (nel <= 1) return;        /* need not to sort */
+  mmprepare(base, size);
+  goto start;
+
+  nxt:
+  if (stack == top) return;    /* return if stack is empty */
+  POP(L,R);
+
+  for (;;) {
+    start:
+    if (L + size == R) {       /* 2 elements */
+      if ((*cmp)(L,R,d) > 0) mmswap(L,R); goto nxt;
+    }
+
+    l = L; r = R;
+    t = (r - l + size) / size;  /* number of elements */
+    m = l + size * (t >> 1);    /* calculate median value */
+
+    if (t >= 60) {
+      register char *m1;
+      register char *m3;
+      if (t >= 200) {
+	t = size*(t>>3); /* number of bytes in splitting 8 */
+	{
+	  register char *p1 = l  + t;
+	  register char *p2 = p1 + t;
+	  register char *p3 = p2 + t;
+	  m1 = med3(p1, p2, p3);
+	  p1 = m  + t;
+	  p2 = p1 + t;
+	  p3 = p2 + t;
+	  m3 = med3(p1, p2, p3);
+	}
+      }
+      else {
+	t = size*(t>>2); /* number of bytes in splitting 4 */
+	m1 = l + t;
+	m3 = m + t;
+      }
+      m = med3(m1, m, m3);
+    }
+
+    if ((t = (*cmp)(l,m,d)) < 0) {                           /*3-5-?*/
+      if ((t = (*cmp)(m,r,d)) < 0) {                         /*3-5-7*/
+	if (chklim && nel >= chklim) {   /* check if already ascending order */
+	  char *p;
+	  chklim = 0;
+	  for (p=l; p<r; p+=size) if ((*cmp)(p,p+size,d) > 0) goto fail;
+	  goto nxt;
+	}
+	fail: goto loopA;                                    /*3-5-7*/
+      }
+      if (t > 0) {
+	if ((*cmp)(l,r,d) <= 0) {mmswap(m,r); goto loopA;}     /*3-5-4*/
+	mmrot3(r,m,l); goto loopA;                           /*3-5-2*/
+      }
+      goto loopB;                                            /*3-5-5*/
+    }
+
+    if (t > 0) {                                             /*7-5-?*/
+      if ((t = (*cmp)(m,r,d)) > 0) {                         /*7-5-3*/
+	if (chklim && nel >= chklim) {   /* check if already ascending order */
+	  char *p;
+	  chklim = 0;
+	  for (p=l; p<r; p+=size) if ((*cmp)(p,p+size,d) < 0) goto fail2;
+	  while (l<r) {mmswap(l,r); l+=size; r-=size;}  /* reverse region */
+	  goto nxt;
+	}
+	fail2: mmswap(l,r); goto loopA;                      /*7-5-3*/
+      }
+      if (t < 0) {
+	if ((*cmp)(l,r,d) <= 0) {mmswap(l,m); goto loopB;}   /*7-5-8*/
+	mmrot3(l,m,r); goto loopA;                           /*7-5-6*/
+      }
+      mmswap(l,r); goto loopA;                               /*7-5-5*/
+    }
+
+    if ((t = (*cmp)(m,r,d)) < 0)  {goto loopA;}              /*5-5-7*/
+    if (t > 0) {mmswap(l,r); goto loopB;}                    /*5-5-3*/
+
+    /* determining splitting type in case 5-5-5 */           /*5-5-5*/
+    for (;;) {
+      if ((l += size) == r)      goto nxt;                   /*5-5-5*/
+      if (l == m) continue;
+      if ((t = (*cmp)(l,m,d)) > 0) {mmswap(l,r); l = L; goto loopA;}/*575-5*/
+      if (t < 0)                 {mmswap(L,l); l = L; goto loopB;}  /*535-5*/
+    }
+
+    loopA: eq_l = 1; eq_r = 1;  /* splitting type A */ /* left <= median < right */
+    for (;;) {
+      for (;;) {
+	if ((l += size) == r)
+	  {l -= size; if (l != m) mmswap(m,l); l -= size; goto fin;}
+	if (l == m) continue;
+	if ((t = (*cmp)(l,m,d)) > 0) {eq_r = 0; break;}
+	if (t < 0) eq_l = 0;
+      }
+      for (;;) {
+	if (l == (r -= size))
+	  {l -= size; if (l != m) mmswap(m,l); l -= size; goto fin;}
+	if (r == m) {m = l; break;}
+	if ((t = (*cmp)(r,m,d)) < 0) {eq_l = 0; break;}
+	if (t == 0) break;
+      }
+      mmswap(l,r);    /* swap left and right */
+    }
+
+    loopB: eq_l = 1; eq_r = 1;  /* splitting type B */ /* left < median <= right */
+    for (;;) {
+      for (;;) {
+	if (l == (r -= size))
+	  {r += size; if (r != m) mmswap(r,m); r += size; goto fin;}
+	if (r == m) continue;
+	if ((t = (*cmp)(r,m,d)) < 0) {eq_l = 0; break;}
+	if (t > 0) eq_r = 0;
+      }
+      for (;;) {
+	if ((l += size) == r)
+	  {r += size; if (r != m) mmswap(r,m); r += size; goto fin;}
+	if (l == m) {m = r; break;}
+	if ((t = (*cmp)(l,m,d)) > 0) {eq_r = 0; break;}
+	if (t == 0) break;
+      }
+      mmswap(l,r);    /* swap left and right */
+    }
+
+    fin:
+    if (eq_l == 0)                         /* need to sort left side */
+      if (eq_r == 0)                       /* need to sort right side */
+	if (l-L < R-r) {PUSH(r,R); R = l;} /* sort left side first */
+	else           {PUSH(L,l); L = r;} /* sort right side first */
+      else R = l;                          /* need to sort left side only */
+    else if (eq_r == 0) L = r;             /* need to sort right side only */
+    else goto nxt;                         /* need not to sort both sides */
+  }
 }
 
 char *
@@ -631,10 +630,38 @@ ruby_strdup(str)
     int len = strlen(str) + 1;
 
     tmp = xmalloc(len);
-    if (tmp == NULL) return NULL;
     memcpy(tmp, str, len);
 
     return tmp;
+}
+
+char *
+ruby_getcwd()
+{
+#ifdef HAVE_GETCWD
+    int size = 200;
+    char *buf = xmalloc(size);
+
+    while (!getcwd(buf, size)) {
+	if (errno != ERANGE) {
+	    free(buf);
+	    rb_sys_fail("getcwd");
+	}
+	size *= 2;
+	buf = xrealloc(buf, size);
+    }
+#else
+# ifndef PATH_MAX
+#  define PATH_MAX 8192
+# endif
+    char *buf = xmalloc(PATH_MAX+1);
+
+    if (!getwd(buf)) {
+	free(buf);
+	rb_sys_fail("getwd");
+    }
+#endif
+    return buf;
 }
 
 /* copyright notice for strtod implementation --
@@ -655,11 +682,8 @@ ruby_strdup(str)
 #define TRUE 1
 #define FALSE 0
 
-static int maxExponent = 511;	/* Largest possible base 10 exponent.  Any
-				 * exponent larger than this will already
-				 * produce underflow or overflow, so there's
-				 * no need to worry about additional digits.
-				 */
+static  int     MDMINEXPT       = -323;
+static  int     MDMAXEXPT       =  309;
 static double powersOf10[] = {	/* Table giving binary powers of 10.  Entry */
     10.0,			/* is 10^2^i.  Used to convert decimal */
     100.0,			/* exponents into floating-point numbers. */
@@ -702,7 +726,8 @@ ruby_strtod(string, endPtr)
 				 * fractional part of the mantissa, and X
 				 * is the exponent.  Either of the signs
 				 * may be "+", "-", or omitted.  Either I
-				 * or F may be omitted, or both.  The decimal
+				 * or F may be omitted, but both cannot be
+				 * ommitted at once. The decimal
 				 * point isn't necessary unless F is present.
 				 * The "E" may actually be an "e".  E and X
 				 * may both be omitted (but not just one).
@@ -724,9 +749,11 @@ ruby_strtod(string, endPtr)
 				 * unnecessary overflow on I alone).  In this
 				 * case, fracExp is incremented one for each
 				 * dropped digit. */
-    int mantSize;		/* Number of digits in mantissa. */
-    int decPt;			/* Number of mantissa digits BEFORE decimal
-				 * point. */
+    int mantSize = 0;		/* Number of digits in mantissa. */
+    int hasPoint = FALSE;	/* Decimal point exists. */
+    int hasDigit = FALSE;	/* I or F exists. */
+    const char *pMant;		/* Temporarily holds location of mantissa
+				 * in string. */
     const char *pExp;		/* Temporarily holds location of exponent
 				 * in string. */
 
@@ -751,20 +778,30 @@ ruby_strtod(string, endPtr)
     }
 
     /*
-     * Count the number of digits in the mantissa (including the decimal
-     * point), and also locate the decimal point.
+     * Count the number of digits in the mantissa
+     * and also locate the decimal point.
      */
 
-    decPt = -1;
-    for (mantSize = 0; ; mantSize += 1) {
-	c = *p;
+    for ( ; c = *p; p += 1) {
 	if (!ISDIGIT(c)) {
-	    if ((c != '.') || (decPt >= 0)) {
+	    if (c != '.' || hasPoint) {
 		break;
 	    }
-	    decPt = mantSize;
+	    hasPoint = TRUE;
 	}
-	p += 1;
+	else {
+	    if (hasPoint) { /* already in fractional part */
+		fracExp -= 1;
+	    }
+	    if (mantSize) { /* already in mantissa */
+		mantSize += 1;
+	    }
+	    else if (c != '0') { /* have entered mantissa */
+		mantSize += 1;
+		pMant = p;
+	    }
+	    hasDigit = TRUE;
+	}
     }
 
     /*
@@ -775,24 +812,16 @@ ruby_strtod(string, endPtr)
      */
     
     pExp  = p;
-    p -= mantSize;
-    if (decPt < 0) {
-	decPt = mantSize;
-    }
-    else {
-	mantSize -= 1;			/* One of the digits was the point. */
+    if (mantSize) {
+	p = pMant;
     }
     if (mantSize > 18) {
-	fracExp = decPt - 18;
+	fracExp += (mantSize - 18);
 	mantSize = 18;
     }
-    else {
-	fracExp = decPt - mantSize;
-    }
-    if (mantSize == 0) {
+    if (!hasDigit) {
 	fraction = 0.0;
 	p = string;
-	goto done;
     }
     else {
 	int frac1, frac2;
@@ -816,70 +845,94 @@ ruby_strtod(string, endPtr)
 	    }
 	    frac2 = 10*frac2 + (c - '0');
 	}
-	fraction = (1.0e9 * frac1) + frac2;
-    }
 
-    /*
-     * Skim off the exponent.
-     */
+	/*
+	 * Skim off the exponent.
+	 */
 
-    p = pExp;
-    if ((*p == 'E') || (*p == 'e')) {
-	p += 1;
-	if (*p == '-') {
-	    expSign = TRUE;
+	p = pExp;
+	if ((*p == 'E') || (*p == 'e')) {
 	    p += 1;
-	}
-	else {
-	    if (*p == '+') {
+	    if (*p == '-') {
+		expSign = TRUE;
 		p += 1;
 	    }
+	    else {
+		if (*p == '+') {
+		    p += 1;
+		}
+		expSign = FALSE;
+	    }
+	    while (ISDIGIT(*p)) {
+		exp = exp * 10 + (*p - '0');
+		p += 1;
+	    }
+	}
+	if (expSign) {
+	    exp = fracExp - exp;
+	}
+	else {
+	    exp = fracExp + exp;
+	}
+
+	/*
+	 * Generate a floating-point number that represents the exponent.
+	 * Do this by processing the exponent one bit at a time to combine
+	 * many powers of 2 of 10. Then combine the exponent with the
+	 * fraction.
+	 */
+    
+	if (exp >= MDMAXEXPT - 18) {
+	    exp = MDMAXEXPT;
+	    errno = ERANGE;
+	}
+	else if (exp < MDMINEXPT + 18) {
+	    exp = MDMINEXPT;
+	    errno = ERANGE;
+	}
+	fracExp = exp;
+	exp += 9;
+	if (exp < 0) {
+	    expSign = TRUE;
+	    exp = -exp;
+	}
+	else {
 	    expSign = FALSE;
 	}
-	while (ISDIGIT(*p)) {
-	    exp = exp * 10 + (*p - '0');
-	    p += 1;
+	dblExp = 1.0;
+	for (d = powersOf10; exp != 0; exp >>= 1, d += 1) {
+	    if (exp & 01) {
+		dblExp *= *d;
+	    }
+	}
+	if (expSign) {
+	    fraction = frac1 / dblExp;
+	}
+	else {
+	    fraction = frac1 * dblExp;
+	}
+	exp = fracExp;
+	if (exp < 0) {
+	    expSign = TRUE;
+	    exp = -exp;
+	}
+	else {
+	    expSign = FALSE;
+	}
+	dblExp = 1.0;
+	for (d = powersOf10; exp != 0; exp >>= 1, d += 1) {
+	    if (exp & 01) {
+		dblExp *= *d;
+	    }
+	}
+	if (expSign) {
+	    fraction += frac2 / dblExp;
+	}
+	else {
+	    fraction += frac2 * dblExp;
 	}
     }
-    if (expSign) {
-	exp = fracExp - exp;
-    }
-    else {
-	exp = fracExp + exp;
-    }
 
-    /*
-     * Generate a floating-point number that represents the exponent.
-     * Do this by processing the exponent one bit at a time to combine
-     * many powers of 2 of 10. Then combine the exponent with the
-     * fraction.
-     */
-    
-    if (exp < 0) {
-	expSign = TRUE;
-	exp = -exp;
-    }
-    else {
-	expSign = FALSE;
-    }
-    if (exp > maxExponent) {
-	exp = maxExponent;
-	errno = ERANGE;
-    }
-    dblExp = 1.0;
-    for (d = powersOf10; exp != 0; exp >>= 1, d += 1) {
-	if (exp & 01) {
-	    dblExp *= *d;
-	}
-    }
-    if (expSign) {
-	fraction /= dblExp;
-    }
-    else {
-	fraction *= dblExp;
-    }
-
-done:
     if (endPtr != NULL) {
 	*endPtr = (char *) p;
     }

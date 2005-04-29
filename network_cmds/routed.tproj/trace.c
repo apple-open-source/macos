@@ -76,10 +76,11 @@ int	traceactions = 0;
 static	struct timeval lastlog;
 static	char *savetracename;
 
+static int iftraceinit();
+
 traceinit(ifp)
 	register struct interface *ifp;
 {
-	static int iftraceinit();
 
 	if (iftraceinit(ifp, &ifp->int_input) &&
 	    iftraceinit(ifp, &ifp->int_output))
@@ -88,7 +89,7 @@ traceinit(ifp)
 	fprintf(stderr, "traceinit: can't init %s\n", ifp->int_name);
 }
 
-static
+
 iftraceinit(ifp, ifd)
 	struct interface *ifp;
 	register struct ifdebug *ifd;

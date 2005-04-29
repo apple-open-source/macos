@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -68,8 +67,11 @@ package body System.Pool_Local is
       Storage_Size : SSE.Storage_Count;
       Alignment    : SSE.Storage_Count)
    is
+      pragma Warnings (Off, Alignment);
+
       Allocated : constant System.Address :=
-        Memory.Alloc (Memory.size_t (Storage_Size + Pointers_Size));
+                    Memory.Alloc
+                      (Memory.size_t (Storage_Size + Pointers_Size));
 
    begin
       --  The call to Alloc returns an address whose alignment is compatible
@@ -101,7 +103,11 @@ package body System.Pool_Local is
       Storage_Size : SSE.Storage_Count;
       Alignment    : SSE.Storage_Count)
    is
+      pragma Warnings (Off, Storage_Size);
+      pragma Warnings (Off, Alignment);
+
       Allocated : constant System.Address := Address - Pointers_Size;
+
    begin
       if Prev (Allocated).all = Null_Address then
          Pool.First := Next (Allocated).all;

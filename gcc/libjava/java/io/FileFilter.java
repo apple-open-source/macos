@@ -1,5 +1,5 @@
 /* FileFilter.java -- Filter a list of pathnames
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998,2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,30 +39,27 @@ exception statement from your version. */
 package java.io;
 
 /**
-  * This interface has one method which is used for filtering pathnames
-  * returned in a pathname listing.  It is currently used by the 
-  * <code>File.listFiles()</code> method.
-  * <p>
-  * The method in this interface determines if a particular pathname should
-  * or should not be included in the pathname listing.
-  *
-  * @version 0.0
-  *
-  * @author Aaron M. Renn (arenn@urbanophile.com)
-  */
+ * This interface has one method which is used for filtering pathnames
+ * returned in a pathname listing.  It is currently used by the 
+ * <code>File.listFiles(FileFilter)</code> method.
+ * <p>
+ * The method in this interface determines if a particular pathname should
+ * or should not be included in the pathname listing.
+ *
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * 
+ * @see File#listFiles(java.io.FileFilter)
+ */
 public interface FileFilter
 {
-
-/**
-  * This method determines whether or not a given pathname should be included
-  * in a pathname listing.
-  *
-  * @param pathname The pathname to test
-  *
-  * @return <code>true</code> if the path should be included in the list, <code>false</code> otherwise.
-  */
-public abstract boolean
-accept(File pathname);
-
-} // interface FileFilter
-
+  /**
+   * This method determines whether or not a given pathname should be included
+   * in a pathname listing.
+   *
+   * @param pathname The pathname to test
+   *
+   * @return <code>true</code> if the path should be included in the list, 
+   * <code>false</code> otherwise.
+   */
+  boolean accept(File pathname);
+}

@@ -1,3 +1,22 @@
+2004-08-27  Ken Raeburn  <raeburn@mit.edu>
+
+	* run.test (getnwords): Run data through "cat -v", because at
+	least one version of Debian Linux has an English dictionary with
+	Latin-1 characters and a "rev" that seems to default to some sort
+	of Unicode.
+
+2004-08-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* run.test (getnwords): Rewrite to drop blank lines before
+	counting lines, not after.
+
+2004-08-12  Ken Raeburn  <raeburn@mit.edu>
+
+	* run.test (getnwords): New function.  Uses sed to get N words
+	from $DICT as other functions did before, but discards blank
+	lines.
+	(test1, test2, test12, test13, test20): Call getnwords.
+
 2003-01-05  Sam Hartman  <hartmans@mit.edu>
 
 	* SEQ_TEST/t.c (main): Remove declaration of errno

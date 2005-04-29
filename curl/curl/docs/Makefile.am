@@ -1,47 +1,41 @@
 #
-# $Id: Makefile.am,v 1.1.1.3 2002/11/26 19:07:42 zarzycki Exp $
+# $Id: Makefile.am,v 1.34 2004/07/05 11:43:32 bagder Exp $
 #
 
 AUTOMAKE_OPTIONS = foreign no-dependencies
 
-man_MANS = \
-	curl.1 \
-	curl-config.1
+man_MANS = curl.1 curl-config.1
+GENHTMLPAGES = curl.html curl-config.html
+PDFPAGES = curl.pdf curl-config.pdf
 
-HTMLPAGES = \
-	curl.html \
-	curl-config.html
-
-PDFPAGES = \
-	curl.pdf \
-	curl-config.pdf
+HTMLPAGES = $(GENHTMLPAGES) index.html
 
 SUBDIRS = examples libcurl
 
-EXTRA_DIST = MANUAL BUGS CONTRIBUTE FAQ FEATURES INTERNALS		\
-	     README.win32 RESOURCES TODO TheArtOfHttpScripting THANKS	\
-	     VERSIONS KNOWN_BUGS BINDINGS $(man_MANS) $(HTMLPAGES) \
-	     HISTORY INSTALL libcurl-the-guide $(PDFPAGES)
+CLEANFILES = $(GENHTMLPAGES) $(PDFPAGES)
 
-MAN2HTML= gnroff -man $< | man2html >$@
+EXTRA_DIST = MANUAL BUGS CONTRIBUTE FAQ FEATURES INTERNALS SSLCERTS	\
+ README.win32 RESOURCES TODO TheArtOfHttpScripting THANKS VERSIONS	\
+ KNOWN_BUGS BINDINGS $(man_MANS) $(HTMLPAGES) HISTORY INSTALL		\
+ $(PDFPAGES) LICENSE-MIXING README.netware
 
-SUFFIXES = .1 .3 .html .pdf
+MAN2HTML= roffit < $< >$@
+
+SUFFIXES = .1 .html .pdf
 
 html: $(HTMLPAGES)
 	cd libcurl; make html
 
-.3.html:
-	$(MAN2HTML)
+pdf: $(PDFPAGES)
+	cd libcurl; make pdf
 
 .1.html:
 	$(MAN2HTML)
 
-MAN2PDF = groff -Tps -man curl.1 $< >$@
+.1.pdf:
+	@(foo=`echo $@ | sed -e 's/\.[0-9]$$//g'`; \
+	groff -Tps -man $< >$$foo.ps; \
+	ps2pdf $$foo.ps $@; \
+	rm $$foo.ps; \
+	echo "converted $< to $@")
 
-pdf:
-	for file in $(man_MANS); do \
-	  foo=`echo $$file | sed -e 's/\.[0-9]$$//g'`; \
-	  groff -Tps -man $$file >$$foo.ps; \
-	  ps2pdf $$foo.ps $$foo.pdf; \
-	done
-	cd libcurl; make pdf

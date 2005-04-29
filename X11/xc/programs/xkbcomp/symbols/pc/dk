@@ -1,7 +1,7 @@
 
 // based on a keyboard map from an 'xkb/symbols/dk' file
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/dk,v 1.3 2002/12/19 01:07:56 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/dk,v 1.4 2003/04/19 12:22:11 pascal Exp $
 
 partial default alphanumeric_keys
 xkb_symbols "basic" {
@@ -20,14 +20,11 @@ xkb_symbols "basic" {
 
     key <BKSL>	{ [apostrophe,   asterisk, dead_doubleacute, multiply ]	};
 
-    key <LSGT>	{ type[Group1] = "FOUR_LEVEL",
-                  [      less,    greater,    backslash,      notsign ]	};
+    key <LSGT>	{ [      less,    greater,    backslash,      notsign ]	};
 
     key <KPDL>  { [ KP_Delete, KP_Separator                           ]	};
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    include "level3(ralt_switch_multikey)"
 };
 
 partial alphanumeric_keys

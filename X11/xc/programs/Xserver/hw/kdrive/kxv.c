@@ -35,7 +35,7 @@ of the copyright holder.
 
 */
 
-/* $XFree86: xc/programs/Xserver/hw/kdrive/kxv.c,v 1.4 2001/09/21 21:58:34 keithp Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/kdrive/kxv.c,v 1.5 2003/11/10 18:21:48 tsi Exp $ */
 
 #include "kdrive.h"
 
@@ -680,7 +680,7 @@ KdXVRegetVideo(XvPortRecPrivatePtr portPriv)
   
   /* clip to the window composite clip */
   REGION_INIT(pScreen, &WinRegion, &WinBox, 1);
-  REGION_INIT(pScreen, &ClipRegion, NullBox, 1);
+  REGION_NULL(pScreen, &ClipRegion);
   REGION_INTERSECT(Screen, &ClipRegion, &WinRegion, portPriv->pCompositeClip); 
   
   /* that's all if it's totally obscured */
@@ -744,7 +744,7 @@ KdXVReputVideo(XvPortRecPrivatePtr portPriv)
   
   /* clip to the window composite clip */
   REGION_INIT(pScreen, &WinRegion, &WinBox, 1);
-  REGION_INIT(pScreen, &ClipRegion, NullBox, 1);
+  REGION_NULL(pScreen, &ClipRegion);
   REGION_INTERSECT(Screen, &ClipRegion, &WinRegion, portPriv->pCompositeClip); 
 
   /* clip and translate to the viewport */
@@ -833,7 +833,7 @@ KdXVReputImage(XvPortRecPrivatePtr portPriv)
   
   /* clip to the window composite clip */
   REGION_INIT(pScreen, &WinRegion, &WinBox, 1);
-  REGION_INIT(pScreen, &ClipRegion, NullBox, 1);
+  REGION_NULL(pScreen, &ClipRegion);
   REGION_INTERSECT(Screen, &ClipRegion, &WinRegion, portPriv->pCompositeClip); 
 
   /* clip and translate to the viewport */
@@ -1349,7 +1349,7 @@ KdXVPutStill(
   WinBox.y2 = WinBox.y1 + drw_h;
   
   REGION_INIT(pScreen, &WinRegion, &WinBox, 1);
-  REGION_INIT(pScreen, &ClipRegion, NullBox, 1);
+  REGION_NULL(pScreen, &ClipRegion);
   REGION_INTERSECT(pScreen, &ClipRegion, &WinRegion, pGC->pCompositeClip);   
 
   if(portPriv->AdaptorRec->flags & VIDEO_CLIP_TO_VIEWPORT) {
@@ -1502,7 +1502,7 @@ KdXVGetStill(
   WinBox.y2 = WinBox.y1 + drw_h;
   
   REGION_INIT(pScreen, &WinRegion, &WinBox, 1);
-  REGION_INIT(pScreen, &ClipRegion, NullBox, 1);
+  REGION_NULL(pScreen, &ClipRegion);
   REGION_INTERSECT(pScreen, &ClipRegion, &WinRegion, pGC->pCompositeClip);   
 
   if(portPriv->pDraw) {
@@ -1650,7 +1650,7 @@ KdXVPutImage(
   WinBox.y2 = WinBox.y1 + drw_h;
   
   REGION_INIT(pScreen, &WinRegion, &WinBox, 1);
-  REGION_INIT(pScreen, &ClipRegion, NullBox, 1);
+  REGION_NULL(pScreen, &ClipRegion);
   REGION_INTERSECT(pScreen, &ClipRegion, &WinRegion, pGC->pCompositeClip);   
 
   if(portPriv->AdaptorRec->flags & VIDEO_CLIP_TO_VIEWPORT) {

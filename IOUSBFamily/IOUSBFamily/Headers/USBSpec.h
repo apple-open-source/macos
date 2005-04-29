@@ -368,6 +368,22 @@ enum {
     kUSBDFUManifestationTolerantBit     = 2
 };
 
+/*!
+@enum Endpoint Descriptor bits
+ @discussion Bit definitions for endpoint descriptor fields
+ */
+enum {
+    kUSBbEndpointAddressMask				= 0x0f,
+    kUSBbEndpointDirectionBit				= 7,
+    kUSBbEndpointDirectionMask				= ( 1 << kUSBbEndpointDirectionBit ),
+    kUSBEndpointDirectionOut				= 0x00,
+    kUSBEndpointDirectionIn				= 0x80,
+    kUSBEndpointbmAttributesTransferTypeMask		= 0x03,
+    kUSBEndpointbmAttributesSynchronizationTypeMask	= 0x0c,
+    kUSBEndpointbmAttributesSynchronizationTypeShift	= 2,
+    kUSBEndpointbmAttributesUsageTypeMask		= 0x30,
+    kUSBEndpointbmAttributesUsageTypeShift		= 4
+};
 
     /*!
     @enum Property Names

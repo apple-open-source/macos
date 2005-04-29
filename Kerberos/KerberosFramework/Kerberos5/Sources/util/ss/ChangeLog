@@ -1,3 +1,28 @@
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (all-mac): Target deleted.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBBASE): Renamed from LIB.
+
+2004-03-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* error.c (ss_error): Always use ANSI C form.  Don't try to hide
+	the declaration in the header file.
+
+	* ss.h: Always use the prototype forms of declarations.
+
+2003-06-27  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (HDRS): Remove mit-sipb-copyright.h.
+	(includes): Depend on copied version of the headers, not local
+	versions.  Don't do any copying; instead, move the copying
+	commands to new targets for each header.
+	($(HDRDIR)/timestamp): New target; create the directory here if
+	needed.
+	(clean-unix): Remove the timestamp file.
+
 2003-04-23  Ken Raeburn  <raeburn@mit.edu>
 
 	* ss.h: Don't declare errno.  Include errno.h.

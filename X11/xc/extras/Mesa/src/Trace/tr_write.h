@@ -1,5 +1,4 @@
 /* This may look like C code, but it is really -*- C++ -*-  */
-/* $Id: tr_write.h,v 1.1.1.1 2003/03/13 23:56:56 jharper Exp $ */
 
 /*
  * DebugGL

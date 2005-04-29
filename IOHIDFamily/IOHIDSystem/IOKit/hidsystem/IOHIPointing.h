@@ -86,6 +86,10 @@ typedef void (*ScrollWheelEventCallback)(
                         /* fixedDelta1 */  IOFixed    fixedDelta1,
                         /* fixedDelta2 */  IOFixed    fixedDelta2,
                         /* fixedDelta3 */  IOFixed    fixedDelta3,
+                        /* pointDelta1 */  SInt32     pointDelta1,
+                        /* pointDelta2 */  SInt32     pointDelta2,
+                        /* pointDelta3 */  SInt32     pointDelta3,
+                        /* reserved */     SInt32     options,
                         /* atTime */       AbsoluteTime ts,
                         /* sender */       OSObject * sender,
                         /* refcon */       void *     refcon);
@@ -98,6 +102,7 @@ class IOHIPointing : public IOHIDevice
     OSDeclareDefaultStructors(IOHIPointing);
     
     friend class IOHITablet;
+    friend class IOHIDPointing;
 
 private:
     IOLock *		_deviceLock;  // Lock for all device access
@@ -124,35 +129,73 @@ private:
 
     struct ExpansionData { 
     
-        // Added for scroll whell accel support
-        IOFixed		scrollAcceleration;
+        // Added for scroll wheel accel support
         void *		scrollScaleSegments;
         IOItemCount	scrollScaleSegCount;
+        UInt8 		scrollDeltaIndex;
+        IOFixed		scrollDeltaTime[SCROLL_TIME_DELTA_COUNT];
+        IOFixed		scrollDeltaAxis[SCROLL_TIME_DELTA_COUNT];
+        AbsoluteTime	scrollLastEventTime;
 
-        UInt32		scrollTimeDeltas1[SCROLL_TIME_DELTA_COUNT];
-        UInt32		scrollTimeDeltas2[SCROLL_TIME_DELTA_COUNT];
-        UInt32		scrollTimeDeltas3[SCROLL_TIME_DELTA_COUNT];
-        UInt8 		scrollTimeDeltaIndex1;
-        UInt8 		scrollTimeDeltaIndex2;
-        UInt8 		scrollTimeDeltaIndex3;
-        IOFixed		scrollLastDeltaAxis1;
-        IOFixed		scrollLastDeltaAxis2;
-        IOFixed		scrollLastDeltaAxis3;
+        // Added for scroll wheel to pixel accel support
+        void *		scrollPixelScaleSegments;
+        IOItemCount	scrollPixelScaleSegCount;
+        UInt8 		scrollPixelDeltaIndex;
+        IOFixed		scrollPixelDeltaTime[SCROLL_TIME_DELTA_COUNT];
+        IOFixed		scrollPixelDeltaAxis[SCROLL_TIME_DELTA_COUNT];
+        AbsoluteTime	scrollPixelLastEventTime;
+        
+        // Added for pointer to scroll wheel accel support
+        void *		scrollPointerScaleSegments;
+        IOItemCount	scrollPointerScaleSegCount;
+        UInt8 		scrollPointerDeltaIndex;
+        IOFixed		scrollPointerDeltaTime[SCROLL_TIME_DELTA_COUNT];
+        IOFixed		scrollPointerDeltaAxis[SCROLL_TIME_DELTA_COUNT];
+        AbsoluteTime	scrollPointerLastEventTime;
+        
+        UInt32          scrollType;
+        UInt8           scrollPointerCoalesceXCount;
+        UInt8           scrollPointerCoalesceYCount;
+        SInt32          scrollPointerCoalesceLastDx;
+        SInt32          scrollPointerCoalesceLastDy;
+        IOFixed         scrollPointerPixelFractionAxis1;
+        IOFixed         scrollPointerPixelFractionAxis2;
+        IOFixed         scrollPixelFraction1;
+        IOFixed         scrollPixelFraction2;
+        IOFixed         scrollPixelFraction3;
+        SInt32          scrollLastDA1;
+        SInt32          scrollLastDA2;
+        SInt32          scrollLastDA3;
+        
+        // Added for pointer to scroll pixel accel support
+        void *		scrollPointerPixelScaleSegments;
+        IOItemCount	scrollPointerPixelScaleSegCount;
+        UInt8 		scrollPointerPixelDeltaIndex;
+        IOFixed		scrollPointerPixelDeltaTime[SCROLL_TIME_DELTA_COUNT];
+        IOFixed		scrollPointerPixelDeltaAxis[SCROLL_TIME_DELTA_COUNT];
+        AbsoluteTime	scrollPointerPixelLastEventTime;
+
         IOFixed		scrollFixedDeltaAxis1;
         IOFixed		scrollFixedDeltaAxis2;
-        IOFixed		scrollFixedDeltaAxis3;        
-        AbsoluteTime	scrollLastEventTime1;
-        AbsoluteTime	scrollLastEventTime2;
-        AbsoluteTime	scrollLastEventTime3;
+        IOFixed		scrollFixedDeltaAxis3;
+        SInt32		scrollPointDeltaAxis1;
+        SInt32		scrollPointDeltaAxis2;
+        SInt32		scrollPointDeltaAxis3;
+        UInt32      scrollButtonMask;
 
         // Added to post events to the HID Manager
         IOHIDPointingDevice	* hidPointingNub;
         IOService 		* openClient;
         
         bool		isSeized;
+        UInt32        accelerateMode;
     };
 
     ExpansionData *  _reserved;
+    
+    void    setPointingMode(UInt32 accelerateMode);
+    UInt32  getPointingMode ();
+    
     
 protected:
   virtual void dispatchRelativePointerEvent(int        dx,
@@ -225,7 +268,6 @@ private:
   // Unfortunately, we don't have any padding, so these
   // are going to be non-virtual.
   /*virtual*/ bool 	resetScroll();
-  /*virtual*/ void 	scaleScrollAxes(IOFixed * axis1p, IOFixed * axis2p, IOFixed * axis3p);
   /*virtual*/ void 	setupScrollForAcceleration(IOFixed accl);
   
   // RY: We have to make sure that subclasses that will 

@@ -341,7 +341,7 @@ add_match_part(Cmatcher m, char *l, char *w, int wl,
 
     /* If the anchors are equal, we keep only one. */
 
-    if (!strncmp(l, w, wl))
+    if (l && !strncmp(l, w, wl))
 	l = NULL;
 
     /* Split the new part into parts and turn the last one into a
@@ -1398,7 +1398,7 @@ cmp_anchors(Cline o, Cline n, int join)
 	if (line) {
 	    o->flags |= CLF_LINE;
 	    o->word = NULL;
-	    n->wlen = 0;
+	    o->wlen = 0;
 	}
 	return 1;
     }
@@ -1584,10 +1584,24 @@ sub_match(Cmdata md, char *str, int len, int sfx)
 	if (check_cmdata(md, sfx))
 	    return ret;
 
+	/*
+	 * Look for a common prefix.  If we do include metafied
+	 * characters, at this stage we still need the overall length
+	 * including Meta's as separate characters.
+	 */
 	for (l = 0, p = str, q = md->str;
 	     l < len && l < md->len && p[ind] == q[ind];
-	     l++, p += add, q += add);
+	     l++, p += add, q += add) {}
 
+	/* Make sure we don't end in the middle of a Meta sequence. */
+	if (add == 1) {
+	    if (l && p[-1] == Meta)
+		l--;
+	} else {
+	    if (l && ((l < len && p[-1] == Meta)
+		   || (l < md->len && q[-1] == Meta)))
+		l--;
+	}
 	if (l) {
 	    /* There was a common prefix, use it. */
 	    md->len -= l; len -= l;

@@ -90,21 +90,8 @@ extern int target_flags;
    This is not true on the Matsushita MN10300.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD		32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD		4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 		32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY		32
@@ -661,8 +648,8 @@ struct cum_arg {int nbytes; };
 #define EXPAND_BUILTIN_SAVEREGS() mn10300_builtin_saveregs ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  mn10300_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  mn10300_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -691,9 +678,17 @@ struct cum_arg {int nbytes; };
 	    && GET_CODE (XEXP (XEXP (OP, 0), 1)) == CONST_INT	\
 	    && INT_8_BITS (INTVAL (XEXP (XEXP (OP, 0), 1))))))
 	 
+#define OK_FOR_T(OP) \
+   (GET_CODE (OP) == MEM					\
+    && GET_MODE (OP) == QImode					\
+    && (GET_CODE (XEXP (OP, 0)) == REG				\
+	&& REG_OK_FOR_BIT_BASE_P (XEXP (OP, 0))			\
+	&& XEXP (OP, 0) != stack_pointer_rtx))
+
 #define EXTRA_CONSTRAINT(OP, C) \
  ((C) == 'R' ? OK_FOR_R (OP) \
   : (C) == 'S' ? GET_CODE (OP) == SYMBOL_REF \
+  : (C) == 'T' ? OK_FOR_T (OP) \
   : 0)
 
 /* Maximum number of registers that can appear in a valid memory address.  */
@@ -908,28 +903,15 @@ struct cum_arg {int nbytes; };
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss ((FILE), (DECL), (NAME), (SIZE), (ALIGN))
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)	\
-  do { fputs ("\t.global ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global "
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 
 #undef ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(FILE, NAME)	          \
-  do {                                            \
-  const char* real_name;                          \
-  STRIP_NAME_ENCODING (real_name, (NAME));        \
-  fprintf (FILE, "_%s", real_name);               \
-  } while (0)           
+#define ASM_OUTPUT_LABELREF(FILE, NAME) \
+  fprintf (FILE, "_%s", (*targetm.strip_name_encoding) (NAME))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
@@ -979,7 +961,7 @@ struct cum_arg {int nbytes; };
 /* This is how to output an element of a case-vector that is absolute.  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
-  asm_fprintf (FILE, "\t%s .L%d\n", ".long", VALUE)
+  fprintf (FILE, "\t%s .L%d\n", ".long", VALUE)
 
 /* This is how to output an element of a case-vector that is relative.  */
 
@@ -1021,10 +1003,6 @@ struct cum_arg {int nbytes; };
   ((GET_CODE (X) == PLUS ? OFFSET : 0) \
     + (frame_pointer_needed \
        ? 0 : -initial_offset (ARG_POINTER_REGNUM, STACK_POINTER_REGNUM)))
-
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */

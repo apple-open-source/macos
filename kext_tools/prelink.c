@@ -96,11 +96,12 @@ kld_macho_unswap(struct mach_header * mh, Boolean didSwap, int symbols);
 /*******************************************************************************
 *******************************************************************************/
 
-#define TEMP_DIR	"/tmp/com.apple.iokit.kextcache.XX"
+#define TEMP_DIR	"/com.apple.iokit.kextcache.XX"
 
 KXKextManagerError
 PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict, 
         const char * kernelCacheFilename,
+	const struct timeval *cacheFileTimes,
 	const char * kernel_file_name, 
 	const char * platform_name,
 	const char * root_path,
@@ -114,7 +115,8 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
     KXKextRef *		kexts = NULL;   // must free
     KXKextRef 		theKext = NULL; // don't release
 
-    char symbol_dir[1 + strlen(TEMP_DIR)];
+    char * symbol_dir = NULL;
+    const char * temp_dir;
     const char * temp_file = "cache.out";
     int outfd = -1, curwd = -1;
 
@@ -131,7 +133,7 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
     vm_size_t   totalModuleBytes, totalInfoBytes;
     vm_size_t	totalSymbolBytes, totalSymbolSetBytes, totalSymbolDiscardedBytes;
     vm_size_t   remainingModuleBytes, fileoffset, vmoffset, tailoffset;
-    CFIndex     idx, ncmds, cmd;
+    CFIndex     idx, ncmds, cmd, moduleCount;
     IOReturn    err;
 
     struct segment_command * seg;
@@ -165,7 +167,6 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
 
     // --
 
-    symbol_dir[0] = 0;
     moduleList = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 
     if (kKXKextManagerErrorNone !=
@@ -220,7 +221,12 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
     if (!prelinkseg->fileoff)
         prelinkseg->fileoff = prelinksects[0].offset;
 
-    strcpy(symbol_dir, TEMP_DIR);
+    temp_dir = getenv("TMPDIR");
+    if (!temp_dir)
+        temp_dir = "/tmp";
+    symbol_dir = malloc(strlen(temp_dir) + strlen(TEMP_DIR) + 1);
+    strcpy(symbol_dir, temp_dir);
+    strcat(symbol_dir, TEMP_DIR);
     mktemp(symbol_dir);
     if (0 != mkdir(symbol_dir, 0755))
     {
@@ -413,14 +419,17 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
 	    struct section *        sect;
 	    vm_size_t               headerOffset;
 
-	    if (!files[idx].code && prelink_state->modules[1+idx].size)
+	    if (!files[idx].code)
 	    {
-		// for symbol sets the whole file ends up in the symbol sect
-		files[idx].symtaboffset    = 0;
-	        files[idx].symtabsize      = prelink_state->modules[1+idx].size;
-		files[idx].symbolsetoffset = totalSymbolBytes;
-		totalSymbolBytes       += files[idx].symtabsize;
-		totalSymbolSetBytes    += files[idx].symtabsize;
+		if (prelink_state->modules[1+idx].size)
+		{
+		    // for symbol sets the whole file ends up in the symbol sect
+		    files[idx].symtaboffset    = 0;
+		    files[idx].symtabsize      = prelink_state->modules[1+idx].size;
+		    files[idx].symbolsetoffset = totalSymbolBytes;
+		    totalSymbolBytes       += files[idx].symtabsize;
+		    totalSymbolSetBytes    += files[idx].symtabsize;
+		}
 		continue;
 	    }
 
@@ -545,16 +554,31 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
 	    files[idx].swapped = false;
 	    header = 0;
 	    info   = 0;
-	    
+
 	    // copy header to start of VM allocation
 	    if (kKXKextManagerErrorNone !=
                 (err = writeFile(outfd, (const void *) files[idx].mapped, headerOffset)))
                 goto finish;
 
 	    // write the module
-            if (kKXKextManagerErrorNone !=
-                (err = writeFile(outfd, (const void *) files[idx].mapped, tailoffset )))
-                goto finish;
+	    if (tailoffset <= files[idx].mappedSize)
+	    {
+		if (kKXKextManagerErrorNone !=
+		    (err = writeFile(outfd, (const void *) files[idx].mapped, tailoffset )))
+		    goto finish;
+	    }
+	    else
+	    {
+		if (kKXKextManagerErrorNone !=
+		    (err = writeFile(outfd, (const void *) files[idx].mapped, files[idx].mappedSize )))
+		    goto finish;
+
+		if (-1 == lseek(outfd, tailoffset - files[idx].mappedSize, SEEK_CUR)) {
+		    perror("couldn't write output");
+		    err = kKXKextManagerErrorFileAccess;
+		    goto finish;
+		}
+	    }
 	}
 
 	// write the symtabs, get info, unmap
@@ -669,8 +693,7 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
         }
 
 	// deferred load __info
-	if (!all_plists)
-	 for (i = 0; i < kexts_count; i++)
+	for (i = 0; i < kexts_count; i++)
 	{
 	    theKext = (KXKextRef) kexts[i];
 	    for (idx = 0;
@@ -682,16 +705,32 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
 	    includeInfo = (theKext && (kextBundle = KXKextGetBundle(theKext)));
 	    if (includeInfo)
 	    {
-		CFStringRef str;
-		// check OSBundleRequired to see if safe for boot time matching
-		str = CFBundleGetValueForInfoDictionaryKey(kextBundle, CFSTR("OSBundleRequired"));
-		includeInfo = (str && (kCFCompareEqualTo != CFStringCompare(str, CFSTR("Safe Boot"), 0)));
+		if (!all_plists)
+		{
+		    CFStringRef str;
+		    // check OSBundleRequired to see if safe for boot time matching
+		    str = CFBundleGetValueForInfoDictionaryKey(kextBundle, CFSTR("OSBundleRequired"));
+		    includeInfo = (str && (kCFCompareEqualTo != CFStringCompare(str, CFSTR("Safe Boot"), 0)));
+		}
 		if (includeInfo)
 		{
 		    infoDict = copyInfoDict(kextBundle);
 		    if (infoDict)
 		    {
-			CFDictionarySetValue(infoDict, CFSTR("OSBundleDefer"), kCFBooleanTrue);
+			if (!all_plists)
+			{
+			    Boolean linkit = KXKextGetDeclaresExecutable(theKext);
+			    if (linkit && kernel_requests)
+			    {
+				CFStringRef bundleIdentifier = CFBundleGetIdentifier(kextBundle);
+				linkit = (bundleIdentifier 
+					    && CFSetContainsValue(kernel_requests, bundleIdentifier));
+			    }
+			    // if we got here, the link was attempted and failed; never defer this one
+			    // so the same failure will happen for the cached boot.
+			    if (!linkit)
+				CFDictionarySetValue(infoDict, CFSTR("OSBundleDefer"), kCFBooleanTrue);
+			}
 			CFArrayAppendValue(moduleList, infoDict);
 			CFRelease(infoDict);
 		    }
@@ -699,6 +738,35 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
 	    }
 	}
 
+	// patch __info
+        moduleCount = CFArrayGetCount(moduleList);
+        for (idx = 0; idx < moduleCount; idx++)
+        {
+            CFDictionaryRef	     personalities;
+            CFMutableDictionaryRef * allPersonalities;
+            CFStringRef 	     bundleIdentifier;
+            CFIndex		     count, idx2;
+
+            infoDict = (CFMutableDictionaryRef) CFArrayGetValueAtIndex(moduleList, idx);
+
+            personalities  = CFDictionaryGetValue(infoDict, CFSTR("IOKitPersonalities"));
+            if (!personalities)
+                continue;
+            bundleIdentifier  = CFDictionaryGetValue(infoDict, CFSTR("CFBundleIdentifier"));
+            if (!bundleIdentifier)
+                continue;
+            count = CFDictionaryGetCount(personalities);
+            allPersonalities = calloc(count, sizeof(CFMutableDictionaryRef));
+            if (!allPersonalities) {
+                fprintf(stderr, "memory allocation failure\n");
+                err = kKXKextManagerErrorNoMemory;
+                goto finish;
+            }
+            CFDictionaryGetKeysAndValues(personalities, (const void **)NULL, (const void **)allPersonalities);
+            for (idx2 = 0; idx2 < count; idx2++)
+                CFDictionaryAddValue(allPersonalities[idx2], CFSTR("CFBundleIdentifier"), bundleIdentifier);
+            free(allPersonalities);
+        }
 	// write __info
 	{
 	    CFDataRef data;
@@ -706,6 +774,15 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
             if (!data)
             {
                 fprintf(stderr, "couldn't serialize property lists\n");
+                for (idx = 0; idx < moduleCount; idx++)
+                {
+                    infoDict = (CFMutableDictionaryRef) CFArrayGetValueAtIndex(moduleList, idx);
+                    data = IOCFSerialize(infoDict, kNilOptions);
+                    if (data)
+                        CFRelease(data);
+                    else
+                        CFShow(infoDict);
+                }
                 err = kKXKextManagerErrorSerialization;
                 goto finish;
             }
@@ -878,6 +955,14 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
 	goto finish;
     }
 
+    // give the cache file the mod time of the source files when kextcache started
+    if (cacheFileTimes && (-1 == utimes(kernelCacheFilename, cacheFileTimes))) {
+	fprintf(stderr, "can't set file times %s: %s\n", kernelCacheFilename,
+		strerror(errno));
+	err = kKXKextManagerErrorFileAccess;
+	goto finish;
+    }
+
     if (verbose_level > 0)
 	verbose_log("created cache: %s", kernelCacheFilename);
 
@@ -888,10 +973,10 @@ finish:
     if (-1 != outfd)
 	close(outfd);
 
-    if (debug_mode)
+    if (debug_mode && symbol_dir)
 	symbol_dir[0] = 0;
 
-    if (symbol_dir[0])
+    if (symbol_dir && symbol_dir[0])
     {
         FTS *    fts;
         FTSENT * fts_entry;
@@ -919,13 +1004,15 @@ finish:
 
     if (-1 != curwd)
         fchdir(curwd);
-    if (symbol_dir[0] && (-1 == rmdir(symbol_dir)))
+    if (symbol_dir && symbol_dir[0] && (-1 == rmdir(symbol_dir)))
         perror("rmdir");
 
     if (kexts)
 	free(kexts);
     if (files)
 	free(files);
+    if (symbol_dir)
+        free(symbol_dir);
 
     return result;
 }

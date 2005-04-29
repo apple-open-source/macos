@@ -1,4 +1,4 @@
-.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/sis.man,v 1.10 2003/01/29 15:42:16 eich Exp $
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/sis.man,v 1.14 2003/11/12 16:50:36 twini Exp $
 .\" shorthand for double quote that works everywhere.
 .ds q \N'34'
 .TH SIS __drivermansuffix__ __vendorversion__
@@ -14,9 +14,9 @@ sis \- SiS video driver
 .fi
 .SH DESCRIPTION
 .B sis
-is an XFree86 driver for SiS video chips. The driver is accelerated, and
-provides support for 8, 16 and 24 colordepths. XVideo, Render and other
-extensions are supported as well.
+is an XFree86 driver for SiS (Silicon Integrated Systems) video chips. The
+driver is accelerated, and provides support for colordepths of 8, 16 and 24 bpp.
+XVideo, Render and other extensions are supported as well.
 .SH SUPPORTED HARDWARE
 The
 .B sis
@@ -29,9 +29,10 @@ driver supports PCI and AGP video cards based on the following chipsets:
 .B SiS540
 .B SiS630/730
 .B SiS315/H/PRO
-.B SiS550
-.B SiS650/651/650M/740
+.B SiS550/551/552
+.B SiS650/651/M650/661FX/M661FX/M661MX/740/741
 .B SiS330 (Xabre)
+.B SiS760
 .PP
 In the following text, the following terms are used:
 .PP
@@ -41,13 +42,19 @@ for SiS5597/5598, 530/620 and 6326/AGP/DVD
 .B 300 series
 for SiS300/305, 540 and 630/730
 .PP
-.B 310/325/330 series
-for SiS315/H/PRO, 550 and 650/651/650M/740, 330
+.B 315/330 series
+for SiS315/H/PRO, 55x and (M)65x/(M)661xX/74x, 330, 760
+.PP
+Note: Support for 661FX, M661FX, M661MX, 741 and 760 is untested.
 .SH CONFIGURATION DETAILS
 Please refer to XF86Config(__filemansuffix__) for general configuration
 details.  This section only covers configuration details specific to this
-driver. Please note that support for the SiS330 is new and there may be
-some problems.
+driver.
+.PP
+Detailed information on all supported options can be obtained at
+http://www.winischhofer.net/linuxsisvga.shtml
+.PP
+This manpage only covers a subset of the supported options.
 .PP
 .I "1. For all supported chipsets"
 .PP
@@ -56,8 +63,7 @@ The following driver
 are supported on all chipsets:
 .TP
 .BI "Option \*qNoAccel\*q \*q" boolean \*q
-Disable or enable 2D acceleration. Please note: On chipsets with XVideo
-support, this also disables XVideo. Default: acceleration is enabled.
+Disable or enable 2D acceleration. Default: acceleration is enabled.
 .TP
 .BI "Option \*qHWCursor\*q \*q" boolean \*q
 Enable or disable the HW cursor. Default: HWCursor is on.
@@ -67,37 +73,43 @@ The opposite of HWCursor. Default: SWCursor is off.
 .TP
 .BI "Option \*qRotate\*q \*qCW\*q"
 Rotate the display clockwise. This mode is unaccelerated, and uses
-the Shadow Frame Buffer layer.
+the Shadow Frame Buffer layer. Using this option disables
+the Resize and Rotate extension (RandR).
 Default: no rotation.
 .TP
 .BI "Option \*qRotate\*q \*qCCW\*q"
 Rotate the display counterclockwise. This mode is unaccelerated, and
-uses the Shadow Frame Buffer layer.
+uses the Shadow Frame Buffer layer. Using this option disables
+the Resize and Rotate extension (RandR).
 Default: no rotation.
 .TP
 .BI "Option \*qShadowFB\*q \*q" boolean \*q
 Enable or disable use of the shadow framebuffer layer.
 Default: Shadow framebuffer is off.
+.TP
+.BI "Option \*qCRT1Gamma\*q \*q" boolean \*q
+Enable or disable gamma correction.
+Default: Gamma correction is on.
 .PP
 .I "2. Old series specific information"
 .PP
 The driver will auto-detect the amount of video memory present for all
-these chips, but in the 6326 case, it will limit the memory size to 4MB.
-This is because the 6326's 2D engine can only address 4MB. The remaining
-memory seems to be intended for 3D texture data, since only the 3D
-engine can address RAM above 4MB. However, you can override this forced
+these chips, but in the case of the 6326, it will limit the memory size
+to 4MB. This is because the 6326's 2D engine can only address 4MB. The
+remaining memory seems to be intended for 3D texture data, since only
+the 3D engine can address RAM above 4MB. However, you can override this
 limitation using the
 .B \*qVideoRAM\*q
-option in the device section if your board has more than
-4MB and you need to use it. However, 2D acceleration, Xvideo and the
-HWCursor will be disabled in this case.
+option in the Device section if your board has more than 4MB and you
+need to use it. However, 2D acceleration, Xvideo and the HWCursor will
+be disabled in this case.
 .PP
 The driver will also auto-detect the maximum dotclock and DAC speed.
 If you have problems getting high resolutions because of dot clock
 limitations, try using the
 .B \*qDacSpeed\*q
-option, also in the device section. However, this is not recommended
-for the 6326. For this chipset, the driver has two built-in modes for
+option, also in the Device section. However, this is not recommended
+for the 6326. For this chip, the driver has two built-in modes for
 high resolutions which you should use instead. These are named
 .B \*qSIS1280x1024-75\*q
 and
@@ -107,13 +119,13 @@ just place them in your Screen section. Example:
 .PP
 .BI "Modes \*qSIS1600x1200-60\*q \*qSIS1280x1024x75\*q \*q1024x768\*q ...
 .PP
-1280x1024 is only available at 8, 15 and 16bpp. 1600x1200 is available
-at 8bpp only.
+Of these modes, 1280x1024 is only available at 8, 15 and 16bpp. 1600x1200
+is available at 8bpp only.
 .PP
 TV support for the 6326
 .PP
-TV output is supported on the 6326. The driver will auto detect a
-TV connected, and in this case add the following modes to the list
+TV output is supported for the 6326. The driver will auto detect a
+TV connected and in this case add the following modes to the list
 of default modes: "PAL800x600", "PAL800x600U", "PAL720x540",
 "PAL640x480", "NTSC640x480", "NTSC640x480U" and "NTSC640x400".
 Use these modes like the hi-res modes described above.
@@ -127,11 +139,10 @@ Enable or disable TurboQueue mode.  Default: off for SIS530/620, on for
 the others
 .TP
 .BI "Option \*qFastVram\*q \*q" boolean \*q
-Enable or disable FastVram mode.  Enabling this sets the video RAM timing 
-to only one cycle per read operation instead of two cycles. Disabling
-this will set 2 cycles for read and write operations. Leaving this
-option out uses the default.
-Default: off for read, on for write.
+Enable or disable FastVram mode.  Enabling this sets the video RAM timing
+to one cycle per read operation instead of two cycles. Disabling this will
+set two cycles for read and write operations. Leaving this option out uses
+the default, which varies depending on the chipset.
 .TP
 .BI "Option \*qNoHostBus\*q \*q" boolean \*q
 (SiS5597/5598 only). Disable CPU-to-VGA host bus support. This
@@ -140,39 +151,46 @@ speeds up CPU to video RAM transfers. Default: Host bus is enabled.
 .BI "Option \*qNoXVideo\*q \*q" boolean \*q
 Disable XV (XVideo) extension support. Default: XVideo is on.
 .TP
+.BI "Option \*qNoYV12\*q \*q" boolean \*q
+Disable YV12 Xv support. This might me required due to hardware bugs in some
+chipsets. Disabling YV12 support forces Xv-aware applications to use YUV2 or
+XShm for video output.
+Default: YV12 support is on.
+.TP
 .BI "Option \*qTVStandard\*q \*q" string \*q
-(6326 only) Possible parameters are
+(6326 only) Valid parameters are
 .B PAL
 or
 .B NTSC.
 The default is set by a jumper on the card.
 .TP
 .BI "Option \*qTVXPosOffset\*q \*q" integer \*q
-(6326 only) This option allows horizontal relocation the TV output.
-The range is from -16 to 16.
+(6326 only) This option allows tuning the horizontal position of the image
+for TV output. The range is from -16 to 16. Default: 0
 .TP
 .BI "Option \*qTVYPosOffset\*q \*q" integer \*q
-(6326 only) This option allows vertical relocation the TV output.
-The range is from -16 to 16.
+(6326 only) This option allows tuning the vertical position of the image
+for TV output. The range is from -16 to 16. Default: 0
 .TP
 .BI "Option \*qSIS6326TVEnableYFilter\*q \*q" boolean \*q
-(6326 only) This option allows enabling/disabling the Y filter for
+(6326 only) This option allows enabling/disabling the Y (chroma) filter for
 TV output.
 .TP
 .BI "Option \*qSIS6326TVAntiFlicker\*q \*q" string \*q
-(6326 only) This option allow enabling/disabling the anti flicker
-facility for TV output. Possible parameters are
+(6326 only) This option allow enabling/disabling the anti flicker facility
+for TV output. Possible parameters are
 .B OFF, LOW, MED, HIGH
 or
 .B ADAPTIVE.
 By experience,
 .B ADAPTIVE
-yields the best results.
+yields the best results, hence it is the default.
 .PP
-.I "2. 300 and 310/325/330 series specific information"
+.I "2. 300 and 315/330 series specific information"
 .PP
-The 300 and 310/325/330 series very often come with a video bridge for
-controlling LCD and TV output. Hereinafter, the term
+The 300 and 315/330 series feature two CRT controllers and very often come
+with a video bridge for controlling LCD and TV output. Hereinafter, the
+term
 .B CRT1
 refers to the VGA output of the chip, and
 .B CRT2
@@ -184,9 +202,9 @@ which makes it possible to run the driver in dual head mode.
 The driver supports the following video bridges:
 .PP
 .B SiS301
-.B SiS301B
-.B SiS301LV
-.B SiS302B
+.B SiS301B(-DH)
+.B SiS301C
+.B SiS301LV(X)
 .B SiS302LV
 .PP
 Instead of a video bridge, some machines have a
@@ -201,30 +219,38 @@ About TV output
 .PP
 On the SiS301 and the Chrontel 7005, only resolutions up to 800x600
 are supported. On all others, resolutions up to 1024x768 are supported.
+However, due to a hardware bug, Xvideo might be distorted on SiS video
+bridges if running NTSC or PAL-M at 1024x768.
 .PP
 About XVideo support
 .PP
 XVideo is supported on all chipsets of both families. However, there
 are some differences in hardware features which cause limitations.
-The 300 series as well as the SiS550, 650M, 651 and 330 support two video
-overlays. The SiS315/H/PRO and 650/740 support only one such overlay.
-On chips with two overlays, one overlay is used for CRT1, the other
-for CRT2. On the other chipsets, the option
+The 300 series as well as the SiS55x, M650, 651, 661FX, M661FX, and
+741 support two video overlays. The SiS315/H/PRO, 650/740 and 330 support
+only one such overlay. On chips with two overlays, one overlay is used
+for CRT1, the other for CRT2. On the other chipsets, the option
 .B \*qXvOnCRT2\*q
 can be used to select the desired output channel.
+.PP
+About Merged Framebuffer support
+.PP
+This mode is strongly recommended over Xinerama. Please see
+http://www.winischhofer.net/linuxsisvga.shtml for detailed
+information.
 .PP
 About dual-head support
 .PP
 Dual head mode has some limitations as regards color depth and
 resolution. Due to memory bandwidth limits, CRT1 might have a
-reduced refresh rate if running on higher resolutions than
+reduced maximum refresh rate if running on higher resolutions than
 1280x1024.
 .PP
 Colordepth 8 is not supported when running in dual head mode.
 .PP
 The following driver
 .B Options
-are supported on the 300 and 310/325 series:
+are supported on the 300 and 315/330 series:
 .TP
 .BI "Option \*qNoXVideo\*q \*q" boolean \*q
 Disable XV (XVideo) extension support.
@@ -239,24 +265,19 @@ and if this option is either unset or set to
 option is set to
 .B true
 ). If either only CRT1 or CRT2 is detected, the driver decides
-automatically.
+automatically. In Merged Framebuffer mode, this option is ignored.
 Default: overlay is used on CRT1
 .TP
 .BI "Option \*qForceCRT1\*q \*q" boolean \*q
-The BIOS detects VGA monitors connected to CRT1 at boot time
-and the X driver by default relies on the information passed
-by the BIOS. However, some old monitors are not detected
-correctly. If this is the case, or if you connected the VGA
-monitor after you booted the machine, you may set this
-option to
-.B true
-in order to make the X driver ignore the
-information from the BIOS and initialize CRT1 anyway.
+Force CRT1 to be on of off. If a monitor is connected, it will be
+detected during server start. However, some old monitors are not
+detected correctly. In such cases, you may set this option to
+.B on
+in order to make the driver initialize CRT1 anyway.
 If this option is set to
-.B false
-, the driver will switch
-off CRT1 and thus save memory bandwidth.
-Default: auto detect CRT1
+.B off
+, the driver will switch off CRT1.
+Default: auto-detect
 .TP
 .BI "Option \*qForceCRT2Type\*q \*q" string \*q
 Force display type to one of:
@@ -268,70 +289,63 @@ Force display type to one of:
 ,
 .B COMPOSITE
 ,
-.B SCART,
+.B SVIDEO+COMPOSITE
+,
+.B SCART
 ,
 .B LCD
 ,
 .B VGA
 ;
 .B NONE
-will disable CRT2. The SVIDEO, COMPOSITE and SCART parameters
-can be used to force the driver to use a specific TV output
-connector (if present).
+will disable CRT2. The SVIDEO, COMPOSITE, SVIDEO+COMPOSITE and SCART
+parameters are for SiS video bridges only and can be used to force the
+driver to use a specific TV output connector (if present).
 Default: auto detect.
 .TP
-.BI "Option \*qPanelDelayCompensation\*q \*q" integer \*q
-This option is only for machines with a 300 series chipset
-and either a SiS301B video bridge or a LVDS transmitter.
-Different LCD panels require different delay compensation
-values. In most cases, the driver can autodetect this value.
-However, due to bad BIOS design this might fail in rare
-cases. If your LCD shows small horizontal waves, set the
-parameter of this option first to
-.B 4
-,
-.B 32
-or
-.B 24
-and if the problem persists, try using other values between
-4 and 60 in steps of 4.
-.TP
-.BI "Option \*qUseROMData\*q \*q" boolean \*q
-The driver reads some data from the BIOS ROM, especially
-LCD dependent information. If the folks at SiS some day
-decide to change the location of this data inside the
-BIOS image, the display might not be initialized correctly.
-In order to prevent this, set this option's parameter to
-.B false.
-Default: ROM data is used
+.BI "Option \*qCRT2Gamma\*q \*q" boolean \*q
+Enable or disable gamma correction for CRT2. Only supported
+for SiS video bridges. Default: Gamma correction for CRT2 is on.
 .TP
 .BI "Option \*qTVStandard\*q \*q" string \*q
 Force the TV standard to either
 .B PAL
 or
 .B NTSC.
-On some machines with 630, 730 or 650/740,
+On some machines with 630, 730 and the 315/330 series,
 .B PALM
-and
+,
 .B PALN
+and
+.B NTSCJ
 are supported as well. Default: BIOS setting.
 .TP
 .BI "Option \*qTVXPosOffset\*q \*q" integer \*q
-This option allows horizontal relocation the TV output.
-The range is from -32 to 32. Not supported on the Chrontel
-7019 yet.
+This option allows tuning the horizontal position of the image for
+TV output. The range is from -32 to 32. Not supported on the Chrontel
+7019. Default: 0
 .TP
 .BI "Option \*qTVYPosOffset\*q \*q" integer \*q
-This option allows vertical relocation the TV output.
-The range is from -32 to 32. Not supported on the Chrontel
-7019 yet.
+This option allows tuning the vertical position of the image for TV
+output. The range is from -32 to 32. Not supported on the Chrontel
+7019. Default: 0
+.TP
+.BI "Option \*qSISTVXScale\*q \*q" integer \*q
+This option selects the horizontal zooming level for TV output. The range
+is from -16 to 16. Only supported on SiS video bridges. Default: 0
+.TP
+.BI "Option \*qSISTVYScale\*q \*q" integer \*q
+This option selects the vertical zooming level for TV output in the
+following modes: 640x480, 800x600. On the 315/330 series, also 720x480,
+720x576 and 768x576. The range is from -4 to 3. Only supported on
+SiS video bridges. Default: 0
 .TP
 .BI "Option \*qCHTVOverscan\*q \*q" boolean \*q
-On machines with a Chrontel TV encoder, this can be used to
-force the TV mode to overscan or underscan.
-.B True
+On machines with a Chrontel TV encoder, this can be used to force the
+TV mode to overscan or underscan.
+.B on
 means overscan,
-.B false
+.B off
 means underscan.
 Default: BIOS setting.
 .TP
@@ -341,51 +355,40 @@ enables a super-overscan mode. This is only supported if
 the TV standard is PAL. Super overscan will produce an
 image on the TV which is larger than the viewable area.
 .PP
+The driver supports many more options. Please see
+http://www.winischhofer.net/linuxsisvga.shtml for
+more information.
+.PP
 .I "3. 300 series specific information"
 .PP
-DRI is supported on the 300 series only. DRI requires
-the kernel's SiS framebuffer driver (
+DRI is supported on the 300 series only. On Linux, DRI requires the
+kernel's SiS framebuffer driver (
 .B sisfb
-) and some other modules
-which come with either the kernel or XFree86.
+) and some other modules which come with either the kernel or XFree86.
 .PP
-Sisfb takes care of memory management for texture
-data. In order to prevent the X driver and sisfb from
-overwriting each others video memory, sisfb reserves
-an amount of video memory for the X driver. This amount
-can either be selected using sisfb's mem parameter, or
-auto-selected depending on the amount of total video RAM
-available. However, the X driver needs to know about the
-amount of RAM sisfb reserved. For this purpose, the
+Sisfb takes care of memory management for texture data. In order to
+prevent the X Server and sisfb from overwriting each other's data,
+sisfb reserves an amount of video memory for the X driver. This amount
+can either be selected using sisfb's mem parameter, or auto-selected
+depending on the amount of total video RAM available.
+.PP
+Sisfb can be used for memory management only, or as a complete framebuffer
+driver. If you start sisfb with a valid mode (ie you gain a graphical console),
+the X driver can communicate with sisfb and doesn't require any
+manual configuration for finding out about the video memory it is allowed
+to use.
+However, if you are running a 2.4 series Linux kernel and use sisfb for
+video memory management only, ie you started sisfb with mode=none and still
+have a text mode console, there is no communication between sisfb and the
+X driver. For this purpose,
+the
 .TP
 .BI "Option \*qMaxXFBMem\*q \*q" integer \*q
 .PP
-exists.
+exists. This option must be set to the same value as given to sisfb through
+its "mem" parameter, ie the amount of memory to use for X in kilobytes.
 .PP
-At the moment (2002), the SiS DRI driver is not
-maintained, lacks support for memory swapping and
-has a few bugs. If you intend to use DRI, I recommend
-setting the total video memory in the BIOS to 64MB
-in order to at least overcome the lack of memory
-swap functions.
-.PP
-Sisfb can be used for memory management only, or as
-a complete framebuffer driver. If you start sisfb
-with a valid mode (ie you gain a graphical console),
-the X driver can communicate with sisfb and doesn't
-require setting the
-.B \*qMaxXFBMem\*q
-option at all. The X driver will receive enough information
-from sisfb in this case.
-.PP
-However, if you use sisfb for memory management only, ie
-you started sisfb with mode=none and still have a text
-mode console, there is no communication between sisfb
-and the X driver. In this case, you need to set
-.B \*qMaxXFBMem\*q
-to the same value as you gave sisfb with its mem
-parameter. If you didn't specify any mem parameter,
-sisfb will reserve
+If you started sisfb without the mem argument, sisfb will reserve
 .TP
 12288KB if more than 16MB of total video RAM is available,
 .TP
@@ -393,20 +396,22 @@ sisfb will reserve
 .TP
 4096KB in all other cases.
 .PP
-Then you need to specify any of these amounts as the
-parameter for the
-.B \*qMaxXFBMem\*q
-option. The value is to be given without 'KB'.
+If you intend to use DRI, I recommend setting the total video memory in
+the BIOS to 64MB in order to at least overcome the lack of memory swap
+functions.
+.TP
+.BI "Option \*qDRI\*q \*q" boolean \*q
+This option allows enabling or disabling DRI. By default, DRI is on.
+.TP
+.BI "Option \*qAGPSize\*q \*q" integer \*q
+This option allows selecting the amount of AGP memory to be used for DRI.
+The amount is to be specified in megabyte, the default is 8.
 .SH "KNOWN BUGS"
-For some reason, PAL TV output on the SiS301LV bridge is
-only black and white. NTSC is OK, though.
-.PP
-LCD panels with a resolution of 1280x1024 do not work
-correctly.
+none.
 .SH "SEE ALSO"
 XFree86(1), XF86Config(__filemansuffix__), xf86config(1), Xserver(1), X(__miscmansuffix__)
 .PP
-.B "http://www.winischhofer.net"
+.B "http://www.winischhofer.net/linuxsisvga.shtml"
 for more information and updates
 .SH AUTHORS
 Authors include: Alan Hourihane, Mike Chapman, Juanjo Santamarta, Mitani

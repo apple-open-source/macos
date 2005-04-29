@@ -22,7 +22,7 @@
  * Authors: Alan Hourihane, alanh@fairlite.demon.co.uk
  *          Sven Luther <luther@dpt-info.u-strasbg.fr>
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/pm3_video.c,v 1.11 2002/05/22 08:12:02 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/pm3_video.c,v 1.15 2003/11/10 18:22:21 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -51,11 +51,6 @@
 #define CLIENT_VIDEO_ON	0x04
 
 #define TIMER_MASK      (OFF_TIMER | FREE_TIMER)
-
-#ifndef XvExtension
-void Permedia3InitVideo(ScreenPtr pScreen) {}
-void Permedia3ResetVideo(ScrnInfoPtr pScrn) {}
-#else
 
 static XF86VideoAdaptorPtr Permedia3SetupImageVideo(ScreenPtr);
 static void Permedia3InitOffscreenImages(ScreenPtr);
@@ -330,7 +325,7 @@ Permedia3SetupImageVideo(ScreenPtr pScreen)
     pPriv->Filter = PM3VideoOverlayMode_FILTER_FULL;
     
     /* gotta uninit this someplace */
-    REGION_INIT(pScreen, &pPriv->clip, NullBox, 0); 
+    REGION_NULL(pScreen, &pPriv->clip);
 
     pGlint->adaptor = adapt;
 
@@ -344,35 +339,6 @@ Permedia3SetupImageVideo(ScreenPtr pScreen)
     return adapt;
 }
 
-
-static Bool
-RegionsEqual(RegionPtr A, RegionPtr B)
-{
-    int *dataA, *dataB;
-    int num;
-
-    num = REGION_NUM_RECTS(A);
-    if(num != REGION_NUM_RECTS(B))
-	return FALSE;
-
-    if((A->extents.x1 != B->extents.x1) ||
-       (A->extents.x2 != B->extents.x2) ||
-       (A->extents.y1 != B->extents.y1) ||
-       (A->extents.y2 != B->extents.y2))
-	return FALSE;
-
-    dataA = (int*)REGION_RECTS(A);
-    dataB = (int*)REGION_RECTS(B);
-
-    while(num--) {
-	if((dataA[0] != dataB[0]) || (dataA[1] != dataB[1]))
-	   return FALSE;
-	dataA += 2; 
-	dataB += 2;
-    }
-
-    return TRUE;
-}
 
 static void 
 Permedia3StopVideo(ScrnInfoPtr pScrn, pointer data, Bool shutdown)
@@ -734,7 +700,7 @@ Permedia3DisplayVideo(
     GLINTPtr pGlint = GLINTPTR(pScrn);
     GLINTPortPrivPtr portPriv = pGlint->adaptor->pPortPrivates[0].ptr;
     unsigned int shrink, zoom;
-    unsigned int newx1, newx2;
+    unsigned int newx2;
 
     /* Let's overlay only to visible parts of the screen */
     if (dstBox->x1 == 0) {
@@ -746,9 +712,13 @@ Permedia3DisplayVideo(
 	drw_w = (dstBox->x2 - dstBox->x1);
     }
 
+    /* Avoid divide by zero in compute_scale_factor. */
+    if (drw_w < 8)
+	return;
+
     /* Let's adjust the width of source and dest to be compliant with 
      * the Permedia3 overlay unit requirement, and compute the X deltas. */
-    newx1 = src_w; newx2 = drw_w;
+    newx2 = drw_w;
     compute_scale_factor(&src_w, &drw_w, &shrink, &zoom);
     dstBox->x2 -= (newx2 - drw_w);
 
@@ -951,7 +921,8 @@ Permedia3PutImage(
 	HWCopyYV12(pScrn, buf, width, height);
 
     /* paint the color key */
-    if(pPriv->autopaintColorKey && !RegionsEqual(&pPriv->clip, clipBoxes)) {
+    if(pPriv->autopaintColorKey &&
+       !REGION_EQUAL(pScrn->pScreen, &pPriv->clip, clipBoxes)) {
     	/* update cliplist */
         REGION_COPY(pScrn->pScreen, &pPriv->clip, clipBoxes);
 #if 0
@@ -1314,5 +1285,3 @@ Permedia3VideoTimerCallback(ScrnInfoPtr pScrn, Time time)
     } else  /* shouldn't get here */
 	pGlint->VideoTimerCallback = NULL;
 }
-
-#endif  /* !XvExtension */

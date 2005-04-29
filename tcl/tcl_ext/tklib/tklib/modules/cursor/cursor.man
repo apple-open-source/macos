@@ -1,0 +1,44 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin cursor n 0.1]
+[copyright {Jeffrey Hobbs <jeff@hobbs.org>}]
+
+[moddesc   {Tk cursor routines}]
+[titledesc {Procedures to handle CURSOR data}]
+[require Tk]
+[require cursor [opt 0.1]]
+[description]
+
+The [package cursor] package provides commands to handle Tk cursors.
+
+[section COMMANDS]
+
+The following commands are available:
+
+[list_begin definitions]
+
+[call [cmd ::cursor::propagate] [arg widget] [arg cursor]]
+
+Sets the cursor for the specified [arg widget] and all its descendants
+to [arg cursor].
+
+
+[call [cmd ::cursor::restore] [arg widget] [opt [arg cursor]]]
+
+Restore the original or previously set cursor for the specified
+[arg widget] and all its descendants.  If [arg cursor] is specified,
+that will be used if on any widget that did not have a preset cursor
+(set by a previous call to [cmd ::cursor::propagate]).
+
+
+[call [cmd ::cursor::display] [opt [arg parent]]]
+
+Pops up a dialog with a listbox containing all the cursor names.
+Selecting a cursor name will display it in that dialog.  This is
+simply for viewing any available cursors on the platform.
+
+[list_end]
+
+
+[see_also cursors(n) options(n) Tk_GetCursor(3)]
+[keywords cursor]
+[manpage_end]

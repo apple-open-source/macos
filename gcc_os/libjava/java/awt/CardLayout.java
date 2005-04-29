@@ -1,6 +1,6 @@
 // CardLayout.java - Card-based layout engine
 
-/* Copyright (C) 1999, 2000, 2002  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2002, 2003  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -53,6 +53,8 @@ import java.io.Serializable;
  */
 public class CardLayout implements LayoutManager2, Serializable
 {
+  static final long serialVersionUID = -4328196481005934313L;
+
   /**
    * Initializes a new instance of <code>CardLayout</code> with horizontal
    * and vertical gaps of 0.
@@ -108,7 +110,7 @@ public class CardLayout implements LayoutManager2, Serializable
    */
   public void first (Container parent)
   {
-    gotoComponent (parent, FIRST, null);
+    gotoComponent (parent, FIRST);
   }
 
   /** Return this layout manager's horizontal gap.  */
@@ -152,7 +154,7 @@ public class CardLayout implements LayoutManager2, Serializable
    */
   public void last (Container parent)
   {
-    gotoComponent (parent, LAST, null);
+    gotoComponent (parent, LAST);
   }
 
   /**
@@ -163,21 +165,24 @@ public class CardLayout implements LayoutManager2, Serializable
    */ 
   public void layoutContainer (Container parent)
   {
-    int width = parent.width;
-    int height = parent.height;
+    synchronized (parent.getTreeLock ())
+      {
+	int width = parent.width;
+	int height = parent.height;
 
-    Insets ins = parent.getInsets ();
+	Insets ins = parent.getInsets ();
 
-    int num = parent.ncomponents;
-    Component[] comps = parent.component;
+	int num = parent.ncomponents;
+	Component[] comps = parent.component;
 
-    int x = ins.left + hgap;
-    int y = ins.top + vgap;
-    width = width - 2 * hgap - ins.left - ins.right;
-    height = height - 2 * vgap - ins.top - ins.bottom;
+	int x = ins.left + hgap;
+	int y = ins.top + vgap;
+	width = width - 2 * hgap - ins.left - ins.right;
+	height = height - 2 * vgap - ins.top - ins.bottom;
 
-    for (int i = 0; i < num; ++i)
-      comps[i].setBounds (x, y, width, height);
+	for (int i = 0; i < num; ++i)
+	  comps[i].setBounds (x, y, width, height);
+      }
   }
 
   /** Get the maximum layout size of the container.
@@ -205,7 +210,7 @@ public class CardLayout implements LayoutManager2, Serializable
    */
   public void next (Container parent)
   {
-    gotoComponent (parent, NEXT, null);
+    gotoComponent (parent, NEXT);
   }
 
   /** Get the preferred layout size of the container.
@@ -223,7 +228,7 @@ public class CardLayout implements LayoutManager2, Serializable
    */
   public void previous (Container parent)
   {
-    gotoComponent (parent, PREV, null);
+    gotoComponent (parent, PREV);
   }
 
   /** Remove the indicated component from this layout manager.
@@ -268,7 +273,21 @@ public class CardLayout implements LayoutManager2, Serializable
   {
     Object target = tab.get (name);
     if (target != null)
-      gotoComponent (parent, NONE, (Component) target);
+      {
+	int num = parent.ncomponents;
+	// This is more efficient than calling getComponents().
+	Component[] comps = parent.component;
+	for (int i = 0; i < num; ++i)
+	  {
+	    if (comps[i].isVisible())
+	      {
+		if (target == comps[i])
+		  return;
+		comps[i].setVisible (false);
+	      }
+	  }
+	((Component) target).setVisible (true);
+      }
   }
 
   /**
@@ -281,95 +300,93 @@ public class CardLayout implements LayoutManager2, Serializable
     return getClass ().getName () + "[" + hgap + "," + vgap + "]";
   }
 
-  // This implements first(), last(), next(), and previous().
-  private void gotoComponent (Container parent, int what,
-			      Component target)
+  /** This implements first(), last(), next(), and previous().
+   * @param parent The parent container
+   * @param what The type of goto: FIRST, LAST, NEXT or PREV
+   */
+  private void gotoComponent (Container parent, int what)
   {
-    int num = parent.ncomponents;
-    // This is more efficient than calling getComponents().
-    Component[] comps = parent.component;
-    int choice = -1;
-
-    if (what == FIRST)
-      choice = 0;
-    else if (what == LAST)
-      choice = num - 1;
-    else if (what >= 0)
-      choice = what;
-
-    for (int i = 0; i < num; ++i)
+    synchronized (parent.getTreeLock ())
       {
-	// If TARGET is set then we are looking for a specific
-	// component.
-	if (target != null)
+	int num = parent.ncomponents;
+	// This is more efficient than calling getComponents().
+	Component[] comps = parent.component;
+	int choice = -1;
+
+	if (what == FIRST)
+	  choice = 0;
+	else if (what == LAST)
+	  choice = num - 1;
+
+	for (int i = 0; i < num; ++i)
 	  {
-	    if (target == comps[i])
-	      choice = i;
+	    if (comps[i].isVisible ())
+	      {
+		if (what == NEXT)
+		  {
+		    choice = i + 1;
+		    if (choice == num)
+		      choice = 0;
+		  }
+		else if (what == PREV)
+		  {
+		    choice = i - 1;
+		    if (choice < 0)
+		      choice = num - 1;
+		  }
+		else if (choice == i)
+		  {
+		    // Do nothing if we're already looking at the right
+		    // component.
+		    return;
+		  }
+		comps[i].setVisible (false);
+ 
+		if (choice >= 0)
+		  break;
+	      }
 	  }
 
-	if (comps[i].isVisible ())
-	  {
-	    if (what == NEXT)
-	      {
-		choice = i + 1;
-		if (choice == num)
-		  choice = 0;
-	      }
-	    else if (what == PREV)
-	      {
-		choice = i - 1;
-		if (choice < 0)
-		  choice = num - 1;
-	      }
-	    else if (choice == i)
-	      {
-		// Do nothing if we're already looking at the right
-		// component.
-		return;
-	      }
-	    comps[i].setVisible (false);
-
-	    if (choice >= 0)
-	      break;
-	  }
+	if (choice >= 0 && choice < num)
+	  comps[choice].setVisible (true);
       }
-
-    if (choice >= 0 && choice < num)
-      comps[choice].setVisible (true);
   }
 
   // Compute the size according to WHAT.
   private Dimension getSize (Container parent, int what)
   {
-    int w = 0, h = 0, num = parent.ncomponents;
-    Component[] comps = parent.component;
-
-    for (int i = 0; i < num; ++i)
+    synchronized (parent.getTreeLock ())
       {
-	Dimension d;
+	int w = 0, h = 0, num = parent.ncomponents;
+	Component[] comps = parent.component;
 
-	if (what == MIN)
-	  d = comps[i].getMinimumSize ();
-	else if (what == MAX)
-	  d = comps[i].getMaximumSize ();
-	else
-	  d = comps[i].getPreferredSize ();
+	for (int i = 0; i < num; ++i)
+	  {
+	    Dimension d;
 
-	w = Math.max (d.width, w);
-	h = Math.max (d.height, h);
+	    if (what == MIN)
+	      d = comps[i].getMinimumSize ();
+	    else if (what == MAX)
+	      d = comps[i].getMaximumSize ();
+	    else
+	      d = comps[i].getPreferredSize ();
+
+	    w = Math.max (d.width, w);
+	    h = Math.max (d.height, h);
+	  }
+
+	Insets i = parent.getInsets ();
+	w += 2 * hgap + i.right + i.left;
+	h += 2 * vgap + i.bottom + i.top;
+
+	// Handle overflow.
+	if (w < 0)
+	  w = Integer.MAX_VALUE;
+	if (h < 0)
+	  h = Integer.MAX_VALUE;
+
+	return new Dimension (w, h);
       }
-
-    Insets i = parent.getInsets ();
-    w += 2 * hgap + i.right + i.left;
-    h += 2 * vgap + i.bottom + i.top;
-
-    // Handle overflow.
-    if (w < 0)
-      w = Integer.MAX_VALUE;
-    if (h < 0)
-      h = Integer.MAX_VALUE;
-
-    return new Dimension (w, h);
   }
 
   /**
@@ -392,7 +409,6 @@ public class CardLayout implements LayoutManager2, Serializable
   private int LAST = 1;
   private int NEXT = 2;
   private int PREV = 3;
-  private int NONE = 4;
 
   // These constants are used by the private getSize method.
   private int MIN = 0;

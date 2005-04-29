@@ -21,7 +21,7 @@
  *
  * Author: Dave Lemke, Network Computing Devices Inc
  */
-/* $XFree86: xc/lib/font/Speedo/spfont.c,v 3.12 2001/12/14 19:56:41 dawes Exp $ */
+/* $XFree86: xc/lib/font/Speedo/spfont.c,v 3.13 2003/05/27 22:26:44 tsi Exp $ */
 
 /*
 
@@ -106,7 +106,9 @@ sp_get_glyphs(
     unsigned int r;
     CharInfoPtr encoding;
     CharInfoPtr pDefault;
+#ifdef notyet
     int         itemSize;
+#endif
     int         err = Successful;
 
     spf = (SpeedoFontPtr) pFont->fontPrivate;
@@ -119,12 +121,12 @@ sp_get_glyphs(
 
     /* XXX - this should be much smarter */
     /* make sure the glyphs are there */
+#ifdef notyet
     if (charEncoding == Linear8Bit || charEncoding == TwoD8Bit)
 	itemSize = 1;
     else
 	itemSize = 2;
 
-#ifdef notyet
     if (!fsd->complete)
 	err = fs_load_glyphs(NULL, pFont, count, itemSize, chars);
 #endif

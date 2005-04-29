@@ -364,14 +364,17 @@ extern int target_flags;
   /* APPLE LOCAL AltiVec */\
   {"vrsave",		- MASK_NO_VRSAVE, ""},				\
   {"no-vrsave",		MASK_NO_VRSAVE, ""},				\
-  /* APPLE LOCAL dynamic-no-pic  */\
+  /* APPLE LOCAL dynamic-no-pic  */					\
   {"dynamic-no-pic",	MASK_MACHO_DYNAMIC_NO_PIC,			\
 	N_("Generate code suitable for executables (NOT shared libs)")},\
   {"no-dynamic-no-pic",	-MASK_MACHO_DYNAMIC_NO_PIC, ""},		\
-  /* APPLE LOCAL long-branch  */						\
+  /* APPLE LOCAL long-branch  */					\
   {"long-branch",	MASK_LONG_BRANCH,				\
 	N_("Generate 32-bit call addresses (range > 64M)")},		\
   {"no-long-branch",	-MASK_LONG_BRANCH, ""},				\
+  {"longcall",	MASK_LONG_BRANCH,					\
+	N_("Generate 32-bit call addresses (range > 64M)")},		\
+  {"no-longcall",	-MASK_LONG_BRANCH, ""},				\
   SUBTARGET_SWITCHES							\
   {"",			TARGET_DEFAULT | MASK_SCHED_PROLOG,		\
 			""}}
@@ -976,6 +979,8 @@ extern int rs6000_default_long_calls;
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD) \
    : ALTIVEC_REGNO_P (REGNO)						\
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD) \
+   : (GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT) \
+   ? ((GET_MODE_SIZE (MODE) + (TARGET_32BIT ? 4 : 8) - 1) / (TARGET_32BIT ? 4 : 8)) \
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* APPLE LOCAL begin 64bit registers, ABI32bit */
@@ -1114,8 +1119,7 @@ extern int rs6000_default_long_calls;
       = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;	\
   if (DEFAULT_ABI == ABI_DARWIN						\
       && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
-    global_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]				\
-      = fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
+      fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
       = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
       = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;	\
   if (TARGET_ALTIVEC)                                                   \
@@ -1688,11 +1692,24 @@ typedef struct rs6000_stack {
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 
+/* APPLE LOCAL 64bit registers, ABI32bit */
 #define LIBCALL_VALUE(MODE)						\
-  gen_rtx_REG (MODE, ALTIVEC_VECTOR_MODE (MODE) ? ALTIVEC_ARG_RETURN	\
+  ((MODE == DImode && TARGET_POWERPC64 && TARGET_32BIT)			\
+   ? gen_rtx (PARALLEL, DImode,						\
+	      gen_rtvec (2,						\
+			 gen_rtx_EXPR_LIST (VOIDmode,			\
+				 gen_rtx_REG (SImode,			\
+					      GP_ARG_RETURN),		\
+					      const0_rtx),		\
+			 gen_rtx_EXPR_LIST (VOIDmode,			\
+				 gen_rtx_REG (SImode,			\
+					      GP_ARG_RETURN + 1),	\
+					      gen_rtx_CONST_INT		\
+						(SImode, 4))))		\
+  : gen_rtx_REG (MODE, ALTIVEC_VECTOR_MODE (MODE) ? ALTIVEC_ARG_RETURN	\
 		     : GET_MODE_CLASS (MODE) == MODE_FLOAT		\
 		     && TARGET_HARD_FLOAT && TARGET_FPRS		\
-		     ? FP_ARG_RETURN : GP_ARG_RETURN)
+		     ? FP_ARG_RETURN : GP_ARG_RETURN))
 
 /* The AIX ABI for the RS/6000 specifies that all structures are
    returned in memory.  The Darwin ABI does the same.  The SVR4 ABI
@@ -2248,11 +2265,11 @@ typedef struct rs6000_args
       || (GET_CODE (XEXP (X, 1)) == CONST_INT			\
 	  && SPE_CONST_OFFSET_OK (INTVAL (XEXP (X, 1)))))	\
   && (((MODE) != DFmode && (MODE) != DImode)			\
-      || (TARGET_32BIT						\
+      || ((TARGET_32BIT && !TARGET_POWERPC64)			\
 	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 4) 	\
 	  : ! (INTVAL (XEXP (X, 1)) & 3)))			\
   && (((MODE) != TFmode && (MODE) != TImode)			\
-      || (TARGET_32BIT						\
+      || ((TARGET_32BIT && !TARGET_POWERPC64)			\
 	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 12) 	\
 	  : (LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 8) 	\
 	     && ! (INTVAL (XEXP (X, 1)) & 3)))))

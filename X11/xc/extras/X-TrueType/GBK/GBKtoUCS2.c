@@ -34,12 +34,14 @@ Notice===
    This table data derived from Unicode, Inc.
    (ftp://ftp.unicode.org/Public/MAPPING/EASTASIA/UNIHAN.TXT)
  */
-/* $XFree86: xc/extras/X-TrueType/GBK/GBKtoUCS2.c,v 1.1 2001/03/06 18:03:13 dawes Exp $ */
+/* $XFree86: xc/extras/X-TrueType/GBK/GBKtoUCS2.c,v 1.2 2003/10/22 16:25:34 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"

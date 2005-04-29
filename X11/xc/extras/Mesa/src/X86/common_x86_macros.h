@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Gareth Hughes <gareth@valinux.com>
+ *    Gareth Hughes
  */
 
 #ifndef __COMMON_X86_MACROS_H__
@@ -70,9 +70,9 @@ extern void _ASMAPI _mesa_##pfx##_transform_points##sz##_3d( XFORM_ARGS );
 
 #define NORM_ARGS	const GLmatrix *mat,				\
 			GLfloat scale,					\
-			const GLvector3f *in,				\
+			const GLvector4f *in,				\
 			const GLfloat *lengths,				\
-			GLvector3f *dest
+			GLvector4f *dest
 
 #define DECLARE_NORM_GROUP( pfx ) \
 extern void _ASMAPI _mesa_##pfx##_rescale_normals( NORM_ARGS );				\

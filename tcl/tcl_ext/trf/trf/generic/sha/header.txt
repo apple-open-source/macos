@@ -1,0 +1,5 @@
+# The tool that generated this appeared in the comp.sources.unix newsgroup;
+# send mail to comp-sources-unix@uunet.uu.net if you want that tool.
+# Contents:  sha.c sha.h sha_driver.c sha.good.outputs Makefile
+#   appgen.c
+# Wrapped by uweh@taylor.src.umd.edu on Sat Nov  5 17:12:49 1994

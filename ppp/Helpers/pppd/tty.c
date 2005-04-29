@@ -23,26 +23,79 @@
 /*
  * tty.c - code for handling serial ports in pppd.
  *
- * Copyright (C) 2000 Paul Mackerras.
- * All rights reserved.
+ * Copyright (C) 2000-2002 Paul Mackerras. All rights reserved.
  *
- * Portions Copyright (c) 1989 Carnegie Mellon University.
- * All rights reserved.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Carnegie Mellon University.  The name of the
- * University may not be used to endorse or promote products derived
- * from this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Paul Mackerras
+ *     <paulus@samba.org>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * Portions derived from main.c, which is:
+ *
+ * Copyright (c) 1984-2000 Carnegie Mellon University. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: tty.c,v 1.9 2003/08/14 00:00:30 callie Exp $"
+#define RCSID	"$Id: tty.c,v 1.13 2005/03/11 05:48:32 lindak Exp $"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -126,6 +179,9 @@ bool	lockflag = 0;		/* Create lock file to lock the serial dev */
 char	*initializer = NULL;	/* Script to initialize physical link */
 char	*connect_script = NULL;	/* Script to establish physical link */
 #ifdef __APPLE__
+int		clocal = 0;			/* is clocal flag set ? */
+uid_t	connector_uid = -1;	/* uid for connect script */
+uid_t	disconnector_uid = -1;	/*uid for disconnect script */
 char	*terminal_script = NULL;/* Script to etablish connection once modem is connected */
 char	*altconnect_script = NULL;/* alternate script to establish physical link */
 int 	pty_delay = 0;		/* timeout to wait for the pty command */
@@ -558,6 +614,9 @@ int connect_tty()
 			status = EXIT_FATAL_ERROR;
 			return -1;
 		}
+#ifdef __APPLE__
+		clocal = 1;
+#endif
 		set_up_tty(pty_slave, 1);
 	}
 
@@ -616,7 +675,7 @@ int connect_tty()
 			if (ttyfd >= 0)
 #ifdef __APPLE__
                             // try to acquire the port exclusively
-                            if (ioctl(ttyfd, TIOCEXCL, 0) != 0)
+                            if (ioctl(ttyfd, TIOCEXCL, 0) < 0)
                                 err = errno;
                             else
 #endif
@@ -642,6 +701,11 @@ int connect_tty()
 		    || fcntl(ttyfd, F_SETFL, fdflags & ~O_NONBLOCK) < 0)
 			warning("Couldn't reset non-blocking mode on device: %m");
 
+#ifndef __linux__
+		/*
+		 * Linux 2.4 and above blocks normal writes to the tty
+		 * when it is in PPP line discipline, so this isn't needed.
+		 */
 		/*
 		 * Do the equivalent of `mesg n' to stop broadcast messages.
 		 */
@@ -650,6 +714,7 @@ int connect_tty()
 			warning("Couldn't restrict write permissions to %s: %m", devnam);
 		} else
 			tty_mode = statbuf.st_mode;
+#endif /* __linux__ */
 
 		/*
 		 * Set line speed, flow control, etc.
@@ -661,6 +726,10 @@ int connect_tty()
 		 * successfully to the modem with CLOCAL clear and CD down,
 		 * we could clear CLOCAL at this point.
 		 */
+#ifdef __APPLE__
+	clocal = ((connector != NULL && connector[0] != 0)
+				   || initializer != NULL);
+#endif
 		set_up_tty(ttyfd, ((connector != NULL && connector[0] != 0)
 				   || initializer != NULL));
 	}
@@ -680,7 +749,12 @@ int connect_tty()
 
 			if (pipe(ipipe) < 0 || pipe(opipe) < 0)
 				fatal("Couldn't create pipes for record option: %m");
-			ok = device_script(ptycommand, opipe[0], ipipe[1], 1) == 0
+
+			/* don't leak these to the ptycommand */
+			(void) fcntl(ipipe[0], F_SETFD, FD_CLOEXEC);
+			(void) fcntl(opipe[1], F_SETFD, FD_CLOEXEC);
+
+			ok = device_script(ptycommand, opipe[0], ipipe[1], 1, -1) == 0
 				&& start_charshunt(ipipe[0], opipe[1]);
 			close(ipipe[0]);
 			close(ipipe[1]);
@@ -692,7 +766,7 @@ int connect_tty()
 #ifdef __APPLE__
                         notify(connectscript_started_notify, 0);
 #endif                                
-			if (device_script(ptycommand, pty_master, pty_master, 1) < 0)
+			if (device_script(ptycommand, pty_master, pty_master, 1, -1) < 0)
 				return -1;
 			ttyfd = pty_slave;
 			close(pty_master);
@@ -733,7 +807,7 @@ int connect_tty()
 			if (kill_link) 	/* check if SIGTERM arrived before we had time to start the script */
                             return -1;
                         notify(initscript_started_notify, 0);
-			if (device_script(initializer, ttyfd, ttyfd, 0) != 0) {
+			if (device_script(initializer, ttyfd, ttyfd, 0, -1) != 0) {
 #else
 			if (device_script(initializer, ttyfd, ttyfd, 0) < 0) {
 #endif
@@ -756,15 +830,15 @@ int connect_tty()
 			if (kill_link) 	/* check if SIGTERM arrived before we had time to start the script */
                             return -1;
                         notify(connectscript_started_notify, 0);
-			if ((*errorcode = device_script(connector, ttyfd, ttyfd, 0)) != 0) {
+			if ((*errorcode = device_script(connector, ttyfd, ttyfd, 0, connector_uid)) != 0) {
 #else
 			if (device_script(connector, ttyfd, ttyfd, 0) < 0) {
 #endif
 #ifdef __APPLE__
-                                if (cancelcode != -1 && *errorcode == cancelcode) {
-                                    status = EXIT_USER_REQUEST;
-                                    return -2;
-                                } 
+				if (cancelcode != -1 && *errorcode == cancelcode) {
+					status = EXIT_USER_REQUEST;
+					return -2;
+				} 
 #endif                          
 				error("Connect script failed");
 				status = EXIT_CONNECT_FAILED;
@@ -798,7 +872,20 @@ int connect_tty()
 		   clear CLOCAL if modem option */
 		if (real_ttyfd != -1)
 #ifdef __APPLE__
-			set_up_tty_local(real_ttyfd, 0);
+		{
+			int state = 0;
+
+			/* 
+				Check for CARRIER. Some devices don't report it.
+				If TIOCM_CD flag is not set, don't drop CLOCAL.
+			*/
+			if (ioctl(real_ttyfd, TIOCMGET, &state) != -1
+				&& (state & TIOCM_CD)) {
+				clocal = 0;
+				set_up_tty_local(real_ttyfd, 0);
+			}
+		}
+			
 #else
 			set_up_tty(real_ttyfd, 0);
 #endif
@@ -810,6 +897,10 @@ int connect_tty()
 	/* reopen tty if necessary to wait for carrier */
 	if (connector == NULL && modem && devnam[0] != 0) {
 		int i;
+#ifdef __APPLE__
+		// release the lock on the port
+		ioctl(ttyfd, TIOCNXCL, 0);
+#endif
 		for (;;) {
 			if ((i = open(devnam, O_RDWR)) >= 0)
 				break;
@@ -820,6 +911,15 @@ int connect_tty()
 			if (!persist || errno != EINTR || hungup || kill_link)
 				return -1;
 		}
+#ifdef __APPLE__
+		// try to reacquire the port exclusively
+		if (ioctl(i, TIOCEXCL, 0) < 0) {
+			error("Failed to reacquire the port %s exclusively: %m", devnam);
+			status = EXIT_OPEN_FAILED;
+			close(i);
+			return -1;
+		}
+#endif
 		close(i);
 	}
 
@@ -837,7 +937,7 @@ int connect_tty()
                 if (terminal_window_hook)
                     *errorcode = (*terminal_window_hook)(terminal_script, ttyfd, ttyfd);
                 else
-                    *errorcode = device_script(terminal_script, ttyfd, ttyfd, 0);
+                    *errorcode = device_script(terminal_script, ttyfd, ttyfd, 0, -1);
 
                 if (*errorcode) {
                     if (cancelcode != -1 && *errorcode == cancelcode) {
@@ -859,7 +959,7 @@ int connect_tty()
 	/* run welcome script, if any */
 	if (welcomer && welcomer[0]) {
 #ifdef __APPLE__
-		if (device_script(welcomer, ttyfd, ttyfd, 0) != 0)
+		if (device_script(welcomer, ttyfd, ttyfd, 0, -1) != 0)
 #else
 		if (device_script(welcomer, ttyfd, ttyfd, 0) < 0)
 #endif
@@ -885,12 +985,13 @@ void disconnect_tty()
 		return;
 	if (real_ttyfd >= 0)
 #ifdef __APPLE__
+		clocal = 1;
 		set_up_tty_local(real_ttyfd, 1);
 #else
 		set_up_tty(real_ttyfd, 1);
 #endif
 #ifdef __APPLE__
-	if (device_script(disconnect_script, ttyfd, ttyfd, 0) != 0) {
+	if (device_script(disconnect_script, ttyfd, ttyfd, 0, disconnector_uid) != 0) {
 #else
 	if (device_script(disconnect_script, ttyfd, ttyfd, 0) < 0) {
 #endif
@@ -956,12 +1057,14 @@ finish_tty()
 
 	restore_tty(real_ttyfd);
 
+#ifndef __linux__
 	if (tty_mode != (mode_t) -1) {
 		if (fchmod(real_ttyfd, tty_mode) != 0) {
 			/* XXX if devnam is a symlink, this will change the link */
 			chmod(devnam, tty_mode);
 		}
 	}
+#endif /* __linux__ */
 
 	close(real_ttyfd);
 	real_ttyfd = -1;
@@ -1043,7 +1146,7 @@ start_charshunt(ifd, ofd)
 {
     int cpid;
 
-    cpid = fork();
+    cpid = safe_fork();
     if (cpid == -1) {
 	error("Can't fork process for character shunt: %m");
 	return 0;
@@ -1055,7 +1158,9 @@ start_charshunt(ifd, ofd)
 	if (getuid() != uid)
 	    fatal("setuid failed");
 	setgid(getgid());
+#ifdef __APPLE__
 	sys_close();
+#endif
 	if (!nodetach)
 	    log_to_fd = -1;
 	charshunt(ifd, ofd, record_file);
@@ -1152,6 +1257,13 @@ charshunt(ifd, ofd, record_file)
 #ifdef SIGXFSZ
     signal(SIGXFSZ, SIG_DFL);
 #endif
+
+    /*
+     * Check that the fds won't overrun the fd_sets
+     */
+    if (ifd >= FD_SETSIZE || ofd >= FD_SETSIZE || pty_master >= FD_SETSIZE)
+	fatal("internal error: file descriptor too large (%d, %d, %d)",
+	      ifd, ofd, pty_master);
 
     /*
      * Open the record file if required.
@@ -1432,11 +1544,11 @@ sighup_tty(arg, sig)
         // but should probably disconnect for any error
     }
     
-    if ((state & TIOCM_CD) == 0) {
+    if (!clocal && (state & TIOCM_CD) == 0) {
         notice("Modem hangup");
         hungup = 1;
         // it's OK to get a hangup during terminate phase
-        if (phase != PHASE_TERMINATE) {
+        if (phase != PHASE_TERMINATE && phase != PHASE_DISCONNECT) {
             status = EXIT_HANGUP;
         }
         lcp_lowerdown(0);	/* serial link is no longer available */

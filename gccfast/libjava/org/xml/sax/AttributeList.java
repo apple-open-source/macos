@@ -1,7 +1,7 @@
 // SAX Attribute List Interface.
 // http://www.saxproject.org
 // No warranty; no copyright -- use this as you will.
-// $Id: AttributeList.java,v 1.4 2003/01/22 06:04:32 gkeating Exp $
+// $Id: AttributeList.java,v 1.1.1.2 2003/01/21 21:21:04 gkeating Exp $
 
 package org.xml.sax;
 

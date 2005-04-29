@@ -1,7 +1,7 @@
 /*
  * CCIContext.c
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Context.cp,v 1.15 2003/03/17 20:47:23 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Context.cp,v 1.16 2004/10/04 17:41:26 lxs Exp $
  */
 
 #include "AbstractFactory.h"
@@ -427,6 +427,7 @@ cc_int32 CCEContext::Compare (
 	
 	CCIAssert_ ((result == ccNoError)
 	            || (result == ccErrInvalidContext)
+	            || (result == ccErrContextNotFound)
 	            || (result == ccErrNoMem)
 	            || (result == ccErrBadParam)
 	            || (result == ccErrServerUnavailable));

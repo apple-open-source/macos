@@ -377,7 +377,7 @@ IOReturn IOFWCompareAndSwapCommand::execute()
     }
     else
 	{
-        IOLog("IOFWCompareAndSwapCommand::execute: Out of tLabels?\n");
+//        IOLog("IOFWCompareAndSwapCommand::execute: Out of tLabels?\n");
         result = kIOFireWireOutOfTLabels;
     }
 
@@ -424,7 +424,7 @@ bool IOFWCompareAndSwapCommand::locked( UInt32 * oldVal )
 void IOFWCompareAndSwapCommand::gotPacket( int rcode, const void* data, int size )
 {
 	setResponseCode( rcode );
-
+	
     int i;
     
 	if( rcode != kFWResponseComplete ) 

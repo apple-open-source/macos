@@ -1,21 +1,21 @@
 /* Subroutine for function pointer canonicalization on PA-RISC with ELF32.
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by John David Anglin (dave.anglin@nrc.ca).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -57,8 +57,7 @@ unsigned int __canonicalize_funcptr_for_compare (fptr_t)
       __attribute__ ((visibility ("hidden")));
 
 unsigned int
-__canonicalize_funcptr_for_compare (fptr)
-     fptr_t fptr;
+__canonicalize_funcptr_for_compare (fptr_t fptr)
 {
   static unsigned int fixup_plabel[2];
   static fixup_t fixup;
@@ -94,7 +93,7 @@ __canonicalize_funcptr_for_compare (fptr)
       /* Find the first "bl" branch in the offset search list.  This is a
 	 call to fixup or a magic branch to fixup at the beginning of the
 	 trampoline template.  The fixup function does the actual runtime
-	 resolution of function decriptors.  We only look for "bl" branches
+	 resolution of function descriptors.  We only look for "bl" branches
 	 with a 17-bit pc-relative displacement.  */
       for (i = 0; i < NOFFSETS; i++)
 	{

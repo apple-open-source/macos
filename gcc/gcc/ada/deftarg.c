@@ -6,8 +6,7 @@
  *                                                                          *
  *                                  Body                                    *
  *                                                                          *
- *                                                                          *
- *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -34,6 +33,8 @@
 /* Include a default definition for TARGET_FLAGS for gnatpsta.  */
 
 #include "config.h"
-#define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
+#include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 int target_flags = TARGET_DEFAULT;

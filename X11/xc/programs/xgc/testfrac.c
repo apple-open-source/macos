@@ -4,7 +4,7 @@
 ** How to make a widget to choose the fraction of tests to be run.
 **
 */
-/* $XFree86: xc/programs/xgc/testfrac.c,v 1.3 2000/02/17 14:00:37 dawes Exp $ */
+/* $XFree86: xc/programs/xgc/testfrac.c,v 1.5 2003/09/13 21:33:11 dawes Exp $ */
 
 #include <stdio.h>
 #include <X11/Intrinsic.h>
@@ -13,10 +13,6 @@
 #include <X11/Xaw/Label.h>
 #include <X11/Xaw/Scrollbar.h>
 #include "xgc.h"
-
-extern void interpret();
-
-extern XtAppContext appcontext;
 
 #define SCROLLBAR_LENGTH 125
 #define SLIDER_LENGTH 0.2	/* proportion of scrollbar taken up
@@ -39,10 +35,7 @@ static int   oldpercent = -1;	/* so we only update when the slider has
 
 /*ARGSUSED*/
 static void
-slider_jump(w, data, position)
-     Widget w;
-     caddr_t data;
-     caddr_t position;
+slider_jump(Widget w, caddr_t data, caddr_t position)
 {
   static Arg percentargs[] = {
     {XtNlabel,   (XtArgVal) NULL}
@@ -74,7 +67,7 @@ slider_jump(w, data, position)
 
   /* Update the label widget */
 
-  sprintf(snewpercent,"%d",(int)(newpercent*100));
+  snprintf(snewpercent, sizeof snewpercent, "%d",(int)(newpercent*100));
   percentargs[0].value = (XtArgVal) snewpercent;
   XtSetValues(percent, percentargs, XtNumber(percentargs));
 }
@@ -87,26 +80,20 @@ slider_jump(w, data, position)
 
 /*ARGSUSED*/
 static void
-slider_scroll(w, data, position)
-     Widget w;
-     caddr_t data;
-     caddr_t position;
-{}
+slider_scroll(Widget w, caddr_t data, caddr_t position)
+{
+}
 
 /*ARGSUSED*/
 static void
-update(w,event,params,num_params)
-     Widget w;
-     XEvent *event;
-     String *params;
-     int *num_params;
+update(Widget w, XEvent *event, String *params, int *num_params)
 {
   char buf[80];
   int newpercent;
 
   newpercent = (int)(fraction * 100.0);
   if (newpercent != oldpercent) {
-    sprintf(buf, "percent %d\n", (int)(fraction * 100.0));
+    snprintf(buf, sizeof buf, "percent %d\n", (int)(fraction * 100.0));
     interpret(buf);
     oldpercent = newpercent;
   }
@@ -125,8 +112,7 @@ update(w,event,params,num_params)
 */
 
 void
-create_testfrac_choice(w)
-     Widget w;
+create_testfrac_choice(Widget w)
 {
   static XtCallbackRec jumpcallbacks[] = {
     {(XtCallbackProc) slider_jump, NULL},
@@ -197,8 +183,7 @@ create_testfrac_choice(w)
 }
 
 void
-update_slider(newpercent)
-     int newpercent;
+update_slider(int newpercent)
 {
   fraction = (float) newpercent / 100.0;
   XawScrollbarSetThumb(slider, fraction / (1.0-SLIDER_LENGTH), SLIDER_LENGTH);

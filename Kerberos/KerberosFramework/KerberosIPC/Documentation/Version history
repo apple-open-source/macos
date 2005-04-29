@@ -1,9 +1,57 @@
 ========================================================================
 KerberosIPC Version History
 ========================================================================
-Current version: 1.1fc2
-Date:            August 22, 2003
+Current version: 1.2fc3
+Date:            January 28, 2005
 Author:          lxs@mit.edu
+========================================================================
+
+KerberosIPC 1.2
+Released with KfM 5.5
+
+========================================================================
+
+	KerberosIPC 1.2fc3
+	January 28, 2005
+
+	[RT 2895] clients should not register mach servers in the root bootstrap
+	(fixed bug in original patch for this bug)
+	
+	========================================================================
+
+	KerberosIPC 1.2fc2
+	January 23, 2005
+
+	[RT 2895] clients should not register mach servers in the root bootstrap
+	
+	========================================================================
+
+	KerberosIPC 1.2fc1
+	December 6, 2004
+
+	Moved to final candidate.
+	
+	========================================================================
+
+	KerberosIPC 1.2b2
+	August 20, 2004
+
+	[RT 2669] CCacheServer and KerberosAgent should quit on logout
+	[RT 2670] Clients should register on-demand servers if they get unregistered
+	[RT 2671] Login session API should return session attributes, not prompt type
+	
+	========================================================================
+
+	KerberosIPC 1.2b1
+	March 18, 2004
+
+	[RT 1661] KfM should use Panther mach init per user mechanism
+	
+	========================================================================
+
+KerberosIPC 1.1
+September 18, 2003
+
 ========================================================================
 
 	KerberosIPC 1.1fc2

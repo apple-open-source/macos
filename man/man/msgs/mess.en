@@ -1,0 +1,170 @@
+BAD_CONFIG_FILE
+	"unable to make sense of the file %s\n"
+CONFIG_OPEN_ERROR
+	"Warning: cannot open configuration file %s\n"
+PARSE_ERROR_IN_CONFIG
+	"Error parsing config file\n"
+INCOMPAT
+	"incompatible options %s and %s\n"
+NO_ALTERNATE
+	"Sorry - no support for alternate systems compiled in\n"
+NO_COMPRESS
+	"Man was compiled with automatic cat page compression,\n\
+but the configuration file does not define COMPRESS.\n"
+NO_NAME_FROM_SECTION
+	"What manual page do you want from section %s?\n"
+NO_NAME_NO_SECTION
+	"What manual page do you want?\n"
+NO_SUCH_ENTRY_IN_SECTION
+	"No entry for %s in section %s of the manual\n"
+NO_SUCH_ENTRY
+	"No manual entry for %s\n"
+PAGER_IS
+	"\nusing %s as pager\n"
+SYSTEM_FAILED
+	"Error executing formatting or display command.\n\
+System command %s exited with status %d.\n"
+VERSION
+	"%s, version %s\n\n"
+OUT_OF_MEMORY
+	"Out of memory - can't malloc %d bytes\n"
+ROFF_CMD_FROM_FILE_ERROR
+	"Error parsing *roff command from file %s\n"
+MANROFFSEQ_ERROR
+	"Error parsing MANROFFSEQ.  Using system defaults.\n"
+ROFF_CMD_FROM_COMMANDLINE_ERROR
+	"Error parsing *roff command from command line.\n"
+UNRECOGNIZED_LINE
+	"Unrecognized line in config file (ignored)\n%s\n"
+GETVAL_ERROR
+	"man-config.c: internal error: string %s not found\n"
+FOUND_MANDIR
+	"found man directory %s\n"
+FOUND_MAP
+	"found manpath map %s --> %s\n"
+FOUND_CATDIR
+	"corresponding catdir is %s\n"
+LINE_TOO_LONG
+	"Line too long in config file\n"
+SECTION
+	"\nsection: %s\n"
+UNLINKED
+	"unlinked %s\n"
+GLOBBING
+	"globbing %s\n"
+EXPANSION_FAILED
+	"Attempt [%s] to expand man page failed\n"
+OPEN_ERROR
+	"Cannot open man page %s\n"
+READ_ERROR
+	"Error reading man page %s\n"
+FOUND_EQN
+	"found eqn(1) directive\n"
+FOUND_GRAP
+	"found grap(1) directive\n"
+FOUND_PIC
+	"found pic(1) directive\n"
+FOUND_TBL
+	"found tbl(1) directive\n"
+FOUND_VGRIND
+	"found vgrind(1) directive\n"
+FOUND_REFER
+	"found refer(1) directive\n"
+ROFF_FROM_COMMAND_LINE
+	"parsing directive from command line\n"
+ROFF_FROM_FILE
+	"parsing directive from file %s\n"
+ROFF_FROM_ENV
+	"parsing directive from environment\n"
+USING_DEFAULT
+	"using default preprocessor sequence\n"
+PLEASE_WAIT
+	"Formatting page, please wait...\n"
+CHANGED_MODE
+	"changed mode of %s to %o\n"
+CAT_OPEN_ERROR
+	"Couldn't open %s for writing.\n"
+PROPOSED_CATFILE
+	"will try to write %s if needed\n"
+IS_NEWER_RESULT
+	"status from is_newer() = %d\n"
+TRYING_SECTION
+	"trying section %s\n"
+SEARCHING
+	"\nsearching in %s\n"
+ALREADY_IN_MANPATH
+	"but %s is already in the manpath\n"
+CANNOT_STAT
+	"Warning: cannot stat file %s!\n"
+IS_NO_DIR
+	"Warning: %s isn't a directory!\n"
+ADDING_TO_MANPATH
+	"adding %s to manpath\n"
+PATH_DIR
+	"\npath directory %s "
+IS_IN_CONFIG
+	"is in the config file\n"
+IS_NOT_IN_CONFIG
+	"is not in the config file\n"
+MAN_NEARBY
+	"but there is a man directory nearby\n"
+NO_MAN_NEARBY
+	"and we found no man directory nearby\n"
+ADDING_MANDIRS
+	"\nadding mandatory man directories\n\n"
+CATNAME_IS
+	"cat_name in convert_to_cat () is: %s\n"
+NO_EXEC
+	"\nnot executing command:\n  %s\n"
+USAGE1
+	"usage: %s [-adfhktwW] [section] [-M path] [-P pager] [-S list]\n\t"
+USAGE2
+	"[-m system] "
+USAGE3
+	"[-p string] name ...\n\n"
+USAGE4
+	"  a : find all matching entries\n\
+  c : do not use cat file\n\
+  d : print gobs of debugging information\n\
+  D : as for -d, but also display the pages\n\
+  f : same as whatis(1)\n\
+  h : print this help message\n\
+  k : same as apropos(1)\n\
+  K : search for a string in all pages\n"
+USAGE5
+	"  t : use troff to format pages for printing\n"
+USAGE6
+	"\
+  w : print location of man page(s) that would be displayed\n\
+      (if no name given: print directories that would be searched)\n\
+  W : as for -w, but display filenames only\n\n\
+  C file   : use `file' as configuration file\n\
+  M path   : set search path for manual pages to `path'\n\
+  P pager  : use program `pager' to display pages\n\
+  S list   : colon separated section list\n"
+USAGE7
+	"  m system : search for alternate system's man pages\n"
+USAGE8
+	"  p string : string tells which preprocessors to run\n\
+               e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
+               g - grap(1)     r - refer(1)  v - vgrind(1)\n"
+USER_CANNOT_OPEN_CAT
+	"and the real user cannot open the cat file either\n"
+USER_CAN_OPEN_CAT
+	"but the real user can open the cat file\n"
+CANNOT_FORK
+	"failed to fork off the command _%s_\n"
+WAIT_FAILED
+	"error while waiting for child _%s_\n"
+GOT_WRONG_PID
+	"very strange ..., got wrong pid while waiting for my child\n"
+CHILD_TERMINATED_ABNORMALLY
+	"fatal error: the command _%s_ terminated abnormally\n"
+IDENTICAL
+	"Man page %s is identical to %s\n"
+MAN_FOUND
+	"Found the man page(s):\n"
+NO_TROFF
+	"error: no TROFF command specified in %s\n"
+NO_CAT_FOR_NONSTD_LL
+	"no cat page stored because of nonstandard line length\n"

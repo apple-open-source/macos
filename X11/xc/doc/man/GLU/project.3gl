@@ -1,3 +1,4 @@
+.\" $XFree86: xc/doc/man/GLU/project.3gl,v 1.4 2003/10/22 20:37:53 tsi Exp $
 '\" e
 '\"! eqn | mmdoc
 '\"macro stdmacro
@@ -75,7 +76,8 @@ The window coordinates are then computed as follows:
 .EN
 .sp
 .EQ
-"winY" ~=~ "view" (1) ~+~ "view" (3)~*~(v sup prime (1) ~+~ 1)~/~2 .EN
+"winY" ~=~ "view" (1) ~+~ "view" (3)~*~(v sup prime (1) ~+~ 1)~/~2
+.EN
 .sp
 .EQ
 "winZ" ~=~ (v sup prime (2)  ~+~ 1)~/~ 2

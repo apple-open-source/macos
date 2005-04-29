@@ -1,4 +1,3 @@
-.PU
 .TH GZIP 1 local
 .SH NAME
 gzip, gunzip, zcat \- compress or expand files
@@ -122,7 +121,13 @@ Files created by
 .I zip
 can be uncompressed by gzip only if they have a single member compressed
 with the 'deflation' method. This feature is only intended to help
-conversion of tar.zip files to the tar.gz format. To extract zip files
+conversion of tar.zip files to the tar.gz format.  To extract a
+.I zip
+file with a single member, use a command like
+.I "gunzip <foo.zip"
+or
+.IR "gunzip -S .zip foo.zip" .
+To extract zip files
 with several members, use
 .I unzip
 instead of
@@ -145,7 +150,9 @@ standard input and writes the uncompressed data on standard output.
 will uncompress files that have the correct magic number whether
 they have a
 .B "\&.gz"
-suffix or not.
+suffix or not. In POSIX mode zcat will append
+.B ".Z"
+to all filenames that do not have that suffix.
 .PP
 .I Gzip
 uses the Lempel-Ziv algorithm used in
@@ -156,7 +163,7 @@ input and the distribution of common substrings.
 Typically, text such as source code or English
 is reduced by 60\-70%.
 Compression is generally much better than that achieved by
-LZW (as used in 
+LZW (as used in
 .IR compress ),
 Huffman coding (as used in
 .IR pack ),
@@ -171,6 +178,16 @@ number of used disk blocks almost never increases.
 .I gzip
 preserves the mode, ownership and timestamps of files when compressing
 or decompressing.
+.PP
+The
+.I gzip
+file format is specified in P. Deutsch, \s-1GZIP\s0 file format
+specification version 4.3, <ftp://ftp.isi.edu/in-notes/rfc1952.txt>,
+Internet RFC 1952 (May 1996).  The
+.I zip
+deflation format is specified in P. Deutsch, \s-1DEFLATE\s0 Compressed
+Data Format Specification version 1.3,
+<ftp://ftp.isi.edu/in-notes/rfc1951.txt>, Internet RFC 1951 (May 1996).
 
 .SH OPTIONS
 .TP
@@ -268,7 +285,7 @@ Suppress all warnings.
 .TP
 .B \-r --recursive
 Travel the directory structure recursively. If any of the file names
-specified on the command line are directories, 
+specified on the command line are directories,
 .I gzip
 will descend into the directory and compress all the files it finds there
 (or decompress them in the case of
@@ -322,6 +339,7 @@ will extract all members at once. For example:
       gzip -c file2 >> foo.gz
 
 Then
+
       gunzip -c foo
 
 is equivalent to
@@ -368,85 +386,75 @@ On Vax/VMS, the name of the environment variable is GZIP_OPT, to
 avoid a conflict with the symbol set for invocation of the program.
 .SH "SEE ALSO"
 znew(1), zcmp(1), zmore(1), zforce(1), gzexe(1), zip(1), unzip(1), compress(1),
-pack(1), compact(1)
+pack(1), compact(1), compat(5)
+.PP
+The
+.I gzip
+file format is specified in P. Deutsch, \s-1GZIP\s0 file format
+specification version 4.3,
+.BR <ftp://ftp.isi.edu/in-notes/rfc1952.txt> ,
+Internet RFC 1952 (May 1996).
+The
+.I zip
+deflation format is specified in P. Deutsch, \s-1DEFLATE\s0 Compressed
+Data Format Specification version 1.3,
+.BR <ftp://ftp.isi.edu/in-notes/rfc1951.txt> ,
+Internet RFC 1951 (May 1996).
 .SH "DIAGNOSTICS"
 Exit status is normally 0;
 if an error occurs, exit status is 1. If a warning occurs, exit status is 2.
-.PP
+.TP
 Usage: gzip [-cdfhlLnNrtvV19] [-S suffix] [file ...]
-.in +8
 Invalid options were specified on the command line.
-.in -8
-.IR file :
-not in gzip format
-.in +8
+.TP
+\fIfile\fP\^: not in gzip format
 The file specified to
 .I gunzip
 has not been compressed.
-.in -8
-.IR file:
-Corrupt input. Use zcat to recover some data.
-.in +8
+.TP
+\fIfile\fP\^: Corrupt input. Use zcat to recover some data.
 The compressed file has been damaged. The data up to the point of failure
 can be recovered using
-.in +8
-zcat file > recover
-.in -16
-.IR file :
-compressed with 
-.I xx
-bits, can only handle 
-.I yy
-bits
-.in +8
+
+      zcat \fIfile\fP > recover
+.TP
+\fIfile\fP\^: compressed with \fIxx\fP bits, can only handle \fIyy\fP bits
 .I File
 was compressed (using LZW) by a program that could deal with
-more 
+more
 .I bits
 than the decompress code on this machine.
 Recompress the file with gzip, which compresses better and uses
 less memory.
-.in -8
-.IR file :
-already has .gz suffix -- no change
-.in +8
+.TP
+\fIfile\fP\^: already has .gz suffix -- no change
 The file is assumed to be already compressed.
 Rename the file and try again.
-.in -8
-.I file
-already exists; do you wish to overwrite (y or n)?
-.in +8
+.TP
+\fIfile\fP already exists; do you wish to overwrite (y or n)?
 Respond "y" if you want the output file to be replaced; "n" if not.
-.in -8
+.TP
 gunzip: corrupt input
-.in +8
 A SIGSEGV violation was detected which usually means that the input file has
 been corrupted.
-.in -8
-.I "xx.x%"
-.in +8
-Percentage of the input saved by compression.
+.TP
+\fIxx.x%\fP Percentage of the input saved by compression.
 (Relevant only for
 .BR \-v
 and
 .BR \-l \.)
-.in -8
+.TP
 -- not a regular file or directory: ignored
-.in +8
 When the input file is not a regular file or directory,
 (e.g. a symbolic link, socket, FIFO, device file), it is
 left unaltered.
-.in -8
--- has 
-.I xx 
-other links: unchanged
-.in +8
+.TP
+-- has \fIxx\fP other links: unchanged
 The input file has links; it is left unchanged.  See
 .IR ln "(1)"
 for more information. Use the
 .B \-f
 flag to force compression of multiply-linked files.
-.in -8
 .SH CAVEATS
 When writing compressed data to a tape, it is generally necessary to
 pad the output with zeroes up to a block boundary. When the data is
@@ -467,7 +475,14 @@ GNU tar. Make sure that the same block size (-b option of tar) is used
 for reading and writing compressed data on tapes.  (This example
 assumes you are using the GNU version of tar.)
 .SH BUGS
-The --list option reports incorrect sizes if they exceed 2 gigabytes.
+The gzip format represents the the input size modulo 2^32, so the
+--list option reports incorrect uncompressed sizes and compression
+ratios for uncompressed files 4 GB and larger.  To work around this
+problem, you can use the following command to discover a large
+uncompressed file's true size:
+
+      zcat file.gz | wc -c
+
 The --list option reports sizes as -1 and crc as ffffffff if the
 compressed file is on a non seekable media.
 
@@ -476,3 +491,27 @@ the default compression level (-6). On some highly redundant files,
 .I compress
 compresses better than
 .I gzip.
+.SH "COPYRIGHT NOTICE"
+Copyright \(co 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
+.br
+Copyright \(co 1992, 1993 Jean-loup Gailly
+.PP
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+.ig
+Permission is granted to process this file through troff and print the
+results, provided the printed document carries copying permission
+notice identical to this one except for the removal of this paragraph
+(this paragraph not being relevant to the printed manual).
+..
+.PP
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the entire
+resulting derived work is distributed under the terms of a permission
+notice identical to this one.
+.PP
+Permission is granted to copy and distribute translations of this manual
+into another language, under the above conditions for modified versions,
+except that this permission notice may be stated in a translation approved
+by the Foundation.

@@ -52,7 +52,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xaw/XawIm.c,v 1.14 2001/12/14 19:54:46 dawes Exp $ */
+/* $XFree86: xc/lib/Xaw/XawIm.c,v 1.15 2003/05/27 22:26:38 tsi Exp $ */
 
 #include <X11/IntrinsicP.h>
 #include <X11/StringDefs.h>
@@ -714,7 +714,7 @@ SizeNegotiation(XawIcTableList p, unsigned int width, unsigned int height)
 {
     XRectangle		pe_area, st_area;
     XVaNestedList	pe_attr = NULL, st_attr = NULL;
-    int			ic_cnt = 0, pe_cnt = 0, st_cnt = 0;
+    int			ic_cnt = 0;
     XRectangle		*pe_area_needed = NULL, *st_area_needed = NULL;
     XPointer		ic_a[5];
 
@@ -739,7 +739,7 @@ SizeNegotiation(XawIcTableList p, unsigned int width, unsigned int height)
 	    return;
 	}
 	pe_attr = st_attr = NULL;
-	ic_cnt = pe_cnt = st_cnt = 0;
+	ic_cnt = 0;
 	if (p->input_style & XIMStatusArea) {
 	    st_area.height = st_area_needed->height;
 	    st_area.x = 0;
@@ -1582,10 +1582,9 @@ _XawImGetImAreaHeight(Widget w)
 void
 _XawImCallVendorShellExtResize(Widget w)
 {
-    XawVendorShellExtPart	*ve;
     VendorShellWidget		vw;
 
-    if ((vw = SearchVendorShell(w)) && (ve = GetExtPart(vw))) {
+    if ((vw = SearchVendorShell(w)) && GetExtPart(vw)) {
 	XawVendorShellExtResize((Widget)vw);
     }
 }

@@ -1,0 +1,10 @@
+ VIEW     1 rows = a:V b:V
+    0: subview 'a'
+   VIEW     4 rows = p1:S p2:S p3:I
+      0: 'One' 'Un' 0
+      1: 'Two' 'Deux' 123
+      2: 'Four' '' 0
+      3: 'Three' 'Trois' 0
+    0: subview 'b'
+   VIEW     1 rows = p4:I
+      0: 234

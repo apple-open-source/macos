@@ -36,34 +36,56 @@ gss_krb5_ccache_name(minor_status, name, out_name)
 	const char *name;
 	const char **out_name;
 {
-	krb5_context context;
-	krb5_error_code retval;
-	static char *oldname = NULL;
-	const char *tmpname = NULL;
+    char *old_name = NULL;
+    OM_uint32 err = 0;
+    OM_uint32 minor = 0;
+    char *gss_out_name;
 
-	if (GSS_ERROR(kg_get_context(minor_status, &context)))
-		return (GSS_S_FAILURE);
+    err = gssint_initialize_library();
+    if (err) {
+	*minor_status = err;
+	return GSS_S_FAILURE;
+    }
 
-	if (out_name) {
-		if (oldname != NULL)
-			free(oldname);
-		/*
-		 * Save copy of previous default ccname, since
-		 * cc_set_default_name will free it and we don't want
-		 * to hang on to a pointer to freed memory.
-		 */
-		tmpname = krb5_cc_default_name(context);
-		oldname = malloc(strlen(tmpname) + 1);
-		if (oldname == NULL)
-			return GSS_S_FAILURE;
-		strcpy(oldname, tmpname);
-		*out_name = oldname;
+    gss_out_name = k5_getspecific(K5_KEY_GSS_KRB5_SET_CCACHE_OLD_NAME);
+
+    if (out_name) {
+        const char *tmp_name = NULL;
+
+        if (!err) {
+            kg_get_ccache_name (&err, &tmp_name);
+        }
+        if (!err) {
+            old_name = gss_out_name;
+            gss_out_name = tmp_name;
+        }            
+    }
+    /* If out_name was NULL, we keep the same gss_out_name value, and
+       don't free up any storage (leave old_name NULL).  */
+
+    if (!err)
+        kg_set_ccache_name (&err, name);
+
+    minor = k5_setspecific(K5_KEY_GSS_KRB5_SET_CCACHE_OLD_NAME, gss_out_name);
+    if (minor) {
+	/* Um.  Now what?  */
+	if (err == 0) {
+	    err = minor;
 	}
+	free(gss_out_name);
+	gss_out_name = NULL;
+    }
 
-	retval = krb5_cc_set_default_name(context, name);
-	if (retval) {
-		*minor_status = retval;
-		return GSS_S_FAILURE;
-	}
-	return GSS_S_COMPLETE;
+    if (!err) {
+        if (out_name) {
+            *out_name = gss_out_name;
+        }
+    }
+    
+    if (old_name != NULL) {
+        free (old_name);
+    }
+    
+    *minor_status = err;
+    return (*minor_status == 0) ? GSS_S_COMPLETE : GSS_S_FAILURE;
 }

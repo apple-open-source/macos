@@ -1,32 +1,78 @@
---- big5.c.orig	Tue May 20 15:21:44 2003
-+++ big5.c	Wed Jun 18 12:02:34 2003
-@@ -45,6 +45,7 @@
- #include <stdio.h>
+--- big5.c.orig	Thu Nov 25 11:38:16 2004
++++ big5.c	Fri Feb 18 15:48:14 2005
+@@ -41,6 +41,8 @@
+ #include <sys/param.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/big5.c,v 1.16 2004/05/17 11:16:14 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <errno.h>
+ #include <runetype.h>
  #include <stdlib.h>
- #include <sys/types.h>
-+#include <ctype.h>
+@@ -48,30 +50,29 @@
+ #include <wchar.h>
+ #include "mblocal.h"
  
- rune_t	_BIG5_sgetrune(const char *, size_t, char const **);
- int	_BIG5_sputrune(rune_t, char *, size_t, char **);
-@@ -77,13 +78,17 @@
- 	rune_t rune = 0;
- 	int len;
+-int	_BIG5_init(_RuneLocale *);
+-size_t	_BIG5_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
+-	    mbstate_t * __restrict);
+-int	_BIG5_mbsinit(const mbstate_t *);
+-size_t	_BIG5_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
++__private_extern__ int	_BIG5_init(struct __xlocale_st_runelocale *);
++static size_t	_BIG5_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
++	    mbstate_t * __restrict, locale_t);
++static int	_BIG5_mbsinit(const mbstate_t *, locale_t);
++static size_t	_BIG5_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t);
  
--	if (n < 1 || (len = _big5_check(*string)) > n) {
--		if (result)
--			*result = string;
-+	if (result)
-+		*result = string;
-+	if (n < 1 || (len = _big5_check(*string)) > n)
- 		return (_INVALID_RUNE);
--	}
- 	while (--len >= 0)
- 		rune = (rune << 8) | ((u_int)(*string++) & 0xff);
-+	if (!isrune(rune)) {
-+		if (result)
-+			(*result)++;
-+		return (_INVALID_RUNE);
-+	}
- 	if (result)
- 		*result = string;
- 	return rune;
+ typedef struct {
+ 	wchar_t	ch;
+ } _BIG5State;
+ 
+-int
+-_BIG5_init(_RuneLocale *rl)
++__private_extern__ int
++_BIG5_init(struct __xlocale_st_runelocale *xrl)
+ {
+ 
+-	__mbrtowc = _BIG5_mbrtowc;
+-	__wcrtomb = _BIG5_wcrtomb;
+-	__mbsinit = _BIG5_mbsinit;
+-	_CurrentRuneLocale = rl;
+-	__mb_cur_max = 2;
++	xrl->__mbrtowc = _BIG5_mbrtowc;
++	xrl->__wcrtomb = _BIG5_wcrtomb;
++	xrl->__mbsinit = _BIG5_mbsinit;
++	xrl->__mb_cur_max = 2;
+ 	return (0);
+ }
+ 
+-int
+-_BIG5_mbsinit(const mbstate_t *ps)
++static int
++_BIG5_mbsinit(const mbstate_t *ps, locale_t loc)
+ {
+ 
+ 	return (ps == NULL || ((const _BIG5State *)ps)->ch == 0);
+@@ -85,9 +86,9 @@
+ 	return ((c >= 0xa1 && c <= 0xfe) ? 2 : 1);
+ }
+ 
+-size_t
++static size_t
+ _BIG5_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
+-    mbstate_t * __restrict ps)
++    mbstate_t * __restrict ps, locale_t loc)
+ {
+ 	_BIG5State *bs;
+ 	wchar_t wc;
+@@ -146,8 +147,8 @@
+ 	}
+ }
+ 
+-size_t
+-_BIG5_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
++static size_t
++_BIG5_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc)
+ {
+ 	_BIG5State *bs;
+ 

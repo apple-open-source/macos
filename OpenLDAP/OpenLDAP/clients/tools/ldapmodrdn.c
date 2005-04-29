@@ -1,21 +1,47 @@
-/* $OpenLDAP: pkg/ldap/clients/tools/ldapmodrdn.c,v 1.80.2.9 2003/03/29 15:45:43 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/* ldapmodrdn.c - generic program to modify an entry's RDN using LDAP.
+/* ldapmodrdn.c - generic program to modify an entry's RDN using LDAP */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldapmodrdn.c,v 1.99.2.7 2004/03/17 19:54:53 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Support for MODIFYDN REQUEST V3 (newSuperior) by:
- * 
- * Copyright 1999, Juan C. Gomez, All rights reserved.
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1998-2003 Kurt D. Zeilenga.
+ * Portions Copyright 1998-2001 Net Boolean Incorporated.
+ * Portions Copyright 2001-2003 IBM Corporation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright 1999, Juan C. Gomez, All rights reserved.
  * This software is not subject to any license of Silicon Graphics 
  * Inc. or Purdue University.
  *
  * Redistribution and use in source and binary forms are permitted
  * without restriction or fee of any kind as long as this notice
  * is preserved.
- *
  */
+/* Portions Copyright (c) 1992-1996 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor.  The name of the
+ * University may not be used to endorse or promote products derived
+ * from this software without specific prior written permission.  This
+ * software is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by the University of Michigan
+ * (as part of U-MICH LDAP).  Additional significant contributors
+ * include:
+ *    Kurt D. Zeilenga
+ *    Juan C Gomez
+ */
+
 
 #include "portable.h"
 
@@ -49,23 +75,21 @@ static int domodrdn(
 void
 usage( void )
 {
-	fprintf( stderr,
-"Rename LDAP entries\n\n"
-"usage: %s [options] [dn rdn]\n"
-"	dn rdn: If given, rdn will replace the RDN of the entry specified by DN\n"
-"		If not given, the list of modifications is read from stdin or\n"
-"		from the file specified by \"-f file\" (see man page).\n"
-"Rename options:\n"
-"  -r         remove old RDN\n"
-"  -s newsup  new superior entry\n"
-	         , prog );
+	fprintf( stderr, _("Rename LDAP entries\n\n"));
+	fprintf( stderr, _("usage: %s [options] [dn rdn]\n"), prog);
+	fprintf( stderr, _("	dn rdn: If given, rdn will replace the RDN of the entry specified by DN\n"));
+	fprintf( stderr, _("		If not given, the list of modifications is read from stdin or\n"));
+	fprintf( stderr, _("		from the file specified by \"-f file\" (see man page).\n"));
+	fprintf( stderr, _("Rename options:\n"));
+	fprintf( stderr, _("  -r         remove old RDN\n"));
+	fprintf( stderr, _("  -s newsup  new superior entry\n"));
 	tool_common_usage();
 	exit( EXIT_FAILURE );
 }
 
 
 const char options[] = "rs:"
-	"cCd:D:e:f:h:H:IkKMnO:p:P:QR:U:vVw:WxX:y:Y:Z";
+	"cd:D:e:f:h:H:IkKMnO:p:P:QR:U:vVw:WxX:y:Y:Z";
 
 int
 handle_private_option( int i )
@@ -74,9 +98,9 @@ handle_private_option( int i )
 #if 0
 		int crit;
 		char *control, *cvalue;
-	case 'E': /* modrdn controls */
+	case 'E': /* modrdn extensions */
 		if( protocol == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -E incompatible with LDAPv%d\n",
+			fprintf( stderr, _("%s: -E incompatible with LDAPv%d\n"),
 				prog, version );
 			exit( EXIT_FAILURE );
 		}
@@ -96,7 +120,7 @@ handle_private_option( int i )
 		if ( (cvalue = strchr( control, '=' )) != NULL ) {
 			*cvalue++ = '\0';
 		}
-		fprintf( stderr, "Invalid modrdn control name: %s\n", control );
+		fprintf( stderr, _("Invalid modrdn extension name: %s\n"), control );
 		usage();
 #endif
 
@@ -106,7 +130,7 @@ handle_private_option( int i )
 
 	case 's':	/* newSuperior */
 		if( protocol == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -X incompatible with LDAPv%d\n",
+			fprintf( stderr, _("%s: -X incompatible with LDAPv%d\n"),
 				prog, protocol );
 			exit( EXIT_FAILURE );
 		}
@@ -129,6 +153,7 @@ main(int argc, char **argv)
     LDAP		*ld;
 	int		rc, retval, havedn;
 
+    tool_init();
     prog = lutil_progname( "ldapmodrdn", argc, argv );
 
 	tool_args( argc, argv );
@@ -145,8 +170,7 @@ main(int argc, char **argv)
         }
 	++havedn;
     } else if ( argc - optind != 0 ) {
-	fprintf( stderr, "%s: invalid number of arguments (%d), "
-		"only two allowed\n", prog, argc-optind );
+	fprintf( stderr, _("%s: invalid number of arguments (%d), only two allowed\n"), prog, argc-optind );
 	usage();
     }
 
@@ -166,15 +190,16 @@ main(int argc, char **argv)
 			rc = lutil_get_filed_password( pw_file, &passwd );
 			if( rc ) return EXIT_FAILURE;
 		} else {
-			passwd.bv_val = getpassphrase( "Enter LDAP Password: " );
+			passwd.bv_val = getpassphrase( _("Enter LDAP Password: ") );
 			passwd.bv_len = passwd.bv_val ? strlen( passwd.bv_val ) : 0;
 		}
 	}
 
 	tool_bind( ld );
 
-	if ( authzid || manageDSAit || noop )
+	if ( assertion || authzid || manageDSAit || noop ) {
 		tool_server_controls( ld, NULL, 0 );
+	}
 
     retval = rc = 0;
     if (havedn)
@@ -202,7 +227,7 @@ main(int argc, char **argv)
 	}
     }
 
-    ldap_unbind( ld );
+	ldap_unbind_ext( ld, NULL, NULL );
 
     return( retval );
 }
@@ -219,11 +244,11 @@ static int domodrdn(
 	LDAPMessage *res;
 
     if ( verbose ) {
-		printf( "Renaming \"%s\"\n", dn );
-		printf( "\tnew rdn=\"%s\" (%s old rdn)\n",
-			rdn, remove ? "delete" : "keep" );
+		printf( _("Renaming \"%s\"\n"), dn );
+		printf( _("\tnew rdn=\"%s\" (%s old rdn)\n"),
+			rdn, remove ? _("delete") : _("keep") );
 		if( newSuperior != NULL ) {
-			printf("\tnew parent=\"%s\"\n", newSuperior);
+			printf(_("\tnew parent=\"%s\"\n"), newSuperior);
 		}
 	}
 
@@ -255,21 +280,21 @@ static int domodrdn(
 	if( verbose || code != LDAP_SUCCESS ||
 		(matcheddn && *matcheddn) || (text && *text) || (refs && *refs) )
 	{
-		printf( "Rename Result: %s (%d)\n",
+		printf( _("Rename Result: %s (%d)\n"),
 			ldap_err2string( code ), code );
 
 		if( text && *text ) {
-			printf( "Additional info: %s\n", text );
+			printf( _("Additional info: %s\n"), text );
 		}
 
 		if( matcheddn && *matcheddn ) {
-			printf( "Matched DN: %s\n", matcheddn );
+			printf( _("Matched DN: %s\n"), matcheddn );
 		}
 
 		if( refs ) {
 			int i;
 			for( i=0; refs[i]; i++ ) {
-				printf("Referral: %s\n", refs[i] );
+				printf(_("Referral: %s\n"), refs[i] );
 			}
 		}
 	}

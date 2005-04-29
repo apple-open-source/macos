@@ -1,28 +1,25 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/* Copyright (c) 1997-2000 Apple Computer, Inc. All Rights Reserved */
+/* Copyright (c) 1997-2004 Apple Computer, Inc. All Rights Reserved */
 /*
  * The Darwin (Apple Public Source) license specifies the terms
  * and conditions for redistribution.
@@ -31,8 +28,6 @@
  *  AppleTalk: OT and X have separate stacks and addresses
  *  IP: OT and X have separate stacks, but share the same IP address(es)
  * This is the AppleTalk support module
- *
- * Justin Walker/Laurent Dumont, 991112
  */
 
 #include <sys/kdebug.h>
@@ -68,6 +63,7 @@
 #include <netinet/in.h>
 #include <netinet/in_var.h>
 #include <net/if_arp.h>
+#include <net/kpi_interfacefilter.h>
 
 #include "SharedIP.h"
 #include "sip.h"
@@ -79,22 +75,23 @@
 
 #include <sys/syslog.h>
 
-int atalk_detach(caddr_t  cookie);
+static void atalk_detach(void*  cookie, ifnet_t ifp);
+static int atalk_attach_protofltr(ifnet_t, struct blueCtlBlock *);
+
 
 /*
  * Setup the filter (passed in) for the requested AppleTalk values.
  *  Verifying that it's OK to do this is done by the caller once
  *  we're done.  Nothing here changes real state.
  */
-int
+__private_extern__ int
 enable_atalk(struct BlueFilter *bf, void *data, struct blueCtlBlock *ifb)
 {
-    int retval, s;
-    struct sockaddr_at atalk_sockaddr, *sap;
-    struct ifaddr *ifa = NULL;
-    struct ifnet *ifp = NULL;
+    int retval;
+	struct sockaddr_at atalk_sockaddr;
+	ifnet_t	ifp;
 
-    retval = copyin(data, &atalk_sockaddr,
+    retval = copyin(CAST_USER_ADDR_T(data), &atalk_sockaddr,
                     sizeof (struct sockaddr_at));
     if (retval) {
 #if SIP_DEBUG_ERR
@@ -119,53 +116,109 @@ enable_atalk(struct BlueFilter *bf, void *data, struct blueCtlBlock *ifb)
      *  Can't just hang on to the 'ifa' or sockaddr pointer,
      *  because that might get thrown away in an update.
      */
-    ifp = ndrv_get_ifp(ifb->ifb_so->so_pcb);
-    bzero((caddr_t)&ifb->XAtalkAddr, sizeof (ifb->XAtalkAddr));
+	retval = sip_ifp(ifb, &ifp);
+	if (retval)
+		return -retval;
+	
+    bzero((caddr_t)&ifb->XAtalkAddr, sizeof(ifb->XAtalkAddr));
     
     /* Assume the first one is it, since AppleTalk only uses one */
-    TAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link)
-        if ((sap = (struct sockaddr_at *)ifa->ifa_addr) &&
-                (sap->sat_family == AF_APPLETALK))
-            *(&ifb->XAtalkAddr) = *sap;
+	{
+		ifaddr_t	*addr_list;
+		int i;
+		
+		retval = ifnet_get_address_list(ifb->ifp, &addr_list);
+		if (retval)
+			return -retval;
+		
+		for (i = 0; addr_list[i] != NULL; i++) {
+			struct sockaddr_storage ss;
+			errno_t	error;
+			error = ifaddr_address(addr_list[i], (struct sockaddr*)&ss, sizeof(ss));
+			if (error == 0 && ss.ss_family == AF_APPLETALK) {
+				struct sockaddr_at *sat = (struct sockaddr_at*)&ss;
+				ifb->XAtalkAddr = *sat;
+			}
+		}
+		ifnet_free_address_list(addr_list);
+	}
 
     /* Invoke protocol filter attachment */
-
-    s = splnet();
     if ((retval = atalk_attach_protofltr(ifp, ifb)) != 0) {
 #if SIP_DEBUG_ERR
-            log(LOG_WARNING, "enable_atalk: failed, ifp=%d retval=%d\n",
+            log(LOG_WARNING, "SharedIP: enable_atalk: failed, ifp=%d retval=%d\n",
                     ifp, retval);
 #endif
-            splx(s);
             return(retval);
     }
-    splx(s);
     
     return(BFS_ATALK);
 }
 
 /*
- * This filter function intercept incoming packets being delivered to
+ * This filter function intercepts incoming packets being delivered to
  * AppleTalk (either from the interface or when a packet is sent by
  * MacOS X) and decide if they need to be sent up to the BlueBox.
  * Note: right now, handles both AT and AARP
  */
 
 /* packets coming from interface? */
-static
-int  atalk_infltr(caddr_t cookie,
-		     struct mbuf   **m_orig,
-		     char          **etherheader,
-		     struct ifnet  **ifnet_ptr)
+static int
+atalk_infltr(
+	void				*cookie,
+	ifnet_t				ifnet_ptr,
+	protocol_family_t   orig_protocol,
+	mbuf_t				*m_orig,
+	char				**etherheader)
 
 {
-    register struct blueCtlBlock *ifb = (struct blueCtlBlock *)cookie;
-    register struct BlueFilter *bf;
-    register unsigned char *p;
-    register unsigned short *s;
-    struct mbuf * m0, *m = *m_orig;
+    struct blueCtlBlock *ifb = cookie;
+    struct BlueFilter *bf;
+    unsigned char *p;
+    unsigned short *s;
+    mbuf_t m0, m = *m_orig;
+	protocol_family_t protocol = orig_protocol;
+	struct ether_header *eh = (struct ether_header*)*etherheader;
+	
+	/*
+	 * The demux might not match this packet if AppleTalk isn't attached.
+	 * If the demux didn't match the packet, lets see if we can.
+	 */
+	if (protocol == 0) {
+		u_int32_t			*ulp;
+		/*
+		 * We need to verify this is AppleTalk.
+		 * This could happen if AppleTalk is not enabled in X.
+		 */
+		if (ntohs(eh->ether_type) > ETHERMTU)
+			return 0;
+		
+		if (mbuf_len(*m_orig) < 8) {
+			return 0;
+		}
+		
+		/* Check that this is a SNAP packet */
+		ulp = mbuf_data(*m_orig);
+		if (((ulp[0]) & htonl(0xFFFFFF00)) != ntohl(0xaaaa0300)) {
+			return 0;
+		}
+		
+		/* Check if this is AppleTalk or AARP */
+		if (((ulp[0] & ntohl(0x000000ff)) == ntohl(0x00000008) &&
+			 (ulp[1] == ntohl(0x0007809b))) || ((ulp[1] == ntohl(0x000080f3)) &&
+			 (ulp[0] & ntohl(0x000000ff)) == ntohl(0x00000000)))
+		{
+			protocol = PF_APPLETALK;
+		}
+	}
 
-    bf = &ifb->filter[BFS_ATALK];  /* find AppleTalk filter */
+	/* If this isn't an AppleTalk packet, we don't want it */
+	if (protocol != PF_APPLETALK)
+		return 0;
+	
+	/* If the packet is from the local address, this is something we injected, ignore it */
+	if (bcmp(ifnet_lladdr(ifnet_ptr), eh->ether_shost, sizeof(eh->ether_shost)) == 0)
+		return 0;
 
     MDATA_ETHER_START(m);
 
@@ -173,6 +226,8 @@ int  atalk_infltr(caddr_t cookie,
     p = (unsigned char *)*etherheader;
 
     /* Check SNAP header for EtherTalk packets */
+	/* LOCK */
+    bf = &ifb->filter[BFS_ATALK];  /* find AppleTalk filter */
 
 #if SIP_DEBUG_FLOW
     if (!bf->BF_flags)
@@ -180,7 +235,7 @@ int  atalk_infltr(caddr_t cookie,
 		 p[0],s[6], s[7], s[10], s[13], p[30]);
 #endif
 
-    if (bf->BF_flags & SIP_PROTO_ENABLE)
+    if (bf->BF_flags & SIP_PROTO_ENABLE) {
         if (((p[0] & 0x01) == 0) &&
             (p[17] == 0x08) &&
             (ntohl(*((unsigned long*)&p[18])) == 0x0007809bL)) {
@@ -206,7 +261,9 @@ int  atalk_infltr(caddr_t cookie,
 #if SIP_DEBUG
             log(LOG_WARNING, "atalk_infltr: SIP_PROTO_RCV_FILT == FALSE\n");
 #endif
-        }
+		}
+	}
+	/* UNLOCK */
     
     /*
      * Either a multicast, or AARP or we don't filter on node address.
@@ -216,121 +273,131 @@ int  atalk_infltr(caddr_t cookie,
      *       AppleTalk traffic. Fixes problem when Blue AT is starting
      *	 up and has no node/net hint.
      */
-
-    m0 = m_dup(m, M_NOWAIT);
-    if (m0 == NULL) {
+	
+	if (orig_protocol != 0) {
+		
+		if (mbuf_dup(m, M_NOWAIT, &m0) != 0) {
 #if SIP_DEBUG_FLOW
-        log(LOG_WARNING, "atalk_infltr: m_dup failed\n");
-    #endif
-        ifb->no_bufs1++;
-        /* puts the packet back together as expected */
-        MDATA_ETHER_END(m);
-        return(0); /* MacOS X will still get the packet if it needs to*/
-    }
-#if SIP_DEBUG_FLOW
-    log(LOG_WARNING, "atalk_infltr: inject for bluebox p0=%x m0=%x m0->m_flags=%x so=%x \n",
-	p[0], m0,  m0->m_flags, ifb->ifb_so);
+			log(LOG_WARNING, "atalk_infltr: m_dup failed\n");
 #endif
+			ifb->no_bufs1++;
+			/* puts the packet back together as expected */
+			MDATA_ETHER_END(m);
+			return(0); /* MacOS X will still get the packet if it needs to*/
+		}
+#if SIP_DEBUG_FLOW
+		log(LOG_WARNING, "atalk_infltr: inject for bluebox p0=%x m0=%x m0->m_flags=%x so=%x \n",
+		p[0], m0,  m0->m_flags, ifb->ifb_so);
+#endif
+		MDATA_ETHER_END(m);
+	}
+	else {
+		m0 = m;
+		m = NULL;
+	}
     blue_inject(ifb, m0);
 
     /* this is for MacOS X, DLIL will hand the mbuf to AppleTalk */
     /* puts the packet back together as expected */
 
-    MDATA_ETHER_END(m);
-    return (0);
+    return m ? 0 : EJUSTRETURN;
 }
 
-/* Packets coming from X AppleTalk stack? */
+/* Packets coming from X AppleTalk stack */
 static
-int  atalk_outfltr(caddr_t cookie,
-                   struct mbuf   **m_orig,
-                   struct ifnet  **ifnet_ptr,
-                   struct sockaddr **dest,
-                   char *dest_linkaddr,
-                   char *frame_type)
-
+int  atalk_outfltr(
+	void					*cookie,
+	ifnet_t					ifnet_ptr,
+	protocol_family_t		protocol,
+	mbuf_t					*m_orig)
 {
-    register struct blueCtlBlock *ifb = (struct blueCtlBlock *)cookie;
-    register struct BlueFilter *bf;
-    register unsigned char *p;
-    struct mbuf * m0, *m = *m_orig;
+    struct blueCtlBlock *ifb = cookie;
+    struct BlueFilter *bf;
+    unsigned char *p;
+    mbuf_t m0, m = *m_orig;
     int total;
-    int	reqlen = (((*dest)->sa_data[0] & 0x01) == 0) ? 17 : 0;
+    int	reqlen = 17;
+	
+	if (protocol != PF_APPLETALK)
+		return 0;
 
     /* the following is needed if the packet proto headers
      * are constructed using several mbufs (can happen with AppleTalk)
      */
-    if (reqlen > m->m_pkthdr.len)
+    if (reqlen > mbuf_pkthdr_len(m))
         return(1);
-    while ((reqlen > m->m_len) && m->m_next) {
-        total = m->m_len + (m->m_next)->m_len;
-		if ((*m_orig = m_pullup(*m_orig, min(reqlen, total))) == 0)
-                return(-1);
+    while ((reqlen > mbuf_len(m)) && mbuf_next(m)) {
+        total = mbuf_len(m) + mbuf_len(mbuf_next(m));
+		if (mbuf_pullup(m_orig, min(reqlen, total)) != 0)
+			return -1;
 		m = *m_orig;
     }
+	
+	/* LOCK */
     bf = &ifb->filter[BFS_ATALK];  /* find AppleTalk filter */
-    p = (unsigned char *)m->m_data;
-    /* See if we're filtering Appletalk.
+    p = (unsigned char *)mbuf_data(m);
+    /*
+	 * See if we're filtering Appletalk.
      * We already know it's an AppleTalk packet
      */
     if (bf->BF_flags & SIP_PROTO_ENABLE) {
-        if (((*dest)->sa_data[0] & 0x01) == 0) {
+        if ((p[0] & 0x01) == 0) {
             if (bf->BF_flags & SIP_PROTO_RCV_FILT)
             {
                 /* Check for AppleTalk packet for Classic */
-                u_int32_t	snap1 = ntohl(*(u_int32_t*)(p));
-                u_int32_t	snap2 = ntohl(*(u_int32_t*)(p + 4));
+                u_int32_t	snap1 = ntohl(*(u_int32_t*)(p + 14));
+                u_int32_t	snap2 = ntohl(*(u_int32_t*)(p + 18));
                 if ((snap1 == 0xaaaa0308) && (snap2 == 0x0007809B))
                 {
-                    if ((ntohs(*(u_int16_t*)(p + 12)) == bf->BF_address &&
-                        p[16] == bf->BF_node))
+                    if ((ntohs(*(u_int16_t*)(p + 26)) == bf->BF_address &&
+                        p[30] == bf->BF_node))
                     {
-                        if (!my_frameout(&m, *ifnet_ptr, &(*dest)->sa_data[0], frame_type))
-                            blue_inject(ifb, m);
+						/* UNLOCK */
+						blue_inject(ifb, m);
                         *m_orig = 0;
                         return(EJUSTRETURN); /* packet swallowed by bbox*/
                     }
                 }
                 else if ((snap1 == 0xaaaa0300) && (snap2 == 0x000080F3) &&
-                         (m->m_len >= 36))
+                         (mbuf_len(m) >= 36))
                 {
                     /* AARP */
                     /* Network number is at odd offset, copy it out */
-                    u_int16_t	net = ((u_int16_t)p[33]) << 8 | p[34];
+                    u_int16_t	net = ((u_int16_t)p[47]) << 8 | p[48];
                     
                     if ((net == bf->BF_address) &&
-                        (p[35] == bf->BF_node))
+                        (p[49] == bf->BF_node))
                     {
-                        if (!my_frameout(&m, *ifnet_ptr, &(*dest)->sa_data[0], frame_type))
-                            blue_inject(ifb, m);
+						/* UNLOCK */
+						blue_inject(ifb, m);
                         *m_orig = 0;
                         return(EJUSTRETURN); /* packet swallowed by bbox*/
                     }
                 }
             }
+			/* UNLOCK */
             
             /* Unicast packet, not destined for Classic, just return 0 */
             return 0;
         }
+		/* UNLOCK */
         /*
         * Either a multicast, or AARP or we don't filter on node address.
         * duplicate so both X and Classic receive the packet.
         */
-        m0 = m_dup(m, M_NOWAIT);
-        if (m0 == NULL)
+        if (mbuf_dup(m, M_NOWAIT, &m0) != 0)
         {
 #if SIP_DEBUG_FLOW
             log(LOG_WARNING, "atalk_outfltr: m_dup failed\n");
 #endif
-            ifb->no_bufs1++;
             *m_orig = m;
-            /* MacOS X will still get the packet if it needs to*/
+			
+            /* Packet will still be sent */
             return(0);
         }
-        if (!my_frameout(&m0, *ifnet_ptr, &(*dest)->sa_data[0], frame_type))
-                blue_inject(ifb, m0);
+		blue_inject(ifb, m0);
     }
-    /* this is for MacOS X, DLIL will hand the mbuf to AppleTalk */
+    /* this packet should continue out */
     *m_orig = m;
     return (0);
 }
@@ -342,37 +409,40 @@ int  atalk_outfltr(caddr_t cookie,
  * Note: use the blueCtlBlock pointer as the "cookie" passed when handling
  *  packets.
  */
-int
-atalk_attach_protofltr(struct ifnet *ifp, struct blueCtlBlock *ifb)
+static int
+atalk_attach_protofltr(ifnet_t ifp, struct blueCtlBlock *ifb)
 {
-    u_long at_dltag, aarp_dltag;
     int retval=0;
-    struct dlil_pr_flt_str atalk_pfilter =
-            { (caddr_t)ifb,
-              atalk_infltr,
-              atalk_outfltr,
-              0,
-              0,
-              atalk_detach
-            };
+    struct iff_filter atalk_pfilter;
+	bzero(&atalk_pfilter, sizeof(atalk_pfilter));
+	ifb_reference(ifb);
+	atalk_pfilter.iff_cookie = ifb;
+	atalk_pfilter.iff_name = "com.apple.nke.SharedIP";
+	atalk_pfilter.iff_protocol = 0; /* Allows us to capture AppleTalk even when X's AppleTalk isn't on */
+	atalk_pfilter.iff_input = atalk_infltr;
+	atalk_pfilter.iff_output = atalk_outfltr;
+	atalk_pfilter.iff_detached = atalk_detach;
 
     /* Note: this assume the folowing here:
 	- if AppleTalk X is already up and running, get it's home port and
-  	  register on it.
-	- if not, we register ourselves.
+  	  on it.
+	- if not, we ourselves.
         - AT and AARP share the same DLIL tag (temporary)
      */
-    if (ifb->atalk_proto_filter_id) /* make sure to deregister the current filter first */
+    if (ifb->atalk_proto_filter) {
+		/* make sure to deregister the current filter first */
         retval= atalk_stop(ifb);
+		if (ifb->atalk_proto_filter) {	
+			// The old filter hasn't actually been detached yet :(
+			retval = EEXIST;
+		}
+	}
     if (retval)
         return (retval);
-	ether_attach_at(ifp, &at_dltag, &aarp_dltag);
-    aarp_dltag = at_dltag;
-	retval= dlil_attach_protocol_filter(at_dltag, &atalk_pfilter,
-		&ifb->atalk_proto_filter_id, DLIL_LAST_FILTER);
+	retval= iflt_attach(ifp, &atalk_pfilter, &ifb->atalk_proto_filter);
 #if SIP_DEBUG
-   log(LOG_WARNING, "atalk_attach_protofilter: dltag=%d filter_id=%d retval=%d\n",
-	   at_dltag, ifb->atalk_proto_filter_id, retval);
+   log(LOG_WARNING, "atalk_attach_protofilter: filter_id=%d retval=%d\n",
+	   ifb->atalk_proto_filter, retval);
 #endif
    return (retval);
 
@@ -390,21 +460,24 @@ atalk_attach_protofltr(struct ifnet *ifp, struct blueCtlBlock *ifb)
  /* Packets from Blue to net & X stack?
   * When we exit, if we return 0, the mbuf will be sent to the driver.
   * If we return, EJUSTRETURN, no packet will be sent. To send the packet
-  * to the X side, we have to use dlil_inject_pr_input. If the packet is
+  * to the X side, we have to use dlil_input. If the packet is
   * to be sent to both, we must duplicate the mbuf and send the duplicate
-  * to dlil_inject_pr_input.
+  * to dlil_input.
   */
-int
-si_send_eth_atalk(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
+__private_extern__ int
+si_send_eth_atalk(
+	mbuf_t *m_orig,
+	struct blueCtlBlock *ifb,
+	ifnet_t	ifp)
 {
-    struct mbuf *m1, *m;
-    unsigned char *p, *p1;
-    register unsigned short *s;
-    register unsigned long *l;
+    mbuf_t m1 = NULL, m;
+    unsigned char *p;
+    unsigned short *s;
+    unsigned long *l;
     struct sockaddr_at *sap;
 
     m = *m_orig;		/* Assumption: 'm' is not changed below! */
-    p = mtod(m, unsigned char *);   /* Point to destination media addr */
+    p = mbuf_data(m);   /* Point to destination media addr */
     s = (unsigned short *)p;
     /*
      * flags entry is non-null if X's Appletalk is up (???)
@@ -413,16 +486,16 @@ si_send_eth_atalk(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
     sap = &ifb->XAtalkAddr;
     if (sap->sat_family) {	/* X has an AppleTalk address */
         if (p[0] & 0x01) {  /* Multicast/broadcast, send to both */
-            m1 = m_dup(m, M_NOWAIT);
+			
 #if SIP_DEBUG_FLOW
             log(LOG_WARNING, "si_send: broadcast! inject m=%x m1=%x..\n", m, m1);
 #endif
-            if (m1) {
-                p1 = mtod(m1, unsigned char *);   /* Point to destination media addr */
-                MDATA_ETHER_END(m1);
+            if (mbuf_dup(m, M_NOWAIT, &m1) == 0) {
                 /* find the interface of the X AppleTalk stack to inject this packet on? */
-                m1->m_pkthdr.rcvif = ndrv_get_ifp(ifb->ifb_so->so_pcb);
-                dlil_inject_pr_input(m1, (char *)p1, ifb->atalk_proto_filter_id);
+				mbuf_pkthdr_setrcvif(m1, ifp);
+				mbuf_pkthdr_setheader(m1, mbuf_data(m1));
+                MDATA_ETHER_END(m1);
+                ifnet_input(ifp, m1, NULL);
             } else
                 ifb->no_bufs2++;
             return(0);
@@ -443,8 +516,10 @@ si_send_eth_atalk(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
 #endif
                 MDATA_ETHER_END(m);
                 /* send this packet to the X AT stack, not the network */
-                m->m_pkthdr.rcvif = ndrv_get_ifp(ifb->ifb_so->so_pcb);
-                dlil_inject_pr_input(m, p, ifb->atalk_proto_filter_id);
+				mbuf_pkthdr_setrcvif(m, ifp);
+				mbuf_pkthdr_setheader(m, mbuf_data(m));
+                MDATA_ETHER_END(m);
+                ifnet_input(ifp, m, NULL);
                 return(EJUSTRETURN);
             } else
                 return(0);
@@ -452,16 +527,15 @@ si_send_eth_atalk(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
             /* AARP SNAP (0x00000080F3) */
             /* AARP pkts aren't net-addressed */
             /* Send to both X AT and network */
-            m1 = m_dup(m, M_NOWAIT);
 #if SIP_DEBUG_FLOW
             log(LOG_WARNING, "si_send:  AARP m=%x m1=%x send to X\n", m, m1);
 #endif
-            if (m1)
+            if (mbuf_dup(m, M_NOWAIT, &m1) == 0)
             {
-                p1 = mtod(m1, unsigned char *);   /* Point to destination media addr */
+				mbuf_pkthdr_setrcvif(m1, ifp);
+				mbuf_pkthdr_setheader(m1, mbuf_data(m1));
                 MDATA_ETHER_END(m1);
-                m1->m_pkthdr.rcvif = ndrv_get_ifp(ifb->ifb_so->so_pcb);
-                dlil_inject_pr_input(m1, p1, ifb->atalk_proto_filter_id);
+                ifnet_input(ifp, m1, NULL);
             } else
                 ifb->no_bufs2++;
             
@@ -484,14 +558,14 @@ atalk_stop(struct blueCtlBlock *ifb)
         return(0);
 
     ifb->atalk_stopping = 1;
-    if (ifb->atalk_proto_filter_id) {
+    if (ifb->atalk_proto_filter) {
 #if SIP_DEBUG
         log(LOG_WARNING, "atalk_stop: deregister AppleTalk proto filter tag=%d\n",
-            ifb->atalk_proto_filter_id);
+            ifb->atalk_proto_filter);
 #endif
-        retval = dlil_detach_filter(ifb->atalk_proto_filter_id);
-
-		ether_detach_at(ndrv_get_ifp(ifb->ifb_so->so_pcb));
+		if (ifb->atalk_proto_filter) {
+			iflt_detach(ifb->atalk_proto_filter);
+		}
      }
      
      ifb->atalk_stopping = 0;
@@ -499,21 +573,15 @@ atalk_stop(struct blueCtlBlock *ifb)
 }
 
 /* Handle our filter being detached */
-int atalk_detach(caddr_t  cookie)
+static void
+atalk_detach(
+	void*	cookie,
+	__unused ifnet_t	ifp)
 {
     /* Assume the interface has been detached */
     struct blueCtlBlock *ifb = (struct blueCtlBlock*)cookie;
     
-    ifb->atalk_proto_filter_id = 0;
-    
-    if (!ifb->atalk_stopping)
-    {
-        /*
-         * we're being detached outside the context of 
-         * atalk_stop.
-         */
-        atalk_stop(ifb);
-    }
-    
-    return 0;
+    ifb->atalk_proto_filter = 0;
+	
+	ifb_release(ifb);
 }

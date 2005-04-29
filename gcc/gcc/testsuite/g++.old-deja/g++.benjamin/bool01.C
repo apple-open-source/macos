@@ -1,11 +1,12 @@
+// { dg-do run  }
 //980323 bkoz
 //test for bools with inclusive ors
 
 #include <assert.h>
 #include <limits.h>
 
-void bar ( bool  x ) {};
-void bars ( short  x ) {};
+void bar ( bool  x ) {}
+void bars ( short  x ) {}
 
 /* 980326 bkoz this is not initialized and so can have indeterminate value. */
 #if 0

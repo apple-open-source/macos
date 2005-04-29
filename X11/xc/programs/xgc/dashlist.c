@@ -7,7 +7,7 @@
 **       functions to create more than one of these dashlist choice things
 **       will fail in a big way.
 */
-/* $XFree86: xc/programs/xgc/dashlist.c,v 1.3 2001/07/29 21:23:21 tsi Exp $ */
+/* $XFree86: xc/programs/xgc/dashlist.c,v 1.4 2003/05/07 21:02:06 herrb Exp $ */
 
 #include <stdio.h>
 #include <X11/Xos.h>
@@ -19,14 +19,7 @@
 #include <X11/Xaw/Toggle.h>
 #include "xgc.h"
 
-static void change_dashlist(
-#if NeedFunctionPrototypes
-     Widget, caddr_t, caddr_t
-#endif
-);
-extern void interpret();
-
-extern XStuff X;
+static void change_dashlist(Widget, caddr_t, caddr_t);
 
 static short dashlist = 240;	/* in binary, becomes the dashlist
 				   (240 = XXXX____) */
@@ -40,8 +33,7 @@ static Widget *dashes;	        /* the toggle widgets */
 */
 
 void
-create_dashlist_choice(w)
-     Widget w;
+create_dashlist_choice(Widget w)
 {
   /* callback list for the toggle widgets */
   static XtCallbackRec callbacklist[] = {
@@ -106,7 +98,7 @@ create_dashlist_choice(w)
     else
       dashargs[6].value = (XtArgVal) False;
 
-    sprintf(name,"dashlist%d",i);
+    snprintf(name, sizeof name, "dashlist%d",i);
 
     dashinfo[i] = i;		/* which bit we're on; this is needed
 				   in change_dashlist (the callback) */
@@ -127,10 +119,7 @@ create_dashlist_choice(w)
 
 /*ARGSUSED*/
 static void
-change_dashlist(w,closure,call_data)
-     Widget w;
-     caddr_t closure;
-     caddr_t call_data;
+change_dashlist(Widget w, caddr_t closure, caddr_t call_data)
 {
   int num;			/* what number button it is */
   Boolean on;			/* is it currently on or off? */
@@ -156,8 +145,8 @@ change_dashlist(w,closure,call_data)
   }
 
   /* now tell interpret() about it */
-  sprintf(buf,"dashlist %d\n",dashlist); 
-  interpret(buf,FALSE);
+  snprintf(buf, sizeof buf, "dashlist %d\n",dashlist); 
+  interpret(buf);
 }
 
 /* update_dashlist(newdash)
@@ -167,8 +156,7 @@ change_dashlist(w,closure,call_data)
 */
 
 void
-update_dashlist(newdash)
-     int newdash;
+update_dashlist(int newdash)
 {
   int i;			/* counter */
   static Arg dashargs[] = {	/* Arglist for setting toggle state */

@@ -12,7 +12,7 @@ OBJROOT=$(SRCROOT)
 SYMROOT=$(OBJROOT)
 DSTROOT=/usr/local
 RC_ARCHS=
-CFLAGS=-Os $(RC_CFLAGS)
+CFLAGS=-mdynamic-no-pic -Os $(RC_CFLAGS)
 
 #ENV = \
 #        CFLAGS="-no-cpp-precomp $(RC_CFLAGS)" \
@@ -31,20 +31,37 @@ installsrc :
 
 build :
 	echo "ENV = $(ENV)"
-	$(ENV) $(MAKE) -C $(SRCROOT)/$(PROJECT) makefiles OPT="-DBIND_8_COMPAT -DHAS_SSL -DUSE_SASL_AUTH -I/AppleInternal/Developer/Headers/sasl -framework DirectoryService $(CFLAGS)" AUXLIBS="-L/usr/lib -lssl -lsasl2.2.0.1 -lgssapi_krb5"
+	$(ENV) $(MAKE) -C $(SRCROOT)/$(PROJECT) makefiles OPT="-DBIND_8_COMPAT -DHAS_SSL -DUSE_SASL_AUTH -D__APPLE__ \
+			-I/AppleInternal/Developer/Headers/sasl -framework DirectoryService $(CFLAGS)" \
+			AUXLIBS="-L/usr/lib -lssl -lsasl2.2.0.1 -lgssapi_krb5"
 	$(ENV) $(MAKE) -C $(SRCROOT)/$(PROJECT)
-	cc $(CFLAGS) watchpostfix.c -o postfix-watch
+	cd $(SRCROOT)/postfix/src/smtpstone && make all
 
 install : pre-install
-	install -d -m 755 $(DSTROOT)/System/Library/StartupItems/Postfix
+	install -d -m 755 $(DSTROOT)/System/Library/LaunchDaemons
+	install -d -m 755 $(DSTROOT)/System/Library/ServerSetup/SetupExtras
 	install -d -m 755 $(DSTROOT)/usr/libexec/postfix/scripts
-	install -s -m 755 postfix-watch $(DSTROOT)/usr/sbin/postfix-watch
-	rsync -a $(SRCROOT)/Postfix.StartupItem/ \
-		 $(DSTROOT)/System/Library/StartupItems/Postfix
-	cp $(SRCROOT)/mta_select $(DSTROOT)/usr/libexec/postfix
+	install -d -m 755 $(DSTROOT)/usr/share/man/man1
+	install -d -m 755 $(DSTROOT)/usr/local/OpenSourceVersions
+	install -d -m 755 $(DSTROOT)/usr/local/OpenSourceLicenses
 	cp $(SRCROOT)/aliases.db $(DSTROOT)/private/etc
 	ln -s postfix/aliases $(DSTROOT)/private/etc
+	install -d -m 755 $(DSTROOT)/private/etc/postfix/sample/
+	cp $(SRCROOT)/postfix/conf/sample/sample* $(DSTROOT)/private/etc/postfix/sample/
 	install -m 0444 $(SRCROOT)/master.cf.defaultserver $(DSTROOT)/private/etc/postfix
+	install -m 0644 $(SRCROOT)/Postfix.LaunchDaemons/org.postfix.master.plist \
+			$(DSTROOT)/System/Library/LaunchDaemons/org.postfix.master.plist
+	install -m 0755 $(SRCROOT)/Postfix.ServerSetup/toggle_on_demand \
+			$(DSTROOT)/System/Library/ServerSetup/SetupExtras/toggle_on_demand
+	install -s -m 0755 $(SRCROOT)/postfix/src/smtpstone/qmqp-sink $(DSTROOT)/usr/libexec/postfix
+	install -s -m 0755 $(SRCROOT)/postfix/src/smtpstone/smtp-sink $(DSTROOT)/usr/libexec/postfix
+	install -s -m 0755 $(SRCROOT)/postfix/src/smtpstone/qmqp-source $(DSTROOT)/usr/libexec/postfix
+	install -s -m 0755 $(SRCROOT)/postfix/src/smtpstone/smtp-source $(DSTROOT)/usr/libexec/postfix
+	install -m 0444 $(SRCROOT)/Postfix.OpenSourceInfo/postfix.plist $(DSTROOT)/usr/local/OpenSourceVersions
+	install -m 0444 $(SRCROOT)/Postfix.OpenSourceInfo/postfix.txt $(DSTROOT)/usr/local/OpenSourceLicenses
+	install -s -m 0755 $(DSTROOT)/usr/sbin/sendmail $(DSTROOT)/usr/bin/newaliases
+	install -s -m 0755 $(DSTROOT)/usr/sbin/sendmail $(DSTROOT)/usr/bin/mailq
+	rm $(DSTROOT)/private/etc/postfix/makedefs.out
 
 pre-install : build
 	cd $(PROJECT)/$(SRCDIR) && \

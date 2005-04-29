@@ -35,23 +35,29 @@
 static char sccsid[] = "@(#)gethostname.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/gethostname.c,v 1.3 2002/03/22 21:52:05 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/gethostname.c,v 1.5 2003/08/19 23:01:46 wollman Exp $");
 
 #include <sys/param.h>
 #include <sys/sysctl.h>
 
+#include <errno.h>
+
 int
 gethostname(name, namelen)
 	char *name;
-	int namelen;
+	size_t namelen;
 {
 	int mib[2];
-	size_t size;
+
+	/* Kluge to avoid ABI breakage. */
+	namelen = (int)namelen;
 
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_HOSTNAME;
-	size = namelen;
-	if (sysctl(mib, 2, name, &size, NULL, 0) == -1)
+	if (sysctl(mib, 2, name, &namelen, NULL, 0) == -1) {
+		if (errno == ENOMEM)
+			errno = ENAMETOOLONG;
 		return (-1);
+	}
 	return (0);
 }

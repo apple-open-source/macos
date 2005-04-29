@@ -128,7 +128,7 @@ m4_defun([_AC_LANG_SET],
 # Set the current language to LANG.
 m4_defun([AC_LANG],
 [_AC_LANG_SET(m4_ifdef([_AC_LANG], [m4_defn([_AC_LANG])]),
-              [$1])dnl
+	      [$1])dnl
 m4_define([_AC_LANG], [$1])])
 
 
@@ -137,7 +137,7 @@ m4_define([_AC_LANG], [$1])])
 # Save the current language, and use LANG.
 m4_defun([AC_LANG_PUSH],
 [_AC_LANG_SET(m4_ifdef([_AC_LANG], [m4_defn([_AC_LANG])]),
-              [$1])dnl
+	      [$1])dnl
 m4_pushdef([_AC_LANG], [$1])])
 
 
@@ -161,7 +161,7 @@ m4_popdef([$0 OLD])dnl
 # Save the current language, but don't change language.
 AU_DEFUN([AC_LANG_SAVE],
 [AC_DIAGNOSE([obsolete],
-             [instead of using `AC_LANG', `AC_LANG_SAVE',
+	     [instead of using `AC_LANG', `AC_LANG_SAVE',
 and `AC_LANG_RESTORE', you should use `AC_LANG_PUSH' and `AC_LANG_POP'.])
 m4_pushdef([_AC_LANG], _AC_LANG)])
 
@@ -177,6 +177,14 @@ AU_DEFUN([AC_LANG_RESTORE], [AC_LANG_POP($@)])
 # Return a short signature of _AC_LANG which can be used in shell
 # variable names, or in M4 macro names.
 m4_defun([_AC_LANG_ABBREV],
+[_AC_LANG_DISPATCH([$0], _AC_LANG, $@)])
+
+
+# _AC_LANG_PREFIX
+# ---------------
+# Return a short (upper case) signature of _AC_LANG that is used to
+# prefix environment variables like FLAGS.
+m4_defun([_AC_LANG_PREFIX],
 [_AC_LANG_DISPATCH([$0], _AC_LANG, $@)])
 
 
@@ -211,8 +219,7 @@ _ACEOF])
 # AC_LANG_SOURCE(BODY)
 # --------------------
 # Produce a valid source for the current language, which includes the
-# BODY, and as much as possible `confdefs.h' and the `#line' sync
-# lines.
+# BODY, and as much as possible `confdefs.h'.
 AC_DEFUN([AC_LANG_SOURCE],
 [_AC_LANG_DISPATCH([$0], _AC_LANG, $@)])
 
@@ -276,7 +283,7 @@ AC_DEFUN([AC_LANG_INT_SAVE],
 # instance, the latter must be AC_DEFUN'd, not just define'd.
 m4_define([AC_LANG_COMPILER],
 [AC_BEFORE([AC_LANG_COMPILER(]_AC_LANG[)],
-           [AC_LANG_PREPROC(]_AC_LANG[)])dnl
+	   [AC_LANG_PREPROC(]_AC_LANG[)])dnl
 _AC_LANG_DISPATCH([$0], _AC_LANG, $@)])
 
 
@@ -285,7 +292,7 @@ _AC_LANG_DISPATCH([$0], _AC_LANG, $@)])
 # Ensure we have a compiler for the current LANG.
 AC_DEFUN([AC_LANG_COMPILER_REQUIRE],
 [m4_require([AC_LANG_COMPILER(]_AC_LANG[)],
-            [AC_LANG_COMPILER])])
+	    [AC_LANG_COMPILER])])
 
 
 
@@ -301,13 +308,13 @@ AC_DEFUN([AC_LANG_COMPILER_REQUIRE],
 # continuation line, and warn instead of reporting an error.
 m4_define([_AC_LANG_COMPILER_GNU],
 [AC_CACHE_CHECK([whether we are using the GNU _AC_LANG compiler],
-                [ac_cv_[]_AC_LANG_ABBREV[]_compiler_gnu],
+		[ac_cv_[]_AC_LANG_ABBREV[]_compiler_gnu],
 [_AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[#ifndef __GNUC__
        choke me
 #endif
 ]])],
-                   [ac_compiler_gnu=yes],
-                   [ac_compiler_gnu=no])
+		   [ac_compiler_gnu=yes],
+		   [ac_compiler_gnu=no])
 ac_cv_[]_AC_LANG_ABBREV[]_compiler_gnu=$ac_compiler_gnu
 ])])# _AC_LANG_COMPILER_GNU
 
@@ -328,7 +335,7 @@ _AC_LANG_DISPATCH([$0], _AC_LANG, $@)])
 # Ensure we have a preprocessor for the current language.
 AC_DEFUN([AC_LANG_PREPROC_REQUIRE],
 [m4_require([AC_LANG_PREPROC(]_AC_LANG[)],
-            [AC_LANG_PREPROC])])
+	    [AC_LANG_PREPROC])])
 
 
 # AC_REQUIRE_CPP
@@ -344,8 +351,8 @@ AC_DEFUN([AC_REQUIRE_CPP],
 # -----------------
 # FIXME: The GCC team has specific needs which the current Autoconf
 # framework cannot solve elegantly.  This macro implements a dirty
-# hack until Autoconf is abble to provide the services its users
-# needs.
+# hack until Autoconf is able to provide the services its users
+# need.
 #
 # Several of the support libraries that are often built with GCC can't
 # assume the tool-chain is already capable of linking a program: the
@@ -356,22 +363,38 @@ AC_DEFUN([AC_REQUIRE_CPP],
 # avoid the AC_PROG_CC_WORKS test, that would just abort their
 # configuration.  The introduction of AC_EXEEXT, enabled either by
 # libtool or by CVS autoconf, have just made matters worse.
+#
+# Unlike an earlier version of this macro, using AC_NO_EXECUTABLES does
+# not disable link tests at autoconf time, but at configure time.
+# This allows AC_NO_EXECUTABLES to be invoked conditionally.
 AC_DEFUN_ONCE([AC_NO_EXECUTABLES],
 [m4_divert_push([KILL])
+m4_divert_text([DEFAULTS], [ac_no_link=no])
 
-AC_BEFORE([$0], [_AC_COMPILER_EXEEXT_WORKS])
 AC_BEFORE([$0], [_AC_COMPILER_EXEEXT])
-
-m4_define([_AC_COMPILER_EXEEXT_WORKS],
-[cross_compiling=maybe
-])
+AC_BEFORE([$0], [AC_LINK_IFELSE])
 
 m4_define([_AC_COMPILER_EXEEXT],
-[EXEEXT=
+[AC_LANG_CONFTEST([AC_LANG_PROGRAM()])
+if AC_TRY_EVAL(ac_link); then
+  ac_no_link=no
+  ]m4_defn([_AC_COMPILER_EXEEXT])[
+else
+  ac_no_link=yes
+  # Setting cross_compile will disable run tests; it will
+  # also disable AC_CHECK_FILE but that's generally
+  # correct if we can't link.
+  cross_compiling=yes
+  EXEEXT=
+  _AC_COMPILER_EXEEXT_CROSS
+fi
 ])
 
 m4_define([AC_LINK_IFELSE],
-[AC_FATAL([All the tests involving linking were disabled by $0])])
+[if test x$ac_no_link = xyes; then
+  AC_MSG_ERROR([Link tests are not allowed after AC@&t@_NO_EXECUTABLES.])
+fi
+]m4_defn([AC_LINK_IFELSE]))
 
 m4_divert_pop()dnl
 ])# AC_NO_EXECUTABLES
@@ -443,7 +466,7 @@ m4_define([_AC_COMPILER_EXEEXT_DEFAULT],
 [# Try to create an executable without -o first, disregard a.out.
 # It will help us diagnose broken compilers, and finding out an intuition
 # of exeext.
-AC_MSG_CHECKING([for _AC_LANG compiler default output])
+AC_MSG_CHECKING([for _AC_LANG compiler default output file name])
 ac_link_default=`echo "$ac_link" | sed ['s/ -o *conftest[^ ]*//']`
 AS_IF([AC_TRY_EVAL(ac_link_default)],
 [# Find the output, starting from the most likely.  This scheme is
@@ -459,23 +482,23 @@ do
   test -f "$ac_file" || continue
   case $ac_file in
     _AC_COMPILER_EXEEXT_REJECT )
-        ;;
+	;;
     conftest.$ac_ext )
-        # This is the source file.
-        ;;
+	# This is the source file.
+	;;
     [[ab]].out )
-        # We found the default executable, but exeext='' is most
-        # certainly right.
-        break;;
+	# We found the default executable, but exeext='' is most
+	# certainly right.
+	break;;
     *.* )
-        ac_cv_exeext=`expr "$ac_file" : ['[^.]*\(\..*\)']`
-        # FIXME: I believe we export ac_cv_exeext for Libtool,
-        # but it would be cool to find out if it's true.  Does anybody
-        # maintain Libtool? --akim.
-        export ac_cv_exeext
-        break;;
+	ac_cv_exeext=`expr "$ac_file" : ['[^.]*\(\..*\)']`
+	# FIXME: I believe we export ac_cv_exeext for Libtool,
+	# but it would be cool to find out if it's true.  Does anybody
+	# maintain Libtool? --akim.
+	export ac_cv_exeext
+	break;;
     * )
-        break;;
+	break;;
   esac
 done],
       [_AC_MSG_LOG_CONFTEST
@@ -535,12 +558,12 @@ for ac_file in conftest.exe conftest conftest.*; do
   case $ac_file in
     _AC_COMPILER_EXEEXT_REJECT ) ;;
     *.* ) ac_cv_exeext=`expr "$ac_file" : ['[^.]*\(\..*\)']`
-          export ac_cv_exeext
-          break;;
+	  export ac_cv_exeext
+	  break;;
     * ) break;;
   esac
 done],
-              [AC_MSG_FAILURE([cannot compute suffix of executables: cannot compile and link])])
+	      [AC_MSG_FAILURE([cannot compute suffix of executables: cannot compile and link])])
 rm -f conftest$ac_cv_exeext
 AC_MSG_RESULT([$ac_cv_exeext])
 ])# _AC_COMPILER_EXEEXT_O
@@ -610,3 +633,11 @@ ac_objext=$OBJEXT
 ## ------------------------------- ##
 ## 4. Compilers' characteristics.  ##
 ## ------------------------------- ##
+
+# AC_LANG_WERROR
+# ------------------
+# Treat warnings from the current language's preprocessor, compiler, and
+# linker as fatal errors.
+AC_DEFUN([AC_LANG_WERROR],
+[m4_divert_text([DEFAULTS], [ac_[]_AC_LANG_ABBREV[]_werror_flag=no])
+ac_[]_AC_LANG_ABBREV[]_werror_flag=yes])# AC_LANG_WERROR

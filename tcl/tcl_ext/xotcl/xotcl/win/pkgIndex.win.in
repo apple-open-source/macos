@@ -1,0 +1,3 @@
+  package ifneeded XOTcl @VERSION@ [list load \
+    [file join $dir ../../bin xotcl@VERSION@.dll] XOTcl]
+

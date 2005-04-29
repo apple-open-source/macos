@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -39,7 +36,7 @@ GetPhysicalFromVirtual( IOBufferMemoryDescriptor * mem,
                      vaddr - (IOVirtualAddress) mem->getBytesNoCopy(),
                      &segLength);
 
-	return ( *paddr != 0 );
+    return ( *paddr != 0 );
 }
 
 //---------------------------------------------------------------------------
@@ -65,6 +62,12 @@ Apple3Com3C90x::allocateDescMemory( IOBufferMemoryDescriptor ** mem,
     if ( *mem == 0 )
         IOLog("%s: can't allocate %ld bytes of memory\n", getName(), size);
 
+    if ( *mem && (*mem)->prepare() != kIOReturnSuccess)
+    {
+        (*mem)->release();
+        *mem = 0;
+    }
+
     return (*mem != 0);
 }
 
@@ -78,6 +81,7 @@ Apple3Com3C90x::freeDescMemory( IOBufferMemoryDescriptor ** mem )
 {
     if ( *mem )
     {
+        (*mem)->complete();
         (*mem)->release();
         *mem = 0;
     }
@@ -119,7 +123,7 @@ bool Apple3Com3C90x::allocateMemory()
         return false;
 
     _rxRing = (RxDescriptor *) _rxRingMem->getBytesNoCopy();
-	bzero( (void *) _rxRing, bytes );
+    bzero( (void *) _rxRing, bytes );
 
     _rxRingInited = false;
     _txRingInited = false;
@@ -139,9 +143,11 @@ bool Apple3Com3C90x::allocateMemory()
 
 bool
 Apple3Com3C90x::updateTxDescriptor( TxDescriptor * desc,
-                                    struct mbuf *  packet )
+                                    mbuf_t         packet )
 {
-    UInt32 segmentCount;
+    UInt32  segmentCount;
+    UInt32  checksumDemandMask;
+    UInt32  header;
 
     // Generate the physical segments for the mbuf provided.
 
@@ -160,19 +166,33 @@ Apple3Com3C90x::updateTxDescriptor( TxDescriptor * desc,
     // Setting the length in the frame header is no longer required
     // for the newer 3C90xB.
 
-    desc->header = SetBitField( TxFragment, Length,
-                                packet->m_pkthdr.len );
+    header = SetBitField( TxFragment, Length, mbuf_pkthdr_len(packet) );
+
+    if ( _hwChecksumEnabled )
+    {
+        // Set bits to request hardware checksum on this packet.
+
+        getChecksumDemand( packet, kChecksumFamilyTCPIP, &checksumDemandMask );
+
+        header |= ((checksumDemandMask & ( kChecksumIP  |
+                                           kChecksumTCP |
+                                           kChecksumUDP )) <<
+                                           kTxDescHeaderAddIPChecksumShift);        
+    }
+
+    OSWriteLittleInt32( &desc->header, 0, header );
 
     // Set dnLastFrag bit on the last fragment.
 
-    desc->fragments[segmentCount - 1].command |= kTxFragmentLastMask;
+    desc->fragments[segmentCount - 1].command |=
+          OSSwapHostToLittleConstInt32( kTxFragmentLastMask );
 
     return true;
 }
 
 bool
 Apple3Com3C90x::updateRxDescriptor( RxDescriptor * desc,
-                                    struct mbuf *  packet )
+                                    mbuf_t         packet )
 {
     UInt32 segmentCount;
 
@@ -191,7 +211,10 @@ Apple3Com3C90x::updateRxDescriptor( RxDescriptor * desc,
 
     // Set dnLastFrag bit on the last fragment.
 
-    desc->fragments[segmentCount - 1].command |= kRxFragmentLastMask;
+    desc->fragments[segmentCount - 1].command |=
+          OSSwapHostToLittleConstInt32( kRxFragmentLastMask );
+
+    OSSynchronizeIO();
 
     return true;
 }
@@ -207,7 +230,8 @@ Apple3Com3C90x::updateRxDescriptor( RxDescriptor * desc,
 
 bool Apple3Com3C90x::initRxRing()
 {
-    UInt32 i;
+    UInt32            i;
+    IOPhysicalAddress phys;
 
     LOG_DEBUG("%s::%s\n", getName(), __FUNCTION__);
 
@@ -231,10 +255,12 @@ bool Apple3Com3C90x::initRxRing()
         {
             if ( GetPhysicalFromVirtual( _rxRingMem,
                                          (IOVirtualAddress) &_rxRing[i+1],
-                                         &_rxRing[i].nextPtr ) != true )
+                                         &phys ) != true )
             {
                 return false;
             }
+
+            OSWriteLittleInt32( &_rxRing[i].nextPtr, 0, phys );
         }
 
         // Attach packet buffer to each descriptor.
@@ -265,10 +291,12 @@ bool Apple3Com3C90x::initRxRing()
 
     if ( GetPhysicalFromVirtual( _rxRingMem,
                                  (IOVirtualAddress) &_rxRing[0],
-                                 &_rxRing[i-1].nextPtr ) != true )
+                                 &phys ) != true )
     {
         return false;
     }
+    
+    OSWriteLittleInt32( &_rxRing[i-1].nextPtr, 0, phys );
 
     _rxRing[i-1].drvNext = &_rxRing[0];
 
@@ -474,7 +502,8 @@ bool Apple3Com3C90x::initAdapter()
     // Update Receive list base (UpListPtr).
 
     sendCommandWait( UpStall );
-    setUpListPtr( _rxRing[ _rxRingSize - 1 ].nextPtr ); // element 0 phys addr
+    // element 0 phys addr
+    setUpListPtr( OSSwapLittleToHostInt32(_rxRing[ _rxRingSize - 1 ].nextPtr) );
     sendCommand( UpUnStall );
 
     // Transmit list base (DnListPtr) is left at 0.
@@ -540,6 +569,7 @@ void Apple3Com3C90x::disableAdapterInterrupts()
 {
     sendCommand( SetIntrEnable, 0 );
     sendCommand( SetIndEnable,  0 );
+    sendCommand( AckIntr, _interruptMask );
     _interruptMask = 0;
 }
 
@@ -621,8 +651,8 @@ void Apple3Com3C90x::enableReceiver()
 
 void Apple3Com3C90x::enableAdapter( bool enableInterrupts )
 {
-	enableTransmitter();
-	enableReceiver();
+    enableTransmitter();
+    enableReceiver();
 
     if ( enableInterrupts )
     {
@@ -639,9 +669,9 @@ void Apple3Com3C90x::enableAdapter( bool enableInterrupts )
 // Transmit a single packet mbuf.
 
 UInt32
-Apple3Com3C90x::outputPacket( struct mbuf * m, void * param )
+Apple3Com3C90x::outputPacket( mbuf_t m, void * param )
 {
-    LOG_TX("%s: transmit [%d]\n", getName(), m->m_pkthdr.len);
+    LOG_TX("%s: transmit [%d]\n", getName(), mbuf_pkthdr_len(m));
 
     if ( _driverEnableCount == 0 )
     {
@@ -663,6 +693,7 @@ Apple3Com3C90x::outputPacket( struct mbuf * m, void * param )
 
     if ( _txRingHead->drvMbuf != NULL )
     {
+        // This should never occur. Driver error if it did.
         IOLog("%s::%s drvMbuf not NULL\n", getName(), __FUNCTION__);
         freePacket( _txRingHead->drvMbuf );
     }
@@ -682,7 +713,8 @@ Apple3Com3C90x::outputPacket( struct mbuf * m, void * param )
     if ( ++_txRingInt >= _txIntThreshold )
     {
         // generate DnComplete interrupt
-        _txRingHead->header |= kTxDescHeaderDnIndicateMask;
+        _txRingHead->header |=
+            OSSwapHostToLittleConstInt32( kTxDescHeaderDnIndicateMask );
         _txRingInt = 0;
     }
 
@@ -699,7 +731,8 @@ Apple3Com3C90x::outputPacket( struct mbuf * m, void * param )
 
     // link the current descriptor to its previous descriptor.
 
-    _txRingHead->drvPrevious->nextPtr = _txRingHead->drvPhysAddr;
+    OSWriteLittleInt32( &_txRingHead->drvPrevious->nextPtr, 0,
+                         _txRingHead->drvPhysAddr );
 
     // Read DownList and update it if necessary.
 #if 0
@@ -710,7 +743,7 @@ Apple3Com3C90x::outputPacket( struct mbuf * m, void * param )
 #else
     // Boomerang errata claims that writing to DnListPtr while it is
     // not zero will be ignored. Which means we can replace the above
-    // one or two I/O operations with a single I/O write.
+    // one or two I/O operations with a single write.
 
     setDnListPtr( _txRingHead->drvPhysAddr );
 #endif
@@ -807,23 +840,23 @@ Apple3Com3C90x::transmitInterruptHandler()
 void
 Apple3Com3C90x::receiveInterruptHandler()
 {
-    struct mbuf * inputPkt;
+    mbuf_t        inputPkt;
     UInt32        pktSize;
     UInt32        status;
     bool          replaced;
     UInt32        pktCount = 0;
 
     LOG_INT("%s::%s index:%d\n", getName(), __FUNCTION__,
-            rxRingTail - rxRing);
+            _rxRingTail - _rxRing);
 
-    for ( status = _rxRingTail->status;
+    for ( status = OSReadLittleInt32( &_rxRingTail->status, 0 );
           status & kRxDescStatusUpCompleteMask;
-          status = _rxRingTail->status )
+          status = OSReadLittleInt32( &_rxRingTail->status, 0 ) )
     {
         // Packet passed to inputPacket().
 
         inputPkt = NULL;
-        
+
         // Get received packet length (not including FCS).
 
         pktSize = GetBitField( RxDescStatus, Length, status );
@@ -831,7 +864,7 @@ Apple3Com3C90x::receiveInterruptHandler()
         // Reject bad packets.
 
         if ( ( status & kRxDescStatusUpErrorMask ) ||
-        	 ( pktSize < (kIOEthernetMinPacketSize - kIOEthernetCRCSize) ) )
+             ( pktSize < (kIOEthernetMinPacketSize - kIOEthernetCRCSize) ) )
         {
             _netStats->inputErrors++;
 
@@ -878,6 +911,7 @@ next:
         // Clear descriptor status.
 
         _rxRingTail->status = 0;
+        OSSynchronizeIO();
 
         // Advance tail to point to the next descriptor.
 
@@ -885,6 +919,30 @@ next:
 
         if ( inputPkt && _netifEnabled )
         {
+            // Record the hardware checksum status bits on the mbuf
+            // we are passing up.
+
+            if ( _hwChecksumEnabled )
+            {
+                UInt32 resultMask;
+                UInt32 validMask;
+
+                resultMask = (status & ( kRxDescStatusIPChecksumCheckedMask  |
+                                         kRxDescStatusTCPChecksumCheckedMask |
+                                         kRxDescStatusUDPChecksumCheckedMask ))
+                                      >> kRxDescStatusIPChecksumCheckedShift;
+
+                validMask  = (~status & ( kRxDescStatusIPChecksumErrorMask  |
+                                          kRxDescStatusTCPChecksumErrorMask |
+                                          kRxDescStatusUDPChecksumErrorMask ))
+                                       >> kRxDescStatusIPChecksumErrorShift;
+                
+                setChecksumResult( inputPkt, kChecksumFamilyTCPIP,
+                                   resultMask, validMask );
+            }
+
+            // Submit the packet to the interface input queue.
+
             _netif->inputPacket( inputPkt, pktSize,
                                  IONetworkInterface::kInputOptionQueuePacket );
 
@@ -895,7 +953,7 @@ next:
     }
 
     // Unstall engine, in case the card has stalled.
-    
+
     sendCommand( UpUnStall );
 
     // Submit all input packets in one shot.
@@ -1042,7 +1100,7 @@ Apple3Com3C90x::updateStatsInterruptHandler()
 
     _netStats->collisions += lateCollisions
                            + multiCollisions
-                           + singleCollisions; 
+                           + singleCollisions;
  
     _netStats->outputErrors += carrierLost + sqeErrors;
 
@@ -1051,6 +1109,7 @@ Apple3Com3C90x::updateStatsInterruptHandler()
     _etherStats->dot3StatsEntry.multipleCollisionFrames += multiCollisions;
     _etherStats->dot3StatsEntry.lateCollisions          += lateCollisions;
     _etherStats->dot3StatsEntry.sqeTestErrors           += sqeErrors;
+    
     _etherStats->dot3StatsEntry.carrierSenseErrors      += carrierLost;
     _etherStats->dot3StatsEntry.missedFrames            += rxOverruns;
 
@@ -1092,7 +1151,7 @@ Apple3Com3C90x::interruptHandler( IOInterruptEventSource * src )
     while ( 1 )
     {
         // Read interrupt source status.
-        
+
         status = getCommandStatus();
 
         // Qualify the interrupt with the interrupt mask.

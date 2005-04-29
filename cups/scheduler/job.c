@@ -1,9 +1,9 @@
 /*
- * "$Id: job.c,v 1.23.4.2 2004/09/26 18:05:07 jlovell Exp $"
+ * "$Id: job.c,v 1.55 2005/03/04 01:20:00 jlovell Exp $"
  *
  *   Job management routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -54,6 +54,8 @@
  *		            the textual IPP attributes.
  *   start_process()      - Start a background process.
  *   set_hold_until()     - Set the hold time and update job-hold-until attribute.
+ *   load_job()           - Load a single job file from disk.
+ *   remove_unused_attrs()- Remove un-needed attributes to save memory.
  */
 
 /*
@@ -76,6 +78,9 @@ static mime_filter_t	gziptoany_filter =
 			  "gziptoany"	/* Filter program to run */
 			};
 
+static jobs_loaded_t	jobs_loaded = NO_JOBS;	/* */
+static int		loading_jobs = 0;	/* */
+
 
 /*
  * Local functions...
@@ -87,6 +92,11 @@ static int		start_process(const char *command, char *argv[],
 			              char *envp[], int in, int out, int err,
 				      int root, int *pid);
 static void		set_hold_until(job_t *job, time_t holdtime);
+static int		load_job(const char *c_name, job_t **job_p);
+
+#ifdef __APPLE__
+static int		remove_unused_attrs(job_t *job);
+#endif	/* __APPLE__ */
 
 
 /*
@@ -106,6 +116,7 @@ AddJob(int        priority,	/* I - Job priority */
 
   job->id       = NextJobId ++;
   job->priority = priority;
+  job->pipe     = -1;
   SetString(&job->dest, dest);
 
   NumJobs ++;
@@ -121,6 +132,12 @@ AddJob(int        priority,	/* I - Job priority */
     prev->next = job;
   else
     Jobs = job;
+
+ /*
+  * Note that a notification event needs to be sent.
+  */
+
+  NotifyPost |= CUPS_NOTIFY_JOB;
 
   return (job);
 }
@@ -158,6 +175,20 @@ CancelJob(int id,		/* I - Job to cancel */
 
       set_time(current, "time-at-completed");
 
+      if (current->procs)
+      {
+        free(current->procs);
+        current->procs = NULL;
+      }
+
+      if (current->filters)
+      {
+        for (i = 0; current->filters[i]; i++)
+          free(current->filters[i]);
+        free(current->filters);
+        current->filters = NULL;
+      }
+
      /*
       * Remove the print file for good if we aren't preserving jobs or
       * files...
@@ -179,6 +210,14 @@ CancelJob(int id,		/* I - Job to cancel */
        /*
         * Save job state info...
 	*/
+
+#ifdef __APPLE__
+       /*
+        * Remove un-needed attributes to save memory...
+	*/
+
+	remove_unused_attrs(current);
+#endif	/* __APPLE__ */
 
         SaveJob(current->id);
       }
@@ -220,6 +259,12 @@ CancelJob(int id,		/* I - Job to cancel */
         free(current);
 
 	NumJobs --;
+
+       /*
+	* Note that a notification event needs to be sent.
+	*/
+
+	NotifyPost |= CUPS_NOTIFY_JOB;
       }
 
       return;
@@ -298,7 +343,11 @@ CheckJobs(void)
     * Start pending jobs if the destination is available...
     */
 
-    if (current->state->values[0].integer == IPP_JOB_PENDING)
+    if (current->state->values[0].integer == IPP_JOB_PENDING && !NeedReload
+#ifdef __APPLE__
+        && !Sleeping
+#endif	/* __APPLE__ */
+    )
     {
       if ((pclass = FindClass(current->dest)) != NULL)
       {
@@ -413,6 +462,7 @@ FreeAllJobs(void)
   }
 
   Jobs = NULL;
+  jobs_loaded = NO_JOBS;
 
   ReleaseSignals();
 }
@@ -432,6 +482,19 @@ FindJob(int id)			/* I - Job ID */
     if (current->id == id)
       break;
 
+ /*
+  * If we didn't find the job and we haven't yet loaded the completed 
+  * jobs then do that now and search again...
+  */
+
+  if (!current && !(jobs_loaded & HISTORY_JOBS) && !loading_jobs)
+  {
+    LoadAllJobs(ALL_JOBS);
+
+    for (current = Jobs; current != NULL; current = current->next)
+      if (current->id == id)
+        break;
+  }
   return (current);
 }
 
@@ -511,310 +574,200 @@ HoldJob(int id)			/* I - Job ID */
  */
 
 void
-LoadAllJobs(void)
+LoadAllJobs(jobs_loaded_t which_jobs)	/* I - 0 all jobs; !0 active jobs only */
 {
-  DIR		*dir;		/* Directory */
-  DIRENT	*dent;		/* Directory entry */
-  char		filename[1024];	/* Full filename of job file */
-  int		fd;		/* File descriptor */
-  job_t		*job,		/* New job */
-		*current,	/* Current job */
-		*prev;		/* Previous job */
-  int		jobid,		/* Current job ID */
-		fileid;		/* Current file ID */
-  ipp_attribute_t *attr;	/* Job attribute */
-  char		method[HTTP_MAX_URI],
-				/* Method portion of URI */
-		username[HTTP_MAX_URI],
-				/* Username portion of URI */
-		host[HTTP_MAX_URI],
-				/* Host portion of URI */
-		resource[HTTP_MAX_URI];
-				/* Resource portion of URI */
-  int		port;		/* Port portion of URI */
-  printer_t	*p;		/* Printer or class */
-  const char	*dest;		/* Destination */
-  mime_type_t	**filetypes;	/* New filetypes array */
-  int		*compressions;	/* New compressions array */
+  int		err;			/* load_job result */
+  DIR		*dir;			/* Directory */
+  DIRENT	*dent;			/* Directory entry */
+  char		c_filename[1024],	/* Full filename of job control file */
+		d_filename[1024];	/* Full filename of job data file */
+  job_t		*job;			/* New job */
+  int		jobid,			/* Current job ID */
+		fileid;			/* Current file ID */
+  mime_type_t	**filetypes;		/* New filetypes array */
+  int		*compressions;		/* New compressions array */
 
 
  /*
   * First open the requests directory...
   */
 
-  LogMessage(L_DEBUG, "LoadAllJobs: Scanning %s...", RequestRoot);
+  LogMessage(L_DEBUG, "LoadJobs: Scanning %s...", RequestRoot);
 
   NumJobs = 0;
 
   if ((dir = opendir(RequestRoot)) == NULL)
   {
-    LogMessage(L_ERROR, "LoadAllJobs: Unable to open spool directory %s: %s",
+    LogMessage(L_ERROR, "LoadJobs: Unable to open spool directory %s: %s",
                RequestRoot, strerror(errno));
     return;
+  }
+
+ /*
+  * Tell FindJob we're loading jobs so it's not to call us in a mutual recursion.
+  */
+
+  loading_jobs = 1;
+
+  if ((which_jobs & ACTIVE_JOBS) && !(jobs_loaded & ACTIVE_JOBS))
+  {
+   /*
+    * Read all the d##### files...
+    */
+
+    while ((dent = readdir(dir)) != NULL)
+    {
+     /*
+      * Skip everything but our known file types...
+      */
+
+      if (NAMLEN(dent) < 6 || (dent->d_name[0] != 'c' && dent->d_name[0] != 'd'))
+        continue;
+
+      jobid  = atoi(dent->d_name + 1);
+
+      if (jobid >= NextJobId)
+	NextJobId = jobid + 1;
+
+      if (NAMLEN(dent) > 7 && dent->d_name[0] == 'd' && strchr(dent->d_name, '-'))
+      {
+       /*
+        * Find the job...
+        */
+
+        fileid = atoi(strchr(dent->d_name, '-') + 1);
+
+        LogMessage(L_DEBUG, "LoadJobs: Auto-typing document file %s...",
+			dent->d_name);
+
+        snprintf(d_filename, sizeof(d_filename), "%s/%s", RequestRoot, dent->d_name);
+
+        if ((job = FindJob(jobid)) == NULL)
+        {
+	  snprintf(c_filename, sizeof(c_filename), "c%05d", jobid);
+
+	  if ((err = load_job(c_filename, &job)) != 0)
+	  {
+	    if (err < 0)
+	    {
+	      LogMessage(L_ERROR, "LoadJobs: System error; aborting job loading");
+	      closedir(dir);
+	      loading_jobs = 0;
+	      return;
+	    }
+	    else  /* err > 0 */
+	    {
+	      LogMessage(L_ERROR, "LoadJobs: Job error; deleting file \"%s\"", c_filename);
+	      unlink(c_filename);
+	      continue;
+	    }
+	  }
+
+	  if (job == NULL)
+	  {
+	    LogMessage(L_ERROR, "LoadJobs: Orphaned print file \"%s\"!",
+			d_filename);
+	    unlink(d_filename);
+	    continue;
+	  }
+        }
+
+        if (fileid > job->num_files)
+        {
+          if (job->num_files == 0)
+	  {
+	    compressions = (int *)calloc(fileid, sizeof(int));
+	    filetypes    = (mime_type_t **)calloc(fileid, sizeof(mime_type_t *));
+	  }
+	  else
+	  {
+	    compressions = (int *)realloc(job->compressions,
+	                                sizeof(int) * fileid);
+	    filetypes    = (mime_type_t **)realloc(job->filetypes,
+	                                         sizeof(mime_type_t *) * fileid);
+          }
+
+          if (compressions == NULL || filetypes == NULL)
+	  {
+            LogMessage(L_ERROR, "LoadJobs: Ran out of memory for job file types!");
+	    continue;
+	  }
+
+          job->compressions = compressions;
+          job->filetypes    = filetypes;
+	  job->num_files    = fileid;
+        }
+
+        job->filetypes[fileid - 1] = mimeFileType(MimeDatabase, d_filename,
+                                                job->compressions + fileid - 1);
+
+        if (job->filetypes[fileid - 1] == NULL)
+          job->filetypes[fileid - 1] = mimeType(MimeDatabase, "application",
+	                                      "vnd.cups-raw");
+      }
+    }
+
+    jobs_loaded |= ACTIVE_JOBS;
+
+    rewinddir(dir);
   }
 
  /*
   * Read all the c##### files...
   */
 
-  while ((dent = readdir(dir)) != NULL)
-    if (NAMLEN(dent) == 6 && dent->d_name[0] == 'c')
+  if ((which_jobs & HISTORY_JOBS) && !(jobs_loaded & HISTORY_JOBS))
+  {
+    while ((dent = readdir(dir)) != NULL)
     {
-     /*
-      * Allocate memory for the job...
-      */
-
-      if ((job = calloc(sizeof(job_t), 1)) == NULL)
+      if (NAMLEN(dent) >= 6 && dent->d_name[0] == 'c')
       {
-        LogMessage(L_ERROR, "LoadAllJobs: Ran out of memory for jobs!");
-	closedir(dir);
-	return;
-      }
+        jobid  = atoi(dent->d_name + 1);
 
-      if ((job->attrs = ippNew()) == NULL)
-      {
-        free(job);
-        LogMessage(L_ERROR, "LoadAllJobs: Ran out of memory for job attributes!");
-	closedir(dir);
-	return;
-      }
+	if (jobid >= NextJobId)
+	  NextJobId = jobid + 1;
 
-     /*
-      * Assign the job ID...
-      */
+        snprintf(d_filename, sizeof(d_filename), "%s/%s", RequestRoot, dent->d_name);
 
-      job->id = atoi(dent->d_name + 1);
+        if ((job = FindJob(jobid)) == NULL)
+        {
+          if ((err = load_job(dent->d_name, &job)) != 0)
+          {
+	    if (err < 0)
+            {
+	      LogMessage(L_ERROR, "LoadJobs: System error; aborting job loading");
+              closedir(dir);
+              return;
+            }
+            else  /* err > 0 */
+            {
+	      LogMessage(L_ERROR, "LoadJobs: Job error; deleting file \"%s\"", dent->d_name);
+	      unlink(dent->d_name);
+	      continue;
+	    }
+	  }
+#ifdef __APPLE__
+         /*
+	  * In case this is the first run after an upgrade install look through
+	  * job history for attributes we can delete...
+	  */
 
-      LogMessage(L_DEBUG, "LoadAllJobs: Loading attributes for job %d...\n",
-                 job->id);
-
-      if (job->id >= NextJobId)
-        NextJobId = job->id + 1;
-
-     /*
-      * Load the job control file...
-      */
-
-      snprintf(filename, sizeof(filename), "%s/%s", RequestRoot, dent->d_name);
-      if ((fd = open(filename, O_RDONLY)) < 0)
-      {
-        LogMessage(L_ERROR, "LoadAllJobs: Unable to open job control file \"%s\" - %s!",
-	           filename, strerror(errno));
-	ippDelete(job->attrs);
-	free(job);
-	unlink(filename);
-	continue;
-      }
-      else
-      {
-        if (ippReadFile(fd, job->attrs) != IPP_DATA)
-	{
-          LogMessage(L_ERROR, "LoadAllJobs: Unable to read job control file \"%s\"!",
-	             filename);
-	  close(fd);
-	  ippDelete(job->attrs);
-	  free(job);
-	  unlink(filename);
-	  continue;
-	}
-
-	close(fd);
-      }
-
-      if ((job->state = ippFindAttribute(job->attrs, "job-state", IPP_TAG_ENUM)) == NULL)
-      {
-        LogMessage(L_ERROR, "LoadAllJobs: Missing or bad job-state attribute in control file \"%s\"!",
-	           filename);
-	ippDelete(job->attrs);
-	free(job);
-	unlink(filename);
-	continue;
-      }
-
-      if ((attr = ippFindAttribute(job->attrs, "job-printer-uri", IPP_TAG_URI)) == NULL)
-      {
-        LogMessage(L_ERROR, "LoadAllJobs: No job-printer-uri attribute in control file \"%s\"!",
-	           filename);
-	ippDelete(job->attrs);
-	free(job);
-	unlink(filename);
-	continue;
-      }
-
-      httpSeparate(attr->values[0].string.text, method, username, host,
-                   &port, resource);
-
-      if ((dest = ValidateDest(host, resource, &(job->dtype))) == NULL &&
-          job->state != NULL &&
-	  job->state->values[0].integer <= IPP_JOB_PROCESSING)
-      {
-       /*
-	* Job queued on remote printer or class, so add it...
-	*/
-
-	if (strncmp(resource, "/classes/", 9) == 0)
-	{
-	  p = AddClass(resource + 9);
-	  SetString(&p->make_model, "Remote Class on unknown");
-	}
-	else
-	{
-	  p = AddPrinter(resource + 10);
-	  SetString(&p->make_model, "Remote Printer on unknown");
-	}
-
-        p->state       = IPP_PRINTER_STOPPED;
-	p->type        |= CUPS_PRINTER_REMOTE;
-	p->browse_time = 2147483647;
-
-	SetString(&p->location, "Location Unknown");
-	SetString(&p->info, "No Information Available");
-	p->hostname[0] = '\0';
-
-	SetPrinterAttrs(p);
-	dest = p->name;
-      }
-
-      if (dest == NULL)
-      {
-        LogMessage(L_ERROR, "LoadAllJobs: Unable to queue job for destination \"%s\"!",
-	           attr->values[0].string.text);
-	ippDelete(job->attrs);
-	free(job);
-	unlink(filename);
-	continue;
-      }
-
-      SetString(&job->dest, dest);
-
-      job->sheets     = ippFindAttribute(job->attrs, "job-media-sheets-completed",
-                                         IPP_TAG_INTEGER);
-      job->job_sheets = ippFindAttribute(job->attrs, "job-sheets", IPP_TAG_NAME);
-
-      if ((attr = ippFindAttribute(job->attrs, "job-priority", IPP_TAG_INTEGER)) == NULL)
-      {
-        LogMessage(L_ERROR, "LoadAllJobs: Missing or bad job-priority attribute in control file \"%s\"!",
-	           filename);
-	ippDelete(job->attrs);
-	free(job);
-	unlink(filename);
-	continue;
-      }
-      job->priority = attr->values[0].integer;
-
-      if ((attr = ippFindAttribute(job->attrs, "job-originating-user-name", IPP_TAG_NAME)) == NULL)
-      {
-        LogMessage(L_ERROR, "LoadAllJobs: Missing or bad job-originating-user-name attribute in control file \"%s\"!",
-	           filename);
-	ippDelete(job->attrs);
-	free(job);
-	unlink(filename);
-	continue;
-      }
-      SetString(&job->username, attr->values[0].string.text);
-
-     /*
-      * Insert the job into the array, sorting by job priority and ID...
-      */
-
-      for (current = Jobs, prev = NULL;
-           current != NULL;
-	   prev = current, current = current->next)
-	if (job->priority > current->priority)
-	  break;
-	else if (job->priority == current->priority && job->id < current->id)
-	  break;
-
-      job->next = current;
-      if (prev != NULL)
-	prev->next = job;
-      else
-	Jobs = job;
-
-      NumJobs ++;
-
-     /*
-      * Set the job hold-until time and state...
-      */
-
-      if (job->state->values[0].integer == IPP_JOB_HELD)
-      {
-	if ((attr = ippFindAttribute(job->attrs, "job-hold-until", IPP_TAG_KEYWORD)) == NULL)
-          attr = ippFindAttribute(job->attrs, "job-hold-until", IPP_TAG_NAME);
-
-        if (attr == NULL)
-          job->state->values[0].integer = IPP_JOB_PENDING;
-	else
-          SetJobHoldUntil(job->id, attr->values[0].string.text);
-      }
-      else if (job->state->values[0].integer == IPP_JOB_PROCESSING)
-        job->state->values[0].integer = IPP_JOB_PENDING;
-    }
-
- /*
-  * Read all the d##### files...
-  */
-
-  rewinddir(dir);
-
-  while ((dent = readdir(dir)) != NULL)
-    if (NAMLEN(dent) > 7 && dent->d_name[0] == 'd')
-    {
-     /*
-      * Find the job...
-      */
-
-      jobid  = atoi(dent->d_name + 1);
-      fileid = atoi(dent->d_name + 7);
-
-      LogMessage(L_DEBUG, "LoadAllJobs: Auto-typing document file %s...",
-                 dent->d_name);
-
-      snprintf(filename, sizeof(filename), "%s/%s", RequestRoot, dent->d_name);
-
-      if ((job = FindJob(jobid)) == NULL)
-      {
-        LogMessage(L_ERROR, "LoadAllJobs: Orphaned print file \"%s\"!",
-	           filename);
-        unlink(filename);
-	continue;
-      }
-
-      if (fileid > job->num_files)
-      {
-        if (job->num_files == 0)
-	{
-	  compressions = (int *)calloc(fileid, sizeof(int));
-	  filetypes    = (mime_type_t **)calloc(fileid, sizeof(mime_type_t *));
-	}
-	else
-	{
-	  compressions = (int *)realloc(job->compressions,
-	                                sizeof(int) * fileid);
-	  filetypes    = (mime_type_t **)realloc(job->filetypes,
-	                                         sizeof(mime_type_t *) * fileid);
+	  if (remove_unused_attrs(job))
+	    SaveJob(job->id);
+#endif	/* __APPLE__ */
         }
-
-        if (compressions == NULL || filetypes == NULL)
-	{
-          LogMessage(L_ERROR, "LoadAllJobs: Ran out of memory for job file types!");
-	  continue;
-	}
-
-        job->compressions = compressions;
-        job->filetypes    = filetypes;
-	job->num_files    = fileid;
       }
-
-      job->filetypes[fileid - 1] = mimeFileType(MimeDatabase, filename,
-                                                job->compressions + fileid - 1);
-
-      if (job->filetypes[fileid - 1] == NULL)
-        job->filetypes[fileid - 1] = mimeType(MimeDatabase, "application",
-	                                      "vnd.cups-raw");
     }
+    jobs_loaded |= HISTORY_JOBS;
+  }
 
   closedir(dir);
+
+ /*
+  * Keep track of the kind of jobs we loaded...
+  */
+
+  loading_jobs = 0;
 
  /*
   * Clean out old jobs as needed...
@@ -922,9 +875,9 @@ RestartJob(int id)		/* I - Job ID */
 void
 SaveJob(int id)			/* I - Job ID */
 {
-  job_t	*job;			/* Pointer to job */
-  char	filename[1024];		/* Job control filename */
-  int	fd;			/* File descriptor */
+  job_t		*job;		/* Pointer to job */
+  char		filename[1024];	/* Job control filename */
+  cups_file_t	*fp;		/* File pointer */
 
 
   if ((job = FindJob(id)) == NULL)
@@ -932,21 +885,28 @@ SaveJob(int id)			/* I - Job ID */
 
   snprintf(filename, sizeof(filename), "%s/c%05d", RequestRoot, id);
 
-  if ((fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0600)) < 0)
+  if ((fp = cupsFileOpen(filename, "w")) == NULL)
   {
     LogMessage(L_ERROR, "SaveJob: Unable to create job control file \"%s\" - %s.",
                filename, strerror(errno));
     return;
   }
 
-  fchmod(fd, 0600);
-  fchown(fd, getuid(), Group);
+  fchmod(fp->fd, 0600);
+  fchown(fp->fd, RunUser, Group);
 
-  ippWriteFile(fd, job->attrs);
+  job->attrs->state = IPP_IDLE;
+  ippWriteIO(fp, (ipp_iocb_t)cupsFileWrite, 1, NULL, job->attrs);
 
-  LogMessage(L_DEBUG2, "SaveJob: Closing file %d...", fd);
+  LogMessage(L_DEBUG2, "SaveJob: Closing file %d...", fp->fd);
 
-  close(fd);
+  cupsFileClose(fp);
+
+ /*
+  * Note that a notification event needs to be sent.
+  */
+
+  NotifyPost |= CUPS_NOTIFY_JOB;
 }
 
 
@@ -1176,6 +1136,7 @@ StartJob(int       id,			/* I - Job ID */
   mime_filter_t	*filters;		/* Filters for job */
   char		method[255],		/* Method for output */
 		*optptr,		/* Pointer to options */
+		*valptr,		/* Pointer in value string */
 		*optlog;		/* Pointer to option to be logged */
   ipp_attribute_t *attr;		/* Current attribute */
   int		pid;			/* Process ID of new filter process */
@@ -1200,7 +1161,7 @@ StartJob(int       id,			/* I - Job ID */
 		classification[1024],	/* CLASSIFICATION environment variable */
 		content_type[1024],	/* CONTENT_TYPE environment variable */
 		device_uri[1024],	/* DEVICE_URI environment variable */
-		device_uri2[1024],	/* Sanitized device uri */
+		sani_uri[1024],		/* Sanitized DEVICE_URI env var */
 		ppd[1024],		/* PPD environment variable */
 		class_name[255],	/* CLASS environment variable */
 		printer_name[255],	/* PRINTER environment variable */
@@ -1265,7 +1226,7 @@ StartJob(int       id,			/* I - Job ID */
     */
 
     filters = mimeFilter(MimeDatabase, current->filetypes[current->current_file],
-                         printer->filetype, &num_filters, MAX_FILTERS - 1);
+                         printer->filetype, &num_filters, NULL);
 
     if (num_filters == 0)
     {
@@ -1293,7 +1254,7 @@ StartJob(int       id,			/* I - Job ID */
       {
         num_filters --;
 	if (i < num_filters)
-	  memcpy(filters + i, filters + i + 1,
+	  memmove(filters + i, filters + i + 1,
 	         (num_filters - i) * sizeof(mime_filter_t));
       }
       else
@@ -1363,7 +1324,8 @@ StartJob(int       id,			/* I - Job ID */
       LogMessage(L_ERROR, "Unable to add decompression filter - %s",
                  strerror(errno));
 
-      free(filters);
+      if (filters != NULL)
+        free(filters);
 
       current->current_file ++;
 
@@ -1377,6 +1339,36 @@ StartJob(int       id,			/* I - Job ID */
     memmove(filters + 1, filters, num_filters * sizeof(mime_filter_t));
     *filters = gziptoany_filter;
     num_filters ++;
+  }
+
+ /*
+  * Allocate space for filter & backend process IDs...
+  */
+
+  current->procs = calloc(num_filters + 2, sizeof(current->procs[0]));
+  if (current->procs == NULL)
+  {
+    LogMessage(L_CRIT, "StartJob: Unable to allocate %d bytes for process IDs for job %d!",
+                 (int)((num_filters + 2) * sizeof(current->procs[0])), id);
+
+    if (filters != NULL)
+      free(filters);
+
+    CancelJob(id, 0);
+    return;
+  }
+
+  current->filters = calloc(num_filters + 2, sizeof(current->filters[0]));
+  if (current->filters == NULL)
+  {
+    LogMessage(L_CRIT, "StartJob: Unable to allocate %d bytes for filter names for job %d!",
+                 (int)((num_filters + 2) * sizeof(current->filters[0])), id);
+
+    if (filters != NULL)
+      free(filters);
+
+    CancelJob(id, 0);
+    return;
   }
 
  /*
@@ -1519,7 +1511,9 @@ StartJob(int       id,			/* I - Job ID */
 
       if ((strcmp(attr->name, "page-label") == 0 ||
            strcmp(attr->name, "page-border") == 0 ||
-           strncmp(attr->name, "number-up", 9) == 0) &&
+           strncmp(attr->name, "number-up", 9) == 0 ||
+           strcmp(attr->name, "page-set") == 0
+	   ) &&
 	  banner_page)
         continue;
 
@@ -1589,18 +1583,14 @@ StartJob(int       id,			/* I - Job ID */
 	  case IPP_TAG_KEYWORD :
 	  case IPP_TAG_CHARSET :
 	  case IPP_TAG_LANGUAGE :
-	      if (strchr(attr->values[i].string.text, ' ') != NULL ||
-		  strchr(attr->values[i].string.text, '\t') != NULL ||
-		  strchr(attr->values[i].string.text, '\n') != NULL)
+	      for (valptr = attr->values[i].string.text; *valptr;)
 	      {
-		strlcat(optptr, "\'", optlength - (optptr - options));
-		strlcat(optptr, attr->values[i].string.text,
-		        optlength - (optptr - options));
-		strlcat(optptr, "\'", optlength - (optptr - options));
+	        if (strchr(" \t\n\\\'\"", *valptr))
+		  *optptr++ = '\\';
+		*optptr++ = *valptr++;
 	      }
-	      else
-		strlcat(optptr, attr->values[i].string.text,
-		        optlength - (optptr - options));
+
+	      *optptr = '\0';
 	      break;
 
           default :
@@ -1681,8 +1671,8 @@ StartJob(int       id,			/* I - Job ID */
         snprintf(language, sizeof(language), "LANG=%c%c_%c%c",
 	         attr->values[0].string.text[0],
 		 attr->values[0].string.text[1],
-		 toupper(attr->values[0].string.text[3]),
-		 toupper(attr->values[0].string.text[4]));
+		 toupper(attr->values[0].string.text[3] & 255),
+		 toupper(attr->values[0].string.text[4] & 255));
         break;
   }
 
@@ -1699,17 +1689,12 @@ StartJob(int       id,			/* I - Job ID */
              attr->values[0].string.text);
   }
 
- /*
-  * Create a sanitized version of the device uri for logging purposes
-  */
-
-  SanitizeURI(device_uri2, sizeof(device_uri2), printer->device_uri);
-
   snprintf(path, sizeof(path), "PATH=%s/filter:/bin:/usr/bin", ServerBin);
   snprintf(content_type, sizeof(content_type), "CONTENT_TYPE=%s/%s",
            current->filetypes[current->current_file]->super,
            current->filetypes[current->current_file]->type);
   snprintf(device_uri, sizeof(device_uri), "DEVICE_URI=%s", printer->device_uri);
+  cupsdSanitizeURI(printer->device_uri, sani_uri, sizeof(sani_uri));
   snprintf(ppd, sizeof(ppd), "PPD=%s/ppd/%s.ppd", ServerRoot, printer->name);
   snprintf(printer_name, sizeof(printer_name), "PRINTER=%s", printer->name);
   snprintf(cache, sizeof(cache), "RIP_MAX_CACHE=%s", RIPCache);
@@ -1818,10 +1803,10 @@ StartJob(int       id,			/* I - Job ID */
   envp[envc] = NULL;
 
   for (i = 0; i < envc; i ++)
-    if (!strncmp(envp[i], "DEVICE_URI=", 11))
-      LogMessage(L_DEBUG, "StartJob: envp[%d]=\"DEVICE_URI=%s\"", i, device_uri2);
-    else
+    if (strncmp(envp[i], "DEVICE_URI=", 11))
       LogMessage(L_DEBUG, "StartJob: envp[%d]=\"%s\"", i, envp[i]);
+    else
+      LogMessage(L_DEBUG, "StartJob: envp[%d]=\"DEVICE_URI=%s\"", i, sani_uri);
 
   current->current_file ++;
 
@@ -1837,6 +1822,14 @@ StartJob(int       id,			/* I - Job ID */
     {
       LogMessage(L_EMERG, "Unable to allocate memory for job status buffer - %s",
                  strerror(errno));
+      snprintf(printer->state_message, sizeof(printer->state_message),
+	       "Unable to allocate memory for job status buffer - %s.",
+	       strerror(errno));
+
+      if (filters != NULL)
+        free(filters);
+
+      AddPrinterHistory(printer);
       CancelJob(current->id, 0);
       return;
     }
@@ -1848,7 +1841,7 @@ StartJob(int       id,			/* I - Job ID */
   * Now create processes for all of the filters...
   */
 
-  if (pipe(statusfds))
+  if (cupsdOpenPipe(statusfds))
   {
     LogMessage(L_ERROR, "Unable to create job status pipes - %s.",
 	       strerror(errno));
@@ -1856,6 +1849,11 @@ StartJob(int       id,			/* I - Job ID */
              "Unable to create status pipes - %s.", strerror(errno));
 
     AddPrinterHistory(printer);
+
+    if (filters != NULL)
+      free(filters);
+
+    CancelJob(current->id, 0);
     return;
   }
 
@@ -1864,10 +1862,27 @@ StartJob(int       id,			/* I - Job ID */
 
   current->pipe   = statusfds[0];
   current->status = 0;
-  memset(current->procs, 0, sizeof(current->procs));
 
   filterfds[1][0] = open("/dev/null", O_RDONLY);
   filterfds[1][1] = -1;
+
+  if (filterfds[1][0] < 0)
+  {
+    LogMessage(L_ERROR, "Unable to open \"/dev/null\" - %s.", strerror(errno));
+    snprintf(printer->state_message, sizeof(printer->state_message),
+             "Unable to open \"/dev/null\" - %s.", strerror(errno));
+
+    AddPrinterHistory(printer);
+
+    if (filters != NULL)
+      free(filters);
+
+    cupsdClosePipe(statusfds);
+    CancelJob(current->id, 0);
+    return;
+  }
+
+  fcntl(filterfds[1][0], F_SETFD, fcntl(filterfds[1][0], F_GETFD) | FD_CLOEXEC);
 
   LogMessage(L_DEBUG, "StartJob: filterfds[%d] = [ %d %d ]", 1, filterfds[1][0],
              filterfds[1][1]);
@@ -1884,15 +1899,45 @@ StartJob(int       id,			/* I - Job ID */
    /*
     * Setting CFProcessPath lets OS X's Core Foundation code find
     * the bundle that may be associated with a filter or backend.
+    * Bugs 3549523 & 3511880.
     */
 
-    snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
-    LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+    {
+      char linkbuf[1024];
+      int linkbufbytes;
+ 
+      if ((linkbufbytes = readlink(command, linkbuf, sizeof(linkbuf) - 1)) > 0)
+      {
+        linkbuf[linkbufbytes] = '\0';
+        snprintf(processPath, sizeof(processPath), "CFProcessPath=%s/%s", dirname(command), linkbuf);
+      }
+      else
+	snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
+
+     LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+    }
 #endif	/* __APPLE__ */
 
     if (i < (num_filters - 1) ||
 	strncmp(printer->device_uri, "file:", 5) != 0)
-      pipe(filterfds[slot]);
+    {
+      if (cupsdOpenPipe(filterfds[slot]))
+      {
+	LogMessage(L_ERROR, "Unable to create job filter pipes - %s.",
+		strerror(errno));
+	snprintf(printer->state_message, sizeof(printer->state_message),
+        	"Unable to create filter pipes - %s.", strerror(errno));
+	AddPrinterHistory(printer);
+
+	if (filters != NULL)
+	  free(filters);
+
+	cupsdClosePipe(statusfds);
+	cupsdClosePipe(filterfds[!slot]);
+	CancelJob(current->id, 0);
+	return;
+      }
+    }
     else
     {
       filterfds[slot][0] = -1;
@@ -1902,7 +1947,30 @@ StartJob(int       id,			/* I - Job ID */
       else
 	filterfds[slot][1] = open(printer->device_uri + 5,
 	                          O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+      if (filterfds[slot][1] < 0)
+      {
+        LogMessage(L_ERROR, "Unable to open output file \"%s\" - %s.",
+	           printer->device_uri, strerror(errno));
+        snprintf(printer->state_message, sizeof(printer->state_message),
+		 "Unable to open output file \"%s\" - %s.",
+	         printer->device_uri, strerror(errno));
+
+	AddPrinterHistory(printer);
+
+	if (filters != NULL)
+	  free(filters);
+
+	cupsdClosePipe(statusfds);
+	CancelJob(current->id, 0);
+	return;
+      }
+
+      fcntl(filterfds[slot][1], F_SETFD,
+            fcntl(filterfds[slot][1], F_GETFD) | FD_CLOEXEC);
     }
+
+    current->filters[i] = strdup(command);
 
     LogMessage(L_DEBUG, "StartJob: filter = \"%s\"", command);
     LogMessage(L_DEBUG, "StartJob: filterfds[%d] = [ %d %d ]",
@@ -1912,8 +1980,7 @@ StartJob(int       id,			/* I - Job ID */
                         filterfds[slot][1], statusfds[1], 0,
 			current->procs + i);
 
-    close(filterfds[!slot][0]);
-    close(filterfds[!slot][1]);
+    cupsdClosePipe(filterfds[!slot]);
 
     if (pid == 0)
     {
@@ -1928,6 +1995,8 @@ StartJob(int       id,			/* I - Job ID */
       if (filters != NULL)
 	free(filters);
 
+      cupsdClosePipe(statusfds);
+      cupsdClosePipe(filterfds[slot]);
       CancelJob(current->id, 0);
       return;
     }
@@ -1955,16 +2024,49 @@ StartJob(int       id,			/* I - Job ID */
    /*
     * Setting CFProcessPath lets OS X's Core Foundation code find
     * the bundle that may be associated with a filter or backend.
+    * Bugs 3549523 & 3511880.
     */
 
-    snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
-    LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+    {
+      char linkbuf[1024];
+      int linkbufbytes;
+ 
+      if ((linkbufbytes = readlink(command, linkbuf, sizeof(linkbuf) - 1)) > 0)
+      {
+        linkbuf[linkbufbytes] = '\0';
+        snprintf(processPath, sizeof(processPath), "CFProcessPath=%s/%s", dirname(command), linkbuf);
+      }
+      else
+	snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
+
+     LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+    }
 #endif	/* __APPLE__ */
 
-    argv[0] = printer->device_uri;
+    argv[0] = sani_uri;
 
     filterfds[slot][0] = -1;
     filterfds[slot][1] = open("/dev/null", O_WRONLY);
+
+    if (filterfds[slot][1] < 0)
+    {
+      LogMessage(L_ERROR, "Unable to open \"/dev/null\" - %s.", strerror(errno));
+      snprintf(printer->state_message, sizeof(printer->state_message),
+               "Unable to open \"/dev/null\" - %s.", strerror(errno));
+
+      AddPrinterHistory(printer);
+
+      if (filters != NULL)
+	free(filters);
+
+      CancelJob(current->id, 0);
+      return;
+    }
+
+    fcntl(filterfds[slot][1], F_SETFD,
+          fcntl(filterfds[slot][1], F_GETFD) | FD_CLOEXEC);
+
+    current->filters[i] = strdup(command);
 
     LogMessage(L_DEBUG, "StartJob: backend = \"%s\"", command);
     LogMessage(L_DEBUG, "StartJob: filterfds[%d] = [ %d %d ]",
@@ -1974,8 +2076,7 @@ StartJob(int       id,			/* I - Job ID */
 			filterfds[slot][1], statusfds[1], 1,
 			current->procs + i);
 
-    close(filterfds[!slot][0]);
-    close(filterfds[!slot][1]);
+    cupsdClosePipe(filterfds[!slot]);
 
     if (pid == 0)
     {
@@ -1986,6 +2087,11 @@ StartJob(int       id,			/* I - Job ID */
 
       AddPrinterHistory(printer);
 
+      if (filters != NULL)
+        free(filters);
+
+      cupsdClosePipe(statusfds);
+      cupsdClosePipe(filterfds[slot]);
       CancelJob(current->id, 0);
       return;
     }
@@ -2000,12 +2106,10 @@ StartJob(int       id,			/* I - Job ID */
     filterfds[slot][0] = -1;
     filterfds[slot][1] = -1;
 
-    close(filterfds[!slot][0]);
-    close(filterfds[!slot][1]);
+    cupsdClosePipe(filterfds[!slot]);
   }
 
-  close(filterfds[slot][0]);
-  close(filterfds[slot][1]);
+  cupsdClosePipe(filterfds[slot]);
 
   close(statusfds[1]);
 
@@ -2083,7 +2187,7 @@ StopJob(int id,			/* I - Job ID */
 	    current->procs[i] = 0;
 	  }
 
-        if (current->pipe)
+        if (current->pipe >= 0)
         {
 	 /*
 	  * Close the pipe and clear the input bit.
@@ -2094,7 +2198,7 @@ StopJob(int id,			/* I - Job ID */
 
           close(current->pipe);
 	  FD_CLR(current->pipe, InputSet);
-	  current->pipe = 0;
+	  current->pipe = -1;
         }
 
         if (current->buffer)
@@ -2122,12 +2226,14 @@ StopJob(int id,			/* I - Job ID */
 void
 UpdateJob(job_t *job)		/* I - Job to check */
 {
+  int		i;		/* Looping var */
   int		bytes;		/* Number of bytes read */
   int		copies;		/* Number of copies printed */
   char		*lineptr,	/* Pointer to end of line in buffer */
 		*message;	/* Pointer to message text */
   int		loglevel;	/* Log level for message */
   int		job_history;	/* Did CancelJob() keep the job? */
+  int		status;		/* Exit status of child */
   cups_ptype_t	ptype;		/* Printer type (color, small, etc.) */
 
 
@@ -2229,7 +2335,7 @@ UpdateJob(job_t *job)		/* I - Job to check */
     * Skip leading whitespace in the message...
     */
 
-    while (isspace(*message))
+    while (isspace(*message & 255))
       message ++;
 
    /*
@@ -2260,7 +2366,32 @@ UpdateJob(job_t *job)		/* I - Job to check */
         job->sheets->values[0].integer += copies;
 
 	if (job->printer->page_limit)
-	  UpdateQuota(job->printer, job->username, copies, 0);
+#ifdef __APPLE__
+	{
+	  if (AppleQuotas)		/* enforce Apple quotas */
+	  {
+	    quota_t *q = UpdateQuota(job->printer, job->username, copies, 0);
+
+	    if (-3 == q->page_count)	/* quota limit exceeded */
+	    {
+	     /*
+	      * Cancel job in progress here, since CUPS doesn't appear to do this elsewhere 
+	      */
+
+	      LogMessage(L_INFO, "Job %d cancelled: pages exceed user %s quota limit on printer %s (%s).",
+			job->id, job->username, job->printer->name, job->printer->info);
+
+	      CancelJob(job->id, 1);
+
+	      return; /* stop processing job */
+	    }
+	  }
+	  else
+	    UpdateQuota(job->printer, job->username, copies, 0);
+	}
+#else
+	UpdateQuota(job->printer, job->username, copies, 0);
+#endif
       }
 
       LogPage(job, message);
@@ -2273,11 +2404,10 @@ UpdateJob(job_t *job)		/* I - Job to check */
       * Other status message; send it to the error_log file...
       */
 
-      if (loglevel != L_INFO || LogLevel == L_DEBUG2)
+      if (loglevel != L_INFO || LogLevel >= L_DEBUG)
 	LogMessage(loglevel, "[Job %d] %s", job->id, message);
 
-      if ((loglevel == L_INFO && !job->status) ||
-	  loglevel < L_INFO)
+      if (!job->status && loglevel <= L_INFO)
       {
         strlcpy(job->printer->state_message, message,
                 sizeof(job->printer->state_message));
@@ -2301,10 +2431,23 @@ UpdateJob(job_t *job)		/* I - Job to check */
 
   if (bytes <= 0)
   {
+   /*
+    * See if all of the filters and the backend have returned their
+    * exit statuses.
+    */
+
+    for (i = 0; job->procs[i]; i ++)
+      if (job->procs[i] > 0)
+	return;
+
+   /*
+    * Handle the end of job stuff...
+    */
+
     LogMessage(L_DEBUG, "UpdateJob: job %d, file %d is complete.",
                job->id, job->current_file - 1);
 
-    if (job->pipe)
+    if (job->pipe >= 0)
     {
      /*
       * Close the pipe and clear the input bit.
@@ -2315,7 +2458,7 @@ UpdateJob(job_t *job)		/* I - Job to check */
 
       close(job->pipe);
       FD_CLR(job->pipe, InputSet);
-      job->pipe = 0;
+      job->pipe = -1;
     }
 
     if (job->status < 0)
@@ -2346,15 +2489,33 @@ UpdateJob(job_t *job)		/* I - Job to check */
 
         job->tries ++;
 
-	if (job->tries >= FaxRetryLimit)
+	status = -job->status;
+	if (WEXITSTATUS(status) == 5)
+	{
+	 /*
+	  * An efax exit status of 5 indicates it was canceled via a signal or client command...
+	  */
+
+	  LogMessage(L_ERROR, "Canceling fax job %d due to user cancel.", job->id);
+	  CancelJob(job->id, 0);
+	}
+	else if (job->tries >= FaxRetryLimit)
 	{
 	 /*
 	  * Too many tries...
 	  */
 
+#ifdef __APPLE__
+	  LogMessage(L_ERROR, "Holding fax job %d since it could not be sent after %d tries.",
+	             job->id, FaxRetryLimit);
+
+	  SetJobHoldUntil(job->id, "indefinite");
+	  HoldJob(job->id);
+#else
 	  LogMessage(L_ERROR, "Canceling fax job %d since it could not be sent after %d tries.",
 	             job->id, FaxRetryLimit);
 	  CancelJob(job->id, 0);
+#endif	/* __APPLE__ */
 	}
 	else
 	{
@@ -2576,7 +2737,6 @@ start_process(const char *command,	/* I - Full path to command */
 	      int        root,		/* I - Run as root? */
               int        *pid)		/* O - Process ID */
 {
-  int	fd;				/* Looping var */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction	action;		/* POSIX signal handler */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
@@ -2610,13 +2770,6 @@ start_process(const char *command,	/* I - Full path to command */
     }
 
    /*
-    * Close extra file descriptors...
-    */
-
-    for (fd = 3; fd < MaxFDs; fd ++)
-      close(fd);
-
-   /*
     * Change the priority of the process based on the FilterNice setting.
     * (this is not done for backends...)
     */
@@ -2628,7 +2781,7 @@ start_process(const char *command,	/* I - Full path to command */
     * Change user to something "safe"...
     */
 
-    if (!root && getuid() == 0)
+    if (!root && !RunUser)
     {
      /*
       * Running as root, so change to non-priviledged user...
@@ -2721,19 +2874,23 @@ set_hold_until(job_t *job, 		/* I - Job to update */
   char			holdstr[64];	/* Hold time */
 
 
+ /*
+  * Set the hold_until value and hold the job...
+  */
+
   LogMessage(L_DEBUG, "set_hold_until: hold_until = %d", (int)holdtime);
 
   job->state->values[0].integer = IPP_JOB_HELD;
   job->hold_until               = holdtime;
 
  /*
-  * Update attribute with a string representing GMT time (HH:MM:SS)...
+  * Update the job-hold-until attribute with a string representing GMT
+  * time (HH:MM:SS)...
   */
 
   holddate = gmtime(&holdtime);
   snprintf(holdstr, sizeof(holdstr), "%d:%d:%d", holddate->tm_hour, 
-  						 holddate->tm_min,
-  						 holddate->tm_sec);
+	   holddate->tm_min, holddate->tm_sec);
 
   if ((attr = ippFindAttribute(job->attrs, "job-hold-until", IPP_TAG_KEYWORD)) == NULL)
     attr = ippFindAttribute(job->attrs, "job-hold-until", IPP_TAG_NAME);
@@ -2753,5 +2910,266 @@ set_hold_until(job_t *job, 		/* I - Job to update */
 
 
 /*
- * End of "$Id: job.c,v 1.23.4.2 2004/09/26 18:05:07 jlovell Exp $".
+ * 'load_job()' - Load a single job file from disk.
+ */
+
+static int			/* O - 0 no error; <0 system error; >0 job error */
+load_job(const char *c_name,	/* I - Control filename */
+	 job_t **job_p)		/* O - Job */
+{
+  char		filename[1024];	/* Full filename of job file */
+  cups_file_t	*fp;		/* File pointer */
+  job_t		*job,		/* New job */
+		*current,	/* Current job */
+		*prev;		/* Previous job */
+  ipp_attribute_t *attr;	/* Job attribute */
+  char		method[HTTP_MAX_URI],
+				/* Method portion of URI */
+		username[HTTP_MAX_URI],
+				/* Username portion of URI */
+		host[HTTP_MAX_URI],
+				/* Host portion of URI */
+		resource[HTTP_MAX_URI];
+				/* Resource portion of URI */
+  int		port;		/* Port portion of URI */
+  printer_t	*p;		/* Printer or class */
+  const char	*dest;		/* Destination */
+
+
+  *job_p = NULL;
+
+ /*
+  * Allocate memory for the job...
+  */
+
+  if ((job = calloc(sizeof(job_t), 1)) == NULL)
+  {
+    LogMessage(L_ERROR, "load_job: Ran out of memory for jobs!");
+    return -1;
+  }
+
+  if ((job->attrs = ippNew()) == NULL)
+  {
+    free(job);
+    LogMessage(L_ERROR, "load_job: Ran out of memory for job attributes!");
+    return -1;
+  }
+
+ /*
+  * Assign the job ID...
+  */
+
+  job->id   = atoi(c_name + 1);
+  job->pipe = -1;
+
+  LogMessage(L_DEBUG, "load_job: Loading attributes for job %d...\n", job->id);
+
+ /*
+  * Load the job control file...
+  */
+
+  snprintf(filename, sizeof(filename), "%s/%s", RequestRoot, c_name);
+  if ((fp = cupsFileOpen(filename, "r")) == NULL)
+  {
+    LogMessage(L_ERROR, "load_job: Unable to open job control file \"%s\" - %s!",
+		filename, strerror(errno));
+    ippDelete(job->attrs);
+    free(job);
+    return 1;
+  }
+
+  if (ippReadIO(fp, (ipp_iocb_t)cupsFileRead, 1, NULL, job->attrs) != IPP_DATA)
+  {
+    LogMessage(L_ERROR, "load_job: Unable to read job control file \"%s\"!",
+			filename);
+    cupsFileClose(fp);
+    ippDelete(job->attrs);
+    free(job);
+    return 1;
+  }
+
+  cupsFileClose(fp);
+
+  if ((job->state = ippFindAttribute(job->attrs, "job-state", IPP_TAG_ENUM)) == NULL)
+  {
+    LogMessage(L_ERROR, "load_job: Missing or bad job-state attribute in control file \"%s\"!",
+			filename);
+    ippDelete(job->attrs);
+    free(job);
+    return 1;
+  }
+
+  if ((attr = ippFindAttribute(job->attrs, "job-printer-uri", IPP_TAG_URI)) == NULL)
+  {
+    LogMessage(L_ERROR, "load_job: No job-printer-uri attribute in control file \"%s\"!",
+			filename);
+    ippDelete(job->attrs);
+    free(job);
+    return 1;
+  }
+
+  httpSeparate(attr->values[0].string.text, method, username, host,
+		&port, resource);
+
+  if ((dest = ValidateDest(host, resource, &(job->dtype))) == NULL &&
+       job->state != NULL &&
+       job->state->values[0].integer <= IPP_JOB_PROCESSING)
+  {
+   /*
+    * Job queued on remote printer or class, so add it...
+    */
+
+    if (strncmp(resource, "/classes/", 9) == 0)
+    {
+      p = AddClass(resource + 9, 1);
+      SetString(&p->make_model, "Remote Class on unknown");
+    }
+    else
+    {
+      p = AddPrinter(resource + 10, 0);
+      SetString(&p->make_model, "Remote Printer on unknown");
+    }
+
+    p->state       = IPP_PRINTER_STOPPED;
+    p->type        |= CUPS_PRINTER_REMOTE;
+    p->browse_time = 2147483647;
+
+    SetString(&p->location, "Location Unknown");
+    SetString(&p->info, "No Information Available");
+    p->hostname[0] = '\0';
+
+    SetPrinterAttrs(p);
+    dest = p->name;
+  }
+
+  if (dest == NULL)
+  {
+    LogMessage(L_ERROR, "load_job: Unable to queue job for destination \"%s\"!",
+               attr->values[0].string.text);
+    ippDelete(job->attrs);
+    free(job);
+    return 1;
+  }
+
+  SetString(&job->dest, dest);
+
+  job->sheets     = ippFindAttribute(job->attrs, "job-media-sheets-completed",
+                                         IPP_TAG_INTEGER);
+  job->job_sheets = ippFindAttribute(job->attrs, "job-sheets", IPP_TAG_NAME);
+
+  if ((attr = ippFindAttribute(job->attrs, "job-priority", IPP_TAG_INTEGER)) == NULL)
+  {
+    LogMessage(L_ERROR, "load_job: Missing or bad job-priority attribute in control file \"%s\"!",
+               filename);
+    ippDelete(job->attrs);
+    free(job);
+    return 1;
+  }
+  job->priority = attr->values[0].integer;
+
+  if ((attr = ippFindAttribute(job->attrs, "job-originating-user-name", IPP_TAG_NAME)) == NULL)
+  {
+    LogMessage(L_ERROR, "load_job: Missing or bad job-originating-user-name attribute in control file \"%s\"!",
+               filename);
+    ippDelete(job->attrs);
+    free(job);
+    return 1;
+  }
+  SetString(&job->username, attr->values[0].string.text);
+
+ /*
+  * Set the job hold-until time and state...
+  */
+
+  if (job->state->values[0].integer == IPP_JOB_HELD)
+  {
+    if ((attr = ippFindAttribute(job->attrs, "job-hold-until", IPP_TAG_KEYWORD)) == NULL)
+      attr = ippFindAttribute(job->attrs, "job-hold-until", IPP_TAG_NAME);
+
+    if (attr == NULL)
+      job->state->values[0].integer = IPP_JOB_PENDING;
+    else
+      SetJobHoldUntil(job->id, attr->values[0].string.text);
+  }
+  else if (job->state->values[0].integer == IPP_JOB_PROCESSING)
+    job->state->values[0].integer = IPP_JOB_PENDING;
+
+ /*
+  * Insert the job into the list, sorting by job priority and ID...
+  */
+
+  for (current = Jobs, prev = NULL; current != NULL;
+       prev = current, current = current->next)
+  {
+    if (job->priority > current->priority)
+      break;
+    else if (job->priority == current->priority && job->id < current->id)
+      break;
+  }
+
+  job->next = current;
+  if (prev != NULL)
+    prev->next = job;
+  else
+    Jobs = job;
+
+  NumJobs ++;
+
+  *job_p = job;
+
+  return 0;
+}
+
+
+/*
+ * 'remove_unused_attrs()' - Remove un-needed attributes to save memory...
+ */
+
+#ifdef __APPLE__
+static int					/* O - !0 if attributes removed */
+remove_unused_attrs(job_t *job)			/* I - Job attributes */
+{
+  int removed = 0;				/* attributes removed? */
+  ipp_attribute_t	*attr,			/* Current attribute */
+			*next,			/* Next attribute */
+			*prev;			/* Previous attribute */
+
+  DEBUG_printf(("remove_unused_attrs: job id = %d\n", job->id));
+
+  if (!ApplePreserveJobHistoryAttributes && job && job->attrs)
+  {
+   /*
+    * Remove all apple and gimp-print ("Stp") attributes...
+    */
+
+    for (attr = job->attrs->attrs, prev = NULL; attr != NULL; attr = next)
+    {
+      next = attr->next;
+
+      if (attr->name != NULL && (
+		!strncmp(attr->name, "com.apple.print", 15) || 
+		!strncmp(attr->name, "Stp", 3)))
+      {
+        if (prev)
+	  prev->next = attr->next;
+	else
+	  job->attrs->attrs = attr->next;
+
+        if (attr == job->attrs->last)
+	  job->attrs->last = prev;
+
+	_ipp_free_attr(attr);
+	removed = 1;
+      }
+      else
+	prev = attr;
+    }
+  }
+  return removed;
+}
+#endif	/* __APPLE__ */
+
+
+/*
+ * End of "$Id: job.c,v 1.55 2005/03/04 01:20:00 jlovell Exp $".
  */

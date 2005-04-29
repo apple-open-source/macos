@@ -63,14 +63,20 @@
 #define	_REGEX_H_
 
 #include <sys/cdefs.h>
+#include <_types.h>
 
 /* types */
-typedef off_t regoff_t;
+typedef __darwin_off_t regoff_t;
+
+#ifndef _SIZE_T
+#define _SIZE_T
+typedef __darwin_size_t	size_t;
+#endif
 
 typedef struct {
 	int re_magic;
 	size_t re_nsub;		/* number of parenthesized subexpressions */
-	__const char *re_endp;	/* end pointer for REG_PEND */
+	const char *re_endp;	/* end pointer for REG_PEND */
 	struct re_guts *re_g;	/* none of your business :-) */
 } regex_t;
 
@@ -80,16 +86,21 @@ typedef struct {
 } regmatch_t;
 
 /* regcomp() flags */
+#ifndef _POSIX_C_SOURCE
 #define	REG_BASIC	0000
+#endif	/* !_POSIX_C_SOURCE */
 #define	REG_EXTENDED	0001
 #define	REG_ICASE	0002
 #define	REG_NOSUB	0004
 #define	REG_NEWLINE	0010
+#ifndef _POSIX_C_SOURCE
 #define	REG_NOSPEC	0020
 #define	REG_PEND	0040
 #define	REG_DUMP	0200
+#endif	/* !_POSIX_C_SOURCE */
 
 /* regerror() flags */
+#define	REG_ENOSYS	 (-1)	/* Reserved */
 #define	REG_NOMATCH	 1
 #define	REG_BADPAT	 2
 #define	REG_ECOLLATE	 3
@@ -103,25 +114,31 @@ typedef struct {
 #define	REG_ERANGE	11
 #define	REG_ESPACE	12
 #define	REG_BADRPT	13
+#ifndef _POSIX_C_SOURCE
 #define	REG_EMPTY	14
 #define	REG_ASSERT	15
 #define	REG_INVARG	16
+#define	REG_ILLSEQ	17
 #define	REG_ATOI	255	/* convert name to number (!) */
 #define	REG_ITOA	0400	/* convert number to name (!) */
+#endif	/* !_POSIX_C_SOURCE */
 
 /* regexec() flags */
 #define	REG_NOTBOL	00001
 #define	REG_NOTEOL	00002
+#ifndef _POSIX_C_SOURCE
 #define	REG_STARTEND	00004
 #define	REG_TRACE	00400	/* tracing of execution */
 #define	REG_LARGE	01000	/* force large representation */
 #define	REG_BACKR	02000	/* force use of backref code */
+#endif	/* !_POSIX_C_SOURCE */
 
 __BEGIN_DECLS
-int	regcomp(regex_t *, const char *, int);
-size_t	regerror(int, const regex_t *, char *, size_t);
-int	regexec(const regex_t *,
-	    const char *, size_t, regmatch_t [], int);
+int	regcomp(regex_t * __restrict, const char * __restrict, int) __DARWIN_ALIAS(regcomp);
+size_t	regerror(int, const regex_t * __restrict, char * __restrict, size_t);
+/* For meeting c99 stds, pass regmatch_t*, rather than the array */
+int	regexec(const regex_t * __restrict,
+	    const char * __restrict, size_t, regmatch_t * __restrict, int);
 void	regfree(regex_t *);
 __END_DECLS
 

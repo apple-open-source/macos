@@ -44,10 +44,12 @@ enum {
     PPTP_CMD_SETPEERWINDOW,	// set peer receive window
     PPTP_CMD_SETPEERPPD,	// set packet processing delay	
     PPTP_CMD_SETMAXTIMEOUT,	// set send maximum timeout	
-    PPTP_CMD_SETOURADDR		// set our IP address	
+    PPTP_CMD_SETOURADDR,	// set our IP address	
+    PPTP_CMD_SETBAUDRATE,	// set tunnel baud rate
+    PPTP_CMD_GETBAUDRATE	// get tunnel baud rate
 };
 
-typedef int (*pptp_rfc_input_callback)(void *data, struct mbuf *m);
+typedef int (*pptp_rfc_input_callback)(void *data, mbuf_t m);
 typedef void (*pptp_rfc_event_callback)(void *data, u_int32_t evt, u_int32_t msg);
 
 u_int16_t pptp_rfc_init();
@@ -65,10 +67,10 @@ u_int16_t pptp_rfc_command(void *userdata, u_int32_t cmd, void *cmddata);
 void pptp_rfc_fasttimer();
 void pptp_rfc_slowtimer();
 
-u_int16_t pptp_rfc_output(void *data, struct mbuf *m);
+u_int16_t pptp_rfc_output(void *data, mbuf_t m);
 
 // callback from dlil layer
-int pptp_rfc_lower_input(struct mbuf *m, u_int32_t from);
+int pptp_rfc_lower_input(mbuf_t m, u_int32_t from);
 
 
 #endif

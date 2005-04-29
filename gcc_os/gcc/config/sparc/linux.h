@@ -123,9 +123,9 @@ Boston, MA 02111-1307, USA.  */
      %{!profile:%{!ggdb:-lc} %{ggdb:-lg}}}"
 #else
 #define LIB_SPEC \
-  "%{shared: -lc} \
-   %{!shared: %{mieee-fp:-lieee} %{pthread:-lpthread} \
-     %{profile:-lc_p} %{!profile: -lc}}"
+  "%{pthread:-lpthread} \
+   %{shared:-lc} \
+   %{!shared:%{mieee-fp:-lieee} %{profile:-lc_p}%{!profile:-lc}}"
 #endif
 #else
 #define LIB_SPEC \
@@ -230,8 +230,8 @@ do {									\
   sprintf (LABEL, "*.L%s%ld", PREFIX, (long)(NUM))
 
 
-/* Define for support of TFmode long double and REAL_ARITHMETIC.
-   Sparc ABI says that long double is 4 words.  */
+/* Define for support of TFmode long double.
+   SPARC ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
 
 /* Constant which presents upper bound of the above value.  */
@@ -258,11 +258,6 @@ do {									\
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
-
-#ifdef IN_LIBGCC2
-#include <signal.h>
-#include <sys/ucontext.h>
-#endif
 
 #define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
   do {									\

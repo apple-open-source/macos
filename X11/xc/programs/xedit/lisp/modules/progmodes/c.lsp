@@ -27,7 +27,7 @@
 ;; Author: Paulo César Pereira de Andrade
 ;;
 ;;
-;; $XFree86: xc/programs/xedit/lisp/modules/progmodes/c.lsp,v 1.26 2003/01/29 03:05:54 paulo Exp $
+;; $XFree86: xc/programs/xedit/lisp/modules/progmodes/c.lsp,v 1.28 2004/02/04 20:49:08 paulo Exp $
 ;;
 
 (require "syntax")
@@ -36,7 +36,7 @@
 
 (defsynprop *prop-format*
     "format"
-    :font	"*lucidatypewriter-medium-r*12*"
+    :font	"*lucidatypewriter-medium-r*-12-*"
     :foreground	"RoyalBlue2"
     :underline	t
 )
@@ -490,8 +490,6 @@
     (indreduce :while
 	t
 	((:c-while :parens)
-	 ;; Assume that it is yet being edited, or adjusting indentation
-	(:c-while)
 	)
 	(incf c-complex)
     )

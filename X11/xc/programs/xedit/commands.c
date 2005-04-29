@@ -24,7 +24,7 @@
  * used in advertising or publicity pertaining to distribution of the software
  * without specific, written prior permission.
  */
-/* $XFree86: xc/programs/xedit/commands.c,v 1.29 2002/11/05 06:57:05 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/commands.c,v 1.30 2003/05/27 22:27:01 tsi Exp $ */
 
 #include <X11/Xfuncs.h>
 #include <X11/Xos.h>
@@ -676,7 +676,7 @@ FileCompletion(Widget w, XEvent *event, String *params, Cardinal *num_params)
     char **matches, *save, *dir_name, *file_name, match[257];
     unsigned n_matches, len, mlen, buflen;
     DIR *dir;
-    Bool changed, slash = False, dot = False, has_dot = False;
+    Bool changed, slash = False, has_dot = False;
 #define	SM_NEVER	0
 #define SM_HINT		1
 #define SM_ALWAYS	2
@@ -744,7 +744,6 @@ FileCompletion(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
     if (save[0] == '~' && save[1]) {
 	char *slash2 = strchr(save, '/');
-	int nlen;
 
 	if (slash2) {
 	    struct passwd *pw;
@@ -754,7 +753,7 @@ FileCompletion(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
 	    *slash2 = '\0';
 	    name = save + 1;
-	    if ((nlen = strlen(name)) != 0)
+	    if (strlen(name) != 0)
 		pw = getpwnam(name);
 	    else
 		pw = getpwuid(getuid());
@@ -798,7 +797,6 @@ FileCompletion(Widget w, XEvent *event, String *params, Cardinal *num_params)
     }
     else {
 	dir_name = ".";
-	dot = True;
 	file_name = save;
     }
     len = strlen(file_name);

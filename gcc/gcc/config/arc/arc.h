@@ -1,21 +1,21 @@
 /* Definitions of target machine for GNU compiler, Argonaut ARC cpu.
-   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2004
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -138,11 +138,11 @@ extern const char *arc_cpu_string;
 extern const char *arc_text_string,*arc_data_string,*arc_rodata_string;
 
 #define TARGET_OPTIONS \
-{						\
-  { "cpu=",	&arc_cpu_string		},	\
-  { "text=",	&arc_text_string	},	\
-  { "data=",	&arc_data_string	},	\
-  { "rodata=",	&arc_rodata_string	},	\
+{					\
+  { "cpu=",	&arc_cpu_string, 0},	\
+  { "text=",	&arc_text_string, 0},	\
+  { "data=",	&arc_data_string, 0},	\
+  { "rodata=",	&arc_rodata_string, 0},	\
 }
 
 /* Which cpu we're compiling for.  */
@@ -205,13 +205,6 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 {						\
   (MODE) = SImode;				\
 }
-
-/* Define this macro if the promotion described by `PROMOTE_MODE'
-   should also be done for outgoing function arguments.  */
-#define PROMOTE_FUNCTION_ARGS
-
-/* Likewise, if the function return value is promoted.  */
-#define PROMOTE_FUNCTION_RETURN
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -350,7 +343,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
   1, 1, 1, 1, 1, 1 }
 
 /* If defined, an initializer for a vector of integers, containing the
-   numbers of hard registers in the order in which GNU CC should
+   numbers of hard registers in the order in which GCC should
    prefer to use them (from most preferred to least).  */
 #define REG_ALLOC_ORDER \
 { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1,			\
@@ -463,9 +456,9 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
    Since they use reg_renumber, they are safe only once reg_renumber
    has been allocated, which happens in local-alloc.c.  */
 #define REGNO_OK_FOR_BASE_P(REGNO) \
-((REGNO) < 29 || (unsigned) reg_renumber[REGNO] < 29)
+((REGNO) < 32 || (unsigned) reg_renumber[REGNO] < 32)
 #define REGNO_OK_FOR_INDEX_P(REGNO) \
-((REGNO) < 29 || (unsigned) reg_renumber[REGNO] < 29)
+((REGNO) < 32 || (unsigned) reg_renumber[REGNO] < 32)
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -493,7 +486,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* local to this file */
 #define LARGE_INT(X) \
 ((X) >= (-(HOST_WIDE_INT) 0x7fffffff - 1) \
- && (X) <= (unsigned HOST_WIDE_INT) 0xffffffff)
+ && (unsigned HOST_WIDE_INT)(X) <= (unsigned HOST_WIDE_INT) 0xffffffff)
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C) \
 ((C) == 'I' ? SMALL_INT (VALUE)		\
@@ -520,7 +513,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* ??? This currently isn't used.  Waiting for PIC.  */
 #if 0
 #define EXTRA_CONSTRAINT(VALUE, C) \
-((C) == 'R' ? (SYMBOL_REF_FLAG (VALUE) || GET_CODE (VALUE) == LABEL_REF) \
+((C) == 'R' ? (SYMBOL_REF_FUNCTION_P (VALUE) || GET_CODE (VALUE) == LABEL_REF) \
  : 0)
 #endif
 
@@ -605,9 +598,6 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 /* Function argument passing.  */
 
-/* When a prototype says `char' or `short', really pass an `int'.  */
-#define PROMOTE_PROTOTYPES 1
-
 /* If defined, the maximum amount of space required for outgoing
    arguments will be computed and placed into the variable
    `current_function_outgoing_args_size'.  No space will be pushed
@@ -633,7 +623,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
 ((CUM) = 0)
 
 /* The number of registers used for parameter passing.  Local to this file.  */
@@ -706,27 +696,6 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
    registers.  */
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-/* All aggregates and arguments greater than 8 bytes are passed this way.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-(TYPE					\
- && (AGGREGATE_TYPE_P (TYPE)		\
-     || int_size_in_bytes (TYPE) > 8))
-
-/* A C expression that indicates when it is the called function's
-   responsibility to make copies of arguments passed by reference.
-   If the callee can determine that the argument won't be modified, it can
-   avoid the copy.  */
-/* ??? We'd love to be able to use NAMED here.  Unfortunately, it doesn't
-   include the last named argument so we keep track of the args ourselves.  */
-
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
-FUNCTION_ARG_PASS_BY_REFERENCE ((CUM), (MODE), (TYPE), (NAMED))
-
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
    (TYPE is null for libcalls where that information may not be available.)  */
@@ -741,36 +710,6 @@ FUNCTION_ARG_PASS_BY_REFERENCE ((CUM), (MODE), (TYPE), (NAMED))
 (((TYPE) ? TYPE_ALIGN (TYPE) : GET_MODE_BITSIZE (MODE)) <= PARM_BOUNDARY \
  ? PARM_BOUNDARY \
  : 2 * PARM_BOUNDARY)
-
-/* This macro offers an alternative
-   to using `__builtin_saveregs' and defining the macro
-   `EXPAND_BUILTIN_SAVEREGS'.  Use it to store the anonymous register
-   arguments into the stack so that all the arguments appear to have
-   been passed consecutively on the stack.  Once this is done, you
-   can use the standard implementation of varargs that works for
-   machines that pass all their arguments on the stack.
-
-   The argument ARGS_SO_FAR is the `CUMULATIVE_ARGS' data structure,
-   containing the values that obtain after processing of the named
-   arguments.  The arguments MODE and TYPE describe the last named
-   argument--its machine mode and its data type as a tree node.
-
-   The macro implementation should do two things: first, push onto the
-   stack all the argument registers *not* used for the named
-   arguments, and second, store the size of the data thus pushed into
-   the `int'-valued variable whose name is supplied as the argument
-   PRETEND_SIZE.  The value that you store here will serve as
-   additional offset for setting up the stack frame.
-
-   If the argument NO_RTL is nonzero, it means that the
-   arguments of the function are being analyzed for the second time.
-   This happens for an inline function, which is not actually
-   compiled until the end of the source file.  The macro
-   `SETUP_INCOMING_VARARGS' should not generate any instructions in
-   this case.  */
-
-#define SETUP_INCOMING_VARARGS(ARGS_SO_FAR, MODE, TYPE, PRETEND_SIZE, NO_RTL) \
-arc_setup_incoming_varargs(&ARGS_SO_FAR, MODE, TYPE, &PRETEND_SIZE, NO_RTL)
 
 /* Function results.  */
 
@@ -789,22 +728,8 @@ arc_setup_incoming_varargs(&ARGS_SO_FAR, MODE, TYPE, &PRETEND_SIZE, NO_RTL)
 /* ??? What about r1 in DI/DF values.  */
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
 
-/* A C expression which can inhibit the returning of certain function
-   values in registers, based on the type of value.  A nonzero value says
-   to return the function value in memory, just as large structures are
-   always returned.  Here TYPE will be a C expression of type `tree',
-   representing the data type of the value.  */
-#define RETURN_IN_MEMORY(TYPE) \
-(AGGREGATE_TYPE_P (TYPE) \
- || int_size_in_bytes (TYPE) > 8 \
- || TREE_ADDRESSABLE (TYPE))
-
-/* Tell GCC to use RETURN_IN_MEMORY.  */
+/* Tell GCC to use TARGET_RETURN_IN_MEMORY.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
-
-/* Register in which address to store a structure value
-   is passed to a function, or 0 to use `invisible' first argument.  */
-#define STRUCT_VALUE 0
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -856,11 +781,6 @@ do { \
   emit_insn (gen_flush_icache (validize_mem (gen_rtx_MEM (SImode, TRAMP)))); \
 } while (0)
 
-/* Library calls.  */
-
-/* Generate calls to memcpy, memcmp and memset.  */
-#define TARGET_MEM_FUNCTIONS
-
 /* Addressing modes, and classification of registers for them.  */
 
 /* Maximum number of registers that can appear in a valid memory address.  */
@@ -900,11 +820,11 @@ do { \
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_INDEX_P(X) \
-((unsigned) REGNO (X) - 29 >= FIRST_PSEUDO_REGISTER - 29)
+((unsigned) REGNO (X) - 32 >= FIRST_PSEUDO_REGISTER - 32)
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) \
-((unsigned) REGNO (X) - 29 >= FIRST_PSEUDO_REGISTER - 29)
+((unsigned) REGNO (X) - 32 >= FIRST_PSEUDO_REGISTER - 32)
 
 #else
 
@@ -960,21 +880,6 @@ do { \
     goto ADDR;						\
 }
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.  */
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
-
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL) \
@@ -995,37 +900,6 @@ arc_select_cc_mode (OP, X, Y)
 
 /* Costs.  */
 
-/* An insn is define to cost 4 "units", and we work from there.
-   COSTS_N_INSNS (N) is defined as (N) * 4 - 2 so that seems reasonable.
-   Some values are supposed to be defined relative to each other and thus
-   aren't necessarily related to COSTS_N_INSNS.  */
-
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.  */
-/* Small integers are as cheap as registers.  4 byte values can be fetched
-   as immediate constants - let's give that the cost of an extra insn.  */
-#define CONST_COSTS(X, CODE, OUTER_CODE) \
-  case CONST_INT :						\
-    if (SMALL_INT (INTVAL (X)))					\
-      return 0;							\
-    /* fall through */						\
-  case CONST :							\
-  case LABEL_REF :						\
-  case SYMBOL_REF :						\
-    return 4;							\
-  case CONST_DOUBLE :						\
-    {								\
-      rtx high, low;						\
-      split_double (X, &high, &low);				\
-      return 4 * (!SMALL_INT (INTVAL (high))			\
-		  + !SMALL_INT (INTVAL (low)));			\
-    }
-
-/* Compute the cost of an address.  */
-#define ADDRESS_COST(ADDR) (REG_P (ADDR) ? 1 : arc_address_cost (ADDR))
-
 /* Compute extra cost of moving data between one register class
    and another.  */
 #define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2) 2
@@ -1041,22 +915,6 @@ arc_select_cc_mode (OP, X, Y)
    expensive than reg->reg moves.  */
 #define BRANCH_COST 2
 
-/* Provide the costs of a rtl expression.  This is in the body of a
-   switch on CODE.  The purpose for the cost of MULT is to encourage
-   `synth_mult' to find a synthetic multiply when reasonable.
-
-   If we need more than 12 insns to do a multiply, then go out-of-line,
-   since the call overhead will be < 10% of the cost of the multiply.  */
-#define RTX_COSTS(X, CODE, OUTER_CODE) \
-  case ASHIFT :						\
-  case ASHIFTRT :					\
-  case LSHIFTRT :					\
-    if (TARGET_SHIFTER)					\
-      return COSTS_N_INSNS (1);				\
-    if (GET_CODE (XEXP ((X), 1)) != CONST_INT)		\
-      return COSTS_N_INSNS (16);			\
-    return COSTS_N_INSNS (INTVAL (XEXP ((X), 1)));
-
 /* Nonzero if access to memory by bytes is slow and undesirable.
    For RISC chips, it means that access to memory by bytes is no
    better than access by words when possible, so grab a whole word
@@ -1067,12 +925,6 @@ arc_select_cc_mode (OP, X, Y)
    function address than to call an address kept in a register.  */
 /* On the ARC, calling through registers is slow.  */
 #define NO_FUNCTION_CSE
-
-/* Define this macro if it is as good or better for a function to call
-   itself with an explicit address than to call an address kept in a
-   register.  */
-/* On the ARC, calling through registers is slow.  */
-#define NO_RECURSIVE_FUNCTION_CSE
 
 /* Section selection.  */
 /* WARNING: These section names also appear in dwarfout.c.  */
@@ -1157,10 +1009,6 @@ extern const char *arc_text_section, *arc_data_section, *arc_rodata_section;
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning of assembler file.  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE) arc_asm_file_start (FILE)
-
 /* A C string constant describing how to begin a comment in the target
    assembler language.  The compiler assumes that the comment will
    end at the end of the line.  */
@@ -1177,32 +1025,13 @@ extern const char *arc_text_section, *arc_data_section, *arc_rodata_section;
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP "\t.global\t"
 
-/* A C statement (sans semicolon) to output on FILE an assembler pseudo-op to
-   declare a library function name external.  The name of the library function
-   is given by SYMREF, which has type RTX and is a SYMBOL_REF.  */
-#if 0
-/* On the ARC we want to have libgcc's for multiple cpus in one binary.
-   We can't use `assemble_name' here as that will call ASM_OUTPUT_LABELREF
-   and we'll get another suffix added on if -mmangle-cpu.  */
-extern const char *arc_mangle_cpu;
-#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, SYMREF) \
-do {							\
-  if (TARGET_MANGLE_CPU_LIBGCC)				\
-    {							\
-      fprintf (FILE, "\t.rename\t_%s, _%s%s\n",		\
-	       XSTR (SYMREF, 0), XSTR (SYMREF, 0),	\
-	       arc_mangle_suffix);			\
-    }							\
-} while (0)
-#endif
-
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 /* We mangle all user labels to provide protection from linking code
    compiled for different cpus.  */
 /* We work around a dwarfout.c deficiency by watching for labels from it and
    not adding the '_' prefix nor the cpu suffix.  There is a comment in
-   dwarfout.c that says it should be using ASM_OUTPUT_INTERNAL_LABEL.  */
+   dwarfout.c that says it should be using (*targetm.asm_out.internal_label).  */
 extern const char *arc_mangle_cpu;
 #define ASM_OUTPUT_LABELREF(FILE, NAME) \
 do {							\
@@ -1216,22 +1045,6 @@ do {							\
       fprintf (FILE, "%s", NAME);			\
     }							\
 } while (0)
-
-/* This is how to output a definition of an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-#undef ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM) \
-do {						\
-  arc_ccfsm_at_label (PREFIX, NUM);		\
-  fprintf (FILE, ".%s%d:\n", PREFIX, NUM);	\
-} while (0)
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO) \
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Assembler pseudo-op to equate one value with another.  */
 /* ??? This is needed because dwarfout.c provides a default definition too
@@ -1312,7 +1125,6 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 
 /* Generate DBX and DWARF debugging information.  */
 #define DBX_DEBUGGING_INFO 1
-#define DWARF_DEBUGGING_INFO 1
 
 /* Prefer STABS (for now).  */
 #undef PREFERRED_DEBUGGING_TYPE
@@ -1327,15 +1139,6 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
 
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* It's not clear what PIC will look like or whether we want to use -fpic
-   for the embedded form currently being talked about.  For now require -fpic
-   to get pc relative switch tables.  */
-/*#define CASE_VECTOR_PC_RELATIVE 1 */
-
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
 #define WORD_REGISTER_OPERATIONS
@@ -1343,7 +1146,7 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Max number of bytes we can move from memory to memory
@@ -1357,10 +1160,6 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-#define STORE_FLAG_VALUE 1
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
@@ -1397,7 +1196,3 @@ enum arc_function_type {
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   arc_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  arc_va_arg (valist, type)

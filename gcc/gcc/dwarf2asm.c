@@ -1,5 +1,5 @@
 /* Dwarf2 assembler output helper routines.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "flags.h"
 #include "tree.h"
 #include "rtl.h"
@@ -43,9 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    to print a newline, since the caller may want to add a comment.  */
 
 void
-dw2_assemble_integer (size, x)
-     int size;
-     rtx x;
+dw2_assemble_integer (int size, rtx x)
 {
   const char *op = integer_asm_op (size, FALSE);
 
@@ -65,13 +65,12 @@ dw2_assemble_integer (size, x)
 /* Output an immediate constant in a given size.  */
 
 void
-dw2_asm_output_data VPARAMS ((int size, unsigned HOST_WIDE_INT value,
-			      const char *comment, ...))
+dw2_asm_output_data (int size, unsigned HOST_WIDE_INT value,
+		     const char *comment, ...)
 {
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, int, size);
-  VA_FIXEDARG (ap, unsigned HOST_WIDE_INT, value);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_list ap;
+
+  va_start (ap, comment);
 
   if (size * 8 < HOST_BITS_PER_WIDE_INT)
     value &= ~(~(unsigned HOST_WIDE_INT) 0 << (size * 8));
@@ -85,7 +84,7 @@ dw2_asm_output_data VPARAMS ((int size, unsigned HOST_WIDE_INT value,
     }
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 /* Output the difference between two symbols in a given size.  */
@@ -95,14 +94,12 @@ dw2_asm_output_data VPARAMS ((int size, unsigned HOST_WIDE_INT value,
    symbol must appear after both symbols are defined.  */
 
 void
-dw2_asm_output_delta VPARAMS ((int size, const char *lab1, const char *lab2,
-			       const char *comment, ...))
+dw2_asm_output_delta (int size, const char *lab1, const char *lab2,
+		      const char *comment, ...)
 {
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, int, size);
-  VA_FIXEDARG (ap, const char *, lab1);
-  VA_FIXEDARG (ap, const char *, lab2);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_list ap;
+
+  va_start (ap, comment);
 
 #ifdef ASM_OUTPUT_DWARF_DELTA
   ASM_OUTPUT_DWARF_DELTA (asm_out_file, size, lab1, lab2);
@@ -119,7 +116,7 @@ dw2_asm_output_delta VPARAMS ((int size, const char *lab1, const char *lab2,
     }
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 /* Output a section-relative reference to a label.  In general this
@@ -129,13 +126,12 @@ dw2_asm_output_delta VPARAMS ((int size, const char *lab1, const char *lab2,
    Some targets have special relocations for this that we must use.  */
 
 void
-dw2_asm_output_offset VPARAMS ((int size, const char *label,
-			       const char *comment, ...))
+dw2_asm_output_offset (int size, const char *label,
+		       const char *comment, ...)
 {
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, int, size);
-  VA_FIXEDARG (ap, const char *, label);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_list ap;
+
+  va_start (ap, comment);
 
 #ifdef ASM_OUTPUT_DWARF_OFFSET
   ASM_OUTPUT_DWARF_OFFSET (asm_out_file, size, label);
@@ -150,21 +146,20 @@ dw2_asm_output_offset VPARAMS ((int size, const char *label,
     }
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 /* Output a self-relative reference to a label, possibly in a
    different section or object file.  */
 
 void
-dw2_asm_output_pcrel VPARAMS ((int size ATTRIBUTE_UNUSED,
-			       const char *label ATTRIBUTE_UNUSED,
-			       const char *comment, ...))
+dw2_asm_output_pcrel (int size ATTRIBUTE_UNUSED,
+		      const char *label ATTRIBUTE_UNUSED,
+		      const char *comment, ...)
 {
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, int, size);
-  VA_FIXEDARG (ap, const char *, label);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_list ap;
+
+  va_start (ap, comment);
 
 #ifdef ASM_OUTPUT_DWARF_PCREL
   ASM_OUTPUT_DWARF_PCREL (asm_out_file, size, label);
@@ -182,19 +177,18 @@ dw2_asm_output_pcrel VPARAMS ((int size ATTRIBUTE_UNUSED,
     }
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 /* Output an absolute reference to a label.  */
 
 void
-dw2_asm_output_addr VPARAMS ((int size, const char *label,
-			      const char *comment, ...))
+dw2_asm_output_addr (int size, const char *label,
+		     const char *comment, ...)
 {
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, int, size);
-  VA_FIXEDARG (ap, const char *, label);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_list ap;
+
+  va_start (ap, comment);
 
   dw2_assemble_integer (size, gen_rtx_SYMBOL_REF (Pmode, label));
 
@@ -205,19 +199,18 @@ dw2_asm_output_addr VPARAMS ((int size, const char *label,
     }
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 /* Similar, but use an RTX expression instead of a text label.  */
 
 void
-dw2_asm_output_addr_rtx VPARAMS ((int size, rtx addr,
-				  const char *comment, ...))
+dw2_asm_output_addr_rtx (int size, rtx addr,
+			 const char *comment, ...)
 {
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, int, size);
-  VA_FIXEDARG (ap, rtx, addr);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_list ap;
+
+  va_start (ap, comment);
 
   dw2_assemble_integer (size, addr);
 
@@ -228,19 +221,24 @@ dw2_asm_output_addr_rtx VPARAMS ((int size, rtx addr,
     }
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
+/* Output the first ORIG_LEN characters of STR as a string.
+   If ORIG_LEN is equal to -1, ignore this parameter and output
+   the entire STR instead.
+   If COMMENT is not NULL and comments in the debug information
+   have been requested by the user, append the given COMMENT
+   to the generated output.  */
+   
 void
-dw2_asm_output_nstring VPARAMS ((const char *str, size_t orig_len,
-				 const char *comment, ...))
+dw2_asm_output_nstring (const char *str, size_t orig_len,
+			const char *comment, ...)
 {
   size_t i, len;
+  va_list ap;
 
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, const char *, str);
-  VA_FIXEDARG (ap, size_t, orig_len);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_start (ap, comment);
 
   len = orig_len;
 
@@ -275,21 +273,19 @@ dw2_asm_output_nstring VPARAMS ((const char *str, size_t orig_len,
 	assemble_integer (const0_rtx, 1, BITS_PER_UNIT, 1);
     }
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 
 /* Return the size of an unsigned LEB128 quantity.  */
 
 int
-size_of_uleb128 (value)
-     unsigned HOST_WIDE_INT value;
+size_of_uleb128 (unsigned HOST_WIDE_INT value)
 {
-  int size = 0, byte;
+  int size = 0;
 
   do
     {
-      byte = (value & 0x7f);
       value >>= 7;
       size += 1;
     }
@@ -301,8 +297,7 @@ size_of_uleb128 (value)
 /* Return the size of a signed LEB128 quantity.  */
 
 int
-size_of_sleb128 (value)
-     HOST_WIDE_INT value;
+size_of_sleb128 (HOST_WIDE_INT value)
 {
   int size = 0, byte;
 
@@ -323,8 +318,7 @@ size_of_sleb128 (value)
    include leb128.  */
 
 int
-size_of_encoded_value (encoding)
-     int encoding;
+size_of_encoded_value (int encoding)
 {
   if (encoding == DW_EH_PE_omit)
     return 0;
@@ -339,15 +333,15 @@ size_of_encoded_value (encoding)
       return 4;
     case DW_EH_PE_udata8:
       return 8;
+    default:
+      gcc_unreachable ();
     }
-  abort ();
 }
 
 /* Yield a name for a given pointer encoding.  */
 
 const char *
-eh_data_format_name (format)
-     int format;
+eh_data_format_name (int format)
 {
 #if HAVE_DESIGNATED_INITIALIZERS
 #define S(p, v)		[p] = v,
@@ -493,28 +487,27 @@ eh_data_format_name (format)
 #if HAVE_DESIGNATED_INITIALIZERS
   };
 
-  if (format < 0 || format > 0xff || format_names[format] == NULL)
-    abort ();
+  gcc_assert (format >= 0 && format < 0x100 && format_names[format]);
+  
   return format_names[format];
 #else
   }
-  abort ();
+  gcc_unreachable ();
 #endif
 }
 
 /* Output an unsigned LEB128 quantity.  */
 
 void
-dw2_asm_output_data_uleb128 VPARAMS ((unsigned HOST_WIDE_INT value,
-				      const char *comment, ...))
+dw2_asm_output_data_uleb128 (unsigned HOST_WIDE_INT value,
+			     const char *comment, ...)
 {
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, unsigned HOST_WIDE_INT, value);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_list ap;
+
+  va_start (ap, comment);
 
 #ifdef HAVE_AS_LEB128
-  fputs ("\t.uleb128 ", asm_out_file);
-  fprintf (asm_out_file, HOST_WIDE_INT_PRINT_HEX, value);
+  fprintf (asm_out_file, "\t.uleb128 " HOST_WIDE_INT_PRINT_HEX , value);
 
   if (flag_debug_asm && comment)
     {
@@ -549,8 +542,8 @@ dw2_asm_output_data_uleb128 VPARAMS ((unsigned HOST_WIDE_INT value,
 
   if (flag_debug_asm)
     {
-      fprintf (asm_out_file, "\t%s uleb128 ", ASM_COMMENT_START);
-      fprintf (asm_out_file, HOST_WIDE_INT_PRINT_HEX, value);
+      fprintf (asm_out_file, "\t%s uleb128 " HOST_WIDE_INT_PRINT_HEX,
+	       ASM_COMMENT_START, value);
       if (comment)
 	{
 	  fputs ("; ", asm_out_file);
@@ -561,22 +554,21 @@ dw2_asm_output_data_uleb128 VPARAMS ((unsigned HOST_WIDE_INT value,
 #endif
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 /* Output a signed LEB128 quantity.  */
 
 void
-dw2_asm_output_data_sleb128 VPARAMS ((HOST_WIDE_INT value,
-				      const char *comment, ...))
+dw2_asm_output_data_sleb128 (HOST_WIDE_INT value,
+			     const char *comment, ...)
 {
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, HOST_WIDE_INT, value);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_list ap;
+
+  va_start (ap, comment);
 
 #ifdef HAVE_AS_LEB128
-  fputs ("\t.sleb128 ", asm_out_file);
-  fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC, value);
+  fprintf (asm_out_file, "\t.sleb128 " HOST_WIDE_INT_PRINT_DEC, value);
 
   if (flag_debug_asm && comment)
     {
@@ -614,8 +606,8 @@ dw2_asm_output_data_sleb128 VPARAMS ((HOST_WIDE_INT value,
 
   if (flag_debug_asm)
     {
-      fprintf (asm_out_file, "\t%s sleb128 ", ASM_COMMENT_START);
-      fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC, value);
+      fprintf (asm_out_file, "\t%s sleb128 " HOST_WIDE_INT_PRINT_DEC,
+	       ASM_COMMENT_START, value);
       if (comment)
 	{
 	  fputs ("; ", asm_out_file);
@@ -626,18 +618,17 @@ dw2_asm_output_data_sleb128 VPARAMS ((HOST_WIDE_INT value,
 #endif
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 void
-dw2_asm_output_delta_uleb128 VPARAMS ((const char *lab1 ATTRIBUTE_UNUSED,
-				       const char *lab2 ATTRIBUTE_UNUSED,
-				       const char *comment, ...))
+dw2_asm_output_delta_uleb128 (const char *lab1 ATTRIBUTE_UNUSED,
+			      const char *lab2 ATTRIBUTE_UNUSED,
+			      const char *comment, ...)
 {
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, const char *, lab1);
-  VA_FIXEDARG (ap, const char *, lab2);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_list ap;
+
+  va_start (ap, comment);
 
 #ifdef HAVE_AS_LEB128
   fputs ("\t.uleb128 ", asm_out_file);
@@ -645,7 +636,7 @@ dw2_asm_output_delta_uleb128 VPARAMS ((const char *lab1 ATTRIBUTE_UNUSED,
   fputc ('-', asm_out_file);
   assemble_name (asm_out_file, lab2);
 #else
-  abort ();
+  gcc_unreachable ();
 #endif
 
   if (flag_debug_asm && comment)
@@ -655,18 +646,17 @@ dw2_asm_output_delta_uleb128 VPARAMS ((const char *lab1 ATTRIBUTE_UNUSED,
     }
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 void
-dw2_asm_output_delta_sleb128 VPARAMS ((const char *lab1 ATTRIBUTE_UNUSED,
-				       const char *lab2 ATTRIBUTE_UNUSED,
-				       const char *comment, ...))
+dw2_asm_output_delta_sleb128 (const char *lab1 ATTRIBUTE_UNUSED,
+			      const char *lab2 ATTRIBUTE_UNUSED,
+			      const char *comment, ...)
 {
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, const char *, lab1);
-  VA_FIXEDARG (ap, const char *, lab2);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_list ap;
+
+  va_start (ap, comment);
 
 #ifdef HAVE_AS_LEB128
   fputs ("\t.sleb128 ", asm_out_file);
@@ -674,7 +664,7 @@ dw2_asm_output_delta_sleb128 VPARAMS ((const char *lab1 ATTRIBUTE_UNUSED,
   fputc ('-', asm_out_file);
   assemble_name (asm_out_file, lab2);
 #else
-  abort ();
+  gcc_unreachable ();
 #endif
 
   if (flag_debug_asm && comment)
@@ -684,11 +674,11 @@ dw2_asm_output_delta_sleb128 VPARAMS ((const char *lab1 ATTRIBUTE_UNUSED,
     }
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
-static rtx dw2_force_const_mem PARAMS ((rtx));
-static int dw2_output_indirect_constant_1 PARAMS ((splay_tree_node, void *));
+static rtx dw2_force_const_mem (rtx);
+static int dw2_output_indirect_constant_1 (splay_tree_node, void *);
 
 static GTY((param1_is (char *), param2_is (tree))) splay_tree indirect_pool;
 
@@ -706,8 +696,7 @@ static GTY(()) int dw2_const_labelno;
    "near" the function in any interesting sense.  */
 
 static rtx
-dw2_force_const_mem (x)
-     rtx x;
+dw2_force_const_mem (rtx x)
 {
   splay_tree_node node;
   const char *str;
@@ -716,10 +705,9 @@ dw2_force_const_mem (x)
   if (! indirect_pool)
     indirect_pool = splay_tree_new_ggc (splay_tree_compare_pointers);
 
-  if (GET_CODE (x) != SYMBOL_REF)
-    abort ();
+  gcc_assert (GET_CODE (x) == SYMBOL_REF);
 
-  str = (* targetm.strip_name_encoding) (XSTR (x, 0));
+  str = targetm.strip_name_encoding (XSTR (x, 0));
   node = splay_tree_lookup (indirect_pool, (splay_tree_key) str);
   if (node)
     decl = (tree) node->value;
@@ -767,9 +755,8 @@ dw2_force_const_mem (x)
    splay_tree_foreach.  Emit one queued constant to memory.  */
 
 static int
-dw2_output_indirect_constant_1 (node, data)
-     splay_tree_node node;
-     void* data ATTRIBUTE_UNUSED;
+dw2_output_indirect_constant_1 (splay_tree_node node,
+				void *data ATTRIBUTE_UNUSED)
 {
   const char *sym;
   rtx sym_ref;
@@ -777,7 +764,7 @@ dw2_output_indirect_constant_1 (node, data)
   sym = (const char *) node->key;
   sym_ref = gen_rtx_SYMBOL_REF (Pmode, sym);
   if (USE_LINKONCE_INDIRECT)
-    fprintf (asm_out_file, "\t.hidden DW.ref.%s\n", sym);
+    fprintf (asm_out_file, "\t.hidden %sDW.ref.%s\n", user_label_prefix, sym);
   assemble_variable ((tree) node->value, 1, 1, 1);
   assemble_integer (sym_ref, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 
@@ -787,7 +774,7 @@ dw2_output_indirect_constant_1 (node, data)
 /* Emit the constants queued through dw2_force_const_mem.  */
 
 void
-dw2_output_indirect_constants ()
+dw2_output_indirect_constants (void)
 {
   if (indirect_pool)
     splay_tree_foreach (indirect_pool, dw2_output_indirect_constant_1, NULL);
@@ -796,16 +783,13 @@ dw2_output_indirect_constants ()
 /* Like dw2_asm_output_addr_rtx, but encode the pointer as directed.  */
 
 void
-dw2_asm_output_encoded_addr_rtx VPARAMS ((int encoding,
-					  rtx addr,
-					  const char *comment, ...))
+dw2_asm_output_encoded_addr_rtx (int encoding, rtx addr,
+				 const char *comment, ...)
 {
   int size;
+  va_list ap;
 
-  VA_OPEN (ap, comment);
-  VA_FIXEDARG (ap, int, encoding);
-  VA_FIXEDARG (ap, rtx, addr);
-  VA_FIXEDARG (ap, const char *, comment);
+  va_start (ap, comment);
 
   size = size_of_encoded_value (encoding);
 
@@ -852,8 +836,7 @@ dw2_asm_output_encoded_addr_rtx VPARAMS ((int encoding,
 	  break;
 
 	case DW_EH_PE_pcrel:
-	  if (GET_CODE (addr) != SYMBOL_REF)
-	    abort ();
+	  gcc_assert (GET_CODE (addr) == SYMBOL_REF);
 #ifdef ASM_OUTPUT_DWARF_PCREL
 	  ASM_OUTPUT_DWARF_PCREL (asm_out_file, size, XSTR (addr, 0));
 #else
@@ -864,7 +847,7 @@ dw2_asm_output_encoded_addr_rtx VPARAMS ((int encoding,
 	default:
 	  /* Other encodings should have been handled by
 	     ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX.  */
-	  abort ();
+	  gcc_unreachable ();
 	}
 
 #ifdef ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX
@@ -879,7 +862,7 @@ dw2_asm_output_encoded_addr_rtx VPARAMS ((int encoding,
     }
   fputc ('\n', asm_out_file);
 
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 #include "gt-dwarf2asm.h"

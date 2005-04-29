@@ -74,6 +74,21 @@ SOFTWARE.
 #include <net-snmp/library/snmp_api.h>
 #include <net-snmp/library/mib.h>
 
+/** @mainpage Net-SNMP Coding Documentation
+ * @section Introduction
+  
+   This is the Net-SNMP coding and API reference documentation.  It is
+   incomplete, but when combined with the manual page set and
+   tutorials forms a pretty comprehensive starting point.
+
+   @section Starting out
+
+   The best places to start learning are the @e Net-SNMP @e tutorial
+   (http://www.Net-SNMP.org/tutorial-5/) and the @e Modules and @e
+   Examples sections of this document.
+
+*/
+
 void
 xdump(const u_char * cp, size_t length, const char *prefix)
 {
@@ -289,12 +304,16 @@ snmp_build_var_op(u_char * data,
         break;
 #endif                          /* OPAQUE_SPECIAL_TYPES */
     default:
-        ERROR_MSG("wrong type");
-        return NULL;
+	{
+	char error_buf[64];
+	snprintf(error_buf, sizeof(error_buf),
+		"wrong type in snmp_build_var_op: %d", var_val_type);
+        ERROR_MSG(error_buf);
+        data = NULL;
+	}
     }
     DEBUGINDENTLESS();
     if (data == NULL) {
-        ERROR_MSG("Can't build value");
         return NULL;
     }
     dummyLen = (data - dataPtr) - headerLen;
@@ -402,13 +421,17 @@ snmp_realloc_rbuild_var_op(u_char ** pkt, size_t * pkt_len,
         break;
 #endif                          /* OPAQUE_SPECIAL_TYPES */
     default:
-        ERROR_MSG("wrong type");
-        return 0;
+	{
+	char error_buf[64];
+	snprintf(error_buf, sizeof(error_buf),
+		"wrong type in snmp_realloc_rbuild_var_op: %d", var_val_type);
+        ERROR_MSG(error_buf);
+        rc = 0;
+	}
     }
     DEBUGINDENTLESS();
 
     if (rc == 0) {
-        ERROR_MSG("Can't build value");
         return 0;
     }
 

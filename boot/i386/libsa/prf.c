@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -42,6 +42,7 @@
 
 #define SPACE	1
 #define ZERO	2
+#define UCASE   16
 
 /*
  * Scaled down version of C Library printf.
@@ -72,7 +73,7 @@ printn(n, b, flag, minwidth, putfn_p, putfn_arg)
 	}
 	cp = prbuf;
 	do {
-		*cp++ = "0123456789abcdef"[n%b];
+                *cp++ = "0123456789abcdef0123456789ABCDEF"[(flag & UCASE) + n%b];
 		n /= b;
 		width++;
 	} while (n);
@@ -98,7 +99,8 @@ void prf(
 {
 	int b, c;
 	char *s;
-	int flag = 0, minwidth = 0, width = 0;
+	int flag = 0, width = 0;
+        int minwidth;
 
 loop:
 	while ((c = *fmt++) != '%') {
@@ -106,6 +108,7 @@ loop:
 			return;
 		(*putfn_p)(c, putfn_arg);
 	}
+        minwidth = 0;
 again:
 	c = *fmt++;
 	switch (c) {
@@ -132,7 +135,10 @@ again:
 		minwidth *= 10;
 		minwidth += c - '0';
 		goto again;
-	case 'x': case 'X':
+        case 'X':
+                flag |= UCASE;
+                /* fall through */
+	case 'x':
 		b = 16;
 		goto number;
 	case 'd':

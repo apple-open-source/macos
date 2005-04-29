@@ -239,7 +239,7 @@ itcl::body BpWin::bp_add {bp_event {tracepoint 0}} {
   if {$tracepoints} {
     label $twin.num$i -text "$number " -relief flat -anchor w -font global/fixed
   }
-  label $twin.addr$i -text "[$bp_event get address] " -relief flat -anchor w -font global/fixed -bg $bg1
+  label $twin.addr$i -text "[gdb_CA_to_TAS [$bp_event get address]] " -relief flat -anchor w -font global/fixed -bg $bg1
   if {[info exists _files(short,$file)]} {
     set file $_files(short,$file)
   } else {
@@ -493,7 +493,7 @@ itcl::body BpWin::bp_modify {bp_event {tracepoint 0}} {
   if {$tracepoints} {
     $twin.num$i configure  -text "$number "
   }
-  $twin.addr$i configure -text "[$bp_event get address] " 
+  $twin.addr$i configure -text "[gdb_CA_to_TAS [$bp_event get address]] "
   if {[info exists _files(short,$file)]} {
     set file $_files(short,$file)
   } else {

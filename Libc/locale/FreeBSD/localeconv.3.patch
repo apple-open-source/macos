@@ -1,0 +1,47 @@
+--- localeconv.3.orig	Fri Mar 11 19:44:47 2005
++++ localeconv.3	Fri Mar 11 19:57:53 2005
+@@ -40,7 +40,8 @@
+ .Dt LOCALECONV 3
+ .Os
+ .Sh NAME
+-.Nm localeconv
++.Nm localeconv ,
++.Nm localeconv_l
+ .Nd natural language formatting for C
+ .Sh LIBRARY
+ .Lb libc
+@@ -48,6 +49,9 @@
+ .In locale.h
+ .Ft struct lconv *
+ .Fn localeconv "void"
++.In xlocale.h
++.Ft struct lconv *
++.Fn localeconv_l "void" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn localeconv
+@@ -201,6 +205,14 @@
+ A
+ .Dv CHAR_MAX
+ result similarly denotes an unavailable value.
++.Pp
++While the
++.Fn localeconv
++function uses the current locale, the
++.Fn localeconv_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn localeconv
+@@ -213,7 +225,8 @@
+ No errors are defined.
+ .Sh SEE ALSO
+ .Xr setlocale 3 ,
+-.Xr strfmon 3
++.Xr strfmon 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn localeconv

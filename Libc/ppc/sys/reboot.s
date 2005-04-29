@@ -25,4 +25,4 @@
 #import	"SYS.h"
 
 SYSCALL(reboot, 2)
-	BRANCH_EXTERN(_abort)
+	MI_BRANCH_EXTERNAL(_abort)

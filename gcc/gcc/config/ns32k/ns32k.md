@@ -1,22 +1,22 @@
 ;;- Machine description for GNU compiler, ns32000 Version
-;;  Copyright (C) 1988, 1994, 1996, 1998, 1999, 2000, 2001
+;;  Copyright (C) 1988, 1994, 1996, 1998, 1999, 2000, 2001, 2002, 2004
 ;;  Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
@@ -312,8 +312,8 @@
   "movmd %1,%0,4")
 
 (define_insn "movdi"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=rm<,*f,rm")
-	(match_operand:DI 1 "general_operand" "gF,g,*f"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=rm<,*l,rm")
+	(match_operand:DI 1 "general_operand" "gF,g,*l"))]
   ""
   "*
 {
@@ -543,10 +543,10 @@
 ;;
 ;; Strategy: Use define_expand to
 ;; either emit insns directly if it can be done simply or
-;; emit rtl to match movstrsi1 which has extra scratch registers
+;; emit rtl to match movmemsi1 which has extra scratch registers
 ;; which can be used to generate more complex code.
 
-(define_expand "movstrsi"
+(define_expand "movmemsi"
   [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (match_operand:BLK 1 "memory_operand" ""))
 	      (use (match_operand:SI 2 "general_operand" ""))
@@ -568,7 +568,7 @@
 ;; r3  match
 
 
-(define_insn "movstrsi1"
+(define_insn "movmemsi1"
   [(set (mem:BLK (reg:SI 2))
 	(mem:BLK (reg:SI 1)))
    (use (reg:SI 0))
@@ -585,7 +585,7 @@
        return \"movsb\";
   }")
 
-(define_insn "movstrsi2"
+(define_insn "movmemsi2"
   [(set (mem:BLK (match_operand:SI 0 "address_operand" "p"))
 	(mem:BLK (match_operand:SI 1 "address_operand" "p")))
    (use (match_operand 2 "immediate_operand" "i"))]
@@ -1249,16 +1249,16 @@
   last = emit_move_insn(temp, temp);
   {
     rtx divdi, moddi, divsi, modsi;
-    divsi = gen_rtx (UDIV, SImode, operands[1], operands[2]);
-    modsi = gen_rtx (UMOD, SImode, operands[1], operands[2]);
-    divdi = gen_rtx (ZERO_EXTEND, DImode, divsi);
-    moddi = gen_rtx (ZERO_EXTEND, DImode, modsi);
-    REG_NOTES (first) = gen_rtx (INSN_LIST, REG_LIBCALL, last,
+    divsi = gen_rtx_UDIV (SImode, operands[1], operands[2]);
+    modsi = gen_rtx_UMOD (SImode, operands[1], operands[2]);
+    divdi = gen_rtx_ZERO_EXTEND (DImode, divsi);
+    moddi = gen_rtx_ZERO_EXTEND (DImode, modsi);
+    REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
 			         REG_NOTES (first));
-    REG_NOTES (last) = gen_rtx (INSN_LIST, REG_RETVAL, first,
-                                gen_rtx (EXPR_LIST, REG_EQUAL,
-                       gen_rtx (IOR, DImode, moddi,
-                               gen_rtx (ASHIFT, DImode, divdi, GEN_INT(32))),
+    REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
+                                gen_rtx_EXPR_LIST (REG_EQUAL,
+                       gen_rtx_IOR (DImode, moddi,
+                               gen_rtx_ASHIFT (DImode, divdi, GEN_INT(32))),
                        REG_NOTES (last)));
   }
 
@@ -1314,16 +1314,16 @@
 ;;  last = emit_move_insn(temp, temp);
 ;;  {
 ;;    rtx divdi, moddi, divhi, modhi;
-;;    divhi = gen_rtx (UDIV, HImode, operands[1], operands[2]);
-;;    modhi = gen_rtx (UMOD, HImode, operands[1], operands[2]);
-;;    divdi = gen_rtx (ZERO_EXTEND, DImode, divhi);
-;;    moddi = gen_rtx (ZERO_EXTEND, DImode, modhi);
-;;    REG_NOTES (first) = gen_rtx (INSN_LIST, REG_LIBCALL, last,
+;;    divhi = gen_rtx_UDIV (HImode, operands[1], operands[2]);
+;;    modhi = gen_rtx_UMOD (HImode, operands[1], operands[2]);
+;;    divdi = gen_rtx_ZERO_EXTEND (DImode, divhi);
+;;    moddi = gen_rtx_ZERO_EXTEND (DImode, modhi);
+;;    REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
 ;;			         REG_NOTES (first));
-;;    REG_NOTES (last) = gen_rtx (INSN_LIST, REG_RETVAL, first,
-;;                                gen_rtx (EXPR_LIST, REG_EQUAL,
-;;                       gen_rtx(IOR, DImode, moddi,
-;;                               gen_rtx(ASHIFT, DImode, divdi, GEN_INT(32))),
+;;    REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
+;;                                gen_rtx_EXPR_LIST (REG_EQUAL,
+;;                       gen_rtx_IOR (DImode, moddi,
+;;                                    gen_rtx_ASHIFT (DImode, divdi, GEN_INT(32))),
 ;;                       REG_NOTES (last)));
 ;;  }
 ;;
@@ -1371,16 +1371,16 @@
 ;;  last = emit_move_insn(temp, temp);
 ;;  {
 ;;    rtx divdi, moddi, divqi, modqi;
-;;    divqi = gen_rtx (UDIV, QImode, operands[1], operands[2]);
-;;    modqi = gen_rtx (UMOD, QImode, operands[1], operands[2]);
-;;    divdi = gen_rtx (ZERO_EXTEND, DImode, divqi);
-;;    moddi = gen_rtx (ZERO_EXTEND, DImode, modqi);
-;;    REG_NOTES (first) = gen_rtx (INSN_LIST, REG_LIBCALL, last,
+;;    divqi = gen_rtx_UDIV (QImode, operands[1], operands[2]);
+;;    modqi = gen_rtx_UMOD (QImode, operands[1], operands[2]);
+;;    divdi = gen_rtx_ZERO_EXTEND (DImode, divqi);
+;;    moddi = gen_rtx_ZERO_EXTEND (DImode, modqi);
+;;    REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
 ;;			         REG_NOTES (first));
-;;    REG_NOTES (last) = gen_rtx (INSN_LIST, REG_RETVAL, first,
-;;                                gen_rtx (EXPR_LIST, REG_EQUAL,
-;;                       gen_rtx(IOR, DImode, moddi,
-;;                               gen_rtx(ASHIFT, DImode, divdi, GEN_INT(32))),
+;;    REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
+;;                                gen_rtx_EXPR_LIST (REG_EQUAL,
+;;                       gen_rtx_IOR (DImode, moddi,
+;;                                    gen_rtx_ASHIFT (DImode, divdi, GEN_INT(32))),
 ;;                       REG_NOTES (last)));
 ;;  }
 ;;
@@ -2378,9 +2378,9 @@
   ""
   "bls %l0")
 
-;; "Reversed" jump instructions. Are these ever generated?
+;; "Reversed" jump instructions.
 
-(define_insn "*bne"
+(define_insn "*rbeq"
   [(set (pc)
 	(if_then_else (eq (cc0)
 			  (const_int 0))
@@ -2392,10 +2392,11 @@
     return \"bfs %l0\";
   else if (cc_prev_status.flags & CC_Z_IN_NOT_F)
     return \"bfc %l0\";
-  else return \"bne %l0\";
+  else
+    return \"bne %l0\";
 }")
 
-(define_insn "*beq"
+(define_insn "*rbne"
   [(set (pc)
 	(if_then_else (ne (cc0)
 			  (const_int 0))
@@ -2410,7 +2411,7 @@
   else return \"beq %l0\";
 }")
 
-(define_insn "*ble"
+(define_insn "*rbgt"
   [(set (pc)
 	(if_then_else (gt (cc0)
 			  (const_int 0))
@@ -2420,12 +2421,12 @@
   "*
 {
     if (cc_prev_status.flags & CC_UNORD)
-      return \"bhi 0f\;ble %l0\;0:\";
+      return \"ble %l0\;bhi %l0\";
     else
       return \"ble %l0\";
 }")
 
-(define_insn "*bleu"
+(define_insn "*rbgtu"
   [(set (pc)
 	(if_then_else (gtu (cc0)
 			   (const_int 0))
@@ -2434,16 +2435,22 @@
   ""
   "bls %l0")
 
-(define_insn "*bge"
+(define_insn "*rblt"
   [(set (pc)
 	(if_then_else (lt (cc0)
 			  (const_int 0))
 		      (pc)
 		      (label_ref (match_operand 0 "" ""))))]
   ""
-  "bge %l0")
+   "*
+{
+    if (cc_prev_status.flags & CC_UNORD)
+      return \"bge %l0\;bhi %l0\";
+    else
+      return \"bge %l0\";
+}")
 
-(define_insn "*bgeu"
+(define_insn "*rbltu"
   [(set (pc)
 	(if_then_else (ltu (cc0)
 			   (const_int 0))
@@ -2452,7 +2459,7 @@
   ""
   "bhs %l0")
 
-(define_insn "*blt"
+(define_insn "*rbge"
   [(set (pc)
 	(if_then_else (ge (cc0)
 			  (const_int 0))
@@ -2462,12 +2469,12 @@
   "*
 {
     if (cc_prev_status.flags & CC_UNORD)
-      return \"bhi 0f\;blt %l0\;0:\";
+      return \"blt %l0\;bhi %l0\";
     else
       return \"blt %l0\";
 }")
 
-(define_insn "*bltu"
+(define_insn "*rbgeu"
   [(set (pc)
 	(if_then_else (geu (cc0)
 			   (const_int 0))
@@ -2476,16 +2483,22 @@
   ""
   "blo %l0")
 
-(define_insn "*bgt"
+(define_insn "*rble"
   [(set (pc)
 	(if_then_else (le (cc0)
 			  (const_int 0))
 		      (pc)
 		      (label_ref (match_operand 0 "" ""))))]
   ""
-  "bgt %l0")
+  "*
+{
+    if (cc_prev_status.flags & CC_UNORD)
+      return \"bgt %l0\;bhi %l0\";
+    else
+      return \"bgt %l0\";
+}")
 
-(define_insn "*bgtu"
+(define_insn "*rbleu"
   [(set (pc)
 	(if_then_else (leu (cc0)
 			   (const_int 0))
@@ -2693,7 +2706,7 @@
   ""
   "*
 {
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"LI\",
+  (*targetm.asm_out.internal_label) (asm_out_file, \"LI\",
 			     CODE_LABEL_NUMBER (operands[1]));
   return \"cased %0\";
 }")
@@ -2918,7 +2931,7 @@
 ;; ffs instructions
 
 (define_insn "*ffs"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=ro")
+  [(set (match_operand:SI 0 "nonimmediate_operand" "+ro")
 	(minus:SI 
 		(plus:SI (ffs:SI (zero_extract:SI 
 				(match_operand:SI 1 "general_operand" "g") 
@@ -2927,10 +2940,10 @@
 			(match_dup 0)) 
 		(const_int 1)))]
   ""
-  "ffsd %1,%0; bfc 1f; addqd %$-1,%0; 1:")
+  "ffsd %1,%0\;bfc 1f\;addqd %$-1,%0\;1:")
 
 (define_expand "ffssi2"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=rm") (const_int 0))
+  [(set (match_operand:SI 0 "nonimmediate_operand" "") (const_int 0))
    (set (match_dup 0)
 	(minus:SI 
 		(plus:SI (ffs:SI (zero_extract:SI 

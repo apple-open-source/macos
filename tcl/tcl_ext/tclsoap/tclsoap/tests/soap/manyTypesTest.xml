@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<SOAP-ENV:Envelope SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/1999/XMLSchema" xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance">
+	<SOAP-ENV:Body>
+		<manyTypesTest>
+			<num xsi:type="xsd:int">20384</num>
+			<bool xsi:type="xsd:boolean">0</bool>
+			<state xsi:type="xsd:string">Kentucky</state>
+			<doub xsi:type="xsd:float">8845.33333333</doub>
+			<dat xsi:type="xsd:timeInstant">1904-01-01T05:02:01-07:00</dat>
+			<bin xsi:type="xsd:string">Kmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwnKmg8JShYIW8xdkwn</bin>
+			</manyTypesTest>
+		</SOAP-ENV:Body>
+	</SOAP-ENV:Envelope>

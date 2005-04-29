@@ -1,0 +1,34 @@
+.\"
+.\" Generated automatically from whatis.1.in by the
+.\" configure script.
+.\"
+.\" Man page for whatis
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Traducere de Ovidiu Constantin <ovidiu.soft@xnet.ro>
+.TH whatis 1 "5 Ian 1991"
+.LO 1
+.SH NUME
+whatis \- cautã cuvinte complete în baza de date whatis.
+.SH SUMAR
+.BI whatis
+cuvânt_cheie ...
+.SH DESCRIERE
+whatis cautã într-un set de baze de date conþinând scurte descrieri ale
+comenzilor sistem cuvinte cheie ºi afiºeazã rezultatul la ieºirea
+standard (stdout). Doar rezultatele complete sunt afiºate.
+
+Baza de date whatis este creatã folosind comanda @makewhatis@.
+.SH "VEZI ªI"
+apropos(1), man(1).

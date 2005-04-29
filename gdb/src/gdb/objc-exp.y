@@ -52,6 +52,7 @@
 #include "objfiles.h" /* For have_full_symbols and have_partial_symbols.  */
 #include "top.h"
 #include "completer.h" /* For skip_quoted().  */
+#include "block.h"
 
 /* Remap normal yacc parser interface names (yyparse, yylex, yyerror,
    etc), as well as gratuitiously global symbol names, so we can have
@@ -246,9 +247,11 @@ exp1	:	exp
 /* Expressions, not including the comma operator.  */
 exp	:	'*' exp    %prec UNARY
 			{ write_exp_elt_opcode (UNOP_IND); }
+	;
 
 exp	:	'&' exp    %prec UNARY
 			{ write_exp_elt_opcode (UNOP_ADDR); }
+	;
 
 exp	:	'-' exp    %prec UNARY
 			{ write_exp_elt_opcode (UNOP_NEG); }
@@ -568,6 +571,7 @@ exp	:	SELECTOR
 			  write_exp_elt_opcode (OP_OBJC_SELECTOR);
 			  write_exp_string ($1);
 			  write_exp_elt_opcode (OP_OBJC_SELECTOR); }
+	;
 
 exp	:	SIZEOF '(' type ')'	%prec UNARY
 			{ write_exp_elt_opcode (OP_LONG);
@@ -630,7 +634,7 @@ block	:	BLOCKNAME
 block	:	block COLONCOLON name
 			{ struct symbol *tem
 			    = lookup_symbol (copy_name ($3), $1,
-					     VAR_NAMESPACE, (int *) NULL,
+					     VAR_DOMAIN, (int *) NULL,
 					     (struct symtab **) NULL);
 			  if (!tem || SYMBOL_CLASS (tem) != LOC_BLOCK)
 			    error ("No function \"%s\" in specified context.",
@@ -641,7 +645,7 @@ block	:	block COLONCOLON name
 variable:	block COLONCOLON name
 			{ struct symbol *sym;
 			  sym = lookup_symbol (copy_name ($3), $1,
-					       VAR_NAMESPACE, (int *) NULL,
+					       VAR_DOMAIN, (int *) NULL,
 					       (struct symtab **) NULL);
 			  if (sym == 0)
 			    error ("No symbol \"%s\" in specified context.",
@@ -676,7 +680,7 @@ qualified_name:	typebase COLONCOLON name
 			    error ("`%s' is not defined as an aggregate type.",
 				   TYPE_NAME (type));
 
-			  if (!STREQ (type_name_no_tag (type), $4.ptr))
+			  if (!DEPRECATED_STREQ (type_name_no_tag (type), $4.ptr))
 			    error ("invalid destructor `%s::~%s'",
 				   type_name_no_tag (type), $4.ptr);
 
@@ -701,7 +705,7 @@ variable:	qualified_name
 
 			  sym =
 			    lookup_symbol (name, (const struct block *) NULL,
-					   VAR_NAMESPACE, (int *) NULL,
+					   VAR_DOMAIN, (int *) NULL,
 					   (struct symtab **) NULL);
 			  if (sym)
 			    {
@@ -765,7 +769,7 @@ variable:	name_not_typename
 			  else
 			    {
 			      struct minimal_symbol *msymbol;
-			      register char *arg = copy_name ($1.stoken);
+			      char *arg = copy_name ($1.stoken);
 
 			      msymbol =
 				lookup_minimal_symbol (arg, NULL, NULL);
@@ -842,7 +846,7 @@ array_mod:	'[' ']'
 func_mod:	'(' ')'
 			{ $$ = 0; }
 	|	'(' nonempty_typelist ')'
-			{ free ((PTR)$2); $$ = 0; }
+			{ free ($2); $$ = 0; }
 	;
 
 /* We used to try to recognize more pointer to member types here, but
@@ -988,21 +992,21 @@ name_not_typename :	NAME
 
 static int
 parse_number (p, len, parsed_float, putithere)
-     register char *p;
-     register int len;
+     char *p;
+     int len;
      int parsed_float;
      YYSTYPE *putithere;
 {
   /* FIXME: Shouldn't these be unsigned?  We don't deal with negative
      values here, and we do kind of silly things like cast to
      unsigned.  */
-  register LONGEST n = 0;
-  register LONGEST prevn = 0;
+  LONGEST n = 0;
+  LONGEST prevn = 0;
   unsigned LONGEST un;
 
-  register int i = 0;
-  register int c;
-  register int base = input_radix;
+  int i = 0;
+  int c;
+  int base = input_radix;
   int unsigned_p = 0;
 
   /* Number of "L" suffixes encountered.  */
@@ -1261,7 +1265,7 @@ yylex ()
   tokstart = lexptr;
   /* See if it is a special token of length 3.  */
   for (i = 0; i < sizeof tokentab3 / sizeof tokentab3[0]; i++)
-    if (STREQN (tokstart, tokentab3[i].operator, 3))
+    if (DEPRECATED_STREQN (tokstart, tokentab3[i].operator, 3))
       {
 	lexptr += 3;
 	yylval.opcode = tokentab3[i].opcode;
@@ -1270,7 +1274,7 @@ yylex ()
 
   /* See if it is a special token of length 2.  */
   for (i = 0; i < sizeof tokentab2 / sizeof tokentab2[0]; i++)
-    if (STREQN (tokstart, tokentab2[i].operator, 2))
+    if (DEPRECATED_STREQN (tokstart, tokentab2[i].operator, 2))
       {
 	lexptr += 2;
 	yylval.opcode = tokentab2[i].opcode;
@@ -1358,7 +1362,7 @@ yylex ()
 	/* It's a number.  */
 	int got_dot = 0, got_e = 0, toktype = FLOAT;
 	/* Initialize toktype to anything other than ERROR.  */
-	register char *p = tokstart;
+	char *p = tokstart;
 	int hex = input_radix > 10;
 	int local_radix = input_radix;
 	if (tokchr == '0' && (p[1] == 'x' || p[1] == 'X'))
@@ -1585,43 +1589,45 @@ yylex ()
   switch (namelen)
     {
     case 8:
-      if (STREQN (tokstart, "unsigned", 8))
+      if (DEPRECATED_STREQN (tokstart, "unsigned", 8))
 	return UNSIGNED;
-      if (current_language->la_language == language_cplus
-	  && STREQN (tokstart, "template", 8))
+      if ((current_language->la_language == language_cplus
+	   || current_language->la_language == language_objcplus)
+	  && strncmp (tokstart, "template", 8) == 0)
 	return TEMPLATE;
-      if (STREQN (tokstart, "volatile", 8))
+      if (DEPRECATED_STREQN (tokstart, "volatile", 8))
 	return VOLATILE_KEYWORD;
       break;
     case 6:
-      if (STREQN (tokstart, "struct", 6))
+      if (DEPRECATED_STREQN (tokstart, "struct", 6))
 	return STRUCT;
-      if (STREQN (tokstart, "signed", 6))
+      if (DEPRECATED_STREQN (tokstart, "signed", 6))
 	return SIGNED_KEYWORD;
-      if (STREQN (tokstart, "sizeof", 6))      
+      if (DEPRECATED_STREQN (tokstart, "sizeof", 6))      
 	return SIZEOF;
-      if (STREQN (tokstart, "double", 6))      
+      if (DEPRECATED_STREQN (tokstart, "double", 6))      
 	return DOUBLE_KEYWORD;
       break;
     case 5:
-      if ((current_language->la_language == language_cplus)
-	  && STREQN (tokstart, "class", 5))
+      if ((current_language->la_language == language_cplus
+	   || current_language->la_language == language_objcplus)
+	  && strncmp (tokstart, "class", 5) == 0)
 	return CLASS;
-      if (STREQN (tokstart, "union", 5))
+      if (DEPRECATED_STREQN (tokstart, "union", 5))
 	return UNION;
-      if (STREQN (tokstart, "short", 5))
+      if (DEPRECATED_STREQN (tokstart, "short", 5))
 	return SHORT;
-      if (STREQN (tokstart, "const", 5))
+      if (DEPRECATED_STREQN (tokstart, "const", 5))
 	return CONST_KEYWORD;
       break;
     case 4:
-      if (STREQN (tokstart, "enum", 4))
+      if (DEPRECATED_STREQN (tokstart, "enum", 4))
 	return ENUM;
-      if (STREQN (tokstart, "long", 4))
+      if (DEPRECATED_STREQN (tokstart, "long", 4))
 	return LONG;
       break;
     case 3:
-      if (STREQN (tokstart, "int", 3))
+      if (DEPRECATED_STREQN (tokstart, "int", 3))
 	return INT_KEYWORD;
       break;
     default:
@@ -1648,14 +1654,15 @@ yylex ()
     int is_a_field_of_this = 0, *need_this;
     int hextype;
 
-    if (current_language->la_language == language_cplus ||
-	current_language->la_language == language_objc)
+    if (current_language->la_language == language_cplus
+	|| current_language->la_language == language_objc
+	|| current_language->la_language == language_objcplus)
       need_this = &is_a_field_of_this;
     else
       need_this = (int *) NULL;
 
     sym = lookup_symbol (tmp, expression_context_block,
-			 VAR_NAMESPACE,
+			 VAR_DOMAIN,
 			 need_this,
 			 (struct symtab **) NULL);
     /* Call lookup_symtab, not lookup_partial_symtab, in case there
@@ -1734,7 +1741,7 @@ yylex ()
 		      tmp1[p - namestart] = '\0';
 		      cur_sym = lookup_symbol (ncopy, 
 					       expression_context_block,
-					       VAR_NAMESPACE, (int *) NULL,
+					       VAR_DOMAIN, (int *) NULL,
 					       (struct symtab **) NULL);
 		      if (cur_sym)
 			{
@@ -1768,17 +1775,21 @@ yylex ()
     /* See if it's an ObjC classname.  */
     if (!sym)
       {
-	CORE_ADDR Class = lookup_objc_class(tmp);
-	if (Class)
-	  {
-	    extern struct symbol *lookup_struct_typedef();
-	    yylval.class.class = Class;
-	    if ((sym = lookup_struct_typedef (tmp, 
-					      expression_context_block, 
-					      1)))
-	      yylval.class.type = SYMBOL_TYPE (sym);
-	    return CLASSNAME;
-	  }
+        extern struct symbol *lookup_struct_typedef ();
+        sym = lookup_struct_typedef (tmp, expression_context_block, 1);
+        if (sym)
+          {
+	    CORE_ADDR Class = lookup_objc_class(tmp);
+	    if (Class)
+	      {
+	        yylval.class.class = Class;
+	        if ((sym = lookup_struct_typedef (tmp, 
+					          expression_context_block, 
+					          1)))
+	          yylval.class.type = SYMBOL_TYPE (sym);
+	        return CLASSNAME;
+	      }
+          }
       }
 
     /* Input names that aren't symbols but ARE valid hex numbers,

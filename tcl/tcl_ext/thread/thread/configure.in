@@ -1,0 +1,203 @@
+#!/bin/bash -norc
+dnl	This file is an input file used by the GNU "autoconf" program to
+dnl	generate the file "configure", which is run during Tcl installation
+dnl	to configure the system for the local environment.
+#
+# RCS: @(#) $Id: configure.in,v 1.19 2003/12/22 21:23:04 vasiljevic Exp $
+
+#--------------------------------------------------------------------
+# This configure.in is based on the Tcl Extension Architecture (TEA)
+# v2002 spec.  See the sampleextension module for a fully commented
+# version of the configure.in and makefiles to build your own extension.
+#    http://tcl.sourceforge.net/  'sampleextension' cvs module
+#    http://www.tcl.tk/           Tcl Developer Exchange
+#--------------------------------------------------------------------
+
+AC_INIT(generic/threadCmd.c)
+
+# Quick workaround for bug in autoconf 2.5X, set srcdir to a fully
+# qualified path to avoid srcdir removal during subst.
+srcdir=`cd ${srcdir};pwd`
+
+#--------------------------------------------------------------------
+# Make sure we find tcl.m4 et. al. in the tclconfig subdirectory
+#--------------------------------------------------------------------
+AC_CONFIG_AUX_DIR(tclconfig)
+CONFIGDIR=${srcdir}/tclconfig
+AC_SUBST(CONFIGDIR)
+
+PACKAGE=thread
+
+THREAD_MAJOR=2
+THREAD_MINOR=6
+THREAD_PATCHLEVEL=
+
+TTRACE_MAJOR=1
+TTRACE_MINOR=0
+TTRACE_PATCHLEVEL=
+
+THREAD_VERSION_SUBSET83="${THREAD_MAJOR}.1.${THREAD_MINOR}"
+
+VERSION=${THREAD_MAJOR}.${THREAD_MINOR}${THREAD_PATCHLEVEL}
+NODOT_VERSION=${THREAD_MAJOR}${THREAD_MINOR}
+TTRACE_VERSION=${TTRACE_MAJOR}.${TTRACE_MINOR}${TTRACE_PATCHLEVEL}
+
+AC_SUBST(PACKAGE)
+AC_SUBST(VERSION)
+AC_SUBST(TTRACE_VERSION)
+AC_SUBST(THREAD_VERSION_SUBSET83)
+# This package name must be replaced statically for AC_SUBST to work
+AC_SUBST(thread_LIB_FILE)
+
+#--------------------------------------------------------------------
+# We put this here so that you can compile with -DVERSION="1.2" to
+# encode the package version directly into the source files.
+#--------------------------------------------------------------------
+
+eval AC_DEFINE_UNQUOTED(VERSION, "${VERSION}")
+eval AC_DEFINE_UNQUOTED(THREAD_VERSION, "${VERSION}")
+eval AC_DEFINE_UNQUOTED(THREAD_VERSION_SUBSET83, "${THREAD_VERSION_SUBSET83}")
+
+#--------------------------------------------------------------------
+# Call TEA_INIT as the first TEA_ macro to set up initial vars.
+# This will define a ${TEA_PLATFORM} variable == "unix" or "windows".
+#--------------------------------------------------------------------
+
+TEA_INIT
+
+#--------------------------------------------------------------------
+# Load the tclConfig.sh file
+#--------------------------------------------------------------------
+
+TEA_PATH_TCLCONFIG
+TEA_LOAD_TCLCONFIG
+
+#-----------------------------------------------------------------------
+# Handle the --prefix=... option by defaulting to what Tcl gave.
+# Must be called after TEA_LOAD_TCLCONFIG and before TEA_SETUP_COMPILER.
+#-----------------------------------------------------------------------
+
+TEA_PREFIX
+
+#-----------------------------------------------------------------------
+# Standard compiler checks.
+# This sets up CC by using the CC env var, or looks for gcc otherwise.
+# This also calls AC_PROG_CC, AC_PROG_INSTALL and a few others to create
+# the basic setup necessary to compile executables.
+#-----------------------------------------------------------------------
+
+TEA_SETUP_COMPILER
+
+#--------------------------------------------------------------------
+# Use only public headers
+#--------------------------------------------------------------------
+
+TEA_PUBLIC_TCL_HEADERS
+#TEA_PRIVATE_TCL_HEADERS
+
+#--------------------------------------------------------------------
+# A few miscellaneous platform-specific items:
+#
+# Define a special symbol for Windows (BUILD_exampleA in this case) so
+# that we create the export library with the dll.  See sha1.h on how
+# to use this.
+#
+# Windows creates a few extra files that need to be cleaned up.
+# You can add more files to clean if your extension creates any extra
+# files.
+#
+# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
+# These will be appended to the current set of compiler flags for
+# your system.
+#--------------------------------------------------------------------
+
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_DEFINE_UNQUOTED(BUILD_thread)
+    CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch"
+    EXTRA_SOURCES=
+else
+    CLEANFILES=
+    EXTRA_SOURCES=
+fi
+AC_SUBST(CLEANFILES)
+AC_SUBST(EXTRA_SOURCES)
+
+#--------------------------------------------------------------------
+# Check whether --enable-threads or --disable-threads was given.
+# Thread requires --enable-threads of course.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_THREADS(yes)
+
+#--------------------------------------------------------------------
+# The statement below defines a collection of symbols related to
+# building as a shared library instead of a static library.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SHARED
+
+#--------------------------------------------------------------------
+# This macro figures out what flags to use with the compiler/linker
+# when building shared/static debug/optimized objects.  This information
+# can be taken from the tclConfig.sh file, but this figures it all out.
+#--------------------------------------------------------------------
+
+TEA_CONFIG_CFLAGS
+
+#--------------------------------------------------------------------
+# Set the default compiler switches based on the --enable-symbols 
+# option.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SYMBOLS
+
+#--------------------------------------------------------------------
+# Everyone should be linking against the Tcl stub library.
+#--------------------------------------------------------------------
+
+AC_DEFINE(USE_TCL_STUBS)
+
+#--------------------------------------------------------------------
+# This macro generates a line to use when building a library.  It
+# depends on values set by the TEA_ENABLE_SHARED, TEA_ENABLE_SYMBOLS,
+# and TEA_LOAD_TCLCONFIG macros above.
+#--------------------------------------------------------------------
+
+TEA_MAKE_LIB
+
+#--------------------------------------------------------------------
+# Find tclsh so that we can run pkg_mkIndex to generate the pkgIndex.tcl
+# file during the install process.  Don't run the TCLSH_PROG through
+# ${CYGPATH} because it's being used directly by make.
+# Require that we use a tclsh shell version 8.2 or later since earlier
+# versions have bugs in the pkg_mkIndex routine.
+#--------------------------------------------------------------------
+
+TEA_PROG_TCLSH
+
+#--------------------------------------------------------------------
+# Locate the AOLserver dir for compilation as AOLserver module
+#--------------------------------------------------------------------
+
+NS_PATH_AOLSERVER
+if test x"${AOL_DIR}" != "x" ; then
+    AOL_INCLUDES="-I${AOL_DIR}/include"
+else
+    AOL_INCLUDES=
+fi
+AC_SUBST(AOL_DIR)
+AC_SUBST(AOL_INCLUDES)
+
+#--------------------------------------------------------------------
+# Check if building with optional Gdbm package
+#--------------------------------------------------------------------
+
+TCLTHREAD_ENABLE_GDBM
+
+#--------------------------------------------------------------------
+# Finally, substitute all of the various values into the Makefile.
+#--------------------------------------------------------------------
+
+AC_OUTPUT([Makefile pkgIndex.tcl])
+
+# EOF

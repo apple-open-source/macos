@@ -162,3 +162,8 @@ DEFINE_LANG_NAME ("C++")
   { "-Wdeprecated", "" },
   { "-Wno-deprecated", 
     N_("Don't announce deprecation of compiler features") },
+  /* APPLE LOCAL begin radar 3247235 disable warnings about bad offsetof */
+  { "-Winvalid-offsetof", "" },
+  { "-Wno-invalid-offsetof",
+      N_("Don't warn about invalid uses of the offsetof macro") },
+  /* APPLE LOCAL end radar 3247235 disable warnings about bad offsetof */

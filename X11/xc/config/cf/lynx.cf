@@ -3,7 +3,7 @@ XCOMM $Xorg: lynx.cf,v 1.3 2000/08/17 19:41:47 cpqbld Exp $
 
 
 
-XCOMM platform:  $XFree86: xc/config/cf/lynx.cf,v 3.46 2002/12/14 04:41:11 dawes Exp $
+XCOMM platform:  $XFree86: xc/config/cf/lynx.cf,v 3.48 2004/01/09 00:35:00 dawes Exp $
 
 
 #ifndef OSName
@@ -200,7 +200,7 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #define StandardCppOptions	-traditional
 #define StandardCppDefines	StandardDefines
 #if defined(i386Architecture) || defined(PpcArchitecture)
-# define ServerOSDefines	XFree86ServerOSDefines -DDDXTIME -DPART_NET
+# define ServerOSDefines	XFree86ServerOSDefines -DDDXTIME
 # define ServerExtraDefines	-DGCCUSESGAS XFree86ServerDefines
 # if OSMajorVersion == 2 && OSMinorVersion < 5
 #  define XkbServerDefines      -DNEED_POPEN_WORKAROUND
@@ -241,45 +241,6 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 # endif
 #endif
 
-/* 3.0 ships with a useable Tcl/Tk for XF86Setup */
-#if OSMajorVersion == 3
-# ifndef TkLibName
-#  if OSMinorVersion == 0
-#   define TkLibName		tk4.2
-#  else
-#   define TkLibName		tk8.0
-#  endif
-# endif
-# ifndef TkLibDir
-#  define TkLibDir              /usr/lib
-# endif
-# ifndef TclLibName
-#  if OSMinorVersion == 0
-#   define TclLibName		tcl7.6
-#  else
-#   define TclLibName		tcl8.0
-#  endif
-# endif
-# ifndef TclLibDir
-#  define TclLibDir             /usr/lib
-# endif
-#endif
-
-#if OSMajorVersion == 4
-# ifndef TkLibName
-#  define TkLibName		tk8.0
-# endif
-# ifndef TkLibDir
-#  define TkLibDir              /usr/lib
-# endif
-# ifndef TclLibName
-#  define TclLibName		tcl8.0
-# endif
-# ifndef TclLibDir
-#  define TclLibDir             /usr/lib
-# endif
-
-#endif /* OSMajorVersion == 4 */
 
 /* define HasMotif to YES for LynxOS with Motif
  * installed according to the notes in README.LynxOS.

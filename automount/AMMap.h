@@ -36,20 +36,31 @@
 @class Vnode;
 @class String;
 
+typedef enum AMMountStyle {
+	kMountStyleUnknown = 0,
+	kMountStyleParallel = 1,
+	kMountStyleAutoFS = 2
+} AMMountStyle;
+
 @interface Map : RRObject
 {
 	String *mountPoint;
+	AMMountStyle mountStyle;
+	int NFSMountOptions;
 	fsid_t mountedMapFSID;
 	String *name;
 	String *hostname;
 	Vnode *root;
 	CFMachPortContext *AMInfoPortContext;
 	CFMachPortRef AMInfoServicePort;
+	CFRunLoopSourceRef AMInforeqRLS;
 }
 
+- (id)init;
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir;
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds;
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:mnt;
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt withRootVnodeClass:(Class)rootVnodeClass;
 - (void)cleanup;
 - (unsigned int)didAutoMount;
 
@@ -67,9 +78,13 @@
 - (Vnode *)mkdir:(String *)s attributes:(void *)x atVnode:(Vnode *)v;
 - (Vnode *)symlink:(String *)l name:(String *)s atVnode:(Vnode *)v;
 
-- (unsigned int)mount:(Vnode *)v;
-- (unsigned int)mount:(Vnode *)v withUid:(int)uid;
-- (unsigned int)unmount:(Vnode *)v withRemountOnFailure:(BOOL)remountOnFailure;
+- (int)mount:(Vnode *)v withUid:(int)uid;
+- (int)unmount:(Vnode *)v usingForce:(int)use_force withRemountOnFailure:(BOOL)remountOnFailure;
+- (int)unmount:(Vnode *)v withRemountOnFailure:(BOOL)remountOnFailure;
+- (int)unmountAutomounts:(int)use_force;
+- (AMMountStyle)mountStyle;
+- (void)setMountStyle:(AMMountStyle)style;
+- (int)handle_autofsreq:(struct autofs_userreq *)req;
 - (int)registerAMInfoService;
 - (int)deregisterAMInfoService;
 - (void)handleAMInfoRequest:(mach_msg_header_t *)msg ofSize:(size_t)size onPort:(mach_port_t)port;
@@ -77,11 +92,15 @@
 - (void)setMountDirectory:(String *)mnt;
 - (String *)mountPoint;
 - (int)mountArgs;
+- (void)setNFSMountOptions:(int)mountOptions;
+- (int)NFSMountOptions;
 - (void)setFSID:(fsid_t *)fsid;
 - (fsid_t *)mountedFSID;
 - (void)timeout;
 - (void)reInit;
 - (BOOL)acceptOptions:(Array *)opts;
+
+- (String *)findTriggerPath:(Vnode *)curRoot findPath:(String *)findPath;
 
 @end
 

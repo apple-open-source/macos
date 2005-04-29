@@ -52,6 +52,8 @@
 #include <ppp_privmsg.h>
 
 #include "vpnd.h"
+#include "vpnoptions.h"
+#include "cf_utils.h"
 
 
 /* -----------------------------------------------------------------------------

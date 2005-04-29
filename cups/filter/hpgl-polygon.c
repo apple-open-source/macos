@@ -1,9 +1,9 @@
 /*
- * "$Id: hpgl-polygon.c,v 1.1.1.8 2003/04/11 21:07:45 jlovell Exp $"
+ * "$Id: hpgl-polygon.c,v 1.1.1.13 2005/01/04 19:15:56 jlovell Exp $"
  *
  *   HP-GL/2 polygon routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2003 by Easy Software Products.
+ *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -66,6 +66,8 @@ EA_edge_rect_absolute(int     num_params,	/* I - Number of parameters */
 
   if (!PolygonMode)
     Outputf("MP\n");
+
+  PenValid = 1;
 
   Outputf("%.3f %.3f MO\n", PenPosition[0], PenPosition[1]);
   Outputf("%.3f %.3f LI\n", PenPosition[0], y);
@@ -118,6 +120,8 @@ ER_edge_rect_relative(int     num_params,	/* I - Number of parameters */
   if (!PolygonMode)
     Outputf("MP\n");
 
+  PenValid = 1;
+
   Outputf("%.3f %.3f MO\n", PenPosition[0], PenPosition[1]);
   Outputf("%.3f %.3f LI\n", PenPosition[0], y);
   Outputf("%.3f %.3f LI\n", x, y);
@@ -158,6 +162,8 @@ EW_edge_wedge(int     num_params,	/* I - Number of parameters */
 
   if (!PolygonMode)
     Outputf("MP\n");
+
+  PenValid = 1;
 
   Outputf("%.3f %.3f MO\n", PenPosition[0], PenPosition[1]);
 
@@ -227,7 +233,7 @@ PM_polygon_mode(int     num_params,	/* I - Number of parameters */
       params[0].value.number == 0)
   {
     Outputf("MP\n");
-/*    Outputf("%.3f %.3f MO\n", PenPosition[0], PenPosition[1]);*/
+    PenValid    = 0;
     PolygonMode = 1;
   }
   else if (params[0].value.number == 2)
@@ -258,6 +264,8 @@ RA_fill_rect_absolute(int     num_params,	/* I - Number of parameters */
 
   if (!PolygonMode)
     Outputf("MP\n");
+
+  PenValid = 1;
 
   Outputf("%.3f %.3f MO\n", PenPosition[0], PenPosition[1]);
   Outputf("%.3f %.3f LI\n", PenPosition[0], y);
@@ -294,6 +302,8 @@ RR_fill_rect_relative(int     num_params,	/* I - Number of parameters */
 
   if (!PolygonMode)
     Outputf("MP\n");
+
+  PenValid = 1;
 
   Outputf("%.3f %.3f MO\n", PenPosition[0], PenPosition[1]);
   Outputf("%.3f %.3f LI\n", PenPosition[0], y);
@@ -335,6 +345,8 @@ WG_fill_wedge(int     num_params,	/* I - Number of parameters */
 
   if (!PolygonMode)
     Outputf("MP\n");
+
+  PenValid = 1;
 
   Outputf("%.3f %.3f MO\n", PenPosition[0], PenPosition[1]);
 
@@ -378,5 +390,5 @@ WG_fill_wedge(int     num_params,	/* I - Number of parameters */
 
 
 /*
- * End of "$Id: hpgl-polygon.c,v 1.1.1.8 2003/04/11 21:07:45 jlovell Exp $".
+ * End of "$Id: hpgl-polygon.c,v 1.1.1.13 2005/01/04 19:15:56 jlovell Exp $".
  */

@@ -1,0 +1,121 @@
+# basic sanity checks
+
+source defs_mk.tcl
+
+T 1 {no databases} {
+  set v [mk::file open]
+    # ignore one entry if run from a VFS-based TclKit
+  if {[lindex $v 0] == "exe"} {
+    set v [lrange $v 2 end]
+  }
+  C $v ""
+}
+
+T 2 {temp database} {
+  mk::file open db
+  # 2003-10-01: this was wrong when run from tclkit, which has "exe" open
+  #C [mk::file open] {db {}}
+  C [string match "*db {}*" [mk::file open]] 1
+}
+
+T 3 {temp data} {
+  mk::file open db
+  mk::view layout db.a {s i:I}
+  set n [mk::row append db.a s one i 1]
+  C $n db.a!0
+  C [mk::get $n] {s one i 1}
+  set n [mk::row append db.a s two i 2]
+  C $n db.a!1
+  C [mk::get $n] {s two i 2}
+  C [mk::view size db.a] 2
+  mk::view size db.a 1
+  C [mk::get db.a!0] {s one i 1}
+  catch {mk::get db.a!1} e
+  C $e {view index is out of range}
+}
+
+T 4 {use same tag twice} {
+  mk::file open db
+  catch {mk::file open db} e
+  C $e {file already open}
+}
+
+T 5 {open file} {
+  set f [F].dat
+  mk::file open db $f
+  # 2003-10-01: this was wrong when run from tclkit, which has "exe" open
+  #C [mk::file open] [list db $f]
+  C [string match "*[list db $f]*" [mk::file open]] 1
+  C [file exists $f] 1
+  mk::file commit db
+    # the file size remains zero, because commit detects no change
+  C [file size $f] 0
+  mk::view layout db.a s
+  mk::file commit db
+  C [file size $f] 37
+}
+
+T 6 {open same file again} {
+  set f [F].dat
+  mk::file open db1 $f
+  C [mk::file open db2 $f] db2
+}
+
+T 7 {simple select} {
+  mk::file open db
+  mk::view layout db.a s
+  foreach x {one One two Two three Three four Four} {
+    mk::row append db.a s $x
+  }
+  C [mk::select db.a] {0 1 2 3 4 5 6 7}
+  C [mk::select db.a s three] {4 5}
+  C [mk::select db.a -exact s three] 4
+  C [mk::select db.a -min s three] {2 3 4 5}
+  C [mk::select db.a -max s three] {0 1 4 5 6 7}
+  C [mk::select db.a -glob s t*] {2 4}
+  C [mk::select db.a -glob s {[tT]*}] {2 3 4 5}
+  C [mk::select db.a -regexp s o] {0 2 3 6 7}
+  C [mk::select db.a -regexp s {[tT]+}] {2 3 4 5}
+  C [mk::select db.a -keyword s t] {2 3 4 5}
+  C [mk::select db.a -keyword s tw] {2 3}
+  C [mk::select db.a -keyword s o] {0 1}
+}
+
+T 8 {simple sort} {
+  mk::file open db
+  mk::view layout db.a s
+  foreach x {one One two Two three Three four Four} {
+    mk::row append db.a s $x
+  }
+  C [mk::select db.a -sort s] {6 7 0 1 4 5 2 3}
+  C [mk::select db.a -rsort s] {2 3 4 5 0 1 6 7}
+}
+
+T 9 {get size} {                  # added in 1.2
+  mk::file open db
+  mk::view layout db.v {a:I b:I}
+  mk::row append db.v
+  C [mk::get db.v!0] {a 0 b 0}
+  C [mk::get db.v!0 -size] {a 0 b 0}
+  C [mk::get db.v!0 -size a] 0
+  C [mk::get db.v!0 -size a b] {0 0}
+  foreach {v c} {1 -1 3 -2 15 -4 127 1 -128 1 32767 2 -32768 2 32768 4} {
+    mk::set db.v!0 a $v
+    C [mk::get db.v!0 -size a] $c
+  }
+  C [mk::get db.v!0 -size b a] {0 4}
+}
+
+T 10 {case-insensitive select} {          # added in 1.2
+  mk::file open db
+  mk::view layout db.a s
+  foreach x {one One two Two three Three four Four} {
+    mk::row append db.a s $x
+  }
+  C [mk::select db.a -glob s t*] {2 4}
+  C [mk::select db.a -globnc s t*] {2 3 4 5}
+  C [mk::select db.a -regexp s t] {2 4}
+  C [mk::select db.a -regexp s (?i)t] {2 3 4 5}
+}
+
+Q 11

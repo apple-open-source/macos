@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.2
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -28,7 +28,7 @@
 #include "context.h"
 #include "macros.h"
 #include "mmath.h"
-#include "mem.h"
+#include "imports.h"
 
 #include "s_accum.h"
 #include "s_alphabuf.h"
@@ -61,9 +61,10 @@
  */
 
 
-#if CHAN_BITS == 8
+#if CHAN_BITS == 8 && ACCUM_BITS < 32
 #define USE_OPTIMIZED_ACCUM   /* enable the optimization */
 #endif
+
 
 void
 _mesa_alloc_accum_buffer( GLframebuffer *buffer )
@@ -193,7 +194,8 @@ _mesa_clear_accum_buffer( GLcontext *ctx )
 	     ctx->Accum.ClearColor[2]==0.0 &&
 	     ctx->Accum.ClearColor[3]==0.0) {
 	    /* Black */
-	    BZERO( ctx->DrawBuffer->Accum, buffersize * 4 * sizeof(GLaccum) );
+	    _mesa_bzero( ctx->DrawBuffer->Accum,
+                         buffersize * 4 * sizeof(GLaccum) );
 	 }
 	 else {
 	    /* Not black */
@@ -240,6 +242,7 @@ _swrast_Accum( GLcontext *ctx, GLenum op, GLfloat value,
    GLfloat acc_scale;
    GLchan rgba[MAX_WIDTH][4];
    const GLuint colorMask = *((GLuint *) &ctx->Color.ColorMask);
+
 
    if (SWRAST_CONTEXT(ctx)->NewState)
       _swrast_validate_derived( ctx );
@@ -303,8 +306,7 @@ _swrast_Accum( GLcontext *ctx, GLenum op, GLfloat value,
          if (value == 0.0F)
             return;
 
-         (*swrast->Driver.SetReadBuffer)( ctx, ctx->ReadBuffer,
-					  ctx->Pixel.DriverReadBuffer );
+         _swrast_use_read_buffer(ctx);
 
          /* May have to leave optimized accum buffer mode */
          if (swrast->_IntegerAccumScaler == 0.0 && value > 0.0 && value <= 1.0)
@@ -356,14 +358,13 @@ _swrast_Accum( GLcontext *ctx, GLenum op, GLfloat value,
             }
          }
          /* restore read buffer = draw buffer (the default) */
-         (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer,
-					  ctx->Color.DriverDrawBuffer );
+         _swrast_use_draw_buffer(ctx);
+
          RENDER_FINISH(swrast,ctx);
 	 break;
 
       case GL_LOAD:
-         (*swrast->Driver.SetReadBuffer)( ctx, ctx->ReadBuffer,
-					  ctx->Pixel.DriverReadBuffer );
+         _swrast_use_read_buffer(ctx);
 
          /* This is a change to go into optimized accum buffer mode */
          if (value > 0.0 && value <= 1.0) {
@@ -430,8 +431,8 @@ _swrast_Accum( GLcontext *ctx, GLenum op, GLfloat value,
          }
 
          /* restore read buffer = draw buffer (the default) */
-         (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer,
-                                       ctx->Color.DriverDrawBuffer );
+         _swrast_use_draw_buffer(ctx);
+
          RENDER_FINISH(swrast,ctx);
 	 break;
 
@@ -471,7 +472,7 @@ _swrast_Accum( GLcontext *ctx, GLenum op, GLfloat value,
                   rgba[i][ACOMP] = multTable[acc[i4+3]];
                }
                if (colorMask != 0xffffffff) {
-                  _mesa_mask_rgba_span( ctx, width, xpos, ypos, rgba );
+                  _mesa_mask_rgba_array( ctx, width, xpos, ypos, rgba );
                }
                (*swrast->Driver.WriteRGBASpan)( ctx, width, xpos, ypos,
                                              (const GLchan (*)[4])rgba, NULL );
@@ -506,7 +507,7 @@ _swrast_Accum( GLcontext *ctx, GLenum op, GLfloat value,
                   rgba[i][ACOMP] = CLAMP( a, 0, CHAN_MAX );
                }
                if (colorMask != 0xffffffff) {
-                  _mesa_mask_rgba_span( ctx, width, xpos, ypos, rgba );
+                  _mesa_mask_rgba_array( ctx, width, xpos, ypos, rgba );
                }
                (*swrast->Driver.WriteRGBASpan)( ctx, width, xpos, ypos,
                                              (const GLchan (*)[4])rgba, NULL );

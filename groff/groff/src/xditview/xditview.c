@@ -46,6 +46,7 @@ static char rcsid[] = "$XConsortium: xditview.c,v 1.17 89/12/10 17:05:08 rws Exp
 #include <X11/Xaw/SimpleMenu.h>
 #include <X11/Xaw/SmeBSB.h>
 
+#include <stdlib.h>
 #include <signal.h>
 
 #include "Dvi.h"
@@ -101,7 +102,7 @@ static FILE	*current_file;
  * Report the syntax for calling xditview.
  */
 
-static
+static void
 Syntax(call)
 	char *call;
 {
@@ -126,12 +127,12 @@ static struct menuEntry {
     char    *name;
     void    (*function)();
 } menuEntries[] = {
-    "nextPage",	    NextPage,
-    "previousPage", PreviousPage,
-    "selectPage",   SelectPage,
-    "print",	    Print,
-    "openFile",	    OpenFile,
-    "quit",	    Quit,
+    {"nextPage",	NextPage},
+    {"previousPage",	PreviousPage},
+    {"selectPage",	SelectPage},
+    {"print",		Print},
+    {"openFile",	OpenFile},
+    {"quit",		Quit},
 };
 
 static void	NextPageAction(), PreviousPageAction(), SelectPageAction();
@@ -139,17 +140,18 @@ static void	OpenFileAction(), QuitAction();
 static void	AcceptAction(), CancelAction();
 static void	PrintAction();
 static void	RerasterizeAction();
+static void	MakePrompt();
 
 XtActionsRec xditview_actions[] = {
-    "NextPage",	    NextPageAction,
-    "PreviousPage", PreviousPageAction,
-    "SelectPage",   SelectPageAction,
-    "Print",	    PrintAction,
-    "OpenFile",	    OpenFileAction,
-    "Rerasterize",  RerasterizeAction,
-    "Quit",	    QuitAction,
-    "Accept",	    AcceptAction,
-    "Cancel",	    CancelAction,
+    {"NextPage",	NextPageAction},
+    {"PreviousPage",	PreviousPageAction},
+    {"SelectPage",	SelectPageAction},
+    {"Print",		PrintAction},
+    {"OpenFile",	OpenFileAction},
+    {"Rerasterize",	RerasterizeAction},
+    {"Quit",		QuitAction},
+    {"Accept",		AcceptAction},
+    {"Cancel",		CancelAction},
 };
 
 #define MenuNextPage		0
@@ -318,6 +320,7 @@ char	*name;
 
 static char fileBuf[1024];
 
+static void
 ResetMenuEntry (entry)
     Widget  entry;
 {
@@ -516,6 +519,7 @@ void AcceptAction (widget, event, params, num_params)
     CancelAction (widget, event, params, num_params);
 }
 
+static void
 MakePrompt(centerw, prompt, func, def)
 Widget	centerw;
 char *prompt;

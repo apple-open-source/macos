@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,8 +25,9 @@
 
 
 #include "glheader.h"
+#include "colormac.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 
 #include "s_accum.h"
 #include "s_alphabuf.h"
@@ -52,21 +53,19 @@ clear_color_buffer_with_masking( GLcontext *ctx )
 
    if (ctx->Visual.rgbMode) {
       /* RGBA mode */
-      const GLchan r = ctx->Color.ClearColor[0];
-      const GLchan g = ctx->Color.ClearColor[1];
-      const GLchan b = ctx->Color.ClearColor[2];
-      const GLchan a = ctx->Color.ClearColor[3];
+      GLchan clearColor[4];
       GLint i;
+      CLAMPED_FLOAT_TO_CHAN(clearColor[RCOMP], ctx->Color.ClearColor[0]);
+      CLAMPED_FLOAT_TO_CHAN(clearColor[GCOMP], ctx->Color.ClearColor[1]);
+      CLAMPED_FLOAT_TO_CHAN(clearColor[BCOMP], ctx->Color.ClearColor[2]);
+      CLAMPED_FLOAT_TO_CHAN(clearColor[ACOMP], ctx->Color.ClearColor[3]);
       for (i = 0; i < height; i++) {
          GLchan rgba[MAX_WIDTH][4];
          GLint j;
          for (j = 0; j < width; j++) {
-            rgba[j][RCOMP] = r;
-            rgba[j][GCOMP] = g;
-            rgba[j][BCOMP] = b;
-            rgba[j][ACOMP] = a;
+            COPY_CHAN4(rgba[j], clearColor);
          }
-         _mesa_mask_rgba_span( ctx, width, x, y + i, rgba );
+         _mesa_mask_rgba_array( ctx, width, x, y + i, rgba );
          (*swrast->Driver.WriteRGBASpan)( ctx, width, x, y + i,
 				       (CONST GLchan (*)[4]) rgba, NULL );
       }
@@ -81,7 +80,7 @@ clear_color_buffer_with_masking( GLcontext *ctx )
          for (j=0;j<width;j++) {
             span[j] = ctx->Color.ClearIndex;
          }
-         _mesa_mask_index_span( ctx, width, x, y + i, span );
+         _mesa_mask_index_array( ctx, width, x, y + i, span );
          (*swrast->Driver.WriteCI32Span)( ctx, width, x, y + i, span, mask );
       }
    }
@@ -103,20 +102,19 @@ clear_color_buffer(GLcontext *ctx)
 
    if (ctx->Visual.rgbMode) {
       /* RGBA mode */
-      const GLchan r = ctx->Color.ClearColor[0];
-      const GLchan g = ctx->Color.ClearColor[1];
-      const GLchan b = ctx->Color.ClearColor[2];
-      const GLchan a = ctx->Color.ClearColor[3];
+      GLchan clearColor[4];
       GLchan span[MAX_WIDTH][4];
       GLint i;
+
+      CLAMPED_FLOAT_TO_CHAN(clearColor[RCOMP], ctx->Color.ClearColor[0]);
+      CLAMPED_FLOAT_TO_CHAN(clearColor[GCOMP], ctx->Color.ClearColor[1]);
+      CLAMPED_FLOAT_TO_CHAN(clearColor[BCOMP], ctx->Color.ClearColor[2]);
+      CLAMPED_FLOAT_TO_CHAN(clearColor[ACOMP], ctx->Color.ClearColor[3]);
 
       ASSERT(*((GLuint *) &ctx->Color.ColorMask) == 0xffffffff);
 
       for (i = 0; i < width; i++) {
-         span[i][RCOMP] = r;
-         span[i][GCOMP] = g;
-         span[i][BCOMP] = b;
-         span[i][ACOMP] = a;
+         COPY_CHAN4(span[i], clearColor);
       }
       for (i = 0; i < height; i++) {
          (*swrast->Driver.WriteRGBASpan)( ctx, width, x, y + i,
@@ -166,23 +164,8 @@ clear_color_buffers(GLcontext *ctx)
 
    /* loop over four possible dest color buffers */
    for (bufferBit = 1; bufferBit <= 8; bufferBit = bufferBit << 1) {
-      if (bufferBit & ctx->Color.DrawDestMask) {
-         if (bufferBit == FRONT_LEFT_BIT) {
-            (void) (*ctx->Driver.SetDrawBuffer)( ctx, GL_FRONT_LEFT);
-            (void) (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer, GL_FRONT_LEFT);
-         }
-         else if (bufferBit == FRONT_RIGHT_BIT) {
-            (void) (*ctx->Driver.SetDrawBuffer)( ctx, GL_FRONT_RIGHT);
-            (void) (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer, GL_FRONT_RIGHT);
-         }
-         else if (bufferBit == BACK_LEFT_BIT) {
-            (void) (*ctx->Driver.SetDrawBuffer)( ctx, GL_BACK_LEFT);
-            (void) (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer, GL_BACK_LEFT);
-         }
-         else {
-            (void) (*ctx->Driver.SetDrawBuffer)( ctx, GL_BACK_RIGHT);
-            (void) (*swrast->Driver.SetReadBuffer)( ctx, ctx->DrawBuffer, GL_BACK_RIGHT);
-         }
+      if (bufferBit & ctx->Color._DrawDestMask) {
+         (*swrast->Driver.SetBuffer)(ctx, ctx->DrawBuffer, bufferBit);
 
          if (colorMask != 0xffffffff) {
             clear_color_buffer_with_masking(ctx);
@@ -193,9 +176,8 @@ clear_color_buffers(GLcontext *ctx)
       }
    }
 
-   /* restore default read/draw buffers */
-   (void) (*ctx->Driver.SetDrawBuffer)( ctx, ctx->Color.DriverDrawBuffer );
-   (void) (*swrast->Driver.SetReadBuffer)( ctx, ctx->ReadBuffer, ctx->Pixel.DriverReadBuffer );
+   /* restore default read/draw buffer */
+   _swrast_use_draw_buffer(ctx);
 }
 
 
@@ -223,7 +205,7 @@ _swrast_Clear( GLcontext *ctx, GLbitfield mask,
 
    /* do software clearing here */
    if (mask) {
-      if (mask & ctx->Color.DrawDestMask)   clear_color_buffers(ctx);
+      if (mask & ctx->Color._DrawDestMask)   clear_color_buffers(ctx);
       if (mask & GL_DEPTH_BUFFER_BIT)    _mesa_clear_depth_buffer(ctx);
       if (mask & GL_ACCUM_BUFFER_BIT)    _mesa_clear_accum_buffer(ctx);
       if (mask & GL_STENCIL_BUFFER_BIT)  _mesa_clear_stencil_buffer(ctx);
@@ -256,4 +238,67 @@ _swrast_alloc_buffers( GLframebuffer *buffer )
    if (buffer->UseSoftwareAlphaBuffers) {
       _mesa_alloc_alpha_buffers( buffer );
    }
+}
+
+
+/*
+ * Fallback for ctx->Driver.DrawBuffer()
+ */
+void
+_swrast_DrawBuffer( GLcontext *ctx, GLenum mode )
+{
+   _swrast_use_draw_buffer(ctx);
+}
+
+
+/*
+ * Setup things so that we read/write spans from the user-designated
+ * read buffer (set via glReadPixels).  We usually just have to call
+ * this for glReadPixels, glCopyPixels, etc.
+ */
+void
+_swrast_use_read_buffer( GLcontext *ctx )
+{
+   SWcontext *swrast = SWRAST_CONTEXT(ctx);
+
+   /* Do this so the software-emulated alpha plane span functions work! */
+   swrast->CurrentBuffer = ctx->Pixel._ReadSrcMask;
+   /* Tell the device driver where to read/write spans */
+   (*swrast->Driver.SetBuffer)( ctx, ctx->ReadBuffer, swrast->CurrentBuffer );
+}
+
+
+/*
+ * Setup things so that we read/write spans from the default draw buffer.
+ * This is the usual mode that Mesa's software rasterizer operates in.
+ */
+void
+_swrast_use_draw_buffer( GLcontext *ctx )
+{
+   SWcontext *swrast = SWRAST_CONTEXT(ctx);
+
+   /* The user can specify rendering to zero, one, two, or four color
+    * buffers simultaneously with glDrawBuffer()!
+    * We don't expect the span/point/line/triangle functions to deal with
+    * that mess so we'll iterate over the multiple buffers as needed.
+    * But usually we only render to one color buffer at a time.
+    * We set ctx->Color._DriverDrawBuffer to that buffer and tell the
+    * device driver to use that buffer.
+    * Look in s_span.c's multi_write_rgba_span() function to see how
+    * we loop over multiple color buffers when needed.
+    */
+
+   if (ctx->Color._DrawDestMask & FRONT_LEFT_BIT)
+      swrast->CurrentBuffer = FRONT_LEFT_BIT;
+   else if (ctx->Color._DrawDestMask & BACK_LEFT_BIT)
+      swrast->CurrentBuffer = BACK_LEFT_BIT;
+   else if (ctx->Color._DrawDestMask & FRONT_RIGHT_BIT)
+      swrast->CurrentBuffer = FRONT_RIGHT_BIT;
+   else if (ctx->Color._DrawDestMask & BACK_RIGHT_BIT)
+      swrast->CurrentBuffer = BACK_RIGHT_BIT;
+   else
+      /* glDrawBuffer(GL_NONE) */
+      swrast->CurrentBuffer = FRONT_LEFT_BIT; /* we always have this buffer */
+
+   (*swrast->Driver.SetBuffer)( ctx, ctx->DrawBuffer, swrast->CurrentBuffer );
 }

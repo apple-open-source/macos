@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XCWAttrib.man,v 1.2 2001/01/27 18:19:57 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XCWAttrib.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,55 +144,19 @@
 .SH NAME
 XChangeWindowAttributes, XSetWindowBackground, XSetWindowBackgroundPixmap, XSetWindowBorder, XSetWindowBorderPixmap, XSetWindowColormap \- change window attributes
 .SH SYNTAX
-XChangeWindowAttributes\^(\^\fIdisplay\fP, \fIw\fP\^, \fIvaluemask\fP\^, \fIattributes\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      unsigned long \fIvaluemask\fP\^;
-.br
-      XSetWindowAttributes *\fIattributes\fP\^;
-.LP
-XSetWindowBackground\^(\^\fIdisplay\fP, \fIw\fP\^, \fIbackground_pixel\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      unsigned long \fIbackground_pixel\fP\^;
-.LP
-XSetWindowBackgroundPixmap\^(\^\fIdisplay\fP, \fIw\fP\^, \fIbackground_pixmap\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      Pixmap \fIbackground_pixmap\fP\^;
-.LP 
-XSetWindowBorder\^(\^\fIdisplay\fP, \fIw\fP\^, \fIborder_pixel\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      unsigned long \fIborder_pixel\fP\^;
-.LP
-XSetWindowBorderPixmap\^(\^\fIdisplay\fP, \fIw\fP\^, \fIborder_pixmap\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      Pixmap \fIborder_pixmap\fP\^;
-.LP
-XSetWindowColormap\^(\^\fIdisplay\fP, \fIw\fP\^, \fIcolormap\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
+.HP
+int XChangeWindowAttributes\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, unsigned long \fIvaluemask\fP\^, XSetWindowAttributes *\fIattributes\fP\^);
+.HP
+int XSetWindowBackground\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, unsigned long \fIbackground_pixel\fP\^);
+.HP
+int XSetWindowBackgroundPixmap\^(\^Display *\fIdisplay\fP\^, Window
+\fIw\fP\^, Pixmap \fIbackground_pixmap\fP\^);
+.HP 
+int XSetWindowBorder\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, unsigned long \fIborder_pixel\fP\^);
+.HP
+int XSetWindowBorderPixmap\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, Pixmap \fIborder_pixmap\fP\^);
+.HP
+int XSetWindowColormap\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, Colormap \fIcolormap\fP\^);
 .SH ARGUMENTS
 .IP \fIattributes\fP 1i
 Specifies the structure from which the values (as specified by the value mask)

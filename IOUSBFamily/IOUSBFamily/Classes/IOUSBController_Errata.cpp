@@ -32,7 +32,7 @@
 
 /*
  This table contains the list of errata that are necessary for known
- problems with particular silicon.  The format is vendorID, revisionID,
+ problems with particular silicon.  The format is vendorID, deviceID,
  lowest revisionID needing errata, highest rev needing errata, errataBits.
  The result of all matches is ORed together, so more than one entry may
  match.  Typically for a given errata a list of chips revisions that
@@ -47,9 +47,11 @@ static ErrataListEntry  errataList[] = {
     {0x106b, 0x0019, 0, 0xffff, kErrataDisableOvercurrent | kErrataNeedsWatchdogTimer}, 				// Apple KeyLargo - all revs
     {0x106b, 0x0019, 0, 0, 	kErrataLucentSuspendResume }, 								// Apple KeyLargo - USB Rev 0 only
     {0x106b, 0x0026, 0, 0xffff, kErrataDisableOvercurrent | kErrataLucentSuspendResume | kErrataNeedsWatchdogTimer}, 	// Apple Pangea, all revs
-    {0x106b, 0x003f, 0, 0xffff, kErrataDisableOvercurrent}, 								// Apple Intrepid, all revs
-    {0x1033, 0x0035, 0, 0xffff, kErrataDisableOvercurrent },								// NEC
-    {0x1131, 0x1561, 0x30, 0x30, kErrataNeedsPortPowerOff }								// Philips, USB 2
+    {0x106b, 0x003f, 0, 0xffff, kErrataDisableOvercurrent | kErrataNeedsWatchdogTimer},                                 // Apple Intrepid, all revs
+    {0x1033, 0x0035, 0, 0xffff, kErrataDisableOvercurrent | kErrataNECOHCIIsochWraparound },                            // NEC OHCI
+    {0x1033, 0x00e0, 0, 0xffff, kErrataDisableOvercurrent },                                                            // NEC EHCI
+    {0x1131, 0x1561, 0x30, 0x30, kErrataNeedsPortPowerOff },								// Philips, USB 2
+    {0x11C1, 0x5805, 0x11, 0x11, kErrataAgereEHCIAsyncSched }								// Agere, Async Schedule bug
 };
 
 #define errataListLength (sizeof(errataList)/sizeof(ErrataListEntry))
@@ -58,7 +60,7 @@ UInt32 IOUSBController::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 r
 {
     ErrataListEntry	*entryPtr;
     UInt32		i, errata = 0;
-
+    
     for(i = 0, entryPtr = errataList; i < errataListLength; i++, entryPtr++)
     {
         if (vendorID == entryPtr->vendID &&

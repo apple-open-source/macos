@@ -1,0 +1,1243 @@
+*** configure.in.orig	Thu Dec 19 17:42:15 1996
+--- configure.in	Fri Dec 20 11:37:29 1996
+***************
+*** 236,243 ****
+      eval "ZLIB_LIB_FILE=libz${SHLIB_SUFFIX}"
+      eval "LIBDES_LIB_FILE=libdes${SHLIB_SUFFIX}"
+      MAKE_LIB="\${SHLIB_LD} -o ${TRF_LIB_FILE} \${OBJECTS} ${SHLIB_LD_LIBS}"
+-     MAKE_ZLIB="\${SHLIB_LD} -o ${ZLIB_LIB_FILE} \${ZLIB_OBJ} ${SHLIB_LD_LIBS}"
+-     MAKE_LIBDES="\${SHLIB_LD} -o ${LIBDES_LIB_FILE} \${LIBDES_OBJ} ${SHLIB_LD_LIBS}"
+      RANLIB=":"
+  
+  	# force usage of special link code for external libraries
+--- 236,241 ----
+***************
+*** 244,259 ****
+      case "$SHLIB_LD" in
+  	*tclLdAout*)
+  	echo "$SHLIB_LD" > /tmp/$$
+! 	SHLIB_LD_Z="`sed -e 's|tclLdAout|source \$(tool)/ldAout.tcl \\\\; tclLdAout|' < /tmp/$$`"
+! 
+! 	SHLIB_LD_DES="`sed -e 's|tclLdAout|source \$(tool)/ldAout.tcl \\\\; tclLdAout|' < /tmp/$$`"
+! 
+!     MAKE_ZLIB="${SHLIB_LD_Z} -o ${ZLIB_LIB_FILE} \${ZLIB_OBJ} ${SHLIB_LD_LIBS}"
+!     MAKE_LIBDES="${SHLIB_LD_DES} -o ${LIBDES_LIB_FILE} \${LIBDES_OBJ} ${SHLIB_LD_LIBS}"
+  	;;
+  	*) ;;
+      esac
+  
+      install_other=''
+  else
+      TRF_SHLIB_CFLAGS=""
+--- 242,257 ----
+      case "$SHLIB_LD" in
+  	*tclLdAout*)
+  	echo "$SHLIB_LD" > /tmp/$$
+! 	SHLIB_LD_ALL="`sed -e 's|tclLdAout|source \$(tool)/ldAout.tcl \\\\; tclLdAout|' < /tmp/$$`"
+! 	ZLIB_LIB_FILE=libz.a
+! 	LIBDES_LIB_FILE=libdes.a
+  	;;
+  	*) ;;
+      esac
+  
++     MAKE_ZLIB="${SHLIB_LD_ALL} -o ${ZLIB_LIB_FILE} \${ZLIB_OBJ} ${SHLIB_LD_LIBS}"
++     MAKE_LIBDES="${SHLIB_LD_ALL} -o ${LIBDES_LIB_FILE} \${LIBDES_OBJ} ${SHLIB_LD_LIBS}"
++ 
+      install_other=''
+  else
+      TRF_SHLIB_CFLAGS=""
+*** Makefile.in.orig	Wed Dec 18 20:53:26 1996
+--- Makefile.in	Fri Dec 20 11:58:38 1996
+***************
+*** 150,158 ****
+  CC		=	@CC@
+  
+  CC_SWITCHES	=	$(CFLAGS) $(TRF_SHLIB_CFLAGS) $(CPPFLAGS)	\
+! 			-DZ_LIB_NAME=\"libz@SHLIB_SUFFIX@\"		\
+! 			-DLIBDES_LIB_NAME=\"libdes@SHLIB_SUFFIX@\"	\
+! 			$(LIBDES_OPTS)
+  # $(TCL_CC_SWITCHES)
+  CPPFLAGS	=	$(DEFINES) $(INCLUDES)
+  
+--- 150,158 ----
+  CC		=	@CC@
+  
+  CC_SWITCHES	=	$(CFLAGS) $(TRF_SHLIB_CFLAGS) $(CPPFLAGS)	\
+! 			-DZ_LIB_NAME=\"$(ZLIB_LIB_FILE)\"		\
+! 			-DLIBDES_LIB_NAME=\"$(LIBDES_LIB_FILE)\"	\
+! 			$(LIBDES_OPTS) @TCL_DEFS@
+  # $(TCL_CC_SWITCHES)
+  CPPFLAGS	=	$(DEFINES) $(INCLUDES)
+  
+*** asc85code.c.orig	Fri Dec 20 12:05:32 1996
+--- asc85code.c	Fri Dec 20 12:07:49 1996
+***************
+*** 57,63 ****
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 57,63 ----
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 73,79 ****
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 73,79 ----
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 199,205 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 199,205 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+***************
+*** 428,434 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 428,434 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+*** b64code.c.orig	Fri Dec 20 12:05:12 1996
+--- b64code.c	Fri Dec 20 12:06:14 1996
+***************
+*** 52,58 ****
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 52,58 ----
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 68,74 ****
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 68,74 ----
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 244,250 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 244,250 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+***************
+*** 438,444 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 438,444 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+*** bincode.c.orig	Fri Dec 20 12:01:06 1996
+--- bincode.c	Fri Dec 20 12:03:59 1996
+***************
+*** 50,56 ****
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 50,56 ----
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 66,72 ****
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 66,72 ----
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 178,184 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+--- 178,184 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+***************
+*** 385,391 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+--- 385,391 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+*** blockcipher.c.orig	Fri Dec 20 12:39:46 1996
+--- blockcipher.c	Fri Dec 20 12:40:27 1996
+***************
+*** 34,40 ****
+   */
+  
+  static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+--- 34,40 ----
+   */
+  
+  static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc *fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+***************
+*** 56,62 ****
+  
+  
+  static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+--- 56,62 ----
+  
+  
+  static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc *fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+***************
+*** 202,208 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+--- 202,208 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+***************
+*** 771,777 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+--- 771,777 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+*** digest.c.orig	Fri Dec 20 12:15:39 1996
+--- digest.c	Fri Dec 20 12:16:13 1996
+***************
+*** 35,41 ****
+   */
+  
+  static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+--- 35,41 ----
+   */
+  
+  static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc *fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+***************
+*** 57,63 ****
+  
+  
+  static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+--- 57,63 ----
+  
+  
+  static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc *fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+***************
+*** 204,210 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+--- 204,210 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+***************
+*** 473,479 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+--- 473,479 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+*** hexcode.c.orig	Fri Dec 20 12:02:26 1996
+--- hexcode.c	Fri Dec 20 12:35:44 1996
+***************
+*** 49,55 ****
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 49,55 ----
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 65,71 ****
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 65,71 ----
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 177,183 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 177,183 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+***************
+*** 364,370 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 364,370 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+*** octcode.c.orig	Fri Dec 20 12:04:16 1996
+--- octcode.c	Fri Dec 20 12:04:59 1996
+***************
+*** 50,56 ****
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 50,56 ----
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 66,72 ****
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 66,72 ----
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 178,184 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 178,184 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+***************
+*** 383,389 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 383,389 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+*** registry.c.orig	Fri Dec 20 11:54:31 1996
+--- registry.c	Fri Dec 20 12:00:37 1996
+***************
+*** 164,170 ****
+  
+      Tcl_InitHashTable (hTablePtr, TCL_STRING_KEYS);
+  
+!     Tcl_SetAssocData (interp, ASSOC, &TrfDeleteRegistry, (ClientData) hTablePtr);
+    }
+  
+    return hTablePtr;
+--- 164,170 ----
+  
+      Tcl_InitHashTable (hTablePtr, TCL_STRING_KEYS);
+  
+!     Tcl_SetAssocData (interp, ASSOC, TrfDeleteRegistry, (ClientData) hTablePtr);
+    }
+  
+    return hTablePtr;
+***************
+*** 196,202 ****
+  {
+    Tcl_InterpDeleteProc* proc;
+  
+!   proc = &TrfDeleteRegistry;
+  
+   return (Tcl_HashTable*) Tcl_GetAssocData (interp, ASSOC, &proc);
+  }
+--- 196,202 ----
+  {
+    Tcl_InterpDeleteProc* proc;
+  
+!   proc = TrfDeleteRegistry;
+  
+   return (Tcl_HashTable*) Tcl_GetAssocData (interp, ASSOC, &proc);
+  }
+***************
+*** 277,284 ****
+    entry->transType  = (Tcl_ChannelType*)   Tcl_Alloc (sizeof (Tcl_ChannelType)); 
+    entry->trfType    = (Trf_TypeDefinition*) type;
+    entry->interp     = interp;
+!   entry->trfCommand = Tcl_CreateCommand (interp, (char*) type->name, &TrfExecuteCmd,
+! 					 (ClientData) entry, &TrfDeleteCmd);
+  
+    /*
+     * Set up channel type
+--- 277,284 ----
+    entry->transType  = (Tcl_ChannelType*)   Tcl_Alloc (sizeof (Tcl_ChannelType)); 
+    entry->trfType    = (Trf_TypeDefinition*) type;
+    entry->interp     = interp;
+!   entry->trfCommand = Tcl_CreateCommand (interp, (char*) type->name, TrfExecuteCmd,
+! 					 (ClientData) entry, TrfDeleteCmd);
+  
+    /*
+     * Set up channel type
+*** rs_ecc.c.orig	Fri Dec 20 12:42:11 1996
+--- rs_ecc.c	Fri Dec 20 12:42:47 1996
+***************
+*** 44,50 ****
+   */
+  
+  static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+--- 44,50 ----
+   */
+  
+  static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc *fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+***************
+*** 65,71 ****
+  						     ClientData clientData));
+  
+  static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+--- 65,71 ----
+  						     ClientData clientData));
+  
+  static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData,
+! 						     Trf_WriteProc *fun,
+  						     Trf_Options optInfo,
+  						     Tcl_Interp*   interp,
+  						     ClientData clientData));
+***************
+*** 191,197 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+--- 191,197 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+***************
+*** 496,502 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+--- 496,502 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData    clientData;
+*** transform.h.in.orig	Fri Dec 20 11:48:40 1996
+--- transform.h.in	Fri Dec 20 11:51:53 1996
+***************
+*** 440,446 ****
+   */
+  
+  typedef struct _Trf_TypeDefinition_ {
+!   const char*        name;       /* name of transformation, also name of
+  				  * created command */
+    ClientData         clientData; /* reference to arbitrary information.
+  				  * This information is given to all vectors
+--- 440,446 ----
+   */
+  
+  typedef struct _Trf_TypeDefinition_ {
+!   CONST char*        name;       /* name of transformation, also name of
+  				  * created command */
+    ClientData         clientData; /* reference to arbitrary information.
+  				  * This information is given to all vectors
+*** unstack.c.orig	Fri Dec 20 11:57:26 1996
+--- unstack.c	Fri Dec 20 11:57:58 1996
+***************
+*** 99,105 ****
+  TrfInit_Unstack (interp)
+  Tcl_Interp* interp;
+  {
+!   Tcl_CreateCommand (interp, "unstack", &TrfUnstackCmd,
+  		     (ClientData) NULL, NULL);
+  
+    return TCL_OK;
+--- 99,105 ----
+  TrfInit_Unstack (interp)
+  Tcl_Interp* interp;
+  {
+!   Tcl_CreateCommand (interp, "unstack", TrfUnstackCmd,
+  		     (ClientData) NULL, NULL);
+  
+    return TCL_OK;
+*** uucode.c.orig	Fri Dec 20 12:04:21 1996
+--- uucode.c	Fri Dec 20 12:36:17 1996
+***************
+*** 52,58 ****
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 52,58 ----
+   * Declarations of internal procedures.
+   */
+  
+! static Trf_ControlBlock CreateEncoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteEncoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 68,74 ****
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+--- 68,74 ----
+  						     ClientData clientData));
+  
+  
+! static Trf_ControlBlock CreateDecoder  _ANSI_ARGS_ ((ClientData writeClientData, Trf_WriteProc *fun,
+  						     Trf_Options optInfo, Tcl_Interp*   interp,
+  						     ClientData clientData));
+  static void             DeleteDecoder  _ANSI_ARGS_ ((Trf_ControlBlock ctrlBlock,
+***************
+*** 244,250 ****
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 244,250 ----
+  static Trf_ControlBlock
+  CreateEncoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+***************
+*** 438,444 ****
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+--- 438,444 ----
+  static Trf_ControlBlock
+  CreateDecoder (writeClientData, fun, optInfo, interp, clientData)
+  ClientData    writeClientData;
+! Trf_WriteProc *fun;
+  Trf_Options   optInfo;
+  Tcl_Interp*   interp;
+  ClientData clientData;
+*** haval/haval.c.orig	Fri Dec 20 12:19:22 1996
+--- haval/haval.c	Fri Dec 20 12:36:54 1996
+***************
+*** 40,58 ****
+  #include <stdio.h>
+  #include <memory.h>
+  #include "havalapp.h"
+  #include "haval.h"
+  
+  #define VERSION    1                         /* current version number */
+  
+! void haval_string (char *, unsigned char *); /* hash a string */
+! int  haval_file (char *, unsigned char *);   /* hash a file */
+! void haval_stdin (void);                     /* hash input from stdin */
+! void haval_start (haval_state *);            /* initialization */
+! void haval_hash (haval_state *,
+!         unsigned char *, unsigned int);      /* updating routine */
+! void haval_end (haval_state *, unsigned char *); /* finalization */
+! void haval_hash_block (haval_state *);       /* hash a 32-word block */
+! static void haval_tailor (haval_state *);    /* folding the last output */
+  
+  static unsigned char padding[128] = {        /* constants for padding */
+  0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+--- 40,59 ----
+  #include <stdio.h>
+  #include <memory.h>
+  #include "havalapp.h"
++ #include "tcl.h"
+  #include "haval.h"
+  
+  #define VERSION    1                         /* current version number */
+  
+! void haval_string _ANSI_ARGS_((char *, unsigned char *)); /* hash a string */
+! int  haval_file _ANSI_ARGS_((char *, unsigned char *));   /* hash a file */
+! void haval_stdin _ANSI_ARGS_((void));                     /* hash input from stdin */
+! void haval_start _ANSI_ARGS_((haval_state *));            /* initialization */
+! void haval_hash _ANSI_ARGS_((haval_state *,
+!         unsigned char *, unsigned int));      /* updating routine */
+! void haval_end _ANSI_ARGS_((haval_state *, unsigned char *)); /* finalization */
+! void haval_hash_block _ANSI_ARGS_((haval_state *));       /* hash a 32-word block */
+! static void haval_tailor _ANSI_ARGS_((haval_state *));    /* folding the last output */
+  
+  static unsigned char padding[128] = {        /* constants for padding */
+  0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+***************
+*** 220,226 ****
+  
+  
+  /* hash a string */
+! void haval_string (char *string, unsigned char fingerprint[FPTLEN >> 3])
+  {
+    haval_state   state;
+    unsigned int  len = strlen (string);
+--- 221,229 ----
+  
+  
+  /* hash a string */
+! void haval_string (string, fingerprint)
+!     char *string;
+!     unsigned char fingerprint[FPTLEN >> 3];
+  {
+    haval_state   state;
+    unsigned int  len = strlen (string);
+***************
+*** 231,237 ****
+  }
+  
+  /* hash a file */
+! int haval_file (char *file_name, unsigned char fingerprint[FPTLEN >> 3])
+  {
+    FILE          *file;
+    haval_state   state;
+--- 234,242 ----
+  }
+  
+  /* hash a file */
+! int haval_file (file_name, fingerprint)
+!     char *file_name;
+!     unsigned char fingerprint[FPTLEN >> 3];
+  {
+    FILE          *file;
+    haval_state   state;
+***************
+*** 253,259 ****
+  }
+  
+  /* hash input from stdin */
+! void haval_stdin (void)
+  {
+    haval_state   state;
+    int           i, len;
+--- 258,264 ----
+  }
+  
+  /* hash input from stdin */
+! void haval_stdin ()
+  {
+    haval_state   state;
+    int           i, len;
+***************
+*** 273,279 ****
+  }
+  
+  /* initialization */
+! void haval_start (haval_state *state)
+  {
+      state->count[0]       = state->count[1] = 0;   /* clear count */
+      state->fingerprint[0] = 0x243F6A88;            /* initial fingerprint */
+--- 278,285 ----
+  }
+  
+  /* initialization */
+! void haval_start (state)
+!     haval_state *state;
+  {
+      state->count[0]       = state->count[1] = 0;   /* clear count */
+      state->fingerprint[0] = 0x243F6A88;            /* initial fingerprint */
+***************
+*** 290,297 ****
+   * hash a string of specified length.
+   * to be used in conjunction with haval_start and haval_end.
+   */
+! void haval_hash (haval_state *state,
+!                  unsigned char *str, unsigned int str_len)
+  {
+    unsigned int i,
+             rmd_len,
+--- 296,305 ----
+   * hash a string of specified length.
+   * to be used in conjunction with haval_start and haval_end.
+   */
+! void haval_hash (state, str, str_len)
+!     haval_state *state;
+!     unsigned char *str;
+!     unsigned int str_len;
+  {
+    unsigned int i,
+             rmd_len,
+***************
+*** 347,353 ****
+  }
+  
+  /* finalization */
+! void haval_end (haval_state *state, unsigned char final_fpt[FPTLEN >> 3])
+  {
+    unsigned char tail[10];
+    unsigned int  rmd_len, pad_len;
+--- 355,363 ----
+  }
+  
+  /* finalization */
+! void haval_end (state, final_fpt)
+!     haval_state *state;
+!     unsigned char final_fpt[FPTLEN >> 3];
+  {
+    unsigned char tail[10];
+    unsigned int  rmd_len, pad_len;
+***************
+*** 384,390 ****
+  }
+  
+  /* hash a 32-word block */
+! void haval_hash_block (haval_state *state)
+  {
+    register haval_word t0 = state->fingerprint[0],    /* make use of */
+                        t1 = state->fingerprint[1],    /* internal registers */
+--- 394,401 ----
+  }
+  
+  /* hash a 32-word block */
+! void haval_hash_block (state)
+!     haval_state *state;
+  {
+    register haval_word t0 = state->fingerprint[0],    /* make use of */
+                        t1 = state->fingerprint[1],    /* internal registers */
+*** haval/haval.h.orig	Fri Dec 20 12:19:17 1996
+--- haval/haval.h	Fri Dec 20 12:20:38 1996
+***************
+*** 49,61 ****
+    unsigned char remainder[32*4];         /* unhashed chars (No.<128) */   
+  } haval_state;
+  
+! void haval_string (char *, unsigned char *); /* hash a string */
+! int  haval_file (char *, unsigned char *);   /* hash a file */
+! void haval_stdin (void);                     /* filter -- hash input from stdin */
+! void haval_start (haval_state *);            /* initialization */
+! void haval_hash (haval_state *, unsigned char *,
+!                  unsigned int);              /* updating routine */
+! void haval_end (haval_state *, unsigned char *); /* finalization */
+! void haval_hash_block (haval_state *);       /* hash a 32-word block */
+  
+  #endif
+--- 49,61 ----
+    unsigned char remainder[32*4];         /* unhashed chars (No.<128) */   
+  } haval_state;
+  
+! void haval_string _ANSI_ARGS_((char *, unsigned char *)); /* hash a string */
+! int  haval_file  _ANSI_ARGS_((char *, unsigned char *));   /* hash a file */
+! void haval_stdin  _ANSI_ARGS_((void));                     /* filter -- hash input from stdin */
+! void haval_start  _ANSI_ARGS_((haval_state *));            /* initialization */
+! void haval_hash  _ANSI_ARGS_((haval_state *, unsigned char *,
+!                  unsigned int));              /* updating routine */
+! void haval_end  _ANSI_ARGS_((haval_state *, unsigned char *)); /* finalization */
+! void haval_hash_block  _ANSI_ARGS_((haval_state *));       /* hash a 32-word block */
+  
+  #endif
+*** compat/tclLoadAout.c.orig	Tue Dec 17 20:31:21 1996
+--- compat/tclLoadAout.c	Fri Dec 20 11:37:12 1996
+***************
+*** 31,37 ****
+--- 31,39 ----
+   * a.out.h.
+   */
+  
++ #ifdef USE_SYS_EXEC_H
+  #include <sys/exec.h>
++ #endif
+  #ifdef USE_A_OUT_H
+  #include <a.out.h>
+  #endif
+*** compat/tclLoadNone.c.orig	Tue Dec 17 20:31:22 1996
+--- compat/tclLoadNone.c	Fri Dec 20 11:41:10 1996
+***************
+*** 13,21 ****
+   * SCCS: @(#) tclLoadNone.c 1.5 96/02/15 11:43:01
+   */
+  
+! #include "tclInt.h"
+! #include "../compat/dlfcn.h"
+  
+  
+  /*
+   *----------------------------------------------------------------------
+--- 13,166 ----
+   * SCCS: @(#) tclLoadNone.c 1.5 96/02/15 11:43:01
+   */
+  
+! #include "tcl.h"
+! #include "compat/dlfcn.h"
+  
++ extern int adler32 (); 
++ extern int compress (); 
++ extern int crc32 (); 
++ extern int get_crc_table (); 
++ extern int gzclose (); 
++ extern int gzdopen (); 
++ extern int gzerror (); 
++ extern int gzflush (); 
++ extern int gzopen (); 
++ extern int gzread (); 
++ extern int gzwrite (); 
++ extern int uncompress (); 
++ extern int deflate (); 
++ extern int _tr_align (); 
++ extern int _tr_flush_block (); 
++ extern int _tr_init (); 
++ extern int _tr_stored_block (); 
++ extern int _tr_tally (); 
++ extern int zcalloc (); 
++ extern int zcfree (); 
++ extern int zlib (); 
++ extern int inflate (); 
++ extern int inflate_blocks (); 
++ extern int inflate_blocks_free (); 
++ extern int inflate_blocks_new (); 
++ extern int inflate_blocks_reset (); 
++ extern int inflate_set_dictionary (); 
++ extern int inflate_trees_bits (); 
++ extern int inflate_trees_dynamic (); 
++ extern int inflate_trees_fixed (); 
++ extern int inflate_trees_free (); 
++ extern int inflate_codes (); 
++ extern int inflate_codes_free (); 
++ extern int inflate_codes_new (); 
++ extern int inflate_flush (); 
++ extern int inflate_fast (); 
++ extern int des_3cbc_encrypt (); 
++ extern int des_cbc_cksum (); 
++ extern int des_cbc_encrypt (); 
++ extern int des_ncbc_encrypt (); 
++ extern int des_pcbc_encrypt (); 
++ extern int des_quad_cksum (); 
++ extern int des_ede3_cfb64_encrypt (); 
++ extern int des_cfb64_encrypt (); 
++ extern int des_cfb_encrypt (); 
++ extern int des_ecb3_encrypt (); 
++ extern int des_ecb_encrypt (); 
++ extern int des_encrypt (); 
++ extern int des_encrypt2 (); 
++ extern int des_ede3_cbc_encrypt (); 
++ extern int des_enc_read (); 
++ extern int des_enc_write (); 
++ extern int crypt (); 
++ extern int des_ede3_ofb64_encrypt (); 
++ extern int des_ofb64_encrypt (); 
++ extern int des_ofb_encrypt (); 
++ extern int des_random_key (); 
++ extern int des_random_seed (); 
++ extern int des_read_2passwords (); 
++ extern int des_read_password (); 
++ extern int des_read_pw_string (); 
++ extern int des_is_weak_key (); 
++ extern int des_key_sched (); 
++ extern int des_set_key (); 
++ extern int des_set_odd_parity (); 
++ extern int _des_crypt (); 
++ extern int des_string_to_2keys (); 
++ extern int des_string_to_key (); 
++ extern int des_cblock_print_file (); 
++ 
++ static struct {
++   char * name;
++   int (*value)();
++ }dictionary [] = {
++   { "adler32", adler32 },
++   { "compress", compress },
++   { "crc32", crc32 },
++   { "get_crc_table", get_crc_table },
++   { "gzclose", gzclose },
++   { "gzdopen", gzdopen },
++   { "gzerror", gzerror },
++   { "gzflush", gzflush },
++   { "gzopen", gzopen },
++   { "gzread", gzread },
++   { "gzwrite", gzwrite },
++   { "uncompress", uncompress },
++   { "deflate", deflate },
++   { "_tr_align", _tr_align },
++   { "_tr_flush_block", _tr_flush_block },
++   { "_tr_init", _tr_init },
++   { "_tr_stored_block", _tr_stored_block },
++   { "_tr_tally", _tr_tally },
++   { "zcalloc", zcalloc },
++   { "zcfree", zcfree },
++   { "zlib", zlib },
++   { "inflate", inflate },
++   { "inflate_blocks", inflate_blocks },
++   { "inflate_blocks_free", inflate_blocks_free },
++   { "inflate_blocks_new", inflate_blocks_new },
++   { "inflate_blocks_reset", inflate_blocks_reset },
++   { "inflate_set_dictionary", inflate_set_dictionary },
++   { "inflate_trees_bits", inflate_trees_bits },
++   { "inflate_trees_dynamic", inflate_trees_dynamic },
++   { "inflate_trees_fixed", inflate_trees_fixed },
++   { "inflate_trees_free", inflate_trees_free },
++   { "inflate_codes", inflate_codes },
++   { "inflate_codes_free", inflate_codes_free },
++   { "inflate_codes_new", inflate_codes_new },
++   { "inflate_flush", inflate_flush },
++   { "inflate_fast", inflate_fast },
++   { "des_3cbc_encrypt", des_3cbc_encrypt },
++   { "des_cbc_cksum", des_cbc_cksum },
++   { "des_cbc_encrypt", des_cbc_encrypt },
++   { "des_ncbc_encrypt", des_ncbc_encrypt },
++   { "des_pcbc_encrypt", des_pcbc_encrypt },
++   { "des_quad_cksum", des_quad_cksum },
++   { "des_ede3_cfb64_encrypt", des_ede3_cfb64_encrypt },
++   { "des_cfb64_encrypt", des_cfb64_encrypt },
++   { "des_cfb_encrypt", des_cfb_encrypt },
++   { "des_ecb3_encrypt", des_ecb3_encrypt },
++   { "des_ecb_encrypt", des_ecb_encrypt },
++   { "des_encrypt", des_encrypt },
++   { "des_encrypt2", des_encrypt2 },
++   { "des_ede3_cbc_encrypt", des_ede3_cbc_encrypt },
++   { "des_enc_read", des_enc_read },
++   { "des_enc_write", des_enc_write },
++   { "crypt", crypt },
++   { "des_ede3_ofb64_encrypt", des_ede3_ofb64_encrypt },
++   { "des_ofb64_encrypt", des_ofb64_encrypt },
++   { "des_ofb_encrypt", des_ofb_encrypt },
++   { "des_random_key", des_random_key },
++   { "des_random_seed", des_random_seed },
++   { "des_read_2passwords", des_read_2passwords },
++   { "des_read_password", des_read_password },
++   { "des_read_pw_string", des_read_pw_string },
++   { "des_is_weak_key", des_is_weak_key },
++   { "des_key_sched", des_key_sched },
++   { "des_set_key", des_set_key },
++   { "des_set_odd_parity", des_set_odd_parity },
++   { "_des_crypt", _des_crypt },
++   { "des_string_to_2keys", des_string_to_2keys },
++   { "des_string_to_key", des_string_to_key },
++   { "des_cblock_print_file", des_cblock_print_file },
++   { 0, 0 }
++ };
+  
+  /*
+   *----------------------------------------------------------------------
+***************
+*** 40,46 ****
+      CONST char *path;
+      int mode;
+  {
+!     return (VOID *) NULL;
+  }
+  
+  VOID *dlsym(handle, symbol)
+--- 185,191 ----
+      CONST char *path;
+      int mode;
+  {
+!     return (VOID *) 1;
+  }
+  
+  VOID *dlsym(handle, symbol)
+***************
+*** 47,52 ****
+--- 192,203 ----
+      VOID *handle;
+      CONST char *symbol;
+  {
++     int i;
++     for (i = 0; dictionary [i] . name != 0; ++i) {
++       if (!strcmp (symbol, dictionary [i] . name)) {
++ 	return (VOID *) dictionary [i].value;
++       }
++     }
+      return (VOID *) NULL;
+  }
+  
+***************
+*** 58,62 ****
+  int dlclose(handle)
+      VOID *handle;
+  {
+!     return -1;
+  }
+--- 209,213 ----
+  int dlclose(handle)
+      VOID *handle;
+  {
+!     return 0;
+  }
+*** tools/ldAout.tcl.orig	Fri Dec 20 11:42:40 1996
+--- tools/ldAout.tcl	Fri Dec 20 11:42:58 1996
+***************
+*** 241,245 ****
+  
+    # Clean up working files
+  
+! #  exec /bin/rm $cFile [file rootname $cFile].o
+  }
+--- 241,245 ----
+  
+    # Clean up working files
+  
+!   exec /bin/rm $cFile [file rootname $cFile].o
+  }
+

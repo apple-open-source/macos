@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_cmdbuf.c,v 1.1 2002/10/30 12:51:51 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_cmdbuf.c,v 1.2 2003/09/28 20:15:22 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -32,18 +32,19 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
 
+#include "glheader.h"
+#include "imports.h"
+#include "macros.h"
+#include "context.h"
+#include "swrast/swrast.h"
+#include "simple_list.h"
+
 #include "r200_context.h"
 #include "r200_state.h"
 #include "r200_ioctl.h"
 #include "r200_tcl.h"
 #include "r200_sanity.h"
 #include "radeon_reg.h"
-
-#include "mem.h"
-#include "macros.h"
-#include "context.h"
-#include "swrast/swrast.h"
-#include "simple_list.h"
 
 static void print_state_atom( struct r200_state_atom *state )
 {
@@ -131,13 +132,6 @@ extern void r200EmitVbufPrim( r200ContextPtr rmesa,
 	       R200_VF_PRIM_WALK_LIST |
 	       R200_VF_COLOR_ORDER_RGBA |
 	       (vertex_nr << R200_VF_VERTEX_NUMBER_SHIFT));
-
-
-   if (R200_DEBUG & DEBUG_SYNC) {
-      fprintf(stderr, "\nSyncing\n\n");
-      R200_FIREVERTICES( rmesa );
-      r200Finish( rmesa->glCtx );
-   }
 }
 
 
@@ -162,8 +156,7 @@ void r200FlushElts( r200ContextPtr rmesa )
    cmd[2] |= nr << R200_VF_VERTEX_NUMBER_SHIFT;
 
    if (R200_DEBUG & DEBUG_SYNC) {
-      fprintf(stderr, "\nSyncing in %s\n\n", __FUNCTION__);
-      R200_FIREVERTICES( rmesa );
+      fprintf(stderr, "%s: Syncing\n", __FUNCTION__);
       r200Finish( rmesa->glCtx );
    }
 }
@@ -202,6 +195,7 @@ GLushort *r200AllocEltsOpenEnded( r200ContextPtr rmesa,
 	      cmd[1].i, primitive);
 
    assert(!rmesa->dma.flush);
+   rmesa->glCtx->Driver.NeedFlush |= FLUSH_STORED_VERTICES;
    rmesa->dma.flush = r200FlushElts;
 
    rmesa->store.elts_start = ((char *)cmd) - rmesa->store.cmd_buf;

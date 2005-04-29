@@ -1,8 +1,8 @@
 #
 #		parsearg.rb - parse arguments
 #			$Release Version: $
-#			$Revision: 1.1.1.1 $
-#			$Date: 2002/05/27 17:59:48 $
+#			$Revision: 1.2 $
+#			$Date: 2002/07/29 06:14:06 $
 #			by Yasuo OHBA(SHL Japan Inc. Technology Dept.)
 #
 # --
@@ -10,7 +10,7 @@
 #	
 #
 
-$RCS_ID=%q$Header: /cvs/Darwin/ruby/ruby/lib/parsearg.rb,v 1.1.1.1 2002/05/27 17:59:48 jkh Exp $
+$RCS_ID=%q$Header: /src/ruby/lib/parsearg.rb,v 1.2 2002/07/29 06:14:06 matz Exp $
 
 require "getopts"
 
@@ -73,7 +73,7 @@ def parseArgs(argc, nopt, single_opts, *opts)
       end
     rescue
       print "Format Error!! : \"" + nopt + "\"\t[parseArgs]\n"
-      exit! -1
+      exit!(-1)
     end
   end
   if ARGV.length < argc

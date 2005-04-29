@@ -1,4 +1,4 @@
-$Id: locking,v 1.2 2002/05/25 19:57:43 leg Exp $
+$Id: locking,v 1.5 2005/03/05 00:36:27 dasenbro Exp $
 
 In an ideal world, our locking order is:
 

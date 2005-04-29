@@ -1,11 +1,19 @@
 /*  ldap-int.h - defines & prototypes internal to the LDAP library */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/ldap-int.h,v 1.129.2.12 2003/04/28 23:41:55 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/libraries/libldap/ldap-int.h,v 1.148.2.6 2004/01/01 18:16:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*  Portions
- *  Copyright (c) 1995 Regents of the University of Michigan.
+/*  Portions Copyright (c) 1995 Regents of the University of Michigan.
  *  All rights reserved.
  */
 
@@ -48,7 +56,7 @@
 	 *  Note: Deallocate structure when the process exits
 	 */
 #	define LDAP_INT_GLOBAL_OPT() ldap_int_global_opt()
-   struct ldapoptions *ldap_int_global_opt(void);
+	struct ldapoptions *ldap_int_global_opt(void);
 #else
 #	define LDAP_INT_GLOBAL_OPT() (&ldap_int_global_options)
 #endif
@@ -58,6 +66,9 @@
 #include "ldap_log.h"
 
 #undef Debug
+
+#ifdef LDAP_DEBUG
+
 #define Debug( level, fmt, arg1, arg2, arg3 ) \
 	do { if ( ldap_debug & level ) \
 	ldap_log_printf( NULL, (level), (fmt), (arg1), (arg2), (arg3) ); \
@@ -66,6 +77,14 @@
 #define LDAP_Debug( subsystem, level, fmt, arg1, arg2, arg3 )\
 	ldap_log_printf( NULL, (level), (fmt), (arg1), (arg2), (arg3) )
 
+#else
+
+#define Debug( level, fmt, arg1, arg2, arg3 )                 ((void)0)
+#define LDAP_Debug( subsystem, level, fmt, arg1, arg2, arg3 ) ((void)0)
+
+#endif /* LDAP_DEBUG */
+
+#define LDAP_DEPRECATED 1
 #include "ldap.h"
 
 #include "ldap_pvt.h"
@@ -188,7 +207,8 @@ typedef struct ldap_conn {
    	void		*lconn_tls_ctx;
 #endif
 #ifdef HAVE_CYRUS_SASL
-	void		*lconn_sasl_ctx;
+	void		*lconn_sasl_authctx;	/* context for bind */
+	void		*lconn_sasl_sockctx;	/* for security layer */
 #endif
 	int			lconn_refcnt;
 	time_t		lconn_lastused;	/* time */
@@ -302,6 +322,11 @@ struct ldap {
 	LDAPRequest	*ld_requests;	/* list of outstanding requests */
 	LDAPMessage	*ld_responses;	/* list of outstanding responses */
 
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_t	ld_req_mutex;
+	ldap_pvt_thread_mutex_t	ld_res_mutex;
+#endif
+
 	ber_int_t		*ld_abandoned;	/* array of abandoned requests */
 
 	LDAPCache	*ld_cache;	/* non-null if cache is initialized */
@@ -322,6 +347,15 @@ LDAP_V( ldap_pvt_thread_mutex_t ) ldap_int_sasl_mutex;
 #endif
 #endif
 
+#ifdef LDAP_R_COMPILE
+#define	LDAP_NEXT_MSGID(ld, id) \
+	ldap_pvt_thread_mutex_lock( &(ld)->ld_req_mutex ); \
+	id = ++(ld)->ld_msgid; \
+	ldap_pvt_thread_mutex_unlock( &(ld)->ld_req_mutex )
+#else
+#define	LDAP_NEXT_MSGID(ld, id)	id = ++(ld)->ld_msgid
+#endif
+
 /*
  * in init.c
  */
@@ -334,13 +368,21 @@ LDAP_F ( void ) ldap_int_initialize_global_options LDAP_P((
 
 /* memory.c */
 	/* simple macros to realloc for now */
-#define LDAP_MALLOC(s)		(LBER_MALLOC((s)))
-#define LDAP_CALLOC(n,s)	(LBER_CALLOC((n),(s)))
-#define LDAP_REALLOC(p,s)	(LBER_REALLOC((p),(s)))
-#define LDAP_FREE(p)		(LBER_FREE((p)))
-#define LDAP_VFREE(v)		(LBER_VFREE((void **)(v)))
-#define LDAP_STRDUP(s)		(LBER_STRDUP((s)))
-#define LDAP_STRNDUP(s,l)	(LBER_STRNDUP((s),(l)))
+#define LDAP_MALLOC(s)		(ber_memalloc_x((s),NULL))
+#define LDAP_CALLOC(n,s)	(ber_memcalloc_x((n),(s),NULL))
+#define LDAP_REALLOC(p,s)	(ber_memrealloc_x((p),(s),NULL))
+#define LDAP_FREE(p)		(ber_memfree_x((p),NULL))
+#define LDAP_VFREE(v)		(ber_memvfree_x((void **)(v),NULL))
+#define LDAP_STRDUP(s)		(ber_strdup_x((s),NULL))
+#define LDAP_STRNDUP(s,l)	(ber_strndup_x((s),(l),NULL))
+
+#define LDAP_MALLOCX(s,x)	(ber_memalloc_x((s),(x)))
+#define LDAP_CALLOCX(n,s,x)	(ber_memcalloc_x((n),(s),(x)))
+#define LDAP_REALLOCX(p,s,x)	(ber_memrealloc_x((p),(s),(x)))
+#define LDAP_FREEX(p,x)		(ber_memfree_x((p),(x)))
+#define LDAP_VFREEX(v,x)	(ber_memvfree_x((void **)(v),(x)))
+#define LDAP_STRDUPX(s,x)	(ber_strdup_x((s),(x)))
+#define LDAP_STRNDUPX(s,l,x)	(ber_strndup_x((s),(l),(x)))
 
 /*
  * in error.c
@@ -369,10 +411,6 @@ LDAP_F (int) ldap_check_cache LDAP_P(( LDAP *ld, ber_tag_t msgtype, BerElement *
 /*
  * in controls.c
  */
-LDAP_F (int) ldap_int_get_controls LDAP_P((
-	BerElement *be,
-	LDAPControl ***ctrlsp));
-
 LDAP_F (int) ldap_int_put_controls LDAP_P((
 	LDAP *ld,
 	LDAPControl *const *ctrls,
@@ -411,14 +449,16 @@ LDAP_F (int) ldap_int_open_connection( LDAP *ld,
  * in os-ip.c
  */
 LDAP_V (int) ldap_int_tblsize;
-LDAP_F (int) ldap_int_timeval_dup( struct timeval **dest, const struct timeval *tm );
+LDAP_F (int) ldap_int_timeval_dup( struct timeval **dest,
+	const struct timeval *tm );
 LDAP_F (int) ldap_connect_to_host( LDAP *ld, Sockbuf *sb,
 	int proto, const char *host, int port, int async );
 
 #if defined(LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND) || \
 	defined(HAVE_TLS) || defined(HAVE_CYRUS_SASL)
 LDAP_V (char *) ldap_int_hostname;
-LDAP_F (char *) ldap_host_connected_to( Sockbuf *sb );
+LDAP_F (char *) ldap_host_connected_to( Sockbuf *sb,
+	const char *host );
 #endif
 
 LDAP_F (void) ldap_int_ip_init( void );
@@ -443,7 +483,7 @@ LDAP_F (int) ldap_connect_to_path( LDAP *ld, Sockbuf *sb,
  * in request.c
  */
 LDAP_F (ber_int_t) ldap_send_initial_request( LDAP *ld, ber_tag_t msgtype,
-	const char *dn, BerElement *ber );
+	const char *dn, BerElement *ber, ber_int_t msgid );
 LDAP_F (BerElement *) ldap_alloc_ber_with_options( LDAP *ld );
 LDAP_F (void) ldap_set_ber_options( LDAP *ld, BerElement *ber );
 
@@ -479,7 +519,8 @@ LDAP_F (BerElement *) ldap_build_search_req LDAP_P((
 	LDAPControl **sctrls,
 	LDAPControl **cctrls,
 	ber_int_t timelimit,
-	ber_int_t sizelimit ));
+	ber_int_t sizelimit,
+	ber_int_t *msgidp));
 
 
 /*

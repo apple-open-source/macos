@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/xvidtune/xvidtune.c,v 3.33 2003/02/22 04:08:44 tsi Exp $ */
+/* $XFree86: xc/programs/xvidtune/xvidtune.c,v 3.36 2003/10/24 20:38:24 tsi Exp $ */
 
 /*
 
@@ -294,7 +294,7 @@ ApplyCB (Widget w, XtPointer client, XtPointer call)
 {
     XF86VidModeModeLine mode_line;
     INT32 S3private[4];
-    int i;
+    unsigned int i;
     char* string;
     Boolean state;
 
@@ -558,7 +558,7 @@ ShowCB(Widget w, XtPointer client, XtPointer call)
     time = XtLastTimestampProcessed(XtDisplay(w));
     XtOwnSelection(w, XA_PRIMARY, time, ConvertSelection, NULL, NULL);
     if (S3Specials) {
-	int i;
+	unsigned int i;
 	Boolean state;
 	char *string;
 
@@ -747,7 +747,7 @@ FlagsEditCB (Widget w, XtPointer client, XtPointer call)
 {
     int i, len;
     char* string;
-    fields findex = (fields) client;
+    fields findex = (fields) (unsigned long) client;
     ScrollData* sdp = &AppRes.field[findex];
 
     XtVaGetValues (w, XtNstring, &string, NULL);
@@ -774,7 +774,7 @@ BlankEditCB (Widget w, XtPointer client, XtPointer call)
 {
     int len;
     char* string;
-    fields findex = (fields) client;
+    fields findex = (fields) (unsigned long) client;
     ScrollData* sdp = &AppRes.field[findex];
     char buf[2], old;
     Boolean state;
@@ -1127,7 +1127,7 @@ CreateHierarchy(Widget top)
     char buf[5];
     Widget form, forms[14], s3form;
     Widget wids[10];
-    Widget boxW,messageW, popdownW, w;   
+    Widget boxW, popdownW, w;   
     int i;
     int x, y;
     static String form_names[] = {
@@ -1368,20 +1368,20 @@ CreateHierarchy(Widget top)
                                    invalid_mode_popup,
                                    NULL);
         
-    messageW = XtVaCreateManagedWidget(
+    (void) XtVaCreateManagedWidget(
 		   "ErrorMessage",
                    labelWidgetClass,
                    boxW,
                    NULL);
 
-   popdownW = XtVaCreateManagedWidget(
+    popdownW = XtVaCreateManagedWidget(
                                      "AckError",
                                      commandWidgetClass,
                                      boxW,
                                      NULL);
 
-   XtAddCallback (popdownW, XtNcallback, (XtCallbackProc)popdownInvalid, 
-		  (XtPointer) invalid_mode_popup);
+    XtAddCallback (popdownW, XtNcallback, (XtCallbackProc)popdownInvalid, 
+		   (XtPointer) invalid_mode_popup);
 }
 
 static void

@@ -46,8 +46,9 @@
 #include <sys/socket.h>
 #include <sys/syslog.h>
 #include <kern/thread.h>
-#include <net/dlil.h>
 #include <sys/systm.h>
+#include <kern/locks.h>
+#include <net/if.h>
 #include <netinet/in.h>
 
 #include "ppp_defs.h"		// public ppp values
@@ -57,7 +58,6 @@
 #include "ppp_domain.h"
 #include "ppp_if.h"
 #include "ppp_link.h"
-#include "ppp_fam.h"
 #include "ppp_comp.h"
 #include "ppp_compress.h"
 
@@ -80,60 +80,27 @@
  PPP globals
 ----------------------------------------------------------------------------- */
 static int 	ppp_inited = 0;
-
+extern lck_mtx_t	*ppp_domain_mutex;
 
 /* ----------------------------------------------------------------------------- 
  NKE entry point, start routine
 ----------------------------------------------------------------------------- */
 int ppp_module_start(struct kmod_info *ki, void *data)
 {
-    extern int ppp_init(int);
-    boolean_t 	funnel_state;
-    int		ret;
-
-    funnel_state = thread_funnel_set(network_flock, TRUE);
-    ret = ppp_init(0);
-    thread_funnel_set(network_flock, funnel_state);
-
-    return ret;
-}
-
-/* -----------------------------------------------------------------------------
-  NKE entry point, stop routine
------------------------------------------------------------------------------ */
-int ppp_module_stop(struct kmod_info *ki, void *data)
-{
-    extern int ppp_terminate(int);
-    boolean_t 	funnel_state;
-    int		ret;
-
-    funnel_state = thread_funnel_set(network_flock, TRUE);
-    ret = ppp_terminate(0);
-    thread_funnel_set(network_flock, funnel_state);
-
-    return ret;
-}
-
-/* -----------------------------------------------------------------------------
-init function
------------------------------------------------------------------------------ */
-int ppp_init(int init_arg)
-{
     int 	ret;
-    
-//    log(LOGVAL, "ppp_init\n");
 
-
-   if (ppp_inited)
+	if (ppp_inited)
         return KERN_SUCCESS;
-
-   /* register the ppp network and ppp link module */
-    ret = ppp_fam_init();
-    LOGRETURN(ret, KERN_FAILURE, "ppp_init: ppp_fam_init error = 0x%x\n");
 
     /* add the ppp domain */
     ppp_domain_init();
-
+	
+	lck_mtx_lock(ppp_domain_mutex);
+	/* register the ppp network and ppp link module */
+	ret = ppp_proto_add();
+	lck_mtx_unlock(ppp_domain_mutex);
+	LOGRETURN(ret, ret, "pppserial_init: ppp_proto_add error = 0x%x\n");
+	
     /* now init the if and link structures */
     ppp_if_init();
     ppp_link_init();
@@ -153,41 +120,46 @@ int ppp_init(int init_arg)
 }
 
 /* -----------------------------------------------------------------------------
-terminate function
+  NKE entry point, stop routine
 ----------------------------------------------------------------------------- */
-int ppp_terminate(int term_arg)
+int ppp_module_stop(struct kmod_info *ki, void *data)
 {
     int ret;
 
-//    log(LOGVAL, "ppp_terminate\n");
-
     if (!ppp_inited)
         return(KERN_SUCCESS);
-
+			
     /* remove the ppp serial link support */
     ret = pppserial_dispose();
-    LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: pppserial_dispose error = 0x%x\n");
+    LOGRETURN(ret, ret, "ppp_terminate: pppserial_dispose error = 0x%x\n");
 
     /* remove ip protocol */
     ret = ppp_ipv6_dispose(0);
-    LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: ppp_ipv6_dispose error = 0x%x\n");
+    LOGRETURN(ret, ret, "ppp_terminate: ppp_ipv6_dispose error = 0x%x\n");
     ret = ppp_ip_dispose(0);
-    LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: ppp_ip_dispose error = 0x%x\n");
+    LOGRETURN(ret, ret, "ppp_terminate: ppp_ip_dispose error = 0x%x\n");
 
+	lck_mtx_lock(ppp_domain_mutex);
     /* dispose the link and if layers */
     ret = ppp_if_dispose();
-    LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: ppp_if_dispose error = 0x%x\n");
+    LOGGOTOFAIL(ret, "ppp_terminate: ppp_if_dispose error = 0x%x\n");
     ret = ppp_link_dispose();
-    LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: ppp_link_dispose error = 0x%x\n");
+    LOGGOTOFAIL(ret, "ppp_terminate: ppp_link_dispose error = 0x%x\n");
     ret = ppp_comp_dispose();
-    LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: ppp_comp_dispose error = 0x%x\n");
+    LOGGOTOFAIL(ret, "ppp_terminate: ppp_comp_dispose error = 0x%x\n");
 
-    /* remove the pppdomain */
+	/* remove the pppdomain */
+    ret = ppp_proto_remove();
+	LOGGOTOFAIL(ret, "ppp_terminate: ppp_proto_remove error = 0x%x\n");
+	
+	lck_mtx_unlock(ppp_domain_mutex);
+	
+	/* remove the pppdomain */
     ret = ppp_domain_dispose();
     LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: ppp_domain_dispose error = 0x%x\n");
 
-    ret = ppp_fam_dispose();
-    LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: ppp_fam_dispose error = 0x%x\n");
-
     return KERN_SUCCESS;
+fail:
+	lck_mtx_unlock(ppp_domain_mutex);
+	return KERN_FAILURE;
 }

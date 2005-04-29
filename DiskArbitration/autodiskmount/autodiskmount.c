@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
+#include <DiskArbitration/DiskArbitrationPrivate.h>
 #include <IOKit/IOKitLib.h>
 
 #include <fcntl.h>
@@ -241,7 +242,7 @@ cacheFileSystemMatchingArray()
 			mediaTypeDict = CFDictionaryGetValue(fsdict, CFSTR(kFSMediaTypesKey));
 
 
-			{
+			if (mediaTypeDict != NULL) {
 				int             j = CFDictionaryGetCount(mediaTypeDict);
 				CFDictionaryRef *dicts = (CFDictionaryRef *)malloc(sizeof(CFDictionaryRef) * j);
 				CFDictionaryGetKeysAndValues(mediaTypeDict, NULL, (const void **) dicts);
@@ -811,8 +812,9 @@ DiskVolumes_newVolume(DiskVolumesPtr diskList, DiskPtr media, boolean_t isRemova
     char			specName[MAXNAMELEN];
     DiskVolumePtr 		volume = 0x0;
     int 			matchingPointer = 0;
+    int 			count = CFArrayGetCount(matchingArray);
 
-        for (matchingPointer = 0;matchingPointer < CFArrayGetCount(matchingArray);matchingPointer++) {
+        for (matchingPointer = 0;matchingPointer < count;matchingPointer++) {
 
                 // see if the diskPtr->service matches any of the filesystem types
                 // if it does test that first
@@ -1037,8 +1039,9 @@ DiskVolumes_findDisk(DiskVolumesPtr diskList, boolean_t all,
 	boolean_t	found = FALSE;
 	boolean_t	best_is_internal = FALSE;
 	int 		i;
+	int 		count = CFArrayGetCount(diskList->list);
 	
-	for (i = 0; i < CFArrayGetCount(diskList->list); i++) {
+	for (i = 0; i < count; i++) {
 		DiskVolumePtr	vol;
 		
 		vol = (DiskVolumePtr)CFArrayGetValueAtIndex(diskList->list,i);
@@ -1119,7 +1122,7 @@ int diskIsInternal(io_registry_entry_t media)
                     CFComparisonResult result;
                     assert(CFGetTypeID(connection) == CFStringGetTypeID());
 
-                    result = CFStringCompare(connection, CFSTR("Internal"), NULL);
+                    result = CFStringCompare(connection, CFSTR("Internal"), 0);
                     if (result == kCFCompareEqualTo) {
                         isInternal = 1;
                     }
@@ -1158,7 +1161,7 @@ GetDisksFromRegistry(io_iterator_t iter, int initialRun, int mountExisting)
 	mach_timespec_t timeSpec;
 
 
-	timeSpec.tv_sec = (initialRun ? 1 : 10);
+	timeSpec.tv_sec = (initialRun ? 10 : 1);
 	timeSpec.tv_nsec = 0;
 
 	IOMasterPort(bootstrap_port, &masterPort);

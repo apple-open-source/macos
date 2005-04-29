@@ -176,7 +176,7 @@ lookup_env (char *table[])
     return (char *) 0;
 
   len = strcspn (ptr, " \n\t\n\r");	/* any WS? 	  */
-  if (!(entry = malloc (len + 1)))
+  if (!(entry = xmalloc (len + 1)))
     {
       fprintf (stderr, "Out of memory.\nStop.");
       exit (-1);

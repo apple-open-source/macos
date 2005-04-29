@@ -1,8 +1,8 @@
 ========================================================================
 kinit Bug List
 ========================================================================
-Current version:	1.1a1
-Date:				March 11, 2003
+Current version:	1.1fc1
+Date:				December 6, 2004
 Authors:			lxs@mit.edu
 ========================================================================
 
@@ -10,9 +10,10 @@ Authors:			lxs@mit.edu
 Bug #		Bug description										Fixed in
 ========================================================================
 
-[RT 1359]   Usage message for kinit lists -A twice and not -a          1.1a1
-[RT 1360]   kinit should default to the principal in the default cache 1.1a1
-[BZ 726]	Use KLL to get tickets								       1.0a1
-[BZ 742]	kinit returns a bad error for expired credentials	       1.0a1
-[BZ 755]	Bad error message when edu.mit.Kerberos is missing	       1.0a1
-[BZ 763]	-s option should take an absolute time				       1.0a1
+[RT 2658] kinit should support getting non-renewable tickets          1.1a2
+[RT 1359] Usage message for kinit lists -A twice and not -a           1.1a1
+[RT 1360] kinit should default to the principal in the default cache  1.1a1
+[BZ 726]  Use KLL to get tickets                                      1.0a1
+[BZ 742]  kinit returns a bad error for expired credentials           1.0a1
+[BZ 755]  Bad error message when edu.mit.Kerberos is missing          1.0a1
+[BZ 763]  -s option should take an absolute time                      1.0a1

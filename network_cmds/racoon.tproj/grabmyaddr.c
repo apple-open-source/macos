@@ -71,7 +71,7 @@
 #ifndef HAVE_GETIFADDRS
 static unsigned int if_maxindex __P((void));
 #endif
-static struct myaddrs *find_myaddr __P((struct myaddrs *, struct myaddrs *));
+static struct myaddrs *find_myaddr __P((struct myaddrs *, struct sockaddr *));
 static int suitable_ifaddr __P((const char *, const struct sockaddr *));
 #ifdef INET6
 static int suitable_ifaddr6 __P((const char *, const struct sockaddr *));
@@ -108,19 +108,21 @@ clear_myaddr(db)
 }
   
 static struct myaddrs *
-find_myaddr(db, p)
+find_myaddr(db, addr)
 	struct myaddrs *db;
-	struct myaddrs *p;
+	struct sockaddr *addr;
 {
 	struct myaddrs *q;
 	char h1[NI_MAXHOST], h2[NI_MAXHOST];
 
-	if (getnameinfo(p->addr, p->addr->sa_len, h1, sizeof(h1), NULL, 0,
+	if (getnameinfo(addr, addr->sa_len, h1, sizeof(h1), NULL, 0,
 	    NI_NUMERICHOST | niflags) != 0)
 		return NULL;
-
+		
 	for (q = db; q; q = q->next) {
-		if (p->addr->sa_len != q->addr->sa_len)
+		if (!q->addr)
+			continue;
+		if (addr->sa_len != q->addr->sa_len)
 			continue;
 		if (getnameinfo(q->addr, q->addr->sa_len, h2, sizeof(h2),
 		    NULL, 0, NI_NUMERICHOST | niflags) != 0)
@@ -132,11 +134,15 @@ find_myaddr(db, p)
 	return NULL;
 }
 
+// 1/19/04 - modified to avoid closing and opening sockets for
+// all interfaces each time an interface change occurs.
+// on return: 	addrcount = zero indicates address no longer used
+//				sock = -1 indicates a new address - no socket opened yet.
 void
 grab_myaddrs()
 {
 #ifdef HAVE_GETIFADDRS
-	struct myaddrs *p, *q, *old;
+	struct myaddrs *p;
 	struct ifaddrs *ifa0, *ifap;
 #ifdef INET6
 #ifdef __KAME__
@@ -153,7 +159,9 @@ grab_myaddrs()
 		/*NOTREACHED*/
 	}
 
-	old = lcconf->myaddrs;
+	// zero the count for each address in our list
+	for (p = lcconf->myaddrs; p; p = p->next)
+		p->addrcount = 0;
 
 	for (ifap = ifa0; ifap; ifap = ifap->ifa_next) {
 
@@ -172,152 +180,41 @@ grab_myaddrs()
 			continue;
 		}
 
-		p = newmyaddr();
-		if (p == NULL) {
-			exit(1);
-			/*NOTREACHED*/
-		}
-		p->addr = dupsaddr(ifap->ifa_addr);
-		if (p->addr == NULL) {
-			exit(1);
-			/*NOTREACHED*/
-		}
 #ifdef INET6
 #ifdef __KAME__
-		if (ifap->ifa_addr->sa_family == AF_INET6) {
-			sin6 = (struct sockaddr_in6 *)p->addr;
-			if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr)
-			 || IN6_IS_ADDR_SITELOCAL(&sin6->sin6_addr)) {
-				sin6->sin6_scope_id =
-					ntohs(*(u_int16_t *)&sin6->sin6_addr.s6_addr[2]);
-				sin6->sin6_addr.s6_addr[2] = 0;
-				sin6->sin6_addr.s6_addr[3] = 0;
+			if (ifap->ifa_addr->sa_family == AF_INET6) {
+				sin6 = (struct sockaddr_in6 *)ifap->ifa_addr;
+				if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr)
+				 || IN6_IS_ADDR_SITELOCAL(&sin6->sin6_addr)) {
+					sin6->sin6_scope_id =
+						ntohs(*(u_int16_t *)&sin6->sin6_addr.s6_addr[2]);
+					sin6->sin6_addr.s6_addr[2] = 0;
+					sin6->sin6_addr.s6_addr[3] = 0;
+				}
 			}
-		}
-#endif
-#endif
-		if (getnameinfo(p->addr, p->addr->sa_len,
-				addr1, sizeof(addr1),
-				NULL, 0,
-				NI_NUMERICHOST | niflags))
-		strlcpy(addr1, "(invalid)", sizeof(addr1));
-		plog(LLV_DEBUG, LOCATION, NULL,
-			"my interface: %s (%s)\n",
-			addr1, ifap->ifa_name);
-		q = find_myaddr(old, p);
-		if (q) {
-			p->sock = q->sock;
-#ifdef IKE_NAT_T
-			p->nattsock = q->nattsock;
-#endif
-		} else {
-			p->sock = -1;
-#ifdef IKE_NAT_T
-			p->nattsock = -1;
-#endif
-		}
-		p->next = lcconf->myaddrs;
-		lcconf->myaddrs = p;
-	}
-
-	freeifaddrs(ifa0);
-
-	clear_myaddr(&old);
-
-#else /*!HAVE_GETIFADDRS*/
-	int s;
-	unsigned int maxif;
-	int len;
-	struct ifreq *iflist;
-	struct ifconf ifconf;
-	struct ifreq *ifr, *ifr_end;
-	struct myaddrs *p, *q, *old;
-#ifdef INET6
-#ifdef __KAME__
-	struct sockaddr_in6 *sin6;
 #endif
 #endif
 
-	char addr1[NI_MAXHOST];
-
-	maxif = if_maxindex() + 1;
-	len = maxif * sizeof(struct sockaddr_storage) * 4; /* guess guess */
-
-	iflist = (struct ifreq *)racoon_malloc(len);
-	if (!iflist) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to allocate buffer\n");
-		exit(1);
-		/*NOTREACHED*/
-	}
-
-	if ((s = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"socket(SOCK_DGRAM) failed: %s\n",
-			strerror(errno));
-		exit(1);
-		/*NOTREACHED*/
-	}
-	memset(&ifconf, 0, sizeof(ifconf));
-	ifconf.ifc_req = iflist;
-	ifconf.ifc_len = len;
-	if (ioctl(s, SIOCGIFCONF, &ifconf) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"ioctl(SIOCGIFCONF) failed: %s\n",
-			strerror(errno));
-		exit(1);
-		/*NOTREACHED*/
-	}
-	close(s);
-
-	old = lcconf->myaddrs;
-
-	/* Look for this interface in the list */
-	ifr_end = (struct ifreq *) (ifconf.ifc_buf + ifconf.ifc_len);
-
-#define _IFREQ_LEN(p) \
-  (sizeof((p)->ifr_name) + (p)->ifr_addr.sa_len > sizeof(struct ifreq) \
-    ? sizeof((p)->ifr_name) + (p)->ifr_addr.sa_len : sizeof(struct ifreq))
-
-	for (ifr = ifconf.ifc_req;
-	     ifr < ifr_end;
-	     ifr = (struct ifreq *)((caddr_t)ifr + _IFREQ_LEN(ifr))) {
-
-		switch (ifr->ifr_addr.sa_family) {
-		case AF_INET:
-#ifdef INET6
-		case AF_INET6:
-#endif
-			if (!suitable_ifaddr(ifr->ifr_name, &ifr->ifr_addr)) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"unsuitable address: %s %s\n",
-					ifr->ifr_name,
-					saddrwop2str(&ifr->ifr_addr));
-				continue;
-			}
-
+		p = find_myaddr(lcconf->myaddrs, ifap->ifa_addr);
+		if (p)
+			p->addrcount++;
+		else {	
 			p = newmyaddr();
 			if (p == NULL) {
 				exit(1);
 				/*NOTREACHED*/
 			}
-			p->addr = dupsaddr(&ifr->ifr_addr);
+			p->addr = dupsaddr(ifap->ifa_addr);
 			if (p->addr == NULL) {
 				exit(1);
 				/*NOTREACHED*/
 			}
-#ifdef INET6
-#ifdef __KAME__
-			sin6 = (struct sockaddr_in6 *)p->addr;
-			if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr)
-			 || IN6_IS_ADDR_SITELOCAL(&sin6->sin6_addr)) {
-				sin6->sin6_scope_id =
-					ntohs(*(u_int16_t *)&sin6->sin6_addr.s6_addr[2]);
-				sin6->sin6_addr.s6_addr[2] = 0;
-				sin6->sin6_addr.s6_addr[3] = 0;
-			}
+			p->sock = -1;
+#ifdef IKE_NAT_T
+			p->nattsock = -1;
 #endif
-#endif
+			p->addrcount = 1;
+
 			if (getnameinfo(p->addr, p->addr->sa_len,
 					addr1, sizeof(addr1),
 					NULL, 0,
@@ -325,23 +222,18 @@ grab_myaddrs()
 			strlcpy(addr1, "(invalid)", sizeof(addr1));
 			plog(LLV_DEBUG, LOCATION, NULL,
 				"my interface: %s (%s)\n",
-				addr1, ifr->ifr_name);
-			q = find_myaddr(old, p);
-			if (q)
-				p->sock = q->sock;
-			else
-				p->sock = -1;
+				addr1, ifap->ifa_name);
+		
 			p->next = lcconf->myaddrs;
 			lcconf->myaddrs = p;
-			break;
-		default:
-			break;
 		}
 	}
 
-	clear_myaddr(&old);
+	freeifaddrs(ifa0);
 
-	racoon_free(iflist);
+
+#else /*!HAVE_GETIFADDRS*/
+#error "NOT SUPPORTED"
 #endif /*HAVE_GETIFADDRS*/
 }
 
@@ -479,6 +371,8 @@ autoconf_myaddrsport()
 		"configuring default isakmp port.\n");
 	n = 0;
 	for (p = lcconf->myaddrs; p; p = p->next) {
+		if (!p->addr)
+			continue;
 		switch (p->addr->sa_family) {
 		case AF_INET:
 			sin4 = (struct sockaddr_in *)p->addr;

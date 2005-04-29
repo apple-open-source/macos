@@ -1,6 +1,6 @@
 // PlainDatagramSocketImpl.java - Implementation of DatagramSocketImpl.
 
-/* Copyright (C) 1999  Free Software Foundation
+/* Copyright (C) 1999, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -29,11 +29,17 @@ class PlainDatagramSocketImpl extends DatagramSocketImpl
   static final int _Jv_TCP_NODELAY_ = SocketOptions.TCP_NODELAY,
                    _Jv_SO_BINDADDR_ = SocketOptions.SO_BINDADDR,
                    _Jv_SO_REUSEADDR_ = SocketOptions.SO_REUSEADDR,
-		   _Jv_IP_MULTICAST_IF_ = SocketOptions.IP_MULTICAST_IF,
+                   _Jv_SO_BROADCAST_ = SocketOptions.SO_BROADCAST,
+                   _Jv_SO_OOBINLINE_ = SocketOptions.SO_OOBINLINE,
+                   _Jv_IP_MULTICAST_IF_ = SocketOptions.IP_MULTICAST_IF,
+                   _Jv_IP_MULTICAST_IF2_ = SocketOptions.IP_MULTICAST_IF2,
+                   _Jv_IP_MULTICAST_LOOP_ = SocketOptions.IP_MULTICAST_LOOP,
+                   _Jv_IP_TOS_ = SocketOptions.IP_TOS,
                    _Jv_SO_LINGER_ = SocketOptions.SO_LINGER,
                    _Jv_SO_TIMEOUT_ = SocketOptions.SO_TIMEOUT,
                    _Jv_SO_SNDBUF_ = SocketOptions.SO_SNDBUF,
-                   _Jv_SO_RCVBUF_ = SocketOptions.SO_RCVBUF;
+                   _Jv_SO_RCVBUF_ = SocketOptions.SO_RCVBUF,
+                   _Jv_SO_KEEPALIVE_ = SocketOptions.SO_KEEPALIVE;
 
   int fnum = -1;
 
@@ -57,16 +63,20 @@ class PlainDatagramSocketImpl extends DatagramSocketImpl
 
   protected native void bind(int lport, InetAddress laddr)
 	throws SocketException;
+  protected native void connect (InetAddress i, int port)
+	throws SocketException;
+  protected native void disconnect ();
   protected native void create() throws SocketException;
   protected native int peek(InetAddress i) throws IOException;
+  protected native int peekData (DatagramPacket dp) throws IOException;
   protected native void setTimeToLive(int ttl) throws IOException;
   protected native int getTimeToLive() throws IOException;
   protected native void send(DatagramPacket p) throws IOException;
   protected native void receive(DatagramPacket p) throws IOException;
   public native void setOption(int optID, Object value) throws SocketException;
   public native Object getOption(int optID) throws SocketException;
-  private native void mcastGrp(InetAddress inetaddr, boolean join)
-	throws IOException;
+  private native void mcastGrp(InetAddress inetaddr, NetworkInterface netIf,
+		               boolean join) throws IOException;
   protected native void close();
 
   // Deprecated in JDK 1.2.
@@ -83,12 +93,24 @@ class PlainDatagramSocketImpl extends DatagramSocketImpl
 
   protected void join(InetAddress inetaddr) throws IOException
   {
-    mcastGrp(inetaddr, true);
+    mcastGrp(inetaddr, null, true);
   }
 
   protected void leave(InetAddress inetaddr) throws IOException
   {
-    mcastGrp(inetaddr, false);
+    mcastGrp(inetaddr, null, false);
+  }
+
+  protected void joinGroup (SocketAddress mcastaddr, NetworkInterface netIf)
+	  throws IOException
+  {
+    mcastGrp(((InetSocketAddress)mcastaddr).getAddress(), netIf, true);
+  }
+
+  protected void leaveGroup (SocketAddress mcastaddr, NetworkInterface netIf)
+	  throws IOException
+  {
+    mcastGrp(((InetSocketAddress)mcastaddr).getAddress(), netIf, false);
   }
 
   protected void finalize() throws Throwable

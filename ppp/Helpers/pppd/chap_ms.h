@@ -21,36 +21,52 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * chap.h - Challenge Handshake Authentication Protocol definitions.
+ * chap_ms.h - Challenge Handshake Authentication Protocol definitions.
  *
- * Copyright (c) 1995 Eric Rosenquist, Strata Software Limited.
- * http://www.strataware.com/
+ * Copyright (c) 1995 Eric Rosenquist.  All rights reserved.
  *
- * All rights reserved.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Eric Rosenquist.  The name of the author may not be used to
- * endorse or promote products derived from this software without
- * specific prior written permission.
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
  *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
  *
- * $Id: chap_ms.h,v 1.4 2003/08/14 00:00:29 callie Exp $
+ * 3. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
  */
 
 #ifndef __CHAPMS_INCLUDE__
+
+/*
+ * Values for the code field.
+ */
+#define MS_CHAP2_CHANGE_PASSWORD	7
+
 
 #define MD4_SIGNATURE_SIZE	16	/* 16 bytes in a MD4 message digest */
 #define MAX_NT_PASSWORD		256	/* Max (Unicode) chars in an NT pass */
 
 #define MS_CHAP_RESPONSE_LEN	49	/* Response length for MS-CHAP */
 #define MS_CHAP2_RESPONSE_LEN	49	/* Response length for MS-CHAPv2 */
+#define MS_AUTH_RESPONSE_LENGTH	40	/* MS-CHAPv2 authenticator response, */
+					/* as ASCII */
+#define MS_CHAP2_CHANGE_PASSWORD_LEN	582	/* Change Password length for MS-CHAPv2 */
 
 /* E=eeeeeeeeee error codes for MS-CHAP failure messages. */
 #define MS_CHAP_ERROR_RESTRICTED_LOGON_HOURS	646
@@ -86,18 +102,32 @@ typedef struct {
 #include <ppp_comp.h>
 extern u_char mppe_send_key[MPPE_MAX_KEY_LEN];
 extern u_char mppe_recv_key[MPPE_MAX_KEY_LEN];
+extern int mppe_keys_set;
+
+/* These values are the RADIUS attribute values--see RFC 2548. */
+#define MPPE_ENC_POL_ENC_ALLOWED 1
+#define MPPE_ENC_POL_ENC_REQUIRED 2
+#define MPPE_ENC_TYPES_RC4_40 2
+#define MPPE_ENC_TYPES_RC4_128 4
+
+/* used by plugins (using above values) */
+extern void set_mppe_enc_types(int, int);
 #endif
 
 /* Are we the authenticator or authenticatee?  For MS-CHAPv2 key derivation. */
 #define MS_CHAP2_AUTHENTICATEE 0
 #define MS_CHAP2_AUTHENTICATOR 1
 
-#include "chap.h" /* chap_state, et al */
-void ChapMS __P((chap_state *, u_char *, char *, int, MS_ChapResponse *));
-void ChapMS2 __P((chap_state *, u_char *, u_char *, char *, char *, int,
+void ChapMS __P((u_char *, char *, int, MS_ChapResponse *));
+void ChapMS2 __P((u_char *, u_char *, char *, char *, int,
 		  MS_Chap2Response *, u_char[MS_AUTH_RESPONSE_LENGTH+1], int));
 #ifdef MPPE
 void mppe_set_keys __P((u_char *, u_char[MD4_SIGNATURE_SIZE]));
+#endif
+
+void chapms_init(void);
+#ifdef __APPLE__
+void chapms_reinit(void);
 #endif
 
 #define __CHAPMS_INCLUDE__

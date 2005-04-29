@@ -1,37 +1,34 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- *  keychain_create.c
- *  security
  *
- *  Created by Michael Brouwer on Tue May 06 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
+ * keychain_create.c
  */
 
 #include "keychain_create.h"
 
 #include "readline.h"
+#include "security.h"
 
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,7 +46,7 @@ do_create(const char *keychain, const char *password, Boolean do_prompt)
 		CFRelease(keychainRef);
 
 	if (result)
-		fprintf(stderr, "SecKeychainCreate(%s) returned %ld(0x%lx)\n", keychain, result, result);
+		sec_error("SecKeychainCreate %s: %s", keychain, sec_errstr(result));
 
 	return result;
 }
@@ -57,7 +54,7 @@ do_create(const char *keychain, const char *password, Boolean do_prompt)
 int
 keychain_create(int argc, char * const *argv)
 {
-	int free_keychain = 0, free_password = 0;
+	int free_keychain = 0, zero_password = 0;
 	char *password = NULL, *keychain = NULL;
 	int ch, result = 0;
 	Boolean do_prompt = FALSE;
@@ -116,19 +113,56 @@ keychain_create(int argc, char * const *argv)
 
 	if (!password && !do_prompt)
 	{
-		fprintf(stderr, "password for new keychain: ");
-		password = readline(NULL, 0);
-		if (!password)
+		int compare;
+		int tries;
+
+		for (tries = 3; tries-- > 0;)
 		{
-			result = -1;
+			char *firstpass;
+
+			password = getpass("password for new keychain: ");
+			if (!password)
+			{
+				result = -1;
+				goto loser;
+			}
+
+			firstpass = malloc(strlen(password) + 1);
+			strcpy(firstpass, password);
+			password = getpass("retype password for new keychain: ");
+			compare = password ? strcmp(password, firstpass) : 1;
+			memset(firstpass, 0, strlen(firstpass));
+			free(firstpass);
+			if (!password)
+			{
+				result = -1;
+				goto loser;
+			}
+
+			if (compare)
+			{
+				fprintf(stderr, "passwords don't match\n");
+				memset(password, 0, strlen(password));
+			}
+			else
+			{
+				zero_password = 1;
+				break;
+			}
+		}
+
+		if (compare)
+		{
+			result = 1;
 			goto loser;
 		}
-		free_password = 1;
 	}
 
 	do
 	{
 		result = do_create(keychain, password, do_prompt);
+		if (zero_password)
+			memset(password, 0, strlen(password));
 		if (result)
 			goto loser;
 
@@ -141,8 +175,6 @@ keychain_create(int argc, char * const *argv)
 loser:
 	if (free_keychain)
 		free(keychain);
-	if (free_password)
-		free(password);
 
 	return result;
 }

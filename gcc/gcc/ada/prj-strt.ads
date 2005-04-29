@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---             Copyright (C) 2001 Free Software Foundation, Inc.            --
+--             Copyright (C) 2001-2004 Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,7 +23,7 @@
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
---
+
 --  This package implements parsing of string expressions in project files.
 
 with Prj.Tree;  use Prj.Tree;
@@ -54,11 +53,16 @@ private package Prj.Strt is
    --  into a table to be checked against the case labels of the
    --  case construction.
 
-   procedure End_Case_Construction;
+   procedure End_Case_Construction
+     (Check_All_Labels   : Boolean;
+      Case_Location      : Source_Ptr);
    --  This procedure is called at the end of a case construction
    --  to remove the case labels and to restore the previous state.
    --  In particular, in the case of nested case constructions,
    --  the case labels of the enclosing case construction are restored.
+   --  When When_Others is False and we are not in quiet output, a warning
+   --  is emitted for each value of the case variable string type that has
+   --  not been specified.
 
    procedure Parse_Choice_List
      (First_Choice : out Project_Node_Id);
@@ -71,7 +75,8 @@ private package Prj.Strt is
    procedure Parse_Expression
      (Expression      : out Project_Node_Id;
       Current_Project : Project_Node_Id;
-      Current_Package : Project_Node_Id);
+      Current_Package : Project_Node_Id;
+      Optional_Index  : Boolean);
    --  Parse a simple string expression or a string list expression.
    --  Current_Project is the node of the project file being parsed.
    --  Current_Package is the node of the package being parsed,

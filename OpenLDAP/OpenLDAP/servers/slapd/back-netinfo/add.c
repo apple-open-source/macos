@@ -33,12 +33,10 @@
 #include "back-netinfo.h"
 
 int netinfo_back_add(
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
-	Entry *e)
+	struct slap_op *op, 
+	struct slap_rep *rs)
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	dsrecord *record;
 	dsstatus status;
 	u_int32_t dsid;
@@ -49,57 +47,57 @@ int netinfo_back_add(
 
 #ifdef NEW_LOGGING
 	LDAP_LOG(("backend", LDAP_LEVEL_ENTRY, "netinfo_back_add: %s\n", 
-		e->e_name.bv_val));
+		op->ora_e->e_name.bv_val));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_add\n", 0, 0, 0);
 #endif
 
-	dnParent(&e->e_nname, &parentNDN);
+	dnParent(&op->ora_e->e_nname, &parentNDN);
 
 	/* don't allow add if parent is a referral */
-	if (netinfo_back_send_referrals(be, conn, op, &parentNDN) == DSStatusOK)
+	if (netinfo_back_send_referrals(op, rs, &parentNDN) == DSStatusOK)
 	{
 		return -1;
 	}
 
-	rc = entry_schema_check(be, e, NULL, &text, textbuf, sizeof(textbuf));
+	rc = entry_schema_check(op->o_bd, op->ora_e, NULL, &text, textbuf, sizeof(textbuf));
 	if (rc != LDAP_SUCCESS)
 	{
-		send_ldap_result(conn, op, rc, NULL, text, NULL, NULL);
+		send_ldap_error(op, rs, rc, text);
 		return -1;
 	}
 
 	ENGINE_LOCK(di);
 
 	/* Get the DSID of the parent entry */
-	status = netinfo_back_dn_pathmatch(be, &parentNDN, &dsid);
+	status = netinfo_back_dn_pathmatch(op->o_bd, &parentNDN, &dsid);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
 	/* Check NetInfo/slapd ACLs on children */
-	status = netinfo_back_access_allowed(be, conn, op, dsid, slap_schema.si_ad_children, NULL, ACL_WRITE);
+	status = netinfo_back_access_allowed(op, dsid, slap_schema.si_ad_children, NULL, ACL_WRITE);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
 	/* Check whether it satisfies structure rules enforced by schema map. */
-	status = schemamap_validate_objectclasses(be, dsid, e);
+	status = schemamap_validate_objectclasses(op->o_bd, dsid, op->ora_e);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
-	status = entry_to_dsrecord(be, dsid, e, &record);
+	status = entry_to_dsrecord(op->o_bd, dsid, op->ora_e, &record);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
 	status = dsengine_create(di->engine, record, dsid);
@@ -114,5 +112,5 @@ int netinfo_back_add(
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_add\n", 0, 0, 0);
 #endif
 
-	return netinfo_back_op_result(be, conn, op, status);
+	return netinfo_back_op_result(op, rs, status);
 }

@@ -63,6 +63,10 @@
 
 #include <cstring>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/debug.h>
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
 
@@ -107,6 +111,10 @@ namespace std
     inline _ForwardIter
     uninitialized_copy(_InputIter __first, _InputIter __last, _ForwardIter __result)
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       typedef typename iterator_traits<_ForwardIter>::value_type _ValueType;
       typedef typename __type_traits<_ValueType>::is_POD_type _Is_POD;
       return __uninitialized_copy_aux(__first, __last, __result, _Is_POD());
@@ -115,6 +123,9 @@ namespace std
   inline char*
   uninitialized_copy(const char* __first, const char* __last, char* __result)
   {
+    /* APPLE LOCAL begin libstdc++ debug mode */
+    __glibcxx_requires_valid_range(__first, __last);
+    /* APPLE LOCAL end libstdc++ debug mode */
     memmove(__result, __first, __last - __first);
     return __result + (__last - __first);
   }
@@ -123,6 +134,9 @@ namespace std
   uninitialized_copy(const wchar_t* __first, const wchar_t* __last,
 		     wchar_t* __result)
   {
+    /* APPLE LOCAL begin libstdc++ debug mode */
+    __glibcxx_requires_valid_range(__first, __last);
+    /* APPLE LOCAL end libstdc++ debug mode */
     memmove(__result, __first, sizeof(wchar_t) * (__last - __first));
     return __result + (__last - __first);
   }
@@ -165,6 +179,9 @@ namespace std
     inline void
     uninitialized_fill(_ForwardIter __first, _ForwardIter __last, const _Tp& __x)
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
       typedef typename iterator_traits<_ForwardIter>::value_type _ValueType;
       typedef typename __type_traits<_ValueType>::is_POD_type _Is_POD;
       __uninitialized_fill_aux(__first, __last, __x, _Is_POD());

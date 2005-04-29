@@ -3,7 +3,7 @@
  *
  * Contributed by: Robert Story <rstory@freesnmp.com>
  *
- * $Id: object_monitor.h,v 1.1.1.1 2003/05/29 00:03:09 rbraun Exp $
+ * $Id: object_monitor.h,v 1.2 2002/07/18 17:56:17 rstory Exp $
  *
  * functions and data structures for cooperating code to monitor objects.
  *

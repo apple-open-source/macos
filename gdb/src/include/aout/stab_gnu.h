@@ -40,6 +40,9 @@ LAST_UNUSED_STAB_CODE
 #define	N_SO_CC		4	/* C++ */
 #define	N_SO_FORTRAN	5
 #define	N_SO_PASCAL	6
+#define N_SO_FORTRAN90  7
+#define N_SO_OBJC      50       /* Non-Sun language code: Objective-C */
+#define N_SO_OBJCPLUS  51       /* Non-Sun language code: Objective-C++ */
 
 /* Solaris2: Floating point type values in basic types.  */
 

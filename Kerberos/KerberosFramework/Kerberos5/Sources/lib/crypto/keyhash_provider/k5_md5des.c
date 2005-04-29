@@ -34,14 +34,6 @@
 /* Force acceptance of krb5-beta5 md5des checksum for now. */
 #define KRB5_MD5DES_BETA5_COMPAT
 
-static const mit_des_cblock mit_des_zeroblock[8] /* = all zero */;
-
-static void
-k5_md5des_hash_size(size_t *output)
-{
-    *output = CONFLENGTH+RSA_MD5_CKSUM_LENGTH;
-}
-
 /* des-cbc(xorkey, conf | rsa-md5(conf | data)) */
 
 /* this could be done in terms of the md5 and des providers, but
@@ -189,7 +181,7 @@ k5_md5des_verify(const krb5_keyblock *key, krb5_keyusage usage, const krb5_data 
 }
 
 const struct krb5_keyhash_provider krb5int_keyhash_md5des = {
-    k5_md5des_hash_size,
+    CONFLENGTH+RSA_MD5_CKSUM_LENGTH,
     k5_md5des_hash,
     k5_md5des_verify
 };

@@ -27,12 +27,12 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810.h,v 1.38 2003/02/26 04:19:36 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810.h,v 1.42 2003/09/28 20:15:57 alanh Exp $ */
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
- *   David Dawes <dawes@tungstengraphics.com>
+ *   David Dawes <dawes@xfree86.org>
  *
  */
 
@@ -221,6 +221,7 @@ typedef struct _I810Rec {
    I810WriteByteFunc writeStandard;
    I810ReadByteFunc readStandard;
 
+   Bool directRenderingDisabled;        /* DRI disabled in PreInit */
    Bool directRenderingEnabled;		/* false if XF86DRI not defined. */
 
 #ifdef XF86DRI
@@ -252,6 +253,9 @@ typedef struct _I810Rec {
 
    Bool showCache;
    Bool noAccel;
+   Bool allowPageFlip;
+   Bool have3DWindows;
+   int  drmMinor;
 } I810Rec;
 
 #define I810PTR(p) ((I810Ptr)((p)->driverPrivate))
@@ -260,9 +264,13 @@ typedef struct _I810Rec {
 #define I810_SELECT_BACK	1
 #define I810_SELECT_DEPTH	2
 
+#ifdef XF86DRI
 extern Bool I810DRIScreenInit(ScreenPtr pScreen);
 extern void I810DRICloseScreen(ScreenPtr pScreen);
 extern Bool I810DRIFinishScreenInit(ScreenPtr pScreen);
+extern Bool I810DRILeave(ScrnInfoPtr pScrn);
+extern Bool I810DRIEnter(ScrnInfoPtr pScrn);
+#endif
 extern Bool I810InitDma(ScrnInfoPtr pScrn);
 extern Bool I810CleanupDma(ScrnInfoPtr pScrn);
 

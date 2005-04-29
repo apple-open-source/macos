@@ -1,4 +1,4 @@
-/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libtess/normal.c,v 1.3 2002/02/22 21:32:49 dawes Exp $ */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libtess/normal.c,v 1.4 2003/12/22 17:48:01 tsi Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -50,6 +50,7 @@
 
 #define Dot(u,v)	(u[0]*v[0] + u[1]*v[1] + u[2]*v[2])
 
+#if defined(FOR_TRITE_TEST_PROGRAM) || defined(TRUE_PROJECT)
 static void Normalize( GLdouble v[3] )
 {
   GLdouble len = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
@@ -60,6 +61,7 @@ static void Normalize( GLdouble v[3] )
   v[1] /= len;
   v[2] /= len;
 }
+#endif
 
 #define ABS(x)	((x) < 0 ? -(x) : (x))
 

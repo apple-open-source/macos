@@ -145,7 +145,7 @@ typedef struct _NXSize {	/* size */
 #define NX_KEYDOWNMASK		(1 << NX_KEYDOWN)	/* key-down */
 #define NX_KEYUPMASK		(1 << NX_KEYUP)		/* key-up */
 #define NX_FLAGSCHANGEDMASK	(1 << NX_FLAGSCHANGED)	/* flags-changed */
-#define NX_KITDEFINEDMASK 	(1 << NX_WINCHANGED)	/* kit-defined */
+#define NX_KITDEFINEDMASK 	(1 << NX_KITDEFINED)	/* kit-defined */
 #define NX_SYSDEFINEDMASK 	(1 << NX_SYSDEFINED)	/* system-defined */
 #define NX_APPDEFINEDMASK 	(1 << NX_APPDEFINED)	/* app-defined */
 #define NX_SCROLLWHEELMOVEDMASK	(1 << NX_SCROLLWHEELMOVED)	/* scroll wheel moved */
@@ -274,6 +274,58 @@ typedef struct _NXSize {	/* size */
 #define NX_SYMBOLSET		1
 #define	NX_DINGBATSSET		2
 
+/* tablet button masks
+ * Mask bits for the tablet barrel buttons placed in tablet.buttons.
+ * The buttons field uses adopts the following convention:
+ *
+ * Bit      Comments
+ * 0        Left Mouse Button ( kHIDUsage_Button_1 )
+ * 1        Right Mouse Button ( kHIDUsage_Button_2 )
+ * 2        Middle Mouse Button ( kHIDUsage_Button_3 )
+ * 3        4th Mouse Button ( kHIDUsage_Button_4 )
+ * ...
+ * 15       15th Mouse Button
+ *
+ * For your convenience, the following mask bits have been defined
+ * for tablet specific application:
+ */
+ 
+#define NX_TABLET_BUTTON_PENTIPMASK             0x0001
+#define NX_TABLET_BUTTON_PENLOWERSIDEMASK       0x0002
+#define NX_TABLET_BUTTON_PENUPPERSIDEMASK       0x0004
+
+
+/* tablet capability masks
+ * Mask bits for the tablet capabilities field.   Use these 
+ * masks with the capabilities field of a proximity event to 
+ * determine what fields in a Tablet Event are valid for this 
+ * device.
+ */
+#define NX_TABLET_CAPABILITY_DEVICEIDMASK           0x0001
+#define NX_TABLET_CAPABILITY_ABSXMASK               0x0002
+#define NX_TABLET_CAPABILITY_ABSYMASK               0x0004
+#define NX_TABLET_CAPABILITY_VENDOR1MASK            0x0008
+#define NX_TABLET_CAPABILITY_VENDOR2MASK            0x0010
+#define NX_TABLET_CAPABILITY_VENDOR3MASK            0x0020
+#define NX_TABLET_CAPABILITY_BUTTONSMASK            0x0040
+#define NX_TABLET_CAPABILITY_TILTXMASK              0x0080
+#define NX_TABLET_CAPABILITY_TILTYMASK              0x0100
+#define NX_TABLET_CAPABILITY_ABSZMASK               0x0200
+#define NX_TABLET_CAPABILITY_PRESSUREMASK           0x0400
+#define NX_TABLET_CAPABILITY_TANGENTIALPRESSUREMASK 0x0800
+#define NX_TABLET_CAPABILITY_ORIENTINFOMASK         0x1000
+#define NX_TABLET_CAPABILITY_ROTATIONMASK           0x2000
+
+/* proximity pointer types
+ * Value that describes the type of pointing device placed in
+ * proximity.pointerType.
+ */
+ 
+#define NX_TABLET_POINTER_UNKNOWN               0
+#define NX_TABLET_POINTER_PEN                   1
+#define NX_TABLET_POINTER_CURSOR                2
+#define NX_TABLET_POINTER_ERASER                3
+
 /* TabletPointData type: defines the tablet data for points included
  * in mouse events created by a tablet driver.
  */
@@ -380,9 +432,9 @@ typedef	union {
         SInt32  fixedDeltaAxis1;
         SInt32  fixedDeltaAxis2;
         SInt32  fixedDeltaAxis3;
-        SInt32  reserved5;
-        SInt32  reserved6;
-        SInt32  reserved7;
+        SInt32  pointDeltaAxis1;
+        SInt32  pointDeltaAxis2;
+        SInt32  pointDeltaAxis3;
         SInt32  reserved8[4];
     } scrollWheel;
     struct {    /* For window-changed, sys-defined, and app-defined events */
@@ -444,8 +496,13 @@ typedef struct _NXEvent {
     int					flags;		/* key state flags */
     unsigned int		window;		/* window number of assigned window */
     NXEventData			data;		/* type-dependent data */
+    UInt64              service_id; /* service id */
+    int                 ext_pid;    /* external pid */
 } NXEvent, *NXEventPtr;
 
+/* The current version number of the NXEvent structure. */
+
+#define kNXEventVersion		2
 
 /* How to pick window(s) for event (for PostEvent) */
 #define NX_NOWINDOW		-1

@@ -22,6 +22,8 @@
 #ifndef GDB_INTERPRETER_H
 #define GDB_INTERPRETER_H
 
+#error removed
+
 typedef int (*interp_init_ftype) (void *data);
 typedef int (*interp_resume_ftype) (void *data);
 typedef int (*interp_do_one_event_ftype) (void *data);
@@ -30,6 +32,7 @@ typedef int (*interp_check_done_ftype) (void *data);
 typedef int (*interp_delete_ftype) (void *data);
 typedef int (*interp_prompt_ftype) (void *data, char *new_prompt);
 typedef int (*interp_exec_ftype) (void *data, char *command);
+typedef int (*interp_complete_ftype) (void *data, char *word, char *command_buffer, int cursor);
 
 struct gdb_interpreter 
 {
@@ -55,6 +58,7 @@ struct gdb_interpreter
   interp_delete_ftype       delete_proc;
   interp_exec_ftype         exec_proc;
   interp_prompt_ftype       prompt_proc;
+  interp_complete_ftype     complete_proc;
  };
 
 extern struct gdb_interpreter 
@@ -67,7 +71,8 @@ extern struct gdb_interpreter
 		      interp_suspend_ftype suspend_proc, 
 		      interp_delete_ftype delete_proc,
 		      interp_exec_ftype   exec_proc,
-		      interp_prompt_ftype prompt_proc);
+		      interp_prompt_ftype prompt_proc,
+		      interp_complete_ftype complete_proc);
 
 extern int gdb_add_interpreter (struct gdb_interpreter *interp);
 extern int gdb_delete_interpreter(struct gdb_interpreter *interp);
@@ -81,6 +86,9 @@ extern int gdb_interpreter_display_prompt (char *new_prompt);
 extern int gdb_interpreter_set_quiet (struct gdb_interpreter *interp, 
 				       int quiet);
 extern int gdb_interpreter_is_quiet (struct gdb_interpreter *interp);
+extern int gdb_interpreter_complete (struct gdb_interpreter *interp, 
+				     char *word, char *command_buffer, int cursor);
+
 extern int interpreter_do_one_event ();
 
 void clear_interpreter_hooks ();

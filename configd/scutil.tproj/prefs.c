@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,10 +37,8 @@
 static SCPreferencesRef
 _open()
 {
-	SCPreferencesRef	prefs;
-
 	prefs = SCPreferencesCreate(NULL, CFSTR("scutil"), NULL);
-	if (!prefs) {
+	if (prefs == NULL) {
 		SCPrint(TRUE,
 			stdout,
 			CFSTR("SCPreferencesCreate() failed: %s\n"),
@@ -150,7 +148,6 @@ set_ComputerName(int argc, char **argv)
 {
 	CFStringEncoding	encoding;
 	CFStringRef		hostname;
-	SCPreferencesRef	prefs;
 
 	if (argc == 0) {
 		hostname = _copyStringFromSTDIN();
@@ -171,6 +168,67 @@ set_ComputerName(int argc, char **argv)
 	_save(prefs);
 	CFRelease(prefs);
 	CFRelease(hostname);
+	exit(0);
+}
+
+
+static void
+get_HostName(int argc, char **argv)
+{
+	CFStringRef	hostname;
+
+	prefs = _open();
+	hostname = SCPreferencesGetHostName(prefs);
+	if (hostname == NULL) {
+		int	sc_status	= SCError();
+
+		switch (sc_status) {
+			case kSCStatusNoKey :
+				SCPrint(TRUE,
+					stderr,
+					CFSTR("HostName: not set\n"));
+				break;
+			default :
+				SCPrint(TRUE,
+					stderr,
+					CFSTR("SCPreferencesGetHostName() failed: %s\n"),
+					SCErrorString(SCError()));
+				break;
+		}
+		CFRelease(prefs);
+		exit (1);
+	}
+
+	SCPrint(TRUE, stdout, CFSTR("%@\n"), hostname);
+	CFRelease(hostname);
+	exit(0);
+}
+
+
+static void
+set_HostName(int argc, char **argv)
+{
+	CFStringRef		hostname = NULL;
+
+	if (argc == 0) {
+		hostname = _copyStringFromSTDIN();
+	} else {
+		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingASCII);
+	}
+
+	prefs = _open();
+	if (!SCPreferencesSetHostName(prefs, hostname)) {
+		SCPrint(TRUE,
+			stderr,
+			CFSTR("SCPreferencesSetHostName() failed: %s\n"),
+			SCErrorString(SCError()));
+		CFRelease(hostname);
+		CFRelease(prefs);
+		exit (1);
+	}
+	_save(prefs);
+	CFRelease(hostname);
+	CFRelease(prefs);
 	exit(0);
 }
 
@@ -210,7 +268,6 @@ static void
 set_LocalHostName(int argc, char **argv)
 {
 	CFStringRef		hostname = NULL;
-	SCPreferencesRef	prefs;
 
 	if (argc == 0) {
 		hostname = _copyStringFromSTDIN();
@@ -235,24 +292,26 @@ set_LocalHostName(int argc, char **argv)
 
 typedef void (*pref_func) (int argc, char **argv);
 
-static struct {
+static const struct {
 	char		*pref;
 	pref_func	get;
 	pref_func	set;
-} prefs[] = {
+} pref_keys[] = {
 	{ "ComputerName",	get_ComputerName,	set_ComputerName	},
+	{ "HostName",		get_HostName,		set_HostName		},
 	{ "LocalHostName",	get_LocalHostName,	set_LocalHostName	}
 };
-#define	N_PREFS	(sizeof(prefs) / sizeof(prefs[0]))
+#define	N_PREF_KEYS	(sizeof(pref_keys) / sizeof(pref_keys[0]))
 
 
+__private_extern__
 int
 findPref(char *pref)
 {
 	int	i;
 
-	for (i = 0; i < (int)N_PREFS; i++) {
-		if (strcmp(pref, prefs[i].pref) == 0) {
+	for (i = 0; i < (int)N_PREF_KEYS; i++) {
+		if (strcmp(pref, pref_keys[i].pref) == 0) {
 			return i;
 		}
 	}
@@ -261,6 +320,7 @@ findPref(char *pref)
 }
 
 
+__private_extern__
 void
 do_getPref(char *pref, int argc, char **argv)
 {
@@ -268,12 +328,13 @@ do_getPref(char *pref, int argc, char **argv)
 
 	i = findPref(pref);
 	if (i >= 0) {
-		(*prefs[i].get)(argc, argv);
+		(*pref_keys[i].get)(argc, argv);
 	}
 	return;
 }
 
 
+__private_extern__
 void
 do_setPref(char *pref, int argc, char **argv)
 {
@@ -281,7 +342,7 @@ do_setPref(char *pref, int argc, char **argv)
 
 	i = findPref(pref);
 	if (i >= 0) {
-		(*prefs[i].set)(argc, argv);
+		(*pref_keys[i].set)(argc, argv);
 	}
 	return;
 }

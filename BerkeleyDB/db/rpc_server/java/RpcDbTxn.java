@@ -1,10 +1,10 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001-2002
+ * Copyright (c) 2001-2003
  *      Sleepycat Software.  All rights reserved.
  *
- * $Id: RpcDbTxn.java,v 1.1.1.1 2003/02/15 04:56:13 zarzycki Exp $
+ * $Id: RpcDbTxn.java,v 1.2 2004/03/30 01:24:00 jtownsen Exp $
  */
 
 package com.sleepycat.db.rpcserver;
@@ -49,9 +49,9 @@ public class RpcDbTxn extends Timer
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
 		} finally {
-			server.delTxn(this);
+			server.delTxn(this, false);
 		}
 	}
 
@@ -67,7 +67,7 @@ public class RpcDbTxn extends Timer
 			RpcDbTxn rparent = server.getTxn(args.parentcl_id);
 			DbTxn parent = (rparent != null) ? rparent.txn : null;
 
-			txn = dbenv.txn_begin(parent, args.flags);
+			txn = dbenv.txnBegin(parent, args.flags);
 
 			if (rparent != null)
 				timer = rparent.timer;
@@ -75,7 +75,7 @@ public class RpcDbTxn extends Timer
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
 		}
 	}
 
@@ -88,9 +88,9 @@ public class RpcDbTxn extends Timer
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
 		} finally {
-			server.delTxn(this);
+			server.delTxn(this, false);
 		}
 	}
 
@@ -103,9 +103,9 @@ public class RpcDbTxn extends Timer
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
 		} finally {
-			server.delTxn(this);
+			server.delTxn(this, false);
 		}
 	}
 
@@ -117,7 +117,7 @@ public class RpcDbTxn extends Timer
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
 		}
 	}
 }

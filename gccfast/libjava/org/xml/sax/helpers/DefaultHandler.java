@@ -3,7 +3,7 @@
 // Written by David Megginson
 // NO WARRANTY!  This class is in the public domain.
 
-// $Id: DefaultHandler.java,v 1.5 2003/01/22 06:04:37 gkeating Exp $
+// $Id: DefaultHandler.java,v 1.1.1.3 2003/01/21 21:21:28 gkeating Exp $
 
 package org.xml.sax.helpers;
 

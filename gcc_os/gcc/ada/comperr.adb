@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.3 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -76,16 +75,23 @@ package body Comperr is
      (X    : String;
       Code : Integer := 0)
    is
+      --  The procedures below output a "bug box" with information about
+      --  the cause of the compiler abort and about the preferred method
+      --  of reporting bugs. The default is a bug box appropriate for
+      --  the FSF version of GNAT.
+
       procedure End_Line;
       --  Add blanks up to column 76, and then a final vertical bar
+
+      --------------
+      -- End_Line --
+      --------------
 
       procedure End_Line is
       begin
          Repeat_Char (' ', 76, '|');
          Write_Eol;
       end End_Line;
-
-      Public_Version : constant Boolean := (Gnat_Version_String (5) = 'p');
 
    --  Start of processing for Compiler_Abort
 
@@ -98,13 +104,13 @@ package body Comperr is
 
       Abort_In_Progress := True;
 
-      --  If errors have already occurred, then we guess that the abort may
-      --  well be caused by previous errors, and we don't make too much fuss
-      --  about it, since we want to let the programmer fix the errors first.
+      --  If any errors have already occurred, then we guess that the abort
+      --  may well be caused by previous errors, and we don't make too much
+      --  fuss about it, since we want to let programmer fix the errors first.
 
       --  Debug flag K disables this behavior (useful for debugging)
 
-      if Errors_Detected /= 0 and then not Debug_Flag_K then
+      if Total_Errors_Detected /= 0 and then not Debug_Flag_K then
          Errout.Finalize;
 
          Set_Standard_Error;
@@ -253,20 +259,9 @@ package body Comperr is
 
             else
                Write_Str
-                 ("| Please submit bug report by email to report@gnat.com.");
+                 ("| Please submit a bug report; see" &
+                 " http://gcc.gnu.org/bugs.html.");
                End_Line;
-
-               if not Public_Version then
-                  Write_Str
-                    ("| Use a subject line meaningful to you" &
-                     " and us to track the bug.");
-                  End_Line;
-
-                  Write_Str
-                    ("| (include your customer number #nnn " &
-                     "in the subject line).");
-                  End_Line;
-               end if;
 
                Write_Str
                  ("| Include the entire contents of this bug " &
@@ -283,30 +278,9 @@ package body Comperr is
                End_Line;
 
                Write_Str
-                 ("| (concatenated together with no headers between files).");
+                 ("| concatenated together with no headers between files.");
                End_Line;
 
-               if Public_Version then
-                  Write_Str
-                    ("| (use plain ASCII or MIME attachment).");
-                  End_Line;
-
-                  Write_Str
-                    ("| See gnatinfo.txt for full info on procedure " &
-                     "for submitting bugs.");
-                  End_Line;
-
-               else
-                  Write_Str
-                    ("| (use plain ASCII or MIME attachment, or FTP "
-                     & "to your customer directory).");
-                  End_Line;
-
-                  Write_Str
-                    ("| See README.GNATPRO for full info on procedure " &
-                     "for submitting bugs.");
-                  End_Line;
-               end if;
             end if;
          end;
 

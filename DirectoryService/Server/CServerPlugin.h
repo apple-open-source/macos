@@ -35,7 +35,6 @@
 #include "ServerModule.h"
 #include "PrivateTypes.h"
 
-        const	uInt32		kMaxPlugInAttributeStrLen	= 256;
 static	const	uInt32		kBuffPad					= 16;
 static	const	uInt32		kNumStaticPlugins			= 4;
 

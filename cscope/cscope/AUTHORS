@@ -1,3 +1,4 @@
+Joe Steffen - Creator of Cscope
 Petr Sorfa <petr@users.sourceforge.net> - Maintainer
 Simon Cozens - autoconf setup
 garp@digi.com - .cc .hh support
@@ -17,7 +18,7 @@ Stephane Fritsch - BeOS support
 Andy Newman <atrn> - FreeBSD support patch
 Sascha Blank - FreeBSD support
 Bruce Frost - Stability
-Chuck Murcko, Wilfredo Sanchez, Umesh Vaishampayan - Darwin support
+Chuck Marco and Wilfredo Sanchez - Darwin support
 Jason Duell - CSCOPE_EDITOR and CSCOPE_LINEFLAG*, invname database
 Tom Hull - Similar work to CSCOPE_EDITOR and friends
 Donald Slutz - Various fixes
@@ -28,3 +29,5 @@ Triet H. Lai <thlai@mail.usyd.edu.au> - GNU Emacs fixes for xcscope.el
 Steven Elliott <selliott4@austin.rr.com> - Fuzzy pattern matching for xcscope.el
 Ragho Mahalingam <ragho@mahalingam.com> - webcscope
 Dmitry Obukhov - Hilight code in webcscope
+David Cohrs - LEX and SUNOS scanner fix
+Valentin Podlovchenko - Overflow prevention and link recursion fix patch

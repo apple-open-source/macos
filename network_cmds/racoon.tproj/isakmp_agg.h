@@ -29,6 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ISAKMP_AGG_H__
+#define __ISAKMP_AGG_H__
+
+
 extern int agg_i1send __P((struct ph1handle *, vchar_t *));
 extern int agg_i2recv __P((struct ph1handle *, vchar_t *));
 extern int agg_i2send __P((struct ph1handle *, vchar_t *));
@@ -37,3 +41,6 @@ extern int agg_r1recv __P((struct ph1handle *, vchar_t *));
 extern int agg_r1send __P((struct ph1handle *, vchar_t *));
 extern int agg_r2recv __P((struct ph1handle *, vchar_t *));
 extern int agg_r2send __P((struct ph1handle *, vchar_t *));
+
+#endif /* __ISAKMP_AGG_H__ */
+

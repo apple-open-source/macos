@@ -62,7 +62,7 @@
 
 @copying
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -103,7 +103,7 @@ Boston, MA 02111-1307 USA
 @sp 2
 @center Richard M. Stallman
 @sp 3
-@center Last updated 20 April 2002
+@center Last updated 30 December 2002
 @sp 1
 
 @center for GCC @value{version-GCC}
@@ -147,6 +147,7 @@ Introduction, gccint, GNU Compiler Collection (GCC) Internals}.
 * C Extensions::    GNU extensions to the C language family.
 * C++ Extensions::  GNU extensions to the C++ language.
 * Objective-C::     GNU Objective-C runtime features.
+* Compatibility::   Binary Compatibility
 * Gcov::            @command{gcov}---a test coverage program.
 * Trouble::         If you have trouble using GCC.
 * Bugs::            How, why and where to report bugs.
@@ -159,6 +160,8 @@ Introduction, gccint, GNU Compiler Collection (GCC) Internals}.
 
 * Copying::         GNU General Public License says
                      how you can copy and share GCC.
+@c APPLE LOCAL GPL compliance
+* Source Code::     How to get the source code for this compiler.
 * GNU Free Documentation License:: How you can copy and share this manual.
 * Contributors::    People who have contributed to GCC.
 
@@ -171,6 +174,7 @@ Introduction, gccint, GNU Compiler Collection (GCC) Internals}.
 @include invoke.texi
 @include extend.texi
 @include objc.texi
+@include compat.texi
 @include gcov.texi
 @include trouble.texi
 @include bugreport.texi
@@ -180,6 +184,8 @@ Introduction, gccint, GNU Compiler Collection (GCC) Internals}.
 
 @include funding.texi
 @include gnu.texi
+@c APPLE LOCAL GPL compliance
+@include sourcecode.texi
 @include gpl.texi
 
 @c ---------------------------------------------------------------------

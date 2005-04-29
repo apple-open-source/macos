@@ -1,5 +1,5 @@
 /* ViewFactory.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,8 +37,14 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-
 public interface ViewFactory
 {
-    public View create(Element elem);
+  /**
+   * Creates a view for a given element.
+   *
+   * @param elem them element to create view for
+   *
+   * @return a new created view
+   */
+    View create (Element elem);
 }

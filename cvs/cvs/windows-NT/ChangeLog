@@ -1,3 +1,334 @@
+2004-09-07  Derek Price  <derek@ximbiot.com>
+
+	* JmgStat.c, JmgStat.h: New files.
+	* filesubr.c (check_statbuf): Use new Windows mod time routine.
+	(Thanks to a report from Chris Bohn <cbohn@rrinc.com>, help from J. C.
+	Hamlin <jchamlin@ibsys.com>, and a published patch from Jonathan
+	Gilligan.)
+
+2004-06-22  Derek Price  <derek@ximbiot.com>
+
+	* config.h.in: Add "inline" & "SIZE_MAX" macros for "xsize.h" header.
+	* config.h: Regenerated for "config.h.in" change.
+	(Original patch from Conrad T. Pino <Conrad@Pino.com>.)
+
+2004-05-13  Derek Price  <derek@ximbiot.com>
+
+	* fix-msvc-make-head.pl, fix-msvc-mak.pl: New files.
+	* .cvsignore: Add fix-msvc-mak.
+
+2004-04-20  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c (unlink_file_dir, deep_remove_dir): Handle errno of
+	ENOTEMPTY from dirs under Windows XP.
+	(Report and suggested fix from Ken Raeburn <raeburn@mit.edu>.)
+
+2004-04-05  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c (isabsolute): Remove this function for real.
+
+2004-04-04  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c (isabsolute): Remove this function.
+
+2004-03-20  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c (mkdir_if_needed, xchmod, last_component), run.c
+	(piped_child): Comply with new prototypes.
+
+2003-12-18  Derek Price  <derek@ximbiot.com>
+
+	* config.h, stamp-ch: Regenerated for 1.11.11.1.
+
+2003-12-18  Derek Price  <derek@ximbiot.com>
+
+	* config.h, stamp-ch: Regenerated for 1.11.11.
+
+2003-12-10  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Include code to put a warning at the beginning of the
+	generated config.h that it should not be edited and to edit config.h.in
+	instead.
+	* Makefile.in, config.h, stamp-ch: Regenerated.
+
+2003-12-04  Mark D. Baushke  <mdb@cvshome.org>
+
+	* filesubr.c (xresolvepath): Comment out assert() call.
+
+2003-12-04  Derek Price  <derek@ximbiot.com>
+
+	* config.h, stamp-ch: Regenerated for 1.11.10.1.
+
+2003-12-04  Derek Price  <derek@ximbiot.com>
+
+	* config.h, stamp-ch: Regenerated for 1.11.10.
+
+2003-11-10  Mark D. Baushke  <mdb@cvshome.org>
+
+	* filesubr.c (xresolvepath): New function.
+
+2003-10-27  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (EXTRA_DIST): Move stamp-ch nearer to the config.h and
+	config.h.in it is releated to (this will sync with the trunk).
+	* Makefile.in: Regenerated.
+
+2003-10-10  Derek Price  <derek@ximbiot.com>
+
+	* config.h, stamp-ch: Regenerated for 1.11.9.1.
+
+2003-10-10  Derek Price  <derek@ximbiot.com>
+
+	* config.h, stamp-ch: Regenerated for 1.11.9.
+
+2003-10-02  Derek Price  <derek@ximbiot.com>
+
+	* config.h, stamp-ch: Regenerated for 1.11.8.1.
+
+2003-10-02  Derek Price  <derek@ximbiot.com>
+
+	* config.h, stamp-ch: Regenerated for 1.11.8.
+
+2003-09-29  Derek Price  <derek@ximbiot.com>
+
+	* config.h, stamp-ch: Regenerated for 1.11.7.1.
+
+2003-09-29  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (EXTRA_DIST): Add stamp-ch.
+	* Makefile.in, config.h, stamp-ch: Regenerated for 1.11.7.
+
+2003-07-30  Derek Price  <derek@ximbiot.com>
+
+	* README: Correct name and links to the Cygwin project.
+	(Original patch from Max Bowsher <maxb@ukf.net>.)
+
+2003-06-09  Derek Price  <derek@ximbiot.com>
+
+	* win32.c (gethostname): Remove this function.  It has been commented
+	out since 1995-08-30 and...
+	(*): ...move the rest of the contents...
+	* woe32.c: ...to this new file in accordance with the GNU convention to
+	avoid implying that we consider the Microsoft Windows Operating
+	Environment any sort of "win".
+	* Makefile.am (EXTRA_DIST): Rename win32.c woe32.c.
+
+	* Makefile.in: Regenerated.
+
+2003-06-04  Derek Price  <derek@ximbiot.com>
+
+	* config.h: Regenerated, but move the contents...
+	* config.h.in: ...into this new file first and stick a token in...
+	(PACKAGE_STRING): ...here in place of the CVS version number.
+	* Makefile.am (all-local, stamp-ch, config.h): New targets providing
+	for dynamic generation of config.h so that I can no longer forget to
+	update the version number in config.h when I update configure.in.
+	* stamp-ch: New file.
+
+	* Makefile.in: Regenerated.
+
+2003-05-21  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerate with Automake version 1.7.5.
+
+2003-04-10  Larry Jones  <lawrence.jones@eds.com>
+
+	* Makefile.in: Regenerated.
+
+2003-03-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Update copyright notice.
+
+	* Makefile.in: Regenerated.
+
+2003-02-25  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2003-01-20  Derek Price  <derek@ximbiot.com>
+
+	* config.h: Update to dev version 1.11.5.1.
+
+2003-01-16  Derek Price  <derek@ximbiot.com>
+
+	* config.h: Update to CVS version 1.11.5.
+
+2003-01-16  Derek Price  <derek@ximbiot.com>
+
+	* config.h (PACKAGE_STRING): Update for dev version (1.11.4.1).
+
+2002-12-28  Derek Price  <derek@ximbiot.com>
+
+	* config.h (PACKAGE_STRING): Add FIXME.
+
+2002-12-28  Derek Price  <derek@ximbiot.com>
+
+	* config.h (PACKAGE_STRING): Define.
+	* filesubr.c (strcat_filename_onto_homedir): New function.
+	(Thanks to Stephane Rouleau <s.rouleau@videotron.ca>,
+	 Cristopher Seawood <cls@seawood.org>, and
+	 Frederico Costa <frederico.costa@tiscali.no> for all their hints,
+	 tips, and patches for this problem.)
+
+2002-12-19  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Remove reference to options.h.
+	* options.h: Remove file and move relevant content...
+	* config.h: ...here.
+
+	* Makefile.in: Regenerated.
+
+2002-12-06  Derek Price  <derek@ximbiot.com>
+
+	* ndir.c: Replace some calls to malloc with calls to xmalloc.
+	* pwd.c: Ditto.
+	(Reported by Dan Peterson <dbpete@aol.com>.)
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* options.h: Remove prototype of STDC exit().
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated using Automake 1.6.3.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2002-09-24  Larry Jones  <lawrence.jones@eds.com>
+
+	* options.h: Remove PATCH_PROGRAM.
+
+2002-08-16  Derek Price  <derek@ximbiot.com>
+
+	* options.h: Remove RELATIVE_REPOS & move CVS_BADROOT...
+	* config.h: ...here.
+
+2002-04-30  Derek Price  <oberon@umich.edu>
+
+	* Makefile.in: Regenerated with automake 1.6.
+
+2001-09-18  Derek Price  <dprice@collab.net>
+
+	* win32.c: config.h should be #included with double quotes; and be the
+        first among the headers.
+	(Patch from Corey Minyard  <minyard@acm.org> via 
+	Alexey Mahotkin <alexm@hsys.msk.ru>.)
+
+2001-09-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with automake 1.5.
+
+2001-08-09  Derek Price  <dprice@collab.net>
+
+	* config.h: Back out the HAVE_GETPAGESIZE thing.  That was a mistake.
+
+2001-08-09  Derek Price  <dprice@collab.net>
+
+	* config.h: Define ssize_t as int.
+	(Bug report and patch from "Manfred Klug" <manklu@web.de>.)
+
+2001-08-09  Derek Price  <dprice@collab.net>
+
+	* config.h: Define HAVE_GETPAGESIZE under Windows.
+	(Bug report from "Manfred Klug" <manklu@web.de>.)
+
+2001-08-06  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated.
+
+2001-07-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with new Automake release candidate 1.4h.
+
+2001-06-28  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with new version of Automake.
+
+2001-04-25  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated using AM 1.4e as of today at 18:10 -0400.
+
+2001-03-14  Derek Price  <derek.price@openavenue.com>
+
+        * Makefile.in: Regenerated
+
+2001-02-15  Derek Price  <derek.price@openavenue.com>
+	    Laine Stump  <laine+info-cvs@laine.org>
+
+	* config.h: Define HAVE_USLEEP and define a prototype for usleep.
+	* win32.c (usleep): New function.
+
+2000-12-22  Derek Price  <derek.price@openavenue.com>
+
+        * Makefile.in: Regenerated
+
+2000-12-21  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.am: New file needed by Automake
+	* Makefile.in: Regenerated
+
+2000-11-21  Derek Price  <derek.price@openavenue.com>
+
+	* filesubr.c (check_statbuf): subtract 3600 from the times returned
+	by the stat function when daylight savings time is in effect due to a
+	bug in Windoze.  Fixes a bug where CVS thinks all files have been
+	touched after a transition to or from daylight savings time.
+
+2000-11-20  Derek Price  <derek.price@openavenue.com>
+
+	* filesubr.c (cvs_temp_file): add this function to match the one in
+	src/filesubr.c
+	(cvs_temp_name): wrap cvs_temp_file as in src/filesubr.c
+
+2000-10-18  Derek Price  <derek.price@openavenue.com>
+
+	* config.h: Add () to a macro function to supress a warning.
+
+2000-06-26  Larry Jones  <larry.jones@sdrc.com>
+
+	* config.h: Define REGEX_MALLOC and _REGEX_RE_COMP.
+
+2000-01-02  Karl Fogel  <kfogel@red-bean.com>
+
+	* pwd.c (getlogin): try to find login name in environment
+	variables before asking the operating system.
+
+1999-02-26  Jim Kingdon  <http://www.cyclic.com>
+
+	* options.h: Make RELATIVE_REPOS the default, as in
+	../src/options.h.in.
+	Remove CVS_DIFFDATE; removed from CVS on 27 Jun 1996.
+
+1998-10-13  Jim Kingdon
+
+	* README: Update information about make/project files, cygwin and
+	the (lack of) need for RCS 5.7.  Tweak a few more things.
+
+1998-10-03  Jim Kingdon
+
+	* win32.c: Include cvs.h and only check server_active if
+	SERVER_SUPPORT is defined.
+
+1998-10-02  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	(This was reported by someone else but I don't remember who).
+	* config.h: Define SYSTEM_CLEANUP.
+	* win32.c (wnt_cleanup): New function, implements it.
+
+1998-09-28  Johannes Stezenbach <johannes.stezenbach@propack-data.de>
+	    and Jim Kingdon
+
+	* config.h (CVS_RENAME): Define.
+	* filesubr.c, config.h (wnt_rename): New function.
+	* filesubr.c (rename_file): Call CVS_RENAME not rename.
+
+1998-09-04  Jim Kingdon  <kingdon@harvey.cyclic.com>
+
+	* win32.c (gethostname): Expand comment about gethostname
+	vs. GetComputerName (reported by Randy Coulman).
+
 1998-07-01  Jim Kingdon  <kingdon@harvey.cyclic.com>
 
 	* startserver.c (wnt_shutdown_server): Check for errors from close().

@@ -1,0 +1,27 @@
+{\rtf1\mac\ansicpg10000\cocoartf102
+{\fonttbl\f0\fswiss\fcharset77 Helvetica;\f1\fswiss\fcharset77 Helvetica-Bold;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww9020\viewh7500\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
+
+\f0\fs24 \cf0 2004 June 14\
+Notes for IOI2C based drivers.\
+\
+
+\f1\b \ul New IOI2C Targets:
+\f0\b0 \ulnone \
+As of AppleHWSensor version 1.3.0a1 there are four new targets added:\
+IOI2CMaxim6690\
+IOI2CAD741x\
+IOI2CLM7x\
+IOI2CMaxim1989\
+\
+Of these new targets only IOI2CLM7x is currently enabled to build. The other IOI2C targets will be added to the build dependencies as they are needed.\
+\
+
+\f1\b \ul Setting up the build environment:
+\f0\b0 \ulnone \
+The IOI2CFamily project has a target which builds the "/AppleInternal/Library/Frameworks/IOI2C.framework" This framework must be installed on your development system prior to building the IOI2C based targets.\
+\
+-- \
+}

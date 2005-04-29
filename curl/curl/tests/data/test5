@@ -4,7 +4,7 @@
 <data>
 HTTP/1.1 200 OK
 Date: Thu, 09 Nov 2010 14:49:00 GMT
-Server: test-server/fake
+Server: test-server/fake swsclose
 Content-Type: text/html
 Funny-head: yesyes
 
@@ -14,13 +14,16 @@ Funny-head: yesyes
 #
 # Client-side
 <client>
+<server>
+http
+</server>
  <name>
 HTTP over proxy
  </name>
  <command>
-http://%HOSTIP:%HOSTPORT/we/want/that/page/5 -x %HOSTIP:%HOSTPORT
+http://%HOSTIP:%HTTPPORT/we/want/that/page/5 -x %HOSTIP:%HTTPPORT
 </command>
-</test>
+</client>
 
 #
 # Verify data after the test has been "shot"
@@ -29,10 +32,10 @@ http://%HOSTIP:%HOSTPORT/we/want/that/page/5 -x %HOSTIP:%HOSTPORT
 ^User-Agent:.*
 </strip>
 <protocol>
-GET http://127.0.0.1:8999/we/want/that/page/5 HTTP/1.1
-Host: 127.0.0.1:8999
+GET http://127.0.0.1:%HTTPPORT/we/want/that/page/5 HTTP/1.1
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
 
 </protocol>
 </verify>

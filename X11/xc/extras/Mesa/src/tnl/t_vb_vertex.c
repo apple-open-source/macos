@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  5.0
  *
  * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 
@@ -31,7 +31,7 @@
 #include "colormac.h"
 #include "context.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 #include "mmath.h"
 #include "mtypes.h"
 
@@ -56,7 +56,7 @@ struct vertex_stage_data {
     */
    GLvector4f *save_eyeptr;
    GLvector4f *save_clipptr;
-   GLvector4f *save_projptr;
+   GLvector4f *save_ndcptr;
 };
 
 #define VERTEX_STAGE_DATA(stage) ((struct vertex_stage_data *)stage->privatePtr)
@@ -78,7 +78,7 @@ static void NAME( GLcontext *ctx,				\
    GLuint p;							\
 								\
    for (p = 0; p < ctx->Const.MaxClipPlanes; p++)		\
-      if (ctx->Transform.ClipEnabled[p]) {			\
+      if (ctx->Transform.ClipPlanesEnabled & (1 << p)) {	\
 	 GLuint nr, i;						\
 	 const GLfloat a = ctx->Transform._ClipUserPlane[p][0];	\
 	 const GLfloat b = ctx->Transform._ClipUserPlane[p][1];	\
@@ -136,22 +136,26 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
 
+   ASSERT(!ctx->VertexProgram.Enabled);
+
    if (stage->changed_inputs) {
 
       if (ctx->_NeedEyeCoords) {
 	 /* Separate modelview transformation:
 	  * Use combined ModelProject to avoid some depth artifacts
 	  */
-	 if (ctx->ModelView.type == MATRIX_IDENTITY)
+	 if (ctx->ModelviewMatrixStack.Top->type == MATRIX_IDENTITY)
 	    VB->EyePtr = VB->ObjPtr;
 	 else
-	    VB->EyePtr = TransformRaw( &store->eye, &ctx->ModelView,
+	    VB->EyePtr = TransformRaw( &store->eye,
+                                       ctx->ModelviewMatrixStack.Top,
 				       VB->ObjPtr);
 
-	 if (ctx->ProjectionMatrix.type == MATRIX_IDENTITY)
+	 if (ctx->ProjectionMatrixStack.Top->type == MATRIX_IDENTITY)
 	    VB->ClipPtr = VB->EyePtr;
 	 else
-	    VB->ClipPtr = TransformRaw( &store->clip, &ctx->_ModelProjectMatrix,
+	    VB->ClipPtr = TransformRaw( &store->clip,
+                                        &ctx->_ModelProjectMatrix,
 					VB->ObjPtr );
       }
       else {
@@ -170,7 +174,7 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
       if (VB->ClipPtr->size < 4) {
 	 if (VB->ClipPtr->flags & VEC_NOT_WRITEABLE) {
 	    ASSERT(VB->ClipPtr == VB->ObjPtr);
-	    VB->import_data( ctx, VERT_OBJ, VEC_NOT_WRITEABLE );
+	    VB->import_data( ctx, VERT_BIT_POS, VEC_NOT_WRITEABLE );
 	    VB->ClipPtr = VB->ObjPtr;
 	 }
 	 if (VB->ClipPtr->size == 2)
@@ -184,16 +188,16 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
       store->ormask = 0;
       store->andmask = CLIP_ALL_BITS;
 
-      if (tnl->NeedProjCoords) {
-	 VB->ProjectedClipPtr =
+      if (tnl->NeedNdcCoords) {
+	 VB->NdcPtr =
 	    _mesa_clip_tab[VB->ClipPtr->size]( VB->ClipPtr,
                                                &store->proj,
                                                store->clipmask,
                                                &store->ormask,
                                                &store->andmask );
-
-      } else {
-	 VB->ProjectedClipPtr = 0;
+      }
+      else {
+	 VB->NdcPtr = 0;
 	 _mesa_clip_np_tab[VB->ClipPtr->size]( VB->ClipPtr,
                                                0,
                                                store->clipmask,
@@ -208,7 +212,7 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
       /* Test userclip planes.  This contributes to VB->ClipMask, so
        * is essentially required to be in this stage.
        */
-      if (ctx->Transform._AnyClip) {
+      if (ctx->Transform.ClipPlanesEnabled) {
 	 usercliptab[VB->ClipPtr->size]( ctx,
 					 VB->ClipPtr,
 					 store->clipmask,
@@ -222,23 +226,23 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
       VB->ClipOrMask = store->ormask;
       VB->ClipMask = store->clipmask;
 
-      if (VB->ClipPtr == VB->ObjPtr && (VB->importable_data & VERT_OBJ))
-	 VB->importable_data |= VERT_CLIP;
+      if (VB->ClipPtr == VB->ObjPtr && (VB->importable_data & VERT_BIT_POS))
+	 VB->importable_data |= VERT_BIT_CLIP;
 
       store->save_eyeptr = VB->EyePtr;
       store->save_clipptr = VB->ClipPtr;
-      store->save_projptr = VB->ProjectedClipPtr;
+      store->save_ndcptr = VB->NdcPtr;
    }
    else {
       /* Replay the sideeffects.
        */
       VB->EyePtr = store->save_eyeptr;
       VB->ClipPtr = store->save_clipptr;
-      VB->ProjectedClipPtr = store->save_projptr;
+      VB->NdcPtr = store->save_ndcptr;
       VB->ClipMask = store->clipmask;
       VB->ClipOrMask = store->ormask;
-      if (VB->ClipPtr == VB->ObjPtr && (VB->importable_data & VERT_OBJ))
-	 VB->importable_data |= VERT_CLIP;
+      if (VB->ClipPtr == VB->ObjPtr && (VB->importable_data & VERT_BIT_POS))
+	 VB->importable_data |= VERT_BIT_CLIP;
       if (store->andmask)
 	 return GL_FALSE;
    }
@@ -249,8 +253,7 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
 
 static void check_vertex( GLcontext *ctx, struct gl_pipeline_stage *stage )
 {
-   (void) ctx;
-   (void) stage;
+   stage->active = !ctx->VertexProgram.Enabled;
 }
 
 static GLboolean init_vertex_stage( GLcontext *ctx,
@@ -302,15 +305,17 @@ static void dtr( struct gl_pipeline_stage *stage )
 const struct gl_pipeline_stage _tnl_vertex_transform_stage =
 {
    "modelview/project/cliptest/divide",
-   0,				/* re-check -- always on */
-   _MESA_NEW_NEED_EYE_COORDS |
+   _NEW_PROGRAM,                /* check_state: only care about vertex prog */
+   _MESA_NEW_NEED_EYE_COORDS |  /* run_state: when to invalidate / re-run */
    _NEW_MODELVIEW|
    _NEW_PROJECTION|
-   _NEW_TRANSFORM,		/* re-run */
+   _NEW_PROGRAM|
+   _NEW_TRANSFORM,
    GL_TRUE,			/* active */
-   VERT_OBJ,		/* inputs */
-   VERT_EYE|VERT_CLIP,		/* outputs */
-   0, 0,			/* changed_inputs, private */
+   VERT_BIT_POS,		/* inputs */
+   VERT_BIT_EYE|VERT_BIT_CLIP,		/* outputs */
+   0,				/* changed_inputs */
+   NULL,			/* private data */
    dtr,				/* destructor */
    check_vertex,		/* check */
    init_vertex_stage		/* run -- initially set to init */

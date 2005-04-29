@@ -22,6 +22,9 @@
 extern int verbose;
 extern int am_server;
 extern int do_progress;
+extern int checksum_seed;
+extern int inplace;
+extern int make_backups;
 
 typedef unsigned short tag;
 
@@ -139,16 +142,17 @@ static void matched(int f,struct sum_struct *s,struct map_struct *buf,
 static void hash_search(int f,struct sum_struct *s,
 			struct map_struct *buf, OFF_T len)
 {
-	OFF_T offset, end;
+	OFF_T offset, end, backup;
 	unsigned int k;
-	size_t last_i;
+	size_t want_i;
 	char sum2[SUM_LENGTH];
 	uint32 s1, s2, sum;
+	int more;
 	schar *map;
 
-	/* last_i is used to encourage adjacent matches, allowing the RLL coding of the
-	   output to work more efficiently */
-	last_i = (size_t)-1;
+	/* want_i is used to encourage adjacent matches, allowing the RLL
+	 * coding of the output to work more efficiently. */
+	want_i = 0;
 
 	if (verbose > 2) {
 		rprintf(FINFO,"hash search b=%u len=%.0f\n",
@@ -187,7 +191,7 @@ static void hash_search(int f,struct sum_struct *s,
 
 		sum = (s1 & 0xffff) | (s2 << 16);
 		tag_hits++;
-		for (; j < s->count && targets[j].t == t; j++) {
+		do {
 			unsigned int l;
 			size_t i = targets[j].i;
 
@@ -197,6 +201,12 @@ static void hash_search(int f,struct sum_struct *s,
 			/* also make sure the two blocks are the same length */
 			l = MIN((OFF_T)s->blength, len-offset);
 			if (l != s->sums[i].len)
+				continue;
+
+			/* inplace: ensure chunk's offset is either >= our
+			 * offset or that the data didn't move. */
+			if (inplace && !make_backups && s->sums[i].offset < offset
+			    && !(s->sums[i].flags & SUMFLG_SAME_OFFSET))
 				continue;
 
 			if (verbose > 3)
@@ -214,23 +224,42 @@ static void hash_search(int f,struct sum_struct *s,
 				continue;
 			}
 
-			/* we've found a match, but now check to see
-			 * if last_i can hint at a better match */
-			for (j++; j < s->count && targets[j].t == t; j++) {
-				size_t i2 = targets[j].i;
-				if (i2 == last_i + 1) {
-					if (sum != s->sums[i2].sum1)
-						break;
-					if (memcmp(sum2,s->sums[i2].sum2,s->s2length) != 0)
-						break;
-					/* we've found an adjacent match - the RLL coder
-					 * will be happy */
-					i = i2;
-					break;
-				}
+			/* If inplace is enabled, the best possible match is
+			 * one with an identical offset, so we prefer that over
+			 * the following want_i optimization. */
+			if (inplace && !make_backups) {
+				do {
+					size_t i2 = targets[j].i;
+					if (s->sums[i2].offset != offset)
+						continue;
+					if (i2 != i) {
+						if (sum != s->sums[i2].sum1)
+							break;
+						if (memcmp(sum2, s->sums[i2].sum2,
+							   s->s2length) != 0)
+							break;
+						i = i2;
+					}
+					/* This chunk was at the same offset on
+					 * both the sender and the receiver. */
+					s->sums[i].flags |= SUMFLG_SAME_OFFSET;
+					goto set_want_i;
+				} while (++j < s->count && targets[j].t == t);
 			}
 
-			last_i = i;
+			/* we've found a match, but now check to see
+			 * if want_i can hint at a better match. */
+			if (i != want_i && want_i < s->count
+			    && (!inplace || make_backups || s->sums[want_i].offset >= offset
+			     || s->sums[want_i].flags & SUMFLG_SAME_OFFSET)
+			    && sum == s->sums[want_i].sum1
+			    && memcmp(sum2, s->sums[want_i].sum2, s->s2length) == 0) {
+				/* we've found an adjacent match - the RLL coder
+				 * will be happy */
+				i = want_i;
+			}
+		    set_want_i:
+			want_i = i + 1;
 
 			matched(f,s,buf,offset,i);
 			offset += s->sums[i].len - 1;
@@ -241,17 +270,24 @@ static void hash_search(int f,struct sum_struct *s,
 			s2 = sum >> 16;
 			matches++;
 			break;
-		}
+		} while (++j < s->count && targets[j].t == t);
 
 	null_tag:
+		backup = offset - last_match;
+		/* We sometimes read 1 byte prior to last_match... */
+		if (backup < 0)
+			backup = 0;
+
 		/* Trim off the first byte from the checksum */
-		map = (schar *)map_ptr(buf, offset, k+1);
+		more = offset + k < len;
+		map = (schar *)map_ptr(buf, offset - backup, k + more + backup)
+		    + backup;
 		s1 -= map[0] + CHAR_OFFSET;
 		s2 -= k * (map[0]+CHAR_OFFSET);
 
 		/* Add on the next byte (if there is one) to the checksum */
-		if (k < (len-offset)) {
-			s1 += (map[k]+CHAR_OFFSET);
+		if (more) {
+			s1 += map[k] + CHAR_OFFSET;
 			s2 += s1;
 		} else
 			--k;
@@ -262,9 +298,8 @@ static void hash_search(int f,struct sum_struct *s,
 		   match. The 3 reads are caused by the
 		   running match, the checksum update and the
 		   literal send. */
-		if (offset > last_match
-		 && offset-last_match >= CHUNK_SIZE+s->blength
-		 && end-offset > CHUNK_SIZE) {
+		if (backup >= CHUNK_SIZE + s->blength
+		    && end - offset > CHUNK_SIZE) {
 			matched(f,s,buf,offset - s->blength, -2);
 		}
 	} while (++offset < end);
@@ -291,7 +326,6 @@ static void hash_search(int f,struct sum_struct *s,
 void match_sums(int f, struct sum_struct *s, struct map_struct *buf, OFF_T len)
 {
 	char file_sum[MD4_SUM_LENGTH];
-	extern int write_batch;
 
 	last_match = 0;
 	false_alarms = 0;
@@ -299,7 +333,7 @@ void match_sums(int f, struct sum_struct *s, struct map_struct *buf, OFF_T len)
 	matches = 0;
 	data_transfer = 0;
 
-	sum_init();
+	sum_init(checksum_seed);
 
 	if (len > 0 && s->count>0) {
 		build_hash_table(s);
@@ -322,12 +356,13 @@ void match_sums(int f, struct sum_struct *s, struct map_struct *buf, OFF_T len)
 	}
 
 	sum_end(file_sum);
+	/* If we had a read error, send a bad checksum. */
+	if (buf && buf->status != 0)
+		file_sum[0]++;
 
 	if (verbose > 2)
 		rprintf(FINFO,"sending file_sum\n");
 	write_buf(f,file_sum,MD4_SUM_LENGTH);
-	if (write_batch)
-		write_batch_delta_file(file_sum, MD4_SUM_LENGTH);
 
 	if (targets) {
 		free(targets);

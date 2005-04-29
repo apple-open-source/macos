@@ -1,6 +1,6 @@
 // natConstructor.cc - Native code for Constructor class.
 
-/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -13,6 +13,8 @@ details.  */
 #include <gcj/cni.h>
 #include <jvm.h>
 
+#include <java/lang/ArrayIndexOutOfBoundsException.h>
+#include <java/lang/IllegalAccessException.h>
 #include <java/lang/reflect/Constructor.h>
 #include <java/lang/reflect/Method.h>
 #include <java/lang/reflect/InvocationTargetException.h>
@@ -43,16 +45,39 @@ java::lang::reflect::Constructor::getType ()
 jobject
 java::lang::reflect::Constructor::newInstance (jobjectArray args)
 {
+  using namespace java::lang::reflect;
+
   if (parameter_types == NULL)
     getType ();
 
-  using namespace java::lang::reflect;
+  jmethodID meth = _Jv_FromReflectedConstructor (this);
+
+  // Check accessibility, if required.
+  if (! (Modifier::isPublic (meth->accflags) || this->isAccessible()))
+    {
+      gnu::gcj::runtime::StackTrace *t 
+	= new gnu::gcj::runtime::StackTrace(4);
+      Class *caller = NULL;
+      try
+	{
+	  for (int i = 1; !caller; i++)
+	    {
+	      caller = t->classAt (i);
+	    }
+	}
+      catch (::java::lang::ArrayIndexOutOfBoundsException *e)
+	{
+	}
+
+      if (! _Jv_CheckAccess(caller, declaringClass, meth->accflags))
+	throw new IllegalAccessException;
+    }
+
   if (Modifier::isAbstract (declaringClass->getModifiers()))
     throw new InstantiationException;
 
   _Jv_InitClass (declaringClass);
 
-  jmethodID meth = _Jv_FromReflectedConstructor (this);
   // In the constructor case the return type is the type of the
   // constructor.
   return _Jv_CallAnyMethodA (NULL, declaringClass, meth, true,

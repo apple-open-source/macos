@@ -29,8 +29,9 @@
 
 
 #include "glheader.h"
+#include "imports.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 
 #include "m_vector.h"
 
@@ -366,36 +367,36 @@ void _mesa_vector4f_print( GLvector4f *v, GLubyte *cullmask, GLboolean culling )
    GLfloat *d = (GLfloat *)v->data;
    GLuint j, i = 0, count;
 
-   printf("data-start\n");
+   _mesa_printf("data-start\n");
    for ( ; d != v->start ; STRIDE_F(d, v->stride), i++)
-      printf( t, i, d[0], d[1], d[2], d[3]);
+      _mesa_printf(t, i, d[0], d[1], d[2], d[3]);
 
-   printf("start-count(%u)\n", v->count);
+   _mesa_printf("start-count(%u)\n", v->count);
    count = i + v->count;
 
    if (culling) {
       for ( ; i < count ; STRIDE_F(d, v->stride), i++)
 	 if (cullmask[i])
-	    printf( t, i, d[0], d[1], d[2], d[3]);
+	    _mesa_printf(t, i, d[0], d[1], d[2], d[3]);
    }
    else {
       for ( ; i < count ; STRIDE_F(d, v->stride), i++)
-	 printf( t, i, d[0], d[1], d[2], d[3]);
+	 _mesa_printf(t, i, d[0], d[1], d[2], d[3]);
    }
 
    for (j = v->size ; j < 4; j++) {
       if ((v->flags & (1<<j)) == 0) {
 
-	 printf("checking col %u is clean as advertised ", j);
+	 _mesa_printf("checking col %u is clean as advertised ", j);
 
 	 for (i = 0, d = (GLfloat *) v->data ;
 	      i < count && d[j] == c[j] ;
 	      i++, STRIDE_F(d, v->stride)) {};
 
 	 if (i == count)
-	    printf(" --> ok\n");
+	    _mesa_printf(" --> ok\n");
 	 else
-	    printf(" --> Failed at %u ******\n", i);
+	    _mesa_printf(" --> Failed at %u ******\n", i);
       }
    }
 }
@@ -409,20 +410,20 @@ void _mesa_vector3f_print( GLvector3f *v, GLubyte *cullmask, GLboolean culling )
    GLfloat *d = (GLfloat *)v->data;
    GLuint i = 0, count;
 
-   printf("data-start\n");
+   _mesa_printf("data-start\n");
    for ( ; d != v->start ; STRIDE_F(d,v->stride), i++)
-      printf( "%u:\t%f, %f, %f\n", i, d[0], d[1], d[2]);
+      _mesa_printf( "%u:\t%f, %f, %f\n", i, d[0], d[1], d[2]);
 
-   printf("start-count(%u)\n", v->count);
+   _mesa_printf("start-count(%u)\n", v->count);
    count = i + v->count;
 
    if (culling) {
       for ( ; i < count ; STRIDE_F(d,v->stride), i++)
 	 if (cullmask[i])
-	    printf( "%u:\t%f, %f, %f\n", i, d[0], d[1], d[2]);
+	    _mesa_printf("%u:\t%f, %f, %f\n", i, d[0], d[1], d[2]);
    }
    else {
       for ( ; i < count ; STRIDE_F(d,v->stride), i++)
-	 printf( "%u:\t%f, %f, %f\n", i, d[0], d[1], d[2]);
+	 _mesa_printf("%u:\t%f, %f, %f\n", i, d[0], d[1], d[2]);
    }
 }

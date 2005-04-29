@@ -42,9 +42,6 @@ __END_DECLS
 
 #define kMacRISC_GPIO_DIRECTION_BIT	2
 
-#ifndef kIOHibernateStateKey
-#define kIOHibernateStateKey	"IOHibernateState"
-#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -55,7 +52,6 @@ OSDefineMetaClassAndStructors(MacRISC2CPU, IOCPU);
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 static IOCPUInterruptController 	*gCPUIC;
-static UInt32	 					*gPHibernateState;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -108,6 +104,12 @@ bool MacRISC2CPU::start(IOService *provider)
     if (tmpData == 0) return false;
     uniNVersion = *(long *)tmpData->getBytesNoCopy();
   
+    // Find out if this is the boot CPU.
+    bootCPU = false;
+    tmpData = OSDynamicCast(OSData, provider->getProperty("state"));
+    if (tmpData == 0) return false;
+    if (!strcmp((char *)tmpData->getBytesNoCopy(), "running")) bootCPU = true;
+
     // Count the CPUs.
     numCPUs = 0;
     cpusRegEntry = fromPath("/cpus", gIODTPlane);
@@ -116,6 +118,12 @@ bool MacRISC2CPU::start(IOService *provider)
     while (cpusIterator->getNextObject()) numCPUs++;
     cpusIterator->release();
   
+	// [3830950] - The bootCPU driver inits globals for all instances (like gCPUIC) so if we're not the
+	// boot CPU driver we wait here for that driver to finish its initialization
+	if ((numCPUs > 1) && !bootCPU)
+		// Wait for bootCPU driver to say it's up and running
+		(void) waitForService (resourceMatching ("BootCPU"));
+		
     // Limit the number of CPUs to one if uniNVersion is 1.0.7 or less.
     if (uniNVersion < kUniNVersion107) numCPUs = 1;
   
@@ -181,14 +189,8 @@ bool MacRISC2CPU::start(IOService *provider)
     // setting this to false will take care of the issue.
         
     needAACKDelay = false;
-    
-    // Find out if this is the boot CPU.
-    bootCPU = false;
-    tmpData = OSDynamicCast(OSData, provider->getProperty("state"));
-    if (tmpData == 0) return false;
-    if (!strcmp((char *)tmpData->getBytesNoCopy(), "running")) bootCPU = true;
-  
-    if (bootCPU)
+ 
+ 	if (bootCPU)
     {
         gCPUIC = new IOCPUInterruptController;
         if (gCPUIC == 0) return false;
@@ -242,6 +244,11 @@ bool MacRISC2CPU::start(IOService *provider)
   
     setCPUState(kIOCPUStateUninitalized);
   
+	// necessary bootCPU initialization is done, so release other CPU drivers to do their thing
+	// other drivers need to be unblocked *before* we call processor_start otherwise we deadlock
+	if (bootCPU)
+		publishResource ("BootCPU", this);
+		
     if (physCPU < numCPUs)
     {
         processor_info.cpu_id           = (cpu_id_t)this;
@@ -355,11 +362,6 @@ bool MacRISC2CPU::start(IOService *provider)
 IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned long, IOService*)
 {
 
-    if (!gPHibernateState) {
-		OSData * data = OSDynamicCast(OSData, getPMRootDomain()->getProperty(kIOHibernateStateKey));
-		if (data)
-			gPHibernateState = (UInt32 *) data->getBytesNoCopy();
-    }
 
     if ( ! (theFlags & IOPMPowerOn) ) {
         // Sleep sequence:
@@ -636,7 +638,10 @@ void MacRISC2CPU::initCPU(bool boot)
   
     if (boot)
     {
-        gCPUIC->enableCPUInterrupt(this);
+		if (gCPUIC)
+			gCPUIC->enableCPUInterrupt(this);
+		else
+			panic ("MacRISC2CPU: gCPUIC uninitialized for CPU %d\n", getCPUNumber());
     
         // Register and enable IPIs.
         cpuNub->registerInterrupt(0, this, (IOInterruptAction)&MacRISC2CPU::ipiHandler, 0);
@@ -661,7 +666,6 @@ void MacRISC2CPU::quiesceCPU(void)
         } else {
 			// Send PMU command to shutdown system before io is turned off
 
-			if (!gPHibernateState || !*gPHibernateState)
 				pmu->callPlatformFunction("sleepNow", false, 0, 0, 0, 0);
 	
 			// Disables the interrupts for this CPU.
@@ -677,7 +681,6 @@ void MacRISC2CPU::quiesceCPU(void)
 			keyLargo->callPlatformFunction(keyLargo_saveRegisterState, false, 0, 0, 0, 0);
 	
 			// Turn Off all KeyLargo I/O.
-			if (!gPHibernateState || !*gPHibernateState)
 			{
 			    kprintf("MacRISC2CPU::quiesceCPU %d -> keyLargo->turnOffIO\n", getCPUNumber());
 				keyLargo->callPlatformFunction(keyLargo_turnOffIO, false, (void *)false, 0, 0, 0);
@@ -693,7 +696,7 @@ void MacRISC2CPU::quiesceCPU(void)
                 (void *)(kUniNSave),
                 (void *)0, (void *)0, (void *)0);
 
-        if (processorSpeedChange || (!gPHibernateState || !*gPHibernateState)) {
+	{
         	// Set the sleeping state for HWInit.
 			// Tell Uni-N to enter normal mode.
 			uniN->callPlatformFunction (uniN_setPowerState, false, 

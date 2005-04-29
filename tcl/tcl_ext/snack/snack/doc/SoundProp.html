@@ -1,0 +1,74 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.6 [en] (X11; I; HP-UX B.10.20 9000/778) [Netscape]">
+   <meta name="Author" content="Kåre Sjölander">
+   <title>SoundProp</title>
+</head>
+<body>
+
+<h3>
+NAME</h3>
+Snack_GetSampleRate, Snack_SetSampleRate, Snack_GetSampleEncoding, Snack_SetSampleEncoding,
+Snack_GetNumChannels, Snack_SetNumChannels, Snack_GetBytesPerSample, Snack_SetBytesPerSample,
+Snack_GetSoundFilename, Snack_SetHeaderSize - macros to set/get properties
+of Snack sound objects
+<h3>
+SYNOPSIS</h3>
+#include &lt;snack.h>
+<br><b>Snack_GetSampleRate</b>(sound)
+<br><b>Snack_SetSampleRate</b>(sound, frequency)
+<br><b>Snack_GetSampleEncoding</b>(sound)
+<br><b>Snack_SetSampleEncoding</b>(sound, format)
+<br><b>Snack_GetNumChannels</b>(sound)
+<br><b>Snack_SetNumChannels</b>(sound, numChannels)
+<br><b>Snack_GetBytesPerSample</b>(sound)
+<br><b>Snack_SetBytesPerSample</b>(sound, size)
+<br><b>Snack_SetHeaderSize</b>(sound, size)
+<br><b>Snack_GetSoundFilename</b>(sound)
+<h3>
+ARGUMENTS</h3>
+Sound *sound (in)
+<br>&nbsp;&nbsp;&nbsp; A pointer to a sound object to query or modify
+<br>int frequency (in)
+<br>&nbsp;&nbsp;&nbsp; A positive integer specifying the sample rate of
+the sound.
+<br>int format (in)
+<br>&nbsp;&nbsp;&nbsp; An integer used to specify sample encoding format.
+Use one of these definitions LIN16, MULAW, ALAW, LIN8OFFSET, LIN8, LIN24,
+LIN32, SNACK_FLOAT, or SNACK_DOUBLE
+<br>int numChannels (in)
+<br>&nbsp;&nbsp;&nbsp; A positive integer specifying the number of separate
+channels of a sound
+<br>int size (in)
+<br>&nbsp;&nbsp;&nbsp; A size specification measured in bytes
+<h3>
+DESCRIPTION</h3>
+The following functions are implemented as macros. <b>Snack_GetLength</b>
+returns the length of a sound in number of frames, for mono sounds this
+is equal to the number of samples. <b>Snack_SetLength</b> is used to specify
+the length of the sound. No storage is allocated/freed as a result of this,
+the function <b>Snack_ResizeSoundStorage</b> must be used to the perform
+actual storage management. <b>Snack_GetFrequency</b> and <b>Snack_SetFrequency</b>
+control the sampling frequency of a Snack sound object. Most audio devices
+only allow certain specific values for playback and recording. Common values
+are 8000, 11025, 16000, 22050, 32000, 44100, and 48000. <b>Snack_GetNumChannels</b>
+and <b>Snack_SetNumChannels</b> handle the number of channels of the sound,
+either a positive integer or MONO/STEREO/QUAD. <b>Snack_GetSampleFormat
+</b>and
+<b>Snack_SetSampleFormat</b>
+control the sample encoding format. Use the constants LIN16, MULAW, ALAW,
+LIN8OFFSET, LIN8, LIN24, LIN32, SNACK_FLOAT, or SNACK_DOUBLE. <b>Snack_GetBytesPerSample</b>
+and <b>Snack_SetBytesPerSample</b> should be used in conjunction with the
+previous pair. For LIN16 the number of bytes per sample is 2. No checks
+are performed for any arguments to these functions. <b>Snack_GetSoundFilename</b>
+is used to retrieve a pointer to the filename string which is or last was
+associated with the sound object.
+<b>Snack_SetHeaderSize</b> is used, in
+code that defines new sound file formats, to specify how large (in bytes)
+the header of the sound file is.
+<br>&nbsp;
+<br>&nbsp;
+</body>
+</html>

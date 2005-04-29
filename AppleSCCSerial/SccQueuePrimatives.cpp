@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,9 +31,9 @@
 #include <IOKit/IOLib.h>
 #include "SccQueuePrimatives.h"
 
-#include <kern/cpu_data.h>
-#include <sys/kdebug.h>
-#include <kern/thread.h>
+//#include <kern/cpu_data.h>
+//#include <sys/kdebug.h>
+//#include <kern/thread.h>
 
 #ifdef ASSERTS_ALL
 #include <IOKit/assert.h>
@@ -60,7 +57,7 @@ static QueueStatus	PrivateAddBytetoQueue(CirQueue *Queue, char Value) {
 
     QueueStatus returnVal = queueFull;
 
-	mutex_lock(Queue->InUse);
+	IOLockLock(Queue->InUse);
 
     /* Check to see if there is space by comparing the next pointer,
     with the last, If they match we are either Empty or full, so
@@ -88,7 +85,7 @@ static QueueStatus	PrivateAddBytetoQueue(CirQueue *Queue, char Value) {
         returnVal = queueNoError;
     }
 
-	mutex_unlock(Queue->InUse);
+	IOLockUnlock(Queue->InUse);
 
     return( returnVal);
 }
@@ -103,7 +100,7 @@ static QueueStatus	PrivateGetBytetoQueue(CirQueue *Queue, u_char *Value) {
 
     QueueStatus returnVal = queueEmpty;
 
-	mutex_lock(Queue->InUse);
+	IOLockLock(Queue->InUse);
 
     /* Check to see if the queue has something in it.
     */
@@ -129,7 +126,7 @@ static QueueStatus	PrivateGetBytetoQueue(CirQueue *Queue, u_char *Value) {
         returnVal = queueNoError;
     }
 
-	mutex_unlock(Queue->InUse);
+	IOLockUnlock(Queue->InUse);
 
     return( returnVal);
 }
@@ -150,7 +147,8 @@ QueueStatus	InitQueue(CirQueue *Queue, u_char	*Buffer, size_t Size) {
     Queue->NextChar = Buffer;
     Queue->LastChar = Buffer;
     Queue->InQueue = 0;
-	Queue->InUse = mutex_alloc(ETAP_IO_AHA);
+//rcs	Queue->InUse = mutex_alloc(ETAP_IO_AHA);
+	Queue->InUse = IOLockAlloc();
     IOSleep(1);
     return(queueNoError);
 }
@@ -169,7 +167,8 @@ QueueStatus	CloseQueue(CirQueue *Queue) {
     Queue->NextChar = (u_char *)0;
     Queue->LastChar = (u_char *)0;
     Queue->Size = 0;
-	mutex_free(Queue->InUse);
+//rcs	mutex_free(Queue->InUse);
+	IOLockFree(Queue->InUse);
 
     return(queueNoError);
 }
@@ -246,13 +245,13 @@ size_t	FreeSpaceinQueue(CirQueue *Queue) {
 
     /* this makes the call atomic */
 //    disable_preemption();
-	mutex_lock(Queue->InUse);
+	IOLockLock(Queue->InUse);
 
     retVal = Queue->Size - Queue->InQueue;
 
     /* end of the atomic code */
 //    enable_preemption();
-	mutex_unlock(Queue->InUse);
+	IOLockUnlock(Queue->InUse);
 
     return(retVal);
 }
@@ -266,11 +265,11 @@ size_t	FreeSpaceinQueue(CirQueue *Queue) {
 size_t	UsedSpaceinQueue(CirQueue *Queue) 
 {
 //rcs Check for deadlock
-	mutex_lock(Queue->InUse);
+	IOLockLock(Queue->InUse);
  
     size_t returnValue = (Queue->InQueue);
 	
-	mutex_unlock(Queue->InUse);
+	IOLockUnlock(Queue->InUse);
 	
 	return returnValue;
 }
@@ -339,7 +338,7 @@ QueueStatus     GetQueueStatus(CirQueue *Queue) {
 
     /* this makes the call atomic */
 //    disable_preemption();
-	mutex_lock(Queue->InUse);
+	IOLockLock(Queue->InUse);
 
     if ((Queue->NextChar == Queue->LastChar) && Queue->InQueue)
         returnVal = queueFull;
@@ -348,7 +347,7 @@ QueueStatus     GetQueueStatus(CirQueue *Queue) {
 
     /* end of the atomic code */
 //    enable_preemption();
-	mutex_unlock(Queue->InUse);
+	IOLockUnlock(Queue->InUse);
 
     return( returnVal);
 }       
@@ -362,7 +361,7 @@ u_char* BeginDirectReadFromQueue(CirQueue *Queue, size_t* size, Boolean* queueWr
 	
 	/* this makes the call atomic */
 //    disable_preemption();
-	mutex_lock(Queue->InUse);
+	IOLockLock(Queue->InUse);
 	
 	*queueWrapped = false;
 
@@ -379,7 +378,7 @@ u_char* BeginDirectReadFromQueue(CirQueue *Queue, size_t* size, Boolean* queueWr
 	
     /* end of the atomic code */
 //    enable_preemption();
-	mutex_unlock(Queue->InUse);
+	IOLockUnlock(Queue->InUse);
 
 	return queuePtr;
 }
@@ -392,7 +391,7 @@ void EndDirectReadFromQueue(CirQueue *Queue, size_t size)
 {
 	/* this makes the call atomic */
 //    disable_preemption();
-	mutex_lock(Queue->InUse);
+	IOLockLock(Queue->InUse);
 	
 	Queue->LastChar += size;
 	Queue->InQueue -= size;
@@ -408,6 +407,6 @@ void EndDirectReadFromQueue(CirQueue *Queue, size_t size)
  
 	   /* end of the atomic code */
 //    enable_preemption();
-	mutex_unlock(Queue->InUse);
+	IOLockUnlock(Queue->InUse);
 
 }

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Send Email plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The Send Email plugin will take an
+                <code>ArrayList</code> of
+                <code>org.blojsom.plugin.email.EmailMessage</code>
+                objects and send them via SMTP.
+
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                sendemail=org.blojsom.plugin.email.SendEmailPlugin
+            </source>
+            <p>
+                You may then add "sendemail" to the
+                <strong>end</strong> one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=...,sendemail
+            </source>
+            <p>
+                Typically, this would be done after the comment and trackback plugins are run as they
+                publish comments and trackbacks in the context that are picked up later on in the plugin
+                chain by this plugin.
+
+            </p>
+            <p>
+                In your individual
+                <em>blog.properties</em> file, add the following line:
+            </p>
+            <source>
+                blog-email-enabled=true
+            </source>
+            <p>
+                The Send Email plugin requires the smtp server be defined in
+                <em>web.xml</em>. For example:
+            </p>
+            <source>
+                &lt;init-param&gt;
+                &lt;param-name&gt;smtp-server&lt;/param-name&gt;
+                &lt;param-value&gt;localhost&lt;/param-value&gt;
+                &lt;/init-param&gt;
+            </source>
+        </section>
+        <section>
+            <title>usage and URL parameters</title>
+        </section>
+        <section>
+            <title>usage parameters</title>
+            <p>
+                There are no URL parameters to control the operation of the Send Email plugin.
+
+            </p>
+        </section>
+        <section>
+            <title>context attributes and types</title>
+            <p>
+                The following table describes the context attributes that are available and their associated type.
+            </p>
+            <table>
+                <tr>
+                    <th>Context key</th>
+                    <th>Input or Output</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>BLOJSOM_OUTBOUNDMAIL</td>
+                    <td>Input</td>
+                    <td>
+                        <code>java.util.List</code> of
+                        <code>org.blojsom.plugin.email.EmailMessage</code> objects
+                    </td>
+                    <td>Contains the list of e-mail
+                        messages that should be sent by the plugin</td>
+                </tr>
+            </table>
+
+        </section>
+    </body>
+</document>
+

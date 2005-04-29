@@ -122,25 +122,43 @@ public:
     IOAudioClientBuffer			*clientBufferListEnd;
     
     IOAudioClientBuffer			*userClientList;
-
+	
 protected:
+
     struct ExpansionData {
 		IOAudioStreamFormatExtension	streamFormatExtension;
+		UInt32							mSampleFramesReadByEngine;
+		IOReturn						mClipOutputStatus;
 	};
     
     ExpansionData *reserved;
 
 public:
 // New code added here:
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 0);
     virtual const IOAudioStreamFormatExtension *getFormatExtension();
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 1);
     virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, bool callDriver = true);
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 2);
     virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, OSDictionary *formatDict, bool callDriver = true);
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 3);
     virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, const AudioIOFunction *ioFunctionList = NULL, UInt32 numFunctions = 0);
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 4);
     virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, AudioIOFunction ioFunction);
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 5);
     virtual bool validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc);
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 6);
 	virtual void setTerminalType(const UInt32 terminalType);
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 7);
 	virtual IOReturn mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 8);
 	virtual void setSampleLatency(UInt32 numSamples);
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 9);
+	virtual bool validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc, const IOAudioSampleRate *sampleRate);
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 10);
+	virtual UInt32 getNumSampleFramesRead();
+	// OSMetaClassDeclareReservedUsed(IOAudioStream, 11);
+	virtual void setDefaultNumSampleFramesRead(UInt32);
 
 private:
     OSMetaClassDeclareReservedUsed(IOAudioStream, 0);
@@ -152,10 +170,10 @@ private:
     OSMetaClassDeclareReservedUsed(IOAudioStream, 6);
     OSMetaClassDeclareReservedUsed(IOAudioStream, 7);
     OSMetaClassDeclareReservedUsed(IOAudioStream, 8);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 9);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 10);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 11);
 
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 9);
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 10);
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 11);
     OSMetaClassDeclareReservedUnused(IOAudioStream, 12);
     OSMetaClassDeclareReservedUnused(IOAudioStream, 13);
     OSMetaClassDeclareReservedUnused(IOAudioStream, 14);

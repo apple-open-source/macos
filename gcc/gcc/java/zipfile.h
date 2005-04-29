@@ -1,19 +1,21 @@
 /* Definitions for using a zipped' archive.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003
+   Free Software Foundation, Inc.
 
-   Copyright (C) 1996, 1997, 1998, 1999, 2000  Free Software Foundation, Inc.
+This file is part of GCC.
 
-This program is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -58,10 +60,9 @@ extern struct ZipFile *SeenZipFiles;
    ((ZipDirectory*)((char*)(ZIPD)+(ZIPD)->direntry_size))
 #define ZIPMAGIC 0x504b0304	
 
-extern ZipFile * opendir_in_zip PARAMS ((const char *, int));
-extern int read_zip_archive PARAMS ((ZipFile *));
+extern ZipFile * opendir_in_zip (const char *, int);
+extern int read_zip_archive (ZipFile *);
 #ifdef GCC_JCF_H
-extern int read_zip_member PARAMS ((JCF*, ZipDirectory*, ZipFile *));
-extern int open_in_zip PARAMS ((struct JCF *, const char *,
-			       const char *, int));
+extern int read_zip_member (JCF*, ZipDirectory*, ZipFile *);
+extern int open_in_zip (struct JCF *, const char *, const char *, int);
 #endif

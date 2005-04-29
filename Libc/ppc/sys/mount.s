@@ -22,7 +22,6 @@
  */
 /* Copyright (c) 1992 NeXT Computer, Inc.  All rights reserved. */
 
-#import	<architecture/ppc/pseudo_inst.h>
 #import "SYS.h"
 
 SYSCALL(mount, 4)

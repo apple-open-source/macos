@@ -59,22 +59,13 @@
 // Static class variables
 // ------------------------------------------------------------------------
 Boolean				DSNetworkUtilities::sNetworkInitialized	= false;
-Boolean				DSNetworkUtilities::sAppleTalkAvailable	= false;
 Boolean				DSNetworkUtilities::sTCPAvailable		= false;
 
-short				DSNetworkUtilities::sIPAddrCount			= 0;	// count of IP addresses for this server
-short				DSNetworkUtilities::sAliasCount			= 0;
+short				DSNetworkUtilities::sIPAddrCount		= 0;	// count of IP addresses for this server
 
-InetDomainName		DSNetworkUtilities::sLocalNodeName		= "\0";
+MultiHomeIPInfo*	DSNetworkUtilities::sIPInfo				= nil;
 
-InetDomainName		DSNetworkUtilities::sLocalHostName		= "\0";
-InetHost			DSNetworkUtilities::sLocalHostIPAddr		= 0;
-
-MultiHomeIPInfo		DSNetworkUtilities::sIPInfo[ kMaxIPAddrs ];
-IPAddressInfo		DSNetworkUtilities::sAddrList[ kMaxIPAddrs ];
-InetDomainName		DSNetworkUtilities::sAliasList[ kMaxIPAddrs ];
-
-DSMutexSemaphore	   *DSNetworkUtilities::sNetSemaphore		= NULL;
+DSMutexSemaphore   *DSNetworkUtilities::sNetSemaphore		= NULL;
 
 // ------------------------------------------------------------------------
 //	* Initialize ()
@@ -83,7 +74,6 @@ DSMutexSemaphore	   *DSNetworkUtilities::sNetSemaphore		= NULL;
 OSStatus DSNetworkUtilities::Initialize ( void )
 {
 	register int rc = 0;
-	struct utsname	myname;
 
 	if (sNetworkInitialized == true)
 	{
@@ -91,20 +81,7 @@ OSStatus DSNetworkUtilities::Initialize ( void )
 	}
 
 	sNetSemaphore = new DSMutexSemaphore();
-	::memset( &sLocalHostName, 0, sizeof( sLocalHostName ) );
-	::memset( &sIPInfo, 0, sizeof(sIPInfo) );
-	::memset( &sAddrList, 0, sizeof(sAddrList) );
-	::memset( &sAliasList, 0, sizeof(sAliasList) );
-
-	// fill in our local node name
-    if ( ::uname(&myname) == 0 )
-	{
-		::strncpy( sLocalNodeName, myname.nodename, sizeof( sLocalNodeName ) );
-	}
-	else
-	{
-        ::strcpy( sLocalNodeName, "localhost" );
-	}
+	sIPInfo = nil;
 
 	try
 	{
@@ -194,6 +171,9 @@ OSStatus DSNetworkUtilities::ResolveToIPAddress ( const InetDomainName inDomainN
 
 InetHost DSNetworkUtilities::GetOurIPAddress ( short inIndex )
 {
+	MultiHomeIPInfo    *aIPInfo = sIPInfo;
+	short				aIndex  = 0;
+	
 	if ( sNetworkInitialized == false )
 	{
 		if ( Initialize() != eDSNoErr )
@@ -202,9 +182,17 @@ InetHost DSNetworkUtilities::GetOurIPAddress ( short inIndex )
 		}
 	}
 
-	if (inIndex  < sIPAddrCount && inIndex < kMaxIPAddrs)
+	if (inIndex  < sIPAddrCount )
 	{
-		return( sIPInfo[ inIndex ].IPAddress );
+		while ( aIPInfo != nil)
+		{
+			if ( aIndex == inIndex)
+			{
+				return( aIPInfo->IPAddress );
+			}
+			aIndex++;
+			aIPInfo = aIPInfo->pNext;
+		}
 	}
 
 	return 0;
@@ -218,25 +206,24 @@ InetHost DSNetworkUtilities::GetOurIPAddress ( short inIndex )
 const char *
 DSNetworkUtilities::GetOurIPAddressString (short inIndex)
 {
-	if (inIndex < sIPAddrCount && inIndex < kMaxIPAddrs)
-		return( sIPInfo[ inIndex ].IPAddressString );
+	MultiHomeIPInfo    *aIPInfo = sIPInfo;
+	short				aIndex  = 0;
+
+	if (inIndex  < sIPAddrCount )
+	{
+		while ( aIPInfo != nil)
+		{
+			if ( aIndex == inIndex)
+			{
+				return( aIPInfo->IPAddressString );
+			}
+			aIndex++;
+			aIPInfo = aIPInfo->pNext;
+		}
+	}
 
 	return NULL;
 }
-
-
-// ------------------------------------------------------------------------
-//	* GetOurIPAddressString2 ()
-// ------------------------------------------------------------------------
-
-void DSNetworkUtilities::GetOurIPAddressString2 ( short inIndex, char *ioBuffer, int inBufferSize )
-{
-	if ( ioBuffer != NULL && inIndex < sIPAddrCount && inIndex < kMaxIPAddrs )
-	{
-		::strncpy(ioBuffer, sIPInfo[inIndex].IPAddressString, inBufferSize);
-	}
-
-} // GetOurIPAddressString2
 
 
 // ------------------------------------------------------------------------
@@ -247,12 +234,17 @@ void DSNetworkUtilities::GetOurIPAddressString2 ( short inIndex, char *ioBuffer,
 
 Boolean DSNetworkUtilities::DoesIPAddrMatch ( InetHost inIPAddr )
 {
+	MultiHomeIPInfo    *aIPInfo = sIPInfo;
+
 	if ((inIPAddr != 0x00000000) && (inIPAddr != 0xFFFFFFFF) )
 	{
-		for ( int i=0; i < sIPAddrCount && i < kMaxIPAddrs; i++ )
+		while ( aIPInfo != nil)
 		{
-			if (inIPAddr == sIPInfo[i].IPAddress)
-				return true;
+			if ( inIPAddr == aIPInfo->IPAddress)
+			{
+				return( true );
+			}
+			aIPInfo = aIPInfo->pNext;
 		}
 	}
 	return false;
@@ -421,6 +413,7 @@ int DSNetworkUtilities::InitializeTCP ( void )
 	register int	ipcount = 0;
 	int rc = 0;
 	int err = 0;
+	MultiHomeIPInfo    *aIPInfo = nil;
 
 
 	sTCPAvailable = false;
@@ -466,16 +459,25 @@ int DSNetworkUtilities::InitializeTCP ( void )
 				{
 					// ethernet interface
 					sain = (struct sockaddr_in *)&(ifrptr->ifr_addr);
-					sIPInfo[ipcount].IPAddress = ntohl(sain->sin_addr.s_addr);
-					IPAddrToString(sIPInfo[ipcount].IPAddress, sIPInfo[ipcount].IPAddressString, MAXIPADDRSTRLEN);
+					if (sIPInfo != nil)
+					{
+						aIPInfo = sIPInfo;
+						while(aIPInfo->pNext != nil)
+						{
+							aIPInfo = aIPInfo->pNext;
+						}
+						aIPInfo->pNext = (MultiHomeIPInfo*) calloc(1, sizeof(MultiHomeIPInfo));
+						aIPInfo = aIPInfo->pNext;
+					}
+					else
+					{
+						sIPInfo = (MultiHomeIPInfo*) calloc(1, sizeof(MultiHomeIPInfo));
+						aIPInfo = sIPInfo;
+						
+					}
+					aIPInfo->IPAddress = ntohl(sain->sin_addr.s_addr);
+					IPAddrToString(aIPInfo->IPAddress, aIPInfo->IPAddressString, MAXIPADDRSTRLEN);
 					ipcount ++;
-				}
-				else if (*ifrptr->ifr_name == 'l')
-				{
-					// localhost "lo0"
-					sain = (struct sockaddr_in *)&(ifrptr->ifr_addr);
-					sLocalHostIPAddr = ntohl(sain->sin_addr.s_addr);
-					::strcpy(sLocalHostName, "localhost");
 				}
 			}
 		}

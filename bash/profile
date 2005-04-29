@@ -3,4 +3,6 @@
 PATH="/bin:/sbin:/usr/bin:/usr/sbin"
 export PATH
 
-[ -r /etc/bashrc ] && source /etc/bashrc
+if [ "${BASH-no}" != "no" ]; then
+	[ -r /etc/bashrc ] && . /etc/bashrc
+fi

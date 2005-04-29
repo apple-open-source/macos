@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atiaccel.c,v 1.11 2003/01/01 19:16:30 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atiaccel.c,v 1.14 2004/01/05 16:42:00 tsi Exp $ */
 /*
- * Copyright 2001 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 2001 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -23,7 +23,7 @@
 
 #include "atiaccel.h"
 #include "atiadapter.h"
-#include "atimach64.h"
+#include "atimach64accel.h"
 #include "atistruct.h"
 
 /*
@@ -65,6 +65,11 @@ ATIInitializeAcceleration
 #endif /* AVOID_CPIO */
 
     {
+        /*
+         * Note:  If PixelArea exceeds the engine's maximum, the excess is
+         *        never used, even though it would be useful for such things
+         *        as XVideo buffers.
+         */
         maxPixelArea = maxScanlines * pScreenInfo->displayWidth;
         PixelArea = pScreenInfo->videoRam * 1024 * 8 / pATI->bitsPerPixel;
         if (PixelArea > maxPixelArea)
@@ -78,4 +83,51 @@ ATIInitializeAcceleration
     XAADestroyInfoRec(pATI->pXAAInfo);
     pATI->pXAAInfo = NULL;
     return FALSE;
+}
+
+FBLinearPtr
+ATIResizeOffscreenLinear
+(
+    ScreenPtr   pScreen,
+    FBLinearPtr pLinear,
+    int         Size
+)
+{
+    if (Size <= 0)
+    {
+        xf86FreeOffscreenLinear(pLinear);
+        return NULL;
+    }
+
+    if (pLinear)
+    {
+        if ((pLinear->size >= Size) ||
+            xf86ResizeOffscreenLinear(pLinear, Size))
+        {
+            pLinear->MoveLinearCallback = NULL;
+            pLinear->RemoveLinearCallback = NULL;
+            return pLinear;
+        }
+
+        xf86FreeOffscreenLinear(pLinear);
+    }
+
+    pLinear = xf86AllocateOffscreenLinear(pScreen, Size, 16, NULL, NULL, NULL);
+
+    if (!pLinear)
+    {
+        int maxSize;
+
+        xf86QueryLargestOffscreenLinear(pScreen, &maxSize, 16,
+            PRIORITY_EXTREME);
+
+        if (maxSize < Size)
+            return NULL;
+
+        xf86PurgeUnlockedOffscreenAreas(pScreen);
+        pLinear =
+            xf86AllocateOffscreenLinear(pScreen, Size, 16, NULL, NULL, NULL);
+    }
+
+    return pLinear;
 }

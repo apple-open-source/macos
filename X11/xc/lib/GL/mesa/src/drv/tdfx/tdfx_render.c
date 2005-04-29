@@ -23,7 +23,7 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_render.c,v 1.4 2002/02/22 21:45:03 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_render.c,v 1.5 2003/09/28 20:15:36 alanh Exp $ */
 
 /*
  * Original rewrite:
@@ -67,7 +67,7 @@ static void tdfxDDClear( GLcontext *ctx,
    mask &= ~(DD_ACCUM_BIT);
 
    if (mask & DD_STENCIL_BIT) {
-      if (!fxMesa->haveHwStencil || ctx->Stencil.WriteMask != 0xff) {
+      if (!fxMesa->haveHwStencil || ctx->Stencil.WriteMask[0] != 0xff) {
          /* Napalm seems to have trouble with stencil write masks != 0xff */
          /* do stencil clear in software */
          mask &= ~(DD_STENCIL_BIT);
@@ -275,7 +275,7 @@ static void tdfxDDClear( GLcontext *ctx,
                                         fxMesa->Color.ClearAlpha,
                                         fxMesa->Depth.Clear);
 	 FX_grColorMaskv_NoLock(ctx, true4);
-	 if (ctx->Color.DrawDestMask & FRONT_LEFT_BIT)
+	 if (ctx->Color._DrawDestMask & FRONT_LEFT_BIT)
             fxMesa->Glide.grRenderBuffer(GR_BUFFER_FRONTBUFFER);
 	 if (!ctx->Depth.Test || !ctx->Depth.Mask)
 	    fxMesa->Glide.grDepthMask(FXFALSE);
@@ -295,7 +295,7 @@ static void tdfxDDClear( GLcontext *ctx,
                fxMesa->Glide.grDepthMask(FXTRUE);
             }
             FX_grColorMaskv_NoLock(ctx, true4);
-            if (ctx->Color.DrawDestMask & FRONT_LEFT_BIT)
+            if (ctx->Color._DrawDestMask & FRONT_LEFT_BIT)
                fxMesa->Glide.grRenderBuffer(GR_BUFFER_FRONTBUFFER);
          }
       }
@@ -532,7 +532,7 @@ static void uploadTextureImages( tdfxContextPtr fxMesa )
    GLcontext *ctx = fxMesa->glCtx;
    int unit;
    for (unit = 0; unit < TDFX_NUM_TMU; unit++) {
-      if (ctx->Texture.Unit[unit]._ReallyEnabled == TEXTURE0_2D) {
+      if (ctx->Texture.Unit[unit]._ReallyEnabled == TEXTURE_2D_BIT) {
          struct gl_texture_object *tObj = ctx->Texture.Unit[unit].Current2D;
          tdfxTexInfo *ti = TDFX_TEXTURE_DATA(tObj);
          if (ti && ti->reloadImages && ti->whichTMU != TDFX_TMU_NONE) {

@@ -1,6 +1,6 @@
 \input texinfo  @c -*-texinfo-*-
 
-@c "@(#)$Name: emacs-56 $:$Id: pcl-cvs.texi,v 1.1.1.1 2001/10/31 18:01:22 jevans Exp $"
+@c "@(#)$Name: emacs-59 $:$Id: pcl-cvs.texi,v 1.1.1.1 2001/10/31 18:01:22 jevans Exp $"
 
 @c Documentation for the GNU Emacs CVS mode.
 @c Copyright (C) 1991,92,93,94,95,96,97,98,99,2000, 2001  Free Software Foundation, Inc.

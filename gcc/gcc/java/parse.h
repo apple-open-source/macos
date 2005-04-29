@@ -1,21 +1,22 @@
 /* Language parser definitions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -35,8 +36,8 @@ extern int quiet_flag;
 
 #ifndef JC1_LITE
 /* Function extern to java/ */
-extern int int_fits_type_p PARAMS ((tree, tree));
-extern tree stabilize_reference PARAMS ((tree));
+extern int int_fits_type_p (tree, tree);
+extern tree stabilize_reference (tree);
 #endif
 
 /* Macros for verbose debug info  */
@@ -69,7 +70,7 @@ extern tree stabilize_reference PARAMS ((tree));
 #define RECOVER     {yyerrok; RECOVERED;}
 
 #define YYERROR_NOW ctxp->java_error_flag = 1
-#define YYNOT_TWICE if (ctxp->prevent_ese != lineno)
+#define YYNOT_TWICE if (ctxp->prevent_ese != input_line)
 
 /* Accepted modifiers */
 #define CLASS_MODIFIERS ACC_PUBLIC|ACC_ABSTRACT|ACC_FINAL|ACC_STRICT
@@ -88,6 +89,23 @@ extern tree stabilize_reference PARAMS ((tree));
 #define MODIFIER_WFL(M)   (ctxp->modifier_ctx [(M) - PUBLIC_TK])
 
 /* Check on modifiers */
+#ifdef USE_MAPPED_LOCATION
+#define THIS_MODIFIER_ONLY(f, m, v, count, l)				\
+  if ((f) & (m))							\
+    {									\
+      tree node = MODIFIER_WFL (v);					\
+      if (!l)								\
+        l = node;							\
+      else								\
+	{								\
+	  expanded_location lloc = expand_location (EXPR_LOCATION (l));	\
+	  expanded_location nloc = expand_location (EXPR_LOCATION (node)); \
+	  if (nloc.column > lloc.column || nloc.line > lloc.line)	\
+	    l = node;							\
+	}								\
+      count++;								\
+    }
+#else
 #define THIS_MODIFIER_ONLY(f, m, v, count, l)				\
   if ((f) & (m))							\
     {									\
@@ -100,6 +118,7 @@ extern tree stabilize_reference PARAMS ((tree));
         l = node;							\
       count++;								\
     }
+#endif
 
 #define ABSTRACT_CHECK(FLAG, V, CL, S)				\
   if ((FLAG) & (V))						\
@@ -139,21 +158,21 @@ extern tree stabilize_reference PARAMS ((tree));
   {                                                                          \
     if (flag_redundant && (cl) && ((flags) & (__modifier)))		     \
       parse_warning_context (cl,                                             \
-     "Discouraged redundant use of `%s' modifier in declaration of %s",      \
+     "Discouraged redundant use of %qs modifier in declaration of %s",      \
 			     java_accstring_lookup (__modifier), arg);       \
   }
 #define OBSOLETE_MODIFIER_WARNING2(cl, flags, __modifier, arg1, arg2)        \
   {                                                                          \
     if (flag_redundant && (cl) && ((flags) & (__modifier)))		     \
       parse_warning_context (cl,                                             \
-     "Discouraged redundant use of `%s' modifier in declaration of %s `%s'", \
+     "Discouraged redundant use of %qs modifier in declaration of %s %qs", \
 			     java_accstring_lookup (__modifier), arg1, arg2);\
   }
 
 /* Quickly build a temporary pointer on hypothetical type NAME. */
 #define BUILD_PTR_FROM_NAME(ptr, name)		\
   do {						\
-    ptr = build (POINTER_TYPE, NULL_TREE);	\
+    ptr = make_node (POINTER_TYPE);		\
     TYPE_NAME (ptr) = name;			\
   } while (0)
 
@@ -162,11 +181,13 @@ extern tree stabilize_reference PARAMS ((tree));
    && !TREE_TYPE (NODE) 				\
    && TREE_CODE (TYPE_NAME (NODE)) == IDENTIFIER_NODE)
 
+#ifndef USE_MAPPED_LOCATION
 /* Set the EMIT_LINE_NOTE flag of a EXPR_WLF to 1 if debug information
    are requested. Works in the context of a parser rule. */
 #define JAVA_MAYBE_GENERATE_DEBUG_INFO(node)		\
-  (debug_info_level != DINFO_LEVEL_NONE ? 		\
-    EXPR_WFL_EMIT_LINE_NOTE (node) = 1, node : node)
+  do {if (debug_info_level != DINFO_LEVEL_NONE)	\
+      EXPR_WFL_EMIT_LINE_NOTE (node) = 1; } while (0)
+#endif
 
 /* Types classification, according to the JLS, section 4.2 */
 #define JFLOAT_TYPE_P(TYPE)      (TYPE && TREE_CODE ((TYPE)) == REAL_TYPE)
@@ -328,12 +349,12 @@ enum {
 /* Standard error messages */
 #define ERROR_CANT_CONVERT_TO_BOOLEAN(OPERATOR, NODE, TYPE)		\
   parse_error_context ((OPERATOR),					\
-    "Incompatible type for `%s'. Can't convert `%s' to boolean",	\
+    "Incompatible type for %qs. Can't convert %qs to boolean",	\
     operator_string ((NODE)), lang_printable_name ((TYPE),0))
 
 #define ERROR_CANT_CONVERT_TO_NUMERIC(OPERATOR, NODE, TYPE)		\
   parse_error_context ((OPERATOR),					\
-      "Incompatible type for `%s'. Can't convert `%s' to numeric type",	\
+      "Incompatible type for %qs. Can't convert %qs to numeric type",	\
       operator_string ((NODE)), lang_printable_name ((TYPE), 0))
 
 #define ERROR_CAST_NEEDED_TO_INTEGRAL(OPERATOR, NODE, TYPE)		\
@@ -341,19 +362,19 @@ do {									\
   tree _operator = (OPERATOR), _node = (NODE), _type = (TYPE);		\
   if (JPRIMITIVE_TYPE_P (_type))					\
     parse_error_context (_operator,					\
-"Incompatible type for `%s'. Explicit cast needed to convert `%s' to integral",\
+"Incompatible type for %qs. Explicit cast needed to convert %qs to integral",\
 			 operator_string(_node),			\
 			 lang_printable_name (_type, 0));		\
   else									\
     parse_error_context (_operator,					\
-      "Incompatible type for `%s'. Can't convert `%s' to integral",	\
+      "Incompatible type for %qs. Can't convert %qs to integral",	\
 			 operator_string(_node),			\
 			 lang_printable_name (_type, 0));		\
 } while (0)
 
 #define ERROR_VARIABLE_NOT_INITIALIZED(WFL, V)			\
   parse_error_context						\
-    ((WFL), "Variable `%s' may not have been initialized",	\
+    ((WFL), "Variable %qs may not have been initialized",	\
      IDENTIFIER_POINTER (V))
 
 /* Definition for loop handling. This is Java's own definition of a
@@ -478,7 +499,7 @@ enum jdep_code {
 typedef struct _jdep {
   ENUM_BITFIELD(jdep_code) kind : 8; /* Type of patch */
 
-  int  flag0 : 1;		/* Some flags */
+  unsigned int  flag0 : 1;	/* Some flags */
   tree decl;			/* Tied decl/or WFL */
   tree solv;			/* What to solve */
   tree wfl;			/* Where thing to resolve where found */
@@ -609,30 +630,16 @@ typedef struct jdeplist_s jdeplist;
 #define GET_CURRENT_BLOCK(F) ((F) ? DECL_FUNCTION_BODY ((F)) :	\
 			     current_static_block)
 
-/* Merge an other line to the source line number of a decl. Used to
-   remember function's end. */
-#define DECL_SOURCE_LINE_MERGE(DECL,NO) DECL_SOURCE_LINE(DECL) |= (NO << 16)
-
-/* Retrieve those two info separately. */
-#define DECL_SOURCE_LINE_FIRST(DECL)    (DECL_SOURCE_LINE(DECL) & 0x0000ffff)
-#define DECL_SOURCE_LINE_LAST(DECL)     (DECL_SOURCE_LINE(DECL) >> 16)
-
+#ifndef USE_MAPPED_LOCATION
 /* Retrieve line/column from a WFL. */
 #define EXPR_WFL_GET_LINECOL(V,LINE,COL)	\
   {						\
      (LINE) = (V) >> 12;			\
      (COL) = (V) & 0xfff;			\
    }
-/* Add X to the column number information */
-#define EXPR_WFL_ADD_COL(V, X)					\
-  (V) = (((V) & 0xfffff000) | ((((V) & 0xfff) + (X)) & 0xfff))
+#endif
 
-/* Build a WFL for expression nodes */
-#define BUILD_EXPR_WFL(NODE, WFL)					\
-  build_expr_wfl ((NODE), input_filename, EXPR_WFL_LINENO ((WFL)), 	\
-		  EXPR_WFL_COLNO ((WFL)))
-
-#define EXPR_WFL_QUALIFICATION(WFL) TREE_OPERAND ((WFL), 2)
+#define EXPR_WFL_QUALIFICATION(WFL) TREE_OPERAND ((WFL), 1)
 #define QUAL_WFL(NODE) TREE_PURPOSE (NODE)
 #define QUAL_RESOLUTION(NODE) TREE_VALUE (NODE)
 #define QUAL_DECL_TYPE(NODE) GET_SKIP_TYPE (NODE)
@@ -671,17 +678,24 @@ typedef struct jdeplist_s jdeplist;
 #define BUILD_THROW(WHERE, WHAT)				\
   {								\
     (WHERE) = 							\
-      build (CALL_EXPR, void_type_node,				\
-	     build_address_of (throw_node),			\
-	     build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);	\
+      build3 (CALL_EXPR, void_type_node,			\
+	      build_address_of (throw_node),			\
+	      build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);	\
     TREE_SIDE_EFFECTS ((WHERE)) = 1;				\
   }
 
 /* Set wfl_operator for the most accurate error location */
+#ifdef USE_MAPPED_LOCATION
+#define SET_WFL_OPERATOR(WHICH, NODE, WFL)		\
+  SET_EXPR_LOCATION (WHICH,				\
+    (TREE_CODE (WFL) == EXPR_WITH_FILE_LOCATION ?	\
+     EXPR_LOCATION (WFL) : EXPR_LOCATION (NODE)))
+#else
 #define SET_WFL_OPERATOR(WHICH, NODE, WFL)		\
   EXPR_WFL_LINECOL (WHICH) =				\
     (TREE_CODE (WFL) == EXPR_WITH_FILE_LOCATION ?	\
      EXPR_WFL_LINECOL (WFL) : EXPR_WFL_LINECOL (NODE))
+#endif
 
 #define PATCH_METHOD_RETURN_ERROR()		\
   {						\
@@ -697,6 +711,14 @@ typedef struct jdeplist_s jdeplist;
       java_check_abstract_methods ((CLASS));	\
     else					\
       java_check_regular_methods ((CLASS));	\
+  }
+
+#define CLEAR_DEPRECATED  ctxp->deprecated = 0
+
+#define CHECK_DEPRECATED_NO_RESET(DECL)		\
+  {						\
+    if (ctxp->deprecated)			\
+      DECL_DEPRECATED (DECL) = 1;		\
   }
 
 /* Using and reseting the @deprecated tag flag */
@@ -723,23 +745,23 @@ typedef struct jdeplist_s jdeplist;
      
 /* Parser context data structure. */
 struct parser_ctxt GTY(()) {
-
-  const char *filename;		    /* Current filename */
+  const char *filename;		     /* Current filename */
+  location_t file_start_location;
+  location_t save_location;
   struct parser_ctxt *next;
 
-  java_lexer * GTY((skip (""))) lexer; /* Current lexer state */
+  java_lexer * GTY((skip)) lexer; /* Current lexer state */
   char marker_begining;		     /* Marker. Should be a sub-struct */
-  struct java_line * GTY ((skip (""))) p_line; /* Previous line */
-  struct java_line * GTY ((skip (""))) c_line; /* Current line */
-  java_lc elc;			     /* Error's line column info */
-  int ccb_indent;		     /* Keep track of {} indent, lexer */
-  int first_ccb_indent1;	     /* First { at ident level 1 */
-  int last_ccb_indent1;		     /* Last } at ident level 1 */
+  int ccb_indent;		     /* Number of unmatched { seen. */
+  /* The next two fields are only source_location if USE_MAPPED_LOCATION.
+     Otherwise, they are integer line number, but we can't have #ifdefs
+     in GTY structures. */
+  source_location first_ccb_indent1; /* First { at ident level 1 */
+  source_location last_ccb_indent1;  /* Last } at ident level 1 */
   int parser_ccb_indent;	     /* Keep track of {} indent, parser */
   int osb_depth;		     /* Current depth of [ in an expression */
   int osb_limit;		     /* Limit of this depth */
-  int * GTY ((skip (""))) osb_number; /* Keep track of ['s */
-  int lineno;			     /* Current lineno */
+  int * GTY ((skip)) osb_number; /* Keep track of ['s */
   char marker_end;		     /* End marker. Should be a sub-struct */
 
   /* The flags section */
@@ -762,8 +784,6 @@ struct parser_ctxt GTY(()) {
   tree class_type;		    /* Current class */
   tree function_decl;	            /* Current function decl, save/restore */
 
-  struct JCF * current_jcf;	    /* CU jcf */
-
   int prevent_ese;	            /* Prevent expression statement error */
 
   int formal_parameter_number;	    /* Number of parameters found */
@@ -773,7 +793,7 @@ struct parser_ctxt GTY(()) {
 
   /* These two lists won't survive file traversal */
   tree  class_list;		    /* List of classes in a CU */
-  jdeplist * GTY((skip (""))) classd_list; /* Classe dependencies in a CU */
+  jdeplist * GTY((skip)) classd_list; /* Classe dependencies in a CU */
   
   tree  current_parsed_class;	    /* Class currently parsed */
   tree  current_parsed_class_un;    /* Curr. parsed class unqualified name */
@@ -806,7 +826,7 @@ struct parser_ctxt GTY(()) {
    an inner class is pushed. After, use FIXME. */
 #define CPC_INNER_P() GET_CPC_LIST ()
 
-/* Get the currently parsed class DECL_TYPE node.  */
+/* The TYPE_DECL node of the class currently being parsed.  */
 #define GET_CPC() TREE_VALUE (GET_CPC_LIST ())
 
 /* Get the currently parsed class unqualified IDENTIFIER_NODE.  */
@@ -841,7 +861,7 @@ struct parser_ctxt GTY(()) {
 	    != TYPE_NAME (TREE_TYPE (TREE_TYPE (current_this))))	      \
 	&& !inherits_from_p (TREE_TYPE (TREE_TYPE (current_this)),	      \
 			     TREE_TYPE (DECL_CONTEXT (TYPE_NAME (T))))	      \
-        && !common_enclosing_context_p (TREE_TYPE (TREE_TYPE (current_this)), \
+        && !common_enclosing_instance_p (TREE_TYPE (TREE_TYPE (current_this)),\
 					(T))                                  \
 	&& INNER_CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (current_this)))          \
 	&& !inherits_from_p                                                   \
@@ -909,37 +929,38 @@ struct parser_ctxt GTY(()) {
     TREE_PURPOSE (CPC_INSTANCE_INITIALIZER_LIST (C)) = (S);
 
 /* This is used by the lexer to communicate with the parser.  It is
-   set on an integer constant if the radix is 10, so that the parser
+   set on an integer constant if the radix is NOT 10, so that the parser
    can correctly diagnose a numeric overflow.  */
-#define JAVA_RADIX10_FLAG(NODE) TREE_LANG_FLAG_0(NODE)
+#define JAVA_NOT_RADIX10_FLAG(NODE) TREE_LANG_FLAG_0(NODE)
 
 #ifndef JC1_LITE
-void java_complete_class PARAMS ((void));
-void java_check_circular_reference PARAMS ((void));
-void java_fix_constructors PARAMS ((void));
-void java_layout_classes PARAMS ((void));
-void java_reorder_fields PARAMS ((void));
-tree java_method_add_stmt PARAMS ((tree, tree));
-int java_report_errors PARAMS ((void));
-extern tree do_resolve_class PARAMS ((tree, tree, tree, tree));
+void java_complete_class (void);
+void java_check_circular_reference (void);
+void java_fix_constructors (void);
+void java_layout_classes (void);
+void java_reorder_fields (void);
+tree java_method_add_stmt (tree, tree);
+int java_report_errors (void);
+extern tree do_resolve_class (tree, tree, tree, tree);
 #endif
-char *java_get_line_col PARAMS ((const char *, int, int));
-extern void reset_report PARAMS ((void));
+char *java_get_line_col (const char *, int, int);
+extern void reset_report (void);
 
 /* Always in use, no matter what you compile */
-void java_push_parser_context PARAMS ((void));
-void java_pop_parser_context PARAMS ((int));
-void java_init_lex PARAMS ((FILE *, const char *));
-extern void java_parser_context_save_global PARAMS ((void));
-extern void java_parser_context_restore_global PARAMS ((void));
-int yyparse PARAMS ((void));
-extern int java_parse PARAMS ((void));
-extern void yyerror PARAMS ((const char *))
+void java_push_parser_context (void);
+void java_pop_parser_context (int);
+void java_init_lex (FILE *, const char *);
+extern void java_parser_context_save_global (void);
+extern void java_parser_context_restore_global (void);
+int yyparse (void);
+extern int java_parse (void);
+extern void yyerror (const char *)
 #ifdef JC1_LITE
 ATTRIBUTE_NORETURN
 #endif
 ;
-extern void java_expand_classes PARAMS ((void));
+extern void java_expand_classes (void);
+extern void java_finish_classes (void);
 
 extern GTY(()) struct parser_ctxt *ctxp;
 extern GTY(()) struct parser_ctxt *ctxp_for_generation;

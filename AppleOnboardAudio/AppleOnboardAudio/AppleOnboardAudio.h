@@ -270,7 +270,8 @@ enum {
 
 class AppleOnboardAudio : public IOAudioDevice
 {
-    
+	friend class PlatformInterface;
+	
     OSDeclareDefaultStructors(AppleOnboardAudio);
 
 protected:
@@ -298,7 +299,11 @@ protected:
 	TransportInterface *				mTransportInterface;
 	AudioHardwareObjectInterface *		mCurrentOutputPlugin;				
 	AudioHardwareObjectInterface *		mCurrentInputPlugin;				
+
+#ifdef THREAD_POWER_MANAGEMENT
     thread_call_t						mPowerThread;
+#endif
+
 	thread_call_t						mInitHardwareThread;
 	bool								mTerminating;
 	bool								mClockSelectInProcessSemaphore;
@@ -510,6 +515,8 @@ public:
 	virtual void			notifyStreamFormatsPublished ( void );		//  [3743041]
 	
 	bool					getDoKPrintfPowerState () { return mDoKPrintfPowerState; }
+	
+	UInt32					getDetectCollection () { return mDetectCollection; }
 	
 protected:
 	// Do the link to the IOAudioFamily 

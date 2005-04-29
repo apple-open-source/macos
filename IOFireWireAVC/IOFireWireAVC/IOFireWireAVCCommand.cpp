@@ -26,6 +26,13 @@
 #include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/IOSyncer.h>
 
+#if FIRELOG
+#import <IOKit/firewire/IOFireLog.h>
+#define FIRELOG_MSG(x) FireLog x
+#else
+#define FIRELOG_MSG(x) do {} while (0)
+#endif
+
 #define kInterimTimeout 10000000
 
 class IOFireWireAVCCommandInGen : public IOFireWireAVCCommand
@@ -68,9 +75,12 @@ OSMetaClassDefineReservedUnused(IOFireWireAVCCommand, 3);
 */
 
 void IOFireWireAVCCommand::writeDone(void *refcon, IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd)
-{
+{	
     IOFireWireAVCCommand *me = (IOFireWireAVCCommand *)refcon;
-    if(status == kIOReturnSuccess) {
+
+    FIRELOG_MSG(("IOFireWireAVCCommand::writeDone (this=0x%08X)\n",me));
+
+	if(status == kIOReturnSuccess) {
         // Store current node and generation
         if(device)
             device->getNodeIDGeneration(me->fWriteGen, me->fWriteNodeID);
@@ -87,6 +97,8 @@ void IOFireWireAVCCommand::writeDone(void *refcon, IOReturn status, IOFireWireNu
 
 UInt32 IOFireWireAVCCommand::handleResponse(UInt16 nodeID, UInt32 len, const void *buf)
 {
+	FIRELOG_MSG(("IOFireWireAVCCommand::handleResponse (this=0x%08X)\n",this));
+
     const UInt8 *p;
     UInt32 i;
     UInt32 res = kFWResponseAddressError;
@@ -113,15 +125,17 @@ UInt32 IOFireWireAVCCommand::handleResponse(UInt16 nodeID, UInt32 len, const voi
         res = kFWResponseComplete;
     }
     else {
-        IOLog("%p: ------ Write not for me ----------\n", this);
-        IOLog("nodeID: %d-%d\n", nodeID, fWriteNodeID);
-        IOLog("Data: %x len %d\n", (unsigned int) *(const UInt32 *)buf, (int)len);
+        //IOLog("%p: ------ Write not for me ----------\n", this);
+        //IOLog("nodeID: %d-%d\n", nodeID, fWriteNodeID);
+        //IOLog("Data: %x len %d\n", (unsigned int) *(const UInt32 *)buf, (int)len);
     }
     return res;
 }
 
 void IOFireWireAVCCommand::free()
 {
+	FIRELOG_MSG(("IOFireWireAVCCommand::free (this=0x%08X)\n",this));
+
     if (fWriteCmd) {
         fWriteCmd->release();
     }
@@ -133,6 +147,8 @@ void IOFireWireAVCCommand::free()
 
 IOReturn IOFireWireAVCCommand::complete(IOReturn state)
 {
+	FIRELOG_MSG(("IOFireWireAVCCommand::complete (this=0x%08X)\n",this));
+
     if(state == kIOFireWireBusReset && fWriteNodeID == kFWBadNodeID)
             state = kIOReturnOffline;		// Write was 'retry on bus reset', so device must have gone.
 
@@ -165,6 +181,8 @@ IOReturn IOFireWireAVCCommand::complete(IOReturn state)
 
 IOReturn IOFireWireAVCCommand::execute()
 {
+	FIRELOG_MSG(("IOFireWireAVCCommand::execute (this=0x%08X)\n",this));
+
     fStatus = kIOReturnBusy;
     fWriteCmd->submit();
     return fStatus;
@@ -172,6 +190,8 @@ IOReturn IOFireWireAVCCommand::execute()
 
 IOReturn IOFireWireAVCCommand::resetInterimTimeout()
 {
+	FIRELOG_MSG(("IOFireWireAVCCommand::resetInterimTimeout (this=0x%08X)\n",this));
+
     // Reinitialize the timeout if we're waiting for the final response after an interim.
     // Must check internal state with FireWire command gate closed.
 	fControl->closeGate();
@@ -185,6 +205,8 @@ IOReturn IOFireWireAVCCommand::resetInterimTimeout()
 bool IOFireWireAVCCommand::init(IOFireWireNub *device, const UInt8 * command, UInt32 cmdLen,
                                                     UInt8 * response, UInt32 * responseLen)
 {
+	FIRELOG_MSG(("IOFireWireAVCCommand::init (this=0x%08X)\n",this));
+
     FWAddress addr;
 
     // setup quad write
@@ -238,6 +260,8 @@ bool IOFireWireAVCCommand::init(IOFireWireNub *device, const UInt8 * command, UI
 IOReturn IOFireWireAVCCommand::reinit(IOFireWireNub *device, const UInt8 * command, UInt32 cmdLen,
                                                     UInt8 * response, UInt32 * responseLen)
 {
+	FIRELOG_MSG(("IOFireWireAVCCommand::reinit (this=0x%08X)\n",this));
+
     if(Busy())
         return fStatus;
     if(fMem) {
@@ -259,7 +283,10 @@ IOFireWireAVCCommand::withNub(IOFireWireNub *device, const UInt8 * command, UInt
                                                     UInt8 * response, UInt32 * responseLen)
 {
     IOFireWireAVCCommand *me = new IOFireWireAVCCommand;
-    if(me) {
+
+	FIRELOG_MSG(("IOFireWireAVCCommand::withNub (this=0x%08X)\n",me));
+
+	if(me) {
         if(!me->init(device, command, cmdLen, response, responseLen)) {
             me->release();
             me = NULL;
@@ -272,8 +299,13 @@ IOFireWireAVCCommand *
 IOFireWireAVCCommand::withNub(IOFireWireNub *device, UInt32 generation,
             const UInt8 * command, UInt32 cmdLen, UInt8 * response, UInt32 * responseLen)
 {
+
     IOFireWireAVCCommandInGen *me = new IOFireWireAVCCommandInGen;
-    if(me) {
+
+	FIRELOG_MSG(("IOFireWireAVCCommand::withNub (this=0x%08X)\n",me));
+
+
+	if(me) {
         if(!me->init(device, generation, command, cmdLen, response, responseLen)) {
             me->release();
             me = NULL;
@@ -292,6 +324,8 @@ OSMetaClassDefineReservedUnused(IOFireWireAVCCommandInGen, 3);
 
 IOReturn IOFireWireAVCCommandInGen::complete(IOReturn state)
 {
+	FIRELOG_MSG(("IOFireWireAVCCommandInGen::complete (this=0x%08X)\n",this));
+	
     state = IOFWCommand::complete(state);
 
     // If write was sent successfully but response wasn't received - try again
@@ -321,6 +355,8 @@ IOReturn IOFireWireAVCCommandInGen::complete(IOReturn state)
 bool IOFireWireAVCCommandInGen::init(IOFireWireNub *device, UInt32 generation,
             const UInt8 * command, UInt32 cmdLen, UInt8 * response, UInt32 * responseLen)
 {
+	FIRELOG_MSG(("IOFireWireAVCCommandInGen::init (this=0x%08X)\n",this));
+
     FWAddress addr;
     UInt32 dummyGen;
     IOFireWireController *control;
@@ -383,6 +419,8 @@ bool IOFireWireAVCCommandInGen::init(IOFireWireNub *device, UInt32 generation,
 IOReturn IOFireWireAVCCommandInGen::reinit(IOFireWireNub *device, UInt32 generation,
             const UInt8 * command, UInt32 cmdLen, UInt8 * response, UInt32 * responseLen)
 {
+	FIRELOG_MSG(("IOFireWireAVCCommandInGen::reinit (this=0x%08X)\n",this));
+
     if(Busy())
         return fStatus;
     if(fMem) {

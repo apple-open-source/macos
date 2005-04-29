@@ -5,7 +5,7 @@
 # change any of the CASE_ macros, make the change here and rerun the command
 # shown in VTparse.h.
 #
-# $XFree86: xc/programs/xterm/VTparse.def,v 3.13 2002/12/08 22:31:47 dickey Exp $
+# $XFree86: xc/programs/xterm/VTparse.def,v 3.14 2003/12/31 17:12:26 dickey Exp $
 #
 
 CASE_GROUND_STATE
@@ -129,3 +129,4 @@ CASE_DECEFR
 CASE_DECSLE
 CASE_CSI_IGNORE
 CASE_VT52_IGNORE
+CASE_VT52_FINISH

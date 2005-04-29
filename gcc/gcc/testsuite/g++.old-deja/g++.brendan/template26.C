@@ -1,4 +1,4 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed templates
 class V {
  public:
@@ -18,10 +18,10 @@ template <int I> class BB : public virtual V {
   BB(int);
   };
 
-template <int I> AA<I>::AA() {};
-template <int I> AA<I>::AA(int i): V(i) {};
-template <int I> BB<I>::BB() {};
-template <int I> BB<I>::BB(int i) {};
+template <int I> AA<I>::AA() {}
+template <int I> AA<I>::AA(int i): V(i) {}
+template <int I> BB<I>::BB() {}
+template <int I> BB<I>::BB(int i) {}
 
 class CC : public AA<1>, public BB<2> {
  public:

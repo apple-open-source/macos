@@ -1,6 +1,6 @@
-## $XFree86: xc/programs/xterm/Makefile.in,v 3.40 2002/03/26 01:46:39 dickey Exp $ ##
+## $XFree86: xc/programs/xterm/Makefile.in,v 3.45 2003/12/31 17:12:25 dickey Exp $ ##
 ##
-## Copyright 2002 by Thomas E. Dickey
+## Copyright 2002,2003 by Thomas E. Dickey
 ##
 ##                         All Rights Reserved
 ##
@@ -27,7 +27,9 @@ SHELL		= /bin/sh
 
 srcdir		= @srcdir@
 VPATH  		= @srcdir@
-x		= #@PROG_EXT@
+
+x		= @EXEEXT@
+o		= .@OBJEXT@
 
 CC		= @CC@
 CPP		= @CPP@
@@ -36,6 +38,7 @@ LINK		= $(CC) $(CFLAGS)
 
 INSTALL		= @INSTALL@
 INSTALL_PROGRAM	= @INSTALL_PROGRAM@
+INSTALL_SCRIPT	= @INSTALL_SCRIPT@
 INSTALL_DATA	= @INSTALL_DATA@
 transform	= @program_transform_name@
 
@@ -54,9 +57,9 @@ prefix		= @prefix@
 exec_prefix	= @exec_prefix@
 
 manext		= 1
-bindir		= $(exec_prefix)/bin
-libdir		= $(exec_prefix)/lib
-mandir		= $(prefix)/man/man$(manext)
+bindir		= @bindir@
+libdir		= @libdir@
+mandir		= @mandir@/man$(manext)
 appsdir		= $(libdir)/X11/app-defaults
 
 #### End of system configuration section. ####
@@ -82,13 +85,13 @@ EXTRAOBJ	= @EXTRAOBJS@
 		  $(MAINSRC) menu.c misc.c print.c ptydata.c \
 		  screen.c scrollbar.c tabs.c util.c xstrings.c \
 		  VTPrsTbl.c $(EXTRASRC)
-          OBJS1 = button.o charproc.o charsets.o cursor.o \
-	  	  data.o doublechr.o fontutils.o input.o \
-		  main.o menu.o misc.o print.o ptydata.o \
-		  screen.o scrollbar.o tabs.o util.o xstrings.o \
-		  VTPrsTbl.o $(EXTRAOBJ)
+          OBJS1 = button$o charproc$o charsets$o cursor$o \
+	  	  data$o doublechr$o fontutils$o input$o \
+		  main$o menu$o misc$o print$o ptydata$o \
+		  screen$o scrollbar$o tabs$o util$o xstrings$o \
+		  VTPrsTbl$o $(EXTRAOBJ)
           SRCS2 = resize.c xstrings.c
-          OBJS2 = resize.o xstrings.o
+          OBJS2 = resize$o xstrings$o
            SRCS = $(SRCS1) $(SRCS2)
            OBJS = $(OBJS1) $(OBJS2)
            HDRS = VTparse.h data.h error.h main.h menu.h proto.h \
@@ -99,7 +102,7 @@ all:	$(PROGRAMS)
 
 .SUFFIXES : .i .def .hin
 
-.c.o:
+.c$o:
 @RULE_CC@
 	@ECHO_CC@$(CC) $(CPPFLAGS) $(CFLAGS) -c $(srcdir)/$*.c
 
@@ -110,10 +113,10 @@ all:	$(PROGRAMS)
 .def.hin:
 	grep '^CASE_' $< | $(AWK) '{printf "#define %s %d\n", $$1, n++}' >$@
 
-main.o : main.h version.h
+main$o : main.h version.h
 
 $(OBJS1) : xterm.h ptyx.h xtermcfg.h
-main.o resize.o screen.o : xterm_io.h
+main$o resize$o screen$o : xterm_io.h
 
 xterm$x : $(OBJS1)
 	@ECHO_LD@$(LINK) $(LDFLAGS) -o $@ $(OBJS1) $(X_LIBS) $(X_EXTRA_LIBS) $(LIBS) $(EXTRA_LOADFLAGS)
@@ -129,7 +132,7 @@ resize$x : $(OBJS2)
 	-rm -f $@
 	perl $(srcdir)/88colres.pl > $@
 
-charproc.o : main.h @CHARPROC_DEPS@
+charproc$o : main.h @CHARPROC_DEPS@
 
 TRANSFORM = sed 's/$x$$//'|sed '$(transform)'|sed 's/$$/$x/'
 actual_xterm  = `echo xterm|    sed '$(transform)'`
@@ -143,7 +146,7 @@ install-bin \
 install-full :: xterm$x resize$x $(BINDIR)
 	$(SHELL) $(srcdir)/sinstall.sh "$(INSTALL_PROGRAM)" xterm$x  @XTERM_PATH@ $(BINDIR)/$(binary_xterm)
 	$(INSTALL_PROGRAM) -s -m  755 resize$x $(BINDIR)/$(binary_resize)
-	$(INSTALL_PROGRAM) -m  755 $(srcdir)/uxterm $(BINDIR)/$(binary_uxterm)
+	$(INSTALL_SCRIPT) -m  755 $(srcdir)/uxterm $(BINDIR)/$(binary_uxterm)
 
 install \
 install-man \
@@ -194,7 +197,7 @@ uninstall:
 	-$(RM) $(APPSDIR)/UXTerm
 
 mostlyclean:
-	-$(RM) *.[ois] XtermLog.* .pure core *~ *.bak *.BAK *.out *.tmp
+	-$(RM) *$o *.[is] XtermLog.* .pure core *~ *.bak *.BAK *.out *.tmp
 
 clean: mostlyclean
 	-$(RM) $(PROGRAMS)
@@ -203,7 +206,10 @@ distclean: clean
 	-$(RM) Makefile config.status config.cache config.log xtermcfg.h
 
 realclean: distclean
-	-$(RM) tags TAGS ctlseqs.ps
+	-$(RM) tags TAGS ctlseqs.ps ctlseqs.txt
+
+ctlseqs.txt : ctlseqs.ms
+	tbl ctlseqs.ms | nroff -ms >$@
 
 ctlseqs.ps : ctlseqs.ms
 	tbl ctlseqs.ms | groff -ms >$@

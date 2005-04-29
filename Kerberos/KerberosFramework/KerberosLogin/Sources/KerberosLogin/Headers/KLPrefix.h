@@ -1,7 +1,7 @@
 /*
  * KLPrefix.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLPrefix.h,v 1.7 2003/07/11 18:15:40 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLPrefix.h,v 1.8 2004/10/04 17:46:52 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -51,6 +51,7 @@
 #include <mach-o/dyld.h>
 #include <nameser.h>
 #include <resolv.h>
+#include <pthread.h>
 
 #include <mach/mach.h>
 #include <mach/mach_error.h>

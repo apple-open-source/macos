@@ -1,6 +1,6 @@
 ; libgcc routines for ARC cpu.
 
-/* Copyright (C) 1995, 1997 Free Software Foundation, Inc.
+/* Copyright (C) 1995, 1997,2004 Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -22,7 +22,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -89,8 +89,12 @@ ___umulsidi3:
 	nop
 	beq.nd .Ldone
 	and.f 0,r0,1		; if (a & 1)
-	add.nz r4,r4,r1		; r += b
-	adc.nz r3,r3,r2
+	cmp r0,0
+	nop
+	beq .Ldontadd
+	add.f r4,r4,r1		; r += b
+	adc   r3,r3,r2
+.Ldontadd:
 	lsr r0,r0		; a >>= 1
 	lsl.f r1,r1		; b <<= 1
 	b.d .Lloop

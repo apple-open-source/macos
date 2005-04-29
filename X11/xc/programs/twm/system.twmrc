@@ -9,7 +9,7 @@
 # users were accustomed to uwm, the defaults could be set up not to decorate
 # any windows and to use meta-keys.
 #
-# $XFree86: xc/programs/twm/system.twmrc,v 1.4 2001/01/17 23:45:08 dawes Exp $
+# $XFree86: xc/programs/twm/system.twmrc,v 1.5 2003/08/04 10:32:30 eich Exp $
 #
 
 NoGrabServer
@@ -31,6 +31,7 @@ Color
     TitleForeground "gray85"
     MenuBackground "rgb:2/a/9"
     MenuForeground "gray85"
+    MenuBorderColor "slategrey"
     MenuTitleBackground "gray70"
     MenuTitleForeground "rgb:2/a/9"
     IconBackground "rgb:2/a/9"

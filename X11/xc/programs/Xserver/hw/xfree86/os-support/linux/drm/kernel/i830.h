@@ -77,6 +77,12 @@
 	[DRM_IOCTL_NR(DRM_IOCTL_I830_GETPARAM)] = { i830_getparam,  1, 0 }, \
 	[DRM_IOCTL_NR(DRM_IOCTL_I830_SETPARAM)] = { i830_setparam,  1, 0 } 
 
+#define DRIVER_PCI_IDS							\
+	{0x8086, 0x3577, 0, "Intel i830M GMCH"},			\
+	{0x8086, 0x2562, 0, "Intel i845G GMCH"},			\
+	{0x8086, 0x3582, 0, "Intel i852GM/i855GM GMCH"},		\
+	{0, 0, 0, NULL}
+
 #define __HAVE_COUNTERS         4
 #define __HAVE_COUNTER6         _DRM_STAT_IRQ
 #define __HAVE_COUNTER7         _DRM_STAT_PRIMARY
@@ -87,14 +93,18 @@
  */
 #define __HAVE_RELEASE		1
 #define DRIVER_RELEASE() do {						\
-	i830_reclaim_buffers( dev, priv->pid );				\
+	i830_reclaim_buffers( filp );					\
+} while (0)
+
+#define DRIVER_PRETAKEDOWN() do {					\
+	i830_dma_cleanup( dev );					\
 } while (0)
 
 /* DMA customization:
  */
 #define __HAVE_DMA		1
 #define __HAVE_DMA_QUEUE	1
-#define __HAVE_DMA_WAITLIST	1
+#define __HAVE_DMA_WAITLIST	0
 #define __HAVE_DMA_RECLAIM	1
 
 #define __HAVE_DMA_QUIESCENT	1
@@ -107,43 +117,15 @@
  * the card, but are subject to subtle interactions between bios,
  * hardware and the driver.
  */
+/* XXX: Add vblank support? */
 #define USE_IRQS 0
 
-
 #if USE_IRQS
-#define __HAVE_DMA_IRQ		1
+#define __HAVE_IRQ		1
 #define __HAVE_SHARED_IRQ	1
-
-#define DRIVER_PREINSTALL() do {			\
-	drm_i830_private_t *dev_priv =			\
-		(drm_i830_private_t *)dev->dev_private;	\
-							\
-   	I830_WRITE16( I830REG_HWSTAM, 0xffff );	\
-        I830_WRITE16( I830REG_INT_MASK_R, 0x0 );	\
-      	I830_WRITE16( I830REG_INT_ENABLE_R, 0x0 );	\
-} while (0)
-
-
-#define DRIVER_POSTINSTALL() do {				\
-	drm_i830_private_t *dev_priv =				\
-		(drm_i830_private_t *)dev->dev_private;		\
-   	I830_WRITE16( I830REG_INT_ENABLE_R, 0x2 );		\
-   	atomic_set(&dev_priv->irq_received, 0);			\
-   	atomic_set(&dev_priv->irq_emitted, 0);			\
-	init_waitqueue_head(&dev_priv->irq_queue);		\
-} while (0)
-
-
-/* This gets called too late to be useful: dev_priv has already been
- * freed.
- */
-#define DRIVER_UNINSTALL() do {					\
-} while (0)
-
 #else
-#define __HAVE_DMA_IRQ          0
+#define __HAVE_IRQ		0
 #endif
-
 
 
 /* Buffer customization:

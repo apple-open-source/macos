@@ -320,7 +320,7 @@ void IOBasicOutputQueue::serviceThread(void * param)
 // Add a single packet, or a chain of packets, to the queue object.
 // This method can support multiple clients threads.
 
-UInt32 IOBasicOutputQueue::enqueue(struct mbuf * m, void * param)
+UInt32 IOBasicOutputQueue::enqueue(mbuf_t m, void * param)
 {
     bool success;
 
@@ -422,7 +422,7 @@ void IOBasicOutputQueue::dequeue()
 
 void IOBasicOutputQueue::output(IOMbufQueue * queue, UInt32 * state)
 {
-    struct mbuf * pkt;
+    mbuf_t pkt;
     UInt32        status;
 
     do {
@@ -522,7 +522,7 @@ bool IOBasicOutputQueue::stop()
     
     QUEUE_UNLOCK;
 
-    thread_block((void (*)(void)) 0);
+    thread_block((void (*)(void*, int)) 0);
 
     return wasRunning;
 }
@@ -571,12 +571,12 @@ bool IOBasicOutputQueue::service(UInt32 options)
 UInt32 IOBasicOutputQueue::flush()
 {
     UInt32 flushCount;
-
+	mbuf_t m;
     QUEUE_LOCK;
-    flushCount = IOMbufFree( IOMbufQueueDequeueAll( _inQueue ) );
-    OSAddAtomic(flushCount, (SInt32 *) &_stats->dropCount);
+    m = IOMbufQueueDequeueAll( _inQueue );
     QUEUE_UNLOCK;
-
+    flushCount = IOMbufFree(m); 
+	OSAddAtomic(flushCount, (SInt32 *) &_stats->dropCount);
     return flushCount;
 }
 
@@ -784,7 +784,9 @@ void IOGatedOutputQueue::free()
 
     if (_gate)
     {
-        _gate->release();
+        IOWorkLoop *wl = _gate->getWorkLoop();
+		if(wl) wl->removeEventSource(_gate);
+		_gate->release();
         _gate = 0;
     }
 
@@ -807,7 +809,7 @@ void IOGatedOutputQueue::gatedOutput(OSObject *          /* owner */,
                                      IOMbufQueue *        queue,
                                      UInt32 *             state)
 {
-    struct mbuf * pkt;
+    mbuf_t pkt;
     UInt32        status;
 
     do {

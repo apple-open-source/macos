@@ -24,7 +24,7 @@ OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
-/* $XFree86: xc/lib/X11/XKBExtDev.c,v 3.4 2001/10/28 03:32:33 tsi Exp $ */
+/* $XFree86: xc/lib/X11/XKBExtDev.c,v 3.5 2003/11/17 22:20:09 dawes Exp $ */
 
 #include <stdio.h>
 #define NEED_REPLIES
@@ -38,16 +38,9 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 /***====================================================================***/
 
 extern	void
-#if NeedFunctionPrototypes
 XkbNoteDeviceChanges(	XkbDeviceChangesPtr		old,
 			XkbExtensionDeviceNotifyEvent *	new,
 			unsigned int			wanted)
-#else
-XkbNoteDeviceChanges(old,new,wanted)
-    XkbDeviceChangesPtr			old;
-    XkbExtensionDeviceNotifyEvent *	new;
-    unsigned int			wanted;
-#endif
 {
     if ((!old)||(!new)||(!wanted)||((new->reason&wanted)==0))
 	return;
@@ -114,16 +107,9 @@ XkbNoteDeviceChanges(old,new,wanted)
 /***====================================================================***/
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadDeviceLedInfo(	XkbReadBufferPtr	buf,
 			unsigned 		present,
 			XkbDeviceInfoPtr 	devi)
-#else
-_XkbReadDeviceLedInfo(buf,present,devi)
-    XkbReadBufferPtr	buf;
-    unsigned		present;
-    XkbDeviceInfoPtr	devi;
-#endif
 {
 register unsigned	i,bit;
 XkbDeviceLedInfoPtr	devli;
@@ -179,16 +165,9 @@ xkbDeviceLedsWireDesc *	wireli;
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadGetDeviceInfoReply(	Display *		dpy,
 				xkbGetDeviceInfoReply *	rep,
 				XkbDeviceInfoPtr	devi)
-#else
-_XkbReadGetDeviceInfoReply(dpy,rep,devi)
-    Display *			dpy;
-    xkbGetDeviceInfoReply *	rep;
-    XkbDeviceInfoPtr		devi;
-#endif
 {
 XkbReadBufferRec	buf;
 XkbAction *		act;
@@ -236,20 +215,11 @@ BAILOUT:
 }
 
 XkbDeviceInfoPtr
-#if NeedFunctionPrototypes
 XkbGetDeviceInfo(	Display *	dpy,
 			unsigned 	which,
 			unsigned 	deviceSpec,
 			unsigned 	class,
 			unsigned 	id)
-#else
-XkbGetDeviceInfo(dpy,which,deviceSpec,class,id)
-    Display *	dpy;
-    unsigned	which;
-    unsigned	deviceSpec;
-    unsigned	class;
-    unsigned	id;
-#endif
 {
     register xkbGetDeviceInfoReq *	req;
     xkbGetDeviceInfoReply	 	rep;
@@ -294,16 +264,9 @@ XkbGetDeviceInfo(dpy,which,deviceSpec,class,id)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetDeviceInfoChanges(	Display *		dpy,
 				XkbDeviceInfoPtr 	devi,
 				XkbDeviceChangesPtr	changes)
-#else
-XkbGetDeviceInfoChanges(dpy,devi,changes)
-    Display *		dpy;
-    XkbDeviceInfoPtr	devi;
-    XkbDeviceChangesPtr	changes;
-#endif
 {
     register xkbGetDeviceInfoReq *	req;
     xkbGetDeviceInfoReply	 	rep;
@@ -361,20 +324,11 @@ XkbGetDeviceInfoChanges(dpy,devi,changes)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetDeviceButtonActions(	Display *		dpy,
 				XkbDeviceInfoPtr	devi,
 				Bool			all,
 				unsigned int		first,
 				unsigned int		num)
-#else
-XkbGetDeviceButtonActions(dpy,devi,all,first,num)
-    Display *		dpy;
-    XkbDeviceInfoPtr	devi;
-    Bool		all;
-    unsigned int	first;
-    unsigned int	num;
-#endif
 {
     register xkbGetDeviceInfoReq *	req;
     xkbGetDeviceInfoReply	 	rep;
@@ -411,20 +365,11 @@ XkbGetDeviceButtonActions(dpy,devi,all,first,num)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetDeviceLedInfo(	Display *		dpy,
 			XkbDeviceInfoPtr	devi,
 			unsigned int		ledClass,
 			unsigned int		ledId,
 			unsigned int		which)
-#else
-XkbGetDeviceLedInfo(dpy,devi,ledClass,ledId,which)
-    Display *		dpy;
-    XkbDeviceInfoPtr	devi;
-    unsigned int	ledClass;
-    unsigned int	ledId;
-    unsigned int	which;
-#endif
 {
     register xkbGetDeviceInfoReq *	req;
     xkbGetDeviceInfoReply	 	rep;
@@ -478,14 +423,7 @@ typedef struct _SetLedStuff {
 } SetLedStuff;
 
 static void
-#if NeedFunctionPrototypes
 _InitLedStuff(SetLedStuff *stuff,unsigned wanted,XkbDeviceInfoPtr devi)
-#else
-_InitLedStuff(stuff,wanted,devi)
-    SetLedStuff	 *	stuff;
-    unsigned		wanted;
-    XkbDeviceInfoPtr	devi;
-#endif
 {
 int				i;
 register XkbDeviceLedInfoPtr	devli;
@@ -517,12 +455,7 @@ register XkbDeviceLedInfoPtr	devli;
 }
 
 static void
-#if NeedFunctionPrototypes
 _FreeLedStuff(SetLedStuff *stuff)
-#else
-_FreeLedStuff(stuff)
-    SetLedStuff	*stuff;
-#endif
 {
     if ((stuff->num_info>0)&&(stuff->info!=NULL))
 	_XkbFree(stuff->info);
@@ -531,13 +464,7 @@ _FreeLedStuff(stuff)
 }
 
 static int
-#if NeedFunctionPrototypes
 _XkbSizeLedInfo(unsigned changed,XkbDeviceLedInfoPtr devli)
-#else
-_XkbSizeLedInfo(changed,devli)
-    unsigned		changed;
-    XkbDeviceLedInfoPtr	devli;
-#endif
 {
 register int i,size;
 register unsigned bit,namesNeeded,mapsNeeded;
@@ -560,18 +487,10 @@ register unsigned bit,namesNeeded,mapsNeeded;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 _SizeMatches(	SetLedStuff *		stuff,
 		XkbDeviceLedChangesPtr 	changes,
 		int *			sz_rtrn,
 		int *			nleds_rtrn)
-#else
-_SizeMatches(stuff,changes,sz_rtrn,nleds_rtrn)
-    SetLedStuff *		stuff;
-    XkbDeviceLedChangesPtr	changes;
-    int *			sz_rtrn;
-    int *			nleds_rtrn;
-#endif
 {
 int		i,nMatch,class,id;
 LedInfoStuff *	linfo;
@@ -613,20 +532,11 @@ Bool		match;
 
 
 static Status
-#if NeedFunctionPrototypes
 _XkbSetDeviceInfoSize(	XkbDeviceInfoPtr	devi,
 			XkbDeviceChangesPtr	changes,
 			SetLedStuff *		stuff,
 			int *			sz_rtrn,
 			int *			num_leds_rtrn)
-#else
-_XkbSetDeviceInfoSize(devi,changes,stuff,sz_rtrn,num_leds_rtrn)
-    XkbDeviceInfoPtr	devi;
-    XkbDeviceChangesPtr	changes;
-    SetLedStuff *	stuff;
-    int *		sz_rtrn;
-    int *		num_leds_rtrn;
-#endif
 {
     *sz_rtrn= 0;
     if ((changes->changed&XkbXI_ButtonActionsMask)&&(changes->num_btns>0)) {
@@ -655,14 +565,7 @@ _XkbSetDeviceInfoSize(devi,changes,stuff,sz_rtrn,num_leds_rtrn)
 }
 
 static char *
-#if NeedFunctionPrototypes
 _XkbWriteLedInfo(char *wire,unsigned changed,XkbDeviceLedInfoPtr devli)
-#else
-_XkbWriteLedInfo(wire,changed,devli)
-    char *			wire;
-    unsigned			changed;
-    XkbDeviceLedInfoPtr		devli;
-#endif
 {
 register int 		i;
 register unsigned 	bit,namesNeeded,mapsNeeded;
@@ -719,18 +622,10 @@ xkbDeviceLedsWireDesc *	lwire;
 
 
 static int
-#if NeedFunctionPrototypes
 _XkbWriteSetDeviceInfo(	char *			wire,
 			XkbDeviceChangesPtr	changes,
 			SetLedStuff *		stuff,
 			XkbDeviceInfoPtr	devi)
-#else
-_XkbWriteSetDeviceInfo(wire,changes,stuff,devi)
-    char *			wire;
-    XkbDeviceChangesPtr		changes;
-    SetLedStuff *		stuff;
-    XkbDeviceInfoPtr		devi;
-#endif
 {
 char *start;
 
@@ -759,16 +654,9 @@ char *start;
 }
 
 Bool
-#if NeedFunctionPrototypes
 XkbSetDeviceInfo(	Display *		dpy,
 			unsigned 		which,
 			XkbDeviceInfoPtr	devi)
-#else
-XkbSetDeviceInfo(dpy,which,devi)
-    Display *		dpy;
-    unsigned 		which;
-    XkbDeviceInfoPtr	devi;
-#endif
 {
     register xkbSetDeviceInfoReq *req;
     Status		     	ok = 0;
@@ -821,16 +709,9 @@ XkbSetDeviceInfo(dpy,which,devi)
 }
 
 Bool
-#if NeedFunctionPrototypes
 XkbChangeDeviceInfo(	Display *		dpy,
 			XkbDeviceInfoPtr	devi,
 			XkbDeviceChangesPtr	changes)
-#else
-XkbChangeDeviceInfo(dpy,devi,changes)
-    Display *		dpy;
-    XkbDeviceInfoPtr	devi;
-    XkbDeviceChangesPtr	changes;
-#endif
 {
     register xkbSetDeviceInfoReq *req;
     Status		     	ok = 0;
@@ -876,37 +757,20 @@ XkbChangeDeviceInfo(dpy,devi,changes)
 }
 
 Bool 
-#if NeedFunctionPrototypes
 XkbSetDeviceLedInfo(	Display *		dpy,
 			XkbDeviceInfoPtr	devi,
 			unsigned 		ledClass,
 			unsigned		ledID,
 			unsigned		which)
-#else
-XkbSetDeviceLedInfo(dpy,devi,ledClass,ledID,which)
-    Display *		dpy;
-    XkbDeviceInfoPtr	devi;
-    unsigned 		ledClass;
-    unsigned		ledID;
-    unsigned		which;
-#endif
 {
     return False;
 }
 
 Bool 
-#if NeedFunctionPrototypes
 XkbSetDeviceButtonActions(	Display *		dpy,
 				XkbDeviceInfoPtr 	devi,
 				unsigned int		first,
 				unsigned int		nBtns)
-#else
-XkbSetDeviceButtonActions(dpy,devi,first,nBtns)
-	Display *		dpy;
-	XkbDeviceInfoPtr	devi;
-	unsigned int		first;
-	unsigned int		nBtns;
-#endif
 {
     register xkbSetDeviceInfoReq *req;
     Status		     	ok = 0;

@@ -21,7 +21,7 @@
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810context.h,v 1.9 2002/12/16 16:18:51 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810context.h,v 1.10 2003/09/28 20:15:11 alanh Exp $ */
 
 #ifndef I810CONTEXT_INC
 #define I810CONTEXT_INC
@@ -29,8 +29,6 @@
 typedef struct i810_context_t i810Context;
 typedef struct i810_context_t *i810ContextPtr;
 typedef struct i810_texture_object_t *i810TextureObjectPtr;
-
-#include <X11/Xlibint.h>
 
 #include "mtypes.h"
 #include "mm.h"
@@ -83,12 +81,14 @@ struct i810_context_t {
    GLint refcount;   
    GLcontext *glCtx;
 
-   /* Textures
+   /* Texture object bookkeeping
     */
-   i810TextureObjectPtr CurrentTexObj[2];
-   struct i810_texture_object_t TexObjList;
-   struct i810_texture_object_t SwappedOut; 
-   memHeap_t *texHeap;
+   unsigned              nr_heaps;
+   driTexHeap          * texture_heaps[1];
+   driTextureObject      swapped;
+
+   struct i810_texture_object_t *CurrentTexObj[2];
+
 
    /* Bit flag to keep track of fallbacks.
     */
@@ -109,7 +109,7 @@ struct i810_context_t {
    GLenum render_primitive;
    GLenum reduced_primitive;
    GLuint hw_primitive;
-   char *verts;
+   GLubyte *verts;
 
    drmBufPtr  vertex_buffer;
    char *vertex_addr;
@@ -167,7 +167,8 @@ struct i810_context_t {
    int texAge;
    int ctxAge;
    int dirtyAge;
-
+  
+ 
    GLboolean scissor;
    XF86DRIClipRectRec draw_rect;
    XF86DRIClipRectRec scissor_rect;
@@ -175,7 +176,6 @@ struct i810_context_t {
    drmContext hHWContext;
    drmLock *driHwLock;
    int driFd;
-   Display *display;
 
    __DRIdrawablePrivate *driDrawable;
    __DRIscreenPrivate *driScreen;
@@ -230,5 +230,27 @@ extern void i810XMesaSetFrontClipRects( i810ContextPtr imesa );
 #define SUBPIXEL_X -.5
 #define SUBPIXEL_Y -.5
 
+/* ================================================================
+ * Debugging:
+ */
+#define DO_DEBUG		1
+#if DO_DEBUG
+extern int I810_DEBUG;
+#else
+#define I810_DEBUG		0
+#endif
+
+#define DEBUG_TEXTURE	0x1
+#define DEBUG_STATE	0x2
+#define DEBUG_IOCTL	0x4
+#define DEBUG_PRIMS	0x8
+#define DEBUG_VERTS	0x10
+#define DEBUG_FALLBACKS	0x20
+#define DEBUG_VERBOSE	0x40
+#define DEBUG_DRI       0x80
+#define DEBUG_DMA       0x100
+#define DEBUG_SANITY    0x200
+#define DEBUG_SYNC      0x400
+#define DEBUG_SLEEP     0x800
 
 #endif

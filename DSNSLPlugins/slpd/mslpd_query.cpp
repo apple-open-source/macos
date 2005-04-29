@@ -107,8 +107,11 @@ typedef struct ServiceLocationHeader{
 			 char	byte16;
 } ServiceLocationHeader, *ServiceLocationHeaderPtr;
 
+#ifdef ENABLE_SLP_LOGGING
 #define QERR(s,err)  { SLP_LOG( SLP_LOG_DROP,(s)); return NULL; }
-
+#else
+#define QERR(s,err) { return NULL; }
+#endif
 /* ------------------------------------------------------------------------- */
 void CheckPRListAgainstOurKnownDAs( const char* prList );
 
@@ -180,11 +183,15 @@ int store_request(SAState *psa, SLPBoolean viaTCP, Slphdr *pslphdr, const char *
 	{
 		if ((err = srvrqst_in(pslphdr,pcInBuf,iInSz,&pcPRList, &pcSrvtype,&pcSList,&pcPred))<0)
 		{
+#ifdef ENABLE_SLP_LOGGING
 			SLP_LOG( SLP_LOG_DROP,"store_request: drop request due to parse in error" );
+#endif
 		}
 		else if (on_PRList(psa,pcPRList))
 		{
+#ifdef ENABLE_SLP_LOGGING
 			SLP_LOG( SLP_LOG_DROP,"store_request: drop request which is on my PRList" );
+#endif
 			result = -1;
 		}
 		else
@@ -196,7 +203,9 @@ int store_request(SAState *psa, SLPBoolean viaTCP, Slphdr *pslphdr, const char *
 		#ifdef MAC_OS_X
 				if ( AreWeADirectoryAgent() )	/* if we are running as a DA, then we need to return our DAAdvert */
 				{
-					LOG( SLP_LOG_DA,"handling a service:directory-agent type request" );
+#ifdef ENABLE_SLP_LOGGING
+					SLPLOG( SLP_LOG_DA,"handling a service:directory-agent type request" );
+#endif
 					err = daadvert_out( psa, viaTCP, pslphdr, ppcOutBuf, piOutSz );
 	
 					if (err == SLP_OK)
@@ -214,7 +223,7 @@ int store_request(SAState *psa, SLPBoolean viaTCP, Slphdr *pslphdr, const char *
 			else if ( !SDstrcasecmp(pcSrvtype,"service:service-agent") )
 			{
 			#ifdef EXTRA_MSGS
-				LOG(SLP_LOG_SA,"store_request: handling a service:service-agent type request");
+				SLPLOG(SLP_LOG_SA,"store_request: handling a service:service-agent type request");
 				/* handle a sa discovery request here */
 				err = saadvert_out(psa,pslphdr,ppcOutBuf, piOutSz);
 		
@@ -358,13 +367,14 @@ void CheckPRListAgainstOurKnownDAs( const char* prList )
         }
     }
     
+#ifdef ENABLE_SLP_LOGGING
     if ( globalDAList && globalDAList[0] && pcTemp )
     {
         SLP_LOG( SLP_LOG_DA, "Unknown DA's: %s", globalDAList );
         
         SLP_LOG( SLP_LOG_DA, "Known DA's (%d):%s", pdat->iSize, pcTemp );
     }
-    
+#endif    
     UnlockGlobalDATable();
 #endif    
 }
@@ -648,8 +658,9 @@ static SLPInternalError use_mask(SAStore *ps,
     
     if (!list_intersection(pcRqstSList, pcSASList))
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DROP, "use_mask returning SLP_SCOPE_NOT_SUPPORTED, requestScope: %s SAScopeList: %s", pcRqstSList?pcRqstSList:"", pcSASList?pcSASList:"" );
-            
+#endif            
         return SLP_SCOPE_NOT_SUPPORTED;
     }
   
@@ -661,22 +672,27 @@ static SLPInternalError use_mask(SAStore *ps,
         {
             if ((err = match_langtag(pcLangTag,ps->lang[i]))==0)
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DROP, "use_mask match_langtag no match, pcLangTag: %s ps->lang[%d]: %s", pcLangTag?pcLangTag:"", i, ps->lang[i]?ps->lang[i]:"" );
-                
+#endif                
                 continue;
             }
         }
         
         if (err<0 || ((err=match_srvtype(pcSrvtype,ps->srvtype[i]))==0))
         { 
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DROP, "use_mask err: %d, or match_srvtype no match, pcSrvtype: %s ps->srvtype[%d]: %s", err, pcSrvtype?pcSrvtype:"", i, ps->srvtype[i]?ps->srvtype[i]:"" );
+#endif
             continue;
         }
         
         /* some services may be registered with a subset of the SA's scopes */
         if (!list_intersection(pcRqstSList,ps->scope[i]))
         {
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DROP, "use_mask scope: %s doesn't match ps->scope[%d]: %s", pcRqstSList?pcRqstSList:"", i, ps->scope[i]?ps->scope[i]:"" );
+#endif
             continue;
         }
         
@@ -892,7 +908,7 @@ static SLPInternalError handle_query(SAStore *ps, const char *pcSAScopeList,
           } else { /* set the previous frame to have the right updated mask */
             stack_prev(pQS)->pmask = pmTemp;
             if (stack_pop(pQS) == NULL) {
-	      LOG(SLP_LOG_ERR,"handle_query: unexpected NULL query stack frame");
+	      SLPLOG(SLP_LOG_ERR,"handle_query: unexpected NULL query stack frame");
 	    }
           }
           
@@ -1224,8 +1240,10 @@ static int op(SAStore *ps,int i,char *pcTag,MSLPQToktype ttOp,MSLPQToken tok) {
         return 1; /* just being here satisfies 'presense' */
 
       if (ps->values[i][j].type != tok.type) {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DROP,
 	    "op: rqst where attr value type != registered attr type"); 
+#endif
         continue;
       }
             
@@ -1386,7 +1404,9 @@ static MSLPQToktype delim2Toktype(char c, const char *pcNext) {
   case '<': if (*pcNext == '=') return LE_TOK; else return ERR_TOK;
   case '>': if (*pcNext == '=') return GE_TOK; else return ERR_TOK;
   default:
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG,"delim2Toktype: bad delim - should never get here");
+#endif
     return ERR_TOK; /* should never get here */
   }
 }
@@ -1414,162 +1434,220 @@ static MSLPQToktype delim2Toktype(char c, const char *pcNext) {
 static void next_token(MSLPQToken tokPrev, MSLPQToken *ptok,
                        const char *pcQuery, int *piIndex)
 {
-  char *pc;
-  char c;
-  MSLPQToktype tt;
-  
-  switch (tokPrev.type) {
-    
-    /* "(" then ( '&' '|' '!' <tag>) */
-  case INIT_TOK: 
-  case AND_TOK:
-  case OR_TOK: 
-  case NOT_TOK:
-    pc = get_next_string("(",pcQuery,piIndex,&c);
-    if (pc != NULL || c != '(') {
-      SLP_LOG( SLP_LOG_DROP,"next_token: no leading '('");
-      ptok->type = ERR_TOK;
-      ptok->val.i = SLP_PARSE_ERROR;
-    } else {
-      ptok->type = INPAREN_TOK;
-      if (pc) SLPFree((void*)pc);
-    }
-    break;
-    
-    /* ( '&' '|' '!' ) or <tag> then ( <= = ~= >= =* ) 
-       Here we get the tag or logical operator.  We will to check the
-       next operator, since we get it anyway.  Then we back off from it,
-       to allow the TAG_TOK state to handle the operator if it is a leaf. */
-  case INPAREN_TOK:
-    pc = get_next_string("&|!=<>~",pcQuery,piIndex,&c);
-    /* be careful not to overrun pcQuery getting next c */
-    tt = delim2Toktype(c,&pcQuery[*piIndex]);
-    if (tt == AND_TOK || tt == OR_TOK || tt == NOT_TOK) {
-      ptok->type = tt;
-    } else if (pc && (tt==EQ_TOK || tt==LE_TOK || tt==GE_TOK || tt==IS_TOK ||
-                      tt==APPROX_TOK)) {
-      ptok->type = TAG_TOK;
-      ptok->val.pc = safe_malloc(strlen(pc)+1,pc,strlen(pc));
-      assert( ptok->val.pc );
-      
-      /* back up from the operator so it will get parsed next */
-      *piIndex -= 1; 
-    } else { 
-      SLP_LOG( SLP_LOG_DROP,"next_token: illegal first tok after '('");
-      ptok->type = ERR_TOK;
-      ptok->val.i = SLP_PARSE_ERROR;
-    }
-    SLPFree((void*)pc);
-    break;
-    
-    /* '=' then '*' or ('<' '>' '~') then '=' */
-  case TAG_TOK: 
-    pc = get_next_string("<=>~",pcQuery,piIndex,&c);
-    /* be careful not to overrun pcQuery getting next c */
-    tt = delim2Toktype(c,&pcQuery[*piIndex]);
-    if (!pc && tt==EQ_TOK ) {
-      ptok->type = tt;
-    } else if (!pc &&
-               (tt==LE_TOK || tt==GE_TOK || tt==IS_TOK || tt==APPROX_TOK)){
-      if (tt==APPROX_TOK) tt = EQ_TOK; /* we handle approx as '=' */
-      ptok->type = tt;
-      *piIndex += 1;
-    } else { 
-      SLP_LOG( SLP_LOG_DROP,"next_token: illegal operator after 'tag'");
-      ptok->type = ERR_TOK;
-      ptok->val.i = SLP_PARSE_ERROR;
-    }
-    SLPFree((void*)pc);
-    break;
-    
-    /* as per AND_TOK or ')' then '(' or ')' then ')' or ')' then zip or zip */
-  case OUTPAREN_TOK:
-    
-    pc = get_next_string("()",pcQuery,piIndex,&c);
-    if (!pc && c=='\0') ptok->type = TERM_TOK;
-    else if (!pc && c == ')') ptok->type = OUTPAREN_TOK;
-    else if (!pc && c == '(') ptok->type = INPAREN_TOK;
-    else {
-      ptok->type = ERR_TOK;
-      ptok->val.i= SLP_PARSE_ERROR;
-      if (pc) SLPFree((void*)pc);
-    }
-    break;
+	char *pc;
+	char c;
+	MSLPQToktype tt;
 
-  case IS_TOK:
-    {
-      pc = get_next_string(")",pcQuery,piIndex,&c);
-      if (pc || c != ')') {
-        ptok->type = ERR_TOK;
-        ptok->val.i = SLP_PARSE_ERROR;
-      } else {
-        ptok->type = OUTPAREN_TOK;
-      }
-    }
-    break;
+	switch (tokPrev.type) 
+	{
+		/* "(" then ( '&' '|' '!' <tag>) */
+		case INIT_TOK: 
+		case AND_TOK:
+		case OR_TOK: 
+		case NOT_TOK:
+		{
+			pc = get_next_string("(",pcQuery,piIndex,&c);
+			if (pc != NULL || c != '(') 
+			{
+			#ifdef ENABLE_SLP_LOGGING
+				SLP_LOG( SLP_LOG_DROP,"next_token: no leading '('");
+			#endif
+				ptok->type = ERR_TOK;
+				ptok->val.i = SLP_PARSE_ERROR;
+			} 
+			else
+			{
+				ptok->type = INPAREN_TOK;
+			}
+			SLPFree((void*)pc);
+		}
+		break;
 
-    /* <val> then ')' */
-  case EQ_TOK:
-  case LE_TOK:
-  case GE_TOK:
-    {
-      Values v;
-      Val    val;
-      int err;
-      v.pval = &val;
-      pc = get_next_string(")",pcQuery,piIndex,&c); /* advance & test */
-      if (c != ')' || pc == NULL) {
-        ptok->type = ERR_TOK;
-        ptok->val.i = SLP_PARSE_ERROR;
-        if (pc) SLPFree((void*)pc);
-      } else {
-        char *pcFinger = pc;
-	int offset = 0;
-        err = (SLPInternalError) fill_value(&v,0,pcFinger,&offset);
-        ptok->type = (MSLPQToktype) v.type;	    
-        if (err) {
-          ptok->type = ERR_TOK;
-          ptok->val.i= err;
-          SLPFree((void*)pc);
-        } else if (v.type == TYPE_BOOL || v.type == TYPE_INT) {
-          ptok->val.i = v.pval->v_i;
-          SLPFree((void*)pc);
-        } else if (v.type == TYPE_OPAQUE) {
-          ptok->val.pc = v.pval->v_pc;
-        } else if (v.type == TYPE_STR) {
-          ptok->val.pc = list_pack(v.pval->v_pc); /* elide spaces */
-          SLPFree(v.pval->v_pc);
-        } else {
-          ptok->type = ERR_TOK;
-          ptok->val.i= SLP_PARSE_ERROR;
-          SLPFree((void*)pc);
-        }
-      }
-    }
-    break;
-    
-    /* ')' must come next */
-  case INT_TOK:
-  case STR_TOK:
-  case BOOL_TOK:
-  case OPQ_TOK:
-    
-    pc = get_next_string(")",pcQuery,piIndex,&c);
-    if (pc || c != ')') {
-      ptok->type = ERR_TOK;
-      ptok->val.i= SLP_PARSE_ERROR;
-      if (pc) SLPFree((void*)pc);
-    } else {
-      ptok->type = OUTPAREN_TOK;
-    }
-    break;
-    
-  default:
-    SLP_LOG( SLP_LOG_DROP,"next_tok: unexpected previous token");
-    ptok->type = ERR_TOK;
-    ptok->val.i= SLP_PARSE_ERROR;
-    break;
-  }
+		/* ( '&' '|' '!' ) or <tag> then ( <= = ~= >= =* ) 
+		   Here we get the tag or logical operator.  We will to check the
+		   next operator, since we get it anyway.  Then we back off from it,
+		   to allow the TAG_TOK state to handle the operator if it is a leaf. */
+		case INPAREN_TOK:
+		{
+			pc = get_next_string("&|!=<>~",pcQuery,piIndex,&c);
+			/* be careful not to overrun pcQuery getting next c */
+			tt = delim2Toktype(c,&pcQuery[*piIndex]);
+			if (tt == AND_TOK || tt == OR_TOK || tt == NOT_TOK) 
+			{
+				ptok->type = tt;
+			} 
+			else if (pc && (tt==EQ_TOK || tt==LE_TOK || tt==GE_TOK || tt==IS_TOK ||
+							  tt==APPROX_TOK)) 
+			{
+				ptok->type = TAG_TOK;
+				ptok->val.pc = safe_malloc(strlen(pc)+1,pc,strlen(pc));
+				assert( ptok->val.pc );
+
+				/* back up from the operator so it will get parsed next */
+				*piIndex -= 1; 
+			}
+			else
+			{ 
+			#ifdef ENABLE_SLP_LOGGING
+				SLP_LOG( SLP_LOG_DROP,"next_token: illegal first tok after '('");
+			#endif
+				ptok->type = ERR_TOK;
+				ptok->val.i = SLP_PARSE_ERROR;
+			}
+			SLPFree((void*)pc);
+		}
+		break;
+
+		/* '=' then '*' or ('<' '>' '~') then '=' */
+		case TAG_TOK: 
+		{
+			pc = get_next_string("<=>~",pcQuery,piIndex,&c);
+			/* be careful not to overrun pcQuery getting next c */
+			tt = delim2Toktype(c,&pcQuery[*piIndex]);
+			if (!pc && tt==EQ_TOK ) 
+			{
+				ptok->type = tt;
+			} 
+			else if (!pc && (tt==LE_TOK || tt==GE_TOK || tt==IS_TOK || tt==APPROX_TOK))
+			{
+				if (tt==APPROX_TOK)
+					tt = EQ_TOK; /* we handle approx as '=' */
+
+				ptok->type = tt;
+				*piIndex += 1;
+			} 
+			else
+			{ 
+			#ifdef ENABLE_SLP_LOGGING
+				SLP_LOG( SLP_LOG_DROP,"next_token: illegal operator after 'tag'");
+			#endif
+				ptok->type = ERR_TOK;
+				ptok->val.i = SLP_PARSE_ERROR;
+			}
+			SLPFree((void*)pc);
+		}
+		break;
+
+		/* as per AND_TOK or ')' then '(' or ')' then ')' or ')' then zip or zip */
+		case OUTPAREN_TOK:
+		{
+			pc = get_next_string("()",pcQuery,piIndex,&c);
+			if (!pc && c=='\0') 
+			{
+				ptok->type = TERM_TOK;
+			}
+			else if (!pc && c == ')')
+			{
+				ptok->type = OUTPAREN_TOK;
+			}
+			else if (!pc && c == '(')
+			{
+				ptok->type = INPAREN_TOK;
+			}
+			else 
+			{
+				ptok->type = ERR_TOK;
+				ptok->val.i= SLP_PARSE_ERROR;
+			}
+			SLPFree((void*)pc);
+		}
+		break;
+
+		case IS_TOK:
+		{
+			pc = get_next_string(")",pcQuery,piIndex,&c);
+			if (pc || c != ')') 
+			{
+				ptok->type = ERR_TOK;
+				ptok->val.i = SLP_PARSE_ERROR;
+			} 
+			else
+			{
+				ptok->type = OUTPAREN_TOK;
+			}
+			SLPFree((void*)pc);
+		}
+		break;
+
+		/* <val> then ')' */
+		case EQ_TOK:
+		case LE_TOK:
+		case GE_TOK:
+		{
+			Values	v;
+			Val		val;
+			int		err;
+			v.pval = &val;
+			pc = get_next_string(")",pcQuery,piIndex,&c); /* advance & test */
+			if (c != ')' || pc == NULL) 
+			{
+				ptok->type = ERR_TOK;
+				ptok->val.i = SLP_PARSE_ERROR;
+			} 
+			else
+			{
+				char *pcFinger = pc;
+				int offset = 0;
+				err = (SLPInternalError) fill_value(&v,0,pcFinger,&offset);
+				ptok->type = (MSLPQToktype) v.type;	    
+				if (err) 
+				{
+					ptok->type = ERR_TOK;
+					ptok->val.i= err;
+				} 
+				else if (v.type == TYPE_BOOL || v.type == TYPE_INT) 
+				{
+					ptok->val.i = v.pval->v_i;
+				} 
+				else if (v.type == TYPE_OPAQUE) 
+				{
+					ptok->val.pc = v.pval->v_pc;
+				} 
+				else if (v.type == TYPE_STR) 
+				{
+					ptok->val.pc = list_pack(v.pval->v_pc); /* elide spaces */
+					SLPFree(v.pval->v_pc);
+				}
+				else
+				{
+					ptok->type = ERR_TOK;
+					ptok->val.i= SLP_PARSE_ERROR;
+				}
+			}
+		}
+		SLPFree((void*)pc);
+		break;
+
+		/* ')' must come next */
+		case INT_TOK:
+		case STR_TOK:
+		case BOOL_TOK:
+		case OPQ_TOK:
+		{
+			pc = get_next_string(")",pcQuery,piIndex,&c);
+			if (pc || c != ')') 
+			{
+				ptok->type = ERR_TOK;
+				ptok->val.i= SLP_PARSE_ERROR;
+			} 
+			else 
+			{
+				ptok->type = OUTPAREN_TOK;
+			}
+			SLPFree((void*)pc);
+		}
+		break;
+
+		default:
+		{
+			#ifdef ENABLE_SLP_LOGGING
+			SLP_LOG( SLP_LOG_DROP,"next_tok: unexpected previous token");
+			#endif
+			ptok->type = ERR_TOK;
+			ptok->val.i= SLP_PARSE_ERROR;
+		}
+		break;
+	}
 }
 
 /*

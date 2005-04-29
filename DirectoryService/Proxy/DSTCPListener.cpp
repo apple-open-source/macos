@@ -46,10 +46,6 @@
 // Globals
 //------------------------------------------------------------------------------
 
-//API logging
-extern dsBool				gLogAPICalls;
-extern time_t				gSunsetTime;
-
 //------------------------------------------------------------------------------
 // Static data members
 //------------------------------------------------------------------------------
@@ -230,16 +226,6 @@ long DSTCPListener::ThreadMain ( void )
 					CreateConnection();
 				}
 
-				//sunset value on the logging of API calls if it accidentally gets turned on or never turned off
-				if ( gLogAPICalls )
-				{
-					if (::time( nil ) > gSunsetTime)
-					{
-						gLogAPICalls	= false;
-						syslog(LOG_INFO,"Logging of API Calls automatically turned OFF at reaching sunset duration of five minutes.");
-					}
-				}
-				
 				if ( GetThreadRunState() == kThreadStop )
 				{
 					done = true;

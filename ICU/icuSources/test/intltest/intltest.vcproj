@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding = "Windows-1252"?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="7.00"
+	Version="7.10"
 	Name="intltest"
 	SccProjectName=""
 	SccLocalPath="">
@@ -23,10 +23,11 @@
 				Optimization="0"
 				ImproveFloatingPointConsistency="TRUE"
 				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="..\..\..\include,..\..\..\source\common,..\..\..\source\i18n,..\..\tools\toolutil"
-				PreprocessorDefinitions="WIN32,_DEBUG,_CONSOLE,UDATA_MAP_DLL"
+				AdditionalIncludeDirectories="..\..\..\include,..\..\..\source\common,..\..\..\source\i18n,..\..\tools\toolutil,..\..\tools\ctestfw"
+				PreprocessorDefinitions="WIN32,_DEBUG,_CONSOLE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
+				BufferSecurityCheck="TRUE"
 				DisableLanguageExtensions="TRUE"
 				PrecompiledHeaderFile=".\Debug/intltest.pch"
 				AssemblerListingLocation=".\Debug/"
@@ -41,15 +42,13 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="odbc32.lib odbccp32.lib"
 				OutputFile=".\Debug/intltest.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
-				AdditionalLibraryDirectories="..\..\..\lib"
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile=".\Debug/intltest.pdb"
-				SubSystem="1"/>
+				SubSystem="1"
+				FixedBaseAddress="1"/>
 			<Tool
 				Name="VCMIDLTool"
 				TypeLibraryName=".\Debug/intltest.tlb"/>
@@ -66,7 +65,13 @@
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
 				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
@@ -78,11 +83,14 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
+				Optimization="3"
 				InlineFunctionExpansion="2"
 				ImproveFloatingPointConsistency="TRUE"
-				AdditionalIncludeDirectories="..\..\..\include,..\..\..\source\common,..\..\..\source\i18n,..\..\tools\toolutil"
+				AdditionalIncludeDirectories="..\..\..\include,..\..\..\source\common,..\..\..\source\i18n,..\..\tools\toolutil,..\..\tools\ctestfw"
 				PreprocessorDefinitions="WIN32,NDEBUG,_CONSOLE"
+				StringPooling="TRUE"
 				RuntimeLibrary="0"
+				BufferSecurityCheck="TRUE"
 				DisableLanguageExtensions="TRUE"
 				PrecompiledHeaderFile=".\Release/intltest.pch"
 				AssemblerListingLocation=".\Release/"
@@ -90,18 +98,14 @@
 				ProgramDataBaseFileName=".\Release/"
 				WarningLevel="3"
 				SuppressStartupBanner="TRUE"
-				DebugInformationFormat="3"
 				CompileAs="0"/>
 			<Tool
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="odbc32.lib odbccp32.lib"
 				OutputFile=".\Release/intltest.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
-				AdditionalLibraryDirectories="..\..\..\lib"
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile=".\Release/intltest.pdb"
 				SubSystem="1"/>
@@ -121,9 +125,17 @@
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
 				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 	</Configurations>
+	<References>
+	</References>
 	<Files>
 		<Filter
 			Name="break iteration"
@@ -290,6 +302,16 @@
 			</File>
 		</Filter>
 		<Filter
+			Name="collections"
+			Filter="">
+			<File
+				RelativePath=".\v32test.cpp">
+			</File>
+			<File
+				RelativePath=".\v32test.h">
+			</File>
+		</Filter>
+		<Filter
 			Name="configuration"
 			Filter="">
 			<File
@@ -317,12 +339,6 @@
 				RelativePath=".\tsmthred.h">
 			</File>
 			<File
-				RelativePath=".\tsmutex.cpp">
-			</File>
-			<File
-				RelativePath=".\tsmutex.h">
-			</File>
-			<File
 				RelativePath=".\tsputil.cpp">
 			</File>
 			<File
@@ -342,6 +358,18 @@
 		<Filter
 			Name="formatting"
 			Filter="">
+			<File
+				RelativePath=".\astrotst.cpp">
+			</File>
+			<File
+				RelativePath=".\astrotst.h">
+			</File>
+			<File
+				RelativePath=".\calcasts.cpp">
+			</File>
+			<File
+				RelativePath=".\calcasts.h">
+			</File>
 			<File
 				RelativePath=".\callimts.cpp">
 			</File>
@@ -413,6 +441,12 @@
 			</File>
 			<File
 				RelativePath=".\itrbnf.h">
+			</File>
+			<File
+				RelativePath=".\itrbnfp.cpp">
+			</File>
+			<File
+				RelativePath=".\itrbnfp.h">
 			</File>
 			<File
 				RelativePath=".\itrbnfrt.cpp">
@@ -530,6 +564,37 @@
 			</File>
 		</Filter>
 		<Filter
+			Name="idna"
+			Filter="*.c,*.h">
+			<File
+				RelativePath=".\idnaref.cpp">
+			</File>
+			<File
+				RelativePath=".\idnaref.h">
+			</File>
+			<File
+				RelativePath=".\nptrans.cpp">
+			</File>
+			<File
+				RelativePath=".\nptrans.h">
+			</File>
+			<File
+				RelativePath=".\punyref.c">
+			</File>
+			<File
+				RelativePath=".\punyref.h">
+			</File>
+			<File
+				RelativePath=".\testidn.cpp">
+			</File>
+			<File
+				RelativePath=".\testidna.cpp">
+			</File>
+			<File
+				RelativePath=".\testidna.h">
+			</File>
+		</Filter>
+		<Filter
 			Name="locales &amp; resources"
 			Filter="">
 			<File
@@ -555,12 +620,6 @@
 			Name="misc"
 			Filter="">
 			<File
-				RelativePath=".\datamap.cpp">
-			</File>
-			<File
-				RelativePath=".\datamap.h">
-			</File>
-			<File
 				RelativePath=".\intltest.cpp">
 			</File>
 			<File
@@ -579,22 +638,22 @@
 				RelativePath=".\itutil.h">
 			</File>
 			<File
-				RelativePath=".\testdata.cpp">
-			</File>
-			<File
-				RelativePath=".\testdata.h">
-			</File>
-			<File
 				RelativePath=".\testutil.cpp">
 			</File>
 			<File
 				RelativePath=".\testutil.h">
 			</File>
 			<File
-				RelativePath=".\tstdtmod.cpp">
+				RelativePath=".\textfile.cpp">
 			</File>
 			<File
-				RelativePath=".\tstdtmod.h">
+				RelativePath=".\textfile.h">
+			</File>
+			<File
+				RelativePath=".\tokiter.cpp">
+			</File>
+			<File
+				RelativePath=".\tokiter.h">
 			</File>
 		</Filter>
 		<Filter
@@ -684,6 +743,18 @@
 			</File>
 			<File
 				RelativePath=".\ustrtest.cpp">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\ustrtest.h">
@@ -697,12 +768,6 @@
 			</File>
 			<File
 				RelativePath=".\cpdtrtst.h">
-			</File>
-			<File
-				RelativePath=".\hxuntrts.cpp">
-			</File>
-			<File
-				RelativePath=".\hxuntrts.h">
 			</File>
 			<File
 				RelativePath=".\ittrans.cpp">
@@ -740,53 +805,16 @@
 			<File
 				RelativePath=".\trnserr.h">
 			</File>
-			<File
-				RelativePath=".\ufltlgts.cpp">
-			</File>
-			<File
-				RelativePath=".\ufltlgts.h">
-			</File>
-			<File
-				RelativePath=".\unhxtrts.cpp">
-			</File>
-			<File
-				RelativePath=".\unhxtrts.h">
-			</File>
 		</Filter>
 		<Filter
-			Name="idna"
-			Filter="*.c,*.h">
-			<File
-				RelativePath=".\idnaref.cpp">
-			</File>
-			<File
-				RelativePath=".\idnaref.h">
-			</File>
-			<File
-				RelativePath=".\nptrans.cpp">
-			</File>
-			<File
-				RelativePath=".\nptrans.h">
-			</File>
-			<File
-				RelativePath=".\punyref.c">
-			</File>
-			<File
-				RelativePath=".\punyref.h">
-			</File>
-			<File
-				RelativePath=".\testidn.cpp">
-			</File>
-			<File
-				RelativePath=".\testidna.cpp">
-			</File>
-			<File
-				RelativePath=".\testidna.h">
-			</File>
-		</Filter>
-		<Filter
-			Name="collections"
+			Name="conversion"
 			Filter="">
+			<File
+				RelativePath=".\convtest.cpp">
+			</File>
+			<File
+				RelativePath=".\convtest.h">
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

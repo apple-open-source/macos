@@ -1,7 +1,7 @@
 #!/bin/perl -w
 #*******************************************************************
 # COPYRIGHT:
-# Copyright (c) 2002-2003, International Business Machines Corporation and
+# Copyright (c) 2002-2004, International Business Machines Corporation and
 # others. All Rights Reserved.
 #*******************************************************************
 
@@ -53,7 +53,7 @@ use FileHandle;
 use strict;
 use Dumpvalue;
 
-my $DEBUG = 0;
+my $DEBUG = 1;
 my $DUMPER = new Dumpvalue;
 
 my $count = @ARGV;
@@ -94,10 +94,6 @@ my %UNSUPPORTED = (Composition_Exclusion => 1,
                    Expands_On_NFKD => 1,
                    FC_NFKC_Closure => 1,
                    ID_Start_Exceptions => 1,
-                   NFC_Quick_Check => 1,
-                   NFD_Quick_Check => 1,
-                   NFKC_Quick_Check => 1,
-                   NFKD_Quick_Check => 1,
                    Special_Case_Condition => 1,
                    );
 
@@ -298,7 +294,7 @@ END
                 $i = $groupToInt{$groupString};
             } else {
                 my @names = split(/\|/, $groupString);
-                die "Error: Wrong number of names in " . $groupString if (@names != 2);
+                die "Error: Wrong number of names in " . $groupString if (@names < 2);
                 $i = @nameGroups; # index of group we are making 
                 $groupToInt{$groupString} = $i; # Cache for reuse
                 push @nameGroups, map { $stringToID{$_} } @names;
@@ -314,6 +310,7 @@ END
 
     print "int32_t NAME_GROUP[] = {\n";
     # emit one group per line, with annotations
+    my $max_names = 0;
     for (my $i=0; $i<@nameGroups; ) {
         my @a;
         my $line;
@@ -329,12 +326,14 @@ END
               ' 'x(20-length($line)),
               "/* ", sprintf("%3d", $start),
               ": \"", join("\", \"", map { $strings[$_] } @a), "\" */\n";
+        $max_names = @a if(@a > $max_names);
+          
     }
     print "};\n\n";
     
     # This is fixed for 3.2 at "2" but should be calculated dynamically
     # when more than 2 names appear in Property[Value]Aliases.txt.
-    print "#define MAX_NAMES_PER_GROUP 2\n\n";
+    print "#define MAX_NAMES_PER_GROUP $max_names\n\n";
 
     #------------------------------------------------------------
     # Emit enumerated property values
@@ -689,11 +688,14 @@ sub merge_PropertyValueAliases {
     }
 
     # Merge the combining class values in manually
+    # Add the same values to the synthetic lccc and tccc properties
     die "Error: No ccc data"
         unless exists $va->{'ccc'};
     for my $ccc (keys %{$va->{'ccc'}}) {
         die "Error: Can't overwrite ccc $ccc"
             if (exists $h->{'ccc'}->{$ccc});
+        $h->{'lccc'}->{$ccc} =
+        $h->{'tccc'}->{$ccc} =
         $h->{'ccc'}->{$ccc} = $va->{'ccc'}->{$ccc};
     }
     delete $va->{'ccc'};
@@ -1195,6 +1197,25 @@ sub read_uchar {
     }
 
     $in->close();
+
+    # hardcode known values for the normalization quick check properties
+    # see unorm.h for the UNormalizationCheckResult enum
+
+    addDatum($hash, 'NFC_QC', 'UNORM_NO',    'N');
+    addDatum($hash, 'NFC_QC', 'UNORM_YES',   'Y');
+    addDatum($hash, 'NFC_QC', 'UNORM_MAYBE', 'M');
+
+    addDatum($hash, 'NFKC_QC', 'UNORM_NO',    'N');
+    addDatum($hash, 'NFKC_QC', 'UNORM_YES',   'Y');
+    addDatum($hash, 'NFKC_QC', 'UNORM_MAYBE', 'M');
+
+    # no "maybe" values for NF[K]D
+
+    addDatum($hash, 'NFD_QC', 'UNORM_NO',    'N');
+    addDatum($hash, 'NFD_QC', 'UNORM_YES',   'Y');
+
+    addDatum($hash, 'NFKD_QC', 'UNORM_NO',    'N');
+    addDatum($hash, 'NFKD_QC', 'UNORM_YES',   'Y');
 
     $hash;
 }

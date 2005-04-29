@@ -1,4 +1,4 @@
-/*	$NetBSD: term.c,v 1.23 2000/09/04 22:06:32 lukem Exp $	*/
+/*	$NetBSD: term.c,v 1.35 2002/03/18 16:00:59 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,12 +36,22 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * term.c: Editor/termcap-curses interface
  *	   We have to declare a static variable here, since the
  *	   termcap putchar routine does not take an argument!
  */
-#include "sys.h"
+#include <stdio.h>
+#include <signal.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+
 #include "el.h"
 
 /*
@@ -59,8 +69,8 @@
 #define	Val(a)		el->el_term.t_val[a]
 
 #ifdef notdef
-private struct {
-	char *b_name;
+private const struct {
+	const char *b_name;
 	int b_rate;
 } baud_rate[] = {
 #ifdef B0
@@ -130,9 +140,9 @@ private struct {
 };
 #endif
 
-private struct termcapstr {
-	char *name;
-	char *long_name;
+private const struct termcapstr {
+	const char *name;
+	const char *long_name;
 } tstr[] = {
 #define	T_al	0
 	{ "al", "add new blank line" },
@@ -206,13 +216,17 @@ private struct termcapstr {
 	{ "RI", "cursor right multiple" },
 #define	T_UP	35
 	{ "UP", "cursor up multiple" },
-#define	T_str	36
+#define	T_kh	36
+	{ "kh", "send cursor home" },
+#define	T_at7	37
+	{ "@7", "send cursor end" },
+#define	T_str	38
 	{ NULL, NULL }
 };
 
-private struct termcapval {
-	char *name;
-	char *long_name;
+private const struct termcapval {
+	const char *name;
+	const char *long_name;
 } tval[] = {
 #define	T_am	0
 	{ "am", "has automatic margins" },
@@ -236,10 +250,10 @@ private struct termcapval {
 /* do two or more of the attributes use me */
 
 private void	term_setflags(EditLine *);
-private void	term_rebuffer_display(EditLine *);
+private int	term_rebuffer_display(EditLine *);
 private void	term_free_display(EditLine *);
-private void	term_alloc_display(EditLine *);
-private void	term_alloc(EditLine *, struct termcapstr *, char *);
+private int	term_alloc_display(EditLine *);
+private void	term_alloc(EditLine *, const struct termcapstr *, const char *);
 private void	term_init_arrow(EditLine *);
 private void	term_reset_arrow(EditLine *);
 
@@ -301,12 +315,22 @@ term_init(EditLine *el)
 {
 
 	el->el_term.t_buf = (char *) el_malloc(TC_BUFSIZE);
+	if (el->el_term.t_buf == NULL)
+		return (-1);
 	el->el_term.t_cap = (char *) el_malloc(TC_BUFSIZE);
-	el->el_term.t_fkey = (fkey_t *) el_malloc(4 * sizeof(fkey_t));
+	if (el->el_term.t_cap == NULL)
+		return (-1);
+	el->el_term.t_fkey = (fkey_t *) el_malloc(A_K_NKEYS * sizeof(fkey_t));
+	if (el->el_term.t_fkey == NULL)
+		return (-1);
 	el->el_term.t_loc = 0;
 	el->el_term.t_str = (char **) el_malloc(T_str * sizeof(char *));
+	if (el->el_term.t_str == NULL)
+		return (-1);
 	(void) memset(el->el_term.t_str, 0, T_str * sizeof(char *));
 	el->el_term.t_val = (int *) el_malloc(T_val * sizeof(int));
+	if (el->el_term.t_val == NULL)
+		return (-1);
 	(void) memset(el->el_term.t_val, 0, T_val * sizeof(int));
 	term_outfile = el->el_outfile;
 	(void) term_set(el, NULL);
@@ -337,7 +361,7 @@ term_end(EditLine *el)
  *	Maintain a string pool for termcap strings
  */
 private void
-term_alloc(EditLine *el, struct termcapstr *t, char *cap)
+term_alloc(EditLine *el, const struct termcapstr *t, const char *cap)
 {
 	char termbuf[TC_BUFSIZE];
 	int tlen, clen;
@@ -399,7 +423,7 @@ term_alloc(EditLine *el, struct termcapstr *t, char *cap)
 /* term_rebuffer_display():
  *	Rebuffer the display after the screen changed size
  */
-private void
+private int
 term_rebuffer_display(EditLine *el)
 {
 	coord_t *c = &el->el_term.t_size;
@@ -407,16 +431,18 @@ term_rebuffer_display(EditLine *el)
 	term_free_display(el);
 
 	c->h = Val(T_co);
-	c->v = (EL_BUFSIZ * 4) / c->h + 1;
+	c->v = Val(T_li);
 
-	term_alloc_display(el);
+	if (term_alloc_display(el) == -1)
+		return (-1);
+	return (0);
 }
 
 
 /* term_alloc_display():
  *	Allocate a new display.
  */
-private void
+private int
 term_alloc_display(EditLine *el)
 {
 	int i;
@@ -424,17 +450,27 @@ term_alloc_display(EditLine *el)
 	coord_t *c = &el->el_term.t_size;
 
 	b = (char **) el_malloc((size_t) (sizeof(char *) * (c->v + 1)));
-	for (i = 0; i < c->v; i++)
+	if (b == NULL)
+		return (-1);
+	for (i = 0; i < c->v; i++) {
 		b[i] = (char *) el_malloc((size_t) (sizeof(char) * (c->h + 1)));
+		if (b[i] == NULL)
+			return (-1);
+	}
 	b[c->v] = NULL;
 	el->el_display = b;
 
 	b = (char **) el_malloc((size_t) (sizeof(char *) * (c->v + 1)));
-	for (i = 0; i < c->v; i++)
+	if (b == NULL)
+		return (-1);
+	for (i = 0; i < c->v; i++) {
 		b[i] = (char *) el_malloc((size_t) (sizeof(char) * (c->h + 1)));
+		if (b[i] == NULL)
+			return (-1);
+	}
 	b[c->v] = NULL;
 	el->el_vdisplay = b;
-
+	return (0);
 }
 
 
@@ -613,7 +649,7 @@ mc_again:
  *	Overstrike num characters
  */
 protected void
-term_overwrite(EditLine *el, char *cp, int n)
+term_overwrite(EditLine *el, const char *cp, int n)
 {
 	if (n <= 0)
 		return;		/* catch bugs */
@@ -799,10 +835,7 @@ term_clear_screen(EditLine *el)
 protected void
 term_beep(EditLine *el)
 {
-
-	if (GoodStr(T_vb))
-		(void) tputs(Str(T_vb), 1, term__putc);	/* visible bell */
-	else if (GoodStr(T_bl))
+	if (GoodStr(T_bl))
 		/* what termcap says we should use */
 		(void) tputs(Str(T_bl), 1, term__putc);
 	else
@@ -829,12 +862,12 @@ term_clear_to_bottom(EditLine *el)
  *	Read in the terminal capabilities from the requested terminal
  */
 protected int
-term_set(EditLine *el, char *term)
+term_set(EditLine *el, const char *term)
 {
 	int i;
 	char buf[TC_BUFSIZE];
 	char *area;
-	struct termcapstr *t;
+	const struct termcapstr *t;
 	sigset_t oset, nset;
 	int lins, cols;
 
@@ -901,7 +934,8 @@ term_set(EditLine *el, char *term)
 
 				/* get the correct window size */
 	(void) term_get_size(el, &lins, &cols);
-	term_change_size(el, lins, cols);
+	if (term_change_size(el, lins, cols) == -1)
+		return (-1);
 	(void) sigprocmask(SIG_SETMASK, &oset, NULL);
 	term_bind_arrow(el);
 	return (i <= 0 ? -1 : 0);
@@ -948,7 +982,7 @@ term_get_size(EditLine *el, int *lins, int *cols)
 /* term_change_size():
  *	Change the size of the terminal
  */
-protected void
+protected int
 term_change_size(EditLine *el, int lins, int cols)
 {
 	/*
@@ -957,8 +991,11 @@ term_change_size(EditLine *el, int lins, int cols)
 	Val(T_co) = (cols < 2) ? 80 : cols;
 	Val(T_li) = (lins < 1) ? 24 : lins;
 
-	term_rebuffer_display(el);	/* re-make display buffers */
+	/* re-make display buffers */
+	if (term_rebuffer_display(el) == -1)
+		return (-1);
 	re_clear_display(el);
+	return (0);
 }
 
 
@@ -990,6 +1027,15 @@ term_init_arrow(EditLine *el)
 	arrow[A_K_RT].fun.cmd = ED_NEXT_CHAR;
 	arrow[A_K_RT].type = XK_CMD;
 
+	arrow[A_K_HO].name = "home";
+	arrow[A_K_HO].key = T_kh;
+	arrow[A_K_HO].fun.cmd = ED_MOVE_TO_BEG;
+	arrow[A_K_HO].type = XK_CMD;
+
+	arrow[A_K_EN].name = "end";
+	arrow[A_K_EN].key = T_at7;
+	arrow[A_K_EN].fun.cmd = ED_MOVE_TO_END;
+	arrow[A_K_EN].type = XK_CMD;
 }
 
 
@@ -1000,33 +1046,45 @@ private void
 term_reset_arrow(EditLine *el)
 {
 	fkey_t *arrow = el->el_term.t_fkey;
-	static char strA[] = {033, '[', 'A', '\0'};
-	static char strB[] = {033, '[', 'B', '\0'};
-	static char strC[] = {033, '[', 'C', '\0'};
-	static char strD[] = {033, '[', 'D', '\0'};
-	static char stOA[] = {033, 'O', 'A', '\0'};
-	static char stOB[] = {033, 'O', 'B', '\0'};
-	static char stOC[] = {033, 'O', 'C', '\0'};
-	static char stOD[] = {033, 'O', 'D', '\0'};
+	static const char strA[] = {033, '[', 'A', '\0'};
+	static const char strB[] = {033, '[', 'B', '\0'};
+	static const char strC[] = {033, '[', 'C', '\0'};
+	static const char strD[] = {033, '[', 'D', '\0'};
+	static const char strH[] = {033, '[', 'H', '\0'};
+	static const char strF[] = {033, '[', 'F', '\0'};
+	static const char stOA[] = {033, 'O', 'A', '\0'};
+	static const char stOB[] = {033, 'O', 'B', '\0'};
+	static const char stOC[] = {033, 'O', 'C', '\0'};
+	static const char stOD[] = {033, 'O', 'D', '\0'};
+	static const char stOH[] = {033, 'O', 'H', '\0'};
+	static const char stOF[] = {033, 'O', 'F', '\0'};
 
 	key_add(el, strA, &arrow[A_K_UP].fun, arrow[A_K_UP].type);
 	key_add(el, strB, &arrow[A_K_DN].fun, arrow[A_K_DN].type);
 	key_add(el, strC, &arrow[A_K_RT].fun, arrow[A_K_RT].type);
 	key_add(el, strD, &arrow[A_K_LT].fun, arrow[A_K_LT].type);
+	key_add(el, strH, &arrow[A_K_HO].fun, arrow[A_K_HO].type);
+	key_add(el, strF, &arrow[A_K_EN].fun, arrow[A_K_EN].type);
 	key_add(el, stOA, &arrow[A_K_UP].fun, arrow[A_K_UP].type);
 	key_add(el, stOB, &arrow[A_K_DN].fun, arrow[A_K_DN].type);
 	key_add(el, stOC, &arrow[A_K_RT].fun, arrow[A_K_RT].type);
 	key_add(el, stOD, &arrow[A_K_LT].fun, arrow[A_K_LT].type);
+	key_add(el, stOH, &arrow[A_K_HO].fun, arrow[A_K_HO].type);
+	key_add(el, stOF, &arrow[A_K_EN].fun, arrow[A_K_EN].type);
 
 	if (el->el_map.type == MAP_VI) {
 		key_add(el, &strA[1], &arrow[A_K_UP].fun, arrow[A_K_UP].type);
 		key_add(el, &strB[1], &arrow[A_K_DN].fun, arrow[A_K_DN].type);
 		key_add(el, &strC[1], &arrow[A_K_RT].fun, arrow[A_K_RT].type);
 		key_add(el, &strD[1], &arrow[A_K_LT].fun, arrow[A_K_LT].type);
+		key_add(el, &strH[1], &arrow[A_K_HO].fun, arrow[A_K_HO].type);
+		key_add(el, &strF[1], &arrow[A_K_EN].fun, arrow[A_K_EN].type);
 		key_add(el, &stOA[1], &arrow[A_K_UP].fun, arrow[A_K_UP].type);
 		key_add(el, &stOB[1], &arrow[A_K_DN].fun, arrow[A_K_DN].type);
 		key_add(el, &stOC[1], &arrow[A_K_RT].fun, arrow[A_K_RT].type);
 		key_add(el, &stOD[1], &arrow[A_K_LT].fun, arrow[A_K_LT].type);
+		key_add(el, &stOH[1], &arrow[A_K_HO].fun, arrow[A_K_HO].type);
+		key_add(el, &stOF[1], &arrow[A_K_EN].fun, arrow[A_K_EN].type);
 	}
 }
 
@@ -1035,7 +1093,7 @@ term_reset_arrow(EditLine *el)
  *	Set an arrow key binding
  */
 protected int
-term_set_arrow(EditLine *el, char *name, key_value_t *fun, int type)
+term_set_arrow(EditLine *el, const char *name, key_value_t *fun, int type)
 {
 	fkey_t *arrow = el->el_term.t_fkey;
 	int i;
@@ -1054,7 +1112,7 @@ term_set_arrow(EditLine *el, char *name, key_value_t *fun, int type)
  *	Clear an arrow key binding
  */
 protected int
-term_clear_arrow(EditLine *el, char *name)
+term_clear_arrow(EditLine *el, const char *name)
 {
 	fkey_t *arrow = el->el_term.t_fkey;
 	int i;
@@ -1072,7 +1130,7 @@ term_clear_arrow(EditLine *el, char *name)
  *	Print the arrow key bindings
  */
 protected void
-term_print_arrow(EditLine *el, char *name)
+term_print_arrow(EditLine *el, const char *name)
 {
 	int i;
 	fkey_t *arrow = el->el_term.t_fkey;
@@ -1091,7 +1149,8 @@ term_print_arrow(EditLine *el, char *name)
 protected void
 term_bind_arrow(EditLine *el)
 {
-	el_action_t *map, *dmap;
+	el_action_t *map;
+	const el_action_t *dmap;
 	int i, j;
 	char *p;
 	fkey_t *arrow = el->el_term.t_fkey;
@@ -1105,7 +1164,7 @@ term_bind_arrow(EditLine *el)
 
 	term_reset_arrow(el);
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < A_K_NKEYS; i++) {
 		p = el->el_term.t_str[arrow[i].key];
 		if (p && *p) {
 			j = (unsigned char) *p;
@@ -1162,14 +1221,15 @@ term__flush(void)
 	(void) fflush(term_outfile);
 }
 
+
 /* term_telltc():
  *	Print the current termcap characteristics
  */
 protected int
 /*ARGSUSED*/
-term_telltc(EditLine *el, int argc, char **argv)
+term_telltc(EditLine *el, int argc, const char **argv)
 {
-	struct termcapstr *t;
+	const struct termcapstr *t;
 	char **ts;
 	char upbuf[EL_BUFSIZ];
 
@@ -1202,11 +1262,11 @@ term_telltc(EditLine *el, int argc, char **argv)
  */
 protected int
 /*ARGSUSED*/
-term_settc(EditLine *el, int argc, char **argv)
+term_settc(EditLine *el, int argc, const char **argv)
 {
-	struct termcapstr *ts;
-	struct termcapval *tv;
-	char *what, *how;
+	const struct termcapstr *ts;
+	const struct termcapval *tv;
+	const char *what, *how;
 
 	if (argv == NULL || argv[1] == NULL || argv[2] == NULL)
 		return (-1);
@@ -1246,7 +1306,8 @@ term_settc(EditLine *el, int argc, char **argv)
 				return (-1);
 			}
 			term_setflags(el);
-			term_change_size(el, Val(T_li), Val(T_co));
+			if (term_change_size(el, Val(T_li), Val(T_co)) == -1)
+				return (-1);
 			return (0);
 		} else {
 			long i;
@@ -1262,7 +1323,9 @@ term_settc(EditLine *el, int argc, char **argv)
 			el->el_term.t_size.v = Val(T_co);
 			el->el_term.t_size.h = Val(T_li);
 			if (tv == &tval[T_co] || tv == &tval[T_li])
-				term_change_size(el, Val(T_li), Val(T_co));
+				if (term_change_size(el, Val(T_li), Val(T_co))
+				    == -1)
+					return (-1);
 			return (0);
 		}
 	}
@@ -1275,14 +1338,14 @@ term_settc(EditLine *el, int argc, char **argv)
  */
 protected int
 /*ARGSUSED*/
-term_echotc(EditLine *el, int argc, char **argv)
+term_echotc(EditLine *el, int argc, const char **argv)
 {
 	char *cap, *scap, *ep;
 	int arg_need, arg_cols, arg_rows;
 	int verbose = 0, silent = 0;
 	char *area;
-	static char *fmts = "%s\n", *fmtd = "%d\n";
-	struct termcapstr *t;
+	static const char fmts[] = "%s\n", fmtd[] = "%d\n";
+	const struct termcapstr *t;
 	char buf[TC_BUFSIZE];
 	long i;
 

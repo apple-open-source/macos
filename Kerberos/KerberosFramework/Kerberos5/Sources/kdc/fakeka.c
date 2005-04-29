@@ -53,7 +53,7 @@
 
 #ifndef LINT
 static char rcsid[]=
-	"$Id: fakeka.c,v 1.1 2003/02/06 19:58:18 kenh Exp $";
+	"$Id: fakeka.c,v 1.2 2004/02/19 17:51:40 kenh Exp $";
 #endif
 
 /*
@@ -1361,7 +1361,7 @@ char **argv;
 	    /*
 	     * copy the forwarder header and adjust the bases and lengths.
 	     */
-	    memcpy(reply.data, reply.data, HEADER_LEN);
+	    memcpy(reply.data, req.data, HEADER_LEN);
 	    req.base += HEADER_LEN;
 	    req.len -= HEADER_LEN;
 	    reply.base += HEADER_LEN;

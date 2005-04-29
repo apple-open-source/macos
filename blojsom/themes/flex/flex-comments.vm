@@ -1,0 +1,3 @@
+#set($postEntryTemplate = 'default/flex-inc-post-entry-comments.vm')
+#set($mainContent = 'default/flex-inc-entries.vm')
+#parse('default/flex-inc-main.vm')

@@ -1,0 +1,219 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.\" Translated into german by Jochen Hein ( Hein@Student.TU-Clausthal.de )
+.\" and Ralf W. Stephan ( ralf@franken.de ).
+.\"
+.TH man 1 "2. September 1995"
+.LO 1
+.SH NAME
+man \- Formatieren und Anzeigen von Seiten des Online-Handbuches (man pages)
+.br
+manpath \- Anzeigen des Benutzer-eigenen Suchpfades für Seiten des Online-Handbuches (man pages)
+.SH SYNTAX
+man [\-acdfhktw] [\-m system] [\-p string] [\-C config_file] [\-M path]
+[\-P pager] [\-S section_list] [section] name ...
+.SH BESCHREIBUNG
+.B man
+formatiert Seiten aus dem Online-Handbuch und zeigt diese an.
+Diese Version unterstützt die
+.B MANPATH
+und
+.B (MAN)PAGER
+Umgebungsvariablen, so daß
+Sie ihre eigenen man pages verwenden können und selbst wählen können, welches
+Programm die formatierten Seiten anzeigen soll. Wenn der Parameter
+.I section
+angegeben wird, so sucht 
+.B man 
+nur in dieser Sektion des Handbuchs.
+Sie können auch mit Hilfe von Kommando-Zeilen-Optionen oder Umgebungsvariablen
+die Reihenfolge angeben, in der die Sektionen nach
+Einträgen durchsucht werden und welche zusätzlichen Programme
+die Quelltexte bearbeiten sollen.
+Wenn der Parameter
+.I name
+das Zeichen / enthält, dann wird zunächst versucht, diese Datei zu
+bearbeiten. Damit können Sie z.B. 
+.B "man ./foo.5"
+oder auch
+.B "man /cd/foo/bar.1.gz"
+eingeben.
+.SH OPTIONEN
+.TP
+.B \-\^C " config_file"
+bestimmt welche man.conf-Datei als Steuerdatei verwendet wird.
+.TP
+.B \-\^M " path"
+bestimmt eine Liste von Verzeichnissen, die nach Handbuch-Seiten durchsucht 
+werden. Wenn diese Option nicht angegeben ist, so wird die Umgebungsvariable
+.B MANPATH
+benutzt. Ist diese Variable nicht gesetzt, so wird diese Liste aus der
+Datei man.conf erstellt.
+.TP
+.B \-\^P " pager"
+bestimmt welches Programm zur Anzeige der Handbuch-Seiten benutzt wird.
+Als default benutzt man
+.B @pager@
+Diese Option überschreibt die Umgebungsvariable
+.B PAGER
+.TP
+.B \-\^S " section_list"
+ist eine durch Doppelpunkte getrennte Liste von Handbuch-Sektionen, die
+nach Handbuch-Seiten durchsucht werden soll.
+Diese Option überschreibt die Umgebungsvariable
+.B MANSECT
+.TP
+.B \-\^a
+Als Default wird
+.B man
+beendet, nachdem es die erste Handbuchseite angezeigt
+hat, die gefunden wurde. Diese Option weist 
+.B man 
+an, alle Handbuch-Seiten anzuzeigen, die zu
+.B name, 
+passen, nicht nur die erste.
+.TP
+.B \-\^d
+zeigt nicht die Handbuch-Seiten an, sondern gibt etliche Informationen
+zur Fehlersuche aus.
+.TP
+.B \-\^f
+ist äquivalent zu
+.BR whatis .
+.TP
+.B \-\^h
+gibt eine (einzeilige) Hilfe aus und beendet
+.BR man .
+.TP
+.B \-\^k
+ist äquivalent zu
+.BR apropos .
+.TP
+.B \-\^m " system"
+bestimmt eine andere Menge von Handbuch-Seiten, die aufgrund des 
+angegebenen System-Namen durchsucht werden sollen.
+.TP
+.B \-\^p " string"
+bestimmt die Abfolge von Präprozessoren, die vor nroff oder troff
+gestartet werden sollen. Nicht alle Installationen verfügen über alle
+Präprozessoren. Einige der Präprozessoren und die dafür verwendeten
+Buchstaben sind:
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
+Diese Option überschreibt die Umgebungsvariable
+.B MANROFFSEQ
+.TP
+.B \-\^t
+benutzt
+.B @troff@
+um die Handbuch-Seite zu formatieren und leitet die Ausgabe weiter nach
+.B stdout.
+Die Ausgabe von
+.B @troff@
+muß möglicherweise durch einen Filter weiterbearbeitet werden, bevor
+sie gedruckt werden kann.
+.TP
+.B \-\^w \fRor\fP \-\-path
+die Handbuchseiten werden nicht angezeigt, sondern die Fundorte der Seiten,
+die formatiert oder angezeigt würden. Wenn kein Argument angegeben wurde,
+wird die Liste der Verzeichnisse ausgegeben, die von 
+.B man
+nach Handbuch-Seiten durchsucht werden. Wenn
+.B manpath
+ein Link zu man ist, dann ist "manpath" äquivalent zu "man --path".
+
+.SH ENVIRONMENT
+.TP
+.B MANPATH
+Wenn die Umgebungsvariable
+.B MANPATH
+gesetzt ist, dann wird dieser Wert als Suchpfad für Handbuch-Seiten
+verwendet.
+.TP
+.B MANROFFSEQ
+Wenn die Umgebungsvariable
+.B MANROFFSEQ
+gesetzt ist, dann wird dieser Wert benutzt um die Präprozessoren zu bestimmen,
+die aufgerufen werden sollen, bevor die Handbuch-Seite mit nroff oder troff
+bearbeitet wird. Standardmäßig werden Handbuch-Seiten durch den Tabellen
+Präprozessor bearbeitet bevor nroff gestartet wird.
+.TP
+.B MANSECT
+Wenn die Umgebungsvariable
+.B MANSECT
+gesetzt ist, dann bestimmt dieser Wert welche Handbuch-Sektionen durchsucht
+werden sollen.
+.TP
+.B MANWIDTH
+Wenn die Umgebungsvariable
+.B MANWIDTH
+gesetzt ist, dann beschreibt deren Wert die Breite auf der die
+Handbuch-Seite angezeigt werden soll. Ansonsten wird die Seite u.U.
+über die gesamte Breite des Bildschirmes gezogen.
+.TP
+.B PAGER
+Wenn die Umgebungsvariable
+.B PAGER
+gesetzt ist, so wird dieser Wert als Name des Programms benutzt, mit dem
+die Handbuch-Seiten angezeigt werden sollen. Standardmäßig wird
+.B @pager@
+verwendet.
+.TP
+.B LANG
+Wenn die Umgebungsvariable
+.B LANG
+gesetzt ist, gibt ihr Inhalt den Namen des Unterverzeichnisses 
+an, wo zuerst nach der Handbuch-Seite gesucht werden soll.  
+So zB bewirkt der Shell-Befehl `LANG=dk man 1 foo', daß 
+.B man
+zuerst in ...dk/man1/foo.1 nach der Handbuchseite für 'foo' sucht, und
+wenn es dort nicht fündig wird, dann in ...man1/foo.1, wobei '...'
+ein Verzeichnis aus dem Suchpfad bedeutet.
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+Die Umgebungsvariablen
+.B NLSPATH
+und
+.B LC_MESSAGES
+(oder
+.B LANG
+falls erstere nicht existiert) spielen bei der Suche nach dem Message
+Katalog eine Rolle (englische Messages sind fest einkompiliert, daher
+ist auch kein Katalog für sie notwendig).  Beachten Sie, daß auch
+Programme wie
+.B col(1),
+das von
+.B man
+aufgerufen wird, noch zusätzliche Variablen wie LC_CTYPE benutzen.
+.TP
+.B PATH
+.B PATH
+wird bei der Konstruktion des vorgegebenen Suchpfades für Handbuchseiten
+verwendet.
+.TP
+.B SYSTEM
+.B SYSTEM
+wird verwendet, um einen alternativen Systemnamen herauszufinden
+(sinnvoll zusammen mit der
+.B \-m 
+Option).
+.SH "SIEHE AUCH"
+apropos(1), whatis(1), less(1), groff(1).
+.SH BUGS
+Die
+.B \-t
+Option kann nur auf System verwendet werden, auf denen ein troff-Programm
+installiert ist.

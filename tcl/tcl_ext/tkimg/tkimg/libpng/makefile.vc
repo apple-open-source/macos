@@ -1,0 +1,199 @@
+# Visual C++ 2.x, 4.x and 5.0 makefile for png
+# adapted from suns example makefile (related to the TCL script language)
+#
+# CVS:  $Id: makefile.vc,v 1.1.1.1 2002/05/10 17:20:44 andreas_kupries Exp $
+
+
+# Does not depend on the presence of any environment variables in
+# order to compile png; all needed information is derived from 
+# location of the compiler directories.
+
+#
+# Project directories
+#
+# ROOT    = top of source tree
+#
+# TMPDIR  = location where .obj files should be stored during build
+#
+# TOOLS32 = location of VC++ 32-bit development tools. Note that the
+#           VC++ 2.0 header files are broken, so you need to use the
+#           ones that come with the developer network CD's, or later
+#           versions of VC++.
+#
+
+VC_VERSION = 50
+
+ROOT            = .
+TMPDIR          = .
+!IF $(VC_VERSION) < 50
+TOOLS32 	= c:\msdev			# VC++ 2.x and 4.x
+!ELSE
+TOOLS32 	= c:\PROGRA~1\DevStudio\VC	# VC++ 5.0
+!ENDIF
+INSTALLDIR	= c:\WINNT\SYSTEM32
+
+# assume source distribution of zlib compression library as sibling to png.
+# expect it to contain the stub library to link against.
+ZLIBDIR         = $(ROOT)\..\libz
+ZLIB_LIB        = $(ZLIBDIR)\zlib.lib
+
+# Set this to the appropriate value of /MACHINE: for your platform
+MACHINE = IX86
+
+# Comment the following line to compile with symbols
+NODEBUG=1
+
+
+######################################################################
+# Do not modify below this line
+######################################################################
+
+PNG             =       png
+PNGLIB          =       $(PNG).lib
+PNGDLL          =       $(PNG).dll
+
+PNGOBJS =       \
+	$(TMPDIR)\png.obj       \
+	$(TMPDIR)\pngerror.obj  \
+	$(TMPDIR)\pngmem.obj    \
+	$(TMPDIR)\pngpread.obj  \
+	$(TMPDIR)\pngset.obj    \
+	$(TMPDIR)\pngread.obj   \
+	$(TMPDIR)\pngrio.obj    \
+	$(TMPDIR)\pngrtran.obj  \
+	$(TMPDIR)\pngrutil.obj  \
+	$(TMPDIR)\pngtrans.obj  \
+	$(TMPDIR)\pngwio.obj    \
+	$(TMPDIR)\pngwrite.obj  \
+	$(TMPDIR)\pngwtran.obj  \
+	$(TMPDIR)\pngwutil.obj  \
+	$(TMPDIR)\pngget.obj
+
+
+PATH=$(TOOLS32)\bin;$(PATH)
+
+cc32            = $(TOOLS32)\bin\cl.exe
+link32          = $(TOOLS32)\bin\link.exe
+include32       = -I$(TOOLS32)\include
+CP              = copy
+RM              = del
+
+PNG_INCLUDES    = -I$(ROOT) -I$(ZLIBDIR)
+PNG_DEFINES     = -nologo -D__WIN32__ -D__WIN32DLL__ -DWIN32 -D_WINDOWS -DZLIB_DLL
+
+PNG_CFLAGS      =       $(cdebug) $(cflags) $(cvarsdll) $(include32) \
+			$(PNG_INCLUDES) $(PNG_DEFINES)
+CON_CFLAGS      =       $(cdebug) $(cflags) $(cvars) $(include32) -DCONSOLE
+DOS_CFLAGS      =       $(cdebug) $(cflags) $(include16) -AL 
+
+######################################################################
+# Link flags
+######################################################################
+
+!IFDEF NODEBUG
+ldebug = /RELEASE
+!ELSE
+ldebug = -debug:full -debugtype:cv
+!ENDIF
+
+# declarations common to all linker options
+lcommon = /NODEFAULTLIB /RELEASE /NOLOGO
+
+# declarations for use on Intel i386, i486, and Pentium systems
+!IF "$(MACHINE)" == "IX86"
+DLLENTRY = @12
+lflags   = $(lcommon) -align:0x1000 /MACHINE:$(MACHINE)
+!ELSE
+lflags   = $(lcommon) /MACHINE:$(MACHINE)
+!ENDIF
+
+conlflags = $(lflags) -subsystem:console -entry:mainCRTStartup
+guilflags = $(lflags) -subsystem:windows -entry:WinMainCRTStartup
+dlllflags = $(lflags) -entry:_DllMainCRTStartup$(DLLENTRY) -dll
+
+!IF "$(MACHINE)" == "PPC"
+libc = libc.lib
+libcdll = crtdll.lib
+!ELSE
+libc = libc.lib oldnames.lib
+libcdll = msvcrt.lib oldnames.lib
+!ENDIF
+
+baselibs   = kernel32.lib $(optlibs) advapi32.lib
+winlibs    = $(baselibs) user32.lib gdi32.lib comdlg32.lib winspool.lib
+
+guilibs    = $(libc) $(winlibs)
+conlibs    = $(libc) $(baselibs)
+guilibsdll = $(libcdll) $(winlibs)
+conlibsdll = $(libcdll) $(baselibs)
+
+######################################################################
+# Compile flags
+######################################################################
+
+!IFDEF NODEBUG
+cdebug = -Ox -Oy- -Gs -GD
+!ELSE
+cdebug = -Z7 -Od -WX
+!ENDIF
+
+# declarations common to all compiler options
+ccommon = -c -W3 -nologo -YX -Dtry=__try -Dexcept=__except
+
+# NEED BYTEORDER INFORMATION HERE !!
+!IF "$(MACHINE)" == "IX86"
+cflags = $(ccommon) -D_X86_=1
+!ELSE
+!IF "$(MACHINE)" == "MIPS"
+cflags = $(ccommon) -D_MIPS_=1
+!ELSE
+!IF "$(MACHINE)" == "PPC"
+cflags = $(ccommon) -D_PPC_=1
+!ELSE
+!IF "$(MACHINE)" == "ALPHA"
+cflags = $(ccommon) -D_ALPHA_=1
+!ENDIF
+!ENDIF
+!ENDIF
+!ENDIF
+
+cvars      = -DWIN32 -D_WIN32
+cvarsmt    = $(cvars) -D_MT
+cvarsdll   = $(cvarsmt) -D_DLL
+
+######################################################################
+# Project specific targets
+######################################################################
+
+release:    $(PNGDLL)
+all:        $(PNGDLL)
+
+install:        $(PNGDLL)
+	-@md    $(INSTALLDIR)
+	-@$(CP) $(PNGDLL)               $(INSTALLDIR)
+
+
+
+$(PNGDLL): $(PNGOBJS)
+	$(link32) $(ldebug) $(dlllflags) \
+		$(guilibsdll) $(ZLIB_LIB) -def:msvc/png32ms.def -out:$(PNGDLL) $(PNGOBJS)
+
+
+#
+# Implicit rules
+#
+
+{$(ROOT)}.c{$(TMPDIR)}.obj:
+    $(cc32) $(PNG_CFLAGS) -Fo$(TMPDIR)\ $<
+
+
+clean:
+	-@del *.exp 
+	-@del *.lib 
+	-@del *.dll 
+	-@del $(TMPDIR)\*.obj
+	-@del *.pch
+	-@del *.pdb
+
+
+

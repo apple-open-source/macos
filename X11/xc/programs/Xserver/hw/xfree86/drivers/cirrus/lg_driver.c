@@ -13,7 +13,7 @@
  *	David Dawes, Andrew E. Mileski, Leonard N. Zubkoff,
  *	Guy DESBIEF, Itai Nahshon.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/cirrus/lg_driver.c,v 1.43 2002/07/24 01:47:27 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/cirrus/lg_driver.c,v 1.50 2003/11/07 22:49:58 dawes Exp $ */
 
 #define EXPERIMENTAL
 
@@ -62,10 +62,8 @@
 #define _LG_PRIVATE_
 #include "lg.h"
 
-#ifdef XvExtension
 #include "xf86xv.h"
 #include "Xv.h"
-#endif
 
 /*
  * Forward definitions for the functions that make up the driver.
@@ -86,7 +84,8 @@ void LgAdjustFrame(int scrnIndex, int x, int y, int flags);
 
 /* Optional functions */
 void LgFreeScreen(int scrnIndex, int flags);
-int	LgValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags);
+ModeStatus LgValidMode(int scrnIndex, DisplayModePtr mode,
+		       Bool verbose, int flags);
 
 /* Internally used functions */
 static void LgRestoreLgRegs(ScrnInfoPtr pScrn, LgRegPtr lgReg);
@@ -372,10 +371,6 @@ LgDoDDC(ScrnInfoPtr pScrn)
 	if (!CirMapMem(pCir, pScrn->scrnIndex))
 		return FALSE;
 
-	{
-	    ErrorF("RIF Control %#04x,  RAC Control %#04x\n",
-		   memrw(0x200), memrw(0x201));
-	}
 #if LGuseI2C
 	if (!LgI2CInit(pScrn)) {
 		xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "I2C initialization failed\n");
@@ -385,7 +380,8 @@ LgDoDDC(ScrnInfoPtr pScrn)
 
 	/* Read and output monitor info using DDC2 over I2C bus */
 	MonInfo = xf86DoEDID_DDC2(pScrn->scrnIndex, pCir->I2CPtr1);
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "I2C Monitor info: %p\n", MonInfo);
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "I2C Monitor info: %p\n",
+		   (void *)MonInfo);
 	xf86PrintEDID(MonInfo);
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "end of I2C Monitor info\n\n");
 #endif /* LGuseI2C */
@@ -473,10 +469,9 @@ LgPreInit(ScrnInfoPtr pScrn, int flags)
 
 	/*
 	 * The first thing we should figure out is the depth, bpp, etc.
-	 * Our default depth is 8, so pass it to the helper function.
 	 * We support both 24bpp and 32bpp layouts, so indicate that.
 	 */
-	if (!xf86SetDepthBpp(pScrn, 8, 8, 8, Support24bppFb | Support32bppFb |
+	if (!xf86SetDepthBpp(pScrn, 0, 0, 0, Support24bppFb | Support32bppFb |
 							SupportConvert32to24 | PreferConvert32to24)) {
 		return FALSE;
     }
@@ -952,7 +947,6 @@ static Bool
 LgModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
 	vgaHWPtr hwp;
-	vgaRegPtr vgaReg;
 	CirPtr pCir;
 	int width;
 	Bool VDiv2 = FALSE;
@@ -1003,8 +997,6 @@ LgModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 #ifdef LG_DEBUG
 	ErrorF("SynthClock = %d\n", mode->SynthClock);
 #endif
-	vgaReg = &hwp->ModeReg;
-
 	hwp->IOBase = 0x3D0;
 	hwp->ModeReg.MiscOutReg |= 0x01;
 #if 0 /* Mono address */
@@ -1285,7 +1277,7 @@ LgRestore(ScrnInfoPtr pScrn)
 	LgRegPtr lgReg;
 
 #ifdef LG_DEBUG
-	ErrorF("LgRestore  pScrn = 0x%08X\n", pScrn);
+	ErrorF("LgRestore  pScrn = %p\n", (void *)pScrn);
 #endif
 
 	pCir = CIRPTR(pScrn);
@@ -1350,6 +1342,9 @@ LgScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	/* Initialise the first mode */
 	if (!LgModeInit(pScrn, pScrn->currentMode))
 		return FALSE;
+
+	/* Make things beautiful */
+	LgSaveScreen(pScreen, SCREEN_SAVER_ON);
 
 	/* Set the viewport */
 	LgAdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
@@ -1487,7 +1482,6 @@ LgScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	pScrn->memPhysBase = pCir->FbAddress;
 	pScrn->fbOffset = 0;
 
-#ifdef XvExtension
 	{
 		XF86VideoAdaptorPtr *ptr;
 		int n;
@@ -1496,7 +1490,6 @@ LgScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 		if (n)
 			xf86XVScreenInit(pScreen, ptr, n);
 	}
-#endif
 
 	/*
 	 * Wrap the CloseScreen vector and set SaveScreen.
@@ -1730,7 +1723,7 @@ LgFreeScreen(int scrnIndex, int flags)
 /* Checks if a mode is suitable for the selected chipset. */
 
 /* Optional */
-int
+ModeStatus
 LgValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
 	int lace;

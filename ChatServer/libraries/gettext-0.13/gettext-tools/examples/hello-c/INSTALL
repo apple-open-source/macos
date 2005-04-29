@@ -1,0 +1,1 @@
+This example relies just on gettext-runtime (and libc, of course).

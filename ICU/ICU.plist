@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2004/11/24</string>
+		<key>OpenSourceLicense</key>
+		<string>other</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>ICU.html</string>
+		<key>OpenSourceProject</key>
+		<string>International Components for Unicode</string>
+		<key>OpenSourceSHA1</key>
+		<string>23fa1feb893a562408e6f13fcf968a6177d8aa6e</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://www-126.ibm.com/pub/icu/3.2/icu-3.2.tgz</string>
+		<key>OpenSourceVersion</key>
+		<string>3.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.ibm.com/software/globalization/icu</string>
+	</dict>
+</array>
+</plist>

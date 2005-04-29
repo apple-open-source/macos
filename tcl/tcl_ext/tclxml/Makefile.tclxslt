@@ -1,0 +1,30 @@
+##
+# Makefile for tclxslt
+##
+# Daniel A. Steffen <das@users.sourceforge.net>
+##
+
+# Project info
+Project               = tclxslt
+ProjectName           = TclXSLT
+
+Extra_Configure_Flags = $(TEA_Configure_Flags) \
+                        $(Libxml2_Configure_Flags) $(Libxslt_Configure_Flags)
+Extra_CC_Flags        = -fno-common
+Extra_LD_Flags        = -L$(TclFramework)
+Extra_Environment     = CC=gcc $(TEA_Environment)
+Extra_Install_Flags   = GENERIC_HDRS=
+
+GnuAfterInstall       = strip install-doc fix-owner -f Makefile.$(Project)
+
+# include TEA Tcl extension build support
+include ../TEA.make
+# include libxml2/libxslt configuration support
+include Libxml2xslt.make
+
+TclExtDir             = Tclxslt
+
+install-doc:
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
+	$(_v) $(INSTALL_FILE) "$(Sources)"/docs/$(Project).html "$(DSTROOT)/$(TclExtHtmlDir)"
+	$(_v) $(INSTALL_FILE) "$(Sources)"/docs/$(Project).n "$(DSTROOT)/$(TclExtManDir)"

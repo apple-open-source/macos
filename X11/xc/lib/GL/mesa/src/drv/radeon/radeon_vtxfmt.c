@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_vtxfmt.c,v 1.5 2002/12/16 16:18:59 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_vtxfmt.c,v 1.8 2004/01/23 03:57:06 dawes Exp $ */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -6,45 +6,37 @@ Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
 
 All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-on the rights to use, copy, modify, merge, publish, distribute, sub
-license, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice (including the next
-paragraph) shall be included in all copies or substantial portions of the
-Software.
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
-ATI, TUNGSTEN GRAPHICS AND/OR THEIR SUPPLIERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
- *
  */
 #include "glheader.h"
-#include "radeon_context.h"
-#include "radeon_state.h"
-#include "radeon_ioctl.h"
-#include "radeon_tex.h"
-#include "radeon_tcl.h"
-#include "radeon_vtxfmt.h"
-
+#include "imports.h"
 #include "api_noop.h"
 #include "api_arrayelt.h"
 #include "context.h"
-#include "mem.h"
-#include "mmath.h"
 #include "mtypes.h"
 #include "enums.h"
 #include "glapi.h"
@@ -57,9 +49,15 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "tnl/t_context.h"
 #include "tnl/t_array_api.h"
 
-struct radeon_vb vb;
+#include "radeon_context.h"
+#include "radeon_state.h"
+#include "radeon_ioctl.h"
+#include "radeon_tex.h"
+#include "radeon_tcl.h"
+#include "radeon_swtcl.h"
+#include "radeon_vtxfmt.h"
 
-static void radeonFlushVertices( GLcontext *, GLuint );
+static void radeonVtxfmtFlushVertices( GLcontext *, GLuint );
 
 static void count_func( const char *name,  struct dynfn *l )
 {
@@ -105,48 +103,47 @@ void radeon_copy_to_current( GLcontext *ctx )
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
 
    assert(ctx->Driver.NeedFlush & FLUSH_UPDATE_CURRENT);
-   assert(vb.context == ctx);
 
    if (rmesa->vb.vertex_format & RADEON_CP_VC_FRMT_N0) {
-      ctx->Current.Normal[0] = vb.normalptr[0];
-      ctx->Current.Normal[1] = vb.normalptr[1];
-      ctx->Current.Normal[2] = vb.normalptr[2];
+      ctx->Current.Attrib[VERT_ATTRIB_NORMAL][0] = rmesa->vb.normalptr[0];
+      ctx->Current.Attrib[VERT_ATTRIB_NORMAL][1] = rmesa->vb.normalptr[1];
+      ctx->Current.Attrib[VERT_ATTRIB_NORMAL][2] = rmesa->vb.normalptr[2];
    }
 
    if (rmesa->vb.vertex_format & RADEON_CP_VC_FRMT_PKCOLOR) {
-      ctx->Current.Color[0] = UBYTE_TO_FLOAT( vb.colorptr->red );
-      ctx->Current.Color[1] = UBYTE_TO_FLOAT( vb.colorptr->green );
-      ctx->Current.Color[2] = UBYTE_TO_FLOAT( vb.colorptr->blue );
-      ctx->Current.Color[3] = UBYTE_TO_FLOAT( vb.colorptr->alpha );
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR0][0] = UBYTE_TO_FLOAT( rmesa->vb.colorptr->red );
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR0][1] = UBYTE_TO_FLOAT( rmesa->vb.colorptr->green );
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR0][2] = UBYTE_TO_FLOAT( rmesa->vb.colorptr->blue );
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3] = UBYTE_TO_FLOAT( rmesa->vb.colorptr->alpha );
    } 
    
    if (rmesa->vb.vertex_format & RADEON_CP_VC_FRMT_FPCOLOR) {
-      ctx->Current.Color[0] = vb.floatcolorptr[0];
-      ctx->Current.Color[1] = vb.floatcolorptr[1];
-      ctx->Current.Color[2] = vb.floatcolorptr[2];
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR0][0] = rmesa->vb.floatcolorptr[0];
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR0][1] = rmesa->vb.floatcolorptr[1];
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR0][2] = rmesa->vb.floatcolorptr[2];
    }
 
    if (rmesa->vb.vertex_format & RADEON_CP_VC_FRMT_FPALPHA)
-      ctx->Current.Color[3] = vb.floatcolorptr[3];
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3] = rmesa->vb.floatcolorptr[3];
       
    if (rmesa->vb.vertex_format & RADEON_CP_VC_FRMT_PKSPEC) {
-      ctx->Current.SecondaryColor[0] = UBYTE_TO_FLOAT( vb.specptr->red );
-      ctx->Current.SecondaryColor[1] = UBYTE_TO_FLOAT( vb.specptr->green );
-      ctx->Current.SecondaryColor[2] = UBYTE_TO_FLOAT( vb.specptr->blue );
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR1][0] = UBYTE_TO_FLOAT( rmesa->vb.specptr->red );
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR1][1] = UBYTE_TO_FLOAT( rmesa->vb.specptr->green );
+      ctx->Current.Attrib[VERT_ATTRIB_COLOR1][2] = UBYTE_TO_FLOAT( rmesa->vb.specptr->blue );
    } 
 
    if (rmesa->vb.vertex_format & RADEON_CP_VC_FRMT_ST0) {
-      ctx->Current.Texcoord[0][0] = vb.texcoordptr[0][0];
-      ctx->Current.Texcoord[0][1] = vb.texcoordptr[0][1];
-      ctx->Current.Texcoord[0][2] = 0.0F;
-      ctx->Current.Texcoord[0][3] = 1.0F;
+      ctx->Current.Attrib[VERT_ATTRIB_TEX0][0] = rmesa->vb.texcoordptr[0][0];
+      ctx->Current.Attrib[VERT_ATTRIB_TEX0][1] = rmesa->vb.texcoordptr[0][1];
+      ctx->Current.Attrib[VERT_ATTRIB_TEX0][2] = 0.0F;
+      ctx->Current.Attrib[VERT_ATTRIB_TEX0][3] = 1.0F;
    }
 
    if (rmesa->vb.vertex_format & RADEON_CP_VC_FRMT_ST1) {
-      ctx->Current.Texcoord[1][0] = vb.texcoordptr[1][0];
-      ctx->Current.Texcoord[1][1] = vb.texcoordptr[1][1];
-      ctx->Current.Texcoord[1][2] = 0.0F;
-      ctx->Current.Texcoord[1][3] = 1.0F;
+      ctx->Current.Attrib[VERT_ATTRIB_TEX1][0] = rmesa->vb.texcoordptr[1][0];
+      ctx->Current.Attrib[VERT_ATTRIB_TEX1][1] = rmesa->vb.texcoordptr[1][1];
+      ctx->Current.Attrib[VERT_ATTRIB_TEX1][2] = 0.0F;
+      ctx->Current.Attrib[VERT_ATTRIB_TEX1][3] = 1.0F;
    }
 
    ctx->Driver.NeedFlush &= ~FLUSH_UPDATE_CURRENT;
@@ -171,12 +168,12 @@ static void flush_prims( radeonContextPtr rmesa )
    struct radeon_dma_region tmp = rmesa->dma.current;
    
    tmp.buf->refcount++;
-   tmp.aos_size = vb.vertex_size;
-   tmp.aos_stride = vb.vertex_size;
+   tmp.aos_size = rmesa->vb.vertex_size;
+   tmp.aos_stride = rmesa->vb.vertex_size;
    tmp.aos_start = GET_START(&tmp);
 
    rmesa->dma.current.ptr = rmesa->dma.current.start += 
-      (vb.initial_counter - vb.counter) * vb.vertex_size * 4; 
+      (rmesa->vb.initial_counter - rmesa->vb.counter) * rmesa->vb.vertex_size * 4; 
 
    rmesa->tcl.vertex_format = rmesa->vb.vertex_format;
    rmesa->tcl.aos_components[0] = &tmp;
@@ -210,7 +207,7 @@ static void flush_prims( radeonContextPtr rmesa )
 		 rmesa->vb.primlist[i].start,
 		 rmesa->vb.primlist[i].end);
 
-      radeonEmitPrimitive( vb.context,
+      radeonEmitPrimitive( rmesa->glCtx,
 			   rmesa->vb.primlist[i].start,
 			   rmesa->vb.primlist[i].end,
 			   rmesa->vb.primlist[i].prim );
@@ -224,20 +221,20 @@ static void flush_prims( radeonContextPtr rmesa )
 static void start_prim( radeonContextPtr rmesa, GLuint mode )
 {
    if (RADEON_DEBUG & DEBUG_VFMT)
-      fprintf(stderr, "%s %d\n", __FUNCTION__, vb.initial_counter - vb.counter);
+      fprintf(stderr, "%s %d\n", __FUNCTION__, rmesa->vb.initial_counter - rmesa->vb.counter);
 
-   rmesa->vb.primlist[rmesa->vb.nrprims].start = vb.initial_counter - vb.counter;
+   rmesa->vb.primlist[rmesa->vb.nrprims].start = rmesa->vb.initial_counter - rmesa->vb.counter;
    rmesa->vb.primlist[rmesa->vb.nrprims].prim = mode;
 }
 
 static void note_last_prim( radeonContextPtr rmesa, GLuint flags )
 {
    if (RADEON_DEBUG & DEBUG_VFMT)
-      fprintf(stderr, "%s %d\n", __FUNCTION__, vb.initial_counter - vb.counter);
+      fprintf(stderr, "%s %d\n", __FUNCTION__, rmesa->vb.initial_counter - rmesa->vb.counter);
 
    if (rmesa->vb.prim[0] != GL_POLYGON+1) {
       rmesa->vb.primlist[rmesa->vb.nrprims].prim |= flags;
-      rmesa->vb.primlist[rmesa->vb.nrprims].end = vb.initial_counter - vb.counter;
+      rmesa->vb.primlist[rmesa->vb.nrprims].end = rmesa->vb.initial_counter - rmesa->vb.counter;
 
       if (++(rmesa->vb.nrprims) == RADEON_MAX_PRIMS)
 	 flush_prims( rmesa );
@@ -251,12 +248,12 @@ static void copy_vertex( radeonContextPtr rmesa, GLuint n, GLfloat *dst )
    GLfloat *src = (GLfloat *)(rmesa->dma.current.address + 
 			      rmesa->dma.current.ptr + 
 			      (rmesa->vb.primlist[rmesa->vb.nrprims].start + n) * 
-			      vb.vertex_size * 4);
+			      rmesa->vb.vertex_size * 4);
 
    if (RADEON_DEBUG & DEBUG_VFMT) 
       fprintf(stderr, "copy_vertex %d\n", rmesa->vb.primlist[rmesa->vb.nrprims].start + n);
 
-   for (i = 0 ; i < vb.vertex_size; i++) {
+   for (i = 0 ; i < rmesa->vb.vertex_size; i++) {
       dst[i] = src[i];
    }
 }
@@ -268,7 +265,7 @@ static void copy_vertex( radeonContextPtr rmesa, GLuint n, GLfloat *dst )
 static GLuint copy_dma_verts( radeonContextPtr rmesa, GLfloat (*tmp)[15] )
 {
    GLuint ovf, i;
-   GLuint nr = (vb.initial_counter - vb.counter) - rmesa->vb.primlist[rmesa->vb.nrprims].start;
+   GLuint nr = (rmesa->vb.initial_counter - rmesa->vb.counter) - rmesa->vb.primlist[rmesa->vb.nrprims].start;
 
    if (RADEON_DEBUG & DEBUG_VFMT)
       fprintf(stderr, "%s %d verts\n", __FUNCTION__, nr);
@@ -311,13 +308,16 @@ static GLuint copy_dma_verts( radeonContextPtr rmesa, GLfloat (*tmp)[15] )
 	 return 2;
       }
    case GL_TRIANGLE_STRIP:
-      ovf = MIN2( nr-1, 2 );
+      ovf = MIN2(nr, 2);
       for (i = 0 ; i < ovf ; i++)
 	 copy_vertex( rmesa, nr-ovf+i, tmp[i] );
       return i;
    case GL_QUAD_STRIP:
-      ovf = MIN2( nr-1, 2 );
-      if (nr > 2) ovf += nr&1;
+      switch (nr) {
+      case 0: ovf = 0; break;
+      case 1: ovf = 1; break;
+      default: ovf = 2 + (nr&1); break;
+      }
       for (i = 0 ; i < ovf ; i++)
 	 copy_vertex( rmesa, nr-ovf+i, tmp[i] );
       return i;
@@ -329,30 +329,30 @@ static GLuint copy_dma_verts( radeonContextPtr rmesa, GLfloat (*tmp)[15] )
 
 static void VFMT_FALLBACK_OUTSIDE_BEGIN_END( const char *caller )
 {
-   GLcontext *ctx = vb.context;
+   GET_CURRENT_CONTEXT(ctx);
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
 
    if (RADEON_DEBUG & (DEBUG_VFMT|DEBUG_FALLBACKS))
       fprintf(stderr, "%s from %s\n", __FUNCTION__, caller);
 
    if (ctx->Driver.NeedFlush) 
-      radeonFlushVertices( ctx, ctx->Driver.NeedFlush );
+      radeonVtxfmtFlushVertices( ctx, ctx->Driver.NeedFlush );
 
    if (ctx->NewState)
       _mesa_update_state( ctx ); /* clear state so fell_back sticks */
 
    _tnl_wakeup_exec( ctx );
+   ctx->Driver.FlushVertices = radeonFlushVertices;
 
    assert( rmesa->dma.flush == 0 );
    rmesa->vb.fell_back = GL_TRUE;
    rmesa->vb.installed = GL_FALSE;
-   vb.context = 0;
 }
 
 
 static void VFMT_FALLBACK( const char *caller )
 {
-   GLcontext *ctx = vb.context;
+   GET_CURRENT_CONTEXT(ctx);
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
    GLfloat tmp[3][15];
    GLuint i, prim;
@@ -382,15 +382,15 @@ static void VFMT_FALLBACK( const char *caller )
    prim = rmesa->vb.prim[0];
    ctx->Driver.CurrentExecPrimitive = GL_POLYGON+1;
    _tnl_wakeup_exec( ctx );
+   ctx->Driver.FlushVertices = radeonFlushVertices;
 
    assert(rmesa->dma.flush == 0);
    rmesa->vb.fell_back = GL_TRUE;
    rmesa->vb.installed = GL_FALSE;
-   vb.context = 0;
    glBegin( prim );
    
    if (rmesa->vb.installed_color_3f_sz == 4)
-      alpha = ctx->Current.Color[3];
+      alpha = ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3];
 
    /* Replay saved vertices
     */
@@ -436,50 +436,50 @@ static void VFMT_FALLBACK( const char *caller )
    /* Replay current vertex
     */
    if (ind & RADEON_CP_VC_FRMT_N0) 
-      glNormal3fv( vb.normalptr );
+      glNormal3fv( rmesa->vb.normalptr );
 
    if (ind & RADEON_CP_VC_FRMT_PKCOLOR)
-      glColor4ub( vb.colorptr->red, vb.colorptr->green, vb.colorptr->blue, vb.colorptr->alpha );
+      glColor4ub( rmesa->vb.colorptr->red, rmesa->vb.colorptr->green, rmesa->vb.colorptr->blue, rmesa->vb.colorptr->alpha );
    else if (ind & RADEON_CP_VC_FRMT_FPALPHA)
-      glColor4fv( vb.floatcolorptr );
+      glColor4fv( rmesa->vb.floatcolorptr );
    else if (ind & RADEON_CP_VC_FRMT_FPCOLOR) {
       if (rmesa->vb.installed_color_3f_sz == 4 && alpha != 1.0)
-	 glColor4f( vb.floatcolorptr[0],
-		    vb.floatcolorptr[1],
-		    vb.floatcolorptr[2],
+	 glColor4f( rmesa->vb.floatcolorptr[0],
+		    rmesa->vb.floatcolorptr[1],
+		    rmesa->vb.floatcolorptr[2],
 		    alpha );
       else
-	 glColor3fv( vb.floatcolorptr );
+	 glColor3fv( rmesa->vb.floatcolorptr );
    }
 
    if (ind & RADEON_CP_VC_FRMT_PKSPEC) 
-      _glapi_Dispatch->SecondaryColor3ubEXT( vb.specptr->red, vb.specptr->green, vb.specptr->blue ); 
+      _glapi_Dispatch->SecondaryColor3ubEXT( rmesa->vb.specptr->red, rmesa->vb.specptr->green, rmesa->vb.specptr->blue ); 
 
    if (ind & RADEON_CP_VC_FRMT_ST0) 
-      glTexCoord2fv( vb.texcoordptr[0] );
+      glTexCoord2fv( rmesa->vb.texcoordptr[0] );
 
    if (ind & RADEON_CP_VC_FRMT_ST1) 
-      glMultiTexCoord2fvARB( GL_TEXTURE1_ARB, vb.texcoordptr[1] );
+      glMultiTexCoord2fvARB( GL_TEXTURE1_ARB, rmesa->vb.texcoordptr[1] );
 }
 
 
 
 static void wrap_buffer( void )
 {
-   GLcontext *ctx = vb.context;
+   GET_CURRENT_CONTEXT(ctx);
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
    GLfloat tmp[3][15];
    GLuint i, nrverts;
 
    if (RADEON_DEBUG & (DEBUG_VFMT|DEBUG_PRIMS))
-      fprintf(stderr, "%s %d\n", __FUNCTION__, vb.initial_counter - vb.counter);
+      fprintf(stderr, "%s %d\n", __FUNCTION__, rmesa->vb.initial_counter - rmesa->vb.counter);
 
    /* Don't deal with parity.
     */
-   if ((((vb.initial_counter - vb.counter) -  
+   if ((((rmesa->vb.initial_counter - rmesa->vb.counter) -  
 	 rmesa->vb.primlist[rmesa->vb.nrprims].start) & 1)) {
-      vb.counter++;
-      vb.initial_counter++;
+      rmesa->vb.counter++;
+      rmesa->vb.initial_counter++;
       return;
    }
 
@@ -508,12 +508,12 @@ static void wrap_buffer( void )
 
    /* Reset counter, dmaptr
     */
-   vb.dmaptr = (int *)(rmesa->dma.current.ptr + rmesa->dma.current.address);
-   vb.counter = (rmesa->dma.current.end - rmesa->dma.current.ptr) / 
-      (vb.vertex_size * 4);
-   vb.counter--;
-   vb.initial_counter = vb.counter;
-   vb.notify = wrap_buffer;
+   rmesa->vb.dmaptr = (int *)(rmesa->dma.current.ptr + rmesa->dma.current.address);
+   rmesa->vb.counter = (rmesa->dma.current.end - rmesa->dma.current.ptr) / 
+      (rmesa->vb.vertex_size * 4);
+   rmesa->vb.counter--;
+   rmesa->vb.initial_counter = rmesa->vb.counter;
+   rmesa->vb.notify = wrap_buffer;
 
    rmesa->dma.flush = flush_prims;
 
@@ -527,15 +527,15 @@ static void wrap_buffer( void )
    for (i = 0 ; i < nrverts; i++) {
       if (RADEON_DEBUG & DEBUG_VERTS) {
 	 int j;
-	 fprintf(stderr, "re-emit vertex %d to %p\n", i, vb.dmaptr);
+	 fprintf(stderr, "re-emit vertex %d to %p\n", i, (void *)rmesa->vb.dmaptr);
 	 if (RADEON_DEBUG & DEBUG_VERBOSE)
-	    for (j = 0 ; j < vb.vertex_size; j++) 
+	    for (j = 0 ; j < rmesa->vb.vertex_size; j++) 
 	       fprintf(stderr, "\t%08x/%f\n", *(int*)&tmp[i][j], tmp[i][j]);
       }
 
-      memcpy( vb.dmaptr, tmp[i], vb.vertex_size * 4 );
-      vb.dmaptr += vb.vertex_size;
-      vb.counter--;
+      memcpy( rmesa->vb.dmaptr, tmp[i], rmesa->vb.vertex_size * 4 );
+      rmesa->vb.dmaptr += rmesa->vb.vertex_size;
+      rmesa->vb.counter--;
    }
 }
 
@@ -563,11 +563,11 @@ static GLboolean check_vtx_fmt( GLcontext *ctx )
        * directly.
        */
       if (ctx->Light.ColorMaterialEnabled) {
-	 ind |= RADEON_CP_VC_FRMT_FPCOLOR;
-         if (ctx->Color.AlphaEnabled) {
-	    ind |= RADEON_CP_VC_FRMT_FPALPHA;
-         }
+	 ind |= (RADEON_CP_VC_FRMT_FPCOLOR |
+		 RADEON_CP_VC_FRMT_FPALPHA);
       }
+      else
+	 ind |= RADEON_CP_VC_FRMT_PKCOLOR; /* for alpha? */
    }
    else {
       /* TODO: make this data driven?
@@ -585,8 +585,8 @@ static GLboolean check_vtx_fmt( GLcontext *ctx )
 	    ind |= RADEON_CP_VC_FRMT_N0;
 	 }
       } else {
-	 if (ctx->Current.Texcoord[0][2] != 0.0F ||
-	     ctx->Current.Texcoord[0][3] != 1.0) {
+	 if (ctx->Current.Attrib[VERT_ATTRIB_TEX0][2] != 0.0F ||
+	     ctx->Current.Attrib[VERT_ATTRIB_TEX0][3] != 1.0) {
 	    if (RADEON_DEBUG & (DEBUG_VFMT|DEBUG_FALLBACKS))
 	       fprintf(stderr, "%s: rq0\n", __FUNCTION__);
 	    return GL_FALSE;
@@ -601,8 +601,8 @@ static GLboolean check_vtx_fmt( GLcontext *ctx )
 	    ind |= RADEON_CP_VC_FRMT_N0;
 	 }
       } else {
-	 if (ctx->Current.Texcoord[1][2] != 0.0F ||
-	     ctx->Current.Texcoord[1][3] != 1.0) {
+	 if (ctx->Current.Attrib[VERT_ATTRIB_TEX1][2] != 0.0F ||
+	     ctx->Current.Attrib[VERT_ATTRIB_TEX1][3] != 1.0) {
 	    if (RADEON_DEBUG & (DEBUG_VFMT|DEBUG_FALLBACKS))
 	       fprintf(stderr, "%s: rq1\n", __FUNCTION__);
 	    return GL_FALSE;
@@ -616,72 +616,71 @@ static GLboolean check_vtx_fmt( GLcontext *ctx )
 
    RADEON_NEWPRIM(rmesa);
    rmesa->vb.vertex_format = ind;
-   vb.vertex_size = 3;
+   rmesa->vb.vertex_size = 3;
    rmesa->vb.prim = &ctx->Driver.CurrentExecPrimitive;
 
-   vb.normalptr = ctx->Current.Normal;
-   vb.colorptr = NULL;
-   vb.floatcolorptr = ctx->Current.Color;
-   vb.specptr = NULL;
-   vb.floatspecptr = ctx->Current.SecondaryColor;
-   vb.texcoordptr[0] = ctx->Current.Texcoord[0];
-   vb.texcoordptr[1] = ctx->Current.Texcoord[1];
+   rmesa->vb.normalptr = ctx->Current.Attrib[VERT_ATTRIB_NORMAL];
+   rmesa->vb.colorptr = NULL;
+   rmesa->vb.floatcolorptr = ctx->Current.Attrib[VERT_ATTRIB_COLOR0];
+   rmesa->vb.specptr = NULL;
+   rmesa->vb.floatspecptr = ctx->Current.Attrib[VERT_ATTRIB_COLOR1];
+   rmesa->vb.texcoordptr[0] = ctx->Current.Attrib[VERT_ATTRIB_TEX0];
+   rmesa->vb.texcoordptr[1] = ctx->Current.Attrib[VERT_ATTRIB_TEX1];
 
    /* Run through and initialize the vertex components in the order
     * the hardware understands:
     */
    if (ind & RADEON_CP_VC_FRMT_N0) {
-      vb.normalptr = &vb.vertex[vb.vertex_size].f;
-      vb.vertex_size += 3;
-      vb.normalptr[0] = ctx->Current.Normal[0];
-      vb.normalptr[1] = ctx->Current.Normal[1];
-      vb.normalptr[2] = ctx->Current.Normal[2];
+      rmesa->vb.normalptr = &rmesa->vb.vertex[rmesa->vb.vertex_size].f;
+      rmesa->vb.vertex_size += 3;
+      rmesa->vb.normalptr[0] = ctx->Current.Attrib[VERT_ATTRIB_NORMAL][0];
+      rmesa->vb.normalptr[1] = ctx->Current.Attrib[VERT_ATTRIB_NORMAL][1];
+      rmesa->vb.normalptr[2] = ctx->Current.Attrib[VERT_ATTRIB_NORMAL][2];
    }
 
    if (ind & RADEON_CP_VC_FRMT_PKCOLOR) {
-      vb.colorptr = &vb.vertex[vb.vertex_size].color;
-      vb.vertex_size += 1;
-      UNCLAMPED_FLOAT_TO_CHAN( vb.colorptr->red,   ctx->Current.Color[0] );
-      UNCLAMPED_FLOAT_TO_CHAN( vb.colorptr->green, ctx->Current.Color[1] );
-      UNCLAMPED_FLOAT_TO_CHAN( vb.colorptr->blue,  ctx->Current.Color[2] );
-      UNCLAMPED_FLOAT_TO_CHAN( vb.colorptr->alpha, ctx->Current.Color[3] );
+      rmesa->vb.colorptr = &rmesa->vb.vertex[rmesa->vb.vertex_size].color;
+      rmesa->vb.vertex_size += 1;
+      UNCLAMPED_FLOAT_TO_CHAN( rmesa->vb.colorptr->red,   ctx->Current.Attrib[VERT_ATTRIB_COLOR0][0] );
+      UNCLAMPED_FLOAT_TO_CHAN( rmesa->vb.colorptr->green, ctx->Current.Attrib[VERT_ATTRIB_COLOR0][1] );
+      UNCLAMPED_FLOAT_TO_CHAN( rmesa->vb.colorptr->blue,  ctx->Current.Attrib[VERT_ATTRIB_COLOR0][2] );
+      UNCLAMPED_FLOAT_TO_CHAN( rmesa->vb.colorptr->alpha, ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3] );
    }
 
    if (ind & RADEON_CP_VC_FRMT_FPCOLOR) {
       assert(!(ind & RADEON_CP_VC_FRMT_PKCOLOR));
-      vb.floatcolorptr = &vb.vertex[vb.vertex_size].f;
-      vb.vertex_size += 3;
-      vb.floatcolorptr[0] = ctx->Current.Color[0];
-      vb.floatcolorptr[1] = ctx->Current.Color[1];
-      vb.floatcolorptr[2] = ctx->Current.Color[2];
+      rmesa->vb.floatcolorptr = &rmesa->vb.vertex[rmesa->vb.vertex_size].f;
+      rmesa->vb.vertex_size += 3;
+      rmesa->vb.floatcolorptr[0] = ctx->Current.Attrib[VERT_ATTRIB_COLOR0][0];
+      rmesa->vb.floatcolorptr[1] = ctx->Current.Attrib[VERT_ATTRIB_COLOR0][1];
+      rmesa->vb.floatcolorptr[2] = ctx->Current.Attrib[VERT_ATTRIB_COLOR0][2];
 
       if (ind & RADEON_CP_VC_FRMT_FPALPHA) {
-	 vb.vertex_size += 1;
-	 vb.floatcolorptr[3] = ctx->Current.Color[3];
+	 rmesa->vb.vertex_size += 1;
+	 rmesa->vb.floatcolorptr[3] = ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3];
       }
    }
    
    if (ind & RADEON_CP_VC_FRMT_PKSPEC) {
-      vb.specptr = &vb.vertex[vb.vertex_size].color;
-      vb.vertex_size += 1;
-      UNCLAMPED_FLOAT_TO_CHAN( vb.specptr->red,   ctx->Current.SecondaryColor[0] );
-      UNCLAMPED_FLOAT_TO_CHAN( vb.specptr->green, ctx->Current.SecondaryColor[1] );
-      UNCLAMPED_FLOAT_TO_CHAN( vb.specptr->blue,  ctx->Current.SecondaryColor[2] );
+      rmesa->vb.specptr = &rmesa->vb.vertex[rmesa->vb.vertex_size].color;
+      rmesa->vb.vertex_size += 1;
+      UNCLAMPED_FLOAT_TO_CHAN( rmesa->vb.specptr->red,   ctx->Current.Attrib[VERT_ATTRIB_COLOR1][0] );
+      UNCLAMPED_FLOAT_TO_CHAN( rmesa->vb.specptr->green, ctx->Current.Attrib[VERT_ATTRIB_COLOR1][1] );
+      UNCLAMPED_FLOAT_TO_CHAN( rmesa->vb.specptr->blue,  ctx->Current.Attrib[VERT_ATTRIB_COLOR1][2] );
    }
 
-
    if (ind & RADEON_CP_VC_FRMT_ST0) {
-      vb.texcoordptr[0] = &vb.vertex[vb.vertex_size].f;
-      vb.vertex_size += 2;
-      vb.texcoordptr[0][0] = ctx->Current.Texcoord[0][0];
-      vb.texcoordptr[0][1] = ctx->Current.Texcoord[0][1];   
+      rmesa->vb.texcoordptr[0] = &rmesa->vb.vertex[rmesa->vb.vertex_size].f;
+      rmesa->vb.vertex_size += 2;
+      rmesa->vb.texcoordptr[0][0] = ctx->Current.Attrib[VERT_ATTRIB_TEX0][0];
+      rmesa->vb.texcoordptr[0][1] = ctx->Current.Attrib[VERT_ATTRIB_TEX0][1];   
    } 
 
    if (ind & RADEON_CP_VC_FRMT_ST1) {
-      vb.texcoordptr[1] = &vb.vertex[vb.vertex_size].f;
-      vb.vertex_size += 2;
-      vb.texcoordptr[1][0] = ctx->Current.Texcoord[1][0];
-      vb.texcoordptr[1][1] = ctx->Current.Texcoord[1][1];
+      rmesa->vb.texcoordptr[1] = &rmesa->vb.vertex[rmesa->vb.vertex_size].f;
+      rmesa->vb.vertex_size += 2;
+      rmesa->vb.texcoordptr[1][0] = ctx->Current.Attrib[VERT_ATTRIB_TEX1][0];
+      rmesa->vb.texcoordptr[1][1] = ctx->Current.Attrib[VERT_ATTRIB_TEX1][1];
    } 
 
    if (rmesa->vb.installed_vertex_format != rmesa->vb.vertex_format) {
@@ -696,7 +695,6 @@ static GLboolean check_vtx_fmt( GLcontext *ctx )
    
    return GL_TRUE;
 }
-
 
 void radeonVtxfmtInvalidate( GLcontext *ctx )
 {
@@ -731,10 +729,9 @@ static void radeonVtxfmtValidate( GLcontext *ctx )
 	    fprintf(stderr, "reinstall (new install)\n");
 
 	 _mesa_install_exec_vtxfmt( ctx, &rmesa->vb.vtxfmt );
-	 ctx->Driver.FlushVertices = radeonFlushVertices;
+	 ctx->Driver.FlushVertices = radeonVtxfmtFlushVertices;
 	 ctx->Driver.NewList = radeonNewList;
 	 rmesa->vb.installed = GL_TRUE;
-	 vb.context = ctx;
       }
       else if (RADEON_DEBUG & DEBUG_VFMT)
 	 fprintf(stderr, "%s: already installed", __FUNCTION__);
@@ -747,8 +744,8 @@ static void radeonVtxfmtValidate( GLcontext *ctx )
 	 if (rmesa->dma.flush)
 	    rmesa->dma.flush( rmesa );
 	 _tnl_wakeup_exec( ctx );
+	 ctx->Driver.FlushVertices = radeonFlushVertices;
 	 rmesa->vb.installed = GL_FALSE;
-	 vb.context = 0;
       }
    }      
 }
@@ -760,7 +757,7 @@ static void radeonVtxfmtValidate( GLcontext *ctx )
 static void radeon_Materialfv( GLenum face, GLenum pname, 
 			       const GLfloat *params )
 {
-   GLcontext *ctx = vb.context;
+   GET_CURRENT_CONTEXT(ctx);
    radeonContextPtr rmesa = RADEON_CONTEXT( ctx );
 
    if (RADEON_DEBUG & DEBUG_VFMT)
@@ -772,7 +769,7 @@ static void radeon_Materialfv( GLenum face, GLenum pname,
       return;
    }
    _mesa_noop_Materialfv( face, pname, params );
-   radeonUpdateMaterial( vb.context );
+   radeonUpdateMaterial( ctx );
 }
 
 
@@ -780,11 +777,12 @@ static void radeon_Materialfv( GLenum face, GLenum pname,
  */
 static void radeon_Begin( GLenum mode )
 {
-   GLcontext *ctx = vb.context;
+   GET_CURRENT_CONTEXT(ctx);
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
-   
+
    if (RADEON_DEBUG & DEBUG_VFMT)
-      fprintf(stderr, "%s\n", __FUNCTION__);
+      fprintf(stderr, "%s( %s )\n", __FUNCTION__,
+	      _mesa_lookup_enum_by_nr( mode ));
 
    if (mode > GL_POLYGON) {
       _mesa_error( ctx, GL_INVALID_ENUM, "glBegin" );
@@ -811,7 +809,7 @@ static void radeon_Begin( GLenum mode )
    }
 
 
-   if (rmesa->dma.flush && vb.counter < 12) {
+   if (rmesa->dma.flush && rmesa->vb.counter < 12) {
       if (RADEON_DEBUG & DEBUG_VFMT)
 	 fprintf(stderr, "%s: flush almost-empty buffers\n", __FUNCTION__);
       flush_prims( rmesa );
@@ -820,20 +818,20 @@ static void radeon_Begin( GLenum mode )
    /* Need to arrange to save vertices here?  Or always copy from dma (yuk)?
     */
    if (!rmesa->dma.flush) {
-      if (rmesa->dma.current.ptr + 12*vb.vertex_size*4 > 
+      if (rmesa->dma.current.ptr + 12*rmesa->vb.vertex_size*4 > 
 	  rmesa->dma.current.end) {
 	 RADEON_NEWPRIM( rmesa );
 	 radeonRefillCurrentDmaRegion( rmesa );
       }
 
-      vb.dmaptr = (int *)(rmesa->dma.current.address + rmesa->dma.current.ptr);
-      vb.counter = (rmesa->dma.current.end - rmesa->dma.current.ptr) / 
-	 (vb.vertex_size * 4);
-      vb.counter--;
-      vb.initial_counter = vb.counter;
-      vb.notify = wrap_buffer;
+      rmesa->vb.dmaptr = (int *)(rmesa->dma.current.address + rmesa->dma.current.ptr);
+      rmesa->vb.counter = (rmesa->dma.current.end - rmesa->dma.current.ptr) / 
+	 (rmesa->vb.vertex_size * 4);
+      rmesa->vb.counter--;
+      rmesa->vb.initial_counter = rmesa->vb.counter;
+      rmesa->vb.notify = wrap_buffer;
       rmesa->dma.flush = flush_prims;
-      vb.context->Driver.NeedFlush |= FLUSH_STORED_VERTICES;
+      ctx->Driver.NeedFlush |= FLUSH_STORED_VERTICES;
    }
    
    
@@ -845,7 +843,7 @@ static void radeon_Begin( GLenum mode )
 
 static void radeon_End( void )
 {
-   GLcontext *ctx = vb.context;
+   GET_CURRENT_CONTEXT(ctx);
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
 
    if (RADEON_DEBUG & DEBUG_VFMT)
@@ -905,7 +903,7 @@ static GLboolean radeonNotifyBegin( GLcontext *ctx, GLenum p )
    return GL_TRUE;
 }
 
-static void radeonFlushVertices( GLcontext *ctx, GLuint flags )
+static void radeonVtxfmtFlushVertices( GLcontext *ctx, GLuint flags )
 {
    radeonContextPtr rmesa = RADEON_CONTEXT( ctx );
 
@@ -913,7 +911,6 @@ static void radeonFlushVertices( GLcontext *ctx, GLuint flags )
       fprintf(stderr, "%s\n", __FUNCTION__);
 
    assert(rmesa->vb.installed);
-   assert(vb.context == ctx);
 
    if (flags & FLUSH_UPDATE_CURRENT) {
       radeon_copy_to_current( ctx );
@@ -1006,7 +1003,6 @@ void radeonVtxfmtInit( GLcontext *ctx )
 
    TNL_CONTEXT(ctx)->Driver.NotifyBegin = radeonNotifyBegin;
 
-   vb.context = ctx;
    rmesa->vb.enabled = 1;
    rmesa->vb.prim = &ctx->Driver.CurrentExecPrimitive;
    rmesa->vb.primflags = 0;
@@ -1051,44 +1047,10 @@ static void free_funcs( struct dynfn *l )
    }
 }
 
-void radeonVtxfmtUnbindContext( GLcontext *ctx )
-{
-   if (RADEON_CONTEXT(ctx)->vb.installed) {
-      assert(vb.context == ctx);
-      VFMT_FALLBACK_OUTSIDE_BEGIN_END( __FUNCTION__ );
-   }
-
-   TNL_CONTEXT(ctx)->Driver.NotifyBegin = 0;
-}
 
 
 void radeonVtxfmtMakeCurrent( GLcontext *ctx )
 {
-   radeonContextPtr rmesa = RADEON_CONTEXT( ctx );
-
-#if defined(THREADS)
-   static GLboolean ThreadSafe = GL_FALSE;  /* In thread-safe mode? */
-   if (!ThreadSafe) {
-      static unsigned long knownID;
-      static GLboolean firstCall = GL_TRUE;
-      if (firstCall) {
-         knownID = _glthread_GetID();
-         firstCall = GL_FALSE;
-      }
-      else if (knownID != _glthread_GetID()) {
-         ThreadSafe = GL_TRUE;
-
-	 if (RADEON_DEBUG & (DEBUG_DRI|DEBUG_VFMT))
-	    fprintf(stderr, "**** Multithread situation!\n");
-      }
-   }
-   if (ThreadSafe) 
-      return;
-#endif
-
-   if (rmesa->vb.enabled) {
-      TNL_CONTEXT(ctx)->Driver.NotifyBegin = radeonNotifyBegin;
-   }
 }
 
 

@@ -1,0 +1,121 @@
+# graphviz.spec.  Generated from graphviz.spec.in by configure.
+
+Name:           graphviz
+Version:        1.12
+Release:        1
+Group:          Applications/Graphics
+License:        AT&T open source (see COPYING)
+URL:            http://www.graphviz.org/
+Summary:        Graph Visualization Tools
+Packager:       John Ellson (ellson@graphviz.org)
+Source:		http://www.graphviz.org/pub/%{name}/%{name}-%{version}.tar.gz
+BuildRoot:	%{_tmppath}/%{name}-root
+
+# The following package names are from SuSE Linux 7.3
+#Requires:	xshared tcl tk freetype2 libjpeg libpng libz gppshare
+#BuildRequires:	pdksh xdevel /usr/bin/tclsh8.3 tcl-devel freetype2-devel libjpeg libpng libz gpp libgpp gppshare
+
+%description
+A collection of tools and tcl packages for the manipulation and layout
+of graphs (as in nodes and edges, not as in barcharts).
+
+%package graphs
+Group:		Applications/Graphics
+Summary:	Demo graphs for %{name}
+Provides:	%{name}-graphs = %{version}
+
+%description graphs
+This package provides some example graphs for %{name}.
+
+%package tcl
+Group:		Applications/Graphics
+Summary:	Tcl extension tools for version %{version} of %{name}
+# The following package names are from SuSE Linux 7.3
+#Requires:	xshared tcl tk freetype2 libjpeg libpng libz
+Provides:	%{name}-tcl = %{version}
+
+%description tcl
+The %{name}-tcl package contains the various tcl packages (extensions)
+for version %{version} of the %{name} tools.
+
+%package devel
+Group:		Development/Libraries
+Summary:	Development tools for version %{version} of %{name}
+Requires:	%{name} = %{version}
+Provides:	%{name}-devel = %{version}
+
+%description devel
+The %{name}-devel package contains the header files
+and man3 pages necessary for developing programs
+using version %{version} of the %{name} libraries.
+
+%prep
+%setup -q
+
+%build
+%ifarch i386
+CFLAGS=${CFLAGS-"$RPM_OPT_FLAGS -ffast-math"}
+%else
+CFLAGS=${CFLAGS-"$RPM_OPT_FLAGS"}
+%endif
+CXXFLAGS=${CXXFLAGS-"$CFLAGS"}
+export CFLAGS CXXFLAGS
+./configure \
+      --prefix=%{_prefix} \
+      --bindir=%{_bindir} \
+      --libdir=%{_libdir} \
+      --includedir=%{_includedir} \
+      --datadir=%{_datadir} \
+      --mandir=%{_mandir} \
+      --with-x
+make
+
+%install
+# rm -rf "$RPM_BUILD_ROOT"
+make DESTDIR="$RPM_BUILD_ROOT" install
+
+%files
+%defattr(-,root,root)
+%doc AUTHORS COPYING ChangeLog NEWS FAQ.txt MINTERMS.txt
+%doc doc/[^Mb]*
+%{_bindir}/*
+%dir %{_datadir}/%{name}
+%{_datadir}/%{name}/lefty
+%{_mandir}/man1/*.1*
+%dir %{_libdir}/%{name}
+%{_libdir}/%{name}/libagraph.so*
+%{_libdir}/%{name}/libcdt.so*
+%{_libdir}/%{name}/libexpr.so*
+%{_libdir}/%{name}/libgraph.so*
+%{_libdir}/%{name}/libpack.so*
+%{_libdir}/%{name}/libpathplan.so*
+%{_libdir}/%{name}/libdotneato.so*
+
+%files graphs
+%defattr(-,root,root)
+%{_datadir}/%{name}/graphs
+
+%files tcl
+%defattr(-,root,root)
+%doc AUTHORS COPYING ChangeLog FAQ.txt MINTERMS.txt
+%doc doc/tcldot.html
+%{_libdir}/%{name}/libgdtclft.so*
+%{_libdir}/%{name}/libtcldot.so*
+%{_libdir}/%{name}/libtclplan.so*
+%{_libdir}/%{name}/libtkspline.so*
+%{_libdir}/%{name}/pkgIndex.tcl
+%{_datadir}/%{name}/demo
+%{_mandir}/mann/*.n* 
+
+# %{_libdir}/%{name}/libtcldgl.so*
+# %{_libdir}/%{name}/libtcldgr.so*
+
+%files devel
+%defattr(-,root,root)
+%doc LICENSE.html
+%{_includedir}/%{name}
+%{_libdir}/%{name}/*.*a
+%{_mandir}/man3/*.3*
+
+%clean
+rm -rf "$RPM_BUILD_ROOT"

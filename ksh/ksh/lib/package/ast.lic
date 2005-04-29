@@ -1,0 +1,73 @@
+#
+# ast default license info
+#
+
+message_set=3
+
+contributor=(
+	[gsf]="Glenn Fowler <gsf@research.att.com>"
+	[dgk]="David Korn <dgk@research.att.com>"
+	[kpv]="Phong Vo <kpv@research.att.com>"
+
+	[alb]="Adam Buchsbaum <alb@research.att.com>"
+	[bala]="Bala Krishnamurthy <bala@research.att.com>"
+	[chen]="Robin Chen <chen@research.bell-labs.com>"
+	[dfwc]="Don Caldwell <dfwc@research.att.com>"
+	[ek]="Lefty Koutsofios <ek@research.att.com>"
+	[griffin]="Tim Griffin <griffin@research.att.com>"
+	[gruber]="Bob Gruber <gruber@research.att.com>"
+	[jiawang]="Jia Wang <jiawang@research.att.com>"
+	[jlk]="Jeff Korn <jlk@research.att.com>"
+	[kfisher]="Kathleen Fisher <kfisher@research.att.com>"
+	[kwc]="Ken Church <kwc@research.att.com>"
+
+	[bwk]="Brian Kernigham <bwk@research.bell-labs.com>"
+	[dmr]="Dennis Ritchie <dmr@research.bell-labs.com>"
+	[doug]="Doug McIlroy <doug@research.bell-labs.com>"
+	[ekrell]="Eduardo Krell <ekrell@adexus.cl>"
+	[jjs]="John Snyder <jjs@adexus.cl>"
+	[rao]="Herman Rao <rao@fareastone.att.com.tw>"
+)
+
+license=(
+	type=open
+	package=ast
+	since=1986
+	author=gsf+dgk+kpv
+
+	organization="Information and Software Systems Research"
+
+	domain=research.att.com
+	corporation="AT&T"
+	company="Labs Research"
+	location="Florham Park NJ"
+
+	url=http://www.${license.domain}/sw/license/${license.package}-${license.type}.html
+	bin=http://www.${license.domain}/sw/license/${license.package}-${license.type}-bin.html
+
+	notice='
+This product contains certain software code or other
+information ("AT&T Software") proprietary to AT&T Corp.
+("AT&T"). The AT&T Software is provided to you "AS IS". YOU
+ASSUME TOTAL RESPONSIBILITY AND RISK FOR USE OF THE AT&T
+SOFTWARE. AT&T DOES NOT MAKE, AND EXPRESSLY DISCLAIMS, ANY
+EXPRESS OR IMPLIED WARRANTIES OF ANY KIND WHATSOEVER,
+INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE,
+WARRANTIES OF TITLE OR NON-INFRINGEMENT OF ANY INTELLECTUAL
+PROPERTY RIGHTS, ANY WARRANTIES ARISING BY USAGE OF TRADE,
+COURSE OF DEALING OR COURSE OF PERFORMANCE, OR ANY WARRANTY
+THAT THE AT&T SOFTWARE IS "ERROR FREE" OR WILL MEET YOUR
+REQUIREMENTS.
+
+Unless you accept a license to use the AT&T Software, you
+shall not reverse compile, disassemble or otherwise reverse
+engineer this product to ascertain the source code for any
+AT&T Software.
+
+Copyright (c) AT&T Corp. 
+All rights reserved. 
+AT&T is a registered trademark of AT&T Corp.
+'
+
+)

@@ -2,7 +2,7 @@
    on information stored in GCC's tree structure.  This code implements the
    -aux-info option.
    Copyright (C) 1989, 1991, 1994, 1995, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@segfault.us.com).
 
 This file is part of GCC.
@@ -24,10 +24,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
-#include "toplev.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "flags.h"
 #include "tree.h"
 #include "c-tree.h"
+#include "toplev.h"
 
 enum formals_style_enum {
   ansi,
@@ -39,12 +41,12 @@ typedef enum formals_style_enum formals_style;
 
 static const char *data_type;
 
-static char *affix_data_type		PARAMS ((const char *)) ATTRIBUTE_MALLOC;
-static const char *gen_formal_list_for_type PARAMS ((tree, formals_style));
-static int   deserves_ellipsis		PARAMS ((tree));
-static const char *gen_formal_list_for_func_def PARAMS ((tree, formals_style));
-static const char *gen_type		PARAMS ((const char *, tree, formals_style));
-static const char *gen_decl		PARAMS ((tree, int, formals_style));
+static char *affix_data_type (const char *) ATTRIBUTE_MALLOC;
+static const char *gen_formal_list_for_type (tree, formals_style);
+static int   deserves_ellipsis (tree);
+static const char *gen_formal_list_for_func_def (tree, formals_style);
+static const char *gen_type (const char *, tree, formals_style);
+static const char *gen_decl (tree, int, formals_style);
 
 /* Given a string representing an entire type or an entire declaration
    which only lacks the actual "data-type" specifier (at its left end),
@@ -61,8 +63,7 @@ static const char *gen_decl		PARAMS ((tree, int, formals_style));
    that look as expected.  */
 
 static char *
-affix_data_type (param)
-     const char *param;
+affix_data_type (const char *param)
 {
   char *const type_or_decl = ASTRDUP (param);
   char *p = type_or_decl;
@@ -108,9 +109,7 @@ affix_data_type (param)
    of empty parens here.  */
 
 static const char *
-gen_formal_list_for_type (fntype, style)
-     tree fntype;
-     formals_style style;
+gen_formal_list_for_type (tree fntype, formals_style style)
 {
   const char *formal_list = "";
   tree formal_type;
@@ -192,8 +191,7 @@ gen_formal_list_for_type (fntype, style)
    if the "function type" parameter list should end with an ellipsis.  */
 
 static int
-deserves_ellipsis (fntype)
-     tree fntype;
+deserves_ellipsis (tree fntype)
 {
   tree formal_type;
 
@@ -228,9 +226,7 @@ deserves_ellipsis (fntype)
    function formal parameter list.  */
 
 static const char *
-gen_formal_list_for_func_def (fndecl, style)
-     tree fndecl;
-     formals_style style;
+gen_formal_list_for_func_def (tree fndecl, formals_style style)
 {
   const char *formal_list = "";
   tree formal_decl;
@@ -303,10 +299,7 @@ gen_formal_list_for_func_def (fndecl, style)
    string onto the returned "seed".  */
 
 static const char *
-gen_type (ret_val, t, style)
-     const char *ret_val;
-     tree t;
-     formals_style style;
+gen_type (const char *ret_val, tree t, formals_style style)
 {
   tree chain_p;
 
@@ -432,13 +425,13 @@ gen_type (ret_val, t, style)
         case TYPE_DECL:
           data_type = IDENTIFIER_POINTER (DECL_NAME (t));
           break;
- 
+
         case INTEGER_TYPE:
           data_type = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (t)));
           /* Normally, `unsigned' is part of the deal.  Not so if it comes
-    	     with a type qualifier.  */
-          if (TREE_UNSIGNED (t) && TYPE_QUALS (t))
-    	    data_type = concat ("unsigned ", data_type, NULL);
+	     with a type qualifier.  */
+          if (TYPE_UNSIGNED (t) && TYPE_QUALS (t))
+	    data_type = concat ("unsigned ", data_type, NULL);
 	  break;
 
         case REAL_TYPE:
@@ -454,7 +447,7 @@ gen_type (ret_val, t, style)
 	  break;
 
         default:
-          abort ();
+          gcc_unreachable ();
         }
     }
   if (TYPE_READONLY (t))
@@ -477,10 +470,7 @@ gen_type (ret_val, t, style)
    an attached list of DECL nodes for function formal arguments is present.  */
 
 static const char *
-gen_decl (decl, is_func_definition, style)
-     tree decl;
-     int is_func_definition;
-     formals_style style;
+gen_decl (tree decl, int is_func_definition, formals_style style)
 {
   const char *ret_val;
 
@@ -541,7 +531,7 @@ gen_decl (decl, is_func_definition, style)
 
   ret_val = affix_data_type (ret_val);
 
-  if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
+  if (TREE_CODE (decl) != FUNCTION_DECL && C_DECL_REGISTER (decl))
     ret_val = concat ("register ", ret_val, NULL);
   if (TREE_PUBLIC (decl))
     ret_val = concat ("extern ", ret_val, NULL);
@@ -558,20 +548,18 @@ extern FILE *aux_info_file;
    function definition (even the implicit ones).  */
 
 void
-gen_aux_info_record (fndecl, is_definition, is_implicit, is_prototyped)
-     tree fndecl;
-     int is_definition;
-     int is_implicit;
-     int is_prototyped;
+gen_aux_info_record (tree fndecl, int is_definition, int is_implicit,
+		     int is_prototyped)
 {
   if (flag_gen_aux_info)
     {
       static int compiled_from_record = 0;
+      expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (fndecl));
 
       /* Each output .X file must have a header line.  Write one now if we
 	 have not yet done so.  */
 
-      if (! compiled_from_record++)
+      if (!compiled_from_record++)
 	{
 	  /* The first line tells which directory file names are relative to.
 	     Currently, -aux-info works only for files in the working
@@ -582,8 +570,7 @@ gen_aux_info_record (fndecl, is_definition, is_implicit, is_prototyped)
       /* Write the actual line of auxiliary info.  */
 
       fprintf (aux_info_file, "/* %s:%d:%c%c */ %s;",
-	       DECL_SOURCE_FILE (fndecl),
-	       DECL_SOURCE_LINE (fndecl),
+	       xloc.file, xloc.line,
 	       (is_implicit) ? 'I' : (is_prototyped) ? 'N' : 'O',
 	       (is_definition) ? 'F' : 'C',
 	       gen_decl (fndecl, is_definition, ansi));

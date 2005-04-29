@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 
@@ -28,13 +28,12 @@ GENERAL SETUP INFORMATION
     Using + as the delimiter works well with the default values for
     VERP_FORMAT and VERP_REGEXP in Defaults.py.
 
-    When attempting to deliver a message to a non-existent local
-    address, Postfix may return a 450 error code.  Since this is a
-    non-transient error code, Mailman will continue to attempt to
-    delivery the message for DELIVERY_RETRY_PERIOD (5 days by
-    default).  You might want to set Postfix up so that it returns
-    permanent error codes for non-existent local users by adding the
-    following to your main.cf file:
+    When attempting to deliver a message to a non-existent local address,
+    Postfix may return a 450 error code.  Since this is a transient error
+    code, Mailman will continue to attempt to delivery the message for
+    DELIVERY_RETRY_PERIOD (5 days by default).  You might want to set Postfix
+    up so that it returns permanent error codes for non-existent local users
+    by adding the following to your main.cf file:
 
         unknown_local_recipient_reject_code = 550
 

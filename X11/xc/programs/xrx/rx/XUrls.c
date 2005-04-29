@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization from
 The Open Group.
 
 */
-/* $XFree86: xc/programs/xrx/rx/XUrls.c,v 1.11 2001/12/14 20:02:19 dawes Exp $ */
+/* $XFree86: xc/programs/xrx/rx/XUrls.c,v 1.12 2003/07/20 16:12:20 tsi Exp $ */
 
 #include "RxI.h"
 #include "XUrls.h"
@@ -142,7 +142,7 @@ MyBestHostname (
   } else {	/* otherwise believe the display_name */
     char *ptr;
 
-    ptr = strchr(display_name, ':');
+    ptr = strrchr(display_name, ':');
     if (ptr == NULL) {
       /* if there's no ":0" in the name, just copy it */
       strncpy(myname, display_name, myname_len);
@@ -343,13 +343,21 @@ ParseHostname(char *url, char *buf, int buflen)
     while (*ptr && *ptr == '/')
 	ptr++;
     begin = ptr;
-    /* look for possible port specification */
-    ptr = strchr(begin, ':');
-    if (ptr == NULL) {
-	/* look for possible path */
-	ptr = strchr(begin, '/');
-	if (ptr == NULL)
-	    ptr += strlen(begin);
+    /* Check for RFC 2732 bracketed IPv6 numeric address */
+    if (*ptr == '[') {
+	begin++;
+	while (*ptr && (*ptr != ']')) {
+	    ptr++;
+	}
+    } else {
+	/* look for possible port specification */
+	ptr = strchr(begin, ':');
+	if (ptr == NULL) {
+	    /* look for possible path */
+	    ptr = strchr(begin, '/');
+	    if (ptr == NULL)
+		ptr += strlen(begin);
+	}
     }
     if (ptr - begin < buflen) {
 	strncpy(buf, begin, ptr - begin);

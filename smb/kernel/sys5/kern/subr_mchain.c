@@ -37,14 +37,9 @@
 #include <sys/systm.h>
 #include <sys/errno.h>
 #include <sys/mbuf.h>
-#ifndef APPLE
-#include <sys/module.h>
-#endif
 #include <sys/uio.h>
 
-#ifdef APPLE
 #include <sys/smb_apple.h>
-#endif
 #include <sys/mchain.h>
 
 #include <netsmb/smb_compat4.h>
@@ -152,7 +147,6 @@ mb_reserve(struct mbchain *mbp, int size)
 	return bpos;
 }
 
-#ifdef APPLE
 PRIVSYM int
 mb_put_padbyte(struct mbchain *mbp)
 {
@@ -167,7 +161,6 @@ mb_put_padbyte(struct mbchain *mbp)
 	else
 		return 0;
 }
-#endif
 
 PRIVSYM int
 mb_put_uint8(struct mbchain *mbp, u_int8_t x)
@@ -204,14 +197,14 @@ mb_put_uint32le(struct mbchain *mbp, u_int32_t x)
 }
 
 PRIVSYM int
-mb_put_int64be(struct mbchain *mbp, int64_t x)
+mb_put_uint64be(struct mbchain *mbp, u_int64_t x)
 {
 	x = htobeq(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
 PRIVSYM int
-mb_put_int64le(struct mbchain *mbp, int64_t x)
+mb_put_uint64le(struct mbchain *mbp, u_int64_t x)
 {
 	x = htoleq(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
@@ -255,7 +248,7 @@ mb_put_mem(struct mbchain *mbp, c_caddr_t source, int size, int type)
 			bcopy(source, dst, cplen);
 			break;
 		    case MB_MUSER:
-			error = copyin((caddr_t)source, dst, cplen);
+			error = copyin(CAST_USER_ADDR_T(source), dst, cplen);
 			if (error)
 				return error;
 			break;
@@ -293,31 +286,28 @@ mb_put_mbuf(struct mbchain *mbp, struct mbuf *m)
  * copies a uio scatter/gather list to an mbuf chain.
  */
 PRIVSYM int
-mb_put_uio(struct mbchain *mbp, struct uio *uiop, int size)
+mb_put_uio(struct mbchain *mbp, uio_t uiop, int size)
 {
-	long left;
+	user_size_t left;
 	int mtype, error;
 
-	mtype = (uiop->uio_segflg == UIO_SYSSPACE) ? MB_MSYSTEM : MB_MUSER;
+	mtype = (uio_isuserspace(uiop) ? MB_MUSER : MB_MSYSTEM);
 
-	while (size > 0 && uiop->uio_resid) {
-		if (uiop->uio_iovcnt <= 0 || uiop->uio_iov == NULL)
+	while (size > 0 && uio_resid(uiop)) {
+		if (uio_iovcnt(uiop) <= 0 || uio_curriovbase(uiop) == USER_ADDR_NULL)
 			return EFBIG;
-		left = uiop->uio_iov->iov_len;
-		if (left == 0) {
-			uiop->uio_iov++;
-			uiop->uio_iovcnt--;
-			continue;
-		}
+		left = uio_curriovlen(uiop);
 		if (left > size)
 			left = size;
-		error = mb_put_mem(mbp, uiop->uio_iov->iov_base, left, mtype);
+		// LP64todo - address could be 64-bit value
+#ifdef __ppc__
+		if (uio_curriovbase(uiop) > 0xFFFFFFFFULL)
+			panic("%s - need LP64 support\n", __FUNCTION__);
+#endif /* __ppc__ */
+		error = mb_put_mem(mbp, CAST_DOWN(caddr_t, uio_curriovbase(uiop)), left, mtype);
 		if (error)
 			return error;
-		uiop->uio_offset += left;
-		uiop->uio_resid -= left;
-		uiop->uio_iov->iov_base += left;
-		uiop->uio_iov->iov_len -= left;
+		uio_update(uiop, left);
 		size -= left;
 	}
 	return 0;
@@ -460,30 +450,30 @@ md_get_uint32le(struct mdchain *mdp, u_int32_t *x)
 }
 
 PRIVSYM int
-md_get_int64(struct mdchain *mdp, int64_t *x)
+md_get_uint64(struct mdchain *mdp, u_int64_t *x)
 {
 	return md_get_mem(mdp, (caddr_t)x, 8, MB_MINLINE);
 }
 
 PRIVSYM int
-md_get_int64be(struct mdchain *mdp, int64_t *x)
+md_get_uint64be(struct mdchain *mdp, u_int64_t *x)
 {
-	int64_t v;
+	u_int64_t v;
 	int error;
 
-	error = md_get_int64(mdp, &v);
+	error = md_get_uint64(mdp, &v);
 	if (x)
 		*x = betohq(v);
 	return error;
 }
 
 PRIVSYM int
-md_get_int64le(struct mdchain *mdp, int64_t *x)
+md_get_uint64le(struct mdchain *mdp, u_int64_t *x)
 {
-	int64_t v;
+	u_int64_t v;
 	int error;
 
-	error = md_get_int64(mdp, &v);
+	error = md_get_uint64(mdp, &v);
 	if (x)
 		*x = letohq(v);
 	return error;
@@ -518,7 +508,7 @@ md_get_mem(struct mdchain *mdp, caddr_t target, int size, int type)
 			continue;
 		switch (type) {
 		    case MB_MUSER:
-			error = copyout(s, target, count);
+			error = copyout(s, CAST_USER_ADDR_T(target), count);
 			if (error)
 				return error;
 			break;
@@ -549,32 +539,27 @@ md_get_mbuf(struct mdchain *mdp, int size, struct mbuf **ret)
 }
 
 PRIVSYM int
-md_get_uio(struct mdchain *mdp, struct uio *uiop, int size)
+md_get_uio(struct mdchain *mdp, uio_t uiop, int size)
 {
-	char *uiocp;
-	long left;
+	user_size_t left;
 	int mtype, error;
 
-	mtype = (uiop->uio_segflg == UIO_SYSSPACE) ? MB_MSYSTEM : MB_MUSER;
-	while (size > 0 && uiop->uio_resid) {
-		if (uiop->uio_iovcnt <= 0 || uiop->uio_iov == NULL)
+	mtype = (uio_isuserspace(uiop) ? MB_MUSER : MB_MSYSTEM);
+	while (size > 0 && uio_resid(uiop)) {
+		if (uio_iovcnt(uiop) <= 0 || uio_curriovbase(uiop) == USER_ADDR_NULL)
 			return EFBIG;
-		left = uiop->uio_iov->iov_len;
-		if (left == 0) {
-			uiop->uio_iov++;
-			uiop->uio_iovcnt--;
-			continue;
-		}
-		uiocp = uiop->uio_iov->iov_base;
+		left = uio_curriovlen(uiop);
 		if (left > size)
 			left = size;
-		error = md_get_mem(mdp, uiocp, left, mtype);
+		// LP64todo - address could be 64-bit value
+#ifdef __ppc__
+		if (uio_curriovbase(uiop) > 0xFFFFFFFFULL)
+			panic("%s - need LP64 support\n", __FUNCTION__);
+#endif /* __ppc__ */
+		error = md_get_mem(mdp, CAST_DOWN(caddr_t, uio_curriovbase(uiop)), left, mtype);
 		if (error)
 			return error;
-		uiop->uio_offset += left;
-		uiop->uio_resid -= left;
-		uiop->uio_iov->iov_base += left;
-		uiop->uio_iov->iov_len -= left;
+		uio_update(uiop, left);
 		size -= left;
 	}
 	return 0;

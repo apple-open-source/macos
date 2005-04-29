@@ -47,7 +47,7 @@
 
 .text
 
-#if defined(__ppc__)
+#if defined(__ppc__) || defined(__ppc64__)
 #import	<architecture/ppc/asm_help.h>
 #import	<architecture/ppc/pseudo_inst.h>
 

@@ -1,7 +1,7 @@
 /*
  * Written by Frank Liu Oct 10, 2001
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/nto/nto_mouse.c,v 1.1 2001/11/16 16:47:56 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/nto/nto_mouse.c,v 1.2 2003/11/17 22:20:41 dawes Exp $ */
 
 
 #include "X.h"
@@ -11,13 +11,11 @@
 
 /* copied from mipointer.h */
 extern int miPointerGetMotionEvents(
-#if NeedFunctionPrototypes
     DeviceIntPtr /*pPtr*/,
     xTimecoord * /*coords*/,
     unsigned long /*start*/,
     unsigned long /*stop*/,
     ScreenPtr /*pScreen*/
-#endif
 );
 
 #include <sys/dcmd_input.h>

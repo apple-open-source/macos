@@ -567,6 +567,29 @@ int _libiconv_version = _LIBICONV_VERSION;
 strong_alias (libiconv_open, iconv_open)
 strong_alias (libiconv, iconv)
 strong_alias (libiconv_close, iconv_close)
+#elif defined __APPLE__
+#undef iconv_open
+#undef iconv
+#undef iconv_close
+iconv_t
+iconv_open(const char *tocode, const char *fromcode)
+{
+	return libiconv_open(tocode, fromcode);
+}
+
+size_t
+iconv(iconv_t cd, char ** __restrict inbuf,
+	size_t * __restrict inbytesleft, char ** __restrict outbuf,
+	size_t * __restrict outbytesleft)
+{
+	return libiconv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
+}
+
+int
+iconv_close(iconv_t cd)
+{
+	return libiconv_close(cd);
+}
 #endif
 
 #endif

@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 HFILES = ifconfig.h
 
-CFILES = ifconfig.c ifmedia.c ifvlan.c
+CFILES = ifconfig.c ifmedia.c ifvlan.c ifbond.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.dist ifconfig.8\
             Makefile.postamble

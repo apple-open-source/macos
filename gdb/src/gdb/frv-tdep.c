@@ -1,5 +1,5 @@
 /* Target-dependent code for the Fujitsu FR-V, for GDB, the GNU Debugger.
-   Copyright 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -19,45 +19,34 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
+#include "gdb_string.h"
 #include "inferior.h"
-#include "symfile.h"		/* for entry_point_address */
 #include "gdbcore.h"
 #include "arch-utils.h"
 #include "regcache.h"
+#include "frame.h"
+#include "frame-unwind.h"
+#include "frame-base.h"
+#include "trad-frame.h"
+#include "dis-asm.h"
+#include "gdb_assert.h"
+#include "sim-regno.h"
+#include "gdb/sim-frv.h"
+#include "opcodes/frv-desc.h"	/* for the H_SPR_... enums */
+#include "symtab.h"
 
 extern void _initialize_frv_tdep (void);
 
 static gdbarch_init_ftype frv_gdbarch_init;
 
 static gdbarch_register_name_ftype frv_register_name;
-static gdbarch_register_raw_size_ftype frv_register_raw_size;
-static gdbarch_register_virtual_size_ftype frv_register_virtual_size;
-static gdbarch_register_virtual_type_ftype frv_register_virtual_type;
-static gdbarch_register_byte_ftype frv_register_byte;
 static gdbarch_breakpoint_from_pc_ftype frv_breakpoint_from_pc;
-static gdbarch_frame_chain_ftype frv_frame_chain;
-static gdbarch_frame_saved_pc_ftype frv_frame_saved_pc;
+static gdbarch_adjust_breakpoint_address_ftype frv_gdbarch_adjust_breakpoint_address;
 static gdbarch_skip_prologue_ftype frv_skip_prologue;
-static gdbarch_frame_init_saved_regs_ftype frv_frame_init_saved_regs;
-static gdbarch_deprecated_extract_return_value_ftype frv_extract_return_value;
-static gdbarch_deprecated_extract_struct_value_address_ftype frv_extract_struct_value_address;
-static gdbarch_use_struct_convention_ftype frv_use_struct_convention;
-static gdbarch_frameless_function_invocation_ftype frv_frameless_function_invocation;
-static gdbarch_init_extra_frame_info_ftype stupid_useless_init_extra_frame_info;
-static gdbarch_store_struct_return_ftype frv_store_struct_return;
-static gdbarch_push_arguments_ftype frv_push_arguments;
-static gdbarch_push_return_address_ftype frv_push_return_address;
-static gdbarch_pop_frame_ftype frv_pop_frame;
-static gdbarch_saved_pc_after_call_ftype frv_saved_pc_after_call;
 
-static void frv_pop_frame_regular (struct frame_info *frame);
-
-/* Register numbers.  You can change these as needed, but don't forget
-   to update the simulator accordingly.  */
+/* Register numbers.  The order in which these appear define the
+   remote protocol, so take care in changing them.  */
 enum {
-  /* The total number of registers we know exist.  */
-  frv_num_regs = 147,
-
   /* Register numbers 0 -- 63 are always reserved for general-purpose
      registers.  The chip at hand may have less.  */
   first_gpr_regnum = 0,
@@ -71,10 +60,12 @@ enum {
   first_fpr_regnum = 64,
   last_fpr_regnum = 127,
 
-  /* Register numbers 128 on up are always reserved for special-purpose
-     registers.  */
-  first_spr_regnum = 128,
+  /* The PC register.  */
   pc_regnum = 128,
+
+  /* Register numbers 129 on up are always reserved for special-purpose
+     registers.  */
+  first_spr_regnum = 129,
   psr_regnum = 129,
   ccr_regnum = 130,
   cccr_regnum = 131,
@@ -86,24 +77,38 @@ enum {
   dbar3_regnum = 140,
   lr_regnum = 145,
   lcr_regnum = 146,
-  last_spr_regnum = 146
+  iacc0h_regnum = 147,
+  iacc0l_regnum = 148,
+  last_spr_regnum = 148,
+
+  /* The total number of registers we know exist.  */
+  frv_num_regs = last_spr_regnum + 1,
+
+  /* Pseudo registers */
+  first_pseudo_regnum = frv_num_regs,
+
+  /* iacc0 - the 64-bit concatenation of iacc0h and iacc0l.  */
+  iacc0_regnum = first_pseudo_regnum + 0,
+
+  last_pseudo_regnum = iacc0_regnum,
+  frv_num_pseudo_regs = last_pseudo_regnum - first_pseudo_regnum + 1,
 };
 
 static LONGEST frv_call_dummy_words[] =
 {0};
 
 
-/* The contents of this structure can only be trusted after we've
-   frv_frame_init_saved_regs on the frame.  */
-struct frame_extra_info
+struct frv_unwind_cache		/* was struct frame_extra_info */
   {
-    /* The offset from our frame pointer to our caller's stack
-       pointer.  */
-    int fp_to_callers_sp_offset;
+    /* The previous frame's inner-most stack address.  Used as this
+       frame ID's stack_addr.  */
+    CORE_ADDR prev_sp;
 
-    /* Non-zero if we've saved our return address on the stack yet.
-       Zero if it's still sitting in the link register.  */
-    int lr_saved_on_stack;
+    /* The frame's base, optionally used by the high-level debug info.  */
+    CORE_ADDR base;
+
+    /* Table indicating the location of each and every register.  */
+    struct trad_frame_saved_reg *saved_regs;
   };
 
 
@@ -162,17 +167,14 @@ new_variant (void)
 
   /* By default, don't supply any general-purpose or floating-point
      register names.  */
-  var->register_names = (char **) xmalloc (frv_num_regs * sizeof (char *));
-  for (r = 0; r < frv_num_regs; r++)
+  var->register_names 
+    = (char **) xmalloc ((frv_num_regs + frv_num_pseudo_regs)
+                         * sizeof (char *));
+  for (r = 0; r < frv_num_regs + frv_num_pseudo_regs; r++)
     var->register_names[r] = "";
 
-  /* Do, however, supply default names for the special-purpose
+  /* Do, however, supply default names for the known special-purpose
      registers.  */
-  for (r = first_spr_regnum; r <= last_spr_regnum; ++r)
-    {
-      sprintf (buf, "x%d", r);
-      var->register_names[r] = xstrdup (buf);
-    }
 
   var->register_names[pc_regnum] = "pc";
   var->register_names[lr_regnum] = "lr";
@@ -189,6 +191,11 @@ new_variant (void)
   var->register_names[dbar1_regnum] = "dbar1";
   var->register_names[dbar2_regnum] = "dbar2";
   var->register_names[dbar3_regnum] = "dbar3";
+
+  /* iacc0 (Only found on MB93405.)  */
+  var->register_names[iacc0h_regnum] = "iacc0h";
+  var->register_names[iacc0l_regnum] = "iacc0l";
+  var->register_names[iacc0_regnum] = "iacc0";
 
   return var;
 }
@@ -237,38 +244,93 @@ frv_register_name (int reg)
 {
   if (reg < 0)
     return "?toosmall?";
-  if (reg >= frv_num_regs)
+  if (reg >= frv_num_regs + frv_num_pseudo_regs)
     return "?toolarge?";
 
   return CURRENT_VARIANT->register_names[reg];
 }
 
 
-static int
-frv_register_raw_size (int reg)
-{
-  return 4;
-}
-
-static int
-frv_register_virtual_size (int reg)
-{
-  return 4;
-}
-
 static struct type *
-frv_register_virtual_type (int reg)
+frv_register_type (struct gdbarch *gdbarch, int reg)
 {
-  if (reg >= 64 && reg <= 127)
+  if (reg >= first_fpr_regnum && reg <= last_fpr_regnum)
     return builtin_type_float;
+  else if (reg == iacc0_regnum)
+    return builtin_type_int64;
   else
-    return builtin_type_int;
+    return builtin_type_int32;
+}
+
+static void
+frv_pseudo_register_read (struct gdbarch *gdbarch, struct regcache *regcache,
+                          int reg, void *buffer)
+{
+  if (reg == iacc0_regnum)
+    {
+      regcache_raw_read (regcache, iacc0h_regnum, buffer);
+      regcache_raw_read (regcache, iacc0l_regnum, (bfd_byte *) buffer + 4);
+    }
+}
+
+static void
+frv_pseudo_register_write (struct gdbarch *gdbarch, struct regcache *regcache,
+                          int reg, const void *buffer)
+{
+  if (reg == iacc0_regnum)
+    {
+      regcache_raw_write (regcache, iacc0h_regnum, buffer);
+      regcache_raw_write (regcache, iacc0l_regnum, (bfd_byte *) buffer + 4);
+    }
 }
 
 static int
-frv_register_byte (int reg)
+frv_register_sim_regno (int reg)
 {
-  return (reg * 4);
+  static const int spr_map[] =
+    {
+      H_SPR_PSR,		/* psr_regnum */
+      H_SPR_CCR,		/* ccr_regnum */
+      H_SPR_CCCR,		/* cccr_regnum */
+      -1,			/* 132 */
+      -1,			/* 133 */
+      -1,			/* 134 */
+      H_SPR_TBR,		/* tbr_regnum */
+      H_SPR_BRR,		/* brr_regnum */
+      H_SPR_DBAR0,		/* dbar0_regnum */
+      H_SPR_DBAR1,		/* dbar1_regnum */
+      H_SPR_DBAR2,		/* dbar2_regnum */
+      H_SPR_DBAR3,		/* dbar3_regnum */
+      -1,			/* 141 */
+      -1,			/* 142 */
+      -1,			/* 143 */
+      -1,			/* 144 */
+      H_SPR_LR,			/* lr_regnum */
+      H_SPR_LCR,		/* lcr_regnum */
+      H_SPR_IACC0H,		/* iacc0h_regnum */
+      H_SPR_IACC0L		/* iacc0l_regnum */
+    };
+
+  gdb_assert (reg >= 0 && reg < NUM_REGS);
+
+  if (first_gpr_regnum <= reg && reg <= last_gpr_regnum)
+    return reg - first_gpr_regnum + SIM_FRV_GR0_REGNUM;
+  else if (first_fpr_regnum <= reg && reg <= last_fpr_regnum)
+    return reg - first_fpr_regnum + SIM_FRV_FR0_REGNUM;
+  else if (pc_regnum == reg)
+    return SIM_FRV_PC_REGNUM;
+  else if (reg >= first_spr_regnum
+           && reg < first_spr_regnum + sizeof (spr_map) / sizeof (spr_map[0]))
+    {
+      int spr_reg_offset = spr_map[reg - first_spr_regnum];
+
+      if (spr_reg_offset < 0)
+	return SIM_REGNO_DOES_NOT_EXIST;
+      else
+	return SIM_FRV_SPR0_REGNUM + spr_reg_offset;
+    }
+
+  internal_error (__FILE__, __LINE__, "Bad register number %d", reg);
 }
 
 static const unsigned char *
@@ -279,45 +341,49 @@ frv_breakpoint_from_pc (CORE_ADDR *pcptr, int *lenp)
   return breakpoint;
 }
 
+/* Define the maximum number of instructions which may be packed into a
+   bundle (VLIW instruction).  */
+static const int max_instrs_per_bundle = 8;
+
+/* Define the size (in bytes) of an FR-V instruction.  */
+static const int frv_instr_size = 4;
+
+/* Adjust a breakpoint's address to account for the FR-V architecture's
+   constraint that a break instruction must not appear as any but the
+   first instruction in the bundle.  */
 static CORE_ADDR
-frv_frame_chain (struct frame_info *frame)
+frv_gdbarch_adjust_breakpoint_address (struct gdbarch *gdbarch, CORE_ADDR bpaddr)
 {
-  CORE_ADDR saved_fp_addr;
+  int count = max_instrs_per_bundle;
+  CORE_ADDR addr = bpaddr - frv_instr_size;
+  CORE_ADDR func_start = get_pc_function_start (bpaddr);
 
-  if (frame->saved_regs && frame->saved_regs[fp_regnum] != 0)
-    saved_fp_addr = frame->saved_regs[fp_regnum];
-  else
-    /* Just assume it was saved in the usual place.  */
-    saved_fp_addr = frame->frame;
+  /* Find the end of the previous packing sequence.  This will be indicated
+     by either attempting to access some inaccessible memory or by finding
+     an instruction word whose packing bit is set to one. */
+  while (count-- > 0 && addr >= func_start)
+    {
+      char instr[frv_instr_size];
+      int status;
 
-  return read_memory_integer (saved_fp_addr, 4);
-}
+      status = read_memory_nobpt (addr, instr, sizeof instr);
 
-static CORE_ADDR
-frv_frame_saved_pc (struct frame_info *frame)
-{
-  frv_frame_init_saved_regs (frame);
+      if (status != 0)
+	break;
 
-  /* Perhaps the prologue analyzer recorded where it was stored.
-     (As of 14 Oct 2001, it never does.)  */
-  if (frame->saved_regs && frame->saved_regs[pc_regnum] != 0)
-    return read_memory_integer (frame->saved_regs[pc_regnum], 4);
+      /* This is a big endian architecture, so byte zero will have most
+         significant byte.  The most significant bit of this byte is the
+         packing bit.  */
+      if (instr[0] & 0x80)
+	break;
 
-  /* If the prologue analyzer tells us the link register was saved on
-     the stack, get it from there.  */
-  if (frame->extra_info->lr_saved_on_stack)
-    return read_memory_integer (frame->frame + 8, 4);
+      addr -= frv_instr_size;
+    }
 
-  /* Otherwise, it's still in LR.
-     However, if FRAME isn't the youngest frame, this is kind of
-     suspicious --- if this frame called somebody else, then its LR
-     has certainly been overwritten.  */
-  if (! frame->next)
-    return read_register (lr_regnum);
+  if (count > 0)
+    bpaddr = addr + frv_instr_size;
 
-  /* By default, assume it's saved in the standard place, relative to
-     the frame pointer.  */
-  return read_memory_integer (frame->frame + 8, 4);
+  return bpaddr;
 }
 
 
@@ -348,7 +414,6 @@ is_argument_reg (int reg)
   return (8 <= reg && reg <= 13);
 }
 
-
 /* Scan an FR-V prologue, starting at PC, until frame->PC.
    If FRAME is non-zero, fill in its saved_regs with appropriate addresses.
    We assume FRAME's saved_regs array has already been allocated and cleared.
@@ -362,7 +427,8 @@ is_argument_reg (int reg)
    arguments in any frame but the top, you'll need to do this serious
    prologue analysis.  */
 static CORE_ADDR
-frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
+frv_analyze_prologue (CORE_ADDR pc, struct frame_info *next_frame,
+                      struct frv_unwind_cache *info)
 {
   /* When writing out instruction bitpatterns, we use the following
      letters to label instruction fields:
@@ -387,12 +453,16 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
   /* Total size of frame prior to any alloca operations. */
   int framesize = 0;
 
+  /* Flag indicating if lr has been saved on the stack.  */
+  int lr_saved_on_stack = 0;
+
   /* The number of the general-purpose register we saved the return
      address ("link register") in, or -1 if we haven't moved it yet.  */
   int lr_save_reg = -1;
 
-  /* Non-zero iff we've saved the LR onto the stack.  */
-  int lr_saved_on_stack = 0;
+  /* Offset (from sp) at which lr has been saved on the stack.  */
+
+  int lr_sp_offset = 0;
 
   /* If gr_saved[i] is non-zero, then we've noticed that general
      register i has been saved at gr_sp_offset[i] from the stack
@@ -400,15 +470,99 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
   char gr_saved[64];
   int gr_sp_offset[64];
 
+  /* The address of the most recently scanned prologue instruction.  */
+  CORE_ADDR last_prologue_pc;
+
+  /* The address of the next instruction. */
+  CORE_ADDR next_pc;
+
+  /* The upper bound to of the pc values to scan.  */
+  CORE_ADDR lim_pc;
+
   memset (gr_saved, 0, sizeof (gr_saved));
 
-  while (! frame || pc < frame->pc)
+  last_prologue_pc = pc;
+
+  /* Try to compute an upper limit (on how far to scan) based on the
+     line number info.  */
+  lim_pc = skip_prologue_using_sal (pc);
+  /* If there's no line number info, lim_pc will be 0.  In that case,
+     set the limit to be 100 instructions away from pc.  Hopefully, this
+     will be far enough away to account for the entire prologue.  Don't
+     worry about overshooting the end of the function.  The scan loop
+     below contains some checks to avoid scanning unreasonably far.  */
+  if (lim_pc == 0)
+    lim_pc = pc + 400;
+
+  /* If we have a frame, we don't want to scan past the frame's pc.  This
+     will catch those cases where the pc is in the prologue.  */
+  if (next_frame)
+    {
+      CORE_ADDR frame_pc = frame_pc_unwind (next_frame);
+      if (frame_pc < lim_pc)
+	lim_pc = frame_pc;
+    }
+
+  /* Scan the prologue.  */
+  while (pc < lim_pc)
     {
       LONGEST op = read_memory_integer (pc, 4);
+      next_pc = pc + 4;
 
       /* The tests in this chain of ifs should be in order of
 	 decreasing selectivity, so that more particular patterns get
 	 to fire before less particular patterns.  */
+
+      /* Some sort of control transfer instruction: stop scanning prologue.
+	 Integer Conditional Branch:
+	  X XXXX XX 0000110 XX XXXXXXXXXXXXXXXX
+	 Floating-point / media Conditional Branch:
+	  X XXXX XX 0000111 XX XXXXXXXXXXXXXXXX
+	 LCR Conditional Branch to LR
+	  X XXXX XX 0001110 XX XX 001 X XXXXXXXXXX
+	 Integer conditional Branches to LR
+	  X XXXX XX 0001110 XX XX 010 X XXXXXXXXXX
+	  X XXXX XX 0001110 XX XX 011 X XXXXXXXXXX
+	 Floating-point/Media Branches to LR
+	  X XXXX XX 0001110 XX XX 110 X XXXXXXXXXX
+	  X XXXX XX 0001110 XX XX 111 X XXXXXXXXXX
+	 Jump and Link
+	  X XXXXX X 0001100 XXXXXX XXXXXX XXXXXX
+	  X XXXXX X 0001101 XXXXXX XXXXXX XXXXXX
+	 Call
+	  X XXXXXX 0001111 XXXXXXXXXXXXXXXXXX
+	 Return from Trap
+	  X XXXXX X 0000101 XXXXXX XXXXXX XXXXXX
+	 Integer Conditional Trap
+	  X XXXX XX 0000100 XXXXXX XXXX 00 XXXXXX
+	  X XXXX XX 0011100 XXXXXX XXXXXXXXXXXX
+	 Floating-point /media Conditional Trap
+	  X XXXX XX 0000100 XXXXXX XXXX 01 XXXXXX
+	  X XXXX XX 0011101 XXXXXX XXXXXXXXXXXX
+	 Break
+	  X XXXX XX 0000100 XXXXXX XXXX 11 XXXXXX
+	 Media Trap
+	  X XXXX XX 0000100 XXXXXX XXXX 10 XXXXXX */
+      if ((op & 0x01d80000) == 0x00180000 /* Conditional branches and Call */
+          || (op & 0x01f80000) == 0x00300000  /* Jump and Link */
+	  || (op & 0x01f80000) == 0x00100000  /* Return from Trap, Trap */
+	  || (op & 0x01f80000) == 0x00700000) /* Trap immediate */
+	{
+	  /* Stop scanning; not in prologue any longer.  */
+	  break;
+	}
+
+      /* Loading something from memory into fp probably means that
+         we're in the epilogue.  Stop scanning the prologue.
+         ld @(GRi, GRk), fp
+	 X 000010 0000010 XXXXXX 000100 XXXXXX
+	 ldi @(GRi, d12), fp
+	 X 000010 0110010 XXXXXX XXXXXXXXXXXX */
+      else if ((op & 0x7ffc0fc0) == 0x04080100
+               || (op & 0x7ffc0000) == 0x04c80000)
+	{
+	  break;
+	}
 
       /* Setting the FP from the SP:
 	 ori sp, 0, fp
@@ -416,10 +570,11 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
 	 0 111111 1111111 111111 111111111111 = 0x7fffffff
              .    .   .    .   .    .   .   .
 	 We treat this as part of the prologue.  */
-      if ((op & 0x7fffffff) == 0x04881000)
+      else if ((op & 0x7fffffff) == 0x04881000)
 	{
 	  fp_set = 1;
 	  fp_offset = 0;
+	  last_prologue_pc = next_pc;
 	}
 
       /* Move the link register to the scratch register grJ, before saving:
@@ -434,11 +589,10 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
 
           /* If we're moving it to a scratch register, that's fine.  */
           if (is_caller_saves_reg (gr_j))
-            lr_save_reg = gr_j;
-          /* Otherwise it's not a prologue instruction that we
-             recognize.  */
-          else
-            break;
+	    {
+	      lr_save_reg = gr_j;
+	      last_prologue_pc = next_pc;
+	    }
         }
 
       /* To save multiple callee-saves registers on the stack, at
@@ -476,10 +630,8 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
 		  gr_saved[gr_k + i] = 1;
 		  gr_sp_offset[gr_k + i] = 4 * i;
 		}
+	      last_prologue_pc = next_pc;
 	    }
-	  else
-	    /* It's not a prologue instruction.  */
-	    break;
 	}
 
       /* Adjusting the stack pointer.  (The stack pointer is GR1.)
@@ -490,11 +642,22 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
 	 We treat this as part of the prologue.  */
       else if ((op & 0x7ffff000) == 0x02401000)
         {
-	  /* Sign-extend the twelve-bit field.
-	     (Isn't there a better way to do this?)  */
-	  int s = (((op & 0xfff) - 0x800) & 0xfff) - 0x800;
+	  if (framesize == 0)
+	    {
+	      /* Sign-extend the twelve-bit field.
+		 (Isn't there a better way to do this?)  */
+	      int s = (((op & 0xfff) - 0x800) & 0xfff) - 0x800;
 
-	  framesize -= s;
+	      framesize -= s;
+	      last_prologue_pc = pc;
+	    }
+	  else
+	    {
+	      /* If the prologue is being adjusted again, we've
+	         likely gone too far; i.e. we're probably in the
+		 epilogue.  */
+	      break;
+	    }
 	}
 
       /* Setting the FP to a constant distance from the SP:
@@ -510,6 +673,7 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
 	  int s = (((op & 0xfff) - 0x800) & 0xfff) - 0x800;
 	  fp_set = 1;
 	  fp_offset = s;
+	  last_prologue_pc = pc;
 	}
 
       /* To spill an argument register to a scratch register:
@@ -528,10 +692,10 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
 	{
 	  int gr_i = ((op >> 12) & 0x3f);
 
-          /* If the source isn't an arg register, then this isn't a
-             prologue instruction.  */
-	  if (! is_argument_reg (gr_i))
-	    break;
+          /* Make sure that the source is an arg register; if it is, we'll
+	     treat it as a prologue instruction.  */
+	  if (is_argument_reg (gr_i))
+	    last_prologue_pc = next_pc;
 	}
 
       /* To spill 16-bit values to the stack:
@@ -551,8 +715,10 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
 	{
 	  int gr_k = ((op >> 25) & 0x3f);
 
-	  if (! is_argument_reg (gr_k))
-	    break;		/* Source isn't an arg register.  */
+          /* Make sure that GRk is really an argument register; treat
+	     it as a prologue instruction if so.  */
+	  if (is_argument_reg (gr_k))
+	    last_prologue_pc = next_pc;
 	}
 
       /* To save multiple callee-saves register on the stack, at a
@@ -593,10 +759,8 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
 		  gr_saved[gr_k + i] = 1;
 		  gr_sp_offset[gr_k + i] = s + (4 * i);
 		}
+	      last_prologue_pc = next_pc;
 	    }
-	  else
-	    /* It's not a prologue instruction.  */
-	    break;
 	}
 
       /* Storing any kind of integer register at any constant offset
@@ -630,11 +794,17 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
           /* If the address isn't relative to the SP or FP, it's not a
              prologue instruction.  */
           if (gr_i != sp_regnum && gr_i != fp_regnum)
-            break;
+	    {
+	      /* Do nothing; not a prologue instruction.  */
+	    }
 
           /* Saving the old FP in the new frame (relative to the SP).  */
-          if (gr_k == fp_regnum && gr_i == sp_regnum)
-            ;
+          else if (gr_k == fp_regnum && gr_i == sp_regnum)
+	    {
+	      gr_saved[fp_regnum] = 1;
+              gr_sp_offset[fp_regnum] = offset;
+	      last_prologue_pc = next_pc;
+	    }
 
           /* Saving callee-saves register(s) on the stack, relative to
              the SP.  */
@@ -642,35 +812,36 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
                    && is_callee_saves_reg (gr_k))
             {
               gr_saved[gr_k] = 1;
-              gr_sp_offset[gr_k] = offset;
+	      if (gr_i == sp_regnum)
+		gr_sp_offset[gr_k] = offset;
+	      else
+		gr_sp_offset[gr_k] = offset + fp_offset;
+	      last_prologue_pc = next_pc;
             }
 
           /* Saving the scratch register holding the return address.  */
           else if (lr_save_reg != -1
                    && gr_k == lr_save_reg)
-            lr_saved_on_stack = 1;
+	    {
+	      lr_saved_on_stack = 1;
+	      if (gr_i == sp_regnum)
+		lr_sp_offset = offset;
+	      else
+	        lr_sp_offset = offset + fp_offset;
+	      last_prologue_pc = next_pc;
+	    }
 
           /* Spilling int-sized arguments to the stack.  */
           else if (is_argument_reg (gr_k))
-            ;
-
-          /* It's not a store instruction we recognize, so this must
-             be the end of the prologue.  */
-          else
-            break;
+	    last_prologue_pc = next_pc;
         }
-
-      /* It's not any instruction we recognize, so this must be the end
-         of the prologue.  */
-      else
-	break;
-
-      pc += 4;
+      pc = next_pc;
     }
 
-  if (frame)
+  if (next_frame && info)
     {
-      frame->extra_info->lr_saved_on_stack = lr_saved_on_stack;
+      int i;
+      ULONGEST this_base;
 
       /* If we know the relationship between the stack and frame
          pointers, record the addresses of the registers we noticed.
@@ -678,19 +849,32 @@ frv_analyze_prologue (CORE_ADDR pc, struct frame_info *frame)
          because instructions may save relative to the SP, but we need
          their addresses relative to the FP.  */
       if (fp_set)
-        {
-          int i;
+	  frame_unwind_unsigned_register (next_frame, fp_regnum, &this_base);
+      else
+	  frame_unwind_unsigned_register (next_frame, sp_regnum, &this_base);
 
-          for (i = 0; i < 64; i++)
-            if (gr_saved[i])
-              frame->saved_regs[i] = (frame->frame
-                                      - fp_offset + gr_sp_offset[i]);
+      for (i = 0; i < 64; i++)
+	if (gr_saved[i])
+	  info->saved_regs[i].addr = this_base - fp_offset + gr_sp_offset[i];
 
-          frame->extra_info->fp_to_callers_sp_offset = framesize - fp_offset;
-        }
+      info->prev_sp = this_base - fp_offset + framesize;
+      info->base = this_base;
+
+      /* If LR was saved on the stack, record its location.  */
+      if (lr_saved_on_stack)
+	info->saved_regs[lr_regnum].addr = this_base - fp_offset + lr_sp_offset;
+
+      /* The call instruction moves the caller's PC in the callee's LR.
+	 Since this is an unwind, do the reverse.  Copy the location of LR
+	 into PC (the address / regnum) so that a request for PC will be
+	 converted into a request for the LR.  */
+      info->saved_regs[pc_regnum] = info->saved_regs[lr_regnum];
+
+      /* Save the previous frame's computed SP value.  */
+      trad_frame_set_value (info->saved_regs, sp_regnum, info->prev_sp);
     }
 
-  return pc;
+  return last_prologue_pc;
 }
 
 
@@ -720,56 +904,65 @@ frv_skip_prologue (CORE_ADDR pc)
      If we didn't find a real source location past that, then
      do a full analysis of the prologue.  */
   if (new_pc < pc + 20)
-    new_pc = frv_analyze_prologue (pc, 0);
+    new_pc = frv_analyze_prologue (pc, 0, 0);
 
   return new_pc;
 }
 
-static void
-frv_frame_init_saved_regs (struct frame_info *frame)
+
+static struct frv_unwind_cache *
+frv_frame_unwind_cache (struct frame_info *next_frame,
+			 void **this_prologue_cache)
 {
-  if (frame->saved_regs)
-    return;
+  struct gdbarch *gdbarch = get_frame_arch (next_frame);
+  CORE_ADDR pc;
+  ULONGEST prev_sp;
+  ULONGEST this_base;
+  struct frv_unwind_cache *info;
 
-  frame_saved_regs_zalloc (frame);
-  frame->saved_regs[fp_regnum] = frame->frame;
+  if ((*this_prologue_cache))
+    return (*this_prologue_cache);
 
-  /* Find the beginning of this function, so we can analyze its
-     prologue.  */     
-  {
-    CORE_ADDR func_addr, func_end;
+  info = FRAME_OBSTACK_ZALLOC (struct frv_unwind_cache);
+  (*this_prologue_cache) = info;
+  info->saved_regs = trad_frame_alloc_saved_regs (next_frame);
 
-    if (find_pc_partial_function (frame->pc, NULL, &func_addr, &func_end))
-      frv_analyze_prologue (func_addr, frame);
-  }
-}
+  /* Prologue analysis does the rest...  */
+  frv_analyze_prologue (frame_func_unwind (next_frame), next_frame, info);
 
-/* Should we use EXTRACT_STRUCT_VALUE_ADDRESS instead of
-   EXTRACT_RETURN_VALUE?  GCC_P is true if compiled with gcc
-   and TYPE is the type (which is known to be struct, union or array).
-
-   The frv returns all structs in memory.  */
-
-static int
-frv_use_struct_convention (int gcc_p, struct type *type)
-{
-  return 1;
+  return info;
 }
 
 static void
-frv_extract_return_value (struct type *type, char *regbuf, char *valbuf)
+frv_extract_return_value (struct type *type, struct regcache *regcache,
+                          void *valbuf)
 {
-  memcpy (valbuf, (regbuf
-		   + frv_register_byte (8)
-		   + (TYPE_LENGTH (type) < 4 ? 4 - TYPE_LENGTH (type) : 0)),
-		   TYPE_LENGTH (type));
+  int len = TYPE_LENGTH (type);
+
+  if (len <= 4)
+    {
+      ULONGEST gpr8_val;
+      regcache_cooked_read_unsigned (regcache, 8, &gpr8_val);
+      store_unsigned_integer (valbuf, len, gpr8_val);
+    }
+  else if (len == 8)
+    {
+      ULONGEST regval;
+      regcache_cooked_read_unsigned (regcache, 8, &regval);
+      store_unsigned_integer (valbuf, 4, regval);
+      regcache_cooked_read_unsigned (regcache, 9, &regval);
+      store_unsigned_integer ((bfd_byte *) valbuf + 4, 4, regval);
+    }
+  else
+    internal_error (__FILE__, __LINE__, "Illegal return value length: %d", len);
 }
 
 static CORE_ADDR
-frv_extract_struct_value_address (char *regbuf)
+frv_extract_struct_value_address (struct regcache *regcache)
 {
-  return extract_address (regbuf + frv_register_byte (struct_return_regnum),
-			  4);
+  ULONGEST addr;
+  regcache_cooked_read_unsigned (regcache, struct_return_regnum, &addr);
+  return addr;
 }
 
 static void
@@ -781,29 +974,21 @@ frv_store_struct_return (CORE_ADDR addr, CORE_ADDR sp)
 static int
 frv_frameless_function_invocation (struct frame_info *frame)
 {
-  return frameless_look_for_prologue (frame);
+  return legacy_frameless_look_for_prologue (frame);
 }
 
 static CORE_ADDR
-frv_saved_pc_after_call (struct frame_info *frame)
+frv_frame_align (struct gdbarch *gdbarch, CORE_ADDR sp)
 {
-  return read_register (lr_regnum);
+  /* Require dword alignment.  */
+  return align_down (sp, 8);
 }
-
-static void
-frv_init_extra_frame_info (int fromleaf, struct frame_info *frame)
-{
-  frame_extra_info_zalloc (frame, sizeof (struct frame_extra_info));
-  frame->extra_info->fp_to_callers_sp_offset = 0;
-  frame->extra_info->lr_saved_on_stack = 0;
-}
-
-#define ROUND_UP(n,a) (((n)+(a)-1) & ~((a)-1))
-#define ROUND_DOWN(n,a) ((n) & ~((a)-1))
 
 static CORE_ADDR
-frv_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
-		    int struct_return, CORE_ADDR struct_addr)
+frv_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
+                     struct regcache *regcache, CORE_ADDR bp_addr,
+                     int nargs, struct value **args, CORE_ADDR sp,
+		     int struct_return, CORE_ADDR struct_addr)
 {
   int argreg;
   int argnum;
@@ -824,21 +1009,22 @@ frv_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 
   stack_space = 0;
   for (argnum = 0; argnum < nargs; ++argnum)
-    stack_space += ROUND_UP (TYPE_LENGTH (VALUE_TYPE (args[argnum])), 4);
+    stack_space += align_up (TYPE_LENGTH (VALUE_TYPE (args[argnum])), 4);
 
   stack_space -= (6 * 4);
   if (stack_space > 0)
     sp -= stack_space;
 
   /* Make sure stack is dword aligned. */
-  sp = ROUND_DOWN (sp, 8);
+  sp = align_down (sp, 8);
 
   stack_offset = 0;
 
   argreg = 8;
 
   if (struct_return)
-    write_register (struct_return_regnum, struct_addr);
+    regcache_cooked_write_unsigned (regcache, struct_return_regnum,
+                                    struct_addr);
 
   for (argnum = 0; argnum < nargs; ++argnum)
     {
@@ -849,7 +1035,7 @@ frv_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 
       if (typecode == TYPE_CODE_STRUCT || typecode == TYPE_CODE_UNION)
 	{
-	  store_address (valbuf, 4, VALUE_ADDRESS (arg));
+	  store_unsigned_integer (valbuf, 4, VALUE_ADDRESS (arg));
 	  typecode = TYPE_CODE_PTR;
 	  len = 4;
 	  val = valbuf;
@@ -865,12 +1051,12 @@ frv_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 
 	  if (argreg < 14)
 	    {
-	      regval = extract_address (val, partial_len);
+	      regval = extract_unsigned_integer (val, partial_len);
 #if 0
 	      printf("  Argnum %d data %x -> reg %d\n",
 		     argnum, (int) regval, argreg);
 #endif
-	      write_register (argreg, regval);
+	      regcache_cooked_write_unsigned (regcache, argreg, regval);
 	      ++argreg;
 	    }
 	  else
@@ -880,76 +1066,44 @@ frv_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		     argnum, *((int *)val), stack_offset, (int) (sp + stack_offset));
 #endif
 	      write_memory (sp + stack_offset, val, partial_len);
-	      stack_offset += ROUND_UP(partial_len, 4);
+	      stack_offset += align_up (partial_len, 4);
 	    }
 	  len -= partial_len;
 	  val += partial_len;
 	}
     }
-  return sp;
-}
 
-static CORE_ADDR
-frv_push_return_address (CORE_ADDR pc, CORE_ADDR sp)
-{
-  write_register (lr_regnum, CALL_DUMMY_ADDRESS ());
+  /* Set the return address.  For the frv, the return breakpoint is
+     always at BP_ADDR.  */
+  regcache_cooked_write_unsigned (regcache, lr_regnum, bp_addr);
+
+  /* Finally, update the SP register.  */
+  regcache_cooked_write_unsigned (regcache, sp_regnum, sp);
+
   return sp;
 }
 
 static void
-frv_store_return_value (struct type *type, char *valbuf)
+frv_store_return_value (struct type *type, struct regcache *regcache,
+                        const void *valbuf)
 {
-  int length = TYPE_LENGTH (type);
-  int reg8_offset = frv_register_byte (8);
+  int len = TYPE_LENGTH (type);
 
-  if (length <= 4)
-    deprecated_write_register_bytes (reg8_offset + (4 - length), valbuf,
-				     length);
-  else if (length == 8)
-    deprecated_write_register_bytes (reg8_offset, valbuf, length);
+  if (len <= 4)
+    {
+      bfd_byte val[4];
+      memset (val, 0, sizeof (val));
+      memcpy (val + (4 - len), valbuf, len);
+      regcache_cooked_write (regcache, 8, val);
+    }
+  else if (len == 8)
+    {
+      regcache_cooked_write (regcache, 8, valbuf);
+      regcache_cooked_write (regcache, 9, (bfd_byte *) valbuf + 4);
+    }
   else
     internal_error (__FILE__, __LINE__,
-                    "Don't know how to return a %d-byte value.", length);
-}
-
-static void
-frv_pop_frame (void)
-{
-  generic_pop_current_frame (frv_pop_frame_regular);
-}
-
-static void
-frv_pop_frame_regular (struct frame_info *frame)
-{
-  CORE_ADDR fp;
-  int regno;
-
-  fp = frame->frame;
-
-  frv_frame_init_saved_regs (frame);
-
-  write_register (pc_regnum, frv_frame_saved_pc (frame));
-  for (regno = 0; regno < frv_num_regs; ++regno)
-    {
-      if (frame->saved_regs[regno]
-	  && regno != pc_regnum
-	  && regno != sp_regnum)
-	{
-	  write_register (regno,
-			  read_memory_integer (frame->saved_regs[regno], 4));
-	}
-    }
-  write_register (sp_regnum, fp + frame->extra_info->fp_to_callers_sp_offset);
-  flush_cached_frames ();
-}
-
-
-static void
-frv_remote_translate_xfer_address (CORE_ADDR memaddr, int nr_bytes,
-				   CORE_ADDR *targ_addr, int *targ_len)
-{
-  *targ_addr = memaddr;
-  *targ_len  = nr_bytes;
+                    "Don't know how to return a %d-byte value.", len);
 }
 
 
@@ -1008,6 +1162,115 @@ frv_stopped_data_address (void)
     return 0;
 }
 
+static CORE_ADDR
+frv_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame)
+{
+  return frame_unwind_register_unsigned (next_frame, pc_regnum);
+}
+
+/* Given a GDB frame, determine the address of the calling function's
+   frame.  This will be used to create a new GDB frame struct.  */
+
+static void
+frv_frame_this_id (struct frame_info *next_frame,
+		    void **this_prologue_cache, struct frame_id *this_id)
+{
+  struct frv_unwind_cache *info
+    = frv_frame_unwind_cache (next_frame, this_prologue_cache);
+  CORE_ADDR base;
+  CORE_ADDR func;
+  struct minimal_symbol *msym_stack;
+  struct frame_id id;
+
+  /* The FUNC is easy.  */
+  func = frame_func_unwind (next_frame);
+
+  /* Check if the stack is empty.  */
+  msym_stack = lookup_minimal_symbol ("_stack", NULL, NULL);
+  if (msym_stack && info->base == SYMBOL_VALUE_ADDRESS (msym_stack))
+    return;
+
+  /* Hopefully the prologue analysis either correctly determined the
+     frame's base (which is the SP from the previous frame), or set
+     that base to "NULL".  */
+  base = info->prev_sp;
+  if (base == 0)
+    return;
+
+  id = frame_id_build (base, func);
+
+  /* Check that we're not going round in circles with the same frame
+     ID (but avoid applying the test to sentinel frames which do go
+     round in circles).  Can't use frame_id_eq() as that doesn't yet
+     compare the frame's PC value.  */
+  if (frame_relative_level (next_frame) >= 0
+      && get_frame_type (next_frame) != DUMMY_FRAME
+      && frame_id_eq (get_frame_id (next_frame), id))
+    return;
+
+  (*this_id) = id;
+}
+
+static void
+frv_frame_prev_register (struct frame_info *next_frame,
+			  void **this_prologue_cache,
+			  int regnum, int *optimizedp,
+			  enum lval_type *lvalp, CORE_ADDR *addrp,
+			  int *realnump, void *bufferp)
+{
+  struct frv_unwind_cache *info
+    = frv_frame_unwind_cache (next_frame, this_prologue_cache);
+  trad_frame_prev_register (next_frame, info->saved_regs, regnum,
+			    optimizedp, lvalp, addrp, realnump, bufferp);
+}
+
+static const struct frame_unwind frv_frame_unwind = {
+  NORMAL_FRAME,
+  frv_frame_this_id,
+  frv_frame_prev_register
+};
+
+static const struct frame_unwind *
+frv_frame_sniffer (struct frame_info *next_frame)
+{
+  return &frv_frame_unwind;
+}
+
+static CORE_ADDR
+frv_frame_base_address (struct frame_info *next_frame, void **this_cache)
+{
+  struct frv_unwind_cache *info
+    = frv_frame_unwind_cache (next_frame, this_cache);
+  return info->base;
+}
+
+static const struct frame_base frv_frame_base = {
+  &frv_frame_unwind,
+  frv_frame_base_address,
+  frv_frame_base_address,
+  frv_frame_base_address
+};
+
+static CORE_ADDR
+frv_unwind_sp (struct gdbarch *gdbarch, struct frame_info *next_frame)
+{
+  return frame_unwind_register_unsigned (next_frame, sp_regnum);
+}
+
+
+/* Assuming NEXT_FRAME->prev is a dummy, return the frame ID of that
+   dummy frame.  The frame ID's base needs to match the TOS value
+   saved by save_dummy_frame_tos(), and the PC match the dummy frame's
+   breakpoint.  */
+
+static struct frame_id
+frv_unwind_dummy_id (struct gdbarch *gdbarch, struct frame_info *next_frame)
+{
+  return frame_id_build (frv_unwind_sp (gdbarch, next_frame),
+			 frame_pc_unwind (next_frame));
+}
+
+
 static struct gdbarch *
 frv_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 {
@@ -1028,6 +1291,7 @@ frv_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     case bfd_mach_frvsimple:
     case bfd_mach_fr500:
     case bfd_mach_frvtomcat:
+    case bfd_mach_fr550:
       set_variant_num_gprs (var, 64);
       set_variant_num_fprs (var, 64);
       break;
@@ -1044,10 +1308,6 @@ frv_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   
   gdbarch = gdbarch_alloc (&info, var);
 
-  /* NOTE: cagney/2002-12-06: This can be deleted when this arch is
-     ready to unwind the PC first (see frame.c:get_prev_frame()).  */
-  set_gdbarch_deprecated_init_frame_pc (gdbarch, init_frame_pc_default);
-
   set_gdbarch_short_bit (gdbarch, 16);
   set_gdbarch_int_bit (gdbarch, 32);
   set_gdbarch_long_bit (gdbarch, 32);
@@ -1058,76 +1318,50 @@ frv_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_ptr_bit (gdbarch, 32);
 
   set_gdbarch_num_regs (gdbarch, frv_num_regs);
+  set_gdbarch_num_pseudo_regs (gdbarch, frv_num_pseudo_regs);
+
   set_gdbarch_sp_regnum (gdbarch, sp_regnum);
-  set_gdbarch_fp_regnum (gdbarch, fp_regnum);
+  set_gdbarch_deprecated_fp_regnum (gdbarch, fp_regnum);
   set_gdbarch_pc_regnum (gdbarch, pc_regnum);
 
   set_gdbarch_register_name (gdbarch, frv_register_name);
-  set_gdbarch_register_size (gdbarch, 4);
-  set_gdbarch_register_bytes (gdbarch, frv_num_regs * 4);
-  set_gdbarch_register_byte (gdbarch, frv_register_byte);
-  set_gdbarch_register_raw_size (gdbarch, frv_register_raw_size);
-  set_gdbarch_max_register_raw_size (gdbarch, 4);
-  set_gdbarch_register_virtual_size (gdbarch, frv_register_virtual_size);
-  set_gdbarch_max_register_virtual_size (gdbarch, 4);
-  set_gdbarch_register_virtual_type (gdbarch, frv_register_virtual_type);
+  set_gdbarch_register_type (gdbarch, frv_register_type);
+  set_gdbarch_register_sim_regno (gdbarch, frv_register_sim_regno);
+
+  set_gdbarch_pseudo_register_read (gdbarch, frv_pseudo_register_read);
+  set_gdbarch_pseudo_register_write (gdbarch, frv_pseudo_register_write);
 
   set_gdbarch_skip_prologue (gdbarch, frv_skip_prologue);
   set_gdbarch_breakpoint_from_pc (gdbarch, frv_breakpoint_from_pc);
+  set_gdbarch_adjust_breakpoint_address (gdbarch, frv_gdbarch_adjust_breakpoint_address);
 
-  set_gdbarch_frame_num_args (gdbarch, frame_num_args_unknown);
-  set_gdbarch_frame_args_skip (gdbarch, 0);
-  set_gdbarch_frameless_function_invocation (gdbarch, frv_frameless_function_invocation);
+  set_gdbarch_deprecated_frameless_function_invocation (gdbarch, frv_frameless_function_invocation);
 
-  set_gdbarch_saved_pc_after_call (gdbarch, frv_saved_pc_after_call);
+  set_gdbarch_use_struct_convention (gdbarch, always_use_struct_convention);
+  set_gdbarch_extract_return_value (gdbarch, frv_extract_return_value);
 
-  set_gdbarch_frame_chain (gdbarch, frv_frame_chain);
-  set_gdbarch_frame_saved_pc (gdbarch, frv_frame_saved_pc);
-
-  set_gdbarch_frame_init_saved_regs (gdbarch, frv_frame_init_saved_regs);
-
-  set_gdbarch_use_struct_convention (gdbarch, frv_use_struct_convention);
-  set_gdbarch_deprecated_extract_return_value (gdbarch, frv_extract_return_value);
-
-  set_gdbarch_store_struct_return (gdbarch, frv_store_struct_return);
-  set_gdbarch_deprecated_store_return_value (gdbarch, frv_store_return_value);
+  set_gdbarch_deprecated_store_struct_return (gdbarch, frv_store_struct_return);
+  set_gdbarch_store_return_value (gdbarch, frv_store_return_value);
   set_gdbarch_deprecated_extract_struct_value_address (gdbarch, frv_extract_struct_value_address);
 
-  /* Settings for calling functions in the inferior.  */
-  set_gdbarch_call_dummy_length (gdbarch, 0);
-  set_gdbarch_push_arguments (gdbarch, frv_push_arguments);
-  set_gdbarch_push_return_address (gdbarch, frv_push_return_address);
-  set_gdbarch_pop_frame (gdbarch, frv_pop_frame);
+  /* Frame stuff.  */
+  set_gdbarch_unwind_pc (gdbarch, frv_unwind_pc);
+  set_gdbarch_unwind_sp (gdbarch, frv_unwind_sp);
+  set_gdbarch_frame_align (gdbarch, frv_frame_align);
+  frame_unwind_append_sniffer (gdbarch, frv_frame_sniffer);
+  frame_base_set_default (gdbarch, &frv_frame_base);
 
-  set_gdbarch_call_dummy_p (gdbarch, 1);
-  set_gdbarch_call_dummy_words (gdbarch, frv_call_dummy_words);
-  set_gdbarch_sizeof_call_dummy_words (gdbarch, sizeof (frv_call_dummy_words));
-  set_gdbarch_call_dummy_breakpoint_offset_p (gdbarch, 1);
-  set_gdbarch_init_extra_frame_info (gdbarch, frv_init_extra_frame_info);
+  /* Settings for calling functions in the inferior.  */
+  set_gdbarch_push_dummy_call (gdbarch, frv_push_dummy_call);
+  set_gdbarch_unwind_dummy_id (gdbarch, frv_unwind_dummy_id);
 
   /* Settings that should be unnecessary.  */
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
 
-  set_gdbarch_read_pc (gdbarch, generic_target_read_pc);
   set_gdbarch_write_pc (gdbarch, generic_target_write_pc);
-  set_gdbarch_read_fp (gdbarch, generic_target_read_fp);
-  set_gdbarch_read_sp (gdbarch, generic_target_read_sp);
-  set_gdbarch_write_sp (gdbarch, generic_target_write_sp);
-
-  set_gdbarch_call_dummy_address (gdbarch, entry_point_address);
-  set_gdbarch_call_dummy_breakpoint_offset (gdbarch, 0);
-  set_gdbarch_call_dummy_start_offset (gdbarch, 0);
-  set_gdbarch_deprecated_pc_in_call_dummy (gdbarch, deprecated_pc_in_call_dummy_at_entry_point);
-  set_gdbarch_call_dummy_stack_adjust_p (gdbarch, 0);
-  set_gdbarch_push_dummy_frame (gdbarch, generic_push_dummy_frame);
-  set_gdbarch_fix_call_dummy (gdbarch, generic_fix_call_dummy);
-
-  set_gdbarch_decr_pc_after_break (gdbarch, 0);
-  set_gdbarch_function_start_offset (gdbarch, 0);
-  set_gdbarch_register_convertible (gdbarch, generic_register_convertible_not);
 
   set_gdbarch_remote_translate_xfer_address
-    (gdbarch, frv_remote_translate_xfer_address);
+    (gdbarch, generic_remote_translate_xfer_address);
 
   /* Hardware watchpoint / breakpoint support.  */
   switch (info.bfd_arch_info->mach)
@@ -1154,6 +1388,8 @@ frv_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       break;
     }
 
+  set_gdbarch_print_insn (gdbarch, print_insn_frv);
+
   return gdbarch;
 }
 
@@ -1161,8 +1397,4 @@ void
 _initialize_frv_tdep (void)
 {
   register_gdbarch_init (bfd_arch_frv, frv_gdbarch_init);
-
-  tm_print_insn = print_insn_frv;
 }
-
-

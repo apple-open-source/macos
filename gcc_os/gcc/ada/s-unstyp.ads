@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -37,7 +36,7 @@
 --  correspond in size to the standard signed types declared in Standard.
 --  and (unlike the types in Interfaces have corresponding names). It
 --  also contains some related definitions for other specialized types
---  used only by the expander.
+--  used by the compiler in connection with packed array types.
 
 package System.Unsigned_Types is
 pragma Pure (Unsigned_Types);

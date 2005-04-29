@@ -1,5 +1,0 @@
-CLEAN_ALL_SUBPROJECTS = YES
-OTHER_CFLAGS =-I. -include fbsdcompat.h -Ilocale -DCOLLATE_DEBUG -DYY_NO_UNPUT
-OTHER_GARBAGE =
-OTHER_GENERATED_OFILES = $(VERS_OFILE)
--include ../Makefile.include

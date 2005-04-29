@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/savage/savage_regs.h,v 1.12 2002/10/02 20:39:55 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/savage/savage_regs.h,v 1.13 2003/04/23 14:18:37 eich Exp $ */
 
 #ifndef _SAVAGE_REGS_H
 #define _SAVAGE_REGS_H
@@ -216,7 +216,15 @@ enum S3CHIPTAGS {
     VGAOUT8(psav->vgaIOBase + 5, a);		\
 }
  
+#define HZEXP_COMP_1		0x54
+#define HZEXP_BORDER		0x58
 #define HZEXP_FACTOR_IGA1	0x59
+
+#define VTEXP_COMP_1		0x56
+#define VTEXP_BORDER		0x5a
 #define VTEXP_FACTOR_IGA1	0x5b
+
+#define EC1_CENTER_ON	0x10
+#define EC1_EXPAND_ON	0x0c
 
 #endif /* _SAVAGE_REGS_H */

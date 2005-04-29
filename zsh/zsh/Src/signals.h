@@ -58,7 +58,6 @@
  
 #define child_block()      signal_block(sigchld_mask)
 #define child_unblock()    signal_unblock(sigchld_mask)
-#define child_suspend(S)   signal_suspend(SIGCHLD, S)
 
 /* ignore a signal */
 #define signal_ignore(S)   signal(S, SIG_IGN)
@@ -100,7 +99,6 @@
 } while (0)
 
 #define restore_queue_signals(q) (queueing_enabled = (q))
-
 
 /* Make some signal functions faster. */
 

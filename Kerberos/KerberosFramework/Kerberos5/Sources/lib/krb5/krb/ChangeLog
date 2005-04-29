@@ -1,3 +1,193 @@
+2005-01-17  Jeffrey Altman <jaltman@mit.edu>
+        * unparse.c: krb5_unparse_name, krb5_unparse_name_ext()
+          prevent null pointer dereferencing if either 'name' or 'size'    
+          are NULL.
+
+2005-01-15  Jeffrey Altman <jaltman@mit.edu>
+
+        * cp_key_cnt.c, copy_princ.c:
+          prevent krb5_copy_principal() and krb5_copy_keyblock() from
+          calling malloc(0).  On platforms in which malloc(0) returns   
+          NULL, these functions will return an ENOMEM error the way
+          they were written.  
+
+2005-01-03  Ken Raeburn  <raeburn@mit.edu>
+
+	* parse.c (krb5_parse_name): Don't cache the default realm name.
+
+2004-10-26  Tom Yu  <tlyu@mit.edu>
+
+	* mk_req_ext.c (krb5_mk_req_extended): Free keyblock before
+	copying new one in.
+
+2004-10-14  Tom Yu  <tlyu@mit.edu>
+
+	* t_deltat.c (main): Unadorned integer no longer fails now that we
+	default to seconds.
+
+2004-10-13  Alexandra Ellwood  <lxs@mit.edu>
+
+	* deltat.c, x-deltat.y: Default to seconds if no unit is provided.
+
+2004-09-24  Tom Yu  <tlyu@mit.edu>
+
+	* Makefile.in (LOCALINCLUDES): Include SRCTOP to get patchlevel.h.
+
+	* brand.c: Use patchlevel.h as master version stamp file.
+
+2004-09-21  Tom Yu  <tlyu@mit.edu>
+
+	* rd_cred.c (decrypt_credencdata): Clear and free ppart to avoid
+	leak, reported by Derrick Schommer.
+
+2004-08-31  Tom Yu  <tlyu@mit.edu>
+
+	* rd_rep.c:
+	* send_tgs.c: Fix double-free vulnerabilities.
+
+2004-08-27  Ken Raeburn  <raeburn@mit.edu>
+
+	* conv_princ.c (krb5_425_conv_principal): Terminate argument list
+	to krb5_build_principal with NULL, not 0.  Patch from Nalin
+	Dahyabhai.
+
+2004-08-12  Alexandra Ellwood  <lxs@mit.edu>
+
+        * get_in_tkt.c (get_init_creds):
+        Support ticket_lifetime libdefault.
+        Made aware of 32 bit min and max for times.
+        Allow renew_until time < expiration time.
+        
+2004-08-03  Ken Raeburn  <raeburn@mit.edu>
+
+	* srv_rcache.c (krb5_get_server_rcache): Call
+	krb5_rc_recover_or_initialize.
+
+2004-06-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* parse.c (krb5_parse_name): Don't test macintosh.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* str_conv.c (krb5_string_to_timestamp): Use localtime_r if
+	available.
+	(krb5_timestamp_to_string, krb5_timestamp_to_sfstring): Likewise.
+
+	* parse.c (krb5_parse_name): Use assert and abort, not exit.
+
+	* srv_rcache.c (krb5_get_server_rcache): Don't forget to actually
+	include the cache type in the cache name, after looking it up.
+
+2004-06-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* init_ctx.c (init_common): Don't call krb5_init_ets.
+	(krb5_free_context): Don't call krb5_free_ets.
+
+	* srv_rcache.c (krb5_get_server_rcache): Use krb5_rc_resolve_full
+	instead of constructing an rcache object locally.
+
+2004-05-25  Ezra Peisach  <epeisach@mit.edu>
+
+	* conv_creds.c (krb5int_encode_v4tkt): Unsigned vs signed warning fix.
+
+2004-05-24  Ezra Peisach  <epeisach@mit.edu>
+
+	* t_ser.c (ser_keytab_test): Cleanup memory leak of forgetting to
+	close keytab.
+
+	* chpw.c: Add parenthesis around assignments in conditionals.
+
+2004-05-12  Jeffrey Altman <jaltman@mit.edu>
+
+    * send_tgs.c: krb5_send_tgs() was broken in the case of a KRB_ERROR
+      message.  The krb5_response message_type field was never set 
+      resulting in stack garbage being used instead.  This would 
+      break code which used transitive cross-realm to obtain service
+      tickets.
+
+2004-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* conv_creds.c (krb524_init_ets, krb524_convert_creds_kdc): Add
+	forward declarations to silence gcc warnings.
+
+	* init_ctx.c (init_common): In UNIX case, check the return value
+	from krb5int_initialize_library.
+
+2004-04-16  Sam Hartman  <hartmans@mit.edu>
+
+	* gic_pwd.c (krb5int_populate_gic_opt): Take credentials and
+	populate lifetime options based on them.
+
+	* gic_keytab.c gic_pwd.c :  update callers
+
+2004-04-15  Sam Hartman  <hartmans@mit.edu>
+
+	* gic_pwd.c (krb5_get_init_creds_password): Free the as reply in
+	the !use_master case  (Thanks to Lijian Liu)
+
+2004-03-09  Ken Hornstein <kenh@cmf.nrl.navy.mil>
+
+	* gic_keytab.c (krb5_get_in_tkt_with_keytab): Fix a case I missed
+	originally.
+
+2004-02-27  Ken Raeburn  <raeburn@mit.edu>
+
+	* gic_pwd.c (krb5_get_in_tkt_with_password): Fix a case Jeff
+	missed.
+
+2004-02-26  Jeffrey Altman <jaltman@mit.edu>
+  
+    * get_in_tkt.c, gic_keytab.c, gic_pwd.c, send_tgs.c: 
+      Implement changes to support the use of 
+      krb5_get_init_creds_password's use_master as an in/out
+      parameter.  This allows us to prevent a duplicate request
+      being sent to the KDC in the situation that the password
+      used is incorrect.  This behavior results a negative user
+      experience and had to be corrected.
+
+2004-02-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* sendauth.c: Don't specify defaults for
+	GET{PEER,SOCK}NAME_ARG{2,3}_TYPE macros.
+
+2004-02-06  Sam Hartman  <hartmans@avalanche-breakdown.mit.edu>
+
+	* init_ctx.c (DEFAULT_ETYPE_LIST): Include aes128-cts
+
+2003-12-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* get_in_tkt.c (get_in_tkt_enctypes): Now const.
+
+2003-12-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* conv_creds.c (krb5int_encode_v4tkt): Zero out unused parts of
+	ticket.  Use a temorary in case krb5_int32 isn't "int".
+	(decode_v4tkt): Use a temorary in case krb5_int32 isn't "int".
+
+2003-12-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* mk_req_ext.c (krb5int_generate_and_save_subkey): New function,
+	split out from krb5_mk_req_extended.
+	(krb5_mk_req_extended): Call it.
+	* mk_rep.c (krb5_mk_rep): If KRB5_AUTH_CONTEXT_USE_SUBKEY flag is
+	set, call krb5int_generate_and_save_subkey to set up a new subkey
+	to send to the client.
+
+	* serialize.c (krb5_ser_pack_int64, krb5_ser_unpack_int64): New
+	functions.
+
+2003-10-30  Tom Yu  <tlyu@mit.edu>
+
+	* gen_seqnum.c (krb5_generate_seq_number): Fix mask; was short by
+	4 bits.
+
+2003-10-08  Tom Yu  <tlyu@mit.edu>
+
+	* rd_safe.c (krb5_rd_safe_basic): Save the encoded KRB-SAFE-BODY
+	to avoid trouble caused by re-encoding.  Also, handle correctly
+	implemented RFC 1510 KRB-SAFE, i.e., checksummed over
+	KRB-SAFE-BODY only.
+
 2003-09-02  Tom Yu  <tlyu@mit.edu>
 
 	* conv_creds.c (krb524_convert_creds_plain): Apply patch from
@@ -21,7 +211,15 @@
 	(krb5_do_preauth): If an invalid encoding of etype_info or
 	etype_info2 is received, ignore it rather  than failing the request
 
-2003-07-09  Alexandra Ellwood  <lxs@mit.edu>
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
+
+2003-07-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (STLIBOBJS, OBJS, T_SER_OBJS): Drop ser_eblk.o.
+
+2003-06-03  Alexandra Ellwood  <lxs@mit.edu>
 
         * init_ctx.c: Export krb5_get_permitted_enctypes for Samba.
 
@@ -97,7 +295,6 @@
 
 	* get_in_tkt.c (krb5_get_init_creds): Initialize options based on
 	context.kdc_default_options 
-
 2003-05-22  Tom Yu  <tlyu@mit.edu>
 
 	* gen_seqnum.c (krb5_generate_seq_number): Fix think-o on sequence
@@ -124,6 +321,9 @@
 
 2003-05-20  Sam Hartman  <hartmans@mit.edu>
 
+	* get_in_tkt.c: get_in_tkt only supports old (non-etype-info2)
+	enctypes. 
+
 	* Makefile.in (SRCS): Remove in_ktb.c
 
 	* gic_keytab.c (krb5_get_in_tkt_with_keytab): Move from
@@ -144,6 +344,10 @@
 	sequence number space to facilitate backwards compatibility.
 
 2003-05-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* ser_ctx.c (krb5_context_internalize): Copy read-in OS context
+	data into krb5_context and free up the newly allocated OS
+	context.
 
 	* chpw.c (krb5int_rd_chpw_rep): Allow new kpasswd error codes up
 	through _INITIAL_FLAG_NEEDED.
@@ -239,6 +443,15 @@
 	krberrors to be read correctly; fix memory alloctaion so that
 	allocated structures are freed. 
 
+2003-04-16  Sam Hartman  <hartmans@mit.edu>
+
+	* chpw.c (krb5int_mk_setpw_req): Use encode_krb5_setpw_req.  Fix
+	memory handling to free data that is allocated  
+
+2003-04-15  Sam Hartman  <hartmans@mit.edu>
+
+	* chpw.c (krb5int_mk_setpw_req krb5int_rd_setpw_rep): New function
+
 2003-04-24  Ezra Peisach  <epeisach@mit.edu>
 
 	* kfree.c (krb5_free_pwd_sequences): Correction to previous
@@ -249,19 +462,10 @@
 	* kfree.c (krb5_free_pwd_sequences): Actually free the entire
 	sequence of passwd_phase_elements and not just the first one.
 
-2003-04-16  Sam Hartman  <hartmans@mit.edu>
-
-	* chpw.c (krb5int_mk_setpw_req): Use encode_krb5_setpw_req.  Fix
-	memory handling to free data that is allocated  
-
-2003-04-15  Sam Hartman  <hartmans@mit.edu>
-
-	* chpw.c (krb5int_mk_setpw_req krb5int_rd_setpw_rep): New function
-
 2003-04-13  Ken Raeburn  <raeburn@mit.edu>
 
 	* init_ctx.c (DEFAULT_ETYPE_LIST): Add AES with 256 bits at the
-	front of the list.  No 128-bit support by defaut.
+	front of the list.  No 128-bit support by default.
 
 2003-04-01  Nalin Dahyabhai  <nalin@redhat.com>
 

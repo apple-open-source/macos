@@ -1,6 +1,6 @@
 /*
 *****************************************************************
-* Copyright (c) 2002-2003, International Business Machines Corporation
+* Copyright (c) 2002-2004, International Business Machines Corporation
 * and others.  All Rights Reserved.
 *****************************************************************
 * Date        Name        Description
@@ -19,6 +19,7 @@
 #include "uvector.h"
 #include "tridpars.h"
 #include "hash.h"
+#include "putilimp.h"
 
 //------------------------------------------------------------
 // Constants
@@ -170,7 +171,7 @@ void ScriptRunIterator::adjustLimit(int32_t delta) {
 //------------------------------------------------------------
 // AnyTransliterator
 
-const char AnyTransliterator::fgClassID=0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(AnyTransliterator)
 
 AnyTransliterator::AnyTransliterator(const UnicodeString& id,
                                      const UnicodeString& theTarget,
@@ -319,8 +320,8 @@ UScriptCode AnyTransliterator::scriptNameToCode(const UnicodeString& name) {
  */
 void AnyTransliterator::registerIDs() {
 
-    UErrorCode ec;
-    Hashtable seen(TRUE);
+    UErrorCode ec = U_ZERO_ERROR;
+    Hashtable seen(TRUE, ec);
 
     int32_t sourceCount = Transliterator::_countAvailableSources();
     for (int32_t s=0; s<sourceCount; ++s) {

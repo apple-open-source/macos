@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -33,30 +31,42 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
+#include <unistd.h>			// getpid
 #include <syslog.h>			// syslog
+#include <pthread.h>	// for pthread_*_t
 
 // Set compile flag BUILDING_NSLDEBUG=1 to enable debug logging
 // Set environment variable NSLDEBUG at run time to see messages
 
-#define LOG_ALL			0	
+int IsNSLDebuggingEnabled( void );
 
-#if LOG_ALL
-#warning "LOG_ALL is turned on, you DO NOT WANT TO SUBMIT THIS!"
-	#define DBGLOG(format, args...) \
-		if (true) \
-		{ \
-			syslog( LOG_ERR, format , ## args); \
-			fflush(NULL); \
-		} \
-		else
+#define DEBUGGING_NSL IsNSLDebuggingEnabled()
+
+#ifndef LOG_ALWAYS
+	#define LOG_ALWAYS			0
+#endif
+
+#ifndef BUILDING_NSLDEBUG
+	#define BUILDING_NSLDEBUG	1
+#endif
+
+#if BUILDING_NSLDEBUG
+	#define MAXLINE 4096
+	void ourLog(const char* format, ...);
+	void newlog(const char* format, va_list ap );
+	
+	#if LOG_ALWAYS
+		#define DBGLOG(format, args...) \
+				ourLog (format , ## args)
+	#else
+		#define DBGLOG(format, args...) \
+			if (DEBUGGING_NSL) \
+				ourLog (format , ## args); \
+			else
+	#endif
 #else
-	#define DBGLOG(format, args...) \
-		if (getenv( "NSLDEBUG" )) \
-		{ \
-			fprintf (stderr, format , ## args); \
-			fflush(NULL); \
-		} \
-		else
+	#define DBGLOG(format, args...)
 #endif
 
 #endif

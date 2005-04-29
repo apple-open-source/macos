@@ -6,6 +6,9 @@
 
 #include <setjmp.h>
 
+extern void abort (void);
+extern void exit (int);
+
 jmp_buf env;
 int val;
 int longjmp_taken;
@@ -81,4 +84,4 @@ main()
 					/* returns(end) */
 }
 
-/* { dg-final { run-gcov -b gcov-7.c } } */
+/* { dg-final { run-gcov calls branches { -b gcov-7.c } } } */

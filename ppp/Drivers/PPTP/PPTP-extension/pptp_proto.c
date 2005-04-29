@@ -28,9 +28,10 @@
 #include <sys/socket.h>
 #include <sys/syslog.h>
 #include <sys/protosw.h>
+#include <kern/locks.h>
+
 #include <net/if_types.h>
-#include <net/dlil.h>
-#include <net/if_var.h>
+#include <net/if.h>
 
 #include "../../../Family/ppp_defs.h"
 #include "../../../Family/if_ppplink.h"
@@ -65,7 +66,7 @@ int pptp_control(struct socket *so, u_long cmd, caddr_t data,
                   struct ifnet *ifp, struct proc *p);
 
 // callback from rfc layer
-int pptp_input(void *data, struct mbuf *m);
+int pptp_input(void *data, mbuf_t m);
 void pptp_event(void *data, u_int32_t event, u_int32_t msg);
 
 /* -----------------------------------------------------------------------------
@@ -74,6 +75,7 @@ Globals
 struct pr_usrreqs 	pptp_usr;	/* pr_usrreqs extension to the protosw */
 struct protosw 		pptp;		/* describe the protocol switch */
 
+extern lck_mtx_t	*ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -113,16 +115,16 @@ int pptp_add(struct domain *domain)
     pptp_usr.pru_sockaddr 	= pru_sockaddr_notsupp;
     pptp_usr.pru_sosend 	= sosend;
     pptp_usr.pru_soreceive 	= soreceive;
-    pptp_usr.pru_sopoll 	= sopoll;
+    pptp_usr.pru_sopoll 	= pru_sopoll_notsupp;
 
 
     bzero(&pptp, sizeof(struct protosw));
-    pptp.pr_type	= SOCK_DGRAM;
-    pptp.pr_domain 	= domain;
+    pptp.pr_type		= SOCK_DGRAM;
+    pptp.pr_domain		= domain;
     pptp.pr_protocol 	= PPPPROTO_PPTP;
-    pptp.pr_flags 	= PR_ATOMIC;
+    pptp.pr_flags		= PR_ATOMIC | PR_PROTOLOCK;
     pptp.pr_ctloutput 	= pptp_ctloutput;
-    pptp.pr_init 	= pptp_init;
+    pptp.pr_init		= pptp_init;
     pptp.pr_fasttimo  	= pptp_fasttimo;
     pptp.pr_slowtimo  	= pptp_slowtimo;
     pptp.pr_usrreqs 	= &pptp_usr;
@@ -172,9 +174,10 @@ This function is called by socket layer to handle get/set-socketoption
 int pptp_ctloutput(struct socket *so, struct sockopt *sopt)
 {
     int		error, optval;
-    u_int32_t	lval, cmd;
+    u_int32_t	lval, cmd = 0;
     u_int16_t	val;
     
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
     //log(LOGVAL, "pptp_ctloutput, so = 0x%x\n", so);
 
@@ -189,6 +192,7 @@ int pptp_ctloutput(struct socket *so, struct sockopt *sopt)
                 case PPTP_OPT_FLAGS:
                 case PPTP_OPT_OURADDRESS:
                 case PPTP_OPT_PEERADDRESS:
+                case PPTP_OPT_BAUDRATE:
                     if (sopt->sopt_valsize != 4)
                         error = EMSGSIZE;
                     else if ((error = sooptcopyin(sopt, &lval, 4, 4)) == 0) {
@@ -196,6 +200,7 @@ int pptp_ctloutput(struct socket *so, struct sockopt *sopt)
                             case PPTP_OPT_OURADDRESS: 	cmd = PPTP_CMD_SETOURADDR; break;
                             case PPTP_OPT_PEERADDRESS: 	cmd = PPTP_CMD_SETPEERADDR; break;
                             case PPTP_OPT_FLAGS: 	cmd = PPTP_CMD_SETFLAGS; break;
+                            case PPTP_OPT_BAUDRATE: 	cmd = PPTP_CMD_SETBAUDRATE; break;
                         }
                         pptp_rfc_command(so->so_pcb, cmd , &lval);
                     }
@@ -238,8 +243,9 @@ fast timer function, called every 200ms
 ----------------------------------------------------------------------------- */
 void pptp_fasttimo()
 {
-
+	lck_mtx_lock(ppp_domain_mutex);
     pptp_rfc_fasttimer();
+	lck_mtx_unlock(ppp_domain_mutex);
 }
 
 /* -----------------------------------------------------------------------------
@@ -247,8 +253,9 @@ slow timer function, called every 500ms
 ----------------------------------------------------------------------------- */
 void pptp_slowtimo()
 {
-
+	lck_mtx_lock(ppp_domain_mutex);
     pptp_rfc_slowtimer();
+	lck_mtx_unlock(ppp_domain_mutex);
 }
 
 /* -----------------------------------------------------------------------------
@@ -278,10 +285,13 @@ int pptp_attach (struct socket *so, int proto, struct proc *p)
     }
    
     // call pptp init with the rfc specific structure
+	lck_mtx_lock(ppp_domain_mutex);
     if (pptp_rfc_new_client(so, (void**)&(so->so_pcb), pptp_input, pptp_event)) {
+		lck_mtx_unlock(ppp_domain_mutex);
         return ENOMEM;
     }
 
+	lck_mtx_unlock(ppp_domain_mutex);
     return 0;
 }
 
@@ -292,6 +302,8 @@ Should free all the pptp structures
 int pptp_detach(struct socket *so)
 {
 
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+	
     //log(LOGVAL, "pptp_detach, so = 0x%x, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
 
     if (so->so_tpcb) {
@@ -302,6 +314,7 @@ int pptp_detach(struct socket *so)
         pptp_rfc_free_client(so->so_pcb);
         so->so_pcb = 0;
     }
+	so->so_flags |= SOF_PCBCLEARING;
     return 0;
 }
 
@@ -312,6 +325,8 @@ int pptp_control(struct socket *so, u_long cmd, caddr_t data,
                   struct ifnet *ifp, struct proc *p)
 {
     int 		error = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     //log(LOGVAL, "pptp_control : so = 0x%x, cmd = %d\n", so, cmd);
 
@@ -354,17 +369,19 @@ int pptp_control(struct socket *so, u_long cmd, caddr_t data,
 /* -----------------------------------------------------------------------------
 called from pptp_rfc when data are present
 ----------------------------------------------------------------------------- */
-int pptp_input(void *data, struct mbuf *m)
+int pptp_input(void *data, mbuf_t m)
 {
     struct socket 	*so = (struct socket *)data;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (so->so_tpcb) {
         // we are hooked to ppp
 	return pptp_wan_input((struct ppp_link *)so->so_tpcb, m);
     }
 
-    m_freem(m);
-    log(LOGVAL, "pptp_input unexpected, so = 0x%x, len = %d\n", so, m->m_pkthdr.len);
+    mbuf_freem(m);
+    log(LOGVAL, "pptp_input unexpected, so = 0x%x, len = %d\n", so, mbuf_pkthdr_len(m));
     return 0;
 }
 
@@ -373,6 +390,8 @@ int pptp_input(void *data, struct mbuf *m)
 void pptp_event(void *data, u_int32_t event, u_int32_t msg)
 {
     struct socket 	*so = (struct socket *)data;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (so->so_tpcb) {
         switch (event) {

@@ -1,3 +1,4 @@
+// { dg-do run  }
 // Origin: Wolfgang Bangerth <wolf@gaia.iwr.uni-heidelberg.de>
 
 int i = 1;
@@ -14,7 +15,7 @@ template <int dim>
 class FinalClass :  public Derived<dim> {
 public:
   FinalClass () {
-    if (&local1 != &local2)
+    if (&this->local1 != &this->local2)
       i = 0;
   }
 };

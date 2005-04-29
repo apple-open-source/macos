@@ -71,4 +71,5 @@ private:
 };
 CFStringRef		CreateComputerNameEthernetString( CFStringRef computerName );
 CFStringRef		CreateMacAddressString		( void );
+CFMutableDictionaryRef CreateMutableDictionaryFromXMLString( CFStringRef xmlplist );
 #endif		// #ifndef

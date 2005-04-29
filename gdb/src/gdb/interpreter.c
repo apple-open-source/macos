@@ -81,7 +81,8 @@ gdb_new_interpreter (char *name,
 		     interp_suspend_ftype suspend_proc, 
 		     interp_delete_ftype delete_proc,
 		     interp_exec_ftype exec_proc,
-		     interp_prompt_ftype prompt_proc)
+		     interp_prompt_ftype prompt_proc,
+		     interp_complete_ftype complete_proc)
 {
   struct gdb_interpreter *new_interp;
   
@@ -98,6 +99,7 @@ gdb_new_interpreter (char *name,
   new_interp->delete_proc = delete_proc;
   new_interp->exec_proc   = exec_proc;
   new_interp->prompt_proc = prompt_proc;
+  new_interp->complete_proc = complete_proc;
   new_interp->inited = 0;
 
   return new_interp;  
@@ -414,6 +416,18 @@ gdb_interpreter_exec (char *command_str)
 }
 
 int
+gdb_interpreter_complete (struct gdb_interpreter *interp, 
+				     char *word, char *command_buffer, int cursor)
+{
+  if (interp->complete_proc != NULL)
+    {
+      return interp->complete_proc (interp->data, word, command_buffer, cursor);
+    }
+  
+  return 0;
+}
+
+int
 interpreter_do_one_event ()
 {
   if (current->do_one_event_proc == NULL)
@@ -502,8 +516,9 @@ void
 list_interpreter_cmd (char *args, int from_tty)
 {
   struct gdb_interpreter *interp_ptr;
+  struct cleanup *list_cleanup;
 
-  ui_out_list_begin (uiout, "interpreters");
+  list_cleanup = make_cleanup_ui_out_list_begin_end (uiout, "interpreters");
   for (interp_ptr = interp_list; interp_ptr != NULL; 
        interp_ptr = interp_ptr->next)
     {
@@ -511,7 +526,7 @@ list_interpreter_cmd (char *args, int from_tty)
       ui_out_field_string (uiout, "interpreter", interp_ptr->name);
       ui_out_text (uiout, "\n");
     }
-  ui_out_list_end (uiout);
+  do_cleanups (list_cleanup);
 }
 
 void

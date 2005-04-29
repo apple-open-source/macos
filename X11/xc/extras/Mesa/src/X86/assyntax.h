@@ -1,3 +1,4 @@
+/* $XFree86: xc/extras/Mesa/src/X86/assyntax.h,v 1.16 2003/11/06 18:37:53 tsi Exp $ */
 
 #ifndef __ASSYNTAX_H__
 #define __ASSYNTAX_H__
@@ -23,7 +24,6 @@
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-/* $XFree86: xc/extras/Mesa/src/X86/assyntax.h,v 1.12 2002/09/09 21:30:02 dawes Exp $ */
 
 /*
  * assyntax.h
@@ -79,9 +79,11 @@
 #endif
 
 #if (defined(__STDC__) && !defined(UNIXCPP)) || (defined (sun) && defined (i386) && defined (SVR4) && defined (__STDC__) && !defined (__GNUC__))
-#define CONCAT(x, y)	x ## y
+#define CONCAT(x, y)		x ## y
+#define CONCAT3(x, y, z)	x ## y ## z
 #else
-#define CONCAT(x, y)	x/**/y
+#define CONCAT(x, y)		x/**/y
+#define CONCAT3(x, y, z)	x/**/y/**/z
 #endif
 
 #ifdef ACK_ASSEMBLER
@@ -863,7 +865,8 @@
 #define P_XMM6		xmm6
 #define P_XMM7		xmm7
 
-#define CONCAT(x, y)	x ## y
+#define CONCAT(x, y)		x ## y
+#define CONCAT3(x, y, z)	x ## y ## z
 
 #if defined(NASM_ASSEMBLER)
 
@@ -964,11 +967,11 @@ SECTION _DATA public align=16 class=DATA use32 flat
 #endif
 
 #if defined(Lynx) || (defined(SYSV) || defined(SVR4)) \
- || (defined(linux) || defined(__OS2ELF__)) && defined(__ELF__) \
+ || (defined(__linux__) || defined(__OS2ELF__)) && defined(__ELF__) \
  || defined(__FreeBSD__) && __FreeBSD__ >= 3
 #define GLNAME(a)	a
 #else
-#define GLNAME(a)	_ ## a
+#define GLNAME(a)	CONCAT(_, a)
 #endif
 
 /*
@@ -1077,7 +1080,7 @@ SECTION _DATA public align=16 class=DATA use32 flat
 #define VARINDIRECT(var)	var
 
 /* Use register contents as jump/call target: */
-#define CODEPTR(reg)		reg
+#define CODEPTR(reg)		P_(reg)
 
 /*
  * Redefine assembler commands
@@ -1201,7 +1204,7 @@ SECTION _DATA public align=16 class=DATA use32 flat
 #define JS(a)			js NEAR a
 #define JZ(a)			jz NEAR a
 #define JMP(a)			jmp a
-#define JMPF(s,a)		jmpf
+#define JMPF(s,a)		jmp far s:a
 #define LAHF			lahf
 #define LAR(a, b)		lar b, a
 #define LEA_L(a, b)		lea P_(b), P_(a)
@@ -1689,8 +1692,10 @@ SECTION _DATA public align=16 class=DATA use32 flat
 /* Added by BrianP for FreeBSD (per David Dawes) */
 #if !defined(NASM_ASSEMBLER) && !defined(MASM_ASSEMBLER) && !defined(__bsdi__)
 #define LLBL(a)		CONCAT(.L,a)
+#define LLBL2(a,b)	CONCAT3(.L,a,b)
 #else
 #define LLBL(a)		a
+#define LLBL2(a,b)	CONCAT(a,b)
 #endif
 
 

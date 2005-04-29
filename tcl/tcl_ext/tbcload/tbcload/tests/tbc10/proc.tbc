@@ -1,0 +1,92 @@
+# proc.tcl --
+#
+#  Test file for compilation.
+#  Contains a simple procedure.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: proc.tbc,v 1.2 2000/05/30 22:19:08 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+5 0 39 9 0 0 24 0 4 5 5 -1 -1
+39
+,HE<!(H&s!/HW<!/E`<!/#Gpv/fvpv+i=6#.QA9v1l8X!**!!
+5
+9AfX!'!
+5
+M.Vqv'!
+9
+x
+4
+,CHr@
+x
+1
+-v
+x
+3
+/MHw
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+1 1
+1
+Dv
+0 0 257
+x
+1
+.v
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+JHFw
+0
+0
+1 1
+1
+Dv
+0 0 257
+x
+4
+4/;EF
+x
+4
+b4Z)<
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}

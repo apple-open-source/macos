@@ -16,7 +16,8 @@
 #      define DETACHED 2       /* Thread is intended to be detached.   */
 #      define CLIENT_OWNS_STACK        4
                                /* Stack was supplied by client.        */
-#      define SUSPENDED 8      /* Currently suspended. */
+#      define SUSPNDED 8       /* Currently suspended.			*/
+    			       /* SUSPENDED is used insystem header.	*/
     ptr_t stack;
     size_t stack_size;
     cond_t join_cv;
@@ -29,6 +30,8 @@
   extern size_t GC_min_stack_sz;
   extern size_t GC_page_sz;
   extern void GC_thr_init(void);
+  extern ptr_t GC_stack_alloc(size_t * stack_size);
+  extern void GC_stack_free(ptr_t stack, size_t size);
 
 # endif /* GC_SOLARIS_THREADS */
 

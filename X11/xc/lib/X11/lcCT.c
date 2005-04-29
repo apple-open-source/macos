@@ -36,7 +36,7 @@
  *  Modifier: Ivan Pascal     The XFree86 Project
  *  Modifier: Bruno Haible    The XFree86 Project
  */
-/* $XFree86: xc/lib/X11/lcCT.c,v 3.27 2002/10/08 23:31:35 dawes Exp $ */
+/* $XFree86: xc/lib/X11/lcCT.c,v 3.28 2003/08/04 10:32:20 eich Exp $ */
 
 #include "Xlibint.h"
 #include "XlcPubI.h"
@@ -116,8 +116,10 @@ static CTDataRec default_ct_data[] =
        defined in XLC_LOCALE files, using "\033%/1" or "\033%/2". */
 
     /* Backward compatibility with XFree86 3.x */
+#if 1
     { "ISO8859-14:GR",                                      "\033%/1" },
     { "ISO8859-15:GR",                                      "\033%/1" },
+#endif
     /* For use by utf8 -> ctext */
     { "BIG5-0:GLGR", "\033%/2"},
     /* used by Emacs, but not backed by ISO-IR */
@@ -400,7 +402,7 @@ typedef struct _CTInfoRec {
  * at runtime through _XlcAddCT.
  */
 static CTInfo ct_list = NULL;
-static CTInfo *ct_list_end = &ct_list;
+static CTInfo ct_list_end = NULL;
 
 /*
  * Returns a Compound Text info record for an ESC sequence.
@@ -534,8 +536,12 @@ _XlcAddCT(
         /* Insert it at the end. If there are duplicates CTinfo entries
            for the same XlcCharSet, we want the first (standard) one to
            override the second (user defined) one. */
-        ct_info->next = *ct_list_end;
-        *ct_list_end = ct_info;
+	ct_info->next = NULL;
+	if (ct_list_end)
+	    ct_list_end->next = ct_info;
+	else
+	    ct_list = ct_info;
+	ct_list_end = ct_info;
     } else {
         if (existing_info->charset != charset
             /* We have a conflict, with one exception: JISX0208.1983-0 and

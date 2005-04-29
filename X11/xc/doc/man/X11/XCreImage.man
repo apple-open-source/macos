@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XCreImage.man,v 1.2 2001/01/27 18:19:57 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XCreImage.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,73 +144,26 @@
 .SH NAME
 XInitImage, XCreateImage, XGetPixel, XPutPixel, XSubImage, XAddPixel, XDestroyImage \- image utilities
 .SH SYNTAX
-Status XInitImage\^(\^\fIimage\fP\^)
-.br
-      XImage *\fIimage\fP\^;
-.LP
-XImage *XCreateImage\^(\^\fIdisplay\fP, \fIvisual\fP, \fIdepth\fP, \fIformat\fP, \fIoffset\fP, \fIdata\fP, \fIwidth\fP, \fIheight\fP\^, \fIbitmap_pad\fP, 
-.br
-                        \fIbytes_per_line\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Visual *\fIvisual\fP\^;
-.br
-      unsigned int \fIdepth\fP\^;
-.br
-      int \fIformat\fP\^;
-.br
-      int \fIoffset\fP\^;
-.br
-      char *\fIdata\fP\^;
-.br
-      unsigned int \fIwidth\fP\^;
-.br
-      unsigned int \fIheight\fP\^;
-.br
-      int \fIbitmap_pad\fP\^;
-.br
-      int \fIbytes_per_line\fP\^;
-.LP
-unsigned long XGetPixel\^(\^\fIximage\fP, \fIx\fP, \fIy\fP\^)
-.br
-      XImage *\fIximage\fP\^;
-.br
-      int \fIx\fP\^;
-.br
-      int \fIy\fP\^;
-.LP
-XPutPixel\^(\^\fIximage\fP, \fIx\fP, \fIy\fP, \fIpixel\fP\^)
-.br
-      XImage *\fIximage\fP\^;
-.br
-      int \fIx\fP\^;
-.br
-      int \fIy\fP\^;
-.br
-      unsigned long \fIpixel\fP\^;
-.LP
-XImage *XSubImage\^(\^\fIximage\fP, \fIx\fP, \fIy\fP, \fIsubimage_width\fP, \fIsubimage_height\fP\^)
-.br
-      XImage *\fIximage\fP\^;
-.br
-      int \fIx\fP\^;
-.br
-      int \fIy\fP\^;
-.br
-      unsigned int \fIsubimage_width\fP\^;
-.br
-      unsigned int \fIsubimage_height\fP\^;
-.LP
-XAddPixel\^(\^\fIximage\fP, \fIvalue\fP\^)
-.br
-      XImage *\fIximage\fP\^;
-.br
-      long \fIvalue\fP\^;
-.LP
-XDestroyImage\^(\^\fIximage\fP\^)
-.br
-        XImage *\^\fIximage\fP\^; 
+.HP
+Status XInitImage\^(\^XImage *\fIimage\fP\^); 
+.HP
+XImage *XCreateImage\^(\^Display *\fIdisplay\fP\^, Visual *\fIvisual\fP\^,
+unsigned int \fIdepth\fP\^, int \fIformat\fP\^, int \fIoffset\fP\^, char
+*\fIdata\fP\^, unsigned int \fIwidth\fP\^, unsigned int \fIheight\fP\^, int
+\fIbitmap_pad\fP\^, int \fIbytes_per_line\fP\^); 
+.HP
+unsigned long XGetPixel\^(\^XImage *\fIximage\fP\^, int \fIx\fP\^, int
+\fIy\fP\^); 
+.HP
+int XPutPixel\^(\^XImage *\fIximage\fP\^, int \fIx\fP\^, int \fIy\fP\^,
+unsigned long \fIpixel\fP\^); 
+.HP
+XImage *XSubImage\^(\^XImage *\fIximage\fP\^, int \fIx\fP\^, int \fIy\fP\^,
+unsigned int \fIsubimage_width\fP\^, unsigned int \fIsubimage_height\fP\^); 
+.HP
+int XAddPixel\^(\^XImage *\fIximage\fP\^, long \fIvalue\fP\^); 
+.HP
+int XDestroyImage\^(\^XImage *\^\fIximage\fP\^); 
 .SH ARGUMENTS
 .IP \fIbitmap_pad\fP 1i
 Specifies the quantum of a scanline (8, 16, or 32).

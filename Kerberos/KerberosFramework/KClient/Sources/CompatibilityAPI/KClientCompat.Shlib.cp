@@ -2,10 +2,10 @@
  * KClientCompatLib implements parts of the old KClient API which can be
  * sanely mapped to the new API.
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/CompatibilityAPI/KClientCompat.Shlib.cp,v 1.36 2003/02/26 16:17:04 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/CompatibilityAPI/KClientCompat.Shlib.cp,v 1.38 2004/12/13 21:48:35 lxs Exp $
  */
 
-#include "KClientCompat.h"
+#include <Kerberos/KClientCompat.h>
 #include "KClientKerberosIntf.h"
 
 // 
@@ -604,9 +604,7 @@ static OSErr RemapKClientError (
 				return paramErr;
 			
 			default:
-#if MACDEV_DEBUG
 				SignalPStr_ ("\pUnknown LoginLib error in RemapKClientError");
-#endif
 				return paramErr;
 		}
 	} else {
@@ -660,9 +658,7 @@ static OSErr RemapKClientError (
 				return cKrbKerberosErrBlock + INTK_BADPW;
 				
 			default:
-#if MACDEV_DEBUG
 				SignalPStr_ ("\pUnknown error in RemapKClientError");
-#endif
 				return paramErr;
 		}
 	}
@@ -696,4 +692,3 @@ OSStatus KClientKeyFileLocationFromFullPath (
     
     return err;
 }
-	

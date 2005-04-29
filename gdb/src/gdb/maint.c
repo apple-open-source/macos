@@ -1,6 +1,8 @@
 /* Support for GDB maintenance commands.
-   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2003
-   Free Software Foundation, Inc.
+
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001,
+   2002, 2003, 2004 Free Software Foundation, Inc.
+
    Written by Fred Fish at Cygnus Support.
 
    This file is part of GDB.
@@ -54,8 +56,6 @@ static void maintenance_space_display (char *, int);
 
 static void maintenance_info_command (char *, int);
 
-static void print_section_table (bfd *, asection *, void *);
-
 static void maintenance_info_sections (char *, int);
 
 static void maintenance_print_command (char *, int);
@@ -92,7 +92,6 @@ maintenance_command (char *args, int from_tty)
 }
 
 #ifndef _WIN32
-/* ARGSUSED */
 static void
 maintenance_dump_me (char *args, int from_tty)
 {
@@ -151,17 +150,26 @@ maintenance_demangle (char *args, int from_tty)
     }
   else
     {
+      /* APPLE LOCAL: Using language_demangle is wrong here, because this is a
+	 simple utility function, and should work in most cases even when the
+	 language is not correct... */
+
+#if 0
+      demangled = language_demangle (current_language, args, 
+				     DMGL_ANSI | DMGL_PARAMS);
+#endif
       switch (current_language->la_language)
-	{
-	case language_objc:
-	case language_objcplus:
-	  demangled = objc_demangle (args);
-	  break;
-	case language_cplus:
-	default:
-	  demangled = cplus_demangle (args, DMGL_ANSI | DMGL_PARAMS);
-	  break;
-	}
+        {
+        case language_objc:
+          demangled = objc_demangle (args);
+          break;
+        case language_objcplus:
+        case language_cplus:
+        default:
+          demangled = cplus_demangle (args, DMGL_ANSI | DMGL_PARAMS);
+          break;
+        }
+
       if (demangled != NULL)
 	{
 	  printf_unfiltered ("%s\n", demangled);
@@ -200,7 +208,6 @@ maintenance_space_display (char *args, int from_tty)
    allow_unknown 0.  Therefore, its own definition is called only for
    "maintenance info" with no args.  */
 
-/* ARGSUSED */
 static void
 maintenance_info_command (char *arg, int from_tty)
 {
@@ -362,7 +369,6 @@ print_objfile_section_info (bfd *abfd,
     }
 }
 
-/* ARGSUSED */
 static void
 maintenance_info_sections (char *arg, int from_tty)
 {
@@ -408,7 +414,6 @@ maintenance_info_sections (char *arg, int from_tty)
     }
 }
 
-/* ARGSUSED */
 void
 maintenance_print_statistics (char *args, int from_tty)
 {
@@ -416,7 +421,7 @@ maintenance_print_statistics (char *args, int from_tty)
   print_symbol_bcache_statistics ();
 }
 
-void
+static void
 maintenance_print_architecture (char *args, int from_tty)
 {
   if (args == NULL)
@@ -435,7 +440,6 @@ maintenance_print_architecture (char *args, int from_tty)
    allow_unknown 0.  Therefore, its own definition is called only for
    "maintenance print" with no args.  */
 
-/* ARGSUSED */
 static void
 maintenance_print_command (char *arg, int from_tty)
 {
@@ -494,7 +498,7 @@ maintenance_translate_address (char *arg, int from_tty)
 
   if (sym)
     printf_filtered ("%s+%s\n",
-		     SYMBOL_SOURCE_NAME (sym),
+		     SYMBOL_PRINT_NAME (sym),
 		     paddr_u (address - SYMBOL_VALUE_ADDRESS (sym)));
   else if (sect)
     printf_filtered ("no symbol at %s:0x%s\n", sect->name, paddr (address));
@@ -644,6 +648,14 @@ static int maintenance_profile_p;
 
 #if defined (HAVE_MONSTARTUP) && defined (HAVE__MCLEANUP)
 
+#ifdef HAVE__ETEXT
+extern char _etext;
+#define TEXTEND &_etext
+#else
+extern char etext;
+#define TEXTEND &etext
+#endif
+
 static int profiling_state;
 
 static void
@@ -668,7 +680,6 @@ maintenance_set_profile_cmd (char *args, int from_tty, struct cmd_list_element *
       static int profiling_initialized;
 
       extern void monstartup (unsigned long, unsigned long);
-      extern char _etext;
       extern int main();
 
       if (!profiling_initialized)
@@ -679,7 +690,7 @@ maintenance_set_profile_cmd (char *args, int from_tty, struct cmd_list_element *
 
       /* "main" is now always the first function in the text segment, so use
 	 its address for monstartup.  */
-      monstartup ((unsigned long) &main, (unsigned long) &_etext);
+      monstartup ((unsigned long) &main, (unsigned long) TEXTEND);
     }
   else
     {
@@ -810,6 +821,19 @@ If a SOURCE file is specified, dump only that file's partial symbols.",
   add_cmd ("objfiles", class_maintenance, maintenance_print_objfiles,
 	   "Print dump of current object file definitions.",
 	   &maintenanceprintlist);
+
+  add_cmd ("symtabs", class_maintenance, maintenance_info_symtabs,
+	   "List the full symbol tables for all object files.\n\
+This does not include information about individual symbols, blocks, or\n\
+linetables --- just the symbol table structures themselves.\n\
+With an argument REGEXP, list the symbol tables whose names that match that.",
+	   &maintenanceinfolist);
+
+  add_cmd ("psymtabs", class_maintenance, maintenance_info_psymtabs,
+	   "List the partial symbol tables for all object files.\n\
+This does not include information about individual partial symbols,\n\
+just the symbol table structures themselves.",
+	   &maintenanceinfolist);
 
   add_cmd ("statistics", class_maintenance, maintenance_print_statistics,
 	   "Print statistics about internal gdb state.",

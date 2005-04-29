@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/config/cf/xfree86.cf,v 3.439 2003/02/26 20:07:59 dawes Exp $
+XCOMM $XFree86: xc/config/cf/xfree86.cf,v 3.467 2004/01/28 01:47:26 dawes Exp $
 /*
  * This configuration file contains all of the configuration
  * information for the XFree86 based X Servers.
@@ -54,7 +54,7 @@ XCOMM $Xorg: xfree86.cf,v 1.4 2000/08/17 19:41:49 cpqbld Exp $
     defined(XF86_VERSION_MAJOR) && defined(XF86_VERSION_MINOR) && \
     defined(XF86_VERSION_PATCH) && defined(XF86_VERSION_SNAP)
 # if XF86_VERSION_SNAP == 0
-#define XFree86ManVersionString `echo XF86_VERSION_MAJOR XF86_VERSION_MINOR XF86_VERSION_PATCH | sed -e 's/ /./g' -e 's/^/Version /'`
+#define XFree86ManVersionString `echo XF86_VERSION_MAJOR XF86_VERSION_MINOR XF86_VERSION_PATCH | sed -e 's/ /./g' -e 's/^/Version\\\ /'`
 #else
 #define XFree86ManVersionString `echo XF86_VERSION_MAJOR XF86_VERSION_MINOR XF86_VERSION_PATCH XF86_VERSION_SNAP | sed -e 's/ /./g' -e 's/^/Version\\\ /'`
 # endif
@@ -70,6 +70,18 @@ XCOMM $Xorg: xfree86.cf,v 1.4 2000/08/17 19:41:49 cpqbld Exp $
 
 #if !defined(BuildDate)
 # define BuildDate 	`BuildDateCmd`
+#endif
+
+#ifndef ChangelogDateCmd
+# define ChangelogDateCmd if tail $(CHANGELOGFILE) | \			@@\
+	fgrep '$$XFree86:' >/dev/null 2>&1; then \			@@\
+	  tail $(CHANGELOGFILE) | fgrep '$$XFree86:' | \		@@\
+	  sed s,'.* \([0-9][0-9]*\)/\([0-9][0-9]*\)/\([0-9][0-9]*\).*,\1\2\3,'; \ @@\
+	else echo 0; fi
+#endif
+
+#if !defined(ChangelogDate)
+# define ChangelogDate	`ChangelogDateCmd`
 #endif
 
 #ifndef XVendorString
@@ -183,7 +195,7 @@ XCOMM $Xorg: xfree86.cf,v 1.4 2000/08/17 19:41:49 cpqbld Exp $
 
 /* XInput drivers */
 #ifndef XInputDrivers
-#define XInputDrivers		mouse keyboard /* acecad */ calcomp citron \
+#define XInputDrivers		mouse keyboard acecad calcomp citron \
 				digitaledge dmc dynapro elographics tek4957 \
 				microtouch mutouch penmount spaceorb summa \
 				wacom void magellan /* magictouch */ hyperpen \
@@ -353,25 +365,20 @@ XCOMM $Xorg: xfree86.cf,v 1.4 2000/08/17 19:41:49 cpqbld Exp $
 
 /* Pure PCI drivers should go first */
 # ifndef XF86CardDrivers
-#  ifdef ia64Architecture /* removed nsc driver */
-#   define XF86CardDrivers	mga glint nv tga s3 s3virge sis rendition \
-				neomagic i740 tdfx savage \
-				cirrus vmware tseng trident chips apm \
-				GlideDriver fbdev i128 \
-				ati i810 AgpGartDrivers DevelDrivers ark \
-				cyrix siliconmotion \
-				vesa vga \
-				dummy XF86OSCardDrivers XF86ExtraCardDrivers
+#  /* Don't build the nsc driver on IA64 */
+#  ifndef ia64Architecture
+#   define NscDriver		nsc
 #  else
-#   define XF86CardDrivers	mga glint nv tga s3 s3virge sis rendition \
+#   define NscDriver		/**/
+#  endif
+#  define XF86CardDrivers	mga glint nv tga s3 s3virge sis rendition \
 				neomagic i740 tdfx savage \
 				cirrus vmware tseng trident chips apm \
-				GlideDriver fbdev i128 nsc \
+				GlideDriver i128 NscDriver \
 				ati i810 AgpGartDrivers DevelDrivers ark \
-				cyrix siliconmotion \
-				vesa vga \
+				cyrix siliconmotion via \
+				fbdev vesa vga \
 				dummy XF86OSCardDrivers XF86ExtraCardDrivers
-#  endif
 # endif
 
 /*
@@ -388,11 +395,11 @@ XCOMM $Xorg: xfree86.cf,v 1.4 2000/08/17 19:41:49 cpqbld Exp $
 
 # ifndef DriDrivers
 #  define DriDrivers		gamma i810 i830 mga r128 radeon r200 \
-				/*sis*/ tdfx DevelDRIDrivers
+				sis tdfx DevelDRIDrivers
 # endif
 #endif
 
-#if defined(x86_64Architecture)
+#if defined(AMD64Architecture)
 # ifndef XF86Server
 #  define XF86Server		YES
 # endif
@@ -470,18 +477,18 @@ XCOMM $Xorg: xfree86.cf,v 1.4 2000/08/17 19:41:49 cpqbld Exp $
 				vga dummy fbdev vesa
 # endif
 
-/* DRI tdfx driver needs Glide, which is not available for x86_64 */
+/* DRI tdfx driver needs Glide, which is not available for AMD64 */
 # define TdfxDriDriver		/**/
 
 # define DevelDRIDrivers	/**/
 
 # define DriDrivers		gamma i810 mga r128 radeon r200 \
 				TdfxDriDriver DevelDRIDrivers
-#endif /*x86_64Arcitecture*/
+#endif /*AMD64Arcitecture*/
 
 /* SPARC and UltraSPARC drivers */
 
-#if  defined(SparcArchitecture) && \
+#if  (defined(SparcArchitecture) || defined(Sparc64Architecture)) && \
     !defined(LynxOSArchitecture) && \
     !defined(NetBSDArchitecture) && \
     !defined(OpenBSDArchitecture)
@@ -928,7 +935,7 @@ XCOMM $Xorg: xfree86.cf,v 1.4 2000/08/17 19:41:49 cpqbld Exp $
 
 /* Pure PCI drivers should go first */
 # ifndef XF86CardDrivers
-#  define XF86CardDrivers	ati mga glint s3 s3virge sis savage\
+#  define XF86CardDrivers	ati mga glint nv s3 s3virge sis savage\
 				trident chips tdfx fbdev \
 				DevelDrivers vga \
 				XF86OSCardDrivers XF86ExtraCardDrivers
@@ -1174,21 +1181,6 @@ IPLAN2P8_DEFS = -DUSE_IPLAN2P8
 #endif
 
 /*
- * The server-side of PEX is not 64-bit clean.
- */
-#if !defined(BuildPexExt)
-# if XF86Server \
-  && !defined(AlphaArchitecture) \
-  && !defined(ia64Architecture) \
-  && !defined(s390xArchitecture) \
-  && !defined (x86_64Architecture)
-#  define BuildPexExt		NO	/* But we turn off PEX anyway now */
-# else
-#  define BuildPexExt		NO
-# endif
-#endif
-
-/*
  * Build GLX server interface
  *   --- Doesn't work for 1-bit and 4-bit servers
  */
@@ -1204,10 +1196,6 @@ IPLAN2P8_DEFS = -DUSE_IPLAN2P8
 #define BuildXF86DRM	NO
 #endif
 
-#ifndef GlxStubLib
-#define GlxStubLib	NO
-#endif
-
 #ifndef GlxUseSGISI
 #define GlxUseSGISI	NO
 #endif
@@ -1220,6 +1208,10 @@ IPLAN2P8_DEFS = -DUSE_IPLAN2P8
 #  else
 #    define BuildGLXLibrary	YES
 #  endif
+#endif
+
+#ifndef BuildXF86OldDRMCompat
+#  define BuildXF86OldDRMCompat	YES
 #endif
 
 /*
@@ -1352,33 +1344,28 @@ IPLAN2P8_DEFS = -DUSE_IPLAN2P8
 
 #if BuildGlxExt
 
-#  if !defined(GlxStaticServerLib) && !GlxStubLib
-#    if BuildXF86DRI
-#      define DRIDefines -DXF86DRI -DGLX_DIRECT_RENDERING DRIDynLoadDefines
-#    else
-#      define DRIDefines /**/
-#    endif
-#    if defined(GlxUseSGISI) && GlxUseSGISI
-#      define GlxCoreLibDefines -DGLX_USE_SGI_SI
-#    else
-#      define GlxCoreLibDefines -DGLX_USE_MESA
-#    endif
+#  if BuildXF86DRI
+#    define DRIDefines -DXF86DRI -DGLX_DIRECT_RENDERING DRIDynLoadDefines
 #  else
 #    define DRIDefines /**/
-#    define GlxCoreLibDefines /**/
+#  endif
+#  if defined(GlxUseSGISI) && GlxUseSGISI
+#    define GlxCoreLibDefines -DGLX_USE_SGI_SI
+#  else
+#    define GlxCoreLibDefines -DGLX_USE_MESA
 #  endif
 
 #  if defined(SparcArchitecture)  \
    || defined (Sparc64Architecture) \
    || defined(ia64Architecture) \
    || defined(s390xArchitecture) \
-   || defined(x86_64Architecture)
+   || defined(AMD64Architecture)
 #    define GlxArchDefines -D__GLX_ALIGN64
 #  elif defined(AlphaArchitecture)
 /* On the Alpha we need to ensure floating point accuracy for 3D */
 #    define GlxArchDefines -D__GLX_ALIGN64 -mieee
 #  elif defined(DarwinArchitecture)
-/* GLX contains lots of uninitalized globals, which can upset Darwin */
+/* GLX contains lots of uninitialized globals, which can upset Darwin */
 #    define GlxArchDefines -fno-common
 #  else
 #    define GlxArchDefines /**/
@@ -1424,17 +1411,6 @@ IPLAN2P8_DEFS = -DUSE_IPLAN2P8
  */
 #ifndef BuildXF86RushExt
 # define BuildXF86RushExt	NO
-#endif
-
-/*
- * XIE
- */
-#ifndef BuildXIE
-# if XF86Server
-#  define BuildXIE		NO
-# else
-#  define BuildXIE		NO
-# endif
 #endif
 
 #ifndef BuildDBElib
@@ -1527,30 +1503,6 @@ IPLAN2P8_DEFS = -DUSE_IPLAN2P8
  */
 #ifndef BuildXF86BigfontExt
 # define BuildXF86BigfontExt		YES
-#endif
-
-/*
- * Build XF86Setup -- needs Tk and Tcl
- */
-/* There are problems building XF86Setup, so turn it off for now */
-#ifndef BuildXF86Setup
-# define BuildXF86Setup NO
-#endif
-
-#ifndef BuildXF86Setup
-# if HasTk && HasTcl && \
-     BuildXF86VidModeLibrary && BuildXF86MiscLibrary && BuildXKBlib
-#  define BuildXF86Setup		YES
-# else
-#  define BuildXF86Setup		NO
-# endif
-#endif
-
-#ifndef XF86SetupUsesStaticTk
-# define XF86SetupUsesStaticTk		YES
-#endif
-#ifndef XF86SetupUsesStaticTcl
-# define XF86SetupUsesStaticTcl		YES
 #endif
 
 /*
@@ -1671,9 +1623,6 @@ IPLAN2P8_DEFS = -DUSE_IPLAN2P8
 #ifndef BuildCyrillicFonts
 # define BuildCyrillicFonts	YES
 #endif
-#ifndef UseKoi8RForCyrillic
-# define UseKoi8RForCyrillic	YES
-#endif
 
 /*
  * Build scanpci?
@@ -1766,12 +1715,6 @@ IPLAN2P8_DEFS = -DUSE_IPLAN2P8
 # endif
 #endif
 
-#if !HasSnprintf
-# define ServerSnprintfDefines -DNEED_SNPRINTF
-#else
-# define ServerSnprintfDefines /**/
-#endif
-
 #ifndef UseSmartScheduler
 #define UseSmartScheduler YES
 #endif
@@ -1789,10 +1732,9 @@ IPLAN2P8_DEFS = -DUSE_IPLAN2P8
 				XFree86LoaderDefines -DXFree86Server \
 				VidModeExtensionDefines \
 				XFree86XvMCDefines \
-				ServerSnprintfDefines \
 				SmartScheduleDefines \
 				DebugDefines XFree86XResDefines \
-				-DX_BYTE_ORDER=ByteOrder
+				-DX_BYTE_ORDER=$(X_BYTE_ORDER)
 #endif
 
 #ifndef XFree86ServerOSDefines
@@ -1803,6 +1745,8 @@ IPLAN2P8_DEFS = -DUSE_IPLAN2P8
 #ifndef XFree86ConsoleDefines
 # if defined(i386BsdArchitecture) || defined(AlphaBsdArchitecture)
 #  define XFree86ConsoleDefines	-DPCCONS_SUPPORT -DSYSCONS_SUPPORT -DPCVT_SUPPORT
+# elif defined(FreeBSDArchitecture)
+#  define XFree86ConsoleDefines -DSYSCONS_SUPPORT
 # else
 #  define XFree86ConsoleDefines	/**/
 # endif
@@ -1872,6 +1816,7 @@ DRIVERSDKINCLUDEDIR = DriverSDKIncludeDir
 
         XFREE86DOCDIR = $(DOCDIR)
       XFREE86PSDOCDIR = $(DOCPSDIR)
+     XFREE86PDFDOCDIR = $(DOCPDFDIR)
     XFREE86HTMLDOCDIR = $(DOCHTMLDIR)
 XFREE86JAPANESEDOCDIR = $(DOCDIR)/Japanese
 
@@ -1948,8 +1893,10 @@ XFREE86JAPANESEDOCDIR = $(DOCDIR)/Japanese
 # endif
 #endif
 
-#ifndef GccAliasingArgs
-#define GccAliasingArgs /* */
+#if  (GccMajorVersion == 3) &&  (GccMinorVersion >= 1)
+# define GccAliasingArgs      -fno-strict-aliasing
+#else
+# define GccAliasingArgs      /* */
 #endif
 
 #if HasGcc2 && defined(i386Architecture)
@@ -1958,9 +1905,9 @@ XFREE86JAPANESEDOCDIR = $(DOCDIR)/Japanese
 # endif
 #endif
 
-#if HasGcc2 && defined(x86_64Architecture)
-# ifndef DefaultGcc2x86_64Opt
-#  define DefaultGcc2x86_64Opt -O2 -fno-strength-reduce GccAliasingArgs
+#if HasGcc2 && defined(AMD64Architecture)
+# ifndef DefaultGcc2AMD64Opt
+#  define DefaultGcc2AMD64Opt -O2 -fno-strength-reduce GccAliasingArgs
 # endif
 #endif
 
@@ -2003,15 +1950,6 @@ XFREE86JAPANESEDOCDIR = $(DOCDIR)/Japanese
 # endif
 #endif
 
-/*
- * Some Linux distributions (like RH 7.0) use glibc 2.1-style setjmp,
- * but have the glibc version set to 2.2.  This can be set it host.def
- * to handle these cases.
- */
-#ifndef HasGlibc21Sigsetjmp
-#define HasGlibc21Sigsetjmp NO
-#endif
-
 #ifdef i386Architecture
 # ifndef HasX86Support
 #  define HasX86Support YES
@@ -2025,7 +1963,7 @@ XFREE86JAPANESEDOCDIR = $(DOCDIR)/Japanese
 # ifndef Has3DNowSupport
 #  define Has3DNowSupport NO
 # endif
-#elif defined (x86_64Architecture)
+#elif defined (AMD64Architecture)
 # ifndef HasX86Support
 #  define HasX86Support NO
 # endif
@@ -2054,7 +1992,7 @@ XFREE86JAPANESEDOCDIR = $(DOCDIR)/Japanese
 #endif
 
 #ifndef StaticNeedsPicForShared
-# if defined (x86_64Architecture)\
+# if defined (AMD64Architecture)\
   || defined (AlphaArchitecture) \
   || defined (ia64Architecture) \
   || defined (PpcArchitecture) \

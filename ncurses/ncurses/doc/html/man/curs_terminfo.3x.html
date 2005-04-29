@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <!-- 
   ****************************************************************************
-  * Copyright (c) 1999,2000 Free Software Foundation, Inc.                   *
+  * Copyright (c) 1999-2002,2003 Free Software Foundation, Inc.              *
   *                                                                          *
   * Permission is hereby granted, free of charge, to any person obtaining a  *
   * copy of this software and associated documentation files (the            *
@@ -27,24 +27,30 @@
   * sale, use or other dealings in this Software without prior written       *
   * authorization.                                                           *
   ****************************************************************************
-  * @Id: curs_terminfo.3x,v 1.14 2000/12/03 00:07:23 tom Exp @
+  * @Id: curs_terminfo.3x,v 1.18 2003/12/27 18:48:59 tom Exp @
 -->
 <HTML>
 <HEAD>
-<TITLE>curs_terminfo 3x</TITLE><link rev=made href="mailto:bug-ncurses@gnu.org">
+<TITLE>curs_terminfo 3x</TITLE>
+<link rev=made href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY>
 <H1>curs_terminfo 3x</H1>
 <HR>
 <PRE>
 <!-- Manpage converted by man2html 3.0.1 -->
+<STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>                               <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+
+
+
 
 </PRE>
 <H2>NAME</H2><PRE>
-       <STRONG>setupterm</STRONG>, <STRONG>setterm</STRONG>, <STRONG>set_curterm</STRONG>, <STRONG>del_curterm</STRONG>, <STRONG>restartterm</STRONG>,
-       <STRONG>tparm</STRONG>, <STRONG>tputs</STRONG>, <STRONG>putp</STRONG>, <STRONG>vidputs</STRONG>,  <STRONG>vidattr</STRONG>,  <STRONG>mvcur</STRONG>,  <STRONG>tigetflag</STRONG>,
-       <STRONG>tigetnum</STRONG>,   <STRONG>tigetstr</STRONG>   -  <STRONG>curses</STRONG>  interfaces  to  terminfo
-       database
+       <STRONG>del_curterm</STRONG>,  <STRONG>mvcur</STRONG>,  <STRONG>putp</STRONG>, <STRONG>restartterm</STRONG>, <STRONG>set_curterm</STRONG>, <STRONG>set-</STRONG>
+       <STRONG>term</STRONG>, <STRONG>setupterm</STRONG>,  <STRONG>tigetflag</STRONG>,  <STRONG>tigetnum</STRONG>,  <STRONG>tigetstr</STRONG>,  <STRONG>tparm</STRONG>,
+       <STRONG>tputs</STRONG>,  <STRONG>vid_attr</STRONG>,  <STRONG>vid_puts</STRONG>,  <STRONG>vidattr</STRONG>,  <STRONG>vidputs</STRONG>  -  <STRONG>curses</STRONG>
+       interfaces to terminfo database
 
 
 </PRE>
@@ -52,21 +58,22 @@
        <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
        <STRONG>#include</STRONG> <STRONG>&lt;term.h&gt;</STRONG>
 
-       <STRONG>int</STRONG> <STRONG>setupterm(const</STRONG> <STRONG>char</STRONG> <STRONG>*term,</STRONG> <STRONG>int</STRONG> <STRONG>fildes,</STRONG> <STRONG>int</STRONG> <STRONG>*errret);</STRONG>
-       <STRONG>int</STRONG> <STRONG>setterm(const</STRONG> <STRONG>char</STRONG> <STRONG>*term);</STRONG>
-       <STRONG>TERMINAL</STRONG> <STRONG>*set_curterm(TERMINAL</STRONG> <STRONG>*nterm);</STRONG>
-       <STRONG>int</STRONG> <STRONG>del_curterm(TERMINAL</STRONG> <STRONG>*oterm);</STRONG>
-       <STRONG>int</STRONG>  <STRONG>restartterm(const</STRONG>  <STRONG>char</STRONG>  <STRONG>*term,</STRONG>   <STRONG>int</STRONG>   <STRONG>fildes,</STRONG>   <STRONG>int</STRONG>
-       <STRONG>*errret);</STRONG>
-       <STRONG>char</STRONG> <STRONG>*tparm(const</STRONG> <STRONG>char</STRONG> <STRONG>*str,</STRONG> <STRONG>...);</STRONG>
-       <STRONG>int</STRONG> <STRONG>tputs(const</STRONG> <STRONG>char</STRONG> <STRONG>*str,</STRONG> <STRONG>int</STRONG> <STRONG>affcnt,</STRONG> <STRONG>int</STRONG> <STRONG>(*putc)(int));</STRONG>
-       <STRONG>int</STRONG> <STRONG>putp(const</STRONG> <STRONG>char</STRONG> <STRONG>*str);</STRONG>
-       <STRONG>int</STRONG> <STRONG>vidputs(chtype</STRONG> <STRONG>attrs,</STRONG> <STRONG>int</STRONG> <STRONG>(*putc)(char));</STRONG>
-       <STRONG>int</STRONG> <STRONG>vidattr(chtype</STRONG> <STRONG>attrs);</STRONG>
-       <STRONG>int</STRONG> <STRONG>mvcur(int</STRONG> <STRONG>oldrow,</STRONG> <STRONG>int</STRONG> <STRONG>oldcol,</STRONG> <STRONG>int</STRONG> <STRONG>newrow,</STRONG> <STRONG>int</STRONG> <STRONG>newcol);</STRONG>
-       <STRONG>int</STRONG> <STRONG>tigetflag(const</STRONG> <STRONG>char</STRONG> <STRONG>*capname);</STRONG>
-       <STRONG>int</STRONG> <STRONG>tigetnum(const</STRONG> <STRONG>char</STRONG> <STRONG>*capname);</STRONG>
-       <STRONG>char</STRONG> <STRONG>*tigetstr(const</STRONG> <STRONG>char</STRONG> <STRONG>*capname);</STRONG>
+       <STRONG>int</STRONG> <STRONG>setupterm(char</STRONG> <STRONG>*</STRONG><EM>term</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>fildes</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <STRONG>*</STRONG><EM>errret</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>setterm(char</STRONG> <STRONG>*</STRONG><EM>term</EM><STRONG>);</STRONG>
+       <STRONG>TERMINAL</STRONG> <STRONG>*set_curterm(TERMINAL</STRONG> <STRONG>*</STRONG><EM>nterm</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>del_curterm(TERMINAL</STRONG> <STRONG>*</STRONG><EM>oterm</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>restartterm(const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>term</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>fildes</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <STRONG>*</STRONG><EM>errret</EM><STRONG>);</STRONG>
+       <STRONG>char</STRONG> <STRONG>*tparm(char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>,</STRONG> <STRONG>...);</STRONG>
+       <STRONG>int</STRONG> <STRONG>tputs(const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>affcnt</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <STRONG>(*</STRONG><EM>putc</EM><STRONG>)(int));</STRONG>
+       <STRONG>int</STRONG> <STRONG>putp(const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>vidputs(chtype</STRONG> <EM>attrs</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <STRONG>(*</STRONG><EM>putc</EM><STRONG>)(int));</STRONG>
+       <STRONG>int</STRONG> <STRONG>vidattr(chtype</STRONG> <EM>attrs</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>vid_puts(attr_t</STRONG> <EM>attrs</EM><STRONG>,</STRONG> <STRONG>short</STRONG> <EM>pair</EM><STRONG>,</STRONG> <STRONG>void</STRONG> <STRONG>*</STRONG><EM>opts</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <STRONG>(*</STRONG><EM>putc</EM><STRONG>)(char));</STRONG>
+       <STRONG>int</STRONG> <STRONG>vid_attr(attr_t</STRONG> <EM>attrs</EM><STRONG>,</STRONG> <STRONG>short</STRONG> <EM>pair</EM><STRONG>,</STRONG> <STRONG>void</STRONG> <STRONG>*</STRONG><EM>opts</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvcur(int</STRONG> <EM>oldrow</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>oldcol</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>newrow</EM>, int <EM>newcol</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>tigetflag(char</STRONG> <STRONG>*</STRONG><EM>capname</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>tigetnum(char</STRONG> <STRONG>*</STRONG><EM>capname</EM><STRONG>);</STRONG>
+       <STRONG>char</STRONG> <STRONG>*tigetstr(char</STRONG> <STRONG>*</STRONG><EM>capname</EM><STRONG>);</STRONG>
 
 
 </PRE>
@@ -97,8 +104,8 @@
        passed  through  <STRONG>tparm</STRONG>  to instantiate them.  All <STRONG>terminfo</STRONG>
        strings [including the output of <STRONG>tparm</STRONG>] should be  printed
        with  <STRONG>tputs</STRONG> or <STRONG>putp</STRONG>.  Call the <STRONG>reset_shell_mode</STRONG> to restore
-       the  tty  modes  before  exiting  [see   <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>].
-       Programs   which   use  cursor  addressing  should  output
+       the tty modes before exiting [see <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>].   Pro-
+       grams   which   use   cursor   addressing   should  output
        <STRONG>enter_ca_mode</STRONG> upon startup and should output  <STRONG>exit_ca_mode</STRONG>
        before  exiting.   Programs  desiring shell escapes should
        call
@@ -189,6 +196,16 @@
        The  <STRONG>vidattr</STRONG>  routine  is like the <STRONG>vidputs</STRONG> routine, except
        that it outputs through <STRONG>putchar</STRONG>.
 
+       The <STRONG>vid_attr</STRONG> and <STRONG>vid_puts</STRONG> routines correspond  to  vidattr
+       and  vidputs,  respectively.   They use a set of arguments
+       for representing the video attributes  plus  color,  i.e.,
+       one of type attr_t for the attributes and one of short for
+       the color_pair number.  The <STRONG>vid_attr</STRONG> and <STRONG>vid_puts</STRONG> routines
+       are  designed  to use the attribute constants with the <EM>WA</EM><STRONG>_</STRONG>
+       prefix.  The opts argument is  reserved  for  future  use.
+       Currently,  applications  must  provide a null pointer for
+       that argument.
+
        The <STRONG>mvcur</STRONG> routine provides low-level  cursor  motion.   It
        takes   effect   immediately  (rather  than  at  the  next
        refresh).
@@ -205,9 +222,9 @@
        not  a  numeric  capability,  or  <STRONG>-1</STRONG>  if it is canceled or
        absent from the terminal description.
 
-       The <STRONG>tigetstr</STRONG> routine  returns  the  value  <STRONG>(char</STRONG>  <STRONG>*)-1</STRONG>  if
-       <EM>capname</EM> is not a string capability, or <STRONG>0</STRONG> if it is canceled
-       or absent from the terminal description.
+       The <STRONG>tigetstr</STRONG> routine returns the value <STRONG>(char</STRONG> <STRONG>*)-1</STRONG> if  <EM>cap-</EM>
+       <EM>name</EM> is not a string capability, or <STRONG>0</STRONG> if it is canceled or
+       absent from the terminal description.
 
        The <EM>capname</EM> for each capability is given in the table col-
        umn  entitled  <EM>capname</EM> code in the capabilities section of
@@ -259,69 +276,28 @@
 
        The XSI Curses standard prototypes <STRONG>tparm</STRONG> with a fixed num-
        ber  of  parameters, rather than a variable argument list.
-       That prototype assumes that none  of  the  parameters  are
-       strings  (or  if  so,  that a long is big enough to hold a
-       pointer).   The  variable  argument  list  implemented  in
-       ncurses does not rely on that assumption.
+       This  implementation  uses  a  variable   argument   list.
+       Portable  applications  should  provide 9 parameters after
+       the format; zeroes are fine for this purpose.
 
-       XSI  notes  that after calling <STRONG>mvcur</STRONG>, the curses state may
-       not  match  the  actual  terminal  state,  and   that   an
-       application  should  touch  and  refresh the window before
-       resuming normal curses calls.  Both ncurses and  System  V
-       Release  4  curses  implement  <STRONG>mvcur</STRONG> using the SCREEN data
-       allocated in either <STRONG>initscr</STRONG> or <STRONG>newterm</STRONG>.  So though  it  is
-       documented  as  a  terminfo  function,  <STRONG>mvcur</STRONG>  is really a
-       curses function which is not well specified.
+       XSI notes that after calling <STRONG>mvcur</STRONG>, the curses  state  may
+       not  match the actual terminal state, and that an applica-
+       tion should touch and refresh the window  before  resuming
+       normal  curses calls.  Both ncurses and System V Release 4
+       curses implement <STRONG>mvcur</STRONG> using the SCREEN data allocated  in
+       either  <STRONG>initscr</STRONG> or <STRONG>newterm</STRONG>.  So though it is documented as
+       a terminfo function, <STRONG>mvcur</STRONG> is  really  a  curses  function
+       which is not well specified.
 
 
 </PRE>
 <H2>SEE ALSO</H2><PRE>
-       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>, <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>,  <STRONG>curs_term-</STRONG>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,  <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>, <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>, <STRONG>curs_term-</STRONG>
        <STRONG><A HREF="curs_termcap.3x.html">cap(3x)</A></STRONG>, <STRONG><A HREF="putc.3S.html">putc(3S)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                                                <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
 </PRE>
 <HR>
 <ADDRESS>

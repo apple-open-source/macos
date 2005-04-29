@@ -3,8 +3,110 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
+		A181F29305E553E4006CE0A8 = {
+			buildPhases = (
+				A181F29505E553E4006CE0A8,
+				A181F29605E553E4006CE0A8,
+				A181F29805E553E4006CE0A8,
+				A181F29A05E553E4006CE0A8,
+				A1C7E174069DECA500DF6AFE,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = kpasswd;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = kpasswd;
+			productInstallPath = /usr/bin;
+			productName = kpasswd;
+			productReference = A181F29C05E553E4006CE0A8;
+			productType = "com.apple.product-type.tool";
+		};
+		A181F29505E553E4006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F29605E553E4006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+				A181F29705E553E4006CE0A8,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F29705E553E4006CE0A8 = {
+			fileRef = F5E27E69023719A601650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A181F29805E553E4006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+				A181F29905E553E4006CE0A8,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F29905E553E4006CE0A8 = {
+			fileRef = F5E27E7302371AA601650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A181F29A05E553E4006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F29C05E553E4006CE0A8 = {
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			lastKnownFileType = "compiled.mach-o.executable";
+			path = kpasswd;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1C7E174069DECA500DF6AFE = {
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Documentation/kpasswd.M",
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+				"$(DSTROOT)/usr/share/man/man1/kpasswd.1",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/share/man/man1\"\ninstall -c -m 644 \"${SRCROOT}/../Documentation/kpasswd.M\" \"${DSTROOT}/usr/share/man/man1/kpasswd.1\"\n";
+		};
+//A10
+//A11
+//A12
+//A13
+//A14
+//F50
+//F51
+//F52
+//F53
+//F54
 		F5033FD5025DFA3F01F62B58 = {
 			children = (
 				F5033FD6025DFA3F01F62B58,
@@ -13,49 +115,19 @@
 			name = Documentation;
 			path = ../Documentation;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5033FD6025DFA3F01F62B58 = {
+			explicitFileType = text.man;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kpasswd.M;
 			refType = 4;
-		};
-		F556252E025BC0DC013B17DA = {
-			fileRef = F5E27E69023719A601650119;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5B897E80241590501650119 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = kpasswd.M.jam;
-			refType = 4;
-		};
-		F5B897E90241591E01650119 = {
-			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/kpasswd.M.jam\" $(ACTION)";
-			buildPhases = (
-			);
-			buildSettings = {
-				PRODUCT_NAME = "Man Pages";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			buildToolPath = /Developer/Private/jam;
-			dependencies = (
-			);
-			isa = PBXLegacyTarget;
-			name = "Man Pages";
-			passBuildSettingsInEnvironment = 1;
-			productName = "Man Pages";
-			settingsToExpand = 6;
-			settingsToPassInEnvironment = 287;
-			settingsToPassOnCommandLine = 280;
-		};
-		F5B897EA0241592201650119 = {
-			isa = PBXTargetDependency;
-			target = F5B897E90241591E01650119;
+			sourceTree = "<group>";
 		};
 		F5E27E0F0237085C01650119 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				F5E27E110237085C01650119,
 				F5E27E120237085C01650119,
@@ -66,47 +138,40 @@
 			productRefGroup = F5E27E6A02371A7501650119;
 			projectDirPath = "";
 			targets = (
-				F5B897E90241591E01650119,
-				F5E27E6C02371A7501650119,
+				A181F29305E553E4006CE0A8,
 			);
 		};
 		F5E27E100237085C01650119 = {
 			children = (
 				F5E27E68023719A601650119,
 				F5033FD5025DFA3F01F62B58,
-				F5E27E66023719A601650119,
 				F5E27E7302371AA601650119,
 				F5E27E6A02371A7501650119,
 			);
 			isa = PBXGroup;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E27E110237085C01650119 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		F5E27E120237085C01650119 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
-		};
-		F5E27E66023719A601650119 = {
-			children = (
-				F5B897E80241590501650119,
-			);
-			isa = PBXGroup;
-			name = Scripts;
-			path = ../Scripts;
-			refType = 2;
 		};
 		F5E27E68023719A601650119 = {
 			children = (
@@ -116,89 +181,31 @@
 			name = Sources;
 			path = ../Sources;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F5E27E69023719A601650119 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = kpasswd.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E27E6A02371A7501650119 = {
 			children = (
-				F5E27E6B02371A7501650119,
+				A181F29C05E553E4006CE0A8,
 			);
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
-		};
-		F5E27E6B02371A7501650119 = {
-			isa = PBXExecutableFileReference;
-			path = kpasswd;
-			refType = 3;
-		};
-		F5E27E6C02371A7501650119 = {
-			buildPhases = (
-				F5E27E6D02371A7501650119,
-				F5E27E6E02371A7501650119,
-				F5E27E6F02371A7501650119,
-				F5E27E7002371A7501650119,
-			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(DSTROOT)/System/Library/Frameworks\"";
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = kpasswd;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-				F5B897EA0241592201650119,
-			);
-			isa = PBXToolTarget;
-			name = kpasswd;
-			productInstallPath = /usr/bin;
-			productName = kpasswd;
-			productReference = F5E27E6B02371A7501650119;
-		};
-		F5E27E6D02371A7501650119 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E27E6E02371A7501650119 = {
-			buildActionMask = 2147483647;
-			files = (
-				F556252E025BC0DC013B17DA,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E27E6F02371A7501650119 = {
-			buildActionMask = 2147483647;
-			files = (
-				F5E27E7402371AA601650119,
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E27E7002371A7501650119 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
+			sourceTree = "<group>";
 		};
 		F5E27E7302371AA601650119 = {
-			isa = PBXFrameworkReference;
+			explicitFileType = wrapper.framework;
+			isa = PBXFileReference;
 			path = Kerberos.framework;
 			refType = 3;
-		};
-		F5E27E7402371AA601650119 = {
-			fileRef = F5E27E7302371AA601650119;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 	};
 	rootObject = F5E27E0F0237085C01650119;

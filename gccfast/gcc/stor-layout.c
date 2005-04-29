@@ -2145,7 +2145,7 @@ get_best_mode (bitsize, bitpos, align, largest_mode, volatilep)
 
 /* APPLE LOCAL begin 64bit registers, ABI32bit */
   /* workaround for not having bitfield extraction working properly with 64-bit registers. */
-  if (largest_mode == word_mode)
+  if (largest_mode == word_mode && bitsize <= GET_MODE_BITSIZE (ABI_WORD_MODE))
     largest_mode = ABI_WORD_MODE;
 /* APPLE LOCAL end 64bit registers, ABI32bit */
 

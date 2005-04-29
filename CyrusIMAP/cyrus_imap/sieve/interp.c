@@ -1,6 +1,6 @@
 /* interp.c -- sieve script interpretor builder
  * Larry Greenfield
- * $Id: interp.c,v 1.23 2004/11/07 14:53:19 ken3 Exp $
+ * $Id: interp.c,v 1.4 2005/03/05 00:37:37 dasenbro Exp $
  */
 /***********************************************************
         Copyright 1999 by Carnegie Mellon University

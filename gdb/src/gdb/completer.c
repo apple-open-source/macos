@@ -23,6 +23,7 @@
 #include "gdbtypes.h"
 #include "expression.h"
 #include "filenames.h"		/* for DOSish file names */
+#include "language.h"
 
 #include "cli/cli-decode.h"
 
@@ -32,7 +33,7 @@
 
 /* Needed for rl_completer_word_break_characters() and for
    rl_filename_completion_function.  */
-#include <readline/readline.h>
+#include "readline/readline.h"
 
 /* readline defines this.  */
 #undef savestring
@@ -51,19 +52,19 @@ char *line_completion_function (const char *text, int matches, char *line_buffer
    it does affect how much stuff M-? lists.
    (2) If one of the matches contains a word break character, readline
    will quote it.  That's why we switch between
-   gdb_completer_word_break_characters and
+   current_language->la_word_break_characters() and
    gdb_completer_command_word_break_characters.  I'm not sure when
    we need this behavior (perhaps for funky characters in C++ symbols?).  */
 
 /* Variables which are necessary for fancy command line editing.  */
-char *gdb_completer_word_break_characters =
-" \t\n!@#$%^&*()+=|~`}{[]\"';:?>.<,-";
 
 /* When completing on command names, we remove '-' from the list of
    word break characters, since we use it in command names.  If the
    readline library sees one in any of the current completion strings,
    it thinks that the string needs to be quoted and automatically supplies
    a leading quote. */
+/* APPLE LOCAL: Don't include '/' in this list.  See also the copy of this
+   string in language.c:default_word_break_characters().  */
 static char *gdb_completer_command_word_break_characters =
 " \t\n!@#$%^&*()+=|~`}{[]\"';:?>.<,";
 
@@ -81,8 +82,7 @@ static char *gdb_completer_file_name_break_characters = " \t\n*|\"';:?><";
 
 /* When completing a file name, only a space should be considered a
    word break character. */
-char *gdb_completer_filename_word_break_characters =
-" ";
+char *gdb_completer_filename_word_break_characters = " ";
 
 /* Characters that can be used to quote completion strings.  Note that we
    can't include '"' because the gdb C parser treats such quoted sequences
@@ -90,12 +90,6 @@ char *gdb_completer_filename_word_break_characters =
 static char *gdb_completer_quote_characters = "'";
 
 /* Accessor for some completer data that may interest other files. */
-
-char *
-get_gdb_completer_word_break_characters (void)
-{
-  return gdb_completer_word_break_characters;
-}
 
 char *
 get_gdb_completer_quote_characters (void)
@@ -118,9 +112,6 @@ noop_completer (char *text, char *prefix)
 {
   return NULL;
 }
-
-/* From readline.  */
-extern char *filename_completion_function (char *, int);
 
 /* Complete on filenames.  */
 char **
@@ -255,7 +246,7 @@ location_completer (char *text, char *word)
 	  colon = p;
 	  symbol_start = p + 1;
 	}
-      else if (strchr (gdb_completer_word_break_characters, *p))
+      else if (strchr (current_language->la_word_break_characters(), *p))
 	symbol_start = p + 1;
     }
 
@@ -403,7 +394,7 @@ complete_line (const char *text, char *line_buffer, int point)
      '-' character used in some commands.  */
 
   rl_completer_word_break_characters =
-    gdb_completer_word_break_characters;
+    current_language->la_word_break_characters();
 
        /* Decide whether to complete on a list of gdb commands or on symbols. */
   tmp_command = (char *) alloca (point + 1);
@@ -588,7 +579,12 @@ complete_line (const char *text, char *line_buffer, int point)
 		{
 		  /* See the commentary above about the specifics
 		     of file-name completion.  */
-		  for (p = word;
+		  /* APPLE LOCAL: The net version backs up from word to look
+		     for the string to complete.  That breaks complete_command.
+		     You are supposed to be completing the word ending at the cursor,
+		     so back up from the cursor instead...  */
+		     
+		  for (p = tmp_command + point - 1;
 		       p > tmp_command
 			 && strchr (gdb_completer_file_name_break_characters, p[-1]) == NULL;
 		       p--)
@@ -678,7 +674,7 @@ line_completion_function (const char *text, int matches, char *line_buffer, int 
     /* Make sure the word break characters are set back to normal for the
        next time that readline tries to complete something.  */
     rl_completer_word_break_characters =
-      gdb_completer_word_break_characters;
+      current_language->la_word_break_characters();
 #endif
 
   return (output);
@@ -700,7 +696,7 @@ skip_quoted_chars (char *str, char *quotechars, char *breakchars)
     quotechars = gdb_completer_quote_characters;
 
   if (breakchars == NULL)
-    breakchars = gdb_completer_word_break_characters;
+    breakchars = current_language->la_word_break_characters();
 
   for (scan = str; *scan != '\0'; scan++)
     {

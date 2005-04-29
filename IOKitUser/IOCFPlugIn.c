@@ -32,7 +32,6 @@ IOFindPlugIns( io_service_t service,
     CFURLRef		url;
     CFPlugInRef		onePlugin;
     CFBundleRef		bundle;
-    CFMutableDictionaryRef	serviceProps;
     CFDictionaryRef	plist;
     CFDictionaryRef	matching;
     CFDictionaryRef	pluginTypes;
@@ -44,19 +43,14 @@ IOFindPlugIns( io_service_t service,
     
     // -- loadables
     onePlugin 		= NULL;
-    serviceProps	= NULL;
     pluginName		= NULL;
     path 		= NULL;
     url 		= NULL;
 
     do {
 
-        kr = IORegistryEntryCreateCFProperties( service, &serviceProps,
+        pluginTypes = IORegistryEntryCreateCFProperty( service, CFSTR(kIOCFPlugInTypesKey),
                                             kCFAllocatorDefault, kNilOptions );
-        if( kr != kIOReturnSuccess)
-            continue;
-        pluginTypes = (CFDictionaryRef)
-            CFDictionaryGetValue(serviceProps, CFSTR(kIOCFPlugInTypesKey));
         if( !pluginTypes )
             continue;
 
@@ -92,8 +86,8 @@ IOFindPlugIns( io_service_t service,
         CFRelease( url );
     if( path)
         CFRelease( path );
-    if( serviceProps)
-        CFRelease( serviceProps );
+    if( pluginTypes )
+        CFRelease( pluginTypes );
     // --
 
     if( onePlugin

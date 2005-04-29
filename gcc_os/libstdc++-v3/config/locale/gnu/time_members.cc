@@ -35,16 +35,10 @@
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
 #include <locale>
+#include <bits/c++locale_internal.h>
 
 namespace std
 {
-  template<>
-    __timepunct<char>::~__timepunct()
-    {
-      if (_M_c_locale_timepunct != _S_c_locale)
-	_S_destroy_c_locale(_M_c_locale_timepunct); 
-    }
-
   template<>
     void
     __timepunct<char>::
@@ -52,11 +46,13 @@ namespace std
 	   const tm* __tm) const
     {
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
-      __strftime_l(__s, __maxlen, _M_c_locale_timepunct, __format, __tm);
+      __strftime_l(__s, __maxlen, __format, __tm, _M_c_locale_timepunct);
 #else
-      const char* __old = setlocale(LC_ALL, _M_name_timepunct);
+      char* __old = strdup(setlocale(LC_ALL, NULL));
+      setlocale(LC_ALL, _M_name_timepunct);
       strftime(__s, __maxlen, __format, __tm);
       setlocale(LC_ALL, __old);
+      free(__old);
 #endif
     }
 
@@ -64,9 +60,11 @@ namespace std
     void
     __timepunct<char>::_M_initialize_timepunct(__c_locale __cloc)
     {
-      if (__cloc == _S_c_locale)
+      if (!__cloc)
 	{
 	  // "C" locale
+	  _M_c_locale_timepunct = _S_c_locale;
+
 	  _M_date_format = "%m/%d/%y";
 	  _M_date_era_format = "%m/%d/%y";
 	  _M_time_format = "%H:%M:%S";
@@ -187,24 +185,19 @@ namespace std
 
 #ifdef _GLIBCPP_USE_WCHAR_T
   template<>
-    __timepunct<wchar_t>::~__timepunct()
-    {
-      if (_M_c_locale_timepunct != _S_c_locale)
-	_S_destroy_c_locale(_M_c_locale_timepunct); 
-    }
-
-  template<>
     void
     __timepunct<wchar_t>::
     _M_put(wchar_t* __s, size_t __maxlen, const wchar_t* __format, 
 	   const tm* __tm) const
     {
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
-      __wcsftime_l(__s, __maxlen, _M_c_locale_timepunct, __format, __tm);
+      __wcsftime_l(__s, __maxlen, __format, __tm, _M_c_locale_timepunct);
 #else
-      const char* __old = setlocale(LC_ALL, _M_name_timepunct);
+      char* __old = strdup(setlocale(LC_ALL, NULL));
+      setlocale(LC_ALL, _M_name_timepunct);
       wcsftime(__s, __maxlen, __format, __tm);
       setlocale(LC_ALL, __old);
+      free(__old);
 #endif
     }
 
@@ -212,9 +205,11 @@ namespace std
     void
     __timepunct<wchar_t>::_M_initialize_timepunct(__c_locale __cloc)
     {
-      if (__cloc == _S_c_locale)
+      if (!__cloc)
 	{
 	  // "C" locale
+	  _M_c_locale_timepunct = _S_c_locale;
+
 	  _M_date_format = L"%m/%d/%y";
 	  _M_date_era_format = L"%m/%d/%y";
 	  _M_time_format = L"%H:%M:%S";

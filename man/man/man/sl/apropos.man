@@ -1,0 +1,29 @@
+.\" Man page for apropos
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\" Slovenski prevod Primo¾ Peterlin <primoz.peterlin@biofiz.mf.uni-lj.si>,
+.\" julij 1996.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.TH apropos 1 "15. januar 1991"
+.LO 1
+.SH IME
+apropos \- poi¹èi kljuèno besedo v datoteki whatis 
+.SH SINTAKSA
+.BI apropos
+kljuèna_beseda ...
+.SH OPIS
+apropos pre¹èie za kljuèno besedo mno¾ico datotek, ki vsebujejo 
+kratke opise sistemskih ukazov, in izpi¹e rezultat na standardni
+izhod.
+.SH "GLEJ TUDI"
+whatis(1), man(1).

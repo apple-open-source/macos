@@ -1,10 +1,12 @@
-// Build don't link: 
+// { dg-do assemble  }
+// { dg-options "" }
 // GROUPS passed old-abort
-// Special g++ Options:
 
 const bool FALSE = 0;
 const bool TRUE = 1;
 class ListDProto {
+protected:
+    class link;
 public:
     ListDProto();
     ListDProto(const ListDProto&);
@@ -15,20 +17,19 @@ public:
     void clear();
     void remove_head();
     void remove_tail();
-    class link;
     class Vix {
     public:
 	Vix();
-	friend int operator==(void *v, const Vix& x)
-	    { return v == x.item; }// ERROR - list of candidates
-	friend int operator==(const Vix& x, void *v)
-	    { return v == x.item; }// ERROR - candidate for call
+	friend int operator==(void *v, const Vix& x) // { dg-error "operator==" }
+	    { return v == x.item; }
+	friend int operator==(const Vix& x, void *v) // { dg-error "operator==" }
+	    { return v == x.item; }
 	friend int operator!=(void *v, const Vix& x)
 	    { return v != x.item; }
 	friend int operator!=(const Vix& x, void *v)
 	    { return v != x.item; }
-	friend int operator==(const Vix& x1, const Vix& x2)
-	    { return x1.owner == x2.owner && x1.item == x2.item; }// ERROR - candidate for call
+	friend int operator==(const Vix& x1, const Vix& x2) // { dg-error "operator==" }
+	    { return x1.owner == x2.owner && x1.item == x2.item; }
 	friend int operator!=(const Vix& x1, const Vix& x2)
 	    { return x1.owner != x2.owner || x1.item != x2.item; }
 	bool first;		 
@@ -101,7 +102,7 @@ public:
     void first(Vix& x) const
 	{ ListDProto::first(x); };
     void next(Vix& x, ListDProto::Action a = NORMAL) const
-	{ ListDProto::next(x, a); }// ERROR - .*// ERROR - .*
+	{ ListDProto::next(x, a); }// { dg-error "" } .*// ERROR - .*
     Vix last() const
 	{ return ListDProto::last(); }
     void last(Vix& x) const
@@ -273,10 +274,10 @@ template<class T>
 void
 SetLD<T>::remove(const T& item)
 {
-    typename ListD<T>::Action a = NORMAL;
+    typename ListD<T>::Action a = this->NORMAL;
     Vix x;
-    for (first(x); 0 != x && REMOVE_CURRENT != a; next(x, a))
-	a = operator()(x) == item ? REMOVE_CURRENT: NORMAL;// ERROR - .*
+    for (first(x); 0 != x && this->REMOVE_CURRENT != a; next(x, a))
+	a = operator()(x) == item ? this->REMOVE_CURRENT: this->NORMAL; // { dg-error "" } .*
 }
 template<class T>
 bool
@@ -284,7 +285,7 @@ SetLD<T>::contains(const T& item) const
 {
     Vix x;
     for (first(x); 0 != x; next(x)) {
-	if (operator()(x) == item)// ERROR - .*
+	if (operator()(x) == item)// { dg-error "" } .*
 	    return TRUE;
     }
     return FALSE;
@@ -341,9 +342,9 @@ operator>=(const SetLD<T>& a, const SetLD<T>& b)
 { return ! (a < b); }
 class String { };
 class IcaseString: public String { };
-class SetLD< IcaseString >: public SetLD<    String  > {	public:	 SetLD (): SetLD<    String  >() { };	 SetLD (const ListD<   IcaseString  >& other): SetLD<    String  >()	{ ListD<   IcaseString  >::Vix x;	for (other.first(x); 0 != x; other.next(x))	add(other(x)); };	 SetLD (const  SetLD & other): SetLD<    String  >(other) { };	const    IcaseString  & operator()(const Vix& x) const	{ return (   IcaseString  &) SetLD<    String  >::operator()(x); }	}; 	typedef SetLD<  String > SetLD_String_IcaseString_old_tmp99;	typedef SetLD< IcaseString > SetLD_String_IcaseString_new_tmp99;	
-inline int	 operator== (const SetLD_String_IcaseString_new_tmp99& a,	const SetLD_String_IcaseString_new_tmp99& b)
-{// ERROR - candidate for call
+template <> class SetLD< IcaseString >: public SetLD<    String  > {	public:	 SetLD (): SetLD<    String  >() { };	 SetLD (const ListD<   IcaseString  >& other): SetLD<    String  >()	{ ListD<   IcaseString  >::Vix x;	for (other.first(x); 0 != x; other.next(x))	add(other(x)); };	 SetLD (const  SetLD & other): SetLD<    String  >(other) { };	const    IcaseString  & operator()(const Vix& x) const	{ return (   IcaseString  &) SetLD<    String  >::operator()(x); }	}; 	typedef SetLD<  String > SetLD_String_IcaseString_old_tmp99;	typedef SetLD< IcaseString > SetLD_String_IcaseString_new_tmp99;	
+inline int	 operator== (const SetLD_String_IcaseString_new_tmp99& a,	const SetLD_String_IcaseString_new_tmp99& b) // { dg-error "operator==" }
+{
 const SetLD_String_IcaseString_old_tmp99& oa = a;
 const SetLD_String_IcaseString_old_tmp99& ob = b;
 return  operator== (oa, ob);	} 	
@@ -371,7 +372,7 @@ inline int	 operator>= (const SetLD_String_IcaseString_new_tmp99& a,	const SetLD
 {
 const SetLD_String_IcaseString_old_tmp99& oa = a;
 const SetLD_String_IcaseString_old_tmp99& ob = b;
-return  operator>= (oa, ob);	}   ;
+return  operator>= (oa, ob);	}   
 typedef SetLD<IcaseString> SLDiS;
 static void
 nop(int i)

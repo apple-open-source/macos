@@ -39,6 +39,7 @@ typedef struct CirQueue
     size_t	Size;
     size_t	InQueue;
 //    mutex_t	*InUse;
+    IOWorkLoop	*Workloop;
 } CirQueue;
 
 typedef enum QueueStatus
@@ -49,7 +50,7 @@ typedef enum QueueStatus
     queueMaxStatus
 } QueueStatus;
 
-QueueStatus	InitQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size);
+QueueStatus	InitQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size, IOWorkLoop *workloop);
 QueueStatus	CloseQueue(CirQueue *Queue);
 void		ResetQueue(CirQueue *Queue);
 size_t		AddtoQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size);

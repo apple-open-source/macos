@@ -1,7 +1,7 @@
 /*
  *  SQLGetTranslator.c
  *
- *  $Id: SQLGetTranslator.c,v 1.1.1.2 2002/04/30 00:40:25 miner Exp $
+ *  $Id: SQLGetTranslator.c,v 1.4 2004/11/11 01:52:40 luesang Exp $
  *
  *  These functions intentionally left blank
  *
@@ -72,11 +72,16 @@
 
 #include <iodbc.h>
 #include <iodbcinst.h>
+#include <iodbcadm.h>
 
 #include "dlf.h"
 #include "inifile.h"
 #include "misc.h"
 #include "iodbc_error.h"
+
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 
 #ifndef WIN32
 #include <unistd.h>
@@ -101,30 +106,66 @@
 		} \
 		DLL_CLOSE(handle); \
 	}
+
+#define CALL_TRSCHOOSE_DIALBOX(path) \
+	if ((handle = DLL_OPEN(path)) != NULL) \
+	{ \
+		if ((pTrsChoose = (pTrsChooseFunc)DLL_PROC(handle, "_iodbcdm_trschoose_dialbox")) != NULL) \
+		  ret = pTrsChoose(hwndParent, translator, sizeof(translator), NULL); \
+		else ret = SQL_NO_DATA; \
+		DLL_CLOSE(handle); \
+	} \
+	else ret = SQL_NO_DATA;
 #endif
 
-extern SQLRETURN _iodbcdm_trschoose_dialbox(HWND, LPSTR, DWORD, int FAR*);
+
+extern SQLRETURN _iodbcdm_trschoose_dialbox(HWND, LPSTR, DWORD, int *);
+
 
 BOOL INSTAPI GetTranslator (HWND hwndParent, LPSTR lpszName, WORD cbNameMax,
-    WORD FAR *pcbNameOut, LPSTR lpszPath, WORD cbPathMax,
-    WORD FAR *pcbPathOut, DWORD FAR *pvOption)
+    WORD *pcbNameOut, LPSTR lpszPath, WORD cbPathMax,
+    WORD *pcbPathOut, DWORD *pvOption)
 {
   pConfigTranslatorFunc pConfigTranslator;
+  pTrsChooseFunc pTrsChoose;
   BOOL retcode = FALSE, finish = FALSE;
   PCONFIG pCfg;
   UWORD configMode;
-  RETCODE ret;
+  RETCODE ret = SQL_NO_DATA;
   void *handle;
   char translator[1024];
+#ifdef __APPLE__
+  CFStringRef libname = NULL;
+  CFBundleRef bundle;
+  CFURLRef liburl;
+  char name[1024] = { 0 };
+#endif
 
   do
     {
-#ifdef GUI
-      ret =
-	  _iodbcdm_trschoose_dialbox (hwndParent, translator,
-	  sizeof (translator), NULL);
+      /* Load the Admin dialbox function */
+#ifdef __APPLE__
+      bundle = CFBundleGetBundleWithIdentifier (CFSTR ("org.iodbc.adm"));
+      if (bundle)
+	{
+	  /* Search for the drvproxy library */
+	  liburl = CFBundleCopyExecutableURL (bundle);
+	  if (liburl
+	      && (libname =
+	          CFURLCopyFileSystemPath (liburl, kCFURLPOSIXPathStyle)))
+	    {
+	      CFStringGetCString (libname, name, sizeof (name),
+	          kCFStringEncodingASCII);
+	      CALL_TRSCHOOSE_DIALBOX (name);
+	    }
+	  if (liburl)
+	    CFRelease (liburl);
+	  if (libname)
+	    CFRelease (libname);
+	  CFRelease (bundle);
+	}
 #else
-      ret = SQL_NO_DATA;
+      CALL_TRSCHOOSE_DIALBOX ("libiodbcadm.so");
 #endif
 
       if (ret == SQL_NO_DATA)
@@ -210,11 +251,11 @@ SQLGetTranslator (
     HWND hwnd,
     LPSTR lpszName,
     WORD cbNameMax,
-    WORD FAR * pcbNameOut,
+    WORD * pcbNameOut,
     LPSTR lpszPath,
     WORD cbPathMax,
-    WORD FAR * pcbPathOut,
-    DWORD FAR * pvOption)
+    WORD * pcbPathOut,
+    DWORD * pvOption)
 {
   BOOL retcode = FALSE;
 

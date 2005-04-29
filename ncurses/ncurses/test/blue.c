@@ -13,16 +13,12 @@
  * results, use the ncurses(3) library.  On non-Intel machines, SVr4 curses is
  * just as good.
  *
- * $Id: blue.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $
+ * $Id: blue.c,v 1.24 2002/06/29 23:32:18 tom Exp $
  */
 
-#include <string.h>
-#include <signal.h>
 #include <time.h>
 
 #include <test.priv.h>
-
-#include <term.h>
 
 #define NOCARD		(-1)
 
@@ -377,6 +373,9 @@ int
 main(int argc, char *argv[])
 {
     (void) signal(SIGINT, die);
+
+    setlocale(LC_ALL, "");
+
     initscr();
 
     /*

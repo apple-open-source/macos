@@ -1,5 +1,5 @@
 # SIEVE Makefile for cyrus software
-# $Id: Makefile.in,v 1.14 2003/10/22 18:50:17 rjs3 Exp $
+# $Id: Makefile.in,v 1.7 2005/03/05 00:37:31 dasenbro Exp $
 #
 # @configure_input@
 # 
@@ -85,21 +85,21 @@ all::
 			   SASL_LIB="$(SASL_LIB)" SASL_INC="$(SASL_INC)" CC="$(CC)" \
 			     $(PERL) Makefile.PL CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" PREFIX=$(prefix); \
 			fi; \
-			$(MAKE) -i $(MFLAGS) CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" DESTDIR=$(DESTDIR) all) || exit 1; \
+			$(MAKE) $(MFLAGS) CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" DESTDIR=$(DESTDIR) all) || exit 1; \
 	done
 
 install::
 	@for d in  $(SUBDIRS); \
 	do \
 		(cd $$d; echo "### Making" install "in" `pwd`;	\
-			$(MAKE) -i $(MFLAGS) CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" DESTDIR=$(DESTDIR) install) || exit 1; \
+			$(MAKE) $(MFLAGS) CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" DESTDIR=$(DESTDIR) install) || exit 1; \
 	done
 
 clean::
 	@-for d in  $(SUBDIRS); \
 	do \
 		(cd $$d; echo "### Making" clean "in" `pwd`;	\
-			$(MAKE) -i $(MFLAGS) CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" DESTDIR=$(DESTDIR) clean ;	\
+			$(MAKE) $(MFLAGS) CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" DESTDIR=$(DESTDIR) clean ;	\
 			echo "### Done with" `pwd`);		\
 	done
 
@@ -107,7 +107,7 @@ distclean::
 	@-for d in  $(SUBDIRS); \
 	do \
 		(cd $$d; echo "### Making" clean "in" `pwd`;	\
-			$(MAKE) -i $(MFLAGS) CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" DESTDIR=$(DESTDIR) distclean ; \
+			$(MAKE) $(MFLAGS) CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" DESTDIR=$(DESTDIR) distclean ; \
 			echo "### Done with" `pwd`);		\
 	done
 	rm -f Makefile Makefile.bak config.status config.log config.cache
@@ -117,7 +117,7 @@ depend::
 		for d in  $(DEPSUBDIRS); \
 		do \
 			(cd $$d; echo "### Making" depend "in" `pwd`;	\
-				$(MAKE) -i $(MFLAGS) CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" DESTDIR=$(DESTDIR) depend) || exit 1; \
+				$(MAKE) $(MFLAGS) CCCDLFLAGS="$(BI_RC_CFLAGS)" OTHERLDFLAGS="$(BI_RC_CFLAGS)" DESTDIR=$(DESTDIR) depend) || exit 1; \
 		done; \
 	fi
 

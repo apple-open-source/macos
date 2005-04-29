@@ -52,9 +52,9 @@
 #include <net-snmp/library/snmpusm.h>
 #include <net-snmp/library/lcd_time.h>
 #include <net-snmp/library/scapi.h>
+#include <net-snmp/library/snmpv3.h>
 
 #include <net-snmp/library/transform_oids.h>
-
 
 /*
  * Global static hashlist to contain Enginetime entries.
@@ -130,7 +130,8 @@ get_enginetime(u_char * engineID,
         *engine_time = e->engineTime;
         *engineboot = e->engineBoot;
 
-        timediff = time(NULL) - e->lastReceivedEngineTime;
+       timediff = snmpv3_local_snmpEngineTime() - e->lastReceivedEngineTime;
+
 #ifdef LCD_TIME_SYNC_OPT
     }
 #endif
@@ -225,7 +226,8 @@ get_enginetime_ex(u_char * engineID,
         *last_engine_time = *engine_time = e->engineTime;
         *engineboot = e->engineBoot;
 
-        timediff = time(NULL) - e->lastReceivedEngineTime;
+       timediff = snmpv3_local_snmpEngineTime() - e->lastReceivedEngineTime;
+
 #ifdef LCD_TIME_SYNC_OPT
     }
 #endif
@@ -255,6 +257,26 @@ get_enginetime_ex(u_char * engineID,
 
 }                               /* end get_enginetime_ex() */
 
+
+void free_enginetime(unsigned char *engineID, size_t engineID_len)
+{
+    Enginetime      e = NULL;
+    int             rval = 0;
+
+    rval = hash_engineID(engineID, engineID_len);
+    if (rval < 0)
+	return;
+
+    e = etimelist[rval];
+
+    while (e != NULL) {
+	etimelist[rval] = e->next;
+	SNMP_FREE(e->engineID);
+	SNMP_FREE(e);
+	e = etimelist[rval];
+    }
+
+}
 
 
 
@@ -326,7 +348,7 @@ set_enginetime(u_char * engineID,
 #endif
         e->engineTime = engine_time;
         e->engineBoot = engineboot;
-        e->lastReceivedEngineTime = time(NULL);
+        e->lastReceivedEngineTime = snmpv3_local_snmpEngineTime();
     }
 
     e = NULL;                   /* Indicates a successful update. */
@@ -442,9 +464,15 @@ hash_engineID(u_char * engineID, u_int engineID_len)
     /*
      * Hash engineID into a list index.
      */
+#ifndef DISABLE_MD5
     rval = sc_hash(usmHMACMD5AuthProtocol,
                    sizeof(usmHMACMD5AuthProtocol) / sizeof(oid),
                    engineID, engineID_len, buf, &buf_len);
+#else
+    rval = sc_hash(usmHMACSHA1AuthProtocol,
+                   sizeof(usmHMACSHA1AuthProtocol) / sizeof(oid),
+                   engineID, engineID_len, buf, &buf_len);
+#endif
     QUITFUN(rval, hash_engineID_quit);
 
     for (bufp = buf; (bufp - buf) < (int) buf_len; bufp += 4) {
@@ -496,10 +524,9 @@ dump_etimelist_entry(Enginetime e, int count)
     DEBUGMSGTL(("dump_etimelist", "%s\n", tabs));
     DEBUGMSGTL(("dump_etimelist", "%s%s (len=%d) <%d,%d>\n", tabs,
                 s, e->engineID_len, e->engineTime, e->engineBoot));
-    DEBUGMSGTL(("dump_etimelist", "%s%ld (%ld) -- %s", tabs,
+    DEBUGMSGTL(("dump_etimelist", "%s%ld (%ld)", tabs,
                 e->lastReceivedEngineTime,
-                time(NULL) - e->lastReceivedEngineTime,
-                ctime(&e->lastReceivedEngineTime)));
+                snmpv3_local_snmpEngineTime() - e->lastReceivedEngineTime));
 
     SNMP_FREE(s);
 

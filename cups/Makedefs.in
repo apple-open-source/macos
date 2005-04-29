@@ -1,9 +1,9 @@
 #
-# "$Id: Makedefs.in,v 1.1.1.13 2003/07/16 17:21:40 jlovell Exp $"
+# "$Id: Makedefs.in,v 1.27 2005/02/16 17:57:59 jlovell Exp $"
 #
 #   Common makefile definitions for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
 #       Attn: CUPS Licensing Information
 #       Easy Software Products
 #       44141 Airport View Drive, Suite 204
-#       Hollywood, Maryland 20636-3111 USA
+#       Hollywood, Maryland 20636 USA
 #
-#       Voice: (301) 373-9603
+#       Voice: (301) 373-9600
 #       EMail: cups-info@cups.org
 #         WWW: http://www.cups.org
 #
@@ -85,7 +85,7 @@ LIBZ		=	@LIBZ@
 
 ARFLAGS		=	@ARFLAGS@
 BACKLIBS	=	@BACKLIBS@
-CFLAGS		=	$(RC_CFLAGS) @CPPFLAGS@ @CFLAGS@ -I.. $(OPTIONS)
+CFLAGS		=	$(RC_CFLAGS) $(SSLFLAGS) @CPPFLAGS@ @CFLAGS@ -I.. $(OPTIONS)
 COMMONLIBS	=	@COMMONLIBS@
 CXXFLAGS	=	$(RC_CFLAGS) @CPPFLAGS@ @CXXFLAGS@ -I.. $(OPTIONS)
 CXXLIBS		=	@CXXLIBS@
@@ -100,7 +100,11 @@ NETLIBS		=	@NETLIBS@
 OPTIM		=	@OPTIM@
 OPTIONS		=
 PAMLIBS		=	@PAMLIBS@
+SSLFLAGS	=	@SSLFLAGS@
 SSLLIBS		=	@SSLLIBS@
+DNSSDLIBS	=	@DNSSDLIBS@
+LIBCUPSLIBS	=	@LIBCUPSLIBS@
+CUPSDLIBS	=	@CUPSDLIBS@
 
 #
 # Directories...
@@ -144,7 +148,6 @@ LIBDIR		=	$(BUILDROOT)$(libdir)
 LOCALEDIR	= 	$(BUILDROOT)@CUPS_LOCALEDIR@
 LOGDIR		= 	$(BUILDROOT)@CUPS_LOGDIR@
 MANDIR		=	$(BUILDROOT)@mandir@
-PAMDIR		=	$(BUILDROOT)@PAMDIR@
 PMANDIR		=	$(BUILDROOT)@PMANDIR@
 REQUESTS	= 	$(BUILDROOT)@CUPS_REQUESTS@
 SBINDIR		=	$(BUILDROOT)@sbindir@
@@ -157,6 +160,10 @@ CAT5EXT		=	@CAT5EXT@
 CAT8EXT		=	@CAT8EXT@
 MAN8EXT		=	@MAN8EXT@
 MAN8DIR		=	@MAN8DIR@
+
+PAMDIR		=	$(BUILDROOT)@PAMDIR@
+PAMFILE		=	@PAMFILE@
+
 
 #
 # Rules...
@@ -183,5 +190,5 @@ MAN8DIR		=	@MAN8DIR@
 
 
 #
-# End of "$Id: Makedefs.in,v 1.1.1.13 2003/07/16 17:21:40 jlovell Exp $"
+# End of "$Id: Makedefs.in,v 1.27 2005/02/16 17:57:59 jlovell Exp $"
 #

@@ -1,0 +1,41 @@
+.\" @(#)man.conf
+.\" T³umaczenie: 950322 Rafa³ Maszkowski <rzm@pdi.net>
+.TH MAN.CONF 5 "30 marca 1994"
+.SH NAZWA
+man.conf \- zawiera konfiguracjê programu man
+.SH OPIS
+.LP
+Ten plik jest czytany przez
+.BR man (1)
+i zawiera (a) informacjê jak utworzyæ ¶cie¿kê przeszukiwan± przez man,
+(b) pe³ne ¶cie¿ki do ró¿nych programów jak nroff, eqn, tbl itd., które
+s± u¿ywane przez man oraz (c) listê programów rozpakowuj±cych pliki z
+podanymi rozszerzeniami.
+Alternatywna wersja pliku man.conf mo¿e byæ podana przez
+.LP
+.RS
+man -C prywatny_man.conf ...
+.RE
+.LP
+Nazwy komend mog± byæ podane z opcjami.
+U¿yteczne opcje nroff mo¿na znale¼æ w grotty(1).
+Na przyklad zamiast domyslnej linii
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+mo¿na napisaæ
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+¿eby wy³±czyæ podkre¶lanie i wytluszczanie.
+.SH "ZOBACZ TAK¯E"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) i compress(1), gzip(1).

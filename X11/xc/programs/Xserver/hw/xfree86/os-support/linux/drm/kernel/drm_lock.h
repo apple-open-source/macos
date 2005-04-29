@@ -1,4 +1,12 @@
-/* lock.c -- IOCTLs for locking -*- linux-c -*-
+/**
+ * \file drm_lock.h 
+ * IOCTLs for locking
+ * 
+ * \author Rickard E. (Rik) Faith <faith@valinux.com>
+ * \author Gareth Hughes <gareth@valinux.com>
+ */
+
+/*
  * Created: Tue Feb  2 08:37:54 1999 by faith@valinux.com
  *
  * Copyright 1999 Precision Insight, Inc., Cedar Park, Texas.
@@ -23,29 +31,28 @@
  * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
- *
- * Authors:
- *    Rickard E. (Rik) Faith <faith@valinux.com>
- *    Gareth Hughes <gareth@valinux.com>
  */
 
 #define __NO_VERSION__
 #include "drmP.h"
 
-int DRM(block)(struct inode *inode, struct file *filp, unsigned int cmd,
+/** No-op ioctl. */
+int DRM(noop)(struct inode *inode, struct file *filp, unsigned int cmd,
 	       unsigned long arg)
 {
 	DRM_DEBUG("\n");
 	return 0;
 }
 
-int DRM(unblock)(struct inode *inode, struct file *filp, unsigned int cmd,
-		 unsigned long arg)
-{
-	DRM_DEBUG("\n");
-	return 0;
-}
-
+/**
+ * Take the heavyweight lock.
+ *
+ * \param lock lock pointer.
+ * \param context locking context.
+ * \return one if the lock is held, or zero otherwise.
+ *
+ * Attempt to mark the lock as held by the given context, via the \p cmpxchg instruction.
+ */
 int DRM(lock_take)(__volatile__ unsigned int *lock, unsigned int context)
 {
 	unsigned int old, new, prev;
@@ -72,14 +79,24 @@ int DRM(lock_take)(__volatile__ unsigned int *lock, unsigned int context)
 	return 0;
 }
 
-/* This takes a lock forcibly and hands it to context.	Should ONLY be used
-   inside *_unlock to give lock to kernel before calling *_dma_schedule. */
+/**
+ * This takes a lock forcibly and hands it to context.	Should ONLY be used
+ * inside *_unlock to give lock to kernel before calling *_dma_schedule. 
+ * 
+ * \param dev DRM device.
+ * \param lock lock pointer.
+ * \param context locking context.
+ * \return always one.
+ *
+ * Resets the lock file pointer.
+ * Marks the lock as held by the given context, via the \p cmpxchg instruction.
+ */
 int DRM(lock_transfer)(drm_device_t *dev,
 		       __volatile__ unsigned int *lock, unsigned int context)
 {
 	unsigned int old, new, prev;
 
-	dev->lock.pid = 0;
+	dev->lock.filp = 0;
 	do {
 		old  = *lock;
 		new  = context | _DRM_LOCK_HELD;
@@ -88,148 +105,49 @@ int DRM(lock_transfer)(drm_device_t *dev,
 	return 1;
 }
 
+/**
+ * Free lock.
+ * 
+ * \param dev DRM device.
+ * \param lock lock.
+ * \param context context.
+ * 
+ * Resets the lock file pointer.
+ * Marks the lock as not held, via the \p cmpxchg instruction. Wakes any task
+ * waiting on the lock queue.
+ */
 int DRM(lock_free)(drm_device_t *dev,
 		   __volatile__ unsigned int *lock, unsigned int context)
 {
 	unsigned int old, new, prev;
-	pid_t        pid = dev->lock.pid;
 
-	dev->lock.pid = 0;
+	dev->lock.filp = 0;
 	do {
 		old  = *lock;
 		new  = 0;
 		prev = cmpxchg(lock, old, new);
 	} while (prev != old);
 	if (_DRM_LOCK_IS_HELD(old) && _DRM_LOCKING_CONTEXT(old) != context) {
-		DRM_ERROR("%d freed heavyweight lock held by %d (pid %d)\n",
+		DRM_ERROR("%d freed heavyweight lock held by %d\n",
 			  context,
-			  _DRM_LOCKING_CONTEXT(old),
-			  pid);
+			  _DRM_LOCKING_CONTEXT(old));
 		return 1;
 	}
 	wake_up_interruptible(&dev->lock.lock_queue);
 	return 0;
 }
 
-static int DRM(flush_queue)(drm_device_t *dev, int context)
-{
-	DECLARE_WAITQUEUE(entry, current);
-	int		  ret	= 0;
-	drm_queue_t	  *q	= dev->queuelist[context];
-
-	DRM_DEBUG("\n");
-
-	atomic_inc(&q->use_count);
-	if (atomic_read(&q->use_count) > 1) {
-		atomic_inc(&q->block_write);
-		add_wait_queue(&q->flush_queue, &entry);
-		atomic_inc(&q->block_count);
-		for (;;) {
-			current->state = TASK_INTERRUPTIBLE;
-			if (!DRM_BUFCOUNT(&q->waitlist)) break;
-			schedule();
-			if (signal_pending(current)) {
-				ret = -EINTR; /* Can't restart */
-				break;
-			}
-		}
-		atomic_dec(&q->block_count);
-		current->state = TASK_RUNNING;
-		remove_wait_queue(&q->flush_queue, &entry);
-	}
-	atomic_dec(&q->use_count);
-
-				/* NOTE: block_write is still incremented!
-				   Use drm_flush_unlock_queue to decrement. */
-	return ret;
-}
-
-static int DRM(flush_unblock_queue)(drm_device_t *dev, int context)
-{
-	drm_queue_t	  *q	= dev->queuelist[context];
-
-	DRM_DEBUG("\n");
-
-	atomic_inc(&q->use_count);
-	if (atomic_read(&q->use_count) > 1) {
-		if (atomic_read(&q->block_write)) {
-			atomic_dec(&q->block_write);
-			wake_up_interruptible(&q->write_queue);
-		}
-	}
-	atomic_dec(&q->use_count);
-	return 0;
-}
-
-int DRM(flush_block_and_flush)(drm_device_t *dev, int context,
-			       drm_lock_flags_t flags)
-{
-	int ret = 0;
-	int i;
-
-	DRM_DEBUG("\n");
-
-	if (flags & _DRM_LOCK_FLUSH) {
-		ret = DRM(flush_queue)(dev, DRM_KERNEL_CONTEXT);
-		if (!ret) ret = DRM(flush_queue)(dev, context);
-	}
-	if (flags & _DRM_LOCK_FLUSH_ALL) {
-		for (i = 0; !ret && i < dev->queue_count; i++) {
-			ret = DRM(flush_queue)(dev, i);
-		}
-	}
-	return ret;
-}
-
-int DRM(flush_unblock)(drm_device_t *dev, int context, drm_lock_flags_t flags)
-{
-	int ret = 0;
-	int i;
-
-	DRM_DEBUG("\n");
-
-	if (flags & _DRM_LOCK_FLUSH) {
-		ret = DRM(flush_unblock_queue)(dev, DRM_KERNEL_CONTEXT);
-		if (!ret) ret = DRM(flush_unblock_queue)(dev, context);
-	}
-	if (flags & _DRM_LOCK_FLUSH_ALL) {
-		for (i = 0; !ret && i < dev->queue_count; i++) {
-			ret = DRM(flush_unblock_queue)(dev, i);
-		}
-	}
-
-	return ret;
-}
-
-int DRM(finish)(struct inode *inode, struct file *filp, unsigned int cmd,
-		unsigned long arg)
-{
-	drm_file_t	  *priv	  = filp->private_data;
-	drm_device_t	  *dev	  = priv->dev;
-	int		  ret	  = 0;
-	drm_lock_t	  lock;
-
-	DRM_DEBUG("\n");
-
-	if (copy_from_user(&lock, (drm_lock_t *)arg, sizeof(lock)))
-		return -EFAULT;
-	ret = DRM(flush_block_and_flush)(dev, lock.context, lock.flags);
-	DRM(flush_unblock)(dev, lock.context, lock.flags);
-	return ret;
-}
-
-/* If we get here, it means that the process has called DRM_IOCTL_LOCK
-   without calling DRM_IOCTL_UNLOCK.
-
-   If the lock is not held, then let the signal proceed as usual.
-
-   If the lock is held, then set the contended flag and keep the signal
-   blocked.
-
-
-   Return 1 if the signal should be delivered normally.
-   Return 0 if the signal should be blocked.  */
-
+/**
+ * If we get here, it means that the process has called DRM_IOCTL_LOCK
+ * without calling DRM_IOCTL_UNLOCK.
+ *
+ * If the lock is not held, then let the signal proceed as usual.  If the lock
+ * is held, then set the contended flag and keep the signal blocked.
+ *
+ * \param priv pointer to a drm_sigdata structure.
+ * \return one if the signal should be delivered normally, or zero if the
+ * signal should be blocked.
+ */
 int DRM(notifier)(void *priv)
 {
 	drm_sigdata_t *s = (drm_sigdata_t *)priv;

@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* MarshalledObject.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,21 +35,20 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.rmi;
 
-import java.io.Serializable;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import gnu.java.rmi.RMIMarshalledObjectInputStream;
 import gnu.java.rmi.RMIMarshalledObjectOutputStream;
+
+import java.io.ByteArrayOutputStream;
+import java.io.Serializable;
 
 /**
  * FIXME - doc missing
  */
-public final class MarshalledObject
-  extends Object implements Serializable 
+public final class MarshalledObject implements Serializable 
 {
-  
   //The following fields are from Java API Documentation "Serialized form"
   private static final long serialVersionUID = 8988374069173025854L;
   byte[] objBytes;
@@ -76,7 +75,7 @@ public final class MarshalledObject
   
   public boolean equals(Object obj) 
   {
-    if(obj == null || !(obj instanceof MarshalledObject) )
+    if (! (obj instanceof MarshalledObject))
       return false;
 
     // hashCode even differs, don't do the time-consuming comparisons

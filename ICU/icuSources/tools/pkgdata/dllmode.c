@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-*   Copyright (C) 2000-2003, International Business Machines
+*   Copyright (C) 2000-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -19,6 +19,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "unicode/utypes.h"
+#include "unicode/putil.h"
+
+#ifndef U_MAKE_IS_NMAKE
 #include "cmemory.h"
 #include "cstring.h"
 #include "filestrm.h"
@@ -39,7 +42,7 @@ void pkg_mode_dll(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
         return;
     }
     
-    uprv_strcpy(tmp, LIB_PREFIX "$(NAME)" UDATA_SO_SUFFIX);
+    uprv_strcpy(tmp, LIB_PREFIX "$(LIBNAME)" UDATA_SO_SUFFIX);
     
     /* We should be the only item. So we don't care about the order. */
     o->outFiles = pkg_appendToList(o->outFiles, &tail, uprv_strdup(tmp));
@@ -58,11 +61,11 @@ void pkg_mode_dll(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
     
     /*390port start*/
 #ifdef OS390BATCH
-    if (uprv_strcmp(o->shortName, U_LIBICUDATA_NAME) == 0)
+    if (uprv_strcmp(o->libName, U_LIBICUDATA_NAME) == 0)
         sprintf(tmp, "# File to make:\nBATCH_TARGET=\"//'${LOADMOD}(IXMI" U_ICU_VERSION_SHORT "DA)'\"\n\n");
-    else if (uprv_strcmp(o->shortName, "testdata") == 0)
+    else if (uprv_strcmp(o->libName, "testdata") == 0)
         sprintf(tmp, "# File to make:\nBATCH_TARGET=\"//'${LOADMOD}(IXMI" U_ICU_VERSION_SHORT "TE)'\"\n\n");
-    else if (uprv_strcmp(o->shortName, U_LIBICUDATA_NAME"_stub") == 0)
+    else if (uprv_strcmp(o->libName, U_LIBICUDATA_NAME"_stub") == 0)
         sprintf(tmp, "# File to make:\nBATCH_TARGET=\"//'${LOADMOD}(IXMI" U_ICU_VERSION_SHORT "D1)'\"\n\n");
     T_FileStream_writeLine(makefile, tmp);
 #endif
@@ -101,7 +104,19 @@ void pkg_mode_dll(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
         T_FileStream_writeLine(makefile, "FINAL_SO_TARGET=$(TARGET)\n");
         T_FileStream_writeLine(makefile, "MIDDLE_SO_TARGET=$(TARGET)\n");
     }
+
+    T_FileStream_writeLine(makefile, "DYNAMICCPPFLAGS=$(SHAREDLIBCPPFLAGS)\n");
+    T_FileStream_writeLine(makefile, "DYNAMICCFLAGS=$(SHAREDLIBCFLAGS)\n");
+    T_FileStream_writeLine(makefile, "DYNAMICCXXFLAGS=$(SHAREDLIBCXXFLAGS)\n");
+    T_FileStream_writeLine(makefile, "\n");
     
+#ifdef OS400
+    sprintf(tmp, "# Force override for iSeries compilation since data does not need to be\n"
+                 "# nor can excessively large files be compiled for debug\n"
+                 "override COMPILE.c= $(CC) $(DEFS) $(CPPFLAGS) -O4 -c -qTERASPACE=*YES -qSTGMDL=*INHERIT -qPFROPT=*STRDONLY\n\n");
+    T_FileStream_writeLine(makefile, tmp);
+#endif
+
     uprv_strcpy(tmp, "all: $(TARGETDIR)/$(FINAL_SO_TARGET) $(BATCH_TARGET)");
     if (o->version) {
         uprv_strcat(tmp, " $(TARGETDIR)/$(MIDDLE_SO_TARGET) $(TARGETDIR)/$(SO_TARGET)");
@@ -109,6 +124,13 @@ void pkg_mode_dll(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
     uprv_strcat(tmp, "\n\n");
     T_FileStream_writeLine(makefile, tmp);
     
+#ifdef OS400
+    /* New for iSeries: All packaged data in one .c */
+    sprintf(tmp, "# Create a file which contains all .c data files/structures\n"
+                 "$(TEMP_DIR)/$(NAME)all.c: $(CMNLIST)\n\n");
+    T_FileStream_writeLine(makefile, tmp);
+#endif
+
     /* Write compile rules */
     pkg_mak_writeObjRules(o, makefile, &objects, OBJ_SUFFIX);
     
@@ -130,32 +152,57 @@ void pkg_mode_dll(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
                                          "\tdone;\n\n");
     }
     
+    pkg_mak_writeAssemblyHeader(makefile, o);
+
     sprintf(tmp,"$(TEMP_DIR)/$(NAME)_dat.o : $(TEMP_DIR)/$(NAME)_dat.c\n"
-                "\t$(COMPILE.c) -o $@ $<\n\n");
+                "\t$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $<\n\n");
     T_FileStream_writeLine(makefile, tmp);
     
     T_FileStream_writeLine(makefile, "# 'TOCOBJ' contains C Table of Contents objects [if any]\n");
     
-    sprintf(tmp, "$(TEMP_DIR)/$(NAME)_dat.c: $(CMNLIST)\n"
-                 "\t$(INVOKE) $(GENCMN) -e $(ENTRYPOINT) -n $(NAME) -S -d $(TEMP_DIR) 0 $(CMNLIST)\n\n");
-    
+    if(!o->embed) {
+      sprintf(tmp, "$(TEMP_DIR)/$(NAME)_dat.c: $(CMNLIST)\n"
+                 "\t$(INVOKE) $(GENCMN) -e $(ENTRYPOINT) -n $(NAME) -S -s $(SRCDIR) -d $(TEMP_DIR) 0 $(CMNLIST)\n\n");
+    } else {
+      sprintf(tmp, "$(TEMP_DIR)/$(NAME)_dat.c: $(CMNLIST)\n"
+                 "\t$(INVOKE) $(GENCMN) -e $(ENTRYPOINT) -n $(NAME) -S -E -d $(TEMP_DIR) 0 $(CMNLIST)\n\n");
+    }
+
     T_FileStream_writeLine(makefile, tmp);
     sprintf(tmp, "TOCOBJ= $(NAME)_dat%s \n\n", OBJ_SUFFIX);
     T_FileStream_writeLine(makefile, tmp);
+
+#ifdef OS400
+    /* New for iSeries: All packaged data in one .c */
+    sprintf(tmp, "$(TEMP_DIR)/$(NAME)all.o : $(TEMP_DIR)/$(NAME)all.c\n"
+                 "\t$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $<\n\n");
+    T_FileStream_writeLine(makefile, tmp);
+
+    T_FileStream_writeLine(makefile, "# 'ALLDATAOBJ' contains all .c data structures\n");
+
+    sprintf(tmp, "ALLDATAOBJ= $(NAME)all%s \n\n", OBJ_SUFFIX);
+    T_FileStream_writeLine(makefile, tmp);
+#endif
+
     sprintf(tmp, "TOCSYM= %s_dat \n\n", o->entryName); /* entrypoint not always shortname! */
     T_FileStream_writeLine(makefile, tmp);
     
     T_FileStream_writeLine(makefile, "BASE_OBJECTS= $(TOCOBJ) ");
-    
+#ifdef OS400
+    T_FileStream_writeLine(makefile, "$(ALLDATAOBJ) ");
+#else
     pkg_writeCharListWrap(makefile, objects, " ", " \\\n",0);
+#endif
+    pkg_mak_writeAssemblyFooter(makefile, o);
+
     T_FileStream_writeLine(makefile, "\n\n");
     T_FileStream_writeLine(makefile, "OBJECTS=$(BASE_OBJECTS:%=$(TEMP_DIR)/%)\n\n");
     
-    T_FileStream_writeLine(makefile,"$(TEMP_DIR)/%.o: $(TEMP_DIR)/%.c\n\t  $(COMPILE.c) -o $@ $<\n\n");
+    T_FileStream_writeLine(makefile,"$(TEMP_DIR)/%.o: $(TEMP_DIR)/%.c\n\t$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $<\n\n");
     
     T_FileStream_writeLine(makefile,"build-objs: $(SOURCES) $(OBJECTS)\n\n$(OBJECTS): $(SOURCES)\n\n");
     
-#ifdef HPUX
+#ifdef U_HPUX
     T_FileStream_writeLine(makefile, "$(TARGETDIR)/$(FINAL_SO_TARGET): $(OBJECTS) $(HPUX_JUNK_OBJ) $(LISTFILES) $(DLL_DEPS)\n"
                                      "\t$(SHLIB.cc) -o $@ $(OBJECTS) $(HPUX_JUNK_OBJ) $(DLL_LDFLAGS)\n"
                                      "\t-ls -l $@\n\n");
@@ -164,7 +211,7 @@ void pkg_mode_dll(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
                                      "\techo \"void to_emit_cxx_stuff_in_the_linker(){}\" >> $(TEMP_DIR)/hpux_junk_obj.cpp\n"
                                      "\n"
                                      "$(TEMP_DIR)/hpux_junk_obj.o: $(TEMP_DIR)/hpux_junk_obj.cpp\n"
-                                     "\t$(COMPILE.cc) -o $@ $<\n"
+                                     "\t$(COMPILE.cc) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $<\n"
                                      "\n");
 #else
     
@@ -229,7 +276,7 @@ void pkg_mode_dll(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
     T_FileStream_writeLine(makefile, "$(NAME).map:\n\techo \"{global: $(TOCSYM); local: *; };\" > $@\n\n");
 #endif
     
-#ifdef AIX
+#ifdef U_AIX
     T_FileStream_writeLine(makefile, "$(NAME).map:\n\techo \"$(TOCSYM)\" > $@\n\n");
 #endif
     
@@ -238,5 +285,5 @@ void pkg_mode_dll(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
     
 }
 
-
+#endif  /* #ifndef U_MAKE_IS_NMAKE */
 

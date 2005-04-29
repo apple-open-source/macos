@@ -32,7 +32,7 @@
 			/* cursor_visible,cursor_normal,cursor_invisible */
 #include <tic.h>		/* struct tinfo_fkeys */
 
-MODULE_ID("$Id: init_keytry.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: init_keytry.c,v 1.5 2000/12/10 02:55:07 tom Exp $")
 
 /*
 **      _nc_init_keytry()

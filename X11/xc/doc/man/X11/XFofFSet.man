@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XFofFSet.man,v 1.2 2001/01/27 18:19:59 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XFofFSet.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,33 +144,19 @@
 .SH NAME
 XFontsOfFontSet, XBaseFontNameListOfFontSet, XLocaleOfFontSet, XContextDependentDrawing, XContextualDrawing, XDirectionalDependentDrawing \- obtain fontset information
 .SH SYNTAX
-int XFontsOfFontSet\^(\^\fIfont_set\fP\^, \fIfont_struct_list_return\fP\^, \fIfont_name_list_return\fP\^)
-.br
-       XFontSet \fIfont_set\fP\^;
-.br
-       XFontStruct ***\fIfont_struct_list_return\fP\^;
-.br
-       char ***\fIfont_name_list_return\fP\^;
-.LP
-char *XBaseFontNameListOfFontSet\^(\^\fIfont_set\fP\^)
-.br
-      XFontSet \fIfont_set\fP\^;
-.LP
-char *XLocaleOfFontSet\^(\^\fIfont_set\fP\^)
-.br
-      XFontSet \fIfont_set\fP\^;
-.LP
-Bool XContextDependentDrawing\^(\^\fIfont_set\fP\^)
-.br
-      XFontSet \fIfont_set\fP\^;
-.LP
-Bool XContextualDrawing\^(\^\fIfont_set\fP\^)
-.br
-      XFontSet \fIfont_set\fP\^;
-.LP
-Bool XDirectionalDependentDrawing\^(\^\fIfont_set\fP\^)
-.br
-      XFontSet \fIfont_set\fP\^;
+.HP
+int XFontsOfFontSet\^(\^XFontSet \fIfont_set\fP\^, XFontStruct
+***\fIfont_struct_list_return\fP\^, char ***\fIfont_name_list_return\fP\^); 
+.HP
+char *XBaseFontNameListOfFontSet\^(\^XFontSet \fIfont_set\fP\^); 
+.HP
+char *XLocaleOfFontSet\^(\^XFontSet \fIfont_set\fP\^); 
+.HP
+Bool XContextDependentDrawing\^(\^XFontSet \fIfont_set\fP\^); 
+.HP
+Bool XContextualDrawing\^(\^XFontSet \fIfont_set\fP\^); 
+.HP
+Bool XDirectionalDependentDrawing\^(\^XFontSet \fIfont_set\fP\^); 
 .SH ARGUMENTS
 .IP \fIfont_set\fP 1i
 Specifies the font set.

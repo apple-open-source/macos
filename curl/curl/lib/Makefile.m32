@@ -1,62 +1,53 @@
 #############################################################
+# $Id: Makefile.m32,v 1.32 2004/12/19 11:52:31 giva Exp $
 #
 ## Makefile for building libcurl.a with MingW32 (GCC-3.2) and
-## optionally OpenSSL (0.9.6)
+## optionally OpenSSL (0.9.7)
+##
 ## Use: make -f Makefile.m32
 ##
 ## Comments to: Troy Engel <tengel@sonic.net> or
 ##              Joern Hartroth <hartroth@acm.org>
 
+ifndef OPENSSL_PATH
+OPENSSL_PATH = ../../openssl-0.9.7d
+endif
+ifndef ZLIB_PATH
+ZLIB_PATH = ../../zlib-1.2.1
+endif
+
 CC = gcc
 AR = ar
-RM = rm -f 
+RM = rm -f
 RANLIB = ranlib
 STRIP = strip -g
-OPENSSL_PATH = ../../openssl-0.9.6g
-ZLIB_PATH = ../../zlib-1.1.3
 
 ########################################################
 ## Nothing more to do below this line!
 
-INCLUDES = -I. -I.. -I../include -I../src
-CFLAGS = -g -O2 -DMINGW32
+INCLUDES = -I. -I../include
+CFLAGS = -g -O2 -DMINGW32 -DBUILDING_LIBCURL -DHAVE_LONGLONG
 ifdef SSL
   INCLUDES += -I"$(OPENSSL_PATH)/outinc" -I"$(OPENSSL_PATH)/outinc/openssl"
-  CFLAGS += -DUSE_SSLEAY
-  DLL_LIBS = -L$(OPENSSL_PATH)/out -leay32 -lssl32 -lRSAglue
+  CFLAGS += -DUSE_SSLEAY -DUSE_OPENSSL -DHAVE_OPENSSL_ENGINE_H -DHAVE_OPENSSL_PKCS12_H \
+            -DHAVE_ENGINE_LOAD_BUILTIN_ENGINES -DOPENSSL_NO_KRB5 \
+            -DCURL_CA_BUNDLE='getenv("CURL_CA_BUNDLE")'
+  DLL_LIBS = -L$(OPENSSL_PATH)/out -leay32 -lssl32
 endif
 ifdef ZLIB
-	INCLUDES += -I"$(ZLIB_PATH)"
-	CFLAGS += -DHAVE_ZLIB
-	DLL_LIBS += -L$(ZLIB_PATH) -lz
+  INCLUDES += -I"$(ZLIB_PATH)"
+  CFLAGS += -DHAVE_LIBZ -DHAVE_ZLIB_H
+  DLL_LIBS += -L$(ZLIB_PATH) -lz
 endif
 COMPILE = $(CC) $(INCLUDES) $(CFLAGS)
 
+# Makefile.inc provides the CSOURCES and HHEADERS defines
+include Makefile.inc
+
+libcurl_a_OBJECTS := $(patsubst %.c,%.o,$(strip $(CSOURCES)))
+
 libcurl_a_LIBRARIES = libcurl.a
-
-libcurl_a_SOURCES = arpa_telnet.h file.c getpass.h netrc.h timeval.c base64.c \
-	file.h hostip.c progress.c timeval.h base64.h formdata.c hostip.h progress.h	\
-	cookie.c formdata.h http.c sendf.c cookie.h ftp.c http.h sendf.h url.c dict.c	\
-	ftp.h if2ip.c speedcheck.c url.h dict.h getdate.c if2ip.h speedcheck.h		\
-	urldata.h transfer.c getdate.h ldap.c ssluse.c version.c transfer.h getenv.c	\
-	ldap.h ssluse.h escape.c getenv.h mprintf.c telnet.c escape.h getpass.c netrc.c	\
-	telnet.h getinfo.c strequal.c strequal.h easy.c security.h		\
-	security.c krb4.h krb4.c memdebug.h memdebug.c inet_ntoa_r.h http_chunks.h http_chunks.c \
-	strtok.c connect.c hash.c llist.c multi.c \
-	content_encoding.h content_encoding.c
-
-libcurl_a_OBJECTS =  file.o timeval.o base64.o hostip.o progress.o \
-	formdata.o cookie.o http.o sendf.o ftp.o url.o dict.o if2ip.o \
-	speedcheck.o getdate.o transfer.o ldap.o ssluse.o version.o \
-	getenv.o escape.o mprintf.o telnet.o getpass.o netrc.o getinfo.o \
-	strequal.o easy.o security.o krb4.o memdebug.o http_chunks.o \
-	strtok.o connect.o hash.o llist.o multi.o \
-	content_encoding.o
-
-LIBRARIES =  $(libcurl_a_LIBRARIES)
-SOURCES = $(libcurl_a_SOURCES)
-OBJECTS = $(libcurl_a_OBJECTS)
-
+libcurl_a_DEPENDENCIES = $(strip $(CSOURCES) $(HHEADERS))
 
 all: libcurl.a libcurl.dll libcurldll.a
 
@@ -66,30 +57,26 @@ libcurl.a: $(libcurl_a_OBJECTS) $(libcurl_a_DEPENDENCIES)
 	$(RANLIB) libcurl.a
 	$(STRIP) $@
 
-DLLINITOBJ =
+RESOURCE = libcurl.res
 
 # remove the last line above to keep debug info
 
-libcurl.dll libcurldll.a: libcurl.a libcurl.def $(DLLINITOBJ)
+libcurl.dll libcurldll.a: $(libcurl_a_OBJECTS) $(RESOURCE)
 	$(RM) $@
-	dllwrap --dllname $@ --output-lib libcurldll.a --export-all --def libcurl.def $(libcurl_a_LIBRARIES) $(DLLINITOBJ) $(DLL_LIBS) -lwsock32 -lws2_32 -lwinmm
-	$(STRIP) $@
+	$(CC) -s -shared -Wl,--out-implib,libcurldll.a -o libcurl.dll \
+	  $(libcurl_a_OBJECTS) $(RESOURCE) $(DLL_LIBS) -lws2_32 -lwinmm
 
-# remove the last line above to keep debug info
+# remove the above '-s' to keep debug info
 
 .c.o:
 	$(COMPILE) -c $<
 
-.s.o:
-	$(COMPILE) -c $<
-
-.S.o:
-	$(COMPILE) -c $<
+libcurl.res: libcurl.rc
+	windres -DCURLDEBUG=0 -O COFF -o $@ -i $^
 
 clean:
-	$(RM) $(libcurl_a_OBJECTS)
+	$(RM) $(libcurl_a_OBJECTS) $(RESOURCE)
 
 distrib: clean
-
 	$(RM) $(libcurl_a_LIBRARIES)
 

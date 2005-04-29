@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/xtrap/xtrapproto.c,v 1.3 2002/09/18 17:11:57 tsi Exp $ */
+/* $XFree86: xc/programs/xtrap/xtrapproto.c,v 1.4 2003/05/27 22:27:13 tsi Exp $ */
 /*
  * @DEC_COPYRIGHT@
  */
@@ -68,7 +68,6 @@ main(int argc, char *argv[])
     XETrapGetLastInpTimeRep ret_time;
     XETC    *tc;
     Display *dpy;
-    Boolean status = True;
 
     /* Connect to Server */
     appW = XtAppInitialize(&app,"XTrap",NULL,(Cardinal)0L,
@@ -82,18 +81,18 @@ main(int argc, char *argv[])
         exit(1L);
     }
     XSynchronize(dpy, True);
-    status = XEResetRequest(tc);
-    status = XEGetAvailableRequest(tc,&ret_avail);
+    XEResetRequest(tc);
+    XEGetAvailableRequest(tc,&ret_avail);
     XEPrintAvail(stdout,&ret_avail);
-    status = XEGetCurrentRequest(tc,&ret_cur);
+    XEGetCurrentRequest(tc,&ret_cur);
     XEPrintCurrent(stderr,&ret_cur);
     XETrapSetStatistics(tc, True);  /* trigger config and def stats */
-    status = XEFlushConfig(tc);
-    status = XEGetStatisticsRequest(tc, &ret_stats);
+    XEFlushConfig(tc);
+    XEGetStatisticsRequest(tc, &ret_stats);
     XEPrintStatistics(stdout, &ret_stats,tc);
-    status = XEStartTrapRequest(tc);
-    status = XESimulateXEventRequest(tc, MotionNotify, 0, 10L, 20L, 0L);
-    status = XEStopTrapRequest(tc);
+    XEStartTrapRequest(tc);
+    XESimulateXEventRequest(tc, MotionNotify, 0, 10L, 20L, 0L);
+    XEStopTrapRequest(tc);
     if (tc->protocol == 31)
     {   /* didn't work in V3.1 */
         printf("XEGetVersionRequest() & XEGetLastInpTimeRequest() are\n");
@@ -101,8 +100,8 @@ main(int argc, char *argv[])
     }
     else
     {
-        status = XEGetVersionRequest(tc,&ret_vers);
-        status = XEGetLastInpTimeRequest(tc, &ret_time);
+        XEGetVersionRequest(tc,&ret_vers);
+        XEGetLastInpTimeRequest(tc, &ret_time);
     }
     XEFreeTC(tc);
     (void)XCloseDisplay(dpy);

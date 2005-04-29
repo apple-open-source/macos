@@ -1,0 +1,29 @@
+.\" Man page for apropos
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\" Traducido del portugués por Pablo Saratxaga <srtxg@f2219.n293.z2.fidonet.org>
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.TH apropos 1 "25 Mayo 1996"  "Manual Linux" "Comandos utilisador"
+.LO 1
+.SH NOMBRE
+apropos \- busca `strings' en la base de datos "whatis"
+.SH SINOPSIS
+.BI apropos
+palabra_clave ...
+.SH DESCRIPCIÓN
+apropos busca el contenido de
+.B palabra_clave,
+en una base de datos que contiene breves descripciones de los comandos,
+mostrando todas las descripciones donde encontra una referencia a la clave.
+.SH "VEA TAMBIÉN"
+whatis(1), man(1).

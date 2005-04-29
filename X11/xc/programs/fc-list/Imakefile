@@ -1,0 +1,18 @@
+XCOMM $XFree86: xc/programs/fc-list/Imakefile,v 1.1 2003/06/09 15:11:16 dawes Exp $
+
+FONTCONFIGDIR = $(TOP)/extras/fontconfig
+
+INCLUDES=$(FREETYPE2INCLUDES) -I$(FONTCONFIGDIR)
+
+LOCAL_LIBRARIES=FontconfigClientLibs
+        DEPLIBS=FontconfigClientDepLibs
+
+SRCS=fc-list.c
+OBJS=fc-list.o
+
+ComplexProgramTarget(fc-list)
+LinkBuildBinary(ProgramTargetName(fc-list))
+
+LinkSourceFile(fc-list.c,$(FONTCONFIGDIR)/fc-list)
+LinkSourceFile(fc-list.man,$(FONTCONFIGDIR)/fc-list)
+

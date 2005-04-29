@@ -1,7 +1,0 @@
-Package: tcsh
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Vendor: Lionel Cons and Olaf Bachmann
-Version: 1.52
-URL: http://www.mathematik.uni-kl.de/~obachman/Texi2html
-Description: Texinfo to HTML converter
-Build-Depends: build-base

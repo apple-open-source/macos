@@ -65,6 +65,9 @@
 #define	__APPLE_API_PRIVATE
 #include <machine/cpu_capabilities.h>
 
+
+#ifndef BUILDING_VARIANT /* [ */
+
 __private_extern__ struct __pthread_list __pthread_head = LIST_HEAD_INITIALIZER(&__pthread_head);
 
 /* Per-thread kernel support */
@@ -80,6 +83,14 @@ extern void set_malloc_singlethreaded(int);
 /* Used when we need to call into the kernel with no reply port */
 extern pthread_lock_t reply_port_lock;
 
+/* Mach message used to notify that a thread needs to be reaped */
+
+typedef struct _pthread_reap_msg_t {
+	mach_msg_header_t header;
+	pthread_t thread;
+	mach_msg_trailer_t trailer;
+} pthread_reap_msg_t;
+
 /* We'll implement this when the main thread is a pthread */
 /* Use the local _pthread struct to avoid malloc before our MiG reply port is set */
 static struct _pthread _thread = {0};
@@ -90,6 +101,8 @@ static struct _pthread _thread = {0};
 int __is_threaded = 0;
 /* _pthread_count is protected by _pthread_list_lock */
 static int _pthread_count = 1;
+int __unix_conforming = 0;
+
 
 __private_extern__ pthread_lock_t _pthread_list_lock = LOCK_INITIALIZER;
 
@@ -122,6 +135,8 @@ static int max_priority;
 static int min_priority;
 static int pthread_concurrency;
 
+static void _pthread_exit(pthread_t self, void *value_ptr);
+
 /*
  * [Internal] stack support
  */
@@ -139,7 +154,7 @@ size_t _pthread_stack_size = 0;
 #define STACK_START(stack_low)	(STACK_BASE(stack_low) - STACK_RESERVED)
 #define STACK_SELF(sp)		STACK_START(sp)
 
-#if defined(__ppc__)
+#if defined(__ppc__) || defined(__ppc64__)
 static const vm_address_t PTHREAD_STACK_HINT = 0xF0000000;
 #elif defined(__i386__)
 static const vm_address_t PTHREAD_STACK_HINT = 0xB0000000;
@@ -157,19 +172,20 @@ static int
 _pthread_allocate_stack(pthread_attr_t *attrs, void **stack)
 {
     kern_return_t kr;
+    vm_address_t stackaddr;
     size_t guardsize;
 #if 1
     assert(attrs->stacksize >= PTHREAD_STACK_MIN);
     if (attrs->stackaddr != NULL) {
 	/* No guard pages setup in this case */
-        assert(((vm_address_t)(attrs->stackaddr) & (vm_page_size - 1)) == 0);
+        assert(((uintptr_t)attrs->stackaddr % vm_page_size) == 0);
         *stack = attrs->stackaddr;
          return 0;
     }
 
-   guardsize = attrs->guardsize;
-    *((vm_address_t *)stack) = PTHREAD_STACK_HINT;
-    kr = vm_map(mach_task_self(), (vm_address_t *)stack,
+    guardsize = attrs->guardsize;
+    stackaddr = PTHREAD_STACK_HINT;
+    kr = vm_map(mach_task_self(), &stackaddr,
     			attrs->stacksize + guardsize,
     			vm_page_size-1,
     			VM_MAKE_TAG(VM_MEMORY_STACK)| VM_FLAGS_ANYWHERE , MEMORY_OBJECT_NULL,
@@ -177,7 +193,7 @@ _pthread_allocate_stack(pthread_attr_t *attrs, void **stack)
     			VM_INHERIT_DEFAULT);
     if (kr != KERN_SUCCESS)
     	kr = vm_allocate(mach_task_self(),
-    					(vm_address_t *)stack, attrs->stacksize + guardsize,
+    					&stackaddr, attrs->stacksize + guardsize,
     					VM_MAKE_TAG(VM_MEMORY_STACK)| VM_FLAGS_ANYWHERE);
     if (kr != KERN_SUCCESS) {
         return EAGAIN;
@@ -185,8 +201,8 @@ _pthread_allocate_stack(pthread_attr_t *attrs, void **stack)
      /* The guard page is at the lowest address */
      /* The stack base is the highest address */
     if (guardsize)
-    	kr = vm_protect(mach_task_self(), (vm_address_t)*stack, guardsize, FALSE, VM_PROT_NONE);
-    *stack += attrs->stacksize + guardsize;
+    	kr = vm_protect(mach_task_self(), stackaddr, guardsize, FALSE, VM_PROT_NONE);
+    *stack = (void *)(stackaddr + attrs->stacksize + guardsize);
 
 #else
     vm_address_t cur_stack = (vm_address_t)0;
@@ -520,7 +536,7 @@ pthread_attr_getstackaddr(const pthread_attr_t *attr, void **stackaddr)
 int
 pthread_attr_setstackaddr(pthread_attr_t *attr, void *stackaddr)
 {
-    if ((attr->sig == _PTHREAD_ATTR_SIG) && (((vm_offset_t)stackaddr & (vm_page_size - 1)) == 0)) {
+    if ((attr->sig == _PTHREAD_ATTR_SIG) && (((uintptr_t)stackaddr % vm_page_size) == 0)) {
         attr->stackaddr = stackaddr;
         attr->freeStackOnExit = FALSE;
         return (ESUCCESS);
@@ -555,10 +571,7 @@ int
 pthread_attr_getstack(const pthread_attr_t *attr, void **stackaddr, size_t * stacksize)
 {
     if (attr->sig == _PTHREAD_ATTR_SIG) {
-	u_int32_t addr = (u_int32_t)attr->stackaddr;
-
-	addr -= attr->stacksize;
-	*stackaddr = (void *)addr;
+	*stackaddr = (void *)((uintptr_t)attr->stackaddr - attr->stacksize);
         *stacksize = attr->stacksize;
         return (ESUCCESS);
     } else {
@@ -573,12 +586,9 @@ int
 pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr, size_t stacksize)
 {
     if ((attr->sig == _PTHREAD_ATTR_SIG) && 
-	(((vm_offset_t)stackaddr & (vm_page_size - 1)) == 0) && 
-	((stacksize % vm_page_size) == 0) && (stacksize >= PTHREAD_STACK_MIN)) {
-		u_int32_t addr = (u_int32_t)stackaddr;
-
-		addr += stacksize;
-		attr->stackaddr = (void *)addr;
+	(((uintptr_t)stackaddr % vm_page_size) == 0) && 
+	 ((stacksize % vm_page_size) == 0) && (stacksize >= PTHREAD_STACK_MIN)) {
+		attr->stackaddr = (void *)((uintptr_t)stackaddr + stacksize);
         	attr->stacksize = stacksize;
         	attr->freeStackOnExit = FALSE;
         	return (ESUCCESS);
@@ -629,7 +639,7 @@ static void
 _pthread_body(pthread_t self)
 {
     _pthread_set_self(self);
-    pthread_exit((self->fun)(self->arg));
+    _pthread_exit(self, (self->fun)(self->arg));
 }
 
 int
@@ -662,7 +672,7 @@ _pthread_create(pthread_t t,
 		t->plist.le_next = (struct _pthread *)0;
 		t->plist.le_prev = (struct _pthread **)0;
 		t->cancel_state = PTHREAD_CANCEL_ENABLE | PTHREAD_CANCEL_DEFERRED;
-		t->cleanup_stack = (struct _pthread_handler_rec *)NULL;
+		t->__cleanup_stack = (struct __darwin_pthread_handler_rec *)NULL;
 		t->death = SEMAPHORE_NULL;
 
 		if (kernel_thread != MACH_PORT_NULL)
@@ -884,7 +894,7 @@ pthread_kill (
 /* thread underneath is terminated right away. */
 static
 void _pthread_become_available(pthread_t thread, mach_port_t kernel_thread) {
-	mach_msg_empty_rcv_t msg;
+	pthread_reap_msg_t msg;
 	kern_return_t ret;
 
 	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_MAKE_SEND,
@@ -892,13 +902,14 @@ void _pthread_become_available(pthread_t thread, mach_port_t kernel_thread) {
 	msg.header.msgh_size = sizeof msg - sizeof msg.trailer;
 	msg.header.msgh_remote_port = thread_recycle_port;
 	msg.header.msgh_local_port = kernel_thread; 
-	msg.header.msgh_id = (int)thread;
+	msg.header.msgh_id = 0x44454144; /* 'DEAD' */
+	msg.thread = thread;
 	ret = mach_msg_send(&msg.header);
 	assert(ret == MACH_MSG_SUCCESS);
 }
 
 /* Reap the resources for available threads */
-static
+__private_extern__
 int _pthread_reap_thread(pthread_t th, mach_port_t kernel_thread, void **value_ptr) {
 	mach_port_type_t ptype;
 	kern_return_t ret;
@@ -956,15 +967,15 @@ int _pthread_reap_thread(pthread_t th, mach_port_t kernel_thread, void **value_p
 static
 void _pthread_reap_threads(void)
 {
-	mach_msg_empty_rcv_t msg;
+	pthread_reap_msg_t msg;
 	kern_return_t ret;
 
 	ret = mach_msg(&msg.header, MACH_RCV_MSG|MACH_RCV_TIMEOUT, 0,
-			sizeof(mach_msg_empty_rcv_t), thread_recycle_port, 
+			sizeof msg, thread_recycle_port, 
 			MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
 	while (ret == MACH_MSG_SUCCESS) {
 		mach_port_t kernel_thread = msg.header.msgh_remote_port;
-		pthread_t thread = (pthread_t)msg.header.msgh_id;
+		pthread_t thread = msg.thread;
 
 		if (_pthread_reap_thread(thread, kernel_thread, (void **)0) == EAGAIN)
 		{
@@ -973,7 +984,7 @@ void _pthread_reap_threads(void)
 			return;
 		}
 		ret = mach_msg(&msg.header, MACH_RCV_MSG|MACH_RCV_TIMEOUT, 0,
-				sizeof(mach_msg_empty_rcv_t), thread_recycle_port, 
+				sizeof msg, thread_recycle_port, 
 				MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
 	}
 }
@@ -988,21 +999,20 @@ _pthread_self() {
 /*
  * Terminate a thread.
  */
-void 
-pthread_exit(void *value_ptr)
+static void 
+_pthread_exit(pthread_t self, void *value_ptr)
 {
-	struct _pthread_handler_rec *handler;
-	pthread_t self = pthread_self();
+	struct __darwin_pthread_handler_rec *handler;
 	kern_return_t kern_res;
 	int thread_count;
 
 	/* Make this thread not to receive any signals */
 	syscall(331,1);
 
-	while ((handler = self->cleanup_stack) != 0)
+	while ((handler = self->__cleanup_stack) != 0)
 	{
-		(handler->routine)(handler->arg);
-		self->cleanup_stack = handler->next;
+		(handler->__routine)(handler->__arg);
+		self->__cleanup_stack = handler->__next;
 	}
 	_pthread_tsd_cleanup(self);
 
@@ -1046,65 +1056,10 @@ pthread_exit(void *value_ptr)
 	abort();
 }
 
-/*
- * Wait for a thread to terminate and obtain its exit value.
- */
-int       
-pthread_join(pthread_t thread, 
-	     void **value_ptr)
+void
+pthread_exit(void *value_ptr)
 {
-	kern_return_t kern_res;
-	int res = ESUCCESS;
-
-	if (thread->sig == _PTHREAD_SIG)
-	{
-		semaphore_t death = new_sem_from_pool(); /* in case we need it */
-
-		LOCK(thread->lock);
-		if ((thread->detached & PTHREAD_CREATE_JOINABLE) &&
-			thread->death == SEMAPHORE_NULL)
-		{
-			pthread_t self = pthread_self();
-
-			assert(thread->joiner == NULL);
-			if (thread != self && (self == NULL || self->joiner != thread))
-			{
-				int already_exited = (thread->detached & _PTHREAD_EXITED);
-
-				thread->death = death;
-				thread->joiner = self;
-				UNLOCK(thread->lock);
-
-				if (!already_exited)
-				{
-					/* Wait for it to signal... */ 
-					do {
-						PTHREAD_MACH_CALL(semaphore_wait(death), kern_res);
-					} while (kern_res != KERN_SUCCESS);
-				}
-
-				LOCK(_pthread_list_lock);
-				LIST_REMOVE(thread, plist);
-				UNLOCK(_pthread_list_lock);
-				/* ... and wait for it to really be dead */
-				while ((res = _pthread_reap_thread(thread,
-							thread->kernel_thread,
-							value_ptr)) == EAGAIN)
-				{
-					sched_yield();
-				}
-			} else {
-				UNLOCK(thread->lock);
-				res = EDEADLK;
-			}
-		} else {
-			UNLOCK(thread->lock);
-			res = EINVAL;
-		}
-		restore_sem_to_pool(death);
-		return res;
-	}
-	return ESRCH;
+	_pthread_exit(pthread_self(), value_ptr);
 }
 
 /*
@@ -1255,89 +1210,25 @@ pthread_once(pthread_once_t *once_control,
 }
 
 /*
- * Cancel a thread
- */
-int
-pthread_cancel(pthread_t thread)
-{
-	if (thread->sig == _PTHREAD_SIG)
-	{
-		thread->cancel_state |= _PTHREAD_CANCEL_PENDING;
-		return (ESUCCESS);
-	} else
-	{
-		return (ESRCH);
-	}
-}
-
-/*
  * Insert a cancellation point in a thread.
  */
-static void
-_pthread_testcancel(pthread_t thread)
+__private_extern__ void
+_pthread_testcancel(pthread_t thread, int isconforming)
 {
 	LOCK(thread->lock);
 	if ((thread->cancel_state & (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING)) == 
 	    (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING))
 	{
 		UNLOCK(thread->lock);
-		pthread_exit(0);
+		if (isconforming)
+			pthread_exit(PTHREAD_CANCELED);
+		else
+			pthread_exit(0);
 	}
 	UNLOCK(thread->lock);
 }
 
-void
-pthread_testcancel(void)
-{
-	pthread_t self = pthread_self();
-	_pthread_testcancel(self);
-}
 
-/*
- * Query/update the cancelability 'state' of a thread
- */
-int
-pthread_setcancelstate(int state, int *oldstate)
-{
-	pthread_t self = pthread_self();
-	int err = ESUCCESS;
-	LOCK(self->lock);
-	if (oldstate)
-		*oldstate = self->cancel_state & ~_PTHREAD_CANCEL_STATE_MASK;
-	if ((state == PTHREAD_CANCEL_ENABLE) || (state == PTHREAD_CANCEL_DISABLE))
-	{
-		self->cancel_state = (self->cancel_state & _PTHREAD_CANCEL_STATE_MASK) | state;
-	} else
-	{
-		err = EINVAL;
-	}
-	UNLOCK(self->lock);
-	_pthread_testcancel(self);  /* See if we need to 'die' now... */
-	return (err);
-}
-
-/*
- * Query/update the cancelability 'type' of a thread
- */
-int
-pthread_setcanceltype(int type, int *oldtype)
-{
-	pthread_t self = pthread_self();
-	int err = ESUCCESS;
-	LOCK(self->lock);
-	if (oldtype)
-		*oldtype = self->cancel_state & ~_PTHREAD_CANCEL_TYPE_MASK;
-	if ((type == PTHREAD_CANCEL_DEFERRED) || (type == PTHREAD_CANCEL_ASYNCHRONOUS))
-	{
-		self->cancel_state = (self->cancel_state & _PTHREAD_CANCEL_TYPE_MASK) | type;
-	} else
-	{
-		err = EINVAL;
-	}
-	UNLOCK(self->lock);
-	_pthread_testcancel(self);  /* See if we need to 'die' now... */
-	return (err);
-}
 
 int
 pthread_getconcurrency(void)
@@ -1371,6 +1262,7 @@ pthread_init(void)
 	int mib[2];
 	size_t len;
 	int numcpus;
+	void *stackaddr;
 
         count = HOST_PRIORITY_INFO_COUNT;
 	info = (host_info_t)&priority_info;
@@ -1392,7 +1284,13 @@ pthread_init(void)
 	thread = &_thread;
 	LIST_INSERT_HEAD(&__pthread_head, thread, plist);
 	_pthread_set_self(thread);
-	_pthread_create(thread, attrs, (void *)USRSTACK, mach_thread_self());
+
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_USRSTACK;
+    len = sizeof (stackaddr);
+    if (sysctl (mib, 2, &stackaddr, &len, NULL, 0) != 0)
+       stackaddr = (void *)USRSTACK;
+	_pthread_create(thread, attrs, stackaddr, mach_thread_self());
 	thread->detached = PTHREAD_CREATE_JOINABLE|_PTHREAD_CREATE_PARENT;
 
         /* See if we're on a multiprocessor and set _spin_tries if so.  */
@@ -1420,20 +1318,20 @@ pthread_init(void)
     
 	_init_cpu_capabilities();
 
-#if defined(__ppc__)
-	
-	/* Use fsqrt instruction in sqrt() if available. */
-    if (_cpu_capabilities & kHasFsqrt) {
-        extern size_t hw_sqrt_len;
-        extern double sqrt( double );
-        extern double hw_sqrt( double );
-        extern void sys_icache_invalidate(void *, size_t);
-
-        memcpy ( (void *)sqrt, (void *)hw_sqrt, hw_sqrt_len );
-        sys_icache_invalidate((void *)sqrt, hw_sqrt_len);
-    }
+#if defined(_OBJC_PAGE_BASE_ADDRESS)
+{
+        vm_address_t objcRTPage = (vm_address_t)_OBJC_PAGE_BASE_ADDRESS;
+        kr = vm_map(mach_task_self(),
+                 &objcRTPage, vm_page_size * 4, vm_page_size - 1,
+                 VM_FLAGS_FIXED | VM_MAKE_TAG(0), // Which tag to use?
+                 MACH_PORT_NULL,
+                 (vm_address_t)0, FALSE,
+                 (vm_prot_t)0, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE,
+                 VM_INHERIT_DEFAULT);
+		/* We ignore the return result here. The ObjC runtime will just have to deal. */
+}
 #endif
-    
+
 	mig_init(1);		/* enable multi-threaded mig interfaces */
 	return 0;
 }
@@ -1493,5 +1391,242 @@ __private_extern__ void _pthread_fork_child(pthread_t p) {
 	LOCK_INIT(_pthread_list_lock);
 	LIST_INSERT_HEAD(&__pthread_head, p, plist);
 	_pthread_count = 1;
+}
+
+#else /* !BUILDING_VARIANT ] [ */
+extern int __unix_conforming;
+extern pthread_lock_t _pthread_list_lock;
+extern void _pthread_testcancel(pthread_t thread, int isconforming);
+extern int _pthread_reap_thread(pthread_t th, mach_port_t kernel_thread, void **value_ptr);
+
+#endif /* !BUILDING_VARIANT ] */
+
+#if __DARWIN_UNIX03
+
+static void __posix_join_cleanup(void *arg)
+{
+	pthread_t thread = (pthread_t)arg;
+	int already_exited, res;
+	void * dummy;
+	semaphore_t death;
+
+	LOCK(thread->lock);
+	death = thread->death;
+	already_exited = (thread->detached & _PTHREAD_EXITED);
+
+	if (!already_exited){
+		thread->joiner = (struct _pthread *)NULL;
+		UNLOCK(thread->lock);
+		restore_sem_to_pool(death);
+	} else {
+		UNLOCK(thread->lock);
+		while ((res = _pthread_reap_thread(thread,
+				thread->kernel_thread,
+				&dummy)) == EAGAIN)
+			{
+				sched_yield();
+			}
+		restore_sem_to_pool(death);
+
+	}
+}
+
+#endif /* __DARWIN_UNIX03 */
+
+
+/*
+ * Wait for a thread to terminate and obtain its exit value.
+ */
+int       
+pthread_join(pthread_t thread, 
+	     void **value_ptr)
+{
+	kern_return_t kern_res;
+	int res = ESUCCESS;
+
+#if __DARWIN_UNIX03
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+#endif /* __DARWIN_UNIX03 */
+
+	if (thread->sig == _PTHREAD_SIG)
+	{
+		semaphore_t death = new_sem_from_pool(); /* in case we need it */
+
+		LOCK(thread->lock);
+		if ((thread->detached & PTHREAD_CREATE_JOINABLE) &&
+			thread->death == SEMAPHORE_NULL)
+		{
+			pthread_t self = pthread_self();
+
+			assert(thread->joiner == NULL);
+			if (thread != self && (self == NULL || self->joiner != thread))
+			{
+				int already_exited = (thread->detached & _PTHREAD_EXITED);
+
+				thread->death = death;
+				thread->joiner = self;
+				UNLOCK(thread->lock);
+
+				if (!already_exited)
+				{
+#if __DARWIN_UNIX03
+					/* Wait for it to signal... */ 
+					pthread_cleanup_push(__posix_join_cleanup, (void *)thread);
+					do {
+						res = __semwait_signal(death, 0, 0, 0, 0, 0);
+					} while ((res < 0) && (errno == EINTR));
+					pthread_cleanup_pop(0);
+
+#else /* __DARWIN_UNIX03 */
+					/* Wait for it to signal... */ 
+					do {
+						PTHREAD_MACH_CALL(semaphore_wait(death), kern_res);
+					} while (kern_res != KERN_SUCCESS);
+#endif /* __DARWIN_UNIX03 */
+				} 
+#if __DARWIN_UNIX03
+				else {
+					if ((thread->cancel_state & (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING))  == (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING))
+					res = PTHREAD_CANCELED;
+				}
+#endif /* __DARWIN_UNIX03 */
+
+				LOCK(_pthread_list_lock);
+				LIST_REMOVE(thread, plist);
+				UNLOCK(_pthread_list_lock);
+				/* ... and wait for it to really be dead */
+				while ((res = _pthread_reap_thread(thread,
+							thread->kernel_thread,
+							value_ptr)) == EAGAIN)
+				{
+					sched_yield();
+				}
+			} else {
+				UNLOCK(thread->lock);
+				res = EDEADLK;
+			}
+		} else {
+			UNLOCK(thread->lock);
+			res = EINVAL;
+		}
+		restore_sem_to_pool(death);
+		return res;
+	}
+	return ESRCH;
+}
+
+/*
+ * Cancel a thread
+ */
+int
+pthread_cancel(pthread_t thread)
+{
+#if __DARWIN_UNIX03
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+#endif /* __DARWIN_UNIX03 */
+
+	if (thread->sig == _PTHREAD_SIG)
+	{
+#if __DARWIN_UNIX03
+		int state;
+		LOCK(thread->lock);
+		state = thread->cancel_state |= _PTHREAD_CANCEL_PENDING;
+		UNLOCK(thread->lock);
+		if (state & PTHREAD_CANCEL_ENABLE)
+			__pthread_markcancel(thread->kernel_thread);
+#else /* __DARWIN_UNIX03 */
+		thread->cancel_state |= _PTHREAD_CANCEL_PENDING;
+#endif /* __DARWIN_UNIX03 */
+		return (ESUCCESS);
+	} else
+	{
+		return (ESRCH);
+	}
+}
+
+void
+pthread_testcancel(void)
+{
+	pthread_t self = pthread_self();
+
+#if __DARWIN_UNIX03
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+	_pthread_testcancel(self, 1);
+#else /* __DARWIN_UNIX03 */
+	_pthread_testcancel(self, 0);
+#endif /* __DARWIN_UNIX03 */
+
+}
+/*
+ * Query/update the cancelability 'state' of a thread
+ */
+int
+pthread_setcancelstate(int state, int *oldstate)
+{
+	pthread_t self = pthread_self();
+
+#if __DARWIN_UNIX03
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+#endif /* __DARWIN_UNIX03 */
+
+	switch (state) {
+		case PTHREAD_CANCEL_ENABLE:
+#if __DARWIN_UNIX03
+			__pthread_canceled(1);
+#endif /* __DARWIN_UNIX03 */
+			break;
+		case PTHREAD_CANCEL_DISABLE:
+#if __DARWIN_UNIX03
+			__pthread_canceled(2);
+#endif /* __DARWIN_UNIX03 */
+			break;
+		default:
+			return EINVAL;
+	}
+
+	self = pthread_self();
+	LOCK(self->lock);
+	if (oldstate)
+		*oldstate = self->cancel_state & _PTHREAD_CANCEL_STATE_MASK;
+	self->cancel_state &= ~_PTHREAD_CANCEL_STATE_MASK;
+	self->cancel_state |= state;
+	UNLOCK(self->lock);
+#if !__DARWIN_UNIX03
+	_pthread_testcancel(self, 0);  /* See if we need to 'die' now... */
+#endif /* __DARWIN_UNIX03 */
+	return (0);
+}
+
+/*
+ * Query/update the cancelability 'type' of a thread
+ */
+int
+pthread_setcanceltype(int type, int *oldtype)
+{
+	pthread_t self = pthread_self();
+	
+#if __DARWIN_UNIX03
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+#endif /* __DARWIN_UNIX03 */
+
+	if ((type != PTHREAD_CANCEL_DEFERRED) && 
+	    (type != PTHREAD_CANCEL_ASYNCHRONOUS))
+		return EINVAL;
+	self = pthread_self();
+	LOCK(self->lock);
+	if (oldtype)
+		*oldtype = self->cancel_state & _PTHREAD_CANCEL_TYPE_MASK;
+	self->cancel_state &= ~_PTHREAD_CANCEL_TYPE_MASK;
+	self->cancel_state |= type;
+	UNLOCK(self->lock);
+#if !__DARWIN_UNIX03
+	_pthread_testcancel(self, 0);  /* See if we need to 'die' now... */
+#endif /* __DARWIN_UNIX03 */
+	return (0);
 }
 

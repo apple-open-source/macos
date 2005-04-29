@@ -1,6 +1,6 @@
 /* Handle verification of bytecoded methods for the GNU compiler for 
    the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -145,8 +145,8 @@ merge_types (type1, type2)
       if (type2 == ptr_type_node || type1 == object_ptr_type_node)
 	return type1;
 
-      tt1 = HANDLE_TO_CLASS_TYPE (TREE_TYPE (type1));
-      tt2 = HANDLE_TO_CLASS_TYPE (TREE_TYPE (type2));
+      tt1 = TREE_TYPE (type1);
+      tt2 = TREE_TYPE (type2);
 
       /* If tt{1,2} haven't been properly loaded, now is a good time
          to do it. */
@@ -449,7 +449,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 
   /* We read the exception handlers in order of increasing start PC.
      To do this we first read and sort the start PCs.  */
-  starts = (struct pc_index *) xmalloc (eh_count * sizeof (struct pc_index));
+  starts = xmalloc (eh_count * sizeof (struct pc_index));
   for (i = 0; i < eh_count; ++i)
     {
       starts[i].start_pc = GET_u2 (jcf->read_ptr + 8 * i);
@@ -471,7 +471,6 @@ verify_jvm_instructions (jcf, byte_ops, length)
       if (start_pc < 0 || start_pc >= length
 	  || end_pc < 0 || end_pc > length || start_pc >= end_pc
 	  || handler_pc < 0 || handler_pc >= length
-	  || (handler_pc >= start_pc && handler_pc < end_pc)
 	  || ! (instruction_bits [start_pc] & BCODE_INSTRUCTION_START)
 	  || (end_pc < length &&
 	     ! (instruction_bits [end_pc] & BCODE_INSTRUCTION_START))
@@ -481,6 +480,9 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	  free (starts);
 	  return 0;
 	}
+
+      if  (handler_pc >= start_pc && handler_pc < end_pc)
+	warning ("exception handler inside code that is being protected");
 
       add_handler (start_pc, end_pc,
 		   lookup_label (handler_pc),
@@ -1324,7 +1326,8 @@ verify_jvm_instructions (jcf, byte_ops, length)
 		      type_map[len] = TREE_VEC_ELT (return_map, len);
 		  }
 		current_subr = LABEL_SUBR_CONTEXT (target);
-		PUSH_PENDING (return_label);
+		if (RETURN_MAP_ADJUSTED (return_map))
+		  PUSH_PENDING (return_label);
 	      }
 
 	    INVALIDATE_PC;

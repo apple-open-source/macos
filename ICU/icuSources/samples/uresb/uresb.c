@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -20,6 +20,7 @@
  * TODO: make a complete i18n layout for this program.
  ******************************************************************************/
 
+#include "unicode/putil.h"
 #include "unicode/ures.h"
 #include "unicode/ustdio.h"
 #include "unicode/uloc.h"
@@ -239,9 +240,9 @@ void printOutBundle(UFILE *out, UResourceBundle *resource, int32_t indent, UErro
             */
             printIndent(out, indent);
             if(key != NULL) {
-                u_fprintf(out, "%s { \"%U\" } ", key, string);
+                u_fprintf(out, "%s { \"%S\" } ", key, string);
             } else {
-                u_fprintf(out, "\"%U\",", string);
+                u_fprintf(out, "\"%S\",", string);
             }
             if(VERBOSE) {
                 u_fprintf(out, " // STRING");

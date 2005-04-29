@@ -1,0 +1,12 @@
+--- strtoul.3.orig	Fri Mar 11 10:46:00 2005
++++ strtoul.3	Fri Mar 11 10:46:30 2005
+@@ -205,7 +205,8 @@
+ .El
+ .Sh SEE ALSO
+ .Xr strtol 3 ,
+-.Xr wcstoul 3
++.Xr wcstoul 3 ,
++.Xr strtol_l 3
+ .Sh STANDARDS
+ The
+ .Fn strtoul

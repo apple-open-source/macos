@@ -6,7 +6,7 @@
 
 /* Source: Neil Booth, 25 Jul 2001.  */
 
-/* APPLE LOCAL -Wextra-tokens required in Apple's compiler to elicit req'd warnings here */
+/* APPLE LOCAL -Wextra-tokens */
 /* { dg-options "-Wextra-tokens" } */
 
 #if 0

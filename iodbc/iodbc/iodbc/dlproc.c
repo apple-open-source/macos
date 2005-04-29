@@ -1,7 +1,7 @@
 /*
  *  dlproc.c
  *
- *  $Id: dlproc.c,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: dlproc.c,v 1.3 2004/11/11 01:52:37 luesang Exp $
  *
  *  Load driver and resolve driver's function entry point
  *
@@ -92,17 +92,18 @@ char *odbcapi_symtab[] =
 #undef FUNCDEF
 };
 
+
 HPROC
 _iodbcdm_getproc (HDBC hdbc, int idx)
 {
   CONN (pdbc, hdbc);
-  ENV_t FAR *penv;
-  HPROC FAR *phproc;
+  ENV_t *penv;
+  HPROC *phproc;
 
   if (idx <= 0 || idx >= __LAST_API_FUNCTION__)
     return SQL_NULL_HPROC;
 
-  penv = (ENV_t FAR *) (pdbc->henv);
+  penv = (ENV_t *) (pdbc->henv);
 
   if (penv == NULL)
     return SQL_NULL_HPROC;
@@ -116,15 +117,18 @@ _iodbcdm_getproc (HDBC hdbc, int idx)
 }
 
 
+static dlproc_t *pRoot = NULL;
+
+
 HDLL
-_iodbcdm_dllopen (char FAR * path)
+_iodbcdm_dllopen (char *path)
 {
   return (HDLL) DLL_OPEN (path);
 }
 
 
 HPROC
-_iodbcdm_dllproc (HDLL hdll, char FAR * sym)
+_iodbcdm_dllproc (HDLL hdll, char *sym)
 {
   return (HPROC) DLL_PROC (hdll, sym);
 }
@@ -143,4 +147,35 @@ char *
 _iodbcdm_dllerror ()
 {
   return DLL_ERROR ();
+}
+
+
+/* 
+ *  If driver manager determines this driver is safe, flag the driver can
+ *  be unloaded if not used.
+ */
+void
+_iodbcdm_safe_unload (HDLL hdll)
+{
+  dlproc_t *pDrv = NULL, *p;
+
+  /*
+   *  Find loaded driver
+   */
+  for (p = pRoot; p; p = p->next)
+    {
+      if (p->dll == hdll)
+	{
+	  pDrv = p;
+	  break;
+	}
+    }
+
+  /*
+   *  Driver not found
+   */
+  if (!pDrv)
+    return;
+
+  pDrv->safe_unload = 1;
 }

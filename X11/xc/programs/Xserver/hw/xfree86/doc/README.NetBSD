@@ -1,4 +1,4 @@
-                     README for XFree86 4.3.0 on NetBSD
+                     README for XFree86 4.4.0 on NetBSD
 
 Rich  Murphey, David Dawes, Marc  Wandschneider, Mark  Weaver, Matthieu Herrb
 
@@ -15,10 +15,10 @@ See the Copyright Notice.
 
 The sources for XFree86 are available by anonymous ftp from:
 
-ftp://ftp.XFree86.org/pub/XFree86/4.3.0
+ftp://ftp.XFree86.org/pub/XFree86/4.4.0
 
 Binaries for NetBSD 1.5 and later are available from:
-ftp://ftp.XFree86.org/pub/XFree86/4.3.0/binaries/NetBSD
+ftp://ftp.XFree86.org/pub/XFree86/4.4.0/binaries/NetBSD
 
 A list of mirror sites is provided by http://www.xfree86.org/MIRRORS.shtml
 
@@ -34,7 +34,7 @@ if you have comments or suggestions about this file and we'll revise it.
 
 3.  New OS dependent features
 
-See the Release Notes for non-OS dependent new features in XFree86 4.3.0.
+See the Release Notes for non-OS dependent new features in XFree86 4.4.0.
 
 3.1  New OS dependent features in 4.2.0
 
@@ -112,7 +112,7 @@ the xvidtune utility.
 
 5.1  About mouse configuration
 
-XFree86 4.3.0 has support for the mouse driver included in the wscons console
+XFree86 4.4.0 has support for the mouse driver included in the wscons console
 driver introduced by NetBSD 1.4. Specify ``wsmouse'' as the protocol and
 ``/dev/wsmouse0'' as the device in /etc/X11/XF86Config if you're using NetBSD
 1.4 or later with a PS/2 mouse.
@@ -230,14 +230,14 @@ By default NetBSD include the BSD 4.4 kernel security feature that disable
 access to the /dev/mem device when in multi-users mode. But XFree86 servers
 can take advantage (or require) linear access to the display memory.
 
-Most XFree86 4.3.0 card drivers require linear memory access.  There are two
+Most XFree86 4.4.0 card drivers require linear memory access.  There are two
 ways to allow XFree86 to access linear memory:
 
 The first way is to disable the kernel security feature by adding ``option
 INSECURE'' in the kernel configuration file and build a new kernel.
 
 The second way is to install the aperture driver, included in source form in
-xc/programs/Xserver/hw/xfree86/etc/apNetBSD.shar in the XFree86 4.3.0 source
+xc/programs/Xserver/hw/xfree86/etc/apNetBSD.shar in the XFree86 4.4.0 source
 distribution. Unpack it in a new directory of your choice by running:
 
        sh apNetBSD.shar
@@ -379,7 +379,7 @@ particular: David Dawes, Todd Fries, Rod Grimes, Charles Hannum, Amancio
 Hasty, Christoph Robitschko, Matthias Scheler, Michael Smith, Ignatios Sou-
 vatzis, Jack Velte, Nate Williams and Pace Willison.
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/NetBSD.sgml,v 3.68 2003/02/16 17:21:11 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/NetBSD.sgml,v 3.68 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.NetBSD,v 3.87 2003/02/24 04:03:22 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.NetBSD,v 3.94 2004/02/24 03:49:41 dawes Exp $

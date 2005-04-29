@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #===========================================================================
-# Copyright (c) 1998-2000, The Santa Cruz Operation 
+# Copyright (c) 1998-2003, The Santa Cruz Operation 
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -89,7 +89,7 @@ fi
 
 # Install the spool dir cscope entry into the package
 echo "INFO: creating package" >&2
-pkgtrans -s /var/spool/pkg cscope.15.2b.pkg cscope
+pkgtrans -s /var/spool/pkg cscope.15.5.pkg cscope
 if [ $? -ne 0 ]
 then
 	echo "ERROR: An error occurred while creating the package" >&2

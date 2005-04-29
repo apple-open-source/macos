@@ -36,5 +36,6 @@
 #include <DirectoryServiceCore/CRecTypeList.h>
 #include <DirectoryServiceCore/CSharedData.h>
 #include <DirectoryServiceCore/PluginData.h>
+#include <DirectoryServiceCore/SMBAuth.h>
 
 #endif  // __DirectoryServiceCore_h__

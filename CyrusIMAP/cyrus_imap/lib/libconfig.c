@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: libconfig.c,v 1.9 2004/05/22 03:45:54 rjs3 Exp $ */
+/* $Id: libconfig.c,v 1.5 2005/03/05 00:37:15 dasenbro Exp $ */
 
 #include <config.h>
 

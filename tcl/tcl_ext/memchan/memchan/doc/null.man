@@ -1,0 +1,53 @@
+[comment {-*- tcl -*- doctools}]
+[manpage_begin null n 2.2]
+[moddesc   {Memory channels}]
+[titledesc {Create and manipulate null channels}]
+[copyright {1996-2003 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[require Tcl]
+[require memchan]
+[description]
+[para]
+The command described here is only available in a not-yet released
+version of the package. Use the CVS to get the sources.
+
+[list_begin definitions]
+
+[call [cmd null]]
+
+creates a null channel which absorbs everything written into
+it. Reading from it is not possible, or rather will always return zero
+bytes. These channels are essentially Tcl-specific variants of the
+null device for unixoid operating systems (/dev/null). Transfering the
+generated channel between interpreters is possible but does not make
+much sense.
+
+[list_end]
+
+[section OPTIONS]
+
+Memory channels created by [cmd null] provide one additional option to
+set or query.
+
+[list_begin definitions]
+
+    [lst_item [arg "-delay [opt milliseconds]"]]
+
+    A [cmd null] channel is always writable and readable. This means
+    that all [cmd fileevent]-handlers will fire continuously.  To
+    avoid starvation of other event sources the events raised by this
+    channel type have a configurable delay. This option is set in
+    milliseconds and defaults to 5.
+
+[list_end]
+
+[para]
+
+A null channel is always writable and never readable. This means that a
+writable [cmd fileevent]-handler will fire continuously and a readable
+[cmd fileevent]-handler never at all. The exception to the latter is
+only the destruction of the channel which will cause the delivery of
+an eof event to a readable handler.
+
+[see_also memchan fifo fifo2 random zero]
+[keywords null {in-memory channel} channel i/o]
+[manpage_end]

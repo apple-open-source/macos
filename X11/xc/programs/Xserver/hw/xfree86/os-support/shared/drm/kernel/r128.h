@@ -47,13 +47,18 @@
 
 #define DRIVER_NAME		"r128"
 #define DRIVER_DESC		"ATI Rage 128"
-#define DRIVER_DATE		"20021029"
+#define DRIVER_DATE		"20030725"
 
 #define DRIVER_MAJOR		2
-#define DRIVER_MINOR		3
+#define DRIVER_MINOR		5
 #define DRIVER_PATCHLEVEL	0
 
-
+/* Interface history:
+ *
+ * ??  - ??
+ * 2.4 - Add support for ycbcr textures (no new ioctls)
+ * 2.5 - Add FLIP ioctl, disable FULLSCREEN.
+ */
 #define DRIVER_IOCTLS							    \
    [DRM_IOCTL_NR(DRM_IOCTL_DMA)]             = { r128_cce_buffers,  1, 0 }, \
    [DRM_IOCTL_NR(DRM_IOCTL_R128_INIT)]       = { r128_cce_init,     1, 1 }, \
@@ -64,6 +69,7 @@
    [DRM_IOCTL_NR(DRM_IOCTL_R128_RESET)]      = { r128_engine_reset, 1, 0 }, \
    [DRM_IOCTL_NR(DRM_IOCTL_R128_FULLSCREEN)] = { r128_fullscreen,   1, 0 }, \
    [DRM_IOCTL_NR(DRM_IOCTL_R128_SWAP)]       = { r128_cce_swap,     1, 0 }, \
+   [DRM_IOCTL_NR(DRM_IOCTL_R128_FLIP)]       = { r128_cce_flip,     1, 0 }, \
    [DRM_IOCTL_NR(DRM_IOCTL_R128_CLEAR)]      = { r128_cce_clear,    1, 0 }, \
    [DRM_IOCTL_NR(DRM_IOCTL_R128_VERTEX)]     = { r128_cce_vertex,   1, 0 }, \
    [DRM_IOCTL_NR(DRM_IOCTL_R128_INDICES)]    = { r128_cce_indices,  1, 0 }, \
@@ -72,6 +78,26 @@
    [DRM_IOCTL_NR(DRM_IOCTL_R128_STIPPLE)]    = { r128_cce_stipple,  1, 0 }, \
    [DRM_IOCTL_NR(DRM_IOCTL_R128_INDIRECT)]   = { r128_cce_indirect, 1, 1 }, \
    [DRM_IOCTL_NR(DRM_IOCTL_R128_GETPARAM)]   = { r128_getparam, 1, 0 },
+
+#define DRIVER_PCI_IDS							\
+	{0x1002, 0x4c45, 0, "ATI Rage 128 Mobility LE (PCI)"},		\
+	{0x1002, 0x4c46, 0, "ATI Rage 128 Mobility LF (AGP)"},		\
+	{0x1002, 0x4d46, 0, "ATI Rage 128 Mobility MF (AGP)"},		\
+	{0x1002, 0x4d4c, 0, "ATI Rage 128 Mobility ML (AGP)"},		\
+	{0x1002, 0x5044, 0, "ATI Rage 128 Pro PD (PCI)"},		\
+	{0x1002, 0x5046, 0, "ATI Rage 128 Pro PF (AGP)"},		\
+	{0x1002, 0x5050, 0, "ATI Rage 128 Pro PP (PCI)"},		\
+	{0x1002, 0x5052, 0, "ATI Rage 128 Pro PR (PCI)"},		\
+	{0x1002, 0x5245, 0, "ATI Rage 128 RE (PCI)"},			\
+	{0x1002, 0x5246, 0, "ATI Rage 128 RF (AGP)"},			\
+	{0x1002, 0x5247, 0, "ATI Rage 128 RG (AGP)"},			\
+	{0x1002, 0x524b, 0, "ATI Rage 128 RK (PCI)"},			\
+	{0x1002, 0x524c, 0, "ATI Rage 128 RL (AGP)"},			\
+	{0x1002, 0x534d, 0, "ATI Rage 128 SM (AGP)"},			\
+	{0x1002, 0x5446, 0, "ATI Rage 128 Pro Ultra TF (AGP)"},		\
+	{0x1002, 0x544C, 0, "ATI Rage 128 Pro Ultra TL (AGP)"},		\
+	{0x1002, 0x5452, 0, "ATI Rage 128 Pro Ultra TR (AGP)"},		\
+	{0, 0, 0, NULL}
 
 /* Driver customization:
  */
@@ -85,13 +111,13 @@
 } while (0)
 
 #define DRIVER_PRETAKEDOWN() do {					\
-	if ( dev->dev_private ) r128_do_cleanup_cce( dev );		\
+	r128_do_cleanup_cce( dev );					\
 } while (0)
 
 /* DMA customization:
  */
 #define __HAVE_DMA		1
-#define __HAVE_DMA_IRQ		1
+#define __HAVE_IRQ		1
 #define __HAVE_VBL_IRQ		1
 #define __HAVE_SHARED_IRQ       1
 

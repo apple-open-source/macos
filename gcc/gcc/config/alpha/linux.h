@@ -1,22 +1,23 @@
 /* Definitions of target machine for GNU compiler,
    for Alpha Linux-based GNU systems.
-   Copyright (C) 1996, 1997, 1998, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Richard Henderson.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -30,8 +31,10 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define_std ("linux");				\
 	builtin_define_std ("unix");				\
 	builtin_assert ("system=linux");			\
+	builtin_assert ("system=unix");				\
+	builtin_assert ("system=posix");			\
 	/* The GNU C++ standard library requires this.  */	\
-	if (c_language == clk_cplusplus)			\
+	if (c_dialect_cxx ())					\
 	  builtin_define ("_GNU_SOURCE");			\
     } while (0)
 
@@ -59,55 +62,18 @@ Boston, MA 02111-1307, USA.  */
 /* Define this so that all GNU/Linux targets handle the same pragmas.  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP
 
+/* Determine whether the the entire c99 runtime is present in the
+   runtime library.  */
+#define TARGET_C99_FUNCTIONS 1
+
 #define TARGET_HAS_F_SETLKW
 
-/* Do code reading to identify a signal frame, and set the frame
-   state data appropriately.  See unwind-dw2.c for the structs.  */
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
-#ifdef IN_LIBGCC2
-#include <signal.h>
-#include <sys/ucontext.h>
+/* Use --as-needed -lgcc_s for eh support.  */
+#ifdef HAVE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 1
 #endif
 
-#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
-  do {									\
-    unsigned int *pc_ = (CONTEXT)->ra;					\
-    struct sigcontext *sc_;						\
-    long new_cfa_, i_;							\
-									\
-    if (pc_[0] != 0x47fe0410		/* mov $30,$16 */		\
-        || pc_[2] != 0x00000083		/* callsys */)			\
-      break;								\
-    if (pc_[1] == 0x201f0067)		/* lda $0,NR_sigreturn */	\
-      sc_ = (CONTEXT)->cfa;						\
-    else if (pc_[1] == 0x201f015f)	/* lda $0,NR_rt_sigreturn */	\
-      {									\
-	struct rt_sigframe {						\
-	  struct siginfo info;						\
-	  struct ucontext uc;						\
-	} *rt_ = (CONTEXT)->cfa;					\
-	sc_ = &rt_->uc.uc_mcontext;					\
-      }									\
-    else								\
-      break;								\
-    new_cfa_ = sc_->sc_regs[30];					\
-    (FS)->cfa_how = CFA_REG_OFFSET;					\
-    (FS)->cfa_reg = 30;							\
-    (FS)->cfa_offset = new_cfa_ - (long) (CONTEXT)->cfa;		\
-    for (i_ = 0; i_ < 30; ++i_)						\
-      {									\
-	(FS)->regs.reg[i_].how = REG_SAVED_OFFSET;			\
-	(FS)->regs.reg[i_].loc.offset					\
-	  = (long)&sc_->sc_regs[i_] - new_cfa_;				\
-      }									\
-    for (i_ = 0; i_ < 31; ++i_)						\
-      {									\
-	(FS)->regs.reg[i_+32].how = REG_SAVED_OFFSET;			\
-	(FS)->regs.reg[i_+32].loc.offset				\
-	  = (long)&sc_->sc_fpregs[i_] - new_cfa_;			\
-      }									\
-    (FS)->regs.reg[31].how = REG_SAVED_OFFSET;				\
-    (FS)->regs.reg[31].loc.offset = (long)&sc_->sc_pc - new_cfa_;	\
-    (FS)->retaddr_column = 31;						\
-    goto SUCCESS;							\
-  } while (0)
+#define MD_UNWIND_SUPPORT "config/alpha/linux-unwind.h"

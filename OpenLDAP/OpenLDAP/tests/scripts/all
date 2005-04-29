@@ -1,41 +1,34 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/all,v 1.12.2.1 2002/06/20 20:12:35 kurt Exp $
-
-# disable LDAP initialization
-LDAPNOINIT=true; export LDAPNOINIT
-
-echo ">>>>> Executing all LDAP tests..."
-
-if test $# -eq 0 ; then
-	SRCDIR="."
-else
-	SRCDIR=$1; shift
-fi
-
-echo ">>>>> Test Directory: $SRCDIR"
-
-if test $# -eq 0 ; then
-	BACKEND=bdb
-else
-	BACKEND=$1; shift
-fi
-
-echo ">>>>> Backend: $BACKEND"
-
-if test $# -eq 0 ; then
-	MONITOR=no
-else
-	MONITOR=$1; shift
-fi
+# $OpenLDAP: pkg/ldap/tests/scripts/all,v 1.14.2.6 2004/01/01 18:16:43 kurt Exp $
+## This work is part of OpenLDAP Software <http://www.openldap.org/>.
+##
+## Copyright 1998-2004 The OpenLDAP Foundation.
+## All rights reserved.
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted only as authorized by the OpenLDAP
+## Public License.
+##
+## A copy of this license is available in the file LICENSE in the
+## top-level directory of the distribution or, alternatively, at
+## <http://www.OpenLDAP.org/license.html>.
 
 SHTOOL="$SRCDIR/../build/shtool"
-
 TB=`$SHTOOL echo -e "%B"`
 TN=`$SHTOOL echo -e "%b"`
 
+echo ">>>>> Executing all LDAP tests for $BACKEND"
+
 for CMD in $SRCDIR/scripts/test*; do
+	# remove cruft from prior test
+	if test $PRESERVE = yes ; then
+		/bin/rm -rf testrun/db.*
+	else
+		/bin/rm -rf testrun
+	fi
+
 	echo ">>>>> Starting ${TB}`basename $CMD`${TN} ..."
-	$CMD $SRCDIR $BACKEND $MONITOR
+	$CMD
 	RC=$?
 	if test $RC -eq 0 ; then
 		echo ">>>>> $CMD completed ${TB}OK${TN}."
@@ -43,6 +36,7 @@ for CMD in $SRCDIR/scripts/test*; do
 		echo ">>>>> $CMD ${TB}failed${TN} (exit $RC)"
 		exit $RC
 	fi
+
 	echo ">>>>> waiting 10 seconds for things to exit"
 	sleep 10
 	echo ""

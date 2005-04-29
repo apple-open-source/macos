@@ -1,0 +1,4 @@
+  package ifneeded XOTcl 1.2 [list load \
+    [file join $dir .. libxotcl1.2.so] XOTcl]
+
+

@@ -1,0 +1,49 @@
+Content-type: text/html
+
+<HTML>
+<HEAD>
+<TITLE>Manual Pages - Text Search</TITLE>
+<!-- Changed by: Michael Hamilton,  6-Apr-1996 -->
+<!-- Note: this is not html, but requires preprocessing -->
+</HEAD>
+<BODY>
+<H1>Manual Pages - Text Search</H1>
+
+<A HREF="%cg/man2html">Return to Main Contents</A>
+<P>
+<ISINDEX>
+
+%lynx <i>Start a query</i> by typing an s.
+
+Examples:
+<UL>
+   <LI><TT>pwd;directory</TT> - Find both in the same man page.
+   <LI><TT>pwd,directory</TT> - Find either.
+   <LI><TT>pwd directory</TT> - Find the exact phrase.
+   <LI><TT>-F 1 pwd</TT> - Look in section 1 only.
+   <LI><TT>-B glipmse</TT> - Find the best match (allow for misspelling).
+   <LI><TT>-L 0:10 pwd</TT> - Only show the first 10 man pages matched.
+</UL>
+
+<HR>
+<P>
+The index uses the <I>Glimpse</I>
+(<A HREF="%cg/man2html?1+glimpse">glimpse(1)</A>)
+text indexing system.  Many of the glimpse
+options, regular expressions, and wildcards are valid:
+see the <A HREF="%cg/mansearchhelp">help page</A> for a summary.
+<P>
+<HR>
+
+<P>
+Glimpse
+was developed by Udi Manber and Burra Gopal of the University of
+Arizona, and Sun Wu of the National Chung-Cheng University, Taiwan.
+You may contact the authors at <A HREF="mailto:glimpse@cs.arizona.edu">
+glimpse@cs.arizona.edu</A>
+<P>
+The Manual Page text search interface was created for Linux by
+<A HREF="mailto:michael@actrix.gen.nz">
+Michael Hamilton</A>.
+</BODY>
+</HTML>

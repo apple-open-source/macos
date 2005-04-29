@@ -1,0 +1,4 @@
+lib	absl,acosl,acoshl,asinl,asinhl,atanl,atan2l,expl,cosl,coshl	math.h
+lib	fabsl,powl,hypotl,fmodl,logl,sinl,sqrtl,tanl,tanhl,strtold	math.h
+npt	absl,acosl,acoshl,asinl,asinhl,atanl,atan2l,expl,cosl,coshl	math.h
+npt	fabsl,powl,hypotl,fmodl,logl,sinl,sqrtl,tanl,tanhl,strtold	math.h

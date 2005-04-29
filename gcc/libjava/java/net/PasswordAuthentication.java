@@ -1,5 +1,5 @@
 /* PasswordAuthentication.java -- Container class for username/password pairs
-   Copyright (C) 1998,2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2000, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -7,7 +7,7 @@ GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
- 
+
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -37,80 +37,56 @@ exception statement from your version. */
 
 package java.net;
 
+
 /**
-  * This class serves a container for username/password pairs.
-  *
-  * @author Aaron M. Renn (arenn@urbanophile.com)
-  * @since 1.2
-  */
+ * This class serves a container for username/password pairs.
+ *
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ *
+ * @since 1.2
+ */
 public final class PasswordAuthentication
 {
+  /**
+   * The username
+   */
+  private String username;
 
-/*************************************************************************/
+  /**
+   * The password
+   */
+  private char[] password;
 
-/*
- * Instance Variables
- */
+  /**
+   * Creates a new <code>PasswordAuthentication</code> object from the
+   * specified username and password.
+   *
+   * @param username The username for this object
+   * @param password The password for this object
+   */
+  public PasswordAuthentication(String username, char[] password)
+  {
+    this.username = username;
+    this.password = password;
+  }
 
-/**
-  * The username 
-  */
-private String username;
+  /**
+   * Returns the username associated with this object
+   *
+   * @return The username
+   */
+  public String getUserName()
+  {
+    return username;
+  }
 
-/**
-  * The password
-  */
-private char[] password;
-
-/*************************************************************************/
-
-/*
- * Constructors
- */
-
-/**
-  * Creates a new PasswordAuthentication object from the specified username
-  * and password.
-  *
-  * @param username The username for this object
-  * @param password The password for this object
-  */
-public
-PasswordAuthentication(String username, char[] password)
-{
-  this.username = username;
-  this.password = password;
+  /**
+   * Returns the password associated with this object
+   *
+   * @return The password
+   */
+  public char[] getPassword()
+  {
+    return password;
+  }
 }
-
-/*************************************************************************/
-
-/*
- * Instance Methods
- */
-
-/**
-  * Returns the username associated with this object
-  *
-  * @return The username
-  */
-public String
-getUserName()
-{
-  return(username);
-}
- 
-/*************************************************************************/
-
-/**
-  * Returns the password associated with this object
-  *
-  * @return The password
-  */
-public char[]
-getPassword()
-{
-  return(password);
-}
-
-} // class PasswordAuthentication
-

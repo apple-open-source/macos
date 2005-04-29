@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Referer plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p></p>
+            <p>
+                The referer plugin simply logs to a user defined file all of the HTTP referer headers it
+                comes across. This is often useful if you want to see what google searches lead to your
+                site. It will also group referers by flavor with overall flavor totals and filtered by
+                date. This plugin will also filter referer's based on the contents of the blojsom wide
+                blacklist filter.
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                referer-log=org.blojsom.plugin.referer.RefererLogPlugin
+            </source>
+            <p>
+                You may then add "referer-log" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=referer-log
+            </source>
+            <p>
+
+                The referer plugin has its own configuration file,
+                <em>referer.properties</em>, that is
+                referenced in
+                <em>web.xml</em>.
+            </p>
+            <source>
+                &lt;init-param&gt;
+                &lt;param-name&gt;plugin-referer&lt;/param-name&gt;
+                &lt;param-value&gt;referer.properties&lt;/param-value&gt;
+                &lt;/init-param&gt;
+            </source>
+            <p>
+
+                The
+                <em>referer.properties</em> file will be located in the respective
+                    <code>/WEB-INF/(user-id)</code> directory and contains three configurable parameters:
+            </p>
+            <source>
+                #
+                # blojsom referer plugin configuration file
+                #
+                referer-display-size=40
+                referer-filename=/change/me/please/blojsom-referer.log
+
+                # NOTE:hit-count flavors just captures totals and not referer urls
+                hit-count-flavors=rss
+            </source>
+            <p>
+                <em>referer-display-size</em> controls the display size of the referer URL
+                <br/>
+                <em>referer-filename</em> is the location and filename of the log file it should write to on
+                shutdown of your application server
+                <br/>
+                <em>hit-count-flavors</em> is a comma-separated list of the flavors that the plugin should
+                track for referers. Flavors added to this list will only have their hit counts tracked,
+                but will not have the referer URL tracked
+
+            </p>
+        </section>
+        <section>
+            <title>filtering</title>
+            <p>
+                This plugin will use the contents of the blacklist filter to ignore referer's that match any of the filters.
+                this helps ignore those spam referers. This is automatic and no configuration, other that editing the
+                <em>blacklist.filters</em> file.
+
+            </p>
+        </section>
+        <section>
+            <title>context attributes and types</title>
+            <p>
+                The following table describes the context attributes that are available and their associated type.
+            </p>
+            <table>
+                <tr>
+                    <th>Context key</th>
+                    <th>Input or Output</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>REFERER_HISTORY</td>
+                    <td>Output</td>
+                    <td>
+                        <code>org.blojsom.plugin.referer.BlogRefererGroup</code>
+                    </td>
+                    <td>Manages the referer groups for the various flavors setup in
+                        <em>referer.properties</em>
+                    </td>
+                </tr>
+                <tr>
+                    <td>REFERER_MAX_LENGTH</td>
+                    <td>Output</td>
+                    <td>
+                        <code>java.lang.Integer</code>
+                    </td>
+                    <td>Max length for referer URLs</td>
+                </tr>
+            </table>
+
+
+        </section>
+    </body>
+</document>
+

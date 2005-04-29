@@ -24,7 +24,7 @@
  * used in advertising or otherwise to promote the sale, use or other dealings
  * in this Software without prior written authorization from Sebastien Marineau.
  *
- * $XFree86: xc/programs/Xserver/hw/xfree86/os-support/qnx4/qnx_mouse.c,v 1.4 2002/01/07 20:38:29 dawes Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/os-support/qnx4/qnx_mouse.c,v 1.5 2003/11/17 22:20:41 dawes Exp $
  */
 
 /* This module contains the qnx-specific functions to access the keyboard
@@ -49,13 +49,11 @@
 #include "xf86OSmouse.h"
 
 extern int miPointerGetMotionEvents(
-#if NeedFunctionPrototypes
     DeviceIntPtr /*pPtr*/,
     xTimecoord * /*coords*/,
     unsigned long /*start*/,
     unsigned long /*stop*/,
     ScreenPtr /*pScreen*/
-#endif
 );
 
 struct _mouse_ctrl *QNX_mouse = NULL;

@@ -3,10 +3,10 @@
  * KClient API functions deprecated in KClient API 3.0
  * Provided only for backwards compatibility
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/CompatibilityAPI/KClientDeprecated.Shlib.cp,v 1.29 2003/02/26 16:17:06 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/CompatibilityAPI/KClientDeprecated.Shlib.cp,v 1.30 2004/10/22 20:53:02 lxs Exp $
  */
 
-#include "KClientDeprecated.h"
+#include <Kerberos/KClientDeprecated.h>
 #include "KClientCCacheIntf.h"
 #include "KClientProfileIntf.h"
 

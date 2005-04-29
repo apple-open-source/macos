@@ -63,7 +63,7 @@ void
 c_print_type (struct type *type, char *varstring, struct ui_file *stream,
 	      int show, int level)
 {
-  register enum type_code code;
+  enum type_code code;
   int demangled_args;
   int need_post_space;
 
@@ -179,7 +179,8 @@ cp_type_print_method_args (struct type *mtype, char *prefix, char *varstring,
     }
   else if (varargs)
     fprintf_filtered (stream, "...");
-  else if (current_language->la_language == language_cplus)
+  else if (current_language->la_language == language_cplus
+	   || current_language->la_language == language_objcplus)
     fprintf_filtered (stream, "void");
 
   fprintf_filtered (stream, ")");
@@ -282,6 +283,7 @@ c_type_print_varspec_prefix (struct type *type, struct ui_file *stream,
     case TYPE_CODE_BITSTRING:
     case TYPE_CODE_COMPLEX:
     case TYPE_CODE_TEMPLATE:
+    case TYPE_CODE_NAMESPACE:
       /* These types need no prefix.  They are listed here so that
          gcc -Wall will reveal any types that haven't been handled.  */
       break;
@@ -366,10 +368,12 @@ c_type_print_args (struct type *type, struct ui_file *stream)
       if (TYPE_VARARGS (type))
 	fprintf_filtered (stream, "...");
       else if (i == 1
-	       && (current_language->la_language == language_cplus))
+	       && (current_language->la_language == language_cplus
+		   || current_language->la_language == language_objcplus))
 	fprintf_filtered (stream, "void");
     }
-  else if (current_language->la_language == language_cplus)
+  else if (current_language->la_language == language_cplus
+	   || current_language->la_language == language_objcplus)
     {
       fprintf_filtered (stream, "void");
     }
@@ -581,7 +585,8 @@ c_type_print_varspec_suffix (struct type *type, struct ui_file *stream,
 	  fprintf_filtered (stream, "(");
 	  if (len == 0
               && (TYPE_PROTOTYPED (type)
-                  || current_language->la_language == language_cplus))
+                  || current_language->la_language == language_cplus
+		  || current_language->la_language == language_objcplus))
 	    {
 	      fprintf_filtered (stream, "void");
 	    }
@@ -622,6 +627,7 @@ c_type_print_varspec_suffix (struct type *type, struct ui_file *stream,
     case TYPE_CODE_BITSTRING:
     case TYPE_CODE_COMPLEX:
     case TYPE_CODE_TEMPLATE:
+    case TYPE_CODE_NAMESPACE:
       /* These types do not need a suffix.  They are listed so that
          gcc -Wall will report types that may not have been considered.  */
       break;
@@ -855,10 +861,11 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 	      QUIT;
 	      /* Don't print out virtual function table.  */
 	      /* HP ANSI C++ case */
-	      if (TYPE_HAS_VTABLE (type) && (STREQN (TYPE_FIELD_NAME (type, i), "__vfp", 5)))
+	      if (TYPE_HAS_VTABLE (type)
+		  && (strncmp (TYPE_FIELD_NAME (type, i), "__vfp", 5) == 0))
 		continue;
 	      /* Other compilers */
-	      if (STREQN (TYPE_FIELD_NAME (type, i), "_vptr", 5)
+	      if (strncmp (TYPE_FIELD_NAME (type, i), "_vptr", 5) == 0
 		  && is_cplus_marker ((TYPE_FIELD_NAME (type, i))[5]))
 		continue;
 
@@ -940,7 +947,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 	      int j, len2 = TYPE_FN_FIELDLIST_LENGTH (type, i);
 	      char *method_name = TYPE_FN_FIELDLIST_NAME (type, i);
 	      char *name = type_name_no_tag (type);
-	      int is_constructor = name && STREQ (method_name, name);
+	      int is_constructor = name && strcmp (method_name, name) == 0;
 	      for (j = 0; j < len2; j++)
 		{
 		  char *physname = TYPE_FN_FIELD_PHYSNAME (f, j);
@@ -1181,6 +1188,11 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 		fprintf_filtered (stream, "\n");
 	    }
 	}
+      break;
+
+    case TYPE_CODE_NAMESPACE:
+      fputs_filtered ("namespace ", stream);
+      fputs_filtered (TYPE_TAG_NAME (type), stream);
       break;
 
     default:

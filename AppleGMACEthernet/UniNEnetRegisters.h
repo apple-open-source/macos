@@ -54,7 +54,7 @@
 		VU32	SEB_State;		//	3 bits for diagnostics
 		VU32	Configuration;	//
 		VU32	filler1;
-		VU32	Status;
+		VU32	Status;			// auto-clear register - use StatusAlias to peek 
 
 		VU32	InterruptMask;										// 0x0010
 		VU32	InterruptAck;
@@ -153,9 +153,9 @@
 		VU32	SendPauseCommand;
 		VU32	filler11;
 
-		VU32	TxMACStatus;										// 0x6010
-		VU32	RxMACStatus;
-		VU32	MACControlStatus;
+		VU32	TxMACStatus;			// auto-clear				// 0x6010
+		VU32	RxMACStatus;			// auto-clear
+		VU32	MACControlStatus;		// auto-clear - Pause state here
 		VU32	filler12;
 
 		VU32	TxMACMask;											// 0x6020
@@ -329,8 +329,7 @@
 #define kTxMACSoftwareResetCommand_Reset	1	// 1 bit register
 #define kRxMACSoftwareResetCommand_Reset	1
 
-#define kSendPauseCommand_default	0x1BF0	// SlotTime units 7152 ???
-//#define kSendPauseCommand_default	0xFFFF	// SlotTime units
+#define kSendPauseCommand_default	0x1BF0	// SlotTime units 7152 3.661 ms. Over 256 packets worth.
 
 														// 0x6010:
 #define kTX_MAC_Status_Frame_Transmitted		0x001
@@ -352,9 +351,9 @@
 #define kRX_MAC_Status_Viol_Err_Cnt_Exp			0x40
 
 
-#define kTxMACMask_default			1			// enable all but Frame_Transmitted
-#define kRxMACMask_default			1			// enable all but Frame_Received
-#define kMACControlMask_default		0xFFFFFFF8	// enable Paused stuff
+#define kTxMACMask_default			0x1FF		// enable none
+#define kRxMACMask_default			0x3F		// enable none
+#define kMACControlMask_default		7			// enable no Pause interrupts
 
 														// 6030:
 #define kTxMACConfiguration_TxMac_Enable			0x001
@@ -472,8 +471,7 @@
 		VU16		tcpPseudoChecksum;
 		VU16		frameDataSize;			// Has ownership bit
 		VU32		flags;
-		VU32		bufferAddrLo;
-		VU32		bufferAddrHi;
+		VU64		bufferAddr;
 	};
 
 	/* Note: Own is in the high bit of frameDataSize field	*/
@@ -494,8 +492,7 @@
 	{
 		VU32		flags0;			// start/end of frame...buffer size
 		VU32		flags1;			// Int me
-		VU32		bufferAddrLo;
-		VU32		bufferAddrHi;
+		VU64		bufferAddr;
 	};
 
 

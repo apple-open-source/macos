@@ -34,7 +34,7 @@
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: strcasecmp.c,v 1.1.1.1 2003/02/15 04:55:40 zarzycki Exp $";
+static const char revid[] = "$Id: strcasecmp.c,v 1.2 2004/03/30 01:21:22 jtownsen Exp $";
 #endif /* not lint */
 
 #ifndef NO_SYSTEM_INCLUDES

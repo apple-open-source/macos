@@ -32,6 +32,6 @@ int NXIsSpace(c)
 {
 	FIXSIGNEDCHAR(c);
 	if (c < 256)
-		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_S)));
+		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_CTYPE_S)));
 	return 0;
 }

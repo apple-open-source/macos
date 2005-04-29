@@ -1,8 +1,29 @@
+2004-10-13  Alexandra Ellwood  <lxs@mit.edu>
+
+	* krb5_err.et: added KRB5_DELTAT_BADFORMAT for 
+	krb5_string_to_deltat.
+
+2004-06-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (STLIBOBJS, OBJS, SRCS): Drop init_ets code.
+
+2004-01-06  Jeffrey Altman <jaltman@mit.edu>
+
+    * krb5_err.et (KRB5_CC_NOSUPP) new ccache error code
+
+2003-12-12  Jeffrey Altman <jaltman@mit.edu>
+
+    * krb5_err.et (KRB5_CC_READONLY) new ccache error code
+
 2003-07-19  Ezra Peisach  <epeisach@mit.edu>
 
 	* init_ets.c (krb5_init_ets): Only initialize error tables once -
 	so that init_conext/free_context loops do not result in memory
 	leaks.
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
 
 2003-06-03  Ken Raeburn  <raeburn@mit.edu>
 

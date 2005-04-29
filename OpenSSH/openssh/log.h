@@ -1,4 +1,4 @@
-/*	$OpenBSD: log.h,v 1.8 2002/07/19 15:43:33 markus Exp $	*/
+/*	$OpenBSD: log.h,v 1.10 2003/09/23 20:17:11 markus Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -55,17 +55,12 @@ LogLevel log_level_number(char *);
 
 void     fatal(const char *, ...) __attribute__((format(printf, 1, 2)));
 void     error(const char *, ...) __attribute__((format(printf, 1, 2)));
-void     log(const char *, ...) __attribute__((format(printf, 1, 2)));
+void     logit(const char *, ...) __attribute__((format(printf, 1, 2)));
 void     verbose(const char *, ...) __attribute__((format(printf, 1, 2)));
 void     debug(const char *, ...) __attribute__((format(printf, 1, 2)));
 void     debug2(const char *, ...) __attribute__((format(printf, 1, 2)));
 void     debug3(const char *, ...) __attribute__((format(printf, 1, 2)));
 
-void     fatal_cleanup(void);
-void     fatal_add_cleanup(void (*) (void *), void *);
-void     fatal_remove_cleanup(void (*) (void *), void *);
-void     fatal_remove_all_cleanups(void);
-
 void	 do_log(LogLevel, const char *, va_list);
-
+void	 cleanup_exit(int);
 #endif

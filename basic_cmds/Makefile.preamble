@@ -1,3 +1,0 @@
-CLEAN_ALL_SUBPROJECTS = YES
-
-#IMPLICIT_SOURCE_FILES += ls.tproj printf.tproj

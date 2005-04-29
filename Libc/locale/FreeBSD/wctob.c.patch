@@ -1,0 +1,33 @@
+--- wctob.c.orig	2004-11-25 11:38:20.000000000 -0800
++++ wctob.c	2005-02-18 18:16:08.000000000 -0800
+@@ -27,19 +27,28 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/wctob.c,v 1.4 2004/05/12 14:26:54 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <limits.h>
+ #include <stdio.h>
+ #include <wchar.h>
+ #include "mblocal.h"
+ 
+ int
+-wctob(wint_t c)
++wctob_l(wint_t c, locale_t loc)
+ {
+ 	static const mbstate_t initial;
+ 	mbstate_t mbs = initial;
+ 	char buf[MB_LEN_MAX];
+ 
+-	if (c == WEOF || __wcrtomb(buf, c, &mbs) != 1)
++	NORMALIZE_LOCALE(loc);
++	if (c == WEOF || loc->__lc_ctype->__wcrtomb(buf, c, &mbs, loc) != 1)
+ 		return (EOF);
+ 	return ((unsigned char)*buf);
+ }
++
++int
++wctob(wint_t c)
++{
++	return wctob_l(c, __current_locale());
++}

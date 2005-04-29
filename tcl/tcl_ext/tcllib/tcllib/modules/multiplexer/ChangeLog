@@ -1,0 +1,47 @@
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2004-02-10  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* multiplexer.man: This package is can be used with Tcl
+	* pkgIndex.tcl:    8.2. Documented as such.
+
+	* multiplexer.test: One test uses the 8.3'ism 'file
+	  channels'. Added constraint and skipping it when under Tcl
+	  8.2. Changed initialization code to ensure that the local
+	  multiplexer package is loaded, and not an installed one.
+
+2003-05-20  Andreas Kupries  <andreask@activestate.com>
+
+	* multiplexer.man: Cleaned up the documentation of the three hooks
+	  which can be set per multiplexer instance (access, data, exit).
+
+	* multiplexer.tcl: Made sendtoorigin a true boolean flag, instead
+	  of just 0/1.
+
+2003-05-19  David N. Welton  <davidw@dedasys.com>
+
+	* multiplexer.tcl (NewClient): Added access denied debug message
+	for accessfilter.
+
+	* multiplexer.man: Minor cleanups.
+
+	* multiplexer.test: Added several tests.
+
+	* multiplexer.tcl: Adding updated multiplexer to tcllib.  It is
+	now possible to run multiple multiplexer instances, and it uses
+	the logger package for logging.
+
+	* multiplexer.man: New file, still needs cleaning up.  Content
+	taken from old multiplexer.n.
+
+	* multiplexer.test: Added a few initial tests.  Working on more.

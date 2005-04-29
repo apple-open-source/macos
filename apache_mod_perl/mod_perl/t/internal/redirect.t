@@ -1,4 +1,4 @@
-use Apache::test;
+use Apache::testold;
 use Config;
 
 {
@@ -22,7 +22,7 @@ my $qredirect = "";
 
 my($request,$response);
 
-my $tests = 3;
+my $tests = 4;
 
 $CGI::VERSION ||= 0;
 
@@ -64,6 +64,15 @@ print "ok 3\n";
 
 print "content=`", $response->content, "'\n";
 
+#test internal redirect
+$request = HTTP::Request->new(GET => "http://$net::httpserver$net::perldir/io/redir1.pl");
+$response = $ua->request($request, undef, undef);
+unless ($response->content eq 'OK') {
+    print "not ";
+}
+print "ok 4\n";
+print "content=`", $response->content, "'\n";
+
 if ($qredirect) {
 
     $request = HTTP::Request->new(GET => $qredirect);
@@ -73,7 +82,7 @@ if ($qredirect) {
         print "not ";
     }
 
-    print "ok 4\n";
+    print "ok 5\n";
 
     print "content=`", $response->content, "'\n";
 
@@ -85,7 +94,7 @@ if ($qredirect) {
         print "not ";
     }
 
-    print "ok 5\n";
+    print "ok 6\n";
 
     print "content=`", $response->content, "'\n";
 

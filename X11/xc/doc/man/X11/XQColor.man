@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XQColor.man,v 1.4 2001/02/09 03:47:46 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XQColor.man,v 1.5 2003/04/28 22:17:56 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,44 +144,19 @@
 .SH NAME
 XQueryColor, XQueryColors, XLookupColor, XParseColor \- obtain color values
 .SH SYNTAX
-XQueryColor\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \fIdef_in_out\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      XColor *\fIdef_in_out\fP\^;
-.LP
-XQueryColors\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \fIdefs_in_out\fP\^, \fIncolors\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      XColor \fIdefs_in_out\fP[\^]\^;
-.br
-      int \fIncolors\fP\^;
-.LP
-Status XLookupColor\^(\^\fIdisplay\fP, \fIcolormap\fP, \fIcolor_name\fP,
-\fIexact_def_return\fP\^, \fIscreen_def_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      char *\fIcolor_name\fP\^;
-.br
-      XColor *\fIexact_def_return\fP\^, *\fIscreen_def_return\fP\^;
-.LP
-Status XParseColor\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \^\fIspec\fP\^, \fIexact_def_return\fP\^)
-.br
-        Display *\fIdisplay\fP\^;
-.br
-        Colormap \fIcolormap\fP\^;
-.br
-        char *\fIspec\fP\^;
-.br
-        XColor *\fIexact_def_return\fP\^;
+.HP
+int XQueryColor\^(\^Display *\fIdisplay\fP\^, Colormap \fIcolormap\fP\^, XColor
+*\fIdef_in_out\fP\^); 
+.HP
+int XQueryColors\^(\^Display *\fIdisplay\fP\^, Colormap \fIcolormap\fP\^,
+XColor \fIdefs_in_out\fP[\^]\^, int \fIncolors\fP\^); 
+.HP
+Status XLookupColor\^(\^Display *\fIdisplay\fP\^, Colormap \fIcolormap\fP\^,
+char *\fIcolor_name\fP\^, XColor *\fIexact_def_return\fP\^, XColor
+*\fIscreen_def_return\fP\^); 
+.HP
+Status XParseColor\^(\^Display *\fIdisplay\fP\^, Colormap \fIcolormap\fP\^,
+char *\fIspec\fP\^, XColor *\fIexact_def_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIcolormap\fP 1i
 Specifies the colormap.

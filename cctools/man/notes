@@ -2,6 +2,14 @@ TODO:
 - Add -v description to checksyms.
 - The 4.4bsd a.out(5) man page is wrong for Rhapsody.
 
+Changes for the 5.17 release (the cctools-576 release):
+- Picked up changes to ld(1) man page noting 64-bit differences. Radar bug
+  #3853561.
+
+Changes for the 5.17 release (the cctools-575 release):
+- Added a note in the as(1) and ld(1) man pages for -force_cpusubtype_ALL that
+  this is the default for x86 architecures.  Radar bug #4002758 and #4002756.
+
 Changes for the 5.17 release (the cctools-572 release):
 - Removed the references to  VAX and Mips from the lipo(1) man page. Radar bug
   #4007112.

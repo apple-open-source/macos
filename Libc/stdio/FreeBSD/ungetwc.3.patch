@@ -1,0 +1,47 @@
+--- ungetwc.3.orig	Fri Mar 11 11:54:47 2005
++++ ungetwc.3	Fri Mar 11 11:55:38 2005
+@@ -42,7 +42,8 @@
+ .Dt UNGETWC 3
+ .Os
+ .Sh NAME
+-.Nm ungetwc
++.Nm ungetwc ,
++.Nm ungetwc_l
+ .Nd un-get wide character from input stream
+ .Sh LIBRARY
+ .Lb libc
+@@ -51,6 +52,9 @@
+ .In wchar.h
+ .Ft wint_t
+ .Fn ungetwc "wint_t wc" "FILE *stream"
++.In xlocale.h
++.Ft wint_t
++.Fn ungetwc_l "wint_t wc" "FILE *stream" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn ungetwc
+@@ -76,6 +80,14 @@
+ .Pp
+ If a character is successfully pushed-back,
+ the end-of-file indicator for the stream is cleared.
++.Pp
++While the
++.Fn ungetwc
++function uses the current locale, the
++.Fn ungetwc_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn ungetwc
+@@ -91,7 +103,8 @@
+ the operation will fail and the stream will remain unchanged.
+ .Sh SEE ALSO
+ .Xr fseek 3 ,
+-.Xr getwc 3
++.Xr getwc 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn ungetwc

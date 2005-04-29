@@ -27,12 +27,12 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/write.h,v 1.9 2002/12/04 05:27:59 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/write.h,v 1.10 2003/04/27 18:17:35 tsi Exp $ */
 
 #ifndef Lisp_write_h
 #define Lisp_write_h
 
-#include "io.h"
+#include "lisp/io.h"
 
 /*
  * Prototypes

@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/font/FreeType/Imakefile,v 1.24 2003/01/01 22:08:40 torrey Exp $
+XCOMM $XFree86: xc/lib/font/FreeType/Imakefile,v 1.31 2003/11/20 22:36:34 dawes Exp $
 
 #if BuildServer && DoLoadableServer
 #define IHaveSubdirs
@@ -7,41 +7,18 @@ XCOMM $XFree86: xc/lib/font/FreeType/Imakefile,v 1.24 2003/01/01 22:08:40 torrey
 SUBDIRS = module
 #endif
 
-DEFINES = ServerExtraDefines StrcasecmpDefines
-
-#if FontLibSharedFreeType
-FT2INCS = -I$(FREETYPE2INCDIR) -I$(FREETYPE2INCDIR)/include
-#else
+DEFINES = ServerExtraDefines StrcasecmpDefines Freetype2BuildDefines \
+	  -DXFREE86_FT2
 
 FT2SOURCEDIR = $(TOP)/extras/freetype2/src
-FT2INCDIR = $(TOP)/extras/freetype2/include
+FT2INCS = $(FREETYPE2INCLUDES)
 
-FT2INCS =  -I$(FT2INCDIR) \
-           -I$(FT2SOURCEDIR)/base \
-           -I$(FT2SOURCEDIR)/raster \
-           -I$(FT2SOURCEDIR)/sfnt \
-           -I$(FT2SOURCEDIR)/truetype \
-           -I$(FT2SOURCEDIR)/cff \
-           -I$(FT2SOURCEDIR)/type1 \
-           -I$(FT2SOURCEDIR)/psaux \
-           -I$(FT2SOURCEDIR)/psnames \
-           -I$(FT2SOURCEDIR)/pshinter \
-           -I$(FT2SOURCEDIR)/autohint
+INCLUDES = $(FT2INCS) -I. -I$(FONTINCSRC) -I../include -I$(XINCLUDESRC) \
+           -I$(SERVERSRC)/include -I$(FT2SOURCEDIR)/truetype \
+           -I$(INCLUDESRC)
 
-FT2SRCS = ftbase.c ftinit.c ftglyph.c ftsystem.c fttype1.c ftxf86.c \
-          raster.c sfnt.c truetype.c cff.c type1.c \
-          psaux.c psnames.c pshinter.c  autohint.c
-
-FT2OBJS = ftbase.o ftinit.o ftglyph.o ftsystem.o fttype1.o ftxf86.o \
-          raster.o sfnt.o truetype.o cff.o type1.o \
-          psaux.o psnames.o pshinter.o autohint.o
-#endif
-
-INCLUDES = -I. -I$(FONTINCSRC) -I../include -I$(XINCLUDESRC) \
-           -I$(SERVERSRC)/include $(FT2INCS) -I$(INCLUDESRC)
-
-SRCS = ftfuncs.c ftenc.c fttools.c $(FT2SRCS)
-OBJS = ftfuncs.o ftenc.o fttools.o $(FT2OBJS)
+SRCS = xttcap.c ftfuncs.c ftenc.c fttools.c
+OBJS = xttcap.o ftfuncs.o ftenc.o fttools.o
 
 #if BuildFontLib
 #define DoNormalLib NormalLibFont
@@ -53,25 +30,6 @@ LibraryObjectRule()
 
 SubdirLibraryRule($(OBJS))
 NormalLintTarget($(SRCS))
-
-#if !FontLibSharedFreeType
-LinkSourceFile(ftbase.c,$(FT2SOURCEDIR)/base)
-LinkSourceFile(ftinit.c,$(FT2SOURCEDIR)/base)
-LinkSourceFile(ftglyph.c,$(FT2SOURCEDIR)/base)
-/* LinkSourceFile(ftsystem.c,$(FT2SOURCEDIR)/base) */
-LinkSourceFile(ftutil.c,$(FT2SOURCEDIR)/base)
-LinkSourceFile(fttype1.c,$(FT2SOURCEDIR)/base)
-LinkSourceFile(ftxf86.c,$(FT2SOURCEDIR)/base)
-LinkSourceFile(raster.c,$(FT2SOURCEDIR)/raster)
-LinkSourceFile(sfnt.c,$(FT2SOURCEDIR)/sfnt)
-LinkSourceFile(truetype.c,$(FT2SOURCEDIR)/truetype)
-LinkSourceFile(cff.c,$(FT2SOURCEDIR)/cff)
-LinkSourceFile(type1.c,$(FT2SOURCEDIR)/type1)
-LinkSourceFile(psaux.c,$(FT2SOURCEDIR)/psaux)
-LinkSourceFile(psnames.c,$(FT2SOURCEDIR)/psnames)
-LinkSourceFile(pshinter.c,$(FT2SOURCEDIR)/pshinter)
-LinkSourceFile(autohint.c,$(FT2SOURCEDIR)/autohint)
-#endif
 
 #endif
 

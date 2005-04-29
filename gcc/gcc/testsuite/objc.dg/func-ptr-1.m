@@ -1,4 +1,3 @@
-/* APPLE LOCAL file objc test suite */
 /* Test for handling of function pointer ivars */
 /* { dg-do run } */
 

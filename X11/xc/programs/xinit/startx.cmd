@@ -1,5 +1,5 @@
 /* OS/2 REXX */
-/* $XFree86: xc/programs/xinit/startx.cmd,v 3.3 1996/10/17 15:23:47 dawes Exp $
+/* $XFree86: xc/programs/xinit/startx.cmd,v 3.4 2003/11/12 00:10:31 dawes Exp $
  * 
  * This is just a sample implementation of a slightly less primitive 
  * interface than xinit.  It looks for user xinitrc.cmd and xservrc.cmd
@@ -31,8 +31,8 @@ END
 
 userclientrc = home'\xinitrc.cmd'
 userserverrc = home'\xservrc.cmd'
-sysclientrc  = x11root'\XFree86\lib\X11\xinit\xinitrc.cmd'
-sysserverrc  = x11root'\XFree86\lib\X11\xinit\xservrc.cmd'
+sysclientrc  = x11root'\usr\X11R6\lib\X11\xinit\xinitrc.cmd'
+sysserverrc  = x11root'\usr\X11R6\lib\X11\xinit\xservrc.cmd'
 clientargs   = ''
 serverargs   = ''
 
@@ -69,7 +69,7 @@ DO i=1 TO WORDS(all)
 		serverargs = serverargs' 'cur
 END
 
-xinit = x11root'\XFree86\bin\xinit'
+xinit = x11root'\usr\X11R6\bin\xinit'
 xinit os_shell' /c 'clientargs' -- 'serverargs
 
 RETURN

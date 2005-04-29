@@ -1,0 +1,81 @@
+Return-Path: localhost!smtp_client
+Return-Path: <smtp_client@localhost>
+X-POP3-Rcpt: a.kupries@genesis
+Received: from mailhost.kisters.de (root@[193.23.163.143]) by genesis.westend.com (8.7.5/8.7.3) with SMTP id KAA12661 for <a.kupries@westend.com>; Tue, 17 Dec 1996 10:13:46 +0100 (MET)
+Received: from ramazotti by mailhost.kisters.de with smtp
+	(Smail3.1.29.1 #3) id m0vZwTF-000BsgC; Tue, 17 Dec 96 11:09 MET
+Date: Tue, 17 Dec 1996 10:09:46 +0100 (MET)
+From: Andreas Kupries <aku@kisters.de>
+X-Sender: aku@ramazotti
+To: nijtmans@ergolab4.psych.kun.nl
+cc: Andreas Kupries <a.kupries@westend.com>
+Subject: Re: Trf, loading on demand
+In-Reply-To: <199612170823.JAA06772@ergolab4.psych.kun.nl>
+Message-ID: <Pine.ULT.3.91.961217095540.1348G-100000@ramazotti>
+MIME-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+
+On Tue, 17 Dec 1996 nijtmans@ergolab4.psych.kun.nl wrote:
+
+> ----------
+> X-Sun-Data-Type: text
+> X-Sun-Data-Description: text
+> X-Sun-Data-Name: text
+> X-Sun-Charset: us-ascii
+> X-Sun-Content-Lines: 28
+> 
+> 
+> Two other small problem with tclLoadAout.c:
+> 
+> The z library should be compiled with the option "-G 0" and
+> it needs a special header for the symbols to be resolved.
+> The tclLdAout script cannot be used for that because it
+> doesn't know which symbols should be exported.
+> 
+> Below is a Makefile for zlib-1.0.4 and a new file zsymbols.c
+> which should be added. Two files libz.a and libz..o will
+> be produced, which both can be dynamically loaded (I am
+> planning to suggest to John Ousterhout to change the
+> suffix for loadable libraries to ".a" in stead of "..o"
+> for Ultrix).
+> 
+> Another problem is that the full pathname should be specified
+> for zlib when compiling Trf (in zip.c):
+> 
+> 	Z_LIB_NAME="/usr/local/lib/libz.a"	(or libz..o)
+> 
+> You see, still very tricky on Ultrix, but I managed to get
+> it working :-)
+> 
+
+Hello Jan,
+
+thanks for both mails. I'll try them about noon today.
+
+BTW,
+I loaded the current version of trf (1.0a3), i.e. the one I am wrestling 
+with, to ftp://ftp.nici.kun.nl/pub/incoming. zlib- and 
+libdes-distributions too.
+
+Known problems:
+-	It contains the problematic tclLdAout.c
+-	There are some 'char*' / 'unsigned char*'
+	conflicts (found today on ultrix, mainly registry.c)
+
+Special feature:
+	make-targets	'zlib', 'libdes'
+	These use the information from configure to build shared 
+	libraries for zlib 1.0.4, libdes 3.23.
+
+	In the light of your second mail, they probably will fail to get it 
+	right on ultrix, but maybe zsymbols.c will help here too.
+
+Sincerely
+	Andreas Kupries <aku@kisters.de>
+                        <a.kupries@westend.com> (private)
+----------------------------------------+--------------------------------------
+Don't believe that I'm speaking		| pgp-key:	via keyserver
+for my employer, not even if the	| finger print: 3E C8 C9 6B 2A EC 05 B1
+contrary is stated in message above	|		EE 49 15 0B 62 DC 23 06
+----------------------------------------+--------------------------------------
+

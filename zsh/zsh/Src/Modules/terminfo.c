@@ -29,12 +29,18 @@
 
 #define USES_TERM_H 1
 #include "terminfo.mdh"
-#include "terminfo.pro"
 
+#if defined(HAVE_TIGETFLAG) && defined(HAVE_CURSES_H)
+# define USE_TERMINFO_MODULE 1
+#else
+# undef USE_TERMINFO_MODULE
+#endif
+
+#include "terminfo.pro"
 static char terminfo_nam[] = "terminfo";
 
 /**/
-#ifdef HAVE_TIGETSTR
+#ifdef USE_TERMINFO_MODULE
 
 /* The following two undefs are needed for Solaris 2.6 */
 # ifdef VINTR
@@ -44,9 +50,7 @@ static char terminfo_nam[] = "terminfo";
 #  undef offsetof
 # endif
 
-# ifdef HAVE_CURSES_H
-#  include <curses.h>
-# endif
+# include <curses.h>
 # ifdef HAVE_TERM_H
 #  include <term.h>
 # endif
@@ -57,10 +61,12 @@ static Param terminfo_pm;
 
 /**/
 static int
-bin_echoti(char *name, char **argv, Options ops, int func)
+bin_echoti(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 {
-    char *s, *t, *u;
-    int num, argct;
+    char *s, *t, **u;
+    int arg, num, strarg = 0;
+    long pars[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    char *strcap[] = { "pfkey", "pfloc", "pfx", "pln", "pfxl", NULL };
 
     s = *argv++;
     /* This depends on the termcap stuff in init.c */
@@ -92,44 +98,48 @@ bin_echoti(char *name, char **argv, Options ops, int func)
 	zwarnnam(name, "no such terminfo capability: %s", s, 0);
 	return 1;
     }
-    /* count the number of arguments required */
-    for (argct = 0, u = t; *u; u++)
-        if (*u == '%') {
-            if (u++, (*u == 'd' || *u == '2' || *u == '3' || *u == '.' ||
-                      *u == '+'))
-                argct++;
-        }
-    /* check that the number of arguments provided is correct */
-    if (arrlen(argv) != argct) {
-        zwarnnam(name, (arrlen(argv) < argct) ? "not enough arguments" :
-                 "too many arguments", NULL, 0);
+    /* check that the number of arguments provided is not too high */
+    if (arrlen(argv) > 9) {
+        zwarnnam(name, "too many arguments", NULL, 0);
         return 1;
     }
+
+    /* check if we have a capability taking non-integers for parameters */
+    for (u = strcap; *u && !strarg; u++)
+      strarg = !strcmp(s, *u);
+
+    /* get the arguments */
+    for (arg=0; argv[arg]; arg++) {
+	if (strarg && arg > 0)
+            pars[arg] = (long) argv[arg];
+	else
+            pars[arg] = atoi(argv[arg]);
+    }
+
     /* output string, through the proper termcap functions */
-    if (!argct)
-        tputs(t, 1, putraw);
+    if (!arg)
+        putp(t);
     else {
-        num = (argv[1]) ? atoi(argv[1]) : atoi(*argv);
-        tputs(tparm(t, atoi(*argv)), num, putraw);
+        putp(tparm(t, pars[0], pars[1], pars[2], pars[3], pars[4],
+	              pars[5], pars[6], pars[7], pars[8]));
     }
     return 0;
-
 }
 
 /**/
-#else /* !HAVE_TIGETSTR */
+#else /* !USE_TERMINFO_MODULE */
 
 #define bin_echoti bin_notavail
 
 /**/
-#endif /* !HAVE_TIGETSTR */
+#endif /* !USE_TERMINFO_MODULE */
 
 static struct builtin bintab[] = {
     BUILTIN("echoti", 0, bin_echoti, 1, -1, 0, NULL, NULL),
 };
 
 /**/
-#ifdef HAVE_TIGETSTR
+#ifdef USE_TERMINFO_MODULE
 
 /* Empty dummy function for special hash parameters. */
 
@@ -155,9 +165,7 @@ createtihash()
 	return NULL;
 
     pm->level = pm->old ? locallevel : 0;
-    pm->gets.hfn = hashgetfn;
-    pm->sets.hfn = hashsetfn;
-    pm->unsetfn = stdunsetfn;
+    pm->gsu.h = &stdhash_gsu;
     pm->u.hash = ht = newhashtable(7, terminfo_nam, NULL);
 
     ht->hash        = hasher;
@@ -177,7 +185,7 @@ createtihash()
 
 /**/
 static HashNode
-getterminfo(HashTable ht, char *name)
+getterminfo(UNUSED(HashTable ht), char *name)
 {
     int len, num;
     char *tistr;
@@ -191,49 +199,39 @@ getterminfo(HashTable ht, char *name)
 
     unmetafy(name, &len);
 
-    pm = (Param) zhalloc(sizeof(struct param));
+    pm = (Param) hcalloc(sizeof(struct param));
     pm->nam = dupstring(name);
     pm->flags = PM_READONLY;
-    pm->unsetfn = NULL;
-    pm->ct = 0;
-    pm->env = NULL;
-    pm->ename = NULL;
-    pm->old = NULL;
-    pm->level = 0;
 
     if (((num = tigetnum(name)) != -1) && (num != -2)) {
 	pm->u.val = num;
 	pm->flags |= PM_INTEGER;
-	pm->sets.ifn = NULL;
-	pm->gets.ifn = intgetfn;
+	pm->gsu.i = &nullsetinteger_gsu;
     }
     else if ((num = tigetflag(name)) != -1) {
 	pm->u.str = num ? dupstring("yes") : dupstring("no");
 	pm->flags |= PM_SCALAR;
-        pm->sets.cfn = NULL;
-        pm->gets.cfn = strgetfn;
+	pm->gsu.s = &nullsetscalar_gsu;
     }
     else if ((tistr = (char *)tigetstr(name)) != NULL && tistr != (char *)-1)
     {
 	pm->u.str = dupstring(tistr);
 	pm->flags |= PM_SCALAR;
-        pm->sets.cfn = NULL;
-        pm->gets.cfn = strgetfn;
+	pm->gsu.s = &nullsetscalar_gsu;
     }
     else
     {
 	/* zwarn("no such capability: %s", name, 0); */
 	pm->u.str = dupstring("");
 	pm->flags |= PM_UNSET;
-        pm->sets.cfn = NULL;
-        pm->gets.cfn = strgetfn;
+	pm->gsu.s = &nullsetscalar_gsu;
     }
     return (HashNode) pm;
 }
 
 /**/
 static void
-scanterminfo(HashTable ht, ScanFunc func, int flags)
+scanterminfo(UNUSED(HashTable ht), ScanFunc func, int flags)
 {
     Param pm = NULL;
     int num;
@@ -309,16 +307,10 @@ scanterminfo(HashTable ht, ScanFunc func, int flags)
 	"slength", NULL};
 #endif
 
-    pm = (Param) zhalloc(sizeof(struct param));
-    pm->unsetfn = NULL;
-    pm->ct = 0;
-    pm->env = NULL;
-    pm->ename = NULL;
-    pm->old = NULL;
-    
+    pm = (Param) hcalloc(sizeof(struct param));
+
     pm->flags = PM_READONLY | PM_SCALAR;
-    pm->sets.cfn = NULL;
-    pm->gets.cfn = strgetfn;
+    pm->gsu.s = &nullsetscalar_gsu;
 
     for (capname = (char **)boolnames; *capname; capname++) {
 	if ((num = tigetflag(*capname)) != -1) {
@@ -329,8 +321,7 @@ scanterminfo(HashTable ht, ScanFunc func, int flags)
     }
 
     pm->flags = PM_READONLY | PM_INTEGER;
-    pm->sets.ifn = NULL;
-    pm->gets.ifn = intgetfn;
+    pm->gsu.i = &nullsetinteger_gsu;
 
     for (capname = (char **)numnames; *capname; capname++) {
 	if (((num = tigetnum(*capname)) != -1) && (num != -2)) {
@@ -341,8 +332,7 @@ scanterminfo(HashTable ht, ScanFunc func, int flags)
     }
 
     pm->flags = PM_READONLY | PM_SCALAR;
-    pm->sets.cfn = NULL;
-    pm->gets.cfn = strgetfn;
+    pm->gsu.s = &nullsetscalar_gsu;
 
     for (capname = (char **)strnames; *capname; capname++) {
 	if ((tistr = (char *)tigetstr(*capname)) != NULL &&
@@ -355,11 +345,11 @@ scanterminfo(HashTable ht, ScanFunc func, int flags)
 }
 
 /**/
-#endif /* HAVE_TIGETSTR */
+#endif /* USE_TERMINFO_MODULE */
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
@@ -368,9 +358,12 @@ setup_(Module m)
 int
 boot_(Module m)
 {
-#ifdef HAVE_TIGETSTR
+#ifdef USE_TERMINFO_MODULE
 # ifdef HAVE_SETUPTERM
-    setupterm((char *)0, 1, (int *)0);
+    int errret;
+
+    if (setupterm((char *)0, 1, &errret) == ERR)
+	return 1;
 # endif
 
     if (!createtihash())
@@ -385,7 +378,7 @@ boot_(Module m)
 int
 cleanup_(Module m)
 {
-#ifdef HAVE_TIGETSTR
+#ifdef USE_TERMINFO_MODULE
     Param pm;
 
     if ((pm = (Param) paramtab->getnode(paramtab, terminfo_nam)) &&
@@ -400,7 +393,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

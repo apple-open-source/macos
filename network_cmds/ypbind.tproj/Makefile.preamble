@@ -19,7 +19,7 @@
 # Flags passed to compiler (in addition to -g, -O, etc)
 OTHER_CFLAGS = 
 # Flags passed to ld (in addition to -ObjC, etc.)
-OTHER_LDFLAGS =	
+OTHER_LDFLAGS =	-Wl,-bind_at_load
 # Flags passed to libtool when building libraries
 OTHER_LIBTOOL_FLAGS =
 # For ordering named sections on NEXTSTEP (see ld(1))

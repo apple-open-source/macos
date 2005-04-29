@@ -27,7 +27,7 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/modules/xaw.c,v 1.14 2002/11/23 08:26:52 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/modules/xaw.c,v 1.16 2003/04/27 18:17:37 tsi Exp $ */
 
 #include <stdlib.h>
 #include <X11/Intrinsic.h>
@@ -64,8 +64,8 @@
 #include <X11/Xaw/Tree.h>
 #include <X11/Xaw/Viewport.h>
 #include <X11/Vendor.h>
-#include "internal.h"
-#include "private.h"
+#include "lisp/internal.h"
+#include "lisp/private.h"
 
 /*
  * Types
@@ -318,7 +318,6 @@ Lisp_XawScrollbarCoerceToReal(LispBuiltin *builtin)
  xaw-scrollbar-coerce-to-real opaque
  */
 {
-    LispObj *result;
     float *floatp;
     double real;
 

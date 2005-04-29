@@ -1,0 +1,397 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">
+
+<HTML>
+<HEAD>
+  <TITLE>XOTcl - Documentation -- ./../library/store/Storage.xotcl</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="FFFFFF">
+  <h1>
+    <IMG SRC="./logo-100.jpg" ALT="./../library/store/Storage.xotcl" ALIGN="MIDDLE">
+  ./../library/store/Storage.xotcl</h1>
+  <HR>
+  <P>
+    <h2> Package/File Information </h2>
+    <b> Package provided: </b> xotcl::store 0.84
+    <BR>
+    <BR>
+    <b>Defined Objects/Classes: </b>
+    <UL>
+      <LI>
+        <A HREF="#Storage">
+          <em>Storage</em>:
+        </A>
+        <a href="#Storage-close">close</a>, <a href="#Storage-exists">exists</a>, <a href="#Storage-firstkey">firstkey</a>, <a href="#Storage-names">names</a>, <a href="#Storage-nextkey">nextkey</a>, <a href="#Storage-open">open</a>, <a href="#Storage-set">set</a>, <a href="#Storage-someNewChildStore">someNewChildStore</a>, <a href="#Storage-unset">unset</a>.
+        <BR>
+      </LI>
+    </UL>
+    <BR>
+    <b> Filename: </b>
+    <A HREF="./../library/store/Storage.xotcl">
+      ./../library/store/Storage.xotcl
+    </A>
+    <BR>
+    <BR>
+    <TABLE BORDER="0">
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Description:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+    Simple generic storage interface for hashtable-like (persistent)
+    storages. There are several different existing stores, including
+    a memory storage, a GDBM storage, a SDBM storage, and a 
+    TextFile storage.  
+  
+        </TD>
+      </TR>
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Date:</em>
+        </TD>
+        <TD VALIGN="top">
+           $Date: 01/03/23 21:55:32+01:00 $ 
+        </TD>
+      </TR>
+    </TABLE>
+    <BR>
+    <HR>
+    <P>
+      <A NAME="Storage">
+        
+      </A>
+      <h2> Class: <em> Storage </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b> Procs/Instprocs: </b> 
+      <a href="#Storage-close">close</a>, <a href="#Storage-exists">exists</a>, <a href="#Storage-firstkey">firstkey</a>, <a href="#Storage-names">names</a>, <a href="#Storage-nextkey">nextkey</a>, <a href="#Storage-open">open</a>, <a href="#Storage-set">set</a>, <a href="#Storage-someNewChildStore">someNewChildStore</a>, <a href="#Storage-unset">unset</a>.
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Abstract storage interface class (superclass of all storages).
+  
+          </TD>
+        </TR>
+      </TABLE>
+      <h3>Instprocs</h3>
+      <UL>
+        <LI>
+          <A NAME="Storage-open">
+            
+          </A>
+          <b>open </b>
+          <em>filename</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>filename</b>: database filename (or filename base, if more 
+            than one file has to be created)
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Each storage object represents exactly one database table. The db
+    has to be opened, before it can it used. If it is not opened all
+    other methods return errors.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                empty string
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Storage-close">
+            
+          </A>
+          <b>close </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Close associated database.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                empty string
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Storage-exists">
+            
+          </A>
+          <b>exists </b>
+          <em>key</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>key</b>: Key to be searched for.
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Search for a key whether it exists or not.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                1, if key exists in the database, otherwise 0
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Storage-set">
+            
+          </A>
+          <b>set </b>
+          <em>key</em>
+          <em>?value?</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>key</b>: Key to be set.
+            </TD>
+          </TR>
+          <TR VALIGN="top">
+            <TD VALIGN="top">
+              
+            </TD>
+            <TD VALIGN="top">
+              <b>?value?</b>: Optional value that might be set
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Set or query a database key in the same way as Tcl's set functions.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                Key value.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Storage-unset">
+            
+          </A>
+          <b>unset </b>
+          <em>key</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>key</b>: Key to be unset.
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Unset a database key in the same way as Tcl's unset functions.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                empty string
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Storage-names">
+            
+          </A>
+          <b>names </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Return a list of keys in the database (functions in the same 
+    way as Tcl's array names)
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                List of keys in the db.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Storage-firstkey">
+            
+          </A>
+          <b>firstkey </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Start a traversal of the database, starting with any key.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                Name of first key.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Storage-nextkey">
+            
+          </A>
+          <b>nextkey </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Proceed with the db traversal. Requires a firstkey before
+    first usage, otherwise it returns an error.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                Name of next key, if one exists. Otherwise an empty string is returned.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+      <h3>Procs</h3>
+      <UL>
+        <LI>
+          <A NAME="Storage-someNewChildStore">
+            
+          </A>
+          <b>someNewChildStore </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Create a childStore according to a preference list depending on
+    which storages are available. Currently the preference list has
+    the following order: Gdbm, Sdbm and TextFile.
+  
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                name of the created storage object.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <BR>
+  </P>
+  <HR>
+  <P>
+  </P>
+  <A HREF="./index.html">
+    Back to index page.
+  </A>
+  <BR>
+  <HR>
+  <P>
+  </P>
+</BODY>
+</HTML>
+

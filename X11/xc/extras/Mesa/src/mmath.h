@@ -1,9 +1,8 @@
-
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  5.0.2
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,6 +21,7 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+/* $XFree86: xc/extras/Mesa/src/mmath.h,v 1.22 2003/10/22 15:44:41 tsi Exp $ */
 
 
 /*
@@ -36,6 +36,7 @@
 
 
 #include "glheader.h"
+#include "imports.h"
 /* Do not reference mtypes.h from this file.
  */
 
@@ -132,7 +133,7 @@ __inline END_FAST_MATH(unsigned short x)
 #define HAVE_FAST_MATH
 
 #else
-#define START_FAST_MATH(x) (void)(x)
+#define START_FAST_MATH(x) x = 0
 #define END_FAST_MATH(x)   (void)(x)
 
 /* The mac float really is a float, with the same precision as a
@@ -168,12 +169,12 @@ extern float gl_sqrt(float x);
  */
 #define NORMALIZE_3FV( V )			\
 do {						\
-   GLfloat len = LEN_SQUARED_3FV(V);		\
+   GLfloat len = (GLfloat) LEN_SQUARED_3FV(V);	\
    if (len) {					\
       len = (GLfloat) (1.0 / GL_SQRT(len));	\
-      (V)[0] = (GLfloat) ((V)[0] * len);		\
-      (V)[1] = (GLfloat) ((V)[1] * len);		\
-      (V)[2] = (GLfloat) ((V)[2] * len);		\
+      (V)[0] = (GLfloat) ((V)[0] * len);	\
+      (V)[1] = (GLfloat) ((V)[1] * len);	\
+      (V)[2] = (GLfloat) ((V)[2] * len);	\
    }						\
 } while(0)
 
@@ -187,19 +188,24 @@ do {						\
 /*
  * Single precision ceiling, floor, and absolute value functions
  */
-#if defined(__sparc__) /* XXX this probably isn't the ideal test */
-#define CEILF(x)   ceil(x)
-#define FLOORF(x)  floor(x)
-#define FABSF(x)   fabs(x)
-#else
+#if defined(XFree86LOADER) && defined(IN_MODULE)
+#define CEILF(x)   ((GLfloat) xf86ceil(x))
+#define FLOORF(x)  ((GLfloat) xf86floor(x))
+#define FABSF(x)   ((GLfloat) xf86fabs(x))
+#elif defined(__gnu_linux__)
+/* C99 functions */
 #define CEILF(x)   ceilf(x)
 #define FLOORF(x)  floorf(x)
 #define FABSF(x)   fabsf(x)
+#else
+#define CEILF(x)   ((GLfloat) ceil(x))
+#define FLOORF(x)  ((GLfloat) floor(x))
+#define FABSF(x)   ((GLfloat) fabs(x))
 #endif
 
 
 #if defined(__i386__) || defined(__sparc__) || defined(__s390x__) || \
-    defined(__powerpc__) || defined(__x86_64__) || \
+    defined(__powerpc__) || defined(__AMD64__) || \
     ( defined(__alpha__) && ( defined(__IEEE_FLOAT) || !defined(VMS) ) )
 #define USE_IEEE
 #endif
@@ -395,29 +401,29 @@ static INLINE int iceil(float f)
  * This function/macro is sensitive to precision.  Test carefully
  * if you change it.
  */
-#define UNCLAMPED_FLOAT_TO_UBYTE(b, f)					\
+#define UNCLAMPED_FLOAT_TO_UBYTE(ub, f)					\
         do {								\
            union { GLfloat r; GLuint i; } __tmp;			\
            __tmp.r = (f);						\
-           b = ((__tmp.i >= IEEE_0996)				\
+           ub = ((__tmp.i >= IEEE_0996)					\
                ? ((GLint)__tmp.i < 0) ? (GLubyte)0 : (GLubyte)255	\
                : (__tmp.r = __tmp.r*(255.0F/256.0F) + 32768.0F,		\
                   (GLubyte)__tmp.i));					\
         } while (0)
 
-#define CLAMPED_FLOAT_TO_UBYTE(b, f) \
-        UNCLAMPED_FLOAT_TO_UBYTE(b, f)
+#define CLAMPED_FLOAT_TO_UBYTE(ub, f) \
+        UNCLAMPED_FLOAT_TO_UBYTE(ub, f)
 
 #define COPY_FLOAT( dst, src )					\
 	((fi_type *) &(dst))->i = ((fi_type *) &(src))->i
 
 #else /* USE_IEEE */
 
-#define UNCLAMPED_FLOAT_TO_UBYTE(b, f) \
-	b = ((GLubyte) IROUND(CLAMP(f, 0.0F, 1.0F) * 255.0F))
+#define UNCLAMPED_FLOAT_TO_UBYTE(ub, f) \
+	ub = ((GLubyte) IROUND(CLAMP((f), 0.0F, 1.0F) * 255.0F))
 
-#define CLAMPED_FLOAT_TO_UBYTE(b, f) \
-	b = ((GLubyte) IROUND((f) * 255.0F))
+#define CLAMPED_FLOAT_TO_UBYTE(ub, f) \
+	ub = ((GLubyte) IROUND((f) * 255.0F))
 
 #define COPY_FLOAT( dst, src )		(dst) = (src)
 
@@ -488,7 +494,10 @@ extern float _mesa_ubyte_to_float_color_tab[256];
 #define SHORT_TO_USHORT(s) ((s) < 0 ? 0 : ((GLushort) (((s) * 65535 / 32767))))
 #define INT_TO_USHORT(i)   ((i) < 0 ? 0 : ((GLushort) ((i) >> 15)))
 #define UINT_TO_USHORT(i)  ((i) < 0 ? 0 : ((GLushort) ((i) >> 16)))
-#define UNCLAMPED_FLOAT_TO_USHORT(us, f)   us = (GLushort) ((f) * 65535.0F)
+#define UNCLAMPED_FLOAT_TO_USHORT(us, f)  \
+        us = ( (GLushort) IROUND( CLAMP((f), 0.0, 1.0) * 65535.0F) )
+#define CLAMPED_FLOAT_TO_USHORT(us, f)  \
+        us = ( (GLushort) IROUND( (f) * 65535.0F) )
 
 
 
@@ -518,24 +527,24 @@ do {						\
 } while (0)
 
 #define INTERP_UI( t, dstui, outui, inui )	\
-   dstui = (GLuint) (GLint) LINTERP( t, (GLfloat) (outui), (GLfloat) (inui) )
+   dstui = (GLuint) (GLint) LINTERP( (t), (GLfloat) (outui), (GLfloat) (inui) )
 
 #define INTERP_F( t, dstf, outf, inf )		\
    dstf = LINTERP( t, outf, inf )
 
-#define INTERP_4F( t, dst, out, in )			\
-do {							\
-   (dst)[0] = LINTERP( (t), (out)[0], (in)[0] );	\
-   (dst)[1] = LINTERP( (t), (out)[1], (in)[1] );	\
-   (dst)[2] = LINTERP( (t), (out)[2], (in)[2] );	\
-   (dst)[3] = LINTERP( (t), (out)[3], (in)[3] );	\
+#define INTERP_4F( t, dst, out, in )		\
+do {						\
+   dst[0] = LINTERP( (t), (out)[0], (in)[0] );	\
+   dst[1] = LINTERP( (t), (out)[1], (in)[1] );	\
+   dst[2] = LINTERP( (t), (out)[2], (in)[2] );	\
+   dst[3] = LINTERP( (t), (out)[3], (in)[3] );	\
 } while (0)
 
-#define INTERP_3F( t, dst, out, in )			\
-do {							\
-   (dst)[0] = LINTERP( (t), (out)[0], (in)[0] );	\
-   (dst)[1] = LINTERP( (t), (out)[1], (in)[1] );	\
-   (dst)[2] = LINTERP( (t), (out)[2], (in)[2] );	\
+#define INTERP_3F( t, dst, out, in )		\
+do {						\
+   dst[0] = LINTERP( (t), (out)[0], (in)[0] );	\
+   dst[1] = LINTERP( (t), (out)[1], (in)[1] );	\
+   dst[2] = LINTERP( (t), (out)[2], (in)[2] );	\
 } while (0)
 
 #define INTERP_4CHAN( t, dst, out, in )			\
@@ -554,12 +563,12 @@ do {							\
 } while (0)
 
 #define INTERP_SZ( t, vec, to, out, in, sz )				\
-do {							       		\
+do {									\
    switch (sz) {							\
-   case 4: (vec)[to][3] = LINTERP( (t), (vec)[out][3], (vec)[in][3] );	\
-   case 3: (vec)[to][2] = LINTERP( (t), (vec)[out][2], (vec)[in][2] );	\
-   case 2: (vec)[to][1] = LINTERP( (t), (vec)[out][1], (vec)[in][1] );	\
-   case 1: (vec)[to][0] = LINTERP( (t), (vec)[out][0], (vec)[in][0] );	\
+   case 4: vec[to][3] = LINTERP( (t), (vec)[out][3], (vec)[in][3] );	\
+   case 3: vec[to][2] = LINTERP( (t), (vec)[out][2], (vec)[in][2] );	\
+   case 2: vec[to][1] = LINTERP( (t), (vec)[out][1], (vec)[in][1] );	\
+   case 1: vec[to][0] = LINTERP( (t), (vec)[out][0], (vec)[in][0] );	\
    }									\
 } while(0)
 
@@ -567,13 +576,21 @@ do {							       		\
 /*
  * Fixed point arithmetic macros
  */
+#ifdef FIXED_14
+#define FIXED_ONE       0x00004000
+#define FIXED_HALF      0x00002000
+#define FIXED_FRAC_MASK 0x00003FFF
+#define FIXED_SCALE     16384.0f
+#define FIXED_SHIFT     14
+#else
 #define FIXED_ONE       0x00000800
 #define FIXED_HALF      0x00000400
 #define FIXED_FRAC_MASK 0x000007FF
-#define FIXED_INT_MASK  (~FIXED_FRAC_MASK)
-#define FIXED_EPSILON   1
 #define FIXED_SCALE     2048.0f
 #define FIXED_SHIFT     11
+#endif
+#define FIXED_INT_MASK  (~FIXED_FRAC_MASK)
+#define FIXED_EPSILON   1
 #define FloatToFixed(X) (IROUND((X) * FIXED_SCALE))
 #define IntToFixed(I)   ((I) << FIXED_SHIFT)
 #define FixedToInt(X)   ((X) >> FIXED_SHIFT)
@@ -584,17 +601,71 @@ do {							       		\
 #define PosFloatToFixed(X)      FloatToFixed(X)
 #define SignedFloatToFixed(X)   FloatToFixed(X)
 
-#ifdef USE_IEEE
 /* Returns TRUE for x == Inf or x == NaN. */
+#ifdef USE_IEEE
 static INLINE int IS_INF_OR_NAN( float x )
 {
    union {float f; int i;} tmp;
    tmp.f = x;
    return !(int)((unsigned int)((tmp.i & 0x7fffffff)-0x7f800000) >> 31);
 }
+#elif defined(isfinite)
+#define IS_INF_OR_NAN(x)        (!isfinite(x))
+#elif defined(finite)
+#define IS_INF_OR_NAN(x)        (!finite(x))
+#elif __VMS
+#define IS_INF_OR_NAN(x)        (!finite(x))
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#define IS_INF_OR_NAN(x)        (!isfinite(x))
 #else
-#define IS_INF_OR_NAN(x)        (!finite(x)) 
+#define IS_INF_OR_NAN(x)        (!finite(x))
+#endif 
+
+
+/*
+ * Return log_base_2(x).
+ */
+#ifdef USE_IEEE
+
+#if 0
+/* This is pretty fast, but not accurate enough (only 2 fractional bits).
+ * Based on code from http://www.stereopsis.com/log2.html
+ */
+static INLINE GLfloat LOG2(GLfloat x)
+{
+   const GLfloat y = x * x * x * x;
+   const GLuint ix = *((GLuint *) &y);
+   const GLuint exp = (ix >> 23) & 0xFF;
+   const GLint log2 = ((GLint) exp) - 127;
+   return (GLfloat) log2 * (1.0 / 4.0);  /* 4, because of x^4 above */
+}
 #endif
+
+/* Pretty fast, and accurate.
+ * Based on code from http://www.flipcode.com/totd/
+ */
+static INLINE GLfloat LOG2(GLfloat val)
+{
+   GLint *exp_ptr = (GLint *) &val;
+   GLint x = *exp_ptr;
+   const GLint log_2 = ((x >> 23) & 255) - 128;
+   x &= ~(255 << 23);
+   x += 127 << 23;
+   *exp_ptr = x;
+   val = ((-1.0f/3) * val + 2) * val - 2.0f/3;
+   return val + log_2;
+}
+
+#else /* USE_IEEE */
+
+/* Slow, portable solution.
+ * NOTE: log_base_2(x) = log(x) / log(2)
+ * NOTE: 1.442695 = 1/log(2).
+ */
+#define LOG2(x)  ((GLfloat) (log(x) * 1.442695F))
+
+#endif /* USE_IEEE */
+
 
 extern void
 _mesa_init_math(void);

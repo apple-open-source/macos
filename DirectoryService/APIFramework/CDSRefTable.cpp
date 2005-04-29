@@ -59,54 +59,8 @@ dsBool	gLogFWRefCalls = false;
 
 CDSRefTable::CDSRefTable ( RefFWDeallocateProc *deallocProc )
 {
-/*RCF
-	CFNumberRef				aPIDCount			= 0;
-	CFStringRef				aPIDString			= 0;
-	CFMutableArrayRef		aClientPIDArray;
-	uInt32					aCount				= 0;
-	CFMutableDictionaryRef	aPIDDict			= 0;
-
-	fSunsetTime = time( nil);
-	
-	fClientPIDListLock = new DSMutexSemaphore;
-	if (fClientPIDListLock != nil )
-	{
-		fClientPIDListLock->Wait();
-		if (fClientPIDList == nil)
-		{
-			fClientPIDList = CFDictionaryCreateMutable( kCFAllocatorDefault,
-														0,
-														&kCFTypeDictionaryKeyCallBacks,
-														&kCFTypeDictionaryValueCallBacks );
-														
-			aClientPIDArray = CFArrayCreateMutable( 	kCFAllocatorDefault,
-														0,
-														&kCFTypeArrayCallBacks);
-
-			aPIDString	= CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), getpid());
-
-			aPIDDict	= CFDictionaryCreateMutable(	kCFAllocatorDefault,
-														0,
-														&kCFTypeDictionaryKeyCallBacks,
-														&kCFTypeDictionaryValueCallBacks );
-														
-			aPIDCount	= CFNumberCreate(kCFAllocatorDefault,kCFNumberIntType,&aCount);
-			
-			CFDictionarySetValue( aPIDDict, CFSTR("RefCount"), aPIDCount );
-			CFDictionarySetValue( fClientPIDList, aPIDString, aPIDDict );
-			
-			CFArrayAppendValue(aClientPIDArray, aPIDString);
-			CFDictionarySetValue( fClientPIDList, CFSTR("ClientPIDArray"), (const void*)aClientPIDArray );
-
-			CFRelease(aPIDCount);
-			CFRelease(aPIDDict);
-			CFRelease(aClientPIDArray);
-			CFRelease(aPIDString);
-		}
-		fClientPIDListLock->Signal();		
-	}
-RCF */
 	fTableCount		= 0;
+	fRefCount		= 0;
 	::memset( fRefTables, 0, sizeof( fRefTables ) );
 
 	if ( gFWTableMutex == nil )
@@ -144,21 +98,6 @@ CDSRefTable::~CDSRefTable ( void )
 			fRefTables[ i ] = nil;
 		}
 	}
-
-/*RCF
-	if (fClientPIDListLock != nil)
-	{
-		fClientPIDListLock->Wait();
-		if (fClientPIDList != nil)
-		{
-			CFRelease(fClientPIDList);
-			fClientPIDList = 0;
-		}
-		fClientPIDListLock->Signal();
-		delete(fClientPIDListLock);
-		fClientPIDListLock = nil;
-	}
-RCF */
 
 	if ( gFWTableMutex != nil )
 	{
@@ -324,7 +263,7 @@ tDirStatus CDSRefTable::VerifyAttrValueRef (	tAttributeValueListRef	inAttributeV
 
 
 //------------------------------------------------------------------------------------
-//	* NewDirRef
+//	* NewDirRef (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::NewDirRef ( uInt32 *outNewRef, sInt32 inPID )
@@ -342,7 +281,7 @@ tDirStatus CDSRefTable::NewDirRef ( uInt32 *outNewRef, sInt32 inPID )
 
 
 //------------------------------------------------------------------------------------
-//	* NewNodeRef
+//	* NewNodeRef (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::NewNodeRef (	uInt32			*outNewRef,
@@ -362,7 +301,7 @@ tDirStatus CDSRefTable::NewNodeRef (	uInt32			*outNewRef,
 
 
 //------------------------------------------------------------------------------------
-//	* NewRecordRef
+//	* NewRecordRef (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::NewRecordRef (	uInt32			*outNewRef,
@@ -382,7 +321,7 @@ tDirStatus CDSRefTable::NewRecordRef (	uInt32			*outNewRef,
 
 
 //------------------------------------------------------------------------------------
-//	* NewAttrListRef
+//	* NewAttrListRef (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::NewAttrListRef (	uInt32			*outNewRef,
@@ -402,7 +341,7 @@ tDirStatus CDSRefTable::NewAttrListRef (	uInt32			*outNewRef,
 
 
 //------------------------------------------------------------------------------------
-//	* NewAttrValueRef
+//	* NewAttrValueRef (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::NewAttrValueRef (	uInt32			*outNewRef,
@@ -422,7 +361,7 @@ tDirStatus CDSRefTable::NewAttrValueRef (	uInt32			*outNewRef,
 
 
 //------------------------------------------------------------------------------------
-//	* RemoveDirRef
+//	* RemoveDirRef (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::RemoveDirRef ( uInt32 inDirRef, sInt32 inPID )
@@ -440,7 +379,7 @@ tDirStatus CDSRefTable::RemoveDirRef ( uInt32 inDirRef, sInt32 inPID )
 
 
 //------------------------------------------------------------------------------------
-//	* RemoveNodeRef
+//	* RemoveNodeRef (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::RemoveNodeRef ( uInt32 inNodeRef, sInt32 inPID )
@@ -458,7 +397,7 @@ tDirStatus CDSRefTable::RemoveNodeRef ( uInt32 inNodeRef, sInt32 inPID )
 
 
 //------------------------------------------------------------------------------------
-//	* RemoveRecordRef
+//	* RemoveRecordRef (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::RemoveRecordRef ( uInt32 inRecRef, sInt32 inPID )
@@ -476,7 +415,7 @@ tDirStatus CDSRefTable::RemoveRecordRef ( uInt32 inRecRef, sInt32 inPID )
 
 
 //------------------------------------------------------------------------------------
-//	* RemoveAttrListRef
+//	* RemoveAttrListRef (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::RemoveAttrListRef ( uInt32 inAttrListRef, sInt32 inPID )
@@ -494,7 +433,7 @@ tDirStatus CDSRefTable::RemoveAttrListRef ( uInt32 inAttrListRef, sInt32 inPID )
 
 
 //------------------------------------------------------------------------------------
-//	* RemoveAttrValueRef
+//	* RemoveAttrValueRef (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::RemoveAttrValueRef ( uInt32 inAttrValueRef, sInt32 inPID )
@@ -651,7 +590,6 @@ tDirStatus CDSRefTable::GetNewRef (	uInt32		   *outRef,
 	uInt32			uiCntr		= 0;
 	uInt32			uiSlot		= 0;
 	uInt32			uiTableNum	= 0;
-	uInt32			refCountUpdate	= 0;
 
 	gFWTableMutex->Wait();
 
@@ -708,17 +646,12 @@ tDirStatus CDSRefTable::GetNewRef (	uInt32		   *outRef,
 
 						// Up the item count
 						pCurTable->fItemCnt++;
+						
+						//keep track of the total ref count here
+						fRefCount++;
 
 						outResult = eDSNoErr;
 						done = true;
-						if (inType == eDirectoryRefType)
-						{
-							refCountUpdate = UpdateClientPIDRefCount(inPID, true, uiRefNum);
-						}
-						else
-						{
-							refCountUpdate = UpdateClientPIDRefCount(inPID, true);
-						}
 					}
 					uiCntr++;	//KW80 needed for us to only go through the table once
 								//ie the uiCntr does not get used directly BUT the uiRefNum gets
@@ -912,7 +845,6 @@ tDirStatus CDSRefTable::RemoveRef ( uInt32 inRefNum, uInt32 inType, sInt32 inPID
 	bool			doFree			= false;
 	sPIDFWInfo	   *pPIDInfo		= nil;
 	sPIDFWInfo	   *pPrevPIDInfo	= nil;
-	uInt32			refCountUpdate	= 0;
 
 
 	gFWTableMutex->Wait();
@@ -942,8 +874,6 @@ tDirStatus CDSRefTable::RemoveRef ( uInt32 inRefNum, uInt32 inType, sInt32 inPID
 
 			if ( pCurrRef->fChildren != nil )
 			{
-				// Its ok to keep the mutex when calling RemoveChildren, it also calls Wait but we are on the same thread
-// KA - Need to revisit, commenting these out seems to have caused a regression and more deadlocking.
 				gFWTableMutex->Signal();
 				RemoveChildren( pCurrRef->fChildren, inPID );
 				gFWTableMutex->Wait();
@@ -1006,8 +936,10 @@ tDirStatus CDSRefTable::RemoveRef ( uInt32 inRefNum, uInt32 inType, sInt32 inPID
 						pCurrRef = pTable->fTableData[ uiSlot ];
 						pTable->fTableData[ uiSlot ] = nil;
 						pTable->fItemCnt--;
-						//set counter even if plugin itself fails to cleanup ie. tracking the ds server ref counts here specifically
-						refCountUpdate = UpdateClientPIDRefCount(inPID, false);
+
+						//keep track of the total ref count here
+						fRefCount--;
+
 						if (fDeallocProc != nil)
 						{
 							// need to make sure we release the table mutex before the callback
@@ -1018,6 +950,17 @@ tDirStatus CDSRefTable::RemoveRef ( uInt32 inRefNum, uInt32 inType, sInt32 inPID
 							gFWTableMutex->Signal();
 							dsResult = (tDirStatus)(*fDeallocProc)(inRefNum, pCurrRef);
 							gFWTableMutex->Wait();
+						}
+						if ( (pCurrRef->fBufTag == 'DbgA') || (pCurrRef->fBufTag == 'DbgB') )
+						{
+							if (inType == eAttrListRefType)
+							{
+								syslog(LOG_CRIT, "DS:dsCloseAttributeList:CDSRefTable::RemoveAttrListRef ref = %d", inRefNum);
+							}
+							else if (inType == eAttrValueListRefType)
+							{
+								syslog(LOG_CRIT, "DS:dsCloseAttributeValueList:CDSRefTable::RemoveAttrValueRef ref = %d", inRefNum);
+							}
 						}
 						free(pCurrRef);
 						pCurrRef = nil;
@@ -1066,8 +1009,6 @@ void CDSRefTable::RemoveChildren ( sListFWInfo *inChildList, sInt32 inPID )
 			//remove ref if it matches the inPID
 			if ( pCurrChild->fPID == inPID )
 			{
-				// Its ok to keep the mutex when calling RemoveRef, it also calls Wait but we are on the same thread
-// KA - Need to revisit, commenting these out seems to have caused a regression and more deadlocking.
 				gFWTableMutex->Signal();
 				RemoveRef( pCurrChild->fRefNum, pCurrChild->fType, inPID );
 				gFWTableMutex->Wait();
@@ -1129,364 +1070,8 @@ tDirStatus CDSRefTable:: AddChildPIDToRef ( uInt32 inRefNum, uInt32 inParentPID,
 } // AddChildPIDToRef
 
 
-// ----------------------------------------------------------------------------
-//	* UpdateClientPIDRefCount()
-//
-// ----------------------------------------------------------------------------
-
-uInt32 CDSRefTable:: UpdateClientPIDRefCount ( sInt32 inClientPID, bool inUpRefCount, uInt32 inDirRef )
-{
-/*RCF
-	//if inUpRefCount is true then increment else decrement
-
-	CFNumberRef			aRefCount			= 0;
-	CFStringRef			aComparePIDString	= 0;
-	uInt32				aCount				= 0;
-	CFMutableDictionaryRef
-						aPIDDict			= 0;
-
-	//what to do here:
-	//lock list
-	//check if list not nil
-	//create compare pid string
-	//check if PID already in dict
-	//if in then get ref count and update
-	//if not in then add with ref count of one
-	//unlock list
-	
-   	fClientPIDListLock->Wait();
-   	if (fClientPIDList != nil)
-   	{
-   		aComparePIDString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), inClientPID);
-
-		//already have an entry
-		if ( CFDictionaryContainsKey( fClientPIDList, aComparePIDString ) )
-		{
-			aPIDDict	= (CFMutableDictionaryRef)CFDictionaryGetValue( fClientPIDList, aComparePIDString );
-			aRefCount	= (CFNumberRef)CFDictionaryGetValue( aPIDDict, CFSTR("RefCount") );
-   			CFNumberGetValue(aRefCount, kCFNumberIntType, &aCount);
-			if (inUpRefCount)
-			{
-				aCount++;
-				if (gLogFWRefCalls)
-				{
-					syslog(LOG_INFO,"Client PID: %d, has %d open references.", inClientPID, aCount);
-				}
-//				DBGLOG2( kLogHandler, "The client PID %d has %d open references.", inClientPID, aCount );
-			}
-			else
-			{
-				aCount--;
-				if (gLogFWRefCalls)
-				{
-					syslog(LOG_INFO,"Client PID: %d, has %d open references.", inClientPID, aCount);
-				}
-//				DBGLOG2( kLogHandler, "The client PID %d has %d open references.", inClientPID, aCount );
-			}
-			//let's remove it entirely from the list when there are no refs
-			if (aCount == 0)
-			{
-				CFMutableArrayRef	clientPIDArray;
-				clientPIDArray = (CFMutableArrayRef)CFDictionaryGetValue(fClientPIDList, CFSTR("ClientPIDArray"));
-				for (CFIndex indexToPID=0; indexToPID < CFArrayGetCount( clientPIDArray ); indexToPID++ )
-				{
-					if (kCFCompareEqualTo == CFStringCompare((CFStringRef)CFArrayGetValueAtIndex(clientPIDArray, indexToPID), aComparePIDString, 0))
-					{
-						CFArrayRemoveValueAtIndex(clientPIDArray, indexToPID);
-						//remove the dict entry as well
-						CFDictionaryRemoveValue(fClientPIDList, aComparePIDString);
-						break;
-					}
-				}
-			}
-			//update since not zero
-			else
-			{
-				//KW do I need to release the current CFNumberRef since I am creating a new one?
-				//CFRelease(aRefCount);
-				aRefCount = CFNumberCreate(kCFAllocatorDefault,kCFNumberIntType,&aCount);
-
-				if (inDirRef != 0)	//this should really only be for DS itself since we create the dict entry before we get a dir ref
-									//OR a case where the dir ref is cleaned up and some ref is left over???
-				{
-					if ( CFDictionaryContainsKey( aPIDDict, CFSTR("DirRefs")) )
-					{
-						CFMutableArrayRef aDirRefArray = (CFMutableArrayRef)CFDictionaryGetValue(aPIDDict, CFSTR("DirRefs"));
-						
-						//add the dir ref to the array
-						CFNumberRef aCFDirRef = CFNumberCreate(kCFAllocatorDefault,kCFNumberIntType,&inDirRef);
-						CFArrayAppendValue(aDirRefArray, aCFDirRef);
-
-						CFRelease(aCFDirRef);
-					}
-					else
-					{
-						//create a dir ref array
-						CFMutableArrayRef aDirRefArray = CFArrayCreateMutable(	kCFAllocatorDefault,
-																			0,
-																			&kCFTypeArrayCallBacks);
-						//add the dir ref to the array
-						CFNumberRef aCFDirRef = CFNumberCreate(kCFAllocatorDefault,kCFNumberIntType,&inDirRef);
-						CFArrayAppendValue(aDirRefArray, aCFDirRef);
-						CFDictionarySetValue( aPIDDict, CFSTR("DirRefs"), aDirRefArray );
-
-						CFRelease(aCFDirRef);
-						CFRelease(aDirRefArray);
-					}
-				}
-
-				//for all update the PID Count
-				CFDictionaryReplaceValue(aPIDDict, CFSTR("RefCount"), aRefCount);
-				CFRelease(aRefCount);
-			}
-		}
-		//need to create a new entry only on the up count
-		else if (inUpRefCount)
-		{
-			CFMutableArrayRef	clientPIDArray;
-			clientPIDArray = (CFMutableArrayRef)CFDictionaryGetValue(fClientPIDList, CFSTR("ClientPIDArray"));
-   			CFArrayAppendValue(clientPIDArray, aComparePIDString);
-
-			aCount = 1;
-			aRefCount	= CFNumberCreate(kCFAllocatorDefault,kCFNumberIntType,&aCount);
-			aPIDDict	= CFDictionaryCreateMutable(	kCFAllocatorDefault,
-														0,
-														&kCFTypeDictionaryKeyCallBacks,
-														&kCFTypeDictionaryValueCallBacks );
-			
-			CFDictionarySetValue( aPIDDict, CFSTR("RefCount"), aRefCount );
-			CFRelease(aRefCount);
-			if (inDirRef != 0)
-			{
-				//create a dir ref array
-				CFMutableArrayRef aDirRefArray = CFArrayCreateMutable(	kCFAllocatorDefault,
-																	0,
-																	&kCFTypeArrayCallBacks);
-				//add the dir ref to the array
-				CFNumberRef aCFDirRef = CFNumberCreate(kCFAllocatorDefault,kCFNumberIntType,&inDirRef);
-				CFArrayAppendValue(aDirRefArray, aCFDirRef);
-				CFDictionarySetValue( aPIDDict, CFSTR("DirRefs"), aDirRefArray );
-
-				CFRelease(aCFDirRef);
-				CFRelease(aDirRefArray);
-				
-			}
-   			CFDictionarySetValue( fClientPIDList, aComparePIDString, aPIDDict );
-
-			CFRelease(aPIDDict);
-		}
-
-   		CFRelease(aComparePIDString);
-   	}
-   	fClientPIDListLock->Signal();
-
-
-	return aCount;
-RCF */	
-    return 0;
-} // UpdateClientPIDRefCount
-
-// ----------------------------------------------------------------------------
-//	* CheckClientPIDs() pass through static
-//
-// ----------------------------------------------------------------------------
-
-void CDSRefTable::CheckClientPIDs ( bool inUseTimeOuts )
-{
-/*RCF
-	if (gFWRefTable != nil)
-	{
-		gFWRefTable->DoCheckClientPIDs(inUseTimeOuts);
-	}
-RCF */
-} // CheckClientPIDs
-
-
-// ----------------------------------------------------------------------------
-//	* DoCheckClientPIDs()
-//
-// ----------------------------------------------------------------------------
-
-void CDSRefTable::DoCheckClientPIDs ( bool inUseTimeOuts )
-{
-/*RCF
-	CFStringRef			aPIDString			= 0;
-	char				aStringBuff[8];
-	sInt32				aPIDValue			= 0;
-	CFNumberRef			aRefCount			= 0;
-	uInt32				aCount				= 0;
-	size_t				iSize;
-	register size_t		i					= 0;
-	bool		 		bPIDRunning			= true;
-	int					mib []				= { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
-	size_t				ulSize				= 0;
-	CFMutableDictionaryRef
-						aPIDDict			= 0;
-	uInt32				aDirRef				= 0;
-	CFStringRef			aNullStringName		= 0;
-	CFIndex				indexToPID			= 0;
-	sInt32				siResult			= eDSNoErr;
-
-	if (inUseTimeOuts)
-	{
-		if (::time( nil ) < fSunsetTime)
-		{
-			return;
-		}
-	}
-	//wait one second since refs might be updated for other client PIDs
-	if (fClientPIDListLock->Wait(1) != eDSNoErr)
-	{
-		return;
-	}
-
-	aNullStringName = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), 0);
-	
-	//retrieve the process table for client PIDs
-	// Allocate space for complete process list.
-	if ( 0 > std::sysctl( mib, 4, NULL, &ulSize, NULL, 0) )
-	{
-		return; //ie. do nothing
-	}
-
-	iSize = ulSize / sizeof(struct kinfo_proc);
-	struct kinfo_proc *kpspArray = new kinfo_proc[ iSize ];
-	if (!kpspArray)
-	{
-		return; //ie. do nothing
-	}
-
-	// Get the proc list.
-	ulSize = iSize * sizeof(struct kinfo_proc);
-	if ( 0 > std::sysctl( mib, 4, kpspArray, &ulSize, NULL, 0 ) )
-	{
-		delete [] kpspArray;
-		return; //ie. do nothing
-	}
-
-	//check if any client PID is no longer a process
-	//if not then cleanup the references associated with that missing process
-	//what to do here:
-	//lock list
-	//check if list not nil
-	//loop over pids in the array within the list
-	//each pid has refs since if zero in UpdateClientPIDRefCount method we take it out of the list
-	//get all the pids from the process table and ... ?????
-	//check if our pids are NOT in the process table
-	//if they aren't then call cleanup functions for that pid - only need to call it on the DS references itself
-	//since at that point all child refs will also be cleaned up
-	//unlock the list
-	
-	if (fClientPIDList != nil)
-	{
-		CFMutableArrayRef	clientPIDArray;
-		clientPIDArray = (CFMutableArrayRef)CFDictionaryGetValue(fClientPIDList, CFSTR("ClientPIDArray"));
-		for (indexToPID=0; indexToPID < CFArrayGetCount( clientPIDArray ); indexToPID++ )
-		{
-			aPIDString = (CFStringRef)CFArrayGetValueAtIndex(clientPIDArray, indexToPID);
-			//getting a PID from the array means that there are refs left
-			memset(aStringBuff, 0, sizeof(aStringBuff));
-			CFStringGetCString( aPIDString, aStringBuff, sizeof( aStringBuff ), kCFStringEncodingMacRoman );
-			aPIDValue = atoi(aStringBuff);
-			
-			//bPIDRunning set to false unless found in loop below
-			bPIDRunning = false;
-
-			i = iSize;
-			register struct kinfo_proc	*kpsp = kpspArray;
-
-			for ( ; i-- ; kpsp++ )
-			{
-				// skip our own process
-				//if ( kpsp->kp_proc.p_pid == ::getpid() )
-				//{
-					//continue;
-				//}
-
-				if (aPIDValue == kpsp->kp_proc.p_pid)
-				{
-					bPIDRunning = true;
-					break;
-				}
-			}
-
-			if ( CFDictionaryContainsKey( fClientPIDList, aPIDString ) )
-			{
-				aPIDDict	= (CFMutableDictionaryRef)CFDictionaryGetValue( fClientPIDList, aPIDString );
-				aRefCount	= (CFNumberRef)CFDictionaryGetValue( aPIDDict, CFSTR("RefCount") );
-				CFMutableArrayRef aDirRefArray = (CFMutableArrayRef)CFDictionaryGetValue(aPIDDict, CFSTR("DirRefs"));
-				
-				//don't believe aRefCount is retained so don't release
-   				CFNumberGetValue(aRefCount, kCFNumberIntType, &aCount);
-				if (bPIDRunning)
-				{
-					if (gLogFWRefCalls)
-					{
-						syslog(LOG_INFO,"Client PID %d has ref count = %d",aPIDValue, aCount);
-					}
-					DBGLOG2( kLogHandler, "The client PID %d has ref count = %d.", aPIDValue, aCount );
-				}
-				else
-				{
-					//KW issue when a client crashes and we are still servicing the call ie. using the refs
-					//but here we want to clean up all the refs SO
-					//need to wait (?) some cleanup time period greater than say 5 minutes (current mach timeout)
-					//so that there will not be a deadlock on the use of the references when we want to remove them and
-					//at the same time we are finishing out the processing for the client's call
-					//can we simply put a timetag inside the dict and check it if it has expried so that we
-					//can proceed with the cleanup
-
-					//remove the entry from the dict
-					CFRetain(aPIDDict);
-					CFDictionaryRemoveValue(fClientPIDList, aPIDString);
-					CFArraySetValueAtIndex(clientPIDArray, indexToPID, aNullStringName);
-					
-					fClientPIDListLock->Signal();
-					//let's clean up this PID's references
-					for (CFIndex indexToDirRef=0; indexToDirRef < CFArrayGetCount( aDirRefArray ); indexToDirRef++ )
-					{
-						//get the dir ref value
-						CFNumberRef aCFDirRef= (CFNumberRef)CFArrayGetValueAtIndex( aDirRefArray, indexToDirRef );
-   						CFNumberGetValue(aCFDirRef, kCFNumberIntType, &aDirRef);
-
-						siResult = CDSRefTable::RemoveDirRef( aDirRef, aPIDValue );
-					}
-					fClientPIDListLock->Wait();
-					//KW for now output info always
-					if (gLogFWRefCalls)
-					{
-						syslog(LOG_INFO,"Client PID %d had ref count = %d before cleanup.",aPIDValue, aCount);
-					}
-					DBGLOG2( kLogHandler, "The client PID %d had ref count = %d before cleanup.", aPIDValue, aCount );
-					CFRelease(aPIDDict);
-				}
-			}
-		}
-		//cleanup all the removed PIDs
-		indexToPID = (CFArrayGetCount( clientPIDArray )) - 1;
-		do
-		{
-			if (kCFCompareEqualTo == CFStringCompare((CFStringRef)CFArrayGetValueAtIndex(clientPIDArray, indexToPID), aNullStringName, 0))
-			{
-				CFArrayRemoveValueAtIndex(clientPIDArray, indexToPID);
-			}
-			indexToPID--;
-			
-		} while (indexToPID > 0); //note index 0 points to this process so no need to check
-	}
-	
-	CFRelease(aNullStringName);
-	
-	fSunsetTime = time(nil) + 300;
-
-	fClientPIDListLock->Signal();
-
-	delete [] kpspArray;
-RCF */
-} // DoCheckClientPIDs
-
 //------------------------------------------------------------------------------------
-//	* GetOffset
+//	* GetOffset (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::GetOffset ( uInt32 inRefNum, uInt32 inType, uInt32* outOffset, sInt32 inPID )
@@ -1516,7 +1101,7 @@ tDirStatus CDSRefTable::GetOffset ( uInt32 inRefNum, uInt32 inType, uInt32* outO
 } // GetOffset
 
 //------------------------------------------------------------------------------------
-//	* SetOffset
+//	* SetOffset (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::SetOffset ( uInt32 inRefNum, uInt32 inType, uInt32 inOffset, sInt32 inPID )
@@ -1546,7 +1131,7 @@ tDirStatus CDSRefTable::SetOffset ( uInt32 inRefNum, uInt32 inType, uInt32 inOff
 } // SetOffset
 
 //------------------------------------------------------------------------------------
-//	* GetBufTag
+//	* GetBufTag (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::GetBufTag ( uInt32 inRefNum, uInt32 inType, uInt32* outBufTag, sInt32 inPID )
@@ -1576,7 +1161,7 @@ tDirStatus CDSRefTable::GetBufTag ( uInt32 inRefNum, uInt32 inType, uInt32* outB
 } // GetBufTag
 
 //------------------------------------------------------------------------------------
-//	* SetBufTag
+//	* SetBufTag (static)
 //------------------------------------------------------------------------------------
 
 tDirStatus CDSRefTable::SetBufTag ( uInt32 inRefNum, uInt32 inType, uInt32 inBufTag, sInt32 inPID )
@@ -1596,6 +1181,17 @@ tDirStatus CDSRefTable::SetBufTag ( uInt32 inRefNum, uInt32 inType, uInt32 inBuf
             if ( pCurrRef != nil )
             {
                 pCurrRef->fBufTag = inBufTag;
+				if ( (inBufTag == 'DbgA') || (inBufTag == 'DbgB') )
+				{
+					if ( (inType == eAttrListRefType) || (inType == eAttrValueListRefType) )
+					{
+						uInt32 aRefCount = gFWRefTable->GetRefCount();
+						if ( ((aRefCount % 25) == 0) && (aRefCount > 100) )
+						{
+							syslog(LOG_CRIT, "DS:CDSRefTable::ClientSideRefCountExceedingReasonableValue Ref Count = %d", aRefCount);
+						}
+					}
+				}
                 siResult = eDSNoErr;
             }
         }
@@ -1604,4 +1200,14 @@ tDirStatus CDSRefTable::SetBufTag ( uInt32 inRefNum, uInt32 inType, uInt32 inBuf
 	return( siResult );
 
 } // SetBufTag
+
+//------------------------------------------------------------------------------------
+//	* GetRefCount
+//------------------------------------------------------------------------------------
+
+uInt32 CDSRefTable::GetRefCount ( void )
+{
+	return( fRefCount );
+
+} // GetRefCount
 

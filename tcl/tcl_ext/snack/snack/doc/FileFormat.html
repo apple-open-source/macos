@@ -1,0 +1,125 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.72 [en] (X11; U; Linux 2.2.14-5.0 i686) [Netscape]">
+   <meta name="Author" content="Kåre Sjölander">
+   <title>FileFormat</title>
+</head>
+<body>
+
+<h3>
+NAME</h3>
+Snack_CreateFileFormat - define new sound file format
+<h3>
+SYNOPSIS</h3>
+#include &lt;snack.h>
+<br><b>Snack_CreateFileFormat</b>(format)
+<h3>
+ARGUMENTS</h3>
+Snack_FileFormat *format
+<p>typedef struct Snack_FileFormat {
+<br>&nbsp; char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*name;
+<br>&nbsp; guessFileTypeProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *guessProc;
+<br>&nbsp; getHeaderProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*getHeaderProc;
+<br>&nbsp; extensionFileTypeProc *extProc;
+<br>&nbsp; putHeaderProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*putHeaderProc;
+<br>&nbsp; openProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*openProc;
+<br>&nbsp; closeProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*closeProc;
+<br>&nbsp; readSamplesProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*readProc;
+<br>&nbsp; writeSamplesProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*writeProc;
+<br>&nbsp; seekProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*seekProc;
+<br>&nbsp; freeHeaderProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*freeHeaderProc;
+<br>&nbsp; configureProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*configureProc;
+<br>&nbsp; struct Snack_FileFormat *nextPtr;
+<br>} Snack_FileFormat;
+<p>char *<b>name</b>
+<p>char *<b>guessFileTypeProc </b>(char *buf, int len)
+<p>int&nbsp; <b>getHeaderProc</b> (Sound *s, Tcl_Interp *interp, Tcl_Channel
+ch, Tcl_Obj *obj, char *buf)
+<p>char *<b>extensionFileTypeProc</b> (char *buf);
+<p>int&nbsp; <b>putHeaderProc</b> (Sound *s, Tcl_Interp *interp, Tcl_Channel
+ch, Tcl_Obj *obj, int objc, Tcl_Obj *CONST objv[], int length)
+<p>int&nbsp; <b>openProc</b> (Sound *s, Tcl_Interp *interp,Tcl_Channel
+*ch, char *mode)
+<p>int&nbsp; <b>closeProc </b>(Sound *s, Tcl_Interp *interp, Tcl_Channel
+*ch)
+<p>int&nbsp; <b>readSamplesProc</b> (Sound *s, Tcl_Interp *interp, Tcl_Channel
+ch, char *inBuffer, float *outBuffer, int length)
+<p>int&nbsp; <b>writeSamplesProc</b> (Sound *s, Tcl_Channel ch, Tcl_Obj
+*obj, int start, int length)
+<p>int&nbsp; <b>seekProc</b> (Sound *s, Tcl_Interp *interp, Tcl_Channel
+ch, int position)
+<p>void <b>freeHeaderProc</b> (Sound *s)
+<p>int&nbsp; <b>configureProc</b>(Sound *s, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+<br>&nbsp;
+<h3>
+DESCRIPTION</h3>
+<b>Snack_CreateFileFormat</b> is used to define a new kind of sound file
+format. A number of procedures can be specified in a Snack_FileFormat structure
+to handle sound data I/O, header parsing, etc. The file SphereFile.c serves
+as good example of how these routines are intended to be used.
+<p>The string <b>name</b> will be returned as the result of a successful
+read command.
+<p><b>guessFileTypeProc</b> is invoked by Snack in order to find out if
+the current file is of a type which this handler recognizes. <b>guessFileTypeProc</b>
+will receive <i>buffer</i> filled with bytes from the header up to <i>length</i>
+and if it recognizes the format is should return <i>formatName.</i> If
+it can't make a decision after seeing only <i>length</i> bytes it should
+return the string QUE_STRING. It will subsequently be invoked again with
+some more bytes for a new try. If the file is clearly in another format
+<b>guessFileTypeProc</b>
+should return NULL.
+<p><b>extensionFileTypeProc</b> takes a filename string and returns <i>formatName</i>
+if its file name extension matches its format else it return NULL.<i>&nbsp;</i>
+This is used when saving a sound object using a <i>filename</i> to guess
+which format it should be saved with. If no save functionality is needed
+and <b>extensionFileTypeProc</b> is specified as NULL, a raw file will
+be saved using <i>filename</i>, which could be confusing. By providing
+an <b>extensionFileTypeProc</b> for the format Snack will be able to report
+"unsupported save format".
+<p><b>getHeaderProc</b> is invoked in order to decode a sound file header.
+If the sound file resides on disk <b>ch</b> will be a a channel opened
+for reading, otherwise it will be NULL. If the sound resides in memory
+<b>obj</b>
+will point to a binary Tcl variable containing the data of the sound file,
+otherwise it will be NULL. The procedure should use these macros to specify
+the properties of the sound file
+<br>Snack_SetSampleRate()
+<br>Snack_SetNumChannels()
+<br>Snack_SetSampleEncoding()
+<br>Snack_SetBytesPerSample()
+<br>Snack_SetHeaderSize()
+<br>Snack_SetLength()
+<br>On success <b>getHeaderProc </b>should TCL_OK, otherwise it should
+return TCL_ERROR and leave an error message in the Tcl result.
+<p><b>putHeaderProc</b> is invoked in order to decode a sound file header.
+If the sound file is to be written to disk, <b>ch</b> will point to a channel
+opened for writing, otherwise it will be NULL. If the sound file is to
+be written to a Tcl binary variable, <b>obj</b> will point to a Tcl Obj,
+otherwise it will be NULL. The <b>length</b> argument will contain the
+length of the sound data in sample frames.
+<p><b>openProc,</b> <b>closeProc,</b> <b>readSamplesProc,</b> <b>writeSamplesProc,
+</b>and
+<b>seekProc</b> are modelled after their Tcl channel equivalents.
+<b>readSamplesProc</b>
+should read data either from <b>ch</b> or <b>inBuffer</b> which ever is
+not equal to NULL. The <b>length</b> argument is given in samples (not
+frames) and the return value is the number of samples read (or -1 if an
+error occurred). <b>seekProc</b> should seek in the sound file to the sample
+frame given by the <b>position</b> argument.
+<p><b>freeHeaderProc</b> is called when a new file is read into a sound
+object or when it is destroyed. It is used to deallocate ant memory which
+might have been allocated earlier in, e.g., <b>openProc</b>.
+<br>&nbsp;
+</body>
+</html>

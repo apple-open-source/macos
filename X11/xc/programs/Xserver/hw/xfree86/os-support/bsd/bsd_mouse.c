@@ -1,7 +1,50 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bsd/bsd_mouse.c,v 1.24 2003/02/15 05:37:59 paulo Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bsd/bsd_mouse.c,v 1.29 2004/02/13 23:58:46 dawes Exp $ */
 
 /*
- * Copyright 1999 by The XFree86 Project, Inc.
+ * Copyright (c) 1999-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "X.h"
@@ -43,6 +86,30 @@
 
 #ifdef USBMOUSE_SUPPORT
 static void usbSigioReadInput (int fd, void *closure);
+#endif
+
+#if defined(__FreeBSD__)
+/* These are for FreeBSD */
+#define DEFAULT_MOUSE_DEV		"/dev/mouse"
+#define DEFAULT_SYSMOUSE_DEV		"/dev/sysmouse"
+#define DEFAULT_PS2_DEV			"/dev/psm0"
+
+static const char *mouseDevs[] = {
+	DEFAULT_MOUSE_DEV,
+	DEFAULT_SYSMOUSE_DEV,
+	DEFAULT_PS2_DEV,
+	NULL
+};
+#elif defined(__OpenBSD__) && defined(WSCONS_SUPPORT)
+/* Only wsmouse mices are autoconfigured for now on OpenBSD */
+#define DEFAULT_WSMOUSE_DEV		"/dev/wsmouse"
+#define DEFAULT_WSMOUSE0_DEV		"/dev/wsmouse0"
+
+static const char *mouseDevs[] = {
+	DEFAULT_WSMOUSE_DEV,
+	DEFAULT_WSMOUSE0_DEV,
+	NULL
+};
 #endif
 
 static int
@@ -104,6 +171,8 @@ DefaultProtocol(void)
 {
 #if defined(__FreeBSD__)
     return "Auto";
+#elif defined(__OpenBSD__) && defined(WSCONS_SUPPORT)
+    return "WSMouse";
 #else
     return NULL;
 #endif
@@ -158,7 +227,7 @@ SetupAuto(InputInfoPtr pInfo, int *protoPara)
 		    protoPara[0] = mode.syncmask[0];
 		    protoPara[1] = mode.syncmask[1];
 		}
-    		xf86MsgVerb(X_INFO, 3, "%s: SetupAuto: protocol is %s\n",
+		xf86MsgVerb(X_INFO, 3, "%s: SetupAuto: protocol is %s\n",
 			    pInfo->name, devproto[i].name);
 		return devproto[i].name;
 	    }
@@ -196,7 +265,142 @@ SetSysMouseRes(InputInfoPtr pInfo, const char *protocol, int rate, int res)
 }
 #endif
 
-#if defined(WSCONS_SUPPORT)
+#if defined(__FreeBSD__)
+
+#define MOUSED_PID_FILE "/var/run/moused.pid"
+
+/*
+ * Try to check if moused is running.  DEFAULT_SYSMOUSE_DEV is useless without
+ * it.  There doesn't seem to be a better way of checking.
+ */
+static Bool
+MousedRunning(void)
+{
+    FILE *f = NULL;
+    unsigned int pid;
+
+    if ((f = fopen(MOUSED_PID_FILE, "r")) != NULL) {
+	if (fscanf(f, "%u", &pid) == 1 && pid > 0) {
+	    if (kill(pid, 0) == 0) {
+		fclose(f);
+		return TRUE;
+	    }
+	}
+	fclose(f);
+    }
+    return FALSE;
+}
+
+static const char *
+FindDevice(InputInfoPtr pInfo, const char *protocol, int flags)
+{
+    int fd = -1;
+    const char **pdev, *dev = NULL;
+    Bool devMouse = FALSE;
+    struct stat devMouseStat;
+    struct stat sb;
+
+    for (pdev = mouseDevs; *pdev; pdev++) {
+	SYSCALL (fd = open(*pdev, O_RDWR | O_NONBLOCK));
+	if (fd == -1) {
+#ifdef DEBUG
+	    ErrorF("Cannot open %s (%s)\n", *pdev, strerror(errno));
+#endif
+	} else {
+	    /*
+	     * /dev/mouse is held until checks for matches with other devices
+	     * are done.  This is so that when it points to /dev/sysmouse,
+	     * the test for whether /dev/sysmouse is usable can be made.
+	     */
+	    if (!strcmp(*pdev, DEFAULT_MOUSE_DEV)) {
+		if (fstat(fd, &devMouseStat) == 0)
+		    devMouse = TRUE;
+		close(fd);
+		continue;
+	    } else if (!strcmp(*pdev, DEFAULT_SYSMOUSE_DEV)) {
+		/* Check if /dev/mouse is the same as /dev/sysmouse. */
+		if (devMouse && fstat(fd, &sb) == 0 && 
+		    devMouseStat.st_dev == sb.st_dev &&
+		    devMouseStat.st_ino == sb.st_ino) {
+		    /* If the same, use /dev/sysmouse. */
+		    devMouse = FALSE;
+		}
+		close(fd);
+		if (MousedRunning())
+		    break;
+		else {
+#ifdef DEBUG
+	    	    ErrorF("moused isn't running\n");
+#endif
+		}
+	    } else {
+		close(fd);
+		break;
+	    }
+	}
+    }
+
+    if (*pdev)
+	dev = *pdev;
+    else if (devMouse)
+	dev = DEFAULT_MOUSE_DEV;
+
+    if (dev) {
+	/* Set the Device option. */
+	pInfo->conf_idev->commonOptions =
+	    xf86AddNewOption(pInfo->conf_idev->commonOptions, "Device", dev);
+	xf86Msg(X_INFO, "%s: Setting Device option to \"%s\"\n",
+		pInfo->name, dev);
+    }
+
+    return *pdev;
+}
+#endif
+
+#if defined(__OpenBSD__) && defined(WSCONS_SUPPORT)
+
+/* Only support wsmouse configuration for now */
+static const char *
+SetupAuto(InputInfoPtr pInfo, int *protoPara)
+{
+
+    xf86MsgVerb(X_INFO, 3, "%s: SetupAuto: protocol is %s\n",
+		pInfo->name, "wsmouse");
+    return "wsmouse";
+}
+
+static void
+SetMouseRes(InputInfoPtr pInfo, const char *protocol, int rate, int res)
+{
+
+    xf86MsgVerb(X_INFO, 3, "%s: SetMouseRes: protocol %s rate %d res %d\n",
+	    pInfo->name, protocol, rate, res);
+}
+
+static const char *
+FindDevice(InputInfoPtr pInfo, const char *protocol, int flags)
+{
+    int fd = -1;
+    const char **pdev;
+
+    for (pdev = mouseDevs; *pdev; pdev++) {
+	SYSCALL(fd = open(*pdev, O_RDWR | O_NONBLOCK));
+	if (fd != -1) {
+	    /* Set the Device option. */
+	    pInfo->conf_idev->commonOptions =
+		xf86AddNewOption(pInfo->conf_idev->commonOptions, 
+				 "Device", *pdev);
+	    xf86Msg(X_INFO, "%s: found Device \"%s\"\n",
+		    pInfo->name, *pdev);
+	    close(fd);
+	    break;
+	}
+    }
+    return *pdev;
+}
+#endif /* __OpenBSD__ && WSCONS_SUPPORT */
+
+#ifdef WSCONS_SUPPORT
 #define NUMEVENTS 64
 
 static void
@@ -502,11 +706,11 @@ usbPreInit(InputInfoPtr pInfo, const char *protocol, int flags)
 #ifdef USB_NEW_HID
     if (hid_locate(reportDesc, HID_USAGE2(HUP_GENERIC_DESKTOP, HUG_X),
 		   hid_input, &pUsbMse->loc_x, pUsbMse->iid) < 0) {
-	xf86Msg(X_WARNING, "%s: no x locator\n");
+	xf86Msg(X_WARNING, "%s: no x locator\n", pInfo->name);
     }
     if (hid_locate(reportDesc, HID_USAGE2(HUP_GENERIC_DESKTOP, HUG_Y),
 		   hid_input, &pUsbMse->loc_y, pUsbMse->iid) < 0) {
-	xf86Msg(X_WARNING, "%s: no y locator\n");
+	xf86Msg(X_WARNING, "%s: no y locator\n", pInfo->name);
     }
     if (hid_locate(reportDesc, HID_USAGE2(HUP_GENERIC_DESKTOP, HUG_WHEEL),
 		   hid_input, &pUsbMse->loc_z, pUsbMse->iid) < 0) {
@@ -514,11 +718,11 @@ usbPreInit(InputInfoPtr pInfo, const char *protocol, int flags)
 #else
     if (hid_locate(reportDesc, HID_USAGE2(HUP_GENERIC_DESKTOP, HUG_X),
 		   hid_input, &pUsbMse->loc_x) < 0) {
-	xf86Msg(X_WARNING, "%s: no x locator\n");
+	xf86Msg(X_WARNING, "%s: no x locator\n", pInfo->name);
     }
     if (hid_locate(reportDesc, HID_USAGE2(HUP_GENERIC_DESKTOP, HUG_Y),
 		   hid_input, &pUsbMse->loc_y) < 0) {
-	xf86Msg(X_WARNING, "%s: no y locator\n");
+	xf86Msg(X_WARNING, "%s: no y locator\n", pInfo->name);
     }
     if (hid_locate(reportDesc, HID_USAGE2(HUP_GENERIC_DESKTOP, HUG_WHEEL),
 		   hid_input, &pUsbMse->loc_z) < 0) {
@@ -588,6 +792,13 @@ xf86OSMouseInit(int flags)
     p->SetPS2Res = SetSysMouseRes;
     p->SetBMRes = SetSysMouseRes;
     p->SetMiscRes = SetSysMouseRes;
+#endif
+#if defined(__OpenBSD__) && defined(WSCONS_SUPPORT)
+    p->SetupAuto = SetupAuto;
+    p->SetMiscRes = SetMouseRes;
+#endif
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
+    p->FindDevice = FindDevice;
 #endif
     p->PreInit = bsdMousePreInit;
     return p;

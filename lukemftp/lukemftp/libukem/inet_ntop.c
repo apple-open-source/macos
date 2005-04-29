@@ -19,6 +19,18 @@
 
 #include "lukemftp.h"
 
+#if HAVE_ARPA_NAMESER_H
+#include <arpa/nameser.h>
+#endif
+
+#ifndef IN6ADDRSZ
+#define	IN6ADDRSZ	16
+#endif
+
+#ifndef INT16SZ
+#define	INT16SZ		2
+#endif
+
 #ifdef SPRINTF_CHAR
 # define SPRINTF(x) strlen(sprintf/**/x)
 #else

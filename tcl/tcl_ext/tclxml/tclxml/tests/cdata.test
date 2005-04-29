@@ -1,0 +1,319 @@
+# Features covered:  CDATA sections
+#
+# This file contains a collection of tests for the TclXML parser.
+# This file tests the parser's performance on CDATA sections.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998-2000 Zveno Pty Ltd.
+#
+# $Id: cdata.test,v 1.7 2001/02/12 11:10:10 balls Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if { ![llength [info commands ::xml::parser]] } {
+     catch {puts stderr "You havent loaded a valid parser class before running this test"}
+     return
+}
+
+catch {unset result}
+proc pcdata data {
+    append ::result $data
+}
+proc Estart {tagName attrList} {
+    switch -- $tagName {
+	Test {
+	}
+	default {
+	    incr ::element
+	}
+    }
+}
+
+proc EStop tagname {
+}
+
+test cdata-1.1 {Simple CDATA section} {
+    set ::result {}
+    set ::element 0
+
+    catch {rename xml::cdata-1.1 {}}
+    set parser [xml::parser cdata-1.1 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><![CDATA[This is CDATA]]></Test>
+}
+    list $::result $::element
+} {{This is CDATA} 0}
+
+test cdata-1.2 {CDATA test contributed by Richard Emberson (emberson@netintouch.com)} {
+    set ::result {}
+    set ::element 0
+
+    catch {rename xml::cdata-1.2 {}}
+    set parser [xml::parser cdata-1.2 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0"?>
+  <TOP>
+    <![CDATA[928806871035]]>
+  </TOP>
+}
+    list $::result $::element
+} {{
+    928806871035
+  } 1}
+
+# Test bug: ']]>' is not valid character data (XML Rec. subsect. 2.4) - 
+# this should produce a warning.
+test cdata-2.0 {CDATA section interpersed with comment} {
+    set ::result {}
+    set ::element 0
+
+    catch {rename xml::cdata-2.0 {}}
+    set parser [xml::parser cdata-2.0 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><![CDATA[<!-- This is not a comment -->]]>
+<!-- This is a comment <![CDATA[This is not CDATA]]>-->
+<![CDATA[<!-- ]]>-->]]&gt;</Test>}
+    list $::result $::element
+} {{<!-- This is not a comment -->
+
+<!-- -->]]>} 0}
+
+test cdata-2.1 {CDATA section with an angle bracket} {
+    set ::result {}
+    set ::element 0
+
+    catch {rename xml::cdata-2.1 {}}
+    set parser [xml::parser cdata-2.1 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><![CDATA[This is a > greater than sign]]></Test>
+}
+    list $::result $::element
+} {{This is a > greater than sign} 0}
+
+# Test case contributed by Marshall Rose (mrose@dbc.mtview.ca.us)
+test cdata-2.2 {CDATA section with multiple angle brackets} {
+    set ::result {}
+    set ::element 0
+
+    catch {rename xml::cdata-2.2 {}}
+    set parser [xml::parser cdata-2.2 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0" ?>
+<!DOCTYPE Test>
+<Test>
+<artwork><![CDATA[
+    <?xml version="1.0">
+    <!DOCTYPE rfc SYSTEM "rfcXXXX.dtd">
+    <rfc>
+    ...
+
+    </rfc>
+]]></artwork>
+</Test>}
+    list $::result $::element
+} {{
+
+    <?xml version="1.0">
+    <!DOCTYPE rfc SYSTEM "rfcXXXX.dtd">
+    <rfc>
+    ...
+
+    </rfc>
+
+} 1}
+
+# Test case contributed by J. Linnenkohl (jlinnen@c-s-k.de)
+test cdata-2.3 {CDATA section with square brackets and curly braces} {
+    set ::result {}
+    set ::element 0
+
+    catch {rename xml::cdata-2.3 {}}
+    set parser [xml::parser cdata-2.3 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0" ?>
+<Tcl>
+<![CDATA[
+proc arithmetic_add {groups inputs outputs atts} {
+    set ret_val ""
+    set t "Hello World"
+    set l [string length $t]
+    return $ret_val
+}
+]]>
+</Tcl>
+}
+    list $::result $::element
+} {{
+
+proc arithmetic_add {groups inputs outputs atts} {
+    set ret_val ""
+    set t "Hello World"
+    set l [string length $t]
+    return $ret_val
+}
+
+} 1}
+
+test cdata-2.4 {CDATA section with angle brackets and curly braces} {
+    set ::result {}
+    set ::element 0
+
+    catch {rename xml::cdata-2.4 {}}
+    set parser [xml::parser cdata-2.4 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0" ?>
+<Tcl>
+<![CDATA[
+proc arithmetic_add {groups inputs outputs atts} {
+    set ret_val [expr 1 > 2]
+    set t "Hello World"
+    set l [string length $t]
+    return $ret_val
+}
+]]>
+</Tcl>
+}
+    list $::result $::element
+} {{
+
+proc arithmetic_add {groups inputs outputs atts} {
+    set ret_val [expr 1 > 2]
+    set t "Hello World"
+    set l [string length $t]
+    return $ret_val
+}
+
+} 1}
+
+test cdata-2.5 {CDATA section with angle brackets, Tcl specials trailing CDATA section} {
+    set ::result {}
+    set ::element 0
+
+    catch {rename xml::cdata-2.5 {}}
+    set parser [xml::parser cdata-2.5 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0" ?>
+<Tcl>
+<![CDATA[
+proc arithmetic_add {groups inputs outputs atts} {
+    set ret_val [expr 1 > 2]
+    set t "Hello World"
+    set l [string length $t]
+    return $ret_val
+}
+]]> that is {jolly} $good
+</Tcl>
+}
+    list $::result $::element
+} {{
+
+proc arithmetic_add {groups inputs outputs atts} {
+    set ret_val [expr 1 > 2]
+    set t "Hello World"
+    set l [string length $t]
+    return $ret_val
+}
+ that is {jolly} $good
+} 1}
+
+# Test case contributed by Marshall Rose (mrose@dbc.mtview.ca.us)
+# SRB 2001-02-11: Test had to modified (slightly) to due non-well-formedness
+
+test cdata-3.1 {CDATA section with PI and Tcl special characters} {
+    set ::result {}
+    set ::element 0
+
+    catch {rename xml::cdata-3.1 {}}
+    set parser [xml::parser cdata-3.1 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0"?>
+<?x_m_l_2rfc toc="yes"?>
+<!DOCTYPE Test>
+<Test>
+<t>this is a \ test</t>
+<artwork><![CDATA[
+    <date month="December" year="1998"/>
+]]></artwork>
+</Test>}
+    list $::result $::element
+} {{
+this is a \ test
+
+    <date month="December" year="1998"/>
+
+} 2}
+
+# Test case from bug #130127 reported by rnurmi@users.sourceforge.net
+
+test cdata-3.2 {CDATA with Tcl special character} {
+    set ::result {}
+
+    catch {rename xml::cdata-3.2 {}}
+    set parser [xml::parser cdata-3.2 \
+	-characterdatacommand pcdata]
+    $parser parse [format {<?xml version="1.0"?>
+<root><![CDATA[%s]]></root>} \\]
+
+    set ::result
+} [format %s \\]
+
+# Test case from bug #130127 reported by rnurmi@users.sourceforge.net
+
+test cdata-3.3 {CDATA with Tcl regular expression} {
+    set ::result {}
+
+    catch {rename xml::cdata-3.3 {}}
+    set parser [xml::parser cdata-3.3 \
+	-characterdatacommand pcdata]
+    $parser parse [format {<root><![CDATA[NOWRAP
+ALIGN=LEFT>([^<]*)[^%sn]*>([^<]*)</A>[^%sn]*>([-+][0-9]*%s.[0-9][0-9]|-)[^%sn]*>([0-9]*%s.[0-9][0-9])[^%sn]*>([0-9]*%s.[0-9][0-9])[^%sn]*>([0-9]*%s.[0-9][0-9])[^%sn]*>([0-9]*%s.[0-9][0-9])[^%sn]*>([0-9]*%s.[0-9][0-9])[^%sn]*>([0-9]+)[^%sn]*%s>([0-9]*)%s.[0-9][0-9])]]></root>} \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\]
+
+    set ::result
+} [format {NOWRAP
+ALIGN=LEFT>([^<]*)[^%sn]*>([^<]*)</A>[^%sn]*>([-+][0-9]*%s.[0-9][0-9]|-)[^%sn]*>([0-9]*%s.[0-9][0-9])[^%sn]*>([0-9]*%s.[0-9][0-9])[^%sn]*>([0-9]*%s.[0-9][0-9])[^%sn]*>([0-9]*%s.[0-9][0-9])[^%sn]*>([0-9]*%s.[0-9][0-9])[^%sn]*>([0-9]+)[^%sn]*%s>([0-9]*)%s.[0-9][0-9])} \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\ \\]
+
+test cdata-4.1 {CDATA section with entity reference} {
+    set ::result {}
+    set ::element 0
+
+    catch {rename xml::cdata-4.1 {}}
+    set parser [xml::parser cdata-4.1 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><![CDATA[no entity &lt;references&gt;]]></Test>}
+    list $::result $::element
+} {{no entity &lt;references&gt;} 0}
+
+# cleanup
+::tcltest::cleanupTests
+return

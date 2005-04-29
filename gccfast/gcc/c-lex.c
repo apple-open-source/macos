@@ -756,6 +756,8 @@ c_lex (value)
      tree *value;
 {
   const cpp_token *tok;
+  /* APPLE LOCAL pch */
+  static bool no_more_pch;
 
   /* APPLE LOCAL begin CW asm blocks */
   /* Make a local copy of the flag for efficiency, since the compiler can't
@@ -914,7 +916,16 @@ c_lex (value)
   /* APPLE LOCAL begin CW asm blocks */
   if (flag_cw_asm_blocks_local)
     --c_lex_depth;
+
   /* APPLE LOCAL end CW asm blocks */
+  /* APPLE LOCAL begin pch */
+  if (! no_more_pch)
+    {
+      no_more_pch = true;
+      c_common_no_more_pch ();
+    }
+
+  /* APPLE LOCAL end pch */
   return tok->type;
 }
 

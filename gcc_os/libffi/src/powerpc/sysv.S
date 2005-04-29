@@ -3,7 +3,7 @@
    
    PowerPC Assembly glue.
 
-   $Id: sysv.S,v 1.3 2001/09/17 20:37:34 zlaski Exp $
+   $Id: sysv.S,v 1.1.1.1 1998/11/29 16:48:16 green Exp $
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the

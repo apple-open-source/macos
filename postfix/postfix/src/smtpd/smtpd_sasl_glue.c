@@ -8,7 +8,7 @@
 /*
 /*	void	smtpd_sasl_initialize()
 /*
-/*	void	smtpd_sasl_connect(state)
+/*	void	smtpd_sasl_connect(state, sasl_opts_name, sasl_opts_val)
 /*	SMTPD_STATE *state;
 /*
 /*	char	*smtpd_sasl_authenticate(state, sasl_method, init_response)
@@ -32,7 +32,9 @@
 /*
 /*	smtpd_sasl_connect() performs per-connection initialization.
 /*	This routine should be called once at the start of every
-/*	connection.
+/*	connection. The sasl_opts_name and sasl_opts_val parameters
+/*	are the postfix configuration parameters setting the security
+/*	policy of the SASL authentication.
 /*
 /*	smtpd_sasl_authenticate() implements the authentication dialog.
 /*	The result is a null pointer in case of success, an SMTP reply
@@ -84,10 +86,11 @@
 #include <sys_defs.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __APPLE__
 #include <syslog.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <sys/time.h>   // for gettimeofday()
+#endif /* __APPLE__ */
 
 /* Utility library. */
 
@@ -107,6 +110,7 @@
 #include "smtpd_sasl_glue.h"
 #include "smtpd_chat.h"
 
+#ifdef __APPLE__
 /* Apple Open Directory */
 
 #include <DirectoryService/DirServices.h>
@@ -127,6 +131,7 @@
 /* mach */
 
 #include <mach/boolean.h>
+#endif /* __APPLE__ */
 
 #ifdef USE_SASL_AUTH
 
@@ -226,9 +231,10 @@ static NAME_MASK smtpd_sasl_mask[] = {
     0,
 };
 
-void log_errors ( char *inName, OM_uint32 inMajor, OM_uint32 inMinor );
 
-static int smtpd_sasl_opts;
+#ifdef __APPLE__
+
+void log_errors ( char *inName, OM_uint32 inMajor, OM_uint32 inMinor );
 
 /* Apple's Password Server */
 
@@ -249,8 +255,11 @@ static NAME_MASK smtpd_pw_server_mask[] = {
     0,
 };
 
+#endif /* __APPLE__ */
+
 /* smtpd_sasl_initialize - per-process initialization */
 
+#ifdef __APPLE__
 void    smtpd_sasl_initialize( int use_pw_server )
 {
 	if ( var_smtpd_use_pw_server )
@@ -258,25 +267,26 @@ void    smtpd_sasl_initialize( int use_pw_server )
 		smtpd_pw_server_sasl_opts = name_mask( VAR_SMTPD_PW_SERVER_OPTS, smtpd_pw_server_mask,
 									 var_smtpd_pw_server_opts );
 	}
-	else
-	{
-		/*
-		* Initialize the library: load SASL plug-in routines, etc.
-		*/
-		if (sasl_server_init(callbacks, "smtpd") != SASL_OK)
-		msg_fatal("SASL per-process initialization failed");
-	
-		/*
-		* Configuration parameters.
-		*/
-		smtpd_sasl_opts = name_mask(VAR_SMTPD_SASL_OPTS, smtpd_sasl_mask,
-					var_smtpd_sasl_opts);
-	}
+#else /* __APPLE__ */
+void    smtpd_sasl_initialize(void)
+{
+#endif /* __APPLE__ */
+
+    /*
+     * Initialize the library: load SASL plug-in routines, etc.
+     */
+    if (msg_verbose)
+	msg_info("smtpd_sasl_initialize: SASL config file is %s.conf",
+		 var_smtpd_sasl_appname);
+    if (sasl_server_init(callbacks, var_smtpd_sasl_appname) != SASL_OK)
+	msg_fatal("SASL per-process initialization failed");
+
 }
 
 /* smtpd_sasl_connect - per-connection initialization */
 
-void    smtpd_sasl_connect(SMTPD_STATE *state)
+void    smtpd_sasl_connect(SMTPD_STATE *state, const char *sasl_opts_name,
+			           const char *sasl_opts_val)
 {
 #if SASL_VERSION_MAJOR < 2
     unsigned sasl_mechanism_count;
@@ -303,10 +313,12 @@ void    smtpd_sasl_connect(SMTPD_STATE *state)
     state->sasl_decoded = vstring_alloc(10);
     state->sasl_encoded = vstring_alloc(10);
 
+
     state->pw_server_enabled		= var_smtpd_use_pw_server;
     state->pw_server_mechanism_list	= 0;
 	state->pw_server_opts			= 0;
 
+#ifdef __APPLE__
 	if ( smtpd_pw_server_sasl_opts )
 	{
 		state->pw_server_mechanism_list = malloc( 64 );
@@ -335,9 +347,11 @@ void    smtpd_sasl_connect(SMTPD_STATE *state)
 
 	if ( !state->pw_server_enabled )
 	{
-		/*
-		* Set up a new server context for this connection.
-		*/
+#endif /* __APPLE__ */
+
+    /*
+     * Set up a new server context for this connection.
+     */
 #define NO_SECURITY_LAYERS	(0)
 #define NO_SESSION_CALLBACKS	((sasl_callback_t *) 0)
 #define NO_AUTH_REALM		((char *) 0)
@@ -350,67 +364,72 @@ void    smtpd_sasl_connect(SMTPD_STATE *state)
 #error "USE_SASL_IP_AUTH is not implemented"
 
 #else
-	
-		/*
-		* Don't give any IP address information to SASL.  SASLv1 doesn't use it,
-		* and in SASLv2 this will disable any mechaniams that do.
-		*/
-		server_address = 0;
-		client_address = 0;
+
+    /*
+     * Don't give any IP address information to SASL.  SASLv1 doesn't use it,
+     * and in SASLv2 this will disable any mechaniams that do.
+     */
+    server_address = 0;
+    client_address = 0;
 #endif
-	
-		if (SASL_SERVER_NEW("smtp", var_myhostname, *var_smtpd_sasl_realm ?
-				var_smtpd_sasl_realm : NO_AUTH_REALM,
-				server_address, client_address,
-				NO_SESSION_CALLBACKS, NO_SECURITY_LAYERS,
-				&state->sasl_conn) != SASL_OK)
-		msg_fatal("SASL per-connection server initialization");
-	
-		/*
-		* Security options. Some information can be found in the sasl.h include
-		* file. Disallow anonymous authentication; this is because the
-		* permit_sasl_authenticated feature is restricted to authenticated
-		* clients only.
-		*/
-		memset(&sec_props, 0, sizeof(sec_props));
-		sec_props.min_ssf = 0;
-		sec_props.max_ssf = 1;			/* don't allow real SASL
-							* security layer */
-		sec_props.security_flags = smtpd_sasl_opts;
-		sec_props.maxbufsize = 0;
-		sec_props.property_names = 0;
-		sec_props.property_values = 0;
-	
-		if (sasl_setprop(state->sasl_conn, SASL_SEC_PROPS,
-				&sec_props) != SASL_OK)
-		msg_fatal("SASL per-connection security setup");
-	
-		/*
-		* Get the list of authentication mechanisms.
-		*/
+
+    if (SASL_SERVER_NEW("smtp", var_myhostname, *var_smtpd_sasl_realm ?
+			var_smtpd_sasl_realm : NO_AUTH_REALM,
+			server_address, client_address,
+			NO_SESSION_CALLBACKS, NO_SECURITY_LAYERS,
+			&state->sasl_conn) != SASL_OK)
+	msg_fatal("SASL per-connection server initialization");
+
+    /*
+     * Security options. Some information can be found in the sasl.h include
+     * file. Disallow anonymous authentication; this is because the
+     * permit_sasl_authenticated feature is restricted to authenticated
+     * clients only.
+     */
+    memset(&sec_props, 0, sizeof(sec_props));
+    sec_props.min_ssf = 0;
+    sec_props.max_ssf = 1;			/* don't allow real SASL
+						 * security layer */
+    sec_props.security_flags = name_mask(sasl_opts_name, smtpd_sasl_mask,
+					 sasl_opts_val);
+    sec_props.maxbufsize = 0;
+    sec_props.property_names = 0;
+    sec_props.property_values = 0;
+
+    if (sasl_setprop(state->sasl_conn, SASL_SEC_PROPS,
+		     &sec_props) != SASL_OK)
+	msg_fatal("SASL per-connection security setup");
+
+    /*
+     * Get the list of authentication mechanisms.
+     */
 #define UNSUPPORTED_USER	((char *) 0)
 #define IGNORE_MECHANISM_LEN	((unsigned *) 0)
-	
-		if (sasl_listmech(state->sasl_conn, UNSUPPORTED_USER,
-				"", " ", "",
-				&state->sasl_mechanism_list,
-				IGNORE_MECHANISM_LEN,
-				&sasl_mechanism_count) != SASL_OK)
-		msg_fatal("cannot lookup SASL authentication mechanisms");
-		if (sasl_mechanism_count <= 0)
-		msg_fatal("no SASL authentication mechanisms");
-	}
+
+    if (sasl_listmech(state->sasl_conn, UNSUPPORTED_USER,
+		      "", " ", "",
+		      &state->sasl_mechanism_list,
+		      IGNORE_MECHANISM_LEN,
+		      &sasl_mechanism_count) != SASL_OK)
+	msg_fatal("cannot lookup SASL authentication mechanisms");
+    if (sasl_mechanism_count <= 0)
+	msg_fatal("no SASL authentication mechanisms");
+#ifdef __APPLE__
+}
+#endif /* __APPLE__ */
 }
 
 /* smtpd_sasl_disconnect - per-connection cleanup */
 
 void    smtpd_sasl_disconnect(SMTPD_STATE *state)
 {
+#ifdef __APPLE__
 	if ( state->pw_server_mechanism_list )
 	{
 		free( state->pw_server_mechanism_list );
 		state->pw_server_mechanism_list = 0;
 	}
+#endif /* __APPLE__ */
 
     if (state->sasl_mechanism_list) {
 #if SASL_VERSION_MAJOR < 2
@@ -573,7 +592,9 @@ char   *smtpd_sasl_authenticate(SMTPD_STATE *state,
     if (result != SASL_OK || serverout == 0)
 	msg_panic("%s: sasl_getprop SASL_USERNAME botch", myname);
     state->sasl_username = mystrdup(serverout);
+    printable(state->sasl_username, '?');
     state->sasl_method = mystrdup(sasl_method);
+    printable(state->sasl_method, '?');
 
     return (0);
 }
@@ -619,6 +640,162 @@ static OM_uint32	display_name		( const gss_name_t principalName );
 static	gss_cred_id_t	stCredentials;
 
 #include <sys/param.h>
+
+/* -----------------------------------------------------------------
+	- smtpd apple auth methods
+   ----------------------------------------------------------------- */
+
+/* -----------------------------------------------------------------
+	- do_login_auth
+   ----------------------------------------------------------------- */
+
+char * do_login_auth (	SMTPD_STATE *state,
+						const char *sasl_method,
+						const char *init_response )
+{
+    unsigned	len			= 0;
+	int			respLen		= 0;
+	char		userBuf[ MAX_USER_BUF_SIZE ];
+	char		chalBuf[ MAX_CHAL_BUF_SIZE ];
+	char		respBuf[ MAX_IO_BUF_SIZE ];
+	char		pwdBuf[ MAX_USER_BUF_SIZE ];
+
+	memset( userBuf, 0, MAX_USER_BUF_SIZE );
+	memset( chalBuf, 0, MAX_CHAL_BUF_SIZE );
+	memset( respBuf, 0, MAX_IO_BUF_SIZE );
+	memset( pwdBuf, 0, MAX_USER_BUF_SIZE );
+
+	/* is LOGIN auth enabled */
+	if ( !(state->pw_server_opts & PW_SERVER_LOGIN) )
+	{
+		return ( "504 Authentication method not enabled" );
+	}
+
+	/* encode the user name prompt and send it */
+	strcpy( chalBuf, "Username:" );
+	sEncodeBase64( chalBuf, strlen( chalBuf ), respBuf, MAX_IO_BUF_SIZE );
+	smtpd_chat_reply( state, "334 %s", respBuf );
+
+	/* reset the buffer */
+	memset( respBuf, 0, MAX_IO_BUF_SIZE );
+
+	/* get the user name and decode it */
+	smtpd_chat_query( state );
+	len = VSTRING_LEN( state->buffer );
+	if ( sDecodeBase64( vstring_str( state->buffer ), len, userBuf, MAX_USER_BUF_SIZE, &respLen ) != 0 )
+	{
+		return ( "501 Authentication failed: malformed initial response" );
+	}
+
+	/* has the client given up */
+	if ( strcmp(vstring_str( state->buffer ), "*") == 0 )
+	{
+		return ( "501 Authentication aborted" );
+	}
+
+	/* encode the password prompt and send it */
+	strcpy( chalBuf, "Password:" );
+	sEncodeBase64( chalBuf, strlen( chalBuf ), respBuf, MAX_IO_BUF_SIZE );
+	smtpd_chat_reply( state, "334 %s", respBuf );
+
+	/* get the password */
+	smtpd_chat_query( state );
+	len = VSTRING_LEN( state->buffer );
+	if ( sDecodeBase64( vstring_str( state->buffer ), len, pwdBuf, MAX_USER_BUF_SIZE, &respLen ) != 0 )
+	{
+		return ( "501 Authentication failed: malformed response" );
+	}
+
+	/* do the auth */
+	if ( sClearTextCrypt( userBuf, pwdBuf ) == eAODNoErr )
+	{
+		state->sasl_username = mystrdup( userBuf );
+		state->sasl_method = mystrdup(sasl_method);
+
+		return( 0 );
+	}
+	else
+	{
+		return ( "535 Error: authentication failed" );
+	}
+
+} /* do_login_auth */
+
+
+/* -----------------------------------------------------------------
+	- do_plain_auth
+   ----------------------------------------------------------------- */
+
+char *do_plain_auth (	SMTPD_STATE *state,
+						const char *sasl_method,
+						const char *init_response )
+
+{
+	char	   *ptr			= NULL;
+    unsigned	len			= 0;
+	int			respLen		= 0;
+	char		userBuf[ MAX_USER_BUF_SIZE ];
+	char		respBuf[ MAX_IO_BUF_SIZE ];
+	char		pwdBuf[ MAX_USER_BUF_SIZE ];
+
+	memset( userBuf, 0, MAX_USER_BUF_SIZE );
+	memset( respBuf, 0, MAX_IO_BUF_SIZE );
+	memset( pwdBuf, 0, MAX_USER_BUF_SIZE );
+
+	/* is PLAIN auth enabled */
+	if ( !(state->pw_server_opts & PW_SERVER_PLAIN) )
+	{
+		return ( "504 Authentication method not enabled" );
+	}
+
+	/* decode the initial response */
+	if ( init_response == NULL )
+	{
+		return ( "501 Authentication failed: malformed initial response" );
+	}
+	len = strlen( init_response );
+	if ( sDecodeBase64( init_response, len, respBuf, MAX_USER_BUF_SIZE, &respLen ) != 0 )
+	{
+		return ( "501 Authentication failed: malformed initial response" );
+	}
+
+	ptr = respBuf;
+	if ( *ptr == '\0' )
+	{
+		ptr++;
+	}
+
+	if ( ptr != NULL )
+	{
+		if ( strlen( ptr ) < MAX_USER_BUF_SIZE )
+		{
+			strcpy( userBuf, ptr );
+	
+			ptr = ptr + (strlen( userBuf ) + 1 );
+	
+			if ( ptr != NULL )
+			{
+				if ( strlen( ptr ) < MAX_USER_BUF_SIZE )
+				{
+					strcpy( pwdBuf, ptr );
+	
+					/* do the auth */
+					if ( sClearTextCrypt( userBuf, pwdBuf ) == eAODNoErr )
+					{
+						state->sasl_username = mystrdup( userBuf );
+						state->sasl_method = mystrdup(sasl_method);
+	
+						return( 0 );
+					}
+				}
+			}
+		}
+	}
+
+	return ( "535 Error: authentication failed" );
+
+} /* do_plain_auth */
+
 
 /* -----------------------------------------------------------------
 	- get_random_chars
@@ -673,24 +850,321 @@ void get_random_chars ( char *out_buf, int in_len )
 
 
 /* -----------------------------------------------------------------
+	- do_cram_md5_auth
+   ----------------------------------------------------------------- */
+
+char *do_cram_md5_auth (	SMTPD_STATE *state,
+							const char *sasl_method,
+							const char *init_response )
+{
+	char	   *ptr			= NULL;
+    unsigned	len			= 0;
+	int			respLen		= 0;
+	const char *host_name	= NULL;
+	char		userBuf[ MAX_USER_BUF_SIZE ];
+	char		chalBuf[ MAX_USER_BUF_SIZE ];
+	char		respBuf[ MAX_IO_BUF_SIZE ];
+	char		randbuf[ 17 ];
+
+	memset( userBuf, 0, MAX_USER_BUF_SIZE );
+	memset( chalBuf, 0, MAX_USER_BUF_SIZE );
+	memset( respBuf, 0, MAX_IO_BUF_SIZE );
+
+	/* is CRAM-MD5 auth enabled */
+	if ( !(state->pw_server_opts & PW_SERVER_CRAM_MD5) )
+	{
+		return ( "504 Authentication method not enabled" );
+	}
+
+	/* challenge host name */
+	host_name = (const char *)get_hostname();
+
+	/* get random data string */
+	get_random_chars( randbuf, 17 );
+
+	snprintf( chalBuf, sizeof( chalBuf ),
+			"<%lu.%s.%lu@%s>",
+			 (unsigned long) getpid(),
+			 randbuf,
+			 (unsigned long)time(0),
+			 host_name );
+
+
+	/* encode the challenge and send it */
+	sEncodeBase64( chalBuf, strlen( chalBuf ), respBuf, MAX_IO_BUF_SIZE );
+
+	smtpd_chat_reply( state, "334 %s", respBuf );
+
+	/* get the client response */
+	smtpd_chat_query( state );
+
+	/* check if client cancelled */
+	if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
+	{
+		return ( "501 Authentication aborted" );
+	}
+
+	/* reset the buffer */
+	memset( respBuf, 0, MAX_IO_BUF_SIZE );
+
+	/* decode the response */
+	len = VSTRING_LEN( state->buffer );
+	if ( sDecodeBase64( vstring_str( state->buffer ), len, respBuf, MAX_IO_BUF_SIZE, &respLen ) != 0 )
+	{
+		return ( "501 Authentication failed: malformed initial response" );
+	}
+
+	/* get the user name */
+	ptr = strchr( respBuf, ' ' );
+	if ( ptr != NULL )
+	{
+		len = ptr - respBuf;
+		if ( len < MAX_USER_BUF_SIZE )
+		{
+			/* copy user name */
+			memset( userBuf, 0, MAX_USER_BUF_SIZE );
+			strncpy( userBuf, respBuf, len );
+
+			/* move past the space */
+			ptr++;
+			if ( ptr != NULL )
+			{
+				/* validate the response */
+				if ( sValidateResponse( userBuf, chalBuf, ptr, kDSStdAuthCRAM_MD5 ) == eAODNoErr )
+				{
+					state->sasl_username = mystrdup( userBuf );
+					state->sasl_method = mystrdup(sasl_method);
+
+					return( 0 );
+				}
+			}
+		}
+	}
+
+	return ( "535 Error: authentication failed" );
+
+} /* do_cram_md5_auth */
+
+
+/* -----------------------------------------------------------------
+	- do_gssapi_auth
+   ----------------------------------------------------------------- */
+
+char *do_gssapi_auth (	SMTPD_STATE *state,
+						const char *sasl_method,
+						const char *init_response )
+{
+	int				r		= ODA_AUTH_FAILED;
+    unsigned		len			= 0;
+	int				respLen		= 0;
+	gss_buffer_desc	in_token;
+	gss_buffer_desc	out_token;
+	OM_uint32		minStatus	= 0;
+	OM_uint32		majStatus	= 0;
+	OM_uint32		ret_flags	= 0;
+	gss_ctx_id_t	context		= GSS_C_NO_CONTEXT;
+	gss_OID			mechTypes;
+	gss_name_t		clientName;
+	unsigned long	maxsize		= htonl( MAX_IO_BUF_SIZE );
+
+
+	char		userBuf[ MAX_USER_BUF_SIZE ];
+	char		respBuf[ MAX_IO_BUF_SIZE ];
+	char		pwdBuf[ MAX_USER_BUF_SIZE ];
+
+	memset( userBuf, 0, MAX_USER_BUF_SIZE );
+	memset( respBuf, 0, MAX_IO_BUF_SIZE );
+	memset( pwdBuf, 0, MAX_USER_BUF_SIZE );
+
+
+	/* is Kerberos V5 enabled */
+	if ( !(state->pw_server_opts & PW_SERVER_GSSAPI) )
+	{
+		return ( "504 Authentication method not enabled" );
+	}
+
+	if ( gss_Init() == GSS_S_COMPLETE )
+	{
+		if ( init_response == NULL )
+		{
+			smtpd_chat_reply( state, "334 " );
+			smtpd_chat_query( state );
+
+			/* check if client cancelled */
+			if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
+			{
+				return ( "501 Authentication aborted" );
+			}
+
+			/* clear response buffer */
+			memset( respBuf, 0, MAX_IO_BUF_SIZE );
+
+			/* decode the response */
+			len = VSTRING_LEN( state->buffer );
+			if ( sDecodeBase64( vstring_str( state->buffer ), len, respBuf, MAX_IO_BUF_SIZE, &respLen ) != 0 )
+			{
+				return ( "501 Authentication failed: malformed initial response" );
+			}
+		}
+		else
+		{
+			/* clear response buffer */
+			memset( respBuf, 0, MAX_IO_BUF_SIZE );
+
+			len = strlen( init_response );
+			if ( sDecodeBase64( init_response, len, respBuf, MAX_IO_BUF_SIZE, &respLen ) != 0 )
+			{
+				return ( "501 Authentication failed: malformed initial response" );
+			}
+		}
+
+		in_token.value  = respBuf;
+		in_token.length = respLen;
+
+		do {
+			/* negotiate authentication */
+			majStatus = gss_accept_sec_context(	&minStatus,
+												&context,
+												stCredentials,
+												&in_token,
+												GSS_C_NO_CHANNEL_BINDINGS,
+												&clientName,
+												NULL, /* &mechTypes */
+												&out_token,
+												&ret_flags,
+												NULL,	/* ignore time?*/
+												NULL );
+	
+			switch ( majStatus )
+			{
+				case GSS_S_COMPLETE:			/* successful */
+				case GSS_S_CONTINUE_NEEDED:		/* continue */
+				{
+					if ( out_token.value )
+					{
+						/* Encode the challenge and send it */
+						memset( respBuf, 0, MAX_IO_BUF_SIZE );
+						sEncodeBase64( (char *)out_token.value, out_token.length, respBuf, MAX_IO_BUF_SIZE );
+
+						smtpd_chat_reply( state, "334 %s", respBuf );
+						smtpd_chat_query( state );
+		
+						/* check if client cancelled */
+						if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
+						{
+							return ( "501 Authentication aborted" );
+						}
+	
+						/* decode the response */
+						memset( respBuf, 0, MAX_IO_BUF_SIZE );
+						len = VSTRING_LEN( state->buffer );
+						if ( len != 0 )
+						{
+							if ( sDecodeBase64( vstring_str( state->buffer ), len, respBuf, MAX_IO_BUF_SIZE, &respLen ) != 0 )
+							{
+								return ( "501 Authentication failed: malformed response" );
+							}
+						}
+						in_token.value  = respBuf;
+						in_token.length = respLen;
+	
+						gss_release_buffer( &minStatus, &out_token );
+					}
+					break;
+				}
+	
+				default:
+					log_errors( "gss_accept_sec_context", majStatus, minStatus );
+					break;
+			}
+		} while ( in_token.value && in_token.length && (majStatus == GSS_S_CONTINUE_NEEDED) );
+
+		if ( majStatus == GSS_S_COMPLETE )
+		{
+			gss_buffer_desc		inToken;
+			gss_buffer_desc		outToken;
+
+			memcpy( pwdBuf, (void *)&maxsize, 4 );
+			inToken.value	= pwdBuf;
+			inToken.length	= 4;
+
+			pwdBuf[ 0 ] = 1;
+
+			majStatus = gss_wrap( &minStatus, context, 0, GSS_C_QOP_DEFAULT, &inToken, NULL, &outToken );
+			if ( majStatus == GSS_S_COMPLETE )
+			{
+				/* Encode the challenge and send it */
+				sEncodeBase64( (char *)outToken.value, outToken.length, respBuf, MAX_IO_BUF_SIZE );
+
+				smtpd_chat_reply( state, "334 %s", respBuf );
+				smtpd_chat_query( state );
+
+				/* check if client cancelled */
+				if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
+				{
+					return ( "501 Authentication aborted" );
+				}
+
+				/* Decode the response */
+				memset( respBuf, 0, MAX_IO_BUF_SIZE );
+				len = VSTRING_LEN( state->buffer );
+				if ( sDecodeBase64( vstring_str( state->buffer ), len, respBuf, MAX_IO_BUF_SIZE, &respLen ) != 0 )
+				{
+					return ( "501 Authentication failed: malformed response" );
+				}
+
+				inToken.value  = respBuf;
+				inToken.length = respLen;
+
+				gss_release_buffer( &minStatus, &outToken );
+
+				majStatus = gss_unwrap( &minStatus, context, &inToken, &outToken, NULL, NULL );
+				if ( majStatus == GSS_S_COMPLETE )
+				{
+					if ( (outToken.value != NULL)		&&
+						(outToken.length > 4)			&&
+						(outToken.length < MAX_USER_BUF_SIZE) )
+					{
+						memcpy( userBuf, outToken.value, outToken.length );
+						if ( userBuf[0] & 1 )
+						{
+							userBuf[ outToken.length ] = '\0';
+							state->sasl_username = mystrdup( userBuf + 4 );
+							state->sasl_method = mystrdup(sasl_method);
+
+							return( 0 );
+						}
+					}
+				}
+				else
+				{
+					log_errors( "gss_unwrap", majStatus, minStatus );
+				}
+
+				gss_release_buffer( &minStatus, &outToken );
+			}
+			else
+			{
+				log_errors( "gss_wrap", majStatus, minStatus );
+			}
+		}
+	}
+
+	return ( "504 Authentication failed" );
+
+} /* do_gssapi_auth */
+
+
+/* -----------------------------------------------------------------
 	- smtpd_pw_server_authenticate
    ----------------------------------------------------------------- */
 
 char *smtpd_pw_server_authenticate (	SMTPD_STATE *state,
-											const char *sasl_method,
-											const char *init_response )
+										const char *sasl_method,
+										const char *init_response )
 
 {
-	const char *host_name	= NULL;
-	char	   *ptr			= NULL;
-	int			respLen		= 0;
-    char	   *myname		= "smtpd_pw_server_authenticate";
-    unsigned	len			= 0;
-	char		user[ MAX_USER_BUF_SIZE ];
-	char		passwd[ MAX_USER_BUF_SIZE ];
-	char		chal[ MAX_CHAL_BUF_SIZE ];
-	char		resp[ MAX_IO_BUF_SIZE ];
-	char		randbuf[ 17 ];
+    char *myname = "smtpd_pw_server_authenticate";
 
 	/*** Sanity check ***/
     if ( state->sasl_username || state->sasl_method )
@@ -700,374 +1174,19 @@ char *smtpd_pw_server_authenticate (	SMTPD_STATE *state,
 
 	if ( strcasecmp( sasl_method, "LOGIN" ) == 0 )
 	{
-		/* is LOGIN auth enabled */
-		if ( !(state->pw_server_opts & PW_SERVER_LOGIN) )
-		{
-			return ( "504 Authentication method not enabled" );
-		}
-
-		/* encode the user name prompt and send it */
-		strcpy( chal, "Username:" );
-		sEncodeBase64( chal, strlen( chal ), resp, MAX_IO_BUF_SIZE );
-		smtpd_chat_reply( state, "334 %s", resp );
-
-		/* reset the buffer */
-		memset( resp, 0, MAX_IO_BUF_SIZE );
-
-		/* get the user name and decode it */
-		smtpd_chat_query( state );
-		len = VSTRING_LEN( state->buffer );
-		if ( sDecodeBase64( vstring_str( state->buffer ), len, user, MAX_USER_BUF_SIZE, &respLen ) != 0 )
-		{
-			return ( "501 Authentication failed: malformed initial response" );
-		}
-
-		/* has the client given up */
-		if ( strcmp(vstring_str( state->buffer ), "*") == 0 )
-		{
-			return ( "501 Authentication aborted" );
-		}
-
-		/* encode the password prompt and send it */
-		strcpy( chal, "Password:" );
-		sEncodeBase64( chal, strlen( chal ), resp, MAX_IO_BUF_SIZE );
-		smtpd_chat_reply( state, "334 %s", resp );
-
-		/* get the password */
-		smtpd_chat_query( state );
-		len = VSTRING_LEN( state->buffer );
-		if ( sDecodeBase64( vstring_str( state->buffer ), len, passwd, MAX_USER_BUF_SIZE, &respLen ) != 0 )
-		{
-			return ( "501 Authentication failed: malformed response" );
-		}
-
-		/* do the auth */
-		if ( sClearTextCrypt( user, passwd ) == eAODNoErr )
-		{
-			state->sasl_username = mystrdup( user );
-			state->sasl_method = mystrdup(sasl_method);
-
-			return( 0 );
-		}
-		else
-		{
-			return ( "535 Error: authentication failed" );
-		}
+		return( do_login_auth( state, sasl_method, init_response ) );
 	}
 	else if ( strcasecmp( sasl_method, "PLAIN" ) == 0 )
 	{
-		/* is PLAIN auth enabled */
-		if ( !(state->pw_server_opts & PW_SERVER_PLAIN) )
-		{
-			return ( "504 Authentication method not enabled" );
-		}
-
-		/* decode the initial response */
-		if ( init_response == NULL )
-		{
-			return ( "501 Authentication failed: malformed initial response" );
-		}
-		len = strlen( init_response );
-		if ( sDecodeBase64( init_response, len, resp, MAX_USER_BUF_SIZE, &respLen ) != 0 )
-		{
-			return ( "501 Authentication failed: malformed initial response" );
-		}
-
-		ptr = resp;
-		if ( *ptr == NULL )
-		{
-			ptr++;
-		}
-
-		if ( ptr != NULL )
-		{
-			if ( strlen( ptr ) < MAX_USER_BUF_SIZE )
-			{
-				strcpy( user, ptr );
-		
-				ptr = ptr + (strlen( user ) + 1 );
-		
-				if ( ptr != NULL )
-				{
-					if ( strlen( ptr ) < MAX_USER_BUF_SIZE )
-					{
-						strcpy( passwd, ptr );
-		
-						/* do the auth */
-						if ( sClearTextCrypt( user, passwd ) == eAODNoErr )
-						{
-							state->sasl_username = mystrdup( user );
-							state->sasl_method = mystrdup(sasl_method);
-		
-							return( 0 );
-						}
-					}
-				}
-			}
-		}
-
-		return ( "535 Error: authentication failed" );
+		return( do_plain_auth( state, sasl_method, init_response ) );
 	}
 	else if ( strcasecmp( sasl_method, "CRAM-MD5" ) == 0 )
 	{
-		/* is CRAM-MD5 auth enabled */
-		if ( !(state->pw_server_opts & PW_SERVER_CRAM_MD5) )
-		{
-			return ( "504 Authentication method not enabled" );
-		}
-
-		/* create the challenge */
-		host_name = (const char *)get_hostname();
-
-		/* get random data string */
-		get_random_chars( randbuf, 17 );
-
-		sprintf( chal,"<%lu.%s.%lu@%s>",
-				 (unsigned long) getpid(),
-				 randbuf,
-				 (unsigned long)time(0),
-				 host_name );
-
-		/* encode the challenge and send it */
-		sEncodeBase64( chal, strlen( chal ), resp, MAX_IO_BUF_SIZE );
-
-		smtpd_chat_reply( state, "334 %s", resp );
-
-		/* get the client response */
-		smtpd_chat_query( state );
-
-		/* check if client cancelled */
-		if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
-		{
-			return ( "501 Authentication aborted" );
-		}
-
-		/* reset the buffer */
-		memset( resp, 0, MAX_IO_BUF_SIZE );
-
-		/* decode the response */
-		len = VSTRING_LEN( state->buffer );
-		if ( sDecodeBase64( vstring_str( state->buffer ), len, resp, MAX_IO_BUF_SIZE, &respLen ) != 0 )
-		{
-			return ( "501 Authentication failed: malformed initial response" );
-		}
-
-		/* get the user name */
-		ptr = strchr( resp, ' ' );
-		if ( ptr != NULL )
-		{
-			len = ptr - resp;
-			if ( len < MAX_USER_BUF_SIZE )
-			{
-				/* copy user name */
-				memset( user, 0, MAX_USER_BUF_SIZE );
-				strncpy( user, resp, len );
-
-				/* move past the space */
-				ptr++;
-				if ( ptr != NULL )
-				{
-					/* validate the response */
-					if ( sValidateResponse( user, chal, ptr, kDSStdAuthCRAM_MD5 ) == eAODNoErr )
-					{
-						state->sasl_username = mystrdup( user );
-						state->sasl_method = mystrdup(sasl_method);
-	
-						return( 0 );
-					}
-				}
-			}
-		}
-
-		return ( "535 Error: authentication failed" );
+		return( do_cram_md5_auth( state, sasl_method, init_response ) );
 	}
 	else if ( strcasecmp( sasl_method, "GSSAPI" ) == 0 )
 	{
-		int				r		= ODA_AUTH_FAILED;
-		char			principalBuf[ 256 ];
-		gss_buffer_desc	in_token;
-		gss_buffer_desc	out_token;
-		OM_uint32		minStatus	= 0;
-		OM_uint32		majStatus	= 0;
-		OM_uint32		ret_flags	= 0;
-		gss_ctx_id_t	context		= GSS_C_NO_CONTEXT;
-		gss_OID			mechTypes;
-		gss_name_t		clientName;
-		unsigned long	maxsize		= htonl( MAX_IO_BUF_SIZE );
-
-		/* is Kerberos V5 enabled */
-		if ( !(state->pw_server_opts & PW_SERVER_GSSAPI) )
-		{
-			return ( "504 Authentication method not enabled" );
-		}
-
-		if ( gss_Init() == GSS_S_COMPLETE )
-		{
-			if ( init_response == NULL )
-			{
-				smtpd_chat_reply( state, "334 " );
-				smtpd_chat_query( state );
-	
-				/* check if client cancelled */
-				if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
-				{
-					return ( "501 Authentication aborted" );
-				}
-
-				/* clear response buffer */
-				memset( resp, 0, MAX_IO_BUF_SIZE );
-	
-				/* decode the response */
-				len = VSTRING_LEN( state->buffer );
-				if ( sDecodeBase64( vstring_str( state->buffer ), len, resp, MAX_IO_BUF_SIZE, &respLen ) != 0 )
-				{
-					return ( "501 Authentication failed: malformed initial response" );
-				}
-			}
-			else
-			{
-				/* clear response buffer */
-				memset( resp, 0, MAX_IO_BUF_SIZE );
-
-				len = strlen( init_response );
-				if ( sDecodeBase64( init_response, len, resp, MAX_IO_BUF_SIZE, &respLen ) != 0 )
-				{
-					return ( "501 Authentication failed: malformed initial response" );
-				}
-			}
-
-			in_token.value  = resp;
-			in_token.length = respLen;
-
-			do {
-				/* negotiate authentication */
-				majStatus = gss_accept_sec_context(	&minStatus,
-													&context,
-													stCredentials,
-													&in_token,
-													GSS_C_NO_CHANNEL_BINDINGS,
-													&clientName,
-													NULL, /* &mechTypes */
-													&out_token,
-													&ret_flags,
-													NULL,	/* ignore time?*/
-													NULL );
-		
-				switch ( majStatus )
-				{
-					case GSS_S_COMPLETE:			/* successful */
-					case GSS_S_CONTINUE_NEEDED:		/* continue */
-					{
-						if ( out_token.value )
-						{
-							/* Encode the challenge and send it */
-							memset( resp, 0, MAX_IO_BUF_SIZE );
-							sEncodeBase64( (char *)out_token.value, out_token.length, resp, MAX_IO_BUF_SIZE );
-
-							smtpd_chat_reply( state, "334 %s", resp );
-							smtpd_chat_query( state );
-			
-							/* check if client cancelled */
-							if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
-							{
-								return ( "501 Authentication aborted" );
-							}
-		
-							/* decode the response */
-							memset( resp, 0, MAX_IO_BUF_SIZE );
-							len = VSTRING_LEN( state->buffer );
-							if ( len != 0 )
-							{
-								if ( sDecodeBase64( vstring_str( state->buffer ), len, resp, MAX_IO_BUF_SIZE, &respLen ) != 0 )
-								{
-									return ( "501 Authentication failed: malformed response" );
-								}
-							}
-							in_token.value  = resp;
-							in_token.length = respLen;
-		
-							gss_release_buffer( &minStatus, &out_token );
-						}
-						break;
-					}
-		
-					default:
-						log_errors( "gss_accept_sec_context", majStatus, minStatus );
-						break;
-				}
-			} while ( in_token.value && in_token.length && (majStatus == GSS_S_CONTINUE_NEEDED) );
-
-			if ( majStatus == GSS_S_COMPLETE )
-			{
-				gss_buffer_desc		inToken;
-				gss_buffer_desc		outToken;
-
-				memcpy( passwd, (void *)&maxsize, 4 );
-				inToken.value	= passwd;
-				inToken.length	= 4;
-
-				passwd[ 0 ] = 1;
-	
-				majStatus = gss_wrap( &minStatus, context, 0, GSS_C_QOP_DEFAULT, &inToken, NULL, &outToken );
-				if ( majStatus == GSS_S_COMPLETE )
-				{
-					/* Encode the challenge and send it */
-					sEncodeBase64( (char *)outToken.value, outToken.length, resp, MAX_IO_BUF_SIZE );
-
-					smtpd_chat_reply( state, "334 %s", resp );
-					smtpd_chat_query( state );
-	
-					/* check if client cancelled */
-					if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
-					{
-						return ( "501 Authentication aborted" );
-					}
-
-					/* Decode the response */
-					memset( resp, 0, MAX_IO_BUF_SIZE );
-					len = VSTRING_LEN( state->buffer );
-					if ( sDecodeBase64( vstring_str( state->buffer ), len, resp, MAX_IO_BUF_SIZE, &respLen ) != 0 )
-					{
-						return ( "501 Authentication failed: malformed response" );
-					}
-
-					inToken.value  = resp;
-					inToken.length = respLen;
-	
-					gss_release_buffer( &minStatus, &outToken );
-	
-					majStatus = gss_unwrap( &minStatus, context, &inToken, &outToken, NULL, NULL );
-					if ( majStatus == GSS_S_COMPLETE )
-					{
-						if ( (outToken.value != NULL)		&&
-							(outToken.length > 4)			&&
-							(outToken.length < MAX_USER_BUF_SIZE) )
-						{
-							memcpy( user, outToken.value, outToken.length );
-							if ( user[0] & 1 )
-							{
-								user[ outToken.length ] = '\0';
-								state->sasl_username = mystrdup( user + 4 );
-								state->sasl_method = mystrdup(sasl_method);
-
-								return( 0 );
-							}
-						}
-					}
-					else
-					{
-						log_errors( "gss_unwrap", majStatus, minStatus );
-					}
-	
-					gss_release_buffer( &minStatus, &outToken );
-				}
-				else
-				{
-					log_errors( "gss_wrap", majStatus, minStatus );
-				}
-			}
-		}
-		return ( "504 Authentication failed" );
+		return( do_gssapi_auth( state, sasl_method, init_response ) );
 	}
 
 	return ( "504 Unsupported authentication method" );
@@ -1649,7 +1768,7 @@ tDirStatus sLook_up_user ( tDirReference inDirRef,
 
 					if ( pContext != NULL )
 					{
-						(void)dsReleaseContinueData( inDirRef, pContext );
+						(void)dsReleaseContinueData( inSearchNodeRef, pContext );
 						pContext = NULL;
 					}
 					(void)dsDataListDeallocate( inDirRef, pUserAttrType );

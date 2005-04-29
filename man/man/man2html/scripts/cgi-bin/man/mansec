@@ -1,0 +1,183 @@
+#!/usr/bin/awk -f
+#
+#  Generate an index into a manual section by using find.
+#  Michael Hamilton <michael@actrix.gen.nz>
+#  Small changes - aeb, 980109
+#
+BEGIN {
+
+  OFS="";
+
+  if (ARGC != 3) {
+    print "Content-type: text/html\n\n";  
+    print "<head>";
+    print "<title>manwhatis - bad call</title>";
+    print "</head>\n<body>";
+    print "manwhatis: wrong number of arguments";
+    print "</body>";
+    exit;
+  }
+  cgipath = ARGV[1];
+  section = ARGV[2];
+
+  if (section !~ /^[1-8ln]$/ && section != "all") {
+    print "Content-type: text/html\n\n";  
+    print "<head>";
+    print "<title>Manual - Illegal section</title>";
+    print "<body>";
+    print "Illegal section number '" section "'." ;
+    print "Must be one of 1,2,3,4,5,6,7,8,l,n or all";
+    print "</body>";
+    exit;
+  }
+    
+  "echo $PPID" | getline pid;
+
+  if (cgipath ~ /lynxcgi/) {
+    cache_suffix = "l";
+  }
+  else {
+    cache_suffix = "h";
+  }
+
+  cache_dir  = "/var/man2html";
+  cache_file = "manindex" cache_suffix "-" section ".html";
+  cache = cache_dir "/" cache_file;
+  cache_tmp = cache "_" pid;
+  buffer_tmp = cache "_items_" pid;
+
+				# Find out the man path
+  "man -w" | getline man_path
+  man_path = man_path ":";
+  gsub(":", " ", man_path);
+				# See if anything is out of date.
+				# Check all man[1-8] dir dates vs cache date
+  if (section == "all") {
+    if (system("test -f " cache) == 0) {
+      cmd = "find " man_path " -maxdepth 1 -name 'man[1-8]' -newer " cache;
+      cmd | getline need_update;
+    }
+    else {
+      need_update = 1;
+    }
+  }
+  else {
+    if (system("test -f " cache) == 0) {
+      cmd = "find " man_path " -maxdepth 1 -name man" section " -newer " cache;
+      cmd | getline need_update;
+    }
+    else {
+      need_update = 1;
+    }
+  }
+
+  if (need_update != "") {
+    if (system("test -w " cache_dir "/.") != 0) {
+      print "Content-type: text/html\n\n";  
+      print "<head>";
+      print "<title>mansec - no cache</title>";
+      print "</head>\n<body>";
+      print "Sorry - cannot create index.";
+      print "No writable cache directory " cache_dir " exists.";
+      print "</body>";
+      exit;
+    }
+
+    sec_name[1] = "User Commands";
+    sec_name[2] = "System Calls";
+    sec_name[3] = "Library Functions";
+    sec_name[4] = "Special Files";
+    sec_name[5] = "File Formats";
+    sec_name[6] = "Games";
+    sec_name[7] = "Miscellany";
+    sec_name[8] = "Administration and Privileged Commands";
+    sec_name["all"] = "All available manual pages";
+    num_sections = 8;
+
+				# Print heading
+    print "Content-type: text/html\n\n" > cache_tmp;  
+    print "<html>\n<head>" > cache_tmp;
+    print "<title>Manual Pages - Names: " section ". " sec_name[section] "</title>"> cache_tmp;
+    print "</head>\n<body>" > cache_tmp;
+    print "<h1>Manual Pages - Page Names</h1>" > cache_tmp;
+    print "<h2>Section " section ": " sec_name[section] "</h2>" > cache_tmp;
+    
+    "hostname" | getline hostname;
+    "date" | getline date;
+    print hostname " (" date ")" > cache_tmp;
+    
+    if (section != "all") {
+      sec_sub_dir = "/man" section;
+    }
+    else {
+      sec_sub_dir = "/man*";    
+    }
+    gsub(" ", sec_sub_dir " ", man_path); 
+    
+    print "<p>Manual pages found under " man_path "." > cache_tmp;
+
+				# Find any man[1-8]/filenames
+    while ((("find " man_path " -follow -type f -printf '%f\n' | sort -f ") | getline manpage) > 0) {
+				# Check for new letter of alphabet
+      letter = tolower(substr(manpage,1,1));
+      if (letter != last_letter) {
+	last_letter = letter;
+	letter_index[++num_letters] = letter;
+				# Start a new alphabetic heading
+	print "<h2> <a name=\"", letter, "\">", toupper(letter), "</a></h2>" > buffer_tmp;
+				# Print out alphabetic quick index and other links
+      }
+				# Split page.n into "page" and "n" and generate an entry
+      sub(/[.]([zZ]|(gz))$/, "", manpage);
+      match(manpage, /[.][^.]+$/);      
+      title = substr(manpage, 1, RSTART - 1);
+      if (section != "all") {
+        print "<a href=\"" cgipath "/man2html?", section, "+", title, "\">", title, "(", substr(manpage, RSTART + 1), ")</a>" > buffer_tmp;
+      }
+      else {
+	sec = substr(manpage, RSTART + 1)
+	print "<a href=\"" cgipath "/man2html?", sec, "+", title, "\">", title, "(", sec, ")</a>" > buffer_tmp;
+      }
+    }
+
+    close(buffer_tmp);
+
+    print "<p>" > cache_tmp;
+
+				# Print out alphabetic quick index and other links
+    for (i = 1; i <= num_letters; i++) {
+      print "<a href=\"#" letter_index[i] "\">" toupper(letter_index[i]) "</a>" > cache_tmp;
+    }
+
+    print "<p><hr>" > cache_tmp;
+    print "<a href=\"" cgipath "/man2html\">Return to Main Contents</a>" > cache_tmp;
+
+    print "<p>Other sections:" > cache_tmp;
+    for (i=1; i<=num_sections; i++) {
+      if (i != section) {		# Dont print an entry for the section we are in
+	print "<a href=\"" cgipath "/mansec?" cgipath "+" i "\">" i ". " sec_name[i] "</a> " > cache_tmp;
+      }
+    }
+    print "<hr><p>" > cache_tmp;
+				# Print out the accumulated index entries
+    while ((getline < buffer_tmp) > 0) print > cache_tmp;
+    print "<hr><p>" > cache_tmp;
+				# Print out alphabetic quick index and other links
+    for (i = 1; i <= num_letters; i++) {
+      print "<a href=\"#" letter_index[i] "\">" toupper(letter_index[i]) "</a>" > cache_tmp;
+    }
+    print "<hr>" > cache_tmp;
+    print "<p><a href=\"" cgipath "/man2html\">Return to Main Contents</a>" > cache_tmp;
+    print "<p>Other sections:" > cache_tmp;
+    for (i=1; i<=num_sections; i++) {
+      if (i != section) {		# Dont print an entry for the section we are in
+	print "<a href=\"" cgipath "/mansec?" cgipath "+" i "\">" i ". " sec_name[i] "</a> " > cache_tmp;
+      }
+    }
+    print "</body>\n</html>" > cache_tmp;
+    system("/bin/mv " cache_tmp " " cache);
+    system("/bin/rm -f " buffer_tmp);
+  }
+  system("/bin/cat " cache);
+  exit;
+}

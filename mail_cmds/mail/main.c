@@ -42,8 +42,10 @@ static char copyright[] =
 static char sccsid[] = "@(#)main.c	8.2 (Berkeley) 4/20/95";
 #endif
 static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/main.c,v 1.12 2001/12/18 20:52:09 mikeh Exp $";
+  "$FreeBSD: src/usr.bin/mail/main.c,v 1.14 2004/02/29 20:44:44 mikeh Exp $";
 #endif /* not lint */
+
+#include <sys/cdefs.h>
 
 #define EXTERN
 #include "rcv.h"
@@ -94,7 +96,7 @@ main(argc, argv)
 	bcc = NULL;
 	smopts = NULL;
 	subject = NULL;
-	while ((i = getopt(argc, argv, "EINT:b:c:dfins:u:v")) != -1) {
+	while ((i = getopt(argc, argv, "FEHINT:b:c:edfins:u:v")) != -1) {
 		switch (i) {
 		case 'T':
 			/*
@@ -123,6 +125,25 @@ main(argc, argv)
 			break;
 		case 'd':
 			debug++;
+			break;
+		case 'e':
+			/*
+			 * User wants to check mail and exit.
+			 */
+			assign("checkmode", "");
+			break;
+		case 'H':
+			/*
+			 * User wants a header summary only.
+			 */
+			assign("headersummary", "");
+			break;
+		case 'F':
+			/*
+			 * User wants to record messages to files
+			 * named after first recipient username.
+			 */
+			assign("recordrecip", "");
 			break;
 		case 's':
 			/*
@@ -190,11 +211,13 @@ main(argc, argv)
 			break;
 		case '?':
 			fprintf(stderr, "\
-Usage: %s [-EiInv] [-s subject] [-c cc-addr] [-b bcc-addr] to-addr ...\n\
+Usage: %s [-EiInv] [-s subject] [-c cc-addr] [-b bcc-addr] [-F] to-addr ...\n\
        %*s [- sendmail-options ...]\n\
-       %s [-EiInNv] -f [name]\n\
-       %s [-EiInNv] [-u user]\n",__progname, strlen(__progname), "",
-			    __progname, __progname);
+       %s [-EHiInNv] [-F] -f [name]\n\
+       %s [-EHiInNv] [-F] [-u user]\n\
+       %s -e [-f name]\n\
+       %s -H\n",__progname, strlen(__progname), "",
+			    __progname, __progname, __progname, __progname);
 			exit(1);
 		}
 	}
@@ -241,6 +264,18 @@ Usage: %s [-EiInv] [-s subject] [-c cc-addr] [-b bcc-addr] to-addr ...\n\
 		 */
 		exit(senderr);
 	}
+
+	if(value("checkmode") != NULL) {
+		if (ef == NULL)
+			ef = "%";
+		if (setfile(ef) <= 0)
+			/* Either an error has occured, or no mail */
+			exit(1);
+		else
+			exit(0);
+		/* NOTREACHED */
+	}
+
 	/*
 	 * Ok, we are reading mail.
 	 * Decide whether we are editing a mailbox or reading
@@ -260,6 +295,11 @@ Usage: %s [-EiInv] [-s subject] [-c cc-addr] [-b bcc-addr] to-addr ...\n\
 		(void)fflush(stdout);
 		(void)signal(SIGINT, prevint);
 	}
+
+	/* If we were in header summary mode, it's time to exit. */
+	if (value("headersummary") != NULL)
+		exit(0);
+
 	commands();
 	(void)signal(SIGHUP, SIG_IGN);
 	(void)signal(SIGINT, SIG_IGN);

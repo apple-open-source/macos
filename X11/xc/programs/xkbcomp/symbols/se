@@ -3,7 +3,7 @@
 
 
 
-// $XFree86: xc/programs/xkbcomp/symbols/se,v 3.10 2002/12/19 01:07:54 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/se,v 3.11 2003/05/29 12:41:58 pascal Exp $
 
 partial alphanumeric_keys 
  xkb_symbols "basic" {
@@ -99,7 +99,7 @@ xkb_symbols "fixdollar" {
 //    key <AE04> {	[               4,        currency     	],	
 //			[	   dollar,	    dollar	]	};
   override key <AE04> {	[		4,	    dollar	],
-			  [	   dollar,	  currency	] 	};
+			[	   dollar,	  currency	] 	};
 };
 
 partial alphanumeric_keys 
@@ -114,5 +114,6 @@ xkb_symbols "nodeadkeys" {
 
     include "se(basic)"
     key <AE12> {	[           acute,           grave	]	};
-    key <AD12> {	[       diaeresis,     asciicircum     	]	};
+    key <AD12> {	[       diaeresis,     asciicircum     	],
+			[      asciitilde,           caron	]	};
 };

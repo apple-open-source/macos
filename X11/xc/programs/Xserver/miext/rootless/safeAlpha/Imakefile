@@ -1,0 +1,18 @@
+XCOMM $XFree86: xc/programs/Xserver/miext/rootless/safeAlpha/Imakefile,v 1.1 2003/09/16 00:36:20 torrey Exp $
+
+#include <Server.tmpl>
+
+SRCS =  safeAlphaPicture.c \
+        safeAlphaWindow.c
+
+OBJS =  safeAlphaPicture.o \
+        safeAlphaWindow.o
+
+   INCLUDES = -I. -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi -I$(SERVERSRC)/include \
+              -I$(XINCLUDESRC) -I$(FONTINCSRC) -I$(SERVERSRC)/render \
+              -I$(EXTINCSRC) -I$(SERVERSRC)/Xext -I..
+
+NormalLibraryObjectRule()
+LibraryModuleTarget(safeAlpha,$(OBJS))
+
+DependTarget()

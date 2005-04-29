@@ -108,14 +108,6 @@
 u_long ppp_setoption (struct client *client, struct msg *req, void **reply);
 u_long ppp_getoption (struct client *client, struct msg *req, void **reply);
 
-u_long set_long_opt (CFMutableDictionaryRef opts, CFStringRef entity, CFStringRef property, 
-        u_long opt, u_long mini, u_long maxi, u_long limit);
-u_long set_str_opt (CFMutableDictionaryRef opts, CFStringRef entity, CFStringRef property, 
-        char *opt, int len, CFStringRef optref);
-u_long set_array_opt (CFMutableDictionaryRef opts, CFStringRef entity, CFStringRef property, 
-        CFStringRef optref1, CFStringRef optref2);
-void remove_opt (CFMutableDictionaryRef opts, CFStringRef entity, CFStringRef property);
-
 int ppp_getoptval(struct ppp *ppp, CFDictionaryRef opts, CFDictionaryRef setup, 
         u_int32_t otype, void *pdata, u_int32_t *plen);
 u_long get_addr_option (struct ppp *ppp, CFStringRef entity, CFStringRef property, 
@@ -127,23 +119,5 @@ int get_str_option (struct ppp *ppp, CFStringRef entity, CFStringRef property,
 CFTypeRef get_cf_option (CFStringRef entity, CFStringRef property, CFTypeID type, 
         CFDictionaryRef options, CFDictionaryRef setup, CFTypeRef defaultval);
 
-int options_init_all();
-
-int getStringFromEntity(CFStringRef domain, CFStringRef serviceID, 
-        CFStringRef entity, CFStringRef property, u_char *str, u_int16_t maxlen);
-CFStringRef copyCFStringFromEntity(CFStringRef domain, CFStringRef serviceID, 
-        CFStringRef entity, CFStringRef property);
-int getNumberFromEntity(CFStringRef domain, CFStringRef serviceID, 
-        CFStringRef entity, CFStringRef property, u_int32_t *outval);
-int getAddressFromEntity(CFStringRef domain, CFStringRef serviceID, 
-        CFStringRef entity, CFStringRef property, u_int32_t *outval);
-int getNumber(CFDictionaryRef service, CFStringRef property, u_int32_t *outval);
-int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int16_t maxlen);
-CFDictionaryRef copyService(CFStringRef domain, CFStringRef serviceID);
-CFDictionaryRef copyEntity(CFStringRef domain, CFStringRef serviceID, CFStringRef entity);
-int existEntity(CFStringRef domain, CFStringRef serviceID, CFStringRef entity);
-u_int32_t CFStringAddrToLong(CFStringRef string);
-
-extern CFStringRef	gLoggedInUser;
 
 #endif

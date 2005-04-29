@@ -1,5 +1,5 @@
 /* ctl_deliver.c -- Program to perform operations on duplicate delivery db
- * $Id: ctl_deliver.c,v 1.20 2004/05/22 03:45:48 rjs3 Exp $
+ * $Id: ctl_deliver.c,v 1.5 2005/03/05 00:36:46 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/include/fontmisc.h,v 3.16 2001/12/14 19:56:54 dawes Exp $ */
+/* $XFree86: xc/lib/font/include/fontmisc.h,v 3.17 2003/09/13 21:33:02 dawes Exp $ */
 
 /*
  * Author:  Keith Packard, MIT X Consortium
@@ -68,7 +68,8 @@ extern Atom MakeAtom ( char *string, unsigned len, int makeit );
 extern int ValidAtom ( Atom atom );
 extern char *NameForAtom (Atom atom);
 
-#ifndef OS_H
+#ifndef _HAVE_XALLOC_DECLS
+#define _HAVE_XALLOC_DECLS
 extern pointer Xalloc(unsigned long);
 extern pointer Xrealloc(pointer, unsigned long);
 extern void Xfree(pointer);

@@ -37,7 +37,7 @@ setopt GLOB_DOTS
 # Overrides NOMATCH. 
 
 SetFilePath=${NEXT_ROOT}/System/Developer/Tools/SetFile
-PlistConverterPath=${NEXT_ROOT}/usr/bin/CFInfoPlistConverter
+PlistConverterPath=${NEXT_ROOT}/Developer/Makefiles/pb_makefiles/CFInfoPlistConverter
 
 if [ "$#" -lt "1" ] ; then
     echo "Usage: $0 <bundlePath>"

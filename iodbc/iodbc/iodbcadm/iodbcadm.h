@@ -1,7 +1,7 @@
 /*
  *  iodbcadm.h
  *
- *  $Id: iodbcadm.h,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: iodbcadm.h,v 1.3 2004/11/11 01:52:39 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -78,24 +78,33 @@
 #ifndef	_IODBCADM_H
 #define	_IODBCADM_H
 
-SQLRETURN SQL_API _iodbcdm_loginbox (HWND hwnd, LPSTR szInOutConnStr,
-    DWORD cbInOutConnStr, int FAR * sqlStat);
-SQLRETURN SQL_API _iodbcdm_drvconn_dialbox (HWND hwnd, LPSTR szInOutConnStr,
-    DWORD cbInOutConnStr, int FAR * sqlStat);
+#define USER_DSN		0
+#define SYSTEM_DSN		1
+#define FILE_DSN		2
+
+SQLRETURN SQL_API iodbcdm_drvconn_dialbox (HWND hwnd, LPSTR szInOutConnStr,
+    DWORD cbInOutConnStr, int *sqlStat, SQLUSMALLINT fDriverCompletion,
+    UWORD * config);
+SQLRETURN SQL_API iodbcdm_drvconn_dialboxw (HWND hwnd, LPWSTR szInOutConnStr,
+    DWORD cbInOutConnStr, int *sqlStat, SQLUSMALLINT fDriverCompletion,
+    UWORD * config);
+
 SQLRETURN SQL_API _iodbcdm_drvchoose_dialbox (HWND hwnd, LPSTR szInOutDrvStr,
-    DWORD cbInOutDrvStr, int FAR * sqlStat);
+    DWORD cbInOutDrvStr, int *sqlStat);
 SQLRETURN SQL_API _iodbcdm_trschoose_dialbox (HWND hwnd, LPSTR szInOutDrvStr,
-    DWORD cbInOutDrvStr, int FAR * sqlStat);
+    DWORD cbInOutDrvStr, int *sqlStat);
 
 void SQL_API _iodbcdm_errorbox (HWND hwnd, LPCSTR szDSN, LPCSTR szText);
 void SQL_API _iodbcdm_messagebox (HWND hwnd, LPCSTR szDSN, LPCSTR szText);
+BOOL SQL_API _iodbcdm_confirmbox (HWND hwnd, LPCSTR szDSN, LPCSTR szText);
+void _iodbcdm_nativeerrorbox (HWND hwnd, HENV henv, HDBC hdbc, HSTMT hstmt);
 
 SQLRETURN SQL_API _iodbcdm_admin_dialbox (HWND hwnd);
 
+typedef SQLRETURN SQL_API (*pAdminBoxFunc) (HWND hwnd);
+typedef SQLRETURN SQL_API (*pTrsChooseFunc) (HWND hwnd, LPSTR szInOutDrvStr,
+    DWORD cbInOutDrvStr, int *sqlStat);
 typedef SQLRETURN SQL_API (*pDrvConnFunc) (HWND hwnd, LPSTR szInOutConnStr,
-    DWORD cbInOutConnStr, int FAR * sqlStat);
-
-typedef SQLRETURN SQL_API (*pLoginFunc) (HWND hwnd, LPSTR szInOutConnStr,
-    DWORD cbInOutConnStr, int FAR * sqlStat);
-
+    DWORD cbInOutConnStr, int *sqlStat, SQLUSMALLINT fDriverCompletion,
+    UWORD * config);
 #endif

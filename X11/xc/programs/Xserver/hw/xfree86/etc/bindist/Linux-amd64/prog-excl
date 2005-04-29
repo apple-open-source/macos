@@ -1,0 +1,3 @@
+lib64/lib*.so*
+lib64/modules
+include/X11/bitmaps

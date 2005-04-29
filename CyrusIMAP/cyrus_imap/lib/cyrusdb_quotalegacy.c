@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: cyrusdb_quotalegacy.c,v 1.10 2004/08/04 13:03:19 ken3 Exp $ */
+/* $Id: cyrusdb_quotalegacy.c,v 1.4 2005/03/05 00:37:13 dasenbro Exp $ */
 
 #include <config.h>
 

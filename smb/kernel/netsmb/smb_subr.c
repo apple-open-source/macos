@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_subr.c,v 1.15 2003/09/08 23:45:26 lindak Exp $
+ * $Id: smb_subr.c,v 1.27 2005/01/26 23:50:50 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -42,12 +42,10 @@
 #include <sys/signalvar.h>
 #include <sys/mbuf.h>
 
-#ifdef APPLE
 #include <sys/smb_apple.h>
 #include <sys/utfconv.h>
-#endif
 
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
@@ -61,38 +59,17 @@ MALLOC_DEFINE(M_SMBTEMP, "SMBTEMP", "Temp netsmb data");
 smb_unichar smb_unieol = 0;
 
 void
-smb_makescred(struct smb_cred *scred, struct proc *p, struct ucred *cred)
+smb_scred_init(struct smb_cred *scred, vfs_context_t vfsctx)
 {
-	if (p) {
-		scred->scr_p = p;
-		scred->scr_cred = cred ? cred : p->p_ucred;
-	} else {
-		scred->scr_p = NULL;
-		scred->scr_cred = cred ? cred : NULL;
-	}
+	scred->scr_vfsctx = vfsctx;
 }
 
-int
-smb_proc_intr(struct proc *p)
+PRIVSYM int
+smb_sigintr(vfs_context_t vfsctx)
 {
-#if defined(APPLE) || __FreeBSD_version < 400009
-
-	if (p && p->p_siglist &&
-	    (((p->p_siglist & ~p->p_sigmask) & ~p->p_sigignore) & SMB_SIGMASK))
-		return EINTR;
-	return 0;
-#else
-	sigset_t tmpset;
-
-	if (p == NULL)
-		return 0;
-	tmpset = p->p_siglist;
-	SIGSETNAND(tmpset, p->p_sigmask);
-	SIGSETNAND(tmpset, p->p_sigignore);
-	if (SIGNOTEMPTY(p->p_siglist) && SMB_SIGMASK(tmpset))
-                return EINTR;
-	return 0;
-#endif
+	if (vfsctx && vfs_context_issignal(vfsctx, SMB_SIGMASK))
+		return (EINTR);
+	return (0);
 }
 
 char *
@@ -120,7 +97,7 @@ smb_strdupin(char *s, int maxlen)
 	int len = 0;
 
 	for (p = s; ;p++) {
-		if (copyin(p, &bt, 1))
+		if (copyin(CAST_USER_ADDR_T(p), &bt, 1))
 			return NULL;
 		len++;
 		if (maxlen && len > maxlen)
@@ -129,7 +106,7 @@ smb_strdupin(char *s, int maxlen)
 			break;
 	}
 	p = malloc(len, M_SMBSTR, M_WAITOK);
-	copyin(s, p, len);
+	copyin(CAST_USER_ADDR_T(s), p, len);
 	return p;
 }
 
@@ -144,7 +121,7 @@ smb_memdupin(void *umem, int len)
 	if (len > 32 * 1024)
 		return NULL;
 	p = malloc(len, M_SMBSTR, M_WAITOK);
-	if (copyin(umem, p, len) == 0)
+	if (copyin(CAST_USER_ADDR_T(umem), p, len) == 0)
 		return p;
 	free(p, M_SMBSTR);
 	return NULL;
@@ -180,11 +157,7 @@ smb_memfree(void *s)
 }
 
 void *
-#ifdef APPLE
 smb_zmalloc(unsigned long size, int type, int flags)
-#else
-smb_zmalloc(unsigned long size, struct malloc_type *type, int flags)
-#endif
 {
 
 #ifdef M_ZERO
@@ -197,26 +170,22 @@ smb_zmalloc(unsigned long size, struct malloc_type *type, int flags)
 #endif
 }
 
-void
-smb_strtouni(u_int16_t *dst, const char *src)
+size_t
+smb_strtouni(u_int16_t *dst, const char *src, size_t inlen, int flags)
 {
-#ifdef APPLE
-	size_t inlen = strlen(src);
 	size_t outlen;
-	int flags = UTF_PRECOMPOSED;
 
+        if (!inlen)
+                 inlen = strlen(src);
 	if (BYTE_ORDER != LITTLE_ENDIAN)
 		flags |= UTF_REVERSE_ENDIAN;
 	if (utf8_decodestr(src, inlen, dst, &outlen, inlen * 2, 0, flags) != 0)
-		dst[0] = 0;
-	else
-		dst[outlen/2] = 0;
-#else
-	while (*src) {
-		*dst++ = htoles(*src++);
-	}
-	*dst = 0;
-#endif /* APPLE */
+                outlen = 0;
+        if (!(flags & UTF_NO_NULL_TERM)) {
+                dst[outlen/2] = 0;
+                outlen += 2;
+        }       
+        return (outlen);
 }
 
 #ifdef SMB_SOCKETDATA_DEBUG
@@ -239,13 +208,27 @@ m_dumpm(struct mbuf *m) {
 #endif
 
 /* all these need review XXX */
+#ifndef EPROTO
 #define EPROTO ECONNABORTED
+#endif
+#ifndef ELIBACC
 #define ELIBACC ENOENT
+#endif
+#ifndef ENODATA
 #define ENODATA EINVAL
+#endif
+#ifndef ENOTUNIQ
 #define ENOTUNIQ EADDRINUSE
+#endif
+#ifndef ECOMM
 #define ECOMM EIO
+#endif
+#ifndef ENOMEDIUM
 #define ENOMEDIUM EIO
+#endif
+#ifndef ETIME
 #define ETIME ETIMEDOUT
+#endif
 
 static struct {
 	unsigned nterr;
@@ -257,7 +240,7 @@ static struct {
 	{NT_STATUS_ACCOUNT_RESTRICTION,		EACCES},
 	{NT_STATUS_ADDRESS_ALREADY_EXISTS,	EADDRINUSE},
         {NT_STATUS_BAD_NETWORK_NAME,		ENOENT},
-	{NT_STATUS_BUFFER_TOO_SMALL,		ENOBUFS},
+	{NT_STATUS_BUFFER_TOO_SMALL,		EMOREDATA},
 	{NT_STATUS_CONFLICTING_ADDRESSES,	EADDRINUSE},
 	{NT_STATUS_CONNECTION_ABORTED,		ECONNABORTED},
 	{NT_STATUS_CONNECTION_DISCONNECTED,	ECONNABORTED},
@@ -894,6 +877,7 @@ smb_maperr32(u_int32_t eno)
 	return (smb_maperror(ERRHRD, ERRgeneral));
 }
 
+
 int
 smb_maperror(int eclass, int eno)
 {
@@ -936,9 +920,10 @@ smb_maperror(int eclass, int eno)
 			 * for instance) and we can't presume the
 			 * order servers check errors in.
 			 */
-		    case ERRbadshare:
 		    case ERRbadaccess:
 			return EACCES;
+		    case ERRbadshare:
+			return EBUSY;
 		    case ERRbadfid:
 			return EBADF;
 		    case ERRbadmcb:
@@ -969,6 +954,8 @@ smb_maperror(int eclass, int eno)
 			return 0; /* 0 since bsd unlocks on any close */
 		    case ERRrename:
 			return EEXIST;
+		    case ERRmoredata:
+			return EMOREDATA;
 		}
 		break;
 	    case ERRSRV:
@@ -1020,11 +1007,10 @@ smb_maperror(int eclass, int eno)
 	return EBADRPC;
 }
 
-#ifdef APPLE
 
 int
 smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp, const char *src,
-	int size, int caseopt)
+	int size, int caseopt, int *lenp)
 {
 	#pragma unused(caseopt)
 	char convbuf[512];
@@ -1034,9 +1020,12 @@ smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp, const char *src,
 
 	if (size == 0)
 		return 0;
-	if (vcp->vc_toserver == NULL)
-		return mb_put_mem(mbp, src, size, MB_MSYSTEM);
-
+        if (vcp->vc_toserver == NULL) {
+                error =  mb_put_mem(mbp, src, size, MB_MSYSTEM);
+                if (!error && lenp)
+                        *lenp += size;
+                return error;
+        }
 	inlen = size;
 	outlen = sizeof(convbuf);
 	dst = convbuf;
@@ -1048,36 +1037,11 @@ smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp, const char *src,
 	if (SMB_UNICODE_STRINGS(vcp))
 		mb_put_padbyte(mbp);
 	error = mb_put_mem(mbp, (c_caddr_t)convbuf, outlen, MB_MSYSTEM);
+        if (!error && lenp)
+                *lenp += outlen;
 	return error;
 }
 
-#else
-
-static int
-smb_copy_iconv(struct mbchain *mbp, c_caddr_t src, caddr_t dst, int len)
-{
-	int outlen = len;
-
-	return iconv_conv((struct iconv_drv*)mbp->mb_udata, &src, &len, &dst, &outlen);
-}
-
-int
-smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp, const char *src,
-	int size, int caseopt)
-{
-	struct iconv_drv *dp = vcp->vc_toserver;
-
-	if (size == 0)
-		return 0;
-	if (dp == NULL) {
-		return mb_put_mem(mbp, src, size, MB_MSYSTEM);
-	}
-	mbp->mb_copy = smb_copy_iconv;
-	mbp->mb_udata = dp;
-	return mb_put_mem(mbp, src, size, MB_MCUSTOM);
-}
-
-#endif
 
 int
 smb_put_dstring(struct mbchain *mbp, struct smb_vc *vcp, const char *src,
@@ -1085,64 +1049,23 @@ smb_put_dstring(struct mbchain *mbp, struct smb_vc *vcp, const char *src,
 {
 	int error;
 
-	error = smb_put_dmem(mbp, vcp, src, strlen(src), caseopt);
+	error = smb_put_dmem(mbp, vcp, src, strlen(src), caseopt, NULL);
 	if (error)
 		return error;
-#ifdef APPLE
 	if (SMB_UNICODE_STRINGS(vcp))
 		return mb_put_uint16le(mbp, 0);
-#endif
 	return mb_put_uint8(mbp, 0);
 }
 
-#ifndef APPLE
-int
-smb_put_asunistring(struct smb_rq *rqp, const char *src)
-{
-	struct mbchain *mbp = &rqp->sr_rq;
-	struct iconv_drv *dp = rqp->sr_vc->vc_toserver;
-	u_char c;
-	int error;
-
-	while (*src) {
-		iconv_convmem(dp, &c, src++, 1);
-		error = mb_put_uint16le(mbp, c);
-		if (error)
-			return error;
-	}
-	return mb_put_uint16le(mbp, 0);
-}
-#endif
 
 int
 smb_checksmp(void)
 {
-#ifndef APPLE
-	int name[2];
-	int olen, ncpu, plen, error;
-
-	name[0] = CTL_HW;
-	name[1] = HW_NCPU;
-	error = kernel_sysctl(curproc, name, 2, &ncpu, &olen, NULL, 0, &plen);
-	if (error)
-		return error;
-#ifndef	SMP
-	if (ncpu > 1) {
-		printf("error: module compiled without SMP support\n");
-		return EPERM;
-	}
-#else
-	if (ncpu < 2) {
-		printf("warning: only one CPU active on in SMP kernel ?\n");
-	}
-#endif
-#else
 	/* APPLE:
 	 * just return success...
 	 * since kernel_sysctl is broken
 	 * and hw_sysctl tries to copyout to user space
 	 * and we are always SMP anyway
 	 */
-#endif /* APPLE */
 	return 0;
 }

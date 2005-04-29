@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOFireWireSerialBusProtocolTransport</string>
+	<key>CFBundleGetInfoString</key>
+	<string>1.4.0, Copyright Apple Computer, Inc. 1999-2004</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOFireWireSerialBusProtocolTransport</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOFireWireSerialBusProtocolTransport</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.0</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOFireWireSerialBusProtocolTransport</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOFireWireSerialBusProtocolTransport</string>
+			<key>Command_Set</key>
+			<integer>66776</integer>
+			<key>Command_Set_Spec_ID</key>
+			<integer>24734</integer>
+			<key>IOClass</key>
+			<string>IOFireWireSerialBusProtocolTransport</string>
+			<key>IOProbeScore</key>
+			<integer>4096</integer>
+			<key>IOProviderClass</key>
+			<string>IOFireWireSBP2LUN</string>
+			<key>Protocol Characteristics</key>
+			<dict>
+				<key>Physical Interconnect</key>
+				<string>FireWire</string>
+				<key>Physical Interconnect Location</key>
+				<string>External</string>
+			</dict>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOFireWireFamily</key>
+		<string>1.0.0</string>
+		<key>com.apple.iokit.IOFireWireSBP2</key>
+		<string>1.0.0</string>
+		<key>com.apple.iokit.IOSCSIArchitectureModelFamily</key>
+		<string>1.0.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Local-Root</string>
+</dict>
+</plist>

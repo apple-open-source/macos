@@ -1,0 +1,210 @@
+<!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
+  <head>
+    <link href="tclsoap.css" rel="stylesheet" type="text/css">
+    <title>TclSOAP CGI Server Package</title>
+    <meta http-equiv="Description" name="Description"
+      content="SOAP package for Tcl. Provides remote procedure calls
+      using the SOAP protocol over HTTP." />
+    <meta http-equiv="Keywords" name="Keywords"
+      content="Tcl,SOAP,Simple Object Access Protocol,XML,CGI" />
+  </head>
+
+  <body>
+  <table class="globaltable">
+  <tr><td class="header" width="15%">
+      <a href="http://sourceforge.net">
+         <img align="middle" alt="SourceForge Logo" border="0" height="31" 
+             src="http://sourceforge.net/sflogo.php?group_id=25970"
+             width="88"></a>
+      </td>
+      <td class="header" width="70%">
+           <h1>TclSOAP CGI Server Package</h1>
+      </td>
+      <td class="logo" width="15%">
+        <img src="tclsoap.gif" alt="TclSOAP Logo" align="middle"
+        border="0" height="84" width="57" />
+      </td>
+  </tr>
+
+  <tr><td class="sidebar">
+    <table>
+<tr><td class="sidehead">Sections</td></tr>
+<tr><td class="sideelt"><a href="#introduction">Introduction</a></td></tr>
+<tr><td class="sideelt"><a href="#istallation">Installation</a></td></tr>
+<tr><td class="sideelt"><a href="#implementation">Implementation</a></td></tr>
+<tr><td class="sideelt"><a href="#typeinfo">Type Info</a></td></tr>
+<tr><td class="sideelt"><a href="#furtherinfo">Further Info</a></td></tr>
+
+<tr><td class="sidehead">Project</td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/projects/tclsoap">Project Page</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/project/showfiles.php?group_id=25970">File Releases</A></td></tr>
+<tr><td class="sideelt"><A href="TclSOAP.html">WebPage</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/docman/?group_id=25970">Documentation</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/forum/?group_id=25970">Forums</A></td></tr>
+<tr><td class="sideelt"><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap">Browse CVS</a></td></tr>
+
+<tr><td class="sidehead">Interop</td></tr>
+<tr><td class="sideelt"><a href="silab/round1.html">Round 1 Tests</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2base.html">Round 2 Base</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2B.html">Round 2B</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2C.html">Round 2C</a></td></tr>
+
+<tr><td class="sidehead">Support</td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385859&group_id=25970&func=browse">Bugs</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385860&group_id=25970&func=browse">Support Requests</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385861&group_id=25970&func=browse">Patches</A></td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/tracker/?aid=385862&group_id=25970&func=browse">Feature Requests</A></td></tr>
+    </table></td>
+
+<td class="body" colspan="2">
+<div class="body">
+
+  <!-- ===================================================================== -->
+
+  <a name="introduction"><h2>Introduction</h2></a>
+
+  <p>The <tt>SOAP::CGI</tt> package allows you to provide SOAP web
+  services from Tcl scripts via the CGI script capabilities of your
+  web server. This document describes the use of this package with the
+  Apache httpd server but the package should be applicable to any
+  other server supporting the Common Gateway Interface.</p>
+
+  <p>The package provides a fairly comprehensive framework to deal with
+  hiding the details of the web service protocols. The Tcl scripts
+  implementing the service need to know nothing of XML nor the RPC
+  protocol in use. Errors are returned via the normal Tcl error
+  mechanism. The only special feature needed is variable type
+  hinting. It is not possible to distinguish between a string with
+  whitespace and a list in Tcl, so the <tt>rpcvar</tt> package
+  is used to provide the additional type information when required.</p>
+
+  <a name="installation"><h2>Installation</h2></a>
+
+  <p>Installation really only requires placing a script into the http
+  servers cgi-bin directory and writing some service
+  implementations. A generic script is provided as
+  <tt>cgi-bin/rpc</tt> with some example services in
+  <tt>cgi-bin/soap/</tt>. The package has four variables to configure
+  so that it can find the service implementations:</p>
+
+  <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0" width="100%"><tr><td align="left">
+    <tt>package require SOAP::CGI<br>
+    set SOAP::CGI::soapdir     <font color="red">"../method-scripts"</font><br>
+    set SOAP::CGI::soapmapfile <font color="red">"soapmap.dat"</font><br>
+    set SOAP::CGI::xmlrpcdir   <font color="red">"../method-scripts"</font><br>
+    set SOAP::CGI::xmlrpcmapfile <font color="red">"xmlrpcmap.dat"</font><br>
+    set SOAP::CGI::logfile     <font color="red">"../logs/rpc.log"</font><br>
+    SOAP::CGI::main<br></tt>
+  </td></tr></table>
+
+  <p>The SOAP and XML-RPC implementations can be the same, as above, or
+  placed into separate directories. The log file is optional (unset
+  the variable to disable logs) and will need to be writable by the
+  httpd user - this usually means it needs to be world writable. The
+  <tt>soapmap</tt> file is used to identify the implementation script
+  file from the SOAPAction header. There is more information in the
+  sample <tt>soapmap.dat</tt> file. </p>
+
+  <p>The script needs to be able to execute using tcl 8.3 or
+  better and needs to be able to find the TclSOAP package. Bear in
+  mind that the httpd process will not run with your environment
+  (unless you are working on Windows). The supplied script shows how
+  you can set the location of the package, should you need to. If you
+  are using the Windows Apache server then you can't set the
+  environment before <tt>exec</tt>ing tclsh so you need to manipulate
+  the <tt>auto_path</tt> variable from within the CGI script instead.</p>
+
+  <a name="implementation"><h2>Writing Service Implementations</h2></a>
+  <p>Upon receipt of an HTTP POST the CGI framework examines the data
+  and decides which RPC protocol should handle the request. The
+  handlers then retrieve the method name from the request and look for
+  a file with this name in the configured directory. This is sourced
+  and then evaluated with the arguments obtained from the POST
+  data. For example, the implementation for the <tt>square</tt>
+  service will be the file <tt>../method-scripts/square</tt> with the
+  following code:</p>
+
+  <pre>proc square {num} {
+    return [expr $num * $num]
+}</pre>
+
+  <p>Given the configuration shown above, this implementation will be
+  used for both SOAP and XML-RPC requests to the <tt>square</tt>
+  service. It is necessary to identify the commands that are
+  webservices to prevent clients from running arbitrary Tcl
+  commands. This is done by the use of the <tt>SOAP::export</tt> or
+  the corresponding <tt>XMLRPC::export</tt> commands. This means that
+  the actual implementation for the square webservice would be:</p>
+
+  <pre>package require SOAP
+package require XMLRPC
+
+SOAP::export square
+XMLRPC export square
+
+proc square {num} {
+    return [expr $num * $num]
+}</pre>
+
+  <p>For more complex types such as structs, the reply will need to be
+  an <tt>rpcvar</tt> so that the RPC handler can package the
+  result correctly. So the implementation of the <tt>platform</tt>
+  service which returns a struct containing the
+  <tt>::tcl_platform</tt> variable information is as follows</p>
+
+  <pre>package require rpcvar
+package require SOAP
+SOAP::export platform
+
+proc platform {} {
+    return [rpcvar::rpcvar struct ::tcl_platform]
+}</pre>
+
+  <p>Structs are passed to the implementing procedure as a list of
+  name value pairs suitable for use with <tt>array set
+  ...</tt>, arrays are passed in as Tcl lists and everything else is
+  passed in as a string. If the result type cannot be guessed then you
+  should return a typed variable otherwise it will be assumed to be a
+  string. The only types that can be guessed are integer, double and boolean
+  (if expressed with <tt>true</tt> or <tt>false</tt>).</p>
+
+  <h2><a name="typeinfo">Providing Type Information</a></h2>
+
+  <p>rpcvar <em>to be done</em></p>
+
+  <h2><a name="furtherinfo">Further Information</a></h2>
+
+  <p>Look in the <tt>cgi-bin/soap</tt> subdirectory in the TclSOAP
+  distribution for some examples of service implementations. There is
+  an implementation of the <a href="http://validator.soapware.org/">UserLand
+   SOAP interoperability suite</a> that is
+  used to ensure the package conforms to this standard. These
+  illustrate the use of arrays and structs fairly comprehensively.</p>
+
+  <p>The client code for the validator suite is in
+  <tt>samples/validator.tcl</tt>. To test a server implementation, source this
+  script and run <tt>validate_soap <i>url</i></tt>. This will run the
+  test suite against the server implementation at the provided
+  URL.</p>
+
+  <p>A similar client implementation of the XMethods Interoperability
+  Lab test suite is in <tt>soapinterop.tcl</tt>. To use, source this
+  file and execute <tt>soapinterop::validate <em>url</em></tt>.</p>
+
+  <!-- ================================================================= -->
+<br>
+</div>
+</td></tr>
+<tr class="footer">
+<td class="footer" colspan="3">
+$Id: SOAP-CGI.html,v 1.6 2003/09/06 17:08:46 patthoyts Exp $
+</td></tr>
+
+    </table>
+  </body>
+</html>
+
+<!-- Local variables:           -->
+<!--   indent-tabs-mode: nil    -->
+<!-- End:                       -->

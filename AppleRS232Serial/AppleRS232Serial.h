@@ -24,11 +24,11 @@
 #define __AppleRS232Serial__
  
 #define LDEBUG		0			// for debugging
-#define USE_ELG		0			// to event log - LDEBUG must also be set
+#define USE_ELG		1			// to event log - LDEBUG must also be set
 #define	LOG_DATA	0			// logs data to the IOLog - LDEBUG must also be set
 #define DUMPALL		0			// Dumps all the data to the log - LOG_DATA must also be set
 
-#define Sleep_Time	20			// 20 ms per iolog
+#define Sleep_Time	300			// 20 ms per iolog
 
 #if LDEBUG
     #if USE_ELG
@@ -46,7 +46,7 @@
             }											\
         } while(0)
         #define ELG(x, y, msg) XTRACE(x, y, msg)
-        #define XTRACE2(x, y, msg) XTRACE_HELPER(gXTrace, gTraceID, x, y, "AppleRS232Serial: "  msg)
+        #define XTRACE2(x, y, msg) XTRACE_HELPER(gXTrace, gTraceID, x, y, "AppleRS232Serial: "  msg, true)
     #else /* not USE_ELG */
         #define ELG(A,B,STRING)	{IOLog( "AppleRS232Serial: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) );IOSleep(Sleep_Time);}
     #endif /* USE_ELG */
@@ -72,8 +72,6 @@
 #endif
 
 #define getDebugFlags()			(getDebugFlagsTable(getPropertyTable()))
-
-#define NEWPHYS		1		// New is getPhysicalSegment (at the moment) as opposed to old pmap-extract
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
@@ -101,11 +99,10 @@
 //#define SHOW_DEBUG_STRINGS	ON
 //#define TRACE ON
 
-#define MIN_BAUD (50 << 1)
 
 enum
 {
-	kSerialOut = 0,
+	kSerialOut = 0,		    // debug only, used for LogData() direction
 	kSerialIn = 1,
 	kSerialOther = 2
 };
@@ -117,22 +114,7 @@ enum
 
 #define USE_FILTER_EVENT_SOURCES	0
 
-#define BIGGEST_EVENT		3
-#define BUFFER_SIZE_MINIMUM	(BIGGEST_EVENT*6)
-#define BUFFER_SIZE_DEFAULT	(16*1024)
-#define BUFFER_SIZE_MAXIMUM	(256<<10)
-#define TX_BUFFER_SIZE_KEY	"TX Buffer Size"
-#define RX_BUFFER_SIZE_KEY	"RX Buffer Size"
-#define CHIP_TYPE_KEY		"Chip Type"
-#define INSTANCE_KEY		"Instance"
-#define CHIP_CLOCK_KEY		"Chip Clock"
-#define CHIP_CLOCK_DEFAULT	(1843200l)
-#define HEART_BEAT_KEY		"Heart Beat Interval"
-#define HEART_BEAT_DEFAULT	(11000l)
-#define MSR_INTERRUPT_KEY	"Enable MSR Interrupts"
-#define BUS_TYPE_KEY		"Bus Type"
-#define BUS_EISA_VAL		"EISA"
-#define BUS_PCMCIA_VAL		"PCMCIA"
+#define BUFFER_SIZE_DEFAULT	(16*1024)	    // tx and rx queues are always this big
 
 #define SPECIAL_SHIFT		(5)
 #define SPECIAL_MASK		((1<<SPECIAL_SHIFT) - 1)
@@ -155,166 +137,89 @@ enum
 #define	CONTINUE_SEND		1
 #define	PAUSE_SEND		2
 
-typedef UInt32			CalloutTime;
-
-#define calloutEntryAllocate 		thread_call_allocate
-#define calloutEntryRemove		thread_call_cancel
-#define calloutEntryFree		thread_call_free
-#define calloutEntryDispatch		thread_call_enter
-#define calloutEntryDispatchDelayed 	thread_call_enter_delayed
-
-#define    kX1UserClockMode	0x00	// for MIDI devices
-#define    kX16UserClockMode	0x0b
-#define    kX32UserClockMode	0x19
-#define    kX64UserClockMode	0x32
-
-static inline void SynchronizeIO(void)
-{
-    eieio();
-}
-
     // Interrupts
 
 typedef enum InterruptTypes
 {
-  //  kSerialInterrupts   	= 0,          	// IST Member from motherboard
-  //  kTxDMAInterrupts		= 1,     	// IST Member from motherboard
-  //  kRxDMAInterrupts		= 2,      	// IST Member from motherboard
-  //  kNoInterrupts		= 3,
     kTxInterrupts		= 4,  		//SCC chip level
     kRxInterrupts		= 5,
     kSccInterrupts		= 6,		// sets/clears chip interrupts
- //   kAllInterrupts		= 7		// invokes OS enabler/disbaler
 } InterruptTypes;
 
-    // SCC interrupt sources
-    
-typedef enum SCCInterruptSource
-{
-    kSccTransmitInterrupt	= 0,		// transmit buffer empty interrupt
-    kSccExtStatusInterrupt	= 1,		// external/status interrupt
-    kSccReceiveInterrupt	= 2,		// receiver interrupt
-    kSccReceiveErrorInterrupt	= 3,		// receiver error interrupt
-    kSccInterruptSources	= 4		// total number of SCC interrupt sources
-} SCCInterruptSource;
 
-    // Machine Types
-
-typedef enum Machine_Type
-{
-    kUnknownMachine 		= 0,
-    k5300Machine,				// PowerBook Class
-    k6100Machine,				// PDM Class
-    k7100Machine,
-    k8100Machine,
-    k7500Machine,				// PowerSurge Class
-    k8500Machine,	
-    k9500Machine,
-    ke407Machine                		// Alchemy
-} Machine_Type;
-
-    // These are temporary until the Motherboard expert provides them
-    
-enum SerialOffsets
-{
-    channelADataOffset		= 6,		// channel A data in or out
-    channelAControlOffset	= 2,		// channel A control
-    channelBDataOffset		= 4,		// channel B data in or out
-    channelBControlOffset	= 0,		// channel B control
-
-    channelADataOffsetRISC	= 0x30,		// channel A data in or out
-    channelAControlOffsetRISC	= 0x20,		// channel A control
-    channelBDataOffsetRISC	= 0x10,		// channel B data in or out
-    channelBControlOffsetRISC	= 0		// channel B control
-};
-	
-#define channelDataOffsetRISC		0x010
+//#define channelDataOffsetRISC		0x010
 #define channelControlOffsetRISC	0x000
-#define channelDataOffset		4
-#define channelControlOffset		0
+//#define channelDataOffset		4
+//#define channelControlOffset		0
 
 enum InterruptAssignments
 {
     kIntChipSet			= 0,
     kIntTxDMA,
-    kIntRxDMA,
-    MaxInterrupts
+    kIntRxDMA
 };
 	
-#define DMABufferSize		4096
+//#define DMABufferSize		4096
 
 enum ParityType
 {
     NoParity 			= 0,
     OddParity,
-    EvenParity,
-    MaxParity
+    EvenParity
 };
 
 enum SerialPortSelector
 {
     serialPortA			= 0,
-    serialPortB			= 1,
-    MaxPortsPerChip		= 2
+    serialPortB			= 1
 };
 
-#define ChannelAName		"ch-a"
-#define ChannelBName		"ch-b"
-
+#define MIN_BAUD (50 << 1)
 #define kDefaultBaudRate	9600
 #define kMaxBaudRate		230400
-#define kMaxCirBufferSize	4096	
-
-    // It is possible to improve the total behavior of the driver changing the
-    // dimension of the MAX_BLOCK_SIZE, however it cannot be larger than PAGESIZE
- 
-#define MAX_BLOCK_SIZE		PAGE_SIZE
 
 typedef struct SerialDBDMAStatusInfo
 {
-    IODBDMAChannelRegisters	*dmaBase;                 	/* -> DBDMA channel area (phis)		*/
-    IODBDMAChannelRegisters	*dmaChannelAddress;        	/* -> DBDMA channel area (log)		*/
-    IODBDMADescriptor 		*dmaChannelCommandArea;    	/* -> DBDMA channel area (log) 		*/
-    UInt32			dmaNumberOfDescriptors;    	/* Number of DATA descriptors		*/
-#if NEWPHYS
-    IOBufferMemoryDescriptor	*dmaChannelCommandAreaMDP; 	/* Memory descriptor for Command area 	*/
-#endif
-    UInt8			*dmaTransferBuffer;        	/* address of the buffer to move	*/
-    UInt32			dmaTransferSize;           	/* dimension of the block to move	*/
-#if NEWPHYS
-    IOBufferMemoryDescriptor	*dmaTransferBufferMDP; 	   	/* Memory descriptor for Transfer buffer */
-#endif
-    UInt32			lastPosition;              	/* last position of the dma		*/
+    IODBDMAChannelRegisters	*dmaBase;                 	// address of DBDMA channel regs
+    IODBDMADescriptor 		*dmaChannelCommandArea;    	// room for DBDMA channel program commands (shared pool)
+    IODBDMADescriptor		*dmaChannelCommandAreaPhysical;	// DBDMA channel program, physical address of above
+    UInt32			dmaNumberOfDescriptors;    	// number of dbdma command descriptors allocated in above
+    UInt8			*dmaTransferBuffer;        	// alloc'd buffer for read/writes (always PAGE_SIZE for now)
+    UInt32			dmaTransferSize;           	// byte count to move (tx) or amount that has been read in (rx)
+    IOBufferMemoryDescriptor	*dmaTransferBufferMDP; 	   	// memory descriptor for alloc & memory prepare of dmaTransferBuffer
 } SerialDBDMAStatusInfo;
 
-typedef struct {
-    UInt32 ints;
-    UInt32 txInts;
-    UInt32 rxInts;
-    UInt32 mdmInts;
-    UInt32 txChars;
-    UInt32 rxChars;
-} Stats_t;
 
-typedef struct BufferMarks {
-    UInt32	BufferSize;
-    UInt32	HighWater;
-    UInt32	LowWater;
-    bool	OverRun;
+typedef struct BufferMarks {		    // high/low/size for tx/rx queues
+    UInt32	BufferSize;		    // currenty fixed at 16k per queue (BUFFER_SIZE_DEFAULT)
+    UInt32	HighWater;		    // currently fixed at 2/3 of buffersize
+    UInt32	LowWater;		    // currently fixed at 1/3 of buffersize
 } BufferMarks;
+
+enum {					    // indexes/counts for manipulating/allocating the rx/tx dbdma command chains
+	kRxDBDMACmd_First_Read = 0,		// a single byte read to generate an interrupt (when desired)
+	kRxDBDMACmd_Main_Read,			// then a big read for the rest of the buffer
+	kRxDBDMACmd_Stop,			// finally a stop
+	kNumberOfRxDBDMACommands,		// count of commands we need per rx dbdma command set
+
+	kTxDBDMACmd_Write = 0,			// tx has a write and a stop
+	kTxDBDMACmd_Stop,
+	kNumberOfTxDBDMACommands
+};
+
+enum {						// sizes of the dbdma transfer buffers
+	kRxDBDMABufferSize = 4096,		// each of the two rx buffers is this big
+	kTxDBDMABufferSize = 4096		// one tx buffer
+};
+
+class AppleRS232Serial;
 
 typedef struct
 {
-    UInt32			Instance;
-    unsigned const char		*PortName;
     UInt32			State;
     UInt32			WatchStateMask;
     
-    OSObject			*RS232;
-
-    //IOLock 			*WatchLock;
-    //IOLock 			*serialRequestLock;
-    //IORecursiveLock 		*serialRequestLock;
+    AppleRS232Serial		*RS232;
     
         // queue control structures
     
@@ -322,102 +227,67 @@ typedef struct
     CirQueue			TX;
     BufferMarks			RXStats;
     BufferMarks			TXStats;
-
-	// dbdma memory control
         
-    IOLock			*IODBDMARxLock;
-    IOLock			*IODBDMATrLock;
-
-    IOLock			*SCCAccessLock;
 	
         // UART configuration info
     
-    UInt32			Base;
-    UInt32			CharLength;
-    UInt32			StopBits;
+    UInt32			CharLength;	    // 5 thru 8 bits per byte
+    UInt32			StopBits;	    // 1, 1.5 or 2 stop bits (x<<1)
     UInt32			TX_Parity;
     UInt32			RX_Parity;
-    UInt32			BreakLength;
-    UInt32			BaudRate;
-    unsigned short		DLRimage;
-    UInt8			LCRimage;
-    UInt8			FCRimage;
-    UInt8			IERmask;
-    UInt8			RBRmask;
-    UInt32			MasterClock;
-    bool                	MinLatency;
-    bool			WaitingForTXIdle;
+    UInt32			BaudRate;	    // [MIN_BAUD .. kMaxBaudRate]
+    bool                	MinLatency;	    // true iff low latency req (not impl yet)
 
         // flow control state & configuration
         
-    UInt8			XONchar;
-    UInt8			XOFFchar;
-    UInt32			SWspecial[(0x100)>>SPECIAL_SHIFT];
+    UInt8			XONchar;				// defaults to ^Q
+    UInt8			XOFFchar;				// defaults to ^S
+    UInt32			SWspecial[(0x100)>>SPECIAL_SHIFT];	// a bit to flag each of [0..255] byte codes as special.  not impl
     UInt32			FlowControl;				// notify-on-delta & auto_control
-    UInt32			FlowControlState;
+    UInt32			FlowControlState;			// tx flow control state, one of PAUSE_SEND if paused or CONTINUE_SEND if not blocked
     bool			DCDState;
     bool			CTSState;
     int				RXOstate;				// Indicates our receive state
     int				TXOstate;				// Indicates our transmit state, if we have received any Flow Control
-    UInt8			xOffSent;
-    UInt32 			GlobalRecvChars;
-    UInt32  			OverRunChars;
+    bool			xOffSent;				// init false, set true if sw flow control and we've sent an xoff
+    bool			DTRAsserted;				// init true, set false if DTR flow control and DTR is cleared to hold back rx
+    bool			RTSAsserted;				// init true, set false if RTS flow control and RTS is cleared to hold back rx
+    bool			aboveRxHighWater;
     bool			BreakState;
         
     mach_timespec		DataLatInterval;
-    mach_timespec		CharLatInterval;
+    mach_timespec		CharLatInterval;			// saved & returned but not impl'd
     
-        // Statistics
-        
-    Stats_t			Stats;
     bool			AreTransmitting;
-    bool			GotTXInterrupt;
 
         // chip dependent
         
-    bool			baudRateGeneratorEnable;
     UInt8			baudRateGeneratorLo;
     UInt8			baudRateGeneratorHi;
     UInt32			rtxcFrequency;
     UInt8			lastWR[kNumSCCWR];
 
-    UInt8			*ControlRegister;
-    UInt8			*DataRegister;
-    IOPhysicalAddress		ChipBaseAddress;
-    UInt32			ConfigWriteRegister;
-    SerialPortSelector		whichPort;
-    IOPhysicalAddress		TxDMABase;
-    UInt32			TxDMALength;
-    IOPhysicalAddress		RxDMABase;
-    UInt32			RxDMALength;
+    IOVirtualAddress		ChipBaseAddress;		// virtual address of the chip
+    IOPhysicalAddress		ChipBaseAddressPhysical;	// physical addr of the chip
+    IOVirtualAddress		ControlRegister;		// virtual address of the control reg
+    //UInt8			*DataRegister;
+    //UInt32			ConfigWriteRegister;
+    SerialPortSelector		whichPort;			// serialPortA or serialPortB
 
-    UInt8			InterruptNumbers[MaxInterrupts];
 
-        // enable bits
-        
-    UInt8			ourReceiveBits;
-    UInt8			ourTransmitBits;
-    UInt8			ourClockSource;
-    bool			haveQueuedRxSIH;
-    bool			haveQueuedTxSIH;
-
-        // gDBDMAChannelAddress, gChannelCommandArea reference the DBDMA channel
-        // command area. This is a kernel memory area.
-
-    SerialDBDMAStatusInfo	TxDBDMAChannel;
-    SerialDBDMAStatusInfo	RxDBDMAChannel;
+    IOBufferMemoryDescriptor	*dmaChannelCommandAreaMDP; 	// descriptor for alloc & memory prepare of rx/tx channel command pool
+    SerialDBDMAStatusInfo	TxDBDMAChannel;			// tx dma info
+    SerialDBDMAStatusInfo	rxDBDMAChannels[2];		// rx is double buffered now 
+    int				activeRxChannelIndex;		// index to either rxDBDMAChannels[0] or rxDBDMAChannels[1]
     
-    bool			DTRAsserted;
-    bool			aboveRxHighWater;
     
-    bool			lastCTSState;
+    bool			lastCTSState;			// for midi cts insanity check
     UInt32			lastCTSTime;
     UInt32			ctsTransitionCount;
     
     IOTimerEventSource		*rxTimer;
 } PortInfo_t, SccChannel;
 
-extern vm_map_t kernel_map;	// _t (-*) need to verify if correct ***
 
 static inline UInt32 tval2long(mach_timespec val)
 {
@@ -435,14 +305,12 @@ static inline mach_timespec long2tval(UInt32 val)
 
 #include "SccChip.h"
 
-//typedef void (*SCCCarrierHack)(OSObject *target, bool carrier);
 
 #if LOG_DATA
     UInt8 Asciify(UInt8 i);
     void SerialLogData(UInt8 Dir, UInt32 Count, char *buf);
 #endif
 
-//class AppleRS232Serial : public IORS232SerialStreamSync
 class AppleRS232Serial : public IOSerialDriverSync
 {
     OSDeclareDefaultStructors(AppleRS232Serial)
@@ -452,21 +320,19 @@ protected:
     bool		portOpened;
     AbsoluteTime	startingTime;
 
-//    virtual	bool		initForPM(IOService *provider);
-//    virtual	unsigned long	initialPowerStateForDomainState ( IOPMPowerFlags );
-//    virtual	IOReturn	setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
-
 public:
 
 	// Instance variables
         
     IOWorkLoop			*fWorkLoop;		// holds the workloop for this driver
     IOCommandGate		*fCommandGate;		// and the command gate
-    IOTimerEventSource		*fTimer;		// holds the timer we create
-    UInt32			fCounter;		// counter incremented each time the timeout handler is called
 
     PortInfo_t			fPort;
     IOService			*fProvider;
+
+    thread_call_t		fdmaStartTransmissionThread;
+    thread_call_t		dmaRxHandleCurrentPositionThread;
+
 
     IOInterruptEventSource		*sccInterruptSource;
 #if USE_FILTER_EVENT_SOURCES
@@ -491,6 +357,7 @@ public:
     virtual	IOReturn	dequeueEvent(UInt32 *event, UInt32 *data, bool sleep, void *refCon);
     virtual	IOReturn	enqueueData(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep, void *refCon);
     virtual	IOReturn	dequeueData(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min, void *refCon);
+    virtual	IOWorkLoop	*getWorkLoop() const;
 
         // Static stubs for IOCommandGate::runAction
         
@@ -500,6 +367,7 @@ public:
     static	IOReturn	setStateAction(OSObject *owner, void *arg0, void *arg1, void *, void *);
     static	IOReturn	watchStateAction(OSObject *owner, void *arg0, void *arg1, void *, void *);
     static	IOReturn	executeEventAction(OSObject *owner, void *arg0, void *arg1, void *, void *);
+    static	IOReturn	requestEventAction(OSObject *owner, void *arg0, void *arg1, void *, void *);
     static	IOReturn	enqueueEventAction(OSObject *owner, void *arg0, void *arg1, void *, void *);
     static	IOReturn	enqueueDataAction(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3);
     static	IOReturn	dequeueDataAction(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3);
@@ -512,6 +380,7 @@ public:
     virtual	IOReturn	setStateGated(UInt32 state, UInt32 mask);
     virtual	IOReturn	watchStateGated(UInt32 *state, UInt32 mask);
     virtual	IOReturn	executeEventGated(UInt32 event, UInt32 data);
+    virtual	IOReturn	requestEventGated(UInt32 event, UInt32 *data);
     virtual	IOReturn	enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep);
     virtual	IOReturn	dequeueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min);
 
@@ -523,12 +392,11 @@ public:
         // Registry & RS232 handling methods
         
                 void 		shutDown();
-                IOReturn	sleepThread(void *event);
 
     static	void		interruptOccurred(OSObject *obj, IOInterruptEventSource *src, int count);
                 bool		createSerialStream(IOService *provider);
 
-    static	bool		allocateRingBuffer(CirQueue *Queue, size_t BufferSize);
+    static	bool		allocateRingBuffer(CirQueue *Queue, size_t BufferSize, IOWorkLoop *workloop);
     static	void		freeRingBuffer(CirQueue *Queue);
 
                 bool		initializePort(PortInfo_t *port);

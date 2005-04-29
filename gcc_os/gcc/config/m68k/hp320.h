@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  HP-UX 68000/68020 version.
-   Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1999, 2000
+   Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -164,7 +164,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_APP_OFF
 #undef TEXT_SECTION_ASM_OP
 #undef DATA_SECTION_ASM_OP
-#undef READONLY_DATA_SECTION
+#undef READONLY_DATA_SECTION_ASM_OP
 #undef ASM_OUTPUT_ADDR_VEC_ELT
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
 #undef ASM_OUTPUT_ALIGN
@@ -300,7 +300,7 @@ do {					\
       if (CODE == 'f')						\
         {							\
           char dstr[30];					\
-          REAL_VALUE_TO_DECIMAL (VALUE, "%.9g", dstr);		\
+      	  real_to_decimal (dstr, &(VALUE), sizeof (dstr), 9, 0); \
           fprintf ((FILE), "&0f%s", dstr);			\
         }							\
       else							\
@@ -317,7 +317,7 @@ do {					\
 #undef ASM_OUTPUT_DOUBLE_OPERAND
 #define ASM_OUTPUT_DOUBLE_OPERAND(FILE,VALUE)				\
  do { char dstr[30];							\
-      REAL_VALUE_TO_DECIMAL (VALUE, "%.20g", dstr);			\
+      real_to_decimal (dstr, &(VALUE), sizeof (dstr), 0, 1);		\
       fprintf (FILE, "&0f%s", dstr);					\
     } while (0)
 
@@ -326,7 +326,7 @@ do {					\
 #undef ASM_OUTPUT_LONG_DOUBLE_OPERAND
 #define ASM_OUTPUT_LONG_DOUBLE_OPERAND(FILE,VALUE)			\
  do { char dstr[30];							\
-      REAL_VALUE_TO_DECIMAL (VALUE, "%.20g", dstr);			\
+      real_to_decimal (dstr, &(VALUE), sizeof (dstr), 0, 1);		\
       fprintf (FILE, "&0f%s", dstr);					\
     } while (0)
 
@@ -351,15 +351,11 @@ do {					\
     { REAL_VALUE_TYPE r;  long l;					\
       REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
       PRINT_OPERAND_FLOAT (CODE, FILE, r, l); }				\
-  else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == DFmode)	\
-    { REAL_VALUE_TYPE r;  char dstr[30];				\
-      REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
-      REAL_VALUE_TO_DECIMAL (r, "%.20g", dstr);				\
-      fprintf (FILE, "&0f%s", dstr); }					\
-  else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == XFmode)	\
-    { REAL_VALUE_TYPE r;  char dstr[30];				\
-      REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
-      REAL_VALUE_TO_DECIMAL (r, "%.20g", dstr);				\
+  else if (GET_CODE (X) == CONST_DOUBLE					\
+	   && (GET_MODE (X) == DFmode || GET_MODE (X) == XFmode))	\
+    { char dstr[30];							\
+      real_to_decimal (dstr, CONST_DOUBLE_REAL_VALUE (X),		\
+		       sizeof (dstr), 0, 1);				\
       fprintf (FILE, "&0f%s", dstr); }					\
   else { putc ('&', FILE); output_addr_const (FILE, X); }}
 #endif

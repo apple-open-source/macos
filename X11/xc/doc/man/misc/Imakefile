@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/doc/man/misc/Imakefile,v 1.4 2003/02/25 21:16:08 dawes Exp $
+XCOMM $XFree86: xc/doc/man/misc/Imakefile,v 1.6 2003/12/19 03:29:21 dawes Exp $
 
 /*
  * This Imakefile is intended to make it possible to install man pages
@@ -26,9 +26,11 @@ InstallGenManPage(suntcx,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
 InstallGenManPage(v4l,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
 InstallGenManPage(glide,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
 InstallGenManPage(ur98,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(aiptek,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
 InstallGenManPage(XDarwin,$(MANDIR),$(MANSUFFIX))
 InstallGenManPage(dumpkeymap,$(MANDIR),$(MANSUFFIX))
 InstallGenManPage(Xkdrive,$(MANDIR),$(MANSUFFIX))
+InstallGenManPageAliases(Xkdrive,$(MANDIR),$(MANSUFFIX),TinyX)
 InstallGenManPage(Xvesa,$(MANDIR),$(MANSUFFIX))
 InstallGenManPage(Xfbdev,$(MANDIR),$(MANSUFFIX))
 
@@ -42,6 +44,7 @@ LinkSourceFile(sunleo.man,$(XF86DRIVERSRC)/sunleo)
 LinkSourceFile(suntcx.man,$(XF86DRIVERSRC)/suntcx)
 LinkSourceFile(v4l.man,$(XF86DRIVERSRC)/v4l)
 LinkSourceFile(glide.man,$(XF86DRIVERSRC)/glide)
+LinkSourceFile(aiptek.man,$(XF86SRC)/input/aiptek)
 LinkSourceFile(ur98.man,$(XF86SRC)/input/ur98)
 LinkSourceFile(XDarwin.man,$(SERVERSRC)/hw/darwin)
 LinkSourceFile(dumpkeymap.man,$(SERVERSRC)/hw/darwin/utils)

@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---            Copyright (C) 2001 Free Software Foundation, Inc.             --
+--          Copyright (C) 2001-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -115,7 +114,7 @@ package body Exp_Imgv is
 
       Eind :=
         Make_Defining_Identifier (Loc,
-          Chars => New_External_Name (Chars (E), 'I'));
+          Chars => New_External_Name (Chars (E), 'N'));
 
       Set_Lit_Strings (E, Estr);
       Set_Lit_Indexes (E, Eind);
@@ -141,7 +140,10 @@ package body Exp_Imgv is
                   Make_Range (Loc,
                     Low_Bound  => Make_Integer_Literal (Loc, 0),
                     High_Bound => Make_Integer_Literal (Loc, Nlit))),
-                Subtype_Indication => New_Occurrence_Of (Ityp, Loc)),
+                Component_Definition =>
+                  Make_Component_Definition (Loc,
+                    Aliased_Present    => False,
+                    Subtype_Indication => New_Occurrence_Of (Ityp, Loc))),
 
             Expression          =>
               Make_Aggregate (Loc,

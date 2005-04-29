@@ -23,6 +23,9 @@ int dry_run = 0;
 int read_only = 1;
 int list_only = 0;
 int preserve_perms = 0;
+#ifdef EA_SUPPORT
+int extended_attributes = 0;
+#endif
 
 /**
  * @file trimslash.c

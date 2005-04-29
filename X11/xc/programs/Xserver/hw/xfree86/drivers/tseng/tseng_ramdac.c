@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tseng/tseng_ramdac.c,v 1.26 2001/10/28 03:33:53 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tseng/tseng_ramdac.c,v 1.28 2004/02/13 23:58:44 dawes Exp $ */
 
 
 
@@ -7,6 +7,49 @@
 /*
  *
  * Copyright 1993-1997 The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
@@ -333,7 +376,6 @@ Check_Tseng_Ramdac(ScrnInfoPtr pScrn)
     unsigned char cmap[3], save_cmap[3];
     BOOL cr_saved;
     int mclk;
-    int temp;
     int dbyte;
     TsengPtr pTseng = TsengPTR(pScrn);
     rgb zeros = {0, 0, 0};
@@ -348,7 +390,8 @@ Check_Tseng_Ramdac(ScrnInfoPtr pScrn)
      * correct, and don't probe for it.
      */
     if (pScrn->ramdac) {
-	pTseng->DacInfo.DacType = xf86StringToToken(TsengDacTable, pScrn->ramdac);
+	pTseng->DacInfo.DacType =
+	    (t_ramdactype)xf86StringToToken(TsengDacTable, pScrn->ramdac);
 	if (pTseng->DacInfo.DacType < 0) {
 	    xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Unknown RAMDAC type \"%s\" specified\n", pScrn->ramdac);
 	    return FALSE;
@@ -356,7 +399,7 @@ Check_Tseng_Ramdac(ScrnInfoPtr pScrn)
     } else {			       /* autoprobe for the RAMDAC */
 	if (Is_ET6K) {
 	    pTseng->DacInfo.DacType = ET6000_DAC;
-	    temp = inb(pTseng->IOAddress + 0x67);
+	    (void) inb(pTseng->IOAddress + 0x67);
 	    outb(pTseng->IOAddress + 0x67, 10);
 	    mclk = (inb(pTseng->IOAddress + 0x69) + 2) * 14318;
 	    dbyte = inb(pTseng->IOAddress + 0x69);
@@ -428,7 +471,7 @@ Check_Tseng_Ramdac(ScrnInfoPtr pScrn)
     pTseng->DacInfo.NotAttCompat = FALSE;	/* default: treat as ATT compatible DAC */
     pTseng->DacInfo.rgb24packed = zeros;
     pScrn->progClock = FALSE;
-    pTseng->ClockChip = -1;
+    pTseng->ClockChip = CLOCKCHIP_DEFAULT;
     pTseng->MClkInfo.Programmable = FALSE;
 
     /* now override defaults with appropriate values for each RAMDAC */

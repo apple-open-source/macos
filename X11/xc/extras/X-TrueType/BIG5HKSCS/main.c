@@ -30,12 +30,14 @@
 Notice===
  */
 
-/* $XFree86: xc/extras/X-TrueType/BIG5HKSCS/main.c,v 1.1 2001/03/06 18:54:42 dawes Exp $ */
+/* $XFree86: xc/extras/X-TrueType/BIG5HKSCS/main.c,v 1.3 2003/10/22 16:25:27 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"
@@ -50,6 +52,7 @@ typedef enum
 
 static CharSetRelation const charSetRelations[] = {
     { "big5hkscs",  NULL, NULL, BIG5HKSCS, { 0x40, 0xff, 0x81, 0xfe, 0x8140 } },
+    { "hkscs",  NULL, NULL, BIG5HKSCS, { 0x40, 0xff, 0x81, 0xfe, 0x8140 } },
     { NULL, NULL, NULL, 0, { 0, 0, 0, 0, 0 } }
 };
 

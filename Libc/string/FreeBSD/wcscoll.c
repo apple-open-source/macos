@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/wcscoll.c,v 1.1 2002/10/04 03:18:26 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/wcscoll.c,v 1.3 2004/04/07 09:47:56 tjr Exp $");
 
 #include <errno.h>
 #include <stdlib.h>
@@ -79,19 +79,20 @@ wcscoll(const wchar_t *ws1, const wchar_t *ws2)
 static char *
 __mbsdup(const wchar_t *ws)
 {
-	mbstate_t state;
+	static const mbstate_t initial;
+	mbstate_t st;
 	const wchar_t *wcp;
 	size_t len;
 	char *mbs;
 
-	memset(&state, 0, sizeof(state));
 	wcp = ws;
-	if ((len = wcsrtombs(NULL, &wcp, 0, &state)) == (size_t)-1)
+	st = initial;
+	if ((len = wcsrtombs(NULL, &wcp, 0, &st)) == (size_t)-1)
 		return (NULL);
 	if ((mbs = malloc(len + 1)) == NULL)
 		return (NULL);
-	memset(&state, 0, sizeof(state));
-	wcsrtombs(mbs, &ws, len + 1, &state);
+	st = initial;
+	wcsrtombs(mbs, &ws, len + 1, &st);
 
 	return (mbs);
 }

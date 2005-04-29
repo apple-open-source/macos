@@ -1,6 +1,6 @@
 .TH LDAPPASSWD 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldappasswd.1,v 1.28.2.7 2003/03/31 16:48:17 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldappasswd.1,v 1.34.2.2 2004/01/01 18:16:27 kurt Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldappasswd \- change the password of an LDAP entry
@@ -161,7 +161,7 @@ Specify the realm of authentication ID for SASL bind. The form of the realm
 depends on the actual SASL mechanism used.
 .TP
 .BI \-X \ authzid
-Specify the proxy authorization ID for SASL bind.
+Specify the requested authorization ID for SASL bind.
 .I authzid
 must be one of the following formats:
 .BI dn: <distinguished name>
@@ -183,7 +183,7 @@ the command will require the operation to be successful
 .SH AUTHOR
 The OpenLDAP Project <http://www.openldap.org/>
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

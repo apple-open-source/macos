@@ -1,8 +1,8 @@
 ========================================================================
 KerberosErrors Bug List
 ========================================================================
-Current version: 1.5fc3
-Date:            August 22, 2003
+Current version: 1.6fc1
+Date:            December 6, 2004
 Authors:         lxs@mit.edu, meeroh@mit.edu
 ========================================================================
 
@@ -10,13 +10,17 @@ Authors:         lxs@mit.edu, meeroh@mit.edu
 Bug #       Bug description                                     Fixed in
 ========================================================================
 
+[RT 2717] CFBundleGetValueForInfoDictionaryKey() accesses homedir  1.6b3
+[RT 2732] com_err should be thread-safe                            1.6b3
+[RT 2701] compile_et needs a man page                              1.6b2
+[RT 1716] install compile_et in /usr/bin                           1.6b1
 [RT 1764] Framework should use CFStringGetMaximumSizeForEncoding() 1.5fc3
-[RT 1688]   Sometimes compile_et doesn't catch the first error  1.5fc2
-[RT 1449]   error_message() corrupts unknown negative errors    1.5a4
-[RT 1389]   Remove old ErrorLib API -- now use error_message()  1.5a3
-[RT 1361]   compile_et breaks on strings containing " end "     1.5a2
-[RT 1295]   Kerberos framework initializer causes performance problems
-                                                                1.5a1
+[RT 1688] Sometimes compile_et doesn't catch the first error       1.5fc2
+[RT 1449] error_message() corrupts unknown negative errors         1.5a4
+[RT 1389] Remove old ErrorLib API -- now use error_message()       1.5a3
+[RT 1361] compile_et breaks on strings containing " end "          1.5a2
+[RT 1295] Kerberos framework initializer causes performance problems
+                                                                   1.5a1
 [BZ 714]	Merge ComErr with ErrorLib							1.4a1
 [BZ 738]	Ask for UTF8 strings, not system encoding			1.4a1
 [BZ 744]	ComErr should remember BundleIDs not Bundles		1.4a1

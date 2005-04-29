@@ -1,0 +1,64 @@
+#!/usr/local/bin/tclsh
+# demonstration application, encodes the incoming byte stream to base64
+package require Trf
+
+
+# line buffer for parcel below.
+set line ""
+
+proc parcel {max cmd buffer} {
+    # this transformation takes the incoming byte stream and parcels it into
+    # lines of at most $max characters each. The last line is possibly shorter.
+    # only the write part is implemented.
+    #
+    # hm, this could be generalized into a transformation parceling the input
+    # into packets and adding some sort of frame around these.
+
+    #puts stderr "$max $cmd [string length $buffer]"
+
+    global line
+    switch -- $cmd {
+	create/write {
+	    set line ""
+	}
+	delete/write {
+	    set line ""
+	}
+	write {
+	    append line $buffer
+	    set res ""
+
+	    while {[string length $line] > $max} {
+		append res  "[string range $line 0 [expr {$max-1}]]\n"
+		set    line [string range $line $max end]
+	    }
+
+	    return $res
+	}
+	flush/write {
+	    if {[string length $line] > 0} {
+		set res "$line\n"
+		set line ""
+		return $res
+	    } else {
+		return {}
+	    }
+	}
+	clear/write {
+	    set line ""
+	}
+    }
+}
+
+
+transform -attach stdout -command {parcel 72}
+base64    -attach stdout -mode encode
+
+fconfigure stdin -translation binary
+fcopy stdin stdout
+close stdout
+
+# close is *required* to flush out the internal buffers.
+# This is not done during a simple exit :-(
+
+exit

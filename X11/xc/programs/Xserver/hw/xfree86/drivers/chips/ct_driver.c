@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_driver.c,v 1.122 2002/11/25 14:04:58 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_driver.c,v 1.133 2003/11/03 05:11:07 tsi Exp $ */
 
 /*
  * Copyright 1993 by Jon Block <block@frc.com>
@@ -142,7 +142,7 @@ static Bool     CHIPSEnterVT(int scrnIndex, int flags);
 static void     CHIPSLeaveVT(int scrnIndex, int flags);
 static Bool     CHIPSCloseScreen(int scrnIndex, ScreenPtr pScreen);
 static void     CHIPSFreeScreen(int scrnIndex, int flags);
-static int      CHIPSValidMode(int scrnIndex, DisplayModePtr mode,
+static ModeStatus CHIPSValidMode(int scrnIndex, DisplayModePtr mode,
                                  Bool verbose, int flags);
 static Bool	CHIPSSaveScreen(ScreenPtr pScreen, int mode);
 
@@ -679,12 +679,14 @@ static const char *vgahwSymbols[] = {
     NULL
 };
 
+#ifdef XFree86LOADER
 static const char *miscfbSymbols[] = {
     "xf1bppScreenInit",
     "xf4bppScreenInit",
     "cfb8_16ScreenInit",
     NULL
 };
+#endif
 
 static const char *fbSymbols[] = {
     "fbScreenInit",
@@ -695,7 +697,6 @@ static const char *fbSymbols[] = {
 static const char *xaaSymbols[] = {
     "XAACreateInfoRec",
     "XAADestroyInfoRec",
-    "XAAFillSolidRects" ,
     "XAAInit",
     "XAAInitDualFramebufferOverlay",
     "XAAStippleScanlineFuncMSBFirst",
@@ -1390,7 +1391,7 @@ chipsPreInitHiQV(ScrnInfoPtr pScrn, int flags)
     pScrn->monitor = pScrn->confScreen->monitor;
     
     /* All HiQV chips support 16/24/32 bpp */
-    if (!xf86SetDepthBpp(pScrn, 8, 8, 8, Support24bppFb | Support32bppFb |
+    if (!xf86SetDepthBpp(pScrn, 0, 0, 0, Support24bppFb | Support32bppFb |
 				SupportConvert32to24 | PreferConvert32to24))
 	return FALSE;
     else {
@@ -1557,7 +1558,7 @@ chipsPreInitHiQV(ScrnInfoPtr pScrn, int flags)
 	xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
 		   "Enabling linear addressing\n");
 	xf86DrvMsg(pScrn->scrnIndex, from,
-		   "base address is set at 0x%X.\n", cPtr->FbAddress);
+		   "base address is set at 0x%lX.\n", cPtr->FbAddress);
 	cPtr->IOAddress = cPtr->FbAddress + 0x400000L;
     } else
 	xf86DrvMsg(pScrn->scrnIndex, from,
@@ -1768,10 +1769,12 @@ chipsPreInitHiQV(ScrnInfoPtr pScrn, int flags)
 	case CHIPS_CT69030:
 	    /* The ct69030 has 4Mb of SGRAM integrated */
 	    pScrn->videoRam = 4096;
+	    cPtr->Flags |= Chips64BitMemory;
 	    break;
 	case CHIPS_CT69000:
 	    /* The ct69000 has 2Mb of SGRAM integrated */
 	    pScrn->videoRam = 2048;
+	    cPtr->Flags |= Chips64BitMemory;
 	    break;
 	case CHIPS_CT65550:
 	    /* XR43: DRAM interface   */
@@ -1820,6 +1823,13 @@ chipsPreInitHiQV(ScrnInfoPtr pScrn, int flags)
 		pScrn->videoRam = 1024;
 		break;
 	    }
+	    /* XR43: DRAM interface        */
+	    /* bit 4-5 mem interface width */
+	    /* 00: 32Bit		   */
+	    /* 01: 64Bit		   */
+	    tmp = cPtr->readXR(cPtr, 0x43);
+	    if ((tmp & 0x10) == 0x10)
+		cPtr->Flags |= Chips64BitMemory;
 	    break;
 	}
     }
@@ -2271,9 +2281,9 @@ chipsPreInitHiQV(ScrnInfoPtr pScrn, int flags)
     /* Check if maxClock is limited by the MemClk. Only 70% to allow for */
     /* RAS/CAS. Extra byte per memory clock needed if framebuffer used   */
     /* Extra byte if the overlay plane is activated                      */
-    /* We have a 64bit wide memory bus on the 69030 and 69000, and 32bits */
-    /* on the others. Thus multiply by a suitable factor                 */  
-    if ((cPtr->Chipset == CHIPS_CT69030) || (cPtr->Chipset == CHIPS_CT69000)) {
+    /* If flag Chips64BitMemory is set assume a 64bitmemory interface,   */
+    /* and 32bits on the others. Thus multiply by a suitable factor      */  
+    if (cPtr->Flags & Chips64BitMemory) {
 	if (cPtr->FrameBufferSize && (cPtr->PanelType & ChipsLCD))
 	    if (cPtr->Flags & ChipsOverlay8plus16 )
 		cPtr->MaxClock = min(cPtr->MaxClock, MemClk->Clk * 8 * 0.7 / 4);
@@ -2416,10 +2426,10 @@ chipsPreInitWingine(ScrnInfoPtr pScrn, int flags)
     pScrn->monitor = pScrn->confScreen->monitor;
 
     if (cPtr->Flags & ChipsHDepthSupport)
-	i = xf86SetDepthBpp(pScrn, 8, 8, 8, Support24bppFb |
+	i = xf86SetDepthBpp(pScrn, 0, 0, 0, Support24bppFb |
 				SupportConvert32to24 | PreferConvert32to24);
     else
-	i = xf86SetDepthBpp(pScrn, 8, 8, 8, NoDepth24Support);
+	i = xf86SetDepthBpp(pScrn, 8, 0, 0, NoDepth24Support);
 
     if (!i)
 	return FALSE;
@@ -2618,7 +2628,7 @@ chipsPreInitWingine(ScrnInfoPtr pScrn, int flags)
 	xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
 		   "Enabling linear addressing\n");
 	xf86DrvMsg(pScrn->scrnIndex, from,
-		   "base address is set at 0x%X.\n", cPtr->FbAddress);
+		   "base address is set at 0x%lX.\n", cPtr->FbAddress);
 	if (xf86ReturnOptValBool(cPtr->Options, OPTION_MMIO, FALSE) &&
 	    (cPtr->Flags & ChipsMMIOSupport)) {
 	    cPtr->UseMMIO = TRUE;
@@ -2877,10 +2887,10 @@ chipsPreInit655xx(ScrnInfoPtr pScrn, int flags)
     pScrn->monitor = pScrn->confScreen->monitor;
 
     if (cPtr->Flags & ChipsHDepthSupport)
-	i = xf86SetDepthBpp(pScrn, 8, 8, 8, Support24bppFb |
+	i = xf86SetDepthBpp(pScrn, 0, 0, 0, Support24bppFb |
 				SupportConvert32to24 | PreferConvert32to24);
     else
-	i = xf86SetDepthBpp(pScrn, 8, 8, 8, NoDepth24Support);
+	i = xf86SetDepthBpp(pScrn, 8, 0, 0, NoDepth24Support);
 
     if (!i)
 	return FALSE;
@@ -3106,7 +3116,7 @@ chipsPreInit655xx(ScrnInfoPtr pScrn, int flags)
 	xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
 		   "Enabling linear addressing\n");
 	xf86DrvMsg(pScrn->scrnIndex, from,
-		   "base address is set at 0x%X.\n", cPtr->FbAddress);
+		   "base address is set at 0x%lX.\n", cPtr->FbAddress);
 	if (xf86ReturnOptValBool(cPtr->Options, OPTION_MMIO, FALSE) &&
 	    (cPtr->Flags & ChipsMMIOSupport)) {
 	    cPtr->UseMMIO = TRUE;
@@ -3238,7 +3248,7 @@ chipsPreInit655xx(ScrnInfoPtr pScrn, int flags)
 	Size->HRetraceStart = ((tmp + ((xr17 & 0x04) << 9)) + 1) << 3;
 	tmp1 = cPtr->readXR(cPtr, 0x1A);
 	tmp2 = (tmp1 & 0x1F) + ((xr17 & 0x08) << 2) - (tmp & 0x3F);
-	Size->HRetraceEnd = ((((tmp2 < 0) ? (tmp2 + 0x40) : tmp2) << 3)
+	Size->HRetraceEnd = ((((tmp2 & 0x080u) ? (tmp2 + 0x40) : tmp2) << 3)
 		+ Size->HRetraceStart);
 	tmp1 = cPtr->readXR(cPtr, 0x65);
 	tmp = cPtr->readXR(cPtr, 0x68);
@@ -4530,7 +4540,7 @@ CHIPSFreeScreen(int scrnIndex, int flags)
 }
 
 /* Optional */
-static int
+static ModeStatus
 CHIPSValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
@@ -4546,7 +4556,8 @@ CHIPSValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
     /* The tests here need to be expanded */
     if ((mode->Flags & V_INTERLACE) && (cPtr->PanelType & ChipsLCD))
 	return MODE_NO_INTERLACE;
-    if ((cPtr->PanelType & ChipsLCD) 
+    if ((cPtr->PanelType & ChipsLCD)
+	&& !xf86ReturnOptValBool(cPtr->Options, OPTION_PANEL_SIZE, FALSE)
 	&& ((cPtr->PanelSize.HDisplay < mode->HDisplay)
 	    || (cPtr->PanelSize.VDisplay < mode->VDisplay)))
       return MODE_PANEL;
@@ -5067,7 +5078,10 @@ chipsCalcClock(ScrnInfoPtr pScrn, int Clock, unsigned char *vclk)
     int M, N, P = 0, PSN = 0, PSNx = 0;
 
     int bestM = 0, bestN = 0, bestP = 0, bestPSN = 0;
-    double bestError, abest = 42, bestFout = 0;
+    double abest = 42;
+#ifdef DEBUG
+    double bestFout = 0;
+#endif
     double target;
 
     double Fvco, Fout;
@@ -5175,12 +5189,13 @@ chipsCalcClock(ScrnInfoPtr pScrn, int Clock, unsigned char *vclk)
 		    aerror = (error < 0) ? -error : error;
 		    if (aerror < abest) {
 			abest = aerror;
-			bestError = error;
 			bestM = M;
 			bestN = N;
 			bestP = P;
 			bestPSN = PSN;
+#ifdef DEBUG
 			bestFout = Fout;
+#endif
 		    }
 		}
 	    }
@@ -5768,9 +5783,11 @@ chipsModeInitHiQV(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	     * This handles 1024 and 1280 interlaced modes only. Its 
 	     * pretty arbitrary, but its what C&T recommends
 	     */
+#if 0
 	    if (mode->CrtcHDisplay == 1024)
 		cPtr->OverlaySkewY += 5;
-	    if (mode->CrtcHDisplay == 1280)
+	    else  if (mode->CrtcHDisplay == 1280)
+#endif
 		cPtr->OverlaySkewY *= 2;
 	    
 	}
@@ -6610,9 +6627,9 @@ chipsModeInit655xx(ScrnInfoPtr pScrn, DisplayModePtr mode)
     }
     
     if (cPtr->PanelType & ChipsLCD) 
-        ChipsNew->XR[0x51] |= 0x02;
+        ChipsNew->XR[0x51] |= 0x04;
     else 
-        ChipsNew->XR[0x51] &= ~0x02;
+        ChipsNew->XR[0x51] &= ~0x04;
 
     /* Program the registers */
     /*vgaHWProtect(pScrn, TRUE);*/
@@ -7444,7 +7461,7 @@ chipsSetPanelType(CHIPSPtr cPtr)
 	    /* LCD                                                 */
 	    tmp = cPtr->readFR(cPtr, 0x01);
 	    if ((tmp & 0x03) == 0x02) {
-	        cPtr->PanelType |= ChipsLCD;
+	        cPtr->PanelType |= ChipsLCD | ChipsLCDProbed;
 	    }
 	    tmp = cPtr->readXR(cPtr,0xD0);	
 	    if (tmp & 0x01) {

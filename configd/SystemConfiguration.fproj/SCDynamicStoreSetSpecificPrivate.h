@@ -28,6 +28,10 @@
 #include <SystemConfiguration/SCDynamicStore.h>
 
 
+/*!
+	@header SCDynamicStoreSetSpecificPrivate
+ */
+
 __BEGIN_DECLS
 
 /*!

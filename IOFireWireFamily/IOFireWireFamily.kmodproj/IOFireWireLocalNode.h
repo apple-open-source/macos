@@ -25,6 +25,9 @@
  */
 /*
 	$Log: IOFireWireLocalNode.h,v $
+	Revision 1.6  2005/02/18 22:56:53  gecko1
+	3958781 Q45C EVT: FireWire ASP reporter says port speed is 800 Mb/sec
+	
 	Revision 1.5  2003/02/20 02:00:12  collin
 	*** empty log message ***
 	
@@ -98,7 +101,7 @@ protected:
 public:
 	
 		// Set up properties affected by bus reset
-		virtual void setNodeProperties(UInt32 generation, UInt16 nodeID, UInt32 *selfIDs, int numIDs);
+		virtual void setNodeProperties(UInt32 generation, UInt16 nodeID, UInt32 *selfIDs, int numIDs, IOFWSpeed maxSpeed );
 		
 		/*
 		* Standard nub initialization

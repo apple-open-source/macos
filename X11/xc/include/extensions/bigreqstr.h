@@ -24,6 +24,10 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
+/* $XFree86: xc/include/extensions/bigreqstr.h,v 1.3 2003/07/16 01:38:24 dawes Exp $ */
+
+#ifndef _BIGREQSTR_H_
+#define _BIGREQSTR_H_
 
 #define X_BigReqEnable		0
 
@@ -61,3 +65,5 @@ typedef struct {
 	CARD16 zero B16;
         CARD32 length B32;
 } xBigReq;
+
+#endif /* _BIGREQSTR_H_ */

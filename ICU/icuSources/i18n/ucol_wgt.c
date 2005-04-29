@@ -25,13 +25,11 @@
 #include "ucol_imp.h"
 #include "ucol_wgt.h"
 #include "cmemory.h"
+#include "uarrsort.h"
 
 #ifdef UCOL_DEBUG
 #   include <stdio.h>
 #endif
-
-/* we are using qsort() */
-#include <stdlib.h>
 
 #if defined(UCOL_DEBUG) && defined(WIN32)
     /* turn off "unreferenced formal parameter" */
@@ -42,7 +40,7 @@
 
 /* helper functions for CE weights */
 
-static int32_t
+static U_INLINE int32_t
 lengthOfWeight(uint32_t weight) {
     if((weight&0xffffff)==0) {
         return 1;
@@ -55,23 +53,23 @@ lengthOfWeight(uint32_t weight) {
     }
 }
 
-static uint32_t
+static U_INLINE uint32_t
 getWeightTrail(uint32_t weight, int32_t length) {
     return (uint32_t)(weight>>(8*(4-length)))&0xff;
 }
 
-static uint32_t
+static U_INLINE uint32_t
 setWeightTrail(uint32_t weight, int32_t length, uint32_t trail) {
     length=8*(4-length);
     return (uint32_t)((weight&(0xffffff00<<length))|(trail<<length));
 }
 
-static uint32_t
+static U_INLINE uint32_t
 getWeightByte(uint32_t weight, int32_t index) {
     return getWeightTrail(weight, index); /* same calculation */
 }
 
-static uint32_t
+static U_INLINE uint32_t
 setWeightByte(uint32_t weight, int32_t index, uint32_t byte) {
     uint32_t mask; /* 0xffffffff except a 00 "hole" for the index-th byte */
 
@@ -82,22 +80,22 @@ setWeightByte(uint32_t weight, int32_t index, uint32_t byte) {
     return (uint32_t)((weight&mask)|(byte<<index));
 }
 
-static uint32_t
+static U_INLINE uint32_t
 truncateWeight(uint32_t weight, int32_t length) {
     return (uint32_t)(weight&(0xffffffff<<(8*(4-length))));
 }
 
-static uint32_t
+static U_INLINE uint32_t
 incWeightTrail(uint32_t weight, int32_t length) {
     return (uint32_t)(weight+(1UL<<(8*(4-length))));
 }
 
-static uint32_t
+static U_INLINE uint32_t
 decWeightTrail(uint32_t weight, int32_t length) {
     return (uint32_t)(weight-(1UL<<(8*(4-length))));
 }
 
-static uint32_t
+static U_INLINE uint32_t
 incWeight(uint32_t weight, int32_t length, uint32_t maxByte) {
     uint32_t byte;
 
@@ -113,7 +111,7 @@ incWeight(uint32_t weight, int32_t length, uint32_t maxByte) {
     }
 }
 
-static int32_t
+static U_INLINE int32_t
 lengthenRange(WeightRange *range, uint32_t maxByte, uint32_t countBytes) {
     int32_t length;
 
@@ -125,9 +123,9 @@ lengthenRange(WeightRange *range, uint32_t maxByte, uint32_t countBytes) {
     return length;
 }
 
-/* for qsort: sort ranges in weight order */
-static int
-compareRanges(const void *left, const void *right) {
+/* for uprv_sortArray: sort ranges in weight order */
+static U_INLINE int32_t U_CALLCONV
+compareRanges(const void *context, const void *left, const void *right) {
     uint32_t l, r;
 
     l=((const WeightRange *)left)->start;
@@ -146,7 +144,7 @@ compareRanges(const void *left, const void *right) {
  * possible ranges of weights between the two limits, excluding them
  * for weights with up to 4 bytes there are up to 2*4-1=7 ranges
  */
-static int32_t
+static U_INLINE int32_t
 getWeightRanges(uint32_t lowerLimit, uint32_t upperLimit,
                 uint32_t maxByte, uint32_t countBytes,
                 WeightRange ranges[7]) {
@@ -318,7 +316,7 @@ ucol_allocWeights(uint32_t lowerLimit, uint32_t upperLimit,
 
     uint32_t lengthCounts[6]; /* [0] unused, [5] to make index checks unnecessary */
     uint32_t maxCount;
-    int32_t i, rangeCount, minLength, maxLength;
+    int32_t i, rangeCount, minLength/*, maxLength*/;
 
     /* countBytes to the power of index */
     uint32_t powers[5];
@@ -391,8 +389,7 @@ ucol_allocWeights(uint32_t lowerLimit, uint32_t upperLimit,
             /* easy case, just make this one range large enough by lengthening it once more, possibly split it */
             uint32_t count1, count2, power_1, power;
 
-            rangeCount=1;
-            maxLength=minLength+1;
+            /*maxLength=minLength+1;*/
 
             /* calculate how to split the range between maxLength-1 (count1) and maxLength (count2) */
             power_1=powers[minLength-ranges[0].length];
@@ -405,6 +402,8 @@ ucol_allocWeights(uint32_t lowerLimit, uint32_t upperLimit,
             printf("split the first range %ld:%ld\n", count1, count2);
 #endif
             if(count1<1) {
+                rangeCount=1;
+
                 /* lengthen the entire range to maxLength */
                 lengthenRange(ranges, maxByte, countBytes);
             } else {
@@ -464,7 +463,9 @@ ucol_allocWeights(uint32_t lowerLimit, uint32_t upperLimit,
 
     if(rangeCount>1) {
         /* sort the ranges by weight values */
-        qsort(ranges, rangeCount, sizeof(WeightRange), compareRanges);
+        UErrorCode errorCode=U_ZERO_ERROR;
+        uprv_sortArray(ranges, rangeCount, sizeof(WeightRange), compareRanges, NULL, FALSE, &errorCode);
+        /* ignore error code: we know that the internal sort function will not fail here */
     }
 
 #ifdef UCOL_DEBUG

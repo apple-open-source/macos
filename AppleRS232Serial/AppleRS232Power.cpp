@@ -221,7 +221,7 @@ IOReturn AppleRS232Serial::setPowerStateGated(OSObject *owner, void *arg0, void 
 	    SccEnableInterrupts(channel, kSccInterrupts);		// Enable interrupts
 	    SccEnableInterrupts(channel, kRxInterrupts);		// and on rx
 	    SccEnableInterrupts(channel, kTxInterrupts);		// and on tx
-	    SccdbdmaStartReception(channel);				// start up the read
+	    SccdbdmaStartReception(channel, channel->activeRxChannelIndex, true);	// start up the read, interrupt on 1st byte
 	}
 	else {
 	    ELG(self->fCurrentPowerState, newState, "setPowerStateGated - sleeping, stopping dma");
@@ -229,7 +229,7 @@ IOReturn AppleRS232Serial::setPowerStateGated(OSObject *owner, void *arg0, void 
 	    SccDisableInterrupts(channel, kRxInterrupts);		// Disable the receiver
 	    SccDisableInterrupts(channel, kTxInterrupts);		// Disable the transmitter
 	    SccdbdmaEndTransmission(channel);				// stop any current tx
-	    SccdbdmaEndReception(channel);				// stop the pending read
+	    SccdbdmaEndReception(channel, channel->activeRxChannelIndex);	// stop the pending read
 	}
     }
     

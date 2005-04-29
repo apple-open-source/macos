@@ -1,0 +1,51 @@
+Announcing XOTcl 1.0
+********************
+
+WHAT IS XOTCL?
+
+  XOTcl is an object-oriented extension of Tcl that was derived from
+  OTcl. In short, XOTcl tries to provide a highly flexible,
+  reflective, component-based, and object-oriented environment. It
+  integrates language support for high level concepts which are not
+  found in other languages, with reasonable performance. It prevails
+  the Tcl programming style and the dynamic/introspective nature of
+  the language, rather than introducing other language's styles and
+  rigidness (such as C++) into Tcl.
+
+
+CHANGES relative to 0.9.4 are:
+
+  - fixes:
+ 
+     * various small fixes for compilation with tcl8.4.*
+
+     * fixed some more memory-leaks that showed up in connection
+       with multi-threading (many thanks to Zoran Vasiljevic for 
+       his great help)
+
+     * removed a few panics() by tcl errors (important for servers)
+
+     * various small fixes in Httpd-code
+
+     * fixes in filter-search mechanism
+
+     * the general cleanup method __exitHandler (called on
+       interpreter exits and on thread exits) defined now
+       as a proc of Object
+
+  - optimizations:
+
+     * speedup during recreation of objects
+  
+ For more details, please consult the ChangeLog    
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+

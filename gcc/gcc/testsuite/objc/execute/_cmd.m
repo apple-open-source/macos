@@ -2,7 +2,6 @@
 #include <objc/objc.h>
 #include <objc/objc-api.h>
 
-/* APPLE LOCAL objc test suite */      
 #include "next_mapping.h"
 
 /* Test the hidden argument _cmd to method calls */
@@ -19,11 +18,9 @@
 {
   return sel_get_name (_cmd);
 }
-/* APPLE LOCAL begin objc test suite */
 #ifdef __NEXT_RUNTIME__
 + initialize { return self; }
 #endif
-/* APPLE LOCAL end objc test suite */
 @end
 
 

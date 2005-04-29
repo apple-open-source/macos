@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/fc/fserve.c,v 3.22 2002/05/31 18:45:49 dawes Exp $ */
+/* $XFree86: xc/lib/font/fc/fserve.c,v 3.27 2004/01/12 17:19:30 tsi Exp $ */
 
 /*
  * Copyright 1990 Network Computing Devices
@@ -87,13 +87,13 @@ in this Software without prior written authorization from The Open Group.
 			     (pci)->descent || \
 			     (pci)->characterWidth)
 
+extern void ErrorF(const char *f, ...);
 
 static int fs_read_glyphs ( FontPathElementPtr fpe, FSBlockDataPtr blockrec );
 static int fs_read_list ( FontPathElementPtr fpe, FSBlockDataPtr blockrec );
 static int fs_read_list_info ( FontPathElementPtr fpe, 
 			       FSBlockDataPtr blockrec );
 
-static int  fs_font_type;
 extern fd_set _fs_fd_mask;
 
 static void fs_block_handler ( pointer data, OSTimePtr wt, 
@@ -952,6 +952,7 @@ fs_read_extent_info(FontPathElementPtr fpe, FSBlockDataPtr blockrec)
     CharInfoPtr		    ci, pCI;
     char		    *fsci;
     fsXCharInfo		    fscilocal;
+    FontInfoRec		    *fi = &bfont->pfont->info;
 
     rep = (fsQueryXExtents16Reply *) fs_get_reply (conn, &ret);
     if (!rep || rep->type == FS_Error)
@@ -997,6 +998,21 @@ fs_read_extent_info(FontPathElementPtr fpe, FSBlockDataPtr blockrec)
     {
 	memcpy(&fscilocal, fsci, SIZEOF(fsXCharInfo)); /* align it */
 	_fs_convert_char_info(&fscilocal, &ci->metrics);
+	/* Bounds check. */
+	if (ci->metrics.ascent > fi->maxbounds.ascent)
+	{
+	    ErrorF("fserve: warning: %s %s ascent (%d) > maxascent (%d)\n",
+		   fpe->name, fsd->name,
+		   ci->metrics.ascent, fi->maxbounds.ascent);
+	    ci->metrics.ascent = fi->maxbounds.ascent;
+	}
+	if (ci->metrics.descent > fi->maxbounds.descent)
+	{
+	    ErrorF("fserve: warning: %s %s descent (%d) > maxdescent (%d)\n",
+		   fpe->name, fsd->name,
+		   ci->metrics.descent, fi->maxbounds.descent);
+	    ci->metrics.descent = fi->maxbounds.descent;
+	}
 	fsci = fsci + SIZEOF(fsXCharInfo);
 	/* Initialize the bits field for later glyph-caching use */
 	if (NONZEROMETRICS(&ci->metrics))
@@ -1022,7 +1038,6 @@ fs_read_extent_info(FontPathElementPtr fpe, FSBlockDataPtr blockrec)
     /* build bitmap metrics, ImageRectMax style */
     if (haveInk)
     {
-	FontInfoRec *fi = &bfont->pfont->info;
 	CharInfoPtr ii;
 
 	ci = fsfont->encoding;
@@ -1041,6 +1056,23 @@ fs_read_extent_info(FontPathElementPtr fpe, FSBlockDataPtr blockrec)
 	    else
 	    {
 		ci->metrics = ii->metrics;
+	    }
+	    /* Bounds check. */
+	    if (ci->metrics.ascent > fi->maxbounds.ascent)
+	    {
+		ErrorF("fserve: warning: %s %s ascent (%d) "
+		       "> maxascent (%d)\n",
+		       fpe->name, fsd->name,
+		       ci->metrics.ascent, fi->maxbounds.ascent);
+		ci->metrics.ascent = fi->maxbounds.ascent;
+	    }
+	    if (ci->metrics.descent > fi->maxbounds.descent)
+	    {
+		ErrorF("fserve: warning: %s %s descent (%d) "
+		       "> maxdescent (%d)\n",
+		       fpe->name, fsd->name,
+		       ci->metrics.descent, fi->maxbounds.descent);
+		ci->metrics.descent = fi->maxbounds.descent;
 	    }
 	}
     }
@@ -1498,7 +1530,6 @@ fs_send_open_font(pointer client, FontPathElementPtr fpe, Mask flags,
     FSBlockDataPtr	    blockrec = NULL;
     FSBlockedFontPtr	    bfont;
     FSFontDataPtr	    fsd;
-    FSFontPtr		    fsfont;
     fsOpenBitmapFontReq	    openreq;
     fsQueryXInfoReq	    inforeq;
     fsQueryXExtents16Req    extreq;
@@ -1507,8 +1538,8 @@ fs_send_open_font(pointer client, FontPathElementPtr fpe, Mask flags,
 
     if (conn->blockState & FS_GIVE_UP)
 	return BadFontName;
-    
-    if (namelen > sizeof (buf) - 1)
+ 
+    if (namelen <= 0 || namelen > sizeof (buf) - 1)
 	return BadFontName;
     
     /*
@@ -1522,7 +1553,6 @@ fs_send_open_font(pointer client, FontPathElementPtr fpe, Mask flags,
 
 	font = *ppfont;
 	fsd = (FSFontDataPtr)font->fpePrivate;
-	fsfont = (FSFontPtr)font->fontPrivate;
 	/* This is an attempt to reopen a font.  Did the font have a
 	   NAME property? */
 	if ((nameatom = MakeAtom("FONT", 4, 0)) != None)
@@ -1550,7 +1580,6 @@ fs_send_open_font(pointer client, FontPathElementPtr fpe, Mask flags,
 	    return AllocError;
 	
 	fsd = (FSFontDataPtr)font->fpePrivate;
-	fsfont = (FSFontPtr)font->fontPrivate;
     }
     
     /* make a new block record, and add it to the end of the list */
@@ -1793,7 +1822,7 @@ fs_read_glyphs(FontPathElementPtr fpe, FSBlockDataPtr blockrec)
 			    err;
     int			    nranges = 0;
     int			    ret;
-    fsRange		    *ranges, *nextrange = 0;
+    fsRange		    *nextrange = 0;
     unsigned long	    minchar, maxchar;
 
     rep = (fsQueryXBitmaps16Reply *) fs_get_reply (conn, &ret);
@@ -1818,7 +1847,7 @@ fs_read_glyphs(FontPathElementPtr fpe, FSBlockDataPtr blockrec)
     if (blockrec->type == FS_LOAD_GLYPHS)
     {
 	nranges = bglyph->num_expected_ranges;
-	nextrange = ranges = bglyph->expected_ranges;
+	nextrange = bglyph->expected_ranges;
     }
 
     /* place the incoming glyphs */
@@ -2185,7 +2214,7 @@ _fs_load_glyphs(pointer client, FontPtr pfont, Bool range_flag,
 	xfree(ranges);
 
 	/* Now try to reopen the font. */
-	return fs_send_open_font(client, (FontPathElementPtr)0,
+	return fs_send_open_font(client, pfont->fpe,
 				 (Mask)FontReopen, (char *)0, 0,
 				 (fsBitmapFormat)0, (fsBitmapFormatMask)0,
 				 (XID)0, &pfont);
@@ -2291,7 +2320,6 @@ fs_list_fonts(pointer client, FontPathElementPtr fpe,
 {
     FSFpePtr		conn = (FSFpePtr) fpe->private;
     FSBlockDataPtr	blockrec;
-    FSBlockedListPtr	blockedlist;
     int			err;
 
     /* see if the result is already there */
@@ -2302,7 +2330,6 @@ fs_list_fonts(pointer client, FontPathElementPtr fpe,
 	    err = blockrec->errcode;
 	    if (err == StillWorking)
 		return Suspended;
-	    blockedlist = (FSBlockedListPtr) blockrec->data;
 	    _fs_remove_block_rec(conn, blockrec);
 	    return err;
 	}
@@ -3143,21 +3170,21 @@ _fs_free_conn (FSFpePtr conn)
 void
 fs_register_fpe_functions(void)
 {
-    fs_font_type = RegisterFPEFunctions(fs_name_check,
-					fs_init_fpe,
-					fs_free_fpe,
-					fs_reset_fpe,
-					fs_open_font,
-					fs_close_font,
-					fs_list_fonts,
-					fs_start_list_with_info,
-					fs_next_list_with_info,
-					(WakeupFpeFunc)fs_wakeup,
-					fs_client_died,
-					_fs_load_glyphs,
-					NULL,
-					NULL,
-					NULL);
+    RegisterFPEFunctions(fs_name_check,
+			 fs_init_fpe,
+			 fs_free_fpe,
+			 fs_reset_fpe,
+			 fs_open_font,
+			 fs_close_font,
+			 fs_list_fonts,
+			 fs_start_list_with_info,
+			 fs_next_list_with_info,
+			 fs_wakeup,
+			 fs_client_died,
+			 _fs_load_glyphs,
+			 NULL,
+			 NULL,
+			 NULL);
 }
 
 static int
@@ -3210,19 +3237,19 @@ check_fs_next_list_with_info(pointer client, FontPathElementPtr fpe,
 void
 check_fs_register_fpe_functions(void)
 {
-    fs_font_type = RegisterFPEFunctions(fs_name_check,
-					fs_init_fpe,
-					fs_free_fpe,
-					fs_reset_fpe,
-					check_fs_open_font,
-					fs_close_font,
-					check_fs_list_fonts,
-					check_fs_start_list_with_info,
-					check_fs_next_list_with_info,
-					(WakeupFpeFunc)fs_wakeup,
-					fs_client_died,
-					_fs_load_glyphs,
-					NULL,
-					NULL,
-					NULL);
+    RegisterFPEFunctions(fs_name_check,
+			 fs_init_fpe,
+			 fs_free_fpe,
+			 fs_reset_fpe,
+			 check_fs_open_font,
+			 fs_close_font,
+			 check_fs_list_fonts,
+			 check_fs_start_list_with_info,
+			 check_fs_next_list_with_info,
+			 fs_wakeup,
+			 fs_client_died,
+			 _fs_load_glyphs,
+			 NULL,
+			 NULL,
+			 NULL);
 }

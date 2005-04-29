@@ -96,6 +96,10 @@ zwarn(const char *fmt, const char *str, int num)
 mod_export void
 zwarnnam(const char *cmd, const char *fmt, const char *str, int num)
 {
+    if (!cmd) {
+	zwarn(fmt, str, num);
+	return;
+    }
     if (errflag || noerrs)
 	return;
     trashzle();
@@ -103,12 +107,23 @@ zwarnnam(const char *cmd, const char *fmt, const char *str, int num)
 	nicezputs(scriptname ? scriptname : argzero, stderr);
 	fputc((unsigned char)':', stderr);
     }
-    if (cmd) {
-	nicezputs(cmd, stderr);
-	fputc((unsigned char)':', stderr);
-    }
+    nicezputs(cmd, stderr);
+    fputc((unsigned char)':', stderr);
     zerrmsg(fmt, str, num);
 }
+
+#ifdef __CYGWIN__
+/*
+ * This works around an occasional problem with dllwrap on Cygwin, seen
+ * on at least two installations.  It fails to find the last symbol
+ * exported in alphabetical order (in our case zwarnnam).  Until this is
+ * properly categorised and fixed we add a dummy symbol at the end.
+ */
+mod_export void
+zz_plural_z_alpha(void)
+{
+}
+#endif
 
 /**/
 void
@@ -304,7 +319,7 @@ slashsplit(char *s)
     int t0;
 
     if (!*s)
-	return (char **) zcalloc(sizeof(char **));
+	return (char **) zshcalloc(sizeof(char **));
 
     for (t = s, t0 = 0; *t; t++)
 	if (*t == '/')
@@ -463,7 +478,7 @@ static int finddir_best;
 
 /**/
 static void
-finddir_scan(HashNode hn, int flags)
+finddir_scan(HashNode hn, UNUSED(int flags))
 {
     Nameddir nd = (Nameddir) hn;
 
@@ -502,7 +517,7 @@ finddir(char *s)
     if(!strcmp(s, finddir_full) && *finddir_full)
 	return finddir_last;
 
-    if(strlen(s) >= ffsz) {
+    if ((int)strlen(s) >= ffsz) {
 	free(finddir_full);
 	finddir_full = zalloc(ffsz = strlen(s) * 2);
     }
@@ -552,7 +567,7 @@ adduserdir(char *s, char *t, int flags, int always)
     }
 
     /* add the name */
-    nd = (Nameddir) zcalloc(sizeof *nd);
+    nd = (Nameddir) zshcalloc(sizeof *nd);
     nd->flags = flags;
     nd->dir = ztrdup(t);
     /* The variables PWD and OLDPWD are not to be displayed as ~PWD etc. */
@@ -1102,38 +1117,86 @@ zclose(int fd)
 	    coprocin = -1;
 	if (fd == coprocout)
 	    coprocout = -1;
+	return close(fd);
     }
-    return close(fd);
+    return -1;
 }
 
-/* Get a file name relative to $TMPPREFIX which *
- * is unique, for use as a temporary file.      */
- 
 #ifdef HAVE__MKTEMP
 extern char *_mktemp(char *);
 #endif
 
+/* Get a unique filename for use as a temporary file.  If "prefix" is
+ * NULL, the name is relative to $TMPPREFIX; If it is non-NULL, the
+ * unique suffix includes a prefixed '.' for improved readability.  If
+ * "use_heap" is true, we allocate the returned name on the heap. */
+ 
 /**/
 mod_export char *
-gettempname(void)
+gettempname(const char *prefix, int use_heap)
 {
-    char *s, *ret;
+    char *ret, *suffix = prefix ? ".XXXXXX" : "XXXXXX";
  
     queue_signals();
-    if (!(s = getsparam("TMPPREFIX")))
-	s = DEFAULT_TMPPREFIX;
+    if (!prefix && !(prefix = getsparam("TMPPREFIX")))
+	prefix = DEFAULT_TMPPREFIX;
+    if (use_heap)
+	ret = dyncat(unmeta(prefix), suffix);
+    else
+	ret = bicat(unmeta(prefix), suffix);
  
 #ifdef HAVE__MKTEMP
     /* Zsh uses mktemp() safely, so silence the warnings */
-    ret = ((char *) _mktemp(dyncat(unmeta(s), "XXXXXX")));
+    ret = (char *) _mktemp(ret);
 #else
-    ret = ((char *) mktemp(dyncat(unmeta(s), "XXXXXX")));
+    ret = (char *) mktemp(ret);
 #endif
     unqueue_signals();
 
     return ret;
 }
 
+/**/
+mod_export int
+gettempfile(const char *prefix, int use_heap, char **tempname)
+{
+    char *fn;
+    int fd;
+#if HAVE_MKSTEMP
+    char *suffix = prefix ? ".XXXXXX" : "XXXXXX";
+
+    if (!prefix && !(prefix = getsparam("TMPPREFIX")))
+	prefix = DEFAULT_TMPPREFIX;
+    if (use_heap)
+	fn = dyncat(unmeta(prefix), suffix);
+    else
+	fn = bicat(unmeta(prefix), suffix);
+
+    fd = mkstemp(fn);
+    if (fd < 0) {
+	if (!use_heap)
+	    free(fn);
+	fn = NULL;
+    }
+#else
+    int failures = 0;
+
+    do {
+	if (!(fn = gettempname(prefix, use_heap))) {
+	    fd = -1;
+	    break;
+	}
+	if ((fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600)) >= 0)
+	    break;
+	if (!use_heap)
+	    free(fn);
+	fn = NULL;
+    } while (errno == EEXIST && ++failures < 16);
+#endif
+    *tempname = fn;
+    return fd;
+}
+ 
 /* Check if a string contains a token */
 
 /**/
@@ -1248,7 +1311,8 @@ skipparens(char inpar, char outpar, char **s)
 mod_export zlong
 zstrtol(const char *s, char **t, int base)
 {
-    zlong ret = 0;
+    const char *inp, *trunc = NULL;
+    zulong calc = 0, newcalc = 0;
     int neg;
 
     while (inblank(*s))
@@ -1267,16 +1331,54 @@ zstrtol(const char *s, char **t, int base)
 	else
 	    base = 8;
     }
+    inp = s;
     if (base <= 10)
-	for (; *s >= '0' && *s < ('0' + base); s++)
-	    ret = ret * base + *s - '0';
+	for (; *s >= '0' && *s < ('0' + base); s++) {
+	    if (trunc)
+		continue;
+	    newcalc = calc * base + *s - '0';
+	    if (newcalc < calc)
+	    {
+	      trunc = s;
+	      continue;
+	    }
+	    calc = newcalc;
+	}
     else
 	for (; idigit(*s) || (*s >= 'a' && *s < ('a' + base - 10))
-	     || (*s >= 'A' && *s < ('A' + base - 10)); s++)
-	    ret = ret * base + (idigit(*s) ? (*s - '0') : (*s & 0x1f) + 9);
+	     || (*s >= 'A' && *s < ('A' + base - 10)); s++) {
+	    if (trunc)
+		continue;
+	    newcalc = calc*base + (idigit(*s) ? (*s - '0') : (*s & 0x1f) + 9);
+	    if (newcalc < calc)
+	    {
+		trunc = s;
+		continue;
+	    }
+	    calc = newcalc;
+	}
+
+    /*
+     * Special case: check for a number that was just too long for
+     * signed notation.
+     * Extra special case: the lowest negative number would trigger
+     * the first test, but is actually representable correctly.
+     * This is a 1 in the top bit, all others zero, so test for
+     * that explicitly.
+     */
+    if (!trunc && (zlong)calc < 0 &&
+	(!neg || calc & ~((zulong)1 << (8*sizeof(zulong)-1))))
+    {
+	trunc = s - 1;
+	calc /= base;
+    }
+
+    if (trunc)
+	zwarn("number truncated after %d digits: %s", inp, trunc - inp);
+
     if (t)
 	*t = (char *)s;
-    return neg ? -ret : ret;
+    return neg ? -(zlong)calc : (zlong)calc;
 }
 
 /**/
@@ -1538,7 +1640,7 @@ static char *guess, *best;
 
 /**/
 static void
-spscan(HashNode hn, int scanflags)
+spscan(HashNode hn, UNUSED(int scanflags))
 {
     int nd;
 
@@ -1685,20 +1787,47 @@ spckword(char **s, int hist, int cmd, int ask)
     }
 }
 
+/*
+ * Helper for ztrftime.  Called with a pointer to the length left
+ * in the buffer, and a new string length to decrement from that.
+ * Returns 0 if the new length fits, 1 otherwise.  We assume a terminating
+ * NUL and return 1 if that doesn't fit.
+ */
+
+/**/
+static int
+ztrftimebuf(int *bufsizeptr, int decr)
+{
+    if (*bufsizeptr <= decr)
+	return 1;
+    *bufsizeptr -= decr;
+    return 0;
+}
+
+/*
+ * Like the system function, this returns the number of characters
+ * copied, not including the terminating NUL.  This may be zero
+ * if the string didn't fit.
+ *
+ * As an extension, try to detect an error in strftime --- typically
+ * not enough memory --- and return -1.  Not guaranteed to be portable,
+ * since the strftime() interface doesn't make any guarantees about
+ * the state of the buffer if it returns zero.
+ */
+
 /**/
 mod_export int
 ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm)
 {
-    int hr12;
+    int hr12, decr;
 #ifndef HAVE_STRFTIME
     static char *astr[] =
     {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     static char *estr[] =
     {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
      "Aug", "Sep", "Oct", "Nov", "Dec"};
-#else
-    char *origbuf = buf;
 #endif
+    char *origbuf = buf;
     char tmp[3];
 
 
@@ -1707,6 +1836,14 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm)
     while (*fmt)
 	if (*fmt == '%') {
 	    fmt++;
+	    /*
+	     * Assume this format will take up at least two
+	     * characters.  Not always true, but if that matters
+	     * we are so close to the edge it's not a big deal.
+	     * Fix up some longer cases specially when we get to them.
+	     */
+	    if (ztrftimebuf(&bufsize, 2))
+		return 0;
 	    switch (*fmt++) {
 	    case 'd':
 		*buf++ = '0' + tm->tm_mday / 10;
@@ -1734,9 +1871,10 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm)
 		if (hr12 == 0)
 		    hr12 = 12;
 	        if (hr12 > 9)
-		  *buf++ = '1';
+		    *buf++ = '1';
 		else if (fmt[-1] == 'l')
-		  *buf++ = ' ';
+		    *buf++ = ' ';
+
 		*buf++ = '0' + (hr12 % 10);
 		break;
 	    case 'm':
@@ -1755,11 +1893,20 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm)
 		*buf++ = '0' + (tm->tm_year / 10) % 10;
 		*buf++ = '0' + tm->tm_year % 10;
 		break;
+	    case '\0':
+		/* Guard against premature end of string */
+		*buf++ = '%';
+		fmt--;
+		break;
 #ifndef HAVE_STRFTIME
 	    case 'a':
+		if (ztrftimebuf(&bufsize, strlen(astr[tm->tm_wday]) - 2))
+		    return 0;
 		strucpy(&buf, astr[tm->tm_wday]);
 		break;
 	    case 'b':
+		if (ztrftimebuf(&bufsize, strlen(estr[tm->tm_mon]) - 2))
+		    return 0;
 		strucpy(&buf, estr[tm->tm_mon]);
 		break;
 	    case 'p':
@@ -1772,17 +1919,33 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm)
 		    *buf++ = fmt[-1];
 #else
 	    default:
-		*buf = '\0';
+		/*
+		 * Remember we've already allowed for two characters
+		 * in the accounting in bufsize (but nowhere else).
+		 */
+		*buf = '\1';
 		tmp[1] = fmt[-1];
-		strftime(buf, bufsize - strlen(origbuf), tmp, tm);
-		buf += strlen(buf);
+		if (!strftime(buf, bufsize + 2, tmp, tm))
+		{
+		    if (*buf) {
+			buf[0] = '\0';
+			return -1;
+		    }
+		    return 0;
+		}
+		decr = strlen(buf);
+		buf += decr;
+		bufsize -= decr - 2;
 #endif
 		break;
 	    }
-	} else
+	} else {
+	    if (ztrftimebuf(&bufsize, 1))
+		return 0;
 	    *buf++ = *fmt++;
+	}
     *buf = '\0';
-    return 0;
+    return buf - origbuf;
 }
 
 /**/
@@ -1793,16 +1956,20 @@ zjoin(char **arr, int delim, int heap)
     char **s, *ret, *ptr;
 
     for (s = arr; *s; s++)
-	len += strlen(*s) + 1;
+	len += strlen(*s) + 1 + (imeta(delim) ? 1 : 0);
     if (!len)
 	return heap? "" : ztrdup("");
-    ptr = ret = (heap ? (char *) hcalloc(len) : (char *) zcalloc(len));
+    ptr = ret = (heap ? (char *) hcalloc(len) : (char *) zshcalloc(len));
     for (s = arr; *s; s++) {
 	strucpy(&ptr, *s);
-	if (delim)
-	    *ptr++ = delim;
+	    if (imeta(delim)) {
+		*ptr++ = Meta;
+		*ptr++ = delim ^ 32;
+	    }
+	    else
+		*ptr++ = delim;
     }
-    ptr[-1] = '\0';
+    ptr[-1 - (imeta(delim) ? 1 : 0)] = '\0';
     return ret;
 }
 
@@ -1828,7 +1995,7 @@ colonsplit(char *s, int uniq)
 	for (; *t && *t != ':'; t++);
 	if (uniq)
 	    for (p = ret; p < ptr; p++)
-		if (strlen(*p) == t - s && ! strncmp(*p, s, t - s))
+		if ((int)strlen(*p) == t - s && ! strncmp(*p, s, t - s))
 		    goto cont;
 	*ptr = (char *) zalloc((t - s) + 1);
 	ztrncpy(*ptr++, s, t - s);
@@ -1856,7 +2023,15 @@ skipwsep(char **s)
     return i;
 }
 
-/* see findsep() below for handling of `quote' argument */
+/*
+ * haven't worked out what allownull does; it's passed down from
+ *   sepsplit but all the cases it's used are either 0 or 1 without
+ *   a comment.  it seems to be something to do with the `nulstring'
+ *   which i think is some kind of a metafication thing, so probably
+ *   allownull's value is associated with whether we are using
+ *   metafied strings.
+ * see findsep() below for handling of `quote' argument
+ */
 
 /**/
 mod_export char **
@@ -1866,7 +2041,7 @@ spacesplit(char *s, int allownull, int heap, int quote)
     int l = sizeof(*ret) * (wordcount(s, NULL, -!allownull) + 1);
     char *(*dup)(const char *) = (heap ? dupstring : ztrdup);
 
-    ptr = ret = (heap ? (char **) hcalloc(l) : (char **) zcalloc(l));
+    ptr = ret = (heap ? (char **) hcalloc(l) : (char **) zshcalloc(l));
 
     if (quote) {
 	/*
@@ -1893,7 +2068,7 @@ spacesplit(char *s, int allownull, int heap, int quote)
 	findsep(&s, NULL, quote);
 	if (s > t || allownull) {
 	    *ptr = (heap ? (char *) hcalloc((s - t) + 1) :
-		    (char *) zcalloc((s - t) + 1));
+		    (char *) zshcalloc((s - t) + 1));
 	    ztrncpy(*ptr++, t, s - t);
 	} else
 	    *ptr++ = dup(nulstring);
@@ -2054,14 +2229,18 @@ sepjoin(char **s, char *sep, int heap)
     if (!*s)
 	return heap ? "" : ztrdup("");
     if (!sep) {
-	sep = sepbuf;
-	sepbuf[0] = *ifs;
-	sepbuf[1] = *ifs == Meta ? ifs[1] ^ 32 : '\0';
-	sepbuf[2] = '\0';
+	p = sep = sepbuf;
+	if (ifs) {
+	    *p++ = *ifs;
+	    *p++ = *ifs == Meta ? ifs[1] ^ 32 : '\0';
+	} else {
+	    *p++ = ' ';
+	}
+	*p = '\0';
     }
     sl = strlen(sep);
     for (t = s, l = 1 - sl; *t; l += strlen(*t) + sl, t++);
-    r = p = (heap ? (char *) hcalloc(l) : (char *) zcalloc(l));
+    r = p = (heap ? (char *) hcalloc(l) : (char *) zshcalloc(l));
     t = s;
     while (*t) {
 	strucpy(&p, *t);
@@ -2085,13 +2264,13 @@ sepsplit(char *s, char *sep, int allownull, int heap)
     sl = strlen(sep);
     n = wordcount(s, sep, 1);
     r = p = (heap ? (char **) hcalloc((n + 1) * sizeof(char *)) :
-	     (char **) zcalloc((n + 1) * sizeof(char *)));
+	     (char **) zshcalloc((n + 1) * sizeof(char *)));
 
     for (t = s; n--;) {
 	tt = t;
 	findsep(&t, sep, 0);
 	*p = (heap ? (char *) hcalloc(t - tt + 1) :
-	      (char *) zcalloc(t - tt + 1));
+	      (char *) zshcalloc(t - tt + 1));
 	strncpy(*p, tt, t - tt);
 	(*p)[t - tt] = '\0';
 	p++;
@@ -3575,7 +3754,10 @@ getkeystring(char *s, int *len, int fromwhere, int *misc)
     }
     DPUTS(fromwhere == 4, "BUG: unterminated $' substitution");
     *t = '\0';
-    *len = t - buf;
+    if (fromwhere == 6)
+      *misc = 0;
+    else
+      *len = t - buf;
     return buf;
 }
 
@@ -3787,27 +3969,6 @@ restoredir(struct dirsav *d)
     return err;
 }
 
-/* Get a signal number from a string */
-
-/**/
-mod_export int
-getsignum(char *s)
-{
-    int x, i;
-
-    /* check for a signal specified by number */
-    x = atoi(s);
-    if (idigit(*s) && x >= 0 && x < VSIGCOUNT)
-	return x;
-
-    /* search for signal by name */
-    for (i = 0; i < VSIGCOUNT; i++)
-	if (!strcmp(s, sigs[i]))
-	    return i;
-
-    /* no matching signal */
-    return -1;
-}
 
 /* Check whether the shell is running with privileges in effect.  *
  * This is the case if EITHER the euid is zero, OR (if the system *

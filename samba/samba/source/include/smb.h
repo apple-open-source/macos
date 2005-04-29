@@ -377,6 +377,10 @@ typedef struct
 
 #include "fake_file.h"
 
+#ifdef WITH_BRLM
+#include <ByteRangeLocking/BRLM.h>
+#endif
+
 typedef struct files_struct {
 	struct files_struct *next, *prev;
 	int fnum;
@@ -412,6 +416,11 @@ typedef struct files_struct {
 	BOOL directory_delete_on_close;
 	char *fsp_name;
  	FAKE_FILE_HANDLE *fake_file_handle;
+#ifdef WITH_BRLM
+	BRLMRef brlm_ref;
+	int     brlm_deny_mode;
+	int     brlm_open_mode;
+#endif
 } files_struct;
 
 #include "ntquotas.h"

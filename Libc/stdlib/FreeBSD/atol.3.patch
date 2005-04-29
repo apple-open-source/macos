@@ -1,0 +1,53 @@
+--- atol.3.orig	Fri Mar 11 10:15:17 2005
++++ atol.3	Fri Mar 11 10:53:10 2005
+@@ -40,7 +40,8 @@
+ .Dt ATOL 3
+ .Os
+ .Sh NAME
+-.Nm atol , atoll
++.Nm atol , atoll ,
++.Nm atol_l , atoll_l
+ .Nd convert
+ .Tn ASCII
+ string to
+@@ -56,6 +57,11 @@
+ .Fn atol "const char *nptr"
+ .Ft "long long"
+ .Fn atoll "const char *nptr"
++.In xlocale.h
++.Ft long
++.Fn atol_l "const char *nptr" "locale_t loc"
++.Ft "long long"
++.Fn atoll_l "const char *nptr" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn atol
+@@ -82,6 +88,18 @@
+ It is equivalent to:
+ .Pp
+ .Dl "strtoll(nptr, (char **)NULL, 10);"
++.Pp
++While the
++.Fn atol
++and
++.Fn atoll
++functions use the current locale, the
++.Fn atol_l
++and
++.Fn atoll_l
++functions may be passed locales directly. See
++.Xr xlocale 3
++for more information.
+ .Sh ERRORS
+ The functions
+ .Fn atol
+@@ -96,7 +114,8 @@
+ .Xr atoi 3 ,
+ .Xr strtod 3 ,
+ .Xr strtol 3 ,
+-.Xr strtoul 3
++.Xr strtoul 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn atol

@@ -28,6 +28,7 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
+FRAMEWORKS = -framework DiskArbitration -framework CoreFoundation
 
 NEXTSTEP_PB_CFLAGS = -DNFS -DMFS -DCD9660 -Wall
 WINDOWS_PB_CFLAGS = -DNFS -DMFS -DCD9660 -Wall

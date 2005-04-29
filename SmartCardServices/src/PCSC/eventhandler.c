@@ -159,8 +159,10 @@ LONG EHDestroyEventHandler(PREADER_CONTEXT rContext)
 	(readerStates[i])->cardAtrLength = 0;
 	(readerStates[i])->cardProtocol = 0;
 
-        /* Zero the thread */
-        rContext->pthThread = 0;
+	SYS_MMapSynchronize((void *) readerStates[i], SYS_GetPageSize());
+
+	/* Zero the thread */
+	rContext->pthThread = 0;
 
 	DebugLogA("EHDestroyEventHandler: Thread stomped.");
 
@@ -365,7 +367,6 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 			(readerStates[i])->cardProtocol = rContext->dwProtocol;
 			memcpy((readerStates[i])->cardAtr, rContext->ucAtr,
 				rContext->dwAtrLen);
-
 			SYS_MMapSynchronize((void *) readerStates[i], pageSize);
 
 			/*

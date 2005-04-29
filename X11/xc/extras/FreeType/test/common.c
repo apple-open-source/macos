@@ -8,6 +8,7 @@
 /*  common.c: Various utility functions.                                    */
 /*                                                                          */
 /****************************************************************************/
+/* $XFree86: xc/extras/FreeType/test/common.c,v 1.3 2003/10/21 18:10:09 tsi Exp $ */
 
 
 /*

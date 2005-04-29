@@ -1,0 +1,3 @@
+This example relies on:
+  - Qt (libqt) and its dependencies: OpenGL (libGL), libpng, zlib (libz)
+  - the C++ runtime libraries (libstdc++)

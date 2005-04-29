@@ -5,12 +5,12 @@
 =item MAIL LIST
 
 For comments, questions, bug-reports, announcements, etc., send mail
-to I<modperl@apache.org>.
+to I<modperl@perl.apache.org>.
 
 To subscribe to this list (which you must do to send mail to the
 list), send a mail message to 
 
-I<modperl-subscribe@apache.org>
+I<modperl-subscribe@perl.apache.org>
 
 We also have a mailing list just for announcements. Subscribe by
 sending a message to 
@@ -26,7 +26,7 @@ The HTML::Embperl mailing list is at I<embperl@perl.apache.org>.
 Subscribe by (you properly got the idea by now) sending mail to
 I<embperl-subscribe@perl.apache.org>.
 
-All CVS commit messages goes to the I<modperl-cvs@apache.org>
+All CVS commit messages goes to the I<modperl-cvs@perl.apache.org>
 list. Embperl CVS messages goes to I<embperl-cvs@perl.apache.org>.
 
 
@@ -34,7 +34,7 @@ list. Embperl CVS messages goes to I<embperl-cvs@perl.apache.org>.
 
 There are several modperl list archives, choose your favorite:
 
-http://perl.apache.org/#maillists
+http://perl.apache.org/maillist/modperl.html#Searchable_Archives
 
 =back
 
@@ -57,7 +57,7 @@ Always check the error_log.
 
 =item WHERE
 
-Please send mail to modperl@apache.org
+Please send mail to modperl@perl.apache.org
 
 =item WHAT
 
@@ -143,6 +143,19 @@ $Config{archlibexp} is:
 
 Rebuild httpd/mod_perl with PERL_DEBUG=1, let's see a new backtrace.
 
+If you get a segfault but no core file gets dumped and you cannot
+reproduce the segfault on will, you have to make sure that your
+environment is set to allow a core file to be dumped. Change the
+script that starts the server to do (in bash):
+
+  ulimit -c unlimited
+
+before the code that starts the server. Alternatively you can execute
+this command from the shell and then start the server from the same
+shell. Now you should be able to get the core dumped. 
+
+Of course the directory the server is running in (usually as defined
+by ServerRoot) should be writable as well.
 
 =item SPINNING PROCESSES
 

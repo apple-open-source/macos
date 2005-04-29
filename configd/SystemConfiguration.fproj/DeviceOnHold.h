@@ -30,6 +30,11 @@
 
 
 /*!
+	@header DeviceOnHold
+ */
+
+
+/*!
 	@enum
 	@discussion Returned status codes from DeviceOnHoldGetStatus()
 

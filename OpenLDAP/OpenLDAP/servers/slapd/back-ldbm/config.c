@@ -1,8 +1,17 @@
 /* config.c - ldbm backend configuration file routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/config.c,v 1.29.2.4 2003/03/03 17:10:09 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/config.c,v 1.33.2.3 2004/01/01 18:16:37 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -190,9 +199,7 @@ ldbm_back_db_config(
 
 	/* anything else */
 	} else {
-		fprintf( stderr,
-"%s: line %d: unknown directive \"%s\" in ldbm database definition (ignored)\n",
-		    fname, lineno, argv[0] );
+		return SLAP_CONF_UNKNOWN;
 	}
 
 	return 0;

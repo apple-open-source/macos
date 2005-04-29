@@ -1,34 +1,30 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- *  readline.c
- *  security
  *
- *  Created by Michael Brouwer on Tue May 06 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
+ * readline.c
  */
 
 #include "readline.h"
+#include "security.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -100,7 +96,7 @@ read_file(const char *name, CSSM_DATA *outData)
 
 	if (fd == -1)
 	{
-		fprintf(stderr, "open %s: %s\n", name, strerror(errno));
+		sec_error("open %s: %s", name, strerror(errno));
 		result = -1;
 		goto loser;
 	}
@@ -108,7 +104,7 @@ read_file(const char *name, CSSM_DATA *outData)
 	length = lseek(fd, 0, SEEK_END);
 	if (length == -1)
 	{
-		fprintf(stderr, "lseek(%s, SEEK_END): %s\n", name, strerror(errno));
+		sec_error("lseek %s, SEEK_END: %s", name, strerror(errno));
 		result = -1;
 		goto loser;
 	}
@@ -121,13 +117,13 @@ read_file(const char *name, CSSM_DATA *outData)
 
 	if (bytes_read == -1)
 	{
-		fprintf(stderr, "pread %s: %s\n", name, strerror(errno));
+		sec_error("pread %s: %s", name, strerror(errno));
 		result = -1;
 		goto loser;
 	}
 	if (bytes_read != (ssize_t)length)
 	{
-		fprintf(stderr, "read %s: only read %d of %qu bytes\n", name, bytes_read, length);
+		sec_error("read %s: only read %d of %qu bytes", name, bytes_read, length);
 		result = -1;
 		goto loser;
 	}
@@ -137,7 +133,7 @@ read_file(const char *name, CSSM_DATA *outData)
 	} while (result == -1 && errno == EINTR);
 	if (result == -1)
 	{
-		fprintf(stderr, "close(%s): %s\n", name, strerror(errno));
+		sec_error("close %s: %s", name, strerror(errno));
 		goto loser;
 	}
 

@@ -1,6 +1,8 @@
 #ifndef _AGENTX_SUBAGENT_H
 #define _AGENTX_SUBAGENT_H
 
+config_belongs_in(agent_module)
+
 config_require(agentx/protocol)
 config_require(agentx/client)
 config_require(agentx/agentx_config)
@@ -12,7 +14,5 @@ config_require(agentx/agentx_config)
      SNMPCallback    agentx_register_callback;
      SNMPCallback    agentx_unregister_callback;
      SNMPAlarmCallback agentx_check_session;
-
-     extern netsnmp_session *agentx_session;
 
 #endif                          /* _AGENTX_SUBAGENT_H */

@@ -1,0 +1,95 @@
+# -*- tcl -*-
+# Tcl Benchmark File
+#
+# This file contains a number of benchmarks for the 'struct::tree'
+# data structure to allow developers to monitor package performance.
+#
+# (c) 2003 Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+package require  struct
+namespace import struct::*
+
+bench -desc "tree create" -body {set t [tree]} -post {$t destroy}
+
+proc foo {} {proc foo {} {$::t destroy}}
+bench -desc "tree destroy 0" -pre {set t [tree]} -body {foo} -iter 1
+
+foreach n {1 10 100 1000} {
+    proc foo {} {proc foo {} {$::t destroy}}
+    bench -desc "tree destroy $n" -pre {
+	set t [tree]
+	for {set i 0} {$i < $n} {incr i} {$t insert root 0}
+    } -body {foo} -iter 1
+}
+
+proc tup {n} {
+    set t [tree]
+    for {set i $n} {$i < $n} {incr i} {$t insert root end}
+    return
+}
+
+proc tupchain {n} {
+    set t [tree] ; set p root
+    for {set i $n} {$i < $n} {incr i} {set p [$t insert $p 0]}
+    return
+}
+
+foreach it {1 10 100 1000} {
+    bench -desc "tree insert root end (x$it)" \
+	    -pre {set t [tree]} -post {$t destroy} \
+	    -body {$t insert root end} -iter $it
+
+    bench -desc "tree insert root 0 (x$it)" \
+	    -pre {set t [tree]} -post {$t destroy} \
+	    -body {$t insert root 0} -iter $it
+
+    bench -desc "tree insert root 5 (x$it)" \
+	    -pre {tup 10} -post {$t destroy} \
+	    -body {$t insert root 5} -iter $it ; # {}
+
+    bench -desc "tree insert root end-5 (x$it)" \
+	    -pre {tup 10} -post {$t destroy} \
+	    -body {$t insert root end-5} -iter $it ; # {}
+}
+
+foreach n {1 10 100 1000} {
+    bench -desc "tree children $n" \
+	    -pre {tup $n} -post {$t destroy} \
+	    -body {$t children root}
+
+    bench -desc "tree numchildren root $n" \
+	    -pre {tup $n} -post {$t destroy} \
+	    -body {$t numchildren root}
+
+    bench -desc "tree depth root $n" \
+	    -pre {tupchain $n} -post {$t destroy} \
+	    -body {$t depth root}
+
+    bench -desc "tree isleaf root $n" \
+	    -pre {tupchain $n} -post {$t destroy} \
+	    -body {$t isleaf root}
+
+    bench -desc "tree isleaf bott $n" \
+	    -pre {tupchain $n} -post {$t destroy} \
+	    -body {$t isleaf $p}
+
+    bench -desc "tree numchildren bott $n" \
+	    -pre {tup $n} -post {$t destroy} \
+	    -body {$t numchildren $p}
+
+    bench -desc "tree parent bott $n" \
+	    -pre {tup $n} -post {$t destroy} \
+	    -body {$t parent $p}
+
+    bench -desc "tree parent root $n" \
+	    -pre {tup $n} -post {$t destroy} \
+	    -body {$t parent $p}
+}
+
+bench -desc "tree exists root" \
+	-pre {set t [tree]} -post {$t destroy} \
+	-body {$t exists root}
+
+bench -desc "tree exists miss" \
+	-pre {set t [tree]} -post {$t destroy} \
+	-body {$t exists miss}

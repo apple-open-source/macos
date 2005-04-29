@@ -113,13 +113,12 @@ proc scan-assembler-dem { args } {
     }
 
     # Find c++filt like we find g++ in g++.exp.
-    # APPLE LOCAL - c++filt3
     if ![info exists cxxfilt]  {
 	set cxxfilt [findfile $base_dir/../../binutils/cxxfilt \
 		     $base_dir/../../binutils/cxxfilt \
 	             [findfile $base_dir/../c++filt $base_dir/../c++filt \
 		      [findfile $base_dir/c++filt $base_dir/c++filt \
-		       [transform c++filt3]]]]
+		       [transform c++filt]]]]
 	verbose -log "c++filt is $cxxfilt"
     }
 
@@ -160,13 +159,12 @@ proc scan-assembler-dem-not { args } {
     }
 
     # Find c++filt like we find g++ in g++.exp.
-    # APPLE LOCAL - c++filt3
     if ![info exists cxxfilt]  {
 	set cxxfilt [findfile $base_dir/../../binutils/cxxfilt \
 		     $base_dir/../../binutils/cxxfilt \
 		     [findfile $base_dir/../c++filt $base_dir/../c++filt \
 		      [findfile $base_dir/c++filt $base_dir/c++filt \
-		       [transform c++filt3]]]]
+		       [transform c++filt]]]]
 	verbose -log "c++filt is $cxxfilt"
     }
 

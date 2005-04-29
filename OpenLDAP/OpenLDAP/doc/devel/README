@@ -4,9 +4,5 @@ The OpenLDAP Developer's FAQ is available at:
 Additional developer pages are at:
 	http://www.openldap.org/devel/
 
-Discussings regarding the development of OpenLDAP should
-be directed to the OpenLDAP-devel mailing list:
-	http://www.openldap.org/its/
-
 ---
-$OpenLDAP: pkg/ldap/doc/devel/README,v 1.5.2.1 2002/10/29 01:07:47 kurt Exp $
+$OpenLDAP: pkg/ldap/doc/devel/README,v 1.6.2.1 2004/04/20 21:29:40 kurt Exp $

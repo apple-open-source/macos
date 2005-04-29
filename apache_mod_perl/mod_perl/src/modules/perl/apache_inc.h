@@ -96,9 +96,11 @@
 #undef crypt
 #endif
 
+#if PERL_VERSION == 6
 #ifdef errno
 #define apache_errno errno
 #undef errno
+#endif
 #endif
 
 #endif /* endif PERL_IS_56 */ 

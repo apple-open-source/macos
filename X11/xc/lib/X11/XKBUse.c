@@ -24,7 +24,7 @@ OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
-/* $XFree86: xc/lib/X11/XKBUse.c,v 3.6 2001/08/13 17:46:02 dawes Exp $ */
+/* $XFree86: xc/lib/X11/XKBUse.c,v 3.8 2003/11/17 22:20:10 dawes Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -37,14 +37,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 static Bool	_XkbIgnoreExtension = False;
 
 void
-#if NeedFunctionPrototypes
 XkbNoteMapChanges(XkbMapChangesPtr old,XkbMapNotifyEvent *new,unsigned wanted)
-#else
-XkbNoteMapChanges(old,new,wanted)
-    XkbMapChangesPtr	old;
-    XkbMapNotifyEvent *	new;
-    unsigned int	wanted;
-#endif
 {
     int first,oldLast,newLast;
     wanted&= new->changed;
@@ -183,16 +176,9 @@ XkbNoteMapChanges(old,new,wanted)
 }
 
 void
-#if NeedFunctionPrototypes
 _XkbNoteCoreMapChanges(	XkbMapChangesPtr	 old,
 			XMappingEvent * 	new,
 			unsigned int 		wanted)
-#else
-_XkbNoteCoreMapChanges(old,new,wanted)
-    XkbMapChangesPtr	old;
-    XMappingEvent *	new;
-    unsigned int	wanted;
-#endif
 {
     int first,oldLast,newLast;
 
@@ -219,14 +205,7 @@ _XkbNoteCoreMapChanges(old,new,wanted)
 }
 
 static Bool
-#if NeedFunctionPrototypes
 wire_to_event(Display *dpy,XEvent *re,xEvent *event)
-#else
-wire_to_event(dpy,re,event)
-    Display *dpy;
-    XEvent *re;
-    xEvent *event;
-#endif
 {
     xkbEvent *xkbevent= (xkbEvent *)event;
     XkbInfoPtr xkbi;
@@ -612,12 +591,7 @@ wire_to_event(dpy,re,event)
 }
 
 Bool
-#if NeedFunctionPrototypes
 XkbIgnoreExtension(Bool ignore)
-#else
-XkbIgnoreExtension(ignore)
-    Bool ignore;
-#endif
 {
     if (getenv("XKB_FORCE")!=NULL) {
 #ifdef DEBUG
@@ -635,12 +609,7 @@ XkbIgnoreExtension(ignore)
 }
 
 static void
-#if NeedFunctionPrototypes
 _XkbFreeInfo(Display *dpy)
-#else
-_XkbFreeInfo(dpy)
-    Display *dpy;
-#endif
 {
     XkbInfoPtr xkbi = dpy->xkb_info;
     if (xkbi) {
@@ -651,14 +620,7 @@ _XkbFreeInfo(dpy)
 }
 
 Bool
-#if NeedFunctionPrototypes
 XkbUseExtension(Display *dpy,int *major_rtrn,int *minor_rtrn)
-#else
-XkbUseExtension(dpy,major_rtrn,minor_rtrn)
-    Display *	dpy;
-    int *	major_rtrn;
-    int *	minor_rtrn;
-#endif
 {
     xkbUseExtensionReply rep;
     register xkbUseExtensionReq *req;
@@ -669,7 +631,7 @@ XkbUseExtension(dpy,major_rtrn,minor_rtrn)
     static int debugMsg;
     static int been_here= 0;
 
-    if ( dpy->xkb_info && (!dpy->flags&XlibDisplayNoXkb)) {
+    if ( dpy->xkb_info && !(dpy->flags & XlibDisplayNoXkb)) {
 	if (major_rtrn)	*major_rtrn= dpy->xkb_info->srv_major;
 	if (minor_rtrn)	*minor_rtrn= dpy->xkb_info->srv_minor;
 	return True;

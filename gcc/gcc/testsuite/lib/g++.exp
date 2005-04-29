@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 2000, 2001, 2002
+# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 2000, 2001, 2002, 2003, 2004
 # Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -32,7 +32,6 @@ load_lib gcc-defs.exp
 
 set gpp_compile_options ""
 
-
 #
 # g++_version -- extract and print the version number of the compiler
 #
@@ -50,7 +49,7 @@ proc g++_version { } {
 	set tmp [remote_exec host "$compiler -v"]
 	set status [lindex $tmp 0];
 	set output [lindex $tmp 1];
-	regexp "version.*$" $output version
+	regexp " version \[^\n\r\]*" $output version
 	if { $status == 0 && [info exists version] } then {
 	    if [is_remote host] {
 		clone_output "$compiler $version\n"
@@ -81,20 +80,11 @@ proc g++_include_flags { paths } {
       return "${flags}"
     }
 
-    set dir [lookfor_file ${srcdir} libg++]
-    if { ${dir} != "" } {
-      append flags "-I${dir} -I${dir}/src "
-    }
-
     set gccpath ${paths}
 
-    if { ${HAVE_LIBSTDCXX_V3} } {
-      set odir_v3 [lookfor_file ${gccpath} libstdc++-v3]
-      append flags [exec sh ${odir_v3}/testsuite_flags --build-includes]
-    } else {
-      set odir_v2 [lookfor_file ${gccpath} libstdc++]
-      set sdir_v2 [lookfor_file ${srcdir} libstdc++]
-      append flags "-I${sdir_v2} -I${sdir_v2}/stl "
+    set odir [lookfor_file ${gccpath} libstdc++-v3]
+    if { ${odir} != "" } {
+      append flags [exec sh ${odir}/scripts/testsuite_flags --build-includes]  
     }
 
     return "$flags"
@@ -148,7 +138,7 @@ proc g++_link_flags { paths } {
 	  if { "$mldir" == "." } {
 	    continue
 	  }
-	  if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] == 1 } {
+	  if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] >= 1 } {
 	    append ld_library_path ":${rootme}/${mldir}"
 	  }
 	}
@@ -180,12 +170,32 @@ proc g++_link_flags { paths } {
     # called LD_LIBRARYN32_PATH (for the N32 ABI) and LD_LIBRARY64_PATH
     # (for the 64-bit ABI).  The right way to do this would be to modify
     # unix.exp -- but that's not an option since it's part of DejaGNU
-    # proper, so we do it here.  We really only need to do 
-    # this on IRIX, but it shouldn't hurt to do it anywhere else.
-    setenv  LD_LIBRARY_PATH     $ld_library_path
-    setenv  SHLIB_PATH          $ld_library_path
-    setenv  LD_LIBRARYN32_PATH  $ld_library_path
-    setenv  LD_LIBRARY64_PATH   $ld_library_path
+    # proper, so we do it here.
+    # The same applies to Darwin (DYLD_LIBRARY_PATH), Solaris 32 bit
+    # (LD_LIBRARY_PATH_32), Solaris 64 bit (LD_LIBRARY_PATH_64), and HP-UX
+    # (SHLIB_PATH).
+    # Doing this does cause trouble when testing cross-compilers.
+    if {![is_remote target]} {
+	global env;
+	if [info exists env(LD_LIBRARY_PATH)] {
+	    # If we've already added these directories once, keep the
+	    # existing path.
+	    if {$ld_library_path == $env(LD_LIBRARY_PATH)
+		|| [string first $ld_library_path: \
+				 $env(LD_LIBRARY_PATH)] == 0} {
+		set ld_library_path $env(LD_LIBRARY_PATH)
+	    } elseif { $env(LD_LIBRARY_PATH) != "" } {
+		append ld_library_path ":$env(LD_LIBRARY_PATH)"
+	    }
+	}
+	setenv  LD_LIBRARY_PATH     $ld_library_path
+	setenv  SHLIB_PATH          $ld_library_path
+	setenv  LD_LIBRARYN32_PATH  $ld_library_path
+	setenv  LD_LIBRARY64_PATH   $ld_library_path
+	setenv  LD_LIBRARY_PATH_32  $ld_library_path
+	setenv  LD_LIBRARY_PATH_64  $ld_library_path
+	setenv  DYLD_LIBRARY_PATH   $ld_library_path
+    }
 
     return "$flags"
 }
@@ -206,6 +216,7 @@ proc g++_init { args } {
     global TOOL_EXECUTABLE TOOL_OPTIONS
     global GXX_UNDER_TEST
     global TESTING_IN_BUILD_TREE
+    global target_triplet
 
     if ![info exists GXX_UNDER_TEST] then {
 	if [info exists TOOL_EXECUTABLE] {
@@ -238,16 +249,7 @@ proc g++_init { args } {
 	unset gluefile
     }
 
-    if { [target_info needs_status_wrapper] != "" } {
-	set gluefile ${tmpdir}/g++-testglue.o;
-	set result [build_wrapper $gluefile];
-	if { $result != "" } {
-	    set gluefile [lindex $result 0];
-	    set wrap_flags [lindex $result 1];
-	} else {
-	    unset gluefile
-	}
-    }
+    g++_maybe_build_wrapper "${tmpdir}/g++-testglue.o"
 
     set ALWAYS_CXXFLAGS ""
 
@@ -268,6 +270,10 @@ proc g++_init { args } {
     # Make sure that lines are not wrapped.  That can confuse the
     # error-message parsing machinery.
     lappend ALWAYS_CXXFLAGS "additional_flags=-fmessage-length=0"
+
+    if { [string match "powerpc-*-darwin*" $target_triplet] } {
+	lappend ALWAYS_CXXFLAGS "ldflags=-multiply_defined suppress"
+       }
 
     verbose -log "ALWAYS_CXXFLAGS set to $ALWAYS_CXXFLAGS"
 
@@ -302,16 +308,17 @@ proc g++_target_compile { source dest type options } {
 
     set options [concat "$ALWAYS_CXXFLAGS" $options];
 
-    # APPLE LOCAL long double warning
-    lappend options "additional_flags=-Wno-long-double"
-
     if { [regexp "(^| )-frepo( |$)" $options] && \
 	 [regexp "\.o(|bj)$" $dest] } then {
 	regsub "\.o(|bj)$" $dest ".rpo" rponame
 	exec rm -f $rponame
     }
 
-    return [target_compile $source $dest $type $options]
+    set options [dg-additional-files-options $options $source]
+
+    set result [target_compile $source $dest $type $options]
+
+    return $result
 }
 
 #

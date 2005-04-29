@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -33,13 +34,12 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <net/if.h>
+#include <stdbool.h>
 
 #include "bpflib.h"
 
-#define BPF_FORMAT	"/dev/bpf%d"
-
 #ifdef TESTING
-#import "util.h"
+#include "util.h"
 #endif TESTING
 
 int
@@ -67,24 +67,19 @@ bpf_new()
 {
     char bpfdev[256];
     int i;
-    int fd;
+    int fd = -1;
 
-    for (i = 0; i < 10; i++) {
-	struct stat sb;
-
-	sprintf(bpfdev, BPF_FORMAT, i);
-	if (stat(bpfdev, &sb) < 0)
-	    return -1;
+    for (i = 0; true; i++) {
+	sprintf(bpfdev, "/dev/bpf%d", i);
 	fd = open(bpfdev, O_RDWR , 0);
-	if (fd < 0) {
-	    if (errno != EBUSY)
-		return (-1);
+	if (fd >= 0) {
+	    break;
 	}
-	else {
-	    return (fd);
+	if (errno != EBUSY) {
+	    break;
 	}
     }
-    return (-1);
+    return (fd);
 }
 
 int
@@ -138,6 +133,11 @@ bpf_write(int fd, void * pkt, int len)
 }
 
 #ifdef TESTING
+#include <net/if_arp.h>
+#include <net/ethernet.h>
+#include <netinet/if_ether.h>
+
+
 void
 bpf_read_continuously(int fd, u_int blen)
 {
@@ -153,7 +153,7 @@ bpf_read_continuously(int fd, u_int blen)
 	}
 	if (n == 0)
 	    continue;
-	printData(rxbuf, n);
+	print_data(rxbuf, n);
     }
 }
 
@@ -172,10 +172,12 @@ main(int argc, char * argv[])
     if (argc > 1)
 	en_name = argv[1];
     (void)bpf_set_immediate(fd, 1);
-    if (bpf_no_packets(fd) < 0) {
-	perror("bpf_no_packets");
+    if (bpf_arp_filter(fd, 12, ETHERTYPE_ARP, 
+		       sizeof(struct ether_arp) + sizeof(struct ether_header)) 
+	< 0) {
+	perror("bpf_arp_filter");
     }
-    if (bpf_attach(fd, en_name) < 0) {
+    if (bpf_setif(fd, en_name) < 0) {
 	perror("bpf_attach");
 	exit(1);
     }

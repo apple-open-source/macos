@@ -1,8 +1,8 @@
 #
 #   irb/completor.rb - 
-#   	$Release Version: 0.7.1$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:48 $
+#   	$Release Version: 0.9$
+#   	$Revision: 1.8.2.1 $
+#   	$Date: 2004/03/10 08:21:02 $
 #   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #       From Original Idea of shugo@ruby-lang.org
 #
@@ -12,7 +12,7 @@ require "readline"
 module IRB
   module InputCompletor
 
-    @RCS_ID='-$Id: completion.rb,v 1.1.1.1 2002/05/27 17:59:48 jkh Exp $-'
+    @RCS_ID='-$Id: completion.rb,v 1.8.2.1 2004/03/10 08:21:02 matz Exp $-'
 
     ReservedWords = [
       "BEGIN", "END",
@@ -36,6 +36,9 @@ module IRB
       
     CompletionProc = proc { |input|
       bind = IRB.conf[:MAIN_CONTEXT].workspace.binding
+      
+#      puts "input: #{input}"
+
       case input
       when /^(\/[^\/]*\/)\.([^.]*)$/
 	# Regexp
@@ -61,11 +64,11 @@ module IRB
 	candidates = Proc.instance_methods(true) | Hash.instance_methods(true)
 	select_message(receiver, message, candidates)
 	
-      when /^(:[^:]*)$/
+      when /^(:[^:.]*)$/
  	# Symbol
 	if Symbol.respond_to?(:all_symbols)
 	  sym = $1
-	  candidates = Symbol.all_symbols.collect{|s| s.id2name}
+	  candidates = Symbol.all_symbols.collect{|s| ":" + s.id2name}
 	  candidates.grep(/^#{sym}/)
 	else
 	  []
@@ -88,7 +91,7 @@ module IRB
 	end
 	candidates.grep(/^#{message}/).collect{|e| receiver + "::" + e}
 
-      when /^(:[^.]+)\.([^.]*)$/
+      when /^(:[^:.]+)\.([^.]*)$/
 	# Symbol
 	receiver = $1
 	message = Regexp.quote($2)
@@ -108,15 +111,18 @@ module IRB
 	end
 	select_message(receiver, message, candidates)
 
+      when /^(\$[^.]*)$/
+	candidates = global_variables.grep(Regexp.new(Regexp.quote($1)))
+
 #      when /^(\$?(\.?[^.]+)+)\.([^.]*)$/
       when /^((\.?[^.]+)+)\.([^.]*)$/
 	# variable
 	receiver = $1
 	message = Regexp.quote($3)
 
-	gv = eval "global_variables", bind
-	lv = eval "local_variables", bind
-	cv = eval "type.constants", bind
+	gv = eval("global_variables", bind)
+	lv = eval("local_variables", bind)
+	cv = eval("self.class.constants", bind)
 	
 	if (gv | lv | cv).include?(receiver)
 	  # foo.func and foo is local var.
@@ -132,8 +138,9 @@ module IRB
 	  # func1.func2
 	  candidates = []
 	  ObjectSpace.each_object(Module){|m|
-	    next if /^(IRB|SLex|RubyLex|RubyToken)/ =~ m.name
-	    candidates.concat m.instance_methods
+	    next if m.name != "IRB::Context" and 
+	      /^(IRB|SLex|RubyLex|RubyToken)/ =~ m.name
+	    candidates.concat m.instance_methods(false)
 	  }
 	  candidates.sort!
 	  candidates.uniq!
@@ -150,7 +157,7 @@ module IRB
 	select_message(receiver, message, candidates)
 
       else
-	candidates = eval("methods | private_methods | local_variables | type.constants", bind)
+	candidates = eval("methods | private_methods | local_variables | self.class.constants", bind)
 			  
 	(candidates|ReservedWords).grep(/^#{Regexp.quote(input)}/)
       end
@@ -174,4 +181,8 @@ module IRB
   end
 end
 
+if Readline.respond_to?("basic_word_break_characters=")
+  Readline.basic_word_break_characters= " \t\n\"\\'`><=;|&{("
+end
+Readline.completion_append_character = nil
 Readline.completion_proc = IRB::InputCompletor::CompletionProc

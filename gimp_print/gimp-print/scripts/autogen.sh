@@ -4,6 +4,39 @@
 
 DIE=0
 
+if test -d m4local ; then
+  :
+else
+  echo "Directory \`m4local' does not exist.  Creating it."
+  if test -e m4local ; then
+    echo "**Error**: A file \`m4local' exists and is not a directory."
+    echo "Please remove it."
+    DIE=1
+  fi
+  mkdir m4local
+fi
+
+libtoolv=`libtool --version | head -1 | sed 's,.*[        ]\([0-9][0-9]*\.[0-9][0-9]*\(\.[0-9][0-9]*\)*\)[a-z]*[   ].*,\1,'`
+libtool_major=`echo $libtoolv | awk -F. '{print $1}'`
+libtool_minor=`echo $libtoolv | awk -F. '{print $2}'`
+libtool_point=`echo $libtoolv | awk -F. '{print $3}'`
+
+test "$libtool_major" -le 1 && {
+  test "$libtool_minor" -lt 4 || {
+    test "$libtool_minor" -eq 4 && {
+      test "$libtool_point" -lt 3
+    }
+  }
+} && {
+  echo
+  echo "**Warning**: You should have \`libtool' 1.4.3 or newer installed to"
+  echo "create a gimp-print distribution.  Earlier versions of gettext do"
+  echo "not generate correct code for all platforms."
+  echo "Get ftp://ftp.gnu.org/pub/gnu/libtool/libtool-1.5.tar.gz"
+  echo "(or a newer version if it is available)"
+  DIE=1
+}
+
 (autoconf --version) < /dev/null > /dev/null 2>&1 || {
   echo
   echo "**Error**: You must have \`autoconf' installed to compile gimp-print."
@@ -12,49 +45,39 @@ DIE=0
   DIE=1
 }
 
-test -f $srcdir/configure.in.in && sed "s/XXXRELEASE_DATE=XXX/RELEASE_DATE=\"`date '+%d %b %Y'`\"/" $srcdir/configure.in.in > $srcdir/configure.in
+test -f $srcdir/configure.ac && sed "s/XXXRELEASE_DATE=XXX/RELEASE_DATE=\"`date '+%d %b %Y'`\"/" $srcdir/m4extra/stp_release.m4.in > $srcdir/m4/stp_release.m4
 
 test -f $srcdir/ChangeLog || echo > $srcdir/ChangeLog
 
-(grep "^AM_PROG_LIBTOOL" $srcdir/configure.in >/dev/null) && {
+(grep "^AM_PROG_LIBTOOL" $srcdir/configure.ac >/dev/null) && {
   (libtool --version) < /dev/null > /dev/null 2>&1 || {
     echo
     echo "**Error**: You must have \`libtool' installed to compile gimp-print."
-    echo "Get ftp://ftp.gnu.org/pub/gnu/libtool/libtool-1.4.2.tar.gz"
+    echo "Get ftp://ftp.gnu.org/pub/gnu/libtool/libtool-1.4.3.tar.gz"
     echo "(or a newer version if it is available)"
     DIE=1
   }
 }
 
-libtoolv=`libtool --version | sed 's,.*[        ]\([0-9][0-9]*\.[0-9][0-9]*\(\.[0-9][0-9]*\)\)[a-z]*[   ].*,\1,'`
-libtool_major=`echo $libtoolv | awk -F. '{print $1}'`
-libtool_minor=`echo $libtoolv | awk -F. '{print $2}'`
-libtool_point=`echo $libtoolv | awk -F. '{print $3}'`
-
-test "$libtool_major" -le 1 && {
-  test "$libtool_minor" -lt 4 || {
-    test "$libtool_minor" -eq 4 -a "$libtool_point" -lt 3
-  }
-} && {
-  echo
-  echo "**Warning**: You should have \`libtool' 1.4.3 or newer installed to"
-  echo "create a gimp-print distribution.  Earlier versions of gettext do"
-  echo "not generate correct code for all platforms."
-  echo "Get ftp://ftp.gnu.org/pub/gnu/libtool/libtool-1.4.3.tar.gz"
-  echo "(or a newer version if it is available)"
-}
-
-
-grep "^AM_GNU_GETTEXT" $srcdir/configure.in >/dev/null && {
-  grep "sed.*POTFILES" $srcdir/configure.in >/dev/null || \
+grep "^AM_GNU_GETTEXT" $srcdir/configure.ac >/dev/null && {
+  grep "sed.*POTFILES" $srcdir/configure.ac >/dev/null || \
   (gettext --version) < /dev/null > /dev/null 2>&1 || {
     echo
     echo "**Error**: You must have \`gettext' installed to compile gimp-print."
-    echo "Get ftp://ftp.gnu.org/pub/gnu/gettext/gettext-0.10.40.tar.gz"
+    echo "Get ftp://ftp.gnu.org/pub/gnu/gettext/gettext-0.11.5.tar.gz"
     echo "(or a newer version if it is available)"
     DIE=1
   }
 }
+
+(pkg-config --version) < /dev/null > /dev/null 2>&1 || {
+  echo
+  echo "**Error**: You must have \`pkg-config' installed to compile gimp-print."
+  echo "Download the appropriate package for your distribution,"
+  echo "or get the source tarball at http://www.freedesktop.org/"
+  DIE=1
+}
+
 
 #### MRS: The following now only generates a warning, since earlier
 ####      versions of gettext *do* work, they just don't create the
@@ -66,22 +89,31 @@ gettext_minor=`echo $gettextv | awk -F. '{print $2}'`
 gettext_point=`echo $gettextv | awk -F. '{print $3}'`
 
 test "$gettext_major" -eq 0 && {
-  test "$gettext_minor" -lt 10 || {
-    test "$gettext_minor" -eq 10 -a "$gettext_point" -lt 38
+  test "$gettext_minor" -lt 11 || {
+    test "$gettext_minor" -eq 5
   }
 } && {
   echo
-  echo "**Warning**: You must have \`gettext' 0.10.38 or newer installed to"
+  echo "**Warning**: You must have \`gettext' 0.11.5 or newer installed to"
   echo "create a gimp-print distribution.  Earlier versions of gettext do"
   echo "not generate the correct 'make uninstall' code."
   echo "Get ftp://ftp.gnu.org/gnu/gettext/gettext-0.10.40.tar.gz"
   echo "(or a newer version if it is available)"
 }
 
+(autopoint --version) < /dev/null > /dev/null 2>&1 || {
+  echo
+  echo "**Error**: You must have \`autopoint' installed to compile gimp-print."
+  echo "Get ftp://ftp.gnu.org/pub/gnu/gettext/gettext-0.11.5.tar.gz"
+  echo "(or a newer version if it is available)"
+  DIE=1
+  NO_AUTOMAKE=yes
+}
+
 (automake --version) < /dev/null > /dev/null 2>&1 || {
   echo
   echo "**Error**: You must have \`automake' installed to compile gimp-print."
-  echo "Get ftp://ftp.gnu.org/pub/gnu/automake/automake-1.3.tar.gz"
+  echo "Get ftp://ftp.gnu.org/pub/gnu/automake/automake-1.7.tar.gz"
   echo "(or a newer version if it is available)"
   DIE=1
   NO_AUTOMAKE=yes
@@ -93,7 +125,7 @@ test -n "$NO_AUTOMAKE" || (aclocal --version) < /dev/null > /dev/null 2>&1 || {
   echo
   echo "**Error**: Missing \`aclocal'.  The version of \`automake'"
   echo "installed doesn't appear recent enough."
-  echo "Get ftp://ftp.gnu.org/pub/gnu/automake/automake-1.3.tar.gz"
+  echo "Get ftp://ftp.gnu.org/pub/gnu/automake/automake-1.7.tar.gz"
   echo "(or a newer version if it is available)"
   DIE=1
 }
@@ -167,8 +199,7 @@ test -z "$openjadeloc" && openjade_err=1
 # Proper rev?
 test "$openjade_err" -eq 0 && {
 #  echo "Checking for proper revision of openjade..."
-  openjade_version=`openjade -v < /dev/null 2>&1 | grep -i "openjade version" $tmp_file | awk -F\" '{print $2}'`
-
+  openjade_version=`openjade -v < /dev/null 2>&1 | sed 's/"//g' | grep -i "openjade version" $tmp_file | awk -F ' ' '{print $4}'`
   openjade_version_major=`echo $openjade_version | awk -F. '{print $1}'`
   openjade_version_minor=`echo $openjade_version | awk -F. '{print $2}'`
   openjade_version_minor=`echo $openjade_version_minor | awk -F- '{print $1}'`
@@ -246,7 +277,11 @@ test -z "$convertloc" && {
   echo " "
 }
 
-test -d "/usr/share/sgml/docbook_4" || {
+# Check for docbook version 4
+
+{
+  test -d "/usr/share/sgml/docbook_4" || test -d "/usr/share/sgml/docbook/dtd/4.0"
+} || {
   echo " "
   echo "***Warning***: You must have "Docbook v4" installed to"
   echo "build the Gimp-Print user's guide."
@@ -269,7 +304,7 @@ xlc )
   am_opt=--include-deps;;
 esac
 
-for coin in `find $srcdir -name configure.in -print`
+for coin in `find $srcdir -name configure.ac -print`
 do
   dr=`dirname $coin`
   if test -f $dr/NO-AUTO-GEN; then
@@ -286,12 +321,13 @@ do
 	##  echo "**Warning**: No such directory \`$k'.  Ignored."
         fi
       done
-      if grep "^AM_GNU_GETTEXT" configure.in >/dev/null; then
-	if grep "sed.*POTFILES" configure.in >/dev/null; then
-	  : do nothing -- we still have an old unmodified configure.in
+      if grep "^AM_GNU_GETTEXT" configure.ac >/dev/null; then
+	if grep "sed.*POTFILES" configure.ac >/dev/null; then
+	  : do nothing -- we still have an old unmodified configure.ac
 	else
 	  echo "Creating $dr/aclocal.m4 ..."
-	  test -r $dr/aclocal.m4 || touch $dr/aclocal.m4
+	  rm -f aclocal.m4
+	  test -r aclocal.m4 || touch aclocal.m4
 	  # We've removed po/ChangeLog from the repository.  Version
 	  # 0.10.40 of gettext appends an entry to the ChangeLog every time
 	  # anyone runs autogen.sh.  Since developers do that a lot, and
@@ -301,38 +337,24 @@ do
 	  echo 'This ChangeLog is redundant. Please see the main ChangeLog for i18n changes.' > po/ChangeLog
 	  echo >> po/ChangeLog
 	  echo 'This file is present only to keep po/Makefile.in.in happy.' >> po/ChangeLog
-	  echo "Running gettextize...  Ignore non-fatal messages."
-	  echo "no" | gettextize --force --copy
+	  echo "Running autopoint...  Ignore non-fatal messages."
+	    autopoint --force
 	  echo "Making $dr/aclocal.m4 writable ..."
 	  test -r $dr/aclocal.m4 && chmod u+w $dr/aclocal.m4
         fi
       fi
-      if grep "^AM_GNOME_GETTEXT" configure.in >/dev/null; then
-	echo "Creating $dr/aclocal.m4 ..."
-	test -r $dr/aclocal.m4 || touch $dr/aclocal.m4
-	echo "Running gettextize...  Ignore non-fatal messages."
-	echo "no" | gettextize --force --copy
-	echo "Making $dr/aclocal.m4 writable ..."
-	test -r $dr/aclocal.m4 && chmod u+w $dr/aclocal.m4
-      fi
-      if grep "^AM_PROG_LIBTOOL" configure.in >/dev/null; then
+      if grep "^AM_PROG_LIBTOOL" configure.ac >/dev/null; then
 	echo "Running libtoolize..."
 	libtoolize --force --copy
       fi
       echo "Running aclocal $aclocalinclude ..."
-      if aclocal $aclocalinclude -I src/main ; then
-        echo "added local version of AM_PATH_GIMPPRINT"
-      else
-        echo "aclocal returned error status; running again without '-I src/main' ..."
-        aclocal $aclocalinclude
-	echo "using installed version of AM_PATH_GIMPPRINT"
-      fi
-      if grep "^AM_CONFIG_HEADER" configure.in >/dev/null; then
+      aclocal $aclocalinclude
+      if grep "^AM_CONFIG_HEADER" configure.ac >/dev/null; then
 	echo "Running autoheader..."
 	autoheader
       fi
       echo "Running automake --gnu $am_opt ..."
-      automake --add-missing --gnu $am_opt
+      automake --add-missing --force-missing --gnu $am_opt
       echo "Running autoconf ..."
       autoconf
     )

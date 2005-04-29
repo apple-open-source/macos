@@ -72,6 +72,7 @@ static status_e get_connection( struct service *sp, connection_s *cp )
             msg( LOG_WARNING, func, "service %s, setsockopt: %m", SVC_ID(sp));
       }
       
+#ifndef __APPLE__
       if( SC_IPV6(scp) && !(SC_V6ONLY( scp ))  && 
          (IN6_IS_ADDR_V4MAPPED(&cp->co_remote_address.sa_in6.sin6_addr) || 
 	  IN6_IS_ADDR_V4COMPAT(&cp->co_remote_address.sa_in6.sin6_addr)) ) 
@@ -82,6 +83,7 @@ static status_e get_connection( struct service *sp, connection_s *cp )
             msg( LOG_WARNING, func, "service %s, IPV6_ADDRFORM setsockopt() failed: %m", SVC_ID( sp) );
          }
       }
+#endif
 
       M_SET( cp->co_flags, COF_HAVE_ADDRESS ) ;
    }

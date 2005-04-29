@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -103,6 +103,17 @@
      * utility function, defined in cmsccoll.c
      */
     void genericLocaleStarter(const char *locale, const char *s[], uint32_t size);
+
+
+    /** 
+     * test short string and collator identifier functions
+     */
+    static void TestShortString(void);
+
+    /** 
+     * test getContractions and getUnsafeSet
+     */
+    static void TestGetContractionsAndUnsafes(void);
 
 
 #endif /* #if !UCONFIG_NO_COLLATION */

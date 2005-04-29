@@ -22,10 +22,10 @@
     [self rootInstanceMethod];            /* class is searched for an instance method  */
     [MyIntermediate rootInstanceMethod];  /* with the same name.                       */
 
-    [self instanceMethod];       /* { dg-warning "cannot find class" } */
-    /* { dg-warning "defaults to id" "" { target *-*-* } 25 } */
-    [MyDerived instanceMethod];  /* { dg-warning "cannot find class" } */
-    /* { dg-warning "defaults to id" "" { target *-*-* } 27 } */ 
+    /* APPLE LOCAL begin test suite */
+    [self instanceMethod];   /* { dg-warning ".MyDerived. may not respond to .\\+instanceMethod." } */
+    [MyDerived instanceMethod];   /* { dg-warning ".MyDerived. may not respond to .\\+instanceMethod." } */
+    /* APPLE LOCAL end test suite */
 }
 @end
 

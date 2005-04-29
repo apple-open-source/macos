@@ -27,7 +27,7 @@
  *
  */
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/os2_select.h,v 3.1 1996/12/27 07:04:31 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/os2_select.h,v 3.2 2004/02/14 00:10:18 dawes Exp $ */
 
 /* Header file for os2_select.c */
 
@@ -36,7 +36,8 @@
 #define MOUSE_SEM_KEY 0x0F01
 #define KBD_SEM_KEY 0x0F02
 #define PIPE_SEM_KEY 0x0F03
-#define HRT_SEM_KEY 0x0F04
+#define SOCKET_SEM_KEY 0x0F04
+#define SWITCHTO_SEM_KEY 0x0F05
 
 
 struct select_data
@@ -48,6 +49,7 @@ struct select_data
    int tcp_select_mask[MAX_TCP];
    int tcp_emx_handles[MAX_TCP];
    int tcp_select_copy[MAX_TCP];
+   int tcp_select_monitor[MAX_TCP];
    int socket_nread;
    int socket_nwrite;
    int socket_ntotal;

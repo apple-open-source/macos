@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000 Free Software Foundation, Inc.                   *
+ * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -27,7 +27,7 @@
  ****************************************************************************/
 
 /****************************************************************************
- *   Author: Juergen Pfeifer <juergen.pfeifer@gmx.net> 1995,1997            *
+ *   Author:  Juergen Pfeifer, 1995,1997                                    *
  ****************************************************************************/
 
 /***************************************************************************
@@ -37,7 +37,9 @@
 
 #include "menu.priv.h"
 
-MODULE_ID("$Id: m_global.c,v 1.1.1.1 2001/11/29 20:40:55 jevans Exp $")
+MODULE_ID("$Id: m_global.c,v 1.16 2003/11/08 20:53:01 tom Exp $")
+
+static char mark[] = "-";
 
 NCURSES_EXPORT_VAR(MENU) _nc_Default_Menu = {
   16,				  /* Nr. of chars high */
@@ -73,7 +75,7 @@ NCURSES_EXPORT_VAR(MENU) _nc_Default_Menu = {
   (Menu_Hook)0,			  /* Item init */
   (Menu_Hook)0,			  /* Item term */
   (void *)0,			  /* userptr */
-  "-",				  /* mark */
+  mark,				  /* mark */
   ALL_MENU_OPTS,                  /* options */
   0			          /* status */	    
 };
@@ -158,7 +160,7 @@ INLINE static void ResetConnectionInfo(MENU *menu, ITEM **items)
 |                    Decorate all the items with a number and a backward
 |                    pointer to the menu.
 |
-|   Return Values :  TRUE       - successfull connection
+|   Return Values :  TRUE       - successful connection
 |                    FALSE      - connection failed
 +--------------------------------------------------------------------------*/
 NCURSES_EXPORT(bool)
@@ -262,9 +264,9 @@ _nc_Calculate_Item_Length_and_Width (MENU * menu)
 |   Facility      :  libnmenu  
 |   Function      :  void _nc_Link_Item(MENU *menu)
 |   
-|   Description   :  Statically calculate for every item its four neighbours.
+|   Description   :  Statically calculate for every item its four neighbors.
 |                    This depends on the orientation of the menu. This
-|                    static aproach simplifies navigation in the menu a lot.
+|                    static approach simplifies navigation in the menu a lot.
 |
 |   Return Values :  -
 +--------------------------------------------------------------------------*/

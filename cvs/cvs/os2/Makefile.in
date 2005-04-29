@@ -9,6 +9,7 @@ project: cvs.exe
 # path slash.  This was introduced so that it can be set to \
 # instead of / for linking, but now that the cvs.exe rule uses
 # subst to produce \, it should be possible to nuke SL.
+# FIXME - nuke SL
 SL = /
 
 # Directory in which to install executables.
@@ -19,6 +20,9 @@ srcdir     = @srcdir@
 
 # top_srcdir is usually ".."
 top_srcdir = @top_srcdir@
+
+VPATH      = @srcdir@
+subdir     = os2
 
 lib_dir     = @top_srcdir@${SL}lib
 cvs_srcdir = @top_srcdir@${SL}src
@@ -52,13 +56,12 @@ TCPIPLIB = s:${SL}ibmtcpip${SL}lib${SL}tcp32dll.lib	s:${SL}ibmtcpip${SL}lib${SL}
 # We list OS2_HEADERS so we know what to include when we make dist-dir
 # here.
 OS2_HEADERS = \
-       ${srcdir}${SL}tcpip.h \
-       ${srcdir}${SL}config.h \
-       ${srcdir}${SL}options.h \
-       ${srcdir}${SL}pwd.h \
-       ${srcdir}${SL}dirent.h \
-       ${srcdir}${SL}rcmd.h \
-       ${srcdir}${SL}popen.h
+       tcpip.h \
+       config.h \
+       pwd.h \
+       dirent.h \
+       rcmd.h \
+       popen.h
 
 # headers we use from the common src dir, ..${SL}src
 COMMON_HEADERS = \
@@ -74,18 +77,17 @@ COMMON_HEADERS = \
 
 # sources specific to OS/2
 OS2_SOURCES = \
-       ${srcdir}${SL}mkdir.c \
-       ${srcdir}${SL}pwd.c \
-       ${srcdir}${SL}filesubr.c \
-       ${srcdir}${SL}dirent.c \
-       ${srcdir}${SL}run.c \
-       ${srcdir}${SL}stripslash.c \
-       ${srcdir}${SL}rcmd.c \
-       ${srcdir}${SL}waitpid.c \
-       ${srcdir}${SL}popen.c \
-       ${srcdir}${SL}porttcp.c \
-       ${srcdir}${SL}getdate.c \
-       ${srcdir}${SL}getpass.c
+       mkdir.c \
+       pwd.c \
+       filesubr.c \
+       dirent.c \
+       run.c \
+       stripslash.c \
+       rcmd.c \
+       waitpid.c \
+       popen.c \
+       porttcp.c \
+       getpass.c
 
 # sources we use from the common src dir, ..${SL}src
 # FIXME: Is this used anywhere?  I don't think it is.
@@ -129,7 +131,6 @@ COMMON_SOURCES = \
        ${cvs_srcdir}${SL}remove.c \
        ${cvs_srcdir}${SL}repos.c \
        ${cvs_srcdir}${SL}root.c \
-       ${cvs_srcdir}${SL}rtag.c \
        ${cvs_srcdir}${SL}scramble.c \
        ${cvs_srcdir}${SL}server.c \
        ${cvs_srcdir}${SL}status.c \
@@ -145,6 +146,7 @@ COMMON_SOURCES = \
 # sources from ..${SL}lib
 # FIXME: Is this used anywhere?  I don't think it is.
 LIB_SOURCES = \
+       ${lib_dir}${SL}getdate.c \
        ${lib_dir}${SL}getopt.c \
        ${lib_dir}${SL}getopt1.c \
        ${lib_dir}${SL}getline.c \
@@ -170,7 +172,6 @@ OS2_OBJECTS = \
        ${srcdir}${SL}waitpid.obj \
        ${srcdir}${SL}popen.obj \
        ${srcdir}${SL}porttcp.obj \
-       ${srcdir}${SL}getdate.obj \
        ${srcdir}${SL}getpass.obj
 
 # object files from ..${SL}src
@@ -214,7 +215,6 @@ COMMON_OBJECTS = \
        ${cvs_srcdir}${SL}remove.obj \
        ${cvs_srcdir}${SL}repos.obj \
        ${cvs_srcdir}${SL}root.obj \
-       ${cvs_srcdir}${SL}rtag.obj \
        ${cvs_srcdir}${SL}scramble.obj \
        ${cvs_srcdir}${SL}server.obj \
        ${cvs_srcdir}${SL}status.obj \
@@ -230,6 +230,7 @@ COMMON_OBJECTS = \
 
 # objects from ..${SL}lib
 LIB_OBJECTS = \
+       ${lib_dir}${SL}getdate.obj \
        ${lib_dir}${SL}getopt.obj \
        ${lib_dir}${SL}getopt1.obj \
        ${lib_dir}${SL}getline.obj \
@@ -263,42 +264,59 @@ HEADERS = ${COMMON_HEADERS} ${OS2_HEADERS}
 OBJECTS = ${COMMON_OBJECTS} ${LIB_OBJECTS} ${OS2_OBJECTS} ${ZLIB_OBJECTS}
 
 DISTFILES = ${OS2_HEADERS} ${OS2_SOURCES} \
-  ${srcdir}${SL}README ${srcdir}${SL}ChangeLog \
-  ${srcdir}${SL}Makefile.in ${srcdir}${SL}.cvsignore \
-  ${srcdir}${SL}test-makefile Makefile ${srcdir}/os2inc.h \
-  ${srcdir}/watcom.mak
+  README ChangeLog \
+  Makefile.in .cvsignore \
+  test-makefile Makefile os2inc.h \
+  watcom.mak
 
 all:
 
 .PHONY: all install uninstall
 all install uninstall:
 
+# Remove targets for Automake
+dvi info pdf ps:
+.PHONY: dvi info pdf ps
+check installcheck:
+.PHONY: check installcheck
 installdirs:
-.PHONY: installdirs
-
-.PHONY: tags TAGS
-tags TAGS:
-
-.PHONY: ls
-ls:
-	@echo ${DISTFILES}
-
-.PHONY: clean distclean realclean mostlyclean
-clean distclean realclean mostlyclean:
-
-.PHONY: lint
 lint:
+tags TAGS:
+.PHONY: installdirs lint tags TAGS
 
-.PHONY: dist-dir
-dist-dir:
-	mkdir ${DISTDIR}
-	for i in ${DISTFILES}; do \
-	  ln $${i} ${DISTDIR}; \
+# distdir added for compatibility with CVS automake.
+top_distdir = ..
+PACKAGE = @PACKAGE@
+VERSION = @VERSION@
+distdir = $(top_distdir)/$(PACKAGE)-$(VERSION)
+
+distdir: $(DISTFILES)
+	@list='$(DISTFILES)'; for file in $$list; do \
+	  if test -f $$file || test -d $$file; then d=.; else d=$(srcdir); fi; \
+	  dir=`echo "$$file" | sed -e 's,/[^/]*$$,,'`; \
+	  if test "$$dir" != "$$file" && test "$$dir" != "."; then \
+	    dir="/$$dir"; \
+	    $(mkinstalldirs) "$(distdir)$$dir"; \
+	  else \
+	    dir=''; \
+	  fi; \
+	  if test -d $$d/$$file; then \
+	    if test -d $(srcdir)/$$file && test $$d != $(srcdir); then \
+	      cp -pR $(srcdir)/$$file $(distdir)$$dir || exit 1; \
+	    fi; \
+	    cp -pR $$d/$$file $(distdir)$$dir || exit 1; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || cp -p $$d/$$file $(distdir)/$$file \
+	    || exit 1; \
+	  fi; \
 	done
+.PHONY: distdir
 
 # We don't have a real distclean or anything like that, but at least
 # we can get rid of the obj files and cvs.exe. 
-clean:
+.PHONY: clean distclean realclean mostlyclean maintainer-clean
+clean distclean realclean maintainer-clean mostlyclean:
 	rm -f cvs.exe
 	rm -f ${srcdir}${SL}*.obj 
 	rm -f ${lib_dir}${SL}*.obj 
@@ -333,7 +351,6 @@ cvs.exe: ${OBJECTS}
 
 # cvs.obj: ${OBJECTS} ${SOURCES} ${HEADERS}
 
-subdir = os2
 # Hmm.  This rule wants to exist on unix, so that "make dist" works.
 # And it doesn't want to exist on OS/2, because configure doesn't
 # run on OS/2 and so ../config.status won't exist.  For now we just

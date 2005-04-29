@@ -1,36 +1,38 @@
 /* Definitions for Sun SPARC64 running FreeBSD using the ELF format
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by David E. O'Brien <obrien@FreeBSD.org> and BSDi.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+
+#undef  SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS \
+  { "fbsd_dynamic_linker", FBSD_DYNAMIC_LINKER }
 
 /* FreeBSD needs the platform name (sparc64) defined.
    Emacs needs to know if the arch is 64 or 32-bits.  */
 
 #undef  CPP_CPU64_DEFAULT_SPEC
-#define CPP_CPU64_DEFAULT_SPEC "-D__sparc64__ -D__sparc_v9__ -D__arch64__"
-
-/* Because we include sparc/sysv4.h.  */
-#undef  CPP_PREDEFINES
-#define CPP_PREDEFINES FBSD_CPP_PREDEFINES
+#define CPP_CPU64_DEFAULT_SPEC \
+  "-D__sparc64__ -D__sparc_v9__ -D__sparcv9 -D__arch64__"
 
 #define LINK_SPEC "%(link_arch)						\
   %{!mno-relax:%{!r:-relax}}						\
-  %{p:%e`-p' not supported; use `-pg' and gprof(1)}			\
+  %{p:%nconsider using `-pg' instead of `-p' with gprof(1)}				\
   %{Wl,*:%*}								\
   %{assert*} %{R*} %{rpath*} %{defsym*}					\
   %{shared:-Bshareable %{h*} %{soname*}}				\
@@ -38,7 +40,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
   %{!shared:								\
     %{!static:								\
       %{rdynamic:-export-dynamic}					\
-      %{!dynamic-linker:-dynamic-linker /usr/libexec/ld-elf.so.1}}	\
+      %{!dynamic-linker:-dynamic-linker %(fbsd_dynamic_linker) }}	\
     %{static:-Bstatic}}"
 
 
@@ -59,10 +61,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    SPARC ABI says that long double is 4 words.  */
 #undef  LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
-
-/* Constant which presents upper bound of the above value.  */
-#undef  MAX_LONG_DOUBLE_TYPE_SIZE
-#define MAX_LONG_DOUBLE_TYPE_SIZE 128
 
 /* Define this to set long double type size to use in libgcc2.c, which can
    not depend on target_flags.  */
@@ -98,7 +96,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #undef  SPARC_DEFAULT_CMODEL
 #define SPARC_DEFAULT_CMODEL	CM_MEDLOW
 
-#define TRANSFER_FROM_TRAMPOLINE					\
+#define ENABLE_EXECUTE_STACK						\
   static int need_enable_exec_stack;					\
   static void check_enabling(void) __attribute__ ((constructor));	\
   static void check_enabling(void)					\
@@ -130,14 +128,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define LOCAL_LABEL_PREFIX  "."
 
 /* XXX2 */
-/* This is how to output a definition of an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
-  fprintf (FILE, ".L%s%d:\n", PREFIX, NUM)
-
-/* XXX2 */
 /* This is how to output a reference to an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
 
@@ -153,7 +143,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #undef  ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)			\
-  sprintf (LABEL, "*.L%s%d", PREFIX, NUM)
+  sprintf (LABEL, "*.L%s%lu", PREFIX, (unsigned long)(NUM))
 
 
 /************************[  Debugger stuff  ]*********************************/

@@ -29,11 +29,19 @@
  */
 
 #include "k5-int.h"
+#include "rc-int.h"
 
 krb5_error_code KRB5_CALLCONV
 krb5_rc_initialize (krb5_context context, krb5_rcache id, krb5_deltat span)
 {
     return krb5_x(id->ops->init,(context, id, span));
+}
+
+krb5_error_code KRB5_CALLCONV
+krb5_rc_recover_or_initialize (krb5_context context, krb5_rcache id,
+			       krb5_deltat span)
+{
+    return krb5_x(id->ops->recover_or_init,(context, id, span));
 }
 
 krb5_error_code KRB5_CALLCONV

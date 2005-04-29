@@ -25,13 +25,14 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/lmonetary.c,v 1.17 2002/10/12 11:31:07 ache Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/lmonetary.c,v 1.19 2003/06/26 10:46:16 phantom Exp $");
 
 #include <limits.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include "lmonetary.h"
+
 #include "ldpart.h"
+#include "lmonetary.h"
 
 extern int __mlocale_changed;
 extern const char * __fix_locale_grouping_str(const char *);
@@ -88,7 +89,7 @@ __monetary_load_locale(const char *name)
 	int ret;
 
 	ret = __part_load_locale(name, &_monetary_using_locale,
-		_monetary_locale_buf, "LC_MONETARY",
+		&_monetary_locale_buf, "LC_MONETARY",
 		LCMONETARY_SIZE_FULL, LCMONETARY_SIZE_MIN,
 		(const char **)&_monetary_locale);
 	if (ret != _LDP_ERROR)
@@ -112,7 +113,7 @@ __monetary_load_locale(const char *name)
 		/*
 		 * The six additional C99 international monetary formatting
 		 * parameters default to the national parameters when
-		 * reading FreeBSD 4 LC_MONETARY data files.
+		 * reading FreeBSD LC_MONETARY data files.
 		 */
 #define	M_ASSIGN_ICHAR(NAME)						\
 		do {							\
@@ -159,6 +160,12 @@ printf(	"int_curr_symbol = %s\n"
 	"n_sep_by_space = %d\n"
 	"p_sign_posn = %d\n"
 	"n_sign_posn = %d\n",
+	"int_p_cs_precedes = %d\n"
+	"int_p_sep_by_space = %d\n"
+	"int_n_cs_precedes = %d\n"
+	"int_n_sep_by_space = %d\n"
+	"int_p_sign_posn = %d\n"
+	"int_n_sign_posn = %d\n",
 	_monetary_locale.int_curr_symbol,
 	_monetary_locale.currency_symbol,
 	_monetary_locale.mon_decimal_point,
@@ -173,7 +180,13 @@ printf(	"int_curr_symbol = %s\n"
 	_monetary_locale.n_cs_precedes[0],
 	_monetary_locale.n_sep_by_space[0],
 	_monetary_locale.p_sign_posn[0],
-	_monetary_locale.n_sign_posn[0]
+	_monetary_locale.n_sign_posn[0],
+	_monetary_locale.int_p_cs_precedes[0],
+	_monetary_locale.int_p_sep_by_space[0],
+	_monetary_locale.int_n_cs_precedes[0],
+	_monetary_locale.int_n_sep_by_space[0],
+	_monetary_locale.int_p_sign_posn[0],
+	_monetary_locale.int_n_sign_posn[0]
 );
 }
 #endif /* LOCALE_DEBUG */

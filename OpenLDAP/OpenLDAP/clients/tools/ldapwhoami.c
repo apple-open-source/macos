@@ -1,7 +1,34 @@
-/* $OpenLDAP: pkg/ldap/clients/tools/ldapwhoami.c,v 1.2.2.9 2003/03/29 15:45:43 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* ldapwhoami.c -- a tool for asking the directory "Who Am I?" */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldapwhoami.c,v 1.26.2.6 2004/03/17 19:54:53 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1998-2003 Kurt D. Zeilenga.
+ * Portions Copyright 1998-2001 Net Boolean Incorporated.
+ * Portions Copyright 2001-2003 IBM Corporation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1992-1996 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor.  The name of the
+ * University may not be used to endorse or promote products derived
+ * from this software without specific prior written permission.  This
+ * software is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by Kurt D. Zeilenga for inclusion
+ * in OpenLDAP Software based, in part, on other client tools.
  */
 
 #include "portable.h"
@@ -27,17 +54,15 @@
 void
 usage( void )
 {
-	fprintf(stderr,
-"Issue LDAP Who am I? operation to request user's authzid\n\n"
-"usage: %s [options]\n"
-	        , prog);
+	fprintf( stderr, _("Issue LDAP Who am I? operation to request user's authzid\n\n"));
+	fprintf( stderr, _("usage: %s [options]\n"), prog);
 	tool_common_usage();
 	exit( EXIT_FAILURE );
 }
 
 
 const char options[] = ""
-	"Cd:D:e:h:H:InO:p:QR:U:vVw:WxX:y:Y:Z";
+	"d:D:e:h:H:InO:p:QR:U:vVw:WxX:y:Y:Z";
 
 int
 handle_private_option( int i )
@@ -46,9 +71,9 @@ handle_private_option( int i )
 #if 0
 		char	*control, *cvalue;
 		int		crit;
-	case 'E': /* whoami controls */
+	case 'E': /* whoami extension */
 		if( protocol == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -E incompatible with LDAPv%d\n",
+			fprintf( stderr, _("%s: -E incompatible with LDAPv%d\n"),
 				prog, protocol );
 			exit( EXIT_FAILURE );
 		}
@@ -68,7 +93,8 @@ handle_private_option( int i )
 		if ( (cvalue = strchr( control, '=' )) != NULL ) {
 			*cvalue++ = '\0';
 		}
-		fprintf( stderr, "Invalid whoami control name: %s\n", control );
+
+		fprintf( stderr, _("Invalid whoami extension name: %s\n"), control );
 		usage();
 #endif
 
@@ -91,6 +117,7 @@ main( int argc, char *argv[] )
 	char	*retoid = NULL;
 	struct berval *retdata = NULL;
 
+    tool_init();
 	prog = lutil_progname( "ldapwhoami", argc, argv );
 
 	/* LDAPv3 only */
@@ -111,7 +138,7 @@ main( int argc, char *argv[] )
 			rc = lutil_get_filed_password( pw_file, &passwd );
 			if( rc ) return EXIT_FAILURE;
 		} else {
-			passwd.bv_val = getpassphrase( "Enter LDAP Password: " );
+			passwd.bv_val = getpassphrase( _("Enter LDAP Password: ") );
 			passwd.bv_len = passwd.bv_val ? strlen( passwd.bv_val ) : 0;
 		}
 	}
@@ -125,34 +152,35 @@ main( int argc, char *argv[] )
 		goto skip;
 	}
 
-	if ( authzid || manageDSAit || noop )
+	if ( assertion || authzid || manageDSAit || noop ) {
 		tool_server_controls( ld, NULL, 0 );
+	}
 
 	rc = ldap_whoami_s( ld, &retdata, NULL, NULL ); 
 
 	if( retdata != NULL ) {
 		if( retdata->bv_len == 0 ) {
-			printf("anonymous\n" );
+			printf(_("anonymous\n") );
 		} else {
 			printf("%s\n", retdata->bv_val );
 		}
 	}
 
 	if( verbose || ( rc != LDAP_SUCCESS ) || matcheddn || text || refs ) {
-		printf( "Result: %s (%d)\n", ldap_err2string( rc ), rc );
+		printf( _("Result: %s (%d)\n"), ldap_err2string( rc ), rc );
 
 		if( text && *text ) {
-			printf( "Additional info: %s\n", text );
+			printf( _("Additional info: %s\n"), text );
 		}
 
 		if( matcheddn && *matcheddn ) {
-			printf( "Matched DN: %s\n", matcheddn );
+			printf( _("Matched DN: %s\n"), matcheddn );
 		}
 
 		if( refs ) {
 			int i;
 			for( i=0; refs[i]; i++ ) {
-				printf("Referral: %s\n", refs[i] );
+				printf(_("Referral: %s\n"), refs[i] );
 			}
 		}
 	}

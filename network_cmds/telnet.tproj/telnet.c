@@ -56,7 +56,6 @@ static const char sccsid[] = "@(#)telnet.c	8.4 (Berkeley) 5/30/95";
 #include <curses.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <term.h>
 #include <unistd.h>
 #include <arpa/telnet.h>
 

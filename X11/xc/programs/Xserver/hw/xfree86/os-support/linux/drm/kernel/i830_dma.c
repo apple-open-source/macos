@@ -59,19 +59,11 @@
 #define up_write up
 #endif
 
-#ifndef LockPage
-#define LockPage(page)		set_bit(PG_locked, &(page)->flags)
-#endif
-#ifndef UnlockPage
-#define UnlockPage(page)	unlock_page(page)
-#endif
-
-
 static inline void i830_print_status_page(drm_device_t *dev)
 {
    	drm_device_dma_t *dma = dev->dma;
       	drm_i830_private_t *dev_priv = dev->dev_private;
-	u32 *temp = (u32 *)dev_priv->hw_status_page;
+	u32 *temp = dev_priv->hw_status_page;
    	int i;
 
    	DRM_DEBUG(  "hw_status: Interrupt Status : %x\n", temp[0]);
@@ -130,9 +122,7 @@ static struct file_operations i830_buffer_fops = {
 	.release = DRM(release),
 	.ioctl	 = DRM(ioctl),
 	.mmap	 = i830_mmap_buffers,
-	.read	 = DRM(read),
-	.fasync	 = DRM(fasync),
-      	.poll	 = DRM(poll),
+	.fasync  = DRM(fasync),
 };
 
 int i830_mmap_buffers(struct file *filp, struct vm_area_struct *vma)
@@ -183,10 +173,10 @@ static int i830_map_buffer(drm_buf_t *buf, struct file *filp)
 					    buf->bus_address);
 	dev_priv->mmap_buffer = NULL;
 	filp->f_op = old_fops;
-	if ((unsigned long)buf_priv->virtual > -1024UL) {
+	if (IS_ERR(buf_priv->virtual)) {
 		/* Real error */
 		DRM_ERROR("mmap error\n");
-		retcode = (signed int)buf_priv->virtual;
+		retcode = PTR_ERR(buf_priv->virtual);
 		buf_priv->virtual = 0;
 	}
 	up_write( &current->mm->mmap_sem );
@@ -217,7 +207,6 @@ static int i830_unmap_buffer(drm_buf_t *buf)
 static int i830_dma_get_buffer(drm_device_t *dev, drm_i830_dma_t *d, 
 			       struct file *filp)
 {
-	drm_file_t	  *priv	  = filp->private_data;
 	drm_buf_t	  *buf;
 	drm_i830_buf_priv_t *buf_priv;
 	int retcode = 0;
@@ -235,7 +224,7 @@ static int i830_dma_get_buffer(drm_device_t *dev, drm_i830_dma_t *d,
 	   	DRM_ERROR("mapbuf failed, retcode %d\n", retcode);
 		return retcode;
 	}
-	buf->pid     = priv->pid;
+	buf->filp = filp;
 	buf_priv = buf->dev_private;	
 	d->granted = 1;
    	d->request_idx = buf->idx;
@@ -245,33 +234,33 @@ static int i830_dma_get_buffer(drm_device_t *dev, drm_i830_dma_t *d,
 	return retcode;
 }
 
-static int i830_dma_cleanup(drm_device_t *dev)
+int i830_dma_cleanup(drm_device_t *dev)
 {
 	drm_device_dma_t *dma = dev->dma;
 
-	if(dev->dev_private) {
+#if __HAVE_IRQ
+	/* Make sure interrupts are disabled here because the uninstall ioctl
+	 * may not have been called from userspace and after dev_private
+	 * is freed, it's too late.
+	 */
+	if (dev->irq_enabled) DRM(irq_uninstall)(dev);
+#endif
+
+	if (dev->dev_private) {
 		int i;
 	   	drm_i830_private_t *dev_priv = 
 	     		(drm_i830_private_t *) dev->dev_private;
 	   
-	   	if(dev_priv->ring.virtual_start) {
+	   	if (dev_priv->ring.virtual_start) {
 		   	DRM(ioremapfree)((void *) dev_priv->ring.virtual_start,
-					 dev_priv->ring.Size);
+					 dev_priv->ring.Size, dev);
 		}
-	   	if(dev_priv->hw_status_page != 0UL) {
+	   	if (dev_priv->hw_status_page) {
 			pci_free_consistent(dev->pdev, PAGE_SIZE,
-					    (void *)dev_priv->hw_status_page,
+					    dev_priv->hw_status_page,
 					    dev_priv->dma_status_page);
 		   	/* Need to rewrite hardware status page */
 		   	I830_WRITE(0x02080, 0x1ffff000);
-		}
-
-		/* Disable interrupts here because after dev_private
-		 * is freed, it's too late.
-		 */
-		if (dev->irq) {
-			I830_WRITE16( I830REG_INT_MASK_R, 0xffff );
-			I830_WRITE16( I830REG_INT_ENABLE_R, 0x0 );
 		}
 
 	   	DRM(free)(dev->dev_private, sizeof(drm_i830_private_t), 
@@ -281,7 +270,8 @@ static int i830_dma_cleanup(drm_device_t *dev)
 		for (i = 0; i < dma->buf_count; i++) {
 			drm_buf_t *buf = dma->buflist[ i ];
 			drm_i830_buf_priv_t *buf_priv = buf->dev_private;
-			DRM(ioremapfree)(buf_priv->kernel_virtual, buf->total);
+			if ( buf_priv->kernel_virtual && buf->total )
+				DRM(ioremapfree)(buf_priv->kernel_virtual, buf->total, dev);
 		}
 	}
    	return 0;
@@ -357,7 +347,7 @@ static int i830_freelist_init(drm_device_t *dev, drm_i830_private_t *dev_priv)
 	   	*buf_priv->in_use = I830_BUF_FREE;
 
 		buf_priv->kernel_virtual = DRM(ioremap)(buf->bus_address, 
-							buf->total);
+							buf->total, dev);
 	}
 	return 0;
 }
@@ -371,7 +361,7 @@ static int i830_dma_initialize(drm_device_t *dev,
    	memset(dev_priv, 0, sizeof(drm_i830_private_t));
 
 	list_for_each(list, &dev->maplist->head) {
-		drm_map_list_t *r_list = (drm_map_list_t *)list;
+		drm_map_list_t *r_list = list_entry(list, drm_map_list_t, head);
 		if( r_list->map &&
 		    r_list->map->type == _DRM_SHM &&
 		    r_list->map->flags & _DRM_CONTAINS_LOCK ) {
@@ -411,7 +401,7 @@ static int i830_dma_initialize(drm_device_t *dev,
 
    	dev_priv->ring.virtual_start = DRM(ioremap)(dev->agp->base + 
 						    init->ring_start, 
-						    init->ring_size);
+						    init->ring_size, dev);
 
    	if (dev_priv->ring.virtual_start == NULL) {
 		dev->dev_private = (void *) dev_priv;
@@ -440,7 +430,7 @@ static int i830_dma_initialize(drm_device_t *dev,
 	DRM_DEBUG("pitch_bits %x\n",    init->pitch_bits);
 
 	dev_priv->cpp = init->cpp;
-	/* We are using seperate values as placeholders for mechanisms for
+	/* We are using separate values as placeholders for mechanisms for
 	 * private backbuffer/depthbuffer usage.
 	 */
 
@@ -451,18 +441,18 @@ static int i830_dma_initialize(drm_device_t *dev,
 
    	/* Program Hardware Status Page */
    	dev_priv->hw_status_page =
-		(unsigned long) pci_alloc_consistent(dev->pdev, PAGE_SIZE,
+		pci_alloc_consistent(dev->pdev, PAGE_SIZE,
 						&dev_priv->dma_status_page);
-   	if(dev_priv->hw_status_page == 0UL) {
+   	if (!dev_priv->hw_status_page) {
 		dev->dev_private = (void *)dev_priv;
 		i830_dma_cleanup(dev);
 		DRM_ERROR("Can not allocate hardware status page\n");
 		return -ENOMEM;
 	}
-   	memset((void *) dev_priv->hw_status_page, 0, PAGE_SIZE);
-	DRM_DEBUG("hw status page @ %lx\n", dev_priv->hw_status_page);
+   	memset(dev_priv->hw_status_page, 0, PAGE_SIZE);
+	DRM_DEBUG("hw status page @ %p\n", dev_priv->hw_status_page);
    
-   	I830_WRITE(0x02080, virt_to_bus((void *)dev_priv->hw_status_page));
+   	I830_WRITE(0x02080, dev_priv->dma_status_page);
 	DRM_DEBUG("Enabled hardware status page\n");
    
    	/* Now we need to init our freelist */
@@ -1301,8 +1291,10 @@ static int i830_flush_queue(drm_device_t *dev)
 }
 
 /* Must be called with the lock held */
-void i830_reclaim_buffers(drm_device_t *dev, pid_t pid)
+void i830_reclaim_buffers( struct file *filp )
 {
+	drm_file_t    *priv   = filp->private_data;
+	drm_device_t  *dev    = priv->dev;
 	drm_device_dma_t *dma = dev->dma;
 	int		 i;
 
@@ -1316,7 +1308,7 @@ void i830_reclaim_buffers(drm_device_t *dev, pid_t pid)
 	   	drm_buf_t *buf = dma->buflist[ i ];
 	   	drm_i830_buf_priv_t *buf_priv = buf->dev_private;
 	   
-		if (buf->pid == pid && buf_priv) {
+		if (buf->filp == filp && buf_priv) {
 			int used = cmpxchg(buf_priv->in_use, I830_BUF_CLIENT, 
 					   I830_BUF_FREE);
 
@@ -1350,7 +1342,7 @@ int i830_dma_vertex(struct inode *inode, struct file *filp,
 	drm_device_t *dev = priv->dev;
 	drm_device_dma_t *dma = dev->dma;
    	drm_i830_private_t *dev_priv = (drm_i830_private_t *)dev->dev_private;
-      	u32 *hw_status = (u32 *)dev_priv->hw_status_page;
+      	u32 *hw_status = dev_priv->hw_status_page;
    	drm_i830_sarea_t *sarea_priv = (drm_i830_sarea_t *) 
      					dev_priv->sarea_priv; 
 	drm_i830_vertex_t vertex;
@@ -1475,7 +1467,7 @@ int i830_getage(struct inode *inode, struct file *filp, unsigned int cmd,
    	drm_file_t	  *priv	    = filp->private_data;
 	drm_device_t	  *dev	    = priv->dev;
    	drm_i830_private_t *dev_priv = (drm_i830_private_t *)dev->dev_private;
-      	u32 *hw_status = (u32 *)dev_priv->hw_status_page;
+      	u32 *hw_status = dev_priv->hw_status_page;
    	drm_i830_sarea_t *sarea_priv = (drm_i830_sarea_t *) 
      					dev_priv->sarea_priv; 
 
@@ -1491,7 +1483,7 @@ int i830_getbuf(struct inode *inode, struct file *filp, unsigned int cmd,
 	int		  retcode   = 0;
 	drm_i830_dma_t	  d;
    	drm_i830_private_t *dev_priv = (drm_i830_private_t *)dev->dev_private;
-   	u32 *hw_status = (u32 *)dev_priv->hw_status_page;
+   	u32 *hw_status = dev_priv->hw_status_page;
    	drm_i830_sarea_t *sarea_priv = (drm_i830_sarea_t *) 
      					dev_priv->sarea_priv; 
 
@@ -1554,7 +1546,7 @@ int i830_getparam( struct inode *inode, struct file *filp, unsigned int cmd,
 
 	switch( param.param ) {
 	case I830_PARAM_IRQ_ACTIVE:
-		value = dev->irq ? 1 : 0;
+		value = dev->irq_enabled;
 		break;
 	default:
 		return -EINVAL;

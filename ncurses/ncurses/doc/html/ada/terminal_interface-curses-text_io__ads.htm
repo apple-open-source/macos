@@ -37,15 +37,15 @@
 <FONT COLOR=green><EM>-- sale, use or other dealings in this Software without prior written       --</EM></FONT>
 <FONT COLOR=green><EM>-- authorization.                                                           --</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-<FONT COLOR=green><EM>--  Author: <A HREF="http://home.t-online.de/home/Juergen.Pfeifer">J&uuml;rgen Pfeifer</A> &lt;<A HREF="mailto:juergen.pfeifer@gmx.net">&lt;juergen.pfeifer@gmx.net&gt;</A>&gt; 1996</EM></FONT>
+<FONT COLOR=green><EM>--  Author:  Juergen Pfeifer, 1996</EM></FONT>
 <FONT COLOR=green><EM>--  Version Control:</EM></FONT>
-<FONT COLOR=green><EM>--  @Revision: 1.11 @</EM></FONT>
+<FONT COLOR=green><EM>--  @Revision: 1.13 @</EM></FONT>
 <FONT COLOR=green><EM>--  Binding Version 01.00</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
 <b>with</b> Ada.Text_IO;
 <b>with</b> Ada.IO_Exceptions;
 
-<b>package</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-text_io__adb.htm#41_40">Text_IO</A><FONT COLOR=red><A NAME="44_35"></A></FONT> <b>is</b>
+<b>package</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<FONT COLOR=red><A NAME="44_35">Text_IO</A></FONT> <b>is</b>
 
    <b>use</b> <b>type</b> Ada.Text_IO.Count;
    <b>subtype</b> <FONT COLOR=red><A NAME="47_12">Count</A></FONT> <b>is</b> Ada.Text_IO.Count;
@@ -54,7 +54,7 @@
    <b>subtype</b> <FONT COLOR=red><A NAME="50_12">Field</A></FONT> <b>is</b> Ada.Text_IO.Field;
    <b>subtype</b> <FONT COLOR=red><A NAME="51_12">Number_Base</A></FONT> <b>is</b> Integer <b>range</b> 2 .. 16;
 
-   <b>type</b> <FONT COLOR=red><A NAME="53_9">Type_Set</A></FONT> <b>is</b> (Lower_Case, Upper_Case, Mixed_Case);
+   <b>type</b> <FONT COLOR=red><A NAME="53_9">Type_Set</A></FONT> <b>is</b> (<FONT COLOR=red><A NAME="53_22">Lower_Case</A></FONT>, <FONT COLOR=red><A NAME="53_34">Upper_Case</A></FONT>, <FONT COLOR=red><A NAME="53_46">Mixed_Case</A></FONT>);
 
    <FONT COLOR=green><EM>--  For most of the routines you will see a version without a Window</EM></FONT>
    <FONT COLOR=green><EM>--  type parameter. They will operate on a default window, which can</EM></FONT>
@@ -63,7 +63,7 @@
    <b>procedure</b> <A HREF="terminal_interface-curses-text_io__adb.htm#45_14">Set_Window</A><FONT COLOR=red><A NAME="59_14"></A></FONT> (<FONT COLOR=red><A NAME="59_26">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>);
    <FONT COLOR=green><EM>--  Set Win as the default window</EM></FONT>
 
-   <b>function</b> <A HREF="terminal_interface-curses-text_io__adb.htm#51_13">Get_Window</A><FONT COLOR=red><A NAME="62_13"></A></FONT> <b>return</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>;
+   <b>function</b> <FONT COLOR=red><A NAME="62_13">Get_Window</A></FONT> <b>return</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>;
    <FONT COLOR=green><EM>--  Get the current default window</EM></FONT>
 
    <b>procedure</b> <A HREF="terminal_interface-curses-text_io__adb.htm#62_14">Flush</A><FONT COLOR=red><A NAME="65_14"></A></FONT> (<FONT COLOR=red><A NAME="65_21">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>);
@@ -78,11 +78,11 @@
    <FONT COLOR=green><EM>--  A scroll-window is interpreted as an page with unbounded page length,</EM></FONT>
    <FONT COLOR=green><EM>--  i.e. it returns the conventional 0 as page length.</EM></FONT>
 
-   <b>function</b> <A HREF="terminal_interface-curses-text_io__adb.htm#83_13">Line_Length</A><FONT COLOR=red><A NAME="77_13"></A></FONT> (<FONT COLOR=red><A NAME="77_26">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#47_12">Count</A>;
-   <b>function</b> <A HREF="terminal_interface-curses-text_io__adb.htm#95_13">Line_Length</A><FONT COLOR=red><A NAME="78_13"></A></FONT> <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#47_12">Count</A>;
+   <b>function</b> <FONT COLOR=red><A NAME="77_13">Line_Length</A></FONT> (<FONT COLOR=red><A NAME="77_26">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#47_12">Count</A>;
+   <b>function</b> <FONT COLOR=red><A NAME="78_13">Line_Length</A></FONT> <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#47_12">Count</A>;
 
-   <b>function</b> <A HREF="terminal_interface-curses-text_io__adb.htm#101_13">Page_Length</A><FONT COLOR=red><A NAME="80_13"></A></FONT> (<FONT COLOR=red><A NAME="80_26">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#47_12">Count</A>;
-   <b>function</b> <A HREF="terminal_interface-curses-text_io__adb.htm#117_13">Page_Length</A><FONT COLOR=red><A NAME="81_13"></A></FONT> <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#47_12">Count</A>;
+   <b>function</b> <FONT COLOR=red><A NAME="80_13">Page_Length</A></FONT> (<FONT COLOR=red><A NAME="80_26">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#47_12">Count</A>;
+   <b>function</b> <FONT COLOR=red><A NAME="81_13">Page_Length</A></FONT> <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#47_12">Count</A>;
 
    <FONT COLOR=green><EM>------------------------------------</EM></FONT>
    <FONT COLOR=green><EM>-- Column, Line, and Page Control --</EM></FONT>
@@ -99,11 +99,11 @@
    <b>procedure</b> <A HREF="terminal_interface-curses-text_io__adb.htm#195_14">Set_Line</A><FONT COLOR=red><A NAME="95_14"></A></FONT> (<FONT COLOR=red><A NAME="95_24">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>; <FONT COLOR=red><A NAME="95_41">To</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses-text_io__ads.htm#48_12">Positive_Count</A>);
    <b>procedure</b> <A HREF="terminal_interface-curses-text_io__adb.htm#218_14">Set_Line</A><FONT COLOR=red><A NAME="96_14"></A></FONT> (<FONT COLOR=red><A NAME="96_24">To</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses-text_io__ads.htm#48_12">Positive_Count</A>);
 
-   <b>function</b> <A HREF="terminal_interface-curses-text_io__adb.htm#224_13">Col</A><FONT COLOR=red><A NAME="98_13"></A></FONT> (<FONT COLOR=red><A NAME="98_18">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#48_12">Positive_Count</A>;
-   <b>function</b> <A HREF="terminal_interface-curses-text_io__adb.htm#238_13">Col</A><FONT COLOR=red><A NAME="99_13"></A></FONT> <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#48_12">Positive_Count</A>;
+   <b>function</b> <FONT COLOR=red><A NAME="98_13">Col</A></FONT> (<FONT COLOR=red><A NAME="98_18">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#48_12">Positive_Count</A>;
+   <b>function</b> <FONT COLOR=red><A NAME="99_13">Col</A></FONT> <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#48_12">Positive_Count</A>;
 
-   <b>function</b> <A HREF="terminal_interface-curses-text_io__adb.htm#244_13">Line</A><FONT COLOR=red><A NAME="101_13"></A></FONT> (<FONT COLOR=red><A NAME="101_19">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#48_12">Positive_Count</A>;
-   <b>function</b> <A HREF="terminal_interface-curses-text_io__adb.htm#258_13">Line</A><FONT COLOR=red><A NAME="102_13"></A></FONT> <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#48_12">Positive_Count</A>;
+   <b>function</b> <FONT COLOR=red><A NAME="101_13">Line</A></FONT> (<FONT COLOR=red><A NAME="101_19">Win</A></FONT> : <b>in</b> <A HREF="terminal_interface-curses__ads.htm#56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#48_12">Positive_Count</A>;
+   <b>function</b> <FONT COLOR=red><A NAME="102_13">Line</A></FONT> <b>return</b> <A HREF="terminal_interface-curses-text_io__ads.htm#48_12">Positive_Count</A>;
 
    <FONT COLOR=green><EM>-----------------------</EM></FONT>
    <FONT COLOR=green><EM>-- Characters-Output --</EM></FONT>
@@ -137,5 +137,5 @@
    <FONT COLOR=red><A NAME="133_4">Data_Error</A></FONT>   : <b>exception</b> <b>renames</b> Ada.IO_Exceptions.Data_Error;
    <FONT COLOR=red><A NAME="134_4">Layout_Error</A></FONT> : <b>exception</b> <b>renames</b> Ada.IO_Exceptions.Layout_Error;
 
-<b>end</b> Terminal_Interface.Curses.Text_IO;
+<b>end</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-text_io__ads.htm#44_35">Text_IO</A><A HREF="terminal_interface-curses-text_io__ads.htm#44_35">;</A>
 </PRE></BODY></HTML>

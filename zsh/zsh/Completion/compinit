@@ -46,7 +46,7 @@
 #     generate matches, but should automatically be loaded
 #     when they are called. The <options> will be given to the
 #     autoload builtin when making the function autoloaded. Note
-#     that this need not include `-U'.
+#     that this need not include `-U' and `-z'.
 #
 # Note that no white space is allowed between the `#' and the rest of
 # the string.
@@ -140,6 +140,7 @@ _comp_options=(
     NO_shglob
     NO_kshglob
     NO_ksharrays
+    NO_kshtypeset
     NO_cshnullglob
     NO_allexport
     NO_aliases
@@ -223,7 +224,7 @@ compdef() {
   # Get the options.
 
   if (( ! $# )); then
-    echo "$0: I need arguments"
+    print -u2 "$0: I need arguments"
     return 1
   fi
 
@@ -234,7 +235,7 @@ compdef() {
     [pPkK]) if [[ -n "$type" ]]; then
             # Error if both `-p' and `-k' are given (or one of them
 	    # twice).
-            echo "$0: type already set to $type"
+            print -u2 "$0: type already set to $type"
 	    return 1
 	  fi
 	  if [[ "$opt" = p ]]; then
@@ -253,7 +254,7 @@ compdef() {
   shift OPTIND-1
 
   if (( ! $# )); then
-    echo "$0: I need arguments"
+    print -u2 "$0: I need arguments"
     return 1
   fi
 
@@ -275,11 +276,11 @@ compdef() {
 	    _comps[$cmd]="$func"
 	    _services[$cmd]="$svc"
 	  else
-	    echo "$0: unknown command or service: $svc"
+	    print -u2 "$0: unknown command or service: $svc"
 	    ret=1
 	  fi
 	else
-	  echo "$0: invalid argument: $1"
+	  print -u2 "$0: invalid argument: $1"
 	  ret=1
 	fi
         shift
@@ -292,14 +293,14 @@ compdef() {
     # and probably do autoloading.
 
     func="$1"
-    [[ -n "$autol" ]] && autoload -U "$func"
+    [[ -n "$autol" ]] && autoload -Uz "$func"
     shift
 
     case "$type" in
     widgetkey)
       while [[ -n $1 ]]; do
 	if [[ $# -lt 3 ]]; then
-	  echo "$0: compdef -K requires <widget> <comp-widget> <key>"
+	  print -u2 "$0: compdef -K requires <widget> <comp-widget> <key>"
 	  return 1
 	fi
 	[[ $1 = _* ]] || 1="_$1"
@@ -317,7 +318,7 @@ compdef() {
       ;;
     key)
       if [[ $# -lt 2 ]]; then
-        echo "$0: missing keys"
+        print -u2 "$0: missing keys"
 	return 1
       fi
 
@@ -390,7 +391,7 @@ compdef() {
     key)
       # Oops, cannot do that yet.
 
-      echo "$0: cannot restore key bindings"
+      print -u2 "$0: cannot restore key bindings"
       return 1
       ;;
     *)
@@ -406,14 +407,15 @@ typeset _i_wdirs _i_wfiles
 _i_wdirs=()
 _i_wfiles=()
 
-autoload -U compaudit
+autoload -Uz compaudit
 if [[ -n "$_i_check" ]]; then
   typeset _i_q
   if ! eval compaudit; then
     if [[ -n "$_i_q" ]]; then
       if [[ "$_i_fail" = ask ]]; then
         if ! read -q "?Ignore insecure $_i_q and continue [ny]? "; then
-	  echo "$0: initialization aborted"
+	  print -u2 "run compaudit to see list of insecure $_i_q"
+	  print -u2 "$0: initialization aborted"
           unfunction compinit compdef
           unset _comp_dumpfile _comp_secure compprefuncs comppostfuncs \
                 _comps _patcomps _postpatcomps _compautos _lastcomp
@@ -432,7 +434,7 @@ if [[ -n "$_i_check" ]]; then
 fi
 
 # Make sure compdump is available, even if we aren't going to use it.
-autoload -U compdump compinstall
+autoload -Uz compdump compinstall
 
 # If we have a dump file, load it.
 
@@ -441,7 +443,9 @@ _i_done=''
 if [[ -f "$_comp_dumpfile" ]]; then
   if [[ -n "$_i_check" ]]; then
     read -rA _i_line < "$_comp_dumpfile"
-    if [[ _i_autodump -eq 1 && $_i_line[2] -eq $#_i_files ]]; then
+    if [[ _i_autodump -eq 1 && $_i_line[2] -eq $#_i_files &&
+        $ZSH_VERSION = $_i_line[4] ]]
+    then
       builtin . "$_comp_dumpfile"
       _i_done=yes
     fi
@@ -472,7 +476,7 @@ if [[ -z "$_i_done" ]]; then
 	fi
 	;;
       (\#autoload)
-	autoload -U "$_i_line[@]" ${_i_name}
+	autoload -Uz "$_i_line[@]" ${_i_name}
 	[[ "$_i_line" != \ # ]] && _compautos[${_i_name}]="$_i_line"
 	;;
       esac
@@ -504,6 +508,6 @@ if [[ ${_i_line[2]} = expand-or-complete ]] &&
 fi
 
 unfunction compinit compaudit
-autoload -U compinit compaudit
+autoload -Uz compinit compaudit
 
 return 0

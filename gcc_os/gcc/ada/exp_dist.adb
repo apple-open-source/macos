@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -58,7 +57,7 @@ package body Exp_Dist is
    --  form:
    --    type Stub is tagged record
    --       [...declaration similar to s-parint.ads RACW_Stub_Type...]
-   --    end Stub;
+   --    end record;
    --  is built. This type has two properties:
    --
    --    1) Since it has the same structure than RACW_Stub_Type, it can be
@@ -2635,7 +2634,8 @@ package body Exp_Dist is
          Append_To (Decls,
            Make_Raise_Constraint_Error (Loc,
              Condition       =>
-               Make_Op_Not (Loc, Right_Opnd => Condition)));
+               Make_Op_Not (Loc, Right_Opnd => Condition),
+             Reason => CE_Partition_Check_Failed));
       end Insert_Partition_Check;
 
    --  Start of processing for Build_Subprogram_Calling_Stubs

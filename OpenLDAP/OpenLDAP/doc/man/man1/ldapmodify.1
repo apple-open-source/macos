@@ -1,6 +1,6 @@
 .TH LDAPMODIFY 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodify.1,v 1.32.2.9 2003/05/24 23:03:36 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodify.1,v 1.41.2.2 2004/01/01 18:16:27 kurt Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
@@ -295,13 +295,13 @@ exists and has the contents:
     dn: cn=Modify Me,dc=example,dc=com
     changetype: modify
     replace: mail
-    mail: modme@OpenLDAP.org
+    mail: modme@example.com
     -
     add: title
     title: Grand Poobah
     -
     add: jpegPhoto
-    jpegPhoto:< file://tmp/modme.jpeg
+    jpegPhoto:< file:///tmp/modme.jpeg
     -
     delete: description
     -
@@ -381,7 +381,7 @@ exit status and a diagnostic message being written to standard error.
 .SH AUTHOR
 The OpenLDAP Project <http://www.openldap.org/>
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

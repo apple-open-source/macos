@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810state.c,v 1.9 2002/10/30 12:51:33 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810state.c,v 1.10 2003/09/28 20:15:12 alanh Exp $ */
 
 #include <stdio.h>
 
@@ -7,8 +7,9 @@
 #include "macros.h"
 #include "enums.h"
 #include "dd.h"
+#include "colormac.h"
 
-#include "mm.h"
+#include "texmem.h"
 
 #include "i810screen.h"
 #include "i810_dri.h"
@@ -31,6 +32,10 @@ static __inline__ GLuint i810PackColor(GLuint format,
 				       GLubyte r, GLubyte g,
 				       GLubyte b, GLubyte a)
 {
+
+   if (I810_DEBUG&DEBUG_DRI)
+      fprintf(stderr, "%s\n", __FUNCTION__);
+
    switch (format) {
    case DV_PF_555:
       return PACK_COLOR_1555( a, r, g, b );
@@ -43,10 +48,13 @@ static __inline__ GLuint i810PackColor(GLuint format,
 }
 
 
-static void i810AlphaFunc(GLcontext *ctx, GLenum func, GLchan ref)
+static void i810AlphaFunc(GLcontext *ctx, GLenum func, GLfloat ref)
 {
    i810ContextPtr imesa = I810_CONTEXT(ctx);
    GLuint a = (ZA_UPDATE_ALPHAFUNC|ZA_UPDATE_ALPHAREF);
+   GLubyte refByte;
+
+   CLAMPED_FLOAT_TO_UBYTE(refByte, ref);
 
    switch (ctx->Color.AlphaFunc) {
    case GL_NEVER:    a |= ZA_ALPHA_NEVER;    break;
@@ -60,7 +68,7 @@ static void i810AlphaFunc(GLcontext *ctx, GLenum func, GLchan ref)
    default: return;
    }
 
-   a |= ((ref & 0xfc) << ZA_ALPHAREF_SHIFT);
+   a |= ((refByte & 0xfc) << ZA_ALPHAREF_SHIFT);
 
    I810_STATECHANGE(imesa, I810_UPLOAD_CTX);
    imesa->Setup[I810_CTXREG_ZA] &= ~(ZA_ALPHA_MASK|ZA_ALPHAREF_MASK);
@@ -276,45 +284,70 @@ static void i810RenderMode( GLcontext *ctx, GLenum mode )
 }
 
 
-static void i810SetDrawBuffer(GLcontext *ctx, GLenum mode )
+void i810DrawBuffer(GLcontext *ctx, GLenum mode )
 {
    i810ContextPtr imesa = I810_CONTEXT(ctx);
-
-   if (mode == GL_FRONT_LEFT)
-   {
-      I810_FIREVERTICES(imesa);
-      I810_STATECHANGE(imesa, I810_UPLOAD_BUFFERS);
-      imesa->BufferSetup[I810_DESTREG_DI1] = (imesa->i810Screen->fbOffset |
-					      imesa->i810Screen->backPitchBits);
-      imesa->drawMap = (char *)imesa->driScreen->pFB;
-      imesa->readMap = (char *)imesa->driScreen->pFB;
-      i810XMesaSetFrontClipRects( imesa );
-      FALLBACK( imesa, I810_FALLBACK_DRAW_BUFFER, GL_FALSE );
-   }
-   else if (mode == GL_BACK_LEFT)
-   {
-      I810_FIREVERTICES(imesa);
-      I810_STATECHANGE(imesa, I810_UPLOAD_BUFFERS);
-      imesa->BufferSetup[I810_DESTREG_DI1] = (imesa->i810Screen->backOffset |
-					      imesa->i810Screen->backPitchBits);
-      imesa->drawMap = imesa->i810Screen->back.map;
-      imesa->readMap = imesa->i810Screen->back.map;
-      i810XMesaSetBackClipRects( imesa );
-      FALLBACK( imesa, I810_FALLBACK_DRAW_BUFFER, GL_FALSE );
-   }
-   else {
+   int front = 0;
+  
+   /*
+    * _DrawDestMask is easier to cope with than <mode>.
+    */
+   switch ( ctx->Color._DrawDestMask ) {
+   case FRONT_LEFT_BIT:
+     front=1;
+     break;
+   case BACK_LEFT_BIT:
+     front = 0;
+     break;
+   default:
+      /* GL_NONE or GL_FRONT_AND_BACK or stereo left&right, etc */
       FALLBACK( imesa, I810_FALLBACK_DRAW_BUFFER, GL_TRUE );
+      return;
    }
+
+   if ( imesa->sarea->pf_current_page == 1 ) 
+     front ^= 1;
+ 
+   FALLBACK( imesa, I810_FALLBACK_DRAW_BUFFER, GL_FALSE );
+   I810_FIREVERTICES(imesa);
+   I810_STATECHANGE(imesa, I810_UPLOAD_BUFFERS);
+
+   if (front)
+   {
+     imesa->BufferSetup[I810_DESTREG_DI1] = (imesa->i810Screen->fbOffset |
+					     imesa->i810Screen->backPitchBits);
+     i810XMesaSetFrontClipRects( imesa );
+   }
+   else
+   {
+     imesa->BufferSetup[I810_DESTREG_DI1] = (imesa->i810Screen->backOffset |
+					     imesa->i810Screen->backPitchBits);
+     i810XMesaSetBackClipRects( imesa );
+   }
+
+   /* We want to update the s/w rast state too so that r200SetBuffer()
+    * gets called.
+    */
+   _swrast_DrawBuffer(ctx, mode);
 }
 
 
+static void i810ReadBuffer(GLcontext *ctx, GLenum mode )
+{
+   /* XXX anything? */
+}
 
-static void i810ClearColor(GLcontext *ctx, const GLchan color[4] )
+
+static void i810ClearColor(GLcontext *ctx, const GLfloat color[4] )
 {
    i810ContextPtr imesa = I810_CONTEXT(ctx);
+   GLubyte c[4];
+   CLAMPED_FLOAT_TO_UBYTE(c[0], color[0]);
+   CLAMPED_FLOAT_TO_UBYTE(c[1], color[1]);
+   CLAMPED_FLOAT_TO_UBYTE(c[2], color[2]);
+   CLAMPED_FLOAT_TO_UBYTE(c[3], color[3]);
    imesa->ClearColor = i810PackColor( imesa->i810Screen->fbFormat,
-				      color[0], color[1],
-				      color[2], color[3] );
+				      c[0], c[1], c[2], c[3] );
 }
 
 
@@ -897,12 +930,14 @@ void i810InitState( GLcontext *ctx )
    memset(imesa->BufferSetup, 0, sizeof(imesa->BufferSetup));
    imesa->BufferSetup[I810_DESTREG_DI0] = CMD_OP_DESTBUFFER_INFO;
 
-   if (imesa->glCtx->Color.DriverDrawBuffer == GL_BACK_LEFT) {
+   if (imesa->glCtx->Visual.doubleBufferMode && imesa->sarea->pf_current_page == 0) {
+      /* use back buffer by default */
       imesa->drawMap = i810Screen->back.map;
       imesa->readMap = i810Screen->back.map;
       imesa->BufferSetup[I810_DESTREG_DI1] = (i810Screen->backOffset |
 					      i810Screen->backPitchBits);
    } else {
+      /* use front buffer by default */
       imesa->drawMap = (char *)imesa->driScreen->pFB;
       imesa->readMap = (char *)imesa->driScreen->pFB;
       imesa->BufferSetup[I810_DESTREG_DI1] = (i810Screen->fbOffset |
@@ -954,7 +989,8 @@ void i810InitStateFuncs(GLcontext *ctx)
    ctx->Driver.PolygonStipple = i810PolygonStipple;
    ctx->Driver.RenderMode = i810RenderMode;
    ctx->Driver.Scissor = i810Scissor;
-   ctx->Driver.SetDrawBuffer = i810SetDrawBuffer;
+   ctx->Driver.DrawBuffer = i810DrawBuffer;
+   ctx->Driver.ReadBuffer = i810ReadBuffer;
    ctx->Driver.ShadeModel = i810ShadeModel;
    ctx->Driver.DepthRange = i810DepthRange;
    ctx->Driver.Viewport = i810Viewport;

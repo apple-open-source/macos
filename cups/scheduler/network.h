@@ -1,10 +1,10 @@
 /*
- * "$Id: network.h,v 1.1.1.5 2002/12/24 00:07:31 jlovell Exp $"
+ * "$Id: network.h,v 1.6 2005/01/04 22:10:46 jlovell Exp $"
  *
  *   Network interface definitions for the Common UNIX Printing System
  *   (CUPS) scheduler.
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -16,9 +16,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  */
@@ -31,9 +31,9 @@ typedef struct cups_netif_str		/**** Network interface data ****/
 {
   struct cups_netif_str	*next;		/* Next interface in list */
   char			name[32],	/* Network interface name */
-			hostname[HTTP_MAX_HOST];
-					/* Hostname associated with interface */
-  int			is_local;	/* Local (not point-to-point) interface? */
+			*hostname;	/* Hostname associated with interface */
+  int			is_local,	/* Local (not point-to-point) interface? */
+			port;		/* Listen port */
   struct sockaddr_in	address,	/* Network address */
 			mask,		/* Network mask */
 			broadcast;	/* Broadcast address */
@@ -55,9 +55,9 @@ VAR cups_netif_t	*NetIFList	VALUE(NULL);
 
 extern cups_netif_t	*NetIFFind(const char *name);
 extern void		NetIFFree(void);
-extern void		NetIFUpdate(void);
+extern void		NetIFUpdate(int force);
 
 
 /*
- * End of "$Id: network.h,v 1.1.1.5 2002/12/24 00:07:31 jlovell Exp $".
+ * End of "$Id: network.h,v 1.6 2005/01/04 22:10:46 jlovell Exp $".
  */

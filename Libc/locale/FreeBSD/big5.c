@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 2002-2004 Tim J. Robbins. All rights reserved.
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -37,83 +38,134 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)big5.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/big5.c,v 1.7 2002/03/22 21:52:18 obrien Exp $");
+#include <sys/param.h>
+__FBSDID("$FreeBSD: src/lib/libc/locale/big5.c,v 1.16 2004/05/17 11:16:14 tjr Exp $");
 
-#include <rune.h>
-#include <stddef.h>
-#include <stdio.h>
+#include <errno.h>
+#include <runetype.h>
 #include <stdlib.h>
-#include <sys/types.h>
+#include <string.h>
+#include <wchar.h>
+#include "mblocal.h"
 
-rune_t	_BIG5_sgetrune(const char *, size_t, char const **);
-int	_BIG5_sputrune(rune_t, char *, size_t, char **);
+int	_BIG5_init(_RuneLocale *);
+size_t	_BIG5_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
+	    mbstate_t * __restrict);
+int	_BIG5_mbsinit(const mbstate_t *);
+size_t	_BIG5_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
+
+typedef struct {
+	wchar_t	ch;
+} _BIG5State;
 
 int
-_BIG5_init(rl)
-	_RuneLocale *rl;
+_BIG5_init(_RuneLocale *rl)
 {
-	rl->sgetrune = _BIG5_sgetrune;
-	rl->sputrune = _BIG5_sputrune;
+
+	__mbrtowc = _BIG5_mbrtowc;
+	__wcrtomb = _BIG5_wcrtomb;
+	__mbsinit = _BIG5_mbsinit;
 	_CurrentRuneLocale = rl;
 	__mb_cur_max = 2;
 	return (0);
 }
 
-static inline int
-_big5_check(c)
-	u_int c;
+int
+_BIG5_mbsinit(const mbstate_t *ps)
 {
+
+	return (ps == NULL || ((const _BIG5State *)ps)->ch == 0);
+}
+
+static __inline int
+_big5_check(u_int c)
+{
+
 	c &= 0xff;
 	return ((c >= 0xa1 && c <= 0xfe) ? 2 : 1);
 }
 
-rune_t
-_BIG5_sgetrune(string, n, result)
-	const char *string;
-	size_t n;
-	char const **result;
+size_t
+_BIG5_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
+    mbstate_t * __restrict ps)
 {
-	rune_t rune = 0;
-	int len;
+	_BIG5State *bs;
+	wchar_t wc;
+	size_t len;
 
-	if (n < 1 || (len = _big5_check(*string)) > n) {
-		if (result)
-			*result = string;
-		return (_INVALID_RUNE);
+	bs = (_BIG5State *)ps;
+
+	if ((bs->ch & ~0xFF) != 0) {
+		/* Bad conversion state. */
+		errno = EINVAL;
+		return ((size_t)-1);
 	}
-	while (--len >= 0)
-		rune = (rune << 8) | ((u_int)(*string++) & 0xff);
-	if (result)
-		*result = string;
-	return rune;
+
+	if (s == NULL) {
+		s = "";
+		n = 1;
+		pwc = NULL;
+	}
+
+	if (n == 0)
+		/* Incomplete multibyte sequence */
+		return ((size_t)-2);
+
+	if (bs->ch != 0) {
+		if (*s == '\0') {
+			errno = EILSEQ;
+			return ((size_t)-1);
+		}
+		wc = (bs->ch << 8) | (*s & 0xFF);
+		if (pwc != NULL)
+			*pwc = wc;
+		bs->ch = 0;
+		return (1);
+	}
+
+	len = (size_t)_big5_check(*s);
+	wc = *s++ & 0xff;
+	if (len == 2) {
+		if (n < 2) {
+			/* Incomplete multibyte sequence */
+			bs->ch = wc;
+			return ((size_t)-2);
+		}
+		if (*s == '\0') {
+			errno = EILSEQ;
+			return ((size_t)-1);
+		}
+		wc = (wc << 8) | (*s++ & 0xff);
+		if (pwc != NULL)
+			*pwc = wc;
+                return (2);
+	} else {
+		if (pwc != NULL)
+			*pwc = wc;
+		return (wc == L'\0' ? 0 : 1);
+	}
 }
 
-int
-_BIG5_sputrune(c, string, n, result)
-	rune_t c;
-	char *string, **result;
-	size_t n;
+size_t
+_BIG5_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
 {
-	if (c & 0x8000) {
-		if (n >= 2) {
-			string[0] = (c >> 8) & 0xff;
-			string[1] = c & 0xff;
-			if (result)
-				*result = string + 2;
-			return (2);
-		}
+	_BIG5State *bs;
+
+	bs = (_BIG5State *)ps;
+
+	if (bs->ch != 0) {
+		errno = EINVAL;
+		return ((size_t)-1);
 	}
-	else {
-		if (n >= 1) {
-			*string = c & 0xff;
-			if (result)
-				*result = string + 1;
-			return (1);
-		}
+
+	if (s == NULL)
+		/* Reset to initial shift state (no-op) */
+		return (1);
+	if (wc & 0x8000) {
+		*s++ = (wc >> 8) & 0xff;
+		*s = wc & 0xff;
+		return (2);
 	}
-	if (result)
-		*result = string;
-	return (0);
-	
+	*s = wc & 0xff;
+	return (1);
 }

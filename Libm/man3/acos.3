@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)acos.3	5.1 (Berkeley) 5/2/91
-.\"	$Id: acos.3,v 1.3 2003/08/17 20:36:46 scp Exp $
+.\"	$Id: acos.3,v 1.4 2004/12/20 21:35:44 scp Exp $
 .\"
 .Dd November 14, 2002
 .Dt ACOS 3
@@ -42,8 +42,10 @@
 .Fd #include <math.h>
 .Ft double
 .Fn acos "double x"
-.\\.Ft float
-.\\.Fn acosf "float x"
+.Ft long double
+.Fn acosl "long double x"
+.Ft float
+.Fn acosf "float x"
 .Sh DESCRIPTION
 The
 .Fn acos
@@ -67,8 +69,7 @@ returns a NAN and raises the "invalid" floating-point exception for |x| > 1.
 .Xr sinh 3 ,
 .Xr cosh 3 ,
 .Xr tanh 3 ,
-.Xr math 3 ,
-.Xr matherr 3
+.Xr math 3 
 .Sh STANDARDS
 The
 .Fn acos

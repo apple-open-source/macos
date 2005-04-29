@@ -100,20 +100,14 @@ enum {
 	kAuthPull					= 156,
 	kAuthPush					= 157,
 	kAuthProcessNoReply			= 158,
-	
-	kAuthGetDisabledUsers		= 165,
-	kAuthMSCHAP2				= 166,
-	kAuthSMB_NTUserSessionKey	= 167,
-	kAuthSMBWorkstationCredentialSessionKey	= 168,
-	kAuthNTSetWorkstationPasswd	= 169,
-	kAuthGetEffectivePolicy		= 170,
-	kAuthSetEffectivePolicy		= 171,			// not implemented
-	kAuthSetPolicyAsRoot		= 172,
-	kAuthGetKerberosPrincipal	= 173,
-	kAuthVPN_PPTPMasterKeys		= 174,
-	kAuthMSLMCHAP2ChangePasswd	= 175,
-	kAuthEncryptToUser			= 176,
-	kAuthDecrypt				= 177
+	kAuthNTLMv2SessionKey		= 165
+};
+
+typedef enum NewUserParamListType {
+	kNewUserParamsNone,
+	kNewUserParamsPolicy,
+	kNewUserParamsPrincipalName,
+	kNewUserParamsPrincipalNameAndPolicy
 };
 
 class CPSPlugIn : public CDSServerModule
@@ -143,12 +137,13 @@ protected:
 														const char *inUserKeyHash,
 														const char *inUserKeyStr = NULL,
 														bool inSecondTime = false );
-	sInt32				BeginServerSession			(	sPSContextData *inContext, int inSock );
+	sInt32				BeginServerSession			(	sPSContextData *inContext, int inSock, const char *inUserKeyHash );
 	static sInt32		EndServerSession			(	sPSContextData *inContext, bool inSendQuit = false );
     sInt32				GetRSAPublicKey				(	sPSContextData *inContext, char *inData = NULL );
     bool				RSAPublicKeysEqual			(	const char *rsaKeyStr1, const char *rsaKeyStr2 );
 	sInt32				DoRSAValidation				(	sPSContextData *inContext, const char *inUserKey );
 	sInt32				SetupSecureSyncSession		(	sPSContextData *inContext );
+	static bool			SecureSyncSessionIsSetup	(	sPSContextData *inContext );
 	sInt32				GetAttributeEntry			(	sGetAttributeEntry *inData );
 	sInt32				GetAttributeValue			(	sGetAttributeValue *inData );
 	uInt32				CalcCRC						(	char *inStr );
@@ -172,6 +167,13 @@ protected:
 														long inPasswordLen );
 	
 	sInt32				DoAuthentication			(	sDoDirNodeAuth *inData );
+
+	// ------------------------------------------------------------------------------------------------
+
+	sInt32				DoAuthMethodNewUser			(   sDoDirNodeAuth *inData,
+														sPSContextData *inContext,
+														bool inWithPolicy,
+														tDataBufferPtr outBuf );
 	sInt32				DoAuthMethodListReplicas	(   sDoDirNodeAuth *inData,
 														sPSContextData *inContext,
 														tDataBufferPtr outBuf );
@@ -191,6 +193,14 @@ protected:
 	sInt32				DoAuthMethodDecrypt			(	sDoDirNodeAuth *inData,
 														sPSContextData *inContext,
 														tDataBufferPtr outBuf );
+	sInt32				DoAuthMethodSetHash			(	sDoDirNodeAuth *inData, sPSContextData *inContext, const char *inCommandStr );
+	sInt32				DoAuthMethodNTLMv2SessionKey(   sDoDirNodeAuth *inData, sPSContextData *inContext, tDataBufferPtr outBuf );
+	
+	// ------------------------------------------------------------------------------------------------
+	
+	sInt32				GetReplicaListFromServer	(   sPSContextData *inContext,
+														char **outData,
+														unsigned long *outDataLen );
 	sInt32				UseCurrentAuthenticationIfPossible
 													(	sPSContextData *inContext,
 														const char *inUserName,
@@ -257,7 +267,6 @@ protected:
 														const char *inArg2Str,
 														char *inOutBuf,
 														unsigned long inBufLen );
-	Boolean				TestConnectedWithMutex		(   sPSContextData *inContext );
 	
 	sInt32				GetServerListFromDSDiscovery(	CFMutableArrayRef inOutServerList );
 	sInt32				PWSErrToDirServiceError		(	PWServerError inError );
@@ -270,6 +279,7 @@ private:
 	uInt32				fState;
 	uInt32				fSignature;
 	sInt32				fOpenNodeCount;
+	bool				fCalledSASLInit;
 };
 
 #endif	// __CPSPlugIn_h__

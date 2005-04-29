@@ -1,3 +1,25 @@
+2004-09-09  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.in (target==*darwin*): Don't configure/build tcl/expect;
+	we hae perfectly good versions in /usr/bin already.
+	Don't configure utils, sim, etc.  We don't use them so it's just wasted
+	time.
+
+2004-03-25  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile.in: Use "GAS_FOR_TARGET" instead of "AS_FOR_TARGET" - 
+	autoconf 2.57 seems to not like "AS_FOR_TARGET" as a special name.
+	* Makefile.tpl: Ditto.
+	* configure.in:  Use "host", "build", "target" instead of
+	"host_alias", "build_alias", "target_alias".  I believe this is an
+	autoconf 2.13 vs autoconf 2.57 difference, although I haven't
+	investigated in depth.
+	Configure bfd, binutils, opcodes, gdb directories on darwin systems.
+	Default to --disable-shared --enable-64-bit-bfd --disable-softfloat.
+	Use "GAS_FOR_TARGET" instead of "AS_FOR_TARGET" - autoconf 2.57 seems 
+	to not like "AS_FOR_TARGET" as a special name.
+	* gettext.m4: Link directly to libintl.a, not libintl.la.
+
 2003-02-27  Klee Dienes  <kdienes@apple.com>
 
 	* defs.h (gdb_osabi): Add support for 64-bit registers on Darwin.

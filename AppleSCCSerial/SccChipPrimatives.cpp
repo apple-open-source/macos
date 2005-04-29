@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -765,7 +762,10 @@ UInt8	SccReadReg(SccChannel *Channel, UInt8 sccRegister) {
     UInt8	ReturnValue;
 
 //    IOLockLock(Channel->SCCReadLock);
-    IOLockLock(Channel->SCCAccessLock);
+//rcs    IOLockLock(Channel->SCCAccessLock);
+    if (!IOLockTryLock(Channel->SCCAccessLock))
+		return -1;
+		
     // Make sure we have a valid register number to write to.
     if (sccRegister != R0 ) {
 
@@ -825,6 +825,9 @@ bool SccWriteReg(SccChannel *Channel, UInt8 sccRegister, UInt8 Value)
 
 void SccHandleExtErrors(SccChannel *Channel)
 {
+	if (Channel == NULL)
+		return; //rcs 3938921 The Channel should never be null, but lets just make sure.
+
     UInt8 errorCode = SccReadReg(Channel, 1);
     DLOG("RecErrorStatus Int %x\n\r", errorCode);
 
@@ -855,6 +858,8 @@ void SccHandleExtErrors(SccChannel *Channel)
  *-------------------------------------------------------------------*/
 void PPCSerialTxDMAISR(void *identity, void *istate, SccChannel	*Channel)
 {
+    AppleSCCSerial *scc = (AppleSCCSerial *) identity;
+	
     Channel->Stats.ints++;
 
     // Request an other send, but outside the interrupt handler
@@ -862,21 +867,51 @@ void PPCSerialTxDMAISR(void *identity, void *istate, SccChannel	*Channel)
     AbsoluteTime deadline;
 
     clock_interval_to_deadline(1, 1, &deadline);
-    thread_call_func_delayed((thread_call_func_t) SccdbdmaStartTransmission, Channel, deadline);
+
+	if (scc->fdmaStartTransmissionThread != NULL)
+	{
+		OSIncrementAtomic(&scc->fTransmissionCount);
+		thread_call_enter_delayed(scc->fdmaStartTransmissionThread,deadline);
+	}
 }
 
 
 void PPCSerialRxDMAISR(void *identity, void *istate, SccChannel	*Channel)
 {
+    AppleSCCSerial *scc = (AppleSCCSerial *) identity;
+	
     Channel->Stats.ints++;
 
     // This is the first received byte, so start the checkData ballet:
     AbsoluteTime deadline;
 
     clock_interval_to_deadline(1, 1, &deadline);
-    thread_call_func_delayed((thread_call_func_t) SccdbdmaRxHandleCurrentPosition, Channel, deadline);
+	if (scc->dmaRxHandleCurrentPositionThread != NULL)
+	{
+		OSIncrementAtomic(&scc->fCurrentPositionCount);	
+		thread_call_enter_delayed(scc->dmaRxHandleCurrentPositionThread,deadline);
+	}
 }
 
+void SccCurrentPositionDelayedHandler( thread_call_param_t arg, thread_call_param_t )
+{
+    AppleSCCSerial *serialPortPtr = (AppleSCCSerial *)arg;
+	
+	SccdbdmaRxHandleCurrentPosition(&serialPortPtr->Port);
+	OSDecrementAtomic(&serialPortPtr->fCurrentPositionCount);	
+}
+
+// **********************************************************************************
+//
+// Called asynchronously
+//
+// **********************************************************************************
+void SccStartTransmissionDelayedHandler ( thread_call_param_t arg, thread_call_param_t )
+{
+    AppleSCCSerial *serialPortPtr = (AppleSCCSerial *) arg;
+    SccdbdmaStartTransmission(&serialPortPtr->Port);
+	OSDecrementAtomic(&serialPortPtr->fTransmissionCount);	
+}
 
 /*---------------------------------------------------------------------
  *		PPCSerialISR
@@ -1042,7 +1077,8 @@ bool SccHandleExtInterrupt(OSObject *identity, void *istate, SccChannel *Channel
 				//we need to re-kick off things
 				AbsoluteTime deadline;
 				clock_interval_to_deadline(1, 1, &deadline);
-				thread_call_func_delayed((thread_call_func_t) SccdbdmaStartTransmission, Channel, deadline);
+//rcs				thread_call_func_delayed((thread_call_func_t) SccdbdmaStartTransmission, Channel, deadline);
+				thread_call_enter_delayed(scc->fdmaStartTransmissionThread, deadline);
 				
 			}
 		}
@@ -1477,11 +1513,20 @@ UInt32 CommandStatus(SccChannel *Channel, UInt32 commandNumber)
 
 void SccdbdmaRxHandleCurrentPosition(SccChannel *Channel)
 {
+	void *owner;
+	AppleSCCSerial *scc;
+
+	
     if (OSCompareAndSwap(1,1,&gTimerCanceled))
         return;
 
 	if (Channel == NULL)
 		return;
+
+	owner = Channel->fAppleSCCSerialInstance;
+	scc = (AppleSCCSerial *) owner;
+
+
 	IOLockLock (Channel->IODBDMARxLock);
     SerialDBDMAStatusInfo *dmaInfo = &Channel->RxDBDMAChannel;
 	UInt32 kDataIsValid = (kdbdmaStatusRun | kdbdmaStatusActive);
@@ -1567,7 +1612,8 @@ void SccdbdmaRxHandleCurrentPosition(SccChannel *Channel)
 		AbsoluteTime deadline;
 
 		clock_interval_to_deadline(nsec, 1, &deadline);
-		thread_call_func_delayed((thread_call_func_t) SccdbdmaRxHandleCurrentPosition, Channel, deadline);
+//rcs		thread_call_func_delayed((thread_call_func_t) SccdbdmaRxHandleCurrentPosition, Channel, deadline);
+		thread_call_enter_delayed(scc->dmaRxHandleCurrentPositionThread, deadline);
 #endif
     }
 	else

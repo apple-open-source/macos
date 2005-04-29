@@ -26,6 +26,7 @@
 #import "HostVnode.h"
 #import "AMString.h"
 #import "automount.h"
+#import "vfs_sysctl.h"
 #import <stdio.h>
 #import <string.h>
 #import <unistd.h>
@@ -91,38 +92,17 @@
 
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt
 {
-	String *x;
 	char hn[1026], *dot;
-	HostVnode *v;
+	String *x;
 
-	[super init];
-
-	if (mnt)
-	{
-		mountPoint = mnt;
-	} else {
-		mountPoint = [controller mountDirectory];
-	};
-	if (mountPoint != nil) [mountPoint retain];
-
-	[self setName:ds];
-
-	root = [[HostVnode alloc] init];
-	[root setMap:self];
-	[root setName:dir];
-	[root setMounted:NO];
-	[root setServer:nil];
-
-	if (p != nil) [p addChild:root];
-	[controller registerVnode:root];
+	[super initWithParent:p directory:dir from:ds mountdirectory:mnt withRootVnodeClass:[HostVnode class]];
 
 	gethostname(hn, 1024);
 	dot = strchr(hn, '.');
 	if (dot != NULL) *dot = '\0';
 
-	v = (HostVnode *)root;
 	x = [String uniqueString:hn];
-	[v vnodeForHost:x];
+	[((HostVnode *)[self root]) vnodeForHost:x];
 	[x release];
 
 	return self;

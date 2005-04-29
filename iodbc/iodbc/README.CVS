@@ -1,0 +1,95 @@
+iODBC Driver Manager
+Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+Copyright (C) 1996-2004 by OpenLink Software <iodbc@openlinksw.com>
+All Rights Reserved.
+
+
+Introduction
+============
+This document describes how to checkout a copy of the CVS tree for
+development purposes. It also lists the packages that need to be
+installed prior to generating the necessary scripts and Makefiles to
+build the project.
+
+CVS access is only needed for developers who want to actively track
+progress of the iODBC source code and contribute bugfixes or enhancements
+to the project. It requires basic knowledge about the general layout
+of open source and GNU projects, the use of autoconf and automake etc,
+which is beyond the scope of this document. If you have any questions,
+please email us at <iodbc@openlinksw.com>.
+
+
+CVS Archive Server Access
+=========================
+OpenLink currently provides read-only CVS Archive access throught the
+SourceForge.net servers:
+
+$ cvs -d:pserver:anonymous@cvs.sourceforge.net:/cvsroot/iodbc login
+
+(The password is blank)
+
+$ cvs -z3 -d:pserver:anonymous@cvs.sourceforge.net:/cvsroot/iodbc co iodbc
+
+
+Package Dependencies
+====================
+To generate the configure script and all other build files necessary,
+please make sure the following packages and recommended versions are
+installed on your system.
+
+        Package	  Version  From
+	========  =======  ==================================
+	autoconf  2.57	   ftp://ftp.gnu.org/pub/gnu/autoconf
+	automake  1.6.3	   ftp://ftp.gnu.org/pub/gnu/automake
+	libtool   1.4.3	   ftp://ftp.gnu.org/pub/gnu/libtool
+	gtk+	  1.2.10   ftp://ftp.gtk.org/pub/gtk/v1.2
+
+The above version are used for generating the source distributions with
+are currently generated on a standard RedHat 9 installation. Older version
+of these packages can sometimes be used, but could cause build problems.
+
+To check the version number of the tools installed on your system,
+use one of the following commands:
+
+    $ autoconf --version
+    $ automake --version
+    $ libtoolize --version
+    $ gtk-config --version
+
+
+Generate build files
+====================
+To generate the configure script and all related build files, use one
+of the following commands:
+
+    $ autoreconf --install
+
+or use the supplied script in your CVS checkout directory:
+
+    $ ./bootstrap.sh
+
+If the above commands succeed without any error messages, please use the
+following command to check out all the options you can use:
+
+    $ ./configure --help
+
+Certain build targets are only enabled when the --enable-maintainer-mode
+flag is added to configure.
+
+Please read the files INSTALL and README in this directory for further
+information on how to configure the package and install it on your system.
+
+
+Submitting fixes and enhancements
+=================================
+Patches and new contributions can be submitted as diffs from the current
+CVS archive by:
+
+    $ cvs add newfiles
+
+    $ cvs -z3 diff -uN > diffs
+
+Patches and contributions can be send to the OpenLink iODBC source
+archive manager at <iodbc@openlinksw.com> to be included the next
+distribution. Please provide accompanying documentation on which bugs
+are fixed or new features are introduced.

@@ -1,5 +1,6 @@
 AC_INIT(krlogind.c)
 CONFIG_RULES
+KRB5_AC_INET6
 LOGINLIBS=
 AC_ARG_WITH([afs],
 [  --without-afs        don't have afs libraries to build against (default)
@@ -11,7 +12,6 @@ if test $with_afs != no; then
 fi
 AC_PROG_INSTALL
 dnl dbm libs for use of an_to_ln
-AC_CHECK_LIB(util,main)
 save_LIBS="$LIBS"
  LIBS=
  AC_CHECK_LIB(crypt,crypt)
@@ -80,9 +80,7 @@ AC_CHECK_HEADERS(unistd.h stdlib.h string.h sys/filio.h sys/sockio.h sys/label.h
 AC_HEADER_STDARG
 AC_REPLACE_FUNCS(getdtablesize)
 dnl
-KRB5_NEED_PROTO([#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif],daemon,1)
+KRB5_AC_NEED_DAEMON
 dnl
 KRB5_SIGTYPE
 CHECK_SIGNALS
@@ -192,6 +190,6 @@ else
 fi
 
 AC_CHECK_HEADERS(krb4-proto.h)
-
+KRB5_AC_LIBUTIL
 KRB5_BUILD_PROGRAM
 V5_AC_OUTPUT_MAKEFILE

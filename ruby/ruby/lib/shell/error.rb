@@ -1,8 +1,8 @@
 #
 #   shell/error.rb - 
 #   	$Release Version: 0.6.0 $
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:49 $
+#   	$Revision: 1.2 $
+#   	$Date: 2003/02/07 19:00:21 $
 #   	by Keiju ISHITSUKA(Nihon Rational Software Co.,Ltd)
 #
 # --
@@ -18,8 +18,8 @@ class Shell
     def_e2message TypeError, "wrong argument type %s (expected %s)"
 
     def_exception :DirStackEmpty, "Directory stack empty."
-    def_exception :CanNotDefine, "Can't define method(%s, %s)."
-    def_exception :CanNotMethodApply, "This method(%s) can't apply this type(%s)."
+    def_exception :CantDefine, "Can't define method(%s, %s)."
+    def_exception :CantApplyMethod, "This method(%s) does not apply to this type(%s)."
     def_exception :CommandNotFound, "Command not found(%s)."
   end
 end

@@ -5,25 +5,52 @@
 # success.
 proc gcj_jni_compile_c_to_so {file {options {}}} {
   global srcdir
+  global host_triplet
+  verbose "options: $options"
+  set options_cxx $options
+  set options ""
 
-  set name [file rootname [file tail $file]]
-  set soname lib${name}.so
+# apple uses a different extension for shared/dynamic libraries
+# so we check against powerpc-apple-darwin and set them to
+# dylib, else we assume it's .so
 
-  lappend options "additional_flags=-shared -fPIC"
+  if { [ regexp {powerpc-apple-darwin} $host_triplet] } {
+      set so_extension "dylib"
+      set so_flag "-dynamiclib"
+  } else {
+      set so_extension "so"
+      set so_flag "-shared"
+  }
+  set filename [file tail $file]
+  set name [file rootname $filename]
+  set soname lib${name}.${so_extension}
+
+  lappend options "additional_flags=${so_flag} -fPIC"
   # Find the generated header.
   lappend options "additional_flags=-I. -I.."
+
+  # Ensure that the generated header has correct prototypes.
+  set cfile [file rootname $file].c
+  if { [file exists $cfile]} {
+    # This option is only valid for C sources.
+    lappend options "additional_flags=-Wmissing-prototypes"
+  }
+
   # Find jni.h.
   lappend options "additional_flags=-I$srcdir/../include"
+
+  # Append C++ options
+  lappend options "additional_flags=$options_cxx"
 
   set x [libjava_prune_warnings \
 	   [target_compile $file $soname executable $options]]
   if {$x != ""} {
     verbose "target_compile failed: $x" 2
-    fail "$name.c compilation"
+    fail "$filename compilation"
     return 0
   }
 
-  pass "$name.c compilation"
+  pass "$filename compilation"
   return 1
 }
 
@@ -43,53 +70,21 @@ proc gcj_jni_build_header {file} {
   return 1
 }
 
-# Invoke the program and see what happens.  Return 0 on failure.
-proc gcj_invoke {program expectFile ld_library_additions} {
-  global env
-  set lib_path $env(LD_LIBRARY_PATH)
-
-  set newval .
-  if {[llength $ld_library_additions] > 0} {
-    append newval :[join $ld_library_additions :]
-  }
-  append newval :$lib_path
-
-  setenv LD_LIBRARY_PATH $newval
-  setenv SHLIB_PATH $newval
-
-  verbose "LD_LIBRARY_PATH=$env(LD_LIBRARY_PATH)"
-
-  set result [libjava_load ./$program]
-  set status [lindex $result 0]
-  set output [lindex $result 1]
-
-  # Restore setting
-  setenv LD_LIBRARY_PATH $lib_path
-  setenv SHLIB_PATH $lib_path
-
-  if {$status != "pass"} {
-    verbose "got $output"
-    fail "$program run"
-    untested "$program output"
-    return 0
-  }
-
-  set id [open $expectFile r]
-  set expected [read $id]
-  close $id
-
-  if {! [string compare $output $expected]} {
-    pass "$program output"
-    return 1
-  } else {
-    fail "$program output"
-    return 0
-  }
-}
-
 # Do all the work for a single JNI test.  Return 0 on failure.
 proc gcj_jni_test_one {file} {
   global runtests
+  global host_triplet
+  global INTERPRETER
+
+# apple uses a different extension for shared/dynamic libraries
+# so we check against powerpc-apple-darwin and set them to 
+# dylib, else we assume it's .so
+
+  if { [ regexp {powerpc-apple-darwin} $host_triplet] } {
+      set so_extension "dylib"
+  } else {
+      set so_extension "so"
+  }
 
   # The base name.  We use it for several purposes.
   set main [file rootname [file tail $file]]
@@ -131,32 +126,56 @@ proc gcj_jni_test_one {file} {
 	}
       }
       lappend cxxflaglist $arg
+      # In case the libstdc++ is not installed yet, we pass the build
+      # directory of it to the cxxflaglist.
+      lappend cxxflaglist "-L$cxxldlibflags"
     }
 
-    lappend cxxflaglist "-lstdc++"
+    # Darwin does not yet have a libgcc_s.dylib library.
+    # So we add it here. If the libgcc_s is installed, the libstdc++
+    # would pick it up.
+    if { [ regexp {powerpc-apple-darwin} $host_triplet] } {
+	lappend cxxflaglist "-lgcc_s -lstdc++"
+    } else {
+	lappend cxxflaglist "-lstdc++"
+    }
+  
     set cxxflags [join $cxxflaglist]
   }
 
-  if {! [gcj_jni_compile_c_to_so $cfile]} {
+  if {! [gcj_jni_compile_c_to_so $cfile $cxxflags]} {
     # FIXME
     return 0
   }
 
-  # We use -l$main because the .so is named the same as the main
-  # program.
-  set args [list "additional_flags=-fjni -L. -l$main $cxxflags"]
+  set args [list "additional_flags=-fjni"]
   if {! [gcj_link $main $main $file $args]} {
     # FIXME
     return 0
   }
 
-  if {! [gcj_invoke $main [file rootname $file].out $cxxldlibflags]} {
+  set resultfile [file rootname $file].out
+
+  if {! [gcj_invoke $main $resultfile $cxxldlibflags]} {
     # FIXME
     return 0
   }
 
+  # We purposely ignore errors here; we still want to run the other
+  # appropriate tests.
+  set errname [file rootname [file tail $file]]
+  set gij [libjava_find_gij]
+  # libjava_find_gij will return `gij' if it couldn't find the
+  # program; in this case we want to skip the test.
+  # If the libraries are not installed yet, we have to pass them via
+  # cxxldlibflags to libjava_invoke.
+    if {$INTERPRETER == "yes" && $gij != "gij"} {
+	libjava_invoke $errname "gij test" opts $gij \
+	    "" $resultfile $cxxldlibflags $main
+  }
+
   # When we succeed we remove all our clutter.
-  eval gcj_cleanup [glob -nocomplain -- ${main}.*] [list $main lib${main}.so]
+  eval gcj_cleanup [glob -nocomplain -- ${main}.*] [list $main lib${main}.${so_extension}]
 
   return 1
 }

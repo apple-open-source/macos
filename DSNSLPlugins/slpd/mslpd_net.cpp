@@ -114,7 +114,9 @@ int handle_udp( SAState *psa, char* pcInBuf, int inBufSz, struct sockaddr_in sin
 	{
 		if ( iNumResults == 0 && ( GETFLAGS(pcInBuf) & MCASTFLAG ) ) 
 		{
+#ifdef ENABLE_SLP_LOGGING
 			SLP_LOG( SLP_LOG_DROP, "handle_udp:  0 result to multicast request - drop it");
+#endif
 		} 
 		else 
 		{
@@ -129,7 +131,9 @@ int handle_udp( SAState *psa, char* pcInBuf, int inBufSz, struct sockaddr_in sin
 				iOutSz = strtol(SENDMTU,&endPtr,10);
 			}
 				
+#ifdef ENABLE_SLP_LOGGING
 			SLP_LOG( SLP_LOG_MSG, "handle_udp: send %d byte result to: %s", iOutSz, inet_ntoa(sinIn.sin_addr));
+#endif
 #endif
 			if ( ( err = sendto( sdSend, pcOutBuf, iOutSz, 0, (struct sockaddr*)&sinIn, iSinInSz ) ) < 0 )
 			{
@@ -139,10 +143,12 @@ int handle_udp( SAState *psa, char* pcInBuf, int inBufSz, struct sockaddr_in sin
 //                    SDUnlock(psa->pvMutex);	// unlock since LOG_STD_ERROR_AND_RETURN will return
 				
 				{
+#ifdef ENABLE_SLP_LOGGING
 					char	logMsg[255];
 					
 					sprintf( logMsg, "mslpd handle_udp sendto: %s", inet_ntoa(sinIn.sin_addr) );
 					SLP_LOG( SLP_LOG_DROP, logMsg, errno );
+#endif
 					CLOSESOCKET(sdSend);
 					return errno;
 				}
@@ -154,6 +160,7 @@ int handle_udp( SAState *psa, char* pcInBuf, int inBufSz, struct sockaddr_in sin
 		if ( pcOutBuf ) 
 			SLPFree( pcOutBuf );
 	} 
+#ifdef ENABLE_SLP_LOGGING
 	else 
 	{
 		char	logMsg[255];
@@ -161,6 +168,7 @@ int handle_udp( SAState *psa, char* pcInBuf, int inBufSz, struct sockaddr_in sin
 		sprintf( logMsg, "handle_udp: drop an unhandled request from %s!", inet_ntoa(sinIn.sin_addr) );
 		SLP_LOG( SLP_LOG_DROP, logMsg );
 	}
+#endif
 	
 	return 0; /* no error */
 }
@@ -216,7 +224,9 @@ int handle_tcp( SAState *psa, SOCKET sdRqst, struct sockaddr_in sinIn )
                 }
                 else if ( errno == EINTR )
                 {
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_DROP, "SendDataToSLPd readn received EINTR, try again");
+#endif
                     return 0;
                 }
                 else
@@ -293,7 +303,7 @@ SLPInternalError srvreg_out(	const char *pcLang, const char *pcURL,
     
     if ((err=add_header(pcLang,*ppcOutBuf,*piOutSz,SRVREG,*piOutSz,&offset))<0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add hdr failed"); 
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add hdr failed"); 
     }
     SETFLAGS(*ppcOutBuf,FRESHFLAG);
     
@@ -301,30 +311,30 @@ SLPInternalError srvreg_out(	const char *pcLang, const char *pcURL,
     if ((err=add_sht(*ppcOutBuf,*piOutSz,
             (unsigned short)(iLifetime & 0x0000ffff),&offset)) < 0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add lifetime failed");  
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add lifetime failed");  
         return err;
     }
     if ((err = add_string(*ppcOutBuf, *piOutSz, pcURL, &offset)) < 0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add url failed");
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add url failed");
         return err;
     }
     offset++; /* leave # authenticators 0 */
     
     if ((err = add_string(*ppcOutBuf, *piOutSz, pcSrvType, &offset)) < 0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add srvtype failed");
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add srvtype failed");
         return err;
     }
     
     if ((err = add_string(*ppcOutBuf, *piOutSz, pcScope, &offset)) < 0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add scope failed");
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add scope failed");
         return err;
     }
     if ((err = add_string(*ppcOutBuf,*piOutSz,pcAttrList,&offset)) < 0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add attrlist failed");
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add attrlist failed");
         return err;
     }
     /* #attr auth blocks, the last byte, is already 0'ed */
@@ -353,13 +363,13 @@ SLPInternalError srvdereg_out(const char *pcLang, const char *pcURL,
     
     if ((err=add_header(pcLang,*ppcOutBuf,*piOutSz,SRVDEREG,*piOutSz,&offset))<0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add hdr failed"); 
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add hdr failed"); 
     }
     SETFLAGS(*ppcOutBuf,FRESHFLAG);
     
     if ((err = add_string(*ppcOutBuf, *piOutSz, pcScope, &offset)) < 0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add scope failed");
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add scope failed");
         return err;
     }
     
@@ -367,19 +377,19 @@ SLPInternalError srvdereg_out(const char *pcLang, const char *pcURL,
     if ((err=add_sht(*ppcOutBuf,*piOutSz,
             (unsigned short)(iLifetime & 0x0000ffff),&offset)) < 0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add lifetime failed");  
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add lifetime failed");  
         return err;
     }
     if ((err = add_string(*ppcOutBuf, *piOutSz, pcURL, &offset)) < 0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add url failed");
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add url failed");
         return err;
     }
 //    offset++; /* leave # authenticators 0 */
     
     if ((err = add_string(*ppcOutBuf,*piOutSz,pcAttrList,&offset)) < 0) {
         SLPFree(*ppcOutBuf);
-        LOG(SLP_LOG_ERR,"SrvRegDereg_out: add attrlist failed");
+        SLPLOG(SLP_LOG_ERR,"SrvRegDereg_out: add attrlist failed");
         return err;
     }
     
@@ -424,10 +434,12 @@ SLPInternalError propogate_registrations(SAState *pstate, struct sockaddr_in sin
         {
             err = propogate_registration_with_DA( pstate, sinDA, st.lang[i], st.url[i], st.srvtype[i], st.scope[i], st.attrlist[i], st.life[i] );
         } /* if there is a list intersection for the given service item */
+#ifdef ENABLE_SLP_LOGGING
         else
         {
             SLP_LOG( SLP_LOG_DEBUG, "Skipping DA[%s] since it has scopeList:%s and we are looking for %s", inet_ntoa(sinDA.sin_addr), pcScopes, st.scope[i]);
         }
+#endif
     } /* for each service item */
     
     SDUnlock(pstate->pvMutex);
@@ -476,7 +488,9 @@ SLPInternalError propogate_registration_with_DA(SAState *pstate, struct sockaddr
     
         if ((iErr = connect(sd,(struct sockaddr*)&sinDA, sizeof(struct sockaddr_in))) < 0) 
         {
+#ifdef ENABLE_SLP_LOGGING
             mslplog(SLP_LOG_DA,"propogate_registration_with_DA connect",strerror(errno));
+#endif
             pcOutBuf = NULL;
             iOutSz = 0;
             CLOSESOCKET(sd);
@@ -517,20 +531,23 @@ SLPInternalError propogate_registration_with_DA(SAState *pstate, struct sockaddr
             CLOSESOCKET(sd);
             return SLP_NETWORK_ERROR;
         } 
+#ifdef ENABLE_SLP_LOGGING
         else
         {
             SLP_LOG( SLP_LOG_DA, "Registration propigated to DA: %s", inet_ntoa(sinDA.sin_addr) );
         }
-
+#endif
         CLOSESOCKET(sd);
         connected = 0;		// our DA doesn't support persistent connections yet.  open a new one for each item
         
         err = srvack_in(pcOutBuf,pcInBuf,iInSz);
         
+#ifdef ENABLE_SLP_LOGGING
         if (err < 0) 
         {
             SLP_LOG( SLP_LOG_DA,"propogate_registration_with_DA srvack had err");
         }
+#endif
     }
     
     SLPFree(pcInBuf);
@@ -561,7 +578,9 @@ SLPInternalError propogate_deregistration_with_DA(SAState *pstate, struct sockad
 
     if ((err = srvdereg_out(lang, url, srvtype, scope, attrlist, life, &pcOutBuf, &iOutSz)) != SLP_OK) 
     {
+#ifdef ENABLE_SLP_LOGGING
         mslplog(SLP_LOG_DA,"propogate_deregistration_with_DA: srvdereg_out parsing out failed", slperror(err));
+#endif
     }
 
     if ( IsDAUs( pstate, sinDA ) )
@@ -577,13 +596,17 @@ SLPInternalError propogate_deregistration_with_DA(SAState *pstate, struct sockad
         if (sd == SOCKET_ERROR) 
         {
             SLPFree(pcOutBuf);
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DA, "propogate_deregistration_with_DA: socket creation %s", strerror(errno));
+#endif
             return SLP_NETWORK_ERROR;
         }
     
         if ((iErr = connect(sd,(struct sockaddr*)&sinDA, sizeof(struct sockaddr_in))) < 0) 
         {
+#ifdef ENABLE_SLP_LOGGING
             mslplog(SLP_LOG_DA,"propogate_deregistration_with_DA connect",strerror(errno));
+#endif
             SLPFree(pcOutBuf);
             CLOSESOCKET(sd);
             return SLP_NETWORK_ERROR;
@@ -594,14 +617,18 @@ SLPInternalError propogate_deregistration_with_DA(SAState *pstate, struct sockad
         {
         /*         int i = WSAGetLastError(); */
             SLPFree(pcOutBuf);
+#ifdef ENABLE_SLP_LOGGING
             mslplog(SLP_LOG_DA,"propogate_deregistration_with_DA writen",strerror(errno));
+#endif
             CLOSESOCKET(sd);
             return SLP_NETWORK_ERROR;
         }
         
         if ((iErr = readn(sd,pcHead,SAFESZ)) < SAFESZ )
         {
+#ifdef ENABLE_SLP_LOGGING
             mslplog(SLP_LOG_DA,"propogate_deregistration_with_DA readn head",strerror(errno));
+#endif
             SLPFree(pcOutBuf);
             CLOSESOCKET(sd);
             return SLP_NETWORK_ERROR;
@@ -611,7 +638,9 @@ SLPInternalError propogate_deregistration_with_DA(SAState *pstate, struct sockad
 
         if ( iInSz < SAFESZ )
         {
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DA, "Deregistration propigation attempt to DA: %s returned an invalid reply.", inet_ntoa(sinDA.sin_addr) );
+#endif
         }
         else
         {
@@ -622,14 +651,18 @@ SLPInternalError propogate_deregistration_with_DA(SAState *pstate, struct sockad
             {
                 SLPFree(pcInBuf);
                 SLPFree(pcOutBuf);
+#ifdef ENABLE_SLP_LOGGING
                 mslplog(SLP_LOG_DA,"propogate_deregistration_with_DA readn msg",strerror(errno));
+#endif
                 CLOSESOCKET(sd);
                 return SLP_NETWORK_ERROR;
             } 
+#ifdef ENABLE_SLP_LOGGING
             else
             {
                 SLP_LOG( SLP_LOG_DA, "Deregistration propigated to DA: %s", inet_ntoa(sinDA.sin_addr) );
             }
+#endif
         }
         
         CLOSESOCKET(sd);
@@ -637,10 +670,12 @@ SLPInternalError propogate_deregistration_with_DA(SAState *pstate, struct sockad
         
         err = srvack_in(pcOutBuf,pcInBuf,iInSz);
         
+#ifdef ENABLE_SLP_LOGGING
         if (err < 0) 
         {
-            LOG(SLP_LOG_DA,"propogate_deregistration_with_DA srvack had err");
+            SLPLOG(SLP_LOG_DA,"propogate_deregistration_with_DA srvack had err");
         }
+#endif
     }
     
     SLPFree(pcInBuf);
@@ -718,13 +753,15 @@ void mslpd_daadvert_callback(SLPHandle hSLP,
 			iInterval = strtol(buf,&endPtr,10);
             if (iInterval <= 0 || errno == EINVAL) 
             {
-                LOG(SLP_LOG_ERR, "mslpd_daadvert_callback: got a bogus min-refresh-interval");
+                SLPLOG(SLP_LOG_ERR, "mslpd_daadvert_callback: got a bogus min-refresh-interval");
             } 
             else 
             {
                 if (SLPGetRefreshInterval() < iInterval) 
                 {
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_DEBUG, "mslpd_daadvert_callback: increase min-refresh-interval");
+#endif
                     SLPSetProperty("com.sun.slp.minRefreshInterval",buf);
                 }
             }
@@ -738,15 +775,17 @@ void mslpd_daadvert_callback(SLPHandle hSLP,
     */
     if (dat_daadvert_in(pdat, sin, pcScopeList, lBootTime) == 1 && pdat->initialized == SLP_TRUE) 
     {
-        SLPInternalError	err = SLP_OK;
+//        SLPInternalError	err = SLP_OK;
         
         RegisterAllServicesWithDA( psa, sin, pcScopeList );		// pass this off to our SLPDARegisterer thread
 //        err = propogate_registrations(psa, sin, pcScopeList);
         
+#ifdef ENABLE_SLP_LOGGING
         if ( err )
         {
             SLP_LOG( SLP_LOG_DA, "Error trying to propogate a registration to a newly detected DA: %s", inet_ntoa(sin.sin_addr) );		// just log this
         }
+#endif
     }
 }
 
@@ -808,8 +847,9 @@ static int get_reply( SLPBoolean viaTCP, SAState *psa, const char *pcInBuf, int 
                                         (SLPHandle)psa, (void*) mslpd_daadvert_callback,
                                         SLPDAADVERT_CALLBACK)) != SLP_OK)
         
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DROP, "get_reply: %s, handle_daadvert_in from %s",slperror(slperr), inet_ntoa(sinIn->sin_addr) );
-        
+#endif        
         returnValue = -1; /* DO NOT return a reply */
 
     }
@@ -866,7 +906,9 @@ static int get_reply( SLPBoolean viaTCP, SAState *psa, const char *pcInBuf, int 
     }
     else if ( slphdr.h_ucFun == PluginInfoReq )
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "get_reply processing PluginInfoReq" );
+#endif
         slperr = HandlePluginInfoRequest( psa, pcInBuf, iInSz, ppcOutBuf, piOutSz );
         
         if ( slperr == SLP_OK )
@@ -936,7 +978,9 @@ static void  generate_error(SLPReturnError iErr, Slphdr s,char *out, int *pI)
                 (SLPGetProperty("net.slp.MTU"))?strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10):1400,
                 fun,*pI,&offset))
         != SLP_OK) {
+#ifdef ENABLE_SLP_LOGGING
         mslplog(SLP_LOG_ERR,"generate_error: could not create header",slperror(err)); 
+#endif
     }
     SETXID(out,s.h_usXID);
     SETSHT(out,iErr,offset);

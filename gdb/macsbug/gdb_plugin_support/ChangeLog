@@ -1,3 +1,33 @@
+2004-03-24  Klee Dienes  <kdienes@apple.com>
+
+	* gdb_special_events.c: Convert to the new breakpoint structures.
+
+2004-01-14  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.c: Use gdbarch_deprecated_register_raw_size instead of
+	gdb_register_raw_size.  Use get_selected_frame() for calls to
+	frame_map_name_to_regnum.
+	* gdb_private_interfaces.h: Include "dis-asm.h" for the
+	instruction printing typedefs.
+	* gdb_io_redirection.c: Remove references to
+	TARGET_PRINT_INSN_INFO; remove instruction-printing stream code
+	(the instruction printing code now explicitly takes a stream).
+	This might still need some work, but it appears to behave
+	correctly in basic tests.
+		
+2003-10-20  Ira Ruben  <iraruben@acm.org>
+
+	* Makefile: Add OPT to control -O level from command line.
+	* gdb.c: Change comment on #include "inferior.h".
+	(gdb_set_register): Fix get_selected_frame call formatting.
+	(gdb_get_register): Return an enum value instead of a string.
+	Fix bug testing frame_register_read return value.
+	(gdb_get_sp): New funtion to get $sp.
+	(gdb_read_memory): Extend to accept an address value.
+	(gdb_write_memory): Ditto.
+	* gdb.h: Change comments for gdb_get_register, gdb_read_memory,
+	gdb_write_memory, and new gdb_get_sp declaration.
+
 2003-01-14  Klee Dienes  <kdienes@apple.com>
 
 	* gdb_complete.c (get_y_or_n): Use rl_ding () instead of ding ().

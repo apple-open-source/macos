@@ -2,8 +2,8 @@
 
 %prep
   mkdir glob.tmp
-  mkdir glob.tmp/dir1
-  mkdir glob.tmp/dir2
+  mkdir glob.tmp/dir{1,2,3,4}
+  mkdir glob.tmp/dir3/subdir
   : >glob.tmp/{,{dir1,dir2}/}{a,b,c}
 
   globtest () { $ZTST_testdir/../Src/zsh -f $ZTST_srcdir/../Misc/$1 }
@@ -132,6 +132,7 @@
 >0:  [[ 633 = <-1000>33 ]]
 >0:  [[ 633 = <1->33 ]]
 >0:  [[ 633 = <->33 ]]
+>0:  [[ 12345678901234567890123456789012345678901234567890123456789012345678901234567890foo = <42->foo ]]
 >0:  [[ READ.ME = (#ia1)readme ]]
 >1:  [[ READ..ME = (#ia1)readme ]]
 >0:  [[ README = (#ia1)readm ]]
@@ -174,6 +175,7 @@
 >1:  [[ path/testy = *((#s)|/)test((#e)|/)* ]]
 >1:  [[ path/testy/ohyes = *((#s)|/)test((#e)|/)* ]]
 >1:  [[ path/atest/ohyes = *((#s)|/)test((#e)|/)* ]]
+>0:  [[ björn = *[åäöÅÄÖ]* ]]
 >0 tests failed.
 
   globtest globtests.ksh
@@ -264,11 +266,11 @@
   ( regress_absolute_path_and_core_dump )
 0:exclusions regression test
 >
->glob.tmp/a glob.tmp/b glob.tmp/c glob.tmp/dir1 glob.tmp/dir1/a glob.tmp/dir1/b glob.tmp/dir1/c glob.tmp/dir2 glob.tmp/dir2/a glob.tmp/dir2/b glob.tmp/dir2/c
+>glob.tmp/a glob.tmp/b glob.tmp/c glob.tmp/dir1 glob.tmp/dir1/a glob.tmp/dir1/b glob.tmp/dir1/c glob.tmp/dir2 glob.tmp/dir2/a glob.tmp/dir2/b glob.tmp/dir2/c glob.tmp/dir3 glob.tmp/dir3/subdir glob.tmp/dir4
 
  print glob.tmp/*(/)
 0:Just directories
->glob.tmp/dir1 glob.tmp/dir2
+>glob.tmp/dir1 glob.tmp/dir2 glob.tmp/dir3 glob.tmp/dir4
 
  print glob.tmp/*(.)
 0:Just files
@@ -280,7 +282,7 @@
 
  print glob.tmp/**/(:h) 
 0:Head modifier
->. glob.tmp glob.tmp
+>. glob.tmp glob.tmp glob.tmp glob.tmp glob.tmp/dir3
 
  print glob.tmp(:r)
 0:Remove extension modifier
@@ -288,5 +290,30 @@
 
  print glob.tmp/*(:s/./_/)
 0:Substitute modifier
->glob_tmp/a glob_tmp/b glob_tmp/c glob_tmp/dir1 glob_tmp/dir2
+>glob_tmp/a glob_tmp/b glob_tmp/c glob_tmp/dir1 glob_tmp/dir2 glob_tmp/dir3 glob_tmp/dir4
 
+ print glob.tmp/*(F)
+0:Just full dirs
+>glob.tmp/dir1 glob.tmp/dir2 glob.tmp/dir3
+
+ print glob.tmp/*(^F)
+0:Omit full dirs
+>glob.tmp/a glob.tmp/b glob.tmp/c glob.tmp/dir4
+
+ print glob.tmp/*(/^F)
+0:Just empty dirs
+>glob.tmp/dir4
+
+ setopt extendedglob
+ print glob.tmp/**/*~*/dir3(/*|(#e))(/)
+0:Exclusions with complicated path specifications
+>glob.tmp/dir1 glob.tmp/dir2 glob.tmp/dir4
+
+ [[ "" = "" ]] && echo OK
+0:Empty strings
+>OK
+
+ foo="this string has a : colon in it"
+ print ${foo%% #:*}
+0:Must-match arguments in complex patterns
+>this string has a

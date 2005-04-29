@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.25 2003/04/12 03:04:28 jlovell Exp $"
+# "$Id: Makefile,v 1.34 2005/01/04 22:10:38 jlovell Exp $"
 #
 #   Support library Makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
 #       Attn: CUPS Licensing Information
 #       Easy Software Products
 #       44141 Airport View Drive, Suite 204
-#       Hollywood, Maryland 20636-3111 USA
+#       Hollywood, Maryland 20636 USA
 #
-#       Voice: (301) 373-9603
+#       Voice: (301) 373-9600
 #       EMail: cups-info@cups.org
 #         WWW: http://www.cups.org
 #
@@ -30,10 +30,11 @@ include ../Makedefs
 # Object files...
 #
 
-LIBOBJS	=	attr.o dest.o emit.o encode.o http.o http-addr.o \
-		http-support.o ipp.o ipp-support.o language.o mark.o \
-		md5.o md5passwd.o options.o page.o ppd.o snprintf.o \
-		string.o tempfile.o usersys.o util.o
+LIBOBJS	=	attr.o auth.o dest.o emit.o encode.o getputfile.o \
+		http.o http-addr.o http-support.o ipp.o ipp-support.o \
+		language.o mark.o md5.o md5passwd.o options.o page.o \
+		ppd.o snprintf.o string.o tempfile.o usersys.o util.o \
+		globals.o
 OBJS	=	$(LIBOBJS) testhttp.o testipp.o testlang.o
 
 
@@ -120,13 +121,20 @@ libcups.so.2 libcups.sl.2:	$(LIBOBJS) ../Makedefs
 # libcups.2.dylib
 #
 
+SECTORDER_FILE=/usr/local/lib/OrderFiles/libcups.2.order
+ifeq "$(shell test -f $(SECTORDER_FILE) && echo YES)" "YES"
+	SECTORDER_FLAGS=-sectorder __TEXT __text $(SECTORDER_FILE)
+endif
+
 libcups.2.dylib:	$(LIBOBJS) ../Makedefs
 	echo Linking $@...
 	$(DSO) $(DSOFLAGS) -o $@ \
 		-install_name $(libdir)/$@ \
-		-current_version 2.5.0 \
+		-current_version 2.7.0 \
 		-compatibility_version 2.0.0 \
-		$(LIBOBJS) $(SSLLIBS) $(COMMONLIBS)
+		-exported_symbols_list cups.exp \
+		$(SECTORDER_FLAGS) \
+		$(LIBOBJS) $(SSLLIBS) $(COMMONLIBS) $(LIBCUPSLIBS)
 	$(RM) libcups.dylib
 	$(LN) $@ libcups.dylib
 
@@ -151,7 +159,7 @@ libcups_s.a:	$(LIBOBJS) ../Makedefs
 libcups.la:    $(LIBOBJS) ../Makedefs
 	echo Linking $@...
 	$(DSO) $(DSOFLAGS) -o $@ $(LIBOBJS:.o=.lo) -rpath $(LIBDIR) \
-		-version-info 2:5 $(SSLLIBS) $(COMMONLIBS)
+		-version-info 2:7 $(SSLLIBS) $(COMMONLIBS)
 
 
 #
@@ -199,7 +207,7 @@ testipp:	testipp.o libcups.a
 
 testlang:	testlang.o libcups.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testlang.o libcups.a $(NETLIBS) $(SSLLIBS) $(COMMONLIBS)
+	$(CC) $(LDFLAGS) -o $@ testlang.o libcups.a $(NETLIBS) $(SSLLIBS) $(COMMONLIBS) $(LIBCUPSLIBS)
 
 
 #
@@ -210,5 +218,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.25 2003/04/12 03:04:28 jlovell Exp $".
+# End of "$Id: Makefile,v 1.34 2005/01/04 22:10:38 jlovell Exp $".
 #

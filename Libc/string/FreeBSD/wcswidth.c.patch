@@ -1,0 +1,35 @@
+--- wcswidth.c.orig	2003-05-20 15:23:56.000000000 -0700
++++ wcswidth.c	2005-02-25 00:12:43.000000000 -0800
+@@ -42,20 +42,30 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/string/wcswidth.c,v 1.6 2002/08/20 02:06:28 ache Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <wchar.h>
+ 
+ int
+-wcswidth(const wchar_t *pwcs, size_t n)
++wcswidth_l(const wchar_t *pwcs, size_t n, locale_t loc)
+ {
+ 	wchar_t wc;
+ 	int len, l;
+ 
++	NORMALIZE_LOCALE(loc);
+ 	len = 0;
+ 	while (n-- > 0 && (wc = *pwcs++) != L'\0') {
+-		if ((l = wcwidth(wc)) < 0)
++		if ((l = wcwidth_l(wc, loc)) < 0)
+ 			return (-1);
+ 		len += l;
+ 	}
+ 	return (len);
+ }
+ 
++
++int
++wcswidth(const wchar_t *pwcs, size_t n)
++{
++	return wcswidth_l(pwcs, n, __current_locale());
++}
++

@@ -12,7 +12,6 @@ use mod_perl ();
 
 my $TMPNAM = 'aaaaaa';
 my $TMPDIR = $ENV{'TMPDIR'} || $ENV{'TEMP'} || '/tmp';
-($TMPDIR) = $TMPDIR =~ /^([^<>|;*]+)$/; #untaint
 my $Mode = Fcntl::O_RDWR()|Fcntl::O_EXCL()|Fcntl::O_CREAT();
 my $Perms = 0600;
  
@@ -22,6 +21,7 @@ sub tmpfile {
     my $r = Apache->request;
     while($limit--) {
         my $tmpfile = "$TMPDIR/${$}" . $TMPNAM++;
+        ($tmpfile) = $tmpfile =~ /^([^<>|;*]+)$/; #untaint
         my $fh = $class->new;
 	sysopen($fh, $tmpfile, $Mode, $Perms);
 	$r->register_cleanup(sub { unlink $tmpfile }) if $r;

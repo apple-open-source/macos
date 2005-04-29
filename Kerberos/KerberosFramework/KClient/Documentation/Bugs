@@ -1,11 +1,12 @@
 ==============================================================================
 KClient bug list
 ==============================================================================
-Version:    3.3fc1
-Date:       July 16, 2003
+Version:    3.4fc1
+Date:       December 13, 2004
 Author:     meeroh@mit.edu, lxs@mit.edu
 ==============================================================================
 
+[RT 2800]   Use Apple System Logger and set debugging at runtime        3.4fc1
 [RT 1468]   KClient should have error strings for remapped v4 errors    3.3a2
 [BZ 547]	K5Client still crashes with no tickets						3.1a2
 [BZ 463]	Addresses lost in NewSessionCompat							3.1d6

@@ -1,12 +1,80 @@
 ========================================================================
 Credentials Cache Library Version History
 ========================================================================
-Current version: 3.4fc3
-Date:            September 18, 2003
+Current version: 3.5fc5
+Date:            February 1, 2005
 Author:          meeroh@mit.edu, smcguire@mit.edu, fdabek@mit.edu, lxs@mit.edu
 ========================================================================
 
+CredentialsCache 3.5
+Released with KfM 5.5
+
+========================================================================
+
+	CCacheLib 3.5fc5
+	February 1, 2005
+	
+	[RT 2904] gcc-4.0 fixes for CCAPI -- just let it figure out to instantiate the globals
+	
 	========================================================================
+
+	CCacheLib 3.5fc4
+	January 23, 2005
+	
+	[RT 2896] CCacheServer should not manually link against libstdc++.a (gcc 4.0)
+	[RT 2897] gcc-4.0 requires new syntax to instantiate static members of template classes
+	
+	========================================================================
+
+	CCacheLib 3.5fc3
+	December 17, 2004
+	
+	[RT 2810] CCAPI error codes don't have error strings
+	
+	========================================================================
+
+	CCacheLib 3.5fc2
+	December 13, 2004
+	
+	[RT 2800] Use Apple System Logger and set debugging at runtime
+	
+	========================================================================
+
+	CCacheLib 3.5fc1
+	December 6, 2004
+	
+	Moved to final candidate.
+	
+	========================================================================
+
+	CCacheLib 3.5b3
+	September 8, 2004
+	
+	[RT 2698] CCAPI doesn't remember ccache lastDefaultTime 
+	[RT 2699] CCAPI can't store principals with spaces in their names 
+	
+	========================================================================
+
+	CCacheLib 3.5b2
+	August 20, 2004
+	
+	[RT 2670] Clients should register on-demand servers if they get unregistered 
+	
+	========================================================================
+
+	CCacheLib 3.5b1
+	March 18, 2004
+	
+	[RT 1661] KfM should use Panther mach init per user mechanism 
+	[RT 2416] KfM should not check OS version because it breaks configure tests in B&I 
+	
+	========================================================================
+
+CredentialsCache 3.4
+September 18, 2003
+
+========================================================================
+
 	CCacheLib 3.4fc3
 	September 18, 2003
 	

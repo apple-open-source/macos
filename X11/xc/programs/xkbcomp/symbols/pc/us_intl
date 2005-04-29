@@ -1,0 +1,54 @@
+// $XFree86: xc/programs/xkbcomp/symbols/pc/us_intl,v 1.1 2003/10/04 10:25:14 pascal Exp $
+
+// Based on symbols/us_intl keyboard map:
+// Dead-keys definition for a very simple US/ASCII layout.
+// by Conectiva (http://www.conectiva.com.br)
+// modified by Ricardo Y. Igarashi (iga@that.com.br)
+
+// Added the following deadkeys, to make it truly international:
+//
+// dead_macron: on AltGr-minus
+// dead_breve: on AltGr-parenleft
+// dead_abovedot: on AltGr-period
+// dead_abovering: on AltGr-0
+// dead_doubleacute: on AltGr-equal (as quotedbl is already used)
+// dead_caron: on AltGr-less (AltGr-shift-comma)
+// dead_cedilla: on AltGr-comma
+// dead_ogonek: on AltGr-semicolon
+// dead_belowdot: on AltGr-underscore (AltGr-shift-minus)
+// dead_hook: on AltGr-question
+// dead_horn: on AltGr-plus (AltGr-shift-equal)
+// dead_diaeresis: on AltGr-colon (Alt-shift-semicolon)
+//
+// those were already there:
+// dead_grave
+// dead_acute
+// dead_circumflex
+// dead_tilde
+// dead_diaeresis
+
+partial default alphanumeric_keys
+xkb_symbols "basic" {
+
+  name[Group1]= "US/ASCII";
+  include "pc/us"
+
+  key <TLDE> { [ dead_grave, dead_tilde,    grave,	      asciitilde    ] };
+  key <AE05> { [          5, percent,	    EuroSign			    ] };
+  key <AE06> { [	  6, dead_circumflex, asciicircum,    asciicircum   ] };
+  key <AE09> { [	  9, parenleft,	    dead_breve,	      dead_breve    ] };
+  key <AE10> { [	  0, parenright,    dead_abovering,   dead_abovering] };
+  key <AE11> { [      minus, underscore,    dead_macron,      dead_belowdot ] };
+  key <AE12> { [      equal, plus,	    dead_doubleacute, dead_horn	    ] };
+
+  key <AD03> { [          e, E,		     EuroSign,         cent	    ] };
+
+  key <AC10> { [  semicolon, colon,	     dead_ogonek,   dead_diaeresis  ] };
+  key <AC11> { [ dead_acute, dead_diaeresis, apostrophe,    quotedbl	    ] };
+
+  key <AB08> { [      comma, less,	     dead_cedilla,  dead_caron	    ] };
+  key <AB09> { [     period, greater,	     dead_abovedot, dead_circumflex ] };
+  key <AB10> { [      slash, question,	     dead_hook,	    dead_hook	    ] };
+
+  include "level3(ralt_switch_multikey)"
+};

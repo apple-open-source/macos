@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,18 +24,13 @@
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
+#include "imports.h"
 #include "context.h"
 #include "enums.h"
 #include "depth.h"
 #include "macros.h"
-#include "mem.h"
 #include "mtypes.h"
-#endif
-
 
 
 /**********************************************************************/
@@ -69,7 +64,7 @@ _mesa_DepthFunc( GLenum func )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE & (VERBOSE_API|VERBOSE_TEXTURE))
-      fprintf(stderr, "glDepthFunc %s\n", _mesa_lookup_enum_by_nr(func));
+      _mesa_debug(ctx, "glDepthFunc %s\n", _mesa_lookup_enum_by_nr(func));
 
    switch (func) {
    case GL_LESS:    /* (default) pass if incoming z < stored z */
@@ -105,7 +100,7 @@ _mesa_DepthMask( GLboolean flag )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE & (VERBOSE_API|VERBOSE_TEXTURE))
-      fprintf(stderr, "glDepthMask %d\n", flag);
+      _mesa_debug(ctx, "glDepthMask %d\n", flag);
 
    /*
     * GL_TRUE indicates depth buffer writing is enabled (default)

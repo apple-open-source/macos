@@ -1,11 +1,10 @@
-/* APPLE LOCAL file msg send super */
 /* Check if sending messages to super does not interfere with sending messages
    to classes. */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-do run } */
 /* { dg-options "-lobjc" } */
 
-#import <objc/Object.h>
+#include <objc/Object.h>
 
 extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort()

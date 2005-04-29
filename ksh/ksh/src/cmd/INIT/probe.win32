@@ -1,0 +1,224 @@
+:
+# @(#)probe.win32 (AT&T Labs Research) 2004-02-29
+#
+# win32 specific make C probe initialization
+# ms vc is easy on uwin
+#
+# 2> easy.err to avoid mysterious hang with bcc
+#
+
+probe_easy="winerror"
+
+# we are probing on behalf of libpp and nmake
+# so the native preprocessor must be forced in
+# order to bootstrap libpp and nmake
+
+nativepp=-1
+export nativepp
+
+{
+for i in $probe_easy
+do	echo "#include <$i.h>"
+done
+echo '#ifdef _UWIN'
+echo 'int uwin=_UWIN;'
+echo '#endif'
+echo '#ifdef __BORLANDC__'
+echo 'int versionb=__BORLANDC__;'
+echo '#endif'
+echo '#ifdef __DMC__'
+echo 'int versiond=__DMC__;'
+echo '#endif'
+echo '#ifdef _MSC_VER'
+echo 'int versionm=_MSC_VER;'
+echo '#endif'
+echo '#ifdef __ICL'
+echo 'int versioni=__ICL;'
+echo '#endif'
+echo '#ifdef __LCC__'
+echo 'int versionl=0+__LCC__;'
+echo '#endif'
+echo '#ifdef __MINGW32__'
+echo "int versiong=__MINGW32__"
+echo '#endif'
+} > easy.c
+
+for i in $probe_easy
+do	eval ${i}_include=
+done
+include=
+uwin=
+versionb=
+versiond=
+versionm=
+versioni=
+versiong=
+versionl=
+
+$cc -E easy.c 2> easy.err |
+egrep -i '^(#line 1 .*\.[hH]| *int +(uwin|version[bdiglm]) *= *[0-9])' |
+sed	-e 's/.*"\(.*\)".*/\1/' \
+	-e 's,^  *,,' \
+	-e 's,  *$,,' \
+	-e 's, *= *,=,' \
+	-e 's,^\(.\):[\\/]*,/\1/,' \
+	-e 's,[\\/][\\/]*,/,g' \
+	-e 's,^\(/.*\)/\(.*\)\.[hH]$,\2_include="\1",' \
+	-e 's, *int *,,' \
+	> easy.sh
+. ./easy.sh
+
+for i in $probe_easy
+do	eval d=\"\$${i}_include\"
+	case $d in
+	?*)	include=${d// /}
+		break
+		;;
+	esac
+done
+
+i=$($cc -V 2> easy.err)
+if	test "" != "$i" -a -d "$i/include"
+then	include=$i/include
+fi
+
+case $versionb$versiond$versionm$versiong$versionl:$include in
+[0-9]*:/*)
+	: the payoff
+	set -- $cc
+	cmd=$1
+	shift
+	set -- $(whence $cmd) "$@"
+	typ=$(package)
+	dialect="ANSI CLOSURE DYNAMIC LIBPP -I-"
+	case ${cc##*/} in
+	*CC*)	dialect="$dialect C++"
+		cplus=1
+		;;
+	esac
+	cat >&3 <<!
+CC.CC = $*
+CC.NATIVE = $*
+CC.EXECTYPE = $typ
+CC.HOSTTYPE = $typ
+CC.ALTPP.FLAGS = -Yp,\$(CPP:D)
+CC.ALTPP.ENV =
+CC.AR = ar
+CC.ARFLAGS =
+CC.DEBUG = -g
+CC.DIALECT = $dialect
+CC.DLL = -D_BLD_DLL
+CC.DLLBIG = -D_BLD_DLL
+CC.DLL.DEF = -D_BLD_DLL
+CC.DLL.DIR = \$(BINDIR)
+CC.DLL.LIBRARIES =
+CC.DLL.VARIANTS =
+CC.DYNAMIC =
+CC.EXPORT.DYNAMIC =
+CC.LD = /usr/bin/ld
+CC.LD.DYNAMIC = -Bdynamic
+CC.LD.LAZY =
+CC.LD.NOLAZY =
+CC.LD.ORIGIN =
+CC.LD.RECORD =
+CC.LD.NORECORD =
+CC.LD.RUNPATH =
+CC.LD.STATIC = -Bstatic
+CC.LD.STRIP =
+CC.LIB.DLL = option
+CC.LIB.ALL = -Bwhole-archive
+CC.LIB.UNDEF = -Bno-whole-archive
+CC.MAKE.OPTIONS = nativepp=0
+CC.NM = nm
+CC.NMEDIT =
+CC.NMFLAGS =
+CC.OPTIMIZE = -O
+CC.PIC =
+CC.PICBIG =
+CC.READONLY =
+CC.REPOSITORY =
+CC.SHARED = -G
+CC.SHARED.LD = /usr/bin/ld
+CC.SHARED.REGISTRY =
+CC.SHARED.REGISTRY.PATH =
+CC.SHELLMAGIC =
+CC.SIZE = size
+CC.STATIC = -Bstatic
+!
+	if	[ X"$versiond" != X ]
+	then	inc=${include}/win32 lib=/dm
+	elif	[ X"$versionb" != X ]
+	then	inc=/usr/include/borland lib=/borland
+	elif	[ X"$versioni" != X ]
+	then	if	[ -d /msdev/vc98/include ]
+		then	inc=/msdev/vc98/include
+		elif	[ -d /msdev/vc7/include ]
+		then	inc=/msdev/vc7/include
+		else	inc=/msdev/vc/include
+		fi
+		lib=
+	elif	[ X"$versiong" != X ]
+	then	inc= lib=
+		if	[ X"$cplus" != X ]
+		then	if	[ -d "$include/g++-3" ]
+			then	inc="$inc $include/g++-3"
+			elif	[ -d "$include"/c++/3.* ]
+			then	set X "$include"/c++/3.*
+				inc="$inc $2"
+				if	[ -d "$2"/mingw32 ]
+				then	inc="$inc $2/mingw32"
+				fi
+				if	[ -d "$2"/backward ]
+				then	inc="$inc $2/backward"
+				fi
+			fi
+			if	[ -d "${include%/*}"/mingw32/include ]
+			then	inc="$inc ${include%/*}/mingw32/include"
+			fi
+		fi
+		if	[ -d "${include%/*}"/lib/gcc-lib/mingw32/*/include ]
+		then	set X "${include%/*}"/lib/gcc-lib/mingw32/*/include
+			inc="$inc $2"
+		fi
+	elif	[ X"$versionl" != X ]
+	then	inc= lib=/lcc
+	else	inc= lib=
+	fi
+	case $include in
+	*' '*)	include=`echo "$include" | sed -e 's/ //g'`;;
+	esac
+	case $uwin in
+	[0-9]*)	cat >&3 <<!
+CC.STDINCLUDE = /usr/include ${include} ${inc}
+CC.STDLIB = /usr/lib${lib} ${include%/*}/lib
+!
+		;;
+	*)	cat >&3 <<!
+CC.STDINCLUDE = ${include} ${inc}
+CC.STDLIB = ${include%/*}/lib
+!
+		;;
+	esac
+	cat >&3 <<!
+CC.STRICT =
+CC.STRIP = strip
+CC.STRIP.FLAGS =
+CC.PREFIX.ARCHIVE = lib
+CC.PREFIX.DYNAMIC =
+CC.PREFIX.SHARED =
+CC.PREFIX.SYMBOL = _
+CC.SUFFIX.ARCHIVE = .a
+CC.SUFFIX.COMMAND =
+CC.SUFFIX.DYNAMIC = .dll
+CC.SUFFIX.LD = .def .exp .ign .res
+CC.SUFFIX.OBJECT = .o
+CC.SUFFIX.SHARED = .lib
+CC.SUFFIX.SOURCE = .c
+CC.SUFFIX.STATIC =
+CC.WARN =
+CC.PREROOT =
+CC.UNIVERSE = att
+!
+	exit 0
+	;;
+esac

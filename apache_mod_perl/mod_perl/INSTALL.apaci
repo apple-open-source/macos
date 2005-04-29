@@ -200,6 +200,42 @@ With Apache 1.3 there is support for building modules as Dynamic Shared
 Objects (DSO).  So there is support for DSO in mod_perl now, too.  I<BUT THIS
 IS STILL EXPERIMENTAL, SO BE WARNED!>
 
+=head2 When DSO can be used
+
+If you want to build C<mod_perl> as DSO you must make sure that Perl
+was built with system's native malloc(). If Perl was built with its
+own malloc() and C<-Dbincompat5005>, it pollutes the main C<httpd>
+program with I<free> and I<malloc> symbols.  When C<httpd> restarts
+(happens at startup too), any references in the main program to
+I<free> and I<malloc> become invalid, and this causes memory leaks and
+segfaults.
+
+Notice that mod_perl's build system warns about this problem.
+
+With Perl 5.6.0+ this pollution can be prevented with
+C<-Ubincompat5005>.  or C<-Uusemymalloc> for any version of Perl, but
+there's a chance that might hurt performance depending on platform, so
+C<-Ubincompat5005> is likely a better choice.
+
+If you get the following reports with Perl version 5.6.0+:
+
+  % perl -V:usemymalloc
+  usemymalloc='y';
+  % perl -V:bincompat5005
+  bincompat5005='define';
+
+rebuild Perl with C<-Ubincompat5005>.
+
+For Perl versions pre-5.6.x, if you get:
+
+  % perl -V:usemymalloc
+  usemymalloc='y';
+
+rebuild Perl with C<-Uusemymalloc>.
+
+now rebuild mod_perl.
+
+
 =head2 Build mod_perl as DSO inside Apache source tree via APACI
 
 We already said that the new mod_perl build environment is a hybrid one. What

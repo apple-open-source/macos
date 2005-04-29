@@ -1,0 +1,2 @@
+powermanagement.h: powermanagement.defs
+	$(CD) $(SFILE_DIR) && $(MIG) -user powermanagementUser.c -header $*.h $(shell pwd)/$<

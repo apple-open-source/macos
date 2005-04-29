@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_dga.c,v 1.16 2002/09/16 18:05:55 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_dga.c,v 1.17 2003/10/08 15:48:41 eich Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -264,6 +264,30 @@ BitsSet(unsigned long data)
    return set;
 }
 
+/*
+ * This is not strictly required - but it will load a 'sane'
+ * palette when starting DGA.
+ */
+static void
+mgaDGASetPalette(ScrnInfoPtr pScrn)
+{
+    MGAPtr pMga = MGAPTR(pScrn);
+    MGARamdacPtr MGAdac = &pMga->Dac;
+    unsigned char DAC[256*3];
+    int i;
+    
+    if (!MGAdac->RestorePalette)
+	return;
+    
+    for (i = 0; i < 256; i++) {
+	DAC[i*3] = i;
+	DAC[i*3 + 1] = i;
+	DAC[i*3 + 2] = i;
+    }
+    MGAdac->RestorePalette(pScrn, DAC);
+}
+
+
 static Bool
 MGA_SetMode(
    ScrnInfoPtr pScrn,
@@ -299,6 +323,8 @@ MGA_SetMode(
       /* MGAModeInit() will set the mode field */
 
       pScrn->SwitchMode(index, pMode->mode, 0);
+      /* not strictly required but nice */
+      mgaDGASetPalette(pScrn);
    }
    
    return TRUE;

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -66,53 +64,32 @@ extern int ( **gCDDA_VNodeOp_p )( void * );
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 
-int	CDDA_Init 					( struct vfsconf * vfsPtr );
-int CDDA_Mount 					( struct mount * mountPtr,
-								  char * path,
-								  caddr_t data,
-								  struct nameidata * ndp,
-								  struct proc * theProc );
-int CDDA_Start					( struct mount * mountPtr,
+int CDDA_Mount 					( mount_t mountPtr,
+								  vnode_t blockDeviceVNodePtr,
+								  user_addr_t data,
+								  vfs_context_t context );
+int CDDA_Unmount				( mount_t mountPtr,
 								  int theFlags,
-								  struct proc * theProc );
-int CDDA_Unmount				( struct mount * mountPtr,
-								  int theFlags,
-								  struct proc * theProc );
-int CDDA_Root					( struct mount * mountPtr,
-								  struct vnode ** vnodeHandle );
-int CDDA_Statfs					( struct mount * mountPtr,
-								  struct statfs * statFSPtr,
-								  struct proc * theProc );
-int	CDDA_VGet					( struct mount * mountPtr,
-								  void * nodeID,
-								  struct vnode ** vNodeHandle );
-int	CDDA_FileHandleToVNodePtr 	( struct mount * mountPtr,
-								  struct fid * fileHandlePtr,
-								  struct mbuf * networkAddressPtr,
-								  struct vnode ** vNodeHandle,
-								  int * exportFlagsPtr,
-								  struct ucred ** anonymousCredHandle );
-int CDDA_QuotaControl 			( struct mount * mountPtr,
-								  int commands,
-								  uid_t userID,
-								  caddr_t arguments,
-								  struct proc * theProcPtr );
-int	CDDA_Synchronize 			( struct mount * mountPtr,
-								  int waitForIOCompletion,
-								  struct ucred * userCredPtr,
-								  struct proc * theProcPtr );
-int	CDDA_SystemControl 			( int * name,
-								  u_int nameLength,
-								  void * oldPtr,
-								  size_t * oldLengthPtr,
-								  void * newPtr,
-								  size_t newLength,
-								  struct proc * theProcPtr );
-int CDDA_VNodePtrToFileHandle 	( struct vnode * vNodePtr,
-								  struct fid * fileHandlePtr );
-
-								  
+								  vfs_context_t context );
+int CDDA_Root					( mount_t mountPtr,
+								  vnode_t * vnodeHandle,
+								  vfs_context_t context );
+int CDDA_VFSGetAttributes		( mount_t mountPtr,
+    							  struct vfs_attr * attrPtr,
+ 								  vfs_context_t context );
+int	CDDA_VGet					( mount_t mountPtr,
+								  ino64_t  nodeID,
+								  vnode_t * vNodeHandle,
+								  vfs_context_t context );
 extern struct vfsops gCDDA_VFSOps;
+
+// Private internal methods
+int
+CDDA_VGetInternal ( mount_t 				mountPtr,
+					ino64_t  				ino,
+					vnode_t					parentVNodePtr,
+					struct componentname *	compNamePtr,
+					vnode_t * 				vNodeHandle );
 
 
 #ifdef __cplusplus

@@ -5,12 +5,13 @@ BUILDTOP=$(REL)..$(S)..
 LOCAL_SUBDIRS= generic krb5
 
 ##DOSLIBNAME=$(OUTPRE)gssapi.lib
-##DOSOBJFILELIST=@$(OUTPRE)generic.lst @$(OUTPRE)krb5.lst
-##DOSOBJFILEDEP=$(OUTPRE)generic.lst $(OUTPRE)krb5.lst
+##DOSOBJFILELIST=@$(OUTPRE)generic.lst @$(OUTPRE)krb5.lst @$(OUTPRE)gssapi.lst
+##DOSOBJFILEDEP=$(OUTPRE)generic.lst $(OUTPRE)krb5.lst $(OUTPRE)gssapi.lst
+
+##DOSOBJFILE=$(OUTPRE)gssapi.lst
+##DOSLIBOBJS=$(OBJS)
 
 ##DOS##DLL_EXP_TYPE=GSS
-
-MAC_SUBDIRS = generic krb5
 
 LOCALINCLUDES = -Igeneric -I$(srcdir)/generic -Ikrb5 -I$(srcdir)/krb5
 STLIBOBJS=\
@@ -22,16 +23,14 @@ OBJS=\
 SRCS=\
 	$(srcdir)/gss_libinit.c
 
-LIB=gssapi_krb5
+LIBBASE=gssapi_krb5
 LIBMAJOR=2
 LIBMINOR=2
 STOBJLISTS=OBJS.ST generic/OBJS.ST krb5/OBJS.ST
 SUBDIROBJLISTS=generic/OBJS.ST krb5/OBJS.ST
 SHLIB_EXPDEPS=\
-	$(TOPLIBD)/libkrb5$(SHLIBEXT) \
-	$(TOPLIBD)/libk5crypto$(SHLIBEXT) \
-	$(COM_ERR_DEPLIB)
-SHLIB_EXPLIBS=-lkrb5 -lk5crypto -lcom_err
+	$(KRB5_DEPLIB) $(CRYPTO_DEPLIB) $(SUPPORT_DEPLIB) $(COM_ERR_DEPLIB)
+SHLIB_EXPLIBS=-lkrb5 -lk5crypto -lcom_err $(SUPPORT_LIB) $(LIBS)
 SHLIB_DIRS=-L$(TOPLIBD)
 SHLIB_RDIRS=$(KRB5_LIBDIR)
 RELDIR=gssapi
@@ -107,8 +106,11 @@ clean-windows::
 # repeated rebuilds in certain cases.  With the no-op command, it
 # appears to be properly serializing the subdir processing and local
 # compiles... so far.
-$(BUILDTOP)/include/gssapi/gssapi.h generic/gssapi.h krb5/gssapi_err_krb5.h generic/gssapi_err_generic.h: all-recurse
+##DOS##!if 0
+$(BUILDTOP)/include/gssapi/gssapi.h generic/gssapi.h krb5/gssapi_err_krb5.h generic/gssapi_err_generic.h krb5/gssapi_krb5.h: all-recurse
 	: $@ updated by recursion rule
+##DOS##!endif
+
 
 # @lib_frag@
 # @libobj_frag@
@@ -121,6 +123,8 @@ $(BUILDTOP)/include/gssapi/gssapi.h generic/gssapi.h krb5/gssapi_err_krb5.h gene
 gss_libinit.so gss_libinit.po $(OUTPRE)gss_libinit.$(OBJEXT): gss_libinit.c generic/gssapi_err_generic.h \
   $(COM_ERR_DEPS) krb5/gssapi_err_krb5.h $(srcdir)/krb5/gssapiP_krb5.h \
   $(BUILDTOP)/include/krb5.h $(srcdir)/generic/gssapiP_generic.h \
+  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
   $(srcdir)/generic/gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  $(srcdir)/krb5/gssapi_krb5.h gss_libinit.h generic/gssapi.h
+  $(SRCTOP)/include/k5-platform.h krb5/gssapi_krb5.h \
+  gss_libinit.h generic/gssapi.h
 

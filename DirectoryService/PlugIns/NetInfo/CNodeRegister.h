@@ -66,6 +66,7 @@ private:
 	bool				bReInit;
 	bool				bRestart;
 	CNetInfoPlugin	   *fParentClass;
+	bool				bNewNIHierarchy;
 };
 
 

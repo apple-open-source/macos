@@ -59,21 +59,20 @@ Boston, MA 02111-1307, USA.  */
 
 /************************[  Target stuff  ]***********************************/
 
+/* All FreeBSD Architectures support the ELF object file format.  */
+#undef  OBJECT_FORMAT_ELF
+#define OBJECT_FORMAT_ELF
+
 /* Don't assume anything about the header files.  */
 #undef  NO_IMPLICIT_EXTERN_C
 #define NO_IMPLICIT_EXTERN_C	1
 
-/* Allow #sccs in preprocessor.  */
-#undef  SCCS_DIRECTIVE
-#define SCCS_DIRECTIVE	1
-
 /* Make gcc agree with FreeBSD's standard headers (<machine/ansi.h>, etc...)  */
 
 #undef  WCHAR_TYPE
-#define WCHAR_TYPE	"int"
+#define WCHAR_TYPE "int"
 
-#undef  WCHAR_UNSIGNED
-#define WCHAR_UNSIGNED	0
+#define MATH_LIBRARY_PROFILE    "-lm_p"
 
 /* Code generation parameters.  */
 
@@ -85,4 +84,4 @@ Boston, MA 02111-1307, USA.  */
 /* Used by libgcc2.c.  We support file locking with fcntl / F_SETLKW.
    This enables the test coverage code to use file locking when exiting a
    program, which avoids race conditions if the program has forked.  */
-#define TARGET_HAS_F_SETLKW	1
+#define TARGET_HAS_F_SETLKW

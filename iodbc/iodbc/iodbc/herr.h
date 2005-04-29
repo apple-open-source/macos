@@ -1,7 +1,7 @@
 /*
  *  herr.h
  *
- *  $Id: herr.h,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: herr.h,v 1.3 2004/11/11 01:52:37 luesang Exp $
  *
  *  Error stack management functions
  *
@@ -133,6 +133,7 @@ typedef enum
     en_IM012,
     en_IM013,
     en_IM014,
+    en_IM015,
     en_S0001,
     en_S0002,
     en_S0011,
@@ -178,14 +179,14 @@ typedef enum
   }
 sqlstcode_t;
 
-typedef void FAR *HERR;
+typedef void *HERR;
 #define SQL_NULL_HERR	((HERR)NULL)
 
 typedef struct
   {
     sqlstcode_t code;
-    char FAR *stat;
-    char FAR *msg;
+    char *stat;
+    char *msg;
   }
 sqlerrmsg_t;
 
@@ -193,19 +194,19 @@ typedef struct sqlerr
   {
     sqlstcode_t code;
     int idx;
-    char FAR *msg;
+    char *msg;
     struct sqlerr *next;
   }
 sqlerr_t;
 
 extern void _iodbcdm_freesqlerrlist (HERR herr);
-extern HERR _iodbcdm_pushsqlerr (HERR list, sqlstcode_t code, char *sysmsg);
+extern HERR _iodbcdm_pushsqlerr (HERR list, sqlstcode_t code, void *sysmsg);
 
 #define	PUSHSYSERR(list, msg)	\
-	list = (HERR) _iodbcdm_pushsqlerr ((HERR)(list), 0, (char *) msg)
+	list = (HERR) _iodbcdm_pushsqlerr ((HERR)(list), en_00000, msg)
 
 #define	PUSHSQLERR(list, code)	\
-	list = (HERR) _iodbcdm_pushsqlerr ((HERR)(list), (int)(code), NULL)
+	list = (HERR) _iodbcdm_pushsqlerr ((HERR)(list), (code), NULL)
 
 #define CLEAR_ERRORS(_handle) \
     { \

@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/twm/menus.c,v 1.16 2002/10/19 20:04:20 herrb Exp $ */
+/* $XFree86: xc/programs/twm/menus.c,v 1.20 2003/08/04 10:32:30 eich Exp $ */
 /*****************************************************************************/
 /*
 
@@ -863,7 +863,7 @@ MenuRoot *mr;
 
 	valuemask = (CWBackPixel | CWBorderPixel | CWEventMask);
 	attributes.background_pixel = Scr->MenuC.back;
-	attributes.border_pixel = Scr->MenuC.fore;
+	attributes.border_pixel = Scr->MenuBorderColor;
 	attributes.event_mask = (ExposureMask | EnterWindowMask);
 	if (Scr->SaveUnder) {
 	    valuemask |= CWSaveUnder;
@@ -874,7 +874,8 @@ MenuRoot *mr;
 	    attributes.backing_store = Always;
 	}
 	mr->w = XCreateWindow (dpy, Scr->Root, 0, 0, (unsigned int) mr->width,
-			       (unsigned int) mr->height, (unsigned int) 1,
+			       (unsigned int) mr->height,
+			       (unsigned int) Scr->MenuBorderWidth,
 			       CopyFromParent, (unsigned int) CopyFromParent,
 			       (Visual *) CopyFromParent,
 			       valuemask, &attributes);
@@ -1007,7 +1008,7 @@ PopUpMenu (menu, x, y, center)
     int x, y;
     Bool center;
 {
-    int WindowNameOffset, WindowNameCount;
+    int WindowNameCount;
     TwmWindow **WindowNames;
     TwmWindow *tmp_win2,*tmp_win3;
     int i;
@@ -1033,37 +1034,38 @@ PopUpMenu (menu, x, y, center)
 	menu->mapped = NEVER_MAPPED;
   	AddToMenu(menu, "TWM Windows", NULLSTR, NULL, F_TITLE,NULLSTR,NULLSTR);
   
-        WindowNameOffset=(char *)Scr->TwmRoot.next->name -
-                               (char *)Scr->TwmRoot.next;
         for(tmp_win = Scr->TwmRoot.next , WindowNameCount=0;
             tmp_win != NULL;
             tmp_win = tmp_win->next)
           WindowNameCount++;
-        WindowNames =
-          (TwmWindow **)malloc(sizeof(TwmWindow *)*WindowNameCount);
-        WindowNames[0] = Scr->TwmRoot.next;
-        for(tmp_win = Scr->TwmRoot.next->next , WindowNameCount=1;
-            tmp_win != NULL;
-            tmp_win = tmp_win->next,WindowNameCount++)
+        if (WindowNameCount != 0)
         {
-            tmp_win2 = tmp_win;
-            for (i=0;i<WindowNameCount;i++)
+            WindowNames =
+              (TwmWindow **)malloc(sizeof(TwmWindow *)*WindowNameCount);
+            WindowNames[0] = Scr->TwmRoot.next;
+            for(tmp_win = Scr->TwmRoot.next->next , WindowNameCount=1;
+                tmp_win != NULL;
+                tmp_win = tmp_win->next,WindowNameCount++)
             {
-                if ((*compar)(tmp_win2->name,WindowNames[i]->name) < 0)
+                tmp_win2 = tmp_win;
+                for (i=0;i<WindowNameCount;i++)
                 {
-                    tmp_win3 = tmp_win2;
-                    tmp_win2 = WindowNames[i];
-                    WindowNames[i] = tmp_win3;
+                    if ((*compar)(tmp_win2->name,WindowNames[i]->name) < 0)
+                    {
+                        tmp_win3 = tmp_win2;
+                        tmp_win2 = WindowNames[i];
+                        WindowNames[i] = tmp_win3;
+                    }
                 }
+                WindowNames[WindowNameCount] = tmp_win2;
             }
-            WindowNames[WindowNameCount] = tmp_win2;
+            for (i=0; i<WindowNameCount; i++)
+            {
+                AddToMenu(menu, WindowNames[i]->name, (char *)WindowNames[i],
+                          NULL, F_POPUP,NULL,NULL);
+            }
+            free(WindowNames);
         }
-        for (i=0; i<WindowNameCount; i++)
-        {
-            AddToMenu(menu, WindowNames[i]->name, (char *)WindowNames[i],
-                      NULL, F_POPUP,NULL,NULL);
-        }
-        free(WindowNames);
 
 	MakeMenu(menu);
     }
@@ -1236,17 +1238,22 @@ resizeFromCenter(w, tmp_win)
      Window w;
      TwmWindow *tmp_win;
 {
-  int lastx, lasty, width, height, bw2;
-  int namelen;
+  int lastx, lasty, bw2;
   XEvent event;
+#if 0
+  int namelen;
+  int width, height;
 
   namelen = strlen (tmp_win->name);
+#endif
   bw2 = tmp_win->frame_bw * 2;
   AddingW = tmp_win->attr.width + bw2;
   AddingH = tmp_win->attr.height + tmp_win->title_height + bw2;
+#if 0
   width = (SIZE_HINDENT + MyFont_TextWidth (&Scr->SizeFont,
 					     tmp_win->name, namelen));
   height = Scr->SizeFont.height + SIZE_VINDENT * 2;
+#endif
   XGetGeometry(dpy, w, &JunkRoot, &origDragX, &origDragY,
 	       (unsigned int *)&DragWidth, (unsigned int *)&DragHeight, 
 	       &JunkBW, &JunkDepth);
@@ -1255,7 +1262,7 @@ resizeFromCenter(w, tmp_win)
   XQueryPointer (dpy, Scr->Root, &JunkRoot, 
 		 &JunkChild, &JunkX, &JunkY,
 		 &AddingX, &AddingY, &JunkMask);
-/*****
+#if 0
   Scr->SizeStringOffset = width +
     MyFont_TextWidth(&Scr->SizeFont, ": ", 2);
   XResizeWindow (dpy, Scr->SizeWindow, Scr->SizeStringOffset +
@@ -1263,16 +1270,16 @@ resizeFromCenter(w, tmp_win)
   MyFont_DrawImageString (dpy, Scr->SizeWindow, &Scr->SizeFont, Scr->NormalGC,
 		    width, SIZE_VINDENT + Scr->SizeFont.ascent,
 		    ": ", 2);
-*****/
+#endif
   lastx = -10000;
   lasty = -10000;
-/*****
+#if 0
   MoveOutline(Scr->Root,
 	      origDragX - JunkBW, origDragY - JunkBW,
 	      DragWidth * JunkBW, DragHeight * JunkBW,
 	      tmp_win->frame_bw,
 	      tmp_win->title_height);
-*****/
+#endif
   MenuStartResize(tmp_win, origDragX, origDragY, DragWidth, DragHeight);
   while (TRUE)
     {
@@ -2303,7 +2310,7 @@ ExecuteFunction(func, action, w, tmp_win, eventp, context, pulldown)
 	break;
 
     case F_QUIT:
-	Done(0);
+	Done(NULL, NULL);
 	break;
 
     case F_PRIORITY:

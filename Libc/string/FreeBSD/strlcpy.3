@@ -25,7 +25,7 @@
 .\" OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 .\" ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc/string/strlcpy.3,v 1.12 2002/12/18 12:45:11 ru Exp $
+.\" $FreeBSD: src/lib/libc/string/strlcpy.3,v 1.13 2004/07/02 23:52:13 ru Exp $
 .\"
 .Dd June 22, 1998
 .Dt STRLCPY 3
@@ -47,7 +47,8 @@ The
 .Fn strlcpy
 and
 .Fn strlcat
-functions copy and concatenate strings respectively.  They are designed
+functions copy and concatenate strings respectively.
+They are designed
 to be safer, more consistent, and less error prone replacements for
 .Xr strncpy 3
 and
@@ -108,7 +109,8 @@ The
 and
 .Fn strlcat
 functions return the total length of the string they tried to
-create.  For
+create.
+For
 .Fn strlcpy
 that means the length of
 .Fa src .

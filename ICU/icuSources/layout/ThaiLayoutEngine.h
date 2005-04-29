@@ -1,8 +1,7 @@
 
 /*
- * @(#)ThaiLayoutEngine.h	1.3 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -16,6 +15,8 @@
 #include "ThaiShaping.h"
 
 U_NAMESPACE_BEGIN
+
+class LEGlyphStorage;
 
 /**
  * This class implements layout for the Thai script, using the ThaiShapingClass.
@@ -54,16 +55,16 @@ public:
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
-    virtual inline UClassID getDynamicClassID() const { return getStaticClassID(); }
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
-    static inline UClassID getStaticClassID() { return (UClassID)&fgClassID; }
+    static UClassID getStaticClassID();
 
 protected:
     /**
@@ -98,11 +99,10 @@ protected:
      * @param offset - the index of the first character to process
      * @param count - the number of characters to process
      * @param max - the number of characters in the input context
-     * @param rightToLeft - true if the text is in a right to left directional run
+     * @param rightToLeft - <code>TRUE</code> if the text is in a right to left directional run
+     * @param glyphStorage - the glyph storage object. The glyph and char index arrays will be set.
      *
      * Output parameters:
-     * @param glyphs - the glyph index array
-     * @param charIndices - the character index array
      * @param success - set to an error code if the operation fails
      *
      * @return the number of glyphs in the glyph index array
@@ -112,15 +112,8 @@ protected:
      * @internal
      */
     virtual le_int32 computeGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_int32 max, le_bool rightToLeft,
-        LEGlyphID *&glyphs, le_int32 *&charIndices, LEErrorCode &success);
+        LEGlyphStorage &glyphStorage, LEErrorCode &success);
 
-private:
-
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
 };
 
 U_NAMESPACE_END

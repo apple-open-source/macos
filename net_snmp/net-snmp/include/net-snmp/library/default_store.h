@@ -1,5 +1,19 @@
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
+ */
 /*
- * default_store.h: storage space for defaults 
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
+/*
+ * @file default_store.h: storage space for defaults
+ *
+ * @addtogroup default_store
+ *
+ * @{
  */
 #ifndef DEFAULT_STORE_H
 #define DEFAULT_STORE_H
@@ -9,14 +23,14 @@ extern          "C" {
 #endif
 
 #define NETSNMP_DS_MAX_IDS 3
-#define NETSNMP_DS_MAX_SUBIDS 32        /* needs to be a multiple of 8 */
+#define NETSNMP_DS_MAX_SUBIDS 40        /* needs to be a multiple of 8 */
 
     /*
      * begin storage definitions 
      */
-    /*
-     * These definitions correspond with the "storid" argument to the API 
-     */
+/**
+ * @def NETSNMP_DS_LIBRARY_ID These definitions correspond with the "storid" argument to the API 
+ */
 #define NETSNMP_DS_LIBRARY_ID     0
 #define NETSNMP_DS_APPLICATION_ID 1
 #define NETSNMP_DS_TOKEN_ID       2
@@ -60,6 +74,9 @@ extern          "C" {
 #define NETSNMP_DS_LIB_DONT_PRINT_UNITS    29 /* don't print UNITS suffix */
 #define NETSNMP_DS_LIB_NO_DISPLAY_HINT     30 /* don't apply DISPLAY-HINTs */
 #define NETSNMP_DS_LIB_16BIT_IDS           31   /* restrict requestIDs, etc to 16-bit values */
+#define NETSNMP_DS_LIB_DONT_PERSIST_STATE  32	/* don't save/load any persistant state */
+#define NETSNMP_DS_LIB_2DIGIT_HEX_OUTPUT   33	/* print a leading 0 on hex values <= 'f' */
+#define NETSNMP_DS_LIB_IGNORE_NO_COMMUNITY 34	/* don't complain if not community is specified in the command arguments */
 
     /*
      * library integers 
@@ -71,12 +88,21 @@ extern          "C" {
 #define NETSNMP_DS_LIB_OID_OUTPUT_FORMAT  4
 #define NETSNMP_DS_LIB_PRINT_SUFFIX_ONLY  NETSNMP_DS_LIB_OID_OUTPUT_FORMAT
 #define NETSNMP_DS_LIB_STRING_OUTPUT_FORMAT 5
+#define NETSNMP_DS_LIB_HEX_OUTPUT_LENGTH 6
+#define NETSNMP_DS_LIB_SERVERSENDBUF   7 /* send buffer (server) */
+#define NETSNMP_DS_LIB_SERVERRECVBUF   8 /* receive buffer (server) */
+#define NETSNMP_DS_LIB_CLIENTSENDBUF   9 /* send buffer (client) */
+#define NETSNMP_DS_LIB_CLIENTRECVBUF  10 /* receive buffer (client) */
 
     /*
      * special meanings for the default SNMP version slot (NETSNMP_DS_LIB_SNMPVERSION) 
      */
+#ifndef DISABLE_SNMPV1
 #define NETSNMP_DS_SNMP_VERSION_1    128        /* bogus */
+#endif
+#ifndef DISABLE_SNMPV2C
 #define NETSNMP_DS_SNMP_VERSION_2c   1  /* real */
+#endif
 #define NETSNMP_DS_SNMP_VERSION_3    3  /* real */
 
 
@@ -95,6 +121,17 @@ extern          "C" {
 #define NETSNMP_DS_LIB_CONFIGURATION_DIR 9
 #define NETSNMP_DS_LIB_SECMODEL          10
 #define NETSNMP_DS_LIB_MIBDIRS           11
+#define NETSNMP_DS_LIB_OIDSUFFIX         12
+#define NETSNMP_DS_LIB_OIDPREFIX         13
+#define NETSNMP_DS_LIB_CLIENT_ADDR       14
+#define NETSNMP_DS_LIB_TEMP_FILE_PATTERN 15
+#define NETSNMP_DS_LIB_AUTHMASTERKEY     16
+#define NETSNMP_DS_LIB_PRIVMASTERKEY     17
+#define NETSNMP_DS_LIB_AUTHLOCALIZEDKEY  18
+#define NETSNMP_DS_LIB_PRIVLOCALIZEDKEY  19
+#define NETSNMP_DS_LIB_APPTYPES          20
+#define NETSNMP_DS_LIB_KSM_KEYTAB        21
+#define NETSNMP_DS_LIB_KSM_SERVICE_NAME  22
 
     /*
      * end storage definitions 
@@ -122,3 +159,4 @@ extern          "C" {
 }
 #endif
 #endif                          /* DEFAULT_STORE_H */
+/** @} */

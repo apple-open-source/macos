@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: isieve.h,v 1.10 2003/02/13 20:15:53 rjs3 Exp $ */
+/* $Id: isieve.h,v 1.5 2005/03/05 00:37:34 dasenbro Exp $ */
 
 #ifndef ISIEVE_H_
 #define ISIEVE_H_

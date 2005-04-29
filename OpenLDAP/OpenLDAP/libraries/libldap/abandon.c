@@ -1,13 +1,23 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/abandon.c,v 1.25.2.4 2003/03/03 17:10:04 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/*  Portions
- *  Copyright (c) 1990 Regents of the University of Michigan.
- *  All rights reserved.
+/* abandon.c */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/abandon.c,v 1.31.2.4 2004/02/23 22:08:05 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *  abandon.c
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions  Copyright (c) 1990 Regents of the University of Michigan.
+ * All rights reserved.
+ */
+/* Portions Copyright (C) The Internet Society (1997).
+ * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
  */
 
 /*
@@ -64,10 +74,17 @@ ldap_abandon_ext(
 #endif
 
 	/* check client controls */
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_lock( &ld->ld_req_mutex );
+#endif
 	rc = ldap_int_client_controls( ld, cctrls );
-	if( rc != LDAP_SUCCESS ) return rc;
+	if( rc == LDAP_SUCCESS )
+		rc = do_abandon( ld, msgid, msgid, sctrls, cctrls );
 
-	return do_abandon( ld, msgid, msgid, sctrls, cctrls );
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_unlock( &ld->ld_req_mutex );
+#endif
+	return rc;
 }
 
 
@@ -141,7 +158,17 @@ do_abandon(
 		}
 	}
 
-	if ( ldap_msgdelete( ld, msgid ) == 0 ) {
+/* ldap_msgdelete locks the res_mutex. Give up the req_mutex
+ * while we're in there.
+ */
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_unlock( &ld->ld_req_mutex );
+#endif
+	err = ldap_msgdelete( ld, msgid );
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_lock( &ld->ld_req_mutex );
+#endif
+	if ( err == 0 ) {
 		ld->ld_errno = LDAP_SUCCESS;
 		return LDAP_SUCCESS;
 	}
@@ -159,6 +186,12 @@ do_abandon(
 			ld->ld_errno = LDAP_NO_MEMORY;
 
 		} else {
+	/*
+	 * We already have the mutex in LDAP_R_COMPILE, so
+	 * don't try to get it again.
+	 *		LDAP_NEXT_MSGID(ld, i);
+	 */
+			i = ++(ld)->ld_msgid;
 #ifdef LDAP_CONNECTIONLESS
 			if ( LDAP_IS_UDP(ld) ) {
 			    err = ber_write( ber, ld->ld_options.ldo_peer,
@@ -169,14 +202,14 @@ do_abandon(
 			    char *dn = ld->ld_options.ldo_cldapdn;
 			    if (!dn) dn = "";
 			    err = ber_printf( ber, "{isti",  /* '}' */
-				++ld->ld_msgid, dn,
+				i, dn,
 				LDAP_REQ_ABANDON, msgid );
 			} else
 #endif
 			{
 			    /* create a message to send */
 			    err = ber_printf( ber, "{iti",  /* '}' */
-				++ld->ld_msgid,
+				i,
 				LDAP_REQ_ABANDON, msgid );
 			}
 

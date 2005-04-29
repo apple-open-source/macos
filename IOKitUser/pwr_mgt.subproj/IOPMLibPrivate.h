@@ -20,16 +20,17 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <IOKit/IOKitLib.h>
-#include <CoreFoundation/CFArray.h>
-#include <IOKit/pwr_mgt/IOPMLibDefs.h>
-
 #ifndef _IOPMLibPrivate_h_
 #define _IOPMLibPrivate_h_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <IOKit/IOKitLib.h>
+#include <CoreFoundation/CFArray.h>
+#include <IOKit/pwr_mgt/IOPMLibDefs.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
+#define kIOPMServerBootstrapName    "com.apple.PowerManagement.control"
 
 // AutoWake API
 // For internal use communicating between IOKitUser and PM configd
@@ -42,6 +43,7 @@ extern "C" {
 *
 **************************************************/
 #define kIOPMDynamicStoreSettingsKey    "State:/IOKit/PowerManagement/CurrentSettings"
+#define kIOPMDefaultPreferencesKey      "Defaults"
 
 #define kIOPMUPSPowerKey                                "UPS Power"
 #define kIOPMBatteryPowerKey                            "Battery Power"
@@ -71,6 +73,10 @@ extern "C" {
 // units - CFNumber 0/1
 #define kIOPMWakeOnClamshellKey                         "Wake On Clamshell Open"
 // units - CFNumber 0/1
+#define kIOPMReduceBrightnessKey                        "ReduceBrightness"
+// units - CFNumber 0/1
+#define kIOPMDisplaySleepUsesDimKey                     "Display Sleep Uses Dim"
+// units - CFNumber 0/1
 #define kIOPMMobileMotionModuleKey                      "Mobile Motion Module"
 
 typedef void (*IOPMPrefsCallbackType)(void *context);
@@ -91,6 +97,9 @@ CFRunLoopSourceRef IOPMPrefsNotificationCreateRunLoopSource(IOPMPrefsCallbackTyp
 @function IOPMCopyPMPreferences.
 @abstract Returns a CFDictionary of Power Management preferences. A preference is a CFDictionary
     of Energy Saver settings. They are indexed within the dictionary by CFStrings. ("Battery Power", "AC Power")
+@discussion The CFString key kIOPMDefaultPreferencesKey will be present in the top-level dictionary
+    if the returned value is default (as in the case of a first boot after clean install) rather 
+    than a user-selected set of preferences.
 @result Returns a CFDictionary or NULL if request failed. It's the caller's responsibility to CFRelease the dictionary.
      */
 CFMutableDictionaryRef IOPMCopyPMPreferences(void);
@@ -124,6 +133,132 @@ IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStringRef pr
 @result Returns true if supported, false otherwise.
      */
 bool IOPMFeatureIsAvailable(CFStringRef feature, CFStringRef power_source);
+
+/**************************************************
+*
+* Dynamic Power Assertions
+* Allows any application to dynamically request "Highest Performance"
+*
+**************************************************/
+// Keeps the CPU at its highest level
+#define kIOPMCPUBoundAssertion                    CFSTR("CPUBoundAssertion")
+
+// UNSUPPORTED: kIOPMPreventIdleSleepAssertion is UNSUPPORTED in 10.4
+#define kIOPMPreventIdleSleepAssertion            CFSTR("NoIdleSleepAssertion")
+
+enum {
+    kIOPMAssertionDisable = 0,
+    kIOPMAssertionEnable  = 255
+ };
+
+typedef int IOPMAssertionID;
+
+    /*!
+@function IOPMAssertionCreate
+@abstract Dynamically requests a system behavior from the power management system.
+@discussion No special privileges necessary to make this call - any process may
+        activate a power profile.
+@param assertion The CFString profile to request from the PM system.
+@param level Pass kIOPMProfileEnable or kIOPMProfileDisable.
+@param assertion_id On success, a unique id will be returned in this parameter.
+@result Returns kIOReturnSuccess on success, any other return indicates
+        PM could not successfully activate the specified profile.
+     */
+IOReturn IOPMAssertionCreate(CFStringRef  assertion, 
+                           int level,
+                           IOPMAssertionID *assertion_id);                           
+                           
+    /*!
+@function IOPMAssertionRelease
+@abstract Releases the behavior requested in IOPMAssertionCreate
+@discussion All calls to IOPMAssertionCreate must be paired with calls to  
+        IOPMAssertionRelease.
+@param assertion_id The assertion_id, returned from IOPMAssertionCreate, to cancel.
+@result Returns kIOReturnSuccess on success
+     */
+IOReturn IOPMAssertionRelease(IOPMAssertionID assertion_id);
+
+// Use these keys to examine assertion dictionaries returned
+// in IOPMCopyAssertionsByProcess() return value.
+#define kIOPMAssertionTypeKey       CFSTR("assert_type")
+#define kIOPMAssertionValueKey      CFSTR("assert_value")
+
+    /*!
+@function IOPMCopyAssertionsByProcess
+@abstract Returns a dictionary mapping active profiles to the processes that activated them (by pid).
+@discussion Notes: One process may have multiple profiles asserted. Several processes may
+            have asserted the same profile to different levels.
+@param assertions_by_pid On success, this returns a terribly complicated nested data structure 
+        of assertions per process.
+        At the top level, keys to the CFDictionary are pids stored as CFNumbers (kCFNumberIntType).
+        The value associated with each CFNumber pid is a CFArray of active assertions.
+        Each entry in the CFArray is an assertion represented as a CFDictionary. See the keys
+            kIOPMAssertionTypeKey and kIOPMAssertionValueKey           
+@result Returns kIOReturnSuccess on success.
+     */
+IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *assertions_by_pid);
+
+    /*!
+@function IOPMCopyAssertionsStatus
+a@bstract Returns a list of available profiles and their currently aggregated state.
+@discussion Notes: One process may have multiple profiles asserted. Several processes may
+            have asserted the same profile to different levels.
+@param assertions_status On success, this returns a CFDictionary of all profiles currently available.
+       The keys in the dictionary are the profile names, and the value of each is a CFNumber that
+       represents the aggregate level for that profile.  Caller must CFRelease() this dictionary when done.
+@result Returns kIOReturnSuccess on success.
+     */
+IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *assertions_status);
+
+
+
+/**************************************************
+*
+* Power Profiles (use in combination with Energy Saver Preferences above)
+*
+**************************************************/
+#define kIOPMCustomPowerProfile         -1
+#define kIOPMNumPowerProfiles           5
+
+/*! @function IOPMCopyPowerProfilesInfo
+    @abstract Returns all power profiles and their corresponding Energy Settings.
+    @discussion The array return value contains 5 dictionaries.
+        - Entry 0 represents the "highest power savings", and entry 4 represents "Highest performance"
+        - Each entry in the array is a "Power Profile" dictionary, which in turn contains individual
+        dictionaries for AC Power, Battery Power, and UPS Power. Each of these per-power source
+        dictionaries contains a mapping of Energy Settings to their values.
+        Intended clients: Energy Saver Prefs, Battery Monitor, and pmset.
+        - Use IOPMCopyPMPreferences() to read the custom profile.
+        - Unsupported features and unsupported power sources will not be present in the returned data.
+    @result NULL on error, a CFArrayRef on success.
+        Caller must CFRelease() the return value when done.
+*/
+CFArrayRef          IOPMCopyPowerProfiles(void);
+
+/*! @function IOPMCopyActivePowerProfile
+    @abstract Returns the index of the currently active profile, or -1 if Custom preferences are active.
+    @result A CFDictionary containing 1 or more entries mapping Power Sources to the currently
+            selected profiles for each power source. kIOPMUPSPowerKey, kIOPMACPowerKey, kIOPMBatteryPowerKey
+            With corresponding CFNumber value specifying an index falling somewhere within the 
+            IOPMCopyPowerProfiles() array
+            OR integer value kIOPMCustomPowerProfile.
+*/
+CFDictionaryRef     IOPMCopyActivePowerProfiles(void);
+
+/*! @function IOPMSetActivePowerProfile
+    @abstract Activates the specified power profile, or the user's custom defined profile.
+    @discussion Caller must have root, or admin privileges, or be the console user.
+        Selects and activates a system power profile per power-source.
+        - Use IOPMSetPMPreferences() to re-program the custom profile.
+        - This call triggers notifications to all clients of IOPMPrefsNotificationCreateRunLoopSource()
+    @param which_profile A CFDictionary specifying which profile to use for each power source.
+        Keys should be CFSTR: kIOPMUPSPowerKey, kIOPMACPowerKey, kIOPMBatteryPowerKey
+        Value should be a CFNumber (IntType) with value -1 to 4
+    @result kIOReturnNotPrivileged if caller does not have permission.
+        Caller must CFRelease() the return value when done accessing it.
+*/
+IOReturn            IOPMSetActivePowerProfiles(CFDictionaryRef which_profile);
+
 
 /**************************************************
 *
@@ -188,9 +323,7 @@ IOReturn IOPMCancelAllRepeatingPowerEvents(void);
 
 
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif // _IOPMLibPrivate_h_
 

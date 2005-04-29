@@ -13,12 +13,12 @@
 /*
  * Support code for Solaris threads.  Provides functionality we wish Sun
  * had provided.  Relies on some information we probably shouldn't rely on.
- * Modified Peter C. for Solaris Posix Threads.
+ * Modified by Peter C. for Solaris Posix Threads.
  */
-/* Boehm, September 14, 1994 4:44 pm PDT */
+
+#include "private/gc_priv.h"
 
 # if defined(GC_SOLARIS_PTHREADS)
-# include "private/gc_priv.h"
 # include <pthread.h>
 # include <thread.h>
 # include <signal.h>

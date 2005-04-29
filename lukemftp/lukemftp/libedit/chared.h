@@ -1,4 +1,4 @@
-/*	$NetBSD: chared.h,v 1.5 2000/09/04 22:06:29 lukem Exp $	*/
+/*	$NetBSD: chared.h,v 1.8 2002/03/18 16:00:51 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -43,6 +43,9 @@
  */
 #ifndef _h_el_chared
 #define	_h_el_chared
+
+#include <ctype.h>
+#include <string.h>
 
 #include "histedit.h"
 
@@ -150,6 +153,7 @@ protected int	 c_hpos(EditLine *);
 
 protected int	 ch_init(EditLine *);
 protected void	 ch_reset(EditLine *);
+protected int	 ch_enlargebufs(EditLine *, size_t);
 protected void	 ch_end(EditLine *);
 
 #endif /* _h_el_chared */

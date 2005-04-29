@@ -175,11 +175,9 @@ OSErr	RebuildCatalogBTree( SGlobPtr theSGlobPtr )
 		myVCBPtr->vcbBackupDate = myVHBPtr->backupDate;	
 		myVCBPtr->vcbCatalogFile->fcbClumpSize = myVHBPtr->catalogFile.clumpSize;
 
-		//	verify volume attribute flags
-		if ( ((UInt16)myVHBPtr->attributes & VAtrb_Msk) == 0 )
-			myVCBPtr->vcbAttributes = (UInt16)myVHBPtr->attributes;
-		else 
-			myVCBPtr->vcbAttributes = VAtrb_DFlt;
+		// 3882639: Removed check for volume attributes in HFS Plus 
+		myVCBPtr->vcbAttributes = myVHBPtr->attributes;
+
 		CopyMemory( myVHBPtr->finderInfo, myVCBPtr->vcbFinderInfo, sizeof(myVCBPtr->vcbFinderInfo) );
 	}
 	else

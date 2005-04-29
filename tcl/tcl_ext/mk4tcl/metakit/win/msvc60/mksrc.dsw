@@ -1,0 +1,173 @@
+Microsoft Developer Studio Workspace File, Format Version 6.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "mkbug"=.\mkbug.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name mklib
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "mkdemo"=.\mkdemo.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name mkdll
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "mkdist"=.\mkdist.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name mkdll
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name mklib
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name mkpython
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name mktcl
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name mkhash
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "mkdll"=.\mkdll.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "mkdump"=.\mkdump.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name mklib
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "mkhash"=.\mkhash.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name mklib
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "mklib"=.\mklib.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "mkpython"=.\mkpython.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name mklib
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "mktcl"=.\mktcl.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name mklib
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "mktest"=.\mktest.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name mklib
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

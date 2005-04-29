@@ -1,9 +1,9 @@
+// { dg-do assemble  }
 // PRMS Id: 6825
-// Build don't link:
 
 class aClass 
 { 
-  ;
+  ; // { dg-error "" } missing declaration
 private: 
-  ;   // This line causes problems 
+  ; // { dg-error "" } missing declaration
 }; 

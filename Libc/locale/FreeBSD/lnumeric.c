@@ -25,11 +25,12 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/lnumeric.c,v 1.14 2003/03/20 08:05:20 ache Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/lnumeric.c,v 1.16 2003/06/26 10:46:16 phantom Exp $");
 
 #include <limits.h>
-#include "lnumeric.h"
+
 #include "ldpart.h"
+#include "lnumeric.h"
 
 extern int __nlocale_changed;
 extern const char *__fix_locale_grouping_str(const char *);
@@ -54,7 +55,7 @@ __numeric_load_locale(const char *name)
 	int ret;
 
 	ret = __part_load_locale(name, &_numeric_using_locale,
-		_numeric_locale_buf, "LC_NUMERIC",
+		&_numeric_locale_buf, "LC_NUMERIC",
 		LCNUMERIC_SIZE, LCNUMERIC_SIZE,
 		(const char **)&_numeric_locale);
 	if (ret != _LDP_ERROR)

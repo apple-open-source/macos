@@ -1,4 +1,4 @@
-# Copyright (C) 2000-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2000-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,6 +30,7 @@ from Mailman import Errors
 from Mailman import LockFile
 from Mailman.Queue.Runner import Runner
 from Mailman.Queue.Switchboard import Switchboard
+from Mailman.Queue.BounceRunner import BounceMixin
 from Mailman.Logging.Syslog import syslog
 
 # This controls how often _doperiodic() will try to deal with deferred
@@ -44,14 +45,12 @@ except NameError:
 
 
 
-class OutgoingRunner(Runner):
+class OutgoingRunner(Runner, BounceMixin):
     QDIR = mm_cfg.OUTQUEUE_DIR
 
     def __init__(self, slice=None, numslices=1):
         Runner.__init__(self, slice, numslices)
-        # Maps mailing lists to (recip, msg) tuples
-        self._permfailures = {}
-        self._permfail_counter = 0
+        BounceMixin.__init__(self)
         # We look this function up only at startup time
         modname = 'Mailman.Handlers.' + mm_cfg.DELIVERY_MODULE
         mod = __import__(modname)
@@ -91,67 +90,46 @@ class OutgoingRunner(Runner):
                 self.__logged = True
             return True
         except Errors.SomeRecipientsFailed, e:
-            # The delivery module being used (SMTPDirect or Sendmail) failed
-            # to deliver the message to one or all of the recipients.
-            # Permanent failures should be registered (but registration
-            # requires the list lock), and temporary failures should be
-            # retried later.
-            #
-            # For permanent failures, make a copy of the message for bounce
-            # handling.  I'm not sure this is necessary, or the right thing to
-            # do.
-            if e.permfailures:
-                pcnt = len(e.permfailures)
-                msgcopy = copy.deepcopy(msg)
-                self._permfailures.setdefault(mlist, []).extend(
-                    zip(e.permfailures, [msgcopy] * pcnt))
-            # Move temporary failures to the qfiles/retry queue which will
-            # occasionally move them back here for another shot at delivery.
-            if e.tempfailures:
-                now = time.time()
-                recips = e.tempfailures
-                last_recip_count = msgdata.get('last_recip_count', 0)
-                deliver_until = msgdata.get('deliver_until', now)
-                if len(recips) == last_recip_count:
-                    # We didn't make any progress, so don't attempt delivery
-                    # any longer.  BAW: is this the best disposition?
-                    if now > deliver_until:
-                        return False
-                else:
-                    # Keep trying to delivery this message for a while
-                    deliver_until = now + mm_cfg.DELIVERY_RETRY_PERIOD
-                msgdata['last_recip_count'] = len(recips)
-                msgdata['deliver_until'] = deliver_until
-                msgdata['recips'] = recips
-                self.__retryq.enqueue(msg, msgdata)
+            # Handle local rejects of probe messages differently.
+            if msgdata.get('probe_token'):
+                self._probe_bounce(mlist, msgdata['probe_token'])
+            else:
+                # Delivery failed at SMTP time for some or all of the
+                # recipients.  Permanent failures are registered as bounces,
+                # but temporary failures are retried for later.
+                #
+                # BAW: msg is going to be the original message that failed
+                # delivery, not a bounce message.  This may be confusing if
+                # this is what's sent to the user in the probe message.  Maybe
+                # we should craft a bounce-like message containing information
+                # about the permanent SMTP failure?
+                self._queue_bounces(mlist.internal_name(), e.permfailures, msg)
+                # Move temporary failures to the qfiles/retry queue which will
+                # occasionally move them back here for another shot at
+                # delivery.
+                if e.tempfailures:
+                    now = time.time()
+                    recips = e.tempfailures
+                    last_recip_count = msgdata.get('last_recip_count', 0)
+                    deliver_until = msgdata.get('deliver_until', now)
+                    if len(recips) == last_recip_count:
+                        # We didn't make any progress, so don't attempt
+                        # delivery any longer.  BAW: is this the best
+                        # disposition?
+                        if now > deliver_until:
+                            return False
+                    else:
+                        # Keep trying to delivery this message for a while
+                        deliver_until = now + mm_cfg.DELIVERY_RETRY_PERIOD
+                    msgdata['last_recip_count'] = len(recips)
+                    msgdata['deliver_until'] = deliver_until
+                    msgdata['recips'] = recips
+                    self.__retryq.enqueue(msg, msgdata)
         # We've successfully completed handling of this message
         return False
 
-    def _doperiodic(self):
-        # Periodically try to acquire the list lock and clear out the
-        # permanent failures.
-        self._permfail_counter += 1
-        if self._permfail_counter < DEAL_WITH_PERMFAILURES_EVERY:
-            return
-        self._handle_permfailures()
-
-    def _handle_permfailures(self):
-        # Reset the counter
-        self._permfail_counter = 0
-        # And deal with the deferred permanent failures.
-        for mlist in self._permfailures.keys():
-            try:
-                mlist.Lock(timeout=mm_cfg.LIST_LOCK_TIMEOUT)
-            except LockFile.TimeOutError:
-                return
-            try:
-                for recip, msg in self._permfailures[mlist]:
-                    mlist.registerBounce(recip, msg)
-                del self._permfailures[mlist]
-                mlist.Save()
-            finally:
-                mlist.Unlock()
+    _doperiodic = BounceMixin._doperiodic
 
     def _cleanup(self):
-        self._handle_permfailures()
+        BounceMixin._cleanup(self)
         Runner._cleanup(self)

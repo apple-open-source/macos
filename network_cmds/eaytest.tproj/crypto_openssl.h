@@ -1,4 +1,4 @@
-/*	$KAME: crypto_openssl.h,v 1.23 2001/08/14 12:26:06 sakane Exp $	*/
+/*	$KAME: crypto_openssl.h,v 1.25 2002/04/25 09:48:32 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -29,6 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifdef HAVE_OPENSSL_EVP_H
+#include <openssl/evp.h>
+#endif
+
 #ifdef HAVE_SIGNING_C
 /* X509 Certificate */
 #define GENT_OTHERNAME	0
@@ -43,7 +47,7 @@
 
 extern vchar_t *eay_str2asn1dn __P((char *, int));
 extern int eay_cmp_asn1dn __P((vchar_t *, vchar_t *));
-extern int eay_check_x509cert __P((vchar_t *, char *));
+extern int eay_check_x509cert __P((vchar_t *, char *, int));
 extern vchar_t *eay_get_x509asn1subjectname __P((vchar_t *));
 extern int eay_get_x509subjectaltname __P((vchar_t *, char **, int *, int));
 extern char *eay_get_x509text __P((vchar_t *));
@@ -54,7 +58,7 @@ extern int eay_check_pkcs7sign __P((vchar_t *, vchar_t *, vchar_t *));
 
 /* RSA */
 extern vchar_t *eay_rsa_sign __P((vchar_t *, vchar_t *));
-extern int eay_rsa_verify __P((vchar_t *, vchar_t *, vchar_t *));
+extern int eay_rsa_verify __P((vchar_t *, vchar_t *, EVP_PKEY *));
 
 /* ASN.1 */
 extern vchar_t *eay_get_pkcs1privkey __P((char *));
@@ -108,6 +112,7 @@ extern int eay_aes_weakkey __P((vchar_t *));
 extern int eay_aes_keylen __P((int));
 
 /* misc */
+extern int eay_null_keylen __P((int));
 extern int eay_null_hashlen __P((void));
 extern int eay_kpdk_hashlen __P((void));
 extern int eay_twofish_keylen __P((int));

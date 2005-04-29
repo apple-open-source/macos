@@ -34,13 +34,6 @@ extern void dw2_asm_output_delta	PARAMS ((int, const char *,
 						 const char *, ...))
      /* ATTRIBUTE_PRINTF_4 */;
 
-/* APPLE LOCAL begin C++ EH */
-extern void dw2_asm_output_reloc_delta	PARAMS ((int, const char *,
-						 const char *,
-						 const char *, ...))
-     /* ATTRIBUTE_PRINTF_4 */;
-/* APPLE LOCAL end C++ EH */
-
 extern void dw2_asm_output_offset	PARAMS ((int, const char *,
 						 const char *, ...))
      /* ATTRIBUTE_PRINTF_3 */;

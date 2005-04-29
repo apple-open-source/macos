@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: ctx.c,v 1.21.34.1 2004/01/27 22:00:48 lindak Exp $
+ * $Id: ctx.c,v 1.32 2005/02/24 02:04:38 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -41,16 +41,15 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <charsets.h>
 #include <stdlib.h>
 #include <pwd.h>
 #include <grp.h>
 #include <unistd.h>
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 
-#ifdef APPLE
 #include <sys/types.h>
 extern uid_t real_uid, eff_uid;
-#endif
 
 #define NB_NEEDRESOLVER
 
@@ -67,6 +66,11 @@ extern MECH_OID g_stcMechOIDList [];
 
 #include <com_err.h>
 #include <krb5.h>
+#include <sys/mchain.h>
+
+#include <charsets.h>
+
+#include <rpc_cleanup.h>
 
 extern char *__progname;
 
@@ -85,10 +89,8 @@ smb_ctx_init(struct smb_ctx *ctx, int argc, char *argv[],
 	struct passwd *pw;
 
 	bzero(ctx, sizeof(*ctx));
-#ifdef APPLE
 	if (sharetype == SMB_ST_DISK)
 		ctx->ct_flags |= SMBCF_BROWSEOK;
-#endif
 	error = nb_ctx_create(&ctx->ct_nb);
 	if (error)
 		return error;
@@ -97,7 +99,7 @@ smb_ctx_init(struct smb_ctx *ctx, int argc, char *argv[],
 	ctx->ct_minlevel = minlevel;
 	ctx->ct_maxlevel = maxlevel;
 
-	ctx->ct_ssn.ioc_opt = SMBVOPT_CREATE;
+	ctx->ct_ssn.ioc_opt = SMBVOPT_CREATE | SMBVOPT_MINAUTH_NTLM;
 	ctx->ct_ssn.ioc_timeout = 15;
 	ctx->ct_ssn.ioc_retrycount = 4;
 	ctx->ct_ssn.ioc_owner = SMBM_ANY_OWNER;
@@ -129,7 +131,6 @@ smb_ctx_init(struct smb_ctx *ctx, int argc, char *argv[],
 		error = smb_ctx_parseunc(ctx, cp, sharetype, (const char**)&cp);
 		if (error)
 			return error;
-		ctx->ct_uncnext = cp;
 		break;
 	}
 	while (error == 0 && (opt = cf_getopt(argc, argv, ":E:L:U:")) != -1) {
@@ -157,6 +158,7 @@ smb_ctx_init(struct smb_ctx *ctx, int argc, char *argv[],
 void
 smb_ctx_done(struct smb_ctx *ctx)
 {
+	rpc_cleanup_smbctx(ctx);
 	if (ctx->ct_ssn.ioc_server)
 		nb_snbfree(ctx->ct_ssn.ioc_server);
 	if (ctx->ct_ssn.ioc_local)
@@ -187,67 +189,19 @@ getsubstring(const char *p, u_char sep, char *dest, int maxlen, const char **nex
 	return 0;
 }
 
-
-unsigned
-xtoi(unsigned u)
-{
-	if (isdigit(u))
-		return (u - '0');
-	else if (islower(u))
-		return (10 + u - 'a');
-	else if (isupper(u))
-		return (10 + u - 'A');
-	return (16);
-}
-
-
-/*
- * Removes the "%" escape sequences from a URL component.
- * See IETF RFC 2396.
- */
-char *
-unpercent(char * component)
-{
-	unsigned char c, *s;
-	unsigned hi, lo;
-
-	if (component)
-		for (s = component; (c = *s); s++) {
-			if (c != '%')
-				continue;
-			if ((hi = xtoi(s[1])) > 15 || (lo = xtoi(s[2])) > 15)
-				continue; /* ignore invalid escapes */
-			s[0] = hi*16 + lo;
-			/*
-			 * This was strcpy(s + 1, s + 3);
-			 * But nowadays leftward overlapping copies are
-			 * officially undefined in C.  Ours seems to
-			 * work or not depending upon alignment.
-			 */
-			memmove(s+1, s+3, strlen(s+3) + 1);
-		}
-	return (component);
-}
-
-
-#ifdef APPLE
 /*
  * Here we expect something like
  *   "//[workgroup;][user[:password]@]host[/share[/path]]"
- * See http://ietf.org/internet-drafts/draft-crhertel-smb-url-01.txt
+ * See http://ietf.org/internet-drafts/draft-crhertel-smb-url-07.txt
  */
-#else
-/*
- * Here we expect something like "[proto:]//[user@]host[/share][/path]"
- */
-#endif /* APPLE */
 int
 smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 	const char **next)
 {
 	const char *p = unc;
-	char *p1;
+	char *p1, *colon, *servername;
 	char tmp[1024];
+	char tmp2[1024];
 	int error ;
 
 	ctx->ct_parsedlevel = SMBL_NONE;
@@ -256,7 +210,6 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 		return EINVAL;
 	}
 	p1 = tmp;
-#ifdef APPLE
 	error = getsubstring(p, ';', p1, sizeof(tmp), &p);
 	if (!error) {
 		if (*p1 == 0) {
@@ -267,23 +220,24 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 		if (error)
 			return error;
 	}
-#endif /* APPLE */
+	colon = (char *)p;
 	error = getsubstring(p, '@', p1, sizeof(tmp), &p);
 	if (!error) {
 		if (ctx->ct_maxlevel < SMBL_VC) {
 			smb_error("no user name required", 0);
 			return EINVAL;
 		}
-#ifdef APPLE
 		p1 = strchr(tmp, ':');
 		if (p1) {
+			colon += p1 - tmp;
 			*p1++ = (char)0;
 			error = smb_ctx_setpassword(ctx, unpercent(p1));
 			if (error)
 				return error;
+			if (p - colon > 2)
+				memset(colon+1, '*', p - colon - 2);
 		}
 		p1 = tmp;
-#endif /* APPLE */
 		if (*p1 == 0) {
 			smb_error("empty user name", 0);
 			return EINVAL;
@@ -305,7 +259,49 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 		smb_error("empty server name", 0);
 		return EINVAL;
 	}
-	error = smb_ctx_setserver(ctx, unpercent(tmp));
+
+	
+	/* 
+	 * It's safe to uppercase this string, which
+	 * consists of ascii characters that should
+	 * be uppercased, %s, and ascii characters representing
+	 * hex digits 0-9 and A-F (already uppercased, and
+	 * if not uppercased they need to be). However,
+	 * it is NOT safe to uppercase after it has been 
+	 * converted, below! 
+	 */
+	
+	nls_str_upper(tmp2,tmp);
+	
+	/*
+	 * scan for % in the string.
+	 * If we find one, convert 
+	 * to the assumed codepage.
+	 */
+
+	if (strchr(tmp2,'%')) {
+		/* use the 1st buffer, we don't need the old string */
+		servername = tmp; 
+		if (!(servername = convert_utf8_to_wincs(unpercent(tmp2)))) {
+			smb_error("bad server name", 0);
+			return EINVAL;
+		}
+		/* 
+		 * Converts utf8 to win equivalent of 
+		 * what is configured on this machine. 
+		 * Note that we are assuming this is the 
+		 * encoding used on the server, and that
+		 * assumption might be incorrect. This is
+		 * the best we can do now, and we should 
+		 * move to use port 445 to avoid having
+		 * to worry about server codepages.
+		 */
+	}
+	else /* no conversion needed */
+		servername = tmp2;
+
+	error = smb_ctx_setserver(ctx,servername);
+
 	if (error)
 		return error;
 	if (sharetype == SMB_ST_NONE) {
@@ -324,12 +320,8 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 			return error;
 		}
 	}
-#ifdef APPLE
 	if (*p1 == 0 && ctx->ct_minlevel >= SMBL_SHARE &&
 	    !(ctx->ct_flags & SMBCF_BROWSEOK)) {
-#else
-	if (*p1 == 0 && ctx->ct_minlevel >= SMBL_SHARE) {
-#endif
 		smb_error("empty share name", 0);
 		return EINVAL;
 	}
@@ -371,7 +363,6 @@ smb_ctx_setcharset(struct smb_ctx *ctx, const char *arg)
 	return error;
 }
 
-#ifdef APPLE
 int
 smb_ctx_setfullsrvraddr(struct smb_ctx *ctx, const char *name)
 {
@@ -397,7 +388,7 @@ smb_ctx_setfullsrvraddr(struct smb_ctx *ctx, const char *name)
  * These fallback heuristics should be triggered when the attempt to open the
  * session fails instead of in the code below.
  *
- * See http://ietf.org/internet-drafts/draft-crhertel-smb-url-01.txt
+ * See http://ietf.org/internet-drafts/draft-crhertel-smb-url-07.txt
  */
 int
 smb_ctx_getnbname(struct smb_ctx *ctx, struct sockaddr *sap)
@@ -426,7 +417,9 @@ smb_ctx_getnbname(struct smb_ctx *ctx, struct sockaddr *sap)
 		if (dot)
 			*dot = '\0';
 		if (strlen(ctx->ct_fullsrvaddr) <= SMB_MAXSRVNAMELEN) {
-			nls_str_upper(ctx->ct_ssn.ioc_srvname, ctx->ct_fullsrvaddr);
+			/* don't uppercase the server name. it comes from
+			* NBNS and uppercasing can clobber the characters */
+			strcpy(ctx->ct_ssn.ioc_srvname, ctx->ct_fullsrvaddr);
 			error = 0;
 		} else {
 			error = -1;
@@ -437,25 +430,19 @@ smb_ctx_getnbname(struct smb_ctx *ctx, struct sockaddr *sap)
 #endif
 	return error;
 }
-#endif /* APPLE */
 
+/* this routine does not uppercase the server name */
 int
 smb_ctx_setserver(struct smb_ctx *ctx, const char *name)
 {
-#ifdef APPLE
 	int error = smb_ctx_setfullsrvraddr(ctx, name);
 
 	if (error)
 		return error;
 	if (strlen(name) > SMB_MAXSRVNAMELEN)
 		return 0;
-#else
-	if (strlen(name) > SMB_MAXSRVNAMELEN) {
-		smb_error("server name '%s' too long", 0, name);
-		return ENAMETOOLONG;
-	}
-#endif
-	nls_str_upper(ctx->ct_ssn.ioc_srvname, name);
+	/* don't uppercase the server name */
+	strcpy(ctx->ct_ssn.ioc_srvname, name);
 	return 0;
 }
 
@@ -470,6 +457,9 @@ smb_ctx_setuser(struct smb_ctx *ctx, const char *name)
 	return 0;
 }
 
+/* never uppercase the workgroup */	
+/* name here. It will get uppercased */
+/* later, after conversion to UTF-8 */
 int
 smb_ctx_setworkgroup(struct smb_ctx *ctx, const char *name)
 {
@@ -477,7 +467,7 @@ smb_ctx_setworkgroup(struct smb_ctx *ctx, const char *name)
 		smb_error("workgroup name '%s' too long", 0, name);
 		return ENAMETOOLONG;
 	}
-	nls_str_upper(ctx->ct_ssn.ioc_workgroup, name);
+	strcpy(ctx->ct_ssn.ioc_workgroup, name);
 	return 0;
 }
 
@@ -656,36 +646,19 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 	u_char cstbl[256];
 	u_int i;
 	int error = 0;
-#ifdef APPLE
 	char password[SMB_MAXPASSWORDLEN + 1];
 	int browseok = ctx->ct_flags & SMBCF_BROWSEOK;
-#endif
 	
 	password[0] = '\0';
 	ctx->ct_flags &= ~SMBCF_RESOLVED;
-#ifdef APPLE
 	if (isatty(STDIN_FILENO))
 		browseok = 0;
 	if (ctx->ct_fullsrvaddr == NULL || ctx->ct_fullsrvaddr[0] == 0) {
-#else
-	if (ssn->ioc_srvname[0] == 0) {
-#endif
 		smb_error("no server name specified", 0);
 		return EINVAL;
 	}
-#ifndef APPLE
-	if (ssn->ioc_user[0] == 0) {
-		smb_error("no user name specified for server %s",
-		    0, ssn->ioc_srvname);
-		return EINVAL;
-	}
-#endif /* !APPLE */
-#ifdef APPLE
 	if (ctx->ct_minlevel >= SMBL_SHARE && sh->ioc_share[0] == 0 &&
 	    !browseok) {
-#else
-	if (ctx->ct_minlevel >= SMBL_SHARE && sh->ioc_share[0] == 0) {
-#endif
 		smb_error("no share name specified for %s@%s",
 		    0, ssn->ioc_user, ssn->ioc_srvname);
 		return EINVAL;
@@ -718,11 +691,8 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 	if (ctx->ct_srvaddr) {
 		error = nb_resolvehost_in(ctx->ct_srvaddr, &sap);
 	} else {
-#ifdef APPLE
 	    if (ssn->ioc_srvname[0]) {
-#endif
 		error = nbns_resolvename(ssn->ioc_srvname, ctx->ct_nb, &sap);
-#ifdef APPLE
 		if (!error && !ctx->ct_ssn.ioc_workgroup[0]) {
 			char wkgrp[SMB_MAXUSERNAMELEN + 1];
 
@@ -738,7 +708,6 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 		    if (error == 0)
 		    	smb_ctx_getnbname(ctx, sap);
 	    }
-#endif /* APPLE */
 	}
 	if (error) {
 		smb_error("can't get server address", error);
@@ -748,6 +717,7 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 	nn.nn_type = NBT_SERVER;
 	strcpy(nn.nn_name, ssn->ioc_srvname);
 	error = nb_sockaddr(sap, &nn, &saserver);
+	memcpy(&ctx->ct_srvinaddr, sap, sizeof (struct sockaddr_in));
 	nb_snbfree(sap);
 	if (error) {
 		smb_error("can't allocate server address", error);
@@ -775,10 +745,10 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 	ssn->ioc_lolen = salocal->snb_len;
 	ssn->ioc_svlen = saserver->snb_len;
 
-	error = smb_ctx_negotiate(ctx, SMBL_SHARE, SMBLK_CREATE);
+	/* added workgroup arg here */
+	error = smb_ctx_negotiate(ctx, SMBL_SHARE, SMBLK_CREATE,ssn->ioc_workgroup);
 	if (error)
 		return (error);
-#ifdef APPLE
 	ctx->ct_flags &= ~SMBCF_AUTHREQ;
 	if (!ctx->ct_secblob && browseok && !sh->ioc_share[0] &&
 	    !(ctx->ct_flags & SMBCF_XXX)) {
@@ -804,10 +774,6 @@ reauth:
 					       ssn->ioc_srvname, ctx);
 		if (error)
 			return error;
-#else
-	if (ssn->ioc_password[0] == 0 && (ctx->ct_flags & SMBCF_NOPWD) == 0) {
-		cp = getpass("Password:");
-#endif /* APPLE */
 		error = smb_ctx_setpassword(ctx, cp);
 		if (error)
 			return error;
@@ -818,11 +784,11 @@ reauth:
 	 * gets us ready for a fresh session
 	 */
 	if (ctx->ct_flags & SMBCF_SSNACTIVE) {
-		error = smb_ctx_negotiate(ctx, SMBL_SHARE, SMBLK_CREATE);
+		/* don't clobber workgroup name, pass null arg */
+		error = smb_ctx_negotiate(ctx, SMBL_SHARE, SMBLK_CREATE,NULL);
 		if (error)
 			return (error);
 	}
-#ifdef APPLE
 	if (browseok && !sh->ioc_share[0]) {
 		ctx->ct_flags &= ~SMBCF_AUTHREQ;
 		error = smb_browse(ctx, 0);
@@ -841,7 +807,6 @@ reauth:
 			return (EINVAL);
 		}
 	}
-#endif /* !APPLE */
 	ctx->ct_flags |= SMBCF_RESOLVED;
 
 	return 0;
@@ -854,6 +819,7 @@ smb_ctx_gethandle(struct smb_ctx *ctx)
 	char buf[20];
 
 	if (ctx->ct_fd != -1) {
+		rpc_cleanup_smbctx(ctx);
 		close(ctx->ct_fd);
 		ctx->ct_fd = -1;
 		ctx->ct_flags &= ~SMBCF_SSNACTIVE;
@@ -880,21 +846,6 @@ smb_ctx_gethandle(struct smb_ctx *ctx)
 		if (i && POWEROF2(i+1))
 			smb_error("%d failures to open smb device", errno, i+1);
 	 }
-#ifndef APPLE
-	 /*
-	  * This is a compatibility with old /dev/net/nsmb device
-	  */
-	 for (i = 0; i < 1024; i++) {
-		 snprintf(buf, sizeof(buf), "/dev/net/%s%d", NSMB_NAME, i);
-		 fd = open(buf, O_RDWR);
-		 if (fd >= 0) {
-			ctx->ct_fd = fd;
-			return 0;
-		 }
-		 if (errno == ENOENT)
-			return ENOENT;
-	 }
-#endif /* APPLE */
 	 return ENOENT;
 }
 
@@ -912,9 +863,7 @@ smb_ctx_ioctl(struct smb_ctx *ctx, int inum, struct smbioc_lookup *rqp)
 		return (ENOMEM);
 	}
 	*rqp->ioc_ssn.ioc_outtok = siz;
-#ifdef APPLE
 	seteuid(eff_uid); /* restore setuid root briefly */
-#endif
 	if (ioctl(ctx->ct_fd, inum, rqp) == -1) {
 		rc = errno;
 		goto out;
@@ -932,9 +881,7 @@ smb_ctx_ioctl(struct smb_ctx *ctx, int inum, struct smbioc_lookup *rqp)
 	if (ioctl(ctx->ct_fd, inum, rqp) == -1)
 		rc = errno;
 out:;
-#ifdef APPLE
 	seteuid(real_uid); /* and back to real user */
-#endif
 	return (rc);
 }
 
@@ -981,7 +928,8 @@ out:;
 /*
  * See "Windows 2000 Kerberos Interoperability" paper by
  * Christopher Nebergall.  RC4 HMAC is the W2K default but
- * I don't think Samba is supporting it yet.
+ * Samba support lagged (not due to Samba itself, but due to OS'
+ * Kerberos implementations.)
  *
  * Only session enc type should matter, not ticket enc type,
  * per Sam Hartman on krbdev.
@@ -990,12 +938,7 @@ out:;
  * try "John Brezak" and/or "Clifford Neuman" too.
  */
 static krb5_enctype kenctypes[] = {
-#ifdef XXX
-	ENCTYPE_ARCFOUR_HMAC,
-#endif
-#if 0
-	ENCTYPE_ARCFOUR_HMAC_EXP, /* exportable */
-#endif
+	ENCTYPE_ARCFOUR_HMAC,	/* defined in Tiger krb5.h */
 	ENCTYPE_DES_CBC_MD5,
 	ENCTYPE_DES_CBC_CRC,
 	ENCTYPE_NULL
@@ -1216,7 +1159,7 @@ out:;
 
 
 int
-smb_ctx_negotiate(struct smb_ctx *ctx, int level, int flags)
+smb_ctx_negotiate(struct smb_ctx *ctx, int level, int flags, char *workgroup)
 {
 	struct smbioc_lookup	rq;
 	int	error = 0;
@@ -1280,19 +1223,111 @@ smb_ctx_negotiate(struct smb_ctx *ctx, int level, int flags)
 	bcopy(&ctx->ct_sh, &rq.ioc_sh, sizeof(struct smbioc_oshare));
 	rq.ioc_flags = flags;
 	rq.ioc_level = level;
-#ifdef APPLE
 	seteuid(eff_uid); /* restore setuid root briefly */
-#endif
-	if (ioctl(ctx->ct_fd, SMBIOC_NEGOTIATE, &rq) == -1)
-		error = errno;
-#ifdef APPLE
+	/* calling "plain" ioctl instead of smb_ctx_ioctl doesn't get ioc_outtok */
+	error = smb_ctx_ioctl(ctx, SMBIOC_NEGOTIATE, &rq);
 	seteuid(real_uid); /* and back to real user */
-#endif
 	if (error) {
 		smb_error("negotiate phase failed", error);
+		rpc_cleanup_smbctx(ctx);
 		close(ctx->ct_fd);
 		ctx->ct_fd = -1;
 	}
+
+	/* make sure we're supposed to update the workgroup,
+	* also check for no outtok */
+	if (workgroup && rq.ioc_ssn.ioc_outtok) {
+		size_t outtoklen = *(rq.ioc_ssn.ioc_outtok);
+
+		/*
+		 * We might not get a domain name (Windows 98, and
+		 * possibly other non-NT/W2K/etc. versions of Windows,
+		 * don't seem to supply one).
+		 *
+		 * XXX - if the domain name is in Unicode, it might
+		 * or might not be padded to be 2-byte aligned; I've
+		 * seen captures where it is and captures where it
+		 * isn't.  The captures where it's aligned might have
+		 * come from buggy servers - but that suggests that
+		 * Windows clients might not look at the domain name
+		 * field.
+		 *
+		 * In at least some captures from Win2K's server,
+		 * there's also a server name after the domain name.
+		 */
+		if (outtoklen > 4) {
+			u_int32_t *outtokp = (u_int32_t *)(rq.ioc_ssn.ioc_outtok + 1);
+
+			/*
+			 * Copy the domain name from outtok because we are
+			 * fixin' to free outtok.
+			 *
+			 * The Caps flag from the server in the Negotiate
+			 * Protocol response is supplied to us by the kernel
+			 * in host byte order, because it had already
+			 * converted them for its own use.  We check it here
+			 * to see whether the domain name string is in
+			 * Unicode or not.
+			 */
+			outtoklen -= 4;	/* don't count Caps */
+			if ((*outtokp) & SMB_CAP_UNICODE) {
+				/* Unicode - convert to UTF-8 */
+				unsigned short *workgroup_p = (unsigned short *)(outtokp + 1);
+				size_t workgroup_len;
+				unsigned short *unicode_workgroup;
+				char *utf8_workgroup;
+
+				/*
+				 * Find the length of the workgroup string,
+				 * in characters (not bytes), not counting
+				 * any terminating null character.
+				 */
+				for (workgroup_len = 0;
+				    2*workgroup_len < outtoklen &&
+				      workgroup_p[workgroup_len] != 0;
+				    workgroup_len++)
+					;
+
+				/*
+				 * Make a copy of it with a null terminator;
+				 * the null terminator might have been
+				 * missing from the packet.
+				 */
+				unicode_workgroup = malloc(2*(workgroup_len + 1));
+				memcpy(unicode_workgroup, workgroup_p,
+				    2*workgroup_len);
+				unicode_workgroup[workgroup_len] = 0;
+
+				/*
+				 * Convert it to UTF-8; if it's Unicode, the
+				 * kernel did *not* convert its characters
+				 * to host byte order - they're little-endian -
+				 * as it doesn't use it, it just supplies it
+				 * to us.
+				 */
+				utf8_workgroup = convert_leunicode_to_utf8(unicode_workgroup);
+				if (utf8_workgroup != NULL) {
+					strncpy(workgroup, utf8_workgroup,
+					    SMB_MAXUSERNAMELEN);
+					workgroup[SMB_MAXUSERNAMELEN] = '\0';
+					free(utf8_workgroup);
+				} else {
+					/*
+					 * Conversion failed.
+					 */
+					workgroup[0] = '\0';
+				}
+				free(unicode_workgroup);
+			} else {
+				/* ASCII - just copy it */
+				strncpy(workgroup, ((char *)rq.ioc_ssn.ioc_outtok+8),
+				    SMB_MAXUSERNAMELEN);
+				workgroup[SMB_MAXUSERNAMELEN] = '\0';
+			}
+		}
+		free(rq.ioc_ssn.ioc_outtok);
+	}
+
 	return (error);
 }
 
@@ -1368,9 +1403,7 @@ smb_ctx_lookup(struct smb_ctx *ctx, int level, int flags)
 		/* unwise to failback to NTLM now */
 		return (error);
 	}
-#ifdef APPLE
 	seteuid(eff_uid); /* restore setuid root briefly */
-#endif
 	if (!(ctx->ct_flags & SMBCF_SSNACTIVE) &&
 	    ioctl(ctx->ct_fd, SMBIOC_SSNSETUP, &rq) == -1)
 		failure = "session setup";
@@ -1379,9 +1412,7 @@ smb_ctx_lookup(struct smb_ctx *ctx, int level, int flags)
 		if (ioctl(ctx->ct_fd, SMBIOC_TCON, &rq) == -1)
 			failure = "tree connect";
 	}
-#ifdef APPLE
 	seteuid(real_uid); /* and back to real user */
-#endif
 	if (failure) {
 		error = errno;
 		smb_error("%s phase failed", error, failure);
@@ -1389,52 +1420,20 @@ smb_ctx_lookup(struct smb_ctx *ctx, int level, int flags)
 	return error;
 }
 
-#ifndef APPLE
-int
-smb_ctx_login(struct smb_ctx *ctx)
+/*
+ * Return the hflags2 word for an smb_ctx.
+ */
+u_int16_t
+smb_ctx_flags2(struct smb_ctx *ctx)
 {
-	struct smbioc_ossn *ssn = &ctx->ct_ssn;
-	struct smbioc_oshare *sh = &ctx->ct_sh;
-	int error;
+	u_int16_t flags2;
 
-	if ((ctx->ct_flags & SMBCF_RESOLVED) == 0) {
-		smb_error("smb_ctx_resolve() should be called first", 0);
-		return EINVAL;
+	if (ioctl(ctx->ct_fd, SMBIOC_FLAGS2, &flags2) == -1) {
+		smb_error("can't get flags2 for a session", errno);
+		return -1;
 	}
-	error = smb_ctx_gethandle(ctx);
-	if (error)
-		return EINVAL;
-	if (ioctl(ctx->ct_fd, SMBIOC_OPENSESSION, ssn) == -1) {
-		error = errno;
-		smb_error("can't open session to server %s", error, ssn->ioc_srvname);
-		return error;
-	}
-	if (sh->ioc_share[0] == 0)
-		return 0;
-	if (ioctl(ctx->ct_fd, SMBIOC_OPENSHARE, sh) == -1) {
-		error = errno;
-		smb_error("can't connect to share //%s/%s", error,
-		    ssn->ioc_srvname, sh->ioc_share);
-		return error;
-	}
-	return 0;
+	return flags2;
 }
-
-int
-smb_ctx_setflags(struct smb_ctx *ctx, int level, int mask, int flags)
-{
-	struct smbioc_flags fl;
-
-	if (ctx->ct_fd == -1)
-		return EINVAL;
-	fl.ioc_level = level;
-	fl.ioc_mask = mask;
-	fl.ioc_flags = flags;
-	if (ioctl(ctx->ct_fd, SMBIOC_SETFLAGS, &fl) == -1)
-		return errno;
-	return 0;
-}
-#endif /* !APPLE */
 
 /*
  * level values:
@@ -1460,6 +1459,51 @@ smb_ctx_readrcsection(struct smb_ctx *ctx, const char *sname, int level)
 	if (level <= 1) {
 		rc_getint(smb_rc, sname, "timeout", &ctx->ct_ssn.ioc_timeout);
 		rc_getint(smb_rc, sname, "retry_count", &ctx->ct_ssn.ioc_retrycount);
+		rc_getstringptr(smb_rc, sname, "minauth", &p);
+		if (p) {
+			/*
+			 * "minauth" was set in this section; override
+			 * the current minimum authentication setting.
+			 */
+			ctx->ct_ssn.ioc_opt &= ~SMBVOPT_MINAUTH;
+			if (strcmp(p, "kerberos") == 0) {
+				/*
+				 * Don't fall back to NTLMv2, NTLMv1, or
+				 * a clear text password.
+				 */
+				ctx->ct_ssn.ioc_opt |= SMBVOPT_MINAUTH_KERBEROS;
+			} else if (strcmp(p, "ntlmv2") == 0) {
+				/*
+				 * Don't fall back to NTLMv1 or a clear
+				 * text password.
+				 */
+				ctx->ct_ssn.ioc_opt |= SMBVOPT_MINAUTH_NTLMV2;
+			} else if (strcmp(p, "ntlm") == 0) {
+				/*
+				 * Don't send the LM response over the wire.
+				 */
+				ctx->ct_ssn.ioc_opt |= SMBVOPT_MINAUTH_NTLM;
+			} else if (strcmp(p, "lm") == 0) {
+				/*
+				 * Fail if the server doesn't do encrypted
+				 * passwords.
+				 */
+				ctx->ct_ssn.ioc_opt |= SMBVOPT_MINAUTH_LM;
+			} else if (strcmp(p, "none") == 0) {
+				/*
+				 * Anything goes.
+				 * (The following statement should be
+				 * optimized away.)
+				 */
+				ctx->ct_ssn.ioc_opt |= SMBVOPT_MINAUTH_NONE;
+			} else {
+				/*
+				 * Unknown minimum authentication level.
+				 */
+				smb_error("invalid minimum authentication level \"%s\" specified in the section %s", 0, p, sname);
+				return EINVAL;
+			}
+		}
 	}
 	if (level == 1) {
 		rc_getstringptr(smb_rc, sname, "addr", &p);
@@ -1492,7 +1536,8 @@ smb_ctx_readrcsection(struct smb_ctx *ctx, const char *sname, int level)
  * read rc file as follows:
  * 1. read [default] section
  * 2. override with [server] section
- * 3. override with [server:user:share] section
+ * 3. override with [server:user] section
+ * 4. override with [server:user:share] section
  * Since absence of rcfile is not fatal, silently ignore this fact.
  * smb_rc file should be closed by caller.
  */
@@ -1505,19 +1550,32 @@ smb_ctx_readrc(struct smb_ctx *ctx)
 	if (smb_open_rcfile() != 0)
 		return 0;
 
-	if (ctx->ct_ssn.ioc_user[0] == 0 || ctx->ct_ssn.ioc_srvname[0] == 0)
-		return 0;
-
 	/*
 	 * default parameters
 	 */
 	smb_ctx_readrcsection(ctx, "default", 0);
 	nb_ctx_readrcsection(smb_rc, ctx->ct_nb, "default", 0);
+
 	/*
-	 * SERVER parameters
+	 * If we don't have a server name, we can't read any of the
+	 * [server...] sections.
+	 */
+	if (ctx->ct_ssn.ioc_srvname[0] == 0)
+		return 0;
+
+	/*
+	 * SERVER parameters.
 	 */
 	smb_ctx_readrcsection(ctx, ctx->ct_ssn.ioc_srvname, 1);
 	nb_ctx_readrcsection(smb_rc, ctx->ct_nb, ctx->ct_ssn.ioc_srvname, 1);
+
+	/*
+	 * If we don't have a user name, we can't read any of the
+	 * [server:user...] sections.
+	 */
+	if (ctx->ct_ssn.ioc_user[0] == 0)
+		return 0;
+
 	/*
 	 * SERVER:USER parameters
 	 */
@@ -1525,6 +1583,10 @@ smb_ctx_readrc(struct smb_ctx *ctx)
 	    ctx->ct_ssn.ioc_user);
 	smb_ctx_readrcsection(ctx, sname, 2);
 
+	/*
+	 * If we don't have a share name, we can't read any of the
+	 * [server:user:share] sections.
+	 */
 	if (ctx->ct_sh.ioc_share[0] != 0) {
 		/*
 		 * SERVER:USER:SHARE parameters
@@ -1535,4 +1597,3 @@ smb_ctx_readrc(struct smb_ctx *ctx)
 	}
 	return 0;
 }
-

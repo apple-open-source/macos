@@ -196,7 +196,7 @@ execfor(Estate state, int do_exec)
 
 /**/
 int
-execselect(Estate state, int do_exec)
+execselect(Estate state, UNUSED(int do_exec))
 {
     Wordcode end, loop;
     wordcode code = state->pc[-1];
@@ -245,7 +245,7 @@ execselect(Estate state, int do_exec)
 		    int oef = errflag;
 
 		    isfirstln = 1;
-		    str = (char *)zleread(prompt3, NULL, 0);
+		    str = (char *)zleread(&prompt3, NULL, 0, ZLCON_SELECT);
 		    if (errflag)
 			str = NULL;
 		    errflag = oef;
@@ -338,7 +338,8 @@ selectlist(LinkList l, size_t start)
     for (t1 = start; t1 != colsz && t1 - start < lines - 2; t1++) {
 	ap = arr + t1;
 	do {
-	    int t2 = strlen(*ap) + 2, t3;
+	    size_t t2 = strlen(*ap) + 2;
+	    int t3;
 
 	    fprintf(stderr, "%d) %s", t3 = ap - arr + 1, *ap);
 	    while (t3)
@@ -367,7 +368,7 @@ selectlist(LinkList l, size_t start)
 
 /**/
 int
-execwhile(Estate state, int do_exec)
+execwhile(Estate state, UNUSED(int do_exec))
 {
     Wordcode end, loop;
     wordcode code = state->pc[-1];
@@ -436,7 +437,7 @@ execwhile(Estate state, int do_exec)
 
 /**/
 int
-execrepeat(Estate state, int do_exec)
+execrepeat(Estate state, UNUSED(int do_exec))
 {
     Wordcode end, loop;
     wordcode code = state->pc[-1];
@@ -614,4 +615,69 @@ execcase(Estate state, int do_exec)
     state->pc = end;
 
     return lastval;
+}
+
+/*
+ * Errflag from `try' block, may be reset in `always' block.
+ * Accessible from an integer parameter, so needs to be a zlong.
+ */
+
+/**/
+zlong
+try_errflag = -1;
+
+/**/
+int
+exectry(Estate state, int do_exec)
+{
+    Wordcode end, always;
+    int endval;
+    int save_retflag, save_breaks, save_loops, save_contflag;
+    zlong save_try_errflag;
+
+    end = state->pc + WC_TRY_SKIP(state->pc[-1]);
+    always = state->pc + 1 + WC_TRY_SKIP(*state->pc);
+    state->pc++;
+    pushheap();
+    cmdpush(CS_CURSH);
+
+    /* The :try clause */
+    execlist(state, 1, do_exec);
+
+    /* Don't record errflag here, may be reset. */
+    endval = lastval;
+
+    freeheap();
+
+    cmdpop();
+    cmdpush(CS_ALWAYS);
+
+    /* The always clause. */
+    save_try_errflag = try_errflag;
+    try_errflag = (zlong)errflag;
+    errflag = 0;
+    save_retflag = retflag;
+    retflag = 0;
+    save_breaks = breaks;
+    breaks = 0;
+    save_loops = loops;
+    loops = 0;
+    save_contflag = contflag;
+    contflag = 0;
+
+    state->pc = always;
+    execlist(state, 1, do_exec);
+
+    errflag = try_errflag ? 1 : 0;
+    try_errflag = save_try_errflag;
+    retflag = save_retflag;
+    breaks = save_breaks;
+    loops = save_loops;
+    contflag = save_contflag;
+
+    cmdpop();
+    popheap();
+    state->pc = end;
+
+    return endval;
 }

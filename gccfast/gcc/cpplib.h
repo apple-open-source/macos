@@ -159,7 +159,7 @@ enum c_lang {CLK_GNUC89 = 0, CLK_GNUC99, CLK_STDC89, CLK_STDC94, CLK_STDC99,
 	     CLK_GNUCXX, CLK_CXX98, CLK_ASM};
 
 /* Payload of a NUMBER, STRING, CHAR or COMMENT token.  */
-struct cpp_string
+struct cpp_string GTY(())
 {
   unsigned int len;
   const unsigned char *text;
@@ -174,24 +174,51 @@ struct cpp_string
 #define NO_EXPAND	(1 << 5) /* Do not macro-expand this token.  */
 #define BOL		(1 << 6) /* Token at beginning of line.  */
 
+/* Specify which field, if any, of the cpp_token union is used.  */
+
+enum cpp_token_fld_kind {
+  CPP_TOKEN_FLD_NODE,
+  CPP_TOKEN_FLD_SOURCE,
+  CPP_TOKEN_FLD_STR,
+  CPP_TOKEN_FLD_ARG_NO,
+  CPP_TOKEN_FLD_C,
+  CPP_TOKEN_FLD_NONE
+};
+
 /* A preprocessing token.  This has been carefully packed and should
    occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
-struct cpp_token
+struct cpp_token GTY(())
 {
   unsigned int line;		/* Logical line of first char of token.  */
   unsigned short col;		/* Column of first char of token.  */
   ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* token type */
   unsigned char flags;		/* flags - see above */
 
-  union
+  union cpp_token_u
   {
-    cpp_hashnode *node;		/* An identifier.  */
-    const cpp_token *source;	/* Inherit padding from this token.  */
-    struct cpp_string str;	/* A string, or number.  */
-    unsigned int arg_no;	/* Argument no. for a CPP_MACRO_ARG.  */
-    unsigned char c;		/* Character represented by CPP_OTHER.  */
-  } val;
+    /* An identifier.  */
+    cpp_hashnode *
+      GTY ((nested_ptr (union tree_node,
+		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
+			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL"),
+	    tag ("CPP_TOKEN_FLD_NODE")))
+	 node;
+	 
+    /* Inherit padding from this token.  */
+    cpp_token * GTY ((tag ("CPP_TOKEN_FLD_SOURCE"))) source;
+
+    /* A string, or number.  */
+    struct cpp_string GTY ((tag ("CPP_TOKEN_FLD_STR"))) str;
+
+    /* Argument no. for a CPP_MACRO_ARG.  */
+    unsigned int GTY ((tag ("CPP_TOKEN_FLD_ARG_NO"))) arg_no;
+
+    /* Character represented by CPP_OTHER.  */
+    unsigned char GTY ((tag ("CPP_TOKEN_FLD_C"))) c;
+  } GTY ((desc ("cpp_token_val_index (&%1)"))) val;
 };
+
+extern enum cpp_token_fld_kind cpp_token_val_index (cpp_token *tok);
 
 /* A type wide enough to hold any multibyte source character.
    cpplib's character constant interpreter requires an unsigned type.
@@ -267,6 +294,7 @@ struct cpp_options
   /* APPLE LOCAL begin read-from-stdin */
   /* function name that should be used in issung diagnostics when input is read from stdin */
   const char *stdin_diag_filename;
+  int predictive_compilation_size;
   /* APPLE LOCAL end read-from-stdin */
 
   /* The language we're preprocessing.  */
@@ -558,6 +586,23 @@ enum builtin_type
 #define NODE_LEN(NODE)		HT_LEN (&(NODE)->ident)
 #define NODE_NAME(NODE)		HT_STR (&(NODE)->ident)
 
+/* Specify which field, if any, of the union is used.  */
+
+enum {
+  NTV_MACRO,
+  NTV_ANSWER,
+  NTV_BUILTIN,
+  NTV_OPERATOR,
+  NTV_NONE
+};
+
+#define CPP_HASHNODE_VALUE_IDX(HNODE)				\
+  (HNODE.type == NT_MACRO ? ((HNODE.flags & NODE_BUILTIN) 	\
+			       ? NTV_BUILTIN : NTV_MACRO)	\
+   : HNODE.type == NT_ASSERTION ? NTV_ANSWER			\
+   : (HNODE.flags & NODE_OPERATOR) ? NTV_OPERATOR		\
+   : NTV_NONE)
+
 /* The common part of an identifier node shared amongst all 3 C front
    ends.  Also used to store CPP identifiers, which are a superset of
    identifiers in the grammatical sense.  */
@@ -573,14 +618,14 @@ struct cpp_hashnode GTY(())
   union cpp_hashnode_u
   {
     /* If a macro.  */
-    cpp_macro * GTY((skip (""))) macro;
+    cpp_macro * GTY((tag ("NTV_MACRO"))) macro;
     /* Answers to an assertion.  */
-    struct answer * GTY ((skip (""))) answers;
+    struct answer * GTY ((skip ("NTV_ANSWER"))) answers;
     /* Code for a named operator.  */
-    enum cpp_ttype GTY ((tag ("0"))) operator;
+    enum cpp_ttype GTY ((tag ("NTV_OPERATOR"))) operator;
     /* Code for a builtin macro.  */
-    enum builtin_type GTY ((tag ("1"))) builtin; 
-  } GTY ((desc ("0"))) value;
+    enum builtin_type GTY ((tag ("NTV_BUILTIN"))) builtin; 
+  } GTY ((desc ("CPP_HASHNODE_VALUE_IDX (%1)"))) value;
 };
 
 /* APPLE LOCAL begin Symbol Separation */
@@ -890,7 +935,7 @@ extern int cpp_read_state PARAMS ((cpp_reader *, const char *, FILE *,
 				   struct save_macro_data *));
 /* APPLE LOCAL begin read-from-stdin */
 extern bool read_from_stdin PARAMS ((cpp_reader *));
-extern void set_stdin_option PARAMS ((cpp_reader *, const char*));
+extern void set_stdin_option PARAMS ((cpp_reader *, const char*, int));
 /* APPLE LOCAL end read-from-stdin */
 
 /* In cppmain.c */

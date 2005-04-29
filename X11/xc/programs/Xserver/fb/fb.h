@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/programs/Xserver/fb/fb.h,v 1.35 2003/01/30 21:46:30 tsi Exp $
+ * $XFree86: xc/programs/Xserver/fb/fb.h,v 1.37 2003/11/03 05:11:00 tsi Exp $
  *
  * Copyright © 1998 Keith Packard
  *
@@ -105,7 +105,8 @@ typedef unsigned __int64    FbBits;
       defined(ia64) || defined(__ia64__) || \
       defined(__sparc64__) || \
       defined(__s390x__) || \
-      defined(x86_64) || defined (__x86_64__)
+      defined(AMD64) || defined (__AMD64__) || \
+      (defined(sgi) && (_MIPS_SZLONG == 64))
 typedef unsigned long	    FbBits;
 #  else
 typedef unsigned long long  FbBits;
@@ -642,8 +643,8 @@ typedef struct {
 #define __fbPixOriginY(pPix)	((pPix)->drawable.y)
 #elif defined (ROOTLESS)
 /* Use X position to account for non-32-bit alignments. */
-#define __fbPixOriginX(pPix)	((pPix)->drawable.x)
-#define __fbPixOriginY(pPix)	0
+#define __fbPixOriginX(pPix)   ((pPix)->drawable.x)
+#define __fbPixOriginY(pPix)   0
 #else
 #define __fbPixOriginX(pPix)	0
 #define __fbPixOriginY(pPix)	0
@@ -656,10 +657,10 @@ typedef struct {
     else \
 	_pPix = (PixmapPtr) (pDrawable); \
     (pointer) = (FbBits *) _pPix->devPrivate.ptr; \
-    (stride) = ((int) _pPix->devKind) / sizeof (FbBits); \
-    (bpp) = _pPix->drawable.bitsPerPixel; \
-    (xoff) = __fbPixOriginX(_pPix); \
-    (yoff) = __fbPixOriginY(_pPix); \
+    (stride) = ((int) _pPix->devKind) / sizeof (FbBits); (void)(stride); \
+    (bpp) = _pPix->drawable.bitsPerPixel;  (void)(bpp); \
+    (xoff) = __fbPixOriginX(_pPix); (void)(xoff); \
+    (yoff) = __fbPixOriginY(_pPix); (void)(yoff); \
 }
 
 #define fbGetStipDrawable(pDrawable, pointer, stride, bpp, xoff, yoff) { \
@@ -669,10 +670,10 @@ typedef struct {
     else \
 	_pPix = (PixmapPtr) (pDrawable); \
     (pointer) = (FbStip *) _pPix->devPrivate.ptr; \
-    (stride) = ((int) _pPix->devKind) / sizeof (FbStip); \
-    (bpp) = _pPix->drawable.bitsPerPixel; \
-    (xoff) = __fbPixOriginX(_pPix); \
-    (yoff) = __fbPixOriginY(_pPix); \
+    (stride) = ((int) _pPix->devKind) / sizeof (FbStip); (void)(stride); \
+    (bpp) = _pPix->drawable.bitsPerPixel; (void)(bpp); \
+    (xoff) = __fbPixOriginX(_pPix); (void)(xoff); \
+    (yoff) = __fbPixOriginY(_pPix); (void)(yoff); \
 }
 
 /*

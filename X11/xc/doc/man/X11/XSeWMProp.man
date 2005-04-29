@@ -41,7 +41,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\"
-.\" $XFree86: xc/doc/man/X11/XSeWMProp.man,v 1.4 2001/02/09 03:47:46 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XSeWMProp.man,v 1.5 2003/04/28 22:17:57 herrb Exp $
 .\" 
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -145,71 +145,21 @@
 .SH NAME
 XSetWMProperties, XmbSetWMProperties, Xutf8SetWMProperties \- set standard window properties
 .SH SYNTAX
-void XSetWMProperties\^(\^\fIdisplay\fP, \fIw\fP, \fIwindow_name\fP,
-\fIicon_name\fP, \fIargv\fP, \fIargc\fP, \fInormal_hints\fP, \fIwm_hints\fP,
-\fIclass_hints\fP\^)
-.br
-      Display *\fIdisplay\fP\^; 
-.br
-      Window \fIw\fP\^;
-.br
-      XTextProperty *\fIwindow_name\fP\^;
-.br
-      XTextProperty *\fIicon_name\fP\^;
-.br
-      char **\fIargv\fP\^;
-.br
-      int \fIargc\fP\^;
-.br
-      XSizeHints *\fInormal_hints\fP\^;
-.br
-      XWMHints *\fIwm_hints\fP\^;
-.br
-      XClassHint *\fIclass_hints\fP\^;
-.LP
-void XmbSetWMProperties\^(\^\fIdisplay\fP\^, \fIw\fP\^, \fIwindow_name\fP\^, \fIicon_name\fP\^, \fIargv\fP\^, \fIargc\fP\^,
-.br
-                      \fInormal_hints\fP\^, \fIwm_hints\fP\^, \fIclass_hints\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      char *\fIwindow_name\fP\^;
-.br
-      char *\fIicon_name\fP\^;
-.br
-      char *\fIargv\fP\^[];
-.br
-      int \fIargc\fP\^;
-.br
-      XSizeHints *\fInormal_hints\fP\^;
-.br
-      XWMHints *\fIwm_hints\fP\^;
-.br
-      XClassHint *\fIclass_hints\fP\^;
-.LP
-void Xutf8SetWMProperties\^(\^\fIdisplay\fP\^, \fIw\fP\^, \fIwindow_name\fP\^, \fIicon_name\fP\^, \fIargv\fP\^, \fIargc\fP\^,
-.br
-                      \fInormal_hints\fP\^, \fIwm_hints\fP\^, \fIclass_hints\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      char *\fIwindow_name\fP\^;
-.br
-      char *\fIicon_name\fP\^;
-.br
-      char *\fIargv\fP\^[];
-.br
-      int \fIargc\fP\^;
-.br
-      XSizeHints *\fInormal_hints\fP\^;
-.br
-      XWMHints *\fIwm_hints\fP\^;
-.br
-      XClassHint *\fIclass_hints\fP\^;
+.HP
+void XSetWMProperties\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^,
+XTextProperty *\fIwindow_name\fP\^, XTextProperty *\fIicon_name\fP\^, char
+**\fIargv\fP\^, int \fIargc\fP\^, XSizeHints *\fInormal_hints\fP\^, XWMHints
+*\fIwm_hints\fP\^, XClassHint *\fIclass_hints\fP\^); 
+.HP
+void XmbSetWMProperties\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, char
+*\fIwindow_name\fP\^, char *\fIicon_name\fP\^, char *\fIargv\fP\^[], int
+\fIargc\fP\^, XSizeHints *\fInormal_hints\fP\^, XWMHints *\fIwm_hints\fP\^,
+XClassHint *\fIclass_hints\fP\^); 
+.HP
+void Xutf8SetWMProperties\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, char
+*\fIwindow_name\fP\^, char *\fIicon_name\fP\^, char *\fIargv\fP\^[], int
+\fIargc\fP\^, XSizeHints *\fInormal_hints\fP\^, XWMHints *\fIwm_hints\fP\^,
+XClassHint *\fIclass_hints\fP\^); 
 .SH ARGUMENTS
 .IP \fIargc\fP 1i
 Specifies the number of arguments.

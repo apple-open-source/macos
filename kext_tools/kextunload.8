@@ -3,7 +3,7 @@
 .Os Darwin
 .Sh NAME
 .Nm kextunload
-.Nd terminates objects and unloads code associated with a kernel extension
+.Nd terminates and unloads kernel extensions
 .Sh SYNOPSIS
 .Nm
 .Op Fl b Ar bundle_id
@@ -27,9 +27,9 @@ The
 program is used to terminate and unregister I/O Kit objects
 associated with a kernel extension (kext)
 and to unload the code and personalities for that kext.
-In order to unload a kext
+In order to unload a kext,
 .Nm
-must be invoked as the superuser.
+must be invoked with superuser privileges.
 .Pp
 If another loaded kext has a dependency on a kext being unloaded,
 the unload will fail.
@@ -43,7 +43,7 @@ in Mac OS X.
 Software and installers can rely on its presence
 and invoke it in order to unload kexts.
 .Pp
-The arguments and options available are these:
+The arguments and options are:
 .Bl -tag -width -indent
 .It Ar extension
 The pathname of a kext to unload.
@@ -63,7 +63,7 @@ may result in the same class being instantiated at any time.
 Print a help message describing each option flag.
 .It Fl m Ar bundle_id
 Same as
-.Fl m
+.Fl b
 (remains for backward compatibility).
 .It Fl p
 Don't remove personalities when unloading
@@ -83,8 +83,7 @@ See the man page for
 .Xr kextload 8
 to see what each verbose level prints.
 This option excludes
-.Fl
-q .
+.Fl q .
 .El
 .Sh DIAGNOSTICS
 .Nm
@@ -92,16 +91,15 @@ exits with a zero status upon success,
 or prints an error message and exits with a nonzero status upon failure.
 An error when multiple kexts are being unloaded causes
 .Nm
-to exit immediately, so that some kexts may remain unloaded
+to exit immediately, so that some kexts may remain loaded
 even if they could have been unloaded without error.
 .Sh BUGS
-The results of unload requests as given by the kernel
-don't allow for determining the reason for a failure,
-such as that the kext wasn't loaded
-or that another kext has a dependency on it.
-You can check these conditions using
+The kernel's kext unloading facility does not provide detailed failure
+information.  Thus it is impossebl to tell whether the problem was that
+the kext wasn't loaded or that another kext has a dependency on it, etc.
+These conditions can be checked using
 .Xr kextstat 8 .
-.Sh SEE ALSO 
+.Sh SEE ALSO
 .Xr kextcache 8 ,
 .Xr kextd 8 ,
 .Xr kextload 8 ,

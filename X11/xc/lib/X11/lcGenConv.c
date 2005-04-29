@@ -35,7 +35,7 @@
  *  2000  
  *  Modifier: Ivan Pascal      The XFree86 Project
  */
-/* $XFree86: xc/lib/X11/lcGenConv.c,v 3.27 2003/02/25 22:02:45 dawes Exp $ */
+/* $XFree86: xc/lib/X11/lcGenConv.c,v 3.28 2003/05/27 22:26:26 tsi Exp $ */
 
 /*
  * A generic locale loader for all kinds of ISO-2022 based codesets.
@@ -1125,7 +1125,7 @@ wcstocts(
         /* make encoding data */
 	ct_sequence = charset->ct_sequence;
 	side = charset->side;
-        seq_len = strlen(charset->ct_sequence);
+        seq_len = strlen(ct_sequence);
 	if (standard_flag) {
             name_len = 0;
 	    total_len = seq_len;
@@ -1151,7 +1151,7 @@ wcstocts(
 	    }
 
 	    if (outbufptr) {
-	        strcpy((char *)outbufptr, charset->ct_sequence);
+	        strcpy((char *)outbufptr, ct_sequence);
 		outbufptr += seq_len;
 
                 if (!standard_flag) {

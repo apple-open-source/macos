@@ -7,8 +7,6 @@
  * Macintosh compiler alignment test for alignment extensions in GCC 3.
  * Fred Forsman
  * Apple Computer, Inc.
- * (C) 2000-2002.
- * Last modified 2002-1-22.
  */
  
  /* Check whether we are testing GCC 3 or later.  */
@@ -37,11 +35,13 @@ typedef struct S1 {
     UINT8	f1;
 } S1;
 
+#ifndef __LP64__
 #pragma options align=mac68k
 
 typedef struct S2 {
     UINT8	f1;
 } S2;
+#endif
 
 #pragma options align=native
 
@@ -52,7 +52,9 @@ typedef struct S3 {
 #pragma options align=reset
 /* Should be mac68k mode here.  */
 
+#ifndef __LP64__
 #pragma options align=reset
+#endif
 /* Should be power mode here.  */
 
 typedef struct S4 {
@@ -91,8 +93,15 @@ typedef struct S8 {
     UINT32	f2;
 } S8;
 
-static void check(char * rec_name, int actual, int expected, char * comment)
+static void check(char * rec_name, int actual, int expected32, int expected64,
+		  int expected_ia32, char * comment)
 {
+    int expected;
+#ifdef __i386__
+    expected = expected_ia32;
+#else
+    expected = ((sizeof(char *) == 8) ? expected64 : expected32);
+#endif
     if (flag_verbose || (actual != expected)) {
         printf("%-20s = %2d (%2d) ", rec_name, actual, expected);
         if (actual != expected) {
@@ -134,16 +143,18 @@ int main(int argc, char *argv[])
     return 1;
 #endif
 
-    check(Q(sizeof(S1)), 1, "struct with 1 char; power mode");
-    check(Q(sizeof(S2)), 2, "struct with 1 char; mac68k mode");
-    check(Q(sizeof(S3)), 1, "struct with 1 char; native mode");
-    check(Q(sizeof(S4)), 12, "struct with char, double; power mode");
-    check(Q(offsetof(S4, f2)), 4, "offset of double in a struct with char, double; power mode");
-    check(Q(sizeof(S5)), 16, "struct with char, double; natural mode");
-    check(Q(offsetof(S5, f2)), 8, "offset of double in a struct with char, double; natural mode");
-    check(Q(sizeof(S6)), 24, "struct with char, double, char; natural mode");
-    check(Q(sizeof(S7)), 5, "struct with char, long; packed mode");
-    check(Q(sizeof(S8)), 8, "struct with char, long; power mode");
+    check(Q(sizeof(S1)), 1, 1, 1, "struct with 1 char; power mode");
+#ifndef __LP64__
+    check(Q(sizeof(S2)), 2, 2, 2, "struct with 1 char; mac68k mode");
+#endif
+    check(Q(sizeof(S3)), 1, 1, 1, "struct with 1 char; native mode");
+    check(Q(sizeof(S4)), 12, 16, 12, "struct with char, double; power/natural mode");
+    check(Q(offsetof(S4, f2)), 4, 8, 4, "offset of double in a struct with char, double; power/natural mode");
+    check(Q(sizeof(S5)), 16, 16, 12, "struct with char, double; natural mode");
+    check(Q(offsetof(S5, f2)), 8, 8, 4, "offset of double in a struct with char, double; natural mode");
+    check(Q(sizeof(S6)), 24, 24, 16, "struct with char, double, char; natural mode");
+    check(Q(sizeof(S7)), 5, 9, 5, "struct with char, long; packed mode");
+    check(Q(sizeof(S8)), 8, 16, 8, "struct with char, long; power/natural mode");
 
     if (nbr_failures > 0)
     	return 1;

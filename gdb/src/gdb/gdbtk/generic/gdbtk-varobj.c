@@ -114,7 +114,7 @@ static int
 gdb_variable_command (ClientData clientData, Tcl_Interp *interp,
 		      int objc, Tcl_Obj *CONST objv[])
 {
-  static char *commands[] =
+  static const char *commands[] =
     {"create", "list", NULL};
   enum commands_enum
     {
@@ -177,7 +177,7 @@ variable_obj_command (ClientData clientData, Tcl_Interp *interp,
       VARIABLE_EDITABLE,
       VARIABLE_UPDATE
     };
-  static char *commands[] =
+  static const char *commands[] =
     {
       "delete",
       "numChildren",
@@ -292,7 +292,7 @@ variable_create (Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
     {
       CREATE_EXPR, CREATE_FRAME
     };
-  static char *create_options[] =
+  static const char *create_options[] =
     {"-expr", "-frame", NULL};
   struct varobj *var;
   char *name;
@@ -474,15 +474,15 @@ variable_format (Tcl_Interp *interp, int objc,
       /* Set the format of VAR to given format */
       int len;
       char *fmt = Tcl_GetStringFromObj (objv[2], &len);
-      if (STREQN (fmt, "natural", len))
+      if (strncmp (fmt, "natural", len) == 0)
 	varobj_set_display_format (var, FORMAT_NATURAL);
-      else if (STREQN (fmt, "binary", len))
+      else if (strncmp (fmt, "binary", len) == 0)
 	varobj_set_display_format (var, FORMAT_BINARY);
-      else if (STREQN (fmt, "decimal", len))
+      else if (strncmp (fmt, "decimal", len) == 0)
 	varobj_set_display_format (var, FORMAT_DECIMAL);
-      else if (STREQN (fmt, "hexadecimal", len))
+      else if (strncmp (fmt, "hexadecimal", len) == 0)
 	varobj_set_display_format (var, FORMAT_HEXADECIMAL);
-      else if (STREQN (fmt, "octal", len))
+      else if (strncmp (fmt, "octal", len) == 0)
 	varobj_set_display_format (var, FORMAT_OCTAL);
       else
 	{
@@ -512,7 +512,9 @@ static int
 variable_type (Tcl_Interp *interp, int objc,
 	       Tcl_Obj *CONST objv[], struct varobj *var)
 {
-  char *first, *last, *string;
+  const char *first;
+  const char *last;
+  char *string;
   Tcl_RegExp regexp;
 
   /* For the "fake" variables, do not return a type.
@@ -536,7 +538,7 @@ variable_type (Tcl_Interp *interp, int objc,
       Tcl_RegExpRange (regexp, 0, &first, &last);
       if (*(first - 1) == ' ')
 	first--;
-      *first = '\0';
+      string[first - string] = '\0';
     }
 
   Tcl_SetObjResult (interp, Tcl_NewStringObj (string, -1));

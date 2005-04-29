@@ -4,7 +4,7 @@
 <data>
 HTTP/1.1 200 OK
 Date: Thu, 09 Nov 2010 14:49:00 GMT
-Server: test-server/fake
+Server: test-server/fake swsclose
 Content-Type: text/html
 Funny-head: yesyes
 
@@ -14,13 +14,16 @@ Funny-head: yesyes
 #
 # Client-side
 <client>
+<server>
+http
+</server>
  <name>
 Replaced internal and added custom HTTP headers
  </name>
  <command>
- -H "extra-header: here" -H "Accept: replaced" http://%HOSTIP:%HOSTPORT/4
+ -H "extra-header: here" -H "Accept: replaced" http://%HOSTIP:%HTTPPORT/4
 </command>
-</test>
+</client>
 
 #
 # Verify data after the test has been "shot"
@@ -30,7 +33,7 @@ Replaced internal and added custom HTTP headers
 </strip>
 <protocol>
 GET /4 HTTP/1.1
-Host: 127.0.0.1:8999
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
 extra-header: here
 Accept: replaced

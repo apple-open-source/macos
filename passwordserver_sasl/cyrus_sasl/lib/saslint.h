@@ -1,7 +1,7 @@
 /* saslint.h - internal SASL library definitions
  * Rob Siemborski
  * Tim Martin
- * $Id: saslint.h,v 1.5 2005/01/10 19:13:35 snsimon Exp $
+ * $Id: saslint.h,v 1.6 2005/03/03 02:29:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -343,6 +343,9 @@ extern int _is_sasl_server_active(void);
  * _sasl_locate_entry locates an entrypoint in a given library
  */
 extern int _sasl_load_plugins(const add_plugin_list_t *entrypoints,
+			       const sasl_callback_t *getpath_callback,
+			       const sasl_callback_t *verifyfile_callback);
+extern int _sasl_load_plugins_alt(const add_plugin_list_t *entrypoints,
 			       const sasl_callback_t *getpath_callback,
 			       const sasl_callback_t *verifyfile_callback);
 extern int _sasl_get_plugin(const char *file,

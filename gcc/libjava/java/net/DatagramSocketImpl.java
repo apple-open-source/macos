@@ -1,5 +1,6 @@
 /* DatagramSocketImpl.java -- Abstract class for UDP socket implementations
-   Copyright (C) 1998, 1999 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999 2000, 2001,
+                 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,11 +36,11 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package java.net;
 
-import java.io.IOException;
 import java.io.FileDescriptor;
+import java.io.IOException;
+
 
 /**
  * This abstract class models a datagram socket implementation.  An
@@ -52,12 +53,11 @@ import java.io.FileDescriptor;
  * Status:  Believed complete and correct.
  *
  * @author Aaron M. Renn (arenn@urbanophile.com)
- * @author Warren Levy <warrenl@cygnus.com>
+ * @author Warren Levy (warrenl@cygnus.com)
  * @since 1.1
  */
 public abstract class DatagramSocketImpl implements SocketOptions
 {
-
   /**
    * The local port to which this socket is bound
    */
@@ -102,8 +102,8 @@ public abstract class DatagramSocketImpl implements SocketOptions
    * Takes a peek at the next packet received in order to retrieve the
    * address of the sender
    *
-   * @param i The InetAddress to fill in with the information about the
-   *          sender if the next packet
+   * @param i The <code>InetAddress</code> to fill in with the information
+   *          about the sender if the next packet
    *
    * @return The port number of the sender of the packet
    *
@@ -117,19 +117,19 @@ public abstract class DatagramSocketImpl implements SocketOptions
   /**
    * Takes a peek at the next packet received.  This packet is not consumed.
    * With the next peekData/receive operation this packet will be read again.
-   * 
-   * @param p The DatagramPacket to fill in with the data sent.
+   *
+   * @param p The <code>DatagramPacket</code> to fill in with the data sent.
    *
    * @return The port number of the sender of the packet.
-   * 
+   *
    * @exception IOException If an error occurs
    * @exception PortUnreachableException May be thrown if the socket is
    * connected to a currently unreachable destination. Note, there is no
    * guarantee that the exception will be thrown.
-   * 
+   *
    * @since 1.4
    */
-  protected abstract int peekData (DatagramPacket p) throws IOException;
+  protected abstract int peekData(DatagramPacket p) throws IOException;
 
   /**
    * Transmits the specified packet of data to the network.  The destination
@@ -147,7 +147,7 @@ public abstract class DatagramSocketImpl implements SocketOptions
   /**
    * Receives a packet of data from the network  Will block until a packet
    * arrives.  The packet info in populated into the passed in
-   * DatagramPacket object.
+   * <code>DatagramPacket</code> object.
    *
    * @param p A place to store the incoming packet.
    *
@@ -161,24 +161,25 @@ public abstract class DatagramSocketImpl implements SocketOptions
   /**
    * Connects the socket to a host specified by address and port.
    *
-   * @param address The InetAddress of the host to connect to
+   * @param address The <code>InetAddress</code> of the host to connect to
    * @param port The port number of the host to connect to
    *
    * @exception SocketException If an error occurs
    *
    * @since 1.4
    */
-  protected void connect (InetAddress address, int port) throws SocketException
+  protected void connect(InetAddress address, int port)
+    throws SocketException
   {
     // This method has to be overwritten by real implementations
   }
 
   /**
    * Disconnects the socket.
-   * 
+   *
    * @since 1.4
    */
-  protected void disconnect ()
+  protected void disconnect()
   {
     // This method has to be overwritten by real implementations
   }
@@ -198,8 +199,11 @@ public abstract class DatagramSocketImpl implements SocketOptions
    * This method returns the current Time to Live (TTL) setting on this
    * socket.  <b>Use <code>getTimeToLive()</code></b> instead.
    *
+   * @return the current time-to-live
+   * 
    * @exception IOException If an error occurs
-   * @deprecated
+   * 
+   * @deprecated // FIXME: when ?
    */
   protected abstract byte getTTL() throws IOException;
 
@@ -217,6 +221,8 @@ public abstract class DatagramSocketImpl implements SocketOptions
    * This method returns the current Time to Live (TTL) setting on this
    * socket.
    *
+   * @return the current time-to-live
+   * 
    * @exception IOException If an error occurs
    */
   protected abstract int getTimeToLive() throws IOException;
@@ -241,35 +247,37 @@ public abstract class DatagramSocketImpl implements SocketOptions
 
   /**
    * Causes this socket to join the specified multicast group on a specified
-   * device 
-   * 
+   * device
+   *
    * @param mcastaddr The address to leave
    * @param netIf The specified network interface to join the group at
    *
    * @exception IOException If an error occurs
-   * 
+   *
    * @since 1.4
    */
-  protected abstract void joinGroup (SocketAddress mcastaddr,
-		                     NetworkInterface netIf)
+  protected abstract void joinGroup(SocketAddress mcastaddr,
+                                    NetworkInterface netIf)
     throws IOException;
 
   /**
    * Leaves a multicast group
-   * 
+   *
    * @param mcastaddr The address to join
    * @param netIf The specified network interface to leave the group at
    *
    * @exception IOException If an error occurs
-   * 
+   *
    * @since 1.4
    */
-  protected abstract void leaveGroup (SocketAddress mcastaddr,
-		                      NetworkInterface netIf)
+  protected abstract void leaveGroup(SocketAddress mcastaddr,
+                                     NetworkInterface netIf)
     throws IOException;
-  
+
   /**
    * Returns the FileDescriptor for this socket
+   * 
+   * @return the file descriptor associated with this socket
    */
   protected FileDescriptor getFileDescriptor()
   {
@@ -278,41 +286,11 @@ public abstract class DatagramSocketImpl implements SocketOptions
 
   /**
    * Returns the local port this socket is bound to
+   *
+   * @return the local port
    */
   protected int getLocalPort()
   {
     return localPort;
   }
-
-  /**
-   * Sets the specified option on a socket to the passed in object.  For
-   * options that take an integer argument, the passed in object is an
-   * <code>Integer</code>.  For options that are set to on or off, the
-   * value passed will be a <code>Boolean</code>.   The <code>option_id</code>
-   * parameter is one of the defined constants in the superinterface.
-   *
-   * @param option_id The identifier of the option
-   * @param val The value to set the option to
-   *
-   * @exception SocketException If an error occurs
-   * @XXX This redeclaration from SocketOptions is a workaround to a gcj bug.
-   */
-  public abstract void setOption(int option_id, Object val)
-    throws SocketException;
-
-  /**
-   * Returns the current setting of the specified option.  The
-   * <code>Object</code> returned will be an <code>Integer</code> for options
-   * that have integer values.  For options that are set to on or off, a
-   * <code>Boolean</code> will be returned.   The <code>option_id</code>
-   * is one of the defined constants in the superinterface.
-   *
-   * @param option_id The option identifier
-   *
-   * @return The current value of the option
-   *
-   * @exception SocketException If an error occurs
-   * @XXX This redeclaration from SocketOptions is a workaround to a gcj bug.
-   */
-  public abstract Object getOption(int option_id) throws SocketException;
 }

@@ -1,9 +1,69 @@
 ========================================================================
 KerberosDebug Version History
 ========================================================================
-Current version: 1.5fc2
-Date:            August 22, 2003
+Current version: 1.6fc5
+Date:            January 23, 2005
 Author:          meeroh@mit.edu, lxs@mit.edu
+========================================================================
+
+KerberosDebug 1.6
+Released with KfM 5.5
+
+========================================================================
+
+	KerberosDebug 1.6fc5
+	January 23, 2005
+
+	[RT 2898] Remove noisy debugging syslogs from debugging library
+
+	========================================================================
+
+	KerberosDebug 1.6fc4
+	January 12, 2005
+
+	[RT 2843] asl_log and asl_add_log_file changed prototypes
+
+	========================================================================
+
+	KerberosDebug 1.6fc3
+	December 17, 2004
+
+	[RT 2831] Debug log should not be world writable
+
+	========================================================================
+
+	KerberosDebug 1.6fc2
+	December 13, 2004
+
+	[RT 2800] Use Apple System Logger and set debugging at runtime
+
+	========================================================================
+
+	KerberosDebug 1.6fc1
+	December 6, 2004
+
+	Moved to final candidate.
+
+	========================================================================
+
+	KerberosDebug 1.6b2
+	September 8, 2004
+
+	Logging to a file again because syslog doesn't work from a shared library.
+	[RT 2700] dprintmem formatting has cosmetic glitches 
+
+	========================================================================
+
+	KerberosDebug 1.6b1
+	January 31, 2004
+
+	[RT 1960] KfM should use syslog() rather than logging to a file
+
+	========================================================================
+
+KerberosDebug 1.5
+September 18, 2003
+
 ========================================================================
 
 	KerberosDebug 1.5fc2

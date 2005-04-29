@@ -24,6 +24,18 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef GCC_I370_H
 #define GCC_I370_H
+
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("GCC");		\
+      builtin_define_std ("gcc");		\
+      builtin_assert ("machine=i370");		\
+      builtin_assert ("cpu=i370");		\
+    }						\
+  while (0)
+
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
 extern int target_flags;
@@ -64,6 +76,8 @@ extern int mvs_function_name_length;
   { "no-char-instructions", -1, N_("Do not generate char instructions")}, \
   { "", TARGET_DEFAULT, 0} }
 
+#define OVERRIDE_OPTIONS  override_options ()
+
 /* To use IBM supplied macro function prologue and epilogue, define the
    following to 1.  Should only be needed if IBM changes the definition
    of their prologue and epilogue.  */
@@ -86,21 +100,9 @@ extern int mvs_function_name_length;
 
 #define WORDS_BIG_ENDIAN 1
 
-/* Number of bits in an addressable storage unit.  */
-
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.  */
-
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.  See also the macro `Pmode' defined below.  */
-
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
 
@@ -292,12 +294,6 @@ extern int mvs_function_name_length;
 #define MODES_TIEABLE_P(MODE1, MODE2)					\
   (((MODE1) == SFmode || (MODE1) == DFmode)				\
    == ((MODE2) == SFmode || (MODE2) == DFmode))
-
-/* Mark external references.  */
-
-#define ENCODE_SECTION_INFO(decl)  					\
-  if (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl)) 			\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
@@ -1079,18 +1075,6 @@ enum reg_class
     }									\
 }
 
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)					\
-{ 									\
-  char temp[MAX_MVS_LABEL_SIZE + 1];					\
-  if (mvs_check_alias (NAME, temp) == 2)				\
-    {									\
-      fprintf (FILE, "%s\tALIAS\tC'%s'\n", temp, NAME);			\
-    }									\
-  fputs ("\tENTRY\t", FILE);						\
-  assemble_name (FILE, NAME);						\
-  fputs ("\n", FILE);							\
-}
-
 /* MVS externals are limited to 8 characters, upper case only.
    The '_' is mapped to '@', except for MVS functions, then '#'.  */
 
@@ -1386,21 +1370,26 @@ enum reg_class
 	  }								\
 	else								\
 	  { 								\
-            /* hack alert -- this prints wildly incorrect values */	\
-            /* when run in cross-compiler mode. See ELF section  */	\
-            /* for suggested fix */					\
-	    union { double d; int i[2]; } u;				\
-	    u.i[0] = CONST_DOUBLE_LOW (XV);				\
-	    u.i[1] = CONST_DOUBLE_HIGH (XV);				\
+            char buf[50];						\
 	    if (GET_MODE (XV) == SFmode)				\
 	      {								\
 		mvs_page_lit += 4;					\
-		fprintf (FILE, "=E'%.9G'", u.d);			\
+		real_to_decimal (buf, CONST_DOUBLE_REAL_VALUE (XV),	\
+				 sizeof (buf), 0, 1);			\
+		fprintf (FILE, "=E'%s'", buf);				\
 	      }								\
-	    else							\
+	    else if (GET_MODE (XV) == DFmode)				\
 	      {								\
 		mvs_page_lit += 8;					\
-		fprintf (FILE, "=D'%.18G'", u.d);			\
+		real_to_decimal (buf, CONST_DOUBLE_REAL_VALUE (XV),	\
+				 sizeof (buf), 0, 1);			\
+		fprintf (FILE, "=D'%s'", buf);				\
+	      }								\
+	    else /* VOIDmode */						\
+	      {								\
+		mvs_page_lit += 8;					\
+		fprintf (FILE, "=XL8'%08X%08X'", 			\
+			CONST_DOUBLE_HIGH (XV), CONST_DOUBLE_LOW (XV));	\
 	      }								\
 	  }								\
 	break;								\
@@ -1676,21 +1665,21 @@ enum reg_class
 	else								\
 	  { 								\
             char buf[50];						\
-            REAL_VALUE_TYPE rval;					\
-            REAL_VALUE_FROM_CONST_DOUBLE(rval, XV);			\
-            REAL_VALUE_TO_DECIMAL (rval, HOST_WIDE_INT_PRINT_DEC, buf);	\
 	    if (GET_MODE (XV) == SFmode)				\
 	      {								\
 		mvs_page_lit += 4;					\
+		real_to_decimal (buf, CONST_DOUBLE_REAL_VALUE (XV),	\
+				 sizeof (buf), 0, 1);			\
 		fprintf (FILE, "=E'%s'", buf);				\
 	      }								\
-	    else							\
-	    if (GET_MODE (XV) == DFmode)				\
+	    else if (GET_MODE (XV) == DFmode)				\
 	      {								\
 		mvs_page_lit += 8;					\
+		real_to_decimal (buf, CONST_DOUBLE_REAL_VALUE (XV),	\
+				 sizeof (buf), 0, 1);			\
 		fprintf (FILE, "=D'%s'", buf);				\
 	      }								\
-	    else /* VOIDmode !?!? strange but true ...  */		\
+	    else /* VOIDmode */						\
 	      {								\
 		mvs_page_lit += 8;					\
 		fprintf (FILE, "=XL8'%08X%08X'", 			\
@@ -1846,11 +1835,6 @@ abort(); \
 
 #define ASM_DOUBLE "\t.double"     
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-#define ASM_OUTPUT_LABEL(FILE,NAME)     \
-   (assemble_name (FILE, NAME), fputs (":\n", FILE))
- 
 /* #define ASM_OUTPUT_LABELREF(FILE, NAME) */	/* use gas -- defaults.h */
 
 /* Generate internal label.  Since we can branch here from off page, we
@@ -1906,9 +1890,6 @@ abort(); \
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),    \
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
  
-/* Allow #sccs in preprocessor.  */
-#define SCCS_DIRECTIVE
-
  /* Implicit library calls should use memcpy, not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS
  
@@ -1933,11 +1914,8 @@ abort(); \
 #define ASM_OUTPUT_ALIGN(FILE,LOG) \
   if ((LOG)!=0) fprintf ((FILE), "\t.balign %d\n", 1<<(LOG))
  
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)  \
-  (fputs (".globl ", FILE), assemble_name (FILE, NAME), fputs ("\n", FILE))
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".globl "
 
 /* This says how to output an assembler line
    to define a global common symbol.  */

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2003, International Business Machines
+*   Copyright (C) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -83,6 +83,7 @@ struct UColToken {
   UColToken* previous;
   UColToken* next;
   UChar *rulesToParse;
+  uint16_t flags;
 };
 
 /* 
@@ -151,7 +152,7 @@ uint32_t ucol_tok_assembleTokenList(UColTokenParser *src,
                                     UErrorCode *status);
 
 U_CFUNC
-void ucol_tok_initTokenList(UColTokenParser *src, const UChar *rules, const uint32_t rulesLength, UCollator *UCA, UErrorCode *status);
+void ucol_tok_initTokenList(UColTokenParser *src, const UChar *rules, const uint32_t rulesLength, const UCollator *UCA, UErrorCode *status);
 
 U_CFUNC void ucol_tok_closeTokenList(UColTokenParser *src);
 
@@ -164,6 +165,18 @@ U_CAPI const UChar * U_EXPORT2
 ucol_tok_getNextArgument(const UChar *start, const UChar *end, 
                                UColAttribute *attrib, UColAttributeValue *value, 
                                UErrorCode *status);
+U_CAPI int32_t U_EXPORT2 ucol_inv_getNextCE(const UColTokenParser *src,
+                                            uint32_t CE, uint32_t contCE,
+                                            uint32_t *nextCE, uint32_t *nextContCE,
+                                            uint32_t strength);
+U_CAPI int32_t U_EXPORT2 ucol_inv_getPrevCE(const UColTokenParser *src,
+                                            uint32_t CE, uint32_t contCE,
+                                            uint32_t *prevCE, uint32_t *prevContCE,
+                                            uint32_t strength);
+
+U_CAPI uint32_t U_EXPORT2 ucol_getCEStrengthDifference(uint32_t CE, uint32_t contCE, 
+                                            uint32_t prevCE, uint32_t prevContCE);
+
 
 #endif /* #if !UCONFIG_NO_COLLATION */
 

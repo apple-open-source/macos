@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2001, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -34,6 +34,11 @@
     void TestConstruction2(void);
 
     void TestAliasConflict(void);
+
+    static void TestGetSize(void);
+
+    static void TestGetLocaleByType(void);
+
     /**
      * extensive subtests called by TestResourceBundles
      **/

@@ -1,18 +1,20 @@
-.PATH: ${.CURDIR}/${MACHINE_ARCH}/pthreads ${.CURDIR}/pthreads
-
 .if exists(${.CURDIR}/${MACHINE_ARCH}/pthreads/Makefile.inc)
 .include "${.CURDIR}/${MACHINE_ARCH}/pthreads/Makefile.inc"
 .endif
 
-SRCS +=                   pthread_cond.c pthread_tsd.c pthread.c \
+.PATH: ${.CURDIR}/pthreads
+
+MISRCS +=                  pthread_cond.c pthread_tsd.c pthread.c \
         pthread_mutex.c    thread_setup.c lock.s   stack.s pthread_rwlock.c
 
 PTHREADS_INSTHDRS += pthread.h pthread_impl.h sched.h
 PTHREADS_INSTHDRS := ${PTHREADS_INSTHDRS:S/^/${.CURDIR}\/pthreads\//}
 INSTHDRS += ${PTHREADS_INSTHDRS}
 
+UNIX03SRCS += pthread.c pthread_cond.c
+
 .if ${LIB} == "c"
-MAN3+=	pthread.3 pthread_attr.3  pthread_cancel.3 \
+MAN3+=	pthread.3 pthread_atfork.3 pthread_attr.3  pthread_cancel.3 \
 	pthread_cleanup_pop.3 pthread_cleanup_push.3 \
 	pthread_cond_broadcast.3 pthread_cond_destroy.3 \
 	pthread_cond_init.3 pthread_cond_signal.3 \

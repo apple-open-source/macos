@@ -1,3 +1,373 @@
+2005-01-12  Tom Yu  <tlyu@mit.edu>
+
+	* aclocal.m4 (AC_LIBRARY_NET): Also check for res_ndestroy.
+
+2004-12-16  Ezra Peisach  <epeisach@bu.edu>
+
+	* krb5-config.in: Add krb5support library.
+
+2004-12-15  Jeffrey Altman <jaltman@mit.edu>
+
+        * Makefile.in: build/clean/install/etc kcpytkt,kdeltkt,ms2mit
+
+2004-11-19  Tom Yu  <tlyu@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_PRIOCNTL_HACK): Check for Solaris patch
+	117171-11 (sparc) or 117172-11 (x86), which fixes the Solaris 9
+	bug which can cause final pty output to be on close.
+
+2004-11-18  Tom Yu  <tlyu@mit.edu>
+
+	* Makefile.in (install-headers-mkdirs): Create KRB5_INCDIR/gssrpc.
+
+2004-10-06  Tom Yu  <tlyu@mit.edu>
+
+	* Makefile.in (INSTALLMKDIRS): Add EXAMPLEDIR.
+
+2004-10-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_ENABLE_THREADS): On HP-UX, define some
+	preprocessor symbols that -pthread defines, but don't use -pthread
+	so we can avoid forcing linking against pthread libraries.
+
+2004-09-24  Tom Yu  <tlyu@mit.edu>
+
+	* configure.in: Update to get RELTAIL from patchlevel.h as well.
+
+	* patchlevel.h: Update to make this the master version stamp file.
+
+2004-09-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (AC_KRB5_TCL_FIND_CONFIG): If the config info set by
+	tclConfig.sh doesn't produce a working executable, set TCL_LIBS to
+	be empty explicitly.
+	(KRB5_BUILD_LIBRARY_WITH_DEPS): Substitute SHLIB_EXPORT_FILE_DEP.
+
+2004-09-22  Tom Yu  <tlyu@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_LIBUTIL): New macro to check for libutil.
+	
+	* aclocal.m4 (WITH_CC): Check for GNU linker.
+
+2004-09-21  Tom Yu  <tlyu@mit.edu>
+
+	* alcocal.m4 (AC_LIBRARY_NET): Additionally, check ns_initparse,
+	since Linux prototypes it but doesn't export it.
+
+2004-09-21  Tom Yu  <tlyu@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_NEED_BIND_8_COMPAT): Remove.
+	(AC_LIBRARY_NET): Remove KRB5_AC_NEED_BIND_8_COMPAT.  Call
+	_KRB5_AC_CHECK_RES_FUNCS to check declarations and linkability of
+	vairous resolver functions.  Explicitly check linkability of
+	res_search() in case it's not explicitly declared.
+	(_KRB5_AC_CHECK_RES_FUNCS, _KRB5_AC_CHECK_RES_FUNC): New
+	functions.  Check resolver library function prototypes and
+	linkability.
+
+2004-09-17  Tom Yu  <tlyu@mit.edu>
+
+	* Makefile.in (install-unix): Use $(INSTALL_SCRIPT) for scripts.
+
+	* aclocal.m4 (AC_LIBRARY_NET): Look for res_search() prototype,
+	then for symbol in library, in case there's symbol renaming
+	happening in the headers.  Clean up some style nits.
+
+2004-09-15  Tom Yu  <tlyu@mit.edu>
+
+	* aclocal.m4 (AC_LIBRARY_NET): Only look for res_search() in
+	libraries, not headers, in case it's present but not prototyped.
+
+2004-09-14  Tom Yu  <tlyu@mit.edu>
+
+	* aclocal.m4 (AC_LIBRARY_NET): Require the BIND_8_COMPAT check
+	prior to looking for prototypes, as BIND 9 (at least on Panther)
+	turns off some prototypes and typedefs if BIND_8_COMPAT is
+	defined.
+
+2004-09-13  Tom Yu  <tlyu@mit.edu>
+
+	* aclocal.m4: Fix check for resolv.h; some platforms have
+	prerequisite headers.
+
+2004-09-08  Sam Hartman  <hartmans@krbdev-linux.mit.edu>
+
+	* aclocal.m4 : Remove use of resolv_lib; none of the makefiles
+	actually use it and if we don't set it we can simplify the DNS
+	tests significantly.   If the -lresolv library exists we use it.
+	This may create a bit of a problem for people with nsswitch
+	configurations that don't prefer dns.  We include resolv.h before
+	checking for res_*.
+
+2004-09-08  Tom Yu  <tlyu@mit.edu>
+
+	* Makefile.in: Install krb5-config manpage.
+
+2004-09-07  Alexandra Ellwood  <lxs@mit.edu>
+
+	* krb5-config.M: Added a man page for krb5-config.
+
+2004-08-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Don't test for pthread_rwlock_init.
+
+	* aclocal.m4 (KRB5_AC_PRAGMA_WEAK_REF): Fix to work with AIX
+	compiler when optimizing.
+
+2004-08-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_ENABLE_THREADS): Check for
+	pthread_rwlock_init, with and without the thread library.
+
+2004-08-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_ENABLE_THREADS): On AIX and OSF/1, always
+	add $PTHREAD_CFLAGS to CFLAGS for use in later tests.  Clear
+	PTHREAD_CFLAGS and PTHREAD_LIBS to avoid duplicating the options
+	later.
+	(WITH_CC): If on AIX and not using gcc, add -qhalt=e and -O to
+	CFLAGS if similar options are not already present.  Log messages
+	when doing so.
+
+2004-07-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_INET6, KRB5_AC_CHECK_SOCKADDR_STORAGE,
+	KRB5_AC_CHECK_INET6): Don't check for macsock.h.
+
+2004-07-12  Ken Raeburn  <raeburn@mit.edu>
+
+	* krb5-config.in: Substitute $(PTHREAD_CFLAGS).
+
+2004-07-11  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_ENABLE_THREADS): Use PTHREAD_CFLAGS and
+	PTHREAD_LIBS when checking for pthread_mutexattr_setrobust_np
+	availability with thread support enabled.  Fix typo that caused
+	some code to be omitted.
+
+2004-07-09  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_ENABLE_THREADS): Don't test for pthread.h
+	specifically.  Always include the thread library on Tru64 UNIX.
+	(KRB5_AC_CHECK_INET6): If the first test fails, try adding -DINET6
+	and test again; if it works, define INET6 for the build.
+
+2004-07-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_ENABLE_THREADS): Default to enabling
+	support.
+
+2004-07-06  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Fix bug in last change that caused a variable to
+	be used before set.  Check for pthread_rwlock_init.
+
+2004-07-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (AC_LIBRARY_NET): Look for res_nsearch.
+	* configure.in: If thread support is enabled and res_nsearch
+	isn't found, issue a warning.
+
+2004-06-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (WITH_CC): Use -Wl,-search_paths_first for linking on
+	Darwin.
+	(KRB5_AC_ENABLE_THREADS): On AIX, add PTHREAD_LIBS to LIBS; don't
+	do it on other platforms.  Override CC with PTHREAD_CC only if CC
+	is not gcc.  Don't add PTHREAD_CFLAGS to CFLAGS; substitute
+	PTHREAD_CFLAGS separately.
+
+	* Makefile.in (all-windows): Make autoconf.h in include\krb5
+	before building anything else.
+	(WINMAKEFILES): Add util\support\Makefile.
+	(util\support\Makefile) [DOS]: New target.
+	(CE): New variable.
+	($(CE)test1.h, $(CE)test2.h, $(CE)test1.c, $(CE)test2.c): New
+	targets.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (MACFILES, MAC_SUBDIRS): Don't set.
+	(macfile.list, mac-bin-dirs, krbsrc.mac.tar, Macfile, all-mac,
+	clean-mac): Target deleted.
+	(CLEANUP): Remove macfile.list.
+
+2004-06-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (CONFIG_RULES): Don't set AUTOCONF, AUTOCONFFLAGS,
+	AUTOHEADER, AUTOHEADERFLAGS, AUTOCONFINCFLAGS.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_LIB_AUX): Use $(LIBBASE) instead of $(LIB).
+
+2004-06-03  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Check for various _r functions needed for thread
+	safety.  If enable-thread-support is specified, complain about
+	any that aren't found.
+
+2004-05-30  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_GCC_ATTRS): On AIX 4, mark the destructor
+	attribute as always not working, until we can construct a good
+	test for the order of destructors in the multiple shared library
+	case.
+
+2004-05-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Generate a makefile in util/support.  Include
+	dependency support for shared library build.
+
+2004-04-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (CONFIG_RULES): Invoke KRB5_LIB_PARAMS and
+	KRB5_AC_INITFINI.
+	(KRB5_AC_INITFINI): New macro.  Define delayed-initialization
+	config option, test for gcc constructor/destructor attribute
+	support, and test whether shlib.conf indicates support for
+	link-time options.
+	(KRB5_AC_GCC_ATTRS): Implement.
+	(CONFIG_RULES): Substitute EXTRA_FILES into pre.in.
+
+2004-04-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_BUILD_LIBRARY_WITH_DEPS): Report an error if
+	perl cannot be found.
+
+2004-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_BUILD_LIBRARY_WITH_DEPS): Look for perl.
+	(KRB5_AC_PRAGMA_WEAK_REF): New macro, tests support for weak
+	references using "#pragma weak".
+	(CONFIG_RULES): Invoke it.
+	(KRB5_AC_ENABLE_THREADS): Test enableval, not withval.  If
+	ACX_PTHREAD can't determine thread support options and thread
+	support was requested, report an error.  Display the options
+	selected by ACX_PTHREAD.  Test for pthread_once without pthread
+	options, and pthread_mutexattr_setrobust_np both with and without
+	pthread options.
+	(KRB5_AC_GCC_ATTRS): New macro, dummy for now.
+
+2004-04-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_BUILD_LIBRARY_WITH_DEPS): Substitute
+	MAKE_SHLIB_COMMAND, not LDCOMBINE and LDCOMBINE_TAIL.
+
+2004-03-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_MAINTAINER_MODE, KRB5_AC_ENABLE_THREADS,
+	KRB5_AC_INET6, WITH_HESIOD, KRB5_LIB_AUX, KRB5_AC_CHOOSE_SS,
+	KRB5_AC_CHOOSE_DB): Express defaults more consistently with other
+	configure output.  Use AC_HELP_STRING.  Shorten up some messages,
+	drop some options that are defaults and obvious counterparts to
+	other documented options.
+	(KRB5_LIB_AUX): Use default_shared and default_static from
+	shlib.conf to decide whether to build shared and static libraries
+	by default.  Update messages to indicate shared libraries are the
+	default for most platforms now.  Use AC_MSG_NOTICE and
+	AC_MSG_WARN instead of AC_MSG_RESULT when there's no "checking"
+	message.
+
+	* configure.in: Likewise.
+
+2004-03-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4: Include acx_pthread.m4.
+	(KRB5_AC_ENABLE_THREADS): New macro.
+	(CONFIG_RULES): Invoke it.  Use AC_REQUIRE to get topdir set
+	early.
+
+2004-03-14  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (update-autoconf-h): New target.  Checks that
+	include/krb5/autoconf.h is current.
+	(all-prerecurse): Depend on it.
+
+2004-03-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (SUBDIRS): Renamed from MY_SUBDIRS.
+
+2004-03-07  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (AC_KRB5_TCL_FIND_CONFIG): Look for tclConfig.sh in
+	the specified directory if it's not in a "lib" subdirectory.
+	(AC_KRB5_TCL): If no pathname is supplied and tclConfig.sh isn't
+	found in /usr/lib, try running a script under tclsh to see if it
+	can supply the pathname for tclConfig.sh.
+
+2004-03-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Integrate config commands from kdc, krb524, and
+	slave directories.  Don't configure those directories; generate
+	their makefiles directly.  Use AC_HELP_STRING in AC_ARG_ENABLE
+	and AC_ARG_WITH messages.  Substitute @LIBUTIL@.
+
+2004-02-25  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Configure lib/apputils, not util/apputils.
+
+2004-02-24  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_NEED_DAEMON): Don't use AC_REPLACE_FUNCS.
+	* configure.in: Configure util/apputils.
+
+2004-02-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (TRY_PEER_INT): Deleted.
+	(KRB5_GETPEERNAME_ARGS): Map the getpeername arg types to the
+	corresponding getsockname arg types.
+	(KRB5_GETSOCKNAME_ARGS): If nothing matches, assume struct
+	sockaddr and socklen_t.
+	(WITH_CC): Add -fno-common to CFLAGS on Darwin, unless -fcommon or
+	-fno-common is already given.
+
+2004-02-12  Tom Yu  <tlyu@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_PRIOCNTL_HACK): Set PRIOCNTL_HACK=1 on
+	Solaris 9.
+
+	* configure.in: Remove exitsleep.
+
+2003-12-27  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Use AC_HELP_STRING for kdc-replay-cache option
+	info, to tidy up the output.
+
+2003-12-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (WITH_CC): Drop -Wno-comment, since we don't support
+	SunOS 4 any longer.
+
+2003-12-05  Tom Yu  <tlyu@mit.edu>
+
+	* configure.in: Add support for building an LD_PRELOAD object for
+	Solaris, used by util/Makefile.in.
+
+2003-09-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_MAINTAINER_MODE): New macro.
+	(CONFIG_RULES): Invoke it.
+
+2003-08-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (KRB5_AC_NEED_DAEMON): New macro.
+
+2003-08-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (WITH_CCOPTS, WITH_CPPOPTS, WITH_LINKER,
+	WITH_LDOPTS, KRB5_INIT_CCOPTS, WITH_CC_DEPRECATED_ARG): Deleted.
+	(CONFIG_RULES): Do the non-useless parts directly here.
+	(V5_SET_TOPDIR): Work quietly.
+	(WITH_KRB4): Use AC_MSG_NOTICE.
+	(KRB5_AC_ENABLE_DNS): Drop --enable-dns and --enable-dns-for-kdc
+	options; turn them on always.
+
+2003-07-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* aclocal.m4 (extra_gcc_warn_opts): Don't turn on -pedantic on
+	Darwin.
+
 2003-05-27  Ken Raeburn  <raeburn@mit.edu>
 
 	* Makefile.in (KRBHDEP): Add krb524_err header.

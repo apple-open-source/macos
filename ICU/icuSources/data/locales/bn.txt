@@ -1,79 +1,202 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 2001-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/bn.xml
 // *
-// *   Generated from - Universal Locales for Linux Project
 // ***************************************************************************
-
-bn {
-    Version{ "2.0" }
-    Languages {
-        bn { "\u09ac\u09be\u0982\u09b2\u09be" }
+/**
+ *  ICU <specials> source: ../../../locale/icu/main/bn.xml
+ */
+bn{
+    Countries{
+        AF{"আফগানিস্তান"}
+        AL{"আলব্যানিয়া"}
+        AM{"আর্মেনিয়া"}
+        AR{"আর্জেণ্টাইনা"}
+        AT{"অস্ট্রিয়া"}
+        AU{"অস্ট্রেলিয়া"}
+        AZ{"আজারবাইজান"}
+        BD{"বাংলাদেশ"}
+        BE{"বেল্জিয়ম"}
+        BG{"বুলগেরিয়া"}
+        BO{"বোলিভিয়া"}
+        BR{"ব্রাজিল"}
+        BT{"ভুটান"}
+        BY{"বেলোরুশিয়া"}
+        CG{"কঙ্গো"}
+        CH{"সুইজর্লণ্ড"}
+        CL{"চিলি"}
+        CN{"চীন"}
+        CO{"কোলোম্বিয়া"}
+        CR{"কোস্টারিকা"}
+        CU{"কিউবা"}
+        CZ{"চেকিয়া"}
+        DE{"জার্মানি"}
+        DK{"ডেন্মার্ক"}
+        DZ{"এলজিরিয়া"}
+        EC{"ইকোয়াডর"}
+        EE{"এস্তোনিয়া"}
+        EG{"মিশর"}
+        EH{"পশ্চিমী সাহারা"}
+        ES{"স্পেন"}
+        ET{"ইফিওপিয়া"}
+        FI{"ফিন্ল্যাণ্ড"}
+        FR{"ফ্রান্স"}
+        GB{"গ্রেটবৃটেন"}
+        GE{"জর্জিয়া"}
+        GH{"গানা"}
+        GR{"গ্রীস্"}
+        GT{"গোয়াটিমালা"}
+        GY{"গিয়ানা"}
+        HN{"হণ্ডুরাস"}
+        HU{"হাঙ্গেরি"}
+        ID{"ইন্দোনেশিয়া"}
+        IE{"আয়ার্লণ্ড"}
+        IL{"ইস্রায়েল"}
+        IN{"ভারত"}
+        IQ{"ইরাক"}
+        IR{"ইরান"}
+        IS{"আইসলণ্ড"}
+        IT{"ইতালী"}
+        JM{"জ্যামেকা"}
+        JO{"জর্ডন"}
+        JP{"জাপান"}
+        KE{"কেনিয়া"}
+        KG{"কির্গিজিয়া"}
+        KH{"কাম্বোজ"}
+        KR{"দক্ষিণ কোরিয়া"}
+        KZ{"কাজাকস্থান"}
+        LA{"লাওস"}
+        LB{"লেবানন"}
+        LK{"শ্রীলঙ্কা"}
+        LR{"লাইবিরিয়া"}
+        LT{"লিত্ভা"}
+        LU{"লাক্সেমবার্গ"}
+        LV{"লাত্ভিয়া"}
+        LY{"লিবিয়া"}
+        MA{"মোরক্কো"}
+        MD{"মোল্দাভিয়া"}
+        MG{"মাদাগাস্কার"}
+        MN{"মঙ্গোলিয়া"}
+        MX{"মক্সিকো"}
+        MY{"মাল্যাশিয়া"}
+        NI{"নিকারাগোয়া"}
+        NL{"হলণ্ড"}
+        NO{"নরওয়ে"}
+        NP{"নেপাল"}
+        NZ{"নিউ জিলণ্ড"}
+        PA{"পানামা"}
+        PE{"পিরু"}
+        PH{"ফিলিপাইন"}
+        PK{"পাকিস্তান"}
+        PL{"পোল্যাণ্ড"}
+        PT{"পর্তুগাল"}
+        PY{"প্যারাগোয়ে"}
+        RO{"রুমানিয়া"}
+        RU{"রাশিয়া"}
+        SA{"সাউদি আরব"}
+        SD{"সুদান"}
+        SE{"সুইডেন"}
+        SG{"সিঙ্গাপুর"}
+        SK{"শ্লোভাকিয়া"}
+        SO{"সোমালি"}
+        SV{"সালভেডর"}
+        SY{"সিরিয়া"}
+        TH{"থাই"}
+        TJ{"তাজিকস্থান"}
+        TM{"তুর্কমেনিয়া"}
+        TN{"টিউনিস্"}
+        TR{"তুরস্ক"}
+        TW{"তাইওয়ান"}
+        UA{"ইউক্রেইন"}
+        US{"মার্কিন যুক্তরাষ্ট্র"}
+        UY{"উরুগোয়ে"}
+        UZ{"উজ্বেকিস্থান"}
+        VE{"ভেনেজুয়েলা"}
+        VN{"ভিয়েতনাম"}
+        YE{"ইমেন"}
+        ZA{"দক্ষিণ আফ্রিকা"}
     }
-    Countries {
-        IN { "\u09ad\u09be\u09b0\u09a4" }
+    Currencies{
+        BDT{
+            "৳",
+            "BDT",
+        }
+        INR{
+            "টাকা",
+            "INR",
+        }
     }
-    AmPmMarkers { 
-        "\u09AA\u09C2\u09B0\u09CD\u09AC\u09BE\u09B9\u09CD\u09A3",
-        "\u0985\u09AA\u09B0\u09BE\u09B9\u09CD\u09A3",
+    ExemplarCharacters{"[[:Beng:]‌‍]"}
+    Languages{
+        bn{"বাংলা"}
     }
-    DayAbbreviations { 
-        "\u09B0\u09AC\u09BF",
-        "\u09B8\u09CB\u09AE",
-        "\u09AE\u0999\u0997\u09B2",
-        "\u09AC\u09C1\u09A7",
-        "\u09AC\u09C3\u09B9\u09B8\u09CD\u09AA\u09A4\u09BF",
-        "\u09B6\u09C1\u0995\u09CD\u09B0",
-        "\u09B6\u09A8\u09BF",
+    LocaleScript{
+        "Beng",
     }
-    DayNames { 
-        "\u09B0\u09AC\u09BF\u09AC\u09BE\u09B0",
-        "\u09B8\u09CB\u09AE\u09AC\u09BE\u09B0",
-        "\u09AE\u0999\u0997\u09B2\u09AC\u09BE\u09B0",
-        "\u09AC\u09C1\u09A7\u09AC\u09BE\u09B0",
-        "\u09AC\u09C3\u09B9\u09B8\u09CD\u09AA\u09A4\u09BF\u09AC\u09BE\u09B0",
-        "\u09B6\u09C1\u0995\u09CD\u09B0\u09AC\u09BE\u09B0",
-        "\u09B6\u09A8\u09BF\u09AC\u09BE\u09B0",
-    }
-    MonthAbbreviations { 
-        "\u099C\u09BE\u09A8\u09C1\u09DF\u09BE\u09B0\u09C0",
-        "\u09AB\u09C7\u09AC\u09CD\u09B0\u09C1\u09DF\u09BE\u09B0\u09C0",
-        "\u09AE\u09BE\u09B0\u09CD\u099A",
-        "\u098F\u09AA\u09CD\u09B0\u09BF\u09B2",
-        "\u09AE\u09C7",
-        "\u099C\u09C1\u09A8",
-        "\u099C\u09C1\u09B2\u09BE\u0987",
-        "\u0986\u0997\u09B8\u09CD\u099F",
-        "\u09B8\u09C7\u09AA\u09CD\u099F\u09C7\u09AE\u09CD\u09AC\u09B0",
-        "\u0985\u0995\u09CD\u099F\u09CB\u09AC\u09B0",
-        "\u09A8\u09AD\u09C7\u09AE\u09CD\u09AC\u09B0",
-        "\u09A1\u09BF\u09B8\u09C7\u09AE\u09CD\u09AC\u09B0",
-    }
-    MonthNames { 
-        "\u099C\u09BE\u09A8\u09C1\u09DF\u09BE\u09B0\u09C0",
-        "\u09AB\u09C7\u09AC\u09CD\u09B0\u09C1\u09DF\u09BE\u09B0\u09C0",
-        "\u09AE\u09BE\u09B0\u09CD\u099A",
-        "\u098F\u09AA\u09CD\u09B0\u09BF\u09B2",
-        "\u09AE\u09C7",
-        "\u099C\u09C1\u09A8",
-        "\u099C\u09C1\u09B2\u09BE\u0987",
-        "\u0986\u0997\u09B8\u09CD\u099F",
-        "\u09B8\u09C7\u09AA\u09CD\u099F\u09C7\u09AE\u09CD\u09AC\u09B0",
-        "\u0985\u0995\u09CD\u099F\u09CB\u09AC\u09B0",
-        "\u09A8\u09AD\u09C7\u09AE\u09CD\u09AC\u09B0",
-        "\u09A1\u09BF\u09B8\u09C7\u09AE\u09CD\u09AC\u09B0",
-    }
-    //LocaleString { "bn" }
-    LocaleID:int { 0x45 }
-    LocaleScript:array{
-        "Beng"
-    }
-    ExemplarCharacters{"[[:Beng:]\u200c\u200d]"}
-
-    // Currency display names
-    Currencies {
-        INR { "\u099F\u09BE\u0995\u09BE", "INR" }
-        BDT { "\u09F3", "BDT" } // Bangladesh Taka
+    Version{"1.2"}
+    calendar{
+        gregorian{
+            AmPmMarkers{
+                "পূর্বাহ্ণ",
+                "অপরাহ্ণ",
+            }
+            dayNames{
+                format{
+                    abbreviated{
+                        "রবি",
+                        "সোম",
+                        "মঙ্গল",
+                        "বুধ",
+                        "বৃহস্পতি",
+                        "শুক্র",
+                        "শনি",
+                    }
+                    wide{
+                        "রবিবার",
+                        "সোমবার",
+                        "মঙ্গলবার",
+                        "বুধবার",
+                        "বৃহষ্পতিবার",
+                        "শুক্রবার",
+                        "শনিবার",
+                    }
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "জানুয়ারী",
+                        "ফেব্রুয়ারী",
+                        "মার্চ",
+                        "এপ্রিল",
+                        "মে",
+                        "জুন",
+                        "জুলাই",
+                        "আগস্ট",
+                        "সেপ্টেম্বর",
+                        "অক্টোবর",
+                        "নভেম্বর",
+                        "ডিসেম্বর",
+                    }
+                    wide{
+                        "জানুয়ারী",
+                        "ফেব্রুয়ারী",
+                        "মার্চ",
+                        "এপ্রিল",
+                        "মে",
+                        "জুন",
+                        "জুলাই",
+                        "আগস্ট",
+                        "সেপ্টেম্বর",
+                        "অক্টোবর",
+                        "নভেম্বর",
+                        "ডিসেম্বর",
+                    }
+                }
+            }
+        }
     }
 }

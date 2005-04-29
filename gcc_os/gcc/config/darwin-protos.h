@@ -1,5 +1,5 @@
 /* Prototypes.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -22,14 +22,11 @@ extern int name_needs_quotes PARAMS ((const char *));
 
 extern void machopic_validate_stub_or_non_lazy_ptr PARAMS ((const char *, int));
 
-/* APPLE LOCAL begin fix prototypes  */
 extern const char *machopic_function_base_name PARAMS ((void));
 extern const char *machopic_non_lazy_ptr_name PARAMS ((const char*));
-extern const char *machopic_stub_name PARAMS ((const char*)); 
+extern const char *machopic_stub_name PARAMS ((const char*));
+/* APPLE LOCAL fix prototypes  */
 extern int machopic_var_referred_to_p PARAMS ((const char*)); 
-/* APPLE LOCAL end fix prototypes  */
-
-extern void machopic_add_gc_roots PARAMS ((void));
 
 extern void machopic_picsymbol_stub_section PARAMS ((void));
 extern void machopic_symbol_stub_section PARAMS ((void));
@@ -46,13 +43,12 @@ extern void mod_term_section PARAMS ((void));
 extern int machopic_operand_p PARAMS ((rtx));
 extern enum machopic_addr_class machopic_classify_name PARAMS ((const char*));
 
+extern rtx machopic_indirect_data_reference PARAMS ((rtx, rtx));
 extern rtx machopic_indirect_call_target PARAMS ((rtx));
 extern rtx machopic_legitimize_pic_address PARAMS ((rtx, enum machine_mode, rtx));
 
 extern void machopic_asm_out_constructor PARAMS ((rtx, int));
 extern void machopic_asm_out_destructor PARAMS ((rtx, int));
-
-extern rtx machopic_indirect_data_reference PARAMS ((rtx, rtx));
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
@@ -62,20 +58,27 @@ extern void machopic_define_ident PARAMS ((tree));
 extern void machopic_define_name PARAMS ((const char*));
 extern int machopic_name_defined_p PARAMS ((const char*));
 extern int machopic_ident_defined_p PARAMS ((tree));
-extern void darwin_encode_section_info PARAMS ((tree));
+extern void darwin_encode_section_info PARAMS ((tree, int));
+extern const char *darwin_strip_name_encoding PARAMS ((const char *));
+/* APPLE LOCAL CW asm blocks */
+extern tree darwin_cw_asm_special_label PARAMS ((tree));
 
 #endif /* TREE_CODE */
 
 extern void machopic_finish PARAMS ((FILE *));
 
-/* APPLE LOCAL C++ EH */
-extern void darwin_asm_output_dwarf_delta PARAMS ((FILE *file, int size,
-						   const char *lab1,
-						   const char *lab2,
-						   int force_reloc));
+extern void machopic_output_possible_stub_label PARAMS ((FILE *, const char*));
 
+/* APPLE LOCAL begin better pic-base sequence */
+extern void darwin_textcoal_nt_section (void);
+extern void darwin_datacoal_nt_section (void);
+/* APPLE LOCAL end better pic-base sequence */
 extern void darwin_exception_section PARAMS ((void));
 extern void darwin_eh_frame_section PARAMS ((void));
+extern void machopic_select_section PARAMS ((tree, int,
+					     unsigned HOST_WIDE_INT));
+extern void machopic_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						 unsigned HOST_WIDE_INT));
 
 #ifdef GCC_C_PRAGMA_H
 extern void darwin_pragma_ignore PARAMS ((cpp_reader *));
@@ -101,7 +104,7 @@ extern void darwin_pragma_cc_non_writable_strings PARAMS ((cpp_reader *));
 /* APPLE LOCAL end temporary pragmas 2001-07-05 sts */
 #endif
 
-/* APPLE LOCAL  named sections  */
+/* APPLE LOCAL coalescing  */
 extern void darwin_asm_named_section PARAMS ((const char *, unsigned int));
 extern unsigned int darwin_section_type_flags PARAMS ((tree, const char *,
                                                            int));
@@ -109,27 +112,48 @@ extern int darwin_set_section_for_var_p PARAMS ((tree, int, int));
 
 /* APPLE LOCAL  double destructor  */
 extern tree darwin_handle_odd_attribute (tree *, tree, tree, int, bool *);
+/* APPLE LOCAL XJR */
+extern tree darwin_handle_objc_gc_attribute (tree *, tree, tree, int, bool *);
 
-/* APPLE LOCAL PFE  */
-#ifdef PFE
-/* This is called to allocate or freeze/thaw target-specific additions to the
-   pfe header.  The argument is a pointer to a target-defined field in the pfe
-   header.  When the value in the field is NULL then, by definition, this is for
-   creating the dump file.  The function should allocate space for any data
-   (using pfe_malloc or pfe_calloc), do any appropriate initialization to this
-   space, and save the pointer in *pp.  If the argument is not NULL the function
-   is expected to freeze/thaw (depending on pfe_operation) the data pointed to
-   by the argument as well as *pp itself (*pp is never NULL in this case).  Of
-   course during thawing *pp will be the pointer set when the function was
-   originally called with a NULL argument.  */
-extern void darwin_pfe_freeze_thaw_target_additions PARAMS ((void *pp));
+/* APPLE LOCAL deep branch prediction pic-base */
+extern void darwin_file_end (void);
 
-/* This is called by pfe_savestring() to determine whether strings should be
-   treated  specially and not placed in PFE memory by pfe_savestring().  For
-   darwin there are actually some strings in this category.  See comments
-   for darwin_pfe_maybe_savestring() for details.  */
-extern int  darwin_pfe_maybe_savestring PARAMS ((char *));
-
-/* Called to check for consistent target-specific switches in pfe files.  */
-extern void darwin_pfe_check_target_settings PARAMS ((void));
-#endif
+/* Expanded by EXTRA_SECTION_FUNCTIONS into varasm.o.  */
+extern void const_section PARAMS ((void));
+extern void const_data_section PARAMS ((void));
+extern void cstring_section PARAMS ((void));
+extern void literal4_section PARAMS ((void));
+extern void literal8_section PARAMS ((void));
+extern void constructor_section PARAMS ((void));
+extern void mod_init_section PARAMS ((void));
+extern void mod_term_section PARAMS ((void));
+extern void destructor_section PARAMS ((void));
+extern void objc_class_section PARAMS ((void));
+extern void objc_meta_class_section PARAMS ((void));
+extern void objc_category_section PARAMS ((void));
+extern void objc_class_vars_section PARAMS ((void));
+extern void objc_instance_vars_section PARAMS ((void));
+extern void objc_cls_meth_section PARAMS ((void));
+extern void objc_inst_meth_section PARAMS ((void));
+extern void objc_cat_cls_meth_section PARAMS ((void));
+extern void objc_cat_inst_meth_section PARAMS ((void));
+extern void objc_selector_refs_section PARAMS ((void));
+extern void objc_selector_fixup_section PARAMS ((void));
+extern void objc_symbols_section PARAMS ((void));
+extern void objc_module_info_section PARAMS ((void));
+extern void objc_protocol_section PARAMS ((void));
+extern void objc_string_object_section PARAMS ((void));
+extern void objc_constant_string_object_section PARAMS ((void));
+extern void objc_class_names_section PARAMS ((void));
+extern void objc_meth_var_names_section PARAMS ((void));
+extern void objc_meth_var_types_section PARAMS ((void));
+extern void objc_cls_refs_section PARAMS ((void));
+extern void machopic_lazy_symbol_ptr_section PARAMS ((void));
+extern void machopic_nl_symbol_ptr_section PARAMS ((void));
+extern void machopic_symbol_stub_section PARAMS ((void));
+extern void machopic_picsymbol_stub_section PARAMS ((void));
+extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
+extern void darwin_exception_section PARAMS ((void));
+extern void darwin_eh_frame_section PARAMS ((void));
+extern void darwin_globalize_label PARAMS ((FILE *, const char *));
+extern void darwin_asm_output_dwarf_delta PARAMS ((FILE *, int, const char *, const char *));

@@ -3,7 +3,7 @@
 ##
 
 # Project info
-Project     = srm-1.2.6
+Project     = srm
 ProjectName = srm
 ToolType    = Commands
 

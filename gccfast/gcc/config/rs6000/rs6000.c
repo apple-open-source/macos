@@ -1584,6 +1584,7 @@ rs6000_override_options (default_cpu)
   /* Save current -mstring/-mno-string status.  */
   int string = TARGET_STRING;
   int mtune = 0;
+  enum processor_type mcpu_cpu;
 
   /* Identify the processor type.  */
   rs6000_select[0].string = default_cpu;
@@ -1591,6 +1592,7 @@ rs6000_override_options (default_cpu)
   /* APPLE LOCAL begin -fast */
   if (flag_fast || flag_fastf)
   {
+    mcpu_cpu = PROCESSOR_POWER4;
     if (rs6000_select[1].string == (char *)0 && rs6000_select[2].string == (char *)0)
     {
       /* -mcpu and -mtune unspecified. Assume both are G5 */
@@ -1617,6 +1619,7 @@ rs6000_override_options (default_cpu)
 		  {
 		    target_flags |= processor_target_table[j].target_enable;
 		    target_flags &= ~processor_target_table[j].target_disable;
+		    mcpu_cpu = processor_target_table[j].processor;
 		  }
 		break;
 	      }
@@ -1652,7 +1655,7 @@ rs6000_override_options (default_cpu)
       if (!flag_pic)
         set_target_switch ("dynamic-no-pic");
 
-      if (rs6000_cpu == PROCESSOR_POWER4)
+      if (mcpu_cpu == PROCESSOR_POWER4)
       {
         flag_inline_floor = 1;
         flag_mpowerpc64fix = 1;
@@ -1769,13 +1772,6 @@ rs6000_override_options (default_cpu)
     {
       rs6000_flag_pic = flag_pic;
       flag_pic = 0;
-    }
-
-  /* APPLE LOCAL long-branch */
-  if (TARGET_LONG_BRANCH && (flag_pic != 0))
-    {
-      warning ("ignoring -mlong-branch, superflous when PIC is on; use with -static") ;
-      target_flags &= ( ~ MASK_LONG_BRANCH) ;
     }
 
   /* For Darwin, always silently make -fpic and -fPIC identical.  */
@@ -3101,8 +3097,12 @@ build_mask64_2_operands (in, out)
      rtx in;
      rtx *out;
 {
+#if HOST_BITS_PER_WIDE_INT >= 32
 #if HOST_BITS_PER_WIDE_INT >= 64
   unsigned HOST_WIDE_INT c, lsb, m1, m2;
+#else
+  unsigned HOST_WIDEST_INT c, lsb, m1, m2;
+#endif
   int shift;
 
   if (GET_CODE (in) != CONST_INT)
@@ -4454,7 +4454,7 @@ init_cumulative_args (cum, fntype, libname, incoming)
   /* Check for a longcall attribute.  */
   if (fntype
       /* APPLE LOCAL long-branch */
-      && 0 /*TARGET_LONG_BRANCH *//* disabled 25jan02 seh */ 
+      && TARGET_LONG_BRANCH
       && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype))
       && !lookup_attribute ("shortcall", TYPE_ATTRIBUTES (fntype)))
     cum->call_cookie = CALL_LONG;
@@ -4697,6 +4697,23 @@ rs6000_function_value (valtype, func)
                                                       GP_ARG_RETURN + 1),
                                                       gen_rtx_CONST_INT
                                                         (SImode, 4))));
+    }
+  if (GET_MODE_CLASS (TYPE_MODE (valtype)) == MODE_COMPLEX_FLOAT
+      && TARGET_POWERPC64 && TARGET_32BIT)
+    {
+      /* complex types need be split in multiple registers. */
+      mode = TYPE_MODE (valtype);
+      int n_units = RS6000_ARG_SIZE (mode, valtype);
+      rtx rvec[GET_MODE_SIZE(TCmode) + 1];
+      int k = 0;
+      int i;
+      for (i=0; i < n_units; i++)
+	{
+	  rtx r = gen_rtx_REG (SImode, GP_ARG_RETURN + i);
+	  rtx off = GEN_INT (i * 4);
+	  rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, r, off);
+	}
+      return gen_rtx_PARALLEL (mode, gen_rtvec_v (k, rvec));
     }
 
   if ((INTEGRAL_TYPE_P (valtype) && TYPE_PRECISION (valtype) < BITS_PER_WORD)
@@ -5114,6 +5131,26 @@ function_arg (cum, mode, type, named)
                                                           + align_words),
                                                           const0_rtx)));
         }
+      else if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT 
+	       && TARGET_POWERPC64 && TARGET_32BIT
+	       && align_words < GP_ARG_NUM_REG)
+	{
+	  rtx rvec[GP_ARG_NUM_REG + 1];
+	  int i,k;
+	  int n_units = RS6000_ARG_SIZE (mode, type);
+	  k=0;
+	  if (align_words + n_units > GP_ARG_NUM_REG)
+	    rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, NULL_RTX, const0_rtx);
+	  i = 0;
+  	  do
+    	    {
+      	      rtx r = gen_rtx_REG (SImode, GP_ARG_MIN_REG + align_words);
+      	      rtx off = GEN_INT (i++ * 4);
+      	      rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, r, off);
+    	    }
+  	  while (++align_words < GP_ARG_NUM_REG && --n_units != 0);
+  	  return gen_rtx_PARALLEL (mode, gen_rtvec_v (k, rvec));
+	}
       /* APPLE LOCAL end 64bit registers, ABI32bit */
       else if (align_words < GP_ARG_NUM_REG)
 	return gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
@@ -12889,6 +12926,7 @@ rs6000_emit_prologue ()
 	  /* If we're saving vector or FP regs via a function call,
 	     then don't bother with this ObjC R12 optimization.
 	     This test also eliminates world_save.  */
+	  && (!info->world_save_p)
 	  && (info->first_altivec_reg_save > LAST_ALTIVEC_REGNO
 	      || VECTOR_SAVE_INLINE (info->first_altivec_reg_save))
 	  && (info->first_fp_reg_save == 64 
@@ -13879,7 +13917,7 @@ rs6000_emit_epilogue (sibcall)
   if (info->world_save_p)
     {
       int i, j;
-      char rname[30];
+      char rname[30], *rnamep;
       const char *alloc_rname;
       rtvec p;
 
@@ -13921,7 +13959,7 @@ rs6000_emit_epilogue (sibcall)
 		       + LAST_ALTIVEC_REGNO + 1 - info->first_altivec_reg_save
 		       + 63 + 1 - info->first_fp_reg_save);
 
-      strcpy(rname, (current_function_calls_eh_return) ?
+      strcpy (rname, (current_function_calls_eh_return) ?
 			"*eh_rest_world_r10" : "*rest_world");
       alloc_rname = ggc_strdup (rname);
 
@@ -18386,9 +18424,28 @@ symbolic_operand (op)
 }
 #endif
 
+#define GEN_LOCAL_LABEL_FOR_SYMBOL(BUF,SYMBOL,LENGTH,N)		\
+  do {								\
+    const char *const symbol_ = (SYMBOL);			\
+    char *buffer_ = (BUF);					\
+    if (symbol_[0] == '"')					\
+      {								\
+        sprintf(buffer_, "\"L%d$%s", (N), symbol_+1);		\
+      }								\
+    else if (name_needs_quotes(symbol_))			\
+      {								\
+        sprintf(buffer_, "\"L%d$%s\"", (N), symbol_);		\
+      }								\
+    else							\
+      {								\
+        sprintf(buffer_, "L%d$%s", (N), symbol_);		\
+      }								\
+  } while (0)
+
 #ifdef RS6000_LONG_BRANCH
 
 static tree stub_list = 0;
+static int local_label_unique_number = 0;
 
 /* ADD_COMPILER_STUB adds the compiler generated stub for handling 
    procedure calls to the linked list.  */
@@ -18407,7 +18464,6 @@ add_compiler_stub (label_name, function_name, line_number)
 
 #define STUB_LABEL_NAME(STUB)     TREE_VALUE (STUB)
 #define STUB_FUNCTION_NAME(STUB)  TREE_PURPOSE (STUB)
-#define STUB_LINE_NUMBER(STUB)    TREE_INT_CST_LOW (TREE_TYPE (STUB))
 
 /* OUTPUT_COMPILER_STUB outputs the compiler generated stub for
    handling procedure calls from the linked list and initializes the
@@ -18418,33 +18474,86 @@ output_compiler_stub ()
 {
   tree stub;
   const char *name;
+  char *local_label_0;
+  const char *non_lazy_pointer_name, *unencoded_non_lazy_pointer_name;
+  int length;
 
-  if (!flag_pic)
-    for (stub = stub_list; stub; stub = TREE_CHAIN (stub))
-      {
-	fprintf (asm_out_file,
-		 "%s:\n", IDENTIFIER_POINTER(STUB_LABEL_NAME(stub)));
+  for (stub = stub_list; stub; stub = TREE_CHAIN (stub))
+    {
+      fprintf (asm_out_file,
+	       "%s:\n", IDENTIFIER_POINTER(STUB_LABEL_NAME(stub)));
 
-#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-	if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
-	  fprintf (asm_out_file, "\t.stabd 68,0,%d\n", STUB_LINE_NUMBER(stub));
-#endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
+      /* APPLE LOCAL begin structor thunks */
+      name = IDENTIFIER_POINTER (STUB_FUNCTION_NAME (stub));
 
-	/* APPLE LOCAL begin structor thunks */
-	name = IDENTIFIER_POINTER (STUB_FUNCTION_NAME (stub));
+      /* If PIC and the callee has no stub, do indirect call through a
+	 non-lazy-pointer.  'save_world' expects a parameter in R11;
+	 the dyld_stub_binding_helper (part of the Mach-O stub
+	 interface) expects a different parameter in R11.  This is
+	 effectively a "non-lazy stub."  By-the-way, a
+	 "non-lazy-pointer" is a .long that gets coalesced with others
+	 of the same value, so one NLP suffices for an entire
+	 application.  */
+      if (flag_pic && (machopic_classify_ident (get_identifier (name)) == MACHOPIC_UNDEFINED))
+	{
+	  /* This is the address of the non-lazy pointer; load from it
+	     to get the address we want.  */
+	  non_lazy_pointer_name = machopic_non_lazy_ptr_name (name);
+	  machopic_validate_stub_or_non_lazy_ptr (non_lazy_pointer_name,
+						  /* non-lazy-pointer */0);
+	  unencoded_non_lazy_pointer_name =
+	    (*targetm.strip_name_encoding) (non_lazy_pointer_name);
+	  length = strlen (name);
+	  local_label_0 = alloca (length + 32);
+	  GEN_LOCAL_LABEL_FOR_SYMBOL (local_label_0, name, length,
+				      local_label_unique_number);
+	  local_label_unique_number++;
+	  fprintf (asm_out_file, "\tmflr r0\n");
+	  fprintf (asm_out_file, "\tbcl 20,31,%s\n", local_label_0);
+	  fprintf (asm_out_file, "%s:\n", local_label_0);
+	  fprintf (asm_out_file, "\tmflr r12\n");
+	  fprintf (asm_out_file, "\taddis r12,r12,ha16(");
+	  assemble_name (asm_out_file, non_lazy_pointer_name);
+	  fprintf (asm_out_file, "-%s)\n", local_label_0);
+	  fprintf (asm_out_file, "\tlwz r12,lo16(");
+	  assemble_name (asm_out_file, non_lazy_pointer_name);
+	  fprintf (asm_out_file, "-%s)(r12)\n", local_label_0);
+	  fprintf (asm_out_file, "\tmtlr r0\n");
+	  fprintf (asm_out_file, "\tmtctr r12\n");
+	  fprintf (asm_out_file, "\tbctr\n");
+	}
+      else if (flag_pic)	/* Far call to a stub.  */
+	{
+	  fputs ("\tmflr r0\n", asm_out_file);
+	  fprintf (asm_out_file, "\tbcl 20,31,%s_pic\n",
+	       IDENTIFIER_POINTER(STUB_LABEL_NAME(stub)));
+	  fprintf (asm_out_file, "%s_pic:\n",
+		   IDENTIFIER_POINTER(STUB_LABEL_NAME(stub)));
+	  fputs ("\tmflr r12\n", asm_out_file);
 
-	fputs ("\tlis r12,hi16(", asm_out_file);
-	ASM_OUTPUT_LABELREF (asm_out_file, name);
-	fputs (")\n\tori r12,r12,lo16(", asm_out_file);
-	ASM_OUTPUT_LABELREF (asm_out_file, name);
-	fputs (")\n\tmtctr r12\n\tbctr\n", asm_out_file);
-	/* APPLE LOCAL end structor thunks */
+	  fputs ("\taddis r12,r12,ha16(", asm_out_file);
+	  ASM_OUTPUT_LABELREF (asm_out_file, name);
+	  fprintf (asm_out_file, " - %s_pic)\n", IDENTIFIER_POINTER(STUB_LABEL_NAME(stub)));
+		   
+	  fputs ("\tmtlr r0\n", asm_out_file);
 
-#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-	if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
-	  fprintf(asm_out_file, "\t.stabd 68,0,%d\n", STUB_LINE_NUMBER (stub));
-#endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
-      }
+	  fputs ("\taddi r12,r12,lo16(", asm_out_file);
+	  ASM_OUTPUT_LABELREF (asm_out_file, name);
+	  fprintf (asm_out_file, " - %s_pic)\n", IDENTIFIER_POINTER(STUB_LABEL_NAME(stub)));
+
+	  fputs ("\tmtctr r12\n", asm_out_file);
+	  fputs ("\tbctr\n", asm_out_file);
+	}
+      else
+	{
+	  fputs ("\tlis r12,hi16(", asm_out_file);
+	  ASM_OUTPUT_LABELREF (asm_out_file, name);
+	  fputs (")\n\tori r12,r12,lo16(", asm_out_file);
+	  ASM_OUTPUT_LABELREF (asm_out_file, name);
+	  fputs (")\n\tmtctr r12\n\tbctr\n", asm_out_file);
+	}
+      /* APPLE LOCAL end structor thunks */
+    }
 
   stub_list = 0;
 }
@@ -18483,17 +18592,70 @@ get_prev_label (function_name)
    CALL_DEST is the routine we are calling.  */
 
 char *
-output_call (insn, call_dest, operand_number)
+output_call (insn, call_dest, operand_number, suffix)
      rtx insn;
      rtx call_dest;
      int operand_number;
+     char *suffix;
 {
   static char buf[256];
-  if (GET_CODE (call_dest) == SYMBOL_REF && TARGET_LONG_BRANCH && !flag_pic)
+  const char *far_call_instr_str=NULL, *near_call_instr_str=NULL;
+  rtx pattern;
+
+  switch (GET_CODE (insn))
+    {
+    case CALL_INSN:
+      far_call_instr_str = "jbsr";
+      near_call_instr_str = "bl";
+      pattern = NULL_RTX;
+      break;
+    case JUMP_INSN:
+      far_call_instr_str = "jmp";
+      near_call_instr_str = "b";
+      pattern = NULL_RTX;
+      break;
+    case INSN:
+      pattern = PATTERN (insn);
+      break;
+    default:
+      abort();
+      break;
+    }
+
+  if (GET_CODE (call_dest) == SYMBOL_REF && TARGET_LONG_BRANCH)
     {
       tree labelname;
       tree funname = get_identifier (XSTR (call_dest, 0));
       
+      {
+	static int warned = 0;
+	if (flag_reorder_blocks_and_partition && !warned)
+	  {
+	    error ("-mlongcall and -freorder-blocks-and-partition not supported simultaneously");
+	    warned = 1;
+	  }
+      }
+	  
+      /* This insn represents a prologue or epilogue.  */
+      if ((pattern != NULL_RTX) && GET_CODE (pattern) == PARALLEL)
+	{
+	  rtx parallel_first_op = XVECEXP (pattern, 0, 0);
+	  switch (GET_CODE (parallel_first_op))
+	    {
+	    case CLOBBER:	/* Prologue: a call to save_world.  */
+	      far_call_instr_str = "jbsr";
+	      near_call_instr_str = "bl";
+	      break;
+	    case RETURN:	/* Epilogue: a call to rest_world.  */
+	      far_call_instr_str = "jmp";
+	      near_call_instr_str = "b";
+	      break;
+	    default:
+	      abort();
+	      break;
+	    }
+	}
+
       if (no_previous_def (funname))
 	{
 	  int line_number = 0;
@@ -18511,37 +18673,16 @@ output_call (insn, call_dest, operand_number)
       else
 	labelname = get_prev_label (funname);
 
-      sprintf (buf, "jbsr %%z%d,%.246s",
+      sprintf (buf, "%s %%z%d,%.246s", far_call_instr_str,
 	       operand_number, IDENTIFIER_POINTER (labelname));
-      return buf;
     }
   else
-    {
-      sprintf (buf, "bl %%z%d", operand_number);
-      return buf;
-    }
+    sprintf (buf, "%s %%z%d", near_call_instr_str, operand_number);
+  strcat (buf, suffix);
+  return buf;
 }
 
 #endif /* RS6000_LONG_BRANCH */
-
-#define GEN_LOCAL_LABEL_FOR_SYMBOL(BUF,SYMBOL,LENGTH,N)		\
-  do {								\
-    const char *const symbol_ = (SYMBOL);			\
-    char *buffer_ = (BUF);					\
-    if (symbol_[0] == '"')					\
-      {								\
-        sprintf(buffer_, "\"L%d$%s", (N), symbol_+1);		\
-      }								\
-    else if (name_needs_quotes(symbol_))			\
-      {								\
-        sprintf(buffer_, "\"L%d$%s\"", (N), symbol_);		\
-      }								\
-    else							\
-      {								\
-        sprintf(buffer_, "L%d$%s", (N), symbol_);		\
-      }								\
-  } while (0)
-
 
 /* Generate PIC and indirect symbol stubs.  */
 
@@ -18568,7 +18709,9 @@ machopic_output_stub (file, symb, stub)
   GEN_LAZY_PTR_NAME_FOR_SYMBOL (lazy_ptr_name, symb, length);
 
   local_label_0 = alloca (length + 32);
-  GEN_LOCAL_LABEL_FOR_SYMBOL (local_label_0, symb, length, 0);
+  GEN_LOCAL_LABEL_FOR_SYMBOL (local_label_0, symb, length,
+			      local_label_unique_number);
+  local_label_unique_number++;
 
   if (flag_pic == 2)
     machopic_picsymbol_stub1_section ();
@@ -19164,54 +19307,6 @@ rs6000_cw_asm_register_name (regname, buf)
 
 /* APPLE LOCAL begin inline floor */
 
-void
-fix_rbi_next_info_for_blocks ()
-{
-  basic_block cur_bb;
-  basic_block next_bb;
-  rtx cur_insn;
-  rtx next_insn;
-  rtx insn;
-  int found;
-
-  /* This function attempts to fill in RBI(bb)->next appropriately for the
-     current structure of the cfg.  It is based on the assumption that
-     RBI(bb)->next should be the basic block containing the next instruction
-     in the instruction chain after bb->end. */
-
-  FOR_EACH_BB (cur_bb)
-    {
-      cur_insn = cur_bb->end;
-      next_insn = NEXT_INSN (cur_insn);
-      if (next_insn)
-	{
-	  found = 0;
-	  FOR_EACH_BB (next_bb)
-	    {
-	      for (insn = next_bb->head; insn != next_bb->end; 
-		   insn = NEXT_INSN (insn))
-		if (insn == next_insn)
-		  {
-		    found = 1;
-		    RBI (cur_bb)->next = next_bb;
-		    break;
-		  }
-	      if (insn == next_insn)
-		{
-		  found = 1;
-		  RBI (cur_bb)->next = next_bb;
-		}
-
-	      if (found)
-		break;
-	     }
-	}
-      else
-	RBI(cur_bb)->next = NULL;
-    }
-
-}
-
 /* The following function finds calls to "floor" in the instruction 
    sequence, and replaces the call instruction with a sequence of instructions
    that implements the following version of floor, effectively inlining
@@ -19240,42 +19335,58 @@ fix_rbi_next_info_for_blocks ()
 void
 rs6000_inline_floor_calls ()
 {
-
   rtx cur_insn;
   basic_block call_bb;
   basic_block cur_bb;
   rtx cur_bb_insn;
-  edge fall_thru;
-  basic_block dest_bb;
-  basic_block initial_bb;
-  rtx set_insn;
-  basic_block cond_bb;
-  basic_block return_bb;
-  edge e1;
-  edge e2;
-  edge e3;
-  edge e4;
-  basic_block temp_bb;
-  rtx new_label;
-  rtx new_jump;
-  rtx barrier;
-  rtx initial_bb_label;
-  rtx prev;
-  rtx next;
-  gcov_type edge_count;
-  gcov_type block_count;
-  
-  /*  if (rs6000_cpu == PROCESSOR_POWER4) */
+  rtx sub1;
+  rtx stmt;
+  rtx return_stmt;
+  rtx x;
+  rtx b;
+  rtx c;
+  rtx d;
+  rtx e;
+  rtx g;
+  rtx h;
+  rtx t;
+  rtx out_reg;
+  rtx twoTo52;
+  rtx negTwoTo52;
+  rtx one;
+  rtx zero;
+  int i;
+  int call_has_return = 0;
+  REAL_VALUE_TYPE dconst_twoTo52;
+  REAL_VALUE_TYPE dconst_negTwoTo52;
+  rtx asm_body3;
+  rtx input_op;
+  rtx asm_stmt3;
+  rtx reg_2to52;
+  rtx reg_neg2to52;
+
+  typedef union big_int {
+    long long whole_int;
+    struct hi_lo {
+      int high_part;
+      int low_part;
+    } hi_lo;
+  } big_int;
+
+  big_int twoTo52_const;
+  big_int negTwoTo52_const;
+
+  twoTo52_const.whole_int = 4503599627370496LL;
+  negTwoTo52_const.whole_int = -4503599627370496LL;
+
   if (TARGET_POWERPC64)
     {
-
       /* Go through evey instruction in the current function, looking for
 	 call instructions. */
 
       for (cur_insn = get_insns(); cur_insn; cur_insn = NEXT_INSN (cur_insn))
 	if (GET_CODE (cur_insn) == CALL_INSN)
 	  {
-	    
 	    /* Pull apart call instruction to find name of function being 
 	       called. */
 	    
@@ -19299,17 +19410,23 @@ rs6000_inline_floor_calls ()
 		  body = exp2;
 	      }
 	    
-	    if ((GET_CODE (body) == SET)
+	    if (GET_CODE (body) == SET
 		&& GET_CODE (SET_SRC (body)) == CALL)
 	      call_rtx = SET_SRC (body);
-	    else if ((GET_CODE (body) == PARALLEL)
+	    else if (GET_CODE (body) == PARALLEL
 		     && GET_CODE (XVECEXP (body, 0, 0)) == SET
 		     && GET_CODE (SET_SRC (XVECEXP (body, 0, 0))) == CALL)
-	      call_rtx = SET_SRC (XVECEXP (body, 0, 0));
+	      {
+		call_rtx = SET_SRC (XVECEXP (body, 0, 0));
+		for (i = 0; i < XVECLEN (body, 0); i++)
+		  {
+		    if (GET_CODE (XVECEXP (body, 0, i)) == RETURN)
+		      call_has_return = 1;
+		  }
+	      }
 	    
 	    if (call_rtx)
 	      {
-		
 		/* Check to see if function being called in "floor".  If
 		   so, proceed with inlining of call. */
 		
@@ -19318,19 +19435,13 @@ rs6000_inline_floor_calls ()
 		    && (strcmp (XSTR (XEXP (XEXP (call_rtx, 0), 0), 0),
 				"&L_floor$stub") == 0))
 		  {
-		    
-
-		    /*
-		      cfg_layout_initialize ();
-		      fix_rbi_next_info_for_blocks ();
-		    */
-
 		    /* Find the basic block containing this call. */
 
 		    call_bb = NULL;
 		    FOR_EACH_BB (cur_bb)
 		      {
-			for (cur_bb_insn = cur_bb->head; cur_bb_insn != cur_bb->end; 
+			for (cur_bb_insn = cur_bb->head; 
+			     cur_bb_insn != cur_bb->end; 
 			     cur_bb_insn = NEXT_INSN (cur_bb_insn))
 			  if (cur_bb_insn == cur_insn)
 			      call_bb = cur_bb;
@@ -19344,180 +19455,48 @@ rs6000_inline_floor_calls ()
 			  break;
 		      }
 
-		    /* Save this for fixing up RBI chains later */
-
-		    /* temp_bb = RBI(call_bb)->next; */
-		    block_count = call_bb->count;
-
-		    
-		    /*
-		    fall_thru = split_block (call_bb, PREV_INSN (cur_insn));
-		    dest_bb = fall_thru->dest;
-		    */
-		    /*
-		      alloc_aux_for_block (dest_bb, 
-		      sizeof (struct reorder_block_def));
-		    */
-
-
-		    /* create first new basic block */
-
-		    /*
-		      initial_bb = create_basic_block (NULL, NULL, call_bb);
-		    */
-		    /*
-		      alloc_aux_for_block (initial_bb, 
-		      sizeof (struct reorder_block_def));
-		    */
-
-		    /* TESTING 
-		       initial_bb_label = gen_label_rtx();
-		       emit_label_before (initial_bb_label, initial_bb->head);
-
-		       new_jump = emit_jump_insn_after (gen_jump (initial_bb_label),
-		       call_bb->end);
-		       
-		       barrier = emit_barrier_after (new_jump);
-		    */
-		    /*
-		      RBI (call_bb)->footer = unlink_insn_chain (barrier, barrier);
-		    */
-
-		    /*
-		      redirect_edge_succ (call_bb->succ, initial_bb);
-		    */
-
-		    /* The rest of this will be explained in terms of the
-		       code being inlined, as explained above in the function
-		       comment. */
-		    
 		    /* Generate registers to act as "local variables" */
 		    
-		    rtx x = gen_rtx_REG (DFmode, 33);
-		    rtx comp_reg = gen_rtx_REG (VOIDmode, 68);
-		    rtx t = gen_reg_rtx (DFmode);
-		    rtx y = gen_reg_rtx (DFmode);
-		    rtx f1 = gen_reg_rtx (DFmode);
-		    rtx f2 = gen_reg_rtx (DFmode);
-		    
-		    /* Generate comparison, temporary, and result registers */
-		    
-		    rtx compare_reg = gen_reg_rtx (CCFPmode);
-		    rtx fp_reg = gen_reg_rtx (DFmode);
-		    rtx out_reg = gen_rtx_REG (DFmode, 33);
-		    
-		    /* IMPORTANT NOTE:  This function assumes that for the
-		       floor function call, the argument has been put into
-		       register f1, and the result is expected to be returned
-		       in register f1. */
-		    
-		    rtx asm_stmt1, asm_stmt2, asm_stmt3;
-		    rtx asm_body1, asm_body2, asm_body3;
-		    rtx input_op, sub1, sub2;
-		    rtx move1, compare, end_label, jump, return_stmt;
-		    
-		    /* Generate the constants 0.0 and 1.0. */
-		    
-		    rtx zero = const_double_from_real_value (dconst0, DFmode);
-		    rtx one = const_double_from_real_value (dconst1, DFmode);
-		    
-		    
-		    /* Generate first "__asm__" statement, and insert it
-		       just before the call to floor. */
-		    
-		    
-		    asm_body1 = gen_rtx_fmt_ssiEEsi (ASM_OPERANDS, DFmode,
-						     "fctidz %0, %1", "=f", 0,
-						     rtvec_alloc(1),
-						     rtvec_alloc(1),
-						     input_filename, lineno);
-		    
-		    input_op = gen_rtx_fmt_s (ASM_INPUT, DFmode, "f");
-		    
-		    ASM_OPERANDS_INPUT_CONSTRAINT_EXP (asm_body1, 0) = input_op;
-		    
-		    ASM_OPERANDS_INPUT (asm_body1, 0) = x;
-		    
-		    asm_stmt1 = emit_insn_before (gen_rtx_SET (VOIDmode, t, 
-							       asm_body1),
-						  cur_insn);
+		    x = gen_rtx_REG (DFmode, 33);
+		    b = gen_reg_rtx (DFmode);
+		    c = gen_reg_rtx (DFmode);
+		    d = gen_reg_rtx (DFmode);
+		    e = gen_reg_rtx (DFmode);
+		    g = gen_reg_rtx (DFmode);
+		    h = gen_reg_rtx (DFmode);
+		    t = gen_reg_rtx (DFmode);
+		    reg_2to52 = gen_reg_rtx (DFmode);
+		    reg_neg2to52 = gen_reg_rtx (DFmode);
+		    out_reg = gen_rtx_REG (DFmode, 33);
 
-		    /* TESTING
-		       initial_bb->head = initial_bb_label;
-		    */
-		    
-		    /* Generate the second "__asm__" statement and insert
-		       it just before the call to floor (and therefore just
-		       after the first statement. */
-		    
-		    asm_body2 = gen_rtx_fmt_ssiEEsi (ASM_OPERANDS, DFmode,
-						     "fcfid %0, %1", "=f", 0,
-						     rtvec_alloc(1),
-						     rtvec_alloc(1),
-						     input_filename, lineno);
-		    
-		    input_op = gen_rtx_fmt_s (ASM_INPUT, DFmode, "f");
-		    
-		    ASM_OPERANDS_INPUT_CONSTRAINT_EXP (asm_body2, 0) = input_op;
-		    ASM_OPERANDS_INPUT (asm_body2, 0) = t;
-		    
-		    asm_stmt2 = emit_insn_after (gen_rtx_SET (VOIDmode, y, 
-							       asm_body2),
-						  asm_stmt1);
-		    
-		    
+		    /* Set up constants */
 
-		    set_insn = emit_insn_after (gen_rtx_SET (VOIDmode, fp_reg, 
-							     zero), 
-						asm_stmt2);
-		    
-		    /* Generate comparison of 'x' to 0.0, and insert it just
-		       before call to floor. */
-		    
-		    compare = emit_insn_after (gen_rtx_SET (VOIDmode, 
-							     compare_reg,
-							gen_rtx_COMPARE (CCFPmode,
-									 x, 
-									 fp_reg)),
-						set_insn);
-		    /*
-		      initial_bb->end = compare;
-		    */
+		    REAL_VALUE_FROM_INT (dconst_twoTo52, 
+					 twoTo52_const.hi_lo.low_part,
+					 twoTo52_const.hi_lo.high_part, DFmode);
+		    REAL_VALUE_FROM_INT (dconst_negTwoTo52, 
+					 negTwoTo52_const.hi_lo.low_part,
+					 negTwoTo52_const.hi_lo.high_part,
+					 DFmode);
 
-		    /* create second basic block */
-		    /*
-		      cond_bb = create_basic_block (NULL, NULL, initial_bb);
-		    */
-		    /*
-		      alloc_aux_for_block (cond_bb, sizeof (struct reorder_block_def));
-		    */
+		    twoTo52 = const_double_from_real_value (dconst_twoTo52,
+							    DFmode);
+		    negTwoTo52 = const_double_from_real_value (dconst_negTwoTo52,
+							       DFmode);
+		    one = const_double_from_real_value (dconst1, DFmode);
+		    zero = const_double_from_real_value (dconst0, DFmode);
 
-		    /* Generate the first subtraction statement and emit it
-		       just before the label statement. */
-		    
-		    set_insn = emit_insn_after (gen_rtx_SET (VOIDmode, fp_reg, 
-							     one), 
-						compare);
 
-		    /*
-		      cond_bb->head = set_insn;
-		    */
-		    
-		    sub1 = emit_insn_after (gen_rtx_SET (VOIDmode, f2,
-							 gen_rtx_MINUS (DFmode, y,
-									fp_reg)),
-					     set_insn);
-		    
-		    /* Generate the second subtraction statement and emit
-		       it just before the label statement. */
-		    
-		    sub2 = emit_insn_after (gen_rtx_SET (VOIDmode, f1,
-							 gen_rtx_MINUS (DFmode, x,
-									y)),
-					     sub1);
-		    
-		    /* Generate the third "__asm__" statement, and emit it
-		       just before the label statement. */
+		    /* Put the large double constants into registers.  */
+
+		    stmt = emit_insn_before (gen_rtx_SET (VOIDmode, reg_2to52,
+							  twoTo52),
+					     cur_insn);
+		    stmt = emit_insn_after (gen_rtx_SET (VOIDmode, reg_neg2to52,
+							 negTwoTo52),
+					    stmt);
+
+		    /*  c = fsel (x, -twoTo52, twoTo52)  */
 		    
 		    asm_body3 = gen_rtx_fmt_ssiEEsi (ASM_OPERANDS, DFmode,
 						     "fsel %0, %1, %2, %3", "=f", 
@@ -19535,199 +19514,117 @@ rs6000_inline_floor_calls ()
 		    input_op = gen_rtx_fmt_s (ASM_INPUT, DFmode, "f");
 		    ASM_OPERANDS_INPUT_CONSTRAINT_EXP (asm_body3, 2) = input_op;
 		    
+		    ASM_OPERANDS_INPUT (asm_body3, 0) = x;
+		    ASM_OPERANDS_INPUT (asm_body3, 1) = reg_neg2to52;
+		    ASM_OPERANDS_INPUT (asm_body3, 2) = reg_2to52;
 		    
-		    ASM_OPERANDS_INPUT (asm_body3, 0) = f1;
-		    ASM_OPERANDS_INPUT (asm_body3, 1) = y;
-		    ASM_OPERANDS_INPUT (asm_body3, 2) = f2;
-		    
-		    asm_stmt3 = emit_insn_after (gen_rtx_SET (VOIDmode, y, 
+		    asm_stmt3 = emit_insn_after (gen_rtx_SET (VOIDmode, c, 
 							       asm_body3),
-						  sub2);
+						 stmt);
 
-		    /*
-		      cond_bb->end = asm_stmt3;
-		    */
+		    /* b = fabs (x) */
+
+		    stmt = emit_insn_after (gen_rtx_SET (VOIDmode, b, 
+							 gen_rtx_ABS (DFmode, x)),
+					    asm_stmt3);
+
+		    /* d = (x - c) + c */
+
+
+		    sub1 = emit_insn_after (gen_rtx_SET (VOIDmode, d,
+							 gen_rtx_MINUS (DFmode, x,
+									c)),
+					    stmt);
+
+		    stmt = emit_insn_after (gen_rtx_SET (VOIDmode, d,
+							 gen_rtx_PLUS (DFmode, d,
+								       c)), 
+					    sub1);
+
+		    /* e = b - twoTo52 */
+
+		    stmt = emit_insn_after (gen_rtx_SET (VOIDmode, e,
+							 gen_rtx_MINUS (DFmode, b,
+									reg_2to52)),
+					    stmt);
+
+		    /* g = x - d */
+
+		    stmt = emit_insn_after (gen_rtx_SET (VOIDmode, g,
+							 gen_rtx_MINUS (DFmode, x,
+									d)),
+					    stmt);
+
+
+		    /* h = fsel (g, 0.0, 1.0) */
 		    
-
-		    /* Generate label (used to branch around the if
-		       statement), and emit it just before the call to
-		       floor.  We have to emit it before building the if
-		       statement, so that the if statement can use the UID
-		       for a jump reference. */
+		    asm_body3 = gen_rtx_fmt_ssiEEsi (ASM_OPERANDS, DFmode,
+						     "fsel %0, %1, %2, %3", "=f", 
+						     0,
+						     rtvec_alloc(3),
+						     rtvec_alloc(3),
+						     input_filename, lineno);
 		    
-		    /* create third basic block */
-
-		    /*
-		      return_bb = create_basic_block (NULL, NULL, cond_bb);
-		    */
-		    /*
-		      alloc_aux_for_block (return_bb, sizeof (struct reorder_block_def));
-		    */
+		    input_op = gen_rtx_fmt_s (ASM_INPUT, DFmode, "f");
+		    ASM_OPERANDS_INPUT_CONSTRAINT_EXP (asm_body3, 0) = input_op;
 		    
-		    end_label = gen_label_rtx ();
-		    emit_label_before (end_label, cur_insn);
-
-		    /* Generate the if statement jump, and insert if just before
-		       the new label statement. */
+		    input_op = gen_rtx_fmt_s (ASM_INPUT, DFmode, "f");
+		    ASM_OPERANDS_INPUT_CONSTRAINT_EXP (asm_body3, 1) = input_op;
 		    
-		    jump = emit_jump_insn_after
-		      (gen_rtx_SET (VOIDmode, pc_rtx,
-				    gen_rtx_IF_THEN_ELSE (VOIDmode,
-						     gen_rtx_UNGE (VOIDmode,
-								   compare_reg,
-								   const0_rtx),
-						     gen_rtx_LABEL_REF (VOIDmode,
-								       end_label),
-						     pc_rtx)),
-		       compare);
+		    input_op = gen_rtx_fmt_s (ASM_INPUT, DFmode, "f");
+		    ASM_OPERANDS_INPUT_CONSTRAINT_EXP (asm_body3, 2) = input_op;
 		    
-		    /* Generate statement to copy 'y' into return register
-		       (register f1), and emit it just before call to
-		       floor (AFTER the label statement). */
+		    ASM_OPERANDS_INPUT (asm_body3, 0) = g;
+		    ASM_OPERANDS_INPUT (asm_body3, 1) = zero;
+		    ASM_OPERANDS_INPUT (asm_body3, 2) = one;
 		    
-		    return_stmt = emit_insn_after (gen_rtx_SET (VOIDmode,
-								 out_reg, y),
-						   end_label);
-		    /*
-		      return_bb->head = end_label;
-		    */
+		    asm_stmt3 = emit_insn_after (gen_rtx_SET (VOIDmode, h, 
+							       asm_body3),
+						  stmt);
 
+		    /* t = d - h */
 
-		    /* TESTING 
-		       new_label = gen_label_rtx();
-		       emit_label_before (new_label, dest_bb->head);
-		       dest_bb->head = new_label;
-		       new_jump = emit_jump_insn_after (gen_jump (new_label),
-		       return_stmt);
+		    stmt = emit_insn_after (gen_rtx_SET (VOIDmode, t,
+							 gen_rtx_MINUS (DFmode, d,
+									h)),
+					    asm_stmt3);
 
-		       return_bb->end = new_jump;
-		    */
+		    /* out_reg = fsel (e, f, t) */
+		    /* return out_reg  */
 
-		    /*
-		      return_bb->end = return_stmt;
-		    */
-
-		    /* TESTING
-		       barrier = emit_barrier_after (new_jump);
-		    */
-
-		    /*
-		      RBI (return_bb)->footer = unlink_insn_chain (barrier, barrier);
-		    */
+		    asm_body3 = gen_rtx_fmt_ssiEEsi (ASM_OPERANDS, DFmode,
+						     "fsel %0, %1, %2, %3", "=f", 
+						     0,
+						     rtvec_alloc(3),
+						     rtvec_alloc(3),
+						     input_filename, lineno);
 		    
-		    /* split the basic block now*/
-
-		    if (call_bb->head == cur_insn)
-		      call_bb->head = asm_stmt1;
-		   
-		    if (call_bb->end == cur_insn)
-		      call_bb->end = return_stmt;
+		    input_op = gen_rtx_fmt_s (ASM_INPUT, DFmode, "f");
+		    ASM_OPERANDS_INPUT_CONSTRAINT_EXP (asm_body3, 0) = input_op;
+		    
+		    input_op = gen_rtx_fmt_s (ASM_INPUT, DFmode, "f");
+		    ASM_OPERANDS_INPUT_CONSTRAINT_EXP (asm_body3, 1) = input_op;
+		    
+		    input_op = gen_rtx_fmt_s (ASM_INPUT, DFmode, "f");
+		    ASM_OPERANDS_INPUT_CONSTRAINT_EXP (asm_body3, 2) = input_op;
+		    
+		    ASM_OPERANDS_INPUT (asm_body3, 0) = e;
+		    ASM_OPERANDS_INPUT (asm_body3, 1) = x;
+		    ASM_OPERANDS_INPUT (asm_body3, 2) = t;
+		    
+		    return_stmt = emit_insn_after (gen_rtx_SET (VOIDmode, out_reg,
+								asm_body3),
+						  stmt);
+		    
+		    if (call_has_return)
+		      emit_insn_after (gen_rtx_USE (VOIDmode, out_reg),
+				       return_stmt);
 
 		    /* Now all the inlined statements are in the
 		       instruction chain; all that's left to do is to
 		       remove the call to floor (cur_insn). */
 		    
-		    /*
-		      prev = PREV_INSN (cur_insn);
-		      next = NEXT_INSN (cur_insn);
-
-		      NEXT_INSN (prev) = next;
-		      PREV_INSN (next) = prev;
-
-		    */
-
 		    delete_insn (cur_insn);
-
-		    fall_thru = split_block (call_bb, jump);
-
-		    initial_bb = fall_thru->src;
-		    cond_bb = fall_thru->dest;
-
-		    e1 = split_block (cond_bb, asm_stmt3);
-
-		    return_bb = e1->dest;
-
-
-		    /* fix basic block ordering */
-
-		    /*
-		      RBI (call_bb)->next = initial_bb;
-		      RBI (initial_bb)->next = cond_bb;
-		      RBI (cond_bb)->next = return_bb;
-		      RBI (return_bb)->next = dest_bb;
-		      RBI (dest_bb)->next = temp_bb;
-		    
-		    */
-
-		    /* TESTING: fix up insn chain */
-
-		    /* TESTING2:
-		       NEXT_INSN (call_bb->end) = initial_bb->head;
-		       PREV_INSN (initial_bb->head) = call_bb->end;
-
-		       NEXT_INSN (initial_bb->end) = cond_bb->head;
-		       PREV_INSN (cond_bb->head) = initial_bb->end;
-
-		       NEXT_INSN (cond_bb->end) = return_bb->head;
-		       PREV_INSN (return_bb->head) = cond_bb->end;
-
-		       NEXT_INSN (return_bb->end) = dest_bb->head;
-		       PREV_INSN (dest_bb->head) = return_bb->end;
-
-		    */
-
-
-		    /* fix up basic block edges */
-		    /*
-		      redirect_edge_succ (fall_thru, initial_bb);
-		    */
-		    /* TESTING
-		       fall_thru->flags &= ~EDGE_FALLTHRU;
-		    */
-		  
-		    /*
-		      e1 = make_edge (initial_bb, cond_bb, 0);
-		      e2 = make_edge (initial_bb, return_bb, 0);
-		      e3 = make_edge (cond_bb, return_bb, 0);
-		      e4 = make_edge (return_bb, dest_bb, 0);
-		    */
-
-		    e2 = make_edge (initial_bb, return_bb, 0);
-
-		    /* mark fall-thru edges */
-
-		    /*
-		      e1->flags |= EDGE_FALLTHRU; 
-		      e3->flags |= EDGE_FALLTHRU;
-		    */
-		    /* TESTING : */
-		    /*
-		    e4->flags |= EDGE_FALLTHRU;
-		    */
-
-		    /* mark non fall-thru edges */
-
-		    e2->flags  &= ~EDGE_FALLTHRU;
-		    /* TESTING 
-		       e4->flags &= ~EDGE_FALLTHRU; 
-		    */
-
-		    /* fix up profile counts */
-
-		    initial_bb->count = block_count;
-		    return_bb->count = block_count;
-		    /* dest_bb->count = block_count; */
-		    cond_bb->count = block_count / 2;
-
-		    fall_thru->count = block_count / 2;
-		    e1->count = block_count / 2;
-		    e2->count = block_count / 2;
-		    /*
-		      e3->count = block_count / 2;
-		      e4->count = block_count;
-		    */
-
-		    /* cfg_layout_finalize ();  */
 
 		  }
 	      }

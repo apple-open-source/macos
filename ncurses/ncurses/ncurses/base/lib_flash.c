@@ -41,7 +41,7 @@
 #include <curses.priv.h>
 #include <term.h>		/* beep, flash */
 
-MODULE_ID("$Id: lib_flash.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: lib_flash.c,v 1.6 2000/12/10 02:43:27 tom Exp $")
 
 /*
  *	flash()

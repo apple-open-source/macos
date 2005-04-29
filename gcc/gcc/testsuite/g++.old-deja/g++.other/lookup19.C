@@ -1,15 +1,15 @@
+// { dg-do assemble  }
 // Test for proper handling of type lookup for conversion operator names.
-// Build don't link:
 
 // Test 1: Only at file scope
 typedef int B;
 struct A
 {
   int B;
-  operator B *();
+  operator B *(); // { dg-error "" } 
 };
 
-A::operator B * ()
+A::operator B * () // { dg-error "" } 
 {
   return 0;
 }
@@ -48,7 +48,7 @@ struct G
 };
 
 typedef double H;
-G::operator H * ()		// ERROR - mismatch
+G::operator H * ()
 {
   return 0;
 }

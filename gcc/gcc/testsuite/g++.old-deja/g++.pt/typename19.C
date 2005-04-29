@@ -1,4 +1,5 @@
-// Special g++ Options:
+// { dg-do run  }
+// { dg-options "" }
 // Origin: Mark Mitchell <mark@codesourcery.com>
 
 template <class T>
@@ -12,7 +13,7 @@ struct S {
 
   template <class U>
   struct I : public O<U> {
-    static X x; // WARNING - lookup finds S<T>::X
+    static X x;
   };
 };
 

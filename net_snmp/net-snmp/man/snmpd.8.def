@@ -22,10 +22,17 @@ Append to the log file rather than truncating it.
 .B "-c" \fIFILE
 Read 
 .I FILE
-as a configuration file.
+as a configuration file
+(or a comma-separated list of configuration files).
 .TP
 .B -C
-Do not read any configuration files except the one optionally specified by the 
+Do not read any configuration files except the ones optionally specified by the 
+.B -c 
+option.
+Note that this behaviour also covers the persistent configuration files.
+This may result in dynamically-assigned values being reset following an
+agent restart, unless the relevant persistent config files are
+explicitly loaded using the
 .B -c 
 option.
 .TP
@@ -77,13 +84,32 @@ Log all output from the agent (including stdout and stderr) to
 .IR FILE .
 If no filename is given, log to a default file set at compile time
 (normally /var/log/snmpd.log).
+.br
+This option is being deprecated, and '-Lf FILE' should be used instead.
 .TP
-.B -L
-Do not open a log file; print all messages to stderr instead.
+.B -L[efos]
+Specify where logging output should be directed (standard error or output,
+to a file or via syslog).  See LOGGING OPTIONS in snmpcmd(5) for details.
+.br
+This option deprecates the
+.B -l
+.B -s
+and
+.B -S
+options.
+.TP
+.B -p \fIFILE
+Save the process ID of the daemon in
+.IR FILE "."
+.br
+This option deprecates the
+.B -P
+option.
 .TP
 .B -P \fIFILE
 Save the process ID of the daemon in
 .IR FILE "."
+This option is being deprecated, and '-p FILE' should be used instead.
 .TP 
 .B -q
 Print simpler output for easier automated parsing.
@@ -95,12 +121,13 @@ opened.
 .TP
 .B -s
 Use syslog for logging.
+.br
+This option is being deprecated, and '-Ls FACILITY' should be used instead.
 .TP
 .BR -S " d|0-7"
-Specifies the syslog facility to use when logging to syslog.  'd' means
-.B LOG_DAEMON
-and 0 through 7 mean 
-.BR LOG_LOCAL0 " through " LOG_LOCAL7 ".  " LOG_DAEMON " is the default."
+Specifies the syslog facility to use when logging to syslog.
+.br
+This option is being deprecated, and '-Ls FACILITY' should be used instead.
 .TP
 .B -u \fIUID
 Change to the user ID

@@ -1,7 +1,7 @@
 /*
  * KLLoginLogoutNotifier.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLLoginLogoutNotifier.c,v 1.9 2003/08/08 21:34:49 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLLoginLogoutNotifier.c,v 1.10 2004/12/10 21:22:29 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -200,8 +200,7 @@ static KLStatus __KLFindLoginLogoutPlugin (const char               *inPluginNam
         if (pluginBundle == NULL) { err = KLError_ (klMemFullErr); }
     }
 
-#if MACDEV_DEBUG
-    if (err == klNoErr) {
+    if ((err == klNoErr) && (ddebuglevel () > 0)) {
         CFStringRef bundleIDString = CFBundleGetIdentifier (pluginBundle);
         if (bundleIDString != NULL) {
             char id[256];
@@ -214,7 +213,6 @@ static KLStatus __KLFindLoginLogoutPlugin (const char               *inPluginNam
             dprintf ("KLFindLoginLogoutPlugin: CFBundleGetIdentifier (translatorBundle) failed\n");
         }
     }
-#endif
     
     if (err == klNoErr) {
         dprintf ("KLFindTranslator: Loading '%s'...\n", bundleName);

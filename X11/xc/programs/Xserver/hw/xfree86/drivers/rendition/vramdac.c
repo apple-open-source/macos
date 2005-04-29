@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/rendition/vramdac.c,v 1.18 2002/12/11 17:23:33 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/rendition/vramdac.c,v 1.19 2003/09/24 02:43:25 dawes Exp $ */
 /*
  * includes
  */
@@ -170,8 +170,9 @@ verite_initdac(ScrnInfoPtr pScreenInfo, vu8 bpp, vu8 doubleclock)
     switch (bpp) {
         case 1:
         case 4:
-			ErrorF("%s %s: color depth %d not (yet ?) supported\n",
-				X_CONFIG, /*vga256InfoRec.name*/"Rendition", bpp);
+			xf86DrvMsg(pScreenInfo->scrnIndex, X_CONFIG,
+				   "color depth %d not (yet ?) supported\n",
+				   bpp);
 			return -1;
 
         case 8:
@@ -232,8 +233,8 @@ verite_initdac(ScrnInfoPtr pScreenInfo, vu8 bpp, vu8 doubleclock)
             break;
 
         default:
-            ErrorF( "%s %s: Color depth not supported (%d bpp)\n",
-	    	    X_CONFIG, /*vga256InfoRec.name*/"Rendition", bpp);
+            xf86DrvMsg(pScreenInfo->scrnIndex, X_CONFIG,
+			"Color depth not supported (%d bpp)\n", bpp);
             return -1;
             break;
     }

@@ -24,33 +24,20 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/StNColor.c,v 1.4 2001/12/14 19:54:07 dawes Exp $ */
+/* $XFree86: xc/lib/X11/StNColor.c,v 1.6 2003/11/17 22:20:08 dawes Exp $ */
 
 #include <stdio.h>
 #include "Xlibint.h"
 #include "Xcmsint.h"
 
-extern void _XcmsRGB_to_XColor();
-
-/* cmsColNm.c */
-Status _XcmsResolveColorString();
 
 int
-#if NeedFunctionPrototypes
 XStoreNamedColor(
 register Display *dpy,
 Colormap cmap,
 _Xconst char *name, /* STRING8 */
 unsigned long pixel, /* CARD32 */
 int flags)  /* DoRed, DoGreen, DoBlue */
-#else
-XStoreNamedColor(dpy, cmap, name, pixel, flags)
-register Display *dpy;
-Colormap cmap;
-char *name; /* STRING8 */
-unsigned long pixel; /* CARD32 */
-int flags;  /* DoRed, DoGreen, DoBlue */
-#endif
 {
     unsigned int nbytes;
     register xStoreNamedColorReq *req;

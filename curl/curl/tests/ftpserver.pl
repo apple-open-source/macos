@@ -1,6 +1,27 @@
 #!/usr/bin/perl
+#***************************************************************************
+#                                  _   _ ____  _
+#  Project                     ___| | | |  _ \| |
+#                             / __| | | | |_) | |
+#                            | (__| |_| |  _ <| |___
+#                             \___|\___/|_| \_\_____|
 #
-# $Id: ftpserver.pl,v 1.1.1.3 2002/11/26 19:08:09 zarzycki Exp $
+# Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://curl.haxx.se/docs/copyright.html.
+#
+# You may opt to use, copy, modify, merge, publish, distribute and/or sell
+# copies of the Software, and permit persons to whom the Software is
+# furnished to do so, under the terms of the COPYING file.
+#
+# This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+# KIND, either express or implied.
+#
+# $Id: ftpserver.pl,v 1.52 2005/01/26 23:18:31 bagder Exp $
+###########################################################################
+
 # This is the FTP server designed for the curl test suite.
 #
 # It is meant to exercise curl, it is not meant to be a fully working
@@ -11,27 +32,55 @@
 #
 
 use Socket;
-use Carp;
 use FileHandle;
 
 use strict;
 
 require "getpart.pm";
 
-open(FTPLOG, ">log/ftpd.log") ||
-    print STDERR "failed to open log file, runs without logging\n";
+my $ftpdnum="";
 
-sub logmsg { print FTPLOG "$$: "; print FTPLOG @_; }
+# open and close each time to allow removal at any time
+sub logmsg {
+    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
+        localtime(time);
+    open(FTPLOG, ">>log/ftpd$ftpdnum.log");
+    printf FTPLOG ("%02d:%02d:%02d ", $hour, $min, $sec);
+    print FTPLOG @_;
+    close(FTPLOG);
+}
 
-sub ftpmsg { print INPUT @_; }
+sub ftpmsg {
+  # append to the server.input file
+  open(INPUT, ">>log/server$ftpdnum.input") ||
+    logmsg "failed to open log/server$ftpdnum.input\n";
+
+  print INPUT @_;
+  close(INPUT);
+
+  # use this, open->print->close system only to make the file
+  # open as little as possible, to make the test suite run
+  # better on windows/cygwin
+}
 
 my $verbose=0; # set to 1 for debugging
 my $retrweirdo=0;
+my $retrnosize=0;
+my $srcdir=".";
+my $nosave=0;
 
 my $port = 8921; # just a default
 do {
     if($ARGV[0] eq "-v") {
         $verbose=1;
+    }
+    elsif($ARGV[0] eq "-s") {
+        $srcdir=$ARGV[1];
+        shift @ARGV;
+    }
+    elsif($ARGV[0] eq "--id") {
+        $ftpdnum=$ARGV[1];
+        shift @ARGV;
     }
     elsif($ARGV[0] =~ /^(\d+)$/) {
         $port = $1;
@@ -46,9 +95,10 @@ setsockopt(Server, SOL_SOCKET, SO_REUSEADDR,
 bind(Server, sockaddr_in($port, INADDR_ANY))|| die "bind: $!";
 listen(Server,SOMAXCONN) || die "listen: $!";
 
-#print "FTP server started on port $port\n";
 
-open(PID, ">.ftp.pid");
+logmsg "FTP server started on port $port\n";
+
+open(PID, ">.ftp$ftpdnum.pid");
 print PID $$;
 close(PID);
 
@@ -75,12 +125,18 @@ my %commandok = (
                  'STOR' => 'twosock',
                  'APPE' => 'twosock',
                  'REST' => 'twosock',
+                 'ACCT' => 'loggedin',
                  'CWD'  => 'loggedin|twosock',
                  'SYST' => 'loggedin',
                  'SIZE' => 'loggedin|twosock',
                  'PWD'  => 'loggedin|twosock',
+                 'MKD'  => 'loggedin|twosock',
                  'QUIT'  => 'loggedin|twosock',
-                 'DELE' => 'loggedin|twosock'
+                 'RNFR'  => 'loggedin|twosock',
+                 'RNTO'  => 'loggedin|twosock',
+                 'DELE' => 'loggedin|twosock',
+                 'MDTM' => 'loggedin|twosock',
+                 'NOOP' => 'loggedin|twosock',
                  );
 
 # initially, we're in 'fresh' state
@@ -102,8 +158,12 @@ my %displaytext = ('USER' => '331 We are happy you popped in!',
                    'SYST' => '215 UNIX Type: L8', # just fake something
                    'QUIT' => '221 bye bye baby', # just reply something
                    'PWD'  => '257 "/nowhere/anywhere" is current directory',
+                   'MKD'  => '257 Created your requested directory',
                    'REST' => '350 Yeah yeah we set it there for you',
-                   'DELE' => '200 OK OK OK whatever you say'
+                   'DELE' => '200 OK OK OK whatever you say',
+                   'RNFR' => '350 Received your order. Please provide more',
+                   'RNTO' => '250 Ok, thanks. File renaming completed.',
+                   'NOOP' => '200 Yes, I\'m very good at doing nothing.',
                    );
 
 # callback functions for certain commands
@@ -117,7 +177,14 @@ my %commandfunc = ( 'PORT' => \&PORT_command,
                     'REST' => \&REST_command,
                     'STOR' => \&STOR_command,
                     'APPE' => \&STOR_command, # append looks like upload
+                    'MDTM' => \&MDTM_command,
                     );
+
+
+sub close_dataconn {
+    close(SOCK);
+    logmsg "Closed data connection\n";
+}
 
 my $rest=0;
 sub REST_command {
@@ -141,12 +208,12 @@ my @ftpdir=("total 20\r\n",
 "drwxrwxrwx   2 98       1            512 Oct 30 14:33 pub\r\n",
 "dr-xr-xr-x   5 0        1            512 Oct  1  1997 usr\r\n");
 
-    logmsg "$$: pass data to child pid\n";
+    logmsg "pass LIST data on data connection\n";
     for(@ftpdir) {
         print SOCK $_;
     }
-    close(SOCK);
-    logmsg "$$: done passing data to child pid\n";
+    close_dataconn();
+    logmsg "done passing data\n";
 
     print "226 ASCII transfer complete\r\n";
     return 0;
@@ -154,28 +221,62 @@ my @ftpdir=("total 20\r\n",
 
 sub NLST_command {
     my @ftpdir=("file", "with space", "fake", "..", " ..", "funny", "README");
+    logmsg "pass NLST data on data connection\n";
     for(@ftpdir) {
         print SOCK "$_\r\n";
     }
-    close(SOCK);
+    close_dataconn();
     print "226 ASCII transfer complete\r\n";
+    return 0;
+}
+
+sub MDTM_command {
+    my $testno = $_[0];
+
+    loadtest("$srcdir/data/test$testno");
+
+    logmsg "MDTM $testno\n";
+
+    my @data = getpart("reply", "mdtm");
+
+    my $reply = $data[0];
+    chomp $reply;
+
+    if($reply <0) {
+        print "550 $testno: no such file.\r\n";
+        logmsg "MDTM $testno: no such file\n";
+    }
+    elsif($reply) {
+        print "$reply\r\n";
+        logmsg "MDTM $testno returned $reply\n";
+    }
+    else {
+        print "500 MDTM: no such command.\r\n";
+        logmsg "MDTM: no such command\n";
+    }
     return 0;
 }
 
 sub SIZE_command {
     my $testno = $_[0];
 
-    loadtest("data/test$testno");
+    loadtest("$srcdir/data/test$testno");
 
-    logmsg "SIZE number $testno\n";
+    logmsg "SIZE file \"$testno\"\n";
 
     my @data = getpart("reply", "size");
 
     my $size = $data[0];
 
     if($size) {
-        print "213 $size\r\n";
-        logmsg "SIZE $testno returned $size\n";
+        if($size > -1) {
+            print "213 $size\r\n";
+            logmsg "SIZE $testno returned $size\n";
+        }
+        else {
+            print "550 $testno: No such file or directory.\r\n";
+            logmsg "SIZE $testno: no such file\n";
+        }
     }
     else {
         $size=0;
@@ -196,21 +297,30 @@ sub SIZE_command {
 }
 
 sub RETR_command {
-    my $testno = $_[0];
+    my ($testno) = @_;
 
-    logmsg "RETR test number $testno\n";
+    logmsg "RETR file \"$testno\"\n";
 
     if($testno =~ /^verifiedserver$/) {
         # this is the secret command that verifies that this actually is
         # the curl test server
-        print "150 Binary junk (10 bytes).\r\n";
-        print SOCK "WE ROOLZ\r\n";
-        close(SOCK);
+        my $response = "WE ROOLZ: $$\r\n";
+        my $len = length($response);
+        print "150 Binary junk ($len bytes).\r\n";
+        logmsg "pass our pid on the data connection\n";
+        print SOCK "WE ROOLZ: $$\r\n";
+        close_dataconn();
         print "226 File transfer complete\r\n";
+        if($verbose) {
+            print STDERR "FTPD: We returned proof we are the test server\n";
+        }
+        logmsg "we returned proof that we are the test server\n";
         return 0;
     }
 
-    loadtest("data/test$testno");
+    $testno =~ s/^([^0-9]*)//;
+
+    loadtest("$srcdir/data/test$testno");
 
     my @data = getpart("reply", "data");
 
@@ -219,7 +329,9 @@ sub RETR_command {
         $size += length($_);
     }
 
-    if($size) {
+    my %hash = getpartattr("reply", "data");
+
+    if($size || $hash{'sendzero'}) {
     
         if($rest) {
             # move read pointer forward
@@ -232,23 +344,29 @@ sub RETR_command {
             "226 File transfer complete\r\n";
             logmsg "150+226 in one shot!\n";
 
+            logmsg "pass RETR data on data connection\n";
             for(@data) {
                 my $send = $_;
                 print SOCK $send;
             }
-            close(SOCK);
+            close_dataconn();
             $retrweirdo=0; # switch off the weirdo again!
         }
         else {
-            print "150 Binary data connection for $testno () ($size bytes).\r\n";
-            logmsg "150 Binary data connection for $testno ($size bytes).\n";
+            my $sz = "($size bytes)";
+            if($retrnosize) {
+                $sz = "size?";
+            }
 
+            print "150 Binary data connection for $testno () $sz.\r\n";
+            logmsg "150 Binary data connection for $testno () $sz.\n";
+
+            logmsg "pass RETR data on data connection\n";
             for(@data) {
                 my $send = $_;
                 print SOCK $send;
             }
-            close(SOCK);
-
+            close_dataconn();
             print "226 File transfer complete\r\n";
         }
     }
@@ -268,6 +386,8 @@ sub STOR_command {
 
     print "125 Gimme gimme gimme!\r\n";
 
+    logmsg "retrieve STOR data on data connection\n";
+
     open(FILE, ">$filename") ||
         return 0; # failed to open output
 
@@ -275,10 +395,13 @@ sub STOR_command {
     my $ulsize=0;
     while (defined($line = <SOCK>)) {
         $ulsize += length($line);
-        print FILE $line;
+        print FILE $line if(!$nosave);
+    }
+    if($nosave) {
+        print FILE "$ulsize bytes would've been stored here\n";
     }
     close(FILE);
-    close(SOCK);
+    close_dataconn();
 
     logmsg "received $ulsize bytes upload\n";
 
@@ -326,13 +449,32 @@ sub PASV_command {
         printf("229 Entering Passive Mode (|||%d|)\n", $pasvport);
     }
 
-    my $paddr = accept(SOCK, Server2);
-    my($iport,$iaddr) = sockaddr_in($paddr);
-    my $name = gethostbyaddr($iaddr,AF_INET);
 
-    close(Server2); # close the listener when its served its purpose!
+    my $paddr;
+    eval {
+        local $SIG{ALRM} = sub { die "alarm\n" };
+        alarm 2; # assume swift operations!
+        $paddr = accept(SOCK, Server2);
+        alarm 0;
+    };
+    if ($@) {
+        # timed out
+        
+        close(Server2);
+        logmsg "accept failed\n";
+        return;
+    }
+    else {
+        logmsg "accept worked\n";
 
-    logmsg "$$: data connection from $name [", inet_ntoa($iaddr), "] at port $iport\n";
+        my($iport,$iaddr) = sockaddr_in($paddr);
+        my $name = gethostbyaddr($iaddr,AF_INET);
+
+        close(Server2); # close the listener when its served its purpose!
+
+        logmsg "data connection from $name [", inet_ntoa($iaddr),
+        "] at port $iport\n";
+    }
 
     return;
 }
@@ -346,7 +488,8 @@ sub PORT_command {
         print "500 silly you, go away\r\n";
         return 0;
     }
-    my $iaddr = inet_aton("$1.$2.$3.$4");
+    #my $iaddr = inet_aton("$1.$2.$3.$4");
+    my $iaddr = inet_aton("127.0.0.1"); # always use localhost
 
     my $port = ($5<<8)+$6;
 
@@ -367,9 +510,13 @@ sub PORT_command {
 $SIG{CHLD} = \&REAPER;
 
 my %customreply;
+my %customcount;
 my %delayreply;
 sub customize {
     undef %customreply;
+
+    $nosave = 0; # default is to save as normal
+
     open(CUSTOM, "<log/ftpserver.cmd") ||
         return 1;
 
@@ -378,13 +525,31 @@ sub customize {
     while(<CUSTOM>) {
         if($_ =~ /REPLY ([A-Z]+) (.*)/) {
             $customreply{$1}=$2;
+            logmsg "FTPD: set custom reply for $1\n";
+        }
+        if($_ =~ /COUNT ([A-Z]+) (.*)/) {
+            # we blank the customreply for this command when having
+            # been used this number of times
+            $customcount{$1}=$2;
+            logmsg "FTPD: blank custom reply for $1 after $2 uses\n";
         }
         elsif($_ =~ /DELAY ([A-Z]+) (\d*)/) {
             $delayreply{$1}=$2;
+            logmsg "FTPD: delay reply for $1 with $2 seconds\n";
         }
         elsif($_ =~ /RETRWEIRDO/) {
-            print "instructed to use RETRWEIRDO\n";
+            logmsg "FTPD: instructed to use RETRWEIRDO\n";
             $retrweirdo=1;
+        }
+        elsif($_ =~ /RETRNOSIZE/) {
+            logmsg "FTPD: instructed to use RETRNOSIZE\n";
+            $retrnosize=1;
+        }
+        elsif($_ =~ /NOSAVE/) {
+            # don't actually store the file we upload - to be used when
+            # uploading insanely huge amounts
+            $nosave = 1;
+            logmsg "FTPD: NOSAVE prevents saving of uploaded data\n";
         }
     }
     close(CUSTOM);
@@ -413,18 +578,13 @@ for ( $waitedpid = 0;
     open(STDIN,  "<&Client")   || die "can't dup client to stdin";
     open(STDOUT, ">&Client")   || die "can't dup client to stdout";
     
-    open(INPUT, ">log/server.input") ||
-        logmsg "failed to open log/server.input\n";
-
-    FTPLOG->autoflush(1);
-    INPUT->autoflush(1);
-
     &customize(); # read test control instructions
 
     print @welcome;
     if($verbose) {
-        print STDERR "OUT:\n";
-        print STDERR @welcome;
+        for(@welcome) {
+            print STDERR "OUT: $_";
+        }
     }
     my $state="fresh";
 
@@ -439,13 +599,14 @@ for ( $waitedpid = 0;
 
         unless (m/^([A-Z]{3,4})\s?(.*)/i) {
             print "500 '$_': command not understood.\r\n";
-            next;
+            logmsg "unknown crap received, bailing out hard\n";
+            last;
         }
         my $FTPCMD=$1;
         my $FTPARG=$2;
         my $full=$_;
                  
-        logmsg "GOT: ($1) $_\n";
+        logmsg "Received \"$full\"\n";
 
         if($verbose) {
             print STDERR "IN: $full\n";
@@ -462,6 +623,10 @@ for ( $waitedpid = 0;
             # remain in the same state
         }
         else {
+            
+            if($state != $newstate) {
+                logmsg "switch to state $state\n";
+            }
             $state = $newstate;
         }
 
@@ -478,6 +643,10 @@ for ( $waitedpid = 0;
             $text = $displaytext{$FTPCMD};
         }
         else {
+            if($customcount{$FTPCMD} && (!--$customcount{$FTPCMD})) {
+                # used enough number of times, now blank the customreply
+                $customreply{$FTPCMD}="";
+            }
             logmsg "$FTPCMD made to send '$text'\n";
         }
         if($text) {
@@ -493,10 +662,8 @@ for ( $waitedpid = 0;
                 \&$func($FTPARG, $FTPCMD);
             }
         }
-
-        logmsg "set to state $state\n";
             
     } # while(1)
+    logmsg "client disconnected\n";
     close(Client);
-    close(Client2);
 }

@@ -12,8 +12,8 @@ static void TAG(emit)( GLcontext *ctx,
    GLubyte (*col)[4];
    GLuint tc0_stride, tc1_stride, col_stride;
    GLuint tc0_size, tc1_size;
-   GLfloat (*proj)[4] = VB->ProjectedClipPtr->data; 
-   GLuint proj_stride = VB->ProjectedClipPtr->stride;
+   GLfloat (*proj)[4] = VB->NdcPtr->data; 
+   GLuint proj_stride = VB->NdcPtr->stride;
    tdfxVertex *v = (tdfxVertex *)dest;
    GLfloat u0scale,v0scale,u1scale,v1scale;
    const GLubyte *mask = VB->ClipMask;
@@ -185,8 +185,8 @@ static void TAG(emit)( GLcontext *ctx, GLuint start, GLuint end,
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
    GLubyte (*col)[4];
    GLuint col_stride;
-   GLfloat (*proj)[4] = VB->ProjectedClipPtr->data; 
-   GLuint proj_stride = VB->ProjectedClipPtr->stride;
+   GLfloat (*proj)[4] = VB->NdcPtr->data; 
+   GLuint proj_stride = VB->NdcPtr->stride;
    GLfloat *v = (GLfloat *)dest;
    const GLubyte *mask = VB->ClipMask;
    const GLfloat *s = fxMesa->hw_viewport;

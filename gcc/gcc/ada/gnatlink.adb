@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1996-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,11 +26,12 @@
 
 --  Gnatlink usage: please consult the gnat documentation
 
-with Ada.Exceptions; use Ada.Exceptions;
 with ALI;      use ALI;
 with Gnatvsn;  use Gnatvsn;
 with Hostparm;
+with Indepsw;  use Indepsw;
 with Namet;    use Namet;
+with Opt;
 with Osint;    use Osint;
 with Output;   use Output;
 with Switch;   use Switch;
@@ -40,10 +40,14 @@ with Table;
 with Types;
 
 with Ada.Command_Line;     use Ada.Command_Line;
+with Ada.Exceptions;       use Ada.Exceptions;
 with GNAT.OS_Lib;          use GNAT.OS_Lib;
 with Interfaces.C_Streams; use Interfaces.C_Streams;
+with Interfaces.C.Strings; use Interfaces.C.Strings;
+with System.CRTL;
 
 procedure Gnatlink is
+   pragma Ident (Gnatvsn.Gnat_Static_Version_String);
 
    package Gcc_Linker_Options is new Table.Table (
      Table_Component_Type => String_Access,
@@ -119,14 +123,12 @@ procedure Gnatlink is
    --  This table collects the arguments to be passed to compile the binder
    --  generated file.
 
-   subtype chars_ptr is System.Address;
-
    Gcc : String_Access := Program_Name ("gcc");
 
    Read_Mode  : constant String := "r" & ASCII.Nul;
 
-   Begin_Info : String := "-- BEGIN Object file/option list";
-   End_Info   : String := "-- END Object file/option list   ";
+   Begin_Info : String := "--  BEGIN Object file/option list";
+   End_Info   : String := "--  END Object file/option list   ";
    --  Note: above lines are modified in C mode, see option processing
 
    Gcc_Path             : String_Access;
@@ -156,8 +158,13 @@ procedure Gnatlink is
    Compile_Bind_File : Boolean := True;
    --  Set to False if bind file is not to be compiled
 
+   Create_Map_File : Boolean := False;
+   --  Set to True by switch -M. The map file name is derived from
+   --  the ALI file name (mainprog.ali => mainprog.map).
+
    Object_List_File_Supported : Boolean;
-   pragma Import (C, Object_List_File_Supported, "objlist_file_supported");
+   pragma Import
+     (C, Object_List_File_Supported, "__gnat_objlist_file_supported");
    --  Predicate indicating whether the linker has an option whereby the
    --  names of object files can be passed to the linker in a file.
 
@@ -182,8 +189,8 @@ procedure Gnatlink is
    procedure Process_Binder_File (Name : in String);
    --  Reads the binder file and extracts linker arguments.
 
-   function Value (chars : chars_ptr) return String;
-   --  Return NUL-terminated string chars as an Ada string.
+   procedure Write_Header;
+   --  Show user the program name, version and copyright.
 
    procedure Write_Usage;
    --  Show user the program options.
@@ -229,9 +236,10 @@ procedure Gnatlink is
 
    procedure Delete (Name : in String) is
       Status : int;
-
+      pragma Unreferenced (Status);
    begin
       Status := unlink (Name'Address);
+      --  Is it really right to ignore an error here ???
    end Delete;
 
    ---------------
@@ -261,7 +269,10 @@ procedure Gnatlink is
    ------------------
 
    procedure Process_Args is
-      Next_Arg : Integer;
+      Next_Arg  : Integer;
+      Skip_Next : Boolean := False;
+      --  Set to true if the next argument is to be added into the list of
+      --  linker's argument without parsing it.
 
    begin
       --  Loop through arguments of gnatlink command
@@ -271,14 +282,25 @@ procedure Gnatlink is
          exit when Next_Arg > Argument_Count;
 
          Process_One_Arg : declare
-            Arg : String := Argument (Next_Arg);
+            Arg : constant String := Argument (Next_Arg);
 
          begin
             --  Case of argument which is a switch
 
             --  We definitely need section by section comments here ???
 
-            if Arg'Length /= 0 and then Arg (1) = '-' then
+            if Skip_Next then
+
+               --  This argument must not be parsed, just add it to the
+               --  list of linker's options.
+
+               Skip_Next := False;
+
+               Linker_Options.Increment_Last;
+               Linker_Options.Table (Linker_Options.Last) :=
+                 new String'(Arg);
+
+            elsif Arg'Length /= 0 and then Arg (1) = '-' then
                if Arg'Length > 4
                  and then Arg (2 .. 5) =  "gnat"
                then
@@ -286,7 +308,18 @@ procedure Gnatlink is
                     ("invalid switch: """ & Arg & """ (gnat not needed here)");
                end if;
 
-               if Arg (2) = 'g'
+               if Arg = "-Xlinker" then
+
+                  --  Next argument should be sent directly to the linker.
+                  --  We do not want to parse it here.
+
+                  Skip_Next := True;
+
+                  Linker_Options.Increment_Last;
+                  Linker_Options.Table (Linker_Options.Last) :=
+                    new String'(Arg);
+
+               elsif Arg (2) = 'g'
                  and then (Arg'Length < 5 or else Arg (2 .. 5) /= "gnat")
                then
                   Debug_Flag_Present := True;
@@ -299,12 +332,27 @@ procedure Gnatlink is
                   Binder_Options.Table (Binder_Options.Last) :=
                     Linker_Options.Table (Linker_Options.Last);
 
+               elsif Arg'Length >= 3 and then Arg (2) = 'M' then
+                  declare
+                     Switches : String_List_Access;
+                  begin
+                     Convert (Map_File, Arg (3 .. Arg'Last), Switches);
+
+                     if Switches /= null then
+                        for J in Switches'Range loop
+                           Linker_Options.Increment_Last;
+                           Linker_Options.Table (Linker_Options.Last) :=
+                             Switches (J);
+                        end loop;
+                     end if;
+                  end;
+
                elsif Arg'Length = 2 then
                   case Arg (2) is
                      when 'A' =>
                         Ada_Bind_File := True;
-                        Begin_Info := "-- BEGIN Object file/option list";
-                        End_Info   := "-- END Object file/option list   ";
+                        Begin_Info := "--  BEGIN Object file/option list";
+                        End_Info   := "--  END Object file/option list   ";
 
                      when 'b' =>
                         Linker_Options.Increment_Last;
@@ -322,7 +370,7 @@ procedure Gnatlink is
                         end if;
 
                         Get_Machine_Name : declare
-                           Name_Arg : String_Access :=
+                           Name_Arg : constant String_Access :=
                                         new String'(Argument (Next_Arg));
 
                         begin
@@ -338,8 +386,8 @@ procedure Gnatlink is
 
                      when 'C' =>
                         Ada_Bind_File := False;
-                        Begin_Info := "/* BEGIN Object file/option list";
-                        End_Info   := "   END Object file/option list */";
+                        Begin_Info := "/*  BEGIN Object file/option list";
+                        End_Info   := "    END Object file/option list */";
 
                      when 'f' =>
                         if Object_List_File_Supported then
@@ -348,6 +396,9 @@ procedure Gnatlink is
                            Exit_With_Error
                              ("Object list file not supported on this target");
                         end if;
+
+                     when 'M' =>
+                        Create_Map_File := True;
 
                      when 'n' =>
                         Compile_Bind_File := False;
@@ -368,6 +419,9 @@ procedure Gnatlink is
                         Linker_Options.Increment_Last;
                         Linker_Options.Table (Linker_Options.Last) :=
                           Output_File_Name;
+
+                     when 'R' =>
+                        Opt.Run_Path_Option := False;
 
                      when 'v' =>
 
@@ -400,7 +454,7 @@ procedure Gnatlink is
                elsif Arg (2) = 'B' then
                   Linker_Options.Increment_Last;
                   Linker_Options.Table (Linker_Options.Last) :=
-                   new String'(Arg);
+                    new String'(Arg);
 
                   Binder_Options.Increment_Last;
                   Binder_Options.Table (Binder_Options.Last) :=
@@ -422,7 +476,7 @@ procedure Gnatlink is
 
                elsif Arg'Length > 6 and then Arg (1 .. 6) = "--GCC=" then
                   declare
-                     Program_Args : Argument_List_Access :=
+                     Program_Args : constant Argument_List_Access :=
                                       Argument_String_To_List
                                                  (Arg (7 .. Arg'Last));
 
@@ -434,8 +488,8 @@ procedure Gnatlink is
 
                      for J in 2 .. Program_Args.all'Last loop
                         declare
-                           Arg : String := Program_Args.all (J).all;
-                           AF  : Integer := Arg'First;
+                           Arg : constant String := Program_Args.all (J).all;
+                           AF  : constant Integer := Arg'First;
 
                         begin
                            if Arg'Length /= 0 and then Arg (AF) = '-' then
@@ -481,6 +535,8 @@ procedure Gnatlink is
             --  Here if argument is a file name rather than a switch
 
             else
+               --  If explicit ali file, capture it
+
                if Arg'Length > 4
                  and then Arg (Arg'Last - 3 .. Arg'Last) = ".ali"
                then
@@ -490,10 +546,7 @@ procedure Gnatlink is
                      Exit_With_Error ("cannot handle more than one ALI file");
                   end if;
 
-               elsif Is_Regular_File (Arg & ".ali")
-                 and then Ali_File_Name = null
-               then
-                  Ali_File_Name := new String'(Arg & ".ali");
+               --  If object file, record object file
 
                elsif Arg'Length > Get_Object_Suffix.all'Length
                  and then Arg
@@ -504,14 +557,22 @@ procedure Gnatlink is
                   Linker_Objects.Table (Linker_Objects.Last) :=
                     new String'(Arg);
 
+               --  If corresponding ali file exists, capture it
+
+               elsif Ali_File_Name = null
+                 and then Is_Regular_File (Arg & ".ali")
+               then
+                  Ali_File_Name := new String'(Arg & ".ali");
+
+               --  Otherwise assume this is a linker options entry, but
+               --  see below for interesting adjustment to this assumption.
+
                else
                   Linker_Options.Increment_Last;
                   Linker_Options.Table (Linker_Options.Last) :=
                     new String'(Arg);
                end if;
-
             end if;
-
          end Process_One_Arg;
 
          Next_Arg := Next_Arg + 1;
@@ -524,6 +585,18 @@ procedure Gnatlink is
          Binder_Options.Increment_Last;
          Binder_Options.Table (Binder_Options.Last) := new String'("-gnatws");
       end if;
+
+      --  If we did not get an ali file at all, and we had at least one
+      --  linker option, then assume that was the intended ali file after
+      --  all, so that we get a nicer message later on.
+
+      if Ali_File_Name = null
+        and then Linker_Options.Last >= Linker_Options.First
+      then
+         Ali_File_Name :=
+           new String'(Linker_Options.Table (Linker_Options.First).all &
+                                                                   ".ali");
+      end if;
    end Process_Args;
 
    -------------------------
@@ -531,54 +604,126 @@ procedure Gnatlink is
    -------------------------
 
    procedure Process_Binder_File (Name : in String) is
-      Fd           : FILEs;
-      Link_Bytes   : Integer := 0;
-      Link_Max     : Integer;
-      pragma Import (C, Link_Max, "link_max");
+      Fd : FILEs;
+      --  Binder file's descriptor
 
-      Next_Line    : String (1 .. 1000);
-      Nlast        : Integer;
-      Nfirst       : Integer;
-      Objs_Begin   : Integer := 0;
-      Objs_End     : Integer := 0;
+      Link_Bytes : Integer := 0;
+      --  Projected number of bytes for the linker command line
 
-      Status       : int;
-      N            : Integer;
+      Link_Max : Integer;
+      pragma Import (C, Link_Max, "__gnat_link_max");
+      --  Maximum number of bytes on the command line supported by the OS
+      --  linker. Passed this limit the response file mechanism must be used
+      --  if supported.
 
-      GNAT_Static  : Boolean := False;
+      Next_Line : String (1 .. 1000);
+      --  Current line value
+
+      Nlast  : Integer;
+      Nfirst : Integer;
+      --  Current line slice (the slice does not contain line terminator)
+
+      Last : Integer;
+      --  Current line last character for shared libraries (without version)
+
+      Objs_Begin : Integer := 0;
+      --  First object file index in Linker_Objects table
+
+      Objs_End : Integer := 0;
+      --  Last object file index in Linker_Objects table
+
+      Status : int;
+      --  Used for various Interfaces.C_Streams calls
+
+      Closing_Status : Boolean;
+      --  For call to Close
+
+      GNAT_Static : Boolean := False;
       --  Save state of -static option.
 
-      GNAT_Shared  : Boolean := False;
+      GNAT_Shared : Boolean := False;
       --  Save state of -shared option.
 
-      Run_Path_Option_Ptr : Address;
-      pragma Import (C, Run_Path_Option_Ptr, "run_path_option");
+      Xlinker_Was_Previous : Boolean := False;
+      --  Indicate that "-Xlinker" was the option preceding the current
+      --  option. If True, then the current option is never suppressed.
+
+      --  Rollback data
+
+      --  These data items are used to store current binder file context.
+      --  The context is composed of the file descriptor position and the
+      --  current line together with the slice indexes (first and last
+      --  position) for this line. The rollback data are used by the
+      --  Store_File_Context and Rollback_File_Context routines below.
+      --  The file context mechanism interact only with the Get_Next_Line
+      --  call. For example:
+
+      --     Store_File_Context;
+      --     Get_Next_Line;
+      --     Rollback_File_Context;
+      --     Get_Next_Line;
+
+      --  Both Get_Next_Line calls above will read the exact same data from
+      --  the file. In other words, Next_Line, Nfirst and Nlast variables
+      --  will be set with the exact same values.
+
+      RB_File_Pos  : long;                -- File position
+      RB_Next_Line : String (1 .. 1000);  -- Current line content
+      RB_Nlast     : Integer;             -- Slice last index
+      RB_Nfirst    : Integer;             -- Slice first index
+
+      Run_Path_Option_Ptr : Interfaces.C.Strings.chars_ptr;
+      pragma Import (C, Run_Path_Option_Ptr, "__gnat_run_path_option");
       --  Pointer to string representing the native linker option which
       --  specifies the path where the dynamic loader should find shared
       --  libraries. Equal to null string if this system doesn't support it.
 
-      Object_Library_Ext_Ptr : Address;
-      pragma Import (C, Object_Library_Ext_Ptr, "object_library_extension");
+      Object_Library_Ext_Ptr : Interfaces.C.Strings.chars_ptr;
+      pragma Import
+        (C, Object_Library_Ext_Ptr, "__gnat_object_library_extension");
       --  Pointer to string specifying the default extension for
       --  object libraries, e.g. Unix uses ".a", VMS uses ".olb".
 
-      Object_File_Option_Ptr : Address;
-      pragma Import (C, Object_File_Option_Ptr, "object_file_option");
+      Object_File_Option_Ptr : Interfaces.C.Strings.chars_ptr;
+      pragma Import (C, Object_File_Option_Ptr, "__gnat_object_file_option");
       --  Pointer to a string representing the linker option which specifies
       --  the response file.
 
       Using_GNU_Linker : Boolean;
-      pragma Import (C, Using_GNU_Linker, "using_gnu_linker");
+      pragma Import (C, Using_GNU_Linker, "__gnat_using_gnu_linker");
       --  Predicate indicating whether this target uses the GNU linker. In
       --  this case we must output a GNU linker compatible response file.
+
+      Opening : aliased constant String := """";
+      Closing : aliased constant String := '"' & ASCII.LF;
+      --  Needed to quote object paths in object list files when GNU linker
+      --  is used.
 
       procedure Get_Next_Line;
       --  Read the next line from the binder file without the line
       --  terminator.
 
+      function Index (S, Pattern : String) return Natural;
+      --  Return the last occurrence of Pattern in S, or 0 if none.
+
       function Is_Option_Present (Opt : in String) return Boolean;
       --  Return true if the option Opt is already present in
       --  Linker_Options table.
+
+      procedure Store_File_Context;
+      --  Store current file context, Fd position and current line data.
+      --  The file context is stored into the rollback data above (RB_*).
+      --  Store_File_Context can be called at any time, only the last call
+      --  will be used (i.e. this routine overwrites the file context).
+
+      procedure Rollback_File_Context;
+      --  Restore file context from rollback data. This routine must be called
+      --  after Store_File_Context. The binder file context will be restored
+      --  with the data stored by the last Store_File_Context call.
+
+      -------------------
+      -- Get_Next_Line --
+      -------------------
 
       procedure Get_Next_Line is
          Fchars : chars;
@@ -602,6 +747,27 @@ procedure Gnatlink is
          Nlast := Nlast - 1;
       end Get_Next_Line;
 
+      -----------
+      -- Index --
+      -----------
+
+      function Index (S, Pattern : String) return Natural is
+         Len : constant Natural := Pattern'Length;
+
+      begin
+         for J in reverse S'First .. S'Last - Len + 1 loop
+            if Pattern = S (J .. J + Len - 1) then
+               return J;
+            end if;
+         end loop;
+
+         return 0;
+      end Index;
+
+      -----------------------
+      -- Is_Option_Present --
+      -----------------------
+
       function Is_Option_Present (Opt : in String) return Boolean is
       begin
          for I in 1 .. Linker_Options.Last loop
@@ -614,6 +780,39 @@ procedure Gnatlink is
 
          return False;
       end Is_Option_Present;
+
+      ---------------------------
+      -- Rollback_File_Context --
+      ---------------------------
+
+      procedure Rollback_File_Context is
+      begin
+         Next_Line := RB_Next_Line;
+         Nfirst    := RB_Nfirst;
+         Nlast     := RB_Nlast;
+         Status    := fseek (Fd, RB_File_Pos, Interfaces.C_Streams.SEEK_SET);
+
+         if Status = -1 then
+            Exit_With_Error ("Error setting file position");
+         end if;
+      end Rollback_File_Context;
+
+      ------------------------
+      -- Store_File_Context --
+      ------------------------
+
+      procedure Store_File_Context is
+         use type System.CRTL.long;
+      begin
+         RB_Next_Line := Next_Line;
+         RB_Nfirst    := Nfirst;
+         RB_Nlast     := Nlast;
+         RB_File_Pos  := ftell (Fd);
+
+         if RB_File_Pos = -1 then
+            Exit_With_Error ("Error getting file position");
+         end if;
+      end Store_File_Context;
 
    --  Start of processing for Process_Binder_File
 
@@ -635,7 +834,7 @@ procedure Gnatlink is
          Get_Next_Line;
 
          --  Go to end when end line is reached (this will happen in
-         --  No_Run_Time mode where no -L switches are generated)
+         --  High_Integrity_Mode where no -L switches are generated)
 
          exit when Next_Line (Nfirst .. Nlast) = End_Info;
 
@@ -664,10 +863,25 @@ procedure Gnatlink is
          Linker_Objects.Table (Linker_Objects.Last) :=
            new String'(Next_Line (Nfirst .. Nlast));
 
-         Link_Bytes := Link_Bytes + Nlast - Nfirst;
+         Link_Bytes := Link_Bytes + Nlast - Nfirst + 2;
+         --  Nlast - Nfirst + 1, for the size, plus one for the space between
+         --  each arguments.
       end loop;
 
       Objs_End := Linker_Objects.Last;
+
+      --  Let's continue to compute the Link_Bytes, the linker options are
+      --  part of command line length.
+
+      Store_File_Context;
+
+      while Next_Line (Nfirst .. Nlast) /= End_Info loop
+         Link_Bytes := Link_Bytes + Nlast - Nfirst + 2;
+         --  See comment above
+         Get_Next_Line;
+      end loop;
+
+      Rollback_File_Context;
 
       --  On systems that have limitations on handling very long linker lines
       --  we make use of the system linker option which takes a list of object
@@ -688,9 +902,15 @@ procedure Gnatlink is
 
          Create_Temp_File (Tname_FD, Tname);
 
+         --  ??? File descriptor should be checked to not be Invalid_FD.
+         --  ??? Status of Write and Close operations should be checked, and
+         --  failure should occur if a status is wrong.
+
          --  If target is using the GNU linker we must add a special header
          --  and footer in the response file.
          --  The syntax is : INPUT (object1.o object2.o ... )
+         --  Because the GNU linker does not like name with characters such
+         --  as '!', we must put the object paths between double quotes.
 
          if Using_GNU_Linker then
             declare
@@ -703,16 +923,31 @@ procedure Gnatlink is
          end if;
 
          for J in Objs_Begin .. Objs_End loop
+
+            --  Opening quote for GNU linker
+
+            if Using_GNU_Linker then
+               Status := Write (Tname_FD, Opening'Address, 1);
+            end if;
+
             Status := Write (Tname_FD, Linker_Objects.Table (J).all'Address,
-              Linker_Objects.Table (J).all'Length);
-            Status := Write (Tname_FD, ASCII.LF'Address, 1);
+                             Linker_Objects.Table (J).all'Length);
+
+            --  Closing quote for GNU linker
+
+            if Using_GNU_Linker then
+               Status := Write (Tname_FD, Closing'Address, 2);
+
+            else
+               Status := Write (Tname_FD, ASCII.LF'Address, 1);
+            end if;
 
             Response_File_Objects.Increment_Last;
             Response_File_Objects.Table (Response_File_Objects.Last) :=
               Linker_Objects.Table (J);
          end loop;
 
-         --  handle GNU linker response file footer.
+         --  Handle GNU linker response file footer
 
          if Using_GNU_Linker then
             declare
@@ -724,7 +959,7 @@ procedure Gnatlink is
             end;
          end if;
 
-         Close (Tname_FD);
+         Close (Tname_FD, Closing_Status);
 
          --  Add the special objects list file option together with the name
          --  of the temporary file (removing the null character) to the objects
@@ -739,19 +974,33 @@ procedure Gnatlink is
          --  are removed by moving up the linker options and non-Ada object
          --  files appearing after the Ada object list in the table.
 
-         N := Objs_End - Objs_Begin + 1;
-         for J in Objs_End + 1 .. Linker_Objects.Last loop
-            Linker_Objects.Table (J - N + 1) := Linker_Objects.Table (J);
-         end loop;
+         declare
+            N : Integer;
+         begin
+            N := Objs_End - Objs_Begin + 1;
 
-         Linker_Objects.Set_Last (Linker_Objects.Last - N + 1);
+            for J in Objs_End + 1 .. Linker_Objects.Last loop
+               Linker_Objects.Table (J - N + 1) := Linker_Objects.Table (J);
+            end loop;
+
+            Linker_Objects.Set_Last (Linker_Objects.Last - N + 1);
+         end;
       end if;
 
       --  Process switches and options
 
       if Next_Line (Nfirst .. Nlast) /= End_Info then
+         Xlinker_Was_Previous := False;
+
          loop
-            if Next_Line (Nfirst .. Nlast) = "-static" then
+            if Xlinker_Was_Previous
+              or else Next_Line (Nfirst .. Nlast) = "-Xlinker"
+            then
+               Linker_Options.Increment_Last;
+               Linker_Options.Table (Linker_Options.Last) :=
+                 new String'(Next_Line (Nfirst .. Nlast));
+
+            elsif Next_Line (Nfirst .. Nlast) = "-static" then
                GNAT_Static := True;
 
             elsif Next_Line (Nfirst .. Nlast) = "-shared" then
@@ -760,7 +1009,13 @@ procedure Gnatlink is
             --  Add binder options only if not already set on the command
             --  line. This rule is a way to control the linker options order.
 
-            elsif not Is_Option_Present (Next_Line (Nfirst .. Nlast)) then
+            --  The following test needs comments, why is it VMS specific.
+            --  The above comment looks out of date ???
+
+            elsif not (Hostparm.OpenVMS
+                         and then
+                       Is_Option_Present (Next_Line (Nfirst .. Nlast)))
+            then
                if Nlast > Nfirst + 2 and then
                  Next_Line (Nfirst .. Nfirst + 1) = "-L"
                then
@@ -785,17 +1040,46 @@ procedure Gnatlink is
                elsif Next_Line (Nfirst .. Nlast) = "-ldecgnat"
                  or else Next_Line (Nfirst .. Nlast) = "-lgnarl"
                  or else Next_Line (Nfirst .. Nlast) = "-lgnat"
+                 or else Next_Line
+                     (1 .. Natural'Min (Nlast, 8 + Library_Version'Length)) =
+                       Shared_Lib ("gnarl")
+                 or else Next_Line
+                     (1 .. Natural'Min (Nlast, 7 + Library_Version'Length)) =
+                       Shared_Lib ("gnat")
                then
+                  --  If it is a shared library, remove the library version.
+                  --  We will be looking for the static version of the library
+                  --  as it is in the same directory as the shared version.
+
+                  if Next_Line (Nlast - Library_Version'Length + 1 .. Nlast)
+                       = Library_Version
+                  then
+                     --  Set Last to point to last character before the
+                     --  library version.
+
+                     Last := Nlast - Library_Version'Length - 1;
+                  else
+                     Last := Nlast;
+                  end if;
+
                   --  Given a Gnat standard library, search the
                   --  library path to find the library location
 
                   declare
                      File_Path : String_Access;
-                     Object_Lib_Extension : constant String :=
-                       Value (Object_Library_Ext_Ptr);
 
-                     File_Name : String := "lib" &
-                       Next_Line (Nfirst + 2 .. Nlast) & Object_Lib_Extension;
+                     Object_Lib_Extension : constant String :=
+                                              Value (Object_Library_Ext_Ptr);
+
+                     File_Name : constant String := "lib" &
+                                   Next_Line (Nfirst + 2 .. Last) &
+                                   Object_Lib_Extension;
+
+                     Run_Path_Opt : constant String :=
+                       Value (Run_Path_Option_Ptr);
+
+                     GCC_Index          : Natural;
+                     Run_Path_Opt_Index : Natural := 0;
 
                   begin
                      File_Path :=
@@ -815,36 +1099,140 @@ procedure Gnatlink is
                              new String'(File_Path.all);
 
                         elsif GNAT_Shared then
+                           if Opt.Run_Path_Option then
+                              --  If shared gnatlib desired, add the
+                              --  appropriate system specific switch
+                              --  so that it can be located at runtime.
 
-                           --  If shared gnatlib desired, add the
-                           --  appropriate system specific switch
-                           --  so that it can be located at runtime.
-
-                           declare
-                              Run_Path_Opt : constant String :=
-                                Value (Run_Path_Option_Ptr);
-
-                           begin
                               if Run_Path_Opt'Length /= 0 then
+                                 --  Output the system specific linker command
+                                 --  that allows the image activator to find
+                                 --  the shared library at runtime.
+                                 --  Also add path to find libgcc_s.so, if
+                                 --  relevant.
 
-                                 --  Output the system specific linker
-                                 --  command that allows the image
-                                 --  activator to find the shared library
-                                 --  at runtime.
+                                 --  To find the location of the shared version
+                                 --  of libgcc, we look for "gcc-lib" in the
+                                 --  path of the library. However, this
+                                 --  subdirectory is no longer present in
+                                 --  in recent version of GCC. So, we look for
+                                 --  the last subdirectory "lib" in the path.
 
-                                 Linker_Options.Increment_Last;
+                                 GCC_Index :=
+                                   Index (File_Path.all, "gcc-lib");
 
-                                 Linker_Options.Table (Linker_Options.Last)
-                                      := new String'(Run_Path_Opt
-                                           & File_Path
-                                              (1 .. File_Path'Length
-                                                     - File_Name'Length));
+                                 if GCC_Index /= 0 then
+                                    --  The shared version of libgcc is
+                                    --  located in the parent directory.
+
+                                    GCC_Index := GCC_Index - 1;
+
+                                 else
+                                    GCC_Index :=
+                                      Index (File_Path.all, "/lib/");
+
+                                    if GCC_Index = 0 then
+                                       GCC_Index :=
+                                         Index (File_Path.all,
+                                                Directory_Separator &
+                                                "lib" &
+                                                Directory_Separator);
+                                    end if;
+
+                                    --  We have found a subdirectory "lib",
+                                    --  this is where the shared version of
+                                    --  libgcc should be located.
+
+                                    if GCC_Index /= 0 then
+                                       GCC_Index := GCC_Index + 3;
+                                    end if;
+                                 end if;
+
+                                 --  Look for an eventual run_path_option in
+                                 --  the linker switches.
+
+                                 for J in reverse 1 .. Linker_Options.Last loop
+                                    if Linker_Options.Table (J) /= null
+                                      and then
+                                        Linker_Options.Table (J)'Length
+                                                  > Run_Path_Opt'Length
+                                      and then
+                                        Linker_Options.Table (J)
+                                          (1 .. Run_Path_Opt'Length) =
+                                                                Run_Path_Opt
+                                    then
+                                       --  We have found a already specified
+                                       --  run_path_option: we will add to this
+                                       --  switch, because only one
+                                       --  run_path_option should be specified.
+
+                                       Run_Path_Opt_Index := J;
+                                       exit;
+                                    end if;
+                                 end loop;
+
+                                 --  If there is no run_path_option, we need
+                                 --  to add one.
+
+                                 if Run_Path_Opt_Index = 0 then
+                                    Linker_Options.Increment_Last;
+                                 end if;
+
+                                 if GCC_Index = 0 then
+                                    if Run_Path_Opt_Index = 0 then
+                                       Linker_Options.Table
+                                         (Linker_Options.Last) :=
+                                           new String'
+                                              (Run_Path_Opt
+                                                & File_Path
+                                                  (1 .. File_Path'Length
+                                                         - File_Name'Length));
+
+                                    else
+                                       Linker_Options.Table
+                                         (Run_Path_Opt_Index) :=
+                                           new String'
+                                             (Linker_Options.Table
+                                                 (Run_Path_Opt_Index).all
+                                              & Path_Separator
+                                              & File_Path
+                                                 (1 .. File_Path'Length
+                                                       - File_Name'Length));
+                                    end if;
+
+                                 else
+                                    if Run_Path_Opt_Index = 0 then
+                                       Linker_Options.Table
+                                         (Linker_Options.Last) :=
+                                           new String'(Run_Path_Opt
+                                             & File_Path
+                                                 (1 .. File_Path'Length
+                                                       - File_Name'Length)
+                                             & Path_Separator
+                                             & File_Path (1 .. GCC_Index));
+
+                                    else
+                                       Linker_Options.Table
+                                         (Run_Path_Opt_Index) :=
+                                           new String'
+                                            (Linker_Options.Table
+                                                (Run_Path_Opt_Index).all
+                                             & Path_Separator
+                                             & File_Path
+                                                 (1 .. File_Path'Length
+                                                       - File_Name'Length)
+                                             & Path_Separator
+                                             & File_Path (1 .. GCC_Index));
+                                    end if;
+                                 end if;
                               end if;
+                           end if;
 
-                              Linker_Options.Increment_Last;
-                              Linker_Options.Table (Linker_Options.Last)
-                                := new String'(Next_Line (Nfirst .. Nlast));
-                           end;
+                           --  Then we add the appropriate -l switch
+
+                           Linker_Options.Increment_Last;
+                           Linker_Options.Table (Linker_Options.Last) :=
+                             new String'(Next_Line (Nfirst .. Nlast));
                         end if;
 
                      else
@@ -853,23 +1241,25 @@ procedure Gnatlink is
                         --  mechanimsm may find it.
 
                         Linker_Options.Increment_Last;
-                        Linker_Options.Table (Linker_Options.Last)
-                          := new String'(Next_Line (Nfirst .. Nlast));
+                        Linker_Options.Table (Linker_Options.Last) :=
+                          new String'(Next_Line (Nfirst .. Nlast));
                      end if;
                   end;
                else
                   Linker_Options.Increment_Last;
-                  Linker_Options.Table (Linker_Options.Last)
-                    := new String'(Next_Line (Nfirst .. Nlast));
+                  Linker_Options.Table (Linker_Options.Last) :=
+                    new String'(Next_Line (Nfirst .. Nlast));
                end if;
             end if;
+
+            Xlinker_Was_Previous := Next_Line (Nfirst .. Nlast) = "-Xlinker";
 
             Get_Next_Line;
             exit when Next_Line (Nfirst .. Nlast) = End_Info;
 
             if Ada_Bind_File then
-               Next_Line (Nfirst .. Nlast - 8)
-                 := Next_Line (Nfirst + 8 .. Nlast);
+               Next_Line (Nfirst .. Nlast - 8) :=
+                 Next_Line (Nfirst + 8 .. Nlast);
                Nlast := Nlast - 8;
             end if;
          end loop;
@@ -878,30 +1268,20 @@ procedure Gnatlink is
       Status := fclose (Fd);
    end Process_Binder_File;
 
-   -----------
-   -- Value --
-   -----------
+   ------------------
+   -- Write_Header --
+   ------------------
 
-   function Value (chars : chars_ptr) return String is
-      function Strlen (chars : chars_ptr) return Natural;
-      pragma Import (C, Strlen);
-
+   procedure Write_Header is
    begin
-      if chars = Null_Address then
-         return "";
-
-      else
-         declare
-            subtype Result_Type is String (1 .. Strlen (chars));
-
-            Result : Result_Type;
-            for Result'Address use chars;
-
-         begin
-            return Result;
-         end;
+      if Verbose_Mode then
+         Write_Eol;
+         Write_Str ("GNATLINK ");
+         Write_Str (Gnat_Version_String);
+         Write_Str (" Copyright 1995-2004 Free Software Foundation, Inc");
+         Write_Eol;
       end if;
-   end Value;
+   end Write_Header;
 
    -----------------
    -- Write_Usage --
@@ -909,6 +1289,8 @@ procedure Gnatlink is
 
    procedure Write_Usage is
    begin
+      Write_Header;
+
       Write_Str ("Usage: ");
       Write_Str (Base_Name (Command_Name));
       Write_Str (" switches mainprog.ali [non-Ada-objects] [linker-options]");
@@ -921,12 +1303,19 @@ procedure Gnatlink is
       Write_Line ("  -f    force object file list to be generated");
       Write_Line ("  -g    Compile binder source file with debug information");
       Write_Line ("  -n    Do not compile the binder source file");
+      Write_Line ("  -R    Do not use a run_path_option");
       Write_Line ("  -v    verbose mode");
       Write_Line ("  -v -v very verbose mode");
       Write_Eol;
       Write_Line ("  -o nam     Use 'nam' as the name of the executable");
       Write_Line ("  -b target  Compile the binder source to run on target");
       Write_Line ("  -Bdir      Load compiler executables from dir");
+
+      if Is_Supported (Map_File) then
+         Write_Line ("  -Mmap      Create map file map");
+         Write_Line ("  -M         Create map file mainprog.map");
+      end if;
+
       Write_Line ("  --GCC=comp Use comp as the compiler");
       Write_Line ("  --LINK=nam Use 'nam' for the linking rather than 'gcc'");
       Write_Eol;
@@ -937,7 +1326,44 @@ procedure Gnatlink is
 --  Start of processing for Gnatlink
 
 begin
-   if Argument_Count = 0 then
+   --  Add the directory where gnatlink is invoked in front of the
+   --  path, if gnatlink is invoked with directory information.
+   --  Only do this if the platform is not VMS, where the notion of path
+   --  does not really exist.
+
+   if not Hostparm.OpenVMS then
+      declare
+         Command : constant String := Command_Name;
+
+      begin
+         for Index in reverse Command'Range loop
+            if Command (Index) = Directory_Separator then
+               declare
+                  Absolute_Dir : constant String :=
+                                   Normalize_Pathname
+                                     (Command (Command'First .. Index));
+
+                  PATH         : constant String :=
+                                   Absolute_Dir &
+                  Path_Separator &
+                  Getenv ("PATH").all;
+
+               begin
+                  Setenv ("PATH", PATH);
+               end;
+
+               exit;
+            end if;
+         end loop;
+      end;
+   end if;
+
+   Process_Args;
+
+   if Argument_Count = 0
+     or else
+     (Verbose_Mode and then Argument_Count = 1)
+   then
       Write_Usage;
       Exit_Program (E_Fatal);
    end if;
@@ -945,11 +1371,9 @@ begin
    if Hostparm.Java_VM then
       Gcc := new String'("jgnat");
       Ada_Bind_File := True;
-      Begin_Info := "-- BEGIN Object file/option list";
-      End_Info   := "-- END Object file/option list   ";
+      Begin_Info := "--  BEGIN Object file/option list";
+      End_Info   := "--  END Object file/option list   ";
    end if;
-
-   Process_Args;
 
    --  We always compile with -c
 
@@ -994,21 +1418,18 @@ begin
    end if;
 
    if Ali_File_Name = null then
-      Exit_With_Error ("Required 'name'.ali not present.");
+      Exit_With_Error ("no ali file given for link");
    end if;
 
    if not Is_Regular_File (Ali_File_Name.all) then
-      Exit_With_Error (Ali_File_Name.all & " not found.");
+      Exit_With_Error (Ali_File_Name.all & " not found");
 
    --  Read the ALI file of the main subprogram if the binder generated
-   --  file is in Ada, it need to be compiled and no --GCC= switch has
-   --  been specified. Fetch the back end switches from this ALI file and use
-   --  these switches to compile the binder generated file
+   --  file needs to be compiled and no --GCC= switch has been specified.
+   --  Fetch the back end switches from this ALI file and use these switches
+   --  to compile the binder generated file
 
-   elsif Ada_Bind_File
-     and then Compile_Bind_File
-     and then Standard_Gcc
-   then
+   elsif Compile_Bind_File and then Standard_Gcc then
       --  Do some initializations
 
       Initialize_ALI;
@@ -1028,37 +1449,48 @@ begin
 
          T := Read_Library_Info (F, True);
 
-         --  Read it
+         --  Read it. Note that we ignore errors, since we only want very
+         --  limited information from the ali file, and likely a slightly
+         --  wrong version will be just fine, though in normal operation
+         --  we don't expect this to happen!
 
-         A := Scan_ALI (F, T, False, False, False);
+         A := Scan_ALI
+               (F,
+                T,
+                Ignore_ED     => False,
+                Err           => False,
+                Ignore_Errors => True);
 
          if A /= No_ALI_Id then
             for
-              Index in Units.Table (ALIs.Table (A).First_Unit).First_Arg
-              .. Units.Table (ALIs.Table (A).First_Unit).Last_Arg
+              Index in Units.Table (ALIs.Table (A).First_Unit).First_Arg ..
+                       Units.Table (ALIs.Table (A).First_Unit).Last_Arg
             loop
-               --  Do not compile with the front end switches
+               --  Do not compile with the front end switches except for --RTS
+               --  if the binder generated file is in Ada.
 
-               if not Is_Front_End_Switch (Args.Table (Index).all) then
-                  Binder_Options_From_ALI.Increment_Last;
-                  Binder_Options_From_ALI.Table (Binder_Options_From_ALI.Last)
-                    := String_Access (Args.Table (Index));
-               end if;
+               declare
+                  Arg : String_Ptr renames Args.Table (Index);
+               begin
+                  if not Is_Front_End_Switch (Arg.all)
+                    or else
+                      (Ada_Bind_File
+                        and then Arg'Length > 5
+                        and then Arg (Arg'First + 2 .. Arg'First + 5) = "RTS=")
+                  then
+                     Binder_Options_From_ALI.Increment_Last;
+                     Binder_Options_From_ALI.Table
+                       (Binder_Options_From_ALI.Last) := String_Access (Arg);
+                  end if;
+               end;
             end loop;
          end if;
       end;
    end if;
 
-   if Verbose_Mode then
-      Write_Eol;
-      Write_Str ("GNATLINK ");
-      Write_Str (Gnat_Version_String);
-      Write_Str (" Copyright 1996-2002 Free Software Foundation, Inc.");
-      Write_Eol;
-   end if;
+   Write_Header;
 
-   --  If there wasn't an output specified, then use the base name of
-   --  the .ali file name.
+   --  If no output name specified, then use the base name of .ali file name
 
    if Output_File_Name = null then
 
@@ -1080,8 +1512,7 @@ begin
    --  on Unix. On non-Unix systems executables have a suffix, so the warning
    --  will not appear. However, do not warn in the case of a cross compiler.
 
-   --  Assume that if the executable name is not gnatlink, this is a cross
-   --  tool.
+   --  Assume this is a cross tool if the executable name is not gnatlink
 
    if Base_Name (Command_Name) = "gnatlink"
      and then Output_File_Name.all = "test"
@@ -1090,19 +1521,39 @@ begin
                    & """ may conflict with shell command");
    end if;
 
+   --  If -M switch was specified, add the switches to create the map file
+
+   if Create_Map_File then
+      declare
+         Map_Name : constant String := Base_Name (Ali_File_Name.all) & ".map";
+         Switches : String_List_Access;
+
+      begin
+         Convert (Map_File, Map_Name, Switches);
+
+         if Switches /= null then
+            for J in Switches'Range loop
+               Linker_Options.Increment_Last;
+               Linker_Options.Table (Linker_Options.Last) := Switches (J);
+            end loop;
+         end if;
+      end;
+   end if;
+
    --  Perform consistency checks
 
-   --  Transform the .ali file name into the binder output file name.
+   --  Transform the .ali file name into the binder output file name
 
    Make_Binder_File_Names : declare
-      Fname     : String  := Base_Name (Ali_File_Name.all);
+      Fname     : constant String  := Base_Name (Ali_File_Name.all);
       Fname_Len : Integer := Fname'Length;
 
       function Get_Maximum_File_Name_Length return Integer;
       pragma Import (C, Get_Maximum_File_Name_Length,
                         "__gnat_get_maximum_file_name_length");
 
-      Maximum_File_Name_Length : Integer := Get_Maximum_File_Name_Length;
+      Maximum_File_Name_Length : constant Integer :=
+        Get_Maximum_File_Name_Length;
 
       Second_Char : Character;
       --  Second character of name of files
@@ -1240,62 +1691,74 @@ begin
          --  the stack size for tasking programs by a pragma in the NT
          --  specific tasking package System.Task_Primitives.Oparations.
 
-         for J in Linker_Options.First .. Linker_Options.Last loop
-            if Linker_Options.Table (J).all = "-Xlinker"
-              and then J < Linker_Options.Last
-              and then Linker_Options.Table (J + 1)'Length > 8
-              and then Linker_Options.Table (J + 1) (1 .. 8) = "--stack="
-            then
-               if Stack_Op then
-                  Linker_Options.Table (J .. Linker_Options.Last - 2) :=
-                    Linker_Options.Table (J + 2 .. Linker_Options.Last);
-                  Linker_Options.Decrement_Last;
-                  Linker_Options.Decrement_Last;
-                  Num_Args := Num_Args - 2;
+         --  Note: This is not a FOR loop that runs from Linker_Options.First
+         --  to Linker_Options.Last, since operations within the loop can
+         --  modify the length of the table.
 
-               else
-                  Stack_Op := True;
+         Clean_Link_Option_Set : declare
+            J : Natural := Linker_Options.First;
+
+         begin
+            while J <= Linker_Options.Last loop
+
+               if Linker_Options.Table (J).all = "-Xlinker"
+                 and then J < Linker_Options.Last
+                 and then Linker_Options.Table (J + 1)'Length > 8
+                 and then Linker_Options.Table (J + 1) (1 .. 8) = "--stack="
+               then
+                  if Stack_Op then
+                     Linker_Options.Table (J .. Linker_Options.Last - 2) :=
+                       Linker_Options.Table (J + 2 .. Linker_Options.Last);
+                     Linker_Options.Decrement_Last;
+                     Linker_Options.Decrement_Last;
+                     Num_Args := Num_Args - 2;
+
+                  else
+                     Stack_Op := True;
+                  end if;
                end if;
-            end if;
 
-            --  Here we just check for a canonical form that matches the
-            --  pragma Linker_Options set in the NT runtime.
+               --  Here we just check for a canonical form that matches the
+               --  pragma Linker_Options set in the NT runtime.
 
-            if (Linker_Options.Table (J)'Length > 17
-                and then Linker_Options.Table (J) (1 .. 17)
-                        = "-Xlinker --stack=")
-              or else
-               (Linker_Options.Table (J)'Length > 12
-                and then Linker_Options.Table (J) (1 .. 12)
-                         = "-Wl,--stack=")
-            then
-               if Stack_Op then
-                  Linker_Options.Table (J .. Linker_Options.Last - 1) :=
-                    Linker_Options.Table (J + 1 .. Linker_Options.Last);
-                  Linker_Options.Decrement_Last;
-                  Num_Args := Num_Args - 1;
+               if (Linker_Options.Table (J)'Length > 17
+                   and then Linker_Options.Table (J) (1 .. 17)
+                           = "-Xlinker --stack=")
+                 or else
+                  (Linker_Options.Table (J)'Length > 12
+                   and then Linker_Options.Table (J) (1 .. 12)
+                            = "-Wl,--stack=")
+               then
+                  if Stack_Op then
+                     Linker_Options.Table (J .. Linker_Options.Last - 1) :=
+                       Linker_Options.Table (J + 1 .. Linker_Options.Last);
+                     Linker_Options.Decrement_Last;
+                     Num_Args := Num_Args - 1;
 
-               else
-                  Stack_Op := True;
+                  else
+                     Stack_Op := True;
+                  end if;
                end if;
-            end if;
 
-            --  Remove duplicate IDENTIFICATION directives (VMS)
+               --  Remove duplicate IDENTIFICATION directives (VMS)
 
-            if Linker_Options.Table (J)'Length > 27
-              and then Linker_Options.Table (J) (1 .. 27)
-                       = "--for-linker=IDENTIFICATION="
-            then
-               if IDENT_Op then
-                  Linker_Options.Table (J .. Linker_Options.Last - 1) :=
-                    Linker_Options.Table (J + 1 .. Linker_Options.Last);
-                  Linker_Options.Decrement_Last;
-                  Num_Args := Num_Args - 1;
-               else
-                  IDENT_Op := True;
+               if Linker_Options.Table (J)'Length > 27
+                 and then Linker_Options.Table (J) (1 .. 28)
+                          = "--for-linker=IDENTIFICATION="
+               then
+                  if IDENT_Op then
+                     Linker_Options.Table (J .. Linker_Options.Last - 1) :=
+                       Linker_Options.Table (J + 1 .. Linker_Options.Last);
+                     Linker_Options.Decrement_Last;
+                     Num_Args := Num_Args - 1;
+                  else
+                     IDENT_Op := True;
+                  end if;
                end if;
-            end if;
-         end loop;
+
+               J := J + 1;
+            end loop;
+         end Clean_Link_Option_Set;
 
          --  Prepare arguments for call to linker
 
@@ -1402,5 +1865,5 @@ begin
 exception
    when X : others =>
       Write_Line (Exception_Information (X));
-      Exit_With_Error ("INTERNAL ERROR. Please report.");
+      Exit_With_Error ("INTERNAL ERROR. Please report");
 end Gnatlink;

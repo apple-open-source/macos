@@ -25,9 +25,8 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wctrans.c,v 1.2 2002/11/09 05:19:08 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wctrans.c,v 1.3 2003/11/01 08:20:58 tjr Exp $");
 
-#include <ctype.h>
 #include <errno.h>
 #include <string.h>
 #include <wctype.h>
@@ -38,9 +37,6 @@ enum {
 	_WCT_TOUPPER	= 2
 };
 
-/*
- * TODO: Supply a macro version of this.
- */
 wint_t
 towctrans(wint_t wc, wctrans_t desc)
 {

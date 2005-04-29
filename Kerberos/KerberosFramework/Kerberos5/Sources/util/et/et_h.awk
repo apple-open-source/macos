@@ -113,6 +113,7 @@ c2n["_"]=63
 	print "" > outfile
 	print "#include <com_err.h>" > outfile
 	print "" > outfile
+	table_item_count = 0
 }
 
 /^[ \t]*(error_code|ec)[ \t]+[A-Z_0-9]+,/ {
@@ -136,6 +137,10 @@ c2n["_"]=63
 }
 
 END {
+	if (table_item_count > 256) {
+	    print "Error table too large!" | "cat 1>&2"
+	    exit 1
+	}
 	if (tab_base_high == 0) {
 		print "#define ERROR_TABLE_BASE_" table_name " (" \
 			sprintf("%d", tab_base_sign*tab_base_low) \
@@ -150,7 +155,7 @@ END {
 	print "" > outfile
 	print "#if !defined(_WIN32)" > outfile
 	print "/* for compatibility with older versions... */" > outfile
-	print "extern void initialize_" table_name "_error_table () /*@modifies internalState@*/;" > outfile
+	print "extern void initialize_" table_name "_error_table (void) /*@modifies internalState@*/;" > outfile
 	print "#else" > outfile
 	print "#define initialize_" table_name "_error_table()" > outfile
 	print "#endif" > outfile

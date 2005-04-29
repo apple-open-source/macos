@@ -1,0 +1,356 @@
+dnl
+dnl Process this file with autoconf to produce a configure script.
+dnl
+AC_REVISION($Id: configure.in,v 1.9 2003/01/09 21:27:00 andreas_kupries Exp $)
+
+#--------------------------------------------------------------------
+# Configure script for package 'trf', as distributed at November 20, 2001.
+# TEA compliant.
+#--------------------------------------------------------------------
+
+#--------------------------------------------------------------------
+# This very first macro is used to verify that the configure script can 
+# find the sources.  The argument to AC_INIT is a unique filename for
+# this package.
+#--------------------------------------------------------------------
+
+AC_INIT(./generic/trf.decls)
+
+AC_CONFIG_AUX_DIR(tclconfig)
+CONFIGDIR=${srcdir}/tclconfig
+AC_SUBST(CONFIGDIR)
+
+#--------------------------------------------------------------------
+# Setting our package name and version numbers.  The NODOT_VERSION is
+# required for constructing the library name on systems that don't like
+# dots in library names (Windows).  The VERSION variable is used on the
+# other systems.
+#--------------------------------------------------------------------
+
+PACKAGE=Trf
+
+MAJOR_VERSION=2
+MINOR_VERSION=1
+#MAJOR_VERSION=10
+#MINOR_VERSION=0
+PATCHLEVEL=
+
+VERSION=${MAJOR_VERSION}.${MINOR_VERSION}${PATCHLEVEL}
+NODOT_VERSION=${MAJOR_VERSION}${MINOR_VERSION}
+TRF_VERSION=${VERSION}
+
+AC_SUBST(PACKAGE)
+AC_SUBST(VERSION)
+AC_SUBST(TRF_VERSION)
+
+# This package name must be replaced statically for AC_SUBST to work
+AC_SUBST(Trf_LIB_FILE)
+# Substitute stub_LIB_FILE if your package creates a stub library too.
+AC_SUBST(Trfstub_LIB_FILE)
+
+#--------------------------------------------------------------------
+# This was placed here so that we can compile with -DVERSION="1.2" to
+# encode the package version directly into the source files.
+#--------------------------------------------------------------------
+
+eval AC_DEFINE_UNQUOTED(VERSION, "${VERSION}")
+eval AC_DEFINE_UNQUOTED(TRF_VERSION, "${TRF_VERSION}")
+
+#--------------------------------------------------------------------
+# Call TEA_INIT as the first TEA_ macro to set up initial vars.
+# This will define a ${TEA_PLATFORM} variable == "unix" or "windows".
+#--------------------------------------------------------------------
+
+TEA_INIT
+
+#--------------------------------------------------------------------
+# Load the tclConfig.sh file
+#--------------------------------------------------------------------
+
+TEA_PATH_TCLCONFIG
+TEA_LOAD_TCLCONFIG
+
+TEA_PATH_CONFIG(zlibtcl,optional)
+if test $HAVE_zlibtcl_PACKAGE -gt 0 ; then
+    TEA_LOAD_CONFIG(zlibtcl)
+
+    #--------------------------------------------------------------------
+    # Compute an absolute path to the src directory of 'zlibtcl'. We
+    # need the special 'zlib.h' header which routes through
+    # 'zlibtcl.h' to splice the stub definitions into the unchanged
+    # sources of png.
+    #--------------------------------------------------------------------
+
+    case $zlibtcl_SRC_DIR in
+    /*)	zlibtcl_SRC_PATH=$zlibtcl_SRC_DIR
+	;;
+    *)	# SRC_DIR relative, splice with BUILD_PATH
+	zlibtcl_SRC_PATH="`dirname $zlibtcl_BUILD_STUB_LIB_PATH`/$zlibtcl_SRC_DIR"
+    esac
+
+    zlibtcl_BUILD_PATH="`dirname $zlibtcl_BUILD_STUB_LIB_PATH`"
+
+    if test "${TEA_PLATFORM}" = "windows" ; then
+	zlibtcl_SRC_PATH="\"`$CYGPATH $zlibtcl_SRC_PATH`\""
+	zlibtcl_BUILD_PATH="\"`$CYGPATH $zlibtcl_BUILD_PATH`\""
+    fi
+fi
+
+AC_SUBST(zlibtcl_SRC_PATH)
+AC_SUBST(zlibtcl_BUILD_PATH)
+AC_SUBST(zlibtcl_VERSION)
+
+#-----------------------------------------------------------------------
+# Handle the --prefix=... option by defaulting to what Tcl gave.
+# Must be called after TEA_LOAD_TCLCONFIG and before TEA_SETUP_COMPILER.
+#-----------------------------------------------------------------------
+
+TEA_PREFIX
+
+#-----------------------------------------------------------------------
+# Standard compiler checks.
+# This sets up CC by using the CC env var, or looks for gcc otherwise.
+# This also calls AC_PROG_CC, AC_PROG_INSTALL and a few others to create
+# the basic setup necessary to compile executables.
+#-----------------------------------------------------------------------
+
+TEA_SETUP_COMPILER
+
+#--------------------------------------------------------------------
+# If ltoa is present, use it to convert integer values into strings.
+# If not, sprintf is used, which is slower and requires more code.
+#--------------------------------------------------------------------
+
+AC_C_BIGENDIAN
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long int)
+AC_CHECK_FUNCS(ltoa)
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_MSG_CHECKING([for main in -lcrypt])
+    AC_MSG_RESULT([no (Windows)])
+    HAS_LIBCRYPT=0
+else
+    AC_CHECK_LIB(crypt, main,         HAS_LIBCRYPT=1,     HAS_LIBCRYPT=0)
+fi
+AC_CHECK_LIB(crypt, md5_init_ctx, HAS_LIBCRYPT_MD5=1, HAS_LIBCRYPT_MD5=0)
+
+
+
+# -----------------------------------------------------------------------
+AC_MSG_CHECKING(if assert needs __eprintf)
+cat > conftest.$ac_ext <<EOF
+#include "confdefs.h"
+#include "assert.h"
+int main(argc)
+    int argc;
+{
+assert(argc);
+; return 0; }
+EOF
+${TCL_CC-cc} -c $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext 1>&5
+if test "x`nm conftest.o |grep __eprintf`" != "x"; then
+    AC_MSG_RESULT(yes)
+    EP_OBJS="_eprintf.o"
+else
+    EP_OBJS=""
+    AC_MSG_RESULT(no)
+fi
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# Choose which headers you need.  Extension authors should try very
+# hard to only rely on the Tcl public header files.  Internal headers
+# contain private data structures and are subject to change without
+# notice.
+# This MUST be called after TEA_LOAD_TCLCONFIG / TEA_LOAD_TKCONFIG
+#--------------------------------------------------------------------
+
+case "`uname -s`" in
+    *win32* | *WIN32* | *CYGWIN_NT* | *CYGWIN_98* | *CYGWIN_95*)
+	# On windows tclLoadWin.c depends on internal headers. Darn.
+	TEA_PRIVATE_TCL_HEADERS
+    ;;
+    *)
+	# Everywhere else we can stick with the public ones.
+	TEA_PUBLIC_TCL_HEADERS
+    ;;
+esac
+
+#TEA_PUBLIC_TCL_HEADERS
+#TEA_PRIVATE_TCL_HEADERS
+
+#--------------------------------------------------------------------
+# A few miscellaneous platform-specific items:
+#
+# We have to define a special symbol for Windows (BUILD_Trf in this
+# case) so that we create the export library with the dll.
+#
+# Windows creates a few extra files that need to be cleaned up.
+# We can add more files to clean if our extension creates any extra
+# files in the future.
+#
+# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
+# These will be appended to the current set of compiler flags for
+# your system.
+#--------------------------------------------------------------------
+
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_DEFINE(BUILD_Trf)
+    CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
+    EXTRA_SOURCES='$(WIN_SOURCES)'
+else
+    CLEANFILES="pkgIndex.tcl"
+    EXTRA_SOURCES='$(UNIX_SOURCES)'
+fi
+AC_SUBST(CLEANFILES)
+AC_SUBST(EXTRA_SOURCES)
+
+#--------------------------------------------------------------------
+# Check whether --enable-threads or --disable-threads was given.
+# So far only Tcl responds to this one.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_THREADS
+
+#--------------------------------------------------------------------
+# The statement below defines a collection of symbols related to
+# building as a shared library instead of a static library.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SHARED
+
+#--------------------------------------------------------------------
+# This macro figures out what flags to use with the compiler/linker
+# when building shared/static debug/optimized objects.  This information
+# can be taken from the tclConfig.sh file, but this figures it all out.
+#--------------------------------------------------------------------
+
+TEA_CONFIG_CFLAGS
+
+#--------------------------------------------------------------------
+# Set the default compiler switches based on the --enable-symbols option.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SYMBOLS
+
+#--------------------------------------------------------------------
+# Everyone should be linking against the Tcl stub library.  If you
+# can't for some reason, remove this definition.  If you aren't using
+# stubs, you also need to modify the SHLIB_LD_LIBS setting below to
+# link against the non-stubbed Tcl library.
+#--------------------------------------------------------------------
+
+AC_DEFINE(USE_TCL_STUBS)
+AC_DEFINE(USE_ZLIBTCL_STUBS)
+
+#--------------------------------------------------------------------
+# This macro generates a line to use when building a library.  It
+# depends on values set by the TEA_ENABLE_SHARED, TEA_ENABLE_SYMBOLS,
+# and TEA_LOAD_TCLCONFIG macros above.
+#--------------------------------------------------------------------
+
+TEA_MAKE_LIB
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# Add platform libs to LIBS or SHLIB_LD_LIBS as necessary.
+#--------------------------------------------------------------------
+
+if test $HAVE_zlibtcl_PACKAGE -gt 0 ; then
+    if test "${TEA_PLATFORM}" = "windows" -a "$GCC" != "yes" ; then
+	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \"`${CYGPATH} ${zlibtcl_BUILD_STUB_LIB_PATH}`\""
+    else
+	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} ${zlibtcl_BUILD_STUB_LIB_SPEC}"
+    fi
+fi
+AC_SUBST(SHLIB_SUFFIX)
+
+#--------------------------------------------------------------------
+# Find tclsh so that we can run pkg_mkIndex to generate the pkgIndex.tcl
+# file during the install process.  Don't run the TCLSH_PROG through
+# ${CYGPATH} because it's being used directly by make.
+# Require that we use a tclsh shell version 8.2 or later since earlier
+# versions have bugs in the pkg_mkIndex routine.
+# Add WISH as well if this is a Tk extension.
+#--------------------------------------------------------------------
+
+TEA_PROG_TCLSH
+
+#--------------------------------------------------------------------
+# Propagate the information about the required loader file.
+#--------------------------------------------------------------------
+
+if test "x${DL_OBJS}" = "xtclLoadDl.o"
+then
+    DL_OBJS=""
+fi
+case "`uname -s`" in
+    *win32* | *WIN32* | *CYGWIN_NT* | *CYGWIN_98* | *CYGWIN_95*)
+	DL_OBJS="tclLoadWin.obj"
+    ;;
+    *)
+    ;;
+esac
+
+DL_OBJS="${DL_OBJS} ${EP_OBJS}"
+AC_SUBST(DL_OBJS)
+
+#--------------------------------------------------------------------
+# Locate supporting libraries
+#--------------------------------------------------------------------
+
+TRF_FIND_ZLIB_SSL
+
+#--------------------------------------------------------------------
+# MD5 handling...
+# Cases:
+#	(1) libcrypt not present		=> compile, use that name.
+#	(2) libcrypt present, contains Md5	=> nothing to do
+#	(3) libcrypt present, no Md5		=> compile, name = libmd5crypt
+#--------------------------------------------------------------------
+
+MD5_LIB_FILE=""
+if test \( $HAS_LIBCRYPT -eq 0 \)
+then
+	# (1)
+	## MD5_LIB_FILE=libcrypt$TCL_SHLIB_SUFFIX
+	## TRF_DEFS="$TRF_DEFS -DCRYPT_LIB_NAME=\\\"NONE\\\""
+	eval AC_DEFINE_UNQUOTED(MD5_STATIC_BUILD, 1)
+
+	EXTRA_SOURCES="\$(Md5_SOURCES)"
+else
+	# (2,3)
+	if test \( $HAS_LIBCRYPT_MD5 -eq 0 \)
+	then
+		# (3)
+		## MD5_LIB_FILE=libmd5crypt$TCL_SHLIB_SUFFIX
+		## TRF_DEFS="$TRF_DEFS -DCRYPT_LIB_NAME=\\\"NONE\\\""
+
+		# Sun Solaris is special, we may not use -lcrypt !
+		# Verified for: SunOS 5.5.1 (Solaris 2.5)
+		#		SunOS 5.6   (Solaris 2.6)
+
+		## case "`uname -s`" in
+		## SunOS*)	;;
+		## *)	LIBS="-lcrypt $LIBS"
+		##	SHLIB_LD_LIBS="-lcrypt $SHLIB_LD_LIBS"
+		##	;;
+		## esac
+
+		eval AC_DEFINE_UNQUOTED(MD5_STATIC_BUILD, 1)
+
+		EXTRA_SOURCES="\$(Md5_SOURCES)"
+	fi
+fi
+
+AC_SUBST(MD5_LIB_FILE)
+
+#--------------------------------------------------------------------
+# Finally, substitute all of the various values into the Makefile.
+# You may alternatively have a special pkgIndex.tcl.in or other files
+# which require substituting th AC variables in.  Include these here.
+#--------------------------------------------------------------------
+
+AC_OUTPUT([Makefile test.setup])
+
+#--------------------------------------------------------------------

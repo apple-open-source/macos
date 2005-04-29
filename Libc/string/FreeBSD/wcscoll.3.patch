@@ -1,0 +1,47 @@
+--- wcscoll.3.orig	Fri Mar 11 08:27:51 2005
++++ wcscoll.3	Fri Mar 11 08:29:43 2005
+@@ -41,7 +41,8 @@
+ .Dt WCSCOLL 3
+ .Os
+ .Sh NAME
+-.Nm wcscoll
++.Nm wcscoll ,
++.Nm wcscoll_l
+ .Nd compare wide strings according to current collation
+ .Sh LIBRARY
+ .Lb libc
+@@ -49,6 +50,9 @@
+ .In wchar.h
+ .Ft int
+ .Fn wcscoll "const wchar_t *s1" "const wchar_t *s2"
++.In xlocale.h
++.Ft int
++.Fn wcscoll_l "const wchar_t *s1" "const wchar_t *s2" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn wcscoll
+@@ -63,6 +67,14 @@
+ .Fn wcscoll
+ is equivalent to
+ .Fn wcscmp .
++.Pp
++While the
++.Fn wcscoll
++function uses the current locale, the
++.Fn wcscoll_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn wcscoll
+@@ -95,7 +107,8 @@
+ .Xr setlocale 3 ,
+ .Xr strcoll 3 ,
+ .Xr wcscmp 3 ,
+-.Xr wcsxfrm 3
++.Xr wcsxfrm 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn wcscoll

@@ -27,15 +27,15 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/pathname.c,v 1.17 2002/12/24 00:25:39 dawes Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/pathname.c,v 1.18 2003/04/27 18:17:34 tsi Exp $ */
 
-#include <stdio.h>		/* including dirent.h first may cause problems */
+#include <stdio.h>	/* including dirent.h first may cause problems */
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
 #include <sys/stat.h>
-#include "pathname.h"
-#include "private.h"
+#include "lisp/pathname.h"
+#include "lisp/private.h"
 
 #define NOREAD_SKIP	0
 #define NOREAD_ERROR	1

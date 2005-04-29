@@ -16,15 +16,18 @@ the following conditions must be met:
    o Ensure that OSS646, the ``Execution Environment Update'' package is
      installed, if appropriate.  Check the release notes for that update to
      see whether or not your current operating system requires this update.
-     This supplement will be available to the public in February 2003.
+     At least version OSS646B is required.  If you are running SCO OpenServer
+     Release 5.0.7, you must have Maintenance Pack 1 installed.
 
-   o Ensure that OSS631, the "Graphics, Web and X11 Libraries" package is
-     installed.  This ships standard with release 5.0.7 and later, and is
-     only required for 5.0.[456] users.  This package will be updated fairly
-     frequently, and it us always suggested you have the latest possible ver-
-     sion installed.  At some point in the future it may even update the
-     libraries in 5.0.7, so it is worth checking the release notes for this
-     supplement.
+   o Ensure that the "Graphics, Web and X11 Libraries" package is installed.
+     At least version 1.3.2Ag is required.  You should always install the
+     latest possible version of this supplement that is valid for your oper-
+     ating system release.  From time to time this release is bundled with
+     Maintenance Packs, so if you are running 5.0.7 or later, the latest ver-
+     sion may be in the latest Maintenance Pack.  Always check the release
+     notes for GWXLIBS to see if your platform requires the update.  The lat-
+     est version can always be found at the SCO FTP site
+     <URL:ftp://ftp.sco.com/pub/openserver5/opensrc>.
 
    o To compile XFree86, you must use the SCO-supported version of the GNU C
      Compiler.  It is possible that Skunkware versions of the compiler will
@@ -33,8 +36,8 @@ the following conditions must be met:
      Release 5.0.5.  It is provided with the operating system in all versions
      from Release 5.0.7, although you need to run ``custom'' to install it
      from the media.  You can always download the latest latest version of
-     the GNU Development System from the SCO Web site
-     <URL:http://www.sco.com>.
+     the GNU Development System from the SCO FTP site
+     <URL:ftp://ftp.sco.com/pub/openserver5/opensrc>.
 
    o If you are not using OSR 5.0.7 or later, you need to get an updated con-
      sole driver.  See <URL:http://www.sco.com> for details on OpenServer
@@ -137,7 +140,7 @@ server will also accept connections from XFree86 binaries. This means you may
 mix and match the two if you have ODT.  For example you may still use the
 Panning Motif window manager (pmwm) if you prefer.
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/SCO.sgml,v 3.22 2003/02/17 18:58:07 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/SCO.sgml,v 3.23 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.SCO,v 3.34 2003/02/17 18:59:41 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.SCO,v 3.36 2003/12/19 04:36:40 dawes Exp $

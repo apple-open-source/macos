@@ -88,7 +88,6 @@ HASSPECDEVD(p, s)
 	struct stat *s;			/* stat(2) result for file */
 {
 	int i;
-	mode_t m;
 
 	switch (s->st_mode & S_IFMT) {
 	case S_IFCHR:
@@ -126,7 +125,6 @@ readdev(skip)
 	char *path = (char *)NULL;
 	int i = 0;
 	int j = 0;
-	int k;
 	MALLOC_S pl, sz;
 	struct stat sb;
 /*

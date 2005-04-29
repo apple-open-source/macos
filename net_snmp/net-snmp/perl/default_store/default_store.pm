@@ -145,7 +145,7 @@ use vars qw(@ISA %EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION $AUTOLOAD);
 				   NETSNMP_DS_LIB_SECMODEL
 				   NETSNMP_DS_LIB_MIBDIRS
 );
-$VERSION = '0.01';
+$VERSION = '5.2';
 
 sub AUTOLOAD {
     # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -186,7 +186,6 @@ bootstrap NetSNMP::default_store $VERSION;
 
 1;
 __END__
-# Below is stub documentation for your module. You better edit it!
 
 =head1 NAME
 

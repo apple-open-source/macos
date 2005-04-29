@@ -23,6 +23,8 @@
 // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 // THE USE OR PERFORMANCE OF THIS SOFTWARE.
 //
+// $XFree86: xc/programs/xkbcomp/geometry/sgi/O2,v 3.4 2003/10/24 20:38:19 tsi Exp $
+//
 default xkb_geometry "pc101" {
 
     // This is an approximate layout for a 101-key (US/ASCII) SGI
@@ -162,9 +164,9 @@ default xkb_geometry "pc101" {
     indicator.offColor= "green30";
     indicator.top= 40.5;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 372; };
-    indicator "CapsLock"    { left= 397; };
-    indicator "ScrollLock"  { left= 422; };
+    indicator "Num Lock"     { left= 372; };
+    indicator "Caps Lock"    { left= 397; };
+    indicator "Scro llLock"  { left= 422; };
 
     text.font= "helvetica";
     text.weight= "bold";
@@ -371,9 +373,9 @@ xkb_geometry "pc102" {
     indicator.offColor= "green30";
     indicator.top= 64.5;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 384; };
-    indicator "CapsLock"    { left= 409; };
-    indicator "ScrollLock"  { left= 434; };
+    indicator "Num Lock"     { left= 384; };
+    indicator "Caps Lock"    { left= 409; };
+    indicator "Scroll Lock"  { left= 434; };
     text.top= 52;
     text.color= "black";
     text "NumLockLabel"		{ left= 380.5; text="Num\nLock"; };
@@ -488,9 +490,9 @@ xkb_geometry "jp106" {
     indicator.offColor= "green30";
     indicator.top= 40;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 366; };
-    indicator "CapsLock"    { left= 391; };
-    indicator "ScrollLock"  { left= 416; };
+    indicator "Num Lock"     { left= 366; };
+    indicator "Caps Lock"    { left= 391; };
+    indicator "Scroll Lock"  { left= 416; };
     text.top= 28;
     text.color= "black";
     text "NumLockLabel"		{ left= 366; text="Num\nLock"; };

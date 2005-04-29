@@ -1,0 +1,57 @@
+=head1 NAME
+
+C<razor-whitelist> - Format for Vipul's Razor Whitelist
+
+=head1 DESCRIPTION
+
+The razor whitelist is a list of email addresses and body signatures.
+Emails that match the whitelist are not processed by any of the Razor Agents.
+That is, They are not checked, reported, or revoked.  In the case of 
+razor-check(1), they are instantly marked as non-spam.
+
+=head1 LOCATION
+
+The razor whitelist is usually C<E<lt>razorhomeE<gt>/razor-whitelist>. The
+C<whitelist> parameter in razor-agent.conf(5) should point to this file. If the
+C<whitelist> parameter in razor-agent.conf(5) is missing, C<whitelist> is not used.
+
+=head1 FORMAT
+
+Each whitelist rule is placed on a line of its own. Lines that begin in a
+`#' character are considered to be comments and are ignored by the parser.
+A rule contains the name of a header and the string to match against the
+header, separated by whitespace. Here are some examples:
+
+ to bugtraq@securityfocus.com
+ cc a.list@somewhere.net
+
+These rules imply that when a mail contains C<bugtraq@securityfocus.com>
+in its `to' and `cc' headers, it should be whitelisted. It's worth
+noting that a match occurs if the address string matches any part of the address.
+
+ from @mydomain.com
+
+A special rule called `sha1' can be used for whitelisting signatures. For example: 
+
+ sha1 75f8bcc2357366bbfa9c6ab0b6e5648ed0cf7083
+
+whitelists a message with the body of `test'.
+
+=head1 AUTHORS
+
+Vipul Ved Prakash E<lt>mail@vipul.netE<gt>, and Chad Norwood E<lt>chad@samo.orgE<gt>
+
+=cut
+
+=head1 SEE ALSO
+
+razor-agents(1), razor-agent.conf(5), razor-check(1), 
+razor-admin(1),  razor-report(1), razor-revoke(1)
+
+=head1 LICENSE 
+
+This is free software, distributed under the ARTISTIC license.
+
+=cut
+
+

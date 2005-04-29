@@ -1,0 +1,103 @@
+# Commands covered:  ::dom::DOMImplementation
+#
+# This file contains a collection of tests for one or more of the 
+# TclDOM commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998 Zveno Pty Ltd.
+#
+# $Id: DOMImplementation.test,v 1.8 2003/01/23 19:47:02 balls Exp $
+
+package require tcltest ; namespace import -force ::tcltest::*
+source testutils.tcl
+testPackage dom
+
+test DOMImplementation-1.1 {hasFeature create} -body {
+    ::dom::DOMImplementation hasFeature create 1.0
+} -result 1
+test DOMImplementation-1.2 {hasFeature create wrong version} -body {
+    ::dom::DOMImplementation hasFeature create 2.0
+} -result 0
+test DOMImplementation-1.3 {hasFeature destroy} -body {
+    ::dom::DOMImplementation hasFeature destroy 1.0
+} -result 1
+test DOMImplementation-1.4 {hasFeature parse} -body {
+    ::dom::DOMImplementation hasFeature parse 1.0
+} -result 1
+test DOMImplementation-1.5 {hasFeature serialize} -body {
+    ::dom::DOMImplementation hasFeature serialize 1.0
+} -result 1
+test DOMImplementation-1.6 {hasFeature unknown feature} -body {
+    ::dom::DOMImplementation hasFeature unknown 1.0
+} -result 0
+test DOMImplementation-1.7 {error: hasFeature too few arguments} -body {
+    catch {::dom::DOMImplementation hasFeature error}
+} -result 1
+test DOMImplementation-1.8 {error: hasFeature too many arguments} -body {
+    catch {::dom::DOMImplementation hasFeature error 1.0 foo}
+} -result 1
+
+test DOMImplementation-2.1 {create document} -body {
+    ::dom::DOMImplementation create
+    ok;
+} -result {}
+test DOMImplementation-2.2 {create named document} -constraints {dom_tcl} -body {
+    ::dom::DOMImplementation create ::Foo
+} -result {::Foo(node1)}
+test DOMImplementation-2.3 {error: create too many arguments} -body {
+    catch {::dom::DOMImplementation create Foo Bar}
+} -result 1
+
+test DOMImplementation-3.1 {destroy document} -constraints {dom_tcl} -body {
+    set doc31 [dom::DOMImplementation create]
+    array set test31 [set $doc31]
+    ::dom::DOMImplementation destroy $doc31
+    info vars $test31(docArray)\[a-z\]*
+} -result {}
+test DOMImplementation-3.2 {error: destroy unknown document} -body {
+    catch {::dom::DOMImplementation destroy {::Bar node1}}
+} -result 1
+test DOMImplementation-3.3 {destroy too few arguments} -body {
+    catch {::dom::DOMImplementation destroy}
+} -result 1
+test DOMImplementation-3.4 {destroy too many arguments} -body {
+    catch {::dom::DOMImplementation destroy {::Bar node1} Extra}
+} -result 1
+# Bug fix #453741
+test DOMImplementation-3.5 {destroy an element node} -match regexp -body {
+    set doc [dom::DOMImplementation create]
+    set root [dom::document createElement $doc top]
+    set node1 [dom::document createElement $root node]
+    set node2 [dom::document createElement $root node]
+    dom::node removeChild $root $node1
+    dom::DOMImplementation destroy $node1
+
+    dom::DOMImplementation serialize $doc
+} -result {<\?xml version=("|')1\.0("|')\?>
+(<!DOCTYPE top>
+)?<top><node/></top>}
+test DOMImplementation-3.6 {destroy document} -body {
+     set doc36 [dom::create]
+     dom::destroy $doc36
+} -result {}
+
+
+set ::tcltest::testConstraints(doParse) 1
+set xml {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This is test DOMImplementation-4.X</Test>}
+
+test DOMImplementation-4.1 {parse document} -constraints {doParse} -body {
+    set doc [::dom::DOMImplementation parse $xml]
+    ok
+} -result {}
+test DOMImplementation-4.2 {error: parse too few arguments} -constraints {doParse} -body {
+    catch {::dom::DOMImplementation parse}
+} -result 1
+test DOMImplementation-4.3 {error: parse too many arguments} -constraints {doParse} -body {
+    catch {::dom::DOMImplementation parse $xml Extra}
+} -result 1
+
+# cleanup
+::tcltest::cleanupTests
+return

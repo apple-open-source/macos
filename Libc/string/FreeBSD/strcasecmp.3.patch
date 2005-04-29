@@ -1,0 +1,54 @@
+--- strcasecmp.3.orig	Fri Mar 11 08:37:27 2005
++++ strcasecmp.3	Fri Mar 11 08:38:54 2005
+@@ -39,7 +39,9 @@
+ .Os
+ .Sh NAME
+ .Nm strcasecmp ,
+-.Nm strncasecmp
++.Nm strncasecmp ,
++.Nm strcasecmp_l ,
++.Nm strncasecmp_l
+ .Nd compare strings, ignoring case
+ .Sh LIBRARY
+ .Lb libc
+@@ -49,6 +51,11 @@
+ .Fn strcasecmp "const char *s1" "const char *s2"
+ .Ft int
+ .Fn strncasecmp "const char *s1" "const char *s2" "size_t len"
++.In xlocale.h
++.Ft int
++.Fn strcasecmp_l "const char *s1" "const char *s2" "locale_t loc"
++.Ft int
++.Fn strncasecmp_l "const char *s1" "const char *s2" "size_t len" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn strcasecmp
+@@ -65,6 +72,18 @@
+ compares at most
+ .Fa len
+ characters.
++.Pp
++While the
++.Fn strcasecmp
++and
++.Fn strncasecmp
++functions use the current locale, the
++.Fn strcasecmp_l
++and
++.Fn strncasecmp_l
++functions may be passed locales directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn strcasecmp
+@@ -87,7 +106,8 @@
+ .Xr strcmp 3 ,
+ .Xr strcoll 3 ,
+ .Xr strxfrm 3 ,
+-.Xr tolower 3
++.Xr tolower 3 ,
++.Xr xlocale 3
+ .Sh HISTORY
+ The
+ .Fn strcasecmp

@@ -29,7 +29,7 @@
 int ppp_ipv6_init(int init_arg);
 int ppp_ipv6_dispose(int term_arg);
 
-int ppp_ipv6_attach(struct ifnet *ifp, u_long *dl_tag);
-int ppp_ipv6_detach(struct ifnet *ifp, u_long dl_tag);
+errno_t ppp_ipv6_attach(ifnet_t ifp, protocol_family_t protocol_family);
+void ppp_ipv6_detach(ifnet_t ifp, protocol_family_t protocol_family);
 
 #endif

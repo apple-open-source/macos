@@ -28,6 +28,7 @@
 *******************************************************************************/
 #ifndef __FP_PRIVATE__
 #define __FP_PRIVATE__
+#include "stdint.h"
 
 /******************************************************************************
 *       Functions used internally                                             *
@@ -36,6 +37,18 @@ double   copysign ( double arg2, double arg1 );
 double	 fabs ( double x );
 double   nan   ( const char *string );
 
+/* gcc inlines fabs() and fabsf()  */ 
+#define      __FABS(x)	__builtin_fabs(x)
+#define      __FABSF(x)	__builtin_fabsf(x)
+
+#if defined(__APPLE_CC__)
+#define likely(x) __builtin_expect(!!(x), 1) 
+#define unlikely(x) __builtin_expect((x), 0) 
+#else 
+#define likely(x) (x) 
+#define unlikely(x) (x) 
+#endif 
+
 #include "ppc_intrinsics.h"
 
 #define __FMADD __fmadd
@@ -43,14 +56,37 @@ double   nan   ( const char *string );
 #define __FMSUB __fmsub
 #define __FNMSUB __fnmsub
 #define __FMUL __fmul
+#define __FADD __fadd
+#define __FSUB __fsub
 
-/* N.B. gcc 2.95 inlines fabs() and fabsf() of its own accord. */ 
-#define      __FABS(x)	fabs(x)
-#define      __FABSF(x)	fabsf(x)
+static inline double __fadd (double a, double b) __attribute__((always_inline));
+static inline double
+__fadd (double  a, double b)
+{
+  double result;
+  __asm__ ("fadd %0, %1, %2"
+           /* outputs:  */ : "=f" (result)
+           /* inputs:   */ : "f" (a), "f" (b));
+  return result;
+}
 
-#define __ORI_NOOP \
-({ \
-    asm volatile ( "ori r0, r0, 0" ); /* NOOP */ \
+static inline double __fsub (double a, double b) __attribute__((always_inline));
+static inline double
+__fsub (double  a, double b)
+{
+  double result;
+  __asm__ ("fsub %0, %1, %2"
+           /* outputs:  */ : "=f" (result)
+           /* inputs:   */ : "f" (a), "f" (b));
+  return result;
+}
+
+// The following macros are invoked for side-effect. Not written as inline functions because the
+// compiler could discard the code as an optimization.
+#define __NOOP \
+({  __label__ L1, L2; L1: (void)&&L1;\
+    asm volatile ( "nop" ); /* NOOP */ \
+    L2: (void)&&L2; \
 })  
 
 #define __ENSURE(x, y, z) \
@@ -80,7 +116,7 @@ double   nan   ( const char *string );
 #define       fQuietNan           0x00400000
 
 typedef union {
-       long int       lval;
+       int32_t       lval;
        float          fval;
 } hexsingle;
 
@@ -94,8 +130,8 @@ typedef union {
 
 typedef union {
        struct {
-		unsigned long hi;
-		unsigned long lo;
+		uint32_t hi;
+		uint32_t lo;
 	} i;
        double            d;
 } hexdouble;
@@ -106,8 +142,8 @@ typedef union {
 
 typedef union {
        struct {
-		unsigned long lo;
-		unsigned long hi;
+		uint32_t lo;
+		uint32_t hi;
 	} i;
        double            d;
 } hexdouble;
@@ -118,4 +154,17 @@ typedef union {
 #error Unknown endianness
 #endif
 
+typedef union {
+	uint32_t i[4];
+	struct {
+	    hexdouble hexhead;
+	    hexdouble hextail;
+	} hh;
+	struct {
+		double head;
+		double tail;
+	} dd;
+	long double ld;
+} hexdbldbl;
+	  
 #endif      /* __FP_PRIVATE__ */

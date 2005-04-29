@@ -32,7 +32,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)ctime.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/stdtime/ctime.3,v 1.20 2002/12/19 09:33:34 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdtime/ctime.3,v 1.22 2004/07/02 23:52:12 ru Exp $
 .\"
 .Dd January 2, 1999
 .Dt CTIME 3
@@ -266,7 +266,7 @@ returns the difference between two calendar times,
 expressed in seconds.
 .Pp
 External declarations as well as the tm structure definition are in the
-.Aq Pa time.h
+.In time.h
 include file.
 The tm structure includes at least the following fields:
 .Bd -literal -offset indent
@@ -354,7 +354,8 @@ function will modify the same object.
 The C Standard provides no mechanism for a program to modify its current
 local timezone setting, and the
 .Tn POSIX Ns No \&-standard
-method is not reentrant.  (However, thread-safe implementations are provided
+method is not reentrant.
+(However, thread-safe implementations are provided
 in the
 .Tn POSIX
 threaded environment.)

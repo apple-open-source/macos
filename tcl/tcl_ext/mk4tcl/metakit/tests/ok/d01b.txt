@@ -1,0 +1,19 @@
+ VIEW     1 rows = _C:V
+    0: subview '_C'
+   VIEW     4 rows = _O:I _D:V
+      0: 8
+      0: subview '_D'
+     VIEW     1 rows = _K:I _R:I _B:B
+        0: 0 0 (4b)
+      1: 0
+      1: subview '_D'
+     VIEW     1 rows = _K:I _R:I _B:B
+        0: 0 0 (5b)
+      2: 0
+      2: subview '_D'
+     VIEW     1 rows = _K:I _R:I _B:B
+        0: 0 0 (13b)
+      3: 0
+      3: subview '_D'
+     VIEW     1 rows = _K:I _R:I _B:B
+        0: 0 0 (13b)

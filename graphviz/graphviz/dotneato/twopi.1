@@ -1,0 +1,109 @@
+.TH TWOPI 1 "24 March 2002"
+.SH NAME
+twopi \- preprocessor for radial layouts of graphs
+.SH SYNOPSIS
+\fBtwopi\fR [\fB\-G\fIname=value\fR]
+[\fB\-N\fIname=value\fR]
+[\-E\fIname=value\fR]
+[\fB\-T\fIlang\fR]
+[\fB\-l \fIlibfile\fR]
+[\fB\-o \fIoutfile\fR]
+[\fB\-vV\fR]
+[files]
+.SH DESCRIPTION
+.I twopi
+draws graphs using a radial layout (see G. Wills,
+Symposium on Graph Drawing GD'97, September, 1997).  
+Basically, one node is chosen as the center and put at the origin.
+The remaining nodes are placed on a sequence of concentric circles
+centered about the origin, each a fixed radial distance from the
+previous circle.
+All nodes distance 1 from the center are placed on the first circle;
+all nodes distance 1 from a node on the first circle are placed on
+the second circle; and so forth.
+.PP
+Input files must be formatted in the
+.I dot
+attributed graph language.
+By default, the output of
+.I twopi
+is the input graph with layout coordinates appended.
+To make PostScript, use the \fB\-Tps\fP option.
+FrameMaker MIF (\fB-Tmif\fP), HPGL (\fB-Thpgl\fP),
+JPEG (\fB-Tjpeg\fP), SVG (\fB-Tsvg\fP),
+and GIF (\fB-Tgif\fP) are other choices.
+.PP
+Here is a brief synopsis of the graph language.
+.PP
+\fBgraph \fIname\fP { \fIstatement-list\fP }\fR is the top level graph.
+Statements may be:
+.PP
+\fIname\fB=\fIval\fB;\fR
+.br
+\fBnode [\fIname\fB=\fIval\fB];\fR
+.br
+\fBedge [\fIname\fB=\fIval\fB];\fR
+Set the default graph, node, or edge attribute \fIname\fP to \fIval\fP.
+Any subgraph, node, or edge specified after one of these statements
+inherits these attributes.
+.PP
+\fBn0 [\fIname0=val0,name1=val1,...\fB];\fR
+Creates node \fBn0\fP if it does not exist,
+and sets its attributes according to the optional list. 
+.PP
+\fBn0 \-\- n1 \-\- \fI...\fB \-\- nn [\fIname0=val0,name1=val1,...\fB];\fR
+Creates edges between nodes \fBn0\fP, \fBn1\fP, ..., \fBnn\fP and optionally
+sets the given attributes.  Creates nodes as necessary.
+.PP
+\fBsubgraph \fIname\fB { \fIstatement-list \fB}\fR
+Creates a subgraph.  A subgraph may appear in place of
+an individual node within an edge statement.
+The \fBsubgraph \fIname\fR part is optional. If missing,
+the subgraph is given an internal name.
+.PP
+While attribute names and values may be arbitrary strings,
+certain fixed attributes control \fItwopi\fP's layout algorithm,
+as next described.
+.SH "GRAPH ATTRIBUTES"
+Refer to \fIdot\fP(1) options to control the layout size.
+In addition, \fItwopi\fP recognizes the following:
+.PP
+\fBroot=\fIctr\fR. This specifies the node to be used as the center of
+the layout. If not specified, \fItwopi\fP will randomly pick one of the
+nodes that are furthest from a leaf node, where a leaf node is a node
+of degree 1. If no leaf nodes exists, an arbitrary node is picked as center.
+.PP
+\fBranksep=\fIval\fR. Specifies the radial distance in inches between
+the sequence of rings. The default is 0.75.
+.PP
+\fBoverlap=\fImode\fR. This specifies what \fItwopi\fP should do if
+any nodes overlap. If mode is \fI"false"\fP, the program uses Voronoi
+diagrams to adjust the nodes to eliminate overlaps. If mode is \fI"scale"\fP,
+the layout is uniformly scaled up, preserving node sizes, until nodes no
+longer overlap. The latter technique removes overlaps while preserving
+symmetry and structure, while the former removes overlaps more compactly
+but destroys symmetries.
+If mode is \fI"true"\fP (the default), no repositioning is done.
+.PP
+\fBsplines=\fItrue/false\fR. If set to true, \fItwopi\fP will use the
+graphviz path planning library to draw edges as splines avoiding nodes.
+If the value is false, or some nodes overlap,
+edges are drawn as straight line segments connecting nodes.
+This is also the default style.
+.SH "NODE ATTRIBUTES"
+Refer to \fIdot\fP(1) for options to control node labels, shapes,
+sizes, colors, fonts, etc.
+.SH "EDGE ATTRIBUTES"
+Refer to \fIdot\fP(1) for options to control edge line style and labels.
+.SH "COMMAND LINE OPTIONS"
+\fB\-v\fP (verbose) prints the center node and the rank separation.
+\fB\-V\fP (version) prints version information and exits.
+.SH "BUGS"
+.SH AUTHOR
+Emden R. Gansner <erg@research.att.com>
+.SH "SEE ALSO"
+.BR dot (1),
+.BR circo (1)
+.BR neato (1)
+.BR fdp (1)
+.br

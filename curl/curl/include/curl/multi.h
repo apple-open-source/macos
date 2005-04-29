@@ -1,18 +1,18 @@
 #ifndef __CURL_MULTI_H
 #define __CURL_MULTI_H
 /***************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
  * are also available at http://curl.haxx.se/docs/copyright.html.
- * 
+ *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
  * furnished to do so, under the terms of the COPYING file.
@@ -20,7 +20,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: multi.h,v 1.1.1.1 2002/11/26 19:07:47 zarzycki Exp $
+ * $Id: multi.h,v 1.23 2005/01/18 15:13:23 bagder Exp $
  ***************************************************************************/
 /*
   This is meant to be the "external" header file. Don't give away any
@@ -43,19 +43,42 @@
 
   o Enable the application to select() on its own file descriptors and curl's
     file descriptors simultaneous easily.
-  
-  Example sources using this interface is here: ../multi/
 
 */
+#if defined(_WIN32) && !defined(WIN32)
+/* Chris Lewis mentioned that he doesn't get WIN32 defined, only _WIN32 so we
+   make this adjustment to catch this. */
+#define WIN32 1
+#endif
 
-#if defined(WIN32) && !defined(__GNUC__) || defined(__MINGW32__)
-#include <winsock.h>
+#if defined(WIN32) && !defined(_WIN32_WCE) && !defined(__GNUC__) || \
+  defined(__MINGW32__)
+#if !(defined(_WINSOCKAPI_) || defined(_WINSOCK_H))
+/* The check above prevents the winsock2 inclusion if winsock.h already was
+   included, since they can't co-exist without problems */
+#include <winsock2.h>
+#endif
 #else
+
+/* HP-UX systems version 9, 10 and 11 lack sys/select.h and so does oldish
+   libc5-based Linux systems. Only include it on system that are known to
+   require it! */
+#if defined(_AIX) || defined(NETWARE)
+#include <sys/select.h>
+#endif
+
+#ifndef _WIN32_WCE
 #include <sys/socket.h>
+#endif
 #include <sys/time.h>
+#include <sys/types.h>
 #endif
 
 #include "curl.h"
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
 
 typedef void CURLM;
 
@@ -71,7 +94,7 @@ typedef enum {
 
 typedef enum {
   CURLMSG_NONE, /* first, not used */
-  CURLMSG_DONE, /* This easy handle has completed. 'whatever' points to
+  CURLMSG_DONE, /* This easy handle has completed. 'result' contains
                    the CURLcode of the transfer */
   CURLMSG_LAST /* last, not used */
 } CURLMSG;
@@ -92,7 +115,7 @@ typedef struct CURLMsg CURLMsg;
  * Desc:    inititalize multi-style curl usage
  * Returns: a new CURLM handle to use in all 'curl_multi' functions.
  */
-CURLM *curl_multi_init(void);
+CURL_EXTERN CURLM *curl_multi_init(void);
 
 /*
  * Name:    curl_multi_add_handle()
@@ -100,8 +123,8 @@ CURLM *curl_multi_init(void);
  * Desc:    add a standard curl handle to the multi stack
  * Returns: CURLMcode type, general multi error code.
  */
-CURLMcode curl_multi_add_handle(CURLM *multi_handle,
-                                CURL *curl_handle);
+CURL_EXTERN CURLMcode curl_multi_add_handle(CURLM *multi_handle,
+                                            CURL *curl_handle);
 
  /*
   * Name:    curl_multi_remove_handle()
@@ -109,8 +132,8 @@ CURLMcode curl_multi_add_handle(CURLM *multi_handle,
   * Desc:    removes a curl handle from the multi stack again
   * Returns: CURLMcode type, general multi error code.
   */
-CURLMcode curl_multi_remove_handle(CURLM *multi_handle,
-                                   CURL *curl_handle);
+CURL_EXTERN CURLMcode curl_multi_remove_handle(CURLM *multi_handle,
+                                               CURL *curl_handle);
 
  /*
   * Name:    curl_multi_fdset()
@@ -120,11 +143,11 @@ CURLMcode curl_multi_remove_handle(CURLM *multi_handle,
   *          them are ready.
   * Returns: CURLMcode type, general multi error code.
   */
-CURLMcode curl_multi_fdset(CURLM *multi_handle,
-                           fd_set *read_fd_set,
-                           fd_set *write_fd_set,
-                           fd_set *exc_fd_set,
-                           int *max_fd);
+CURL_EXTERN CURLMcode curl_multi_fdset(CURLM *multi_handle,
+                                       fd_set *read_fd_set,
+                                       fd_set *write_fd_set,
+                                       fd_set *exc_fd_set,
+                                       int *max_fd);
 
  /*
   * Name:    curl_multi_perform()
@@ -142,8 +165,8 @@ CURLMcode curl_multi_fdset(CURLM *multi_handle,
   *          still have occurred problems on invidual transfers even when this
   *          returns OK.
   */
-CURLMcode curl_multi_perform(CURLM *multi_handle,
-                             int *running_handles);
+CURL_EXTERN CURLMcode curl_multi_perform(CURLM *multi_handle,
+                                         int *running_handles);
 
  /*
   * Name:    curl_multi_cleanup()
@@ -154,7 +177,7 @@ CURLMcode curl_multi_perform(CURLM *multi_handle,
   *          in the middle of a transfer.
   * Returns: CURLMcode type, general multi error code.
   */
-CURLMcode curl_multi_cleanup(CURLM *multi_handle);
+CURL_EXTERN CURLMcode curl_multi_cleanup(CURLM *multi_handle);
 
 /*
  * Name:    curl_multi_info_read()
@@ -184,7 +207,22 @@ CURLMcode curl_multi_cleanup(CURLM *multi_handle);
  *          queue (after this read) in the integer the second argument points
  *          to.
  */
-CURLMsg *curl_multi_info_read(CURLM *multi_handle,
-                              int *msgs_in_queue);
+CURL_EXTERN CURLMsg *curl_multi_info_read(CURLM *multi_handle,
+                                          int *msgs_in_queue);
+
+/*
+ * NAME curl_multi_strerror()
+ *
+ * DESCRIPTION
+ *
+ * The curl_multi_strerror function may be used to turn a CURLMcode value
+ * into the equivalent human readable error string.  This is useful
+ * for printing meaningful error messages.
+ */
+CURL_EXTERN const char *curl_multi_strerror(CURLMcode);
+
+#ifdef __cplusplus
+} /* end of extern "C" */
+#endif
 
 #endif

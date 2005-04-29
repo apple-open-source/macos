@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: user.c,v 1.20 2004/06/22 16:59:17 rjs3 Exp $
+ * $Id: user.c,v 1.5 2005/03/05 00:37:07 dasenbro Exp $
  */
 
 #include <config.h>

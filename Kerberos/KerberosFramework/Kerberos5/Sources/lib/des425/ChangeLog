@@ -1,3 +1,27 @@
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (all-mac): Target deleted.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBBASE): Renamed from LIB.
+
+2004-04-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* libdes425.exports: New file.
+
+2004-02-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* pcbc_encrypt.c (des_pcbc_encrypt): Don't pass a temporary
+	variable to DES_DO_ENCRYPT and _DECRYPT.  Drop the temporary
+	variable.
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* des.c (mit_des_cbc_encrypt): Undef before use.
+	* enc_dec.c (mit_des_cbc_encrypt): Likewise.
+	* mac_des_glue.c (mit_des3_cbc_encrypt): Likewise.
+
 2003-04-23  Ken Raeburn  <raeburn@mit.edu>
 
 	* quad_cksum.c, t_pcbc.c, t_quad.c, verify.c: Don't declare errno

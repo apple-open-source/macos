@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,17 +23,17 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Brian Paul <brian@valinux.com>
+ *    Brian Paul
  */
 
 #include "mtypes.h"
-#include "mem.h"
+#include "imports.h"
 #include "t_context.h"
 #include "t_pipeline.h"
 
 
 struct point_stage_data {
-   GLvector1f PointSize;
+   GLvector4f PointSize;
 };
 
 #define POINT_STAGE_DATA(stage) ((struct point_stage_data *)stage->privatePtr)
@@ -52,7 +52,7 @@ static GLboolean run_point_stage( GLcontext *ctx,
    const GLfloat p1 = ctx->Point.Params[1];
    const GLfloat p2 = ctx->Point.Params[2];
    const GLfloat pointSize = ctx->Point._Size;
-   GLfloat *size = store->PointSize.data;
+   GLfloat (*size)[4] = store->PointSize.data;
    GLuint i;
 
    if (stage->changed_inputs) {
@@ -60,7 +60,7 @@ static GLboolean run_point_stage( GLcontext *ctx,
       for (i = 0; i < VB->Count; i++) {
 	 const GLfloat dist = -eye[i][2];
 	 /* GLfloat dist = GL_SQRT(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2]);*/
-	 size[i] = pointSize / (p0 + dist * (p1 + dist * p2));
+	 size[i][0] = pointSize / (p0 + dist * (p1 + dist * p2));
       }
    }
 
@@ -75,7 +75,7 @@ static GLboolean run_point_stage( GLcontext *ctx,
  */
 static void check_point_size( GLcontext *ctx, struct gl_pipeline_stage *d )
 {
-   d->active = ctx->Point._Attenuated;
+   d->active = ctx->Point._Attenuated && !ctx->VertexProgram.Enabled;
 }
 
 static GLboolean alloc_point_data( GLcontext *ctx,
@@ -88,7 +88,7 @@ static GLboolean alloc_point_data( GLcontext *ctx,
    if (!store)
       return GL_FALSE;
 
-   _mesa_vector1f_alloc( &store->PointSize, 0, VB->Size, 32 );
+   _mesa_vector4f_alloc( &store->PointSize, 0, VB->Size, 32 );
 
    /* Now run the stage.
     */
@@ -101,7 +101,7 @@ static void free_point_data( struct gl_pipeline_stage *stage )
 {
    struct point_stage_data *store = POINT_STAGE_DATA(stage);
    if (store) {
-      _mesa_vector1f_free( &store->PointSize );
+      _mesa_vector4f_free( &store->PointSize );
       FREE( store );
       stage->privatePtr = 0;
    }
@@ -112,11 +112,11 @@ const struct gl_pipeline_stage _tnl_point_attenuation_stage =
    "point size attenuation",	/* name */
    _NEW_POINT,			/* build_state_change */
    _NEW_POINT,			/* run_state_change */
-   0,				/* active */
-   VERT_EYE,			/* inputs */
-   VERT_POINT_SIZE,		/* outputs */
+   GL_FALSE,			/* active */
+   VERT_BIT_EYE,			/* inputs */
+   VERT_BIT_POINT_SIZE,		/* outputs */
    0,				/* changed_inputs (temporary value) */
-   0,				/* stage private data */
+   NULL,			/* stage private data */
    free_point_data,		/* destructor */
    check_point_size,		/* check */
    alloc_point_data		/* run -- initially set to alloc data */

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: rap.c,v 1.2.278.1 2004/01/27 22:00:48 lindak Exp $
+ * $Id: rap.c,v 1.5 2004/12/13 00:25:23 lindak Exp $
  *
  * This is very simple implementation of RAP protocol.
  */
@@ -48,9 +48,10 @@
 
 #include <netsmb/smb_lib.h>
 #include <netsmb/smb_conn.h>
-#include <netsmb/smb_rap.h>
 
 /*#include <sys/ioctl.h>*/
+
+#include "rap.h"
 
 static int
 smb_rap_parserqparam(const char *s, char **next, int *rlen)
@@ -306,15 +307,16 @@ smb_rap_request(struct smb_rap *rap, struct smb_ctx *ctx)
 	u_int32_t *p32;
 	char *dp, *p = rap->r_nparam;
 	char ptype;
-	int error, rdatacnt, rparamcnt, entries, done, dlen;
+	int error, rdatacnt, rparamcnt, entries, done, dlen, buffer_oflow;
 
 	rdatacnt = rap->r_rcvbuflen;
 	rparamcnt = rap->r_plen;
-	error = smb_t2_request(ctx, 0, 0, "\\PIPE\\LANMAN",
+	error = smb_t2_request(ctx, 0, NULL, "\\PIPE\\LANMAN",
 	    rap->r_plen, rap->r_pbuf,		/* int tparamcnt, void *tparam */
 	    0, NULL,				/* int tdatacnt, void *tdata */
 	    &rparamcnt, rap->r_pbuf,		/* rparamcnt, void *rparam */
-	    &rdatacnt, rap->r_rcvbuf		/* int *rdatacnt, void *rdata */
+	    &rdatacnt, rap->r_rcvbuf,		/* int *rdatacnt, void *rdata */
+	    &buffer_oflow
 	);
 	if (error)
 		return error;

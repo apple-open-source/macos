@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: util.c,v 1.30 2004/09/09 16:22:01 shadow Exp $
+ * $Id: util.c,v 1.5 2005/03/05 00:37:19 dasenbro Exp $
  */
 
 #include <config.h>

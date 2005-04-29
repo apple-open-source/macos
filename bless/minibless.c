@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,9 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Mon Aug 25 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: minibless.c,v 1.1 2003/08/26 00:39:08 ssen Exp $
+ *  $Id: minibless.c,v 1.6 2005/02/03 00:42:22 ssen Exp $
  *
  */
 
@@ -42,12 +40,9 @@
 #include <sys/mount.h>
 #include <err.h>
 
-#define xstr(s) str(s)
-#define str(s) #s
-
 #include "bless.h"
 
-void usage();
+void usage(char *program);
 
 int main(int argc, char *argv[]) {
 
@@ -57,7 +52,7 @@ int main(int argc, char *argv[]) {
 
     
     if(argc != 2)
-	usage();
+	usage(argv[0]);
 
     mountpath = argv[1];
 
@@ -78,8 +73,13 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void usage()
+void usage(char *program)
 {
-    fprintf(stderr, "Usage: " xstr(PROGRAM) " mountpoint\n");
+    FILE *mystderr = fdopen(STDERR_FILENO, "w");
+    
+    if(mystderr == NULL)
+	err(1, "Can't open stderr");
+    
+    fprintf(mystderr, "Usage: %s mountpoint\n", program);
     exit(1);
 }

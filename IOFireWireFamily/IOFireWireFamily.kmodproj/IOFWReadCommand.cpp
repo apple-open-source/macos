@@ -47,7 +47,7 @@ OSMetaClassDefineReservedUnused(IOFWReadCommand, 1);
 void IOFWReadCommand::gotPacket(int rcode, const void* data, int size)
 {
 	setResponseCode( rcode );
-
+	
     if(rcode != kFWResponseComplete) {
         //kprintf("Received rcode %d for read command 0x%x, nodeID %x\n", rcode, this, fNodeID);
         if(rcode == kFWResponseTypeError && fMaxPack > 4) {
@@ -162,7 +162,7 @@ IOReturn IOFWReadCommand::execute()
                         fAddressLo, fSpeed, fTrans->fTCode, transfer, this);
     }
     else {
-        IOLog("IOFWReadCommand::execute: Out of tLabels?\n");
+    //    IOLog("IOFWReadCommand::execute: Out of tLabels?\n");
         result = kIOFireWireOutOfTLabels;
     }
 

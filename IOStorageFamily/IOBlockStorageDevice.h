@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #define _IOBLOCKSTORAGEDEVICE_H
 
 #include <IOKit/IOTypes.h>
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 /*!
  * @defined kIOBlockStorageDeviceClass

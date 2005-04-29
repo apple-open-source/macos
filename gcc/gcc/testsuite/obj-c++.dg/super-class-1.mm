@@ -1,7 +1,7 @@
-/* APPLE LOCAL file call super */
+/* APPLE LOCAL file Objective-C++ */
 /* Test calling super from within a category method.  */
 /* { dg-do compile } */
-#import <objc/objc.h>
+#include <objc/objc.h>
 
 @interface NSObject
 @end

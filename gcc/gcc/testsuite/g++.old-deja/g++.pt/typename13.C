@@ -1,6 +1,5 @@
-// Build don't link:
-// Special g++ Options:
-// excess errors test - XFAIL *-*-*
+// { dg-do assemble  }
+// { dg-options "-fpermissive" }
 
 template <class T>
 struct B 
@@ -19,7 +18,7 @@ struct D : public B<T>
 template <class T>
 void D<T>::f()
 {
-  I();
+  I(); // { dg-warning "" }
 }
 
 

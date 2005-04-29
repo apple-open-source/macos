@@ -1,6 +1,6 @@
 /* Scheme/Guile language support routines for GDB, the GNU debugger.
 
-   Copyright 1995, 1996, 1998, 2000, 2001, 2002, 2003 Free Software
+   Copyright 1995, 1996, 1998, 2000, 2001, 2002, 2003, 2004 Free Software
    Foundation, Inc.
 
    This file is part of GDB.
@@ -33,6 +33,7 @@
 #include "source.h"
 #include "gdb_string.h"
 #include "gdbcore.h"
+#include "infcall.h"
 
 extern void _initialize_scheme_language (void);
 static struct value *evaluate_subexp_scm (struct type *, struct expression *,
@@ -166,7 +167,7 @@ scm_lookup_name (char *str)
   if (in_eval_c ()
       && (sym = lookup_symbol ("env",
 			       expression_context_block,
-			       VAR_NAMESPACE, (int *) NULL,
+			       VAR_DOMAIN, (int *) NULL,
 			       (struct symtab **) NULL)) != NULL)
     args[2] = value_of_variable (sym, expression_context_block);
   else
@@ -180,7 +181,7 @@ scm_lookup_name (char *str)
 
   sym = lookup_symbol (str,
 		       expression_context_block,
-		       VAR_NAMESPACE, (int *) NULL,
+		       VAR_DOMAIN, (int *) NULL,
 		       (struct symtab **) NULL);
   if (sym)
     return value_of_variable (sym, NULL);
@@ -201,8 +202,8 @@ scm_evaluate_string (char *str, int len)
 }
 
 static struct value *
-evaluate_subexp_scm (struct type *expect_type, register struct expression *exp,
-		     register int *pos, enum noside noside)
+evaluate_subexp_scm (struct type *expect_type, struct expression *exp,
+		     int *pos, enum noside noside)
 {
   enum exp_opcode op = exp->elts[*pos].opcode;
   int len, pc;
@@ -232,6 +233,15 @@ nosideret:
   return value_from_longest (builtin_type_long, (LONGEST) 1);
 }
 
+const struct exp_descriptor exp_descriptor_scm = 
+{
+  print_subexp_standard,
+  operator_length_standard,
+  op_name_standard,
+  dump_subexp_body_standard,
+  evaluate_subexp_scm
+};
+
 const struct language_defn scm_language_defn =
 {
   "scheme",			/* Language name */
@@ -240,9 +250,9 @@ const struct language_defn scm_language_defn =
   range_check_off,
   type_check_off,
   case_sensitive_off,
+  &exp_descriptor_scm,
   scm_parse,
   c_error,
-  evaluate_subexp_scm,
   scm_printchar,		/* Print a character constant */
   scm_printstr,			/* Function to print string constant */
   NULL,				/* Function to print a single character */
@@ -250,6 +260,11 @@ const struct language_defn scm_language_defn =
   c_print_type,			/* Print a type using appropriate syntax */
   scm_val_print,		/* Print a value using appropriate syntax */
   scm_value_print,		/* Print a top-level value */
+  NULL,				/* Language specific skip_trampoline */
+  value_of_this,		/* value_of_this */
+  basic_lookup_symbol_nonlocal,	/* lookup_symbol_nonlocal */
+  basic_lookup_transparent_type,/* lookup_transparent_type */
+  NULL,				/* Language specific symbol demangler */
   {"", "", "", ""},		/* Binary format info */
   {"#o%lo", "#o", "o", ""},	/* Octal format info */
   {"%ld", "", "d", ""},		/* Decimal format info */
@@ -258,6 +273,7 @@ const struct language_defn scm_language_defn =
   1,				/* c-style arrays */
   0,				/* String lower bound */
   &builtin_type_char,		/* Type of string elements */
+  default_word_break_characters,
   LANG_MAGIC
 };
 

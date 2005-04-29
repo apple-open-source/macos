@@ -1,10 +1,10 @@
 /*
- * $XFree86: xc/programs/xterm/doublechr.c,v 3.11 2002/04/28 19:04:20 dickey Exp $
+ * $XFree86: xc/programs/xterm/doublechr.c,v 3.12 2003/10/13 00:58:22 dickey Exp $
  */
 
 /************************************************************
 
-Copyright 1997-2000 by Thomas E. Dickey
+Copyright 1997-2002,2003 by Thomas E. Dickey
 
                         All Rights Reserved
 
@@ -234,8 +234,20 @@ xterm_DoubleGC(unsigned chrset, unsigned flags, GC old_gc)
 
     TRACE(("xterm_DoubleGC %s %d: %s\n", flags & BOLD ? "BOLD" : "NORM", n, name));
 
-    if ((data->fs = XLoadQueryFont(screen->display, name)) == 0)
-	return 0;
+    if ((data->fs = XLoadQueryFont(screen->display, name)) == 0) {
+	/* Retry with * in resolutions */
+	char *nname = xtermSpecialFont(flags | NORESOLUTION, chrset);
+
+	if (!nname)
+	    return 0;
+	if ((data->fs = XLoadQueryFont(screen->display, nname)) == 0) {
+	    XtFree(nname);
+	    return 0;
+	}
+	XtFree(name);
+	data->fn = nname;
+    }
+
     TRACE(("-> OK\n"));
 
     gcv.graphics_exposures = TRUE;	/* default */

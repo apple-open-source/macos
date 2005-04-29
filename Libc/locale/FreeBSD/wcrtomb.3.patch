@@ -1,0 +1,47 @@
+--- wcrtomb.3.orig	Fri Mar 11 19:44:47 2005
++++ wcrtomb.3	Fri Mar 11 19:49:35 2005
+@@ -28,7 +28,8 @@
+ .Dt WCRTOMB 3
+ .Os
+ .Sh NAME
+-.Nm wcrtomb
++.Nm wcrtomb ,
++.Nm wcrtomb_l
+ .Nd "convert a wide-character code to a character (restartable)"
+ .Sh LIBRARY
+ .Lb libc
+@@ -36,6 +37,9 @@
+ .In wchar.h
+ .Ft size_t
+ .Fn wcrtomb "char * restrict s" "wchar_t wc" "mbstate_t * restrict ps"
++.In xlocale.h
++.Ft size_t
++.Fn wcrtomb_l "char * restrict s" "wchar_t wc" "mbstate_t * restrict ps" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn wcrtomb
+@@ -72,6 +76,14 @@
+ .Vt mbstate_t
+ object, which is initialized to the initial conversion state
+ at program startup.
++.Pp
++While the
++.Fn wcrtomb
++function uses the current locale, the
++.Fn wcrtomb_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn wcrtomb
+@@ -97,7 +109,8 @@
+ .Xr mbrtowc 3 ,
+ .Xr multibyte 3 ,
+ .Xr setlocale 3 ,
+-.Xr wctomb 3
++.Xr wctomb 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn wcrtomb

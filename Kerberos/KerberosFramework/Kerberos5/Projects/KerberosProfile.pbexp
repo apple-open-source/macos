@@ -1,13 +1,18 @@
 #
 # Profile library Macintosh export file
 #
-# $Header: /cvs/krbdev/krb5/src/mac/MacOSX/Projects/KerberosProfile.pbexp,v 1.1 2003/03/06 19:01:59 lxs Exp $
+# $Header: /cvs/krbdev/krb5/src/mac/MacOSX/Projects/KerberosProfile.pbexp,v 1.1.10.1 2004/11/04 19:39:36 lxs Exp $
 
 _profile_init
 _profile_init_path
 _FSp_profile_init
 _FSp_profile_init_path
+_profile_is_writable
+_profile_is_modified
 _profile_flush
+_profile_flush_to_file
+_profile_flush_to_buffer
+_profile_free_buffer
 _profile_abandon
 _profile_release
 _profile_get_values

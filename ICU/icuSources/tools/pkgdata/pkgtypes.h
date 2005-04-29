@@ -1,6 +1,6 @@
 /**************************************************************************
 *
-*   Copyright (C) 2000, International Business Machines
+*   Copyright (C) 2000-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ***************************************************************************
@@ -61,6 +61,18 @@ CharList *pkg_prependToList(CharList *l, const char *str);
  */
 CharList *pkg_appendToList(CharList *l, CharList** end, const char *str);
 
+/* 
+ * strAlias is an alias to a full or relative path to a FILE.  This function
+ * will search strAlias for the directory name (with strrchr). Then, it will 
+ * determine if that directory is already in list l.  If not, it will add it
+ * with strdup(strAlias). 
+ * @param l list to append to , or NULL
+ * @param end end pointer-to-pointer.  Can point to null, or be null.  
+ * @param strAlias alias to full path string
+ * @return new list
+ */
+CharList *pkg_appendUniqueDirToList(CharList *l, CharList** end, const char *strAlias);
+
 /*
  * does list contain string?  Returns: t/f
  */
@@ -70,9 +82,6 @@ UBool  pkg_listContains(CharList *l, const char *str);
  * Delete list 
  */
 void pkg_deleteList(CharList *l);
-
-
-
 
 /*
  * Mode package function
@@ -102,8 +111,9 @@ typedef struct UPKGOptions_
   const char *shortName;   /* name of what we're building */
   const char *cShortName;   /* name of what we're building as a C identifier */
   const char *entryName;   /* special entrypoint name */
-  const char *targetDir;
-  const char *tmpDir;
+  const char *targetDir;  /* dir for packaged data to go */
+  const char *dataDir;    /* parent of dir for package (default: tmpdir) */
+  const char *tmpDir;     
   const char *srcDir;
   const char *options;     /* Options arg */
   const char *mode;        /* Mode of building */
@@ -113,12 +123,16 @@ typedef struct UPKGOptions_
   const char *makeFile;    /* Makefile path */
   const char *install;     /* Where to install to (NULL = don't install) */
   const char *icuroot;     /* where does ICU lives */
-
+  const char *libName;     /* name for library (default: shortName) */
   UBool      rebuild;
   UBool      clean;
   UBool      nooutput;
   UBool      verbose;
+  UBool      quiet;
   UBool      hadStdin;     /* Stdin was a dependency - don't make anything depend on the file list coming in. */
+  UBool      numeric;      /* use numeric, short, temporary file names */
+  
+  int32_t    embed;   /* embedded package - i.e.  .../mypkg_myfile.res  files */
 
   UPKGMODE  *fcn;          /* Handler function */
 } UPKGOptions;
@@ -131,14 +145,24 @@ typedef struct UPKGOptions_
 #  define UDATA_SO_SUFFIX ".DLL"
 # endif
 # define LIB_PREFIX ""
+# define LIB_STATIC_PREFIX ""
 # define OBJ_SUFFIX ".obj"
 # define UDATA_LIB_SUFFIX ".LIB"
 
+#elif defined(U_CYGWIN)
+# define LIB_PREFIX "cyg"
+# define LIB_STATIC_PREFIX "lib"
+# define OBJ_SUFFIX ".o"
+# define UDATA_LIB_SUFFIX ".a"
+
 #else  /* POSIX? */
 # define LIB_PREFIX "lib"
+# define LIB_STATIC_PREFIX "lib"
 # define OBJ_SUFFIX ".o"
 # define UDATA_LIB_SUFFIX ".a"
 #endif 
+
+#define ASM_SUFFIX ".s"
 
 
 /* defines for common file names */
@@ -146,5 +170,6 @@ typedef struct UPKGOptions_
 #define UDATA_CMN_SUFFIX ".dat"
 #define UDATA_CMN_INTERMEDIATE_SUFFIX "_dat"
 
+#define PKGDATA_DERIVED_PATH '\t'
 
 #endif

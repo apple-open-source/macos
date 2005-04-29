@@ -1,0 +1,14 @@
+##
+# Makefile.fetch for tclAE
+##
+# Daniel A. Steffen <das@users.sourceforge.net>
+##
+
+override NoCvs = 1
+
+include Makefile ../Fetch.make
+
+Release              = 2.0
+UrlFile              = $(Project)-$(Release)-Source
+ExtractedDir         = $(Project)
+SFProject            = tclae

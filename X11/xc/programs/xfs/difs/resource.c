@@ -47,7 +47,7 @@ in this Software without prior written authorization from The Open Group.
  * %W%	%G%
  *
  */
-/* $XFree86: xc/programs/xfs/difs/resource.c,v 3.8 2002/10/15 01:45:02 dawes Exp $ */
+/* $XFree86: xc/programs/xfs/difs/resource.c,v 3.9 2003/05/27 22:27:06 tsi Exp $ */
 /*
  *      a resource is a 32 bit quantity.  the upper 12 bits are client id.
  *      client provides a 19 bit resource id. this is "hashed" by me by
@@ -99,7 +99,9 @@ typedef struct _ClientResource {
 }           ClientResourceRec;
 
 static RESTYPE lastResourceType;
+#ifdef NOTYET
 static RESTYPE lastResourceClass;
+#endif
 static RESTYPE TypeMask;
 
 typedef int (*DeleteType) (void *, FSID);
@@ -163,7 +165,9 @@ InitClientResources(ClientPtr client)
 
     if (client == serverClient) {
 	lastResourceType = RT_LASTPREDEF;
+#ifdef NOTYET
 	lastResourceClass = RC_LASTPREDEF;
+#endif
 	TypeMask = RC_LASTPREDEF - 1;
 	if (DeleteFuncs)
 	    fsfree(DeleteFuncs);

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -20,6 +20,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "unicode/uloc.h"
 #include "unicode/umsg.h"
 #include "unicode/udat.h"
@@ -60,12 +61,12 @@ static void InitStrings( void )
         return;
 
     for (i=0; i < cnt_testCases; i++ ) {
-        uint32_t strSize = strlen(txt_testCasePatterns[i]) + 1;
+        uint32_t strSize = (uint32_t)strlen(txt_testCasePatterns[i]) + 1;
         testCasePatterns[i]=(UChar*)malloc(sizeof(UChar) * strSize);
         u_uastrncpy(testCasePatterns[i], txt_testCasePatterns[i], strSize);
     }
     for (i=0; i < cnt_testCases; i++ ) {
-        uint32_t strSize = strlen(txt_testResultStrings[i]) + 1;
+        uint32_t strSize = (uint32_t)strlen(txt_testResultStrings[i]) + 1;
         testResultStrings[i] = (UChar*)malloc(sizeof(UChar) * strSize);
         u_uastrncpy(testResultStrings[i], txt_testResultStrings[i], strSize);
     }
@@ -88,6 +89,16 @@ static void FreeStrings( void )
     strings_initialized = FALSE;
 }
 
+/* Platform dependent test to detect if this type will return NULL when interpreted as a pointer. */
+static UBool returnsNullForType(int firstParam, ...) {
+    UBool isNULL;
+    va_list marker;
+    va_start(marker, firstParam);
+    isNULL = (UBool)(va_arg(marker, void*) == NULL);
+    va_end(marker);
+    return isNULL;
+}
+
 /* Test u_formatMessage() with various test patterns() */
 static void MessageFormatTest( void ) 
 {
@@ -96,11 +107,14 @@ static void MessageFormatTest( void )
     int32_t resultLengthOut,resultlength,i, patternlength;
     UErrorCode status = U_ZERO_ERROR;
     UDate d1=1000000000.0;
+
+    ctest_setTimeZone(NULL, &status);
+
     str=(UChar*)malloc(sizeof(UChar) * 7);
     u_uastrncpy(str, "MyDisk", 7);
     resultlength=1;
     result=(UChar*)malloc(sizeof(UChar) * 1);
-    log_verbose("Testing u_formatMessage90\n");
+    log_verbose("Testing u_formatMessage()\n");
     InitStrings();
     for (i = 0; i < cnt_testCases; i++) {
         status=U_ZERO_ERROR;
@@ -206,20 +220,25 @@ static void MessageFormatTest( void )
                         austrdup(result), austrdup(testResultStrings[i]) );
                 }
 
-#if !defined(HPUX)
-                /* HP/UX and possibly other platforms don't properly check for this case.
-                   We pass in a UDate, but the function expects a UDate *.  When va_arg is used,
-                   most compilers will return NULL, but HP/UX won't do that and will return 2
-                   in this case.  This is a platform dependent test.
-                */
-                umsg_parse(formatter,result,resultLength,&count,&ec,one,two,d2);
-                if(ec!=U_ILLEGAL_ARGUMENT_ERROR){
-                    log_err("FAIL: Did not get expected error for umsg_parse(). Expected: U_ILLEGAL_ARGUMENT_ERROR Got: %s \n",u_errorName(ec));
-                }else{
-                    ec = U_ZERO_ERROR;
+                if (returnsNullForType(1, (double)2.0)) {
+                    /* HP/UX and possibly other platforms don't properly check for this case.
+                    We pass in a UDate, but the function expects a UDate *.  When va_arg is used,
+                    most compilers will return NULL, but HP-UX won't do that and will return 2
+                    in this case.  This is a platform dependent test.
+
+                    This relies upon "undefined" behavior, as indicated by C99 7.15.1.1 paragraph 2
+                    */
+                    umsg_parse(formatter,result,resultLength,&count,&ec,one,two,d2);
+                    if(ec!=U_ILLEGAL_ARGUMENT_ERROR){
+                        log_err("FAIL: Did not get expected error for umsg_parse(). Expected: U_ILLEGAL_ARGUMENT_ERROR Got: %s \n",u_errorName(ec));
+                    }else{
+                        ec = U_ZERO_ERROR;
+                    }
+                }
+                else {
+                    log_verbose("Warning: Returning NULL for a mismatched va_arg type isn't supported on this platform.\n", i);
                 }
 
-#endif            
                 umsg_parse(formatter,result,resultLength,&count,&ec,&one,&two,&d2);
                 if(U_FAILURE(ec)){
                     log_err("umsg_parse could not parse the pattern. Error: %s.\n",u_errorName(ec));
@@ -232,6 +251,8 @@ static void MessageFormatTest( void )
         umsg_close(formatter);
     }
     FreeStrings();
+
+    ctest_resetTimeZone();
 }
 
 
@@ -244,6 +265,9 @@ static void TestSampleMessageFormat()
     int32_t resultLengthOut, resultlength;
     UDate d = 837039928046.0;
     UErrorCode status = U_ZERO_ERROR;
+
+    ctest_setTimeZone(NULL, &status);
+
     str=(UChar*)malloc(sizeof(UChar) * 15);
     u_uastrcpy(str, "abc");    
     
@@ -328,6 +352,8 @@ static void TestSampleMessageFormat()
     
     free(result);
     free(str);
+
+    ctest_resetTimeZone();
 }
 
 /* Test umsg_format() and umsg_parse() , format and parse sequence and round trip */
@@ -347,6 +373,9 @@ static void TestNewFormatAndParseAPI(void)
     UParseError parseError;
     UMessageFormat* fmt = NULL;
     int32_t count=0;
+
+    ctest_setTimeZone(NULL, &status);
+
     log_verbose("Testing format and parse with parse error\n");
 
     str=(UChar*)malloc(sizeof(UChar) * 25);
@@ -428,7 +457,8 @@ static void TestNewFormatAndParseAPI(void)
     free(result);
     free(str);
     free(tzID);
-    
+
+    ctest_resetTimeZone();
 }
 
 /* Test u_formatMessageWithError() and u_parseMessageWithError() , format and parse sequence and round trip */
@@ -447,6 +477,8 @@ static void TestSampleFormatAndParseWithError(void)
     double value = 0.0;
     UChar ret[30];
     UParseError parseError;
+
+    ctest_setTimeZone(NULL, &status);
 
     log_verbose("Testing format and parse with parse error\n");
 
@@ -521,6 +553,7 @@ static void TestSampleFormatAndParseWithError(void)
     free(str);
     free(tzID);
     
+    ctest_resetTimeZone();
 }
 
 /* Test u_formatMessage() and u_parseMessage() , format and parse sequence and round trip */
@@ -537,6 +570,9 @@ static void TestSampleFormatAndParse()
     UErrorCode status = U_ZERO_ERROR;
     double value = 0.0;
     UChar ret[30];
+
+    ctest_setTimeZone(NULL, &status);
+
     log_verbose("Testing format and parse\n");
 
     str=(UChar*)malloc(sizeof(UChar) * 25);
@@ -610,6 +646,7 @@ static void TestSampleFormatAndParse()
     free(str);
     free(tzID);
     
+    ctest_resetTimeZone();
 }
 
 /* test message format with a choice option */
@@ -765,6 +802,9 @@ static void TestMessageFormatWithValist( void )
     int32_t resultLengthOut,resultlength,i, patternlength;
     UErrorCode status = U_ZERO_ERROR;
     UDate d1=1000000000.0;
+
+    ctest_setTimeZone(NULL, &status);
+
     str=(UChar*)malloc(sizeof(UChar) * 7);
     u_uastrcpy(str, "MyDisk");
     resultlength=1;
@@ -798,6 +838,8 @@ static void TestMessageFormatWithValist( void )
     free(result);
     free(str);
     FreeStrings();
+
+    ctest_resetTimeZone();
 }
 
 static void CallParseMessage(const char* locale, UChar* pattern, int32_t patternLength, 
@@ -864,6 +906,8 @@ static void TestJ904(void) {
     const char* PAT = "Number {1,number,#0.000}, String {0}, Date {2,date,12:mm:ss.SSS}";
     const char* EXP = "Number 0,143, String foo, Date 12:34:56.789";
 
+    ctest_setTimeZone(NULL, &status);
+
     u_uastrcpy(string, "foo");
     /* Slight hack here -- instead of date pattern HH:mm:ss.SSS, use
      * 12:mm:ss.SSS.  Why?  So this test generates the same output --
@@ -887,6 +931,8 @@ static void TestJ904(void) {
     } else {
         log_err("FAIL: got \"%s\", expected \"%s\"\n", cresult, EXP);
     }
+
+    ctest_resetTimeZone();
 }
 
 static void OpenMessageFormatTest(void)
@@ -964,6 +1010,28 @@ static void OpenMessageFormatTest(void)
     umsg_close(f3);
 }
 
+static void MessageLength(void)
+{
+    UErrorCode status = U_ZERO_ERROR;
+    const char patChars[] = {"123{0}456{0}"};
+    const char expectedChars[] = {"123abc"};
+    UChar pattern[sizeof(patChars)];
+    UChar arg[] = {0x61,0x62,0x63,0};
+    UChar result[128] = {0};
+    UChar expected[sizeof(expectedChars)];
+
+    u_uastrncpy(pattern, patChars, sizeof(pattern)/sizeof(pattern[0]));
+    u_uastrncpy(expected, expectedChars, sizeof(expected)/sizeof(expected[0]));
+
+    u_formatMessage("en_US", pattern, 6, result, sizeof(result)/sizeof(result[0]), &status, arg);
+    if (U_FAILURE(status)) {
+        log_err("u_formatMessage method failed. Error: %s \n",u_errorName(status));
+    }
+    if (u_strcmp(result, expected) != 0) {
+        log_err("u_formatMessage didn't return expected result\n");
+    }
+}
+
 
 void addMsgForTest(TestNode** root);
 
@@ -980,7 +1048,7 @@ void addMsgForTest(TestNode** root)
     addTest(root, &TestMessageFormatWithValist, "tsformat/cmsgtst/TestMessageFormatWithValist");
     addTest(root, &TestParseMessageWithValist, "tsformat/cmsgtst/TestParseMessageWithValist");
     addTest(root, &TestJ904, "tsformat/cmsgtst/TestJ904");
-
+    addTest(root, &MessageLength, "tsformat/cmsgtst/MessageLength");
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

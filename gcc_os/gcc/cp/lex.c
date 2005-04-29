@@ -1,6 +1,6 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -23,16 +23,12 @@ Boston, MA 02111-1307, USA.  */
 
 /* This file is the lexical analyzer for GNU C++.  */
 
-/* Cause the `yydebug' variable to be defined.  */
-#define YYDEBUG 1
-
 #include "config.h"
 #include "system.h"
 #include "input.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "cpplib.h"
-#include "c-lex.h"
 #include "lex.h"
 /* APPLE LOCAL Objective-C++ */
 #include "cp-parse.h"
@@ -40,7 +36,6 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "toplev.h"
 #include "output.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "timevar.h"
 #include "diagnostic.h"
@@ -50,14 +45,8 @@ Boston, MA 02111-1307, USA.  */
 #include <locale.h>
 #endif
 
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-#endif
-
-/* APPLE LOCAL begin indexing */
+/* APPLE LOCAL indexing */
 #include "genindex.h"
-/* APPLE LOCAL end indexing */
 
 extern void yyprint PARAMS ((FILE *, int, YYSTYPE));
 
@@ -95,15 +84,11 @@ extern int yychar;		/*  the lookahead symbol		*/
 extern YYSTYPE yylval;		/*  the semantic value of the		*/
 				/*  lookahead symbol			*/
 
-/* These flags are used by c-lex.c.  In C++, they're always off and on,
-   respectively.  */
-int warn_traditional = 0;
-int flag_digraphs = 1;
-
-/* the declaration found for the last IDENTIFIER token read in.
-   yylex must look this up to detect typedefs, which get token type TYPENAME,
-   so it is left around in case the identifier is not a typedef but is
-   used in a context which makes it a reference to a variable.  */
+/* the declaration found for the last IDENTIFIER token read in.  yylex
+   must look this up to detect typedefs, which get token type
+   tTYPENAME, so it is left around in case the identifier is not a
+   typedef but is used in a context which makes it a reference to a
+   variable.  */
 tree lastiddecl;
 
 /* Array for holding counts of the numbers of tokens seen.  */
@@ -215,52 +200,12 @@ int interface_only;		/* whether or not current file is only for
 int interface_unknown;		/* whether or not we know this class
 				   to behave according to #pragma interface.  */
 
-/* Tree code classes. */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
-
-static const char cplus_tree_code_type[] = {
-  'x',
-#include "cp-tree.def"
-};
-#undef DEFTREECODE
-
-/* Table indexed by tree code giving number of expression
-   operands beyond the fixed part of the node structure.
-   Not used for types or decls.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
-
-static const int cplus_tree_code_length[] = {
-  0,
-#include "cp-tree.def"
-};
-#undef DEFTREECODE
-
-/* Names of tree components.
-   Used for printing out the tree and error messages.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
-
-static const char *const cplus_tree_code_name[] = {
-  "@@dummy",
-#include "cp-tree.def"
-};
-#undef DEFTREECODE
 
-/* Post-switch processing.  */
-void
-cxx_post_options ()
-{
-  c_common_post_options ();
-}
-
 /* Initialization before switch parsing.  */
-/* APPLE LOCAL Objective-C++ */
 void
-cxx_init_options (lang)
-     enum c_language_kind lang;
+cxx_init_options ()
 {
-  c_common_init_options (lang);
+  c_common_init_options (clk_cplusplus);
 
   /* Default exceptions on.  */
   flag_exceptions = 1;
@@ -272,7 +217,7 @@ cxx_init_options (lang)
   diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
 
   /* APPLE LOCAL begin indexing */
-  if (compiling_objc)
+  if (flag_objc)
     set_index_lang (PB_INDEX_LANG_OBJCP);
   else
     set_index_lang (PB_INDEX_LANG_CP);
@@ -318,7 +263,6 @@ init_operators ()
   char buffer[256];
   struct operator_name_info_t *oni;
 
-/* APPLE LOCAL PFE - PFE_SAVESTRING is null when not building for pfe.  */
 #define DEF_OPERATOR(NAME, CODE, MANGLING, ARITY, ASSN_P)		    \
   sprintf (buffer, ISALPHA (NAME[0]) ? "operator %s" : "operator%s", NAME); \
   identifier = get_identifier (buffer);					    \
@@ -328,8 +272,9 @@ init_operators ()
 	 ? &assignment_operator_name_info[(int) CODE]			    \
 	 : &operator_name_info[(int) CODE]);				    \
   oni->identifier = identifier;						    \
-  oni->name = PFE_SAVESTRING (NAME);					    \
-  oni->mangled_name = PFE_SAVESTRING (MANGLING);
+  oni->name = NAME;							    \
+  oni->mangled_name = MANGLING;                                             \
+  oni->arity = ARITY;
 
 #include "operators.def"
 #undef DEF_OPERATOR
@@ -345,37 +290,36 @@ init_operators ()
 
   operator_name_info [(int) INIT_EXPR].name
     = operator_name_info [(int) MODIFY_EXPR].name;
-  /* APPLE LOCAL PFE - PFE_SAVESTRING is null when not building for pfe.  */
-  operator_name_info [(int) EXACT_DIV_EXPR].name = PFE_SAVESTRING ("(ceiling /)");
-  operator_name_info [(int) CEIL_DIV_EXPR].name = PFE_SAVESTRING ("(ceiling /)");
-  operator_name_info [(int) FLOOR_DIV_EXPR].name = PFE_SAVESTRING ("(floor /)");
-  operator_name_info [(int) ROUND_DIV_EXPR].name = PFE_SAVESTRING ("(round /)");
-  operator_name_info [(int) CEIL_MOD_EXPR].name = PFE_SAVESTRING ("(ceiling %)");
-  operator_name_info [(int) FLOOR_MOD_EXPR].name = PFE_SAVESTRING ("(floor %)");
-  operator_name_info [(int) ROUND_MOD_EXPR].name = PFE_SAVESTRING ("(round %)");
-  operator_name_info [(int) ABS_EXPR].name = PFE_SAVESTRING ("abs");
-  operator_name_info [(int) FFS_EXPR].name = PFE_SAVESTRING ("ffs");
-  operator_name_info [(int) BIT_ANDTC_EXPR].name = PFE_SAVESTRING ("&~");
-  operator_name_info [(int) TRUTH_AND_EXPR].name = PFE_SAVESTRING ("strict &&");
-  operator_name_info [(int) TRUTH_OR_EXPR].name = PFE_SAVESTRING ("strict ||");
-  operator_name_info [(int) IN_EXPR].name = PFE_SAVESTRING ("in");
-  operator_name_info [(int) RANGE_EXPR].name = PFE_SAVESTRING ("...");
-  operator_name_info [(int) CONVERT_EXPR].name = PFE_SAVESTRING ("+");
+  operator_name_info [(int) EXACT_DIV_EXPR].name = "(ceiling /)";
+  operator_name_info [(int) CEIL_DIV_EXPR].name = "(ceiling /)";
+  operator_name_info [(int) FLOOR_DIV_EXPR].name = "(floor /)";
+  operator_name_info [(int) ROUND_DIV_EXPR].name = "(round /)";
+  operator_name_info [(int) CEIL_MOD_EXPR].name = "(ceiling %)";
+  operator_name_info [(int) FLOOR_MOD_EXPR].name = "(floor %)";
+  operator_name_info [(int) ROUND_MOD_EXPR].name = "(round %)";
+  operator_name_info [(int) ABS_EXPR].name = "abs";
+  operator_name_info [(int) FFS_EXPR].name = "ffs";
+  operator_name_info [(int) BIT_ANDTC_EXPR].name = "&~";
+  operator_name_info [(int) TRUTH_AND_EXPR].name = "strict &&";
+  operator_name_info [(int) TRUTH_OR_EXPR].name = "strict ||";
+  operator_name_info [(int) IN_EXPR].name = "in";
+  operator_name_info [(int) RANGE_EXPR].name = "...";
+  operator_name_info [(int) CONVERT_EXPR].name = "+";
 
   assignment_operator_name_info [(int) EXACT_DIV_EXPR].name
-    = PFE_SAVESTRING ("(exact /=)");
+    = "(exact /=)";
   assignment_operator_name_info [(int) CEIL_DIV_EXPR].name
-    = PFE_SAVESTRING ("(ceiling /=)");
+    = "(ceiling /=)";
   assignment_operator_name_info [(int) FLOOR_DIV_EXPR].name
-    = PFE_SAVESTRING ("(floor /=)");
+    = "(floor /=)";
   assignment_operator_name_info [(int) ROUND_DIV_EXPR].name
-    = PFE_SAVESTRING ("(round /=)");
+    = "(round /=)";
   assignment_operator_name_info [(int) CEIL_MOD_EXPR].name
-    = PFE_SAVESTRING ("(ceiling %=)");
+    = "(ceiling %=)";
   assignment_operator_name_info [(int) FLOOR_MOD_EXPR].name
-    = PFE_SAVESTRING ("(floor %=)");
+    = "(floor %=)";
   assignment_operator_name_info [(int) ROUND_MOD_EXPR].name
-    = PFE_SAVESTRING ("(round %=)");
+    = "(round %=)";
 }
 
 /* The reserved keyword table.  */
@@ -390,7 +334,6 @@ struct resword
    _true_.  */
 #define D_EXT		0x01	/* GCC extension */
 #define D_ASM		0x02	/* in C99, but has a switch to turn it off */
-#define D_OPNAME	0x04	/* operator names */
 /* APPLE LOCAL Objective-C++ */
 #define D_OBJC		0x10	/* Objective C only */
 /* APPLE LOCAL AltiVec */
@@ -430,23 +373,19 @@ static const struct resword reswords[] =
   { "__restrict__",	RID_RESTRICT,	0 },
   { "__signed",		RID_SIGNED,	0 },
   { "__signed__",	RID_SIGNED,	0 },
+  { "__thread",		RID_THREAD,	0 },
   { "__typeof",		RID_TYPEOF,	0 },
   { "__typeof__",	RID_TYPEOF,	0 },
   { "__volatile",	RID_VOLATILE,	0 },
   { "__volatile__",	RID_VOLATILE,	0 },
   { "asm",		RID_ASM,	D_ASM },
-  { "and",		RID_AND,	D_OPNAME },
-  { "and_eq",		RID_AND_EQ,	D_OPNAME },
   { "auto",		RID_AUTO,	0 },
-  { "bitand",		RID_BITAND,	D_OPNAME },
-  { "bitor",		RID_BITOR,	D_OPNAME },
   { "bool",		RID_BOOL,	0 },
   { "break",		RID_BREAK,	0 },
   { "case",		RID_CASE,	0 },
   { "catch",		RID_CATCH,	0 },
   { "char",		RID_CHAR,	0 },
   { "class",		RID_CLASS,	0 },
-  { "compl",		RID_COMPL,	D_OPNAME },
   { "const",		RID_CONST,	0 },
   { "const_cast",	RID_CONSTCAST,	0 },
   { "continue",		RID_CONTINUE,	0 },
@@ -472,11 +411,7 @@ static const struct resword reswords[] =
   { "mutable",		RID_MUTABLE,	0 },
   { "namespace",	RID_NAMESPACE,	0 },
   { "new",		RID_NEW,	0 },
-  { "not",		RID_NOT,	D_OPNAME },
-  { "not_eq",		RID_NOT_EQ,	D_OPNAME },
   { "operator",		RID_OPERATOR,	0 },
-  { "or",		RID_OR,		D_OPNAME },
-  { "or_eq",		RID_OR_EQ,	D_OPNAME },
   { "private",		RID_PRIVATE,	0 },
   { "protected",	RID_PROTECTED,	0 },
   { "public",		RID_PUBLIC,	0 },
@@ -507,10 +442,7 @@ static const struct resword reswords[] =
   { "volatile",		RID_VOLATILE,	0 },
   { "wchar_t",          RID_WCHAR,	0 },
   { "while",		RID_WHILE,	0 },
-  { "xor",		RID_XOR,	D_OPNAME },
-  { "xor_eq",		RID_XOR_EQ,	D_OPNAME },
-
-  /* APPLE LOCAL Objective-C++ begin  */
+  /* APPLE LOCAL begin Objective-C++ */
   { "id",		RID_ID,			D_OBJC },
 
   /* These objc keywords are recognized only immediately after
@@ -527,6 +459,13 @@ static const struct resword reswords[] =
   { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
 /*{ "public",		RID_AT_PUBLIC,		D_OBJC },  OVERLAP */
   { "selector",		RID_AT_SELECTOR,	D_OBJC },
+  /* APPLE LOCAL begin Panther ObjC enhancements */
+/*{ "throw",		RID_AT_THROW,		D_OBJC },  OVERLAP */
+/*{ "try",		RID_AT_TRY,		D_OBJC },  OVERLAP */
+/*{ "catch",		RID_AT_CATCH,		D_OBJC },  OVERLAP */
+  { "finally",		RID_AT_FINALLY,		D_OBJC },
+  { "synchronized",	RID_AT_SYNCHRONIZED,	D_OBJC },
+  /* APPLE LOCAL end Panther ObjC enhancements */
 
   /* These are recognized only in protocol-qualifier context
      (see above) */
@@ -536,7 +475,7 @@ static const struct resword reswords[] =
   { "inout",		RID_INOUT,		D_OBJC },
   { "oneway",		RID_ONEWAY,		D_OBJC },
   { "out",		RID_OUT,		D_OBJC },
-  /* APPLE LOCAL Objective-C++ end  */
+  /* APPLE LOCAL end Objective-C++ */
 
   /* APPLE LOCAL AltiVec */
   /* All keywords which follow are only recognized when
@@ -551,7 +490,6 @@ static const struct resword reswords[] =
   { "vector",		RID_ALTIVEC_VECTOR,	D_ALTIVEC },
   { "pixel",		RID_ALTIVEC_PIXEL,	D_ALTIVEC },
 };
-#define N_reswords (sizeof reswords / sizeof (struct resword))
 
 /* APPLE LOCAL keep tables in sync comment */
 /* Table mapping from RID_* constants to yacc token numbers.
@@ -578,6 +516,7 @@ const short rid_to_yy[RID_MAX] =
   /* RID_BOUNDED */	0,
   /* RID_UNBOUNDED */	0,
   /* RID_COMPLEX */	TYPESPEC,
+  /* RID_THREAD */	SCSPEC,
   /* APPLE LOCAL private extern */
   /* RID_PRIVATE_EXTERN */ SCSPEC,
 
@@ -588,7 +527,7 @@ const short rid_to_yy[RID_MAX] =
   /* RID_EXPORT */	EXPORT,
   /* RID_MUTABLE */	SCSPEC,
 
-  /* APPLE LOCAL Objective-C++ begin  */
+  /* APPLE LOCAL begin Objective-C++ */
   /* ObjC */
   /* RID_IN */		CV_QUALIFIER,
   /* RID_OUT */		CV_QUALIFIER,
@@ -596,7 +535,7 @@ const short rid_to_yy[RID_MAX] =
   /* RID_BYCOPY */	CV_QUALIFIER,
   /* RID_BYREF */	CV_QUALIFIER,
   /* RID_ONEWAY */	CV_QUALIFIER,
-  /* APPLE LOCAL Objective-C++ end  */
+  /* APPLE LOCAL end Objective-C++ */
 
   /* APPLE LOCAL AltiVec */
   /* RID_ALTIVEC_VECTOR */	TYPESPEC,
@@ -678,20 +617,7 @@ const short rid_to_yy[RID_MAX] =
   /* RID_REINTCAST */	REINTERPRET_CAST,
   /* RID_STATCAST */	STATIC_CAST,
 
-  /* alternate spellings */
-  /* RID_AND */		ANDAND,
-  /* RID_AND_EQ */	ASSIGN,
-  /* RID_NOT */		'!',
-  /* RID_NOT_EQ */	EQCOMPARE,
-  /* RID_OR */		OROR,
-  /* RID_OR_EQ */	ASSIGN,
-  /* RID_XOR */		'^',
-  /* RID_XOR_EQ */	ASSIGN,
-  /* RID_BITAND */	'&',
-  /* RID_BITOR */	'|',
-  /* RID_COMPL */	'~',
-
-  /* APPLE LOCAL Objective-C++ begin  */
+  /* APPLE LOCAL begin Objective-C++ */
   /* Objective C */
   /* RID_ID */			OBJECTNAME,
   /* RID_AT_ENCODE */		ENCODE,
@@ -704,9 +630,16 @@ const short rid_to_yy[RID_MAX] =
   /* RID_AT_PUBLIC */		PUBLIC,
   /* RID_AT_PROTOCOL */		PROTOCOL,
   /* RID_AT_SELECTOR */		SELECTOR,
+  /* APPLE LOCAL begin Panther ObjC enhancements */
+  /* RID_AT_THROW */		AT_THROW,
+  /* RID_AT_TRY */		AT_TRY,
+  /* RID_AT_CATCH */		AT_CATCH,
+  /* RID_AT_FINALLY */		AT_FINALLY,
+  /* RID_AT_SYNCHRONIZED */	AT_SYNCHRONIZED,
+  /* APPLE LOCAL end Panther ObjC enhancements */
   /* RID_AT_INTERFACE */	INTERFACE,
   /* RID_AT_IMPLEMENTATION */	IMPLEMENTATION
-  /* APPLE LOCAL Objective-C++ end  */
+  /* APPLE LOCAL end Objective-C++ */
 };
 
 void
@@ -714,23 +647,19 @@ init_reswords ()
 {
   unsigned int i;
   tree id;
-  int mask = ((flag_operator_names ? 0 : D_OPNAME)
-	      | (flag_no_asm ? D_ASM : 0)
+  int mask = ((flag_no_asm ? D_ASM : 0)
 	      | (flag_no_gnu_keywords ? D_EXT : 0));
 
   /* APPLE LOCAL Objective-C++ */
-  if (!compiling_objc)
+  if (!flag_objc)
      mask |= D_OBJC;
      
   /* APPLE LOCAL AltiVec */
   if (!flag_altivec)
      mask |= D_ALTIVEC;
 
-  /* It is not necessary to register ridpointers as a GC root, because
-     all the trees it points to are permanently interned in the
-     get_identifier hash anyway.  */
-  ridpointers = (tree *) xcalloc ((int) RID_MAX, sizeof (tree));
-  for (i = 0; i < N_reswords; i++)
+  ridpointers = (tree *) ggc_calloc ((int) RID_MAX, sizeof (tree));
+  for (i = 0; i < ARRAY_SIZE (reswords); i++)
     {
       id = get_identifier (reswords[i].word);
       C_RID_CODE (id) = reswords[i].rid;
@@ -776,23 +705,6 @@ init_cp_pragma ()
 		       handle_pragma_java_exceptions);
 }
 
-/* Adds the tree codes specific to the C++ front end to the list of all
-   tree codes.  */
-
-void 
-add_cpp_tree_codes ()
-{
-  memcpy (tree_code_type + (int) LAST_C_TREE_CODE,
-	  cplus_tree_code_type,
-	  (int)LAST_CPLUS_TREE_CODE - (int)LAST_C_TREE_CODE);
-  memcpy (tree_code_length + (int) LAST_C_TREE_CODE,
-	  cplus_tree_code_length,
-	  (LAST_CPLUS_TREE_CODE - (int)LAST_C_TREE_CODE) * sizeof (int));
-  memcpy (tree_code_name + (int) LAST_C_TREE_CODE,
-	  cplus_tree_code_name,
-	  (LAST_CPLUS_TREE_CODE - (int)LAST_C_TREE_CODE) * sizeof (char *));
-}
-
 /* Initialize the C++ front end.  This function is very sensitive to
    the exact order that things are done here.  It would be nice if the
    initialization done by this routine were moved to its subroutines,
@@ -801,21 +713,13 @@ const char *
 cxx_init (filename)
      const char *filename;
 {
-  decl_printable_name = lang_printable_name;
-
-  /* APPLE LOCAL PFE - PFE_SAVESTRING is null when not building for pfe.  */
-  input_filename = PFE_SAVESTRING ("<internal>");
+  input_filename = "<internal>";
 
   init_reswords ();
   init_spew ();
   init_tree ();
-  init_cplus_expand ();
   init_cp_semantics ();
-
-  add_c_tree_codes ();
-  add_cpp_tree_codes ();
   init_operators ();
-
   init_method ();
   init_error ();
 
@@ -837,30 +741,19 @@ cxx_init (filename)
   TREE_TYPE (enum_type_node) = enum_type_node;
   ridpointers[(int) RID_ENUM] = enum_type_node;
 
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  /* Use the precompiled headers, if available.  */
-  if (pfe_operation == PFE_LOAD)
-    {
-      pfe_cxx_init_decl_processing ();
-      //globals = getdecls ();
-      //pfe_setdecls (pfe_predefined_global_names);
-    }
-  else
-    cxx_init_decl_processing ();
-#else  
   cxx_init_decl_processing ();
-#endif
 
   /* Create the built-in __null node.  */
   null_node = build_int_2 (0, 0);
-  TREE_TYPE (null_node) = type_for_size (POINTER_SIZE, 0);
+  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
   ridpointers[RID_NULL] = null_node;
 
   token_count = init_cpp_parse ();
   interface_unknown = 1;
 
   filename = c_common_init (filename);
+  if (filename == NULL)
+    return NULL;
 
   init_cp_pragma ();
 
@@ -886,7 +779,7 @@ yyprint (file, yychar, yylval)
   switch (yychar)
     {
     case IDENTIFIER:
-    case TYPENAME:
+    case tTYPENAME:
     case TYPESPEC:
     case PTYPENAME:
     case PFUNCNAME:
@@ -952,8 +845,8 @@ static int *reduce_count;
 int *token_count;
 
 #if 0
-#define REDUCE_LENGTH (sizeof (yyr2) / sizeof (yyr2[0]))
-#define TOKEN_LENGTH (256 + sizeof (yytname) / sizeof (yytname[0]))
+#define REDUCE_LENGTH ARRAY_SIZE (yyr2)
+#define TOKEN_LENGTH (256 + ARRAY_SIZE (yytname))
 #endif
 
 #ifdef GATHER_STATISTICS
@@ -1028,22 +921,6 @@ print_parse_statistics ()
   fprintf (stderr, "\n");
 #endif
 #endif
-#endif
-}
-
-/* Sets the value of the 'yydebug' variable to VALUE.
-   This is a function so we don't have to have YYDEBUG defined
-   in order to build the compiler.  */
-
-void
-cxx_set_yydebug (value)
-     int value;
-{
-#if YYDEBUG != 0
-  extern int yydebug;
-  yydebug = value;
-#else
-  warning ("YYDEBUG not defined");
 #endif
 }
 
@@ -1124,7 +1001,7 @@ check_for_missing_semicolon (type)
   if ((yychar > 255
        && yychar != SCSPEC
        && yychar != IDENTIFIER
-       && yychar != TYPENAME
+       && yychar != tTYPENAME
        && yychar != CV_QUALIFIER
        && yychar != SELFNAME)
       || yychar == 0  /* EOF */)
@@ -1148,6 +1025,9 @@ note_got_semicolon (type)
     abort ();
   if (CLASS_TYPE_P (type))
     CLASSTYPE_GOT_SEMICOLON (type) = 1;
+  /* APPLE LOCAL CW asm blocks */
+  if (flag_cw_asm_blocks)
+    cw_asm_in_decl = 0;
 }
 
 void
@@ -1163,6 +1043,9 @@ note_list_got_semicolon (declspecs)
 	note_got_semicolon (type);
     }
   clear_anon_tags ();
+  /* APPLE LOCAL CW asm blocks */
+  if (flag_cw_asm_blocks)
+    cw_asm_in_decl = 0;
 }
 
 
@@ -1313,7 +1196,7 @@ do_pending_lang_change ()
     pop_lang_context ();
 }
 
-/* Return true if d is in a global scope. */
+/* Return true if d is in a global scope.  */
 
 static int
 is_global (d)
@@ -1334,27 +1217,88 @@ is_global (d)
       }
 }
 
+/* Issue an error message indicating that the lookup of NAME (an
+   IDENTIFIER_NODE) failed.  */
+
+void
+unqualified_name_lookup_error (tree name)
+{
+  if (IDENTIFIER_OPNAME_P (name))
+    {
+      if (name != ansi_opname (ERROR_MARK))
+	error ("`%D' not defined", name);
+    }
+  else if (current_function_decl == 0)
+    error ("`%D' was not declared in this scope", name);
+  else
+    {
+      if (IDENTIFIER_NAMESPACE_VALUE (name) != error_mark_node
+	  || IDENTIFIER_ERROR_LOCUS (name) != current_function_decl)
+	{
+	  static int undeclared_variable_notice;
+
+	  error ("`%D' undeclared (first use this function)", name);
+
+	  if (! undeclared_variable_notice)
+	    {
+	      error ("(Each undeclared identifier is reported only once for each function it appears in.)");
+	      undeclared_variable_notice = 1;
+	    }
+	}
+      /* Prevent repeated error messages.  */
+      SET_IDENTIFIER_NAMESPACE_VALUE (name, error_mark_node);
+      SET_IDENTIFIER_ERROR_LOCUS (name, current_function_decl);
+    }
+}
+
 tree
 do_identifier (token, parsing, args)
      register tree token;
      int parsing;
      tree args;
 {
-  /* APPLE LOCAL Objective-C++ */
-  tree id;
-  int lexing = (parsing == 1);
+  register tree id;
+  int lexing = (parsing == 1 || parsing == 3);
 
-  /* APPLE LOCAL Objective-C++ */
+  /* APPLE LOCAL begin Objective-C++ */
   /* lastiddecl gets reassigned to the following selector part if an i
      dentifier is used as a keywordexpr or receiver.  E.g.  in
      [.. x bar: ..] lastiddecl gets reassigned to the decl of bar
      when handling x.  So we look it up once more.  */
   extern int objc_msg_context;   
   extern int objcp_lookup_identifier PARAMS ((tree, tree *, int));
+  /* APPLE LOCAL end Objective-C++ */
+  timevar_push (TV_NAME_LOOKUP);
+  /* APPLE LOCAL Objective-C++ */
   if (! lexing || objc_msg_context)
     id = lookup_name (token, 0);
   else
     id = lastiddecl;
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* CW assembly has automagical handling of register names.  It's
+     also handy to assume undeclared names as labels, although it
+     would be better to have a second pass and complain about names in
+     the block that are not labels.  */
+  if (cw_asm_block)
+    {
+      if (id == NULL)
+	id = lookup_name (token, 0);
+      if (id == NULL)
+	{
+	  tree newtoken;
+	  if ((newtoken = cw_asm_reg_name (token)))
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, newtoken);
+#ifdef CW_ASM_SPECIAL_LABEL
+	  if ((newtoken = CW_ASM_SPECIAL_LABEL (token)))
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, newtoken);
+#endif
+	  /* Assume undeclared symbols are labels. */
+	  newtoken = get_cw_asm_label (token);
+	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, newtoken);
+	}
+    }
+  /* APPLE LOCAL end CW asm blocks */
 
   if (lexing && id && TREE_DEPRECATED (id))
     warn_deprecated_use (id);
@@ -1371,7 +1315,7 @@ do_identifier (token, parsing, args)
 
   /* Remember that this name has been used in the class definition, as per
      [class.scope0] */
-  if (id && parsing)
+  if (id && parsing && parsing != 3)
     maybe_note_name_used_in_class (token, id);
 
   if (id == error_mark_node)
@@ -1381,93 +1325,35 @@ do_identifier (token, parsing, args)
 	 being used as a declarator.  So we call it again to get the error
 	 message.  */
       id = lookup_name (token, 0);
-      return error_mark_node;
+      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
     }
 
   if (!id || (TREE_CODE (id) == FUNCTION_DECL
 	      && DECL_ANTICIPATED (id)))
     {
       if (current_template_parms)
-	return build_min_nt (LOOKUP_EXPR, token);
-      else if (IDENTIFIER_OPNAME_P (token))
-	{
-	  if (token != ansi_opname (ERROR_MARK))
-	    error ("`%D' not defined", token);
-	  id = error_mark_node;
-	}
-      /* APPLE LOCAL Objective-C++  */	
+	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP,
+                                build_min_nt (LOOKUP_EXPR, token));
+      /* APPLE LOCAL begin Objective-C++  */	
       else if (objcp_lookup_identifier (token, &id, 0))
 	;
-      else if (current_function_decl == 0)
-	{
-	  error ("`%D' was not declared in this scope", token);
-	  id = error_mark_node;
-	}
+      /* APPLE LOCAL end Objective-C++  */	
+      else if (IDENTIFIER_TYPENAME_P (token))
+	/* A templated conversion operator might exist.  */
+        POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, token);
       else
 	{
-	  if (IDENTIFIER_NAMESPACE_VALUE (token) != error_mark_node
-	      || IDENTIFIER_ERROR_LOCUS (token) != current_function_decl)
-	    {
-	      static int undeclared_variable_notice;
-
-	      error ("`%D' undeclared (first use this function)", token);
-
-	      if (! undeclared_variable_notice)
-		{
-		  error ("(Each undeclared identifier is reported only once for each function it appears in.)");
-		  undeclared_variable_notice = 1;
-		}
-	    }
-	  id = error_mark_node;
-	  /* Prevent repeated error messages.  */
-	  SET_IDENTIFIER_NAMESPACE_VALUE (token, error_mark_node);
-	  SET_IDENTIFIER_ERROR_LOCUS (token, current_function_decl);
+	  unqualified_name_lookup_error (token);
+	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 	}
     }
-
-  /* APPLE LOCAL Objective-C++ */
+  /* APPLE LOCAL begin Objective-C++ */
   else
     objcp_lookup_identifier (token, &id, 1);
+  /* APPLE LOCAL end Objective-C++ */
       
-  if (TREE_CODE (id) == VAR_DECL && DECL_DEAD_FOR_LOCAL (id))
-    {
-      tree shadowed = DECL_SHADOWED_FOR_VAR (id);
-      while (shadowed != NULL_TREE && TREE_CODE (shadowed) == VAR_DECL
-	     && DECL_DEAD_FOR_LOCAL (shadowed))
-	shadowed = DECL_SHADOWED_FOR_VAR (shadowed);
-      if (!shadowed)
-	shadowed = IDENTIFIER_NAMESPACE_VALUE (DECL_NAME (id));
-      if (shadowed)
-	{
-	  if (!DECL_ERROR_REPORTED (id))
-	    {
-	      warning ("name lookup of `%s' changed",
-		       IDENTIFIER_POINTER (token));
-	      cp_warning_at ("  matches this `%D' under ISO standard rules",
-			     shadowed);
-	      cp_warning_at ("  matches this `%D' under old rules", id);
-	      DECL_ERROR_REPORTED (id) = 1;
-	    }
-	  id = shadowed;
-	}
-      else if (!DECL_ERROR_REPORTED (id))
-	{
-	  DECL_ERROR_REPORTED (id) = 1;
-	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (id)))
-	    {
-	      error ("name lookup of `%s' changed for new ISO `for' scoping",
-		     IDENTIFIER_POINTER (token));
-	      cp_error_at ("  cannot use obsolete binding at `%D' because it has a destructor", id);
-	      id = error_mark_node;
-	    }
-	  else
-	    {
-	      pedwarn ("name lookup of `%s' changed for new ISO `for' scoping",
-		       IDENTIFIER_POINTER (token));
-	      cp_pedwarn_at ("  using obsolete binding at `%D'", id);
-	    }
-	}
-    }
+  id = check_for_out_of_scope_variable (id);
+
   /* TREE_USED is set in `hack_identifier'.  */
   if (TREE_CODE (id) == CONST_DECL)
     {
@@ -1498,28 +1384,15 @@ do_identifier (token, parsing, args)
 	  || TREE_CODE (id) == USING_DECL))
     id = build_min_nt (LOOKUP_EXPR, token);
 
-  return id;
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, id);
 }
 
 tree
-do_scoped_id (token, parsing)
+do_scoped_id (token, id)
      tree token;
-     int parsing;
+     tree id;
 {
-  tree id;
-  /* during parsing, this is ::name. Otherwise, it is black magic. */
-  if (parsing)
-    {
-      id = make_node (CPLUS_BINDING);
-      if (!qualified_lookup_using_namespace (token, global_namespace, id, 0))
-	id = NULL_TREE;
-      else
-	id = BINDING_VALUE (id);
-    }
-  else
-    id = IDENTIFIER_GLOBAL_VALUE (token);
-  if (parsing && yychar == YYEMPTY)
-    yychar = yylex ();
+  timevar_push (TV_NAME_LOOKUP);
   if (!id || (TREE_CODE (id) == FUNCTION_DECL
 	      && DECL_ANTICIPATED (id)))
     {
@@ -1527,7 +1400,7 @@ do_scoped_id (token, parsing)
 	{
 	  id = build_min_nt (LOOKUP_EXPR, token);
 	  LOOKUP_EXPR_GLOBAL (id) = 1;
-	  return id;
+	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, id);
 	}
       if (IDENTIFIER_NAMESPACE_VALUE (token) != error_mark_node)
         error ("`::%D' undeclared (first use here)", token);
@@ -1558,11 +1431,11 @@ do_scoped_id (token, parsing)
 	{
 	  id = build_min_nt (LOOKUP_EXPR, token);
 	  LOOKUP_EXPR_GLOBAL (id) = 1;
-	  return id;
+	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, id);
 	}
       /* else just use the decl */
     }
-  return convert_from_reference (id);
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, convert_from_reference (id));
 }
 
 tree
@@ -1654,8 +1527,13 @@ retrofit_lang_decl (t)
   else
     size = sizeof (struct lang_decl_flags);
 
-  /* APPLE LOCAL PFE - expand to pfe_ggc_alloc_cleared or ggc_alloc_cleared  */
-  ld = (struct lang_decl *) GGC_ALLOC_CLEARED (size, PFE_ALLOC_GGC_LANG_DECL);
+  ld = (struct lang_decl *) ggc_alloc_cleared (size);
+
+  ld->decl_flags.can_be_full = CAN_HAVE_FULL_LANG_DECL_P (t) ? 1 : 0;
+  ld->decl_flags.u1sel = TREE_CODE (t) == NAMESPACE_DECL ? 1 : 0;
+  ld->decl_flags.u2sel = 0;
+  if (ld->decl_flags.can_be_full)
+    ld->u.f.u3sel = TREE_CODE (t) == FUNCTION_DECL ? 1 : 0;
 
   DECL_LANG_SPECIFIC (t) = ld;
   if (current_lang_name == lang_name_cplusplus)
@@ -1673,7 +1551,7 @@ retrofit_lang_decl (t)
 }
 
 void
-copy_lang_decl (node)
+cxx_dup_lang_specific_decl (node)
      tree node;
 {
   int size;
@@ -1686,8 +1564,7 @@ copy_lang_decl (node)
     size = sizeof (struct lang_decl_flags);
   else
     size = sizeof (struct lang_decl);
-  /* APPLE LOCAL PFE - expand to pfe_ggc_alloc or ggc_alloc */
-  ld = (struct lang_decl *) GGC_ALLOC (size, PFE_ALLOC_GGC_LANG_DECL);
+  ld = (struct lang_decl *) ggc_alloc (size);
   memcpy (ld, DECL_LANG_SPECIFIC (node), size);
   DECL_LANG_SPECIFIC (node) = ld;
 
@@ -1706,7 +1583,7 @@ copy_decl (decl)
   tree copy;
 
   copy = copy_node (decl);
-  copy_lang_decl (copy);
+  cxx_dup_lang_specific_decl (copy);
   return copy;
 }
 
@@ -1722,10 +1599,11 @@ copy_lang_type (node)
   if (! TYPE_LANG_SPECIFIC (node))
     return;
 
-  size = sizeof (struct lang_type);
-  /*lt = (struct lang_type *) ggc_alloc (size);*/
-  /* APPLE LOCAL PFE - expand to pfe_ggc_alloc or ggc_alloc  */
-  lt = ((struct lang_type *) GGC_ALLOC (size, PFE_ALLOC_GGC_LANG_TYPE));
+  if (TYPE_LANG_SPECIFIC (node)->u.h.is_lang_type_class)
+    size = sizeof (struct lang_type);
+  else
+    size = sizeof (struct lang_type_ptrmem);
+  lt = (struct lang_type *) ggc_alloc (size);
   memcpy (lt, TYPE_LANG_SPECIFIC (node), size);
   TYPE_LANG_SPECIFIC (node) = lt;
 
@@ -1749,7 +1627,7 @@ copy_type (type)
 }
 
 tree
-cp_make_lang_type (code)
+cxx_make_type (code)
      enum tree_code code;
 {
   register tree t = make_node (code);
@@ -1760,12 +1638,11 @@ cp_make_lang_type (code)
     {
       struct lang_type *pi;
 
-      /* APPLE LOCAL PFE - expand to pfe_ggc_alloc_cleared or ggc_alloc_cleared  */
       pi = ((struct lang_type *)
-	    GGC_ALLOC_CLEARED (sizeof (struct lang_type),
-	    		       PFE_ALLOC_GGC_LANG_TYPE));
+	    ggc_alloc_cleared (sizeof (struct lang_type)));
 
       TYPE_LANG_SPECIFIC (t) = pi;
+      pi->u.c.h.is_lang_type_class = 1;
 
 #ifdef GATHER_STATISTICS
       tree_node_counts[(int)lang_type] += 1;
@@ -1806,26 +1683,12 @@ tree
 make_aggr_type (code)
      enum tree_code code;
 {
-  tree t = cp_make_lang_type (code);
+  tree t = cxx_make_type (code);
 
   if (IS_AGGR_TYPE_CODE (code))
     SET_IS_AGGR_TYPE (t, 1);
 
   return t;
-}
-
-void
-compiler_error VPARAMS ((const char *msg, ...))
-{
-  char buf[1024];
-
-  VA_OPEN (ap, msg);
-  VA_FIXEDARG (ap, const char *, msg);
-
-  vsprintf (buf, msg, ap);
-  VA_CLOSE (ap);
-
-  error_with_file_and_line (input_filename, lineno, "%s (compiler error)", buf);
 }
 
 /* Return the type-qualifier corresponding to the identifier given by

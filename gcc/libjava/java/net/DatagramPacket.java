@@ -7,7 +7,7 @@ GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
- 
+
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -37,6 +37,7 @@ exception statement from your version. */
 
 package java.net;
 
+
 /*
  * Written using on-line Java Platform 1.2 API Specification, as well
  * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998).
@@ -61,7 +62,7 @@ package java.net;
  * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998).
  * Status:  Believed complete and correct.
  *
- * @author Warren Levy <warrenl@cygnus.com>
+ * @author Warren Levy (warrenl@cygnus.com)
  * @author Aarom M. Renn (arenn@urbanophile.com) (Documentation comments)
  * @date April 28, 1999.
  */
@@ -78,13 +79,18 @@ public final class DatagramPacket
   private int offset;
 
   /**
-   * The length of the data buffer to send
+   * The length of the data buffer to send.
    */
-  private int length;
+  int length;
+
+  /**
+   * The maximal length of the buffer.
+   */
+  int maxlen;
 
   /**
    * The address to which the packet should be sent or from which it
-   * was received
+   * was received.
    */
   private InetAddress address;
 
@@ -106,21 +112,9 @@ public final class DatagramPacket
    */
   public DatagramPacket(byte[] buf, int offset, int length)
   {
-    if (buf == null)
-      throw new NullPointerException("Null buffer");
-    if (offset < 0)
-      throw new IllegalArgumentException("Invalid offset: " + offset);
-    if (length < 0)
-      throw new IllegalArgumentException("Invalid length: " + length);
-    if (offset + length > buf.length)
-      throw new IllegalArgumentException("Potential buffer overflow - offset: "
-			+ offset + " length: " + length);
-
-    buffer = buf;
-    this.offset = offset;
-    this.length = length;
-    this.address = null;
-    this.port = -1;
+    setData(buf, offset, length);
+    address = null;
+    port = -1;
   }
 
   /**
@@ -128,7 +122,7 @@ public final class DatagramPacket
    * receiving packets from the network.
    *
    * @param buf A buffer for storing the returned packet data
-   * @param length The length of the buffer (must be <= buf.length)
+   * @param length The length of the buffer (must be &lt;= buf.length)
    */
   public DatagramPacket(byte[] buf, int length)
   {
@@ -141,34 +135,18 @@ public final class DatagramPacket
    *
    * @param buf A buffer containing the data to send
    * @param offset The offset into the buffer to start writing from.
-   * @param len The length of the buffer (must be <= buf.length)
-   * @param addr The address to send to
+   * @param length The length of the buffer (must be &lt;= buf.length)
+   * @param address The address to send to
    * @param port The port to send to
    *
    * @since 1.2
    */
   public DatagramPacket(byte[] buf, int offset, int length,
-	InetAddress address, int port)
+                        InetAddress address, int port)
   {
-    if (buf == null)
-      throw new NullPointerException("Null buffer");
-    if (offset < 0)
-      throw new IllegalArgumentException("Invalid offset: " + offset);
-    if (length < 0)
-      throw new IllegalArgumentException("Invalid length: " + length);
-    if (offset + length > buf.length)
-      throw new IllegalArgumentException("Potential buffer overflow - offset: "
-			+ offset + " length: " + length);
-    if (port < 0 || port > 65535)
-      throw new IllegalArgumentException("Invalid port: " + port);
-    if (address == null)
-      throw new NullPointerException("Null address");
-
-    buffer = buf;
-    this.offset = offset;
-    this.length = length;
-    this.address = address;
-    this.port = port;
+    setData(buf, offset, length);
+    setAddress(address);
+    setPort(port);
   }
 
   /**
@@ -176,7 +154,7 @@ public final class DatagramPacket
    * transmitting packets across the network.
    *
    * @param buf A buffer containing the data to send
-   * @param length The length of the buffer (must be <= buf.length)
+   * @param length The length of the buffer (must be &lt;= buf.length)
    * @param address The address to send to
    * @param port The port to send to
    */
@@ -191,7 +169,7 @@ public final class DatagramPacket
    *
    * @param buf A buffer containing the data to send
    * @param offset The offset into the buffer to start writing from.
-   * @param length The length of the buffer (must be <= buf.length)
+   * @param length The length of the buffer (must be &lt;= buf.length)
    * @param address The socket address to send to
    *
    * @exception SocketException If an error occurs
@@ -200,11 +178,15 @@ public final class DatagramPacket
    * @since 1.4
    */
   public DatagramPacket(byte[] buf, int offset, int length,
-		        SocketAddress address)
-     throws SocketException
+                        SocketAddress address) throws SocketException
   {
-    this(buf, offset, length, ((InetSocketAddress)address).getAddress(),
-         ((InetSocketAddress)address).getPort());
+    if (! (address instanceof InetSocketAddress))
+      throw new IllegalArgumentException("unsupported address type");
+
+    InetSocketAddress tmp = (InetSocketAddress) address;
+    setData(buf, offset, length);
+    setAddress(tmp.getAddress());
+    setPort(tmp.getPort());
   }
 
   /**
@@ -212,7 +194,7 @@ public final class DatagramPacket
    * transmitting packets across the network.
    *
    * @param buf A buffer containing the data to send
-   * @param length The length of the buffer (must be <= buf.length)
+   * @param length The length of the buffer (must be &lt;= buf.length)
    * @param address The socket address to send to
    *
    * @exception SocketException If an error occurs
@@ -223,8 +205,7 @@ public final class DatagramPacket
   public DatagramPacket(byte[] buf, int length, SocketAddress address)
     throws SocketException
   {
-    this(buf, 0, length, ((InetSocketAddress)address).getAddress(),
-         ((InetSocketAddress)address).getPort());
+    this(buf, 0, length, address);
   }
 
   /**
@@ -291,16 +272,13 @@ public final class DatagramPacket
   /**
    * This sets the address to which the data packet will be transmitted.
    *
-   * @param addr The destination address
+   * @param address The destination address
    *
    * @since 1.1
    */
-  public synchronized void setAddress(InetAddress iaddr)
+  public synchronized void setAddress(InetAddress address)
   {
-    if (iaddr == null)
-      throw new NullPointerException("Null address");
-
-    address = iaddr;
+    this.address = address;
   }
 
   /**
@@ -310,12 +288,12 @@ public final class DatagramPacket
    *
    * @since 1.1
    */
-  public synchronized void setPort(int iport)
+  public synchronized void setPort(int port)
   {
-    if (iport < 0 || iport > 65535)
-      throw new IllegalArgumentException("Invalid port: " + iport);
+    if (port < 0 || port > 65535)
+      throw new IllegalArgumentException("Invalid port: " + port);
 
-    port = iport;
+    this.port = port;
   }
 
   /**
@@ -330,9 +308,10 @@ public final class DatagramPacket
   public void setSocketAddress(SocketAddress address)
     throws IllegalArgumentException
   {
-    if (address == null) throw new IllegalArgumentException();
+    if (address == null)
+      throw new IllegalArgumentException("address may not be null");
 
-    InetSocketAddress tmp = (InetSocketAddress)address;
+    InetSocketAddress tmp = (InetSocketAddress) address;
     this.address = tmp.getAddress();
     this.port = tmp.getPort();
   }
@@ -342,12 +321,12 @@ public final class DatagramPacket
    * will be sent to/is coming from
    *
    * @return The socket address of the remote host
-   * 
+   *
    * @since 1.4
    */
   public SocketAddress getSocketAddress()
   {
-    return new InetSocketAddress (address, port);
+    return new InetSocketAddress(address, port);
   }
 
   /**
@@ -359,14 +338,9 @@ public final class DatagramPacket
    *
    * @since 1.1
    */
-  public synchronized void setData(byte[] buf)
+  public void setData(byte[] buf)
   {
-    // This form of setData requires setLength to be called separately
-    // and subsequently.
-    if (buf == null)
-      throw new NullPointerException("Null buffer");
-
-    buffer = buf;
+    setData(buf, 0, buf.length);
   }
 
   /**
@@ -383,24 +357,18 @@ public final class DatagramPacket
   public synchronized void setData(byte[] buf, int offset, int length)
   {
     // This form of setData must be used if offset is to be changed.
-
     if (buf == null)
       throw new NullPointerException("Null buffer");
     if (offset < 0)
       throw new IllegalArgumentException("Invalid offset: " + offset);
-    if (length < 0)
-      throw new IllegalArgumentException("Invalid length: " + length);
-    if (offset + length > buf.length)
-      throw new IllegalArgumentException("Potential buffer overflow - offset: "
-			+ offset + " length: " + length);
 
     buffer = buf;
     this.offset = offset;
-    this.length = length;
+    setLength(length);
   }
 
   /**
-   * Sets the length of the data in the buffer. 
+   * Sets the length of the data in the buffer.
    *
    * @param length The new length.  (Where len &lt;= buf.length)
    *
@@ -415,9 +383,9 @@ public final class DatagramPacket
       throw new IllegalArgumentException("Invalid length: " + length);
     if (offset + length > buffer.length)
       throw new IllegalArgumentException("Potential buffer overflow - offset: "
-			+ offset + " length: " + length);
+                                         + offset + " length: " + length);
 
     this.length = length;
+    this.maxlen = length;
   }
-} // class DatagramPacket
-
+}

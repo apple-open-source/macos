@@ -24,7 +24,7 @@
  * CONNECTION WITH THE USE OR THE PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $XFree86: xc/lib/X11/cmsTrig.c,v 3.8 2001/10/28 03:32:34 tsi Exp $ */
+/* $XFree86: xc/lib/X11/cmsTrig.c,v 3.9 2003/04/13 19:22:20 dawes Exp $ */
 /*
  *	It should be pointed out that for simplicity's sake, the
  *	environment parameters are defined as floating point constants,
@@ -45,25 +45,22 @@
  *
  */
 
-/*
- *	EXTERNS
- */
-extern double _XcmsSquareRoot();
+#include "Xcmsint.h"
 
-/*
- *	FORWARD DECLARATIONS
- */
-double _XcmsCosine();
-static double _XcmsModulo();
-static double _XcmsModuloF();
-static double _XcmsPolynomial();
-double _XcmsSine();
-double _XcmsArcTangent();
+/* forward/static */
+static double _XcmsModulo(double value, double base);
+static double _XcmsPolynomial(
+    register int order,
+    double const *coeffs,
+    double x);
+static double
+_XcmsModuloF(
+    double val,
+    register double *dp);
 
 /*
  *	DEFINES
  */
-
 #define XCMS_MAXERROR       	0.000001
 #define XCMS_MAXITER       	10000
 #define XCMS_PI       		3.14159265358979323846264338327950
@@ -228,8 +225,7 @@ static double const sin_qcoeffs[] = {
  *			
  */
 
-double _XcmsCosine (x)
-double x;
+double _XcmsCosine(double x)
 {
     auto double y;
     auto double yt2;
@@ -289,9 +285,7 @@ double x;
  *	Fred Fish
  *
  */
-static double _XcmsModulo (value, base)
-double value;
-double base;
+static double _XcmsModulo(double value, double base)
 {
     auto double intpart;
 
@@ -312,9 +306,9 @@ double base;
  * defined in "math.h".
  */
 static double
-_XcmsModuloF(val, dp)
-double val;
-register double *dp;
+_XcmsModuloF(
+    double val,
+    register double *dp)
 {
 	register double abs;
 	/*
@@ -377,10 +371,10 @@ register double *dp;
  *
  */
 
-static double _XcmsPolynomial (order, coeffs, x)
-register int order;
-double const *coeffs;
-double x;
+static double _XcmsPolynomial(
+    register int order,
+    double const *coeffs,
+    double x)
 {
     auto double rtn_value;
 

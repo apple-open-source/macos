@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,28 +25,17 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wcrtomb.c,v 1.4 2003/04/10 09:20:38 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wcrtomb.c,v 1.8 2004/05/12 14:09:04 tjr Exp $");
 
-#include <errno.h>
-#include <limits.h>
-#include <rune.h>
-#include <stdlib.h>
 #include <wchar.h>
+#include "mblocal.h"
 
 size_t
-wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps __unused)
+wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
 {
-	char *e;
-	char buf[MB_LEN_MAX];
+	static mbstate_t mbs;
 
-	if (s == NULL) {
-		s = buf;
-		wc = L'\0';
-	}
-	sputrune(wc, s, MB_CUR_MAX, &e);
-	if (e == NULL) {
-		errno = EILSEQ;
-		return ((size_t)-1);
-	}
-	return ((size_t)(e - s));
+	if (ps == NULL)
+		ps = &mbs;
+	return (__wcrtomb(s, wc, ps));
 }

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Conditional GET plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>Description</title>
+            <p>
+                The Conditional GET plugin reduces the bandwidth you send out from your blog for the flavors for which
+                it is enabled. It works by examining various HTTP headers which indicate when the requesting
+                client last polled your blog. This is quite useful for the various
+                syndication formats that blojsom can product such as RSS and Atom, as weblog aggregators are
+                typically setup to poll syndication feeds at specific intervals.
+                If nothing has changed in your blog, an HTTP 304 response code
+                (Not Modified) is sent back to the requesting client. In the case of an HTTP 304 response code,
+                the client will not process the request further.
+            </p>
+        </section>
+        <section>
+            <title>Installation and Setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                conditional-get=org.blojsom.plugin.limiter.ConditionalGetPlugin
+            </source>
+            <p>
+                You may then add "conditional-get" to one of the flavor-based plugin chains. This would typically be
+                done for the syndication feeds such as RSS and Atom.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                atom.blojsom-plugin-chain=conditional-get
+                rss.blojsom-plugin-chain=conditional-get
+                rss2.blojsom-plugin-chain=conditional-get
+            </source>
+        </section>
+    </body>
+</document>
+

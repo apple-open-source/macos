@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: service.c,v 1.53 2004/12/17 16:32:25 ken3 Exp $ */
+/* $Id: service.c,v 1.5 2005/03/05 00:37:29 dasenbro Exp $ */
 
 #include <config.h>
 

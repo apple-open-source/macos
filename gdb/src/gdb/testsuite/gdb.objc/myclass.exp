@@ -160,13 +160,17 @@ gdb_test continue \
      "continue until category method"
 
 
+
+# APPLE LOCAL:  All of these selector tests down below are Apple local
+#               additions.
+
 runto_main
 
 gdb_test "print @selector(a)" "(0x\[^0\]\[0-9a-fA-F\]+)"
 gdb_test "print @selector(b)" "(0x\[^0\]\[0-9a-fA-F\]+)"
 gdb_test "print @selector(c)" "(0x\[^0\]\[0-9a-fA-F\]+)"
-send_gdb "print @selector(WiwKeeOrqwKxqIFjeqwJ)\n"
 
+send_gdb "print @selector(WiwKeeOrqwKxqIFjeqwJ)\n"
 gdb_expect {
   -re ".* (0x\[^0\]\[0-9a-fA-F\]+).*$gdb_prompt $" {
     set selector_addr $expect_out(1,string)
@@ -176,11 +180,28 @@ gdb_expect {
   timeout { fail "fetch selector" }
 }
 
+gdb_test "print @selector(d)" "(0x\[^0\]\[0-9a-fA-F\]+)"
+
+send_gdb "print @selector(WiwKeeOrqwKxqIFjeqwJ)\n"
+gdb_expect {
+  -re ".* (0x\[^0\]\[0-9a-fA-F\]+).*$gdb_prompt $" {
+    set selector_addr_retry $expect_out(1,string)
+    pass "fetch selector retry"
+  }
+  -re "$gdb_prompt $" { fail "fetch selector retry" }
+  timeout { fail "fetch selector retry" }
+}
+
+if {$selector_addr == $selector_addr_retry} {
+  pass "selector address cached within a single run"
+} else {
+  fail "selector address cached within a single run"
+}
+
 runto_main
 
 gdb_test "print @selector(aaaaaaaa)" "(0x\[^0\]\[0-9a-fA-F\]+)"
 gdb_test "print @selector(bbbbbbbb)" "(0x\[^0\]\[0-9a-fA-F\]+)"
-gdb_test "print @selector(cccccccc)" "(0x\[^0\]\[0-9a-fA-F\]+)"
 send_gdb "print @selector(WiwKeeOrqwKxqIFjeqwJ)\n"
 
 gdb_expect {
@@ -197,3 +218,7 @@ if {$selector_addr != $selector_addr_2} {
 } else {
   fail "selector address changed when re-running"
 } 
+
+gdb_test "print @selector(cccccccc)" "(0x\[^0\]\[0-9a-fA-F\]+)"
+
+gdb_exit

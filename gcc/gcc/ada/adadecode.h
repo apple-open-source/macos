@@ -2,12 +2,11 @@
  *                                                                          *
  *                         GNAT COMPILER COMPONENTS                         *
  *                                                                          *
- *                             G N A T D E C O                              *
- *                                                                          *
+ *                            A D A D E C O D E                             *
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *           Copyright (C) 2001-2002, Free Software Foundation, Inc.        *
+ *           Copyright (C) 2001-2003, Free Software Foundation, Inc.        *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -43,9 +42,9 @@
    verbose information).
    VERBOSE is nonzero if more information about the entity is to be
    added at the end of the Ada name and surrounded by ( and ).  */
-extern void __gnat_decode PARAMS ((const char *, char *, int));
+extern void __gnat_decode (const char *, char *, int);
 
 /* ada_demangle is added for COMPATIBILITY ONLY. It has the name of the
    function used in the binutils and GDB. Always consider using __gnat_decode
    instead of ada_demangle. Caller must free the pointer returned.  */
-extern char *ada_demangle PARAMS ((const char *));
+extern char *ada_demangle (const char *);

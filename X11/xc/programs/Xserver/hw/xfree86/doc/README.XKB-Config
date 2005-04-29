@@ -19,7 +19,7 @@ don't need to touch any of xkb configuration files.
 
 2.  Selecting XKB Configuration
 
-The easiest and the most natural way how to specify a keyboard mapping is tu
+The easiest and the most natural way how to specify a keyboard mapping is to
 use rules component. As its name suggests it describes a number of general
 rules how to combine all bits and pieces into a valid and useful keyboard
 mapping. All you need to do is to select a suitable rules file and then to
@@ -99,7 +99,7 @@ Then the configuration snippet could look like this:
 Of course, this can be also done at runtime using utility setxkbmap.  Shell
 command loading the same keyboard mapping would look like:
 
-     setxkmap -rules xfree86 -model logicordless -layout "us,cz,de" \
+     setxkbmap -rules xfree86 -model logicordless -layout "us,cz,de" \
               -option "grp:alt_shift_toggle"
 
 2.3  Even More Advanced Configuration
@@ -192,7 +192,7 @@ been obsoleted by previously described rules files which are far more flexi-
 ble and allow simpler and more intuitive syntax. It is preserved merely for
 compatibility reasons. Avoid using it if it is possible.
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/XKB-Config.sgml,v 1.2 2003/02/25 19:31:02 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/XKB-Config.sgml,v 1.4 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.XKB-Config,v 1.2 2003/02/25 21:32:35 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.XKB-Config,v 1.6 2003/10/19 19:57:13 dawes Exp $

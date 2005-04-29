@@ -1,9 +1,9 @@
 /*
- * "$Id: tempfile.c,v 1.1.1.9 2003/02/10 21:57:24 jlovell Exp $"
+ * "$Id: tempfile.c,v 1.6 2005/01/04 22:10:39 jlovell Exp $"
  *
  *   Temp file utilities for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -35,6 +35,7 @@
 
 #include "cups.h"
 #include "string.h"
+#include "globals.h"
 #include "debug.h"
 #include <stdlib.h>
 #include <ctype.h>
@@ -59,13 +60,13 @@ cupsTempFd(char *filename,		/* I - Pointer to buffer */
   int		fd;			/* File descriptor for temp file */
   int		tries;			/* Number of tries */
   const char	*tmpdir;		/* TMPDIR environment var */
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
 #ifdef WIN32
   char		tmppath[1024];		/* Windows temporary directory */
   DWORD		curtime;		/* Current time */
 #else
   struct timeval curtime;		/* Current time */
 #endif /* WIN32 */
-  static char	*buf = NULL;		/* Buffer if you pass in NULL and 0 */
 
 
  /*
@@ -74,13 +75,13 @@ cupsTempFd(char *filename,		/* I - Pointer to buffer */
 
   if (filename == NULL)
   {
-    if (buf == NULL)
-      buf = calloc(1024, sizeof(char));
+    if (cg->temp_fd_buf == NULL)
+      cg->temp_fd_buf = calloc(1024, sizeof(char));
 
-    if (buf == NULL)
+    if (cg->temp_fd_buf == NULL)
       return (-1);
 
-    filename = buf;
+    filename = cg->temp_fd_buf;
     len      = 1024;
   }
 
@@ -182,7 +183,6 @@ cupsTempFile(char *filename,		/* I - Pointer to buffer */
              int  len)			/* I - Size of buffer */
 {
   int		fd;			/* File descriptor for temp file */
-  static char	buf[1024] = "";		/* Buffer if you pass in NULL and 0 */
 
 
  /*
@@ -191,8 +191,8 @@ cupsTempFile(char *filename,		/* I - Pointer to buffer */
 
   if (filename == NULL)
   {
-    filename = buf;
-    len      = sizeof(buf);
+    filename = _cups_globals()->temp_file_buf;
+    len      = sizeof(_cups_globals()->temp_file_buf);
   }
 
  /*
@@ -217,5 +217,5 @@ cupsTempFile(char *filename,		/* I - Pointer to buffer */
 
 
 /*
- * End of "$Id: tempfile.c,v 1.1.1.9 2003/02/10 21:57:24 jlovell Exp $".
+ * End of "$Id: tempfile.c,v 1.6 2005/01/04 22:10:39 jlovell Exp $".
  */

@@ -1,0 +1,86 @@
+[comment {-*- tk -*- pie manpage}]
+[manpage_begin pie n 6.6]
+[copyright {1995-2004 Jean-Luc Fontaine <jfontain@free.fr>}]
+[moddesc   {tkpiechart pie class}]
+[titledesc {2D or 3D pie chart object in a canvas}]
+
+[require stooop 4.1]
+[require switched 2.2]
+[require tkpiechart 6.6]
+[description]
+A pie object is used to visualize a set of values, usually as shares of a total. Each value is represented by a colored slice, which may have a 2 dimensional or 3 dimensional look. Each slice is associated with a label displaying the data name, and a numerical field showing the percentage taken by the slice. The labels are placed by the chosen labeler object ([option -labeler] option). Each label color matches its related slice.
+[para]A pie chart is made of Tk canvas items, found in [class pieBoxLabeler], [class piePeripheralLabeler] and [class canvasLabel] objects, that compose the pie object. The pie constructor creates the pie itself and its background slice within the parent canvas. Once the pie object exists, slices can be created and resized. At the time the pie is created, the parent Tk [syscmd canvas] widget must exist.
+[para]Slice colors are automatically generated, using a default color list for all pies, unless another list is used (using the [option -colors] option). When a 3D look is used, the slice edge is darker than its top while using the same color tone.
+[list_begin definitions]
+[call [cmd stooop::new] [class pie] [arg canvas] [arg x] [arg y] [opt options]]
+Creates a pie object in the specified Tk canvas. The upper left corner of the pie is placed at the specified coordinates in the canvas. The pie object identifier is returned (referred to as [emph pieObject] in this document).
+[call [cmd switched::configure] [arg pieObject] [opt options]]
+Configures a pie object or returns all the options with their current values if no options are passed as parameters.
+[call [cmd switched::cget] [arg pieObject] [arg option]]
+Returns an option value for the specified pie object.
+[call [cmd stooop::delete] [arg pieObject]]
+Deletes the specified pie object.
+[list_end]
+
+[section OVERVIEW]
+The pie class is part of the tkpiechart extension that allows the programmer to create and dynamically update 2D or 3D pie charts in a Tcl/Tk application. The tkpiechart package is written in Tcl only, using object oriented techniques thanks to the stooop package, included in tcllib.
+
+[section OPTIONS]
+[list_begin opt]
+[opt_def -autoupdate boolean]
+Boolean value specifying whether all the slices and their labels are redrawn when a slice size is changed. On by default. Turn it off and invoke [method pie::update] if you change many slices at once and want to improve performance.
+[opt_def -background color]
+Slices may or may not fill up the 100% of the pie. The unoccupied part of the pie is a slice that takes 100% of the pie. It is by default transparent with a black border. The color of this background slice may be set by the user using color names as in the [option -background] standard option (see the Tk [syscmd options] manual page for more details). When the pie has a 3D look, the background of a slice edge is darker than the top and uses the same color tone.
+[opt_def -colors list]
+Specifies a list of colors for slices. In this case, the slice colors will successively be drawn from the list in the list order, cycling through if there are more slices than colors in the list. Colors are specified in the same format as the [option -background] option.
+[opt_def -height value]
+Specifies the total height for the pie, including the room taken by the labeler labels. The pie slices are resized when labels are added or deleted (when adding or deleting slices) so that the total height remains constant. This value may be specified in any of the forms described in the [syscmd canvas] [emph COORDINATES] manual section.
+[opt_def -labeler object]
+Specifies a placer object for the slice labels, so that, for example, slice values may be placed next to them. If not specified, the [emph pieBoxLabeler] (see corresponding manual) is used, the other option being the [emph piePeripheralLabeler] class. Each labeler has a specific behavior which may be set via its options. The labeler object is automatically deleted when the pie object is itself deleted. The labeler cannot be changed once the pie is created.
+[opt_def -selectable boolean]
+Boolean value specifying whether slices are selectable or not. Acceptable values are those defined by the Tcl language itself for boolean values. If selectable, slices can be selected with the first mouse button, by clicking on either the slice or its label. Selection can be extended by using the classical [emph control] or [emph shift] clicks. The list of currently selected slices can be retrieved at any time using the [method selectedSlices] pie class member procedure.
+[opt_def -title text]
+Title text to be placed above the pie.
+[opt_def -titlefont value]
+Font for the title text.
+[opt_def -titleoffset value]
+Distance between the bottom of the title text and the top of the pie slices. This value may be specified in any of the forms described in the sizes section below.
+[opt_def -thickness value]
+The thickness is set to 0 by default, giving the pie a simple 2D shape, much faster to display. A positive thickness value will give the pie a 3D look with matched darker colors for the slices edges. These values may be specified in any of the forms described in the [emph SIZES] section below.
+[opt_def -width value]
+Specifies the total width for the pie, including the room taken by the labeler labels. The pie slices are resized when labels are added or deleted (when adding or deleting slices) so that the total width remains constant. This value may be specified in any of the forms described in the [syscmd canvas] [emph COORDINATES] manual section.
+[list_end]
+
+[section {MEMBER PROCEDURES}]
+[list_begin definitions]
+[call pie::newSlice [arg pieObject] [opt labelText]]
+Creates a slice. A unique object identifier is returned (referred to as [emph sliceObject] in this document). The slice color is automatically allocated and the slice label placed using the specified labeler (using the [option -labeler] option). The slice itself is placed after (clockwise) the existing slices. The slice object identifier will be used for sizing and resizing the slice.
+[nl]If the label text is not specified, it will be set to [emph {"slice n"}], [emph n] being the number of the slice in the order of creation (first slice is number 1).
+[call pie::deleteSlice [arg pieObject] [arg sliceObject]]
+Deletes a slice. The following slices (clockwise) if any are then moved to compensate for the empty space left by the deleted slice.
+[call pie::sizeSlice [arg pieObject] [arg sliceObject] [arg unitShare] [opt displayedValue]]
+Sizes or resizes a slice. The slice is then automatically recalculated so it occupies the proper share of the whole pie. The [arg unitShare] parameter is a floating point number expressed in share (between 0 and 1) of the whole pie. The following slices (clockwise) are moved to accommodate the new slice size. The slice size value next to the slice label is also updated with the new share value or [arg displayedValue] if specified.
+[call pie::labelSlice [arg pieObject] [arg sliceObject] [arg string]]
+Updates a slice label. Can be invoked at any time.
+[call pie::selectedSlices [arg pieObject]]
+Returns a list of currently selected slice objects.
+[list_end]
+
+[section TAGS]
+The whole pie, the pie graphics (all slices), and each slice have the following specific tags:
+[list_begin bullet]
+  [bullet][var {pie(pieObject)}]
+  [bullet][var {pieSlices(pieObject)}]
+  [bullet][var {slice(sliceObject)}]
+[list_end]
+For example, the whole pie can be moved using the [syscmd canvas] [cmd move] command on the pie tag, or bindings on slices can be set using the slice tags (see the [syscmd canvas] manual page [emph {ITEM IDS AND TAGS}] section for more information).
+
+[section SIZES]
+All sizes related to pies are stored as floating point numbers. The coordinates and sizes are specified in screen units, which are floating point numbers optionally followed by one of several letters as specified in the [syscmd canvas] [emph COORDINATES] manual section.
+
+[section LIMITATIONS]
+If the number of slices is too big, identical colors will be used for some of the slices. You may set your own colors in this case.
+
+[see_also pieBoxLabeler piePeripheralLabeler canvasLabel]
+[keywords pie slice labeler canvas]
+[manpage_end]

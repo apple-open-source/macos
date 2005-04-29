@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)rindex.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/rindex.c,v 1.5 2002/08/30 19:42:07 robert Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/rindex.c,v 1.7 2003/12/18 07:44:53 jkh Exp $");
 
 #include <stddef.h>
 
@@ -53,9 +53,11 @@ rindex
 (const char *p, int ch)
 {
 	char *save;
+	char c;
 
+	c = ch;
 	for (save = NULL;; ++p) {
-		if (*p == ch)
+		if (*p == c)
 			save = (char *)p;
 		if (*p == '\0')
 			return (save);

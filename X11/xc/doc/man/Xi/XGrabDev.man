@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XGrabDev.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XGrabDev.man,v 1.3 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -19,21 +19,14 @@ XGrabDevice, XUngrabDevice \- grab/release the specified extension device
 .SH SYNTAX
 .nf
 \fB
-int XGrabDevice\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fIgrab_window\fP\^, \fIowner_events\fP\^, \fIevent_count\fP\^, \fIevent_list\fP\^,
-\fIthis_device_mode\fP\^, \fIother_devices_mode\fP\^, \fItime\fP\^)
-      Display *\fIdisplay\fP\^;
-      XDevice *\fIdevice\fP\^;
-      Window \fIgrab_window\fP\^;
-      Bool \fIowner_events\fP\^;
-      int \fIevent_count\fP\^;
-      XEventClass *\fIevent_list\fP\^;
-      int \fIthis_device_mode\fP\^, \fIother_devices_mode\fP\^;
-      Time \fItime\fP\^;
-
-XUngrabDevice\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fItime\fP\^)
-      Display *\fIdisplay\fP\^;
-      XDevice *\fIdevice\fP\^;
-      Time \fItime\fP\^;
+.HP
+int XGrabDevice\^(\^Display *\fIdisplay\fP\^, XDevice *\fIdevice\fP\^, Window
+\fIgrab_window\fP\^, Bool \fIowner_events\fP\^, int \fIevent_count\fP\^,
+XEventClass *\fIevent_list\fP\^, int \fIthis_device_mode\fP\^,
+int \fIother_devices_mode\fP\^, Time \fItime\fP\^); 
+.HP 
+int XUngrabDevice\^(\^Display *\fIdisplay\fP\^, XDevice *\fIdevice\fP\^, Time
+\fItime\fP\^); 
 .fi
 \fP
 .SH ARGUMENTS

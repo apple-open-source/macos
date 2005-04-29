@@ -215,7 +215,7 @@ gdbtk_test srcwin3-1.13 "assembly->source mode change" {
 # Desc: check contents of function combobox
 # There won't be any because we have no debug info
 gdbtk_test srcwin3-2.2 "check contents of function combobox" {
-  set names [$statbar.func listget 0 end]
+  set names [$statbar.func list get 0 end]
   llength $names
 } {0}
 

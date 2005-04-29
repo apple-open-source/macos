@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>AclSubjectTypes</key>
+	<array>
+		<string>CSSM_ACL_SUBJECT_TYPE_ANY</string>
+	</array>
+	<key>AuthTags</key>
+	<array>
+		<string>CSSM_ACL_AUTHORIZATION_ANY</string>
+	</array>
+	<key>CertTypeFormat</key>
+	<string>&lt;&lt;CSSM_CERT_X_509v3 | CSSM_CERT_ENCODING_DER</string>
+	<key>MdsFileDescription</key>
+	<string>Built-in X509TP Primary info</string>
+	<key>MdsFileType</key>
+	<string>PluginSpecific</string>
+	<key>MdsRecordType</key>
+	<string>MDS_CDSADIR_TP_PRIMARY_RECORDTYPE</string>
+	<key>ModuleID</key>
+	<string>{87191ca5-0fc9-11d4-849a-000502b52122}</string>
+	<key>ModuleName</key>
+	<string>AppleX509TP</string>
+	<key>ProductVersion</key>
+	<string>1.0</string>
+	<key>SSID</key>
+	<integer>0</integer>
+	<key>SampleTypes</key>
+	<array/>
+	<key>Vendor</key>
+	<string>Apple Computer, Inc.</string>
+</dict>
+</plist>

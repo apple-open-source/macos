@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = bootparamd.c bootparam_proc.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble bootparamd.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

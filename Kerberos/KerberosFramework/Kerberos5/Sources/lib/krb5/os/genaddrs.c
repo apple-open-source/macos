@@ -31,21 +31,8 @@
 #include "k5-int.h"
 #include "os-proto.h"
 
-#if !defined(_WINSOCKAPI_) && !defined(HAVE_MACSOCK_H)
+#if !defined(_WINSOCKAPI_)
 #include <netinet/in.h>
-#endif
-
-#ifndef GETPEERNAME_ARG2_TYPE
-#define GETPEERNAME_ARG2_TYPE struct sockaddr
-#endif
-#ifndef GETPEERNAME_ARG3_TYPE
-#define GETPEERNAME_ARG3_TYPE size_t
-#endif
-#ifndef GETSOCKNAME_ARG2_TYPE
-#define GETSOCKNAME_ARG2_TYPE struct sockaddr
-#endif
-#ifndef GETSOCKNAME_ARG3_TYPE
-#define GETSOCKNAME_ARG3_TYPE size_t
 #endif
 
 struct addrpair {

@@ -1,0 +1,20 @@
+#!/usr/local/bin/tclsh
+# -*- tcl -*-
+# needs no '#!' path
+# find an application via PATH, like 'which'
+
+set app  [lindex $argv 0]
+set path [split $env(PATH) :]
+
+foreach p $path {
+    set papp [file join $p $app]
+
+    if {[file exists $papp]} {
+	puts $papp
+	exit 0
+    }
+}
+
+# not found -- no error, fixhbline will check for empty name
+#exit 1
+exit 0

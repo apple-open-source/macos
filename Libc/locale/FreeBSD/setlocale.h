@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libc/locale/setlocale.h,v 1.4 2001/12/20 18:28:52 phantom Exp $
+ * $FreeBSD: src/lib/libc/locale/setlocale.h,v 1.6 2003/07/06 02:03:37 ache Exp $
  */
 
 #ifndef _SETLOCALE_H_
@@ -33,5 +33,8 @@
 #define CATEGORY_LEN 11
 
 extern char *_PathLocale;
+
+int	__detect_path_locale(void);
+int	__wrap_setrunelocale(const char *);
 
 #endif /* !_SETLOCALE_H_ */

@@ -1,11 +1,146 @@
 ==============================================================================
 Kerberos Login Library Version History
 ==============================================================================
-Current version: 1.7fc11
-Date           : September 18, 2003
+Current version: 1.8fc7
+Date           : March 1, 2005
 Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
 ========================================================================
 
+Kerberos Login 1.8
+Released with KfM 5.5
+
+========================================================================
+
+	Kerberos Login 1.8fc7
+	March 1, 2005
+	
+	[RT 2946] Can't get tickets for v4-only realm
+	[RT 2947] Memory leaks in __KLGetCCacheByName
+
+	========================================================================
+
+	Kerberos Login 1.8fc6
+	February 1, 2005
+	
+	[RT 2900] incomplete ticket cache confuses KLL
+
+	========================================================================
+
+	Kerberos Login 1.8fc5
+	January 23, 2005
+	
+	[RT 2894] prompter dialog should support NULL banner or name
+	[RT 2899] __KLGetCCAPICCacheForKrb5CCache() leaks the string "name"
+
+	========================================================================
+
+	Kerberos Login 1.8fc4
+	January 12, 2005
+	
+	[RT 2842] Use CopyProcessName instead of GetProcessInformation
+	[RT 2860] KLChangePassword returns klParameterErr when server doesn't return strings
+	[RT 2869] KLGetDefaultLoginOption (loginOption_LoginName) returns buffer, not string
+
+	========================================================================
+
+	Kerberos Login 1.8fc3
+	December 17, 2004
+	
+	[RT 2827] __KLChangePasswordTerminal() shouldn't report klUserCanceledErr to the user
+	[RT 2828] export __KLCreatePrincipalFromKerberos5Principal as a private symbol
+	[RT 2829] __KLKrb5CCacheExists should use cc_ccache_release to free a ccache
+	[RT 2830] __KLGetSystemDefaultCCache should return an error if is no default ccache
+	[RT 2809] use cc_ccache_destroy to destroy v4 CCAPI caches
+	
+	========================================================================
+
+	Kerberos Login 1.8fc2
+	December 13, 2004
+	
+	[RT 2800] Use Apple System Logger and set debugging at runtime
+	[RT 2801] _KLAcquireNewInitialTicketsTerminal should not return krb5 errors
+	[RT 2799] Use kCFPreferencesAnyUser, kCFPreferencesCurrentHost when writing prefs
+	
+	========================================================================
+
+	Kerberos Login 1.8fc1
+	December 6, 2004
+	
+	[RT 2014] KLL should honor file based krb5 ticket caches
+	[RT 2787] KLL should not use CFPreferencesCopyAppValue
+	[RT 2788] alert sheets returning void should not run modal
+	[RT 2790] New Kerberos Authentication dialog HI
+	
+	========================================================================
+
+	Kerberos Login 1.8b8
+	November 4, 2004
+	
+	[RT 2769] Narrow authentication dialogs to take up less space
+	
+	========================================================================
+
+	Kerberos Login 1.8b7
+	October 17, 2004
+	
+	[RT 2717] CFBundleGetValueForInfoDictionaryKey() accesses homedir!!
+	[RT 2733] KLL should be thread-safe whereever possible
+	[RT 2737] KLL should get des ticket for krb524
+	
+	========================================================================
+
+	Kerberos Login 1.8b6
+	August 30, 2004
+	
+	[RT 2680] Authenticate to Kerberos dialog should not minimize with error sheet 
+	
+	========================================================================
+
+	Kerberos Login 1.8b5
+	August 20, 2004
+	
+	[RT 2649] KLL should use session ID *and* UID to distinguish between users
+	[RT 2650] KLL should return Kerberos default realm if no favorite default realm
+	[RT 2651] KLL should return the short user name if no KLL name exists in prefs
+	[RT 2673] Add more fine grained private APIs to control prompting behavior
+	[RT 2672] KerberosAgent should use the new Kerberos logo
+	
+	========================================================================
+
+	Kerberos Login 1.8b4
+	July 15, 2004
+	
+	[RT 2575] KLL lock directory should use Session ID, not UID to distinguish between users 
+	[RT 2634] Remove use of client principal from krb5_context (default_ccprincipal) 
+	
+	========================================================================
+
+	Kerberos Login 1.8b3
+	May 21, 2004
+	
+	[RT 2566] Kerberos authentication dialog should not steal focus
+	[RT 2567] KLL should support a global preference file
+
+	========================================================================
+
+	Kerberos Login 1.8b2
+	March 18, 2004
+	
+	[RT 1661] KfM should use Panther mach init per user mechanism 
+
+	========================================================================
+
+	Kerberos Login 1.8b1
+	January 31, 2004
+	
+	[RT 2013] KLRenewInitialTickets and KLValidateInitialTickets leak a krb5_ccache
+
+	========================================================================
+
+Kerberos Login 1.7
+September 18, 2003
+
+========================================================================
 
 	Kerberos Login 1.7fc11
 	September 18, 2003

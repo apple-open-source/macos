@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --           Copyright (C) 1999-2001, Ada Core Technologies, Inc.           --
 --                                                                          --
@@ -46,6 +45,8 @@ package body MLib is
       Output_File : String;
       Output_Dir  : String)
    is
+      pragma Warnings (Off, Afiles);
+
       use GNAT.OS_Lib;
 
    begin

@@ -36,16 +36,16 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)putc.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/stdio/putwc.3,v 1.6 2002/12/04 18:57:45 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdio/putwc.3,v 1.7 2004/03/16 13:30:11 tjr Exp $
 .\"
-.Dd October 10, 2002
+.Dd March 3, 2004
 .Dt PUTWC 3
 .Os
 .Sh NAME
 .Nm fputwc ,
 .Nm putwc ,
 .Nm putwchar
-.Nd output a wide-character to a stream
+.Nd output a wide character to a stream
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
@@ -61,7 +61,7 @@
 The
 .Fn fputwc
 function
-writes the wide-character
+writes the wide character
 .Fa wc
 to the output stream pointed to by
 .Fa stream .
@@ -86,7 +86,7 @@ The
 and
 .Fn putwchar
 functions
-return the wide-character written.
+return the wide character written.
 If an error occurs, the value
 .Dv WEOF
 is returned.

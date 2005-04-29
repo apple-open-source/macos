@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_dga.c,v 1.11 2002/09/18 18:14:58 martin Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_dga.c,v 1.12 2003/11/10 18:41:22 tsi Exp $ */
 /*
  * Copyright 2000 ATI Technologies Inc., Markham, Ontario, and
  *                VA Linux Systems Inc., Fremont, California.
@@ -97,7 +97,7 @@ SECOND_PASS:
 		pitch = secondPitch;
 
 	    if (!(newmodes = xrealloc(modes, (*num + 1) * sizeof(DGAModeRec))))
-	        break;
+		break;
 
 	    modes       = newmodes;
 	    currentMode = modes + *num;
@@ -106,7 +106,7 @@ SECOND_PASS:
 	    currentMode->flags          = DGA_CONCURRENT_ACCESS;
 
 	    if (pixmap)
-	        currentMode->flags     |= DGA_PIXMAP_AVAILABLE;
+		currentMode->flags     |= DGA_PIXMAP_AVAILABLE;
 
 	    if (info->accel) {
 	      if (info->accel->SetupForSolidFill &&
@@ -123,7 +123,7 @@ SECOND_PASS:
 	    if (pMode->Flags & V_DBLSCAN)
 		currentMode->flags     |= DGA_DOUBLESCAN;
 	    if (pMode->Flags & V_INTERLACE)
-	        currentMode->flags     |= DGA_INTERLACED;
+		currentMode->flags     |= DGA_INTERLACED;
 
 	    currentMode->byteOrder      = pScrn->imageByteOrder;
 	    currentMode->depth          = depth;
@@ -264,16 +264,16 @@ static Bool RADEON_SetMode(ScrnInfoPtr pScrn, DGAModePtr pMode)
 
 	RADEONSwitchMode(indx, pScrn->currentMode, 0);
 #ifdef XF86DRI
-    	if (info->directRenderingEnabled) {
+	if (info->directRenderingEnabled) {
 	    RADEONCP_STOP(pScrn, info);
-    	}
+	}
 #endif
 	if (info->accelOn)
 	    RADEONEngineInit(pScrn);
 #ifdef XF86DRI
-    	if (info->directRenderingEnabled) {
+	if (info->directRenderingEnabled) {
 	    RADEONCP_START(pScrn, info);
-    	}
+	}
 #endif
 	RADEONAdjustFrame(indx, 0, 0, 0);
 	info->DGAactive = FALSE;
@@ -297,16 +297,16 @@ static Bool RADEON_SetMode(ScrnInfoPtr pScrn, DGAModePtr pMode)
 	RADEONSwitchMode(indx, pMode->mode, 0);
 
 #ifdef XF86DRI
-    	if (info->directRenderingEnabled) {
+	if (info->directRenderingEnabled) {
 	    RADEONCP_STOP(pScrn, info);
-    	}
+	}
 #endif
 	if (info->accelOn)
 	    RADEONEngineInit(pScrn);
 #ifdef XF86DRI
-    	if (info->directRenderingEnabled) {
+	if (info->directRenderingEnabled) {
 	    RADEONCP_START(pScrn, info);
-    	}
+	}
 #endif
     }
 

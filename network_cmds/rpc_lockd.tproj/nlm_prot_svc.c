@@ -39,7 +39,7 @@ extern int need_retry_blocked_locks; /* need to call retry_blockingfilelocklist(
 #ifndef lint
 /*static char sccsid[] = "from: @(#)nlm_prot.x 1.8 87/09/21 Copyr 1987 Sun Micro";*/
 /*static char sccsid[] = "from: * @(#)nlm_prot.x	2.1 88/08/01 4.0 RPCSRC";*/
-static char rcsid[] = "$Id: nlm_prot_svc.c,v 1.4.36.1 2004/04/16 15:50:05 lindak Exp $";
+static char rcsid[] = "$Id: nlm_prot_svc.c,v 1.5 2004/03/11 23:52:19 lindak Exp $";
 #endif /* not lint */
 extern int _rpcpmstart;		/* Started by a port monitor ? */
 extern int _rpcfdtype;		/* Whether Stream or Datagram ? */

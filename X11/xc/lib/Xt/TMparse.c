@@ -32,7 +32,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/TMparse.c,v 3.9 2002/05/31 18:45:46 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/TMparse.c,v 3.11 2003/05/27 22:26:43 tsi Exp $ */
 
 /*
 
@@ -430,10 +430,10 @@ static void CompileNameValueTable(table)
         table[i].signature = XrmPermStringToQuark(table[i].name);
 }
 
-static int OrderEvents(a, b)
-    EventKey	*a, *b;
+static int OrderEvents(_Xconst void *a, _Xconst void *b)
 {
-    return ((a->signature < b->signature) ? -1 : 1);
+    return ((((_Xconst EventKey *)a)->signature <
+	     ((_Xconst EventKey *)b)->signature) ? -1 : 1);
 }
 
 static void Compile_XtEventTable(table, count)
@@ -448,10 +448,10 @@ static void Compile_XtEventTable(table, count)
     qsort(table, count, sizeof(EventKey), OrderEvents);
 }
 
-static int OrderModifiers(a, b)
-    ModifierRec *a, *b;
+static int OrderModifiers(_Xconst void *a, _Xconst void *b)
 {
-    return ((a->signature < b->signature) ? -1 : 1);
+    return ((((_Xconst ModifierRec *)a)->signature <
+	     ((_Xconst ModifierRec *)b)->signature) ? -1 : 1);
 }
 
 static void Compile_XtModifierTable(table, count)
@@ -2053,14 +2053,8 @@ XtCvtStringToTranslationTable(dpy, args, num_args, from, to, closure_ret)
 /*
  * Parses a user's or applications translation table
  */
-#if NeedFunctionPrototypes
 XtAccelerators XtParseAcceleratorTable(
-    _Xconst char* source
-    )
-#else
-XtAccelerators XtParseAcceleratorTable(source)
-    String source;
-#endif
+    _Xconst char* source)
 {
     Boolean error = FALSE;
     XtAccelerators ret =
@@ -2073,14 +2067,8 @@ XtAccelerators XtParseAcceleratorTable(source)
     return ret;
 }
 
-#if NeedFunctionPrototypes
 XtTranslations XtParseTranslationTable(
-    _Xconst char* source
-    )
-#else
-XtTranslations XtParseTranslationTable(source)
-    String source;
-#endif
+    _Xconst char* source)
 {
     Boolean error = FALSE;
     XtTranslations ret = ParseTranslationTable(source, FALSE, XtTableReplace, &error);
@@ -2092,7 +2080,7 @@ XtTranslations XtParseTranslationTable(source)
     return ret;
 }
 
-void _XtTranslateInitialize()
+void _XtTranslateInitialize(void)
 {
     LOCK_PROCESS;
     if (initialized) {

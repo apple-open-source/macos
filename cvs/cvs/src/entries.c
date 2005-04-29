@@ -24,6 +24,8 @@ static Entnode *subdir_record PROTO((int, const char *, const char *));
 static FILE *entfile;
 static char *entfilename;		/* for error messages */
 
+
+
 /*
  * Construct an Entnode
  */
@@ -90,9 +92,7 @@ write_ent_proc (node, closure)
      Node *node;
      void *closure;
 {
-    Entnode *entnode;
-
-    entnode = (Entnode *) node->data;
+    Entnode *entnode = node->data;
 
     if (closure != NULL && entnode->type != ENT_FILE)
 	*(int *) closure = 1;
@@ -145,7 +145,7 @@ write_entries (list)
 	/* We didn't write out any directories.  Check the list
            private data to see whether subdirectory information is
            known.  If it is, we need to write out an empty D line.  */
-	sdtp = (struct stickydirtag *) list->list->data;
+	sdtp = list->list->data;
 	if (sdtp == NULL || sdtp->subdirs)
 	    if (fprintf (entfile, "D\n") < 0)
 		error (1, errno, "cannot write %s", entfilename);
@@ -157,8 +157,12 @@ write_entries (list)
     rename_file (entfilename, CVSADM_ENT);
 
     /* now, remove the log file */
-    unlink_file (CVSADM_ENTLOG);
+    if (unlink_file (CVSADM_ENTLOG) < 0
+	&& !existence_error (errno))
+	error (0, errno, "cannot remove %s", CVSADM_ENTLOG);
 }
+
+
 
 /*
  * Removes the argument file from the Entries file if necessary.
@@ -166,17 +170,13 @@ write_entries (list)
 void
 Scratch_Entry (list, fname)
     List *list;
-    char *fname;
+    const char *fname;
 {
     Node *node;
 
     if (trace)
-#ifdef SERVER_SUPPORT
-	(void) fprintf (stderr, "%c-> Scratch_Entry(%s)\n",
-			(server_active) ? 'S' : ' ', fname);
-#else
-	(void) fprintf (stderr, "-> Scratch_Entry(%s)\n", fname);
-#endif
+	(void) fprintf (stderr, "%s-> Scratch_Entry(%s)\n",
+			CLIENT_SERVER_STR, fname);
 
     /* hashlookup to see if it is there */
     if ((node = findnode_fn (list, fname)) != NULL)
@@ -204,6 +204,8 @@ Scratch_Entry (list, fname)
     }
 }
 
+
+
 /*
  * Enters the given file name/version/time-stamp into the Entries file,
  * removing the old entry first, if necessary.
@@ -211,13 +213,13 @@ Scratch_Entry (list, fname)
 void
 Register (list, fname, vn, ts, options, tag, date, ts_conflict)
     List *list;
-    char *fname;
-    char *vn;
-    char *ts;
-    char *options;
-    char *tag;
-    char *date;
-    char *ts_conflict;
+    const char *fname;
+    const char *vn;
+    const char *ts;
+    const char *options;
+    const char *tag;
+    const char *date;
+    const char *ts_conflict;
 {
     Entnode *entnode;
     Node *node;
@@ -231,18 +233,11 @@ Register (list, fname, vn, ts, options, tag, date, ts_conflict)
 
     if (trace)
     {
-#ifdef SERVER_SUPPORT
-	(void) fprintf (stderr, "%c-> Register(%s, %s, %s%s%s, %s, %s %s)\n",
-			(server_active) ? 'S' : ' ',
+	(void) fprintf (stderr, "%s-> Register(%s, %s, %s%s%s, %s, %s %s)\n",
+			CLIENT_SERVER_STR,
 			fname, vn, ts ? ts : "",
 			ts_conflict ? "+" : "", ts_conflict ? ts_conflict : "",
 			options, tag ? tag : "", date ? date : "");
-#else
-	(void) fprintf (stderr, "-> Register(%s, %s, %s%s%s, %s, %s %s)\n",
-			fname, vn, ts ? ts : "",
-			ts_conflict ? "+" : "", ts_conflict ? ts_conflict : "",
-			options, tag ? tag : "", date ? date : "");
-#endif
     }
 
     entnode = Entnode_Create (ENT_FILE, fname, vn, ts, options, tag, date,
@@ -252,7 +247,15 @@ Register (list, fname, vn, ts, options, tag, date, ts_conflict)
     if (!noexec)
     {
 	entfilename = CVSADM_ENTLOG;
-	entfile = open_file (entfilename, "a");
+	entfile = CVS_FOPEN (entfilename, "a");
+
+	if (entfile == NULL)
+	{
+	    /* Warning, not error, as in write_entries.  */
+	    /* FIXME-update-dir: should be including update_dir in message.  */
+	    error (0, errno, "cannot open %s", entfilename);
+	    return;
+	}
 
 	if (fprintf (entfile, "A ") < 0)
 	    error (1, errno, "cannot write %s", entfilename);
@@ -271,9 +274,8 @@ static void
 freesdt (p)
     Node *p;
 {
-    struct stickydirtag *sdtp;
+    struct stickydirtag *sdtp = p->data;
 
-    sdtp = (struct stickydirtag *) p->data;
     if (sdtp->tag)
 	free (sdtp->tag);
     if (sdtp->date)
@@ -382,7 +384,9 @@ fgetentent(fpin, cmd, sawdir)
 	    if (strlen (ts) > 30 && CVS_STAT (user, &sb) == 0)
 	    {
 		char *c = ctime (&sb.st_mtime);
-		
+		/* Fix non-standard format.  */
+		if (c[8] == '0') c[8] = ' ';
+
 		if (!strncmp (ts + 25, c, 24))
 		    ts = time_stamp (user);
 		else
@@ -487,7 +491,7 @@ Entries_Open (aflag, update_dir)
 	sdtp->nonbranch = dirnonbranch;
 
 	/* feed it into the list-private area */
-	entries->list->data = (char *) sdtp;
+	entries->list->data = sdtp;
 	entries->list->delproc = freesdt;
     }
 
@@ -507,7 +511,9 @@ Entries_Open (aflag, update_dir)
 	    (void) AddEntryNode (entries, ent);
 	}
 
-	fclose (fpin);
+	if (fclose (fpin) < 0)
+	    /* FIXME-update-dir: should include update_dir in message.  */
+	    error (0, errno, "cannot close %s", CVSADM_ENT);
     }
 
     fpin = CVS_FOPEN (CVSADM_ENTLOG, "r");
@@ -535,7 +541,9 @@ Entries_Open (aflag, update_dir)
 	    }
 	}
 	do_rewrite = 1;
-	fclose (fpin);
+	if (fclose (fpin) < 0)
+	    /* FIXME-update-dir: should include update_dir in message.  */
+	    error (0, errno, "cannot close %s", CVSADM_ENTLOG);
     }
 
     /* Update the list private data to indicate whether subdirectory
@@ -548,7 +556,7 @@ Entries_Open (aflag, update_dir)
 	sdtp = (struct stickydirtag *) xmalloc (sizeof (*sdtp));
 	memset ((char *) sdtp, 0, sizeof (*sdtp));
 	sdtp->subdirs = 0;
-	entries->list->data = (char *) sdtp;
+	entries->list->data = sdtp;
 	entries->list->delproc = freesdt;
     }
 
@@ -587,9 +595,8 @@ static void
 Entries_delproc (node)
     Node *node;
 {
-    Entnode *p;
+    Entnode *p = node->data;
 
-    p = (Entnode *) node->data;
     Entnode_Destroy(p);
 }
 
@@ -621,7 +628,7 @@ AddEntryNode (list, entdata)
        assume that the key is dynamically allocated.  The user's free proc
        should be responsible for freeing the key. */
     p->key = xstrdup (entdata->user);
-    p->data = (char *) entdata;
+    p->data = entdata;
 
     /* put the node into the list */
     addnode (list, p);
@@ -633,12 +640,12 @@ AddEntryNode (list, entdata)
  */
 void
 WriteTag (dir, tag, date, nonbranch, update_dir, repository)
-    char *dir;
-    char *tag;
-    char *date;
+    const char *dir;
+    const char *tag;
+    const char *date;
     int nonbranch;
-    char *update_dir;
-    char *repository;
+    const char *update_dir;
+    const char *repository;
 {
     FILE *fout;
     char *tmp;
@@ -791,11 +798,10 @@ void
 Subdirs_Known (entries)
      List *entries;
 {
-    struct stickydirtag *sdtp;
+    struct stickydirtag *sdtp = entries->list->data;
 
     /* If there is no list private data, that means that the
        subdirectory information is known.  */
-    sdtp = (struct stickydirtag *) entries->list->data;
     if (sdtp != NULL && ! sdtp->subdirs)
     {
 	FILE *fp;
@@ -804,7 +810,8 @@ Subdirs_Known (entries)
 	if (!noexec)
 	{
 	    /* Create Entries.Log so that Entries_Close will do something.  */
-	    fp = CVS_FOPEN (CVSADM_ENTLOG, "a");
+	    entfilename = CVSADM_ENTLOG;
+	    fp = CVS_FOPEN (entfilename, "a");
 	    if (fp == NULL)
 	    {
 		int save_errno = errno;
@@ -818,7 +825,7 @@ Subdirs_Known (entries)
 	    else
 	    {
 		if (fclose (fp) == EOF)
-		    error (1, errno, "cannot close %s", CVSADM_ENTLOG);
+		    error (1, errno, "cannot close %s", entfilename);
 	    }
 	}
     }

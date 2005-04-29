@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_sanity.c,v 1.1 2002/10/30 12:51:55 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_sanity.c,v 1.2 2003/09/28 20:15:28 alanh Exp $ */
 /**************************************************************************
 
 Copyright 2002 ATI Technologies Inc., Ontario, Canada, and
@@ -32,6 +32,8 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Keith Whitwell <keith@tungstengraphics.com>
  *
  */
+
+#include "glheader.h"
 
 #include "radeon_context.h"
 #include "radeon_ioctl.h"
@@ -80,6 +82,61 @@ static struct {
    { RADEON_SE_ZBIAS_FACTOR,2,"RADEON_SE_ZBIAS_FACTOR" },
    { RADEON_SE_TCL_OUTPUT_VTX_FMT,11,"RADEON_SE_TCL_OUTPUT_VTX_FMT" },
    { RADEON_SE_TCL_MATERIAL_EMMISSIVE_RED,17,"RADEON_SE_TCL_MATERIAL_EMMISSIVE_RED" },
+	{ 0, 4, "R200_PP_TXCBLEND_0" },
+	{ 0, 4, "R200_PP_TXCBLEND_1" },
+	{ 0, 4, "R200_PP_TXCBLEND_2" },
+	{ 0, 4, "R200_PP_TXCBLEND_3" },
+	{ 0, 4, "R200_PP_TXCBLEND_4" },
+	{ 0, 4, "R200_PP_TXCBLEND_5" },
+	{ 0, 4, "R200_PP_TXCBLEND_6" },
+	{ 0, 4, "R200_PP_TXCBLEND_7" },
+	{ 0, 6, "R200_SE_TCL_LIGHT_MODEL_CTL_0" },
+	{ 0, 6, "R200_PP_TFACTOR_0" },
+	{ 0, 4, "R200_SE_VTX_FMT_0" },
+	{ 0, 1, "R200_SE_VAP_CNTL" },
+	{ 0, 5, "R200_SE_TCL_MATRIX_SEL_0" },
+	{ 0, 5, "R200_SE_TCL_TEX_PROC_CTL_2" },
+	{ 0, 1, "R200_SE_TCL_UCP_VERT_BLEND_CTL" },
+	{ 0, 6, "R200_PP_TXFILTER_0" },
+	{ 0, 6, "R200_PP_TXFILTER_1" },
+	{ 0, 6, "R200_PP_TXFILTER_2" },
+	{ 0, 6, "R200_PP_TXFILTER_3" },
+	{ 0, 6, "R200_PP_TXFILTER_4" },
+	{ 0, 6, "R200_PP_TXFILTER_5" },
+	{ 0, 1, "R200_PP_TXOFFSET_0" },
+	{ 0, 1, "R200_PP_TXOFFSET_1" },
+	{ 0, 1, "R200_PP_TXOFFSET_2" },
+	{ 0, 1, "R200_PP_TXOFFSET_3" },
+	{ 0, 1, "R200_PP_TXOFFSET_4" },
+	{ 0, 1, "R200_PP_TXOFFSET_5" },
+	{ 0, 1, "R200_SE_VTE_CNTL" },
+	{ 0, 1, "R200_SE_TCL_OUTPUT_VTX_COMP_SEL" },
+	{ 0, 1, "R200_PP_TAM_DEBUG3" },
+	{ 0, 1, "R200_PP_CNTL_X" }, 
+	{ 0, 1, "R200_RB3D_DEPTHXY_OFFSET" }, 
+	{ 0, 1, "R200_RE_AUX_SCISSOR_CNTL" }, 
+	{ 0, 2, "R200_RE_SCISSOR_TL_0" }, 
+	{ 0, 2, "R200_RE_SCISSOR_TL_1" }, 
+	{ 0, 2, "R200_RE_SCISSOR_TL_2" }, 
+	{ 0, 1, "R200_SE_VAP_CNTL_STATUS" }, 
+	{ 0, 1, "R200_SE_VTX_STATE_CNTL" }, 
+	{ 0, 1, "R200_RE_POINTSIZE" }, 
+	{ 0, 4, "R200_SE_TCL_INPUT_VTX_VECTOR_ADDR_0" },
+	{ 0, 1, "R200_PP_CUBIC_FACES_0" }, /* 61 */
+	{ 0, 5, "R200_PP_CUBIC_OFFSET_F1_0" }, /* 62 */
+	{ 0, 1, "R200_PP_CUBIC_FACES_1" },
+	{ 0, 5, "R200_PP_CUBIC_OFFSET_F1_1" },
+	{ 0, 1, "R200_PP_CUBIC_FACES_2" },
+	{ 0, 5, "R200_PP_CUBIC_OFFSET_F1_2" },
+	{ 0, 1, "R200_PP_CUBIC_FACES_3" },
+	{ 0, 5, "R200_PP_CUBIC_OFFSET_F1_3" },
+	{ 0, 1, "R200_PP_CUBIC_FACES_4" },
+	{ 0, 5, "R200_PP_CUBIC_OFFSET_F1_4" },
+	{ 0, 1, "R200_PP_CUBIC_FACES_5" },
+	{ 0, 5, "R200_PP_CUBIC_OFFSET_F1_5" },
+   { RADEON_PP_TEX_SIZE_0, 2, "RADEON_PP_TEX_SIZE_0" },
+   { RADEON_PP_TEX_SIZE_1, 2, "RADEON_PP_TEX_SIZE_1" },
+   { RADEON_PP_TEX_SIZE_2, 2, "RADEON_PP_TEX_SIZE_1" },
 };
 
 struct reg_names {
@@ -166,7 +223,13 @@ static struct reg_names reg_names[] = {
    { RADEON_SE_TCL_MATERIAL_SPECULAR_BLUE, "RADEON_SE_TCL_SPECULAR_BLUE" },
    { RADEON_SE_TCL_MATERIAL_SPECULAR_ALPHA, "RADEON_SE_TCL_SPECULAR_ALPHA" },
    { RADEON_SE_TCL_SHININESS, "RADEON_SE_TCL_SHININESS" },
-   { RADEON_SE_COORD_FMT, "RADEON_SE_COORD_FMT" }
+   { RADEON_SE_COORD_FMT, "RADEON_SE_COORD_FMT" },
+   { RADEON_PP_TEX_SIZE_0, "RADEON_PP_TEX_SIZE_0" },
+   { RADEON_PP_TEX_SIZE_1, "RADEON_PP_TEX_SIZE_1" },
+   { RADEON_PP_TEX_SIZE_2, "RADEON_PP_TEX_SIZE_2" },
+   { RADEON_PP_TEX_SIZE_0+4, "RADEON_PP_TEX_PITCH_0" },
+   { RADEON_PP_TEX_SIZE_1+4, "RADEON_PP_TEX_PITCH_1" },
+   { RADEON_PP_TEX_SIZE_2+4, "RADEON_PP_TEX_PITCH_2" },
 };
 
 static struct reg_names scalar_names[] = {
@@ -599,16 +662,16 @@ static int print_vertex_format( int vfmt )
 
 static char *primname[0xf] = {
    "NONE",
-   "POINT",
-   "LINE",
+   "POINTS",
+   "LINES",
    "LINE_STRIP",
-   "TRI_LIST",
-   "TRI_FAN",
-   "TRI_STRIP",
+   "TRIANGLES",
+   "TRIANGLE_FAN",
+   "TRIANGLE_STRIP",
    "TRI_TYPE_2",
    "RECT_LIST",
-   "3VRT_POINT_LIST",
-   "3VRT_LINE_LIST",
+   "3VRT_POINTS",
+   "3VRT_LINES",
 };
 
 static int print_prim_and_flags( int prim )

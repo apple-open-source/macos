@@ -131,18 +131,9 @@ bool AppleK2::start(IOService *provider)
 	// Locate Our HyperTransport parent's LDT capability block (if present)
 	htLinkCapabilitiesBase = 0;
 	if (pciProvider = OSDynamicCast (IOPCIDevice, keyLargoService->getParentEntry(gIODTPlane))) {
-		UInt32		capID;
-		
-		htLinkCapabilitiesBase = pciProvider->configRead8 (kIOPCIConfigCapabilitiesPtr);
-		while (htLinkCapabilitiesBase) {
-			capID = pciProvider->configRead8 (htLinkCapabilitiesBase + kIOPCICapabilityIDOffset);
-			if (capID == 8)		// LDT Capabilities ID is 8
-				break;
-			
-			htLinkCapabilitiesBase = pciProvider->configRead8 (htLinkCapabilitiesBase + kIOPCINextCapabilityOffset);
-		}
+		pciProvider->extendedFindPCICapability((UInt32)kIOPCILDTCapability, &htLinkCapabilitiesBase);
 	}
-
+	
     if(keyLargoDeviceId != kShastaDeviceId4f) {
         // creates the USBPower handlers:
         for (i = 0; i < fNumUSB; i++) {
@@ -1318,8 +1309,7 @@ IOReturn AppleK2::SetPowerSupply (bool powerHi)
 	
 	// Wait for power supply to ramp up.
 	delay = 200;
-	assert_wait(&delay, THREAD_UNINT);
-	thread_set_timer(delay, NSEC_PER_USEC);
+	assert_wait_timeout((event_t)assert_wait_timeout, THREAD_UNINT, delay, NSEC_PER_USEC);
 	thread_block(0);
 
 	return (kIOReturnSuccess);
@@ -1555,76 +1545,76 @@ void AppleK2::logClockState()
     clockState = readRegUInt32(kK2FCR9);
     
     if(clockState & kK2FCR9PCI1Clk66isStopped)
-        CLOCKLOG("PCI1 clock stopped\n");
+        CLOCKLOG("AppleK2 - PCI1 clock stopped\n");
     else
-        CLOCKLOG("PCI1 clock running\n");
+        CLOCKLOG("AppleK2 - PCI1 clock running\n");
         
     if(clockState & kK2FCR9PCI2Clk66isStopped)
-        CLOCKLOG("PCI2 clock stopped\n");
+        CLOCKLOG("AppleK2 - PCI2 clock stopped\n");
     else
-        CLOCKLOG("PCI2 clock running\n");
+        CLOCKLOG("AppleK2 - PCI2 clock running\n");
         
     if(clockState & kK2FCR9FWClk66isStopped)
-        CLOCKLOG("FireWire clock stopped\n");
+        CLOCKLOG("AppleK2 - FireWire clock stopped\n");
     else
-        CLOCKLOG("FireWire clock running\n");
+        CLOCKLOG("AppleK2 - FireWire clock running\n");
         
     if(clockState & kK2FCR9UATAClk66isStopped)
-        CLOCKLOG("UATA66 clock stopped\n");
+        CLOCKLOG("AppleK2 - UATA66 clock stopped\n");
     else
-        CLOCKLOG("UATA66 clock running\n");
+        CLOCKLOG("AppleK2 - UATA66 clock running\n");
         
     if(clockState & kK2FCR9UATAClk100isStopped)
-        CLOCKLOG("UATA100 clock stopped\n");
+        CLOCKLOG("AppleK2 - UATA100 clock stopped\n");
     else
-        CLOCKLOG("UATA100 clock running\n");
+        CLOCKLOG("AppleK2 - UATA100 clock running\n");
         
     if(clockState & kK2FCR9PCI3Clk66isStopped)
-        CLOCKLOG("PCI3 clock stopped\n");
+        CLOCKLOG("AppleK2 - PCI3 clock stopped\n");
     else
-        CLOCKLOG("PCI3 clock running\n");
+        CLOCKLOG("AppleK2 - PCI3 clock running\n");
         
     if(clockState & kK2FCR9GBClk66isStopped)
-        CLOCKLOG("Ethernet clock stopped\n");
+        CLOCKLOG("AppleK2 - Ethernet clock stopped\n");
     else
-        CLOCKLOG("Ethernet clock running\n");
+        CLOCKLOG("AppleK2 - Ethernet clock running\n");
         
     if(clockState & kK2FCR9PCI4Clk66isStopped)
-        CLOCKLOG("PCI4 clock stopped\n");
+        CLOCKLOG("AppleK2 - PCI4 clock stopped\n");
     else
-        CLOCKLOG("PCI4 clock running\n");
+        CLOCKLOG("AppleK2 - PCI4 clock running\n");
         
     if(clockState & kK2FCR9SATAClk66isStopped)
-        CLOCKLOG("SerialATA clock stopped\n");
+        CLOCKLOG("AppleK2 - SerialATA clock stopped\n");
     else
-        CLOCKLOG("SerialATA clock running\n");
+        CLOCKLOG("AppleK2 - SerialATA clock running\n");
         
     if(clockState & kK2FCR9USB0Clk48isStopped)
-        CLOCKLOG("USB0 clock stopped\n");
+        CLOCKLOG("AppleK2 - USB0 clock stopped\n");
     else
-        CLOCKLOG("USB0 clock running\n");
+        CLOCKLOG("AppleK2 - USB0 clock running\n");
         
     if(clockState & kK2FCR9USB1Clk48isStopped)
-        CLOCKLOG("USB1 clock stopped\n");
+        CLOCKLOG("AppleK2 - USB1 clock stopped\n");
     else
-        CLOCKLOG("USB1 clock running\n");
+        CLOCKLOG("AppleK2 - USB1 clock running\n");
         
     if(clockState & kK2FCR9Clk45isStopped)
-        CLOCKLOG("Clock45 stopped\n");
+        CLOCKLOG("AppleK2 - Clock45 stopped\n");
     else
-        CLOCKLOG("Clock45 running\n");
+        CLOCKLOG("AppleK2 - Clock45 running\n");
         
     if(clockState & kK2FCR9Clk49isStopped)
-        CLOCKLOG("Clock49 stopped\n");
+        CLOCKLOG("AppleK2 - Clock49 stopped\n");
     else
-        CLOCKLOG("Clock49 running\n");
+        CLOCKLOG("AppleK2 - Clock49 running\n");
         
     if(clockState & kK2FCR9Osc25Shutdown)
-        CLOCKLOG("Osc25 stopped\n");
+        CLOCKLOG("AppleK2 - Osc25 stopped\n");
     else
-        CLOCKLOG("Osc25 running\n");
+        CLOCKLOG("AppleK2 - Osc25 running\n");
         
-        
+	return;
 }
 
 

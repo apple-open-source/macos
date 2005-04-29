@@ -1,0 +1,3 @@
+# Tcl package index file, version 1.0
+
+package ifneeded Tclx @VERSION@ [list load [file join $dir "@tclx_LIB_FILE@"] Tclx]

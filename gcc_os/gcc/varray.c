@@ -22,47 +22,59 @@
 #include "config.h"
 #include "errors.h"
 #include "system.h"
-#include "rtl.h"
-#include "tree.h"
-#include "bitmap.h"
 #include "varray.h"
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-/* Certain varray's need to be part of pfe memory because they are
-   frozen/thawed.  These are determined on a case-by-case basis as
-   ones needed to ve freeze/thawed.  They are indicated by their
-   varray name being prefixed with the string defined by PFE_VARRAY.  */
-static char *use_pfe_mem_indicator = PFE_VARRAY"";
-#define USE_PFE_MEMORY(name) (*(name) == *use_pfe_mem_indicator)
-#endif
+#include "ggc.h"
 
 #define VARRAY_HDR_SIZE (sizeof (struct varray_head_tag) - sizeof (varray_data))
+
+static const size_t element_size[NUM_VARRAY_DATA] = {
+  sizeof (char),
+  sizeof (unsigned char),
+  sizeof (short),
+  sizeof (unsigned short),
+  sizeof (int),
+  sizeof (unsigned int),
+  sizeof (long),
+  sizeof (unsigned long),
+  sizeof (HOST_WIDE_INT),
+  sizeof (unsigned HOST_WIDE_INT),
+  sizeof (PTR),
+  sizeof (char *),
+  sizeof (struct rtx_def *),
+  sizeof (struct rtvec_def *),
+  sizeof (union tree_node *),
+  sizeof (struct bitmap_head_def *),
+  sizeof (struct reg_info_def *),
+  sizeof (struct const_equiv_data),
+  sizeof (struct basic_block_def *),
+  sizeof (struct elt_list *)
+};
+
+static const int uses_ggc[NUM_VARRAY_DATA] = {
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* unsigned HOST_WIDE_INT */
+  1, /* PTR */
+  1, 1, 1, 1, 1, /* bitmap_head_def */
+  0, 0, 0, 1
+};
 
 /* Allocate a virtual array with NUM_ELEMENT elements, each of which is
    ELEMENT_SIZE bytes long, named NAME.  Array elements are zeroed.  */
 varray_type
-varray_init (num_elements, element_size, name)
+varray_init (num_elements, element_kind, name)
      size_t num_elements;
-     size_t element_size;
+     enum varray_data_enum element_kind;
      const char *name;
 {
-  size_t data_size = num_elements * element_size;
-/* APPLE LOCAL PFE */
-#ifndef PFE
-  varray_type ptr = (varray_type) xcalloc (VARRAY_HDR_SIZE + data_size, 1);
-#else
-  varray_type ptr = USE_PFE_MEMORY (name)
-  		      ? (varray_type) PFE_CALLOC (VARRAY_HDR_SIZE + data_size, 1,
-  		      				  PFE_ALLOC_VARRAY)
-  		      : (varray_type) xcalloc (VARRAY_HDR_SIZE + data_size, 1);
-  name = PFE_SAVESTRING (name);
-#endif /* PFE */
+  size_t data_size = num_elements * element_size[element_kind];
+  varray_type ptr;
+  if (uses_ggc [element_kind])
+    ptr = (varray_type) ggc_alloc_cleared (VARRAY_HDR_SIZE + data_size);
+  else
+    ptr = (varray_type) xcalloc (VARRAY_HDR_SIZE + data_size, 1);
 
   ptr->num_elements = num_elements;
   ptr->elements_used = 0;
-  ptr->element_size = element_size;
+  ptr->type = element_kind;
   ptr->name = name;
   return ptr;
 }
@@ -78,25 +90,31 @@ varray_grow (va, n)
 
   if (n != old_elements)
     {
-      size_t element_size = va->element_size;
-      size_t old_data_size = old_elements * element_size;
-      size_t data_size = n * element_size;
+      size_t elem_size = element_size[va->type];
+      size_t old_data_size = old_elements * elem_size;
+      size_t data_size = n * elem_size;
 
-/* APPLE LOCAL PFE */
-#ifdef PFE
-      if (va->name && USE_PFE_MEMORY (va->name))
-        va = (varray_type) PFE_REALLOC ((char *)va, 
-        				VARRAY_HDR_SIZE + data_size,
-        				PFE_ALLOC_VARRAY);
+      if (uses_ggc[va->type])
+	va = (varray_type) ggc_realloc (va, VARRAY_HDR_SIZE + data_size);
       else
-#endif /* PFE */
-      va = (varray_type) xrealloc ((char *) va, VARRAY_HDR_SIZE + data_size);
+	va = (varray_type) xrealloc ((char *) va, VARRAY_HDR_SIZE + data_size);
       va->num_elements = n;
       if (n > old_elements)
 	memset (&va->data.c[old_data_size], 0, data_size - old_data_size);
     }
 
   return va;
+}
+
+/* Reset a varray to its original state.  */
+void
+varray_clear (va)
+     varray_type va;
+{
+  size_t data_size = element_size[va->type] * va->num_elements;
+
+  memset (va->data.c, 0, data_size);
+  va->elements_used = 0;
 }
 
 /* Check the bounds of a varray access.  */
@@ -119,54 +137,3 @@ varray_check_failed (va, n, file, line, function)
 }
 
 #endif
-
-/* APPLE LOCAL PFE */
-/*-------------------------------------------------------------------*/
-#ifdef PFE
-
-/* This is used by the VARRAY_FREE when pfe is being used to selectively
-   determine which memory the varray_type was allocated in to do the
-   appropriate "free".  */
-   
-void
-pfe_varray_free (vp)
-     varray_type vp;
-{
-  if (USE_PFE_MEMORY (vp->name))
-    pfe_free (vp);
-  else
-    free (vp);
-}
-
-/* Varray trees are freeze/thawed iff they truely were allocated in
-   pfe memory.  Otherwise we shouldn't be calling this routine.  */
-void
-pfe_freeze_thaw_varray_tree (vpp)
-     varray_type *vpp;
-{
-  varray_type va = (varray_type)PFE_FREEZE_THAW_PTR (vpp);
-  size_t i, nelts;
-  
-  if (va)
-    {
-      if (PFE_FREEZING)
-        {
-	  if (!USE_PFE_MEMORY (va->name))
-	    internal_error ("Virtual array %s was assumed to be in pfe memory and isn't",
-			    RP (va->name));
-	  pfe_freeze_ptr (&va->name);
-        }
-      else
-        {
-	  pfe_thaw_ptr (&va->name);
-	  if (!USE_PFE_MEMORY (va->name))
-	    internal_error ("Virtual array %s was assumed to be in pfe memory and isn't",
-			    RP (va->name));
-        }
-      nelts = VARRAY_ACTIVE_SIZE (va);
-      for (i = 0; i < nelts; ++i) 
-	PFE_FREEZE_THAW_WALK (va->data.tree[i]);
-    }
-}
-
-#endif /* PFE */

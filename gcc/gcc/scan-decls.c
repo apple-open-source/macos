@@ -1,6 +1,6 @@
 /* scan-decls.c - Extracts declarations from cpp output.
    Copyright (C) 1993, 1995, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -18,13 +18,15 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
    Written by Per Bothner <bothner@cygnus.com>, July 1993.  */
 
-#include "hconfig.h"
+#include "bconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "cpplib.h"
 #include "scan.h"
 
-static void skip_to_closing_brace PARAMS ((cpp_reader *));
-static const cpp_token *get_a_token PARAMS ((cpp_reader *));
+static void skip_to_closing_brace (cpp_reader *);
+static const cpp_token *get_a_token (cpp_reader *);
 
 int brace_nesting = 0;
 
@@ -32,14 +34,17 @@ int brace_nesting = 0;
    indicate the (brace nesting levels of) left braces that were
    prefixed by extern "C".  */
 int extern_C_braces_length = 0;
-char extern_C_braces[20];
+/* 20 is not enough anymore on Solaris 9.  */
+#define MAX_EXTERN_C_BRACES  200
+char extern_C_braces[MAX_EXTERN_C_BRACES];
 #define in_extern_C_brace (extern_C_braces_length>0)
 
 /* APPLE LOCAL begin CW asm blocks */
 /* Dummies needed because we use them in cpplib, yuck.  */
+int flag_cw_asm_blocks;
 int cw_asm_state;
 int cw_asm_in_operands;
-/* APPLE LOCAL CW asm blocks */
+/* APPLE LOCAL end CW asm blocks */
 
 /* True if the function declaration currently being scanned is
    prefixed by extern "C".  */
@@ -47,8 +52,7 @@ int current_extern_C = 0;
 
 /* Get a token but skip padding.  */
 static const cpp_token *
-get_a_token (pfile)
-     cpp_reader *pfile;
+get_a_token (cpp_reader *pfile)
 {
   for (;;)
     {
@@ -59,8 +63,7 @@ get_a_token (pfile)
 }
 
 static void
-skip_to_closing_brace (pfile)
-     cpp_reader *pfile;
+skip_to_closing_brace (cpp_reader *pfile)
 {
   int nesting = 1;
   for (;;)
@@ -99,10 +102,8 @@ Here dname is the actual name being declared.
 */
 
 int
-scan_decls (pfile, argc, argv)
-     cpp_reader *pfile;
-     int argc ATTRIBUTE_UNUSED;
-     char **argv ATTRIBUTE_UNUSED;
+scan_decls (cpp_reader *pfile, int argc ATTRIBUTE_UNUSED,
+	    char **argv ATTRIBUTE_UNUSED)
 {
   int saw_extern, saw_inline;
   cpp_token prev_id;
@@ -171,6 +172,8 @@ scan_decls (pfile, argc, argv)
 	    {
 	      int nesting = 1;
 	      int have_arg_list = 0;
+	      const struct line_map *map;
+	      unsigned int line;
 	      for (;;)
 		{
 		  token = get_a_token (pfile);
@@ -188,7 +191,9 @@ scan_decls (pfile, argc, argv)
 			   || token->type == CPP_ELLIPSIS)
 		    have_arg_list = 1;
 		}
-	      recognized_function (&prev_id, token->line,
+	      map = linemap_lookup (&line_table, token->src_loc);
+	      line = SOURCE_LINE (map, token->src_loc);
+	      recognized_function (&prev_id, line,
 				   (saw_inline ? 'I'
 				    : in_extern_C_brace || current_extern_C
 				    ? 'F' : 'f'), have_arg_list);
@@ -228,6 +233,12 @@ scan_decls (pfile, argc, argv)
 		      brace_nesting++;
 		      extern_C_braces[extern_C_braces_length++]
 			= brace_nesting;
+		      if (extern_C_braces_length >= MAX_EXTERN_C_BRACES)
+			{
+			  fprintf (stderr,
+			  	   "Internal error: out-of-bounds index\n");
+			  exit (FATAL_EXIT_CODE);
+			}
 		      goto new_statement;
 		    }
 		}

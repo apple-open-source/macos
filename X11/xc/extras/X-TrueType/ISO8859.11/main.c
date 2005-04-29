@@ -30,11 +30,14 @@
 
 Notice===
  */
+/* $XFree86: xc/extras/X-TrueType/ISO8859.11/main.c,v 1.3 2003/10/22 16:25:37 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"

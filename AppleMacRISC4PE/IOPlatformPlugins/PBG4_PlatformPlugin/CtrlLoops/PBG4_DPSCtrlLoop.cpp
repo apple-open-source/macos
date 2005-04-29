@@ -22,13 +22,13 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: PBG4_DPSCtrlLoop.cpp,v 1.11 2005/01/06 19:31:50 raddog Exp $
+ *  File: $Id: PBG4_DPSCtrlLoop.cpp,v 1.12 2005/01/21 23:11:59 yee1 Exp $
  *
  */
 
 
 #include <IOKit/IOLib.h>
-#include <ppc/machine_routines.h>
+#include <machine/machine_routines.h>
 
 #include "IOPlatformPluginSymbols.h"
 #include "IOPlatformPlugin.h"

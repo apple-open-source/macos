@@ -1,6 +1,6 @@
+// { dg-do assemble  }
 // PRMS Id: 4346
 // Bug: g++ dies on redefinition of cc_Array::repInvariant.
-// Build don't link:
 
 class ccObjectInfo
 {
@@ -16,8 +16,8 @@ public:
 };
 
 template <class T>
-const ccObjectInfo& cc_Array<T>::repInvariant(int) const
-{  return *this /* *this is required here */; } // ERROR - redefined
+const ccObjectInfo& cc_Array<T>::repInvariant(int) const  // { dg-error "previously declared" }
+{  return *this /* *this is required here */; }
 
 template <class T>
 class ccArray :public ccObjectInfo
@@ -32,7 +32,7 @@ class ccObjArray : public ccArray<T>
 }; 
 
 template <class T>
-const ccObjectInfo& cc_Array<T>::repInvariant(int) const
-{  return 0; }			// ERROR - causes compiler segfault
+const ccObjectInfo& cc_Array<T>::repInvariant(int) const // { dg-error "redefinition" }
+{  return 0; }
 
 typedef ccObjArray< double>	ccROIRuns;	 

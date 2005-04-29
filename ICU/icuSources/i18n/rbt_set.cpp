@@ -1,12 +1,12 @@
 /*
-**********************************************************************
-*   Copyright (C) 1999, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-**********************************************************************
-*   Date        Name        Description
-*   11/17/99    aliu        Creation.
-**********************************************************************
-*/
+ **********************************************************************
+ *   Copyright (C) 1999-2004, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ **********************************************************************
+ *   Date        Name        Description
+ *   11/17/99    aliu        Creation.
+ **********************************************************************
+ */
 
 #include "unicode/utypes.h"
 
@@ -17,6 +17,7 @@
 #include "rbt_set.h"
 #include "rbt_rule.h"
 #include "cmemory.h"
+#include "putilimp.h"
 
 U_CDECL_BEGIN
 static void U_EXPORT2 U_CALLCONV _deleteRule(void *rule) {
@@ -433,17 +434,17 @@ UnicodeString& TransliterationRuleSet::toRules(UnicodeString& ruleSource,
  * (getTarget=false) or emitted (getTarget=true) by this set.
  */
 UnicodeSet& TransliterationRuleSet::getSourceTargetSet(UnicodeSet& result,
-						       UBool getTarget) const {
+                               UBool getTarget) const {
     result.clear();
     int32_t count = ruleVector->size();
     for (int32_t i=0; i<count; ++i) {
-	TransliterationRule* r =
-	    (TransliterationRule*) ruleVector->elementAt(i);
-	if (getTarget) {
-	    r->addTargetSetTo(result);
-	} else {
-	    r->addSourceSetTo(result);
-	}
+    TransliterationRule* r =
+        (TransliterationRule*) ruleVector->elementAt(i);
+    if (getTarget) {
+        r->addTargetSetTo(result);
+    } else {
+        r->addSourceSetTo(result);
+    }
     }
     return result;
 }

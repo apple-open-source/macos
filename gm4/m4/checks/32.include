@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:2113: Origin of test
+dnl ../doc/m4.texinfo:2114: Origin of test
 define(`bar', include(`incl.m4'))
 dnl @result{}
 This is `bar':  >>>bar<<<

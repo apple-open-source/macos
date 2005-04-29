@@ -49,11 +49,6 @@
       contents of that header, as defined by the Standard, become
       available to you, no matter how.
    </p>
-   <p>The names of the headers can be easily seen in
-      <a href="headers_cc.txt"><code>testsuite/17_intro/headers.cc</code></a>,
-      which is a small testbed we use to make certain that the headers
-      all compile and run.
-   </p>
 
 <hr />
 <h2><a name="3">The Standard C++ library and multithreading</a></h2>
@@ -290,10 +285,6 @@
       <a href="../configopts.html">the configuration step</a>, with the
       various --enable/--disable choices being translated to #define/#undef).
    </p>
-   <p>All library macros begin with <code>_GLIBCPP_</code>.  The fact that
-      these symbols start with a leading underscore should give you a clue
-      that (by default) they aren't meant to be changed by the user.  :-)
-   </p>
    <p>These macros are all gathered in the file <code>c++config.h</code>,
       which is generated during installation.  <strong>You must assume that
       these macros cannot be redefined by your own code</strong>, unless we
@@ -336,6 +327,20 @@
         violations of the requirements of the standard.  This is described
         in more detail <a href="../19_diagnostics/howto.html#3">here</a>.
     </dd>
+    <!-- APPLE LOCAL begin libstdc++ documentation -->
+    <dt><code>_GLIBCXX_DEBUG</code></dt>
+    <dd>Undefined by default. Configurable. When defined, compiles
+    user code using the <a href="../debug.html">libstdc++ debug
+    mode</a>.
+    </dd>
+    <dt><code>_GLIBCXX_DEBUG_PEDANTIC</code></dt>
+    <dd>Undefined by default. Configurable. When defined while
+    compiling with the <a href="../debug.html">libstdc++ debug
+    mode</a>, makes the debug mode extremely picky by making the use
+    of libstdc++ extensions and libstdc++-specific behavior into
+    errors.
+    </dd>
+    <!-- APPLE LOCAL end libstdc++ documentation -->
     <!--
     <dt><code></code></dt>
     <dd>
@@ -353,8 +358,6 @@
 <hr />
 <p class="fineprint"><em>
 See <a href="license.html">license.html</a> for copying conditions.
-Comments and suggestions are welcome, and may be sent to
-<a href="mailto:libstdc++@gcc.gnu.org">the libstdc++ mailing list</a>.
 </em></p>
 
 

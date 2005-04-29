@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -136,6 +135,8 @@ package body Style is
    --  lower case, except after an underline character.
 
    procedure Check_Attribute_Name (Reserved : Boolean) is
+      pragma Warnings (Off, Reserved);
+
    begin
       if Style_Check_Attribute_Casing then
          if Determine_Token_Casing /= Mixed_Case then

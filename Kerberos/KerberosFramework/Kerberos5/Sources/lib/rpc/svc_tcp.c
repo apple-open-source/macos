@@ -91,16 +91,16 @@ static struct xp_ops svctcp_rendezvous_op = {
 };
 
 static int readtcp(char *, caddr_t, int), writetcp(char *, caddr_t, int);
-static SVCXPRT *makefd_xprt(int, unsigned int, unsigned int);
+static SVCXPRT *makefd_xprt(int, u_int, u_int);
 
 struct tcp_rendezvous { /* kept in xprt->xp_p1 */
-	unsigned int sendsize;
-	unsigned int recvsize;
+	u_int sendsize;
+	u_int recvsize;
 };
 
 struct tcp_conn {  /* kept in xprt->xp_p1 */
 	enum xprt_stat strm_stat;
-	rpc_u_int32 x_id;
+	uint32_t x_id;
 	XDR xdrs;
 	char verf_body[MAX_AUTH_BYTES];
 };
@@ -126,10 +126,10 @@ struct tcp_conn {  /* kept in xprt->xp_p1 */
  * 0 => use the system default.
  */
 SVCXPRT *
-svctcp_create(sock, sendsize, recvsize)
-	register int sock;
-	unsigned int sendsize;
-	unsigned int recvsize;
+svctcp_create(
+	register int sock,
+	u_int sendsize,
+	u_int recvsize)
 {
 	bool_t madesock = FALSE;
 	register SVCXPRT *xprt;
@@ -145,8 +145,11 @@ svctcp_create(sock, sendsize, recvsize)
 		madesock = TRUE;
 	}
 	memset((char *)&addr, 0, sizeof (addr));
+#if HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+	addr.sin_len = sizeof(addr);
+#endif
 	addr.sin_family = AF_INET;
-	if (gssrpc_bindresvport(sock, &addr)) {
+	if (bindresvport(sock, &addr)) {
 		addr.sin_port = 0;
 		(void)bind(sock, (struct sockaddr *)&addr, len);
 	}
@@ -176,7 +179,8 @@ svctcp_create(sock, sendsize, recvsize)
 	}
 	xprt->xp_p2 = NULL;
 	xprt->xp_p1 = (caddr_t)r;
-	xprt->xp_verf = _null_auth;
+	xprt->xp_auth = NULL;
+	xprt->xp_verf = gssrpc__null_auth;
 	xprt->xp_ops = &svctcp_rendezvous_op;
 	xprt->xp_port = ntohs(addr.sin_port);
 	xprt->xp_sock = sock;
@@ -190,20 +194,20 @@ svctcp_create(sock, sendsize, recvsize)
  * descriptor as its first input.
  */
 SVCXPRT *
-gssrpc_svcfd_create(fd, sendsize, recvsize)
-	int fd;
-	unsigned int sendsize;
-	unsigned int recvsize;
+svcfd_create(
+	int fd,
+	u_int sendsize,
+	u_int recvsize)
 {
 
 	return (makefd_xprt(fd, sendsize, recvsize));
 }
 
 static SVCXPRT *
-makefd_xprt(fd, sendsize, recvsize)
-	int fd;
-	unsigned int sendsize;
-	unsigned int recvsize;
+makefd_xprt(
+	int fd,
+	u_int sendsize,
+	u_int recvsize)
 {
 	register SVCXPRT *xprt;
 	register struct tcp_conn *cd;
@@ -225,6 +229,7 @@ makefd_xprt(fd, sendsize, recvsize)
 	    (caddr_t)xprt, readtcp, writetcp);
 	xprt->xp_p2 = NULL;
 	xprt->xp_p1 = (caddr_t)cd;
+	xprt->xp_auth = NULL;
 	xprt->xp_verf.oa_base = cd->verf_body;
 	xprt->xp_addrlen = 0;
 	xprt->xp_laddrlen = 0;
@@ -237,9 +242,9 @@ makefd_xprt(fd, sendsize, recvsize)
 }
 
 static bool_t
-rendezvous_request(xprt, msg)
-	register SVCXPRT *xprt;
-	struct rpc_msg *msg;
+rendezvous_request(
+	register SVCXPRT *xprt,
+	struct rpc_msg *msg)
 {
 	int sock;
 	struct tcp_rendezvous *r;
@@ -270,16 +275,14 @@ rendezvous_request(xprt, msg)
 }
 
 static enum xprt_stat
-rendezvous_stat(xprt)
-	register SVCXPRT *xprt;
+rendezvous_stat(register SVCXPRT *xprt)
 {
 
 	return (XPRT_IDLE);
 }
 
 static void
-svctcp_destroy(xprt)
-	register SVCXPRT *xprt;
+svctcp_destroy(register SVCXPRT *xprt)
 {
 	register struct tcp_conn *cd = (struct tcp_conn *)xprt->xp_p1;
 
@@ -291,6 +294,10 @@ svctcp_destroy(xprt)
 	} else {
 		/* an actual connection socket */
 		XDR_DESTROY(&(cd->xdrs));
+	}
+	if (xprt->xp_auth != NULL) {
+		SVCAUTH_DESTROY(xprt->xp_auth);
+		xprt->xp_auth = NULL;
 	}
 	mem_free((caddr_t)cd, sizeof(struct tcp_conn));
 	mem_free((caddr_t)xprt, sizeof(SVCXPRT));
@@ -308,10 +315,10 @@ static struct timeval wait_per_try = { 35, 0 };
  * (And a read of zero bytes is a half closed stream => error.)
  */
 static int
-readtcp(xprtptr, buf, len)
-        char *xprtptr;
-	caddr_t buf;
-	register int len;
+readtcp(
+        char *xprtptr,
+	caddr_t buf,
+	register int len)
 {
 	register SVCXPRT *xprt = (SVCXPRT *)(void *)xprtptr;
 	register int sock = xprt->xp_sock;
@@ -326,21 +333,22 @@ readtcp(xprtptr, buf, len)
 	register int mask = 1 << sock;
 	int readfds;
 #endif /* def FD_SETSIZE */
+#ifdef FD_SETSIZE
+#define loopcond (!FD_ISSET(sock, &readfds))
+#else
+#define loopcond (readfds != mask)
+#endif
 	do {
 		readfds = mask;
 		tout = wait_per_try;
-		if (select(_gssrpc_rpc_dtablesize(), &readfds, (fd_set*)NULL,
+		if (select(sock + 1, &readfds, (fd_set*)NULL,
 			   (fd_set*)NULL, &tout) <= 0) {
 			if (errno == EINTR) {
 				continue;
 			}
 			goto fatal_err;
 		}
-#ifdef FD_SETSIZE
-	} while (!FD_ISSET(sock, &readfds));
-#else
-	} while (readfds != mask);
-#endif /* def FD_SETSIZE */
+	} while (loopcond);
 	if ((len = read(sock, buf, (size_t) len)) > 0) {
 		return (len);
 	}
@@ -354,10 +362,10 @@ fatal_err:
  * Any error is fatal and the connection is closed.
  */
 static int
-writetcp(xprtptr, buf, len)
-        char *xprtptr;
-	caddr_t buf;
-	int len;
+writetcp(
+	char *xprtptr,
+	caddr_t buf,
+	int len)
 {
 	register SVCXPRT *xprt = (SVCXPRT *)(void *) xprtptr;
 	register int i, cnt;
@@ -373,8 +381,7 @@ writetcp(xprtptr, buf, len)
 }
 
 static enum xprt_stat
-svctcp_stat(xprt)
-	SVCXPRT *xprt;
+svctcp_stat(SVCXPRT *xprt)
 {
 	register struct tcp_conn *cd =
 	    (struct tcp_conn *)(xprt->xp_p1);
@@ -387,9 +394,9 @@ svctcp_stat(xprt)
 }
 
 static bool_t
-svctcp_recv(xprt, msg)
-	SVCXPRT *xprt;
-	register struct rpc_msg *msg;
+svctcp_recv(
+	SVCXPRT *xprt,
+	register struct rpc_msg *msg)
 {
 	register struct tcp_conn *cd =
 	    (struct tcp_conn *)(xprt->xp_p1);
@@ -405,10 +412,10 @@ svctcp_recv(xprt, msg)
 }
 
 static bool_t
-svctcp_getargs(xprt, xdr_args, args_ptr)
-	SVCXPRT *xprt;
-	xdrproc_t xdr_args;
-	void *args_ptr;
+svctcp_getargs(
+	SVCXPRT *xprt,
+	xdrproc_t xdr_args,
+	void *args_ptr)
 {
 	if (! SVCAUTH_UNWRAP(xprt->xp_auth,
 			     &(((struct tcp_conn *)(xprt->xp_p1))->xdrs),
@@ -420,10 +427,10 @@ svctcp_getargs(xprt, xdr_args, args_ptr)
 }
 
 static bool_t
-svctcp_freeargs(xprt, xdr_args, args_ptr)
-	SVCXPRT *xprt;
-	xdrproc_t xdr_args;
-	void * args_ptr;
+svctcp_freeargs(
+	SVCXPRT *xprt,
+	xdrproc_t xdr_args,
+	void * args_ptr)
 {
 	register XDR *xdrs =
 	    &(((struct tcp_conn *)(xprt->xp_p1))->xdrs);
@@ -432,69 +439,65 @@ svctcp_freeargs(xprt, xdr_args, args_ptr)
 	return ((*xdr_args)(xdrs, args_ptr));
 }
 
-static bool_t svctcp_reply(xprt, msg)
-   SVCXPRT *xprt;
-   register struct rpc_msg *msg;
+static bool_t svctcp_reply(
+	SVCXPRT *xprt,
+	register struct rpc_msg *msg)
 {
-     register struct tcp_conn *cd =
-	  (struct tcp_conn *)(xprt->xp_p1);
-     register XDR *xdrs = &(cd->xdrs);
-     register bool_t stat;
+	register struct tcp_conn *cd =
+		(struct tcp_conn *)(xprt->xp_p1);
+	register XDR *xdrs = &(cd->xdrs);
+	register bool_t stat;
      
-     xdrproc_t xdr_results;
-     caddr_t xdr_location;
-     bool_t has_args;
+	xdrproc_t xdr_results;
+	caddr_t xdr_location;
+	bool_t has_args;
 
-     if (msg->rm_reply.rp_stat == MSG_ACCEPTED &&
-	 msg->rm_reply.rp_acpt.ar_stat == SUCCESS) {
-	  has_args = TRUE;
-	  xdr_results = msg->acpted_rply.ar_results.proc;
-	  xdr_location = msg->acpted_rply.ar_results.where;
+	if (msg->rm_reply.rp_stat == MSG_ACCEPTED &&
+	    msg->rm_reply.rp_acpt.ar_stat == SUCCESS) {
+		has_args = TRUE;
+		xdr_results = msg->acpted_rply.ar_results.proc;
+		xdr_location = msg->acpted_rply.ar_results.where;
 	  
-	  msg->acpted_rply.ar_results.proc = xdr_void;
-	  msg->acpted_rply.ar_results.where = NULL;
-     } else
-	  has_args = FALSE;
+		msg->acpted_rply.ar_results.proc = xdr_void;
+		msg->acpted_rply.ar_results.where = NULL;
+	} else
+		has_args = FALSE;
      
-     xdrs->x_op = XDR_ENCODE;
-     msg->rm_xid = cd->x_id;
-     stat = FALSE;
-     if (xdr_replymsg(xdrs, msg) &&
-	 (!has_args ||
-	  (SVCAUTH_WRAP(xprt->xp_auth, xdrs, xdr_results, xdr_location)))) {
-	  stat = TRUE;
-     }
-     (void)xdrrec_endofrecord(xdrs, TRUE);
-     return (stat);
+	xdrs->x_op = XDR_ENCODE;
+	msg->rm_xid = cd->x_id;
+	stat = FALSE;
+	if (xdr_replymsg(xdrs, msg) &&
+	    (!has_args ||
+	     (SVCAUTH_WRAP(xprt->xp_auth, xdrs, xdr_results, xdr_location)))) {
+		stat = TRUE;
+	}
+	(void)xdrrec_endofrecord(xdrs, TRUE);
+	return (stat);
 }
 
-static bool_t abortx()
+static bool_t abortx(void)
 {
-  abort();
-  return 1;
+	abort();
+	return 1;
 }
 
-static bool_t abortx_getargs(xprt, proc, info)
-   SVCXPRT *xprt;
-   xdrproc_t proc;
-   void *info;
+static bool_t abortx_getargs(
+	SVCXPRT *xprt,
+	xdrproc_t proc,
+	void *info)
 {
-    return abortx();
+	return abortx();
 }
 
-
-static bool_t abortx_reply(xprt, msg)
-    SVCXPRT *xprt;
-    struct rpc_msg *msg;
+static bool_t abortx_reply(SVCXPRT *xprt, struct rpc_msg *msg)
 {
-    return abortx();
+	return abortx();
 }
 
-static bool_t abortx_freeargs(xprt, proc, info)
-   SVCXPRT *xprt;
-   xdrproc_t proc;
-   void * info;
+static bool_t abortx_freeargs(
+	SVCXPRT *xprt, xdrproc_t proc,
+	void * info)
 {
-    return abortx();
+	return abortx();
 }
 

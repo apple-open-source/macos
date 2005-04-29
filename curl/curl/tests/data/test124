@@ -7,6 +7,9 @@ we can still send data even if pwd fails!
 
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 FTP download, failed PWD
  </name>
@@ -17,7 +20,7 @@ ftp://%HOSTIP:%FTPPORT/124
 REPLY PWD 314 bluah you f00l!
 REPLY EPSV 314 bluah you f00l!
 </file>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -30,5 +33,6 @@ PASV
 TYPE I
 SIZE 124
 RETR 124
+QUIT
 </protocol>
 </verify>

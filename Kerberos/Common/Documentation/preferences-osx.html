@@ -1,4 +1,4 @@
-<!-- #include "header.html"
+<!-- #bbinclude "header.html"
   #PAGETITLE#="Kerberos Preferences on Mac OS X 10.3 Documentation"
   #BASEHREF#="" 
 -->
@@ -18,14 +18,12 @@
 	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
 	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
 	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/support.html">MIT Support Library</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">MIT Kerberos for Macintosh</A>] <BR>
+	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] <BR>
+	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">Kerberos for Macintosh</A>]
 	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/macosx.html">Mac OS X</A>]
 	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
-	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] </P> 
 </CENTER> <HR>
-<!-- end include -->
+<!-- end bbinclude -->
 <TABLE BORDER=0 CELLSPACING=4>
   <TR> 
     <TD><IMG SRC="graphics/KerberosPreferences.gif" ALT="Document icon"></TD>
@@ -50,7 +48,7 @@ documentation for previous Mac OS versions, click <a href="preferences.html">her
 <BLOCKQUOTE>
 	<P><B><FONT SIZE="+2"><A HREF="#about">About the edu.mit.Kerberos File</A></FONT></B></P>
 	<P><B><FONT SIZE="+2"><A HREF="#quickguide">Setting up a Configuration File Quick Guide</A></FONT></B></P>
-	<P><B><FONT SIZE="+2"><A HREF="#locations"><CODE>edu.mit.Kerberos</CODE> File Locations</FONT></A></B></P>
+	<P><B><FONT SIZE="+2"><A HREF="#locations"><CODE>edu.mit.Kerberos</CODE> File Locations</A></FONT></B></P>
 	<P><B><FONT SIZE="+2"><A HREF="#pfdf">About Kerberos Configuration Information</A></FONT></B></P>
 	<P><B><FONT SIZE="+2"><A HREF="#dns">About DNS Configuration</A></FONT></B></P>
 </BLOCKQUOTE>
@@ -60,9 +58,9 @@ documentation for previous Mac OS versions, click <a href="preferences.html">her
 <BLOCKQUOTE>
 <P>
 The <CODE>edu.mit.Kerberos</CODE> file is where the Kerberos v4 and v5 configuration information is
-stored on Mac OS X.  (Formerly the Kerberos Login Library and Kerberos management application
+stored on Mac OS X.  Formerly the Kerberos Login Library and Kerberos management application
 preferences were stored in it, but they now have their own preference files: <CODE>edu.mit.Kerberos.KerberosLogin.plist</CODE>
-and <CODE>edu.mit.Kerberos.KerberosApp.plist</CODE>.)
+and <CODE>edu.mit.Kerberos.KerberosApp.plist</CODE>.
 </P>
 
 <P>
@@ -77,8 +75,9 @@ information.
 On some systems there may up to three configuration files - two <CODE>edu.mit.Kerberos</CODE> files
 in the "system" and "user" locations, and KfM now accepts
 the standard Unix location and name of <CODE>/etc/krb5.conf</CODE> for the configuration file as well.
-See the <A HREF="#locations">edu.mit.Kerberos File Locations</A> section for more
-information about why this is so.
+Some settings in the <CODE>edu.mit.Kerberos.KerberosLogin.plist</CODE> file can override settings
+in the <CODE>edu.mit.Kerberos</CODE> as well. See the <A HREF="#locations">edu.mit.Kerberos File
+Locations</A> section for more information about why this is so.
 </P>
 
 </BLOCKQUOTE>
@@ -140,13 +139,13 @@ details.)
 
 </BLOCKQUOTE>
 
-<P><B><FONT SIZE="+2"><A NAME="locations">edu.mit.Kerberos File Locations</FONT></A></B></P>
+<P><B><FONT SIZE="+2"><A NAME="locations">edu.mit.Kerberos File Locations</A></FONT></B></P>
 <BLOCKQUOTE>
 
 <P>
 Kerberos for Macintosh supports and looks for its configuration file in three locations -
 two are standard locations and the third for Unix compatibility:
-
+</P>
 <UL>
 	<LI><CODE>/Library/Preferences/edu.mit.Kerberos</CODE> - the standard "system" location 
 	that contains the configuration to be used by all users of the computer,</LI>
@@ -157,7 +156,6 @@ two are standard locations and the third for Unix compatibility:
 	<LI><CODE>/etc/krb5.conf</CODE> - the Unix compatibility location.  Any configuration file in this location will
 	also apply to all users of the computer.</LI>
 </UL>
-</P>
 
 <P>
 The typical case is to have the Kerberos configuration information in
@@ -180,10 +178,9 @@ If the user wants to have additional items in the <CODE>[libdefaults]</CODE> sec
 it's important to be aware of the order in which KfM reads the configuration files,
 because in case of conflicting <CODE>[libdefaults]</CODE> entries, the entry read
 first is the one that KfM will use (this is different from the situation with realm
-entries).  KfM first reads the configuration file in the user location, then the one
+entries, which are merged).  KfM first reads the configuration file in the user location, then the one
 in the system location, and finally the Unix compatibility location.
 </P>
-
 
 <P>
 Similarly, if there is a configuration file in the Unix compatibility location,
@@ -195,11 +192,36 @@ configuration files present, with behavior as described above.
 supported setup.  For instance, getting Kerberos tickets at login time will not work
 if you only have a user configuration file.
 </P>
+
+<P>
+Note: some settings in the <CODE>edu.mit.Kerberos.KerberosLogin.plist</CODE>, the
+Kerberos Login Library preferences file, can effectively override settings in
+the <CODE>edu.mit.Kerberos</CODE> file.
+These settings can be modified using the Kerberos GUI management application
+<CODE>/System/Library/Coreservices/Kerberos</CODE> .
+</P>
+
+<P>
+Generally, site settings go in the <CODE>/Library/Preferences/edu.mit.Kerberos</CODE> file, and
+user settings will go into <CODE>~/Library/Preferences/edu.mit.Kerberos.KerberosLogin.plist</CODE>
+(via changing settings in Kerberos.app). The Kerberos Login preferences exist so that the user can change
+their ticket management preferences without changing those preferences for every user on the machine.
+One user might always want addressless tickets, but another user might not.  
+</P>
+
+<P>
+In addition, there are some options which cannot be set with the <CODE>[libdefaults]</CODE>
+section of the <CODE>edu.mit.Kerberos</CODE> file.  For instance, there is no <CODE>edu.mit.Kerberos</CODE> 
+file preference to set the default ticket lifetime - despite config files which claim
+there is a "ticket_lifetime" tag, no code actually looks for it.  
+</P>
+
 </BLOCKQUOTE>
 
 <P><B><FONT SIZE="+2"><A NAME="pfdf">About Kerberos Configuration Information</A></FONT></B></P>
 <BLOCKQUOTE>
 	<P> The Kerberos v4 and v5 configurations are stored in the data fork of <CODE>edu.mit.Kerberos</CODE>.
+	</P>
 	
 	<P>This text is similar to that of <CODE>krb5.conf</CODE> on Unix machines or <CODE>krb5.ini</CODE> on Windows machines.  
 	The configuration tells Kerberos for Macintosh what realms exist,
@@ -263,6 +285,12 @@ if you only have a user configuration file.
 	v5 at your site, you should also copy any other <CODE>[libdefaults]</CODE> from your site's
 	<CODE>krb5.conf</CODE> or <CODE>krb5.ini</CODE>.</P>
 	
+	<P>Note that Kerberos for Macintosh does not honor any <CODE>ticket_lifetime</CODE> entry in
+	<CODE>[libdefaults]</CODE> .  The default lifetime that will be used by both the
+	Kerberos Login dialog and kinit is the one you specify in the GUI Kerberos management
+	application preferences, although you can specify a different lifetime when you
+	log in if you want.</P>
+	
 	<P>The <CODE>[realms]</CODE> and <CODE>[domain_realm]</CODE> sections refer to Kerberos v5 realms.
 	If your site is v4-only you should omit these sections.  Otherwise just copy these sections from
 	your site's <CODE>krb5.conf</CODE> or <CODE>krb5.ini</CODE>.</P>
@@ -270,7 +298,7 @@ if you only have a user configuration file.
 	<P>The <CODE>[v4 realms]</CODE> and <CODE>[v4 domain_realm]</CODE> sections refer to Kerberos v4 
 	realms.  If your site is v5-only you should omit these sections.  Otherwise you will need to
 	create entries for each of the Kerberos v4 realms at your site.  You should not specify a
-	string_to_key_type for v4 realms anymore, because that information will be ignore - KfM
+	string_to_key_type for v4 realms anymore, because that information will be ignored - KfM
 	will automatically determine the correct one to use.</P>
 </BLOCKQUOTE>
 
@@ -318,18 +346,18 @@ If you want to disable DNS lookup of Kerberos realms on your Macintosh, add the 
 </P>
 </BLOCKQUOTE>
 
-<!-- #include "footer.html" -->
+<!-- #bbinclude "footer.html" -->
 <HR> 
 <P> 
 	<FONT SIZE="+1"> <B> 
 		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
 	</B> </FONT> <BR>
-	Last updated on $Date: 2003/10/07 20:10:19 $ <BR> 
-	Last modified by $Author: smcguire $<BR>
+	Last updated on $Date: 2004/06/11 18:47:42 $ <BR> 
+	Last modified by $Author: lxs $<BR>
 
 </P>
 <!-- Begin MIT-use only web reporting counter -->
 	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
 <!-- End MIT-use only web reporting counter -->
 </BODY> </HTML>
-<!-- end include -->
+<!-- end bbinclude -->

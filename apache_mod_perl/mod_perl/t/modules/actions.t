@@ -1,5 +1,5 @@
 
-use Apache::test;
+use Apache::testold;
 
 my $ua = LWP::UserAgent->new;    # create a useragent to test
 

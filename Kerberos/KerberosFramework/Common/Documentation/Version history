@@ -1,12 +1,530 @@
 ========================================================================
 Kerberos.framework Version History
 ========================================================================
-Current version: 5.0fc13
-Date:            September 18, 2003
+Current version: 5.5fc10
+Date:            March 21, 2005
 Author:          meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu,
                  mjv@mit.edu, fdabek@mit.edu, yak@mit.edu
 ========================================================================
 
+Kerberos.framework 5.5fc10
+March 21, 2005
+
+[RT 2971] thread_termination doesn't free array of thread specific data
+
+Components:
+	CredentialsCache        3.5fc5
+	KClient                 3.4fc1
+	Kerberos5               1.4.1beta
+	KerberosDebug           1.6fc5
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2fc3
+	KerberosLogin           1.8fc7
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5fc9
+March 3, 2005
+
+[RT 2942] possible profile null pointer deref in threaded app
+
+Components:
+	CredentialsCache        3.5fc5
+	KClient                 3.4fc1
+	Kerberos5               1.4.1beta
+	KerberosDebug           1.6fc5
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2fc3
+	KerberosLogin           1.8fc7
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5fc8
+March 1, 2005
+
+[RT 2946] Can't get tickets for v4-only realm
+[RT 2947] Memory leaks in __KLGetCCacheByName
+
+Components:
+	CredentialsCache        3.5fc5
+	KClient                 3.4fc1
+	Kerberos5               1.4
+	KerberosDebug           1.6fc5
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2fc3
+	KerberosLogin           1.8fc7
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5fc7
+February 1, 2005
+
+[RT 2900] incomplete ticket cache confuses KLL
+[RT 2901] Kerberos.app uses freed Credential object on Ticket Renewal (crash)
+[RT 2905] Kerberos.app: Memory leak in stringValueForLifetimeColumn methods
+[RT 2907] Lifetime displays can display 60 minutes when not displaying seconds
+[RT 2903] Add symlink for libkrb5support.dylib so krb5-config doesn't lie
+[RT 2904] gcc-4.0 fixes for CCAPI -- just let it figure out to instantiate the globals
+[RT 2850] Kerberos framework should use a native Xcode target
+
+Components:
+	CredentialsCache        3.5fc5
+	KClient                 3.4fc1
+	Kerberos5               1.4
+	KerberosDebug           1.6fc5
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2fc3
+	KerberosLogin           1.8fc6
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5fc6
+January 28, 2005
+
+[RT 2895] clients should not register mach servers in the root bootstrap
+
+Components:
+	CredentialsCache        3.5fc4
+	KClient                 3.4fc1
+	Kerberos5               1.4
+	KerberosDebug           1.6fc5
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2fc3
+	KerberosLogin           1.8fc5
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5fc5
+January 23, 2005
+
+[RT 2894] prompter dialog should support NULL banner or name
+[RT 2899] __KLGetCCAPICCacheForKrb5CCache() leaks the string "name"
+[RT 2895] clients should not register mach servers in the root bootstrap
+[RT 2896] CCacheServer should not manually link against libstdc++.a (gcc 4.0)
+[RT 2897] gcc-4.0 requires new syntax to instantiate static members of template classes
+[RT 2898] Remove noisy debugging syslogs from debugging library
+[RT 2870] Crash on exit in mitkfw 2.6.5
+[RT 2871] lib/crypto/prng.c doesn't deal w/read() returning -1
+[RT 2872] memory leak in dns code
+[RT 2874] locking bug in file ccache
+[RT 2875] Fix mutex leak in gss libs
+[RT 2877] RPCSEC_GSS uses fixed-size buffers
+[RT 2878] data race conditions in krb5 libs
+[RT 2879] profile code never destroys its per-file mutexes
+[RT 2881] Crash on exit in mitkfw 2.6.5 after krb5_copy_cred call in cc_mslsa.c
+[RT 2884] Thread safety error in default rcache
+[RT 2887] krb5_unparse_name[_ext] can dereference null pointers
+[RT 2892] pull up some gcc-4.0 changes from #2876
+[RT 2893] Irix k5_os_mutex_lock calls k5_pthread_mutex_lock w/ wrong arg.
+
+Components:
+	CredentialsCache        3.5fc4
+	KClient                 3.4fc1
+	Kerberos5               1.4-beta4
+	KerberosDebug           1.6fc5
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2fc2
+	KerberosLogin           1.8fc5
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5fc4
+January 12, 2005
+
+[RT 2842] Use CopyProcessName instead of GetProcessInformation
+[RT 2860] KLChangePassword returns klParameterErr when server doesn't return strings
+[RT 2843] asl_log and asl_add_log_file changed prototypes
+[RT 2869] KLGetDefaultLoginOption (loginOption_LoginName) returns buffer, not string
+
+Components:
+	CredentialsCache        3.5fc3
+	KClient                 3.4fc1
+	Kerberos5               1.4-beta3
+	KerberosDebug           1.6fc4
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2fc1
+	KerberosLogin           1.8fc4
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5fc3
+December 17, 2004
+
+[RT 2819] fix kpasswd error handling
+[RT 2820] fixed kvno error handling
+[RT 2811] kdestroy doesn't support file-based ccaches
+[RT 2821] kdestroy -c option should only destroy that ccache
+[RT 2822] fix kdestroy error handling
+[RT 2823] cleaned up klist error handling
+[RT 2824] klist -A option should print dashes between ccaches
+[RT 2825] klist should not error out if there are no v4 ccaches
+[RT 2826] klist should not crash if there are no v4 ccaches
+[RT 2827] __KLChangePasswordTerminal() shouldn't report klUserCanceledErr to the user
+[RT 2828] export __KLCreatePrincipalFromKerberos5Principal as a private symbol
+[RT 2829] __KLKrb5CCacheExists should use cc_ccache_release to free a ccache
+[RT 2809] use cc_ccache_destroy to destroy v4 CCAPI caches
+[RT 2830] __KLGetSystemDefaultCCache should return an error if is no default ccache
+[RT 2810] CCAPI error codes don't have error strings
+[RT 2831] Debug log should not be world writable
+
+Components:
+	CredentialsCache        3.5fc3
+	KClient                 3.4fc1
+	Kerberos5               1.4-beta1
+	KerberosDebug           1.6fc3
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2fc1
+	KerberosLogin           1.8fc3
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5fc2
+December 13, 2004
+
+
+[RT 2800] Use Apple System Logger and set debugging at runtime
+[RT 2801] _KLAcquireNewInitialTicketsTerminal should not return krb5 errors
+[RT 2799] Use kCFPreferencesAnyUser, kCFPreferencesCurrentHost when writing prefs
+
+Components:
+	CredentialsCache        3.5fc2
+	KClient                 3.4fc1
+	Kerberos5               1.4-beta1
+	KerberosDebug           1.6fc2
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2fc1
+	KerberosLogin           1.8fc2
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5fc1
+December 6, 2004
+
+
+[RT 2014] KLL should honor file based krb5 ticket caches
+[RT 2787] KLL should not use CFPreferencesCopyAppValue
+[RT 2788] alert sheets returning void should not run modal
+[RT 2789] Kerberos.app should use an NSToolbar
+[RT 2790] New Kerberos Authentication dialog HI
+[RT 2792] Ticket List window size and position handling busted
+
+Components:
+	CredentialsCache        3.5fc1
+	KClient                 3.3
+	Kerberos5               1.4-beta1
+	KerberosDebug           1.6fc1
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2fc1
+	KerberosLogin           1.8fc1
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc1
+	Kerberos.app            2.0fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5b9
+November 4, 2004
+
+
+[RT 2747] kerberos.app doesn't always show window on reactivate 
+[RT 2764] Realms editor should be able to set default realm 
+[RT 2765] kinit should not loop forever getting password 
+[RT 2766] realms editor should be able to save as administrator 
+[RT 2767] Kerberos.app: remove '>' chars in prefs dialog in min/max time vals tab 
+[RT 2768] include errno.h if using errno errors 
+[RT 2769] Narrow authentication dialogs to take up less space
+[RT 2750] profile calls which set values should not fail if file is not writable 
+[RT 2751] profile needs API to see if default file is writable or modified
+[RT 2754] include errno.h earlier in fake-addrinfo.h
+
+Components:
+	CredentialsCache        3.5b3
+	KClient                 3.3
+	Kerberos5               1.4beta
+	KerberosDebug           1.6b2
+	KerberosErrors          1.6b3
+	KerberosIPC             1.2b2
+	KerberosLogin           1.8b8
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5b1
+
+========================================================================
+Kerberos.framework 5.5b8
+October 17, 2004
+
+
+[RT 2734] [libdefaults] lifetimes should have a default unit
+[RT 2740] No prototypes for profile_lock_global and profile_unlock_global
+[RT 2717] CFBundleGetValueForInfoDictionaryKey() accesses homedir!!
+[RT 2732] com_err should be thread-safe
+[RT 2733] KLL should be thread-safe whereever possible
+[RT 2737] KLL should get des ticket for krb524
+[RT 2570] Kerberos.app needs a realms editor
+[RT 2716] Kerberos.app needs applescript support again 
+[RT 2744] Kerberos.app preferences and realms editor should remember positions
+[RT 2745] Kerberos.app needs a shiny Mac OS X like icon
+[RT 2746] Kerberos.app shouldn't front list window when activating if it's already visible
+
+Components:
+	CredentialsCache        3.5b3
+	KClient                 3.3
+	Kerberos5               1.4alpha
+	KerberosDebug           1.6b2
+	KerberosErrors          1.6b3
+	KerberosIPC             1.2b2
+	KerberosLogin           1.8b7
+	KerberosPreferences     1.3
+	KerberosWrappers        1.4
+
+========================================================================
+Kerberos.framework 5.5b7
+September 8, 2004
+
+[RT 2695] Cosmetic glitches w/dock icon & window title when deleting last ticket 
+[RT 2697] Ticket list popup menu doesn't select default cache 
+[RT 2698] CCAPI doesn't remember ccache lastDefaultTime 
+[RT 2699] CCAPI can't store principals with spaces in their names 
+[RT 2700] dprintmem formatting has cosmetic glitches 
+[RT 2701] compile_et needs a man page 
+[RT 2539] krb524d has no man page
+[RT 2694] krb5-config has no man page 
+
+Components:
+	CredentialsCache        3.5b3
+	KClient                 3.3
+	Kerberos5               1.4alpha
+	KerberosDebug           1.6b2
+	KerberosErrors          1.6b2
+	KerberosIPC             1.2b2
+	KerberosLogin           1.8b6
+	KerberosPreferences     1.3
+	KerberosWrappers        1.4
+
+========================================================================
+Kerberos.framework 5.5b6
+August 30, 2004
+
+Build system improvements.
+Hack to build system for Apple pkinit patches to make merging easier
+[RT 2642] login window with keytab doesn't work with 5.5b4  (actually fixed in 5.5b5)
+[RT 2679] Kerberos.app crashes while waking from sleep 
+[RT 2680] Authenticate to Kerberos dialog should not minimize with error sheet 
+[RT 2681] klist man page does not list all the -f flags 
+
+Components:
+	CredentialsCache        3.5b2
+	KClient                 3.3
+	Kerberos5               1.4alpha
+	KerberosDebug           1.6b1
+	KerberosErrors          1.6b1
+	KerberosIPC             1.2b2
+	KerberosLogin           1.8b6
+	KerberosPreferences     1.3
+	KerberosWrappers        1.4
+
+========================================================================
+Kerberos.framework 5.5b5
+August 20, 2004
+
+[RT 2674] kadmind "acl_init" API conflicts with Mac OS X acl APIs 
+[RT 1716] install compile_et in /usr/bin
+[RT 2669] CCacheServer and KerberosAgent should quit on logout
+[RT 2670] Clients should register on-demand servers if they get unregistered
+[RT 2671] Login session API should return session attributes, not prompt type
+[RT 2649] KLL should use session ID *and* UID to distinguish between users
+[RT 2650] KLL should return Kerberos default realm if no favorite default realm
+[RT 2651] KLL should return the short user name if no KLL name exists in prefs
+[RT 2673] Add more fine grained private APIs to control prompting behavior
+[RT 2672] KerberosAgent should use the new Kerberos logo
+[RT 2658] kinit should support getting non-renewable tickets
+[RT 2663] KerberosApp should update renewal time when waking from sleep
+
+Components:
+	CredentialsCache        3.5b2
+	KClient                 3.3
+	Kerberos5               1.4alpha
+	KerberosDebug           1.6b1
+	KerberosErrors          1.6b1
+	KerberosIPC             1.2b2
+	KerberosLogin           1.8b5
+	KerberosPreferences     1.3
+	KerberosWrappers        1.4
+
+========================================================================
+Kerberos.framework 5.5b4
+July 15, 2004
+
+[RT 2571] Kerberos.app ticket list window should display when app fronts 
+[RT 2575] KLL lock directory should use Session ID, not UID to distinguish between users 
+[RT 2638] Kerberos framework should not link against ApplicationServices framework 
+[RT 2583] fix buffer overflow in an_to_ln.c 
+[RT 2634] Remove use of client principal from krb5_context (default_ccprincipal) 
+
+Components:
+	CredentialsCache        3.5b1
+	KClient                 3.3
+	Kerberos5               1.4alpha
+	KerberosDebug           1.6b1
+	KerberosErrors          1.5
+	KerberosIPC             1.2b1
+	KerberosLogin           1.8b4
+	KerberosPreferences     1.3
+	KerberosWrappers        1.4
+
+========================================================================
+Kerberos.framework 5.5b3
+May 21, 2004
+
+[RT 2348] KfM should include krb5-config
+[RT 2564] Use compile-time checks to detect endianness whenever possible
+[RT 2566] Kerberos authentication dialog should not steal focus
+[RT 2567] KLL should support a global preference file
+[RT 2568] Stop installing CFM shim libraries
+[RT 2569] Disable Classic Ticket Sharing
+
+Components:
+	CredentialsCache        3.5b1
+	KClient                 3.3
+	Kerberos5               1.3.4beta
+	KerberosDebug           1.6b1
+	KerberosErrors          1.5
+	KerberosIPC             1.2b1
+	KerberosLogin           1.8b3
+	KerberosPreferences     1.3
+	KerberosWrappers        1.4
+
+========================================================================
+Kerberos.framework 5.5b2
+March 18, 2004
+
+[RT 1661] KfM should use Panther mach init per user mechanism 
+[RT 2348] KfM should include krb5-config 
+[RT 2416] KfM should not check OS version because it breaks configure tests in B&I 
+
+Components:
+	CredentialsCache        3.5b1
+	KClient                 3.3
+	Kerberos5               1.3.3beta
+	KerberosDebug           1.6b1
+	KerberosErrors          1.5
+	KerberosIPC             1.2b1
+	KerberosLogin           1.8b2
+	KerberosPreferences     1.3
+	KerberosWrappers        1.4
+
+========================================================================
+Kerberos.framework 5.5b1
+January 31, 2004
+
+[RT 1960] KfM should use syslog() rather than logging to a file
+[RT 2013] KLRenewInitialTickets and KLValidateInitialTickets leak a krb5_ccache
+[RT 2178] kvno should always get fresh credentials
+[RT 2179] kvno should honor etype option 
+
+Components:
+	CredentialsCache        3.4
+	KClient                 3.3
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.6b1
+	KerberosErrors          1.5
+	KerberosIPC             1.1
+	KerberosLogin           1.8b1
+	KerberosPreferences     1.3
+	KerberosWrappers        1.4
+
+========================================================================
+Kerberos.framework 5.0
+September 18, 2003
+
+Components:
+	CredentialsCache        3.4
+	KClient                 3.3
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.5
+	KerberosErrors          1.5
+	KerberosIPC             1.1
+	KerberosLogin           1.7
+	KerberosPreferences     1.3
+	KerberosWrappers        1.4
+
+========================================================================
 Kerberos.framework 5.0fc13
 September 18, 2003
 

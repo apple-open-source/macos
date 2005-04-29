@@ -1,0 +1,52 @@
+[include common/trf_version.inc]
+[manpage_begin rs_ecc n [vset trf_version]]
+[titledesc "Reed-Solomon error correcting code"]
+[include common/trf_header.inc]
+[description]
+
+The command [cmd rs_ecc] provides a reed-solomon error correcting
+coder. The coder operates on blocks of 248 bytes each, therefore
+buffering 247 bytes.
+
+[para]
+[list_begin definitions]
+
+[call [cmd rs_ecc] [opt [arg options...]] [opt [arg data]]]
+
+[list_begin definitions]
+
+[lst_item "[option -mode] [const encode]|[const decode]"]
+
+This option has to be present and is always understood.
+
+[nl]
+
+For [term immediate] mode the argument value specifies the operation
+to use.  For an [term attached] encoding it specifies the operation to
+use for [emph writing]. Reading will automatically use the reverse
+operation.
+
+See section [sectref {IMMEDIATE versus ATTACHED}] for explanations of
+these two terms.
+
+[nl]
+
+Beyond the argument values listed above all unique abbreviations are
+recognized too.
+
+[nl]
+
+[const Encode] converts from arbitrary (most likely binary) data into
+a representation containing additional error correcting information,
+[const decode] does the reverse, and performs the error correction if
+necessary.
+
+[include common/options.inc]
+[list_end]
+[list_end]
+
+[include common/sections.inc]
+
+[see_also  trf-intro]
+[keywords {error correction} reed-solomon]
+[manpage_end]

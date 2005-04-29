@@ -1,3 +1,77 @@
+2004-08-19  Paul Eggert  <eggert@twinsun.com>
+
+	* Release 1.4.2.
+
+	* configure.in (VERSION): Bump to 1.4.2.
+	* NEWS: Describe 1.4.2's changes.
+
+	* src/m4.c (reference_error): Preserve errno, since M4ERROR
+	relies on this.
+	* src/builtin.c (m4_esyscmd): Clear errno before calling popen.
+	(m4_maketemp): Clear errno before calling mkstemp.
+	* src/path.c (path_search): Don't let "free" trash errno when
+	returning NULL.
+	* src/output.c (insert_file): Don't assume errno has a valid
+	value simply because fread returns zero.  This fixes a
+	portability bug reported by Marion Hakanson in
+	<http://lists.gnu.org/archive/html/bug-m4/2004-07/msg00029.html>.
+
+2004-06-09  Gary V. Vaughan  <gary@gnu.org>
+
+	* configure.in (VERSION): Bump to 1.4.1a.
+	* NEWS: Place holder for next stable release.
+
+2004-06-03  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* Release 1.4.1.
+
+	* configure.in (VERSION): Bump to 1.4.1.
+	* NEWS: Describe 1.4.1's changes.
+
+	* aclocal.m4 (fp_PROG_CC_STDC): Use AC_DEFUN, not define, to
+	pacify Autoconf 2.59.
+
+	* doc/m4.texinfo: Insert commas after @xref's that lack them,
+	to pacify Texinfo 4.7.
+	* doc/Makefile.in (info): Remove info-1, info-2, info-3.
+
+	* src/m4.h, src/debug.c: Use #ifdef __STDC__, not #if __STDC__, to
+	pacify Sun C compilers.
+
+2003-09-28  Akim Demaille  <akim@epita.fr>
+
+	* src/symtab.c (lookup_symbol): Fix an uninitialized-variable
+	botch.
+
+2003-09-03  Santiago Vila  <sanvila@debian.org>
+
+	* examples/stackovf.sh: Use tempfile if available.
+
+2001-04-02  Robert Bihlmeyer  <robbe@orcus.priv.at>
+
+	http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=92629
+	* src/output.c (m4_insert_file): Do not mix buffered and
+	unbuffered I/O, as this breaks on the Hurd.  (trivial change)
+
+2001-02-01  Santiago Vila  <sanvila@debian.org>
+
+	http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=84451
+	* src/m4.c (main): Fix format vulnerabilities.  (trivial change)
+
+2001-02-01  Matt Kraai  <kraai@debian.org>
+
+	http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=84416
+	* doc/m4.texinfo (Maketemp): Change maketemp to refer to a new,
+	empty file rather than to a nonexistent file.  This closes a common
+	security hole.
+	* src/builtin.c (m4_maketemp): Implement the above, by using
+	mkstemp rather than mktemp.  (trivial change)
+
+2000-01-09  Akim Demaille  <demaille@inf.enst.fr>
+
+	* src/builtin.c (expand_ranges): Added break after trailing dash.
+	This caused misbehaviors on some systems.
+
 Sat Nov  5 15:52:47 1994  Francois Pinard  (pinard@icule)
 
 	* Release 1.4.
@@ -291,7 +365,7 @@ Mon Aug 29 12:27:19 1994  Francois Pinard  (pinard@icule)
 	Reported by David MacKenzie.
 
 	Freeze diversions:
-	* output.c (freeze_diversions): New function.  
+	* output.c (freeze_diversions): New function.
 	* m4.h: Declare freeze_diversions.
 	* freeze.c: Document frozen file format, revise it, call
 	freeze_diversions to add diversions to frozen format, and code to
@@ -415,7 +489,7 @@ Thu Jul 14 17:23:17 1994  Francois Pinard  (pinard@icule)
 
 	* stackovf.c (setup_stackovf_trap): Replace "Don't" by "Do not" in
 	error message, for when no code possibility exists.  Even if this
-	line is completely #ifdef'ed out, it brings a syntax error. 
+	line is completely #ifdef'ed out, it brings a syntax error.
 	Reported by Andreas Schwab, Jim Meyering and Joseph E. Sacco.
 
 	* Makefile.in (install): Have install depend on all too, for lib
@@ -454,7 +528,7 @@ Wed Jul  6 13:16:31 1994  Jim Avera (jima@netcom.com)
 
 	* stackovf.c: Isolated OS-dependent sections; Improved portability,
 	adding support for SunOS/BSD (sigvec, sigstack, and 4-parameter signal
-	handlers), and a default error message if the fault address is not 
+	handlers), and a default error message if the fault address is not
 	available (when neither siginfo.h nor BSD sigcontext are supported).
 	* configure.in: Changes for stackovf.h: Check for sigcontext,
 	sigaction, sigstack, and define rlim_t as int if necessary.
@@ -510,11 +584,11 @@ Mon Jun 27 14:24:23 1994  Francois Pinard  (pinard@icule)
 	(ntoa): Declare value as eval_t instead of int.  Declare uvalue as
 	unsigned_eval_t instead of unsigned int.  Change casts accordingly.
 	(shipout_int): Cast first argument of ntoa to eval_t.
-	Reported by Thorsten Ohl.	
+	Reported by Thorsten Ohl.
 
 	* macro.c: Complete the prototypes of forwarded expand_macro and
 	expand_token.
-	Reported by Thorsten Ohl.	
+	Reported by Thorsten Ohl.
 
 	* m4.h: Define voidstar as void * or char * depending on __STDC__.
 	The Ultrix 3.1 compiler cannot do much with void pointers.
@@ -551,7 +625,7 @@ Sat Jun 25 00:10:05 1994  Francois Pinard  (pinard@icule)
 	* configure.in: Substitute CFLAGS and LDFLAGS, taking their value
 	from the environment.  Default CFLAGS to -g if not set.
 	* Makefile.in: Have CFLAGS and LDFLAGS substituted from configure.
-	* lib/Makefile.in: Have CFLAGS substituted from configure. 
+	* lib/Makefile.in: Have CFLAGS substituted from configure.
 	Reported by Eric Backus and Tom McConnell.
 
 	* configure.in: m4_undefine changeword before using AC_ENABLE.
@@ -589,7 +663,7 @@ Thu Jun 23 00:00:30 1994  Francois Pinard  (pinard@icule)
 	[These modifs all depend upon ENABLE_CHANGEWORD and are adapted
 	from code provided by Pete Chown]
 	* m4.h: Add original_text field to u_t variant of union u.
-	Declare TOKEN_DATA_FUNC macro. 
+	Declare TOKEN_DATA_FUNC macro.
 	* builtin.c: Declare changeword.
 	(m4_changeword): New function.
 	* input.c: Include "regex.h", define variables with word regexps.
@@ -676,7 +750,7 @@ Wed May  4 23:59:39 1994  Francois Pinard  (pinard@icule)
 
 	* Makefile.in: Remove all occurrences of $(MFLAGS), which were
 	bringing more evil than good on a few systems.
-	Reported by Greg A. Woods.	
+	Reported by Greg A. Woods.
 
 Fri Apr 22 15:59:35 1994  Francois Pinard  (pinard@icule)
 
@@ -1017,7 +1091,7 @@ Mon Nov  1 07:45:24 1993  Francois Pinard  (pinard@icule)
 
 	* m4.c: Remove all code conditionalized by IMPLEMENT_M4OPTS.
 	Merge parse_args into main.  Declare argv to be `char *const *',
-	then remove superfluous casts. 
+	then remove superfluous casts.
 
 	* m4.c: Rename --no-gnu-extensions to --traditional.
 	Reported by Ben A. Mesander.
@@ -1358,7 +1432,7 @@ Thu Nov  5 12:37:13 1992  Francois Pinard  (pinard at icule)
 
 	* Many *.[hc] files: Correct intra-line spacing here and there,
 	according to GNU indent 1.6 advice.
-	
+
 	* configure.in: New, using Autoconf 1.2.
 	* m4.h: Reverse NO_MEMORY_H to NEED_MEMORY_H.
 	* Delete old configure.in, configure, etc/configure.in,

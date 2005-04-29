@@ -1,4 +1,4 @@
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL file Objective-C++ */
 /* Process the ObjC-specific declarations and variables for 
    the Objective-C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
@@ -39,10 +39,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "input.h"
 #include "except.h"
-#include "function.h"
 #include "output.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "cpplib.h"
 #include "debug.h"
 #include "target.h"
@@ -50,12 +48,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "objc-act.h"
 #include "objcp-decl.h"
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-#include "pfe/objc-freeze-thaw.h"
-#endif
 
 /* APPLE LOCAL indexing */
 #include "genindex.h"
@@ -76,7 +68,7 @@ objcp_start_struct (code, name)
   push_lang_context (lang_name_c);
   if (!name)
      name = make_anon_name ();
-  h = handle_class_head (ridpointers [RID_STRUCT], 0, name, 1, &new_scope);
+  h = handle_class_head (record_type, 0, name, 0, 1, &new_scope);
 
   /* APPLE LOCAL indexing dpatel */
   flag_suppress_builtin_indexing = 1;
@@ -137,7 +129,7 @@ objcp_start_decl (declarator, declspecs, initialized, attributes)
      tree attributes;
 {
   return start_decl (declarator, declspecs, initialized, 
-			  attributes, NULL_TREE);
+		     attributes, NULL_TREE);
 }
 			  
 void
@@ -194,13 +186,6 @@ objcp_store_parm_decls ()
      do not need to do anything here.  */
 }
 
-tree
-objcp_build_function_call (function, args)
-     tree function, args;
-{
-  return build_x_function_call (function, args, current_class_ref); 
-}
-      
 tree 
 objcp_xref_tag (code, name)
      enum tree_code code;
@@ -208,7 +193,7 @@ objcp_xref_tag (code, name)
 {  
   if (code != RECORD_TYPE)
     abort ();   /* this is sheer laziness... */   
-  return xref_tag (record_type_node, name, 1);
+  return xref_tag (record_type, name, 0, 1);
 }
 
 tree
@@ -225,7 +210,10 @@ tree
 objcp_build_component_ref (datum, component) 
      tree datum, component;
 {
-  return build_component_ref (datum, component, NULL_TREE, 1);
+  /* The 'build_component_ref' routine has been removed from the C++
+     front-end, but 'finish_class_member_access_expr' seems to be
+     a worthy substitute.  */
+  return finish_class_member_access_expr (datum, component);
 }  
 
 int
@@ -235,54 +223,20 @@ objcp_comptypes (type1, type2)
   return comptypes (type1, type2, 0);
 }
 
-tree 
-objcp_type_name (type)
-     tree type;
-{
-  if (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL)
-    return DECL_NAME (TYPE_NAME (type));
-  else
-    return TYPE_NAME (type);
-}
-
-tree 
-objcp_type_size (type)
-     tree type;
-{
-  tree size = TYPE_SIZE (type);
-  if (size == NULL_TREE)
-    {
-      warning ("Requesting size of incomplete type `%s'",
-	       IDENTIFIER_POINTER (objcp_type_name (type)));
-      layout_type (type);
-      size = TYPE_SIZE (type);
-    }
-  return build_int_2 (TREE_INT_CST_LOW (size), 0);
-}
-
 /* C++'s version of 'builtin_function' winds up placing our precious
    objc_msgSend and friends in namespace std!  This will not do.
    We shall hence duplicate C's 'builtin_function' here instead.   */
    
 tree
-objcp_builtin_function (name, type, code, class, libname)
+objcp_builtin_function (name, type, code, class, libname, attrs)
      const char *name;
      tree type;
      int code;
      enum built_in_class class;
      const char *libname ATTRIBUTE_UNUSED;
+     tree attrs;
 {
-  /* APPLE LOCAL PFE */
   tree decl = NULL;
-#ifdef PFE
-  /* If already loaded from the precompiled header, then use it.  */
-  if (pfe_operation == PFE_LOAD)
-    {
-       decl = lookup_name_current_level ( get_identifier (name));
-       if (decl)
-         return decl;
-    }
-#endif
   decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
@@ -293,7 +247,10 @@ objcp_builtin_function (name, type, code, class, libname)
   DECL_ANTICIPATED (decl) = 1;
 
   /* Possibly apply some default attributes to this built-in function.  */
-  decl_attributes (&decl, NULL_TREE, 0);
+  if (attrs)
+    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
+  else
+    decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -306,12 +263,13 @@ objcp_lookup_identifier (token, id, check_conflict)
 {
   tree objc_id = lookup_objc_ivar (token);
   
-  if (!check_conflict || objc_id && IS_SUPER (objc_id))
+  if (!check_conflict || (objc_id && IS_SUPER (objc_id)))
     *id = objc_id;
   else if (objc_id && *id && IDENTIFIER_BINDING (token)) 
     warning ("local declaration of `%s' hides instance variable",
 	     IDENTIFIER_POINTER (token));
+  else if (objc_id)
+    *id = objc_id;  /* No conflict, so use the ivar. */
 	     
   return (objc_id != NULL_TREE);
 }  
-

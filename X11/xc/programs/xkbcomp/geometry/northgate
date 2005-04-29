@@ -1,4 +1,7 @@
 // $Xorg: northgate,v 1.3 2000/08/17 19:54:36 cpqbld Exp $
+//
+// $XFree86: xc/programs/xkbcomp/geometry/northgate,v 1.3 2003/10/24 20:38:19 tsi Exp $
+//
 default xkb_geometry "omnikey101" {
 
     description= "North Gate Omnikey 101";
@@ -37,9 +40,9 @@ default xkb_geometry "omnikey101" {
     indicator.offColor= "green30";
     indicator.top= 46.5;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 384; };
-    indicator "CapsLock"    { left= 409; };
-    indicator "ScrollLock"  { left= 434; };
+    indicator "Num Lock"     { left= 384; };
+    indicator "Caps Lock"    { left= 409; };
+    indicator "Scroll Lock"  { left= 434; };
     text.top= 34;
     text.color= "black";
     text "NumLockLabel"	{ left= 380.5; text="Num\nLock"; };

@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = rexecd.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble rexecd.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble rexecd.8 exec.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

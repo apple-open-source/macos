@@ -52,13 +52,7 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 	CFIndex				myPatternsLen	= 0;
 	int				sc_status;
 
-	if (_sc_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreSetNotificationKeys:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  keys     = %@"), keys);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  patterns = %@"), patterns);
-	}
-
-	if (!store) {
+	if (store == NULL) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;
@@ -99,8 +93,10 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 	if (xmlPatterns)	CFRelease(xmlPatterns);
 
 	if (status != KERN_SUCCESS) {
+#ifdef	DEBUG
 		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyset(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreSetNotificationKeys notifyset(): %s"), mach_error_string(status));
+#endif	/* DEBUG */
 		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);

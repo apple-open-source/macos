@@ -24,13 +24,12 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/QuTextExt.c,v 1.4 2001/12/14 19:54:04 dawes Exp $ */
+/* $XFree86: xc/lib/X11/QuTextExt.c,v 1.5 2003/11/17 22:20:08 dawes Exp $ */
 
 #define NEED_REPLIES
 #include "Xlibint.h"
 
 int
-#if NeedFunctionPrototypes
 XQueryTextExtents (
     register Display *dpy,
     Font fid,
@@ -40,17 +39,6 @@ XQueryTextExtents (
     int *font_ascent,
     int *font_descent,
     register XCharStruct *overall)
-#else
-XQueryTextExtents (dpy, fid, string, nchars, dir, font_ascent, font_descent,
-                   overall)
-    register Display *dpy;
-    Font fid;
-    register char *string;
-    register int nchars;
-    int *dir;
-    int *font_ascent, *font_descent;
-    register XCharStruct *overall;
-#endif
 {
     register int i;
     register char *ptr;

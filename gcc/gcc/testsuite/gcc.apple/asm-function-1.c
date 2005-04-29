@@ -1,8 +1,10 @@
 /* APPLE LOCAL file CW asm blocks */
 /* Test whole asm functions.  */
 
-/* { dg-do run } */
-/* { dg-options "-fasm-blocks" } */
+/* { dg-do run { target powerpc*-*-* } } */
+/* { dg-options "-fasm-blocks -O2" } */
+
+void abort(void);
 
 asm int
 foo (register int argx, register int argy)
@@ -12,7 +14,7 @@ foo (register int argx, register int argy)
 
 #define rsltreg r3
 
-static asm int
+asm int
 foo1 (register int argx, register int argy)
 {
   register int loc1, loc2;
@@ -26,7 +28,7 @@ foo1 (register int argx, register int argy)
     blr
 }
 
-static asm int foo2(int x, float y)
+extern asm int foo2(int x, float y)
 {
 #pragma unused(x)
 #pragma unused(x,y)
@@ -47,4 +49,3 @@ main ()
     abort ();
   return 0;
 }
-

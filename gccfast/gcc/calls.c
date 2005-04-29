@@ -651,6 +651,22 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
 
   SIBLING_CALL_P (call_insn) = ((ecf_flags & ECF_SIBCALL) != 0);
 
+  /* APPLE LOCAL direct call to ObjC special functions.  */
+  if (fndecl && TREE_CODE (fndecl) == FUNCTION_DECL)
+    {
+      tree t = lookup_attribute ("hard_coded_address", 
+				 DECL_ATTRIBUTES (fndecl));
+      if (t)
+	/* The constant address stored here has only 32 bits.  This
+	   is not a limitation, because the bla instruction has an
+	   architectural limit of 26 bits.  */
+        REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_ABSCALL,
+		gen_rtx_CONST_INT (FUNCTION_MODE,
+			    tree_low_cst (TREE_VALUE (t), 0)),
+		 REG_NOTES (call_insn));
+    }
+  /* APPLE LOCAL direct call to ObjC special functions.  */
+
   /* Restore this now, so that we do defer pops for this call's args
      if the context of the call as a whole permits.  */
   inhibit_defer_pop = old_inhibit_defer_pop;
@@ -3548,7 +3564,7 @@ expand_call (exp, target, ignore)
 	 with CW.  If a GCC-compiled daughter() in turn sibcalls to
 	 granddaughter() with, say, 44 bytes of parameters, GCC will
 	 generate a store of that extra parameter into padding of the
-	 father() parameter area.  Alas, if father() was compild by
+	 father() parameter area.  Alas, if father() was compiled by
 	 CW, father() will not have the parameter area padding, and
 	 something in the father() stackframe will be stomped.  PPC
 	 parameter areas are guaranteed to be a minimum of 32 bytes.
@@ -4326,7 +4342,8 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	  if (GET_CODE (valreg) == PARALLEL)
 	    {
 	      temp = gen_reg_rtx (outmode);
-	      emit_group_store (temp, valreg, outmode);
+	      /* APPLE LOCAL backported fix from 3.4 */
+	      emit_group_store (temp, valreg, GET_MODE_SIZE (outmode));
 	      valreg = temp;
 	    }
 
@@ -4369,7 +4386,8 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	{
 	  if (value == 0)
 	    value = gen_reg_rtx (outmode);
-	  emit_group_store (value, valreg, outmode);
+	  /* APPLE LOCAL backported fix from 3.4 */
+	  emit_group_store (value, valreg, GET_MODE_SIZE (outmode));
 	}
       else if (value != 0)
 	emit_move_insn (value, valreg);

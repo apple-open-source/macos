@@ -417,9 +417,7 @@ createlihash()
 	return NULL;
 
     pm->level = pm->old ? locallevel : 0;
-    pm->gets.hfn = hashgetfn;
-    pm->sets.hfn = hashsetfn;
-    pm->unsetfn = stdunsetfn;
+    pm->gsu.h = &stdhash_gsu;
     pm->u.hash = ht = newhashtable(7, langinfo_nam, NULL);
 
     ht->hash        = hasher;
@@ -439,7 +437,7 @@ createlihash()
 
 /**/
 static HashNode
-getlanginfo(HashTable ht, char *name)
+getlanginfo(UNUSED(HashTable ht), char *name)
 {
     int len, *elem;
     char *listr;
@@ -447,19 +445,10 @@ getlanginfo(HashTable ht, char *name)
 
     unmetafy(name, &len);
 
-    pm = (Param) zhalloc(sizeof(struct param));
+    pm = (Param) hcalloc(sizeof(struct param));
     pm->nam = dupstring(name);
     pm->flags = PM_READONLY | PM_SCALAR;
-    pm->sets.cfn = NULL;
-    pm->gets.cfn = strgetfn;
-    pm->sets.ifn = NULL;
-    pm->gets.ifn = intgetfn;
-    pm->unsetfn = NULL;
-    pm->ct = 0;
-    pm->env = NULL;
-    pm->ename = NULL;
-    pm->old = NULL;
-    pm->level = 0;
+    pm->gsu.s = &nullsetscalar_gsu;
 
     if(name)
 	elem = liitem(name);
@@ -480,23 +469,14 @@ getlanginfo(HashTable ht, char *name)
 
 /**/
 static void
-scanlanginfo(HashTable ht, ScanFunc func, int flags)
+scanlanginfo(UNUSED(HashTable ht), ScanFunc func, int flags)
 {
     Param pm = NULL;
     char **element, *langstr;
     nl_item *nlcode;
 
-    pm = (Param) zhalloc(sizeof(struct param));
-    pm->sets.cfn = NULL;
-    pm->gets.cfn = strgetfn;
-    pm->sets.ifn = NULL;
-    pm->gets.ifn = intgetfn;
-    pm->unsetfn = NULL;
-    pm->ct = 0;
-    pm->env = NULL;
-    pm->ename = NULL;
-    pm->old = NULL;
-    
+    pm = (Param) hcalloc(sizeof(struct param));
+    pm->gsu.s = &nullsetscalar_gsu;
     pm->flags = PM_READONLY | PM_SCALAR;
 
     nlcode = &nl_vals[0];
@@ -515,14 +495,14 @@ scanlanginfo(HashTable ht, ScanFunc func, int flags)
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
 
 /**/
 int
-boot_(Module m)
+boot_(UNUSED(Module m))
 {
 #ifdef HAVE_NL_LANGINFO
     if (!createlihash())
@@ -535,7 +515,7 @@ boot_(Module m)
 
 /**/
 int
-cleanup_(Module m)
+cleanup_(UNUSED(Module m))
 {
 #ifdef HAVE_NL_LANGINFO
     Param pm;
@@ -551,7 +531,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

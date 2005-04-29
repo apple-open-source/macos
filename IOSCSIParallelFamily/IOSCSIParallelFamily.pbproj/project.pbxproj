@@ -101,7 +101,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
-				MODULE_VERSION = 1.3.7;
+				MODULE_VERSION = 1.4.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -128,7 +128,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIParallelFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.7, Copyright Apple Computer, Inc. 1998-2004</string>
+	<string>1.4.0, Copyright Apple Computer, Inc. 1998-2005</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -140,11 +140,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7</string>
+	<string>1.4.0</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.2.0</string>
 	<key>OSBundleLibraries</key>
@@ -480,7 +480,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIFamily;
-				MODULE_VERSION = 1.3.7;
+				MODULE_VERSION = 1.4.0;
 				OTHER_CFLAGS = "-fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -504,7 +504,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.7, Copyright Apple Computer, Inc. 1998-2004</string>
+	<string>1.4.0, Copyright Apple Computer, Inc. 1998-2005</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -516,11 +516,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7</string>
+	<string>1.4.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIParallelInterfaceProtocolTransport</key>

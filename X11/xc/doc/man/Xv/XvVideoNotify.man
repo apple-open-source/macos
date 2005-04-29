@@ -1,5 +1,5 @@
 .TH XvVideoNotify 3X  __vendorversion__
-.\" $XFree86: xc/doc/man/Xv/XvVideoNotify.man,v 1.5 2001/01/27 18:20:36 dawes Exp $
+.\" $XFree86: xc/doc/man/Xv/XvVideoNotify.man,v 1.6 2003/05/29 21:48:05 herrb Exp $
 .SH Name
 XvVideoNotify \- event generated for video processing
 .\"
@@ -49,7 +49,7 @@ The port processing the video for which the event was generated.
 .\"
 XvVideoNotify(3X) events are generated when video
 is started, stopped, preempted by another video
-request, ignored because the port is grabbed by another client, or interruped
+request, ignored because the port is grabbed by another client, or interrupted
 because of a hard transmission or reception error.
 .\"
 .SH See Also

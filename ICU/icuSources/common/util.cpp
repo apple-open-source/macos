@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2001, International Business Machines
+*   Copyright (c) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -68,7 +68,7 @@ static const UChar HEX[16] = {48,49,50,51,52,53,54,55,  // 0-7
  * Return true if the character is NOT printable ASCII.
  */
 UBool ICU_Utility::isUnprintable(UChar32 c) {
-    return !(c == 0x0A || (c >= 0x20 && c <= 0x7E));
+    return !(c >= 0x20 && c <= 0x7E);
 }
 
 /**
@@ -103,6 +103,8 @@ UBool ICU_Utility::escapeUnprintable(UnicodeString& result, UChar32 c) {
  * For example, in the string "abc'hide'h", the 'h' in "hide" will not be
  * found by a search for 'h'.
  */
+// FOR FUTURE USE.  DISABLE FOR NOW for coverage reasons.
+/*
 int32_t ICU_Utility::quotedIndexOf(const UnicodeString& text,
                                int32_t start, int32_t limit,
                                UChar charToFind) {
@@ -119,6 +121,7 @@ int32_t ICU_Utility::quotedIndexOf(const UnicodeString& text,
     }
     return -1;
 }
+*/
 
 /**
  * Skip over a sequence of zero or more white space characters at pos.
@@ -340,8 +343,6 @@ int32_t ICU_Utility::parsePattern(const UnicodeString& pat,
     return -1; // text ended before end of pat
 }
 
-static const UChar ZERO_X[] = {48, 120, 0}; // "0x"
-
 /**
  * Parse an integer at pos, either of the form \d+ or of the form
  * 0x[0-9A-Fa-f]+ or 0[0-7]+, that is, in standard decimal, hex,
@@ -356,13 +357,16 @@ int32_t ICU_Utility::parseInteger(const UnicodeString& rule, int32_t& pos, int32
     int32_t p = pos;
     int8_t radix = 10;
 
-    if (0 == rule.caseCompare(p, 2, ZERO_X, U_FOLD_CASE_DEFAULT)) {
-        p += 2;
-        radix = 16;
-    } else if (p < limit && rule.charAt(p) == 48 /*0*/) {
-        p++;
-        count = 1;
-        radix = 8;
+    if (p < limit && rule.charAt(p) == 48 /*0*/) {
+        if (p+1 < limit && (rule.charAt(p+1) == 0x78 /*x*/ || rule.charAt(p+1) == 0x58 /*X*/)) {
+            p += 2;
+            radix = 16;
+        }
+        else {
+            p++;
+            count = 1;
+            radix = 8;
+        }
     }
 
     while (p < limit) {
@@ -603,6 +607,18 @@ void ICU_Utility::appendToRule(UnicodeString& rule,
         appendToRule(rule, matcher->toPattern(pat, escapeUnprintable),
                      TRUE, escapeUnprintable, quoteBuf);
     }
+}
+
+U_CAPI UBool U_EXPORT2
+uprv_isRuleWhiteSpace(UChar32 c) {
+    /* "white space" in the sense of ICU rule parsers
+       This is a FIXED LIST that is NOT DEPENDENT ON UNICODE PROPERTIES.
+       See UTR #31: http://www.unicode.org/reports/tr31/.
+       U+0009..U+000D, U+0020, U+0085, U+200E..U+200F, and U+2028..U+2029
+    */
+    return (c >= 0x0009 && c <= 0x2029 &&
+            (c <= 0x000D || c == 0x0020 || c == 0x0085 ||
+             c == 0x200E || c == 0x200F || c >= 0x2028));
 }
 
 //eof

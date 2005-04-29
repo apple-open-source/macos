@@ -43,7 +43,6 @@ static void testa(char *arg, int from_tty)
 static void testb(char *arg, int from_tty)
 {
     char *p, *s = arg;
-    int size;
     
     union {
     	unsigned long r;
@@ -53,14 +52,15 @@ static void testb(char *arg, int from_tty)
     	    short         s[8];
     	    unsigned long l[4];
     	    float         f[4];
+    	    double	  d[2];
     	} v;
-    	char          other[50];
+    	int           other;
     } value;
     
-    p = gdb_get_register(arg, &value, &size);
+    p = gdb_get_register(arg, &value);
     
     if (!p) {
-    	gdb_printf("%s\n", value.other);
+    	gdb_printf("%d\n", value.other);
     	return;
     }
     
@@ -76,7 +76,7 @@ static void testb(char *arg, int from_tty)
 	    if (strcmp(arg, "fpscr") == 0)
 	    	gdb_printf("fpscr\n");
 	    else
-	    	gdb_printf("%s = %g\n", arg, value.f);
+	    	gdb_printf("%s = %lg\n", arg, value.v.d[0]);
 	    break;
 	    
 	case 'v': /* v0-v31, vscr, vrsave */
@@ -114,6 +114,9 @@ static void testb(char *arg, int from_tty)
 	case 'm': /* mq */
 	    gdb_printf("mq = %.8lX\n", value.r);
 	    break;
+	    
+	default:
+	    gdb_printf("other = %d\n", value.other);
     } 
 }
 

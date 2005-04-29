@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.words.service.Participant</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.words.html">Package&nbsp;words</a> ::
+        <a href="twisted.words.service.html">Module&nbsp;service</a> ::
+        Class&nbsp;Participant
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.words.service.Participant.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class Participant</h2>
+
+<pre class="base-tree">
+     <a href="twisted.spread.pb.Avatar.html"><code>Avatar</code></a> --+    
+              |    
+<a href="twisted.cred.perspective.Perspective.html"><code>Perspective</code></a> --+    
+              |    
+    <a href="twisted.spread.pb.Perspective.html"><code>Perspective</code></a> --+
+                  |
+      <a href="twisted.persisted.styles.Versioned.html"><code>Versioned</code></a> --+
+                  |
+                 <b>Participant</b>
+</pre><br />
+
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__init__"></a><span class="summary-sig"><span class="summary-sig-name">__init__</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__getstate__"></a><span class="summary-sig"><span class="summary-sig-name">__getstate__</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__repr__"></a><span class="summary-sig"><span class="summary-sig-name">__repr__</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="addContact"></a><span class="summary-sig"><span class="summary-sig-name">addContact</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>contactName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.words.service.Participant.html#attached" class="summary-sig-name"><code>attached</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>client</span>,
+          <span class=summary-sig-arg>identity</span>)</span></code>
+<br />
+Attach a client which implements <a 
+href="twisted.words.service.IWordsClient.html" 
+class="link"><code>IWordsClient</code></a> to me.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="changeStatus"></a><span class="summary-sig"><span class="summary-sig-name">changeStatus</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>newStatus</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="detached"></a><span class="summary-sig"><span class="summary-sig-name">detached</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>client</span>,
+          <span class=summary-sig-arg>identity</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="directMessage"></a><span class="summary-sig"><span class="summary-sig-name">directMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>recipientName</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getGroupMembers"></a><span class="summary-sig"><span class="summary-sig-name">getGroupMembers</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groupName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getGroupMetadata"></a><span class="summary-sig"><span class="summary-sig-name">getGroupMetadata</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groupName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="groupMessage"></a><span class="summary-sig"><span class="summary-sig-name">groupMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groupName</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="joinGroup"></a><span class="summary-sig"><span class="summary-sig-name">joinGroup</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="leaveGroup"></a><span class="summary-sig"><span class="summary-sig-name">leaveGroup</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="memberJoined"></a><span class="summary-sig"><span class="summary-sig-name">memberJoined</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>member</span>,
+          <span class=summary-sig-arg>group</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="memberLeft"></a><span class="summary-sig"><span class="summary-sig-name">memberLeft</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>member</span>,
+          <span class=summary-sig-arg>group</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="notifyStatusChanged"></a><span class="summary-sig"><span class="summary-sig-name">notifyStatusChanged</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>contact</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="addContact"></a><span class="summary-sig"><span class="summary-sig-name">perspective_addContact</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>contactName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="changeStatus"></a><span class="summary-sig"><span class="summary-sig-name">perspective_changeStatus</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>newStatus</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="directMessage"></a><span class="summary-sig"><span class="summary-sig-name">perspective_directMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>recipientName</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getGroupMembers"></a><span class="summary-sig"><span class="summary-sig-name">perspective_getGroupMembers</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groupName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="groupMessage"></a><span class="summary-sig"><span class="summary-sig-name">perspective_groupMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groupName</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="joinGroup"></a><span class="summary-sig"><span class="summary-sig-name">perspective_joinGroup</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="leaveGroup"></a><span class="summary-sig"><span class="summary-sig-name">perspective_leaveGroup</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="removeContact"></a><span class="summary-sig"><span class="summary-sig-name">perspective_removeContact</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>contactName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="perspective_setGroupMetadata"></a><span class="summary-sig"><span class="summary-sig-name">perspective_setGroupMetadata</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>dict_</span>,
+          <span class=summary-sig-arg>groupName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="receiveDirectMessage"></a><span class="summary-sig"><span class="summary-sig-name">receiveDirectMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>sender</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="receiveGroupMessage"></a><span class="summary-sig"><span class="summary-sig-name">receiveGroupMessage</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>sender</span>,
+          <span class=summary-sig-arg>group</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>metadata</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="removeContact"></a><span class="summary-sig"><span class="summary-sig-name">removeContact</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>contactName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="setGroupMetadata"></a><span class="summary-sig"><span class="summary-sig-name">setGroupMetadata</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>dict_</span>,
+          <span class=summary-sig-arg>groupName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="stopTranscribing"></a><span class="summary-sig"><span class="summary-sig-name">stopTranscribing</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>voiceName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="transcribeConversationWith"></a><span class="summary-sig"><span class="summary-sig-name">transcribeConversationWith</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>voiceName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="upgradeToVersion2"></a><span class="summary-sig"><span class="summary-sig-name">upgradeToVersion2</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Perspective</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.pb.Perspective.html#brokerAttached" class="summary-sig-name"><code>brokerAttached</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reference</span>,
+          <span class=summary-sig-arg>identity</span>,
+          <span class=summary-sig-arg>broker</span>)</span></code>
+<br />
+An intermediary method to override.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.pb.Perspective.html#brokerDetached" class="summary-sig-name"><code>brokerDetached</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reference</span>,
+          <span class=summary-sig-arg>identity</span>,
+          <span class=summary-sig-arg>broker</span>)</span></code>
+<br />
+See <a href="twisted.spread.pb.Perspective.html#brokerAttached" 
+class="link"><code>brokerAttached</code></a>.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Perspective</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.cred.perspective.Perspective.html#getIdentityRequest" class="summary-sig-name"><code>getIdentityRequest</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Request my identity.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.cred.perspective.Perspective.html#getPerspectiveName" class="summary-sig-name"><code>getPerspectiveName</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Return the unique name of this perspective.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.cred.perspective.Perspective.html#getService" class="summary-sig-name"><code>getService</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Return a service.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.cred.perspective.Perspective.html#isCached" class="summary-sig-name"><code>isCached</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.cred.perspective.Perspective.html#makeIdentity" class="summary-sig-name"><code>makeIdentity</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>password</span>)</span></code>
+<br />
+Make an identity from this perspective with a password.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.cred.perspective.Perspective.html#setCached" class="summary-sig-name"><code>setCached</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.cred.perspective.Perspective.html#setIdentity" class="summary-sig-name"><code>setIdentity</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>ident</span>)</span></code>
+<br />
+Determine which identity I connect to.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.cred.perspective.Perspective.html#setIdentityName" class="summary-sig-name"><code>setIdentityName</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.cred.perspective.Perspective.html#setService" class="summary-sig-name"><code>setService</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>service</span>)</span></code>
+<br />
+Change what service I am a part of.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Avatar</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.pb.Avatar.html#perspectiveMessageReceived" class="summary-sig-name"><code>perspectiveMessageReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>broker</span>,
+          <span class=summary-sig-arg>message</span>,
+          <span class=summary-sig-arg>args</span>,
+          <span class=summary-sig-arg>kw</span>)</span></code>
+<br />
+This method is called when a network message is received.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Versioned</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#__setstate__" class="summary-sig-name"><code>__setstate__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>state</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#versionUpgrade" class="summary-sig-name"><code>versionUpgrade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(internal) Do a version upgrade.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.words.service.Participant.html#persistenceVersion"><code>persistenceVersion</code></a></b> = <span title="2">2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Perspective</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.cred.perspective.Perspective.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class twisted.cred.perspective.IPerspective at 0x85727dc&gt;,)"><code>(&lt;class&nbsp;twisted.cred.perspective.IPersp<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.cred.perspective.Perspective.html#_attachedCount"><code>_attachedCount</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.cred.perspective.Perspective.html#_service_cached"><code>_service_cached</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Versioned</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.persisted.styles.Versioned.html#persistenceForgets"><code>persistenceForgets</code></a></b> = <span title="()"><code>()                                  </code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="attached"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">attached</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>client</span>,
+          <span class=sig-arg>identity</span>)</span>
+  </h3>
+  Attach a client which implements <a 
+  href="twisted.words.service.IWordsClient.html" 
+  class="link"><code>IWordsClient</code></a> to me.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.cred.perspective.Perspective.html#attached"><code>twisted.cred.perspective.Perspective.attached</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="persistenceVersion"></a>
+<h3>persistenceVersion</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="2">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:12 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

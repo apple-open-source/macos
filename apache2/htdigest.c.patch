@@ -1,0 +1,12 @@
+--- htdigest.c.orig     2005-03-03 05:46:08.000000000 -0800
++++ htdigest.c  2005-03-03 05:46:57.000000000 -0800
+@@ -144,7 +144,7 @@
+     apr_file_printf(f, "%s:%s:", user, realm);
+ 
+     /* Do MD5 stuff */
+-    sprintf(string, "%s:%s:%s", user, realm, pw);
++    snprintf(string, MAX_STRING_LEN, "%s:%s:%s", user, realm, pw);
+ 
+     apr_md5_init(&context);
+ #if APR_CHARSET_EBCDIC
+

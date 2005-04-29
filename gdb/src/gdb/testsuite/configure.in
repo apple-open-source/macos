@@ -1,7 +1,7 @@
 #                                                       -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-# Copyright (C) 2002
+# Copyright 2002, 2003
 # Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,6 @@
 
 AC_PREREQ(2.13)
 AC_INIT(gdb.base)
-AC_CONFIG_HEADER(config.h:config.hin)
 
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
@@ -116,8 +115,9 @@ AC_CONFIG_SUBDIRS($configdirs)
 
 case "${target}" in
     *-*-darwin*) AC_OUTPUT([gdb.apple/Makefile])
+                 AC_OUTPUT([gdb.apple/xcode/Makefile]) ;;
 esac
 
 AC_OUTPUT([Makefile gdb.arch/Makefile gdb.asm/Makefile gdb.base/Makefile \
-  gdb.c++/Makefile gdb.disasm/Makefile gdb.java/Makefile gdb.mi/Makefile \
+  gdb.cp/Makefile gdb.disasm/Makefile gdb.java/Makefile gdb.mi/Makefile \
   gdb.objc/Makefile gdb.threads/Makefile gdb.trace/Makefile])

@@ -1,0 +1,47 @@
+--- mblen.3.orig	Fri Mar 11 19:44:47 2005
++++ mblen.3	Fri Mar 11 19:57:09 2005
+@@ -41,7 +41,8 @@
+ .Dt MBLEN 3
+ .Os
+ .Sh NAME
+-.Nm mblen
++.Nm mblen ,
++.Nm mblen_l
+ .Nd get number of bytes in a character
+ .Sh LIBRARY
+ .Lb libc
+@@ -49,6 +50,9 @@
+ .In stdlib.h
+ .Ft int
+ .Fn mblen "const char *mbchar" "size_t nbytes"
++.In xlocale.h
++.Ft int
++.Fn mblen_l "const char *mbchar" "size_t nbytes" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn mblen
+@@ -65,6 +69,14 @@
+ pointer returns nonzero if the current locale requires shift states,
+ zero otherwise;
+ if shift states are required, the shift state is reset to the initial state.
++.Pp
++While the
++.Fn mblen
++function uses the current locale, the
++.Fn mblen_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ If
+ .Fa mbchar
+@@ -102,7 +114,8 @@
+ .Sh SEE ALSO
+ .Xr mbrlen 3 ,
+ .Xr mbtowc 3 ,
+-.Xr multibyte 3
++.Xr multibyte 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn mblen

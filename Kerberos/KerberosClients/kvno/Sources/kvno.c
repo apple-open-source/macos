@@ -41,8 +41,11 @@ int serviceNameCount = 0;
 int quiet = 0;
 int getKrb4 = false;
 
+#define V4ERR(e)  (((e > 0) && (e < MAX_KRB_ERRORS)) ? (e + ERROR_TABLE_BASE_krb) : (e))
+
 static int options (int argc, char * const * argv);
 static int usage (void);
+static void printiferr (errcode_t err, const char *format, ...);
 static void printerr (const char *format, ...);
 static void vprinterr (const char *format, va_list args);
 
@@ -71,23 +74,22 @@ int main (int argc, char * const * argv)
             if (err == 0) {
                 // kname_parse doesn't always fill in the realm
                 err = krb_get_lrealm (realm, 1);
-                if (err) { printerr ("error looking up local realm: %s\n", krb_get_err_text (err)); }
+                printiferr (V4ERR (err), "while looking up local realm");
             }
 
             if (err == 0) {
                 err = kname_parse (name, instance, realm, serviceNames[i]);
-                if (err) { printerr ("error parsing name '%s': %s\n",
-                                     serviceNames[i], krb_get_err_text (err)); }
+                printiferr (V4ERR (err), "while parsing service name '%s'", serviceNames[i]);
             }
 
             if (err == 0) {
                 err = krb_mk_req (&request, name, instance, realm, 0);
-                if (err) { printerr ("krb_mk_req error: %s\n", krb_get_err_text (err)); }
+                printiferr (V4ERR (err), "while getting service ticket for '%s'", serviceNames[i]);
             }
 
             if (err == 0) {
                 err = krb_get_cred (name, instance, realm, &creds);
-                if (err) { printerr ("krb_get_cred error: %s\n", krb_get_err_text (err)); }
+                printiferr (V4ERR (err), "while getting credentials");
             }
 
             if (err == 0) {
@@ -108,63 +110,77 @@ int main (int argc, char * const * argv)
 
         if (err == 0) {
             err = krb5_init_context (&context);
-            if (err) { com_err (program, err, "while initializing Kerberos 5"); }
+            printiferr (err, "while initializing Kerberos 5");
         }
     
-        if (etype != NULL) {
+        if (etypeString != NULL) {
             if (err == 0) {
                 err = krb5_string_to_enctype (etypeString, &etype);
-                if (err) { com_err (program, err, "while converting etype"); }
+                printiferr (err, "while converting etype");
             }
         }
 
         if (err == 0) {
             err = krb5_cc_default (context, &ccache);
-            if (err) { com_err (program, err, "while opening credentials cache"); }
+            printiferr (err, "while opening credentials cache");
         }
 
         if (err == 0) {
             err = krb5_cc_get_principal (context, ccache, &client);
-            if (err) { com_err (program, err, "while getting client principal name"); }
+            printiferr (err, "while getting client principal name");
         }
 
         for (i = 0; i < serviceNameCount; i++) {
-            krb5_creds in_creds;
-            krb5_creds *out_creds = NULL;
+            krb5_creds inCreds;
+            krb5_creds *outCreds = NULL;
             krb5_principal server = NULL;
             krb5_ticket *ticket = NULL;
             char *principalString = NULL;
 
             if (err == 0) {
                 err = krb5_parse_name (context, serviceNames[i], &server);
-                if (err) { printerr ("%s: %s while parsing principal name\n",
-                                     serviceNames[i], error_message (err)); }
+                printiferr (err, "while parsing principal name '%s'", serviceNames[i]);
             }
 
             if (err == 0) {
                 err = krb5_unparse_name (context, server, &principalString);
-                if (err) { printerr ("%s: %s while printing principal name\n",
-                                     serviceNames[i], error_message (err)); }
+                printiferr (err, "while getting string for principal name '%s'", serviceNames[i]);
             }
 
             if (err == 0) {
-                memset (&in_creds, 0, sizeof (in_creds));
-                in_creds.client = client;
-                in_creds.server = server;
-                in_creds.keyblock.enctype = etype;
+                memset (&inCreds, 0, sizeof (inCreds));
+                inCreds.client = client;
+                inCreds.server = server;
+                inCreds.keyblock.enctype = etype;
             }
-
+            
             if (err == 0) {
-                err = krb5_get_credentials (context, 0, ccache, &in_creds, &out_creds);
-                if (err) { printerr ("%s: %s while getting credentials\n",
-                                     principalString, error_message (err)); }
-            }
+                krb5_creds oldCreds;
+                int freeOldCreds = 0;
+                int removedOldCreds = 0;
+                
+                /* Remove any existing service ticket in the cache so we get a new one */
+                if (krb5_cc_retrieve_cred (context, ccache, 0, &inCreds, &oldCreds) == 0) {
+                    freeOldCreds = 1;
+                    if (krb5_cc_remove_cred (context, ccache, 0, &oldCreds) == 0) {
+                        removedOldCreds = 1;
+                    }
+                }
 
+                err = krb5_get_credentials (context, 0, ccache, &inCreds, &outCreds);
+                printiferr (err, "while getting credentials for '%s'", principalString);
+                if (err && removedOldCreds) {
+                    /* Put back old credentials if there were some */
+                    krb5_cc_store_cred (context, ccache, &oldCreds);
+                }
+                
+                if (freeOldCreds) { krb5_free_cred_contents (context, &oldCreds); }
+            }
+            
             if (err == 0) {
                 /* we need a native ticket */
-                err = krb5_decode_ticket (&out_creds->ticket, &ticket);
-                if (err) { printerr ("%s: %s while decoding ticket\n",
-                                     principalString, error_message (err)); }
+                err = krb5_decode_ticket (&outCreds->ticket, &ticket);
+                printiferr (err, "while decoding ticket for '%s'", principalString);
             }
             
             if (err == 0) {
@@ -172,14 +188,14 @@ int main (int argc, char * const * argv)
                     printf ("%s: kvno = %d\n", principalString, ticket->enc_part.kvno);
                 }
             } else {
-                // try next principal
+                /* try next principal */
                 err = 0;
                 errCount++;
             }
 
             if (server          != NULL) { krb5_free_principal (context, server); }
             if (ticket          != NULL) { krb5_free_ticket (context, ticket); }
-            if (out_creds       != NULL) { krb5_free_creds (context, out_creds); }
+            if (outCreds        != NULL) { krb5_free_creds (context, outCreds); }
             if (principalString != NULL) { krb5_free_unparsed_name (context, principalString); }
             
         }
@@ -203,12 +219,12 @@ static int options (int argc, char * const * argv)
         switch (option) {
             case 'e':
                 if (getKrb4) {
-                    fprintf (stderr, "Only one of -e and -4 allowed\n");
+                    printerr ("Only one of -e and -4 allowed\n");
                     return usage ();
                 }
 
                 if (etypeString != NULL) {
-                    fprintf (stderr, "Only one -e option allowed\n");
+                    printerr ("Only one -e option allowed\n");
                     return usage ();
                 }
 
@@ -221,7 +237,7 @@ static int options (int argc, char * const * argv)
                 
             case '4':
                 if (etypeString != NULL) {
-                    fprintf (stderr, "Only one of -e and -4 allowed\n");
+                    printerr ("Only one of -e and -4 allowed\n");
                     return usage ();
                 }
 
@@ -238,7 +254,7 @@ static int options (int argc, char * const * argv)
 
     /* look for extra arguments (other than the principal) */
     if (argc - optind <= 0) {
-        fprintf (stderr, "Please specify a service name\n");
+        printerr ("Please specify a service name\n");
         return usage ();
     }
 
@@ -256,6 +272,17 @@ static int usage (void)
     fprintf (stderr, "\t-4 get Kerberos 4 tickets\n");
     fprintf (stderr, "\t-e <etype> get tickets with enctype \"etype\"\n");
     return 2;
+}
+
+static void printiferr (errcode_t err, const char *format, ...)
+{
+    if (err && (err != ccIteratorEnd) && (err != KRB5_CC_END)) {
+        va_list pvar;
+        
+        va_start (pvar, format);
+        com_err_va (program, err, format, pvar);
+        va_end (pvar);
+    }
 }
 
 static void printerr (const char *format, ...)

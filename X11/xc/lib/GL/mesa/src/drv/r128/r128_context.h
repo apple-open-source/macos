@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_context.h,v 1.12 2002/12/16 16:18:52 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_context.h,v 1.13 2003/09/28 20:15:20 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -38,8 +38,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef GLX_DIRECT_RENDERING
 
-#include <X11/Xlibint.h>
-
 #include "dri_util.h"
 
 #include "xf86drm.h"
@@ -47,8 +45,9 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "mtypes.h"
 
-#include "r128_sarea.h"
 #include "r128_reg.h"
+
+#include "texmem.h"
 
 struct r128_context;
 typedef struct r128_context r128ContextRec;
@@ -68,9 +67,8 @@ typedef struct r128_context *r128ContextPtr;
 #define R128_NEW_MASKS		0x0020
 #define R128_NEW_RENDER_NOT	0x0040
 #define R128_NEW_WINDOW		0x0080
-#define R128_NEW_TEXTURE	0x0100
-#define R128_NEW_CONTEXT	0x0200
-#define R128_NEW_ALL		0x03ff
+#define R128_NEW_CONTEXT	0x0100
+#define R128_NEW_ALL		0x01ff
 
 /* Flags for software fallback cases:
  */
@@ -141,7 +139,7 @@ struct r128_context {
    GLuint vertex_stride_shift;
    GLuint vertex_format;
    GLuint num_verts;
-   char *verts;		
+   GLubyte *verts;		
 
    CARD32 ClearColor;			/* Color used to clear color buffer */
    CARD32 ClearDepth;			/* Value used to clear depth buffer */
@@ -157,12 +155,11 @@ struct r128_context {
 
    /* Texture object bookkeeping
     */
+   unsigned              nr_heaps;
+   driTexHeap          * texture_heaps[ R128_NR_TEX_HEAPS ];
+   driTextureObject      swapped;
+
    r128TexObjPtr CurrentTexObj[2];
-   r128TexObj TexObjList[R128_NR_TEX_HEAPS];
-   r128TexObj SwappedOut;
-   memHeap_t *texHeap[R128_NR_TEX_HEAPS];
-   GLint lastTexAge[R128_NR_TEX_HEAPS];
-   GLint lastTexHeap;
  
    /* Fallback rasterization functions 
     */
@@ -180,11 +177,13 @@ struct r128_context {
    /* Page flipping
     */
    GLuint doPageFlip;
-   GLuint currentPage;
+
+   /* Busy waiting
+    */
+   GLuint do_irqs;
 
    /* Drawable, cliprect and scissor information
     */
-   GLenum DrawBuffer;			/* Optimize draw buffer update */
    GLint drawOffset, drawPitch;
    GLint readOffset, readPitch;
 
@@ -196,8 +195,6 @@ struct r128_context {
 
    /* Mirrors of some DRI state
     */
-   Display *display;			/* X server display */
-
    __DRIcontextPrivate	*driContext;	/* DRI context */
    __DRIscreenPrivate	*driScreen;	/* DRI screen */
    __DRIdrawablePrivate	*driDrawable;	/* DRI drawable bound to this ctx */
@@ -224,6 +221,7 @@ struct r128_context {
    /* VBI
     */
    GLuint vbl_seq;
+   GLuint vblank_flags;
 };
 
 #define R128_CONTEXT(ctx)		((r128ContextPtr)(ctx->DriverCtx))
@@ -236,8 +234,7 @@ struct r128_context {
 		(rmesa->r128Screen->chipset == R128_CARD_TYPE_R128_MOBILITY)
 
 
-extern GLboolean r128CreateContext( Display *dpy,
-                                    const __GLcontextModes *glVisual,
+extern GLboolean r128CreateContext( const __GLcontextModes *glVisual,
 				    __DRIcontextPrivate *driContextPriv,
                                     void *sharedContextPrivate );
 

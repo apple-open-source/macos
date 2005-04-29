@@ -1,4 +1,4 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed operators
 #include <sys/types.h>
 #include <stdio.h>
@@ -19,7 +19,7 @@ void* new_test::operator new(size_t sz, int count, int type)
   p = new char[sz * count];
   ((new_test *)p)->type = type;
   return p;
-};
+}
 
 int main()
 {
@@ -27,4 +27,4 @@ int main()
   int count = 13;
 
   test = new(count, 1) new_test;
-};
+}

@@ -1,11 +1,19 @@
-# $FreeBSD: src/share/mk/bsd.dep.mk,v 1.27 1999/08/28 00:21:46 peter Exp $
+# $FreeBSD: src/share/mk/bsd.dep.mk,v 1.46 2004/03/12 21:36:12 trhodes Exp $
 #
 # The include file <bsd.dep.mk> handles Makefile dependencies.
 #
 #
 # +++ variables +++
 #
+# CTAGS		A tags file generation program [gtags]
+#
+# CTAGSFLAGS	Options for ctags(1) [not set]
+#
 # DEPENDFILE	dependencies file [.depend]
+#
+# GTAGSFLAGS	Options for gtags(1) [-o]
+#
+# HTAGSFLAGS	Options for htags(1) [not set]
 #
 # MKDEP		Options for ${MKDEPCMD} [not set]
 #
@@ -13,6 +21,8 @@
 # 
 # SRCS          List of source files (c, c++, assembler)
 #
+# DPSRCS	List of source files which are needed for generating
+#		dependencies, ${SRCS} are always part of it.
 #
 # +++ targets +++
 #
@@ -24,47 +34,86 @@
 #		them in the file ${DEPENDFILE}.
 #
 #	tags:
-#		Create a (GLOBAL) gtags file for the source files.
-#		If HTML is defined, htags is also run after gtags.
+#		In "ctags" mode, create a tags file for the source files.
+#		In "gtags" mode, create a (GLOBAL) gtags file for the
+#		source files.  If HTML is defined, htags(1) is also run
+#		after gtags(1).
 
+.if !target(__<bsd.init.mk>__)
+.error bsd.dep.mk cannot be included directly.
+.endif
 
+CTAGS?=		gtags
+CTAGSFLAGS?=
+GTAGSFLAGS?=	-o
+HTAGSFLAGS?=
+
+.if ${CC} != "cc"
+MKDEPCMD?=	CC='${CC}' mkdep
+.else
 MKDEPCMD?=	mkdep
+.endif
 DEPENDFILE?=	.depend
+
+# Keep `tags' here, before SRCS are mangled below for `depend'.
+.if !target(tags) && defined(SRCS) && !defined(NOTAGS)
+tags: ${SRCS}
+.if ${CTAGS:T} == "ctags"
+	@${CTAGS} ${CTAGSFLAGS} -f /dev/stdout \
+	    ${.ALLSRC:N*.h} | sed "s;${.CURDIR}/;;" > ${.TARGET}
+.elif ${CTAGS:T} == "gtags"
+	@cd ${.CURDIR} && ${CTAGS} ${GTAGSFLAGS} ${.OBJDIR}
+.if defined(HTML)
+	@cd ${.CURDIR} && htags ${HTAGSFLAGS} -d ${.OBJDIR} ${.OBJDIR}
+.endif
+.endif
+.endif
 
 .if defined(SRCS)
 CLEANFILES?=
 
+.if !exists(${.OBJDIR}/${DEPENDFILE})
+.for _S in ${SRCS:N*.[hly]}
+${_S:R}.o: ${_S}
+.endfor
+.endif
+
 .for _LSRC in ${SRCS:M*.l:N*/*}
-.for _LC in ${_LSRC:S/.l/.c/}
+.for _LC in ${_LSRC:R}.c
 ${_LC}: ${_LSRC}
 	${LEX} -t ${LFLAGS} ${.ALLSRC} > ${.TARGET}
+.if !exists(${.OBJDIR}/${DEPENDFILE})
+${_LC:R}.o: ${_LC}
+.endif
 SRCS:=	${SRCS:S/${_LSRC}/${_LC}/}
-CLEANFILES:= ${CLEANFILES} ${_LC}
+CLEANFILES+= ${_LC}
 .endfor
 .endfor
 
 .for _YSRC in ${SRCS:M*.y:N*/*}
-.for _YC in ${_YSRC:S/.y/.c/}
+.for _YC in ${_YSRC:R}.c
 SRCS:=	${SRCS:S/${_YSRC}/${_YC}/}
-CLEANFILES:= ${CLEANFILES} ${_YC}
-.if ${YFLAGS:M-d} != "" && ${SRCS:My.tab.h}
+CLEANFILES+= ${_YC}
+.if !empty(YFLAGS:M-d) && !empty(SRCS:My.tab.h)
 .ORDER: ${_YC} y.tab.h
 ${_YC} y.tab.h: ${_YSRC}
 	${YACC} ${YFLAGS} ${.ALLSRC}
 	cp y.tab.c ${_YC}
-SRCS:=	${SRCS} y.tab.h
-CLEANFILES:= ${CLEANFILES} y.tab.c y.tab.h
-.elif ${YFLAGS:M-d} != ""
-.for _YH in ${_YC:S/.c/.h/}
+CLEANFILES+= y.tab.c y.tab.h
+.elif !empty(YFLAGS:M-d)
+.for _YH in ${_YC:R}.h
 .ORDER: ${_YC} ${_YH}
 ${_YC} ${_YH}: ${_YSRC}
 	${YACC} ${YFLAGS} -o ${_YC} ${.ALLSRC}
-SRCS:=	${SRCS} ${_YH}
-CLEANFILES:= ${CLEANFILES} ${_YH}
+SRCS+=	${_YH}
+CLEANFILES+= ${_YH}
 .endfor
 .else
 ${_YC}: ${_YSRC}
 	${YACC} ${YFLAGS} -o ${_YC} ${.ALLSRC}
+.endif
+.if !exists(${.OBJDIR}/${DEPENDFILE})
+${_YC:R}.o: ${_YC}
 .endif
 .endfor
 .endfor
@@ -72,42 +121,45 @@ ${_YC}: ${_YSRC}
 
 .if !target(depend)
 .if defined(SRCS)
-depend: beforedepend ${DEPENDFILE} afterdepend _SUBDIR
+depend: beforedepend ${DEPENDFILE} afterdepend
 
 # Different types of sources are compiled with slightly different flags.
 # Split up the sources, and filter out headers and non-applicable flags.
-${DEPENDFILE}: ${SRCS}
+.if ${CC} == "icc"
+MKDEP_CFLAGS=	${CFLAGS:M-X*} ${CFLAGS:M-[BID]*}
+MKDEP_CXXFLAGS=	${CXXFLAGS:M-X*} ${CXXFLAGS:M-[BID]*}
+MKDEP_OBJCFLAGS=${OBJCFLAGS:M-X*} ${OBJCFLAGS:M-[BID]*}
+.else
+MKDEP_CFLAGS=	${CFLAGS:M-nostdinc*} ${CFLAGS:M-[BID]*}
+MKDEP_CXXFLAGS=	${CXXFLAGS:M-nostdinc*} ${CXXFLAGS:M-[BID]*}
+MKDEP_OBJCFLAGS=${OBJCFLAGS:M-nostdinc*} ${OBJCFLAGS:M-[BID]*} ${OBJCFLAGS:M-Wno-import*}
+.endif
+
+DPSRCS+= ${SRCS}
+${DEPENDFILE}: ${DPSRCS}
 	rm -f ${DEPENDFILE}
-.if ${SRCS:M*.[sS]} != ""
+.if !empty(DPSRCS:M*.[cS])
 	${MKDEPCMD} -f ${DEPENDFILE} -a ${MKDEP} \
-	    ${CFLAGS:M-nostdinc*} ${CFLAGS:M-[BID]*} \
-	    ${AINC} \
-	    ${.ALLSRC:M*.[sS]}
+	    ${MKDEP_CFLAGS} ${.ALLSRC:M*.[cS]}
 .endif
-.if ${SRCS:M*.c} != ""
+.if !empty(DPSRCS:M*.cc) || !empty(DPSRCS:M*.C) || !empty(DPSRCS:M*.cpp) || \
+    !empty(DPSRCS:M*.cxx)
 	${MKDEPCMD} -f ${DEPENDFILE} -a ${MKDEP} \
-	    ${CFLAGS:M-nostdinc*} ${CFLAGS:M-[BID]*} \
-	    ${.ALLSRC:M*.c}
-.endif
-.if ${SRCS:M*.cc} != "" || ${SRCS:M*.C} != "" || ${SRCS:M*.cpp} != "" || \
-    ${SRCS:M*.cxx} != ""
-	${MKDEPCMD} -f ${DEPENDFILE} -a ${MKDEP} \
-	    ${CXXFLAGS:M-nostdinc*} ${CXXFLAGS:M-[BID]*} \
+	    ${MKDEP_CXXFLAGS} \
 	    ${.ALLSRC:M*.cc} ${.ALLSRC:M*.C} ${.ALLSRC:M*.cpp} ${.ALLSRC:M*.cxx}
 .endif
-.if ${SRCS:M*.m} != ""
+.if !empty(DPSRCS:M*.m)
 	${MKDEPCMD} -f ${DEPENDFILE} -a ${MKDEP} \
-	    ${OBJCFLAGS:M-nostdinc*} ${OBJCFLAGS:M-[BID]*} \
-	    ${OBJCFLAGS:M-Wno-import*} \
-	    ${.ALLSRC:M*.m}
+	    ${MKDEP_OBJCFLAGS} ${.ALLSRC:M*.m}
 .endif
 .if target(_EXTRADEPEND)
-	cd ${.CURDIR}; ${MAKE} _EXTRADEPEND
+_EXTRADEPEND: .USE
+${DEPENDFILE}: _EXTRADEPEND
 .endif
 
 .ORDER: ${DEPENDFILE} afterdepend
 .else
-depend: beforedepend afterdepend _SUBDIR
+depend: beforedepend afterdepend
 .endif
 .if !target(beforedepend)
 beforedepend:
@@ -120,25 +172,27 @@ afterdepend:
 .endif
 .endif
 
-.if defined(NOTAGS)
-tags:
-.endif
-
-.if !target(tags)
-tags: ${SRCS} _SUBDIR
-	@cd ${.CURDIR} && gtags ${GTAGSFLAGS} ${.OBJDIR}
-.if defined(HTML)
-	@cd ${.CURDIR} && htags ${HTAGSFLAGS} -d ${.OBJDIR} ${.OBJDIR}
-.endif
-.endif
-
 .if !target(cleandepend)
-cleandepend: _SUBDIR
+cleandepend:
 .if defined(SRCS)
-	rm -f ${DEPENDFILE} ${.OBJDIR}/GPATH ${.OBJDIR}/GRTAGS \
-		${.OBJDIR}/GSYMS ${.OBJDIR}/GTAGS
+.if ${CTAGS:T} == "ctags"
+	rm -f ${DEPENDFILE} tags
+.elif ${CTAGS:T} == "gtags"
+	rm -f ${DEPENDFILE} GPATH GRTAGS GSYMS GTAGS
 .if defined(HTML)
-	rm -rf ${.OBJDIR}/HTML
+	rm -rf HTML
 .endif
+.endif
+.endif
+.endif
+
+.if !target(checkdpadd) && (defined(DPADD) || defined(LDADD))
+_LDADD_FROM_DPADD=	${DPADD:C;^/usr/lib/lib(.*)\.a$;-l\1;}
+_LDADD_CANONICALIZED=	${LDADD:S/$//}
+checkdpadd:
+.if ${_LDADD_FROM_DPADD} != ${_LDADD_CANONICALIZED}
+	@echo ${.CURDIR}
+	@echo "DPADD -> ${_LDADD_FROM_DPADD}"
+	@echo "LDADD -> ${_LDADD_CANONICALIZED}"
 .endif
 .endif

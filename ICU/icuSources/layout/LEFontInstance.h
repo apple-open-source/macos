@@ -1,8 +1,7 @@
 
 /*
- * @(#)LEFontInstance.h 1.3 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -14,8 +13,8 @@
 U_NAMESPACE_BEGIN
 
 /**
- * Instances of this class are used by LEFontInstance::mapCharsToGlyphs and
- * LEFontInstance::mapCharToGlyph to adjust character codes before the character
+ * Instances of this class are used by <code>LEFontInstance::mapCharsToGlyphs</code> and
+ * <code>LEFontInstance::mapCharToGlyph</code> to adjust character codes before the character
  * to glyph mapping process. Examples of this are filtering out control characters
  * and character mirroring - replacing a character which has both a left and a right
  * hand form with the opposite form.
@@ -38,10 +37,18 @@ public:
      *
      * @return the adjusted character
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
     virtual LEUnicode32 mapChar(LEUnicode32 ch) const = 0;
 };
+
+/**
+ * This is a forward reference to the class which holds the per-glyph
+ * storage.
+ *
+ * @draft ICU 3.0
+ */
+class LEGlyphStorage;
 
 /**
  * This is a virtual base class that serves as the interface between a LayoutEngine
@@ -65,7 +72,7 @@ public:
  * methods with some default behavior such as returning constant values, or using the
  * values from the first subfont.
  *
- * @draft ICU 2.6
+ * @draft ICU 3.0
  */
 class U_LAYOUT_API LEFontInstance : public UObject
 {
@@ -75,7 +82,7 @@ public:
      * This virtual destructor is here so that the subclass
      * destructors can be invoked through the base class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
     virtual inline ~LEFontInstance() {};
 
@@ -150,7 +157,7 @@ public:
      * @return the address of the table in memory, or <code>NULL</code>
      *         if the table doesn't exist.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
     virtual const void *getFontTable(LETag tableTag) const = 0;
 
@@ -161,12 +168,12 @@ public:
      * to glyph mapping.
      *
      * The default implementation of this method will return
-     * <code>true</code> if <code>mapCharToGlyph(ch)</code>
+     * <code>TRUE</code> if <code>mapCharToGlyph(ch)</code>
      * returns a non-zero value.
      *
      * @param ch - the character to be tested
      *
-     * @return true if the font can render ch.
+     * @return <code>TRUE</code> if the font can render ch.
      *
      * @draft ICU 2.6
      */
@@ -178,7 +185,7 @@ public:
      *
      * @return the number of design units pre EM.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
     virtual le_int32 getUnitsPerEM() const = 0;
 
@@ -186,18 +193,25 @@ public:
      * This method maps an array of character codes to an array of glyph
      * indices, using the font's character to glyph map.
      *
+     * The default implementation iterates over all of the characters and calls
+     * <code>mapCharToGlyph(ch, mapper)</code> on each one. It also handles surrogate
+     * characters, storing the glyph ID for the high surrogate, and a deleted glyph (0xFFFF)
+     * for the low surrogate.
+     *
+     * Most sublcasses will not need to implement this method.
+     *
      * @param chars - the character array
      * @param offset - the index of the first character
      * @param count - the number of characters
-     * @param reverse - if true, store the glyph indices in reverse order.
+     * @param reverse - if <code>TRUE</code>, store the glyph indices in reverse order.
      * @param mapper - the character mapper.
-     * @param glyphs - the output glyph array
+     * @param glyphStorage - the object which contains the output glyph array
      *
      * @see LECharMapper
      *
-     * @draft ICU 2.6
+     * @draft ICU 3.0
      */
-    virtual void mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, const LECharMapper *mapper, LEGlyphID glyphs[]) const;
+    virtual void mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, const LECharMapper *mapper, LEGlyphStorage &glyphStorage) const;
 
     /**
      * This method maps a single character to a glyph index, using the
@@ -251,9 +265,9 @@ public:
      * @param pointNumber - the number of the point
      * @param point - the point's X and Y pixel values will be stored here
      *
-     * @return true if the point coordinates could be stored.
+     * @return <code>TRUE</code> if the point coordinates could be stored.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
     virtual le_bool getGlyphPoint(LEGlyphID glyph, le_int32 pointNumber, LEPoint &point) const = 0;
 
@@ -263,7 +277,7 @@ public:
      *
      * @return the pixel width of the EM square
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
     virtual float getXPixelsPerEm() const = 0;
 
@@ -273,7 +287,7 @@ public:
      *
      * @return the pixel height of the EM square
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
     virtual float getYPixelsPerEm() const = 0;
 
@@ -395,7 +409,7 @@ public:
      *
      * @return the floating point value
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
     static float fixedToFloat(le_int32 fixed);
 
@@ -407,7 +421,7 @@ public:
      *
      * @return the fixed point value
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
     static le_int32 floatToFixed(float theFloat);
 
@@ -464,22 +478,15 @@ public:
      *
      * @draft ICU 2.6
      */
-    virtual inline UClassID getDynamicClassID() const { return getStaticClassID(); }
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
      * @draft ICU 2.6
      */
-    static inline UClassID getStaticClassID() { return (UClassID)&fgClassID; }
+    static UClassID getStaticClassID();
 
-private:
-
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
 };
 
 inline le_bool LEFontInstance::canDisplay(LEUnicode32 ch) const

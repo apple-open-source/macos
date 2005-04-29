@@ -1,7 +1,7 @@
 /*
  *  dlf.c
  *
- *  $Id: dlf.c,v 1.3 2002/06/13 21:16:52 miner Exp $
+ *  $Id: dlf.c,v 1.5 2004/11/11 01:52:37 luesang Exp $
  *
  *  Dynamic Library Loader (mapping to SVR4)
  *
@@ -335,7 +335,7 @@ slot_alloc (char *sym)
 
   ent = (slot_t *) malloc (sizeof (slot_t));
 
-  ent->sym = (char *) malloc (strlen (sym) + 1);
+  ent->sym = (char *) malloc (STRLEN (sym) + 1);
 
   if (!ent->sym)
     {
@@ -343,7 +343,7 @@ slot_alloc (char *sym)
       return 0;
     }
 
-  strcpy (ent->sym, sym);
+  STRCPY (ent->sym, sym);
 
   return ent;
 }
@@ -389,7 +389,7 @@ dlopen (char *file, int mode)
   if (!pobj)
     return 0;
 
-  pobj->path = (char *) malloc (strlen (file) + 1);
+  pobj->path = (char *) malloc (STRLEN (file) + 1);
 
   if (!pobj->path)
     {
@@ -397,7 +397,7 @@ dlopen (char *file, int mode)
       return 0;
     }
 
-  strcpy (pobj->path, file);
+  STRCPY (pobj->path, file);
 
   pobj->dev = st.st_dev;
   pobj->ino = st.st_ino;
@@ -599,8 +599,8 @@ dlsym (void *hdl, char *sym)
 
 #include <windows.h>
 
-void FAR *
-dlopen (char FAR * dll, int mode)
+void *
+dlopen (char * dll, int mode)
 {
   HINSTANCE hint;
 
@@ -616,18 +616,18 @@ dlopen (char FAR * dll, int mode)
       return NULL;
     }
 
-  return (void FAR *) hint;
+  return (void *) hint;
 }
 
 
-void FAR *
-dlsym (void FAR * hdll, char FAR * sym)
+void *
+dlsym (void * hdll, char * sym)
 {
-  return (void FAR *) GetProcAddress (hdll, sym);
+  return (void *) GetProcAddress (hdll, sym);
 }
 
 
-char FAR *
+char *
 dlerror ()
 {
   return 0L;			/* unimplemented yet */
@@ -635,7 +635,7 @@ dlerror ()
 
 
 int
-dlclose (void FAR * hdll)
+dlclose (void * hdll)
 {
   FreeLibrary ((HINSTANCE) hdll);
 }
@@ -720,7 +720,7 @@ iodbc_dlopen (char *path, int unused_flag)
 
   imgfab = cc$rms_fab;
   imgfab.fab$l_fna = path;
-  imgfab.fab$b_fns = strlen (path);
+  imgfab.fab$b_fns = STRLEN (path);
   imgfab.fab$w_ifi = 0;
   imgfab.fab$l_dna = defimg;
   imgfab.fab$b_dns = sizeof (defimg);
@@ -785,7 +785,7 @@ iodbc_dlsym (void *hdll, char *sym)
   symbol_d.dsc$b_dtype = DSC$K_DTYPE_T;
   symbol_d.dsc$b_class = DSC$K_CLASS_S;
   symbol_d.dsc$a_pointer = sym;
-  symbol_d.dsc$w_length = strlen (sym);
+  symbol_d.dsc$w_length = STRLEN (sym);
   status = iodbc_find_image_symbol (&dll->filename_d, &symbol_d, &rp,
       &dll->image_d, 0);
   if (!((saved_status ^ LIB$_KEYNOTFOU) & ~7))
@@ -854,7 +854,7 @@ iodbc_dlclose (void *hdll)
  *	Apple MacOS X Rhapsody
  *
  *********************************/
-#if defined(DLDAPI_DYLD) && !defined(DLDAPI_MACX)
+#ifdef	DLDAPI_DYLD
 #define	DLDAPI_DEFINED
 #include <stdio.h>
 #include <mach-o/dyld.h>
@@ -986,7 +986,7 @@ dlclose (void *hdll)
   return 0;
 }
 #endif	/* end of Rhapsody Section */
-/* defined(DLDAPI_DYLD) && !defined(DLDAPI_MACX) */
+
 
 /********************************* 
  *
@@ -998,19 +998,19 @@ static struct dlopen_handle *dlopen_handles = NULL;
 static const struct dlopen_handle main_program_handle = { NULL };
 static char *dlerror_pointer = NULL;
 
+  enum bool
+  { false, true };
+
 /*
  * NSMakePrivateModulePublic() is not part of the public dyld API so we define
  * it here.  The internal dyld function pointer for
  * __dyld_NSMakePrivateModulePublic is returned so thats all that matters to get
  * the functionality need to implement the dlopen() interfaces.
  */
-
-/*SEM changed "bool" to "DYLD_BOOL" below in two places */
-
-static enum DYLD_BOOL
+static enum bool
 NSMakePrivateModulePublic (NSModule module)
 {
-  static enum DYLD_BOOL (*p) (NSModule module) = NULL;
+  static enum bool (*p) (NSModule module) = NULL;
 
   if (p == NULL)
     _dyld_func_lookup ("__dyld_NSMakePrivateModulePublic",
@@ -1030,8 +1030,8 @@ NSMakePrivateModulePublic (NSModule module)
 /*
  * dlopen() the MacOS X version of the FreeBSD dlopen() interface.
  */
-void FAR *
-dlopen (char FAR * path, int mode)
+void *
+dlopen (char * path, int mode)
 {
   void *retval;
   struct stat stat_buf;
@@ -1044,6 +1044,7 @@ dlopen (char FAR * path, int mode)
   void (*init) (void);
 
   dlerror_pointer = NULL;
+
   /*
    * A NULL path is to indicate the caller wants a handle for the
    * main program.
@@ -1146,7 +1147,9 @@ dlopen (char FAR * path, int mode)
     }
 
   /* try to link in this object file image */
-  options = NSLINKMODULE_OPTION_PRIVATE;
+  options = NSLINKMODULE_OPTION_NONE |
+    NSLINKMODULE_OPTION_PRIVATE |
+    NSLINKMODULE_OPTION_RETURN_ON_ERROR;
   if ((mode & RTLD_NOW) == RTLD_NOW)
     options |= NSLINKMODULE_OPTION_BINDNOW;
   module = NSLinkModule (objectFileImage, path, options);
@@ -1210,8 +1213,8 @@ dlopen (char FAR * path, int mode)
 /*
  * dlsym() the MacOS X version of the FreeBSD dlopen() interface.
  */
-void FAR *
-dlsym (void FAR * handle, char FAR * symbol)
+void *
+dlsym (void * handle, char * symbol)
 {
   struct dlopen_handle *dlopen_handle, *p;
   char symbol2[1024];
@@ -1274,14 +1277,14 @@ dlsym (void FAR * handle, char FAR * symbol)
 /*
  * dlerror() the MacOS X version of the FreeBSD dlopen() interface.
  */
-char FAR *
+char *
 dlerror (void)
 {
   const char *p;
 
   p = (const char *) dlerror_pointer;
   dlerror_pointer = NULL;
-  return (p);
+  return (char *)(p);
 }
 
 
@@ -1289,7 +1292,7 @@ dlerror (void)
  * dlclose() the MacOS X version of the FreeBSD dlopen() interface.
  */
 int
-dlclose (void FAR * handle)
+dlclose (void * handle)
 {
   struct dlopen_handle *p, *q;
   unsigned long options;
@@ -1355,7 +1358,7 @@ dlclose (void FAR * handle)
 #include <CodeFragments.h>
 #include <strconv.h>
 
-static OSErr error = noErr;
+static char *msg_error = NULL;
 
 void *
 dlopen (char *dll, int mode)
@@ -1364,23 +1367,46 @@ dlopen (char *dll, int mode)
   CFragConnectionID conn_id;
   Ptr main_addr;
   Str255 name;
+  OSErr err;
 
   if (dll == NULL)
     {
+      msg_error = "Library name not valid.";
       return NULL;
     }
 
-  error =
-      GetSharedLibrary ((unsigned char *) str_to_Str255 (dll),
-      kPowerPCCFragArch, kLoadCFrag, &conn_id, &main_addr, name);
-
-  if (error != noErr)
+  if ((err = GetSharedLibrary ((unsigned char *) str_to_Str255 (dll),
+	      kPowerPCCFragArch, kLoadCFrag, &conn_id, &main_addr,
+	      name)) != noErr)
     {
+      msg_error = "Library cannot be loaded.";
       return NULL;
     }
 
+  msg_error = NULL;
   return (void *) conn_id;
 #else
+  CFragConnectionID conn_id;
+  Ptr main_addr;
+  Str255 name;
+  OSErr err;
+
+  if (dll == NULL)
+    {
+      msg_error = "Library name not valid.";
+      return NULL;
+    }
+
+  if ((err = GetSharedLibrary ((unsigned char *) str_to_Str255 (dll),
+	      kMotorola68KCFragArch, kLoadCFrag, &conn_id, &main_addr,
+	      name)) != noErr)
+    {
+      msg_error = "Library cannot be loaded.";
+      return NULL;
+    }
+
+  msg_error = NULL;
+  return (void *) conn_id;
 #endif
 }
 
@@ -1391,18 +1417,45 @@ dlsym (void *hdll, char *sym)
 #ifdef __POWERPC__
   Ptr symbol;
   CFragSymbolClass symbol_type;
+  OSErr err;
 
-  error =
-      FindSymbol ((CFragConnectionID) hdll,
-      (unsigned char *) str_to_Str255 (sym), &symbol, &symbol_type);
-
-  if (error != noErr)
+  if (sym == NULL)
     {
+      msg_error = "Symbol name not valid.";
       return NULL;
     }
 
+  if ((err =
+	  FindSymbol ((CFragConnectionID) hdll,
+	   (unsigned char *) str_to_Str255 (sym), &symbol,
+	      &symbol_type)) != noErr)
+    {
+      msg_error = "Symbol cannot be loaded.";
+      return NULL;
+    }
+
+  msg_error = NULL;
   return symbol;
 #else
+  Ptr symbol;
+  CFragSymbolClass symbol_type;
+
+  if (sym == NULL)
+    {
+      msg_error = "Symbol name not valid.";
+      return NULL;
+    }
+
+  if (FindSymbol ((CFragConnectionID) hdll,
+	  (unsigned char *) str_to_Str255 (sym), &symbol,
+	  &symbol_type) != noErr)
+    {
+      msg_error = "Symbol cannot be loaded.";
+      return NULL;
+    }
+
+  msg_error = NULL;
+  return symbol;
 #endif
 }
 
@@ -1410,18 +1463,35 @@ dlsym (void *hdll, char *sym)
 char *
 dlerror ()
 {
-  return 0L;			/* unimplemented yet */
+  return (msg_error) ? msg_error : "No error detected.";
 }
 
 
 int
 dlclose (void *hdll)
 {
+  /* It should be something like that ....  */
+  /* but some applications like Office 2001 */
+  /* have a problem with that ... just let  */
+  /* the Mac unload the library when the    */
+  /* application stop ...                   */
 #ifdef __POWERPC__
-  error = CloseConnection ((CFragConnectionID *) hdll);
-
-  return error;
+/*		if( CloseConnection((CFragConnectionID*)hdll) )
+		{
+			msg_error = "Library cannot be unloaded.";
+			return 1;
+		}
+		msg_error = NULL;	
+		return 0;*/
 #else
+  if (CloseConnection ((CFragConnectionID *) hdll))
+    {
+      msg_error = "Library cannot be unloaded.";
+      return 1;
+    }
+
+  msg_error = NULL;
+  return 0;
 #endif
 }
 

@@ -167,7 +167,9 @@ EXPORT int dat_daadvert_in(DATable *ignore, struct sockaddr_in sin,
                         // hasn't changed.
                     }
                     
-                    SLP_LOG (SLP_LOG_MSG, "Updating DA [%s], in list with scopelist: %s", inet_ntoa(sin.sin_addr), pcScopeList );
+#ifdef ENABLE_SLP_LOGGING
+					SLP_LOG (SLP_LOG_MSG, "Updating DA [%s], in list with scopelist: %s", inet_ntoa(sin.sin_addr), pcScopeList );
+#endif
                 }
                 break;
             }
@@ -197,7 +199,9 @@ EXPORT int dat_daadvert_in(DATable *ignore, struct sockaddr_in sin,
             pdat->iSize++;
             retval = 1; /* indicates a new entry */
                     
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_MSG, "Adding DA [%s], to list with scopelist: %s", inet_ntoa(sin.sin_addr), pcScopeList );
+#endif
         }
         UnlockGlobalDATable();
     }
@@ -286,24 +290,30 @@ EXPORT SLPInternalError dat_get_da(const DATable *ignore, const char *pcScopeLis
 EXPORT void dat_boot_off_struck_out_das( void )
 {
     DATable* 	pdat = GetGlobalDATable();
-    int			i, initialSize = pdat->iSize;
-    
+    int			i;
+#ifdef ENABLE_SLP_LOGGING
+	int			initialSize = pdat->iSize;
+#endif    
     LockGlobalDATable();
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_MSG, "dat_boot_off_struck_out_das called, %d DAs in list.",initialSize);
-
+#endif
     for (i = 0; i < pdat->iSize; i++)
     {
         if ( pdat->pDAE[i].iStrikes > kNumberOfStrikesAllowed ) 
         {
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_MSG, "dat_boot_off_struck_out_das called, removing DA [%s] from list as it has too many strikes against it.",inet_ntoa(pdat->pDAE[i].sin.sin_addr));
+#endif
             remove_dae(pdat,pdat->pDAE[i].sin); /* struck out */
             break;
         } 
     }
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_MSG, "dat_boot_off_struck_out_das struck out, %d DAs.",initialSize-(pdat->iSize));
-
+#endif
     UnlockGlobalDATable();
 }
 
@@ -314,15 +324,17 @@ EXPORT SLPInternalError dat_strike_da(DATable *ignore, struct sockaddr_in sin)
     
     if (!pdat)
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG(SLP_LOG_DEBUG, "dat_strike_da called but we have no global DATable" );
-    
+#endif    
         return SLP_PARAMETER_BAD;
     }
     
     LockGlobalDATable();
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_MSG, "dat_strike_da called, %d DAs in list.",pdat->iSize );
-
+#endif
     for (i = 0; i < pdat->iSize; i++)
     {
         if (pdat->pDAE[i].sin.sin_addr.s_addr == sin.sin_addr.s_addr) 
@@ -331,7 +343,9 @@ EXPORT SLPInternalError dat_strike_da(DATable *ignore, struct sockaddr_in sin)
             // to the end of the table
             if (!OnlyUsePreConfiguredDAs() && pdat->pDAE[i].iStrikes++ > kNumberOfStrikesAllowed) 
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_MSG, "dat_strike_da called, removing DA [%s] from list as it has too many strikes against it.",inet_ntoa(sin.sin_addr) );
+#endif
                 remove_dae(pdat,sin); /* struck out */
                 break;
             } 
@@ -339,8 +353,9 @@ EXPORT SLPInternalError dat_strike_da(DATable *ignore, struct sockaddr_in sin)
             {
                 DAEntry daeTemp = pdat->pDAE[i];
 
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_MSG, "dat_strike_da called, adding a strike to DA [%s] (%d strikes).",inet_ntoa(sin.sin_addr), pdat->pDAE[i].iStrikes );
- 
+#endif 
                 if (i < (pdat->iSize-1)) 
                 { /* if not the last item on the list */
                     memmove(&(pdat->pDAE[i]),&(pdat->pDAE[i+1]),
@@ -365,15 +380,17 @@ EXPORT SLPInternalError dat_update_da_scope_sponser_info(struct sockaddr_in sin,
     
     if (!pdat)
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG(SLP_LOG_DEBUG, "dat_update_da_scope_sponser_info called but we have no global DATable" );
-    
+#endif    
         return SLP_PARAMETER_BAD;
     }
     
     LockGlobalDATable();
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_MSG, "dat_update_da_scope_sponser_info called, %d DAs in list.",pdat->iSize );
-
+#endif
     for (i = 0; i < pdat->iSize; i++)
     {
         if (pdat->pDAE[i].sin.sin_addr.s_addr == sin.sin_addr.s_addr) 

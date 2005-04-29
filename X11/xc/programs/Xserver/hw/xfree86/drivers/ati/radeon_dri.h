@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_dri.h,v 1.4 2002/10/30 12:52:13 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_dri.h,v 1.5 2003/09/28 20:15:55 alanh Exp $ */
 /*
  * Copyright 2000 ATI Technologies Inc., Markham, Ontario,
  *                VA Linux Systems Inc., Fremont, California.
@@ -45,10 +45,10 @@
 #define RADEON_DEFAULT_CP_BM_MODE     RADEON_CSQ_PRIBM_INDBM
 #define RADEON_DEFAULT_AGP_MODE       1
 #define RADEON_DEFAULT_AGP_FAST_WRITE 0
-#define RADEON_DEFAULT_AGP_SIZE       8 /* MB (must be 2^n and > 4MB) */
+#define RADEON_DEFAULT_GART_SIZE      8 /* MB (must be 2^n and > 4MB) */
 #define RADEON_DEFAULT_RING_SIZE      1 /* MB (must be page aligned) */
 #define RADEON_DEFAULT_BUFFER_SIZE    2 /* MB (must be page aligned) */
-#define RADEON_DEFAULT_AGP_TEX_SIZE   1 /* MB (must be page aligned) */
+#define RADEON_DEFAULT_GART_TEX_SIZE  1 /* MB (must be page aligned) */
 
 #define RADEON_DEFAULT_CP_TIMEOUT     10000  /* usecs */
 
@@ -92,11 +92,11 @@ typedef struct {
     drmHandle     statusHandle;
     drmSize       statusSize;
 
-    /* CP AGP Texture data */
-    drmHandle     agpTexHandle;
-    drmSize       agpTexMapSize;
-    int           log2AGPTexGran;
-    int           agpTexOffset;
+    /* CP GART Texture data */
+    drmHandle     gartTexHandle;
+    drmSize       gartTexMapSize;
+    int           log2GARTTexGran;
+    int           gartTexOffset;
     unsigned int  sarea_priv_offset;
 
 #ifdef PER_CONTEXT_SAREA

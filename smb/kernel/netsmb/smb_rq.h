@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_rq.h,v 1.5 2003/09/19 20:45:43 lindak Exp $
+ * $Id: smb_rq.h,v 1.9 2005/01/22 22:20:58 lindak Exp $
  */
 #ifndef _NETSMB_SMB_RQ_H_
 #define	_NETSMB_SMB_RQ_H_
@@ -49,12 +49,14 @@
 #define	SMBR_XLOCK		0x0100	/* request locked and can't be moved */
 #define	SMBR_XLOCKWANT		0x0200	/* waiter on XLOCK */
 #define	SMBR_VCREF		0x4000	/* took vc reference */
+#define	SMBR_MOREDATA		0x8000	/* our buffer was too small */
 
 #define SMBT2_ALLSENT		0x0001	/* all data and params are sent */
 #define SMBT2_ALLRECV		0x0002	/* all data and params are received */
 #define	SMBT2_ALLOCED		0x0004
 #define	SMBT2_RESTART		0x0008
 #define	SMBT2_NORESTART		0x0010
+#define	SMBT2_MOREDATA		0x8000	/* our buffer was too small */
 
 #define SMBRQ_SLOCK(rqp)	smb_sl_lock(&(rqp)->sr_slock)
 #define SMBRQ_SUNLOCK(rqp)	smb_sl_unlock(&(rqp)->sr_slock)
@@ -69,7 +71,6 @@ enum smbrq_state {
 };
 
 struct smb_vc;
-struct smb_t2rq;
 
 struct smb_rq {
 	enum smbrq_state	sr_state;
@@ -104,30 +105,55 @@ struct smb_rq {
 	u_int16_t		sr_rppid;
 	u_int16_t		sr_rpuid;
 	u_int16_t		sr_rpmid;
-	struct smb_slock	sr_slock;	/* short term locks */
-/*	struct smb_t2rq*sr_t2;*/
+	smb_slock	sr_slock;	/* short term locks */
 	TAILQ_ENTRY(smb_rq)	sr_link;
 };
 
 struct smb_t2rq {
 	u_int16_t	t2_setupcount;
 	u_int16_t *	t2_setupdata;
-	u_int16_t	t2_setup[2];	/* most of rqs has setupcount of 1 */
+	u_int16_t	t2_setup[SMB_MAXSETUPWORDS];
 	u_int8_t	t2_maxscount;	/* max setup words to return */
 	u_int16_t	t2_maxpcount;	/* max param bytes to return */
 	u_int16_t	t2_maxdcount;	/* max data bytes to return */
-	u_int16_t	t2_fid;		/* for T2 request */
-	char *		t_name;		/* for T request, should be zero for T2 */
+	u_int16_t       t2_fid;         /* for T2 request */
+	char *          t_name;         /* for T, should be zero for T2 */
 	int		t2_flags;	/* SMBT2_ */
 	struct mbchain	t2_tparam;	/* parameters to transmit */
 	struct mbchain	t2_tdata;	/* data to transmit */
 	struct mdchain	t2_rparam;	/* received paramters */
 	struct mdchain	t2_rdata;	/* received data */
-	struct smb_cred*t2_cred;
-	struct smb_connobj *t2_source;
+	struct smb_cred * t2_cred;
+	struct smb_connobj * t2_source;
 	struct smb_rq *	t2_rq;
 	struct smb_vc * t2_vc;
-	struct smb_share *t2_share;	/* for smb up/down */
+	struct smb_share * t2_share;	/* for smb up/down */
+	/* unmapped windows error detail */
+	u_int8_t	t2_sr_errclass;
+	u_int16_t	t2_sr_serror;
+	u_int32_t	t2_sr_error;
+	u_int16_t	t2_sr_rpflags2;
+};
+
+struct smb_ntrq {
+	u_int16_t	nt_function;
+	u_int8_t	nt_maxscount;	/* max setup words to return */
+	u_int32_t	nt_maxpcount;	/* max param bytes to return */
+	u_int32_t	nt_maxdcount;	/* max data bytes to return */
+	int		nt_flags;	/* SMBT2_ */
+	struct mbchain	nt_tsetup;	/* setup to transmit */
+	struct mbchain	nt_tparam;	/* parameters to transmit */
+	struct mbchain	nt_tdata;	/* data to transmit */
+	struct mdchain	nt_rparam;	/* received paramters */
+	struct mdchain	nt_rdata;	/* received data */
+	struct smb_cred * nt_cred;
+	struct smb_connobj * nt_source;
+	struct smb_rq *	nt_rq;
+	struct smb_vc * nt_vc;
+	struct smb_share * nt_share;	/* for smb up/down */
+	/* unmapped windows error details */
+	u_int32_t	nt_sr_error;
+	u_int16_t	nt_sr_rpflags2;
 };
 
 int  smb_rq_alloc(struct smb_connobj *layer, u_char cmd,
@@ -147,9 +173,17 @@ int  smb_rq_simple_timed(struct smb_rq *rqp, int timeout);
 
 int  smb_t2_alloc(struct smb_connobj *layer, u_short setup, struct smb_cred *scred,
 	struct smb_t2rq **rqpp);
-int  smb_t2_init(struct smb_t2rq *rqp, struct smb_connobj *layer, u_short setup,
-	struct smb_cred *scred);
+int  smb_t2_init(struct smb_t2rq *rqp, struct smb_connobj *layer, u_short *setup,
+	int setupcnt, struct smb_cred *scred);
 void smb_t2_done(struct smb_t2rq *t2p);
 int  smb_t2_request(struct smb_t2rq *t2p);
+u_int32_t smb_t2_err(struct smb_t2rq *t2p);
+
+int  smb_nt_alloc(struct smb_connobj *layer, u_short fn, struct smb_cred *scred,
+	struct smb_ntrq **rqpp);
+int  smb_nt_init(struct smb_ntrq *rqp, struct smb_connobj *layer, u_short fn,
+	struct smb_cred *scred);
+void smb_nt_done(struct smb_ntrq *ntp);
+int  smb_nt_request(struct smb_ntrq *ntp);
 
 #endif /* !_NETSMB_SMB_RQ_H_ */

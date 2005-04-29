@@ -36,8 +36,10 @@
 static char sccsid[] = "@(#)names.c	8.1 (Berkeley) 6/6/93";
 #endif
 static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/names.c,v 1.7 2001/12/18 20:52:09 mikeh Exp $";
+  "$FreeBSD: src/usr.bin/mail/names.c,v 1.9 2004/02/29 20:44:44 mikeh Exp $";
 #endif /* not lint */
+
+#include <sys/cdefs.h>
 
 /*
  * Mail -- a mail program
@@ -205,6 +207,79 @@ yankword(ap, wbuf)
 		for (cp2 = wbuf; *cp != '\0' && strchr(" \t,(", *cp) == NULL;
 		    *cp2++ = *cp++)
 			;
+	*cp2 = '\0';
+	return (cp);
+}
+
+/*
+ * Grab a single login name (liberal word)
+ * Throw away things between ()'s, take anything between <>,
+ * and look for words before metacharacters %, @, !.
+ */
+char *
+yanklogin(ap, wbuf)
+	char *ap, wbuf[];
+{
+	char *cp, *cp2, *cp_temp;
+	int n;
+
+	cp = ap;
+	for (;;) {
+		if (*cp == '\0')
+			return (NULL);
+		if (*cp == '(') {
+			int nesting = 0;
+
+			while (*cp != '\0') {
+				switch (*cp++) {
+				case '(':
+					nesting++;
+					break;
+				case ')':
+					--nesting;
+					break;
+				}
+				if (nesting <= 0)
+					break;
+			}
+		} else if (*cp == ' ' || *cp == '\t' || *cp == ',')
+			cp++;
+		else
+			break;
+	}
+
+	/*
+	 * Now, let's go forward till we meet the needed character,
+	 * and step one word back.
+	 */
+
+	/* First, remember current point. */
+	cp_temp = cp;
+	n = 0;
+
+	/*
+	 * Note that we look ahead in a cycle. This is safe, since
+	 * non-end of string is checked first.
+	 */
+	while(*cp != '\0' && strchr("@%!", *(cp + 1)) == NULL)
+		cp++;
+
+	/*
+	 * Now, start stepping back to the first non-word character,
+	 * while counting the number of symbols in a word.
+	 */
+	while(cp != cp_temp && strchr(" \t,<>", *(cp - 1)) == NULL) {
+		n++;
+		cp--;
+	}
+
+	/* Finally, grab the word forward. */
+	cp2 = wbuf;
+	while(n >= 0) {
+		*cp2++=*cp++;
+		n--;
+	}
+
 	*cp2 = '\0';
 	return (cp);
 }

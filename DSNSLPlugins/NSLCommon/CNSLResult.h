@@ -60,8 +60,8 @@ public:
             void					AddAttribute		( const char* key, const char* value );
             void					AddAttribute		( CFStringRef keyRef, CFStringRef valueRef );
             
-            CFStringRef				GetURLRef			( void );
-            CFStringRef				GetServiceTypeRef	( void );
+            CFStringRef				GetURLRef			( void ) const;
+            CFStringRef				GetServiceTypeRef	( void ) const;
             CFStringRef				GetAttributeRef		( CFStringRef keyRef ) const;
             
             CFDictionaryRef			GetAttributeDict	( void ) const { return mAttributes; }

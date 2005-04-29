@@ -1,17 +1,17 @@
-# Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
+# along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 from Mailman import mm_cfg
@@ -84,7 +84,19 @@ class Bounce(GUIBase):
             ('bounce_score_threshold', mm_cfg.Number, 5, 0,
              _("""The maximum member bounce score before the member's
              subscription is disabled.  This value can be a floating point
-             number.""")),
+             number."""),
+             _("""Each subscriber is assigned a bounce score, as a floating
+             point number.  Whenever Mailman receives a bounce from a list
+             member, that member's score is incremented.  Hard bounces (fatal
+             errors) increase the score by 1, while soft bounces (temporary
+             errors) increase the score by 0.5.  Only one bounce per day
+             counts against a member's score, so even if 10 bounces are
+             received for a member on the same day, their score will increase
+             by just 1.
+
+             This variable describes the upper limit for a member's bounce
+             score, above which they are automatically disabled, but not
+             removed from the mailing list.""")),
 
             ('bounce_info_stale_after', mm_cfg.Number, 5, 0,
              _("""The number of days after which a member's bounce information

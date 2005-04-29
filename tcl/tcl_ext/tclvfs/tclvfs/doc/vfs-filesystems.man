@@ -1,0 +1,95 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin vfs-filesystems n 1.0]
+[copyright {2001-2003 Vince Darley <vincentdarley@users.sourceforge.net>}]
+[copyright {2003 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Tcl-level Virtual Filesystems}]
+[titledesc {Filesystems provided by tclvfs}]
+[require Tcl 8.4]
+[require vfs [opt 1.2.1]]
+[require vfs::zip     [opt 1.0]]
+[require vfs::mk4     [opt 1.6]]
+[require vfs::tar     [opt 0.9]]
+[require vfs::ftp     [opt 1.0]]
+[require vfs::ns      [opt 1.0]]
+[require vfs::webdav  [opt 0.1]]
+[require vfs::http    [opt 0.5]]
+[require vfs::urltype [opt 1.0]]
+[description]
+
+The package [package vfs] provides not only the means to implement a
+virtual filesystem at the tcl level, but also a number of ready to be
+used filesystems as well.
+
+[para]
+
+Each of these filesystem exists as its own package, and can be
+accessed through [cmd {package require vfs::NAME}].
+
+The whole set of these virtual filesystems is known informally as
+'[term vfslib]'.
+
+[section {SUPPORTED VFS TYPES}]
+
+Currently supported are ftp, tar, http, zip, mk4, ns, and webdav.
+
+In addition there is the ability to mount any 'urltype' as a new
+directory, provided an appropriate vfs is supported.  This means that
+you can treat urls based on the schemes [emph ftp://], [emph http://]
+and [emph file://] as files.  To do this, simply evaluate the command
+
+[cmd {vfs::urltype::Mount ftp}]
+
+for example.  Any access inside the new volume will result in an
+attempt to require a package through
+
+[cmd {package require vfs::${type}}], which must therefore exist, or
+errors will be thrown.
+
+If a filesystem is loaded, use the associated command listed below to
+mount a source for that filesystem as a tcl directory.
+
+[list_begin definitions]
+[call [cmd vfs::zip::Mount] [arg path] [arg to]]
+
+Mount the zip file [arg path] as directory [arg to].
+
+[call [cmd vfs::mk4::Mount] [arg path] [arg to]]
+
+Mount the metakit database file file [arg path] as directory [arg to].
+
+[call [cmd vfs::tar::Mount] [arg path] [arg to]]
+
+Mount the tar file [arg path] as directory [arg to].
+
+[call [cmd vfs::ftp::Mount] [arg path] [arg to]]
+
+Mount the ftp url [arg path] as directory [arg to].
+
+[call [cmd vfs::ns::Mount] [arg path] [arg to]]
+
+Mount the tcl namespace [arg path] as directory [arg to].
+
+[call [cmd vfs::webdav::Mount] [arg path] [arg to]]
+
+Mount the webdav url [arg path] as directory [arg to].
+
+[call [cmd vfs::http::Mount] [arg path] [arg to]]
+
+Mount the http url [arg path] as directory [arg to].
+
+[call [cmd vfs::urltype::Mount] [arg path] [arg to]]
+
+Mount the url [arg path], of type [arg urltype] as directory [arg to].
+
+[list_end]
+
+
+[section LIMITATIONS]
+
+Most of the vfs types listed above have not been very well debugged as
+yet.  Please test them!
+
+
+[see_also vfs vfs-fsapi]
+[keywords vfs filesystem file vfslib zip tar webdav ftp http namespace metakit]
+[manpage_end]

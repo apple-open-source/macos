@@ -136,7 +136,7 @@ bind ^] paste [.]
 #
 
 # screen -t local 0
-# screen -t mail 1 elm
+# screen -t mail 1 mutt
 # screen -t 40 2 rlogin server
 
 # caption always "%3n %t%? @%u%?%? [%h]%?%=%c"
@@ -148,4 +148,6 @@ bind ^] paste [.]
 # bind - resize -1
 # bind _ resize max
 #
-# hardstatus alwayslastline "%-Lw%50>%n%f* %t%+Lw%<"
+# defnonblock 1
+# blankerprg rain -d 100
+# idle 30 blanker

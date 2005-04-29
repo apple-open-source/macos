@@ -88,3 +88,9 @@ _dsDeallocAttributeValueEntry
 _dsDeallocAttributeEntry
 _dsDeallocRecordEntry
 _dsParseAuthAuthority
+_dsCopyDirStatusName
+_dsDoMultipleAttributeValueSearch
+_dsDoMultipleAttributeValueSearchWithData
+_dsGetRecordAttributeValueByValue
+_dsAllocStringsFromList
+_dsSetAttributeValues

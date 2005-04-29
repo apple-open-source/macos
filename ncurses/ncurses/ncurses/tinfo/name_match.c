@@ -34,7 +34,7 @@
 #include <term.h>
 #include <tic.h>
 
-MODULE_ID("$Id: name_match.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: name_match.c,v 1.12 2002/08/31 21:48:41 Philippe.Blain Exp $")
 
 /*
  *	_nc_first_name(char *names)
@@ -50,7 +50,7 @@ _nc_first_name(const char *const sp)
     register unsigned n;
 
     if (buf == 0)
-	buf = _nc_doalloc(buf, MAX_NAME_SIZE + 1);
+	buf = typeMalloc(char, MAX_NAME_SIZE + 1);
     for (n = 0; n < MAX_NAME_SIZE; n++) {
 	if ((buf[n] = sp[n]) == '\0'
 	    || (buf[n] == '|'))

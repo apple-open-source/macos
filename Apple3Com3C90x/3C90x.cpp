@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -60,6 +57,18 @@ interruptOccurred( OSObject *               target,
                    int                      count )
 {
     ((Apple3Com3C90x *) target)->interruptHandler( sender );
+}
+
+static bool
+interruptFilter( OSObject * target , IOFilterInterruptEventSource * src )
+{
+    Apple3Com3C90x * me = (Apple3Com3C90x *) target;
+
+    if ( me->_interruptMask &&
+         me->getCommandStatus() & kCommandStatusInterruptLatchMask )
+        return true;
+    else
+        return false;
 }
 
 static void
@@ -108,6 +117,13 @@ void Apple3Com3C90x::initPCIConfigSpace()
     reg |= 0xFF00;    // max the 8-bit latency count
     _pciDevice->configWrite32( kIOPCIConfigCacheLineSize, reg );
 #endif
+
+    // Enable PCI power management.
+
+    if ( _pciDevice->hasPCIPowerManagement( kPCIPMCPMESupportFromD3Cold ) )
+        _magicPacketSupported = true;
+
+    _pciDevice->enablePCIPowerManagement( kPCIPMCSPowerStateD3 );
 }
 
 //---------------------------------------------------------------------------
@@ -118,36 +134,41 @@ void Apple3Com3C90x::initPCIConfigSpace()
 
 bool Apple3Com3C90x::createSupportObjects( IOService * provider )
 {
-	// This driver will allocate and use an IOGatedOutputQueue.
+    _kdpPacketQueue = IOPacketQueue::withCapacity(~0);
+    if (!_kdpPacketQueue)
+        return false;
 
-	_transmitQueue = getOutputQueue();
-	if ( _transmitQueue == 0 ) return false;
+    // This driver will allocate and use an IOGatedOutputQueue.
 
-	// Allocate a single IOMbufLittleMemoryCursor for both transmit and
+    _transmitQueue = getOutputQueue();
+    if ( _transmitQueue == 0 ) return false;
+
+    // Allocate a single IOMbufLittleMemoryCursor for both transmit and
     // receive. Safe since this driver is single-threaded. The maximum
     // number of segments defaults to 1, but can be changed later.
 
-	_mbufCursor = IOMbufLittleMemoryCursor::withSpecification( 1522, 1 );
-	if ( _mbufCursor == 0 )
-		return false;
+    _mbufCursor = IOMbufLittleMemoryCursor::withSpecification( 1522, 1 );
+    if ( _mbufCursor == 0 )
+        return false;
 
-	// Get a reference to our own workloop.
+    // Get a reference to our own workloop.
 
-	IOWorkLoop * myWorkLoop = (IOWorkLoop *) getWorkLoop();
-	if ( myWorkLoop == 0 )
-		return false;
+    IOWorkLoop * myWorkLoop = (IOWorkLoop *) getWorkLoop();
+    if ( myWorkLoop == 0 )
+        return false;
 
-	// Create and attach an interrupt event source to the work loop.
+    // Create and attach an interrupt event source to the work loop.
 
-	_interruptSrc = IOInterruptEventSource::interruptEventSource(
+    _interruptSrc = IOFilterInterruptEventSource::filterInterruptEventSource(
                     this,
-                    (IOInterruptEventAction) interruptOccurred,
+                    interruptOccurred,
+                    interruptFilter,
                     provider );
 
-	if ( (_interruptSrc == 0 ) ||
-		 (myWorkLoop->addEventSource(_interruptSrc) != kIOReturnSuccess) )
+    if ( (_interruptSrc == 0 ) ||
+         (myWorkLoop->addEventSource(_interruptSrc) != kIOReturnSuccess) )
     {
-		return false;
+        return false;
     }
 
     // This is important. If the interrupt line is shared with other PCI
@@ -158,20 +179,20 @@ bool Apple3Com3C90x::createSupportObjects( IOService * provider )
 
     _interruptSrc->enable();
 
-	// Register a timer event source. This is used as a periodic timer to
+    // Register a timer event source. This is used as a periodic timer to
     // monitor transmitter watchdog and link status.
 
-	_timerSrc = IOTimerEventSource::timerEventSource(
+    _timerSrc = IOTimerEventSource::timerEventSource(
                 this,
                 (IOTimerEventSource::Action) timeoutOccurred );
 
-	if ( (_timerSrc == 0) ||
-		 (myWorkLoop->addEventSource(_timerSrc) != kIOReturnSuccess) )
+    if ( (_timerSrc == 0) ||
+         (myWorkLoop->addEventSource(_timerSrc) != kIOReturnSuccess) )
     {
-		return false;
+        return false;
     }
 
-	return true;
+    return true;
 }
 
 //---------------------------------------------------------------------------
@@ -204,7 +225,7 @@ bool Apple3Com3C90x::start( IOService * provider )
 
     // Initialize the PCI config space.
 
-	initPCIConfigSpace();
+    initPCIConfigSpace();
 
     // Determine the type of EtherLinkXL card.
 
@@ -229,36 +250,38 @@ bool Apple3Com3C90x::start( IOService * provider )
         {
             case kASIC_40_0502_00x:
                 asicRev  = pciReg & 0x1f;
-                IOLog("(40-0502-00x, Rev:%x)", asicRev);
+                LOG_DEBUG("40-0502-00x, Rev:%x\n", asicRev);
                 break;
 
             case kASIC_40_0483_00x:
                 asicRev  = (pciReg >> 2) & 0x7;
-                IOLog("(40-0483-00x, Rev:%x)", asicRev);
+                LOG_DEBUG("40-0483-00x, Rev:%x\n", asicRev);
                 break;
 
             case kASIC_40_0476_001:
                 asicRev  = (pciReg >> 2) & 0x7;
-                IOLog("(40-0476-001, Rev:%x)", asicRev);
+                LOG_DEBUG("40-0476-001, Rev:%x\n", asicRev);
                 break;
 
             default:
-                IOLog("(Unknown ASIC:%02lx)", pciReg);
+                LOG_DEBUG("Unknown ASIC:%02lx\n", pciReg);
                 _asicType = kASIC_40_0502_00x;  // default assignment
         }
     }
 
-    // Get the I/O space registers at PCI base address register 0.
+    // Map the hardware registers
 
-    pciReg  = _pciDevice->configRead32( kIOPCIConfigBaseAddress0 );
-    _ioBase = pciReg & ~0x01;  // mask I/O space indicator at bit 0
-
-    LOG_DEBUG("%s: PCI BAR0 = %x\n", getName(), _ioBase);
+    _regMap = mapHardwareRegisters();
+    if ( _regMap == 0 )
+    {
+        IOLog("%s: mapHardwareRegisters failed\n", getName());
+        goto fail;
+    }
 
     // Initialize instance variables.
 
     irqNumber      = _pciDevice->configRead32( kIOPCIConfigInterruptLine );
-    _window        = ((UInt8) -1);  // invalidate current window
+    _window        = kInvalidRegisterWindow;
     _rxFilterMask  = kFilterIndividual | kFilterBroadcast;
 
     // Create supporting objects.
@@ -287,10 +310,10 @@ bool Apple3Com3C90x::start( IOService * provider )
 
     // Get media ports supported by the adapter.
 
-	_mediumDict = OSDictionary::withCapacity( 5 );
-	if ( _mediumDict == 0 )
+    _mediumDict = OSDictionary::withCapacity( 5 );
+    if ( _mediumDict == 0 )
     {
-		goto fail;
+        goto fail;
     }
     probeMediaSupport();
     publishMediaCapability( _mediumDict );
@@ -309,8 +332,9 @@ bool Apple3Com3C90x::start( IOService * provider )
     // Allocate a single cluster mbuf for KDB, also used by the media
     // auto-selection logic.
 
-    _kdpMbuf = allocatePacket( 1 );
-    if ( _kdpMbuf == 0 )
+    _kdpMbuf = allocatePacket( kIOEthernetMaxPacketSize );
+    if ( _kdpMbuf == 0 ||
+         _mbufCursor->getPhysicalSegments(_kdpMbuf, &_kdpMbufSeg) != 1 )
     {
         IOLog("%s: KDB mbuf allocation failed\n", getName());
         goto fail;
@@ -318,8 +342,8 @@ bool Apple3Com3C90x::start( IOService * provider )
 
     // Announce the hardware model.
 
-    IOLog("%s: 3Com EtherLink %s Port 0x%0x IRQ %d\n", getName(),
-          _adapterInfo->name, _ioBase, irqNumber);
+    IOLog("%s: 3Com EtherLink %s Regs 0x%0lx IRQ %d\n", getName(),
+          _adapterInfo->name, _regMap->getPhysicalAddress(), irqNumber);
 
     // Close our provider, it will be re-opened on demand when
     // our enable() method is called.
@@ -331,7 +355,7 @@ bool Apple3Com3C90x::start( IOService * provider )
     if ( attachInterface((IONetworkInterface **) &_netif) == false )
         goto fail;
 
-	attachDebuggerClient( &_debugger );
+    attachDebuggerClient( &_debugger );
 
     return true;
 
@@ -340,6 +364,21 @@ fail:
 
     return false;
 }
+
+//---------------------------------------------------------------------------
+
+IOMemoryMap * Apple3Com3C90x::mapHardwareRegisters( void )
+{
+    IOMemoryMap * map;
+
+    map = _pciDevice->mapDeviceMemoryWithRegister( kIOPCIConfigBaseAddress0,
+                                                   kIOMapInhibitCache );
+
+    if ( map ) _ioBase = (UInt16) map->getPhysicalAddress();
+
+    return map;
+}
+
 //---------------------------------------------------------------------------
 // createWorkLoop
 //
@@ -383,8 +422,8 @@ void Apple3Com3C90x::getDriverSettings()
     _txReclaimThresh   = 128;
     _txStartThresh_10  = 128;
     _txStartThresh_100 = 512;
-    _upBurstThresh     = 256;
-    _upPriorityThresh  = 128;
+    _upBurstThresh     = 256;  // used FIFO space before upload
+    _upPriorityThresh  = 256;  // remaining FIFO space before priority req
 
     // Get storeAndForward value. This overrides the setting for
     // txStartThresh.
@@ -496,13 +535,39 @@ bool Apple3Com3C90x::parseEEPROM()
 
 bool Apple3Com3C90x::resetAndEnable( bool enable )
 {
+    _window = kInvalidRegisterWindow;
+
     disableAdapterInterrupts();
 
     stopPeriodicTimer();
 
-    sendCommandWait( GlobalReset );
+    if ( enable == true || _magicPacketEnabled == false )
+    {
+        sendCommandWait( GlobalReset );
 
-	resetAdapter();
+        // [3592702] On some NICs, a GlobalReset completes almost
+        // immediately even when polling for cmdInProgress status
+        // bit. Manual indicates that this operation may take 1ms
+        // just to read the serial EEPROM. Without a delay, words
+        // read from EEPROM later on may contain garbage.
+
+        IOSleep(80);   // wait for GlobalReset completion
+        resetAdapter();
+    }
+    else
+    {
+        // Adapter is being disabled due to system sleep, and Magic
+        // Packet support was enabled. Only reset the transmitter,
+        // not the receiver, but stall the upload unit.
+
+        sendCommandWait( TxReset );
+        sendCommandWait( UpStall );
+
+        // Enable response to Magic Packet events. pmeEn will be set later.
+
+        setPowerMgmtEvent( getPowerMgmtEvent() |
+                           kPowerMgmtEventMagicPktEnableMask );
+    }
 
     setLinkStatus( kIONetworkLinkValid );
 
@@ -530,7 +595,7 @@ bool Apple3Com3C90x::resetAndEnable( bool enable )
         // Wait a bit and see if the link will come up before the
         // driver is in active use.
 
-        for ( int loops = 10;
+        for ( int loops = 30;
               loops && ( (_media.linkStatus & kIONetworkLinkActive) == 0 );
               loops-- )
         {
@@ -562,14 +627,22 @@ void Apple3Com3C90x::free()
 {
 #define RELEASE(x) do { if(x) { (x)->release(); (x) = 0; } } while(0)
 
-	RELEASE( _debugger     );
+    RELEASE( _debugger     );
     RELEASE( _netif        );
-	RELEASE( _interruptSrc );
-	RELEASE( _timerSrc     );
-	RELEASE( _mbufCursor   );
+
+    if ( _interruptSrc && _workLoop )
+    {
+        _workLoop->removeEventSource( _interruptSrc );
+    }
+    RELEASE( _interruptSrc );
+
+    RELEASE( _timerSrc     );
+    RELEASE( _mbufCursor   );
     RELEASE( _pciDevice    );
     RELEASE( _workLoop     );
     RELEASE( _mediumDict   );
+    RELEASE( _regMap       );
+    RELEASE( _kdpPacketQueue );
     
     if ( _txRing )
     {
@@ -604,7 +677,7 @@ void Apple3Com3C90x::free()
     freeDescMemory( &_txRingMem );
     freeDescMemory( &_rxRingMem );
 
-	super::free();
+    super::free();
 }
 
 //---------------------------------------------------------------------------
@@ -645,7 +718,7 @@ void Apple3Com3C90x::timeoutHandler( IOTimerEventSource * src )
 
             if ( resetAndEnable(true) == false )
             {
-                IOLog("%s: WatchDog: resetAndEnable failed\n", getName());
+                IOLog("%s: Watchdog: resetAndEnable failed\n", getName());
             }
 
             _netStats->outputErrors++;
@@ -659,11 +732,22 @@ void Apple3Com3C90x::timeoutHandler( IOTimerEventSource * src )
         }
     }
 
+    // This is to handle a corner case when breaking into the debugger with
+    // TX ring full and transmit queue stalled. After exiting from debugger,
+    // make sure the transmit queue does not remain stalled.
+
+    if (_kdpPacketQueue->getSize())
+    {
+        _kdpPacketQueue->flush();
+        if (_netifEnabled)
+            _transmitQueue->service();
+    }
+
     releaseDebuggerLock();
 
     // Re-arm the timer for the next interval.
 
-	src->setTimeoutMS( kPeriodicTimerMSInterval );
+    src->setTimeoutMS( kPeriodicTimerMSInterval );
 }
 
 //---------------------------------------------------------------------------
@@ -687,7 +771,7 @@ IOReturn Apple3Com3C90x::setMulticastMode( bool enable )
 
     sendCommand( SetRxFilter, _rxFilterMask );
 
-	releaseDebuggerLock();
+    releaseDebuggerLock();
 
     return kIOReturnSuccess;
 }
@@ -700,11 +784,11 @@ Apple3Com3C90x::setMulticastList( IOEthernetAddress * addrs, UInt32 count )
 {
     reserveDebuggerLock();
 
-	setupMulticastHashFilter( addrs, count );
+    setupMulticastHashFilter( addrs, count );
 
-	releaseDebuggerLock();
+    releaseDebuggerLock();
 
-	return kIOReturnSuccess;
+    return kIOReturnSuccess;
 }
 
 //---------------------------------------------------------------------------
@@ -733,8 +817,8 @@ IOReturn Apple3Com3C90x::setPromiscuousMode( bool enable )
 
 IOReturn Apple3Com3C90x::getHardwareAddress( IOEthernetAddress * addr )
 {
-	bcopy( &_etherAddress, addr, sizeof(*addr) );
-	return kIOReturnSuccess;
+    bcopy( &_etherAddress, addr, sizeof(*addr) );
+    return kIOReturnSuccess;
 }
 
 //---------------------------------------------------------------------------
@@ -748,7 +832,7 @@ IOOutputQueue * Apple3Com3C90x::createOutputQueue()
     // the work loop thread. The superclass is responsible for releasing
     // this object.
 
-	return IOGatedOutputQueue::withTarget( this, getWorkLoop() );
+    return IOGatedOutputQueue::withTarget( this, getWorkLoop() );
 }
 
 //---------------------------------------------------------------------------
@@ -776,10 +860,10 @@ IOReturn Apple3Com3C90x::enable( IONetworkInterface * netif )
 
     // Enable hardware interrupts.
 
-	enableAdapterInterrupts();
+    enableAdapterInterrupts();
 
-	_transmitQueue->setCapacity( 512 );
-	_transmitQueue->start();
+    _transmitQueue->setCapacity( 512 );
+    _transmitQueue->start();
 
     _netifEnabled = true;
 
@@ -796,7 +880,7 @@ IOReturn Apple3Com3C90x::disable( IONetworkInterface * netif )
     _transmitQueue->setCapacity( 0 );
     _transmitQueue->flush();
 
-	disableAdapterInterrupts();
+    disableAdapterInterrupts();
 
     if ( _driverEnableCount && ( --_driverEnableCount == 0 ) )
     {
@@ -867,7 +951,7 @@ void Apple3Com3C90x::startPeriodicTimer()
 
 void Apple3Com3C90x::stopPeriodicTimer()
 {
-	if ( _timerSrc ) _timerSrc->cancelTimeout();
+    if ( _timerSrc ) _timerSrc->cancelTimeout();
 }
 
 //---------------------------------------------------------------------------
@@ -875,28 +959,28 @@ void Apple3Com3C90x::stopPeriodicTimer()
 
 bool Apple3Com3C90x::configureInterface( IONetworkInterface * netif )
 {
-	IONetworkData * data;
+    IONetworkData * data;
 
-	if ( super::configureInterface(netif) == false )
-		return false;
+    if ( super::configureInterface(netif) == false )
+        return false;
 
-	// Get the generic network statistics structure.
+    // Get the generic network statistics structure.
 
-	data = netif->getNetworkData( kIONetworkStatsKey );
-	if (!data || !(_netStats = (IONetworkStats *) data->getBuffer()))
+    data = netif->getNetworkData( kIONetworkStatsKey );
+    if (!data || !(_netStats = (IONetworkStats *) data->getBuffer()))
     {
-		return false;
-	}
+        return false;
+    }
 
-	// Get the Ethernet statistics structure.
+    // Get the Ethernet statistics structure.
 
-	data = netif->getNetworkData( kIOEthernetStatsKey );
-	if (!data || !(_etherStats = (IOEthernetStats *) data->getBuffer()))
+    data = netif->getNetworkData( kIOEthernetStatsKey );
+    if (!data || !(_etherStats = (IOEthernetStats *) data->getBuffer()))
     {
-		return false;
-	}
+        return false;
+    }
 
-	return true;
+    return true;
 }
 
 //---------------------------------------------------------------------------
@@ -905,33 +989,31 @@ bool Apple3Com3C90x::configureInterface( IONetworkInterface * netif )
 IOReturn
 Apple3Com3C90x::selectMedium(const IONetworkMedium * medium)
 {
-	resetMedia( medium );
+    resetMedia( medium );
     
     return kIOReturnSuccess;
 }
 
 //---------------------------------------------------------------------------
 
+enum {
+    kPowerStateOff = 0,
+    kPowerStateOn,
+    kPowerStateCount
+};
+    
 IOReturn Apple3Com3C90x::registerWithPolicyMaker( IOService * policyMaker )
 {
-    enum {
-        kPowerStateOff = 0,
-        kPowerStateOn,
-        kPowerStateCount
-    };
-
     static IOPMPowerState powerStateArray[ kPowerStateCount ] =
     {
         { 1,0,0,0,0,0,0,0,0,0,0,0 },
         { 1,IOPMDeviceUsable,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0 }
     };
 
-    IOReturn ret;
+    IOReturn ret = policyMaker->registerPowerDriver( this,
+                                                     powerStateArray,
+                                                     kPowerStateCount );
 
-    ret = policyMaker->registerPowerDriver( this,
-                                            powerStateArray,
-                                            kPowerStateCount );
-    
     return ret;
 }
 
@@ -940,6 +1022,231 @@ IOReturn Apple3Com3C90x::registerWithPolicyMaker( IOService * policyMaker )
 IOReturn Apple3Com3C90x::setPowerState( unsigned long powerStateOrdinal,
                                         IOService *   policyMaker )
 {
+    if ( powerStateOrdinal == kPowerStateOff )
+    {
+        // A bit odd, but this is the only means of changing the PME Enable bit
+        // in IOPCIDevice.
+
+        if ( _magicPacketEnabled )
+        {
+            _pciDevice->hasPCIPowerManagement( kPCIPMCPMESupportFromD3Cold );
+        }
+        else
+        {
+            _pciDevice->hasPCIPowerManagement( kPCIPMCD3Support );
+        }
+    }
+
     return IOPMAckImplied;
 }
-                                    
+
+//---------------------------------------------------------------------------
+
+IOReturn Apple3Com3C90x::getPacketFilters( const OSSymbol * group,
+                                           UInt32 *         filters ) const
+{
+    // Advertise Magic Packet support.
+
+    if ( ( group == gIOEthernetWakeOnLANFilterGroup ) &&
+         ( _magicPacketSupported ) )
+    {
+        *filters = kIOEthernetWakeOnMagicPacket;
+        return kIOReturnSuccess;
+    }
+
+    return IOEthernetController::getPacketFilters( group, filters );
+}
+
+//---------------------------------------------------------------------------
+
+IOReturn Apple3Com3C90x::setWakeOnMagicPacket( bool active )
+{
+    _magicPacketEnabled = active;
+    return kIOReturnSuccess;
+}
+
+//---------------------------------------------------------------------------
+
+#ifdef __i386__
+
+/*
+ * IOPCIDevice's ioRead/ioWrite functions cannot be called at interrupt level
+ * since it acquires a mutex.
+ */
+
+#define __IN(c, w)                       \
+static inline UInt##w in##c(UInt16 port) \
+{                                        \
+    UInt##w data;                        \
+    asm volatile ( "in" #c " %1, %0"     \
+                 : "=a" (data)           \
+                 : "d"  (port));         \
+    return (data);                       \
+}
+
+#define __OUT(c, w)                                  \
+static inline void out##c(UInt16 port, UInt##w data) \
+{                                                    \
+    asm volatile ( "out" #c " %1, %0"                \
+                 :                                   \
+                 : "d" (port), "a" (data));          \
+}
+
+__IN( b, 8)
+__IN( w, 16)
+__IN( l, 32)
+__OUT(b, 8)
+__OUT(w, 16)
+__OUT(l, 32)
+
+UInt8 Apple3Com3C90x::readRegister8( UInt8 offset )
+{
+    return inb( offset + _ioBase );
+}
+
+UInt16 Apple3Com3C90x::readRegister16( UInt8 offset )
+{
+    return inw( offset + _ioBase );
+}
+
+UInt32 Apple3Com3C90x::readRegister32( UInt8 offset )
+{
+    return inl( offset + _ioBase );
+}
+
+void Apple3Com3C90x::writeRegister8(  UInt8 offset, UInt8  value )
+{
+    outb( offset + _ioBase, value );
+}
+
+void Apple3Com3C90x::writeRegister16( UInt8 offset, UInt16 value )
+{
+    outw( offset + _ioBase, value );
+}
+
+void Apple3Com3C90x::writeRegister32( UInt8 offset, UInt32 value )
+{
+    outl( offset + _ioBase, value );
+}
+
+#else /* !__i386__ */
+
+UInt8 Apple3Com3C90x::readRegister8( UInt8 offset )
+{
+    return _pciDevice->ioRead8( offset, _regMap );
+}
+
+UInt16 Apple3Com3C90x::readRegister16( UInt8 offset )
+{
+    return _pciDevice->ioRead16( offset, _regMap );
+}
+
+UInt32 Apple3Com3C90x::readRegister32( UInt8 offset )
+{
+    return _pciDevice->ioRead32( offset, _regMap );
+}
+
+void Apple3Com3C90x::writeRegister8(  UInt8 offset, UInt8  value )
+{
+    _pciDevice->ioWrite8( offset, value, _regMap );
+}
+
+void Apple3Com3C90x::writeRegister16( UInt8 offset, UInt16 value )
+{
+    _pciDevice->ioWrite16( offset, value, _regMap );
+}
+
+void Apple3Com3C90x::writeRegister32( UInt8 offset, UInt32 value )
+{
+    _pciDevice->ioWrite32( offset, value, _regMap );
+}
+
+#endif /* !__i386__ */
+
+//---------------------------------------------------------------------------
+
+IOReturn Apple3Com3C90x::getChecksumSupport( UInt32 * checksumMask,
+                                             UInt32   checksumFamily,
+                                             bool     isOutput )
+{
+    *checksumMask = 0;
+
+    if ( checksumFamily == kChecksumFamilyTCPIP &&
+         getProperty( "TCP/IP Checksum" ) == kOSBooleanTrue )
+    {
+        _hwChecksumEnabled = true;
+        *checksumMask = kChecksumIP | kChecksumTCP | kChecksumUDP;
+        return kIOReturnSuccess;
+    }
+
+    return kIOReturnUnsupported;
+}
+
+//---------------------------------------------------------------------------
+// 3C90xB subclass
+//---------------------------------------------------------------------------
+
+#undef  super
+#define super Apple3Com3C90x
+OSDefineMetaClassAndStructors( Apple3Com3C90xB, Apple3Com3C90x )
+
+//---------------------------------------------------------------------------
+
+void Apple3Com3C90xB::initPCIConfigSpace( void )
+{
+    super::initPCIConfigSpace();
+
+    // Enable decoding of memory mapped registers.
+
+    _pciDevice->setIOEnable( false );
+    _pciDevice->setMemoryEnable( true );
+}
+
+//---------------------------------------------------------------------------
+
+IOMemoryMap * Apple3Com3C90xB::mapHardwareRegisters( void )
+{
+    IOMemoryMap * map;
+
+    map = _pciDevice->mapDeviceMemoryWithRegister( kIOPCIConfigBaseAddress1,
+                                                   kIOMapInhibitCache );
+
+    if ( map ) _memBase = (void *) map->getVirtualAddress();
+
+    return map;
+}
+
+//---------------------------------------------------------------------------
+
+UInt8 Apple3Com3C90xB::readRegister8( UInt8 offset )
+{
+    return ((UInt8 *)_memBase)[offset];
+}
+
+UInt16 Apple3Com3C90xB::readRegister16( UInt8 offset )
+{
+    return OSReadLittleInt16( _memBase, offset );
+}
+
+UInt32 Apple3Com3C90xB::readRegister32( UInt8 offset )
+{
+    return OSReadLittleInt32( _memBase, offset );
+}
+
+void Apple3Com3C90xB::writeRegister8( UInt8 offset, UInt8 value )
+{
+    ((UInt8 *)_memBase)[offset] = value;
+    OSSynchronizeIO();
+}
+
+void Apple3Com3C90xB::writeRegister16( UInt8 offset, UInt16 value )
+{
+    OSWriteLittleInt16( _memBase, offset, value );
+    OSSynchronizeIO();
+}
+
+void Apple3Com3C90xB::writeRegister32( UInt8 offset, UInt32 value )
+{
+    OSWriteLittleInt32( _memBase, offset, value );
+    OSSynchronizeIO();
+}

@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_accel.c,v 1.32 2003/01/17 19:54:03 martin Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_accel.c,v 1.37 2004/02/19 22:38:12 tsi Exp $ */
 /*
  * Copyright 2000 ATI Technologies Inc., Markham, Ontario, and
  *                VA Linux Systems Inc., Fremont, California.
@@ -207,7 +207,9 @@ void RADEONEngineReset(ScrnInfoPtr pScrn)
     host_path_cntl = INREG(RADEON_HOST_PATH_CNTL);
     rbbm_soft_reset = INREG(RADEON_RBBM_SOFT_RESET);
 
-    if (info->ChipFamily == CHIP_FAMILY_R300) {
+    if ((info->ChipFamily == CHIP_FAMILY_R300) ||
+	(info->ChipFamily == CHIP_FAMILY_R350) ||
+	(info->ChipFamily == CHIP_FAMILY_RV350)) {
 	CARD32 tmp;
 
 	OUTREG(RADEON_RBBM_SOFT_RESET, (rbbm_soft_reset |
@@ -243,7 +245,9 @@ void RADEONEngineReset(ScrnInfoPtr pScrn)
     INREG(RADEON_HOST_PATH_CNTL);
     OUTREG(RADEON_HOST_PATH_CNTL, host_path_cntl);
 
-    if (info->ChipFamily != CHIP_FAMILY_R300)
+    if ((info->ChipFamily != CHIP_FAMILY_R300) &&
+        (info->ChipFamily != CHIP_FAMILY_R350) &&
+        (info->ChipFamily != CHIP_FAMILY_RV350))
 	OUTREG(RADEON_RBBM_SOFT_RESET, rbbm_soft_reset);
 
     OUTREG(RADEON_CLOCK_CNTL_INDEX, clock_cntl_index);
@@ -271,13 +275,15 @@ void RADEONEngineRestore(ScrnInfoPtr pScrn)
      */
 
     /* Turn of all automatic flushing - we'll do it all */
-    if (info->ChipFamily != CHIP_FAMILY_R300)
+    if ((info->ChipFamily != CHIP_FAMILY_R300) &&
+	(info->ChipFamily != CHIP_FAMILY_R350) &&
+	(info->ChipFamily != CHIP_FAMILY_RV350))
 	OUTREG(RADEON_RB2D_DSTCACHE_MODE, 0);
 
     pitch64 = ((pScrn->displayWidth * (pScrn->bitsPerPixel / 8) + 0x3f)) >> 6;
 
     RADEONWaitForFifo(pScrn, 1);
-    OUTREG(RADEON_DEFAULT_OFFSET, ((INREG(RADEON_DEFAULT_OFFSET) & 0xC0000000)
+    OUTREG(RADEON_DEFAULT_OFFSET, ((INREG(RADEON_DISPLAY_BASE_ADDR) >> 10)
 				   | (pitch64 << 22)));
 
     RADEONWaitForFifo(pScrn, 1);
@@ -289,8 +295,10 @@ void RADEONEngineRestore(ScrnInfoPtr pScrn)
     OUTREGP(RADEON_DP_DATATYPE, 0, ~RADEON_HOST_BIG_ENDIAN_EN);
 #endif
 
-    /* Restore SURFACE_CNTL */
-    OUTREG(RADEON_SURFACE_CNTL, info->ModeReg.surface_cntl);
+    /* Restore SURFACE_CNTL - only the first head contains valid data -ReneR */
+    if (!info->IsSecondary) {
+	OUTREG(RADEON_SURFACE_CNTL, info->ModeReg.surface_cntl);
+    }
 
     RADEONWaitForFifo(pScrn, 1);
     OUTREG(RADEON_DEFAULT_SC_BOTTOM_RIGHT, (RADEON_DEFAULT_SC_RIGHT_MAX
@@ -329,7 +337,7 @@ void RADEONEngineInit(ScrnInfoPtr pScrn)
 #endif
     {
 	OUTREG(RADEON_MC_FB_LOCATION, 0xffff0000);
-    	OUTREG(RADEON_MC_AGP_LOCATION, 0xfffff000);
+	OUTREG(RADEON_MC_AGP_LOCATION, 0xfffff000);
     }
 #endif
 
@@ -413,7 +421,7 @@ int RADEONCPStop(ScrnInfoPtr pScrn, RADEONInfoPtr info)
     stop.flush = 1;
     stop.idle  = 1;
 
-    ret = drmCommandWrite(info->drmFD, DRM_RADEON_CP_STOP, &stop, 
+    ret = drmCommandWrite(info->drmFD, DRM_RADEON_CP_STOP, &stop,
 			  sizeof(drmRadeonCPStop));
 
     if (ret == 0) {
@@ -423,10 +431,10 @@ int RADEONCPStop(ScrnInfoPtr pScrn, RADEONInfoPtr info)
     }
 
     stop.flush = 0;
- 
+
     i = 0;
     do {
-	ret = drmCommandWrite(info->drmFD, DRM_RADEON_CP_STOP, &stop, 
+	ret = drmCommandWrite(info->drmFD, DRM_RADEON_CP_STOP, &stop,
 			      sizeof(drmRadeonCPStop));
     } while (ret && errno == EBUSY && i++ < RADEON_IDLE_RETRY);
 
@@ -493,7 +501,7 @@ drmBufPtr RADEONCPGetBuffer(ScrnInfoPtr pScrn)
 	    buf->used = 0;
 	    if (RADEON_VERBOSE) {
 		xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-			   "   GetBuffer returning %d %08x\n",
+			   "   GetBuffer returning %d %p\n",
 			   buf->idx, buf->address);
 	    }
 	    return buf;

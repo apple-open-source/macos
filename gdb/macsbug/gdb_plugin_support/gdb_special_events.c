@@ -214,7 +214,7 @@ static void my_warning_hook(const char *format, va_list ap)
 
 static void my_create_breakpoint_hook(struct breakpoint *b)
 {
-    users_create_bkpt((unsigned long)b->address, b->enable_state == bp_enabled);
+    users_create_bkpt((unsigned long)b->loc->address, b->enable_state == bp_enabled);
     if (saved_create_bkpt)
     	saved_create_bkpt(b);
 }
@@ -226,7 +226,7 @@ static void my_create_breakpoint_hook(struct breakpoint *b)
 
 static void my_delete_breakpoint_hook(struct breakpoint *b)
 {
-    users_delete_bkpt((unsigned long)b->address, b->enable_state == bp_enabled);
+    users_delete_bkpt((unsigned long)b->loc->address, b->enable_state == bp_enabled);
     if (saved_delete_bkpt)
     	saved_delete_bkpt(b);
 }
@@ -238,7 +238,7 @@ static void my_delete_breakpoint_hook(struct breakpoint *b)
 
 static void my_modify_breakpoint_hook(struct breakpoint *b)
 {
-    users_modify_bkpt((unsigned long)b->address, b->enable_state == bp_enabled);
+    users_modify_bkpt((unsigned long)b->loc->address, b->enable_state == bp_enabled);
     if (saved_modify_bkpt)
     	saved_modify_bkpt(b);
 }

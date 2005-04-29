@@ -26,6 +26,7 @@
  */
 
 #include <sys/stat.h>				// for file and dir stat calls
+#include <syslog.h>					// for syslog()
 #include <CoreFoundation/CFDictionary.h>
 
 #include "CPluginConfig.h"
@@ -36,6 +37,9 @@
 #include "CLog.h"
 
 extern	bool			gServerOS;
+extern  uInt32			gRefCountWarningLimit;
+extern  uInt32			gDelayFailedLocalAuthReturnsDeltaInSeconds;
+extern	uInt32			gMaxHandlerThreadCount;
 
 //--------------------------------------------------------------------------------------------------
 //	* CPluginConfig ()
@@ -79,6 +83,10 @@ sInt32 CPluginConfig::Initialize ( void )
 	CFile		   *pFile		= nil;
 	struct stat		statbuf;
 	CFDataRef		dataRef		= nil;
+	CFStringRef		keyStrRef	= nil;
+	unsigned char   cfNumBool	= false;
+	CFNumberRef		cfNumber	= 0;
+	
 
 	try
 	{
@@ -88,35 +96,39 @@ sInt32 CPluginConfig::Initialize ( void )
 		{
 			// Attempt to get config info from file
 			pFile = new CFile( kConfigFilePath );
-			if ( (pFile != nil) && (pFile->FileSize() > 0) )
+			if ( pFile != nil )
 			{
-				// Allocate space for the file data
-				pData = (char *)::malloc( pFile->FileSize() + 1 );
-				if ( pData != nil )
+				if ( (pFile->is_open()) && (pFile->FileSize() > 0) )
 				{
-					// Read from the config file
-					uiDataSize = pFile->ReadBlock( pData, pFile->FileSize() );
-					dataRef = ::CFDataCreate( nil, (const uInt8 *)pData, uiDataSize );
-					if ( dataRef != nil )
+					// Allocate space for the file data
+					pData = (char *)::malloc( pFile->FileSize() + 1 );
+					if ( pData != nil )
 					{
-						// Is it valid XML data
-						fPlistRef = ::CFPropertyListCreateFromXMLData( kCFAllocatorDefault, dataRef, kCFPropertyListMutableContainersAndLeaves, nil );
-						if ( fPlistRef != nil )
+						// Read from the config file
+						uiDataSize = pFile->ReadBlock( pData, pFile->FileSize() );
+						dataRef = ::CFDataCreate( nil, (const uInt8 *)pData, uiDataSize );
+						if ( dataRef != nil )
 						{
-							// Is it a plist type
-							if ( ::CFDictionaryGetTypeID() == ::CFGetTypeID( fPlistRef ) )
+							// Is it valid XML data
+							fPlistRef = ::CFPropertyListCreateFromXMLData( kCFAllocatorDefault, dataRef, kCFPropertyListMutableContainersAndLeaves, nil );
+							if ( fPlistRef != nil )
 							{
-								fDictRef = (CFMutableDictionaryRef)fPlistRef;
+								// Is it a plist type
+								if ( ::CFDictionaryGetTypeID() == ::CFGetTypeID( fPlistRef ) )
+								{
+									fDictRef = (CFMutableDictionaryRef)fPlistRef;
 
-								bSuccess = true;
+									bSuccess = true;
+								}
 							}
+							CFRelease( dataRef );
+							dataRef = nil;
 						}
-						CFRelease( dataRef );
-						dataRef = nil;
+						free( pData );
+						pData = nil;
 					}
-					free( pData );
-					pData = nil;
 				}
+				
 				delete( pFile );
 				pFile = nil;
 			}
@@ -218,6 +230,22 @@ sInt32 CPluginConfig::Initialize ( void )
 					{
 						fDictRef = (CFMutableDictionaryRef)fPlistRef;
 
+						//make the new Active Directory plugin InActive by default if not already installed and setup
+						CFStringRef keyStrRef = nil;
+						keyStrRef = ::CFStringCreateWithCString( kCFAllocatorDefault, "Active Directory", kCFStringEncodingMacRoman );
+						if ( keyStrRef != nil )
+						{
+							bool bFound = false;
+							bFound =::CFDictionaryContainsKey( fDictRef, keyStrRef );
+							if ( bFound == false )
+							{
+								::CFDictionarySetValue( fDictRef, keyStrRef, CFSTR( kInactiveValue ) );
+								SaveConfigData();
+							}
+							::CFRelease( keyStrRef );
+							keyStrRef = nil;
+						}
+
 						bSuccess = true;
 						
 						//let's make sure we don't run into these non-config file problems again
@@ -227,6 +255,65 @@ sInt32 CPluginConfig::Initialize ( void )
 				}
 				CFRelease( dataRef );
 				dataRef = nil;
+			}
+		}
+
+		if (fDictRef != nil)
+		{
+			keyStrRef = ::CFStringCreateWithCString( NULL, kTooManyReferencesWarningCount, kCFStringEncodingMacRoman );
+			if ( keyStrRef != nil )
+			{
+				if ( CFDictionaryContainsKey( fDictRef, keyStrRef ) )
+				{
+					cfNumber = (CFNumberRef)CFDictionaryGetValue( fDictRef, keyStrRef );
+					if ( cfNumber != nil )
+					{
+						cfNumBool = CFNumberGetValue(cfNumber, kCFNumberIntType, &gRefCountWarningLimit);
+						//CFRelease(cfNumber); // no since pointer only from Get
+					}
+				}
+				::CFRelease( keyStrRef );
+				keyStrRef = nil;
+			}
+			keyStrRef = ::CFStringCreateWithCString( NULL, kDelayFailedLocalAuthReturnsDeltaInSeconds, kCFStringEncodingMacRoman );
+			if ( keyStrRef != nil )
+			{
+				if ( CFDictionaryContainsKey( fDictRef, keyStrRef ) )
+				{
+					cfNumber = (CFNumberRef)CFDictionaryGetValue( fDictRef, keyStrRef );
+					if ( cfNumber != nil )
+					{
+						cfNumBool = CFNumberGetValue(cfNumber, kCFNumberIntType, &gDelayFailedLocalAuthReturnsDeltaInSeconds);
+						//CFRelease(cfNumber); // no since pointer only from Get
+					}
+				}
+				::CFRelease( keyStrRef );
+				keyStrRef = nil;
+			}
+			keyStrRef = ::CFStringCreateWithCString( NULL, kMaxHandlerThreadCount, kCFStringEncodingMacRoman );
+			if ( keyStrRef != nil )
+			{
+				if ( CFDictionaryContainsKey( fDictRef, keyStrRef ) )
+				{
+					cfNumber = (CFNumberRef)CFDictionaryGetValue( fDictRef, keyStrRef );
+					if ( cfNumber != nil )
+					{
+						cfNumBool = CFNumberGetValue(cfNumber, kCFNumberIntType, &gMaxHandlerThreadCount);
+						//CFRelease(cfNumber); // no since pointer only from Get
+						if (gMaxHandlerThreadCount < kMaxHandlerThreads)
+						{
+							gMaxHandlerThreadCount = kMaxHandlerThreads;
+							syslog(LOG_ALERT,"Maximum handler thread count cannot be set less than %u", kMaxHandlerThreads);
+						}
+						else if (gMaxHandlerThreadCount > 256)
+						{
+							gMaxHandlerThreadCount = kMaxHandlerThreads;
+							syslog(LOG_ALERT,"Maximum handler thread count cannot be set greater than 256 so resetting to default of %u", kMaxHandlerThreads);
+						}
+					}
+				}
+				::CFRelease( keyStrRef );
+				keyStrRef = nil;
 			}
 		}
 	}
@@ -376,10 +463,13 @@ sInt32 CPluginConfig::SaveConfigData ( void )
 					CFile *pFile = new CFile( kConfigFilePath, true );
 					if ( pFile != nil )
 					{
-						pFile->seteof( 0 );
-	
-						pFile->write( pData, CFDataGetLength(dataRef) );
-	
+						if ( pFile->is_open() )
+						{
+							pFile->seteof( 0 );
+		
+							pFile->write( pData, CFDataGetLength(dataRef) );
+						}
+						
 						delete( pFile );
 						pFile = nil;
 						

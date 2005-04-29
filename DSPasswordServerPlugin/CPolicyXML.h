@@ -61,6 +61,10 @@ class CPolicyXML : public CPolicyBase
 		virtual int								ConvertStructToPropertyListPolicy( void );
 		
 		PWAccessFeatures mPolicy;
+		unsigned long mWarnOfExpirationMinutes;
+		unsigned long mWarnOfDisableMinutes;
+		time_t mProjectedPasswordExpireDate;
+		time_t mProjectedAccountDisableDate;
 };
 
 

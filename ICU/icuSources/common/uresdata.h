@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *                                                                            *
-* Copyright (C) 1999-2002, International Business Machines                   *
+* Copyright (C) 1999-2003, International Business Machines                   *
 *                Corporation and others. All Rights Reserved.                *
 *                                                                            *
 ******************************************************************************
@@ -20,6 +20,7 @@
 
 #include "unicode/utypes.h"
 #include "unicode/udata.h"
+#include "udataswp.h"
 
 /*
  * A Resource is a 32-bit value that has 2 bit fields:
@@ -38,16 +39,38 @@ typedef uint32_t Resource;
 #define RES_GET_INT(res) (((int32_t)((res)<<4L))>>4L)
 #define RES_GET_UINT(res) ((res)&0x0fffffff)
 
+/* indexes[] value names; indexes are generally 32-bit (Resource) indexes */
+enum {
+    URES_INDEX_LENGTH,          /* [0] contains URES_INDEX_TOP==the length of indexes[] */
+    URES_INDEX_STRINGS_TOP,     /* [1] contains the top of the strings, */
+                                /*     same as the bottom of resources, rounded up */
+    URES_INDEX_RESOURCES_TOP,   /* [2] contains the top of all resources */
+    URES_INDEX_BUNDLE_TOP,      /* [3] contains the top of the bundle, */
+                                /*     in case it were ever different from [2] */
+    URES_INDEX_MAX_TABLE_LENGTH,/* [4] max. length of any table */
+    URES_INDEX_TOP
+};
+
+/* number of bytes at the beginning of the bundle before the strings start */
+enum {
+    URES_STRINGS_BOTTOM=(1+URES_INDEX_TOP)*4
+};
+
 /*
- * File format for .res resource bundle files (formatVersion=1)
+ * File format for .res resource bundle files (formatVersion=1.1)
  *
  * An ICU4C resource bundle file (.res) is a binary, memory-mappable file
  * with nested, hierarchical data structures.
  * It physically contains the following:
  *
  *   Resource root; -- 32-bit Resource item, root item for this bundle's tree;
- *                     currently, the root item must be a table resource item
- *   char keys[]; -- up to 65k of characters for key strings,
+ *                     currently, the root item must be a table or table32 resource item
+ *   int32_t indexes[indexes[0]]; -- array of indexes for friendly
+ *                                   reading and swapping; see URES_INDEX_* above
+ *                                   new in formatVersion 1.1
+ *   char keys[]; -- characters for key strings
+ *                   (formatVersion 1.0: up to 65k of characters; 1.1: <2G)
+ *                   (minus the space for root and indexes[]),
  *                   which consist of invariant characters (ASCII/EBCDIC) and are NUL-terminated;
  *                   padded to multiple of 4 bytes for 4-alignment of the following data
  *   data; -- data directly and indirectly indexed by the root item;
@@ -110,6 +133,8 @@ typedef uint32_t Resource;
  *                      - this value should be 32-aligned -
  * 2  Table:            uint16_t count, uint16_t keyStringOffsets[count], (uint16_t padding), Resource[count]
  * 3  Alias:            (physically same value layout as string, new in ICU 2.4)
+ * 4  Table32:          int32_t count, int32_t keyStringOffsets[count], Resource[count]
+ *                      (new in formatVersion 1.1/ICU 2.8)
  *
  * 7  Integer:          (28-bit offset is integer value)
  * 8  Array:            int32_t count, Resource[count]
@@ -171,11 +196,23 @@ res_getResource(const ResourceData *pResData, const char *key);
 U_CFUNC int32_t
 res_countArrayItems(const ResourceData *pResData, const Resource res);
 
-U_CFUNC int32_t res_getTableSize(const ResourceData *pResData, Resource table);
-
 U_CFUNC Resource res_getArrayItem(const ResourceData *pResData, Resource array, const int32_t indexS);
 U_CFUNC Resource res_getTableItemByIndex(const ResourceData *pResData, Resource table, int32_t indexS, const char ** key);
 U_CFUNC Resource res_getTableItemByKey(const ResourceData *pResData, Resource table, int32_t *indexS, const char* * key);
-U_CFUNC Resource res_findResource(const ResourceData *pResData, Resource r, const char** path, const char** key);
+
+/*
+ * Modifies the contents of *path (replacing separators with NULs),
+ * and also moves *path forward while it finds items.
+ */
+U_CFUNC Resource res_findResource(const ResourceData *pResData, Resource r, char** path, const char** key);
+
+/**
+ * Swap an ICU resource bundle. See udataswp.h.
+ * @internal
+ */
+U_CAPI int32_t U_EXPORT2
+ures_swap(const UDataSwapper *ds,
+          const void *inData, int32_t length, void *outData,
+          UErrorCode *pErrorCode);
 
 #endif

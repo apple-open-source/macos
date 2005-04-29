@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: mount_smbfs.c,v 1.23.60.1 2005/04/11 21:15:05 lindak Exp $
+ * $Id: mount_smbfs.c,v 1.28 2005/03/25 21:39:34 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -47,13 +47,13 @@
 #include <sysexits.h>
 
 #include <cflib.h>
- 
+
 #include <Kerberos/KerberosLogin.h>
-#include <Kerberos/com_err.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_lib.h>
+#include <charsets.h>
 
 #include <fs/smbfs/smbfs.h>
 
@@ -67,8 +67,8 @@ static struct mntopt mopts[] = {
 	{ NULL, 0, 0, 0 }
 };
 
+
 extern KLStatus __KLSetHomeDirectoryAccess (KLBoolean inAllowHomeDirectoryAccess);
-static void my_com_err_proc(const char *whoami, long int code, const char *format, va_list ap);
 
 int
 main(int argc, char *argv[])
@@ -76,18 +76,14 @@ main(int argc, char *argv[])
 	struct smb_ctx sctx, *ctx = &sctx;
 	struct smbfs_args mdata;
 	struct stat st;
-#ifdef APPLE
 	extern void dropsuid();
 	extern int loadsmbvfs();
-#endif /* APPLE */
 	struct vfsconf vfc;
 	char *next;
 	int opt, error, mntflags, caseopt;
 
         
-#ifdef APPLE
 	dropsuid();
-#endif /* APPLE */
 	if (argc == 2) {
 		if (strcmp(argv[1], "-h") == 0) {
 			usage();
@@ -101,19 +97,10 @@ main(int argc, char *argv[])
 		usage();
 
 	error = getvfsbyname(SMBFS_VFSNAME, &vfc);
-#ifdef APPLE
 	if (error) {
 		error = loadsmbvfs();
 		error = getvfsbyname(SMBFS_VFSNAME, &vfc);
 	}
-#else
-	if (error && vfsisloadable(SMBFS_VFSNAME)) {
-		if(vfsload(SMBFS_VFSNAME))
-			err(EX_OSERR, "vfsload("SMBFS_VFSNAME")");
-		endvfsent();
-		error = getvfsbyname(SMBFS_VFSNAME, &vfc);
-	}
-#endif /* APPLE */
 	if (error)
 		errx(EX_OSERR, "SMB filesystem is not available");
 
@@ -123,7 +110,8 @@ main(int argc, char *argv[])
 
 	mntflags = error = 0;
 	bzero(&mdata, sizeof(mdata));
-	mdata.uid = mdata.gid = -1;
+	mdata.uid = (uid_t)-1;
+	mdata.gid = (gid_t)-1;
 	caseopt = SMB_CS_NONE;
 
 	error = smb_ctx_init(ctx, argc, argv, SMBL_SHARE, SMBL_SHARE, SMB_ST_DISK);
@@ -135,11 +123,7 @@ main(int argc, char *argv[])
 	if (smb_rc)
 		rc_close(smb_rc);
 
-#ifdef APPLE
 	while ((opt = getopt(argc, argv, STDPARAM_OPT"c:d:f:g:l:n:o:u:w:x:")) != -1) {
-#else
-	while ((opt = getopt(argc, argv, STDPARAM_OPT"c:d:f:g:l:n:o:u:w:")) != -1) {
-#endif
 		switch (opt) {
 		    case STDPARAM_ARGS:
 			error = smb_ctx_opt(ctx, opt, optarg);
@@ -209,7 +193,6 @@ main(int argc, char *argv[])
 				    optarg[0]);
 			}
 			break;
-#ifdef APPLE
 		    /*
 		     * XXX FIXME TODO HACK
 		     * Ill advised temporary hack, for automount feature
@@ -238,7 +221,6 @@ main(int argc, char *argv[])
 			if (mdata.dir_mode == 0)
 				mdata.dir_mode = S_IRWXU;
 			break;
-#endif /* APPLE */
 		    default:
 			usage();
 		}
@@ -249,7 +231,7 @@ main(int argc, char *argv[])
 	
 	if (optind != argc - 1)
 		usage();
-	realpath(argv[optind], mount_point);
+	realpath(unpercent(argv[optind]), mount_point);
 
 	if (stat(mount_point, &st) == -1)
 		err(EX_OSERR, "could not find mount point %s", mount_point);
@@ -277,25 +259,18 @@ main(int argc, char *argv[])
 			mdata.dir_mode |= S_IXOTH;
 	}
 
-        /*
-         * If this is being done for the automounter, do *NOT* let
-         * Kerberos touch the user's home directory, as we might be
-         * trying to mount the user's home directory, and any attempt
-         * by Kerberos to touch the user's home directory in the
-         * process will cause it, and thus us, to stall waiting for
-         * the automounter to mount the user's home directory, but
-         * the automounter is waiting for *us* to finish mounting
-         * it....
-         *
-         * We also have to set the com_err hook for reporting errors
-         * to our own routine, which won't try to do fancy
-         * localization of messages or anything else that might
-         * require access to the user's home directory.
-         */
-        if (mntflags & MNT_AUTOMOUNTED) {
-               __KLSetHomeDirectoryAccess(0);
-               set_com_err_hook(my_com_err_proc);
-        }
+	/*
+	 * If this is being done for the automounter, do *NOT* let
+	 * Kerberos touch the user's home directory, as we might be
+	 * trying to mount the user's home directory, and any attempt
+	 * by Kerberos to touch the user's home directory in the
+	 * process will cause it, and thus us, to stall waiting for
+	 * the automounter to mount the user's home directory, but
+	 * the automounter is waiting for *us* to finish mounting
+	 * it....
+	 */
+	if (mntflags & MNT_AUTOMOUNTED)
+		__KLSetHomeDirectoryAccess(0);
 
 	/*
 	 * For now, let connection be private for this mount
@@ -310,18 +285,15 @@ main(int argc, char *argv[])
 		opt |= SMBM_EXECOTH;
 	ctx->ct_ssn.ioc_rights |= opt;
 	ctx->ct_sh.ioc_rights |= opt;
-#ifdef APPLE
 	/*
 	 * If we got our password from the keychain and get an
 	 * authorization error, we come back here to obtain a new
 	 * password from user input.
 	 */
 reauth:
-#endif
 	error = smb_ctx_resolve(ctx);
 	if (error)
 		exit(error);
-#ifdef APPLE
 	if (!(ctx->ct_flags & SMBCF_XXX)) {
 again:
                 error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
@@ -337,16 +309,12 @@ again:
                         goto reauth;
                 }
         }
-#else
-	error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
-#endif
 	if (error)
 		exit(error);
 	strcpy(mdata.mount_point, mount_point);
 	mdata.version = SMBFS_VERSION;
 	mdata.dev = ctx->ct_fd;
 	mdata.caseopt = caseopt;
-#ifdef APPLE
 	if (ctx->ct_flags & SMBCF_XXX) {
 		char **cpp = ctx->ct_xxx;
 
@@ -407,7 +375,7 @@ lookup:
 			error = mount(SMBFS_VFSNAME, mdata.mount_point,
 				      mntflags, (void*)&mdata);
 			if (error) {
-				smb_error("mount mount error: %s", error,
+				smb_error("mount error: %s", error,
 					  mdata.mount_point);
 				error = smb_ctx_tdis(ctx);
 				if (error)	/* unable to clean up?! */
@@ -422,17 +390,14 @@ lookup:
 		smb_ctx_done(ctx);
 		return error;
 	}
-#endif
 	error = mount(SMBFS_VFSNAME, mdata.mount_point, mntflags,
 		      (void*)&mdata);
-#ifdef APPLE
 	if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
 		ctx->ct_ssn.ioc_password[0] = '\0';
 		goto reauth;
 	}
 	if (!error)
 		smb_save2keychain(ctx);
-#endif
 	smb_ctx_done(ctx);
 	if (error) {
 		smb_error("mount error: %s", error, mdata.mount_point);
@@ -446,53 +411,16 @@ usage(void)
 {
 	fprintf(stderr, "%s\n",
 	"usage: mount_smbfs [-Nh]"
-#ifndef APPLE /* XXX broken */
-		" [-E cs1:cs2]"
-#endif
 		"  [-I host]"
-#ifndef APPLE /* XXX broken */
-		" [-L locale]"
-#endif
 		"\n"
 	"                   [-M cmode[/smode]] [-O cuid[:cgid]/suid[:sgid]]\n"
 	"                   [-R retrycount] [-T timeout]\n"
 	"                   [-U user] [-W workgroup]"
-#ifndef APPLE /* XXX broken */
-		" [-c case]"
-#endif
 		"\n"
 	"                   [-d mode] [-f mode] [-g gid] [-n long] [-u uid]\n"
 	"                   //"
-#ifdef APPLE
 		"[workgroup;][user[:password]@]server[/share]"
-#else
-		"[user@]server/share"
-#endif
 		" path");
 
 	exit (EX_USAGE);
-}
-
-/*
- * my_com_err_proc() - Handle com_err(3) messages by printing them without
- * any attempt at localization, because to localize the message for the
- * user might require that we access the user's home directory, and we
- * might be trying to mount the user's home directory on behalf of the
- * automounter, so any reference to the user's home directory might
- * stall waiting for that mount to finish, which it never will because
- * the attempt to mount it is blocked trying to log an error because it's
- * waiting for the attempt to mount it to finish....
- */
-static void
-my_com_err_proc(const char *whoami, long int code, const char *format, va_list ap)
-{
-    /* Make the header */
-    fprintf(stderr, "%s: ", whoami);
-
-    /* If reporting an error message, separate it. */
-    if (code)
-	fprintf(stderr, "error code %ld - ", code);
-    
-    /* Now format the actual message */
-    vfprintf(stderr, format, ap);
 }

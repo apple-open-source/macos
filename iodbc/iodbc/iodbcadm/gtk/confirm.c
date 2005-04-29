@@ -1,7 +1,7 @@
 /*
  *  confirm.c
  *
- *  $Id: confirm.c,v 1.1.1.1 2002/04/30 00:40:24 miner Exp $
+ *  $Id: confirm.c,v 1.3 2004/11/11 01:52:39 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -125,7 +125,7 @@ create_confirm (HWND hwnd, LPCSTR dsn, LPCSTR text)
   TCONFIRM confirm_t;
 
   if (hwnd == NULL || !GTK_IS_WIDGET (hwnd))
-    return;
+    return FALSE;
 
   accel_group = gtk_accel_group_new ();
 

@@ -121,6 +121,10 @@ event_handler (unsigned int type, const void *arg,
     }
 }
 
+/* 10.4's deferred update makes X slower.. have to live with the tearing
+   for now.. */
+#define NO_DEFERRED_UPDATES 8
+
 static void
 server_thread (void *arg)
 {
@@ -129,7 +133,8 @@ server_thread (void *arg)
     /* Xinerama defaults to enabled */
     noPanoramiXExtension = FALSE;
 
-    if (xp_init (XP_BACKGROUND_EVENTS | quartzXpluginOptions) != Success)
+    if (xp_init (XP_BACKGROUND_EVENTS | NO_DEFERRED_UPDATES
+		 | quartzXpluginOptions) != Success)
     {
 	fprintf (stderr, "can't initialize window system\n");
 	exit (1);

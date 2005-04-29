@@ -1,7 +1,7 @@
 /*
  *  dlf.h
  *
- *  $Id: dlf.h,v 1.5 2003/08/06 14:13:07 miner Exp $
+ *  $Id: dlf.h,v 1.7 2004/11/11 01:52:37 luesang Exp $
  *
  *  Dynamic Library Loader (mapping to SVR4)
  *
@@ -74,22 +74,12 @@
 #define _DLF_H
 #include <iodbc.h>
 
-/* SEM do not use on Panther */
-#ifdef JAGUAR
-#define dlopen iodbc_dlopen
-#define dlsym iodbc_dlsym
-#define dlerror iodbc_dlerror
-#define dlclose iodbc_dlclose
-#endif
-/* SEM do not define DLDAPI_MACX */
-
-
-#if defined(HAVE_LIBDL)
-#define DLDAPI_SVR4_DLFCN
-#elif defined(HAVE_SHL_LOAD)
+#if defined(HAVE_SHL_LOAD)
 #define DLDAPI_HP_SHL
+#elif defined(HAVE_LIBDL)
+#define DLDAPI_SVR4_DLFCN
 #elif defined(HAVE_DYLD)
-#define DLDAPI_DYLD
+#define DLDAPI_MACX
 #endif
 
 #if defined(DLDAPI_SVR4_DLFCN)
@@ -97,15 +87,15 @@
 #elif defined(DLDAPI_AIX_LOAD)
 #include <dlfcn.h>
 #elif defined(DLDAPI_VMS_IODBC)
-extern void FAR *iodbc_dlopen (char FAR * path, int mode);
-extern void FAR *iodbc_dlsym (void FAR * hdll, char FAR * sym);
-extern char FAR *iodbc_dlerror ();
-extern int iodbc_dlclose (void FAR * hdll);
+extern void *iodbc_dlopen (char * path, int mode);
+extern void *iodbc_dlsym (void * hdll, char * sym);
+extern char *iodbc_dlerror ();
+extern int iodbc_dlclose (void * hdll);
 #else
-extern void FAR *dlopen (char FAR * path, int mode);
-extern void FAR *dlsym (void FAR * hdll, char FAR * sym);
-extern char FAR *dlerror ();
-extern int dlclose (void FAR * hdll);
+extern void *dlopen (char * path, int mode);
+extern void *dlsym (void * hdll, char * sym);
+extern char *dlerror ();
+extern int dlclose (void * hdll);
 #endif
 
 
@@ -232,19 +222,26 @@ struct dlopen_handle
 };
 #endif /* DLDAPI_MACX */
 
-
-#ifndef	RTLD_LAZY
-#define	RTLD_LAZY       1
+#ifndef RTLD_LOCAL
+#define RTLD_LOCAL	0	/* Only if not defined by dlfcn.h */
+#endif
+#ifndef RTLD_LAZY
+#define RTLD_LAZY	1
 #endif
 
+#ifdef RTLD_NOW
+#define OPL_DL_MODE	(RTLD_NOW | RTLD_LOCAL)
+#else
+#define OPL_DL_MODE	(RTLD_LAZY | RTLD_LOCAL)
+#endif
 
 #if defined(DLDAPI_VMS_IODBC)
-#define	DLL_OPEN(dll)		(void*)iodbc_dlopen((char*)(dll), RTLD_LAZY)
+#define	DLL_OPEN(dll)		(void*)iodbc_dlopen((char*)(dll), OPL_DL_MODE)
 #define	DLL_PROC(hdll, sym)	(void*)iodbc_dlsym((void*)(hdll), (char*)sym)
 #define	DLL_ERROR()		(char*)iodbc_dlerror()
 #define	DLL_CLOSE(hdll)		iodbc_dlclose((void*)(hdll))
 #else
-#define	DLL_OPEN(dll)		(void*)dlopen((char*)(dll), RTLD_LAZY)
+#define	DLL_OPEN(dll)		(void*)dlopen((char*)(dll), OPL_DL_MODE)
 #define	DLL_PROC(hdll, sym)	(void*)dlsym((void*)(hdll), (char*)sym)
 #define	DLL_ERROR()		(char*)dlerror()
 #define	DLL_CLOSE(hdll)		dlclose((void*)(hdll))

@@ -1,5 +1,5 @@
 /* Functions to support general ended bitmaps.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -79,57 +79,56 @@ enum bitmap_bits {
 extern bitmap_element bitmap_zero_bits;	/* Zero bitmap element */
 
 /* Clear a bitmap by freeing up the linked list.  */
-extern void bitmap_clear PARAMS ((bitmap));
+extern void bitmap_clear (bitmap);
 
 /* Copy a bitmap to another bitmap.  */
-extern void bitmap_copy PARAMS ((bitmap, bitmap));
+extern void bitmap_copy (bitmap, bitmap);
 
 /* True if two bitmaps are identical.  */
-extern int bitmap_equal_p PARAMS ((bitmap, bitmap));
+extern int bitmap_equal_p (bitmap, bitmap);
 
 /* Perform an operation on two bitmaps, yielding a third.  */
-extern int bitmap_operation PARAMS ((bitmap, bitmap, bitmap, enum bitmap_bits));
+extern int bitmap_operation (bitmap, bitmap, bitmap, enum bitmap_bits);
 
 /* `or' into one bitmap the `and' of a second bitmap witih the complement
    of a third.  */
-extern void bitmap_ior_and_compl PARAMS ((bitmap, bitmap, bitmap));
+extern void bitmap_ior_and_compl (bitmap, bitmap, bitmap);
 
 /* Clear a single register in a register set.  */
-extern void bitmap_clear_bit PARAMS ((bitmap, int));
+extern void bitmap_clear_bit (bitmap, int);
 
 /* Set a single register in a register set.  */
-extern void bitmap_set_bit PARAMS ((bitmap, int));
+extern void bitmap_set_bit (bitmap, int);
 
 /* Return true if a register is set in a register set.  */
-extern int bitmap_bit_p PARAMS ((bitmap, int));
+extern int bitmap_bit_p (bitmap, int);
 
 /* Debug functions to print a bitmap linked list.  */
-extern void debug_bitmap PARAMS ((bitmap));
-extern void debug_bitmap_file PARAMS ((FILE *, bitmap));
+extern void debug_bitmap (bitmap);
+extern void debug_bitmap_file (FILE *, bitmap);
 
-/* Print a bitmap */
-extern void bitmap_print PARAMS ((FILE *, bitmap, const char *, const char *));
+/* Print a bitmap.  */
+extern void bitmap_print (FILE *, bitmap, const char *, const char *);
 
 /* Initialize a bitmap header.  If HEAD is NULL, a new header will be
    allocated.  USING_OBSTACK indicates how elements should be allocated.  */
-extern bitmap bitmap_initialize PARAMS ((bitmap head, 
-					 int using_obstack));
+extern bitmap bitmap_initialize (bitmap head, int using_obstack);
 
 /* Release all memory used by the bitmap obstack.  */
-extern void bitmap_release_memory PARAMS ((void));
+extern void bitmap_release_memory (void);
 
 /* A few compatibility/functions macros for compatibility with sbitmaps */
 #define dump_bitmap(file, bitmap) bitmap_print (file, bitmap, "", "\n")
 #define bitmap_zero(a) bitmap_clear (a)
 #define bitmap_a_or_b(a,b,c) bitmap_operation (a, b, c, BITMAP_IOR)
 #define bitmap_a_and_b(a,b,c) bitmap_operation (a, b, c, BITMAP_AND)
-extern int bitmap_union_of_diff PARAMS((bitmap, bitmap, bitmap, bitmap));
-extern int bitmap_first_set_bit PARAMS((bitmap));
-extern int bitmap_last_set_bit PARAMS((bitmap));
+extern int bitmap_union_of_diff (bitmap, bitmap, bitmap, bitmap);
+extern int bitmap_first_set_bit (bitmap);
+extern int bitmap_last_set_bit (bitmap);
 
 /* Allocate a bitmap with oballoc.  */
 #define BITMAP_OBSTACK_ALLOC(OBSTACK)				\
-  bitmap_initialize ((bitmap) obstack_alloc (OBSTACK, sizeof (bitmap_head)), 1)
+  bitmap_initialize (obstack_alloc (OBSTACK, sizeof (bitmap_head)), 1)
 
 /* Allocate a bitmap with ggc_alloc.  */
 #define BITMAP_GGC_ALLOC()			\
@@ -137,7 +136,7 @@ extern int bitmap_last_set_bit PARAMS((bitmap));
 
 /* Allocate a bitmap with xmalloc.  */
 #define BITMAP_XMALLOC()                                        \
-  bitmap_initialize ((bitmap) xmalloc (sizeof (bitmap_head)), 1)
+  bitmap_initialize (xmalloc (sizeof (bitmap_head)), 1)
 
 /* Do any cleanup needed on a bitmap when it is no longer used.  */
 #define BITMAP_FREE(BITMAP)			\
@@ -163,194 +162,430 @@ do {						\
 /* Do any one-time initializations needed for bitmaps.  */
 #define BITMAP_INIT_ONCE()
 
-/* Loop over all bits in BITMAP, starting with MIN, setting BITNUM to the
-   bit number and executing CODE for all bits that are set.  */
+/* Iterator for bitmaps.  */
 
-#define EXECUTE_IF_SET_IN_BITMAP(BITMAP, MIN, BITNUM, CODE)		\
-do {									\
-  bitmap_element *ptr_ = (BITMAP)->first;				\
-  unsigned int indx_ = (MIN) / BITMAP_ELEMENT_ALL_BITS;			\
-  unsigned bit_num_ = (MIN) % BITMAP_WORD_BITS;				\
-  unsigned word_num_ = (MIN) / BITMAP_WORD_BITS % BITMAP_ELEMENT_WORDS;	\
-									\
-									\
-  /* Find the block the minimum bit is in.  */				\
-  while (ptr_ != 0 && ptr_->indx < indx_)				\
-    ptr_ = ptr_->next;							\
-									\
-  if (ptr_ != 0 && ptr_->indx != indx_)					\
-    {									\
-      bit_num_ = 0;							\
-      word_num_ = 0;							\
-    }									\
-									\
-  for (; ptr_ != 0; ptr_ = ptr_->next)					\
-    {									\
-      for (; word_num_ < BITMAP_ELEMENT_WORDS; word_num_++)		\
-	{								\
-	  BITMAP_WORD word_ = ptr_->bits[word_num_];			\
-									\
-	  if (word_ != 0)						\
-	    {								\
-	      for (; bit_num_ < BITMAP_WORD_BITS; bit_num_++)		\
-		{							\
-		  BITMAP_WORD mask_ = ((BITMAP_WORD) 1) << bit_num_;	\
-									\
-		  if ((word_ & mask_) != 0)				\
-		    {							\
-		      word_ &= ~ mask_;					\
-		      (BITNUM) = (ptr_->indx * BITMAP_ELEMENT_ALL_BITS  \
-				  + word_num_ * BITMAP_WORD_BITS	\
-				  + bit_num_);				\
-		      CODE;						\
-									\
-		      if (word_ == 0)					\
-			break;						\
-		    }							\
-		}							\
-	    }								\
-									\
-	  bit_num_ = 0;							\
-	}								\
-									\
-      word_num_ = 0;							\
-    }									\
-} while (0)
+typedef struct
+{
+  /* Actual elements in the bitmaps.  */
+  bitmap_element *ptr1, *ptr2;
 
-/* Loop over all bits in BITMAP1 and BITMAP2, starting with MIN, setting
-   BITNUM to the bit number and executing CODE for all bits that are set in
-   the first bitmap and not set in the second.  */
+  /* Position of an actual word in the elements.  */
+  unsigned word;
 
-#define EXECUTE_IF_AND_COMPL_IN_BITMAP(BITMAP1, BITMAP2, MIN, BITNUM, CODE) \
-do {									\
-  bitmap_element *ptr1_ = (BITMAP1)->first;				\
-  bitmap_element *ptr2_ = (BITMAP2)->first;				\
-  unsigned int indx_ = (MIN) / BITMAP_ELEMENT_ALL_BITS;			\
-  unsigned bit_num_ = (MIN) % BITMAP_WORD_BITS;				\
-  unsigned word_num_ = (MIN) / BITMAP_WORD_BITS % BITMAP_ELEMENT_WORDS;	\
-									\
-  /* Find the block the minimum bit is in in the first bitmap.  */	\
-  while (ptr1_ != 0 && ptr1_->indx < indx_)				\
-    ptr1_ = ptr1_->next;						\
-									\
-  if (ptr1_ != 0 && ptr1_->indx != indx_)				\
-    {									\
-      bit_num_ = 0;							\
-      word_num_ = 0;							\
-    }									\
-									\
-  for (; ptr1_ != 0 ; ptr1_ = ptr1_->next)				\
-    {									\
-      /* Advance BITMAP2 to the equivalent link, using an all		\
-	 zero element if an equivalent link doesn't exist.  */		\
-      bitmap_element *tmp2_;						\
-									\
-      while (ptr2_ != 0 && ptr2_->indx < ptr1_->indx)			\
-	ptr2_ = ptr2_->next;						\
-									\
-      tmp2_ = ((ptr2_ != 0 && ptr2_->indx == ptr1_->indx)		\
-	       ? ptr2_ : &bitmap_zero_bits); 				\
-									\
-      for (; word_num_ < BITMAP_ELEMENT_WORDS; word_num_++)		\
-	{								\
-	  BITMAP_WORD word_ = (ptr1_->bits[word_num_]			\
-			       & ~ tmp2_->bits[word_num_]);		\
-	  if (word_ != 0)						\
-	    {								\
-	      for (; bit_num_ < BITMAP_WORD_BITS; bit_num_++)		\
-		{							\
-		  BITMAP_WORD mask_ = ((BITMAP_WORD) 1) << bit_num_;	\
-									\
-		  if ((word_ & mask_) != 0)				\
-		    {							\
-		      word_ &= ~ mask_;					\
-		      (BITNUM) = (ptr1_->indx * BITMAP_ELEMENT_ALL_BITS \
-				  + word_num_ * BITMAP_WORD_BITS	\
-				  + bit_num_);				\
-									\
-		      CODE;						\
-		      if (word_ == 0)					\
-			break;						\
-		    }							\
-		}							\
-	    }								\
-									\
-	  bit_num_ = 0;							\
-	}								\
-									\
-      word_num_ = 0;							\
-    }									\
-} while (0)
+  /* Position of a bit corresponding to the start of word.  */
+  unsigned word_bit;
 
-/* Loop over all bits in BITMAP1 and BITMAP2, starting with MIN, setting
-   BITNUM to the bit number and executing CODE for all bits that are set in
-   the both bitmaps.  */
+  /* Position of the actual bit.  */
+  unsigned bit;
 
-#define EXECUTE_IF_AND_IN_BITMAP(BITMAP1, BITMAP2, MIN, BITNUM, CODE)	\
-do {									\
-  bitmap_element *ptr1_ = (BITMAP1)->first;				\
-  bitmap_element *ptr2_ = (BITMAP2)->first;				\
-  unsigned int indx_ = (MIN) / BITMAP_ELEMENT_ALL_BITS;			\
-  unsigned bit_num_ = (MIN) % BITMAP_WORD_BITS;				\
-  unsigned word_num_ = (MIN) / BITMAP_WORD_BITS % BITMAP_ELEMENT_WORDS;	\
-									\
-  /* Find the block the minimum bit is in in the first bitmap.  */	\
-  while (ptr1_ != 0 && ptr1_->indx < indx_)				\
-    ptr1_ = ptr1_->next;						\
-									\
-  if (ptr1_ != 0 && ptr1_->indx != indx_)				\
-    {									\
-      bit_num_ = 0;							\
-      word_num_ = 0;							\
-    }									\
-									\
-  for (; ptr1_ != 0 ; ptr1_ = ptr1_->next)				\
-    {									\
-      /* Advance BITMAP2 to the equivalent link */			\
-      while (ptr2_ != 0 && ptr2_->indx < ptr1_->indx)			\
-	ptr2_ = ptr2_->next;						\
-									\
-      if (ptr2_ == 0)							\
-	{								\
-	  /* If there are no more elements in BITMAP2, exit loop now.  */ \
-	  ptr1_ = (bitmap_element *)0;					\
-	  break;							\
-	}								\
-      else if (ptr2_->indx > ptr1_->indx)				\
-	{								\
-	  bit_num_ = word_num_ = 0;					\
-	  continue;							\
-	}								\
-									\
-      for (; word_num_ < BITMAP_ELEMENT_WORDS; word_num_++)		\
-	{								\
-	  BITMAP_WORD word_ = (ptr1_->bits[word_num_]			\
-			       & ptr2_->bits[word_num_]);		\
-	  if (word_ != 0)						\
-	    {								\
-	      for (; bit_num_ < BITMAP_WORD_BITS; bit_num_++)		\
-		{							\
-		  BITMAP_WORD mask_ = ((BITMAP_WORD) 1) << bit_num_;	\
-									\
-		  if ((word_ & mask_) != 0)				\
-		    {							\
-		      word_ &= ~ mask_;					\
-		      (BITNUM) = (ptr1_->indx * BITMAP_ELEMENT_ALL_BITS \
-				  + word_num_ * BITMAP_WORD_BITS	\
-				  + bit_num_);				\
-									\
-		      CODE;						\
-		      if (word_ == 0)					\
-			break;						\
-		    }							\
-		}							\
-	    }								\
-									\
-	  bit_num_ = 0;							\
-	}								\
-									\
-      word_num_ = 0;							\
-    }									\
-} while (0)
+  /* Contents of the actually processed word.  When finding next bit
+     it is shifted right, so that the actual bit is always the least
+     significant bit of ACTUAL.  */
+  BITMAP_WORD actual;
+} bitmap_iterator;
+
+/* Moves the iterator BI to the first set bit on or after the current
+   position in bitmap and returns the bit if available.  The bit is
+   found in ACTUAL field only.  */
+
+static inline unsigned
+bmp_iter_common_next_1 (bitmap_iterator *bi)
+{
+  while (!(bi->actual & 1))
+    {
+      bi->actual >>= 1;
+      bi->bit++;
+    }
+
+  return bi->bit;
+}
+
+/* Moves the iterator BI to the first set bit on or after the current
+   position in bitmap and returns the bit if available.  */
+
+static inline unsigned
+bmp_iter_single_next_1 (bitmap_iterator *bi)
+{
+  if (bi->actual)
+    return bmp_iter_common_next_1 (bi);
+
+  bi->word++;
+  bi->word_bit += BITMAP_WORD_BITS;
+
+  while (1)
+    {
+      for (;
+	   bi->word < BITMAP_ELEMENT_WORDS;
+	   bi->word++, bi->word_bit += BITMAP_WORD_BITS)
+	{
+	  bi->actual = bi->ptr1->bits[bi->word];
+	  if (bi->actual)
+	    {
+	      bi->bit = bi->word_bit;
+	      return bmp_iter_common_next_1 (bi);
+	    }
+	}
+
+      bi->ptr1 = bi->ptr1->next;
+      if (!bi->ptr1)
+	return 0;
+
+      bi->word = 0;
+      bi->word_bit = bi->ptr1->indx * BITMAP_ELEMENT_ALL_BITS;
+    }
+}
+
+/* Initializes a bitmap iterator BI for looping over bits of bitmap
+   BMP, starting with bit MIN.  Returns the first bit of BMP greater
+   or equal to MIN if there is any.  */
+
+static inline unsigned
+bmp_iter_single_init (bitmap_iterator *bi, bitmap bmp, unsigned min)
+{
+  unsigned indx = min / BITMAP_ELEMENT_ALL_BITS;
+
+  for (bi->ptr1 = bmp->first;
+       bi->ptr1 && bi->ptr1->indx < indx;
+       bi->ptr1 = bi->ptr1->next)
+    continue;
+
+  if (!bi->ptr1)
+    {
+      /* To avoid warnings.  */
+      bi->word = 0;
+      bi->bit = 0;
+      bi->word_bit = 0;
+      bi->actual = 0;
+      bi->ptr2 = NULL;
+      return 0;
+    }
+
+  if (bi->ptr1->indx == indx)
+    {
+      unsigned bit_in_elt = min - BITMAP_ELEMENT_ALL_BITS * indx;
+      unsigned word_in_elt = bit_in_elt / BITMAP_WORD_BITS;
+      unsigned bit_in_word = bit_in_elt % BITMAP_WORD_BITS;
+
+      bi->word = word_in_elt;
+      bi->word_bit = min - bit_in_word;
+      bi->bit = min;
+      bi->actual = bi->ptr1->bits[word_in_elt] >> bit_in_word;
+    }
+  else
+    {
+      bi->word = 0;
+      bi->bit = bi->ptr1->indx * BITMAP_ELEMENT_ALL_BITS;
+      bi->word_bit = bi->bit;
+      bi->actual = bi->ptr1->bits[0];
+    }
+
+  return bmp_iter_single_next_1 (bi);
+}
+
+/* Returns true if all elements of the bitmap referred to by iterator BI
+   were processed.  */
+
+static inline bool
+bmp_iter_end_p (bitmap_iterator bi)
+{
+  return bi.ptr1 == NULL;
+}
+
+/* Moves the iterator BI to the next bit of bitmap and returns the bit
+   if available.  */
+
+static inline unsigned
+bmp_iter_single_next (bitmap_iterator *bi)
+{
+  bi->bit++;
+  bi->actual >>= 1;
+  return bmp_iter_single_next_1 (bi);
+}
+
+/* Loop over all bits in BITMAP, starting with MIN and setting BITNUM to
+   the bit number.  ITER is a bitmap iterator.  */
+
+#define EXECUTE_IF_SET_IN_BITMAP(BITMAP, MIN, BITNUM, ITER)		\
+  for ((BITNUM) = bmp_iter_single_init (&(ITER), (BITMAP), (MIN));	\
+       !bmp_iter_end_p (ITER);					\
+       (BITNUM) = bmp_iter_single_next (&(ITER)))
+
+/* Moves the iterator BI to the first set bit on or after the current
+   position in difference of bitmaps and returns the bit if available.  */
+
+static inline unsigned
+bmp_iter_and_not_next_1 (bitmap_iterator *bi)
+{
+  if (bi->actual)
+    return bmp_iter_common_next_1 (bi);
+
+  bi->word++;
+  bi->word_bit += BITMAP_WORD_BITS;
+
+  while (1)
+    {
+      bitmap_element *snd;
+
+      if (bi->ptr2 && bi->ptr2->indx == bi->ptr1->indx)
+	snd = bi->ptr2;
+      else
+	snd = &bitmap_zero_bits;
+
+      for (;
+	   bi->word < BITMAP_ELEMENT_WORDS;
+	   bi->word++, bi->word_bit += BITMAP_WORD_BITS)
+	{
+	  bi->actual = (bi->ptr1->bits[bi->word]
+			& ~snd->bits[bi->word]);
+	  if (bi->actual)
+	    {
+	      bi->bit = bi->word_bit;
+	      return bmp_iter_common_next_1 (bi);
+	    }
+	}
+
+      bi->ptr1 = bi->ptr1->next;
+      if (!bi->ptr1)
+	return 0;
+
+      while (bi->ptr2
+	     && bi->ptr2->indx < bi->ptr1->indx)
+	bi->ptr2 = bi->ptr2->next;
+
+      bi->word = 0;
+      bi->word_bit = bi->ptr1->indx * BITMAP_ELEMENT_ALL_BITS;
+    }
+}
+
+/* Initializes a bitmap iterator BI for looping over bits of bitmap
+   BMP1 &~ BMP2, starting with bit MIN.  Returns the first bit of
+   BMP1 &~ BMP2 greater or equal to MIN if there is any.  */
+
+static inline unsigned
+bmp_iter_and_not_init (bitmap_iterator *bi, bitmap bmp1, bitmap bmp2,
+		       unsigned min)
+{
+  unsigned indx = min / BITMAP_ELEMENT_ALL_BITS;
+
+  for (bi->ptr1 = bmp1->first;
+       bi->ptr1 && bi->ptr1->indx < indx;
+       bi->ptr1 = bi->ptr1->next)
+    continue;
+
+  if (!bi->ptr1)
+    {
+      /* To avoid warnings.  */
+      bi->word = 0;
+      bi->bit = 0;
+      bi->word_bit = 0;
+      bi->actual = 0;
+      bi->ptr2 = NULL;
+      return 0;
+    }
+
+  for (bi->ptr2 = bmp2->first;
+       bi->ptr2 && bi->ptr2->indx < bi->ptr1->indx;
+       bi->ptr2 = bi->ptr2->next)
+    continue;
+
+  if (bi->ptr1->indx == indx)
+    {
+      unsigned bit_in_elt = min - BITMAP_ELEMENT_ALL_BITS * indx;
+      unsigned word_in_elt = bit_in_elt / BITMAP_WORD_BITS;
+      unsigned bit_in_word = bit_in_elt % BITMAP_WORD_BITS;
+
+      bi->word = word_in_elt;
+      bi->word_bit = min - bit_in_word;
+      bi->bit = min;
+
+      if (bi->ptr2 && bi->ptr2->indx == indx)
+	bi->actual = (bi->ptr1->bits[word_in_elt]
+		      & ~bi->ptr2->bits[word_in_elt]) >> bit_in_word;
+      else
+       bi->actual = bi->ptr1->bits[word_in_elt] >> bit_in_word;
+    }
+  else
+    {
+      bi->word = 0;
+      bi->bit = bi->ptr1->indx * BITMAP_ELEMENT_ALL_BITS;
+      bi->word_bit = bi->bit;
+
+      if (bi->ptr2 && bi->ptr2->indx == bi->ptr1->indx)
+	bi->actual = (bi->ptr1->bits[0] & ~bi->ptr2->bits[0]);
+      else
+	bi->actual = bi->ptr1->bits[0];
+    }
+
+  return bmp_iter_and_not_next_1 (bi);
+}
+
+/* Moves the iterator BI to the next bit of difference of bitmaps and returns
+   the bit if available.  */
+
+static inline unsigned
+bmp_iter_and_not_next (bitmap_iterator *bi)
+{
+  bi->bit++;
+  bi->actual >>= 1;
+  return bmp_iter_and_not_next_1 (bi);
+}
+
+/* Loop over all bits in BMP1 and BMP2, starting with MIN, setting
+   BITNUM to the bit number for all bits that are set in the first bitmap
+   and not set in the second.  ITER is a bitmap iterator.  */
+
+#define EXECUTE_IF_AND_COMPL_IN_BITMAP(BMP1, BMP2, MIN, BITNUM, ITER)	\
+  for ((BITNUM) = bmp_iter_and_not_init (&(ITER), (BMP1), (BMP2), (MIN)); \
+       !bmp_iter_end_p (ITER);						\
+       (BITNUM) = bmp_iter_and_not_next (&(ITER)))
+
+/* Moves the iterator BI to the first set bit on or after the current
+   position in intersection of bitmaps and returns the bit if available.  */
+
+static inline unsigned
+bmp_iter_and_next_1 (bitmap_iterator *bi)
+{
+  if (bi->actual)
+    return bmp_iter_common_next_1 (bi);
+
+  bi->word++;
+  bi->word_bit += BITMAP_WORD_BITS;
+
+  while (1)
+    {
+      for (;
+	   bi->word < BITMAP_ELEMENT_WORDS;
+	   bi->word++, bi->word_bit += BITMAP_WORD_BITS)
+	{
+	  bi->actual = (bi->ptr1->bits[bi->word]
+			& bi->ptr2->bits[bi->word]);
+	  if (bi->actual)
+	    {
+	      bi->bit = bi->word_bit;
+	      return bmp_iter_common_next_1 (bi);
+	    }
+	}
+
+      do
+	{
+	  bi->ptr1 = bi->ptr1->next;
+	  if (!bi->ptr1)
+	    return 0;
+
+	  while (bi->ptr2->indx < bi->ptr1->indx)
+	    {
+	      bi->ptr2 = bi->ptr2->next;
+	      if (!bi->ptr2)
+		{
+		  bi->ptr1 = NULL;
+		  return 0;
+		}
+	    }
+	}
+      while (bi->ptr1->indx != bi->ptr2->indx);
+
+      bi->word = 0;
+      bi->word_bit = bi->ptr1->indx * BITMAP_ELEMENT_ALL_BITS;
+    }
+}
+
+/* Initializes a bitmap iterator BI for looping over bits of bitmap
+   BMP1 & BMP2, starting with bit MIN.  Returns the first bit of
+   BMP1 & BMP2 greater or equal to MIN if there is any.  */
+
+static inline unsigned
+bmp_iter_and_init (bitmap_iterator *bi, bitmap bmp1, bitmap bmp2,
+		       unsigned min)
+{
+  unsigned indx = min / BITMAP_ELEMENT_ALL_BITS;
+
+  for (bi->ptr1 = bmp1->first;
+       bi->ptr1 && bi->ptr1->indx < indx;
+       bi->ptr1 = bi->ptr1->next)
+    continue;
+
+  if (!bi->ptr1)
+    goto empty;
+
+  bi->ptr2 = bmp2->first;
+  if (!bi->ptr2)
+    goto empty;
+
+  while (1)
+    {
+      while (bi->ptr2->indx < bi->ptr1->indx)
+	{
+	  bi->ptr2 = bi->ptr2->next;
+	  if (!bi->ptr2)
+	    goto empty;
+	}
+
+      if (bi->ptr1->indx == bi->ptr2->indx)
+	break;
+
+      bi->ptr1 = bi->ptr1->next;
+      if (!bi->ptr1)
+	goto empty;
+    }
+
+  if (bi->ptr1->indx == indx)
+    {
+      unsigned bit_in_elt = min - BITMAP_ELEMENT_ALL_BITS * indx;
+      unsigned word_in_elt = bit_in_elt / BITMAP_WORD_BITS;
+      unsigned bit_in_word = bit_in_elt % BITMAP_WORD_BITS;
+
+      bi->word = word_in_elt;
+      bi->word_bit = min - bit_in_word;
+      bi->bit = min;
+
+      bi->actual = (bi->ptr1->bits[word_in_elt]
+		    & bi->ptr2->bits[word_in_elt]) >> bit_in_word;
+    }
+  else
+    {
+      bi->word = 0;
+      bi->bit = bi->ptr1->indx * BITMAP_ELEMENT_ALL_BITS;
+      bi->word_bit = bi->bit;
+
+      bi->actual = (bi->ptr1->bits[0] & bi->ptr2->bits[0]);
+    }
+
+  return bmp_iter_and_next_1 (bi);
+
+empty:
+  /* To avoid warnings.  */
+  bi->word = 0;
+  bi->bit = 0;
+  bi->word_bit = 0;
+  bi->actual = 0;
+  bi->ptr1 = NULL;
+  bi->ptr2 = NULL;
+  return 0;
+}
+
+/* Moves the iterator BI to the next bit of intersection of bitmaps and returns
+   the bit if available.  */
+
+static inline unsigned
+bmp_iter_and_next (bitmap_iterator *bi)
+{
+  bi->bit++;
+  bi->actual >>= 1;
+  return bmp_iter_and_next_1 (bi);
+}
+
+/* Loop over all bits in BMP1 and BMP2, starting with MIN, setting
+   BITNUM to the bit number for all bits that are set in both bitmaps.
+   ITER is a bitmap iterator.  */
+
+#define EXECUTE_IF_AND_IN_BITMAP(BMP1, BMP2, MIN, BITNUM, ITER)		\
+  for ((BITNUM) = bmp_iter_and_init (&(ITER), (BMP1), (BMP2), (MIN));	\
+       !bmp_iter_end_p (ITER);						\
+       (BITNUM) = bmp_iter_and_next (&(ITER)))
+
+/* APPLE LOCAL begin loops-to-memset  */
+/* True if MAP is an empty bitmap.  */
+#define bitmap_empty_p(MAP) (!(MAP)->first)
+/* APPLE LOCAL end loops-to-memset  */
 
 #endif /* GCC_BITMAP_H */

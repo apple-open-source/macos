@@ -292,7 +292,9 @@ TESTEXPORT SLPInternalError process_reply(const char *pcSendBuf,
         #ifdef MAC_OS_X
             if ( cbCallbackType != SLPSAADVERT_ASYNC_CALLBACK ) 
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DROP,"process_reply: got a saadvert without asking for it");
+#endif
                 err = SLP_REPLY_DOESNT_MATCH_REQUEST;
             } 
             else 
@@ -302,8 +304,9 @@ TESTEXPORT SLPInternalError process_reply(const char *pcSendBuf,
                 SLPScopeCallback*			pssc = (SLPScopeCallback*) pvCallback;
                 SLPBoolean				slpbDone = SLP_FALSE;
                 
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DEBUG,"process_reply: saadvert in");
-                
+#endif                
                 offset -= 2; /* there is no error value in a saadvert, go back two bytes. */
             
                 if ( !err && ( err = get_string(pcRecvBuf,iRecvSz,&offset,&pcURL) ) != SLP_OK )
@@ -328,11 +331,14 @@ TESTEXPORT SLPInternalError process_reply(const char *pcSendBuf,
                 }
             }
         #else
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DEBUG,"process_reply: saadvert in");
-        
+#endif        
             if (cbCallbackType != SLPSAADVERT_CALLBACK) 
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DROP,"process_reply: got a saadvert without asking for it");
+#endif
             } 
             else 
             {
@@ -347,46 +353,70 @@ TESTEXPORT SLPInternalError process_reply(const char *pcSendBuf,
         
         case DAADVERT: 
         {
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DEBUG,"process_reply: received a DAAdvert");
+
             if (cbCallbackType != SLPDAADVERT_CALLBACK) 
             	SLP_LOG( SLP_LOG_DROP,"process_reply: I'm not expecting a DAAdvert");
             else	
                 err = handle_daadvert_in(pcSendBuf, pcRecvBuf,iRecvSz, pvUser,hSLP,pvCallback,cbCallbackType);
+#else
+            if (cbCallbackType == SLPDAADVERT_CALLBACK) 
+                err = handle_daadvert_in(pcSendBuf, pcRecvBuf,iRecvSz, pvUser,hSLP,pvCallback,cbCallbackType);
+#endif
         }
         break;
         
         case SRVRPLY: 
         {
+#ifdef ENABLE_SLP_LOGGING
             if (cbCallbackType != SLPSRVURL_CALLBACK)
                 SLP_LOG( SLP_LOG_DROP,"process_reply: I'm not expecting a SRVRPLY");
             else
                 err = process_srvrply( hSLP, &slph, pcRecvBuf, iRecvSz, offset, piLastOne, (SLPSrvURLCallback *) pvCallback, pvUser );
+#else
+            if (cbCallbackType == SLPSRVURL_CALLBACK)
+                err = process_srvrply( hSLP, &slph, pcRecvBuf, iRecvSz, offset, piLastOne, (SLPSrvURLCallback *) pvCallback, pvUser );
+#endif
         }
         break;
         
         #ifdef EXTRA_MSGS
         case ATTRRPLY:
         {
+#ifdef ENABLE_SLP_LOGGING
             if (cbCallbackType != SLPATTR_CALLBACK)
                 SLP_LOG( SLP_LOG_DROP,"process_reply: I'm not expecting an ATTRRPLY");
             else
                 err = process_attrrply(hSLP, &slph, pcRecvBuf, iRecvSz, offset, piLastOne, (SLPAttrCallback *) pvCallback, pvUser );
+#else
+            if (cbCallbackType == SLPATTR_CALLBACK)
+                err = process_attrrply(hSLP, &slph, pcRecvBuf, iRecvSz, offset, piLastOne, (SLPAttrCallback *) pvCallback, pvUser );
+#endif
         }
         break;
             
         case SRVTYPERPLY:
         {
+#ifdef ENABLE_SLP_LOGGING
             if (cbCallbackType != SLPSRVTYPE_CALLBACK) 
                 SLP_LOG( SLP_LOG_DROP,"process_reply: I'm not expecting an SRVTYPRPLY");
             else
-           	err = process_srvtyperply(hSLP, &slph, pcRecvBuf, iRecvSz, offset, piLastOne, (SLPSrvTypeCallback *) pvCallback, pvUser );
+				err = process_srvtyperply(hSLP, &slph, pcRecvBuf, iRecvSz, offset, piLastOne, (SLPSrvTypeCallback *) pvCallback, pvUser );
+#else
+            if (cbCallbackType == SLPSRVTYPE_CALLBACK) 
+				err = process_srvtyperply(hSLP, &slph, pcRecvBuf, iRecvSz, offset, piLastOne, (SLPSrvTypeCallback *) pvCallback, pvUser );
+#endif
         }
         break;
             
         #endif /* EXTRA_MSGS */
             
         default:
+#ifdef ENABLE_SLP_LOGGING
             mslplog(SLP_LOG_DROP,"process_reply: message type not understood: ", get_fun_str(slph.h_ucFun));
+#endif
+		break;
     }
     
     SLPFree(slph.h_pcLangTag); /* we don't need this field & must free it */  
@@ -419,7 +449,7 @@ static SLPInternalError process_srvrply(SLPHandle hSLP, Slphdr *pslph,
       err = get_urlentry(&pcURLloop,&sLifetime,pcRecvBuf,iRecvSz,&offset);
       
       if (err != SLP_OK) {
-	LOG(SLP_LOG_ERR,"process_srvrply: get_urlentry got a bad result");
+	SLPLOG(SLP_LOG_ERR,"process_srvrply: get_urlentry got a bad result");
       }
       
       slpbDone = !pssuc(hSLP,pcURLloop,sLifetime,SLP_OK,pvUser);

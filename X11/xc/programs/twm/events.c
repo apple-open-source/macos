@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/twm/events.c,v 1.12 2001/12/14 20:01:06 dawes Exp $ */
+/* $XFree86: xc/programs/twm/events.c,v 1.13 2003/04/21 11:46:13 herrb Exp $ */
 /*****************************************************************************/
 /*
 
@@ -350,7 +350,7 @@ Bool DispatchEvent ()
 void
 HandleEvents()
 {
-    while (!TimeToYield)
+    while (TRUE)
     {
 	if (enter_flag && !QLength(dpy)) {
 	    if (enter_win && enter_win != raise_win) {
@@ -369,12 +369,6 @@ HandleEvents()
 	else
 	    XtDispatchEvent (&Event);
     }
-    if (dpy)
-    {
-	Reborder (CurrentTime);
-	XCloseDisplay(dpy);
-    }
-    exit(0);
 }
 
 

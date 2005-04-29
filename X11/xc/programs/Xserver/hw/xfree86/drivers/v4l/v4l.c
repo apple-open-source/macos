@@ -2,7 +2,7 @@
  *  video4linux Xv Driver 
  *  based on Michael Schimek's permedia 2 driver.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/v4l/v4l.c,v 1.30 2002/05/14 20:19:53 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/v4l/v4l.c,v 1.34 2003/12/31 06:08:53 dawes Exp $ */
 
 #include "videodev.h"
 #include "xf86.h"
@@ -13,7 +13,7 @@
 #include "xf86fbman.h"
 #include "xf86xv.h"
 #include "Xv.h"
-#include "miscstruct.h"
+#include "regionstr.h"
 #include "dgaproc.h"
 #include "xf86str.h"
 
@@ -220,7 +220,7 @@ static int V4lOpenDevice(PortPrivPtr pPPriv, ScrnInfoPtr pScrn)
 	if (first) {
 	    first = 0;
 	    xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, 2,
-			 "v4l: memPhysBase=%p\n", pScrn->memPhysBase);
+			 "v4l: memPhysBase=0x%lx\n", pScrn->memPhysBase);
 	}
 
 	switch (pScrn->bitsPerPixel) {
@@ -718,11 +718,11 @@ static void
 V4LBuildEncodings(PortPrivPtr p, int fd, int channels)
 {
     static struct video_channel     channel;
-    int i,entries,have_bttv;
+    int i,entries,have_bttv,bttv_ver;
 
 #define BTTV_VERSION _IOR('v' , BASE_VIDIOCPRIVATE+6, int)
     have_bttv = 0;
-    if (-1 != ioctl(fd,BTTV_VERSION,NULL))
+    if (-1 != ioctl(fd,BTTV_VERSION,&bttv_ver))
 	have_bttv = 1;
 	
     entries = (have_bttv ? 7 : 3) * channels;
@@ -747,17 +747,17 @@ V4LBuildEncodings(PortPrivPtr p, int fd, int channels)
 	    continue;
 	}
 	
-	v4l_add_enc(p->enc, p->nenc,"pal", channel.name, 768,576, 1,50);
+	v4l_add_enc(p->enc, p->nenc,"PAL", channel.name, 768,576, 1,50);
 	p->norm[p->nenc]  = VIDEO_MODE_PAL;
 	p->input[p->nenc] = i;
 	p->nenc++;
 	
-	v4l_add_enc(p->enc,p->nenc,"ntsc", channel.name, 640,480, 1001,60000);
+	v4l_add_enc(p->enc,p->nenc,"NTSC", channel.name, 640,480, 1001,60000);
 	p->norm[p->nenc]  = VIDEO_MODE_NTSC;
 	p->input[p->nenc] = i;
 	p->nenc++;
 	
-	v4l_add_enc(p->enc,p->nenc,"secam",channel.name, 768,576, 1,50);
+	v4l_add_enc(p->enc,p->nenc,"SECAM",channel.name, 768,576, 1,50);
 	p->norm[p->nenc]  = VIDEO_MODE_SECAM;
 	p->input[p->nenc] = i;
 	p->nenc++;
@@ -767,28 +767,28 @@ V4LBuildEncodings(PortPrivPtr p, int fd, int channels)
 	       ntsc and secam.  But there are a few more norms (pal versions
 	       with a different timings used in south america for example).
 	       The bttv driver can handle these too. */
-	    if (0 != v4l_add_enc(p->enc,p->nenc,"palnc",channel.name,
+	    if (0 != v4l_add_enc(p->enc,p->nenc,"PAL-Nc",channel.name,
 				 640, 576, 1,50))
 		goto fail;
 	    p->norm[p->nenc]  = 3;
 	    p->input[p->nenc] = i;
 	    p->nenc++;
 
-	    if (0 != v4l_add_enc(p->enc,p->nenc,"palm",channel.name,
+	    if (0 != v4l_add_enc(p->enc,p->nenc,"PAL-M",channel.name,
 				 640, 576, 1,50))
 		goto fail;
 	    p->norm[p->nenc]  = 4;
 	    p->input[p->nenc] = i;
 	    p->nenc++;
 
-	    if (0 != v4l_add_enc(p->enc, p->nenc,"paln", channel.name,
+	    if (0 != v4l_add_enc(p->enc, p->nenc,"PAL-N", channel.name,
 				 768,576, 1,50))
 		goto fail;
 	    p->norm[p->nenc]  = 5;
 	    p->input[p->nenc] = i;
 	    p->nenc++;
 	    
-	    if (0 != v4l_add_enc(p->enc,p->nenc,"ntscjp", channel.name,
+	    if (0 != v4l_add_enc(p->enc,p->nenc,"NTSC-JP", channel.name,
 				 640,480, 1001,60000))
 		goto fail;
 	    p->norm[p->nenc]  = 6;

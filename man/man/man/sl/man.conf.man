@@ -1,0 +1,42 @@
+.\" @(#)man.conf
+.TH MAN.CONF 5 "30. marec 1994"
+.SH IME
+man.conf \- nastavitvena datoteka za program man
+.SH OPIS
+.LP
+To datoteko prebere program
+.BR man (1).
+Vsebuje (a) informacijo o sestavljanju poti, v katerih man i¹èe
+strani priroènika, (b) celotne poti do programov, ki jih man
+uporablja, kot npr. nroff, eqn, tbl itd., ter (c) seznam
+programov, ki znajo dekompresirati datoteke z doloèenimi priponami.
+Alternativo privzeti verziji te datoteke lahko doloèimo z izbiro
+.LP
+.RS
+man -C privatni_man.conf ...
+.RE
+.LP
+Ukazi so lahko navedeni skupaj z izbirami.  Nekaj uporabnih izbir
+za nroff lahko najdete na strani grotty(1).
+Na primer, namesto privzete vrstice
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+lahko navedemo
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+in prepreèimo podèrtanje in polkrepki tisk z veèkratnim odtisom
+(overstrike).
+.SH "GLEJTE TUDI"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) and compress(1), gzip(1).
+

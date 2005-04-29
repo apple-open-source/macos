@@ -27,9 +27,9 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/require.c,v 1.16 2002/11/23 08:26:50 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/require.c,v 1.18 2003/04/27 18:17:34 tsi Exp $ */
 
-#include "require.h"
+#include "lisp/require.h"
 
 /*
  * Implementation
@@ -120,13 +120,13 @@ Lisp_Require(LispBuiltin *builtin)
 	if (lisp__data.module == NULL) {
 	    /* export our own symbols */
 	    if (dlopen(NULL, RTLD_LAZY | RTLD_GLOBAL) == NULL)
-		LispDestroy(mac, "%s: ", STRFUN(builtin), dlerror());
+		LispDestroy("%s: ", STRFUN(builtin), dlerror());
 	}
 
 	lisp_module = (LispModule*)LispMalloc(sizeof(LispModule));
 	if ((lisp_module->handle =
 	     dlopen(filename, RTLD_LAZY | RTLD_GLOBAL)) == NULL)
-	    LispDestroy(mac, "%s: dlopen: %s", STRFUN(builtin), dlerror());
+	    LispDestroy("%s: dlopen: %s", STRFUN(builtin), dlerror());
 	snprintf(data, sizeof(data), "%sLispModuleData", THESTR(module));
 	if ((lisp_module->data =
 	     (LispModuleData*)dlsym(lisp_module->handle, data)) == NULL) {

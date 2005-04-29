@@ -68,6 +68,7 @@ protected:
 private:
 	sInt32			OpenDirNode				( sOpenDirNode *inData );
 	sInt32			CloseDirNode			( sCloseDirNode *inData );
+	sInt32			GetDirNodeInfo			( sGetDirNodeInfo *inData );
 	sInt32			GetRecordList			( sGetRecordList *inData );
 	sInt32			GetRecordEntry			( sGetRecordEntry *inData );
 	sInt32			GetAttributeEntry		( sGetAttributeEntry *inData );
@@ -78,6 +79,7 @@ private:
 	sInt32			ReleaseContinueData		( sReleaseContinueData *inData );
     sConfigContextData   *MakeContextData			( void );
     sInt32			DoPlugInCustomCall		( sDoPlugInCustomCall *inData );
+    sInt32          DoDirNodeAuth           ( sDoDirNodeAuth *inData );
 
 	tDataList	   *fConfigNodeName;
 	uInt32			fNodeCount;

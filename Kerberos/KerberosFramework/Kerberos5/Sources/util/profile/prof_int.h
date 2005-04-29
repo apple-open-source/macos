@@ -4,15 +4,18 @@
 
 #include <time.h>
 #include <stdio.h>
-#if defined(macintosh) || (defined(__MACH__) && defined(__APPLE__))
+
+#if defined(__MACH__) && defined(__APPLE__)
 #include <TargetConditionals.h>
-#define USE_PTHREADS
 #define PROFILE_SUPPORTS_FOREIGN_NEWLINES
-#define SHARE_TREE_DATA
 #endif
 
+#include "k5-thread.h"
+#include "k5-platform.h"
 #include "com_err.h"
 #include "profile.h"
+
+#define STAT_ONCE_PER_SECOND
 
 #if defined(_WIN32)
 #define SIZEOF_INT      4
@@ -25,56 +28,56 @@ typedef long prf_magic_t;
 /*
  * This is the structure which stores the profile information for a
  * particular configuration file.
+ *
+ * Locking strategy:
+ * - filespec, fslen are fixed after creation
+ * - refcount and next should only be tweaked with the global lock held
+ * - other fields can be tweaked after grabbing the in-struct lock
  */
 struct _prf_data_t {
 	prf_magic_t	magic;
-	char		*comment;
-	profile_filespec_t filespec;
+	k5_mutex_t	lock;
 	struct profile_node *root;
+#ifdef STAT_ONCE_PER_SECOND
+	time_t		last_stat;
+#endif
 	time_t		timestamp; /* time tree was last updated from file */
 	int		flags;	/* r/w, dirty */
 	int		upd_serial; /* incremented when data changes */
+	char		*comment;
+
+	size_t		fslen;
+
+	/* Some separation between fields controlled by different
+	   mutexes.  Theoretically, both could be accessed at the same
+	   time from different threads on different CPUs with separate
+	   caches.  Don't let the threads clobber each other's
+	   changes.  One mutex controlling the whole thing would be
+	   better, but sufficient separation might suffice.
+
+	   This is icky.  I just hope it's adequate.
+
+	   For next major release, fix this.  */
+	union { double d; void *p; UINT64_TYPE ll; k5_mutex_t m; } pad;
+
 	int		refcount; /* prf_file_t references */
 	struct _prf_data_t *next;
+	/* Was: "profile_filespec_t filespec".  Now: flexible char
+	   array ... except, we need to work in C89, so an array
+	   length must be specified.  */
+	const char	filespec[sizeof("/etc/krb5.conf")];
 };
 
 typedef struct _prf_data_t *prf_data_t;
+prf_data_t profile_make_prf_data(const char *);
 
 struct _prf_file_t {
 	prf_magic_t	magic;
-#ifdef SHARE_TREE_DATA
 	struct _prf_data_t	*data;
-#else
-	struct _prf_data_t	data[1];
-#endif
 	struct _prf_file_t *next;
 };
 
 typedef struct _prf_file_t *prf_file_t;
-
-#ifdef SHARE_TREE_DATA
-struct global_shared_profile_data {
-	/* This is the head of the global list of shared trees */
-	prf_data_t trees;
-#ifdef USE_PTHREADS
-	/* Lock for above list.  */
-	pthread_mutex_t mutex;
-#endif
-};
-extern struct global_shared_profile_data krb5int_profile_shared_data;
-#define g_shared_trees		(krb5int_profile_shared_data.trees)
-
-#ifdef USE_PTHREADS
-#include <pthread.h>
-#define g_shared_trees_mutex	(krb5int_profile_shared_data.mutex)
-#define prof_mutex_lock(L)	(pthread_mutex_lock(L))
-#define prof_mutex_unlock(L)	(pthread_mutex_unlock(L))
-#else
-#define prof_mutex_lock(L)	(0)
-#define prof_mutex_unlock(L)	(0)
-#endif
-
-#endif /* SHARE_TREE_DATA */
 
 /*
  * The profile flags
@@ -115,6 +118,9 @@ errcode_t profile_parse_file
 
 errcode_t profile_write_tree_file
 	(struct profile_node *root, FILE *dstfile);
+
+errcode_t profile_write_tree_to_buffer
+	(struct profile_node *root, char **buf);
 
 
 /* prof_tree.c */
@@ -206,6 +212,13 @@ errcode_t profile_update_file_data
 errcode_t profile_flush_file_data
 	(prf_data_t data);
 
+#define profile_flush_file_to_file(P,F) (((P) && (P)->magic == PROF_MAGIC_FILE) ? profile_flush_file_data_to_file((P)->data, (F)) : PROF_MAGIC_FILE)
+errcode_t profile_flush_file_data_to_file
+	(prf_data_t data, const char *outfile);
+
+errcode_t profile_flush_file_data_to_buffer
+	(prf_data_t data, char **bufp);
+
 void profile_free_file
 	(prf_file_t profile);
 
@@ -213,6 +226,10 @@ errcode_t profile_close_file
 	(prf_file_t profile);
 
 void profile_dereference_data (prf_data_t);
+void profile_dereference_data_locked (prf_data_t);
+
+int profile_lock_global (void);
+int profile_unlock_global (void);
 
 /* prof_init.c -- included from profile.h */
 errcode_t profile_ser_size

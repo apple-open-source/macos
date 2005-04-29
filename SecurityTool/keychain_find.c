@@ -1,37 +1,33 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- *  keychain_find.c
- *  security
  *
- *  Created by Michael Brouwer on Thu June 5 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
+ * keychain_find.c
  */
 
 #include "keychain_find.h"
 
 #include "keychain_utilities.h"
 #include "readline.h"
+#include "security.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,11 +57,11 @@ do_keychain_find_generic_password(CFTypeRef keychainOrArray, const char *serverN
 		&itemRef);
 	if (result)
 	{
-		fprintf(stderr, "SecKeychainFindGenericPassword returned %ld(0x%lx)\n", result, result);
+		sec_perror("SecKeychainFindGenericPassword", result);
 		goto loser;
 	}
 
-	print_keychain_item_attributes(stderr, itemRef, FALSE, FALSE);
+	print_keychain_item_attributes(stdout, itemRef, FALSE, FALSE, FALSE, FALSE);
 
 	if (get_password)
 	{
@@ -106,11 +102,11 @@ do_keychain_find_internet_password(CFTypeRef keychainOrArray, const char *server
 		&itemRef);
 	if (result)
 	{
-		fprintf(stderr, "SecKeychainFindInternetPassword returned %ld(0x%lx)\n", result, result);
+		sec_perror("SecKeychainFindInternetPassword", result);
 		goto loser;
 	}
 
-	print_keychain_item_attributes(stderr, itemRef, FALSE, FALSE);
+	print_keychain_item_attributes(stdout, itemRef, FALSE, FALSE, FALSE, FALSE);
 
 	if (get_password)
 	{
@@ -140,7 +136,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray, const char *emailAddress
 		result = SecKeychainSearchCreateForCertificateByEmail(keychainOrArray, emailAddress, &searchRef);
 		if (result)
 		{
-			fprintf(stderr, "SecKeychainSearchCreateForCertificateByEmail returned %ld(0x%lx)\n", result, result);
+			sec_perror("SecKeychainSearchCreateForCertificateByEmail", result);
 			goto loser;
 		}
 	}
@@ -158,7 +154,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray, const char *emailAddress
 			}
 			else if (result)
 			{
-				fprintf(stderr, "SecKeychainSearchCopyNext returned %ld(0x%lx)\n", result, result);
+				sec_perror("SecKeychainSearchCopyNext", result);
 				goto loser;
 			}
 
@@ -171,7 +167,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray, const char *emailAddress
 			result = SecCertificateFindByEmail(keychainOrArray, emailAddress, &certificateRef);
 			if (result)
 			{
-				fprintf(stderr, "SecCertificateFindByEmail returned %ld(0x%lx)\n", result, result);
+				sec_perror("SecCertificateFindByEmail", result);
 				goto loser;
 			}
 		}
@@ -183,7 +179,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray, const char *emailAddress
 			result = SecCertificateCopyEmailAddresses(certificateRef, &emailAddresses);
 			if (result)
 			{
-				fprintf(stderr, "SecCertificateCopyEmailAddresses returned %ld(0x%lx)\n", result, result);
+				sec_perror("SecCertificateCopyEmailAddresses", result);
 				goto loser;
 			}
 
@@ -218,7 +214,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray, const char *emailAddress
 			result = SecCertificateGetData(certificateRef, &certData);
 			if (result)
 			{
-				fprintf(stderr, "SecCertificateGetData returned %ld(0x%lx)\n", result, result);
+				sec_perror("SecCertificateGetData", result);
 				goto loser;
 			}
 	
@@ -226,7 +222,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray, const char *emailAddress
 		}
 		else
 		{
-			print_keychain_item_attributes(stderr, (SecKeychainItemRef)certificateRef, FALSE, FALSE);
+			print_keychain_item_attributes(stdout, (SecKeychainItemRef)certificateRef, FALSE, FALSE, FALSE, FALSE);
 		}
 	} while (find_all);
 
@@ -401,7 +397,7 @@ loser:
 
 
 static int
-do_keychain_dump_class(CFTypeRef keychainOrArray, SecItemClass itemClass, Boolean show_data, Boolean show_raw_data)
+do_keychain_dump_class(FILE *stream, CFTypeRef keychainOrArray, SecItemClass itemClass, Boolean show_data, Boolean show_raw_data, Boolean show_acl, Boolean interactive)
 {
 	SecKeychainItemRef item;
 	SecKeychainSearchRef search = NULL;
@@ -411,20 +407,20 @@ do_keychain_dump_class(CFTypeRef keychainOrArray, SecItemClass itemClass, Boolea
 	status = SecKeychainSearchCreateFromAttributes(keychainOrArray, itemClass, NULL, &search);
 	if (status)
 	{
-		fprintf(stderr, "SecKeychainSearchCreateFromAttributes returned %ld(0x%lx)\n", status, status);
+		sec_perror("SecKeychainSearchCreateFromAttributes", status);
 		result = 1;
 		goto loser;
 	}
 
 	while ((status = SecKeychainSearchCopyNext(search, &item)) == 0)
 	{
-		print_keychain_item_attributes(stderr, item, show_data, show_raw_data);
+		print_keychain_item_attributes(stream, item, show_data, show_raw_data, show_acl, interactive);
 		CFRelease(item);
 	}
 
 	if (status != errSecItemNotFound)
 	{
-		fprintf(stderr, "SecKeychainSearchCopyNext returned %ld(0x%lx)\n", status, status);
+		sec_perror("SecKeychainSearchCopyNext", status);
 		result = 1;
 		goto loser;
 	}
@@ -437,27 +433,39 @@ loser:
 }
 
 static int
-do_keychain_dump(CFTypeRef keychainOrArray, Boolean show_data, Boolean show_raw_data)
+do_keychain_dump(FILE *stream, CFTypeRef keychainOrArray, Boolean show_data, Boolean show_raw_data, Boolean show_acl, Boolean interactive)
 {
-	return do_keychain_dump_class(keychainOrArray, CSSM_DL_DB_RECORD_ANY, show_data, show_raw_data);
+	return do_keychain_dump_class(stream, keychainOrArray, CSSM_DL_DB_RECORD_ANY, show_data, show_raw_data, show_acl, interactive);
 }
 
 int
 keychain_dump(int argc, char * const *argv)
 {
 	int ch, result = 0;
-	Boolean show_data = FALSE, show_raw_data = FALSE;
+	Boolean show_data = FALSE, show_raw_data = FALSE, show_acl = FALSE, interactive = FALSE;
 	CFTypeRef keychainOrArray = NULL;
+	const char *outputFilename = NULL;
+	FILE *output;
 
-	while ((ch = getopt(argc, argv, "dhr")) != -1)
+	while ((ch = getopt(argc, argv, "adhiro:")) != -1)
 	{
 		switch  (ch)
 		{
+		case 'a':
+			show_acl = TRUE;
+			break;
 		case 'd':
 			show_data = TRUE;
 			break;
+		case 'i':
+			show_acl = TRUE;
+			interactive = TRUE;
+			break;
 		case 'r':
 			show_raw_data = TRUE;
+			break;
+		case 'o':
+			outputFilename = optarg;
 			break;
         case '?':
 		default:
@@ -470,7 +478,15 @@ keychain_dump(int argc, char * const *argv)
 
     keychainOrArray = keychain_create_array(argc, argv);
 
-	result = do_keychain_dump(keychainOrArray, show_data, show_raw_data);
+	if (outputFilename)
+		output = fopen(outputFilename, "w");
+	else
+		output = stdout;
+
+	result = do_keychain_dump(output, keychainOrArray, show_data, show_raw_data, show_acl, interactive);
+
+	if (outputFilename)
+		fclose(output);
 
 	if (keychainOrArray)
 		CFRelease(keychainOrArray);

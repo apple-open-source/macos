@@ -91,8 +91,11 @@ rpath(uri)
 	if(set > 0)
 	    RETVAL = newSVpv(uri->uri.path, set);
     } 
-    else
-        RETVAL = newSVpv(uri->uri.path, 0);
+    else {
+        if (uri->uri.path) {
+            RETVAL = newSVpv(uri->uri.path, 0);
+        }
+    }
 
     OUTPUT:
     RETVAL 

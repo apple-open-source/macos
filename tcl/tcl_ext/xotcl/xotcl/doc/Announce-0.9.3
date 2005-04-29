@@ -1,0 +1,57 @@
+Announcing XOTcl 0.9.3
+**********************
+
+WHAT IS XOTCL?
+
+  XOTcl is an object-oriented extension of Tcl that was derived from
+  OTcl. In short, XOTcl tries to provide a highly flexible,
+  reflective, component-based, and object-oriented environment. It
+  integrates language support for high level concepts which are not
+  found in other languages, with reasonable performance. It prevails
+  the Tcl programming style and the dynamic/introspective nature of
+  the language, rather than introducing other language's styles and
+  rigidness (such as C++) into Tcl.
+
+
+RECENT CHANGES relative to 0.9 are:
+
+  - A "more or less" TEA compliant build process and its
+    directory structure (aligend it as far as possible to Tcl, sample
+    extension and other extensions)
+
+    * We started building an XOTcl stub lib.
+
+    * We separated xotcl from its library/applications 
+      (there is an xotcl-<VERSION> directory in the full distribution
+       that just builds, installs, etc. the XOTcl libraries ... this
+       can for instance be used in other distributions using and
+       shipping XOTcl, but not using the shells).
+
+    * The full distribution still builds shells, but they are using
+      "package require" to load the XOTcl libraries now.
+
+    * For building xowish (the XOTcl Tk shell) you do only require 
+      an installed Tk version on Unix now.
+
+  - On Windows we still use nmake due to problems with VCC 6.0 in
+    all TEA compliant extensions we have checked, but we use a
+    completely new build process (more or less one-to-one the
+    Unix build process).
+
+  - A few minor bugfixes.
+
+  - We have tested this release on platforms we have access to
+    (Linux, Win NT, Solaris). Please inform us, if there are some
+    problems on your platform so that we can eliminate them in future
+    releases.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+

@@ -163,7 +163,8 @@ public:
 	virtual IOReturn accessUniN15PerformanceRegister(bool write, long regNumber, UInt32 *data);
 
 private:
-    UInt32					*uniNBaseAddress;
+	IOMemoryMap		* uniNMemory;
+	UInt32			* uniNBaseAddress;
     UInt32					uniNVersion;
 	bool					uataBusWasReset;
     IOService				*provider;

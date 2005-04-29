@@ -1,9 +1,9 @@
 #! /usr/bin/env ruby
 
-# goodfriday.rb: Written by Tadayoshi Funaba 1998, 2000
-# $Id: goodfriday.rb,v 1.1.1.1 2002/05/27 17:59:50 jkh Exp $
+# goodfriday.rb: Written by Tadayoshi Funaba 1998, 2000, 2002
+# $Id: goodfriday.rb,v 1.1 1998-03-08 18:44:44+09 tadf Exp $
 
-require 'date2'
+require 'date'
 
 def easter(y)
   g = (y % 19) + 1
@@ -44,5 +44,5 @@ es = Date.new(*easter(Time.now.year))
  [8*7,  'Trinity Sunday'],
  [60,   'Corpus Christi (Thursday after Trinity)']].
 each do |xs|
-  puts ((es + xs.shift).to_s + '  ' + xs.shift)
+  puts((es + xs.shift).to_s + '  ' + xs.shift)
 end

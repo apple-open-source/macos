@@ -1,5 +1,5 @@
 /* ThreadLocal -- a variable with a unique value per thread
-   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,8 +37,10 @@ exception statement from your version. */
 
 package java.lang;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
+
 
 /**
  * ThreadLocal objects have a different state associated with every
@@ -50,8 +52,11 @@ import java.util.WeakHashMap;
  * <p>The first time a ThreadLocal object is accessed on a particular
  * Thread, the state for that Thread's copy of the local variable is set by
  * executing the method <code>initialValue()</code>.
+ * </p>
  *
  * <p>An example how you can use this:
+ * </p>
+ *
  * <pre>
  * class Connection
  * {
@@ -64,20 +69,22 @@ import java.util.WeakHashMap;
  *     };
  * ...
  * }
- * </pre></br>
+ * </pre>
  *
- * Now all instances of connection can see who the owner of the currently
+ * <p>Now all instances of connection can see who the owner of the currently
  * executing Thread is by calling <code>owner.get()</code>. By default any
  * Thread would be associated with 'nobody'. But the Connection object could
  * offer a method that changes the owner associated with the Thread on
  * which the method was called by calling <code>owner.put("somebody")</code>.
  * (Such an owner changing method should then be guarded by security checks.)
+ * </p>
  *
  * <p>When a Thread is garbage collected all references to values of
  * the ThreadLocal objects associated with that Thread are removed.
+ * </p>
  *
- * @author Mark Wielaard <mark@klomp.org>
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Mark Wielaard (mark@klomp.org)
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.2
  * @status updated to 1.4
  */
@@ -101,7 +108,7 @@ public class ThreadLocal
    * <code>set(Thread, Object)</code> and <code>get(Thread)</code> methods
    * access it. Package visible for use by InheritableThreadLocal.
    */
-  final Map valueMap = new WeakHashMap();
+  final Map valueMap = Collections.synchronizedMap(new WeakHashMap());
 	
   /**
    * Creates a ThreadLocal object without associating any value to it yet.
@@ -135,7 +142,7 @@ public class ThreadLocal
   {
     Thread currentThread = Thread.currentThread();
     // Note that we don't have to synchronize, as only this thread will
-    // ever modify the returned value.
+    // ever modify the returned value and valueMap is a synchronizedMap.
     Object value = valueMap.get(currentThread);
     if (value == null)
       {
@@ -156,7 +163,7 @@ public class ThreadLocal
   public void set(Object value)
   {
     // Note that we don't have to synchronize, as only this thread will
-    // ever modify the returned value.
+    // ever modify the returned value and valueMap is a synchronizedMap.
     valueMap.put(Thread.currentThread(), value == null ? NULL : value);
   }
 }

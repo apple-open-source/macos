@@ -1,9 +1,9 @@
 /*
  * KLEnvironment.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLEnvironment.h,v 1.6 2003/07/28 21:31:10 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLEnvironment.h,v 1.9 2004/06/17 22:26:14 lxs Exp $
  *
- * Copyright 2003 Massachusetts Institute of Technology.
+ * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
  *
  * Export of this software from the United States of America may
@@ -43,5 +43,4 @@ KLBoolean __KLPrincipalShouldUseKerberos524Protocol (KLPrincipal inPrincipal);
 KLBoolean __KLPrincipalShouldUseKerberos5ChangePasswordProtocol (KLPrincipal inPrincipal);
 KLBoolean __KLPrincipalShouldUseKerberos4ChangePasswordProtocol (KLPrincipal inPrincipal);
 
-KLBoolean __KLIsKerberosLoginServer (void);
-KLBoolean __KLIsKerberosApp (void);
+KLBoolean __KLIsKerberosAgent (void);

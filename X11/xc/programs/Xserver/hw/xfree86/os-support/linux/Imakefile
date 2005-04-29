@@ -1,5 +1,5 @@
 XCOMM $XConsortium: Imakefile /main/10 1996/10/19 18:06:19 kaleb $
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/linux/Imakefile,v 3.46 2002/10/11 01:40:35 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/linux/Imakefile,v 3.47 2003/06/12 14:12:36 eich Exp $
 
 #include <Server.tmpl>
 
@@ -29,7 +29,7 @@ MOUSEOBJ = lnx_mouse.o
 KBDSRC = lnx_kbd.c lnx_KbdMap.c at_scancode.c
 KBDOBJ = lnx_kbd.o lnx_KbdMap.o at_scancode.o 
 
-#if defined(i386Architecture) || defined(ia64Architecture) || defined(x86_64Architecture)
+#if defined(i386Architecture) || defined(ia64Architecture) || defined(AMD64Architecture)
 RES_SRCS=stdResource.c
 RES_OBJS=stdResource.o
 #else
@@ -107,7 +107,7 @@ LinkSourceFile(kmod_noop.c,../shared)
 
 LinkSourceFile($(DRI_SRC),../shared)
 
-#if defined(i386Architecture) || defined(ia64Architecture) || defined (x86_64Architecture)
+#if defined(i386Architecture) || defined(ia64Architecture) || defined (AMD64Architecture)
 LinkSourceFile(stdResource.c,../shared)
 #endif
 #if defined(AlphaArchitecture)

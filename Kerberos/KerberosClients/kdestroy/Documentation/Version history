@@ -1,15 +1,36 @@
 ========================================================================
 kdestroy Version History
 ========================================================================
-Current version:	1.0a1
-Date:				June 10, 2002
+Current version:	1.1fc2
+Date:				December 17, 2004
 Author:				lxs@mit.edu
 ========================================================================
 
-kdestroy 1.0
-Not Released
+kdestroy 1.1
+Released as part of KfM 5.5
 
-First Public Release
+========================================================================
+
+	kdestroy 1.1fc2
+	December 17, 2004
+
+	[RT 2811] kdestroy doesn't support file-based ccaches
+	[RT 2821] kdestroy -c option should only destroy that ccache
+	[RT 2822] fix kdestroy error handling
+
+	========================================================================
+
+	kdestroy 1.1fc1
+	December 6, 2004
+
+	Moved to final candidate.
+
+	========================================================================
+
+========================================================================
+
+kdestroy 1.0
+Released as part of KfM 5.0
 
 ========================================================================
 

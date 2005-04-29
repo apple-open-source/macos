@@ -1,0 +1,559 @@
+<html><head><base target=k-main></head><body bgcolor=white><nobr>
+
+<font face=Helvetica size=3>
+<dl><dt>
+
+  <b>class c4_Sequence</b>
+<br><br>
+
+<dd><font face=Times size=3>
+A sequence is an abstract base class for views on ranges of records.<br><br>
+
+
+</font></dl>
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Public members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Sequence</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Abstract constructor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Compare</b> (int, <A HREF="c4_Cursor.html" >c4_Cursor</A>) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Compare the specified row with another one</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SetAt</b> (int, <A HREF="c4_Cursor.html" >c4_Cursor</A>);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Replace the contents of a specified row</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>RemapIndex</b> (int, const <A HREF="c4_Sequence.html" >c4_Sequence</A>*) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Remap the index to an underlying view</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  const char* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Describe</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return a descriptions of the current data structure</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>IncRef</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Increment the reference count of this sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>DecRef</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Decrement the reference count, delete objects when last</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>NumRefs</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the current number of references to this sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Size</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the current number of rows</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Resize</b> (int, int =-1);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Change number of rows, either by inserting or removing them</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>InsertAt</b> (int, <A HREF="c4_Cursor.html" >c4_Cursor</A>, int =1);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Insert one or more rows into this sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>RemoveAt</b> (int, int =1);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Remove one or more rows from this sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Move</b> (int, int);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Move a row to another position</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>NthPropId</b> (int) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the id of the N-th property</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>PropIndex</b> (int);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Find the index of a property by its id</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>PropIndex</b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38;);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Find the index of a property, or create a new entry</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>NumHandlers</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the number of data handlers in this sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual c4_Handler&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>NthHandler</b> (int) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return a reference to the N-th handler in this sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual const <A HREF="c4_Sequence.html" >c4_Sequence</A>* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>HandlerContext</b> (int) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the context of the N-th handler in this sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>AddHandler</b> (c4_Handler*);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Add the specified data handler to this sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual c4_Handler* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>CreateHandler</b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38;);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create a handler of the appropriate type</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>ItemSize</b> (int index_, int propId_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return width of specified data item</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Get</b> (int, int, <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38;);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Retrieve one data item from this sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Set</b> (int, const <A HREF="c4_Property.html" >c4_Property</A>&#38;, const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38;);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Store a data item into this sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Attach</b> (<A HREF="c4_Sequence.html" >c4_Sequence</A>* child_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Register a sequence to receive change notifications</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Detach</b> (<A HREF="c4_Sequence.html" >c4_Sequence</A>* child_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Unregister a sequence which received change notifications</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  c4_Dependencies* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetDependencies</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return a pointer to the dependencies, or null</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual c4_Notifier* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>PreChange</b> (c4_Notifier&#38; nf_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Called just before a change is made to the sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>PostChange</b> (c4_Notifier&#38; nf_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Called after changes have been made to the sequence</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  const char* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>UseTempBuffer</b> (const char*);
+	  
+	  
+		
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SetSize</b> (int size_);
+	  
+	  
+		
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Buffer</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Gives access to a general purpose temporary buffer</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Protected members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_propertyLimit</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  short* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_propertyMap</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Bytes.html" >c4_Bytes</A>* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_tempBuf</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual 
+    </td>
+	<td>
+	  <nobr>
+	  <b>~c4_Sequence</b> ();
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>ClearCache</b> ();
+	  
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+
+<br><hr size=1 width=50 align=left>
+
+<table cellborder=0>
+    <tr>
+    <td width=150>
+	  <font face=Helvetica size=-1><b>Header file</b></font>
+    </td>
+    <td>
+	  "mk4.h" &nbsp; -- &nbsp; Dec 9, 1999
+    </td>
+	</tr>
+
+  
+
+  
+</table>
+
+</font></font>
+
+</nobr></body></html>

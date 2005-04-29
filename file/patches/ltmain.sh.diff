@@ -1,0 +1,32 @@
+--- ltmain.sh.orig	Fri Aug  6 01:03:40 2004
++++ ltmain.sh	Fri Aug  6 01:04:32 2004
+@@ -4293,17 +4293,17 @@
+             else
+               # the above command should be used before it gets too long
+               oldobjs=$objlist
+-	      test -z "$concat_cmds" || concat_cmds=$concat_cmds~
++	      test -z "$concat_cmds" || concat_cmds=$concat_cmds:
+               eval concat_cmds=\"\${concat_cmds}$old_archive_cmds\"
+               objlist=
+             fi
+           done
+ 	  RANLIB=$save_RANLIB
+           oldobjs=$objlist
+-          eval cmds=\"\$concat_cmds~$old_archive_cmds\"
++          eval cmds=\"\$concat_cmds:$old_archive_cmds\"
+         fi
+       fi
+-      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'
++      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS=':'
+       for cmd in $cmds; do
+ 	IFS="$save_ifs"
+ 	$show "$cmd"
+@@ -4867,7 +4867,7 @@
+ 
+       # Do each command in the postinstall commands.
+       eval cmds=\"$old_postinstall_cmds\"
+-      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'
++      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS=':'
+       for cmd in $cmds; do
+ 	IFS="$save_ifs"
+ 	$show "$cmd"

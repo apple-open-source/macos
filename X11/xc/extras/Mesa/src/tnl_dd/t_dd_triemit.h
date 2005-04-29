@@ -1,4 +1,3 @@
-/* $XFree86: xc/extras/Mesa/src/tnl_dd/t_dd_triemit.h,v 1.1 2002/10/30 12:51:24 alanh Exp $ */
 #ifndef DO_DEBUG_VERTS
 #define DO_DEBUG_VERTS 0
 #endif 

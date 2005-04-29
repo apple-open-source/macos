@@ -47,7 +47,7 @@ usage ()
 ##
 
   Date=$(date);
-Format=''\''PROGRAM:'\''"${Program}"'\''  PROJECT:'\''"${Version}"'\''  DEVELOPER:'\''"${USER}"'\''  BUILT:'\''"${Date}"'\'''\''';
+Format=''\''PROGRAM:'\''"${Program}"'\''  PROJECT:'\''"${Version}"'\''  DEVELOPER:'\''"${USER}"'\''  BUILT:'\''"${Date}"'\'''\''\\\\n';
 
 if ! args=$(getopt cflBn $*); then usage; fi;
 set -- ${args};
@@ -55,17 +55,17 @@ for option; do
     case "${option}" in
       -c)
         Format=''\''#include <sys/cdefs.h>
-__IDSTRING(SGS_VERS,"@(#)PROGRAM:'\''"${Program}"'\''  PROJECT:'\''"${Version}"'\''  DEVELOPER:'\''"${USER}"'\''  BUILT:'\''"${Date}"'\''\n");
-__IDSTRING(VERS_NUM,"'\''${Revision}'\''");'\''';
+__IDSTRING(SGS_VERS,"@(#)PROGRAM:'\''"${Program}"'\''  PROJECT:'\''"${Version}"'\''  DEVELOPER:'\''"${USER}"'\''  BUILT:'\''"${Date}"'\''\\\\n");
+__IDSTRING(VERS_NUM,"'\''${Revision}'\''");\\n'\''';
 	shift;
 	;;
       -f)
-        Format='"${Program}"'\''-'\''"${Revision}"';
+        Format='"${Program}"'\''-'\''"${Revision}"\\\\n';
 	shift;
 	;;
       -l)
         Format=''\''#include <sys/cdefs.h>
-__IDSTRING(SGS_VERS,"@(#)LIBRARY:'\''"${Program}"'\''  PROJECT:'\''"${Version}"'\''  DEVELOPER:'\''"${USER}"'\''  BUILT:'\''"${Date}"'\''\n");'\''';
+__IDSTRING(SGS_VERS,"@(#)LIBRARY:'\''"${Program}"'\''  PROJECT:'\''"${Version}"'\''  DEVELOPER:'\''"${USER}"'\''  BUILT:'\''"${Date}"'\''\\\\n");'\''\\\\n';
 	shift;
 	;;
       -B)
@@ -73,7 +73,7 @@ __IDSTRING(SGS_VERS,"@(#)LIBRARY:'\''"${Program}"'\''  PROJECT:'\''"${Version}"'
 	shift;
 	;;
       -n)
-        Format='"${Revision}"';
+        Format='"${Revision}"\\\\n';
 	shift;
 	;;
       --)
@@ -114,4 +114,4 @@ fi;
 
 if [ -z "${USER}" ]; then USER=$(whoami); fi;
 
-echo "$(eval echo "${Format}")";
+printf "$(eval printf "${Format}")";

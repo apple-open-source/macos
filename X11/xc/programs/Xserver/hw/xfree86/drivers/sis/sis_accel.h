@@ -1,32 +1,39 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/sis_accel.h,v 1.2 2003/01/29 15:42:16 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/sis_accel.h,v 1.12 2004/02/25 17:45:13 twini Exp $ */
 /*
- * Copyright 1998,1999 by Alan Hourihane, Wigan, England.
+ * 2D acceleration for 5597/5598 and 6326
+ * Definitions for the SIS engine communication
+ *
+ * Copyright (C) 1998, 1999 by Alan Hourihane, Wigan, England.
+ * Parts Copyright (C) 2001-2004 Thomas Winischhofer, Vienna, Austria.
+ *
+ * Licensed under the following terms:
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
- * the above copyright notice appear in all copies and that both that
- * copyright notice and this permission notice appear in supporting
- * documentation, and that the name of Alan Hourihane not be used in
- * advertising or publicity pertaining to distribution of the software without
- * specific, written prior permission.  Alan Hourihane makes no representations
+ * the above copyright notice appears in all copies and that both that copyright
+ * notice and this permission notice appear in supporting documentation, and
+ * and that the name of the copyright holder not be used in advertising
+ * or publicity pertaining to distribution of the software without specific,
+ * written prior permission. The copyright holder makes no representations
  * about the suitability of this software for any purpose.  It is provided
- * "as is" without express or implied warranty.
+ * "as is" without expressed or implied warranty.
  *
- * ALAN HOURIHANE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
- * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
- * EVENT SHALL ALAN HOURIHANE BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+ * THE COPYRIGHT HOLDER DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO
+ * EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY SPECIAL, INDIRECT OR
  * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
  * DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  *
- * Authors:  Alan Hourihane, alanh@fairlite.demon.co.uk
+ * Authors:  Alan Hourihane <alanh@fairlite.demon.co.uk>,
  *           Mike Chapman <mike@paranoia.com>,
  *           Juanjo Santamarta <santamarta@ctv.es>,
- *           Mitani Hiroshi <hmitani@drl.mei.co.jp>
- *           David Thomas <davtom@dream.org.uk>
- *	     Thomas Winischhofer <thomas@winischhofer.net>
+ *           Mitani Hiroshi <hmitani@drl.mei.co.jp>,
+ *           David Thomas <davtom@dream.org.uk>,
+ *	     Thomas Winischhofer <thomas@winischhofer.net>.
  */
+
 
 /* Definitions for the SIS engine communication. ------------------------------------ */
 
@@ -111,6 +118,7 @@ const int sisReg32MMIO[] = {
   unsigned long temp; \
   MMIO_OUT16(pSiS->IOBase, BR(10) + 2, op); \
   temp = MMIO_IN32(pSiS->IOBase, BR(10)); \
+  (void)temp; \
   }
 
 /* set foreground color and fg ROP */
@@ -124,29 +132,17 @@ const int sisReg32MMIO[] = {
 /* background color */
 #define sisSETBGCOLOR(bgColor) \
    MMIO_OUT32(pSiS->IOBase, BR(5), (bgColor));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(5)) = (bgColor)
-#endif
 
 /* foreground color */
 #define sisSETFGCOLOR(fgColor) \
    MMIO_OUT32(pSiS->IOBase, BR(4), (fgcolor));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(4)) = (fgColor)
-#endif
 
 /* ROP */
 #define sisSETROPFG(op) \
    MMIO_OUT8(pSiS->IOBase, BR(4) + 3, op);
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(4)) = ((*(volatile unsigned int *)(pSiS->IOBase + BR(4)))&0xffffff) | (op<<24)
-#endif
 
 #define sisSETROPBG(op) \
   MMIO_OUT8(pSiS->IOBase, BR(5) + 3, op);
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(5)) = ((*(volatile unsigned int *)(pSiS->IOBase + BR(5)))&0xffffff) | (op<<24)
-#endif
 
 #define sisSETROP(op) \
    sisSETROPFG(op); sisSETROPBG(op);
@@ -154,23 +150,13 @@ const int sisReg32MMIO[] = {
 /* source and dest address */
 #define sisSETSRCADDR(srcAddr) \
   MMIO_OUT32(pSiS->IOBase, BR(0), (srcAddr & 0x3FFFFFL));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(0)) = srcAddr & 0x3FFFFFL
-#endif
 
 #define sisSETDSTADDR(dstAddr) \
   MMIO_OUT32(pSiS->IOBase, BR(1), (dstAddr & 0x3FFFFFL));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(1)) = dstAddr & 0x3FFFFFL
-#endif
 
 /* pitch */
 #define sisSETPITCH(srcPitch,dstPitch) \
   MMIO_OUT32(pSiS->IOBase, BR(2), ((((dstPitch) & 0xFFFF) << 16) | ((srcPitch) & 0xFFFF)));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(2)) = ((dstPitch&0xFFFF)<<16)| \
-      (srcPitch&0xFFFF)
-#endif
 
 #define sisSETSRCPITCH(srcPitch) \
   MMIO_OUT16(pSiS->IOBase, BR(2), ((srcPitch) & 0xFFFF));
@@ -184,54 +170,26 @@ const int sisReg32MMIO[] = {
  */
 #define sisSETHEIGHTWIDTH(Height, Width) \
   MMIO_OUT32(pSiS->IOBase, BR(3), ((((Height) & 0xFFFF) << 16) | ((Width) & 0xFFFF)));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(3)) = (((Height)&0xFFFF)<<16)| \
-      ((Width)&0xFFFF)
-#endif
 
 /* Clipping */
 #define sisSETCLIPTOP(x, y) \
    MMIO_OUT32(pSiS->IOBase, BR(8), ((((y) & 0xFFFF) << 16) | ((x) & 0xFFFF)));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(8)) = (((y)&0xFFFF)<<16)| \
-      ((x)&0xFFFF)
-#endif
 
 #define sisSETCLIPBOTTOM(x, y) \
    MMIO_OUT32(pSiS->IOBase, BR(9), ((((y) & 0xFFFF) << 16) | ((x) & 0xFFFF)));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(9)) = (((y)&0xFFFF)<<16)| \
-      ((x)&0xFFFF)
-#endif
 
 /* Line drawing */
 #define sisSETXStart(XStart) \
   MMIO_OUT32(pSiS->IOBase, BR(0), ((XStart) & 0xFFFF));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(0)) = XStart&0xFFFF
-#endif
 
 #define sisSETYStart(YStart) \
   MMIO_OUT32(pSiS->IOBase, BR(1), ((YStart) & 0xFFFF));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(1)) = YStart&0xFFFF
-#endif
 
 #define sisSETLineMajorCount(MajorAxisCount) \
    MMIO_OUT32(pSiS->IOBase, BR(3), ((MajorAxisCount) & 0xFFFF));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(3)) = MajorAxisCount&0xFFFF
-#endif
 
 #define sisSETLineSteps(K1,K2) \
    MMIO_OUT32(pSiS->IOBase, BR(6), ((((K1) & 0xFFFF) << 16) | ((K2) & 0xFFFF)));
-#if 0
-  *(volatile unsigned int *)(pSiS->IOBase + BR(6)) = (((K1)&0xFFFF)<<16)| \
-      ((K2)&0xFFFF)
-#endif
 
 #define sisSETLineErrorTerm(ErrorTerm) \
    MMIO_OUT16(pSiS->IOBase, BR(7), (ErrorTerm));
-#if 0
-  *(volatile unsigned short *)(pSiS->IOBase + BR(7)) = ErrorTerm
-#endif

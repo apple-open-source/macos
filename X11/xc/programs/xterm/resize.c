@@ -2,9 +2,38 @@
  *	$Xorg: resize.c,v 1.3 2000/08/17 19:55:09 cpqbld Exp $
  */
 
-/* $XFree86: xc/programs/xterm/resize.c,v 3.55 2002/12/27 21:05:23 dickey Exp $ */
+/* $XFree86: xc/programs/xterm/resize.c,v 3.56 2003/03/23 02:01:40 dickey Exp $ */
 
 /*
+ * Copyright 2003 by Thomas E. Dickey
+ *
+ *                         All Rights Reserved
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE ABOVE LISTED COPYRIGHT HOLDER(S) BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Except as contained in this notice, the name(s) of the above copyright
+ * holders shall not be used in advertising or otherwise to promote the
+ * sale, use or other dealings in this Software without prior written
+ * authorization.
+ *
+ *
  * Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
  *
  *                         All Rights Reserved
@@ -114,14 +143,14 @@ char *getsize[EMULATIONS] =
     ESCAPE("7") ESCAPE("[r") ESCAPE("[999;999H") ESCAPE("[6n"),
     ESCAPE("[18t"),
 };
-#if defined(TIOCSSIZE) && (defined(sun) && !defined(SVR4))
-#elif defined(TIOCSWINSZ)
+#if defined(USE_STRUCT_TTYSIZE)
+#elif defined(USE_STRUCT_WINSIZE)
 char *getwsize[EMULATIONS] =
 {				/* size in pixels */
     0,
     ESCAPE("[14t"),
 };
-#endif /* sun vs TIOCSWINSZ */
+#endif /* USE_STRUCT_{TTYSIZE|WINSIZE} */
 char *restore[EMULATIONS] =
 {
     ESCAPE("8"),
@@ -151,14 +180,14 @@ char sunname[] = "sunsize";
 int tty;
 FILE *ttyfp;
 
-#if defined(TIOCSSIZE) && (defined(sun) && !defined(SVR4))
-#elif defined(TIOCSWINSZ)
+#if defined(USE_STRUCT_TTYSIZE)
+#elif defined(USE_STRUCT_WINSIZE)
 char *wsize[EMULATIONS] =
 {
     0,
     ESCAPE("[4;%hd;%hdt"),
 };
-#endif /* sun vs TIOCSWINSZ */
+#endif /* USE_STRUCT_{TTYSIZE|WINSIZE} */
 
 static SIGNAL_T onintr(int sig);
 static SIGNAL_T resize_timeout(int sig);
@@ -245,11 +274,9 @@ main(int argc, char **argv ENVP_ARG)
     char newtc[TERMCAP_SIZE];
 #endif /* USE_TERMCAP */
     char buf[BUFSIZ];
-#if defined(TIOCSSIZE) && (defined(sun) && !defined(SVR4))
-    struct ttysize ts;
-#elif defined(TIOCSWINSZ)
-    struct winsize ws;
-#endif /* sun vs TIOCSWINSZ */
+#ifdef TTYSIZE_STRUCT
+    TTYSIZE_STRUCT ts;
+#endif
     char *name_of_tty;
 #ifdef CANT_OPEN_DEV_TTY
     extern char *ttyname();
@@ -385,40 +412,40 @@ main(int argc, char **argv ENVP_ARG)
     }
     if (restore[emu])
 	write(tty, restore[emu], strlen(restore[emu]));
-#if defined(TIOCSSIZE) && (defined(sun) && !defined(SVR4))
+#if defined(USE_STRUCT_TTYSIZE)
     /* finally, set the tty's window size */
     if (ioctl(tty, TIOCGSIZE, &ts) != -1) {
-	ts.ts_lines = rows;
-	ts.ts_cols = cols;
-	ioctl(tty, TIOCSSIZE, &ts);
+	TTYSIZE_ROWS(ts) = rows;
+	TTYSIZE_COLS(ts) = cols;
+	SET_TTYSIZE(tty, ts);
     }
-#elif defined(TIOCSWINSZ)
+#elif defined(USE_STRUCT_WINSIZE)
     /* finally, set the tty's window size */
     if (getwsize[emu]) {
 	/* get the window size in pixels */
 	write(tty, getwsize[emu], strlen(getwsize[emu]));
 	readstring(ttyfp, buf, wsize[emu]);
-	if (sscanf(buf, wsize[emu], &ws.ws_xpixel, &ws.ws_ypixel) != 2) {
+	if (sscanf(buf, wsize[emu], &ts.ws_xpixel, &ts.ws_ypixel) != 2) {
 	    fprintf(stderr, "%s: Can't get window size\r\n", myname);
 	    onintr(0);
 	}
-	ws.ws_row = rows;
-	ws.ws_col = cols;
-	ioctl(tty, TIOCSWINSZ, &ws);
-    } else if (ioctl(tty, TIOCGWINSZ, &ws) != -1) {
+	TTYSIZE_ROWS(ts) = rows;
+	TTYSIZE_COLS(ts) = cols;
+	SET_TTYSIZE(tty, ts);
+    } else if (ioctl(tty, TIOCGWINSZ, &ts) != -1) {
 	/* we don't have any way of directly finding out
 	   the current height & width of the window in pixels.  We try
 	   our best by computing the font height and width from the "old"
-	   struct winsize values, and multiplying by these ratios... */
-	if (ws.ws_col != 0)
-	    ws.ws_xpixel = cols * (ws.ws_xpixel / ws.ws_col);
-	if (ws.ws_row != 0)
-	    ws.ws_ypixel = rows * (ws.ws_ypixel / ws.ws_row);
-	ws.ws_row = rows;
-	ws.ws_col = cols;
-	ioctl(tty, TIOCSWINSZ, &ws);
+	   window-size values, and multiplying by these ratios... */
+	if (TTYSIZE_COLS(ts) != 0)
+	    ts.ws_xpixel = cols * (ts.ws_xpixel / TTYSIZE_COLS(ts));
+	if (TTYSIZE_ROWS(ts) != 0)
+	    ts.ws_ypixel = rows * (ts.ws_ypixel / TTYSIZE_ROWS(ts));
+	TTYSIZE_ROWS(ts) = rows;
+	TTYSIZE_COLS(ts) = cols;
+	SET_TTYSIZE(tty, ts);
     }
-#endif /* sun vs TIOCSWINSZ */
+#endif /* USE_STRUCT_{TTYSIZE|WINSIZE} */
 
 #ifdef USE_ANY_SYSV_TERMIO
     ioctl(tty, TCSETAW, &tioorig);

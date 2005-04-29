@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XCKMping.man,v 1.3 2001/02/09 03:47:45 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XCKMping.man,v 1.5 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,73 +144,31 @@
 .SH NAME
 XChangeKeyboardMapping, XGetKeyboardMapping, XDisplayKeycodes, XSetModifierMapping, XGetModifierMapping, XNewModifiermap, XInsertModifiermapEntry, XDeleteModifiermapEntry, XFreeModifierMap XModifierKeymap \- manipulate keyboard encoding and keyboard encoding structure
 .SH SYNTAX
-XChangeKeyboardMapping(\^\fIdisplay\fP, \fIfirst_keycode\fP, \fIkeysyms_per_keycode\fP, \fIkeysyms\fP, \fInum_codes\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int \fIfirst_keycode\fP\^;
-.br
-      int \fIkeysyms_per_keycode\fP\^;
-.br
-      KeySym *\fIkeysyms\fP\^;
-.br
-      int \fInum_codes\fP\^;
-.LP
-KeySym *XGetKeyboardMapping(\^\fIdisplay\fP, \fIfirst_keycode\fP, \fIkeycode_count\fP, 
-.br
-                            \fIkeysyms_per_keycode_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      KeyCode \fIfirst_keycode\fP\^;
-.br
-      int \fIkeycode_count\fP\^;
-.br
-      int *\fIkeysyms_per_keycode_return\fP\^;
-.LP
-XDisplayKeycodes\^(\^\fIdisplay\fP\^, \fImin_keycodes_return\fP\^,
-\fImax_keycodes_return\fP\^)
-.br
-        Display *\^\fIdisplay\fP\^;
-.br
-        int *\^\fImin_keycodes_return\fP\^, *\^\fImax_keycodes_return\fP\^;
-.LP
-int XSetModifierMapping(\^\fIdisplay\fP, \fImodmap\fP\^)
-.br
-        Display *\fIdisplay\fP\^;
-.br
-        XModifierKeymap *\fImodmap\fP\^;
-.LP
-XModifierKeymap *XGetModifierMapping(\^\fIdisplay\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-
-.LP
-XModifierKeymap *XNewModifiermap(\^\fImax_keys_per_mod\fP\^)
-.br
-        int \fImax_keys_per_mod\fP\^;
-.LP
-XModifierKeymap *XInsertModifiermapEntry\^(\^\fImodmap\fP,
-\fIkeycode_entry\fP, \fImodifier\fP\^)
-.br
-     XModifierKeymap *\fImodmap\fP\^;
-.br
-     KeyCode \fIkeycode_entry\fP\^;
-.br
-     int \fImodifier\fP\^;
-.LP
-XModifierKeymap *XDeleteModifiermapEntry\^(\^\fImodmap\fP,
-\fIkeycode_entry\fP, \fImodifier\fP\^)
-.br
-     XModifierKeymap *\fImodmap\fP\^;
-.br
-     KeyCode \fIkeycode_entry\fP\^;
-.br
-     int \fImodifier\fP\^;
-.LP
-XFreeModifiermap(\^\fImodmap\fP\^)
-.br
-        XModifierKeymap *\fImodmap\fP;
+.HP
+int XChangeKeyboardMapping(\^Display *\fIdisplay\fP, int \fIfirst_keycode\fP,
+int \fIkeysyms_per_keycode\fP, KeySym *\fIkeysyms\fP, int \fInum_codes\fP\^); 
+.HP
+KeySym *XGetKeyboardMapping(\^Display *\fIdisplay\fP, KeyCode
+\fIfirst_keycode\fP, int \fIkeycode_count\fP, int
+*\fIkeysyms_per_keycode_return\fP\^); 
+.HP
+int XDisplayKeycodes\^(\^Display *\fIdisplay\fP\^, int
+*\fImin_keycodes_return\fP\^, int *\fImax_keycodes_return\fP\^); 
+.HP
+int XSetModifierMapping(\^Display *\fIdisplay\fP, XModifierKeymap
+*\fImodmap\fP\^); 
+.HP
+XModifierKeymap *XGetModifierMapping(\^Display *\fIdisplay\fP\^); 
+.HP
+XModifierKeymap *XNewModifiermap(\^int \fImax_keys_per_mod\fP\^); 
+.HP
+XModifierKeymap *XInsertModifiermapEntry\^(\^XModifierKeymap *\fImodmap\fP,
+KeyCode \fIkeycode_entry\fP, int \fImodifier\fP\^); 
+.HP
+XModifierKeymap *XDeleteModifiermapEntry\^(\^XModifierKeymap *\fImodmap\fP,
+KeyCode \fIkeycode_entry\fP, int \fImodifier\fP\^); 
+.HP
+int XFreeModifiermap(\^XModifierKeymap *\fImodmap\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.
@@ -469,8 +427,8 @@ structure contains:
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	int max_keypermod;	/* This server's max number of keys per modifier */
-	KeyCode *modifiermap;	/* An 8 by max_keypermod array of the modifiers */
+	int max_keypermod;	/\(** This server's max number of keys per modifier */
+	KeyCode *modifiermap;	/\(** An 8 by max_keypermod array of the modifiers */
 } XModifierKeymap;
 .De
 .SH DIAGNOSTICS

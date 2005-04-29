@@ -3,9 +3,9 @@
 <HEAD>
 <TITLE>CUPS Software Administrators Manual</TITLE>
 <META NAME="author" CONTENT="Easy Software Products">
-<META NAME="copyright" CONTENT="Copyright 1997-2003, All Rights Reserved">
-<META NAME="docnumber" CONTENT="CUPS-SAM-1.1.19">
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; CHARSET=iso-iso-8859-1">
+<META NAME="copyright" CONTENT="Copyright 1997-2005, All Rights Reserved">
+<META NAME="docnumber" CONTENT="CUPS-SAM-1.1.23">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; CHARSET=iso-8859-1">
 <STYLE TYPE="text/css"><!--
 BODY { font-family: serif }
 H1 { font-family: sans-serif }
@@ -20,13 +20,13 @@ PRE { font-family: monospace }
 --></STYLE>
 </HEAD>
 <BODY BGCOLOR="white">
-<CENTER><A HREF="#CONTENTS"><IMG SRC="images/cups-large.gif" BORDER="0" WIDTH="431" HEIGHT="511"><BR>
+<CENTER><A HREF="#CONTENTS"><IMG SRC="images/cups-large.gif" BORDER="0" WIDTH="431" HEIGHT="511" ALT="CUPS Software Administrators Manual"><BR>
 <H1>CUPS Software Administrators Manual</H1></A><BR>
-CUPS-SAM-1.1.19<BR>
+CUPS-SAM-1.1.23<BR>
 Easy Software Products<BR>
-Copyright 1997-2003, All Rights Reserved<BR>
+Copyright 1997-2005, All Rights Reserved<BR>
 </CENTER>
-<HR>
+<HR NOSHADE>
 <H1 ALIGN="CENTER"><A NAME="CONTENTS">Table of Contents</A></H1>
 <BR>
 <BR><B><A HREF="#1">Preface</A></B>
@@ -50,29 +50,32 @@ Copyright 1997-2003, All Rights Reserved<BR>
 </UL>
 <B><A HREF="#BUILDING_INSTALLING">2 - Building and Installing CUPS</A></B>
 <UL>
-<LI><A HREF="#3_1">Installing a Source Distribution</A></LI>
+<LI><A HREF="#3_1">Installing a Source Distribution</A>
 <UL>
 <LI><A HREF="#REQUIREMENTS">Requirements</A></LI>
 <LI><A HREF="#COMPILING">Compiling CUPS</A></LI>
 <LI><A HREF="#INSTALLING">Installing the Software</A></LI>
 <LI><A HREF="#RUNNING">Running the Software</A></LI>
 </UL>
-<LI><A HREF="#BINARY">Installing a Binary Distribution</A></LI>
+</LI>
+<LI><A HREF="#BINARY">Installing a Binary Distribution</A>
 <UL>
 <LI><A HREF="#PORTABLE-BINARY">Installing a Portable Distribution</A></LI>
 <LI><A HREF="#RPM-BINARY">Installing an RPM Distribution</A></LI>
 <LI><A HREF="#DPKG-BINARY">Installing an Debian Distribution</A></LI>
 </UL>
+</LI>
 </UL>
 <B><A HREF="#MANAGING_PRINTERS">3 - Managing Printers</A></B>
 <UL>
 <LI><A HREF="#4_1">The Basics</A></LI>
-<LI><A HREF="#4_2">Adding Your First Printer</A></LI>
+<LI><A HREF="#4_2">Adding Your First Printer</A>
 <UL>
 <LI><A HREF="#4_2_1">Adding Your First Printer from the Command-Line</A></LI>
 <LI><A HREF="#ADD_WEB">Adding Your First Printer from the Web</A></LI>
 </UL>
-<LI><A HREF="#4_3">Managing Printers from the Command-Line</A></LI>
+</LI>
+<LI><A HREF="#4_3">Managing Printers from the Command-Line</A>
 <UL>
 <LI><A HREF="#4_3_1">Adding and Modifying Printers</A></LI>
 <LI><A HREF="#4_3_2">Deleting Printers</A></LI>
@@ -82,6 +85,7 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#4_3_6">Setting Quotas on a Printer</A></LI>
 <LI><A HREF="#4_3_7">Restricting User Access to a Printer</A></LI>
 </UL>
+</LI>
 <LI><A HREF="#4_4">Managing Printers from the Web</A></LI>
 </UL>
 <B><A HREF="#PRINTER_CLASSES">4 - Printer Classes</A></B>
@@ -93,7 +97,7 @@ Copyright 1997-2003, All Rights Reserved<BR>
 </UL>
 <B><A HREF="#CLIENT_SETUP">5 - Client Setup</A></B>
 <UL>
-<LI><A HREF="#6_1">The Basics</A></LI>
+<LI><A HREF="#6_1">The Basics</A>
 <UL>
 <LI><A HREF="#CLIENT_MANUAL">Manual Configuration of Print Queues</A></LI>
 <LI><A HREF="#CLIENT_SERVER">Specifying a Single Server for Printing</A></LI>
@@ -101,6 +105,7 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#CLIENT_POLL">Specifying Multiple Servers for Printing</A></LI>
 <LI><A HREF="#CLIENT_RELAY">Relaying Printers to Other Clients</A></LI>
 </UL>
+</LI>
 <LI><A HREF="#6_2">Load Balancing and Failsafe Operation</A></LI>
 </UL>
 <B><A HREF="#PRINTING_MANAGEMENT">6 - Printing System Management</A></B>
@@ -108,7 +113,7 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#7_1">The Basics</A></LI>
 <LI><A HREF="#RESTARTING">Restarting the CUPS Server</A></LI>
 <LI><A HREF="#7_3">Changing the Server Configuration</A></LI>
-<LI><A HREF="#7_4">Server Directives</A></LI>
+<LI><A HREF="#7_4">Server Directives</A>
 <UL>
 <LI><A HREF="#AccessLog">AccessLog</A></LI>
 <LI><A HREF="#Allow">Allow</A></LI>
@@ -175,6 +180,7 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#Printcap">Printcap</A></LI>
 <LI><A HREF="#PrintcapFormat">PrintcapFormat</A></LI>
 <LI><A HREF="#PrintcapGUI">PrintcapGUI</A></LI>
+<LI><A HREF="#ReloadTimeout">ReloadTimeout</A></LI>
 <LI><A HREF="#RemoteRoot">RemoteRoot</A></LI>
 <LI><A HREF="#RequestRoot">RequestRoot</A></LI>
 <LI><A HREF="#Require">Require</A></LI>
@@ -188,6 +194,7 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#ServerKey">ServerKey</A></LI>
 <LI><A HREF="#ServerName">ServerName</A></LI>
 <LI><A HREF="#ServerRoot">ServerRoot</A></LI>
+<LI><A HREF="#ServerTokens">ServerTokens</A></LI>
 <LI><A HREF="#SSLListen">SSLListen</A></LI>
 <LI><A HREF="#SSLPort">SSLPort</A></LI>
 <LI><A HREF="#SystemGroup">SystemGroup</A></LI>
@@ -195,14 +202,16 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#Timeout">Timeout</A></LI>
 <LI><A HREF="#User">User</A></LI>
 </UL>
+</LI>
 <LI><A HREF="#7_5">Changing the Client Configuration</A></LI>
-<LI><A HREF="#7_6">Client Directives</A></LI>
+<LI><A HREF="#7_6">Client Directives</A>
 <UL>
 <LI><A HREF="#Encryption">Encryption</A></LI>
 <LI><A HREF="#ServerName">ServerName</A></LI>
 </UL>
+</LI>
 <LI><A HREF="#7_7">Changing the Printer Configuration</A></LI>
-<LI><A HREF="#7_8">Printer Directives</A></LI>
+<LI><A HREF="#7_8">Printer Directives</A>
 <UL>
 <LI><A HREF="#Accepting">Accepting</A></LI>
 <LI><A HREF="#AllowUser">AllowUser</A></LI>
@@ -219,8 +228,9 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#State">State</A></LI>
 <LI><A HREF="#StateMessage">StateMessage</A></LI>
 </UL>
+</LI>
 <LI><A HREF="#7_9">Changing the Classes Configuration</A></LI>
-<LI><A HREF="#7_10">Classes Directives</A></LI>
+<LI><A HREF="#7_10">Classes Directives</A>
 <UL>
 <LI><A HREF="#ClassAccepting">Accepting</A></LI>
 <LI><A HREF="#ClassAllowUser">AllowUser</A></LI>
@@ -237,20 +247,23 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#ClassState">State</A></LI>
 <LI><A HREF="#ClassStateMessage">StateMessage</A></LI>
 </UL>
-<LI><A HREF="#PRINTING_SECURITY">Printing System Security</A></LI>
+</LI>
+<LI><A HREF="#PRINTING_SECURITY">Printing System Security</A>
 <UL>
 <LI><A HREF="#CERTIFICATES">Authentication Using Certificates</A></LI>
 <LI><A HREF="#7_11_2">Using Basic Authentication</A></LI>
 <LI><A HREF="#7_11_3">Using Digest Authentication</A></LI>
 <LI><A HREF="#7_11_4">System and Group Authentication</A></LI>
 </UL>
-<LI><A HREF="#PRINTER_ACCOUNTING">Printer Accounting</A></LI>
+</LI>
+<LI><A HREF="#PRINTER_ACCOUNTING">Printer Accounting</A>
 <UL>
 <LI><A HREF="#7_12_1">The access_log File</A></LI>
 <LI><A HREF="#7_12_2">The error_log File</A></LI>
 <LI><A HREF="#7_12_3">The page_log File</A></LI>
 </UL>
-<LI><A HREF="#FILE_TYPING_FILTERING">File Typing and Filtering</A></LI>
+</LI>
+<LI><A HREF="#FILE_TYPING_FILTERING">File Typing and Filtering</A>
 <UL>
 <LI><A HREF="#7_13_1">mime.types</A></LI>
 <LI><A HREF="#7_13_2">mime.convs</A></LI>
@@ -258,6 +271,7 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#7_13_4">Printer Drivers and PPD Files</A></LI>
 <LI><A HREF="#7_13_5">Writing Your Own Filter or Printer Driver</A></LI>
 </UL>
+</LI>
 </UL>
 <B><A HREF="#PRINTING_OTHER">7 - Printing with Other Systems</A></B>
 <UL>
@@ -265,23 +279,25 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#8_2">Printing from LPD Clients</A></LI>
 <LI><A HREF="#LPD">Printing to LPD Servers</A></LI>
 <LI><A HREF="#8_4">Printing from Mac OS 10.2 and Later Clients</A></LI>
-<LI><A HREF="#8_5">Printing from Mac OS 10.1 and Earlier Clients</A></LI>
+<LI><A HREF="#8_5">Printing from Mac OS 10.1 and Earlier Clients</A>
 <UL>
 <LI><A HREF="#8_5_1">Columbia Appletalk Package (CAP)</A></LI>
 <LI><A HREF="#8_5_2">XINET KA/Spool</A></LI>
 <LI><A HREF="#8_5_3">Netatalk</A></LI>
 </UL>
+</LI>
 <LI><A HREF="#8_6">Printing to Mac OS 10.2 and Later Servers</A></LI>
 <LI><A HREF="#8_7">Printing to Mac OS 10.1 and Earlier Servers</A></LI>
-<LI><A HREF="#8_8">Printing from Windows Clients</A></LI>
+<LI><A HREF="#8_8">Printing from Windows Clients</A>
 <UL>
 <LI><A HREF="#8_8_1">Exporting Printer Drivers</A></LI>
 </UL>
+</LI>
 <LI><A HREF="#8_9">Printing to Windows Servers</A></LI>
 </UL>
 <B><A HREF="#LICENSE">A - Software License Agreement</A></B>
 <UL>
-<LI><A HREF="#9_1">Common UNIX Printing System License Agreement</A></LI>
+<LI><A HREF="#9_1">Common UNIX Printing System License Agreement</A>
 <UL>
 <LI><A HREF="#9_1_1">Introduction</A></LI>
 <LI><A HREF="#9_1_2">License Exceptions</A></LI>
@@ -289,23 +305,27 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#9_1_4">Binary Distribution Rights</A></LI>
 <LI><A HREF="#9_1_5">Support</A></LI>
 </UL>
-<LI><A HREF="#9_2">GNU GENERAL PUBLIC LICENSE</A></LI>
+</LI>
+<LI><A HREF="#9_2">GNU GENERAL PUBLIC LICENSE</A>
 <UL>
 <LI><A HREF="#9_2_1">Preamble</A></LI>
 </UL>
-<LI><A HREF="#9_3">GNU LIBRARY GENERAL PUBLIC LICENSE</A></LI>
+</LI>
+<LI><A HREF="#9_3">GNU LIBRARY GENERAL PUBLIC LICENSE</A>
 <UL>
 <LI><A HREF="#9_3_1">Preamble</A></LI>
 </UL>
+</LI>
 </UL>
 <B><A HREF="#COMMON_NETWORK">B - Common Network Settings</A></B>
 <UL>
-<LI><A HREF="#10_1">Configuring a Network Interface</A></LI>
+<LI><A HREF="#10_1">Configuring a Network Interface</A>
 <UL>
 <LI><A HREF="#10_1_1">Configuring the IP Address Using ARP</A></LI>
 <LI><A HREF="#10_1_2">Configuring the IP Address Using RARP</A></LI>
 <LI><A HREF="#10_1_3">Configuring the IP Address Using BOOTP</A></LI>
 </UL>
+</LI>
 <LI><A HREF="#10_2">Verifying the Printer Connection</A></LI>
 <LI><A HREF="#10_3">Common Network Interface Settings</A></LI>
 <LI><A HREF="#AXIS">Configuring Axis Print Servers</A></LI>
@@ -336,11 +356,11 @@ Copyright 1997-2003, All Rights Reserved<BR>
 <LI><A HREF="#13_5">Connection Refused Messages</A></LI>
 <LI><A HREF="#13_6">Write Error Messages</A></LI>
 </UL>
-<HR>
+<HR NOSHADE>
 <H1 ALIGN="RIGHT"><A NAME="1">Preface</A></H1>
 <P>This software administrators manual provides printer administration
  information for the Common UNIX Printing System<SUP>TM</SUP> (&quot;CUPS<SUP>
-TM</SUP>&quot;), version 1.1.19.</P>
+TM</SUP>&quot;), version 1.1.23.</P>
 <H2><A NAME="1_1">System Overview</A></H2>
 <P>CUPS provides a portable printing layer for UNIX&reg;-based operating
  systems. It has been developed by <A HREF="http://www.easysw.com">Easy
@@ -826,8 +846,8 @@ file:/directory/filename</CODE> while network devices use the more
  with CUPS. You'll find a complete list of PPD files and the printers
  they will work with in <A HREF="#PRINTER_DRIVERS">Appendix C, &quot;Printer
  Drivers&quot;</A>.</P>
-<P>For a dot matrix printer connected to the serial port this would
- might look like:</P>
+<P>For a dot matrix printer connected to the serial port, this might
+ look like:</P>
 <UL>
 <PRE>
 <B>/usr/sbin/lpadmin -p DotMatrix -E -m epson9.ppd \
@@ -1200,13 +1220,13 @@ BrowseRelay</CODE></A> directive that enables a single client to relay
 <PRE>
 # Poll the two servers
 <B>
-BrowsePoll ServerA ENTER
-BrowsePoll ServerB ENTER
+BrowsePoll ServerA
+BrowsePoll ServerB
 </B>
 
 # Relay the printers to the local subnet
 <B>
-BrowseRelay 127.0.0.1 192.168.3.255 ENTER
+BrowseRelay 127.0.0.1 192.168.3.255
 </B></PRE>
 </UL>
 <P>The <A HREF="#BrowseRelay"><CODE>BrowseRelay</CODE></A> line
@@ -1226,8 +1246,8 @@ BrowseRelay 127.0.0.1 192.168.3.255 ENTER
 <PRE>
 # Relay the printers from subnet 1 and 2 to subnet 3
 <B>
-BrowseRelay 192.168.1 192.168.3.255 ENTER
-BrowseRelay 192.168.2 192.168.3.255 ENTER
+BrowseRelay 192.168.1 192.168.3.255
+BrowseRelay 192.168.2 192.168.3.255
 </B></PRE>
 </UL>
 
@@ -1268,7 +1288,6 @@ ImplicitClasses</CODE></A>) are enabled and implicit &quot;any&quot; classes (<A
 <UL>
 <DL>
 <!-- NEED 1in -->
-
 <DT>classes.conf</DT>
 <DD>This file contains information on each printer class. Normally you
  manipulate this file using the <CODE>lpadmin</CODE> command or the Web
@@ -1364,8 +1383,8 @@ HREF="#CLIENT_SETUP">Chapter 5, &quot;Client Setup&quot;</A> for more informatio
 <LI><A HREF="#DocumentRoot"><CODE>DocumentRoot</CODE></A></LI>
 <LI><A HREF="#Encryption"><CODE>Encryption</CODE></A></LI>
 <LI><A HREF="#ErrorLog"><CODE>ErrorLog</CODE></A></LI>
-</TD><TD VALIGN="TOP"> &nbsp;&nbsp;&nbsp;</TD><TD VALIGN="TOP">
 <LI><A HREF="#FaxRetryInterval"><CODE>FaxRetryInterval</CODE></A></LI>
+</TD><TD VALIGN="TOP"> &nbsp;&nbsp;&nbsp;</TD><TD VALIGN="TOP">
 <LI><A HREF="#FaxRetryLimit"><CODE>FaxRetryLimit</CODE></A></LI>
 <LI><A HREF="#FileDevice"><CODE>FileDevice</CODE></A></LI>
 <LI><A HREF="#FilterLimit"><CODE>FilterLimit</CODE></A></LI>
@@ -1393,9 +1412,9 @@ HREF="#CLIENT_SETUP">Chapter 5, &quot;Client Setup&quot;</A> for more informatio
 <LI><A HREF="#MaxJobsPerPrinter"><CODE>MaxJobsPerPrinter</CODE></A></LI>
 <LI><A HREF="#MaxJobsPerUser"><CODE>MaxJobsPerUser</CODE></A></LI>
 <LI><A HREF="#MaxLogSize"><CODE>MaxLogSize</CODE></A></LI>
-</TD><TD VALIGN="TOP"> &nbsp;&nbsp;&nbsp;</TD><TD VALIGN="TOP">
 <LI><A HREF="#MaxRequestSize"><CODE>MaxRequestSize</CODE></A></LI>
 <LI><A HREF="#Order"><CODE>Order</CODE></A></LI>
+</TD><TD VALIGN="TOP"> &nbsp;&nbsp;&nbsp;</TD><TD VALIGN="TOP">
 <LI><A HREF="#PageLog"><CODE>PageLog</CODE></A></LI>
 <LI><A HREF="#Port"><CODE>Port</CODE></A></LI>
 <LI><A HREF="#PreserveJobFiles"><CODE>PreserveJobFiles</CODE></A></LI>
@@ -1403,6 +1422,7 @@ HREF="#CLIENT_SETUP">Chapter 5, &quot;Client Setup&quot;</A> for more informatio
 <LI><A HREF="#Printcap"><CODE>Printcap</CODE></A></LI>
 <LI><A HREF="#PrintcapFormat"><CODE>PrintcapFormat</CODE></A></LI>
 <LI><A HREF="#PrintcapGUI"><CODE>PrintcapGUI</CODE></A></LI>
+<LI><A HREF="#ReloadTimeout"><CODE>ReloadTimeout</CODE></A></LI>
 <LI><A HREF="#RemoteRoot"><CODE>RemoteRoot</CODE></A></LI>
 <LI><A HREF="#RequestRoot"><CODE>RequestRoot</CODE></A></LI>
 <LI><A HREF="#Require"><CODE>Require</CODE></A></LI>
@@ -1416,6 +1436,7 @@ HREF="#CLIENT_SETUP">Chapter 5, &quot;Client Setup&quot;</A> for more informatio
 <LI><A HREF="#ServerKey"><CODE>ServerKey</CODE></A></LI>
 <LI><A HREF="#ServerName"><CODE>ServerName</CODE></A></LI>
 <LI><A HREF="#ServerRoot"><CODE>ServerRoot</CODE></A></LI>
+<LI><A HREF="#ServerTokens"><CODE>ServerTokens</CODE></A></LI>
 <LI><A HREF="#SSLListen"><CODE>SSLListen</CODE></A></LI>
 <LI><A HREF="#SSLPort"><CODE>SSLPort</CODE></A></LI>
 <LI><A HREF="#SystemGroup"><CODE>SystemGroup</CODE></A></LI>
@@ -2863,6 +2884,22 @@ PrintcapGUI /usr/bin/glpoptions
  standard output.
 <!-- NEED 3in -->
 </P>
+<H3><A NAME="ReloadTimeout">ReloadTimeout</A></H3>
+<HR>
+<H4>Examples</H4>
+<UL>
+<PRE>
+ReloadTimeout 60
+ReloadTimeout 3600
+ReloadTimeout 0
+</PRE>
+</UL>
+<H4>Description</H4>
+<P>The <CODE>ReloadTimeout</CODE> directive sets how long the scheduler
+ waits for jobs to complete before reloading the server configuration.
+ The default timeout is 60 seconds.
+<!-- NEED 3in -->
+</P>
 <H3><A NAME="RemoteRoot">RemoteRoot</A></H3>
 <HR>
 <H4>Examples</H4>
@@ -2911,7 +2948,7 @@ Require valid-user
  required for the resource. The <CODE>group</CODE> keyword specifies
  that the authenticated user must be a member of one or more of the
  named groups that follow.</P>
-<P>The <CODE>user</CODE> keyboard specifies that the authenticated user
+<P>The <CODE>user</CODE> keyword specifies that the authenticated user
  must be one of the named users that follow.</P>
 <P>The <CODE>valid-user</CODE> keyword specifies that any authenticated
  user may access the resource.</P>
@@ -3093,6 +3130,26 @@ ServerRoot /foo/bar/cups
  directory is<VAR> /etc/cups</VAR>.
 <!-- NEED 3in -->
 </P>
+<H3><A NAME="ServerTokens">ServerTokens</A></H3>
+<HR>
+<H4>Examples</H4>
+<UL>
+<PRE>
+ServerTokens None
+ServerTokens ProductOnly
+ServerTokens Major
+ServerTokens Minor
+ServerTokens Minimal
+ServerTokens OS
+ServerTokens Full
+</PRE>
+</UL>
+<H4>Description</H4>
+<P>The <CODE>ServerTokens</CODE> directive specifies the information
+ that is included in the Server header of HTTP responses. The default
+ value is <TT>Minor</TT> which generates &quot;CUPS/1.1&quot;.
+<!-- NEED 3in -->
+</P>
 <H3><A NAME="SSLListen">SSLListen</A></H3>
 <HR>
 <H4>Examples</H4>
@@ -3206,7 +3263,7 @@ User guest
 <!-- NEED 4in -->
 </P>
 <H2><A NAME="7_6">Client Directives</A></H2>
-<P>The<VAR> client.conf</VAR> file contains many directives that
+<P>The<VAR> client.conf</VAR> file contains two directives that
  determine how the client behaves:</P>
 <UL>
 <TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0">
@@ -4777,9 +4834,9 @@ smb://user:pass@server/sharename
 <H1 ALIGN="RIGHT"><A NAME="LICENSE">A - Software License Agreement</A></H1>
 <H2 ALIGN="CENTER"><A NAME="9_1">Common UNIX Printing System License
  Agreement</A></H2>
-<P ALIGN="CENTER">Copyright 1997-2003 by Easy Software Products
+<P ALIGN="CENTER">Copyright 1997-2005 by Easy Software Products
 <BR> 44141 AIRPORT VIEW DR STE 204
-<BR> HOLLYWOOD, MARYLAND 20636-3111 USA
+<BR> HOLLYWOOD, MARYLAND 20636 USA
 <BR>
 <BR> Voice: +1.301.373.9600
 <BR> Email: <A HREF="mailto:cups-info@cups.org">cups-info@cups.org</A>
@@ -4858,8 +4915,8 @@ smb://user:pass@server/sharename
  work.</P>
 <H3><A NAME="9_1_3">Trademarks</A></H3>
 <P>Easy Software Products has trademarked the Common UNIX Printing
- System, CUPS, and CUPS logo. These names and logos may be used freely
- in any direct port or binary distribution of CUPS. Please contract Easy
+ System, CUPS, and CUPS logo. You may use these names and logos in any
+ direct port or binary distribution of CUPS. Please contact Easy
  Software Products for written permission to use them in derivative
  products. Our intention is to protect the value of these trademarks and
  ensure that any derivative product meets the same high-quality
@@ -5141,6 +5198,61 @@ copies of this license document, but changing it is not allowed.
  DAMAGES.</LI>
 </OL>
 <H4>END OF TERMS AND CONDITIONS</H4>
+<H4>How to Apply These Terms to Your New Programs</H4>
+<P>If you develop a new program, and you want it to be of the greatest
+ possible use to the public, the best way to achieve this is to make it
+ free software which everyone can redistribute and change under these
+ terms.</P>
+<P>To do so, attach the following notices to the program. It is safest
+ to attach them to the start of each source file to most effectively
+ convey the exclusion of warranty; and each file should have at least
+ the &quot;copyright&quot; line and a pointer to where the full notice is found.</P>
+<PRE>
+<VAR>one line to give the program's name and an idea of what it does.</VAR>
+Copyright (C) <VAR>yyyy</VAR>  <VAR>name of author</VAR>
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+</PRE>
+<P>Also add information on how to contact you by electronic and paper
+ mail.</P>
+<P>If the program is interactive, make it output a short notice like
+ this when it starts in an interactive mode:</P>
+<PRE>
+Gnomovision version 69, Copyright (C) <VAR>year</VAR> <VAR>name of author</VAR>
+Gnomovision comes with ABSOLUTELY NO WARRANTY; for details
+type `show w'.  This is free software, and you are welcome
+to redistribute it under certain conditions; type `show c' 
+for details.
+</PRE>
+<P>The hypothetical commands <SAMP>`show w'</SAMP> and <SAMP>`show c'</SAMP>
+ should show the appropriate parts of the General Public License. Of
+ course, the commands you use may be called something other than <SAMP>
+`show w'</SAMP> and <SAMP>`show c'</SAMP>; they could even be
+ mouse-clicks or menu items--whatever suits your program.</P>
+<P>You should also get your employer (if you work as a programmer) or
+ your school, if any, to sign a &quot;copyright disclaimer&quot; for the program,
+ if necessary. Here is a sample; alter the names:</P>
+<PRE>
+Yoyodyne, Inc., hereby disclaims all copyright
+interest in the program `Gnomovision'
+(which makes passes at compilers) written 
+by James Hacker.
+
+<VAR>signature of Ty Coon</VAR>, 1 April 1989
+Ty Coon, President of Vice
+</PRE>
 
 <!-- NEW PAGE -->
 <H2><A NAME="9_3">GNU LIBRARY GENERAL PUBLIC LICENSE</A></H2>
@@ -5530,6 +5642,49 @@ of this license document, but changing it is not allowed.
  SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH
  DAMAGES.</P>
 <H4>END OF TERMS AND CONDITIONS</H4>
+<H4>How to Apply These Terms to Your New Libraries</H4>
+<P>If you develop a new library, and you want it to be of the greatest
+ possible use to the public, we recommend making it free software that
+ everyone can redistribute and change. You can do so by permitting
+ redistribution under these terms (or, alternatively, under the terms of
+ the ordinary General Public License).</P>
+<P>To apply these terms, attach the following notices to the library. It
+ is safest to attach them to the start of each source file to most
+ effectively convey the exclusion of warranty; and each file should have
+ at least the &quot;copyright&quot; line and a pointer to where the full notice is
+ found.</P>
+<PRE>
+<VAR>one line to give the library's name and an idea of what it does.</VAR>
+Copyright (C) <VAR>year</VAR>  <VAR>name of author</VAR>
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+</PRE>
+<P>Also add information on how to contact you by electronic and paper
+ mail.</P>
+<P>You should also get your employer (if you work as a programmer) or
+ your school, if any, to sign a &quot;copyright disclaimer&quot; for the library,
+ if necessary. Here is a sample; alter the names:</P>
+<PRE>
+Yoyodyne, Inc., hereby disclaims all copyright interest in
+the library `Frob' (a library for tweaking knobs) written
+by James Random Hacker.
+
+<VAR>signature of Ty Coon</VAR>, 1 April 1990
+Ty Coon, President of Vice
+</PRE>
+<P>That's all there is to it!</P>
 <H1 ALIGN="RIGHT"><A NAME="COMMON_NETWORK">B - Common Network Settings</A>
 </H1>
 <P>This appendix covers many of the popular TCP/IP network interfaces
@@ -5928,7 +6083,6 @@ ftp&gt; <B>quit ENTER</B>
 <P>The following table summarizes the options and values that are
  supported:
 <!-- NEED 9in -->
-
 <CENTER>
 <TABLE BORDER="1" WIDTH="80%">
 <TR><TH>Option=Value</TH><TH>Description</TH></TR>
@@ -5970,15 +6124,21 @@ ftp&gt; <B>quit ENTER</B>
 <TR><TD>reserve=off
 <BR> reserve=no
 <BR> reserve=false</TD><TD VALIGN="TOP">Specifies that the backend
- should not reserve a priviledged source port as required by RFC 1179.
- (Default)</TD></TR>
+ should not reserve a priviledged source port as required by RFC 1179.</TD>
+</TR>
 <TR><TD>reserve=on
 <BR> reserve=yes
-<BR> reserve=true</TD><TD VALIGN="TOP">Specifies that the backend should
- reserve a priviledges source port from 721 to 731 inclusive as required
- by RFC 1179. This option may cause reduced printing performance when
- more than 11 LPD printers are defined on the server due to port
- contention issues.</TD></TR>
+<BR> reserve=true
+<BR> reserve=rfc1179</TD><TD VALIGN="TOP">Specifies that the backend
+ should reserve a priviledges source port from 721 to 731 inclusive as
+ required by RFC 1179. This option may cause reduced printing
+ performance when more than 11 LPD printers are defined on the server
+ due to port contention issues.</TD></TR>
+<TR><TD>reserve=any</TD><TD VALIGN="TOP">Specifies that the backend
+ should reserve a priviledges source port from 1 to 1023 inclusive. This
+ often works with LPD implementations that require a priviledged source
+ port but do not limit it to the range defined by RFC 1179, allowing for
+ more printers to be active at the same time. (Default)</TD></TR>
 <TR><TD>sanitize_title=off
 <BR> sanitize_title=no
 <BR> sanitize_title=false</TD><TD VALIGN="TOP">Specifies that the

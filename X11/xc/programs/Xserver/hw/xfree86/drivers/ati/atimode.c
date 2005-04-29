@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atimode.c,v 1.16 2003/01/01 19:16:32 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atimode.c,v 1.19 2004/02/11 17:20:06 tsi Exp $ */
 /*
- * Copyright 2000 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 2000 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -125,7 +125,6 @@ ATISwap
     seq4 = GetReg(SEQX, 0x04U);
     gra1 = GetReg(GRAX, 0x01U);
     gra3 = GetReg(GRAX, 0x03U);
-    gra4 = GetReg(GRAX, 0x04U);
     gra5 = GetReg(GRAX, 0x05U);
     gra6 = GetReg(GRAX, 0x06U);
     gra8 = GetReg(GRAX, 0x08U);
@@ -257,32 +256,32 @@ ATIModePreInit
             ATIVGAWonderPreInit(pATI, pATIHW);
     }
 
-    /* Fill in Mach64 data */
     if (pATI->Chip >= ATI_CHIP_88800GXC)
 
 #endif /* AVOID_CPIO */
 
     {
+        /* Fill in Mach64 data */
         ATIMach64PreInit(pScreenInfo, pATI, pATIHW);
 
         if (pATI->Chip >= ATI_CHIP_264CT)
         {
             /* Ensure proper VCLK source */
-            pATIHW->pll_vclk_cntl = ATIGetMach64PLLReg(PLL_VCLK_CNTL) |
+            pATIHW->pll_vclk_cntl = ATIMach64GetPLLReg(PLL_VCLK_CNTL) |
                 (PLL_VCLK_SRC_SEL | PLL_VCLK_RESET);
 
             /* Set provisional values for other PLL registers */
-            pATIHW->pll_vclk_post_div = ATIGetMach64PLLReg(PLL_VCLK_POST_DIV);
-            pATIHW->pll_vclk0_fb_div = ATIGetMach64PLLReg(PLL_VCLK0_FB_DIV);
-            pATIHW->pll_vclk1_fb_div = ATIGetMach64PLLReg(PLL_VCLK1_FB_DIV);
-            pATIHW->pll_vclk2_fb_div = ATIGetMach64PLLReg(PLL_VCLK2_FB_DIV);
-            pATIHW->pll_vclk3_fb_div = ATIGetMach64PLLReg(PLL_VCLK3_FB_DIV);
-            pATIHW->pll_xclk_cntl = ATIGetMach64PLLReg(PLL_XCLK_CNTL);
+            pATIHW->pll_vclk_post_div = ATIMach64GetPLLReg(PLL_VCLK_POST_DIV);
+            pATIHW->pll_vclk0_fb_div = ATIMach64GetPLLReg(PLL_VCLK0_FB_DIV);
+            pATIHW->pll_vclk1_fb_div = ATIMach64GetPLLReg(PLL_VCLK1_FB_DIV);
+            pATIHW->pll_vclk2_fb_div = ATIMach64GetPLLReg(PLL_VCLK2_FB_DIV);
+            pATIHW->pll_vclk3_fb_div = ATIMach64GetPLLReg(PLL_VCLK3_FB_DIV);
+            pATIHW->pll_xclk_cntl = ATIMach64GetPLLReg(PLL_XCLK_CNTL);
 
             /* For now disable extended reference and feedback dividers */
             if (pATI->Chip >= ATI_CHIP_264LT)
                 pATIHW->pll_ext_vpll_cntl =
-                    ATIGetMach64PLLReg(PLL_EXT_VPLL_CNTL) &
+                    ATIMach64GetPLLReg(PLL_EXT_VPLL_CNTL) &
                     ~(PLL_EXT_VPLL_EN | PLL_EXT_VPLL_VGA_EN |
                       PLL_EXT_VPLL_INSYNC);
 
@@ -304,10 +303,10 @@ ATIModePreInit
                     if (pATI->Chip != ATI_CHIP_264XL)
                         pATIHW->lcd_index |= LCD_CRTC2_DISPLAY_DIS;
                     pATIHW->config_panel =
-                        ATIGetMach64LCDReg(LCD_CONFIG_PANEL) |
+                        ATIMach64GetLCDReg(LCD_CONFIG_PANEL) |
                         DONT_SHADOW_HEND;
                     pATIHW->lcd_gen_ctrl =
-                        ATIGetMach64LCDReg(LCD_GEN_CNTL) & ~CRTC_RW_SELECT;
+                        ATIMach64GetLCDReg(LCD_GEN_CNTL) & ~CRTC_RW_SELECT;
                     outr(LCD_INDEX, lcd_index);
                 }
 
@@ -338,7 +337,9 @@ ATIModePreInit
             }
         }
         else if (pATI->DAC == ATI_DAC_IBMRGB514)
+        {
             ATIRGB514PreInit(pATI, pATIHW);
+        }
     }
 
     /* Set RAMDAC data */
@@ -363,7 +364,7 @@ ATIModeSave
 
     int Index;
 
-    /* Get bank to bank 0 */
+    /* Get back to bank 0 */
     (*pATIHW->SetBank)(pATI, 0);
 
 #endif /* AVOID_CPIO */
@@ -373,16 +374,16 @@ ATIModeSave
 
     if (pATI->Chip >= ATI_CHIP_264CT)
     {
-        pATIHW->pll_vclk_cntl = ATIGetMach64PLLReg(PLL_VCLK_CNTL) |
+        pATIHW->pll_vclk_cntl = ATIMach64GetPLLReg(PLL_VCLK_CNTL) |
             PLL_VCLK_RESET;
-        pATIHW->pll_vclk_post_div = ATIGetMach64PLLReg(PLL_VCLK_POST_DIV);
-        pATIHW->pll_vclk0_fb_div = ATIGetMach64PLLReg(PLL_VCLK0_FB_DIV);
-        pATIHW->pll_vclk1_fb_div = ATIGetMach64PLLReg(PLL_VCLK1_FB_DIV);
-        pATIHW->pll_vclk2_fb_div = ATIGetMach64PLLReg(PLL_VCLK2_FB_DIV);
-        pATIHW->pll_vclk3_fb_div = ATIGetMach64PLLReg(PLL_VCLK3_FB_DIV);
-        pATIHW->pll_xclk_cntl = ATIGetMach64PLLReg(PLL_XCLK_CNTL);
+        pATIHW->pll_vclk_post_div = ATIMach64GetPLLReg(PLL_VCLK_POST_DIV);
+        pATIHW->pll_vclk0_fb_div = ATIMach64GetPLLReg(PLL_VCLK0_FB_DIV);
+        pATIHW->pll_vclk1_fb_div = ATIMach64GetPLLReg(PLL_VCLK1_FB_DIV);
+        pATIHW->pll_vclk2_fb_div = ATIMach64GetPLLReg(PLL_VCLK2_FB_DIV);
+        pATIHW->pll_vclk3_fb_div = ATIMach64GetPLLReg(PLL_VCLK3_FB_DIV);
+        pATIHW->pll_xclk_cntl = ATIMach64GetPLLReg(PLL_XCLK_CNTL);
         if (pATI->Chip >= ATI_CHIP_264LT)
-            pATIHW->pll_ext_vpll_cntl = ATIGetMach64PLLReg(PLL_EXT_VPLL_CNTL);
+            pATIHW->pll_ext_vpll_cntl = ATIMach64GetPLLReg(PLL_EXT_VPLL_CNTL);
 
         /* Save LCD registers */
         if (pATI->LCDPanelID >= 0)
@@ -394,26 +395,25 @@ ATIModeSave
                 pATIHW->lcd_gen_ctrl = inr(LCD_GEN_CTRL);
 
                 /* Set up to save non-shadow registers */
-                outr(LCD_GEN_CTRL,
-                    pATIHW->lcd_gen_ctrl & ~(SHADOW_EN | SHADOW_RW_EN));
+                outr(LCD_GEN_CTRL, pATIHW->lcd_gen_ctrl & ~SHADOW_RW_EN);
             }
             else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
             {
                 pATIHW->lcd_index = inr(LCD_INDEX);
-                pATIHW->config_panel = ATIGetMach64LCDReg(LCD_CONFIG_PANEL);
-                pATIHW->lcd_gen_ctrl = ATIGetMach64LCDReg(LCD_GEN_CNTL);
+                pATIHW->config_panel = ATIMach64GetLCDReg(LCD_CONFIG_PANEL);
+                pATIHW->lcd_gen_ctrl = ATIMach64GetLCDReg(LCD_GEN_CNTL);
                 pATIHW->horz_stretching =
-                    ATIGetMach64LCDReg(LCD_HORZ_STRETCHING);
+                    ATIMach64GetLCDReg(LCD_HORZ_STRETCHING);
                 pATIHW->vert_stretching =
-                    ATIGetMach64LCDReg(LCD_VERT_STRETCHING);
+                    ATIMach64GetLCDReg(LCD_VERT_STRETCHING);
                 pATIHW->ext_vert_stretch =
-                    ATIGetMach64LCDReg(LCD_EXT_VERT_STRETCH);
+                    ATIMach64GetLCDReg(LCD_EXT_VERT_STRETCH);
 
                 /* Set up to save non-shadow registers */
-                ATIPutMach64LCDReg(LCD_GEN_CNTL, pATIHW->lcd_gen_ctrl &
-                    ~(CRTC_RW_SELECT | SHADOW_EN | SHADOW_RW_EN));
+                ATIMach64PutLCDReg(LCD_GEN_CNTL,
+                    pATIHW->lcd_gen_ctrl & ~(CRTC_RW_SELECT | SHADOW_RW_EN));
             }
         }
     }
@@ -430,12 +430,12 @@ ATIModeSave
             ATIVGAWonderSave(pATI, pATIHW);
     }
 
-    /* Save Mach64 data */
     if (pATI->Chip >= ATI_CHIP_88800GXC)
 
 #endif /* AVOID_CPIO */
 
     {
+        /* Save Mach64 data */
         ATIMach64Save(pATI, pATIHW);
 
         if (pATI->Chip >= ATI_CHIP_264VTB)
@@ -447,14 +447,13 @@ ATIModeSave
             {
                 /* Switch to shadow registers */
                 if (pATI->Chip == ATI_CHIP_264LT)
-                    outr(LCD_GEN_CTRL,
-                        pATIHW->lcd_gen_ctrl | (SHADOW_EN | SHADOW_RW_EN));
+                    outr(LCD_GEN_CTRL, pATIHW->lcd_gen_ctrl | SHADOW_RW_EN);
                 else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                             (pATI->Chip == ATI_CHIP_264XL) ||
                             (pATI->Chip == ATI_CHIP_MOBILITY)) */
-                    ATIPutMach64LCDReg(LCD_GEN_CNTL,
+                    ATIMach64PutLCDReg(LCD_GEN_CNTL,
                         (pATIHW->lcd_gen_ctrl & ~CRTC_RW_SELECT) |
-                        (SHADOW_EN | SHADOW_RW_EN));
+                        SHADOW_RW_EN);
 
 #ifndef AVOID_CPIO
 
@@ -475,12 +474,14 @@ ATIModeSave
 
                 /* Restore CRTC selection and shadow state */
                 if (pATI->Chip == ATI_CHIP_264LT)
+                {
                     outr(LCD_GEN_CTRL, pATIHW->lcd_gen_ctrl);
+                }
                 else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                             (pATI->Chip == ATI_CHIP_264XL) ||
                             (pATI->Chip == ATI_CHIP_MOBILITY)) */
                 {
-                    ATIPutMach64LCDReg(LCD_GEN_CNTL, pATIHW->lcd_gen_ctrl);
+                    ATIMach64PutLCDReg(LCD_GEN_CNTL, pATIHW->lcd_gen_ctrl);
                     outr(LCD_INDEX, pATIHW->lcd_index);
                 }
             }
@@ -556,9 +557,9 @@ ATIModeCalculate
     int Index, ECPClock, MaxScalerClock;
 
     /* Clobber mode timings */
-    if ((pATI->LCDPanelID >= 0) && pATI->OptionPanelDisplay &&
+    if (pATI->OptionPanelDisplay && (pATI->LCDPanelID >= 0) &&
         !pMode->CrtcHAdjusted && !pMode->CrtcVAdjusted &&
-        (!pATI->OptionSync || (pMode->type & M_T_BUILTIN)))
+        (!pATI->OptionLCDSync || (pMode->type & M_T_BUILTIN)))
     {
         int VScan;
 
@@ -654,12 +655,60 @@ ATIModeCalculate
                     ~(CRTC_DBL_SCAN_EN | CRTC_INTERLACE_EN |
                       CRTC_HSYNC_DIS | CRTC_VSYNC_DIS | CRTC_CSYNC_EN |
                       CRTC_PIX_BY_2_EN | CRTC_DISPLAY_DIS |
-                      CRTC_VGA_XOVERSCAN | CRTC_VGA_128KAP_PAGING |
+                      CRTC_VGA_XOVERSCAN | CRTC_PIX_WIDTH |
+                      CRTC_BYTE_PIX_ORDER | CRTC_VGA_128KAP_PAGING |
                       CRTC_VFC_SYNC_TRISTATE |
                       CRTC_LOCK_REGS |  /* Already off, but ... */
                       CRTC_SYNC_TRISTATE | CRTC_EXT_DISP_EN |
                       CRTC_DISP_REQ_EN | CRTC_VGA_LINEAR | CRTC_VGA_TEXT_132 |
                       CRTC_CUR_B_TEST);
+                /* Some of these are not relevent, but that doesn't matter */
+                switch (pATI->depth)
+                {
+                    case 1:
+                        pATIHW->crtc_gen_cntl |=
+                            SetBits(PIX_WIDTH_1BPP, CRTC_PIX_WIDTH);
+                        break;
+
+                    case 4:
+                        pATIHW->crtc_gen_cntl |=
+                            SetBits(PIX_WIDTH_4BPP, CRTC_PIX_WIDTH);
+                        break;
+
+                    case 8:
+                        pATIHW->crtc_gen_cntl |=
+                            SetBits(PIX_WIDTH_8BPP, CRTC_PIX_WIDTH);
+                        break;
+
+                    case 15:
+                        pATIHW->crtc_gen_cntl |=
+                            SetBits(PIX_WIDTH_15BPP, CRTC_PIX_WIDTH);
+                        break;
+
+                    case 16:
+                        pATIHW->crtc_gen_cntl |=
+                            SetBits(PIX_WIDTH_16BPP, CRTC_PIX_WIDTH);
+                        break;
+
+                    case 24:
+                        if (pATI->bitsPerPixel == 24)
+                        {
+                            pATIHW->crtc_gen_cntl |=
+                                SetBits(PIX_WIDTH_24BPP, CRTC_PIX_WIDTH);
+                            break;
+                        }
+                        if (pATI->bitsPerPixel != 32)
+                            break;
+                        /* Fall through */
+
+                    case 32:
+                        pATIHW->crtc_gen_cntl |=
+                            SetBits(PIX_WIDTH_32BPP, CRTC_PIX_WIDTH);
+                        break;
+
+                    default:
+                        break;
+                }
 #if 0           /* This isn't needed, but is kept for reference */
                 if (pMode->Flags & V_DBLSCAN)
                     pATIHW->crtc_gen_cntl |= CRTC_DBL_SCAN_EN;
@@ -703,15 +752,17 @@ ATIModeCalculate
         pATIHW->crtc_gen_cntl &= ~(CRTC2_EN | CRTC2_PIX_WIDTH);
 
         if (pATI->Chip == ATI_CHIP_264LT)
+        {
             pATIHW->horz_stretching = inr(HORZ_STRETCHING);
+        }
         else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                     (pATI->Chip == ATI_CHIP_264XL) ||
                     (pATI->Chip == ATI_CHIP_MOBILITY)) */
         {
             lcd_index = inr(LCD_INDEX);
-            pATIHW->horz_stretching = ATIGetMach64LCDReg(LCD_HORZ_STRETCHING);
+            pATIHW->horz_stretching = ATIMach64GetLCDReg(LCD_HORZ_STRETCHING);
             pATIHW->ext_vert_stretch =
-                ATIGetMach64LCDReg(LCD_EXT_VERT_STRETCH) &
+                ATIMach64GetLCDReg(LCD_EXT_VERT_STRETCH) &
                 ~(AUTO_VERT_RATIO | VERT_STRETCH_MODE | VERT_STRETCH_RATIO3);
 
             /*
@@ -814,7 +865,9 @@ ATIModeCalculate
         } while (0);
 
         if (!pATI->OptionPanelDisplay || (VDisplay >= pATI->LCDVertical))
+        {
             pATIHW->vert_stretching = 0;
+        }
         else
         {
             pATIHW->vert_stretching = (VERT_STRETCH_USE0 | VERT_STRETCH_EN) |
@@ -861,7 +914,9 @@ ATIModeCalculate
         pATIHW->pll_vclk_cntl |= SetBits(Index, PLL_ECP_DIV);
     }
     else if (pATI->DAC == ATI_DAC_IBMRGB514)
+    {
         ATIRGB514Calculate(pATI, pATIHW, pMode);
+    }
 
     return TRUE;
 }
@@ -890,57 +945,60 @@ ATIModeSet
 
 #endif /* AVOID_CPIO */
 
-    if (pATI->Chip >= ATI_CHIP_264CT)
+    if (pATI->Chip >= ATI_CHIP_88800GXC)
     {
-        ATIPutMach64PLLReg(PLL_VCLK_CNTL, pATIHW->pll_vclk_cntl);
-        ATIPutMach64PLLReg(PLL_VCLK_POST_DIV, pATIHW->pll_vclk_post_div);
-        ATIPutMach64PLLReg(PLL_VCLK0_FB_DIV, pATIHW->pll_vclk0_fb_div);
-        ATIPutMach64PLLReg(PLL_VCLK1_FB_DIV, pATIHW->pll_vclk1_fb_div);
-        ATIPutMach64PLLReg(PLL_VCLK2_FB_DIV, pATIHW->pll_vclk2_fb_div);
-        ATIPutMach64PLLReg(PLL_VCLK3_FB_DIV, pATIHW->pll_vclk3_fb_div);
-        ATIPutMach64PLLReg(PLL_XCLK_CNTL, pATIHW->pll_xclk_cntl);
-        if (pATI->Chip >= ATI_CHIP_264LT)
-            ATIPutMach64PLLReg(PLL_EXT_VPLL_CNTL, pATIHW->pll_ext_vpll_cntl);
-        ATIPutMach64PLLReg(PLL_VCLK_CNTL,
-            pATIHW->pll_vclk_cntl & ~PLL_VCLK_RESET);
+        /* Stop CRTC */
+        outr(CRTC_GEN_CNTL,
+            pATIHW->crtc_gen_cntl & ~(CRTC_EXT_DISP_EN | CRTC_EN));
 
-        /* Load LCD registers */
-        if (pATI->LCDPanelID >= 0)
+        if (pATI->Chip >= ATI_CHIP_264CT)
         {
-            /* Stop CRTC */
-            outr(CRTC_GEN_CNTL, pATIHW->crtc_gen_cntl &
-                ~(CRTC_EXT_DISP_EN | CRTC_EN));
+            ATIMach64PutPLLReg(PLL_VCLK_CNTL, pATIHW->pll_vclk_cntl);
+            ATIMach64PutPLLReg(PLL_VCLK_POST_DIV, pATIHW->pll_vclk_post_div);
+            ATIMach64PutPLLReg(PLL_VCLK0_FB_DIV, pATIHW->pll_vclk0_fb_div);
+            ATIMach64PutPLLReg(PLL_VCLK1_FB_DIV, pATIHW->pll_vclk1_fb_div);
+            ATIMach64PutPLLReg(PLL_VCLK2_FB_DIV, pATIHW->pll_vclk2_fb_div);
+            ATIMach64PutPLLReg(PLL_VCLK3_FB_DIV, pATIHW->pll_vclk3_fb_div);
+            ATIMach64PutPLLReg(PLL_XCLK_CNTL, pATIHW->pll_xclk_cntl);
+            if (pATI->Chip >= ATI_CHIP_264LT)
+                ATIMach64PutPLLReg(PLL_EXT_VPLL_CNTL,
+                    pATIHW->pll_ext_vpll_cntl);
+            ATIMach64PutPLLReg(PLL_VCLK_CNTL,
+                pATIHW->pll_vclk_cntl & ~PLL_VCLK_RESET);
 
-            if (pATI->Chip == ATI_CHIP_264LT)
+            /* Load LCD registers */
+            if (pATI->LCDPanelID >= 0)
             {
-                /* Update non-shadow registers first */
-                outr(LCD_GEN_CTRL,
-                    pATIHW->lcd_gen_ctrl & ~(SHADOW_EN | SHADOW_RW_EN));
+                if (pATI->Chip == ATI_CHIP_264LT)
+                {
+                    /* Update non-shadow registers first */
+                    outr(LCD_GEN_CTRL, pATIHW->lcd_gen_ctrl & ~SHADOW_RW_EN);
 
-                /* Temporarily disable stretching */
-                outr(HORZ_STRETCHING, pATIHW->horz_stretching &
-                    ~(HORZ_STRETCH_MODE | HORZ_STRETCH_EN));
-                outr(VERT_STRETCHING, pATIHW->vert_stretching &
-                    ~(VERT_STRETCH_RATIO1 | VERT_STRETCH_RATIO2 |
-                      VERT_STRETCH_USE0 | VERT_STRETCH_EN));
-            }
-            else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
-                        (pATI->Chip == ATI_CHIP_264XL) ||
-                        (pATI->Chip == ATI_CHIP_MOBILITY)) */
-            {
-                /* Update non-shadow registers first */
-                ATIPutMach64LCDReg(LCD_CONFIG_PANEL, pATIHW->config_panel);
-                ATIPutMach64LCDReg(LCD_GEN_CNTL, pATIHW->lcd_gen_ctrl &
-                    ~(CRTC_RW_SELECT | SHADOW_EN | SHADOW_RW_EN));
+                    /* Temporarily disable stretching */
+                    outr(HORZ_STRETCHING, pATIHW->horz_stretching &
+                        ~(HORZ_STRETCH_MODE | HORZ_STRETCH_EN));
+                    outr(VERT_STRETCHING, pATIHW->vert_stretching &
+                        ~(VERT_STRETCH_RATIO1 | VERT_STRETCH_RATIO2 |
+                          VERT_STRETCH_USE0 | VERT_STRETCH_EN));
+                }
+                else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
+                            (pATI->Chip == ATI_CHIP_264XL) ||
+                            (pATI->Chip == ATI_CHIP_MOBILITY)) */
+                {
+                    /* Update non-shadow registers first */
+                    ATIMach64PutLCDReg(LCD_CONFIG_PANEL, pATIHW->config_panel);
+                    ATIMach64PutLCDReg(LCD_GEN_CNTL, pATIHW->lcd_gen_ctrl &
+                        ~(CRTC_RW_SELECT | SHADOW_RW_EN));
 
-                /* Temporarily disable stretching */
-                ATIPutMach64LCDReg(LCD_HORZ_STRETCHING,
-                    pATIHW->horz_stretching &
-                    ~(HORZ_STRETCH_MODE | HORZ_STRETCH_EN));
-                ATIPutMach64LCDReg(LCD_VERT_STRETCHING,
-                    pATIHW->vert_stretching &
-                    ~(VERT_STRETCH_RATIO1 | VERT_STRETCH_RATIO2 |
-                      VERT_STRETCH_USE0 | VERT_STRETCH_EN));
+                    /* Temporarily disable stretching */
+                    ATIMach64PutLCDReg(LCD_HORZ_STRETCHING,
+                        pATIHW->horz_stretching &
+                        ~(HORZ_STRETCH_MODE | HORZ_STRETCH_EN));
+                    ATIMach64PutLCDReg(LCD_VERT_STRETCHING,
+                        pATIHW->vert_stretching &
+                        ~(VERT_STRETCH_RATIO1 | VERT_STRETCH_RATIO2 |
+                          VERT_STRETCH_USE0 | VERT_STRETCH_EN));
+                }
             }
         }
     }
@@ -951,10 +1009,6 @@ ATIModeSet
 #ifndef AVOID_CPIO
 
         case ATI_CRTC_VGA:
-            /* Stop CRTC */
-            if (pATI->Chip >= ATI_CHIP_88800GXC)
-                outr(CRTC_GEN_CNTL, pATIHW->crtc_gen_cntl & ~CRTC_EN);
-
             /* Start sequencer reset */
             PutReg(SEQX, 0x00U, 0x00U);
 
@@ -977,14 +1031,20 @@ ATIModeSet
             /* Load Mach64 registers */
             if (pATI->Chip >= ATI_CHIP_88800GXC)
             {
+                /* Load MMIO registers */
+                if (pATI->Block0Base)
+                    ATIMach64Set(pATI, pATIHW);
+
                 outr(CRTC_GEN_CNTL, pATIHW->crtc_gen_cntl);
                 outr(CUR_CLR0, pATIHW->cur_clr0);
                 outr(CUR_CLR1, pATIHW->cur_clr1);
                 outr(CUR_OFFSET, pATIHW->cur_offset);
                 outr(CUR_HORZ_VERT_POSN, pATIHW->cur_horz_vert_posn);
                 outr(CUR_HORZ_VERT_OFF, pATIHW->cur_horz_vert_off);
+                outr(BUS_CNTL, pATIHW->bus_cntl);
                 outr(MEM_VGA_WP_SEL, pATIHW->mem_vga_wp_sel);
                 outr(MEM_VGA_RP_SEL, pATIHW->mem_vga_rp_sel);
+                outr(DAC_CNTL, pATIHW->dac_cntl);
                 outr(GEN_TEST_CNTL, pATIHW->gen_test_cntl | GEN_GUI_EN);
                 outr(GEN_TEST_CNTL, pATIHW->gen_test_cntl);
                 outr(GEN_TEST_CNTL, pATIHW->gen_test_cntl | GEN_GUI_EN);
@@ -996,8 +1056,6 @@ ATIModeSet
                     outr(CRTC_V_TOTAL_DISP, pATIHW->crtc_v_total_disp);
                     outr(CRTC_V_SYNC_STRT_WID, pATIHW->crtc_v_sync_strt_wid);
                     outr(CRTC_OFF_PITCH, pATIHW->crtc_off_pitch);
-                    outr(BUS_CNTL, pATIHW->bus_cntl);
-                    outr(DAC_CNTL, pATIHW->dac_cntl);
                     if (pATI->Chip >= ATI_CHIP_264VTB)
                     {
                         outr(MEM_CNTL, pATIHW->mem_cntl);
@@ -1040,14 +1098,12 @@ ATIModeSet
     {
         /* Switch to shadow registers */
         if (pATI->Chip == ATI_CHIP_264LT)
-            outr(LCD_GEN_CTRL,
-                pATIHW->lcd_gen_ctrl | (SHADOW_EN | SHADOW_RW_EN));
+            outr(LCD_GEN_CTRL, pATIHW->lcd_gen_ctrl | SHADOW_RW_EN);
         else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                     (pATI->Chip == ATI_CHIP_264XL) ||
                     (pATI->Chip == ATI_CHIP_MOBILITY)) */
-            ATIPutMach64LCDReg(LCD_GEN_CNTL,
-                (pATIHW->lcd_gen_ctrl & ~CRTC_RW_SELECT) |
-                (SHADOW_EN | SHADOW_RW_EN));
+            ATIMach64PutLCDReg(LCD_GEN_CNTL,
+                (pATIHW->lcd_gen_ctrl & ~CRTC_RW_SELECT) | SHADOW_RW_EN);
 
         /* Restore shadow registers */
         switch (pATIHW->crtc)
@@ -1087,10 +1143,10 @@ ATIModeSet
                     (pATI->Chip == ATI_CHIP_264XL) ||
                     (pATI->Chip == ATI_CHIP_MOBILITY)) */
         {
-            ATIPutMach64LCDReg(LCD_GEN_CNTL, pATIHW->lcd_gen_ctrl);
-            ATIPutMach64LCDReg(LCD_HORZ_STRETCHING, pATIHW->horz_stretching);
-            ATIPutMach64LCDReg(LCD_VERT_STRETCHING, pATIHW->vert_stretching);
-            ATIPutMach64LCDReg(LCD_EXT_VERT_STRETCH, pATIHW->ext_vert_stretch);
+            ATIMach64PutLCDReg(LCD_GEN_CNTL, pATIHW->lcd_gen_ctrl);
+            ATIMach64PutLCDReg(LCD_HORZ_STRETCHING, pATIHW->horz_stretching);
+            ATIMach64PutLCDReg(LCD_VERT_STRETCHING, pATIHW->vert_stretching);
+            ATIMach64PutLCDReg(LCD_EXT_VERT_STRETCH, pATIHW->ext_vert_stretch);
             outr(LCD_INDEX, pATIHW->lcd_index);
         }
     }

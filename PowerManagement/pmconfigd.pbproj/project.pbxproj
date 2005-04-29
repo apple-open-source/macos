@@ -3,23 +3,26 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		014CEA520018CE5811CA2923 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		014CEA530018CE5811CA2923 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -35,6 +38,8 @@
 //083
 //084
 		08FB7793FE84155DC02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				014CEA520018CE5811CA2923,
 				014CEA530018CE5811CA2923,
@@ -62,9 +67,11 @@
 			isa = PBXGroup;
 			name = pmconfigd;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		08FB7795FE84155DC02AAC07 = {
 			children = (
+				720A66C406C2F7C600944335,
 				A999C3F40450D9290018C661,
 				A999C3F50450D9290018C661,
 				A9E20B7B03EB129200CA28D7,
@@ -75,6 +82,8 @@
 				40BE9CF5031ECBBC0ACA28D7,
 				40BE9CF6031ECBBC0ACA28D7,
 				40BE9CF7031ECBBC0ACA28D7,
+				7261962C066EA3120026D41C,
+				7261962D066EA3120026D41C,
 				A9FD4B72047C482B00FA82A6,
 				A9FD4B73047C482B00FA82A6,
 				40D4F0DB01F4A1F40ACA2928,
@@ -83,6 +92,7 @@
 			isa = PBXGroup;
 			name = pmconfigd;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //080
 //081
@@ -103,6 +113,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //1A0
 //1A1
@@ -128,6 +139,7 @@
 			isa = PBXGroup;
 			name = pmset;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		40882B99019742A20ACA2928 = {
 			children = (
@@ -139,29 +151,38 @@
 			name = Frameworks;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		40882BA6019747120ACA2928 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		40882BA7019747120ACA2928 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		40882BA8019747120ACA2928 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		40882BAE019747EA0ACA2928 = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = pmset;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		40882BAF019747EA0ACA2928 = {
 			buildPhases = (
@@ -240,9 +261,11 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		409C6E8701A064020ACA2928 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = PowerManagement.bundle;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		409C6E8801A064020ACA2928 = {
 			buildPhases = (
@@ -251,6 +274,7 @@
 				409C6E8B01A064020ACA2928,
 				409C6E8C01A064020ACA2928,
 				A9D743DC05AF3D670075549C,
+				72C2C514062F57DB000F5FC7,
 				409C6E8D01A064020ACA2928,
 			);
 			buildSettings = {
@@ -283,17 +307,17 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.SystemConfiguration.PowerManagement</string>
 	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.63.7</string>
+	<string>8.84</string>
 	<key>CFBundleName</key>
 	<string>PowerManagement configd plugin</string>
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.63.7</string>
+	<string>8.84.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.63.7</string>
+	<string>8.84.0</string>
 </dict>
 </plist>
 ";
@@ -305,6 +329,7 @@
 				A999C3F70450D9290018C661,
 				A9FD4B75047C482B00FA82A6,
 				A9D3082A05B3542D006839E7,
+				7261962F066EA3120026D41C,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -315,6 +340,7 @@
 				A9C674E8054DF7B5008EC0CF,
 				A9E691B90564519800938E2D,
 				A9D743DB05AF3D4D0075549C,
+				72C2C513062F57BB000F5FC7,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -331,6 +357,8 @@
 				A9FD4B74047C482B00FA82A6,
 				A9D3082905B353FF006839E7,
 				A9D3082B05B3542F006839E7,
+				7261962E066EA3120026D41C,
+				720A66C506C2F7C600944335,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -393,52 +421,66 @@
 		409C6E9A01A0B1A80ACA2928 = {
 			isa = PBXTargetDependency;
 			target = 40882BAF019747EA0ACA2928;
+			targetProxy = 722778FB0666DBF4005D2EE4;
 		};
 		409C6E9B01A0B1A80ACA2928 = {
 			isa = PBXTargetDependency;
 			target = 409C6E8801A064020ACA2928;
+			targetProxy = 722778FD0666DBF4005D2EE4;
 		};
 		40BE9CF2031ECBBC0ACA28D7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = BatteryTimeRemaining.c;
 			path = pmconfigd/BatteryTimeRemaining.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		40BE9CF3031ECBBC0ACA28D7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BatteryTimeRemaining.h;
 			path = pmconfigd/BatteryTimeRemaining.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		40BE9CF4031ECBBC0ACA28D7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = PMSettings.c;
 			path = pmconfigd/PMSettings.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		40BE9CF5031ECBBC0ACA28D7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = PMSettings.h;
 			path = pmconfigd/PMSettings.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		40BE9CF6031ECBBC0ACA28D7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = PSLowPower.c;
 			path = pmconfigd/PSLowPower.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		40BE9CF7031ECBBC0ACA28D7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = PSLowPower.h;
 			path = pmconfigd/PSLowPower.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		40BE9CFB031ECC0B0ACA28D7 = {
 			fileRef = 40BE9CF2031ECBBC0ACA28D7;
@@ -461,23 +503,29 @@
 		40D4F0DB01F4A1F40ACA2928 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = pmconfigd.c;
 			path = pmconfigd/pmconfigd.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		40D4F0DC01F4A1F40ACA2928 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = pmset.c;
 			path = pmset/pmset.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		40D4F0DD01F4A1F40ACA2928 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.man;
 			name = pmset.1;
 			path = pmset/pmset.1;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		40D4F0DE01F4A1F40ACA2928 = {
 			fileRef = 40D4F0DC01F4A1F40ACA2928;
@@ -506,6 +554,116 @@
 //402
 //403
 //404
+//720
+//721
+//722
+//723
+//724
+		720A66C406C2F7C600944335 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.mig;
+			name = powermanagement.defs;
+			path = pmconfigd/powermanagement.defs;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		720A66C506C2F7C600944335 = {
+			fileRef = 720A66C406C2F7C600944335;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Server,
+				);
+			};
+		};
+		722778FB0666DBF4005D2EE4 = {
+			containerPortal = 08FB7793FE84155DC02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 40882BAF019747EA0ACA2928;
+			remoteInfo = pmset;
+		};
+		722778FC0666DBF4005D2EE4 = {
+			containerPortal = 08FB7793FE84155DC02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F782818D058E83E60055547B;
+			remoteInfo = ioupsd;
+		};
+		722778FD0666DBF4005D2EE4 = {
+			containerPortal = 08FB7793FE84155DC02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 409C6E8801A064020ACA2928;
+			remoteInfo = PowerManagement.bundle;
+		};
+		7261962C066EA3120026D41C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = SetActive.c;
+			path = pmconfigd/SetActive.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		7261962D066EA3120026D41C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = SetActive.h;
+			path = pmconfigd/SetActive.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		7261962E066EA3120026D41C = {
+			fileRef = 7261962C066EA3120026D41C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7261962F066EA3120026D41C = {
+			fileRef = 7261962D066EA3120026D41C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		72C2C512062F57BB000F5FC7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			name = com.apple.SystemPowerProfileDefaults.plist;
+			path = Resources/com.apple.SystemPowerProfileDefaults.plist;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		72C2C513062F57BB000F5FC7 = {
+			fileRef = 72C2C512062F57BB000F5FC7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		72C2C514062F57DB000F5FC7 = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				72C2C515062F57E5000F5FC7,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72C2C515062F57E5000F5FC7 = {
+			fileRef = 72C2C512062F57BB000F5FC7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//720
+//721
+//722
+//723
+//724
 //A90
 //A91
 //A92
@@ -514,16 +672,20 @@
 		A999C3F40450D9290018C661 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = RepeatingAutoWake.c;
 			path = pmconfigd/RepeatingAutoWake.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A999C3F50450D9290018C661 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = RepeatingAutoWake.h;
 			path = pmconfigd/RepeatingAutoWake.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A999C3F60450D9290018C661 = {
 			fileRef = A999C3F40450D9290018C661;
@@ -540,17 +702,21 @@
 		A9B6F98D054DDD9200F5EC01 = {
 			children = (
 				A9E691B70564519800938E2D,
+				72C2C512062F57BB000F5FC7,
 				A9C674E7054DF7B5008EC0CF,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A9C674E7054DF7B5008EC0CF = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = "low-batt.icns";
 			path = "Resources/low-batt.icns";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A9C674E8054DF7B5008EC0CF = {
 			fileRef = A9C674E7054DF7B5008EC0CF;
@@ -571,6 +737,8 @@
 			fileRef = F7828186058E83D30055547B;
 			isa = PBXBuildFile;
 			settings = {
+				ATTRIBUTES = (
+				);
 			};
 		};
 		A9D3082B05B3542F006839E7 = {
@@ -582,9 +750,11 @@
 		A9D743DA05AF3D4D0075549C = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.script.sh;
 			name = upsshutdown;
 			path = pmconfigd/upsshutdown;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A9D743DB05AF3D4D0075549C = {
 			fileRef = A9D743DA05AF3D4D0075549C;
@@ -611,16 +781,20 @@
 		A9E20B7B03EB129200CA28D7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = AutoWakeScheduler.c;
 			path = pmconfigd/AutoWakeScheduler.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A9E20B7C03EB129200CA28D7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = AutoWakeScheduler.h;
 			path = pmconfigd/AutoWakeScheduler.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A9E20B7D03EB129200CA28D7 = {
 			fileRef = A9E20B7B03EB129200CA28D7;
@@ -642,13 +816,16 @@
 			name = Localizable.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A9E691B80564519800938E2D = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A9E691B90564519800938E2D = {
 			fileRef = A9E691B70564519800938E2D;
@@ -659,16 +836,20 @@
 		A9FD4B72047C482B00FA82A6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = PrivateLib.c;
 			path = pmconfigd/PrivateLib.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A9FD4B73047C482B00FA82A6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = PrivateLib.h;
 			path = pmconfigd/PrivateLib.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A9FD4B74047C482B00FA82A6 = {
 			fileRef = A9FD4B72047C482B00FA82A6;
@@ -720,48 +901,61 @@
 			isa = PBXGroup;
 			name = ioupsd;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7828183058E83D30055547B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.mig;
 			name = ioupsplugin.defs;
 			path = ioupsd/ioupsplugin.defs;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7828184058E83D30055547B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = IOUPSPrivate.c;
 			path = ioupsd/IOUPSPrivate.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7828185058E83D30055547B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = upsd.c;
 			path = ioupsd/upsd.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7828186058E83D30055547B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUPSPrivate.h;
 			path = ioupsd/IOUPSPrivate.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7828187058E83D30055547B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = ioupsplugin.c;
 			path = ioupsd/ioupsplugin.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7828188058E83D30055547B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOUPSPlugIn.h;
 			path = ioupsd/IOUPSPlugIn.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7828189058E83E60055547B = {
 			buildActionMask = 2147483647;
@@ -827,9 +1021,11 @@
 			productReference = F782818E058E83E60055547B;
 		};
 		F782818E058E83E60055547B = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = ioupsd;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F7828190058E83F10055547B = {
 			fileRef = F7828183058E83D30055547B;
@@ -874,6 +1070,7 @@
 		F7828196058E83F90055547B = {
 			isa = PBXTargetDependency;
 			target = F782818D058E83E60055547B;
+			targetProxy = 722778FC0666DBF4005D2EE4;
 		};
 		F7828197058E84130055547B = {
 			fileRef = 40882BA6019747120ACA2928;

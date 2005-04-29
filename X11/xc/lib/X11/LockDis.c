@@ -25,6 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
+/* $XFree86: xc/lib/X11/LockDis.c,v 1.3 2003/11/17 22:20:08 dawes Exp $ */
 
 /*
  * Author: Stephen Gildea, MIT X Consortium
@@ -37,13 +38,9 @@ in this Software without prior written authorization from The Open Group.
 #include "locking.h"
 #endif
 
-#if NeedFunctionPrototypes
-void XLockDisplay(
+void
+XLockDisplay(
     register Display* dpy)
-#else
-void XLockDisplay(dpy)
-    register Display* dpy;
-#endif
 {
 #ifdef XTHREADS
     LockDisplay(dpy);
@@ -73,13 +70,9 @@ void XLockDisplay(dpy)
 #endif
 }
 
-#if NeedFunctionPrototypes
-void XUnlockDisplay(
+void
+XUnlockDisplay(
     register Display* dpy)
-#else
-void XUnlockDisplay(dpy)
-    register Display* dpy;
-#endif
 {
 #ifdef XTHREADS
     LockDisplay(dpy);

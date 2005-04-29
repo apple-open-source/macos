@@ -4,7 +4,6 @@
    key here.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-do compile } */
-/* { dg-options "-c" } */
 
 @interface foo {
   int a, b;

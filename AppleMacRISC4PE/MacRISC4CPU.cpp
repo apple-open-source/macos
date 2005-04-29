@@ -46,10 +46,6 @@ __END_DECLS
 
 #define kMacRISC_GPIO_DIRECTION_BIT	2
 
-#ifndef kIOHibernateStateKey
-#define kIOHibernateStateKey	"IOHibernateState"
-#endif
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define super IOCPU
@@ -99,7 +95,6 @@ static IOService						*gI2CDriver,
 static const OSSymbol					*gTBFunctionNameSym;
 static const OSSymbol					*gTBReadFunctionNameSym;		// XXX Temp!!!
 static const cpu_timebase_params_t		*gTimeBaseParams;
-static UInt32 							*gPHibernateState;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -538,9 +533,7 @@ void MacRISC4CPU::quiesceCPU(void)
 		uniN->callPlatformFunction (UniNSetPowerState, false, (void *)(kUniNSave),
 			(void *)0, (void *)0, (void *)0);
 
-		if (!gPHibernateState || !*gPHibernateState) {
-			// Tell U3 to enter sleep mode if not hibernating
-			// For U3, this has to be done before telling the PMU to start going to sleep
+		{
 			uniN->callPlatformFunction (UniNSetPowerState, false, (void *)(kUniNSleep),
 				(void *)0, (void *)0, (void *)0);
         }
@@ -555,7 +548,6 @@ void MacRISC4CPU::quiesceCPU(void)
 			 * After the command to PMU is sent we only have 100 milliseconds to quiesce
 			 * the cpu, so unnecessary delays, like kprints must be avoided.
 			 */
-			if (!gPHibernateState || !*gPHibernateState)
 				pmu->callPlatformFunction("sleepNow", false, 0, 0, 0, 0);
 	
 			// Disables the interrupts for this CPU.
@@ -569,7 +561,7 @@ void MacRISC4CPU::quiesceCPU(void)
 			keyLargo->callPlatformFunction(keyLargo_saveRegisterState, false, 0, 0, 0, 0);
 	
 			// Turn Off all KeyLargo I/O.
-			if (!gPHibernateState || !*gPHibernateState) {
+			{
 				keyLargo->callPlatformFunction(keyLargo_turnOffIO, false, (void *)false, 0, 0, 0);
         	}
         }
@@ -671,11 +663,6 @@ void MacRISC4CPU::haltCPU(void)
   
     if (bootCPU)
     {
-		if (!gPHibernateState) {
-			OSData * data = OSDynamicCast(OSData, getPMRootDomain()->getProperty(kIOHibernateStateKey));
-			if (data)
-				gPHibernateState = (UInt32 *) data->getBytesNoCopy();
-		}
         
 		uniN->callPlatformFunction (UniNPrepareForSleep, false, 
 			(void *)0, (void *)0, (void *)0, (void *)0);

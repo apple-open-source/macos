@@ -1,27 +1,22 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/compare.c,v 1.10.2.2 2002/07/28 19:14:19 kurt Exp $ */
-/*
- *	 Copyright 1999, John C. Quillan, All rights reserved.
- *	 Portions Copyright 2002, myinternet Limited. All rights reserved.
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/compare.c,v 1.18.2.5 2004/04/28 23:23:16 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *	 Redistribution and use in source and binary forms are permitted only
- *	 as authorized by the OpenLDAP Public License.	A copy of this
- *	 license is available at http://www.OpenLDAP.org/license.html or
- *	 in file LICENSE in the top-level directory of the distribution.
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999 John C. Quillan.
+ * Portions Copyright 2002 myinternet Limited.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
-#include "portable.h"
-
-#include <stdio.h>
-
-#include "slap.h"
-#ifdef HAVE_WIN32_ASPERL
-#include "asperl_undefs.h"
-#endif
-
-#include <EXTERN.h>
-#include <perl.h>
-
 #include "perl_back.h"
+#include "lutil.h"
 
 /**********************************************************
  *
@@ -31,26 +26,20 @@
 
 int
 perl_back_compare(
-	Backend	*be,
-	Connection	*conn,
 	Operation	*op,
-	struct berval	*dn,
-	struct berval	*ndn,
-	AttributeAssertion		*ava
-)
+	SlapReply	*rs )
 {
-	int return_code;
 	int count;
 	char *avastr, *ptr;
 
-	PerlBackend *perl_back = (PerlBackend *)be->be_private;
+	PerlBackend *perl_back = (PerlBackend *)op->o_bd->be_private;
 
-	avastr = ch_malloc( ava->aa_desc->ad_cname.bv_len + 1 +
-		ava->aa_value.bv_len + 1 );
+	avastr = ch_malloc( op->orc_ava->aa_desc->ad_cname.bv_len + 1 +
+		op->orc_ava->aa_value.bv_len + 1 );
 	
 	lutil_strcopy( lutil_strcopy( lutil_strcopy( avastr,
-		ava->aa_desc->ad_cname.bv_val ), "=" ),
-		ava->aa_value.bv_val );
+		op->orc_ava->aa_desc->ad_cname.bv_val ), "=" ),
+		op->orc_ava->aa_value.bv_val );
 
 	ldap_pvt_thread_mutex_lock( &perl_interpreter_mutex );	
 
@@ -59,7 +48,7 @@ perl_back_compare(
 
 		PUSHMARK(sp);
 		XPUSHs( perl_back->pb_obj_ref );
-		XPUSHs(sv_2mortal(newSVpv( dn->bv_val , 0)));
+		XPUSHs(sv_2mortal(newSVpv( op->o_req_dn.bv_val , 0)));
 		XPUSHs(sv_2mortal(newSVpv( avastr , 0)));
 		PUTBACK;
 
@@ -75,8 +64,8 @@ perl_back_compare(
 			croak("Big trouble in back_compare\n");
 		}
 
-		return_code = POPi;
-							 
+		rs->sr_err = POPi;
+
 		PUTBACK; FREETMPS; LEAVE;
 	}
 
@@ -84,8 +73,7 @@ perl_back_compare(
 
 	ch_free( avastr );
 
-	send_ldap_result( conn, op, return_code,
-		NULL, NULL, NULL, NULL );
+	send_ldap_result( op, rs );
 
 	Debug( LDAP_DEBUG_ANY, "Perl COMPARE\n", 0, 0, 0 );
 

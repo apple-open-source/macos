@@ -1,5 +1,5 @@
 /*
- * $Id: makedef.cmd,v 1.1.1.1 2001/11/29 20:40:55 jevans Exp $
+ * $Id: makedef.cmd,v 1.4 1998/11/22 03:14:08 tom Exp $
  *
  * Author:  Juan Jose Garcia Ripoll <worm@arrakis.es>.
  * Webpage: http://www.arrakis.es/~worm/

@@ -23,7 +23,7 @@
 #include "gssapiP_krb5.h"
 
 /*
- * $Id: delete_sec_context.c,v 1.15 1998/10/30 02:54:17 marc Exp $
+ * $Id: delete_sec_context.c,v 1.19 2004/06/16 02:37:23 tlyu Exp $
  */
 
 OM_uint32
@@ -34,9 +34,6 @@ krb5_gss_delete_sec_context(minor_status, context_handle, output_token)
 {
    krb5_context context;
    krb5_gss_ctx_id_rec *ctx;
-
-   if (GSS_ERROR(kg_get_context(minor_status, &context)))
-      return(GSS_S_FAILURE);
 
    if (output_token) {
       output_token->length = 0;
@@ -56,6 +53,9 @@ krb5_gss_delete_sec_context(minor_status, context_handle, output_token)
       return(GSS_S_NO_CONTEXT);
    }
 
+   ctx = (gss_ctx_id_t) *context_handle;
+   context = ctx->k5_context;
+
    /* construct a delete context token if necessary */
 
    if (output_token) {
@@ -63,7 +63,7 @@ krb5_gss_delete_sec_context(minor_status, context_handle, output_token)
       gss_buffer_desc empty;
       empty.length = 0; empty.value = NULL;
 
-      if ((major = kg_seal(context, minor_status, *context_handle, 0,
+      if ((major = kg_seal(minor_status, *context_handle, 0,
 			   GSS_C_QOP_DEFAULT,
 			   &empty, NULL, output_token, KG_TOK_DEL_CTX)))
 	 return(major);
@@ -74,8 +74,6 @@ krb5_gss_delete_sec_context(minor_status, context_handle, output_token)
    (void)kg_delete_ctx_id(*context_handle);
 
    /* free all the context state */
-
-   ctx = (gss_ctx_id_t) *context_handle;
 
    if (ctx->seqstate)
       g_order_free(&(ctx->seqstate));
@@ -92,17 +90,21 @@ krb5_gss_delete_sec_context(minor_status, context_handle, output_token)
       krb5_free_principal(context, ctx->there);
    if (ctx->subkey)
       krb5_free_keyblock(context, ctx->subkey);
+   if (ctx->acceptor_subkey)
+       krb5_free_keyblock(context, ctx->acceptor_subkey);
 
    if (ctx->auth_context) {
-       (void)krb5_auth_con_setrcache(context, ctx->auth_context, NULL);
+       if (ctx->cred_rcache)
+	   (void)krb5_auth_con_setrcache(context, ctx->auth_context, NULL);
+
        krb5_auth_con_free(context, ctx->auth_context);
    }
 
    if (ctx->mech_used)
        gss_release_oid(minor_status, &ctx->mech_used);
    
-   if (ctx->ctypes)
-       xfree(ctx->ctypes);
+   if (ctx->k5_context)
+       krb5_free_context(ctx->k5_context);
 
    /* Zero out context */
    memset(ctx, 0, sizeof(*ctx));

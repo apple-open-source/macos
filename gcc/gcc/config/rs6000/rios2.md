@@ -1,22 +1,22 @@
 ;; Scheduling description for IBM Power2 processor.
 ;;   Copyright (C) 2003 Free Software Foundation, Inc.
 ;;
-;; This file is part of GNU CC.
-;;
-;; GNU CC is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
-;; any later version.
-;;
-;; GNU CC is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-;;
+;; This file is part of GCC.
+
+;; GCC is free software; you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published
+;; by the Free Software Foundation; either version 2, or (at your
+;; option) any later version.
+
+;; GCC is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+;; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+;; License for more details.
+
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; along with GCC; see the file COPYING.  If not, write to the
+;; Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+;; MA 02111-1307, USA.
 
 (define_automaton "rios2,rios2fp")
 (define_cpu_unit "iu1_rios2,iu2_rios2" "rios2")
@@ -39,7 +39,7 @@
   "iu1_rios2|iu2_rios2")
 
 (define_insn_reservation "rios2-integer" 1
-  (and (eq_attr "type" "integer,mfcr,mtcr")
+  (and (eq_attr "type" "integer,insert_word")
        (eq_attr "cpu" "rios2"))
   "iu1_rios2|iu2_rios2")
 
@@ -85,7 +85,17 @@
        (eq_attr "cpu" "rios2"))
   "(fpu1_rios2*26)|(fpu2_rios2*26)")
 
-(define_insn_reservation "rios2-crlogical" 4
+(define_insn_reservation "rios2-mfcr" 2
+  (and (eq_attr "type" "mfcr")
+       (eq_attr "cpu" "rios2"))
+  "iu1_rios2,bpu_rios2")
+
+(define_insn_reservation "rios2-mtcr" 3
+  (and (eq_attr "type" "mtcr")
+       (eq_attr "cpu" "rios2"))
+  "iu1_rios2,bpu_rios2")
+
+(define_insn_reservation "rios2-crlogical" 3
   (and (eq_attr "type" "cr_logical,delayed_cr")
        (eq_attr "cpu" "rios2"))
   "bpu_rios2")
@@ -93,9 +103,14 @@
 (define_insn_reservation "rios2-mtjmpr" 5
   (and (eq_attr "type" "mtjmpr")
        (eq_attr "cpu" "rios2"))
-  "bpu_rios2")
+  "iu1_rios2,bpu_rios2")
 
-(define_insn_reservation "rios2-jmpreg" 1
+(define_insn_reservation "rios2-mfjmpr" 2
+  (and (eq_attr "type" "mfjmpr")
+       (eq_attr "cpu" "rios2"))
+  "iu1_rios2,bpu_rios2")
+
+(define_insn_reservation "rios2-branch" 1
   (and (eq_attr "type" "jmpreg,branch")
        (eq_attr "cpu" "rios2"))
   "bpu_rios2")

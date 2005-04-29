@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000,2001 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,6 +29,7 @@
 /****************************************************************************
  *  Author: Zeyd M. Ben-Halim <zmbenhal@netcom.com> 1992,1995               *
  *     and: Eric S. Raymond <esr@snark.thyrsus.com>                         *
+ *     and: Thomas E. Dickey                        1996-2003               *
  ****************************************************************************/
 
 /*
@@ -39,13 +40,12 @@
 */
 
 #include <curses.priv.h>
-#include <tic.h>		/* for MAX_ALIAS */
 
 #if HAVE_SYS_TERMIO_H
 #include <sys/termio.h>		/* needed for ISC */
 #endif
 
-MODULE_ID("$Id: lib_initscr.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: lib_initscr.c,v 1.33 2003/12/27 19:13:51 tom Exp $")
 
 NCURSES_EXPORT(WINDOW *)
 initscr(void)
@@ -53,13 +53,8 @@ initscr(void)
     static bool initialized = FALSE;
     NCURSES_CONST char *name;
     int value;
-#ifdef TRACE
-    int t = _nc_getenv_num("NCURSES_TRACE");
 
-    if (t >= 0)
-	trace(t);
-#endif
-
+    START_TRACE();
     T((T_CALLED("initscr()")));
     /* Portable applications must not call initscr() more than once */
     if (!initialized) {
@@ -68,6 +63,23 @@ initscr(void)
 	if ((name = getenv("TERM")) == 0
 	    || *name == '\0')
 	    name = "unknown";
+#ifdef __CYGWIN__
+	/*
+	 * 2002/9/21
+	 * Work around a bug in Cygwin.  Full-screen subprocesses run from
+	 * bash, in turn spawned from another full-screen process, will dump
+	 * core when attempting to write to stdout.  Opening /dev/tty
+	 * explicitly seems to fix the problem.
+	 */
+	if (isatty(fileno(stdout))) {
+	    FILE *fp = fopen("/dev/tty", "w");
+	    if (fp != 0 && isatty(fileno(fp))) {
+		fclose(stdout);
+		dup2(fileno(fp), STDOUT_FILENO);
+		stdout = fdopen(STDOUT_FILENO, "w");
+	    }
+	}
+#endif
 	if (newterm(name, stdout, stdin) == 0) {
 	    fprintf(stderr, "Error opening terminal: %s.\n", name);
 	    exit(EXIT_FAILURE);

@@ -3,15 +3,10 @@
 #
 # name	getty				type	status		comments
 #
-# If the console is marked insecure, single-user requires
-# the root password.
-##
-# Since DirectoryServices is not running by the time we enter
-# single-user mode, init will ask for the non-shadow crypt
-# password stored for root in /etc/master.passwd.  If no such 
-# password exists, it will not be possible to enter single-user 
-# mode from a console marked insecure.
-##
+# To secure single-user mode, enable Open Firmware password protection.
+# http://www.apple.com/downloads/macosx/apple/openfirmwarepassword.html
+# http://docs.info.apple.com/article.html?artnum=120095
+#
 #console 	"/usr/libexec/getty std.57600"	vt100	on secure
 console "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow" vt100 on secure onoption="/usr/libexec/getty std.9600"
 #tahoe's only

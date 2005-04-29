@@ -42,6 +42,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.peer.ButtonPeer;
 import java.awt.peer.ComponentPeer;
+import java.lang.reflect.Array;
 import java.util.EventListener;
 
 /**
@@ -89,6 +90,9 @@ private transient ActionListener action_listeners;
 
 /**
   * Initializes a new instance of <code>Button</code> with no label.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless()
+  * returns true
   */
 public
 Button()
@@ -103,12 +107,18 @@ Button()
   * label.  The action command name is also initialized to this value.
   *
   * @param label The label to display on the button.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless()
+  * returns true
   */
 public
 Button(String label)
 {
   this.label = label;
   actionCommand = label;
+
+  if (GraphicsEnvironment.isHeadless ())
+    throw new HeadlessException ();
 }
 
 /*************************************************************************/
@@ -200,13 +210,28 @@ removeActionListener(ActionListener listener)
   action_listeners = AWTEventMulticaster.remove(action_listeners, listener);
 }
 
-public EventListener[]
-getListeners(Class listenerType)
-{
-  if (listenerType == ActionListener.class)
-    return getListenersImpl(listenerType, action_listeners);
-  return super.getListeners(listenerType);
-}
+  public synchronized ActionListener[] getActionListeners()
+  {
+    return (ActionListener[])
+      AWTEventMulticaster.getListeners(action_listeners,
+                                       ActionListener.class);
+  }
+
+/** Returns all registered EventListers of the given listenerType. 
+ * listenerType must be a subclass of EventListener, or a 
+ * ClassClassException is thrown.
+ *
+ * @exception ClassCastException If listenerType doesn't specify a class or
+ * interface that implements @see java.util.EventListener.
+ *
+ * @since 1.3 
+ */
+  public EventListener[] getListeners(Class listenerType)
+  {
+    if (listenerType == ActionListener.class)
+      return getActionListeners();
+    return (EventListener[]) Array.newInstance(listenerType, 0);
+  }
 
 /*************************************************************************/
 
@@ -261,13 +286,13 @@ processActionEvent(ActionEvent event)
 void
 dispatchEventImpl(AWTEvent e)
 {
-  super.dispatchEventImpl(e);
-
   if (e.id <= ActionEvent.ACTION_LAST 
       && e.id >= ActionEvent.ACTION_FIRST
       && (action_listeners != null 
 	  || (eventMask & AWTEvent.ACTION_EVENT_MASK) != 0))
     processEvent(e);
+  else
+    super.dispatchEventImpl(e);
 }
 
 /*************************************************************************/

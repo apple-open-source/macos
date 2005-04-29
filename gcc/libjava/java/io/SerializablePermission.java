@@ -1,5 +1,5 @@
 /* SerializablePermission.java -- Basic permissions related to serialization.
-   Copyright (C) 1998, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2000, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -48,14 +48,12 @@ import java.security.BasicPermission;
   * There are currently two allowable permission names for this class:
   * <ul>
   * <li><code>enableSubclassImplementation</code> - Allows a subclass to
-  * override the default serialization behavior of objects.
+  * override the default serialization behavior of objects.</li>
   * <li><code>enableSubstitution</code> - Allows substitution of one object
-  * for another during serialization or deserialization.
+  * for another during serialization or deserialization.</li>
   * </ul>
   *
   * @see java.security.BasicPermission
-  *
-  * @version 0.0
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
@@ -63,56 +61,53 @@ public final class SerializablePermission extends BasicPermission
 {
   static final long serialVersionUID = 8537212141160296410L;
 	
-/*
- * Class Variables
- */
+  /*
+   * Class Variables
+   */
 
-private static final String[] legal_names = { "enableSubclassImplementation",
-					      "enableSubstitution" };
-/*************************************************************************/
+  private static final String[] legal_names = { "enableSubclassImplementation",
+  					      "enableSubstitution" };
+  /*
+   * Constructors
+   */
 
-/*
- * Constructors
- */
+  /**
+    * This method initializes a new instance of 
+    * <code>SerializablePermission</code>
+    * that has the specified name.
+    *
+    * @param name The name of the permission.
+    *
+    * @exception IllegalArgumentException If the name is not valid for
+    * this class.
+    */
+  public SerializablePermission(String name)
+  {
+    this(name, null);
+  }
 
-/**
-  * This method initializes a new instance of <code>SerializablePermission</code>
-  * that has the specified name.
-  *
-  * @param name The name of the permission.
-  *
-  * @exception IllegalArgumentException If the name is not valid for this class.
-  */
-public
-SerializablePermission(String name)
-{
-  this(name, null);
-}
+  /**
+    * This method initializes a new instance of 
+    * <code>SerializablePermission</code>
+    * that has the specified name and action list.  Note that the action list
+    * is unused in this class.
+    *
+    * @param name The name of the permission.
+    * @param actions The action list (unused).
+    *
+    * @exception IllegalArgumentException If the name is not valid for 
+    * this class.
+    */
+  public SerializablePermission(String name, String actions)
+  {
+    super(name, actions);
 
-/*************************************************************************/
+    for (int i = 0; i < legal_names.length; i++)
+      if (legal_names[i].equals(name))
+        return;
 
-/**
-  * This method initializes a new instance of <code>SerializablePermission</code>
-  * that has the specified name and action list.  Note that the action list
-  * is unused in this class.
-  *
-  * @param name The name of the permission.
-  * @param actions The action list (unused).
-  *
-  * @exception IllegalArgumentException If the name is not valid for this class.
-  */
-public
-SerializablePermission(String name, String actions)
-{
-  super(name, actions);
-
-  for (int i = 0; i < legal_names.length; i++)
-    if (legal_names[i].equals(name))
-      return;
-
-  throw new IllegalArgumentException("Bad permission name:  " + name);
-}
-
+    throw new IllegalArgumentException("Bad permission name:  " + name);
+  }
 
 } // class SerializablePermission
 

@@ -6,8 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                                                                          *
- *          Copyright (C) 1992-2001, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2003, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -59,6 +58,13 @@ __gnat_duration_to_timeval (long sec, long usec, void *t)
 #include <sys/time.h>
 #endif
 
+#ifdef __MINGW32__
+#include "mingw32.h"
+#if STD_MINGW
+#include <winsock.h>
+#endif
+#endif
+
 void
 __gnat_timeval_to_duration (struct timeval *t, long *sec, long *usec)
 {
@@ -88,7 +94,7 @@ __gnat_duration_to_timeval (long sec, long usec, struct timeval *t)
    what time_t is on the target.  */
 
 long
-gnat_time ()
+gnat_time (void)
 {
   return time (0);
 }

@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xaw/Label.c,v 1.13 2001/12/14 19:54:40 dawes Exp $ */
+/* $XFree86: xc/lib/Xaw/Label.c,v 1.14 2003/08/04 10:32:20 eich Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -526,6 +526,8 @@ XawLabelInitialize(Widget request, Widget cnew,
 {
     LabelWidget lw = (LabelWidget)cnew;
 
+    if (!lw->label.font) XtError("Aborting: no font found\n");
+    
     if (lw->label.label == NULL) 
 	lw->label.label = XtNewString(lw->core.name);
     else

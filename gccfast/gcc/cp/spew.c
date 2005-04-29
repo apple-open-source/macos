@@ -234,8 +234,10 @@ read_process_identifier (pyylval)
 	      return IDENTIFIER;
 
 	    /* Last gasp -- a trailing semicolon!!!! */
-	    next_tok_type = c_lex (&next_tok);
-	    _cpp_backup_tokens (parse_in, 1);
+	    /* APPLE LOCAL begin jet */
+	    next_tok_type = c_get_token (&next_tok);
+	    c_backup_tokens (/* parse_in, */ 1);
+	    /* APPLE LOCAL end jet */
 	    if (next_tok_type == CPP_SEMICOLON)
 	      return IDENTIFIER;
 	  }
@@ -282,7 +284,8 @@ yylexstring (t)
   enum cpp_ttype next_type;
   tree next;
 
-  next_type = c_lex (&next);
+  /* APPLE LOCAL jet */ 
+  next_type = c_get_token (&next);
   if (next_type == CPP_STRING || next_type == CPP_WSTRING)
     {
       varray_type strings;
@@ -293,7 +296,8 @@ yylexstring (t)
       do
 	{
 	  VARRAY_PUSH_TREE (strings, next);
-	  next_type = c_lex (&next);
+	  /* APPLE LOCAL jet */ 
+	  next_type = c_get_token (&next);
 	}
       while (next_type == CPP_STRING || next_type == CPP_WSTRING);
 
@@ -302,7 +306,8 @@ yylexstring (t)
     }
 
   /* We will have always read one token too many.  */
-  _cpp_backup_tokens (parse_in, 1);
+  /* APPLE LOCAL jet */
+  c_backup_tokens (/* parse_in, */ 1);
 
   t->yychar = STRING;
 }
@@ -315,7 +320,8 @@ read_token (t)
 {
  retry:
 
-  last_token = c_lex (&last_token_id);
+  /* APPLE LOCAL jet */
+  last_token = c_get_token (&last_token_id);
   t->yylval.ttype = last_token_id;
 
   switch (last_token)
@@ -432,7 +438,8 @@ read_token (t)
 	  tree after_at_id = last_token_id;
 	  enum rid last_rid;
 
-	  last_token = c_lex (&last_token_id);
+	  /* APPLE LOCAL jet */
+	  last_token = c_get_token (&last_token_id);
 	  last_rid = C_RID_CODE (last_token_id);
 	
 	  /* NB: Some of the @... keywords are the same as the "non-@" C++ 
@@ -497,7 +504,8 @@ read_token (t)
 	  else
 	    {
 	    unget_cpp:
-	      _cpp_backup_tokens (parse_in, 1);
+	      /* APPLE LOCAL jet */
+	      c_backup_tokens (/* parse_in, */ 1);
 	      last_token = after_at;
 	      last_token_id = after_at_id;
 	    }

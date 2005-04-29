@@ -3,25 +3,117 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
-		F5033F66025DE88001F62B58 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = kswitch.M.jam;
-			refType = 4;
+		A181F2AE05E5540C006CE0A8 = {
+			buildPhases = (
+				A181F2B005E5540C006CE0A8,
+				A181F2B105E5540C006CE0A8,
+				A181F2B305E5540C006CE0A8,
+				A181F2B505E5540C006CE0A8,
+				A1C7E197069DED4300DF6AFE,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = kswitch;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = kswitch;
+			productInstallPath = /usr/bin;
+			productName = ksu;
+			productReference = A181F2B705E5540C006CE0A8;
+			productType = "com.apple.product-type.tool";
 		};
-		F5033F68025DE8B801F62B58 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = kswitch.c;
-			refType = 4;
+		A181F2B005E5540C006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5033F69025DE8B801F62B58 = {
+		A181F2B105E5540C006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+				A181F2B205E5540C006CE0A8,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F2B205E5540C006CE0A8 = {
 			fileRef = F5033F68025DE8B801F62B58;
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		A181F2B305E5540C006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+				A181F2B405E5540C006CE0A8,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F2B405E5540C006CE0A8 = {
+			fileRef = F5E27E9502371EE201650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A181F2B505E5540C006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F2B705E5540C006CE0A8 = {
+			explicitFileType = "compiled.mach-o.executable";
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = kswitch;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1C7E197069DED4300DF6AFE = {
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Documentation/kswitch.M",
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+				"$(DSTROOT)/usr/share/man/man1/kswitch.1",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/share/man/man1\"\ninstall -c -m 644 \"${SRCROOT}/../Documentation/kswitch.M\" \"${DSTROOT}/usr/share/man/man1/kswitch.1\"\n";
+		};
+//A10
+//A11
+//A12
+//A13
+//A14
+//F50
+//F51
+//F52
+//F53
+//F54
+		F5033F68025DE8B801F62B58 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = kswitch.c;
+			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5649C8A025DFA770191F512 = {
 			children = (
@@ -31,37 +123,19 @@
 			name = Documentation;
 			path = ../Documentation;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5649C8B025DFA770191F512 = {
+			explicitFileType = text.man;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kswitch.M;
 			refType = 4;
-		};
-		F5B897F40241596001650119 = {
-			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/kswitch.M.jam\" $(ACTION)";
-			buildPhases = (
-			);
-			buildSettings = {
-				PRODUCT_NAME = "Man Pages";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			buildToolPath = /Developer/Private/jam;
-			dependencies = (
-			);
-			isa = PBXLegacyTarget;
-			name = "Man Pages";
-			passBuildSettingsInEnvironment = 1;
-			productName = "Man Pages";
-			settingsToExpand = 6;
-			settingsToPassInEnvironment = 287;
-			settingsToPassOnCommandLine = 280;
-		};
-		F5B897F80241599B01650119 = {
-			isa = PBXTargetDependency;
-			target = F5B897F40241596001650119;
+			sourceTree = "<group>";
 		};
 		F5E27E130237086D01650119 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				F5E27E150237086D01650119,
 				F5E27E160237086D01650119,
@@ -72,47 +146,40 @@
 			productRefGroup = F5E27E8502371B3A01650119;
 			projectDirPath = "";
 			targets = (
-				F5B897F40241596001650119,
-				F5E27E8702371B3A01650119,
+				A181F2AE05E5540C006CE0A8,
 			);
 		};
 		F5E27E140237086D01650119 = {
 			children = (
 				F5E27E7D02371AEC01650119,
 				F5649C8A025DFA770191F512,
-				F5E27E7B02371AEC01650119,
 				F5E27E9502371EE201650119,
 				F5E27E8502371B3A01650119,
 			);
 			isa = PBXGroup;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E27E150237086D01650119 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		F5E27E160237086D01650119 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
-		};
-		F5E27E7B02371AEC01650119 = {
-			children = (
-				F5033F66025DE88001F62B58,
-			);
-			isa = PBXGroup;
-			name = Scripts;
-			path = ../Scripts;
-			refType = 2;
 		};
 		F5E27E7D02371AEC01650119 = {
 			children = (
@@ -122,83 +189,23 @@
 			name = Sources;
 			path = ../Sources;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F5E27E8502371B3A01650119 = {
 			children = (
-				F5E27E8602371B3A01650119,
+				A181F2B705E5540C006CE0A8,
 			);
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
-		};
-		F5E27E8602371B3A01650119 = {
-			isa = PBXExecutableFileReference;
-			path = kswitch;
-			refType = 3;
-		};
-		F5E27E8702371B3A01650119 = {
-			buildPhases = (
-				F5E27E8802371B3A01650119,
-				F5E27E8902371B3A01650119,
-				F5E27E8A02371B3A01650119,
-				F5E27E8B02371B3A01650119,
-			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(DSTROOT)/System/Library/Frameworks\"";
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = kswitch;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-				F5B897F80241599B01650119,
-			);
-			isa = PBXToolTarget;
-			name = kswitch;
-			productInstallPath = /usr/bin;
-			productName = ksu;
-			productReference = F5E27E8602371B3A01650119;
-		};
-		F5E27E8802371B3A01650119 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E27E8902371B3A01650119 = {
-			buildActionMask = 2147483647;
-			files = (
-				F5033F69025DE8B801F62B58,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E27E8A02371B3A01650119 = {
-			buildActionMask = 2147483647;
-			files = (
-				F5E27E9602371EE201650119,
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E27E8B02371B3A01650119 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
+			sourceTree = "<group>";
 		};
 		F5E27E9502371EE201650119 = {
-			isa = PBXFrameworkReference;
+			explicitFileType = wrapper.framework;
+			isa = PBXFileReference;
 			path = Kerberos.framework;
 			refType = 3;
-		};
-		F5E27E9602371EE201650119 = {
-			fileRef = F5E27E9502371EE201650119;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 	};
 	rootObject = F5E27E130237086D01650119;

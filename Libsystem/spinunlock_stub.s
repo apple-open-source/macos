@@ -25,7 +25,8 @@
 
 #define __APPLE_API_PRIVATE
 #include <machine/cpu_capabilities.h>
-#if defined(__ppc__)
+#if defined(__ppc__) || defined(__ppc64__)
+#include <architecture/ppc/mode_independent_asm.h>
 .data
 .section __TEXT,__picsymbolstub1,symbol_stubs,pure_instructions,32
         .align 2
@@ -43,7 +44,7 @@ L__spin_unlock$stub:
 .lazy_symbol_pointer
 L__spin_unlock$lazy_ptr:
         .indirect_symbol __spin_unlock
-        .long dyld_stub_binding_helper
+        .g_long dyld_stub_binding_helper
 #elif defined(__i386__)
 .data
 .picsymbol_stub

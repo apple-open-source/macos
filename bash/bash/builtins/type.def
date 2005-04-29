@@ -73,6 +73,7 @@ $END
 extern int find_reserved_word __P((char *));
 
 extern char *this_command_name;
+extern int posixly_correct;
 
 /* For each word in LIST, find out what the shell is going to do with
    it as a simple command. i.e., which file would this shell use to
@@ -358,7 +359,8 @@ describe_command (command, dflags)
       /* If we found the command as itself by looking through $PATH, it
 	 probably doesn't exist.  Check whether or not the command is an
 	 executable file.  If it's not, don't report a match. */
-      if (STREQ (full_path, command))
+      /* Don't report paths that would fail execution when posixly_correct */
+      if (STREQ (full_path, command) || posixly_correct)
 	{
 	  f = file_status (full_path);
 	  if ((f & FS_EXECABLE) == 0)
@@ -367,9 +369,11 @@ describe_command (command, dflags)
 	      full_path = (char *)NULL;
 	      if (all == 0)
 		break;
-	    }
-	  else if (dflags & (CDESC_REUSABLE|CDESC_PATH_ONLY|CDESC_SHORTDESC))
-	    full_path = sh_makepath ((char *)NULL, full_path, MP_DOCWD);
+	    } 
+          /* command -V must emit an absolute path for POSIX  */
+	  else if ((STREQ (full_path, command) || !ABSPATH(full_path)) && 
+		   (dflags & (CDESC_REUSABLE|CDESC_PATH_ONLY|CDESC_SHORTDESC)))
+	    full_path = sh_makepath ((char *)NULL, full_path, MP_DOCWD|MP_RMDOT);
 	}
 
       found_file++;

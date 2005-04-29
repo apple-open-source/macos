@@ -66,7 +66,7 @@ subdirs:
 	@for i in $(SDIRS) ;\
 	do \
 	(cd $$i && echo "making all in crypto/$$i..." && \
-	$(MAKE) CC='$(CC)' INCLUDES='${INCLUDES}' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' BINDIR='${BINDIR}' INCLUDEDIR='${INCLUDEDIR}' LIBDIR='${LIBDIR}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' BN_ASM='${BN_ASM}' DES_ENC='${DES_ENC}' SHA1_ASM_OBJ='${SHA1_ASM_OBJ}' MD5_ASM_OBJ='${MD5_ASM_OBJ}' RMD160_ASM_OBJ='${RMD160_ASM_OBJ}' BF_ENC='${BF_ENC}' CAST_ENC='${CAST_ENC}' RC4_ENC='${RC4_ENC}' RC5_ENC='${RC5_ENC}' AR='${AR}' PROCESSOR='${PROCESSOR}' PERL='${PERL}' RANLIB='${RANLIB}' all ) || exit 1; \
+	$(MAKE) CC='$(CC)' INCLUDES='${INCLUDES}' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' BN_ASM='${BN_ASM}' DES_ENC='${DES_ENC}' SHA1_ASM_OBJ='${SHA1_ASM_OBJ}' MD5_ASM_OBJ='${MD5_ASM_OBJ}' RMD160_ASM_OBJ='${RMD160_ASM_OBJ}' BF_ENC='${BF_ENC}' CAST_ENC='${CAST_ENC}' RC4_ENC='${RC4_ENC}' RC5_ENC='${RC5_ENC}' AR='${AR}' PROCESSOR='${PROCESSOR}' PERL='${PERL}' RANLIB='${RANLIB}' all ) || exit 1; \
 	done;
 
 files:
@@ -85,7 +85,7 @@ links:
 	@$(TOP)/util/point.sh Makefile.ssl Makefile
 	@for i in $(SDIRS); do \
 	(cd $$i; echo "making links in crypto/$$i..."; \
-	$(MAKE) CC='$(CC)' INCLUDES='${INCLUDES}' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' BINDIR='${BINDIR}' INCLUDEDIR='${INCLUDEDIR}' LIBDIR='${LIBDIR}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' BN_ASM='${BN_ASM}' DES_ENC='${DES_ENC}' SHA1_ASM_OBJ='${SHA1_ASM_OBJ}' MD5_ASM_OBJ='${MD5_ASM_OBJ}' RMD160_ASM_OBJ='${RMD160_ASM_OBJ}' BF_ENC='${BF_ENC}' CAST_ENC='${CAST_ENC}' RC4_ENC='${RC4_ENC}' RC5_ENC='${RC5_ENC}' AR='${AR}' PERL='${PERL}' links ); \
+	$(MAKE) CC='$(CC)' INCLUDES='${INCLUDES}' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' BN_ASM='${BN_ASM}' DES_ENC='${DES_ENC}' SHA1_ASM_OBJ='${SHA1_ASM_OBJ}' MD5_ASM_OBJ='${MD5_ASM_OBJ}' RMD160_ASM_OBJ='${RMD160_ASM_OBJ}' BF_ENC='${BF_ENC}' CAST_ENC='${CAST_ENC}' RC4_ENC='${RC4_ENC}' RC5_ENC='${RC5_ENC}' AR='${AR}' PERL='${PERL}' links ); \
 	done;
 
 lib:	$(LIBOBJ)
@@ -98,33 +98,33 @@ libs:
 	@for i in $(SDIRS) ;\
 	do \
 	(cd $$i; echo "making libs in crypto/$$i..."; \
-	$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALL_PREFIX='${INSTALL_PREFIX}' INSTALLTOP='${INSTALLTOP}' BINDIR='${BINDIR}' INCLUDEDIR='${INCLUDEDIR}' LIBDIR='${LIBDIR}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' AR='${AR}' lib ); \
+	$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALL_PREFIX='${INSTALL_PREFIX}' INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' AR='${AR}' lib ); \
 	done;
 
 tests:
 	@for i in $(SDIRS) ;\
 	do \
 	(cd $$i; echo "making tests in crypto/$$i..."; \
-	$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' BINDIR='${BINDIR}' INCLUDEDIR='${INCLUDEDIR}' LIBDIR='${LIBDIR}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' AR='${AR}' tests ); \
+	$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' AR='${AR}' tests ); \
 	done;
 
 install:
 	@for i in $(EXHEADER) ;\
 	do \
-	(cp $$i $(INSTALL_PREFIX)$(INCLUDEDIR)/$$i; \
-	chmod 644 $(INSTALL_PREFIX)$(INCLUDEDIR)/$$i ); \
+	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
+	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
 	done;
 	@for i in $(SDIRS) ;\
 	do \
 	(cd $$i; echo "making install in crypto/$$i..."; \
-	$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALL_PREFIX='${INSTALL_PREFIX}'  INSTALLTOP='${INSTALLTOP}' BINDIR='${BINDIR}' INCLUDEDIR='${INCLUDEDIR}' LIBDIR='${LIBDIR}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' install ); \
+	$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALL_PREFIX='${INSTALL_PREFIX}'  INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' install ); \
 	done;
 
 lint:
 	@for i in $(SDIRS) ;\
 	do \
 	(cd $$i; echo "making lint in crypto/$$i..."; \
-	$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' BINDIR='${BINDIR}' INCLUDEDIR='${INCLUDEDIR}' LIBDIR='${LIBDIR}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' lint ); \
+	$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' lint ); \
 	done;
 
 depend:
@@ -142,7 +142,7 @@ clean:
 	@for i in $(SDIRS) ;\
 	do \
 	(cd $$i; echo "making clean in crypto/$$i..."; \
-	$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' BINDIR='${BINDIR}' INCLUDEDIR='${INCLUDEDIR}' LIBDIR='${LIBDIR}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' clean ); \
+	$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' clean ); \
 	done;
 
 dclean:
@@ -151,7 +151,7 @@ dclean:
 	@for i in $(SDIRS) ;\
 	do \
 	(cd $$i; echo "making dclean in crypto/$$i..."; \
-	$(MAKE) PERL='${PERL}' CC='$(CC)' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' BINDIR='${BINDIR}' INCLUDEDIR='${INCLUDEDIR}' LIBDIR='${LIBDIR}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' dclean ); \
+	$(MAKE) PERL='${PERL}' CC='$(CC)' CFLAG='${CFLAG}' INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' dclean ); \
 	done;
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
@@ -204,4 +204,3 @@ tmdiff.o: ../include/openssl/tmdiff.h cryptlib.h
 uid.o: ../include/openssl/crypto.h ../include/openssl/opensslv.h
 uid.o: ../include/openssl/safestack.h ../include/openssl/stack.h
 uid.o: ../include/openssl/symhacks.h
-ftime.o: 

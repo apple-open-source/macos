@@ -5,7 +5,7 @@ XCOMM
 XCOMM
 XCOMM
 XCOMM
-XCOMM $XFree86: xc/config/cf/Imake.tmpl,v 3.139 2003/01/28 22:06:08 alanh Exp $
+XCOMM $XFree86: xc/config/cf/Imake.tmpl,v 3.156 2004/01/12 21:43:18 herrb Exp $
 XCOMM ----------------------------------------------------------------------
 
 /*
@@ -120,6 +120,10 @@ XCOMM the platform-specific parameters - edit site.def to change
 #define NothingOutsideProjectRoot NO
 #endif
 
+#ifndef RemoveObsoleteFiles
+#define RemoveObsoleteFiles YES
+#endif
+
 #ifndef HasVarDirectory
 #define HasVarDirectory		YES
 #endif
@@ -223,6 +227,10 @@ XCOMM the platform-specific parameters - edit site.def to change
 #define PerlOptions		/**/
 #endif
 
+#ifndef PerlEnvSetup
+#define PerlEnvSetup		env LC_ALL=C
+#endif
+
 #ifndef BuildRman
 #define BuildRman YES
 #endif
@@ -278,6 +286,9 @@ XCOMM the platform-specific parameters - edit site.def to change
 
 #ifndef HasGroff
 #define HasGroff NO
+#endif
+#ifndef HasGroffHtml
+#define HasGroffHtml NO
 #endif
 
 #ifndef HasCookieMaker
@@ -414,8 +425,14 @@ XCOMM the platform-specific parameters - edit site.def to change
 #ifndef HasSnprintf
 #define HasSnprintf		NO	/* assume not */
 #endif
+#ifndef HasStrlcat
+#define HasStrlcat		NO	/* assume not */
+#endif
 #ifndef HasDlopen
 #define HasDlopen		NO	/* assume not */
+#endif
+#ifndef HasWeakSymbols
+#define HasWeakSymbols		NO	/* assume not */
 #endif
 #ifndef HasIssetugid
 #define HasIssetugid		NO	/* assume not */
@@ -450,6 +467,12 @@ XCOMM the platform-specific parameters - edit site.def to change
 #ifndef NoStrstr
 #define NoStrstr		NO
 #endif
+#ifndef HasShadowPasswd
+#define HasShadowPasswd		NO
+#endif
+#ifndef HasBasename
+#define HasBasename		YES
+#endif
 /* byte-order defaults */
 #ifndef ByteOrder
 #if defined(VaxArchitecture)
@@ -462,7 +485,7 @@ XCOMM the platform-specific parameters - edit site.def to change
 #define ByteOrder		X_LITTLE_ENDIAN
 #elif defined(ia64Architecture)
 #define ByteOrder		X_LITTLE_ENDIAN
-#elif defined(x86_64Architecture)
+#elif defined(AMD64Architecture)
 #define ByteOrder		X_LITTLE_ENDIAN
 #elif defined(SparcArchitecture) || defined(Sparc64Architecture)
 #define ByteOrder		X_BIG_ENDIAN
@@ -490,6 +513,8 @@ XCOMM the platform-specific parameters - edit site.def to change
 #define ByteOrder		X_BIG_ENDIAN
 #endif
 #endif /* ByteOrder */
+X_BYTE_ORDER = ByteOrder
+
 #ifndef HasFortran
 #define HasFortran		NO
 #endif
@@ -878,6 +903,9 @@ TCLIBDIR = TclLibDir
 #ifndef DriverManDefs
 #define DriverManDefs -D__drivermansuffix__=$(DRIVERMANSUFFIX)
 #endif
+#ifndef AdminManDefs
+#define AdminManDefs -D__adminmansuffix__=$(ADMINMANSUFFIX)
+#endif
 #ifndef ProjectManDefs
 #define ProjectManDefs -D__projectroot__=$(PROJECTROOT)
 #endif
@@ -966,6 +994,9 @@ TCLIBDIR = TclLibDir
 #ifndef DefaultCplusplusOptions
 #define DefaultCplusplusOptions /* floating point, etc. */
 #endif
+#ifndef HardCodeLibdirFlag
+#define HardCodeLibdirFlag	/**/
+#endif
 #ifndef NoRConst
 #define NoRConst NO /* YES if const for structs of funcs is bad */
 #endif
@@ -1037,10 +1068,10 @@ TCLIBDIR = TclLibDir
 #endif
 #ifndef CcCmd
 #if HasGcc2
-#define CcCmd gcc -fpcc-struct-return 
+#define CcCmd gcc -fpcc-struct-return
 #else
 #if HasGcc
-#define CcCmd gcc -fstrength-reduce -fpcc-struct-return 
+#define CcCmd gcc -fstrength-reduce -fpcc-struct-return
 #else
 #if HasCenterLineC
 #define CcCmd clcc
@@ -1061,7 +1092,11 @@ TCLIBDIR = TclLibDir
 # define CplusplusFilt	c++filt
 #endif
 #ifndef CplusplusLibC
+#if HasGcc2ForCplusplus
+#define CplusplusLibC	-lstdc++
+#else
 #define CplusplusLibC /**/
+#endif
 #endif
 #ifndef CplusplusStandardDefines
 #define CplusplusStandardDefines StandardDefines
@@ -1076,7 +1111,7 @@ TCLIBDIR = TclLibDir
 #define CplusplusDependIncludes /**/
 #endif
 #ifndef CplusplusOptions
-#define CplusplusOptions /**/
+#define CplusplusOptions DefaultCplusplusOptions
 #endif
 #ifndef CplusplusSpecialOptions
 #define CplusplusSpecialOptions /**/
@@ -1295,7 +1330,7 @@ TCLIBDIR = TclLibDir
 #endif
 #endif
 #ifndef LdPostLib
-#if !defined(UseInstalled) && AlternateUsrLibDir && !HasLdRunPath
+#if !defined(UseInstalled) && AlternateUsrLibDir && !HasLdRunPath && !defined(CrossCompileDir)
 #define LdPostLib -L$(USRLIBDIR)
 #else
 #define LdPostLib /**/
@@ -1424,6 +1459,16 @@ TCLIBDIR = TclLibDir
 #ifndef NroffCmd
 #define NroffCmd nroff
 #endif
+#ifndef HTMLroffCmd
+#if HasGroff && HasGroffHtml
+#define HTMLroffCmd groff -Thtml
+#endif
+#endif
+#ifdef HTMLroffCmd
+#ifndef DocFilesToClean
+#define DocFilesToClean grohtml*.png *-auto-*.png
+#endif
+#endif
 #ifndef MsMacros
 #define MsMacros -ms
 #endif
@@ -1450,6 +1495,21 @@ TCLIBDIR = TclLibDir
 #endif
 #ifndef LatexCmd
 #define LatexCmd latex
+#endif
+#ifndef HasPdfLatex
+#define HasPdfLatex NO
+#endif
+#ifndef PdfLatexCmd
+#define PdfLatexCmd pdflatex
+#endif
+#ifndef GhostScriptCmd
+#define GhostScriptCmd gs
+#endif
+#ifndef HasGhostScript
+#define HasGhostScript NO
+#endif
+#if HasGhostScript
+#define PsToPdfCmd GhostScriptCmd -q -sOutputFile=- -sDEVICE=pdfwrite -dSAFER -dNOPAUSE -
 #endif
 #if HasSentinel
 #ifndef SentinelCmd
@@ -1514,6 +1574,13 @@ TCLIBDIR = TclLibDir
 #define DriverManSuffix	4		/* use just one tab or cpp will die */
 #endif
 #endif
+#ifndef AdminManSuffix
+#if SystemV || SystemV4
+#define AdminManSuffix	1m		/* use just one tab or cpp will die */
+#else
+#define AdminManSuffix	8		/* use just one tab or cpp will die */
+#endif
+#endif
 #ifndef ExpandManNames
 #if SystemV
 #define ExpandManNames NO
@@ -1542,8 +1609,11 @@ TCLIBDIR = TclLibDir
 #ifndef ExtraFilesToClean
 #define ExtraFilesToClean /**/
 #endif
+#ifndef DocFilesToClean
+#define DocFilesToClean /**/
+#endif
 #ifndef FilesToClean
-#define FilesToClean *.CKP *.ln *.BAK *.bak *.Osuf core errs ,* *~ *.a .emacs_* tags TAGS make.log MakeOut 
+#define FilesToClean *.CKP *.ln *.BAK *.bak *.Osuf core errs ,* *~ *.a .emacs_* tags TAGS make.log MakeOut
 #endif
 
 #ifdef CrossCompileDir
@@ -1644,7 +1714,7 @@ TCLIBDIR = TclLibDir
 #else
                AR = ArCmd
 #endif
-XCOMM Nice try but useless: make will inherit BOOTSTRAPCFLAGS 
+XCOMM Nice try but useless: make will inherit BOOTSTRAPCFLAGS
 XCOMM from  top Makefile
   BOOTSTRAPCFLAGS = BootstrapCFlags	/* set if cpp does not have uniq sym */
 #ifdef CrossCompileDir
@@ -1665,7 +1735,7 @@ XCOMM from  top Makefile
 #endif
 #if HasCplusplus
 
-.SUFFIXES: .CCsuf
+.SUFFIXES: Concat(.,CCsuf)
 
 #ifdef CrossCompileDir
               CXX = CrossCplusplusCmd
@@ -1673,14 +1743,20 @@ XCOMM from  top Makefile
               CXX = CplusplusCmd
 #endif
           CXXFILT = CplusplusFilt
+#ifdef CplusplusLibCDir
+        CXXLIBDIR = CplusplusLibCDir
+           CXXLIB = -L$(CXXLIBDIR) CplusplusLibC
+#else
            CXXLIB = CplusplusLibC
+#endif
+
     CXXDEBUGFLAGS = DefaultCplusplusDebugFlags
 CXXDEPENDINCLUDES = CplusplusDependIncludes
  CXXEXTRA_DEFINES = CplusplusExtraDefines
 CXXEXTRA_INCLUDES = CplusplusExtraIncludes
    CXXSTD_DEFINES = CplusplusStandardDefines $(CXXPROJECT_DEFINES)
        CXXOPTIONS = CplusplusOptions
-      CXXINCLUDES = $(INCLUDES) $(TOP_INCLUDES) $(CXXEXTRA_INCLUDES) 
+      CXXINCLUDES = $(INCLUDES) $(TOP_INCLUDES) $(CXXEXTRA_INCLUDES)
        CXXDEFINES = $(CXXINCLUDES) $(CXXSTD_DEFINES) $(THREADS_CXXDEFINES) $(DEFINES) $(CXXEXTRA_DEFINES)
          CXXFLAGS = $(CXXDEBUGFLAGS) $(CXXOPTIONS) $(THREADS_CXXFLAGS) $(CXXDEFINES)
 #endif
@@ -1730,19 +1806,27 @@ CXXEXTRA_INCLUDES = CplusplusExtraIncludes
                RM = RmCmd
              PERL = PerlCmd
          PERLOPTS = PerlOptions
+     PERLENVSETUP = PerlEnvSetup
         MANSUFFIX = ManSuffix		/* suffix for command man pages */
      LIBMANSUFFIX = LibManSuffix	/* suffix for library man pages */
     FILEMANSUFFIX = FileManSuffix	/* suffix for file format man pages */
     MISCMANSUFFIX = MiscManSuffix	/* suffix for misc man pages */
   DRIVERMANSUFFIX = DriverManSuffix	/* suffix for driver man pages */
+   ADMINMANSUFFIX = AdminManSuffix	/* suffix for admin command man pages */
      MANSRCSUFFIX = ManSrcSuffix	/* suffix for man page source */
      MANNEWSUFFIX = ManNewSuffix	/* suffix for preprocessed man source */
-          MANDEFS = AppLoadDefs FileManDefs LibManDefs MiscManDefs DriverManDefs ProjectManDefs $(XORGMANDEFS) $(VENDORMANDEFS)
+          MANDEFS = AppLoadDefs FileManDefs LibManDefs MiscManDefs DriverManDefs AdminManDefs ProjectManDefs $(XORGMANDEFS) $(VENDORMANDEFS)
 
    COMPRESSMANCMD = CompressManCmd
 
             TROFF = TroffCmd
             NROFF = NroffCmd
+#ifdef HTMLroffCmd
+         HTMLROFF = HTMLroffCmd
+#endif
+#ifdef PsToPdfCmd
+       PSTOPDFCMD = PsToPdfCmd
+#endif
          MSMACROS = MsMacros
         MANMACROS = ManMacros
               TBL = TblCmd
@@ -1775,6 +1859,9 @@ MODLDCOMBINEFLAGS = ModuleLdCombineFlags
 #if HasLatex
             DVIPS = DvipsCmd
             LATEX = LatexCmd
+#endif
+#if HasPdfLatex
+      PDFLATEXCMD = PdfLatexCmd
 #endif
 #if HasSentinel
          SENTINEL = SentinelCmd
@@ -1813,9 +1900,9 @@ MODLDCOMBINEFLAGS = ModuleLdCombineFlags
      SHLIBLDFLAGS = SharedLibraryLoadFlags $(SHLIBGLOBALSFLAGS)
 #endif
 /*
- * Here we set up flags needed to produce position-independent code 
+ * Here we set up flags needed to produce position-independent code
  * when doing C and C++ compilation.  The default if you specify C
- * PIC flags without also specifying C++ PIC flags is to assume that 
+ * PIC flags without also specifying C++ PIC flags is to assume that
  * the C flags work for both.  If your C++ compiler requires different
  * flags, specify them explicitly in PositionIndependentCplusplusFlags.
  */
@@ -1870,14 +1957,14 @@ MODLDCOMBINEFLAGS = ModuleLdCombineFlags
 #else
 #define _wideprotodef -DNARROWPROTO
 #endif
-    PROTO_DEFINES = _funcprotodef _wideprotodef 
+    PROTO_DEFINES = _funcprotodef _wideprotodef
 #undef _funcprotodef
 #undef _wideprotodef
 
 #if StripInstalledPrograms
      INSTPGMFLAGS = InstPgmFlags	/* install flags for stripping */
 #else
-     INSTPGMFLAGS = 
+     INSTPGMFLAGS =
 #endif
      INSTBINFLAGS = InstBinFlags	/* install flags for programs */
      INSTUIDFLAGS = InstUidFlags	/* install flags for setuid programs */
@@ -1999,11 +2086,11 @@ XCOMM Not sure this belongs here
 #endif
 #include LocalTmplFile
 
-#if !BuildLibraries && AlternateIncRoot
+#if !BuildLibraries && AlternateIncRoot && !defined(CrossCompileDir)
 INSTALLED_INCLUDES = -I$(INCROOT)
 #endif
 
-#if !defined(UseInstalled) && !BuildLibraries && AlternateUsrLibDir
+#if !defined(UseInstalled) && !BuildLibraries && AlternateUsrLibDir && !defined(CrossCompileDir)
 INSTALLED_LIBS = -L$(USRLIBDIR)
 #endif
 
@@ -2035,10 +2122,18 @@ XCOMM common rules for all Makefiles - do not edit
 .c.i:
 	CPPOnlyCompile($*.c,$(_NOOP_))
 
+.SUFFIXES: .ii
+
+.cc.ii:
+	CPPOnlyCompile($*.cc,$(_NOOP_))
+
 .SUFFIXES: .s
 
 .c.s:
 	CompileCToAsm($(_NOOP_))
+
+.cc.s:
+	CompileCplusplusToAsm($(_NOOP_))
 
 /*
  * These need to be here so that rules in Imakefile occur first;  the blank

@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/ConvertI.h,v 1.3 2001/12/14 19:56:09 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/ConvertI.h,v 1.4 2003/04/21 16:34:26 herrb Exp $ */
 
 /* Representation types */
 
@@ -59,25 +59,18 @@ extern	XrmQuark  _XtQString;
 typedef struct _ConverterRec **ConverterTable;
 
 extern void _XtAddDefaultConverters(
-#if NeedFunctionPrototypes
     ConverterTable	/* table */
-#endif
 );
 
 extern void _XtSetDefaultConverterTable(
-#if NeedFunctionPrototypes
     ConverterTable* 		/* table */
-#endif
 );
 
 extern void _XtFreeConverterTable(
-#if NeedFunctionPrototypes
     ConverterTable 		/* table */
-#endif
 );
 
 extern void _XtTableAddConverter(
-#if NeedFunctionPrototypes
     ConverterTable		/* table */,
     XrmRepresentation    	/* from_type */,
     XrmRepresentation    	/* to_type */,
@@ -88,18 +81,15 @@ extern void _XtTableAddConverter(
     XtCacheType	    		/* cache_type */,
     XtDestructor         	/* destructor */,
     _XtBoolean			/* global */
-#endif
 );
 
 extern Boolean _XtConvert(
-#if NeedFunctionPrototypes
     Widget			/* widget */,
     XrmRepresentation    	/* from_type */,
     XrmValuePtr			/* from */,
     XrmRepresentation		/* to_type */,
     XrmValuePtr			/* to */,
     XtCacheRef*			/* cache_ref_return */
-#endif			  
 );
 
 void _XtConvertInitialize(void);

@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 
@@ -31,7 +31,7 @@
 #include "colormac.h"
 #include "context.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 #include "mmath.h"
 #include "mtypes.h"
 
@@ -44,7 +44,7 @@
 
 struct normal_stage_data {
    normal_func NormalTransform;
-   GLvector3f normal;
+   GLvector4f normal;
 };
 
 #define NORMAL_STAGE_DATA(stage) ((struct normal_stage_data *)stage->privatePtr)
@@ -65,16 +65,16 @@ static GLboolean run_normal_stage( GLcontext *ctx,
        * got a transformation matrix with uniform scaling.
        */
       const GLfloat *lengths;
-      if (ctx->ModelView.flags & MAT_FLAG_GENERAL_SCALE)
+      if (ctx->ModelviewMatrixStack.Top->flags & MAT_FLAG_GENERAL_SCALE)
          lengths = NULL;
       else
          lengths = VB->NormalLengthPtr;
 
-      store->NormalTransform( &ctx->ModelView,
+      store->NormalTransform( ctx->ModelviewMatrixStack.Top,
 			      ctx->_ModelViewInvScale,
-			      VB->NormalPtr,
+			      VB->NormalPtr,  /* input normals */
 			      lengths,
-			      &store->normal );
+			      &store->normal ); /* resulting normals */
    }
 
    VB->NormalPtr = &store->normal;
@@ -93,7 +93,7 @@ static GLboolean run_validate_normal_stage( GLcontext *ctx,
    if (ctx->_NeedEyeCoords) {
       GLuint transform = NORM_TRANSFORM_NO_ROT;
 
-      if (ctx->ModelView.flags & (MAT_FLAG_GENERAL |
+      if (ctx->ModelviewMatrixStack.Top->flags & (MAT_FLAG_GENERAL |
 				  MAT_FLAG_ROTATION |
 				  MAT_FLAG_GENERAL_3D |
 				  MAT_FLAG_PERSPECTIVE))
@@ -137,7 +137,7 @@ static GLboolean run_validate_normal_stage( GLcontext *ctx,
 static void check_normal_transform( GLcontext *ctx,
 				    struct gl_pipeline_stage *stage )
 {
-   stage->active = ctx->_NeedNormals;
+   stage->active = ctx->_NeedNormals && !ctx->VertexProgram.Enabled;
    /* Don't clobber the initialize function:
     */
    if (stage->privatePtr)
@@ -155,7 +155,7 @@ static GLboolean alloc_normal_data( GLcontext *ctx,
    if (!store)
       return GL_FALSE;
 
-   _mesa_vector3f_alloc( &store->normal, 0, tnl->vb.Size, 32 );
+   _mesa_vector4f_alloc( &store->normal, 0, tnl->vb.Size, 32 );
 
    /* Now run the stage.
     */
@@ -169,7 +169,7 @@ static void free_normal_data( struct gl_pipeline_stage *stage )
 {
    struct normal_stage_data *store = NORMAL_STAGE_DATA(stage);
    if (store) {
-      _mesa_vector3f_free( &store->normal );
+      _mesa_vector4f_free( &store->normal );
       FREE( store );
       stage->privatePtr = NULL;
    }
@@ -184,11 +184,14 @@ static void free_normal_data( struct gl_pipeline_stage *stage )
 
 const struct gl_pipeline_stage _tnl_normal_transform_stage =
 {
-   "normal transform",
+   "normal transform",		/* name */
    _TNL_NEW_NORMAL_TRANSFORM,	/* re-check */
    _TNL_NEW_NORMAL_TRANSFORM,	/* re-run */
-   0,VERT_NORM,VERT_NORM,	/* active, inputs, outputs */
-   0, 0,			/* changed_inputs, private */
+   GL_FALSE,			/* active? */
+   VERT_BIT_NORMAL,		/* inputs */
+   VERT_BIT_NORMAL,		/* outputs */
+   0,				/* changed_inputs */
+   NULL,			/* private data */
    free_normal_data,		/* destructor */
    check_normal_transform,	/* check */
    alloc_normal_data		/* run -- initially set to alloc */

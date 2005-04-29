@@ -83,9 +83,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include      "math.h"
 #include      "fp_private.h"
 #include      "fenv_private.h"
@@ -102,58 +99,34 @@
 *                                                                              *
 *      Functions used in this program: __fpclassify.                           *
 *                                                                              *
-*******************************************************************************/
+*******************************************************************************/   
 
-static long int ___fpclassifyf ( float x )
+static int ___fpclassifyd ( double arg )
 {
-   unsigned long int iexp;
-   hexsingle      z;
-   
-   z.fval = x;
-   iexp = z.lval & 0x7f800000;             // isolate float exponent
-   
-   if (iexp == 0x7f800000) {               // NaN or INF case
-      if ((z.lval & 0x007fffff) == 0)
-         return (long int) FP_INFINITE;
-      else if ((z.lval & fQuietNan) != 0)
-         return (long int) FP_QNAN;
-      else
-         return (long int) FP_SNAN;
-   }
-   
-   if (iexp != 0)                             // normal float
-      return (long int) FP_NORMAL;
-      
-   if ((z.lval & 0x007fffff) == 0)
-      return (long int) FP_ZERO;             // zero
-   else
-      return (long int) FP_SUBNORMAL;        //must be subnormal
-}
-   
-
-static long int ___fpclassifyd ( double arg )
-{
-      register unsigned long int exponent;
+      uint32_t exponent;
       hexdouble      x;
             
       x.d = arg;
+      __NOOP;
+      __NOOP;
+      __NOOP;
       
       exponent = x.i.hi & 0x7ff00000;
       if ( exponent == 0x7ff00000 )
       {
             if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
-                  return (long int) FP_INFINITE;
+                  return FP_INFINITE;
             else
                   return ( x.i.hi & dQuietNan ) ? FP_QNAN : FP_SNAN; 
       }
       else if ( exponent != 0)
-            return (long int) FP_NORMAL;
+            return FP_NORMAL;
       else
       {
             if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
-                  return (long int) FP_ZERO;
+                  return FP_ZERO;
             else
-                  return (long int) FP_SUBNORMAL;
+                  return FP_SUBNORMAL;
       }
 }
 
@@ -170,14 +143,14 @@ static double __nextafter ( double x, double y )
       fenv_t envp;
       
 //    Save old environment
-      FEGETENVD(temp.d);
+      FEGETENVD_GRP(temp.d);
       envp = temp.i.lo;
       
 //    Clear all flags in temp variable and set rounding to nearest
       temp.i.lo &= (FE_NO_FLAGS & FE_NO_ENABLES & FE_NO_RND);
       temp.i.lo |= FE_TONEAREST;
       
-      if ( ( x != x ) || ( y != y ) )      // one of the arguments is a NaN
+      if (unlikely( ( x != x ) || ( y != y ) ))      // one of the arguments is a NaN
             arg = y + x;
       else if ( x == y )      /*  Exit here in case the answer is ±INF.      */
             {                 /*  Otherwise unwanted flags will be set.      */
@@ -187,27 +160,33 @@ static double __nextafter ( double x, double y )
             if ((newexc & FE_INVALID) != 0)
                   temp.i.lo |= SET_INVALID;
             temp.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-            FESETENVD(temp.d);
+            FESETENVD_GRP(temp.d);
             if ( ( x ==  0.0 ) && ( y == 0.0 )) // (*0, -0)-> -0, (*0, +0)-> +0 i.e. "y"
                 return y;
             else
                 return x;
             }
-      else if ( ( x == PosINF.d ) || ( x == NegINF.d ) )
+      else if (unlikely( ( x == PosINF.d ) || ( x == NegINF.d ) ))
             arg = ( x > 0 ) ? PosBig.d : NegBig.d;      // x and/or y is INF
       else if ( x == 0.0 )
             {
             xsign.d = EPSILON.d;      // copy y's sign to EPSILON
             ysign.d = y;
+		    __NOOP;
+		    __NOOP;
+
             xsign.i.hi &= 0x7fffffff;
             xsign.i.hi |= ysign.i.hi & 0x80000000;
+		    __NOOP;
+		    __NOOP;
+		    __NOOP;
             arg = xsign.d;
             temp.i.lo |=  FE_INEXACT | FE_UNDERFLOW;
             }
       else if ( ( ( x < 0.0 ) && ( x < y ) ) || ( ( x > 0.0 ) && ( x > y ) ) )
             {            /*  Always clear intermediate spurious inexact.     */
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_TOWARDZERO;
-            FESETENVD(temp.d);
+            FESETENVD_GRP(temp.d);
             arg = ( x < 0.0 ) ? x + EPSILON.d : x - EPSILON.d;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -216,7 +195,7 @@ static double __nextafter ( double x, double y )
       else if ( ( x < 0.0 ) && ( x > y ) )
             {
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_DOWNWARD;
-            FESETENVD(temp.d);
+            FESETENVD_GRP(temp.d);
             arg = x - EPSILON.d;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -225,7 +204,7 @@ static double __nextafter ( double x, double y )
       else
             {
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_UPWARD;
-            FESETENVD(temp.d);
+            FESETENVD_GRP(temp.d);
             arg = x + EPSILON.d;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -241,8 +220,15 @@ static double __nextafter ( double x, double y )
             case FP_ZERO:
                   xsign.d = arg;      // copy sign from x to arg
                   ysign.d = x;
+				  __NOOP;
+				  __NOOP;
+				  
                   xsign.i.hi &= 0x7fffffff;
                   xsign.i.hi |= ( ysign.i.hi & 0x80000000 );
+				  __NOOP;
+				  __NOOP;
+				  __NOOP;
+				  
                   arg = xsign.d;
                   /* FALL THROUGH */
             case FP_SUBNORMAL:
@@ -263,7 +249,7 @@ static double __nextafter ( double x, double y )
       if ((newexc & FE_INVALID) != 0)
             temp.i.lo |= SET_INVALID;
       temp.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-      FESETENVD(temp.d);
+      FESETENVD_GRP(temp.d);
       
       return arg;
       }
@@ -283,6 +269,35 @@ double nextafterd(double x, double y)
         return __nextafter( x, y );
 }
 
+static int ___fpclassifyf ( float x )
+{
+   uint32_t iexp;
+   hexsingle      z;
+   
+   z.fval = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
+   iexp = z.lval & 0x7f800000;             // isolate float exponent
+   
+   if (iexp == 0x7f800000) {               // NaN or INF case
+      if ((z.lval & 0x007fffff) == 0)
+         return FP_INFINITE;
+      else if ((z.lval & fQuietNan) != 0)
+         return FP_QNAN;
+      else
+         return FP_SNAN;
+   }
+   
+   if (iexp != 0)                             // normal float
+      return FP_NORMAL;
+      
+   if ((z.lval & 0x007fffff) == 0)
+      return FP_ZERO;             // zero
+   else
+      return FP_SUBNORMAL;        //must be subnormal
+}
+
 float nextafterf ( float x, float y )
       {
       static const hexsingle EPSILON = { 0x00000001 };
@@ -297,14 +312,14 @@ float nextafterf ( float x, float y )
       fenv_t envp;
       
 //    Save old environment
-      FEGETENVD(temp.d);
+      FEGETENVD_GRP(temp.d);
       envp = temp.i.lo;
       
 //    Clear all flags in temp variable and set rounding to nearest
       temp.i.lo &= (FE_NO_FLAGS & FE_NO_ENABLES & FE_NO_RND);
       temp.i.lo |= FE_TONEAREST;
       
-      if ( ( x != x ) || ( y != y ) )      // one of the arguments is a NaN
+      if (unlikely( ( x != x ) || ( y != y ) ))      // one of the arguments is a NaN
             arg = y + x;
       else if ( x == y )      /*  Exit here in case the answer is ±INF.      */
             {                 /*  Otherwise unwanted flags will be set.      */
@@ -314,27 +329,34 @@ float nextafterf ( float x, float y )
             if ((newexc & FE_INVALID) != 0)
                   temp.i.lo |= SET_INVALID;
             temp.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-            FESETENVD(temp.d);
+            FESETENVD_GRP(temp.d);
             if ( ( x ==  0.0 ) && ( y == 0.0 )) // (*0, -0)-> -0, (*0, +0)-> +0
                 return y;
             else
                 return x;
             }
-      else if ( ( x == PosINF.fval ) || ( x == NegINF.fval ) )
+      else if (unlikely( ( x == PosINF.fval ) || ( x == NegINF.fval ) ))
             arg = ( x > 0 ) ? PosBig.fval : NegBig.fval;      // x and/or y is INF
       else if ( x == 0.0 )
             {
             xsign.fval = EPSILON.fval;      // copy y's sign to EPSILON
             ysign.fval = y;
+		    __NOOP;
+		    __NOOP;
+
             xsign.lval &= 0x7fffffff;
             xsign.lval |= ysign.lval & 0x80000000;
+		    __NOOP;
+		    __NOOP;
+		    __NOOP;
+
             arg = xsign.fval;
             temp.i.lo |=  FE_INEXACT | FE_UNDERFLOW;
             }
       else if ( ( ( x < 0.0 ) && ( x < y ) ) || ( ( x > 0.0 ) && ( x > y ) ) )
             {            /*  Always clear intermediate spurious inexact.     */
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_TOWARDZERO;
-            FESETENVD(temp.d);
+            FESETENVD_GRP(temp.d);
             arg = ( x < 0.0 ) ? x + EPSILON.fval : x - EPSILON.fval;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -343,7 +365,7 @@ float nextafterf ( float x, float y )
       else if ( ( x < 0.0 ) && ( x > y ) )
             {
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_DOWNWARD;
-            FESETENVD(temp.d);
+            FESETENVD_GRP(temp.d);
             arg = x - EPSILON.fval;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -352,7 +374,7 @@ float nextafterf ( float x, float y )
       else
             {
             temp.i.lo = (temp.i.lo & FE_NO_RND) | FE_UPWARD;
-            FESETENVD(temp.d);
+            FESETENVD_GRP(temp.d);
             arg = x + EPSILON.fval;
             temp.i.lo &= ~( FE_INEXACT | FE_UNDERFLOW );
             if ((temp.i.lo & FE_ALL_EXCEPT) == 0)
@@ -368,8 +390,15 @@ float nextafterf ( float x, float y )
             case FP_ZERO:
                   xsign.fval = arg;      // copy sign from x to arg
                   ysign.fval = x;
+				  __NOOP;
+				  __NOOP;
+
                   xsign.lval &= 0x7fffffff;
                   xsign.lval |= ( ysign.lval & 0x80000000 );
+				  __NOOP;
+				  __NOOP;
+				  __NOOP;
+				  
                   arg = xsign.fval;
             case FP_SUBNORMAL:
                   temp.i.lo |=  FE_INEXACT | FE_UNDERFLOW;
@@ -389,14 +418,9 @@ float nextafterf ( float x, float y )
       if ((newexc & FE_INVALID) != 0)
             temp.i.lo |= SET_INVALID;
       temp.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-      FESETENVD(temp.d);
+      FESETENVD_GRP(temp.d);
       
       return arg;
       }
 
 #endif /* BUILDING_FOR_CARBONCORE_LEGACY */
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

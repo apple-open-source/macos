@@ -1,0 +1,2 @@
+[vset    digest sha1]
+[include digest/main.inc]

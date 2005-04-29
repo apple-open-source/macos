@@ -45,9 +45,6 @@ extern long blocksize;		/* block size units */
 extern int f_accesstime;	/* use time of last access */
 extern int f_flags;		/* show flags associated with a file */
 extern int f_humanval;		/* show human-readable file sizes */
-#ifndef __APPLE__
-extern int f_lomac;		/* show LOMAC attributes */
-#endif /* __APPLE__ */
 extern int f_inode;		/* print inode */
 extern int f_longform;		/* long listing format */
 extern int f_octal;		/* print unprintables in octal */
@@ -60,6 +57,8 @@ extern int f_sortacross;	/* sort across rows, not down columns */
 extern int f_statustime;	/* use time of last mode change */
 extern int f_notabs;		/* don't use tab-separated multi-col output */
 extern int f_type;		/* add type character for non-regular files */
+extern int f_acl;		/* print ACLs in long format */
+extern int f_group;		/* list group without owner */
 #ifdef COLORLS
 extern int f_color;		/* add type in color for non-regular files */
 #endif

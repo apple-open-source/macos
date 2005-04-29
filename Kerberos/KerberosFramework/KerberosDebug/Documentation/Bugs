@@ -1,12 +1,12 @@
 ========================================================================
 KerberosDebug Bug List
 ========================================================================
-Current version: 1.5fc2
-Date:            August 22, 2003
+Current version: 1.6fc5
+Date:            January 23, 2005
 Author:          meeroh@mit.edu, lxs@mit.edu
 ========================================================================
 
-Known bugs in 1.5:
+Known bugs in 1.6:
 
 [BZ 430]	Missing leak tracking (9-only for now)
 [BZ 431]	Missing DCon (9-only for now)
@@ -16,6 +16,12 @@ Known bugs in 1.5:
 Bug #        Bug description										Fixed in
 ========================================================================
 
+[RT 2898] Remove noisy debugging syslogs from debugging library    1.6fc5
+[RT 2843] asl_log and asl_add_log_file changed prototypes          1.6fc4
+[RT 2831] Debug log should not be world writable                   1.6fc3
+[RT 2800] Use Apple System Logger and set debugging at runtime     1.6fc2
+[RT 2700] dprintmem formatting has cosmetic glitches               1.6b2
+[RT 1960] KfM should use syslog() rather than logging to a file    1.6b1
 [RT 1764] Framework should use CFStringGetMaximumSizeForEncoding() 1.5fc2
 [RT 1506] Kerberos.log should have sane permissions                1.5a1
 [BZ 735]  dprintfs do not include timestamps                       1.4a1

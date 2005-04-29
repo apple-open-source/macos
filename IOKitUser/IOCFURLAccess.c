@@ -9,12 +9,37 @@
 
 #include "IOKitInternal.h"
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#ifdef HAVE_CFURLACCESS
+
+CFTypeRef IOURLCreatePropertyFromResource(CFAllocatorRef alloc, CFURLRef url, CFStringRef property, SInt32 *errorCode)
+{
+    return (CFURLCreatePropertyFromResource(alloc, url, property, errorCode));
+}
+
+Boolean IOURLCreateDataAndPropertiesFromResource(CFAllocatorRef alloc, CFURLRef url, CFDataRef *resourceData, CFDictionaryRef *properties, CFArrayRef desiredProperties, SInt32 *errorCode)
+{
+    return (CFURLCreateDataAndPropertiesFromResource(alloc, url, resourceData, properties, desiredProperties, errorCode));
+}
+
+Boolean IOCFURLWriteDataAndPropertiesToResource(CFURLRef url, CFDataRef dataToWrite, CFDictionaryRef propertiesToWrite, SInt32 *errorCode)
+{
+    return (CFURLWriteDataAndPropertiesToResource(url, dataToWrite, propertiesToWrite, errorCode));
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#else /* !HAVE_CFURLACCESS */
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 #define kIOFileURLExists	CFSTR("kIOFileURLExists")
 #define kIOFileURLPOSIXMode	CFSTR("kIOFileURLPOSIXMode")
 #define kIOFileURLSize		CFSTR("kIOFileURLSize")
-
-#define CF_OPENFLGS (0)
-#define thread_set_errno(V) do {errno = (V);} while (0)
 
 static Boolean _IOFileURLCreateDataAndPropertiesFromResource(CFAllocatorRef alloc, CFURLRef url, CFDataRef *fetchedData, CFArrayRef desiredProperties, CFDictionaryRef *fetchedProperties, SInt32 *errorCode);
 static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef alloc, CFURLRef url, CFArrayRef desiredProperties, SInt32 *errorCode);
@@ -188,7 +213,7 @@ static Boolean _IOFileURLWritePropertiesToResource(CFURLRef url, CFDictionaryRef
         }
     }
 
-    if (keys != buffer) CFAllocatorDeallocate(CFGetAllocator(url), keys);
+    if (keys != &buffer[0]) CFAllocatorDeallocate(CFGetAllocator(url), keys);
 
     if (errorCode) *errorCode = result ? 0 : kIOURLUnknownError;
     return result;
@@ -328,7 +353,7 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
 
 // File Utilities
 
-CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char *path, CFURLRef base, CFStringRef matchingAbstractType) {
+static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char *path, CFURLRef base, CFStringRef matchingAbstractType) {
     // NOTE - we assume path points to a buffer of at least length CFMaxPathLength, and we do potentially write in to it!
     CFMutableArrayRef files;
     Boolean releaseBase = FALSE;
@@ -364,7 +389,7 @@ CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char *path, CFURL
 
             nameLen = dent->d_namlen;
             // skip . & ..; they cause descenders to go berserk
-            if (0 == dent->d_fileno || (dent->d_name[0] == '.' && (nameLen == 1 || (nameLen == 2 && dent->d_name[1] == '.')))) {
+            if (0 == dent->d_ino /*d_fileno*/ || (dent->d_name[0] == '.' && (nameLen == 1 || (nameLen == 2 && dent->d_name[1] == '.')))) {
                 continue;
             }
             if (extLen > 0) {
@@ -421,85 +446,12 @@ CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char *path, CFURL
     return files;
 }
 
-SInt32 _IOGetFileProperties(CFAllocatorRef alloc, CFURLRef pathURL, Boolean *exists, SInt32 *posixMode, SInt64 *size, CFDateRef *modTime, SInt32 *ownerID, CFArrayRef *dirContents) {
-    Boolean fileExists;
-    Boolean isDirectory = FALSE;
-    struct stat statBuf;
-    char path[CFMaxPathLength];
+#endif /* !HAVE_CFURLACCESS */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-    if ((exists == NULL) && (posixMode == NULL) && (size == NULL) && (modTime == NULL) && (ownerID == NULL) && (dirContents == NULL)) {
-        // Nothing to do.
-        return 0;
-    }
-
-    if (!CFURLGetFileSystemRepresentation(pathURL, TRUE, path, CFMaxPathLength)) {
-        return -1;
-    }
-
-    if (stat(path, &statBuf) != 0) {
-        // stat failed, but why?
-        if (thread_errno() == ENOENT) {
-            fileExists = FALSE;
-        } else {
-            return thread_errno();
-        }
-    } else {
-        fileExists = TRUE;
-        isDirectory = ((statBuf.st_mode & S_IFMT) == S_IFDIR);
-    }
-
-    if (exists != NULL) {
-        *exists = fileExists;
-    }
-
-    if (posixMode != NULL) {
-        if (fileExists) {
-            *posixMode = statBuf.st_mode;
-        } else {
-            *posixMode = 0;
-        }
-    }
-
-    if (size != NULL) {
-        if (fileExists) {
-            *size = statBuf.st_size;
-        } else {
-            *size = 0;
-        }
-    }
-
-    if (modTime != NULL) {
-        if (fileExists) {
-            CFTimeInterval theTime;
-            theTime = kCFAbsoluteTimeIntervalSince1970 + statBuf.st_mtime;
-            *modTime = CFDateCreate(alloc, theTime);
-        } else {
-            *modTime = NULL;
-        }
-    }
-
-    if (ownerID != NULL) {
-        if (fileExists) {
-            *ownerID = statBuf.st_uid;
-        } else {
-            *ownerID = -1;
-        }
-    }
-    
-    if (dirContents != NULL) {
-        if (fileExists && isDirectory) {
-            CFMutableArrayRef contents = _IOContentsOfDirectory(alloc, path, pathURL, NULL);
-            if (contents) {
-                *dirContents = contents;
-            } else {
-                *dirContents = NULL;
-            }
-        } else {
-            *dirContents = NULL;
-        }
-    }
-    return 0;
-}
+#define CF_OPENFLGS (0)
+#define thread_set_errno(V) do {errno = (V);} while (0)
 
 Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void **bytes, CFIndex *length, CFIndex maxLength) {
     // alloc must be a valid allocator.

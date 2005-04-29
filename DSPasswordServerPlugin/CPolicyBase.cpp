@@ -118,8 +118,7 @@ CPolicyBase::GetPolicyAsXMLData( void )
 //  Utility function to convert between time storage schemes.
 // ----------------------------------------------------------------------------------------
 
-bool
-CPolicyBase::ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate )
+bool pwsf_ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate )
 {
 	CFGregorianDate gregorianDate;
 	CFAbsoluteTime theCFDate = 0;
@@ -145,6 +144,12 @@ CPolicyBase::ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate 
 	return true;
 }
 
+bool
+CPolicyBase::ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate )
+{
+	return pwsf_ConvertCFDateToBSDTime( inDateRef, outBSDDate );
+}
+
 
 // ----------------------------------------------------------------------------------------
 //	* ConvertBSDTimeToCFDate
@@ -152,8 +157,7 @@ CPolicyBase::ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate 
 //  Utility function to convert between time storage schemes.
 // ----------------------------------------------------------------------------------------
 
-bool
-CPolicyBase::ConvertBSDTimeToCFDate( struct tm *inBSDDate, CFDateRef *outDateRef )
+bool pwsf_ConvertBSDTimeToCFDate( struct tm *inBSDDate, CFDateRef *outDateRef )
 {
 	CFGregorianDate gregorianDate;
 	
@@ -170,6 +174,12 @@ CPolicyBase::ConvertBSDTimeToCFDate( struct tm *inBSDDate, CFDateRef *outDateRef
 	*outDateRef = CFDateCreate( kCFAllocatorDefault, CFGregorianDateGetAbsoluteTime(gregorianDate, NULL) );
 	
 	return true;
+}
+
+bool
+CPolicyBase::ConvertBSDTimeToCFDate( struct tm *inBSDDate, CFDateRef *outDateRef )
+{
+	return pwsf_ConvertBSDTimeToCFDate( inBSDDate, outDateRef );
 }
 
 

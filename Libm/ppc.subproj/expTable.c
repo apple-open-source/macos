@@ -22,7 +22,7 @@
 /*******************************************************************************
 *                                                                              *
 *     File expTable.c,                                                         *
-*     This file contains the unsigned long array expTable[] used in the        *
+*     This file contains the uint32_t array expTable[] used in the        *
 *     approximation for exp, exp2, expm1 and Power functions.                  *
 *                                                                              *
 *     Copyright © 1997-2001 Apple Computer, Inc.  All rights reserved.         *
@@ -53,12 +53,10 @@
 *           -fschedule-insns -finline-functions -funroll-all-loops             *
 *                                                                              *
 *******************************************************************************/
-
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
+#include "stdint.h"
 
 __private_extern__
-const unsigned long int expTable[] = 
+const uint32_t expTable[] = 
       {
       0xBFD61FFF, 0x9E06A8B6, 0x3FE6A5A9, 0xEB779244,
       0xBFD60000, 0x9384EA9C, 0x3FE6B0FF, 0x3E910DE0,
@@ -416,8 +414,3 @@ const unsigned long int expTable[] =
       0x3FD60000, 0x9384EA9C, 0x3FF69049, 0x60C1D8CF,
       0x3FD61FFF, 0x9E06A8B6, 0x3FF69B94, 0x013B9EEF
       };
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

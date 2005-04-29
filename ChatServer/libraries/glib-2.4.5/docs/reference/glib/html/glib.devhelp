@@ -1,0 +1,1357 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<book xmlns="http://www.devhelp.net/book" title="GLib Reference Manual" link="index.html" author="" name="glib">
+  <chapters>
+    <sub name="GLib Overview" link="glib.html">
+      <sub name="Compiling the GLib package" link="glib-building.html"/>
+      <sub name="Cross-compiling the GLib package" link="glib-cross-compiling.html"/>
+      <sub name="Compiling GLib Applications" link="glib-compiling.html"/>
+      <sub name="Running GLib Applications" link="glib-running.html"/>
+      <sub name="Changes to GLib" link="glib-changes.html"/>
+      <sub name="Mailing lists and bug reports" link="glib-resources.html"/>
+    </sub>
+    <sub name="GLib Fundamentals" link="glib-fundamentals.html">
+      <sub name="Basic Types" link="glib-Basic-Types.html"/>
+      <sub name="Limits of Basic Types" link="glib-Limits-of-Basic-Types.html"/>
+      <sub name="Standard Macros" link="glib-Standard-Macros.html"/>
+      <sub name="Type Conversion Macros" link="glib-Type-Conversion-Macros.html"/>
+      <sub name="Byte Order Macros" link="glib-Byte-Order-Macros.html"/>
+      <sub name="Numerical Definitions" link="glib-Numerical-Definitions.html"/>
+      <sub name="Miscellaneous Macros" link="glib-Miscellaneous-Macros.html"/>
+      <sub name="Atomic Operations" link="glib-Atomic-Operations.html"/>
+    </sub>
+    <sub name="GLib Core Application Support" link="glib-core.html">
+      <sub name="The Main Event Loop" link="glib-The-Main-Event-Loop.html"/>
+      <sub name="&#10;Threads" link="glib-Threads.html"/>
+      <sub name="Thread Pools" link="glib-Thread-Pools.html"/>
+      <sub name="Asynchronous Queues" link="glib-Asynchronous-Queues.html"/>
+      <sub name="Dynamic Loading of Modules" link="glib-Dynamic-Loading-of-Modules.html"/>
+      <sub name="Memory Allocation" link="glib-Memory-Allocation.html"/>
+      <sub name="IO Channels" link="glib-IO-Channels.html"/>
+      <sub name="Error Reporting" link="glib-Error-Reporting.html"/>
+      <sub name="Message Output and Debugging Functions" link="glib-Warnings-and-Assertions.html"/>
+      <sub name="Message Logging" link="glib-Message-Logging.html"/>
+    </sub>
+    <sub name="GLib Utilities" link="glib-utilities.html">
+      <sub name="String Utility Functions" link="glib-String-Utility-Functions.html"/>
+      <sub name="Character Set Conversion" link="glib-Character-Set-Conversion.html"/>
+      <sub name="Unicode Manipulation" link="glib-Unicode-Manipulation.html"/>
+      <sub name="Internationalization" link="glib-I18N.html"/>
+      <sub name="Date and Time Functions" link="glib-Date-and-Time-Functions.html"/>
+      <sub name="Random Numbers" link="glib-Random-Numbers.html"/>
+      <sub name="Hook Functions" link="glib-Hook-Functions.html"/>
+      <sub name="Miscellaneous Utility Functions" link="glib-Miscellaneous-Utility-Functions.html"/>
+      <sub name="Lexical Scanner" link="glib-Lexical-Scanner.html"/>
+      <sub name="Automatic String Completion" link="glib-Automatic-String-Completion.html"/>
+      <sub name="Timers" link="glib-Timers.html"/>
+      <sub name="Spawning Processes" link="glib-Spawning-Processes.html"/>
+      <sub name="File Utilities" link="glib-File-Utilities.html"/>
+      <sub name="Shell-related Utilities" link="glib-Shell-related-Utilities.html"/>
+      <sub name="Glob-style pattern matching" link="glib-Glob-style-pattern-matching.html"/>
+      <sub name="Simple XML Subset Parser" link="glib-Simple-XML-Subset-Parser.html"/>
+      <sub name="Windows Compatibility Functions" link="glib-Windows-Compatability-Functions.html"/>
+    </sub>
+    <sub name="GLib Data Types" link="glib-data-types.html">
+      <sub name="Memory Chunks" link="glib-Memory-Chunks.html"/>
+      <sub name="Doubly-Linked Lists" link="glib-Doubly-Linked-Lists.html"/>
+      <sub name="Singly-Linked Lists" link="glib-Singly-Linked-Lists.html"/>
+      <sub name="Double-ended Queues" link="glib-Double-ended-Queues.html"/>
+      <sub name="Trash Stacks" link="glib-Trash-Stacks.html"/>
+      <sub name="Hash Tables" link="glib-Hash-Tables.html"/>
+      <sub name="Strings" link="glib-Strings.html"/>
+      <sub name="String Chunks" link="glib-String-Chunks.html"/>
+      <sub name="Arrays" link="glib-Arrays.html"/>
+      <sub name="Pointer Arrays" link="glib-Pointer-Arrays.html"/>
+      <sub name="Byte Arrays" link="glib-Byte-Arrays.html"/>
+      <sub name="Balanced Binary Trees" link="glib-Balanced-Binary-Trees.html"/>
+      <sub name="N-ary Trees" link="glib-N-ary-Trees.html"/>
+      <sub name="Quarks" link="glib-Quarks.html"/>
+      <sub name="Keyed Data Lists" link="glib-Keyed-Data-Lists.html"/>
+      <sub name="Datasets" link="glib-Datasets.html"/>
+      <sub name="Relations and Tuples" link="glib-Relations-and-Tuples.html"/>
+      <sub name="Caches" link="glib-Caches.html"/>
+      <sub name="Memory Allocators" link="glib-Memory-Allocators.html"/>
+    </sub>
+    <sub name="GLib Tools" link="tools.html">
+      <sub name="glib-gettextize" link="glib-gettextize.html"/>
+    </sub>
+    <sub name="" link="ix01.html"/>
+  </chapters>
+  <functions>
+    <function name="Environment variables" link="glib-running.html#id2971022"/>
+    <function name="Traps and traces" link="glib-running.html#id2971808"/>
+    <function name="gboolean" link="glib-Basic-Types.html#gboolean"/>
+    <function name="gpointer" link="glib-Basic-Types.html#gpointer"/>
+    <function name="gconstpointer" link="glib-Basic-Types.html#gconstpointer"/>
+    <function name="gchar" link="glib-Basic-Types.html#gchar"/>
+    <function name="guchar" link="glib-Basic-Types.html#guchar"/>
+    <function name="gint" link="glib-Basic-Types.html#gint"/>
+    <function name="guint" link="glib-Basic-Types.html#guint"/>
+    <function name="gshort" link="glib-Basic-Types.html#gshort"/>
+    <function name="gushort" link="glib-Basic-Types.html#gushort"/>
+    <function name="glong" link="glib-Basic-Types.html#glong"/>
+    <function name="gulong" link="glib-Basic-Types.html#gulong"/>
+    <function name="gint8" link="glib-Basic-Types.html#gint8"/>
+    <function name="guint8" link="glib-Basic-Types.html#guint8"/>
+    <function name="gint16" link="glib-Basic-Types.html#gint16"/>
+    <function name="guint16" link="glib-Basic-Types.html#guint16"/>
+    <function name="gint32" link="glib-Basic-Types.html#gint32"/>
+    <function name="guint32" link="glib-Basic-Types.html#guint32"/>
+    <function name="G_HAVE_GINT64" link="glib-Basic-Types.html#G-HAVE-GINT64-CAPS"/>
+    <function name="gint64" link="glib-Basic-Types.html#gint64"/>
+    <function name="guint64" link="glib-Basic-Types.html#guint64"/>
+    <function name="G_GINT64_CONSTANT()" link="glib-Basic-Types.html#G-GINT64-CONSTANT-CAPS"/>
+    <function name="gfloat" link="glib-Basic-Types.html#gfloat"/>
+    <function name="gdouble" link="glib-Basic-Types.html#gdouble"/>
+    <function name="gsize" link="glib-Basic-Types.html#gsize"/>
+    <function name="gssize" link="glib-Basic-Types.html#gssize"/>
+    <function name="G_MININT" link="glib-Limits-of-Basic-Types.html#G-MININT-CAPS"/>
+    <function name="G_MAXINT" link="glib-Limits-of-Basic-Types.html#G-MAXINT-CAPS"/>
+    <function name="G_MAXUINT" link="glib-Limits-of-Basic-Types.html#G-MAXUINT-CAPS"/>
+    <function name="G_MINSHORT" link="glib-Limits-of-Basic-Types.html#G-MINSHORT-CAPS"/>
+    <function name="G_MAXSHORT" link="glib-Limits-of-Basic-Types.html#G-MAXSHORT-CAPS"/>
+    <function name="G_MAXUSHORT" link="glib-Limits-of-Basic-Types.html#G-MAXUSHORT-CAPS"/>
+    <function name="G_MINLONG" link="glib-Limits-of-Basic-Types.html#G-MINLONG-CAPS"/>
+    <function name="G_MAXLONG" link="glib-Limits-of-Basic-Types.html#G-MAXLONG-CAPS"/>
+    <function name="G_MAXULONG" link="glib-Limits-of-Basic-Types.html#G-MAXULONG-CAPS"/>
+    <function name="G_MININT8" link="glib-Limits-of-Basic-Types.html#G-MININT8-CAPS"/>
+    <function name="G_MAXINT8" link="glib-Limits-of-Basic-Types.html#G-MAXINT8-CAPS"/>
+    <function name="G_MAXUINT8" link="glib-Limits-of-Basic-Types.html#G-MAXUINT8-CAPS"/>
+    <function name="G_MININT16" link="glib-Limits-of-Basic-Types.html#G-MININT16-CAPS"/>
+    <function name="G_MAXINT16" link="glib-Limits-of-Basic-Types.html#G-MAXINT16-CAPS"/>
+    <function name="G_MAXUINT16" link="glib-Limits-of-Basic-Types.html#G-MAXUINT16-CAPS"/>
+    <function name="G_MININT32" link="glib-Limits-of-Basic-Types.html#G-MININT32-CAPS"/>
+    <function name="G_MAXINT32" link="glib-Limits-of-Basic-Types.html#G-MAXINT32-CAPS"/>
+    <function name="G_MAXUINT32" link="glib-Limits-of-Basic-Types.html#G-MAXUINT32-CAPS"/>
+    <function name="G_MININT64" link="glib-Limits-of-Basic-Types.html#G-MININT64-CAPS"/>
+    <function name="G_MAXINT64" link="glib-Limits-of-Basic-Types.html#G-MAXINT64-CAPS"/>
+    <function name="G_MAXUINT64" link="glib-Limits-of-Basic-Types.html#G-MAXUINT64-CAPS"/>
+    <function name="G_MAXSIZE" link="glib-Limits-of-Basic-Types.html#G-MAXSIZE-CAPS"/>
+    <function name="G_MINFLOAT" link="glib-Limits-of-Basic-Types.html#G-MINFLOAT-CAPS"/>
+    <function name="G_MAXFLOAT" link="glib-Limits-of-Basic-Types.html#G-MAXFLOAT-CAPS"/>
+    <function name="G_MINDOUBLE" link="glib-Limits-of-Basic-Types.html#G-MINDOUBLE-CAPS"/>
+    <function name="G_MAXDOUBLE" link="glib-Limits-of-Basic-Types.html#G-MAXDOUBLE-CAPS"/>
+    <function name="GLIB_MAJOR_VERSION" link="glib-Standard-Macros.html#GLIB-MAJOR-VERSION-CAPS"/>
+    <function name="GLIB_MINOR_VERSION" link="glib-Standard-Macros.html#GLIB-MINOR-VERSION-CAPS"/>
+    <function name="GLIB_MICRO_VERSION" link="glib-Standard-Macros.html#GLIB-MICRO-VERSION-CAPS"/>
+    <function name="G_OS_WIN32" link="glib-Standard-Macros.html#G-OS-WIN32-CAPS"/>
+    <function name="G_OS_BEOS" link="glib-Standard-Macros.html#G-OS-BEOS-CAPS"/>
+    <function name="G_OS_UNIX" link="glib-Standard-Macros.html#G-OS-UNIX-CAPS"/>
+    <function name="GLIB_CHECK_VERSION()" link="glib-Standard-Macros.html#GLIB-CHECK-VERSION-CAPS"/>
+    <function name="G_DIR_SEPARATOR" link="glib-Standard-Macros.html#G-DIR-SEPARATOR-CAPS"/>
+    <function name="G_DIR_SEPARATOR_S" link="glib-Standard-Macros.html#G-DIR-SEPARATOR-S-CAPS"/>
+    <function name="G_SEARCHPATH_SEPARATOR" link="glib-Standard-Macros.html#G-SEARCHPATH-SEPARATOR-CAPS"/>
+    <function name="G_SEARCHPATH_SEPARATOR_S" link="glib-Standard-Macros.html#G-SEARCHPATH-SEPARATOR-S-CAPS"/>
+    <function name="TRUE" link="glib-Standard-Macros.html#TRUE-CAPS"/>
+    <function name="FALSE" link="glib-Standard-Macros.html#FALSE-CAPS"/>
+    <function name="NULL" link="glib-Standard-Macros.html#NULL-CAPS"/>
+    <function name="MIN()" link="glib-Standard-Macros.html#MIN-CAPS"/>
+    <function name="MAX()" link="glib-Standard-Macros.html#MAX-CAPS"/>
+    <function name="ABS()" link="glib-Standard-Macros.html#ABS-CAPS"/>
+    <function name="CLAMP()" link="glib-Standard-Macros.html#CLAMP-CAPS"/>
+    <function name="G_STRUCT_MEMBER()" link="glib-Standard-Macros.html#G-STRUCT-MEMBER-CAPS"/>
+    <function name="G_STRUCT_MEMBER_P()" link="glib-Standard-Macros.html#G-STRUCT-MEMBER-P-CAPS"/>
+    <function name="G_STRUCT_OFFSET()" link="glib-Standard-Macros.html#G-STRUCT-OFFSET-CAPS"/>
+    <function name="G_MEM_ALIGN" link="glib-Standard-Macros.html#G-MEM-ALIGN-CAPS"/>
+    <function name="G_CONST_RETURN" link="glib-Standard-Macros.html#G-CONST-RETURN-CAPS"/>
+    <function name="GINT_TO_POINTER()" link="glib-Type-Conversion-Macros.html#GINT-TO-POINTER-CAPS"/>
+    <function name="GPOINTER_TO_INT()" link="glib-Type-Conversion-Macros.html#GPOINTER-TO-INT-CAPS"/>
+    <function name="GUINT_TO_POINTER()" link="glib-Type-Conversion-Macros.html#GUINT-TO-POINTER-CAPS"/>
+    <function name="GPOINTER_TO_UINT()" link="glib-Type-Conversion-Macros.html#GPOINTER-TO-UINT-CAPS"/>
+    <function name="GSIZE_TO_POINTER()" link="glib-Type-Conversion-Macros.html#GSIZE-TO-POINTER-CAPS"/>
+    <function name="GPOINTER_TO_SIZE()" link="glib-Type-Conversion-Macros.html#GPOINTER-TO-SIZE-CAPS"/>
+    <function name="G_BYTE_ORDER" link="glib-Byte-Order-Macros.html#G-BYTE-ORDER-CAPS"/>
+    <function name="G_LITTLE_ENDIAN" link="glib-Byte-Order-Macros.html#G-LITTLE-ENDIAN-CAPS"/>
+    <function name="G_BIG_ENDIAN" link="glib-Byte-Order-Macros.html#G-BIG-ENDIAN-CAPS"/>
+    <function name="G_PDP_ENDIAN" link="glib-Byte-Order-Macros.html#G-PDP-ENDIAN-CAPS"/>
+    <function name="g_htonl()" link="glib-Byte-Order-Macros.html#g-htonl"/>
+    <function name="g_htons()" link="glib-Byte-Order-Macros.html#g-htons"/>
+    <function name="g_ntohl()" link="glib-Byte-Order-Macros.html#g-ntohl"/>
+    <function name="g_ntohs()" link="glib-Byte-Order-Macros.html#g-ntohs"/>
+    <function name="GINT_FROM_BE()" link="glib-Byte-Order-Macros.html#GINT-FROM-BE-CAPS"/>
+    <function name="GINT_FROM_LE()" link="glib-Byte-Order-Macros.html#GINT-FROM-LE-CAPS"/>
+    <function name="GINT_TO_BE()" link="glib-Byte-Order-Macros.html#GINT-TO-BE-CAPS"/>
+    <function name="GINT_TO_LE()" link="glib-Byte-Order-Macros.html#GINT-TO-LE-CAPS"/>
+    <function name="GUINT_FROM_BE()" link="glib-Byte-Order-Macros.html#GUINT-FROM-BE-CAPS"/>
+    <function name="GUINT_FROM_LE()" link="glib-Byte-Order-Macros.html#GUINT-FROM-LE-CAPS"/>
+    <function name="GUINT_TO_BE()" link="glib-Byte-Order-Macros.html#GUINT-TO-BE-CAPS"/>
+    <function name="GUINT_TO_LE()" link="glib-Byte-Order-Macros.html#GUINT-TO-LE-CAPS"/>
+    <function name="GLONG_FROM_BE()" link="glib-Byte-Order-Macros.html#GLONG-FROM-BE-CAPS"/>
+    <function name="GLONG_FROM_LE()" link="glib-Byte-Order-Macros.html#GLONG-FROM-LE-CAPS"/>
+    <function name="GLONG_TO_BE()" link="glib-Byte-Order-Macros.html#GLONG-TO-BE-CAPS"/>
+    <function name="GLONG_TO_LE()" link="glib-Byte-Order-Macros.html#GLONG-TO-LE-CAPS"/>
+    <function name="GULONG_FROM_BE()" link="glib-Byte-Order-Macros.html#GULONG-FROM-BE-CAPS"/>
+    <function name="GULONG_FROM_LE()" link="glib-Byte-Order-Macros.html#GULONG-FROM-LE-CAPS"/>
+    <function name="GULONG_TO_BE()" link="glib-Byte-Order-Macros.html#GULONG-TO-BE-CAPS"/>
+    <function name="GULONG_TO_LE()" link="glib-Byte-Order-Macros.html#GULONG-TO-LE-CAPS"/>
+    <function name="GINT16_FROM_BE()" link="glib-Byte-Order-Macros.html#GINT16-FROM-BE-CAPS"/>
+    <function name="GINT16_FROM_LE()" link="glib-Byte-Order-Macros.html#GINT16-FROM-LE-CAPS"/>
+    <function name="GINT16_TO_BE()" link="glib-Byte-Order-Macros.html#GINT16-TO-BE-CAPS"/>
+    <function name="GINT16_TO_LE()" link="glib-Byte-Order-Macros.html#GINT16-TO-LE-CAPS"/>
+    <function name="GUINT16_FROM_BE()" link="glib-Byte-Order-Macros.html#GUINT16-FROM-BE-CAPS"/>
+    <function name="GUINT16_FROM_LE()" link="glib-Byte-Order-Macros.html#GUINT16-FROM-LE-CAPS"/>
+    <function name="GUINT16_TO_BE()" link="glib-Byte-Order-Macros.html#GUINT16-TO-BE-CAPS"/>
+    <function name="GUINT16_TO_LE()" link="glib-Byte-Order-Macros.html#GUINT16-TO-LE-CAPS"/>
+    <function name="GINT32_FROM_BE()" link="glib-Byte-Order-Macros.html#GINT32-FROM-BE-CAPS"/>
+    <function name="GINT32_FROM_LE()" link="glib-Byte-Order-Macros.html#GINT32-FROM-LE-CAPS"/>
+    <function name="GINT32_TO_BE()" link="glib-Byte-Order-Macros.html#GINT32-TO-BE-CAPS"/>
+    <function name="GINT32_TO_LE()" link="glib-Byte-Order-Macros.html#GINT32-TO-LE-CAPS"/>
+    <function name="GUINT32_FROM_BE()" link="glib-Byte-Order-Macros.html#GUINT32-FROM-BE-CAPS"/>
+    <function name="GUINT32_FROM_LE()" link="glib-Byte-Order-Macros.html#GUINT32-FROM-LE-CAPS"/>
+    <function name="GUINT32_TO_BE()" link="glib-Byte-Order-Macros.html#GUINT32-TO-BE-CAPS"/>
+    <function name="GUINT32_TO_LE()" link="glib-Byte-Order-Macros.html#GUINT32-TO-LE-CAPS"/>
+    <function name="GINT64_FROM_BE()" link="glib-Byte-Order-Macros.html#GINT64-FROM-BE-CAPS"/>
+    <function name="GINT64_FROM_LE()" link="glib-Byte-Order-Macros.html#GINT64-FROM-LE-CAPS"/>
+    <function name="GINT64_TO_BE()" link="glib-Byte-Order-Macros.html#GINT64-TO-BE-CAPS"/>
+    <function name="GINT64_TO_LE()" link="glib-Byte-Order-Macros.html#GINT64-TO-LE-CAPS"/>
+    <function name="GUINT64_FROM_BE()" link="glib-Byte-Order-Macros.html#GUINT64-FROM-BE-CAPS"/>
+    <function name="GUINT64_FROM_LE()" link="glib-Byte-Order-Macros.html#GUINT64-FROM-LE-CAPS"/>
+    <function name="GUINT64_TO_BE()" link="glib-Byte-Order-Macros.html#GUINT64-TO-BE-CAPS"/>
+    <function name="GUINT64_TO_LE()" link="glib-Byte-Order-Macros.html#GUINT64-TO-LE-CAPS"/>
+    <function name="GUINT16_SWAP_BE_PDP()" link="glib-Byte-Order-Macros.html#GUINT16-SWAP-BE-PDP-CAPS"/>
+    <function name="GUINT16_SWAP_LE_BE()" link="glib-Byte-Order-Macros.html#GUINT16-SWAP-LE-BE-CAPS"/>
+    <function name="GUINT16_SWAP_LE_PDP()" link="glib-Byte-Order-Macros.html#GUINT16-SWAP-LE-PDP-CAPS"/>
+    <function name="GUINT32_SWAP_BE_PDP()" link="glib-Byte-Order-Macros.html#GUINT32-SWAP-BE-PDP-CAPS"/>
+    <function name="GUINT32_SWAP_LE_BE()" link="glib-Byte-Order-Macros.html#GUINT32-SWAP-LE-BE-CAPS"/>
+    <function name="GUINT32_SWAP_LE_PDP()" link="glib-Byte-Order-Macros.html#GUINT32-SWAP-LE-PDP-CAPS"/>
+    <function name="GUINT64_SWAP_LE_BE()" link="glib-Byte-Order-Macros.html#GUINT64-SWAP-LE-BE-CAPS"/>
+    <function name="G_IEEE754_FLOAT_BIAS" link="glib-Numerical-Definitions.html#G-IEEE754-FLOAT-BIAS-CAPS"/>
+    <function name="G_IEEE754_DOUBLE_BIAS" link="glib-Numerical-Definitions.html#G-IEEE754-DOUBLE-BIAS-CAPS"/>
+    <function name="union GFloatIEEE754" link="glib-Numerical-Definitions.html#GFloatIEEE754"/>
+    <function name="union GDoubleIEEE754" link="glib-Numerical-Definitions.html#GDoubleIEEE754"/>
+    <function name="G_E" link="glib-Numerical-Definitions.html#G-E-CAPS"/>
+    <function name="G_LN2" link="glib-Numerical-Definitions.html#G-LN2-CAPS"/>
+    <function name="G_LN10" link="glib-Numerical-Definitions.html#G-LN10-CAPS"/>
+    <function name="G_PI" link="glib-Numerical-Definitions.html#G-PI-CAPS"/>
+    <function name="G_PI_2" link="glib-Numerical-Definitions.html#G-PI-2-CAPS"/>
+    <function name="G_PI_4" link="glib-Numerical-Definitions.html#G-PI-4-CAPS"/>
+    <function name="G_SQRT2" link="glib-Numerical-Definitions.html#G-SQRT2-CAPS"/>
+    <function name="G_LOG_2_BASE_10" link="glib-Numerical-Definitions.html#G-LOG-2-BASE-10-CAPS"/>
+    <function name="G_INLINE_FUNC" link="glib-Miscellaneous-Macros.html#G-INLINE-FUNC-CAPS"/>
+    <function name="G_STMT_START" link="glib-Miscellaneous-Macros.html#G-STMT-START-CAPS"/>
+    <function name="G_STMT_END" link="glib-Miscellaneous-Macros.html#G-STMT-END-CAPS"/>
+    <function name="G_BEGIN_DECLS" link="glib-Miscellaneous-Macros.html#G-BEGIN-DECLS-CAPS"/>
+    <function name="G_END_DECLS" link="glib-Miscellaneous-Macros.html#G-END-DECLS-CAPS"/>
+    <function name="G_N_ELEMENTS()" link="glib-Miscellaneous-Macros.html#G-N-ELEMENTS-CAPS"/>
+    <function name="G_VA_COPY" link="glib-Miscellaneous-Macros.html#G-VA-COPY-CAPS"/>
+    <function name="G_STRINGIFY()" link="glib-Miscellaneous-Macros.html#G-STRINGIFY-CAPS"/>
+    <function name="G_GNUC_EXTENSION" link="glib-Miscellaneous-Macros.html#G-GNUC-EXTENSION-CAPS"/>
+    <function name="G_GNUC_CONST" link="glib-Miscellaneous-Macros.html#G-GNUC-CONST-CAPS"/>
+    <function name="G_GNUC_DEPRECATED" link="glib-Miscellaneous-Macros.html#G-GNUC-DEPRECATED-CAPS"/>
+    <function name="G_GNUC_NORETURN" link="glib-Miscellaneous-Macros.html#G-GNUC-NORETURN-CAPS"/>
+    <function name="G_GNUC_UNUSED" link="glib-Miscellaneous-Macros.html#G-GNUC-UNUSED-CAPS"/>
+    <function name="G_GNUC_PURE" link="glib-Miscellaneous-Macros.html#G-GNUC-PURE-CAPS"/>
+    <function name="G_GNUC_PRINTF()" link="glib-Miscellaneous-Macros.html#G-GNUC-PRINTF-CAPS"/>
+    <function name="G_GNUC_SCANF()" link="glib-Miscellaneous-Macros.html#G-GNUC-SCANF-CAPS"/>
+    <function name="G_GNUC_FORMAT()" link="glib-Miscellaneous-Macros.html#G-GNUC-FORMAT-CAPS"/>
+    <function name="G_GNUC_FUNCTION" link="glib-Miscellaneous-Macros.html#G-GNUC-FUNCTION-CAPS"/>
+    <function name="G_GNUC_PRETTY_FUNCTION" link="glib-Miscellaneous-Macros.html#G-GNUC-PRETTY-FUNCTION-CAPS"/>
+    <function name="G_GNUC_NO_INSTRUMENT" link="glib-Miscellaneous-Macros.html#G-GNUC-NO-INSTRUMENT-CAPS"/>
+    <function name="G_LIKELY()" link="glib-Miscellaneous-Macros.html#G-LIKELY-CAPS"/>
+    <function name="G_UNLIKELY()" link="glib-Miscellaneous-Macros.html#G-UNLIKELY-CAPS"/>
+    <function name="G_STRLOC" link="glib-Miscellaneous-Macros.html#G-STRLOC-CAPS"/>
+    <function name="G_STRFUNC" link="glib-Miscellaneous-Macros.html#G-STRFUNC-CAPS"/>
+    <function name="G_GINT16_MODIFIER" link="glib-Miscellaneous-Macros.html#G-GINT16-MODIFIER-CAPS"/>
+    <function name="G_GINT16_FORMAT" link="glib-Miscellaneous-Macros.html#G-GINT16-FORMAT-CAPS"/>
+    <function name="G_GUINT16_FORMAT" link="glib-Miscellaneous-Macros.html#G-GUINT16-FORMAT-CAPS"/>
+    <function name="G_GINT32_MODIFIER" link="glib-Miscellaneous-Macros.html#G-GINT32-MODIFIER-CAPS"/>
+    <function name="G_GINT32_FORMAT" link="glib-Miscellaneous-Macros.html#G-GINT32-FORMAT-CAPS"/>
+    <function name="G_GUINT32_FORMAT" link="glib-Miscellaneous-Macros.html#G-GUINT32-FORMAT-CAPS"/>
+    <function name="G_GINT64_MODIFIER" link="glib-Miscellaneous-Macros.html#G-GINT64-MODIFIER-CAPS"/>
+    <function name="G_GINT64_FORMAT" link="glib-Miscellaneous-Macros.html#G-GINT64-FORMAT-CAPS"/>
+    <function name="G_GUINT64_FORMAT" link="glib-Miscellaneous-Macros.html#G-GUINT64-FORMAT-CAPS"/>
+    <function name="G_GSIZE_MODIFIER" link="glib-Miscellaneous-Macros.html#G-GSIZE-MODIFIER-CAPS"/>
+    <function name="G_GSIZE_FORMAT" link="glib-Miscellaneous-Macros.html#G-GSIZE-FORMAT-CAPS"/>
+    <function name="G_GSSIZE_FORMAT" link="glib-Miscellaneous-Macros.html#G-GSSIZE-FORMAT-CAPS"/>
+    <function name="g_atomic_int_get ()" link="glib-Atomic-Operations.html#g-atomic-int-get"/>
+    <function name="g_atomic_int_add ()" link="glib-Atomic-Operations.html#g-atomic-int-add"/>
+    <function name="g_atomic_int_exchange_and_add ()" link="glib-Atomic-Operations.html#g-atomic-int-exchange-and-add"/>
+    <function name="g_atomic_int_compare_and_exchange ()" link="glib-Atomic-Operations.html#g-atomic-int-compare-and-exchange"/>
+    <function name="g_atomic_pointer_get ()" link="glib-Atomic-Operations.html#g-atomic-pointer-get"/>
+    <function name="g_atomic_pointer_compare_and_exchange ()" link="glib-Atomic-Operations.html#g-atomic-pointer-compare-and-exchange"/>
+    <function name="g_atomic_int_inc ()" link="glib-Atomic-Operations.html#g-atomic-int-inc"/>
+    <function name="g_atomic_int_dec_and_test ()" link="glib-Atomic-Operations.html#g-atomic-int-dec-and-test"/>
+    <function name="Creating new sources types" link="glib-The-Main-Event-Loop.html#id3003807"/>
+    <function name="Customizing the main loop iteration" link="glib-The-Main-Event-Loop.html#id3003895"/>
+    <function name="struct GMainLoop" link="glib-The-Main-Event-Loop.html#GMainLoop"/>
+    <function name="g_main_loop_new ()" link="glib-The-Main-Event-Loop.html#g-main-loop-new"/>
+    <function name="g_main_loop_ref ()" link="glib-The-Main-Event-Loop.html#g-main-loop-ref"/>
+    <function name="g_main_loop_unref ()" link="glib-The-Main-Event-Loop.html#g-main-loop-unref"/>
+    <function name="g_main_loop_run ()" link="glib-The-Main-Event-Loop.html#g-main-loop-run"/>
+    <function name="g_main_loop_quit ()" link="glib-The-Main-Event-Loop.html#g-main-loop-quit"/>
+    <function name="g_main_loop_is_running ()" link="glib-The-Main-Event-Loop.html#g-main-loop-is-running"/>
+    <function name="g_main_loop_get_context ()" link="glib-The-Main-Event-Loop.html#g-main-loop-get-context"/>
+    <function name="g_main_new()" link="glib-The-Main-Event-Loop.html#g-main-new"/>
+    <function name="g_main_destroy()" link="glib-The-Main-Event-Loop.html#g-main-destroy"/>
+    <function name="g_main_run()" link="glib-The-Main-Event-Loop.html#g-main-run"/>
+    <function name="g_main_quit()" link="glib-The-Main-Event-Loop.html#g-main-quit"/>
+    <function name="g_main_is_running()" link="glib-The-Main-Event-Loop.html#g-main-is-running"/>
+    <function name="G_PRIORITY_HIGH" link="glib-The-Main-Event-Loop.html#G-PRIORITY-HIGH-CAPS"/>
+    <function name="G_PRIORITY_DEFAULT" link="glib-The-Main-Event-Loop.html#G-PRIORITY-DEFAULT-CAPS"/>
+    <function name="G_PRIORITY_HIGH_IDLE" link="glib-The-Main-Event-Loop.html#G-PRIORITY-HIGH-IDLE-CAPS"/>
+    <function name="G_PRIORITY_DEFAULT_IDLE" link="glib-The-Main-Event-Loop.html#G-PRIORITY-DEFAULT-IDLE-CAPS"/>
+    <function name="G_PRIORITY_LOW" link="glib-The-Main-Event-Loop.html#G-PRIORITY-LOW-CAPS"/>
+    <function name="struct GMainContext" link="glib-The-Main-Event-Loop.html#GMainContext"/>
+    <function name="g_main_context_new ()" link="glib-The-Main-Event-Loop.html#g-main-context-new"/>
+    <function name="g_main_context_ref ()" link="glib-The-Main-Event-Loop.html#g-main-context-ref"/>
+    <function name="g_main_context_unref ()" link="glib-The-Main-Event-Loop.html#g-main-context-unref"/>
+    <function name="g_main_context_default ()" link="glib-The-Main-Event-Loop.html#g-main-context-default"/>
+    <function name="g_main_context_iteration ()" link="glib-The-Main-Event-Loop.html#g-main-context-iteration"/>
+    <function name="g_main_iteration()" link="glib-The-Main-Event-Loop.html#g-main-iteration"/>
+    <function name="g_main_context_pending ()" link="glib-The-Main-Event-Loop.html#g-main-context-pending"/>
+    <function name="g_main_pending()" link="glib-The-Main-Event-Loop.html#g-main-pending"/>
+    <function name="g_main_context_find_source_by_id ()" link="glib-The-Main-Event-Loop.html#g-main-context-find-source-by-id"/>
+    <function name="g_main_context_find_source_by_user_data ()" link="glib-The-Main-Event-Loop.html#g-main-context-find-source-by-user-data"/>
+    <function name="g_main_context_find_source_by_funcs_user_data ()" link="glib-The-Main-Event-Loop.html#g-main-context-find-source-by-funcs-user-data"/>
+    <function name="g_main_context_wakeup ()" link="glib-The-Main-Event-Loop.html#g-main-context-wakeup"/>
+    <function name="g_main_context_acquire ()" link="glib-The-Main-Event-Loop.html#g-main-context-acquire"/>
+    <function name="g_main_context_release ()" link="glib-The-Main-Event-Loop.html#g-main-context-release"/>
+    <function name="g_main_context_wait ()" link="glib-The-Main-Event-Loop.html#g-main-context-wait"/>
+    <function name="g_main_context_prepare ()" link="glib-The-Main-Event-Loop.html#g-main-context-prepare"/>
+    <function name="g_main_context_query ()" link="glib-The-Main-Event-Loop.html#g-main-context-query"/>
+    <function name="g_main_context_check ()" link="glib-The-Main-Event-Loop.html#g-main-context-check"/>
+    <function name="g_main_context_dispatch ()" link="glib-The-Main-Event-Loop.html#g-main-context-dispatch"/>
+    <function name="g_main_context_set_poll_func ()" link="glib-The-Main-Event-Loop.html#g-main-context-set-poll-func"/>
+    <function name="g_main_context_get_poll_func ()" link="glib-The-Main-Event-Loop.html#g-main-context-get-poll-func"/>
+    <function name="GPollFunc ()" link="glib-The-Main-Event-Loop.html#GPollFunc"/>
+    <function name="g_main_context_add_poll ()" link="glib-The-Main-Event-Loop.html#g-main-context-add-poll"/>
+    <function name="g_main_context_remove_poll ()" link="glib-The-Main-Event-Loop.html#g-main-context-remove-poll"/>
+    <function name="g_main_depth ()" link="glib-The-Main-Event-Loop.html#g-main-depth"/>
+    <function name="g_main_set_poll_func()" link="glib-The-Main-Event-Loop.html#g-main-set-poll-func"/>
+    <function name="g_timeout_source_new ()" link="glib-The-Main-Event-Loop.html#g-timeout-source-new"/>
+    <function name="g_timeout_add ()" link="glib-The-Main-Event-Loop.html#g-timeout-add"/>
+    <function name="g_timeout_add_full ()" link="glib-The-Main-Event-Loop.html#g-timeout-add-full"/>
+    <function name="g_idle_source_new ()" link="glib-The-Main-Event-Loop.html#g-idle-source-new"/>
+    <function name="g_idle_add ()" link="glib-The-Main-Event-Loop.html#g-idle-add"/>
+    <function name="g_idle_add_full ()" link="glib-The-Main-Event-Loop.html#g-idle-add-full"/>
+    <function name="g_idle_remove_by_data ()" link="glib-The-Main-Event-Loop.html#g-idle-remove-by-data"/>
+    <function name="GPid" link="glib-The-Main-Event-Loop.html#GPid"/>
+    <function name="GChildWatchFunc ()" link="glib-The-Main-Event-Loop.html#GChildWatchFunc"/>
+    <function name="g_child_watch_source_new ()" link="glib-The-Main-Event-Loop.html#g-child-watch-source-new"/>
+    <function name="g_child_watch_add ()" link="glib-The-Main-Event-Loop.html#g-child-watch-add"/>
+    <function name="g_child_watch_add_full ()" link="glib-The-Main-Event-Loop.html#g-child-watch-add-full"/>
+    <function name="struct GPollFD" link="glib-The-Main-Event-Loop.html#GPollFD"/>
+    <function name="struct GSource" link="glib-The-Main-Event-Loop.html#GSource"/>
+    <function name="GSourceDummyMarshal ()" link="glib-The-Main-Event-Loop.html#GSourceDummyMarshal"/>
+    <function name="struct GSourceFuncs" link="glib-The-Main-Event-Loop.html#GSourceFuncs"/>
+    <function name="struct GSourceCallbackFuncs" link="glib-The-Main-Event-Loop.html#GSourceCallbackFuncs"/>
+    <function name="g_source_new ()" link="glib-The-Main-Event-Loop.html#g-source-new"/>
+    <function name="g_source_ref ()" link="glib-The-Main-Event-Loop.html#g-source-ref"/>
+    <function name="g_source_unref ()" link="glib-The-Main-Event-Loop.html#g-source-unref"/>
+    <function name="g_source_attach ()" link="glib-The-Main-Event-Loop.html#g-source-attach"/>
+    <function name="g_source_destroy ()" link="glib-The-Main-Event-Loop.html#g-source-destroy"/>
+    <function name="g_source_set_priority ()" link="glib-The-Main-Event-Loop.html#g-source-set-priority"/>
+    <function name="g_source_get_priority ()" link="glib-The-Main-Event-Loop.html#g-source-get-priority"/>
+    <function name="g_source_set_can_recurse ()" link="glib-The-Main-Event-Loop.html#g-source-set-can-recurse"/>
+    <function name="g_source_get_can_recurse ()" link="glib-The-Main-Event-Loop.html#g-source-get-can-recurse"/>
+    <function name="g_source_get_id ()" link="glib-The-Main-Event-Loop.html#g-source-get-id"/>
+    <function name="g_source_get_context ()" link="glib-The-Main-Event-Loop.html#g-source-get-context"/>
+    <function name="g_source_set_callback ()" link="glib-The-Main-Event-Loop.html#g-source-set-callback"/>
+    <function name="GSourceFunc ()" link="glib-The-Main-Event-Loop.html#GSourceFunc"/>
+    <function name="g_source_set_callback_indirect ()" link="glib-The-Main-Event-Loop.html#g-source-set-callback-indirect"/>
+    <function name="g_source_add_poll ()" link="glib-The-Main-Event-Loop.html#g-source-add-poll"/>
+    <function name="g_source_remove_poll ()" link="glib-The-Main-Event-Loop.html#g-source-remove-poll"/>
+    <function name="g_source_get_current_time ()" link="glib-The-Main-Event-Loop.html#g-source-get-current-time"/>
+    <function name="g_source_remove ()" link="glib-The-Main-Event-Loop.html#g-source-remove"/>
+    <function name="g_source_remove_by_funcs_user_data ()" link="glib-The-Main-Event-Loop.html#g-source-remove-by-funcs-user-data"/>
+    <function name="g_source_remove_by_user_data ()" link="glib-The-Main-Event-Loop.html#g-source-remove-by-user-data"/>
+    <function name="G_THREADS_ENABLED" link="glib-Threads.html#G-THREADS-ENABLED-CAPS"/>
+    <function name="G_THREADS_IMPL_POSIX" link="glib-Threads.html#G-THREADS-IMPL-POSIX-CAPS"/>
+    <function name="G_THREADS_IMPL_SOLARIS" link="glib-Threads.html#G-THREADS-IMPL-SOLARIS-CAPS"/>
+    <function name="G_THREADS_IMPL_NONE" link="glib-Threads.html#G-THREADS-IMPL-NONE-CAPS"/>
+    <function name="G_THREAD_ERROR" link="glib-Threads.html#G-THREAD-ERROR-CAPS"/>
+    <function name="enum GThreadError" link="glib-Threads.html#GThreadError"/>
+    <function name="struct GThreadFunctions" link="glib-Threads.html#GThreadFunctions"/>
+    <function name="g_thread_init ()" link="glib-Threads.html#g-thread-init"/>
+    <function name="g_thread_supported ()" link="glib-Threads.html#g-thread-supported"/>
+    <function name="GThreadFunc ()" link="glib-Threads.html#GThreadFunc"/>
+    <function name="enum GThreadPriority" link="glib-Threads.html#GThreadPriority"/>
+    <function name="struct GThread" link="glib-Threads.html#GThread"/>
+    <function name="g_thread_create ()" link="glib-Threads.html#g-thread-create"/>
+    <function name="g_thread_create_full ()" link="glib-Threads.html#g-thread-create-full"/>
+    <function name="g_thread_self ()" link="glib-Threads.html#g-thread-self"/>
+    <function name="g_thread_join ()" link="glib-Threads.html#g-thread-join"/>
+    <function name="g_thread_set_priority ()" link="glib-Threads.html#g-thread-set-priority"/>
+    <function name="g_thread_yield ()" link="glib-Threads.html#g-thread-yield"/>
+    <function name="g_thread_exit ()" link="glib-Threads.html#g-thread-exit"/>
+    <function name="struct GMutex" link="glib-Threads.html#GMutex"/>
+    <function name="g_mutex_new ()" link="glib-Threads.html#g-mutex-new"/>
+    <function name="g_mutex_lock ()" link="glib-Threads.html#g-mutex-lock"/>
+    <function name="g_mutex_trylock ()" link="glib-Threads.html#g-mutex-trylock"/>
+    <function name="g_mutex_unlock ()" link="glib-Threads.html#g-mutex-unlock"/>
+    <function name="g_mutex_free ()" link="glib-Threads.html#g-mutex-free"/>
+    <function name="struct GStaticMutex" link="glib-Threads.html#GStaticMutex"/>
+    <function name="G_STATIC_MUTEX_INIT" link="glib-Threads.html#G-STATIC-MUTEX-INIT-CAPS"/>
+    <function name="g_static_mutex_init ()" link="glib-Threads.html#g-static-mutex-init"/>
+    <function name="g_static_mutex_lock ()" link="glib-Threads.html#g-static-mutex-lock"/>
+    <function name="g_static_mutex_trylock ()" link="glib-Threads.html#g-static-mutex-trylock"/>
+    <function name="g_static_mutex_unlock ()" link="glib-Threads.html#g-static-mutex-unlock"/>
+    <function name="g_static_mutex_get_mutex ()" link="glib-Threads.html#g-static-mutex-get-mutex"/>
+    <function name="g_static_mutex_free ()" link="glib-Threads.html#g-static-mutex-free"/>
+    <function name="G_LOCK_DEFINE()" link="glib-Threads.html#G-LOCK-DEFINE-CAPS"/>
+    <function name="G_LOCK_DEFINE_STATIC()" link="glib-Threads.html#G-LOCK-DEFINE-STATIC-CAPS"/>
+    <function name="G_LOCK_EXTERN()" link="glib-Threads.html#G-LOCK-EXTERN-CAPS"/>
+    <function name="G_LOCK()" link="glib-Threads.html#G-LOCK-CAPS"/>
+    <function name="G_TRYLOCK()" link="glib-Threads.html#G-TRYLOCK-CAPS"/>
+    <function name="G_UNLOCK()" link="glib-Threads.html#G-UNLOCK-CAPS"/>
+    <function name="struct GStaticRecMutex" link="glib-Threads.html#GStaticRecMutex"/>
+    <function name="G_STATIC_REC_MUTEX_INIT" link="glib-Threads.html#G-STATIC-REC-MUTEX-INIT-CAPS"/>
+    <function name="g_static_rec_mutex_init ()" link="glib-Threads.html#g-static-rec-mutex-init"/>
+    <function name="g_static_rec_mutex_lock ()" link="glib-Threads.html#g-static-rec-mutex-lock"/>
+    <function name="g_static_rec_mutex_trylock ()" link="glib-Threads.html#g-static-rec-mutex-trylock"/>
+    <function name="g_static_rec_mutex_unlock ()" link="glib-Threads.html#g-static-rec-mutex-unlock"/>
+    <function name="g_static_rec_mutex_lock_full ()" link="glib-Threads.html#g-static-rec-mutex-lock-full"/>
+    <function name="g_static_rec_mutex_unlock_full ()" link="glib-Threads.html#g-static-rec-mutex-unlock-full"/>
+    <function name="g_static_rec_mutex_free ()" link="glib-Threads.html#g-static-rec-mutex-free"/>
+    <function name="struct GStaticRWLock" link="glib-Threads.html#GStaticRWLock"/>
+    <function name="G_STATIC_RW_LOCK_INIT" link="glib-Threads.html#G-STATIC-RW-LOCK-INIT-CAPS"/>
+    <function name="g_static_rw_lock_init ()" link="glib-Threads.html#g-static-rw-lock-init"/>
+    <function name="g_static_rw_lock_reader_lock ()" link="glib-Threads.html#g-static-rw-lock-reader-lock"/>
+    <function name="g_static_rw_lock_reader_trylock ()" link="glib-Threads.html#g-static-rw-lock-reader-trylock"/>
+    <function name="g_static_rw_lock_reader_unlock ()" link="glib-Threads.html#g-static-rw-lock-reader-unlock"/>
+    <function name="g_static_rw_lock_writer_lock ()" link="glib-Threads.html#g-static-rw-lock-writer-lock"/>
+    <function name="g_static_rw_lock_writer_trylock ()" link="glib-Threads.html#g-static-rw-lock-writer-trylock"/>
+    <function name="g_static_rw_lock_writer_unlock ()" link="glib-Threads.html#g-static-rw-lock-writer-unlock"/>
+    <function name="g_static_rw_lock_free ()" link="glib-Threads.html#g-static-rw-lock-free"/>
+    <function name="struct GCond" link="glib-Threads.html#GCond"/>
+    <function name="g_cond_new ()" link="glib-Threads.html#g-cond-new"/>
+    <function name="g_cond_signal ()" link="glib-Threads.html#g-cond-signal"/>
+    <function name="g_cond_broadcast ()" link="glib-Threads.html#g-cond-broadcast"/>
+    <function name="g_cond_wait ()" link="glib-Threads.html#g-cond-wait"/>
+    <function name="g_cond_timed_wait ()" link="glib-Threads.html#g-cond-timed-wait"/>
+    <function name="g_cond_free ()" link="glib-Threads.html#g-cond-free"/>
+    <function name="struct GPrivate" link="glib-Threads.html#GPrivate"/>
+    <function name="g_private_new ()" link="glib-Threads.html#g-private-new"/>
+    <function name="g_private_get ()" link="glib-Threads.html#g-private-get"/>
+    <function name="g_private_set ()" link="glib-Threads.html#g-private-set"/>
+    <function name="struct GStaticPrivate" link="glib-Threads.html#GStaticPrivate"/>
+    <function name="G_STATIC_PRIVATE_INIT" link="glib-Threads.html#G-STATIC-PRIVATE-INIT-CAPS"/>
+    <function name="g_static_private_init ()" link="glib-Threads.html#g-static-private-init"/>
+    <function name="g_static_private_get ()" link="glib-Threads.html#g-static-private-get"/>
+    <function name="g_static_private_set ()" link="glib-Threads.html#g-static-private-set"/>
+    <function name="g_static_private_free ()" link="glib-Threads.html#g-static-private-free"/>
+    <function name="struct GOnce" link="glib-Threads.html#GOnce"/>
+    <function name="enum GOnceStatus" link="glib-Threads.html#GOnceStatus"/>
+    <function name="G_ONCE_INIT" link="glib-Threads.html#G-ONCE-INIT-CAPS"/>
+    <function name="g_once()" link="glib-Threads.html#g-once"/>
+    <function name="struct GThreadPool" link="glib-Thread-Pools.html#GThreadPool"/>
+    <function name="g_thread_pool_new ()" link="glib-Thread-Pools.html#g-thread-pool-new"/>
+    <function name="g_thread_pool_push ()" link="glib-Thread-Pools.html#g-thread-pool-push"/>
+    <function name="g_thread_pool_set_max_threads ()" link="glib-Thread-Pools.html#g-thread-pool-set-max-threads"/>
+    <function name="g_thread_pool_get_max_threads ()" link="glib-Thread-Pools.html#g-thread-pool-get-max-threads"/>
+    <function name="g_thread_pool_get_num_threads ()" link="glib-Thread-Pools.html#g-thread-pool-get-num-threads"/>
+    <function name="g_thread_pool_unprocessed ()" link="glib-Thread-Pools.html#g-thread-pool-unprocessed"/>
+    <function name="g_thread_pool_free ()" link="glib-Thread-Pools.html#g-thread-pool-free"/>
+    <function name="g_thread_pool_set_max_unused_threads ()" link="glib-Thread-Pools.html#g-thread-pool-set-max-unused-threads"/>
+    <function name="g_thread_pool_get_max_unused_threads ()" link="glib-Thread-Pools.html#g-thread-pool-get-max-unused-threads"/>
+    <function name="g_thread_pool_get_num_unused_threads ()" link="glib-Thread-Pools.html#g-thread-pool-get-num-unused-threads"/>
+    <function name="g_thread_pool_stop_unused_threads ()" link="glib-Thread-Pools.html#g-thread-pool-stop-unused-threads"/>
+    <function name="struct GAsyncQueue" link="glib-Asynchronous-Queues.html#GAsyncQueue"/>
+    <function name="g_async_queue_new ()" link="glib-Asynchronous-Queues.html#g-async-queue-new"/>
+    <function name="g_async_queue_ref ()" link="glib-Asynchronous-Queues.html#g-async-queue-ref"/>
+    <function name="g_async_queue_unref ()" link="glib-Asynchronous-Queues.html#g-async-queue-unref"/>
+    <function name="g_async_queue_push ()" link="glib-Asynchronous-Queues.html#g-async-queue-push"/>
+    <function name="g_async_queue_pop ()" link="glib-Asynchronous-Queues.html#g-async-queue-pop"/>
+    <function name="g_async_queue_try_pop ()" link="glib-Asynchronous-Queues.html#g-async-queue-try-pop"/>
+    <function name="g_async_queue_timed_pop ()" link="glib-Asynchronous-Queues.html#g-async-queue-timed-pop"/>
+    <function name="g_async_queue_length ()" link="glib-Asynchronous-Queues.html#g-async-queue-length"/>
+    <function name="g_async_queue_lock ()" link="glib-Asynchronous-Queues.html#g-async-queue-lock"/>
+    <function name="g_async_queue_unlock ()" link="glib-Asynchronous-Queues.html#g-async-queue-unlock"/>
+    <function name="g_async_queue_ref_unlocked ()" link="glib-Asynchronous-Queues.html#g-async-queue-ref-unlocked"/>
+    <function name="g_async_queue_unref_and_unlock ()" link="glib-Asynchronous-Queues.html#g-async-queue-unref-and-unlock"/>
+    <function name="g_async_queue_push_unlocked ()" link="glib-Asynchronous-Queues.html#g-async-queue-push-unlocked"/>
+    <function name="g_async_queue_pop_unlocked ()" link="glib-Asynchronous-Queues.html#g-async-queue-pop-unlocked"/>
+    <function name="g_async_queue_try_pop_unlocked ()" link="glib-Asynchronous-Queues.html#g-async-queue-try-pop-unlocked"/>
+    <function name="g_async_queue_timed_pop_unlocked ()" link="glib-Asynchronous-Queues.html#g-async-queue-timed-pop-unlocked"/>
+    <function name="g_async_queue_length_unlocked ()" link="glib-Asynchronous-Queues.html#g-async-queue-length-unlocked"/>
+    <function name="struct GModule" link="glib-Dynamic-Loading-of-Modules.html#GModule"/>
+    <function name="g_module_supported ()" link="glib-Dynamic-Loading-of-Modules.html#g-module-supported"/>
+    <function name="g_module_build_path ()" link="glib-Dynamic-Loading-of-Modules.html#g-module-build-path"/>
+    <function name="g_module_open ()" link="glib-Dynamic-Loading-of-Modules.html#g-module-open"/>
+    <function name="enum GModuleFlags" link="glib-Dynamic-Loading-of-Modules.html#GModuleFlags"/>
+    <function name="g_module_symbol ()" link="glib-Dynamic-Loading-of-Modules.html#g-module-symbol"/>
+    <function name="g_module_name ()" link="glib-Dynamic-Loading-of-Modules.html#g-module-name"/>
+    <function name="g_module_make_resident ()" link="glib-Dynamic-Loading-of-Modules.html#g-module-make-resident"/>
+    <function name="g_module_close ()" link="glib-Dynamic-Loading-of-Modules.html#g-module-close"/>
+    <function name="g_module_error ()" link="glib-Dynamic-Loading-of-Modules.html#g-module-error"/>
+    <function name="GModuleCheckInit ()" link="glib-Dynamic-Loading-of-Modules.html#GModuleCheckInit"/>
+    <function name="GModuleUnload ()" link="glib-Dynamic-Loading-of-Modules.html#GModuleUnload"/>
+    <function name="G_MODULE_SUFFIX" link="glib-Dynamic-Loading-of-Modules.html#G-MODULE-SUFFIX-CAPS"/>
+    <function name="G_MODULE_EXPORT" link="glib-Dynamic-Loading-of-Modules.html#G-MODULE-EXPORT-CAPS"/>
+    <function name="G_MODULE_IMPORT" link="glib-Dynamic-Loading-of-Modules.html#G-MODULE-IMPORT-CAPS"/>
+    <function name="g_new()" link="glib-Memory-Allocation.html#g-new"/>
+    <function name="g_new0()" link="glib-Memory-Allocation.html#g-new0"/>
+    <function name="g_renew()" link="glib-Memory-Allocation.html#g-renew"/>
+    <function name="g_malloc ()" link="glib-Memory-Allocation.html#g-malloc"/>
+    <function name="g_malloc0 ()" link="glib-Memory-Allocation.html#g-malloc0"/>
+    <function name="g_realloc ()" link="glib-Memory-Allocation.html#g-realloc"/>
+    <function name="g_try_malloc ()" link="glib-Memory-Allocation.html#g-try-malloc"/>
+    <function name="g_try_realloc ()" link="glib-Memory-Allocation.html#g-try-realloc"/>
+    <function name="g_free ()" link="glib-Memory-Allocation.html#g-free"/>
+    <function name="g_alloca()" link="glib-Memory-Allocation.html#g-alloca"/>
+    <function name="g_newa()" link="glib-Memory-Allocation.html#g-newa"/>
+    <function name="g_memmove()" link="glib-Memory-Allocation.html#g-memmove"/>
+    <function name="g_memdup ()" link="glib-Memory-Allocation.html#g-memdup"/>
+    <function name="struct GMemVTable" link="glib-Memory-Allocation.html#GMemVTable"/>
+    <function name="g_mem_set_vtable ()" link="glib-Memory-Allocation.html#g-mem-set-vtable"/>
+    <function name="g_mem_is_system_malloc ()" link="glib-Memory-Allocation.html#g-mem-is-system-malloc"/>
+    <function name="glib_mem_profiler_table" link="glib-Memory-Allocation.html#glib-mem-profiler-table"/>
+    <function name="g_mem_profile ()" link="glib-Memory-Allocation.html#g-mem-profile"/>
+    <function name="struct GIOChannel" link="glib-IO-Channels.html#GIOChannel"/>
+    <function name="g_io_channel_unix_new ()" link="glib-IO-Channels.html#g-io-channel-unix-new"/>
+    <function name="g_io_channel_unix_get_fd ()" link="glib-IO-Channels.html#g-io-channel-unix-get-fd"/>
+    <function name="g_io_channel_init ()" link="glib-IO-Channels.html#g-io-channel-init"/>
+    <function name="g_io_channel_new_file ()" link="glib-IO-Channels.html#g-io-channel-new-file"/>
+    <function name="g_io_channel_read_chars ()" link="glib-IO-Channels.html#g-io-channel-read-chars"/>
+    <function name="g_io_channel_read_unichar ()" link="glib-IO-Channels.html#g-io-channel-read-unichar"/>
+    <function name="g_io_channel_read_line ()" link="glib-IO-Channels.html#g-io-channel-read-line"/>
+    <function name="g_io_channel_read_line_string ()" link="glib-IO-Channels.html#g-io-channel-read-line-string"/>
+    <function name="g_io_channel_read_to_end ()" link="glib-IO-Channels.html#g-io-channel-read-to-end"/>
+    <function name="g_io_channel_write_chars ()" link="glib-IO-Channels.html#g-io-channel-write-chars"/>
+    <function name="g_io_channel_write_unichar ()" link="glib-IO-Channels.html#g-io-channel-write-unichar"/>
+    <function name="g_io_channel_flush ()" link="glib-IO-Channels.html#g-io-channel-flush"/>
+    <function name="g_io_channel_seek_position ()" link="glib-IO-Channels.html#g-io-channel-seek-position"/>
+    <function name="enum GSeekType" link="glib-IO-Channels.html#GSeekType"/>
+    <function name="g_io_channel_shutdown ()" link="glib-IO-Channels.html#g-io-channel-shutdown"/>
+    <function name="enum GIOStatus" link="glib-IO-Channels.html#GIOStatus"/>
+    <function name="enum GIOChannelError" link="glib-IO-Channels.html#GIOChannelError"/>
+    <function name="G_IO_CHANNEL_ERROR" link="glib-IO-Channels.html#G-IO-CHANNEL-ERROR-CAPS"/>
+    <function name="g_io_channel_error_from_errno ()" link="glib-IO-Channels.html#g-io-channel-error-from-errno"/>
+    <function name="g_io_channel_ref ()" link="glib-IO-Channels.html#g-io-channel-ref"/>
+    <function name="g_io_channel_unref ()" link="glib-IO-Channels.html#g-io-channel-unref"/>
+    <function name="g_io_create_watch ()" link="glib-IO-Channels.html#g-io-create-watch"/>
+    <function name="g_io_add_watch ()" link="glib-IO-Channels.html#g-io-add-watch"/>
+    <function name="g_io_add_watch_full ()" link="glib-IO-Channels.html#g-io-add-watch-full"/>
+    <function name="enum GIOCondition" link="glib-IO-Channels.html#GIOCondition"/>
+    <function name="GIOFunc ()" link="glib-IO-Channels.html#GIOFunc"/>
+    <function name="struct GIOFuncs" link="glib-IO-Channels.html#GIOFuncs"/>
+    <function name="g_io_channel_get_buffer_size ()" link="glib-IO-Channels.html#g-io-channel-get-buffer-size"/>
+    <function name="g_io_channel_set_buffer_size ()" link="glib-IO-Channels.html#g-io-channel-set-buffer-size"/>
+    <function name="g_io_channel_get_buffer_condition ()" link="glib-IO-Channels.html#g-io-channel-get-buffer-condition"/>
+    <function name="g_io_channel_get_flags ()" link="glib-IO-Channels.html#g-io-channel-get-flags"/>
+    <function name="g_io_channel_set_flags ()" link="glib-IO-Channels.html#g-io-channel-set-flags"/>
+    <function name="enum GIOFlags" link="glib-IO-Channels.html#GIOFlags"/>
+    <function name="g_io_channel_get_line_term ()" link="glib-IO-Channels.html#g-io-channel-get-line-term"/>
+    <function name="g_io_channel_set_line_term ()" link="glib-IO-Channels.html#g-io-channel-set-line-term"/>
+    <function name="g_io_channel_get_buffered ()" link="glib-IO-Channels.html#g-io-channel-get-buffered"/>
+    <function name="g_io_channel_set_buffered ()" link="glib-IO-Channels.html#g-io-channel-set-buffered"/>
+    <function name="g_io_channel_get_encoding ()" link="glib-IO-Channels.html#g-io-channel-get-encoding"/>
+    <function name="g_io_channel_set_encoding ()" link="glib-IO-Channels.html#g-io-channel-set-encoding"/>
+    <function name="g_io_channel_get_close_on_unref ()" link="glib-IO-Channels.html#g-io-channel-get-close-on-unref"/>
+    <function name="g_io_channel_set_close_on_unref ()" link="glib-IO-Channels.html#g-io-channel-set-close-on-unref"/>
+    <function name="g_io_channel_read ()" link="glib-IO-Channels.html#g-io-channel-read"/>
+    <function name="enum GIOError" link="glib-IO-Channels.html#GIOError"/>
+    <function name="g_io_channel_write ()" link="glib-IO-Channels.html#g-io-channel-write"/>
+    <function name="g_io_channel_seek ()" link="glib-IO-Channels.html#g-io-channel-seek"/>
+    <function name="g_io_channel_close ()" link="glib-IO-Channels.html#g-io-channel-close"/>
+    <function name="struct GError" link="glib-Error-Reporting.html#GError"/>
+    <function name="g_error_new ()" link="glib-Error-Reporting.html#g-error-new"/>
+    <function name="g_error_new_literal ()" link="glib-Error-Reporting.html#g-error-new-literal"/>
+    <function name="g_error_free ()" link="glib-Error-Reporting.html#g-error-free"/>
+    <function name="g_error_copy ()" link="glib-Error-Reporting.html#g-error-copy"/>
+    <function name="g_error_matches ()" link="glib-Error-Reporting.html#g-error-matches"/>
+    <function name="g_set_error ()" link="glib-Error-Reporting.html#g-set-error"/>
+    <function name="g_propagate_error ()" link="glib-Error-Reporting.html#g-propagate-error"/>
+    <function name="g_clear_error ()" link="glib-Error-Reporting.html#g-clear-error"/>
+    <function name="g_print ()" link="glib-Warnings-and-Assertions.html#g-print"/>
+    <function name="g_set_print_handler ()" link="glib-Warnings-and-Assertions.html#g-set-print-handler"/>
+    <function name="GPrintFunc ()" link="glib-Warnings-and-Assertions.html#GPrintFunc"/>
+    <function name="g_printerr ()" link="glib-Warnings-and-Assertions.html#g-printerr"/>
+    <function name="g_set_printerr_handler ()" link="glib-Warnings-and-Assertions.html#g-set-printerr-handler"/>
+    <function name="g_return_if_fail()" link="glib-Warnings-and-Assertions.html#g-return-if-fail"/>
+    <function name="g_return_val_if_fail()" link="glib-Warnings-and-Assertions.html#g-return-val-if-fail"/>
+    <function name="g_return_if_reached()" link="glib-Warnings-and-Assertions.html#g-return-if-reached"/>
+    <function name="g_return_val_if_reached()" link="glib-Warnings-and-Assertions.html#g-return-val-if-reached"/>
+    <function name="g_assert()" link="glib-Warnings-and-Assertions.html#g-assert"/>
+    <function name="g_assert_not_reached()" link="glib-Warnings-and-Assertions.html#g-assert-not-reached"/>
+    <function name="g_on_error_query ()" link="glib-Warnings-and-Assertions.html#g-on-error-query"/>
+    <function name="g_on_error_stack_trace ()" link="glib-Warnings-and-Assertions.html#g-on-error-stack-trace"/>
+    <function name="G_BREAKPOINT()" link="glib-Warnings-and-Assertions.html#G-BREAKPOINT-CAPS"/>
+    <function name="G_LOG_DOMAIN" link="glib-Message-Logging.html#G-LOG-DOMAIN-CAPS"/>
+    <function name="G_LOG_FATAL_MASK" link="glib-Message-Logging.html#G-LOG-FATAL-MASK-CAPS"/>
+    <function name="G_LOG_LEVEL_USER_SHIFT" link="glib-Message-Logging.html#G-LOG-LEVEL-USER-SHIFT-CAPS"/>
+    <function name="GLogFunc ()" link="glib-Message-Logging.html#GLogFunc"/>
+    <function name="enum GLogLevelFlags" link="glib-Message-Logging.html#GLogLevelFlags"/>
+    <function name="g_log ()" link="glib-Message-Logging.html#g-log"/>
+    <function name="g_logv ()" link="glib-Message-Logging.html#g-logv"/>
+    <function name="g_message()" link="glib-Message-Logging.html#g-message"/>
+    <function name="g_warning()" link="glib-Message-Logging.html#g-warning"/>
+    <function name="g_critical()" link="glib-Message-Logging.html#g-critical"/>
+    <function name="g_error()" link="glib-Message-Logging.html#g-error"/>
+    <function name="g_log_set_handler ()" link="glib-Message-Logging.html#g-log-set-handler"/>
+    <function name="g_log_remove_handler ()" link="glib-Message-Logging.html#g-log-remove-handler"/>
+    <function name="g_log_set_always_fatal ()" link="glib-Message-Logging.html#g-log-set-always-fatal"/>
+    <function name="g_log_set_fatal_mask ()" link="glib-Message-Logging.html#g-log-set-fatal-mask"/>
+    <function name="g_log_default_handler ()" link="glib-Message-Logging.html#g-log-default-handler"/>
+    <function name="g_strdup ()" link="glib-String-Utility-Functions.html#g-strdup"/>
+    <function name="g_strndup ()" link="glib-String-Utility-Functions.html#g-strndup"/>
+    <function name="g_strdupv ()" link="glib-String-Utility-Functions.html#g-strdupv"/>
+    <function name="g_strnfill ()" link="glib-String-Utility-Functions.html#g-strnfill"/>
+    <function name="g_stpcpy ()" link="glib-String-Utility-Functions.html#g-stpcpy"/>
+    <function name="g_strstr_len ()" link="glib-String-Utility-Functions.html#g-strstr-len"/>
+    <function name="g_strrstr ()" link="glib-String-Utility-Functions.html#g-strrstr"/>
+    <function name="g_strrstr_len ()" link="glib-String-Utility-Functions.html#g-strrstr-len"/>
+    <function name="g_str_has_prefix ()" link="glib-String-Utility-Functions.html#g-str-has-prefix"/>
+    <function name="g_str_has_suffix ()" link="glib-String-Utility-Functions.html#g-str-has-suffix"/>
+    <function name="g_strlcpy ()" link="glib-String-Utility-Functions.html#g-strlcpy"/>
+    <function name="g_strlcat ()" link="glib-String-Utility-Functions.html#g-strlcat"/>
+    <function name="g_strdup_printf ()" link="glib-String-Utility-Functions.html#g-strdup-printf"/>
+    <function name="g_strdup_vprintf ()" link="glib-String-Utility-Functions.html#g-strdup-vprintf"/>
+    <function name="g_printf ()" link="glib-String-Utility-Functions.html#g-printf"/>
+    <function name="g_vprintf ()" link="glib-String-Utility-Functions.html#g-vprintf"/>
+    <function name="g_fprintf ()" link="glib-String-Utility-Functions.html#g-fprintf"/>
+    <function name="g_vfprintf ()" link="glib-String-Utility-Functions.html#g-vfprintf"/>
+    <function name="g_sprintf ()" link="glib-String-Utility-Functions.html#g-sprintf"/>
+    <function name="g_vsprintf ()" link="glib-String-Utility-Functions.html#g-vsprintf"/>
+    <function name="g_snprintf ()" link="glib-String-Utility-Functions.html#g-snprintf"/>
+    <function name="g_vsnprintf ()" link="glib-String-Utility-Functions.html#g-vsnprintf"/>
+    <function name="g_vasprintf ()" link="glib-String-Utility-Functions.html#g-vasprintf"/>
+    <function name="g_printf_string_upper_bound ()" link="glib-String-Utility-Functions.html#g-printf-string-upper-bound"/>
+    <function name="g_ascii_isalnum ()" link="glib-String-Utility-Functions.html#g-ascii-isalnum"/>
+    <function name="g_ascii_isalpha ()" link="glib-String-Utility-Functions.html#g-ascii-isalpha"/>
+    <function name="g_ascii_iscntrl ()" link="glib-String-Utility-Functions.html#g-ascii-iscntrl"/>
+    <function name="g_ascii_isdigit ()" link="glib-String-Utility-Functions.html#g-ascii-isdigit"/>
+    <function name="g_ascii_isgraph ()" link="glib-String-Utility-Functions.html#g-ascii-isgraph"/>
+    <function name="g_ascii_islower ()" link="glib-String-Utility-Functions.html#g-ascii-islower"/>
+    <function name="g_ascii_isprint ()" link="glib-String-Utility-Functions.html#g-ascii-isprint"/>
+    <function name="g_ascii_ispunct ()" link="glib-String-Utility-Functions.html#g-ascii-ispunct"/>
+    <function name="g_ascii_isspace ()" link="glib-String-Utility-Functions.html#g-ascii-isspace"/>
+    <function name="g_ascii_isupper ()" link="glib-String-Utility-Functions.html#g-ascii-isupper"/>
+    <function name="g_ascii_isxdigit ()" link="glib-String-Utility-Functions.html#g-ascii-isxdigit"/>
+    <function name="g_ascii_digit_value ()" link="glib-String-Utility-Functions.html#g-ascii-digit-value"/>
+    <function name="g_ascii_xdigit_value ()" link="glib-String-Utility-Functions.html#g-ascii-xdigit-value"/>
+    <function name="g_ascii_strcasecmp ()" link="glib-String-Utility-Functions.html#g-ascii-strcasecmp"/>
+    <function name="g_ascii_strncasecmp ()" link="glib-String-Utility-Functions.html#g-ascii-strncasecmp"/>
+    <function name="g_ascii_strup ()" link="glib-String-Utility-Functions.html#g-ascii-strup"/>
+    <function name="g_ascii_strdown ()" link="glib-String-Utility-Functions.html#g-ascii-strdown"/>
+    <function name="g_ascii_tolower ()" link="glib-String-Utility-Functions.html#g-ascii-tolower"/>
+    <function name="g_ascii_toupper ()" link="glib-String-Utility-Functions.html#g-ascii-toupper"/>
+    <function name="g_string_ascii_up ()" link="glib-String-Utility-Functions.html#g-string-ascii-up"/>
+    <function name="g_string_ascii_down ()" link="glib-String-Utility-Functions.html#g-string-ascii-down"/>
+    <function name="g_strup ()" link="glib-String-Utility-Functions.html#g-strup"/>
+    <function name="g_strdown ()" link="glib-String-Utility-Functions.html#g-strdown"/>
+    <function name="g_strcasecmp ()" link="glib-String-Utility-Functions.html#g-strcasecmp"/>
+    <function name="g_strncasecmp ()" link="glib-String-Utility-Functions.html#g-strncasecmp"/>
+    <function name="g_strreverse ()" link="glib-String-Utility-Functions.html#g-strreverse"/>
+    <function name="g_ascii_strtoull ()" link="glib-String-Utility-Functions.html#g-ascii-strtoull"/>
+    <function name="G_ASCII_DTOSTR_BUF_SIZE" link="glib-String-Utility-Functions.html#G-ASCII-DTOSTR-BUF-SIZE-CAPS"/>
+    <function name="g_ascii_strtod ()" link="glib-String-Utility-Functions.html#g-ascii-strtod"/>
+    <function name="g_ascii_dtostr ()" link="glib-String-Utility-Functions.html#g-ascii-dtostr"/>
+    <function name="g_ascii_formatd ()" link="glib-String-Utility-Functions.html#g-ascii-formatd"/>
+    <function name="g_strtod ()" link="glib-String-Utility-Functions.html#g-strtod"/>
+    <function name="g_strchug ()" link="glib-String-Utility-Functions.html#g-strchug"/>
+    <function name="g_strchomp ()" link="glib-String-Utility-Functions.html#g-strchomp"/>
+    <function name="g_strstrip()" link="glib-String-Utility-Functions.html#g-strstrip"/>
+    <function name="g_strdelimit ()" link="glib-String-Utility-Functions.html#g-strdelimit"/>
+    <function name="G_STR_DELIMITERS" link="glib-String-Utility-Functions.html#G-STR-DELIMITERS-CAPS"/>
+    <function name="g_strescape ()" link="glib-String-Utility-Functions.html#g-strescape"/>
+    <function name="g_strcompress ()" link="glib-String-Utility-Functions.html#g-strcompress"/>
+    <function name="g_strcanon ()" link="glib-String-Utility-Functions.html#g-strcanon"/>
+    <function name="g_strsplit ()" link="glib-String-Utility-Functions.html#g-strsplit"/>
+    <function name="g_strsplit_set ()" link="glib-String-Utility-Functions.html#g-strsplit-set"/>
+    <function name="g_strfreev ()" link="glib-String-Utility-Functions.html#g-strfreev"/>
+    <function name="g_strconcat ()" link="glib-String-Utility-Functions.html#g-strconcat"/>
+    <function name="g_strjoin ()" link="glib-String-Utility-Functions.html#g-strjoin"/>
+    <function name="g_strjoinv ()" link="glib-String-Utility-Functions.html#g-strjoinv"/>
+    <function name="g_strerror ()" link="glib-String-Utility-Functions.html#g-strerror"/>
+    <function name="g_strsignal ()" link="glib-String-Utility-Functions.html#g-strsignal"/>
+    <function name="File Name Encodings" link="glib-Character-Set-Conversion.html#file-name-encodings"/>
+    <function name="g_convert ()" link="glib-Character-Set-Conversion.html#g-convert"/>
+    <function name="g_convert_with_fallback ()" link="glib-Character-Set-Conversion.html#g-convert-with-fallback"/>
+    <function name="struct GIConv" link="glib-Character-Set-Conversion.html#GIConv"/>
+    <function name="g_convert_with_iconv ()" link="glib-Character-Set-Conversion.html#g-convert-with-iconv"/>
+    <function name="G_CONVERT_ERROR" link="glib-Character-Set-Conversion.html#G-CONVERT-ERROR-CAPS"/>
+    <function name="g_iconv_open ()" link="glib-Character-Set-Conversion.html#g-iconv-open"/>
+    <function name="g_iconv ()" link="glib-Character-Set-Conversion.html#g-iconv"/>
+    <function name="g_iconv_close ()" link="glib-Character-Set-Conversion.html#g-iconv-close"/>
+    <function name="g_locale_to_utf8 ()" link="glib-Character-Set-Conversion.html#g-locale-to-utf8"/>
+    <function name="g_filename_to_utf8 ()" link="glib-Character-Set-Conversion.html#g-filename-to-utf8"/>
+    <function name="g_filename_from_utf8 ()" link="glib-Character-Set-Conversion.html#g-filename-from-utf8"/>
+    <function name="g_filename_from_uri ()" link="glib-Character-Set-Conversion.html#g-filename-from-uri"/>
+    <function name="g_filename_to_uri ()" link="glib-Character-Set-Conversion.html#g-filename-to-uri"/>
+    <function name="g_locale_from_utf8 ()" link="glib-Character-Set-Conversion.html#g-locale-from-utf8"/>
+    <function name="enum GConvertError" link="glib-Character-Set-Conversion.html#GConvertError"/>
+    <function name="g_get_charset ()" link="glib-Character-Set-Conversion.html#g-get-charset"/>
+    <function name="gunichar" link="glib-Unicode-Manipulation.html#gunichar"/>
+    <function name="gunichar2" link="glib-Unicode-Manipulation.html#gunichar2"/>
+    <function name="g_unichar_validate ()" link="glib-Unicode-Manipulation.html#g-unichar-validate"/>
+    <function name="g_unichar_isalnum ()" link="glib-Unicode-Manipulation.html#g-unichar-isalnum"/>
+    <function name="g_unichar_isalpha ()" link="glib-Unicode-Manipulation.html#g-unichar-isalpha"/>
+    <function name="g_unichar_iscntrl ()" link="glib-Unicode-Manipulation.html#g-unichar-iscntrl"/>
+    <function name="g_unichar_isdigit ()" link="glib-Unicode-Manipulation.html#g-unichar-isdigit"/>
+    <function name="g_unichar_isgraph ()" link="glib-Unicode-Manipulation.html#g-unichar-isgraph"/>
+    <function name="g_unichar_islower ()" link="glib-Unicode-Manipulation.html#g-unichar-islower"/>
+    <function name="g_unichar_isprint ()" link="glib-Unicode-Manipulation.html#g-unichar-isprint"/>
+    <function name="g_unichar_ispunct ()" link="glib-Unicode-Manipulation.html#g-unichar-ispunct"/>
+    <function name="g_unichar_isspace ()" link="glib-Unicode-Manipulation.html#g-unichar-isspace"/>
+    <function name="g_unichar_isupper ()" link="glib-Unicode-Manipulation.html#g-unichar-isupper"/>
+    <function name="g_unichar_isxdigit ()" link="glib-Unicode-Manipulation.html#g-unichar-isxdigit"/>
+    <function name="g_unichar_istitle ()" link="glib-Unicode-Manipulation.html#g-unichar-istitle"/>
+    <function name="g_unichar_isdefined ()" link="glib-Unicode-Manipulation.html#g-unichar-isdefined"/>
+    <function name="g_unichar_iswide ()" link="glib-Unicode-Manipulation.html#g-unichar-iswide"/>
+    <function name="g_unichar_toupper ()" link="glib-Unicode-Manipulation.html#g-unichar-toupper"/>
+    <function name="g_unichar_tolower ()" link="glib-Unicode-Manipulation.html#g-unichar-tolower"/>
+    <function name="g_unichar_totitle ()" link="glib-Unicode-Manipulation.html#g-unichar-totitle"/>
+    <function name="g_unichar_digit_value ()" link="glib-Unicode-Manipulation.html#g-unichar-digit-value"/>
+    <function name="g_unichar_xdigit_value ()" link="glib-Unicode-Manipulation.html#g-unichar-xdigit-value"/>
+    <function name="enum GUnicodeType" link="glib-Unicode-Manipulation.html#GUnicodeType"/>
+    <function name="g_unichar_type ()" link="glib-Unicode-Manipulation.html#g-unichar-type"/>
+    <function name="enum GUnicodeBreakType" link="glib-Unicode-Manipulation.html#GUnicodeBreakType"/>
+    <function name="g_unichar_break_type ()" link="glib-Unicode-Manipulation.html#g-unichar-break-type"/>
+    <function name="g_unicode_canonical_ordering ()" link="glib-Unicode-Manipulation.html#g-unicode-canonical-ordering"/>
+    <function name="g_unicode_canonical_decomposition ()" link="glib-Unicode-Manipulation.html#g-unicode-canonical-decomposition"/>
+    <function name="g_unichar_get_mirror_char ()" link="glib-Unicode-Manipulation.html#g-unichar-get-mirror-char"/>
+    <function name="g_utf8_next_char()" link="glib-Unicode-Manipulation.html#g-utf8-next-char"/>
+    <function name="g_utf8_get_char ()" link="glib-Unicode-Manipulation.html#g-utf8-get-char"/>
+    <function name="g_utf8_get_char_validated ()" link="glib-Unicode-Manipulation.html#g-utf8-get-char-validated"/>
+    <function name="g_utf8_offset_to_pointer ()" link="glib-Unicode-Manipulation.html#g-utf8-offset-to-pointer"/>
+    <function name="g_utf8_pointer_to_offset ()" link="glib-Unicode-Manipulation.html#g-utf8-pointer-to-offset"/>
+    <function name="g_utf8_prev_char ()" link="glib-Unicode-Manipulation.html#g-utf8-prev-char"/>
+    <function name="g_utf8_find_next_char ()" link="glib-Unicode-Manipulation.html#g-utf8-find-next-char"/>
+    <function name="g_utf8_find_prev_char ()" link="glib-Unicode-Manipulation.html#g-utf8-find-prev-char"/>
+    <function name="g_utf8_strlen ()" link="glib-Unicode-Manipulation.html#g-utf8-strlen"/>
+    <function name="g_utf8_strncpy ()" link="glib-Unicode-Manipulation.html#g-utf8-strncpy"/>
+    <function name="g_utf8_strchr ()" link="glib-Unicode-Manipulation.html#g-utf8-strchr"/>
+    <function name="g_utf8_strrchr ()" link="glib-Unicode-Manipulation.html#g-utf8-strrchr"/>
+    <function name="g_utf8_strreverse ()" link="glib-Unicode-Manipulation.html#g-utf8-strreverse"/>
+    <function name="g_utf8_validate ()" link="glib-Unicode-Manipulation.html#g-utf8-validate"/>
+    <function name="g_utf8_strup ()" link="glib-Unicode-Manipulation.html#g-utf8-strup"/>
+    <function name="g_utf8_strdown ()" link="glib-Unicode-Manipulation.html#g-utf8-strdown"/>
+    <function name="g_utf8_casefold ()" link="glib-Unicode-Manipulation.html#g-utf8-casefold"/>
+    <function name="g_utf8_normalize ()" link="glib-Unicode-Manipulation.html#g-utf8-normalize"/>
+    <function name="enum GNormalizeMode" link="glib-Unicode-Manipulation.html#GNormalizeMode"/>
+    <function name="g_utf8_collate ()" link="glib-Unicode-Manipulation.html#g-utf8-collate"/>
+    <function name="g_utf8_collate_key ()" link="glib-Unicode-Manipulation.html#g-utf8-collate-key"/>
+    <function name="g_utf8_to_utf16 ()" link="glib-Unicode-Manipulation.html#g-utf8-to-utf16"/>
+    <function name="g_utf8_to_ucs4 ()" link="glib-Unicode-Manipulation.html#g-utf8-to-ucs4"/>
+    <function name="g_utf8_to_ucs4_fast ()" link="glib-Unicode-Manipulation.html#g-utf8-to-ucs4-fast"/>
+    <function name="g_utf16_to_ucs4 ()" link="glib-Unicode-Manipulation.html#g-utf16-to-ucs4"/>
+    <function name="g_utf16_to_utf8 ()" link="glib-Unicode-Manipulation.html#g-utf16-to-utf8"/>
+    <function name="g_ucs4_to_utf16 ()" link="glib-Unicode-Manipulation.html#g-ucs4-to-utf16"/>
+    <function name="g_ucs4_to_utf8 ()" link="glib-Unicode-Manipulation.html#g-ucs4-to-utf8"/>
+    <function name="g_unichar_to_utf8 ()" link="glib-Unicode-Manipulation.html#g-unichar-to-utf8"/>
+    <function name="_()" link="glib-I18N.html#gettext-macro"/>
+    <function name="Q_()" link="glib-I18N.html#Q--CAPS"/>
+    <function name="N_()" link="glib-I18N.html#N--CAPS"/>
+    <function name="g_strip_context ()" link="glib-I18N.html#g-strip-context"/>
+    <function name="G_USEC_PER_SEC" link="glib-Date-and-Time-Functions.html#G-USEC-PER-SEC-CAPS"/>
+    <function name="struct GTimeVal" link="glib-Date-and-Time-Functions.html#GTimeVal"/>
+    <function name="g_get_current_time ()" link="glib-Date-and-Time-Functions.html#g-get-current-time"/>
+    <function name="g_usleep ()" link="glib-Date-and-Time-Functions.html#g-usleep"/>
+    <function name="g_time_val_add ()" link="glib-Date-and-Time-Functions.html#g-time-val-add"/>
+    <function name="struct GDate" link="glib-Date-and-Time-Functions.html#GDate"/>
+    <function name="GTime" link="glib-Date-and-Time-Functions.html#GTime"/>
+    <function name="enum GDateDMY" link="glib-Date-and-Time-Functions.html#GDateDMY"/>
+    <function name="GDateDay" link="glib-Date-and-Time-Functions.html#GDateDay"/>
+    <function name="enum GDateMonth" link="glib-Date-and-Time-Functions.html#GDateMonth"/>
+    <function name="GDateYear" link="glib-Date-and-Time-Functions.html#GDateYear"/>
+    <function name="enum GDateWeekday" link="glib-Date-and-Time-Functions.html#GDateWeekday"/>
+    <function name="G_DATE_BAD_DAY" link="glib-Date-and-Time-Functions.html#G-DATE-BAD-DAY-CAPS"/>
+    <function name="G_DATE_BAD_JULIAN" link="glib-Date-and-Time-Functions.html#G-DATE-BAD-JULIAN-CAPS"/>
+    <function name="G_DATE_BAD_YEAR" link="glib-Date-and-Time-Functions.html#G-DATE-BAD-YEAR-CAPS"/>
+    <function name="g_date_new ()" link="glib-Date-and-Time-Functions.html#g-date-new"/>
+    <function name="g_date_new_dmy ()" link="glib-Date-and-Time-Functions.html#g-date-new-dmy"/>
+    <function name="g_date_new_julian ()" link="glib-Date-and-Time-Functions.html#g-date-new-julian"/>
+    <function name="g_date_clear ()" link="glib-Date-and-Time-Functions.html#g-date-clear"/>
+    <function name="g_date_free ()" link="glib-Date-and-Time-Functions.html#g-date-free"/>
+    <function name="g_date_set_day ()" link="glib-Date-and-Time-Functions.html#g-date-set-day"/>
+    <function name="g_date_set_month ()" link="glib-Date-and-Time-Functions.html#g-date-set-month"/>
+    <function name="g_date_set_year ()" link="glib-Date-and-Time-Functions.html#g-date-set-year"/>
+    <function name="g_date_set_dmy ()" link="glib-Date-and-Time-Functions.html#g-date-set-dmy"/>
+    <function name="g_date_set_julian ()" link="glib-Date-and-Time-Functions.html#g-date-set-julian"/>
+    <function name="g_date_set_time ()" link="glib-Date-and-Time-Functions.html#g-date-set-time"/>
+    <function name="g_date_set_parse ()" link="glib-Date-and-Time-Functions.html#g-date-set-parse"/>
+    <function name="g_date_add_days ()" link="glib-Date-and-Time-Functions.html#g-date-add-days"/>
+    <function name="g_date_subtract_days ()" link="glib-Date-and-Time-Functions.html#g-date-subtract-days"/>
+    <function name="g_date_add_months ()" link="glib-Date-and-Time-Functions.html#g-date-add-months"/>
+    <function name="g_date_subtract_months ()" link="glib-Date-and-Time-Functions.html#g-date-subtract-months"/>
+    <function name="g_date_add_years ()" link="glib-Date-and-Time-Functions.html#g-date-add-years"/>
+    <function name="g_date_subtract_years ()" link="glib-Date-and-Time-Functions.html#g-date-subtract-years"/>
+    <function name="g_date_days_between ()" link="glib-Date-and-Time-Functions.html#g-date-days-between"/>
+    <function name="g_date_compare ()" link="glib-Date-and-Time-Functions.html#g-date-compare"/>
+    <function name="g_date_clamp ()" link="glib-Date-and-Time-Functions.html#g-date-clamp"/>
+    <function name="g_date_order ()" link="glib-Date-and-Time-Functions.html#g-date-order"/>
+    <function name="g_date_get_day ()" link="glib-Date-and-Time-Functions.html#g-date-get-day"/>
+    <function name="g_date_get_month ()" link="glib-Date-and-Time-Functions.html#g-date-get-month"/>
+    <function name="g_date_get_year ()" link="glib-Date-and-Time-Functions.html#g-date-get-year"/>
+    <function name="g_date_get_julian ()" link="glib-Date-and-Time-Functions.html#g-date-get-julian"/>
+    <function name="g_date_get_weekday ()" link="glib-Date-and-Time-Functions.html#g-date-get-weekday"/>
+    <function name="g_date_get_day_of_year ()" link="glib-Date-and-Time-Functions.html#g-date-get-day-of-year"/>
+    <function name="g_date_get_days_in_month ()" link="glib-Date-and-Time-Functions.html#g-date-get-days-in-month"/>
+    <function name="g_date_is_first_of_month ()" link="glib-Date-and-Time-Functions.html#g-date-is-first-of-month"/>
+    <function name="g_date_is_last_of_month ()" link="glib-Date-and-Time-Functions.html#g-date-is-last-of-month"/>
+    <function name="g_date_is_leap_year ()" link="glib-Date-and-Time-Functions.html#g-date-is-leap-year"/>
+    <function name="g_date_get_monday_week_of_year ()" link="glib-Date-and-Time-Functions.html#g-date-get-monday-week-of-year"/>
+    <function name="g_date_get_monday_weeks_in_year ()" link="glib-Date-and-Time-Functions.html#g-date-get-monday-weeks-in-year"/>
+    <function name="g_date_get_sunday_week_of_year ()" link="glib-Date-and-Time-Functions.html#g-date-get-sunday-week-of-year"/>
+    <function name="g_date_get_sunday_weeks_in_year ()" link="glib-Date-and-Time-Functions.html#g-date-get-sunday-weeks-in-year"/>
+    <function name="g_date_strftime ()" link="glib-Date-and-Time-Functions.html#g-date-strftime"/>
+    <function name="g_date_to_struct_tm ()" link="glib-Date-and-Time-Functions.html#g-date-to-struct-tm"/>
+    <function name="g_date_valid ()" link="glib-Date-and-Time-Functions.html#g-date-valid"/>
+    <function name="g_date_valid_day ()" link="glib-Date-and-Time-Functions.html#g-date-valid-day"/>
+    <function name="g_date_valid_month ()" link="glib-Date-and-Time-Functions.html#g-date-valid-month"/>
+    <function name="g_date_valid_year ()" link="glib-Date-and-Time-Functions.html#g-date-valid-year"/>
+    <function name="g_date_valid_dmy ()" link="glib-Date-and-Time-Functions.html#g-date-valid-dmy"/>
+    <function name="g_date_valid_julian ()" link="glib-Date-and-Time-Functions.html#g-date-valid-julian"/>
+    <function name="g_date_valid_weekday ()" link="glib-Date-and-Time-Functions.html#g-date-valid-weekday"/>
+    <function name="struct GRand" link="glib-Random-Numbers.html#GRand"/>
+    <function name="g_rand_new_with_seed ()" link="glib-Random-Numbers.html#g-rand-new-with-seed"/>
+    <function name="g_rand_new_with_seed_array ()" link="glib-Random-Numbers.html#g-rand-new-with-seed-array"/>
+    <function name="g_rand_new ()" link="glib-Random-Numbers.html#g-rand-new"/>
+    <function name="g_rand_copy ()" link="glib-Random-Numbers.html#g-rand-copy"/>
+    <function name="g_rand_free ()" link="glib-Random-Numbers.html#g-rand-free"/>
+    <function name="g_rand_set_seed ()" link="glib-Random-Numbers.html#g-rand-set-seed"/>
+    <function name="g_rand_set_seed_array ()" link="glib-Random-Numbers.html#g-rand-set-seed-array"/>
+    <function name="g_rand_boolean()" link="glib-Random-Numbers.html#g-rand-boolean"/>
+    <function name="g_rand_int ()" link="glib-Random-Numbers.html#g-rand-int"/>
+    <function name="g_rand_int_range ()" link="glib-Random-Numbers.html#g-rand-int-range"/>
+    <function name="g_rand_double ()" link="glib-Random-Numbers.html#g-rand-double"/>
+    <function name="g_rand_double_range ()" link="glib-Random-Numbers.html#g-rand-double-range"/>
+    <function name="g_random_set_seed ()" link="glib-Random-Numbers.html#g-random-set-seed"/>
+    <function name="g_random_boolean()" link="glib-Random-Numbers.html#g-random-boolean"/>
+    <function name="g_random_int ()" link="glib-Random-Numbers.html#g-random-int"/>
+    <function name="g_random_int_range ()" link="glib-Random-Numbers.html#g-random-int-range"/>
+    <function name="g_random_double ()" link="glib-Random-Numbers.html#g-random-double"/>
+    <function name="g_random_double_range ()" link="glib-Random-Numbers.html#g-random-double-range"/>
+    <function name="struct GHookList" link="glib-Hook-Functions.html#GHookList"/>
+    <function name="GHookFinalizeFunc ()" link="glib-Hook-Functions.html#GHookFinalizeFunc"/>
+    <function name="struct GHook" link="glib-Hook-Functions.html#GHook"/>
+    <function name="GHookFunc ()" link="glib-Hook-Functions.html#GHookFunc"/>
+    <function name="GHookCheckFunc ()" link="glib-Hook-Functions.html#GHookCheckFunc"/>
+    <function name="g_hook_list_init ()" link="glib-Hook-Functions.html#g-hook-list-init"/>
+    <function name="g_hook_list_invoke ()" link="glib-Hook-Functions.html#g-hook-list-invoke"/>
+    <function name="g_hook_list_invoke_check ()" link="glib-Hook-Functions.html#g-hook-list-invoke-check"/>
+    <function name="g_hook_list_marshal ()" link="glib-Hook-Functions.html#g-hook-list-marshal"/>
+    <function name="GHookMarshaller ()" link="glib-Hook-Functions.html#GHookMarshaller"/>
+    <function name="g_hook_list_marshal_check ()" link="glib-Hook-Functions.html#g-hook-list-marshal-check"/>
+    <function name="GHookCheckMarshaller ()" link="glib-Hook-Functions.html#GHookCheckMarshaller"/>
+    <function name="g_hook_list_clear ()" link="glib-Hook-Functions.html#g-hook-list-clear"/>
+    <function name="g_hook_alloc ()" link="glib-Hook-Functions.html#g-hook-alloc"/>
+    <function name="g_hook_append()" link="glib-Hook-Functions.html#g-hook-append"/>
+    <function name="g_hook_prepend ()" link="glib-Hook-Functions.html#g-hook-prepend"/>
+    <function name="g_hook_insert_before ()" link="glib-Hook-Functions.html#g-hook-insert-before"/>
+    <function name="g_hook_insert_sorted ()" link="glib-Hook-Functions.html#g-hook-insert-sorted"/>
+    <function name="GHookCompareFunc ()" link="glib-Hook-Functions.html#GHookCompareFunc"/>
+    <function name="g_hook_compare_ids ()" link="glib-Hook-Functions.html#g-hook-compare-ids"/>
+    <function name="g_hook_get ()" link="glib-Hook-Functions.html#g-hook-get"/>
+    <function name="g_hook_find ()" link="glib-Hook-Functions.html#g-hook-find"/>
+    <function name="GHookFindFunc ()" link="glib-Hook-Functions.html#GHookFindFunc"/>
+    <function name="g_hook_find_data ()" link="glib-Hook-Functions.html#g-hook-find-data"/>
+    <function name="g_hook_find_func ()" link="glib-Hook-Functions.html#g-hook-find-func"/>
+    <function name="g_hook_find_func_data ()" link="glib-Hook-Functions.html#g-hook-find-func-data"/>
+    <function name="g_hook_first_valid ()" link="glib-Hook-Functions.html#g-hook-first-valid"/>
+    <function name="g_hook_next_valid ()" link="glib-Hook-Functions.html#g-hook-next-valid"/>
+    <function name="enum GHookFlagMask" link="glib-Hook-Functions.html#GHookFlagMask"/>
+    <function name="G_HOOK_FLAGS()" link="glib-Hook-Functions.html#G-HOOK-FLAGS-CAPS"/>
+    <function name="G_HOOK_FLAG_USER_SHIFT" link="glib-Hook-Functions.html#G-HOOK-FLAG-USER-SHIFT-CAPS"/>
+    <function name="G_HOOK()" link="glib-Hook-Functions.html#G-HOOK-CAPS"/>
+    <function name="G_HOOK_IS_VALID()" link="glib-Hook-Functions.html#G-HOOK-IS-VALID-CAPS"/>
+    <function name="G_HOOK_ACTIVE()" link="glib-Hook-Functions.html#G-HOOK-ACTIVE-CAPS"/>
+    <function name="G_HOOK_IN_CALL()" link="glib-Hook-Functions.html#G-HOOK-IN-CALL-CAPS"/>
+    <function name="G_HOOK_IS_UNLINKED()" link="glib-Hook-Functions.html#G-HOOK-IS-UNLINKED-CAPS"/>
+    <function name="g_hook_ref ()" link="glib-Hook-Functions.html#g-hook-ref"/>
+    <function name="g_hook_unref ()" link="glib-Hook-Functions.html#g-hook-unref"/>
+    <function name="g_hook_free ()" link="glib-Hook-Functions.html#g-hook-free"/>
+    <function name="g_hook_destroy ()" link="glib-Hook-Functions.html#g-hook-destroy"/>
+    <function name="g_hook_destroy_link ()" link="glib-Hook-Functions.html#g-hook-destroy-link"/>
+    <function name="g_get_application_name ()" link="glib-Miscellaneous-Utility-Functions.html#g-get-application-name"/>
+    <function name="g_set_application_name ()" link="glib-Miscellaneous-Utility-Functions.html#g-set-application-name"/>
+    <function name="g_get_prgname ()" link="glib-Miscellaneous-Utility-Functions.html#g-get-prgname"/>
+    <function name="g_set_prgname ()" link="glib-Miscellaneous-Utility-Functions.html#g-set-prgname"/>
+    <function name="g_getenv ()" link="glib-Miscellaneous-Utility-Functions.html#g-getenv"/>
+    <function name="g_setenv ()" link="glib-Miscellaneous-Utility-Functions.html#g-setenv"/>
+    <function name="g_unsetenv ()" link="glib-Miscellaneous-Utility-Functions.html#g-unsetenv"/>
+    <function name="g_get_user_name ()" link="glib-Miscellaneous-Utility-Functions.html#g-get-user-name"/>
+    <function name="g_get_real_name ()" link="glib-Miscellaneous-Utility-Functions.html#g-get-real-name"/>
+    <function name="g_get_home_dir ()" link="glib-Miscellaneous-Utility-Functions.html#g-get-home-dir"/>
+    <function name="g_get_tmp_dir ()" link="glib-Miscellaneous-Utility-Functions.html#g-get-tmp-dir"/>
+    <function name="g_get_current_dir ()" link="glib-Miscellaneous-Utility-Functions.html#g-get-current-dir"/>
+    <function name="g_basename ()" link="glib-Miscellaneous-Utility-Functions.html#g-basename"/>
+    <function name="g_dirname" link="glib-Miscellaneous-Utility-Functions.html#g-dirname"/>
+    <function name="g_path_is_absolute ()" link="glib-Miscellaneous-Utility-Functions.html#g-path-is-absolute"/>
+    <function name="g_path_skip_root ()" link="glib-Miscellaneous-Utility-Functions.html#g-path-skip-root"/>
+    <function name="g_path_get_basename ()" link="glib-Miscellaneous-Utility-Functions.html#g-path-get-basename"/>
+    <function name="g_path_get_dirname ()" link="glib-Miscellaneous-Utility-Functions.html#g-path-get-dirname"/>
+    <function name="g_build_filename ()" link="glib-Miscellaneous-Utility-Functions.html#g-build-filename"/>
+    <function name="g_build_path ()" link="glib-Miscellaneous-Utility-Functions.html#g-build-path"/>
+    <function name="g_find_program_in_path ()" link="glib-Miscellaneous-Utility-Functions.html#g-find-program-in-path"/>
+    <function name="g_bit_nth_lsf ()" link="glib-Miscellaneous-Utility-Functions.html#g-bit-nth-lsf"/>
+    <function name="g_bit_nth_msf ()" link="glib-Miscellaneous-Utility-Functions.html#g-bit-nth-msf"/>
+    <function name="g_bit_storage ()" link="glib-Miscellaneous-Utility-Functions.html#g-bit-storage"/>
+    <function name="g_spaced_primes_closest ()" link="glib-Miscellaneous-Utility-Functions.html#g-spaced-primes-closest"/>
+    <function name="g_atexit ()" link="glib-Miscellaneous-Utility-Functions.html#g-atexit"/>
+    <function name="g_parse_debug_string ()" link="glib-Miscellaneous-Utility-Functions.html#g-parse-debug-string"/>
+    <function name="struct GDebugKey" link="glib-Miscellaneous-Utility-Functions.html#GDebugKey"/>
+    <function name="GVoidFunc ()" link="glib-Miscellaneous-Utility-Functions.html#GVoidFunc"/>
+    <function name="GFreeFunc ()" link="glib-Miscellaneous-Utility-Functions.html#GFreeFunc"/>
+    <function name="g_qsort_with_data ()" link="glib-Miscellaneous-Utility-Functions.html#g-qsort-with-data"/>
+    <function name="g_nullify_pointer ()" link="glib-Miscellaneous-Utility-Functions.html#g-nullify-pointer"/>
+    <function name="struct GScanner" link="glib-Lexical-Scanner.html#GScanner"/>
+    <function name="g_scanner_new ()" link="glib-Lexical-Scanner.html#g-scanner-new"/>
+    <function name="struct GScannerConfig" link="glib-Lexical-Scanner.html#GScannerConfig"/>
+    <function name="g_scanner_input_file ()" link="glib-Lexical-Scanner.html#g-scanner-input-file"/>
+    <function name="g_scanner_sync_file_offset ()" link="glib-Lexical-Scanner.html#g-scanner-sync-file-offset"/>
+    <function name="g_scanner_input_text ()" link="glib-Lexical-Scanner.html#g-scanner-input-text"/>
+    <function name="g_scanner_peek_next_token ()" link="glib-Lexical-Scanner.html#g-scanner-peek-next-token"/>
+    <function name="g_scanner_get_next_token ()" link="glib-Lexical-Scanner.html#g-scanner-get-next-token"/>
+    <function name="g_scanner_cur_line ()" link="glib-Lexical-Scanner.html#g-scanner-cur-line"/>
+    <function name="g_scanner_cur_position ()" link="glib-Lexical-Scanner.html#g-scanner-cur-position"/>
+    <function name="g_scanner_cur_token ()" link="glib-Lexical-Scanner.html#g-scanner-cur-token"/>
+    <function name="g_scanner_cur_value ()" link="glib-Lexical-Scanner.html#g-scanner-cur-value"/>
+    <function name="g_scanner_eof ()" link="glib-Lexical-Scanner.html#g-scanner-eof"/>
+    <function name="g_scanner_set_scope ()" link="glib-Lexical-Scanner.html#g-scanner-set-scope"/>
+    <function name="g_scanner_scope_add_symbol ()" link="glib-Lexical-Scanner.html#g-scanner-scope-add-symbol"/>
+    <function name="g_scanner_scope_foreach_symbol ()" link="glib-Lexical-Scanner.html#g-scanner-scope-foreach-symbol"/>
+    <function name="g_scanner_scope_lookup_symbol ()" link="glib-Lexical-Scanner.html#g-scanner-scope-lookup-symbol"/>
+    <function name="g_scanner_scope_remove_symbol ()" link="glib-Lexical-Scanner.html#g-scanner-scope-remove-symbol"/>
+    <function name="g_scanner_freeze_symbol_table()" link="glib-Lexical-Scanner.html#g-scanner-freeze-symbol-table"/>
+    <function name="g_scanner_thaw_symbol_table()" link="glib-Lexical-Scanner.html#g-scanner-thaw-symbol-table"/>
+    <function name="g_scanner_lookup_symbol ()" link="glib-Lexical-Scanner.html#g-scanner-lookup-symbol"/>
+    <function name="g_scanner_warn ()" link="glib-Lexical-Scanner.html#g-scanner-warn"/>
+    <function name="g_scanner_error ()" link="glib-Lexical-Scanner.html#g-scanner-error"/>
+    <function name="g_scanner_unexp_token ()" link="glib-Lexical-Scanner.html#g-scanner-unexp-token"/>
+    <function name="GScannerMsgFunc ()" link="glib-Lexical-Scanner.html#GScannerMsgFunc"/>
+    <function name="g_scanner_destroy ()" link="glib-Lexical-Scanner.html#g-scanner-destroy"/>
+    <function name="enum GTokenType" link="glib-Lexical-Scanner.html#GTokenType"/>
+    <function name="union GTokenValue" link="glib-Lexical-Scanner.html#GTokenValue"/>
+    <function name="enum GErrorType" link="glib-Lexical-Scanner.html#GErrorType"/>
+    <function name="G_CSET_a_2_z" link="glib-Lexical-Scanner.html#G-CSET-a-2-z"/>
+    <function name="G_CSET_A_2_Z" link="glib-Lexical-Scanner.html#G-CSET-A-2-Z-CAPS"/>
+    <function name="G_CSET_DIGITS" link="glib-Lexical-Scanner.html#G-CSET-DIGITS-CAPS"/>
+    <function name="G_CSET_LATINC" link="glib-Lexical-Scanner.html#G-CSET-LATINC-CAPS"/>
+    <function name="G_CSET_LATINS" link="glib-Lexical-Scanner.html#G-CSET-LATINS-CAPS"/>
+    <function name="g_scanner_add_symbol()" link="glib-Lexical-Scanner.html#g-scanner-add-symbol"/>
+    <function name="g_scanner_remove_symbol()" link="glib-Lexical-Scanner.html#g-scanner-remove-symbol"/>
+    <function name="g_scanner_foreach_symbol()" link="glib-Lexical-Scanner.html#g-scanner-foreach-symbol"/>
+    <function name="struct GCompletion" link="glib-Automatic-String-Completion.html#GCompletion"/>
+    <function name="g_completion_new ()" link="glib-Automatic-String-Completion.html#g-completion-new"/>
+    <function name="GCompletionFunc ()" link="glib-Automatic-String-Completion.html#GCompletionFunc"/>
+    <function name="g_completion_add_items ()" link="glib-Automatic-String-Completion.html#g-completion-add-items"/>
+    <function name="g_completion_remove_items ()" link="glib-Automatic-String-Completion.html#g-completion-remove-items"/>
+    <function name="g_completion_clear_items ()" link="glib-Automatic-String-Completion.html#g-completion-clear-items"/>
+    <function name="g_completion_complete ()" link="glib-Automatic-String-Completion.html#g-completion-complete"/>
+    <function name="g_completion_complete_utf8 ()" link="glib-Automatic-String-Completion.html#g-completion-complete-utf8"/>
+    <function name="g_completion_set_compare ()" link="glib-Automatic-String-Completion.html#g-completion-set-compare"/>
+    <function name="GCompletionStrncmpFunc ()" link="glib-Automatic-String-Completion.html#GCompletionStrncmpFunc"/>
+    <function name="g_completion_free ()" link="glib-Automatic-String-Completion.html#g-completion-free"/>
+    <function name="struct GTimer" link="glib-Timers.html#GTimer"/>
+    <function name="g_timer_new ()" link="glib-Timers.html#g-timer-new"/>
+    <function name="g_timer_start ()" link="glib-Timers.html#g-timer-start"/>
+    <function name="g_timer_stop ()" link="glib-Timers.html#g-timer-stop"/>
+    <function name="g_timer_continue ()" link="glib-Timers.html#g-timer-continue"/>
+    <function name="g_timer_elapsed ()" link="glib-Timers.html#g-timer-elapsed"/>
+    <function name="g_timer_reset ()" link="glib-Timers.html#g-timer-reset"/>
+    <function name="g_timer_destroy ()" link="glib-Timers.html#g-timer-destroy"/>
+    <function name="enum GSpawnError" link="glib-Spawning-Processes.html#GSpawnError"/>
+    <function name="G_SPAWN_ERROR" link="glib-Spawning-Processes.html#G-SPAWN-ERROR-CAPS"/>
+    <function name="enum GSpawnFlags" link="glib-Spawning-Processes.html#GSpawnFlags"/>
+    <function name="GSpawnChildSetupFunc ()" link="glib-Spawning-Processes.html#GSpawnChildSetupFunc"/>
+    <function name="g_spawn_async_with_pipes ()" link="glib-Spawning-Processes.html#g-spawn-async-with-pipes"/>
+    <function name="g_spawn_async ()" link="glib-Spawning-Processes.html#g-spawn-async"/>
+    <function name="g_spawn_sync ()" link="glib-Spawning-Processes.html#g-spawn-sync"/>
+    <function name="g_spawn_command_line_async ()" link="glib-Spawning-Processes.html#g-spawn-command-line-async"/>
+    <function name="g_spawn_command_line_sync ()" link="glib-Spawning-Processes.html#g-spawn-command-line-sync"/>
+    <function name="g_spawn_close_pid ()" link="glib-Spawning-Processes.html#g-spawn-close-pid"/>
+    <function name="enum GFileError" link="glib-File-Utilities.html#GFileError"/>
+    <function name="G_FILE_ERROR" link="glib-File-Utilities.html#G-FILE-ERROR-CAPS"/>
+    <function name="enum GFileTest" link="glib-File-Utilities.html#GFileTest"/>
+    <function name="g_file_error_from_errno ()" link="glib-File-Utilities.html#g-file-error-from-errno"/>
+    <function name="g_file_get_contents ()" link="glib-File-Utilities.html#g-file-get-contents"/>
+    <function name="g_file_test ()" link="glib-File-Utilities.html#g-file-test"/>
+    <function name="g_mkstemp ()" link="glib-File-Utilities.html#g-mkstemp"/>
+    <function name="g_file_open_tmp ()" link="glib-File-Utilities.html#g-file-open-tmp"/>
+    <function name="g_file_read_link ()" link="glib-File-Utilities.html#g-file-read-link"/>
+    <function name="struct GDir" link="glib-File-Utilities.html#GDir"/>
+    <function name="g_dir_open ()" link="glib-File-Utilities.html#g-dir-open"/>
+    <function name="g_dir_read_name ()" link="glib-File-Utilities.html#g-dir-read-name"/>
+    <function name="g_dir_rewind ()" link="glib-File-Utilities.html#g-dir-rewind"/>
+    <function name="g_dir_close ()" link="glib-File-Utilities.html#g-dir-close"/>
+    <function name="enum GShellError" link="glib-Shell-related-Utilities.html#GShellError"/>
+    <function name="G_SHELL_ERROR" link="glib-Shell-related-Utilities.html#G-SHELL-ERROR-CAPS"/>
+    <function name="g_shell_parse_argv ()" link="glib-Shell-related-Utilities.html#g-shell-parse-argv"/>
+    <function name="g_shell_quote ()" link="glib-Shell-related-Utilities.html#g-shell-quote"/>
+    <function name="g_shell_unquote ()" link="glib-Shell-related-Utilities.html#g-shell-unquote"/>
+    <function name="struct GPatternSpec" link="glib-Glob-style-pattern-matching.html#GPatternSpec"/>
+    <function name="g_pattern_spec_new ()" link="glib-Glob-style-pattern-matching.html#g-pattern-spec-new"/>
+    <function name="g_pattern_spec_free ()" link="glib-Glob-style-pattern-matching.html#g-pattern-spec-free"/>
+    <function name="g_pattern_spec_equal ()" link="glib-Glob-style-pattern-matching.html#g-pattern-spec-equal"/>
+    <function name="g_pattern_match ()" link="glib-Glob-style-pattern-matching.html#g-pattern-match"/>
+    <function name="g_pattern_match_string ()" link="glib-Glob-style-pattern-matching.html#g-pattern-match-string"/>
+    <function name="g_pattern_match_simple ()" link="glib-Glob-style-pattern-matching.html#g-pattern-match-simple"/>
+    <function name="enum GMarkupError" link="glib-Simple-XML-Subset-Parser.html#GMarkupError"/>
+    <function name="G_MARKUP_ERROR" link="glib-Simple-XML-Subset-Parser.html#G-MARKUP-ERROR-CAPS"/>
+    <function name="enum GMarkupParseFlags" link="glib-Simple-XML-Subset-Parser.html#GMarkupParseFlags"/>
+    <function name="struct GMarkupParseContext" link="glib-Simple-XML-Subset-Parser.html#GMarkupParseContext"/>
+    <function name="struct GMarkupParser" link="glib-Simple-XML-Subset-Parser.html#GMarkupParser"/>
+    <function name="g_markup_escape_text ()" link="glib-Simple-XML-Subset-Parser.html#g-markup-escape-text"/>
+    <function name="g_markup_printf_escaped ()" link="glib-Simple-XML-Subset-Parser.html#g-markup-printf-escaped"/>
+    <function name="g_markup_vprintf_escaped ()" link="glib-Simple-XML-Subset-Parser.html#g-markup-vprintf-escaped"/>
+    <function name="g_markup_parse_context_end_parse ()" link="glib-Simple-XML-Subset-Parser.html#g-markup-parse-context-end-parse"/>
+    <function name="g_markup_parse_context_free ()" link="glib-Simple-XML-Subset-Parser.html#g-markup-parse-context-free"/>
+    <function name="g_markup_parse_context_get_position ()" link="glib-Simple-XML-Subset-Parser.html#g-markup-parse-context-get-position"/>
+    <function name="g_markup_parse_context_get_element ()" link="glib-Simple-XML-Subset-Parser.html#g-markup-parse-context-get-element"/>
+    <function name="g_markup_parse_context_new ()" link="glib-Simple-XML-Subset-Parser.html#g-markup-parse-context-new"/>
+    <function name="g_markup_parse_context_parse ()" link="glib-Simple-XML-Subset-Parser.html#g-markup-parse-context-parse"/>
+    <function name="MAXPATHLEN" link="glib-Windows-Compatability-Functions.html#MAXPATHLEN-CAPS"/>
+    <function name="pid_t" link="glib-Windows-Compatability-Functions.html#pid-t"/>
+    <function name="pipe()" link="glib-Windows-Compatability-Functions.html#pipe"/>
+    <function name="ftruncate()" link="glib-Windows-Compatability-Functions.html#ftruncate"/>
+    <function name="g_win32_error_message ()" link="glib-Windows-Compatability-Functions.html#g-win32-error-message"/>
+    <function name="g_win32_getlocale ()" link="glib-Windows-Compatability-Functions.html#g-win32-getlocale"/>
+    <function name="g_win32_get_package_installation_directory ()" link="glib-Windows-Compatability-Functions.html#g-win32-get-package-installation-directory"/>
+    <function name="g_win32_get_package_installation_subdirectory ()" link="glib-Windows-Compatability-Functions.html#g-win32-get-package-installation-subdirectory"/>
+    <function name="G_WIN32_DLLMAIN_FOR_DLL_NAME()" link="glib-Windows-Compatability-Functions.html#G-WIN32-DLLMAIN-FOR-DLL-NAME-CAPS"/>
+    <function name="struct GMemChunk" link="glib-Memory-Chunks.html#GMemChunk"/>
+    <function name="G_ALLOC_AND_FREE" link="glib-Memory-Chunks.html#G-ALLOC-AND-FREE-CAPS"/>
+    <function name="G_ALLOC_ONLY" link="glib-Memory-Chunks.html#G-ALLOC-ONLY-CAPS"/>
+    <function name="g_mem_chunk_new ()" link="glib-Memory-Chunks.html#g-mem-chunk-new"/>
+    <function name="g_mem_chunk_alloc ()" link="glib-Memory-Chunks.html#g-mem-chunk-alloc"/>
+    <function name="g_mem_chunk_alloc0 ()" link="glib-Memory-Chunks.html#g-mem-chunk-alloc0"/>
+    <function name="g_mem_chunk_free ()" link="glib-Memory-Chunks.html#g-mem-chunk-free"/>
+    <function name="g_mem_chunk_destroy ()" link="glib-Memory-Chunks.html#g-mem-chunk-destroy"/>
+    <function name="g_mem_chunk_create()" link="glib-Memory-Chunks.html#g-mem-chunk-create"/>
+    <function name="g_chunk_new()" link="glib-Memory-Chunks.html#g-chunk-new"/>
+    <function name="g_chunk_new0()" link="glib-Memory-Chunks.html#g-chunk-new0"/>
+    <function name="g_chunk_free()" link="glib-Memory-Chunks.html#g-chunk-free"/>
+    <function name="g_mem_chunk_reset ()" link="glib-Memory-Chunks.html#g-mem-chunk-reset"/>
+    <function name="g_mem_chunk_clean ()" link="glib-Memory-Chunks.html#g-mem-chunk-clean"/>
+    <function name="g_blow_chunks ()" link="glib-Memory-Chunks.html#g-blow-chunks"/>
+    <function name="g_mem_chunk_info ()" link="glib-Memory-Chunks.html#g-mem-chunk-info"/>
+    <function name="g_mem_chunk_print ()" link="glib-Memory-Chunks.html#g-mem-chunk-print"/>
+    <function name="struct GList" link="glib-Doubly-Linked-Lists.html#GList"/>
+    <function name="g_list_append ()" link="glib-Doubly-Linked-Lists.html#g-list-append"/>
+    <function name="g_list_prepend ()" link="glib-Doubly-Linked-Lists.html#g-list-prepend"/>
+    <function name="g_list_insert ()" link="glib-Doubly-Linked-Lists.html#g-list-insert"/>
+    <function name="g_list_insert_before ()" link="glib-Doubly-Linked-Lists.html#g-list-insert-before"/>
+    <function name="g_list_insert_sorted ()" link="glib-Doubly-Linked-Lists.html#g-list-insert-sorted"/>
+    <function name="g_list_remove ()" link="glib-Doubly-Linked-Lists.html#g-list-remove"/>
+    <function name="g_list_remove_link ()" link="glib-Doubly-Linked-Lists.html#g-list-remove-link"/>
+    <function name="g_list_delete_link ()" link="glib-Doubly-Linked-Lists.html#g-list-delete-link"/>
+    <function name="g_list_remove_all ()" link="glib-Doubly-Linked-Lists.html#g-list-remove-all"/>
+    <function name="g_list_free ()" link="glib-Doubly-Linked-Lists.html#g-list-free"/>
+    <function name="g_list_alloc ()" link="glib-Doubly-Linked-Lists.html#g-list-alloc"/>
+    <function name="g_list_free_1 ()" link="glib-Doubly-Linked-Lists.html#g-list-free-1"/>
+    <function name="g_list_length ()" link="glib-Doubly-Linked-Lists.html#g-list-length"/>
+    <function name="g_list_copy ()" link="glib-Doubly-Linked-Lists.html#g-list-copy"/>
+    <function name="g_list_reverse ()" link="glib-Doubly-Linked-Lists.html#g-list-reverse"/>
+    <function name="g_list_sort ()" link="glib-Doubly-Linked-Lists.html#g-list-sort"/>
+    <function name="GCompareFunc ()" link="glib-Doubly-Linked-Lists.html#GCompareFunc"/>
+    <function name="g_list_sort_with_data ()" link="glib-Doubly-Linked-Lists.html#g-list-sort-with-data"/>
+    <function name="GCompareDataFunc ()" link="glib-Doubly-Linked-Lists.html#GCompareDataFunc"/>
+    <function name="g_list_concat ()" link="glib-Doubly-Linked-Lists.html#g-list-concat"/>
+    <function name="g_list_foreach ()" link="glib-Doubly-Linked-Lists.html#g-list-foreach"/>
+    <function name="GFunc ()" link="glib-Doubly-Linked-Lists.html#GFunc"/>
+    <function name="g_list_first ()" link="glib-Doubly-Linked-Lists.html#g-list-first"/>
+    <function name="g_list_last ()" link="glib-Doubly-Linked-Lists.html#g-list-last"/>
+    <function name="g_list_previous()" link="glib-Doubly-Linked-Lists.html#g-list-previous"/>
+    <function name="g_list_next()" link="glib-Doubly-Linked-Lists.html#g-list-next"/>
+    <function name="g_list_nth ()" link="glib-Doubly-Linked-Lists.html#g-list-nth"/>
+    <function name="g_list_nth_data ()" link="glib-Doubly-Linked-Lists.html#g-list-nth-data"/>
+    <function name="g_list_nth_prev ()" link="glib-Doubly-Linked-Lists.html#g-list-nth-prev"/>
+    <function name="g_list_find ()" link="glib-Doubly-Linked-Lists.html#g-list-find"/>
+    <function name="g_list_find_custom ()" link="glib-Doubly-Linked-Lists.html#g-list-find-custom"/>
+    <function name="g_list_position ()" link="glib-Doubly-Linked-Lists.html#g-list-position"/>
+    <function name="g_list_index ()" link="glib-Doubly-Linked-Lists.html#g-list-index"/>
+    <function name="g_list_push_allocator ()" link="glib-Doubly-Linked-Lists.html#g-list-push-allocator"/>
+    <function name="g_list_pop_allocator ()" link="glib-Doubly-Linked-Lists.html#g-list-pop-allocator"/>
+    <function name="struct GSList" link="glib-Singly-Linked-Lists.html#GSList"/>
+    <function name="g_slist_alloc ()" link="glib-Singly-Linked-Lists.html#g-slist-alloc"/>
+    <function name="g_slist_append ()" link="glib-Singly-Linked-Lists.html#g-slist-append"/>
+    <function name="g_slist_prepend ()" link="glib-Singly-Linked-Lists.html#g-slist-prepend"/>
+    <function name="g_slist_insert ()" link="glib-Singly-Linked-Lists.html#g-slist-insert"/>
+    <function name="g_slist_insert_before ()" link="glib-Singly-Linked-Lists.html#g-slist-insert-before"/>
+    <function name="g_slist_insert_sorted ()" link="glib-Singly-Linked-Lists.html#g-slist-insert-sorted"/>
+    <function name="g_slist_remove ()" link="glib-Singly-Linked-Lists.html#g-slist-remove"/>
+    <function name="g_slist_remove_link ()" link="glib-Singly-Linked-Lists.html#g-slist-remove-link"/>
+    <function name="g_slist_delete_link ()" link="glib-Singly-Linked-Lists.html#g-slist-delete-link"/>
+    <function name="g_slist_remove_all ()" link="glib-Singly-Linked-Lists.html#g-slist-remove-all"/>
+    <function name="g_slist_free ()" link="glib-Singly-Linked-Lists.html#g-slist-free"/>
+    <function name="g_slist_free_1 ()" link="glib-Singly-Linked-Lists.html#g-slist-free-1"/>
+    <function name="g_slist_length ()" link="glib-Singly-Linked-Lists.html#g-slist-length"/>
+    <function name="g_slist_copy ()" link="glib-Singly-Linked-Lists.html#g-slist-copy"/>
+    <function name="g_slist_reverse ()" link="glib-Singly-Linked-Lists.html#g-slist-reverse"/>
+    <function name="g_slist_sort ()" link="glib-Singly-Linked-Lists.html#g-slist-sort"/>
+    <function name="g_slist_sort_with_data ()" link="glib-Singly-Linked-Lists.html#g-slist-sort-with-data"/>
+    <function name="g_slist_concat ()" link="glib-Singly-Linked-Lists.html#g-slist-concat"/>
+    <function name="g_slist_foreach ()" link="glib-Singly-Linked-Lists.html#g-slist-foreach"/>
+    <function name="g_slist_last ()" link="glib-Singly-Linked-Lists.html#g-slist-last"/>
+    <function name="g_slist_next()" link="glib-Singly-Linked-Lists.html#g-slist-next"/>
+    <function name="g_slist_nth ()" link="glib-Singly-Linked-Lists.html#g-slist-nth"/>
+    <function name="g_slist_nth_data ()" link="glib-Singly-Linked-Lists.html#g-slist-nth-data"/>
+    <function name="g_slist_find ()" link="glib-Singly-Linked-Lists.html#g-slist-find"/>
+    <function name="g_slist_find_custom ()" link="glib-Singly-Linked-Lists.html#g-slist-find-custom"/>
+    <function name="g_slist_position ()" link="glib-Singly-Linked-Lists.html#g-slist-position"/>
+    <function name="g_slist_index ()" link="glib-Singly-Linked-Lists.html#g-slist-index"/>
+    <function name="g_slist_push_allocator ()" link="glib-Singly-Linked-Lists.html#g-slist-push-allocator"/>
+    <function name="g_slist_pop_allocator ()" link="glib-Singly-Linked-Lists.html#g-slist-pop-allocator"/>
+    <function name="struct GQueue" link="glib-Double-ended-Queues.html#GQueue"/>
+    <function name="g_queue_new ()" link="glib-Double-ended-Queues.html#g-queue-new"/>
+    <function name="g_queue_free ()" link="glib-Double-ended-Queues.html#g-queue-free"/>
+    <function name="g_queue_is_empty ()" link="glib-Double-ended-Queues.html#g-queue-is-empty"/>
+    <function name="g_queue_get_length ()" link="glib-Double-ended-Queues.html#g-queue-get-length"/>
+    <function name="g_queue_reverse ()" link="glib-Double-ended-Queues.html#g-queue-reverse"/>
+    <function name="g_queue_copy ()" link="glib-Double-ended-Queues.html#g-queue-copy"/>
+    <function name="g_queue_foreach ()" link="glib-Double-ended-Queues.html#g-queue-foreach"/>
+    <function name="g_queue_find ()" link="glib-Double-ended-Queues.html#g-queue-find"/>
+    <function name="g_queue_find_custom ()" link="glib-Double-ended-Queues.html#g-queue-find-custom"/>
+    <function name="g_queue_sort ()" link="glib-Double-ended-Queues.html#g-queue-sort"/>
+    <function name="g_queue_push_head ()" link="glib-Double-ended-Queues.html#g-queue-push-head"/>
+    <function name="g_queue_push_tail ()" link="glib-Double-ended-Queues.html#g-queue-push-tail"/>
+    <function name="g_queue_push_nth ()" link="glib-Double-ended-Queues.html#g-queue-push-nth"/>
+    <function name="g_queue_pop_head ()" link="glib-Double-ended-Queues.html#g-queue-pop-head"/>
+    <function name="g_queue_pop_tail ()" link="glib-Double-ended-Queues.html#g-queue-pop-tail"/>
+    <function name="g_queue_pop_nth ()" link="glib-Double-ended-Queues.html#g-queue-pop-nth"/>
+    <function name="g_queue_peek_head ()" link="glib-Double-ended-Queues.html#g-queue-peek-head"/>
+    <function name="g_queue_peek_tail ()" link="glib-Double-ended-Queues.html#g-queue-peek-tail"/>
+    <function name="g_queue_peek_nth ()" link="glib-Double-ended-Queues.html#g-queue-peek-nth"/>
+    <function name="g_queue_index ()" link="glib-Double-ended-Queues.html#g-queue-index"/>
+    <function name="g_queue_remove ()" link="glib-Double-ended-Queues.html#g-queue-remove"/>
+    <function name="g_queue_remove_all ()" link="glib-Double-ended-Queues.html#g-queue-remove-all"/>
+    <function name="g_queue_insert_before ()" link="glib-Double-ended-Queues.html#g-queue-insert-before"/>
+    <function name="g_queue_insert_after ()" link="glib-Double-ended-Queues.html#g-queue-insert-after"/>
+    <function name="g_queue_insert_sorted ()" link="glib-Double-ended-Queues.html#g-queue-insert-sorted"/>
+    <function name="g_queue_push_head_link ()" link="glib-Double-ended-Queues.html#g-queue-push-head-link"/>
+    <function name="g_queue_push_tail_link ()" link="glib-Double-ended-Queues.html#g-queue-push-tail-link"/>
+    <function name="g_queue_push_nth_link ()" link="glib-Double-ended-Queues.html#g-queue-push-nth-link"/>
+    <function name="g_queue_pop_head_link ()" link="glib-Double-ended-Queues.html#g-queue-pop-head-link"/>
+    <function name="g_queue_pop_tail_link ()" link="glib-Double-ended-Queues.html#g-queue-pop-tail-link"/>
+    <function name="g_queue_pop_nth_link ()" link="glib-Double-ended-Queues.html#g-queue-pop-nth-link"/>
+    <function name="g_queue_peek_head_link ()" link="glib-Double-ended-Queues.html#g-queue-peek-head-link"/>
+    <function name="g_queue_peek_tail_link ()" link="glib-Double-ended-Queues.html#g-queue-peek-tail-link"/>
+    <function name="g_queue_peek_nth_link ()" link="glib-Double-ended-Queues.html#g-queue-peek-nth-link"/>
+    <function name="g_queue_link_index ()" link="glib-Double-ended-Queues.html#g-queue-link-index"/>
+    <function name="g_queue_unlink ()" link="glib-Double-ended-Queues.html#g-queue-unlink"/>
+    <function name="g_queue_delete_link ()" link="glib-Double-ended-Queues.html#g-queue-delete-link"/>
+    <function name="struct GTrashStack" link="glib-Trash-Stacks.html#GTrashStack"/>
+    <function name="g_trash_stack_push ()" link="glib-Trash-Stacks.html#g-trash-stack-push"/>
+    <function name="g_trash_stack_pop ()" link="glib-Trash-Stacks.html#g-trash-stack-pop"/>
+    <function name="g_trash_stack_peek ()" link="glib-Trash-Stacks.html#g-trash-stack-peek"/>
+    <function name="g_trash_stack_height ()" link="glib-Trash-Stacks.html#g-trash-stack-height"/>
+    <function name="struct GHashTable" link="glib-Hash-Tables.html#GHashTable"/>
+    <function name="g_hash_table_new ()" link="glib-Hash-Tables.html#g-hash-table-new"/>
+    <function name="g_hash_table_new_full ()" link="glib-Hash-Tables.html#g-hash-table-new-full"/>
+    <function name="GHashFunc ()" link="glib-Hash-Tables.html#GHashFunc"/>
+    <function name="GEqualFunc ()" link="glib-Hash-Tables.html#GEqualFunc"/>
+    <function name="g_hash_table_insert ()" link="glib-Hash-Tables.html#g-hash-table-insert"/>
+    <function name="g_hash_table_replace ()" link="glib-Hash-Tables.html#g-hash-table-replace"/>
+    <function name="g_hash_table_size ()" link="glib-Hash-Tables.html#g-hash-table-size"/>
+    <function name="g_hash_table_lookup ()" link="glib-Hash-Tables.html#g-hash-table-lookup"/>
+    <function name="g_hash_table_lookup_extended ()" link="glib-Hash-Tables.html#g-hash-table-lookup-extended"/>
+    <function name="g_hash_table_foreach ()" link="glib-Hash-Tables.html#g-hash-table-foreach"/>
+    <function name="g_hash_table_find ()" link="glib-Hash-Tables.html#g-hash-table-find"/>
+    <function name="GHFunc ()" link="glib-Hash-Tables.html#GHFunc"/>
+    <function name="g_hash_table_remove ()" link="glib-Hash-Tables.html#g-hash-table-remove"/>
+    <function name="g_hash_table_steal ()" link="glib-Hash-Tables.html#g-hash-table-steal"/>
+    <function name="g_hash_table_foreach_remove ()" link="glib-Hash-Tables.html#g-hash-table-foreach-remove"/>
+    <function name="g_hash_table_foreach_steal ()" link="glib-Hash-Tables.html#g-hash-table-foreach-steal"/>
+    <function name="GHRFunc ()" link="glib-Hash-Tables.html#GHRFunc"/>
+    <function name="g_hash_table_freeze()" link="glib-Hash-Tables.html#g-hash-table-freeze"/>
+    <function name="g_hash_table_thaw()" link="glib-Hash-Tables.html#g-hash-table-thaw"/>
+    <function name="g_hash_table_destroy ()" link="glib-Hash-Tables.html#g-hash-table-destroy"/>
+    <function name="g_direct_equal ()" link="glib-Hash-Tables.html#g-direct-equal"/>
+    <function name="g_direct_hash ()" link="glib-Hash-Tables.html#g-direct-hash"/>
+    <function name="g_int_equal ()" link="glib-Hash-Tables.html#g-int-equal"/>
+    <function name="g_int_hash ()" link="glib-Hash-Tables.html#g-int-hash"/>
+    <function name="g_str_equal ()" link="glib-Hash-Tables.html#g-str-equal"/>
+    <function name="g_str_hash ()" link="glib-Hash-Tables.html#g-str-hash"/>
+    <function name="struct GString" link="glib-Strings.html#GString"/>
+    <function name="g_string_new ()" link="glib-Strings.html#g-string-new"/>
+    <function name="g_string_new_len ()" link="glib-Strings.html#g-string-new-len"/>
+    <function name="g_string_sized_new ()" link="glib-Strings.html#g-string-sized-new"/>
+    <function name="g_string_assign ()" link="glib-Strings.html#g-string-assign"/>
+    <function name="g_string_sprintf" link="glib-Strings.html#g-string-sprintf"/>
+    <function name="g_string_sprintfa" link="glib-Strings.html#g-string-sprintfa"/>
+    <function name="g_string_printf ()" link="glib-Strings.html#g-string-printf"/>
+    <function name="g_string_append_printf ()" link="glib-Strings.html#g-string-append-printf"/>
+    <function name="g_string_append ()" link="glib-Strings.html#g-string-append"/>
+    <function name="g_string_append_c ()" link="glib-Strings.html#g-string-append-c"/>
+    <function name="g_string_append_unichar ()" link="glib-Strings.html#g-string-append-unichar"/>
+    <function name="g_string_append_len ()" link="glib-Strings.html#g-string-append-len"/>
+    <function name="g_string_prepend ()" link="glib-Strings.html#g-string-prepend"/>
+    <function name="g_string_prepend_c ()" link="glib-Strings.html#g-string-prepend-c"/>
+    <function name="g_string_prepend_unichar ()" link="glib-Strings.html#g-string-prepend-unichar"/>
+    <function name="g_string_prepend_len ()" link="glib-Strings.html#g-string-prepend-len"/>
+    <function name="g_string_insert ()" link="glib-Strings.html#g-string-insert"/>
+    <function name="g_string_insert_c ()" link="glib-Strings.html#g-string-insert-c"/>
+    <function name="g_string_insert_unichar ()" link="glib-Strings.html#g-string-insert-unichar"/>
+    <function name="g_string_insert_len ()" link="glib-Strings.html#g-string-insert-len"/>
+    <function name="g_string_erase ()" link="glib-Strings.html#g-string-erase"/>
+    <function name="g_string_truncate ()" link="glib-Strings.html#g-string-truncate"/>
+    <function name="g_string_set_size ()" link="glib-Strings.html#g-string-set-size"/>
+    <function name="g_string_free ()" link="glib-Strings.html#g-string-free"/>
+    <function name="g_string_up ()" link="glib-Strings.html#g-string-up"/>
+    <function name="g_string_down ()" link="glib-Strings.html#g-string-down"/>
+    <function name="g_string_hash ()" link="glib-Strings.html#g-string-hash"/>
+    <function name="g_string_equal ()" link="glib-Strings.html#g-string-equal"/>
+    <function name="struct GStringChunk" link="glib-String-Chunks.html#GStringChunk"/>
+    <function name="g_string_chunk_new ()" link="glib-String-Chunks.html#g-string-chunk-new"/>
+    <function name="g_string_chunk_insert ()" link="glib-String-Chunks.html#g-string-chunk-insert"/>
+    <function name="g_string_chunk_insert_const ()" link="glib-String-Chunks.html#g-string-chunk-insert-const"/>
+    <function name="g_string_chunk_insert_len ()" link="glib-String-Chunks.html#g-string-chunk-insert-len"/>
+    <function name="g_string_chunk_free ()" link="glib-String-Chunks.html#g-string-chunk-free"/>
+    <function name="struct GArray" link="glib-Arrays.html#GArray"/>
+    <function name="g_array_new ()" link="glib-Arrays.html#g-array-new"/>
+    <function name="g_array_sized_new ()" link="glib-Arrays.html#g-array-sized-new"/>
+    <function name="g_array_append_val()" link="glib-Arrays.html#g-array-append-val"/>
+    <function name="g_array_append_vals ()" link="glib-Arrays.html#g-array-append-vals"/>
+    <function name="g_array_prepend_val()" link="glib-Arrays.html#g-array-prepend-val"/>
+    <function name="g_array_prepend_vals ()" link="glib-Arrays.html#g-array-prepend-vals"/>
+    <function name="g_array_insert_val()" link="glib-Arrays.html#g-array-insert-val"/>
+    <function name="g_array_insert_vals ()" link="glib-Arrays.html#g-array-insert-vals"/>
+    <function name="g_array_remove_index ()" link="glib-Arrays.html#g-array-remove-index"/>
+    <function name="g_array_remove_index_fast ()" link="glib-Arrays.html#g-array-remove-index-fast"/>
+    <function name="g_array_remove_range ()" link="glib-Arrays.html#g-array-remove-range"/>
+    <function name="g_array_sort ()" link="glib-Arrays.html#g-array-sort"/>
+    <function name="g_array_sort_with_data ()" link="glib-Arrays.html#g-array-sort-with-data"/>
+    <function name="g_array_index()" link="glib-Arrays.html#g-array-index"/>
+    <function name="g_array_set_size ()" link="glib-Arrays.html#g-array-set-size"/>
+    <function name="g_array_free ()" link="glib-Arrays.html#g-array-free"/>
+    <function name="struct GPtrArray" link="glib-Pointer-Arrays.html#GPtrArray"/>
+    <function name="g_ptr_array_new ()" link="glib-Pointer-Arrays.html#g-ptr-array-new"/>
+    <function name="g_ptr_array_sized_new ()" link="glib-Pointer-Arrays.html#g-ptr-array-sized-new"/>
+    <function name="g_ptr_array_add ()" link="glib-Pointer-Arrays.html#g-ptr-array-add"/>
+    <function name="g_ptr_array_remove ()" link="glib-Pointer-Arrays.html#g-ptr-array-remove"/>
+    <function name="g_ptr_array_remove_index ()" link="glib-Pointer-Arrays.html#g-ptr-array-remove-index"/>
+    <function name="g_ptr_array_remove_fast ()" link="glib-Pointer-Arrays.html#g-ptr-array-remove-fast"/>
+    <function name="g_ptr_array_remove_index_fast ()" link="glib-Pointer-Arrays.html#g-ptr-array-remove-index-fast"/>
+    <function name="g_ptr_array_remove_range ()" link="glib-Pointer-Arrays.html#g-ptr-array-remove-range"/>
+    <function name="g_ptr_array_sort ()" link="glib-Pointer-Arrays.html#g-ptr-array-sort"/>
+    <function name="g_ptr_array_sort_with_data ()" link="glib-Pointer-Arrays.html#g-ptr-array-sort-with-data"/>
+    <function name="g_ptr_array_set_size ()" link="glib-Pointer-Arrays.html#g-ptr-array-set-size"/>
+    <function name="g_ptr_array_index()" link="glib-Pointer-Arrays.html#g-ptr-array-index"/>
+    <function name="g_ptr_array_free ()" link="glib-Pointer-Arrays.html#g-ptr-array-free"/>
+    <function name="g_ptr_array_foreach ()" link="glib-Pointer-Arrays.html#g-ptr-array-foreach"/>
+    <function name="struct GByteArray" link="glib-Byte-Arrays.html#GByteArray"/>
+    <function name="g_byte_array_new ()" link="glib-Byte-Arrays.html#g-byte-array-new"/>
+    <function name="g_byte_array_sized_new ()" link="glib-Byte-Arrays.html#g-byte-array-sized-new"/>
+    <function name="g_byte_array_append ()" link="glib-Byte-Arrays.html#g-byte-array-append"/>
+    <function name="g_byte_array_prepend ()" link="glib-Byte-Arrays.html#g-byte-array-prepend"/>
+    <function name="g_byte_array_remove_index ()" link="glib-Byte-Arrays.html#g-byte-array-remove-index"/>
+    <function name="g_byte_array_remove_index_fast ()" link="glib-Byte-Arrays.html#g-byte-array-remove-index-fast"/>
+    <function name="g_byte_array_remove_range ()" link="glib-Byte-Arrays.html#g-byte-array-remove-range"/>
+    <function name="g_byte_array_sort ()" link="glib-Byte-Arrays.html#g-byte-array-sort"/>
+    <function name="g_byte_array_sort_with_data ()" link="glib-Byte-Arrays.html#g-byte-array-sort-with-data"/>
+    <function name="g_byte_array_set_size ()" link="glib-Byte-Arrays.html#g-byte-array-set-size"/>
+    <function name="g_byte_array_free ()" link="glib-Byte-Arrays.html#g-byte-array-free"/>
+    <function name="struct GTree" link="glib-Balanced-Binary-Trees.html#GTree"/>
+    <function name="g_tree_new ()" link="glib-Balanced-Binary-Trees.html#g-tree-new"/>
+    <function name="g_tree_new_with_data ()" link="glib-Balanced-Binary-Trees.html#g-tree-new-with-data"/>
+    <function name="g_tree_new_full ()" link="glib-Balanced-Binary-Trees.html#g-tree-new-full"/>
+    <function name="g_tree_insert ()" link="glib-Balanced-Binary-Trees.html#g-tree-insert"/>
+    <function name="g_tree_replace ()" link="glib-Balanced-Binary-Trees.html#g-tree-replace"/>
+    <function name="g_tree_nnodes ()" link="glib-Balanced-Binary-Trees.html#g-tree-nnodes"/>
+    <function name="g_tree_height ()" link="glib-Balanced-Binary-Trees.html#g-tree-height"/>
+    <function name="g_tree_lookup ()" link="glib-Balanced-Binary-Trees.html#g-tree-lookup"/>
+    <function name="g_tree_lookup_extended ()" link="glib-Balanced-Binary-Trees.html#g-tree-lookup-extended"/>
+    <function name="g_tree_foreach ()" link="glib-Balanced-Binary-Trees.html#g-tree-foreach"/>
+    <function name="g_tree_traverse ()" link="glib-Balanced-Binary-Trees.html#g-tree-traverse"/>
+    <function name="GTraverseFunc ()" link="glib-Balanced-Binary-Trees.html#GTraverseFunc"/>
+    <function name="enum GTraverseType" link="glib-Balanced-Binary-Trees.html#GTraverseType"/>
+    <function name="g_tree_search ()" link="glib-Balanced-Binary-Trees.html#g-tree-search"/>
+    <function name="g_tree_remove ()" link="glib-Balanced-Binary-Trees.html#g-tree-remove"/>
+    <function name="g_tree_steal ()" link="glib-Balanced-Binary-Trees.html#g-tree-steal"/>
+    <function name="g_tree_destroy ()" link="glib-Balanced-Binary-Trees.html#g-tree-destroy"/>
+    <function name="struct GNode" link="glib-N-ary-Trees.html#GNode"/>
+    <function name="g_node_new ()" link="glib-N-ary-Trees.html#g-node-new"/>
+    <function name="g_node_copy ()" link="glib-N-ary-Trees.html#g-node-copy"/>
+    <function name="GCopyFunc ()" link="glib-N-ary-Trees.html#GCopyFunc"/>
+    <function name="g_node_copy_deep ()" link="glib-N-ary-Trees.html#g-node-copy-deep"/>
+    <function name="g_node_insert ()" link="glib-N-ary-Trees.html#g-node-insert"/>
+    <function name="g_node_insert_before ()" link="glib-N-ary-Trees.html#g-node-insert-before"/>
+    <function name="g_node_insert_after ()" link="glib-N-ary-Trees.html#g-node-insert-after"/>
+    <function name="g_node_append()" link="glib-N-ary-Trees.html#g-node-append"/>
+    <function name="g_node_prepend ()" link="glib-N-ary-Trees.html#g-node-prepend"/>
+    <function name="g_node_insert_data()" link="glib-N-ary-Trees.html#g-node-insert-data"/>
+    <function name="g_node_insert_data_before()" link="glib-N-ary-Trees.html#g-node-insert-data-before"/>
+    <function name="g_node_append_data()" link="glib-N-ary-Trees.html#g-node-append-data"/>
+    <function name="g_node_prepend_data()" link="glib-N-ary-Trees.html#g-node-prepend-data"/>
+    <function name="g_node_reverse_children ()" link="glib-N-ary-Trees.html#g-node-reverse-children"/>
+    <function name="g_node_traverse ()" link="glib-N-ary-Trees.html#g-node-traverse"/>
+    <function name="enum GTraverseFlags" link="glib-N-ary-Trees.html#GTraverseFlags"/>
+    <function name="GNodeTraverseFunc ()" link="glib-N-ary-Trees.html#GNodeTraverseFunc"/>
+    <function name="g_node_children_foreach ()" link="glib-N-ary-Trees.html#g-node-children-foreach"/>
+    <function name="GNodeForeachFunc ()" link="glib-N-ary-Trees.html#GNodeForeachFunc"/>
+    <function name="g_node_get_root ()" link="glib-N-ary-Trees.html#g-node-get-root"/>
+    <function name="g_node_find ()" link="glib-N-ary-Trees.html#g-node-find"/>
+    <function name="g_node_find_child ()" link="glib-N-ary-Trees.html#g-node-find-child"/>
+    <function name="g_node_child_index ()" link="glib-N-ary-Trees.html#g-node-child-index"/>
+    <function name="g_node_child_position ()" link="glib-N-ary-Trees.html#g-node-child-position"/>
+    <function name="g_node_first_child()" link="glib-N-ary-Trees.html#g-node-first-child"/>
+    <function name="g_node_last_child ()" link="glib-N-ary-Trees.html#g-node-last-child"/>
+    <function name="g_node_nth_child ()" link="glib-N-ary-Trees.html#g-node-nth-child"/>
+    <function name="g_node_first_sibling ()" link="glib-N-ary-Trees.html#g-node-first-sibling"/>
+    <function name="g_node_next_sibling()" link="glib-N-ary-Trees.html#g-node-next-sibling"/>
+    <function name="g_node_prev_sibling()" link="glib-N-ary-Trees.html#g-node-prev-sibling"/>
+    <function name="g_node_last_sibling ()" link="glib-N-ary-Trees.html#g-node-last-sibling"/>
+    <function name="G_NODE_IS_LEAF()" link="glib-N-ary-Trees.html#G-NODE-IS-LEAF-CAPS"/>
+    <function name="G_NODE_IS_ROOT()" link="glib-N-ary-Trees.html#G-NODE-IS-ROOT-CAPS"/>
+    <function name="g_node_depth ()" link="glib-N-ary-Trees.html#g-node-depth"/>
+    <function name="g_node_n_nodes ()" link="glib-N-ary-Trees.html#g-node-n-nodes"/>
+    <function name="g_node_n_children ()" link="glib-N-ary-Trees.html#g-node-n-children"/>
+    <function name="g_node_is_ancestor ()" link="glib-N-ary-Trees.html#g-node-is-ancestor"/>
+    <function name="g_node_max_height ()" link="glib-N-ary-Trees.html#g-node-max-height"/>
+    <function name="g_node_unlink ()" link="glib-N-ary-Trees.html#g-node-unlink"/>
+    <function name="g_node_destroy ()" link="glib-N-ary-Trees.html#g-node-destroy"/>
+    <function name="g_node_push_allocator ()" link="glib-N-ary-Trees.html#g-node-push-allocator"/>
+    <function name="g_node_pop_allocator ()" link="glib-N-ary-Trees.html#g-node-pop-allocator"/>
+    <function name="GQuark" link="glib-Quarks.html#GQuark"/>
+    <function name="g_quark_from_string ()" link="glib-Quarks.html#g-quark-from-string"/>
+    <function name="g_quark_from_static_string ()" link="glib-Quarks.html#g-quark-from-static-string"/>
+    <function name="g_quark_to_string ()" link="glib-Quarks.html#g-quark-to-string"/>
+    <function name="g_quark_try_string ()" link="glib-Quarks.html#g-quark-try-string"/>
+    <function name="struct GData" link="glib-Keyed-Data-Lists.html#GData"/>
+    <function name="g_datalist_init ()" link="glib-Keyed-Data-Lists.html#g-datalist-init"/>
+    <function name="g_datalist_id_set_data()" link="glib-Keyed-Data-Lists.html#g-datalist-id-set-data"/>
+    <function name="g_datalist_id_set_data_full ()" link="glib-Keyed-Data-Lists.html#g-datalist-id-set-data-full"/>
+    <function name="g_datalist_id_get_data ()" link="glib-Keyed-Data-Lists.html#g-datalist-id-get-data"/>
+    <function name="g_datalist_id_remove_data()" link="glib-Keyed-Data-Lists.html#g-datalist-id-remove-data"/>
+    <function name="g_datalist_id_remove_no_notify ()" link="glib-Keyed-Data-Lists.html#g-datalist-id-remove-no-notify"/>
+    <function name="g_datalist_set_data()" link="glib-Keyed-Data-Lists.html#g-datalist-set-data"/>
+    <function name="g_datalist_set_data_full()" link="glib-Keyed-Data-Lists.html#g-datalist-set-data-full"/>
+    <function name="g_datalist_get_data()" link="glib-Keyed-Data-Lists.html#g-datalist-get-data"/>
+    <function name="g_datalist_remove_data()" link="glib-Keyed-Data-Lists.html#g-datalist-remove-data"/>
+    <function name="g_datalist_remove_no_notify()" link="glib-Keyed-Data-Lists.html#g-datalist-remove-no-notify"/>
+    <function name="g_datalist_foreach ()" link="glib-Keyed-Data-Lists.html#g-datalist-foreach"/>
+    <function name="g_datalist_clear ()" link="glib-Keyed-Data-Lists.html#g-datalist-clear"/>
+    <function name="g_dataset_id_set_data()" link="glib-Datasets.html#g-dataset-id-set-data"/>
+    <function name="g_dataset_id_set_data_full ()" link="glib-Datasets.html#g-dataset-id-set-data-full"/>
+    <function name="GDestroyNotify ()" link="glib-Datasets.html#GDestroyNotify"/>
+    <function name="g_dataset_id_get_data ()" link="glib-Datasets.html#g-dataset-id-get-data"/>
+    <function name="g_dataset_id_remove_data()" link="glib-Datasets.html#g-dataset-id-remove-data"/>
+    <function name="g_dataset_id_remove_no_notify ()" link="glib-Datasets.html#g-dataset-id-remove-no-notify"/>
+    <function name="g_dataset_set_data()" link="glib-Datasets.html#g-dataset-set-data"/>
+    <function name="g_dataset_set_data_full()" link="glib-Datasets.html#g-dataset-set-data-full"/>
+    <function name="g_dataset_get_data()" link="glib-Datasets.html#g-dataset-get-data"/>
+    <function name="g_dataset_remove_data()" link="glib-Datasets.html#g-dataset-remove-data"/>
+    <function name="g_dataset_remove_no_notify()" link="glib-Datasets.html#g-dataset-remove-no-notify"/>
+    <function name="g_dataset_foreach ()" link="glib-Datasets.html#g-dataset-foreach"/>
+    <function name="GDataForeachFunc ()" link="glib-Datasets.html#GDataForeachFunc"/>
+    <function name="g_dataset_destroy ()" link="glib-Datasets.html#g-dataset-destroy"/>
+    <function name="struct GRelation" link="glib-Relations-and-Tuples.html#GRelation"/>
+    <function name="g_relation_new ()" link="glib-Relations-and-Tuples.html#g-relation-new"/>
+    <function name="g_relation_index ()" link="glib-Relations-and-Tuples.html#g-relation-index"/>
+    <function name="g_relation_insert ()" link="glib-Relations-and-Tuples.html#g-relation-insert"/>
+    <function name="g_relation_exists ()" link="glib-Relations-and-Tuples.html#g-relation-exists"/>
+    <function name="g_relation_count ()" link="glib-Relations-and-Tuples.html#g-relation-count"/>
+    <function name="g_relation_select ()" link="glib-Relations-and-Tuples.html#g-relation-select"/>
+    <function name="g_relation_delete ()" link="glib-Relations-and-Tuples.html#g-relation-delete"/>
+    <function name="g_relation_destroy ()" link="glib-Relations-and-Tuples.html#g-relation-destroy"/>
+    <function name="g_relation_print ()" link="glib-Relations-and-Tuples.html#g-relation-print"/>
+    <function name="struct GTuples" link="glib-Relations-and-Tuples.html#GTuples"/>
+    <function name="g_tuples_destroy ()" link="glib-Relations-and-Tuples.html#g-tuples-destroy"/>
+    <function name="g_tuples_index ()" link="glib-Relations-and-Tuples.html#g-tuples-index"/>
+    <function name="struct GCache" link="glib-Caches.html#GCache"/>
+    <function name="g_cache_new ()" link="glib-Caches.html#g-cache-new"/>
+    <function name="g_cache_insert ()" link="glib-Caches.html#g-cache-insert"/>
+    <function name="g_cache_remove ()" link="glib-Caches.html#g-cache-remove"/>
+    <function name="g_cache_destroy ()" link="glib-Caches.html#g-cache-destroy"/>
+    <function name="g_cache_key_foreach ()" link="glib-Caches.html#g-cache-key-foreach"/>
+    <function name="g_cache_value_foreach ()" link="glib-Caches.html#g-cache-value-foreach"/>
+    <function name="GCacheDestroyFunc ()" link="glib-Caches.html#GCacheDestroyFunc"/>
+    <function name="GCacheDupFunc ()" link="glib-Caches.html#GCacheDupFunc"/>
+    <function name="GCacheNewFunc ()" link="glib-Caches.html#GCacheNewFunc"/>
+    <function name="struct GAllocator" link="glib-Memory-Allocators.html#GAllocator"/>
+    <function name="g_allocator_new ()" link="glib-Memory-Allocators.html#g-allocator-new"/>
+    <function name="g_allocator_free ()" link="glib-Memory-Allocators.html#g-allocator-free"/>
+    <function name="Options" link="glib-gettextize.html#id3342653"/>
+  </functions>
+</book>

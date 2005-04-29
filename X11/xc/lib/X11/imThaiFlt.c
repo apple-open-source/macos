@@ -45,7 +45,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/imThaiFlt.c,v 3.18 2003/02/21 03:13:30 dawes Exp $ */
+/* $XFree86: xc/lib/X11/imThaiFlt.c,v 3.23 2003/12/31 01:18:42 tsi Exp $ */
 
 /*
 **++ 
@@ -73,30 +73,8 @@ SOFTWARE.
 #include "Xlcint.h"
 #include "Ximint.h"
 #include "XimThai.h"
+#include "XlcPubI.h"
 
-/* EXTERNS */
-/* KeyBind.c */
-extern int _XKeyInitialize();
-
-/* lcStd.c */
-extern int _Xlcmbstowcs(
-    XLCd	lcd,
-    wchar_t	*wstr,
-    char	*str,
-    int		len
-);
-extern int _Xlcwcstombs(
-    XLCd	lcd,
-    char	*str,
-    wchar_t	*wstr,
-    int		len
-);
-extern int _Xlcmbstoutf8(
-    XLCd	lcd,
-    char	*ustr,
-    const char	*str,
-    int		len
-);
 
 #define SPACE   32
 
@@ -247,25 +225,15 @@ char const thaicat_isc_lookup[CH_CLASSES][CH_CLASSES] = {
 
 /* returns classification of a char */
 Private int
-#if NeedFunctionPrototypes
 THAI_chtype (unsigned char	ch)
-#else
-THAI_chtype (ch)
-    unsigned char	ch;
-#endif
 {
     return tactis_chtype[ch];
 }
 
-
+#ifdef UNUSED
 /* returns the display level */
 Private int
-#if NeedFunctionPrototypes
 THAI_chlevel (unsigned char	ch)
-#else
-THAI_chlevel (ch)
-    unsigned char	ch;
-#endif
 {
     int     chlevel;
 
@@ -306,12 +274,7 @@ THAI_chlevel (ch)
 
 /* return True if char is non-spacing */
 Private Bool
-#if NeedFunctionPrototypes
 THAI_isdead (unsigned char	ch)
-#else
-THAI_isdead (ch)
-    unsigned char	ch;
-#endif
 {
     return ((tactis_chtype[ch] == CTRL) || (tactis_chtype[ch] == BV1) ||
             (tactis_chtype[ch] == BV2)  || (tactis_chtype[ch] == BD)  ||
@@ -324,12 +287,7 @@ THAI_isdead (ch)
 
 /* return True if char is consonant */
 Private Bool
-#if NeedFunctionPrototypes
 THAI_iscons (unsigned char	ch)
-#else
-THAI_iscons (ch)
-    unsigned char	ch;
-#endif
 {
     return (tactis_chtype[ch] == CONS);
 }
@@ -337,12 +295,7 @@ THAI_iscons (ch)
 
 /* return True if char is vowel */
 Private Bool
-#if NeedFunctionPrototypes
 THAI_isvowel (unsigned char	ch)
-#else
-THAI_isvowel (ch)
-    unsigned char	ch;
-#endif
 {
     return ((tactis_chtype[ch] == LV)  || (tactis_chtype[ch] == FV1) ||
             (tactis_chtype[ch] == FV2) || (tactis_chtype[ch] == FV3) ||
@@ -354,27 +307,16 @@ THAI_isvowel (ch)
 
 /* return True if char is tonemark */
 Private Bool
-#if NeedFunctionPrototypes
 THAI_istone (unsigned char	ch)
-#else
-THAI_istone (ch)
-    unsigned char	ch;
-#endif
 {
     return (tactis_chtype[ch] == TONE);
 }
-
+#endif
 
 Private Bool
-#if NeedFunctionPrototypes
 THAI_iscomposible (
     unsigned char	follow_ch, 
     unsigned char	lead_ch)
-#else
-THAI_iscomposible (follow_ch, lead_ch)
-    unsigned char	follow_ch;
-    unsigned char	lead_ch;
-#endif
 {/* "Can follow_ch be put in the same display cell as lead_ch?" */
 
     return (write_rules_lookup[THAI_chtype(lead_ch)][THAI_chtype(follow_ch)] 
@@ -382,17 +324,10 @@ THAI_iscomposible (follow_ch, lead_ch)
 }
 
 Private Bool
-#if NeedFunctionPrototypes
 THAI_isaccepted (
     unsigned char	follow_ch, 
     unsigned char	lead_ch,
     unsigned char	mode)
-#else
-THAI_isaccepted (follow_ch, lead_ch, mode)
-    unsigned char	follow_ch;
-    unsigned char	lead_ch;
-    unsigned char	mode;
-#endif
 {
     Bool iskeyvalid; /*  means "Can follow_ch be keyed in after lead_ch?" */
 
@@ -418,21 +353,13 @@ THAI_isaccepted (follow_ch, lead_ch, mode)
     return iskeyvalid;
 }
 
-#if 0
+#ifdef UNUSED
 Private void 
-#if NeedFunctionPrototypes
 THAI_apply_write_rules(
     unsigned char	*instr, 
     unsigned char	*outstr, 
     unsigned char	insert_ch, 
     int 		*num_insert_ch)
-#else
-THAI_apply_write_rules(instr, outstr, insert_ch, num_insert_ch)
-    unsigned char	*instr;
-    unsigned char	*outstr;
-    unsigned char	insert_ch;
-    int 		*num_insert_ch;
-#endif
 {
 /*
 Input parameters: 
@@ -474,15 +401,9 @@ Output parameters:
 }
 
 Private int 
-#if NeedFunctionPrototypes
 THAI_find_chtype (
     unsigned char	*instr, 
     int		chtype)
-#else
-THAI_find_chtype (instr, chtype)
-    unsigned char	*instr;
-    int		chtype;
-#endif
 {
 /*
 Input parameters:
@@ -506,24 +427,15 @@ Output parameters:
     }
     return position;
 }
-#endif
+
 
 Private int 
-#if NeedFunctionPrototypes
 THAI_apply_scm(
     unsigned char	*instr, 
     unsigned char	*outstr, 
     unsigned char	spec_ch, 
     int		num_sp, 
     unsigned char	insert_ch)
-#else
-THAI_apply_scm(instr, outstr, spec_ch, num_sp, insert_ch)
-    unsigned char	*instr;
-    unsigned char	*outstr;
-    unsigned char	spec_ch;
-    int		num_sp;
-    unsigned char	insert_ch;
-#endif
 {
     unsigned char   *scan, *outch;
     int             i, dead_count, found_count;
@@ -550,28 +462,40 @@ THAI_apply_scm(instr, outstr, spec_ch, num_sp, insert_ch)
     return 0; /* probably not right but better than returning garbage */
 }
 
+
 /* The following functions are copied from XKeyBind.c */
 
-#if 0
 Private void ComputeMaskFromKeytrans();
-#endif
-Private int IsCancelComposeKey();
-Private void SetLed();
+Private int IsCancelComposeKey(KeySym *symbol, XKeyEvent *event);
+Private void SetLed(Display *dpy, int num, int state);
 Private CARD8 FindKeyCode();
+
 
 /* The following functions are specific to this module */ 
 
-#if 0
 Private int XThaiTranslateKey();
 Private int XThaiTranslateKeySym();
-#endif
 
-Private KeySym HexIMNormalKey();
-Private KeySym HexIMFirstComposeKey();
-Private KeySym HexIMSecondComposeKey();
-Private KeySym HexIMComposeSequence();
-Private void InitIscMode();
-Private Bool ThaiComposeConvert();
+
+Private KeySym HexIMNormalKey(
+    XicThaiPart *thai_part,
+    KeySym symbol,
+    XKeyEvent *event);
+Private KeySym HexIMFirstComposeKey(
+    XicThaiPart *thai_part,
+    KeySym symbol,
+    XKeyEvent *event);
+Private KeySym HexIMSecondComposeKey(
+    XicThaiPart *thai_part,
+    KeySym symbol
+    XKeyEvent *event);
+Private KeySym HexIMComposeSequence(KeySym ks1, KeySym ks2);
+Private void InitIscMode(Xic ic);
+Private Bool ThaiComposeConvert(
+    Display *dpy,
+    KeySym insym,
+    KeySym *outsym, KeySym *lower, KeySym *upper);
+#endif
 
 /*
  * Definitions
@@ -584,11 +508,12 @@ Private Bool ThaiComposeConvert();
    (0<=(wc)&&(wc)<=0x7F) ? \
      (wc) : \
      ((0x0E01<=(wc)&&(wc)<=0x0E5F) ? ((wc)-0x0E00+0xA0) : 0))
+/* "c" is an unsigned char */
 #define tis2ucs(c)  \
   ( \
    ((c)<=0x7F) ? \
      (wchar_t)(c) : \
-     ((0x0A1<=(c)&&(c)<=0x0FF) ? ((wchar_t)(c)-0xA0+0x0E00) : 0))
+     ((0x0A1<=(c)) ? ((wchar_t)(c)-0xA0+0x0E00) : 0))
 
 /*
  * Macros to save and recall last input character in XIC
@@ -605,13 +530,7 @@ Private Bool ThaiComposeConvert();
 		(IC_RealDeletePreviousChar(ic))
 
 Private unsigned char
-#if NeedFunctionPrototypes
 IC_RealGetPreviousChar(Xic ic, unsigned short pos)
-#else
-IC_RealGetPreviousChar(ic, pos)
-  Xic ic;
-  XIMStringConversionPosition pos;
-#endif
 {
     XICCallback* cb = &ic->core.string_conversion_callback;
 
@@ -653,12 +572,7 @@ IC_RealGetPreviousChar(ic, pos)
 }
 
 Private unsigned char
-#if NeedFunctionPrototypes
 IC_RealDeletePreviousChar(Xic ic)
-#else
-IC_RealDeletePreviousChar(ic)
-  Xic ic;
-#endif
 {
     XICCallback* cb = &ic->core.string_conversion_callback;
 
@@ -726,7 +640,12 @@ IC_RealDeletePreviousChar(ic)
 
 #define COMPOSE_LED 2
 
-typedef KeySym (*StateProc)();
+#ifdef UNUSED
+typedef KeySym (*StateProc)(
+    XicThaiPart *thai_part,
+    KeySym symbol,
+    XKeyEvent *event);
+
 
 /*
  * macros to classify XKeyEvent state field
@@ -751,7 +670,7 @@ typedef KeySym (*StateProc)();
 	   !IsShift((event)->state))	\
 	 ? True : False)
 
-#if 0
+
 /*
  *  State handler to implement the Thai hex input method.
  */
@@ -762,7 +681,7 @@ Private StateProc state_handler[] = {
 	HexIMFirstComposeKey,
 	HexIMSecondComposeKey
 };
-#endif
+
 
 /*
  *  Table for 'Thai Compose' character input.
@@ -794,13 +713,14 @@ struct _XKeytrans {
 	int mlen;		/* length of modifier list */
 };
 
+
 /* Convert keysym to 'Thai Compose' keysym */
 /* The current implementation use latin-1 keysyms */
 Private Bool
-ThaiComposeConvert(dpy, insym, outsym ,lower, upper)
-    Display *dpy;
-    KeySym insym;
-    KeySym *outsym,*lower,*upper;
+ThaiComposeConvert(
+    Display *dpy,
+    KeySym insym,
+    KeySym *outsym, KeySym *lower, KeySym *upper)
 {
     struct _XMapThaiKey const *table_entry = ThaiComposeTable;
 
@@ -816,15 +736,15 @@ ThaiComposeConvert(dpy, insym, outsym ,lower, upper)
     return False;
 }
 
-#if 0
 Private int
-XThaiTranslateKey(dpy, keycode, modifiers, modifiers_return, keysym_return,
-	      lsym_return, usym_return)
-    register Display *dpy;
-    KeyCode keycode;
-    register unsigned int modifiers;
-    unsigned int *modifiers_return;
-    KeySym *keysym_return,*lsym_return,*usym_return;
+XThaiTranslateKey(
+    register Display *dpy,
+    KeyCode keycode,
+    register unsigned int modifiers,
+    unsigned int *modifiers_return,
+    KeySym *keysym_return,
+    KeySym *lsym_return,
+    KeySym *usym_return)
 {
     int per;
     register KeySym *syms;
@@ -902,12 +822,14 @@ XThaiTranslateKey(dpy, keycode, modifiers, modifiers_return, keysym_return,
  * standard.
  */
 Private int
-XThaiTranslateKeySym(dpy, symbol, lsym, usym, modifiers, buffer, nbytes)
-    Display *dpy;
-    register KeySym symbol, lsym, usym;
-    unsigned int modifiers;
-    unsigned char *buffer;
-    int nbytes;
+XThaiTranslateKeySym(
+    Display *dpy,
+    register KeySym symbol,
+    register KeySym lsym,
+    register KeySym usym,
+    unsigned int modifiers,
+    unsigned char *buffer,
+    int nbytes)
 {
     KeySym ckey = 0;
     register struct _XKeytrans *p; 
@@ -1004,15 +926,14 @@ XThaiTranslateKeySym(dpy, symbol, lsym, usym, modifiers, buffer, nbytes)
         return 1;
     }
 }
-#endif
 
 /*
  * given a KeySym, returns the first keycode containing it, if any.
  */
 Private CARD8
-FindKeyCode(dpy, code)
-    register Display *dpy;
-    register KeySym code;
+FindKeyCode(
+    register Display *dpy,
+    register KeySym code)
 {
 
     register KeySym *kmax = dpy->keysyms + 
@@ -1027,7 +948,6 @@ FindKeyCode(dpy, code)
     return 0;
 }
 
-#if 0
 /*
  * given a list of modifiers, computes the mask necessary for later matching.
  * This routine must lookup the key in the Keymap and then search to see
@@ -1035,9 +955,9 @@ FindKeyCode(dpy, code)
  * can't map some keysym to a modifier.
  */
 Private void
-ComputeMaskFromKeytrans(dpy, p)
-    Display *dpy;
-    register struct _XKeytrans *p;
+ComputeMaskFromKeytrans(
+    Display *dpy,
+    register struct _XKeytrans *p)
 {
     register int i;
     register CARD8 code;
@@ -1061,7 +981,6 @@ ComputeMaskFromKeytrans(dpy, p)
     }
     p->state &= AllMods;
 }
-#endif
 
 /************************************************************************
  *
@@ -1076,11 +995,10 @@ ComputeMaskFromKeytrans(dpy, p)
 #define SECOND_COMPOSE_KEY_STATE 2
 
 Private
-KeySym HexIMNormalKey (thai_part, symbol, event)
-    XicThaiPart *thai_part;
-    KeySym symbol;
-    XKeyEvent *event;
-
+KeySym HexIMNormalKey(
+    XicThaiPart *thai_part,
+    KeySym symbol,
+    XKeyEvent *event)
 {
     if (IsComposeKey (symbol, event))	/* start compose sequence	*/
 	{
@@ -1093,11 +1011,10 @@ KeySym HexIMNormalKey (thai_part, symbol, event)
 
 
 Private
-KeySym HexIMFirstComposeKey (thai_part, symbol, event)	
-    XicThaiPart *thai_part;
-    KeySym symbol;
-    XKeyEvent *event;
-
+KeySym HexIMFirstComposeKey(
+    XicThaiPart *thai_part,
+    KeySym symbol,
+    XKeyEvent *event)
 {
     if (IsModifierKey (symbol)) return symbol; /* ignore shift etc. */
     if (IsCancelComposeKey (&symbol, event))	/* cancel sequence */
@@ -1117,11 +1034,10 @@ KeySym HexIMFirstComposeKey (thai_part, symbol, event)
 }
 
 Private
-KeySym HexIMSecondComposeKey (thai_part, symbol, event)
-    XicThaiPart *thai_part;
-    KeySym symbol;
-    XKeyEvent *event;
-
+KeySym HexIMSecondComposeKey(
+    XicThaiPart *thai_part,
+    KeySym symbol,
+    XKeyEvent *event)
 {
     if (IsModifierKey (symbol)) return symbol;	/* ignore shift etc. */
     if (IsComposeKey (symbol, event))		/* restart sequence ? */
@@ -1153,9 +1069,7 @@ KeySym HexIMSecondComposeKey (thai_part, symbol, event)
  */
 
 Private
-KeySym HexIMComposeSequence (ks1, ks2)
-
-KeySym ks1, ks2;
+KeySym HexIMComposeSequence(KeySym ks1, KeySym ks2)
 {
 int	hi_digit;
 int	lo_digit;
@@ -1192,9 +1106,9 @@ int	tactis_code;
  */
 
 Private
-int IsCancelComposeKey(symbol, event)
-    KeySym *symbol;
-    XKeyEvent *event;
+int IsCancelComposeKey(
+    KeySym *symbol,
+    XKeyEvent *event)
 {
     if (*symbol==XK_Delete && !IsControl(event->state) &&
 						!IsMod1(event->state)) {
@@ -1224,10 +1138,10 @@ int IsCancelComposeKey(symbol, event)
  */
 
 Private
-void SetLed (dpy, num, state)
-    Display *dpy;
-    int num;
-    int state;
+void SetLed(
+    Display *dpy,
+    int num,
+    int state)
 {
     XKeyboardControl led_control;
 
@@ -1235,13 +1149,12 @@ void SetLed (dpy, num, state)
     led_control.led = num;
     XChangeKeyboardControl (dpy, KBLed | KBLedMode,	&led_control);
 }
-
+#endif
 
 /*
  * Initialize ISC mode from im modifier 
  */
-Private void InitIscMode(ic)
-Xic ic;
+Private void InitIscMode(Xic ic)
 {
     Xim im;
     char *im_modifier_name;
@@ -1275,14 +1188,7 @@ Xic ic;
  * Helper functions for _XimThaiFilter()
  */
 Private Bool
-#if NeedFunctionPrototypes
 ThaiFltAcceptInput(Xic ic, unsigned char new_char, KeySym symbol)
-#else
-ThaiFltAcceptInput(ic, new_char, symbol)
-    Xic           ic;
-    unsigned char new_char;
-    KeySym        symbol;
-#endif
 {
     ic->private.local.composed->wc[0] = tis2ucs(new_char);
     ic->private.local.composed->wc[1] = '\0';
@@ -1296,13 +1202,7 @@ ThaiFltAcceptInput(ic, new_char, symbol)
 }
 
 Private Bool
-#if NeedFunctionPrototypes
 ThaiFltReorderInput(Xic ic, unsigned char previous_char, unsigned char new_char)
-#else
-ThaiFltReorderInput(ic, previous_char, new_char)
-    Xic           ic;
-    unsigned char previous_char, new_char;
-#endif
 {
     if (!IC_DeletePreviousChar(ic)) return False;
     ic->private.local.composed->wc[0] = tis2ucs(new_char);
@@ -1315,14 +1215,7 @@ ThaiFltReorderInput(ic, previous_char, new_char)
 }
 
 Private Bool
-#if NeedFunctionPrototypes
 ThaiFltReplaceInput(Xic ic, unsigned char new_char, KeySym symbol)
-#else
-ThaiFltReplaceInput(ic, new_char, symbol)
-    Xic           ic;
-    unsigned char new_char;
-    KeySym        symbol;
-#endif
 {
     if (!IC_DeletePreviousChar(ic)) return False;
     ic->private.local.composed->wc[0] = tis2ucs(new_char);
@@ -1348,11 +1241,10 @@ XPointer	client_data;
 {
     Xic		    ic = (Xic)client_data;
     KeySym 	    symbol;
-    int 	    wcount;
     int 	    isc_mode; /* Thai Input Sequence Check mode */
     unsigned char   previous_char; /* Last inputted Thai char */
     unsigned char   new_char;
-#if 0
+#ifdef UNUSED
     unsigned int    modifiers;
     KeySym	    lsym,usym;
     int		    state;
@@ -1368,8 +1260,8 @@ XPointer	client_data;
 
     if (!IC_IscMode(ic)) InitIscMode(ic);
 
-    wcount = XwcLookupString((XIC)ic, &ev->xkey,
-                            wbuf, sizeof(wbuf)/sizeof(wbuf[0]), &symbol, NULL);
+    XwcLookupString((XIC)ic, &ev->xkey, wbuf, sizeof(wbuf) / sizeof(wbuf[0]),
+		    &symbol, NULL);
 
     if ((ev->xkey.state & (AllMods & ~ShiftMask)) ||
          ((symbol >> 8 == 0xFF) &&
@@ -1398,7 +1290,7 @@ XPointer	client_data;
     {
         return False;
     }
-#if 0
+#ifdef UNUSED
     if (! XThaiTranslateKey(ev->xkey.display, ev->xkey.keycode, ev->xkey.state,
 	 		&modifiers, &symbol, &lsym, &usym))
 	return False;

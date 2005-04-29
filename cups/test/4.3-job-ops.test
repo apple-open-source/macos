@@ -1,5 +1,5 @@
 #
-# "$Id: 4.3-job-ops.test,v 1.1.1.4 2002/12/23 19:01:02 jlovell Exp $"
+# "$Id: 4.3-job-ops.test,v 1.1.1.6 2004/10/31 16:15:55 jlovell Exp $"
 #
 #   Verify that the IPP job operations work.
 #
@@ -293,5 +293,5 @@
 }
 
 #
-# End of "$Id: 4.3-job-ops.test,v 1.1.1.4 2002/12/23 19:01:02 jlovell Exp $"
+# End of "$Id: 4.3-job-ops.test,v 1.1.1.6 2004/10/31 16:15:55 jlovell Exp $"
 #

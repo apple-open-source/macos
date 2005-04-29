@@ -135,6 +135,7 @@ void init_hard_links(struct file_list *flist)
 
 int hard_link_check(struct file_struct *file, int skip)
 {
+#if SUPPORT_HARD_LINKS
 	if (!hlink_list || !file->link_u.links)
 		return 0;
 	if (skip && !(file->flags & FLAG_HLINK_EOL))
@@ -146,6 +147,7 @@ int hard_link_check(struct file_struct *file, int skip)
 		}
 		return 1;
 	}
+#endif
 	return 0;
 }
 
@@ -154,8 +156,8 @@ static void hard_link_one(char *hlink1, char *hlink2)
 {
 	if (do_link(hlink1, hlink2)) {
 		if (verbose) {
-			rprintf(FINFO, "link %s => %s failed: %s\n",
-			    hlink2, hlink1, strerror(errno));
+			rsyserr(FINFO, errno, "link %s => %s failed",
+				hlink2, hlink1);
 		}
 	}
 	else if (verbose)
@@ -183,11 +185,11 @@ void do_hard_links(void)
 
 	for (i = 0; i < hlink_count; i++) {
 		first = file = hlink_list[i];
-		if (link_stat(f_name_to(first, hlink1), &st1) != 0)
+		if (link_stat(f_name_to(first, hlink1), &st1, 0) < 0)
 			continue;
 		while ((file = file->F_NEXT) != first) {
 			hlink2 = f_name(file);
-			if (link_stat(hlink2, &st2) == 0) {
+			if (link_stat(hlink2, &st2, 0) == 0) {
 				if (st2.st_dev == st1.st_dev
 				    && st2.st_ino == st1.st_ino)
 					continue;
@@ -196,10 +198,9 @@ void do_hard_links(void)
 						continue;
 				} else if (robust_unlink(hlink2)) {
 					if (verbose > 0) {
-						rprintf(FINFO,
-						    "unlink %s failed: %s\n",
-						    full_fname(hlink2), 
-						    strerror(errno));
+						rsyserr(FINFO, errno,
+							"unlink %s failed",
+							full_fname(hlink2));
 					}
 					continue;
 				}

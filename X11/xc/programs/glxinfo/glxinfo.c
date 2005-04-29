@@ -20,7 +20,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $XFree86: xc/programs/glxinfo/glxinfo.c,v 1.10 2002/11/20 04:43:50 dawes Exp $ */
+/* $XFree86: xc/programs/glxinfo/glxinfo.c,v 1.11 2003/11/14 20:43:34 dawes Exp $ */
 
 /*
  * This program is a work-alike of the IRIX glxinfo program.
@@ -422,7 +422,7 @@ get_visual_attribs(Display *dpy, XVisualInfo *vInfo,
 
    /* multisample attribs */
 #ifdef GLX_ARB_multisample
-   if (strstr("GLX_ARB_multisample", ext) == 0) {
+   if (ext && strstr("GLX_ARB_multisample", ext) == 0) {
       glXGetConfig(dpy, vInfo, GLX_SAMPLE_BUFFERS_ARB, &attribs->numMultisample);
       glXGetConfig(dpy, vInfo, GLX_SAMPLES_ARB, &attribs->numSamples);
    }

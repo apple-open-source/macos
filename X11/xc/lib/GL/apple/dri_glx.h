@@ -38,9 +38,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef GLX_DIRECT_RENDERING
 
-typedef void *(*CreateScreenFunc)(Display *dpy, int scrn, __DRIscreen *psc,
-                                  int numConfigs, __GLXvisualConfig *config);
-
 struct __DRIdisplayPrivateRec {
     /*
     ** XFree86-DRI version information

@@ -1,21 +1,21 @@
 /* Definitions for exception handling for use by the GNU compiler
    for the Java(TM) language compiler.
-   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -34,7 +34,7 @@ struct eh_range
        and the TREE_VALUE is the LABEL_DECL of the handler. */
     tree handlers;
 
-    /* Surrunding handler, if any. */
+    /* Surrounding handler, if any. */
     struct eh_range *outer;
 
     /* The first child range.  It is is nested inside this range
@@ -50,6 +50,9 @@ struct eh_range
 
     /* True if this range has already been expanded. */
     int expanded;
+
+    /* The TRY_CATCH_EXPR for this EH range.  */
+    tree stmt;
   };
 
 /* A dummy range that represents the entire method. */
@@ -57,18 +60,12 @@ extern struct eh_range whole_range;
 
 #define NULL_EH_RANGE (&whole_range)
 
-extern struct eh_range * find_handler PARAMS ((int));
-
-extern void method_init_exceptions PARAMS ((void));
-
-extern void emit_handlers PARAMS ((void));
-
-extern void maybe_start_try PARAMS ((int, int));
-
-extern void maybe_end_try PARAMS ((int, int));
-
-extern void add_handler PARAMS ((int, int, tree, tree));
-
-extern void handle_nested_ranges PARAMS ((void));
-
-extern void expand_resume_after_catch PARAMS ((void));
+extern struct eh_range * find_handler (int);
+extern void method_init_exceptions (void);
+extern void emit_handlers (void);
+extern void maybe_start_try (int, int);
+extern void maybe_end_try (int, int);
+extern void add_handler (int, int, tree, tree);
+extern void handle_nested_ranges (void);
+extern void expand_resume_after_catch (void);
+extern void expand_end_java_handler (struct eh_range *);

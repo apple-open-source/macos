@@ -6,7 +6,7 @@
 
 # Project info
 Project               = pam_modules
-SubProjects           = pam_unix pam_netinfo pam_uwtmp
+SubProjects           = pam_unix pam_netinfo pam_uwtmp pam_afpmount
 #SubProjects           = pam_unix pam_deny pam_permit pam_netinfo pam_rootok pam_wheel \
 #			pam_tim pam_nis pam_directoryservice 
 

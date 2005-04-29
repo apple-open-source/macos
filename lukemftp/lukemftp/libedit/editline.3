@@ -1,4 +1,4 @@
-.\"	$NetBSD: editline.3,v 1.20 2000/02/28 17:41:05 chopps Exp $
+.\"	$NetBSD: editline.3,v 1.27 2002/02/20 11:54:16 wiz Exp $
 .\"
 .\" Copyright (c) 1997-1999 The NetBSD Foundation, Inc.
 .\" All rights reserved.
@@ -58,7 +58,7 @@
 .Sh LIBRARY
 .Lb libedit
 .Sh SYNOPSIS
-.Fd #include <histedit.h>
+.Fd #include \*[Lt]histedit.h\*[Gt]
 .Ft EditLine *
 .Fn el_init "const char *prog" "FILE *fin" "FILE *fout" "FILE *ferr"
 .Ft void
@@ -174,7 +174,7 @@ to execute builtin
 .Nm
 commands.
 If the command is prefixed with
-.Dq prog:
+.Dq prog :
 then
 .Fn el_parse
 will only execute the command if
@@ -303,7 +303,7 @@ for more information.
 .It Dv EL_ADDFN , Xo
 .Fa "const char *name" ,
 .Fa "const char *help" ,
-.Fa "unsigned char (*func)(EditLine *e, int ch)
+.Fa "unsigned char (*func)(EditLine *e, int ch)"
 .Xc
 Add a user defined function,
 .Fn func ,
@@ -336,7 +336,7 @@ Refresh display.
 Refresh display, and beep.
 .It Dv CC_CURSOR
 Cursor moved, so update and perform
-.Dv CC_REFRESH.
+.Dv CC_REFRESH .
 .It Dv CC_REDISPLAY
 Redisplay entire input line.
 This is useful if a key binding outputs extra information.
@@ -368,6 +368,24 @@ check this
 (using
 .Fn el_get )
 to determine if editing should be enabled or not.
+.It Dv EL_GETCFN , Fa "int (*f)(EditLine *, char *c)"
+Define the character reading function as
+.Fa f ,
+which is to return the number of characters read and store them in
+.Fa c .
+This function is called internally by
+.Fn el_gets
+and
+.Fn el_getc .
+The builtin function can be set or restored with the special function
+name ``EL_BUILTIN_GETCFN''.
+.It Dv EL_CLIENTDATA , Fa "void *data"
+Register
+.Fa data
+to be associated with this EditLine structure. It can be retrieved with
+the corresponding
+.Fn el_get
+call.
 .El
 .It Fn el_get
 Get
@@ -399,6 +417,15 @@ has installed private signal handlers (see
 above).
 .It Dv EL_EDITMODE, Fa "int *"
 Return non-zero if editing is enabled.
+.It Dv EL_GETCFN, Fa "int (**f)(EditLine *, char *)"
+Return a pointer to the function that read characters, which is equal to
+``EL_BUILTIN_GETCFN'' in the case of the default builtin function.
+.It Dv EL_CLIENTDATA , Fa "void **data"
+Retrieve
+.Fa data
+previously registered with the corresponding
+.Fn el_set
+call.
 .El
 .It Fn el_source
 Initialise
@@ -565,10 +592,10 @@ is updated to contain more details about the error.
 .\"XXX.Sh EXAMPLES
 .\"XXX: provide some examples
 .Sh SEE ALSO
-.Xr editrc 5 ,
 .Xr sh 1 ,
 .Xr signal 3 ,
-.Xr termcap 3
+.Xr termcap 3 ,
+.Xr editrc 5
 .Sh HISTORY
 The
 .Nm
@@ -596,8 +623,8 @@ and
 .Dv EL_RPROMPT .
 Jaromir Dolecek implemented the readline emulation.
 .Sh BUGS
-The tokenization functions are not publically defined in
-.Fd <histedit.h>
+The tokenization functions are not publicly defined in
+.Fd \*[Lt]histedit.h\*[Gt] .
 .Pp
 At this time, it is the responsibility of the caller to
 check the result of the

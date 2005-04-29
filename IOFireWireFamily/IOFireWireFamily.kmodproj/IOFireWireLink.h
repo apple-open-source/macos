@@ -60,6 +60,7 @@ class IOFireWireLink : public IOService
 {
     OSDeclareAbstractStructors(IOFireWireLink)
 
+#if 0
 	public :
 	
 		// Subclass of IOFilterInterruptEventSource, just to get public access to opengate, closegate.
@@ -76,6 +77,7 @@ class IOFireWireLink : public IOService
 			inline void openGate()		{IOEventSource::openGate();};
 			inline void closeGate()		{IOEventSource::closeGate();};
 		};
+#endif
 
 	protected:
 	
@@ -125,7 +127,7 @@ class IOFireWireLink : public IOService
 		virtual IOReturn 				sendPHYPacket(UInt32 quad) = 0;
 	
 		// Check for hardware interrupts (typically from a timeout call)
-		virtual void 					handleInterrupts(int count) = 0;
+		virtual void 					handleInterrupts( IOInterruptEventSource *, int count ) = 0;
 	
 		virtual IOReturn 				resetBus( bool useIBR = false ) = 0;
 	
@@ -210,11 +212,10 @@ class IOFireWireLink : public IOService
 															IOFWAsyncStreamCommand	* cmd ) = 0;
 		virtual void						setSecurityMode (
 															IOFWSecurityMode mode ) = 0;
-		void								handleARxReqIntComplete ( void )		        { fControl->handleARxReqIntComplete(); };
+		void								handleARxReqIntComplete ( void )							{ fControl->handleARxReqIntComplete(); };
 		virtual void						flushWaitingPackets ( void ) = 0;
-		virtual IOFWDCLPool*				createDCLPool ( 
-															UInt32 					capacity ) ;
-		inline IOWorkLoop *					getIsochWorkloop ()									{ return fIsocWorkloop ; }
+		virtual IOFWDCLPool*				createDCLPool ( UInt32 capacity ) ;
+		inline IOWorkLoop *					getIsochWorkloop ()											{ return fIsocWorkloop ; }
 		virtual IOFWBufferFillIsochPort *   createBufferFillIsochPort () ;
 
 		virtual IOReturn					clipMaxRec2K( bool clipMaxRec ) = 0;
@@ -222,6 +223,13 @@ class IOFireWireLink : public IOService
 		
 		virtual void disablePHYPortOnSleep( UInt32 mask );
 		
+		virtual	UInt32 *					getPingTimes ();
+		virtual	bool						getPingTransmits ();
+		virtual	void						setPingTransmits ( bool ping );
+		
+		virtual IOReturn					handleAsyncCompletion( IOFWCommand *cmd, IOReturn status );
+
+
 	private:
 	
 		OSMetaClassDeclareReservedUnused(IOFireWireLink, 0);

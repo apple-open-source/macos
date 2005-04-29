@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -13,7 +13,8 @@
 *********************************************************************************
 */
 #include <stdio.h>
-#include "cmemory.h"
+#include <stdlib.h>
+#include <string.h>
 #include "unicode/uloc.h"
 #include "unicode/ucnv.h"
 #include "unicode/utypes.h"
@@ -50,11 +51,11 @@ static UBool testConvertToU( const uint8_t *source, int sourcelen, const UChar *
 
 static void setNuConvTestName(const char *codepage, const char *direction)
 {
-  sprintf(gNuConvTestName, "[Testing %s %s Unicode, InputBufSiz=%d, OutputBufSiz=%d]",
-      codepage,
-      direction,
-      gInBufferSize,
-      gOutBufferSize);
+    sprintf(gNuConvTestName, "[Testing %s %s Unicode, InputBufSiz=%d, OutputBufSiz=%d]",
+        codepage,
+        direction,
+        (int)gInBufferSize,
+        (int)gOutBufferSize);
 }
 
 
@@ -190,7 +191,7 @@ static void TestSurrogateBehaviour(){
                                     0x36, 0x21,
                                     0x0F, 0x31, 
                                     0x1A, 
-                                    0x0f, 0x32
+                                    0x32
                                     };
 
         
@@ -200,7 +201,7 @@ static void TestSurrogateBehaviour(){
                                     1,    1,
                                     2,    2,
                                     3,  
-                                    5,    5,  };
+                                    5,  };
 
         /*iso-2022-CN*/
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
@@ -317,15 +318,16 @@ static void TestErrorBehaviour(){
     {
         static const UChar    sampleText[] =   { 0x0031, 0xd801};
         static const UChar    sampleText2[] =   { 0x0031, 0xd801, 0x0032};
-        static const uint8_t expected[] =          { 0x31};
+        static const uint8_t expected0[] =          { 0x31};
+        static const uint8_t expected[] =          { 0x31, 0x1a};
         static const uint8_t expected2[] =         { 0x31, 0x1a, 0x32};
 
         /*SBCS*/
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "ibm-920", 0, TRUE, U_TRUNCATED_CHAR_FOUND))
+                expected, sizeof(expected), "ibm-920", 0, TRUE, U_ZERO_ERROR))
             log_err("u-> ibm-920 [UCNV_SBCS] \n");
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "ibm-920", 0, FALSE, U_ZERO_ERROR))
+                expected0, sizeof(expected0), "ibm-920", 0, FALSE, U_ZERO_ERROR))
             log_err("u-> ibm-920 [UCNV_SBCS] \n");
         if(!convertFromU(sampleText2, sizeof(sampleText2)/sizeof(sampleText2[0]),
                 expected2, sizeof(expected2), "ibm-920", 0, TRUE, U_ZERO_ERROR))
@@ -334,10 +336,10 @@ static void TestErrorBehaviour(){
 
         /*LATIN_1*/
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "LATIN_1", 0, TRUE, U_TRUNCATED_CHAR_FOUND))
+                expected, sizeof(expected), "LATIN_1", 0, TRUE, U_ZERO_ERROR))
             log_err("u-> LATIN_1 is supposed to fail\n");
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "LATIN_1", 0, FALSE, U_ZERO_ERROR))
+                expected0, sizeof(expected0), "LATIN_1", 0, FALSE, U_ZERO_ERROR))
             log_err("u-> LATIN_1 is supposed to fail\n");
 
         if(!convertFromU(sampleText2, sizeof(sampleText2)/sizeof(sampleText2[0]),
@@ -350,7 +352,9 @@ static void TestErrorBehaviour(){
     {
         static const UChar    sampleText[]    = { 0x00a1, 0xd801};
         static const uint8_t expected[] = { 0xa2, 0xae};
-        static const int32_t offsets[]        = { 0x00, 0x00, 0x01, 0x01};
+        static const int32_t offsets[]        = { 0x00, 0x00};
+        static const uint8_t expectedSUB[] = { 0xa2, 0xae, 0xa1, 0xe0};
+        static const int32_t offsetsSUB[]        = { 0x00, 0x00, 0x01, 0x01};
 
         static const UChar       sampleText2[] = { 0x00a1, 0xd801, 0x00a4};
         static const uint8_t expected2[] = { 0xa2, 0xae, 0xa1, 0xe0, 0xa2, 0xb4};
@@ -370,14 +374,14 @@ static void TestErrorBehaviour(){
 
         /*DBCS*/
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "ibm-1363", 0, TRUE, U_TRUNCATED_CHAR_FOUND))
+                expectedSUB, sizeof(expectedSUB), "ibm-1363", 0, TRUE, U_ZERO_ERROR))
             log_err("u-> ibm-1363 [UCNV_DBCS portion] is supposed to fail\n");
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "ibm-1363", 0, FALSE, U_ZERO_ERROR))
             log_err("u-> ibm-1363 [UCNV_DBCS portion] is supposed to fail\n");
 
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "ibm-1363", offsets, TRUE, U_TRUNCATED_CHAR_FOUND))
+                expectedSUB, sizeof(expectedSUB), "ibm-1363", offsetsSUB, TRUE, U_ZERO_ERROR))
             log_err("u-> ibm-1363 [UCNV_DBCS portion] is supposed to fail\n");
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "ibm-1363", offsets, FALSE, U_ZERO_ERROR))
@@ -393,7 +397,7 @@ static void TestErrorBehaviour(){
 
         /*MBCS*/
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "ibm-1363", 0, TRUE, U_TRUNCATED_CHAR_FOUND))
+                expectedSUB, sizeof(expectedSUB), "ibm-1363", 0, TRUE, U_ZERO_ERROR))
             log_err("u-> ibm-1363 [UCNV_MBCS] \n");
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "ibm-1363", 0, FALSE, U_ZERO_ERROR))
@@ -428,21 +432,18 @@ static void TestErrorBehaviour(){
     {
         static const UChar    sampleText[]    = { 0x0031, 0xd801};
         static const uint8_t expected[] = {  0x31};
-        static const int32_t offsets[]        = { 0x00};
+        static const uint8_t expectedSUB[] = {  0x31, 0x1a};
+        static const int32_t offsets[]        = { 0x00, 1};
 
         static const UChar       sampleText2[] = { 0x0031, 0xd801, 0x0032};
         static const uint8_t expected2[] = {  0x31,0x1A,0x32};
         static const int32_t offsets2[]        = { 0x00,0x01,0x02};
 
-        static const UChar       sampleText3MBCS[] = { 0x3000, 0x0050, 0xdc01,0x3001};
-        static const uint8_t expected3MBCS[] = { 0x1B, 0x24, 0x42, 0x21, 0x21, 0x1B, 0x28, 0x42, 0x50, 0x1A, 0x1B, 0x24, 0x42, 0x21, 0x22,};
-        static const int32_t offsets3MBCS[]        = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x02, 0x03, 0x03, 0x03, 0x03, 0x03,};
-
         static const UChar       sampleText4MBCS[] = { 0x0061, 0x4e00, 0xdc01};
         static const uint8_t expected4MBCS[] = { 0x61, 0x1b, 0x24, 0x42, 0x30, 0x6c,0x1b,0x28,0x42,0x1a};
         static const int32_t offsets4MBCS[]        = { 0x00, 0x01, 0x01 ,0x01, 0x01, 0x01,0x02,0x02,0x02,0x02 };
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "iso-2022-jp", offsets, TRUE, U_TRUNCATED_CHAR_FOUND))
+                expectedSUB, sizeof(expectedSUB), "iso-2022-jp", offsets, TRUE, U_ZERO_ERROR))
             log_err("u-> iso-2022-jp [UCNV_MBCS] \n");
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "iso-2022-jp", offsets, FALSE, U_ZERO_ERROR))
@@ -458,13 +459,6 @@ static void TestErrorBehaviour(){
                 expected2, sizeof(expected2), "iso-2022-jp", offsets2, FALSE, U_ZERO_ERROR))
             log_err("u-> iso-2022-jp [UCNV_DBCS] did not match\n");
 
-        if(!convertFromU(sampleText3MBCS, sizeof(sampleText3MBCS)/sizeof(sampleText3MBCS[0]),
-                expected3MBCS, sizeof(expected3MBCS), "iso-2022-jp", offsets3MBCS, TRUE, U_ZERO_ERROR))
-            log_err("u->iso-2022-jp [UCNV_MBCS] \n");
-        if(!convertFromU(sampleText3MBCS, sizeof(sampleText3MBCS)/sizeof(sampleText3MBCS[0]),
-                expected3MBCS, sizeof(expected3MBCS), "iso-2022-jp", offsets3MBCS, FALSE, U_ZERO_ERROR))
-            log_err("u-> iso-2022-jp[UCNV_MBCS] \n");
-
         if(!convertFromU(sampleText4MBCS, sizeof(sampleText4MBCS)/sizeof(sampleText4MBCS[0]),
                 expected4MBCS, sizeof(expected4MBCS), "iso-2022-jp", offsets4MBCS, TRUE, U_ZERO_ERROR))
             log_err("u-> iso-2022-jp [UCNV_MBCS] \n");
@@ -476,22 +470,23 @@ static void TestErrorBehaviour(){
     log_verbose("Testing for iso-2022-cn\n");
     {
         static const UChar    sampleText[]    = { 0x0031, 0xd801};
-        static const uint8_t expected[] = { 0x0f, 0x31};
-        static const int32_t offsets[]        = { 0x00, 0x00};
+        static const uint8_t expected[] = { 0x31};
+        static const uint8_t expectedSUB[] = { 0x31, 0x1A};
+        static const int32_t offsets[]        = { 0x00, 1};
 
         static const UChar       sampleText2[] = { 0x0031, 0xd801, 0x0032};
-        static const uint8_t expected2[] = { 0x0f, 0x31, 0x1A,0x32};
-        static const int32_t offsets2[]        = { 0x00, 0x00, 0x01,0x02};
+        static const uint8_t expected2[] = { 0x31, 0x1A,0x32};
+        static const int32_t offsets2[]        = { 0x00, 0x01,0x02};
 
         static const UChar       sampleText3MBCS[] = { 0x0051, 0x0050, 0xdc01};
-        static const uint8_t expected3MBCS[] = {0x0f, 0x51, 0x50, 0x1A};
-        static const int32_t offsets3MBCS[]        = { 0x00, 0x00, 0x01, 0x02 };
+        static const uint8_t expected3MBCS[] = {0x51, 0x50, 0x1A};
+        static const int32_t offsets3MBCS[]        = { 0x00, 0x01, 0x02 };
 
         static const UChar       sampleText4MBCS[] = { 0x0061, 0x4e00, 0xdc01};
-        static const uint8_t expected4MBCS[] = { 0x0f, 0x61, 0x1b, 0x24, 0x29, 0x41, 0x0e, 0x52, 0x3b, 0x0f, 0x1a };
-        static const int32_t offsets4MBCS[]        = { 0x00, 0x00, 0x01, 0x01 ,0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02 };
+        static const uint8_t expected4MBCS[] = { 0x61, 0x1b, 0x24, 0x29, 0x41, 0x0e, 0x52, 0x3b, 0x0f, 0x1a };
+        static const int32_t offsets4MBCS[]        = { 0x00, 0x01, 0x01 ,0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02 };
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "iso-2022-cn", offsets, TRUE, U_TRUNCATED_CHAR_FOUND))
+                expectedSUB, sizeof(expectedSUB), "iso-2022-cn", offsets, TRUE, U_ZERO_ERROR))
             log_err("u-> iso-2022-cn [UCNV_MBCS] \n");
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "iso-2022-cn", offsets, FALSE, U_ZERO_ERROR))
@@ -526,7 +521,8 @@ static void TestErrorBehaviour(){
     {
         static const UChar    sampleText[]    = { 0x0031, 0xd801};
         static const uint8_t expected[] = { 0x1b, 0x24, 0x29, 0x43, 0x31};
-        static const int32_t offsets[]        = { -1,   -1,   -1,   -1,   0x00};
+        static const uint8_t expectedSUB[] = { 0x1b, 0x24, 0x29, 0x43, 0x31, 0x1A};
+        static const int32_t offsets[]        = { -1,   -1,   -1,   -1,   0x00, 1};
 
         static const UChar       sampleText2[] = { 0x0031, 0xd801, 0x0032};
         static const uint8_t expected2[] = { 0x1b, 0x24, 0x29, 0x43, 0x31, 0x1A, 0x32};
@@ -536,15 +532,8 @@ static void TestErrorBehaviour(){
         static const uint8_t expected3MBCS[] = { 0x1b, 0x24, 0x29, 0x43,  0x51, 0x50, 0x1A };
         static const int32_t offsets3MBCS[]        = { -1,   -1,   -1,   -1,    0x00, 0x01, 0x02, 0x02 };
 
-        static const UChar       sampleText4MBCS[] = { 0x0061, 0x4e00, 0xdc01,0x4e00};
-        static const uint8_t expected4MBCS[] = { 0x1b, 0x24, 0x29, 0x43,
-                                          0x61, 
-                                          0x0e, 0x6c, 0x69, 
-                                          0x0f, 0x1a,
-                                          0x0e, 0x6c, 0x69,};
-        static const int32_t offsets4MBCS[]        = { -1,   -1,   -1,   -1, 0x00, 0x01 ,0x01, 0x01, 0x02, 0x02, 0x03, 0x03, 0x03 };
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "iso-2022-kr", offsets, TRUE, U_TRUNCATED_CHAR_FOUND))
+                expectedSUB, sizeof(expectedSUB), "iso-2022-kr", offsets, TRUE, U_ZERO_ERROR))
             log_err("u-> iso-2022-kr [UCNV_MBCS] \n");
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "iso-2022-kr", offsets, FALSE, U_ZERO_ERROR))
@@ -566,13 +555,6 @@ static void TestErrorBehaviour(){
         if(!convertFromU(sampleText3MBCS, sizeof(sampleText3MBCS)/sizeof(sampleText3MBCS[0]),
                 expected3MBCS, sizeof(expected3MBCS), "iso-2022-kr", offsets3MBCS, FALSE, U_ZERO_ERROR))
             log_err("u-> iso-2022-kr[UCNV_MBCS] \n");
-
-        if(!convertFromU(sampleText4MBCS, sizeof(sampleText4MBCS)/sizeof(sampleText4MBCS[0]),
-                expected4MBCS, sizeof(expected4MBCS), "iso-2022-kr", offsets4MBCS, TRUE, U_ZERO_ERROR))
-            log_err("u-> iso-2022-kr [UCNV_MBCS] \n");
-        if(!convertFromU(sampleText4MBCS, sizeof(sampleText4MBCS)/sizeof(sampleText4MBCS[0]),
-                expected4MBCS, sizeof(expected4MBCS), "iso-2022-kr", offsets4MBCS, FALSE, U_ZERO_ERROR))
-            log_err("u-> iso-2022-kr [UCNV_MBCS] \n");
     }
 
     /*HZ*/
@@ -580,7 +562,8 @@ static void TestErrorBehaviour(){
     {
         static const UChar    sampleText[]    = { 0x0031, 0xd801};
         static const uint8_t expected[] = { 0x7e, 0x7d, 0x31};
-        static const int32_t offsets[]        = { 0x00, 0x00, 0x00};
+        static const uint8_t expectedSUB[] = { 0x7e, 0x7d, 0x31, 0x1A};
+        static const int32_t offsets[]        = { 0x00, 0x00, 0x00, 1};
 
         static const UChar       sampleText2[] = { 0x0031, 0xd801, 0x0032};
         static const uint8_t expected2[] = { 0x7e, 0x7d, 0x31,  0x1A,  0x32 };
@@ -594,7 +577,7 @@ static void TestErrorBehaviour(){
         static const uint8_t expected4MBCS[] = { 0x7e, 0x7d, 0x61, 0x7e, 0x7b, 0x52, 0x3b, 0x7e, 0x7d, 0x1a };
         static const int32_t offsets4MBCS[]        = { 0x00, 0x00, 0x00, 0x01, 0x01, 0x01 ,0x01, 0x02, 0x02, 0x02 };
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "HZ", offsets, TRUE, U_TRUNCATED_CHAR_FOUND))
+                expectedSUB, sizeof(expectedSUB), "HZ", offsets, TRUE, U_ZERO_ERROR))
             log_err("u-> HZ [UCNV_MBCS] \n");
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "HZ", offsets, FALSE, U_ZERO_ERROR))
@@ -636,21 +619,12 @@ static void TestToUnicodeErrorBehaviour()
         uint8_t sampleText[] = { 0xa2, 0xae, 0x03, 0x04};
         const UChar expected[] = { 0x00a1 };
         
-        uint8_t sampleText2[] = { 0xa2, 0xae, 0xa2};
-        const UChar expected2[] = { 0x00a1 };
-
         if(!convertToU(sampleText, sizeof(sampleText), 
                 expected, sizeof(expected)/sizeof(expected[0]), "ibm-1363", 0, TRUE, U_ZERO_ERROR ))
             log_err("DBCS (ibm-1363)->Unicode  did not match.\n");
         if(!convertToU(sampleText, sizeof(sampleText), 
                 expected, sizeof(expected)/sizeof(expected[0]), "ibm-1363", 0, FALSE, U_ZERO_ERROR ))
             log_err("DBCS (ibm-1363)->Unicode  with flush = false did not match.\n");
-       
-        if(!convertToU(sampleText2, sizeof(sampleText2), 
-                expected2, sizeof(expected2)/sizeof(expected2[0]), "ibm-1363", 0, TRUE, U_TRUNCATED_CHAR_FOUND ))
-            log_err("DBCS (ibm-1363)->Unicode with TRUNCATED CHARACTER  did not match.\n");
-       
-    
     }
     log_verbose("Testing error conditions for SBCS\n");
     {
@@ -668,57 +642,6 @@ static void TestToUnicodeErrorBehaviour()
             log_err("SBCS (ibm-1051)->Unicode  with flush = false did not match.\n");
 
     }
-    log_verbose("Testing error conditions for UTF8\n");
-    {
-        const uint8_t sampleText[] = { 0x31, 0xe4, 0xba, 0x8c, 0xe4, 0xb8 };
-        UChar    expectedUTF8[] = {  0x0031, 0x4e8c};
-        int32_t offsets[] = {   0x0000, 0x0001};
-
-        const uint8_t sampleText2[] = { 0x31, 0xff, 0xe4, 0xba, 0x8c, 
-            0xe0, 0x80, 0x61};
-        UChar    expected2UTF8[] = {  0x0031, 0xfffd, 0x4e8c, 0xfffd, 0x0061};
-        int32_t offsets2[] = {   0x0000, 0x0001, 0x0002, 0x0005, 0x0007};
-
-        const uint8_t sampleText3[] = { 0x31, 0xfb, 0xbf, 0xbf, 0xbf, 0xbf, 
-            0x61};
-        UChar    expected3UTF8[] = {  0x0031, 0xfffd, 0x0061};
-        int32_t offsets3[] = {   0x0000, 0x0001, 0x0006};
-
-        if(!convertToU(sampleText, sizeof(sampleText), 
-                expectedUTF8, sizeof(expectedUTF8)/sizeof(expectedUTF8[0]), "utf-8", 0, TRUE, U_TRUNCATED_CHAR_FOUND ))
-            log_err("utf-8->Unicode  did not match.\n");
-        if(!convertToU(sampleText, sizeof(sampleText), 
-                expectedUTF8, sizeof(expectedUTF8)/sizeof(expectedUTF8[0]), "utf-8", 0, FALSE, U_ZERO_ERROR ))
-            log_err("utf-8->Unicode  did not match.\n");
-        if(!convertToU(sampleText, sizeof(sampleText), 
-                expectedUTF8, sizeof(expectedUTF8)/sizeof(expectedUTF8[0]), "utf-8", offsets, TRUE, U_TRUNCATED_CHAR_FOUND ))
-            log_err("utf-8->Unicode  did not match.\n");
-        if(!convertToU(sampleText, sizeof(sampleText), 
-                expectedUTF8, sizeof(expectedUTF8)/sizeof(expectedUTF8[0]), "utf-8", offsets, FALSE, U_ZERO_ERROR ))
-            log_err("utf-8->Unicode  did not match.\n");
-
-        if(!convertToU(sampleText2, sizeof(sampleText2), 
-                expected2UTF8, sizeof(expected2UTF8)/sizeof(expected2UTF8[0]), "utf-8", 0, TRUE, U_ZERO_ERROR ))
-            log_err("utf-8->Unicode  did not match.\n");
-        if(!convertToU(sampleText2, sizeof(sampleText2), 
-                expected2UTF8, sizeof(expected2UTF8)/sizeof(expected2UTF8[0]), "utf-8", 0, FALSE, U_ZERO_ERROR ))
-            log_err("utf-8->Unicode  did not match.\n");
-        if(!convertToU(sampleText2, sizeof(sampleText2), 
-                expected2UTF8, sizeof(expected2UTF8)/sizeof(expected2UTF8[0]), "utf-8", offsets2, TRUE, U_ZERO_ERROR ))
-            log_err("utf-8->Unicode  did not match.\n");
-        if(!convertToU(sampleText2, sizeof(sampleText2), 
-                expected2UTF8, sizeof(expected2UTF8)/sizeof(expected2UTF8[0]), "utf-8", offsets2, FALSE, U_ZERO_ERROR ))
-            log_err("utf-8->Unicode  did not match.\n");
-
-        if(!convertToU(sampleText3, sizeof(sampleText3), 
-                expected3UTF8, sizeof(expected3UTF8)/sizeof(expected3UTF8[0]), "utf-8", offsets3, TRUE, U_ZERO_ERROR ))
-            log_err("utf-8->Unicode  did not match.\n");
-        if(!convertToU(sampleText3, sizeof(sampleText3), 
-                expected3UTF8, sizeof(expected3UTF8)/sizeof(expected3UTF8[0]), "utf-8", offsets3, FALSE, U_ZERO_ERROR ))
-            log_err("utf-8->Unicode  did not match with flush false.\n");
-
-    }
-
 }
 
 static void TestGetNextErrorBehaviour(){
@@ -971,9 +894,9 @@ static UBool convertFromU( const UChar *source, int sourceLen,  const uint8_t *e
 
     if(memcmp(buffer, expect, expectLen)){
         log_err("String does not match. FROM Unicode to codePage%s\n", codepage);
-        printf("\nGot:");
+        log_info("\nGot:");
         printSeqErr((const unsigned char *)buffer, expectLen);
-        printf("\nExpected:");
+        log_info("\nExpected:");
         printSeqErr((const unsigned char *)expect, expectLen);
         return FALSE;
     }
@@ -985,13 +908,13 @@ static UBool convertFromU( const UChar *source, int sourceLen,  const uint8_t *e
         log_verbose("comparing %d offsets..\n", targ-buffer);
         if(memcmp(offsetBuffer,expectOffsets,(targ-buffer) * sizeof(int32_t) )){
             log_err("did not get the expected offsets. for FROM Unicode to %s\n", codepage);
-            printf("\nGot  : ");
+            log_info("\nGot  : ");
             printSeqErr((const unsigned char*)buffer, targ-buffer);
             for(p=buffer;p<targ;p++)
-                printf("%d, ", offsetBuffer[p-buffer]); 
-            printf("\nExpected: ");
+                log_info("%d, ", offsetBuffer[p-buffer]); 
+            log_info("\nExpected: ");
             for(i=0; i< (targ-buffer); i++)
-                printf("%d,", expectOffsets[i]);
+                log_info("%d,", expectOffsets[i]);
         }
     }
 
@@ -1065,26 +988,26 @@ static UBool convertToU( const uint8_t *source, int sourceLen, const UChar *expe
         if(memcmp(offsetBuffer, expectOffsets, (targ-buffer) * sizeof(int32_t))){
 
             log_err("did not get the expected offsets from %s To UNICODE\n", codepage);
-            printf("\nGot : ");
+            log_info("\nGot : ");
             for(p=buffer;p<targ;p++)
-                printf("%d, ", offsetBuffer[p-buffer]); 
-            printf("\nExpected: ");
+                log_info("%d, ", offsetBuffer[p-buffer]); 
+            log_info("\nExpected: ");
             for(i=0; i<(targ-buffer); i++)
-                printf("%d, ", expectOffsets[i]);
-            printf("\nGot result:");
+                log_info("%d, ", expectOffsets[i]);
+            log_info("\nGot result:");
             for(i=0; i<(targ-buffer); i++)
-                printf("0x%04X,", buffer[i]);
-            printf("\nFrom Input:");
+                log_info("0x%04X,", buffer[i]);
+            log_info("\nFrom Input:");
             for(i=0; i<(src-source); i++)
-                printf("0x%02X,", (unsigned char)source[i]);
-            puts("\n");
+                log_info("0x%02X,", (unsigned char)source[i]);
+            log_info("\n");
         }
     }
     if(memcmp(buffer, expect, expectLen*2)){
         log_err("String does not match. from codePage %s TO Unicode\n", codepage);
-        printf("\nGot:");
+        log_info("\nGot:");
         printUSeqErr(buffer, expectLen);
-        printf("\nExpected:");
+        log_info("\nExpected:");
         printUSeqErr(expect, expectLen);
         return FALSE;
     }
@@ -1227,9 +1150,9 @@ static UBool testConvertFromU( const UChar *source, int sourceLen,  const uint8_
     {
         log_err("Expected %d chars out, got %d %s\n", expectLen, targ-junkout, gNuConvTestName);
         log_verbose("Expected %d chars out, got %d %s\n", expectLen, targ-junkout, gNuConvTestName);
-        printf("\nGot:");
+        log_info("\nGot:");
         printSeqErr((const unsigned char*)junkout, targ-junkout);
-        printf("\nExpected:");
+        log_info("\nExpected:");
         printSeqErr((const unsigned char*)expect, expectLen);
         return FALSE;
     }
@@ -1259,9 +1182,9 @@ static UBool testConvertFromU( const UChar *source, int sourceLen,  const uint8_
     {
         log_err("String does not match. %s\n", gNuConvTestName);
         printUSeqErr(source, sourceLen);
-        printf("\nGot:");
+        log_info("\nGot:");
         printSeqErr((const unsigned char *)junkout, expectLen);
-        printf("\nExpected:");
+        log_info("\nExpected:");
         printSeqErr((const unsigned char *)expect, expectLen);
 
         return FALSE;
@@ -1429,9 +1352,9 @@ static UBool testConvertToU( const uint8_t *source, int sourcelen, const UChar *
     {
         log_err("String does not match. %s\n", gNuConvTestName);
         log_verbose("String does not match. %s\n", gNuConvTestName);
-        printf("\nGot:");
+        log_info("\nGot:");
         printUSeq(junkout, expectlen);
-        printf("\nExpected:");
+        log_info("\nExpected:");
         printUSeq(expect, expectlen); 
         return FALSE;
     }
@@ -1439,37 +1362,6 @@ static UBool testConvertToU( const uint8_t *source, int sourcelen, const UChar *
 
 
 static void TestResetBehaviour(void){
-    log_verbose("Testing  Reset for SBCS and LATIN_1\n");
-    {
-        static const UChar sampleText[] = {0x0031, 0xd801, 0xdc01, 0x0032};
-        static const uint8_t expected[] = {0x31, 0x1a, 0x32};
-        static const int32_t offsets[] =  { 0,1,3};
-
-        static const UChar sampleText1[] = {0x0031, 0x0033, 0x0034, 0x0032};
-        static const uint8_t expected1[] = {0x31, 0x33,0x34, 0x32};
-        static const int32_t offsets1[] =  { 0,1,2,3};
-
-        /*SBCS*/
-        if(!testConvertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "ibm-920", UCNV_FROM_U_CALLBACK_SUBSTITUTE , offsets, TRUE))
-            log_err("u-> ibm-920 [UCNV_SBCS] not match.\n");
-        if(!testConvertToU(expected1, sizeof(expected1), 
-                sampleText1, sizeof(sampleText1)/sizeof(sampleText1[0]), "ibm-920",UCNV_TO_U_CALLBACK_SUBSTITUTE , 
-                offsets1, TRUE))
-           log_err("ibm -920 -> did not match.\n");
-
-        /*LATIN_1*/
-        if(!testConvertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
-                expected, sizeof(expected), "LATIN1", UCNV_FROM_U_CALLBACK_SUBSTITUTE , offsets, TRUE))
-            log_err("u-> LATIN_1 not match.\n");
-        if(!testConvertToU(expected1, sizeof(expected1), 
-                sampleText1, sizeof(sampleText1)/sizeof(sampleText1[0]), "LATIN1",UCNV_TO_U_CALLBACK_SUBSTITUTE , 
-                offsets1, TRUE))
-           log_err("LATIN1 -> did not match.\n");
-        
-
-
-    }
     log_verbose("Testing Reset for DBCS and MBCS\n");
     {
         static const UChar sampleText[]       = {0x00a1, 0xd801, 0xdc01, 0x00a4};
@@ -1546,7 +1438,7 @@ static void TestResetBehaviour(void){
                                     0x36, 0x21,
                                     0x0f, 0x31,
                                     0x1A, 
-                                    0x0f, 0x32
+                                    0x32
                                     };
         
 
@@ -1555,17 +1447,17 @@ static void TestResetBehaviour(void){
                                     1,    1,
                                     2,    2,
                                     3,    
-                                    5,    5,  };
+                                    5,  };
         
         UChar sampleText1[] = {0x4e00, 0x04e01, 0x0031,0x001A, 0x0032};
         static const uint8_t expected1[] = {
                                     0x1B, 0x24, 0x29, 0x41, 0x0E, 0x52, 0x3B, 
                                     0x36, 0x21,
-                                    0x1B, 0x24, 0x29, 0x47, 0x1B, 0x4E, 0x24, 0x22, 
+                                    0x1B, 0x24, 0x29, 0x47, 0x24, 0x22, 
                                     0x0f, 0x1A, 
                                     0x32
                                     };
-        static const int32_t offsets1[] =  { 5,7,15,18,19};
+        static const int32_t offsets1[] =  { 5,7,13,16,17};
 
         /*iso-2022-CN*/
         if(!testConvertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
@@ -1729,6 +1621,13 @@ doTestTruncated(const char *cnvName, const uint8_t *bytes, int32_t length) {
         log_data_err("error TestTruncated: unable to open \"%s\" - %s\n", cnvName, u_errorName(errorCode));
         return;
     }
+    ucnv_setToUCallBack(cnv, UCNV_TO_U_CALLBACK_STOP, NULL, NULL, NULL, &errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_data_err("error TestTruncated: unable to set the stop callback on \"%s\" - %s\n",
+                    cnvName, u_errorName(errorCode));
+        ucnv_close(cnv);
+        return;
+    }
 
     source=(const char *)bytes;
     sourceLimit=source+length;
@@ -1747,15 +1646,9 @@ doTestTruncated(const char *cnvName, const uint8_t *bytes, int32_t length) {
     target=buffer;
     ucnv_toUnicode(cnv, &target, targetLimit, &source, sourceLimit, NULL, TRUE, &errorCode);
     if(errorCode!=U_TRUNCATED_CHAR_FOUND || target!=buffer) {
-        log_err("error TestTruncated(%s, 1b): no input, flush=TRUE: %s (should be U_TRUNCATED_CHAR_FOUND), output %d\n",
-                cnvName, u_errorName(errorCode), (int)(target-buffer));
+        log_err("error TestTruncated(%s, 1b): no input (previously %d), flush=TRUE: %s (should be U_TRUNCATED_CHAR_FOUND), output %d\n",
+                cnvName, (int)length, u_errorName(errorCode), (int)(target-buffer));
     }
-
-    /*
-     * ### TODO: flush=TRUE resets; make sure this is well documented; question -
-     * does it also delete ucnv_getInvalidChars()?
-     * resetting logically should delete them, but then it is not possible to figure out which bytes are left in the converter.
-     */
 
     /* 2. input bytes with flush=TRUE */
     ucnv_resetToUnicode(cnv);
@@ -1764,7 +1657,7 @@ doTestTruncated(const char *cnvName, const uint8_t *bytes, int32_t length) {
     source=(const char *)bytes;
     target=buffer;
     ucnv_toUnicode(cnv, &target, targetLimit, &source, sourceLimit, NULL, TRUE, &errorCode);
-    if(errorCode!=U_TRUNCATED_CHAR_FOUND || target!=buffer) {
+    if(errorCode!=U_TRUNCATED_CHAR_FOUND || source!=sourceLimit || target!=buffer) {
         log_err("error TestTruncated(%s, 2): input bytes[%d], flush=TRUE: %s (should be U_TRUNCATED_CHAR_FOUND), input left %d, output %d\n",
                 cnvName, length, u_errorName(errorCode), (int)(sourceLimit-source), (int)(target-buffer));
     }
@@ -1840,7 +1733,10 @@ TestUnicodeSet() {
         "BOCU-1",
         "CESU-8",
         "gb18030",
-        "IMAP-mailbox-name",
+        "IMAP-mailbox-name"
+    };
+
+    static const char *const lmbcsNames[]={
         "LMBCS-1",
         "LMBCS-2",
         "LMBCS-3",
@@ -1909,6 +1805,29 @@ TestUnicodeSet() {
                     name, u_errorName(errorCode));
         } else if(!uset_containsRange(set, 0, 0xd7ff) || !uset_containsRange(set, 0xe000, 0x10ffff)) {
             log_err("error: ucnv_getUnicodeSet(%s) does not return an all-Unicode set\n", name);
+        }
+
+        ucnv_close(cnv);
+    }
+
+    /* test LMBCS variants which convert all of Unicode except for U+F6xx */
+    for(i=0; i<LENGTHOF(lmbcsNames); ++i) {
+        errorCode=U_ZERO_ERROR;
+        name=lmbcsNames[i];
+        cnv=ucnv_open(name, &errorCode);
+        if(U_FAILURE(errorCode)) {
+            log_err("error: unable to open converter %s - %s\n",
+                    name, u_errorName(errorCode));
+            continue;
+        }
+
+        uset_clear(set);
+        ucnv_getUnicodeSet(cnv, set, UCNV_ROUNDTRIP_SET, &errorCode);
+        if(U_FAILURE(errorCode)) {
+            log_err("error: ucnv_getUnicodeSet(%s) failed - %s\n",
+                    name, u_errorName(errorCode));
+        } else if(!uset_containsRange(set, 0, 0xf5ff) || !uset_containsRange(set, 0xf700, 0x10ffff)) {
+            log_err("error: ucnv_getUnicodeSet(%s) does not return an all-Unicode set (minus U+F6xx)\n", name);
         }
 
         ucnv_close(cnv);

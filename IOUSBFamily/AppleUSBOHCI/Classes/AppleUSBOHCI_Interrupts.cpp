@@ -24,7 +24,9 @@
 
 #include <libkern/OSByteOrder.h>
 
+#include <IOKit/IOService.h>
 #include <IOKit/usb/IOUSBLog.h>
+#include <IOKit/usb/IOUSBRootHubDevice.h>
 
 #include "AppleUSBOHCIMemoryBlocks.h"
 #include "AppleUSBOHCI.h"
@@ -38,13 +40,19 @@
 
 void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 {
-    UInt64       	timeElapsed;
+    UInt64				timeElapsed;
+	AbsoluteTime		timeStop;
+    IOReturn            err = kIOReturnSuccess;
     
-    // Calculate the time in nanoseconds between the last 2 calls to the filter interrupt routine.  Note that 
-    // we lose the data if there was more than 1 filter routine called before our action routine was called.
-    //
-    absolutetime_to_nanoseconds(_filterTimeStamp2, &_timeElapsed); 
-
+	// Calculate the time between the filter interrupt and the workloop dispatching
+	//
+	/*
+	clock_get_uptime (&timeStop);
+	SUB_ABSOLUTETIME(&timeStop, &_filterTimeStamp); 
+	absolutetime_to_nanoseconds(timeStop, &timeElapsed); 
+    USBLog(5,"%s[%p]::PollInterrupts:  microsecs since filter interrupt:  %qd", getName(), this, timeElapsed / 1000);
+	 */
+	
     // WritebackDoneHead Interrupt
     //
     if (_writeDoneHeadInterrupt & kOHCIHcInterrupt_WDH)
@@ -71,19 +79,60 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     //
     if (_unrecoverableErrorInterrupt & kOHCIHcInterrupt_UE)
     {
+        USBError(1,"USB Controller on bus %d received and unrecoverable error interrupt.  Attempting to recover (%d,%d,%d)", _busNumber,_onCardBus, _pcCardEjected, isInactive() );
         _unrecoverableErrorInterrupt = 0;
-
+		
         _errors.unrecoverableError++;
-        // Let's do a SW reset to recover from this condition.
-        // We could make sure all OCHI registers and in-memory
-        // data structures are valid, too.
-        _pOHCIRegisters->hcCommandStatus = USBToHostLong(kOHCIHcCommandStatus_HCR);
-        delay(10 * MICROSECOND);
-
-        // zzzz - note I'm leaving the Control/Bulk list processing off
-        // for now.  FIXME? ERIC
-
-        _pOHCIRegisters->hcControl = USBToHostLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase) | kOHCIHcControl_PLE);
+        
+		if ( _onCardBus )
+		{
+			USBError(1,"Ignoring unrecoverable error on PC Card" );
+		}
+		else
+		{
+			if ( !(_errataBits & kErrataNECOHCIIsochWraparound ) )
+			{
+				// Let's do a SW reset to recover from this condition.
+				// We could make sure all OCHI registers and in-memory
+				// data structures are valid, too.
+				_pOHCIRegisters->hcCommandStatus = HostToUSBLong(kOHCIHcCommandStatus_HCR);
+				delay(10 * MICROSECOND);
+				_pOHCIRegisters->hcControl = HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase) | kOHCIHcControl_PLE);
+			}
+			else
+			{
+				// For NEC controllers, we unload all drivers
+				//
+				if ( _rootHubDevice )
+				{
+					_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
+					_rootHubDevice->detachAll(gIOUSBPlane);
+					_rootHubDevice->release();
+					_rootHubDevice = NULL;
+				}
+				SuspendUSBBus();
+				UIMFinalizeForPowerDown();
+				_ohciAvailable = false;									// tell the interrupt filter routine that we are off
+				
+				IOSleep(100);
+				UIMInitializeForPowerUp();
+				
+				_ohciAvailable = true;                          // tell the interrupt filter routine that we are on
+				_ohciBusState = kOHCIBusStateRunning;
+				if ( _rootHubDevice == NULL )
+				{
+					err = CreateRootHubDevice( _device, &_rootHubDevice );
+					if ( err != kIOReturnSuccess )
+					{
+						USBError(1,"%s[%p] Could not create root hub device upon wakeup (%x)!",getName(), this, err);
+					}
+					else
+					{
+						_rootHubDevice->registerService(kIOServiceRequired | kIOServiceSynchronous);
+					}
+				}
+			}
+		}
     }
 
     //	RootHubStatusChange Interrupt
@@ -346,13 +395,13 @@ AppleUSBOHCI::FilterInterrupt(int index)
             
             // Debugging aid to keep track of how long we take in between calls to the filter routine
             //
+			/*
             _filterInterruptCount++;
-            
             _filterTimeStamp2 = timeStamp;
             SUB_ABSOLUTETIME(&_filterTimeStamp2, &_filterTimeStamp); 
             _filterTimeStamp = timeStamp;
-
-
+			 */
+			
            // Get the pointer to the list (physical address)
             //
             physicalAddress = (UInt32) USBToHostLong(*(UInt32 *)(_pHCCA + kHCCADoneHeadOffset));
@@ -503,6 +552,16 @@ AppleUSBOHCI::FilterInterrupt(int index)
                                 pFrames[pITD->frameNum + i].frActCount = offset & kOHCIITDPSW_Size;
                         }
                         
+                    }
+                } 
+                else
+                {
+                    if ( (pHCDoneTD->pType != kOHCIIsochronousInType) && 
+                         (pHCDoneTD->pType != kOHCIIsochronousOutType) )
+                    {
+                        // Time stamp this TD (non isoch  TD)
+                        //
+                        pHCDoneTD->command->SetTimeStamp( timeStamp );
                     }
                 }
                 

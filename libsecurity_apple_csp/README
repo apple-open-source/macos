@@ -1,0 +1,32 @@
+                   libsecurity_apple_csp Notes
+				   
+To build this project in a Darwin environment (as opposed to building in-house
+at Apple), use the Darwin buildstyle. If you're building with Xcode, select
+"Darwin" from the "Active Build Style" popup. If you're building from the command
+line, specify the build style like so:
+
+% xcodebuild -buildstyle Darwin install
+
+This build style is necessitated by the fact that the CSP built at (and 
+shipped by) Apple includes some algorithms which are proprietary to Apple;
+the source code for these algorithms is not open source. Selecting the 
+Darwin build style allows the CSP (and hence Security.framework, which also
+must be built with the Darwin build style) to be built from the Darwin 
+open source tree without requiring the source for these algorithms. 
+
+The algorithms avoided by selecting the Darwin build style are as follows:
+
+CSSM_ALGID_ASC
+   Apple Secure Compression, a symmetric encryption algorithm
+   which performs simultaneous encryption and compression.
+   
+CSSM_ALGID_FEE
+CSSM_ALGID_FEED
+CSSM_ALGID_FEEDEXP
+CSSM_ALGID_FEE_MD5
+CSSM_ALGID_FEE_SHA1
+CSSM_ALGID_SHA1WithECDSA
+CSSM_ALGID_ECDSA
+   Asymmetric encryption using Apple's patented Fast Elliptic Encryption 
+   algorithm. 
+   

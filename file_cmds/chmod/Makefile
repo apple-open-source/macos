@@ -12,7 +12,9 @@ NAME = chmod
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = chmod.c
+HFILES = chmod_acl.h
+
+CFILES = chmod.c chmod_acl.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble chmod.1
 

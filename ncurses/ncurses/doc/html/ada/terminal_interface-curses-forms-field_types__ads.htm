@@ -38,9 +38,9 @@
 <FONT COLOR=green><EM>-- sale, use or other dealings in this Software without prior written       --</EM></FONT>
 <FONT COLOR=green><EM>-- authorization.                                                           --</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-<FONT COLOR=green><EM>--  Author: <A HREF="http://home.t-online.de/home/Juergen.Pfeifer">J&uuml;rgen Pfeifer</A> &lt;<A HREF="mailto:juergen.pfeifer@gmx.net">&lt;juergen.pfeifer@gmx.net&gt;</A>&gt; 1996</EM></FONT>
+<FONT COLOR=green><EM>--  Author:  Juergen Pfeifer, 1996</EM></FONT>
 <FONT COLOR=green><EM>--  Version Control:</EM></FONT>
-<FONT COLOR=green><EM>--  @Revision: 1.12 @</EM></FONT>
+<FONT COLOR=green><EM>--  @Revision: 1.14 @</EM></FONT>
 <FONT COLOR=green><EM>--  Binding Version 01.00</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
 <b>with</b> Interfaces.C;
@@ -143,18 +143,18 @@
    <FONT COLOR=green><EM>--  | fieldtypes handled by this binding. Any other low-level fieldtype</EM></FONT>
    <FONT COLOR=green><EM>--  | will result in a Form_Exception is function Get_Type.</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
-   M_Generic_Type   : C_Field_Type := <b>null</b>;
-   M_Generic_Choice : C_Field_Type := <b>null</b>;
-   M_Builtin_Router : C_Field_Type := <b>null</b>;
+   <FONT COLOR=red><A NAME="142_4">M_Generic_Type</A></FONT>   : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#132_9">C_Field_Type</A> := <b>null</b>;
+   <FONT COLOR=red><A NAME="143_4">M_Generic_Choice</A></FONT> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#132_9">C_Field_Type</A> := <b>null</b>;
+   <FONT COLOR=red><A NAME="144_4">M_Builtin_Router</A></FONT> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#132_9">C_Field_Type</A> := <b>null</b>;
    M_Choice_Router  : C_Field_Type := <b>null</b>;
 
    <FONT COLOR=green><EM>--  Two wrapper functions to access those low-level fieldtypes defined</EM></FONT>
    <FONT COLOR=green><EM>--  in this package.</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#264_13">C_Builtin_Router</A><FONT COLOR=red><A NAME="149_13"></A></FONT> <b>return</b> C_Field_Type;
+   <b>function</b> <FONT COLOR=red><A NAME="149_13">C_Builtin_Router</A></FONT> <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#132_9">C_Field_Type</A>;
    <b>function</b> C_Choice_Router  <b>return</b> C_Field_Type;
 
-   <b>procedure</b> Wrap_Builtin (<FONT COLOR=red><A NAME="152_28">Fld</A></FONT> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#52_9">Field</A>;
-                           Typ : Field_Type'Class<A HREF="terminal_interface-curses-forms-field_types__ads.htm#148_13">;</A>
+   <b>procedure</b> Wrap_Builtin (Fld : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#52_9">Field</A>;
+                           <FONT COLOR=red><A NAME="153_28">Typ</A></FONT> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#132_9">Field_Type</A>'Class<A HREF="terminal_interface-curses-forms-field_types__ads.htm#148_13">;</A>
                            Cft : C_Field_Type := C_Builtin_Router);
    <FONT COLOR=green><EM>--  This procedure has to be called by the Set_Field_Type implementation</EM></FONT>
    <FONT COLOR=green><EM>--  for builtin low-level fieldtypes to replace it by an Ada95</EM></FONT>
@@ -215,7 +215,7 @@
    <FONT COLOR=green><EM>--  introduced by this binding.</EM></FONT>
    <b>type</b> Argument <b>is</b> <b>record</b>
       <FONT COLOR=red><A NAME="213_7">Typ</A></FONT> : Field_Type_Access;   <FONT COLOR=green><EM>--  the Field_Type creating this record</EM></FONT>
-      Usr : System.Address;      <FONT COLOR=green><EM>--  original arg for builtin low-level types</EM></FONT>
+      <FONT COLOR=red><A NAME="214_7">Usr</A></FONT> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#132_9">System</A>.Address;      <FONT COLOR=green><EM>--  original arg for builtin low-level types</EM></FONT>
       Cft : C_Field_Type;        <FONT COLOR=green><EM>--  the original low-level type</EM></FONT>
    <b>end</b> <b>record</b>;
    <b>type</b> Argument_Access <b>is</b> <b>access</b> <b>all</b> Argument;
@@ -225,7 +225,7 @@
    <FONT COLOR=green><EM>--  | Some Imports of libform routines to deal with low-level fieldtypes.</EM></FONT>
    <FONT COLOR=green><EM>--  |</EM></FONT>
    <b>function</b> New_Fieldtype (<FONT COLOR=red><A NAME="223_28">Fcheck</A></FONT> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#108_9">Field_Check_Function</A>;
-                           Ccheck : Char_Check_Function)
+            <A HREF="terminal_interface-curses-forms-field_types__ads.htm#132_9"> </A>              Ccheck : Char_Check_Function)
      <b>return</b> C_Field_Type;
    <b>pragma</b> Import (C, New_Fieldtype, "new_fieldtype");
 

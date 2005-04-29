@@ -10,8 +10,14 @@
    <meta name="KEYWORDS" content="HOWTO, libstdc++, gcc, g++, libg++, STL" />
    <meta name="DESCRIPTION" content="HOWTO for libstdc++ chapter 17." />
    <meta name="GENERATOR" content="vi and eight fingers" />
-   <title>libstdc++-v3 HOWTO:  Chapter 17</title>
-<link rel="StyleSheet" href="../lib3styles.css" />
+   <title>libstdc++-v3 HOWTO:  Chapter 17: Library Introduction</title>
+<link rel="StyleSheet" href="../lib3styles.css" type="text/css" />
+<link rel="Start" href="../documentation.html" type="text/html"
+ title="GNU C++ Standard Library" />
+<link rel="Next" href="../18_support/howto.html" type="text/html"
+  title="Library Support" />
+<link rel="Copyright" href="license.html" type="text/html" />
+<link rel="Help" href="../faq/index.html" type="text/html" title="F.A.Q." />
 </head>
 <body>
 
@@ -48,6 +54,11 @@
       only rule is that when you <code>#include</code> a certain header, the
       contents of that header, as defined by the Standard, become
       available to you, no matter how.
+   </p>
+   <p>The names of the headers can be easily seen in
+      <a href="headers_cc.txt"><code>testsuite/17_intro/headers.cc</code></a>,
+      which is a small testbed we use to make certain that the headers
+      all compile and run.
    </p>
 
 <hr />
@@ -158,7 +169,7 @@
    <p>For those of you new to ISO C++98, no, that isn't a typo, the headers
       really have new names.  Marshall Cline's C++ FAQ Lite has a good
       explanation in
-<a href="http://www.parashift.com/c++-faq-lite/coding-standards.html#faq-26.4">item [26.4]</a>.
+<a href="http://www.parashift.com/c++-faq-lite/coding-standards.html#faq-27.4">item [27.4]</a>.
    </p>
    <p>Return <a href="#top">to top of page</a> or
       <a href="../faq/index.html">to the FAQ</a>.
@@ -214,7 +225,8 @@
       <a href="../18_support/howto.html#5">runtime demangler function</a>.
       (The classes in <code>&lt;stdexcept&gt;</code> have constructors which
       require an argument to use later for <code>what()</code> calls, so the
-      question does not arise in most user-defined exceptions.)
+      problem of <code>what()</code>'s value does not arise in most
+      user-defined exceptions.)
    </p>
    <p><strong>[18.5.1]/7</strong> The return value of
       <code>std::type_info::name()</code> is the mangled type name (see the
@@ -285,6 +297,11 @@
       <a href="../configopts.html">the configuration step</a>, with the
       various --enable/--disable choices being translated to #define/#undef).
    </p>
+   <p>All library macros begin with <code>_GLIBCPP_</code> in earlier
+      versions, and <code>_GLIBCXX_</code> in later versions.  The fact that
+      these symbols start with a leading underscore should give you a clue
+      that (by default) they aren't meant to be changed by the user.  :-)
+   </p>
    <p>These macros are all gathered in the file <code>c++config.h</code>,
       which is generated during installation.  <strong>You must assume that
       these macros cannot be redefined by your own code</strong>, unless we
@@ -300,9 +317,10 @@
       The default state of the symbol is listed.  &quot;Configurable&quot;
       (or &quot;Not configurable&quot;) means that the symbol is initially
       chosen (or not) based on --enable/--disable options at configure time.
+      For 3.1 through 3.3, the prefixes are <code>_GLIBCPP_</code>.
    </p>
     <dl>
-    <dt><code>_GLIBCPP_DEPRECATED</code></dt>
+    <dt><code>_GLIBCXX_DEPRECATED</code></dt>
     <dd>Undefined by default.  Not configurable.  Turning this on enables
         older ARM-style iostreams code, and other anachronisms.  This may be
         useful in updating old C++ programs which no longer meet the
@@ -321,26 +339,24 @@
         you might try undefining this macro.
     </dd>
     -->
-    <dt><code>_GLIBCPP_CONCEPT_CHECKS</code></dt>
+    <dt><code>_GLIBCXX_CONCEPT_CHECKS</code></dt>
     <dd>Undefined by default.  Configurable.  When defined, performs
         compile-time checking on certain template instantiations to detect
         violations of the requirements of the standard.  This is described
         in more detail <a href="../19_diagnostics/howto.html#3">here</a>.
     </dd>
-    <!-- APPLE LOCAL begin libstdc++ documentation -->
     <dt><code>_GLIBCXX_DEBUG</code></dt>
     <dd>Undefined by default. Configurable. When defined, compiles
-    user code using the <a href="../debug.html">libstdc++ debug
+    user code using the <a href="../debug.html#safe">libstdc++ debug
     mode</a>.
     </dd>
     <dt><code>_GLIBCXX_DEBUG_PEDANTIC</code></dt>
     <dd>Undefined by default. Configurable. When defined while
-    compiling with the <a href="../debug.html">libstdc++ debug
+    compiling with the <a href="../debug.html#safe">libstdc++ debug
     mode</a>, makes the debug mode extremely picky by making the use
     of libstdc++ extensions and libstdc++-specific behavior into
     errors.
     </dd>
-    <!-- APPLE LOCAL end libstdc++ documentation -->
     <!--
     <dt><code></code></dt>
     <dd>
@@ -358,6 +374,8 @@
 <hr />
 <p class="fineprint"><em>
 See <a href="license.html">license.html</a> for copying conditions.
+Comments and suggestions are welcome, and may be sent to
+<a href="mailto:libstdc++@gcc.gnu.org">the libstdc++ mailing list</a>.
 </em></p>
 
 

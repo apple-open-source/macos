@@ -41,7 +41,7 @@
  * $
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CredentialsCache.prefix.h,v 1.5 2003/05/07 20:14:30 lxs Exp $ */
+/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CredentialsCache.prefix.h,v 1.6 2004/10/22 20:48:27 lxs Exp $ */
 
 /* 
  * On Mac OS X, we use an RPC mechanism. Shared static data is stored in the server
@@ -71,9 +71,9 @@
 #include <strstream>
 #include <vector>
 
-#include "CredentialsCache.h"
+#include <Kerberos/CredentialsCache.h>
 #if CCache_v2_compat
-#include "CredentialsCache2.h"
+#include <Kerberos/CredentialsCache2.h>
 #endif
 
 #include "CCache.debug.h"

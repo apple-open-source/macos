@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.4
+ * Version:  3.5
  *
  * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
@@ -69,6 +69,9 @@ _mesa_select_tex_image(GLcontext *ctx, const struct gl_texture_unit *texUnit,
                        GLenum target, GLint level);
 
 
+extern GLint
+_mesa_max_texture_levels(GLcontext *ctx, GLenum target);
+
 
 /*** API entry point functions ***/
 
@@ -86,7 +89,7 @@ _mesa_TexImage2D( GLenum target, GLint level, GLint internalformat,
 
 
 extern void
-_mesa_TexImage3D( GLenum target, GLint level, GLenum internalformat,
+_mesa_TexImage3D( GLenum target, GLint level, GLint internalformat,
                   GLsizei width, GLsizei height, GLsizei depth, GLint border,
                   GLenum format, GLenum type, const GLvoid *pixels );
 

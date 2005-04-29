@@ -1,9 +1,9 @@
 /*
- * "$Id: classes.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $"
+ * "$Id: classes.c,v 1.1.1.13 2005/01/04 19:15:04 jlovell Exp $"
  *
  *   Class status CGI for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -128,38 +128,12 @@ main(int  argc,				/* I - Number of command-line arguments */
 
       if ((attr = ippFindAttribute(response, "printer-uri-supported", IPP_TAG_URI)) != NULL)
       {
-	char	method[HTTP_MAX_URI],
-		username[HTTP_MAX_URI],
-		hostname[HTTP_MAX_URI],
-		resource[HTTP_MAX_URI],
-		uri[HTTP_MAX_URI];
-	int	port;			/* URI data */
-	const char *server;		/* Name of server */
+	char	url[HTTP_MAX_URI];	/* New URL */
 
 
-       /*
-	* Map localhost access to localhost...
-	*/
-
-        server = getenv("SERVER_NAME");
-
-	httpSeparate(attr->values[0].string.text, method, username,
-		     hostname, &port, resource);
-
-	if (strcasecmp(hostname, server) == 0 &&
-	    (strcmp(getenv("REMOTE_HOST"), "127.0.0.1") == 0 ||
-	     strcmp(getenv("REMOTE_HOST"), "localhost") == 0 ||
-	     strcmp(getenv("REMOTE_HOST"), server) == 0))
-	  strcpy(hostname, "localhost");
-
-       /*
-	* Rewrite URI with HTTP address...
-	*/
-
-	snprintf(uri, sizeof(uri), "http://%s:%d%s", hostname, port,
-		 resource);
-
-        cgiSetVariable("DEFAULT_URI", uri);
+        cgiSetVariable("DEFAULT_URI",
+	               ippRewriteURL(attr->values[0].string.text,
+		                     url, sizeof(url), NULL));
       }
 
       ippDelete(response);
@@ -368,5 +342,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: classes.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $".
+ * End of "$Id: classes.c,v 1.1.1.13 2005/01/04 19:15:04 jlovell Exp $".
  */

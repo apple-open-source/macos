@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstForEach.c,v 1.7 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -67,8 +66,8 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstForEach.c,v 1.7 2000/07/09 00:08:
 void
 Lst_ForEach (l, proc, d)
     Lst	    	  	l;
-    register int	(*proc) __P((ClientData, ClientData));
-    register ClientData	d;
+    register int	(*proc)(void *, void *);
+    register void *	d;
 {
     Lst_ForEachFrom(l, Lst_First(l), proc, d);
 }

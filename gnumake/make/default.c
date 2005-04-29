@@ -310,11 +310,7 @@ static char *default_variables[] =
   {
 #if defined(__APPLE__) || defined(NeXT) || defined(NeXT_PDO)
     "GNUMAKE", "YES",	/* I'm not sure who uses this.  Dave Payne 8/10/99 */
-#if NeXT_PDO
     "MAKEFILEPATH", "$(NEXT_ROOT)/Developer/Makefiles",
-#else
-    "MAKEFILEPATH", "$(NEXT_ROOT)/Developer/Makefiles",
-#endif /* NeXT_PDO */
 #endif /* __APPLE__ || NeXT || NeXT_PDO */
 #ifdef VMS
 #ifdef __ALPHA

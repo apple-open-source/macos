@@ -21,13 +21,10 @@
  */
 
 #include "gssapiP_krb5.h"
+#include "gss_libinit.h"
 #include "com_err.h"
 
 /* XXXX internationalization!! */
-
-/**/
-
-static int init_et = 0;
 
 /**/
 
@@ -41,12 +38,8 @@ krb5_gss_display_status(minor_status, status_value, status_type,
      OM_uint32 *message_context;
      gss_buffer_t status_string;
 {
-   krb5_context context;
    status_string->length = 0;
    status_string->value = NULL;
-
-   if (GSS_ERROR(kg_get_context(minor_status, &context)))
-      return(GSS_S_FAILURE);
 
    if ((mech_type != GSS_C_NULL_OID) &&
        !g_OID_equal(gss_mech_krb5, mech_type) &&
@@ -59,10 +52,7 @@ krb5_gss_display_status(minor_status, status_value, status_type,
       return(g_display_major_status(minor_status, status_value,
 				    message_context, status_string));
    } else if (status_type == GSS_C_MECH_CODE) {
-      if (!init_et) {
-	 initialize_k5g_error_table();
-	 init_et = 1;
-      }
+      (void) gssint_initialize_library();
 
       if (*message_context) {
 	 *minor_status = (OM_uint32) G_BAD_MSG_CTX;

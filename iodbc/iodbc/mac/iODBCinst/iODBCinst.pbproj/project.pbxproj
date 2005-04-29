@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 39;
 	objects = {
 		034768DDFF38A45A11DB9C8B = {
 			children = (
@@ -12,11 +12,14 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		034768DEFF38A45A11DB9C8B = {
-			isa = PBXFrameworkReference;
+			explicitFileType = wrapper.framework;
+			isa = PBXFileReference;
 			path = iODBCinst.framework;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //030
 //031
@@ -29,10 +32,13 @@
 //083
 //084
 		0867D690FE84028FC02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				4F0BB7EC011F40E904CA0E50,
 				4F0BB7ED011F40E904CA0E50,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 0867D691FE84028FC02AAC07;
 			productRefGroup = 034768DDFF38A45A11DB9C8B;
@@ -51,6 +57,7 @@
 			isa = PBXGroup;
 			name = iODBCinst;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0867D69AFE84028FC02AAC07 = {
 			children = (
@@ -59,6 +66,7 @@
 			isa = PBXGroup;
 			name = "External Frameworks and Libraries";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0867D69CFE84028FC02AAC07 = {
 			buildPhases = (
@@ -73,7 +81,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = ../../mac/iodbcinst.exp;
-				FRAMEWORK_SEARCH_PATHS = "../iODBC/build";
+				FRAMEWORK_SEARCH_PATHS = ../iODBC/build;
 				FRAMEWORK_VERSION = 3.0.6;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /Library/Frameworks;
@@ -94,8 +102,8 @@
 			productName = iODBCinst;
 			productReference = 034768DEFF38A45A11DB9C8B;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
@@ -114,17 +122,16 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.6</string>
+	<string>3.51.0</string>
 	<key>CFBundleSignature</key>
 	<string>odbc</string>
 	<key>CFBundleVersion</key>
-	<string>3.0.6</string>
+	<string>3.51.0</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		0867D69DFE84028FC02AAC07 = {
 			buildActionMask = 2147483647;
@@ -142,9 +149,10 @@
 				F535B3B402780BD401A801DE,
 				F535B3B602780C9E01A801DE,
 				F535B3C5027827A201A801DE,
+				F59CCFDB0504F64401000DFE,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0867D69EFE84028FC02AAC07 = {
 			buildActionMask = 2147483647;
@@ -152,7 +160,7 @@
 				089C1668FE841158C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0867D69FFE84028FC02AAC07 = {
 			buildActionMask = 2147483647;
@@ -193,7 +201,7 @@
 				F54DA8D60279584A01A801DE,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0867D6A0FE84028FC02AAC07 = {
 			buildActionMask = 2147483647;
@@ -201,14 +209,14 @@
 				F54DA8DA02795B3501A801DE,
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0867D6A2FE84028FC02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1665FE841158C02AAC07 = {
 			children = (
@@ -217,6 +225,7 @@
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1666FE841158C02AAC07 = {
 			children = (
@@ -225,13 +234,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1667FE841158C02AAC07 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1668FE841158C02AAC07 = {
 			fileRef = 089C1666FE841158C02AAC07;
@@ -247,6 +259,7 @@
 			isa = PBXGroup;
 			name = Source;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //080
 //081
@@ -259,20 +272,38 @@
 //4F3
 //4F4
 		4F0BB7EC011F40E904CA0E50 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 3.51.2;
+				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
+				DYLIB_CURRENT_VERSION = 3.51.2;
+				EXPORTED_SYMBOLS_FILE = ../../mac/iodbcinst.exp;
+				FRAMEWORK_VERSION = 3.51;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-DODBCVER=0x351 -D_MACX -DDLDAPI_MACX";
+				RESMERGER_SOURCES_FORK = data;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		4F0BB7ED011F40E904CA0E50 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 3.51.2;
+				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
+				DYLIB_CURRENT_VERSION = 3.51.2;
+				EXPORTED_SYMBOLS_FILE = ../../mac/iodbcinst.exp;
+				FRAMEWORK_VERSION = 3.51;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				OTHER_CFLAGS = "-DODBCVER=0x351 -D_MACX -DDLDAPI_MACX";
+				RESMERGER_SOURCES_FORK = data;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -330,12 +361,16 @@
 			isa = PBXGroup;
 			name = iodbcinst;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F535B35C0278023701A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = iodbcinst.h;
-			path = ../include/iodbcinst.h;
+			path = ../../include/iodbcinst.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B35D0278023701A801DE = {
 			fileRef = F535B35C0278023701A801DE;
@@ -347,214 +382,319 @@
 			};
 		};
 		F535B35E0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = Info.c;
 			path = ../../iodbcinst/Info.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B35F0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = inifile.c;
 			path = ../../iodbcinst/inifile.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3600278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = inifile.h;
 			path = ../../iodbcinst/inifile.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3610278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = iodbc_error.c;
 			path = ../../iodbcinst/iodbc_error.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3620278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = iodbc_error.h;
 			path = ../../iodbcinst/iodbc_error.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3640278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = misc.c;
 			path = ../../iodbcinst/misc.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3650278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = misc.h;
 			path = ../../iodbcinst/misc.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3660278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLConfigDataSource.c;
 			path = ../../iodbcinst/SQLConfigDataSource.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3670278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLConfigDriver.c;
 			path = ../../iodbcinst/SQLConfigDriver.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3680278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLCreateDataSource.c;
 			path = ../../iodbcinst/SQLCreateDataSource.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3690278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLGetAvailableDrivers.c;
 			path = ../../iodbcinst/SQLGetAvailableDrivers.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B36A0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLGetConfigMode.c;
 			path = ../../iodbcinst/SQLGetConfigMode.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B36B0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLGetInstalledDrivers.c;
 			path = ../../iodbcinst/SQLGetInstalledDrivers.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B36C0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLGetPrivateProfileString.c;
 			path = ../../iodbcinst/SQLGetPrivateProfileString.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B36D0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLGetTranslator.c;
 			path = ../../iodbcinst/SQLGetTranslator.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B36E0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLInstallDriver.c;
 			path = ../../iodbcinst/SQLInstallDriver.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B36F0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLInstallDriverEx.c;
 			path = ../../iodbcinst/SQLInstallDriverEx.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3700278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLInstallDriverManager.c;
 			path = ../../iodbcinst/SQLInstallDriverManager.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3710278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLInstallerError.c;
 			path = ../../iodbcinst/SQLInstallerError.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3720278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLInstallODBC.c;
 			path = ../../iodbcinst/SQLInstallODBC.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3730278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLInstallTranslator.c;
 			path = ../../iodbcinst/SQLInstallTranslator.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3740278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLInstallTranslatorEx.c;
 			path = ../../iodbcinst/SQLInstallTranslatorEx.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3750278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLManageDataSource.c;
 			path = ../../iodbcinst/SQLManageDataSource.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3760278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLPostInstallerError.c;
 			path = ../../iodbcinst/SQLPostInstallerError.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3770278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLReadFileDSN.c;
 			path = ../../iodbcinst/SQLReadFileDSN.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3780278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLRemoveDefaultDataSource.c;
 			path = ../../iodbcinst/SQLRemoveDefaultDataSource.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3790278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLRemoveDriver.c;
 			path = ../../iodbcinst/SQLRemoveDriver.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B37A0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLRemoveDriverManager.c;
 			path = ../../iodbcinst/SQLRemoveDriverManager.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B37B0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLRemoveDSNFromIni.c;
 			path = ../../iodbcinst/SQLRemoveDSNFromIni.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B37C0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLRemoveTranslator.c;
 			path = ../../iodbcinst/SQLRemoveTranslator.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B37D0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLSetConfigMode.c;
 			path = ../../iodbcinst/SQLSetConfigMode.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B37E0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLValidDSN.c;
 			path = ../../iodbcinst/SQLValidDSN.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B37F0278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLWriteDSNToIni.c;
 			path = ../../iodbcinst/SQLWriteDSNToIni.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3800278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLWriteFileDSN.c;
 			path = ../../iodbcinst/SQLWriteFileDSN.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3810278027E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SQLWritePrivateProfileString.c;
 			path = ../../iodbcinst/SQLWritePrivateProfileString.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3820278027E01A801DE = {
 			fileRef = F535B3600278027E01A801DE;
@@ -778,46 +918,66 @@
 				F535B3AC02780BB701A801DE,
 				F535B3B302780BD401A801DE,
 				F535B3B502780C9E01A801DE,
+				F59CCFDA0504F64401000DFE,
 			);
 			isa = PBXGroup;
 			name = iODBC;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F535B3A702780BB701A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = isqltypes.h;
-			path = ../include/isqltypes.h;
+			path = ../../include/isqltypes.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3A802780BB701A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = isql.h;
-			path = ../include/isql.h;
+			path = ../../include/isql.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3A902780BB701A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = isqlext.h;
-			path = ../include/isqlext.h;
+			path = ../../include/isqlext.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3AA02780BB701A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = sql.h;
-			path = ../include/sql.h;
+			path = ../../include/sql.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3AB02780BB701A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = sqlext.h;
-			path = ../include/sqlext.h;
+			path = ../../include/sqlext.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3AC02780BB701A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = sqltypes.h;
-			path = ../include/sqltypes.h;
+			path = ../../include/sqltypes.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3AD02780BB701A801DE = {
 			fileRef = F535B3A702780BB701A801DE;
@@ -856,10 +1016,13 @@
 			};
 		};
 		F535B3B302780BD401A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = iodbc.h;
-			path = ../../iodbc/iodbc.h;
+			path = ../../include/iodbc.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3B402780BD401A801DE = {
 			fileRef = F535B3B302780BD401A801DE;
@@ -868,10 +1031,13 @@
 			};
 		};
 		F535B3B502780C9E01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = dlf.h;
 			path = ../../iodbc/dlf.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3B602780C9E01A801DE = {
 			fileRef = F535B3B502780C9E01A801DE;
@@ -880,16 +1046,22 @@
 			};
 		};
 		F535B3C3027827A201A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = dlf.c;
 			path = ../../iodbc/dlf.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3C4027827A201A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = dlf.h;
 			path = ../../iodbc/dlf.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F535B3C5027827A201A801DE = {
 			fileRef = F535B3C4027827A201A801DE;
@@ -904,10 +1076,13 @@
 			};
 		};
 		F54DA8D50279584A01A801DE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.exports;
 			name = iodbcinst.exp;
 			path = ../iodbcinst.exp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F54DA8D60279584A01A801DE = {
 			fileRef = F54DA8D50279584A01A801DE;
@@ -916,13 +1091,30 @@
 			};
 		};
 		F54DA8D902795B3501A801DE = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F54DA8DA02795B3501A801DE = {
 			fileRef = F54DA8D902795B3501A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F59CCFDA0504F64401000DFE = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = iodbcadm.h;
+			path = ../../iodbcadm/iodbcadm.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		F59CCFDB0504F64401000DFE = {
+			fileRef = F59CCFDA0504F64401000DFE;
 			isa = PBXBuildFile;
 			settings = {
 			};

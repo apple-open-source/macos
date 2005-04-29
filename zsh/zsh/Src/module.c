@@ -42,28 +42,28 @@ LinkList linkedmodules;
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
 
 /**/
 int
-boot_(Module m)
+boot_(UNUSED(Module m))
 {
     return 0;
 }
 
 /**/
 int
-cleanup_(Module m)
+cleanup_(UNUSED(Module m))
 {
     return 0;
 }
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }
@@ -226,7 +226,7 @@ mod_export LinkList modules;
 int
 add_autobin(char *nam, char *module)
 {
-    Builtin bn = zcalloc(sizeof(*bn));
+    Builtin bn = zshcalloc(sizeof(*bn));
     bn->nam = ztrdup(nam);
     bn->optstr = ztrdup(module);
     return addbuiltin(bn);
@@ -349,7 +349,7 @@ load_and_bind(const char *fn)
 #else
 
 #ifdef HAVE_DLFCN_H
-# if defined(HAVE_DL_H) && defined(__hpux)
+# if defined(HAVE_DL_H) && defined(HPUXDYNAMIC)
 #  include <dl.h>
 # else
 #  include <dlfcn.h>
@@ -770,7 +770,7 @@ load_module(char const *name)
 	    unqueue_signals();
 	    return 0;
 	}
-	m = zcalloc(sizeof(*m));
+	m = zshcalloc(sizeof(*m));
 	m->nam = ztrdup(name);
 	if (handle) {
 	    m->u.handle = handle;
@@ -869,7 +869,7 @@ load_module(char const *name)
 
 /**/
 mod_export int
-require_module(char *nam, const char *module, int res, int test)
+require_module(char *nam, const char *module, UNUSED(int res), int test)
 {
     Module m = NULL;
     LinkNode node;
@@ -912,7 +912,7 @@ add_dep(const char *name, char *from)
      * *points* to a module with dependencies, of course.)
      */
     if (!(node = find_module(name, 1, &name))) {
-	m = zcalloc(sizeof(*m));
+	m = zshcalloc(sizeof(*m));
 	m->nam = ztrdup(name);
 	zaddlinknode(modules, m);
     } else
@@ -956,7 +956,7 @@ autoloadscan(HashNode hn, int printflags)
 
 /**/
 int
-bin_zmodload(char *nam, char **args, Options ops, int func)
+bin_zmodload(char *nam, char **args, Options ops, UNUSED(int func))
 {
     int ops_bcpf = OPT_ISSET(ops,'b') || OPT_ISSET(ops,'c') || 
 	OPT_ISSET(ops,'p') || OPT_ISSET(ops,'f');
@@ -1099,7 +1099,7 @@ bin_zmodload_alias(char *nam, char **args, Options ops)
 		    }
 		    zsfree(m->u.alias);
 		} else {
-		    m = (Module) zcalloc(sizeof(*m));
+		    m = (Module) zshcalloc(sizeof(*m));
 		    m->nam = ztrdup(*args);
 		    m->flags = MOD_ALIAS;
 		    zaddlinknode(modules, m);
@@ -1128,7 +1128,7 @@ bin_zmodload_alias(char *nam, char **args, Options ops)
 
 /**/
 static int
-bin_zmodload_exist(char *nam, char **args, Options ops)
+bin_zmodload_exist(UNUSED(char *nam), char **args, Options ops)
 {
     LinkNode node;
     Module m;
@@ -1167,7 +1167,7 @@ bin_zmodload_exist(char *nam, char **args, Options ops)
 
 /**/
 static int
-bin_zmodload_dep(char *nam, char **args, Options ops)
+bin_zmodload_dep(UNUSED(char *nam), char **args, Options ops)
 {
     LinkNode node;
     Module m;
@@ -1783,7 +1783,7 @@ deletehookdef(Hookdef h)
 
 /**/
 mod_export int
-deletehookdefs(char const *nam, Hookdef h, int size)
+deletehookdefs(UNUSED(char const *nam), Hookdef h, int size)
 {
     while (size--) {
 	deletehookdef(h);
@@ -1894,9 +1894,31 @@ addparamdef(Paramdef d)
 
     pm->level = 0;
     pm->u.data = d->var;
-    pm->sets.ifn = (void (*)(Param, zlong)) d->set;
-    pm->gets.ifn = (zlong (*)(Param)) d->get;
-    pm->unsetfn = (void (*)(Param, int)) d->unset;
+    if (d->gsu)
+	pm->gsu.i = (GsuInteger) d->gsu;
+    else {
+	/*
+	 * If no get/set/unset class, use the appropriate
+	 * variable type.
+	 */
+	switch (PM_TYPE(pm->flags)) {
+	case PM_SCALAR:
+	    pm->gsu.s = &varscalar_gsu;
+	    break;
+
+	case PM_INTEGER:
+	    pm->gsu.i = &varinteger_gsu;
+	    break;
+
+	case PM_ARRAY:
+	    pm->gsu.a = &vararray_gsu;
+	    break;
+
+	default:
+	    unsetparam_pm(pm, 0, 1);
+	    return 1;
+	}
+    }
 
     return 0;
 }
@@ -1932,7 +1954,7 @@ deleteparamdef(Paramdef d)
 
 /**/
 mod_export int
-deleteparamdefs(char const *nam, Paramdef d, int size)
+deleteparamdefs(UNUSED(char const *nam), Paramdef d, int size)
 {
     while (size--) {
 	deleteparamdef(d);
@@ -2039,6 +2061,19 @@ add_autoparam(char *nam, char *module)
 MathFunc mathfuncs;
 
 /**/
+static void removemathfunc(MathFunc previous, MathFunc current)
+{
+    if (previous)
+	previous->next = current->next;
+    else
+	mathfuncs = current->next;
+
+    zsfree(current->name);
+    zsfree(current->module);
+    zfree(current, sizeof(*current));
+}
+
+/**/
 MathFunc
 getmathfunc(char *name, int autol)
 {
@@ -2049,13 +2084,7 @@ getmathfunc(char *name, int autol)
 	    if (autol && p->module) {
 		char *n = dupstring(p->module);
 
-		if (q)
-		    q->next = p->next;
-		else
-		    mathfuncs = p->next;
-
-		zsfree(p->module);
-		zfree(p, sizeof(*p));
+		removemathfunc(q, p);
 
 		load_module(n);
 
@@ -2071,14 +2100,22 @@ getmathfunc(char *name, int autol)
 mod_export int
 addmathfunc(MathFunc f)
 {
-    MathFunc p;
+    MathFunc p, q = NULL;
 
     if (f->flags & MFF_ADDED)
 	return 1;
 
-    for (p = mathfuncs; p; p = p->next)
-	if (!strcmp(f->name, p->name))
+    for (p = mathfuncs; p; q = p, p = p->next)
+	if (!strcmp(f->name, p->name)) {
+	    if (p->module) {
+		/*
+		 * Autoloadable, replace.
+		 */
+		removemathfunc(q, p);
+		break;
+	    }
 	    return 1;
+	}
 
     f->flags |= MFF_ADDED;
     f->next = mathfuncs;

@@ -119,6 +119,10 @@ int MAIN(int argc, char **argv)
 		else if (strcmp(*argv,"-des3") == 0)
 			enc=EVP_des_ede3_cbc();
 #endif
+#ifndef NO_IDEA
+		else if (strcmp(*argv,"-idea") == 0)
+			enc=EVP_idea_cbc();
+#endif
 		else if (**argv != '-' && dsaparams == NULL)
 			{
 			dsaparams = *argv;
@@ -137,6 +141,9 @@ bad:
 #ifndef NO_DES
 		BIO_printf(bio_err," -des      - encrypt the generated key with DES in cbc mode\n");
 		BIO_printf(bio_err," -des3     - encrypt the generated key with DES in ede cbc mode (168 bit key)\n");
+#endif
+#ifndef NO_IDEA
+		BIO_printf(bio_err," -idea     - encrypt the generated key with IDEA in cbc mode\n");
 #endif
 		BIO_printf(bio_err," -rand file%cfile%c...\n", LIST_SEPARATOR_CHAR, LIST_SEPARATOR_CHAR);
 		BIO_printf(bio_err,"           - load the file (or the files in the directory) into\n");

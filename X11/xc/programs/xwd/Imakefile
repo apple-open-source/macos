@@ -3,10 +3,10 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:55:11 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/xwd/Imakefile,v 1.5 2001/04/01 14:00:24 tsi Exp $
+XCOMM $XFree86: xc/programs/xwd/Imakefile,v 1.6 2003/05/27 17:58:26 tsi Exp $
 
-        DEPLIBS = XkbClientDepLibs $(DEPXMUULIB) $(DEPXLIB)
-LOCAL_LIBRARIES = XkbClientLibs $(XMUULIB) $(XLIB)
+        DEPLIBS = XkbClientDepLibs $(DEPXMUULIB) $(DEPXONLYLIB)
+LOCAL_LIBRARIES = XkbClientLibs $(XMUULIB) $(XONLYLIB)
            SRCS = xwd.c dsimple.c list.c multiVis.c
            OBJS = xwd.o dsimple.o list.o multiVis.o
         DEFINES = XkbClientDefines

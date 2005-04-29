@@ -1,9 +1,9 @@
 /*
  * KLEnvironment.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLEnvironment.c,v 1.10 2003/08/10 20:58:37 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLEnvironment.c,v 1.14 2004/06/17 22:26:12 lxs Exp $
  *
- * Copyright 2003 Massachusetts Institute of Technology.
+ * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
  *
  * Export of this software from the United States of America may
@@ -52,6 +52,8 @@ static KLBoolean __KLPrincipalHasKerberos4ChangePasswordServerSpecified (KLPrinc
  * either by being a Kerberos version X realm, or having a corresponding Kerberos version X
  * realm, possibly of a different name
  */
+
+// ---------------------------------------------------------------------------
 
 KLBoolean __KLRealmHasKerberos4Profile (const char *inRealm)
 {
@@ -120,6 +122,7 @@ KLBoolean __KLRealmHasKerberos4Profile (const char *inRealm)
     
 }
 
+// ---------------------------------------------------------------------------
 
 KLBoolean __KLRealmHasKerberos5Profile (const char *inRealm)
 {
@@ -161,6 +164,8 @@ KLBoolean __KLRealmHasKerberos5Profile (const char *inRealm)
 }
 
 #pragma mark -
+
+// ---------------------------------------------------------------------------
 
 static KLBoolean __KLRealmHasDNSServiceRecord (const char *inService, const char *inRealm)
 {
@@ -259,6 +264,8 @@ static KLBoolean __KLRealmHasDNSServiceRecord (const char *inService, const char
 
 #pragma mark -
 
+// ---------------------------------------------------------------------------
+
 static KLBoolean __KLRealmHasKerberos4DNSServiceRecord (const char *inRealm)
 {
     KLStatus err = klNoErr;
@@ -272,6 +279,8 @@ static KLBoolean __KLRealmHasKerberos4DNSServiceRecord (const char *inRealm)
 
     return hasDNS;
 }
+
+// ---------------------------------------------------------------------------
 
 static KLBoolean __KLRealmHasKerberos5DNSServiceRecord (const char *inRealm)
 {
@@ -292,6 +301,7 @@ static KLBoolean __KLRealmHasKerberos5DNSServiceRecord (const char *inRealm)
 
 #pragma mark -
 
+// ---------------------------------------------------------------------------
 
 KLBoolean __KLRealmHasKerberos4 (const char *inRealm) 
 {
@@ -304,6 +314,8 @@ KLBoolean __KLRealmHasKerberos4 (const char *inRealm)
 
     return has;
 }
+
+// ---------------------------------------------------------------------------
 
 KLBoolean __KLRealmHasKerberos5 (const char *inRealm)
 {
@@ -318,6 +330,8 @@ KLBoolean __KLRealmHasKerberos5 (const char *inRealm)
 }
 
 #pragma mark -
+
+// ---------------------------------------------------------------------------
 
 KLBoolean __KLPrincipalHasKerberos4Profile (KLPrincipal inPrincipal)
 {
@@ -340,6 +354,7 @@ KLBoolean __KLPrincipalHasKerberos4Profile (KLPrincipal inPrincipal)
     return has;
 }
 
+// ---------------------------------------------------------------------------
 
 KLBoolean __KLPrincipalHasKerberos5Profile (KLPrincipal inPrincipal)
 {
@@ -364,6 +379,8 @@ KLBoolean __KLPrincipalHasKerberos5Profile (KLPrincipal inPrincipal)
 
 #pragma mark -
 
+// ---------------------------------------------------------------------------
+
 KLBoolean __KLPrincipalHasKerberos4 (KLPrincipal inPrincipal)
 {
     KLStatus err = klNoErr;
@@ -385,6 +402,7 @@ KLBoolean __KLPrincipalHasKerberos4 (KLPrincipal inPrincipal)
     return has;
 }
 
+// ---------------------------------------------------------------------------
 
 KLBoolean __KLPrincipalHasKerberos5 (KLPrincipal inPrincipal)
 {
@@ -409,6 +427,8 @@ KLBoolean __KLPrincipalHasKerberos5 (KLPrincipal inPrincipal)
 
 #pragma mark -
 
+// ---------------------------------------------------------------------------
+
 KLBoolean __KLPrincipalShouldUseKerberos524Protocol (KLPrincipal inPrincipal)
 {
     KLStatus err = klNoErr;
@@ -432,6 +452,8 @@ KLBoolean __KLPrincipalShouldUseKerberos524Protocol (KLPrincipal inPrincipal)
 }
 
 #pragma mark -
+
+// ---------------------------------------------------------------------------
 
 static KLBoolean __KLPrincipalHasKerberos5ChangePasswordServerSpecified (KLPrincipal inPrincipal)
 {
@@ -477,6 +499,7 @@ static KLBoolean __KLPrincipalHasKerberos5ChangePasswordServerSpecified (KLPrinc
     return specified;
 }
 
+// ---------------------------------------------------------------------------
 
 static KLBoolean __KLPrincipalHasKerberos4ChangePasswordServerSpecified (KLPrincipal inPrincipal)
 {
@@ -518,6 +541,8 @@ static KLBoolean __KLPrincipalHasKerberos4ChangePasswordServerSpecified (KLPrinc
 
 #pragma mark -
 
+// ---------------------------------------------------------------------------
+
 KLBoolean __KLPrincipalShouldUseKerberos5ChangePasswordProtocol (KLPrincipal inPrincipal)
 {
     if (__KLPrincipalHasKerberos5 (inPrincipal)) {
@@ -539,6 +564,7 @@ KLBoolean __KLPrincipalShouldUseKerberos5ChangePasswordProtocol (KLPrincipal inP
     }
 }
 
+// ---------------------------------------------------------------------------
 
 KLBoolean __KLPrincipalShouldUseKerberos4ChangePasswordProtocol (KLPrincipal inPrincipal)
 {
@@ -563,14 +589,16 @@ KLBoolean __KLPrincipalShouldUseKerberos4ChangePasswordProtocol (KLPrincipal inP
 
 #pragma mark -
 
-KLBoolean __KLIsKerberosLoginServer (void)
+// ---------------------------------------------------------------------------
+
+KLBoolean __KLIsKerberosAgent(void)
 {
     CFBundleRef mainBundle = CFBundleGetMainBundle ();
     if (mainBundle != NULL) {
         CFStringRef mainBundleID = CFBundleGetIdentifier (mainBundle);
         if (mainBundleID != NULL) {
             CFComparisonResult result;
-            result = CFStringCompare (mainBundleID, CFSTR("edu.mit.Kerberos.KerberosLoginServerApp"), 0);
+            result = CFStringCompare (mainBundleID, CFSTR("edu.mit.Kerberos.KerberosAgent"), 0);
             if (result == kCFCompareEqualTo) {
                 return true;
             }
@@ -580,19 +608,3 @@ KLBoolean __KLIsKerberosLoginServer (void)
     return false;
 }
 
-KLBoolean __KLIsKerberosApp (void)
-{
-    CFBundleRef mainBundle = CFBundleGetMainBundle ();
-    if (mainBundle != NULL) {
-        CFStringRef mainBundleID = CFBundleGetIdentifier (mainBundle);
-        if (mainBundleID != NULL) {
-            CFComparisonResult result;
-            result = CFStringCompare (mainBundleID, CFSTR("edu.mit.Kerberos.KerberosApp"), 0);
-            if (result == kCFCompareEqualTo) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}

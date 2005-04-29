@@ -1,10 +1,10 @@
 /*
- * $XFree86: xc/programs/xterm/charsets.c,v 1.9 2000/06/13 02:28:38 dawes Exp $
+ * $XFree86: xc/programs/xterm/charsets.c,v 1.11 2003/12/31 17:12:26 dickey Exp $
  */
 
 /************************************************************
 
-Copyright 1998-2000 by Thomas E. Dickey
+Copyright 1998-2000,2003 by Thomas E. Dickey
 
                         All Rights Reserved
 
@@ -36,15 +36,16 @@ authorization.
 
 #include <xterm.h>
 #include <data.h>
+#include <fontutils.h>
 
 #include <X11/keysym.h>
 
 /*
  * This module performs translation as needed to support the DEC VT220 national
  * replacement character sets.  We assume that xterm's font is based on the ISO
- * 8859-1 (Latin 1) character set, which is equivalent to the DEC multinational
- * character set.  (Glyph positions 0-31 have to be the DEC graphic characters,
- * though).
+ * 8859-1 (Latin 1) character set, which is almost the same as the DEC
+ * multinational character set.  Glyph positions 0-31 have to be the DEC
+ * graphic characters, though.
  *
  * References:
  *	"VT220 Programmer Pocket Guide" EK-VT220-HR-002 (2nd ed., 1984), which
@@ -263,7 +264,7 @@ int xtermCharSetOut(IChar *buf, IChar *ptr, char leftset)
 		switch (cs) {
 		case 'A':	/* United Kingdom set (or Latin 1)	*/
 			if ((term->flags & NATIONAL)
-			 || (screen->ansi_level <= 1)) {
+			 || (screen->vtXX_level <= 1)) {
 				if (chr == 0x23)
 					chr = XPOUND;	/* UK pound sign*/
 			} else {
@@ -283,7 +284,7 @@ int xtermCharSetOut(IChar *buf, IChar *ptr, char leftset)
 			if (chr >= 0x5f && chr <= 0x7e) {
 #if OPT_WIDE_CHARS
 				if (screen->utf8_mode)
-				    chr = dec2ucs[chr - 0x5f];
+				    chr = dec2ucs(chr - 0x5f);
 				else
 #endif
 				    chr = (chr == 0x5f) ? 0x7f : (chr - 0x5f);

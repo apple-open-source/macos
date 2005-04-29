@@ -1,4 +1,4 @@
-# $Id: dist.mk,v 1.1.1.4 2002/02/15 21:51:13 jevans Exp $
+# $Id: dist.mk,v 1.402 2004/02/08 20:56:43 tom Exp $
 # Makefile for creating ncurses distributions.
 #
 # This only needs to be used directly as a makefile by developers, but
@@ -8,9 +8,11 @@
 SHELL = /bin/sh
 
 # These define the major/minor/patch versions of ncurses.
+# MAJOR changed from 5 to 6 because widec generates an incompatable ABI
+# actuall try 5.4 -- Ed thinks this will do what we want
 NCURSES_MAJOR = 5
-NCURSES_MINOR = 2
-NCURSES_PATCH = 20020209
+NCURSES_MINOR = 4
+NCURSES_PATCH = 20040208
 
 # We don't append the patch to the version, since this only applies to releases
 VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
@@ -24,8 +26,10 @@ GNATHTML= `type -p gnathtml || type -p gnathtml.pl`
 # Not all man programs agree with this assumption; some use half-spacing, which
 # has the effect of lengthening the text portion of the page -- so man2html
 # would remove some text.  The man program on Redhat 6.1 appears to work with
-# man2html if we set the top/bottom margins to 6 (the default is 7).
-MAN2HTML= man2html -botm=6 -topm=6 -cgiurl '$$title.$$section$$subsection.html'
+# man2html if we set the top/bottom margins to 6 (the default is 7).  Newer
+# versions of 'man' on Linux leave no margin (and make it harder to sync with
+# pages).
+MAN2HTML= man2html -botm=0 -topm=0 -cgiurl '$$title.$$section$$subsection.html'
 
 ALL	= ANNOUNCE doc/html/announce.html doc/ncurses-intro.doc doc/hackguide.doc manhtml adahtml
 
@@ -68,8 +72,10 @@ manhtml: MANIFEST
 	@echo 's/<\/B>/<\/STRONG>/g' >> subst.tmp
 	@echo 's/<I>/<EM>/g'         >> subst.tmp
 	@echo 's/<\/I>/<\/EM>/g'     >> subst.tmp
-	@echo 's/<\/TITLE>/<\/TITLE><link rev=made href="mailto:bug-ncurses@gnu.org">/' >> subst.tmp
-	@sort < subst.tmp | uniq > subst.sed
+	@misc/csort < subst.tmp | uniq > subst.sed
+	@echo '/<\/TITLE>/a\' >> subst.sed
+	@echo '<link rev=made href="mailto:bug-ncurses@gnu.org">\' >> subst.sed
+	@echo '<meta http-equiv="Content-Type" content="text\/html; charset=iso-8859-1">' >> subst.sed
 	@rm -f subst.tmp
 	@for f in man/*.[0-9]* ; do \
 	   m=`basename $$f` ;\
@@ -86,7 +92,7 @@ manhtml: MANIFEST
 			-e 's/>/\&gt;/g' \
 	   >> doc/html/man/$$g ;\
 	   echo '-->' >> doc/html/man/$$g ;\
-	   man/edit_man.sh editing /usr/man man $$f | $(MANPROG) | tr '\255' '-' | $(MAN2HTML) -title "$$T" | \
+	   man/edit_man.sh normal editing /usr/man man $$f | $(MANPROG) | tr '\255' '-' | $(MAN2HTML) -title "$$T" | \
 	   sed -f subst.sed |\
 	   sed -e 's/"curses.3x.html"/"ncurses.3x.html"/g' \
 	   >> doc/html/man/$$g ;\
@@ -95,7 +101,7 @@ manhtml: MANIFEST
 	@sed -e "\%./doc/html/man/%d" < MANIFEST > MANIFEST.tmp
 	@find ./doc/html/man -type f -print >> MANIFEST.tmp
 	@chmod u+w MANIFEST
-	@sort -u < MANIFEST.tmp > MANIFEST
+	@misc/csort -u < MANIFEST.tmp > MANIFEST
 	@rm -f MANIFEST.tmp
 
 #
@@ -108,7 +114,7 @@ adahtml: MANIFEST
 	  (cd ./Ada95/gen ; make html) ;\
 	  sed -e "\%./doc/html/ada/%d" < MANIFEST > MANIFEST.tmp ;\
 	  find ./doc/html/ada -type f -print >> MANIFEST.tmp ;\
-	  sort -u < MANIFEST.tmp > MANIFEST ;\
+	  misc/csort -u < MANIFEST.tmp > MANIFEST ;\
 	  rm -f MANIFEST.tmp ;\
 	fi
 
@@ -126,7 +132,7 @@ writelock:
 MANIFEST:
 	-rm -f $@
 	touch $@
-	find . -type f -print |sort | fgrep -v .lsm |fgrep -v .spec >$@
+	find . -type f -print |misc/csort | fgrep -v .lsm |fgrep -v .spec >$@
 
 TAGS:
 	etags */*.[ch]

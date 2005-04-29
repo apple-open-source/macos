@@ -23,7 +23,7 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_screen.c,v 1.3 2002/02/22 21:45:03 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_screen.c,v 1.5 2004/01/23 03:57:07 dawes Exp $ */
 
 /*
  * Original rewrite:
@@ -33,8 +33,6 @@
  *	Gareth Hughes <gareth@valinux.com>
  *
  */
-
-#include <X11/Xlibint.h>
 
 #include "tdfx_dri.h"
 #include "tdfx_context.h"
@@ -119,22 +117,16 @@ tdfxDestroyScreen( __DRIscreenPrivate *sPriv )
 static GLboolean
 tdfxInitDriver( __DRIscreenPrivate *sPriv )
 {
-   int major, minor, patch;
-
    if ( TDFX_DEBUG & DEBUG_VERBOSE_DRI ) {
-      fprintf( stderr, "%s( %p )\n", __FUNCTION__, sPriv );
+      fprintf( stderr, "%s( %p )\n", __FUNCTION__, (void *)sPriv );
    }
 
-   /* Check the DRI version */
-   if ( XF86DRIQueryVersion( sPriv->display, &major, &minor, &patch ) ) {
-      if ( major != 4 ||
-	   minor < 0 ) {
-	 __driUtilMessage(
-		  "3dfx DRI driver expected DRI version 4.0.x "
-		  "but got version %d.%d.%d",
-		  major, minor, patch );
-	 return GL_FALSE;
-      }
+   /* Check the DRI externsion version */
+   if ( sPriv->driMajor != 4 || sPriv->driMinor < 0 ) {
+       __driUtilMessage( "tdfx DRI driver expected DRI version 4.0.x "
+                         "but got version %d.%d.%d",
+                         sPriv->driMajor, sPriv->driMinor, sPriv->driPatch );
+       return GL_FALSE;
    }
 
    /* Check that the DDX driver version is compatible */
@@ -167,8 +159,7 @@ tdfxInitDriver( __DRIscreenPrivate *sPriv )
 
 
 static GLboolean
-tdfxCreateBuffer( Display *dpy,
-                  __DRIscreenPrivate *driScrnPriv,
+tdfxCreateBuffer( __DRIscreenPrivate *driScrnPriv,
                   __DRIdrawablePrivate *driDrawPriv,
                   const __GLcontextModes *mesaVis,
                   GLboolean isPixmap )
@@ -196,15 +187,15 @@ tdfxDestroyBuffer(__DRIdrawablePrivate *driDrawPriv)
 
 
 static void
-tdfxSwapBuffers(Display *dpy, void *drawablePrivate)
+tdfxSwapBuffers( __DRIdrawablePrivate *driDrawPriv )
+
 {
-   __DRIdrawablePrivate *driDrawPriv = (__DRIdrawablePrivate*) drawablePrivate;
    GET_CURRENT_CONTEXT(ctx);
    tdfxContextPtr fxMesa = 0;
    GLframebuffer *mesaBuffer;
 
    if ( TDFX_DEBUG & DEBUG_VERBOSE_DRI ) {
-      fprintf( stderr, "%s( %p )\n", __FUNCTION__, driDrawPriv );
+      fprintf( stderr, "%s( %p )\n", __FUNCTION__, (void *)driDrawPriv );
    }
 
    mesaBuffer = (GLframebuffer *) driDrawPriv->driverPrivate;
@@ -221,7 +212,7 @@ tdfxSwapBuffers(Display *dpy, void *drawablePrivate)
 
       if ( curDrawPriv == driDrawPriv ) {
 	 /* swapping window bound to current context, flush first */
-	 _mesa_swapbuffers( ctx );
+	 _mesa_notifySwapBuffers( ctx );
 	 LOCK_HARDWARE( fxMesa );
       }
       else {
@@ -299,61 +290,30 @@ tdfxSwapBuffers(Display *dpy, void *drawablePrivate)
 }
 
 
-
-/* This function is called by libGL.so as soon as libGL.so is loaded.
- * This is where we'd register new extension functions with the dispatcher.
- */
-void __driRegisterExtensions( void )
-{
-#if 0
-   /* Example.  Also look in tdfx_dd.c for more details. */
-   {
-      const int _gloffset_FooBarEXT = 555; /* just an example number! */
-      if ( _glapi_add_entrypoint( "glFooBarEXT", _gloffset_FooBarEXT ) ) {
-	 void *f = glXGetProcAddressARB( "glFooBarEXT" );
-	 assert( f );
-      }
-   }
-#endif
-}
-
 static GLboolean
-tdfxOpenFullScreen(__DRIcontextPrivate *driContextPriv)
+tdfxOpenCloseFullScreen(__DRIcontextPrivate *driContextPriv)
 {
-#if 0 /* When new glide3 calls exist */
-    fprintf(stderr,"***** XMesaOpenFullScreen *****\n");
-    return((GLboolean)grDRISetupFullScreen(GL_TRUE));
-#else
     return GL_TRUE;
-#endif
 }
 
 
-static GLboolean
-tdfxCloseFullScreen(__DRIcontextPrivate *driContextPriv)
-{
-#if 0 /* When new glide3 calls exist */
-    fprintf(stderr,"***** XMesaCloseFullScreen *****\n");
-    return((GLboolean)grDRISetupFullScreen(GL_FALSE));
-#else
-    return GL_TRUE;
-#endif
-}
-
-
-
-static struct __DriverAPIRec tdfxAPI = {
-   tdfxInitDriver,
-   tdfxDestroyScreen,
-   tdfxCreateContext,
-   tdfxDestroyContext,
-   tdfxCreateBuffer,
-   tdfxDestroyBuffer,
-   tdfxSwapBuffers,
-   tdfxMakeCurrent,
-   tdfxUnbindContext,
-   tdfxOpenFullScreen,
-   tdfxCloseFullScreen
+static const struct __DriverAPIRec tdfxAPI = {
+   .InitDriver      = tdfxInitDriver,
+   .DestroyScreen   = tdfxDestroyScreen,
+   .CreateContext   = tdfxCreateContext,
+   .DestroyContext  = tdfxDestroyContext,
+   .CreateBuffer    = tdfxCreateBuffer,
+   .DestroyBuffer   = tdfxDestroyBuffer,
+   .SwapBuffers     = tdfxSwapBuffers,
+   .MakeCurrent     = tdfxMakeCurrent,
+   .UnbindContext   = tdfxUnbindContext,
+   .OpenFullScreen  = tdfxOpenCloseFullScreen,
+   .CloseFullScreen = tdfxOpenCloseFullScreen,
+   .GetSwapInfo     = NULL,
+   .GetMSC          = NULL,
+   .WaitForMSC      = NULL,
+   .WaitForSBC      = NULL,
+   .SwapBuffersMSC  = NULL
 };
 
 

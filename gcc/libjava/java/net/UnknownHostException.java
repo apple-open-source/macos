@@ -39,13 +39,14 @@ package java.net;
 
 import java.io.IOException;
 
+
 /**
  * This exception indicates that an attempt was made to reference a hostname
  * or IP address that is not valid.  This could possibly indicate that a
  * DNS problem has occurred, but most often means that the host was not
  * correctly specified.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
  * @author Per Bothner
  * @status updated to 1.4
  */

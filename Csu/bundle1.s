@@ -117,9 +117,9 @@ dyld__mh_bundle_header:
 	.dyld
 	.align	2
 dyld_lazy_symbol_binding_entry_point:
-	.long	0	# filled in at launch time by dynamic link editor
+	.long	0x8fe01000	# pointer into dyld, dyld verifies and corrects if needed at launch time
 dyld_func_lookup_pointer:
-	.long	0	# filled in at launch time by dynamic link editor
+	.long	0x8fe01008	# pointer into dyld, dyld verifies and corrects if needed at launch time
 #endif /* __i386__ */
 
 #ifdef __hppa__
@@ -235,7 +235,8 @@ dyld_func_lookup_pointer:
 	.long	0	! filled in at launch time by dynamic link editor
 #endif /* __sparc__ */
 
-#ifdef __ppc__
+#if defined(__ppc__) || defined(__ppc64__)
+#include <architecture/ppc/mode_independent_asm.h>
 /*
  * This is part of the code generation for the dynamic link editor's interface.
  * The stub_binding_helper for an ppc dynamicly runtime loaded object used in a
@@ -257,39 +258,39 @@ dyld_func_lookup_pointer:
 	.private_extern dyld_stub_binding_helper
 dyld_stub_binding_helper:
 	mflr	r0
-	bcl	20,31,L1
+	bcl     20,31,L1
 L1:	mflr    r12
 	mtlr	r0
-	mr	r0,r12
+	mr      r0,r12
 	addis	r12,r12,ha16(dyld_lazy_symbol_binding_entry_point-L1)
-	lwz	r12,lo16(dyld_lazy_symbol_binding_entry_point-L1)(r12)
+	lg      r12,lo16(dyld_lazy_symbol_binding_entry_point-L1)(r12)
 	mtctr	r12
-	mr	r12,r0
+	mr      r12,r0
 	addis	r12,r12,ha16(dyld__mh_bundle_header-L1)
-	lwz	r12,lo16(dyld__mh_bundle_header-L1)(r12)
+	lg      r12,lo16(dyld__mh_bundle_header-L1)(r12)
 	bctr
 
 	.align	2
 	.private_extern __dyld_func_lookup
 __dyld_func_lookup:
 	mflr	r0
-	bcl	20,31,L2
+	bcl     20,31,L2
 L2:	mflr    r11
 	mtlr	r0
 	addis	r11,r11,ha16(dyld_func_lookup_pointer-L2)
-	lwz	r11,lo16(dyld_func_lookup_pointer-L2)(r11)
+	lg      r11,lo16(dyld_func_lookup_pointer-L2)(r11)
 	mtctr	r11
 	bctr
 
 	.data
-	.align	2
+	.align	LOG2_GPR_BYTES      /* 2 if 32-bit, 3 if 64-bit */
 dyld__mh_bundle_header:
-	.long	__mh_bundle_header
+	.g_long	__mh_bundle_header
 
 	.dyld
-	.align	2
+	.align	LOG2_GPR_BYTES
 dyld_lazy_symbol_binding_entry_point:
-	.long	0	; filled in at launch time by dynamic link editor
+	.g_long	0x8fe01000	; pointer into dyld, dyld verifies and corrects if needed at launch time
 dyld_func_lookup_pointer:
-	.long	0	; filled in at launch time by dynamic link editor
-#endif /* __ppc__ */
+	.g_long	0x8fe01008	; pointer into dyld, dyld verifies and corrects if needed at launch time
+#endif /* __ppc__ || __ppc64__ */

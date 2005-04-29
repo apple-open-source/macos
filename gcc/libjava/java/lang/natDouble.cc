@@ -1,6 +1,6 @@
 // natDouble.cc - Implementation of java.lang.Double native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2003  Free Software Foundation
 
    This file is part of libgcj.
 

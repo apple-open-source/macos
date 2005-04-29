@@ -1,9 +1,9 @@
-
+/* $XFree86: xc/extras/Mesa/src/extensions.c,v 1.16 2003/10/22 15:27:40 tsi Exp $ */
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.4
+ * Version:  5.0.2
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,17 +23,12 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
+#include "imports.h"
 #include "context.h"
 #include "extensions.h"
-#include "mem.h"
 #include "simple_list.h"
 #include "mtypes.h"
-#endif
 
 
 #define MAX_EXT_NAMELEN 80
@@ -46,26 +41,32 @@ struct extension {
    void (*notify)( GLcontext *, GLboolean );
 };
 
-#define F(x) (int)&(((struct gl_extensions *)0)->x)
+#define F(x) (int)(unsigned long)&(((struct gl_extensions *)0)->x)
 #define ON GL_TRUE
 #define OFF GL_FALSE
 
-static struct {
+static const struct {
    GLboolean enabled;
    const char *name;
    int flag_offset;
 } default_extensions[] = {
+   { OFF, "GL_ARB_depth_texture",              F(ARB_depth_texture) },
    { OFF, "GL_ARB_imaging",                    F(ARB_imaging) },
    { OFF, "GL_ARB_multisample",                F(ARB_multisample) },
    { OFF, "GL_ARB_multitexture",               F(ARB_multitexture) },
+   { OFF, "GL_ARB_point_parameters",           F(EXT_point_parameters) },
+   { OFF, "GL_ARB_shadow",                     F(ARB_shadow) },
+   { OFF, "GL_ARB_shadow_ambient",             F(SGIX_shadow_ambient) },
    { OFF, "GL_ARB_texture_border_clamp",       F(ARB_texture_border_clamp) },
    { OFF, "GL_ARB_texture_compression",        F(ARB_texture_compression) },
    { OFF, "GL_ARB_texture_cube_map",           F(ARB_texture_cube_map) },
    { OFF, "GL_ARB_texture_env_add",            F(EXT_texture_env_add) },
    { OFF, "GL_ARB_texture_env_combine",        F(ARB_texture_env_combine) },
+   { OFF, "GL_ARB_texture_env_crossbar",       F(ARB_texture_env_crossbar) },
    { OFF, "GL_ARB_texture_env_dot3",           F(ARB_texture_env_dot3) },
    { OFF, "GL_ARB_texture_mirrored_repeat",    F(ARB_texture_mirrored_repeat)},
    { ON,  "GL_ARB_transpose_matrix",           0 },
+   { ON,  "GL_ARB_window_pos",                 F(ARB_window_pos) },
    { ON,  "GL_EXT_abgr",                       0 },
    { ON,  "GL_EXT_bgra",                       0 },
    { OFF, "GL_EXT_blend_color",                F(EXT_blend_color) },
@@ -73,20 +74,27 @@ static struct {
    { OFF, "GL_EXT_blend_logic_op",             F(EXT_blend_logic_op) },
    { OFF, "GL_EXT_blend_minmax",               F(EXT_blend_minmax) },
    { OFF, "GL_EXT_blend_subtract",             F(EXT_blend_subtract) },
-   { ON,  "GL_EXT_clip_volume_hint",           F(EXT_clip_volume_hint) },
-   { OFF, "GL_EXT_cull_vertex",                0 },
-   { OFF, "GL_EXT_convolution",                F(EXT_convolution) },
+   { ON,  "GL_EXT_clip_volume_hint",           0 },
    { ON,  "GL_EXT_compiled_vertex_array",      F(EXT_compiled_vertex_array) },
+   { OFF, "GL_EXT_convolution",                F(EXT_convolution) },
+   { ON,  "GL_EXT_copy_texture",               0 },
+   { ON,  "GL_EXT_draw_range_elements",        0 },
    { OFF, "GL_EXT_fog_coord",                  F(EXT_fog_coord) },
    { OFF, "GL_EXT_histogram",                  F(EXT_histogram) },
-   { ON,  "GL_EXT_packed_pixels",              F(EXT_packed_pixels) },
+   { OFF, "GL_EXT_multi_draw_arrays",          F(EXT_multi_draw_arrays) },
+   { ON,  "GL_EXT_packed_pixels",              0 },
    { OFF, "GL_EXT_paletted_texture",           F(EXT_paletted_texture) },
    { OFF, "GL_EXT_point_parameters",           F(EXT_point_parameters) },
-   { ON,  "GL_EXT_polygon_offset",             F(EXT_polygon_offset) },
-   { ON,  "GL_EXT_rescale_normal",             F(EXT_rescale_normal) },
+   { ON,  "GL_EXT_polygon_offset",             0 },
+   { ON,  "GL_EXT_rescale_normal",             0 },
    { OFF, "GL_EXT_secondary_color",            F(EXT_secondary_color) },
+   { ON,  "GL_EXT_separate_specular_color",    0 },
+   { OFF, "GL_EXT_shadow_funcs",               F(EXT_shadow_funcs) },
    { OFF, "GL_EXT_shared_texture_palette",     F(EXT_shared_texture_palette) },
+   { OFF, "GL_EXT_stencil_two_side",           F(EXT_stencil_two_side) },
    { OFF, "GL_EXT_stencil_wrap",               F(EXT_stencil_wrap) },
+   { ON,  "GL_EXT_subtexture",                 0 },
+   { ON,  "GL_EXT_texture",                    0 },
    { ON,  "GL_EXT_texture3D",                  F(EXT_texture3D) },
    { OFF, "GL_EXT_texture_compression_s3tc",   F(EXT_texture_compression_s3tc) },
    { OFF, "GL_EXT_texture_edge_clamp",         F(SGIS_texture_edge_clamp) },
@@ -94,34 +102,42 @@ static struct {
    { OFF, "GL_EXT_texture_env_combine",        F(EXT_texture_env_combine) },
    { OFF, "GL_EXT_texture_env_dot3",           F(EXT_texture_env_dot3) },
    { OFF, "GL_EXT_texture_filter_anisotropic", F(EXT_texture_filter_anisotropic) },
-   { ON,  "GL_EXT_texture_object",             F(EXT_texture_object) },
+   { ON,  "GL_EXT_texture_object",             0 },
    { OFF, "GL_EXT_texture_lod_bias",           F(EXT_texture_lod_bias) },
+   { OFF, "GL_EXT_texture_rectangle",          F(NV_texture_rectangle) },
    { ON,  "GL_EXT_vertex_array",               0 },
    { OFF, "GL_EXT_vertex_array_set",           F(EXT_vertex_array_set) },
+   { OFF, "GL_3DFX_texture_compression_FXT1",  F(TDFX_texture_compression_FXT1) },
+   { OFF, "GL_APPLE_client_storage",           F(APPLE_client_storage) },
+   { ON,  "GL_APPLE_packed_pixels",            0 },
+   { OFF, "GL_ATI_texture_env_combine3",       F(ATI_texture_env_combine3)},
+   { OFF, "GL_ATI_texture_mirror_once",        F(ATI_texture_mirror_once)},
    { OFF, "GL_HP_occlusion_test",              F(HP_occlusion_test) },
    { ON,  "GL_IBM_rasterpos_clip",             F(IBM_rasterpos_clip) },
    { OFF, "GL_IBM_texture_mirrored_repeat",    F(ARB_texture_mirrored_repeat)},
-   { OFF, "GL_INGR_blend_func_separate",       F(INGR_blend_func_separate) },
+   { OFF, "GL_INGR_blend_func_separate",       F(EXT_blend_func_separate) },
    { OFF, "GL_MESA_pack_invert",               F(MESA_pack_invert) },
    { OFF, "GL_MESA_packed_depth_stencil",      0 },
    { OFF, "GL_MESA_resize_buffers",            F(MESA_resize_buffers) },
    { OFF, "GL_MESA_ycbcr_texture",             F(MESA_ycbcr_texture) },
-   { ON,  "GL_MESA_window_pos",                F(MESA_window_pos) },
+   { ON,  "GL_MESA_window_pos",                F(ARB_window_pos) },
    { OFF, "GL_NV_blend_square",                F(NV_blend_square) },
-   { ON,  "GL_NV_texgen_reflection",           F(NV_texgen_reflection) },
+   { OFF, "GL_NV_point_sprite",                F(NV_point_sprite) },
    { OFF, "GL_NV_texture_rectangle",           F(NV_texture_rectangle) },
+   { ON,  "GL_NV_texgen_reflection",           0 },
+   { OFF, "GL_NV_vertex_program",              F(NV_vertex_program) },
+   { OFF, "GL_NV_vertex_program1_1",           F(NV_vertex_program1_1) },
    { OFF, "GL_SGI_color_matrix",               F(SGI_color_matrix) },
    { OFF, "GL_SGI_color_table",                F(SGI_color_table) },
    { OFF, "GL_SGIS_generate_mipmap",           F(SGIS_generate_mipmap) },
    { OFF, "GL_SGIS_pixel_texture",             F(SGIS_pixel_texture) },
    { OFF, "GL_SGIS_texture_border_clamp",      F(ARB_texture_border_clamp) },
    { OFF, "GL_SGIS_texture_edge_clamp",        F(SGIS_texture_edge_clamp) },
+   { ON,  "GL_SGIS_texture_lod",               0 },
    { OFF, "GL_SGIX_depth_texture",             F(SGIX_depth_texture) },
    { OFF, "GL_SGIX_pixel_texture",             F(SGIX_pixel_texture) },
    { OFF, "GL_SGIX_shadow",                    F(SGIX_shadow) },
    { OFF, "GL_SGIX_shadow_ambient",            F(SGIX_shadow_ambient) },
-   { OFF, "GL_3DFX_texture_compression_FXT1",  F(_3DFX_texture_compression_FXT1) },
-   { OFF, "GL_APPLE_client_storage",           F(APPLE_client_storage) },
 };
 
 
@@ -135,14 +151,21 @@ void
 _mesa_enable_sw_extensions(GLcontext *ctx)
 {
    const char *extensions[] = {
+      "GL_ARB_depth_texture",
       "GL_ARB_imaging",
       "GL_ARB_multitexture",
+      "GL_ARB_point_parameters",
+      "GL_ARB_shadow",
+      "GL_ARB_shadow_ambient",
       "GL_ARB_texture_border_clamp",
       "GL_ARB_texture_cube_map",
       "GL_ARB_texture_env_add",
       "GL_ARB_texture_env_combine",
+      "GL_ARB_texture_env_crossbar",
       "GL_ARB_texture_env_dot3",
       "GL_ARB_texture_mirrored_repeat",
+      "GL_ATI_texture_mirror_once",
+      "GL_ATI_texture_env_combine3",
       "GL_EXT_blend_color",
       "GL_EXT_blend_func_separate",
       "GL_EXT_blend_logic_op",
@@ -153,14 +176,17 @@ _mesa_enable_sw_extensions(GLcontext *ctx)
       "GL_EXT_histogram",
       "GL_EXT_paletted_texture",
       "GL_EXT_point_parameters",
+      "GL_EXT_shadow_funcs",
       "GL_EXT_secondary_color",
       "GL_EXT_shared_texture_palette",
       "GL_EXT_stencil_wrap",
+      "GL_EXT_stencil_two_side",
       "GL_EXT_texture_edge_clamp",
       "GL_EXT_texture_env_add",
       "GL_EXT_texture_env_combine",
       "GL_EXT_texture_env_dot3",
       "GL_EXT_texture_lod_bias",
+      "GL_EXT_texture_rectangle",
       "GL_HP_occlusion_test",
       "GL_IBM_texture_mirrored_repeat",
       "GL_INGR_blend_func_separate",
@@ -168,8 +194,13 @@ _mesa_enable_sw_extensions(GLcontext *ctx)
       "GL_MESA_resize_buffers",
       "GL_MESA_ycbcr_texture",
       "GL_NV_blend_square",
-      "GL_NV_texgen_reflection",
+      "GL_NV_point_sprite",
       "GL_NV_texture_rectangle",
+      "GL_NV_texgen_reflection",
+#if FEATURE_NV_vertex_program
+      "GL_NV_vertex_program",
+      "GL_NV_vertex_program1_1",
+#endif
       "GL_SGI_color_matrix",
       "GL_SGI_color_table",
       "GL_SGIS_generate_mipmap",
@@ -244,6 +275,41 @@ _mesa_enable_1_3_extensions(GLcontext *ctx)
 
 
 /*
+ * Enable all OpenGL 1.4 features and extensions.
+ */
+void
+_mesa_enable_1_4_extensions(GLcontext *ctx)
+{
+   const char *extensions[] = {
+      "GL_ARB_depth_texture",
+      "GL_ARB_point_parameters",
+      "GL_ARB_shadow",
+      "GL_ARB_texture_env_crossbar",
+      "GL_ARB_texture_mirrored_repeat",
+      "GL_ARB_window_pos",
+      "GL_EXT_blend_color",
+      "GL_EXT_blend_func_separate",
+      "GL_EXT_blend_logic_op",
+      "GL_EXT_blend_minmax",
+      "GL_EXT_blend_subtract",
+      "GL_EXT_fog_coord",
+      "GL_EXT_multi_draw_arrays",
+      "GL_EXT_secondary_color",
+      "GL_EXT_stencil_wrap",
+      "GL_EXT_texture_lod_bias",
+      "GL_SGIS_generate_mipmap",
+      NULL
+   };
+   GLuint i;
+
+   for (i = 0; extensions[i]; i++) {
+      _mesa_enable_extension(ctx, extensions[i]);
+   }
+}
+
+
+
+/*
  * Add a new extenstion.  This would be called from a Mesa driver.
  */
 void
@@ -260,7 +326,7 @@ _mesa_add_extension( GLcontext *ctx,
    {
       struct extension *t = MALLOC_STRUCT(extension);
       t->enabled = enabled;
-      strncpy(t->name, name, MAX_EXT_NAMELEN);
+      _mesa_strncpy(t->name, name, MAX_EXT_NAMELEN);
       t->name[MAX_EXT_NAMELEN] = 0;
       t->flag = flag_ptr;
       if (t->flag)
@@ -282,7 +348,7 @@ set_extension( GLcontext *ctx, const char *name, GLint state )
     */
    struct extension *i;
    foreach( i, ctx->Extensions.ext_list )
-      if (strncmp(i->name, name, MAX_EXT_NAMELEN) == 0)
+      if (_mesa_strncmp(i->name, name, MAX_EXT_NAMELEN) == 0)
 	 break;
 
    if (i == ctx->Extensions.ext_list) {
@@ -324,7 +390,7 @@ _mesa_extension_is_enabled( GLcontext *ctx, const char *name)
 {
    struct extension *i;
    foreach( i, ctx->Extensions.ext_list )
-      if (strncmp(i->name, name, MAX_EXT_NAMELEN) == 0) {
+      if (_mesa_strncmp(i->name, name, MAX_EXT_NAMELEN) == 0) {
          if (i->enabled)
             return GL_TRUE;
          else
@@ -391,18 +457,18 @@ _mesa_extensions_get_string( GLcontext *ctx )
       GLuint len = 0;
       foreach (i, ctx->Extensions.ext_list)
 	 if (i->enabled)
-	    len += strlen(i->name) + 1;
+	    len += _mesa_strlen(i->name) + 1;
 
       if (len == 0)
 	 return "";
 
-      str = (char *)MALLOC(len * sizeof(char));
+      str = (char *) _mesa_malloc(len * sizeof(char));
       ctx->Extensions.ext_string = str;
 
       foreach (i, ctx->Extensions.ext_list)
 	 if (i->enabled) {
-	    strcpy(str, i->name);
-	    str += strlen(str);
+	    _mesa_strcpy(str, i->name);
+	    str += _mesa_strlen(str);
 	    *str++ = ' ';
 	 }
 

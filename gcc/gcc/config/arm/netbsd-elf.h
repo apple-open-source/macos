@@ -1,31 +1,27 @@
 /* Definitions of target machine for GNU compiler, NetBSD/arm ELF version.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Wasabi Systems, Inc.
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 /* Run-time Target Specification.  */
 #undef TARGET_VERSION
 #define TARGET_VERSION fputs (" (NetBSD/arm ELF)", stderr);
-
-/* This is used in ASM_FILE_START.  */
-#undef ARM_OS_NAME
-#define ARM_OS_NAME "NetBSD"
 
 /* arm.h defaults to ARM6 CPU.  */
 
@@ -39,13 +35,12 @@ Boston, MA 02111-1307, USA.  */
 /* Default it to use ATPCS with soft-VFP.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT			\
-  (ARM_FLAG_APCS_32			\
-   | ARM_FLAG_SOFT_FLOAT		\
+  (ARM_FLAG_SOFT_FLOAT			\
    | ARM_FLAG_APCS_FRAME		\
-   | ARM_FLAG_ATPCS			\
-   | ARM_FLAG_VFP			\
-   | ARM_FLAG_MMU_TRAPS			\
    | TARGET_ENDIAN_DEFAULT)
+
+#undef ARM_DEFAULT_ABI
+#define ARM_DEFAULT_ABI ARM_ABI_ATPCS
 
 #define TARGET_OS_CPP_BUILTINS()	\
   do					\
@@ -59,16 +54,13 @@ Boston, MA 02111-1307, USA.  */
 
 #undef SUBTARGET_EXTRA_ASM_SPEC
 #define SUBTARGET_EXTRA_ASM_SPEC	\
-  "-matpcs %{fpic:-k} %{fPIC:-k}"
+  "-matpcs %{fpic|fpie:-k} %{fPIC|fPIE:-k}"
 
-/* Default floating point model is soft-VFP.
-   FIXME: -mhard-float currently implies FPA.  */
+/* Default to full VFP if -mhard-float is specified.  */
 #undef SUBTARGET_ASM_FLOAT_SPEC
 #define SUBTARGET_ASM_FLOAT_SPEC	\
-  "%{mhard-float:-mfpu=fpa} \
-   %{msoft-float:-mfpu=softvfp} \
-   %{!mhard-float: \
-     %{!msoft-float:-mfpu=softvfp}}"
+  "%{mhard-float:{!mfpu=*:-mfpu=vfp}}   \
+   %{mfloat-abi=hard:{!mfpu=*:-mfpu=vfp}}"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS				\
@@ -127,7 +119,7 @@ Boston, MA 02111-1307, USA.  */
    This has several side effects that should be considered.
    1. Structures will only be aligned to the size of the largest member.
       i.e. structures containing only bytes will be byte aligned.
-           structures containing shorts will be half word alinged.          
+           structures containing shorts will be half word aligned.          
            structures containing ints will be word aligned.                 
   
       This means structures should be padded to a word boundary if
@@ -149,9 +141,9 @@ Boston, MA 02111-1307, USA.  */
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			\
 do									\
   {									\
-    emit_move_insn (gen_rtx (MEM, SImode, plus_constant ((TRAMP), 8)),	\
+    emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 8)),	\
 		    (CXT));						\
-    emit_move_insn (gen_rtx (MEM, SImode, plus_constant ((TRAMP), 12)),	\
+    emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 12)),	\
 		    (FNADDR));						\
     emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),	\
 		       0, VOIDmode, 2, TRAMP, Pmode,			\
@@ -175,3 +167,7 @@ do									\
     (void) sysarch (0, &s);						\
   }									\
 while (0)
+
+#undef FPUTYPE_DEFAULT
+#define FPUTYPE_DEFAULT FPUTYPE_VFP
+

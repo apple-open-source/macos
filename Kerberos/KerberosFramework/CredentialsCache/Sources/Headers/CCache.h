@@ -1,7 +1,7 @@
 /*
  * Cache.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.h,v 1.17 2003/03/17 20:46:16 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.h,v 1.18 2004/10/22 20:48:24 lxs Exp $
  */
  
 
@@ -12,7 +12,7 @@
 #include "Magic.h"
 
 #if CCache_v2_compat
-#include "CredentialsCache2.h"
+#include <Kerberos/CredentialsCache2.h>
 #endif
 
 #pragma once

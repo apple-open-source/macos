@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/Varargs.c,v 3.10 2001/12/14 19:56:32 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Varargs.c,v 3.11 2003/04/21 16:34:29 herrb Exp $ */
 
 #include "IntrinsicI.h"
 #include "VarargsI.h"
@@ -64,16 +64,8 @@ _XtCountNestedList(
  *    and the count of the number of those attributes that are typed.
  *    The list is counted recursively.
  */
-#if NeedFunctionPrototypes
 void
 _XtCountVaList(va_list var, int* total_count, int* typed_count)
-#else
-void
-_XtCountVaList(var, total_count, typed_count)
-    va_list     var;
-    int         *total_count;
-    int         *typed_count;
-#endif
 {
     String          attr;
     
@@ -140,13 +132,7 @@ XtVaCreateArgsList(XtPointer unused, ...)
 }
 
 
-#if NeedFunctionPrototypes
 XtTypedArgList _XtVaCreateTypedArgList(va_list var, register int count)
-#else
-XtTypedArgList _XtVaCreateTypedArgList(var, count)
-    va_list    	    var;     
-    register int    count;
-#endif
 {
     String	    attr;
     XtTypedArgList  avlist;
@@ -321,19 +307,11 @@ NestedArgtoArg(
  * to make this representation, priority was given to the wish to retrofit
  * the release of memory around the existing signature of _XtVaToArgList.
  */
-#if NeedFunctionPrototypes
 void
 _XtFreeArgList(
     ArgList	args,	     /* as returned by _XtVaToArgList */
     int		total_count, /*  argument count returned by _XtCountVaList */
     int 	typed_count) /* typed arg count returned by _XtCountVaList */
-#else
-void
-_XtFreeArgList(args, total_count, typed_count)
-    ArgList	args;
-    int		total_count;
-    int 	typed_count;
-#endif
 {
     ArgList p;
 
@@ -357,7 +335,6 @@ static void GetResources(Widget widget, XtResourceList *res_list,
  *    lists and typed arguments.  If typed arguments are present, the
  *    ArgList should be freed with _XtFreeArgList.
  */
-#if NeedFunctionPrototypes
 void
 _XtVaToArgList(
     Widget		widget,
@@ -365,15 +342,6 @@ _XtVaToArgList(
     int			max_count,
     ArgList		*args_return,
     Cardinal		*num_args_return)
-#else
-void
-_XtVaToArgList(widget, var, max_count, args_return, num_args_return)
-    Widget		widget;
-    va_list     	var;
-    int			max_count;
-    ArgList		*args_return;
-    Cardinal		*num_args_return;
-#endif
 {
     String		attr;
     int			count;
@@ -510,21 +478,12 @@ static int NestedArgtoTypedArg(
  *    lists.
  *    Note: _XtVaToTypedArgList() does not do type conversions.
  */
-#if NeedFunctionPrototypes
 void
 _XtVaToTypedArgList(
     va_list             var,
     int			max_count,
     XtTypedArgList   	*args_return,
     Cardinal            *num_args_return)
-#else
-void
-_XtVaToTypedArgList(var, max_count, args_return, num_args_return)
-    va_list             var;
-    int			max_count;
-    XtTypedArgList   	*args_return;
-    Cardinal            *num_args_return;
-#endif
 {
     XtTypedArgList	args = NULL;
     String              attr;

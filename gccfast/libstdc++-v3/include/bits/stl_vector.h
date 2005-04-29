@@ -65,6 +65,14 @@
 #include <bits/functexcept.h>
 #include <bits/concept_check.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define vector _Release_vector
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
   /// @if maint Primary default version.  @endif
@@ -181,8 +189,10 @@ namespace std
    *  and saves the user from worrying about memory and size allocation.
    *  Subscripting ( @c [] ) access is also provided as with C-style arrays.
   */
+  /* APPLE LOCAL libstdc++ debug mode */
   template<typename _Tp, typename _Alloc = allocator<_Tp> >
-    class vector : protected _Vector_base<_Tp, _Alloc>
+    class _GLIBCXX_RELEASE_CLASS(vector) vector 
+    : protected _Vector_base<_Tp, _Alloc>
     {
       // Concept requirements.
       __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
@@ -988,5 +998,12 @@ namespace std
     swap(vector<_Tp,_Alloc>& __x, vector<_Tp,_Alloc>& __y)
     { __x.swap(__y); }
 } // namespace std
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef vector
+#  include <debug/dbg_vector.h>
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #endif /* __GLIBCPP_INTERNAL_VECTOR_H */

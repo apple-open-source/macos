@@ -1,0 +1,105 @@
+diff -ur src/dfa.c ../../../new/grep/grep/src/dfa.c
+--- src/dfa.c	2004-12-08 19:06:42.000000000 -0800
++++ ../../../new/grep/grep/src/dfa.c	2004-12-10 15:07:47.000000000 -0800
+@@ -707,6 +707,38 @@
+   return strncmp(s, lexptr, len) == 0;
+ }
+ 
++extern int __collate_load_error;
++extern char *__collate_substitute(char *);
++
++char *try_collating_thing(char const *ct, int ct_len, int *chars_used) {
++    char *term;
++    if (*ct == '.') {
++	term = strnstr(++ct, ".]", ct_len);
++    } else if (*ct == '=') {
++	term = strnstr(++ct, "=]", ct_len);
++    } else {
++	term = NULL;
++    }
++    if (!term) {
++	*chars_used = 0;
++	return NULL;
++    }
++    int slen = 1 + (term - ct);
++    *chars_used = 2 + slen;
++    char *t = malloc(slen);
++    if (!t) {
++	return NULL;
++    }
++    strlcpy(t, ct, slen);
++    if (__collate_load_error) {
++	return t;
++    }
++    char *r = __collate_substitute(t);
++    free(t);
++    return r;
++}
++
++
+ static token
+ lex (void)
+ {
+@@ -991,7 +1023,7 @@
+ 	  if (MB_CUR_MAX > 1)
+ 	    {
+ 	      /* In multibyte environment a bracket expression may contain
+-		 multibyte characters, which must be treated as characters
++	         multibyte characters, which must be treated as characters
+ 		 (not bytes).  So we parse it by parse_bracket_exp_mb().  */
+ 	      parse_bracket_exp_mb();
+ 	      return lasttok = MBCSET;
+@@ -1014,20 +1046,39 @@
+ 		 characters.  We can do this because we assume
+ 		 regex has checked for syntax errors before
+ 		 dfa is ever called. */
+-	      if (c == '[' && (syntax_bits & RE_CHAR_CLASSES))
+-		for (c1 = 0; prednames[c1].name; ++c1)
+-		  if (looking_at(prednames[c1].name))
+-		    {
+-		      int (*pred) PARAMS ((int)) = prednames[c1].pred;
+-
+-		      for (c2 = 0; c2 < NOTCHAR; ++c2)
+-			if ((*pred)(c2))
+-			  setbit_case_fold (c2, ccl);
+-		      lexptr += strlen(prednames[c1].name);
+-		      lexleft -= strlen(prednames[c1].name);
+-		      FETCH(c1, _("Unbalanced ["));
+-		      goto skip;
+-		    }
++	      if (c == '[' && (syntax_bits & RE_CHAR_CLASSES)) {
++		if (lexleft >= 1 && (*lexptr == '.' || *lexptr == '=')) {
++		  int used = 0;
++		  char *match = try_collating_thing(lexptr, lexleft, &used);
++		  if (!match) {
++		    dfaerror(_("invalid collating element or class"));
++		  } else {
++		      char *cp = match;
++		      for(; *cp; ++cp) {
++			setbit(*cp, ccl);
++		      }
++		      free(match);
++		  }
++		  lexptr += used;
++		  lexleft -= used;
++		  FETCH(c1, _("Unbalanced ["));
++		  goto skip;
++		} else {
++		  for (c1 = 0; prednames[c1].name; ++c1)
++		    if (looking_at(prednames[c1].name))
++		      {
++			int (*pred) PARAMS ((int)) = prednames[c1].pred;
++
++			for (c2 = 0; c2 < NOTCHAR; ++c2)
++			  if ((*pred)(c2))
++			    setbit_case_fold (c2, ccl);
++			lexptr += strlen(prednames[c1].name);
++			lexleft -= strlen(prednames[c1].name);
++			FETCH(c1, _("Unbalanced ["));
++			goto skip;
++		      }
++		}
++	      }
+ 	      if (c == '\\' && (syntax_bits & RE_BACKSLASH_ESCAPE_IN_LISTS))
+ 		FETCH(c, _("Unbalanced ["));
+ 	      FETCH(c1, _("Unbalanced ["));

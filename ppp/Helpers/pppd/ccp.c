@@ -23,31 +23,39 @@
 /*
  * ccp.c - PPP Compression Control Protocol.
  *
- * Copyright (c) 1994 The Australian National University.
- * All rights reserved.
+ * Copyright (c) 1994-2002 Paul Mackerras. All rights reserved.
  *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation is hereby granted, provided that the above copyright
- * notice appears in all copies.  This software is provided without any
- * warranty, express or implied. The Australian National University
- * makes no representations about the suitability of this software for
- * any purpose.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * IN NO EVENT SHALL THE AUSTRALIAN NATIONAL UNIVERSITY BE LIABLE TO ANY
- * PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
- * THE AUSTRALIAN NATIONAL UNIVERSITY HAVE BEEN ADVISED OF THE POSSIBILITY
- * OF SUCH DAMAGE.
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
  *
- * THE AUSTRALIAN NATIONAL UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
- * ON AN "AS IS" BASIS, AND THE AUSTRALIAN NATIONAL UNIVERSITY HAS NO
- * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
- * OR MODIFICATIONS.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Paul Mackerras
+ *     <paulus@samba.org>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: ccp.c,v 1.7.30.1 2004/03/04 03:27:08 lindak Exp $"
+#define RCSID	"$Id: ccp.c,v 1.11 2004/03/04 01:36:32 lindak Exp $"
 
 #include <stdlib.h>
 #include <string.h>
@@ -59,11 +67,13 @@
 #include <ppp_comp.h>
 
 #ifdef MPPE
-#include "chap_ms.h"	/* mppe_xxxx_key */
+#include "chap_ms.h"	/* mppe_xxxx_key, mppe_keys_set */
 #include "lcp.h"	/* lcp_close(), lcp_fsm */
 #endif
 
+#ifndef lint
 static const char rcsid[] = RCSID;
+#endif
 
 /*
  * Unfortunately there is a bug in zlib which means that using a
@@ -556,7 +566,7 @@ ccp_protrej(unit)
     int unit;
 {
     ccp_flags_set(unit, 0, 0);
-    fsm_lowerdown(&ccp_fsm[unit]);
+    fsm_protreject(&ccp_fsm[unit]);
 
 #ifdef MPPE
     if (ccp_gotoptions[unit].mppe) {
@@ -596,7 +606,7 @@ ccp_resetci(f)
 	 *     So, we return right away if we can't do it.
 	 */
 
-#ifdef EAP
+#ifdef __APPLE__
         if (auth_done[f->unit] & (EAP_WITHPEER | EAP_PEER)) {
         }
         else
@@ -624,6 +634,14 @@ ccp_resetci(f)
 	    return;
 	}
 
+	/* A plugin (eg radius) may not have obtained key material. */
+	if (!mppe_keys_set) {
+	    error("MPPE required, but keys are not available.  "
+		  "Possible plugin problem?");
+	    lcp_close(f->unit, "MPPE required but not available");
+	    return;
+	}
+
 	/* LM auth not supported for MPPE */
 	if (auth_done[f->unit] & (CHAP_MS_WITHPEER | CHAP_MS_PEER)) {
 	    /* This might be noise */
@@ -633,7 +651,7 @@ ccp_resetci(f)
 		ccp_wantoptions[f->unit].mppe &= ~MPPE_OPT_40;
 	    }
 	}
-#ifdef EAP
+#ifdef __APPLE__
         }
 #endif
 
@@ -743,7 +761,8 @@ ccp_addci(f, p, lenp)
 
     /*
      * Add the compression types that we can receive, in decreasing
-     * preference order.
+     * preference order.  Get the kernel to allocate the first one
+     * in case it gets Acked.
      */
 #ifdef MPPE
     if (go->mppe) {
@@ -767,21 +786,25 @@ ccp_addci(f, p, lenp)
 	p[1] = CILEN_DEFLATE;
 	p[2] = DEFLATE_MAKE_OPT(go->deflate_size);
 	p[3] = DEFLATE_CHK_SEQUENCE;
-	for (;;) {
-	    if (go->deflate_size < DEFLATE_MIN_WORKS) {
-		go->deflate = 0;
-		break;
+	if (p != p0) {
+	    p += CILEN_DEFLATE;
+	} else {
+	    for (;;) {
+		if (go->deflate_size < DEFLATE_MIN_WORKS) {
+		    go->deflate = 0;
+		    break;
+		}
+		res = ccp_test(f->unit, p, CILEN_DEFLATE, 0);
+		if (res > 0) {
+		    p += CILEN_DEFLATE;
+		    break;
+		} else if (res < 0) {
+		    go->deflate = 0;
+		    break;
+		}
+		--go->deflate_size;
+		p[2] = DEFLATE_MAKE_OPT(go->deflate_size);
 	    }
-	    res = ccp_test(f->unit, p, CILEN_DEFLATE, 0);
-	    if (res > 0) {
-		p += CILEN_DEFLATE;
-		break;
-	    } else if (res < 0) {
-		go->deflate = 0;
-		break;
-	    }
-	    --go->deflate_size;
-	    p[2] = DEFLATE_MAKE_OPT(go->deflate_size);
 	}
 	if (p != p0 && go->deflate_correct && go->deflate_draft) {
 	    p[0] = CI_DEFLATE_DRAFT;
@@ -795,21 +818,25 @@ ccp_addci(f, p, lenp)
 	p[0] = CI_BSD_COMPRESS;
 	p[1] = CILEN_BSD_COMPRESS;
 	p[2] = BSD_MAKE_OPT(BSD_CURRENT_VERSION, go->bsd_bits);
-	for (;;) {
-	    if (go->bsd_bits < BSD_MIN_BITS) {
-		go->bsd_compress = 0;
-		break;
+	if (p != p0) {
+	    p += CILEN_BSD_COMPRESS;	/* not the first option */
+	} else {
+	    for (;;) {
+		if (go->bsd_bits < BSD_MIN_BITS) {
+		    go->bsd_compress = 0;
+		    break;
+		}
+		res = ccp_test(f->unit, p, CILEN_BSD_COMPRESS, 0);
+		if (res > 0) {
+		    p += CILEN_BSD_COMPRESS;
+		    break;
+		} else if (res < 0) {
+		    go->bsd_compress = 0;
+		    break;
+		}
+		--go->bsd_bits;
+		p[2] = BSD_MAKE_OPT(BSD_CURRENT_VERSION, go->bsd_bits);
 	    }
-	    res = ccp_test(f->unit, p, CILEN_BSD_COMPRESS, 0);
-	    if (res > 0) {
-		p += CILEN_BSD_COMPRESS;
-		break;
-	    } else if (res < 0) {
-		go->bsd_compress = 0;
-		break;
-	    }
-	    --go->bsd_bits;
-	    p[2] = BSD_MAKE_OPT(BSD_CURRENT_VERSION, go->bsd_bits);
 	}
     }
     /* XXX Should Predictor 2 be preferable to Predictor 1? */
@@ -960,23 +987,25 @@ ccp_nakci(f, p, len)
          * Failing completly is extreme and shows interoperability issues.
          * We insist on our options set.
         */
-       if ((try.mppe & MPPE_OPT_STATEFUL) && refuse_mppe_stateful)
-           try.mppe &= ~MPPE_OPT_STATEFUL;
-        if ((try.mppe & MPPE_OPT_40) && !(ao->mppe & MPPE_OPT_40))
-           try.mppe &= ~MPPE_OPT_40;
-        if ((try.mppe & MPPE_OPT_128) && !(ao->mppe & MPPE_OPT_128))
-           try.mppe &= ~MPPE_OPT_128;
-
-       if (!(try.mppe & (MPPE_OPT_40 + MPPE_OPT_128))) {
-           error("MPPE required but peer negotiation failed");
-           lcp_close(f->unit, "MPPE required but peer negotiation failed");
-       }
-#else
 	if ((try.mppe & MPPE_OPT_STATEFUL) && refuse_mppe_stateful)
+	    try.mppe &= ~MPPE_OPT_STATEFUL;
+        if ((try.mppe & MPPE_OPT_40) && !(ao->mppe & MPPE_OPT_40))
+	    try.mppe &= ~MPPE_OPT_40;
+        if ((try.mppe & MPPE_OPT_128) && !(ao->mppe & MPPE_OPT_128))
+	    try.mppe &= ~MPPE_OPT_128;
+
+	if (!(try.mppe & (MPPE_OPT_40 + MPPE_OPT_128))) {
+	    error("MPPE required but peer negotiation failed");
+	    lcp_close(f->unit, "MPPE required but peer negotiation failed");
+	}
+#else
+	if ((try.mppe & MPPE_OPT_STATEFUL) && refuse_mppe_stateful) {
+	    error("Refusing MPPE stateful mode offered by peer");
 	    try.mppe = 0;
-	else if ((go->mppe & try.mppe) != try.mppe)
+	} else if (((go->mppe | MPPE_OPT_STATEFUL) & try.mppe) != try.mppe) {
 	    /* Peer must have set options we didn't request (suggest) */
 	    try.mppe = 0;
+	}
 
 	if (!try.mppe) {
 	    error("MPPE required but peer negotiation failed");
@@ -1065,31 +1094,26 @@ ccp_rejci(f, p, len)
 	len -= CILEN_MPPE;
     }
 #endif
-    if (go->deflate && len >= CILEN_DEFLATE
-	&& p[0] == (go->deflate_correct? CI_DEFLATE: CI_DEFLATE_DRAFT)
-	&& p[1] == CILEN_DEFLATE) {
+    if (go->deflate_correct && len >= CILEN_DEFLATE
+	&& p[0] == CI_DEFLATE && p[1] == CILEN_DEFLATE) {
 	if (p[2] != DEFLATE_MAKE_OPT(go->deflate_size)
 	    || p[3] != DEFLATE_CHK_SEQUENCE)
 	    return 0;		/* Rej is bad */
-	if (go->deflate_correct)
-	    try.deflate_correct = 0;
-	else
-	    try.deflate_draft = 0;
+	try.deflate_correct = 0;
 	p += CILEN_DEFLATE;
 	len -= CILEN_DEFLATE;
-	if (go->deflate_correct && go->deflate_draft
-	    && len >= CILEN_DEFLATE && p[0] == CI_DEFLATE_DRAFT
-	    && p[1] == CILEN_DEFLATE) {
-	    if (p[2] != DEFLATE_MAKE_OPT(go->deflate_size)
-		|| p[3] != DEFLATE_CHK_SEQUENCE)
-		return 0;		/* Rej is bad */
-	    try.deflate_draft = 0;
-	    p += CILEN_DEFLATE;
-	    len -= CILEN_DEFLATE;
-	}
-	if (!try.deflate_correct && !try.deflate_draft)
-	    try.deflate = 0;
     }
+    if (go->deflate_draft && len >= CILEN_DEFLATE
+	&& p[0] == CI_DEFLATE_DRAFT && p[1] == CILEN_DEFLATE) {
+	if (p[2] != DEFLATE_MAKE_OPT(go->deflate_size)
+	    || p[3] != DEFLATE_CHK_SEQUENCE)
+	    return 0;		/* Rej is bad */
+	try.deflate_draft = 0;
+	p += CILEN_DEFLATE;
+	len -= CILEN_DEFLATE;
+    }
+    if (!try.deflate_correct && !try.deflate_draft)
+	try.deflate = 0;
     if (go->bsd_compress && len >= CILEN_BSD_COMPRESS
 	&& p[0] == CI_BSD_COMPRESS && p[1] == CILEN_BSD_COMPRESS) {
 	if (p[2] != BSD_MAKE_OPT(BSD_CURRENT_VERSION, go->bsd_bits))
@@ -1138,7 +1162,8 @@ ccp_reqci(f, p, lenp, dont_nak)
     ccp_options *ho = &ccp_hisoptions[f->unit];
     ccp_options *ao = &ccp_allowoptions[f->unit];
 #ifdef MPPE
-    bool seen_ci_mppe = 0;
+    bool rej_for_ci_mppe = 1;	/* Are we rejecting based on a bad/missing */
+				/* CI_MPPE, or due to other options?       */
 #endif
 
     ret = CONFACK;
@@ -1166,8 +1191,8 @@ ccp_reqci(f, p, lenp, dont_nak)
 		    newret = CONFREJ;
 		    break;
 		}
-		seen_ci_mppe = 1;
 		MPPE_CI_TO_OPTS(&p[2], ho->mppe);
+
 		/* Nak if anything unsupported or unknown are set. */
 		if (ho->mppe & MPPE_OPT_UNSUPPORTED) {
 		    newret = CONFNAK;
@@ -1180,17 +1205,16 @@ ccp_reqci(f, p, lenp, dont_nak)
 
 		/* Check state opt */
 		if (ho->mppe & MPPE_OPT_STATEFUL) {
+		    /*
+		     * We can Nak and request stateless, but it's a
+		     * lot easier to just assume the peer will request
+		     * it if he can do it; stateful mode is bad over
+		     * the Internet -- which is where we expect MPPE.
+		     */
 		   if (refuse_mppe_stateful) {
-			/*
-			 * We can Nak and request stateless, but it's a
-			 * lot easier to just assume the peer will request
-			 * it if he can do it; stateful mode is bad over
-			 * the Internet -- which is where we expect MPPE.
-			 */
+			error("Refusing MPPE stateful mode offered by peer");
 			newret = CONFREJ;
 			break;
-		    } else {
-			newret = CONFNAK;
 		    }
 		}
 
@@ -1257,11 +1281,16 @@ ccp_reqci(f, p, lenp, dont_nak)
 		    mtu = netif_get_mtu(f->unit);
 		    if (mtu)
 			netif_set_mtu(f->unit, mtu - MPPE_PAD);
-		    else{
+		    else
 			newret = CONFREJ;
-                        }
 		}
 
+		/*
+		 * We have accepted MPPE or are willing to negotiate
+		 * MPPE parameters.  A CONFREJ is due to subsequent
+		 * (non-MPPE) processing.
+		 */
+		rej_for_ci_mppe = 0;
 		break;
 #endif /* MPPE */
 	    case CI_DEFLATE:
@@ -1406,7 +1435,7 @@ ccp_reqci(f, p, lenp, dont_nak)
 	    *lenp = retp - p0;
     }
 #ifdef MPPE
-    if (ret == CONFREJ && ao->mppe && !seen_ci_mppe) {
+    if (ret == CONFREJ && ao->mppe && rej_for_ci_mppe) {
 	error("MPPE required but peer negotiation failed");
 	lcp_close(f->unit, "MPPE required but peer negotiation failed");
     }

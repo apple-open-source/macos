@@ -47,7 +47,7 @@ dsstatus distinguishedNameToPosixNameTransform(BackendDB *be, dsdata **dst, stru
 		return DSStatusNoData;
 
 	/* XXX bind usage of this results in redundant normalization */
-	if (dnNormalize2(NULL, src, &ndn) != LDAP_SUCCESS)
+	if (dnNormalize(0, NULL, NULL, src, &ndn, NULL) != LDAP_SUCCESS)
 		return DSStatusInvalidPath;
 
 	status = netinfo_back_dn_pathmatch(be, &ndn, &match);
@@ -256,7 +256,7 @@ dsstatus distinguishedNameStoreTransform(BackendDB *be, dsdata **dst, struct ber
 		struct berval ndn;
 		u_int32_t match;
 
-		if (dnNormalize2(NULL, bv, &ndn) != LDAP_SUCCESS)
+		if (dnNormalize(0, NULL, NULL, bv, &ndn, NULL) != LDAP_SUCCESS)
 			return DSStatusInvalidPath;
 
 		/* This may fail if the path is not local. */
@@ -270,7 +270,7 @@ dsstatus distinguishedNameStoreTransform(BackendDB *be, dsdata **dst, struct ber
 		ch_free(ndn.bv_val);
 	}
 
-	if (dnPretty2(NULL, bv, &dn) != LDAP_SUCCESS)
+	if (dnPretty(NULL, bv, &dn, NULL) != LDAP_SUCCESS)
 		return DSStatusFailed;
 
 	*dst = berval_to_dsdata(&dn, DataTypeCaseUTF8Str);

@@ -70,9 +70,8 @@ bool IOFireWireDeviceAux::init( IOFireWireDevice * primary )
 	
 	if( success )
 	{
-		fTerminated = false;
-		fMaxSpeed = kFWSpeedMaximum;
 		fUnitCount = 0;
+		fMaxSpeed = kFWSpeedMaximum;
 	}
 	
 	return success;
@@ -84,16 +83,56 @@ bool IOFireWireDeviceAux::init( IOFireWireDevice * primary )
 
 bool IOFireWireDeviceAux::isTerminated( void )
 {
-	return (fTerminated || fPrimary->isInactive());
+	return ((fTerminationState == kTerminated) || fPrimary->isInactive());
 }
 
-// isTerminated
+// setTerminationState
 //
 //
 
-void IOFireWireDeviceAux::setTerminated( bool terminated )
+void IOFireWireDeviceAux::setTerminationState( TerminationState state )
 {
-	fTerminated = terminated;
+	IOReturn status = kIOReturnSuccess;
+	
+	IOFireWireNubAux::setTerminationState( state );
+	
+	if( fTerminationState == kTerminated )
+	{
+		// tell all the units that they have been terminated as well
+		
+		OSIterator * clientIterator = NULL;
+		OSObject * client = NULL;
+	
+		if( status == kIOReturnSuccess )
+		{
+			clientIterator = fPrimary->getClientIterator();
+			if( clientIterator == NULL )
+				status = kIOReturnError;
+		}
+		
+		if( status == kIOReturnSuccess )
+		{
+			clientIterator->reset();
+			
+			while( (client = clientIterator->getNextObject()) ) 
+			{
+				IOFireWireUnit * unit;
+				
+				unit = OSDynamicCast( IOFireWireUnit, client );
+				if( unit )
+				{
+					unit->setTerminationState( kTerminated );
+				}
+			}
+		}
+		
+		if( clientIterator != NULL )
+		{
+			clientIterator->release();
+		}
+	}
+	
+	FWKLOGASSERT( status == kIOReturnSuccess );
 }
 
 // setMaxSpeed
@@ -1223,6 +1262,7 @@ IOReturn IOFireWireDevice::processUnitDirectories( OSSet * unitSet )
 	if( status == kIOReturnSuccess )
 	{	
 		UInt32 count = unitSet->getCount();
+		//IOLog( "IOFireWireDevice::processUnitDirectories - unit_count = %ld\n", count );
 		setUnitCount( count );
 		
 		iterator = OSCollectionIterator::withCollection( unitSet );
@@ -1245,22 +1285,46 @@ IOReturn IOFireWireDevice::processUnitDirectories( OSSet * unitSet )
 				while( (client = clientIterator->getNextObject()) ) 
 				{
 					found = OSDynamicCast(IOFireWireUnit, client);
-					if( found && found->matchPropertyTable(propTable) ) 
+					if( found )
 					{
-						break;
-					}
-					else
-					{
-						found = NULL;
+						// sync with open close routines on unit
+						
+						found->lockForArbitration();  
+											
+						if( (found->getTerminationState() != kTerminated) && found->matchPropertyTable(propTable) ) 
+						{
+							// arbitration lock still held
+							
+							break;
+						}
+						else
+						{
+							found->unlockForArbitration();
+							
+							found = NULL;
+						}
+						
 					}
 				}
 				
 				if( found )
 				{
+					// arbitration lock still held
+					
+					if( found->getTerminationState() == kNeedsTermination )
+					{
+						found->setTerminationState( kNotTerminated );
+					}
+					
+					found->unlockForArbitration();
+										
 					found->setConfigDirectory( unit );
+
 					clientSet->removeObject( found );
+					
 					break;
 				}
+
 		
 				newDevice = new IOFireWireUnit;
 		
@@ -1290,6 +1354,30 @@ IOReturn IOFireWireDevice::processUnitDirectories( OSSet * unitSet )
 	{
 		iterator->release();
 	}
+	
+	//
+	// destroy any units that have disappeared
+	//
+	
+	if( status == kIOReturnSuccess )
+	{
+		clientIterator->reset();
+		while( (client = clientIterator->getNextObject()) ) 
+		{
+			IOFireWireUnit * unit;
+			
+			unit = OSDynamicCast(IOFireWireUnit, client);
+			
+			if( unit )
+			{
+				unit->terminateUnit();
+			}
+		}
+	}
+	
+	//
+	// cleanup
+	//
 	
 	if( clientIterator != NULL )
 	{
@@ -1379,9 +1467,11 @@ IOReturn IOFireWireDevice::message( UInt32 mess, IOService * provider,
     return IOService::message(mess, provider, argument );
 }
 
-/**
- ** Open / Close methods
- **/
+ #pragma mark -
+
+/////////////////////////////////////////////////////////////////////////////
+// open / close
+//
  
  // we override these two methods to allow a reference counted open from
  // IOFireWireUnits only.  Exclusive access is enforced for non-Unit clients.
@@ -1392,6 +1482,8 @@ IOReturn IOFireWireDevice::message( UInt32 mess, IOService * provider,
  
 bool IOFireWireDevice::handleOpen( IOService * forClient, IOOptionBits options, void * arg )
 {
+	// arbitration lock is held
+
     bool ok = true;
     
     IOFireWireUnit * unitClient = OSDynamicCast( IOFireWireUnit, forClient );
@@ -1444,6 +1536,8 @@ bool IOFireWireDevice::handleOpen( IOService * forClient, IOOptionBits options, 
 
 void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options )
 {
+	// arbitration lock is held
+
     IOFireWireUnit * unitClient = OSDynamicCast( IOFireWireUnit, forClient );
     if( unitClient != NULL )
     {
@@ -1456,10 +1550,10 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
                 IOService::handleClose( this, options );
                 
                 // terminate if we're no longer on the bus and haven't already been terminated.
-                if( fNodeID == kFWBadNodeID && !isTerminated() ) 
+                if( getTerminationState() == kNeedsTermination ) 
 				{
-					setTerminated( true );
-                    IOCreateThread(terminateDevice, this);
+					setTerminationState( kTerminated );
+                    IOCreateThread( terminateDevice, this );
                 }
             }
         }
@@ -1472,9 +1566,9 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
             IOService::handleClose( forClient, options );
             
             // terminate if we're no longer on the bus
-            if( fNodeID == kFWBadNodeID && !isTerminated() )
+			if( getTerminationState() == kNeedsTermination ) 
 			{
-				setTerminated( true );
+				setTerminationState( kTerminated );
                 IOCreateThread(terminateDevice, this);
 			}
 		}
@@ -1487,6 +1581,8 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
 
 bool IOFireWireDevice::handleIsOpen( const IOService * forClient ) const
 {
+	// arbitration lock is held
+
     if( forClient == NULL )
     {
         return (fOpenFromUnitCount != 0 || fOpenFromDevice);
@@ -1610,7 +1706,6 @@ IOReturn IOFireWireDevice::configureNode( void )
 		
 		if( fNodeFlags & kIOFWDisablePhyOnSleep && (hopCount() == 1) )
 		{
-//			IOLog( "IOFireWireDevice::configureNode - kIOFWDisablePhyOnSleep %lx\n", fNodeID );
 			fControl->disablePhyPortOnSleepForNodeID( fNodeID & 0x3f );
 		}
 	}

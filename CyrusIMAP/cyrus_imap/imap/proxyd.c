@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: proxyd.c,v 1.192 2004/12/17 16:32:20 ken3 Exp $ */
+/* $Id: proxyd.c,v 1.5 2005/03/05 00:37:02 dasenbro Exp $ */
 
 #include <config.h>
 

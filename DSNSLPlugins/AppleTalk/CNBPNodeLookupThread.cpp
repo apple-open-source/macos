@@ -81,14 +81,14 @@ void* CNBPNodeLookupThread::Run( void )
             {
                 // so we don't have zones
                 // But we do want to publish our * zone...
-                AddResult(kNoZoneLabel);
+                AddResult(CFSTR(kNoZoneLabel));
                 status = 0;
                 actualCount = 0;
             }
         }
         else
         {
-            status = memFullErr;
+            status = eMemoryAllocError;
         }
         
         // ZIPGetZoneList returns +1 if the maxCount was exceeded.
@@ -97,7 +97,7 @@ void* CNBPNodeLookupThread::Run( void )
             bufferSize *= 2;
             mBuffer = (char *)realloc( mBuffer, bufferSize );
             if ( mBuffer == nil )
-                status = memFullErr;
+                status = eMemoryAllocError;
         }
     }
     while ( status > 0 && mBuffer );

@@ -96,7 +96,7 @@ LINK32=link.exe
 # PROP Target_Dir ""
 MTL=midl.exe
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN64" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /FD /c
-# ADD CPP /nologo /MD /Za /W3 /GX /Zi /O2 /I "..\..\..\include" /I "..\..\tools\ctestfw" /I "..\..\common" /I "..\..\i18n" /I "..\..\tools\toolutil" /D "WIN64" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FD /QIA64_fmaopt /Zm600 /c
+# ADD CPP /nologo /MD /Za /W3 /GX /Zi /O2 /I "..\..\..\include" /I "..\..\tools\ctestfw" /I "..\..\common" /I "..\..\i18n" /I "..\..\tools\toolutil" /D "WIN64" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FD /Zm600 /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -121,7 +121,7 @@ LINK32=link.exe
 # PROP Target_Dir ""
 MTL=midl.exe
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN64" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /FD /GZ /c
-# ADD CPP /nologo /MDd /Za /W3 /Gm /GX /Zi /Od /I "..\..\..\include" /I "..\..\tools\ctestfw" /I "..\..\common" /I "..\..\i18n" /I "..\..\tools\toolutil" /D "WIN64" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FR /FD /GZ /QIA64_fmaopt /Zm600 /c
+# ADD CPP /nologo /MDd /Za /W3 /Gm /GX /Zi /Od /I "..\..\..\include" /I "..\..\tools\ctestfw" /I "..\..\common" /I "..\..\i18n" /I "..\..\tools\toolutil" /D "WIN64" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FR /FD /GZ /Zm600 /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -325,6 +325,10 @@ SOURCE=.\chashtst.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\sorttest.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\trietest.c
 # End Source File
 # Begin Source File
@@ -472,10 +476,18 @@ SOURCE=.\cnumtst.c
 
 SOURCE=.\cnumtst.h
 # End Source File
+# Begin Source File
+
+SOURCE=.\utmstest.c
+# End Source File
 # End Group
 # Begin Group "locales & resources"
 
 # PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=.\cldrtest.c
+# End Source File
 # Begin Source File
 
 SOURCE=.\cloctst.c
@@ -526,11 +538,15 @@ SOURCE=.\cutiltst.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\mstrmtst.c
+SOURCE=.\hpmufn.c
 # End Source File
 # Begin Source File
 
 SOURCE=.\putiltst.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tracetst.c
 # End Source File
 # End Group
 # Begin Group "normalization"
@@ -568,6 +584,10 @@ SOURCE=.\usettest.c
 # Begin Group "regex"
 
 # PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=.\reapits.c
+# End Source File
 # End Group
 # Begin Group "strings"
 
@@ -603,6 +623,30 @@ SOURCE=.\utf8tst.c
 # Begin Source File
 
 SOURCE=.\utransts.c
+# End Source File
+# End Group
+# Begin Group "sprep & idna"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=.\idnatest.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\nfsprep.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\nfsprep.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\spreptst.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\sprpdata.c
 # End Source File
 # End Group
 # End Target

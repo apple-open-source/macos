@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeFillS.man,v 1.2 2001/01/27 18:20:04 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeFillS.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,21 +144,12 @@
 .SH NAME
 XSetFillStyle, XSetFillRule \- GC convenience routines
 .SH SYNTAX
-XSetFillStyle\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIfill_style\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIfill_style\fP\^;
-.LP
-XSetFillRule\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIfill_rule\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIfill_rule\fP\^;
+.HP
+int XSetFillStyle\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, int
+\fIfill_style\fP\^); 
+.HP
+int XSetFillRule\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, int
+\fIfill_rule\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

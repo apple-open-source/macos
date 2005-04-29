@@ -1,6 +1,6 @@
 /* Abstraction of GNU v2 abi.
 
-   Copyright 2001, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
 
    Contributed by Daniel Berlin <dberlin@redhat.com>
 
@@ -30,6 +30,7 @@
 #include "value.h"
 #include "demangle.h"
 #include "cp-abi.h"
+#include "cp-support.h"
 
 #include <ctype.h>
 
@@ -184,7 +185,7 @@ gnuv2_virtual_fn_field (struct value **arg1p, struct fn_field * f, int j,
 }
 
 
-struct type *
+static struct type *
 gnuv2_value_rtti_type (struct value *v, int *full, int *top, int *using_enc)
 {
   struct type *known_type;
@@ -259,7 +260,7 @@ gnuv2_value_rtti_type (struct value *v, int *full, int *top, int *using_enc)
   /* Try to find a symbol that is the vtable */
   minsym=lookup_minimal_symbol_by_pc(vtbl);
   if (minsym==NULL
-      || (demangled_name=SYMBOL_NAME(minsym))==NULL
+      || (demangled_name=DEPRECATED_SYMBOL_NAME (minsym))==NULL
       || !is_vtable_name (demangled_name))
     return NULL;
 
@@ -268,9 +269,9 @@ gnuv2_value_rtti_type (struct value *v, int *full, int *top, int *using_enc)
   *(strchr(demangled_name,' '))=0;
 
   /* Lookup the type for the name */
-  rtti_type=lookup_typename(demangled_name, (struct block *)0,1);
-
-  if (rtti_type==NULL)
+  /* FIXME: chastain/2003-11-26: block=NULL is bogus.  See pr gdb/1465. */
+  rtti_type = cp_lookup_rtti_type (demangled_name, NULL);
+  if (rtti_type == NULL)
     return NULL;
 
   if (TYPE_N_BASECLASSES(rtti_type) > 1 &&  full && (*full) != 1)
@@ -363,8 +364,8 @@ gnuv2_baseclass_offset (struct type *type, int index, char *valaddr,
   if (BASETYPE_VIA_VIRTUAL (type, index))
     {
       /* Must hunt for the pointer to this virtual baseclass.  */
-      register int i, len = TYPE_NFIELDS (type);
-      register int n_baseclasses = TYPE_N_BASECLASSES (type);
+      int i, len = TYPE_NFIELDS (type);
+      int n_baseclasses = TYPE_N_BASECLASSES (type);
 
       /* First look for the virtual baseclass pointer
          in the fields.  */
@@ -409,6 +410,8 @@ init_gnuv2_ops (void)
   gnu_v2_abi_ops.rtti_type = gnuv2_value_rtti_type;
   gnu_v2_abi_ops.baseclass_offset = gnuv2_baseclass_offset;
 }
+
+extern initialize_file_ftype _initialize_gnu_v2_abi; /* -Wmissing-prototypes */
 
 void
 _initialize_gnu_v2_abi (void)

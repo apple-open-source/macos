@@ -126,7 +126,7 @@ static const char *paddr (struct sockaddr *sa)
 		    NI_NUMERICHOST|NI_NUMERICSERV))
 	strcpy(buf, "<unprintable>");
     else {
-	int len = sizeof(buf) - strlen(buf);
+	unsigned int len = sizeof(buf) - strlen(buf);
 	char *p = buf + strlen(buf);
 	if (len > 2+strlen(portbuf)) {
 	    *p++ = '.';
@@ -139,10 +139,12 @@ static const char *paddr (struct sockaddr *sa)
 
 /* KDC data.  */
 
+enum kdc_conn_type { CONN_UDP, CONN_TCP_LISTENER, CONN_TCP };
+
 /* Per-connection info.  */
 struct connection {
     int fd;
-    enum { CONN_UDP, CONN_TCP_LISTENER, CONN_TCP } type;
+    enum kdc_conn_type type;
     void (*service)(struct connection *, const char *, int);
     union {
 	/* Type-specific information.  */
@@ -206,7 +208,7 @@ struct connection {
   (set.data[idx] = set.data[--set.n], 0)
 
 #define FREE_SET_DATA(set) if(set.data) free(set.data);                 \
-   (set.data = 0, set.max = 0)
+   (set.data = 0, set.max = 0, set.n = 0)
 
 
 /* Set<struct connection *> connections; */
@@ -220,6 +222,8 @@ static SET(u_short) udp_port_data, tcp_port_data;
 #include "cm.h"
 
 static struct select_state sstate;
+
+static int getcurtime (struct timeval *tvp);
 
 static krb5_error_code add_udp_port(int port)
 {
@@ -262,7 +266,7 @@ static krb5_error_code add_tcp_port(int port)
 #define USE_TYPE SOCK_DGRAM
 #define USE_PROTO 0
 #define SOCKET_ERRNO errno
-#include "foreachaddr.c"
+#include "foreachaddr.h"
 
 struct socksetup {
     const char *prog;
@@ -270,7 +274,7 @@ struct socksetup {
 };
 
 static struct connection *
-add_fd (struct socksetup *data, int sock, int conntype,
+add_fd (struct socksetup *data, int sock, enum kdc_conn_type conntype,
 	void (*service)(struct connection *, const char *, int))
 {
     struct connection *newconn;
@@ -328,8 +332,9 @@ delete_fd (struct connection *xconn)
     FOREACH_ELT(connections, i, conn)
 	if (conn == xconn) {
 	    DEL(connections, i);
-	    return;
+	    break;
 	}
+    free(xconn);
 }
 
 static int
@@ -358,6 +363,21 @@ setup_a_tcp_listener(struct socksetup *data, struct sockaddr *addr)
 		paddr(addr));
 	return -1;
     }
+    if (setreuseaddr(sock, 1) < 0)
+	com_err(data->prog, errno,
+		"Cannot enable SO_REUSEADDR on fd %d", sock);
+#ifdef KRB5_USE_INET6
+    if (addr->sa_family == AF_INET6) {
+#ifdef IPV6_V6ONLY
+	if (setv6only(sock, 1))
+	    com_err(data->prog, errno, "setsockopt(IPV6_V6ONLY,1) failed");
+	else
+	    com_err(data->prog, 0, "setsockopt(IPV6_V6ONLY,1) worked");
+#else
+	krb5_klog_syslog(LOG_INFO, "no IPV6_V6ONLY socket option support");
+#endif /* IPV6_V6ONLY */
+    }
+#endif /* KRB5_USE_INET6 */
     if (bind(sock, addr, socklen(addr)) == -1) {
 	com_err(data->prog, errno,
 		"Cannot bind TCP server socket on %s", paddr(addr));
@@ -431,18 +451,6 @@ setup_tcp_listener_ports(struct socksetup *data)
 	    s6 = setup_a_tcp_listener(data, (struct sockaddr *)&sin6);
 	    if (s6 < 0)
 		return -1;
-#ifdef IPV6_V6ONLY
-	    if (setv6only(s6, 0))
-		com_err(data->prog, errno, "setsockopt(IPV6_V6ONLY,0) failed");
-#endif
-
-	    if (setreuseaddr(s6, 0) < 0) {
-		com_err(data->prog, errno,
-			"disabling SO_REUSEADDR on IPv6 TCP socket for port %d",
-			port);
-		close(s6);
-		return -1;
-	    }
 
 	    s4 = setup_a_tcp_listener(data, (struct sockaddr *)&sin4);
 #endif /* KRB5_USE_INET6 */
@@ -513,6 +521,10 @@ setup_udp_port(void *P_data, struct sockaddr *addr)
 #endif
 #ifdef AF_LINK /* some BSD systems, AIX */
     case AF_LINK:
+	return 0;
+#endif
+#ifdef AF_DLI /* Direct Link Interface - DEC Ultrix/OSF1 link layer? */
+    case AF_DLI:
 	return 0;
 #endif
     default:
@@ -803,6 +815,10 @@ static void accept_tcp_connection(struct connection *conn, const char *prog,
 	    strcpy(p, tmpbuf);
 	}
     }
+#if 0
+    krb5_klog_syslog(LOG_INFO, "accepted TCP connection on socket %d from %s",
+		     s, newconn->u.tcp.addrbuf);
+#endif
 
     newconn->u.tcp.addr_s = addr_s;
     newconn->u.tcp.addrlen = addrlen;
@@ -841,6 +857,7 @@ static void accept_tcp_connection(struct connection *conn, const char *prog,
 		newconn->u.tcp.addrbuf);
 	delete_fd(newconn);
 	close(s);
+	tcp_data_counter--;
 	return;
     }
     newconn->u.tcp.offset = 0;
@@ -857,7 +874,6 @@ static void accept_tcp_connection(struct connection *conn, const char *prog,
 static void
 kill_tcp_connection(struct connection *conn)
 {
-    delete_fd(conn);
     if (conn->u.tcp.response)
 	krb5_free_data(kdc_context, conn->u.tcp.response);
     if (conn->u.tcp.buffer)
@@ -873,6 +889,7 @@ kill_tcp_connection(struct connection *conn)
 	    sstate.max--;
     close(conn->fd);
     conn->fd = -1;
+    delete_fd(conn);
     tcp_data_counter--;
 }
 
@@ -882,12 +899,10 @@ process_tcp_connection(struct connection *conn, const char *prog, int selflags)
     if (selflags & SSF_WRITE) {
 	ssize_t nwrote;
 	SOCKET_WRITEV_TEMP tmp;
-	krb5_error_code e;
 
 	nwrote = SOCKET_WRITEV(conn->fd, conn->u.tcp.sgp, conn->u.tcp.sgnum,
 			       tmp);
 	if (nwrote < 0) {
-	    e = SOCKET_ERRNO;
 	    goto kill_tcp_connection;
 	}
 	if (nwrote == 0)
@@ -1006,17 +1021,42 @@ listen_and_process(const char *prog)
     int			nfound;
     struct select_state sout;
     int			i, sret;
+    int			netchanged; 
     krb5_error_code	err;
 
-    if (conns == (struct connection **) NULL)
-	return KDC5_NONET;
-    
+    netchanged = 0;
+    if (conns == (struct connection **) NULL){
+       sleep(30);
+       err = setup_network(prog);
+       if (conns == (struct connection **) NULL)
+                       return KDC5_NONET;
+               if (err){
+                       com_err(prog, err,"while initalizing the network");
+                       return err;
+               }
+     }   
+ 
     while (!signal_requests_exit) {
 	if (signal_requests_hup) {
 	    krb5_klog_reopen(kdc_context);
 	    signal_requests_hup = 0;
 	}
-	sstate.end_time.tv_sec = sstate.end_time.tv_usec = 0;
+
+
+       if (signal_requests_network) {
+               com_err(prog, EINTR, "signal_requests_network recieved");
+               err = getcurtime(&(sstate.end_time));
+               if(err) {
+                       com_err(prog, err, "while getting the time");
+                       continue;
+               }
+               sstate.end_time.tv_sec += 3;
+               netchanged = 1;
+       } else {
+               sstate.end_time.tv_sec = sstate.end_time.tv_usec = 0;
+       }
+
+
 	err = krb5int_cm_call_select(&sstate, &sout, &sret);
 	if (err) {
 	    com_err(prog, err, "while selecting for network input(1)");
@@ -1027,6 +1067,17 @@ listen_and_process(const char *prog)
 		com_err(prog, errno, "while selecting for network input(2)");
 	    continue;
 	}
+	if(netchanged && (sret == 0)) {
+               signal_requests_network = 0;
+               (void)closedown_network(prog);
+               err = setup_network(prog);
+               if(err) {
+                       com_err(prog, err, "while re-initializing network");
+                       return err;
+               }
+               netchanged = 0;
+       }
+
 	nfound = sret;
 	for (i=0; i<n_sockets && nfound > 0; i++) {
 	    int sflags = 0;
@@ -1056,6 +1107,11 @@ closedown_network(const char *prog)
 	if (conn->fd >= 0)
 	    (void) close(conn->fd);
 	DEL (connections, i);
+	/* There may also be per-connection data in the tcp structure
+	   (tcp.buffer, tcp.response) that we're not freeing here.
+	   That should only happen if we quit with a connection in
+	   progress.  */
+	free(conn);
     }
     FREE_SET_DATA(connections);
     FREE_SET_DATA(udp_port_data);
@@ -1063,5 +1119,25 @@ closedown_network(const char *prog)
 
     return 0;
 }
+
+// stolen from sendto_kdc.c
+static int getcurtime (struct timeval *tvp)
+{
+#ifdef _WIN32
+    struct _timeb tb;
+    _ftime(&tb);
+    tvp->tv_sec = tb.time;
+    tvp->tv_usec = tb.millitm * 1000;
+    /* Can _ftime fail?  */
+    return 0;
+#else
+    if (gettimeofday(tvp, 0)) {
+      //dperror("gettimeofday");
+      return errno;
+    }
+    return 0;
+#endif
+}
+
 
 #endif /* INET */

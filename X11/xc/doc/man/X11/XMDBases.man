@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XMDBases.man,v 1.2 2001/01/27 18:20:01 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XMDBases.man,v 1.3 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,23 +144,14 @@
 .SH NAME
 XrmMergeDatabases, XrmCombineDatabase, XrmCombineFileDatabase \- merge resource databases
 .SH SYNTAX
-void XrmMergeDatabases(\^\fIsource_db\fP, \fItarget_db\fP\^)
-.br
-      XrmDatabase \fIsource_db\fP, *\fItarget_db\fP\^;
-.LP
-void XrmCombineDatabase(\^\fIsource_db\fP, \fItarget_db\fP, \fIoverride\fP\^)
-.br
-      XrmDatabase \fIsource_db\fP, *\fItarget_db\fP\^;
-.br
-      Bool \fIoverride\fP;
-.LP
-Status XrmCombineFileDatabase(\^\fIfilename\fP, \fItarget_db\fP, \fIoverride\fP\^)
-.br
-      char *\fIfilename\fP;
-.br
-      XrmDatabase *\fItarget_db\fP\^;
-.br
-      Bool \fIoverride\fP;
+.HP
+void XrmMergeDatabases(\^XrmDatabase \fIsource_db\fP, *\fItarget_db\fP\^); 
+.HP
+void XrmCombineDatabase(\^XrmDatabase \fIsource_db\fP, XrmDatabase
+*\fItarget_db\fP\^); 
+.HP
+Status XrmCombineFileDatabase(\^char *\fIfilename\fP, XrmDatabase
+*\fItarget_db\fP\^, Bool \fIoverride\fP); 
 .SH ARGUMENTS
 .IP \fIsource_db\fP 1i
 Specifies the resource database that is to be merged into the target database.

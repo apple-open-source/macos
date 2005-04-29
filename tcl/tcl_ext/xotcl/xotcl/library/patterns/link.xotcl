@@ -1,0 +1,48 @@
+# $Id: s.link.xotcl 1.7 01/03/23 21:55:33+01:00 neumann@somewhere.wu-wien.ac.at $
+package provide xotcl::pattern::link 0.9
+#
+# establish/introspect 'link' through link-instproc
+#
+Class Link -parameter {
+  {link ""}
+}
+
+Link instproc adapterFilter args {
+  set l [my set link]
+  set m [self calledproc]
+
+  # let link/destroy requests go through to the link
+  if {$m == "link" || $m == "destroy"} {
+    return [next]
+  }
+
+  if {[Object isobject $l]} {
+    puts stderr "adapting $m on link [self] -> $l"
+    eval $l $m $args
+  } else {
+    # if there is currently no link establish -> return
+    if {$l == ""} {return}
+    error "Link: object $l is no xotcl object"
+  }
+}
+
+Link instfilter adapterFilter
+
+# Link L
+# Class A
+
+# L link A
+
+# L w
+
+# w set a 45
+
+# puts [w set a]
+
+# puts [L link]
+
+# #A destroy
+# puts ----1
+# L set r 45
+# puts ----2
+

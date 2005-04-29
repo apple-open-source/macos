@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:53:28 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/Xserver/hw/xnest/Imakefile,v 3.27 2003/01/16 16:09:10 eich Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xnest/Imakefile,v 3.29 2003/11/16 05:05:20 dawes Exp $
 
 #include <Server.tmpl>
 
@@ -57,10 +57,12 @@ OBJS =	Args.o \
 
 INCLUDES = -I. -I$(XBUILDINCDIR) -I$(FONTINCSRC) \
 	   -I../../mi -I../../include -I../../os \
-           -I$(EXTINCSRC) -I$(XINCLUDESRC) -I$(LIBSRC)
+           -I$(EXTINCSRC) -I$(XINCLUDESRC) -I$(LIBSRC) -I$(SERVERSRC)/Xext
 
 DEFINES = $(OS_DEFINES) $(EXT_DEFINES) -DNO_HW_ONLY_EXTS \
 	  -UXFree86LOADER  -UMITSHM
+
+XKB_DEFINES = -DXKB_BASE_DIRECTORY=\"$(LIBDIR)/xkb/\"
 
 all:: $(OBJS)
 
@@ -68,6 +70,7 @@ LinkSourceFile(stubs.c,$(SERVERSRC)/Xi)
 SpecialCObjectRule(Init,$(ICONFIGFILES),$(_NOOP_))
 LinkSourceFile(miinitext.c,$(SERVERSRC)/mi)
 SpecialCObjectRule(miinitext,$(ICONFIGFILES),-UDPMSExtension)
+SpecialCObjectRule(Keyboard,$(ICONFIGFILES),$(XKB_DEFINES))
 
 NormalLibraryObjectRule()
 NormalLibraryTarget(xnest,$(OBJS))

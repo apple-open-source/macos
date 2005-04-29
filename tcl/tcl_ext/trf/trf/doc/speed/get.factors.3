@@ -1,0 +1,23 @@
+# -*- tcl -*-
+
+# set a old
+# set b new
+# set c <num>
+# source this-file
+
+catch {unset time}
+catch {unset f}
+source test.$c.$a.data
+source test.$c.$b.data
+
+foreach al {bin oct hex} {
+    foreach ti {1000 1000000} {
+
+	set ta $time($al,$ti,$a)
+	set tb $time($al,$ti,$b)
+
+	set f($al,$ti) [list $ta $tb [expr {double ($ta) / double ($tb)}]]
+    }
+}
+
+parray f

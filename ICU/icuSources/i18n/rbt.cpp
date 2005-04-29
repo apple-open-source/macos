@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -18,16 +18,20 @@
 #include "rbt_data.h"
 #include "rbt_rule.h"
 #include "rbt.h"
+#include "umutex.h"
 
 U_NAMESPACE_BEGIN
 
-const char RuleBasedTransliterator::fgClassID = 0; // Value is irrelevant
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(RuleBasedTransliterator)
+
+static UMTX  transliteratorDataMutex = NULL;
+static Replaceable *gLockedText = NULL;
 
 void RuleBasedTransliterator::_construct(const UnicodeString& rules,
                                          UTransDirection direction,
                                          UParseError& parseError,
                                          UErrorCode& status) {
-    data = 0;
+    fData = 0;
     isDataOwned = TRUE;
     if (U_FAILURE(status)) {
         return;
@@ -45,17 +49,99 @@ void RuleBasedTransliterator::_construct(const UnicodeString& rules,
         return;
     }
 
-    data = parser.orphanData();
-    setMaximumContextLength(data->ruleSet.getMaximumContextLength());
+    fData = parser.orphanData();
+    setMaximumContextLength(fData->ruleSet.getMaximumContextLength());
+}
+
+/**
+ * Constructs a new transliterator from the given rules.
+ * @param id            the id for the transliterator.
+ * @param rules         rules, separated by ';'
+ * @param direction     either FORWARD or REVERSE.
+ * @param adoptedFilter the filter for this transliterator.
+ * @param parseError    Struct to recieve information on position 
+ *                      of error if an error is encountered
+ * @param status        Output param set to success/failure code.
+ * @exception IllegalArgumentException if rules are malformed
+ * or direction is invalid.
+ */
+RuleBasedTransliterator::RuleBasedTransliterator(
+                            const UnicodeString& id,
+                            const UnicodeString& rules,
+                            UTransDirection direction,
+                            UnicodeFilter* adoptedFilter,
+                            UParseError& parseError,
+                            UErrorCode& status) :
+    Transliterator(id, adoptedFilter) {
+    _construct(rules, direction,parseError,status);
+}
+
+/**
+ * Constructs a new transliterator from the given rules.
+ * @param id            the id for the transliterator.
+ * @param rules         rules, separated by ';'
+ * @param direction     either FORWARD or REVERSE.
+ * @param adoptedFilter the filter for this transliterator.
+ * @param status        Output param set to success/failure code.
+ * @exception IllegalArgumentException if rules are malformed
+ * or direction is invalid.
+ */
+RuleBasedTransliterator::RuleBasedTransliterator(
+                            const UnicodeString& id,
+                            const UnicodeString& rules,
+                            UTransDirection direction,
+                            UnicodeFilter* adoptedFilter,
+                            UErrorCode& status) :
+    Transliterator(id, adoptedFilter) {
+    UParseError parseError;
+    _construct(rules, direction,parseError, status);
+}
+
+/**
+ * Covenience constructor with no filter.
+ */
+RuleBasedTransliterator::RuleBasedTransliterator(
+                            const UnicodeString& id,
+                            const UnicodeString& rules,
+                            UTransDirection direction,
+                            UErrorCode& status) :
+    Transliterator(id, 0) {
+    UParseError parseError;
+    _construct(rules, direction,parseError, status);
+}
+
+/**
+ * Covenience constructor with no filter and FORWARD direction.
+ */
+RuleBasedTransliterator::RuleBasedTransliterator(
+                            const UnicodeString& id,
+                            const UnicodeString& rules,
+                            UErrorCode& status) :
+    Transliterator(id, 0) {
+    UParseError parseError;
+    _construct(rules, UTRANS_FORWARD, parseError, status);
+}
+
+/**
+ * Covenience constructor with FORWARD direction.
+ */
+RuleBasedTransliterator::RuleBasedTransliterator(
+                            const UnicodeString& id,
+                            const UnicodeString& rules,
+                            UnicodeFilter* adoptedFilter,
+                            UErrorCode& status) :
+    Transliterator(id, adoptedFilter) {
+    UParseError parseError;
+    _construct(rules, UTRANS_FORWARD,parseError, status);
 }
 
 RuleBasedTransliterator::RuleBasedTransliterator(const UnicodeString& id,
                                  const TransliterationRuleData* theData,
                                  UnicodeFilter* adoptedFilter) :
     Transliterator(id, adoptedFilter),
-    data((TransliterationRuleData*)theData), // cast away const
+    fData((TransliterationRuleData*)theData), // cast away const
     isDataOwned(FALSE) {
-    setMaximumContextLength(data->ruleSet.getMaximumContextLength());
+    setMaximumContextLength(fData->ruleSet.getMaximumContextLength());
 }
 
 /**
@@ -65,9 +151,9 @@ RuleBasedTransliterator::RuleBasedTransliterator(const UnicodeString& id,
                                                  TransliterationRuleData* theData,
                                                  UBool isDataAdopted) :
     Transliterator(id, 0),
-    data(theData),
+    fData(theData),
     isDataOwned(isDataAdopted) {
-    setMaximumContextLength(data->ruleSet.getMaximumContextLength());
+    setMaximumContextLength(fData->ruleSet.getMaximumContextLength());
 }
 
 /**
@@ -75,7 +161,7 @@ RuleBasedTransliterator::RuleBasedTransliterator(const UnicodeString& id,
  */
 RuleBasedTransliterator::RuleBasedTransliterator(
         const RuleBasedTransliterator& other) :
-    Transliterator(other), data(other.data),
+    Transliterator(other), fData(other.fData),
     isDataOwned(other.isDataOwned) {
 
     // The data object may or may not be owned.  If it is not owned we
@@ -88,7 +174,7 @@ RuleBasedTransliterator::RuleBasedTransliterator(
     // will be later deleted.  System transliterators contain
     // non-owned data.
     if (isDataOwned) {
-        data = new TransliterationRuleData(*other.data);
+        fData = new TransliterationRuleData(*other.fData);
     }
 }
 
@@ -98,7 +184,7 @@ RuleBasedTransliterator::RuleBasedTransliterator(
 RuleBasedTransliterator::~RuleBasedTransliterator() {
     // Delete the data object only if we own it.
     if (isDataOwned) {
-        delete data;
+        delete fData;
     }
 }
 
@@ -145,30 +231,61 @@ RuleBasedTransliterator::handleTransliterate(Replaceable& text, UTransPosition& 
         loopLimit <<= 4;
     }
 
+    // Transliterator locking.  Rule-based Transliterators are not thread safe; concurrent
+    //   operations must be prevented.  
+    // A Complication: compound transliterators can result in recursive entries to this
+    //   function, sometimes with different "This" objects, always with the same text. 
+    //   Double-locking must be prevented in these cases.
+    //   
+
+    // If the transliteration data is exclusively owned by this transliterator object,
+    //   we don't need to do any locking.  No sharing between transliterators is possible,
+    //   so no concurrent access from multiple threads is possible.
+    UBool    lockedMutexAtThisLevel = FALSE;
+    if (isDataOwned == FALSE) {
+        umtx_lock(NULL);
+            // Test whether this request is operating on the same text string as some
+            //   some other transliteration that is still in progress and holding the 
+            //   transliteration mutex.  If so, do not lock the transliteration
+            //    mutex again.
+            UBool needToLock = (&text != gLockedText);
+        umtx_unlock(NULL);
+        if (needToLock) {
+            umtx_lock(&transliteratorDataMutex);
+            gLockedText = &text;
+            lockedMutexAtThisLevel = TRUE;
+        }
+    }
+    
+
     while (index.start < index.limit &&
            loopCount <= loopLimit &&
-           data->ruleSet.transliterate(text, index, isIncremental)) {
+           fData->ruleSet.transliterate(text, index, isIncremental)) {
         ++loopCount;
+    }
+    if (lockedMutexAtThisLevel) {
+        gLockedText = NULL;
+        umtx_unlock(&transliteratorDataMutex);
     }
 }
 
 UnicodeString& RuleBasedTransliterator::toRules(UnicodeString& rulesSource,
                                                 UBool escapeUnprintable) const {
-    return data->ruleSet.toRules(rulesSource, escapeUnprintable);
+    return fData->ruleSet.toRules(rulesSource, escapeUnprintable);
 }
 
 /**
  * Implement Transliterator framework
  */
 void RuleBasedTransliterator::handleGetSourceSet(UnicodeSet& result) const {
-    data->ruleSet.getSourceTargetSet(result, FALSE);
+    fData->ruleSet.getSourceTargetSet(result, FALSE);
 }
 
 /**
  * Override Transliterator framework
  */
 UnicodeSet& RuleBasedTransliterator::getTargetSet(UnicodeSet& result) const {
-    return data->ruleSet.getSourceTargetSet(result, TRUE);
+    return fData->ruleSet.getSourceTargetSet(result, TRUE);
 }
 
 U_NAMESPACE_END

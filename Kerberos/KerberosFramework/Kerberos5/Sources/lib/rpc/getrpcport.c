@@ -43,16 +43,22 @@ static  char sccsid[] = "@(#)getrpcport.c 1.3 87/08/11 SMI";
 #include <sys/socket.h>
 
 int
-gssrpc_getrpcport(host, prognum, versnum, proto)
-	char *host;
-	rpc_u_int32 prognum, versnum, proto;
+gssrpc_getrpcport(
+	char *host,
+	rpcprog_t prognum,
+	rpcvers_t versnum,
+	rpcprot_t proto)
 {
 	struct sockaddr_in addr;
 	struct hostent *hp;
 
 	if ((hp = gethostbyname(host)) == NULL)
 		return (0);
+	memset(&addr, 0, sizeof(addr));
 	memmove((char *) &addr.sin_addr, hp->h_addr, sizeof(addr.sin_addr));
+#if HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+	addr.sin_len = sizeof(addr);
+#endif
 	addr.sin_family = AF_INET;
 	addr.sin_port =  0;
 	return (pmap_getport(&addr, prognum, versnum, proto));

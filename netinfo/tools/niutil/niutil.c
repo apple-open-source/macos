@@ -13,7 +13,6 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <ctype.h>
-#include <c.h>
 #include <strings.h>
 #include <unistd.h>
 #include <stdlib.h>

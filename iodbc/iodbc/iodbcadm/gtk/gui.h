@@ -1,7 +1,7 @@
 /*
  *  gui.h
  *
- *  $Id: gui.h,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: gui.h,v 1.3 2004/11/11 01:52:39 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -80,64 +80,76 @@ extern char* szTabNames[];
 extern char* szDSNButtons[];
 extern char* szDriverColumnNames[];
 
-typedef struct TLOGIN {
-  GtkWidget *username,*password,*mainwnd;
+typedef struct TLOGIN
+{
+  GtkWidget *username, *password, *mainwnd;
   char *user, *pwd;
 } TLOGIN;
 
-typedef struct TFILEDSN {
-  GtkWidget *name_entry,*mainwnd;
+typedef struct TFILEDSN
+{
+  GtkWidget *name_entry, *mainwnd;
   char *name;
 } TFILEDSN;
 
-typedef struct TDSNCHOOSER {
-	GtkWidget *mainwnd,*udsnlist,*sdsnlist;
-	GtkWidget *uadd,*uremove,*utest,*uconfigure;
-	GtkWidget *sadd,*sremove,*stest,*sconfigure;
-	GtkWidget *fadd,*fremove,*ftest,*fconfigure;
-	GtkWidget *dir_list,*file_list,*file_entry,*dir_combo;
+typedef struct TDSNCHOOSER
+{
+  GtkWidget *mainwnd, *udsnlist, *sdsnlist;
+  GtkWidget *uadd, *uremove, *utest, *uconfigure;
+  GtkWidget *sadd, *sremove, *stest, *sconfigure;
+  GtkWidget *fadd, *fremove, *ftest, *fconfigure;
+  GtkWidget *dir_list, *file_list, *file_entry, *dir_combo;
   char *dsn, *curr_dir;
-	int type_dsn;
+  int type_dsn;
 } TDSNCHOOSER;
 
-typedef struct TDRIVERCHOOSER {
-	GtkWidget *driverlist,*mainwnd,*b_add,*b_remove,*b_configure,*b_finish;
+typedef struct TDRIVERCHOOSER
+{
+  GtkWidget *driverlist, *mainwnd, *b_add, *b_remove, *b_configure, *b_finish;
   char *driver;
 } TDRIVERCHOOSER;
 
-typedef struct TCONNECTIONPOOLING {
-	GtkWidget *driverlist,*mainwnd,*enperfmon_rb,*disperfmon_rb,*retwait_entry,*timeout_entry;
-	BOOL changed;
-	char *timeout;
+typedef struct TCONNECTIONPOOLING
+{
+  GtkWidget *driverlist, *mainwnd, *enperfmon_rb, *disperfmon_rb,
+      *retwait_entry, *timeout_entry;
+  BOOL changed;
+  char *timeout;
 } TCONNECTIONPOOLING;
 
-typedef struct TTRANSLATORCHOOSER {
-	GtkWidget *translatorlist,*mainwnd,*b_finish;
+typedef struct TTRANSLATORCHOOSER
+{
+  GtkWidget *translatorlist, *mainwnd, *b_finish;
   char *translator;
 } TTRANSLATORCHOOSER;
 
-typedef struct TCOMPONENT {
-	GtkWidget *componentlist;
+typedef struct TCOMPONENT
+{
+  GtkWidget *componentlist;
 } TCOMPONENT;
 
-typedef struct TTRACING {
-	GtkWidget *logfile_entry, *tracelib_entry, *b_start_stop;
-	GtkWidget *donttrace_rb, *allthetime_rb, *onetime_rb;
-	GtkWidget *filesel;
-	BOOL changed;
+typedef struct TTRACING
+{
+  GtkWidget *logfile_entry, *tracelib_entry, *b_start_stop;
+  GtkWidget *donttrace_rb, *allthetime_rb, *onetime_rb;
+  GtkWidget *filesel;
+  BOOL changed;
 } TTRACING;
 
-typedef struct TCONFIRM {
+typedef struct TCONFIRM
+{
   GtkWidget *mainwnd;
   BOOL yes_no;
 } TCONFIRM;
 
-typedef struct TDRIVERSETUP {
-	GtkWidget *name_entry, *driver_entry, *setup_entry, *key_list, *bupdate;
-	GtkWidget *key_entry, *value_entry;
-	GtkWidget *mainwnd, *filesel;
-	LPSTR connstr;
+typedef struct TDRIVERSETUP
+{
+  GtkWidget *name_entry, *driver_entry, *setup_entry, *key_list, *bupdate;
+  GtkWidget *key_entry, *value_entry;
+  GtkWidget *mainwnd, *filesel;
+  LPSTR connstr;
 } TDRIVERSETUP;
+
 
 void adddsns_to_list(GtkWidget* widget, BOOL systemDSN);
 void userdsn_add_clicked(GtkWidget* widget, TDSNCHOOSER *choose_t);
@@ -160,7 +172,8 @@ void filedsn_filelist_select(GtkWidget* widget, gint row, gint column, GdkEvent 
 void filedsn_filelist_unselect(GtkWidget* widget, gint row, gint column, GdkEvent *event, TDSNCHOOSER *choose_t);
 void filedsn_dirlist_select(GtkWidget* widget, gint row, gint column, GdkEvent *event, TDSNCHOOSER *choose_t);
 void filedsn_lookin_clicked(GtkWidget* widget, void **array);
-void adddrivers_to_list(GtkWidget* widget, BOOL isTrs);
+void adddrivers_to_list(GtkWidget* widget, GtkWidget* dlg);
+void addtranslators_to_list(GtkWidget* widget, GtkWidget* dlg);
 void adddirectories_to_list(HWND hwnd, GtkWidget* widget, LPCSTR path);
 void addfiles_to_list(HWND hwnd, GtkWidget* widget, LPCSTR path);
 void addlistofdir_to_optionmenu(GtkWidget* widget, LPCSTR path, TDSNCHOOSER *choose_t);

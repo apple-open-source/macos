@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: edit_cfg.sh,v 1.1.1.2 2002/01/03 23:53:20 jevans Exp $
+# $Id: edit_cfg.sh,v 1.12 2001/12/23 00:52:40 tom Exp $
 ##############################################################################
 # Copyright (c) 1998,2000,2001 Free Software Foundation, Inc.                #
 #                                                                            #

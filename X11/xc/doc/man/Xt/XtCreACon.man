@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtCreACon.man,v 1.2 2001/01/27 18:20:25 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtCreACon.man,v 1.4 2004/01/12 21:43:19 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,17 +131,14 @@
 .SH NAME
 XtCreateApplicationContext, XtDestroyApplicationContext, XtWidgetToApplicationContext, XtToolkitInitialize \- create, destroy, and obtain an application context
 .SH SYNTAX
-XtAppContext XtCreateApplicationContext()
-.LP
-void XtDestroyApplicationContext(\fIapp_context\fP)
-.br
-      XtAppContext \fIapp_context\fP;
-.LP
-XtAppContext XtWidgetToApplicationContext(\fIw\fP)
-.br
-      Widget \fIw\fP;
-.LP
-void XtToolkitInitialize()
+.HP
+XtAppContext XtCreateApplicationContext(void); 
+.HP
+void XtDestroyApplicationContext(XtAppContext \fIapp_context\fP);
+.HP
+XtAppContext XtWidgetToApplicationContext(Widget \fIw\fP); 
+.HP
+void XtToolkitInitialize(void); 
 .SH ARGUMENTS
 .IP \fIapp_context\fP 1i
 Specifies the application context.

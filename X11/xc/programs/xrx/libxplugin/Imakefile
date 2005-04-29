@@ -2,12 +2,13 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:59 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/xrx/libxplugin/Imakefile,v 1.2 2002/11/22 22:56:05 tsi Exp $
+XCOMM $XFree86: xc/programs/xrx/libxplugin/Imakefile,v 1.4 2003/10/24 20:38:22 tsi Exp $
 
 #if defined(SGIArchitecture) && (OSMajorVersion > 5)
 
-/* Even though we want to build the distribution with -n32, Navigator 3.0 
- * binaries are still built on IRIX 5.2, which means we need to use the 
+#ifndef XFree86Version
+/* Even though we want to build the distribution with -n32, Navigator 3.0
+ * binaries are still built on IRIX 5.2, which means we need to use the
  * old style object format. This is a hack because this Imakefile gets
  * included too late to do this properly, that is to say that the
  * CCOPTIONS in Imake.tmpl gets the -n32 options that we don't want,
@@ -16,21 +17,18 @@ XCOMM $XFree86: xc/programs/xrx/libxplugin/Imakefile,v 1.2 2002/11/22 22:56:05 t
  */
 #undef sgiCCOptions
 #define sgiCCOptions -xansi
+#endif
+
+#include <Library.tmpl>
+
         SRCS = XSecurity.c XAppgroup.c
         OBJS = XSecurity.o XAppgroup.o
     INCLUDES = -I$(XLIBSRC) -I$(EXTINCSRC)
 
 NormalLibraryTarget(xplugin,$(OBJS))
 
-#include <Library.tmpl>
-
-XSecurity.c::
-	RemoveFile($@)
-	$(LN) $(XEXTLIBSRC)/$@ .
-
-XAppgroup.c::
-	RemoveFile($@)
-	$(LN) $(XEXTLIBSRC)/$@ .
+LinkFile(XSecurity.c,$(XEXTLIBSRC)/XSecurity.c)
+LinkFile(XAppgroup.c,$(XEXTLIBSRC)/XAppgroup.c)
 
 #else
 
@@ -161,6 +159,6 @@ XAppgroup.o::
 clean::
 	RemoveFiles($(OBJS))
 
-DependTarget()
-
 #endif
+
+DependTarget()

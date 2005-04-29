@@ -21,6 +21,7 @@
 .\"used in advertising or otherwise to promote the sale, use or other dealings
 .\"in this Software without prior written authorization from GROUPE BULL.
 .\"
+.\" $XFree86: xc/extras/Xpm/sxpm/sxpm.man,v 1.3 2003/10/22 20:39:36 tsi Exp $
 .nr )S 12
 .TH SXPM 1
 .PD
@@ -102,13 +103,13 @@ Do not display the pixmap in a window.  (Useful when using as converter)
 Do not use the clipmask if there is any.
 .TP 8
 .B \-sc \fIsymbol colorname\fP
-Override default color to \fIsymbol\fP to \fIcolorname\fp.
+Override default color to \fIsymbol\fP to \fIcolorname\fP.
 .TP 8
 .B \-sp \fIsymbol pixelvalue\fP
-Override default color to \fIsymbol\fP to \fIpixelvalue\fp.
+Override default color to \fIsymbol\fP to \fIpixelvalue\fP.
 .TP 8
 .B \-cp \fIcolorname pixelvalue\fP
-Override default color to \fIcolorname\fP to \fIpixelvalue\fp.
+Override default color to \fIcolorname\fP to \fIpixelvalue\fP.
 .TP 8
 .B \-rgb \fIfilename\fP
 Search color names in the file \fIfilename\fP and write them out instead of

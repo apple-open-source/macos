@@ -1,0 +1,33 @@
+#!/opt/TclPro1.4/win32-ix86/bin/tclsh83
+#
+
+set ::auto_path [linsert $::auto_path 0 {/users/pat/lib/tcl}]
+package require cgi
+
+set title "SOAP Script upload"
+set methodName {myMethod}
+
+cgi_eval {
+    cgi_input
+    
+    cgi_head {
+	cgi_title $title
+    }
+
+    cgi_body {
+	cgi_h1 align=center $title
+	cgi_form receive-file enctype=multipart/form-data {
+	    p "Specify the SOAP method name for this file"
+	    cgi_text methodName=$methodName
+	    p "Select a file to upload"
+	    cgi_file_button file1 ; br
+	    cgi_submit_button =Upload
+	}
+    }
+}
+
+
+#
+# Local variables:
+# mode: tcl
+# End:

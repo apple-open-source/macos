@@ -7,11 +7,10 @@
  *  wrs(5/28/93) -- modified to be consistent (perform identically) with either
  *                  PDCurses or under Unix System V, R4
  *
- * $Id: testcurs.c,v 1.1.1.2 2002/02/15 21:56:05 jevans Exp $
+ * $Id: testcurs.c,v 1.32 2002/10/19 22:11:24 tom Exp $
  */
 
 #include <test.priv.h>
-#include <ctype.h>
 
 #if defined(XCURSES)
 char *XCursesProgramName = "testcurs";
@@ -47,6 +46,18 @@ const COMMAND command[] =
 };
 #define MAX_OPTIONS SIZEOF(command)
 
+#if !HAVE_STRDUP
+#define strdup my_strdup
+static char *
+strdup(char *s)
+{
+    char *p = (char *) malloc(strlen(s) + 1);
+    if (p)
+	strcpy(p, s);
+    return (p);
+}
+#endif /* not HAVE_STRDUP */
+
 int width, height;
 
 int
@@ -60,6 +71,8 @@ main(
     int new_option = 0;
     bool quit = FALSE;
     unsigned n;
+
+    setlocale(LC_ALL, "");
 
 #ifdef PDCDEBUG
     PDC_debug("testcurs started\n");
@@ -387,13 +400,13 @@ inputTest(WINDOW *win)
 
     repeat = 0;
     do {
-	static char *fmt[] = {
+	static const char *fmt[] = {
 	    "%d %10s",
 	    "%d %[a-zA-Z]s",
 	    "%d %[][a-zA-Z]s",
 	    "%d %[^0-9]"
 	};
-	char *format = fmt[repeat % SIZEOF(fmt)];
+	const char *format = fmt[repeat % SIZEOF(fmt)];
 
 	wclear(win);
 	mvwaddstr(win, 3, 2, "The window should have moved");
@@ -409,7 +422,7 @@ inputTest(WINDOW *win)
 	noraw();
 	num = 0;
 	*buffer = 0;
-	answered = mvwscanw(win, 7, 6, format, &num, buffer);
+	answered = mvwscanw(win, 7, 6, strdup(format), &num, buffer);
 	mvwprintw(win, 8, 6,
 		  "String: %s Number: %d (%d values read)",
 		  buffer, num, answered);

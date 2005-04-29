@@ -37,6 +37,7 @@ DES425_LIB=@DES425_LIB@
 KDB5_DB_LIB=@KDB5_DB_LIB@
 LDFLAGS='@LDFLAGS@'
 RPATH_FLAG='@RPATH_FLAG@'
+PTHREAD_CFLAGS='@PTHREAD_CFLAGS@'
 
 LIBS='@LIBS@'
 GEN_LIB=@GEN_LIB@
@@ -177,6 +178,7 @@ if test -n "$do_libs"; then
 	    -e 's#\$(PROG_LIBPATH)#-L'$libdir'#' \
 	    -e 's#\$(RPATH_FLAG)#'"$RPATH_FLAG"'#' \
 	    -e 's#\$(LDFLAGS)#'"$LDFLAGS"'#' \
+	    -e 's#\$(PTHREAD_CFLAGS)#'"$PTHREAD_CFLAGS"'#' \
 	    -e 's#\$(CFLAGS)#'"$CFLAGS"'#'`
 
     if test $library = 'kdb'; then
@@ -210,7 +212,7 @@ if test -n "$do_libs"; then
     fi
 
     if test $library = 'krb5'; then
-	lib_flags="$lib_flags -lkrb5 -lk5crypto -lcom_err $LIBS $GEN_LIB"
+	lib_flags="$lib_flags -lkrb5 -lk5crypto -lkrb5support -lcom_err $LIBS $GEN_LIB"
     fi
 
     echo $lib_flags

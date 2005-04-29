@@ -101,12 +101,20 @@ IOService * IOFramebufferUserClient::getService( void )
 IOReturn IOFramebufferUserClient::clientMemoryForType( UInt32 type,
         IOOptionBits * flags, IOMemoryDescriptor ** memory )
 {
-    IOMemoryDescriptor *	mem;
-    IOReturn		err;
+    static bool		 havePublishedResource;
+    IOMemoryDescriptor * mem;
+    IOReturn		 err;
 
     switch (type)
     {
         case kIOFBCursorMemory:
+
+	    if (!havePublishedResource)
+	    {
+		havePublishedResource = true;
+		publishResource("WindowServer");
+	    }
+
             mem = owner->sharedCursor;
             mem->retain();
             break;

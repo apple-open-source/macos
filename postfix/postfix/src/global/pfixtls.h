@@ -12,8 +12,13 @@
 #ifndef PFIXTLS_H_INCLUDED
 #define PFIXTLS_H_INCLUDED
 
+#if defined(HAS_SSL) && !defined(USE_SSL)
+#define USE_SSL
+#endif
+
 typedef struct {
     int     peer_verified;
+    int     hostname_matched;
     char   *peer_subject;
     char   *peer_issuer;
     char   *peer_fingerprint;
@@ -27,7 +32,7 @@ typedef struct {
 
 extern const tls_info_t tls_info_zero;
 
-#ifdef HAS_SSL
+#ifdef USE_SSL
 
 typedef struct {
     long scache_db_version;

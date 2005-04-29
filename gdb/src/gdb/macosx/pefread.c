@@ -38,7 +38,8 @@
 
 #include <string.h>
 
-struct pef_symfile_info {
+struct pef_symfile_info
+{
   asymbol **syms;
   long nsyms;
 };
@@ -50,16 +51,15 @@ pef_new_init (objfile)
 }
 
 static void
-pef_symfile_init (objfile)
-     struct objfile *objfile;
+pef_symfile_init (struct objfile *objfile)
 {
-  objfile->sym_stab_info = 
+  objfile->sym_stab_info =
     xmmalloc (objfile->md, sizeof (struct dbx_symfile_info));
 
   memset ((PTR) objfile->sym_stab_info, 0, sizeof (struct dbx_symfile_info));
 
-  objfile->sym_private = 
-    xmmalloc (objfile->md,sizeof (struct pef_symfile_info));
+  objfile->sym_private =
+    xmmalloc (objfile->md, sizeof (struct pef_symfile_info));
 
   memset (objfile->sym_private, 0, sizeof (struct pef_symfile_info));
 
@@ -68,9 +68,7 @@ pef_symfile_init (objfile)
 }
 
 static void
-pef_symfile_read (objfile, mainline)
-     struct objfile *objfile;
-     int mainline;
+pef_symfile_read (struct objfile *objfile, int mainline)
 {
   bfd *abfd = objfile->obfd;
   size_t storage_needed;
@@ -89,10 +87,10 @@ pef_symfile_read (objfile, mainline)
 
   init_minimal_symbol_collection ();
   make_cleanup_discard_minimal_symbols ();
-    
+
   storage_needed = bfd_get_symtab_upper_bound (abfd);
 
-  firstaddr = (CORE_ADDR) -1;
+  firstaddr = (CORE_ADDR) - 1;
   if (storage_needed > 0)
     {
       symbol_table = (asymbol **) xmalloc (storage_needed);
@@ -103,69 +101,80 @@ pef_symfile_read (objfile, mainline)
         {
           sym = symbol_table[i];
 
-	  symaddr = sym->section->vma + sym->value;
-	  symaddr += ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
+          symaddr = sym->section->vma + sym->value;
+          symaddr +=
+            ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
 
-	  /* For non-absolute symbols, use the type of the section
-	     they are relative to, to intuit text/data.  BFD provides
-	     no way of figuring this out for absolute symbols. */
+          /* For non-absolute symbols, use the type of the section
+             they are relative to, to intuit text/data.  BFD provides
+             no way of figuring this out for absolute symbols. */
 
-	  if (sym->section->flags & SEC_CODE)
-	    ms_type = mst_text;
-	  else if (sym->section->flags & SEC_DATA)
-	    ms_type = mst_data;
-	  else
-	    ms_type = mst_unknown;
-	  
-	  if (sym->name[0] == '\0') {
-	    /* warning ("ignoring symbol with empty name"); */
-	    continue;
-	  }
+          if (sym->section->flags & SEC_CODE)
+            ms_type = mst_text;
+          else if (sym->section->flags & SEC_DATA)
+            ms_type = mst_data;
+          else
+            ms_type = mst_unknown;
 
-	  prim_record_minimal_symbol (sym->name, symaddr, ms_type, objfile);
-	  if (firstaddr > symaddr) { firstaddr = symaddr; }
+          if (sym->name[0] == '\0')
+            {
+              /* warning ("ignoring symbol with empty name"); */
+              continue;
+            }
+
+          prim_record_minimal_symbol (sym->name, symaddr, ms_type, objfile);
+          if (firstaddr > symaddr)
+            {
+              firstaddr = symaddr;
+            }
         }
       do_cleanups (back_to);
     }
 
-  if (firstaddr > ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile))) {
-    prim_record_minimal_symbol ("unknown_text", ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile)), mst_text, objfile);
-  }
+  if (firstaddr >
+      ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile)))
+    {
+      prim_record_minimal_symbol ("unknown_text",
+                                  ANOFFSET (objfile->section_offsets,
+                                            SECT_OFF_TEXT (objfile)),
+                                  mst_text, objfile);
+    }
 
   install_minimal_symbols (objfile);
 }
 
 static void
-pef_symfile_finish (objfile)
-     struct objfile *objfile;
+pef_symfile_finish (struct objfile *objfile)
 {
 }
 
 static void
-pef_symfile_offsets (objfile, addrs)
-     struct objfile *objfile;
-     struct section_addr_info *addrs;
+pef_symfile_offsets (struct objfile *objfile, struct section_addr_info *addrs)
 {
   unsigned int i;
 
-  objfile->num_sections = SECT_OFF_MAX;
+  objfile->num_sections = addrs->num_sections;
   objfile->section_offsets = (struct section_offsets *)
-    obstack_alloc (&objfile->psymbol_obstack, SIZEOF_SECTION_OFFSETS);
-  memset (objfile->section_offsets, 0, SIZEOF_SECTION_OFFSETS);
+    obstack_alloc (&objfile->objfile_obstack,
+                   SIZEOF_N_SECTION_OFFSETS (objfile->num_sections));
+  memset (objfile->section_offsets, 0,
+          SIZEOF_N_SECTION_OFFSETS (objfile->num_sections));
 
   if (addrs->other[0].addr != 0)
     {
       objfile_delete_from_ordered_sections (objfile);
-      for (i = 0; i < objfile->sections_end - objfile->sections; i++) {
-	objfile->sections[i].addr += addrs->other[0].addr;
-	objfile->sections[i].endaddr += addrs->other[0].addr;
-      }
+      for (i = 0; i < objfile->sections_end - objfile->sections; i++)
+        {
+          objfile->sections[i].addr += addrs->other[0].addr;
+          objfile->sections[i].endaddr += addrs->other[0].addr;
+        }
       objfile_add_to_ordered_sections (objfile);
     }
 
-  for (i = 0; i < MAX_SECTIONS; i++) {
-    objfile->section_offsets->offsets[i] = (long) addrs->other[0].addr;
-  }
+  for (i = 0; i < addrs->num_sections; i++)
+    {
+      objfile->section_offsets->offsets[i] = (long) addrs->other[0].addr;
+    }
 
   objfile->sect_index_text = 0;
   objfile->sect_index_data = 0;
@@ -173,65 +182,57 @@ pef_symfile_offsets (objfile, addrs)
   objfile->sect_index_rodata = 0;
 }
 
-static struct sym_fns pef_sym_fns =
-{
+static struct sym_fns pef_sym_fns = {
   bfd_target_pef_flavour,
 
-  pef_new_init,			/* sym_new_init: init anything gbl to entire symtab */
-  pef_symfile_init,		/* sym_init: read initial info, setup for sym_read() */
-  pef_symfile_read,		/* sym_read: read a symbol file into symtab */
-  pef_symfile_finish,		/* sym_finish: finished with file, cleanup */
-  pef_symfile_offsets,		/* sym_offsets:  xlate external to internal form */
-  NULL				/* next: pointer to next struct sym_fns */
+  pef_new_init,                 /* sym_new_init: init anything gbl to entire symtab */
+  pef_symfile_init,             /* sym_init: read initial info, setup for sym_read() */
+  pef_symfile_read,             /* sym_read: read a symbol file into symtab */
+  pef_symfile_finish,           /* sym_finish: finished with file, cleanup */
+  pef_symfile_offsets,          /* sym_offsets:  xlate external to internal form */
+  NULL                          /* next: pointer to next struct sym_fns */
 };
 
 static void
-pef_xlib_new_init (objfile)
-     struct objfile *objfile;
+pef_xlib_new_init (struct objfile *objfile)
 {
 }
 
 static void
-pef_xlib_symfile_init (objfile)
-     struct objfile *objfile;
+pef_xlib_symfile_init (struct objfile *objfile)
 {
   init_entry_point_info (objfile);
 }
 
 static void
-pef_xlib_symfile_read (objfile, mainline)
-     struct objfile *objfile;
-     int mainline;
+pef_xlib_symfile_read (struct objfile *objfile, int mainline)
 {
 }
 
 static void
-pef_xlib_symfile_finish (objfile)
-     struct objfile *objfile;
+pef_xlib_symfile_finish (struct objfile *objfile)
 {
 }
 
 static void
-pef_xlib_symfile_offsets (objfile, addrs)
-     struct objfile *objfile;
-     struct section_addr_info *addrs;
+pef_xlib_symfile_offsets (struct objfile *objfile,
+                          struct section_addr_info *addrs)
 {
 }
 
-static struct sym_fns pef_xlib_sym_fns =
-{
+static struct sym_fns pef_xlib_sym_fns = {
   bfd_target_pef_xlib_flavour,
 
-  pef_xlib_new_init,		/* sym_new_init: init anything gbl to entire symtab */
-  pef_xlib_symfile_init,	/* sym_init: read initial info, setup for sym_read() */
-  pef_xlib_symfile_read,	/* sym_read: read a symbol file into symtab */
-  pef_xlib_symfile_finish,	/* sym_finish: finished with file, cleanup */
-  pef_xlib_symfile_offsets,	/* sym_offsets:  xlate external to internal form */
-  NULL				/* next: pointer to next struct sym_fns */
+  pef_xlib_new_init,            /* sym_new_init: init anything gbl to entire symtab */
+  pef_xlib_symfile_init,        /* sym_init: read initial info, setup for sym_read() */
+  pef_xlib_symfile_read,        /* sym_read: read a symbol file into symtab */
+  pef_xlib_symfile_finish,      /* sym_finish: finished with file, cleanup */
+  pef_xlib_symfile_offsets,     /* sym_offsets:  xlate external to internal form */
+  NULL                          /* next: pointer to next struct sym_fns */
 };
 
 void
-_initialize_pefread ()
+_initialize_pefread (void)
 {
   add_symtab_fns (&pef_sym_fns);
   add_symtab_fns (&pef_xlib_sym_fns);

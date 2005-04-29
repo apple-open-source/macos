@@ -1,4 +1,4 @@
-# Copyright (C) 2002-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -122,6 +122,9 @@ class GUIBase:
         # Validate all the attributes for this category
         pass
 
+    def _escape(self, property, value):
+        return Utils.websafe(value)
+
     def handleForm(self, mlist, category, subcat, cgidata, doc):
         for item in self.GetConfigInfo(mlist, category, subcat):
             # Skip descriptions and legacy non-attributes
@@ -140,9 +143,10 @@ class GUIBase:
             elif not cgidata.has_key(property):
                 continue
             elif isinstance(cgidata[property], ListType):
-                val = [Utils.websafe(x.value) for x in cgidata[property]]
+                val = [self._escape(property, x.value)
+                       for x in cgidata[property]]
             else:
-                val = Utils.websafe(cgidata[property].value)
+                val = self._escape(property, cgidata[property].value)
             # Coerce the value to the expected type, raising exceptions if the
             # value is invalid.
             try:

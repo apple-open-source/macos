@@ -1,5 +1,5 @@
 /* NamingSecurityException.java --
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,10 +38,11 @@ exception statement from your version. */
 
 package javax.naming;
 
-import java.lang.Exception;
  
-public class NamingSecurityException extends NamingException
+public abstract class NamingSecurityException extends NamingException
 {
+  private static final long serialVersionUID = 5855287647294685775L;
+  
   public NamingSecurityException ()
   {
     super ();

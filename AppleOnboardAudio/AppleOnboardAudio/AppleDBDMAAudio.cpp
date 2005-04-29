@@ -449,7 +449,7 @@ bool AppleDBDMAAudio::updateOutputStreamFormats ()
 					mInputStream->setFormat (&dbdmaFormat);
 				}
 				setSampleRate (&sampleRate);
-				ourProvider->formatChangeRequest (NULL, &sampleRate);
+				FailIf ( kIOReturnSuccess != ourProvider->formatChangeRequest (NULL, &sampleRate), Exit );	//	[3886091]
 			} 
 
 			// [3306295] all mixable formats get duplicated as non-mixable for hog mode
@@ -593,7 +593,7 @@ bool AppleDBDMAAudio::publishStreamFormats (void) {
 				if (mOutputStream) { mOutputStream->setFormat (&dbdmaFormat); }
 				if (mInputStream) { mInputStream->setFormat (&dbdmaFormat); }
 				setSampleRate (&sampleRate);
-				ourProvider->formatChangeRequest (NULL, &sampleRate);
+				FailIf ( kIOReturnSuccess != ourProvider->formatChangeRequest (NULL, &sampleRate), Exit );	//	[3886091]
 			}
 			
 			// [3306295] all mixable formats get duplicated as non-mixable for hog mode
@@ -973,7 +973,6 @@ IOReturn AppleDBDMAAudio::performAudioEngineStart()
 		{
 			IOLog ( "AppleDBDMAAudio::performAudioEngineStart ( %d, 0 ) setting power state to ACTIVE\n", TRUE );
 		}
-		// [3960444] only wake if needed - always running through this code puts QT out of sync on Q88
 		debugIOLog (3, "  AppleDBDMAAudio::performAudioEngineStart() calling doLocalChangeToActiveState");
 		result = ourProvider->doLocalChangeToActiveState ( TRUE, 0 );
 		FailIf ( kIOReturnSuccess != result, Exit );
@@ -2638,8 +2637,7 @@ Exit:
 	//	[3945202]	If 'performFormatChange' is invoked then the hardware must be awakened.  This is especially true
 	//	of the TAS3004 which cannot have the format applied if in sleep mode.
 	
-	result = ourProvider->doLocalChangeScheduleIdle ( wasPoweredDown );
-	FailMessage ( kIOReturnSuccess != result );
+	FailMessage ( kIOReturnSuccess != ourProvider->doLocalChangeScheduleIdle ( wasPoweredDown ) );	//	[3886091]	do not overwrite result value
 	
 	debugIOLog (3, "- AppleDBDMAAudio::performFormatChange (%p, %p, %p) returns %lX", audioStream, newFormat, newSampleRate, result);	
     return result;

@@ -1,0 +1,28 @@
+pkg-config is a script to make putting together all the build
+flags when compiling/linking a lot easier.
+
+Report bugs at http://bugzilla.gnome.org (pkg-config is in no way 
+gnome-specific but gnome.org was a convenient bug tracker).
+
+To use pkg-config, do something like the following in your configure.in
+
+    PKG_CHECK_MODULES(GNOME, gtk > 1.2.8 gnomeui >= 1.2.0)
+    AC_SUBST(GNOME_CFLAGS)
+    AC_SUBST(GNOME_LIBS)
+
+This puts the neccesary include flags to compile/link something against
+libgnomeui and all its dependencies in $(GNOME_CFLAGS), and the -L/-l flags
+for linking in $(GNOME_LIBS)
+
+The "gtk > 1.2.8" part is only neccesary if you want to specifically check
+if libgtk is version 1.2.8 or higher. Otherwise, the flags for gtk
+will be included automatically, since libgnomeui depends on gtk.
+So you could just say:
+
+     PKG_CHECK_MODULES(GNOME, gnomeui)
+
+for any version of gnomeui.
+
+For more info, there's even a man page, try 'man pkg-config'
+
+

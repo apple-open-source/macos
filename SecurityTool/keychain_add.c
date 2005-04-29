@@ -1,35 +1,31 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- *  keychain_add.c
- *  security
  *
- *  Created by Michael Brouwer on Thu June 5 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
+ * keychain_add.c
  */
 
 #include "keychain_add.h"
 #include "readline.h"
+#include "security.h"
 #include "keychain_utilities.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,10 +52,10 @@ do_addgenericpassword(const char *keychainName, const char *serviceName, const c
 		}
 	}
 
-result = SecKeychainAddGenericPassword(keychain, serviceName ? strlen(serviceName) : 0, serviceName, accountName ? strlen(accountName) : 0, accountName,passwordData ? strlen(passwordData) : 0,passwordData, &initemRef);
+    result = SecKeychainAddGenericPassword(keychain, serviceName ? strlen(serviceName) : 0, serviceName, accountName ? strlen(accountName) : 0, accountName,passwordData ? strlen(passwordData) : 0,passwordData, &initemRef);
 	if (result)
 	{
-		fprintf(stderr, "SecKeychainAddGenericPassword %s returned %ld(0x%lx)\n", keychainName ? keychainName : "<NULL>", result, result);
+		sec_error("SecKeychainAddGenericPassword %s: %s", keychainName ? keychainName : "<NULL>", sec_errstr(result));
 	}
 
 loser:
@@ -89,7 +85,7 @@ do_addinternetpassword(const char *keychainName, const char *serverName, const c
 result = SecKeychainAddInternetPassword(keychain, serverName ? strlen(serverName) : 0, serverName, securityDomain ? strlen(securityDomain) : 0, securityDomain, accountName ? strlen(accountName) : 0, accountName, path ? strlen(path) : 0, path, port, protocol, authenticationType,passwordData ? strlen(passwordData) : 0,passwordData, &initemRef);
 	if (result)
 	{
-		fprintf(stderr, "SecKeychainAddInternetPassword %s returned %ld(0x%lx)\n", keychainName ? keychainName : "<NULL>", result, result);
+		sec_error("SecKeychainAddInternetPassword %s: %s", keychainName ? keychainName : "<NULL>", sec_errstr(result));
 	}
 
 loser:
@@ -130,7 +126,7 @@ do_add_certificates(const char *keychainName, int argc, char * const *argv)
 		status = SecCertificateCreateFromData(&certData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_UNKNOWN, &certificate);
 		if (status)
 		{
-			fprintf(stderr, "SecCertificateCreateFromData returned %ld(%lx)", status, status);
+			sec_perror("SecCertificateCreateFromData", status);
 			result = 1;
 		}
 		else
@@ -141,13 +137,13 @@ do_add_certificates(const char *keychainName, int argc, char * const *argv)
                 if (status == errSecDuplicateItem)
                 {
                     if (keychainName)
-                        fprintf(stderr, "%s: already in %s\n", argv[ix], keychainName);
+                        sec_error("%s: already in %s", argv[ix], keychainName);
                     else
-                        fprintf(stderr, "%s: already in default keychain\n", argv[ix]);
+                        sec_error("%s: already in default keychain", argv[ix]);
                 }
                 else
                 {
-                    fprintf(stderr, "SecCertificateAddToKeychain returned %ld(%lx)", status, status);
+                    sec_perror("SecCertificateAddToKeychain", status);
                 }
 				result = 1;
 			}

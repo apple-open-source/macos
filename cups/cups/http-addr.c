@@ -1,9 +1,9 @@
 /*
- * "$Id: http-addr.c,v 1.1.1.4 2003/02/10 21:57:16 jlovell Exp $"
+ * "$Id: http-addr.c,v 1.5 2005/01/04 22:10:39 jlovell Exp $"
  *
  *   HTTP host/address routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -39,6 +39,7 @@
 #include "string.h"
 
 #include "http.h"
+#include "globals.h"
 
 
 /*
@@ -51,11 +52,8 @@ httpGetHostByName(const char *name)	/* I - Hostname or IP address */
 {
   const char		*nameptr;	/* Pointer into name */
   unsigned		ip[4];		/* IP address components */
-  static unsigned	packed_ip;	/* Packed IPv4 address */
-  static char		*packed_ptr[2];	/* Pointer to packed address */
-  static struct hostent	host_ip;	/* Host entry for IP address */
-
-
+  cups_globals_t	*cg = _cups_globals();
+  					/* Pointer to library globals */
 #if defined(__APPLE__)
   /* OS X hack to avoid it's ocassional long delay in lookupd */
   static const char sLoopback[] = "127.0.0.1";
@@ -73,7 +71,7 @@ httpGetHostByName(const char *name)	/* I - Hostname or IP address */
   * htonl() macro to get the right byte order for the address.
   */
 
-  for (nameptr = name; isdigit(*nameptr) || *nameptr == '.'; nameptr ++);
+  for (nameptr = name; isdigit(*nameptr & 255) || *nameptr == '.'; nameptr ++);
 
   if (!*nameptr)
   {
@@ -84,23 +82,26 @@ httpGetHostByName(const char *name)	/* I - Hostname or IP address */
     */
 
     if (sscanf(name, "%u.%u.%u.%u", ip, ip + 1, ip + 2, ip + 3) != 4)
-      return (NULL); /* Must have 4 numbers */
+      return (NULL);			/* Must have 4 numbers */
 
-    packed_ip = htonl(((((((ip[0] << 8) | ip[1]) << 8) | ip[2]) << 8) | ip[3]));
+    if (ip[0] > 255 || ip[1] > 255 || ip[2] > 255 || ip[3] > 255)
+      return (NULL);			/* Invalid byte ranges! */
+
+    cg->packed_ip = htonl(((((((ip[0] << 8) | ip[1]) << 8) | ip[2]) << 8) | ip[3]));
 
    /*
     * Fill in the host entry and return it...
     */
 
-    host_ip.h_name      = (char *)name;
-    host_ip.h_aliases   = NULL;
-    host_ip.h_addrtype  = AF_INET;
-    host_ip.h_length    = 4;
-    host_ip.h_addr_list = packed_ptr;
-    packed_ptr[0]       = (char *)(&packed_ip);
-    packed_ptr[1]       = NULL;
+    cg->host_ip.h_name      = (char *)name;
+    cg->host_ip.h_aliases   = NULL;
+    cg->host_ip.h_addrtype  = AF_INET;
+    cg->host_ip.h_length    = 4;
+    cg->host_ip.h_addr_list = cg->packed_ptr;
+    cg->packed_ptr[0]       = (char *)(&cg->packed_ip);
+    cg->packed_ptr[1]       = NULL;
 
-    return (&host_ip);
+    return (&cg->host_ip);
   }
   else
   {
@@ -115,5 +116,5 @@ httpGetHostByName(const char *name)	/* I - Hostname or IP address */
 
 
 /*
- * End of "$Id: http-addr.c,v 1.1.1.4 2003/02/10 21:57:16 jlovell Exp $".
+ * End of "$Id: http-addr.c,v 1.5 2005/01/04 22:10:39 jlovell Exp $".
  */

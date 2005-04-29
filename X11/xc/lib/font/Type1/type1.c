@@ -45,7 +45,7 @@
  * The Original Software is CID font code that was developed by Silicon
  * Graphics, Inc.
  */
-/* $XFree86: xc/lib/font/Type1/type1.c,v 1.9 2001/01/17 19:43:24 dawes Exp $ */
+/* $XFree86: xc/lib/font/Type1/type1.c,v 1.10 2003/05/27 22:26:47 tsi Exp $ */
  
 /*********************************************************************/
 /*                                                                   */
@@ -150,11 +150,6 @@ typedef struct xobject xobject;
 #define Error {errflag = TRUE; return;}
 #define ErrorRet(ret) {errflag = TRUE; return (ret);}
  
-#define Error0(errmsg) {IfTrace0(TRUE, errmsg); Error;}
-#define Error0Ret(errmsg, ret) {IfTrace0(TRUE, errmsg); ErrorRet(ret);}
- 
-#define Error1(errmsg,arg) {IfTrace1(TRUE, errmsg, arg); Error;}
- 
 /********************/
 /* global variables */
 /********************/
@@ -187,8 +182,7 @@ static int errflag;
 /*************************************************/
 static char *Environment;
 static struct XYspace *CharSpace;
-static psobj *CharStringP, *SubrsP, *OtherSubrsP;
-static int *ModeP;
+static psobj *CharStringP, *SubrsP;
  
 /************************/
 /* Forward declarations */
@@ -772,7 +766,7 @@ static void
 Push(double Num)
 {
   if (++Top < MAXSTACK) Stack[Top] = Num;
-  else Error0("Push: Stack full\n");
+  else Error;
 }
  
 static void
@@ -789,7 +783,7 @@ PushCall(psobj *CurrStrP, int CurrIndex, unsigned short CurrKey)
     CallStack[CallTop].currindex = CurrIndex; /* save CharString index */
     CallStack[CallTop].currkey = CurrKey;     /* save decryption key */
   }
-  else Error0("PushCall: Stack full\n");
+  else Error;
 }
  
 static void
@@ -800,7 +794,7 @@ PopCall(psobj **CurrStrPP, int *CurrIndexP, unsigned short *CurrKeyP)
     *CurrIndexP = CallStack[CallTop].currindex; /* restore CharString index */
     *CurrKeyP = CallStack[CallTop--].currkey;   /* restore decryption key */
   }
-  else Error0("PopCall: Stack empty\n");
+  else Error;
 }
  
 static void
@@ -814,7 +808,7 @@ static void
 PSFakePush(double Num)
 {
   if (++PSFakeTop < MAXPSFAKESTACK) PSFakeStack[PSFakeTop] = Num;
-  else Error0("PSFakePush: Stack full\n");
+  else Error;
 }
  
 /* PSFakePop: Removes a number from the top of the fake PostScript stack */
@@ -822,7 +816,7 @@ static double
 PSFakePop (void)
 {
   if (PSFakeTop >= 0) return(PSFakeStack[PSFakeTop--]);
-  else Error0Ret("PSFakePop : Stack empty\n", 0.0);
+  else ErrorRet(0.0);
   /*NOTREACHED*/
 }
  
@@ -929,7 +923,7 @@ StartDecrypt(void)
   r = KEY; /* Initial key (seed) for CharStrings decryption */
   for (strindex = 0; strindex < blues->lenIV;)
     if (!DoRead(&Code)) /* Read a byte and update decryption key */
-      Error0("StartDecrypt: Premature end of CharString\n");
+      Error;
 }
  
 static void
@@ -958,7 +952,7 @@ Decode(int Code)
   }
   return;
  
-ended: Error0("Decode: Premature end of Type 1 CharString");
+ended: Error;
 }
  
 /* Interpret a command code */
@@ -968,37 +962,37 @@ DoCommand(int Code)
   switch(Code) {
     case HSTEM: /* |- y dy HSTEM |- */
       /* Vertical range of a horizontal stem zone */
-      if (Top < 1) Error0("DoCommand: Stack low\n");
+      if (Top < 1) Error;
       HStem(Stack[0], Stack[1]);
       ClearStack();
       break;
     case VSTEM: /* |- x dx VSTEM |- */
       /* Horizontal range of a vertical stem zone */
-      if (Top < 1) Error0("DoCommand: Stack low\n");
+      if (Top < 1) Error;
       VStem(Stack[0], Stack[1]);
       ClearStack();
       break;
     case VMOVETO: /* |- dy VMOVETO |- */
       /* Vertical MOVETO, equivalent to 0 dy RMOVETO */
-      if (Top < 0) Error0("DoCommand: Stack low\n");
+      if (Top < 0) Error;
       RMoveTo(0.0, Stack[0]);
       ClearStack();
       break;
     case RLINETO: /* |- dx dy RLINETO |- */
       /* Like RLINETO in PostScript */
-      if (Top < 1) Error0("DoCommand: Stack low\n");
+      if (Top < 1) Error;
       RLineTo(Stack[0], Stack[1]);
       ClearStack();
       break;
     case HLINETO: /* |- dx HLINETO |- */
       /* Horizontal LINETO, equivalent to dx 0 RLINETO */
-      if (Top < 0) Error0("DoCommand: Stack low\n");
+      if (Top < 0) Error;
       RLineTo(Stack[0], 0.0);
       ClearStack();
       break;
     case VLINETO: /* |- dy VLINETO |- */
       /* Vertical LINETO, equivalent to 0 dy RLINETO */
-      if (Top < 0) Error0("DoCommand: Stack low\n");
+      if (Top < 0) Error;
       RLineTo(0.0, Stack[0]);
       ClearStack();
       break;
@@ -1007,7 +1001,7 @@ DoCommand(int Code)
       /* Relative RCURVETO, equivalent to dx1 dy1 */
       /* (dx1+dx2) (dy1+dy2) (dx1+dx2+dx3) */
       /* (dy1+dy2+dy3) RCURVETO in PostScript */
-      if (Top < 5) Error0("DoCommand: Stack low\n");
+      if (Top < 5) Error;
       RRCurveTo(Stack[0], Stack[1], Stack[2], Stack[3],
         Stack[4], Stack[5]);
       ClearStack();
@@ -1021,7 +1015,7 @@ DoCommand(int Code)
     case CALLSUBR: /* subr# CALLSUBR - */
       /* Calls a CharString subroutine with index */
       /* subr# from the Subrs array */
-      if (Top < 0) Error0("DoCommand: Stack low\n");
+      if (Top < 0) Error;
       CallSubr((int)Stack[Top--]);
       break;
     case RETURN: /* - RETURN - */
@@ -1030,7 +1024,7 @@ DoCommand(int Code)
       Return();
       break;
     case ESCAPE: /* ESCAPE to two-byte command code */
-      if (!DoRead(&Code)) Error0("DoCommand: ESCAPE is last byte\n");
+      if (!DoRead(&Code)) Error;
       Escape(Code);
       break;
     case HSBW: /* |- sbx wx HSBW |- */
@@ -1038,7 +1032,7 @@ DoCommand(int Code)
       /* set the character width vector to (wx,0). */
       /* Equivalent to sbx 0 wx 0 SBW.  Space */
       /* character should have sbx = 0 */
-      if (Top < 1) Error0("DoCommand: Stack low\n");
+      if (Top < 1) Error;
       Sbw(Stack[0], 0.0, Stack[1], 0.0);
       ClearStack();
       break;
@@ -1049,20 +1043,20 @@ DoCommand(int Code)
       break;
     case RMOVETO: /* |- dx dy RMOVETO |- */
       /* Behaves like RMOVETO in PostScript */
-      if (Top < 1) Error0("DoCommand: Stack low\n");
+      if (Top < 1) Error;
       RMoveTo(Stack[0], Stack[1]);
       ClearStack();
       break;
     case HMOVETO: /* |- dx HMOVETO |- */
       /* Horizontal MOVETO. Equivalent to dx 0 RMOVETO */
-      if (Top < 0) Error0("DoCommand: Stack low\n");
+      if (Top < 0) Error;
       RMoveTo(Stack[0], 0.0);
       ClearStack();
       break;
     case VHCURVETO: /* |- dy1 dx2 dy2 dx3 VHCURVETO |- */
       /* Vertical-Horizontal CURVETO, equivalent to */
       /* 0 dy1 dx2 dy2 dx3 0 RRCURVETO */
-      if (Top < 3) Error0("DoCommand: Stack low\n");
+      if (Top < 3) Error;
       RRCurveTo(0.0, Stack[0], Stack[1], Stack[2],
               Stack[3], 0.0);
       ClearStack();
@@ -1070,13 +1064,13 @@ DoCommand(int Code)
     case HVCURVETO: /* |- dx1 dx2 dy2 dy3 HVCURVETO |- */
       /* Horizontal-Vertical CURVETO, equivalent to */
       /* dx1 0 dx2 dy2 0 dy3 RRCURVETO */
-      if (Top < 3) Error0("DoCommand: Stack low\n");
+      if (Top < 3) Error;
       RRCurveTo(Stack[0], 0.0, Stack[1], Stack[2], 0.0, Stack[3]);
       ClearStack();
       break;
     default: /* Unassigned command code */
       ClearStack();
-      Error1("DoCommand: Unassigned code %d\n", Code);
+      Error;
   }
 }
  
@@ -1097,7 +1091,7 @@ Escape(int Code)
       /* Declares the horizontal ranges of three */
       /* vertical stem zones between x0 and x0+dx0, */
       /* x1 and x1+dx1, and x2 and x2+dx2. */
-      if (Top < 5) Error0("DoCommand: Stack low\n");
+      if (Top < 5) Error;
       if (!wsset && ProcessHints) {
         /* Shift the whole character so that the middle stem is centered. */
         p = CenterStem(Stack[2] + sidebearingX, Stack[3]);
@@ -1114,7 +1108,7 @@ Escape(int Code)
       /* Declares the vertical ranges of three hori- */
       /* zontal stem zones between y0 and y0+dy0, */
       /* y1 and y1+dy1, and y2 and y2+dy2. */
-      if (Top < 5) Error0("DoCommand: Stack low\n");
+      if (Top < 5) Error;
       HStem(Stack[0], Stack[1]);
       HStem(Stack[2], Stack[3]);
       HStem(Stack[4], Stack[5]);
@@ -1122,7 +1116,7 @@ Escape(int Code)
       break;
     case SEAC: /* |- asb adx ady bchar achar SEAC |- */
       /* Standard Encoding Accented Character. */
-      if (Top < 4) Error0("DoCommand: Stack low\n");
+      if (Top < 4) Error;
       Seac(Stack[0], Stack[1], Stack[2],
         (unsigned char) Stack[3],
         (unsigned char) Stack[4]);
@@ -1131,22 +1125,22 @@ Escape(int Code)
     case SBW: /* |- sbx sby wx wy SBW |- */
       /* Set the left sidebearing point to (sbx,sby), */
       /* set the character width vector to (wx,wy). */
-      if (Top < 3) Error0("DoCommand: Stack low\n");
+      if (Top < 3) Error;
       Sbw(Stack[0], Stack[1], Stack[2], Stack[3]);
       ClearStack();
       break;
     case DIV: /* num1 num2 DIV quotient */
       /* Behaves like DIV in the PostScript language */
-      if (Top < 1) Error0("DoCommand: Stack low\n");
+      if (Top < 1) Error;
       Stack[Top-1] = Div(Stack[Top-1], Stack[Top]);
       Top--;
       break;
     case CALLOTHERSUBR:
       /* arg1 ... argn n othersubr# CALLOTHERSUBR - */
       /* Make calls on the PostScript interpreter */
-      if (Top < 1) Error0("DoCommand: Stack low\n");
+      if (Top < 1) Error;
       Num = Stack[Top-1];
-      if (Top < Num+1) Error0("DoCommand: Stack low\n");
+      if (Top < Num+1) Error;
       for (i = 0; i < Num; i++) PSFakePush(Stack[Top - i - 2]);
       Top -= Num + 2;
 #ifdef BUILDCID
@@ -1168,13 +1162,13 @@ Escape(int Code)
       /* Sets the current point to (x,y) in absolute */
       /* character space coordinates without per- */
       /* forming a CharString MOVETO command */
-      if (Top < 1) Error0("DoCommand: Stack low\n");
+      if (Top < 1) Error;
       SetCurrentPoint(Stack[0], Stack[1]);
       ClearStack();
       break;
     default: /* Unassigned escape code command */
       ClearStack();
-      Error1("Escape: Unassigned code %d\n", Code);
+      Error;
   }
 }
  
@@ -1185,9 +1179,8 @@ Escape(int Code)
 static void
 HStem(double y, double dy)
 {
-  IfTrace2((FontDebug), "Hstem %f %f\n", &y, &dy);
   if (ProcessHints) {
-    if (numstems >= MAXSTEMS) Error0("HStem: Too many hints\n");
+    if (numstems >= MAXSTEMS) Error;
     if (dy < 0.0) {y += dy; dy = -dy;}
     stems[numstems].vertical = FALSE;
     stems[numstems].x = 0.0;
@@ -1207,9 +1200,8 @@ HStem(double y, double dy)
 static void
 VStem(double x, double dx)
 {
-  IfTrace2((FontDebug), "Vstem %f %f\n", &x, &dx);
   if (ProcessHints) {
-    if (numstems >= MAXSTEMS) Error0("VStem: Too many hints\n");
+    if (numstems >= MAXSTEMS) Error;
     if (dx < 0.0) {x += dx; dx = -dx;}
     stems[numstems].vertical = TRUE;
     stems[numstems].x = sidebearingX + x + wsoffsetX;
@@ -1227,8 +1219,6 @@ static void
 RLineTo(double dx, double dy)
 {
   struct segment *B;
- 
-  IfTrace2((FontDebug), "RLineTo %f %f\n", &dx, &dy);
  
   B = Loc(CharSpace, dx, dy);
  
@@ -1251,9 +1241,6 @@ RRCurveTo(double dx1, double dy1, double dx2, double dy2,
 	  double dx3, double dy3)
 {
   struct segment *B, *C, *D;
- 
-  IfTrace4((FontDebug), "RRCurveTo %f %f %f %f ", &dx1, &dy1, &dx2, &dy2);
-  IfTrace2((FontDebug), "%f %f\n", &dx3, &dy3);
  
   B = Loc(CharSpace, dx1, dy1);
   C = Loc(CharSpace, dx2, dy2);
@@ -1285,7 +1272,6 @@ DoClosePath(void)
 {
   struct segment *CurrentPoint;
  
-  IfTrace0((FontDebug), "DoClosePath\n");
   CurrentPoint = Phantom(path);
   path = ClosePath(path);
   path = Join(Snap(path), CurrentPoint);
@@ -1297,9 +1283,8 @@ DoClosePath(void)
 static void
 CallSubr(int subrno)
 {
-  IfTrace1((FontDebug), "CallSubr %d\n", subrno);
   if ((subrno < 0) || (subrno >= SubrsP->len))
-    Error0("CallSubr: subrno out of range\n");
+    Error;
   PushCall(CharStringP, strindex, r);
   CharStringP = &SubrsP->data.arrayP[subrno];
   StartDecrypt();
@@ -1311,7 +1296,6 @@ CallSubr(int subrno)
 static void
 Return(void)
 {
-  IfTrace0((FontDebug), "Return\n");
   PopCall(&CharStringP, &strindex, &r);
 }
  
@@ -1326,8 +1310,6 @@ Return(void)
 static void
 EndChar(void)
 {
-  IfTrace0((FontDebug), "EndChar\n");
- 
   /* There is no need to compute and set bounding box for
      the cache, since XIMAGER does that on the fly. */
  
@@ -1345,8 +1327,6 @@ static void
 RMoveTo(double dx, double dy)
 {
   struct segment *B;
- 
-  IfTrace2((FontDebug), "RMoveTo %f %f\n", &dx, &dy);
  
   B = Loc(CharSpace, dx, dy);
  
@@ -1366,7 +1346,6 @@ RMoveTo(double dx, double dy)
 static void
 DotSection(void)
 {
-  IfTrace0((FontDebug), "DotSection\n");
   InDotSection = !InDotSection;
 }
  
@@ -1378,9 +1357,6 @@ Seac(double asb, double adx, double ady,
 {
   int Code;
   struct segment *mypath;
- 
-  IfTrace4((FontDebug), "SEAC %f %f %f %d ", &asb, &adx, &ady, bchar);
-  IfTrace1((FontDebug), "%d\n", achar);
  
   /* Move adx - asb, ady over and up from base char's sbpoint. */
   /* (We use adx - asb to counteract the accents sb shift.) */
@@ -1439,8 +1415,6 @@ Seac(double asb, double adx, double ady,
 static void
 Sbw(double sbx, double sby, double wx, double wy)
 {
-  IfTrace4((FontDebug), "SBW %f %f %f %f\n", &sbx, &sby, &wx, &wy);
- 
   escapementX = wx; /* Character width vector */
   escapementY = wy;
  
@@ -1457,7 +1431,6 @@ Sbw(double sbx, double sby, double wx, double wy)
 static double 
 Div(double num1, double num2)
 {
-  IfTrace2((FontDebug), "Div %f %f\n", &num1, &num2);
   return(num1 / num2);
 }
  
@@ -1757,11 +1730,9 @@ HintReplace(void)
 static void
 CallOtherSubr(int othersubrno)
 {
-  IfTrace1((FontDebug), "CallOtherSubr %d\n", othersubrno);
- 
   switch(othersubrno) {
     case 0: /* OtherSubrs[0]; Main part of Flex */
-      if (PSFakeTop < 16) Error0("CallOtherSubr: PSFakeStack low");
+      if (PSFakeTop < 16) Error;
       ClearPSFakeStack();
       FlxProc(
         PSFakeStack[0],  PSFakeStack[1],  PSFakeStack[2],  PSFakeStack[3],
@@ -1792,8 +1763,6 @@ CallOtherSubr(int othersubrno)
 static void
 SetCurrentPoint(double x, double y)
 {
-  IfTrace2((FontDebug), "SetCurrentPoint %f %f\n", &x, &y);
- 
   currx = x;
   curry = y;
 }
@@ -1816,8 +1785,6 @@ Type1Char(char *env, struct XYspace *S, psobj *charstrP, psobj *subrsP,
   CharSpace = S; /* used when creating path elements */
   CharStringP = charstrP;
   SubrsP = subrsP;
-  OtherSubrsP = osubrsP;
-  ModeP = modeP;
  
     blues = bluesP;
  
@@ -1876,8 +1843,6 @@ CIDChar(char *env, struct XYspace *S,
   CharSpace = S; /* used when creating path elements */
   CharStringP = charstrP;
   SubrsP = subrsP;
-  OtherSubrsP = osubrsP;
-  ModeP = modeP;
 
   blues = bluesP;
 

@@ -1,50 +1,65 @@
-// $XFree86: xc/programs/xkbcomp/geometry/macintosh,v 1.2 2000/08/26 04:30:59 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/geometry/macintosh,v 1.4 2003/10/04 10:25:12 pascal Exp $
+//
+// Some modifications (<eqdar@castalie.org>) :
+// - Added a <LSGT> key
+// - Fixed the shape of the <RTRN> key
+// - Moved <BKSL> to the 'AC' row
+// - Added a special Macintosh sysctl key
+// - Minor changes (Function keys shape, LED position...)
+
 default xkb_geometry "macintosh" {
 
     description= "Apple Extended Keyboard II";
-    width= 470;
-    height= 210;
+    width = 475;
+    height = 194;
 
     shape.cornerRadius= 1;
     shape "NORM" { { [ 18,18] }, { [2,1], [ 16,17] } };
-    shape "BKSP" { { [ 37,18] }, { [2,1], [ 35,17] } };
-    shape "TAB"  { { [ 28,18] }, { [2,1], [ 26,17] } };
-    shape "BKSL" { { [ 28,18] }, { [2,1], [ 26,17] } };
-    shape "RTRN" { { [ 42,18] }, { [2,1], [ 40,17] } };
-    shape "CAPS" { { [ 32,18] }, { [2,1], [ 30,17] } };
+    shape "TLDE" { { [ 23,18] }, { [2,1], [ 21,17] } };
+    shape "BKSP" { { [ 33,18] }, { [2,1], [ 31,17] } };
+    shape "TAB"  { { [ 33,18] }, { [2,1], [ 31,17] } };
+    shape "RTRN" { 
+        { [0,0],[23,0],[23,37],[4,37],[4,18],[0,18] }, 
+        { [2,1],[21,1],[21,36],[6,36],[6,17],[2,17] } };
+    shape "CAPS" { { [ 37,18] }, { [2,1], [ 35,17] } };
     shape "LCTL" { { [ 28,18] }, { [2,1], [ 26,17] } };
-    shape "LALT" { { [ 28,18] }, { [2,1], [ 26,17] } };
+    shape "LALT" { { [ 22,18] }, { [2,1], [ 20,17] } };
     shape "LMTA" { { [ 28,18] }, { [2,1], [ 26,17] } };
-    shape "LFSH" { { [ 42,18] }, { [2,1], [ 40,17] } };
+    shape "LFSH" { { [ 28,18] }, { [2,1], [ 26,17] } };
     shape "RCTL" { { [ 28,18] }, { [2,1], [ 26,17] } };
-    shape "RALT" { { [ 28,18] }, { [2,1], [ 26,17] } };
+    shape "RALT" { { [ 22,18] }, { [2,1], [ 20,17] } };
     shape "RMTA" { { [ 28,18] }, { [2,1], [ 26,17] } };
-    shape "RTSH" { { [ 42,18] }, { [2,1], [ 40,17] } };
-    shape "SPCE" { { [112,18] }, { [2,1], [110,17] } };
+    shape "RTSH" { { [ 47,18] }, { [2,1], [ 45,17] } };
+    shape "SPCE" { { [123,18] }, { [2,1], [121,17] } };
     shape "KP0"  { { [ 37,18] }, { [2,1], [ 35,17] } };
     shape "KPEN" { { [ 18,37] }, { [2,1], [ 16,36] } };
+    // Macintosh keyboards have a special sysctl key at the top right
+    shape "AAPL" { 
+        { [ 0,0], [ 18,0], [ 18,18], [ 0,18] },
+        { [ 1,1], [ 17,1], [ 17,17], [ 1,17] },
+        { [ 8,5], [ 8,12], [  2,9] } };
 
-    shape "LEDS" { cornerRadius= 0, { [ 76 ,20 ] } };
-    shape "LED"  { cornerRadius= 0, { [  5,  1 ] } };
+    shape "LEDS" { cornerRadius = 0, { [ 55,19] } };
+    shape "LED"  { cornerRadius = 0, { [  8, 2] } };
 
     solid "LedPanel" {
 	shape= "LEDS";
-	top=  52;
-	left= 375;
+        top = 48;
+        left = 378;
     };
 
     indicator.onColor= "green";
     indicator.offColor= "green30";
-    indicator.top= 67;
+    indicator.top = 50;
     indicator.shape= "LED";
-    indicator "NumLock"     { left= 379; };
-    indicator "CapsLock"    { left= 404; };
-    indicator "ScrollLock"  { left= 429; };
+    indicator "NumLock"    { left = 381; };
+    indicator "CapsLock"   { left = 398; };
+    indicator "ScrollLock" { left = 415; };
     text.top= 55;
     text.color= "black";
-    text "NumLockLabel"		{ left= 378; text="Num\nLock"; };
-    text "CapsLockLabel"	{ left= 403; text="Caps\nLock"; };
-    text "ScrollLockLabel"	{ left= 428; text="Scroll\nLock"; };
+    text "NumLockLabel"    { left = 381; text = "Num\nLock";    };
+    text "CapsLockLabel"   { left = 398; text = "Caps\nLock";   };
+    text "ScrollLockLabel" { left = 415; text = "Scroll\nLock"; };
 
     section.left= 19;
     row.left= 1;
@@ -52,23 +67,27 @@ default xkb_geometry "macintosh" {
     key.gap=  1;
 
     section "Function" {
-	top= 52;
+        top = 48;
 	row {
 	    top= 1;
-	    keys {  <ESC>,  <FK01>, <FK02>, <FK03>, <FK04>,
-                    <FK05>, <FK06>, <FK07>, <FK08>, <FK09>,
-                    <FK10>, <FK11>, <FK12>, <PRSC>, <SCLK>,
-                    <PAUS>
+            keys { <ESC>, 
+                   { <FK01>, 20 }, <FK02>, <FK03>, <FK04>,
+                   { <FK05>, 11 }, <FK06>, <FK07>, <FK08>,
+                   { <FK09>, 11 }, <FK10>, <FK11>, <FK12>,
+                   { <PRSC>, 10 }, <SCLK>, <PAUS>,
+                   // This is the sysctl key on macintosh keyboards
+                   // keycode is 222 with a 4.21 kernel, which is <I5E>
+                   { <I5E>, "AAPL", 67 }
 	    };
 	};
     }; // End of "Function" section
 
     section "Alpha" {
-	top= 91;
+        top = 87;
 	row {
 	    top= 1;
-	    keys { <TLDE>, <AE01>, <AE02>, <AE03>, <AE04>,
-		   <AE05>, <AE06>, <AE07>, <AE08>, <AE09>,
+            keys { { <TLDE>, "TLDE" }, <AE01>, <AE02>, <AE03>,
+                   <AE04>, <AE05>, <AE06>, <AE07>, <AE08>, <AE09>,
 		   <AE10>, <AE11>, <AE12>, { <BKSP>, "BKSP" }
 	    };
 	};
@@ -76,21 +95,21 @@ default xkb_geometry "macintosh" {
 	    top= 20;
 	    keys { { <TAB>, "TAB" },  <AD01>, <AD02>, <AD03>,
                    <AD04>, <AD05>, <AD06>, <AD07>, <AD08>, <AD09>,
-                   <AD10>, <AD11>, <AD12>, { <BKSL>, "BKSL" }
+                   <AD10>, <AD11>, <AD12>, { <RTRN>, "RTRN" }
 	    };
 	};
 	row {
 	    top= 39;
 	    keys { { <CAPS>, "CAPS" }, <AC01>, <AC02>, <AC03>,
                    <AC04>, <AC05>, <AC06>, <AC07>, <AC08>, <AC09>,
-		   <AC10>, <AC11>, { <RTRN>, "RTRN" }
+                   <AC10>, <AC11>, <BKSL>
 	    };
 	};
 	row {
 	    top= 58;
-	    keys { { <LFSH>, "LFSH" }, <AB01>, <AB02>, <AB03>,
-                   <AB04>, <AB05>, <AB06>, <AB07>, <AB08>, <AB09>,
-                   <AB10>, { <RTSH>, "RTSH" }
+            keys { { <LFSH>, "LFSH" }, <LSGT>, <AB01>, <AB02>,
+                   <AB03>, <AB04>, <AB05>, <AB06>, <AB07>, <AB08>,
+                   <AB09>, <AB10>, { <RTSH>, "RTSH" }
 	    };
 	};
 	row {
@@ -105,8 +124,8 @@ default xkb_geometry "macintosh" {
     }; // End of "Alpha" section
 
     section "Editing" {
-	top= 91;
-	left= 310;
+        top = 87;
+        left = 314;
 	row {
 	    top= 1;
 	    keys { <INS>, <HOME>, <PGUP> };
@@ -128,8 +147,8 @@ default xkb_geometry "macintosh" {
 
     // Begin of "Keypad" section
     section "Keypad" {
-	top= 91;
-	left= 375;
+        top = 87;
+        left = 380;
 	row {
 	    top= 1;
             keys { <NMLK>, <KPEQ>, <KPDV>, <KPMU> };

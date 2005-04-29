@@ -1,5 +1,5 @@
 #!/bin/sh -
-#	$Id: s_test,v 1.1.1.1 2003/02/15 04:55:44 zarzycki Exp $
+#	$Id: s_test,v 1.2 2004/03/30 01:21:34 jtownsen Exp $
 #
 # Build the Tcl test files.
 
@@ -14,7 +14,7 @@ trap 'rm -f $t; exit 0' 0 1 2 3 13 15
 (echo "$msg1"					&& \
  echo ""					&& \
  echo "set tclsh_path @TCL_TCLSH@"		&& \
- echo "set tcllib .libs/libdb_tcl-@DB_VERSION_MAJOR@.@DB_VERSION_MINOR@.@MODSUFFIX@" && \
+ echo "set tcllib .libs/libdb_tcl-@DB_VERSION_MAJOR@.@DB_VERSION_MINOR@@LIBTSO_MODSUFFIX@" && \
  echo ""					&& \
  echo "set rpc_server localhost"	 	&& \
  echo "set rpc_path ."			 	&& \

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1997-2001, International Business Machines
+*   Copyright (C) 1997-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -16,6 +16,7 @@
 #include "unicode/uscript.h"
 #include "unicode/ures.h"
 #include "unicode/uchar.h"
+#include "unicode/putil.h"
 #include "uprops.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -47,7 +48,7 @@ uscript_getCode(const char* nameOrAbbrOrLocale,
     if(code==(UScriptCode)UCHAR_INVALID_CODE){
         /* Do not propagate error codes from just not finding a locale bundle. */
         UErrorCode localErrorCode = U_ZERO_ERROR;
-        UResourceBundle* resB = ures_open(u_getDataDirectory(),nameOrAbbrOrLocale,&localErrorCode);
+        UResourceBundle* resB = ures_open(NULL,nameOrAbbrOrLocale,&localErrorCode);
         if(U_SUCCESS(localErrorCode)&& localErrorCode != U_USING_DEFAULT_WARNING){
             UResourceBundle* resD = ures_getByKey(resB,kLocaleScript,NULL,&localErrorCode);
             if(U_SUCCESS(localErrorCode) ){

@@ -1,5 +1,5 @@
 .\"*****************************************************************************
-.\" Copyright 1994,1996,1998 by Thomas E. Dickey <dickey@clark.net>            *
+.\" Copyright 1994-2002,2003 by Thomas E. Dickey                               *
 .\" All Rights Reserved.                                                       *
 .\"                                                                            *
 .\" Permission to use, copy, modify, and distribute this software and its      *
@@ -18,7 +18,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR *
 .\" IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.                *
 .\"*****************************************************************************
-.\" $Id: diffstat.1,v 1.1.1.1 1999/12/08 03:42:42 wsanchez Exp $
+.\" $Id: diffstat.1,v 1.15 2003/02/15 01:05:12 tom Exp $
 .de DS
 .RS
 .nf
@@ -30,86 +30,101 @@
 .sp .5
 ..
 .TH DIFFSTAT 1
-..
 .SH NAME
 \fBdiffstat\fP \- make histogram from diff-output
-..
 .SH USAGE
-\fBdiffstat\fI [options] [file-specifications]
-..
+\fBdiffstat\fP\fI [options] [file-specifications]\fP
 .SH SYNOPSIS
 This program reads the output of \fBdiff\fP and displays a histogram
 of the insertions, deletions, and modifications per-file.
-..
 .SH DESCRIPTION
 Diffstat is a program that is useful for reviewing large, complex patch files.
 It reads from one or more input files which contain output from \fBdiff\fP,
 producing a histogram of the total lines changed for each file referenced.
-..
+If the input filename ends with .bz2, .Z or .gz, diffstat will read the
+uncompressed data via a pipe.
 .PP
 Diffstat recognizes the most popular types of output from diff:
-..
 .RS
 .TP
 unified
 preferred by the \fBpatch\fP utility.
-..
 .TP
 context
 best for readability, but not very compact.
-..
 .TP
 default
 not good for much, but simple to generate.
 .RE
-..
 .PP
 \fBDiffstat\fP detects the lines that are output by \fBdiff\fP to
 tell which files are compared, and then counts the markers in the
 first column that denote the type of change (insertion, deletion
 or modification).
 These are shown in the histogram as "+", "-" and "!" characters.
-..
 .PP
 If no filename is given on the command line,
 \fBdiffstat\fP reads the differences from the standard input.
-..
 .SH OPTIONS
+.TP
+.B \-c
+prefix each line of output with "#", making it a comment-line for shell
+scripts.
+.TP
+.BI \-e " file"
+redirect standard error to \fIfile\fR.
+.TP
+.BI \-f " format"
+specify 0 for concise, 1 for normal output.
+.TP
+.B \-h
+prints the usage message and exits.
+.TP
+.B \-k
+suppress the merging of filenames in the report.
 .TP
 .BI \-n " number"
 specify the minimum width used for filenames.
 If you don't specify this, \fBdiffstat\fP uses the length of the longest
 filename, after stripping common prefixes.
 .TP
+.BI \-o " file"
+redirect standard output to \fIfile\fR.
+.TP
 .BI \-p " number"
 override the logic that strips common pathnames, simulating the \fBpatch\fP
 "-p" option.
 .TP
+.B \-u
+suppress the sorting of filenames in the report.
+.TP
+.B \-v
+show progress,
+e.g., if the output is redirected to a file,
+write progress messages to the standard error.
+.TP
 .B \-V
-prints the current version number
+prints the current version number and exits.
 .TP
 .BI \-w " number"
 specify the maximum width of the histogram.
 The plot will never be shorter than 10 columns, just in case
 the filenames get too large.
-..
 .SH ENVIRONMENT
 .PP
 \fBDiffstat\fP runs in a portable UNIX\*R environment.
 .SH FILES
 .PP
 \fBDiffstat\fP is a single binary module, which uses no auxiliary files.
-..
 .SH BUGS
 .PP
 \fBDiffstat\fP makes a lot of assumptions about the format of a \fBdiff\fP file.
 .PP
 There's no easy way to determine the degree of overlap between the
 "before" and "after" displays of modified lines.
-..
 .SH SEE ALSO
 .PP
 diff (1).
 .SH AUTHOR
 .PP
-Thomas Dickey (dickey@clark.net).
+Thomas Dickey <dickey@invisible-island.net>.

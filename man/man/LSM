@@ -1,0 +1,23 @@
+Begin3
+Title:		man, man2html, hman
+Version:	1.5g
+Entered-date:	1999-04-06
+Description:	* man is a man pager. It has support for compressed pages
+		(both man pages and cat pages), and for locale ($LANG)
+		and for message catalogs ($LC_MESSAGES). It will format
+		files given explicitly (man ./foo.man.gz).
+		It conforms to FSSTND or FHS, and handles stray cats.
+		* man2html is a utility that converts man pages to html
+		* hman is a man browser that uses your favourite browser.
+		For use with lynx, no http daemon is required.
+Keywords:	man manpath apropos whatis makewhatis man.config man2html
+		hman manual pager browser keyword search
+Authors: 	John Eaton, Richard Verhoeven, Michael Hamilton,
+		Andries Brouwer
+Maintained-by:	aeb@cwi.nl (Andries E. Brouwer)
+Primary-site:	ftp.win.tue.nl /pub/linux-local/utils/man
+		172k man-1.5g.tar.gz
+		 994 man-1.5g.lsm
+Alternate-site: metalab.unc.edu /pub/Linux/apps/doctools/man
+Copying-policy:	Copyright by authors. Distributable under GPL.
+End

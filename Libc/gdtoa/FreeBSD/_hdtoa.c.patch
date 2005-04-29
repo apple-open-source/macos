@@ -1,0 +1,122 @@
+--- _hdtoa.c.orig	2004-06-03 15:22:08.000000000 -0700
++++ _hdtoa.c	2004-08-28 17:10:21.000000000 -0700
+@@ -32,6 +32,9 @@
+ #include <limits.h>
+ #include <math.h>
+ #include <stdlib.h>
++#ifdef LDBL_HEAD_TAIL_PAIR
++#include <alloca.h>
++#endif /* LDBL_HEAD_TAIL_PAIR */
+ #include "fpmath.h"
+ #include "gdtoaimp.h"
+ 
+@@ -301,16 +304,31 @@
+ 	int pos;
+ 	int shift;	/* for subnormals, # of shifts required to normalize */
+ 	int sigfigs;	/* number of significant hex figures in result */
++#ifdef LDBL_HEAD_TAIL_PAIR
++	uint32_t bits[4];
++	int i;
++#endif /* LDBL_HEAD_TAIL_PAIR */
+ 
+ 	u.e = e;
+ 	*sign = u.bits.sign;
+ 
++#ifdef LDBL_HEAD_TAIL_PAIR
++	switch (__fpclassifyd(u.d[0])) {
++#else /* LDBL_HEAD_TAIL_PAIR */
+ 	switch (fpclassify(e)) {
++#endif /* LDBL_HEAD_TAIL_PAIR */
+ 	case FP_NORMAL:
++#ifdef LDBL_HEAD_TAIL_PAIR
+ 		sigfigs = (LDBL_MANT_DIG + 3) / 4;
+ 		impnbit = 1 << ((LDBL_MANT_DIG - 1) % 4);
+ 		*decpt = u.bits.exp - LDBL_BIAS + 1 -
+ 		    ((LDBL_MANT_DIG - 1) % 4);
++#else /* LDBL_HEAD_TAIL_PAIR */
++		sigfigs = (LDBL_MANT_DIG + 3) / 4;
++		impnbit = 1 << ((LDBL_MANT_DIG - 1) % 4);
++		*decpt = u.bits.exp - LDBL_BIAS + 1 -
++		    ((LDBL_MANT_DIG - 1) % 4);
++#endif /* LDBL_HEAD_TAIL_PAIR */
+ 		break;
+ 	case FP_ZERO:
+ 		*decpt = 1;
+@@ -328,13 +346,26 @@
+ 		/* Don't trust the normalization bit to be off. */
+ 		u.bits.manh &= ~(~0ULL << (LDBL_MANH_SIZE - 1));
+ #endif
++#ifndef LDBL_HEAD_TAIL_PAIR
+ 		if (u.bits.manh != 0) {
++#endif /* LDBL_HEAD_TAIL_PAIR */
+ #if LDBL_MANH_SIZE > 32
+ 			pos = log2_64(u.bits.manh);
+ #else
+ 			pos = log2_32(u.bits.manh);
+ #endif
+ 			shift = LDBL_MANH_SIZE - LDBL_NBIT_ADJ - pos;
++#ifdef LDBL_HEAD_TAIL_PAIR
++		sigfigs = (3 + LDBL_MANT_DIG - LDBL_NBIT_ADJ - shift) / 4;
++		// we use DBL_MIN_EXP below because the head double is
++		// subnormal (and the tail double is zero)
++		*decpt = DBL_MIN_EXP + LDBL_NBIT_ADJ;
++		pos = (LDBL_MANT_DIG + 3) % 4;
++		if (pos < shift)
++			*decpt -= pos + ((shift - pos + 3) & ~(4 - 1));
++		else
++			*decpt -= shift;
++#else /* LDBL_HEAD_TAIL_PAIR */
+ 		} else {
+ #if LDBL_MANL_SIZE > 32
+ 			pos = log2_64(u.bits.manl);
+@@ -345,8 +376,9 @@
+ 			    LDBL_NBIT_ADJ - pos;
+ 		}
+ 		sigfigs = (3 + LDBL_MANT_DIG - LDBL_NBIT_ADJ - shift) / 4;
+-		*decpt = LDBL_MIN_EXP + LDBL_NBIT_ADJ -
++		*decpt = DBL_MIN_EXP + LDBL_NBIT_ADJ -
+ 		    ((shift + 3) & ~(4 - 1));
++#endif /* LDBL_HEAD_TAIL_PAIR */
+ 		impnbit = 0;
+ 		break;
+ 	case FP_INFINITE:
+@@ -381,6 +413,19 @@
+ 	 */
+ 	for (s = s0 + bufsize - 1; s > s0 + sigfigs - 1; s--)
+ 		*s = 0;
++#ifdef LDBL_HEAD_TAIL_PAIR
++	_ldbl2array32dd(u, bits);
++	i = 0;
++	pos = 8;
++	for (; s > s0; s--) {
++		*s = bits[i] & 0xf;
++		bits[i] >>= 4;
++		if (--pos <= 0) {
++			i++;
++			pos = 8;
++		}
++	}
++#else /* LDBL_HEAD_TAIL_PAIR */
+ 	for (; s > s0 + sigfigs - (LDBL_MANL_SIZE / 4) - 1 && s > s0; s--) {
+ 		*s = u.bits.manl & 0xf;
+ 		u.bits.manl >>= 4;
+@@ -389,6 +434,7 @@
+ 		*s = u.bits.manh & 0xf;
+ 		u.bits.manh >>= 4;
+ 	}
++#endif /* LDBL_HEAD_TAIL_PAIR */
+ 
+ 	/*
+ 	 * At this point, we have snarfed all the bits in the
+@@ -398,7 +444,11 @@
+ 	 * in manl instead for small subnormals.  We also tack on the
+ 	 * implicit normalization bit if appropriate.
+ 	 */
++#ifdef LDBL_HEAD_TAIL_PAIR
++	*s = bits[i] | impnbit;
++#else /* LDBL_HEAD_TAIL_PAIR */
+ 	*s = u.bits.manh | u.bits.manl | impnbit;
++#endif /* LDBL_HEAD_TAIL_PAIR */
+ 
+ 	/* If ndigits < 0, we are expected to auto-size the precision. */
+ 	if (ndigits < 0) {

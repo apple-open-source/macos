@@ -1,0 +1,374 @@
+diff -Nru ./Makefile.in ../ncurses-5.4+local/Makefile.in
+--- ./Makefile.in	2001-10-27 11:17:22.000000000 -0700
++++ ../ncurses-5.4+local/Makefile.in	2004-11-04 16:20:51.000000000 -0800
+@@ -80,6 +80,14 @@
+ 		fgrep NCURSES_VERSION $(includedir)/curses.h >/dev/null || \
+ 		echo '** Will overwrite non-ncurses curses.h'
+ 
++install-strip: install
++	-mkdir -p $(SYMROOT)/usr/lib $(SYMROOT)/usr/bin
++	cp -r $(DSTROOT)/usr/lib $(SYMROOT)/usr/lib
++	cp -r $(DSTROOT)/usr/bin $(SYMROOT)/usr/bin
++	-find $(DSTROOT)/usr/lib -type f -print0 | xargs -0 strip -S
++	-find $(DSTROOT)/usr/bin -type f -print0 | xargs -0 strip
++	find $(DSTROOT) -group apple_sw -print0 | xargs -0 chgrp -h wheel
++
+ # Put the common rules here so that we can easily construct the list of
+ # directories to visit.
+ all \
+diff -Nru ./configure ../ncurses-5.4+local/configure
+--- ./configure	2004-01-31 17:03:42.000000000 -0800
++++ ../ncurses-5.4+local/configure	2004-11-19 18:57:27.000000000 -0800
+@@ -6492,7 +6492,7 @@
+ echo "$as_me:6492: result: $with_widec" >&5
+ echo "${ECHO_T}$with_widec" >&6
+ if test "$with_widec" = yes ; then
+-	LIB_SUFFIX="w${LIB_SUFFIX}"
++	# LIB_SUFFIX="w${LIB_SUFFIX}"
+ 	cat >>confdefs.h <<\EOF
+ #define USE_WIDEC_SUPPORT 1
+ EOF
+diff -Nru ./configure.in ../ncurses-5.4+local/configure.in
+--- ./configure.in	2004-01-24 11:29:13.000000000 -0800
++++ ../ncurses-5.4+local/configure.in	2004-11-19 18:26:10.000000000 -0800
+@@ -790,7 +790,8 @@
+ 	[with_widec=no])
+ AC_MSG_RESULT($with_widec)
+ if test "$with_widec" = yes ; then
+-	LIB_SUFFIX="w${LIB_SUFFIX}"
++dnl	#LIB_SUFFIX="w${LIB_SUFFIX}"
++	LIB_SUFFIX=".4${LIB_SUFFIX}"
+ 	AC_DEFINE(USE_WIDEC_SUPPORT)
+ 	CF_PREDEFINE(_XOPEN_SOURCE,500)
+ 	CF_PREDEFINE(_XOPEN_SOURCE_EXTENDED)
+diff -Nru ./dist.mk ../ncurses-5.4+local/dist.mk
+--- ./dist.mk	2004-11-02 11:31:12.000000000 -0800
++++ ../ncurses-5.4+local/dist.mk	2004-11-19 18:12:49.000000000 -0800
+@@ -8,6 +8,8 @@
+ SHELL = /bin/sh
+ 
+ # These define the major/minor/patch versions of ncurses.
++# MAJOR changed from 5 to 6 because widec generates an incompatable ABI
++# actuall try 5.4 -- Ed thinks this will do what we want
+ NCURSES_MAJOR = 5
+ NCURSES_MINOR = 4
+ NCURSES_PATCH = 20040208
+diff -Nru ./form/Makefile.in ../ncurses-5.4+local/form/Makefile.in
+--- ./form/Makefile.in	2003-11-01 14:44:33.000000000 -0800
++++ ../ncurses-5.4+local/form/Makefile.in	2004-10-28 21:39:34.000000000 -0700
+@@ -82,13 +82,13 @@
+ CPPFLAGS	= @CPPFLAGS@ \
+ 		  -DHAVE_CONFIG_H 
+ 
+-CCFLAGS		= $(CPPFLAGS) $(CFLAGS)
++CC_FLAGS		= $(CPPFLAGS) $(CFLAGS)
+ 
+-CFLAGS_LIBTOOL	= $(CCFLAGS)
+-CFLAGS_NORMAL	= $(CCFLAGS)
+-CFLAGS_DEBUG	= $(CCFLAGS) @CC_G_OPT@ -DTRACE
+-CFLAGS_PROFILE	= $(CCFLAGS) -pg
+-CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
++CFLAGS_LIBTOOL	= $(CC_FLAGS)
++CFLAGS_NORMAL	= $(CC_FLAGS)
++CFLAGS_DEBUG	= $(CC_FLAGS) @CC_G_OPT@ -DTRACE
++CFLAGS_PROFILE	= $(CC_FLAGS) -pg
++CFLAGS_SHARED	= $(CC_FLAGS) @CC_SHARED_OPTS@
+ 
+ CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
+ 
+diff -Nru ./include/curses.wide ../ncurses-5.4+local/include/curses.wide
+--- ./include/curses.wide	2004-01-03 12:35:14.000000000 -0800
++++ ../ncurses-5.4+local/include/curses.wide	2004-11-05 11:11:54.000000000 -0800
+@@ -148,7 +148,7 @@
+ extern NCURSES_EXPORT(int) wecho_wchar (WINDOW *, const cchar_t *);	/* implemented */
+ extern NCURSES_EXPORT(int) wget_wch (WINDOW *, wint_t *);		/* implemented */
+ extern NCURSES_EXPORT(int) wget_wstr (WINDOW *, wint_t *);		/* generated:WIDEC */
+-extern NCURSES_EXPORT(int) wgetbkgrnd (WINDOW *, cchar_t *);		/* implemented */
++extern NCURSES_EXPORT(int) wgetbkgrnd (WINDOW *, cchar_t *);		/* generated:WIDEC */
+ extern NCURSES_EXPORT(int) wgetn_wstr (WINDOW *,wint_t *, int);		/* implemented */
+ extern NCURSES_EXPORT(int) whline_set (WINDOW *, const cchar_t *, int);	/* implemented */
+ extern NCURSES_EXPORT(int) win_wch (WINDOW *, cchar_t *);		/* implemented */
+diff -Nru ./menu/Makefile.in ../ncurses-5.4+local/menu/Makefile.in
+--- ./menu/Makefile.in	2003-11-01 14:44:33.000000000 -0800
++++ ../ncurses-5.4+local/menu/Makefile.in	2004-10-28 21:28:10.000000000 -0700
+@@ -81,13 +81,13 @@
+ 
+ CPPFLAGS	= -DHAVE_CONFIG_H @CPPFLAGS@
+ 
+-CCFLAGS		= $(CPPFLAGS) $(CFLAGS)
++CC_FLAGS		= $(CPPFLAGS) $(CFLAGS)
+ 
+-CFLAGS_LIBTOOL	= $(CCFLAGS)
+-CFLAGS_NORMAL	= $(CCFLAGS)
+-CFLAGS_DEBUG	= $(CCFLAGS) @CC_G_OPT@ -DTRACE
+-CFLAGS_PROFILE	= $(CCFLAGS) -pg
+-CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
++CFLAGS_LIBTOOL	= $(CC_FLAGS)
++CFLAGS_NORMAL	= $(CC_FLAGS)
++CFLAGS_DEBUG	= $(CC_FLAGS) @CC_G_OPT@ -DTRACE
++CFLAGS_PROFILE	= $(CC_FLAGS) -pg
++CFLAGS_SHARED	= $(CC_FLAGS) @CC_SHARED_OPTS@
+ 
+ CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
+ 
+diff -Nru ./misc/run_tic.in ../ncurses-5.4+local/misc/run_tic.in
+--- ./misc/run_tic.in	2003-09-06 15:31:44.000000000 -0700
++++ ../ncurses-5.4+local/misc/run_tic.in	2004-11-24 22:26:54.000000000 -0800
+@@ -81,7 +81,7 @@
+ PROG_BIN_DIR=${DESTDIR}$bindir
+ export PROG_BIN_DIR
+ 
+-TERMINFO=${DESTDIR}$ticdir ; export TERMINFO
++TERMINFO=${DSTROOT}${DESTDIR}$ticdir ; export TERMINFO
+ umask 022
+ 
+ # Construct the name of the old (obsolete) pathname, e.g., /usr/lib/terminfo.
+@@ -122,37 +122,3 @@
+ 	echo '? tic could not build '$TERMINFO
+ 	exit 1
+ fi
+-
+-# Make a symbolic link to provide compatibility with applications that expect
+-# to find terminfo under /usr/lib.  That is, we'll _try_ to do that.  Not
+-# all systems support symbolic links, and those that do provide a variety
+-# of options for 'test'.
+-if test "$TICDIR" != "$TERMINFO" ; then
+-	( rm -f $TICDIR 2>/dev/null )
+-	if ( cd $TICDIR 2>/dev/null )
+-	then
+-		cd $TICDIR
+-		TICDIR=`pwd`
+-		if test $TICDIR != $TERMINFO ; then
+-			# Well, we tried.  Some systems lie to us, so the
+-			# installer will have to double-check.
+-			echo "Verify if $TICDIR and $TERMINFO are the same."
+-			echo "The new terminfo is in $TERMINFO; the other should be a link to it."
+-			echo "Otherwise, remove $TICDIR and link it to $TERMINFO."
+-		fi
+-	else
+-		cd ${DESTDIR}$prefix
+-		# Construct a symbolic link that only assumes $ticdir has the
+-		# same $prefix as the other installed directories.
+-		RELATIVE=`echo $ticdir|sed -e 's%^'$prefix'/%%'`
+-		if test "$RELATIVE" != "$ticdir" ; then
+-			RELATIVE=../`echo $ticdir|sed -e 's%^'$prefix'/%%' -e 's%^/%%'`
+-		fi
+-		if ( @LN_S@ $RELATIVE $TICDIR )
+-		then
+-			echo '** sym-linked '$TICDIR' for compatibility'
+-		else
+-			echo '** could not sym-link '$TICDIR' for compatibility'
+-		fi
+-	fi
+-fi
+diff -Nru ./ncurses/Makefile.in ../ncurses-5.4+local/ncurses/Makefile.in
+--- ./ncurses/Makefile.in	2003-11-01 14:48:53.000000000 -0800
++++ ../ncurses-5.4+local/ncurses/Makefile.in	2004-10-28 21:20:49.000000000 -0700
+@@ -90,7 +90,7 @@
+ INCDIR		= $(srcdir)/../include
+ CPPFLAGS	= -DHAVE_CONFIG_H -I../ncurses -I$(srcdir) @CPPFLAGS@
+ 
+-CCFLAGS		= $(CPPFLAGS) $(CFLAGS)
++CC_FLAGS		= $(CPPFLAGS) $(CFLAGS)
+ 
+ BUILD_CC	= @BUILD_CC@
+ BUILD_CCFLAGS	= -DHAVE_CONFIG_H -I../ncurses -I$(srcdir) @BUILD_CPPFLAGS@ @BUILD_CFLAGS@
+@@ -103,11 +103,11 @@
+ BUILD_EXEEXT	= @BUILD_EXEEXT@
+ x		= @PROG_EXT@
+ 
+-CFLAGS_LIBTOOL	= $(CCFLAGS)
+-CFLAGS_NORMAL	= $(CCFLAGS)
+-CFLAGS_DEBUG	= $(CCFLAGS) @CC_G_OPT@ -DTRACE
+-CFLAGS_PROFILE	= $(CCFLAGS) -pg
+-CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
++CFLAGS_LIBTOOL	= $(CC_FLAGS)
++CFLAGS_NORMAL	= $(CC_FLAGS)
++CFLAGS_DEBUG	= $(CC_FLAGS) @CC_G_OPT@ -DTRACE
++CFLAGS_PROFILE	= $(CC_FLAGS) -pg
++CFLAGS_SHARED	= $(CC_FLAGS) @CC_SHARED_OPTS@
+ 
+ CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
+ 
+diff -Nru ./panel/Makefile.in ../ncurses-5.4+local/panel/Makefile.in
+--- ./panel/Makefile.in	2003-11-01 14:44:33.000000000 -0800
++++ ../ncurses-5.4+local/panel/Makefile.in	2004-10-28 21:22:04.000000000 -0700
+@@ -82,13 +82,13 @@
+ 
+ CPPFLAGS	= -I@top_srcdir@/ncurses -DHAVE_CONFIG_H @CPPFLAGS@
+ 
+-CCFLAGS		= $(CPPFLAGS) $(CFLAGS)
++CC_FLAGS		= $(CPPFLAGS) $(CFLAGS)
+ 
+-CFLAGS_LIBTOOL	= $(CCFLAGS)
+-CFLAGS_NORMAL	= $(CCFLAGS)
+-CFLAGS_DEBUG	= $(CCFLAGS) @CC_G_OPT@ -DTRACE
+-CFLAGS_PROFILE	= $(CCFLAGS) -pg
+-CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
++CFLAGS_LIBTOOL	= $(CC_FLAGS)
++CFLAGS_NORMAL	= $(CC_FLAGS)
++CFLAGS_DEBUG	= $(CC_FLAGS) @CC_G_OPT@ -DTRACE
++CFLAGS_PROFILE	= $(CC_FLAGS) -pg
++CFLAGS_SHARED	= $(CC_FLAGS) @CC_SHARED_OPTS@
+ 
+ CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
+ 
+diff -Nru ./progs/Makefile.in ../ncurses-5.4+local/progs/Makefile.in
+--- ./progs/Makefile.in	2003-11-01 14:45:57.000000000 -0800
++++ ../ncurses-5.4+local/progs/Makefile.in	2004-10-28 21:25:07.000000000 -0700
+@@ -82,26 +82,26 @@
+ INCDIR		= $(srcdir)/../include
+ CPPFLAGS	= -I../progs -I$(srcdir) -DHAVE_CONFIG_H @CPPFLAGS@
+ 
+-CCFLAGS		= $(CPPFLAGS) $(CFLAGS)
++CC_FLAGS		= $(CPPFLAGS) $(CFLAGS)
+ 
+-CFLAGS_LIBTOOL	= $(CCFLAGS)
+-CFLAGS_NORMAL	= $(CCFLAGS)
+-CFLAGS_DEBUG	= $(CCFLAGS) @CC_G_OPT@ -DTRACE
+-CFLAGS_PROFILE	= $(CCFLAGS) -pg
+-CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
++CFLAGS_LIBTOOL	= $(CC_FLAGS)
++CFLAGS_NORMAL	= $(CC_FLAGS)
++CFLAGS_DEBUG	= $(CC_FLAGS) @CC_G_OPT@ -DTRACE
++CFLAGS_PROFILE	= $(CC_FLAGS) -pg
++CFLAGS_SHARED	= $(CC_FLAGS) @CC_SHARED_OPTS@
+ 
+ CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
+ 
+ LD		= @LD@
+ LINK		= @LINK_PROGS@ $(LIBTOOL_LINK) $(CC)
+-LDFLAGS		= @EXTRA_LDFLAGS@ \
+-		@PROG_ARGS@ @LDFLAGS@ @LD_MODEL@ @LIBS@ @EXTRA_LIBS@
++LD_FLAGS		= @EXTRA_LDFLAGS@ \
++		$(shell $(SRCROOT)/ldfix @PROG_ARGS@) @LDFLAGS@ @LD_MODEL@ @LIBS@ @EXTRA_LIBS@
+ 
+-LDFLAGS_LIBTOOL	= $(LDFLAGS) $(CFLAGS_LIBTOOL)
+-LDFLAGS_NORMAL	= $(LDFLAGS) $(CFLAGS_NORMAL)
+-LDFLAGS_DEBUG	= $(LDFLAGS) $(CFLAGS_DEBUG)
+-LDFLAGS_PROFILE	= $(LDFLAGS) $(CFLAGS_PROFILE) 
+-LDFLAGS_SHARED	= $(LDFLAGS) $(CFLAGS_SHARED) @LD_SHARED_OPTS@
++LDFLAGS_LIBTOOL	= $(LD_FLAGS) $(CFLAGS_LIBTOOL)
++LDFLAGS_NORMAL	= $(LD_FLAGS) $(CFLAGS_NORMAL)
++LDFLAGS_DEBUG	= $(LD_FLAGS) $(CFLAGS_DEBUG)
++LDFLAGS_PROFILE	= $(LD_FLAGS) $(CFLAGS_PROFILE) 
++LDFLAGS_SHARED	= $(LD_FLAGS) $(CFLAGS_SHARED) @LD_SHARED_OPTS@
+ 
+ LDFLAGS_DEFAULT	= $(LDFLAGS_@DFT_UPR_MODEL@)
+ 
+diff -Nru ./tack/Makefile.in ../ncurses-5.4+local/tack/Makefile.in
+--- ./tack/Makefile.in	2003-11-01 14:46:24.000000000 -0800
++++ ../ncurses-5.4+local/tack/Makefile.in	2004-11-04 16:44:17.000000000 -0800
+@@ -26,7 +26,7 @@
+ exec_prefix	= @exec_prefix@
+ bindir		= @bindir@
+ libdir		= @libdir@
+-mandir		= @mandir@/man1
++MAN_DIR		= $(DSTROOT)@mandir@/man1
+ includedir	= @includedir@
+ datadir		= @datadir@
+ 
+@@ -51,26 +51,26 @@
+ INCDIR		= $(srcdir)/../include
+ CPPFLAGS	= -DHAVE_CONFIG_H -I../tack -I$(srcdir) @CPPFLAGS@
+ 
+-CCFLAGS		= $(CPPFLAGS) $(CFLAGS)
++CC_FLAGS		= $(CPPFLAGS) $(CFLAGS)
+ 
+-CFLAGS_LIBTOOL	= $(CCFLAGS)
+-CFLAGS_NORMAL	= $(CCFLAGS)
+-CFLAGS_DEBUG	= $(CCFLAGS) @CC_G_OPT@ -DTRACE
+-CFLAGS_PROFILE	= $(CCFLAGS) -pg
+-CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
++CFLAGS_LIBTOOL	= $(CC_FLAGS)
++CFLAGS_NORMAL	= $(CC_FLAGS)
++CFLAGS_DEBUG	= $(CC_FLAGS) @CC_G_OPT@ -DTRACE
++CFLAGS_PROFILE	= $(CC_FLAGS) -pg
++CFLAGS_SHARED	= $(CC_FLAGS) @CC_SHARED_OPTS@
+ 
+ CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
+ 
+ LD		= @LD@
+ LINK		= @LINK_PROGS@ $(LIBTOOL_LINK) $(CC)
+-LDFLAGS		= @EXTRA_LDFLAGS@ \
+-		@PROG_ARGS@ @LDFLAGS@ @LD_MODEL@ @LIBS@ @EXTRA_LIBS@
++LD_FLAGS		= @EXTRA_LDFLAGS@ \
++		$(shell $(SRCROOT)/ldfix @PROG_ARGS@) @LDFLAGS@ @LD_MODEL@ @LIBS@ @EXTRA_LIBS@
+ 
+-LDFLAGS_LIBTOOL	= $(LDFLAGS) $(CFLAGS_LIBTOOL)
+-LDFLAGS_NORMAL	= $(LDFLAGS) $(CFLAGS_NORMAL)
+-LDFLAGS_DEBUG	= $(LDFLAGS) $(CFLAGS_DEBUG)
+-LDFLAGS_PROFILE	= $(LDFLAGS) $(CFLAGS_PROFILE)
+-LDFLAGS_SHARED	= $(LDFLAGS) $(CFLAGS_SHARED) @LD_SHARED_OPTS@
++LDFLAGS_LIBTOOL	= $(LD_FLAGS) $(CFLAGS_LIBTOOL)
++LDFLAGS_NORMAL	= $(LD_FLAGS) $(CFLAGS_NORMAL)
++LDFLAGS_DEBUG	= $(LD_FLAGS) $(CFLAGS_DEBUG)
++LDFLAGS_PROFILE	= $(LD_FLAGS) $(CFLAGS_PROFILE)
++LDFLAGS_SHARED	= $(LD_FLAGS) $(CFLAGS_SHARED) @LD_SHARED_OPTS@
+ 
+ LDFLAGS_DEFAULT	= $(LDFLAGS_@DFT_UPR_MODEL@)
+ 
+@@ -98,16 +98,16 @@
+ 
+ install.tack: $(PROGS) \
+ 	$(DESTDIR)$(bindir) \
+-	$(DESTDIR)$(mandir)
++	$(DESTDIR)$(MAN_DIR)
+ 	$(LIBTOOL_INSTALL) $(INSTALL_PROGRAM) tack$x $(DESTDIR)$(bindir)/tack$x
+-	$(INSTALL_DATA) $(srcdir)/tack.1 $(DESTDIR)$(mandir)/tack.1
++	$(INSTALL_DATA) $(srcdir)/tack.1 $(DESTDIR)$(MAN_DIR)/tack.1
+ 
+ uninstall.tack:
+ 	-@$(LIBTOOL_UNINSTALL) rm -f $(DESTDIR)$(bindir)/tack$x
+-	-@rm -f $(DESTDIR)$(mandir)/tack.1
++	-@rm -f $(DESTDIR)$(MAN_DIR)/tack.1
+ 
+ $(DESTDIR)$(bindir) \
+-$(DESTDIR)$(mandir) :
++$(DESTDIR)$(MAN_DIR) :
+ 	sh $(srcdir)/../mkinstalldirs $@
+ 
+ #
+diff -Nru ./test/Makefile.in ../ncurses-5.4+local/test/Makefile.in
+--- ./test/Makefile.in	2003-12-06 17:36:16.000000000 -0800
++++ ../ncurses-5.4+local/test/Makefile.in	2004-10-28 21:27:37.000000000 -0700
+@@ -59,13 +59,13 @@
+ CFLAGS		= @CFLAGS@
+ CPPFLAGS	=  -I../test -I$(srcdir) -DHAVE_CONFIG_H @CPPFLAGS@
+ 
+-CCFLAGS		= $(CPPFLAGS) $(CFLAGS)
++CC_FLAGS		= $(CPPFLAGS) $(CFLAGS)
+ 
+-CFLAGS_LIBTOOL	= $(CCFLAGS)
+-CFLAGS_NORMAL	= $(CCFLAGS)
+-CFLAGS_DEBUG	= $(CCFLAGS) @CC_G_OPT@ -DTRACE
+-CFLAGS_PROFILE	= $(CCFLAGS) -pg
+-CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
++CFLAGS_LIBTOOL	= $(CC_FLAGS)
++CFLAGS_NORMAL	= $(CC_FLAGS)
++CFLAGS_DEBUG	= $(CC_FLAGS) @CC_G_OPT@ -DTRACE
++CFLAGS_PROFILE	= $(CC_FLAGS) -pg
++CFLAGS_SHARED	= $(CC_FLAGS) @CC_SHARED_OPTS@
+ 
+ CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
+ 
+@@ -77,13 +77,13 @@
+ LD		= @LD@
+ LINK		= @LINK_TESTS@ $(LIBTOOL_LINK) $(CC) $(CFLAGS)
+ 
+-LDFLAGS		= @LD_MODEL@ @TEST_ARGS@ @LIBS@ @EXTRA_LIBS@ @LOCAL_LDFLAGS@ @LDFLAGS@
++LD_FLAGS		= @LD_MODEL@ @TEST_ARGS@ @LIBS@ @EXTRA_LIBS@ @LOCAL_LDFLAGS@ @LDFLAGS@
+ 
+-LDFLAGS_LIBTOOL	= $(LDFLAGS) $(CFLAGS_LIBTOOL)
+-LDFLAGS_NORMAL	= $(LDFLAGS) $(CFLAGS_NORMAL)
+-LDFLAGS_DEBUG	= $(LDFLAGS) $(CFLAGS_DEBUG)
+-LDFLAGS_PROFILE	= $(LDFLAGS) $(CFLAGS_PROFILE)
+-LDFLAGS_SHARED	= $(LDFLAGS) $(CFLAGS_SHARED) @LD_SHARED_OPTS@
++LDFLAGS_LIBTOOL	= $(LD_FLAGS) $(CFLAGS_LIBTOOL)
++LDFLAGS_NORMAL	= $(LD_FLAGS) $(CFLAGS_NORMAL)
++LDFLAGS_DEBUG	= $(LD_FLAGS) $(CFLAGS_DEBUG)
++LDFLAGS_PROFILE	= $(LD_FLAGS) $(CFLAGS_PROFILE)
++LDFLAGS_SHARED	= $(LD_FLAGS) $(CFLAGS_SHARED) @LD_SHARED_OPTS@
+ 
+ LDFLAGS_DEFAULT	= $(LDFLAGS_@DFT_UPR_MODEL@)
+ 

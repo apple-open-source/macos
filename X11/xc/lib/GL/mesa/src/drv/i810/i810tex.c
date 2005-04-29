@@ -21,19 +21,18 @@
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810tex.c,v 1.9 2002/10/30 12:51:33 alanh Exp $ */
-
-#include <stdlib.h>
-#include <stdio.h>
+/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810tex.c,v 1.10 2003/09/28 20:15:12 alanh Exp $ */
 
 #include "glheader.h"
 #include "mtypes.h"
-#include "mem.h"
+#include "imports.h"
 #include "simple_list.h"
 #include "enums.h"
 #include "texstore.h"
 #include "texformat.h"
+#include "texmem.h"
 #include "swrast/swrast.h"
+#include "colormac.h"
 
 #include "mm.h"
 
@@ -60,18 +59,40 @@ static GLuint i810ComputeLodBias(GLfloat bias)
 }
 
 
-static void i810SetTexWrapping(i810TextureObjectPtr t, 
-			       GLenum wraps, GLenum wrapt)
+static void i810SetTexWrapping(i810TextureObjectPtr tex,
+			       GLenum swrap, GLenum twrap)
 {
-   t->Setup[I810_TEXREG_MCS] &= ~(MCS_U_STATE_MASK| MCS_V_STATE_MASK);
-   t->Setup[I810_TEXREG_MCS] |= (MCS_U_WRAP|MCS_V_WRAP);
+   tex->Setup[I810_TEXREG_MCS] &= ~(MCS_U_STATE_MASK| MCS_V_STATE_MASK);
 
-   if (wraps != GL_REPEAT) 
-      t->Setup[I810_TEXREG_MCS] ^= (MCS_U_WRAP^MCS_U_CLAMP);
+   switch( swrap ) {
+   case GL_REPEAT:
+      tex->Setup[I810_TEXREG_MCS] |= MCS_U_WRAP;
+      break;
+   case GL_CLAMP:
+   case GL_CLAMP_TO_EDGE:
+      tex->Setup[I810_TEXREG_MCS] |= MCS_U_CLAMP;
+      break;
+   case GL_MIRRORED_REPEAT:
+      tex->Setup[I810_TEXREG_MCS] |= MCS_U_MIRROR;
+      break;
+   default:
+      _mesa_problem(NULL, "bad S wrap mode in %s", __FUNCTION__);
+   }
 
-   if (wrapt != GL_REPEAT) 
-      t->Setup[I810_TEXREG_MCS] ^= (MCS_V_WRAP^MCS_V_CLAMP);
-
+   switch( twrap ) {
+   case GL_REPEAT:
+      tex->Setup[I810_TEXREG_MCS] |= MCS_V_WRAP;
+      break;
+   case GL_CLAMP:
+   case GL_CLAMP_TO_EDGE:
+      tex->Setup[I810_TEXREG_MCS] |= MCS_V_CLAMP;
+      break;
+   case GL_MIRRORED_REPEAT:
+      tex->Setup[I810_TEXREG_MCS] |= MCS_V_MIRROR;
+      break;
+   default:
+      _mesa_problem(NULL, "bad T wrap mode in %s", __FUNCTION__);
+   }
 }
 
 
@@ -144,6 +165,52 @@ static void i810SetTexBorderColor(i810TextureObjectPtr t,
    /* Need a fallback.
     */
 }
+static i810TextureObjectPtr i810AllocTexObj( GLcontext *ctx, struct gl_texture_object *texObj )
+{
+   i810TextureObjectPtr t;
+   i810ContextPtr imesa = I810_CONTEXT(ctx);
+
+   t = CALLOC_STRUCT( i810_texture_object_t );
+   texObj->DriverData = t;
+   if ( t != NULL ) {
+      GLfloat bias = ctx->Texture.Unit[ctx->Texture.CurrentUnit].LodBias;
+      /* Initialize non-image-dependent parts of the state:
+       */
+      t->base.tObj = texObj;
+      t->Setup[I810_TEXREG_MI0] = GFX_OP_MAP_INFO;
+      t->Setup[I810_TEXREG_MI1] = MI1_MAP_0; 
+      t->Setup[I810_TEXREG_MI2] = MI2_DIMENSIONS_ARE_LOG2;
+      t->Setup[I810_TEXREG_MLC] = (GFX_OP_MAP_LOD_CTL | 
+				   MLC_MAP_0 |
+				   /*MLC_DITHER_WEIGHT_FULL |*/
+				   MLC_DITHER_WEIGHT_12 |
+				   MLC_UPDATE_LOD_BIAS |
+				   0x0);
+      t->Setup[I810_TEXREG_MCS] = (GFX_OP_MAP_COORD_SETS |
+				   MCS_COORD_0 |
+				   MCS_UPDATE_NORMALIZED |
+				   MCS_NORMALIZED_COORDS |
+				   MCS_UPDATE_V_STATE |
+				   MCS_V_WRAP |
+				   MCS_UPDATE_U_STATE |
+				   MCS_U_WRAP);
+      t->Setup[I810_TEXREG_MF] = (GFX_OP_MAP_FILTER |
+				  MF_MAP_0 |
+				  MF_UPDATE_ANISOTROPIC |
+				  MF_UPDATE_MIP_FILTER |
+				  MF_UPDATE_MAG_FILTER |
+				  MF_UPDATE_MIN_FILTER);
+      
+      make_empty_list( & t->base );
+
+      i810SetTexWrapping( t, texObj->WrapS, texObj->WrapT );
+      /*i830SetTexMaxAnisotropy( t, texObj->MaxAnisotropy );*/
+      i810SetTexFilter( imesa, t, texObj->MinFilter, texObj->MagFilter, bias );
+      i810SetTexBorderColor( t, texObj->_BorderChan );
+   }
+
+   return t;
+}
 
 
 static void i810TexParameter( GLcontext *ctx, GLenum target,
@@ -179,7 +246,7 @@ static void i810TexParameter( GLcontext *ctx, GLenum target,
       break;
   
    case GL_TEXTURE_BORDER_COLOR:
-      i810SetTexBorderColor( t, tObj->BorderColor );
+      i810SetTexBorderColor( t, tObj->_BorderChan );
       break;
 
    case GL_TEXTURE_BASE_LEVEL:
@@ -191,7 +258,8 @@ static void i810TexParameter( GLcontext *ctx, GLenum target,
        * we just have to rely on loading the right subset of mipmap levels
        * to simulate a clamped LOD.
        */
-      i810SwapOutTexObj( imesa, t );
+      I810_FIREVERTICES( I810_CONTEXT(ctx) );
+      driSwapOutTextureObject( (driTextureObject *) t );
       break;
 
    default:
@@ -256,6 +324,8 @@ static void i810TexEnv( GLcontext *ctx, GLenum target,
    }
 } 
 
+
+
 #if 0
 static void i810TexImage1D( GLcontext *ctx, GLenum target, GLint level,
 			    GLint internalFormat,
@@ -295,13 +365,22 @@ static void i810TexImage2D( GLcontext *ctx, GLenum target, GLint level,
 			    struct gl_texture_object *texObj,
 			    struct gl_texture_image *texImage )
 {
-   i810TextureObjectPtr t = (i810TextureObjectPtr) texObj->DriverData;
+   driTextureObject *t = (driTextureObject *) texObj->DriverData;
    if (t) {
-      i810SwapOutTexObj( I810_CONTEXT(ctx), t );
+      I810_FIREVERTICES( I810_CONTEXT(ctx) );
+      driSwapOutTextureObject( t );
+   }
+   else {
+      t = (driTextureObject *) i810AllocTexObj( ctx, texObj );
+      if (!t) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
+         return;
+      }
    }
    _mesa_store_teximage2d( ctx, target, level, internalFormat,
 			   width, height, border, format, type,
 			   pixels, packing, texObj, texImage );
+
 }
 
 static void i810TexSubImage2D( GLcontext *ctx, 
@@ -315,9 +394,11 @@ static void i810TexSubImage2D( GLcontext *ctx,
 			       struct gl_texture_object *texObj,
 			       struct gl_texture_image *texImage )
 {
-   i810TextureObjectPtr t = (i810TextureObjectPtr) texObj->DriverData;
+   driTextureObject *t = (driTextureObject *)texObj->DriverData;
+
    if (t) {
-      i810SwapOutTexObj( I810_CONTEXT(ctx), t );
+     I810_FIREVERTICES( I810_CONTEXT(ctx) );
+     driSwapOutTextureObject( t );
    }
    _mesa_store_texsubimage2d(ctx, target, level, xoffset, yoffset, width, 
 			     height, format, type, pixels, packing, texObj,
@@ -329,78 +410,116 @@ static void i810TexSubImage2D( GLcontext *ctx,
 static void i810BindTexture( GLcontext *ctx, GLenum target,
 			     struct gl_texture_object *tObj )
 {
-   if (target == GL_TEXTURE_2D) {
-      i810ContextPtr imesa = I810_CONTEXT( ctx );
-      i810TextureObjectPtr t = (i810TextureObjectPtr) tObj->DriverData;
-
-      if (!t) {
-         GLfloat bias = ctx->Texture.Unit[ctx->Texture.CurrentUnit].LodBias;
-	 t = CALLOC_STRUCT(i810_texture_object_t);
-
-	 /* Initialize non-image-dependent parts of the state:
-	  */
-	 t->globj = tObj;
-	 t->Setup[I810_TEXREG_MI0] = GFX_OP_MAP_INFO;
-	 t->Setup[I810_TEXREG_MI1] = MI1_MAP_0; 
-	 t->Setup[I810_TEXREG_MI2] = MI2_DIMENSIONS_ARE_LOG2;
-	 t->Setup[I810_TEXREG_MLC] = (GFX_OP_MAP_LOD_CTL | 
-				      MLC_MAP_0 |
-				      /*MLC_DITHER_WEIGHT_FULL |*/
-				      MLC_DITHER_WEIGHT_12 |
-				      MLC_UPDATE_LOD_BIAS |
-				      0x0);
-	 t->Setup[I810_TEXREG_MCS] = (GFX_OP_MAP_COORD_SETS |
-				      MCS_COORD_0 |
-				      MCS_UPDATE_NORMALIZED |
-				      MCS_NORMALIZED_COORDS |
-				      MCS_UPDATE_V_STATE |
-				      MCS_V_WRAP |
-				      MCS_UPDATE_U_STATE |
-				      MCS_U_WRAP);
-	 t->Setup[I810_TEXREG_MF] = (GFX_OP_MAP_FILTER |
-				     MF_MAP_0 |
-				     MF_UPDATE_ANISOTROPIC |
-				     MF_UPDATE_MIP_FILTER |
-				     MF_UPDATE_MAG_FILTER |
-				     MF_UPDATE_MIN_FILTER);
-
-	 t->dirty_images = ~0;
-
-	 tObj->DriverData = t;
-	 make_empty_list( t );
-
-	 i810SetTexWrapping( t, tObj->WrapS, tObj->WrapT );
-	 i810SetTexFilter( imesa, t, tObj->MinFilter, tObj->MagFilter, bias );
-	 i810SetTexBorderColor( t, tObj->BorderColor );
-      }
-   }
+  if (!tObj->DriverData) {
+      i810AllocTexObj( ctx, tObj );
+  }
 }
 
 
 static void i810DeleteTexture( GLcontext *ctx, struct gl_texture_object *tObj )
 {
-   i810TextureObjectPtr t = (i810TextureObjectPtr)tObj->DriverData;
-
+  driTextureObject * t = (driTextureObject *) tObj->DriverData;
    if (t) {
       i810ContextPtr imesa = I810_CONTEXT( ctx );
       if (imesa)
          I810_FIREVERTICES( imesa );
-      i810DestroyTexObj( imesa, t );
-      tObj->DriverData = 0;
+      driDestroyTextureObject( t );
    }
 }
 
-static GLboolean i810IsTextureResident( GLcontext *ctx, 
-					struct gl_texture_object *tObj )
+static const struct gl_texture_format *
+i810ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
+			 GLenum format, GLenum type )
 {
-   i810TextureObjectPtr t = (i810TextureObjectPtr)tObj->DriverData;
-   return t && t->MemBlock;
+   switch ( internalFormat ) {
+   case 4:
+   case GL_RGBA:
+   case GL_COMPRESSED_RGBA:
+      if ( format == GL_BGRA ) {
+         if ( type == GL_UNSIGNED_SHORT_1_5_5_5_REV ) {
+	    return &_mesa_texformat_argb1555;
+	 }
+      }
+      return &_mesa_texformat_argb4444;
+
+   case 3:
+   case GL_RGB:
+   case GL_COMPRESSED_RGB:
+   case GL_R3_G3_B2:
+   case GL_RGB4:
+   case GL_RGB5:
+   case GL_RGB8:
+   case GL_RGB10:
+   case GL_RGB12:
+   case GL_RGB16:
+     return &_mesa_texformat_rgb565;
+
+   case GL_RGBA2:
+   case GL_RGBA4:
+   case GL_RGBA8:
+   case GL_RGB10_A2:
+   case GL_RGBA12:
+   case GL_RGBA16:
+      return &_mesa_texformat_argb4444;
+
+   case GL_RGB5_A1:
+      return &_mesa_texformat_argb1555;
+
+   case GL_ALPHA:
+   case GL_ALPHA4:
+   case GL_ALPHA8:
+   case GL_ALPHA12:
+   case GL_ALPHA16:
+   case GL_COMPRESSED_ALPHA:
+      return &_mesa_texformat_al88;
+
+   case 1:
+   case GL_LUMINANCE:
+   case GL_LUMINANCE4:
+   case GL_LUMINANCE8:
+   case GL_LUMINANCE12:
+   case GL_LUMINANCE16:
+   case GL_COMPRESSED_LUMINANCE:
+      return &_mesa_texformat_rgb565;
+
+   case 2:
+   case GL_LUMINANCE_ALPHA:
+   case GL_LUMINANCE4_ALPHA4:
+   case GL_LUMINANCE6_ALPHA2:
+   case GL_LUMINANCE8_ALPHA8:
+   case GL_LUMINANCE12_ALPHA4:
+   case GL_LUMINANCE12_ALPHA12:
+   case GL_LUMINANCE16_ALPHA16:
+   case GL_COMPRESSED_LUMINANCE_ALPHA:
+   case GL_INTENSITY:
+   case GL_INTENSITY4:
+   case GL_INTENSITY8:
+   case GL_INTENSITY12:
+   case GL_INTENSITY16:
+   case GL_COMPRESSED_INTENSITY:
+      return &_mesa_texformat_argb4444;
+
+   case GL_YCBCR_MESA:
+      if (type == GL_UNSIGNED_SHORT_8_8_MESA ||
+	  type == GL_UNSIGNED_BYTE)
+         return &_mesa_texformat_ycbcr;
+      else
+         return &_mesa_texformat_ycbcr_rev;
+
+   default:
+      fprintf(stderr, "unexpected texture format in %s\n", __FUNCTION__);
+      return NULL;
+   }
+
+   return NULL; /* never get here */
 }
 
 void i810InitTextureFuncs( GLcontext *ctx )
 {
+   i810ContextPtr imesa = I810_CONTEXT(ctx);
+
    ctx->Driver.TexEnv = i810TexEnv;
-   ctx->Driver.ChooseTextureFormat = _mesa_choose_tex_format;
+   ctx->Driver.ChooseTextureFormat = i810ChooseTextureFormat;
    ctx->Driver.TexImage1D = _mesa_store_teximage1d;
    ctx->Driver.TexImage2D = i810TexImage2D;
    ctx->Driver.TexImage3D = _mesa_store_teximage3d;
@@ -416,15 +535,9 @@ void i810InitTextureFuncs( GLcontext *ctx )
    ctx->Driver.DeleteTexture = i810DeleteTexture;
    ctx->Driver.TexParameter = i810TexParameter;
    ctx->Driver.UpdateTexturePalette = 0;
-   ctx->Driver.IsTextureResident = i810IsTextureResident;
+   ctx->Driver.IsTextureResident = driIsTextureResident;
    ctx->Driver.TestProxyTexImage = _mesa_test_proxy_teximage;
 
-   {
-      GLuint tmp = ctx->Texture.CurrentUnit;
-      ctx->Texture.CurrentUnit = 0;
-      i810BindTexture( ctx, GL_TEXTURE_2D, ctx->Texture.Unit[0].Current2D);
-      ctx->Texture.CurrentUnit = 1;
-      i810BindTexture( ctx, GL_TEXTURE_2D, ctx->Texture.Unit[1].Current2D);
-      ctx->Texture.CurrentUnit = tmp;
-   }
+   driInitTextureObjects( ctx, &imesa->swapped, DRI_TEXMGR_DO_TEXTURE_2D);
+
 }

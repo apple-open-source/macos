@@ -1,0 +1,297 @@
+#
+# tcl/win/makefile.vc  --
+#
+# Visual C++ 2.x, 4.0, and 5.0 makefile for Extended Tcl on Windows.
+#------------------------------------------------------------------------------
+# Copyright 1996-1999 Karl Lehenbauer and Mark Diekhans.
+#
+# Permission to use, copy, modify, and distribute this software and its
+# documentation for any purpose and without fee is hereby granted, provided
+# that the above copyright notice appear in all copies.  Karl Lehenbauer and
+# Mark Diekhans make no representations about the suitability of this
+# software for any purpose.  It is provided "as is" without express or
+# implied warranty.
+#------------------------------------------------------------------------------
+# $Id: makefile.vc.sub,v 1.1 2001/10/24 23:31:50 hobbs Exp $
+#------------------------------------------------------------------------------
+#
+
+!include "..\..\win\common.vc"
+
+TCLX_INCLUDES = \
+	-I"$(TOOLS32)\include" \
+	-I$(TCLX_WIN_DIR) -I$(TCLX_GENERIC_DIR) \
+	-I$(TCL_GENERIC_DIR) -I$(TCL_WIN_DIR)
+
+TCLX_DEFINES = \
+	-nologo $(DEBUGDEFINES)
+
+TCLOBJS = \
+	$(TMP_DIR)\tclXAppInit.obj
+
+TCLXTESTOBJS = \
+	$(TMP_DIR)\tclXtest.obj \
+	$(TMP_DIR)\tclXwinTest.obj \
+	$(TMP_DIR)\tclTest.obj \
+	$(TMP_DIR)\tclWinTest.obj \
+	$(TMP_DIR)\tclTestObj.obj
+
+TCLXOBJS = \
+	$(TMP_DIR)\tclXbsearch.obj \
+	$(TMP_DIR)\tclXchmod.obj \
+	$(TMP_DIR)\tclXcmdInit.obj \
+	$(TMP_DIR)\tclXcmdloop.obj \
+	$(TMP_DIR)\tclXdebug.obj \
+	$(TMP_DIR)\tclXdup.obj \
+	$(TMP_DIR)\tclXfcntl.obj \
+	$(TMP_DIR)\tclXfilecmds.obj \
+	$(TMP_DIR)\tclXfilescan.obj \
+	$(TMP_DIR)\tclXflock.obj \
+	$(TMP_DIR)\tclXfstat.obj \
+	$(TMP_DIR)\tclXgeneral.obj \
+	$(TMP_DIR)\tclXhandles.obj \
+	$(TMP_DIR)\tclXinit.obj \
+	$(TMP_DIR)\tclXkeylist.obj \
+	$(TMP_DIR)\tclXlgets.obj \
+	$(TMP_DIR)\tclXlib.obj \
+	$(TMP_DIR)\tclXlibInit.obj \
+	$(TMP_DIR)\tclXlist.obj \
+	$(TMP_DIR)\tclXmath.obj \
+	$(TMP_DIR)\tclXmsgcat.obj \
+	$(TMP_DIR)\tclXosCmds.obj \
+	$(TMP_DIR)\tclXprocess.obj \
+	$(TMP_DIR)\tclXprofile.obj \
+	$(TMP_DIR)\tclXshell.obj \
+	$(TMP_DIR)\tclXsignal.obj \
+	$(TMP_DIR)\tclXsocket.obj \
+	$(TMP_DIR)\tclXstring.obj \
+	$(TMP_DIR)\tclXutil.obj \
+	$(TMP_DIR)\tclXwinId.obj \
+	$(TMP_DIR)\tclXwinCmds.obj \
+	$(TMP_DIR)\tclXwinDup.obj \
+	$(TMP_DIR)\tclXwinOS.obj \
+	$(TMP_DIR)\random.obj \
+	$(TMP_DIR)\getopt.obj
+
+DUMPEXTSOBJS = $(TMP_DIR)\winDumpExts.obj
+
+TCL = tcl.exe
+TCLXTEST = tclxtest.exe
+DUMPEXTS = dumpexts.exe
+
+TLIB_SRCS = $(TCLX_RUNTIME_DIR)/arrayprocs.tcl \
+	    $(TCLX_RUNTIME_DIR)/compat.tcl \
+	    $(TCLX_RUNTIME_DIR)/convlib.tcl \
+	    $(TCLX_RUNTIME_DIR)/edprocs.tcl \
+	    $(TCLX_RUNTIME_DIR)/events.tcl \
+	    $(TCLX_RUNTIME_DIR)/forfile.tcl \
+	    $(TCLX_RUNTIME_DIR)/globrecur.tcl \
+	    $(TCLX_RUNTIME_DIR)/help.tcl \
+	    $(TCLX_RUNTIME_DIR)/profrep.tcl \
+	    $(TCLX_RUNTIME_DIR)/pushd.tcl \
+	    $(TCLX_RUNTIME_DIR)/setfuncs.tcl \
+	    $(TCLX_RUNTIME_DIR)/showproc.tcl \
+	    $(TCLX_RUNTIME_DIR)/stringfile.tcl \
+	    $(TCLX_RUNTIME_DIR)/tcllib.tcl \
+	    $(TCLX_RUNTIME_DIR)/fmath.tcl \
+	    $(TCLX_RUNTIME_DIR)/buildhelp.tcl
+
+
+#------------------------------------------------------------------------------
+# Targets
+#
+all: $(DUMPEXTS) $(TCLX_DLL) $(TCL) $(TCLXTEST) runtcl.bat runtest.bat RUNTIME
+
+test: all $(TCLXTEST) runtest.bat
+	cd ..\tests
+	..\win\runtest.bat all
+
+tclXvc.def: $(DUMPEXTS) $(TCLXOBJS)
+	$(DUMPEXTS) -o $@ $(TCLX_DLL_NAME) @<<
+	$(TCLXOBJS)
+<<
+
+$(DUMPEXTS): $(DUMPEXTSOBJS)
+	set LIB=$(LIB)
+	$(link) $(conlflags) -out:$(DUMPEXTS) $(DUMPEXTSOBJS) \
+		$(guilibs) $(libc)
+
+$(TCLX_DLL): $(TCLXOBJS) tclXvc.def $(TMP_DIR)\tcl.res
+	set LIB=$(LIB)
+	$(link) $(linkdebug) $(dlllflags) -def:tclXvc.def \
+		$(TMP_DIR)\tcl.res $(guilibsdll) -out:$(TCLX_DLL) @<<
+		$(TCLXOBJS) $(TCL_LIB) Wsock32.lib
+<<
+
+$(TCL): $(TCLOBJS) $(TCLX_LIB) $(TMP_DIR)\tcl.res
+	set LIB=$(LIB)
+	$(link) $(linkdebug) $(conlflags) \
+		$(TCLOBJS) $(TMP_DIR)\tcl.res $(TCLX_LIB) $(TCL_LIB) \
+		$(conlibsdll) -out:$(TCL)
+
+$(TCLXTEST): $(TCLXTESTOBJS) $(TCLX_LIB) $(TMP_DIR)\tcl.res
+	set LIB=$(LIB)
+	$(link) $(linkdebug) $(conlflags) /NODEFAULTLIB \
+		$(TCLXTESTOBJS) $(TMP_DIR)\tcl.res $(TCLX_LIB) $(TCL_LIB) \
+		$(conlibsdll) -out:$(TCLXTEST)
+
+
+#------------------------------------------------------------------------------
+# Generate the runtime .tlib library in the current directory.  Copy other
+# runtime files into this directory so it can be used as a temporary runtime
+# directory before installation.
+#
+RUNTIME: autoload.tcl tcl.tlib tcl.tndx tclx.tcl buildidx.tcl instcopy
+
+tcl.tlib: $(TLIB_SRCS) cattcl.exe
+	-del tcl.tlib
+	cattcl $(TLIB_SRCS) >tcl.tlib
+
+tcl.tndx: tcl.tlib tclx.tcl buildidx.tcl $(TCL) runtcl.bat
+	-del tcl.tndx
+	.\runtcl -q $(ROOT)\unix\tools\genindex.tcl tcl.tlib
+
+tclx.tcl: $(TCLX_RUNTIME_DIR)\tclx.tcl
+	-del tclx.tcl
+	copy $(TCLX_RUNTIME_DIR)\tclx.tcl tclx.tcl
+
+buildidx.tcl: $(TCLX_RUNTIME_DIR)\buildidx.tcl
+	-del buildidx.tcl
+	copy $(TCLX_RUNTIME_DIR)\buildidx.tcl buildidx.tcl
+
+autoload.tcl: $(TCLX_RUNTIME_DIR)\autoload.tcl
+	-del autoload.tcl
+	copy $(TCLX_RUNTIME_DIR)\autoload.tcl autoload.tcl
+
+# FIX: Move instcopy, etc to main win directoruy
+TOOLS=$(ROOT)\unix\tools
+instcopy: $(TOOLS)\buildutil.tcl $(TOOLS)\instcopy.tcl cattcl.exe
+	-del instcopy
+	cattcl $(TOOLS)\buildutil.tcl $(TOOLS)\instcopy.tcl >instcopy
+
+cattcl.exe: $(TMP_DIR)\cattcl.obj
+	set LIB=$(LIB)
+	$(link) $(conlflags) -out:cattcl.exe  $(TMP_DIR)\cattcl.obj \
+		$(guilibs) $(libc)
+
+#------------------------------------------------------------------------------
+# Generate script used to run programs before DLLs and runtime is installed.
+#
+runtcl.bat: makefile.vc ..\..\win\common.vc
+	-del runtcl.bat
+	@echo echo off>>runtcl.bat
+	@echo PATH $(TCLX_WIN_DIR);$(TCL_BUILD_DIR);%PATH%>>runtcl.bat
+	@echo set TCL_LIBRARY=$(TCL_RUNTIME_DIR)>>runtcl.bat
+	@echo set TCLX_LIBRARY=$(TCLX_WIN_DIR)>>runtcl.bat
+	@echo set TCL_PROGRAM=$(TCLX_WIN_DIR)\tcl.exe>>runtcl.bat
+	@echo $(TCLX_WIN_DIR)\tcl.exe %1 %2 %3 %4 %5 %6 %7>>runtcl.bat
+	@echo runtcl.bat created
+
+runtest.bat: makefile.vc ..\..\win\common.vc
+	-del runtest.bat
+	@echo echo off>>runtest.bat
+	@echo PATH $(TCLX_WIN_DIR);$(TCL_BUILD_DIR);%PATH%>>runtest.bat
+	@echo set TCL_LIBRARY=$(TCL_RUNTIME_DIR)>>runtest.bat
+	@echo set TCLX_LIBRARY=$(TCLX_WIN_DIR)>>runtest.bat
+	@echo set TCL_PROGRAM=$(TCLX_WIN_DIR)\tclXtest.exe>>runtest.bat
+	@echo $(TCLX_WIN_DIR)\tclXtest.exe %1 %2 %3 %4 %5 %6 %7>>runtest.bat
+	@echo runtcl.bat created
+
+#------------------------------------------------------------------------------
+# Installation.
+
+install:
+	$(INSTCOPY) $(TCL) "$(TCLX_INST_BIN)"
+	$(INSTCOPY) $(TCLX_DLL) "$(TCLX_INST_BIN)"
+	$(INSTCOPY) $(TCLX_LIB) "$(TCLX_INST_LIB)"
+	$(INSTCOPY) ..\generic\tclExtend.h "$(TCLX_INST_INCL)"
+	$(INSTCOPY) tcl.tlib tcl.tndx tclx.tcl "$(TCLX_INST_RUNTIME)"
+	$(INSTCOPY) buildidx.tcl autoload.tcl "$(TCLX_INST_RUNTIME)"
+	$(INSTCOPY) ..\help "$(TCLX_INST_RUNTIME)\help"
+	.\runtcl -q << "$(TCLX_INST_RUNTIME)\pkgIndex.tcl" "$(TCLX_DLL)"
+	lassign $$argv indexPath dllPath
+	set dllPath [file join .. .. bin [file tail $$dllPath]]
+	set fd [open $$indexPath w]
+	set version [package require Tcl]
+	set xversion [package require Tclx]
+	puts $$fd "# Tcl package index file, version 1.0"
+	puts $$fd "#"
+	puts $$fd "# Package index for TclX $$xversion."
+	puts $$fd "#"
+	puts $$fd "if {[catch {package require Tcl $$version}]} return"
+	puts $$fd "package ifneeded Tclx $$xversion\\"
+	puts $$fd "\t\[list load \[file join \$$dir $$dllPath] Tclx]"
+	close $$fd
+<<
+
+#------------------------------------------------------------------------------
+clean:
+	-del *.exp
+	-del *.lib
+	-del *.dll
+	-del *.exe
+	-del $(TMP_DIR)\*.obj
+	-del *.def
+	-del *.res
+	-del tcl.tlib
+	-del tcl.tndx
+	-del tclx.tcl
+	-del buildidx.tcl
+	-del autoload.tcl
+	-del runtcl.bat
+	-del runtest.bat
+	-del instcopy
+
+#------------------------------------------------------------------------------
+# Special case object file targets
+#
+$(TMP_DIR)\tclXinit.obj: $(TCLX_GENERIC_DIR)\tclXinit.c
+	$(cc32) $(cdebug) $(cflags) $(cvarsdll) $(TCLX_INCLUDES) \
+	  $(TCLX_DEFINES) -DTCLX_LIBRARY="\"$(TCLX_INST_RUNTIMEU)\"" \
+	  -DBUILD_TCLX -Fo$(TMP_DIR)\ $?
+
+$(TMP_DIR)\tclXAppInit.obj: $(TCLX_WIN_DIR)\tclXAppInit.c
+	$(cc32) $(cdebug) $(cflags) $(cvars) $(TCLX_INCLUDES) \
+		$(TCLX_DEFINES) -Fo$(TMP_DIR)\ $?
+
+$(TMP_DIR)\tclXwinTest.obj: $(TCLX_WIN_DIR)\tclXwinTest.c
+	$(cc32) $(cdebug) $(cflags) $(cvars) $(TCLX_INCLUDES) \
+		$(TCLX_DEFINES) -Fo$(TMP_DIR)\ $?
+
+$(TMP_DIR)\winDumpExts.obj: $(TCL_WIN_DIR)\winDumpExts.c
+	$(cc32) $(cdebug) $(cflags) $(cvars) $(TCLX_INCLUDES) \
+		$(TCLX_DEFINES) -Fo$(TMP_DIR)\ $?
+
+$(TMP_DIR)\tclTest.obj: $(TCL_GENERIC_DIR)\tclTest.c
+	$(cc32) $(cdebug) $(cflags) $(cvars) $(TCLX_INCLUDES) \
+		$(TCLX_DEFINES) -Fo$(TMP_DIR)\ $?
+
+$(TMP_DIR)\tclTestObj.obj: $(TCL_GENERIC_DIR)\tclTestObj.c
+	$(cc32) $(cdebug) $(cflags) $(cvars) $(TCLX_INCLUDES) \
+		$(TCLX_DEFINES) -Fo$(TMP_DIR)\ $?
+
+$(TMP_DIR)\tclWinTest.obj: $(TCL_WIN_DIR)\tclWinTest.c
+	$(cc32) $(cdebug) $(cflags) $(cvars) $(TCLX_INCLUDES) \
+		$(TCLX_DEFINES) -Fo$(TMP_DIR)\ $?
+
+$(TMP_DIR)\cattcl.obj: $(TCLX_WIN_DIR)\cattcl.c
+	$(cc32) $(cdebug) $(cflags) $(cvars) $(TCLX_INCLUDES) \
+		$(TCLX_DEFINES) -Fo$(TMP_DIR)\ $?
+
+#
+# Implicit rules
+#
+{$(TCLX_GENERIC_DIR)}.c{$(TMP_DIR)}.obj:
+	$(cc32) $(cdebug) $(cflags) $(cvarsdll) $(TCLX_INCLUDES) \
+		$(TCLX_DEFINES) -DBUILD_TCLX -Fo$(TMP_DIR)\ $<
+
+{$(TCLX_WIN_DIR)}.c{$(TMP_DIR)}.obj:
+	$(cc32) $(cdebug) $(cflags) $(cvarsdll) $(TCLX_INCLUDES) \
+		$(TCLX_DEFINES) -DBUILD_TCLX -Fo$(TMP_DIR)\ $<
+
+{$(ROOT)\tcl\compat}.c{$(TMP_DIR)}.obj:
+	$(cc32) $(cdebug) $(cflags) $(cvarsdll) $(TCLX_INCLUDES) \
+		$(TCLX_DEFINES) -DBUILD_TCLX -Fo$(TMP_DIR)\ $<
+
+{$(TCLX_WIN_DIR)}.rc{$(TMP_DIR)}.res:
+	$(rc32) -fo $@ -r -i $(TCLX_GENERIC_DIR) -i $(TCLX_WIN_DIR) $<

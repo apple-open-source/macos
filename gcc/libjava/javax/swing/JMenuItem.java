@@ -1,5 +1,5 @@
 /* JMenuItem.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,427 +37,642 @@ exception statement from your version. */
 
 package javax.swing;
 
-// Imports
-import java.awt.*;
-import java.awt.event.*;
-import java.beans.*;
-import java.io.*;
-import javax.accessibility.*;
-import javax.swing.event.*;
-import javax.swing.plaf.*;
+import java.awt.Component;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.EventListener;
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import javax.swing.UIManager;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.event.MenuDragMouseEvent;
+import javax.swing.event.MenuDragMouseListener;
+import javax.swing.event.MenuKeyEvent;
+import javax.swing.event.MenuKeyListener;
+import javax.swing.plaf.MenuItemUI;
+
 
 /**
- * JMenuItem
- * @author	Andrew Selkirk
- * @version	1.0
+ * <p>
+ * JMenuItem represents element in the menu. It inherits most of
+ * its functionality from AbstractButton, however its behavior somewhat
+ * varies from it. JMenuItem fire different kinds of events.
+ * PropertyChangeEvents are fired when menuItems properties are modified;
+ * ChangeEvents are fired when menuItem's state changes and actionEvents are
+ * fired when menu item is selected. In addition to this events menuItem also
+ * fire MenuDragMouseEvent and MenuKeyEvents when mouse is dragged over
+ * the menu item or associated key with menu item is invoked respectively.
+ * </p>
  */
-public class JMenuItem extends AbstractButton implements Accessible, MenuElement {
+public class JMenuItem extends AbstractButton implements Accessible,
+                                                         MenuElement
+{
+  private static final long serialVersionUID = -1681004643499461044L;
 
-	//-------------------------------------------------------------
-	// Classes ----------------------------------------------------
-	//-------------------------------------------------------------
+  /** name for the UI delegate for this menuItem. */
+  private static final String uiClassID = "MenuItemUI";
 
-	/**
-	 * AccessibleJMenuItem
-	 */
-	protected class AccessibleJMenuItem extends AccessibleAbstractButton 
-			implements ChangeListener {
+  /** Combination of keyboard keys that can be used to activate this menu item */
+  private KeyStroke accelerator;
 
-		//-------------------------------------------------------------
-		// Variables --------------------------------------------------
-		//-------------------------------------------------------------
+  /**
+   * Creates a new JMenuItem object.
+   */
+  public JMenuItem()
+  {
+    super(null, null);
+  }
 
+  /**
+   * Creates a new JMenuItem with the given icon.
+   *
+   * @param icon Icon that will be displayed on the menu item
+   */
+  public JMenuItem(Icon icon)
+  {
+    // FIXME: The requestedFocusEnabled property should
+    // be set to false, when only icon is set for menu item.
+    super(null, icon);
+  }
 
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
+  /**
+   * Creates a new JMenuItem with the given label.
+   *
+   * @param text label for the menu item
+   */
+  public JMenuItem(String text)
+  {
+    super(text, null);
+  }
 
-		/**
-		 * Constructor AccessibleJMenuItem
-		 * @param component TODO
-		 */
-		AccessibleJMenuItem(JMenuItem component) {
-			super(component);
-			// TODO
-		} // AccessibleJMenuItem()
+  /**
+   * Creates a new JMenuItem associated with the specified action.
+   *
+   * @param action action for this menu item
+   */
+  public JMenuItem(Action action)
+  {
+    super(null, null);
+    super.setAction(action);
+  }
 
+  /**
+   * Creates a new JMenuItem with specified text and icon.
+   * Text is displayed to the left of icon by default.
+   *
+   * @param text label for this menu item
+   * @param icon icon that will be displayed on this menu item
+   */
+  public JMenuItem(String text, Icon icon)
+  {
+    super(text, icon);
+  }
 
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
+  /**
+   * Creates a new JMenuItem object.
+   *
+   * @param text label for this menu item
+   * @param mnemonic - Single key that can be used with a
+   * look-and-feel meta key to activate this menu item. However
+   * menu item should be visible on the screen when mnemonic is used.
+   */
+  public JMenuItem(String text, int mnemonic)
+  {
+    super(text, null);
+    setMnemonic(mnemonic);
+  }
 
-		/**
-		 * stateChanged
-		 * @param event TODO
-		 */
-		public void stateChanged(ChangeEvent event) {
-			// TODO
-		} // stateChanged()
+  private void readObject(ObjectInputStream stream)
+                   throws IOException, ClassNotFoundException
+  {
+  }
 
-		/**
-		 * getAccessibleRole
-		 * @returns AccessibleRole
-		 */
-		public AccessibleRole getAccessibleRole() {
-			return AccessibleRole.MENU_ITEM;
-		} // getAccessibleRole()
+  private void writeObject(ObjectOutputStream stream) throws IOException
+  {
+  }
 
+  /**
+   * Initializes this menu item
+   *
+   * @param text label for this menu item
+   * @param icon icon to be displayed for this menu item
+   */
+  protected void init(String text, Icon icon)
+  {
+    super.init(text, icon);
 
-	} // AccessibleJMenuItem
+    // Initializes properties for this menu item, that are different
+    // from Abstract button properties. 
+    /* NOTE: According to java specifications paint_border should be set to false,
+      since menu item should not have a border. However running few java programs
+      it seems that menu items and menues can have a border. Commenting
+      out statement below for now. */
+    //borderPainted = false;
+    focusPainted = false;
+    horizontalAlignment = JButton.LEFT;
+    horizontalTextPosition = JButton.LEFT;
+  }
 
+  /**
+   * Set the "UI" property of the menu item, which is a look and feel class
+   * responsible for handling menuItem's input events and painting it.
+   *
+   * @param ui The new "UI" property
+   */
+  public void setUI(MenuItemUI ui)
+  {
+    super.setUI(ui);
+  }
 
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * This method sets this menuItem's UI to the UIManager's default for the
+   * current look and feel.
+   */
+  public void updateUI()
+  {
+    MenuItemUI mi = ((MenuItemUI) UIManager.getUI(this));
+    setUI(mi);
+    invalidate();
+  }
 
-	/**
-	 * uiClassID
-	 */
-	private static final String uiClassID = "MenuItemUI";
+  /**
+   * This method returns a name to identify which look and feel class will be
+   * the UI delegate for the menuItem.
+   *
+   * @return The Look and Feel classID. "MenuItemUI"
+   */
+  public String getUIClassID()
+  {
+    return uiClassID;
+  }
 
-	/**
-	 * accelerator
-	 */
-	private KeyStroke accelerator;
+  /**
+   * Returns true if button's model is armed and false otherwise. The
+   * button model is armed if menu item has focus or it is selected.
+   *
+   * @return $boolean$ true if button's model is armed and false otherwise
+   */
+  public boolean isArmed()
+  {
+    return getModel().isArmed();
+  }
 
+  /**
+   * Sets menuItem's "ARMED" property
+   *
+   * @param armed DOCUMENT ME!
+   */
+  public void setArmed(boolean armed)
+  {
+    getModel().setArmed(armed);
+  }
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * Enable or disable menu item. When menu item is disabled,
+   * its text and icon are grayed out if they exist.
+   *
+   * @param enabled if true enable menu item, and disable otherwise.
+   */
+  public void setEnabled(boolean enabled)
+  {
+    super.setEnabled(enabled);
+  }
 
-	/**
-	 * Constructor JMenuItem
-	 */
-	public JMenuItem() {
-		// TODO
-	} // JMenuItem()
+  /**
+   * Return accelerator for this menu item.
+   *
+   * @return $KeyStroke$ accelerator for this menu item.
+   */
+  public KeyStroke getAccelerator()
+  {
+    return accelerator;
+  }
 
-	/**
-	 * Constructor JMenuItem
-	 * @param icon TODO
-	 */
-	public JMenuItem(Icon icon) {
-		// TODO
-	} // JMenuItem()
+  /**
+   * Sets accelerator for this menu item.
+   *
+   * @param keystroke accelerator for this menu item.
+   */
+  public void setAccelerator(KeyStroke keystroke)
+  {
+    this.accelerator = keystroke;
+  }
 
-	/**
-	 * Constructor JMenuItem
-	 * @param text TODO
-	 */
-	public JMenuItem(String text) {
-		// TODO
-	} // JMenuItem()
+  /**
+   * Configures menu items' properties from properties of the specified action.
+   * This method overrides configurePropertiesFromAction from AbstractButton
+   * to also set accelerator property.
+   *
+   * @param action action to configure properties from
+   */
+  protected void configurePropertiesFromAction(Action action)
+  {
+    super.configurePropertiesFromAction(action);
 
-	/**
-	 * Constructor JMenuItem
-	 * @param action TODO
-	 */
-	public JMenuItem(Action action) {
-		// TODO
-	} // JMenuItem()
+    if (! (this instanceof JMenu) && action != null)
+      setAccelerator((KeyStroke) (action.getValue(Action.ACCELERATOR_KEY)));
+  }
 
-	/**
-	 * Constructor JMenuItem
-	 * @param text TODO
-	 * @param icon TODO
-	 */
-	public JMenuItem(String text, Icon icon) {
-		// TODO
-	} // JMenuItem()
+  /**
+   * Creates PropertyChangeListener to listen for the changes in action
+   * properties.
+   *
+   * @param action action to listen to for property changes
+   *
+   * @return $PropertyChangeListener$ Listener that listens to changes in
+   * action properties.
+   */
+  protected PropertyChangeListener createActionPropertyChangeListener(Action action)
+  {
+    return new PropertyChangeListener()
+      {
+	public void propertyChange(PropertyChangeEvent e)
+	{
+	  Action act = (Action) (e.getSource());
+	  configurePropertiesFromAction(act);
+	}
+      };
+  }
 
-	/**
-	 * Constructor JMenuItem
-	 * @param text TODO
-	 * @param mnemonic TODO
-	 */
-	public JMenuItem(String text, int mnemonic) {
-		// TODO
-	} // JMenuItem()
+  /**
+   * Process mouse events forwarded from MenuSelectionManager.
+   *
+   * @param event event forwarded from MenuSelectionManager
+   * @param path path to the menu element from which event was generated
+   * @param manager MenuSelectionManager for the current menu hierarchy
+   */
+  public void processMouseEvent(MouseEvent event, MenuElement[] path,
+                                MenuSelectionManager manager)
+  {
+    // Fire MenuDragMouseEvents if mouse is being dragged.
+    boolean dragged
+      = (event.getModifiersEx() & InputEvent.BUTTON1_DOWN_MASK) != 0;
+    if (dragged)
+      processMenuDragMouseEvent(createMenuDragMouseEvent(event, path, manager));
 
+    switch (event.getID())
+      {
+      case MouseEvent.MOUSE_CLICKED:
+	break;
+      case MouseEvent.MOUSE_ENTERED:
+	if (isRolloverEnabled())
+	      model.setRollover(true);
+	break;
+      case MouseEvent.MOUSE_EXITED:
+	if (isRolloverEnabled())
+	      model.setRollover(false);
 
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
+	// for JMenu last element on the path is its popupMenu.
+	// JMenu shouldn't me disarmed.	
+	if (! (path[path.length - 1] instanceof JPopupMenu) && ! dragged)
+	  setArmed(false);
+	break;
+      case MouseEvent.MOUSE_PRESSED:
+	if ((event.getModifiersEx() & InputEvent.BUTTON1_DOWN_MASK) != 0)
+	  {
+	    model.setArmed(true);
+	    model.setPressed(true);
+	  }
+	break;
+      case MouseEvent.MOUSE_RELEASED:
+	break;
+      case MouseEvent.MOUSE_MOVED:
+	break;
+      case MouseEvent.MOUSE_DRAGGED:
+	break;
+      }
+  }
 
-	/**
-	 * readObject
-	 * @param stream TODO
-	 * @exception IOException TODO
-	 * @exception ClassNotFoundException TODO
-	 */
-	private void readObject(ObjectInputStream stream) 
-			throws IOException, ClassNotFoundException {
-		// TODO
-	} // readObject()
+  /**
+   * Creates MenuDragMouseEvent.
+   *
+   * @param event MouseEvent that occured while mouse was pressed.
+   * @param path Path the the menu element where the dragging event was
+   *        originated
+   * @param manager MenuSelectionManager for the current menu hierarchy.
+   *
+   * @return new MenuDragMouseEvent
+   */
+  private MenuDragMouseEvent createMenuDragMouseEvent(MouseEvent event,
+                                                      MenuElement[] path,
+                                                      MenuSelectionManager manager)
+  {
+    return new MenuDragMouseEvent((Component) event.getSource(),
+                                  event.getID(), event.getWhen(),
+                                  event.getModifiers(), event.getX(),
+                                  event.getY(), event.getClickCount(),
+                                  event.isPopupTrigger(), path, manager);
+  }
 
-	/**
-	 * writeObject
-	 * @param stream TODO
-	 * @exception IOException TODO
-	 */
-	private void writeObject(ObjectOutputStream stream) throws IOException {
-		// TODO
-	} // writeObject()
+  /**
+   * Process key events forwarded from MenuSelectionManager.
+   *
+   * @param event event forwarded from MenuSelectionManager
+   * @param path path to the menu element from which event was generated
+   * @param manager MenuSelectionManager for the current menu hierarchy
+   */
+  public void processKeyEvent(KeyEvent event, MenuElement[] path,
+                              MenuSelectionManager manager)
+  {
+    // Need to implement.
+  }
 
-	/**
-	 * init
-	 * @param text TODO
-	 * @param icon TODO
-	 */
-	protected void init(String text, Icon icon) {
-		// TODO
-	} // init()
+  /**
+   * This method fires MenuDragMouseEvents to registered listeners.
+   * Different types of MenuDragMouseEvents are fired depending
+   * on the observed mouse event.
+   *
+   * @param event Mouse
+   */
+  public void processMenuDragMouseEvent(MenuDragMouseEvent event)
+  {
+    switch (event.getID())
+      {
+      case MouseEvent.MOUSE_ENTERED:
+	fireMenuDragMouseEntered(event);
+	break;
+      case MouseEvent.MOUSE_EXITED:
+	fireMenuDragMouseExited(event);
+	break;
+      case MouseEvent.MOUSE_DRAGGED:
+	fireMenuDragMouseDragged(event);
+	break;
+      case MouseEvent.MOUSE_RELEASED:
+	fireMenuDragMouseReleased(event);
+	break;
+      }
+  }
 
-	/**
-	 * setUI
-	 * @param ui TODO
-	 */
-	public void setUI(MenuItemUI ui) {
-		super.setUI(ui);
-		// TODO
-	} // setUI()
+  /**
+   * This method fires MenuKeyEvent to registered listeners.
+   * Different types of MenuKeyEvents are fired depending
+   * on the observed key event.
+   *
+   * @param event DOCUMENT ME!
+   */
+  public void processMenuKeyEvent(MenuKeyEvent event)
+  {
+    // Need to implement.
+  }
 
-	/**
-	 * updateUI
-	 */
-	public void updateUI() {
-		setUI((MenuItemUI) UIManager.get(this));
-		invalidate();
-	} // updateUI()
+  /**
+   * Fires MenuDragMouseEvent to all of the menuItem's MouseInputListeners.
+   *
+   * @param event The event signifying that mouse entered menuItem while it was dragged
+   */
+  protected void fireMenuDragMouseEntered(MenuDragMouseEvent event)
+  {
+    EventListener[] ll = listenerList.getListeners(MenuDragMouseListener.class);
 
-	/**
-	 * getUIClassID
-	 * @returns String
-	 */
-	public String getUIClassID() {
-		return uiClassID;
-	} // getUIClassID()
+    for (int i = 0; i < ll.length; i++)
+      ((MenuDragMouseListener) ll[i]).menuDragMouseEntered(event);
+  }
 
-	/**
-	 * isArmed
-	 * @returns boolean
-	 */
-	public boolean isArmed() {
-		return false; // TODO
-	} // isArmed()
+  /**
+   * Fires MenuDragMouseEvent to all of the menuItem's MouseInputListeners.
+   *
+   * @param event The event signifying that mouse has exited menu item, while it was dragged
+   */
+  protected void fireMenuDragMouseExited(MenuDragMouseEvent event)
+  {
+    EventListener[] ll = listenerList.getListeners(MenuDragMouseListener.class);
 
-	/**
-	 * setArmed
-	 * @param armed TODO
-	 */
-	public void setArmed(boolean armed) {
-		// TODO
-	} // setArmed()
+    for (int i = 0; i < ll.length; i++)
+      ((MenuDragMouseListener) ll[i]).menuDragMouseExited(event);
+  }
 
-	/**
-	 * setEnabled
-	 * @param enabled TODO
-	 */
-	public void setEnabled(boolean enabled) {
-		// TODO
-	} // setEnabled()
+  /**
+   * Fires MenuDragMouseEvent to all of the menuItem's MouseInputListeners.
+   *
+   * @param event The event signifying that mouse is being dragged over the menuItem
+   */
+  protected void fireMenuDragMouseDragged(MenuDragMouseEvent event)
+  {
+    EventListener[] ll = listenerList.getListeners(MenuDragMouseListener.class);
 
-	/**
-	 * getAccelerator
-	 * @returns KeyStroke
-	 */
-	public KeyStroke getAccelerator() {
-		return null; // TODO
-	} // getAccelerator()
+    for (int i = 0; i < ll.length; i++)
+      ((MenuDragMouseListener) ll[i]).menuDragMouseDragged(event);
+  }
 
-	/**
-	 * setAccelerator
-	 * @param keystroke TODO
-	 */
-	public void setAccelerator(KeyStroke keystroke) {
-		// TODO
-	} // setAccelerator()
+  /**
+   * This method fires a MenuDragMouseEvent to all the MenuItem's MouseInputListeners.
+   *
+   * @param event The event signifying that mouse was released while it was dragged over the menuItem
+   */
+  protected void fireMenuDragMouseReleased(MenuDragMouseEvent event)
+  {
+    EventListener[] ll = listenerList.getListeners(MenuDragMouseListener.class);
 
-	/**
-	 * configurePropertiesFromAction
-	 * @param action TODO
-	 */
-	protected void configurePropertiesFromAction(Action action) {
-		// TODO
-	} // configurePropertiesFromAction()
+    for (int i = 0; i < ll.length; i++)
+      ((MenuDragMouseListener) ll[i]).menuDragMouseReleased(event);
+  }
 
-	/**
-	 * createActionPropertyChangeListener
-	 * @param action TODO
-	 * @returns PropertyChangeListener
-	 */
-	protected PropertyChangeListener createActionPropertyChangeListener(Action action) {
-		return null; // TODO
-	} // createActionPropertyChangeListener()
+  /**
+   * This method fires a MenuKeyEvent to all the MenuItem's MenuKeyListeners.
+   *
+   * @param event The event signifying that key associated with this menu was pressed
+   */
+  protected void fireMenuKeyPressed(MenuKeyEvent event)
+  {
+    EventListener[] ll = listenerList.getListeners(MenuKeyListener.class);
 
-	/**
-	 * processMouseEvent
-	 * @param event TODO
-	 * @param path TODO
-	 * @param manager TODO
-	 */
-	public void processMouseEvent(MouseEvent event, MenuElement[] path,
-			MenuSelectionManager manager) {
-		// TODO
-	} // processMouseEvent()
+    for (int i = 0; i < ll.length; i++)
+      ((MenuKeyListener) ll[i]).menuKeyPressed(event);
+  }
 
-	/**
-	 * processKeyEvent
-	 * @param event TODO
-	 * @param path TODO
-	 * @param manager TODO
-	 */
-	public void processKeyEvent(KeyEvent event, MenuElement[] path,
-			MenuSelectionManager manager) {
-		// TODO
-	} // processKeyEvent()
+  /**
+   * This method fires a MenuKeyEvent to all the MenuItem's MenuKeyListeners.
+   *
+   * @param event The event signifying that key associated with this menu was released
+   */
+  protected void fireMenuKeyReleased(MenuKeyEvent event)
+  {
+    EventListener[] ll = listenerList.getListeners(MenuKeyListener.class);
 
-	/**
-	 * processMenuDragMouseEvent
-	 * @param event TODO
-	 */
-	public void processMenuDragMouseEvent(MenuDragMouseEvent event) {
-		// TODO
-	} // processMenuDragMouseEvent()
+    for (int i = 0; i < ll.length; i++)
+      ((MenuKeyListener) ll[i]).menuKeyTyped(event);
+  }
 
-	/**
-	 * processMenuKeyEvent
-	 * @param event TODO
-	 */
-	public void processMenuKeyEvent(MenuKeyEvent event) {
-		// TODO
-	} // processMenuKeyEvent()
+  /**
+   * This method fires a MenuKeyEvent to all the MenuItem's MenuKeyListeners.
+   *
+   * @param event The event signifying that key associated with this menu was typed.
+   *        The key is typed when it was pressed and then released
+   */
+  protected void fireMenuKeyTyped(MenuKeyEvent event)
+  {
+    EventListener[] ll = listenerList.getListeners(MenuKeyListener.class);
 
-	/**
-	 * fireMenuDragMouseEntered
-	 * @param event TODO
-	 */
-	protected void fireMenuDragMouseEntered(MenuDragMouseEvent event) {
-		// TODO
-	} // fireMenuDragMouseEntered()
+    for (int i = 0; i < ll.length; i++)
+      ((MenuKeyListener) ll[i]).menuKeyTyped(event);
+  }
 
-	/**
-	 * fireMenuDragMouseExited
-	 * @param event TODO
-	 */
-	protected void fireMenuDragMouseExited(MenuDragMouseEvent event) {
-		// TODO
-	} // fireMenuDragMouseExited()
+  /**
+   * Method of the MenuElement interface.
+   * This method is invoked by MenuSelectionManager when selection of
+   * this menu item has changed. If this menu item was selected then
+   * arm it's model, and disarm the model otherwise. The menu item
+   * is considered to be selected, and thus highlighted when its model
+   * is armed.
+   *
+   * @param changed indicates selection status of this menu item. If changed is
+   * true then menu item is selected and deselected otherwise.
+   */
+  public void menuSelectionChanged(boolean changed)
+  {
+    if (changed)
+      {
+      model.setArmed(true);
 
-	/**
-	 * fireMenuDragMouseDragged
-	 * @param event TODO
-	 */
-	protected void fireMenuDragMouseDragged(MenuDragMouseEvent event) {
-		// TODO
-	} // fireMenuDragMouseDragged()
+	if (this.getParent() instanceof JPopupMenu)
+	  ((JPopupMenu) this.getParent()).setSelected(this);
+      }
+    else
+      {
+      model.setArmed(false);
 
-	/**
-	 * fireMenuDragMouseReleased
-	 * @param event TODO
-	 */
-	protected void fireMenuDragMouseReleased(MenuDragMouseEvent event) {
-		// TODO
-	} // fireMenuDragMouseReleased()
+	if (this.getParent() instanceof JPopupMenu)
+	  ((JPopupMenu) this.getParent()).getSelectionModel().clearSelection();
+      }
+  }
 
-	/**
-	 * fireMenuKeyPressed
-	 * @param event TODO
-	 */
-	protected void fireMenuKeyPressed(MenuKeyEvent event) {
-		// TODO
-	} // fireMenuKeyPressed()
+  /**
+   * Method of the MenuElement interface.
+   *
+   * @return $MenuElement[]$ Returns array of sub-components for this menu
+   *         item. By default menuItem doesn't have any subcomponents and so
+   *             empty array is returned instead.
+   */
+  public MenuElement[] getSubElements()
+  {
+    return new MenuElement[0];
+  }
 
-	/**
-	 * fireMenuKeyReleased
-	 * @param event TODO
-	 */
-	protected void fireMenuKeyReleased(MenuKeyEvent event) {
-		// TODO
-	} // fireMenuKeyReleased()
+  /**
+   * Returns reference to the component that will paint this menu item.
+   *
+   * @return $Component$ Component that will paint this menu item.
+   *         Simply returns reference to this menu item.
+   */
+  public Component getComponent()
+  {
+    return this;
+  }
 
-	/**
-	 * fireMenuKeyTyped
-	 * @param event TODO
-	 */
-	protected void fireMenuKeyTyped(MenuKeyEvent event) {
-		// TODO
-	} // fireMenuKeyTyped()
+  /**
+   * Adds a MenuDragMouseListener to this menu item. When mouse
+   * is dragged over the menu item the MenuDragMouseEvents will be
+   * fired, and these listeners will be called.
+   *
+   * @param listener The new listener to add
+   */
+  public void addMenuDragMouseListener(MenuDragMouseListener listener)
+  {
+    listenerList.add(MenuDragMouseListener.class, listener);
+  }
 
-	/**
-	 * menuSelectionChanged
-	 * @param changed TODO
-	 */
-	public void menuSelectionChanged(boolean changed) {
-		// TODO
-	} // menuSelectionChanged()
+  /**
+   * Removes a MenuDragMouseListener from the menuItem's listener list.
+   *
+   * @param listener The listener to remove
+   */
+  public void removeMenuDragMouseListener(MenuDragMouseListener listener)
+  {
+    listenerList.remove(MenuDragMouseListener.class, listener);
+  }
 
-	/**
-	 * getSubElements
-	 * @returns MenuElement[]
-	 */
-	public MenuElement[] getSubElements() {
-		return null; // TODO
-	} // getSubElements()
+  /**
+   * Returns all added MenuDragMouseListener objects.
+   *
+   * @return an array of listeners
+   *
+   * @since 1.4
+   */
+  public MenuDragMouseListener[] getMenuDragMouseListeners()
+  {
+    return (MenuDragMouseListener[]) listenerList.getListeners(MenuDragMouseListener.class);
+  }
 
-	/**
-	 * getComponent
-	 * @returns Component
-	 */
-	public Component getComponent() {
-		return null; // TODO
-	} // getComponent()
+  /**
+   * Adds an MenuKeyListener to this menu item.  This listener will be
+   * invoked when MenuKeyEvents will be fired by this menu item.
+   *
+   * @param listener The new listener to add
+   */
+  public void addMenuKeyListener(MenuKeyListener listener)
+  {
+    listenerList.add(MenuKeyListener.class, listener);
+  }
 
-	/**
-	 * addMenuDragMouseListener
-	 * @param listener TODO
-	 */
-	public void addMenuDragMouseListener(MenuDragMouseListener listener) {
-		// TODO
-	} // addMenuDragMouseListener()
+  /**
+   * Removes an MenuKeyListener from the menuItem's listener list.
+   *
+   * @param listener The listener to remove
+   */
+  public void removeMenuKeyListener(MenuKeyListener listener)
+  {
+    listenerList.remove(MenuKeyListener.class, listener);
+  }
 
-	/**
-	 * removeMenuDragMouseListener
-	 * @param listener TODO
-	 */
-	public void removeMenuDragMouseListener(MenuDragMouseListener listener) {
-		// TODO
-	} // removeMenuDragMouseListener()
+  /**
+   * Returns all added MenuKeyListener objects.
+   *
+   * @return an array of listeners
+   *
+   * @since 1.4
+   */
+  public MenuKeyListener[] getMenuKeyListeners()
+  {
+    return (MenuKeyListener[]) listenerList.getListeners(MenuKeyListener.class);
+  }
 
-	/**
-	 * addMenuKeyListener
-	 * @param listener TODO
-	 */
-	public void addMenuKeyListener(MenuKeyListener listener) {
-		// TODO
-	} // addMenuKeyListener()
+  /**
+   * A string that describes this JMenuItem. Normally only used
+   * for debugging.
+   *
+   * @return A string describing this JMenuItem
+   */
+  protected String paramString()
+  {
+    return "JMenuItem";
+  }
 
-	/**
-	 * removeMenuKeyListener
-	 * @param listener TODO
-	 */
-	public void removeMenuKeyListener(MenuKeyListener listener) {
-		// TODO
-	} // removeMenuKeyListener()
+  public AccessibleContext getAccessibleContext()
+  {
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJMenuItem();
 
-	/**
-	 * paramString
-	 * @returns String
-	 */
-	protected String paramString() {
-		return null; // TODO
-	} // paramString()
+    return accessibleContext;
+  }
 
-	/**
-	 * getAccessibleContext
-	 * @returns AccessibleContext
-	 */
-	public AccessibleContext getAccessibleContext() {
-		if (accessibleContext == null) {
-			accessibleContext = new AccessibleJMenuItem(this);
-		} // if
-		return accessibleContext;
-	} // getAccessibleContext()
+  protected class AccessibleJMenuItem extends AccessibleAbstractButton
+    implements ChangeListener
+  {
+    private static final long serialVersionUID = 6748924232082076534L;
 
+    /**
+     * Creates a new AccessibleJMenuItem object.
+     */
+    AccessibleJMenuItem()
+    {
+      //super(component);
+    }
 
-} // JMenuItem
+    public void stateChanged(ChangeEvent event)
+    {
+    }
+
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.MENU_ITEM;
+    }
+  }
+}

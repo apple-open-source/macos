@@ -1,7 +1,10 @@
 #! /bin/sh
 
+# $XFree86: xc/extras/freetype2/builds/unix/freetype-config.in,v 1.5 2003/10/31 20:49:04 herrb Exp $
+
 prefix=@prefix@
 exec_prefix=@exec_prefix@
+hardcode_libdir_flag_spec=@hardcode_libdir_flag_spec@
 
 usage()
 {
@@ -88,9 +91,9 @@ if test "$echo_cflags" = "yes" ; then
 fi
 
 if test "$echo_libs" = "yes" ; then
- libs="-lfreetype"
+ libs="-lfreetype @LIBZ@"
  if test "@libdir@" != "/usr/lib" ; then
-  echo -L@libdir@ $libs
+  echo ${hardcode_libdir_flag_spec} -L@libdir@ $libs
  else
   echo $libs
  fi

@@ -1,0 +1,11 @@
+--- hash_buf.c.orig	Thu Mar 21 14:46:26 2002
++++ hash_buf.c	Sat Oct 18 18:30:49 2003
+@@ -69,7 +69,7 @@
+ #include <db.h>
+ #include "hash.h"
+ #include "page.h"
+-#include "extern.h"
++#include "hash_extern.h"
+ 
+ static BUFHEAD *newbuf(HTAB *, u_int32_t, BUFHEAD *);
+ 

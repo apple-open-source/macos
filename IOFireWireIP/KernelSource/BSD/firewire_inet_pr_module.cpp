@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -37,53 +34,46 @@ extern "C"{
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/sysctl.h>
-#include <sys/syslog.h>
+#include <kern/lock.h>
 
+#include <net/dlil.h>
 #include <net/if.h>
-#include <net/netisr.h>
 #include <net/route.h>
 #include <net/if_llc.h>
 #include <net/if_dl.h>
 #include <net/if_types.h>
+#include <net/kpi_protocol.h>
 
 #include <netinet/in.h>
 #include <netinet/in_var.h>
-#include <netinet/if_ether.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
-
+#include <netinet/in_arp.h>
 #include <sys/socketvar.h>
-
-#include <net/dlil.h>
 
 #include "firewire.h"
 #include "if_firewire.h"
-extern void ipintr(void);
-
 }
-
 #include "IOFireWireIP.h"
 
-#if BRIDGE
-#include <net/bridge.h>
-#endif
+extern void firewire_arpintr __P((mbuf_t	m));
 
-/* #include "vlan.h" */
-#if NVLAN > 0
-#include <net/if_vlan_var.h>
-#endif /* NVLAN > 0 */
-
-#define IFP2AC(IFP) ((struct arpcom *)IFP)
-
-extern void firewire_arpintr __P((struct mbuf *));
-extern int	firewire_arpresolve __P((struct arpcom *, struct rtentry *, struct mbuf *,
-									struct sockaddr *, u_char *, struct rtentry *));
+extern errno_t firewire_inet_arp __P((ifnet_t ifp, 
+						u_short arpop, 
+						const struct sockaddr_dl	*sender_hw,
+						const struct sockaddr		*sender_proto, 
+						const struct sockaddr_dl	*target_hw, 
+						const struct sockaddr		*target_proto));
+						
+extern void firewire_inet_event __P((ifnet_t			ifp, 
+							__unused protocol_family_t	protocol, 
+							const struct kev_msg		*event));
 
 ////////////////////////////////////////////////////////////////////////////////
 //
 // inet_firewire_input
 //
-// IN: struct mbuf  *m, char *frame_header, struct ifnet *ifp, 
+// IN: struct mbuf  *m, char *frame_header, ifnet_t ifp, 
 // IN: u_long dl_tag, int sync_ok
 // 
 // Invoked by : 
@@ -94,80 +84,35 @@ extern int	firewire_arpresolve __P((struct arpcom *, struct rtentry *, struct mb
 // chain m
 //
 ////////////////////////////////////////////////////////////////////////////////
-int
-inet_firewire_input(struct mbuf  *m, char *frame_header, struct ifnet *ifp, u_long dl_tag, 						int sync_ok)
+static errno_t
+inet_firewire_input(
+	__unused ifnet_t			ifp,
+	__unused protocol_family_t	protocol_family,
+	mbuf_t						m,
+	char     					*frame_header)
 {
-    register struct firewire_header *eh = (struct firewire_header *) frame_header;
-    register struct ifqueue *inq=0;
-    u_short ether_type;
-    int s;
-    u_int16_t ptype = 0;
+    struct firewire_header *eh = (struct firewire_header *)frame_header;
+    u_short fw_type;
 	
-    if ((ifp->if_flags & IFF_UP) == 0) {
-        m_freem(m);
-        return EJUSTRETURN;
-    }
-//  log(LOG_DEBUG,"inet_firewire_input %d\n", __LINE__);
+	ifnet_touch_lastchange(ifp);
 
-    getmicrotime(&ifp->if_lastchange);
+    fw_type = ntohs(eh->fw_type);
 
-    if (m->m_flags & (M_BCAST|M_MCAST))
-        ifp->if_imcasts++;
-
-    ether_type = ntohs(eh->ether_type);
-
-    switch (ether_type) {
-
-        case ETHERTYPE_IP:
-            if (ipflow_fastforward(m))
+    switch (fw_type) 
+	{
+        case FWTYPE_IP:
+			mbuf_pullup(&m, sizeof(struct ip));
+            if (m == NULL)
                 return EJUSTRETURN;
 
- //        log(LOG_DEBUG,"inet_firewire_input %d\n", __LINE__);
-            
-           	ptype = mtod(m, struct ip *)->ip_p;
-            if ((sync_ok == 0) || (ptype != IPPROTO_TCP && ptype != IPPROTO_UDP)) 
-            {
-                schednetisr(NETISR_IP); 
-            }
+			return proto_input(PF_INET, m);
 
-	        // schednetisr(NETISR_IP);
-            // Assign the ipintrq for the incoming queue
-            inq = &ipintrq;
-            break;
-
-        case ETHERTYPE_ARP:
-			// Direct call to process the arp packet, no NETISR required
+        case FWTYPE_ARP:
             firewire_arpintr(m);
-            inq = 0;
-            return 0;  
+			break;
 
-        default: {
+        default:
             return ENOENT;
-        }
-    }
-
-    if (inq == 0)
-        return ENOENT;
-
-	// Protect the queue
-    s = splimp();
-    
-	if (IF_QFULL(inq)) 
-    {
-		IF_DROP(inq);
-		m_freem(m);
-		splx(s);
-		return EJUSTRETURN;
-	} else
-		IF_ENQUEUE(inq, m);
-        
-	splx(s);
-
-    if ((sync_ok) && (ptype == IPPROTO_TCP || ptype == IPPROTO_UDP)) 
-    {
-        s = splnet();
-        ipintr();
-        splx(s);
     }
 
     return 0;
@@ -177,7 +122,7 @@ inet_firewire_input(struct mbuf  *m, char *frame_header, struct ifnet *ifp, u_lo
 //
 //  inet_firewire_pre_output
 //
-//   IN:	struct ifnet *ifp
+//   IN:	ifnet_t ifp
 //   IN:	struct mbuf **m0
 //   IN:	struct sockaddr dst_netaddr
 //   IN:	caddr_t	route
@@ -194,92 +139,56 @@ inet_firewire_input(struct mbuf  *m, char *frame_header, struct ifnet *ifp, u_lo
 //
 ////////////////////////////////////////////////////////////////////////////////
 int
-inet_firewire_pre_output(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *dst_netaddr,
-            caddr_t route, char *type, char *edst, u_long dl_tag)
+inet_firewire_pre_output(
+	ifnet_t						interface,
+	__unused protocol_family_t	protocol_family,
+	mbuf_t						*m0,
+	const struct sockaddr		*dst_netaddr,
+	void*						route,
+	char						*type,
+	char						*edst)
 {
-    struct rtentry  *rt0 = (struct rtentry *) route;
-    // int s;
-    register struct mbuf *m = *m0;
-    register struct rtentry *rt;
-    register struct firewire_header *eh;
-    int off ; // , len = m->m_pkthdr.len;
-    struct arpcom *ac = IFP2AC(ifp);
-
-	//log(LOG_DEBUG,"inet_firewire_pre_output called\n");
-
-    if ((ifp->if_flags & (IFF_UP|IFF_RUNNING)) != (IFF_UP|IFF_RUNNING)) 
-	{
-		// log(LOG_DEBUG,"Interface not IFF_UP|IFF_RUNNING\n");
-        return ENETDOWN;
-	}
-
-    rt = rt0;
-    
-    // begin validating rt
-    if (rt) {
-        if ((rt->rt_flags & RTF_UP) == 0) {
-            rt0 = rt = rtalloc1(dst_netaddr, 1, 0UL);
-            if (rt0)
-                rtunref(rt);
-            else{
-				// log(LOG_DEBUG,"inet_firewire_pre_output EHOSTUNREACH\n");
-				return EHOSTUNREACH;
-			}
-        }
-
-        if (rt->rt_flags & RTF_GATEWAY) {
-            if (rt->rt_gwroute == 0)
-                goto lookup;
-            if (((rt = rt->rt_gwroute)->rt_flags & RTF_UP) == 0) {
-                rtfree(rt); rt = rt0;
-                lookup: rt->rt_gwroute = rtalloc1(rt->rt_gateway, 1, 0UL);
-				if ((rt = rt->rt_gwroute) == 0) {
-					// log(LOG_DEBUG,"inet_firewire_pre_output rt->rt_gwroute : EHOSTUNREACH\n");
-					return (EHOSTUNREACH);
-				}
-            }
-        }
-
+    struct mbuf* m = (struct mbuf*)*m0;
+    errno_t	result = 0;
+	    
+    if ((ifnet_flags(interface) & (IFF_UP|IFF_RUNNING)) != (IFF_UP|IFF_RUNNING)) 
+		return ENETDOWN;
 	
-        if (rt->rt_flags & RTF_REJECT)
-            if (rt->rt_rmx.rmx_expire == 0 || (u_long)time_second < rt->rt_rmx.rmx_expire) {
-				// log(LOG_DEBUG,"inet_firewire_pre_output : EHOSTDOWN : EHOSTUNREACH\n");
-                return (rt == rt0 ? EHOSTDOWN : EHOSTUNREACH);
-			}
-    }
-    // end validating rt
-    
-	// log(LOG_DEBUG,"inet_firewire_pre_output : end validating rt\n");
-	
-    //
-    // Tell firewire_frameout it's ok to loop packet unless negated below.
-    //
+	// Tell firewire_frameout it's ok to loop packet unless negated below.
     m->m_flags |= M_LOOP;
 
-    switch (dst_netaddr->sa_family) {
-        
-        case AF_INET:
-            if (!firewire_arpresolve(ac, rt, m, dst_netaddr, (u_char*)edst, rt0))
-                return (EJUSTRETURN);	// if not yet resolved 
-            off = m->m_pkthdr.len - m->m_len;
-            *(u_short *)type = htons(ETHERTYPE_IP);
-            break;
+    switch (dst_netaddr->sa_family) 
+	{
+    	case AF_INET: 
+		{
+			struct sockaddr_dl	ll_dest;
+			result = inet_arp_lookup(interface, (const struct sockaddr_in*)dst_netaddr,
+								   &ll_dest, sizeof(ll_dest), (route_t)route, *m0);
+			if (result == 0) 
+			{
+				bcopy(LLADDR(&ll_dest), edst, FIREWIRE_ADDR_LEN);
+				*(u_int16_t*)type = htons(FWTYPE_IP);
+			}
+		}
+		break;
 
         case AF_UNSPEC:
+		{
             m->m_flags &= ~M_LOOP;
-            eh = (struct firewire_header *)dst_netaddr->sa_data;
-			(void)memcpy(edst, eh->ether_dhost, FIREWIRE_ADDR_LEN);
-            *(u_short *)type = eh->ether_type;
-            break;
+            register struct firewire_header *fwh = (struct firewire_header *)dst_netaddr->sa_data;
+			(void)memcpy(edst, fwh->fw_dhost, FIREWIRE_ADDR_LEN);
+            *(u_short *)type = fwh->fw_type;
+		}
+		break;
 
         default:
-            log(LOG_DEBUG,"%s%d: can't handle af%d\n", ifp->if_name, 
-                                    ifp->if_unit, dst_netaddr->sa_family);
+            log(LOG_DEBUG,"%s%d: can't handle af%d\n", ifnet_name(interface), 
+                                    ifnet_unit(interface), dst_netaddr->sa_family);
 
             return EAFNOSUPPORT;
     }
 
-	return (0);
+	return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -287,7 +196,7 @@ inet_firewire_pre_output(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *d
 //  firewire_inet_prmod_ioctl
 //
 //   IN:	u_long       dl_tag
-//   IN:	struct ifnet *ifp
+//   IN:	ifnet_t ifp
 //   IN:	int          command
 //   IN:	caddr_t      data
 // 
@@ -298,118 +207,103 @@ inet_firewire_pre_output(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *d
 // Process an ioctl from dlil_ioctl in the context of ip, i guess !! 
 //
 ////////////////////////////////////////////////////////////////////////////////
-int
-firewire_inet_prmod_ioctl(u_long dl_tag, struct ifnet *ifp, long unsigned int command, caddr_t data)
+static errno_t
+firewire_inet_prmod_ioctl(
+    ifnet_t						ifp,
+    __unused protocol_family_t	protocol_family,
+    u_int32_t					command,
+    void*						data)
 {
-    int error = EOPNOTSUPP;
+    return EOPNOTSUPP;
+}
 
-    return (error);
+static errno_t
+firewire_inet_resolve_multi(
+	ifnet_t					ifp,
+	const struct sockaddr	*proto_addr,
+	struct sockaddr_dl		*out_ll,
+	size_t					ll_len)
+{
+	static const size_t minsize = offsetof(struct sockaddr_dl, sdl_data[0]) + FIREWIRE_ADDR_LEN;
+	const struct sockaddr_in	*sin = (const struct sockaddr_in*)proto_addr;
+
+	if (proto_addr->sa_family != AF_INET)
+		return EAFNOSUPPORT;
+	
+	if (proto_addr->sa_len < sizeof(struct sockaddr_in))
+		return EINVAL;
+
+	if (ll_len < minsize)
+		return EMSGSIZE;
+	
+	bzero(out_ll, minsize);
+	out_ll->sdl_len = minsize;
+	out_ll->sdl_family = AF_LINK;
+	out_ll->sdl_index = ifnet_index(ifp);
+	out_ll->sdl_type = IFT_IEEE1394;
+	out_ll->sdl_nlen = 0;
+	out_ll->sdl_alen = FIREWIRE_ADDR_LEN;
+	out_ll->sdl_slen = 0;
+	FIREWIRE_MAP_IP_MULTICAST(&sin->sin_addr, LLADDR(out_ll));
+	
+	return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 //
 // firewire_attach_inet
 //
-//   IN		:	struct ifnet *ifp
-//   IN/OUT	:	u_long		 *dl_tag
-//
+//   IN:	ifnet_t ifp
+//   
 // Invoked by:
 //  firewire_attach_inet will be invoked from IOFWInterface::attachToDataLinkLayer
 //
 ////////////////////////////////////////////////////////////////////////////////
 int
-firewire_attach_inet(struct ifnet *ifp, u_long *dl_tag)
+firewire_attach_inet(ifnet_t ifp, u_long protocol_family)
 {
-    struct dlil_proto_reg_str   reg;
-    struct dlil_demux_desc      desc;
-    struct dlil_demux_desc      desc2;
+	struct ifnet_attach_proto_param	proto;
+	struct ifnet_demux_desc demux[2];
+    u_short en_native=htons(FWTYPE_IP);
+    u_short arp_native=htons(FWTYPE_ARP);
+	errno_t	error;
 	
-    u_long	ip_dl_tag  = 0;
-	u_short en_native  = ETHERTYPE_IP;
-    u_short arp_native = ETHERTYPE_ARP;
-    
-	int	stat;
-
-	//log(LOG_DEBUG, "firewire_attach_inet+\n");
-
-    stat = dlil_find_dltag(ifp->if_family, ifp->if_unit, PF_INET, &ip_dl_tag);
-    
-    if (stat == 0)
+	bzero(&demux[0], sizeof(demux));
+	demux[0].type	= DLIL_DESC_ETYPE2;
+	demux[0].data	= &en_native;
+	demux[0].datalen = sizeof(en_native);
+	demux[1].type	= DLIL_DESC_ETYPE2;
+	demux[1].data	= &arp_native;
+	demux[1].datalen = sizeof(arp_native);
+	
+	bzero(&proto, sizeof(proto));
+	proto.demux_list	= demux;
+	proto.demux_count	= sizeof(demux) / sizeof(demux[0]);
+	proto.input			= inet_firewire_input;
+	proto.pre_output	= inet_firewire_pre_output;
+	proto.ioctl			= firewire_inet_prmod_ioctl;
+	proto.event			= firewire_inet_event;
+	proto.resolve		= firewire_inet_resolve_multi;
+	proto.send_arp		= firewire_inet_arp;
+	
+	error = ifnet_attach_protocol(ifp, protocol_family, &proto);
+	if (error && error != EEXIST) 
 	{
-		//log(LOG_DEBUG,"IGNORE: firewire_attach_inet found a stat %d, ip_dl_tag %d \n", stat, ip_dl_tag);
-		*dl_tag = ip_dl_tag;
-		//log(LOG_DEBUG, "firewire_attach_inet- %d\n", __LINE__);
-        return stat;
+		printf("WARNING: firewire_attach_inet can't attach ip to %s%d\n",
+			   ifnet_name(ifp), ifnet_unit(ifp));
 	}
-
-    bzero(&reg, sizeof(struct dlil_proto_reg_str));
-
-    TAILQ_INIT(&reg.demux_desc_head);
-    desc.type = DLIL_DESC_RAW;
-    desc.variants.bitmask.proto_id_length = 0;
-    desc.variants.bitmask.proto_id = 0;
-    desc.variants.bitmask.proto_id_mask = 0;
-    desc.native_type = (u_char*)&en_native;
-    TAILQ_INSERT_TAIL(&reg.demux_desc_head, &desc, next);
-    reg.interface_family = ifp->if_family;
-    reg.unit_number      = ifp->if_unit;
-    reg.input            = inet_firewire_input;
-    reg.pre_output       = inet_firewire_pre_output;
-    reg.event            = 0;
-    reg.offer            = 0;
-    reg.ioctl            = firewire_inet_prmod_ioctl;
-    reg.default_proto    = 1;
-    reg.protocol_family  = PF_INET;
-
-    desc2 = desc;
-    desc2.native_type = (u_char *) &arp_native;
-    TAILQ_INSERT_TAIL(&reg.demux_desc_head, &desc2, next);
 	
-    stat = dlil_attach_protocol(&reg, &ip_dl_tag);
-    if(stat) 
-	{
-		log(LOG_DEBUG,"WARNING: firewire_attach_inet can't attach ip to interface %d  PF %x IF %x\n", 
-					stat, reg.protocol_family, reg.interface_family);
-        return stat;
-    }
-	*dl_tag = ip_dl_tag;
-
-	//log(LOG_DEBUG, "firewire_attach_inet- %d\n", __LINE__);
-	
-    return stat;
+	return error;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-//
-// firewire_detach_inet
-//
-//   IN:	struct ifnet *ifp
-//   
-// Invoked by:
-//  firewire_detach_inet will be invoked from IOFireWireIP::nicDetach
-//
-////////////////////////////////////////////////////////////////////////////////
-int  firewire_detach_inet(struct ifnet *ifp, u_long dl_tag)
+int
+firewire_detach_inet(
+	struct ifnet *ifp,
+	u_long proto_family)
 {
-//    u_long      ip_dl_tag = 0;
     int         stat;
 
-#ifdef FIREWIRETODO
-    stat = dlil_find_dltag(ifp->if_family, ifp->if_unit, PF_INET, &ip_dl_tag);
-    if (stat == 0) 
-	{
-#endif
+	stat = dlil_detach_protocol(ifp, proto_family);
 
-	stat = dlil_detach_protocol(dl_tag);
-	if (stat) 
-	{
-		kprintf("WARNING: firewire_detach_inet can't detach ip from interface\n");
-	}
-
-#ifdef FIREWIRETODO
-    }
-#endif
-    
     return stat;
 }
-

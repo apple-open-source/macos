@@ -42,7 +42,7 @@
  * Start Date: 6/28/93
  */
 
-/* $Id: acl.h,v 1.16 2004/03/05 19:19:21 rjs3 Exp $ */
+/* $Id: acl.h,v 1.6 2005/03/05 00:37:10 dasenbro Exp $ */
 
 #ifndef INCLUDED_ACL_H
 #define INCLUDED_ACL_H

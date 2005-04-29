@@ -1,5 +1,5 @@
 /* telemetry.h -- interface for telemetry
- * $Id: telemetry.h,v 1.3 2003/07/22 19:17:20 rjs3 Exp $
+ * $Id: telemetry.h,v 1.5 2005/03/05 00:37:07 dasenbro Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

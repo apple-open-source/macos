@@ -53,13 +53,9 @@
 
 ****************************************************************************************************/
 
-#define	CCIDEBUG_ASSERT				Assert_
-#define CCIDEBUG_SIGNAL				SignalCStr_
-#define CCIDEBUG_THROW				DebugThrow_
-#define CCIDEBUG_VALIDPOINTER(x)	(true)
+#define	CCIDEBUG_ASSERT                 Assert_
+#define CCIDEBUG_SIGNAL                 SignalCStr_
+#define CCIDEBUG_THROW                  DebugThrow_
+#define CCIDEBUG_VALIDPOINTER(x)        (true)
 
-#if	MACDEV_DEBUG
-#define CCI_DEBUG			1
-#else
-#define	CCI_DEBUG			0
-#endif
+#define CCI_DEBUG 1  // Always on.  Debugging set at runtime.

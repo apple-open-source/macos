@@ -1,0 +1,41 @@
+--- unvis.c.orig	2004-11-25 11:38:02.000000000 -0800
++++ unvis.c	2005-02-27 01:14:02.000000000 -0800
+@@ -37,6 +37,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/gen/unvis.c,v 1.9 2004/08/02 08:46:23 stefanf Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <sys/types.h>
+ #include <ctype.h>
+ #include <vis.h>
+@@ -64,6 +66,7 @@
+ int
+ unvis(char *cp, int c, int *astate, int flag)
+ {
++	locale_t loc = __current_locale();
+ 
+ 	if (flag & UNVIS_END) {
+ 		if (*astate == S_OCTAL2 || *astate == S_OCTAL3) {
+@@ -90,8 +93,8 @@
+ 
+ 	case S_START:
+ 		if (*astate & S_HTTP) {
+-		    if (ishex(tolower(c))) {
+-			*cp = isdigit(c) ? (c - '0') : (tolower(c) - 'a');
++		    if (ishex(tolower_l(c, loc))) {
++			*cp = isdigit_l(c, loc) ? (c - '0') : (tolower_l(c, loc) - 'a');
+ 			*astate = S_HEX2;
+ 			return (0);
+ 		    }
+@@ -216,8 +219,8 @@
+ 		return (UNVIS_VALIDPUSH);
+ 
+ 	case S_HEX2:	/* second mandatory hex digit */
+-		if (ishex(tolower(c))) {
+-			*cp = (isdigit(c) ? (*cp << 4) + (c - '0') : (*cp << 4) + (tolower(c) - 'a' + 10));
++		if (ishex(tolower_l(c, loc))) {
++			*cp = (isdigit_l(c, loc) ? (*cp << 4) + (c - '0') : (*cp << 4) + (tolower_l(c, loc) - 'a' + 10));
+ 		}
+ 		*astate = S_GROUND;
+ 		return (UNVIS_VALID);

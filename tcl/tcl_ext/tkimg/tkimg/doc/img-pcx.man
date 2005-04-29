@@ -1,0 +1,67 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME pcx]
+[vset FORMATFULLNAME {Paintbrush Format}]
+
+[include format-header.inc]
+
+This handler provides new additional configuration options. See
+section [sectref {PCX OPTIONS}] for more detailed explanations.
+
+
+[include format-middle.inc]
+
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {PCX OPTIONS}].
+
+[list_end]
+
+
+[section {SUPPORTED PCX TYPES}]
+
+[example_begin]
+  1-bit pixels: Black and White.
+  8-bit pixels: Grayscale or indexed.
+ 24-bit pixels: True-color (RGB, each channel 8 bit).
+ 
+ List of currently supported features:
+ 
+ Type   |     Read      |     Write     |
+        | -file | -data | -file | -data |
+ ----------------------------------------
+  1-bit | Yes   | Yes   | No    | No    |
+  8-bit | Yes   | Yes   | No    | No    |
+ 24-bit | Yes   | Yes   | Yes   | Yes   |
+ 
+ All images types may be either uncompressed or run-length encoded.
+[example_end]
+
+
+[section {PCX OPTIONS}]
+
+The handler provides the following options:
+
+[list_begin definitions]
+
+[lst_item "[option -verbose] [arg bool]"]
+
+This option is supported for reading and writing.
+[nl]
+If set to [const true], additional information about the loaded/stored image
+is printed to stdout. Default is [const false].
+
+[lst_item "[option -compression] [arg type]"]
+
+This option is supported for writing only.
+[nl]
+Set the compression mode to either [const none] or [const rle].
+Default is [const rle].
+
+[list_end]
+
+
+
+[list_begin definitions]
+[include format-footer.inc]

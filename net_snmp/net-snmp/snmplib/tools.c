@@ -2,6 +2,8 @@
  * tools.c
  */
 
+#define NETSNMP_TOOLS_C 1 /* dont re-define malloc wrappers here */
+
 #include <net-snmp/net-snmp-config.h>
 
 #include <ctype.h>
@@ -55,22 +57,63 @@
 #include <net-snmp/library/mib.h>
 #include <net-snmp/library/scapi.h>
 
+#ifdef WIN32
+/**
+ * This function is a wrapper for the strdup function.
+ */
+char * netsnmp_strdup( const char * ptr)
+{
+    return strdup(ptr);
+}
+/**
+ * This function is a wrapper for the calloc function.
+ */
+void * netsnmp_calloc(size_t nmemb, size_t size)
+{
+    return calloc(nmemb, size);
+}
 
-/*
- * snmp_realloc:
- * 
- * Parameters:
- * 
- * buf  pointer to a buffer pointer
- * buf_len      pointer to current size of buffer in bytes
- * 
+/**
+ * This function is a wrapper for the malloc function.
+ */
+void * netsnmp_malloc(size_t size)
+{
+    return malloc(size);
+}
+
+/**
+ * This function is a wrapper for the realloc function.
+ */
+void * netsnmp_realloc( void * ptr, size_t size)
+{
+    return realloc(ptr, size);
+}
+
+/**
+ * This function is a wrapper for the free function.
+ * It calls free only if the calling parameter has a non-zero value.
+ */
+void netsnmp_free( void * ptr)
+{
+    if (ptr)
+        free(ptr);
+}
+#endif /* WIN32 */
+
+/**
  * This function increase the size of the buffer pointed at by *buf, which is
  * initially of size *buf_len.  Contents are preserved **AT THE BOTTOM END OF
  * THE BUFFER**.  If memory can be (re-)allocated then it returns 1, else it
  * returns 0.
  * 
+ * @param buf  pointer to a buffer pointer
+ * @param buf_len      pointer to current size of buffer in bytes
+ * 
+ * @note
+ * The current re-allocation algorithm is to increase the buffer size by
+ * whichever is the greater of 256 bytes or the current buffer size, up to
+ * a maximum increase of 8192 bytes.  
  */
-
 int
 snmp_realloc(u_char ** buf, size_t * buf_len)
 {
@@ -80,12 +123,6 @@ snmp_realloc(u_char ** buf, size_t * buf_len)
     if (buf == NULL) {
         return 0;
     }
-
-    /*
-     * The current re-allocation algorithm is to increase the buffer size by
-     * whichever is the greater of 256 bytes or the current buffer size, up to
-     * a maximum increase of 8192 bytes.  
-     */
 
     if (*buf_len <= 255) {
         new_buf_len = *buf_len + 256;
@@ -136,12 +173,10 @@ snmp_strcat(u_char ** buf, size_t * buf_len, size_t * out_len,
     return 1;
 }
 
-/*******************************************************************-o-******
- * free_zero
+/** zeros memory before freeing it.
  *
- * Parameters:
- *	*buf	Pointer at bytes to free.
- *	size	Number of bytes in buf.
+ *	@param *buf	Pointer at bytes to free.
+ *	@param size	Number of bytes in buf.
  */
 void
 free_zero(void *buf, size_t size)
@@ -153,19 +188,14 @@ free_zero(void *buf, size_t size)
 
 }                               /* end free_zero() */
 
-
-
-
-/*******************************************************************-o-******
- * malloc_random
- *
- * Parameters:
- *	size	Number of bytes to malloc() and fill with random bytes.
- *      
+/**
  * Returns pointer to allocaed & set buffer on success, size contains
- * number of random bytes filled.
+ * number of random bytes filled.  buf is NULL and *size set to KMT
+ * error value upon failure.
  *
- * buf is NULL and *size set to KMT error value upon failure.
+ *	@param size	Number of bytes to malloc() and fill with random bytes.
+ *
+ * @return a malloced buffer
  *
  */
 u_char         *
@@ -189,20 +219,15 @@ malloc_random(size_t * size)
 
 }                               /* end malloc_random() */
 
+/** Duplicates a memory block.
+ *  Copies a existing memory location from a pointer to another, newly
+    malloced, pointer.
 
-
-
-/*******************************************************************-o-******
- * memdup
- *
- * Parameters:
- *	to       Pointer to allocate and copy memory to.
- *      from     Pointer to copy memory from.
- *      size     Size of the data to be copied.
+ *	@param to       Pointer to allocate and copy memory to.
+ *      @param from     Pointer to copy memory from.
+ *      @param size     Size of the data to be copied.
  *      
- * Returns
- *	SNMPERR_SUCCESS	On success.
- *      SNMPERR_GENERR	On failure.
+ *	@return SNMPERR_SUCCESS	on success, SNMPERR_GENERR on failure.
  */
 int
 memdup(u_char ** to, const u_char * from, size_t size)
@@ -243,16 +268,13 @@ netsnmp_strdup_and_null(const u_char * from, size_t from_len)
     return ret;
 }
 
-/*******************************************************************-o-******
- * binary_to_hex
+/** converts binary to hexidecimal
  *
- * Parameters:
- *	*input		Binary data.
- *	len		Length of binary data.
- *	**output	NULL terminated string equivalent in hex.
+ *	@param *input		Binary data.
+ *	@param len		Length of binary data.
+ *	@param **output	NULL terminated string equivalent in hex.
  *      
- * Returns:
- *	olen	Length of output string not including NULL terminator.
+ * @return olen	Length of output string not including NULL terminator.
  *
  * FIX	Is there already one of these in the UCD SNMP codebase?
  *	The old one should be used, or this one should be moved to
@@ -281,18 +303,13 @@ binary_to_hex(const u_char * input, size_t len, char **output)
 
 
 
-/*******************************************************************-o-******
+/**
  * hex_to_binary2
- *
- * Parameters:
- *	*input		Printable data in base16.
- *	len		Length in bytes of data.
- *	**output	Binary data equivalent to input.
+ *	@param *input		Printable data in base16.
+ *	@param len		Length in bytes of data.
+ *	@param **output	Binary data equivalent to input.
  *      
- * Returns:
- *	SNMPERR_GENERR	Failure.
- *	<len>		Otherwise, Length of allocated string.
- *
+ * @return SNMPERR_GENERR on failure, otherwise length of allocated string.
  *
  * Input of an odd length is right aligned.
  *
@@ -374,9 +391,36 @@ snmp_decimal_to_binary(u_char ** buf, size_t * buf_len, size_t * out_len,
     return 1;
 }
 
+/**
+ * convert an ASCII hex string (with specified delimiters) to binary
+ *
+ * @param buf     address of a pointer (pointer to pointer) for the output buffer.
+ *                If allow_realloc is set, the buffer may be grown via snmp_realloc
+ *                to accomodate the data.
+ *
+ * @param buf_len pointer to a size_t containing the initial size of buf.
+ *
+ * @param out_len On input, a pointer to a size_t indicating an offset into buf.
+ *                The  binary data will be stored at this offset.
+ *                On output, this pointer will have updated the offset to be
+ *                the first byte after the converted data.
+ *
+ * @param allow_realloc If true, the buffer can be reallocated. If false, and
+ *                      the buffer is not large enough to contain the string,
+ *                      an error will be returned.
+ *
+ * @param hex     pointer to hex string to be converted. May be prefixed by
+ *                "0x" or "0X".
+ *
+ * @param delim   point to a string of allowed delimiters between bytes.
+ *                If not specified, any non-hex characters will be an error.
+ *
+ * @retval 1  success
+ * @retval 0  error
+ */
 int
-snmp_hex_to_binary(u_char ** buf, size_t * buf_len, size_t * out_len,
-                   int allow_realloc, const char *hex)
+netsnmp_hex_to_binary(u_char ** buf, size_t * buf_len, size_t * out_len,
+                      int allow_realloc, const char *hex, const char *delim)
 {
     int             subid = 0;
     const char     *cp = hex;
@@ -390,16 +434,20 @@ snmp_hex_to_binary(u_char ** buf, size_t * buf_len, size_t * out_len,
     }
 
     while (*cp != '\0') {
-        if (isspace((int) *cp)) {
-            cp++;
-            continue;
-        }
         if (!isxdigit((int) *cp)) {
+            if ((NULL != delim) && (NULL != strchr(delim, *cp))) {
+                cp++;
+                continue;
+            }
             return 0;
         }
         if (sscanf(cp, "%2x", &subid) == 0) {
             return 0;
         }
+        /*
+         * if we dont' have enough space, realloc.
+         * (snmp_realloc will adjust buf_len to new size)
+         */
         if ((*out_len >= *buf_len) &&
             !(allow_realloc && snmp_realloc(buf, buf_len))) {
             return 0;
@@ -416,6 +464,24 @@ snmp_hex_to_binary(u_char ** buf, size_t * buf_len, size_t * out_len,
         }
     }
     return 1;
+}
+
+/**
+ * convert an ASCII hex string to binary
+ *
+ * @note This is a wrapper which calls netsnmp_hex_to_binary with a
+ * delimiter string of " ".
+ *
+ * See netsnmp_hex_to_binary for parameter descriptions.
+ *
+ * @retval 1  success
+ * @retval 0  error
+ */
+int
+snmp_hex_to_binary(u_char ** buf, size_t * buf_len, size_t * out_len,
+                   int allow_realloc, const char *hex)
+{
+    return netsnmp_hex_to_binary(buf, buf_len, out_len, allow_realloc, hex, " ");
 }
 
 /*******************************************************************-o-******
@@ -513,7 +579,7 @@ dump_chunk(const char *debugtoken, const char *title, const u_char * buf,
  * XXX	Need a switch to decide whether to use DNS name instead of a simple
  *	IP address.
  *
- * FIX	Use something other than sprint_hexstring which doesn't add 
+ * FIX	Use something other than snprint_hexstring which doesn't add 
  *	trailing spaces and (sometimes embedded) newlines...
  */
 #ifdef SNMP_TESTING_CODE
@@ -548,7 +614,7 @@ dump_snmpEngineID(const u_char * estring, size_t * estring_len)
      * begin by formatting the enterprise ID.
      */
     if (!(*esp & 0x80)) {
-        sprint_hexstring(buf, esp, remaining_len);
+        snprint_hexstring(buf, SNMP_MAXBUF, esp, remaining_len);
         s = strchr(buf, '\0');
         s -= 1;
         goto dump_snmpEngineID_quit;
@@ -631,7 +697,8 @@ dump_snmpEngineID(const u_char * estring, size_t * estring_len)
         break;
      /*NOTREACHED*/ case 5:    /* Octets. */
 
-        sprint_hexstring(s, esp, remaining_len);
+        snprint_hexstring(s, (SNMP_MAXBUF - (s-buf)),
+                          esp, remaining_len);
         s = strchr(buf, '\0');
         s -= 1;
         goto dump_snmpEngineID_quit;
@@ -648,7 +715,8 @@ dump_snmpEngineID(const u_char * estring, size_t * estring_len)
         if (!gotviolation) {
             s += sprintf(s, "??? ");
         }
-        sprint_hexstring(s, esp, remaining_len);
+        snprint_hexstring(s, (SNMP_MAXBUF - (s-buf)),
+                          esp, remaining_len);
         s = strchr(buf, '\0');
         s -= 1;
 
@@ -665,7 +733,8 @@ dump_snmpEngineID(const u_char * estring, size_t * estring_len)
     if (remaining_len > 0) {
         s += sprintf(s, " (??? ");
 
-        sprint_hexstring(s, esp, remaining_len);
+        snprint_hexstring(s, (SNMP_MAXBUF - (s-buf)),
+                          esp, remaining_len);
         s = strchr(buf, '\0');
         s -= 1;
 
@@ -690,7 +759,7 @@ dump_snmpEngineID(const u_char * estring, size_t * estring_len)
 #endif                          /* SNMP_TESTING_CODE */
 
 
-/*
+/**
  * create a new time marker.
  * NOTE: Caller must free time marker when no longer needed.
  */
@@ -702,7 +771,7 @@ atime_newMarker(void)
     return pm;
 }
 
-/*
+/**
  * set a time marker.
  */
 void
@@ -715,7 +784,7 @@ atime_setMarker(marker_t pm)
 }
 
 
-/*
+/**
  * Returns the difference (in msec) between the two markers
  */
 long
@@ -732,7 +801,7 @@ atime_diff(marker_t first, marker_t second)
     return (diff.tv_sec * 1000 + diff.tv_usec / 1000);
 }
 
-/*
+/**
  * Returns the difference (in u_long msec) between the two markers
  */
 u_long
@@ -749,7 +818,7 @@ uatime_diff(marker_t first, marker_t second)
     return (((u_long) diff.tv_sec) * 1000 + diff.tv_usec / 1000);
 }
 
-/*
+/**
  * Returns the difference (in u_long 1/100th secs) between the two markers
  * (functionally this is what sysUpTime needs)
  */
@@ -769,7 +838,7 @@ uatime_hdiff(marker_t first, marker_t second)
     return res;
 }
 
-/*
+/**
  * Test: Has (marked time plus delta) exceeded current time (in msec) ?
  * Returns 0 if test fails or cannot be tested (no marker).
  */
@@ -791,7 +860,7 @@ atime_ready(marker_t pm, int deltaT)
     return 1;
 }
 
-/*
+/**
  * Test: Has (marked time plus delta) exceeded current time (in msec) ?
  * Returns 0 if test fails or cannot be tested (no marker).
  */
@@ -818,9 +887,9 @@ uatime_ready(marker_t pm, unsigned int deltaT)
          * Time-related utility functions
          */
 
-                /*
-                 * Return the number of timeTicks since the given marker 
-                 */
+/**
+ * Return the number of timeTicks since the given marker 
+ */
 int
 marker_tticks(marker_t pm)
 {
@@ -837,3 +906,133 @@ timeval_tticks(struct timeval *tv)
 {
     return marker_tticks((marker_t) tv);
 }
+
+/**
+ * Non Windows:  Returns a pointer to the desired environment variable  
+ *               or NULL if the environment variable does not exist.  
+ *               
+ * Windows:      Returns a pointer to the desired environment variable  
+ *               if it exists.  If it does not, the variable is looked up
+ *               in the registry in HKCU\Net-SNMP or HKLM\Net-SNMP
+ *               (whichever it finds first) and stores the result in the 
+ *               environment variable.  It then returns a pointer to 
+ *               environment variable.
+ */
+
+char *netsnmp_getenv(const char *name)
+{
+#ifndef WIN32
+  return (getenv(name));
+#else
+  char *temp = NULL;  
+  HKEY hKey;
+  unsigned char * key_value = NULL;
+  DWORD key_value_size = 0;
+  DWORD key_value_type = 0;
+
+  DEBUGMSGTL(("read_config", "netsnmp_getenv called with name: %s\n",name));
+
+  if (!(name))
+    return NULL;
+  
+  /* Try environment variable first */ 
+  temp = getenv(name);
+  if (temp)
+    DEBUGMSGTL(("read_config", "netsnmp_getenv will return from ENV: %s\n",temp));
+  
+  /* Next try HKCU */
+  if (temp == NULL)
+  {
+    if (RegOpenKeyExA(
+          HKEY_CURRENT_USER, 
+          "SOFTWARE\\Net-SNMP", 
+          0, 
+          KEY_QUERY_VALUE, 
+          &hKey) == ERROR_SUCCESS) {   
+      
+      if (RegQueryValueExA(
+            hKey, 
+            name, 
+            NULL, 
+            &key_value_type, 
+            NULL,               /* Just get the size */
+            &key_value_size) == ERROR_SUCCESS) {
+
+        if (key_value)
+          SNMP_FREE(key_value);
+
+        /* Allocate memory needed +1 to allow RegQueryValueExA to NULL terminate the
+         * string data in registry is missing one (which is unlikely).
+         */
+        key_value = (char *) malloc((sizeof(char) * key_value_size)+sizeof(char));
+        
+        if (RegQueryValueExA(
+              hKey, 
+              name, 
+              NULL, 
+              &key_value_type, 
+              key_value, 
+              &key_value_size) == ERROR_SUCCESS) {
+        }
+        temp = key_value;
+      }
+      RegCloseKey(hKey);
+      if (temp)
+        DEBUGMSGTL(("read_config", "netsnmp_getenv will return from HKCU: %s\n",temp));
+    }
+  }
+
+  /* Next try HKLM */
+  if (temp == NULL)
+  {
+    if (RegOpenKeyExA(
+          HKEY_LOCAL_MACHINE, 
+          "SOFTWARE\\Net-SNMP", 
+          0, 
+          KEY_QUERY_VALUE, 
+          &hKey) == ERROR_SUCCESS) {   
+      
+      if (RegQueryValueExA(
+            hKey, 
+            name, 
+            NULL, 
+            &key_value_type, 
+            NULL,               /* Just get the size */
+            &key_value_size) == ERROR_SUCCESS) {
+
+        if (key_value)
+          SNMP_FREE(key_value);
+
+        /* Allocate memory needed +1 to allow RegQueryValueExA to NULL terminate the
+         * string data in registry is missing one (which is unlikely).
+         */
+        key_value = (char *) malloc((sizeof(char) * key_value_size)+sizeof(char));
+        
+        if (RegQueryValueExA(
+              hKey, 
+              name, 
+              NULL, 
+              &key_value_type, 
+              key_value, 
+              &key_value_size) == ERROR_SUCCESS) {
+        }
+        temp = key_value;
+
+      }
+      RegCloseKey(hKey);
+      if (temp)
+        DEBUGMSGTL(("read_config", "netsnmp_getenv will return from HKLM: %s\n",temp));
+    }
+  }
+  
+  if (temp) {
+    setenv(name, temp, 1);
+    SNMP_FREE(temp);
+  }
+
+  DEBUGMSGTL(("read_config", "netsnmp_getenv returning: %s\n",getenv(name)));
+
+  return(getenv(name));
+#endif
+}
+

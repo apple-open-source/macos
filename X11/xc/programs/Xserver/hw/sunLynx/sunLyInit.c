@@ -22,7 +22,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/sunLynx/sunLyInit.c,v 3.8 2001/01/17 22:36:53 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sunLynx/sunLyInit.c,v 3.9 2003/11/17 22:20:37 dawes Exp $ */
 
 /*
  * Copyright 1987 by the Regents of the University of California
@@ -81,12 +81,10 @@ Bool onConsole = FALSE;		/* wether stdin is /dev/con */
 #endif
 
 extern Bool sunBW2Init(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 #define BW2I sunBW2Init
 #if SUNMAXDEPTH == 1 /* { */
@@ -94,22 +92,18 @@ extern Bool sunBW2Init(
 #define CG6I NULL
 #else /* }{ */
 extern Bool sunCG3Init(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 #define CG3I sunCG3Init
 #ifdef FBTYPE_SUNFAST_COLOR /* { */
 extern Bool sunCG6Init(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 #define CG6I sunCG6Init
 #else /* }{ */
@@ -322,9 +316,7 @@ static int OpenFrameBuffer(device, screen)
  *-----------------------------------------------------------------------
  */
 void sunNonBlockConsoleOff(
-#if NeedFunctionPrototypes
     void
-#endif
 )
 {
     int i;
@@ -440,9 +432,7 @@ static void getKbdType()
 }
 
 void OsVendorInit(
-#if NeedFunctionPrototypes
     void
-#endif
 )
 {
     static int inited;

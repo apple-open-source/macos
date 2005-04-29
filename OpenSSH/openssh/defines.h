@@ -1,7 +1,31 @@
+/*
+ * Copyright (c) 1999-2003 Damien Miller.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #ifndef _DEFINES_H
 #define _DEFINES_H
 
-/* $Id: defines.h,v 1.1.1.15 2003/04/01 04:02:21 zarzycki Exp $ */
+/* $Id: defines.h,v 1.115 2004/04/14 07:24:30 dtucker Exp $ */
 
 
 /* Constants */
@@ -60,7 +84,7 @@ enum
 # define S_ISDIR(mode)	(((mode) & (_S_IFMT)) == (_S_IFDIR))
 #endif /* S_ISDIR */
 
-#ifndef S_ISREG 
+#ifndef S_ISREG
 # define S_ISREG(mode)	(((mode) & (_S_IFMT)) == (_S_IFREG))
 #endif /* S_ISREG */
 
@@ -103,6 +127,10 @@ including rpc/rpc.h breaks Solaris 6
 */
 #ifndef INADDR_LOOPBACK
 #define INADDR_LOOPBACK ((u_long)0x7f000001)
+#endif
+
+#ifndef __unused
+#define __unused
 #endif
 
 /* Types */
@@ -188,27 +216,20 @@ typedef unsigned long  u_int32_t;
 #ifndef HAVE_INT64_T
 # if (SIZEOF_LONG_INT == 8)
 typedef long int int64_t;
-#   define HAVE_INT64_T 1
 # else
 #  if (SIZEOF_LONG_LONG_INT == 8)
 typedef long long int int64_t;
-#   define HAVE_INT64_T 1
 #  endif
 # endif
 #endif
 #ifndef HAVE_U_INT64_T
 # if (SIZEOF_LONG_INT == 8)
 typedef unsigned long int u_int64_t;
-#   define HAVE_U_INT64_T 1
 # else
 #  if (SIZEOF_LONG_LONG_INT == 8)
 typedef unsigned long long int u_int64_t;
-#   define HAVE_U_INT64_T 1
 #  endif
 # endif
-#endif
-#if !defined(HAVE_LONG_LONG_INT) && (SIZEOF_LONG_LONG_INT == 8)
-# define HAVE_LONG_LONG_INT 1
 #endif
 
 #ifndef HAVE_U_CHAR
@@ -223,6 +244,7 @@ typedef unsigned char u_char;
 #ifndef HAVE_SIZE_T
 typedef unsigned int size_t;
 # define HAVE_SIZE_T
+# define SIZE_T_MAX UINT_MAX
 #endif /* HAVE_SIZE_T */
 
 #ifndef HAVE_SSIZE_T
@@ -302,6 +324,10 @@ struct winsize {
 
 #ifndef _PATH_STDPATH
 # define _PATH_STDPATH "/usr/bin:/bin:/usr/sbin:/sbin"
+#endif
+
+#ifndef SUPERUSER_PATH
+# define SUPERUSER_PATH	_PATH_STDPATH
 #endif
 
 #ifndef _PATH_DEVNULL
@@ -420,6 +446,23 @@ struct winsize {
 #define	CMSG_SPACE(len)	(__CMSG_ALIGN(sizeof(struct cmsghdr)) + __CMSG_ALIGN(len))
 #endif
 
+/* given pointer to struct cmsghdr, return pointer to data */
+#ifndef CMSG_DATA
+#define CMSG_DATA(cmsg) ((u_char *)(cmsg) + __CMSG_ALIGN(sizeof(struct cmsghdr)))
+#endif /* CMSG_DATA */
+
+/*
+ * RFC 2292 requires to check msg_controllen, in case that the kernel returns
+ * an empty list for some reasons.
+ */
+#ifndef CMSG_FIRSTHDR
+#define CMSG_FIRSTHDR(mhdr) \
+	((mhdr)->msg_controllen >= sizeof(struct cmsghdr) ? \
+	 (struct cmsghdr *)(mhdr)->msg_control : \
+	 (struct cmsghdr *)NULL)
+#endif /* CMSG_FIRSTHDR */
+
+
 /* Function replacement / compatibility hacks */
 
 #if !defined(HAVE_GETADDRINFO) && (defined(HAVE_OGETADDRINFO) || defined(HAVE_NGETADDRINFO))
@@ -464,6 +507,10 @@ struct winsize {
 # undef HAVE_GAI_STRERROR
 #endif
 
+#if defined(BROKEN_UPDWTMPX) && defined(HAVE_UPDWTMPX)
+# undef HAVE_UPDWTMPX
+#endif
+
 #if !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY)
 # define memmove(s1, s2, n) bcopy((s2), (s1), (n))
 #endif /* !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY) */
@@ -486,6 +533,24 @@ struct winsize {
 #elif !defined(HAVE___func__)
 #  define __func__ ""
 #endif
+
+#if defined(KRB5) && !defined(HEIMDAL)
+#  define krb5_get_err_text(context,code) error_message(code)
+#endif
+
+#if defined(SKEYCHALLENGE_4ARG)
+# define _compat_skeychallenge(a,b,c,d) skeychallenge(a,b,c,d)
+#else
+# define _compat_skeychallenge(a,b,c,d) skeychallenge(a,b,c)
+#endif
+
+/* Maximum number of file descriptors available */
+#ifdef HAVE_SYSCONF
+# define SSH_SYSFDMAX sysconf(_SC_OPEN_MAX)
+#else
+# define SSH_SYSFDMAX 10000
+#endif
+
 
 /*
  * Define this to use pipes instead of socketpairs for communicating with the
@@ -530,6 +595,9 @@ struct winsize {
 #  endif
 #endif
 
+#if defined(HAVE_SHADOW_H) && !defined(DISABLE_SHADOW)
+# define USE_SHADOW
+#endif
 
 /* The login() library function in libutil is first choice */
 #if defined(HAVE_LOGIN) && !defined(DISABLE_LOGIN)
@@ -553,9 +621,20 @@ struct winsize {
 
 #endif
 
+#ifndef UT_LINESIZE
+# define UT_LINESIZE 8
+#endif
+
 /* I hope that the presence of LASTLOG_FILE is enough to detect this */
 #if defined(LASTLOG_FILE) && !defined(DISABLE_LASTLOG)
 #  define USE_LASTLOG
+#endif
+
+#ifdef HAVE_OSF_SIA
+# ifdef USE_SHADOW
+#  undef USE_SHADOW
+# endif
+# define CUSTOM_SYS_AUTH_PASSWD 1
 #endif
 
 /** end of login recorder definitions */

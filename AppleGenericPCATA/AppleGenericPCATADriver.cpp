@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -27,7 +24,7 @@
 #include <IOKit/ata/IOATATypes.h>
 #include <IOKit/ata/IOATAController.h>
 #include <IOKit/ata/ATADeviceNub.h>
-#include "AppleGenericPCATAController.h"
+#include "AppleGenericPCATAChannel.h"
 #include "AppleGenericPCATADriver.h"
 
 #define super IOATAController
@@ -47,12 +44,12 @@ OSDefineMetaClassAndStructors( AppleGenericPCATADriver, IOATAController )
 bool 
 AppleGenericPCATADriver::start( IOService * provider )
 {
-    DLOG("%s::%s( %p )\n", getName(), __FUNCTION__, provider);
+    DLOG("%s::%s( %p, %p )\n", getName(), __FUNCTION__, this, provider);
 
     // Our provider is a 'nub' that represents a single channel
     // ATA controller.
 
-	_provider = OSDynamicCast( AppleGenericPCATAController, provider );
+	_provider = OSDynamicCast( AppleGenericPCATAChannel, provider );
     if ( _provider == 0 )
         goto fail;
 
@@ -66,16 +63,9 @@ AppleGenericPCATADriver::start( IOService * provider )
         goto fail;
     }
 
-    // Cache our I/O port ranges.
-
-    _ioPorts = _provider->getIOPorts();
-    
-    // Call super after setting _ioPorts. This is because our
-    // configureTFPointers() function will be called by super.
-
     if ( super::start(_provider) == false )
     {
-        IOLog("%s: super start failed\n", getName());
+        DLOG("%s: super start failed\n", getName());
         goto fail;
     }
 
@@ -123,8 +113,10 @@ AppleGenericPCATADriver::start( IOService * provider )
 		}
 	}
 
-    IOLog("%s: Port 0x%x, IRQ %ld\n", getName(),
-          _ioPorts, _provider->getInterruptLine());
+    IOLog("%s: CMD 0x%x, CTR 0x%x, IRQ %ld\n", getName(),
+          _provider->getCommandBlockAddress(),
+          _provider->getControlBlockAddress(),
+          _provider->getInterruptVector());
 
     return true;
 
@@ -145,11 +137,11 @@ fail:
  ---------------------------------------------------------------------------*/
 
 void
-AppleGenericPCATADriver::free()
+AppleGenericPCATADriver::free( void )
 {
 #define RELEASE(x) do { if(x) { (x)->release(); (x) = 0; } } while(0)
 
-    DLOG("%s::%s()\n", getName(), __FUNCTION__);
+    DLOG("%s::%s( %p )\n", getName(), __FUNCTION__, this);
 
     // Release resources created by start(). 
 
@@ -191,9 +183,9 @@ AppleGenericPCATADriver::free()
  ---------------------------------------------------------------------------*/
 
 IOWorkLoop *
-AppleGenericPCATADriver::getWorkLoop() const
+AppleGenericPCATADriver::getWorkLoop( void ) const
 {
-    DLOG("%s::%s()\n", getName(), __FUNCTION__);
+    DLOG("%s::%s( %p )\n", getName(), __FUNCTION__, this);
 
     return ( _workLoop ) ? _workLoop :
                            IOWorkLoop::workLoop();
@@ -206,19 +198,22 @@ AppleGenericPCATADriver::getWorkLoop() const
  ---------------------------------------------------------------------------*/
 
 bool 
-AppleGenericPCATADriver::configureTFPointers()
+AppleGenericPCATADriver::configureTFPointers( void )
 {
-    DLOG("%s::%s()\n", getName(), __FUNCTION__);
+    DLOG("%s::%s( %p )\n", getName(), __FUNCTION__, this);
 
-	_tfDataReg      = IOATAIOReg16::withAddress( _ioPorts + 0 );
-	_tfFeatureReg   = IOATAIOReg8::withAddress(  _ioPorts + 1 );
-	_tfSCountReg    = IOATAIOReg8::withAddress(  _ioPorts + 2 );
-	_tfSectorNReg   = IOATAIOReg8::withAddress(  _ioPorts + 3 );
-	_tfCylLoReg     = IOATAIOReg8::withAddress(  _ioPorts + 4 );
-	_tfCylHiReg     = IOATAIOReg8::withAddress(  _ioPorts + 5 );
-	_tfSDHReg       = IOATAIOReg8::withAddress(  _ioPorts + 6 );
-	_tfStatusCmdReg = IOATAIOReg8::withAddress(  _ioPorts + 7 );
-	_tfAltSDevCReg  = IOATAIOReg8::withAddress(  _ioPorts + 0x206 );
+    UInt16 cmdBlockAddr = _provider->getCommandBlockAddress();
+    UInt16 ctrBlockAddr = _provider->getControlBlockAddress();
+
+    _tfDataReg      = IOATAIOReg16::withAddress( cmdBlockAddr + 0 );
+    _tfFeatureReg   = IOATAIOReg8::withAddress(  cmdBlockAddr + 1 );
+    _tfSCountReg    = IOATAIOReg8::withAddress(  cmdBlockAddr + 2 );
+    _tfSectorNReg   = IOATAIOReg8::withAddress(  cmdBlockAddr + 3 );
+    _tfCylLoReg     = IOATAIOReg8::withAddress(  cmdBlockAddr + 4 );
+    _tfCylHiReg     = IOATAIOReg8::withAddress(  cmdBlockAddr + 5 );
+    _tfSDHReg       = IOATAIOReg8::withAddress(  cmdBlockAddr + 6 );
+    _tfStatusCmdReg = IOATAIOReg8::withAddress(  cmdBlockAddr + 7 );
+    _tfAltSDevCReg  = IOATAIOReg8::withAddress(  ctrBlockAddr + 2 );
 
     if ( !_tfDataReg || !_tfFeatureReg || !_tfSCountReg ||
          !_tfSectorNReg || !_tfCylLoReg || !_tfCylHiReg ||
@@ -243,10 +238,10 @@ AppleGenericPCATADriver::interruptOccurred( OSObject *               owner,
                                             int                      count )
 {
 	AppleGenericPCATADriver * self = (AppleGenericPCATADriver *) owner;
-    
+
     // Let our superclass handle the interrupt to advance to the next state
     // in its internal state machine.
-    
+
 	self->handleDeviceInterrupt();
 }
 
@@ -258,9 +253,11 @@ AppleGenericPCATADriver::interruptOccurred( OSObject *               owner,
  ---------------------------------------------------------------------------*/
 
 UInt32 
-AppleGenericPCATADriver::scanForDrives()
+AppleGenericPCATADriver::scanForDrives( void )
 {
-    DLOG("%s::%s()\n", getName(), __FUNCTION__);
+    UInt32 unitsFound;
+
+    DLOG("%s::%s( %p )\n", getName(), __FUNCTION__, this);
 
     *_tfAltSDevCReg = mATADCRReset;
 
@@ -270,7 +267,11 @@ AppleGenericPCATADriver::scanForDrives()
 
     IOSleep( 10 );
 
-    return super::scanForDrives();
+    unitsFound = super::scanForDrives();
+
+    *_tfSDHReg = 0x00;  // Initialize device selection to device 0.
+
+    return unitsFound;
 }
 
 /*---------------------------------------------------------------------------
@@ -283,7 +284,7 @@ IOReturn AppleGenericPCATADriver::provideBusInfo( IOATABusInfo * infoOut )
 {
     UInt32 pioModes;
 
-    DLOG("%s::%s( %p )\n", getName(), __FUNCTION__, infoOut);
+    DLOG("%s::%s( %p, %p )\n", getName(), __FUNCTION__, this, infoOut);
 
 	if ( infoOut == 0 )
 	{
@@ -325,8 +326,8 @@ AppleGenericPCATADriver::getConfig( IOATADevConfig * configOut,
     const UInt16 cycleTimes[5] = { 600, 383, 240, 180, 120 };
     UInt32       pioMode;
 
-    DLOG("%s::%s( %p, %ld )\n", getName(), __FUNCTION__,
-         configOut, unitNumber);
+    DLOG("%s::%s( %p, %p, %ld )\n", getName(), __FUNCTION__,
+         this, configOut, unitNumber);
 
 	if ( (configOut == 0) || (unitNumber > kATADevice1DeviceID) )
 	{
@@ -369,8 +370,8 @@ IOReturn
 AppleGenericPCATADriver::selectConfig( IOATADevConfig * configRequest,
                                        UInt32           unitNumber )
 {
-    DLOG("%s::%s( %p, %ld )\n", getName(), __FUNCTION__,
-         configRequest, unitNumber);
+    DLOG("%s::%s( %p, %p, %ld )\n", getName(), __FUNCTION__,
+         this, configRequest, unitNumber);
 
 	if ( (configRequest == 0) || (unitNumber > kATADevice1DeviceID) )
 	{
@@ -391,11 +392,11 @@ AppleGenericPCATADriver::selectConfig( IOATADevConfig * configRequest,
  ---------------------------------------------------------------------------*/
 
 IOReturn
-AppleGenericPCATADriver::handleQueueFlush()
+AppleGenericPCATADriver::handleQueueFlush( void )
 {
 	UInt32 savedQstate = _queueState;
 
-    DLOG("%s::%s()\n", getName(), __FUNCTION__);
+    DLOG("%s::%s( %p )\n", getName(), __FUNCTION__, this);
 
 	_queueState = IOATAController::kQueueLocked;
 
@@ -431,4 +432,37 @@ AppleGenericPCATADriver::message( UInt32      type,
     }
 
     return super::message( type, provider, argument );
+}
+
+/*---------------------------------------------------------------------------
+ *
+ * Override IOATAController::synchronousIO()
+ *
+ ---------------------------------------------------------------------------*/
+
+IOReturn AppleGenericPCATADriver::synchronousIO( void )
+{
+    IOReturn ret;
+    
+    // IOATAController::synchronousIO() asserts nIEN bit in order to disable
+    // drive interrupts during polled mode command execution. The problem is
+    // that this will float the INTRQ line and put it in high impedance state,
+    // which on certain systems has the undesirable effect of latching a false
+    // interrupt on the interrupt controller. Perhaps those systems lack a
+    // strong pull down resistor on the INTRQ line. Experiment shows that the
+    // interrupt event source is signalled, and its producerCount incremented
+    // after every synchronousIO() call. This false interrupt can become
+    // catastrophic after reverting to async operations since software can
+    // issue a command, handle the false interrupt, and issue another command
+    // to the drive before the actual completion of the first command, leading
+    // to a irrecoverable bus hang. This function is called after an ATA bus
+    // reset. Waking from system sleep will exercise this path.
+    // The workaround is to mask the interrupt line while the INTRQ line is
+    // floating (or bouncing).
+
+    if (_intSrc) _intSrc->disable();
+    ret = super::synchronousIO();
+    if (_intSrc) _intSrc->enable();
+
+    return ret;
 }

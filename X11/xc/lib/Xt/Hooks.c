@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/Hooks.c,v 1.3 2001/12/14 19:56:18 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Hooks.c,v 1.4 2003/04/21 16:34:27 herrb Exp $ */
 
 /*LINTLIBRARY*/
 
@@ -113,13 +113,8 @@ static void DeleteShellFromHookObj(
 
 #define SHELL_INCR 4
 
-#if NeedFunctionPrototypes
 void _XtAddShellToHookObj(
     Widget shell)
-#else
-void _XtAddShellToHookObj(shell)
-    Widget shell;
-#endif
 {
     /* app_con is locked when this function is called */
     HookObject ho = (HookObject) XtHooksOfDisplay(XtDisplay(shell));
@@ -136,13 +131,8 @@ void _XtAddShellToHookObj(shell)
 		  (XtPointer)ho);
 }
 
-#if NeedFunctionPrototypes
 Boolean _XtIsHookObject(
     Widget widget)
-#else
-Boolean _XtIsHookObject(widget)
-    Widget widget;
-#endif
 {
     return (widget->core.widget_class == hookObjectClass);
 }

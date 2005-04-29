@@ -28,6 +28,10 @@
 #include "rsync.h"
 
 extern int verbose;
+extern int dry_run;
+extern int module_id;
+extern int modify_window;
+extern char *partial_dir;
 extern struct exclude_list_struct server_exclude_list;
 
 int sanitize_paths = 0;
@@ -126,13 +130,12 @@ void overflow(char *str)
 
 int set_modtime(char *fname, time_t modtime)
 {
-	extern int dry_run;
 	if (dry_run)
 		return 0;
 
 	if (verbose > 2) {
 		rprintf(FINFO, "set modtime of %s to (%ld) %s",
-			fname, (long) modtime,
+			fname, (long)modtime,
 			asctime(localtime(&modtime)));
 	}
 
@@ -194,7 +197,7 @@ int create_directory_path(char *fname, int base_umask)
  *
  * Derived from GNU C's cccp.c.
  */
-static int full_write(int desc, char *ptr, size_t len)
+int full_write(int desc, char *ptr, size_t len)
 {
 	int total_written;
 
@@ -242,7 +245,7 @@ static int safe_read(int desc, char *ptr, size_t len)
 
 /** Copy a file.
  *
- * This is used in conjunction with the --temp-dir option */
+ * This is used in conjunction with the --temp-dir and --backup options */
 int copy_file(char *source, char *dest, mode_t mode)
 {
 	int ifd;
@@ -252,29 +255,25 @@ int copy_file(char *source, char *dest, mode_t mode)
 
 	ifd = do_open(source, O_RDONLY, 0);
 	if (ifd == -1) {
-		rprintf(FERROR,"open %s: %s\n",
-			full_fname(source), strerror(errno));
+		rsyserr(FERROR, errno, "open %s", full_fname(source));
 		return -1;
 	}
 
 	if (robust_unlink(dest) && errno != ENOENT) {
-		rprintf(FERROR,"unlink %s: %s\n",
-			full_fname(dest), strerror(errno));
+		rsyserr(FERROR, errno, "unlink %s", full_fname(dest));
 		return -1;
 	}
 
 	ofd = do_open(dest, O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, mode);
 	if (ofd == -1) {
-		rprintf(FERROR,"open %s: %s\n",
-			full_fname(dest), strerror(errno));
+		rsyserr(FERROR, errno, "open %s", full_fname(dest));
 		close(ifd);
 		return -1;
 	}
 
 	while ((len = safe_read(ifd, buf, sizeof buf)) > 0) {
 		if (full_write(ofd, buf, len) < 0) {
-			rprintf(FERROR,"write %s: %s\n",
-				full_fname(dest), strerror(errno));
+			rsyserr(FERROR, errno, "write %s", full_fname(dest));
 			close(ifd);
 			close(ofd);
 			return -1;
@@ -282,21 +281,20 @@ int copy_file(char *source, char *dest, mode_t mode)
 	}
 
 	if (len < 0) {
-		rprintf(FERROR, "read %s: %s\n",
-			full_fname(source), strerror(errno));
+		rsyserr(FERROR, errno, "read %s", full_fname(source));
 		close(ifd);
 		close(ofd);
 		return -1;
 	}
 
 	if (close(ifd) < 0) {
-		rprintf(FINFO, "close failed on %s: %s\n",
-			full_fname(source), strerror(errno));
+		rsyserr(FINFO, errno, "close failed on %s",
+			full_fname(source));
 	}
 
 	if (close(ofd) < 0) {
-		rprintf(FERROR, "close failed on %s: %s\n",
-			full_fname(dest), strerror(errno));
+		rsyserr(FERROR, errno, "close failed on %s",
+			full_fname(dest));
 		return -1;
 	}
 
@@ -364,8 +362,8 @@ int robust_unlink(char *fname)
 #endif
 }
 
-/* Returns 0 on success, -1 on most errors, and -2 if we got an error
- * trying to copy the file across file systems. */
+/* Returns 0 on successful rename, 1 if we successfully copied the file
+ * across filesystems, -2 if copy_file() failed, and -1 on other errors. */
 int robust_rename(char *from, char *to, int mode)
 {
 	int tries = 4;
@@ -385,7 +383,7 @@ int robust_rename(char *from, char *to, int mode)
 			if (copy_file(from, to, mode) != 0)
 				return -2;
 			do_unlink(from);
-			return 0;
+			return 1;
 		default:
 			return -1;
 		}
@@ -442,7 +440,8 @@ void kill_all(int sig)
 int name_to_uid(char *name, uid_t *uid)
 {
 	struct passwd *pass;
-	if (!name || !*name) return 0;
+	if (!name || !*name)
+		return 0;
 	pass = getpwnam(name);
 	if (pass) {
 		*uid = pass->pw_uid;
@@ -455,7 +454,8 @@ int name_to_uid(char *name, uid_t *uid)
 int name_to_gid(char *name, gid_t *gid)
 {
 	struct group *grp;
-	if (!name || !*name) return 0;
+	if (!name || !*name)
+		return 0;
 	grp = getgrnam(name);
 	if (grp) {
 		*gid = grp->gr_gid;
@@ -496,74 +496,91 @@ static int exclude_server_path(char *arg)
 	return 0;
 }
 
-static void glob_expand_one(char *s, char **argv, int *argc, int maxargs)
+static void glob_expand_one(char *s, char ***argv_ptr, int *argc_ptr,
+			    int *maxargs_ptr)
 {
+	char **argv = *argv_ptr;
+	int argc = *argc_ptr;
+	int maxargs = *maxargs_ptr;
 #if !(defined(HAVE_GLOB) && defined(HAVE_GLOB_H))
-	if (!*s) s = ".";
-	s = argv[*argc] = strdup(s);
+	if (argc == maxargs) {
+		maxargs += MAX_ARGS;
+		if (!(argv = realloc_array(argv, char *, maxargs)))
+			out_of_memory("glob_expand_one");
+		*argv_ptr = argv;
+		*maxargs_ptr = maxargs;
+	}
+	if (!*s)
+		s = ".";
+	s = argv[argc++] = strdup(s);
 	exclude_server_path(s);
-	(*argc)++;
 #else
-	extern int sanitize_paths;
 	glob_t globbuf;
 	int i;
 
-	if (!*s) s = ".";
+	if (maxargs <= argc)
+		return;
+	if (!*s)
+		s = ".";
 
-	s = argv[*argc] = strdup(s);
-	if (sanitize_paths) {
-		sanitize_path(s, NULL);
-	}
+	if (sanitize_paths)
+		s = sanitize_path(NULL, s, "", 0);
+	else
+		s = strdup(s);
 
 	memset(&globbuf, 0, sizeof globbuf);
 	if (!exclude_server_path(s))
 		glob(s, 0, NULL, &globbuf);
-	if (globbuf.gl_pathc == 0) {
-		(*argc)++;
-		globfree(&globbuf);
-		return;
+	if (MAX((int)globbuf.gl_pathc, 1) > maxargs - argc) {
+		maxargs += globbuf.gl_pathc + MAX_ARGS;
+		if (!(argv = realloc_array(argv, char *, maxargs)))
+			out_of_memory("glob_expand_one");
+		*argv_ptr = argv;
+		*maxargs_ptr = maxargs;
 	}
-	for (i = 0; i < maxargs - *argc && i < (int)globbuf.gl_pathc; i++) {
-		if (i == 0)
-			free(s);
-		argv[*argc + i] = strdup(globbuf.gl_pathv[i]);
-		if (!argv[*argc + i])
-			out_of_memory("glob_expand");
+	if (globbuf.gl_pathc == 0)
+		argv[argc++] = s;
+	else {
+		int j = globbuf.gl_pathc;
+		free(s);
+		for (i = 0; i < j; i++) {
+			if (!(argv[argc++] = strdup(globbuf.gl_pathv[i])))
+				out_of_memory("glob_expand_one");
+		}
 	}
 	globfree(&globbuf);
-	*argc += i;
 #endif
+	*argc_ptr = argc;
 }
 
 /* This routine is only used in daemon mode. */
-void glob_expand(char *base1, char **argv, int *argc, int maxargs)
+void glob_expand(char *base1, char ***argv_ptr, int *argc_ptr, int *maxargs_ptr)
 {
-	char *s = argv[*argc];
+	char *s = (*argv_ptr)[*argc_ptr];
 	char *p, *q;
 	char *base = base1;
 	int base_len = strlen(base);
 
-	if (!s || !*s) return;
+	if (!s || !*s)
+		return;
 
 	if (strncmp(s, base, base_len) == 0)
 		s += base_len;
 
-	s = strdup(s);
-	if (!s) out_of_memory("glob_expand");
+	if (!(s = strdup(s)))
+		out_of_memory("glob_expand");
 
-	if (asprintf(&base," %s/", base1) <= 0) out_of_memory("glob_expand");
+	if (asprintf(&base," %s/", base1) <= 0)
+		out_of_memory("glob_expand");
 	base_len++;
 
-	q = s;
-	while ((p = strstr(q,base)) != NULL && *argc < maxargs) {
-		/* split it at this point */
-		*p = 0;
-		glob_expand_one(q, argv, argc, maxargs);
-		q = p + base_len;
+	for (q = s; *q; q = p + base_len) {
+		if ((p = strstr(q, base)) != NULL)
+			*p = '\0'; /* split it at this point */
+		glob_expand_one(q, argv_ptr, argc_ptr, maxargs_ptr);
+		if (!p)
+			break;
 	}
-
-	if (*q && *argc < maxargs)
-		glob_expand_one(q, argv, argc, maxargs);
 
 	free(s);
 	free(base);
@@ -575,8 +592,8 @@ void glob_expand(char *base1, char **argv, int *argc, int maxargs)
 void strlower(char *s)
 {
 	while (*s) {
-		if (isupper(* (unsigned char *) s))
-			*s = tolower(* (unsigned char *) s);
+		if (isupper(*(unsigned char *)s))
+			*s = tolower(*(unsigned char *)s);
 		s++;
 	}
 }
@@ -633,118 +650,143 @@ size_t stringjoin(char *dest, size_t destsize, ...)
 	return ret;
 }
 
-void clean_fname(char *name)
+int count_dir_elements(const char *p)
 {
-	char *p;
-	int l;
-	int modified = 1;
-
-	if (!name) return;
-
-	while (modified) {
-		modified = 0;
-
-		if ((p = strstr(name,"/./")) != NULL) {
-			modified = 1;
-			while (*p) {
-				p[0] = p[2];
-				p++;
-			}
-		}
-
-		if ((p = strstr(name,"//")) != NULL) {
-			modified = 1;
-			while (*p) {
-				p[0] = p[1];
-				p++;
-			}
-		}
-
-		if (strncmp(p = name, "./", 2) == 0) {
-			modified = 1;
-			do {
-				p[0] = p[2];
-			} while (*p++);
-		}
-
-		l = strlen(p = name);
-		if (l > 1 && p[l-1] == '/') {
-			modified = 1;
-			p[l-1] = 0;
+	int cnt = 0, new_component = 1;
+	while (*p) {
+		if (*p++ == '/')
+			new_component = 1;
+		else if (new_component) {
+			new_component = 0;
+			cnt++;
 		}
 	}
+	return cnt;
 }
 
-/**
- * Make path appear as if a chroot had occurred:
- *
- * @li 1. remove leading "/" (or replace with "." if at end)
- *
- * @li 2. remove leading ".." components (except those allowed by @p reldir)
- *
- * @li 3. delete any other "<dir>/.." (recursively)
- *
- * Can only shrink paths, so sanitizes in place.
- *
- * While we're at it, remove double slashes and "." components like
- *   clean_fname() does, but DON'T remove a trailing slash because that
- *   is sometimes significant on command line arguments.
- *
- * If @p reldir is non-null, it is a sanitized directory that the path will be
- *    relative to, so allow as many ".." at the beginning of the path as
- *    there are components in reldir.  This is used for symbolic link targets.
- *    If reldir is non-null and the path began with "/", to be completely like
- *    a chroot we should add in depth levels of ".." at the beginning of the
- *    path, but that would blow the assumption that the path doesn't grow and
- *    it is not likely to end up being a valid symlink anyway, so just do
- *    the normal removal of the leading "/" instead.
- *
- * Contributed by Dave Dykstra <dwd@bell-labs.com>
- */
-void sanitize_path(char *p, char *reldir)
+/* Turns multiple adjacent slashes into a single slash, gets rid of "./"
+ * elements (but not a trailing dot dir), removes a trailing slash, and
+ * optionally collapses ".." elements (except for those at the start of the
+ * string).  If the resulting name would be empty, change it into a ".". */
+unsigned int clean_fname(char *name, BOOL collapse_dot_dot)
 {
-	char *start, *sanp;
-	int depth = 0;
-	int allowdotdot = 0;
+	char *limit = name - 1, *t = name, *f = name;
+	int anchored;
 
-	if (reldir) {
-		depth++;
-		while (*reldir) {
-			if (*reldir++ == '/') {
-				depth++;
+	if (!name)
+		return 0;
+
+	if ((anchored = *f == '/') != 0)
+		*t++ = *f++;
+	while (*f) {
+		/* discard extra slashes */
+		if (*f == '/') {
+			f++;
+			continue;
+		}
+		if (*f == '.') {
+			/* discard "." dirs (but NOT a trailing '.'!) */
+			if (f[1] == '/') {
+				f += 2;
+				continue;
+			}
+			/* collapse ".." dirs */
+			if (collapse_dot_dot
+			    && f[1] == '.' && (f[2] == '/' || !f[2])) {
+				char *s = t - 1;
+				if (s == name && anchored) {
+					f += 2;
+					continue;
+				}
+				while (s > limit && *--s != '/') {}
+				if (s != t - 1 && (s < name || *s == '/')) {
+					t = s + 1;
+					f += 2;
+					continue;
+				}
+				limit = t + 2;
 			}
 		}
+		while (*f && (*t++ = *f++) != '/') {}
 	}
-	start = p;
-	sanp = p;
-	while (*p == '/') {
-		/* remove leading slashes */
-		p++;
+
+	if (t > name+anchored && t[-1] == '/')
+		t--;
+	if (t == name)
+		*t++ = '.';
+	*t = '\0';
+
+	return t - name;
+}
+
+/* Make path appear as if a chroot had occurred.  This handles a leading
+ * "/" (either removing it or expanding it) and any leading or embedded
+ * ".." components that attempt to escape past the module's top dir.
+ *
+ * If dest is NULL, a buffer is allocated to hold the result.  It is legal
+ * to call with the dest and the path (p) pointing to the same buffer, but
+ * rootdir will be ignored to avoid expansion of the string.
+ *
+ * The rootdir string contains a value to use in place of a leading slash.
+ * Specify NULL to get the default of lp_path(module_id).
+ *
+ * If depth is >= 0, it is a count of how many '..'s to allow at the start
+ * of the path.  Use -1 to allow unlimited depth.
+ *
+ * We also clean the path in a manner similar to clean_fname() but with a
+ * few differences: 
+ *
+ * Turns multiple adjacent slashes into a single slash, gets rid of "." dir
+ * elements (INCLUDING a trailing dot dir), PRESERVES a trailing slash, and
+ * ALWAYS collapses ".." elements (except for those at the start of the
+ * string up to "depth" deep).  If the resulting name would be empty,
+ * change it into a ".". */
+char *sanitize_path(char *dest, const char *p, const char *rootdir, int depth)
+{
+	char *start, *sanp;
+	int rlen = 0;
+
+	if (dest != p) {
+		int plen = strlen(p);
+		if (*p == '/') {
+			if (!rootdir)
+				rootdir = lp_path(module_id);
+			rlen = strlen(rootdir);
+			depth = 0;
+			p++;
+		}
+		if (dest) {
+			if (rlen + plen + 1 >= MAXPATHLEN)
+				return NULL;
+		} else if (!(dest = new_array(char, rlen + plen + 1)))
+			out_of_memory("sanitize_path");
+		if (rlen) {
+			memcpy(dest, rootdir, rlen);
+			if (rlen > 1)
+				dest[rlen++] = '/';
+		}
 	}
+
+	start = sanp = dest + rlen;
 	while (*p != '\0') {
+		/* discard leading or extra slashes */
+		if (*p == '/') {
+			p++;
+			continue;
+		}
 		/* this loop iterates once per filename component in p.
 		 * both p (and sanp if the original had a slash) should
 		 * always be left pointing after a slash
 		 */
 		if (*p == '.' && (p[1] == '/' || p[1] == '\0')) {
 			/* skip "." component */
-			while (*++p == '/') {
-				/* skip following slashes */
-				;
-			}
+			p++;
 			continue;
 		}
-		allowdotdot = 0;
 		if (*p == '.' && p[1] == '.' && (p[2] == '/' || p[2] == '\0')) {
 			/* ".." component followed by slash or end */
-			if (depth > 0 && sanp == start) {
-				/* allow depth levels of .. at the beginning */
-				--depth;
-				allowdotdot = 1;
-			} else {
+			if (depth <= 0 || sanp != start) {
 				p += 2;
-				if (*p == '/')
-					p++;
 				if (sanp != start) {
 					/* back up sanp one level */
 					--sanp; /* now pointing at slash */
@@ -755,68 +797,21 @@ void sanitize_path(char *p, char *reldir)
 				}
 				continue;
 			}
-		}
-		while (1) {
-			/* copy one component through next slash */
-			*sanp++ = *p++;
-			if (*p == '\0' || p[-1] == '/') {
-				while (*p == '/') {
-					/* skip multiple slashes */
-					p++;
-				}
-				break;
-			}
-		}
-		if (allowdotdot) {
+			/* allow depth levels of .. at the beginning */
+			depth--;
 			/* move the virtual beginning to leave the .. alone */
-			start = sanp;
+			start = sanp + 3;
 		}
+		/* copy one component through next slash */
+		while (*p && (*sanp++ = *p++) != '/') {}
 	}
-	if (sanp == start && !allowdotdot) {
+	if (sanp == dest) {
 		/* ended up with nothing, so put in "." component */
-		/*
-		 * note that the !allowdotdot doesn't prevent this from
-		 *  happening in all allowed ".." situations, but I didn't
-		 *  think it was worth putting in an extra variable to ensure
-		 *  it since an extra "." won't hurt in those situations.
-		 */
 		*sanp++ = '.';
 	}
 	*sanp = '\0';
-}
 
-/* Works much like sanitize_path(), with these differences:  (1) a new buffer
- * is allocated for the sanitized path rather than modifying it in-place; (2)
- * a leading slash gets transformed into the rootdir value (which can be empty
- * or NULL if you just want the slash to get dropped); (3) no "reldir" can be
- * specified. */
-char *alloc_sanitize_path(const char *path, const char *rootdir)
-{
-	char *buf;
-	int rlen, plen = strlen(path);
-
-	if (*path == '/' && rootdir) {
-		rlen = strlen(rootdir);
-		if (rlen == 1)
-			path++;
-	} else
-		rlen = 0;
-	if (!(buf = new_array(char, rlen + plen + 1)))
-		out_of_memory("alloc_sanitize_path");
-	if (rlen)
-		memcpy(buf, rootdir, rlen);
-	memcpy(buf + rlen, path, plen + 1);
-
-	if (rlen > 1)
-		rlen++;
-	sanitize_path(buf + rlen, NULL);
-	if (rlen && buf[rlen] == '.' && buf[rlen+1] == '\0') {
-		if (rlen > 1)
-			rlen--;
-		buf[rlen] = '\0';
-	}
-
-	return buf;
+	return dest;
 }
 
 char curr_dir[MAXPATHLEN];
@@ -860,7 +855,7 @@ int push_dir(char *dir)
 		curr_dir_len += len;
 	}
 
-	clean_fname(curr_dir);
+	curr_dir_len = clean_fname(curr_dir, 1);
 
 	return 1;
 }
@@ -882,13 +877,36 @@ int pop_dir(char *dir)
 }
 
 /**
+ * Return the filename, turning any newlines into '?'s.  This ensures that
+ * outputting it on a line of its own cannot generate an empty line.  This
+ * function can handle only 2 names at a time!
+ **/
+const char *safe_fname(const char *fname)
+{
+	static char fbuf1[MAXPATHLEN], fbuf2[MAXPATHLEN];
+	static char *fbuf = fbuf2;
+	char *nl = strchr(fname, '\n');
+
+	if (!nl)
+		return fname;
+
+	fbuf = fbuf == fbuf1 ? fbuf2 : fbuf1;
+	strlcpy(fbuf, fname, MAXPATHLEN);
+	nl = fbuf + (nl - (char *)fname);
+	do {
+		*nl = '?';
+	} while ((nl = strchr(nl+1, '\n')) != NULL);
+
+	return fbuf;
+}
+
+/**
  * Return a quoted string with the full pathname of the indicated filename.
  * The string " (in MODNAME)" may also be appended.  The returned pointer
  * remains valid until the next time full_fname() is called.
  **/
-char *full_fname(char *fn)
+char *full_fname(const char *fn)
 {
-	extern int module_id;
 	static char *result = NULL;
 	char *m1, *m2, *m3;
 	char *p1, *p2;
@@ -896,6 +914,7 @@ char *full_fname(char *fn)
 	if (result)
 		free(result);
 
+	fn = safe_fname(fn);
 	if (*fn == '/')
 		p1 = p2 = "";
 	else {
@@ -925,6 +944,69 @@ char *full_fname(char *fn)
 	asprintf(&result, "\"%s%s%s\"%s%s%s", p1, p2, fn, m1, m2, m3);
 
 	return result;
+}
+
+static char partial_fname[MAXPATHLEN];
+
+char *partial_dir_fname(const char *fname)
+{
+	char *t = partial_fname;
+	int sz = sizeof partial_fname;
+	const char *fn;
+
+	if ((fn = strrchr(fname, '/')) != NULL) {
+		fn++;
+		if (*partial_dir != '/') {
+			int len = fn - fname;
+			strncpy(t, fname, len); /* safe */
+			t += len;
+			sz -= len;
+		}
+	} else
+		fn = fname;
+	if ((int)pathjoin(t, sz, partial_dir, fn) >= sz)
+		return NULL;
+	if (server_exclude_list.head
+	    && check_exclude(&server_exclude_list, partial_fname, 0) < 0)
+		return NULL;
+
+	return partial_fname;
+}
+
+/* If no --partial-dir option was specified, we don't need to do anything
+ * (the partial-dir is essentially '.'), so just return success. */
+int handle_partial_dir(const char *fname, int create)
+{
+	char *fn, *dir;
+
+	if (fname != partial_fname)
+		return 1;
+	if (!create && *partial_dir == '/')
+		return 1;
+	if (!(fn = strrchr(partial_fname, '/')))
+		return 1;
+
+	*fn = '\0';
+	dir = partial_fname;
+	if (create) {
+		STRUCT_STAT st;
+#if SUPPORT_LINKS
+		int statret = do_lstat(dir, &st);
+#else
+		int statret = do_stat(dir, &st);
+#endif
+		if (statret == 0 && !S_ISDIR(st.st_mode)) {
+			if (do_unlink(dir) < 0)
+				return 0;
+			statret = -1;
+		}
+		if (statret < 0 && do_mkdir(dir, 0700) < 0)
+			return 0;
+	} else
+		do_rmdir(dir);
+	*fn = '/';
+
+	return 1;
 }
 
 /** We need to supply our own strcmp function for file list comparisons
@@ -973,7 +1055,8 @@ int unsafe_symlink(const char *dest, const char *src)
 	int depth = 0;
 
 	/* all absolute and null symlinks are unsafe */
-	if (!dest || !*dest || *dest == '/') return 1;
+	if (!dest || !*dest || *dest == '/')
+		return 1;
 
 	/* find out what our safety margin is */
 	for (name = src; (slash = strchr(name, '/')) != 0; name = slash+1) {
@@ -1041,7 +1124,6 @@ int msleep(int t)
 	struct timeval tval, t1, t2;
 
 	gettimeofday(&t1, NULL);
-	gettimeofday(&t2, NULL);
 
 	while (tdiff < t) {
 		tval.tv_sec = (t-tdiff)/1000;
@@ -1072,13 +1154,13 @@ int msleep(int t)
  **/
 int cmp_modtime(time_t file1, time_t file2)
 {
-	extern int modify_window;
-
 	if (file2 > file1) {
-		if (file2 - file1 <= modify_window) return 0;
+		if (file2 - file1 <= modify_window)
+			return 0;
 		return -1;
 	}
-	if (file1 - file2 <= modify_window) return 0;
+	if (file1 - file2 <= modify_window)
+		return 0;
 	return 1;
 }
 

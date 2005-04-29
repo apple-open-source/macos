@@ -1,0 +1,133 @@
+# Features covered: tdom cmd
+#
+# This file contains a collection of tests for the tdom cmd.
+#
+# Copyright (c) 2003 Rolf Ade.
+#
+# RCS: @(#) $Id: tdomcmd.test,v 1.3 2004/05/26 01:46:13 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+# To test, that DOM trees generated with a tdom enabled parser behaves
+# the same way, as the one generated with the [dom parse] cmd, we
+# rename the dom cmd and use instead a dom proc, which partly rebuilds
+# the [dom parse] interface with a tdom enabled parser. Then we just
+# [source] some of the test files, which heavily use [dom parse].
+
+
+rename dom _dom
+
+set _main_parser [expat]
+tdom $_main_parser enable
+
+set parse_in_chunks 0
+proc dom {args} {
+
+    switch [lindex $args 0] {
+        "parse" {
+            set parseMethod "parse"
+            set haveData 0
+            set uplevelVar ""
+            tdom $::_main_parser keepEmpties 0
+            for {set x 1} {$x < [llength $args]} {incr x} {
+                switch -- [lindex $args $x] {
+                    "-channel" {
+                        set parseMethod "parsechannel"
+                        incr x
+                        set data [lindex $args $x]
+                        set haveData 1
+                    }
+                    "-keepEmpties" {
+                        tdom $::_main_parser keepEmpties 1
+                    }
+                    "-baseurl" {
+                        incr x
+                        $::_main_parser configure -baseurl [lindex $args $x]
+                    }
+                    "-externalentitycommand" {
+                        incr x
+                        $::_main_parser configure -externalentitycommand \
+                            [lindex $args $x]
+                        tdom $::_main_parser setExternalEntityResolver \
+                            [lindex $args $x]
+                    }
+                    default {
+                        if {$haveData} {
+                            set uplevelVar [lindex $args $x]
+                        } else {
+                            set data [lindex $args $x]
+                            set haveData 1
+                        }
+                    }
+                }
+            }
+            if {$::parse_in_chunks && ($parseMethod == "parse")} {
+                $::_main_parser configure -final 0
+                for {set x 0} {$x < [string length $data]} {incr x} {
+                    $::_main_parser parse [string index $data $x]
+                }
+                $::_main_parser configure -final 1
+                $::_main_parser parse ""
+            } else {
+                $::_main_parser $parseMethod $data
+            }
+            if {$uplevelVar != ""} {
+                uplevel 1 set $uplevelVar [tdom $::_main_parser getdoc]
+            } else {
+                return [tdom $::_main_parser getdoc]
+            }
+        }
+        "setStoreLineColumn" {
+            tdom $::_main_parser setStoreLineColumn [lindex $args 1]
+        }
+        default {
+            # Because the original command may be executed within a
+            # namespace eval, we do an uplevel, to get the same context
+            return [uplevel 1 [linsert $args 0 _dom]]
+        }
+    }
+}
+
+source [file join [file dir [info script]] i18n.test]
+source [file join [file dir [info script]] domNode.test]
+source [file join [file dir [info script]] xslt.test]
+
+# Un-comment this, to test tdom cmd together with expat parsing in chunks
+# set parse_in_chunks 1
+# source [file join [file dir [info script]] i18n.test]
+# source [file join [file dir [info script]] domNode.test]
+# source [file join [file dir [info script]] xslt.test]
+
+rename dom {}
+rename _dom dom
+
+$_main_parser free
+
+test tdomcmd-1.1 {no doc avaliable} {
+    set parser [expat]
+    tdom $parser enable
+    set result [catch {tdom $parser getdoc} errMsg]
+    $parser free
+    lappend result $errMsg
+} {1 {No DOM tree avaliable.}}
+
+test tdomcmd-1.2 {request dom tree in the middle of parsing} {
+    set parser [expat -final 0]
+    tdom $parser enable
+    $parser parse {<root>}
+    set result [catch {tdom $parser getdoc} errMsg]
+    lappend result $errMsg
+    $parser parse {foo</root>}
+    lappend result [catch {tdom $parser getdoc} errMsg]
+    lappend result $errMsg
+    $parser configure -final 1
+    $parser parse {}
+    lappend result [catch {set doc [tdom $parser getdoc]} errMsg]
+    $doc delete
+    $parser free
+    set result
+} {1 {No DOM tree avaliable.} 1 {No DOM tree avaliable.} 0}
+
+# cleanup
+::tcltest::cleanupTests
+return

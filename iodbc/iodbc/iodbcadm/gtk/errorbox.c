@@ -1,7 +1,7 @@
 /*
  *  errorbox.c
  *
- *  $Id: errorbox.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: errorbox.c,v 1.2 2004/08/10 22:20:28 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -107,7 +107,7 @@ create_error (HWND hwnd, LPCSTR dsn, LPCSTR text, LPCSTR errmsg)
 
   error = gtk_dialog_new ();
   if (dsn)
-    sprintf (msg, "Error on DSN %s", dsn);
+    sprintf (msg, "Error : %s", dsn);
   else
     sprintf (msg, "Error ...");
   gtk_object_set_data (GTK_OBJECT (error), "error", error);

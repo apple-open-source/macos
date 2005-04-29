@@ -37,6 +37,8 @@
 #include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/firewire/IOConfigDirectory.h>
 
+#include "FWDebugging.h"
+
 OSDefineMetaClassAndStructors(IOFireWireUnitAux, IOFireWireNubAux);
 OSMetaClassDefineReservedUnused(IOFireWireUnitAux, 0);
 OSMetaClassDefineReservedUnused(IOFireWireUnitAux, 1);
@@ -230,14 +232,26 @@ bool IOFireWireUnit::handleOpen(	IOService *	  	forClient,
 									IOOptionBits	options,
 									void *		  	arg )
 {
-	if ( isOpen() )
-		return false ;
+	// arbitration lock is held
 
-    bool ok;
-    ok = fDevice->open(this, options, arg);
-    if(ok)
-        ok = IOFireWireNub::handleOpen(forClient, options, arg);
-    return ok;
+    bool success = true;
+    
+	if( isOpen() )
+	{
+		success = false;
+	}
+	
+	if( success )
+	{
+		success = fDevice->open( this, options, arg );
+	}
+	
+	if( success )
+	{
+        success = IOFireWireNub::handleOpen( forClient, options, arg );
+    }
+	
+	return success;
 }
 
 // handleClose
@@ -247,8 +261,136 @@ bool IOFireWireUnit::handleOpen(	IOService *	  	forClient,
 void IOFireWireUnit::handleClose(   IOService *	  	forClient,
 									IOOptionBits	options )
 {
-    IOFireWireNub::handleClose(forClient, options);
-    fDevice->close(this, options);
+	// arbitration lock is held
+	
+	// retain since device->close() could start a termination thread
+	
+    retain();
+	
+	IOFireWireNub::handleClose(forClient, options);
+    fDevice->close( this, options );
+	
+	if( getTerminationState() == kNeedsTermination )
+	{
+		setTerminationState( kTerminated );
+		
+		retain();		// will be released in thread function
+		
+		IOCreateThread( IOFireWireUnit::terminateUnitThreadFunc, this );
+	}
+	
+	release();
+}
+
+// terminateUnit
+//
+//
+
+void IOFireWireUnit::terminateUnit( void )
+{
+	// synchronize with the open close routines
+	
+	lockForArbitration();
+	
+	// retain since we could start a termination thread
+    retain();
+	
+	if( isOpen() )
+	{
+		if( getTerminationState() == kNotTerminated )
+		{
+			setTerminationState( kNeedsTermination );
+
+			// send our custom requesting close message
+			
+			messageClients( kIOFWMessageServiceIsRequestingClose );
+		}
+	}
+	else
+	{
+		TerminationState state = getTerminationState();
+		
+		// if we're closed, we shouldn't be in the kNeedsTermination state
+		
+		FWKLOGASSERT( state != kNeedsTermination );
+
+		if( state == kNotTerminated )
+		{
+			setTerminationState( kTerminated );
+			
+			retain();		// will be released in thread function
+			
+			IOCreateThread( IOFireWireUnit::terminateUnitThreadFunc, this );
+		}
+	}
+	
+	release();
+	
+	unlockForArbitration();
+}
+
+// terminateUnitThreadFunc
+//
+//
+
+void IOFireWireUnit::terminateUnitThreadFunc( void * refcon )
+{
+    IOFireWireUnit *me = (IOFireWireUnit *)refcon;
+    
+	FWKLOG(( "IOFireWireUnit::terminateUnitThreadFunc - entered terminate unit = 0x%08lx\n", me ));
+    
+	me->fControl->closeGate();
+	
+	// synchronize with open and close routines
+	
+	me->lockForArbitration();
+	
+    if( ( me->getTerminationState() == kTerminated) && 
+		  !me->isInactive() && !me->isOpen() ) 
+	{
+		// release arbitration lock before terminating.
+        // this leaves a small hole of someone opening the device right here,
+        // which shouldn't be too bad - the client will just get terminated too.
+        
+		me->unlockForArbitration();
+		
+		me->terminate();
+
+    }
+	else
+	{
+		me->unlockForArbitration();
+    }
+
+	me->fControl->openGate();
+
+	me->release();		// retained when thread was spawned
+
+	FWKLOG(( "IOFireWireUnit::terminateUnitThreadFunc - exiting terminate unit = 0x%08lx\n", me ));
+}
+
+// setConfigDirectory
+//
+//
+
+IOReturn IOFireWireUnit::setConfigDirectory( IOConfigDirectory * directory )
+{
+	// arbitration lock is held
+	
+	IOReturn status = kIOReturnSuccess;
+
+	TerminationState state = getTerminationState();
+	
+	FWKLOGASSERT( state != kTerminated );
+
+	if( state == kNeedsTermination )
+	{
+		setTerminationState( kNotTerminated );
+	}
+
+	status = IOFireWireNub::setConfigDirectory( directory );
+	
+	return status;
 }
 
 #pragma mark -

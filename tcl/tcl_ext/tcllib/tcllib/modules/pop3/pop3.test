@@ -1,0 +1,567 @@
+# -*- tcl -*-
+# pop3.test:  tests for the pop3 client.
+#
+# This file contains a collection of tests for one or more of the Tcl
+# built-in commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2002-2003 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# All rights reserved.
+#
+# RCS: @(#) $Id: pop3.test,v 1.14 2004/02/14 05:59:21 andreas_kupries Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+package forget pop3
+catch {namespace delete ::pop3}
+if {[catch {source [file join $::tcltest::testsDirectory pop3.tcl]} msg]} {
+    puts "skipped [file tail [info script]]: $msg"
+    return
+}
+
+source [file join [file dirname $::tcltest::testsDirectory] devtools subserv.tcl]
+
+puts "- tcltest [package present tcltest]"
+puts "- pop3    [package present pop3]"
+
+# ----------------------------------------------------------------------
+# Dialog scripts for the various servers we start ...
+
+set __Init [list \
+	CrLf \
+	{Send    {+OK localhost muserv ready <534358773_pop3d1_12380@localhost>}} \
+	]
+
+set __InitBad [list \
+	CrLf \
+	{Send    {Grumble}} \
+	]
+
+set     __loginOk $__Init
+lappend __loginOk \
+	{Respond {+OK please send PASS command}} \
+	{Respond {+OK congratulations}}
+
+set     __loginStatusOk $__Init
+lappend __loginStatusOk \
+	{Respond {+OK please send PASS command}} \
+	{Respond {+OK congratulations}} \
+	{Respond {+OK 11 176}}
+
+set     __loginFailed $__Init
+lappend __loginFailed \
+	{Respond {+OK please send PASS command}} \
+	{Respond {-ERR authentication failed, sorry}}
+
+set     __loginFailedLock $__Init
+lappend __loginFailedLock \
+	{Respond {+OK please send PASS command}} \
+	{Respond {-ERR could not aquire lock for maildrop ak}}
+
+
+set     __statusOk $__loginStatusOk
+lappend __statusOk \
+	{Respond {+OK 11 176}}
+
+set     __statusOkQuit $__statusOk
+lappend __statusOkQuit \
+	{Respond {+OK localhost muserv shutting down}}
+
+set     __lastFailed $__loginStatusOk
+lappend __lastFailed \
+	{Respond {-ERR unknown command 'LAST'}}
+
+set     __uidlFailed $__loginStatusOk
+lappend __uidlFailed \
+	{Respond {-ERR unknown command 'UIDL'}}
+
+set     __retrFail $__statusOk
+lappend __retrFail \
+	{Respond {-ERR unknown command 'LAST'}} \
+	{Respond {+OK localhost muserv shutting down}}
+
+set     __topFail $__loginStatusOk
+lappend __topFail \
+	{Respond {-ERR no such message}} \
+	{Respond {+OK localhost muserv shutting down}}
+
+set __message {MIME-Version: 1.0
+Content-Type: text/plain;
+              charset="us-ascii"
+
+Test ______
+
+.
+
+--
+Done
+}
+
+set __messageB {MIME-Version: 1.0
+Content-Type: text/plain;
+              charset="us-ascii"
+
+Test ______
+
+This line can cause a failure.
+
+--
+Done
+}
+
+set __messageC {MIME-Version: 1.0
+Content-Type: text/plain;
+              charset="us-ascii"
+
+Test ______
+
+This line can cause a failure.
+
+--
+Done
+}
+
+proc message {msg {n {}}} {
+    if {$n == {}} {set n [string length $msg]}
+    set res [list]
+    foreach l [split $msg \n] {
+	if {[string match .* $l]} {set l .$l}
+	lappend res [list Send $l]
+    }
+    if {[lindex $res end] == {Send {}}} {
+	set res [lrange $res 0 end-1]
+    }
+    lappend res {Send .}
+    return [join $res \n]
+}
+
+
+proc retrMessage {list msg {n {}}} {
+    if {$n == {}} {set n [string length $msg]}
+    global       __loginOk
+    set     res $__loginOk
+    lappend res \
+	    "Respond {+OK 1 $n}" \
+	    {Respond {-ERR unknown command 'LAST'}}
+    if {$list} {lappend res "Respond {+OK 1 $n}"}
+    lappend res \
+	    "Respond {+OK $n octets}" \
+	    [message $msg $n] \
+	    {Respond {+OK localhost muserv shutting down}} \
+	    ]
+    return $res
+}
+
+proc topMessage {msg} {
+    global       __loginStatusOk
+    set     res $__loginStatusOk
+    lappend res \
+	    {Respond +OK} \
+	    [message $msg] \
+	    {Respond {+OK localhost muserv shutting down}} \
+	    ]
+    return $res
+}
+
+proc deleDialog {} {
+    global       __loginStatusOk
+    set     res $__loginStatusOk
+    lappend res \
+	    {RespondLog {+OK 11 176}}
+
+    foreach n {1 2 3 4 5 6 7 8 9 10 11} {
+	lappend res \
+		{RespondLog {-ERR unknown command 'LAST'}} \
+		{RespondLog {+OK 6 octets}} \
+		{Send       {Content-Type: text/plain;}} \
+		{Send       {              charset="us-ascii"}} \
+		{Send       {}} \
+		{Send       {    }} \
+		{Send       {.}} \
+		{RespondLog {-ERR unknown command 'LAST'}} \
+		"RespondLog {+OK message $n deleted}"
+    }
+    lappend res \
+	    {RespondLog {+OK localhost muserv shutting down}}
+    return $res
+}
+
+set serverScript [makeFile {} __pop3d]
+
+proc setupServer {responses} {
+    global serverScript
+    return [::subserv::muservSpawn $serverScript 0 [join $responses \n]]
+}
+
+
+proc bgerror {message} {
+    global errorCode errorInfo
+    puts $errorCode
+    puts $errorInfo
+    return
+}
+
+proc peek {chan} {
+    set res {}
+    array set _ [::pop3::config $chan]
+    foreach k [lsort [array names _]] {
+	lappend res $k $_($k)
+    }
+    return $res
+}
+
+# Reduce output generated by the client.
+::log::lvSuppress info
+::log::lvSuppress notice
+::log::lvSuppress debug
+::log::lvSuppress warning
+
+if 0 {
+    rename test test__
+    proc test {args} {
+	puts "[lindex $args 0] ________________________________________________________________________"
+	return [uplevel test__ $args]
+    }
+}
+
+proc blot {txt sock} {
+    string map [list $sock SOCK] $txt
+}
+
+# ----------------------------------------------------------------------
+# Tests. Operations
+#
+# open, status, delete, cut, open, status | 
+# open, status, delete, close   |
+#
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Handling of 'open' alone.
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+test pop3-0.0 {bogus options} {
+    catch {pop3::open -foo bar localhost ak smash 7664} msg
+    set msg
+} {::pop3::open : Illegal option "foo"}
+
+test pop3-0.1 {bogus options} {
+    catch {pop3::open -msex bar localhost ak smash 2534} msg
+    set msg
+} {:pop3::open : Argument to -msex has to be boolean}
+
+test pop3-0.2 {bogus options} {
+    catch {pop3::open -retr-mode bar localhost ak smash 54345} msg
+    set msg
+} {:pop3::open : Argument to -retr-mode has to be one of retr, list or slow}
+
+test pop3-0.3 {not enough arguments} {
+    catch {pop3::open localhost ak} msg
+    set msg
+} {Not enough arguments to ::pop3::open}
+
+test pop3-0.4 {too many arguments} {
+    catch {pop3::open localhost ak smash 432490 dribble} msg
+    set msg
+} {To many arguments to ::pop3::open}
+
+test pop3-0.5 {connect to missing server} {
+    catch {pop3::open localhost foo foo 1111} msg
+    set msg
+} {couldn't open socket: connection refused}
+
+test pop3-0.6 {wrong type of server (fake)} {
+    set port [setupServer $__InitBad]
+    catch {pop3::open localhost foo foo $port} msg
+    ::subserv::muservStop
+    regsub {^([^:]*:).*$} $msg {\1} msg
+    set msg
+} {POP3 CONNECT ERROR:}
+
+test pop3-0.7 {unknown user} {
+    set port [setupServer $__loginFailed]
+    catch {pop3::open localhost usrX *** $port} msg
+    ::subserv::muservStop
+    set msg
+} {POP3 LOGIN ERROR:  authentication failed, sorry}
+
+test pop3-0.8 {open pop3 channel} {
+    set port [setupServer $__loginStatusOk]
+    set psock [pop3::open localhost ak smash $port]
+    close $psock
+    ::subserv::muservStop
+    regsub -all {[0-9]} $psock {} msg
+    # status data is retained if the connection is not closed through
+    # the prescribed api command.
+    lappend msg [peek $psock]
+    set msg
+} {sock {limit 11 msex 0 retr_mode retr}}
+
+test pop3-0.9 {outside close} {
+    set port [setupServer $__loginStatusOk]
+    set psock [pop3::open localhost ak smash $port]
+    close $psock
+    catch {pop3::close $psock} msg
+    ::subserv::muservStop
+    blot $msg $psock
+} {can not find channel named "SOCK"}
+
+test pop3-0.10 {multiple open pop3 channel to same maildrop} {
+    set port [setupServer $__loginFailedLock]
+    catch {pop3::open localhost ak smash $port} msg
+    ::subserv::muservStop
+    set msg
+} {POP3 LOGIN ERROR:  could not aquire lock for maildrop ak}
+
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Handling of 'status'.
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+test pop3-1.0 {status after cut} {
+    set port  [setupServer $__loginStatusOk]
+    set psock [pop3::open localhost ak smash $port]
+    close $psock
+    catch {pop3::status $psock} msg
+    ::subserv::muservStop
+    blot $msg $psock
+} {POP3 STAT ERROR: can not find channel named "SOCK"}
+
+test pop3-1.1 {status after close} {
+    set port  [setupServer $__loginStatusOk]
+    set psock [pop3::open localhost ak smash $port]
+    pop3::close $psock
+    catch {pop3::status $psock} msg
+    ::subserv::muservStop
+    blot $msg $psock
+} {POP3 STAT ERROR: can not find channel named "SOCK"}
+
+test pop3-1.2 {status ok} {
+    set port [setupServer $__statusOkQuit]
+    set psock      [pop3::open localhost ak smash $port]
+    set status     [pop3::status $psock]
+    lappend status [peek $psock]
+    pop3::close $psock
+    ::subserv::muservStop
+    set status
+} {11 176 {limit 11 msex 0 retr_mode retr}}
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Handling of 'retrieve'.
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+test pop3-2.0 {retrieve, no arguments} {
+    catch {pop3::retrieve} msg
+    set msg
+} [tcltest::wrongNumArgs "pop3::retrieve" "chan start ?end?" 0]
+
+test pop3-2.1 {retrieve, not enough arguments} {
+    catch {pop3::retrieve sock5} msg
+    set msg
+} [tcltest::wrongNumArgs "pop3::retrieve" "chan start ?end?" 1]
+
+test pop3-2.2 {retrieve, too many arguments} {
+    catch {pop3::retrieve sock5 foo bar fox} msg
+    set msg
+} [tcltest::tooManyArgs "pop3::retrieve" "chan start ?end?"]
+
+test pop3-2.3 {retrieve without valid channel} {
+    catch {pop3::retrieve sock5 foo bar} msg
+    set msg
+} {can't read "state(sock5)": no such element in array}
+
+test pop3-2.4 {retrieve, invalid start} {
+    set port  [setupServer $__retrFail]
+    set psock [pop3::open localhost ak smash $port]
+    catch {pop3::retrieve $psock foo bar} msg
+    pop3::close $psock
+    ::subserv::muservStop
+    set msg
+} {POP3 Retrieval error: Bad start index foo}
+
+test pop3-2.5 {retrieve, invalid end} {
+    set port  [setupServer $__retrFail]
+    set psock [pop3::open localhost ak smash $port]
+    catch {pop3::retrieve $psock 0 bar} msg
+    pop3::close $psock
+    ::subserv::muservStop
+    set msg
+} {POP3 Retrieval error: Bad end index bar}
+
+set msg {MIME-Version: 1.0
+Content-Type: text/plain;
+              charset="us-ascii"
+
+    
+}
+
+foreach {n mode len listflag} {
+    0 retr  {} 0
+    1 list  {} 1
+    2 slow  {} 0
+    3 retr  98 0
+    4 retr 114 0
+    5 retr   0 0
+    6 retr   1 0
+    7 retr  97 0
+    8 retr 113 0
+    9 retr  99 0
+   10 retr 115 0
+   11 retr 116 0
+} {
+    test pop3-2.6.$n "retrieval, $mode $len" {
+	set port  [setupServer [retrMessage $listflag $__message $len]]
+	set psock [pop3::open -retr-mode $mode localhost ak smash $port]
+	set res [pop3::retrieve $psock 1]
+	pop3::close $psock
+	::subserv::muservStop
+	set res
+    } [list $__message] ; # {}
+}
+
+# Note: 2.7 == 2.6.3 | Separate test cases to make clear that they
+# Note: 2.8 == 2.6.4 | there created to check for a bug report.
+
+test pop3-2.7 {fast retrieval, .-stuff border break, #528928} {
+    set port  [setupServer [retrMessage 0 $__message 98]]
+    set psock [pop3::open -retr-mode retr localhost ak smash $port]
+    set res   [pop3::retrieve $psock 1]
+    pop3::close $psock
+    ::subserv::muservStop
+    set res
+} [list $__message]
+
+
+test pop3-2.8 {fast retrieval, .-stuff border break, #528928} {
+    set port  [setupServer [retrMessage 0 $__message 114]]
+    set psock [pop3::open -retr-mode retr localhost ak smash $port]
+    set res   [pop3::retrieve $psock 1]
+    pop3::close $psock
+    ::subserv::muservStop
+    set res
+} [list $__message]
+
+test pop3-2.9 {fast retrieval, .-stuff border break} {
+    set port  [setupServer [retrMessage 0 $__messageB 126]]
+    set psock [pop3::open -retr-mode retr localhost ak smash $port]
+    set res   [pop3::retrieve $psock 1]
+    pop3::close $psock
+    ::subserv::muservStop
+    set res
+} [list $__messageB]
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Handling of 'top'.
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+test pop3-3.0 {top, no arguments} {
+    catch {pop3::top} msg
+    set msg
+} [tcltest::wrongNumArgs "pop3::top" "chan msg n" 0]
+
+test pop3-3.1 {top, not enough arguments} {
+    catch {pop3::top sock5} msg
+    set msg
+} [tcltest::wrongNumArgs "pop3::top" "chan msg n" 1]
+
+test pop3-3.2 {top, too many arguments} {
+    catch {pop3::top sock5 foo bar fox} msg
+    set msg
+} [tcltest::tooManyArgs "pop3::top" "chan msg n"]
+
+test pop3-3.3 {top without valid channel} {
+    catch {pop3::top sockXXX foo bar} msg
+    set msg
+} {POP3 TOP ERROR: can not find channel named "sockXXX"}
+
+test pop3-3.4 {top, invalid message id} {
+    set port  [setupServer $__topFail]
+    set psock [pop3::open localhost ak smash $port]
+    catch {pop3::top $psock foo bar} msg
+    pop3::close $psock
+    ::subserv::muservStop
+    set msg
+} {POP3 TOP ERROR:  no such message}
+
+set msg {MIME-Version: 1.0
+Content-Type: text/plain;
+              charset="us-ascii"
+
+}
+
+test pop3-3.5 {top} {
+    set port [setupServer [topMessage $__message]]
+    set psock [pop3::open localhost ak smash $port]
+    set res [pop3::top $psock 1 1]
+    pop3::close $psock
+    ::subserv::muservStop
+    set res
+} $__message
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Handling of 'delete'
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+
+test pop3-5.0 {get and delete all message, nano-client} {
+    set res ""
+    set port  [setupServer [deleDialog]]
+    set psock [pop3::open -retr-mode slow localhost ak smash $port]
+    set x [lindex [pop3::status $psock] 0]
+    lappend res $x
+    for {set i 0 } {$i < $x} {incr i} {
+	set j [expr {$i + 1}]
+	set msg [pop3::retrieve $psock $j]
+	lappend res [string length $msg]
+	pop3::delete $psock $j
+    }
+    pop3::close $psock
+    lappend res [::subserv::muservLog]
+    ::subserv::muservStop
+    set res
+} {11 67 67 67 67 67 67 67 67 67 67 67 {STAT LAST {RETR 1} LAST {DELE 1} LAST {RETR 2} LAST {DELE 2} LAST {RETR 3} LAST {DELE 3} LAST {RETR 4} LAST {DELE 4} LAST {RETR 5} LAST {DELE 5} LAST {RETR 6} LAST {DELE 6} LAST {RETR 7} LAST {DELE 7} LAST {RETR 8} LAST {DELE 8} LAST {RETR 9} LAST {DELE 9} LAST {RETR 10} LAST {DELE 10} LAST {RETR 11} LAST {DELE 11} QUIT}}
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Handling of 'last', 'uidl'.
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+## None. The server used here (tcllib/pop3d)
+## does not support the 'LAST' command, nor 'UIDL'.
+
+test pop3-6.0 {last} {
+    set port [setupServer $__lastFailed]
+    set psock [pop3::open localhost ak smash $port]
+    catch {pop3::last $psock} msg
+    pop3::close $psock
+    ::subserv::muservStop
+    set msg
+} {POP3 LAST ERROR:  unknown command 'LAST'}
+
+test pop3-6.1 {uidl} {
+    set port [setupServer $__uidlFailed]
+    set psock [pop3::open localhost ak smash $port]
+    catch {pop3::uidl $psock} msg
+    pop3::close $psock
+    ::subserv::muservStop
+    set msg
+} {POP3 UIDL ERROR:  unknown command 'UIDL'}
+
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+::tcltest::cleanupTests

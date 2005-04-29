@@ -1,4 +1,3 @@
-/* APPLE LOCAL file objc typedef */
 /* Test out static (non-heap) allocations of ObjC class instances.
    These should elicit errors.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */

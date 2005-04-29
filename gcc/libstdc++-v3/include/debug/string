@@ -1,4 +1,3 @@
-/* APPLE LOCAL file libstdc++ debug mode */
 // Debugging string implementation -*- C++ -*-
 
 // Copyright (C) 2003
@@ -29,8 +28,8 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _GLIBCXX_DEBUG_STRING_H
-#define _GLIBCXX_DEBUG_STRING_H
+#ifndef _GLIBCXX_DEBUG_STRING
+#define _GLIBCXX_DEBUG_STRING 1
 
 #include <string>
 #include <debug/safe_sequence.h>
@@ -38,28 +37,20 @@
 
 namespace __gnu_debug
 {
-
-  /* This debugging basic_string wrapper is not introduced into
-     namespace std in the same way as the other containers are,
-     because we cannot safely perform this replacement in the library
-     and still support mixing debug- and release-mode object files
-     (see the libstdc++ debug mode design document for additional
-     detail). */
-template<class _CharT, class _Traits = std::char_traits<_CharT>,
-	 class _Allocator = std::allocator<_CharT> >
-  class basic_string 
-  : public std::basic_string<_CharT, _Traits, _Allocator>,
-    public std::__debug::_Safe_sequence<basic_string<_CharT, _Traits,
-						     _Allocator> >
-  {
-    typedef std::basic_string<_CharT, _Traits, _Allocator> _Base;
-    typedef std::__debug::_Safe_sequence<basic_string>     _Safe_base;
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    class basic_string
+    : public std::basic_string<_CharT, _Traits, _Allocator>,
+      public __gnu_debug::_Safe_sequence<basic_string<_CharT, _Traits,
+						      _Allocator> >
+    {
+      typedef std::basic_string<_CharT, _Traits, _Allocator> _Base;
+      typedef __gnu_debug::_Safe_sequence<basic_string>     _Safe_base;
 
   public:
     // types:
-    typedef _Traits                     	       traits_type;
-    typedef typename _Traits::char_type 	       value_type;
-    typedef _Allocator                  	       allocator_type;
+    typedef _Traits				       traits_type;
+    typedef typename _Traits::char_type		       value_type;
+    typedef _Allocator				       allocator_type;
     typedef typename _Allocator::size_type             size_type;
     typedef typename _Allocator::difference_type       difference_type;
     typedef typename _Allocator::reference             reference;
@@ -67,9 +58,9 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
     typedef typename _Allocator::pointer               pointer;
     typedef typename _Allocator::const_pointer         const_pointer;
 
-    typedef std::__debug::_Safe_iterator<typename _Base::iterator,basic_string>
+    typedef __gnu_debug::_Safe_iterator<typename _Base::iterator, basic_string>
                                                        iterator;
-    typedef std::__debug::_Safe_iterator<typename _Base::const_iterator, 
+    typedef __gnu_debug::_Safe_iterator<typename _Base::const_iterator,
                                          basic_string> const_iterator;
 
     typedef std::reverse_iterator<iterator>            reverse_iterator;
@@ -86,13 +77,13 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
     basic_string(const _Base& __base) : _Base(__base), _Safe_base() { }
 
     // _GLIBCXX_RESOLVE_LIB_DEFECTS
-    // 42. string ctors specify wrong default allocator 
+    // 42. string ctors specify wrong default allocator
     basic_string(const basic_string& __str)
     : _Base(__str, 0, _Base::npos, __str.get_allocator()), _Safe_base()
     { }
 
     // _GLIBCXX_RESOLVE_LIB_DEFECTS
-    // 42. string ctors specify wrong default allocator 
+    // 42. string ctors specify wrong default allocator
     basic_string(const basic_string& __str, size_type __pos,
 		   size_type __n = _Base::npos,
 		   const _Allocator& __a = _Allocator())
@@ -101,11 +92,11 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
 
     basic_string(const _CharT* __s, size_type __n,
 		   const _Allocator& __a = _Allocator())
-    : _Base(std::__debug::__check_string(__s, __n), __n, __a)
+    : _Base(__gnu_debug::__check_string(__s, __n), __n, __a)
     { }
 
     basic_string(const _CharT* __s, const _Allocator& __a = _Allocator())
-    : _Base(std::__debug::__check_string(__s), __a)
+    : _Base(__gnu_debug::__check_string(__s), __a)
     { this->assign(__s); }
 
     basic_string(size_type __n, _CharT __c,
@@ -113,15 +104,15 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
     : _Base(__n, __c, __a)
     { }
 
-    template<class _InputIterator>
+    template<typename _InputIterator>
       basic_string(_InputIterator __begin, _InputIterator __end,
 		     const _Allocator& __a = _Allocator())
-      : _Base(std::__debug::__check_valid_range(__begin, __end), __end, __a)
+      : _Base(__gnu_debug::__check_valid_range(__begin, __end), __end, __a)
       { }
 
     ~basic_string() { }
 
-    basic_string& 
+    basic_string&
     operator=(const basic_string& __str)
     {
       *static_cast<_Base*>(this) = __str;
@@ -129,7 +120,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     operator=(const _CharT* __s)
     {
       __glibcxx_check_string(__s);
@@ -138,7 +129,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     operator=(_CharT __c)
     {
       *static_cast<_Base*>(this) = __c;
@@ -147,27 +138,27 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
     }
 
     // 21.3.2 iterators:
-    iterator 
-    begin() 
+    iterator
+    begin()
     { return iterator(_Base::begin(), this); }
 
-    const_iterator 
-    begin() const 
+    const_iterator
+    begin() const
     { return const_iterator(_Base::begin(), this); }
 
-    iterator 
-    end() 
+    iterator
+    end()
     { return iterator(_Base::end(), this); }
 
-    const_iterator 
+    const_iterator
     end() const
     { return const_iterator(_Base::end(), this); }
 
-    reverse_iterator 
-    rbegin() 
+    reverse_iterator
+    rbegin()
     { return reverse_iterator(end()); }
 
-    const_reverse_iterator 
+    const_reverse_iterator
     rbegin() const
     { return const_reverse_iterator(end()); }
 
@@ -175,8 +166,8 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
     rend()
     { return reverse_iterator(begin()); }
 
-    const_reverse_iterator 
-    rend() const 
+    const_reverse_iterator
+    rend() const
     { return const_reverse_iterator(begin()); }
 
     // 21.3.3 capacity:
@@ -184,21 +175,21 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
     using _Base::length;
     using _Base::max_size;
 
-    void 
+    void
     resize(size_type __n, _CharT __c)
     {
       _Base::resize(__n, __c);
       this->_M_invalidate_all();
     }
 
-    void 
+    void
     resize(size_type __n)
     { this->resize(__n, _CharT()); }
 
     using _Base::capacity;
     using _Base::reserve;
 
-    void 
+    void
     clear()
     {
       _Base::clear();
@@ -208,18 +199,18 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
     using _Base::empty;
 
     // 21.3.4 element access:
-    const_reference 
+    const_reference
     operator[](size_type __pos) const
     {
       _GLIBCXX_DEBUG_VERIFY(__pos <= this->size(),
-			    _M_message(::std::__debug::__dbg_msg_subscript_oob)
+			    _M_message(::__gnu_debug::__msg_subscript_oob)
 			    ._M_sequence(*this, "this")
 			    ._M_integer(__pos, "__pos")
 			    ._M_integer(this->size(), "size"));
       return _M_base()[__pos];
     }
 
-    reference 
+    reference
     operator[](size_type __pos)
     {
       __glibcxx_check_subscript(__pos);
@@ -229,7 +220,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
     using _Base::at;
 
     // 21.3.5 modifiers:
-    basic_string& 
+    basic_string&
     operator+=(const basic_string& __str)
     {
       _M_base() += __str;
@@ -237,7 +228,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     operator+=(const _CharT* __s)
     {
       __glibcxx_check_string(__s);
@@ -246,7 +237,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     operator+=(_CharT __c)
     {
       _M_base() += __c;
@@ -254,7 +245,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     append(const basic_string& __str)
     {
       _Base::append(__str);
@@ -262,7 +253,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     append(const basic_string& __str, size_type __pos, size_type __n)
     {
       _Base::append(__str, __pos, __n);
@@ -270,7 +261,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     append(const _CharT* __s, size_type __n)
     {
       __glibcxx_check_string_len(__s, __n);
@@ -279,7 +270,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     append(const _CharT* __s)
     {
       __glibcxx_check_string(__s);
@@ -288,7 +279,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     append(size_type __n, _CharT __c)
     {
       _Base::append(__n, __c);
@@ -296,8 +287,8 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    template<class _InputIterator>
-      basic_string& 
+    template<typename _InputIterator>
+      basic_string&
       append(_InputIterator __first, _InputIterator __last)
       {
 	__glibcxx_check_valid_range(__first, __last);
@@ -307,15 +298,15 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       }
 
     // _GLIBCXX_RESOLVE_LIB_DEFECTS
-    // 7. string clause minor problems 
-    void 
+    // 7. string clause minor problems
+    void
     push_back(_CharT __c)
     {
       _Base::push_back(__c);
       this->_M_invalidate_all();
     }
 
-    basic_string& 
+    basic_string&
     assign(const basic_string& __x)
     {
       _Base::assign(__x);
@@ -323,7 +314,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     assign(const basic_string& __str, size_type __pos, size_type __n)
     {
       _Base::assign(__str, __pos, __n);
@@ -331,7 +322,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     assign(const _CharT* __s, size_type __n)
     {
       __glibcxx_check_string_len(__s, __n);
@@ -340,7 +331,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     assign(const _CharT* __s)
     {
       __glibcxx_check_string(__s);
@@ -349,25 +340,25 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     assign(size_type __n, _CharT __c)
     {
       _Base::assign(__n, __c);
       this->_M_invalidate_all();
-      return *this;	
+      return *this;
     }
 
-    template<class _InputIterator>
-      basic_string& 
+    template<typename _InputIterator>
+      basic_string&
       assign(_InputIterator __first, _InputIterator __last)
       {
 	__glibcxx_check_valid_range(__first, __last);
 	_Base::assign(__first, __last);
 	this->_M_invalidate_all();
-	return *this;	
+	return *this;
       }
 
-    basic_string& 
+    basic_string&
     insert(size_type __pos1, const basic_string& __str)
     {
       _Base::insert(__pos1, __str);
@@ -375,7 +366,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     insert(size_type __pos1, const basic_string& __str,
 	   size_type __pos2, size_type __n)
     {
@@ -384,7 +375,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     insert(size_type __pos, const _CharT* __s, size_type __n)
     {
       __glibcxx_check_string(__s);
@@ -393,16 +384,16 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     insert(size_type __pos, const _CharT* __s)
     {
       __glibcxx_check_string(__s);
       _Base::insert(__pos, __s);
       this->_M_invalidate_all();
-      return *this;	
+      return *this;
     }
 
-    basic_string& 
+    basic_string&
     insert(size_type __pos, size_type __n, _CharT __c)
     {
       _Base::insert(__pos, __n, __c);
@@ -410,16 +401,16 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    iterator 
+    iterator
     insert(iterator __p, _CharT __c)
     {
       __glibcxx_check_insert(__p);
-      typename _Base::iterator __result = _Base::insert(__p.base(), __c);
+      typename _Base::iterator __res = _Base::insert(__p.base(), __c);
       this->_M_invalidate_all();
-      return iterator(__result, this);
+      return iterator(__res, this);
     }
 
-    void 
+    void
     insert(iterator __p, size_type __n, _CharT __c)
     {
       __glibcxx_check_insert(__p);
@@ -427,8 +418,8 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       this->_M_invalidate_all();
     }
 
-    template<class _InputIterator>
-      void 
+    template<typename _InputIterator>
+      void
       insert(iterator __p, _InputIterator __first, _InputIterator __last)
       {
 	__glibcxx_check_insert_range(__p, __first, __last);
@@ -436,7 +427,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
 	this->_M_invalidate_all();
       }
 
-    basic_string& 
+    basic_string&
     erase(size_type __pos = 0, size_type __n = _Base::npos)
     {
       _Base::erase(__pos, __n);
@@ -444,28 +435,28 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    iterator 
+    iterator
     erase(iterator __position)
     {
       __glibcxx_check_erase(__position);
-      typename _Base::iterator __result = _Base::erase(__position.base());
+      typename _Base::iterator __res = _Base::erase(__position.base());
       this->_M_invalidate_all();
-      return iterator(__result, this);
+      return iterator(__res, this);
     }
 
-    iterator 
+    iterator
     erase(iterator __first, iterator __last)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 151. can't currently clear() empty container
       __glibcxx_check_erase_range(__first, __last);
-      typename _Base::iterator __result = _Base::erase(__first.base(),
+      typename _Base::iterator __res = _Base::erase(__first.base(),
 						       __last.base());
       this->_M_invalidate_all();
-      return iterator(__result, this);
+      return iterator(__res, this);
     }
 
-    basic_string& 
+    basic_string&
     replace(size_type __pos1, size_type __n1, const basic_string& __str)
     {
       _Base::replace(__pos1, __n1, __str);
@@ -473,7 +464,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     replace(size_type __pos1, size_type __n1, const basic_string& __str,
 	    size_type __pos2, size_type __n2)
     {
@@ -482,8 +473,8 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
-    replace(size_type __pos, size_type __n1, const _CharT* __s, 
+    basic_string&
+    replace(size_type __pos, size_type __n1, const _CharT* __s,
 	    size_type __n2)
     {
       __glibcxx_check_string_len(__s, __n2);
@@ -492,7 +483,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     replace(size_type __pos, size_type __n1, const _CharT* __s)
     {
       __glibcxx_check_string(__s);
@@ -501,7 +492,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     replace(size_type __pos, size_type __n1, size_type __n2, _CharT __c)
     {
       _Base::replace(__pos, __n1, __n2, __c);
@@ -509,7 +500,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     replace(iterator __i1, iterator __i2, const basic_string& __str)
     {
       __glibcxx_check_erase_range(__i1, __i2);
@@ -517,8 +508,8 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       this->_M_invalidate_all();
       return *this;
     }
-    
-    basic_string& 
+
+    basic_string&
     replace(iterator __i1, iterator __i2, const _CharT* __s, size_type __n)
     {
       __glibcxx_check_erase_range(__i1, __i2);
@@ -528,7 +519,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     replace(iterator __i1, iterator __i2, const _CharT* __s)
     {
       __glibcxx_check_erase_range(__i1, __i2);
@@ -538,7 +529,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    basic_string& 
+    basic_string&
     replace(iterator __i1, iterator __i2, size_type __n, _CharT __c)
     {
       __glibcxx_check_erase_range(__i1, __i2);
@@ -547,8 +538,8 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return *this;
     }
 
-    template<class _InputIterator>
-      basic_string& 
+    template<typename _InputIterator>
+      basic_string&
       replace(iterator __i1, iterator __i2,
 	      _InputIterator __j1, _InputIterator __j2)
       {
@@ -559,14 +550,14 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
 	return *this;
       }
 
-    size_type 
+    size_type
     copy(_CharT* __s, size_type __n, size_type __pos = 0) const
     {
       __glibcxx_check_string_len(__s, __n);
       return _Base::copy(__s, __n, __pos);
     }
 
-    void 
+    void
     swap(basic_string<_CharT,_Traits,_Allocator>& __x)
     {
       _Base::swap(__x);
@@ -576,176 +567,176 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
     }
 
     // 21.3.6 string operations:
-    const _CharT* 
+    const _CharT*
     c_str() const
     {
-      const _CharT* __result = _Base::c_str();
+      const _CharT* __res = _Base::c_str();
       this->_M_invalidate_all();
-      return __result;
+      return __res;
     }
 
-    const _CharT* 
+    const _CharT*
     data() const
     {
-      const _CharT* __result = _Base::data();
+      const _CharT* __res = _Base::data();
       this->_M_invalidate_all();
-      return __result;
+      return __res;
     }
 
     using _Base::get_allocator;
 
-    size_type 
+    size_type
     find(const basic_string& __str, size_type __pos = 0) const
     { return _Base::find(__str, __pos); }
 
-    size_type 
+    size_type
     find(const _CharT* __s, size_type __pos, size_type __n) const
     {
       __glibcxx_check_string(__s);
       return _Base::find(__s, __pos, __n);
     }
 
-    size_type 
+    size_type
     find(const _CharT* __s, size_type __pos = 0) const
     {
       __glibcxx_check_string(__s);
       return _Base::find(__s, __pos);
     }
 
-    size_type 
+    size_type
     find(_CharT __c, size_type __pos = 0) const
     { return _Base::find(__c, __pos); }
 
-    size_type 
+    size_type
     rfind(const basic_string& __str, size_type __pos = _Base::npos) const
     { return _Base::rfind(__str, __pos); }
 
-    size_type 
+    size_type
     rfind(const _CharT* __s, size_type __pos, size_type __n) const
-    { 
+    {
       __glibcxx_check_string_len(__s, __n);
       return _Base::rfind(__s, __pos, __n);
     }
 
-    size_type 
+    size_type
     rfind(const _CharT* __s, size_type __pos = _Base::npos) const
     {
       __glibcxx_check_string(__s);
       return _Base::rfind(__s, __pos);
     }
 
-    size_type 
+    size_type
     rfind(_CharT __c, size_type __pos = _Base::npos) const
     { return _Base::rfind(__c, __pos); }
-	
-    size_type 
+
+    size_type
     find_first_of(const basic_string& __str, size_type __pos = 0) const
     { return _Base::find_first_of(__str, __pos); }
 
-    size_type 
+    size_type
     find_first_of(const _CharT* __s, size_type __pos, size_type __n) const
-    { 
+    {
       __glibcxx_check_string(__s);
-      return _Base::find_first_of(__s, __pos, __n); 
+      return _Base::find_first_of(__s, __pos, __n);
     }
 
-    size_type 
+    size_type
     find_first_of(const _CharT* __s, size_type __pos = 0) const
-    { 
+    {
       __glibcxx_check_string(__s);
-      return _Base::find_first_of(__s, __pos); 
+      return _Base::find_first_of(__s, __pos);
     }
 
-    size_type 
+    size_type
     find_first_of(_CharT __c, size_type __pos = 0) const
     { return _Base::find_first_of(__c, __pos); }
 
-    size_type 
+    size_type
     find_last_of(const basic_string& __str, size_type __pos = _Base::npos) const
     { return _Base::find_last_of(__str, __pos); }
 
-    size_type 
+    size_type
     find_last_of(const _CharT* __s, size_type __pos, size_type __n) const
-    { 
+    {
       __glibcxx_check_string(__s);
       return _Base::find_last_of(__s, __pos, __n);
     }
 
-    size_type 
+    size_type
     find_last_of(const _CharT* __s, size_type __pos = _Base::npos) const
-    { 
+    {
       __glibcxx_check_string(__s);
       return _Base::find_last_of(__s, __pos);
     }
 
-    size_type 
+    size_type
     find_last_of(_CharT __c, size_type __pos = _Base::npos) const
     { return _Base::find_last_of(__c, __pos); }
 
-    size_type 
+    size_type
     find_first_not_of(const basic_string& __str, size_type __pos = 0) const
     { return _Base::find_first_not_of(__str, __pos); }
 
-    size_type 
+    size_type
     find_first_not_of(const _CharT* __s, size_type __pos, size_type __n) const
     {
       __glibcxx_check_string_len(__s, __n);
       return _Base::find_first_not_of(__s, __pos, __n);
     }
 
-    size_type 
+    size_type
     find_first_not_of(const _CharT* __s, size_type __pos = 0) const
     {
       __glibcxx_check_string(__s);
       return _Base::find_first_not_of(__s, __pos);
     }
 
-    size_type 
+    size_type
     find_first_not_of(_CharT __c, size_type __pos = 0) const
     { return _Base::find_first_not_of(__c, __pos); }
 
-    size_type 
+    size_type
     find_last_not_of(const basic_string& __str,
 				  size_type __pos = _Base::npos) const
     { return _Base::find_last_not_of(__str, __pos); }
 
-    size_type 
+    size_type
     find_last_not_of(const _CharT* __s, size_type __pos, size_type __n) const
     {
       __glibcxx_check_string(__s);
       return _Base::find_last_not_of(__s, __pos, __n);
     }
 
-    size_type 
+    size_type
     find_last_not_of(const _CharT* __s, size_type __pos = _Base::npos) const
     {
       __glibcxx_check_string(__s);
       return _Base::find_last_not_of(__s, __pos);
     }
 
-    size_type 
+    size_type
     find_last_not_of(_CharT __c, size_type __pos = _Base::npos) const
     { return _Base::find_last_not_of(__c, __pos); }
 
-    basic_string 
+    basic_string
     substr(size_type __pos = 0, size_type __n = _Base::npos) const
     { return basic_string(_Base::substr(__pos, __n)); }
 
-    int 
+    int
     compare(const basic_string& __str) const
     { return _Base::compare(__str); }
 
-    int 
+    int
     compare(size_type __pos1, size_type __n1,
 		  const basic_string& __str) const
     { return _Base::compare(__pos1, __n1, __str); }
 
-    int 
+    int
     compare(size_type __pos1, size_type __n1, const basic_string& __str,
 	      size_type __pos2, size_type __n2) const
     { return _Base::compare(__pos1, __n1, __str, __pos2, __n2); }
 
-    int 
+    int
     compare(const _CharT* __s) const
     {
       __glibcxx_check_string(__s);
@@ -754,7 +745,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
 
     //  _GLIBCXX_RESOLVE_LIB_DEFECTS
     //  5. string::compare specification questionable
-    int 
+    int
     compare(size_type __pos1, size_type __n1, const _CharT* __s) const
     {
       __glibcxx_check_string(__s);
@@ -763,7 +754,7 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
 
     //  _GLIBCXX_RESOLVE_LIB_DEFECTS
     //  5. string::compare specification questionable
-    int 
+    int
     compare(size_type __pos1, size_type __n1,const _CharT* __s,
 	      size_type __n2) const
     {
@@ -771,245 +762,240 @@ template<class _CharT, class _Traits = std::char_traits<_CharT>,
       return _Base::compare(__pos1, __n1, __s, __n2);
     }
 
-    _Base&       _M_base()       { return *this; }
-    const _Base& _M_base() const { return *this; }
+    _Base&
+    _M_base() { return *this; }
+
+    const _Base&
+    _M_base() const { return *this; }
 
     using _Safe_base::_M_invalidate_all;
   };
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline basic_string<_CharT,_Traits,_Allocator>
-  operator+(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline basic_string<_CharT,_Traits,_Allocator>
+    operator+(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	      const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  { return basic_string<_CharT,_Traits,_Allocator>(__lhs) += __rhs; }
+    { return basic_string<_CharT,_Traits,_Allocator>(__lhs) += __rhs; }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline basic_string<_CharT,_Traits,_Allocator>
-  operator+(const _CharT* __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline basic_string<_CharT,_Traits,_Allocator>
+    operator+(const _CharT* __lhs,
 	      const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  { 
-    __glibcxx_check_string(__lhs);
-    return basic_string<_CharT,_Traits,_Allocator>(__lhs) += __rhs;
-  }
+    {
+      __glibcxx_check_string(__lhs);
+      return basic_string<_CharT,_Traits,_Allocator>(__lhs) += __rhs;
+    }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline basic_string<_CharT,_Traits,_Allocator>
-  operator+(_CharT __lhs, 
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline basic_string<_CharT,_Traits,_Allocator>
+    operator+(_CharT __lhs,
 	      const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  { return basic_string<_CharT,_Traits,_Allocator>(1, __lhs) += __rhs; }
+    { return basic_string<_CharT,_Traits,_Allocator>(1, __lhs) += __rhs; }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline basic_string<_CharT,_Traits,_Allocator>
-  operator+(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
-  	    const _CharT* __rhs)
-  { 
-    __glibcxx_check_string(__rhs);
-    return basic_string<_CharT,_Traits,_Allocator>(__lhs) += __rhs; 
-  }
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline basic_string<_CharT,_Traits,_Allocator>
+    operator+(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+	      const _CharT* __rhs)
+    {
+      __glibcxx_check_string(__rhs);
+      return basic_string<_CharT,_Traits,_Allocator>(__lhs) += __rhs;
+    }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline basic_string<_CharT,_Traits,_Allocator>
-  operator+(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline basic_string<_CharT,_Traits,_Allocator>
+    operator+(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	      _CharT __rhs)
-  { return basic_string<_CharT,_Traits,_Allocator>(__lhs) += __rhs; }
+    { return basic_string<_CharT,_Traits,_Allocator>(__lhs) += __rhs; }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool 
-  operator==(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator==(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  { return __lhs._M_base() == __rhs._M_base(); }
-  
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator==(const _CharT* __lhs,
-	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  {
-    __glibcxx_check_string(__lhs);
-    return __lhs == __rhs._M_base();
-  }
+    { return __lhs._M_base() == __rhs._M_base(); }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator==(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator==(const _CharT* __lhs,
+	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
+    {
+      __glibcxx_check_string(__lhs);
+      return __lhs == __rhs._M_base();
+    }
+
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator==(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	       const _CharT* __rhs)
-  {
-    __glibcxx_check_string(__rhs);
-    return __lhs._M_base() == __rhs;
-  }
+    {
+      __glibcxx_check_string(__rhs);
+      return __lhs._M_base() == __rhs;
+    }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool 
-  operator!=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator!=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  { return __lhs._M_base() != __rhs._M_base(); }
-  
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator!=(const _CharT* __lhs,
-	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  {
-    __glibcxx_check_string(__lhs);
-    return __lhs != __rhs._M_base();
-  }
+    { return __lhs._M_base() != __rhs._M_base(); }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator!=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator!=(const _CharT* __lhs,
+	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
+    {
+      __glibcxx_check_string(__lhs);
+      return __lhs != __rhs._M_base();
+    }
+
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator!=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	       const _CharT* __rhs)
-  {
-    __glibcxx_check_string(__rhs);
-    return __lhs._M_base() != __rhs;
-  }
+    {
+      __glibcxx_check_string(__rhs);
+      return __lhs._M_base() != __rhs;
+    }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool 
-  operator<(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator<(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	      const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  { return __lhs._M_base() < __rhs._M_base(); }
-  
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator<(const _CharT* __lhs,
-	      const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  {
-    __glibcxx_check_string(__lhs);
-    return __lhs < __rhs._M_base();
-  }
+    { return __lhs._M_base() < __rhs._M_base(); }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator<(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator<(const _CharT* __lhs,
+	      const basic_string<_CharT,_Traits,_Allocator>& __rhs)
+    {
+      __glibcxx_check_string(__lhs);
+      return __lhs < __rhs._M_base();
+    }
+
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator<(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	      const _CharT* __rhs)
-  {
-    __glibcxx_check_string(__rhs);
-    return __lhs._M_base() < __rhs;
-  }
+    {
+      __glibcxx_check_string(__rhs);
+      return __lhs._M_base() < __rhs;
+    }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool 
-  operator<=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator<=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  { return __lhs._M_base() <= __rhs._M_base(); }
-  
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator<=(const _CharT* __lhs,
-	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  {
-    __glibcxx_check_string(__lhs);
-    return __lhs <= __rhs._M_base();
-  }
+    { return __lhs._M_base() <= __rhs._M_base(); }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator<=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator<=(const _CharT* __lhs,
+	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
+    {
+      __glibcxx_check_string(__lhs);
+      return __lhs <= __rhs._M_base();
+    }
+
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator<=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	       const _CharT* __rhs)
-  {
-    __glibcxx_check_string(__rhs);
-    return __lhs._M_base() <= __rhs;
-  }
+    {
+      __glibcxx_check_string(__rhs);
+      return __lhs._M_base() <= __rhs;
+    }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool 
-  operator>=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator>=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  { return __lhs._M_base() >= __rhs._M_base(); }
-  
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator>=(const _CharT* __lhs,
-	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  {
-    __glibcxx_check_string(__lhs);
-    return __lhs >= __rhs._M_base();
-  }
+    { return __lhs._M_base() >= __rhs._M_base(); }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator>=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator>=(const _CharT* __lhs,
+	       const basic_string<_CharT,_Traits,_Allocator>& __rhs)
+    {
+      __glibcxx_check_string(__lhs);
+      return __lhs >= __rhs._M_base();
+    }
+
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator>=(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	       const _CharT* __rhs)
-  {
-    __glibcxx_check_string(__rhs);
-    return __lhs._M_base() >= __rhs;
-  }
+    {
+      __glibcxx_check_string(__rhs);
+      return __lhs._M_base() >= __rhs;
+    }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool 
-  operator>(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator>(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	      const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  { return __lhs._M_base() > __rhs._M_base(); }
-  
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator>(const _CharT* __lhs,
-	      const basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  {
-    __glibcxx_check_string(__lhs);
-    return __lhs > __rhs._M_base();
-  }
+    { return __lhs._M_base() > __rhs._M_base(); }
 
-template<class _CharT, class _Traits, class _Allocator>
-  inline bool
-  operator>(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator>(const _CharT* __lhs,
+	      const basic_string<_CharT,_Traits,_Allocator>& __rhs)
+    {
+      __glibcxx_check_string(__lhs);
+      return __lhs > __rhs._M_base();
+    }
+
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline bool
+    operator>(const basic_string<_CharT,_Traits,_Allocator>& __lhs,
 	      const _CharT* __rhs)
-  {
-    __glibcxx_check_string(__rhs);
-    return __lhs._M_base() > __rhs;
-  }
+    {
+      __glibcxx_check_string(__rhs);
+      return __lhs._M_base() > __rhs;
+    }
 
-// 21.3.7.8:
-template<class _CharT, class _Traits, class _Allocator>
-  inline void 
-  swap(basic_string<_CharT,_Traits,_Allocator>& __lhs,
-       basic_string<_CharT,_Traits,_Allocator>& __rhs)
-  { __lhs.swap(__rhs); }
+  // 21.3.7.8:
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    inline void
+    swap(basic_string<_CharT,_Traits,_Allocator>& __lhs,
+	 basic_string<_CharT,_Traits,_Allocator>& __rhs)
+    { __lhs.swap(__rhs); }
 
-template<class _CharT, class _Traits, class _Allocator>
-  std::basic_istream<_CharT,_Traits>&
-  operator>>(std::basic_istream<_CharT,_Traits>& __is,
-	     basic_string<_CharT,_Traits,_Allocator>& __str)
-  {
-    std::basic_istream<_CharT,_Traits>& __result = __is >> __str._M_base();
-    __str._M_invalidate_all();
-    return __result;
-  }
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const basic_string<_CharT, _Traits, _Allocator>& __str)
+    { return __os << __str._M_base(); }
 
-template<class _CharT, class _Traits, class _Allocator>
-  std::basic_ostream<_CharT, _Traits>&
-  operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	     const basic_string<_CharT,_Traits,_Allocator>& __str)
-  { return __os << __str._M_base(); }
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    std::basic_istream<_CharT,_Traits>&
+    operator>>(std::basic_istream<_CharT,_Traits>& __is,
+	       basic_string<_CharT,_Traits,_Allocator>& __str)
+    {
+      std::basic_istream<_CharT,_Traits>& __res = __is >> __str._M_base();
+      __str._M_invalidate_all();
+      return __res;
+    }
 
-template<class _CharT, class _Traits, class _Allocator>
-  std::basic_istream<_CharT,_Traits>&
-  getline(std::basic_istream<_CharT,_Traits>& __is,
-	  basic_string<_CharT,_Traits,_Allocator>& __str,
-	  _CharT __delim)
-  {
-    std::basic_istream<_CharT,_Traits>& __result = getline(__is, 
-							     __str._M_base(),
-							     __delim);
-    __str._M_invalidate_all();
-    return __result;
-  }
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    std::basic_istream<_CharT,_Traits>&
+    getline(std::basic_istream<_CharT,_Traits>& __is,
+	    basic_string<_CharT,_Traits,_Allocator>& __str, _CharT __delim)
+    {
+      std::basic_istream<_CharT,_Traits>& __res = getline(__is,
+							  __str._M_base(),
+							__delim);
+      __str._M_invalidate_all();
+      return __res;
+    }
 
-template<class _CharT, class _Traits, class _Allocator>
-  std::basic_istream<_CharT,_Traits>&
-  getline(std::basic_istream<_CharT,_Traits>& __is,
-	  basic_string<_CharT,_Traits,_Allocator>& __str)
-  {
-    std::basic_istream<_CharT,_Traits>& __result = getline(__is, 
-							     __str._M_base());
-    __str._M_invalidate_all();
-    return __result;
-  }
-  
-typedef basic_string<char> string;
-
-#  ifdef _GLIBCXX_USE_WCHAR_T
-typedef basic_string<wchar_t> wstring;
-#  endif
-
+  template<typename _CharT, typename _Traits, typename _Allocator>
+    std::basic_istream<_CharT,_Traits>&
+    getline(std::basic_istream<_CharT,_Traits>& __is,
+	    basic_string<_CharT,_Traits,_Allocator>& __str)
+    {
+      std::basic_istream<_CharT,_Traits>& __res = getline(__is,
+							  __str._M_base());
+      __str._M_invalidate_all();
+      return __res;
+    }
 } // namespace __gnu_debug
 
-#endif /* _GLIBCXX_DEBUG_STRING_H */
+#endif

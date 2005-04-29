@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-/* $XFree86: xc/programs/luit/sys.c,v 1.7 2002/01/07 20:38:30 dawes Exp $ */
+/* $XFree86: xc/programs/luit/sys.c,v 1.10 2003/09/08 14:25:30 eich Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -66,6 +66,10 @@ THE SOFTWARE.
 
 #ifdef SVR4
 #include <stropts.h>
+#endif
+
+#if (defined(__unix__) || defined(unix)) && !defined(USG)
+#include <sys/param.h>
 #endif
 
 #include "sys.h"
@@ -211,6 +215,23 @@ installHandler(int signum, void (*handler)(int))
 }
 
 int
+copyTermios(int sfd, int dfd)
+{
+    struct termios tio;
+    int rc;
+
+    rc = tcgetattr(sfd, &tio);
+    if(rc < 0)
+        return -1;
+
+    rc = tcsetattr(dfd, TCSAFLUSH, &tio);
+    if(rc < 0)
+        return -1;
+
+    return 0;
+}
+
+int
 saveTermios(void)
 {
     int rc;
@@ -311,7 +332,8 @@ allocatePty(int *pty_return, char **line_return)
 {
     char name[12], *line = NULL;
     int pty = -1;
-    char *name1 = "pqrstuvwxyzPQRST", *name2 = "0123456789abcdef";
+    char *name1 = "pqrstuvwxyzPQRST", 
+        *name2 = "0123456789abcdefghijklmnopqrstuv";
     char *p1, *p2;
 
 #ifdef HAVE_GRANTPT
@@ -363,17 +385,16 @@ allocatePty(int *pty_return, char **line_return)
             pty = open(name, O_RDWR);
             if(pty >= 0)
                 goto found;
-            if(errno == ENOENT)
-                goto bail;
-            else
-                continue;
+            /* Systems derived from 4.4BSD differ in their pty names,
+               so ENOENT doesn't necessarily imply we're done. */
+            continue;
         }
     }
 
     goto bail;
 
   found:
-    line = malloc(strlen(name));
+    line = malloc(strlen(name) + 1);
     strcpy(line, name);
     line[5] = 't';
     fix_pty_perms(line);
@@ -429,7 +450,10 @@ openTty(char *line)
     return -1;
 }
 
-#ifdef _POSIX_SAVED_IDS
+/* Post-4.4 BSD systems have POSIX semantics (_POSIX_SAVED_IDS
+   or not, depending on the version).  4.3BSD and Minix do not have
+   saved IDs at all, so there's no issue. */
+#if (defined(BSD) && !defined(_POSIX_SAVED_IDS)) || defined(_MINIX)
 int
 droppriv()
 {
@@ -438,6 +462,25 @@ droppriv()
     if(rc < 0)
         return rc;
     return setgid(getgid());
+}
+#elif defined(_POSIX_SAVED_IDS)
+int
+droppriv()
+{
+    int uid = getuid();
+    int euid = geteuid();
+    int gid = getgid();
+    int egid = getegid();
+    int rc;
+
+    if((uid != euid || gid != egid) && euid != 0) {
+        errno = ENOSYS;
+        return -1;
+    }
+    rc = setuid(uid);
+    if(rc < 0)
+        return rc;
+    return setgid(gid);
 }
 #else
 int

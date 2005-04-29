@@ -25,19 +25,14 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xau/AuUnlock.c,v 1.4 2001/12/14 19:54:36 dawes Exp $ */
+/* $XFree86: xc/lib/Xau/AuUnlock.c,v 1.5 2003/11/17 22:20:21 dawes Exp $ */
 
 #include <X11/Xauth.h>
 #include <X11/Xos.h>
 
 int
-#if NeedFunctionPrototypes
 XauUnlockAuth (
 _Xconst char *file_name)
-#else
-XauUnlockAuth (file_name)
-char	*file_name;
-#endif
 {
 #ifndef WIN32
     char	creat_name[1025];

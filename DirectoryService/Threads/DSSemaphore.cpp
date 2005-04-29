@@ -26,6 +26,7 @@
  * Implementation of the DSSemaphore (lock) base class.
  */
 
+#include <errno.h>
 #include <sys/time.h>	// for struct timespec and gettimeofday()
 
 #include "DSSemaphore.h"

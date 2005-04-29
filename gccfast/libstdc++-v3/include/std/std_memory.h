@@ -58,6 +58,10 @@
 #include <bits/stl_uninitialized.h>
 #include <bits/stl_raw_storage_iter.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/debug.h>
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
   /**
@@ -259,7 +263,13 @@ namespace std
        *  what happens when you dereference one of those...)
        */
       element_type&
-      operator*() const throw() { return *_M_ptr; }
+      operator*() const throw() 
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	_GLIBCXX_DEBUG_ASSERT(_M_ptr);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return *_M_ptr; 
+      }
       
       /**
        *  @brief  Smart pointer dereferencing.
@@ -268,7 +278,13 @@ namespace std
        *  automatically cause to be dereferenced.
        */
       element_type*
-      operator->() const throw() { return _M_ptr; }
+      operator->() const throw() 
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	_GLIBCXX_DEBUG_ASSERT(_M_ptr);
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return _M_ptr; 
+      }
       
       /**
        *  @brief  Bypassing the smart pointer.

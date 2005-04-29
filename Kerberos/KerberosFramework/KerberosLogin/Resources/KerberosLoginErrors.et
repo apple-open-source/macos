@@ -35,7 +35,7 @@
 # recognition of their trademark status should be given).
 # $
 
-# $Header:
+# $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Resources/KerberosLoginErrors.et,v 1.28 2004/12/17 05:04:32 lxs Exp $
 
 error_table_base 19276
 error_table_manager "Kerberos Login"

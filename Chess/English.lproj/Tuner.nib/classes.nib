@@ -33,7 +33,7 @@
         {
             CLASS = MBCTunerStyle; 
             LANGUAGE = ObjC; 
-            OUTLETS = {fAlpha = id; fShininess = id; fSpecular = id; }; 
+            OUTLETS = {fAlpha = id; fDiffuse = id; fShininess = id; fSpecular = id; }; 
             SUPERCLASS = NSObject; 
         }
     ); 

@@ -1,0 +1,297 @@
+# Переклад gettext-runtime на укра╖нську.
+# Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+# Volodymyr M. Lisivka <lvm@mystery.lviv.net>, 2003.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: gettext-runtime 0.12.1\n"
+"Report-Msgid-Bugs-To: bug-gnu-gettext@gnu.org\n"
+"POT-Creation-Date: 2003-10-16 21:36+0200\n"
+"PO-Revision-Date: 2003-07-22 15:21+0300\n"
+"Last-Translator: Volodymyr M. Lisivka <lvm@mystery.lviv.net>\n"
+"Language-Team: Ukrainian <translation-team-uk@lists.sourceforge.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=KOI8-U\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../gettext-tools/lib/closeout.c:66
+msgid "write error"
+msgstr ""
+
+#: ../gettext-tools/lib/error.c:137 ../gettext-tools/lib/error.c:165
+msgid "Unknown system error"
+msgstr "Нев╕дома системна помилка"
+
+#: ../gettext-tools/lib/getopt.c:689 ../gettext-tools/lib/getopt.c:701
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: ключ \"%s\" неоднозначний\n"
+
+#: ../gettext-tools/lib/getopt.c:734 ../gettext-tools/lib/getopt.c:738
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: ключ \"%s\" вжива╓ться без аргумент╕в\n"
+
+#: ../gettext-tools/lib/getopt.c:747 ../gettext-tools/lib/getopt.c:752
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: ключ \"%c%s\" вжива╓ться без аргумент╕в\n"
+
+#: ../gettext-tools/lib/getopt.c:788 ../gettext-tools/lib/getopt.c:801
+#: ../gettext-tools/lib/getopt.c:1090 ../gettext-tools/lib/getopt.c:1103
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: ключ \"%s\" вимага╓ аргумент\n"
+
+#: ../gettext-tools/lib/getopt.c:839 ../gettext-tools/lib/getopt.c:842
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: незрозум╕лий ключ \"--%s\"\n"
+
+#: ../gettext-tools/lib/getopt.c:850 ../gettext-tools/lib/getopt.c:853
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: незрозум╕лий ключ \"%c%s\"\n"
+
+#: ../gettext-tools/lib/getopt.c:900 ../gettext-tools/lib/getopt.c:903
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: недопустимий ключ -- %c\n"
+
+#: ../gettext-tools/lib/getopt.c:909 ../gettext-tools/lib/getopt.c:912
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: неправильний ключ -- %c\n"
+
+#: ../gettext-tools/lib/getopt.c:959 ../gettext-tools/lib/getopt.c:970
+#: ../gettext-tools/lib/getopt.c:1156 ../gettext-tools/lib/getopt.c:1169
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: ключ вимага╓ аргумент -- %c\n"
+
+#: ../gettext-tools/lib/getopt.c:1022 ../gettext-tools/lib/getopt.c:1033
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: ключ \"-W %s\" неоднозначний\n"
+
+#: ../gettext-tools/lib/getopt.c:1057 ../gettext-tools/lib/getopt.c:1069
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: ключ \"-W %s\" вжива╓ться без аргументу\n"
+
+#: ../gettext-tools/lib/xmalloc.c:41
+#, c-format
+msgid "memory exhausted"
+msgstr "пам'ять вичерпана"
+
+#: src/envsubst.c:113 src/gettext.c:135 src/ngettext.c:125
+#, c-format, no-wrap
+msgid ""
+"Copyright (C) %s Free Software Foundation, Inc.\n"
+"This is free software; see the source for copying conditions.  There is NO\n"
+"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
+msgstr ""
+"Copyright (C) %s Free Software Foundation, Inc.\n"
+"Це в╕льно розповсюджуване програмне забезпечення. Умови коп╕ювання\n"
+"знаходяться у вих╕дних текстах. НЕ нада╓ться Н╤ЯКИХ гарант╕й, включаючи\n"
+"ГАРАНТ╤╥ ПРИДАТНОСТ╤ ╕ МОЖЛИВОСТ╤ ВИКОРИСТАННЯ ДЛЯ ВИЗНАЧЕНИХ Ц╤ЛЕЙ.\n"
+
+#: src/envsubst.c:118 src/gettext.c:140 src/ngettext.c:130
+#, c-format
+msgid "Written by %s.\n"
+msgstr "Автор: %s.\n"
+
+#: src/envsubst.c:127 src/gettext.c:158 src/ngettext.c:142
+#, c-format
+msgid "too many arguments"
+msgstr "надто багато аргумент╕в"
+
+#: src/envsubst.c:138 src/gettext.c:168 src/ngettext.c:154
+#, c-format
+msgid "missing arguments"
+msgstr "пропущен╕ аргументи"
+
+# * Dmytro O. Redchuk <dor@kiev-online.net>
+#: src/envsubst.c:171 src/gettext.c:239 src/ngettext.c:208
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Спробуйте \"%s --help\" для отримання додатково╖ ╕нформац╕╖.\n"
+
+#: src/envsubst.c:176
+#, c-format, no-wrap
+msgid "Usage: %s [OPTION] [SHELL-FORMAT]\n"
+msgstr ""
+
+#: src/envsubst.c:181
+#, c-format, no-wrap
+msgid "Substitutes the values of environment variables.\n"
+msgstr ""
+
+#: src/envsubst.c:185
+#, c-format, no-wrap
+msgid "Operation mode:\n"
+msgstr ""
+
+#: src/envsubst.c:188
+#, c-format, no-wrap
+msgid "  -v, --variables             output the variables occurring in SHELL-FORMAT\n"
+msgstr ""
+
+#: src/envsubst.c:192
+#, c-format, no-wrap
+msgid "Informative output:\n"
+msgstr ""
+
+#: src/envsubst.c:195
+#, c-format, no-wrap
+msgid "  -h, --help                  display this help and exit\n"
+msgstr ""
+
+#: src/envsubst.c:198
+#, c-format, no-wrap
+msgid "  -V, --version               output version information and exit\n"
+msgstr ""
+
+#: src/envsubst.c:202
+#, c-format, no-wrap
+msgid ""
+"In normal operation mode, standard input is copied to standard output,\n"
+"with references to environment variables of the form $VARIABLE or ${VARIABLE}\n"
+"being replaced with the corresponding values.  If a SHELL-FORMAT is given,\n"
+"only those environment variables that are referenced in SHELL-FORMAT are\n"
+"substituted; otherwise all environment variables references occurring in\n"
+"standard input are substituted.\n"
+msgstr ""
+
+#: src/envsubst.c:211
+#, c-format, no-wrap
+msgid ""
+"When --variables is used, standard input is ignored, and the output consists\n"
+"of the environment variables that are referenced in SHELL-FORMAT, one per line.\n"
+msgstr ""
+
+#: src/envsubst.c:215 src/gettext.c:276 src/ngettext.c:242
+msgid "Report bugs to <bug-gnu-gettext@gnu.org>.\n"
+msgstr "Пов╕домляйте про помилки на <bug-gnu-gettext@gnu.org>.\n"
+
+#: src/envsubst.c:438
+#, c-format
+msgid "error while reading \"%s\""
+msgstr ""
+
+#: src/envsubst.c:439
+msgid "standard input"
+msgstr ""
+
+#: src/gettext.c:244
+#, fuzzy, c-format, no-wrap
+msgid ""
+"Usage: %s [OPTION] [[TEXTDOMAIN] MSGID]\n"
+"or:    %s [OPTION] -s [MSGID]...\n"
+msgstr ""
+"Використання: \n"
+"  %s [КЛЮЧ] [ДОМЕН] ╤ДЕНТИФ╤КАТОР_ПОВ╤ДОМЛЕННЯ МНОЖИННА_ФОРМА К╤ЛЬК╤СТЬ\n"
+
+#: src/gettext.c:250
+#, c-format, no-wrap
+msgid "Display native language translation of a textual message.\n"
+msgstr "Показу╓ переклад текстового пов╕домлення р╕дною мовою користувача.\n"
+
+#: src/gettext.c:254
+#, c-format, no-wrap
+msgid ""
+"  -d, --domain=TEXTDOMAIN   retrieve translated messages from TEXTDOMAIN\n"
+"  -e                        enable expansion of some escape sequences\n"
+"  -E                        (ignored for compatibility)\n"
+"  -h, --help                display this help and exit\n"
+"  -n                        suppress trailing newline\n"
+"  -V, --version             display version information and exit\n"
+"  [TEXTDOMAIN] MSGID        retrieve translated message corresponding\n"
+"                            to MSGID from TEXTDOMAIN\n"
+msgstr ""
+"  -d, --domain=ДОМЕН         шукати переклад у вказаному ДОМЕН╤\n"
+"  -e                         дозволити деяк╕ контролююч╕ посл╕довност╕\n"
+"  -E                         (╕гнору╓ться для сум╕сност╕)\n"
+"  -h, --help                 показати дов╕дку та вийти\n"
+"  -n                         не переводити рядок п╕сля виводу пов╕домлення\n"
+"  -V, --version              показати ╕нформац╕ю про верс╕ю та вийти\n"
+"  [ДОМЕН] ПОВ╤ДОМЛЕННЯ       отримати ПОВ╤ДОМЛЕННЯ з вказаного домену\n"
+
+#: src/gettext.c:265
+#, c-format, no-wrap
+msgid ""
+"If the TEXTDOMAIN parameter is not given, the domain is determined from the\n"
+"environment variable TEXTDOMAIN.  If the message catalog is not found in the\n"
+"regular directory, another location can be specified with the environment\n"
+"variable TEXTDOMAINDIR.\n"
+"When used with the -s option the program behaves like the `echo' command.\n"
+"But it does not simply copy its arguments to stdout.  Instead those messages\n"
+"found in the selected catalog are translated.\n"
+"Standard search directory: %s\n"
+msgstr ""
+"Якщо ДОМЕН не вказано, назва домену береться з╕ зм╕нно╖ середовища\n"
+"\"TEXTDOMAIN\". Якщо каталог пов╕домлень знаходиться не у стандартному\n"
+"каталоз╕, ╕нший каталог можна вказати через зм╕нну середовища TEXTDOMAINDIR.\n"
+"При вказан╕ ключа \"-s\", програма поводиться под╕бно до команди \"echo\".\n"
+"Але вона не просто коп╕ю╓ сво╖ аргументи на стандартний вих╕д, а й переклада╓\n"
+"╖х використовуючи вказаний каталог пов╕домлень.\n"
+"Стандартний каталог: %s\n"
+
+#: src/ngettext.c:213
+#, c-format, no-wrap
+msgid "Usage: %s [OPTION] [TEXTDOMAIN] MSGID MSGID-PLURAL COUNT\n"
+msgstr ""
+"Використання: \n"
+"  %s [КЛЮЧ] [ДОМЕН] ╤ДЕНТИФ╤КАТОР_ПОВ╤ДОМЛЕННЯ МНОЖИННА_ФОРМА К╤ЛЬК╤СТЬ\n"
+
+#: src/ngettext.c:218
+#, c-format, no-wrap
+msgid ""
+"Display native language translation of a textual message whose grammatical\n"
+"form depends on a number.\n"
+msgstr ""
+"Показу╓ переклад текстового пов╕домлення р╕дною мовою користувача у.\n"
+"граматичн╕й форм╕, яка залежить в╕д числа.\n"
+
+#: src/ngettext.c:223
+#, c-format, no-wrap
+msgid ""
+"  -d, --domain=TEXTDOMAIN   retrieve translated message from TEXTDOMAIN\n"
+"  -e                        enable expansion of some escape sequences\n"
+"  -E                        (ignored for compatibility)\n"
+"  -h, --help                display this help and exit\n"
+"  -V, --version             display version information and exit\n"
+"  [TEXTDOMAIN]              retrieve translated message from TEXTDOMAIN\n"
+"  MSGID MSGID-PLURAL        translate MSGID (singular) / MSGID-PLURAL (plural)\n"
+"  COUNT                     choose singular/plural form based on this value\n"
+msgstr ""
+"  -d, --domain=ДОМЕН         шукати переклад у вказаному ДОМЕН╤\n"
+"  -e                         дозволити деяк╕ контролююч╕ посл╕довност╕\n"
+"  -E                         (╕гнору╓ться для сум╕сност╕)\n"
+"  -h, --help                 показати дов╕дку та вийти\n"
+"  -V, --version              показати ╕нформац╕ю про верс╕ю та вийти\n"
+"  [ДОМЕН]                    шукати переклад у вказаному ДОМЕН╤\n"
+"  ╤ДЕНТИФ╤КАТОР_ПОВ╤ДОМЛЕННЯ переклада╓ пов╕домлення\n"
+"  МНОЖИННА_ФОРМА             у множинн╕й форм╕   ЧИСЛО                      вибрати множинну верс╕ю пов╕домлення на основ╕\n"
+"                             значення цього ЧИСЛА\n"
+
+#: src/ngettext.c:234
+#, c-format, no-wrap
+msgid ""
+"If the TEXTDOMAIN parameter is not given, the domain is determined from the\n"
+"environment variable TEXTDOMAIN.  If the message catalog is not found in the\n"
+"regular directory, another location can be specified with the environment\n"
+"variable TEXTDOMAINDIR.\n"
+"Standard search directory: %s\n"
+msgstr ""
+"Якщо ДОМЕН не вказано, назва домену береться з╕ зм╕нно╖ середовища\n"
+"TEXTDOMAIN. Якщо каталог пов╕домлень знаходиться не у стандартному каталоз╕,\n"
+"╕нший каталог можна вказати через зм╕нну середовища TEXTDOMAINDIR.\n"
+"Стандартний каталог: %s\n"
+
+#~ msgid ""
+#~ "Usage: %s [OPTION] [[ДОМЕН] ╤ДЕНТИФ╤КАТОР_ПОВ╤ДОМЛЕННЯ]\n"
+#~ "or:    %s [OPTION] -s [╤ДЕНТИФ╤КАТОР_ПОВ╤ДОМЛЕННЯ]...\n"
+#~ msgstr ""
+#~ "Використання: %s [КЛЮЧ] [[ДОМЕН] ╤ДЕНТИФ╤КАТОР_ПОВ╤ДОМЛЕННЯ]\n"
+#~ "або:    %s [КЛЮЧ] -s [╤ДЕНТИФ╤КАТОР_ПОВ╤ДОМЛЕННЯ]...\n"

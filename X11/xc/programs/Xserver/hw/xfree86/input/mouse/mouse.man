@@ -1,4 +1,4 @@
-.\" $XFree86: xc/programs/Xserver/hw/xfree86/input/mouse/mouse.man,v 1.5 2002/12/17 20:55:21 dawes Exp $ 
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/input/mouse/mouse.man,v 1.7 2003/05/29 21:48:10 herrb Exp $ 
 .\" shorthand for double quote that works everywhere.
 .ds q \N'34'
 .TH MOUSE __drivermansuffix__ __vendorversion__
@@ -55,7 +55,7 @@ Specify the mouse protocol.  Valid protocol types include:
 .PP
 .RS 12
 Auto, Microsoft, MouseSystems, MMSeries, Logitech, MouseMan, MMHitTab,
-GlidePoint, IntelliMouse, ThinkingMouse, AceCad, PS/2, ImPS/2,
+GlidePoint, IntelliMouse, ThinkingMouse, ValuMouseScroll, AceCad, PS/2, ImPS/2,
 ExplorerPS/2, ThinkingMousePS/2, MouseManPlusPS/2, GlidePointPS/2,
 NetMousePS/2, NetScrollPS/2, BusMouse, SysMouse, WSMouse, USB, Xqueue.
 .RE
@@ -192,7 +192,7 @@ Default: whatever the mouse is already set to.
 .TP 7
 .BI "Option \*qDragLockButtons\*q \*q" "L1 B2 L3 B4" \*q
 Sets \*qdrag lock buttons\*q that simulate holding a button down, so
-that low dexterity people do not have to hold a buttton down at the
+that low dexterity people do not have to hold a button down at the
 same time they move a mouse cursor. Button numbers occur in pairs,
 with the lock button number occurring first, followed by the button
 number that is the target of the lock button.

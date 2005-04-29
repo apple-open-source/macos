@@ -1,11 +1,23 @@
 # This is a sample Perl module for the OpenLDAP server slapd.
+# $OpenLDAP: pkg/ldap/servers/slapd/back-perl/SampleLDAP.pm,v 1.5.2.3 2004/07/25 22:31:04 hyc Exp $
+## This work is part of OpenLDAP Software <http://www.openldap.org/>.
+##
+## Copyright 1998-2004 The OpenLDAP Foundation.
+## Portions Copyright 1999 John C. Quillan.
+## All rights reserved.
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted only as authorized by the OpenLDAP
+## Public License.
+##
+## A copy of this license is available in the file LICENSE in the
+## top-level directory of the distribution or, alternatively, at
+## <http://www.OpenLDAP.org/license.html>.
 #
-# $OpenLDAP: pkg/ldap/servers/slapd/back-perl/SampleLDAP.pm,v 1.3.2.2 2002/05/22 14:25:55 kurt Exp $
-#
-# Usage: Add something this to slapd.conf:
+# Usage: Add something like this to slapd.conf:
 #
 #	database	perl
-#	suffix		"o=AnyOrg, c=US"
+#	suffix		"o=AnyOrg,c=US"
 #	perlModulePath	/path/to/this/file
 #	perlModule	SampleLDAP
 

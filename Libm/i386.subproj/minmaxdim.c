@@ -43,9 +43,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #if defined(BUILDING_FOR_CARBONCORE_LEGACY)
 
 double fdim ( double x, double y )
@@ -131,9 +128,4 @@ float fmaf ( float x, float y, float z )
     return (x * y) + z;
 }
 #endif /* !BUILDING_FOR_CARBONCORE_LEGACY */
-
-#else       /* __APPLE_CC__ version */
-#error Version gcc-932 or higher required.  Compilation terminated.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */
 

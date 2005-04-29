@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/lib/Xft/Xft.h,v 1.32 2003/02/25 21:57:53 dawes Exp $
+ * $XFree86: xc/lib/Xft/Xft.h,v 1.33 2003/11/20 22:36:33 dawes Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
@@ -32,7 +32,8 @@
 #define XftVersion	XFT_VERSION
 
 #include <stdarg.h>
-#include <freetype/freetype.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 #include <fontconfig/fontconfig.h>
 #include <X11/extensions/Xrender.h>
 

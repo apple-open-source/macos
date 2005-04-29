@@ -60,7 +60,7 @@ setopt extendedglob cbases
 
 zmodload -i zsh/mathfunc
 
-local opt drain line quiet block read_fd all sess
+local opt drain line quiet block read_fd all sess key val noprint
 local -A read_fds
 read_fds=()
 float timeout timeout_all endtime
@@ -139,8 +139,12 @@ tcp_lines=()
 local helper_stat=2 skip tpat reply REPLY
 float newtimeout
 
-# Get extra accuracy by making SECONDS floating point locally
-typeset -F SECONDS
+if [[ ${(t)SECONDS} != float* ]]; then
+  # If called from another function, don't override
+  typeset -F TCP_SECONDS_START=$SECONDS
+  # Get extra accuracy by making SECONDS floating point locally
+  typeset -F SECONDS
+fi
 
 if (( timeout_all )); then
   (( endtime = SECONDS + timeout_all ))
@@ -186,7 +190,7 @@ while (( ${#read_fds} )); do
     print "[tcp_read: returned fds ${reply}]" >&2
   fi
   for read_fd in ${reply[2,-1]}; do
-    if ! read -r line <&$read_fd; then
+    if ! read -u $read_fd -r line; then
       unset "read_fds[$read_fd]"
       stat=1
       continue
@@ -194,11 +198,27 @@ while (( ${#read_fds} )); do
 
     helper_stat=0
     sess=${tcp_by_fd[$read_fd]}
-    tcp_output -P "${TCP_PROMPT:=<-[%s] }" -S $sess -F $read_fd \
-      ${TCP_SILENT:+-q} "$line"
+
+    # Handle user-defined triggers
+    noprint=${TCP_SILENT:+-q}
+    if (( ${+tcp_on_read} )); then
+      # Call the function given in the key for each matching value.
+      # It is this way round because function names must be
+      # unique, while patterns do not need to be.  Furthermore,
+      # this keeps the use of subscripting under control.
+      for key val in ${(kv)tcp_on_read}; do
+	if [[ $line = ${~val} ]]; then
+	  $key "$sess" "$line" || noprint=-q
+	fi
+      done
+    fi
+
+    tcp_output -P "${TCP_PROMPT=<-[%s] }" -S $sess -F $read_fd \
+        $noprint "$line"
     # REPLY is now set to the line with an appropriate prompt.
     tcp_lines+=($REPLY)
     TCP_LINE=$REPLY TCP_LINE_FD=$read_fd
+
     # Only handle one line from one device at a time unless draining.
     [[ -z $drain ]] && return $stat
   done

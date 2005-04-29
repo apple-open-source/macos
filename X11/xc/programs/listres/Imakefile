@@ -1,7 +1,11 @@
 XCOMM $XConsortium: Imakefile,v 1.14 93/08/17 21:15:52 rws Exp $
+
+
+
+XCOMM $XFree86: xc/programs/listres/Imakefile,v 1.2 2003/05/28 16:02:35 tsi Exp $
+
         DEPLIBS = XawClientDepLibs
 LOCAL_LIBRARIES = XawClientLibs
-  SYS_LIBRARIES = MathLibrary
            SRCS = listres.c 
            OBJS = listres.o 
 

@@ -1,3 +1,39 @@
+2003-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Propagate ORIGINAL_LD_FOR_MULTILIBS to
+	config.status.
+	* configure: Rebuilt.
+
+2003-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (multiosdir): Set to nothing if compiler is not GCC
+	or if it doesn't support -print-multi-os-directory.
+	* configure: Rebuilt.
+
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (toolexecdir, toolexeclibdir): Set and AC_SUBST.
+	Remove USE_LIBDIR conditional.
+	* Makefile.am (toolexecdir, toolexeclibdir): Don't override.
+	* Makefile.in, configure: Rebuilt.
+
+2002-09-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.am (all-multi): Fix multilib parallel build.
+
+2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Allow for PWDCMD to override hardcoded pwd.
+	* configure: Regenerate.
+
+	* ChangeLog: Move entries to ChangeLog.gcj.
+
+2002-05-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (ORIGINAL_LD_FOR_MULTILIBS): Preserve LD at
+	script entry, and set LD to it when configuring multilibs.
+	* configure: Rebuilt.
+
 2002-03-17  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* Makefile.am: Make target library a convenience library.
@@ -12,6 +48,12 @@
 	Fix for PR bootstrap/3281:
 	* configure, Makefile.in: Rebuilt.
 	* configure.in: Set mkinstalldirs, for in-tree build.
+
+2001-06-09  Alexandre Oliva  <aoliva@redhat.com>, Stephen L Moshier  <moshier@mediaone.net>
+
+	* configure.in (AC_EXEEXT): Work around in case it expands to
+	nothing, as in autoconf 2.50.
+	* configure: Rebuilt.
 
 2001-05-13  Alexandre Oliva  <aoliva@redhat.com>
 

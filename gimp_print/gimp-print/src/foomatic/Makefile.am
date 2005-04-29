@@ -1,4 +1,4 @@
-## $Id: Makefile.am,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+## $Id: Makefile.am,v 1.1.1.4 2004/12/22 23:49:34 jlovell Exp $
 ## Copyright (C) 2000 Roger Leigh
 ##
 ## This program is free software; you can redistribute it and/or modify
@@ -23,48 +23,40 @@ AUTOMAKE_OPTIONS = 1.4 gnu
 
 MAINT_CHARSET = latin1
 
+include $(top_srcdir)/scripts/global.mk
+
 
 ## Variables
 
-AM_CFLAGS = $(GNUCFLAGS)
-INCLUDES = @INCLUDES@ $(LIBGIMPPRINT_CFLAGS) -I$(top_srcdir)/src/main
-LIBPRINTUT = $(top_builddir)/lib/libprintut.la
-LIBS = $(INTLLIBS) @LIBS@
+DISTDIRS = foomatic-templates-ijs
+LOCAL_CPPFLAGS = $(GIMPPRINT_CFLAGS)
+
+if BUILD_FOOMATIC_3
+BUILD_FOOMATIC = 1
+endif
 
 
 ## Programs
 
-FOOMATIC_NOINST_BIN = printer_options printer_margins paper_sizes gimp-print-version \
-	stp_limits printers
-
-noinst_PROGRAMS = @FOOMATIC_NOINST_BIN@
-
-EXTRA_PROGRAMS = printer_options printer_margins gimp-print-version paper_sizes \
-	stp_limits printers
+if BUILD_FOOMATIC
+noinst_PROGRAMS = printer_options printer_margins paper_sizes gimp-print-version \
+	printers
+endif
 
 printer_options_SOURCES = printer_options.c
-printer_options_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
-printer_options_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+printer_options_LDADD = $(GIMPPRINT_LIBS)
 
 printer_margins_SOURCES = printer_margins.c
-printer_margins_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
-printer_margins_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+printer_margins_LDADD = $(GIMPPRINT_LIBS)
 
 gimp_print_version_SOURCES = gimp-print-version.c
-gimp_print_version_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
-gimp_print_version_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+gimp_print_version_LDADD = $(GIMPPRINT_LIBS)
 
 paper_sizes_SOURCES = paper_sizes.c
-paper_sizes_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
-paper_sizes_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
-
-stp_limits_SOURCES = stp_limits.c
-stp_limits_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
-stp_limits_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+paper_sizes_LDADD = $(GIMPPRINT_LIBS)
 
 printers_SOURCES = printers.c
-printers_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
-printers_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+printers_LDADD = $(GIMPPRINT_LIBS)
 
 
 ## Rules
@@ -81,22 +73,11 @@ else
 FOOMATIC_GENERATOR_FOOMATIC_3_OPTS =
 endif
 
-if BUILD_IJS
-FOOMATIC_GENERATOR_EXTRA_OPTS = -d all
-FOOMATIC_IJS = yes
-else
-FOOMATIC_GENERATOR_EXTRA_OPTS = -d noijs
-FOOMATIC_IJS =
-endif
-
 all-local: $(INSTALL_DATA_LOCAL_DEPS)
 
 install-data-local: $(INSTALL_DATA_LOCAL_DEPS)
 	if test -n "$(INSTALL_DATA_LOCAL_DEPS)" ; then \
-	  $(MAKE) install-kit FOOMATIC_DB=foomatic-db/gimp-print ; \
-	  if test -n "$(FOOMATIC_IJS)" ; then \
-	    $(MAKE) install-kit FOOMATIC_DB=foomatic-db/gimp-print-ijs ; \
-	  fi ; \
+	  $(MAKE) install-kit FOOMATIC_DB=foomatic-db/gimp-print-ijs ; \
 	fi
 
 install-kit:
@@ -112,22 +93,27 @@ clean-local:
 
 foomatic-data: foomatic-stamp
 
-foomatic-stamp: foomatic-generator foomatic-printermap $(EXTRA_PROGRAMS)
+foomatic-stamp: foomatic-generator foomatic-printermap $(noinst_PROGRAMS) mk_printerlist $(top_srcdir)/src/main/printers.xml $(top_srcdir)/src/main/papers.xml
 	-$(RM) -r foomatic-db
 	./foomatic-generator -m $(srcdir)/foomatic-printermap -t $(srcdir)/foomatic-templates $(FOOMATIC_GENERATOR_EXTRA_OPTS) $(FOOMATIC_GENERATOR_FOOMATIC_3_OPTS)
 	touch foomatic-stamp
 
-$(LIBGIMPPRINT_LIBS):
-	cd ../main ; \
-	$(MAKE)
+dist-hook:
+	for dir in $(DISTDIRS) ; do \
+	  if test -d $(srcdir)/$$dir ; then \
+	    mkdir $(distdir)/$$dir; \
+	    for dirfile in $(srcdir)/$$dir/*.xml; do \
+	      if test -f $$dirfile ; then \
+	        cp -p $$dirfile $(distdir)/$$dir; \
+	      fi \
+	    done \
+	  fi \
+	done
 
 
 ## Clean
 
-CLEANFILES = $(noinst_PROGRAMS) foomatic-stamp
+CLEANFILES = foomatic-stamp
 MAINTAINERCLEANFILES = Makefile.in
 
-EXTRA_DIST = foomatic-printermap 		\
-	foomatic-templates-gs/*.xml		\
-	foomatic-templates-ijs/*.xml
-
+EXTRA_DIST = foomatic-printermap

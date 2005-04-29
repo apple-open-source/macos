@@ -6,6 +6,12 @@
 
 #if defined (SERVER_SUPPORT) || defined (CLIENT_SUPPORT)
 
+#ifdef HAVE_WINSOCK_H
+# include <winsock.h>
+#else
+# include <sys/socket.h>
+#endif
+
 /* OS/2 doesn't have EIO.  FIXME: this whole notion of turning
    a different error into EIO strikes me as pretty dubious.  */
 #if !defined (EIO)
@@ -28,7 +34,7 @@ buf_initialize (input, output, flush, block, shutdown, memory, closure)
      int (*output) PROTO((void *, const char *, int, int *));
      int (*flush) PROTO((void *));
      int (*block) PROTO((void *, int));
-     int (*shutdown) PROTO((void *));
+     int (*shutdown) PROTO((struct buffer *));
      void (*memory) PROTO((struct buffer *));
      void *closure;
 {
@@ -54,6 +60,11 @@ void
 buf_free (buf)
      struct buffer *buf;
 {
+    if (buf->closure != NULL)
+    {
+	free (buf->closure);
+	buf->closure = NULL;
+    }
     if (buf->data != NULL)
     {
 	buf->last->next = free_buffer_data;
@@ -73,7 +84,7 @@ buf_nonio_initialize (memory)
 	     (int (*) PROTO((void *, const char *, int, int *))) NULL,
 	     (int (*) PROTO((void *))) NULL,
 	     (int (*) PROTO((void *, int))) NULL,
-	     (int (*) PROTO((void *))) NULL,
+	     (int (*) PROTO((struct buffer *))) NULL,
 	     memory,
 	     (void *) NULL));
 }
@@ -100,7 +111,7 @@ allocate_buffer_datas ()
 #define ALLOC_COUNT (16)
 
     alc = ((struct buffer_data *)
-	   malloc (ALLOC_COUNT * sizeof (struct buffer_data)));
+	   xmalloc (ALLOC_COUNT * sizeof (struct buffer_data)));
     space = (char *) valloc (ALLOC_COUNT * BUFFER_DATA_SIZE);
     if (alc == NULL || space == NULL)
 	return;
@@ -131,8 +142,23 @@ get_buffer_data ()
     return ret;
 }
 
-/* See whether a buffer is empty.  */
 
+
+/* See whether a buffer and its file descriptor is empty.  */
+int
+buf_empty (buf)
+    struct buffer *buf;
+{
+	/* Try and read any data on the file descriptor first.
+	 * We already know the descriptor is non-blocking.
+	 */
+	buf_input_data (buf, NULL);
+	return buf_empty_p (buf);
+}
+
+
+
+/* See whether a buffer is empty.  */
 int
 buf_empty_p (buf)
     struct buffer *buf;
@@ -145,10 +171,12 @@ buf_empty_p (buf)
     return 1;
 }
 
+
+
 #ifdef SERVER_FLOWCONTROL
 /*
  * Count how much data is stored in the buffer..
- * Note that each buffer is a malloc'ed chunk BUFFER_DATA_SIZE.
+ * Note that each buffer is a xmalloc'ed chunk BUFFER_DATA_SIZE.
  */
 
 int
@@ -788,7 +816,7 @@ buf_read_line (buf, line, lenp)
 	    char *p;
 	    struct buffer_data *nldata;
 
-	    p = malloc (len + 1);
+	    p = xmalloc (len + 1);
 	    if (p == NULL)
 		return -2;
 	    *line = p;
@@ -1198,9 +1226,11 @@ buf_shutdown (buf)
      struct buffer *buf;
 {
     if (buf->shutdown)
-	return (*buf->shutdown) (buf->closure);
+	return (*buf->shutdown) (buf);
     return 0;
 }
+
+
 
 /* The simplest type of buffer is one built on top of a stdio FILE.
    For simplicity, and because it is all that is required, we do not
@@ -1210,22 +1240,52 @@ buf_shutdown (buf)
 static int stdio_buffer_input PROTO((void *, char *, int, int, int *));
 static int stdio_buffer_output PROTO((void *, const char *, int, int *));
 static int stdio_buffer_flush PROTO((void *));
+static int stdio_buffer_shutdown PROTO((struct buffer *buf));
+
+
 
 /* Initialize a buffer built on a stdio FILE.  */
+struct stdio_buffer_closure
+{
+    FILE *fp;
+    int child_pid;
+};
+
+
 
 struct buffer *
-stdio_buffer_initialize (fp, input, memory)
+stdio_buffer_initialize (fp, child_pid, input, memory)
      FILE *fp;
+     int child_pid;
      int input;
      void (*memory) PROTO((struct buffer *));
 {
+    struct stdio_buffer_closure *bc = xmalloc (sizeof (*bc));
+
+    bc->fp = fp;
+    bc->child_pid = child_pid;
+
     return buf_initialize (input ? stdio_buffer_input : NULL,
 			   input ? NULL : stdio_buffer_output,
 			   input ? NULL : stdio_buffer_flush,
 			   (int (*) PROTO((void *, int))) NULL,
-			   (int (*) PROTO((void *))) NULL,
+			   stdio_buffer_shutdown,
 			   memory,
-			   (void *) fp);
+			   (void *) bc);
+}
+
+/* Return the file associated with a stdio buffer. */
+FILE *
+stdio_buffer_get_file (buf)
+    struct buffer *buf;
+{
+    struct stdio_buffer_closure *bc;
+
+    assert(buf->shutdown == stdio_buffer_shutdown);
+
+    bc = (struct stdio_buffer_closure *) buf->closure;
+
+    return(bc->fp);
 }
 
 /* The buffer input function for a buffer built on a stdio FILE.  */
@@ -1238,7 +1298,7 @@ stdio_buffer_input (closure, data, need, size, got)
      int size;
      int *got;
 {
-    FILE *fp = (FILE *) closure;
+    struct stdio_buffer_closure *bc = (struct stdio_buffer_closure *) closure;
     int nbytes;
 
     /* Since stdio does its own buffering, we don't worry about
@@ -1248,11 +1308,11 @@ stdio_buffer_input (closure, data, need, size, got)
     {
         int ch;
 
-	ch = getc (fp);
+	ch = getc (bc->fp);
 
 	if (ch == EOF)
 	{
-	    if (feof (fp))
+	    if (feof (bc->fp))
 		return -1;
 	    else if (errno == 0)
 		return EIO;
@@ -1265,12 +1325,12 @@ stdio_buffer_input (closure, data, need, size, got)
 	return 0;
     }
 
-    nbytes = fread (data, 1, need, fp);
+    nbytes = fread (data, 1, need, bc->fp);
 
     if (nbytes == 0)
     {
 	*got = 0;
-	if (feof (fp))
+	if (feof (bc->fp))
 	    return -1;
 	else if (errno == 0)
 	    return EIO;
@@ -1292,7 +1352,7 @@ stdio_buffer_output (closure, data, have, wrote)
      int have;
      int *wrote;
 {
-    FILE *fp = (FILE *) closure;
+    struct stdio_buffer_closure *bc = (struct stdio_buffer_closure *) closure;
 
     *wrote = 0;
 
@@ -1300,7 +1360,7 @@ stdio_buffer_output (closure, data, have, wrote)
     {
 	int nbytes;
 
-	nbytes = fwrite (data, 1, have, fp);
+	nbytes = fwrite (data, 1, have, bc->fp);
 
 	if (nbytes != have)
 	{
@@ -1318,15 +1378,16 @@ stdio_buffer_output (closure, data, have, wrote)
     return 0;
 }
 
-/* The buffer flush function for a buffer built on a stdio FILE.  */
 
+
+/* The buffer flush function for a buffer built on a stdio FILE.  */
 static int
 stdio_buffer_flush (closure)
      void *closure;
 {
-    FILE *fp = (FILE *) closure;
+    struct stdio_buffer_closure *bc = (struct stdio_buffer_closure *) closure;
 
-    if (fflush (fp) != 0)
+    if (fflush (bc->fp) != 0)
     {
 	if (errno == 0)
 	    return EIO;
@@ -1336,6 +1397,115 @@ stdio_buffer_flush (closure)
 
     return 0;
 }
+
+
+
+static int
+stdio_buffer_shutdown (buf)
+    struct buffer *buf;
+{
+    struct stdio_buffer_closure *bc = buf->closure;
+    struct stat s;
+    int closefp = 1;
+
+    /* Must be a pipe or a socket.  What could go wrong? */
+    assert (fstat (fileno (bc->fp), &s) != -1);
+
+    /* Flush the buffer if we can */
+    if (buf->flush)
+    {
+	buf_flush (buf, 1);
+	buf->flush = NULL;
+    }
+
+    if (buf->input)
+    {
+	/* There used to be a check here for unread data in the buffer of on
+	 * the pipe, but it was deemed unnecessary and possibly dangerous.  In
+	 * some sense it could be second-guessing the caller who requested it
+	 * closed, as well.
+	 */
+
+# ifdef SHUTDOWN_SERVER
+	if (current_parsed_root->method != server_method)
+# endif
+# ifndef NO_SOCKET_TO_FD
+	{
+	    /* shutdown() sockets */
+	    if (S_ISSOCK (s.st_mode))
+		shutdown (fileno (bc->fp), 0);
+	}
+# endif /* NO_SOCKET_TO_FD */
+# ifdef START_RSH_WITH_POPEN_RW
+	/* Can't be set with SHUTDOWN_SERVER defined */
+	else if (pclose (bc->fp) == EOF)
+	{
+	    error (1, errno, "closing connection to %s",
+		   current_parsed_root->hostname);
+	    closefp = 0;
+	}
+# endif /* START_RSH_WITH_POPEN_RW */
+
+	buf->input = NULL;
+    }
+    else if (buf->output)
+    {
+# ifdef SHUTDOWN_SERVER
+	/* FIXME:  Should have a SHUTDOWN_SERVER_INPUT &
+	 * SHUTDOWN_SERVER_OUTPUT
+	 */
+	if (current_parsed_root->method == server_method)
+	    SHUTDOWN_SERVER (fileno (bc->fp));
+	else
+# endif
+# ifndef NO_SOCKET_TO_FD
+	/* shutdown() sockets */
+	if (S_ISSOCK (s.st_mode))
+	    shutdown (fileno (bc->fp), 1);
+# else
+	{
+	/* I'm not sure I like this empty block, but the alternative
+	 * is a another nested NO_SOCKET_TO_FD switch above.
+	 */
+	}
+# endif /* NO_SOCKET_TO_FD */
+
+	buf->output = NULL;
+    }
+
+    if (closefp && fclose (bc->fp) == EOF)
+    {
+	if (0
+# ifdef SERVER_SUPPORT
+	    || server_active
+# endif /* SERVER_SUPPORT */
+           )
+	{
+            /* Syslog this? */
+	}
+# ifdef CLIENT_SUPPORT
+	else
+            error (1, errno,
+                   "closing down connection to %s",
+                   current_parsed_root->hostname);
+# endif /* CLIENT_SUPPORT */
+    }
+
+    /* If we were talking to a process, make sure it exited */
+    if (bc->child_pid)
+    {
+	int w;
+
+	do
+	    w = waitpid (bc->child_pid, (int *) 0, 0);
+	while (w == -1 && errno == EINTR);
+	if (w == -1)
+	    error (1, errno, "waiting for process %d", bc->child_pid);
+    }
+    return 0;
+}
+
+
 
 /* Certain types of communication input and output data in packets,
    where each packet is translated in some fashion.  The packetizing
@@ -1398,7 +1568,7 @@ static int packetizing_buffer_input PROTO((void *, char *, int, int, int *));
 static int packetizing_buffer_output PROTO((void *, const char *, int, int *));
 static int packetizing_buffer_flush PROTO((void *));
 static int packetizing_buffer_block PROTO((void *, int));
-static int packetizing_buffer_shutdown PROTO((void *));
+static int packetizing_buffer_shutdown PROTO((struct buffer *));
 
 /* Create a packetizing buffer.  */
 
@@ -1535,7 +1705,7 @@ packetizing_buffer_input (closure, data, need, size, got)
 	    /* We didn't allocate enough space in the initialize
                function.  */
 
-	    n = realloc (pb->holdbuf, count + 2);
+	    n = xrealloc (pb->holdbuf, count + 2);
 	    if (n == NULL)
 	    {
 		(*pb->buf->memory_error) (pb->buf);
@@ -1597,7 +1767,7 @@ packetizing_buffer_input (closure, data, need, size, got)
 	    outbuf = stackoutbuf;
 	else
 	{
-	    outbuf = malloc (count);
+	    outbuf = xmalloc (count);
 	    if (outbuf == NULL)
 	    {
 		(*pb->buf->memory_error) (pb->buf);
@@ -1669,7 +1839,7 @@ packetizing_buffer_output (closure, data, have, wrote)
 
     if (have > BUFFER_DATA_SIZE)
     {
-	/* It would be easy to malloc a buffer, but I don't think this
+	/* It would be easy to xmalloc a buffer, but I don't think this
            case can ever arise.  */
 	abort ();
     }
@@ -1730,8 +1900,9 @@ packetizing_buffer_output (closure, data, have, wrote)
     return buf_send_output (pb->buf);
 }
 
-/* Flush data to a packetizing buffer.  */
 
+
+/* Flush data to a packetizing buffer.  */
 static int
 packetizing_buffer_flush (closure)
      void *closure;
@@ -1745,8 +1916,9 @@ packetizing_buffer_flush (closure)
     return buf_flush (pb->buf, 0);
 }
 
-/* The block routine for a packetizing buffer.  */
 
+
+/* The block routine for a packetizing buffer.  */
 static int
 packetizing_buffer_block (closure, block)
      void *closure;
@@ -1763,10 +1935,10 @@ packetizing_buffer_block (closure, block)
 /* Shut down a packetizing buffer.  */
 
 static int
-packetizing_buffer_shutdown (closure)
-     void *closure;
+packetizing_buffer_shutdown (buf)
+    struct buffer *buf;
 {
-    struct packetizing_buffer *pb = (struct packetizing_buffer *) closure;
+    struct packetizing_buffer *pb = (struct packetizing_buffer *) buf->closure;
 
     return buf_shutdown (pb->buf);
 }

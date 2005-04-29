@@ -27,6 +27,8 @@
 #include <sys/syslog.h>
 #include <sys/socketvar.h>
 #include <sys/protosw.h>
+#include <kern/locks.h>
+
 
 #include <net/dlil.h>
 
@@ -37,6 +39,7 @@
 #include "pppoe_rfc.h"
 #include "pppoe_dlil.h"
 
+extern struct ifnet* ifbyfamily(u_long family, short unit);
 
 /* -----------------------------------------------------------------------------
 Definitions
@@ -45,21 +48,23 @@ Definitions
 struct pppoe_if {
     TAILQ_ENTRY(pppoe_if) next;
     u_short          	unit;
-    u_short		refcnt;
-    u_long	    	dl_tag;
+    u_short				refcnt;
+    ifnet_t				ifp;
 };
 
 /* -----------------------------------------------------------------------------
 Declarations
 ----------------------------------------------------------------------------- */
-int pppoe_dlil_input(struct mbuf *m, char *frame_header, struct ifnet *ifp,
-                     u_long dl_tag, int sync_ok);
-int pppoe_dlil_pre_output(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *dst_netaddr,
-                          caddr_t route, char *type, char *edst, u_long dl_tag );
-int pppoe_dlil_event();
-int pppoe_dlil_ioctl(u_long dl_tag, struct ifnet *ifp, u_long command, caddr_t data);
-void pppoe_dlil_kern_event(struct socket* so, caddr_t ref, int waitf);
-void pppoe_dlil_detaching(u_int16_t unit);
+static errno_t pppoe_dlil_input(ifnet_t ifp, protocol_family_t protocol,
+									 mbuf_t packet, char* header);
+static errno_t pppoe_dlil_pre_output(ifnet_t ifp, protocol_family_t protocol,
+									  mbuf_t *packet, const struct sockaddr *dest,
+									  void *route, char *frame_type, char *link_layer_dest);
+static void pppoe_dlil_event(ifnet_t ifp, protocol_family_t protocol,
+								  const struct kev_msg *event);
+static errno_t pppoe_dlil_ioctl(ifnet_t ifp, protocol_family_t protocol,
+									 u_int32_t command, void* argument);
+static void pppoe_dlil_detaching(u_int16_t unit);
 
 
 /* -----------------------------------------------------------------------------
@@ -67,53 +72,16 @@ Globals
 ----------------------------------------------------------------------------- */
 
 TAILQ_HEAD(, pppoe_if) 	pppoe_if_head;
-static struct socket	*pppoe_evt_so;
-int	event_socket;
+extern lck_mtx_t		*ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 intialize pppoe datalink attachment strutures
 ----------------------------------------------------------------------------- */
 int pppoe_dlil_init()
 {
-    int 		err;
-    struct kev_request 	kev;
 
     TAILQ_INIT(&pppoe_if_head);
-    
-    pppoe_evt_so = 0;
-    
-    /* Create a PF_SYSTEM socket so we can listen for events */
-    err = socreate(PF_SYSTEM, &pppoe_evt_so, SOCK_RAW, SYSPROTO_EVENT);
-    if (err || (pppoe_evt_so == NULL)) {
-        /*
-         * We will not get attaching or detaching events in this case.
-         * We should probably prevent any sockets from binding so we won't
-         * panic later if the interface goes away.
-         */
-        log(LOG_INFO, "pppoe_dlil_init: cannot create socket event, error = %d\n", err);
-        return 0;	// still return OK
-    }
-    
-    /* Install a callback function for the socket */
-    pppoe_evt_so->so_rcv.sb_flags |= SB_NOTIFY|SB_UPCALL;
-    pppoe_evt_so->so_upcall = pppoe_dlil_kern_event;
-    pppoe_evt_so->so_upcallarg = NULL;
-    
-    /* Configure the socket to receive the events we're interested in */
-    kev.vendor_code = KEV_VENDOR_APPLE;
-    kev.kev_class = KEV_NETWORK_CLASS;
-    kev.kev_subclass = KEV_DL_SUBCLASS;
-    err = pppoe_evt_so->so_proto->pr_usrreqs->pru_control(pppoe_evt_so, SIOCSKEVFILT, (caddr_t)&kev, 0, 0);
-    if (err) {
-        /*
-         * We will not get attaching or detaching events in this case.
-         * We should probably prevent any sockets from binding so we won't
-         * panic later if the interface goes away.
-         */
-        log(LOG_INFO, "pppoe_dlil_init: cannot set event filter, error = %d\n", err);
-        return 0;	// still return OK
-    }
-
+        
     return 0;
 }
 
@@ -126,29 +94,27 @@ int pppoe_dlil_dispose()
     if (!TAILQ_EMPTY(&pppoe_if_head))
         return 1;
         
-    if (pppoe_evt_so) {
-        soclose(pppoe_evt_so);
-        pppoe_evt_so = 0;
-    }
     return 0;
 }
 
 /* -----------------------------------------------------------------------------
 attach pppoe to ethernet unit
-returns 0 and the dl_tag when successfully attached
+returns 0 and the ifp when successfully attached
 ----------------------------------------------------------------------------- */
-int pppoe_dlil_attach(u_short unit, u_long *dl_tag)
+int pppoe_dlil_attach(u_short unit, ifnet_t *ifpp)
 {
-    struct pppoe_if  		*pppoeif;
-    int				ret;
-    struct dlil_proto_reg_str   reg;
-    struct dlil_demux_desc      desc, desc2;
-    u_int16_t			ctrl_protocol = PPPOE_ETHERTYPE_CTRL;
-    u_int16_t			data_protocol = PPPOE_ETHERTYPE_DATA;
+    struct pppoe_if  	*pppoeif;
+	ifnet_t				ifp;
+    int					ret;
+	char				ifname[20];
+    struct ifnet_attach_proto_param		reg;
+	struct ifnet_demux_desc				desc[2];
+    u_int16_t			ctrl_protocol = htons(PPPOE_ETHERTYPE_CTRL);
+    u_int16_t			data_protocol = htons(PPPOE_ETHERTYPE_DATA);
     
     TAILQ_FOREACH(pppoeif, &pppoe_if_head, next) {
         if (pppoeif->unit == unit) {
-            *dl_tag = pppoeif->dl_tag;
+            *ifpp = pppoeif->ifp;
             pppoeif->refcnt++;
             return 0;
         }
@@ -156,42 +122,50 @@ int pppoe_dlil_attach(u_short unit, u_long *dl_tag)
 
     MALLOC(pppoeif, struct pppoe_if *, sizeof(struct pppoe_if), M_TEMP, M_WAITOK);
     if (!pppoeif) {
-        log(LOG_INFO, "pppoe_dlil_attach : Can't allocate attachment structure\n");
+        log(LOGVAL, "pppoe_dlil_attach : Can't allocate attachment structure\n");
+        return 1;
+    }
+	sprintf(ifname, "en%d", unit);
+	
+    if (ifnet_find_by_name(ifname, &ifp)) {
+        log(LOGVAL, "pppoe_dlil_attach : Can't find interface unit %d\n", unit);
         return 1;
     }
 
-    bzero(&reg, sizeof(struct dlil_proto_reg_str));
+    bzero(&reg, sizeof(struct ifnet_attach_proto_param));
     
     // define demux for PPPoE
-    TAILQ_INIT(&reg.demux_desc_head);
-    bzero(&desc, sizeof(struct dlil_demux_desc));
-    desc.type = DLIL_DESC_RAW;
-    desc.native_type = (char *) &ctrl_protocol;
-    TAILQ_INSERT_TAIL(&reg.demux_desc_head, &desc, next);
-    desc2 = desc;
-    desc2.native_type = (char *) &data_protocol;
-    TAILQ_INSERT_TAIL(&reg.demux_desc_head, &desc2, next);
-    
-    reg.interface_family = APPLE_IF_FAM_ETHERNET;
-    reg.protocol_family  = PF_PPP;
-    reg.unit_number      = unit;
+    desc[0].type = DLIL_DESC_ETYPE2;
+    desc[0].data = (char *)&ctrl_protocol;
+	desc[0].datalen = sizeof(ctrl_protocol);
+    desc[1].type = DLIL_DESC_ETYPE2;
+    desc[1].data = (char *)&data_protocol;
+	desc[1].datalen = sizeof(data_protocol);
+	
+    reg.demux_list		 = desc;
+    reg.demux_count		 = 2;	
     reg.input            = pppoe_dlil_input;
     reg.pre_output       = pppoe_dlil_pre_output;
     reg.event            = pppoe_dlil_event;
     reg.ioctl            = pppoe_dlil_ioctl;
 
-    ret = dlil_attach_protocol(&reg, dl_tag);
+	lck_mtx_unlock(ppp_domain_mutex);
+	ret = ifnet_attach_protocol(ifp, PF_PPP, &reg);
     if (ret) {
-        log(LOG_INFO, "pppoe_dlil_attach: error = 0 x%x\n", ret);
+		lck_mtx_lock(ppp_domain_mutex);
+        log(LOGVAL, "pppoe_dlil_attach: error = 0x%x\n", ret);
+		ifnet_release(ifp);
         FREE(pppoeif, M_TEMP);
         return ret;
     }
 
     bzero(pppoeif, sizeof(struct pppoe_if));
-
+	
+	lck_mtx_lock(ppp_domain_mutex);
+	pppoeif->ifp = ifp;
     pppoeif->unit = unit;
-    pppoeif->dl_tag = *dl_tag;
     pppoeif->refcnt = 1;
+	*ifpp = pppoeif->ifp;
 
     TAILQ_INSERT_TAIL(&pppoe_if_head, pppoeif, next);
     return 0;
@@ -200,18 +174,21 @@ int pppoe_dlil_attach(u_short unit, u_long *dl_tag)
 /* -----------------------------------------------------------------------------
 detach pppoe from ethernet unit
 ----------------------------------------------------------------------------- */
-int pppoe_dlil_detach(u_long dl_tag)
+int pppoe_dlil_detach(ifnet_t ifp)
 {
     struct pppoe_if  	*pppoeif;
     
-    if (dl_tag == 0)
+    if (ifp == 0)
         return 0;
 
     TAILQ_FOREACH(pppoeif, &pppoe_if_head, next) {
-        if (pppoeif->dl_tag == dl_tag) {
+        if (pppoeif->ifp == ifp) {
             pppoeif->refcnt--;
             if (pppoeif->refcnt == 0) {
-                dlil_detach_protocol(pppoeif->dl_tag);
+				lck_mtx_unlock(ppp_domain_mutex);
+                ifnet_detach_protocol(ifp, PF_PPP);
+				ifnet_release(ifp);
+				lck_mtx_lock(ppp_domain_mutex);
                 TAILQ_REMOVE(&pppoe_if_head, pppoeif, next);
                 FREE(pppoeif, M_TEMP);
             }
@@ -223,74 +200,43 @@ int pppoe_dlil_detach(u_long dl_tag)
 }
 
 /* -----------------------------------------------------------------------------
-upcall function for kernel events
------------------------------------------------------------------------------ */
-void pppoe_dlil_kern_event(struct socket* so, caddr_t ref, int waitf)
-{
-    struct mbuf 		*m = NULL;
-    struct kern_event_msg 	*msg;
-    struct uio 			auio = { 0 };
-    int 			err, flags;
-    struct net_event_data 	*ev_data;
-    
-    // Get the data
-    auio.uio_resid = 1000000; // large number to get all of the data
-    flags = MSG_DONTWAIT;
-    err = soreceive(so, 0, &auio, &m, 0, &flags);
-    if (err || (m == NULL))
-        return;
-    
-    // cast the mbuf to a kern_event_msg
-    // this is dangerous, doesn't handle linked mbufs
-    msg = mtod(m, struct kern_event_msg *);
-    
-    // check for detaching, assume even filtering is working
-    if (msg->event_code == KEV_DL_IF_DETACHING) {
-        
-        ev_data = (struct net_event_data*)msg->event_data;
-
-        if (ev_data->if_family == APPLE_IF_FAM_ETHERNET)
-            pppoe_dlil_detaching(ev_data->if_unit);
-    }
-    
-    m_free(m);
-}
-
-/* -----------------------------------------------------------------------------
 ethernet unit wants to detach
 ----------------------------------------------------------------------------- */
 void pppoe_dlil_detaching(u_int16_t unit)
 {
     struct pppoe_if  	*pppoeif;
+	
+	lck_mtx_lock(ppp_domain_mutex);
 
     TAILQ_FOREACH(pppoeif, &pppoe_if_head, next) {
         if (pppoeif->unit == unit) {
-            pppoe_rfc_lower_detaching(pppoeif->dl_tag);
+            pppoe_rfc_lower_detaching(pppoeif->ifp);
             break;
         }
     }
+	lck_mtx_unlock(ppp_domain_mutex);
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int pppoe_dlil_pre_output(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *dst_netaddr,
-                          caddr_t route, char *type, char *edst, u_long dl_tag )
+errno_t pppoe_dlil_pre_output(ifnet_t ifp, protocol_family_t protocol,
+									  mbuf_t *packet, const struct sockaddr *dest,
+									  void *route, char *frame_type, char *link_layer_dest)
 {
 
     struct ether_header 	*eh;
 
-    //log(LOGVAL, "pppenet_pre_output, ifp = 0x%x, dl_tag = 0x%x\n", ifp, dl_tag);
+    //log(LOGVAL, "pppenet_pre_output, ifp = 0x%x\n", ifp);
 
     // fill in expected type and dst from previously set dst_netaddr
     // looks complicated to me
-    eh = (struct ether_header *)dst_netaddr->sa_data;
+    eh = (struct ether_header *)dest->sa_data;
 
+    bcopy(eh->ether_dhost, link_layer_dest, sizeof(eh->ether_dhost));
+    *(u_int16_t *)frame_type = eh->ether_type;
 
-    memcpy(edst, eh->ether_dhost, sizeof(eh->ether_dhost));
-    *(u_int16_t *)type = eh->ether_type;
-
-    //log(LOGVAL, "addr = 0x%x%x%x%x%x%x, type = 0x%lx\n", edst[0], edst[1],
-    //    edst[2], edst[3], edst[4], edst[5], *type);
+    //log(LOGVAL, "pppoe_dlil_pre_output ifname %s%d, addr = 0x%x:%x:%x:%x:%x:%x, frame_type = 0x%lx\n", ifnet_name(ifp), ifnet_unit(ifp), link_layer_dest[0], link_layer_dest[1],
+    //    link_layer_dest[2], link_layer_dest[3], link_layer_dest[4], link_layer_dest[5], *(u_int16_t *)frame_type);
 
     return 0;
 }
@@ -298,20 +244,32 @@ int pppoe_dlil_pre_output(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *
 /* -----------------------------------------------------------------------------
  should handle network up/down...
 ----------------------------------------------------------------------------- */
-int  pppoe_dlil_event()
+void pppoe_dlil_event(ifnet_t ifp, protocol_family_t protocol,
+								  const struct kev_msg *event)
 {
+    struct net_event_data 	*ev_data;
+        
+    // check for detaching
+    if (event->vendor_code == KEV_VENDOR_APPLE
+		&& event->kev_class == KEV_NETWORK_CLASS
+		&& event->kev_subclass == KEV_DL_SUBCLASS
+		&& event->event_code == KEV_DL_IF_DETACHING) {
+        
+        ev_data = (struct net_event_data*)event->dv[0].data_ptr;
 
-    log(LOGVAL, "pppoe_dlil_event\n");
-    return 0;
+        if (ev_data->if_family == APPLE_IF_FAM_ETHERNET)
+            pppoe_dlil_detaching(ev_data->if_unit);
+    }
 }
 
 /* -----------------------------------------------------------------------------
 pppoe specific ioctl, nothing defined
 ----------------------------------------------------------------------------- */
-int pppoe_dlil_ioctl(u_long dl_tag, struct ifnet *ifp, u_long command, caddr_t data)
+errno_t pppoe_dlil_ioctl(ifnet_t ifp, protocol_family_t protocol,
+									 u_int32_t command, void* argument)
 {
     
-    log(LOGVAL, "pppoe_dlil_ioctl, dl_tag = 0x%x\n", dl_tag);
+    //log(LOGVAL, "pppoe_dlil_ioctl, ifp = %s%n\n", ifnet_name(ifp), ifnet_unit(ifp));
     return 0;
 }
 
@@ -321,15 +279,14 @@ int pppoe_dlil_ioctl(u_long dl_tag, struct ifnet *ifp, u_long command, caddr_t d
 * the packet is in the mbuf chain m without
 * the ether header, which is provided separately.
 ----------------------------------------------------------------------------- */
-int pppoe_dlil_input(struct mbuf *m, char *frame_header, struct ifnet *ifp,
-                     u_long dl_tag, int sync_ok)
+errno_t pppoe_dlil_input(ifnet_t ifp, protocol_family_t protocol,
+									 mbuf_t packet, char* header)
 {
-
     //unsigned char *p = frame_header;
     //unsigned char *data;
-    struct ether_header *eh = (struct ether_header *)frame_header;
+    struct ether_header *eh = (struct ether_header *)header;
 
-    //log(LOGVAL, "pppenet_input, dl_tag = 0x%x\n", dl_tag);
+    //log(LOGVAL, "pppenet_input, ifp = %s%d\n", ifp->if_name, ifp->if_unit);
     //log(LOGVAL, "pppenet_input: enet_header dst : %x:%x:%x:%x:%x:%x - src %x:%x:%x:%x:%x:%x - type - %4x\n",
         //p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],p[9],p[10],p[11],ntohs(*(u_int16_t *)&p[12]));
 
@@ -338,10 +295,12 @@ int pppoe_dlil_input(struct mbuf *m, char *frame_header, struct ifnet *ifp,
     //log(LOGVAL, "pppenet_input: data 0x %x %x %x %x %x %x\n",
     //    data[0],data[1],data[2],data[3],data[4],data[5]);
 
-    // only the dl_tag discriminate client at this point
+    // only the ifp discriminate client at this point
     // pppoe will have to look at the session id to select the appropriate socket
 
-    pppoe_rfc_lower_input(dl_tag, m, frame_header + ETHER_ADDR_LEN, ntohs(eh->ether_type));
+	lck_mtx_lock(ppp_domain_mutex);
+    pppoe_rfc_lower_input(ifp, packet, header + ETHER_ADDR_LEN, ntohs(eh->ether_type));
+	lck_mtx_unlock(ppp_domain_mutex);
 
     return 0;
 }
@@ -349,18 +308,20 @@ int pppoe_dlil_input(struct mbuf *m, char *frame_header, struct ifnet *ifp,
 /* -----------------------------------------------------------------------------
 called from pppenet_proto when data need to be sent
 ----------------------------------------------------------------------------- */
-int pppoe_dlil_output(u_long dl_tag, struct mbuf *m, u_int8_t *to, u_int16_t typ)
+int pppoe_dlil_output(ifnet_t ifp, mbuf_t m, u_int8_t *to, u_int16_t typ)
 {
     struct ether_header 	*eh;
     struct sockaddr 		sa;
 
     eh = (struct ether_header *)sa.sa_data;
-    (void)memcpy(eh->ether_dhost, to, sizeof(eh->ether_dhost));
+    (void)bcopy(to, eh->ether_dhost, sizeof(eh->ether_dhost));
     eh->ether_type = htons(typ);
     sa.sa_family = AF_UNSPEC;
     sa.sa_len = sizeof(sa);
 
-    dlil_output(dl_tag, m, 0, &sa, 0);
+	lck_mtx_unlock(ppp_domain_mutex);
+    ifnet_output(ifp, PF_PPP, m, 0, &sa);
+	lck_mtx_lock(ppp_domain_mutex);
     return 0;
 }
 

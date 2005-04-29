@@ -1,5 +1,5 @@
 #
-#  $Id: AUTHORS,v 1.1.1.2 2002/04/30 00:40:19 miner Exp $
+#  $Id: AUTHORS,v 1.2 2004/08/10 22:20:18 luesang Exp $
 #
 #  List of Authors/Contributers
 #
@@ -30,6 +30,12 @@ Emmanuel Poitier <epoitier@openlinksw.co.uk>				(ep)
 
 Christian Hammers <ch@debian.org>					(ch)
   - Maintainer of iODBC packaging for the Debian project
+
+Sergei Malinin <smalinin@openlinksw.com>				(sm)
+  - Added Unicode support
+
+Tim Haynes <webmaster{at}iodbc.org>					(th)
+  - Maintainer iODBC.org web site
 
 
 This list is not complete. If you have contributed to this project and

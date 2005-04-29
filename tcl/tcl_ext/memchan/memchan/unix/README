@@ -1,0 +1,15 @@
+
+		Memory Channels in Tcl
+		(Version @mFullVersion@ / @mDate@)
+
+		Andreas Kupries	(a.kupries@westend.com)
+
+This is the README file for the Unix version of the Memchan extension.
+
+Please follow the instructions in the HTML file
+
+	doc/html/memchan_cunix.html
+
+for compilation and installation of this package.
+
+After that, enjoy it.

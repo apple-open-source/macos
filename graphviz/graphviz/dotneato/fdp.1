@@ -1,0 +1,101 @@
+.TH FDP 1 "1 April 2003"
+.SH NAME
+fdp \- filter for drawing undirected graphs
+.SH SYNOPSIS
+\fBfdp\fR [\fB\-G\fIname=value\fR]
+[\fB\-N\fIname=value\fR]
+[\-E\fIname=value\fR]
+[\fB\-T\fIlang\fR]
+[\fB\-l \fIlibfile\fR]
+[\fB\-o \fIoutfile\fR]
+[\fB\-v\fR]
+[files]
+.SH DESCRIPTION
+.I fdp
+draws undirected graphs using a ``spring'' model. It relies on a
+force-directed approach in the spirit of Fruchterman and Reingold
+(cf. Software-Practice & Experience 21(11), 1991, pp. 1129-1164).
+Input files must be formatted in the
+.I dot
+attributed graph language.
+By default, the output of
+.I fdp
+is the input graph with layout coordinates appended.
+To make Postscript, use the \fB\-Tps\fP option.
+FrameMaker MIF (\fB-Tmif\fP), HPGL (\fB-Thpgl\fP),
+JPEG (\fB-Tjpg\fP and GIF (\fB-Tgif\fP) are other choices.
+.PP
+Here is a brief synopsis of the graph language.
+.PP
+\fBgraph \fIname\fP { \fIstatement-list\fP }\fR
+.PP
+declares a top level graph. Statements may be:
+.PP
+\fIname\fB=\fIval\fB;\fR
+.br
+\fBnode [\fIname\fB=\fIval\fB];\fR
+.br
+\fBedge [\fIname\fB=\fIval\fB];\fR
+Set the default graph, node, or edge attribute \fIname\fP to \fIval\fP.
+Any subgraph, node, or edge specified after one of these statements
+inherits these attributes.
+.PP
+\fBn0 [\fIname0=val0,name1=val1,...\fB];\fR
+Creates node \fBn0\fP if it does not exist,
+and sets its attributes according to the optional list. 
+.PP
+\fBn0 \-\- n1 \-\- \fI...\fB \-\- nn [\fIname0=val0,name1=val1,...\fB];\fR
+Creates edges between nodes \fBn0\fP, \fBn1\fP, ..., \fBnn\fP and optionally
+sets the given attributes.  Creates nodes as necessary.
+Although typically applied to undirected graph, 
+\fIfdp\fP will also layout directed graphs by simply ignoring
+edge direction.
+.PP
+\fBsubgraph \fIname\fB { \fIstatement-list \fB}\fR
+Creates a subgraph.  A subgraph may appear in place of
+an individual node within an edge statement.
+The \fBsubgraph \fIname\fR part is optional. If missing,
+the subgraph is given an internal name.
+.PP
+While attribute names and values may be arbitrary strings,
+certain fixed attributes control \fIfdp\fP's layout algorithm.
+Refer to \fIdot\fP(1) for general options for controlling layout
+size, font faces and sizes, colors, labels, node shape, line styles, etc.
+.SH "GRAPH ATTRIBUTES"
+\fBK=\fIval\fR. Sets the default ideal node separation
+in the layout.
+.PP
+\fBmaxiter=\fIval\fR. Sets the maximum number of iterations used to
+layout the graph.
+.PP
+\fBstart=\fIval\fR. Adjusts the random initial placement of nodes
+with no specified position.  If \fIval\fP is is an integer,
+it is used as the seed for the random number generator. 
+If \fIval\fP is not an integer, a random system-generated integer,
+such as the process ID or current time, is used as the seed.
+.PP
+\fBsplines=\fIval\fR. If \fIval\fR is "true", edges are drawn
+as splines to avoid nodes. By default, edges are draw as line segments.
+.PP
+.SH "NODE ATTRIBUTES"
+\fBpin=\fIval\fR. If \fIval\fR is "true", the node will remain at
+its initial position.
+.SH "EDGE ATTRIBUTES"
+\fBweight=\fIf\fR sets the weight of an edge
+to the given floating point value. The default is 1.0;
+greater values make the edge tend more toward its optimal length.
+.PP
+\fBlen=\fIf\fR sets the optimal length of an edge.
+The default is \fBK\fP.
+.SH "COMMAND LINE OPTIONS"
+\fB\-v\fP (verbose) prints a log of the layout.
+.PP
+\fB\-V\fP prints the version and exits.
+.PP
+\fB\-?\fP prints the usage and exits.
+.SH "SEE ALSO"
+.BR dot (1),
+.BR circo (1),
+.BR neato (1),
+.BR twopi (1)
+.br

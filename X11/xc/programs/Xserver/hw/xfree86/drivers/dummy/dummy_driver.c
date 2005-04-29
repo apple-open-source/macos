@@ -1,3 +1,4 @@
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/dummy/dummy_driver.c,v 1.6 2003/11/03 05:11:11 tsi Exp $ */
 
 /*
  * Copyright 2002, SuSE Linux AG, Author: Egbert Eich
@@ -7,7 +8,6 @@
 #include "xf86.h"
 #include "xf86_OSproc.h"
 #include "xf86_ansic.h"
-#include "xf86Bus.h"
 
 /* This is used for module versioning */
 #include "xf86Version.h"
@@ -29,10 +29,8 @@
 
 #include "picturestr.h"
 
-#ifdef XvExtension
 #include "xf86xv.h"
 #include "Xv.h"
-#endif
 
 /*
  * Driver data structures.
@@ -58,7 +56,7 @@ static Bool     DUMMYEnterVT(int scrnIndex, int flags);
 static void     DUMMYLeaveVT(int scrnIndex, int flags);
 static Bool     DUMMYCloseScreen(int scrnIndex, ScreenPtr pScreen);
 static void     DUMMYFreeScreen(int scrnIndex, int flags);
-static int      DUMMYValidMode(int scrnIndex, DisplayModePtr mode,
+static ModeStatus DUMMYValidMode(int scrnIndex, DisplayModePtr mode,
                                  Bool verbose, int flags);
 static Bool	DUMMYSaveScreen(ScreenPtr pScreen, int mode);
 
@@ -325,7 +323,7 @@ DUMMYPreInit(ScrnInfoPtr pScrn, int flags)
     
     pScrn->monitor = pScrn->confScreen->monitor;
 
-    if (!xf86SetDepthBpp(pScrn, 8, 8, 8,  Support24bppFb | Support32bppFb))
+    if (!xf86SetDepthBpp(pScrn, 0, 0, 0,  Support24bppFb | Support32bppFb))
 	return FALSE;
     else {
 	/* Check that the returned depth is one we support */
@@ -542,7 +540,6 @@ DUMMYScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     DUMMYPtr dPtr;
     int ret;
     VisualPtr visual;
-    int height, width;
     
     /*
      * we need to get the ScrnInfoRec for this screen, so let's allocate
@@ -582,9 +579,6 @@ DUMMYScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
      * Call the framebuffer layer's ScreenInit function, and fill in other
      * pScreen fields.
      */
-    width = pScrn->virtualX;
-    height = pScrn->virtualY;
-    
     ret = fbScreenInit(pScreen, dPtr->FBBase,
 			    pScrn->virtualX, pScrn->virtualY,
 			    pScrn->xDpi, pScrn->yDpi,
@@ -755,7 +749,7 @@ DUMMYSaveScreen(ScreenPtr pScreen, int mode)
 }
 
 /* Optional */
-static int
+static ModeStatus
 DUMMYValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     return(MODE_OK);

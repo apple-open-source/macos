@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +30,6 @@ with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
-with Hostparm; use Hostparm;
 with Lib;      use Lib;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
@@ -43,10 +41,11 @@ with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
 with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
-with Snames; use Snames;
+with Snames;   use Snames;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
 with Table;
+with Targparm; use Targparm;
 with Ttypes;   use Ttypes;
 with Tbuild;   use Tbuild;
 with Urealp;   use Urealp;
@@ -83,19 +82,28 @@ package body Sem_Ch13 is
    --  Attributes that do not specify a representation characteristic are
    --  operational attributes.
 
+   function Address_Aliased_Entity (N : Node_Id) return Entity_Id;
+   --  If expression N is of the form E'Address, return E.
+
+   procedure Mark_Aliased_Address_As_Volatile (N : Node_Id);
+   --  This is used for processing of an address representation clause. If
+   --  the expression N is of the form of K'Address, then the entity that
+   --  is associated with K is marked as volatile.
+
    procedure New_Stream_Function
      (N    : Node_Id;
       Ent  : Entity_Id;
       Subp : Entity_Id;
-      Nam  : Name_Id);
+      Nam  : TSS_Name_Type);
    --  Create a function renaming of a given stream attribute to the
    --  designated subprogram and then in the tagged case, provide this as
    --  a primitive operation, or in the non-tagged case make an appropriate
    --  TSS entry. Used for Input. This is more properly an expansion activity
    --  than just semantics, but the presence of user-defined stream functions
    --  for limited types is a legality check, which is why this takes place
-   --  here rather than in exp_ch13, where it was previously.
-
+   --  here rather than in exp_ch13, where it was previously. Nam indicates
+   --  the name of the TSS function to be generated.
+   --
    --  To avoid elaboration anomalies with freeze nodes, for untagged types
    --  we generate both a subprogram declaration and a subprogram renaming
    --  declaration, so that the attribute specification is handled as a
@@ -106,30 +114,13 @@ package body Sem_Ch13 is
      (N     : Node_Id;
       Ent   : Entity_Id;
       Subp  : Entity_Id;
-      Nam   : Name_Id;
+      Nam   : TSS_Name_Type;
       Out_P : Boolean := False);
    --  Create a procedure renaming of a given stream attribute to the
    --  designated subprogram and then in the tagged case, provide this as
    --  a primitive operation, or in the non-tagged case make an appropriate
-   --  TSS entry. Used for Read, Output, Write.
-
-   procedure Check_Constant_Address_Clause (Expr : Node_Id; U_Ent : Entity_Id);
-   --  Expr is an expression for an address clause. This procedure checks
-   --  that the expression is constant, in the limited sense that it is safe
-   --  to evaluate it at the point the object U_Ent is declared, rather than
-   --  at the point of the address clause. The condition for this to be true
-   --  is that the expression has no variables, no constants declared after
-   --  U_Ent, and no calls to non-pure functions. If this condition is not
-   --  met, then an appropriate error message is posted.
-
-   procedure Warn_Overlay
-     (Expr : Node_Id;
-      Typ  : Entity_Id;
-      Nam  : Node_Id);
-   --  Expr is the expression for an address clause for entity Nam whose type
-   --  is Typ. If Typ has a default initialization, check whether the address
-   --  clause might overlay two entities, and emit a warning on the side effect
-   --  that the initialization will cause.
+   --  TSS entry. Used for Read, Output, Write. Nam indicates the name of
+   --  the TSS procedure to be generated.
 
    ----------------------------------------------
    -- Table for Validate_Unchecked_Conversions --
@@ -155,6 +146,34 @@ package body Sem_Ch13 is
      Table_Initial        => 50,
      Table_Increment      => 200,
      Table_Name           => "Unchecked_Conversions");
+
+   ----------------------------
+   -- Address_Aliased_Entity --
+   ----------------------------
+
+   function Address_Aliased_Entity (N : Node_Id) return Entity_Id is
+   begin
+      if Nkind (N) = N_Attribute_Reference
+        and then Attribute_Name (N) = Name_Address
+      then
+         declare
+            Nam : Node_Id := Prefix (N);
+         begin
+            while False
+              or else Nkind (Nam) = N_Selected_Component
+              or else Nkind (Nam) = N_Indexed_Component
+            loop
+               Nam := Prefix (Nam);
+            end loop;
+
+            if Is_Entity_Name (Nam) then
+               return Entity (Nam);
+            end if;
+         end;
+      end if;
+
+      return Empty;
+   end Address_Aliased_Entity;
 
    --------------------------------------
    -- Alignment_Check_For_Esize_Change --
@@ -184,6 +203,13 @@ package body Sem_Ch13 is
 
    procedure Analyze_At_Clause (N : Node_Id) is
    begin
+      if Warn_On_Obsolescent_Feature then
+         Error_Msg_N
+           ("at clause is an obsolescent feature ('R'M 'J.7(2))?", N);
+         Error_Msg_N
+           ("\use address attribute definition clause instead?", N);
+      end if;
+
       Rewrite (N,
         Make_Attribute_Definition_Clause (Sloc (N),
           Name  => Identifier (N),
@@ -239,8 +265,14 @@ package body Sem_Ch13 is
          U_Ent := Ent;
 
       elsif Ekind (Ent) = E_Incomplete_Type then
+
+         --  The attribute applies to the full view, set the entity
+         --  of the attribute definition accordingly.
+
          Ent := Underlying_Type (Ent);
          U_Ent := Ent;
+         Set_Entity (Nam, Ent);
+
       else
          U_Ent := Underlying_Type (Ent);
       end if;
@@ -287,7 +319,6 @@ package body Sem_Ch13 is
             --  Case of address clause for subprogram
 
             elsif Is_Subprogram (U_Ent) then
-
                if Has_Homonym (U_Ent) then
                   Error_Msg_N
                     ("address clause cannot be given " &
@@ -306,7 +337,6 @@ package body Sem_Ch13 is
             --  Case of address clause for entry
 
             elsif Ekind (U_Ent) = E_Entry then
-
                if Nkind (Parent (N)) = N_Task_Body then
                   Error_Msg_N
                     ("entry address must be specified in task spec", Nam);
@@ -325,7 +355,27 @@ package body Sem_Ch13 is
                     ("\?only one task can be declared of this type", N);
                end if;
 
-            --  Case of address clause for an object
+               if Warn_On_Obsolescent_Feature then
+                  Error_Msg_N
+                    ("attaching interrupt to task entry is an " &
+                     "obsolescent feature ('R'M 'J.7.1)?", N);
+                  Error_Msg_N
+                    ("\use interrupt procedure instead?", N);
+               end if;
+
+            --  Case of an address clause for a controlled object:
+            --  erroneous execution.
+
+            elsif Is_Controlled (Etype (U_Ent)) then
+               Error_Msg_NE
+                 ("?controlled object& must not be overlaid", Nam, U_Ent);
+               Error_Msg_N
+                 ("\?Program_Error will be raised at run time", Nam);
+               Insert_Action (Declaration_Node (U_Ent),
+                 Make_Raise_Program_Error (Loc,
+                   Reason => PE_Overlaid_Controlled_Object));
+
+            --  Case of address clause for a (non-controlled) object
 
             elsif
               Ekind (U_Ent) = E_Variable
@@ -333,9 +383,8 @@ package body Sem_Ch13 is
               Ekind (U_Ent) = E_Constant
             then
                declare
-                  Decl : constant Node_Id   := Declaration_Node (U_Ent);
                   Expr : constant Node_Id   := Expression (N);
-                  Typ  : constant Entity_Id := Etype (U_Ent);
+                  Aent : constant Entity_Id := Address_Aliased_Entity (Expr);
 
                begin
                   --  Exported variables cannot have an address clause,
@@ -344,6 +393,30 @@ package body Sem_Ch13 is
                   if Is_Exported (U_Ent) then
                      Error_Msg_N
                        ("cannot export object with address clause", Nam);
+
+                  --  Overlaying controlled objects is erroneous
+
+                  elsif Present (Aent)
+                    and then Is_Controlled (Etype (Aent))
+                  then
+                     Error_Msg_N
+                       ("?controlled object must not be overlaid", Expr);
+                     Error_Msg_N
+                       ("\?Program_Error will be raised at run time", Expr);
+                     Insert_Action (Declaration_Node (U_Ent),
+                       Make_Raise_Program_Error (Loc,
+                         Reason => PE_Overlaid_Controlled_Object));
+
+                  elsif Present (Aent)
+                    and then Ekind (U_Ent) = E_Constant
+                    and then Ekind (Aent) /= E_Constant
+                  then
+                     Error_Msg_N ("constant overlays a variable?", Expr);
+
+                  elsif Present (Renamed_Object (U_Ent)) then
+                     Error_Msg_N
+                       ("address clause not allowed"
+                          & " for a renaming declaration ('R'M 13.1(6))", Nam);
 
                   --  Imported variables can have an address clause, but then
                   --  the import is pretty meaningless except to suppress
@@ -360,39 +433,49 @@ package body Sem_Ch13 is
 
                   Note_Possible_Modification (Nam);
 
-                  --  If we have no initialization of any kind, then we can
-                  --  safely defer the elaboration of the variable to its
-                  --  freezing point, so that the address clause will be
-                  --  computed at the proper point.
+                  --  Here we are checking for explicit overlap of one
+                  --  variable by another, and if we find this, then we
+                  --  mark the overlapped variable as also being aliased.
 
-                  --  The same processing applies to all initialized scalar
-                  --  types and all access types. Packed bit arrays of size
-                  --  up to 64 are represented using a modular type with an
-                  --  initialization (to zero) and can be processed like
-                  --  other initialized scalar types.
+                  --  First case is where we have an explicit
 
-                  if (No (Expression (Decl))
-                       and then not Has_Non_Null_Base_Init_Proc (Typ))
+                  --    for J'Address use K'Address;
 
-                    or else
-                      (Present (Expression (Decl))
-                        and then Is_Scalar_Type (Typ))
+                  --  In this case, we mark K as volatile
 
-                    or else
-                      Is_Access_Type (Typ)
+                  Mark_Aliased_Address_As_Volatile (Expr);
 
-                    or else
-                      (Is_Bit_Packed_Array (Base_Type (Typ))
-                        and then
-                          Is_Modular_Integer_Type (Packed_Array_Type (Typ)))
-                  then
-                     Set_Has_Delayed_Freeze (U_Ent);
+                  --  Second case is where we have a constant whose
+                  --  definition is of the form of an adress as in:
 
-                  --  Otherwise, we require the address clause to be constant
+                  --     A : constant Address := K'Address;
+                  --     ...
+                  --     for B'Address use A;
 
-                  else
-                     Check_Constant_Address_Clause (Expr, U_Ent);
+                  --  In this case we also mark K as volatile
+
+                  if Is_Entity_Name (Expr) then
+                     declare
+                        Ent  : constant Entity_Id := Entity (Expr);
+                        Decl : constant Node_Id   := Declaration_Node (Ent);
+
+                     begin
+                        if Ekind (Ent) = E_Constant
+                          and then Nkind (Decl) = N_Object_Declaration
+                          and then Present (Expression (Decl))
+                        then
+                           Mark_Aliased_Address_As_Volatile
+                             (Expression (Decl));
+                        end if;
+                     end;
                   end if;
+
+                  --  Legality checks on the address clause for initialized
+                  --  objects is deferred until the freeze point, because
+                  --  a subsequent pragma might indicate that the object is
+                  --  imported and thus not initialized.
+
+                  Set_Has_Delayed_Freeze (U_Ent);
 
                   if Is_Exported (U_Ent) then
                      Error_Msg_N
@@ -404,17 +487,11 @@ package body Sem_Ch13 is
                         Nam);
                   end if;
 
-                  if not Error_Posted (Expr) then
-                     Warn_Overlay (Expr, Typ, Nam);
-                  end if;
+                  --  Entity has delayed freeze, so we will generate
+                  --  an alignment check at the freeze point.
 
-                  --  If entity has delayed freeze then we will generate
-                  --  an alignment check at the freeze point. If there is
-                  --  no delayed freeze we can do it right now.
-
-                  if not Has_Delayed_Freeze (U_Ent) then
-                     Apply_Alignment_Check (U_Ent, N);
-                  end if;
+                  Set_Check_Address_Alignment
+                    (N, not Range_Checks_Suppressed (U_Ent));
 
                   --  Kill the size check code, since we are not allocating
                   --  the variable, it is somewhere else.
@@ -436,7 +513,7 @@ package body Sem_Ch13 is
          --  Alignment attribute definition clause
 
          when Attribute_Alignment => Alignment_Block : declare
-            Align : Uint := Get_Alignment_Value (Expr);
+            Align : constant Uint := Get_Alignment_Value (Expr);
 
          begin
             FOnly := True;
@@ -476,7 +553,8 @@ package body Sem_Ch13 is
                   return;
 
                elsif not Is_Static_Expression (Expr) then
-                  Error_Msg_N ("Bit_Order requires static expression", Expr);
+                  Flag_Non_Static_Expr
+                    ("Bit_Order requires static expression!", Expr);
 
                else
                   if (Expr_Value (Expr) = 0) /= Bytes_Big_Endian then
@@ -574,7 +652,8 @@ package body Sem_Ch13 is
             Analyze_And_Resolve (Expr, Standard_String);
 
             if not Is_Static_Expression (Expr) then
-               Error_Msg_N ("must be a static string", Nam);
+               Flag_Non_Static_Expr
+                 ("static string required for tag name!", Nam);
             end if;
 
             Set_Has_External_Tag_Rep_Clause (U_Ent);
@@ -593,6 +672,10 @@ package body Sem_Ch13 is
             function Has_Good_Profile (Subp : Entity_Id) return Boolean;
             --  Return true if the entity is a function with an appropriate
             --  profile for the Input attribute.
+
+            ----------------------
+            -- Has_Good_Profile --
+            ----------------------
 
             function Has_Good_Profile (Subp : Entity_Id) return Boolean is
                F  : Entity_Id;
@@ -626,7 +709,7 @@ package body Sem_Ch13 is
                return;
 
             else
-               Pnam := TSS (Base_Type (U_Ent), Name_uInput);
+               Pnam := TSS (Base_Type (U_Ent), TSS_Stream_Input);
 
                if Present (Pnam)
                  and then Base_Type (Etype (Pnam)) = Base_Type (U_Ent)
@@ -662,7 +745,7 @@ package body Sem_Ch13 is
             if Present (Subp) then
                Set_Entity (Expr, Subp);
                Set_Etype (Expr, Etype (Subp));
-               New_Stream_Function (N, U_Ent, Subp,  Name_uInput);
+               New_Stream_Function (N, U_Ent, Subp,  TSS_Stream_Input);
             else
                Error_Msg_N ("incorrect expression for input attribute", Expr);
                return;
@@ -753,6 +836,10 @@ package body Sem_Ch13 is
             --  Return true if the entity is a procedure with an
             --  appropriate profile for the output attribute.
 
+            ----------------------
+            -- Has_Good_Profile --
+            ----------------------
+
             function Has_Good_Profile (Subp : Entity_Id) return Boolean is
                F  : Entity_Id;
                Ok : Boolean := False;
@@ -779,6 +866,8 @@ package body Sem_Ch13 is
                return Ok;
             end Has_Good_Profile;
 
+         --  Start of processing for Output attribute definition
+
          begin
             FOnly := True;
 
@@ -787,7 +876,7 @@ package body Sem_Ch13 is
                return;
 
             else
-               Pnam := TSS (Base_Type (U_Ent), Name_uOutput);
+               Pnam := TSS (Base_Type (U_Ent), TSS_Stream_Output);
 
                if Present (Pnam)
                  and then
@@ -825,7 +914,7 @@ package body Sem_Ch13 is
             if Present (Subp) then
                Set_Entity (Expr, Subp);
                Set_Etype (Expr, Etype (Subp));
-               New_Stream_Procedure (N, U_Ent, Subp, Name_uOutput);
+               New_Stream_Procedure (N, U_Ent, Subp, TSS_Stream_Output);
             else
                Error_Msg_N ("incorrect expression for output attribute", Expr);
                return;
@@ -845,6 +934,10 @@ package body Sem_Ch13 is
             function Has_Good_Profile (Subp : Entity_Id) return Boolean;
             --  Return true if the entity is a procedure with an appropriate
             --  profile for the Read attribute.
+
+            ----------------------
+            -- Has_Good_Profile --
+            ----------------------
 
             function Has_Good_Profile (Subp : Entity_Id) return Boolean is
                F     : Entity_Id;
@@ -882,7 +975,7 @@ package body Sem_Ch13 is
                return;
 
             else
-               Pnam := TSS (Base_Type (U_Ent), Name_uRead);
+               Pnam := TSS (Base_Type (U_Ent), TSS_Stream_Read);
 
                if Present (Pnam)
                  and then Base_Type (Etype (Next_Formal (First_Formal (Pnam))))
@@ -919,7 +1012,7 @@ package body Sem_Ch13 is
             if Present (Subp) then
                Set_Entity (Expr, Subp);
                Set_Etype (Expr, Etype (Subp));
-               New_Stream_Procedure (N, U_Ent, Subp, Name_uRead, True);
+               New_Stream_Procedure (N, U_Ent, Subp, TSS_Stream_Read, True);
             else
                Error_Msg_N ("incorrect expression for read attribute", Expr);
                return;
@@ -956,7 +1049,6 @@ package body Sem_Ch13 is
                  ("size cannot be given for unconstrained array", Nam);
 
             elsif Size /= No_Uint then
-
                if Is_Type (U_Ent) then
                   Etyp := U_Ent;
                else
@@ -1009,6 +1101,22 @@ package body Sem_Ch13 is
                --  For objects, set Esize only
 
                else
+                  if Is_Elementary_Type (Etyp) then
+                     if Size /= System_Storage_Unit
+                          and then
+                        Size /= System_Storage_Unit * 2
+                          and then
+                        Size /= System_Storage_Unit * 4
+                           and then
+                        Size /= System_Storage_Unit * 8
+                     then
+                        Error_Msg_Uint_1 := UI_From_Int (System_Storage_Unit);
+                        Error_Msg_N
+                          ("size for primitive object must be a power of 2"
+                            & " and at least ^", N);
+                     end if;
+                  end if;
+
                   Set_Esize (U_Ent, Size);
                end if;
 
@@ -1033,7 +1141,8 @@ package body Sem_Ch13 is
                return;
 
             elsif not Is_Static_Expression (Expr) then
-               Error_Msg_N ("small requires static expression", Expr);
+               Flag_Non_Static_Expr
+                 ("small requires static expression!", Expr);
                return;
 
             else
@@ -1078,6 +1187,14 @@ package body Sem_Ch13 is
 
          begin
             if Is_Task_Type (U_Ent) then
+               if Warn_On_Obsolescent_Feature then
+                  Error_Msg_N
+                    ("storage size clause for task is an " &
+                     "obsolescent feature ('R'M 'J.9)?", N);
+                  Error_Msg_N
+                    ("\use Storage_Size pragma instead?", N);
+               end if;
+
                FOnly := True;
             end if;
 
@@ -1284,6 +1401,10 @@ package body Sem_Ch13 is
             --  Return true if the entity is a procedure with an
             --  appropriate profile for the write attribute.
 
+            ----------------------
+            -- Has_Good_Profile --
+            ----------------------
+
             function Has_Good_Profile (Subp : Entity_Id) return Boolean is
                F     : Entity_Id;
                Ok    : Boolean := False;
@@ -1320,7 +1441,7 @@ package body Sem_Ch13 is
                return;
             end if;
 
-            Pnam := TSS (Base_Type (U_Ent), Name_uWrite);
+            Pnam := TSS (Base_Type (U_Ent), TSS_Stream_Write);
 
             if Present (Pnam)
               and then Base_Type (Etype (Next_Formal (First_Formal (Pnam))))
@@ -1356,7 +1477,7 @@ package body Sem_Ch13 is
             if Present (Subp) then
                Set_Entity (Expr, Subp);
                Set_Etype (Expr, Etype (Subp));
-               New_Stream_Procedure (N, U_Ent, Subp, Name_uWrite);
+               New_Stream_Procedure (N, U_Ent, Subp, TSS_Stream_Write);
             else
                Error_Msg_N ("incorrect expression for write attribute", Expr);
                return;
@@ -1470,7 +1591,6 @@ package body Sem_Ch13 is
             Next (Stmt);
          end loop;
       end if;
-
    end Analyze_Code_Statement;
 
    -----------------------------------------------
@@ -1514,22 +1634,40 @@ package body Sem_Ch13 is
          return;
       end if;
 
-      if Scope (Enumtype) /= Current_Scope then
+      --  Ignore rep clause on generic actual type. This will already have
+      --  been flagged on the template as an error, and this is the safest
+      --  way to ensure we don't get a junk cascaded message in the instance.
+
+      if Is_Generic_Actual_Type (Enumtype) then
+         return;
+
+      --  Type must be in current scope
+
+      elsif Scope (Enumtype) /= Current_Scope then
          Error_Msg_N ("type must be declared in this scope", Ident);
          return;
+
+      --  Type must be a first subtype
 
       elsif not Is_First_Subtype (Enumtype) then
          Error_Msg_N ("cannot give enumeration rep clause for subtype", N);
          return;
 
+      --  Ignore duplicate rep clause
+
       elsif Has_Enumeration_Rep_Clause (Enumtype) then
          Error_Msg_N ("duplicate enumeration rep clause ignored", N);
          return;
+
+      --  Don't allow rep clause if root type is standard [wide_]character
 
       elsif Root_Type (Enumtype) = Standard_Character
         or else Root_Type (Enumtype) = Standard_Wide_Character
       then
          Error_Msg_N ("enumeration rep clause not allowed for this type", N);
+         return;
+
+      --  All tests passed, so set rep clause in place
 
       else
          Set_Has_Enumeration_Rep_Clause (Enumtype);
@@ -1608,8 +1746,8 @@ package body Sem_Ch13 is
 
                elsif Etype (Choice) = Base_Type (Enumtype) then
                   if not Is_Static_Expression (Choice) then
-                     Error_Msg_N
-                       ("non-static expression used for choice", Choice);
+                     Flag_Non_Static_Expr
+                       ("non-static expression used for choice!", Choice);
                      Err := True;
 
                   else
@@ -1725,7 +1863,6 @@ package body Sem_Ch13 is
       if Rep_Item_Too_Late (Enumtype, N) then
          null;
       end if;
-
    end Analyze_Enumeration_Representation_Clause;
 
    ----------------------------
@@ -1756,7 +1893,7 @@ package body Sem_Ch13 is
       Biased  : Boolean;
 
       Max_Bit_So_Far : Uint;
-      --  Records the maximum bit position so far. If all field positoins
+      --  Records the maximum bit position so far. If all field positions
       --  are monotonically increasing, then we can skip the circuit for
       --  checking for overlap, since no overlap is possible.
 
@@ -1810,21 +1947,30 @@ package body Sem_Ch13 is
             Loc     : constant Source_Ptr := Sloc (N);
             M       : constant Node_Id := Mod_Clause (N);
             P       : constant List_Id := Pragmas_Before (M);
-            Mod_Val : Uint;
             AtM_Nod : Node_Id;
 
+            Mod_Val : Uint;
+            pragma Warnings (Off, Mod_Val);
+
          begin
+            if Warn_On_Obsolescent_Feature then
+               Error_Msg_N
+                 ("mod clause is an obsolescent feature ('R'M 'J.8)?", N);
+               Error_Msg_N
+                 ("\use alignment attribute definition clause instead?", N);
+            end if;
+
             if Present (P) then
                Analyze_List (P);
             end if;
 
-            --  In Tree_Output mode, expansion is disabled, but we must
+            --  In ASIS_Mode mode, expansion is disabled, but we must
             --  convert the Mod clause into an alignment clause anyway, so
             --  that the back-end can compute and back-annotate properly the
             --  size and alignment of types that may include this record.
 
             if Operating_Mode = Check_Semantics
-              and then Tree_Output
+              and then ASIS_Mode
             then
                AtM_Nod :=
                  Make_Attribute_Definition_Clause (Loc,
@@ -1948,7 +2094,6 @@ package body Sem_Ch13 is
                --  tag to get an explicit position.
 
                elsif Nkind (Component_Name (CC)) = N_Attribute_Reference then
-
                   if Attribute_Name (Component_Name (CC)) = Name_Tag then
                      Error_Msg_N ("position of tag cannot be specified", CC);
                   else
@@ -2019,27 +2164,9 @@ package body Sem_Ch13 is
                               CC, Rectype);
                         end if;
 
-                        --  Test for large object that is not on a byte
-                        --  boundary, defined as a large packed array not
-                        --  represented by a modular type, or an object for
-                        --  which a size of greater than 64 bits is specified.
-
-                        if Fbit mod SSU /= 0 then
-                           if (Is_Packed_Array_Type (Etype (Comp))
-                                and then Is_Array_Type
-                                     (Packed_Array_Type (Etype (Comp))))
-                             or else Esize (Etype (Comp)) > 64
-                           then
-                              Error_Msg_N
-                                ("large component must be on byte boundary",
-                                 First_Bit (CC));
-                           end if;
-                        end if;
-
-                        --  This information is also set in the
-                        --  corresponding component of the base type,
-                        --  found by accessing the Original_Record_Component
-                        --  link if it is present.
+                        --  This information is also set in the corresponding
+                        --  component of the base type, found by accessing the
+                        --  Original_Record_Component link if it is present.
 
                         Ocomp := Original_Record_Component (Comp);
 
@@ -2327,7 +2454,6 @@ package body Sem_Ch13 is
 
          Set_RM_Size (Rectype, Hbit + 1);
       end if;
-
    end Analyze_Record_Representation_Clause;
 
    -----------------------------
@@ -2463,6 +2589,9 @@ package body Sem_Ch13 is
       --------------------------
 
       procedure Check_Expr_Constants (Nod : Node_Id) is
+         Loc_U_Ent : constant Source_Ptr := Sloc (U_Ent);
+         Ent       : Entity_Id           := Empty;
+
       begin
          if Nkind (Nod) in N_Has_Etype
            and then Etype (Nod) = Any_Type
@@ -2475,66 +2604,120 @@ package body Sem_Ch13 is
                return;
 
             when N_Identifier | N_Expanded_Name =>
-               declare
-                  Ent       : constant Entity_Id  := Entity (Nod);
-                  Loc_Ent   : constant Source_Ptr := Sloc (Ent);
-                  Loc_U_Ent : constant Source_Ptr := Sloc (U_Ent);
+               Ent := Entity (Nod);
 
-               begin
-                  if Ekind (Ent) = E_Named_Integer
-                       or else
-                     Ekind (Ent) = E_Named_Real
-                       or else
-                     Is_Type (Ent)
+               --  We need to look at the original node if it is different
+               --  from the node, since we may have rewritten things and
+               --  substituted an identifier representing the rewrite.
+
+               if Original_Node (Nod) /= Nod then
+                  Check_Expr_Constants (Original_Node (Nod));
+
+                  --  If the node is an object declaration without initial
+                  --  value, some code has been expanded, and the expression
+                  --  is not constant, even if the constituents might be
+                  --  acceptable, as in  A'Address + offset.
+
+                  if Ekind (Ent) = E_Variable
+                    and then Nkind (Declaration_Node (Ent))
+                      = N_Object_Declaration
+                    and then
+                      No (Expression (Declaration_Node (Ent)))
                   then
+                     Error_Msg_NE
+                       ("invalid address clause for initialized object &!",
+                        Nod, U_Ent);
+
+                  --  If entity is constant, it may be the result of expanding
+                  --  a check. We must verify that its declaration appears
+                  --  before the object in question, else we also reject the
+                  --  address clause.
+
+                  elsif Ekind (Ent) = E_Constant
+                    and then In_Same_Source_Unit (Ent, U_Ent)
+                    and then Sloc (Ent) > Loc_U_Ent
+                  then
+                     Error_Msg_NE
+                       ("invalid address clause for initialized object &!",
+                        Nod, U_Ent);
+                  end if;
+
+                  return;
+               end if;
+
+               --  Otherwise look at the identifier and see if it is OK.
+
+               if Ekind (Ent) = E_Named_Integer
+                    or else
+                  Ekind (Ent) = E_Named_Real
+                    or else
+                  Is_Type (Ent)
+               then
+                  return;
+
+               elsif
+                  Ekind (Ent) = E_Constant
+                    or else
+                  Ekind (Ent) = E_In_Parameter
+               then
+                  --  This is the case where we must have Ent defined
+                  --  before U_Ent. Clearly if they are in different
+                  --  units this requirement is met since the unit
+                  --  containing Ent is already processed.
+
+                  if not In_Same_Source_Unit (Ent, U_Ent) then
                      return;
 
-                  elsif
-                     Ekind (Ent) = E_Constant
-                       or else
-                     Ekind (Ent) = E_In_Parameter
-                  then
-                     --  This is the case where we must have Ent defined
-                     --  before U_Ent. Clearly if they are in different
-                     --  units this requirement is met since the unit
-                     --  containing Ent is already processed.
+                  --  Otherwise location of Ent must be before the
+                  --  location of U_Ent, that's what prior defined means.
 
-                     if not In_Same_Source_Unit (Ent, U_Ent) then
-                        return;
-
-                     --  Otherwise location of Ent must be before the
-                     --  location of U_Ent, that's what prior defined means.
-
-                     elsif Loc_Ent < Loc_U_Ent then
-                        return;
-
-                     else
-                        Error_Msg_NE
-                          ("invalid address clause for initialized object &!",
-                           Nod, U_Ent);
-                        Error_Msg_Name_1 := Chars (Ent);
-                        Error_Msg_Name_2 := Chars (U_Ent);
-                        Error_Msg_N
-                          ("\% must be defined before % ('R'M 13.1(22))!",
-                           Nod);
-                     end if;
-
-                  elsif Nkind (Original_Node (Nod)) = N_Function_Call then
-                     Check_Expr_Constants (Original_Node (Nod));
+                  elsif Sloc (Ent) < Loc_U_Ent then
+                     return;
 
                   else
                      Error_Msg_NE
                        ("invalid address clause for initialized object &!",
                         Nod, U_Ent);
                      Error_Msg_Name_1 := Chars (Ent);
+                     Error_Msg_Name_2 := Chars (U_Ent);
                      Error_Msg_N
-                       ("\reference to variable% not allowed ('R'M 13.1(22))!",
+                       ("\% must be defined before % ('R'M 13.1(22))!",
                         Nod);
                   end if;
-               end;
 
-            when N_Integer_Literal   |
-                 N_Real_Literal      |
+               elsif Nkind (Original_Node (Nod)) = N_Function_Call then
+                  Check_Expr_Constants (Original_Node (Nod));
+
+               else
+                  Error_Msg_NE
+                    ("invalid address clause for initialized object &!",
+                     Nod, U_Ent);
+
+                  if Comes_From_Source (Ent) then
+                     Error_Msg_Name_1 := Chars (Ent);
+                     Error_Msg_N
+                       ("\reference to variable% not allowed"
+                          & " ('R'M 13.1(22))!", Nod);
+                  else
+                     Error_Msg_N
+                       ("non-static expression not allowed"
+                          & " ('R'M 13.1(22))!", Nod);
+                  end if;
+               end if;
+
+            when N_Integer_Literal   =>
+
+               --  If this is a rewritten unchecked conversion, in a system
+               --  where Address is an integer type, always use the base type
+               --  for a literal value. This is user-friendly and prevents
+               --  order-of-elaboration issues with instances of unchecked
+               --  conversion.
+
+               if Nkind (Original_Node (Nod)) = N_Function_Call then
+                  Set_Etype (Nod, Base_Type (Etype (Nod)));
+               end if;
+
+            when N_Real_Literal      |
                  N_String_Literal    |
                  N_Character_Literal =>
                return;
@@ -2559,13 +2742,13 @@ package body Sem_Ch13 is
 
             when N_Attribute_Reference =>
 
-               if (Attribute_Name (Nod) = Name_Address
+               if Attribute_Name (Nod) = Name_Address
+                   or else
+                  Attribute_Name (Nod) = Name_Access
                     or else
-                   Attribute_Name (Nod) = Name_Access
+                  Attribute_Name (Nod) = Name_Unchecked_Access
                     or else
-                   Attribute_Name (Nod) = Name_Unchecked_Access
-                    or else
-                   Attribute_Name (Nod) = Name_Unrestricted_Access)
+                  Attribute_Name (Nod) = Name_Unrestricted_Access
                then
                   Check_At_Constant_Address (Prefix (Nod));
 
@@ -2686,21 +2869,70 @@ package body Sem_Ch13 is
    begin
       Biased := False;
 
-      --  Immediate return if size is same as standard size or if composite
-      --  item, or generic type, or type with previous errors.
+      --  Dismiss cases for generic types or types with previous errors
 
       if No (UT)
         or else UT = Any_Type
         or else Is_Generic_Type (UT)
         or else Is_Generic_Type (Root_Type (UT))
-        or else Is_Composite_Type (UT)
-        or else (Known_Esize (UT) and then Siz = Esize (UT))
       then
          return;
 
+      --  Check case of bit packed array
+
+      elsif Is_Array_Type (UT)
+        and then Known_Static_Component_Size (UT)
+        and then Is_Bit_Packed_Array (UT)
+      then
+         declare
+            Asiz : Uint;
+            Indx : Node_Id;
+            Ityp : Entity_Id;
+
+         begin
+            Asiz := Component_Size (UT);
+            Indx := First_Index (UT);
+            loop
+               Ityp := Etype (Indx);
+
+               --  If non-static bound, then we are not in the business of
+               --  trying to check the length, and indeed an error will be
+               --  issued elsewhere, since sizes of non-static array types
+               --  cannot be set implicitly or explicitly.
+
+               if not Is_Static_Subtype (Ityp) then
+                  return;
+               end if;
+
+               --  Otherwise accumulate next dimension
+
+               Asiz := Asiz * (Expr_Value (Type_High_Bound (Ityp)) -
+                               Expr_Value (Type_Low_Bound  (Ityp)) +
+                               Uint_1);
+
+               Next_Index (Indx);
+               exit when No (Indx);
+            end loop;
+
+            if Asiz <= Siz then
+               return;
+            else
+               Error_Msg_Uint_1 := Asiz;
+               Error_Msg_NE
+                 ("size for& too small, minimum allowed is ^", N, T);
+               Set_Esize   (T, Asiz);
+               Set_RM_Size (T, Asiz);
+            end if;
+         end;
+
+      --  All other composite types are ignored
+
+      elsif Is_Composite_Type (UT) then
+         return;
+
       --  For fixed-point types, don't check minimum if type is not frozen,
-      --  since type is not known till then
-      --  at freeze time.
+      --  since we don't know all the characteristics of the type that can
+      --  affect the size (e.g. a specified small) till freeze time.
 
       elsif Is_Fixed_Point_Type (UT)
         and then not Is_Frozen (UT)
@@ -2710,6 +2942,14 @@ package body Sem_Ch13 is
       --  Cases for which a minimum check is required
 
       else
+         --  Ignore if specified size is correct for the type
+
+         if Known_Esize (UT) and then Siz = Esize (UT) then
+            return;
+         end if;
+
+         --  Otherwise get minimum size
+
          M := UI_From_Int (Minimum_Size (UT));
 
          if Siz < M then
@@ -2723,6 +2963,8 @@ package body Sem_Ch13 is
                Error_Msg_Uint_1 := M;
                Error_Msg_NE
                  ("size for& too small, minimum allowed is ^", N, T);
+               Set_Esize (T, M);
+               Set_RM_Size (T, M);
             else
                Biased := True;
             end if;
@@ -2796,14 +3038,26 @@ package body Sem_Ch13 is
       end if;
    end Is_Operational_Item;
 
+   --------------------------------------
+   -- Mark_Aliased_Address_As_Volatile --
+   --------------------------------------
+
+   procedure Mark_Aliased_Address_As_Volatile (N : Node_Id) is
+      Ent : constant Entity_Id := Address_Aliased_Entity (N);
+
+   begin
+      if Present (Ent) then
+         Set_Treat_As_Volatile (Ent);
+      end if;
+   end Mark_Aliased_Address_As_Volatile;
+
    ------------------
    -- Minimum_Size --
    ------------------
 
    function Minimum_Size
      (T      : Entity_Id;
-      Biased : Boolean := False)
-      return   Nat
+      Biased : Boolean := False) return Nat
    is
       Lo     : Uint    := No_Uint;
       Hi     : Uint    := No_Uint;
@@ -2831,10 +3085,19 @@ package body Sem_Ch13 is
       then
          return 0;
 
-      --  Access types
+         --  Access types. Normally an access type cannot have a size smaller
+         --  than the size of System.Address. The exception is on VMS, where
+         --  we have short and long addresses, and it is possible for an access
+         --  type to have a short address size (and thus be less than the size
+         --  of System.Address itself). We simply skip the check for VMS, and
+         --  leave the back end to do the check.
 
       elsif Is_Access_Type (T) then
-         return System_Address_Size;
+         if OpenVMS_On_Target then
+            return 0;
+         else
+            return System_Address_Size;
+         end if;
 
       --  Floating-point types
 
@@ -3003,9 +3266,10 @@ package body Sem_Ch13 is
      (N    : Node_Id;
       Ent  : Entity_Id;
       Subp : Entity_Id;
-      Nam  : Name_Id)
+      Nam  : TSS_Name_Type)
    is
       Loc       : constant Source_Ptr := Sloc (N);
+      Sname     : constant Name_Id    := Make_TSS_Name (Base_Type (Ent), Nam);
       Subp_Id   : Entity_Id;
       Subp_Decl : Node_Id;
       F         : Entity_Id;
@@ -3019,9 +3283,9 @@ package body Sem_Ch13 is
       -- Build_Spec --
       ----------------
 
-      function  Build_Spec return Node_Id is
+      function Build_Spec return Node_Id is
       begin
-         Subp_Id := Make_Defining_Identifier (Loc, Nam);
+         Subp_Id := Make_Defining_Identifier (Loc, Sname);
 
          return
            Make_Function_Specification (Loc,
@@ -3065,7 +3329,6 @@ package body Sem_Ch13 is
          Insert_Action (N, Subp_Decl);
          Copy_TSS (Subp_Id, Base_Type (Ent));
       end if;
-
    end New_Stream_Function;
 
    --------------------------
@@ -3076,10 +3339,11 @@ package body Sem_Ch13 is
      (N     : Node_Id;
       Ent   : Entity_Id;
       Subp  : Entity_Id;
-      Nam   : Name_Id;
+      Nam   : TSS_Name_Type;
       Out_P : Boolean := False)
    is
       Loc       : constant Source_Ptr := Sloc (N);
+      Sname     : constant Name_Id    := Make_TSS_Name (Base_Type (Ent), Nam);
       Subp_Id   : Entity_Id;
       Subp_Decl : Node_Id;
       F         : Entity_Id;
@@ -3089,9 +3353,13 @@ package body Sem_Ch13 is
       --  Used for declaration and renaming declaration, so that this is
       --  treated as a renaming_as_body.
 
-      function  Build_Spec return Node_Id is
+      ----------------
+      -- Build_Spec --
+      ----------------
+
+      function Build_Spec return Node_Id is
       begin
-         Subp_Id := Make_Defining_Identifier (Loc, Nam);
+         Subp_Id := Make_Defining_Identifier (Loc, Sname);
 
          return
            Make_Procedure_Specification (Loc,
@@ -3115,7 +3383,7 @@ package body Sem_Ch13 is
                      New_Reference_To (Etyp, Loc))));
       end Build_Spec;
 
-      --  Start of processing for New_Stream_Function
+      --  Start of processing for New_Stream_Procedure
 
    begin
       F        := First_Formal (Subp);
@@ -3139,7 +3407,6 @@ package body Sem_Ch13 is
          Insert_Action (N, Subp_Decl);
          Copy_TSS (Subp_Id, Base_Type (Ent));
       end if;
-
    end New_Stream_Procedure;
 
    ---------------------
@@ -3156,11 +3423,7 @@ package body Sem_Ch13 is
    -- Rep_Item_Too_Early --
    ------------------------
 
-   function Rep_Item_Too_Early
-     (T     : Entity_Id;
-      N     : Node_Id)
-      return  Boolean
-   is
+   function Rep_Item_Too_Early (T : Entity_Id; N : Node_Id) return Boolean is
    begin
       --  Cannot apply rep items that are not operational items
       --  to generic types
@@ -3209,18 +3472,23 @@ package body Sem_Ch13 is
    function Rep_Item_Too_Late
      (T     : Entity_Id;
       N     : Node_Id;
-      FOnly : Boolean := False)
-      return  Boolean
+      FOnly : Boolean := False) return Boolean
    is
       S           : Entity_Id;
       Parent_Type : Entity_Id;
 
       procedure Too_Late;
-      --  Output the too late message
+      --  Output the too late message. Note that this is not considered a
+      --  serious error, since the effect is simply that we ignore the
+      --  representation clause in this case.
+
+      --------------
+      -- Too_Late --
+      --------------
 
       procedure Too_Late is
       begin
-         Error_Msg_N ("representation item appears too late!", N);
+         Error_Msg_N ("|representation item appears too late!", N);
       end Too_Late;
 
    --  Start of processing for Rep_Item_Too_Late
@@ -3382,6 +3650,10 @@ package body Sem_Ch13 is
                --  CD1 and CD2 are either components or discriminants. This
                --  function tests whether the two have the same representation
 
+               --------------
+               -- Same_Rep --
+               --------------
+
                function Same_Rep return Boolean is
                begin
                   if No (Component_Clause (CD1)) then
@@ -3404,7 +3676,15 @@ package body Sem_Ch13 is
                   CD1 := First_Discriminant (T1);
                   CD2 := First_Discriminant (T2);
 
-                  while Present (CD1) loop
+                  --  The number of discriminants may be different if the
+                  --  derived type has fewer (constrained by values). The
+                  --  invisible discriminants retain the representation of
+                  --  the original, so the discrepancy does not per se
+                  --  indicate a different representation.
+
+                  while Present (CD1)
+                    and then Present (CD2)
+                  loop
                      if not Same_Rep then
                         return False;
                      else
@@ -3432,7 +3712,7 @@ package body Sem_Ch13 is
 
       --  For enumeration types, we must check each literal to see if the
       --  representation is the same. Note that we do not permit enumeration
-      --  representation clauses for Character and Wide_Character, so these
+      --  reprsentation clauses for Character and Wide_Character, so these
       --  cases were already dealt with.
 
       elsif Is_Enumeration_Type (T1) then
@@ -3462,7 +3742,6 @@ package body Sem_Ch13 is
       else
          return True;
       end if;
-
    end Same_Representation;
 
    --------------------
@@ -3524,7 +3803,6 @@ package body Sem_Ch13 is
       else
          Init_Esize (T, Sz);
       end if;
-
    end Set_Enum_Esize;
 
    -----------------------------------
@@ -3585,22 +3863,54 @@ package body Sem_Ch13 is
       --  Make entry in unchecked conversion table for later processing
       --  by Validate_Unchecked_Conversions, which will check sizes and
       --  alignments (using values set by the back-end where possible).
+      --  This is only done if the appropriate warning is active
 
-      Unchecked_Conversions.Append
-        (New_Val => UC_Entry'
-           (Enode  => N,
-            Source => Source,
-            Target => Target));
+      if Warn_On_Unchecked_Conversion then
+         Unchecked_Conversions.Append
+           (New_Val => UC_Entry'
+              (Enode  => N,
+               Source => Source,
+               Target => Target));
 
-      --  Generate N_Validate_Unchecked_Conversion node for back end if
-      --  the back end needs to perform special validation checks. At the
-      --  current time, only the JVM version requires such checks.
+         --  If both sizes are known statically now, then back end annotation
+         --  is not required to do a proper check but if either size is not
+         --  known statically, then we need the annotation.
 
-      if Java_VM then
-         Vnode :=
-           Make_Validate_Unchecked_Conversion (Sloc (N));
-         Set_Source_Type (Vnode, Source);
-         Set_Target_Type (Vnode, Target);
+         if Known_Static_RM_Size (Source)
+           and then Known_Static_RM_Size (Target)
+         then
+            null;
+         else
+            Back_Annotate_Rep_Info := True;
+         end if;
+      end if;
+
+      --  If unchecked conversion to access type, and access type is
+      --  declared in the same unit as the unchecked conversion, then
+      --  set the No_Strict_Aliasing flag (no strict aliasing is
+      --  implicit in this situation).
+
+      if Is_Access_Type (Target) and then
+        In_Same_Source_Unit (Target, N)
+      then
+         Set_No_Strict_Aliasing (Implementation_Base_Type (Target));
+      end if;
+
+      --  Generate N_Validate_Unchecked_Conversion node for back end in
+      --  case the back end needs to perform special validation checks.
+
+      --  Shouldn't this be in exp_ch13, since the check only gets done
+      --  if we have full expansion and the back end is called ???
+
+      Vnode :=
+        Make_Validate_Unchecked_Conversion (Sloc (N));
+      Set_Source_Type (Vnode, Source);
+      Set_Target_Type (Vnode, Target);
+
+      --  If the unchecked conversion node is in a list, just insert before
+      --  it. If not we have some strange case, not worth bothering about.
+
+      if Is_List_Member (N) then
          Insert_After (N, Vnode);
       end if;
    end Validate_Unchecked_Conversion;
@@ -3637,7 +3947,6 @@ package body Sem_Ch13 is
                Target_Siz := RM_Size (Target);
 
                if Source_Siz /= Target_Siz then
-                  Warn_On_Instance := True;
                   Error_Msg_N
                     ("types for unchecked conversion have different sizes?",
                      Enode);
@@ -3660,7 +3969,7 @@ package body Sem_Ch13 is
                              ("\^ high order bits of source will be ignored?",
                               Enode);
 
-                        elsif Is_Modular_Integer_Type (Source) then
+                        elsif Is_Unsigned_Type (Source) then
                            Error_Msg_N
                              ("\source will be extended with ^ high order " &
                               "zero bits?", Enode);
@@ -3698,8 +4007,6 @@ package body Sem_Ch13 is
                            Enode);
                      end if;
                   end if;
-
-                  Warn_On_Instance := False;
                end if;
             end if;
 
@@ -3729,7 +4036,6 @@ package body Sem_Ch13 is
                         if Source_Align < Target_Align
                           and then not Is_Tagged_Type (D_Source)
                         then
-                           Warn_On_Instance := True;
                            Error_Msg_Uint_1 := Target_Align;
                            Error_Msg_Uint_2 := Source_Align;
                            Error_Msg_Node_2 := D_Source;
@@ -3742,8 +4048,6 @@ package body Sem_Ch13 is
                                 ("\resulting access value may have invalid " &
                                  "alignment?", Enode);
                            end if;
-
-                           Warn_On_Instance := False;
                         end if;
                      end;
                   end if;
@@ -3752,115 +4056,5 @@ package body Sem_Ch13 is
          end;
       end loop;
    end Validate_Unchecked_Conversions;
-
-   ------------------
-   -- Warn_Overlay --
-   ------------------
-
-   procedure Warn_Overlay
-     (Expr : Node_Id;
-      Typ  : Entity_Id;
-      Nam  : Node_Id)
-   is
-      Old  : Entity_Id := Empty;
-      Decl : Node_Id;
-
-   begin
-      if not Address_Clause_Overlay_Warnings then
-         return;
-      end if;
-
-      if Present (Expr)
-        and then (Has_Non_Null_Base_Init_Proc (Typ)
-                    or else Is_Access_Type (Typ))
-        and then not Is_Imported (Entity (Nam))
-      then
-         if Nkind (Expr) = N_Attribute_Reference
-           and then Is_Entity_Name (Prefix (Expr))
-         then
-            Old := Entity (Prefix (Expr));
-
-         elsif Is_Entity_Name (Expr)
-           and then Ekind (Entity (Expr)) = E_Constant
-         then
-            Decl := Declaration_Node (Entity (Expr));
-
-            if Nkind (Decl) = N_Object_Declaration
-              and then Present (Expression (Decl))
-              and then Nkind (Expression (Decl)) = N_Attribute_Reference
-              and then Is_Entity_Name (Prefix (Expression (Decl)))
-            then
-               Old := Entity (Prefix (Expression (Decl)));
-
-            elsif Nkind (Expr) = N_Function_Call then
-               return;
-            end if;
-
-         --  A function call (most likely to To_Address) is probably not
-         --  an overlay, so skip warning. Ditto if the function call was
-         --  inlined and transformed into an entity.
-
-         elsif Nkind (Original_Node (Expr)) = N_Function_Call then
-            return;
-         end if;
-
-         Decl := Next (Parent (Expr));
-
-         --  If a pragma Import follows, we assume that it is for the current
-         --  target of the address clause, and skip the warning.
-
-         if Present (Decl)
-           and then Nkind (Decl) = N_Pragma
-           and then Chars (Decl) = Name_Import
-         then
-            return;
-         end if;
-
-         if Present (Old) then
-            Error_Msg_Node_2 := Old;
-            Error_Msg_N
-              ("default initialization of & may modify &?",
-               Nam);
-         else
-            Error_Msg_N
-              ("default initialization of & may modify overlaid storage?",
-               Nam);
-         end if;
-
-         --  Add friendly warning if initialization comes from a packed array
-         --  component.
-
-         if Is_Record_Type (Typ)  then
-            declare
-               Comp : Entity_Id;
-
-            begin
-               Comp := First_Component (Typ);
-
-               while Present (Comp) loop
-                  if Nkind (Parent (Comp)) = N_Component_Declaration
-                    and then Present (Expression (Parent (Comp)))
-                  then
-                     exit;
-                  elsif Is_Array_Type (Etype (Comp))
-                     and then Present (Packed_Array_Type (Etype (Comp)))
-                  then
-                     Error_Msg_NE
-                       ("packed array component& will be initialized to zero?",
-                          Nam, Comp);
-                     exit;
-                  else
-                     Next_Component (Comp);
-                  end if;
-               end loop;
-            end;
-         end if;
-
-         Error_Msg_N
-           ("use pragma Import for & to " &
-              "suppress initialization ('R'M B.1(24))?",
-             Nam);
-      end if;
-   end Warn_Overlay;
 
 end Sem_Ch13;

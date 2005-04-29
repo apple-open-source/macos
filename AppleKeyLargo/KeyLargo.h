@@ -620,6 +620,7 @@ protected:
 	UInt32				keyLargoVersion;
 	UInt32				keyLargoDeviceId;
 	IOService *			keyLargoService;
+	bool 				changeModemReset;
 
  
 	virtual	void		AdjustBusSpeeds ( void );

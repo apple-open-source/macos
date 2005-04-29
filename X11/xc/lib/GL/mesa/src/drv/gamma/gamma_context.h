@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_context.h,v 1.6 2002/12/16 16:18:50 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_context.h,v 1.7 2003/09/28 20:15:09 alanh Exp $ */
 /*
  * Copyright 2001 by Alan Hourihane.
  *
@@ -28,7 +28,7 @@
 #define _GAMMA_CONTEXT_H_
 
 #include "dri_util.h"
-
+#include "colormac.h"
 #include "gamma_regs.h"
 #include "gamma_macros.h"
 #include "gamma_screen.h"
@@ -59,8 +59,7 @@ typedef union {
 extern void	  gammaDDUpdateHWState(GLcontext *ctx);
 extern gammaScreenPtr	  gammaCreateScreen(__DRIscreenPrivate *sPriv);
 extern void	  gammaDestroyScreen(__DRIscreenPrivate *sPriv);
-extern GLboolean gammaCreateContext( Display *dpy,
-                                     const __GLcontextModes *glVisual,
+extern GLboolean gammaCreateContext( const __GLcontextModes *glVisual,
                                      __DRIcontextPrivate *driContextPriv,
                                      void *sharedContextPrivate);
 
@@ -186,7 +185,6 @@ void gammaTexturesGone( gammaContextPtr gmesa,
 		       GLuint in_use ); 
 
 void gammaEmitHwState( gammaContextPtr gmesa );
-void gammaGetLock( gammaContextPtr gmesa, GLuint flags );
 void gammaDDInitExtensions( GLcontext *ctx );
 void gammaDDInitDriverFuncs( GLcontext *ctx );
 void gammaDDInitSpanFuncs( GLcontext *ctx );
@@ -247,8 +245,6 @@ struct gamma_context {
 
    	/* Mirrors of some DRI state
     	 */
-   	Display *display;			/* X server display */
-
    	drmContext hHWContext;
    	drmLock *driHwLock;
    	int driFd;

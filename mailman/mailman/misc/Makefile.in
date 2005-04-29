@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -52,7 +52,7 @@ SETUPINSTOPTS=	--install-lib $(DESTDIR)$(PYTHONLIBDIR) \
 SETUPCMD=	setup.py --quiet install $(SETUPINSTOPTS)
 PKGDIR:= 	$(shell pwd)
 
-EMAILPKG=	email-2.5.4
+EMAILPKG=	email-2.5.5
 JACODECSPKG=	JapaneseCodecs-1.4.10
 KOCODECSPKG=	KoreanCodecs-2.0.5
 

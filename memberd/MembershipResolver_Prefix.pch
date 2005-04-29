@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'MembershipResolver' target in the 'MembershipResolver' project.
+//
+
+#ifdef __OBJC__
+    #import <Foundation/Foundation.h>
+#endif

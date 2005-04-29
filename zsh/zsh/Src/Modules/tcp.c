@@ -167,7 +167,7 @@ zsh_gethostbyname2(char const *name, int af)
 
 /**/
 mod_export struct hostent *
-zsh_getipnodebyname(char const *name, int af, int flags, int *errorp)
+zsh_getipnodebyname(char const *name, int af, UNUSED(int flags), int *errorp)
 {
     static struct hostent ahe;
     static char nbuf[16];
@@ -195,7 +195,7 @@ zsh_getipnodebyname(char const *name, int af, int flags, int *errorp)
 
 /**/
 mod_export void
-freehostent(struct hostent *ptr)
+freehostent(UNUSED(struct hostent *ptr))
 {
 }
 
@@ -216,7 +216,7 @@ zts_alloc(int ztflags)
 {
     Tcp_session sess;
 
-    sess = (Tcp_session)zcalloc(sizeof(struct tcp_session));
+    sess = (Tcp_session)zshcalloc(sizeof(struct tcp_session));
     if (!sess) return NULL;
     sess->fd=-1;
     sess->flags=ztflags;
@@ -337,10 +337,10 @@ tcp_connect(Tcp_session sess, char *addrp, struct hostent *zhost, int d_port)
 }
 
 static int
-bin_ztcp(char *nam, char **args, Options ops, int func)
+bin_ztcp(char *nam, char **args, Options ops, UNUSED(int func))
 {
     int herrno, err=1, destport, force=0, verbose=0, test=0, targetfd=0;
-    SOCKLEN_T  len;
+    ZSOCKLEN_T  len;
     char **addrp, *desthost, *localname, *remotename;
     struct hostent *zthost = NULL, *ztpeer = NULL;
     struct servent *srv;
@@ -515,7 +515,7 @@ bin_ztcp(char *nam, char **args, Options ops, int func)
 	    tv.tv_sec = 0;
 	    tv.tv_usec = 0;
 	    
-	    if (ret = select(lfd+1, &rfds, NULL, NULL, &tv)) return 1;
+	    if ((ret = select(lfd+1, &rfds, NULL, NULL, &tv))) return 1;
 	    else if (ret == -1)
 	    {
 		zwarnnam(nam, "select error: %e", NULL, errno);
@@ -680,7 +680,7 @@ static struct builtin bintab[] = {
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
@@ -706,7 +706,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

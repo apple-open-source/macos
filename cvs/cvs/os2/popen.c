@@ -46,7 +46,7 @@ void
 ll_insert (HFILE key, ULONG val)
 {
   struct pid_list *new;
-  new = (struct pid_list *) malloc (sizeof (*new));
+  new = (struct pid_list *) xmalloc (sizeof (*new));
 
   new->pid       = key;
   new->term_code = val;

@@ -26,7 +26,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_ioctl.c,v 1.5 2002/12/10 01:26:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_ioctl.c,v 1.6 2003/09/28 20:15:14 alanh Exp $ */
 
 /*
  * Author:
@@ -149,7 +149,7 @@ static void i830ClearWithTris(GLcontext *ctx, GLbitfield mask,
    GLuint old_dirty;
    int x0, y0, x1, y1;
 
-   if (I830_DEBUG & DEBUG_IOCTL)
+   if (I830_DEBUG & DEBUG_IOCTL) 
      fprintf(stderr, "Clearing with triangles\n");
 
    old_dirty = imesa->dirty & ~I830_UPLOAD_CLIPRECTS;
@@ -243,8 +243,8 @@ static void i830ClearWithTris(GLcontext *ctx, GLbitfield mask,
 		imesa->clear_blue, imesa->clear_alpha);
 
       i830ClearDrawQuad(imesa, (float)x0, (float)x1, (float)y0, (float)y1,
-			   imesa->clear_red, imesa->clear_green,
-		   imesa->clear_blue, imesa->clear_alpha);
+                        imesa->clear_red, imesa->clear_green,
+                        imesa->clear_blue, imesa->clear_alpha);
       i830FlushPrimsLocked( imesa );
    }
 
@@ -312,7 +312,7 @@ static void i830ClearWithTris(GLcontext *ctx, GLbitfield mask,
    }
 
    if(mask & DD_STENCIL_BIT) {
-      GLuint s_mask = ctx->Stencil.WriteMask;
+      GLuint s_mask = ctx->Stencil.WriteMask[0];
 
       sarea->dirty |= (I830_UPLOAD_CTX | I830_UPLOAD_BUFFERS |
 		       I830_UPLOAD_TEXBLEND0);
@@ -352,31 +352,36 @@ static void i830ClearWithTris(GLcontext *ctx, GLbitfield mask,
 						     ENABLE_DEPTH_WRITE |
 						     ENABLE_COLOR_WRITE);
 
-      sarea->ContextState[I830_CTXREG_ENABLES_2] |= (ENABLE_STENCIL_WRITE |
-					    DISABLE_DEPTH_WRITE |
-					    (1 << WRITEMASK_RED_SHIFT) |
-					    (1 << WRITEMASK_GREEN_SHIFT) |
-					    (1 << WRITEMASK_BLUE_SHIFT) |
-					    (1 << WRITEMASK_ALPHA_SHIFT) |
-					    ENABLE_COLOR_WRITE);
+      sarea->ContextState[I830_CTXREG_ENABLES_2] |= 
+	 (ENABLE_STENCIL_WRITE |
+	  DISABLE_DEPTH_WRITE |
+	  (1 << WRITEMASK_RED_SHIFT) |
+	  (1 << WRITEMASK_GREEN_SHIFT) |
+	  (1 << WRITEMASK_BLUE_SHIFT) |
+	  (1 << WRITEMASK_ALPHA_SHIFT) |
+	  ENABLE_COLOR_WRITE);
 
-      sarea->ContextState[I830_CTXREG_STATE4] &= ~MODE4_ENABLE_STENCIL_MASK;
-      sarea->ContextState[I830_CTXREG_STATE4] |= (ENABLE_STENCIL_TEST_MASK |
-						 ENABLE_STENCIL_WRITE_MASK |
-						 STENCIL_TEST_MASK(s_mask) |
-						 STENCIL_WRITE_MASK(s_mask));
+      sarea->ContextState[I830_CTXREG_STATE4] &= 
+	 ~MODE4_ENABLE_STENCIL_WRITE_MASK;
 
-      sarea->ContextState[I830_CTXREG_STENCILTST] &= ~(STENCIL_OPS_MASK |
-					       STENCIL_REF_VALUE_MASK |
-					       ENABLE_STENCIL_TEST_FUNC_MASK);
-      sarea->ContextState[I830_CTXREG_STENCILTST] |= (ENABLE_STENCIL_PARMS |
-			      ENABLE_STENCIL_REF_VALUE |
-			      ENABLE_STENCIL_TEST_FUNC |
-			      STENCIL_FAIL_OP(STENCILOP_REPLACE) |
-			      STENCIL_PASS_DEPTH_FAIL_OP(STENCILOP_REPLACE) |
-			      STENCIL_PASS_DEPTH_PASS_OP(STENCILOP_REPLACE) |
-			      STENCIL_REF_VALUE((ctx->Stencil.Clear & 0xff)) |
-			      STENCIL_TEST_FUNC(COMPAREFUNC_ALWAYS));
+      sarea->ContextState[I830_CTXREG_STATE4] |= 
+	 (ENABLE_STENCIL_WRITE_MASK |
+	  STENCIL_WRITE_MASK(s_mask));
+
+      sarea->ContextState[I830_CTXREG_STENCILTST] &= 
+	 ~(STENCIL_OPS_MASK |
+	   STENCIL_REF_VALUE_MASK |
+	   ENABLE_STENCIL_TEST_FUNC_MASK);
+
+      sarea->ContextState[I830_CTXREG_STENCILTST] |= 
+	 (ENABLE_STENCIL_PARMS |
+	  ENABLE_STENCIL_REF_VALUE |
+	  ENABLE_STENCIL_TEST_FUNC |
+	  STENCIL_FAIL_OP(STENCILOP_REPLACE) |
+	  STENCIL_PASS_DEPTH_FAIL_OP(STENCILOP_REPLACE) |
+	  STENCIL_PASS_DEPTH_PASS_OP(STENCILOP_REPLACE) |
+	  STENCIL_REF_VALUE((ctx->Stencil.Clear & 0xff)) |
+	  STENCIL_TEST_FUNC(COMPAREFUNC_ALWAYS));
 
       if(0) 
 	fprintf(stderr, "Enables_1 (0x%x) Enables_2 (0x%x) StenTst (0x%x)\n"
@@ -454,12 +459,12 @@ static void i830Clear(GLcontext *ctx, GLbitfield mask, GLboolean all,
    }
 
    if((mask & DD_STENCIL_BIT) && imesa->hw_stencil) {
-      if (ctx->Stencil.WriteMask != 0xff) {
+      if (ctx->Stencil.WriteMask[0] != 0xff) {
 	 tri_mask |= DD_STENCIL_BIT;
       } else {
 	 clear.flags |= I830_DEPTH;
 	 clear.clear_depthmask |= imesa->stencil_clear_mask;
-	 clear.clear_depth |= imesa->stencil_clear_mask;
+	 clear.clear_depth |= (ctx->Stencil.Clear & 0xff) << 24;
       }
       mask &= ~DD_STENCIL_BIT;
    }
@@ -467,8 +472,6 @@ static void i830Clear(GLcontext *ctx, GLbitfield mask, GLboolean all,
    /* First check for clears that need to happen with triangles */
    if(tri_mask) {
       i830ClearWithTris(ctx, tri_mask, all, cx, cy, cw, ch);
-   } else {
-      mask |= tri_mask;
    }
 
    if (clear.flags) {
@@ -577,6 +580,7 @@ void i830CopyBuffer( const __DRIdrawablePrivate *dPriv )
  */
 void i830PageFlip( const __DRIdrawablePrivate *dPriv )
 {
+#if 0
    i830ContextPtr imesa;
    int tmp, ret;
 
@@ -619,6 +623,7 @@ void i830PageFlip( const __DRIdrawablePrivate *dPriv )
    i830SetDrawBuffer( imesa->glCtx, imesa->glCtx->Color.DriverDrawBuffer );
    imesa->upload_cliprects = GL_TRUE;
    imesa->lastSwap = tmp;
+#endif
 }
 
 /* This waits for *everybody* to finish rendering -- overkill.
@@ -691,8 +696,8 @@ void i830WaitAge( i830ContextPtr imesa, int age  )
 
 static void age_imesa( i830ContextPtr imesa, int age )
 {
-   if (imesa->CurrentTexObj[0]) imesa->CurrentTexObj[0]->age = age;
-   if (imesa->CurrentTexObj[1]) imesa->CurrentTexObj[1]->age = age;
+   if (imesa->CurrentTexObj[0]) imesa->CurrentTexObj[0]->base.timestamp = age;
+   if (imesa->CurrentTexObj[1]) imesa->CurrentTexObj[1]->base.timestamp = age;
 }
 
 void i830FlushPrimsLocked( i830ContextPtr imesa )

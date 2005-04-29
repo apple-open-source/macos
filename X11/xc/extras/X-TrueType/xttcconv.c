@@ -3,6 +3,7 @@
    Copyright (c) 1998 Takuya SHIOZAKI, All Rights reserved.
    Copyright (c) 1998 Go Watanabe, All rights reserved. 
    Copyright (c) 1998 X-TrueType Server Project, All rights reserved. 
+   Copyright (c) 2003 After X-TT Project, All rights reserved.
 
 ===Notice
    Redistribution and use in source and binary forms, with or without
@@ -26,16 +27,18 @@
    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
    SUCH DAMAGE.
 
-   Major Release ID: X-TrueType Server Version 1.3 [Aoi MATSUBARA Release 3]
+   Major Release ID: X-TrueType Server Version 1.4 [Charles's Wain Release 0]
 
 Notice===
  */
-/* $XFree86: xc/extras/X-TrueType/xttcconv.c,v 1.11 2003/02/25 22:10:15 dawes Exp $ */
+/* $XFree86: xc/extras/X-TrueType/xttcconv.c,v 1.13 2003/10/22 16:25:23 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 /* ***This file depend on XFree86 Loader architecture*** */
 
@@ -195,6 +198,7 @@ ENTRYFUNC_PROTO_TEMPLATE(BIG5_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(BIG5HKSCS_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(GB2312_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(GBK_entrypoint);
+ENTRYFUNC_PROTO_TEMPLATE(GB18030_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(JISX0201_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(JISX0208_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(JISX0212_entrypoint);
@@ -210,6 +214,7 @@ ENTRYFUNC_PROTO_TEMPLATE(ISO8859_8_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(ISO8859_9_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(ISO8859_10_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(ISO8859_11_entrypoint);
+ENTRYFUNC_PROTO_TEMPLATE(ISO8859_13_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(ISO8859_14_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(ISO8859_15_entrypoint);
 ENTRYFUNC_PROTO_TEMPLATE(KOI8_entrypoint);
@@ -236,6 +241,7 @@ static mod_entrypoint_ptr_t preloadedCodeConverter[] = {
     BIG5HKSCS_entrypoint,
     GB2312_entrypoint,
     GBK_entrypoint,
+    GB18030_entrypoint,
     JISX0201_entrypoint,
     JISX0208_entrypoint,
     JISX0212_entrypoint,
@@ -251,6 +257,7 @@ static mod_entrypoint_ptr_t preloadedCodeConverter[] = {
     ISO8859_9_entrypoint,
     ISO8859_10_entrypoint,
     ISO8859_11_entrypoint,
+    ISO8859_13_entrypoint,
     ISO8859_14_entrypoint,
     ISO8859_15_entrypoint,
     KOI8_entrypoint,
@@ -266,6 +273,155 @@ static mod_entrypoint_ptr_t preloadedCodeConverter[] = {
     NULL
 };
 
+#if defined(FONTMODULE)
+/* for New Designed XFree86 */
+/* This is workaroud fix for Linux/PPC. If the true nature of */
+/* the problem is resolved, this code can be removed. */
+#define PPC_WORKAROUND
+#ifdef PPC_WORKAROUND
+typedef struct {
+    char const *charsetStdName;   /* e.g. "iso8859", "jisx0208" .... */
+    char const *charsetYear;      /* e.g. "1983" of "jisx0208.1983" */
+    char const *charsetEncoding;  /* e.g. "1" of "iso8859-1"  */
+    char const *charsetPlane;     /* preparation for Multilingual Plane */
+    char const *moduleName;
+} ModuleRelation;
+
+static ModuleRelation moduleRelations[] =
+    { { "mulearabic",  NULL,            "0", NULL, "ARABIC" },
+      { "mulearabic",  NULL,            "1", NULL, "ARABIC" },
+      { "mulearabic",  NULL,            "2", NULL, "ARABIC" },
+      { "microsoft",   NULL,       "cp1256", NULL, "ARABIC" },
+      { "xaterm",      NULL, "fontspecific", NULL, "ARABIC" },
+      { "isiri",       NULL, "3342",         NULL, "ARABIC" },
+      { "iransystem",  NULL, "0",            NULL, "ARABIC" },
+      { "urdunaqsh",   NULL, "0",            NULL, "ARABIC" },
+      { "armscii",     NULL, "8",            NULL, "ARMSCII8" },
+      { "big5",        NULL, NULL,           NULL, "BIG5" },
+      { "big5hkscs",   NULL, NULL,           NULL, "BIG5HKSCS" },
+      { "hkscs",       NULL, NULL,           NULL, "BIG5HKSCS" },
+      { "ibm",         NULL,        "cp437", NULL, "DOSENCODING" },
+      { "ibm",         NULL,        "cp850", NULL, "DOSENCODING" },
+      { "microsoft",   NULL,       "cp1252", NULL, "DOSENCODING" },
+      { "ansi",        NULL,            "0", NULL, "DOSENCODING" },
+      { "microsoft",   NULL,       "win3.1", NULL, "DOSENCODING" },
+      { "microsoft",   NULL, "fontspecific", NULL, "DOSENCODING" },
+      { "misc",        NULL, "fontspecific", NULL, "DOSENCODING" },
+      { "gb18030",   "2000", "0",            NULL, "GB18030" },
+      { "gb18030",   "2000", "1",            NULL, "GB18030" },
+      { "gb18030",     NULL, "0",            NULL, "GB18030" },
+      { "gbk2k",       NULL, "0",            NULL, "GB18030" },
+      { "gb2312",      NULL, NULL,           NULL, "GB2312" },
+      { "gbk",         NULL, NULL,           NULL, "GBK" },
+      { "georgian",    NULL, "academy",      NULL, "GEORGIAN" },
+      { "georgian",    NULL, "ps",           NULL, "GEORGIAN" },
+#ifndef I_HATE_UNICODE
+      { "unicode",     NULL, NULL,           NULL, "ISO8859_1" },
+      { "iso10646",    NULL, "1",            NULL, "ISO8859_1" },
+#endif
+      { "iso8859",     NULL, "1",            NULL, "ISO8859_1" },
+      { "ascii",       NULL, NULL,           NULL, "ISO8859_1" },
+      { "apple",       NULL, "roman",        NULL, "ISO8859_1" },
+      { "apple",       NULL, "centeuro",     NULL, "ISO8859_1" },
+      { "microsoft",   NULL, "symbol",       NULL, "ISO8859_1" },
+      { "microsoft_symbol", NULL, NULL,      NULL, "ISO8859_1" },
+      { "ms",          NULL, "symbol",       NULL, "ISO8859_1" },
+      { "ms_symbol",   NULL, NULL,           NULL, "ISO8859_1" },
+      { "iso8859",     NULL, "10",           NULL, "ISO8859_10" },
+      { "iso8859",     NULL, "11",           NULL, "ISO8859_11" },
+      { "tis620",      NULL,  "0",           NULL, "ISO8859_11" },
+      { "tis620",    "2529", NULL,           NULL, "ISO8859_11" },
+      { "tis620",    "2533", NULL,           NULL, "ISO8859_11" },
+      { "iso8859",     NULL, "13",           NULL, "ISO8859_13" },
+      { "microsoft",   NULL, "cp1257",       NULL, "ISO8859_13" },
+      { "iso8859",     NULL, "14",           NULL, "ISO8859_14" },
+      { "iso8859",     NULL, "15",           NULL, "ISO8859_15" },
+      { "iso8859",     NULL, "2",            NULL, "ISO8859_2" },
+      { "microsoft",   NULL, "cp1250",       NULL, "ISO8859_2" },
+      { "iso8859",     NULL, "3",            NULL, "ISO8859_3" },
+      { "iso8859",     NULL, "4",            NULL, "ISO8859_4" },
+      { "iso8859",     NULL, "5",            NULL, "ISO8859_5" },
+      { "microsoft",   NULL, "cp1251",       NULL, "ISO8859_5" },
+      { "iso8859",     NULL, "6",            NULL, "ISO8859_6" },
+      { "iso8859",     NULL, "6.8x",         NULL, "ISO8859_6" },
+      { "iso8859",     NULL, "6_8",          NULL, "ISO8859_6" },
+      { "iso8859",     NULL, "6.16x",        NULL, "ISO8859_6" },
+      { "iso8859",     NULL, "6_16",         NULL, "ISO8859_6" },
+      { "iso8859",     NULL, "6_asmo",       NULL, "ISO8859_6" },
+      { "asmo",        NULL, "449",          NULL, "ISO8859_6" },
+      { "asmo",        NULL, "449+",         NULL, "ISO8859_6" },
+      { "iso8859",     NULL, "7",            NULL, "ISO8859_7" },
+      { "microsoft",   NULL, "cp1253",       NULL, "ISO8859_7" },
+      { "iso8859",     NULL, "8",            NULL, "ISO8859_8" },
+      { "microsoft",   NULL, "cp1255",       NULL, "ISO8859_8" },
+      { "iso8859",     NULL, "9",            NULL, "ISO8859_9" },
+      { "jisx0201",    NULL, NULL,           NULL, "JISX0201" },
+      { "jisx0208",    NULL, NULL,           NULL, "JISX0208" },
+      { "gt",          NULL, NULL,           NULL, "JISX0208" },
+      { "jisx0212",    NULL, NULL,           NULL, "JISX0212" },
+      { "koi8",        NULL, "1",            NULL, "KOI8" },
+      { "koi8",        NULL, "r",            NULL, "KOI8" },
+      { "koi8",        NULL, "u",            NULL, "KOI8" },
+      { "koi8",        NULL, "ru",           NULL, "KOI8" },
+      { "koi8",        NULL, "uni",          NULL, "KOI8" },
+      { "ksc5601",     NULL, "0",            NULL, "KSC5601" },
+      { "ksc5601",     NULL, "1",            NULL, "KSC5601" },
+      { "ksc5601",     NULL, "3",            NULL, "KSCJOHAB" },
+      { "ksx1001",     NULL, "3",            NULL, "KSCJOHAB" },
+      { "kscjohab",    NULL, NULL,           NULL, "KSCJOHAB" },
+      { "ksc5601johab",NULL, NULL,           NULL, "KSCJOHAB" },
+      { "mulelao",     NULL, "1",            NULL, "MULEENCODING" },
+      { "ibm",         NULL, "cp1133",       NULL, "MULEENCODING" },
+      { "tcvn",        NULL, NULL,           NULL, "TCVN" },
+      { "viscii1",       "1", "1",           NULL, "VISCII" },
+      { NULL,          NULL, NULL,           NULL, NULL }
+    };
+
+Bool /* isFound */
+codeconv_search_module( char const *charsetStdName,
+                        char const *charsetYear,
+                        char const *charsetEncoding,
+                        char const *charsetPlane,
+                        char const **result /* module */)
+{
+    Bool isFound = False;
+    ModuleRelation const *p;
+    int ok_charsetYear=0, ok_charsetEncoding=0;
+    
+    for (p=moduleRelations; NULL != p->charsetStdName; p++) {
+        /* check STANDARD field */
+        if ( !charsetStdName ) break;
+        if ( mystrcasecmp(p->charsetStdName, charsetStdName) ) continue;
+        /* check YEAR field */
+        ok_charsetYear=0;
+        if ( !p->charsetYear ) ok_charsetYear=1;    /* mean as no need to check the YEAR field */
+        else {
+            if ( charsetYear ) {
+                if ( !mystrcasecmp(p->charsetYear, charsetYear) ) ok_charsetYear=1;
+            }
+        }
+        if ( !ok_charsetYear ) continue;
+        /* check ENCODING field */
+        ok_charsetEncoding=0;
+        if ( !p->charsetEncoding ) ok_charsetEncoding=1;    /* mean as no need to check the ENCODING field */
+        else {
+            if ( charsetEncoding ) {
+                if ( !mystrcasecmp(p->charsetEncoding,charsetEncoding) )
+                    ok_charsetEncoding=1;
+            }
+        }
+        /* match!! */
+        if ( ok_charsetYear && ok_charsetEncoding ) {
+            isFound = True;
+            *result = p->moduleName;
+            break;
+        }
+    }
+
+    return isFound;
+}
+#endif  /* PPC_WORKAROUND */
+#endif  /* FONTMODULE */
 
 /*************************************************
   codeconv public functions
@@ -306,23 +462,35 @@ codeconv_search_code_converter(char const *charsetName,
         hints.charsetStdName = NULL;
         hints.charsetYear = NULL;
         hints.charsetEncoding = NULL;
+        /* hints.charsetPlane = NULL; */
         hints.hFace = hFace;
         hints.numberOfCharMaps = numberOfCharMaps;
         hints.refListPropRecVal = refListPropRecVal;
         {
             /* separate charset name string */
-            char *p, *q;
+            char *p, *q, *r;
             
             hints.charsetStdName = p = xstrdup(charsetName);
-            if (NULL != (q=strchr(p, '.'))) {
-                /* YEAR field */
-                *q = '\0'; q++;
-                hints.charsetYear = p = q;
-            }
-            if (NULL != (q=strchr(p, '-'))) {
-                /* ENCODING field */
-                *q = '\0'; q++;
-                hints.charsetEncoding = q;
+            if ( p ) {
+                r = strchr(p, '-');
+                if (NULL != (q=strchr(p, '.'))) {
+                    if ( NULL == r || (NULL != r && q < r) ) {
+                        /* YEAR field */
+                        *q = '\0'; q++;
+                        hints.charsetYear = q;
+                    }
+                }
+                if (NULL != r) {
+                    /* ENCODING field */
+                    *r = '\0'; r++;
+                    hints.charsetEncoding = r;
+                    /* preparation for Multilingual Plane */
+                    if (NULL != (q=strchr(r, '.'))) {
+                        /* PLANE field */
+                        *q = '\0'; q++;
+                        /* hints.charsetPlane = q */
+                    }
+                }
             }
         }
     }
@@ -470,12 +638,12 @@ codeconv_search_code_converter(char const *charsetName,
 #else /* ! FONTMODULE */
 /* for New Designed XFree86 */
         
-		char** list = NULL;
-		ModuleSetupArg moduleArg;
+        char** list = NULL;
+        ModuleSetupArg moduleArg;
 
-		moduleArg.charSetHints = &hints;
-		moduleArg.refCodeConverterInfo = refCodeConverterInfo;
-		moduleArg.refMapID = refMapID;
+        moduleArg.charSetHints = &hints;
+        moduleArg.refCodeConverterInfo = refCodeConverterInfo;
+        moduleArg.refMapID = refMapID;
 
         if   (NULL !=
                 (list = LoaderListDirs(convModuleSubdir, NULL))) {
@@ -495,8 +663,8 @@ codeconv_search_code_converter(char const *charsetName,
 
                 if (NULL == entryName){
                     entryName = xalloc(length+1);
-					entryNameAllocated = length;
-				}
+                    entryNameAllocated = length;
+                }
                 else
                     if (length > entryNameAllocated) {
                         entryName = xrealloc(entryName, length+1);
@@ -509,46 +677,62 @@ codeconv_search_code_converter(char const *charsetName,
 
             {
                 char **l;
-		char **tryItFirst = NULL;
-        char **fallback_try = NULL;
-
-        for (l=list; *l ; l++) {
-            int breaking=0;
-            char *tmp_left=NULL;
-            char *mark_underscore=NULL;
-            tmp_left=xstrdup(*l);
-            mark_underscore=strrchr(tmp_left,'_');
-            if( mark_underscore != NULL ){
-                *mark_underscore = '\0';
-                if( !mystrcasecmp(tmp_left,moduleArg.charSetHints->charsetStdName) ){
-                    if( !mystrcasecmp( mark_underscore+1,moduleArg.charSetHints->charsetEncoding ) ){
-                        tryItFirst = l;
-                        breaking=1;
-                    }
-                }
-            }
-            else{
-                if(!mystrcasecmp(*l,moduleArg.charSetHints->charsetStdName)) {
-                    tryItFirst = l;
-                    breaking=1;
-                }
-            }
-            if( fallback_try == NULL ){
-                if( !mystrcasecmp(*l,"ISO8859_1") ){
-                    fallback_try = l;
-                }
-            }
-            if( tmp_left ) xfree(tmp_left);
-            if( breaking ) break;
-        }
-#if 1
-        if( tryItFirst == NULL ) tryItFirst=fallback_try;
+                char **tryItFirst = NULL;
+                char **fallback_try = NULL;
+                char const *target_module = NULL;
+#ifdef PPC_WORKAROUND
+                codeconv_search_module(moduleArg.charSetHints->charsetStdName,
+                                       moduleArg.charSetHints->charsetYear,
+                                       moduleArg.charSetHints->charsetEncoding,
+                                       NULL,
+                                       &target_module);
 #endif
-		if(tryItFirst)
-			l = tryItFirst;
-		else
-			l = list;
-			
+                for (l=list; *l ; l++) {
+                    int breaking=0;
+                    char *tmp_left=NULL;
+                    char *mark_underscore=NULL;
+                    if ( target_module != NULL ) {
+                        if(!mystrcasecmp(*l,target_module)) {
+                            tryItFirst = l;
+                            breaking=1;
+                        }
+                    }
+                    else {
+                        tmp_left=xstrdup(*l);
+                        if ( tmp_left ) mark_underscore=strrchr(tmp_left,'_');
+                        else mark_underscore=NULL;
+                        if( mark_underscore != NULL ){
+                            *mark_underscore = '\0';
+                            if( !mystrcasecmp(tmp_left,moduleArg.charSetHints->charsetStdName) ){
+                                if( !mystrcasecmp( mark_underscore+1,moduleArg.charSetHints->charsetEncoding ) ){
+                                    tryItFirst = l;
+                                    breaking=1;
+                                }
+                            }
+                        }
+                        else{
+                            if(!mystrcasecmp(*l,moduleArg.charSetHints->charsetStdName)) {
+                                tryItFirst = l;
+                                breaking=1;
+                            }
+                        }
+                    }
+                    if( fallback_try == NULL ){
+                        if( !mystrcasecmp(*l,"ISO8859_1") ){
+                            fallback_try = l;
+                        }
+                    }
+                    if( tmp_left ) xfree(tmp_left);
+                    if( breaking ) break;
+                }
+#if 1
+                if( tryItFirst == NULL ) tryItFirst=fallback_try;
+#endif
+                if(tryItFirst)
+                    l = tryItFirst;
+                else
+                    l = list;
+                
                 while(*l && !isFound) {
                     /* load and call module */
                     pointer handle;
@@ -570,16 +754,16 @@ codeconv_search_code_converter(char const *charsetName,
                     if (NULL != handle) {
                             refCodeConverterInfo->handleModule =
                                 (ft_module_handle_t)handle;
-						isFound = True;
+                        isFound = True;
                             goto endScanMod;
-					} 
+                    } 
 
-					if (NULL != tryItFirst) {
-						l = list;
-						tryItFirst = NULL;
-					}
-					else
-						l++;
+                    if (NULL != tryItFirst) {
+                        l = list;
+                        tryItFirst = NULL;
+                    }
+                    else
+                        l++;
 
                 } /* loop by directory entry */
             }
@@ -634,25 +818,37 @@ codeconv_search_charset(CharSetRelation const *charSetRelations,
 {
     Bool isFound = False;
     CharSetRelation const *p;
+    int ok_charsetYear=0, ok_charsetEncoding=0;
     
     for (p=charSetRelations; NULL != p->charsetStdName; p++) {
         /* check STANDARD field */
-        if (  !mystrcasecmp(p->charsetStdName, charsetStdName))
-            /* check YEAR field */
-            if (  !p->charsetYear /* mean as no need to check the YEAR field */
-                  || (charsetYear &&
-                      !mystrcasecmp(p->charsetYear, charsetYear)))
-                /* check ENCODING field */
-                if ( !p->charsetEncoding /* mean as no need
-                                            to check the ENCODING field */
-                     || (charsetEncoding && !mystrcasecmp(p->charsetEncoding,
-                                                          charsetEncoding))) {
-                    /* match!! */
-                    isFound = True;
-                    *refMagicNumber = p->magicNumber;
-                    *refRefCharSetInfo = &p->charSetInfo;
-                    break;
-                }
+        if ( !charsetStdName ) break;
+        if ( mystrcasecmp(p->charsetStdName, charsetStdName) ) continue;
+        /* check YEAR field */
+        ok_charsetYear=0;
+        if ( !p->charsetYear ) ok_charsetYear=1;    /* mean as no need to check the YEAR field */
+        else {
+            if ( charsetYear ) {
+                if ( !mystrcasecmp(p->charsetYear, charsetYear) ) ok_charsetYear=1;
+            }
+        }
+        if ( !ok_charsetYear ) continue;
+        /* check ENCODING field */
+        ok_charsetEncoding=0;
+        if ( !p->charsetEncoding ) ok_charsetEncoding=1;    /* mean as no need to check the ENCODING field */
+        else {
+            if ( charsetEncoding ) {
+                if ( !mystrcasecmp(p->charsetEncoding,charsetEncoding) )
+                    ok_charsetEncoding=1;
+            }
+        }
+        /* match!! */
+        if ( ok_charsetYear && ok_charsetEncoding ) {
+            isFound = True;
+            if ( refMagicNumber!=NULL ) *refMagicNumber = p->magicNumber;
+            if ( refRefCharSetInfo!=NULL ) *refRefCharSetInfo = &p->charSetInfo;
+            break;
+        }
     }
 
     return isFound;

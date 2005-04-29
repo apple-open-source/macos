@@ -1,28 +1,26 @@
-この文章には
+このテキストには, リストの属性と置き換えられる
 <a href="http://www.python.org/doc/current/lib/typesseq-strings.html">
-Python の置き換え文字列</a>を使って、リストの属性に置き換える
-ことができる文字列を入れることができます.
-便利な属性としては，以下のようなものがあります．
+Pythonフォーマット文字列</a>を挿入することができます。
+ここで使える置換文字列は以下の通りです．
 
 <ul>
     <li><b>real_name</b> - リストの「きれいな」名前;
-    普通は大文字の入ったリストの名前になります．
+    普通は大文字と小文字を混ぜて表記されたリストの名前になります．
 
-    <li><b>list_name</b> - URL の中でリストが識別される
-    名前．ここで，大/小文字の違いは区別されます．(互換性のため,
+    <li><b>list_name</b> - URL の中でリストを示す名前.
+    大文字と小文字の違いは区別されます．(互換性のため,
     _internal_nameでも同じになります)
 
-    <li><b>host_name</b> - リストサーバーが作動するホストの
-    正式のドメイン名(FQDN).
+    <li><b>host_name</b> - Mailmanが稼働しているホストの
+    完全ドメイン名(FQDN).
 
     <li><b>web_page_url</b> - Mailman の基本 URL.
-    例えば <em>listinfo/%(list_name)s</em> を付け加えると
+    たとえば, このURLに <em>listinfo/%(list_name)s</em> を付け加えると
     メーリングリストの案内ページになります．
 
-    <li><b>description</b> - このメーリングリストの短い
-    説明文.
+    <li><b>description</b> - このメーリングリストの簡潔な説明.
 
-    <li><b>info</b> - このメーリングリストの長い説明文.
+    <li><b>info</b> - このメーリングリストの長い説明.
 
-    <li><b>cgiext</b> - CGIスクリプトに付加される拡張子.
+    <li><b>cgiext</b> - CGIスクリプトの拡張子.
 </ul>

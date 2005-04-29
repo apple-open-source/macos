@@ -41,7 +41,7 @@
  * $
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.internal.h,v 1.18 2002/06/13 18:39:14 lxs Exp $ */
+/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.internal.h,v 1.19 2004/10/22 20:48:25 lxs Exp $ */
 
 /*
  * Internal cache manipulation functions for CCache library
@@ -50,7 +50,7 @@
 #ifndef CCache_internal_h__
 #define CCache_internal_h__
  
-#include "CredentialsCache.h"
+#include <Kerberos/CredentialsCache.h>
 
 #define kInitialDefaultCCacheName "Initial default ccache"
 

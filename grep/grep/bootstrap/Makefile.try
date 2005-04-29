@@ -1,24 +1,55 @@
 #
 
-## DOS/WIN (not including DJGPP):
-# OBJEXT = obj
-# EXEEXT = .exe
-EXEEXT = 
+# Define for DOS/WIN (not including DJGPP):
+#OBJEXT = obj
+#EXEEXT = .exe
+EXEEXT =
 OBJEXT = o
 
-
-OBJS = alloca.$(OBJEXT) \
+# Source of grep.
+OBJS = \
       dfa.$(OBJEXT) \
-      getopt.$(OBJEXT) \
-      getopt1.$(OBJEXT) \
       grep.$(OBJEXT) \
       kwset.$(OBJEXT) \
-      memchr.$(OBJEXT) \
-      obstack.$(OBJEXT) \
-      regex.$(OBJEXT) \
-      savedir.$(OBJEXT) \
-      search.$(OBJEXT) \
-      stpcpy.$(OBJEXT)
+      search.$(OBJEXT)
+
+# Supporting routines.
+LIB_OBJS_core =  \
+      $(libdir)/closeout.$(OBJEXT) \
+      $(libdir)/error.$(OBJEXT) \
+      $(libdir)/exclude.$(OBJEXT) \
+      $(libdir)/hard-locale.$(OBJEXT) \
+      $(libdir)/isdir.$(OBJEXT) \
+      $(libdir)/quotearg.$(OBJEXT) \
+      $(libdir)/regex.$(OBJEXT) \
+      $(libdir)/savedir.$(OBJEXT) \
+      $(libdir)/strtoumax.$(OBJEXT) \
+      $(libdir)/xmalloc.$(OBJEXT) \
+      $(libdir)/xstrtol.$(OBJEXT) \
+      $(libdir)/xstrtoumax.$(OBJEXT)
+
+# Comment out functions already supported as needed.
+#LIB_OBJ_atexit   =  $(libdir)/atexit.$(OBJEXT)
+#LIB_OBJ_alloca   =  $(libdir)/alloca.$(OBJEXT)
+#LIB_OBJ_fnmatch  =  $(libdir)/fnmatch.$(OBJEXT)
+LIB_OBJ_getopt   =  $(libdir)/getopt.$(OBJEXT) $(libdir)/getopt1.$(OBJEXT)
+#LIB_OBJ_memchr   =  $(libdir)/memchr.$(OBJEXT)
+LIB_OBJ_obstack  =  $(libdir)/obstack.$(OBJEXT)
+#LIB_OBJ_strtoul  =  $(libdir)/strtoul.$(OBJEXT)
+LIB_OBJ_stpcpy   =  $(libdir)/stpcpy.$(OBJEXT)
+LIB_OBJ_strtoull = $(libdir)/strtoull.$(OBJEXT)
+
+LIB_OBJS = $(LIB_OBJS_core) $(LIB_OBJ_atexit) $(LIB_OBJ_alloca) \
+           $(LIB_OBJ_fnmatch) $(LIB_OBJ_getopt) $(LIB_OBJ_memchr) \
+           $(LIB_OBJ_obstack) $(LIB_OBJ_strtoul) $(LIB_OBJ_stpcpy) \
+           $(LIB_OBJ_strtoull)
+
+# For Linux
+#LIB_OBJS = $(LIB_OBJS_core)
+
+# For QNX/Neutrino
+#LIB_OBJS = $(LIB_OBJS_core) $(LIB_OBJ_getopt) $(LIB_OBJ_obstack) \
+#            $(LIB_OBJ_stpcpy) $(LIB_OBJ_strtoull)
 
 # Where is DIR and opendir/readdir defined.
 #  or -DHAVE_DIRENT_H
@@ -31,43 +62,74 @@ OBJS = alloca.$(OBJEXT) \
 #
 
 # default dry run
-DEFS = -I. \
-	 -DSTDC_HEADERS  \
-	 -DHAVE_MEMCHR \
-	 -DHAVE_DIRENT_H \
-	 -DHAVE_STRERROR \
-	 -Dconst= \
-	 -Dsize_t=unsigned
+DEFS_core = \
+           -DSTDC_HEADERS  \
+           -DHAVE_MEMCHR \
+           -DHAVE_DIRENT_H \
+           -DHAVE_STRERROR \
+           -Dconst= \
+           -Dsize_t=unsigned \
+           -Duintmax_t=long
 
 # SunOS-4.1.x k&r cc
-#DEFS =  -DSTDC_HEADERS -DHAVE_MEMCHR -DHAVE_DIRENT_H -Dconst= 
+#DEFS_sunos =  -DSTDC_HEADERS -DHAVE_MEMCHR -DHAVE_DIRENT_H -Dconst=
 
 # Solaris
-#DEFS = -DSTDC_HEADERS -DHAVE_MEMCHR -DHAVE_DIRENT_H -DHAVE_STRERROR
+#DEFS_solaris = -DSTDC_HEADERS -DHAVE_MEMCHR -DHAVE_DIRENT_H -DHAVE_STRERROR
 
 # DOS/WIN (change also OBJEXT/EXEEXT, see above)
 # DOS/DJGPP
-DEFS = -DSTDC_HEADERS -DHAVE_MEMCHR -DHAVE_STRERROR -DHAVE_DIRENT_H \
-       -DHAVE_DOS_FILE_NAMES -DHAVE_UNISTD_H -DHAVE_SETMODE
+DEFS_dos = -DSTDC_HEADERS -DHAVE_MEMCHR -DHAVE_STRERROR -DHAVE_DIRENT_H \
+           -DHAVE_DOS_FILE_CONTENTS \
+           -DHAVE_DOS_FILE_NAMES -DHAVE_UNISTD_H -DHAVE_SETMODE
+
+# If support ANSI C prototypes
+DEFS_ansi_c = -DPROTOTYPES
+
+# No wchar support
+# DEFS_wchar = -DUSE_WIDE_CHAR -DHAVE_WCHAR_H
+DEFS_wchar = -Dwchar_t=int -Dmbstate_t=int
+
+# Is strtol() and strtoul()  declarared ?
+#DEFS_strtol = -DHAVE_DECL_STRTOULL=0 -DHAVE_DECL_STRTOUL=0
+DEFS_strtol = -DHAVE_DECL_STRTOULL=1 -DHAVE_DECL_STRTOUL=1
+
+# Define if malloc(0)/realloc(0) works
+#DEFS_alloc = -DHAVE_DONE_WORKING_MALLOC_CHECK=0 \
+#             -DHAVE_DONE_WORKING_REALLOC_CHECK=0
+DEFS_alloc = -DHAVE_DONE_WORKING_MALLOC_CHECK=1 \
+             -DHAVE_DONE_WORKING_REALLOC_CHECK=1
+
+DEFS = $(DEFS_core) $(DEFS_ansi_c) $(DEFS_wchar) $(DEFS_strtol) $(DEFS_alloc) \
+       -DHAVE_DECL_STRERROR_R=0 -DHAVE_VPRINTF -DCHAR_BIT=8
+
 
 ####
 
-CFLAGS = $(DEFS) -I. -DVERSION=\"bootstrap\" -DPACKAGE=\"grep\"
+CFLAGS = $(DEFS) -I. -I.. -I$(libdir) -DVERSION=\"bootstrap\" -DPACKAGE=\"grep\"
+
+libdir = ../lib
 
 PROGS = grep$(EXEEXT) egrep$(EXEEXT) fgrep$(EXEEXT)
 
-all : $(PROGS)
+libgreputils_a = $(libdir)/libgreputils.a
 
-grep$(EXEEXT)  : $(OBJS)  grepmat.$(OBJEXT)
-	$(CC) $(OBJS) grepmat.$(OBJEXT) -o grep
+all : $(libgreputils_a) $(PROGS)
 
-egrep$(EXEEXT) : $(OBJS) egrepmat.$(OBJEXT)
-	$(CC) $(OBJS) egrepmat.$(OBJEXT) -o egrep
+grep$(EXEEXT)  : $(OBJS)  grepmat.$(OBJEXT) $(libgreputils_a)
+	$(CC) $(OBJS) grepmat.$(OBJEXT) -o grep $(libgreputils_a)
 
-fgrep$(EXEEXT) : $(OBJS) fgrepmat.$(OBJEXT)
-	$(CC) $(OBJS) fgrepmat.$(OBJEXT) -o fgrep
+egrep$(EXEEXT) : $(OBJS) egrepmat.$(OBJEXT) $(libgreputils_a)
+	$(CC) $(OBJS) egrepmat.$(OBJEXT) -o egrep $(libgreputils_a)
+
+fgrep$(EXEEXT) : $(OBJS) fgrepmat.$(OBJEXT) $(libgreputils_a)
+	$(CC) $(OBJS) fgrepmat.$(OBJEXT) -o fgrep $(libgreputils_a)
+
+$(libgreputils_a) : $(LIB_OBJS)
+	$(AR) $(ARFLAGS) $(libgreputils_a) $(LIB_OBJS)
 
 clean :
 	$(RM) grepmat.$(OBJEXT) egrepmat.$(OBJEXT) fgrepmat.$(OBJEXT)
-	$(RM) $(OBJS) 
+	$(RM) $(OBJS)
 	$(RM) $(PROGS)
+	$(RM) $(libgreputils_a) $(LIB_OBJS)

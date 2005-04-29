@@ -1,5 +1,5 @@
-# Copyright (c) 2000 IBM, Inc. and others
-# udata sample code $Revision: 1.1.1.1 $
+# Copyright (c) 2000-2004 IBM, Inc. and others
+# udata sample code
 # Usage:
 #  - configure, build, install ICU
 #  - ensure that 'icu-config' is in the PATH (PREFIX/bin/icu-config) 

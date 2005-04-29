@@ -179,7 +179,7 @@ extern const char * mcore_stack_increment_string;
 }
 
 #ifndef CC1_SPEC
-/* The MCore ABI says that bitfields are unsigned by default. */
+/* The MCore ABI says that bitfields are unsigned by default.  */
 #define CC1_SPEC "-funsigned-bitfields"
 #endif
 
@@ -215,10 +215,6 @@ extern const char * mcore_stack_increment_string;
 
 /* Target machine storage Layout.  */
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 #define PROMOTE_MODE(MODE,UNSIGNEDP,TYPE)  	\
   if (GET_MODE_CLASS (MODE) == MODE_INT         \
       && GET_MODE_SIZE (MODE) < UNITS_PER_WORD) \
@@ -248,30 +244,15 @@ extern const char * mcore_stack_increment_string;
 #define LIBGCC2_WORDS_BIG_ENDIAN 0
 #endif
 
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT  8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD  32
 #define MAX_BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD	4
 
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE  32
-
 /* A C expression for the size in bits of the type `long long' on the
    target machine.  If you don't define this, the default is two
    words.  */
 #define LONG_LONG_TYPE_SIZE 64
-
-/* the size of the boolean type -- in C++; */
-#define	BOOL_TYPE_SIZE	8
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY  	32
@@ -303,7 +284,7 @@ extern int mcore_stack_increment;
 /* Every structures size must be a multiple of 8 bits.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* Look at the fundamental type that is used for a bitfield and use 
+/* Look at the fundamental type that is used for a bit-field and use 
    that to impose alignment on the enclosing structure.
    struct s {int a:8}; should have same alignment as "int", not "char".  */
 #define	PCC_BITFIELD_TYPE_MATTERS	1
@@ -531,7 +512,7 @@ enum reg_class
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-extern int regno_reg_class[FIRST_PSEUDO_REGISTER];
+extern const int regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) regno_reg_class[REGNO]
 
 /* When defined, the compiler allows registers explicitly used in the
@@ -1131,15 +1112,11 @@ switch_to_section (section, decl)				\
 	   (STACK_BOUNDARY / BITS_PER_UNIT))
 
   
-/* Output a label definition.  */
-#define ASM_OUTPUT_LABEL(FILE,NAME)  \
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
 /* Output a reference to a label.  */
 #undef  ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(STREAM, NAME)  \
-  fprintf (STREAM, "%s%s", USER_LABEL_PREFIX, MCORE_STRIP_NAME_ENCODING (NAME))
-
+  fprintf (STREAM, "%s%s", USER_LABEL_PREFIX, \
+	   (* targetm.strip_name_encoding) (NAME))
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -1151,21 +1128,6 @@ switch_to_section (section, decl)				\
 #ifndef ASM_DECLARE_RESULT
 #define ASM_DECLARE_RESULT(FILE, RESULT)
 #endif
-
-/* Strip export encoding from a function name.  */
-#define MCORE_STRIP_NAME_ENCODING(SYM_NAME) \
-  ((SYM_NAME) + ((SYM_NAME)[0] == '@' ? 3 : 0))
-
-/* Strip any text from SYM_NAME added by ENCODE_SECTION_INFO and store
-   the result in VAR.  */
-#undef  STRIP_NAME_ENCODING
-#define STRIP_NAME_ENCODING(VAR, SYM_NAME) \
-  (VAR) = MCORE_STRIP_NAME_ENCODING (SYM_NAME)
-
-#undef  UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL, RELOC) mcore_unique_section (DECL, RELOC)
-
-#define REDO_SECTION_INFO_P(DECL) 1
 
 #define MULTIPLE_SYMBOL_SPACES 1
 
@@ -1199,11 +1161,8 @@ extern long mcore_current_compilation_timestamp;
     }								\
   while (0)
 
-/* Output a globalising directive for a label.  */
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)  \
-  (fprintf (STREAM, "\t.export\t"),	  \
-   assemble_name (STREAM, NAME),	  \
-   fputc ('\n',STREAM))                   \
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.export\t"
 
 /* The prefix to add to user-visible assembler symbols. */
 #undef  USER_LABEL_PREFIX
@@ -1315,11 +1274,6 @@ extern long mcore_current_compilation_timestamp;
       fprintf ((FILE), ",%d,%d\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
     }									\
   while (0)
-
-/* We must mark dll symbols specially.  Definitions of dllexport'd objects
-   install some info in the .drective (PE) or .exports (ELF) sections.   */
-#undef  ENCODE_SECTION_INFO
-#define ENCODE_SECTION_INFO(DECL) mcore_encode_section_info (DECL)
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

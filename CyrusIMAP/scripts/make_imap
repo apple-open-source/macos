@@ -1,5 +1,0 @@
-#!/bin/sh
-
-DIR=`pwd`
-
-make imap SRCROOT=$DIR

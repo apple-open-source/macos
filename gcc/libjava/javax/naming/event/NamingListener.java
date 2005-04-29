@@ -37,6 +37,7 @@ exception statement from your version. */
 
 
 package javax.naming.event;
+
 import java.util.EventListener;
  
 /**
@@ -46,5 +47,5 @@ import java.util.EventListener;
 
 public interface NamingListener extends EventListener
 {
-  public void namingExceptionThrown(NamingExceptionEvent evt);
+  void namingExceptionThrown(NamingExceptionEvent evt);
 }

@@ -1,7 +1,7 @@
 # This file is part of Autoconf.                       -*- Autoconf -*-
 # Parameterizing and creating config.status.
-# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002
-# Free Software Foundation, Inc.
+# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001,
+# 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -83,9 +83,9 @@
 # each `TAG', a special line in AC_LIST_FOOS_COMMANDS which is used in
 # `config.status' like this:
 #
-# 	  case $ac_tag in
-# 	    AC_LIST_FOOS_COMMANDS
-# 	  esac
+#	  case $ac_tag in
+#	    AC_LIST_FOOS_COMMANDS
+#	  esac
 #
 # Finally, the `INIT-CMDS' are dumped into a special diversion, via
 # `_AC_CONFIG_COMMANDS_INIT'.  While `COMMANDS' are output once per TAG,
@@ -160,12 +160,14 @@ case $srcdir in
     ac_srcdir=$ac_top_builddir$srcdir$ac_dir_suffix
     ac_top_srcdir=$ac_top_builddir$srcdir ;;
 esac
-# Don't blindly perform a `cd $1/$ac_foo && pwd` since $ac_foo can be
-# absolute.
-ac_abs_builddir=`cd $1 && cd $ac_builddir && pwd`
-ac_abs_top_builddir=`cd $1 && cd ${ac_top_builddir}. && pwd`
-ac_abs_srcdir=`cd $1 && cd $ac_srcdir && pwd`
-ac_abs_top_srcdir=`cd $1 && cd $ac_top_srcdir && pwd`
+
+# Do not use `cd foo && pwd` to compute absolute paths, because
+# the directories may not exist.
+AS_SET_CATFILE([ac_abs_builddir],   [`pwd`],            [$1])
+AS_SET_CATFILE([ac_abs_top_builddir],
+	                            [$ac_abs_builddir], [${ac_top_builddir}.])
+AS_SET_CATFILE([ac_abs_srcdir],     [$ac_abs_builddir], [$ac_srcdir])
+AS_SET_CATFILE([ac_abs_top_srcdir], [$ac_abs_builddir], [$ac_top_srcdir])
 ])# _AC_SRCPATHS
 
 
@@ -188,7 +190,7 @@ ac_abs_top_srcdir=`cd $1 && cd $ac_top_srcdir && pwd`
 # be quoted.  Currently `+*.' are quoted.
 m4_define([AC_CONFIG_IF_MEMBER],
 [m4_bmatch(m4_defn([$2]), [\(^\| \)]m4_re_escape([$1])[\([: ]\|$\)],
-           [$3], [$4])])
+	   [$3], [$4])])
 
 
 # AC_FILE_DEPENDENCY_TRACE(DEST, SOURCE1, [SOURCE2...])
@@ -204,8 +206,8 @@ m4_define([AC_FILE_DEPENDENCY_TRACE], [])
 # `DEST.in'.
 m4_define([_AC_CONFIG_DEPENDENCY],
 [m4_ifval([$2],
-          [AC_FILE_DEPENDENCY_TRACE($@)],
-          [AC_FILE_DEPENDENCY_TRACE([$1], [$1.in])])])
+	  [AC_FILE_DEPENDENCY_TRACE($@)],
+	  [AC_FILE_DEPENDENCY_TRACE([$1], [$1.in])])])
 
 
 # _AC_CONFIG_DEPENDENCIES(DEST[:SOURCE1[:SOURCE2...]]...)
@@ -258,8 +260,8 @@ m4_popdef([AC_Dest])])dnl
 # was the case in AC_OUTPUT_COMMANDS.
 m4_define([_AC_CONFIG_COMMANDS_INIT],
 [m4_ifval([$1],
-          [m4_append([_AC_OUTPUT_COMMANDS_INIT],
-                     [$1
+	  [m4_append([_AC_OUTPUT_COMMANDS_INIT],
+		     [$1
 ])])])
 
 # Initialize.
@@ -366,6 +368,7 @@ for ac_file in : $CONFIG_COMMANDS; do test "x$ac_file" = x: && continue
   ac_dest=`echo "$ac_file" | sed 's,:.*,,'`
   ac_source=`echo "$ac_file" | sed 's,[[^:]]*:,,'`
   ac_dir=`AS_DIRNAME(["$ac_dest"])`
+  AS_MKDIR_P(["$ac_dir"])
   _AC_SRCPATHS(["$ac_dir"])
 
   AC_MSG_NOTICE([executing $ac_dest commands])
@@ -490,12 +493,12 @@ m4_define([_AC_OUTPUT_HEADERS],
 #
 # ac_d sets the value in "#define NAME VALUE" lines.
 dnl Double quote for the `[ ]' and `define'.
-[ac_dA='s,^\([ 	]*\)#\([ 	]*define[ 	][ 	]*\)'
-ac_dB='[ 	].*$,\1#\2'
+[ac_dA='s,^\([	 ]*\)#\([	 ]*define[	 ][	 ]*\)'
+ac_dB='[	 ].*$,\1#\2'
 ac_dC=' '
 ac_dD=',;t'
 # ac_u turns "#undef NAME" without trailing blanks into "#define NAME VALUE".
-ac_uA='s,^\([ 	]*\)#\([ 	]*\)undef\([ 	][ 	]*\)'
+ac_uA='s,^\([	 ]*\)#\([	 ]*\)undef\([	 ][	 ]*\)'
 ac_uB='$,\1#\2define\3'
 ac_uC=' '
 ac_uD=',;t']
@@ -504,11 +507,11 @@ for ac_file in : $CONFIG_HEADERS; do test "x$ac_file" = x: && continue
   # Support "outfile[:infile[:infile...]]", defaulting infile="outfile.in".
   case $ac_file in
   - | *:- | *:-:* ) # input from stdin
-        cat >$tmp/stdin
-        ac_file_in=`echo "$ac_file" | sed 's,[[^:]]*:,,'`
-        ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
+	cat >$tmp/stdin
+	ac_file_in=`echo "$ac_file" | sed 's,[[^:]]*:,,'`
+	ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
   *:* ) ac_file_in=`echo "$ac_file" | sed 's,[[^:]]*:,,'`
-        ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
+	ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
   * )   ac_file_in=$ac_file.in ;;
   esac
 
@@ -521,24 +524,25 @@ for ac_file in : $CONFIG_HEADERS; do test "x$ac_file" = x: && continue
       case $f in
       -) echo $tmp/stdin ;;
       [[\\/$]]*)
-         # Absolute (can't be DOS-style, as IFS=:)
-         test -f "$f" || AC_MSG_ERROR([cannot find input file: $f])
-         echo $f;;
+	 # Absolute (can't be DOS-style, as IFS=:)
+	 test -f "$f" || AC_MSG_ERROR([cannot find input file: $f])
+	 # Do quote $f, to prevent DOS paths from being IFS'd.
+	 echo "$f";;
       *) # Relative
-         if test -f "$f"; then
-           # Build tree
-           echo $f
-         elif test -f "$srcdir/$f"; then
-           # Source tree
-           echo $srcdir/$f
-         else
-           # /dev/null tree
-           AC_MSG_ERROR([cannot find input file: $f])
-         fi;;
+	 if test -f "$f"; then
+	   # Build tree
+	   echo "$f"
+	 elif test -f "$srcdir/$f"; then
+	   # Source tree
+	   echo "$srcdir/$f"
+	 else
+	   # /dev/null tree
+	   AC_MSG_ERROR([cannot find input file: $f])
+	 fi;;
       esac
     done` || AS_EXIT([1])
   # Remove the trailing spaces.
-  sed 's/[[ 	]]*$//' $ac_file_inputs >$tmp/in
+  sed 's/[[	 ]]*$//' $ac_file_inputs >$tmp/in
 
 _ACEOF
 
@@ -562,9 +566,9 @@ dnl Double quote for `[ ]' and `define'.
 s,[\\$`],\\&,g
 t clear
 : clear
-s,^[ 	]*#[ 	]*define[ 	][ 	]*\([^ 	(][^ 	(]*\)\(([^)]*)\)[ 	]*\(.*\)$,${ac_dA}\1${ac_dB}\1\2${ac_dC}\3${ac_dD},gp
+s,^[	 ]*#[	 ]*define[	 ][	 ]*\([^	 (][^	 (]*\)\(([^)]*)\)[	 ]*\(.*\)$,${ac_dA}\1${ac_dB}\1\2${ac_dC}\3${ac_dD},gp
 t end
-s,^[ 	]*#[ 	]*define[ 	][ 	]*\([^ 	][^ 	]*\)[ 	]*\(.*\)$,${ac_dA}\1${ac_dB}\1${ac_dC}\2${ac_dD},gp
+s,^[	 ]*#[	 ]*define[	 ][	 ]*\([^	 ][^	 ]*\)[	 ]*\(.*\)$,${ac_dA}\1${ac_dB}\1${ac_dC}\2${ac_dD},gp
 : end]
 _ACEOF
 # If some macros were called several times there might be several times
@@ -578,13 +582,13 @@ rm -f confdef2sed.sed
 # example, in the case of _POSIX_SOURCE, which is predefined and required
 # on some systems where configure will not decide to define it.
 cat >>conftest.undefs <<\_ACEOF
-[s,^[ 	]*#[ 	]*undef[ 	][ 	]*[a-zA-Z_][a-zA-Z_0-9]*,/* & */,]
+[s,^[	 ]*#[	 ]*undef[	 ][	 ]*[a-zA-Z_][a-zA-Z_0-9]*,/* & */,]
 _ACEOF
 
 # Break up conftest.defines because some shells have a limit on the size
 # of here documents, and old seds have small limits too (100 cmds).
 echo '  # Handle all the #define templates only if necessary.' >>$CONFIG_STATUS
-echo '  if grep ["^[ 	]*#[ 	]*define"] $tmp/in >/dev/null; then' >>$CONFIG_STATUS
+echo '  if grep ["^[	 ]*#[	 ]*define"] $tmp/in >/dev/null; then' >>$CONFIG_STATUS
 echo '  # If there are no defines, we may have an empty if/fi' >>$CONFIG_STATUS
 echo '  :' >>$CONFIG_STATUS
 rm -f conftest.tail
@@ -593,7 +597,7 @@ do
   # Write a limited-size here document to $tmp/defines.sed.
   echo '  cat >$tmp/defines.sed <<CEOF' >>$CONFIG_STATUS
   # Speed up: don't consider the non `#define' lines.
-  echo ['/^[ 	]*#[ 	]*define/!b'] >>$CONFIG_STATUS
+  echo ['/^[	 ]*#[	 ]*define/!b'] >>$CONFIG_STATUS
   # Work around the forget-to-reset-the-flag bug.
   echo 't clr' >>$CONFIG_STATUS
   echo ': clr' >>$CONFIG_STATUS
@@ -620,7 +624,7 @@ do
   # Write a limited-size here document to $tmp/undefs.sed.
   echo '  cat >$tmp/undefs.sed <<CEOF' >>$CONFIG_STATUS
   # Speed up: don't consider the non `#undef'
-  echo ['/^[ 	]*#[ 	]*undef/!b'] >>$CONFIG_STATUS
+  echo ['/^[	 ]*#[	 ]*undef/!b'] >>$CONFIG_STATUS
   # Work around the forget-to-reset-the-flag bug.
   echo 't clr' >>$CONFIG_STATUS
   echo ': clr' >>$CONFIG_STATUS
@@ -664,7 +668,7 @@ cat >>$CONFIG_STATUS <<\_ACEOF
 dnl If running for Automake, be ready to perform additional
 dnl commands to set up the timestamp files.
 m4_ifdef([_AC_AM_CONFIG_HEADER_HOOK],
-         [_AC_AM_CONFIG_HEADER_HOOK([$ac_file])
+	 [_AC_AM_CONFIG_HEADER_HOOK([$ac_file])
 ])dnl
 m4_ifset([AC_LIST_HEADERS_COMMANDS],
 [  # Run the commands associated with the file.
@@ -876,11 +880,11 @@ dnl These here document variables are unquoted when configure runs
 dnl but quoted when config.status runs, so variables are expanded once.
 dnl Insert the sed substitutions of variables.
 m4_ifdef([_AC_SUBST_VARS],
-         [AC_FOREACH([AC_Var], m4_defn([_AC_SUBST_VARS]),
+	 [AC_FOREACH([AC_Var], m4_defn([_AC_SUBST_VARS]),
 [s,@AC_Var@,$AC_Var,;t t
 ])])dnl
 m4_ifdef([_AC_SUBST_FILES],
-         [AC_FOREACH([AC_Var], m4_defn([_AC_SUBST_FILES]),
+	 [AC_FOREACH([AC_Var], m4_defn([_AC_SUBST_FILES]),
 [/@AC_Var@/r $AC_Var
 s,@AC_Var@,,;t t
 ])])dnl
@@ -915,9 +919,9 @@ dnl Here, there are 2 cmd per line, and two cmd are added later.
       (echo [':t
   /@[a-zA-Z_][a-zA-Z_0-9]*@/!b'] && cat $tmp/subs.frag) >$tmp/subs-$ac_sed_frag.sed
       if test -z "$ac_sed_cmds"; then
-  	ac_sed_cmds="sed -f $tmp/subs-$ac_sed_frag.sed"
+	ac_sed_cmds="sed -f $tmp/subs-$ac_sed_frag.sed"
       else
-  	ac_sed_cmds="$ac_sed_cmds | sed -f $tmp/subs-$ac_sed_frag.sed"
+	ac_sed_cmds="$ac_sed_cmds | sed -f $tmp/subs-$ac_sed_frag.sed"
       fi
       ac_sed_frag=`expr $ac_sed_frag + 1`
       ac_beg=$ac_end
@@ -935,11 +939,11 @@ for ac_file in : $CONFIG_FILES; do test "x$ac_file" = x: && continue
   # Support "outfile[:infile[:infile...]]", defaulting infile="outfile.in".
   case $ac_file in
   - | *:- | *:-:* ) # input from stdin
-        cat >$tmp/stdin
-        ac_file_in=`echo "$ac_file" | sed 's,[[^:]]*:,,'`
-        ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
+	cat >$tmp/stdin
+	ac_file_in=`echo "$ac_file" | sed 's,[[^:]]*:,,'`
+	ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
   *:* ) ac_file_in=`echo "$ac_file" | sed 's,[[^:]]*:,,'`
-        ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
+	ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
   * )   ac_file_in=$ac_file.in ;;
   esac
 
@@ -968,7 +972,7 @@ AC_PROVIDE_IFELSE([AC_PROG_INSTALL],
     configure_input="$ac_file.  "
   fi
   configure_input=$configure_input"Generated from `echo $ac_file_in |
-                                     sed 's,.*/,,'` by configure."
+				     sed 's,.*/,,'` by configure."
 
   # First look for the input files in the build tree, otherwise in the
   # src tree.
@@ -977,20 +981,20 @@ AC_PROVIDE_IFELSE([AC_PROG_INSTALL],
       case $f in
       -) echo $tmp/stdin ;;
       [[\\/$]]*)
-         # Absolute (can't be DOS-style, as IFS=:)
-         test -f "$f" || AC_MSG_ERROR([cannot find input file: $f])
-         echo $f;;
+	 # Absolute (can't be DOS-style, as IFS=:)
+	 test -f "$f" || AC_MSG_ERROR([cannot find input file: $f])
+	 echo "$f";;
       *) # Relative
-         if test -f "$f"; then
-           # Build tree
-           echo $f
-         elif test -f "$srcdir/$f"; then
-           # Source tree
-           echo $srcdir/$f
-         else
-           # /dev/null tree
-           AC_MSG_ERROR([cannot find input file: $f])
-         fi;;
+	 if test -f "$f"; then
+	   # Build tree
+	   echo "$f"
+	 elif test -f "$srcdir/$f"; then
+	   # Source tree
+	   echo "$srcdir/$f"
+	 else
+	   # /dev/null tree
+	   AC_MSG_ERROR([cannot find input file: $f])
+	 fi;;
       esac
     done` || AS_EXIT([1])
 _ACEOF
@@ -1066,9 +1070,9 @@ AC_DEFUN([AC_CONFIG_SUBDIRS],
 AC_REQUIRE([AC_CONFIG_AUX_DIR_DEFAULT])dnl
 m4_append([_AC_LIST_SUBDIRS], [ $1])dnl
 AS_LITERAL_IF([$1], [],
-              [AC_DIAGNOSE(syntax, [$0: you should use literals])])
+	      [AC_DIAGNOSE(syntax, [$0: you should use literals])])
 m4_divert_text([DEFAULTS],
-               [ac_subdirs_all="$ac_subdirs_all m4_normalize([$1])"])
+	       [ac_subdirs_all="$ac_subdirs_all m4_normalize([$1])"])
 AC_SUBST(subdirs, "$subdirs $1")dnl
 ])
 
@@ -1152,14 +1156,14 @@ if test "$no_recursion" != yes; then
       case $cache_file in
       [[\\/]]* | ?:[[\\/]]* ) ac_sub_cache_file=$cache_file ;;
       *) # Relative path.
-        ac_sub_cache_file=$ac_top_builddir$cache_file ;;
+	ac_sub_cache_file=$ac_top_builddir$cache_file ;;
       esac
 
       AC_MSG_NOTICE([running $ac_sub_configure $ac_sub_configure_args --cache-file=$ac_sub_cache_file --srcdir=$ac_srcdir])
       # The eval makes quoting arguments work.
       eval $ac_sub_configure $ac_sub_configure_args \
-           --cache-file=$ac_sub_cache_file --srcdir=$ac_srcdir ||
-        AC_MSG_ERROR([$ac_sub_configure failed for $ac_dir])
+	   --cache-file=$ac_sub_cache_file --srcdir=$ac_srcdir ||
+	AC_MSG_ERROR([$ac_sub_configure failed for $ac_dir])
     fi
 
     cd $ac_popdir
@@ -1182,9 +1186,9 @@ fi
 # proper modern macros.
 AU_DEFUN([AC_OUTPUT],
 [m4_ifvaln([$1],
-           [AC_CONFIG_FILES([$1])])dnl
+	   [AC_CONFIG_FILES([$1])])dnl
 m4_ifvaln([$2$3],
-          [AC_CONFIG_COMMANDS(default, [[$2]], [[$3]])])dnl
+	  [AC_CONFIG_COMMANDS(default, [[$2]], [[$3]])])dnl
 [AC_OUTPUT]])
 
 
@@ -1198,12 +1202,12 @@ m4_ifvaln([$2$3],
 m4_define([AC_OUTPUT],
 [dnl Dispatch the extra arguments to their native macros.
 m4_ifval([$1],
-         [AC_CONFIG_FILES([$1])])dnl
+	 [AC_CONFIG_FILES([$1])])dnl
 m4_ifval([$2$3],
-         [AC_CONFIG_COMMANDS(default, [$2], [$3])])dnl
+	 [AC_CONFIG_COMMANDS(default, [$2], [$3])])dnl
 m4_ifval([$1$2$3],
-         [AC_DIAGNOSE([obsolete],
-                      [$0 should be used without arguments.
+	 [AC_DIAGNOSE([obsolete],
+		      [$0 should be used without arguments.
 You should run autoupdate.])])dnl
 AC_CACHE_SAVE
 
@@ -1216,13 +1220,13 @@ test "x$exec_prefix" = xNONE && exec_prefix='${prefix}'
 # trailing colons and then remove the whole line if VPATH becomes empty
 # (actually we leave an empty line to preserve line numbers).
 if test "x$srcdir" = x.; then
-  ac_vpsub=['/^[ 	]*VPATH[ 	]*=/{
+  ac_vpsub=['/^[	 ]*VPATH[	 ]*=/{
 s/:*\$(srcdir):*/:/;
 s/:*\${srcdir}:*/:/;
 s/:*@srcdir@:*/:/;
-s/^\([^=]*=[ 	]*\):*/\1/;
+s/^\([^=]*=[	 ]*\):*/\1/;
 s/:*$//;
-s/^[^=]*=[ 	]*$//;
+s/^[^=]*=[	 ]*$//;
 }']
 fi
 
@@ -1350,11 +1354,11 @@ Usage: $[0] [[OPTIONS]] [[FILE]]...
       --recheck    update $as_me by reconfiguring in the same conditions
 m4_ifset([AC_LIST_FILES],
 [[  --file=FILE[:TEMPLATE]
-                   instantiate the configuration file FILE
+		   instantiate the configuration file FILE
 ]])dnl
 m4_ifset([AC_LIST_HEADERS],
 [[  --header=FILE[:TEMPLATE]
-                   instantiate the configuration header FILE
+		   instantiate the configuration header FILE
 ]])dnl
 
 m4_ifset([AC_LIST_FILES],
@@ -1387,8 +1391,7 @@ m4_ifset([AC_PACKAGE_VERSION], [ AC_PACKAGE_VERSION])
 configured by $[0], generated by m4_PACKAGE_STRING,
   with options \\"`echo "$ac_configure_args" | sed 's/[[\\""\`\$]]/\\\\&/g'`\\"
 
-Copyright 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001
-Free Software Foundation, Inc.
+Copyright (C) 2003 Free Software Foundation, Inc.
 This config.status script is free software; the Free Software Foundation
 gives unlimited permission to copy, distribute and modify it."
 srcdir=$srcdir
@@ -1576,13 +1579,13 @@ m4_define([AC_OUTPUT_MAKE_DEFS],
 cat >confdef2opt.sed <<\_ACEOF
 t clear
 : clear
-s,^[ 	]*#[ 	]*define[ 	][ 	]*\([^ 	(][^ 	(]*([^)]*)\)[ 	]*\(.*\),-D\1=\2,g
+s,^[	 ]*#[	 ]*define[	 ][	 ]*\([^	 (][^	 (]*([^)]*)\)[	 ]*\(.*\),-D\1=\2,g
 t quote
-s,^[ 	]*#[ 	]*define[ 	][ 	]*\([^ 	][^ 	]*\)[ 	]*\(.*\),-D\1=\2,g
+s,^[	 ]*#[	 ]*define[	 ][	 ]*\([^	 ][^	 ]*\)[	 ]*\(.*\),-D\1=\2,g
 t quote
 d
 : quote
-s,[ 	`~#$^&*(){}\\|;'"<>?],\\&,g
+s,[	 `~#$^&*(){}\\|;'"<>?],\\&,g
 s,\[,\\&,g
 s,\],\\&,g
 s,\$,$$,g

@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atimach64.c,v 1.51 2003/02/24 20:46:54 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atimach64.c,v 1.53 2004/01/05 16:42:02 tsi Exp $ */
 /*
- * Copyright 1997 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1997 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -20,67 +20,20 @@
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-/*
- * Copyright 1999-2000 Precision Insight, Inc., Cedar Park, Texas.
- * All Rights Reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to
- * deal in the Software without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next
- * paragraph) shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.  IN NO EVENT SHALL
- * PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
 
 #include "ati.h"
 #include "atibus.h"
 #include "atichip.h"
 #include "atidac.h"
 #include "atimach64.h"
+#include "atimach64accel.h"
 #include "atimach64io.h"
 #include "atirgb514.h"
-
-#include "miline.h"
 
 #ifndef DPMS_SERVER
 # define DPMS_SERVER
 #endif
 #include "extensions/dpms.h"
-
-/*
- * X-to-Mach64 mix translation table.
- */
-static CARD8 ATIMach64ALU[16] =
-{
-    MIX_0,
-    MIX_AND,
-    MIX_SRC_AND_NOT_DST,
-    MIX_SRC,
-    MIX_NOT_SRC_AND_DST,
-    MIX_DST,
-    MIX_XOR,
-    MIX_OR,
-    MIX_NOR,
-    MIX_XNOR,
-    MIX_NOT_DST,
-    MIX_SRC_OR_NOT_DST,
-    MIX_NOT_SRC,
-    MIX_NOT_SRC_OR_DST,
-    MIX_NAND,
-    MIX_1
-};
 
 /*
  * ATIMach64PreInit --
@@ -102,7 +55,9 @@ ATIMach64PreInit
 #ifndef AVOID_CPIO
 
     if (pATI->depth <= 4)
+    {
         pATIHW->crtc_off_pitch = SetBits(pATI->displayWidth >> 4, CRTC_PITCH);
+    }
     else
 
 #endif /* AVOID_CPIO */
@@ -170,7 +125,9 @@ ATIMach64PreInit
 #ifndef AVOID_CPIO
 
     if (pATI->UseSmallApertures)
+    {
         pATIHW->config_cntl |= CFG_MEM_VGA_AP_EN;
+    }
     else
 
 #endif /* AVOID_CPIO */
@@ -230,7 +187,7 @@ ATIMach64PreInit
     }
 
     /* Draw engine setup */
-    if (pATI->OptionAccel)
+    if (pATI->Block0Base)
     {
         /* Ensure apertures are enabled */
         outr(BUS_CNTL, pATIHW->bus_cntl);
@@ -255,14 +212,14 @@ ATIMach64PreInit
 
         /* Initialise scissor, allowing for offscreen areas */
         pATIHW->sc_right = (pATI->displayWidth * pATI->XModifier) - 1;
-        tmp = (pScreenInfo->videoRam * (1024 * 8) /
-            pATI->displayWidth / pATI->bitsPerPixel) - 1;
+        tmp = pATI->displayWidth * pATI->bitsPerPixel;
+        tmp = (((pScreenInfo->videoRam * (1024 * 8)) + tmp - 1) / tmp) - 1;
         if (tmp > ATIMach64MaxY)
             tmp = ATIMach64MaxY;
         pATIHW->sc_bottom = tmp;
         pATI->sc_left_right = SetWord(pATI->NewHW.sc_right, 1) |
             SetWord(pATI->NewHW.sc_left, 0);
-        pATI->sc_top_bottom =  SetWord(pATI->NewHW.sc_bottom, 1) |
+        pATI->sc_top_bottom = SetWord(pATI->NewHW.sc_bottom, 1) |
             SetWord(pATI->NewHW.sc_top, 0);
 
         /* Initialise data path */
@@ -332,6 +289,42 @@ ATIMach64PreInit
         /* Initialise colour compare */
         pATIHW->clr_cmp_msk = (1 << pATI->depth) - 1;
 
+        if (pATI->Block1Base)
+        {
+            pATIHW->overlay_y_x_start = SetBits(0, OVERLAY_Y_START) |
+                SetBits(0, OVERLAY_X_START) | OVERLAY_LOCK_START;
+            pATIHW->overlay_y_x_end = SetBits(0, OVERLAY_Y_END) |
+                SetBits(0, OVERLAY_X_END) | OVERLAY_LOCK_END;
+
+            pATIHW->overlay_graphics_key_clr =
+                (3 << ((2 * pATI->depth) / 3)) |
+                (2 << ((1 * pATI->depth) / 3)) |
+                (1 << ((0 * pATI->depth) / 3));
+            pATIHW->overlay_graphics_key_msk = (1 << pATI->depth) - 1;
+
+            pATIHW->overlay_key_cntl =
+                SetBits(OVERLAY_MIX_FALSE, OVERLAY_VIDEO_FN) |
+                SetBits(OVERLAY_MIX_EQUAL, OVERLAY_GRAPHICS_FN);
+
+            pATIHW->overlay_scale_cntl = SCALE_EN;
+
+            pATIHW->video_format = VIDEO_IN_VYUY422 | SCALER_IN_VYUY422;
+
+            if (pATI->Chip >= ATI_CHIP_264GTPRO)
+            {
+                /* These values are documented voodoo */
+                pATIHW->scaler_h_coeff0 = SetByte(0x20U, 1);
+                pATIHW->scaler_h_coeff1 = SetByte(0x0DU, 0) |
+                    SetByte(0x20U, 1) | SetByte(0x06U, 2) | SetByte(0x0DU, 3);
+                pATIHW->scaler_h_coeff2 = SetByte(0x0DU, 0) |
+                    SetByte(0x1CU, 1) | SetByte(0x0AU, 2) | SetByte(0x0DU, 3);
+                pATIHW->scaler_h_coeff3 = SetByte(0x0CU, 0) |
+                    SetByte(0x1AU, 1) | SetByte(0x0EU, 2) | SetByte(0x0CU, 3);
+                pATIHW->scaler_h_coeff4 = SetByte(0x0CU, 0) |
+                    SetByte(0x14U, 1) | SetByte(0x14U, 2) | SetByte(0x0CU, 3);
+            }
+        }
+
         /* Restore aperture enablement */
         outr(BUS_CNTL, bus_cntl);
         outr(CONFIG_CNTL, config_cntl);
@@ -392,7 +385,7 @@ ATIMach64Save
     }
 
     /* Save draw engine state */
-    if (pATI->OptionAccel && (pATIHW == &pATI->OldHW))
+    if (pATI->Block0Base && (pATIHW == &pATI->OldHW))
     {
         /* Ensure apertures are enabled */
         outr(BUS_CNTL, pATI->NewHW.bus_cntl);
@@ -457,6 +450,60 @@ ATIMach64Save
         /* Save context */
         pATIHW->context_mask = inm(CONTEXT_MASK);
 
+        if (pATI->Block1Base)
+        {
+            /* Save overlay & scaler registers */
+            pATIHW->overlay_y_x_start = inm(OVERLAY_Y_X_START);
+            pATIHW->overlay_y_x_end = inm(OVERLAY_Y_X_END);
+
+            pATIHW->overlay_graphics_key_clr = inm(OVERLAY_GRAPHICS_KEY_CLR);
+            pATIHW->overlay_graphics_key_msk = inm(OVERLAY_GRAPHICS_KEY_MSK);
+
+            pATIHW->overlay_key_cntl = inm(OVERLAY_KEY_CNTL);
+
+            pATIHW->overlay_scale_inc = inm(OVERLAY_SCALE_INC);
+            pATIHW->overlay_scale_cntl = inm(OVERLAY_SCALE_CNTL);
+
+            pATIHW->scaler_height_width = inm(SCALER_HEIGHT_WIDTH);
+
+            pATIHW->scaler_test = inm(SCALER_TEST);
+
+            pATIHW->video_format = inm(VIDEO_FORMAT);
+
+            if (pATI->Chip < ATI_CHIP_264VTB)
+            {
+                pATIHW->buf0_offset = inm(BUF0_OFFSET);
+                pATIHW->buf0_pitch = inm(BUF0_PITCH);
+                pATIHW->buf1_offset = inm(BUF1_OFFSET);
+                pATIHW->buf1_pitch = inm(BUF1_PITCH);
+            }
+            else
+            {
+                pATIHW->scaler_buf0_offset = inm(SCALER_BUF0_OFFSET);
+                pATIHW->scaler_buf1_offset = inm(SCALER_BUF1_OFFSET);
+                pATIHW->scaler_buf_pitch = inm(SCALER_BUF_PITCH);
+
+                pATIHW->overlay_exclusive_horz = inm(OVERLAY_EXCLUSIVE_HORZ);
+                pATIHW->overlay_exclusive_vert = inm(OVERLAY_EXCLUSIVE_VERT);
+
+                if (pATI->Chip >= ATI_CHIP_264GTPRO)
+                {
+                    pATIHW->scaler_colour_cntl = inm(SCALER_COLOUR_CNTL);
+
+                    pATIHW->scaler_h_coeff0 = inm(SCALER_H_COEFF0);
+                    pATIHW->scaler_h_coeff1 = inm(SCALER_H_COEFF1);
+                    pATIHW->scaler_h_coeff2 = inm(SCALER_H_COEFF2);
+                    pATIHW->scaler_h_coeff3 = inm(SCALER_H_COEFF3);
+                    pATIHW->scaler_h_coeff4 = inm(SCALER_H_COEFF4);
+
+                    pATIHW->scaler_buf0_offset_u = inm(SCALER_BUF0_OFFSET_U);
+                    pATIHW->scaler_buf0_offset_v = inm(SCALER_BUF0_OFFSET_V);
+                    pATIHW->scaler_buf1_offset_u = inm(SCALER_BUF1_OFFSET_U);
+                    pATIHW->scaler_buf1_offset_v = inm(SCALER_BUF1_OFFSET_V);
+                }
+            }
+        }
+
         /* Restore aperture enablement */
         outr(BUS_CNTL, pATIHW->bus_cntl);
         outr(CONFIG_CNTL, pATIHW->config_cntl);
@@ -491,8 +538,10 @@ ATIMach64Calculate
         /* Make adjustments if sync pulse width is out-of-bounds */
         if ((pMode->CrtcHSyncEnd - pMode->CrtcHSyncStart) >
             (int)MaxBits(CRTC_H_SYNC_WID))
+        {
             pMode->CrtcHSyncEnd =
                 pMode->CrtcHSyncStart + MaxBits(CRTC_H_SYNC_WID);
+        }
         else if (pMode->CrtcHSyncStart == pMode->CrtcHSyncEnd)
         {
             if (pMode->CrtcHDisplay < pMode->CrtcHSyncStart)
@@ -656,48 +705,54 @@ ATIMach64Set
     ATIHWPtr    pATIHW
 )
 {
-    /* First, turn off the display */
-    outr(CRTC_GEN_CNTL, pATIHW->crtc_gen_cntl & ~CRTC_EN);
 
-    if ((pATIHW->FeedbackDivider > 0) &&
-        (pATI->ProgrammableClock != ATI_CLOCK_NONE))
-        ATIClockSet(pATI, pATIHW);              /* Programme clock */
+#ifndef AVOID_CPIO
 
-    if (pATI->DAC == ATI_DAC_IBMRGB514)
-        ATIRGB514Set(pATI, pATIHW);
+    if (pATIHW->crtc == ATI_CRTC_MACH64)
 
-    /* Load Mach64 CRTC registers */
-    outr(CRTC_H_TOTAL_DISP, pATIHW->crtc_h_total_disp);
-    outr(CRTC_H_SYNC_STRT_WID, pATIHW->crtc_h_sync_strt_wid);
-    outr(CRTC_V_TOTAL_DISP, pATIHW->crtc_v_total_disp);
-    outr(CRTC_V_SYNC_STRT_WID, pATIHW->crtc_v_sync_strt_wid);
+#endif /* AVOID_CPIO */
 
-    outr(CRTC_OFF_PITCH, pATIHW->crtc_off_pitch);
+    {
+        if ((pATIHW->FeedbackDivider > 0) &&
+            (pATI->ProgrammableClock != ATI_CLOCK_NONE))
+            ATIClockSet(pATI, pATIHW);          /* Programme clock */
 
-    /* Load overscan registers */
-    outr(OVR_CLR, pATIHW->ovr_clr);
-    outr(OVR_WID_LEFT_RIGHT, pATIHW->ovr_wid_left_right);
-    outr(OVR_WID_TOP_BOTTOM, pATIHW->ovr_wid_top_bottom);
+        if (pATI->DAC == ATI_DAC_IBMRGB514)
+            ATIRGB514Set(pATI, pATIHW);
 
-    /* Load hardware cursor registers */
-    outr(CUR_CLR0, pATIHW->cur_clr0);
-    outr(CUR_CLR1, pATIHW->cur_clr1);
-    outr(CUR_OFFSET, pATIHW->cur_offset);
-    outr(CUR_HORZ_VERT_POSN, pATIHW->cur_horz_vert_posn);
-    outr(CUR_HORZ_VERT_OFF, pATIHW->cur_horz_vert_off);
+        /* Load Mach64 CRTC registers */
+        outr(CRTC_H_TOTAL_DISP, pATIHW->crtc_h_total_disp);
+        outr(CRTC_H_SYNC_STRT_WID, pATIHW->crtc_h_sync_strt_wid);
+        outr(CRTC_V_TOTAL_DISP, pATIHW->crtc_v_total_disp);
+        outr(CRTC_V_SYNC_STRT_WID, pATIHW->crtc_v_sync_strt_wid);
 
-    /* Set pixel clock */
-    outr(CLOCK_CNTL, pATIHW->clock_cntl | CLOCK_STROBE);
+        outr(CRTC_OFF_PITCH, pATIHW->crtc_off_pitch);
 
-    outr(GEN_TEST_CNTL, pATIHW->gen_test_cntl | GEN_GUI_EN);
-    outr(GEN_TEST_CNTL, pATIHW->gen_test_cntl);
-    outr(GEN_TEST_CNTL, pATIHW->gen_test_cntl | GEN_GUI_EN);
+        /* Load overscan registers */
+        outr(OVR_CLR, pATIHW->ovr_clr);
+        outr(OVR_WID_LEFT_RIGHT, pATIHW->ovr_wid_left_right);
+        outr(OVR_WID_TOP_BOTTOM, pATIHW->ovr_wid_top_bottom);
 
-    /* Finalise CRTC setup and turn on the screen */
-    outr(CRTC_GEN_CNTL, pATIHW->crtc_gen_cntl);
+        /* Load hardware cursor registers */
+        outr(CUR_CLR0, pATIHW->cur_clr0);
+        outr(CUR_CLR1, pATIHW->cur_clr1);
+        outr(CUR_OFFSET, pATIHW->cur_offset);
+        outr(CUR_HORZ_VERT_POSN, pATIHW->cur_horz_vert_posn);
+        outr(CUR_HORZ_VERT_OFF, pATIHW->cur_horz_vert_off);
+
+        /* Set pixel clock */
+        outr(CLOCK_CNTL, pATIHW->clock_cntl | CLOCK_STROBE);
+
+        outr(GEN_TEST_CNTL, pATIHW->gen_test_cntl | GEN_GUI_EN);
+        outr(GEN_TEST_CNTL, pATIHW->gen_test_cntl);
+        outr(GEN_TEST_CNTL, pATIHW->gen_test_cntl | GEN_GUI_EN);
+
+        /* Finalise CRTC setup and turn on the screen */
+        outr(CRTC_GEN_CNTL, pATIHW->crtc_gen_cntl);
+    }
 
     /* Load draw engine */
-    if (pATI->OptionAccel)
+    if (pATI->Block0Base)
     {
         /* Clobber MMIO cache */
         (void)memset(pATI->MMIOCached, 0, SizeOf(pATI->MMIOCached));
@@ -791,6 +846,64 @@ ATIMach64Set
         ATIMach64WaitForFIFO(pATI, 1);
         outf(CONTEXT_MASK, pATIHW->context_mask);
 
+        if (pATI->Block1Base)
+        {
+            /* Load overlay & scaler registers */
+            ATIMach64WaitForFIFO(pATI, 10);
+            outf(OVERLAY_Y_X_START, pATIHW->overlay_y_x_start);
+            outf(OVERLAY_Y_X_END, pATIHW->overlay_y_x_end);
+
+            outf(OVERLAY_GRAPHICS_KEY_CLR, pATIHW->overlay_graphics_key_clr);
+            outf(OVERLAY_GRAPHICS_KEY_MSK, pATIHW->overlay_graphics_key_msk);
+
+            outf(OVERLAY_KEY_CNTL, pATIHW->overlay_key_cntl);
+
+            outf(OVERLAY_SCALE_INC, pATIHW->overlay_scale_inc);
+            outf(OVERLAY_SCALE_CNTL, pATIHW->overlay_scale_cntl);
+
+            outf(SCALER_HEIGHT_WIDTH, pATIHW->scaler_height_width);
+
+            outf(SCALER_TEST, pATIHW->scaler_test);
+
+            outf(VIDEO_FORMAT, pATIHW->video_format);
+
+            if (pATI->Chip < ATI_CHIP_264VTB)
+            {
+                ATIMach64WaitForFIFO(pATI, 4);
+                outf(BUF0_OFFSET, pATIHW->buf0_offset);
+                outf(BUF0_PITCH, pATIHW->buf0_pitch);
+                outf(BUF1_OFFSET, pATIHW->buf1_offset);
+                outf(BUF1_PITCH, pATIHW->buf1_pitch);
+            }
+            else
+            {
+                ATIMach64WaitForFIFO(pATI, 5);
+                outf(SCALER_BUF0_OFFSET, pATIHW->scaler_buf0_offset);
+                outf(SCALER_BUF1_OFFSET, pATIHW->scaler_buf1_offset);
+                outf(SCALER_BUF_PITCH, pATIHW->scaler_buf_pitch);
+
+                outf(OVERLAY_EXCLUSIVE_HORZ, pATIHW->overlay_exclusive_horz);
+                outf(OVERLAY_EXCLUSIVE_VERT, pATIHW->overlay_exclusive_vert);
+
+                if (pATI->Chip >= ATI_CHIP_264GTPRO)
+                {
+                    ATIMach64WaitForFIFO(pATI, 10);
+                    outf(SCALER_COLOUR_CNTL, pATIHW->scaler_colour_cntl);
+
+                    outf(SCALER_H_COEFF0, pATIHW->scaler_h_coeff0);
+                    outf(SCALER_H_COEFF1, pATIHW->scaler_h_coeff1);
+                    outf(SCALER_H_COEFF2, pATIHW->scaler_h_coeff2);
+                    outf(SCALER_H_COEFF3, pATIHW->scaler_h_coeff3);
+                    outf(SCALER_H_COEFF4, pATIHW->scaler_h_coeff4);
+
+                    outf(SCALER_BUF0_OFFSET_U, pATIHW->scaler_buf0_offset_u);
+                    outf(SCALER_BUF0_OFFSET_V, pATIHW->scaler_buf0_offset_v);
+                    outf(SCALER_BUF1_OFFSET_U, pATIHW->scaler_buf1_offset_u);
+                    outf(SCALER_BUF1_OFFSET_V, pATIHW->scaler_buf1_offset_v);
+                }
+            }
+        }
+
         ATIMach64WaitForIdle(pATI);
 
         if (pATI->OptionMMIOCache)
@@ -820,24 +933,85 @@ ATIMach64Set
             CacheRegister(CLR_CMP_CLR);
             CacheRegister(CLR_CMP_MSK);
             CacheRegister(CLR_CMP_CNTL);
+
+            if (pATI->Block1Base)
+            {
+                CacheRegister(OVERLAY_Y_X_START);
+                CacheRegister(OVERLAY_Y_X_END);
+
+                CacheRegister(OVERLAY_GRAPHICS_KEY_CLR);
+                CacheRegister(OVERLAY_GRAPHICS_KEY_MSK);
+
+                CacheRegister(OVERLAY_KEY_CNTL);
+
+                CacheRegister(OVERLAY_SCALE_INC);
+                CacheRegister(OVERLAY_SCALE_CNTL);
+
+                CacheRegister(SCALER_HEIGHT_WIDTH);
+
+                CacheRegister(SCALER_TEST);
+
+                CacheRegister(VIDEO_FORMAT);
+
+                if (pATI->Chip < ATI_CHIP_264VTB)
+                {
+                    CacheRegister(BUF0_OFFSET);
+                    CacheRegister(BUF0_PITCH);
+                    CacheRegister(BUF1_OFFSET);
+                    CacheRegister(BUF1_PITCH);
+                }
+                else
+                {
+                    CacheRegister(SCALER_BUF0_OFFSET);
+                    CacheRegister(SCALER_BUF1_OFFSET);
+                    CacheRegister(SCALER_BUF_PITCH);
+
+                    CacheRegister(OVERLAY_EXCLUSIVE_HORZ);
+                    CacheRegister(OVERLAY_EXCLUSIVE_VERT);
+
+                    if (pATI->Chip >= ATI_CHIP_264GTPRO)
+                    {
+                        CacheRegister(SCALER_COLOUR_CNTL);
+
+                        CacheRegister(SCALER_H_COEFF0);
+                        CacheRegister(SCALER_H_COEFF1);
+                        CacheRegister(SCALER_H_COEFF2);
+                        CacheRegister(SCALER_H_COEFF3);
+                        CacheRegister(SCALER_H_COEFF4);
+
+                        CacheRegister(SCALER_BUF0_OFFSET_U);
+                        CacheRegister(SCALER_BUF0_OFFSET_V);
+                        CacheRegister(SCALER_BUF1_OFFSET_U);
+                        CacheRegister(SCALER_BUF1_OFFSET_V);
+                    }
+                }
+            }
         }
     }
 
-    /* Aperture setup */
-    outr(MEM_VGA_WP_SEL, pATIHW->mem_vga_wp_sel);
-    outr(MEM_VGA_RP_SEL, pATIHW->mem_vga_rp_sel);
+#ifndef AVOID_CPIO
 
-    outr(DAC_CNTL, pATIHW->dac_cntl);
+    if (pATIHW->crtc == ATI_CRTC_MACH64)
 
-    outr(CONFIG_CNTL, pATIHW->config_cntl);
-    outr(BUS_CNTL, pATIHW->bus_cntl);
+#endif /* AVOID_CPIO */
 
-    if (pATI->Chip >= ATI_CHIP_264VTB)
     {
-        outr(MEM_CNTL, pATIHW->mem_cntl);
-        outr(MPP_CONFIG, pATIHW->mpp_config);
-        outr(MPP_STROBE_SEQ, pATIHW->mpp_strobe_seq);
-        outr(TVO_CNTL, pATIHW->tvo_cntl);
+        /* Aperture setup */
+        outr(MEM_VGA_WP_SEL, pATIHW->mem_vga_wp_sel);
+        outr(MEM_VGA_RP_SEL, pATIHW->mem_vga_rp_sel);
+
+        outr(DAC_CNTL, pATIHW->dac_cntl);
+
+        outr(CONFIG_CNTL, pATIHW->config_cntl);
+        outr(BUS_CNTL, pATIHW->bus_cntl);
+
+        if (pATI->Chip >= ATI_CHIP_264VTB)
+        {
+            outr(MEM_CNTL, pATIHW->mem_cntl);
+            outr(MPP_CONFIG, pATIHW->mpp_config);
+            outr(MPP_STROBE_SEQ, pATIHW->mpp_strobe_seq);
+            outr(TVO_CNTL, pATIHW->tvo_cntl);
+        }
     }
 }
 
@@ -909,8 +1083,7 @@ ATIMach64SetDPMSMode
             return;
     }
 
-    if (pATI->pXAAInfo && pATI->pXAAInfo->NeedToSync)
-        (*pATI->pXAAInfo->Sync)(pScreenInfo);
+    ATIMach64Sync(pScreenInfo);
 
     outr(CRTC_GEN_CNTL, crtc_gen_cntl);
 
@@ -927,13 +1100,15 @@ ATIMach64SetDPMSMode
             CARD32 power_management;
 
             if (pATI->Chip == ATI_CHIP_264LT)
+            {
                 power_management = inr(POWER_MANAGEMENT);
+            }
             else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
             {
                 lcd_index = inr(LCD_INDEX);
-                power_management = ATIGetMach64LCDReg(LCD_POWER_MANAGEMENT);
+                power_management = ATIMach64GetLCDReg(LCD_POWER_MANAGEMENT);
             }
 
             power_management &= ~(STANDBY_NOW | SUSPEND_NOW);
@@ -960,12 +1135,14 @@ ATIMach64SetDPMSMode
             }
 
             if (pATI->Chip == ATI_CHIP_264LT)
+            {
                 outr(POWER_MANAGEMENT, power_management);
+            }
             else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
             {
-                ATIPutMach64LCDReg(LCD_POWER_MANAGEMENT, power_management);
+                ATIMach64PutLCDReg(LCD_POWER_MANAGEMENT, power_management);
                 outr(LCD_INDEX, lcd_index);
             }
         }
@@ -974,13 +1151,15 @@ ATIMach64SetDPMSMode
             CARD32 lcd_gen_ctrl;
 
             if (pATI->Chip == ATI_CHIP_264LT)
+            {
                 lcd_gen_ctrl = inr(LCD_GEN_CTRL);
+            }
             else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
             {
                 lcd_index = inr(LCD_INDEX);
-                lcd_gen_ctrl = ATIGetMach64LCDReg(LCD_GEN_CNTL);
+                lcd_gen_ctrl = ATIMach64GetLCDReg(LCD_GEN_CNTL);
             }
 
             if (DPMSMode == DPMSModeOn)
@@ -994,1171 +1173,9 @@ ATIMach64SetDPMSMode
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
             {
-                ATIPutMach64LCDReg(LCD_GEN_CNTL, lcd_gen_ctrl);
+                ATIMach64PutLCDReg(LCD_GEN_CNTL, lcd_gen_ctrl);
                 outr(LCD_INDEX, lcd_index);
             }
         }
     }
-}
-
-/*
- * ATIMach64ValidateClip --
- *
- * This function ensures the current scissor settings do not interfere with
- * the current draw request.
- */
-static void
-ATIMach64ValidateClip
-(
-    ATIPtr pATI,
-    int    sc_left,
-    int    sc_right,
-    int    sc_top,
-    int    sc_bottom
-)
-{
-    if ((sc_left < (int)pATI->sc_left) || (sc_right > (int)pATI->sc_right))
-    {
-        outf(SC_LEFT_RIGHT, pATI->sc_left_right);
-        pATI->sc_left = pATI->NewHW.sc_left;
-        pATI->sc_right = pATI->NewHW.sc_right;
-    }
-
-    if ((sc_top < (int)pATI->sc_top) || (sc_bottom > (int)pATI->sc_bottom))
-    {
-        outf(SC_TOP_BOTTOM, pATI->sc_top_bottom);
-        pATI->sc_top = pATI->NewHW.sc_top;
-        pATI->sc_bottom = pATI->NewHW.sc_bottom;
-    }
-}
-
-/*
- * ATIMach64Sync --
- *
- * This is called to wait for the draw engine to become idle.
- */
-static void
-ATIMach64Sync
-(
-    ScrnInfoPtr pScreenInfo
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    ATIMach64WaitForIdle(pATI);
-
-    if (pATI->OptionMMIOCache)
-    {
-        /*
-         * For debugging purposes, attempt to verify that each cached register
-         * should actually be cached.
-         */
-        if (RegisterIsCached(SRC_CNTL) &&
-            (CacheSlot(SRC_CNTL) != inm(SRC_CNTL)))
-        {
-            UncacheRegister(SRC_CNTL);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "SRC_CNTL write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(HOST_CNTL) &&
-            (CacheSlot(HOST_CNTL) != inm(HOST_CNTL)))
-        {
-            UncacheRegister(HOST_CNTL);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "HOST_CNTL write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(PAT_REG0) &&
-            (CacheSlot(PAT_REG0) != inm(PAT_REG0)))
-        {
-            UncacheRegister(PAT_REG0);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "PAT_REG0 write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(PAT_REG1) &&
-            (CacheSlot(PAT_REG1) != inm(PAT_REG1)))
-        {
-            UncacheRegister(PAT_REG1);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "PAT_REG1 write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(PAT_CNTL) &&
-            (CacheSlot(PAT_CNTL) != inm(PAT_CNTL)))
-        {
-            UncacheRegister(PAT_CNTL);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "PAT_CNTL write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(SC_LEFT_RIGHT) &&
-            (CacheSlot(SC_LEFT_RIGHT) !=
-             (SetWord(inm(SC_RIGHT), 1) | SetWord(inm(SC_LEFT), 0))))
-        {
-            UncacheRegister(SC_LEFT_RIGHT);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "SC_LEFT_RIGHT write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(SC_TOP_BOTTOM) &&
-            (CacheSlot(SC_TOP_BOTTOM) !=
-             (SetWord(inm(SC_BOTTOM), 1) | SetWord(inm(SC_TOP), 0))))
-        {
-            UncacheRegister(SC_TOP_BOTTOM);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "SC_TOP_BOTTOM write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(DP_BKGD_CLR) &&
-            (CacheSlot(DP_BKGD_CLR) != inm(DP_BKGD_CLR)))
-        {
-            UncacheRegister(DP_BKGD_CLR);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "DP_BKGD_CLR write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(DP_FRGD_CLR) &&
-            (CacheSlot(DP_FRGD_CLR) != inm(DP_FRGD_CLR)))
-        {
-            UncacheRegister(DP_FRGD_CLR);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "DP_FRGD_CLR write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(DP_WRITE_MASK) &&
-            (CacheSlot(DP_WRITE_MASK) != inm(DP_WRITE_MASK)))
-        {
-            UncacheRegister(DP_WRITE_MASK);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "DP_WRITE_MASK write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(DP_MIX) &&
-            (CacheSlot(DP_MIX) != inm(DP_MIX)))
-        {
-            UncacheRegister(DP_MIX);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "DP_MIX write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(CLR_CMP_CLR) &&
-            (CacheSlot(CLR_CMP_CLR) != inm(CLR_CMP_CLR)))
-        {
-            UncacheRegister(CLR_CMP_CLR);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "CLR_CMP_CLR write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(CLR_CMP_MSK) &&
-            (CacheSlot(CLR_CMP_MSK) != inm(CLR_CMP_MSK)))
-        {
-            UncacheRegister(CLR_CMP_MSK);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "CLR_CMP_MSK write cache disabled!\n");
-        }
-
-        if (RegisterIsCached(CLR_CMP_CNTL) &&
-            (CacheSlot(CLR_CMP_CNTL) != inm(CLR_CMP_CNTL)))
-        {
-            UncacheRegister(CLR_CMP_CNTL);
-            xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                "CLR_CMP_CNTL write cache disabled!\n");
-        }
-    }
-
-    /*
-     * For VTB's and later, the first CPU read of the framebuffer will return
-     * zeroes, so do it here.  This appears to be due to some kind of engine
-     * caching of framebuffer data I haven't found any way of disabling, or
-     * otherwise circumventing.  Thanks to Mark Vojkovich for the suggestion.
-     */
-    pATI->pXAAInfo->NeedToSync = FALSE;
-    pATI = *(volatile ATIPtr *)pATI->pMemory;
-}
-
-/*
- * ATIMach64SetupForScreenToScreenCopy --
- *
- * This function sets up the draw engine for a series of screen-to-screen copy
- * operations.
- */
-static void
-ATIMach64SetupForScreenToScreenCopy
-(
-    ScrnInfoPtr  pScreenInfo,
-    int          xdir,
-    int          ydir,
-    int          rop,
-    unsigned int planemask,
-    int          TransparencyColour
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    ATIMach64WaitForFIFO(pATI, 3);
-    outf(DP_WRITE_MASK, planemask);
-    outf(DP_SRC, DP_MONO_SRC_ALLONES |
-        SetBits(SRC_BLIT, DP_FRGD_SRC) | SetBits(SRC_BKGD, DP_BKGD_SRC));
-    outf(DP_MIX, SetBits(ATIMach64ALU[rop], DP_FRGD_MIX));
-
-#ifdef AVOID_DGA
-
-    if (TransparencyColour == -1)
-
-#else /* AVOID_DGA */
-
-    if (!pATI->XAAForceTransBlit && (TransparencyColour == -1))
-
-#endif /* AVOID_DGA */
-
-        outf(CLR_CMP_CNTL, CLR_CMP_FN_FALSE);
-    else
-    {
-        ATIMach64WaitForFIFO(pATI, 2);
-        outf(CLR_CMP_CLR, TransparencyColour);
-        outf(CLR_CMP_CNTL, CLR_CMP_FN_EQUAL | CLR_CMP_SRC_2D);
-    }
-
-    pATI->dst_cntl = 0;
-
-    if (ydir > 0)
-        pATI->dst_cntl |= DST_Y_DIR;
-    if (xdir > 0)
-        pATI->dst_cntl |= DST_X_DIR;
-
-    if (pATI->XModifier == 1)
-        outf(DST_CNTL, pATI->dst_cntl);
-    else
-        pATI->dst_cntl |= DST_24_ROT_EN;
-}
-
-/*
- * ATIMach64SubsequentScreenToScreenCopy --
- *
- * This function performs a screen-to-screen copy operation.
- */
-static void
-ATIMach64SubsequentScreenToScreenCopy
-(
-    ScrnInfoPtr pScreenInfo,
-    int         xSrc,
-    int         ySrc,
-    int         xDst,
-    int         yDst,
-    int         w,
-    int         h
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    xSrc *= pATI->XModifier;
-    xDst *= pATI->XModifier;
-    w    *= pATI->XModifier;
-
-    /* Disable clipping if it gets in the way */
-    ATIMach64ValidateClip(pATI, xDst, xDst + w - 1, yDst, yDst + h - 1);
-
-    if (!(pATI->dst_cntl & DST_X_DIR))
-    {
-        xSrc += w - 1;
-        xDst += w - 1;
-    }
-
-    if (!(pATI->dst_cntl & DST_Y_DIR))
-    {
-        ySrc += h - 1;
-        yDst += h - 1;
-    }
-
-    if (pATI->XModifier != 1)
-        outf(DST_CNTL, pATI->dst_cntl | SetBits((xDst / 4) % 6, DST_24_ROT));
-
-    ATIMach64WaitForFIFO(pATI, 4);
-    outf(SRC_Y_X, SetWord(xSrc, 1) | SetWord(ySrc, 0));
-    outf(SRC_WIDTH1, w);
-    outf(DST_Y_X, SetWord(xDst, 1) | SetWord(yDst, 0));
-    outf(DST_HEIGHT_WIDTH, SetWord(w, 1) | SetWord(h, 0));
-}
-
-/*
- * ATIMach64SetupForSolidFill --
- *
- * This function sets up the draw engine for a series of solid fills.
- */
-static void
-ATIMach64SetupForSolidFill
-(
-    ScrnInfoPtr  pScreenInfo,
-    int          colour,
-    int          rop,
-    unsigned int planemask
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    ATIMach64WaitForFIFO(pATI, 5);
-    outf(DP_WRITE_MASK, planemask);
-    outf(DP_SRC, DP_MONO_SRC_ALLONES |
-        SetBits(SRC_FRGD, DP_FRGD_SRC) | SetBits(SRC_BKGD, DP_BKGD_SRC));
-    outf(DP_FRGD_CLR, colour);
-    outf(DP_MIX, SetBits(ATIMach64ALU[rop], DP_FRGD_MIX));
-
-    outf(CLR_CMP_CNTL, CLR_CMP_FN_FALSE);
-
-    if (pATI->XModifier == 1)
-        outf(DST_CNTL, DST_X_DIR | DST_Y_DIR);
-}
-
-/*
- * ATIMach64SubsequentSolidFillRect --
- *
- * This function performs a solid rectangle fill.
- */
-static void
-ATIMach64SubsequentSolidFillRect
-(
-    ScrnInfoPtr pScreenInfo,
-    int         x,
-    int         y,
-    int         w,
-    int         h
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    if (pATI->XModifier != 1)
-    {
-        x *= pATI->XModifier;
-        w *= pATI->XModifier;
-
-        outf(DST_CNTL, SetBits((x / 4) % 6, DST_24_ROT) |
-            (DST_X_DIR | DST_Y_DIR | DST_24_ROT_EN));
-    }
-
-    /* Disable clipping if it gets in the way */
-    ATIMach64ValidateClip(pATI, x, x + w - 1, y, y + h - 1);
-
-    ATIMach64WaitForFIFO(pATI, 2);
-    outf(DST_Y_X, SetWord(x, 1) | SetWord(y, 0));
-    outf(DST_HEIGHT_WIDTH, SetWord(w, 1) | SetWord(h, 0));
-}
-
-/*
- * ATIMach64SetupForSolidLine --
- *
- * This function sets up the draw engine for a series of solid lines.  It is
- * not used for 24bpp because the engine doesn't support it.
- */
-static void
-ATIMach64SetupForSolidLine
-(
-    ScrnInfoPtr  pScreenInfo,
-    int          colour,
-    int          rop,
-    unsigned int planemask
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    ATIMach64WaitForFIFO(pATI, 5);
-    outf(DP_WRITE_MASK, planemask);
-    outf(DP_SRC, DP_MONO_SRC_ALLONES |
-        SetBits(SRC_FRGD, DP_FRGD_SRC) | SetBits(SRC_BKGD, DP_BKGD_SRC));
-    outf(DP_FRGD_CLR, colour);
-    outf(DP_MIX, SetBits(ATIMach64ALU[rop], DP_FRGD_MIX));
-
-    outf(CLR_CMP_CNTL, CLR_CMP_FN_FALSE);
-
-    ATIMach64ValidateClip(pATI, pATI->NewHW.sc_left, pATI->NewHW.sc_right,
-        pATI->NewHW.sc_top, pATI->NewHW.sc_bottom);
-}
-
-/*
- * ATIMach64SubsequentSolidHorVertLine --
- *
- * This is called to draw a solid horizontal or vertical line.  This does a
- * one-pixel wide solid fill.
- */
-static void
-ATIMach64SubsequentSolidHorVertLine
-(
-    ScrnInfoPtr pScreenInfo,
-    int         x,
-    int         y,
-    int         len,
-    int         dir
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    ATIMach64WaitForFIFO(pATI, 3);
-    outf(DST_CNTL, DST_X_DIR | DST_Y_DIR);
-    outf(DST_Y_X, SetWord(x, 1) | SetWord(y, 0));
-
-    if (dir == DEGREES_0)
-        outf(DST_HEIGHT_WIDTH, SetWord(len, 1) | SetWord(1, 0));
-    else /* if (dir == DEGREES_270) */
-        outf(DST_HEIGHT_WIDTH, SetWord(1, 1) | SetWord(len, 0));
-}
-
-/*
- * ATIMach64SubsequentSolidBresenhamLine --
- *
- * This function draws a line using the Bresenham line engine.
- */
-static void
-ATIMach64SubsequentSolidBresenhamLine
-(
-    ScrnInfoPtr pScreenInfo,
-    int         x,
-    int         y,
-    int         major,
-    int         minor,
-    int         err,
-    int         len,
-    int         octant
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-    CARD32 dst_cntl = DST_LAST_PEL;
-
-    if (octant & YMAJOR)
-        dst_cntl |= DST_Y_MAJOR;
-
-    if (!(octant & XDECREASING))
-        dst_cntl |= DST_X_DIR;
-
-    if (!(octant & YDECREASING))
-        dst_cntl |= DST_Y_DIR;
-
-    ATIMach64WaitForFIFO(pATI, 6);
-    outf(DST_CNTL, dst_cntl);
-    outf(DST_Y_X, SetWord(x, 1) | SetWord(y, 0));
-    outf(DST_BRES_ERR, minor + err);
-    outf(DST_BRES_INC, minor);
-    outf(DST_BRES_DEC, minor - major);
-    outf(DST_BRES_LNTH, len);
-}
-
-/*
- * ATIMach64SetupForMono8x8PatternFill --
- *
- * This function sets up the draw engine for a series of 8x8 1bpp pattern
- * fills.
- */
-static void
-ATIMach64SetupForMono8x8PatternFill
-(
-    ScrnInfoPtr  pScreenInfo,
-    int          patx,
-    int          paty,
-    int          fg,
-    int          bg,
-    int          rop,
-    unsigned int planemask
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    ATIMach64WaitForFIFO(pATI, 3);
-    outf(DP_WRITE_MASK, planemask);
-    outf(DP_SRC, DP_MONO_SRC_PATTERN |
-        SetBits(SRC_FRGD, DP_FRGD_SRC) | SetBits(SRC_BKGD, DP_BKGD_SRC));
-    outf(DP_FRGD_CLR, fg);
-
-    if (bg == -1)
-        outf(DP_MIX, SetBits(ATIMach64ALU[rop], DP_FRGD_MIX) |
-            SetBits(MIX_DST, DP_BKGD_MIX));
-    else
-    {
-        ATIMach64WaitForFIFO(pATI, 2);
-        outf(DP_BKGD_CLR, bg);
-        outf(DP_MIX, SetBits(ATIMach64ALU[rop], DP_FRGD_MIX) |
-            SetBits(ATIMach64ALU[rop], DP_BKGD_MIX));
-    }
-
-    ATIMach64WaitForFIFO(pATI, 4);
-    outf(PAT_REG0, patx);
-    outf(PAT_REG1, paty);
-    outf(PAT_CNTL, PAT_MONO_EN);
-
-    outf(CLR_CMP_CNTL, CLR_CMP_FN_FALSE);
-
-    if (pATI->XModifier == 1)
-        outf(DST_CNTL, DST_X_DIR | DST_Y_DIR);
-}
-
-/*
- * ATIMach64SubsequentMono8x8PatternFillRect --
- *
- * This function performs an 8x8 1bpp pattern fill.
- */
-static void
-ATIMach64SubsequentMono8x8PatternFillRect
-(
-    ScrnInfoPtr pScreenInfo,
-    int         patx,
-    int         paty,
-    int         x,
-    int         y,
-    int         w,
-    int         h
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    if (pATI->XModifier != 1)
-    {
-        x *= pATI->XModifier;
-        w *= pATI->XModifier;
-
-        outf(DST_CNTL, SetBits((x / 4) % 6, DST_24_ROT) |
-            (DST_X_DIR | DST_Y_DIR | DST_24_ROT_EN));
-    }
-
-    /* Disable clipping if it gets in the way */
-    ATIMach64ValidateClip(pATI, x, x + w - 1, y, y + h - 1);
-
-    ATIMach64WaitForFIFO(pATI, 2);
-    outf(DST_Y_X, SetWord(x, 1) | SetWord(y, 0));
-    outf(DST_HEIGHT_WIDTH, SetWord(w, 1) | SetWord(h, 0));
-}
-
-/*
- * ATIMach64SetupForScanlineCPUToScreenColorExpandFill --
- *
- * This function sets up the engine for a series of colour expansion fills.
- */
-static void
-ATIMach64SetupForScanlineCPUToScreenColorExpandFill
-(
-    ScrnInfoPtr  pScreenInfo,
-    int          fg,
-    int          bg,
-    int          rop,
-    unsigned int planemask
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    ATIMach64WaitForFIFO(pATI, 3);
-    outf(DP_WRITE_MASK, planemask);
-    outf(DP_SRC, DP_MONO_SRC_HOST |
-        SetBits(SRC_FRGD, DP_FRGD_SRC) | SetBits(SRC_BKGD, DP_BKGD_SRC));
-    outf(DP_FRGD_CLR, fg);
-
-    if (bg == -1)
-        outf(DP_MIX, SetBits(ATIMach64ALU[rop], DP_FRGD_MIX) |
-            SetBits(MIX_DST, DP_BKGD_MIX));
-    else
-    {
-        ATIMach64WaitForFIFO(pATI, 2);
-        outf(DP_BKGD_CLR, bg);
-        outf(DP_MIX, SetBits(ATIMach64ALU[rop], DP_FRGD_MIX) |
-            SetBits(ATIMach64ALU[rop], DP_BKGD_MIX));
-    }
-
-    outf(CLR_CMP_CNTL, CLR_CMP_FN_FALSE);
-
-    if (pATI->XModifier == 1)
-        outf(DST_CNTL, DST_X_DIR | DST_Y_DIR);
-}
-
-/*
- * ATIMach64SubsequentScanlineCPUToScreenColorExpandFill --
- *
- * This function sets up the engine for a single colour expansion fill.
- */
-static void
-ATIMach64SubsequentScanlineCPUToScreenColorExpandFill
-(
-    ScrnInfoPtr pScreenInfo,
-    int         x,
-    int         y,
-    int         w,
-    int         h,
-    int         skipleft
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    if (pATI->XModifier != 1)
-    {
-        x *= pATI->XModifier;
-        w *= pATI->XModifier;
-        skipleft *= pATI->XModifier;
-
-        outf(DST_CNTL, SetBits((x / 4) % 6, DST_24_ROT) |
-            (DST_X_DIR | DST_Y_DIR | DST_24_ROT_EN));
-    }
-
-    pATI->ExpansionBitmapWidth = (w + 31) / 32;
-
-    ATIMach64WaitForFIFO(pATI, 3);
-    pATI->sc_left = x + skipleft;
-    pATI->sc_right = x + w - 1;
-    outf(SC_LEFT_RIGHT,
-        SetWord(pATI->sc_right, 1) | SetWord(pATI->sc_left, 0));
-    outf(DST_Y_X, SetWord(x, 1) | SetWord(y, 0));
-    outf(DST_HEIGHT_WIDTH,
-        SetWord(pATI->ExpansionBitmapWidth * 32, 1) | SetWord(h, 0));
-}
-
-/*
- * ATIMach64SubsequentColorExpandScanline --
- *
- * This function feeds a bitmap scanline to the engine for a colour expansion
- * fill.  This is written to do burst transfers for those platforms that can do
- * them, and to improve CPU/engine concurrency.
- */
-static void
-ATIMach64SubsequentColorExpandScanline
-(
-    ScrnInfoPtr pScreenInfo,
-    int         iBuffer
-)
-{
-    ATIPtr          pATI         = ATIPTR(pScreenInfo);
-    CARD32          *pBitmapData = pATI->ExpansionBitmapScanlinePtr[iBuffer];
-    int             w            = pATI->ExpansionBitmapWidth;
-    int             nDWord;
-
-    while (w > 0)
-    {
-        /*
-         * Transfers are done in chunks of up to 64 bytes in length (32 on
-         * earlier controllers).
-         */
-        nDWord = w;
-        if (nDWord > pATI->nHostFIFOEntries)
-            nDWord = pATI->nHostFIFOEntries;
-
-        /* Make enough FIFO slots available */
-        ATIMach64WaitForFIFO(pATI, nDWord);
-
-        /*
-         * Always start transfers on a chuck-sized boundary.  Note that
-         * HOST_DATA_0 is actually on a 512-byte boundary, but *pBitmapData can
-         * only be guaranteed to be on a chunk-sized boundary.
-         *
-         * Transfer current chunk.  With any luck, the compiler won't mangle
-         * this too badly...
-         */
-
-#       if defined(ATIMove32)
-
-            ATIMove32(pATI->pHOST_DATA, pBitmapData, nDWord);
-
-#       else
-
-        {
-            volatile CARD32 *pDst;
-            CARD32          *pSrc;
-            unsigned int    iDWord;
-
-            iDWord = 16 - nDWord;
-            pDst = (volatile CARD32 *)pATI->pHOST_DATA - iDWord;
-            pSrc = pBitmapData - iDWord;
-
-            switch (iDWord)
-            {
-                case  0:  MMIO_MOVE32(pDst +  0, 0, *(pSrc +  0));
-                case  1:  MMIO_MOVE32(pDst +  1, 0, *(pSrc +  1));
-                case  2:  MMIO_MOVE32(pDst +  2, 0, *(pSrc +  2));
-                case  3:  MMIO_MOVE32(pDst +  3, 0, *(pSrc +  3));
-                case  4:  MMIO_MOVE32(pDst +  4, 0, *(pSrc +  4));
-                case  5:  MMIO_MOVE32(pDst +  5, 0, *(pSrc +  5));
-                case  6:  MMIO_MOVE32(pDst +  6, 0, *(pSrc +  6));
-                case  7:  MMIO_MOVE32(pDst +  7, 0, *(pSrc +  7));
-                case  8:  MMIO_MOVE32(pDst +  8, 0, *(pSrc +  8));
-                case  9:  MMIO_MOVE32(pDst +  9, 0, *(pSrc +  9));
-                case 10:  MMIO_MOVE32(pDst + 10, 0, *(pSrc + 10));
-                case 11:  MMIO_MOVE32(pDst + 11, 0, *(pSrc + 11));
-                case 12:  MMIO_MOVE32(pDst + 12, 0, *(pSrc + 12));
-                case 13:  MMIO_MOVE32(pDst + 13, 0, *(pSrc + 13));
-                case 14:  MMIO_MOVE32(pDst + 14, 0, *(pSrc + 14));
-                case 15:  MMIO_MOVE32(pDst + 15, 0, *(pSrc + 15));
-
-                default:    /* Muffle compiler */
-                    break;
-            }
-        }
-
-#       endif
-
-        /* Step to next chunk */
-        pBitmapData += nDWord;
-        w -= nDWord;
-        pATI->nAvailableFIFOEntries -= nDWord;
-    }
-
-    pATI->EngineIsBusy = TRUE;
-}
-
-/*
- * ATIMach64AccelInit --
- *
- * This function fills in structure fields needed for acceleration on Mach64
- * variants.
- */
-int
-ATIMach64AccelInit
-(
-    ATIPtr        pATI,
-    XAAInfoRecPtr pXAAInfo
-)
-{
-    /* This doesn't seem quite right... */
-    if (pATI->XModifier == 1)
-    {
-        pXAAInfo->Flags = PIXMAP_CACHE | OFFSCREEN_PIXMAPS;
-
-#ifndef AVOID_CPIO
-
-        if (!pATI->BankInfo.BankSize)
-
-#endif /* AVOID_CPIO */
-
-        {
-            pXAAInfo->Flags |= LINEAR_FRAMEBUFFER;
-        }
-    }
-
-    /* Sync */
-    pXAAInfo->Sync = ATIMach64Sync;
-
-    /* Screen-to-screen copy */
-    pXAAInfo->SetupForScreenToScreenCopy = ATIMach64SetupForScreenToScreenCopy;
-    pXAAInfo->SubsequentScreenToScreenCopy =
-        ATIMach64SubsequentScreenToScreenCopy;
-
-    /* Solid fills */
-    pXAAInfo->SetupForSolidFill = ATIMach64SetupForSolidFill;
-    pXAAInfo->SubsequentSolidFillRect = ATIMach64SubsequentSolidFillRect;
-
-    /* 8x8 mono pattern fills */
-    pXAAInfo->Mono8x8PatternFillFlags =
-
-#if X_BYTE_ORDER != X_LITTLE_ENDIAN
-
-        BIT_ORDER_IN_BYTE_MSBFIRST |
-
-#endif /* X_BYTE_ORDER */
-
-        HARDWARE_PATTERN_PROGRAMMED_BITS | HARDWARE_PATTERN_SCREEN_ORIGIN;
-    pXAAInfo->SetupForMono8x8PatternFill = ATIMach64SetupForMono8x8PatternFill;
-    pXAAInfo->SubsequentMono8x8PatternFillRect =
-        ATIMach64SubsequentMono8x8PatternFillRect;
-
-    /*
-     * Use scanline version of colour expansion, not only for the non-ix86
-     * case, but also to avoid PCI retries.
-     */
-    pXAAInfo->ScanlineCPUToScreenColorExpandFillFlags =
-        LEFT_EDGE_CLIPPING | LEFT_EDGE_CLIPPING_NEGATIVE_X |
-        CPU_TRANSFER_PAD_DWORD | SCANLINE_PAD_DWORD;
-    if (pATI->XModifier != 1)
-        pXAAInfo->ScanlineCPUToScreenColorExpandFillFlags |= TRIPLE_BITS_24BPP;
-    pXAAInfo->NumScanlineColorExpandBuffers = 1;
-
-    /* Align bitmap data on a 64-byte boundary */
-    pATI->ExpansionBitmapWidth =        /* DWord size in bits */
-        ((pATI->displayWidth * pATI->XModifier) + 31) & ~31U;
-    pATI->ExpansionBitmapScanlinePtr[1] =
-        (CARD32 *)xnfalloc((pATI->ExpansionBitmapWidth >> 3) + 63);
-    pATI->ExpansionBitmapScanlinePtr[0] =
-        (pointer)(((unsigned long)pATI->ExpansionBitmapScanlinePtr[1] + 63) &
-                  ~63UL);
-    pXAAInfo->ScanlineColorExpandBuffers =
-        (CARD8 **)pATI->ExpansionBitmapScanlinePtr;
-    pXAAInfo->SetupForScanlineCPUToScreenColorExpandFill =
-        ATIMach64SetupForScanlineCPUToScreenColorExpandFill;
-    pXAAInfo->SubsequentScanlineCPUToScreenColorExpandFill =
-        ATIMach64SubsequentScanlineCPUToScreenColorExpandFill;
-    pXAAInfo->SubsequentColorExpandScanline =
-        ATIMach64SubsequentColorExpandScanline;
-
-    /* The engine does not support the following primitives for 24bpp */
-    if (pATI->XModifier != 1)
-        return ATIMach64MaxY;
-
-    /* Solid lines */
-    pXAAInfo->SetupForSolidLine = ATIMach64SetupForSolidLine;
-    pXAAInfo->SubsequentSolidHorVertLine = ATIMach64SubsequentSolidHorVertLine;
-    pXAAInfo->SubsequentSolidBresenhamLine =
-        ATIMach64SubsequentSolidBresenhamLine;
-
-    return ATIMach64MaxY;
-}
-
-/*
- * ATIMach64SetCursorColours --
- *
- * Set hardware cursor foreground and background colours.
- */
-static void
-ATIMach64SetCursorColours
-(
-    ScrnInfoPtr pScreenInfo,
-    int         fg,
-    int         bg
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    outr(CUR_CLR0, SetBits(fg, CUR_CLR));
-    outr(CUR_CLR1, SetBits(bg, CUR_CLR));
-}
-
-/*
- * ATIMach64SetCursorPosition --
- *
- * Set position of hardware cursor.
- */
-static void
-ATIMach64SetCursorPosition
-(
-    ScrnInfoPtr pScreenInfo,
-    int         x,
-    int         y
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-    CARD16 CursorXOffset, CursorYOffset;
-
-    /* Adjust x & y when the cursor is partially obscured */
-    if (x < 0)
-    {
-        if ((CursorXOffset = -x) > 63)
-            CursorXOffset = 63;
-        x = 0;
-    }
-    else
-    {
-        CursorXOffset = pScreenInfo->frameX1 - pScreenInfo->frameX0;
-        if (x > CursorXOffset)
-            x = CursorXOffset;
-        CursorXOffset = 0;
-    }
-
-    if (y < 0)
-    {
-        if ((CursorYOffset = -y) > 63)
-            CursorYOffset = 63;
-        y = 0;
-    }
-    else
-    {
-        CursorYOffset = pScreenInfo->frameY1 - pScreenInfo->frameY0;
-        if (y > CursorYOffset)
-            y = CursorYOffset;
-        CursorYOffset = 0;
-    }
-
-    /* Adjust for multiscanned modes */
-    if (pScreenInfo->currentMode->Flags & V_DBLSCAN)
-        y *= 2;
-    if (pScreenInfo->currentMode->VScan > 1)
-        y *= pScreenInfo->currentMode->VScan;
-
-    do
-    {
-        if (CursorYOffset != pATI->CursorYOffset)
-        {
-            pATI->CursorYOffset = CursorYOffset;
-            outr(CUR_OFFSET, ((CursorYOffset << 4) + pATI->CursorOffset) >> 3);
-        }
-        else if (CursorXOffset == pATI->CursorXOffset)
-            break;
-
-        pATI->CursorXOffset = CursorXOffset;
-        outr(CUR_HORZ_VERT_OFF, SetBits(CursorXOffset, CUR_HORZ_OFF) |
-            SetBits(CursorYOffset, CUR_VERT_OFF));
-    } while (0);
-
-    outr(CUR_HORZ_VERT_POSN,
-        SetBits(x, CUR_HORZ_POSN) | SetBits(y, CUR_VERT_POSN));
-}
-
-/*
- * ATIMach64LoadCursorImage --
- *
- * Copy hardware cursor image into offscreen video memory.
- */
-static void
-ATIMach64LoadCursorImage
-(
-    ScrnInfoPtr pScreenInfo,
-    CARD8       *pImage
-)
-{
-    ATIPtr           pATI     = ATIPTR(pScreenInfo);
-    XAAInfoRecPtr    pXAAInfo = pATI->pXAAInfo;
-    CARD32          *pSrc     = (pointer)pImage;
-    volatile CARD32 *pDst     = pATI->pCursorImage;
-
-    /* Synchronise video memory accesses */
-    if (pXAAInfo && pXAAInfo->NeedToSync)
-        (*pXAAInfo->Sync)(pScreenInfo);
-
-#   if defined(ATIMove32)
-
-        ATIMove32(pDst, pSrc, 256);
-
-#   else
-
-        /* This is lengthy, but it does maximise burst modes */
-        pDst[  0] = pSrc[  0];  pDst[  1] = pSrc[  1];
-        pDst[  2] = pSrc[  2];  pDst[  3] = pSrc[  3];
-        pDst[  4] = pSrc[  4];  pDst[  5] = pSrc[  5];
-        pDst[  6] = pSrc[  6];  pDst[  7] = pSrc[  7];
-        pDst[  8] = pSrc[  8];  pDst[  9] = pSrc[  9];
-        pDst[ 10] = pSrc[ 10];  pDst[ 11] = pSrc[ 11];
-        pDst[ 12] = pSrc[ 12];  pDst[ 13] = pSrc[ 13];
-        pDst[ 14] = pSrc[ 14];  pDst[ 15] = pSrc[ 15];
-        pDst[ 16] = pSrc[ 16];  pDst[ 17] = pSrc[ 17];
-        pDst[ 18] = pSrc[ 18];  pDst[ 19] = pSrc[ 19];
-        pDst[ 20] = pSrc[ 20];  pDst[ 21] = pSrc[ 21];
-        pDst[ 22] = pSrc[ 22];  pDst[ 23] = pSrc[ 23];
-        pDst[ 24] = pSrc[ 24];  pDst[ 25] = pSrc[ 25];
-        pDst[ 26] = pSrc[ 26];  pDst[ 27] = pSrc[ 27];
-        pDst[ 28] = pSrc[ 28];  pDst[ 29] = pSrc[ 29];
-        pDst[ 30] = pSrc[ 30];  pDst[ 31] = pSrc[ 31];
-        pDst[ 32] = pSrc[ 32];  pDst[ 33] = pSrc[ 33];
-        pDst[ 34] = pSrc[ 34];  pDst[ 35] = pSrc[ 35];
-        pDst[ 36] = pSrc[ 36];  pDst[ 37] = pSrc[ 37];
-        pDst[ 38] = pSrc[ 38];  pDst[ 39] = pSrc[ 39];
-        pDst[ 40] = pSrc[ 40];  pDst[ 41] = pSrc[ 41];
-        pDst[ 42] = pSrc[ 42];  pDst[ 43] = pSrc[ 43];
-        pDst[ 44] = pSrc[ 44];  pDst[ 45] = pSrc[ 45];
-        pDst[ 46] = pSrc[ 46];  pDst[ 47] = pSrc[ 47];
-        pDst[ 48] = pSrc[ 48];  pDst[ 49] = pSrc[ 49];
-        pDst[ 50] = pSrc[ 50];  pDst[ 51] = pSrc[ 51];
-        pDst[ 52] = pSrc[ 52];  pDst[ 53] = pSrc[ 53];
-        pDst[ 54] = pSrc[ 54];  pDst[ 55] = pSrc[ 55];
-        pDst[ 56] = pSrc[ 56];  pDst[ 57] = pSrc[ 57];
-        pDst[ 58] = pSrc[ 58];  pDst[ 59] = pSrc[ 59];
-        pDst[ 60] = pSrc[ 60];  pDst[ 61] = pSrc[ 61];
-        pDst[ 62] = pSrc[ 62];  pDst[ 63] = pSrc[ 63];
-        pDst[ 64] = pSrc[ 64];  pDst[ 65] = pSrc[ 65];
-        pDst[ 66] = pSrc[ 66];  pDst[ 67] = pSrc[ 67];
-        pDst[ 68] = pSrc[ 68];  pDst[ 69] = pSrc[ 69];
-        pDst[ 70] = pSrc[ 70];  pDst[ 71] = pSrc[ 71];
-        pDst[ 72] = pSrc[ 72];  pDst[ 73] = pSrc[ 73];
-        pDst[ 74] = pSrc[ 74];  pDst[ 75] = pSrc[ 75];
-        pDst[ 76] = pSrc[ 76];  pDst[ 77] = pSrc[ 77];
-        pDst[ 78] = pSrc[ 78];  pDst[ 79] = pSrc[ 79];
-        pDst[ 80] = pSrc[ 80];  pDst[ 81] = pSrc[ 81];
-        pDst[ 82] = pSrc[ 82];  pDst[ 83] = pSrc[ 83];
-        pDst[ 84] = pSrc[ 84];  pDst[ 85] = pSrc[ 85];
-        pDst[ 86] = pSrc[ 86];  pDst[ 87] = pSrc[ 87];
-        pDst[ 88] = pSrc[ 88];  pDst[ 89] = pSrc[ 89];
-        pDst[ 90] = pSrc[ 90];  pDst[ 91] = pSrc[ 91];
-        pDst[ 92] = pSrc[ 92];  pDst[ 93] = pSrc[ 93];
-        pDst[ 94] = pSrc[ 94];  pDst[ 95] = pSrc[ 95];
-        pDst[ 96] = pSrc[ 96];  pDst[ 97] = pSrc[ 97];
-        pDst[ 98] = pSrc[ 98];  pDst[ 99] = pSrc[ 99];
-        pDst[100] = pSrc[100];  pDst[101] = pSrc[101];
-        pDst[102] = pSrc[102];  pDst[103] = pSrc[103];
-        pDst[104] = pSrc[104];  pDst[105] = pSrc[105];
-        pDst[106] = pSrc[106];  pDst[107] = pSrc[107];
-        pDst[108] = pSrc[108];  pDst[109] = pSrc[109];
-        pDst[110] = pSrc[110];  pDst[111] = pSrc[111];
-        pDst[112] = pSrc[112];  pDst[113] = pSrc[113];
-        pDst[114] = pSrc[114];  pDst[115] = pSrc[115];
-        pDst[116] = pSrc[116];  pDst[117] = pSrc[117];
-        pDst[118] = pSrc[118];  pDst[119] = pSrc[119];
-        pDst[120] = pSrc[120];  pDst[121] = pSrc[121];
-        pDst[122] = pSrc[122];  pDst[123] = pSrc[123];
-        pDst[124] = pSrc[124];  pDst[125] = pSrc[125];
-        pDst[126] = pSrc[126];  pDst[127] = pSrc[127];
-        pDst[128] = pSrc[128];  pDst[129] = pSrc[129];
-        pDst[130] = pSrc[130];  pDst[131] = pSrc[131];
-        pDst[132] = pSrc[132];  pDst[133] = pSrc[133];
-        pDst[134] = pSrc[134];  pDst[135] = pSrc[135];
-        pDst[136] = pSrc[136];  pDst[137] = pSrc[137];
-        pDst[138] = pSrc[138];  pDst[139] = pSrc[139];
-        pDst[140] = pSrc[140];  pDst[141] = pSrc[141];
-        pDst[142] = pSrc[142];  pDst[143] = pSrc[143];
-        pDst[144] = pSrc[144];  pDst[145] = pSrc[145];
-        pDst[146] = pSrc[146];  pDst[147] = pSrc[147];
-        pDst[148] = pSrc[148];  pDst[149] = pSrc[149];
-        pDst[150] = pSrc[150];  pDst[151] = pSrc[151];
-        pDst[152] = pSrc[152];  pDst[153] = pSrc[153];
-        pDst[154] = pSrc[154];  pDst[155] = pSrc[155];
-        pDst[156] = pSrc[156];  pDst[157] = pSrc[157];
-        pDst[158] = pSrc[158];  pDst[159] = pSrc[159];
-        pDst[160] = pSrc[160];  pDst[161] = pSrc[161];
-        pDst[162] = pSrc[162];  pDst[163] = pSrc[163];
-        pDst[164] = pSrc[164];  pDst[165] = pSrc[165];
-        pDst[166] = pSrc[166];  pDst[167] = pSrc[167];
-        pDst[168] = pSrc[168];  pDst[169] = pSrc[169];
-        pDst[170] = pSrc[170];  pDst[171] = pSrc[171];
-        pDst[172] = pSrc[172];  pDst[173] = pSrc[173];
-        pDst[174] = pSrc[174];  pDst[175] = pSrc[175];
-        pDst[176] = pSrc[176];  pDst[177] = pSrc[177];
-        pDst[178] = pSrc[178];  pDst[179] = pSrc[179];
-        pDst[180] = pSrc[180];  pDst[181] = pSrc[181];
-        pDst[182] = pSrc[182];  pDst[183] = pSrc[183];
-        pDst[184] = pSrc[184];  pDst[185] = pSrc[185];
-        pDst[186] = pSrc[186];  pDst[187] = pSrc[187];
-        pDst[188] = pSrc[188];  pDst[189] = pSrc[189];
-        pDst[190] = pSrc[190];  pDst[191] = pSrc[191];
-        pDst[192] = pSrc[192];  pDst[193] = pSrc[193];
-        pDst[194] = pSrc[194];  pDst[195] = pSrc[195];
-        pDst[196] = pSrc[196];  pDst[197] = pSrc[197];
-        pDst[198] = pSrc[198];  pDst[199] = pSrc[199];
-        pDst[200] = pSrc[200];  pDst[201] = pSrc[201];
-        pDst[202] = pSrc[202];  pDst[203] = pSrc[203];
-        pDst[204] = pSrc[204];  pDst[205] = pSrc[205];
-        pDst[206] = pSrc[206];  pDst[207] = pSrc[207];
-        pDst[208] = pSrc[208];  pDst[209] = pSrc[209];
-        pDst[210] = pSrc[210];  pDst[211] = pSrc[211];
-        pDst[212] = pSrc[212];  pDst[213] = pSrc[213];
-        pDst[214] = pSrc[214];  pDst[215] = pSrc[215];
-        pDst[216] = pSrc[216];  pDst[217] = pSrc[217];
-        pDst[218] = pSrc[218];  pDst[219] = pSrc[219];
-        pDst[220] = pSrc[220];  pDst[221] = pSrc[221];
-        pDst[222] = pSrc[222];  pDst[223] = pSrc[223];
-        pDst[224] = pSrc[224];  pDst[225] = pSrc[225];
-        pDst[226] = pSrc[226];  pDst[227] = pSrc[227];
-        pDst[228] = pSrc[228];  pDst[229] = pSrc[229];
-        pDst[230] = pSrc[230];  pDst[231] = pSrc[231];
-        pDst[232] = pSrc[232];  pDst[233] = pSrc[233];
-        pDst[234] = pSrc[234];  pDst[235] = pSrc[235];
-        pDst[236] = pSrc[236];  pDst[237] = pSrc[237];
-        pDst[238] = pSrc[238];  pDst[239] = pSrc[239];
-        pDst[240] = pSrc[240];  pDst[241] = pSrc[241];
-        pDst[242] = pSrc[242];  pDst[243] = pSrc[243];
-        pDst[244] = pSrc[244];  pDst[245] = pSrc[245];
-        pDst[246] = pSrc[246];  pDst[247] = pSrc[247];
-        pDst[248] = pSrc[248];  pDst[249] = pSrc[249];
-        pDst[250] = pSrc[250];  pDst[251] = pSrc[251];
-        pDst[252] = pSrc[252];  pDst[253] = pSrc[253];
-        pDst[254] = pSrc[254];  pDst[255] = pSrc[255];
-
-#endif
-
-}
-
-/*
- * ATIMach64HideCursor --
- *
- * Turn off hardware cursor.
- */
-static void
-ATIMach64HideCursor
-(
-    ScrnInfoPtr pScreenInfo
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    if (!(pATI->NewHW.gen_test_cntl & GEN_CUR_EN))
-        return;
-
-    pATI->NewHW.gen_test_cntl &= ~GEN_CUR_EN;
-    out8(GEN_TEST_CNTL, GetByte(pATI->NewHW.gen_test_cntl, 0));
-}
-
-/*
- * ATIMach64ShowCursor --
- *
- * Turn on hardware cursor.
- */
-static void
-ATIMach64ShowCursor
-(
-    ScrnInfoPtr pScreenInfo
-)
-{
-    ATIPtr pATI = ATIPTR(pScreenInfo);
-
-    if (pATI->NewHW.gen_test_cntl & GEN_CUR_EN)
-        return;
-
-    pATI->NewHW.gen_test_cntl |= GEN_CUR_EN;
-    out8(GEN_TEST_CNTL, GetByte(pATI->NewHW.gen_test_cntl, 0));
-}
-
-/*
- * ATIMach64UseHWCursor --
- *
- * Notify cursor layer whether a hardware cursor is configured.
- */
-static Bool
-ATIMach64UseHWCursor
-(
-    ScreenPtr pScreen,
-    CursorPtr pCursor
-)
-{
-    ScrnInfoPtr pScreenInfo = xf86Screens[pScreen->myNum];
-    ATIPtr      pATI        = ATIPTR(pScreenInfo);
-
-    if (!pATI->CursorBase)
-        return FALSE;
-
-#ifndef AVOID_CPIO
-
-    /*
-     * For some reason, the hardware cursor isn't vertically scaled when a VGA
-     * doublescanned or multiscanned mode is in effect.
-     */
-    if (pATI->NewHW.crtc == ATI_CRTC_MACH64)
-        return TRUE;
-    if ((pScreenInfo->currentMode->Flags & V_DBLSCAN) ||
-        (pScreenInfo->currentMode->VScan > 1))
-        return FALSE;
-
-#endif /* AVOID_CPIO */
-
-    return TRUE;
-}
-
-/*
- * ATIMach64CursorInit --
- *
- * Initialise xf86CursorInfoRec fields with information specific to Mach64
- * variants.
- */
-Bool
-ATIMach64CursorInit
-(
-    xf86CursorInfoPtr pCursorInfo
-)
-{
-    /*
-     * For Mach64 variants, toggling hardware cursors on and off causes
-     * display artifacts.  Ask the cursor support layers to always paint the
-     * cursor (whether or not it is entirely transparent) and to not hide the
-     * cursor when reloading its image.  The three reasons behind turning off
-     * the hardware cursor that remain are when it moves to a different screen,
-     * on a switch to a software cursor or to a different virtual console.
-     */
-    pCursorInfo->Flags = HARDWARE_CURSOR_TRUECOLOR_AT_8BPP |
-        HARDWARE_CURSOR_INVERT_MASK |
-        HARDWARE_CURSOR_SHOW_TRANSPARENT |
-        HARDWARE_CURSOR_UPDATE_UNHIDDEN |
-        HARDWARE_CURSOR_AND_SOURCE_WITH_MASK |
-
-#if X_BYTE_ORDER != X_LITTLE_ENDIAN
-
-        HARDWARE_CURSOR_BIT_ORDER_MSBFIRST |
-
-#endif /* X_BYTE_ORDER */
-
-        HARDWARE_CURSOR_SOURCE_MASK_INTERLEAVE_1;
-    pCursorInfo->MaxWidth = pCursorInfo->MaxHeight = 64;
-
-    pCursorInfo->SetCursorColors = ATIMach64SetCursorColours;
-    pCursorInfo->SetCursorPosition = ATIMach64SetCursorPosition;
-    pCursorInfo->LoadCursorImage = ATIMach64LoadCursorImage;
-    pCursorInfo->HideCursor = ATIMach64HideCursor;
-    pCursorInfo->ShowCursor = ATIMach64ShowCursor;
-    pCursorInfo->UseHWCursor = ATIMach64UseHWCursor;
-
-    return TRUE;
 }

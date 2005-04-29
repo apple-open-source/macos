@@ -20,11 +20,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-/* $XFree86: xc/lib/font/fontfile/fontenc.c,v 1.15 2003/02/20 03:25:19 dawes Exp $ */
+/* $XFree86: xc/lib/font/fontfile/fontenc.c,v 1.16 2003/12/19 02:05:38 dawes Exp $ */
 
 /* Backend-independent encoding code */
 
 #include <string.h>
+
+#ifdef SCO325
+#include <strings.h>
+#endif
 
 #ifndef FONTENC_NO_LIBFONT
 

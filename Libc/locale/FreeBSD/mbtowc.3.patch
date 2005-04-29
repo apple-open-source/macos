@@ -1,0 +1,50 @@
+--- mbtowc.3.orig	Fri Mar 11 19:44:47 2005
++++ mbtowc.3	Fri Mar 11 19:54:09 2005
+@@ -41,7 +41,8 @@
+ .Dt MBTOWC 3
+ .Os
+ .Sh NAME
+-.Nm mbtowc
++.Nm mbtowc ,
++.Nm mbtowc_l
+ .Nd convert a character to a wide-character code
+ .Sh LIBRARY
+ .Lb libc
+@@ -52,6 +53,12 @@
+ .Fa "wchar_t * restrict wcharp" "const char * restrict mbchar"
+ .Fa "size_t nbytes"
+ .Fc
++.In xlocale.h
++.Ft int
++.Fo mbtowc_l
++.Fa "wchar_t * restrict wcharp" "const char * restrict mbchar"
++.Fa "size_t nbytes" "locale_t loc"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn mbtowc
+@@ -70,6 +77,14 @@
+ pointer returns nonzero if the current encoding requires shift states,
+ zero otherwise;
+ if shift states are required, the shift state is reset to the initial state.
++.Pp
++While the
++.Fn mbtowc
++function uses the current locale, the
++.Fn mbtowc_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ If
+ .Fa mbchar
+@@ -110,7 +125,8 @@
+ .Xr mbrtowc 3 ,
+ .Xr mbstowcs 3 ,
+ .Xr multibyte 3 ,
+-.Xr wctomb 3
++.Xr wctomb 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn mbtowc

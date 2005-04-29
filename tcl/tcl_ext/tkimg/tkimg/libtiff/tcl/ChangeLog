@@ -1,0 +1,28 @@
+2002-11-26  Andreas Kupries  <andreask@activestate.com>
+
+	* tifftclDeclsMask.h: 
+	* tifftclDeclsUnmask.h: Added the appropriate lines to handle the
+	  reactivated vararg functions, and the newly exported functions.
+
+	* tifftcl.decls: A number of vararg functions were commented
+	  out. Reactivated them now. Also added definitions found in
+	  'tif_predic.h', 'tif_dir.h', and 'tiffiop.h'. Regenerated the
+	  stub support files.
+
+	* tools/genStubs.tcl: Extended 'genStubs.tcl'. The application is
+	  now able to handle vararg declarations with more than one
+	  argument. When it encounters such declarations it emits code
+	  which is useable only if <stdarg.h> is present and used by the
+	  compiler. It also emits C preprocessor definitions checking this
+	  at compile time, using the NO_STDARG macro used 'tcl.h'.
+
+2002-11-18  Andreas Kupries  <andreask@activestate.com>
+
+	* Configure and build ok for all platforms available to me at AS.
+
+2002-11-14  Andreas Kupries  <andreask@activestate.com>
+
+	* Start of logging.
+
+	* libtiff/tcl/: New directory, packaging of support library for
+	  tcl.

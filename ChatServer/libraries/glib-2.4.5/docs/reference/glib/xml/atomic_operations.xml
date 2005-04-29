@@ -1,0 +1,265 @@
+<refentry id="glib-Atomic-Operations">
+<refmeta>
+<refentrytitle>Atomic Operations</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Atomic Operations</refname><refpurpose>basic atomic integer and pointer operations</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+<link linkend="gint">gint</link>        <link linkend="g-atomic-int-get">g_atomic_int_get</link>                (<link linkend="gint">gint</link> *atomic);
+<link linkend="void">void</link>        <link linkend="g-atomic-int-add">g_atomic_int_add</link>                (<link linkend="gint">gint</link> *atomic,
+                                             <link linkend="gint">gint</link> val);
+<link linkend="gint">gint</link>        <link linkend="g-atomic-int-exchange-and-add">g_atomic_int_exchange_and_add</link>   (<link linkend="gint">gint</link> *atomic,
+                                             <link linkend="gint">gint</link> val);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-atomic-int-compare-and-exchange">g_atomic_int_compare_and_exchange</link>
+                                            (<link linkend="gint">gint</link> *atomic,
+                                             <link linkend="gint">gint</link> oldval,
+                                             <link linkend="gint">gint</link> newval);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-atomic-pointer-get">g_atomic_pointer_get</link>            (<link linkend="gpointer">gpointer</link> *atomic);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-atomic-pointer-compare-and-exchange">g_atomic_pointer_compare_and_exchange</link>
+                                            (<link linkend="gpointer">gpointer</link> *atomic,
+                                             <link linkend="gpointer">gpointer</link> oldval,
+                                             <link linkend="gpointer">gpointer</link> newval);
+<link linkend="void">void</link>        <link linkend="g-atomic-int-inc">g_atomic_int_inc</link>                (<link linkend="gint">gint</link> *atomic);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-atomic-int-dec-and-test">g_atomic_int_dec_and_test</link>       (<link linkend="gint">gint</link> *atomic);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+The following functions can be used to atomically access integers and
+pointers. They are implemented as inline assembler function on most
+platforms and use slower fall-backs otherwise. Using them can sometimes
+save you from using a performance-expensive <link linkend="GMutex"><type>GMutex</type></link> to protect the
+integer or pointer.  
+</para>
+
+<para>
+The most important usage is reference counting. Using
+<link linkend="g-atomic-int-inc"><function>g_atomic_int_inc()</function></link> and <link linkend="g-atomic-int-dec-and-test"><function>g_atomic_int_dec_and_test()</function></link> makes reference
+counting a very fast operation.
+</para>
+
+<note>
+<para>
+You must not directly read integers or pointers concurrently accessed
+by other threads with with the following functions directly. Always use
+<link linkend="g-atomic-int-get"><function>g_atomic_int_get()</function></link> and <link linkend="g-atomic-pointer-get"><function>g_atomic_pointer_get()</function></link> respectively. They are
+acting as a memory barrier.
+</para> 
+</note>
+
+<note>
+<para>
+If you are using those functions for anything apart from simple
+reference counting, you should really be aware of the implications of
+doing that. There are literally thousands of ways to shoot yourself in
+the foot. So if in doubt, use a <link linkend="GMutex"><type>GMutex</type></link>. If you don't know, what
+memory barriers are, do not use anything but <link linkend="g-atomic-int-inc"><function>g_atomic_int_inc()</function></link> and
+<link linkend="g-atomic-int-dec-and-test"><function>g_atomic_int_dec_and_test()</function></link>.
+</para> 
+</note>
+
+<note>
+<para>
+It is not safe to set an integer or pointer just by assigning to it,
+when it is concurrently accessed by other threads with the following
+functions. Use <link linkend="g-atomic-int-compare-and-exchange"><function>g_atomic_int_compare_and_exchange()</function></link> or
+<link linkend="g-atomic-pointer-compare-and-exchange"><function>g_atomic_pointer_compare_and_exchange()</function></link> respectively.
+</para> 
+</note>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="g-atomic-int-get"/>g_atomic_int_get ()</title>
+<indexterm role="2.4"><primary>g_atomic_int_get</primary></indexterm><programlisting><link linkend="gint">gint</link>        g_atomic_int_get                (<link linkend="gint">gint</link> *atomic);</programlisting>
+<para>
+Reads the value of the integer pointed to by <parameter>atomic</parameter>. Also acts as
+a memory barrier.
+</para><variablelist role="params">
+<varlistentry><term><parameter>atomic</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to an integer.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the value of *<parameter>atomic</parameter>.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-atomic-int-add"/>g_atomic_int_add ()</title>
+<indexterm role="2.4"><primary>g_atomic_int_add</primary></indexterm><programlisting><link linkend="void">void</link>        g_atomic_int_add                (<link linkend="gint">gint</link> *atomic,
+                                             <link linkend="gint">gint</link> val);</programlisting>
+<para>
+Atomically adds <parameter>val</parameter> to the integer pointed to by <parameter>atomic</parameter>.
+Also acts as a memory barrier.
+</para><variablelist role="params">
+<varlistentry><term><parameter>atomic</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to an integer.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>val</parameter>&nbsp;:</term>
+<listitem><simpara>the value to add to *<parameter>atomic</parameter>.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-atomic-int-exchange-and-add"/>g_atomic_int_exchange_and_add ()</title>
+<indexterm role="2.4"><primary>g_atomic_int_exchange_and_add</primary></indexterm><programlisting><link linkend="gint">gint</link>        g_atomic_int_exchange_and_add   (<link linkend="gint">gint</link> *atomic,
+                                             <link linkend="gint">gint</link> val);</programlisting>
+<para>
+Atomically adds <parameter>val</parameter> to the integer pointed to by <parameter>atomic</parameter>. It returns
+the value of *<parameter>atomic</parameter> just before the addition took place.
+Also acts as a memory barrier.
+</para><variablelist role="params">
+<varlistentry><term><parameter>atomic</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to an integer.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>val</parameter>&nbsp;:</term>
+<listitem><simpara>the value to add to *<parameter>atomic</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the value of *<parameter>atomic</parameter> before the addition.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-atomic-int-compare-and-exchange"/>g_atomic_int_compare_and_exchange ()</title>
+<indexterm role="2.4"><primary>g_atomic_int_compare_and_exchange</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_atomic_int_compare_and_exchange
+                                            (<link linkend="gint">gint</link> *atomic,
+                                             <link linkend="gint">gint</link> oldval,
+                                             <link linkend="gint">gint</link> newval);</programlisting>
+<para>
+Compares <parameter>oldval</parameter> with the integer pointed to by <parameter>atomic</parameter> and
+if they are equal, atomically exchanges *<parameter>atomic</parameter> with <parameter>newval</parameter>.
+Also acts as a memory barrier.
+</para><variablelist role="params">
+<varlistentry><term><parameter>atomic</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to an integer.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>oldval</parameter>&nbsp;:</term>
+<listitem><simpara>the assumed old value of *<parameter>atomic</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>newval</parameter>&nbsp;:</term>
+<listitem><simpara>the new value of *<parameter>atomic</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara><literal>TRUE</literal>, if *<parameter>atomic</parameter> was equal <parameter>oldval</parameter>. <literal>FALSE</literal> otherwise.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-atomic-pointer-get"/>g_atomic_pointer_get ()</title>
+<indexterm role="2.4"><primary>g_atomic_pointer_get</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_atomic_pointer_get            (<link linkend="gpointer">gpointer</link> *atomic);</programlisting>
+<para>
+Reads the value of the pointer pointed to by <parameter>atomic</parameter>. Also acts as
+a memory barrier.
+</para><variablelist role="params">
+<varlistentry><term><parameter>atomic</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to a <link linkend="gpointer"><type>gpointer</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the value to add to *<parameter>atomic</parameter>.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-atomic-pointer-compare-and-exchange"/>g_atomic_pointer_compare_and_exchange ()</title>
+<indexterm role="2.4"><primary>g_atomic_pointer_compare_and_exchange</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_atomic_pointer_compare_and_exchange
+                                            (<link linkend="gpointer">gpointer</link> *atomic,
+                                             <link linkend="gpointer">gpointer</link> oldval,
+                                             <link linkend="gpointer">gpointer</link> newval);</programlisting>
+<para>
+Compares <parameter>oldval</parameter> with the pointer pointed to by <parameter>atomic</parameter> and
+if they are equal, atomically exchanges *<parameter>atomic</parameter> with <parameter>newval</parameter>. 
+Also acts as a memory barrier.
+</para><variablelist role="params">
+<varlistentry><term><parameter>atomic</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to a <link linkend="gpointer"><type>gpointer</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>oldval</parameter>&nbsp;:</term>
+<listitem><simpara>the assumed old value of *<parameter>atomic</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>newval</parameter>&nbsp;:</term>
+<listitem><simpara>the new value of *<parameter>atomic</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara><literal>TRUE</literal>, if *<parameter>atomic</parameter> was equal <parameter>oldval</parameter>. <literal>FALSE</literal> otherwise.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-atomic-int-inc"/>g_atomic_int_inc ()</title>
+<indexterm role="2.4"><primary>g_atomic_int_inc</primary></indexterm><programlisting><link linkend="void">void</link>        g_atomic_int_inc                (<link linkend="gint">gint</link> *atomic);</programlisting>
+<para>
+Atomically increments the integer pointed to by <parameter>atomic</parameter> by 1.
+</para><variablelist role="params">
+<varlistentry><term><parameter>atomic</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to an integer.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-atomic-int-dec-and-test"/>g_atomic_int_dec_and_test ()</title>
+<indexterm role="2.4"><primary>g_atomic_int_dec_and_test</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_atomic_int_dec_and_test       (<link linkend="gint">gint</link> *atomic);</programlisting>
+<para>
+Atomically decrements the integer pointed to by <parameter>atomic</parameter> by 1.
+</para><variablelist role="params">
+<varlistentry><term><parameter>atomic</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to an integer.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara><literal>TRUE</literal>, if the integer pointed to by <parameter>atomic</parameter> is 0 after
+decrementing it.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+
+</refsect1>
+
+
+
+<refsect1>
+<title>See Also</title>
+<para>
+<variablelist>
+ 
+<varlistentry>
+<term><link linkend="GMutex"><type>GMutex</type></link></term>
+<listitem><para>GLib mutual exclusions.</para></listitem>
+</varlistentry>
+ 
+</variablelist>
+</para>
+</refsect1>
+
+</refentry>

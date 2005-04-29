@@ -1,7 +1,7 @@
 /*
  * KLUserInterfaceAPI.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLUserInterface.c,v 1.3 2003/05/06 15:34:53 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLUserInterface.c,v 1.4 2004/08/20 18:27:56 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -38,12 +38,12 @@ KLStatus KLAcquireNewInitialTickets (
     KLStatus  err = lockErr;
 
     if (err == klNoErr) {
-        switch (LoginSessionGetSessionUIType ()) {
-            case kLoginSessionWindowServer:
+        switch (__KLPromptMechanism ()) {
+            case klPromptMechanism_GUI:
                 err = __KLAcquireNewInitialTicketsGUI (inPrincipal, inLoginOptions, outPrincipal, outCredCacheName);
                 break;
                 
-            case kLoginSessionControllingTerminal:
+            case klPromptMechanism_CLI:
                 err = __KLAcquireNewInitialTicketsTerminal (inPrincipal, inLoginOptions, outPrincipal, outCredCacheName);
                 break;
     
@@ -67,12 +67,12 @@ KLStatus KLHandleError (
 {
     KLStatus  err = klNoErr;
 
-    switch (LoginSessionGetSessionUIType ()) {
-        case kLoginSessionWindowServer:
+    switch (__KLPromptMechanism ()) {
+        case klPromptMechanism_GUI:
             err = __KLHandleErrorGUI (inError, inDialogIdentifier, inShowAlert);
             break;
             
-        case kLoginSessionControllingTerminal:
+        case klPromptMechanism_CLI:
             err = __KLHandleErrorTerminal (inError, inDialogIdentifier, inShowAlert);
             break;
 
@@ -91,12 +91,12 @@ KLStatus KLChangePassword (KLPrincipal inPrincipal)
 {
     KLStatus  err = klNoErr;
 
-    switch (LoginSessionGetSessionUIType ()) {
-        case kLoginSessionWindowServer:
+    switch (__KLPromptMechanism ()) {
+        case klPromptMechanism_GUI:
             err = __KLChangePasswordGUI (inPrincipal);
             break;
             
-        case kLoginSessionControllingTerminal:
+        case klPromptMechanism_CLI:
             err = __KLChangePasswordTerminal (inPrincipal, NULL);
             break;
 
@@ -115,12 +115,12 @@ KLStatus KLCancelAllDialogs(void)
 {
     KLStatus  err = klNoErr;
 
-    switch (LoginSessionGetSessionUIType ()) {
-        case kLoginSessionWindowServer:
+    switch (__KLPromptMechanism ()) {
+        case klPromptMechanism_GUI:
             err = __KLCancelAllDialogsGUI ();
             break;
             
-        case kLoginSessionControllingTerminal:
+        case klPromptMechanism_CLI:
             err = __KLCancelAllDialogsTerminal ();
             break;
 
@@ -147,12 +147,12 @@ krb5_error_code __KLPrompter (krb5_context   context,
     if (__KLApplicationProvidedPrompter ()) {
         err = __KLCallApplicationPrompter (context, data, name, banner, num_prompts, prompts);
     } else {
-        switch (LoginSessionGetSessionUIType ()) {
-            case kLoginSessionWindowServer:
+        switch (__KLPromptMechanism ()) {
+            case klPromptMechanism_GUI:
                 err = __KLPrompterGUI (context, data, name, banner, num_prompts, prompts);
                 break;
 
-            case kLoginSessionControllingTerminal:
+            case klPromptMechanism_CLI:
                 err = __KLPrompterTerminal (context, data, name, banner, num_prompts, prompts);
                 break;
 

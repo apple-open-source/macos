@@ -63,18 +63,13 @@ extern void flush_dcache(vm_offset_t addr, unsigned count, int phys);
     extern UInt32			gTraceID;
 #endif
 
-bool CommandExecuted(SccChannel *Channel, UInt32 iterator);
-bool SuckDataFromTheDBDMAChain(SccChannel *Channel);
-UInt32 CommandStatus(SccChannel *Channel, UInt32 commandNumber);
+//bool CommandExecuted(SccChannel *Channel, UInt32 iterator);
+void SuckDataFromTheDBDMAChain(SccChannel *Channel, UInt32 index);
+UInt32 CommandStatus(SerialDBDMAStatusInfo *dmaInfo, UInt32 commandNumber);
+bool AnyDataReceived(SerialDBDMAStatusInfo *dmaInfo);
 
 void rearmRxTimer(SccChannel *Channel, UInt32 timerDelay);
 
-    // Marco:
-    // the following define forces the code to ignore that this is an APPLE
-    // SCC implementation and tries to read the registers as they were in the
-    // original Z85C30
-    
-#define STRICT_85C30
 
     // Marco:
     // The SCC may need a short delay when accessing its registers, the
@@ -141,8 +136,6 @@ void initChip(PortInfo_t *port)
     
     port->TX_Parity = PD_RS232_PARITY_NONE;
     port->RX_Parity = PD_RS232_PARITY_DEFAULT;
-    port->DLRimage = 0x0000;
-    port->FCRimage = 0x00;
 
     ProbeSccDevice(port);
     
@@ -166,114 +159,26 @@ void ProbeSccDevice(PortInfo_t *port)
 
     ELG(0, 0, "ProbeSccDevice");
 
-    port->DataRegister = (UInt8 *)(port->ChipBaseAddress + channelDataOffsetRISC);
-    port->ControlRegister = (UInt8 *)(port->ChipBaseAddress + channelControlOffsetRISC);
+    //port->DataRegister = (UInt8 *)(port->ChipBaseAddress + channelDataOffsetRISC);
+    port->ControlRegister         = port->ChipBaseAddress + channelControlOffsetRISC;
 
         // This is very bad but it will work with all of our hardware.
         // The right thing to do is to get the instance variables of the channel
         // and determine which one is channel B and set it to that value.
 
-    port->ConfigWriteRegister = (unsigned int)(port->ChipBaseAddress & 0xffffff00);
+    //port->ConfigWriteRegister = (unsigned int)(port->ChipBaseAddress & 0xffffff00);
 
-    port->baudRateGeneratorEnable = kBRGEnable;
+    //port->baudRateGeneratorEnable = kBRGEnable;
     port->rtxcFrequency = 3686400;
 
         // FIXTHIS  ejk
         
     SccWriteReg(port, R1, 0);
 
-    ELG(port->DataRegister, port->ControlRegister, "ProbeSccDevice - Data register, Control register");
+    ELG(0, port->ControlRegister, "ProbeSccDevice - Control register");
 
 }
 
-/****************************************************************************************************/
-//
-//		Function:	FixZeroBug
-//
-//		Inputs:		SccChannel - The port
-//
-//		Outputs:	 
-//
-//		Desc:		Work around a bug in the SCC receving channel.
-//
-/****************************************************************************************************/
-
-void FixZeroBug(SccChannel *Channel)
-{
-
-    ELG(0, 0, "FixZeroBug");
-    
-        // HDL SCC “Stuck Zero” Workaround
-
-        // The following sequence prevents a problem that is seen with O’Hare ASICs
-        // (most versions -- also with some Heathrow and Hydra ASICs) where a zero
-        // at the input to the receiver becomes “stuck” and locks up the receiver.
-
-        // Affected machines include the following shipping machines and prototypes:
-
-        // CODE NAME		SHIPPED AS
-
-        // “Alchemy”		Performa 5400/6400
-        // “Gazelle”		Performa 6500
-        // “Spartacus”		20th Anniversary Mac
-        // “Comet”		PowerBook 2400
-        // “Hooper”		PowerBook 3400
-        // “Tanzania”		Motorola StarMax 3000, PowerMac 4400
-        // “Gossamer”		Power Macintosh G3 <----- This is supported by MacOS X so
-        //                      this workaround is required.
-
-        // “Viper”			n/a (Apple/Motorola CHRP EVT2 prototype, < Hydra 4)
-
-        // “PowerExpress”		cancelled
-
-        //	This problem can occur as a result of a zero bit at the receiver input
-        //	coincident with any of the following events:
-
-        // •	The SCC is initialized (hardware or software).
-        // •	A framing error is detected.
-        // •	The clocking option changes from synchronous or X1 asynchronous
-        //	clocking to X16, X32, or X64 asynchronous clocking.
-        // •	The decoding mode is changed among NRZ, NRZI, FM0, or FM1.
-
-        // This workaround attempts to recover from the lockup condition by placing
-        // the SCC in synchronous loopback mode with a fast clock before programming
-        // any of the asynchronous modes.
-
-        // The necessity of the workaround is determined at module initialization.
-     
-    SccWriteReg(Channel, 9, (Channel->whichPort == serialPortA ? kChannelResetA : kChannelResetB) | kNV);
-
-    SccWriteReg(Channel, 4, kX1ClockMode | k8BitSyncMode);			//used to be ExtSyncMode
-    SccWriteReg(Channel, 3, kRx8Bits & ~kRxEnable);
-    SccWriteReg(Channel, 5, kTx8Bits | kRTS & ~kTxEnable);
-    SccWriteReg(Channel, 9, kNV);						// no interrupt vector
-    SccWriteReg(Channel, 11, kRxClockBRG | kTxClockBRG);
-    SccWriteReg(Channel, 12, 0);						// BRG low-order count
-    SccWriteReg(Channel, 13, 0);						// BRG high-order count
-    SccWriteReg(Channel, 14, kLocalLoopback | kBRGFromPCLK);
-
-    SccWriteReg(Channel, 14, kLocalLoopback | kBRGFromPCLK | kBRGEnable);
-    SccWriteReg(Channel, 3, kRx8Bits | kRxEnable);
-
-    SccWriteReg(Channel, 0, kResetExtStsInt);					// reset pending Ext/Sts interrupts
-    SccWriteReg(Channel, 0, kResetExtStsInt);					// (and kill some time)
-
-        // The channel should be OK now, but it is probably receiving loopback garbage
-        // Switch to asynchronous mode, disable the receiver, and discard everything in the receive buffer.
-
-    SccWriteReg(Channel, 9, kNV);
-
-    SccWriteReg(Channel, 4, kX16ClockMode | kStopBitsMask);
-    SccWriteReg(Channel, 3, kRx8Bits & ~kRxEnable);
-
-    while (SccReadReg(Channel, R0) & kRxCharAvailable)
-    {
-        (void)SccReadReg(Channel, R8);						// 8 is the data register
-        SccWriteReg(Channel, R0, kResetExtStsInt ); 				// and reset possible errors
-        SccWriteReg(Channel, R0, kErrorReset); 					//  .. all the possible errors
-    }
-    
-}/* end FixZeroBug */
 
 /****************************************************************************************************/
 //
@@ -294,10 +199,6 @@ void OpenScc(SccChannel *Channel)
     
     ELG(0, 0, "OpenScc");
        
-        // Fix the case of a "0" stuck in the receiver
-        
-    FixZeroBug(Channel);
-
         // Now, initialize the chip
         
     SccWriteReg(Channel, 9, (Channel->whichPort == serialPortA ? kChannelResetA : kChannelResetB) | kNV);
@@ -746,19 +647,16 @@ UInt8 SccReadReg(SccChannel *Channel, UInt8 sccRegister)
 {
     UInt8	ReturnValue;
     
-//    ELG(0, sccRegister, "SccReadReg");
-
-    IOLockLock(Channel->SCCAccessLock);
+    ELG(0, sccRegister, "SccReadReg");
     
         // Make sure we have a valid register number to write to
         
     if (sccRegister != R0 )
     {
-
             // First write the register value to the chip
             
         *((volatile UInt8 *)Channel->ControlRegister) = sccRegister;
-        SynchronizeIO();
+        OSSynchronizeIO();		// eieio()
         REGISTER_DELAY();
     }
 
@@ -766,8 +664,6 @@ UInt8 SccReadReg(SccChannel *Channel, UInt8 sccRegister)
         
     ReturnValue = *((volatile UInt8 *)Channel->ControlRegister);
     
-    IOLockUnlock(Channel->SCCAccessLock);
-
 //    ELG(0, ReturnValue, "SccReadReg - Return value");
 
     return ReturnValue;
@@ -791,9 +687,7 @@ UInt8 SccReadReg(SccChannel *Channel, UInt8 sccRegister)
 bool SccWriteReg(SccChannel *Channel, UInt8 sccRegister, UInt8 Value)
 {
 
-//    ELG(0, Value, "SccWriteReg");
-
-    IOLockLock(Channel->SCCAccessLock);
+    ELG(0, Value, "SccWriteReg");
 
         // Make sure we have a valid register number to write to.
 
@@ -803,22 +697,20 @@ bool SccWriteReg(SccChannel *Channel, UInt8 sccRegister, UInt8 Value)
             // First write the register value to the chip
              
         *((volatile UInt8 *)Channel->ControlRegister) = sccRegister;
-        SynchronizeIO();
+        OSSynchronizeIO();		// eieio()
         REGISTER_DELAY();
 
             // Next write the data value
             
         *((volatile UInt8 *)Channel->ControlRegister) = Value;
-        SynchronizeIO();
+        OSSynchronizeIO();		// eieio()
         REGISTER_DELAY();
 
             // Update the shadow register
             
         Channel->lastWR[sccRegister] = Value;
     }
-        
-    IOLockUnlock(Channel->SCCAccessLock);
-    
+            
   return true;
   
 }/* end SccWriteReg */
@@ -874,17 +766,20 @@ void SccHandleExtErrors(SccChannel *Channel)
 
 void PPCSerialTxDMAISR(void *identity, void *istate, SccChannel	*Channel)
 {
+    AppleRS232Serial *scc = (AppleRS232Serial *) identity;
+
     AbsoluteTime	deadline;
 
     ELG(identity, Channel, "PPCSerialTxDMAISR");
     
-    Channel->Stats.ints++;
-
         // Request another send, but outside the interrupt handler
         // there is no reason to spend too much time here
     
     clock_interval_to_deadline(1, 1, &deadline);
-    thread_call_func_delayed((thread_call_func_t)SccdbdmaStartTransmission, Channel, deadline);
+    if (scc->fdmaStartTransmissionThread != NULL)
+    {
+		thread_call_enter_delayed(scc->fdmaStartTransmissionThread,deadline);
+    }
     
 }/* end PPCSerialTxDMAISR */
 
@@ -904,18 +799,81 @@ void PPCSerialTxDMAISR(void *identity, void *istate, SccChannel	*Channel)
 
 void PPCSerialRxDMAISR(void *identity, void *istate, SccChannel	*Channel)
 {
+    AppleRS232Serial *scc = (AppleRS232Serial *) identity;
+
     AbsoluteTime	deadline;
     
     ELG(identity, Channel, "PPCSerialRxDMAISR");
 
-    Channel->Stats.ints++;
-
-        // This is the first received byte, so start the checkData ballet
+    // This is the first received byte, so start the checkData ballet
 
     clock_interval_to_deadline(1, 1, &deadline);
-    thread_call_func_delayed((thread_call_func_t) SccdbdmaRxHandleCurrentPosition, Channel, deadline);
+    thread_call_enter_delayed(scc->dmaRxHandleCurrentPositionThread,deadline);
     
 }/* end PPCSerialRxDMAISR */
+
+
+/****************************************************************************************************/
+//
+//		Function:	SccCurrentPositionDelayedHandlerAction
+//
+//		Inputs:		arg0 - The driver
+//
+//		Outputs:	 
+//
+//		Desc:		have the command gate again, can start sucking up some rx data.
+//
+/****************************************************************************************************/
+
+IOReturn SccCurrentPositionDelayedHandlerAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
+{
+    AppleRS232Serial *serialPortPtr = (AppleRS232Serial *) arg0;
+    ELG(serialPortPtr, serialPortPtr->fWorkLoop->inGate(), "SccCurrentPositionDelayedHandlerAction - obj, inGate");
+    SccdbdmaRxHandleCurrentPosition(&serialPortPtr->fPort, serialPortPtr->fPort.activeRxChannelIndex);
+    return kIOReturnSuccess;
+}
+
+/****************************************************************************************************/
+//
+//		Function:	SccCurrentPositionDelayedHandler
+//
+//		Inputs:		arg - The driver
+//
+//		Outputs:	 
+//
+//		Desc:		grab the command gate before sucking up some rx data.
+//
+/****************************************************************************************************/
+
+void SccCurrentPositionDelayedHandler( thread_call_param_t arg, thread_call_param_t )
+{
+    AppleRS232Serial *serialPortPtr = (AppleRS232Serial *)arg;
+    ELG(serialPortPtr, serialPortPtr->fWorkLoop->inGate(), "SccCurrentPositionDelayedHandler - obj, inGate");
+	
+    serialPortPtr->fCommandGate->runAction(SccCurrentPositionDelayedHandlerAction, (void *)arg);
+}
+
+// **********************************************************************************
+//
+// Called asynchronously
+//
+// **********************************************************************************
+IOReturn SccStartTransmissionDelayedHandlerAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
+{
+    AppleRS232Serial *serialPortPtr = (AppleRS232Serial *) arg0;
+    ELG(serialPortPtr, serialPortPtr->fWorkLoop->inGate(), "SccStartTransmissionDelayedHandlerAction - obj, inGate");
+    SccdbdmaStartTransmission(&serialPortPtr->fPort);
+    return kIOReturnSuccess;
+}
+
+void SccStartTransmissionDelayedHandler ( thread_call_param_t arg, thread_call_param_t )
+{
+    AppleRS232Serial *serialPortPtr = (AppleRS232Serial *) arg;
+    ELG(serialPortPtr, serialPortPtr->fWorkLoop->inGate(), "SccStartTransmissionDelayedHandler - obj, inGate");
+    serialPortPtr->fCommandGate->runAction(SccStartTransmissionDelayedHandlerAction, (void *)arg);
+}
+
+
 
 /****************************************************************************************************/
 //
@@ -1012,10 +970,8 @@ void SccHandleExtInterrupt(OSObject *identity, void *istate, SccChannel *Channel
 	if (Channel->DCDState)
         {
             RS232->setStateGated(PD_RS232_S_CAR, PD_RS232_S_CAR);
-//            AppleRS232Serial::setStateGated(PD_RS232_S_CAR, PD_RS232_S_CAR);
 	} else {
             RS232->setStateGated(0, PD_RS232_S_CAR);
-//            AppleRS232Serial::setStateGated(0, PD_RS232_S_CAR);
         }
     }
 
@@ -1060,30 +1016,36 @@ void SccHandleExtInterrupt(OSObject *identity, void *istate, SccChannel *Channel
         ELG(0, ExtCondition, "SccHandleExtInterrupt - kCTSAsserted");
 		
     HW_FlowControl = Channel->FlowControl & PD_RS232_S_CTS;
-		
-    if (HW_FlowControl && (Channel->FlowControlState != PAUSE_SEND))
+    
+    // if we're doing cts flow control, and cts is down, and we're not already paused, then pause tx
+    // if we're doing cts flow control, and cts is high, and we're paused, then continue it
+    if (HW_FlowControl) 
     {
-        dmaInfo = &Channel->TxDBDMAChannel;
-        Channel->FlowControlState = PAUSE_SEND;
-        IODBDMAPause(dmaInfo->dmaBase);					// Pause transfer
-    } else {
-        HW_FlowControl = Channel->FlowControl & PD_RS232_S_CTS;
-        if (HW_FlowControl && (Channel->FlowControlState == PAUSE_SEND))
-        {
-            dmaInfo = &Channel->TxDBDMAChannel;
-            Channel->FlowControlState = CONTINUE_SEND;
-            IODBDMAContinue(dmaInfo->dmaBase);				// Continue transfer
+	dmaInfo = &Channel->TxDBDMAChannel;
+	if (!currentCTSState)				// cts is down
+	{
+	    if (Channel->FlowControlState != PAUSE_SEND)
+	    {
+		Channel->FlowControlState = PAUSE_SEND;
+		IODBDMAPause(dmaInfo->dmaBase);				// Pause transfer
+	    }
+	}
+	else						// cts is high
+	    if (Channel->FlowControlState != CONTINUE_SEND)	    // cts is high, but were paused
+	    {
+		Channel->FlowControlState = CONTINUE_SEND;
+		IODBDMAContinue(dmaInfo->dmaBase);				// Continue transfer
 			
                 // This code is important for the case when we have been paused
                 // and finished the last Tx Transmission and in a high water situation
                 // where we won't accept any more data. This kicks off another transfer
                 
-            if (!Channel->AreTransmitting && UsedSpaceinQueue(&(Channel->TX)))
-            {
-                AbsoluteTime deadline;
-                clock_interval_to_deadline(1, 1, &deadline);
-                thread_call_func_delayed((thread_call_func_t) SccdbdmaStartTransmission, Channel, deadline);
-            }
+		if (!Channel->AreTransmitting && UsedSpaceinQueue(&(Channel->TX)))
+		{
+		    AbsoluteTime deadline;
+		    clock_interval_to_deadline(1, 1, &deadline);
+		    thread_call_enter_delayed(RS232->fdmaStartTransmissionThread, deadline);
+		}
         }
     }
 
@@ -1379,45 +1341,43 @@ bool SccGetCTS(SccChannel *Channel)
 //		Inputs:		Channel - The port
 //				provider - The provider
 //
-//		Outputs:	
+//		Outputs:	true if worked
 //
 //		Desc:		Set up the DMA registers.
 //
 /****************************************************************************************************/
 
-void SccSetDMARegisters(SccChannel *Channel, IOService *provider)
+bool SccSetDMARegisters(SccChannel *Channel, IOService *provider)
 {
     UInt32	firstDMAMap = 1;
     IOMemoryMap	*map;
     
     ELG(0, 0, "SccSetDMARegisters");
 
-    Channel->TxDBDMAChannel.dmaChannelAddress = NULL;
     Channel->TxDBDMAChannel.dmaBase = NULL;
-    Channel->RxDBDMAChannel.dmaChannelAddress = NULL;
-    Channel->RxDBDMAChannel.dmaBase = NULL;
+    Channel->rxDBDMAChannels[0].dmaBase = NULL;
+    Channel->rxDBDMAChannels[1].dmaBase = NULL;
     
     for(firstDMAMap = 1; ; firstDMAMap++)
     {
         map = provider->mapDeviceMemoryWithIndex(firstDMAMap);
         if (!map)
-            return;
+            return false;
 
         if (map->getLength() > 1)
             break;
     }
 
-    Channel->TxDBDMAChannel.dmaChannelAddress = (IODBDMAChannelRegisters*)map->getVirtualAddress();
-//    Channel->TxDBDMAChannel.dmaBase = (IODBDMAChannelRegisters*)map->getPhysicalAddress();
     Channel->TxDBDMAChannel.dmaBase = (IODBDMAChannelRegisters*)map->getVirtualAddress();
     
     map = provider->mapDeviceMemoryWithIndex(firstDMAMap + 1);
     if (!map)
-        return;
+        return false;
         
-    Channel->RxDBDMAChannel.dmaChannelAddress = (IODBDMAChannelRegisters*)map->getVirtualAddress();
-//    Channel->RxDBDMAChannel.dmaBase = (IODBDMAChannelRegisters*)map->getPhysicalAddress();
-    Channel->RxDBDMAChannel.dmaBase = (IODBDMAChannelRegisters*)map->getVirtualAddress();
+    Channel->rxDBDMAChannels[0].dmaBase = (IODBDMAChannelRegisters*)map->getVirtualAddress();
+    Channel->rxDBDMAChannels[1].dmaBase = Channel->rxDBDMAChannels[0].dmaBase;
+    
+    return true;
     
 }/* end SccSetDMARegisters */
 
@@ -1467,7 +1427,7 @@ void SccEnableDMAInterruptSources(SccChannel *Channel, bool onOff)
 //
 //		Function:	SccSetupReceptionChannel
 //
-//		Inputs:		Channel - The port
+//		Inputs:		Channel - The port, index - which rx channel
 //
 //		Outputs:	
 //
@@ -1475,18 +1435,17 @@ void SccEnableDMAInterruptSources(SccChannel *Channel, bool onOff)
 //
 /****************************************************************************************************/
 
-void SccSetupReceptionChannel(SccChannel *Channel)
+void SccSetupReceptionChannel(SccChannel *Channel, UInt32 index)
 {
     SerialDBDMAStatusInfo *dmaInfo;
     
-    ELG(0, 0, "SccSetupReceptionChannel");
+    ELG(0, index, "SccSetupReceptionChannel");
     
-    dmaInfo = &Channel->RxDBDMAChannel;
+    dmaInfo = &Channel->rxDBDMAChannels[index];
 
         // Just in case
         
     IODBDMAReset(dmaInfo->dmaBase);
-    dmaInfo->lastPosition = 0;             		// last position of the dma
     
         // Again just in case
         
@@ -1498,7 +1457,7 @@ void SccSetupReceptionChannel(SccChannel *Channel)
 //
 //		Function:	SccFreeReceptionChannel
 //
-//		Inputs:		Channel - The port
+//		Inputs:		Channel - The port, index - which rx channel
 //
 //		Outputs:	
 //
@@ -1506,7 +1465,7 @@ void SccSetupReceptionChannel(SccChannel *Channel)
 //
 /****************************************************************************************************/
 
-void SccFreeReceptionChannel(SccChannel *Channel)
+void SccFreeReceptionChannel(SccChannel *Channel, UInt32 index)
 {
     SerialDBDMAStatusInfo *dmaInfo;
     
@@ -1515,44 +1474,22 @@ void SccFreeReceptionChannel(SccChannel *Channel)
     if (Channel == NULL)
         return;
     
-    if (Channel->IODBDMARxLock)
+    SccdbdmaEndReception(Channel, index);
+
+    dmaInfo = &Channel->rxDBDMAChannels[index];
+
+
+    if (dmaInfo->dmaTransferBufferMDP != NULL)
     {
-        IOLockLock(Channel->IODBDMARxLock);
-        SccdbdmaEndReception(Channel);
-
-        dmaInfo = &Channel->RxDBDMAChannel;
-
-#if NEWPHYS    
-        if (dmaInfo->dmaChannelCommandAreaMDP != NULL)
-        {
-            dmaInfo->dmaChannelCommandAreaMDP->complete();
-            dmaInfo->dmaChannelCommandAreaMDP->release();
-            dmaInfo->dmaChannelCommandAreaMDP = NULL;
-        }
-#else
-        if (dmaInfo->dmaChannelCommandArea != NULL)
-            IOFreeAligned(dmaInfo->dmaChannelCommandArea, sizeof(IODBDMADescriptor) * dmaInfo->dmaNumberOfDescriptors);
-#endif
-
-#if NEWPHYS
-        if (dmaInfo->dmaTransferBufferMDP != NULL)
-        {
-            dmaInfo->dmaTransferBufferMDP->complete();
-            dmaInfo->dmaTransferBufferMDP->release();
-            dmaInfo->dmaTransferBufferMDP = NULL;
-        }
-#else
-        if (dmaInfo->dmaTransferBuffer != NULL)
-            IOFreeAligned(dmaInfo->dmaTransferBuffer, PAGE_SIZE);
-#endif
-
-        dmaInfo->lastPosition = 0;
-        dmaInfo->dmaNumberOfDescriptors = 0;
-        dmaInfo->dmaChannelCommandArea = NULL;
-        dmaInfo->dmaTransferBuffer = NULL;
-        
-        IOLockUnlock(Channel->IODBDMARxLock);
+	dmaInfo->dmaTransferBufferMDP->complete();
+	dmaInfo->dmaTransferBufferMDP->release();
+	dmaInfo->dmaTransferBufferMDP = NULL;
     }
+
+    dmaInfo->dmaNumberOfDescriptors = 0;
+    dmaInfo->dmaChannelCommandArea = NULL;
+    dmaInfo->dmaTransferBuffer = NULL;
+        
     
 }/* end SccFreeReceptionChannel */
 
@@ -1568,98 +1505,66 @@ void SccFreeReceptionChannel(SccChannel *Channel)
 //
 /****************************************************************************************************/
 
-void SccdbdmaDefineReceptionCommands(SccChannel *Channel)
+void SccdbdmaDefineReceptionCommands(SccChannel *Channel, UInt32 index, bool firstReadInterrupts)
 {
     SerialDBDMAStatusInfo	*dmaInfo;
-    UInt32			iterator;
     IOPhysicalAddress		physaddr;
-    IOPhysicalAddress		physaddr1;
+    IOByteCount			temp;
+    IODBDMADescriptor		*cmds;
+    const int main_read_size =	kRxDBDMABufferSize  -1 ;	// all but the first byte for the main read
     
     ELG(0, 0, "SccdbdmaDefineReceptionCommands");
     
-    dmaInfo = &Channel->RxDBDMAChannel;
+    /***
+     kRxDBDMACmd_First_Read,		// a single byte read to generate an interrupt
+     kRxDBDMACmd_Main_Read,		// then a big read for most of the buffer
+     kRxDBDMACmd_Stop,			// finally a stop
+    ***/
+    
+    dmaInfo = &Channel->rxDBDMAChannels[index];
+    cmds = dmaInfo->dmaChannelCommandArea;
 
-        // check the legality of the transmission
-        
-    if ((dmaInfo->dmaChannelCommandArea == NULL) || (dmaInfo->dmaTransferBuffer == NULL))
-        return;
-        
-#if NEWPHYS
-    IOByteCount	temp;
-    if (dmaInfo->dmaTransferBufferMDP == NULL)
-        return;
-#endif
-
-    for (iterator = 0; iterator < dmaInfo->dmaNumberOfDescriptors; iterator ++)
-    {
-        if (iterator == 0)
-        {
-        
-                // The first is important becuse it has to generate an interrupt
-
-#if NEWPHYS
-//            physaddr = dmaInfo->dmaTransferBufferMDP->getPhysicalAddress();
-            physaddr = dmaInfo->dmaTransferBufferMDP->getPhysicalSegment(0, &temp);
-            ELG(physaddr, dmaInfo->dmaTransferBuffer, "SccdbdmaDefineReceptionCommands - Physical/Virtual RX buffer");
-            ELG(0, &dmaInfo->dmaChannelCommandArea[iterator], "SccdbdmaDefineReceptionCommands - RX Command area");
-            IOMakeDBDMADescriptor(&dmaInfo->dmaChannelCommandArea[iterator], kdbdmaInputMore, kdbdmaKeyStream0, kdbdmaIntAlways, kdbdmaBranchNever,
-                                                                                                                            kdbdmaWaitNever, 1, physaddr);
-#else
-            physaddr = pmap_extract(kernel_pmap, (vm_address_t)dmaInfo->dmaTransferBuffer);
-            ELG(physaddr, dmaInfo->dmaTransferBuffer, "SccdbdmaDefineReceptionCommands - Physical/Virtual RX buffer");
-            ELG(0, &dmaInfo->dmaChannelCommandArea[iterator], "SccdbdmaDefineReceptionCommands - RX Command area");
-            IOMakeDBDMADescriptor(&dmaInfo->dmaChannelCommandArea[iterator], kdbdmaInputMore, kdbdmaKeyStream0, kdbdmaIntAlways, kdbdmaBranchNever,
-                                                                                                                            kdbdmaWaitNever, 1, physaddr);
-#endif            
-        } else {
-            if (iterator == (dmaInfo->dmaNumberOfDescriptors - 1))
-            {
-            
-                    // The last one is special because it closes the chain, even if it is the last command it looks
-                    // exacly like the first, except that it does not generate an interrupt and that it branches to
-                    // the second command
-
-#if NEWPHYS
-//                physaddr = dmaInfo->dmaTransferBufferMDP->getPhysicalAddress();
-                physaddr = dmaInfo->dmaTransferBufferMDP->getPhysicalSegment(0, &temp);
-                ELG(physaddr, dmaInfo->dmaTransferBuffer, "SccdbdmaDefineReceptionCommands - Physical/Virtual RX buffer");
-//                physaddr1 = dmaInfo->dmaChannelCommandAreaMDP->getPhysicalAddress() + 1;
-//                physaddr1 = dmaInfo->dmaChannelCommandAreaMDP->getPhysicalSegment(1, &temp);
-                physaddr1 = dmaInfo->dmaChannelCommandAreaMDP->getPhysicalSegment(sizeof(IODBDMADescriptor), &temp);
-                ELG(physaddr1, &dmaInfo->dmaChannelCommandArea[1], "SccdbdmaDefineReceptionCommands - Physical/Virtual RX Command area [1]");
-                ELG(0, &dmaInfo->dmaChannelCommandArea[iterator], "SccdbdmaDefineReceptionCommands - RX Command area");
-                IOMakeDBDMADescriptorDep(&dmaInfo->dmaChannelCommandArea[iterator], kdbdmaInputMore, kdbdmaKeyStream0, kdbdmaIntNever, kdbdmaBranchAlways,
-                                                                                                                    kdbdmaWaitNever, 1, physaddr, physaddr1);
-#else
-                physaddr = pmap_extract(kernel_pmap, (vm_address_t)dmaInfo->dmaTransferBuffer);
-                ELG(physaddr, dmaInfo->dmaTransferBuffer, "SccdbdmaDefineReceptionCommands - Physical/Virtual");
-                physaddr1 = pmap_extract(kernel_pmap, (vm_address_t)&dmaInfo->dmaChannelCommandArea[1]);
-                ELG(physaddr1, &dmaInfo->dmaChannelCommandArea[1], "SccdbdmaDefineReceptionCommands - Physical/Virtual RX Command area [1]");
-                ELG(0, &dmaInfo->dmaChannelCommandArea[iterator], "SccdbdmaDefineReceptionCommands - RX Command area");
-                IOMakeDBDMADescriptorDep(&dmaInfo->dmaChannelCommandArea[iterator], kdbdmaInputMore, kdbdmaKeyStream0, kdbdmaIntNever, kdbdmaBranchAlways,
-                                                                                                                    kdbdmaWaitNever, 1, physaddr, physaddr1);
-#endif
-            } else {
-        
-                    // All the others just transfer a byte and move along to the next one
-
-#if NEWPHYS                
-//                physaddr = dmaInfo->dmaTransferBufferMDP->getPhysicalAddress() + iterator;
-                physaddr = dmaInfo->dmaTransferBufferMDP->getPhysicalSegment(iterator, &temp);
-                ELG(physaddr, &dmaInfo->dmaTransferBuffer[iterator], "SccdbdmaDefineReceptionCommands - Physical/Virtual RX buffer");
-                ELG(0, &dmaInfo->dmaChannelCommandArea[iterator], "SccdbdmaDefineReceptionCommands - RX Command area");
-                IOMakeDBDMADescriptor(&dmaInfo->dmaChannelCommandArea[iterator], kdbdmaInputMore, kdbdmaKeyStream0, kdbdmaIntNever, kdbdmaBranchNever,
-                                                                                                                                kdbdmaWaitNever, 1, physaddr);
-#else
-                physaddr = pmap_extract(kernel_pmap, (vm_address_t)dmaInfo->dmaTransferBuffer + iterator);
-                ELG(physaddr, &dmaInfo->dmaTransferBuffer[iterator], "SccdbdmaDefineReceptionCommands - Physical/Virtual RX buffer");
-                ELG(0, &dmaInfo->dmaChannelCommandArea[iterator], "SccdbdmaDefineReceptionCommands - RX Command area");
-                IOMakeDBDMADescriptor(&dmaInfo->dmaChannelCommandArea[iterator], kdbdmaInputMore, kdbdmaKeyStream0, kdbdmaIntNever, kdbdmaBranchNever,
-                                                                                                                                kdbdmaWaitNever, 1, physaddr);
-#endif
-            }
-        }
+    physaddr = dmaInfo->dmaTransferBufferMDP->getPhysicalSegment(0, &temp);
+    if (temp < kRxDBDMABufferSize) {
+	ELG(temp, kRxDBDMABufferSize, "SccdbdmaDefineReceptionCommands - read buffer not contiguous");
+	return;
     }
+
+    // check the legality of the transmission
+    if ((cmds == NULL) || (dmaInfo->dmaTransferBuffer == NULL))
+	return;
+        
+    // first read, needs to generate an interrupt if requested
+	    
+    IOMakeDBDMADescriptor(
+	&cmds[kRxDBDMACmd_First_Read],
+	kdbdmaInputMore,
+	kdbdmaKeyStream0,
+	firstReadInterrupts ? kdbdmaIntAlways : kdbdmaIntNever,
+	kdbdmaBranchNever, kdbdmaWaitNever,
+	1,
+	physaddr);
+    physaddr += 1;
+
+    // main read, no interrupt
+    
+    IOMakeDBDMADescriptor(
+	&cmds[kRxDBDMACmd_Main_Read],
+	kdbdmaInputMore,
+	kdbdmaKeyStream0,
+	kdbdmaIntNever, kdbdmaBranchNever, kdbdmaWaitNever,
+	main_read_size,
+	physaddr);
+    //physaddr += final_read_size;		    // physaddr unused after this
+    
+    // and a stop for sanity
+    IOMakeDBDMADescriptor(
+	&cmds[kRxDBDMACmd_Stop],
+	kdbdmaStop,
+	kdbdmaKeyStream0,
+	kdbdmaIntNever, kdbdmaBranchNever, kdbdmaWaitNever,
+	0,
+	0);
     
 }/* end SccdbdmaDefineReceptionCommands */
 
@@ -1667,7 +1572,7 @@ void SccdbdmaDefineReceptionCommands(SccChannel *Channel)
 //
 //		Function:	SccdbdmaStartReception
 //
-//		Inputs:		Channel - The port
+//		Inputs:		Channel - The port, index - which channel
 //
 //		Outputs:	
 //
@@ -1675,42 +1580,35 @@ void SccdbdmaDefineReceptionCommands(SccChannel *Channel)
 //
 /****************************************************************************************************/
 
-void SccdbdmaStartReception(SccChannel *Channel)
+void SccdbdmaStartReception(SccChannel *Channel, UInt32 index, bool firstReadInterrupts)
 {
     SerialDBDMAStatusInfo	*dmaInfo;
-    IODBDMADescriptor		*baseCommands;
     
     ELG(0, 0, "SccdbdmaStartReception");
     
-    dmaInfo = &Channel->RxDBDMAChannel;
+    dmaInfo = &Channel->rxDBDMAChannels[index];
 
-        // reset the dma channel
+    // reset the dma channel
         
     IODBDMAReset(dmaInfo->dmaBase);
     IODBDMAReset(dmaInfo->dmaBase);
     
-        // check the legality of the reception
-        
+    // check the legality of the reception
+            
     if ((dmaInfo->dmaChannelCommandArea == NULL) || (dmaInfo->dmaTransferBuffer == NULL))
         return;
-
-#if NEWPHYS
-    IOByteCount	temp;
-    baseCommands = (IODBDMADescriptor *)dmaInfo->dmaChannelCommandAreaMDP->getPhysicalSegment(0, &temp);
-//    baseCommands = (IODBDMADescriptor *)dmaInfo->dmaChannelCommandAreaMDP->getPhysicalAddress();
-#else
-    baseCommands = (IODBDMADescriptor *)pmap_extract(kernel_pmap, (vm_address_t)dmaInfo->dmaChannelCommandArea);
-#endif
-    ELG(0, baseCommands, "SccdbdmaStartReception - Base physical address");
+    
+    // this could be done more surgically, but "for now" it should be fast enough
+    // to just reprogram.  that way we get current R5 contents as well as the proper
+    // interrupt (or lack of same) on the first read byte
+    SccdbdmaDefineReceptionCommands(Channel, index, firstReadInterrupts);
     
     flush_dcache((vm_offset_t)dmaInfo->dmaChannelCommandArea, sizeof(IODBDMADescriptor) * dmaInfo->dmaNumberOfDescriptors, false);
-
-    dmaInfo->lastPosition = 0;
        
         // Enables the receiver and starts
         
     SccEnableInterrupts(Channel, kRxInterrupts);
-    IODBDMAStart(dmaInfo->dmaBase, baseCommands);
+    IODBDMAStart(dmaInfo->dmaBase, dmaInfo->dmaChannelCommandAreaPhysical);
     
 }/* end SccdbdmaStartReception */
 
@@ -1726,7 +1624,7 @@ void SccdbdmaStartReception(SccChannel *Channel)
 //		Desc:		Get the status of the command just executed.
 //
 /****************************************************************************************************/
-
+#if 0	    // jdg - unused
 bool CommandExecuted(SccChannel *Channel, UInt32 iterator)
 {
     SerialDBDMAStatusInfo	*dmaInfo;
@@ -1743,12 +1641,12 @@ bool CommandExecuted(SccChannel *Channel, UInt32 iterator)
     return false;
     
 }/* end CommandExecuted */
-
+#endif // 0
 /****************************************************************************************************/
 //
 //		Function:	CommandStatus
 //
-//		Inputs:		Channel - The port
+//		Inputs:		dmaInfo - the dbdma info block
 //				commandNumber - The command in question
 //
 //		Outputs:	Return value - DMA error (or not)
@@ -1757,15 +1655,13 @@ bool CommandExecuted(SccChannel *Channel, UInt32 iterator)
 //
 /****************************************************************************************************/
 
-UInt32 CommandStatus(SccChannel *Channel, UInt32 commandNumber)
+UInt32 CommandStatus(SerialDBDMAStatusInfo *dmaInfo, UInt32 commandNumber)
 {
-    SerialDBDMAStatusInfo *dmaInfo;
-    
-//    ELG(0, commandNumber, "CommandStatus");
-    
-    dmaInfo = &Channel->RxDBDMAChannel;
-    
-    return IOGetCCResult(&dmaInfo->dmaChannelCommandArea[commandNumber]);
+    UInt32 status = IOGetCCResult(&dmaInfo->dmaChannelCommandArea[commandNumber]);
+
+    ELG(commandNumber, status, "CommandStatus, commandNumber, status");
+        
+    return status;
     
 }/* end CommandStatus */
 
@@ -1781,37 +1677,31 @@ UInt32 CommandStatus(SccChannel *Channel, UInt32 commandNumber)
 //
 /****************************************************************************************************/
 
-void SccdbdmaRxHandleCurrentPosition(SccChannel *Channel)
+void SccdbdmaRxHandleCurrentPosition(SccChannel *Channel, UInt32 index)
 {
     AppleRS232Serial		*RS232;
     SerialDBDMAStatusInfo	*dmaInfo;
-    UInt32			kDataIsValid;
     bool			gotData;
     natural_t			numberOfbytes;
     natural_t			bitInterval;
     natural_t			nsec;
     UInt8			savedR1Reg;
-    UInt32			commandStatus;
     
     ELG(0, 0, "SccdbdmaRxHandleCurrentPosition");
     
     if (Channel == NULL)
         return;
         
-    RS232 = (AppleRS232Serial *)Channel->RS232;
+    RS232 = Channel->RS232;
+    ELG(RS232, RS232->fWorkLoop->inGate(), "SccdbdmaRxHandleCurrentPosition - obj, inGate");
     
-    dmaInfo = &Channel->RxDBDMAChannel;
-            
-    IOLockLock (Channel->IODBDMARxLock);
-    
-    kDataIsValid = (kdbdmaStatusRun | kdbdmaStatusActive);
-
-
+    dmaInfo = &Channel->rxDBDMAChannels[index];
+                
         // Sanity check
         
     if ((dmaInfo->dmaChannelCommandArea == NULL) || (dmaInfo->dmaTransferBuffer == NULL))
     {
-        IOLockUnlock(Channel->IODBDMARxLock);
+	ELG(0, 0, "SccdbdmaRxHandleCurrentPosition - failed sanity check");
         return;
     }
 
@@ -1819,66 +1709,121 @@ void SccdbdmaRxHandleCurrentPosition(SccChannel *Channel)
         
     SccHandleExtErrors(Channel);
     
-    gotData = SuckDataFromTheDBDMAChain(Channel);
-    if (gotData)								// Did we get anything?
-    {
-        RS232->CheckQueues(Channel);						// Clearly our buffer is no longer Empty
-//        AppleRS232Serial::CheckQueues(Channel);					// Clearly our buffer is no longer Empty
+    // we're always pausing the channel in this design
 
-            // Reschedule for a later time
-            // Checking after a third of the buffer is full seems reasonable
+    IODBDMAPause(dmaInfo->dmaBase);						 // Stops the reception
+    savedR1Reg = Channel->lastWR[1];
+    SccWriteReg(Channel, R1, savedR1Reg & ~kWReqEnable);
+    IOSetDBDMAChannelControl(dmaInfo->dmaBase, IOClearDBDMAChannelControlBits(kdbdmaPause));
+    
+    IODBDMAFlush(dmaInfo->dmaBase);
+    IOSetDBDMAChannelControl(dmaInfo->dmaBase, IOClearDBDMAChannelControlBits(kdbdmaRun));
+    
+    while(IOGetDBDMAChannelStatus(dmaInfo->dmaBase) & (kdbdmaActive))	    // wait for active bit to go low
+    {
+	OSSynchronizeIO();		// eieio()
+    }
+    SccWriteReg(Channel, R1, savedR1Reg);
+    //*** pause completed, data is ready to pick up
+    
+    // flip the channel index over to the other one.  0 --> 1, 1--> 0
+    Channel->activeRxChannelIndex = 1 - Channel->activeRxChannelIndex;		// flip between 0 and 1
+
+    // channel is paused, just quickly see if we have any data to extract before we start other channel
+    gotData = AnyDataReceived(dmaInfo);
+    
+    // if have data, then we don't want an interrupt (we'll come back here via a timer instead)
+    // if no data now, we'll wait for an interrupt when the first byte read completes
+    SccdbdmaStartReception(Channel, Channel->activeRxChannelIndex, !gotData);	// start other rx channel, w/ or w/out interrupt    
+    
+    // as of now, we have the other channel running so we can take our time sucking up data out of this dbdma chain
+    if (gotData) {								// if we know there's data to be extracted
+	SuckDataFromTheDBDMAChain(Channel, index);				// pull out the data (out of now offline channel)
+        RS232->CheckQueues(Channel);						// Clearly our buffer is no longer Empty
+
+	// Reschedule for a later time
+	// Checking after a third of the buffer is full seems reasonable
             
-        if (Channel->DataLatInterval.tv_nsec == 0)
+        if (Channel->DataLatInterval.tv_nsec == 0)	    // but only if client didn't specify their own timeout
         {
-            numberOfbytes = (dmaInfo->dmaNumberOfDescriptors - 1) / 3;
+	    // the old driver had a buffer size of a page, but limited reads to less than that due to
+	    // the dbdma chain of 1-byte per cmd also having to fit in a page.  The 1/3 buffer full
+	    // timeout was based on this size; with the newer, bigger buffer, 1/3 of the buffer is
+	    // a much longer value.  Use smaller value to keep the response the same.
+	    UInt32 historical_buffer_size = PAGE_SIZE / sizeof(IODBDMADescriptor);
+	    numberOfbytes = (min(kRxDBDMABufferSize, historical_buffer_size)) / 3;
             bitInterval = (1000000 * 10)/Channel->BaudRate;        		// bit interval in \xb5Sec
             nsec = bitInterval * 1000 * numberOfbytes;     			// nSec*bits
         } else {
             nsec = Channel->DataLatInterval.tv_nsec;
         }
         
-        IOLockUnlock (Channel->IODBDMARxLock);
-
         rearmRxTimer(Channel, nsec);
-    } else {
-    
-            // Ok since we didn't get anything let's stop the channel and restart for the
-            // the byte with the interrupt, the first one.
-     
-        IODBDMAPause(dmaInfo->dmaBase);						 // Stops the reception
-        savedR1Reg = Channel->lastWR[1];
-        SccWriteReg(Channel, R1, savedR1Reg & ~kWReqEnable);
-        IOSetDBDMAChannelControl(dmaInfo->dmaBase, IOClearDBDMAChannelControlBits(kdbdmaPause));
-        
-        IODBDMAFlush(dmaInfo->dmaBase);
-        IOSetDBDMAChannelControl(dmaInfo->dmaBase, IOClearDBDMAChannelControlBits(kdbdmaRun));
-        	
-        while(IOGetDBDMAChannelStatus(dmaInfo->dmaBase) & (kdbdmaActive))
-        {
-            eieio();
-        }
-        
-        SccWriteReg(Channel, R1, savedR1Reg);
-		
-        commandStatus = CommandStatus(Channel, dmaInfo->lastPosition);
-        if ((commandStatus & kDataIsValid) == kDataIsValid)				// If the current command is valid...there's some data!
-        {
-            if (SuckDataFromTheDBDMAChain(Channel))
-            {
-                RS232->CheckQueues(Channel);						// Clearly our buffer is no longer Empty
-
-//                AppleRS232Serial::CheckQueues(Channel);					// Clearly our buffer is no longer Empty
-            }
-        }
-
-        IOSetCCResult(&dmaInfo->dmaChannelCommandArea[dmaInfo->lastPosition], 0);	// This is stopped, so reset its status
-        eieio();
-        
-        SccdbdmaStartReception(Channel);
-        IOLockUnlock (Channel->IODBDMARxLock);
     }
+    // else if we have no data, there's nothing to do now but wait for an interrupt on 1st byte read
     
 }/* end SccdbdmaRxHandleCurrentPosition */
+
+/****************************************************************************************************/
+//
+//		Function:	AnyDataReceived
+//
+//		Inputs:		dmaInfo - the dbdma info block
+//
+//		Outputs:	
+//
+//		Desc:		returns true iff the first one-byte read command completed
+//
+/****************************************************************************************************/
+
+bool AnyDataReceived(SerialDBDMAStatusInfo *dmaInfo)
+{
+    const UInt32 kDataIsValid = (kdbdmaStatusRun | kdbdmaStatusActive);
+    if ((CommandStatus(dmaInfo, kRxDBDMACmd_First_Read) & kDataIsValid) == kDataIsValid) {
+	return true;
+    }
+    return false;
+}
+
+/****************************************************************************************************/
+//
+//		Function:	DescriptorBytesRead
+//
+//		Inputs:		cmd - the dbdma command to examine
+//
+//		Outputs:	returns number of bytes read, or zero if command unexecuted
+//
+//		Desc:		
+//
+/****************************************************************************************************/
+
+UInt32  DescriptorBytesRead(IODBDMADescriptor *cmd)
+{
+    UInt32 cmdRequest;		// amount of original request
+    UInt32 cmdResult;		// count from result field, bytes remaining
+    UInt32 count;
+    UInt32 status;
+    const UInt32 kDataIsValid = kdbdmaStatusActive;
+
+    status = IOGetCCResult(cmd);		// get cmd status to see if it executed at all
+    ELG(cmd, status, "DescriptorBytesRead, cmd, status");
+    
+    if ((status & kDataIsValid) != kDataIsValid) {
+	return 0;				// if it didn't run, zero
+    }
+    
+    // get original request count and subtract count remaining to get xfer'd count
+    cmdRequest = IOGetDBDMADescriptor(cmd, operation) & kdbdmaReqCountMask;      // amount of original request
+    cmdResult  = IOGetDBDMADescriptor(cmd, result)    & kdbdmaResCountMask;      // amount remaining
+
+    ELG(cmdRequest, cmdResult, "DescriptorBytesRead, request, remaining");
+
+    count = cmdRequest - cmdResult;         // compute count of bytes transferred
+    ELG(cmd, count, "DescriptorBytesRead, cmd, count");
+    
+    return count;
+}
+
 
 /****************************************************************************************************/
 //
@@ -1886,55 +1831,48 @@ void SccdbdmaRxHandleCurrentPosition(SccChannel *Channel)
 //
 //		Inputs:		Channel - The port
 //
-//		Outputs:	Return code - true(got data), false(none)
+//		Outputs:	data put into the rx queue
 //
 //		Desc:		Gets data from the RX DMA channel.
-// 				Starting from the last known position read all the bytes transferred.
-//				The last command to run is known so the last position is known.
 //
 /****************************************************************************************************/
 
-bool SuckDataFromTheDBDMAChain(SccChannel *Channel)
+void SuckDataFromTheDBDMAChain(SccChannel *Channel, UInt32 index)
 {   
     AppleRS232Serial		*RS232;
     UInt32			SW_FlowControl;
     SerialDBDMAStatusInfo 	*TxdmaInfo;
     SerialDBDMAStatusInfo 	*dmaInfo;
-    UInt32 			iterator;
-    UInt32			kDataIsValid;
     UInt8			byteRead;
-    bool 			gotData = false;
     UInt32			excess = 0;
+    UInt32			byteCount = 0;	    // number of bytes read
+    UInt8			*bytes;
     
     ELG(0, 0, "SuckDataFromTheDBDMAChain");
     
-    RS232 = (AppleRS232Serial *)Channel->RS232;
+    RS232 = Channel->RS232;
 
-    SW_FlowControl = Channel->FlowControl & PD_RS232_S_RXO;
-    dmaInfo = &Channel->RxDBDMAChannel;
+    SW_FlowControl = Channel->FlowControl & PD_RS232_S_TXO;	    // xon/xoff to control tx?
+
+    dmaInfo = &Channel->rxDBDMAChannels[index];
     TxdmaInfo = &Channel->TxDBDMAChannel;
-    iterator = dmaInfo->lastPosition;
-	
-    kDataIsValid = (kdbdmaStatusRun | kdbdmaStatusActive);  
-    while ((CommandStatus(Channel, iterator) & kDataIsValid) == kDataIsValid)
+    
+    // we're here because the first 1-byte read finished
+    // add in byte counts from main read and final read (if they did anything)
+    byteCount = 1;
+    byteCount += DescriptorBytesRead(&dmaInfo->dmaChannelCommandArea[kRxDBDMACmd_Main_Read]);
+
+    bytes = dmaInfo->dmaTransferBuffer;			// start sucking up the data
+    while (byteCount--)
     {
 
-            // Reset the count for the current command
-            
-        IOSetCCResult(&dmaInfo->dmaChannelCommandArea[iterator], 0);
-        eieio();
+	// Reset the count for the current command
+        //IOSetCCResult(&dmaInfo->dmaChannelCommandArea[iterator], 0);
+        //OSSynchronizeIO();		    // eieio()
 
-            // This is a special ring where the last command does not point to command 0
-            // but to command 1 and it does not write on the last byte but on byte 0
             
-        if (iterator == (dmaInfo->dmaNumberOfDescriptors - 1))
-        {
-            byteRead = dmaInfo->dmaTransferBuffer[0];					// Transfer the new byte in the buffer
-            iterator = 1;
-        } else {
-            byteRead = dmaInfo->dmaTransferBuffer[iterator];				// Transfer the new byte in the buffer
-            iterator++;
-        }
+	byteRead = *bytes++;				// grab the read byte
+	ELG(byteCount, byteRead, "SuckDataFromTheDBDMAChain - byteCount, byteRead");
 
             // Begin software flow control code
 	
@@ -1970,7 +1908,6 @@ bool SuckDataFromTheDBDMAChain(SccChannel *Channel)
                 {
                     Channel->aboveRxHighWater = true;
                     RS232->CheckQueues(Channel);
-//                    AppleRS232Serial::CheckQueues(Channel);
                 }
             } else {
                 if (excess <= 0)
@@ -1979,12 +1916,9 @@ bool SuckDataFromTheDBDMAChain(SccChannel *Channel)
                 }
             }
         }
-        gotData = true;
     }
-
-    dmaInfo->lastPosition = iterator;
         
-    return gotData;
+    return;
         
 }/* end SuckDataFromTheDBDMAChain */
 
@@ -1992,7 +1926,7 @@ bool SuckDataFromTheDBDMAChain(SccChannel *Channel)
 //
 //		Function:	SccdbdmaEndReception
 //
-//		Inputs:		Channel - The port
+//		Inputs:		Channel - The port, index - which rx channel
 //
 //		Outputs:	
 //
@@ -2000,14 +1934,14 @@ bool SuckDataFromTheDBDMAChain(SccChannel *Channel)
 //
 /****************************************************************************************************/
 
-void SccdbdmaEndReception(SccChannel *Channel)
+void SccdbdmaEndReception(SccChannel *Channel, UInt32 index)
 {
     SerialDBDMAStatusInfo	*dmaInfo;
-    UInt32			cmdResult = 0;
+    //UInt32			cmdResult = 0;
     
-    ELG(0, 0, "SccdbdmaEndReception");
+    ELG(0, index, "SccdbdmaEndReception");
     
-    dmaInfo = &Channel->RxDBDMAChannel;
+    dmaInfo = &Channel->rxDBDMAChannels[index];
     
     if (dmaInfo->dmaBase)
     {
@@ -2015,12 +1949,14 @@ void SccdbdmaEndReception(SccChannel *Channel)
         IODBDMAReset(dmaInfo->dmaBase);					// reset transfer
     }
     
+    /*** nobody cares about data rx'd at this point (except maybe for debugging)
     if (dmaInfo->dmaChannelCommandArea != NULL)
     {
         cmdResult = IOGetDBDMADescriptor(&dmaInfo->dmaChannelCommandArea[0], result);
         dmaInfo->dmaTransferSize = dmaInfo->dmaTransferSize - (cmdResult & 0xFFFF);
         ELG(0, dmaInfo->dmaTransferSize, "SccdbdmaEndReception - number of bytes received");
     }
+    ***/
     
 }/* end SccdbdmaEndReception */
 
@@ -2045,7 +1981,6 @@ void SccSetupTansmissionChannel(SccChannel *Channel)
     dmaInfo = &Channel->TxDBDMAChannel;
     
     IODBDMAReset(dmaInfo->dmaBase);					// Just in case
-    dmaInfo->lastPosition = 0;
     IODBDMAReset(dmaInfo->dmaBase);					// Again just in case
     
 }/* end SccSetupTansmissionChannel */
@@ -2071,43 +2006,20 @@ void SccFreeTansmissionChannel(SccChannel *Channel)
     if (Channel == NULL)
         return;
         
-    if (Channel->IODBDMATrLock)
+    SccdbdmaEndTransmission(Channel);
+
+    dmaInfo = &Channel->TxDBDMAChannel;
+
+    if (dmaInfo->dmaTransferBufferMDP != NULL)
     {
-        IOLockLock(Channel->IODBDMATrLock);
-        SccdbdmaEndTransmission(Channel);
-
-        dmaInfo = &Channel->TxDBDMAChannel;
-
-#if NEWPHYS        
-        if (dmaInfo->dmaChannelCommandAreaMDP != NULL)
-        {
-            dmaInfo->dmaChannelCommandAreaMDP->complete();
-            dmaInfo->dmaChannelCommandAreaMDP->release();
-            dmaInfo->dmaChannelCommandAreaMDP = NULL;
-        }
-#else
-        if (dmaInfo->dmaChannelCommandArea != NULL)
-            IOFreeAligned(dmaInfo->dmaChannelCommandArea, PAGE_SIZE);
-#endif
-
-#if NEWPHYS
-        if (dmaInfo->dmaTransferBufferMDP != NULL)
-        {
-            dmaInfo->dmaTransferBufferMDP->complete();
-            dmaInfo->dmaTransferBufferMDP->release();
-            dmaInfo->dmaTransferBufferMDP = NULL;
-        }
-#else
-        if (dmaInfo->dmaTransferBuffer != NULL)
-            IOFreeAligned(dmaInfo->dmaTransferBuffer, PAGE_SIZE);
-#endif
-
-        dmaInfo->dmaNumberOfDescriptors = 0;
-        dmaInfo->dmaChannelCommandArea = NULL;
-        dmaInfo->dmaTransferBuffer = NULL;
-    
-        IOLockUnlock(Channel->IODBDMATrLock);
+	dmaInfo->dmaTransferBufferMDP->complete();
+	dmaInfo->dmaTransferBufferMDP->release();
+	dmaInfo->dmaTransferBufferMDP = NULL;
     }
+
+    dmaInfo->dmaNumberOfDescriptors = 0;
+    dmaInfo->dmaChannelCommandArea = NULL;
+    dmaInfo->dmaTransferBuffer = NULL;
     
 }/* end SccFreeTansmissionChannel */
 
@@ -2132,17 +2044,10 @@ void SccdbdmaDefineTansmissionCommands(SccChannel *Channel)
     
     dmaInfo = &Channel->TxDBDMAChannel;
 
-#if NEWPHYS
     IOByteCount	temp;
-//    physaddr = dmaInfo->dmaTransferBufferMDP->getPhysicalAddress();
     physaddr = dmaInfo->dmaTransferBufferMDP->getPhysicalSegment(0, &temp);
     IOMakeDBDMADescriptor(&dmaInfo->dmaChannelCommandArea[0], kdbdmaOutputLast, kdbdmaKeyStream0, kdbdmaIntAlways, kdbdmaBranchNever, kdbdmaWaitNever, 0,
                                                                                                                                                     physaddr);                                                                                                                                                    
-#else   
-    physaddr = pmap_extract(kernel_pmap, (vm_address_t)dmaInfo->dmaTransferBuffer);
-    IOMakeDBDMADescriptor(&dmaInfo->dmaChannelCommandArea[0], kdbdmaOutputLast, kdbdmaKeyStream0, kdbdmaIntAlways, kdbdmaBranchNever, kdbdmaWaitNever, 0,
-                                                                                                                                                    physaddr);
-#endif
     ELG(physaddr, dmaInfo->dmaTransferBuffer, "SccdbdmaDefineTansmissionCommands - Physical/Virtual");
 
     IOMakeDBDMADescriptor(&dmaInfo->dmaChannelCommandArea[1], kdbdmaStop, kdbdmaKeyStream0, kdbdmaIntNever, kdbdmaBranchNever, kdbdmaWaitNever, 0, 0);
@@ -2165,7 +2070,6 @@ void SccdbdmaStartTransmission(SccChannel *Channel)
 {
     AppleRS232Serial		*RS232;
     SerialDBDMAStatusInfo	*dmaInfo;
-    IODBDMADescriptor		*baseCommands;
     UInt8			*localBuffer;
     UInt32			sizeReadFromBuffer = 0;
     UInt8			*bufferPtr = 0;
@@ -2177,10 +2081,8 @@ void SccdbdmaStartTransmission(SccChannel *Channel)
     if (Channel == NULL)
         return;
         
-    RS232 = (AppleRS232Serial *)Channel->RS232;
+    RS232 = Channel->RS232;
         
-    IOLockLock(Channel->IODBDMATrLock);
-	
     dmaInfo = &Channel->TxDBDMAChannel;
 
         // Check for errors in the SCC since they have the nasty habit of blocking the FIFO
@@ -2191,21 +2093,12 @@ void SccdbdmaStartTransmission(SccChannel *Channel)
         
     Channel->AreTransmitting = TRUE;
     RS232->setStateGated(PD_S_TX_BUSY, PD_S_TX_BUSY);
-//    AppleRS232Serial::setStateGated(PD_S_TX_BUSY, PD_S_TX_BUSY);
     
         // check the legality of the transmission
         
     if ((dmaInfo->dmaChannelCommandArea != NULL) && (dmaInfo->dmaTransferBuffer != NULL))
     {
         IODBDMAReset(dmaInfo->dmaBase);					// Reset the channel
-
-#if NEWPHYS
-    IOByteCount	temp;
-//        baseCommands = (IODBDMADescriptor *)dmaInfo->dmaChannelCommandAreaMDP->getPhysicalAddress();
-        baseCommands = (IODBDMADescriptor *)dmaInfo->dmaChannelCommandAreaMDP->getPhysicalSegment(0, &temp);
-#else
-        baseCommands = (IODBDMADescriptor *)pmap_extract(kernel_pmap, (vm_address_t)dmaInfo->dmaChannelCommandArea);
-#endif
         
         localBuffer = dmaInfo->dmaTransferBuffer;
 
@@ -2219,8 +2112,8 @@ void SccdbdmaStartTransmission(SccChannel *Channel)
             if (bufferPtr && sizeReadFromBuffer)
             {
                 LogData(kSerialOut, sizeReadFromBuffer, (char*)bufferPtr);
-                if (sizeReadFromBuffer > MAX_BLOCK_SIZE)
-                    sizeReadFromBuffer = MAX_BLOCK_SIZE;
+                if (sizeReadFromBuffer > kTxDBDMABufferSize)
+                    sizeReadFromBuffer = kTxDBDMABufferSize;
                     
                 dmaInfo->dmaTransferSize = sizeReadFromBuffer;
                 bcopy(bufferPtr, localBuffer, sizeReadFromBuffer);
@@ -2235,11 +2128,11 @@ void SccdbdmaStartTransmission(SccChannel *Channel)
         {
             IOSetDBDMADescriptor(&dmaInfo->dmaChannelCommandArea[0], operation, IOMakeDBDMAOperation(kdbdmaOutputLast, kdbdmaKeyStream0, kdbdmaIntAlways,
                                                                                                 kdbdmaBranchNever, kdbdmaWaitNever, dmaInfo->dmaTransferSize));
-            eieio();
+            OSSynchronizeIO();	    // eieio()
 
             flush_dcache((vm_offset_t)dmaInfo->dmaChannelCommandArea, sizeof(IODBDMADescriptor) * dmaInfo->dmaNumberOfDescriptors, false);
 
-            IODBDMAStart(dmaInfo->dmaBase, baseCommands);			// Starts the transmission
+            IODBDMAStart(dmaInfo->dmaBase, dmaInfo->dmaChannelCommandAreaPhysical);    // Starts the transmission
 
             EndDirectReadFromQueue(&(Channel->TX), dmaInfo->dmaTransferSize);
             
@@ -2247,9 +2140,7 @@ void SccdbdmaStartTransmission(SccChannel *Channel)
                 // to enqueue more stuff.
                 
             RS232->CheckQueues(Channel);
-//            AppleRS232Serial::CheckQueues(Channel);
 
-            IOLockUnlock(Channel->IODBDMATrLock);
             return;
         } else {
             EndDirectReadFromQueue(&(Channel->TX), 0);
@@ -2259,12 +2150,9 @@ void SccdbdmaStartTransmission(SccChannel *Channel)
         // Updates all the status flags
         
     RS232->CheckQueues(Channel);
-//    AppleRS232Serial::CheckQueues(Channel);
     Channel->AreTransmitting = FALSE;
     RS232->setStateGated(0, PD_S_TX_BUSY);
-//    AppleRS232Serial::setStateGated(0, PD_S_TX_BUSY);
     
-    IOLockUnlock(Channel->IODBDMATrLock);
     
 }/* end SccdbdmaStartTransmission */
 
@@ -2322,7 +2210,7 @@ void SccdbdmaEndTransmission(SccChannel *Channel)
 void HandleRxIntTimeout(SccChannel *Channel)
 {
     
-//    ELG(0, 0, "HandleRxIntTimeout");
+    ELG(0, 0, "HandleRxIntTimeout");
     
 }/* end HandleRxIntTimeout */
 
@@ -2343,7 +2231,7 @@ void rxTimeoutHandler(OSObject *owner, IOTimerEventSource *sender)
 {
     AppleRS232Serial	*serialPortPtr;
     
-//    ELG(0, 0, "rxTimeoutHandler");
+    ELG(0, 0, "rxTimeoutHandler");
 	
 	// Make sure it's me
         
@@ -2351,7 +2239,7 @@ void rxTimeoutHandler(OSObject *owner, IOTimerEventSource *sender)
     if (serialPortPtr)
     {
 	if (serialPortPtr->fCurrentPowerState)		// if not sleeping
-	    SccdbdmaRxHandleCurrentPosition(&serialPortPtr->fPort);
+	    SccdbdmaRxHandleCurrentPosition(&serialPortPtr->fPort, serialPortPtr->fPort.activeRxChannelIndex);
     }
     
 }/* end rxTimeoutHandler */
@@ -2371,7 +2259,7 @@ void rxTimeoutHandler(OSObject *owner, IOTimerEventSource *sender)
 void rearmRxTimer(SccChannel *Channel, UInt32 timerDelay)
 {
 
-//    ELG(0, 0, "rearmRxTimer");
+    ELG(Channel, timerDelay, "rearmRxTimer, channel, timerDelay");
 
     Channel->rxTimer->setTimeout(timerDelay);
     

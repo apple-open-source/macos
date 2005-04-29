@@ -46,7 +46,7 @@ in this Software without prior written authorization from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/lbxproxy/di/options.c,v 1.7 2001/12/14 20:00:51 dawes Exp $ */
+/* $XFree86: xc/programs/lbxproxy/di/options.c,v 1.9 2003/12/19 02:05:39 dawes Exp $ */
 
 #include <stdio.h>
 #include "X.h"
@@ -472,11 +472,6 @@ OptZlibReq(server, buf)
     return (2);
 }
 
-extern LbxStreamCompHandle ZlibInit();
-extern int ZlibStuffInput(), ZlibInputAvail(), ZlibFlush(),
-	 ZlibRead(), ZlibWriteV();
-extern void ZlibCompressOn(), ZlibCompressOff(), ZlibFree();
-
 /*ARGSUSED*/
 static int
 OptZlibReply(server, preply, replylen)
@@ -687,7 +682,7 @@ LbxLookupBitmapCompMethod (server, methodOpCode)
     {
 	LbxBitmapCompMethod *method;
 
-	method = &server->LbxBitmapCompMethods[server->lbxNegOpt.bitmapCompMethods[i]];
+	method = &server->LbxBitmapCompMethods[(int)(server->lbxNegOpt.bitmapCompMethods[i])];
 
 	if (method->methodOpCode == methodOpCode)
 	    return (method);
@@ -709,7 +704,7 @@ LbxLookupPixmapCompMethod (server, methodOpCode)
     {
 	LbxPixmapCompMethod *method;
 
-	method = &server->LbxPixmapCompMethods[server->lbxNegOpt.pixmapCompMethods[i]];
+	method = &server->LbxPixmapCompMethods[(int)(server->lbxNegOpt.pixmapCompMethods[i])];
 
 	if (method->methodOpCode == methodOpCode)
 	    return (method);
@@ -727,7 +722,7 @@ LbxFindPreferredBitmapCompMethod (server)
     if (server->lbxNegOpt.numBitmapCompMethods == 0)
 	return NULL;
     else
-	return (&server->LbxBitmapCompMethods[server->lbxNegOpt.bitmapCompMethods[0]]);
+	return (&server->LbxBitmapCompMethods[(int)(server->lbxNegOpt.bitmapCompMethods[0])]);
 }
 
 
@@ -747,7 +742,7 @@ LbxFindPreferredPixmapCompMethod (server, format, depth)
 
 	for (i = 0; i < server->lbxNegOpt.numPixmapCompMethods; i++)
 	{
-	    method = &server->LbxPixmapCompMethods[server->lbxNegOpt.pixmapCompMethods[i]];
+	    method = &server->LbxPixmapCompMethods[(int)(server->lbxNegOpt.pixmapCompMethods[i])];
 
 	    if ((method->formatMask & (1 << format)))
 	    {

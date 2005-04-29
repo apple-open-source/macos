@@ -40,26 +40,15 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wcwidth.c,v 1.5 2002/08/19 20:32:27 ache Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wcwidth.c,v 1.7 2004/08/12 12:19:11 tjr Exp $");
 
 #include <wchar.h>
-#include <wctype.h>
 
-#define _CTYPE_SWM 0xe0000000L	/* Mask to get screen width data */
-#define _CTYPE_SWS 30 		/* Bits to shift to get width */
+#undef wcwidth
 
 int
 wcwidth(wchar_t wc)
 {
-	int width;
 
-	if (wc == L'\0')
-		return (0);
-
-	width = __maskrune(wc, _CTYPE_SWM);
-
-	/* 0 is autowidth (default) */
-	return (width ? (int)((unsigned)width >> _CTYPE_SWS)
-		      : (iswprint(wc) ? 1 : -1));
+	return (__wcwidth(wc));
 }
-

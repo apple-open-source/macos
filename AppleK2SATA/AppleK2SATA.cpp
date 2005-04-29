@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -59,6 +56,7 @@
 #include <IOKit/ata/IOATADevConfig.h>
 
 #include <IOKit/pci/IOPCIDevice.h>
+#include<IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include <libkern/OSByteOrder.h>
 #include <libkern/OSAtomic.h>
 
@@ -245,8 +243,11 @@ AppleK2SATA::start(IOService *provider)
 	{
 		isHotSwap = true;
 	}
-	
-	
+
+#ifdef kIOPropertyPhysicalInterconnectTypeSerialATA	
+	// for ASP to tell what kind of thing this is. 3643384
+	setProperty ( kIOPropertyPhysicalInterconnectTypeKey, kIOPropertyPhysicalInterconnectTypeSerialATA);
+#endif
 	
 	// call start on the superclass
     if (!super::start( provider))
@@ -346,7 +347,7 @@ failurePath:
 
 	if( isHotSwap )
 	{			
-		IOLog("AppleK2SATA@%d, hot swap start failed\n", busChildNumber);
+		IOLog("AppleK2SATA@%u, hot swap start failed\n", (unsigned int) busChildNumber);
 	}
 
 	DLOG("AppleK2SATA@%d, start failed\n", busChildNumber);
@@ -735,7 +736,7 @@ AppleK2SATA::handleTimeout( void )
 	{
 		kprintf("  PRD %2d  Target phys addr = %8X  count = %4X  flags = %4X\n", 
 		i,  
-		OSSwapLittleToHostInt32(_prdTable[i].bufferPtr),
+		OSSwapLittleToHostInt32((uintptr_t)_prdTable[i].bufferPtr),
 		OSSwapLittleToHostInt16(_prdTable[i].byteCount),
 		OSSwapLittleToHostInt16(_prdTable[i].flags) );
 		
@@ -1121,14 +1122,14 @@ AppleK2SATA::issueCommand( void )
 
 	UInt16 specialFeature = 0x0000;
 	
-	// special case for Silicon Image bridge chip used with ATAPI device
+	// special case for Silicon Image bridge chip used with ATAPI device, also 3608811
 	if( (_currentCommand->getFlags() & (mATAFlagProtocolATAPI | mATAFlagUseDMA) ) == (mATAFlagProtocolATAPI | mATAFlagUseDMA) )
 	{
 		if( (_currentCommand->getFlags() & mATAFlagIORead) )
 		{
 			specialFeature = 0x05;
 		
-		} else if ( (_currentCommand->getFlags() & mATAFlagIORead) ) {
+		} else if ( (_currentCommand->getFlags() & mATAFlagIOWrite) ) {
 		
 			specialFeature = 0x01;
 		
@@ -1385,9 +1386,9 @@ AppleK2SATA::scanForDrives( void )
 		// for hot-plugging operation so that the degraded drive can be replaced.
 		
 		// log it in the system log
-		IOLog("AppleK2SATA@%1d phy detected but drive not in ready state\n", busChildNumber);
-		IOLog("AppleK2SATA@%1d drive status: CL=%2x, CH=%2x, SC=%2x, SN=%2x, AltStat=%2x\n", 
-		busChildNumber,
+		IOLog("AppleK2SATA@%1u phy detected but drive not in ready state\n", (unsigned int)busChildNumber);
+		IOLog("AppleK2SATA@%1u drive status: CL=%2x, CH=%2x, SC=%2x, SN=%2x, AltStat=%2x\n", 
+		(unsigned int)busChildNumber,
 		*_tfCylLoReg,
 		*_tfCylHiReg,
 		*_tfSCountReg,
@@ -2057,6 +2058,15 @@ AppleK2SATA::createChannelCommands(void)
 	// calculate remaining bytes in this transfer
 	IOByteCount bytesRemaining = _currentCommand->getByteCount() ;
 
+	if( bytesRemaining == 0
+		|| descriptor->getLength() == 0
+		|| bytesRemaining > descriptor->getLength()  )
+	{
+	
+		kprintf("AppleK2SATA@%d, DMA request with insufficient byte count, returning error\n", busChildNumber);
+		return -1;
+	}
+
 	// calculate position pointer
 	IOByteCount xfrPosition = _currentCommand->getPosition() ;
 	
@@ -2386,7 +2396,7 @@ AppleK2SATA::handleRemovalIRQ( void )
 		OSWriteLittleInt32( SATAError, 0, 0xffffffff);
 	
 	
-		IOLog("AppleK2SATA@%1d device removed\n", busChildNumber);
+		IOLog("AppleK2SATA@%1u device removed\n",(unsigned int) busChildNumber);
 		// arm interrupt mask for comwake signal on bit 18
 		OSWriteLittleInt32( SIMRegister, 0, kK2SIM_INSERT_MASK);
 		
@@ -2440,7 +2450,7 @@ AppleK2SATA::createNubs( void )
 	
 		_nub[0] = (IOATADevice*) newNub;
 		
-		IOLog("AppleK2SATA@%d drive inserted\n", busChildNumber);
+		IOLog("AppleK2SATA@%u drive inserted\n",(unsigned int) busChildNumber);
 	
 		newNub->registerService();
 		// re-balance the retain count since creating adds a retain, 

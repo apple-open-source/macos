@@ -20,13 +20,13 @@ details.  */
 #define HANDLE_FPE 1
 
 #define SIGNAL_HANDLER(_name)	\
-static void _name (int _dummy)
+static void _name (int _dummy __attribute__ ((__unused__)))
 
 #define MAKE_THROW_FRAME(_exception)					\
 do									\
 {									\
   void **_p = (void **)&_dummy;						\
-  struct sigcontext_struct *_regs = (struct sigcontext_struct *)++_p;	\
+  volatile struct sigcontext_struct *_regs = (struct sigcontext_struct *)++_p;	\
 									\
   /* Advance the program counter so that it is after the start of the	\
      instruction:  the x86 exception handler expects			\
@@ -40,7 +40,7 @@ while (0)
 do									\
 {									\
   void **_p = (void **)&_dummy;						\
-  struct sigcontext_struct *_regs = (struct sigcontext_struct *)++_p;	\
+  volatile struct sigcontext_struct *_regs = (struct sigcontext_struct *)++_p;\
 									\
   register unsigned char *_eip = (unsigned char *)_regs->eip;		\
 									\
@@ -108,29 +108,44 @@ struct old_i386_kernel_sigaction {
 	void (*sa_restorer) (void);
 };
 
+#define RESTORE(name, syscall) RESTORE2 (name, syscall)
+# define RESTORE2(name, syscall) \
+asm						\
+  (						\
+   ".text\n"					\
+   ".byte 0  # Yes, this really is necessary\n" \
+   "	.align 8\n"				\
+   "__" #name ":\n"				\
+   "	popl %eax\n"				\
+   "	movl $" #syscall ", %eax\n"		\
+   "	int  $0x80"				\
+   );
+
+RESTORE (restore, __NR_sigreturn)
+static void restore (void) asm ("__restore");
+
 #define INIT_SEGV					\
 do							\
   {							\
-    nullp = new java::lang::NullPointerException ();	\
     struct old_i386_kernel_sigaction kact;		\
     kact.k_sa_handler = catch_segv;			\
     kact.k_sa_mask = 0;					\
-    kact.k_sa_flags = 0;				\
+    kact.k_sa_flags = 0x4000000;			\
+    kact.sa_restorer = restore;				\
     syscall (SYS_sigaction, SIGSEGV, &kact, NULL);	\
   }							\
 while (0)  
 
-#define INIT_FPE						\
-do								\
-  {								\
-    arithexception = new java::lang::ArithmeticException	\
-      (JvNewStringLatin1 ("/ by zero"));			\
-    struct old_i386_kernel_sigaction kact;			\
-    kact.k_sa_handler = catch_fpe;				\
-    kact.k_sa_mask = 0;						\
-    kact.k_sa_flags = 0;					\
-    syscall (SYS_sigaction, SIGFPE, &kact, NULL);		\
-  }								\
+#define INIT_FPE					\
+do							\
+  {							\
+    struct old_i386_kernel_sigaction kact;		\
+    kact.k_sa_handler = catch_fpe;			\
+    kact.k_sa_mask = 0;					\
+    kact.k_sa_flags = 0x4000000;			\
+    kact.sa_restorer = restore;				\
+    syscall (SYS_sigaction, SIGFPE, &kact, NULL);	\
+  }							\
 while (0)  
 
 /* You might wonder why we use syscall(SYS_sigaction) in INIT_FPE
@@ -147,10 +162,7 @@ while (0)
 
  * Also, there is at the present time no unwind info in the
  * linuxthreads library's signal handlers and so we can't unwind
- * through them anyway.  
-
- * Finally, the code that glibc uses to return from a signal handler
- * is subject to change.  */
+ * through them anyway.  */
 
 #endif /* JAVA_SIGNAL_H */
   

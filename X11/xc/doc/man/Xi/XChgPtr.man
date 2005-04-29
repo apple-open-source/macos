@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XChgPtr.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XChgPtr.man,v 1.3 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,15 +17,9 @@
 .SH NAME
 XChangePointerDevice \- change which device is the X pointer
 .SH SYNTAX
-Status XChangePointerDevice\^(\^\fIdisplay\fP, \fIdevice\fP\^ \fIxaxis\fP\^, \fIyaxis\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^; 
-.br
-      int \fIxaxis\fP\^; 
-.br
-      int \fIyaxis\fP\^; 
+.HP
+Status XChangePointerDevice\^(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, int \fIxaxis\fP\^, int \fIyaxis\fP\^); 
 .br
 .SH ARGUMENTS
 .TP 12

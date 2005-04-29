@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000 Free Software Foundation, Inc.                   *
+ * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -27,7 +27,7 @@
  ****************************************************************************/
 
 /****************************************************************************
- *  Author: Juergen Pfeifer <juergen.pfeifer@gmx.net> 1998                  *
+ *  Author: Juergen Pfeifer, 1998                                           *
  ****************************************************************************/
 
 /*
@@ -40,11 +40,10 @@
 #include <curses.priv.h>
 #include <ctype.h>
 
-MODULE_ID("$Id: lib_colorset.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: lib_colorset.c,v 1.10 2003/12/07 00:15:27 tom Exp $")
 
 NCURSES_EXPORT(int)
-wcolor_set
-(WINDOW *win, short color_pair_number, void *opts)
+wcolor_set(WINDOW *win, short color_pair_number, void *opts)
 {
     T((T_CALLED("wcolor_set(%p,%d)"), win, color_pair_number));
     if (win
@@ -52,7 +51,8 @@ wcolor_set
 	&& (color_pair_number >= 0)
 	&& (color_pair_number < COLOR_PAIRS)) {
 	TR(TRACE_ATTRS, ("... current %ld", (long) PAIR_NUMBER(win->_attrs)));
-	toggle_attr_on(win->_attrs, COLOR_PAIR(color_pair_number));
+	win->_attrs &= ALL_BUT_COLOR;
+	win->_attrs |= COLOR_PAIR(color_pair_number);
 	returnCode(OK);
     } else
 	returnCode(ERR);

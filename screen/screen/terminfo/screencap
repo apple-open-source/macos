@@ -9,7 +9,7 @@ SC|screen|VT 100/ANSI X3.64 virtual terminal:\
 	:AL=\E[%dL:dl=\E[M:DL=\E[%dM:cs=\E[%i%d;%dr:dc=\E[P:\
 	:DC=\E[%dP:im=\E[4h:ei=\E[4l:IC=\E[%d@:\
 	:ks=\E[?1h\E=:ke=\E[?1l\E>:vb=\Eg:\
-	:ku=\EOA:kd=\EOB:kr=\EOC:kl=\EOD:kb=^H:\
+	:ku=\EOA:kd=\EOB:kr=\EOC:kl=\EOD:\
 	:k1=\EOP:k2=\EOQ:k3=\EOR:k4=\EOS:k5=\E[15~:k6=\E[17~:\
 	:k7=\E[18~:k8=\E[19~:k9=\E[20~:k;=\E[21~:F1=\E[23~:F2=\E[24~:\
 	:kh=\E[1~:kI=\E[2~:kD=\E[3~:kH=\E[4~:@7=\E[4~:kP=\E[5~:\

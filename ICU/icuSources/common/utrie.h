@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2001-2003, International Business Machines
+*   Copyright (C) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -18,6 +18,7 @@
 #define __UTRIE_H__
 
 #include "unicode/utypes.h"
+#include "udataswp.h"
 
 U_CDECL_BEGIN
 
@@ -80,7 +81,7 @@ enum {
 
     /**
      * Number of index (stage 1) entries per lead surrogate.
-     * Same as number of indexe entries for 1024 trail surrogates,
+     * Same as number of index entries for 1024 trail surrogates,
      * ==0x400>>UTRIE_SHIFT
      */
     UTRIE_SURROGATE_BLOCK_COUNT=(1<<UTRIE_SURROGATE_BLOCK_BITS),
@@ -136,6 +137,11 @@ struct UTrie {
     /**
      * This function is not used in _FROM_LEAD, _FROM_BMP, and _FROM_OFFSET_TRAIL macros.
      * If convenience macros like _GET16 or _NEXT32 are used, this function must be set.
+     *
+     * utrie_unserialize() sets a default function which simply returns
+     * the lead surrogate's value itself - which is the inverse of the default
+     * folding function used by utrie_serialize().
+     *
      * @see UTrieGetFoldingOffset
      */
     UTrieGetFoldingOffset *getFoldingOffset;
@@ -460,7 +466,7 @@ UTrieEnumRange(const void *context, UChar32 start, UChar32 limit, uint32_t value
  * @param context an opaque pointer that is passed on to the callback functions
  */
 U_CAPI void U_EXPORT2
-utrie_enum(UTrie *trie,
+utrie_enum(const UTrie *trie,
            UTrieEnumValue *enumValue, UTrieEnumRange *enumRange, const void *context);
 
 /**
@@ -492,6 +498,7 @@ struct UNewTrie {
     int32_t index[UTRIE_MAX_INDEX_LENGTH];
     uint32_t *data;
 
+    uint32_t leadUnitValue;
     int32_t indexLength, dataCapacity, dataLength;
     UBool isAllocated, isDataAllocated;
     UBool isLatin1Linear, isCompacted;
@@ -546,6 +553,8 @@ UNewTrieGetFoldedValue(UNewTrie *trie, UChar32 start, int32_t offset);
  * @param maxDataLength the capacity of aliasData (if not NULL) or
  *                      the length of the data array to be allocated
  * @param initialValue the initial value that is set for all code points
+ * @param leadUnitValue the value for lead surrogate code _units_ that do not
+ *                      have associated supplementary data
  * @param latin1Linear a flag indicating whether the Latin-1 range is to be allocated and
  *                     kept in a linear, contiguous part of the data array
  * @return a pointer to the initialized fillIn or the allocated and initialized new UNewTrie
@@ -553,7 +562,8 @@ UNewTrieGetFoldedValue(UNewTrie *trie, UChar32 start, int32_t offset);
 U_CAPI UNewTrie * U_EXPORT2
 utrie_open(UNewTrie *fillIn,
            uint32_t *aliasData, int32_t maxDataLength,
-           uint32_t initialValue, UBool latin1Linear);
+           uint32_t initialValue, uint32_t leadUnitValue,
+           UBool latin1Linear);
 
 /**
  * Clone a build-time trie structure with all entries.
@@ -643,7 +653,9 @@ utrie_setRange32(UNewTrie *trie, UChar32 start, UChar32 limit, uint32_t value, U
  * @param capacity the number of bytes available at data
  * @param getFoldedValue a callback function that calculates the value for
  *                       a lead surrogate from all of its supplementary code points
- *                       and the folding offset
+ *                       and the folding offset;
+ *                       if NULL, then a default function is used which returns just
+ *                       the input offset when there are any non-initial-value entries
  * @param reduceTo16Bits flag for whether the values are to be reduced to a
  *                       width of 16 bits for serialization and runtime
  * @param pErrorCode a UErrorCode argument; among other possible error codes:
@@ -658,6 +670,15 @@ utrie_serialize(UNewTrie *trie, void *data, int32_t capacity,
                 UNewTrieGetFoldedValue *getFoldedValue,
                 UBool reduceTo16Bits,
                 UErrorCode *pErrorCode);
+
+/**
+ * Swap a serialized UTrie.
+ * @internal
+ */
+U_CAPI int32_t U_EXPORT2
+utrie_swap(const UDataSwapper *ds,
+           const void *inData, int32_t length, void *outData,
+           UErrorCode *pErrorCode);
 
 U_CDECL_END
 

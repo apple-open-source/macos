@@ -1,0 +1,1920 @@
+# Norwegian bokmål message catalogs for GNU nano.
+# Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+# Eivind Kjørstad <ekj@vestdata.no>, 2001.
+# Stig E Sandø <stig@ii.uib.no>, 2002.
+# Geir Helland <debian@marked.no>, 2003
+# 
+msgid ""
+msgstr ""
+"Project-Id-Version: nano 1.2.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2004-06-25 20:25-0400\n"
+"PO-Revision-Date: 2003-06-11 02:39+0200\n"
+"Last-Translator: Geir Helland <debian@marked.no>\n"
+"Language-Team: Norwegian <i18n-nb@lister.ping.uio.no>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=iso-8859-1\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: files.c:321
+#, c-format
+msgid "Read %d line (Converted from Mac format)"
+msgid_plural "Read %d lines (Converted from Mac format)"
+msgstr[0] "Leste %d linje (Konvertert fra Mac-format)"
+msgstr[1] "Leste %d linjer (Konvertert fra Mac-format)"
+
+#: files.c:325
+#, c-format
+msgid "Read %d line (Converted from DOS format)"
+msgid_plural "Read %d lines (Converted from DOS format)"
+msgstr[0] "Leste %d linje (Konvertert fra DOS-format)"
+msgstr[1] "Leste %d linjer (Konvertert fra DOS-format)"
+
+#: files.c:330
+#, c-format
+msgid "Read %d line"
+msgid_plural "Read %d lines"
+msgstr[0] "Leste %d linje"
+msgstr[1] "Leste %d linjer"
+
+#: files.c:356 search.c:58
+#, c-format
+msgid "\"%s\" not found"
+msgstr "\"%s\" ikke funnet"
+
+#: files.c:360
+msgid "New File"
+msgstr "Ny fil"
+
+#: files.c:366
+#, c-format
+msgid "\"%s\" is a directory"
+msgstr "\"%s\" er en katalog"
+
+# "enhet" = "device", kanskje, men det er litt forvirrande
+# Hva med "enhetsfil" = "device" ?  : Geir Helland <debian@marked.no>
+#: files.c:367
+#, c-format
+msgid "File \"%s\" is a device file"
+msgstr "Filen \"%s\" er en enhetsfil (eng: device file)"
+
+#: files.c:385
+msgid "Reading File"
+msgstr "Leser fil"
+
+#: files.c:461
+#, c-format
+msgid "File to insert into new buffer [from %s] "
+msgstr "Fil som skal settes inn i nytt buffer [fra %s] "
+
+#: files.c:469
+#, c-format
+msgid "File to insert [from %s] "
+msgstr "Fil som skal settes inn [fra %s] "
+
+#: files.c:480
+msgid "File to insert into new buffer [from ./] "
+msgstr "Fil som skal settes inn i nytt buffer [fra ./] "
+
+#: files.c:487
+msgid "File to insert [from ./] "
+msgstr "Fil som skal settes inn [fra ./] "
+
+#: files.c:508
+msgid "Command to execute"
+msgstr "Kommando som skal kjøres"
+
+#: files.c:510 files.c:622 files.c:1353 files.c:1797 nano.c:2736
+msgid "Cancelled"
+msgstr "Avbrutt"
+
+#: files.c:531
+#, c-format
+msgid "Can't insert file from outside of %s"
+msgstr "Kan ikke sette inn fil fra utsiden av %s"
+
+#: files.c:645
+msgid "Key illegal in non-multibuffer mode"
+msgstr "Tasten er kun tillatt i multibuffer-modus"
+
+#: files.c:886 files.c:949
+msgid "No more open files"
+msgstr "Ikke flere åpne filer"
+
+#: files.c:913 files.c:976
+#, c-format
+msgid "Switched to %s"
+msgstr "Byttet til %s"
+
+#: files.c:1367
+#, c-format
+msgid "Can't write outside of %s"
+msgstr "Kan ikke skrive utenfor %s"
+
+#: files.c:1398
+#, c-format
+msgid "Could not read %s for backup: %s"
+msgstr "Kunne ikke åpne %s for skriving: %s"
+
+# Var:msgstr "Kunne ikke lukke %s: %s"
+#: files.c:1409
+#, c-format
+msgid "Couldn't write backup: %s"
+msgstr "Kunne ikke skrive Sikkerhetskopi: %s"
+
+#: files.c:1427
+#, c-format
+msgid "Could not set permissions %o on backup %s: %s"
+msgstr "Kunne ikke sette rettighetene %o på %s: %s"
+
+# Var: msgstr "Kunne ikke sette rettighetene %o på %s: %s"
+#: files.c:1433
+#, c-format
+msgid "Could not set owner %d/group %d on backup %s: %s"
+msgstr "Kunne ikke sette eier %d/gruppe %d på sikkerhetskopi %s: %s"
+
+#: files.c:1438
+#, c-format
+msgid "Could not set access/modification time on backup %s: %s"
+msgstr "Kunne ikke sette rettigheter/modifikasjonstid på sikkerhetskopi %s: %s"
+
+#: files.c:1473 files.c:1489 files.c:1504 files.c:1526 files.c:1559
+#: files.c:1566 files.c:1578
+#, c-format
+msgid "Could not open file for writing: %s"
+msgstr "Kunne ikke åpne filen for skriving: %s"
+
+#: files.c:1589
+#, c-format
+msgid "Could not close %s: %s"
+msgstr "Kunne ikke lukke %s: %s"
+
+#: files.c:1601 files.c:1606 files.c:1634
+#, c-format
+msgid "Could not reopen %s: %s"
+msgstr "Kunne ikke gjenåpne %s: %s"
+
+#: files.c:1611 files.c:1617 files.c:1626
+#, fuzzy, c-format
+msgid "Could not open %s for prepend: %s"
+msgstr "Kunne ikke åpne %s for skriving: %s"
+
+#: files.c:1664 files.c:1673 files.c:1678
+#, c-format
+msgid "Could not open %s for writing: %s"
+msgstr "Kunne ikke åpne %s for skriving: %s"
+
+#: files.c:1685
+#, c-format
+msgid "Could not set permissions %o on %s: %s"
+msgstr "Kunne ikke sette rettighetene %o på %s: %s"
+
+#: files.c:1701
+#, c-format
+msgid "Wrote %d line"
+msgid_plural "Wrote %d lines"
+msgstr[0] "Skrev %d linje"
+msgstr[1] "Skrev %d linjer"
+
+#: files.c:1751
+msgid " [Mac Format]"
+msgstr " [Mac-format]"
+
+#: files.c:1753
+msgid " [DOS Format]"
+msgstr " [DOS-format]"
+
+#: files.c:1758
+msgid " [Backup]"
+msgstr " [Bakover]"
+
+#: files.c:1766
+msgid "Prepend Selection to File"
+msgstr "Legg til utvalg først i fil"
+
+#: files.c:1769
+msgid "Append Selection to File"
+msgstr "Legg til utvalg sist i fil"
+
+# alt: "Lagre utvalg til fil"
+#: files.c:1772
+msgid "Write Selection to File"
+msgstr "Skriv utvalg til fil"
+
+#: files.c:1776 files.c:1787
+msgid "File Name to Prepend to"
+msgstr "Filnavn der teksten settes inn først"
+
+#: files.c:1779 files.c:1790
+msgid "File Name to Append to"
+msgstr "Filnavn der teksten legges til på slutten"
+
+#: files.c:1782 files.c:1793
+msgid "File Name to Write"
+msgstr "Filnavn det skal skrives til"
+
+#: files.c:1851
+msgid "File exists, OVERWRITE ?"
+msgstr "Filen finnes, OVERSKRIV ?"
+
+#: files.c:2340
+msgid "(more)"
+msgstr "(mer)"
+
+#: files.c:2640
+msgid "Can't move up a directory"
+msgstr "Kan ikke gå opp en katalog"
+
+#: files.c:2651 files.c:2724
+#, c-format
+msgid "Can't go outside of %s in restricted mode"
+msgstr "Kan ikke gå utenfor %s i begrenset modus"
+
+#: files.c:2658 files.c:2685 files.c:2732
+#, c-format
+msgid "Can't open \"%s\": %s"
+msgstr "Kan ikke åpne \"%s\": %s"
+
+#: files.c:2706
+msgid "Goto Directory"
+msgstr "Gå til katalog"
+
+#: files.c:2711
+msgid "Goto Cancelled"
+msgstr "Gå til avbrutt"
+
+#: files.c:2912
+#, c-format
+msgid "Unable to open ~/.nano_history file, %s"
+msgstr "Kan ikke åpne ~/.nano_history fil, %s"
+
+#: files.c:2962 files.c:2971 files.c:2976 files.c:2983
+#, c-format
+msgid "Unable to write ~/.nano_history file, %s"
+msgstr "Kan ikke skrive ~/.nano_history fil, %s"
+
+#: global.c:247
+msgid "Constant cursor position"
+msgstr "Konstant kursorposisjon"
+
+#: global.c:248
+msgid "Auto indent"
+msgstr "Automatisk indentering"
+
+#: global.c:249
+msgid "Suspend"
+msgstr "Legg i bakgrunnen"
+
+#: global.c:250
+msgid "Help mode"
+msgstr "Hjelpemodus"
+
+#: global.c:252
+msgid "Mouse support"
+msgstr "Musestøtte"
+
+#: global.c:254
+msgid "Cut to end"
+msgstr "Klipp til slutten"
+
+#: global.c:255
+msgid "No conversion from DOS/Mac format"
+msgstr "Ingen konvertering fra DOS- eller Mac-format"
+
+#: global.c:256
+msgid "Writing file in DOS format"
+msgstr "Skriver fil i DOS-format"
+
+#: global.c:257
+msgid "Writing file in Mac format"
+msgstr "Skriver fil i Mac-format"
+
+#: global.c:258
+msgid "Backing up file"
+msgstr "Sikkerhetskopi av fil"
+
+#: global.c:259 nano.c:664
+msgid "Smooth scrolling"
+msgstr "Jevn scrolling"
+
+#: global.c:261
+msgid "Color syntax highlighting"
+msgstr "Farve- syntaksmarkering"
+
+#: global.c:264
+msgid "Auto wrap"
+msgstr "Automatisk linjeskift"
+
+#: global.c:267
+msgid "Multiple file buffers"
+msgstr "Flere filbuffere"
+
+#: global.c:350
+msgid "Invoke the help menu"
+msgstr "Vis hjelpemenyen"
+
+#: global.c:351
+msgid "Write the current file to disk"
+msgstr "Lagre nåværende fil"
+
+#: global.c:353
+msgid "Close currently loaded file/Exit from nano"
+msgstr "Lukk innlastede fil/Avslutt nano"
+
+#: global.c:355
+msgid "Exit from nano"
+msgstr "Avslutt nano"
+
+#: global.c:357
+msgid "Go to a specific line number"
+msgstr "Hopp til linjenummer"
+
+#: global.c:358
+msgid "Justify the current paragraph"
+msgstr "Juster gjeldende avsnittet"
+
+#: global.c:359
+msgid "Unjustify after a justify"
+msgstr "Fjern justering etter en justering"
+
+#: global.c:360
+msgid "Replace text within the editor"
+msgstr "Erstatt tekst"
+
+#: global.c:361
+msgid "Insert another file into the current one"
+msgstr "Sett inn en annen fil i denne"
+
+#: global.c:362
+msgid "Search for text within the editor"
+msgstr "Søk etter tekst"
+
+#: global.c:363
+msgid "Move to the previous screen"
+msgstr "Gå til forrige skjerm"
+
+#: global.c:364
+msgid "Move to the next screen"
+msgstr "Gå til neste skjerm"
+
+#: global.c:365
+msgid "Cut the current line and store it in the cutbuffer"
+msgstr "Klipp denne linjen og lagre den i klippebufferet"
+
+#: global.c:366
+msgid "Uncut from the cutbuffer into the current line"
+msgstr "Sett inn klippebufferet her"
+
+#: global.c:367
+msgid "Show the position of the cursor"
+msgstr "Vis pekerposisjonen"
+
+#: global.c:368
+msgid "Invoke the spell checker, if available"
+msgstr "Start stavesjekk dersom den er tilgjengelig"
+
+#: global.c:369
+msgid "Move up one line"
+msgstr "Flytt opp en linje"
+
+#: global.c:370
+msgid "Move down one line"
+msgstr "Flytt ned en linje"
+
+#: global.c:371
+msgid "Move forward one character"
+msgstr "Flytt frem ett tegn"
+
+#: global.c:372
+msgid "Move back one character"
+msgstr "Flytt tilbake ett tegn"
+
+#: global.c:373
+msgid "Move to the beginning of the current line"
+msgstr "Flytt til begynnelsen av linjen"
+
+#: global.c:374
+msgid "Move to the end of the current line"
+msgstr "Flytt til slutten av linjen"
+
+#: global.c:375
+msgid "Go to the first line of the file"
+msgstr "Gå til første linje"
+
+#: global.c:376
+msgid "Go to the last line of the file"
+msgstr "Gå til siste linje"
+
+#: global.c:377
+msgid "Refresh (redraw) the current screen"
+msgstr "Tegn skjermen på nytt"
+
+#: global.c:378
+msgid "Mark text at the current cursor location"
+msgstr "Marker teksten ved peker"
+
+#: global.c:379
+msgid "Delete the character under the cursor"
+msgstr "Slett tegnet under peker"
+
+#: global.c:381
+msgid "Delete the character to the left of the cursor"
+msgstr "Slett tegnet til venstre for peker"
+
+#: global.c:382
+msgid "Insert a tab character"
+msgstr "Sett inn et tab-tegn"
+
+#: global.c:383
+msgid "Insert a carriage return at the cursor position"
+msgstr "Sett inn et linjeskift"
+
+#: global.c:385
+msgid "Make the current search or replace case (in)sensitive"
+msgstr "Gjør gjeldande søk uten å ta hensyn til store/små bokstavar"
+
+#: global.c:386
+msgid "Go to file browser"
+msgstr "Gå til fil-leser"
+
+#: global.c:387
+msgid "Execute external command"
+msgstr "Kjør ekstern kommando"
+
+#: global.c:388
+msgid "Go to directory"
+msgstr "Gå til katalog"
+
+#: global.c:389
+msgid "Cancel the current function"
+msgstr "Avbryt gjeldende funksjon"
+
+#: global.c:390
+msgid "Append to the current file"
+msgstr "Legg til nåværende fil"
+
+#: global.c:391
+msgid "Prepend to the current file"
+msgstr "Legg til første i nåværende fil"
+
+#: global.c:392
+msgid "Search backwards"
+msgstr "Søk bakover"
+
+#: global.c:393
+msgid "Write file out in DOS format"
+msgstr "Lagre fil i DOS-format"
+
+#: global.c:394
+msgid "Write file out in Mac format"
+msgstr "Lagre fil i Mac-format"
+
+#: global.c:395
+msgid "Back up original file when saving"
+msgstr "Sikkerhetskopier orginalfil ved lagring"
+
+#: global.c:396
+msgid "Edit the previous search/replace strings"
+msgstr "Endre tidligere søk/erstatt strenger"
+
+#: global.c:398
+msgid "Use regular expressions"
+msgstr "Bruk regulære uttrykk"
+
+#: global.c:399
+msgid "Find other bracket"
+msgstr "Finn andre klamme"
+
+#: global.c:402
+msgid "Open previously loaded file"
+msgstr "Åpne tidligere innlastet fil"
+
+#: global.c:403
+msgid "Open next loaded file"
+msgstr "Åpne neste innlastede fil"
+
+#: global.c:404
+msgid "Toggle insert into new buffer"
+msgstr "Toggle sett inn nytt buffer"
+
+#: global.c:419 global.c:579 global.c:628 global.c:665 global.c:684
+#: global.c:714 global.c:752 global.c:776 global.c:786 global.c:796
+#: global.c:817
+msgid "Get Help"
+msgstr "Hjelp"
+
+#: global.c:426
+msgid "Close"
+msgstr "Lukk"
+
+#: global.c:433 global.c:707
+msgid "Exit"
+msgstr "Avslutt"
+
+#: global.c:438
+msgid "WriteOut"
+msgstr "Lagre"
+
+#: global.c:443
+msgid "Justify"
+msgstr "Juster"
+
+#: global.c:449
+msgid "Read File"
+msgstr "Les fil"
+
+#: global.c:459
+msgid "Where Is"
+msgstr "Finn"
+
+#: global.c:464 global.c:699 global.c:802
+msgid "Prev Page"
+msgstr "Forrige side"
+
+#: global.c:469 global.c:703 global.c:806
+msgid "Next Page"
+msgstr "Neste side"
+
+#: global.c:474
+msgid "Cut Text"
+msgstr "Klipp"
+
+#: global.c:480
+msgid "UnJustify"
+msgstr "Avjuster"
+
+#: global.c:485
+msgid "UnCut Txt"
+msgstr "Lim inn"
+
+#: global.c:490
+msgid "Cur Pos"
+msgstr "Posisjon"
+
+#: global.c:495
+msgid "To Spell"
+msgstr "Staving"
+
+#: global.c:499 nano.c:428 winio.c:655
+msgid "Up"
+msgstr "Opp"
+
+#: global.c:503
+msgid "Down"
+msgstr "Ned"
+
+#: global.c:507
+msgid "Forward"
+msgstr "Fremover"
+
+#: global.c:511
+msgid "Back"
+msgstr "Bakover"
+
+#: global.c:515
+msgid "Home"
+msgstr "Hjem"
+
+#: global.c:519
+msgid "End"
+msgstr "Bunn"
+
+#: global.c:523
+msgid "Refresh"
+msgstr "Oppfrisk"
+
+#: global.c:527
+msgid "Mark Text"
+msgstr "Marker tekst"
+
+#: global.c:531
+msgid "Delete"
+msgstr "Slett"
+
+#: global.c:535
+msgid "Backspace"
+msgstr "Visketast"
+
+#: global.c:539
+msgid "Tab"
+msgstr "Tab"
+
+#: global.c:542 global.c:596
+msgid "Replace"
+msgstr "Erstatt"
+
+#: global.c:546
+msgid "Enter"
+msgstr "Enter"
+
+#: global.c:550 global.c:600 global.c:644
+msgid "Go To Line"
+msgstr "Gå til linje"
+
+#: global.c:555
+msgid "Next Word"
+msgstr "Neste ord"
+
+#: global.c:556
+msgid "Move forward one word"
+msgstr "Flytt frem ett tegn"
+
+#: global.c:559
+msgid "Prev Word"
+msgstr "Forrige ord"
+
+#: global.c:560
+msgid "Move backward one word"
+msgstr "Flytt tilbake ett tegn"
+
+#: global.c:564
+msgid "Find Other Bracket"
+msgstr "Finn den andre klammen"
+
+#: global.c:569
+msgid "Previous File"
+msgstr "Forrige Fil"
+
+#: global.c:572
+msgid "Next File"
+msgstr "Neste fil"
+
+#: global.c:583 global.c:631 global.c:668 global.c:687 global.c:747
+#: global.c:755 global.c:779 global.c:789 global.c:799 global.c:820
+#: winio.c:1323
+msgid "Cancel"
+msgstr "Avbryt"
+
+#: global.c:587 global.c:634 global.c:671 global.c:690
+msgid "First Line"
+msgstr "Første linje"
+
+#: global.c:592 global.c:637 global.c:674 global.c:693
+msgid "Last Line"
+msgstr "Siste linje"
+
+#: global.c:605 global.c:648
+msgid "Case Sens"
+msgstr "Følsomt for store/små bokstavar"
+
+#: global.c:609 global.c:651
+msgid "Direction"
+msgstr "Retning"
+
+#: global.c:614 global.c:655
+msgid "Regexp"
+msgstr "Regulært uttrykk"
+
+#: global.c:620 global.c:659 global.c:678
+msgid "History"
+msgstr "Historie"
+
+#: global.c:641
+msgid "No Replace"
+msgstr "Ingen erstatting"
+
+#: global.c:719 global.c:759
+msgid "To Files"
+msgstr "Til filer"
+
+#: global.c:725
+msgid "DOS Format"
+msgstr "DOS-format"
+
+#: global.c:729
+msgid "Mac Format"
+msgstr "Mac-format"
+
+#: global.c:734
+msgid "Append"
+msgstr "Legg til etter"
+
+#: global.c:738
+msgid "Prepend"
+msgstr "Legg til før"
+
+#: global.c:743
+msgid "Backup File"
+msgstr "Sikkerhetskopi"
+
+#: global.c:764
+msgid "Execute Command"
+msgstr "Utfør kommando"
+
+#: global.c:768 winio.c:596
+msgid "New Buffer"
+msgstr "Nytt buffer"
+
+#: global.c:811
+msgid "Go To Dir"
+msgstr "Gå til katalog"
+
+#: nano.c:173
+#, c-format
+msgid ""
+"\n"
+"Buffer written to %s\n"
+msgstr ""
+"\n"
+"Buffer lagret til %s\n"
+
+# Var: "%s ikke lagret (filen eksisterer?)\n"
+#: nano.c:175
+#, c-format
+msgid ""
+"\n"
+"No %s written (too many backup files?)\n"
+msgstr ""
+"\n"
+"Ingen %s lagret (for mange sikkerhetskopier?)\n"
+
+#: nano.c:184
+msgid "Window size is too small for nano...\n"
+msgstr "Vinduet er for lite for nano...\n"
+
+#: nano.c:189
+msgid "Key illegal in VIEW mode"
+msgstr "Tasten er ulovlig i LES-modus"
+
+#: nano.c:287
+msgid ""
+"Search Command Help Text\n"
+"\n"
+" Enter the words or characters you would like to search for, then hit "
+"enter.  If there is a match for the text you entered, the screen will be "
+"updated to the location of the nearest match for the search string.\n"
+"\n"
+" The previous search string will be shown in brackets after the Search: "
+"prompt.  Hitting Enter without entering any text will perform the previous "
+"search.\n"
+"\n"
+" The following function keys are available in Search mode:\n"
+"\n"
+msgstr ""
+"Hjelp til Søk\n"
+"\n"
+" Skriv inn ordene eller tegnene du ønsker å søke etter og trykk Enter. "
+"Dersom det gir treff på søketeksten vil skjermen oppdateres og fokus flyttes "
+"til den første forekomsten av teksten.\n"
+"\n"
+" Forrige søkestreng vil vises i braketter etter Søk: promptet.  Trykker "
+"duEnter uten å legge inn ny tekst gjentas forrige søk.\n"
+"\n"
+" Følgende funskjonstaster er tilgjengelig i Gå til Linje moduset:\n"
+
+#: nano.c:297
+msgid ""
+"Go To Line Help Text\n"
+"\n"
+" Enter the line number that you wish to go to and hit Enter.  If there are "
+"fewer lines of text than the number you entered, you will be brought to the "
+"last line of the file.\n"
+"\n"
+" The following function keys are available in Go To Line mode:\n"
+"\n"
+msgstr ""
+"Hjelp til Gå til Linje\n"
+"\n"
+" Skriv inn linjenummeret du vil gå til og trykk Enter.  Dersom det er færre "
+"tekstlinjer enn du angav vil du flyttes til siste linje.\n"
+"\n"
+" Følgende funskjonstaster er tilgjengelig i Gå til Linje moduset:\n"
+
+#: nano.c:304
+msgid ""
+"Insert File Help Text\n"
+"\n"
+" Type in the name of a file to be inserted into the current file buffer at "
+"the current cursor location.\n"
+"\n"
+" If you have compiled nano with multiple file buffer support, and enable "
+"multiple buffers with the -F or --multibuffer command line flags, the Meta-F "
+"toggle, or a nanorc file, inserting a file will cause it to be loaded into a "
+"separate buffer (use Meta-< and > to switch between file buffers).\n"
+"\n"
+" If you need another blank buffer, do not enter any filename, or type in a "
+"nonexistent filename at the prompt and press Enter.\n"
+"\n"
+" The following function keys are available in Insert File mode:\n"
+"\n"
+msgstr ""
+"Hjelp til Sett inn Fil\n"
+"\n"
+" Skriv inn navnet på filen du ønsker å sette inn ved markøren i det "
+"gjeldende bufferet.\n"
+"\n"
+" Dersom du kompilerte nano med støtte for flere filbuffer, og har aktivert "
+"dette vil filen som settes inn lastes i et separat buffer (bruk Meta-< og > "
+"for å veksle mellom filbuffer).\n"
+"Støtte for flere filbuffer aktiviseres enten med med -F eller --multibuffer "
+"kommandolinjeflaggene, med Meta-F funksjonen eller i en nanorc fil.\n"
+" Følgende funskjonstaster er tilgjengelig i Sett inn Fil moduset:\n"
+"\n"
+
+#: nano.c:318
+msgid ""
+"Write File Help Text\n"
+"\n"
+" Type the name that you wish to save the current file as and hit Enter to "
+"save the file.\n"
+"\n"
+" If you have selected text with Ctrl-^, you will be prompted to save only "
+"the selected portion to a separate file.  To reduce the chance of "
+"overwriting the current file with just a portion of it, the current filename "
+"is not the default in this mode.\n"
+"\n"
+" The following function keys are available in Write File mode:\n"
+"\n"
+msgstr ""
+"Hjelp til Lagre Fil\n"
+"\n"
+" Skriv inn navnet du ønsker å lagre filen med og trykk Enter for å lagre "
+"filen.\n"
+"\n"
+" Dersom du har valgt tekst med Ctrl-^ vil du bli spurt om du ønsker å lagre "
+"utvalget til en egen fil.  For å minske sjangsen for å overskrive gjeldende "
+"fil med et lite utdrag av den brukes ikke standard filnavn i dette moduset.\n"
+"\n"
+" Følgende funskjonstaster er tilgjengelig i Lagre Fil moduset:\n"
+"\n"
+
+#: nano.c:329
+msgid ""
+"File Browser Help Text\n"
+"\n"
+" The file browser is used to visually browse the directory structure to "
+"select a file for reading or writing.  You may use the arrow keys or Page Up/"
+"Down to browse through the files, and S or Enter to choose the selected file "
+"or enter the selected directory.  To move up one level, select the directory "
+"called \"..\" at the top of the file list.\n"
+"\n"
+" The following function keys are available in the file browser:\n"
+"\n"
+msgstr ""
+"Hjelp til fildialog\n"
+"\n"
+" Fildialogen lar deg lete gjennom katalogstrukturen for å velge en fil for "
+"lagring eller lesing.  Du kan bruke piltastene eller Page Up/Page Down for å "
+"gå gjennom filene og S eller Enter for å velge markert fil eller gå til "
+"markert katalog.  Velg kagalogen kalt \"..\" øverst i listen for å gå opp et "
+"nivå.\n"
+"\n"
+"Følgende funskjonstaster er tilgjengelig i fildialogen:\n"
+"\n"
+
+#: nano.c:340
+msgid ""
+"Browser Go To Directory Help Text\n"
+"\n"
+" Enter the name of the directory you would like to browse to.\n"
+"\n"
+" If tab completion has not been disabled, you can use the TAB key to "
+"(attempt to) automatically complete the directory name.\n"
+"\n"
+" The following function keys are available in Browser Go To Directory mode:\n"
+"\n"
+msgstr ""
+"Hjelp til Gå til Katalog\n"
+"\n"
+" Legg inn stien til katalogen du vil gå til.\n"
+"\n"
+" Dersom tab-fullføring er tilgjengelig kan du bruke TAB tasten for å "
+"(forsøke å) automatisk fullføre katalognavnet.\n"
+"\n"
+" Følgende funksjonstaster er tilgjengelig i Gå til Katalog modus:\n"
+
+#: nano.c:349
+msgid ""
+"Spell Check Help Text\n"
+"\n"
+" The spell checker checks the spelling of all text in the current file.  "
+"When an unknown word is encountered, it is highlighted and a replacement can "
+"be edited.  It will then prompt to replace every instance of the given "
+"misspelled word in the current file.\n"
+"\n"
+" The following other functions are available in Spell Check mode:\n"
+"\n"
+msgstr ""
+"Hjelp til stavekontroll\n"
+"\n"
+" Stavekontrollen ser på teksten i gjeldende buffer.  Kommer den over et "
+"ukjent ord vil den markere dette og en erstatning kan legges inn.  Den vil "
+"så spørre om alle instanser av feilstavelsen skal erstattes i den gjeldende "
+"filen.\n"
+"\n"
+" Følgende andre funksjoner er tilgjengelig i Stavekontroll modus:\n"
+"\n"
+
+#: nano.c:360
+msgid ""
+"External Command Help Text\n"
+"\n"
+" This menu allows you to insert the output of a command run by the shell "
+"into the current buffer (or a new buffer in multibuffer mode).\n"
+"\n"
+" The following keys are available in this mode:\n"
+"\n"
+msgstr ""
+"Hjelp til eksterne kommandoer\n"
+"\n"
+" Denne menye tillater der å sette inn out-data fra en kommando kjørt i "
+"skallet i gjeldende buffer (eller i et nytt buffer i multibuffer modus).\n"
+"\n"
+" Følgende tastetrykk er tilgjengelig i dette moduset:\n"
+
+#: nano.c:367
+msgid ""
+" nano help text\n"
+"\n"
+" The nano editor is designed to emulate the functionality and ease-of-use of "
+"the UW Pico text editor.  There are four main sections of the editor: The "
+"top line shows the program version, the current filename being edited, and "
+"whether or not the file has been modified.  Next is the main editor window "
+"showing the file being edited.  The status line is the third line from the "
+"bottom and shows important messages. The bottom two lines show the most "
+"commonly used shortcuts in the editor.\n"
+"\n"
+" The notation for shortcuts is as follows: Control-key sequences are notated "
+"with a caret (^) symbol and are entered with the Control (Ctrl) key.  Escape-"
+"key sequences are notated with the Meta (M) symbol and can be entered using "
+"either the Esc, Alt or Meta key depending on your keyboard setup.  The "
+"following keystrokes are available in the main editor window.  Alternative "
+"keys are shown in parentheses:\n"
+"\n"
+msgstr ""
+" Nano hjelpetekst\n"
+"\n"
+" Nano tekstredigeringsprogram er designet for å etterligne funksjonaliteten "
+"og bruksmåten for universitetet i Washington sitt Pico-program.  Der er fire "
+"hovedområder i dette programmet: Den øverste linjen viser versjonsnummeret "
+"og navnet på filen som blir redigert. Nedenfor er hovedvinduet som viser "
+"filen som blir endret. Status-linja er den 3. linjen nedenfra og viser "
+"viktige meldinger. De to nederste linjene viser de vanligste snarveiene i "
+"programmet.\n"
+"\n"
+" Snarveiene er beskrevet slik: Control-tast sekvenser er skrevet med et "
+"karet (^) symbol, og blir skrevet med Control (Ctrl) tasten. Escape-tast "
+"sekvenser er skrevet med meta (M) symbolet og kan skrives enten med Esc, Alt "
+"eller Meta-tasten avhengig av tastaturoppsettet ditt.\n"
+"\n"
+"Følgende tastetrykk er tilgjengelige i hovedvinduet. Valgfrie taster er vist "
+"i parentes:\n"
+"\n"
+
+# Var: msgstr "%s skru på/av"
+#: nano.c:396 nano.c:466
+msgid "enable/disable"
+msgstr "på/av"
+
+# Var: "Erstatt", should be "Mellomrom" or "Mellomslag", but 's a bit long
+#: nano.c:423 nano.c:426
+msgid "Space"
+msgstr "Space"
+
+#: nano.c:630
+#, c-format
+msgid ""
+"Usage: nano [+LINE] [GNU long option] [option] [file]\n"
+"\n"
+msgstr ""
+"Bruk: nano [+LINJE] [GNU lange opsjoner] [opsjoner] [fil]\n"
+"\n"
+
+#: nano.c:631
+#, c-format
+msgid "Option\t\tLong option\t\tMeaning\n"
+msgstr "Opsjon\t\tLang opsjon\t\tBetydning\n"
+
+#: nano.c:633
+#, c-format
+msgid ""
+"Usage: nano [+LINE] [option] [file]\n"
+"\n"
+msgstr ""
+"Bruk: nano [+LINJE] [opsjon] [fil]\n"
+"\n"
+
+#: nano.c:634
+#, c-format
+msgid "Option\t\tMeaning\n"
+msgstr "Opsjon\t\tBetydning\n"
+
+#: nano.c:637
+msgid "Show this message"
+msgstr "Vis denne meldingen"
+
+#: nano.c:638
+msgid "+LINE"
+msgstr "+LINJE"
+
+#: nano.c:638
+msgid "Start at line number LINE"
+msgstr "Start på linje nummer LINJE"
+
+#: nano.c:640
+msgid "Backup existing files on save"
+msgstr "Ta sikkerhetskopi av eksisterende filer ved lagring"
+
+#: nano.c:641
+msgid "Write file in DOS format"
+msgstr "Lagre fil i DOS-format"
+
+#: nano.c:644
+msgid "Enable multiple file buffers"
+msgstr "Muliggjør flere filbuffere"
+
+#: nano.c:648
+msgid "Log & read search/replace string history"
+msgstr "Ta vare på og logg historie med søk og erstatt strenger"
+
+#: nano.c:650
+msgid "Don't look at nanorc files"
+msgstr "Ignorer nanorc filer"
+
+#: nano.c:652
+msgid "Use alternate keypad routines"
+msgstr "Bruk alternative rutiner for numerisk tastatur"
+
+#: nano.c:654
+msgid "Write file in Mac format"
+msgstr "Lagre fil i Mac-format"
+
+#: nano.c:655
+msgid "Don't convert files from DOS/Mac format"
+msgstr "Ikke konverter filer fra DOS-/Mac-format"
+
+#: nano.c:658
+msgid "-Q [str]"
+msgstr "-Q [str]"
+
+#: nano.c:658
+msgid "--quotestr=[str]"
+msgstr "--quotestr=[str]"
+
+#: nano.c:658
+msgid "Quoting string, default \"> \""
+msgstr "Kvoteringsstreng, standard er \"> \""
+
+#: nano.c:661
+msgid "Do regular expression searches"
+msgstr "Søk på regulære uttrykk"
+
+#: nano.c:666
+msgid "-T [num]"
+msgstr "-T [num]"
+
+#: nano.c:666
+msgid "--tabsize=[num]"
+msgstr "--tabsize=[num]"
+
+#: nano.c:666
+msgid "Set width of a tab to num"
+msgstr "Sett tabulatorbredde num"
+
+#: nano.c:667
+msgid "Print version information and exit"
+msgstr "Skriv versjonsnummer og avslutt"
+
+#: nano.c:669
+msgid "-Y [str]"
+msgstr "-Y [str]"
+
+#: nano.c:669
+msgid "--syntax [str]"
+msgstr "--syntax [str]"
+
+#: nano.c:669
+msgid "Syntax definition to use"
+msgstr "Syntaks definisjon som skal brukes"
+
+#: nano.c:671
+msgid "Constantly show cursor position"
+msgstr "Vis alltid pekerposisjonen"
+
+#: nano.c:673
+msgid "Automatically indent new lines"
+msgstr "Indenter nye linjer automagisk"
+
+#: nano.c:674
+msgid "Let ^K cut from cursor to end of line"
+msgstr "La ^K kutte fra peker til slutten av linjen"
+
+#: nano.c:676
+msgid "Don't follow symbolic links, overwrite"
+msgstr "Ikke følg symbolske linker, overskriv"
+
+#: nano.c:678
+msgid "Enable mouse"
+msgstr "Aktiver mus"
+
+#: nano.c:681
+msgid "-o [dir]"
+msgstr "-o [kat]"
+
+#: nano.c:681
+msgid "--operatingdir=[dir]"
+msgstr "--operatingdir=[kat]"
+
+#: nano.c:681
+msgid "Set operating directory"
+msgstr "Sett gjeldende katalog"
+
+#: nano.c:683
+msgid "Preserve XON (^Q) and XOFF (^S) keys"
+msgstr "Ta vare på XON (^Q) og XOFF (^S) tastetrykk"
+
+#: nano.c:685
+msgid "-r [#cols]"
+msgstr "-r [#cols]"
+
+#: nano.c:685
+msgid "--fill=[#cols]"
+msgstr "--fill=[#cols]"
+
+#: nano.c:685
+msgid "Set fill cols to (wrap lines at) #cols"
+msgstr "Bryt linjer ved posisjon #cols"
+
+#: nano.c:688
+msgid "-s [prog]"
+msgstr "-s [prog]"
+
+#: nano.c:688
+msgid "--speller=[prog]"
+msgstr "--speller=[prog]"
+
+#: nano.c:688
+msgid "Enable alternate speller"
+msgstr "Tillat alternativ stavekontroll"
+
+#: nano.c:690
+msgid "Auto save on exit, don't prompt"
+msgstr "Lagre automatisk og uten spørsmål ved avslutning"
+
+#: nano.c:691
+msgid "View (read only) mode"
+msgstr "Visnings (bare les) modus"
+
+#: nano.c:693
+msgid "Don't wrap long lines"
+msgstr "Ikke bryt lange linjer"
+
+#: nano.c:695
+msgid "Don't show help window"
+msgstr "Ikke vis hjelpevindu"
+
+#: nano.c:696
+msgid "Enable suspend"
+msgstr "Tillat suspendering"
+
+#: nano.c:699
+msgid "(ignored, for Pico compatibility)"
+msgstr "(ignonret, for Pico kompatibilitet)"
+
+#: nano.c:706
+#, c-format
+msgid " GNU nano version %s (compiled %s, %s)\n"
+msgstr "GNU nano versjon %s (kompilert %s, %s)\n"
+
+#: nano.c:709
+#, c-format
+msgid " Email: nano@nano-editor.org\tWeb: http://www.nano-editor.org/"
+msgstr "Epost: nano@nano-editor.org\tVev: http://www.nano-editor.org"
+
+#: nano.c:710
+#, c-format
+msgid ""
+"\n"
+" Compiled options:"
+msgstr ""
+"\n"
+" Kompilerte opsjoner:"
+
+#: nano.c:782
+msgid "Sorry, support for this function has been disabled"
+msgstr "Beklager, støtte for denne funksjonen er deaktivert"
+
+# Var:  "Kunne ikke lukke %s: %s"
+#: nano.c:816
+msgid "Could not pipe"
+msgstr "Kunne ikke pipe"
+
+# Var: "Kunne ikke lukke %s: %s"
+#: nano.c:838 nano.c:1788 nano.c:1921
+msgid "Could not fork"
+msgstr "Kunne ikke forke prosess"
+
+#: nano.c:1375
+msgid "Mark Set"
+msgstr "Merke satt"
+
+#: nano.c:1380
+msgid "Mark UNset"
+msgstr "Merke fjerna"
+
+#: nano.c:1643
+msgid "Edit a replacement"
+msgstr "Rediger erstatning"
+
+# Var:  "Kunne ikke lukke %s: %s"
+#: nano.c:1696
+msgid "Could not create pipe"
+msgstr "Kunne ikke opprette pipe"
+
+#: nano.c:1698
+msgid "Creating misspelled word list, please wait..."
+msgstr "Genererer feilstavelses ordliste, vennligst vent..."
+
+# var : "Kunne ikke åpne %s for skriving: %s"
+#: nano.c:1794
+msgid "Could not get size of pipe buffer"
+msgstr "Kunne ikke finne størrelse på pipe buffer"
+
+#: nano.c:1846
+msgid "Error invoking \"spell\""
+msgstr "Kunne ikke starte \"spell\""
+
+#: nano.c:1849
+msgid "Error invoking \"sort -f\""
+msgstr "Kunne ikke starte \"sort -f\""
+
+#: nano.c:1852
+msgid "Error invoking \"uniq\""
+msgstr "Kunne ikke starte \"uniq\""
+
+#: nano.c:1928
+#, c-format
+msgid "Could not invoke \"%s\""
+msgstr "Kunne ikke kjøre \"%s\""
+
+#: nano.c:1971
+#, c-format
+msgid "Could not create a temporary filename: %s"
+msgstr "Kunne ikke opprette midlertidig fil: %s"
+
+#: nano.c:1977
+msgid "Spell checking failed: unable to write temp file!"
+msgstr "Stavekontroll feilet: kunne ikke skrive til midlertidig fil!"
+
+#: nano.c:1996
+#, c-format
+msgid "Spell checking failed: %s"
+msgstr "Stavekontroll feilet: %s"
+
+#: nano.c:2000
+msgid "Finished checking spelling"
+msgstr "Stavekontroll fullført"
+
+#: nano.c:2343
+#, c-format
+msgid "Bad quote string %s: %s"
+msgstr "Ugyldig kvoteringsstreng %s: %s"
+
+#: nano.c:2610
+msgid "Can now UnJustify!"
+msgstr "Du kan nå avjustere!"
+
+#: nano.c:2706
+msgid "Save modified buffer (ANSWERING \"No\" WILL DESTROY CHANGES) ? "
+msgstr "Lagre endret buffer (SVAR \"Nei\" OG ENDRINGER GÅR TAPT) ? "
+
+#: nano.c:2806
+msgid "Received SIGHUP or SIGTERM\n"
+msgstr "Mottok SIGHUP eller SIGTERM\n"
+
+#: nano.c:2813
+msgid "Use \"fg\" to return to nano"
+msgstr "Bruk \"fg\" for å gå tilbake til nano"
+
+#: nano.c:2941
+msgid "NumLock glitch detected.  Keypad will malfunction with NumLock off"
+msgstr "NumLock-feil oppdaget. Nummer-tastane vil fungere feil med NumLock av"
+
+#: nano.c:2990
+msgid "enabled"
+msgstr "på"
+
+#: nano.c:2990
+msgid "disabled"
+msgstr "av"
+
+# Vinduet eller Tabulatorstørrelse ?
+#: nano.c:3186
+#, c-format
+msgid "Tab size is too small for nano...\n"
+msgstr "Tabulatorstørrelsen er for lite for nano...\n"
+
+#: nano.c:3745
+msgid "XOFF ignored, mumble mumble."
+msgstr "XOFF ignorert, mumlemumle."
+
+#: nano.c:3747
+msgid "XON ignored, mumble mumble."
+msgstr "XON ignorert, mumlemumle."
+
+#: rcfile.c:105
+#, c-format
+msgid "Error in %s on line %d: "
+msgstr "Feil i %s på linje %d: "
+
+#: rcfile.c:110
+#, c-format
+msgid ""
+"\n"
+"Press return to continue starting nano\n"
+msgstr ""
+"\n"
+"Trykk retur for å fortsette lastingen av nano\n"
+
+#: rcfile.c:175
+#, c-format
+msgid "argument %s has unterminated \""
+msgstr "argument %s har uterminert \""
+
+# Hvor kan man i10n'e selve valgene også? dvs. grønn, rød, osv?
+#: rcfile.c:217
+#, c-format
+msgid ""
+"color %s not understood.\n"
+"Valid colors are \"green\", \"red\", \"blue\", \n"
+"\"white\", \"yellow\", \"cyan\", \"magenta\" and \n"
+"\"black\", with the optional prefix \"bright\".\n"
+msgstr ""
+"farve %s ikke forstått.\n"
+"Gyldige farver er \"green\", \"red\", \"blue\", \n"
+"\"white\", \"yellow\", \"cyan\", \"magenta\" og \n"
+"\"black\" med valgfritt prefiks \"bright\".\n"
+
+# var: "Kan ikke åpne \"%s\": %s"
+#: rcfile.c:256
+#, c-format
+msgid "Bad regex \"%s\": %s"
+msgstr "Ugyldig regulært uttrykk \"%s\": %s"
+
+#: rcfile.c:276 rcfile.c:400 rcfile.c:447
+msgid "regex strings must begin and end with a \" character\n"
+msgstr "strenger med regulæruttrykk må begynne- og slutte med et \" tegn\n"
+
+#: rcfile.c:285
+msgid "Missing syntax name"
+msgstr "Mangler syntaksnavn"
+
+#: rcfile.c:354
+msgid "Missing color name"
+msgstr "Mangler farvenavn"
+
+#: rcfile.c:371
+msgid "Cannot add a color directive without a syntax line"
+msgstr "Kan ikke legge til farvedirektiv uten en syntakslinje"
+
+#: rcfile.c:439
+msgid "\"start=\" requires a corresponding \"end=\""
+msgstr "\"start=\" må ha en korresponderende \"end=\""
+
+#: rcfile.c:511
+#, c-format
+msgid "command %s not understood"
+msgstr "kommando %s ikke forståelig"
+
+#: rcfile.c:543
+#, c-format
+msgid "option %s requires an argument"
+msgstr "opsjon %s krever et argument"
+
+#: rcfile.c:568
+#, c-format
+msgid "requested fill size %d invalid"
+msgstr "den foreslåtte fyllbredden %d er ugyldig"
+
+#: rcfile.c:592
+#, c-format
+msgid "requested tab size %d invalid"
+msgstr "den foreslåtte tabstørrelsen %d er ugyldig"
+
+#: rcfile.c:616
+msgid "Errors found in .nanorc file"
+msgstr "Feil funnet i .nanorc filen"
+
+#: rcfile.c:652
+msgid "I can't find my home directory!  Wah!"
+msgstr "Jeg finner ikke hjemmekatalogen min! Buhu!"
+
+#: rcfile.c:672
+#, c-format
+msgid "Unable to open ~/.nanorc file, %s"
+msgstr "Kan ikke åpne ~/.nanorc, %s"
+
+#: search.c:63
+#, c-format
+msgid "\"%s...\" not found"
+msgstr "\"%s...\" ikke funnet"
+
+#: search.c:105
+#, c-format
+msgid "Invalid regex \"%s\""
+msgstr "Ugyldig regulært uttrykk \"%s\""
+
+#: search.c:133
+msgid "Search"
+msgstr "Søk"
+
+#: search.c:137
+msgid " [Case Sensitive]"
+msgstr " [Skill mellom store/små bokstaver]"
+
+#: search.c:141
+msgid " [Regexp]"
+msgstr " [Regulært uttrykk]"
+
+#: search.c:145
+msgid " [Backwards]"
+msgstr " [Bakover]"
+
+#: search.c:147
+msgid " (to replace)"
+msgstr " (å erstatte)"
+
+#: search.c:155
+msgid "Search Cancelled"
+msgstr "Søk avbrutt"
+
+#: search.c:300 search.c:357
+msgid "Search Wrapped"
+msgstr "Søket gikk rundt"
+
+#: search.c:432
+msgid "This is the only occurrence"
+msgstr "Dette er eneste forekomst"
+
+#: search.c:585 search.c:751
+msgid "Replace Cancelled"
+msgstr "Erstatt Avbrutt"
+
+#: search.c:661
+msgid "Replace this instance?"
+msgstr "Erstatt dette tilfellet?"
+
+#: search.c:686
+msgid "Replace failed: unknown subexpression!"
+msgstr "Erstatt feilet: ukjent underuttrykk!"
+
+#: search.c:788
+msgid "Replace with"
+msgstr "Erstatt med"
+
+#: search.c:808
+#, c-format
+msgid "Replaced %d occurrence"
+msgid_plural "Replaced %d occurrences"
+msgstr[0] "Erstattet %d tilfelle"
+msgstr[1] "Erstattet %d tilfeller"
+
+#: search.c:829
+msgid "Enter line number"
+msgstr "Skriv linjenummer"
+
+#: search.c:833
+msgid "Aborted"
+msgstr "Avbrutt"
+
+#: search.c:843
+msgid "Come on, be reasonable"
+msgstr "Kom igjen, samarbeid litt"
+
+#: search.c:903
+msgid "Not a bracket"
+msgstr "Ikke en klamme"
+
+#: search.c:954
+msgid "No matching bracket"
+msgstr "Ingen matchende klamme"
+
+#: utils.c:257 utils.c:267
+msgid "nano is out of memory!"
+msgstr "nano er tom for minne!"
+
+#: winio.c:600
+msgid "  File: ..."
+msgstr "  Fil: ..."
+
+#: winio.c:602
+msgid "   DIR: ..."
+msgstr "   KAT: ..."
+
+#: winio.c:607
+msgid "File: "
+msgstr "Fil: "
+
+#: winio.c:610
+msgid " DIR: "
+msgstr " KAT: "
+
+#: winio.c:615
+msgid " Modified "
+msgstr " Endret "
+
+#: winio.c:617
+msgid " View "
+msgstr " Vis "
+
+#: winio.c:803
+msgid "Refusing 0 length regex match"
+msgstr "Nekter søk på 0 lengde regulært uttrykk"
+
+#: winio.c:1297
+msgid "Yy"
+msgstr "JjYy"
+
+#: winio.c:1298
+msgid "Nn"
+msgstr "Nn"
+
+#: winio.c:1299
+msgid "Aa"
+msgstr "Aa"
+
+#: winio.c:1310
+msgid "Yes"
+msgstr "Ja"
+
+#: winio.c:1315
+msgid "All"
+msgstr "Alle"
+
+#: winio.c:1320
+msgid "No"
+msgstr "Nei"
+
+# Var: "linje %d av %d (%.0f%%), tegn %ld av %ld (%.0f%%)"
+#: winio.c:1499
+#, c-format
+msgid "line %ld/%ld (%d%%), col %lu/%lu (%d%%), char %lu/%ld (%d%%)"
+msgstr "linje %ld/%ld (%d%%), kol %lu/%lu (%d%%), tegn %lu/%ld (%d%%)"
+
+#: winio.c:1838
+msgid "The nano text editor"
+msgstr "Tekstbehandleren nano"
+
+#: winio.c:1839
+msgid "version "
+msgstr "versjon "
+
+#: winio.c:1840
+msgid "Brought to you by:"
+msgstr "Brakt til deg av:"
+
+#: winio.c:1841
+msgid "Special thanks to:"
+msgstr "Mange takk til:"
+
+# Oversette dette ?
+#: winio.c:1842
+msgid "The Free Software Foundation"
+msgstr "The Free Sofware Foundation"
+
+#: winio.c:1843
+msgid "For ncurses:"
+msgstr "For ncurses:"
+
+#: winio.c:1844
+msgid "and anyone else we forgot..."
+msgstr "og alle de andre vi glemte..."
+
+#: winio.c:1845
+msgid "Thank you for using nano!\n"
+msgstr "Takk for at du bruker nano!\n"
+
+#~ msgid "Cannot resize top win"
+#~ msgstr "Kan ikke endre størrelse på toppvinduet"
+
+#~ msgid "Cannot move top win"
+#~ msgstr "Kan ikke flytte toppvinduet"
+
+#~ msgid "Cannot resize edit win"
+#~ msgstr "Kan ikke endre størrelse på redigeringsvinduet"
+
+#~ msgid "Cannot move edit win"
+#~ msgstr "Kan ikke flytte redigeringsvinduet"
+
+#~ msgid "Cannot resize bottom win"
+#~ msgstr "Kan ikke endre størrelsen på bunnvinduet"
+
+#~ msgid "Cannot move bottom win"
+#~ msgstr "Kan ikke flytte bunnvinduet"
+
+#~ msgid "add_to_cutbuffer() called with inptr->data = %s\n"
+#~ msgstr "add_to_cutbuffer() ble kalt med inptr->data = %s\n"
+
+#~ msgid "Blew away cutbuffer =)\n"
+#~ msgstr "Frigjorde cut-bufferet\n"
+
+#~ msgid "filename is %s\n"
+#~ msgstr "filnavnet er %s\n"
+
+# Var:msgstr "delete_node(): frigjorde en node, HURRA !\n"
+#~ msgid "%s: free'd a node, YAY!\n"
+#~ msgstr "%s: frigjorde en node, HURRA !\n"
+
+#~ msgid "%s: free'd last node.\n"
+#~ msgstr "%s: frigjorde siste node.\n"
+
+#~ msgid "Backing up %s to %s\n"
+#~ msgstr "Lagrer sikkerhetskopi av %s til %s\n"
+
+#~ msgid "Wrote >%s\n"
+#~ msgstr "Skrev >%s\n"
+
+#~ msgid "Could not open %s for tillegg først i fil: %s"
+#~ msgstr "Kunne ikke åpne %s for skriving: %s"
+
+#~ msgid "current->data now = \"%s\"\n"
+#~ msgstr "current->data nå = \"%s\"\n"
+
+#~ msgid "After, data = \"%s\"\n"
+#~ msgstr "Etter, data = \"%s\"\n"
+
+#~ msgid "Main: set up windows\n"
+#~ msgstr "Hoved: Vinduer satt opp\n"
+
+#~ msgid "Main: bottom win\n"
+#~ msgstr "Hoved: bunnvindu\n"
+
+#~ msgid "Main: open file\n"
+#~ msgstr "Hoved: åpne fil\n"
+
+#~ msgid "AHA!  %c (%d)\n"
+#~ msgstr "Aha! '%c' (%d)\n"
+
+#~ msgid "I got Alt-O-%c! (%d)\n"
+#~ msgstr "Jeg fikk Alt-O-%c! (%d)\n"
+
+#~ msgid "I got Alt-[-1-%c! (%d)\n"
+#~ msgstr "Jeg fikk Alt-[-1-%c! (%d)\n"
+
+#~ msgid "I got Alt-[-2-%c! (%d)\n"
+#~ msgstr "Jeg fikk Alt-[-2-%c! (%d)\n"
+
+#~ msgid "I got Alt-[-%c! (%d)\n"
+#~ msgstr "Jeg fikk Alt-[-%c! (%d)\n"
+
+#~ msgid "I got Alt-%c! (%d)\n"
+#~ msgstr "Jeg fikk Alt-%c! (%d)\n"
+
+# Hvorfor Alt-%c, når orginalen er uten? #"Jeg fikk Alt-%c (%d)\n"
+#~ msgid "I got %c (%d)!\n"
+#~ msgstr "Jeg fikk %c (%d)!\n"
+
+#~ msgid "Adding new syntax after 1st\n"
+#~ msgstr "Legger til ny syntakls etter den første\n"
+
+#~ msgid "Starting a new syntax type\n"
+#~ msgstr "Starter ny syntakstype\n"
+
+#~ msgid "Starting a new colorstring for fg %d bg %d\n"
+#~ msgstr "Starter en ny farvestreng for fg %d bg %d\n"
+
+#~ msgid "Adding new entry for fg %d bg %d\n"
+#~ msgstr "Legger til ny entry for fg %d bg %d\n"
+
+#~ msgid "%s: Read a comment\n"
+#~ msgstr "%s: Leste en kommentar\n"
+
+#~ msgid "%s: Parsing option %s\n"
+#~ msgstr "%s: Tolker opsjon %s\n"
+
+#~ msgid "set flag %d!\n"
+#~ msgstr "sett flagget %d!\n"
+
+#~ msgid "unset flag %d!\n"
+#~ msgstr "Skru av flagget %d!\n"
+
+#~ msgid "actual_x for xplus=%d returns %d\n"
+#~ msgstr "actual_x for xplus=%d returnerer %d\n"
+
+#~ msgid "Aha! '%c' (%d)\n"
+#~ msgstr "Aha! '%c' (%d)\n"
+
+#~ msgid "input '%c' (%d)\n"
+#~ msgstr "input '%c' (%d)\n"
+
+#~ msgid "Moved to (%d, %d) in edit buffer\n"
+#~ msgstr "Flyttet til (%d, %d) i rediger buffer\n"
+
+#~ msgid "I got \"%s\"\n"
+#~ msgstr "Jeg fikk \"%s\"\n"
+
+#~ msgid "Dumping file buffer to stderr...\n"
+#~ msgstr "Dumper fil-bufferet til stderr...\n"
+
+#~ msgid "Dumping cutbuffer to stderr...\n"
+#~ msgstr "Dumper klippbufferet til stderr...\n"
+
+#~ msgid "Dumping a buffer to stderr...\n"
+#~ msgstr "Dumper et buffer til stderr...\n"
+
+#~ msgid "Can't visit parent in restricted mode"
+#~ msgstr "Kan ikke besøke forelder i begrenset modus"
+
+#, fuzzy
+#~ msgid "delete_opennode(): free'd a node, YAY!\n"
+#~ msgstr "delete_node(): frigjorde en node, HURRA !\n"
+
+#, fuzzy
+#~ msgid "delete_opennode(): free'd last node.\n"
+#~ msgstr "delete_node(): frigjorde siste node.\n"
+
+#, fuzzy
+#~ msgid "delete_node(): free'd a node, YAY!\n"
+#~ msgstr "delete_node(): frigjorde en node, HURRA !\n"
+
+#, fuzzy
+#~ msgid "delete_node(): free'd last node.\n"
+#~ msgstr "delete_node(): frigjorde siste node.\n"
+
+#, fuzzy
+#~ msgid "Press return to continue\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Trykk retur for å fortsette lastingen av nano\n"
+
+#~ msgid "current->data = \"%s\"\n"
+#~ msgstr "current->data = \"%s\"\n"
+
+#~ msgid "do_cursorpos: linepct = %f, bytepct = %f\n"
+#~ msgstr "do_cursorpos: linepct = %f, bytepct = %f\n"
+
+#~ msgid "read_line: not on first line and prev is NULL"
+#~ msgstr "read_line: ikke på første linje, og prev er NULL"
+
+#~ msgid "Pico mode"
+#~ msgstr "Pico-instilling"
+
+#, fuzzy
+#~ msgid "Emulate Pico as closely as possible"
+#~ msgstr " -p \t\tEtterlign Pico så nært som mulig\n"
+
+#, fuzzy
+#~ msgid "Replaced 1 occurrence"
+#~ msgstr "Erstattet 1 tilfelle"
+
+#~ msgid "Replace with [%s]"
+#~ msgstr "Erstatt med [%s]"
+
+#~ msgid "nano: realloc: out of memory!"
+#~ msgstr "nano: realloc: tom for minne!"
+
+#, fuzzy
+#~ msgid "Could not open file: Path length exceeded."
+#~ msgstr "Kunne ikke åpne filen for skriving: %s"
+
+#, fuzzy
+#~ msgid " -T \t\t--tabsize=[num]\t\tSet width of a tab to num\n"
+#~ msgstr " -T [num]\t--tabsize=[num]\t\tSett størrelsen på tab til num\n"
+
+#~ msgid " -R\t\t--regexp\t\tUse regular expressions for search\n"
+#~ msgstr " -R\t\t--regexp\t\tBruk regulære uttrykk\n"
+
+#~ msgid " -V \t\t--version\t\tPrint version information and exit\n"
+#~ msgstr " -V \t\t--version\t\tSkriv ut versjonsnummer og avslutt\n"
+
+#~ msgid " -c \t\t--const\t\t\tConstantly show cursor position\n"
+#~ msgstr " -c \t\t--const\t\t\tVis pekerposisjon\n"
+
+#~ msgid " -h \t\t--help\t\t\tShow this message\n"
+#~ msgstr " -h \t\t--help\t\t\tVis denne meldinga\n"
+
+#~ msgid " -k \t\t--cut\t\t\tLet ^K cut from cursor to end of line\n"
+#~ msgstr " -k \t\t--cut\t\t\tLa ^K klippe fra peker til linjeslutt\n"
+
+#~ msgid " -i \t\t--autoindent\t\tAutomatically indent new lines\n"
+#~ msgstr " -i \t\t--autonindent\t\tIndenter nye linjer automatisk\n"
+
+#~ msgid " -l \t\t--nofollow\t\tDon't follow symbolic links, overwrite\n"
+#~ msgstr " -l \t\t--nofollow\t\tIkke følg symbolske linker, skriv over\n"
+
+#~ msgid " -m \t\t--mouse\t\t\tEnable mouse\n"
+#~ msgstr " -m \t\t--mouse\t\t\tSkru på musstøttet\n"
+
+#~ msgid ""
+#~ " -r [#cols] \t--fill=[#cols]\t\tSet fill cols to (wrap lines at) #cols\n"
+#~ msgstr " -r [#cols] \t--fill=[#cols]\t\tBryt linjer på posisjon #cols\n"
+
+#, fuzzy
+#~ msgid " -p\t \t--pico\t\t\tEmulate Pico as closely as possible\n"
+#~ msgstr " -p \t\t--pico\t\t\tEtterlign Pico så nøye som mulig\n"
+
+#~ msgid " -s [prog] \t--speller=[prog]\tEnable alternate speller\n"
+#~ msgstr " -s [prog] \t--speller=[prog]\tBruk prog for stavesjekk\n"
+
+#~ msgid " -t \t\t--tempfile\t\tAuto save on exit, don't prompt\n"
+#~ msgstr " -t \t\t--tempfile\t\tAutolagre ved avslutting, ikke spør\n"
+
+#~ msgid " -v \t\t--view\t\t\tView (read only) mode\n"
+#~ msgstr " -v \t\t--view\t\t\tVis (bare lesing) modus\n"
+
+#~ msgid " -w \t\t--nowrap\t\tDon't wrap long lines\n"
+#~ msgstr " -w \t\t--nowrap\t\tIkke bryt lange linjer\n"
+
+#~ msgid " -x \t\t--nohelp\t\tDon't show help window\n"
+#~ msgstr " -x \t\t--nohelp\t\tIkke vis hjelpevindu\n"
+
+# Kva i alle dagar er "suspend" på norsk?
+#~ msgid " -z \t\t--suspend\t\tEnable suspend\n"
+#~ msgstr " -z \t\t--suspend\t\tSkru på suspend\n"
+
+#~ msgid " +LINE\t\t\t\t\tStart at line number LINE\n"
+#~ msgstr " +LINJE\t\t\t\t\tStart på linje LINJE\n"
+
+#~ msgid " -R\t\tUse regular expressions for search\n"
+#~ msgstr " -R\t\tBruk regulære uttrykk for søking\n"
+
+#, fuzzy
+#~ msgid " -h \t\tShow this message\n"
+#~ msgstr " -h \t\t--help\t\t\tVis denne meldinga\n"
+
+#, fuzzy
+#~ msgid " -k \t\tLet ^K cut from cursor to end of line\n"
+#~ msgstr " -k \t\t--cut\t\t\tLa ^K klippe fra peker til linjeslutt\n"
+
+#, fuzzy
+#~ msgid " -m \t\tEnable mouse\n"
+#~ msgstr " -m \t\t--mouse\t\t\tSkru på musstøttet\n"
+
+#, fuzzy
+#~ msgid " -r [#cols] \tSet fill cols to (wrap lines at) #cols\n"
+#~ msgstr " -r [#cols] \t--fill=[#cols]\t\tBryt linjer på posisjon #cols\n"
+
+#, fuzzy
+#~ msgid " -s [prog]  \tEnable alternate speller\n"
+#~ msgstr " -s [prog] \t--speller=[prog]\tBruk prog for stavesjekk\n"
+
+#, fuzzy
+#~ msgid " -v \t\tView (read only) mode\n"
+#~ msgstr " -v \t\t--view\t\t\tVis (bare lesing) modus\n"
+
+#, fuzzy
+#~ msgid " +LINE\t\tStart at line number LINE\n"
+#~ msgstr " +LINJE\t\t\t\t\tStart på linje LINJE\n"
+
+#~ msgid "check_wrap called with inptr->data=\"%s\"\n"
+#~ msgstr "check_wrap kalt med inptr->data=\"%s\"\n"
+
+#, fuzzy
+#~ msgid "Case Sensitive Regexp Search%s%s"
+#~ msgstr "Søk (skill mellom store og små bokstavar)"
+
+#, fuzzy
+#~ msgid "Case Sensitive Search%s%s"
+#~ msgstr "Søk (skill mellom store og små bokstavar)"
+
+#~ msgid "Pavel Curtis, Zeyd Ben-Halim and Eric S. Raymond for ncurses"
+#~ msgstr "Pavel Curtis, Zeyd Ben-Halim og Eric S. Raymond for ncurses"
+
+#~ msgid "Backwards search"
+#~ msgstr "Søk bakover"
+
+#~ msgid "Goto"
+#~ msgstr "Gå til"
+
+#~ msgid "nano: calloc: out of memory!"
+#~ msgstr "nano: calloc: tom for minne!"
+
+#~ msgid " -D \t\t--dos\t\t\tWrite file in DOS format\n"
+#~ msgstr " -D \t\t--dos\t\t\tSkriv fil i DOS-format\n"
+
+#~ msgid " -F \t\t--multibuffer\t\tEnable multiple file buffers\n"
+#~ msgstr " -F \t\t--multibuffer\t\tMuliggjør flere filbuffere\n"
+
+#~ msgid " -K \t\t--keypad\t\tUse alternate keypad routines\n"
+#~ msgstr " -K \t\t--keypad\t\tBruk alternative nummertast-rutiner\n"
+
+#~ msgid " -M \t\t--mac\t\t\tWrite file in Mac format\n"
+#~ msgstr " -M \t\t--mac\t\t\tSkriv fil i Mac-format\n"
+
+#~ msgid " -S\t\t--smooth\t\tSmooth scrolling\n"
+#~ msgstr " -S\t\t--smooth\t\tJevn \"scrolling\"\n"
+
+#~ msgid " -o [dir] \t--operatingdir=[dir]\tSet operating directory\n"
+#~ msgstr " -o [dir] \t--operatingdir=[kat]\tSett fungerende katalog\n"
+
+#~ msgid " -D \t\tWrite file in DOS format\n"
+#~ msgstr " -D \t\tSkriv fil i DOS-format\n"
+
+#~ msgid " -M \t\tWrite file in Mac format\n"
+#~ msgstr " -M \t\tskriv fil in Mac-format\n"
+
+#~ msgid " -S\t\tSmooth scrolling\n"
+#~ msgstr " -S\t\tJevn \"scrolling\"\n"
+
+#~ msgid "File already loaded"
+#~ msgstr "Filen er allerede lastet inn"
+
+#~ msgid "Write"
+#~ msgstr "Skriv"
+
+#~ msgid "Backward"
+#~ msgstr "Bakover"
+
+#~ msgid "Regexp "
+#~ msgstr "Regulært uttrykk"

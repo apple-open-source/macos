@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2000-2003, International Business Machines
+*   Copyright (C) 2000-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -313,79 +313,13 @@ u_parseCodePointRange(const char *s,
     }
 }
 
-
-U_CAPI const UChar * U_EXPORT2
-u_strSkipWhiteSpace(const UChar *s, int32_t length) {
-    int32_t i = 0, toReturn = 0;
-    UChar32 c = 0;
-    if(s == NULL) {
-        return NULL;
-    }
-    if(length == 0) {
-        return s;
-    }
-    if(length > 0) {
-        for(;;) {
-            if(i >= length) {
-                break;
-            }
-            toReturn = i;
-            U16_NEXT(s, i, length, c);
-            if(!(c == 0x20 || u_isUWhiteSpace(c))) {
-                break;
-            }
-        }
-    } else {
-        for(;;) {
-            toReturn = i;
-            U16_NEXT(s, i, length, c);
-            if(!(c == 0x20 || u_isUWhiteSpace(c)) || c == 0) {
-                break;
-            }
-        }
-    }
-    return s+toReturn;
-}
-
-
-U_CAPI const UChar * U_EXPORT2
-u_strTrailingWhiteSpaceStart(const UChar *s, int32_t length) {
-    int32_t i = 0, toReturn = 0;
-    UChar32 c = 0;
-    
-    if(s == NULL) {
-        return NULL;
-    }
-    if(length == 0) {
-        return s;
-    }
-    
-    if(length < 0) {
-        length = u_strlen(s);
-    }
-    
-    i = length;
-    for(;;) {
-        toReturn = i;
-        if(i <= 0) {
-            break;
-        }
-        U16_PREV(s, 0, i, c);
-        if(!(c == 0x20 || u_isUWhiteSpace(c))) {
-            break;
-        }
-    }
-    
-    return s+toReturn;
-}
-
 U_CAPI int32_t U_EXPORT2
 u_parseUTF8(const char *source, int32_t sLen, char *dest, int32_t destCapacity, UErrorCode *status) {
     const char *read = source;
     int32_t i = 0;
     unsigned int value = 0;
     if(sLen == -1) {
-        sLen = strlen(source);
+        sLen = (int32_t)strlen(source);
     }
     
     while(read < source+sLen) {

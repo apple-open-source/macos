@@ -1,9 +1,9 @@
 /*
- * "$Id: testipp.c,v 1.1.1.2 2003/04/18 19:52:24 jlovell Exp $"
+ * "$Id: testipp.c,v 1.5 2005/01/04 22:10:39 jlovell Exp $"
  *
  *   IPP test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -144,7 +144,7 @@ main(int  argc,			/* I - Number of command-line arguments */
   length = ippLength(request);
   if (length != sizeof(collection))
     printf("ERROR ippLength didn't compute the correct length (%d instead of %d bytes!)\n",
-           length, sizeof(collection));
+           length, (int)sizeof(collection));
 
   wused = 0;
   while ((state = ippWriteIO(wbuffer, write_cb, 1, NULL, request)) != IPP_DATA)
@@ -159,7 +159,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 
   if (wused != sizeof(collection))
   {
-    printf("ERROR expected %d bytes!\n", sizeof(collection));
+    printf("ERROR expected %d bytes!\n", (int)sizeof(collection));
     hex_dump(collection, sizeof(collection));
   }
   else if (memcmp(wbuffer, collection, wused))
@@ -517,5 +517,5 @@ write_cb(void        *data,		/* I - Data */
 
 
 /*
- * End of "$Id: testipp.c,v 1.1.1.2 2003/04/18 19:52:24 jlovell Exp $".
+ * End of "$Id: testipp.c,v 1.5 2005/01/04 22:10:39 jlovell Exp $".
  */

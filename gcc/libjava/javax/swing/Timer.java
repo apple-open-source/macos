@@ -1,5 +1,5 @@
-/* Timer.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* Timer.java --
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,118 +37,368 @@ exception statement from your version. */
 
 package javax.swing;
 
-import java.awt.event.*;
-import java.util.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.Serializable;
+import java.util.EventListener;
+import javax.swing.event.EventListenerList;
 
 
-public class Timer
+/**
+ * DOCUMENT ME!
+ */
+public class Timer implements Serializable
 {
-  int ticks;
-  static boolean verbose;
-  boolean running;
-  boolean repeat_ticks = true;
-  long interval, init_delay;
-  Vector actions = new Vector();
-    
-  class Waker extends Thread
+  /** DOCUMENT ME! */
+  private static final long serialVersionUID = -1116180831621385484L;
+
+  /** DOCUMENT ME! */
+  protected EventListenerList listenerList = new EventListenerList();
+
+  // This object manages a "queue" of virtual actionEvents, maintained as a
+  // simple long counter. When the timer expires, a new event is queued,
+  // and a dispatcher object is pushed into the system event queue. When
+  // the system thread runs the dispatcher, it will fire as many
+  // ActionEvents as have been queued, unless the timer is set to
+  // coalescing mode, in which case it will fire only one ActionEvent.
+
+  /** DOCUMENT ME! */
+  private long queue;
+
+  /** DOCUMENT ME! */
+  private Object queueLock = new Object();
+
+  /** DOCUMENT ME! */
+  private Waker waker;
+
+  /**
+   * DOCUMENT ME!
+   */
+  private void queueEvent()
   {
+    synchronized (queueLock)
+      {
+	queue++;
+	if (queue == 1)
+	  SwingUtilities.invokeLater(new Runnable()
+	      {
+		public void run()
+		{
+		  drainEvents();
+		}
+	      });
+
+      }
+  }
+
+  /**
+   * DOCUMENT ME!
+   */
+  private void drainEvents()
+  {
+    synchronized (queueLock)
+      {
+	if (isCoalesce())
+	  {
+	    if (queue > 0)
+	      fireActionPerformed();
+	  }
+	else
+	  {
+	    while (queue > 0)
+	      {
+		fireActionPerformed();
+		queue--;
+	      }
+	  }
+	queue = 0;
+      }
+  }
+
+  static boolean logTimers;
+
+  /** DOCUMENT ME! */
+  boolean coalesce = true;
+
+  /** DOCUMENT ME! */
+  boolean repeats = true;
+
+  /** DOCUMENT ME! */
+  boolean running;
+
+  /** DOCUMENT ME! */
+  int ticks;
+
+  /** DOCUMENT ME! */
+  int delay;
+
+  /** DOCUMENT ME! */
+  int initialDelay;
+
+  /**
+   * DOCUMENT ME!
+   */
+  private class Waker extends Thread
+  {
+    /**
+     * DOCUMENT ME!
+     */
     public void run()
     {
       running = true;
-      try {
-	sleep(init_delay);
-		
-	while (running)
-	  {
-	    sleep(interval);
+      try
+        {
+	  sleep(initialDelay);
 
-	    if (verbose)
-	      {
+	  while (running)
+	    {
+	      try
+	        {
+		  sleep(delay);
+	        }
+	      catch (InterruptedException e)
+	        {
+		  return;
+	        }
+	      queueEvent();
+
+	      if (logTimers)
 		System.out.println("javax.swing.Timer -> clocktick");
-	      }
 
-	    ticks++;
-	    fireActionPerformed();
-  
-	    if (! repeat_ticks)
-	      break;
-	  }
-	running = false;
-      } catch (Exception e) {
-	System.out.println("swing.Timer::" + e);
-      }
+	      if (! repeats)
+		break;
+	    }
+	  running = false;
+        }
+      catch (Exception e)
+        {
+//	  System.out.println("swing.Timer::" + e);
+        }
     }
   }
 
+  /**
+   * Creates a new Timer object.
+   *
+   * @param d DOCUMENT ME!
+   * @param listener DOCUMENT ME!
+   */
+  public Timer(int d, ActionListener listener)
+  {
+    delay = d;
+
+    if (listener != null)
+      addActionListener(listener);
+  }
+
+  /**
+   * DOCUMENT ME!
+   *
+   * @param c DOCUMENT ME!
+   */
+  public void setCoalesce(boolean c)
+  {
+    coalesce = c;
+  }
+
+  /**
+   * DOCUMENT ME!
+   *
+   * @return DOCUMENT ME!
+   */
+  public boolean isCoalesce()
+  {
+    return coalesce;
+  }
+
+  /**
+   * DOCUMENT ME!
+   *
+   * @param listener DOCUMENT ME!
+   */
   public void addActionListener(ActionListener listener)
   {
-    actions.addElement(listener);
+    listenerList.add(ActionListener.class, listener);
   }
+
+  /**
+   * DOCUMENT ME!
+   *
+   * @param listener DOCUMENT ME!
+   */
   public void removeActionListener(ActionListener listener)
   {
-    actions.removeElement(listener);
+    listenerList.remove(ActionListener.class, listener);
   }
 
+  /**
+   * DOCUMENT ME!
+   *
+   * @param listenerType DOCUMENT ME!
+   *
+   * @return DOCUMENT ME!
+   *
+   * @since 1.3
+   */
+  public EventListener[] getListeners(Class listenerType)
+  {
+    return listenerList.getListeners(listenerType);
+  }
+
+  /**
+   * DOCUMENT ME!
+   *
+   * @return DOCUMENT ME!
+   *
+   * @since 1.4
+   */
+  public ActionListener[] getActionListeners()
+  {
+    return (ActionListener[]) listenerList.getListeners(ActionListener.class);
+  }
+
+  /**
+   * DOCUMENT ME!
+   *
+   * @param event DOCUMENT ME!
+   */
+  protected void fireActionPerformed(ActionEvent event)
+  {
+    ActionListener[] listeners = getActionListeners();
+
+    for (int i = 0; i < listeners.length; i++)
+      listeners[i].actionPerformed(event);
+  }
+
+  /**
+   * DOCUMENT ME!
+   */
   void fireActionPerformed()
   {
-    for (int i=0;i<actions.size();i++)
-      {
-	ActionListener a = (ActionListener) actions.elementAt(i);
-	a.actionPerformed(new ActionEvent(this, ticks, "Timer"));
-      }
+    fireActionPerformed(new ActionEvent(this, ticks++, "Timer"));
   }
-  
 
-
-  public static void setLogTimers(boolean flag)
+  /**
+   * DOCUMENT ME!
+   *
+   * @param lt DOCUMENT ME!
+   */
+  public static void setLogTimers(boolean lt)
   {
-    verbose = flag;
+    logTimers = lt;
   }
 
+  /**
+   * DOCUMENT ME!
+   *
+   * @return DOCUMENT ME!
+   */
   public static boolean getLogTimers()
   {
-    return verbose;
+    return logTimers;
   }
-    
 
-  public void setDelay(int delay)
+  /**
+   * DOCUMENT ME!
+   *
+   * @param d DOCUMENT ME!
+   */
+  public void setDelay(int d)
   {
-    interval = delay;
+    delay = d;
   }
 
+  /**
+   * DOCUMENT ME!
+   *
+   * @return DOCUMENT ME!
+   */
   public int getDelay()
   {
-    return (int)interval;
+    return delay;
   }
 
-
-  public void setInitialDelay(int initialDelay)
+  /**
+   * DOCUMENT ME!
+   *
+   * @param i DOCUMENT ME!
+   */
+  public void setInitialDelay(int i)
   {
-    init_delay = initialDelay;
+    initialDelay = i;
   }
 
-  public void setRepeats(boolean flag)
+  /**
+   * DOCUMENT ME!
+   *
+   * @return DOCUMENT ME!
+   */
+  public int getInitialDelay()
   {
-    repeat_ticks = flag;
+    return initialDelay;
   }
 
-  boolean isRunning()
+  /**
+   * DOCUMENT ME!
+   *
+   * @param r DOCUMENT ME!
+   */
+  public void setRepeats(boolean r)
+  {
+    repeats = r;
+  }
+
+  /**
+   * DOCUMENT ME!
+   *
+   * @return DOCUMENT ME!
+   */
+  public boolean isRepeats()
+  {
+    return repeats;
+  }
+
+  /**
+   * DOCUMENT ME!
+   *
+   * @return DOCUMENT ME!
+   */
+  public boolean isRunning()
   {
     return running;
   }
 
-  void start()
+  /**
+   * DOCUMENT ME!
+   */
+  public void start()
   {
     if (isRunning())
-      {
-	System.err.println("attempt to start a running timer");
-	return;
-      }
-    new Waker().start();
+      return;
+    waker = new Waker();
+    waker.start();
   }
 
-  void stop()
+  /**
+   * DOCUMENT ME!
+   */
+  public void restart()
+  {
+    stop();
+    start();
+  }
+
+  /**
+   * DOCUMENT ME!
+   */
+  public void stop()
   {
     running = false;
+    if (waker != null)
+      waker.interrupt();
+    synchronized (queueLock)
+      {
+	queue = 0;
+      }
   }
 }

@@ -23,12 +23,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+/* $XFree86: xc/extras/freetype2/src/bdf/bdfdrivr.c,v 1.2 2003/06/15 16:45:50 tsi Exp $ */
 
 #include <ft2build.h>
 
 #include FT_INTERNAL_DEBUG_H
 #include FT_INTERNAL_STREAM_H
 #include FT_INTERNAL_OBJECTS_H
+#include FT_BDF_H
 
 #include "bdf.h"
 #include "bdfdrivr.h"
@@ -44,6 +46,130 @@ THE SOFTWARE.
   /*                                                                       */
 #undef  FT_COMPONENT
 #define FT_COMPONENT  trace_bdfdriver
+
+
+  typedef struct  BDF_CMapRec_
+  {
+    FT_CMapRec        cmap;
+    FT_UInt           num_encodings;
+    BDF_encoding_el*  encodings;
+
+  } BDF_CMapRec, *BDF_CMap;
+
+
+  FT_CALLBACK_DEF( FT_Error )
+  bdf_cmap_init( BDF_CMap  cmap )
+  {
+    BDF_Face  face = (BDF_Face)FT_CMAP_FACE( cmap );
+
+
+    cmap->num_encodings = face->bdffont->glyphs_used;
+    cmap->encodings     = face->en_table;
+
+    return FT_Err_Ok;
+  }
+
+
+  FT_CALLBACK_DEF( void )
+  bdf_cmap_done( BDF_CMap  cmap )
+  {
+    cmap->encodings     = NULL;
+    cmap->num_encodings = 0;
+  }
+
+
+  FT_CALLBACK_DEF( FT_UInt )
+  bdf_cmap_char_index( BDF_CMap   cmap,
+                       FT_UInt32  charcode )
+  {
+    BDF_encoding_el*  encodings = cmap->encodings;
+    FT_UInt           min, max, mid;
+    FT_UInt           result = 0;
+
+
+    min = 0;
+    max = cmap->num_encodings;
+
+    while ( min < max )
+    {
+      FT_UInt32  code;
+
+
+      mid  = ( min + max ) >> 1;
+      code = encodings[mid].enc;
+
+      if ( charcode == code )
+      {
+        result = encodings[mid].glyph + 1;
+        break;
+      }
+
+      if ( charcode < code )
+        max = mid;
+      else
+        min = mid + 1;
+    }
+
+    return result;
+  }
+
+
+  FT_CALLBACK_DEF( FT_UInt )
+  bdf_cmap_char_next( BDF_CMap    cmap,
+                      FT_UInt32  *acharcode )
+  {
+    BDF_encoding_el*  encodings = cmap->encodings;
+    FT_UInt           min, max, mid;
+    FT_UInt32         charcode = *acharcode + 1;
+    FT_UInt           result   = 0;
+
+
+    min = 0;
+    max = cmap->num_encodings;
+
+    while ( min < max )
+    {
+      FT_UInt32  code;
+
+
+      mid  = ( min + max ) >> 1;
+      code = encodings[mid].enc;
+
+      if ( charcode == code )
+      {
+        result = encodings[mid].glyph + 1;
+        goto Exit;
+      }
+
+      if ( charcode < code )
+        max = mid;
+      else
+        min = mid + 1;
+    }
+
+    charcode = 0;
+    if ( min < cmap->num_encodings )
+    {
+      charcode = encodings[min].enc;
+      result   = encodings[min].glyph + 1;
+    }
+
+  Exit:
+    *acharcode = charcode;
+    return result;
+  }
+
+
+  FT_CALLBACK_TABLE_DEF const FT_CMap_ClassRec  bdf_cmap_class =
+  {
+    sizeof( BDF_CMapRec ),
+    (FT_CMap_InitFunc)     bdf_cmap_init,
+    (FT_CMap_DoneFunc)     bdf_cmap_done,
+    (FT_CMap_CharIndexFunc)bdf_cmap_char_index,
+    (FT_CMap_CharNextFunc) bdf_cmap_char_next
+  };
+
+
 
 
   FT_CALLBACK_DEF( FT_Error )
@@ -182,34 +308,45 @@ THE SOFTWARE.
       if ( FT_NEW_ARRAY( root->available_sizes, 1 ) )
         goto Exit;
 
+      prop = bdf_get_font_property( font, (char *)"AVERAGE_WIDTH" );
+      if ( ( prop != NULL ) && ( prop->value.int32 >= 10 ) )
+        root->available_sizes->width = (short)( prop->value.int32 / 10 );
+
       prop = bdf_get_font_property( font, (char *)"PIXEL_SIZE" );
       if ( prop != NULL )
-      {
-        bdf_property_t  *xres = 0, *yres = 0;
-
-
-        xres = bdf_get_font_property( font, (char *)"RESOLUTION_X" );
-        yres = bdf_get_font_property( font, (char *)"RESOLUTION_Y" );
-        if ( ( xres != NULL ) && ( yres != NULL ) )
-        {
-          FT_TRACE4(( "PIXEL_SIZE: %d  RESOLUTION_X: %d  RESOLUTION_Y: %d\n",
-                      prop->value.int32,
-                      xres->value.int32,
-                      yres->value.int32 ));
-          root->available_sizes->width =
-            (FT_Short)( prop->value.int32 * 75 / xres->value.int32 );
-             
-          root->available_sizes->height =
-            (FT_Short)( prop->value.int32 * 75 / yres->value.int32 );
-        }
-      }
+        root->available_sizes->height = (short) prop->value.int32;
       else
       {
-        /* some fonts have broken SIZE declaration (jiskan24.bdf) */
-        FT_ERROR(( "BDF_Face_Init: reading size\n" ));
-        root->available_sizes->width  = (FT_Short)font->point_size ;
-        root->available_sizes->height = (FT_Short)font->point_size ;
+        prop = bdf_get_font_property( font, (char *)"POINT_SIZE" );
+        if ( prop != NULL )
+        {
+          bdf_property_t  *yres;
+
+
+          yres = bdf_get_font_property( font, (char *)"RESOLUTION_Y" );
+          if ( yres != NULL )
+          {
+            FT_TRACE4(( "POINT_SIZE: %d  RESOLUTION_Y: %d\n",
+                        prop->value.int32, yres->value.int32 ));
+            root->available_sizes->height =
+              (FT_Short)( prop->value.int32 * yres->value.int32 / 720 );
+          }
+        }
       }
+
+      if ( root->available_sizes->width == 0 )
+      {
+        if ( root->available_sizes->height == 0 )
+        {
+          /* some fonts have broken SIZE declaration (jiskan24.bdf) */
+          FT_ERROR(( "BDF_Face_Init: reading size\n" ));
+          root->available_sizes->width = (FT_Short)font->point_size;
+        }
+        else
+          root->available_sizes->width = root->available_sizes->height;
+      }
+      if ( root->available_sizes->height == 0 )
+          root->available_sizes->height = root->available_sizes->width;
 
       /* encoding table */
       {
@@ -231,6 +368,7 @@ THE SOFTWARE.
       /* charmaps */
       {
         bdf_property_t  *charset_registry = 0, *charset_encoding = 0;
+        FT_Bool          unicode_charmap  = 0;
 
 
         charset_registry =
@@ -245,34 +383,64 @@ THE SOFTWARE.
                ( charset_encoding->value.atom != NULL ) )
           {
             if ( FT_NEW_ARRAY( face->charset_encoding,
-                               strlen( charset_encoding->value.atom ) + 1 ) )
+                               ft_strlen( charset_encoding->value.atom ) + 1 ) )
               goto Exit;
-            if (FT_NEW_ARRAY( face->charset_registry,
-                              strlen( charset_registry->value.atom ) + 1 ) )
+            if ( FT_NEW_ARRAY( face->charset_registry,
+                               ft_strlen( charset_registry->value.atom ) + 1 ) )
               goto Exit;
             ft_strcpy( face->charset_registry, charset_registry->value.atom );
             ft_strcpy( face->charset_encoding, charset_encoding->value.atom );
+            if ( !ft_strcmp( face->charset_registry, "ISO10646" )     ||
+                 ( !ft_strcmp( face->charset_registry, "ISO8859" ) &&
+                   !ft_strcmp( face->charset_encoding, "1" )       )  )
+              unicode_charmap = 1;
 
-            face->charmap.encoding    = ft_encoding_none;
-            face->charmap.platform_id = 0;
-            face->charmap.encoding_id = 0;
-            face->charmap.face        = root;
-            face->charmap_handle      = &face->charmap;
+            {
+              FT_CharMapRec  charmap;
 
-            root->charmap = face->charmap_handle;
+
+              charmap.face        = FT_FACE( face );
+              charmap.encoding    = FT_ENCODING_NONE;
+              charmap.platform_id = 0;
+              charmap.encoding_id = 0;
+
+              if ( unicode_charmap )
+              {
+                charmap.encoding    = FT_ENCODING_UNICODE;
+                charmap.platform_id = 3;
+                charmap.encoding_id = 1;
+              }
+
+              error = FT_CMap_New( &bdf_cmap_class, NULL, &charmap, NULL );
+
+#if 0
+              /* Select default charmap */
+              if (root->num_charmaps)
+                root->charmap = root->charmaps[0];
+#endif
+            }
 
             goto Exit;
           }
         }
 
-        /* otherwise assume adobe standard encoding */
-        face->charmap.encoding    = ft_encoding_adobe_standard;
-        face->charmap.platform_id = 7; /* taken from t1objs.c */
-        face->charmap.encoding_id = 0;
-        face->charmap.face        = root;
-        face->charmap_handle      = &face->charmap;
+        /* otherwise assume Adobe standard encoding */
 
-        root->charmap = face->charmap_handle;
+        {
+          FT_CharMapRec  charmap;
+
+
+          charmap.face        = FT_FACE( face );
+          charmap.encoding    = FT_ENCODING_ADOBE_STANDARD;
+          charmap.platform_id = 7;
+          charmap.encoding_id = 0;
+
+          error = FT_CMap_New( &bdf_cmap_class, NULL, &charmap, NULL );
+
+          /* Select default charmap */
+          if (root->num_charmaps)
+            root->charmap = root->charmaps[0];
+        }
       }
     }
 
@@ -285,8 +453,8 @@ THE SOFTWARE.
   }
 
 
-  static
-  FT_Error  BDF_Set_Pixel_Size( FT_Size  size )
+  static FT_Error
+  BDF_Set_Pixel_Size( FT_Size  size )
   {
     BDF_Face  face = (BDF_Face)FT_SIZE_FACE( size );
     FT_Face   root = FT_FACE( face );
@@ -312,7 +480,7 @@ THE SOFTWARE.
   BDF_Glyph_Load( FT_GlyphSlot  slot,
                   FT_Size       size,
                   FT_UInt       glyph_index,
-                  FT_Int        load_flags )
+                  FT_Int32      load_flags )
   {
     BDF_Face        face   = (BDF_Face)FT_SIZE_FACE( size );
     FT_Error        error  = BDF_Err_Ok;
@@ -321,8 +489,6 @@ THE SOFTWARE.
     int             bpp    = face->bdffont->bpp;
     int             i, j, count;
     unsigned char   *p, *pp;
-
-    FT_Memory       memory = face->bdffont->memory;
 
     FT_UNUSED( load_flags );
 
@@ -333,28 +499,32 @@ THE SOFTWARE.
       goto Exit;
     }
 
+    if ( glyph_index > 0 )
+      glyph_index--;
+
     /* slot, bitmap => freetype, glyph => bdflib */
     glyph = face->bdffont->glyphs[glyph_index];
 
-    bitmap->rows      = glyph.bbx.height;
-    bitmap->width     = glyph.bbx.width;
+    bitmap->rows  = glyph.bbx.height;
+    bitmap->width = glyph.bbx.width;
 
     if ( bpp == 1 )
     {
-      bitmap->pixel_mode = ft_pixel_mode_mono;
+      bitmap->pixel_mode = FT_PIXEL_MODE_MONO;
       bitmap->pitch      = glyph.bpr;
 
-      if ( FT_NEW_ARRAY( bitmap->buffer, glyph.bytes ) )
-        goto Exit;
-      FT_MEM_COPY( bitmap->buffer, glyph.bitmap, glyph.bytes );
+     /* note: we don't allocate a new array to hold the bitmap, we */
+     /*       can simply point to it                               */
+      ft_glyphslot_set_bitmap( slot, glyph.bitmap );
     }
     else
     {
       /* blow up pixmap to have 8 bits per pixel */
-      bitmap->pixel_mode = ft_pixel_mode_grays;
+      bitmap->pixel_mode = FT_PIXEL_MODE_GRAY;
       bitmap->pitch      = bitmap->width;
 
-      if ( FT_NEW_ARRAY( bitmap->buffer, bitmap->rows * bitmap->pitch ) )
+      error = ft_glyphslot_alloc_bitmap( slot, bitmap->rows * bitmap->pitch );
+      if ( error )
         goto Exit;
 
       switch ( bpp )
@@ -448,45 +618,68 @@ THE SOFTWARE.
     /* FZ XXX: TODO: vertical metrics */
     slot->metrics.horiAdvance  = glyph.dwidth << 6;
     slot->metrics.horiBearingX = glyph.bbx.x_offset << 6;
-    slot->metrics.horiBearingY = glyph.bbx.y_offset << 6;
+    slot->metrics.horiBearingY = ( glyph.bbx.y_offset +
+                                   glyph.bbx.height ) << 6;
     slot->metrics.width        = bitmap->width << 6;
     slot->metrics.height       = bitmap->rows << 6;
 
     slot->linearHoriAdvance = (FT_Fixed)glyph.dwidth << 16;
-    slot->format            = ft_glyph_format_bitmap;
-    slot->flags             = FT_GLYPH_OWN_BITMAP;
+    slot->format            = FT_GLYPH_FORMAT_BITMAP;
 
   Exit:
     return error;
   }
 
 
-  static
-  FT_UInt  BDF_Get_Char_Index( FT_CharMap  charmap,
-                               FT_ULong    char_code )
+  static FT_Error
+  bdf_get_bdf_property( BDF_Face          face,
+                        const char*       prop_name,
+                        BDF_PropertyRec  *aproperty )
   {
-    BDF_Face          face     = (BDF_Face)charmap->face;
-    BDF_encoding_el*  en_table = face->en_table;
-    int               low, high, mid;
+    bdf_property_t*  prop;
 
+    FT_ASSERT( face && face->bdffont );
 
-    FT_TRACE4(( "BDF_Get_Char_Index %ld\n", char_code ));
-
-    low  = 0;
-    high = face->bdffont->glyphs_used - 1;
-
-    while ( low <= high )
+    prop = bdf_get_font_property( face->bdffont, (char*)prop_name );
+    if ( prop != NULL )
     {
-      mid = ( low + high ) / 2;
-      if ( char_code < en_table[mid].enc )
-        high = mid - 1;
-      else if ( char_code > en_table[mid].enc )
-        low = mid + 1;
-      else
-        return en_table[mid].glyph;
-    }
+      switch ( prop->format )
+      {
+        case BDF_ATOM:
+          aproperty->type   = BDF_PROPERTY_TYPE_ATOM;
+          aproperty->u.atom = prop->value.atom;
+          break;
 
-    return face->bdffont->default_glyph;
+        case BDF_INTEGER:
+          aproperty->type      = BDF_PROPERTY_TYPE_INTEGER;
+          aproperty->u.integer = prop->value.int32;
+          break;
+
+        case BDF_CARDINAL:
+          aproperty->type       = BDF_PROPERTY_TYPE_CARDINAL;
+          aproperty->u.cardinal = prop->value.card32;
+          break;
+
+        default:
+          goto Fail;
+      }
+      return 0;
+    }
+  Fail:
+    return FT_Err_Invalid_Argument;
+  }
+
+
+  static FT_Module_Interface
+  bdf_driver_requester( FT_Module    module,
+                        const char*  name )
+  {
+    FT_UNUSED( module );
+
+    if ( name && ft_strcmp( name, "get_bdf_property" ) == 0 )
+      return (FT_Module_Interface) bdf_get_bdf_property;
+
+    return NULL;
   }
 
 
@@ -505,12 +698,12 @@ THE SOFTWARE.
 
       (FT_Module_Constructor)0,
       (FT_Module_Destructor) 0,
-      (FT_Module_Requester)  0
+      (FT_Module_Requester)  bdf_driver_requester
     },
 
-    sizeof( BDF_FaceRec ),
-    sizeof( FT_SizeRec ),
-    sizeof( FT_GlyphSlotRec ),
+    sizeof ( BDF_FaceRec ),
+    sizeof ( FT_SizeRec ),
+    sizeof ( FT_GlyphSlotRec ),
 
     (FT_Face_InitFunc)        BDF_Face_Init,
     (FT_Face_DoneFunc)        BDF_Face_Done,
@@ -524,21 +717,9 @@ THE SOFTWARE.
 
     (FT_Slot_LoadFunc)        BDF_Glyph_Load,
 
-#ifndef FT_CONFIG_OPTION_USE_CMAPS
-    (FT_CharMap_CharIndexFunc)0,
-#else
-    (FT_CharMap_CharIndexFunc)BDF_Get_Char_Index,
-#endif
-
     (FT_Face_GetKerningFunc)  0,
     (FT_Face_AttachFunc)      0,
-    (FT_Face_GetAdvancesFunc) 0,
-
-#ifndef FT_CONFIG_OPTION_USE_CMAPS
-    (FT_CharMap_CharNextFunc) 0, /* BDF_Char_Get_Next,*/
-#else
-    (FT_CharMap_CharNextFunc) 0
-#endif
+    (FT_Face_GetAdvancesFunc) 0
   };
 
 

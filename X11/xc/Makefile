@@ -2,7 +2,7 @@
 
 
 
-# $XFree86: xc/Makefile,v 3.27 2003/02/26 09:21:31 dawes Exp $
+# $XFree86: xc/Makefile,v 3.29 2003/10/21 17:41:43 tsi Exp $
 
 # Luna users will need to either run make as "make MAKE=make"
 # or add "MAKE = make" to this file.
@@ -11,7 +11,7 @@ RELEASE = "Release 6.6"
 SHELL = /bin/sh
 RM = rm -f
 MV = mv
-WORLDOPTS = -k
+WORLDOPTS =
 WIN32WORLDOPTS = -i
 TOP = .
 CURRENT_DIR = .
@@ -122,7 +122,7 @@ $(IMAKESRC)/Makefile.proto: depend.bootstrap
 imake.bootstrap: $(IMAKESRC)/Makefile.proto
 	cd $(IMAKESRC) && $(MAKE) -f Makefile.proto bootstrapdepend
 	cd $(IMAKESRC) && $(MAKE) $(FLAGS) bootstrap
-	cd $(IMAKESRC) && $(MAKE) -f Makefile.proto all
+	cd $(IMAKESRC) && $(MAKE) -f Makefile.proto imakeonly
 	-@if [ -f xmakefile ]; then set -x; \
 	  $(RM) xmakefile.bak; $(MV) xmakefile xmakefile.bak; \
 	  else exit 0; fi
@@ -178,7 +178,7 @@ World.OS2:
 	$(MAKE) $(MFLAGS) clean
 	$(MAKE) $(MFLAGS) includes
 	$(MAKE) $(MFLAGS) depend
-	$(MAKE) $(MFLAGS)  
+	$(MAKE) $(MFLAGS)
 	@echo :
 	@echo :
 	@echo Full build of XFree86 on OS/2 complete.

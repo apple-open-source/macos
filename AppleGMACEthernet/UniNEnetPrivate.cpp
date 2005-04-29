@@ -95,15 +95,15 @@ bool UniNEnet::allocateMemory()
 
 		/* set up the Tx and Rx mBuf pointer arrays:	*/
 
-	fTxMbuf = (mbuf**)IOMalloc( sizeof( mbuf* ) * fTxRingElements );
+	fTxMbuf = (mbuf_t*)IOMalloc( sizeof( mbuf_t ) * fTxRingElements );
 	if ( !fTxMbuf )
 	{
 		ALRT( 0, 0, 'mpT-', "UniNEnet::allocateMemory - alloc Tx mbuf pointers failed" );
 		return false;
 	}
-	bzero( fTxMbuf, sizeof( mbuf* ) * fTxRingElements );	// clear out all the fTxMbuf pointers
+	bzero( fTxMbuf, sizeof( mbuf_t ) * fTxRingElements );	// clear out all the fTxMbuf pointers
 
-	fRxMbuf = (mbuf**)IOMalloc( sizeof( mbuf* ) * fRxRingElements );
+	fRxMbuf = (mbuf_t*)IOMalloc( sizeof( mbuf_t ) * fRxRingElements );
 	if ( !fRxMbuf )
 	{
 		ALRT( 0, 0, 'mpR-', "UniNEnet::allocateMemory - alloc Rx mbuf pointers failed" );
@@ -345,10 +345,10 @@ void UniNEnet::stopChip()
 	//	{ kIOMediumEthernet100BaseTX	| kIOMediumOptionHalfDuplex		| kIOMediumOptionLoopback									,	100		},
 		{ kIOMediumEthernet100BaseTX	| kIOMediumOptionFullDuplex																	,	100		},
 		{ kIOMediumEthernet100BaseTX	| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback									,	100		},
-		{ kIOMediumEthernet1000BaseTX 	| kIOMediumOptionFullDuplex																	,	1000	},
-		{ kIOMediumEthernet1000BaseTX 	| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback									,	1000	},
-		{ kIOMediumEthernet1000BaseTX	| kIOMediumOptionFullDuplex									| kIOMediumOptionFlowControl	,	1000	},
-		{ kIOMediumEthernet1000BaseTX	| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback	| kIOMediumOptionFlowControl	,	1000	}
+		{ kIOMediumEthernet1000BaseT  	| kIOMediumOptionFullDuplex																	,	1000	},
+		{ kIOMediumEthernet1000BaseT 	| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback									,	1000	},
+		{ kIOMediumEthernet1000BaseT	| kIOMediumOptionFullDuplex									| kIOMediumOptionFlowControl	,	1000	},
+		{ kIOMediumEthernet1000BaseT	| kIOMediumOptionFullDuplex		| kIOMediumOptionLoopback	| kIOMediumOptionFlowControl	,	1000	}
 	};
 
 
@@ -489,8 +489,7 @@ void UniNEnet::getPhyType()
 		ELG( this, phyId, '5421', "UniNEnet::getPhyType - Broadcom 5421" );
 		setProperty( "PHY type", "Broadcom 5421" );
 
-		miiReadWord( &phyWord, MII_ID1 );
-		if ( (phyWord & 0x000F) == 0 )
+		if ( phyType == MII_BCM5421_ID )			// patch only 5421 rev 0:
 		{
 			miiWriteWord( 0x1007,			0x18 );	// Set Class A Mode
 			miiReadWord( &phyWord,			0x18 );
@@ -514,7 +513,6 @@ void UniNEnet::getPhyType()
 			/* "no-autolowpower" within the "ethernet-phy" entry.				*/
 
 		entry = nub->getChildEntry( plane );	// get "ethernet-phy" registry entry
-	//	ELG( 0, entry, '=ent', "UniNEnet::getPhyType" );
 		if ( entry )
 		{		// try to get "no-autolowpower" property on P57B, and P58
 			obj = entry->copyProperty( "no-autolowpower" );
@@ -669,12 +667,13 @@ bool UniNEnet::initChip()
 {
     UInt32          	i;
     mach_timespec_t		timeStamp;
-    UInt32          	rxFifoSize;
+//	UInt32          	rxFifoSize;
     UInt32          	rxOff, rxOn;
-    UInt32          	ui32;
     UInt16       		*p16;
 	OSNumber			*numObj;
 	UInt32				busSpeed;
+	volatile UInt32		vui32;
+
 
 	ELG( 0, phyId, 'ChpI', "initChip" );
 
@@ -705,17 +704,21 @@ bool UniNEnet::initChip()
 	}
 	WRITE_REGISTER( XIFConfiguration, fXIFConfiguration );
 
-	WRITE_REGISTER( SendPauseCommand,		kSendPauseCommand_default );
 	WRITE_REGISTER( MACControlType,			kMACControlType_default );
 	WRITE_REGISTER( MACControlConfiguration,fMACControlConfiguration );
 	WRITE_REGISTER( InterruptMask,			kInterruptMask_None );
-//	WRITE_REGISTER( TxMACMask,				kTxMACMask_default );
-//	WRITE_REGISTER( RxMACMask,				kRxMACMask_default );
+
+	WRITE_REGISTER( TxMACMask,				kTxMACMask_default );
+	WRITE_REGISTER( RxMACMask,				kRxMACMask_default );
 	WRITE_REGISTER( MACControlMask,			kMACControlMask_default );
 
+	vui32 = READ_REGISTER( TxMACStatus );		// read-autoclear the MAC status bits
+	vui32 = READ_REGISTER( RxMACStatus );
+	vui32 = READ_REGISTER( MACControlStatus );
+
 	WRITE_REGISTER( Configuration, fConfiguration );	// try the default
-	ui32 = READ_REGISTER( Configuration );				// read it back
-    if ( (ui32 & kConfiguration_Infinite_Burst) == 0 )	
+	vui32 = READ_REGISTER( Configuration );				// read it back
+    if ( (vui32 & kConfiguration_Infinite_Burst) == 0 )	
     {													// not infinite-burst capable:
         ELG( 0, 0, 'Lims', "UniNEnet::initChip: set TX_DMA_Limit and RX_DMA_Limit." );
 		fConfiguration	= (0x02 << 1) | (0x08 << 6);	// change TX_DMA_Limit, RX_DMA_Limit
@@ -784,17 +787,32 @@ bool UniNEnet::initChip()
 	WRITE_REGISTER( RxMACConfiguration,	fRxMACConfiguration );
 	IOSleep( 4 ); 		// it takes time to clear the enable bit
 
-		/* Set flow control pause thresholds:								*/
-		/* Pause off when within 2 max packets of FIFO full.				*/
-		/* Pause on  when FIFO drops to almost 1 max packet of FIFO empty.	*/
+		/* Set receive flow control pause thresholds and time:							*/
+		/* Pause OFF when 2 packets back up in the FIFO.								*/
+		/* Pause  ON when the FIFO is down to one packet.								*/
+		/* There are 2 reasons for the FIFO to back up:									*/
+		/* The controller is vying for bandwidth on the PCI bus with another device or	*/
+		/* the interrupt handler, driver, and network stack are not offloading			*/
+		/* the Rx ring fast enough.														*/
+		/* Bus contention should not happen in most machines. So setting the rxOff to	*/
+		/* to cover 2 frames is more than adequate. As far as frames backing up in		*/
+		/* the Rx ring, we want to rxOff as soon as possible to minimize dropped		*/
+		/* frames.	The rxOn value must, of course, be less than rxOff value so it is	*/
+		/* set to the value for one full size frame.									*/
+		/* The pause time value shuold be set large enough to cover interrupt latency,	*/
+		/* processing of a full Rx ring, and some time for Tx ring processing.			*/
+		/* A high value is most often not a problem since the rxOn will override it.	*/
+		/* However, if we don't process packets fast enough, they could back up in the	*/
+		/* switch which may then drop them.												*/
 
-	rxFifoSize	= READ_REGISTER( RxFIFOSize );	// 64-byte (kPauseThresholds_Factor) chunks
+//	rxFifoSize	= READ_REGISTER( RxFIFOSize );	// 64-byte (kPauseThresholds_Factor) chunks
 
-	rxOff  = rxFifoSize - (kMaxFrameSize_default * 2 / kPauseThresholds_Factor);
-	rxOn   = kMaxFrameSize_default / kPauseThresholds_Factor + 1;
+	rxOff	= kMaxFrameSize_default * 2 / kPauseThresholds_Factor;
+	rxOn	= kMaxFrameSize_default * 1 / kPauseThresholds_Factor;
 	fPauseThresholds	= (rxOff << kPauseThresholds_OFF_Threshold_Shift)
 						| (rxOn	 << kPauseThresholds_ON_Threshold_Shift);
-	WRITE_REGISTER( PauseThresholds, fPauseThresholds );
+	WRITE_REGISTER( PauseThresholds,	fPauseThresholds  );
+	WRITE_REGISTER( SendPauseCommand,	fSendPauseCommand );
 
 	fRxBlanking = kRxBlanking_default_66;	/* built-in is always 66 MHz PCI	*/
 	if ( !fBuiltin )
@@ -876,6 +894,7 @@ void UniNEnet::restartTransmitter()
 	ELG( READ_REGISTER( TxKick ), READ_REGISTER( TxCompletion ), 'TxKC', "UniNEnet::restartTransmitter" );
 	ELG( READ_REGISTER( TxFIFOSize ), READ_REGISTER( TxFIFOPacketCounter ), 'TxPc', "UniNEnet::restartTransmitter" );
 	ELG( READ_REGISTER( TxFIFOShadowReadPointer ), READ_REGISTER( TxFIFOReadPointer ), 'TxRp', "UniNEnet::restartTransmitter" );
+	ELG( READ_REGISTER( TxMACStatus ), READ_REGISTER( MACControlStatus ), 'TM S', "UniNEnet::restartTransmitter" );
 	ELG( READ_REGISTER( MIFStateMachine ), READ_REGISTER( TxConfiguration ), 'MiCf', "UniNEnet::restartTransmitter" );
 
 	ALRT( READ_REGISTER( TxStateMachine ), READ_REGISTER( StateMachine ), '-Tx-', "UniNEnet::restartTransmitter - transmitter appeared to be hung." );
@@ -1017,14 +1036,14 @@ void UniNEnet::restartReceiver()
 }/* end restartReceiver */
 
 
-bool UniNEnet::transmitPacket( struct mbuf *packet )
+bool UniNEnet::transmitPacket( mbuf_t packet )
 {
 	TxDescriptor	*dp;				// descriptor pointer
-	mbuf			*m;
+	mbuf_t			m;
 	UInt32			i, j, k;
 	UInt32			segCount = 1;		// count starts on 1st element in mbuf chain
 	UInt32			length;
-	UInt32			dataPhys;
+	addr64_t		dataPhys;
 	UInt32			demandMask;
 	UInt16			param0, param1;
 	bool			needSegs = true;	// may need MbufCursor physical segments
@@ -1032,7 +1051,7 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 
 
 	txElementsAvail = (txCommandHead + fTxRingElements - txCommandTail - 1) & (fTxRingElements-1);
-    for ( m = packet; m->m_next; m = m->m_next )
+    for ( m = packet; mbuf_next( m ); m = mbuf_next( m ) )
 		segCount++;
 
 	ELG( READ_REGISTER( TxCompletion ), txElementsAvail << 16 | segCount, '  Tx', "UniNEnet::transmitPacket" );
@@ -1053,8 +1072,8 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
     {
 		k = j;		// k will be the index to the last element on loop exit
 
-		length		= m->m_len;
-        dataPhys	= (UInt32)mcl_to_paddr( mtod( m, char* ) );
+		length		= mbuf_len( m );
+        dataPhys	= (addr64_t)mbuf_data_to_physical( mbuf_data( m ) );
 		if ( dataPhys == 0 )
 		{		/* AppleTalk printing, for example, will come through here.	*/
 				/* txDebuggerPkt did until bcopy of data.					*/
@@ -1063,17 +1082,17 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 				segCount = fTxMbufCursor->getPhysicalSegments( packet, fTxSegment, MAX_SEGS_PER_TX_MBUF );
 			}
 			ELG( segCount, i, 'mbp-', "UniNEnet::transmitPacket - mbuf segment lacking physical address" );
-			dataPhys	= fTxSegment[ i ].location;
+			dataPhys	= (addr64_t)fTxSegment[ i ].location;
 			length		= fTxSegment[ i ].length;
 		//	ELG( dataPhys, length, 'LocL', "UniNEnet::transmitPacket - location and length." );
 		}
 
 		dp = &fTxDescriptorRing[ j ];
-		OSWriteLittleInt32( dp, offsetof( TxDescriptor, bufferAddrLo ), dataPhys );
+		OSWriteLittleInt64( dp, offsetof( TxDescriptor, bufferAddr ),   dataPhys );
 		OSWriteLittleInt32( dp, offsetof( TxDescriptor, flags0       ), length );
 		dp->flags1 = 0;
 		j = (j + 1) & (fTxRingElements - 1);
-		m = m->m_next;
+		m = mbuf_next( m );
     }/* end FOR */
 
 	fTxMbuf[ k ] = packet;		// save the packet mbuf address in the last segment's index
@@ -1124,8 +1143,7 @@ void UniNEnet::receivePacket( void *pkt, UInt32 *pkt_len, UInt32 timeout )
 	mach_timespec_t		startTime, currentTime;
 	UInt32				elapsedTimeMS;
 
-
-//	ELG( 0, fReady, 'kdRx', "receivePacket - kernel debugger routine" );
+//  ELG( timeout, pkt, 'kdRx', "receivePacket - kernel debugger routine" );
 
     *pkt_len = 0;
 
@@ -1173,12 +1191,12 @@ void UniNEnet::receivePacket( void *pkt, UInt32 *pkt_len, UInt32 timeout )
 	 * It also sets the var debuggerPktSize which will break the polling loop.
 	 *-------------------------------------------------------------------------*/
 
-void UniNEnet::packetToDebugger( struct mbuf *packet, u_int size )
+void UniNEnet::packetToDebugger( mbuf_t packet, u_int size )
 {
 //	ELG( packet, size, 'ToDb', "packetToDebugger" );
 
     debuggerPktSize = size;
-    bcopy( mtod(packet, char*), debuggerPkt, size );
+    bcopy( (char*)mbuf_data( packet ), debuggerPkt, size );
 	return;
 }/* end packetToDebugger */
 
@@ -1232,8 +1250,9 @@ void UniNEnet::sendPacket( void *pkt, UInt32 pkt_len )
 
 		/* Recycle the same buffer dedicated to KDB transmit.	*/
 
-	bcopy( pkt, txDebuggerPkt->m_data, pkt_len );
-	txDebuggerPkt->m_pkthdr.len = txDebuggerPkt->m_len = pkt_len;
+	bcopy( pkt, mbuf_data( txDebuggerPkt ), pkt_len );
+	mbuf_setlen( txDebuggerPkt, pkt_len );
+	mbuf_pkthdr_setlen( txDebuggerPkt, pkt_len );
 
 		/* Send the debugger packet.								*/
 		/* txDebuggerPkt must not be freed by the transmit routine.	*/
@@ -1267,8 +1286,8 @@ void UniNEnet::sendPacket( void *pkt, UInt32 pkt_len )
 
 bool UniNEnet::receivePackets( bool debuggerParam )
 {
-	mbuf		*packet;
-	UInt32		i, last;
+	mbuf_t		packet;
+	UInt32		i, last, loopLimit;
 	int			receivedFrameSize = 0;
 	UInt16		dmaFlags;
 	UInt16		checksum;
@@ -1286,7 +1305,7 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 	rxCompletion	= READ_REGISTER( RxCompletion );
 //	ELG( rxCompletion, i, 'Rx I', "receivePackets" );
 
-	for ( UInt32 loopLimit = fRxRingElements; loopLimit; --loopLimit )
+	for ( loopLimit = fRxRingElements; loopLimit; --loopLimit )
     {
 		dmaFlags = OSReadLittleInt16( &fRxDescriptorRing[ i ].frameDataSize, 0 );
 
@@ -1345,7 +1364,9 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 				 */
 			reusePkt = true;
 			if ( debuggerParam )
-                packetToDebugger( fRxMbuf[ i ], receivedFrameSize );
+			{	ELG( i, receivedFrameSize, 'RxDb', "receivePackets - got a debugger packet" );
+				packetToDebugger( fRxMbuf[ i ], receivedFrameSize );
+			}
         }
         
  
@@ -1535,11 +1556,11 @@ void UniNEnet::debugTransmitCleanup()
 
 bool UniNEnet::genRxDescriptor( UInt32 i )
 {
-	UInt32				physAddr;
+	addr64_t		physAddr;
 
 
-	physAddr = (UInt32)mcl_to_paddr( mtod( fRxMbuf[i], char* ) );
-	OSWriteLittleInt32( &fRxDescriptorRing[i].bufferAddrLo,  0, physAddr );
+	physAddr = mbuf_data_to_physical( mbuf_data( fRxMbuf[i] ) );
+	OSWriteLittleInt64( &fRxDescriptorRing[i].bufferAddr,  0, physAddr );
 
 	fRxDescriptorRing[i].frameDataSize = OSSwapHostToLittleConstInt16( NETWORK_BUFSIZE | kGEMRxDescFrameSize_Own );
 	fRxDescriptorRing[ i ].flags = 0;
@@ -1695,7 +1716,7 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 			{
 				linkSpeed   = 1000;
 				fullDuplex  = true;
-				mediumType  =  kIOMediumEthernet1000BaseTX;
+				mediumType  =  kIOMediumEthernet1000BaseT;
 			}                    
 		}
 		else if ( ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID)		// 0x01410C2x
@@ -1712,7 +1733,7 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 			else if ( linkStatus & MII_MARVELL_PHY_SPECIFIC_STATUS_1000 )
 			{
 				linkSpeed	= 1000;
-				mediumType	= kIOMediumEthernet1000BaseTX;
+				mediumType	= kIOMediumEthernet1000BaseT;
 				fXIFConfiguration |=  kXIFConfiguration_GMIIMODE;
 			}
 			else if ( linkStatus & MII_MARVELL_PHY_SPECIFIC_STATUS_100 )
@@ -1835,8 +1856,8 @@ IOReturn UniNEnet::getHardwareAddress( IOEthernetAddress *ea )
 
 IOReturn UniNEnet::setHardwareAddress( const IOEthernetAddress *ea )
 {
-	UInt16		*p16;
-	int			i;
+	UInt16			*p16;
+	unsigned int	i;
 
 
 	myAddress = *ea;			/* for WOL and wakeup	*/

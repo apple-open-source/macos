@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_dd.c,v 1.4 2002/09/11 19:49:07 tsi Exp $
+/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_dd.c,v 1.5 2003/09/28 20:15:07 alanh Exp $
  *
  * GLX Hardware Device Driver for Sun Creator/Creator3D
  * Copyright (C) 2000, 2001 David S. Miller
@@ -26,10 +26,6 @@
  */
 
 #include "mtypes.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "mm.h"
 #include "ffb_dd.h"
 #include "ffb_span.h"
@@ -41,7 +37,7 @@
 #include "ffb_lock.h"
 #include "extensions.h"
 
-#define FFB_DATE	"20010624"
+#define FFB_DATE	"20021125"
 
 /* Mesa's Driver Functions */
 

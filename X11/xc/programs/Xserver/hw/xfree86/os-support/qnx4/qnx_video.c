@@ -24,7 +24,7 @@
  * used in advertising or otherwise to promote the sale, use or other dealings
  * in this Software without prior written authorization from Sebastien Marineau.
  *
- * $XFree86: xc/programs/Xserver/hw/xfree86/os-support/qnx4/qnx_video.c,v 1.3 2002/01/07 20:38:29 dawes Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/os-support/qnx4/qnx_video.c,v 1.4 2003/03/14 13:46:07 tsi Exp $
  */
 
 /* This module contains the qnx-specific functions to deal with video 
@@ -80,7 +80,7 @@ unsigned long Base;
 unsigned long Size;
 {
 int fd;
-unsigned char *base;
+void *base;
 	xf86ErrorF("xf86MapVidMem called\n");
         if(QNX_PhMem_fd < 0) {
                 if ((fd = shm_open("Physical", O_RDWR, 0777)) < 0) {
@@ -88,8 +88,10 @@ unsigned char *base;
                         }
                 QNX_PhMem_fd = fd;
                 }
-        base = (unsigned char *) mmap((caddr_t)0, Size, PROT_READ|PROT_WRITE,
-                            MAP_SHARED, QNX_PhMem_fd, (off_t)Base);
+        base = mmap((caddr_t)0, Size,
+		    (Flags & VIDMEM_READONLY) ?
+		     PROT_READ : (PROT_READ | PROT_WRITE),
+		    MAP_SHARED, QNX_PhMem_fd, (off_t)Base);
 	xf86ErrorF("MapVidMem: addr %08x size %08x addr %08x\n", Base,
 		Size, base);
         if ((long)base == -1)

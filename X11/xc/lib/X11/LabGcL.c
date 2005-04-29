@@ -30,18 +30,11 @@
  *		Source for XcmsCIELabClipL() gamut compression routine.
  *
  */
-/* $XFree86: xc/lib/X11/LabGcL.c,v 1.3 2001/01/17 19:41:38 dawes Exp $ */
+/* $XFree86: xc/lib/X11/LabGcL.c,v 1.4 2003/04/13 19:22:16 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
-
-/*
- *	EXTERNS
- */
-extern Status _XcmsCIELabQueryMaxLCRGB();
-
-/* CvCols.c */
-extern Status _XcmsDIConvertColors();
+#include "Cv.h"
 
 
 /************************************************************************

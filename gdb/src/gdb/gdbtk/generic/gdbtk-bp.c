@@ -194,7 +194,7 @@ Gdbtk_Breakpoint_Init (Tcl_Interp *interp)
 /* This implements the tcl command "gdb_find_bp_at_addr"
 
 * Tcl Arguments:
-*    addr:     address
+*    addr:     CORE_ADDR
 * Tcl Result:
 *    It returns a list of breakpoint numbers
 */
@@ -204,20 +204,23 @@ gdb_find_bp_at_addr (ClientData clientData, Tcl_Interp *interp,
 {
   int i;
   CORE_ADDR addr;
+  Tcl_WideInt waddr;
 
   if (objc != 2)
     {
       Tcl_WrongNumArgs (interp, 1, objv, "address");
       return TCL_ERROR;
     }
-
-  addr = string_to_core_addr (Tcl_GetStringFromObj (objv[1], NULL));
+  
+  if (Tcl_GetWideIntFromObj (interp, objv[1], &waddr) != TCL_OK)
+    return TCL_ERROR;
+  addr = waddr;
 
   Tcl_SetListObj (result_ptr->obj_ptr, 0, NULL);
   for (i = 0; i < breakpoint_list_size; i++)
     {
       if (breakpoint_list[i] != NULL
-	  && breakpoint_list[i]->address == addr)
+	  && breakpoint_list[i]->loc->address == addr)
 	Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
 				  Tcl_NewIntObj (i));
     }
@@ -307,7 +310,7 @@ gdb_get_breakpoint_info (ClientData clientData, Tcl_Interp *interp, int objc,
       return TCL_ERROR;
     }
 
-  sal = find_pc_line (b->address, 0);
+  sal = find_pc_line (b->loc->address, 0);
 
   filename = symtab_to_filename (sal.symtab);
   if (filename == NULL)
@@ -317,14 +320,16 @@ gdb_get_breakpoint_info (ClientData clientData, Tcl_Interp *interp, int objc,
   Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
 			    Tcl_NewStringObj (filename, -1));
 
-  funcname = pc_function_name (b->address);
+  funcname = pc_function_name (b->loc->address);
   new_obj = Tcl_NewStringObj (funcname, -1);
   Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr, new_obj);
 
   Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
 			    Tcl_NewIntObj (b->line_number));
-  sprintf_append_element_to_obj (result_ptr->obj_ptr, "0x%s",
-				 paddr_nz (b->address));
+  Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
+			    Tcl_NewStringObj (core_addr_to_string
+					      (b->loc->address),
+					      -1));
   Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
 			    Tcl_NewStringObj (bptypes[b->type], -1));
   Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
@@ -355,10 +360,8 @@ gdb_get_breakpoint_info (ClientData clientData, Tcl_Interp *interp, int objc,
 
 /* Helper function for gdb_get_breakpoint_info, this function is
    responsible for figuring out what to type at the "commands" command
-   in gdb's cli in order to get at the same command list passed here.
+   in gdb's cli in order to get at the same command list passed here. */
 
-   NOTE: cannot use sprintf_append_element_to_obj with anything from
-   gdb, since those things could contain unescaped sequences. */
 static Tcl_Obj *
 get_breakpoint_commands (struct command_line *cmd)
 {
@@ -377,12 +380,14 @@ get_breakpoint_commands (struct command_line *cmd)
 
 	case break_control:
 	  /* A loop_break */
-	  sprintf_append_element_to_obj (obj, "loop_break");
+	  Tcl_ListObjAppendElement (NULL, obj,
+				    Tcl_NewStringObj ("loop_break", -1));
 	  break;
 
 	case continue_control:
 	  /* A loop_continue */
-	  sprintf_append_element_to_obj (obj, "loop_continue");
+	  Tcl_ListObjAppendElement (NULL, obj,
+				    Tcl_NewStringObj ("loop_continue", -1));
 	  break;
 
 	case while_control:
@@ -392,7 +397,8 @@ get_breakpoint_commands (struct command_line *cmd)
 	  Tcl_ListObjAppendElement (NULL, obj, tmp);
 	  Tcl_ListObjAppendList (NULL, obj,
 				 get_breakpoint_commands (*cmd->body_list));
-	  sprintf_append_element_to_obj (obj, "end");
+	  Tcl_ListObjAppendElement (NULL, obj,
+				    Tcl_NewStringObj ("end", -1));
 	  break;
 
 	case if_control:
@@ -405,11 +411,13 @@ get_breakpoint_commands (struct command_line *cmd)
 				 get_breakpoint_commands (cmd->body_list[0]));
 	  if (cmd->body_count == 2)
 	    {
-	      sprintf_append_element_to_obj (obj, "else");
+	      Tcl_ListObjAppendElement (NULL, obj,
+					Tcl_NewStringObj ("else", -1));
 	      Tcl_ListObjAppendList (NULL, obj,
 				     get_breakpoint_commands(cmd->body_list[1]));
 	    }
-	  sprintf_append_element_to_obj (obj, "end");
+	  Tcl_ListObjAppendElement (NULL, obj,
+				    Tcl_NewStringObj ("end", -1));
 	  break;
 
 	case invalid_control:
@@ -540,7 +548,7 @@ gdb_set_bp (ClientData clientData, Tcl_Interp *interp,
  * It sets breakpoints, and notifies the GUI.
  *
  * Tcl Arguments:
- *    addr: the address at which to set the breakpoint
+ *    addr:     the CORE_ADDR at which to set the breakpoint
  *    type:     the type of the breakpoint
  *    thread:   optional thread number
  * Tcl Result:
@@ -554,6 +562,7 @@ gdb_set_bp_addr (ClientData clientData, Tcl_Interp *interp, int objc,
   struct symtab_and_line sal;
   int thread = -1;
   CORE_ADDR addr;
+  Tcl_WideInt waddr;
   struct breakpoint *b;
   char *saddr, *typestr;
   enum bpdisp disp;
@@ -564,9 +573,11 @@ gdb_set_bp_addr (ClientData clientData, Tcl_Interp *interp, int objc,
       return TCL_ERROR;
     }
 
+  if (Tcl_GetWideIntFromObj (interp, objv[1], &waddr) != TCL_OK)
+    return TCL_ERROR;
+  addr = waddr;
   saddr = Tcl_GetStringFromObj (objv[1], NULL);
-  addr = string_to_core_addr (saddr);
-  
+
   typestr = Tcl_GetStringFromObj (objv[2], NULL);
   if (strncmp (typestr, "temp", 4) == 0)
     disp = disp_del;
@@ -826,13 +837,8 @@ gdb_get_tracepoint_info (ClientData clientData, Tcl_Interp *interp,
 
   Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr,
 			    Tcl_NewIntObj (sal.line));
-  {
-    char *tmp;
-    xasprintf (&tmp, "0x%s", paddr_nz (tp->address));
-    Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr,
-			      Tcl_NewStringObj (tmp, -1));
-    free (tmp);
-  }
+  Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr,
+			    Tcl_NewStringObj (core_addr_to_string (tp->address), -1));
   Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr,
 			    Tcl_NewIntObj (tp->enabled_p));
   Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr,
@@ -899,7 +905,7 @@ tracepoint_exists (char *args)
   char *file = NULL;
   int result = -1;
 
-  sals = decode_line_1 (&args, 1, NULL, 0, &canonical);
+  sals = decode_line_1 (&args, 1, NULL, 0, &canonical, NULL);
   if (sals.nelts == 1)
     {
       resolve_sal_pc (&sals.sals[0]);

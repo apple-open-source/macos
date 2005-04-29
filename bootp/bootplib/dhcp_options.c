@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -66,7 +67,7 @@
 
 
 #define MAX_TAG (sizeof(dhcptag_info_table) / sizeof(dhcptag_info_table[0]))
-static unsigned char	rfc_magic[] = RFC_OPTIONS_MAGIC;
+static const unsigned char	rfc_magic[] = RFC_OPTIONS_MAGIC;
 
 
 /*
@@ -75,13 +76,14 @@ static unsigned char	rfc_magic[] = RFC_OPTIONS_MAGIC;
  * Purpose:
  *   Functions to deal with dhcp option tag and type information.
  */
+
 /*
  * Function: dhcptype_info
  *
  * Purpose:
  *   Return the type information for the given type.
  */
-dhcptype_info_t *
+const dhcptype_info_t *
 dhcptype_info(dhcptype_t type) 
 {
     if (type > dhcptype_last_e)
@@ -100,7 +102,7 @@ boolean_t
 dhcptype_from_str(unsigned char * str, int type, void * buf, int * len_p,
 		  unsigned char * err)
 {
-    dhcptype_info_t * 	type_info = dhcptype_info(type);
+    const dhcptype_info_t * 	type_info = dhcptype_info(type);
 
     if (err)
 	err[0] = '\0';
@@ -247,6 +249,50 @@ dhcptype_to_str(unsigned char * tmp, void * opt, int len, int type,
     }
     return (TRUE);
 }
+
+void
+dhcptype_fprint_simple(FILE * f, dhcptype_t type, void * opt, int option_len)
+{
+    u_char *		option = opt;
+
+    switch (type) {
+      case dhcptype_bool_e:
+	  fprintf(f, "%s", *option ? "TRUE" : "FALSE");
+	  break;
+	
+      case dhcptype_ip_e:
+	  fprintf(f, IP_FORMAT, IP_LIST((struct in_addr *)option));
+	  break;
+	
+      case dhcptype_string_e: {
+	  fprintf(f, "%.*s", option_len, (char *)option);
+	  break;
+      }
+	
+      case dhcptype_opaque_e:
+	fprintf(f, "\n");
+	fprint_data(f, option, option_len);
+	break;
+
+      case dhcptype_uint8_e:
+	fprintf(f, "0x%x", *option);
+	break;
+
+      case dhcptype_uint16_e:
+	fprintf(f, "0x%x", ntohs(*((unsigned short *)option)));
+	break;
+
+      case dhcptype_uint32_e:
+	fprintf(f, "0x%lx", ntohl(*((unsigned long *)option)));
+	break;
+
+      case dhcptype_none_e:
+      default:
+	break;
+    }
+    return;
+}
+
 /*
  * Function: dhcptype_print_simple
  * Purpose:
@@ -255,43 +301,39 @@ dhcptype_to_str(unsigned char * tmp, void * opt, int len, int type,
 void
 dhcptype_print_simple(dhcptype_t type, void * opt, int option_len)
 {
-    u_char *		option = opt;
+    dhcptype_fprint_simple(stdout, type, opt, option_len);
+    return;
+}
 
-    switch (type) {
-      case dhcptype_bool_e:
-	  printf("%s", *option ? "TRUE" : "FALSE");
-	  break;
-	
-      case dhcptype_ip_e:
-	  printf(IP_FORMAT, IP_LIST((struct in_addr *)option));
-	  break;
-	
-      case dhcptype_string_e: {
-	  printf("%.*s", option_len, (char *)option);
-	  break;
-      }
-	
-      case dhcptype_opaque_e:
-	printf("\n");
-	print_data(option, option_len);
-	break;
+void
+dhcptype_fprint(FILE * f, dhcptype_t type, void * option, int option_len)
+{
+    const dhcptype_info_t * 	type_info = dhcptype_info(type);
 
-      case dhcptype_uint8_e:
-	printf("0x%x", *option);
-	break;
+    if (type_info && type_info->multiple_of != dhcptype_none_e) {
+	int 			i;
+	int 			number;
+	void *			offset;
+	int 			size;
+	const dhcptype_info_t * subtype_info;
 
-      case dhcptype_uint16_e:
-	printf("0x%x", ntohs(*((unsigned short *)option)));
-	break;
+	subtype_info = dhcptype_info(type_info->multiple_of);
+	if (subtype_info == NULL)
+	    return;
 
-      case dhcptype_uint32_e:
-	printf("0x%lx", ntohl(*((unsigned long *)option)));
-	break;
-
-      case dhcptype_none_e:
-      default:
-	break;
+	size = subtype_info->size;
+	number = option_len / size;
+	fprintf(f, "{");
+	for (i = 0, offset = option; i < number; i++) {
+	    if (i != 0)
+		fprintf(f, ", ");
+	    dhcptype_fprint_simple(f, type_info->multiple_of, offset, size);
+	    offset += size;
+	}
+	fprintf(f, "}");
     }
+    else
+	dhcptype_fprint_simple(f, type, option, option_len);
     return;
 }
 
@@ -303,33 +345,36 @@ dhcptype_print_simple(dhcptype_t type, void * opt, int option_len)
 void
 dhcptype_print(dhcptype_t type, void * option, int option_len)
 {
-    dhcptype_info_t * 	type_info = dhcptype_info(type);
-
-    if (type_info && type_info->multiple_of != dhcptype_none_e) {
-	int 			i;
-	int 			number;
-	void *			offset;
-	int 			size;
-	dhcptype_info_t * 	subtype_info;
-
-	subtype_info = dhcptype_info(type_info->multiple_of);
-	if (subtype_info == NULL)
-	    return;
-
-	size = subtype_info->size;
-	number = option_len / size;
-	printf("{");
-	for (i = 0, offset = option; i < number; i++) {
-	    if (i != 0)
-		printf(", ");
-	    dhcptype_print_simple(type_info->multiple_of, offset, size);
-	    offset += size;
-	}
-	printf("}");
-    }
-    else
-	dhcptype_print_simple(type, option, option_len);
+    dhcptype_fprint(stdout, type, option, option_len);
     return;
+}
+
+boolean_t
+dhcptag_fprint(FILE * f, void * vopt)
+{
+    u_char *    opt = vopt;
+    u_char 	tag = opt[TAG_OFFSET];
+    u_char 	option_len = opt[LEN_OFFSET];
+    u_char * 	option = opt + OPTION_OFFSET;
+    const dhcptag_info_t * entry;
+
+    entry = dhcptag_info(tag);
+    if (entry == NULL)
+	return (FALSE);
+    {	
+	const dhcptype_info_t * type = dhcptype_info(entry->type);
+	
+	if (type == NULL) {
+	    fprintf(f, "unknown type %d\n", entry->type);
+	    return (FALSE);
+	}
+	fprintf(f, "%s (%s): ", entry->name, type->name);
+	if (tag == dhcptag_dhcp_message_type_e)
+	    fprintf(f, "%s ", dhcp_msgtype_names(*option));
+	dhcptype_fprint(f, entry->type, option, option_len);
+	fprintf(f, "\n");
+    }
+    return (TRUE);
 }
 
 /*
@@ -342,29 +387,7 @@ dhcptype_print(dhcptype_t type, void * option, int option_len)
 boolean_t
 dhcptag_print(void * vopt)
 {
-    u_char *    opt = vopt;
-    u_char 	tag = opt[TAG_OFFSET];
-    u_char 	option_len = opt[LEN_OFFSET];
-    u_char * 	option = opt + OPTION_OFFSET;
-    dhcptag_info_t * entry;
-
-    entry = dhcptag_info(tag);
-    if (entry == NULL)
-	return (FALSE);
-    {	
-	dhcptype_info_t * type = dhcptype_info(entry->type);
-	
-	if (type == NULL) {
-	    printf("unknown type %d\n", entry->type);
-	    return (FALSE);
-	}
-	printf("%s (%s): ", entry->name, type->name);
-	if (tag == dhcptag_dhcp_message_type_e)
-	    printf("%s ", dhcp_msgtype_names(*option));
-	dhcptype_print(entry->type, option, option_len);
-	printf("\n");
-    }
-    return (TRUE);
+    return (dhcptag_fprint(stdout, vopt));
 }
 
 /*
@@ -373,7 +396,7 @@ dhcptag_print(void * vopt)
  * Purpose:
  *   Return the tag information for the give tag.
  */
-dhcptag_info_t *
+const dhcptag_info_t *
 dhcptag_info(dhcptag_t tag)
 {
     if (tag >= MAX_TAG)
@@ -413,10 +436,10 @@ dhcptag_with_name(unsigned char * name)
  * Purpose:
  *   Return the name of the tag.
  */
-unsigned char *
+const char *
 dhcptag_name(int tag)
 {
-    dhcptag_info_t * info;
+    const dhcptag_info_t * info;
 
     info = dhcptag_info(tag);
     if (info == NULL)
@@ -436,11 +459,11 @@ dhcptag_from_strlist(unsigned char * * slist, int num,
 		     int tag, void * buf, int * len_p,
 		     unsigned char * err)
 {
-    int			i;
-    int			n_per_type;
-    dhcptag_info_t *	tag_info;
-    dhcptype_info_t * 	type_info;
-    dhcptype_info_t * 	base_type_info;
+    int				i;
+    int				n_per_type;
+    const dhcptag_info_t *	tag_info;
+    const dhcptype_info_t * 	type_info;
+    const dhcptype_info_t * 	base_type_info;
 
     if (err)
 	err[0] = '\0';
@@ -509,9 +532,9 @@ boolean_t
 dhcptag_to_str(unsigned char * tmp, int tag, void * opt,
 	       int len, unsigned char * err)
 {
-    dhcptag_info_t * 	tag_info;
-    dhcptype_info_t * 	type_info;
-    dhcptype_t		type;
+    const dhcptag_info_t * 	tag_info;
+    const dhcptype_info_t * 	type_info;
+    dhcptype_t			type;
 
     tag_info = dhcptag_info(tag);
     if (tag_info == NULL)
@@ -828,18 +851,27 @@ dhcpol_parse_vendor(dhcpol_t * vendor, dhcpol_t * options,
 }
 
 void
-dhcpol_print(dhcpol_t * list)
+dhcpol_fprint(FILE * f, dhcpol_t * list)
 {
     int 		i;
 
-    printf("Options count is %d\n", dhcpol_count(list));
+    fprintf(f, "Options count is %d\n", dhcpol_count(list));
     for (i = 0; i < dhcpol_count(list); i++) {
 	unsigned char * option = dhcpol_element(list, i);
 
-	if (dhcptag_print(option) == FALSE) 
-	    printf("undefined tag %d len %d\n", option[TAG_OFFSET], 
+	if (dhcptag_fprint(f, option) == FALSE) {
+	    fprintf(f, "undefined tag %d len %d\n", option[TAG_OFFSET], 
 		   option[LEN_OFFSET]);
+	}
     }
+    return;
+}
+
+void
+dhcpol_print(dhcpol_t * list)
+{
+    dhcpol_fprint(stdout, list);
+    return;
 }
 
 /*
@@ -936,7 +968,7 @@ dhcpoa_vendor_add(dhcpoa_t * oa_p, dhcpoa_t * vendor_oa_p,
  *   Add an option to the option area.
  */
 dhcpoa_ret_t
-dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, void * option)
+dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, const void * option)
 {
 
     oa_p->oa_err[0] = '\0';

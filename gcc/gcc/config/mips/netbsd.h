@@ -1,26 +1,26 @@
 /* Definitions of target machine for GNU compiler, for MIPS NetBSD systems.
-   Copyright (C) 1993, 1995, 1996, 1997, 1999, 2000, 2001, 2002
+   Copyright (C) 1993, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-/* Define default target values. */
+/* Define default target values.  */
 
 #undef MACHINE_TYPE
 #if TARGET_ENDIAN_DEFAULT != 0
@@ -58,7 +58,7 @@ Boston, MA 02111-1307, USA.  */
    them here.  Note this is structured for easy comparison to the version
    in mips.h.
 
-   FIXME: This probably isn't the best solution.  But in the absense
+   FIXME: This probably isn't the best solution.  But in the absence
    of something better, it will have to do, for now.  */
 
 #undef TARGET_CPU_CPP_BUILTINS
@@ -93,9 +93,20 @@ Boston, MA 02111-1307, USA.  */
       else if (ISA_MIPS4)					\
 	builtin_define ("__mips=4");				\
       else if (ISA_MIPS32)					\
-	builtin_define ("__mips=32");				\
+	{							\
+	  builtin_define ("__mips=32");				\
+	  builtin_define ("__mips_isa_rev=1");			\
+	}							\
+      else if (ISA_MIPS32R2)					\
+	{							\
+	  builtin_define ("__mips=32");				\
+	  builtin_define ("__mips_isa_rev=2");			\
+	}							\
       else if (ISA_MIPS64)					\
-	builtin_define ("__mips=64");				\
+	{							\
+	  builtin_define ("__mips=64");				\
+	  builtin_define ("__mips_isa_rev=1");			\
+	}							\
 								\
       if (TARGET_HARD_FLOAT)					\
 	builtin_define ("__mips_hard_float");			\
@@ -117,20 +128,9 @@ Boston, MA 02111-1307, USA.  */
   while (0)
 
 
-/* Include the generic MIPS ELF configuration.  */
-#include <mips/elf.h>
-
-/* Now clean up after it.  */
+/* Clean up after the generic MIPS/ELF configuration.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
-
-/* Get generic NetBSD definitions.  */
-#include <netbsd.h>
-
-
-/* Get generic NetBSD ELF definitions.  */
-#include <netbsd-elf.h>
-
 
 /* Extra specs we need.  */
 #undef SUBTARGET_EXTRA_SPECS
@@ -153,7 +153,7 @@ Boston, MA 02111-1307, USA.  */
   "%{EL:-m elf32lmip} \
    %{EB:-m elf32bmip} \
    %(endian_spec) \
-   %{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips64} \
+   %{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips32r2} %{mips64} \
    %{bestGnum} %{call_shared} %{no_archive} %{exact_version} \
    %(netbsd_link_spec)"
 

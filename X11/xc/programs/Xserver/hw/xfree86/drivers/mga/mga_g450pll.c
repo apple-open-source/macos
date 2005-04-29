@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_g450pll.c,v 1.8 2002/09/16 18:05:56 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_g450pll.c,v 1.9 2003/11/03 05:11:18 tsi Exp $ */
 
 /* All drivers should typically include these */
 #include "xf86.h"
@@ -43,11 +43,10 @@ static CARD32 G450RemovePFactor(ScrnInfoPtr pScrn, CARD8 ucP, CARD32 *pulFIn)
 
 static CARD32 G450CalculVCO(ScrnInfoPtr pScrn, CARD32 ulMNP, CARD32 *pulF)
 {
-   CARD8 ucM, ucN, ucP;
+   CARD8 ucM, ucN;
 
    ucM = (CARD8)((ulMNP >> 16) & 0xff);
    ucN = (CARD8)((ulMNP >>  8) & 0xff);
-   ucP = (CARD8)(ulMNP & 0x03);
 
    *pulF = (27000 * (2 * (ucN + 2)) + ((ucM + 1) >> 1)) / (ucM + 1);
    
@@ -193,9 +192,6 @@ static CARD32 G450FindFirstPLLParam(ScrnInfoPtr pScrn, CARD32 ulFout,
 static CARD32 G450WriteMNP(ScrnInfoPtr pScrn, CARD32 ulMNP)
 {
    MGAPtr pMga = MGAPTR(pScrn);
-   MGARegPtr pReg;
-
-   pReg = &pMga->ModeReg;
 
    if (!pMga->SecondCrtc) {
       outMGAdac(MGA1064_PIX_PLLC_M, (CARD8)(ulMNP >> 16));   
@@ -212,10 +208,7 @@ static CARD32 G450WriteMNP(ScrnInfoPtr pScrn, CARD32 ulMNP)
 static CARD32 G450ReadMNP(ScrnInfoPtr pScrn)
 {
    MGAPtr pMga = MGAPTR(pScrn);
-   MGARegPtr pReg;
    CARD32 ret = 0;
-
-   pReg = &pMga->ModeReg;
 
    if (!pMga->SecondCrtc) {
       ret = (CARD8)inMGAdac(MGA1064_PIX_PLLC_M) << 16;   

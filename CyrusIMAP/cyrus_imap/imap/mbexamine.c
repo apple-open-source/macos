@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: mbexamine.c,v 1.11 2004/12/17 16:32:16 ken3 Exp $ */
+/* $Id: mbexamine.c,v 1.4 2005/03/05 00:36:58 dasenbro Exp $ */
 
 #include <config.h>
 

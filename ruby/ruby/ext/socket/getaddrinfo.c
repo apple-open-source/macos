@@ -40,7 +40,7 @@
 
 #include "config.h"
 #include <sys/types.h>
-#ifndef NT
+#if !defined(_WIN32) && !defined(__VMS)
 #include <sys/param.h>
 #if defined(__BEOS__)
 # include <net/socket.h>
@@ -56,9 +56,17 @@
 #endif
 #include <netdb.h>
 #if defined(HAVE_RESOLV_H)
+#ifdef _SX
+#include <stdio.h>
+#endif
 #include <resolv.h>
 #endif
 #include <unistd.h>
+#elif defined(__VMS )
+#include <socket.h>
+#include <inet.h>
+#include <in.h>
+#include <netdb.h>
 #else
 #include <winsock2.h>
 #include <io.h>
@@ -105,7 +113,7 @@ struct sockinet {
 	u_short	si_port;
 };
 
-static struct afd {
+static const struct afd {
 	int a_af;
 	int a_addrlen;
 	int a_socklen;
@@ -136,14 +144,14 @@ static struct afd {
 #define PTON_MAX	4
 #endif
 
-static int get_name __P((const char *, struct afd *,
+static int get_name __P((const char *, const struct afd *,
 			  struct addrinfo **, char *, struct addrinfo *,
 			  int));
 static int get_addr __P((const char *, int, struct addrinfo **,
 			struct addrinfo *, int));
 static int str_isnumber __P((const char *));
 	
-static char *ai_errlist[] = {
+static const char *const ai_errlist[] = {
 	"success.",
 	"address family for hostname not supported.",	/* EAI_ADDRFAMILY */
 	"temporary failure in name resolution.",	/* EAI_AGAIN      */
@@ -200,7 +208,7 @@ gai_strerror(ecode)
 {
 	if (ecode < 0 || ecode > EAI_MAX)
 		ecode = EAI_MAX;
-	return ai_errlist[ecode];
+	return (char *)ai_errlist[ecode];
 }
 
 void
@@ -397,7 +405,7 @@ getaddrinfo(hostname, servname, hints, res)
 				fprintf(stderr, "panic!\n");
 				break;
 			}
-			if ((sp = getservbyname(servname, proto)) == NULL)
+			if ((sp = getservbyname((char*)servname, proto)) == NULL)
 				ERR(EAI_SERVICE);
 			port = sp->s_port;
 			if (pai->ai_socktype == ANY)
@@ -418,7 +426,7 @@ getaddrinfo(hostname, servname, hints, res)
 	 * non-passive socket -> localhost (127.0.0.1 or ::1)
 	 */
 	if (hostname == NULL) {
-		struct afd *afd;
+		const struct afd *afd;
 		int s;
 
 		for (afd = &afdl[0]; afd->a_af; afd++) {
@@ -480,7 +488,11 @@ getaddrinfo(hostname, servname, hints, res)
 				break;
 #ifdef INET6
 			case AF_INET6:
+#ifdef HAVE_ADDR8
 				pfx = ((struct in6_addr *)pton)->s6_addr8[0];
+#else
+				pfx = ((struct in6_addr *)pton)->s6_addr[0];
+#endif
 				if (pfx == 0 || pfx == 0xfe || pfx == 0xff)
 					pai->ai_flags &= ~AI_CANONNAME;
 				break;
@@ -533,7 +545,7 @@ getaddrinfo(hostname, servname, hints, res)
 static int
 get_name(addr, afd, res, numaddr, pai, port0)
 	const char *addr;
-	struct afd *afd;
+	const struct afd *afd;
 	struct addrinfo **res;
 	char *numaddr;
 	struct addrinfo *pai;
@@ -550,7 +562,7 @@ get_name(addr, afd, res, numaddr, pai, port0)
 #ifdef INET6
 	hp = getipnodebyaddr(addr, afd->a_addrlen, afd->a_af, &h_error);
 #else
-	hp = gethostbyaddr(addr, afd->a_addrlen, AF_INET);
+	hp = gethostbyaddr((char*)addr, afd->a_addrlen, AF_INET);
 #endif
 	if (hp && hp->h_name && hp->h_name[0] && hp->h_addr_list[0]) {
 		GET_AI(cur, afd, hp->h_addr_list[0], port);
@@ -588,7 +600,7 @@ get_addr(hostname, af, res, pai, port0)
 	struct addrinfo sentinel;
 	struct hostent *hp;
 	struct addrinfo *top, *cur;
-	struct afd *afd;
+	const struct afd *afd;
 	int i, error = 0, h_error;
 	char *ap;
 
@@ -602,7 +614,7 @@ get_addr(hostname, af, res, pai, port0)
 	} else
 		hp = getipnodebyname(hostname, af, AI_ADDRCONFIG, &h_error);
 #else
-	hp = gethostbyname(hostname);
+	hp = gethostbyname((char*)hostname);
 	h_error = h_errno;
 #endif
 	if (hp == NULL) {

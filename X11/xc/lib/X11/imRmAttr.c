@@ -26,25 +26,26 @@ PERFORMANCE OF THIS SOFTWARE.
                                fujiwara@a80.tech.yk.fujitsu.co.jp
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/imRmAttr.c,v 1.6 2001/10/28 03:32:34 tsi Exp $ */
+/* $XFree86: xc/lib/X11/imRmAttr.c,v 1.8 2003/11/17 22:20:12 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xlcint.h"
 #include "Ximint.h"
 
+
 Private XIMResourceList
-_XimGetNestedListSeparator(res_list, res_num)
-    XIMResourceList	 res_list;		/* LISTofIMATTR or IMATTR */
-    unsigned int	 res_num;
+_XimGetNestedListSeparator(
+    XIMResourceList	 res_list,		/* LISTofIMATTR or IMATTR */
+    unsigned int	 res_num)
 {
     return  _XimGetResourceListRec(res_list, res_num, XNSeparatorofNestedList);
 }
 
 Private Bool
-_XimCheckInnerIMAttributes(im, arg, mode)
-    Xim			 im;
-    XIMArg		*arg;
-    unsigned long	 mode;
+_XimCheckInnerIMAttributes(
+    Xim			 im,
+    XIMArg		*arg,
+    unsigned long	 mode)
 {
     XIMResourceList	 res;
     int			 check;
@@ -63,14 +64,14 @@ _XimCheckInnerIMAttributes(im, arg, mode)
 }
 
 Public char *
-_XimMakeIMAttrIDList(im, res_list, res_num, arg, buf, len, mode)
-    Xim			 im;
-    XIMResourceList	 res_list;
-    unsigned int	 res_num;
-    XIMArg		*arg;
-    CARD16		*buf;
-    INT16		*len;
-    unsigned long	 mode;
+_XimMakeIMAttrIDList(
+    Xim			 im,
+    XIMResourceList	 res_list,
+    unsigned int	 res_num,
+    XIMArg		*arg,
+    CARD16		*buf,
+    INT16		*len,
+    unsigned long	 mode)
 {
     register XIMArg	*p;
     XIMResourceList	 res;
@@ -101,10 +102,10 @@ _XimMakeIMAttrIDList(im, res_list, res_num, arg, buf, len, mode)
 }
 
 Private Bool
-_XimCheckInnerICAttributes(ic, arg, mode)
-    Xic			 ic;
-    XIMArg		*arg;
-    unsigned long	 mode;
+_XimCheckInnerICAttributes(
+    Xic			 ic,
+    XIMArg		*arg,
+    unsigned long	 mode)
 {
     XIMResourceList	 res;
     int			 check;
@@ -123,14 +124,14 @@ _XimCheckInnerICAttributes(ic, arg, mode)
 }
 
 Public char *
-_XimMakeICAttrIDList(ic, res_list, res_num, arg, buf, len, mode)
-    Xic			 ic;
-    XIMResourceList	 res_list;
-    unsigned int	 res_num;
-    XIMArg		*arg;
-    CARD16		*buf;
-    INT16		*len;
-    unsigned long	 mode;
+_XimMakeICAttrIDList(
+    Xic			 ic,
+    XIMResourceList	 res_list,
+    unsigned int	 res_num,
+    XIMArg		*arg,
+    CARD16		*buf,
+    INT16		*len,
+    unsigned long	 mode)
 {
     register XIMArg	*p;
     XIMResourceList	 res;
@@ -205,13 +206,13 @@ _XimMakeICAttrIDList(ic, res_list, res_num, arg, buf, len, mode)
 }
 
 Private Bool
-_XimAttributeToValue(ic, res, data, data_len, value, mode)
-    Xic			  ic;
-    XIMResourceList	  res;
-    CARD16		 *data;
-    INT16		  data_len;
-    XPointer		  value;
-    BITMASK32		  mode;
+_XimAttributeToValue(
+    Xic			  ic,
+    XIMResourceList	  res,
+    CARD16		 *data,
+    INT16		  data_len,
+    XPointer		  value,
+    BITMASK32		  mode)
 {
     switch (res->resource_size) {
     case XimType_SeparatorOfNestedList:
@@ -394,9 +395,9 @@ _XimAttributeToValue(ic, res, data, data_len, value, mode)
 }
 
 Private Bool
-_XimDecodeInnerIMATTRIBUTE(im, arg)
-    Xim			 im;
-    XIMArg		*arg;
+_XimDecodeInnerIMATTRIBUTE(
+    Xim			 im,
+    XIMArg		*arg)
 {
     XIMResourceList	 res;
     XimDefIMValues	 im_values;
@@ -410,7 +411,6 @@ _XimDecodeInnerIMATTRIBUTE(im, arg)
 }
 
 Public char *
-#if NeedFunctionPrototypes
 _XimDecodeIMATTRIBUTE(
     Xim			 im,
     XIMResourceList	 res_list,
@@ -419,16 +419,6 @@ _XimDecodeIMATTRIBUTE(
     INT16		 data_len,
     XIMArg		*arg,
     BITMASK32		 mode)
-#else
-_XimDecodeIMATTRIBUTE(im, res_list, res_num,  data, data_len, arg, mode)
-    Xim			 im;
-    XIMResourceList	 res_list;
-    unsigned int	 res_num;
-    CARD16		*data;
-    INT16		 data_len;
-    XIMArg		*arg;
-    BITMASK32		 mode;
-#endif /* NeedFunctionPrototypes */
 {
     register XIMArg	*p;
     XIMResourceList	 res;
@@ -474,10 +464,10 @@ _XimDecodeIMATTRIBUTE(im, res_list, res_num,  data, data_len, arg, mode)
 }
 
 Private Bool
-_XimDecodeInnerICATTRIBUTE(ic, arg, mode)
-    Xic			 ic;
-    XIMArg		*arg;
-    unsigned long	 mode;
+_XimDecodeInnerICATTRIBUTE(
+    Xic			 ic,
+    XIMArg		*arg,
+    unsigned long	 mode)
 {
     XIMResourceList	 res;
     XimDefICValues	 ic_values;
@@ -494,7 +484,6 @@ _XimDecodeInnerICATTRIBUTE(ic, arg, mode)
 }
 
 Public char *
-#if NeedFunctionPrototypes
 _XimDecodeICATTRIBUTE(
     Xic			 ic,
     XIMResourceList	 res_list,
@@ -503,16 +492,6 @@ _XimDecodeICATTRIBUTE(
     INT16		 data_len,
     XIMArg		*arg,
     BITMASK32		 mode)
-#else
-_XimDecodeICATTRIBUTE(ic, res_list, res_num,  data, data_len, arg, mode)
-    Xic			 ic;
-    XIMResourceList	 res_list;
-    unsigned int	 res_num;
-    CARD16		*data;
-    INT16		 data_len;
-    XIMArg		*arg;
-    BITMASK32		 mode;
-#endif /* NeedFunctionPrototypes */
 {
     register XIMArg	*p;
     XIMResourceList	 res;
@@ -581,14 +560,14 @@ _XimDecodeICATTRIBUTE(ic, res_list, res_num,  data, data_len, arg, mode)
 }
 
 Private Bool
-_XimValueToAttribute(res, buf, buf_size, value, len, mode, param)
-    XIMResourceList	 res;
-    XPointer		 buf;
-    int			 buf_size;
-    XPointer		 value;
-    int			*len;
-    unsigned long	 mode;
-    XPointer		 param;
+_XimValueToAttribute(
+    XIMResourceList	 res,
+    XPointer		 buf,
+    int			 buf_size,
+    XPointer		 value,
+    int			*len,
+    unsigned long	 mode,
+    XPointer		 param)
 {
     int			 ret_len;
 
@@ -789,11 +768,11 @@ _XimValueToAttribute(res, buf, buf_size, value, len, mode, param)
 }
 
 Private Bool
-_XimSetInnerIMAttributes(im, top, arg, mode)
-    Xim			 im;
-    XPointer		 top;
-    XIMArg		*arg;
-    unsigned long	 mode;
+_XimSetInnerIMAttributes(
+    Xim			 im,
+    XPointer		 top,
+    XIMArg		*arg,
+    unsigned long	 mode)
 {
     XIMResourceList	 res;
     int			 check;
@@ -812,17 +791,17 @@ _XimSetInnerIMAttributes(im, top, arg, mode)
 }
 
 Public char *
-_XimEncodeIMATTRIBUTE(im, res_list, res_num, arg, arg_ret,  buf, size, ret_len, top, mode)
-    Xim			  im;
-    XIMResourceList	  res_list;
-    unsigned int	  res_num;
-    XIMArg		 *arg;
-    XIMArg		**arg_ret;
-    char		 *buf;
-    int			  size;
-    int			 *ret_len;
-    XPointer		  top;
-    unsigned long	  mode;
+_XimEncodeIMATTRIBUTE(
+    Xim			  im,
+    XIMResourceList	  res_list,
+    unsigned int	  res_num,
+    XIMArg		 *arg,
+    XIMArg		**arg_ret,
+    char		 *buf,
+    int			  size,
+    int			 *ret_len,
+    XPointer		  top,
+    unsigned long	  mode)
 {
     register XIMArg	*p;
     XIMResourceList	 res;
@@ -876,16 +855,16 @@ _XimEncodeIMATTRIBUTE(im, res_list, res_num, arg, arg_ret,  buf, size, ret_len, 
 
 #ifdef XIM_CONNECTABLE
 Public	Bool
-_XimEncodeSavedIMATTRIBUTE(im, res_list, res_num, idx, buf, size, ret_len, top, mode)
-    Xim			 im;
-    XIMResourceList	 res_list;
-    unsigned int	 res_num;
-    int			*idx;
-    char		*buf;
-    int			 size;
-    int			*ret_len;
-    XPointer		 top;
-    unsigned long	 mode;
+_XimEncodeSavedIMATTRIBUTE(
+    Xim			 im,
+    XIMResourceList	 res_list,
+    unsigned int	 res_num,
+    int			*idx,
+    char		*buf,
+    int			 size,
+    int			*ret_len,
+    XPointer		 top,
+    unsigned long	 mode)
 {
     register int	 i;
     int			 num = im->private.proto.num_saved_imvalues;
@@ -939,10 +918,10 @@ _XimEncodeSavedIMATTRIBUTE(im, res_list, res_num, idx, buf, size, ret_len, top, 
 #endif /* XIM_CONNECTABLE */
 
 Private Bool
-_XimEncodeTopValue(ic, res, p)
-    Xic			 ic;
-    XIMResourceList	 res;
-    XIMArg		*p;
+_XimEncodeTopValue(
+    Xic			 ic,
+    XIMResourceList	 res,
+    XIMArg		*p)
 {
     if (res->xrm_name == XrmStringToQuark(XNClientWindow)) {
 	ic->core.client_window = (Window)p->value;
@@ -962,10 +941,10 @@ _XimEncodeTopValue(ic, res, p)
 }
 
 Private Bool
-_XimEncodePreeditValue(ic, res, p)
-    Xic			 ic;
-    XIMResourceList	 res;
-    XIMArg		*p;
+_XimEncodePreeditValue(
+    Xic			 ic,
+    XIMResourceList	 res,
+    XIMArg		*p)
 {
     if (res->xrm_name == XrmStringToQuark(XNStdColormap)) {
 	XStandardColormap	*colormap_ret;
@@ -1013,10 +992,10 @@ _XimEncodePreeditValue(ic, res, p)
 }
 
 Private Bool
-_XimEncodeStatusValue(ic, res, p)
-    Xic			 ic;
-    XIMResourceList	 res;
-    XIMArg		*p;
+_XimEncodeStatusValue(
+    Xic			 ic,
+    XIMResourceList	 res,
+    XIMArg		*p)
 {
     if (res->xrm_name == XrmStringToQuark(XNStdColormap)) {
 	XStandardColormap	*colormap_ret;
@@ -1064,11 +1043,11 @@ _XimEncodeStatusValue(ic, res, p)
 }
 
 Private Bool
-_XimSetInnerICAttributes(ic, top, arg, mode)
-    Xic			 ic;
-    XPointer		 top;
-    XIMArg		*arg;
-    unsigned long	 mode;
+_XimSetInnerICAttributes(
+    Xic			 ic,
+    XPointer		 top,
+    XIMArg		*arg,
+    unsigned long	 mode)
 {
     XIMResourceList	 res;
     int			 check;
@@ -1087,18 +1066,18 @@ _XimSetInnerICAttributes(ic, top, arg, mode)
 }
 
 Public char *
-_XimEncodeICATTRIBUTE(ic, res_list, res_num, arg, arg_ret, buf, size, ret_len, top, flag, mode)
-    Xic			  ic;
-    XIMResourceList	  res_list;
-    unsigned int	  res_num;
-    XIMArg		 *arg;
-    XIMArg		**arg_ret;
-    char		 *buf;
-    int			  size;
-    int			 *ret_len;
-    XPointer		  top;
-    BITMASK32		 *flag;
-    unsigned long	  mode;
+_XimEncodeICATTRIBUTE(
+    Xic			  ic,
+    XIMResourceList	  res_list,
+    unsigned int	  res_num,
+    XIMArg		 *arg,
+    XIMArg		**arg_ret,
+    char		 *buf,
+    int			  size,
+    int			 *ret_len,
+    XPointer		  top,
+    BITMASK32		 *flag,
+    unsigned long	  mode)
 {
     register XIMArg	*p;
     XIMResourceList	 res;
@@ -1199,10 +1178,10 @@ _XimEncodeICATTRIBUTE(ic, res_list, res_num, arg, arg_ret, buf, size, ret_len, t
 
 #ifdef XIM_CONNECTABLE
 Private Bool
-_XimEncodeSavedPreeditValue(ic, res, value)
-    Xic			  ic;
-    XIMResourceList	  res;
-    XPointer		  value;
+_XimEncodeSavedPreeditValue(
+    Xic			  ic,
+    XIMResourceList	  res,
+    XPointer		  value)
 {
     int			  list_ret;
     XFontStruct		**struct_list;
@@ -1241,10 +1220,10 @@ _XimEncodeSavedPreeditValue(ic, res, value)
 }
 
 Private Bool
-_XimEncodeSavedStatusValue(ic, res, value)
-    Xic			  ic;
-    XIMResourceList	  res;
-    XPointer		  value;
+_XimEncodeSavedStatusValue(
+    Xic			  ic,
+    XIMResourceList	  res,
+    XPointer		  value)
 {
     int			  list_ret;
     XFontStruct		**struct_list;
@@ -1283,16 +1262,16 @@ _XimEncodeSavedStatusValue(ic, res, value)
 }
 
 Public	Bool
-_XimEncodeSavedICATTRIBUTE(ic, res_list, res_num, idx, buf, size, ret_len, top, mode)
-    Xic			 ic;
-    XIMResourceList	 res_list;
-    unsigned int	 res_num;
-    int			*idx;
-    char		*buf;
-    int			 size;
-    int			*ret_len;
-    XPointer		 top;
-    unsigned long	 mode;
+_XimEncodeSavedICATTRIBUTE(
+    Xic			 ic,
+    XIMResourceList	 res_list,
+    unsigned int	 res_num,
+    int			*idx,
+    char		*buf,
+    int			 size,
+    int			*ret_len,
+    XPointer		 top,
+    unsigned long	 mode)
 {
     int			 i;
     int			 num = ic->private.proto.num_saved_icvalues;
@@ -1394,10 +1373,10 @@ _XimEncodeSavedICATTRIBUTE(ic, res_list, res_num, idx, buf, size, ret_len, top, 
 #endif /* XIM_CONNECTABLE */
 
 Private unsigned int
-_XimCountNumberOfAttr(total, attr, names_len)
-    INT16	 total;
-    CARD16	*attr;
-    int		*names_len;
+_XimCountNumberOfAttr(
+    INT16	 total,
+    CARD16	*attr,
+    int		*names_len)
 {
     unsigned int n;
     INT16	 len;
@@ -1419,9 +1398,9 @@ _XimCountNumberOfAttr(total, attr, names_len)
 }
 
 Public Bool
-_XimGetAttributeID(im, buf)
-    Xim			  im;
-    CARD16		 *buf;
+_XimGetAttributeID(
+    Xim			  im,
+    CARD16		 *buf)
 {
     unsigned int	  n;
     XIMResourceList	  res;

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2001, International Business Machines Corporation and
+ * Copyright (c) 1997-2003, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -53,6 +53,8 @@ void TestTwoDigitYearDSTParse()
     UChar *s;
     int32_t pos;
 
+    ctest_setTimeZone(NULL, &status);
+
     pattern=(UChar*)malloc(sizeof(UChar) * (strlen("EEE MMM dd HH:mm:ss.SSS zzz yyyy G")+1 ));
     u_uastrcpy(pattern, "EEE MMM dd HH:mm:ss.SSS zzz yyyy G");
     fullFmt= udat_open(UDAT_IGNORE, UDAT_IGNORE,"en_US",NULL,0,pattern, u_strlen(pattern),&status);
@@ -94,6 +96,8 @@ void TestTwoDigitYearDSTParse()
     udat_close(fmt);
     free(pattern);
     free(s);
+
+    ctest_resetTimeZone();
 }
 
 
@@ -227,7 +231,6 @@ void TestCzechMonths459()
     UCalendar *cal;
     UDate june, july, d;
     UErrorCode status = U_ZERO_ERROR;
-    char buffer[512];
     UChar *date;
     
     fmt = udat_open(UDAT_FULL, UDAT_FULL, "cs", NULL, 0, NULL, 0, &status);
@@ -263,19 +266,17 @@ void TestCzechMonths459()
     }
     d = udat_parse(fmt, juneStr, u_strlen(juneStr), &pos, &status);
     date = myDateFormat(fmt, d);
-    u_UCharsToChars(date, buffer, (int32_t)(u_strlen(date)+1));
     if(u_strcmp(myDateFormat(fmt, june), myDateFormat(fmt, d) ) !=0)
         log_err("Error in handling the czech month june\n");
     else
-        log_verbose("Pass: Date = %s\n",  buffer );
+        log_verbose("Pass: Date = %s (czech month June)\n", aescstrdup(date, -1));
     pos=0;
     d = udat_parse(fmt, julyStr, u_strlen(julyStr), &pos, &status);
     date = myDateFormat(fmt, d);
-    u_UCharsToChars(date, buffer, (int32_t)(u_strlen(date)+1));
     if(u_strcmp(myDateFormat(fmt, july), myDateFormat(fmt, d) ) !=0)
         log_err("Error in handling the czech month july\n");
     else
-        log_verbose("Pass: Date = %s\n",  buffer );
+        log_verbose("Pass: Date = %s (czech month July)\n", aescstrdup(date, -1));
     
     udat_close(fmt);
     ucal_close(cal);
@@ -295,6 +296,9 @@ void TestQuotePattern161()
     UChar *dateString;
     UErrorCode status = U_ZERO_ERROR;
     const char* expStr = "04/13/1999 at 10:42:28 AM ";
+
+    ctest_setTimeZone(NULL, &status);
+
     pattern=(UChar*)malloc(sizeof(UChar) * (strlen("MM/dd/yyyy 'at' hh:mm:ss a zzz")+1) );
     u_uastrcpy(pattern, "MM/dd/yyyy 'at' hh:mm:ss a zzz");
     
@@ -322,7 +326,7 @@ void TestQuotePattern161()
     u_uastrcpy(exp, expStr);
     
     log_verbose("%s\n", austrdup(dateString) );
-    if(u_strncmp(dateString, exp, strlen(expStr)) !=0)
+    if(u_strncmp(dateString, exp, (int32_t)strlen(expStr)) !=0)
         log_err("Error in formatting a pattern with single quotes\n");
 
     udat_close(format);
@@ -331,6 +335,7 @@ void TestQuotePattern161()
     free(tzID);
     free(pattern);
     
+    ctest_resetTimeZone();
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

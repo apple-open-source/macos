@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.4
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -54,6 +54,10 @@
 /* Maximum color matrix stack depth: */
 #define MAX_COLOR_STACK_DEPTH 4
 
+/* Vertex program matrix stacks: */
+#define MAX_PROGRAM_MATRICES 8
+#define MAX_PROGRAM_STACK_DEPTH 4
+
 /* Maximum attribute stack depth: */
 #define MAX_ATTRIB_STACK_DEPTH 16
 
@@ -87,7 +91,7 @@
 
 /* Min and Max point sizes and granularity */
 #define MIN_POINT_SIZE 1.0
-#define MAX_POINT_SIZE 10.0
+#define MAX_POINT_SIZE 20.0
 #define POINT_SIZE_GRANULARITY 0.1
 
 /* Min and Max line widths and granularity */
@@ -104,14 +108,14 @@
 /* Number of 3D texture mipmap levels */
 #define MAX_3D_TEXTURE_LEVELS 8
 
-/* Number of cube texture mipmap levels */
+/* Number of cube texture mipmap levels - GL_ARB_texture_cube_map */
 #define MAX_CUBE_TEXTURE_LEVELS 12
 
 /* Maximum rectangular texture size - GL_NV_texture_rectangle */
 #define MAX_TEXTURE_RECT_SIZE 2048
 
 /* Number of texture units - GL_ARB_multitexture */
-#define MAX_TEXTURE_UNITS 6
+#define MAX_TEXTURE_UNITS 8
 
 /* Maximum viewport/image size: */
 #define MAX_WIDTH 2048
@@ -190,6 +194,13 @@
 #define GCOMP 1
 #define BCOMP 2
 #define ACOMP 3
+
+
+
+/*
+ * Enable/disable features (blocks of code) by setting FEATURE_xyz to 0 or 1.
+ */
+#define FEATURE_NV_vertex_program 1
 
 
 #endif /* CONFIG_H */

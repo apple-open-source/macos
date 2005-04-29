@@ -35,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #define LIB_SPEC OBSD_LIB_SPEC
 
 /* By default, OpenBSD mips is little endian.  This is important to set
-   here as mips/mips.h defaults to big endian unless DECSTATION.  */
+   here as mips/mips.h defaults to big endian.  */
 #ifndef TARGET_ENDIAN_DEFAULT
 #define TARGET_ENDIAN_DEFAULT 0
 #endif
@@ -53,16 +53,17 @@ Boston, MA 02111-1307, USA.  */
 	support.  */
 #undef SET_ASM_OP
 
-/* Run-time target specifications.  */
-#if TARGET_ENDIAN_DEFAULT != 0
-#define CPP_PREDEFINES "-D__SYSTYPE_BSD__ -D__NO_LEADING_UNDERSCORES__ \
--D__GP_SUPPORT__ -D__MIPSEB__ -D__unix__  -D__OpenBSD__ -D__mips__ \
--Asystem=unix -Asystem=OpenBSD -Acpu=mips -Amachine=mips -Aendian=big"
-#else
-#define CPP_PREDEFINES "-D__SYSTYPE_BSD__ -D__NO_LEADING_UNDERSCORES__ \
--D__GP_SUPPORT__ -D__MIPSEL__ -D__unix__  -D__OpenBSD__ -D__mips__ \
--Asystem=unix -Asystem=OpenBSD -Acpu=mips -Amachine=mips -Aendian=little"
-#endif
+#define TARGET_OS_CPP_BUILTINS()			\
+    do {						\
+	builtin_define ("__unix__");			\
+	builtin_define ("__SYSTYPE_BSD__");		\
+	builtin_define ("__NO_LEADING_UNDERSCORES__");	\
+	builtin_define ("__GP_SUPPORT__");		\
+	builtin_define ("__OpenBSD__");			\
+	builtin_assert ("system=unix");			\
+	builtin_assert ("system=OpenBSD");		\
+	builtin_assert ("machine=mips");			\
+} while (0)
 
 /* Layout of source language data types.  */
 
@@ -81,7 +82,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Controlling the compilation driver.  */
 
-/* LINK_SPEC appropriate for OpenBSD:  support for GCC options 
+/* LINK_SPEC appropriate for OpenBSD:  support for GCC options
    -static, -assert, and -nostdlib. Dynamic loader control.  */
 #undef LINK_SPEC
 #define LINK_SPEC \

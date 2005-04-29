@@ -1,6 +1,6 @@
 /*
 *****************************************************************************************
-*   Copyright (C) 1996-2001, International Business Machines
+*   Copyright (C) 1996-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *****************************************************************************************
 */
@@ -264,5 +264,27 @@ ubrk_getRuleStatus(UBreakIterator *bi)
 {
     return ((RuleBasedBreakIterator *)bi)->getRuleStatus();
 }
+
+U_CAPI  int32_t U_EXPORT2
+ubrk_getRuleStatusVec(UBreakIterator *bi, int32_t *fillInVec, int32_t capacity, UErrorCode *status)
+{
+    return ((RuleBasedBreakIterator *)bi)->getRuleStatusVec(fillInVec, capacity, *status);
+}
+
+
+U_CAPI const char* U_EXPORT2
+ubrk_getLocaleByType(const UBreakIterator *bi, 
+                     ULocDataLocaleType type, 
+                     UErrorCode* status)
+{
+    if (bi == NULL) {
+        if (U_SUCCESS(*status)) {
+            *status = U_ILLEGAL_ARGUMENT_ERROR;
+        }
+        return NULL;
+    }
+    return ((BreakIterator*)bi)->getLocaleID(type, *status);
+}
+
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */

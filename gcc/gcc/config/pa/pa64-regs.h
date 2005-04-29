@@ -1,20 +1,20 @@
-/* Configuration for GNU C-compiler for PA-RISC.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+/* Configuration for GCC-compiler for PA-RISC.
+   Copyright (C) 1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -118,22 +118,18 @@ Boston, MA 02111-1307, USA.  */
    registers will generally not be allocated across a call).
 
    Experimentation has shown slightly better results by allocating
-   FP registers first.  
-
-   FP registers are ordered so that all L registers are selected before
-   R registers.  This works around a false dependency interlock on the
-   PA8000 when accessing the high and low parts of an FP register
-   independently.  */
+   FP registers first.  We allocate the caller-saved registers more
+   or less in reverse order to their allocation as arguments.  */
 
 #define REG_ALLOC_ORDER \
  {					\
   /* caller-saved fp regs.  */		\
   50, 51, 52, 53, 54, 55, 56, 57,	\
-  58, 59, 36, 37, 38, 39, 32, 33,	\
-  34, 35,				\
+  58, 59, 39, 38, 37, 36, 35, 34,	\
+  33, 32,				\
   /* caller-saved general regs.  */	\
-  19, 20, 21, 22, 23, 24, 25, 26,	\
-  27, 28, 29, 31,  2,			\
+  28, 31, 19, 20, 21, 22, 23, 24,	\
+  25, 26, 29,  2,			\
   /* callee-saved fp regs.  */		\
   40, 41, 42, 43, 44, 45, 46, 47,	\
   48, 49,				\
@@ -141,7 +137,7 @@ Boston, MA 02111-1307, USA.  */
    3,  4,  5,  6,  7,  8,  9, 10, 	\
   11, 12, 13, 14, 15, 16, 17, 18,	\
   /* special registers.  */		\
-   1, 30,  0, 60}
+   1, 27, 30,  0, 60}
 
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
@@ -150,7 +146,7 @@ Boston, MA 02111-1307, USA.  */
    but can be less for certain modes in special long registers.
 
    For PA64, GPRs and FPRs hold 64 bits worth (we ignore the 32bit
-   addressability of the FPRs).  ie, we pretend each register holds
+   addressability of the FPRs).  i.e., we pretend each register holds
    precisely WORD_SIZE bits.  */
 #define HARD_REGNO_NREGS(REGNO, MODE)					\
    ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
@@ -169,13 +165,11 @@ Boston, MA 02111-1307, USA.  */
 
    Registers 0  - 31 remain unchanged.
 
-   Registers 32 - 60 are mapped to 72, 74, 76 ...
+   Registers 32 - 59 are mapped to 72, 74, 76 ...
 
-   Register 88 is mapped to 32.  */
-
+   Register 60 is mapped to 32.  */
 #define DBX_REGISTER_NUMBER(REGNO) \
-  ((REGNO) <= 31 ? (REGNO) :						\
-   ((REGNO) > 31 && (REGNO) <= 60 ? (REGNO - 32) * 2 + 72 : 32))
+  ((REGNO) <= 31 ? (REGNO) : ((REGNO) < 60 ? (REGNO - 32) * 2 + 72 : 32))
 
 /* We must not use the DBX register numbers for the DWARF 2 CFA column
    numbers because that maps to numbers beyond FIRST_PSEUDO_REGISTER.
@@ -211,7 +205,7 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
   {"NO_REGS", "R1_REGS", "GENERAL_REGS", "FPUPPER_REGS", "FP_REGS", \
@@ -257,7 +251,7 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
 
 
 /* Get reg_class from a letter such as appears in the machine description.  */
-/* Keep 'x' for backward compatibility with user asm.   */
+/* Keep 'x' for backward compatibility with user asm.  */
 #define REG_CLASS_FROM_LETTER(C) \
   ((C) == 'f' ? FP_REGS :					\
    (C) == 'y' ? FP_REGS :					\
@@ -292,7 +286,7 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
  "%fr28", "%fr29",  "%fr30", "%fr31", "SAR"}
 
 #define ADDITIONAL_REGISTER_NAMES \
- {{"%cr11",88}}
+ {{"%cr11",60}}
 
 #define FP_SAVED_REG_LAST 49
 #define FP_SAVED_REG_FIRST 40

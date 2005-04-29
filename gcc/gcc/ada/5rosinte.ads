@@ -6,8 +6,7 @@
 --                                                                          --
 --                                   S p e c                                --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1997-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -88,6 +87,7 @@ package System.OS_Interface is
    Max_Interrupt : constant := 31;
    type Signal is new int range 0 .. Max_Interrupt;
 
+   SIGXCPU     : constant := 0; --  XCPU
    SIGHUP      : constant := 1; --  hangup
    SIGINT      : constant := 2; --  interrupt (rubout)
    SIGQUIT     : constant := 3; --  quit (ASCD FS)
@@ -106,7 +106,6 @@ package System.OS_Interface is
    SIGTERM     : constant := 15; --  software termination signal from kill
    SIGUSR1     : constant := 16; --  user defined signal 1
    SIGUSR2     : constant := 17; --  user defined signal 2
-   SIGXCPU     : constant := 0; --  XCPU
 
    SIGADAABORT : constant := SIGABRT;
 
@@ -139,6 +138,8 @@ package System.OS_Interface is
    end record;
    pragma Convention (C, struct_sigaction);
    type struct_sigaction_ptr is access all struct_sigaction;
+
+   SA_SIGINFO  : constant := 16#02#;
 
    SIG_BLOCK   : constant := 1;
    SIG_UNBLOCK : constant := 2;
@@ -262,7 +263,7 @@ package System.OS_Interface is
    PROT_OFF : constant := 0;
 
    function mprotect (addr : Address; len : size_t; prot : int) return int;
-   --  Do nothing on RTEMS.
+   pragma Import (C, mprotect);
 
    -----------------------------------------
    --  Nonstandard Thread Initialization  --

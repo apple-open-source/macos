@@ -28,7 +28,7 @@
  * FRAME_OFFSET to the number of bytes pushed onto the stack before
  * using the ARG_* argument macros.
  *
- * Gareth Hughes <gareth@valinux.com>
+ * Gareth Hughes
  */
 
 #ifndef __XFORM_ARGS_H__

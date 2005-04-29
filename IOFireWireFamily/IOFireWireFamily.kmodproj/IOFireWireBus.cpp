@@ -35,8 +35,8 @@
 OSDefineMetaClassAndAbstractStructors(IOFireWireBusAux, OSObject);
 
 OSMetaClassDefineReservedUsed(IOFireWireBusAux, 0);			// createDCLPool
-OSMetaClassDefineReservedUnused(IOFireWireBusAux, 1);		// will be createBufferFillIsochPort
-OSMetaClassDefineReservedUnused(IOFireWireBusAux, 2);
+OSMetaClassDefineReservedUsed(IOFireWireBusAux, 1);			// createBufferFillIsochPort
+OSMetaClassDefineReservedUsed(IOFireWireBusAux, 2);			// getMaxRec
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 3);
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 4);
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 5);
@@ -81,3 +81,9 @@ OSDefineAbstractStructors(IOFireWireBus, IOService)
 //OSMetaClassDefineReservedUnused(IOFireWireBus, 5);
 //OSMetaClassDefineReservedUnused(IOFireWireBus, 6);
 //OSMetaClassDefineReservedUnused(IOFireWireBus, 7);
+
+IOFWBufferFillIsochPort *
+IOFireWireBus :: createBufferFillIsochPort()
+{
+	return fAuxiliary->createBufferFillIsochPort() ;
+}

@@ -108,9 +108,16 @@
 #define XFLG_DEF_INCLUDE	(1<<1)
 #define XFLG_WORDS_ONLY 	(1<<2)
 #define XFLG_WORD_SPLIT 	(1<<3)
+#define XFLG_DIRECTORY	 	(1<<4)
+
+#define PERMS_REPORT		(1<<0)
+#define PERMS_SKIP_MTIME	(1<<1)
 
 #define FULL_FLUSH	1
 #define NORMAL_FLUSH	0
+
+#define PDIR_CREATE	1
+#define PDIR_DELETE	0
 
 
 /* Log-message categories.  FLOG is only used on the daemon side to
@@ -120,10 +127,10 @@ enum logcode { FERROR=1, FINFO=2, FLOG=3 };
 /* Messages types that are sent over the message channel.  The logcode
  * values must all be present here with identical numbers. */
 enum msgcode {
-	MSG_DATA=0,	/* raw data on the multiplexed stream */
-	MSG_ERROR=FERROR, MSG_INFO=FINFO, MSG_LOG=FLOG, /* remote logging */
-	MSG_REDO=4,	/* reprocess indicated flist index */
 	MSG_DONE=5,	/* current phase is done */
+	MSG_REDO=4,	/* reprocess indicated flist index */
+	MSG_ERROR=FERROR, MSG_INFO=FINFO, MSG_LOG=FLOG, /* remote logging */
+	MSG_DATA=0	/* raw data on the multiplexed stream */
 };
 
 #include "errcode.h"
@@ -309,7 +316,7 @@ enum msgcode {
 #else
 /* As long as it gets... */
 #define int64 off_t
-#define NO_INT64
+#define INT64_IS_OFF_T
 #endif
 
 #if (SIZEOF_LONG == 8) 
@@ -388,7 +395,7 @@ struct idev {
 #define IN_LOOPBACKNET 127
 #endif
 
-#define GID_NONE (gid_t) -1
+#define GID_NONE ((gid_t)-1)
 
 #define HL_CHECK_MASTER	0
 #define HL_SKIP		1
@@ -455,11 +462,13 @@ struct file_list {
 	struct file_struct **files;
 };
 
+#define SUMFLG_SAME_OFFSET	(1<<0)
+
 struct sum_buf {
 	OFF_T offset;		/**< offset in file of this chunk */
 	unsigned int len;	/**< length of chunk of file */
-	int i;			/**< index of this chunk */
 	uint32 sum1;	        /**< simple checksum */
+	short flags;		/**< flag bits */
 	char sum2[SUM_LENGTH];	/**< checksum  */
 };
 
@@ -475,11 +484,9 @@ struct sum_struct {
 struct map_struct {
 	char *p;		/* Window pointer			*/
 	int fd;			/* File Descriptor			*/
-	int p_size;		/* Window size at allocation		*/
-	int p_len;		/* Window size after fill		*/
-				/*    p_size and p_len could be
-				 *    consolodated by using a local
-				 *    variable in map_ptr()		*/
+	int p_size;		/* Largest window size we allocated	*/
+	int p_len;		/* Latest (rounded) window size		*/
+	int def_window_size;	/* Default window size			*/
 	int status;		/* first errno from read errors		*/
 	OFF_T file_size;	/* File size (from stat)		*/
 	OFF_T p_offset;		/* Window start				*/
@@ -490,12 +497,13 @@ struct map_struct {
 #define MATCHFLG_WILD2		(1<<1) /* pattern has '**' */
 #define MATCHFLG_WILD2_PREFIX	(1<<2) /* pattern starts with '**' */
 #define MATCHFLG_ABS_PATH	(1<<3) /* path-match on absolute path */
+#define MATCHFLG_INCLUDE	(1<<4) /* this is an include, not an exclude */
+#define MATCHFLG_DIRECTORY	(1<<5) /* this matches only directories */
+#define MATCHFLG_CLEAR_LIST 	(1<<6) /* this item is the "!" token */
 struct exclude_struct {
 	struct exclude_struct *next;
 	char *pattern;
-	int match_flags;
-	int include;
-	int directory;
+	unsigned int match_flags;
 	int slash_cnt;
 };
 
@@ -764,3 +772,9 @@ const char *get_panic_action(void);
 #define UNUSED(x) x __attribute__((__unused__))
 
 extern const char *io_write_phase, *io_read_phase;
+ /* hack for building fat on Mac OS X */
+
+#if defined(__APPLE__) && defined(WORDS_BIGENDIAN)
+#undef WORDS_BIGENDIAN
+#define WORDS_BIGENDIAN __BIG_ENDIAN__
+#endif

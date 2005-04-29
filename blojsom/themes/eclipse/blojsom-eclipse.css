@@ -1,0 +1,285 @@
+img {
+    border: 0;
+}
+
+body
+{
+      background-color: #222222;
+      color: #ffffff;
+      font-family: Tahoma, verdana, arial, sans-serif;
+      padding: 1%;
+      margin: 0;
+}
+
+body p {
+        margin-left: 2%;
+        font-size: .9em;
+}
+
+HR {
+    height: 1px;
+    color: #777777;
+}
+
+H1 {
+        font-family: Tahoma, verdana, arial, sans-serif;
+        color: #ffffff;
+        font-size: 1.5em;
+        font-weight: bold;
+        margin-left: 2%;
+        margin-top: 0;
+        margin-bottom: 0;
+        margin-right: 0;
+        padding: 0;
+        text-align: left;
+}
+
+H3 {
+	font-family: Tahoma, verdana, arial, sans-serif;
+        font-size: .7em;
+        font-weight: normal;
+	color: #aaaaaa;
+        padding: 0;
+        margin-left: 2.2%;
+        margin-top: 0;
+        margin-bottom: 0;
+        margin-right: 0;
+}
+
+A:link { 
+        color: #ffffff;
+        border-bottom: 1px solid #777777;
+        text-decoration: none;
+} 
+
+A:visited { 
+        color: #ffffff;
+        border-bottom: 1px solid #777777;
+        text-decoration: none;
+} 
+
+A:active { 
+} 
+
+A:hover {
+    text-decoration: underline;
+    color: #ffffff;
+    background-color: #777777;
+    text-decoration: none;
+}
+
+body .weblogtitle {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-left: 3%;
+    margin-top: 2%;
+    margin-right: 0;
+    margin-bottom: 0;
+}
+
+.entrystyle .weblogtitle {
+        color: #ffffff;
+	font-family: Helvetica, Arial, sans-serif;
+	font-weight: bold;
+	font-size: 1.2em;
+	margin: 0;
+	padding: 0;
+}
+
+.weblogtitle2{
+    font-weight: bold;
+}
+
+body .weblogdateline {
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: .8em;
+	color: #808080;
+        margin-left: 4%;
+        margin-right: 0;
+        margin-bottom: 0;
+        margin-top: 0;
+	padding: 0;
+}
+
+.entrystyle .weblogdateline {
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: .8em;
+	color: #808080;
+        margin: 0;
+	padding: 0;
+}
+
+.refererhistory
+{
+	font-family: Helvetica, Arial, sans-serif;
+	font-weight: normal;
+	font-size: 75%;
+	color: #555555;
+	margin-top: 0pt;
+	margin-top: 0pt;
+	padding-top: 0pt;
+}
+
+.weblogpostedbyline
+{
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: smaller;
+	color: #000000;
+	margin-top: 0pt;
+	padding-top: 0pt;
+}
+
+.weblogbottomline {
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: .8em;
+	margin-top: 1%;
+	padding-top: 0;
+	margin-bottom: 2%;
+        margin-left: 3%;
+	text-align: left;
+}
+
+.entrystyle {
+        font-family: Tahoma, verdana, arial, sans-serif;
+        color: #dddddd;
+        font-size: .8em;
+        font-weight: normal;
+        background-color: #383838;
+        border: 1px solid #777777;
+        padding: 1%;
+        margin-left: 2%;
+        margin-right: 2%;
+        margin-top: 2%;
+}
+
+.entrystyle img {
+    padding: 1%;
+}
+
+
+.commentstyle {
+        font-family: Tahoma, verdana, arial, sans-serif;
+        color: #dddddd;
+        font-size: .9em;
+        font-weight: normal;
+        background-color: #424242;
+        border: 1px solid #777777;
+        padding: 10px;
+        margin-top: 20px;
+}
+
+.smalltext {
+	font-size: .7em;
+        font-family: Tahoma, verdana, arial, sans-serif;
+	font-weight: normal;
+        margin-left: 20px;
+}
+
+.searchtext {
+    color: #ffffff;
+}
+
+.searchimage
+{
+    margin-top: 0px;
+    margin-bottom: 0px;
+    vertical-align: middle;
+}
+
+#searchbox{
+	float: right;
+	width: 200px;
+	border-left: 0px solid #000000;
+	border-right: 0px solid #000000;
+	border-bottom: 0px solid #000000;
+	border-top: 0px solid #000000;
+	padding: 0px;
+	margin-top: 5px;
+	margin-bottom: 0px;
+	margin-right: 0px;
+}
+
+.searchform
+{
+    margin-top: 2px;
+	margin-bottom: 2px;
+}
+
+.calendartable {
+    text-align: center;
+    padding: 0px;
+    border-collapse: collapse;
+    margin: 0px;
+    border: 1px solid #777777;
+    background-color: #383838;
+}
+
+.calendarbox a {
+    color: #ffffff;
+    font-weight: bold;
+    border-bottom: 2px solid #777777;
+}
+
+.calendarcaption {
+    font-weight: bold;
+    font-size: .9em;
+    color: #ffffff;
+    background-color: #777777;
+    border: 1px solid #999999;
+}
+
+.calendarcolumn {
+    border: 1px solid #777777;
+    margin: 0px;
+    font-size: .7em;
+    padding: 1px;
+}
+
+.calendarcolumn a, .calendarcolumn a:visited {
+    margin: 0px;
+    font-size: 1.0em;
+    padding-top: 1px;
+    padding-bottom: 1px;
+    padding-left: 5px;
+    padding-right: 5px;
+    border: none;
+    color: #000000;
+    background-color: #dddddd;
+}
+
+.calendarcolumn a:hover {
+    color: #ffffff;
+    background-color: #999999;
+}
+
+.tablemaxwidth {
+   width: 100%;
+   vertical-align: top;
+}
+
+.tablemaxpxwidth {
+   padding: 5px;
+}
+
+.mastertable {
+      border:  0px;
+      width: 100%;
+}
+
+.mastertable p {
+}
+
+.calendartable {
+   border: 0px;
+   width: 165px;
+}
+
+input, textarea {
+     background-color: #777777;
+     color: #ffffff;
+}
+
+input {
+    font-weight: bold;
+}
+

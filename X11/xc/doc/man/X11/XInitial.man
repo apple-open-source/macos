@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XInitial.man,v 1.3 2001/02/09 03:47:45 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XInitial.man,v 1.5 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,22 +144,12 @@
 .SH NAME
 XrmInitialize, XrmParseCommand, XrmValue, XrmOptionKind, XrmOptionDescRec \- initialize the Resource Manager, Resource Manager structures, and parse the command line
 .SH SYNTAX
-void XrmInitialize\^(\|);
-.LP
-void XrmParseCommand\^(\^\fIdatabase\fP\^, \^\fItable\fP\^, \^\fItable_count\fP\^,
-\^\fIname\fP\^, \^\fIargc_in_out\fP\^, \^\fIargv_in_out\fP\^)
-.br
-      XrmDatabase *\fIdatabase\fP\^;
-.br
-      XrmOptionDescList \fItable\fP\^;
-.br
-      int \fItable_count\fP\^;
-.br
-      char *\fIname\fP\^;
-.br
-      int *\fIargc_in_out\fP\^;
-.br
-      char **\fIargv_in_out\fP\^;
+.HP
+void XrmInitialize\^(void\^);
+.HP
+void XrmParseCommand\^(\^XrmDatabase *\fIdatabase\fP\^, XrmOptionDescList
+\fItable\fP\^, int \fItable_count\fP\^, char *\fIname\fP\^, int
+*\fIargc_in_out\fP\^, char **\fIargv_in_out\fP\^); 
 .SH ARGUMENTS
 .IP \fIargc_in_out\fP 1i
 Specifies the number of arguments and returns the number of remaining arguments.
@@ -242,14 +232,14 @@ typedef struct {
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef enum {
-	XrmoptionNoArg,	/* Value is specified in XrmOptionDescRec.value */
-	XrmoptionIsArg,	/* Value is the option string itself */
-	XrmoptionStickyArg,	/* Value is characters immediately following option */
-	XrmoptionSepArg,	/* Value is next argument in argv */
-	XrmoptionResArg,	/* Resource and value in next argument in argv */
-	XrmoptionSkipArg,	/* Ignore this option and the next argument in argv */
-	XrmoptionSkipLine,	/* Ignore this option and the rest of argv */
-	XrmoptionSkipNArgs	/* Ignore this option and the next
+	XrmoptionNoArg,	/\(** Value is specified in XrmOptionDescRec.value */
+	XrmoptionIsArg,	/\(** Value is the option string itself */
+	XrmoptionStickyArg,	/\(** Value is characters immediately following option */
+	XrmoptionSepArg,	/\(** Value is next argument in argv */
+	XrmoptionResArg,	/\(** Resource and value in next argument in argv */
+	XrmoptionSkipArg,	/\(** Ignore this option and the next argument in argv */
+	XrmoptionSkipLine,	/\(** Ignore this option and the rest of argv */
+	XrmoptionSkipNArgs	/\(** Ignore this option and the next
 		\ \ \ XrmOptionDescRec.value arguments in argv */
 } XrmOptionKind;
 .De
@@ -258,10 +248,10 @@ typedef enum {
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	char *option;	/* Option specification string in argv		    */
-	char *specifier;	/* Binding and resource name (sans application name)    */
-	XrmOptionKind argKind;	/* Which style of option it is	    */
-	XPointer value;	/* Value to provide if XrmoptionNoArg or 
+	char *option;	/\(** Option specification string in argv		    */
+	char *specifier;	/\(** Binding and resource name (sans application name)    */
+	XrmOptionKind argKind;	/\(** Which style of option it is	    */
+	XPointer value;	/\(** Value to provide if XrmoptionNoArg or 
 		\ \ \ XrmoptionSkipNArgs   */
 } XrmOptionDescRec, *XrmOptionDescList;
 .De

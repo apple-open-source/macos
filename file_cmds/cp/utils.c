@@ -40,6 +40,7 @@ static char sccsid[] = "@(#)utils.c	8.3 (Berkeley) 4/1/94";
 __RCSID("$FreeBSD: src/bin/cp/utils.c,v 1.38 2002/07/31 16:52:16 markm Exp $");
 
 #include <sys/param.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 #ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
 #include <sys/mman.h>
@@ -54,6 +55,10 @@ __RCSID("$FreeBSD: src/bin/cp/utils.c,v 1.38 2002/07/31 16:52:16 markm Exp $");
 #include <stdlib.h>
 #include <sysexits.h>
 #include <unistd.h>
+
+#ifdef __APPLE__
+#include <copyfile.h>
+#endif
 
 #include "extern.h"
 
@@ -90,6 +95,7 @@ copy_file(FTSENT *entp, int dne)
 		if (nflag) {
 			if (vflag)
 				printf("%s not overwritten\n", to.p_path);
+			close(from_fd);
 			return (0);
 		} else if (iflag) {
 			(void)fprintf(stderr, "overwrite %s? %s", 
@@ -175,6 +181,12 @@ copy_file(FTSENT *entp, int dne)
 		}
 	}
 
+#ifdef __APPLE__
+	if (pflag)
+		copyfile(entp->fts_path, to.p_path, 0, COPYFILE_XATTR | COPYFILE_ACL);
+	else
+		copyfile(entp->fts_path, to.p_path, 0, COPYFILE_XATTR);
+#endif
 	/*
 	 * Don't remove the target even after an error.  The target might
 	 * not be a regular file, or its attributes might be important,
@@ -211,6 +223,9 @@ copy_link(FTSENT *p, int exists)
 		warn("symlink: %s", llink);
 		return (1);
 	}
+#ifdef __APPLE__
+	    copyfile(p->fts_path, to.p_path, 0, COPYFILE_XATTR | COPYFILE_NOFOLLOW_SRC);
+#endif
 	return (0);
 }
 

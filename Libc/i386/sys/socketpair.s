@@ -25,5 +25,8 @@
  */
 #include "SYS.h"
 
-UNIX_SYSCALL(socketpair, 5)
+PSEUDO(socketpair$UNIX2003, socketpair, 5)
+	ret
+
+UNIX_SYSCALL_ERR(socketpair, 5, cerror_cvt)
 	ret

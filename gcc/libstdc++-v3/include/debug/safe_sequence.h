@@ -1,7 +1,6 @@
-/* APPLE LOCAL file libstdc++ debug mode */
 // Safe sequence implementation  -*- C++ -*-
 
-// Copyright (C) 2003
+// Copyright (C) 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -30,70 +29,69 @@
 // the GNU General Public License.
 
 #ifndef _GLIBCXX_DEBUG_SAFE_SEQUENCE_H
-#define _GLIBCXX_DEBUG_SAFE_SEQUENCE_H
+#define _GLIBCXX_DEBUG_SAFE_SEQUENCE_H 1
 
 #include <debug/debug.h>
 #include <debug/safe_base.h>
 
-namespace std
+namespace __gnu_debug
 {
-  namespace __debug
-  {
-    template<typename _Iterator, typename _Sequence> class _Safe_iterator;
+  template<typename _Iterator, typename _Sequence>
+    class _Safe_iterator;
 
-    /** A simple function object that returns true if the passed-in
-	value is not equal to the stored value. It saves typing over
-	using both bind1st and not_equal. */
-    template<typename _Type>
-      class _Not_equal_to
-      {
-	_Type __value;
-	
-      public:
-	explicit _Not_equal_to(const _Type& __v) : __value(__v) { }
+  /** A simple function object that returns true if the passed-in
+   *  value is not equal to the stored value. It saves typing over
+   *  using both bind1st and not_equal.
+   */
+  template<typename _Type>
+    class _Not_equal_to
+    {
+      _Type __value;
 
-	bool 
-	operator()(const _Type& __x) const 
-	{ return __value != __x; }
-      };
+    public:
+      explicit _Not_equal_to(const _Type& __v) : __value(__v) { }
 
-    /** A function object that returns true when the given random access
-	iterator is at least @c n steps away from the given iterator. */
-    template<typename _Iterator>
-      class _After_nth_from
-      {
-	typedef typename std::iterator_traits<_Iterator>::difference_type
-          difference_type;
+      bool
+      operator()(const _Type& __x) const
+      { return __value != __x; }
+    };
 
-	_Iterator _M_base;
-	difference_type _M_n;
-	
-      public:
-	_After_nth_from(const difference_type& __n, const _Iterator& __base)
-	: _M_base(__base), _M_n(__n) 
-	{ }
-	
-	bool 
-	operator()(const _Iterator& __x) const
-	{ return __x - _M_base >= _M_n; }
-      };
-    
-    /**
-     * @brief Base class for constructing a "safe" sequence type that
-     * tracks iterators that reference it.
-     *
-     * The class template %_Safe_sequence simplifies the construction
-     * of "safe" sequences that track the iterators that reference the
-     * sequence, so that the iterators are notified of changes in the
-     * sequence that may affect their operation, e.g., if the
-     * container invalidates its iterators or is destructed. This
-     * class template may only be used by deriving from it and passing
-     * the name of the derived class as its template parameter via the
-     * curiously recurring template pattern. The derived class must
-     * have @c iterator and @const_iterator types that are
-     * instantiations of class template _Safe_iterator for this
-     * sequence. Iterators will then be tracked automatically.
-     */
+  /** A function object that returns true when the given random access
+      iterator is at least @c n steps away from the given iterator. */
+  template<typename _Iterator>
+    class _After_nth_from
+    {
+      typedef typename std::iterator_traits<_Iterator>::difference_type
+      difference_type;
+
+      _Iterator _M_base;
+      difference_type _M_n;
+
+    public:
+      _After_nth_from(const difference_type& __n, const _Iterator& __base)
+      : _M_base(__base), _M_n(__n) { }
+
+      bool
+      operator()(const _Iterator& __x) const
+      { return __x - _M_base >= _M_n; }
+    };
+
+  /**
+   * @brief Base class for constructing a "safe" sequence type that
+   * tracks iterators that reference it.
+   *
+   * The class template %_Safe_sequence simplifies the construction of
+   * "safe" sequences that track the iterators that reference the
+   * sequence, so that the iterators are notified of changes in the
+   * sequence that may affect their operation, e.g., if the container
+   * invalidates its iterators or is destructed. This class template
+   * may only be used by deriving from it and passing the name of the
+   * derived class as its template parameter via the curiously
+   * recurring template pattern. The derived class must have @c
+   * iterator and @const_iterator types that are instantiations of
+   * class template _Safe_iterator for this sequence. Iterators will
+   * then be tracked automatically.
+   */
   template<typename _Sequence>
     class _Safe_sequence : public _Safe_sequence_base
     {
@@ -103,8 +101,8 @@ namespace std
 	  true. The user of this routine should be careful not to make
 	  copies of the iterators passed to @p pred, as the copies may
 	  interfere with the invalidation. */
-      template<typename _Predicate> 
-        void 
+      template<typename _Predicate>
+        void
         _M_invalidate_if(_Predicate __pred);
 
       /** Transfers all iterators that reference this memory location
@@ -116,35 +114,35 @@ namespace std
     };
 
   template<typename _Sequence>
-    template<typename _Predicate> 
-      void 
+    template<typename _Predicate>
+      void
       _Safe_sequence<_Sequence>::
       _M_invalidate_if(_Predicate __pred)
       {
         typedef typename _Sequence::iterator iterator;
         typedef typename _Sequence::const_iterator const_iterator;
-        
+
         for (_Safe_iterator_base* __iter = _M_iterators; __iter; )
         {
           iterator* __victim = static_cast<iterator*>(__iter);
           __iter = __iter->_M_next;
-          if (!__victim->_M_singular()) 
+          if (!__victim->_M_singular())
           {
 	    if (__pred(__victim->base()))
 	      __victim->_M_invalidate();
           }
         }
 
-        for (_Safe_iterator_base* __iter = _M_const_iterators; __iter; )
+        for (_Safe_iterator_base* __iter2 = _M_const_iterators; __iter2; )
         {
-          const_iterator* __victim = static_cast<const_iterator*>(__iter);
-          __iter = __iter->_M_next;
-          if (!__victim->_M_singular()) 
+          const_iterator* __victim = static_cast<const_iterator*>(__iter2);
+          __iter2 = __iter2->_M_next;
+          if (!__victim->_M_singular())
           {
 	    if (__pred(__victim->base()))
 	      __victim->_M_invalidate();
           }
-        }    
+        }
       }
 
   template<typename _Sequence>
@@ -159,7 +157,7 @@ namespace std
 
         typedef typename _Sequence::iterator iterator;
         typedef typename _Sequence::const_iterator const_iterator;
-        
+
         for (_Safe_iterator_base* __iter = __from->_M_iterators; __iter; )
         {
           iterator* __victim = static_cast<iterator*>(__iter);
@@ -168,17 +166,15 @@ namespace std
 	    __victim->_M_attach(static_cast<_Sequence*>(this));
         }
 
-        for (_Safe_iterator_base* __iter = __from->_M_const_iterators; __iter;)
+        for (_Safe_iterator_base* __iter2 = __from->_M_const_iterators; 
+	     __iter2;)
         {
-          const_iterator* __victim = static_cast<const_iterator*>(__iter);
-          __iter = __iter->_M_next;
+          const_iterator* __victim = static_cast<const_iterator*>(__iter2);
+          __iter2 = __iter2->_M_next;
           if (!__victim->_M_singular() && __victim->base() == __x.base())
 	    __victim->_M_attach(static_cast<_Sequence*>(this));
         }
       }
-} // namespace std
-} // namespace __debug
+} // namespace __gnu_debug
 
-#endif /* _GLIBCXX_DEBUG_SAFE_SEQUENCE_H */
-
-
+#endif

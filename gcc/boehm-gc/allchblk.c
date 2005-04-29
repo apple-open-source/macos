@@ -47,12 +47,16 @@ GC_bool GC_use_entire_heap = 0;
 struct hblk * GC_hblkfreelist[N_HBLK_FLS+1] = { 0 };
 
 #ifndef USE_MUNMAP
+
   word GC_free_bytes[N_HBLK_FLS+1] = { 0 };
 	/* Number of free bytes on each list.	*/
 
   /* Is bytes + the number of free bytes on lists n .. N_HBLK_FLS 	*/
   /* > GC_max_large_allocd_bytes?					*/
-  GC_bool GC_enough_large_bytes_left(bytes,n)
+# ifdef __GNUC__
+  __inline__
+# endif
+  static GC_bool GC_enough_large_bytes_left(bytes,n)
   word bytes;
   int n;
   {
@@ -107,7 +111,7 @@ void GC_print_hblkfreelist()
     for (i = 0; i <= N_HBLK_FLS; ++i) {
       h = GC_hblkfreelist[i];
 #     ifdef USE_MUNMAP
-        if (0 != h) GC_printf1("Free list %ld (Total size %ld):\n",
+        if (0 != h) GC_printf1("Free list %ld:\n",
 		               (unsigned long)i);
 #     else
         if (0 != h) GC_printf2("Free list %ld (Total size %ld):\n",
@@ -129,10 +133,12 @@ void GC_print_hblkfreelist()
         h = hhdr -> hb_next;
       }
     }
-    if (total_free != GC_large_free_bytes) {
+#   ifndef USE_MUNMAP
+      if (total_free != GC_large_free_bytes) {
 	GC_printf1("GC_large_free_bytes = %lu (INCONSISTENT!!)\n",
 		   (unsigned long) GC_large_free_bytes);
-    }
+      }
+#   endif
     GC_printf1("Total of %lu bytes on free list\n", (unsigned long)total_free);
 }
 
@@ -177,7 +183,7 @@ void GC_dump_regions()
 	    hhdr = HDR(p);
 	    GC_printf1("\t0x%lx ", (unsigned long)p);
 	    if (IS_FORWARDING_ADDR_OR_NIL(hhdr)) {
-		GC_printf1("Missing header!!\n", hhdr);
+		GC_printf1("Missing header!!(%ld)\n", hhdr);
 		p += HBLKSIZE;
 		continue;
 	    }
@@ -371,9 +377,8 @@ void GC_unmap_old(void)
 	if (!IS_MAPPED(hhdr)) continue;
 	threshold = (unsigned short)(GC_gc_no - UNMAP_THRESHOLD);
 	last_rec = hhdr -> hb_last_reclaimed;
-	if (last_rec > GC_gc_no
-	    || last_rec < threshold && threshold < GC_gc_no
-				       /* not recently wrapped */) {
+	if ((last_rec > GC_gc_no || last_rec < threshold)
+	    && threshold < GC_gc_no /* not recently wrapped */) {
           sz = hhdr -> hb_sz;
 	  GC_unmap((ptr_t)h, sz);
 	  hhdr -> hb_flags |= WAS_UNMAPPED;
@@ -418,6 +423,7 @@ void GC_merge_unmapped(void)
 	      } else {
 		GC_remap((ptr_t)h, size);
 		hhdr -> hb_flags &= ~WAS_UNMAPPED;
+		hhdr -> hb_last_reclaimed = nexthdr -> hb_last_reclaimed;
 	      }
 	    } else {
 	      /* Unmap any gap in the middle */
@@ -464,7 +470,11 @@ int index;
     if (total_size == bytes) return h;
     rest = (struct hblk *)((word)h + bytes);
     rest_hdr = GC_install_header(rest);
-    if (0 == rest_hdr) return(0);
+    if (0 == rest_hdr) {
+	/* This may be very bad news ... */
+	WARN("Header allocation failed: Dropping block.\n", 0);
+	return(0);
+    }
     rest_hdr -> hb_sz = total_size - bytes;
     rest_hdr -> hb_flags = 0;
 #   ifdef GC_ASSERTIONS
@@ -583,11 +593,11 @@ int n;
 	    if (!GC_use_entire_heap
 		&& size_avail != size_needed
 		&& USED_HEAP_SIZE >= GC_requested_heapsize
-		&& !GC_incremental && GC_should_collect()) {
+		&& !TRUE_INCREMENTAL && GC_should_collect()) {
 #		ifdef USE_MUNMAP
 		    continue;
 #		else
-		    /* If we enough large blocks left to cover any	*/
+		    /* If we have enough large blocks left to cover any	*/
 		    /* previous request for large blocks, we go ahead	*/
 		    /* and split.  Assuming a steady state, that should	*/
 		    /* be safe.  It means that we can use the full 	*/
@@ -595,6 +605,12 @@ int n;
 		    if (!GC_enough_large_bytes_left(GC_large_allocd_bytes, n)) {
 		      continue;
 		    } 
+		    /* If we are deallocating lots of memory from	*/
+		    /* finalizers, fail and collect sooner rather	*/
+		    /* than later.					*/
+		    if (GC_finalizer_mem_freed > (GC_heapsize >> 4))  {
+		      continue;
+		    }
 #		endif /* !USE_MUNMAP */
 	    }
 	    /* If the next heap block is obviously better, go on.	*/
@@ -774,6 +790,9 @@ signed_word size;
     size = HBLKSIZE * OBJ_SZ_TO_BLOCKS(size);
     GC_remove_counts(hbp, (word)size);
     hhdr->hb_sz = size;
+#   ifdef USE_MUNMAP
+      hhdr -> hb_last_reclaimed = GC_gc_no;
+#   endif
     
     /* Check for duplicate deallocation in the easy case */
       if (HBLK_IS_FREE(hhdr)) {
@@ -799,11 +818,17 @@ signed_word size;
 	if (IS_MAPPED(prevhdr)) {
 	  GC_remove_from_fl(prevhdr, FL_UNKNOWN);
 	  prevhdr -> hb_sz += hhdr -> hb_sz;
+#	  ifdef USE_MUNMAP
+	    prevhdr -> hb_last_reclaimed = GC_gc_no;
+#	  endif
 	  GC_remove_header(hbp);
 	  hbp = prev;
 	  hhdr = prevhdr;
 	}
       }
+    /* FIXME: It is not clear we really always want to do these merges	*/
+    /* with -DUSE_MUNMAP, since it updates ages and hence prevents	*/
+    /* unmapping. 							*/
 
     GC_large_free_bytes += size;
     GC_add_to_fl(hbp, hhdr);    

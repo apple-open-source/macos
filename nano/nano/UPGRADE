@@ -1,0 +1,28 @@
+GNU nano upgrading information
+==============================
+
+Visible changes since 1.0
+-------------------------
+* Editor Features
+  - Complete Pico compatibility (--pico has been removed, and -p means
+    something else, see below).
+  - nanorc support (see nanorc.sample included in sources).
+  - Smooth scrolling (-S).
+  - Searching of matching brace/bracket/etc.
+  - Help for all editor features.
+  - Color syntax highlighting support.
+  - Quote string support, useful for mail agents, etc (-Q).
+  - Insertion of output of external commands.
+  - Optional enabling of XON and XOFF control characters (-p).
+  - Tons of bugfixes/enhancements for already existing features.
+
+* File Handling
+  - Overwriting and appending or prepending to files.
+  - Writing marked text to separate files.
+  - Multiple file buffers (-F).
+  - Converting from and to DOS/Mac file format (-D/-M, -N to disable).
+  - Better control character handling.
+  - Creation of backup files (-B).
+  - Search/replace history (-H).
+
+See the GNU nano manual for detailed information on each feature.

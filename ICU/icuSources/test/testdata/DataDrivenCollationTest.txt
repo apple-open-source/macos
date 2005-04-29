@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2001-2003 International Business Machines
+﻿// Copyright (c) 2001-2004 International Business Machines
 // Corporation and others. All Rights Reserved.
 DataDrivenCollationTest {
     Info {
@@ -18,6 +18,79 @@ DataDrivenCollationTest {
                      }
     }
     TestData {
+        TestLithuanian {
+            Info {
+                Description { "Lithuanian sort order." }
+            }
+            Settings {
+                {
+                    TestLocale { "lt" }
+                }
+            }
+            Cases { "cz<č<d<iz<y<j<sz<š<t<zz<ž" } 
+        }
+        TestLatvian {
+            Info {
+                Description { "Latvian sort order." }
+            }
+            Settings {
+                {
+                    TestLocale { "lv" }
+                }
+            }
+            Cases { "cz<č<d<gz<ģ<h<iz<y<j<kz<ķ<l<lz<ļ<m<nz<ņ<o<rz<ŗ<s<sz<š<t<zz<ž" }
+        }
+        TestEstonian {
+            Info {
+                Description { "Estonian sort order." }
+            }
+            Settings {
+                {
+                    TestLocale { "et" }
+                }
+            }
+            Cases { "sy<š<šy<z<zy<ž<v<w<va<õ<õy<ä<äy<ö<öy<ü<üy<x" }
+        }
+        TestAlbanian {
+            Info {
+                Description { "Albanian sort order." }
+            }
+            Settings {
+                {
+                    TestLocale { "sq" }
+                }
+            }
+            Cases { "cz<ç<d<dz<dh<e<ez<ë<f<gz<gj<h<lz<ll<m<nz<nj<o<rz<rr<s<sz<sh<t<tz<th<u<xz<xh<y<zz<zh" }
+         }
+         
+         TestSimplifiedChineseOrder {
+            Info {
+                Description { "Sorted file has different order." }
+            }
+            Settings {
+                {
+                    TestLocale { "root" }
+		    Arguments { "[normalization on]" }
+                }
+            }
+
+            Cases { "\u5F20<\u5F20\u4E00\u8E3F"  }
+        }
+        
+        TestTibetanNormalizedIterativeCrash {
+            Info {
+                Description { "This pretty much crashes." }
+            }
+            Settings {
+                {
+                    TestLocale { "root" }
+                }
+            }
+
+            Cases { "\u0f71\u0f72\u0f80\u0f71\u0f72"
+                    "<\u0f80"
+            }
+        }
         TestThaiPartialSortKeyProblems {
             Info {
                 Description { "These are examples of strings that caused trouble in partial sort key testing." }
@@ -32,12 +105,12 @@ DataDrivenCollationTest {
                     "<\u0E01\u0E01\u0E38\u0E2A\u0E31\u0E19\u0E42\u0E18",
                     "\u0E01\u0E07\u0E01\u0E32\u0E23"
                     "<\u0E01\u0E07\u0E42\u0E01\u0E49",
-                    //"\u0E01\u0E23\u0E19\u0E17\u0E32"
-                    //"<\u0E01\u0E23\u0E19\u0E19\u0E40\u0E0A\u0E49\u0E32",
+                    "\u0E01\u0E23\u0E19\u0E17\u0E32"
+                    "<\u0E01\u0E23\u0E19\u0E19\u0E40\u0E0A\u0E49\u0E32",
                     "\u0E01\u0E23\u0E30\u0E40\u0E08\u0E35\u0E22\u0E27"
                     "<\u0E01\u0E23\u0E30\u0E40\u0E08\u0E35\u0E4A\u0E22\u0E27",
-                    //"\u0E01\u0E23\u0E23\u0E40\u0E0A\u0E2D"
-                    //"<\u0E01\u0E23\u0E23\u0E40\u0E0A\u0E49\u0E32"
+                    "\u0E01\u0E23\u0E23\u0E40\u0E0A\u0E2D"
+                    "<\u0E01\u0E23\u0E23\u0E40\u0E0A\u0E49\u0E32"
           }
         }
         TestJavaStyleRule {
@@ -186,8 +259,7 @@ DataDrivenCollationTest {
                "= \u30A1\u0000\u059a\u30FC"
                "= \u30A1\u30FC"
             }
-        }
-  
+        }  
         da_TestPrimary {
             Info {
                 Description { "This test goes through primary strength cases" }
@@ -199,7 +271,7 @@ DataDrivenCollationTest {
                 }
             }
             Cases {
-                "Lvi=Lwi",
+                "Lvi<Lwi",
                 "L\u00e4vi<L\u00f6wi",
                 "L\u00fcbeck=Lybeck",
             }
@@ -232,19 +304,19 @@ DataDrivenCollationTest {
                 "\u00c7C<"
                 "D.S.B.<"
                 "DA<"
+                "\u00d0A<"
                 "DB<"
+                "\u00d0C<"
                 "DSB<"
                 "DSC<"
-                "\u00d0A<"
-                "\u00d0C<"
                 "EKSTRA_ARBEJDE<"
                 "EKSTRABUD0<"
                 "H\u00d8ST<"
                 "HAAG<"
                 "H\u00c5NDBOG<"
                 "HAANDV\u00c6RKSBANKEN<"
-                "karl<"
                 "Karl<"
+                "karl<"
                 "'NIELS J\u00d8RGEN'<"
                 "NIELS-J\u00d8RGEN<"
                 "NIELSEN<"
@@ -266,8 +338,8 @@ DataDrivenCollationTest {
                 "STORMLY<"
                 "THORVALD<"
                 "THORVARDUR<"
-                "THYGESEN<"
                 "\u00feORVAR\u00d0UR<"
+                "THYGESEN<"
                 "'VESTERG\u00c5RD, A'<"
                 "'VESTERGAARD, A'<"
                 "'VESTERG\u00c5RD, B'<"
@@ -315,11 +387,11 @@ DataDrivenCollationTest {
                 "subtle<"
                 "symbol<"
                 "s\u00e4mtlich<"
-                "waffle<"
                 "verkehrt<"
-                "wood<"
                 "vox<"
                 "v\u00e4ga<"
+                "waffle<"
+                "wood<"
                 "yen<"
                 "yuan<"
                 "yucca<"
@@ -333,5 +405,97 @@ DataDrivenCollationTest {
                 "\u00e4ndere"
             }
         }
+        hi_TestNewRules {
+            Info {
+                Description { "This test goes through new rules and tests against old rules" }
+            }
+            Settings {
+                {
+                    TestLocale { "hi" }
+                }
+            }
+            Cases {
+                 "ॐ<।<॥<॰<०<१<२<३"
+                 "<४<५<६<७<८<९<अ<आ"
+                 "<इ<ई<उ<ऊ<ऋ<ॠ<ऌ<ॡ"
+                 "<ऍ<ऎ<ए<ऐ<ऑ<ऒ<ओ<औ"
+                 "<क<क़=क़<कँ<कं<कः<क॑<क॒"
+                 "<क॓<क॔<कऽ<क्<का<कि<की<कु"
+                 "<कू<कृ<कॄ<कॢ<कॣ<कॅ<कॆ<के"
+                 "<कै<कॉ<कॊ<को<कौ<ख<ख़ =ख़<खँ<खं<खः"
+                 "<ख॑<ख॒<ख॓<ख॔<खऽ<ख्<खा<खि"
+                 "<खी<खु<खू<खृ<खॄ<खॢ<खॣ<खॅ"
+                 "<खॆ<खे<खै<खॉ<खॊ<खो<खौ<ग"
+                 "<ग़=ग़<गँ<गं<गः<ग॑<ग॒<ग॓<ग॔"
+                 "<गऽ<ग्<गा<गि<गी<गु<गू<गृ"
+                 "<गॄ<गॢ<गॣ<गॅ<गॆ<गे<गै<गॉ"
+                 "<गॊ<गो<गौ<घ<ङ<च<छ<ज<ज़ =ज़<जँ<जं<जः"
+                 "<ज॑<ज॒<ज॓<ज॔<जऽ<ज्<जा<जि"
+                 "<जी<जु<जू<जृ<जॄ<जॢ<जॣ<जॅ"
+                 "<जॆ<जे<जै<जॉ<जॊ<जो<जौ<झ"
+                 "<ञ<ट<ठ<ड<ड़=ड़<डँ<डं<डः<ड॑<ड॒<ड॓<ड॔"
+                 "<डऽ<ड्<डा<डि<डी<डु<डू<डृ"
+                 "<डॄ<डॢ<डॣ<डॅ<डॆ<डे<डै<डॉ"
+                 "<डॊ<डो<डौ<ढ<ढ़=ढ़<ढँ<ढं<ढः"
+                 "<ढ॑<ढ॒<ढ॓<ढ॔<ढऽ<ढ्<ढा<ढि"
+                 "<ढी<ढु<ढू<ढृ<ढॄ<ढॢ<ढॣ<ढॅ"
+                 "<ढॆ<ढे<ढै<ढॉ<ढॊ<ढो<ढौ<ण"
+                 "<त<थ<द<ध<न<ऩ =ऩ< नँ<नं< नः"
+                 "<न॑<न॒<न॓<न॔<नऽ<न्<ना<नि"
+                 "<नी<नु<नू<नृ<नॄ<नॢ<नॣ<नॅ"
+                 "<नॆ<ने<नै<नॉ<नॊ<नो<नौ"
+                 "<प<फ<फ़=फ़<फँ<फं<फः<फ॑<फ॒"
+                 "<फ॓<फ॔<फऽ<फ्<फा<फि<फी<फु<फू<फृ"
+                 "<फॄ<फॢ<फॣ<फॅ<फॆ<फे<फै<फॉ"
+                 "<फॊ<फो<फौ<ब<भ<म<य<य़=य़ "
+                 "<यँ<यं<यः<य॑<य॒<य॓<य॔"
+                 "<यऽ<य्<या<यि<यी<यु<यू<यृ"
+                 "<यॄ<यॢ<यॣ<यॅ<यॆ<ये<यै<यॉ"
+                 "<यॊ<यो<यौ<र<ऱ=ऱ<रँ<रं<रः"
+                 "<र॑<र॒<र॓<र॔<रऽ<र्<रा<रि"
+                 "<री<रु<रू<रृ<रॄ<रॢ<रॣ<रॅ"
+                 "<रॆ<रे<रै<रॉ<रॊ<रो<रौ"
+                 "<ल<ळ<ऴ=ऴ<ळँ<ळं<ळः<ळ॑<ळ॒"
+                 "<ळ॓<ळ॔<ळऽ<ळ्<ळा<ळि<ळी<ळु"
+                 "<ळू<ळृ<ळॄ<ळॢ<ळॣ<ळॅ<ळॆ<ळे"
+                 "<ळै<ळॉ<ळॊ<ळो<ळौ<व<श<ष<स<ह"
+                 "<़<ँ<ं<ः<॑<॒<॓<॔<ऽ<्<ा<ि<ी"
+                 "<ु<ू<ृ<ॄ<ॢ<ॣ<ॅ<ॆ"
+                 "<े<ै<ॉ<ॊ<ो<ौ"
+           }
+        }
+        fi_TestNewRules {
+            Info {
+                Description { "This test goes through new rules and tests against old rules" }
+            }
+            Settings {
+                {
+                    TestLocale { "fi" }
+                }
+            }
+            Cases { 
+                "xa<xA<Xa<XA<xá<Xá<xax<xAx<xáx<xd<Xd<xð<xÐ<Xð<XÐ<xđ<xĐ<Xđ<XĐ<"
+                "xdx<xðx<xÐx<xđx<xĐx<xe<Xe<xex<xn<Xn<xŋ<xŊ<Xŋ<XŊ<xnx<xŋx<xŊx<"
+                "xo<Xo<xó<Xó<xox<xóx<xs<Xs<xß<Xß<xßx<xsx<xt<Xt<xþ<xÞ<Xþ<XÞ<xþx<"
+                "xÞx<xtx<xu<Xu<xú<Xú<xux<xúx<xv<Xv<xw<Xw<xvx<xwx<xy<Xy<xü<Xü<"
+                "xű<Xű<xyx<xüx<xűx<xz<Xz<xzx<xå<Xå<xåx<xä<Xä<xæ<xÆ<Xæ<XÆ<xäx<"
+                "xæx<xÆx<xö<Xö<xø<Xø<xő<Xő<xõ<Xõ<xœ<xŒ<Xœ<XŒ<xöx<xøx<xőx<xõx<xœx<xŒx"
+            }
+        }
+        ro_TestNewRules {
+            Info {
+                Description { "This test goes through new rules and tests against old rules" }
+            }
+            Settings {
+                {
+                    TestLocale { "ro" }
+                }
+            }
+            Cases { 
+                "xAx<xă<xĂ<Xă<XĂ<xăx<xĂx<xâ<xÂ<Xâ<XÂ<xâx<xÂx<xb<xIx<xî<xÎ<Xî<XÎ<xîx<xÎx<"
+                "xj<xSx<xș=xş<xȘ=xŞ<Xș=Xş<XȘ=XŞ<xșx=xşx<xȘx=xŞx<xT<xTx<xț=xţ<xȚ=xŢ<Xț=Xţ<XȚ"
+                "=XŢ<xțx=xţx<xȚx=xŢx<xU"
+            }
+        }      
     }
 }

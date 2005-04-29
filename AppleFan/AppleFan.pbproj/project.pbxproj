@@ -1,0 +1,1145 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+				D2DE69D7038DCFA90DCE0F57,
+				E20772A4047AE41C03CE2928,
+				8C06751104BDEE5704CE206E,
+				A63066E906C8491500AAF0C1,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				8C2C191C04BF407904CE206E,
+				247142CAFF3F8F9811CA285C,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = AppleFan;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleFan;
+				MODULE_VERSION = 1.0.9b3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleFan;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				D2DE69E6038E26950DCE0F57,
+				E20772B5047AE59203CE2928,
+				8C1988BC04BF641104CE206E,
+				A648DC3206F7BC2900802D91,
+			);
+			isa = PBXBundleTarget;
+			name = AppleFan;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleFan;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleFan</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleFan version 1.0.9, Copyright 2003 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleFan</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleFan</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.9</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.9b3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleFan</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleFan</string>
+			<key>IOClass</key>
+			<string>AppleFan</string>
+			<key>IONameMatch</key>
+			<string>fan</string>
+			<key>IOProviderClass</key>
+			<string>PPCI2CInterface</string>
+			<key>default-params</key>
+			<dict>
+				<key>fan-hysteresis-temp</key>
+				<integer>14080</integer>
+				<key>fan-polling-period</key>
+				<integer>8</integer>
+				<key>fan-slowdown-delay</key>
+				<integer>48</integer>
+				<key>fan-speed-table</key>
+				<array>
+					<integer>14592</integer>
+					<integer>14922</integer>
+					<integer>15059</integer>
+					<integer>15164</integer>
+					<integer>15252</integer>
+					<integer>15331</integer>
+					<integer>15401</integer>
+					<integer>15466</integer>
+					<integer>15526</integer>
+					<integer>15583</integer>
+					<integer>15637</integer>
+					<integer>15688</integer>
+					<integer>15736</integer>
+					<integer>15783</integer>
+					<integer>15828</integer>
+					<integer>15872</integer>
+				</array>
+				<key>fan-speedup-delay</key>
+				<integer>8</integer>
+			</dict>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				1A224C40FF42367911CA2CB7,
+				D2DE69E4038DD5DB0DCE0F57,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				1A224C41FF42367911CA2CB7,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = AppleFan.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+				D2DE69D8038DCFA90DCE0F57,
+				E20772AE047AE41C03CE2928,
+				8C06751204BDEE5704CE206E,
+				A63066F306C8491500AAF0C1,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+		1A224C3EFF42367911CA2CB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleFan.h;
+			refType = 4;
+		};
+		1A224C3FFF42367911CA2CB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleFan.cpp;
+			refType = 4;
+		};
+		1A224C40FF42367911CA2CB7 = {
+			fileRef = 1A224C3EFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		1A224C41FF42367911CA2CB7 = {
+			fileRef = 1A224C3FFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				1A224C3EFF42367911CA2CB7,
+				1A224C3FFF42367911CA2CB7,
+				D2DE69E3038DD5DB0DCE0F57,
+				D2DE69D9038DD1520DCE0F57,
+				D2DE69DA038DD1520DCE0F57,
+				E20772AF047AE56103CE2928,
+				E20772B0047AE56103CE2928,
+				E20772B1047AE56103CE2928,
+				A63066FD06C84BA700AAF0C1,
+				A63066FE06C84BA700AAF0C1,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//8C0
+//8C1
+//8C2
+//8C3
+//8C4
+		8C06750B04BDEE5704CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		8C06750C04BDEE5704CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+				8C06751504BDEFCF04CE206E,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C06750D04BDEE5704CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+				8C06751604BDEFCF04CE206E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C06750E04BDEE5704CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C06750F04BDEE5704CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C06751004BDEE5704CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		8C06751104BDEE5704CE206E = {
+			buildPhases = (
+				8C06750B04BDEE5704CE206E,
+				8C06750C04BDEE5704CE206E,
+				8C06750D04BDEE5704CE206E,
+				8C06750E04BDEE5704CE206E,
+				8C06750F04BDEE5704CE206E,
+				8C06751004BDEE5704CE206E,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleK2Fan;
+				MODULE_VERSION = 1.0.9b3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleK2Fan;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleK2Fan;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleK2Fan;
+			productReference = 8C06751204BDEE5704CE206E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleK2Fan</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleK2Fan version 1.0.9, Copyright 2003 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleK2Fan</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleK2Fan</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.9</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.9b3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleK2Fan</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleK2Fan</string>
+			<key>IOClass</key>
+			<string>AppleK2Fan</string>
+			<key>IONameMatch</key>
+			<string>fan</string>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOProviderClass</key>
+			<string>AppleK2Device</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+		};
+		8C06751204BDEE5704CE206E = {
+			isa = PBXBundleReference;
+			path = AppleK2Fan.kext;
+			refType = 3;
+		};
+		8C06751304BDEFCF04CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleK2Fan.h;
+			refType = 4;
+		};
+		8C06751404BDEFCF04CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleK2Fan.cpp;
+			refType = 4;
+		};
+		8C06751504BDEFCF04CE206E = {
+			fileRef = 8C06751304BDEFCF04CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C06751604BDEFCF04CE206E = {
+			fileRef = 8C06751404BDEFCF04CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C1988BC04BF641104CE206E = {
+			isa = PBXTargetDependency;
+			target = 8C06751104BDEE5704CE206E;
+		};
+		8C2C191C04BF407904CE206E = {
+			children = (
+				8C06751304BDEFCF04CE206E,
+				8C06751404BDEFCF04CE206E,
+			);
+			isa = PBXGroup;
+			name = AppleK2Fan;
+			refType = 4;
+		};
+//8C0
+//8C1
+//8C2
+//8C3
+//8C4
+//A60
+//A61
+//A62
+//A63
+//A64
+		A63066E906C8491500AAF0C1 = {
+			buildPhases = (
+				A63066EA06C8491500AAF0C1,
+				A63066EB06C8491500AAF0C1,
+				A63066EE06C8491500AAF0C1,
+				A63066F006C8491500AAF0C1,
+				A63066F106C8491500AAF0C1,
+				A63066F206C8491500AAF0C1,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CADT746x;
+				MODULE_VERSION = 1.0.9b3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CADT746x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOI2CADT746x;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleADM103x;
+			productReference = A63066F306C8491500AAF0C1;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOI2CADT746x</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOI2CADT746x version 1.0.9, Copyright 2004 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.IOI2CADT746x</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOI2CADT746x</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.9</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.9b3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOI2CADT746x</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOI2CADT746x</string>
+			<key>IOClass</key>
+			<string>IOI2CADT746x</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>adt7467</string>
+				<string>adt7460</string>
+			</array>
+			<key>IOProbeScore</key>
+			<integer>1024</integer>
+			<key>IOProviderClass</key>
+			<string>IOI2CService</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOI2CFamily</key>
+		<string>1.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		A63066EA06C8491500AAF0C1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A63066EB06C8491500AAF0C1 = {
+			buildActionMask = 2147483647;
+			files = (
+				A63066EC06C8491500AAF0C1,
+				A630670006C84BA700AAF0C1,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A63066EC06C8491500AAF0C1 = {
+			fileRef = E20772AF047AE56103CE2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A63066EE06C8491500AAF0C1 = {
+			buildActionMask = 2147483647;
+			files = (
+				A63066FF06C84BA700AAF0C1,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A63066F006C8491500AAF0C1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A63066F106C8491500AAF0C1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A63066F206C8491500AAF0C1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A63066F306C8491500AAF0C1 = {
+			isa = PBXBundleReference;
+			path = IOI2CADT746x.kext;
+			refType = 3;
+		};
+		A63066FD06C84BA700AAF0C1 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOI2CADT746x.cpp;
+			refType = 2;
+		};
+		A63066FE06C84BA700AAF0C1 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOI2CADT746x.h;
+			refType = 2;
+		};
+		A63066FF06C84BA700AAF0C1 = {
+			fileRef = A63066FD06C84BA700AAF0C1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A630670006C84BA700AAF0C1 = {
+			fileRef = A63066FE06C84BA700AAF0C1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A648DC3206F7BC2900802D91 = {
+			isa = PBXTargetDependency;
+			target = A63066E906C8491500AAF0C1;
+		};
+//A60
+//A61
+//A62
+//A63
+//A64
+//D20
+//D21
+//D22
+//D23
+//D24
+		D2DE69D1038DCFA90DCE0F57 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2DE69D2038DCFA90DCE0F57 = {
+			buildActionMask = 2147483647;
+			files = (
+				D2DE69DE038DD3210DCE0F57,
+				D2DE69E5038DD5E20DCE0F57,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2DE69D3038DCFA90DCE0F57 = {
+			buildActionMask = 2147483647;
+			files = (
+				D2DE69DF038DD3220DCE0F57,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2DE69D4038DCFA90DCE0F57 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2DE69D5038DCFA90DCE0F57 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2DE69D6038DCFA90DCE0F57 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2DE69D7038DCFA90DCE0F57 = {
+			buildPhases = (
+				D2DE69D1038DCFA90DCE0F57,
+				D2DE69D2038DCFA90DCE0F57,
+				D2DE69D3038DCFA90DCE0F57,
+				D2DE69D4038DCFA90DCE0F57,
+				D2DE69D5038DCFA90DCE0F57,
+				D2DE69D6038DCFA90DCE0F57,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleADM103x;
+				MODULE_VERSION = 1.0.9b3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleADM103x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleADM103x;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleADM103x;
+			productReference = D2DE69D8038DCFA90DCE0F57;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleADM103x</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleADM103x version 1.0.9, Copyright 2003 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleADM103x</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleADM103x</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.9</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.9b3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleADM103x</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleADM103x</string>
+			<key>IOClass</key>
+			<string>AppleADM103x</string>
+			<key>IONameMatch</key>
+			<string>fan</string>
+			<key>IOProviderClass</key>
+			<string>PPCI2CInterface</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		D2DE69D8038DCFA90DCE0F57 = {
+			isa = PBXBundleReference;
+			path = AppleADM103x.kext;
+			refType = 3;
+		};
+		D2DE69D9038DD1520DCE0F57 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleADM103x.h;
+			refType = 4;
+		};
+		D2DE69DA038DD1520DCE0F57 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleADM103x.cpp;
+			refType = 4;
+		};
+		D2DE69DE038DD3210DCE0F57 = {
+			fileRef = D2DE69D9038DD1520DCE0F57;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2DE69DF038DD3220DCE0F57 = {
+			fileRef = D2DE69DA038DD1520DCE0F57;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2DE69E3038DD5DB0DCE0F57 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ADM103x.h;
+			refType = 4;
+		};
+		D2DE69E4038DD5DB0DCE0F57 = {
+			fileRef = D2DE69E3038DD5DB0DCE0F57;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2DE69E5038DD5E20DCE0F57 = {
+			fileRef = D2DE69E3038DD5DB0DCE0F57;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2DE69E6038E26950DCE0F57 = {
+			isa = PBXTargetDependency;
+			target = D2DE69D7038DCFA90DCE0F57;
+		};
+//D20
+//D21
+//D22
+//D23
+//D24
+//E20
+//E21
+//E22
+//E23
+//E24
+		E20772A4047AE41C03CE2928 = {
+			buildPhases = (
+				E20772A5047AE41C03CE2928,
+				E20772A6047AE41C03CE2928,
+				E20772A9047AE41C03CE2928,
+				E20772AB047AE41C03CE2928,
+				E20772AC047AE41C03CE2928,
+				E20772AD047AE41C03CE2928,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleADT746x;
+				MODULE_VERSION = 1.0.9b3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleADT746x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleADT746x;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleADM103x;
+			productReference = E20772AE047AE41C03CE2928;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleADT746x</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleADT746x version 1.0.9, Copyright 2003 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleADT746x</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleADT746x</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.9</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.9b3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleADT746x</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleADT746x</string>
+			<key>IOClass</key>
+			<string>AppleADT746x</string>
+			<key>IONameMatch</key>
+			<string>fan</string>
+			<key>IOProviderClass</key>
+			<string>PPCI2CInterface</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		E20772A5047AE41C03CE2928 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		E20772A6047AE41C03CE2928 = {
+			buildActionMask = 2147483647;
+			files = (
+				E20772B2047AE56103CE2928,
+				E20772B4047AE56103CE2928,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E20772A9047AE41C03CE2928 = {
+			buildActionMask = 2147483647;
+			files = (
+				E20772B3047AE56103CE2928,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E20772AB047AE41C03CE2928 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E20772AC047AE41C03CE2928 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E20772AD047AE41C03CE2928 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		E20772AE047AE41C03CE2928 = {
+			isa = PBXBundleReference;
+			path = AppleADT746x.kext;
+			refType = 3;
+		};
+		E20772AF047AE56103CE2928 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ADT746x.h;
+			refType = 4;
+		};
+		E20772B0047AE56103CE2928 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleADT746x.cpp;
+			refType = 4;
+		};
+		E20772B1047AE56103CE2928 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleADT746x.h;
+			refType = 4;
+		};
+		E20772B2047AE56103CE2928 = {
+			fileRef = E20772AF047AE56103CE2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E20772B3047AE56103CE2928 = {
+			fileRef = E20772B0047AE56103CE2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E20772B4047AE56103CE2928 = {
+			fileRef = E20772B1047AE56103CE2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E20772B5047AE59203CE2928 = {
+			isa = PBXTargetDependency;
+			target = E20772A4047AE41C03CE2928;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

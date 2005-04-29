@@ -1,9 +1,9 @@
-
+/* $XFree86: xc/extras/Mesa/src/tnl/t_context.c,v 1.5 2003/10/22 15:44:44 tsi Exp $ */
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  3.5
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,14 +23,14 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 
 #include "glheader.h"
+#include "imports.h"
 #include "macros.h"
 #include "mtypes.h"
-#include "mem.h"
 #include "dlist.h"
 #include "light.h"
 #include "vtxfmt.h"
@@ -102,7 +102,7 @@ _tnl_CreateContext( GLcontext *ctx )
    _tnl_install_pipeline( ctx, _tnl_default_pipeline );
 
 
-   tnl->NeedProjCoords = GL_TRUE;
+   tnl->NeedNdcCoords = GL_TRUE;
    tnl->LoopbackDListCassettes = GL_FALSE;
    tnl->CalcDListNormalLengths = GL_TRUE;
 
@@ -196,7 +196,7 @@ _tnl_wakeup_exec( GLcontext *ctx )
    tnl->pipeline.run_input_changes = ~0;
 
    if (ctx->Light.ColorMaterialEnabled) {
-      _mesa_update_color_material( ctx, ctx->Current.Color );
+      _mesa_update_color_material( ctx, ctx->Current.Attrib[VERT_ATTRIB_COLOR0] );
    }
 
 }
@@ -216,8 +216,8 @@ void
 _tnl_need_projected_coords( GLcontext *ctx, GLboolean mode )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
-   if (tnl->NeedProjCoords != mode) {
-      tnl->NeedProjCoords = mode;
+   if (tnl->NeedNdcCoords != mode) {
+      tnl->NeedNdcCoords = mode;
       _tnl_InvalidateState( ctx, _NEW_PROJECTION );
    }
 }

@@ -10,11 +10,14 @@ details.  */
 
 #include <config.h>
 #include <platform.h>
-#include <jvm.h>
 #include <sys/timeb.h>
 #include <stdlib.h>
+#include <fcntl.h>
 
 #include <java/lang/ArithmeticException.h>
+#include <java/lang/UnsupportedOperationException.h>
+#include <java/io/IOException.h>
+#include <java/net/SocketException.h>
 #include <java/util/Properties.h>
 
 static LONG CALLBACK
@@ -28,17 +31,243 @@ win32_exception_handler (LPEXCEPTION_POINTERS e)
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
+// Platform-specific executable name
+static char exec_name[MAX_PATH];
+  // initialized in _Jv_platform_initialize()
+
+const char *_Jv_ThisExecutable (void)
+{
+  return exec_name;
+}
+
+// Helper classes and methods implementation
+  
+#ifdef MINGW_LIBGCJ_UNICODE
+
+// We're using the OS W (UNICODE) API, which means that we're speaking
+// the same language....
+jstring
+_Jv_Win32NewString (LPCTSTR pcsz)
+{
+  return JvNewString ((jchar*) pcsz, _tcslen (pcsz));
+}
+
+#else
+
+// We're using the OS A functions, which means we need to translate between
+// UNICODE and the native character set.
+
+// First, let's set up some helper translation functions....
+
+// Converts the native string to any specified jstring, returning the
+// length of the jstring. If the specified jstring is null, we simply
+// compute and return the length.
+static int nativeToUnicode(LPCSTR pcsz, jstring jstr = 0)
+{
+  jchar* buf = 0;
+  int len = 0;
+  if (jstr)
+    {
+      len = jstr->length();
+      buf = JvGetStringChars(jstr);
+    }
+  return ::MultiByteToWideChar(GetACP(), 0, pcsz,
+    strlen(pcsz), (LPWSTR) buf, len);
+}
+
+// Does the inverse of nativeToUnicode, with the same calling semantics.
+static int unicodeToNative(jstring jstr, LPSTR buf, int buflen)
+{
+  return ::WideCharToMultiByte(GetACP(), 0, (LPWSTR) JvGetStringChars(jstr),
+    jstr->length(), buf, buflen, NULL, NULL);
+}
+
+// Convenience function when the caller only wants to compute the length
+// of the native string.
+static int unicodeToNative(jstring jstr)
+{
+  return unicodeToNative(jstr, 0, 0);
+}
+
+jstring
+_Jv_Win32NewString (LPCTSTR pcsz)
+{
+  // Compute the length, allocate the jstring, then perform the conversion.
+  int len = nativeToUnicode(pcsz);
+  jstring jstr = JvAllocString(len);
+  nativeToUnicode(pcsz, jstr);
+  return jstr;
+}
+
+#endif // MINGW_LIBGCJ_UNICODE
+
+// class _Jv_Win32TempString
+_Jv_Win32TempString::_Jv_Win32TempString(jstring jstr):
+  buf_(0)
+{
+  if (jstr == 0)
+    return;
+    
+  // We need space for the string length plus a null terminator.
+  // Determine whether to use our stack-allocated buffer or a heap-
+  // allocated one.
+#ifdef MINGW_LIBGCJ_UNICODE
+  // A UNICODE character is a UNICODE character is a UNICODE character....
+  int len = jstr->length();
+#else
+  // Compute the length of the native character string.
+  int len = unicodeToNative(jstr);
+#endif // MINGW_LIBGCJ_UNICODE
+
+  int bytesNeeded = (len + 1) * sizeof(TCHAR);
+  if (bytesNeeded <= (int) sizeof(stackbuf_))
+    buf_ = stackbuf_;
+  else
+    buf_ = (LPTSTR) _Jv_Malloc(bytesNeeded);
+    
+#ifdef MINGW_LIBGCJ_UNICODE
+  // Copy the UNICODE characters to our buffer.
+  _tcsncpy(buf_, (LPCTSTR) JvGetStringChars (jstr), len);
+#else
+  // Convert the UNICODE string to a native one.
+  unicodeToNative(jstr, buf_, len);
+#endif // MINGW_LIBGCJ_UNICODE
+
+  buf_[len] = 0;
+}
+
+_Jv_Win32TempString::~_Jv_Win32TempString()
+{
+  if (buf_ && buf_ != stackbuf_)
+    _Jv_Free (buf_);
+}
+
+// class WSAEventWrapper
+WSAEventWrapper::WSAEventWrapper ():
+  m_hEvent(0),
+  m_fd(0),
+  m_dwSelFlags(0)
+{}
+
+WSAEventWrapper::WSAEventWrapper (int fd, DWORD dwSelFlags):
+  m_hEvent(0),
+  m_fd(0),
+  m_dwSelFlags(0)
+{
+  init(fd, dwSelFlags);
+}
+
+void WSAEventWrapper::init(int fd, DWORD dwSelFlags)
+{
+  m_fd = fd;
+  m_dwSelFlags = dwSelFlags;
+  m_hEvent = WSACreateEvent ();
+  if (dwSelFlags)
+    WSAEventSelect(fd, m_hEvent, dwSelFlags);
+}
+
+WSAEventWrapper::~WSAEventWrapper ()
+{
+  if (m_dwSelFlags)
+  {
+    WSAEventSelect(m_fd, m_hEvent, 0);
+    if (m_dwSelFlags & (FD_ACCEPT | FD_CONNECT))
+    {
+      // Set the socket back to non-blocking mode.
+      // Ignore any error since we're in a destructor.
+      unsigned long lSockOpt = 0L;
+        // blocking mode
+      ::ioctlsocket (m_fd, FIONBIO, &lSockOpt);
+    }
+  }
+  WSACloseEvent (m_hEvent);
+}
+
+// Error string text.
+jstring
+_Jv_WinStrError (LPCTSTR lpszPrologue, int nErrorCode)
+{
+  LPTSTR lpMsgBuf = 0;
+
+  DWORD dwFlags = FORMAT_MESSAGE_ALLOCATE_BUFFER |
+    FORMAT_MESSAGE_FROM_SYSTEM |
+    FORMAT_MESSAGE_IGNORE_INSERTS;
+
+  FormatMessage (dwFlags,
+    NULL,
+    (DWORD) nErrorCode,
+    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+    (LPTSTR) &lpMsgBuf,
+    0,
+    NULL);
+
+  jstring ret;
+  if (lpszPrologue)
+    {
+      LPTSTR lpszTemp =
+        (LPTSTR) _Jv_Malloc ((_tcslen (lpszPrologue) +
+          _tcslen (lpMsgBuf) + 3) * sizeof(TCHAR) );
+      _tcscpy (lpszTemp, lpszPrologue);
+      _tcscat (lpszTemp, _T(": "));
+      _tcscat (lpszTemp, lpMsgBuf);
+      ret = _Jv_Win32NewString (lpszTemp);
+      _Jv_Free (lpszTemp);
+    } 
+  else
+    {
+      ret = _Jv_Win32NewString (lpMsgBuf);
+    }
+
+  LocalFree(lpMsgBuf);
+  return ret;
+}
+
+jstring
+_Jv_WinStrError (int nErrorCode)
+{
+  return _Jv_WinStrError (0, nErrorCode);
+}
+
+void _Jv_ThrowIOException (DWORD dwErrorCode)
+{
+  throw new java::io::IOException (_Jv_WinStrError (dwErrorCode));
+}
+
+void _Jv_ThrowIOException()
+{
+  DWORD dwErrorCode = WSAGetLastError ();
+  _Jv_ThrowIOException (dwErrorCode);
+}
+
+void _Jv_ThrowSocketException (DWORD dwErrorCode)
+{
+  throw new java::net::SocketException (_Jv_WinStrError (dwErrorCode));
+}
+
+void _Jv_ThrowSocketException()
+{
+  DWORD dwErrorCode = WSAGetLastError ();
+  _Jv_ThrowSocketException (dwErrorCode);
+}
+
 // Platform-specific VM initialization.
 void
 _Jv_platform_initialize (void)
 {
   // Initialise winsock for networking
   WSADATA data;
-  if (WSAStartup (MAKEWORD (1, 1), &data))
-    MessageBox (NULL, "Error initialising winsock library.", "Error",
-		MB_OK | MB_ICONEXCLAMATION);
+  if (WSAStartup (MAKEWORD (2, 2), &data))
+    MessageBox (NULL, _T("Error initialising winsock library."), _T("Error"),
+    MB_OK | MB_ICONEXCLAMATION);
+
   // Install exception handler
   SetUnhandledExceptionFilter (win32_exception_handler);
+
+  // Initialize our executable name.
+  // FIXME: We unconditionally use the ANSI function because
+  // _Jv_ThisExecutable returns a const char*. We should really
+  // change _Jv_ThisExecutable to return a jstring.
+  GetModuleFileNameA(NULL, exec_name, sizeof(exec_name));
 }
 
 // gettimeofday implementation.
@@ -65,65 +294,77 @@ __mingwthr_key_dtor (DWORD, void (*) (void *))
   return 0;
 }
 
+static bool dirExists (LPCTSTR dir)
+{
+  DWORD dwAttrs = ::GetFileAttributes (dir);
+  return dwAttrs != 0xFFFFFFFF &&
+    (dwAttrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+static void getUserHome(LPTSTR userHome, LPCTSTR userId)
+{
+  LPTSTR uh = _tgetenv (_T("USERPROFILE"));
+  if (uh)
+    {
+      _tcscpy(userHome, uh);
+    }
+  else
+    {
+      // Make a half-hearted attempt to support this
+      // legacy version of Windows. Try %WINDIR%\Profiles\%USERNAME%
+      // and failing this, use %WINDIR%.
+      //
+      // See:http://java.sun.com/docs/books/tutorial/security1.2/summary/files.html#UserPolicy
+      //
+      // To do this correctly, we'd have to factor in the
+      // Windows version, but if we did that, then this attempt
+      // wouldn't be half-hearted.
+      TCHAR userHomePath[MAX_PATH], winHome[MAX_PATH];
+      ::GetWindowsDirectory(winHome, MAX_PATH);
+        // assume this call always succeeds
+
+      _stprintf(userHomePath, _T("%s\\Profiles\\%s"), winHome, userId);
+      if (dirExists (userHomePath))
+        _tcscpy(userHome, userHomePath);
+      else
+        _tcscpy(userHome, winHome);
+    }
+}
+
 // Set platform-specific System properties.
 void
 _Jv_platform_initProperties (java::util::Properties* newprops)
 {
   // A convenience define.
 #define SET(Prop,Val) \
-  newprops->put(JvNewStringLatin1 (Prop), JvNewStringLatin1 (Val))
+  newprops->put(JvNewStringLatin1 (Prop), _Jv_Win32NewString (Val))
 
-  SET ("file.separator", "\\");
-  SET ("path.separator", ";");
-  SET ("line.separator", "\r\n");
+  SET ("file.separator", _T("\\"));
+  SET ("path.separator", _T(";"));
+  SET ("line.separator", _T("\r\n"));
 
   // Use GetCurrentDirectory to set 'user.dir'.
   DWORD buflen = MAX_PATH;
-  char *buffer = (char *) _Jv_MallocUnchecked (buflen);
+  TCHAR buffer[buflen];
   if (buffer != NULL)
     {
       if (GetCurrentDirectory (buflen, buffer))
-	SET ("user.dir", buffer);
+  SET ("user.dir", buffer);
 
       if (GetTempPath (buflen, buffer))
-	SET ("java.io.tmpdir", buffer);
-
-      _Jv_Free (buffer);
+  SET ("java.io.tmpdir", buffer);
     }
-  
+
   // Use GetUserName to set 'user.name'.
   buflen = 257;  // UNLEN + 1
-  buffer = (char *) _Jv_MallocUnchecked (buflen);
-  if (buffer != NULL)
-    {
-      if (GetUserName (buffer, &buflen))
-        SET ("user.name", buffer);
-      _Jv_Free (buffer);
-    }
+  TCHAR userName[buflen];
+  if (GetUserName (userName, &buflen))
+    SET ("user.name", userName);
 
-  // According to the api documentation for 'GetWindowsDirectory()', the 
-  // environmental variable HOMEPATH always specifies the user's home 
-  // directory or a default directory.  On the 3 windows machines I checked
-  // only 1 had it set.  If it's not set, JDK1.3.1 seems to set it to
-  // the windows directory, so we'll do the same.
-  char *userHome = NULL;
-  if ((userHome = ::getenv ("HOMEPATH")) == NULL )
-    {
-      // Check HOME since it's what I use.
-      if ((userHome = ::getenv ("HOME")) == NULL )
-        {
-          // Not found - use the windows directory like JDK1.3.1 does.
-          char *winHome = (char *) _Jv_MallocUnchecked (MAX_PATH);
-          if (winHome != NULL)
-            {
-              if (GetWindowsDirectory (winHome, MAX_PATH))
-		SET ("user.home", winHome);
-              _Jv_Free (winHome);
-            }
-        }
-     }
-  if (userHome != NULL)
-    SET ("user.home", userHome);
+  // Set user.home
+  TCHAR userHome[MAX_PATH];
+  getUserHome(userHome, userName);
+  SET ("user.home", userHome);
 
   // Get and set some OS info.
   OSVERSIONINFO osvi;
@@ -131,41 +372,39 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
   osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
   if (GetVersionEx (&osvi))
     {
-      char *buffer = (char *) _Jv_MallocUnchecked (30);
       if (buffer != NULL)
         {
-          sprintf (buffer, "%d.%d", (int) osvi.dwMajorVersion,
-		   (int) osvi.dwMinorVersion);
+          _stprintf (buffer, _T("%d.%d"), (int) osvi.dwMajorVersion,
+           (int) osvi.dwMinorVersion);
           SET ("os.version", buffer);
-          _Jv_Free (buffer);
         }
 
       switch (osvi.dwPlatformId)
         {
           case VER_PLATFORM_WIN32_WINDOWS:
             if (osvi.dwMajorVersion == 4 && osvi.dwMinorVersion == 0)
-              SET ("os.name", "Windows 95");
+              SET ("os.name", _T("Windows 95"));
             else if (osvi.dwMajorVersion == 4 && osvi.dwMinorVersion == 10)
-              SET ("os.name", "Windows 98");
+              SET ("os.name", _T("Windows 98"));
             else if (osvi.dwMajorVersion == 4 && osvi.dwMinorVersion == 90)
-              SET ("os.name", "Windows Me");
+              SET ("os.name", _T("Windows Me"));
             else
-              SET ("os.name", "Windows ??"); 
+              SET ("os.name", _T("Windows ??"));
             break;
 
           case VER_PLATFORM_WIN32_NT:
             if (osvi.dwMajorVersion <= 4 )
-              SET ("os.name", "Windows NT");
+              SET ("os.name", _T("Windows NT"));
             else if (osvi.dwMajorVersion == 5 && osvi.dwMinorVersion == 0)
-              SET ("os.name", "Windows 2000");
+              SET ("os.name", _T("Windows 2000"));
             else if (osvi.dwMajorVersion == 5 && osvi.dwMinorVersion == 1)
-              SET ("os.name", "Windows XP");
+              SET ("os.name", _T("Windows XP"));
             else
-              SET ("os.name", "Windows NT ??");
+              SET ("os.name", _T("Windows NT ??"));
             break;
 
           default:
-            SET ("os.name", "Windows UNKNOWN");
+            SET ("os.name", _T("Windows UNKNOWN"));
             break;
        }
   }
@@ -173,25 +412,26 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
   // Set the OS architecture.
   SYSTEM_INFO si;
   GetSystemInfo (&si);
-  switch (si.dwProcessorType)
+  switch (si.wProcessorArchitecture)
     {
-      case PROCESSOR_INTEL_386:
-        SET ("os.arch", "i386");
+      case PROCESSOR_ARCHITECTURE_INTEL:
+        SET ("os.arch", _T("x86"));
         break;
-      case PROCESSOR_INTEL_486:
-        SET ("os.arch", "i486");
+      case PROCESSOR_ARCHITECTURE_MIPS:
+        SET ("os.arch", _T("mips"));
         break;
-      case PROCESSOR_INTEL_PENTIUM:
-        SET ("os.arch", "i586");
+      case PROCESSOR_ARCHITECTURE_ALPHA:
+        SET ("os.arch", _T("alpha"));
         break;
-      case PROCESSOR_MIPS_R4000:	
-        SET ("os.arch", "MIPS4000");
+      case PROCESSOR_ARCHITECTURE_PPC:  
+        SET ("os.arch", _T("ppc"));
         break;
-      case PROCESSOR_ALPHA_21064:
-        SET ("os.arch", "ALPHA");
+      case PROCESSOR_ARCHITECTURE_IA64:
+        SET ("os.arch", _T("ia64"));
         break;
+      case PROCESSOR_ARCHITECTURE_UNKNOWN:
       default:
-        SET ("os.arch", "unknown");
+        SET ("os.arch", _T("unknown"));
         break;
     }
 }
@@ -216,4 +456,18 @@ backtrace (void **__array, int __size)
     __array[i++] = (void*)(rfp[1]-4);
   }
   return i;
+}
+
+int
+_Jv_pipe (int filedes[2])
+{
+  return _pipe (filedes, 4096, _O_BINARY);
+}
+
+void
+_Jv_platform_close_on_exec (HANDLE h)
+{
+  // Mark the handle as non-inheritable. This has
+  // no effect under Win9X.
+  SetHandleInformation (h, HANDLE_FLAG_INHERIT, 0);
 }

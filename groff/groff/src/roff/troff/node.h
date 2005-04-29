@@ -1,5 +1,5 @@
 // -*- C++ -*-
-/* Copyright (C) 1989, 1990, 1991, 1992, 2000, 2001, 2002
+/* Copyright (C) 1989, 1990, 1991, 1992, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
      Written by James Clark (jjc@jclark.com)
 
@@ -19,7 +19,6 @@ You should have received a copy of the GNU General Public License along
 with groff; see the file COPYING.  If not, write to the Free Software
 Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. */
 
-
 struct hyphen_list {
   unsigned char hyphen;
   unsigned char breakable;
@@ -36,7 +35,7 @@ class ascii_output_file;
 
 struct breakpoint;
 struct vertical_size;
-struct charinfo;
+class charinfo;
 
 class macro;
 
@@ -75,7 +74,7 @@ struct node {
   virtual node *merge_self(node *);
   virtual node *add_discretionary_hyphen();
   virtual node *add_self(node *, hyphen_list **);
-  virtual hyphen_list *get_hyphen_list(hyphen_list *s = 0);
+  virtual hyphen_list *get_hyphen_list(hyphen_list *, int *);
   virtual void ascii_print(ascii_output_file *);
   virtual void asciify(macro *);
   virtual int discardable();
@@ -218,6 +217,7 @@ public:
   unbreakable_space_node(hunits, color *, node * = 0);
   node *copy();
   int reread(int *);
+  void tprint(troff_output_file *);
   int same(node *);
   void asciify(macro *);
   const char *type();
@@ -228,7 +228,7 @@ public:
   void split(int, node **, node **);
   int merge_space(hunits, hunits, hunits);
   node *add_self(node *, hyphen_list **);
-  hyphen_list *get_hyphen_list(hyphen_list *ss = 0);
+  hyphen_list *get_hyphen_list(hyphen_list *, int *);
   hyphenation_type get_hyphenation_type();
 };
 
@@ -286,10 +286,10 @@ protected:
   unsigned char unformat;
   color *col;			/* for grotty */
 public:
-  hmotion_node(hunits i, color *c, node *next = 0)
-    : node(next), n(i), was_tab(0), unformat(0), col(c) {}
-  hmotion_node(hunits i, int flag1, int flag2, color *c, node *next = 0)
-    : node(next), n(i), was_tab(flag1), unformat(flag2), col(c) {}
+  hmotion_node(hunits i, color *c, node *nxt = 0)
+    : node(nxt), n(i), was_tab(0), unformat(0), col(c) {}
+  hmotion_node(hunits i, int flag1, int flag2, color *c, node *nxt = 0)
+    : node(nxt), n(i), was_tab(flag1), unformat(flag2), col(c) {}
   node *copy();
   int reread(int *);
   int set_unformat_flag();
@@ -301,7 +301,7 @@ public:
   const char *type();
   int force_tprint();
   node *add_self(node *, hyphen_list **);
-  hyphen_list *get_hyphen_list(hyphen_list *ss = 0);
+  hyphen_list *get_hyphen_list(hyphen_list *, int *);
   hyphenation_type get_hyphenation_type();
 };
 
@@ -311,11 +311,12 @@ public:
   node *copy();
   void ascii_print(ascii_output_file *);
   void asciify(macro *);
+  void tprint(troff_output_file *);
   int same(node *);
   const char *type();
   int force_tprint();
   node *add_self(node *, hyphen_list **);
-  hyphen_list *get_hyphen_list(hyphen_list *ss = 0);
+  hyphen_list *get_hyphen_list(hyphen_list *, int *);
   hyphenation_type get_hyphenation_type();
 };
 
@@ -336,7 +337,7 @@ class hline_node : public node {
   hunits x;
   node *n;
 public:
-  hline_node(hunits i, node *c, node *next = 0) : node(next), x(i), n(c) {}
+  hline_node(hunits i, node *c, node *nxt = 0) : node(nxt), x(i), n(c) {}
   ~hline_node();
   node *copy();
   hunits width();
@@ -350,7 +351,7 @@ class vline_node : public node {
   vunits x;
   node *n;
 public:
-  vline_node(vunits i, node *c, node *next= 0) : node(next), x(i), n(c) {}
+  vline_node(vunits i, node *c, node *nxt = 0) : node(nxt), x(i), n(c) {}
   ~vline_node();
   node *copy();
   void tprint(troff_output_file *);
@@ -424,7 +425,7 @@ public:
   hunits skew();
   hunits italic_correction();
   hunits subscript_correction();
-  hyphen_list *get_hyphen_list(hyphen_list *ss = 0);
+  hyphen_list *get_hyphen_list(hyphen_list *, int *);
   node *add_self(node *, hyphen_list **);
   node *merge_glyph_node(glyph_node *);
 };
@@ -443,7 +444,7 @@ public:
   const char *type();
   int force_tprint();
   node *add_self(node *, hyphen_list **);
-  hyphen_list *get_hyphen_list(hyphen_list *ss = 0);
+  hyphen_list *get_hyphen_list(hyphen_list *, int *);
   hyphenation_type get_hyphenation_type();
 };
 
@@ -595,3 +596,4 @@ public:
 
 font_family *lookup_family(symbol);
 symbol get_font_name(int, environment *);
+extern search_path include_search_path;

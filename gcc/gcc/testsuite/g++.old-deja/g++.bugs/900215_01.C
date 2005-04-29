@@ -1,3 +1,4 @@
+// { dg-do assemble  }
 // g++ 1.36.1 bug 900215_01
 
 // g++ allows the definition of a type conversion operator `operator void'
@@ -19,9 +20,11 @@
 // 8/3/2000 (nathan): The std allows you to define such an op, but
 // it will never be called. [class.conv.fct]. Make it an unconditional warning.
 
+// { dg-options "-Wconversion" }
+
 struct struct0 {
 
-  operator void ();		// WARNING - operator void
+  operator void ();		// { dg-warning "" } operator void
 };
 
 int exit_status = 1;

@@ -27,9 +27,9 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/hash.c,v 1.4 2002/11/23 08:26:48 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/hash.c,v 1.6 2003/09/17 22:28:08 paulo Exp $ */
 
-#include "hash.h"
+#include "lisp/hash.h"
 
 /* A simple hash-table implementation
  * TODO: implement SXHASH and WITH-HASH-TABLE-ITERATOR
@@ -324,10 +324,12 @@ LispRehash(LispHashTable *hash)
 	    if ((nentry->count % 4) == 0) {
 		LispObj **keys, **values;
 
-		keys = realloc(nentry->keys, sizeof(LispObj*) * (i + 4));
+		keys = realloc(nentry->keys, sizeof(LispObj*) *
+			       (nentry->count + 4));
 		if (keys == NULL)
 		    goto out_of_memory;
-		values = realloc(nentry->values, sizeof(LispObj*) * (i + 4));
+		values = realloc(nentry->values, sizeof(LispObj*) *
+				 (nentry->count + 4));
 		if (values == NULL) {
 		    free(keys);
 		    goto out_of_memory;
@@ -529,6 +531,8 @@ Lisp_MakeHashTable(LispBuiltin *builtin)
     test = ARGUMENT(0);
 
     if (test != UNSPEC) {
+	if (FUNCTIONP(test))
+	    test = test->data.atom->object;
 	if (test == Oeq)
 	    function = FEQ;
 	else if (test == Oeql)

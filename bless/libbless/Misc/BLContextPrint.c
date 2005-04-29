@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,23 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Fri Apr 25 2002.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLContextPrint.c,v 1.8 2003/07/22 15:58:34 ssen Exp $
+ *  $Id: BLContextPrint.c,v 1.12 2005/02/03 00:42:27 ssen Exp $
  *
  *  $Log: BLContextPrint.c,v $
+ *  Revision 1.12  2005/02/03 00:42:27  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.11  2004/04/20 21:40:44  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.10  2004/03/21 18:10:04  ssen
+ *  Update includes
+ *
+ *  Revision 1.9  2004/03/21 18:08:33  ssen
+ *  Use NO_VASPRINTF instead of OSX_TARGET
+ *
  *  Revision 1.8  2003/07/22 15:58:34  ssen
  *  APSL 2.0
  *
@@ -66,8 +76,6 @@
 #include "bless.h"
 #include "bless_private.h"
  
- 
- 
 int contextprintf(BLContextPtr context, int loglevel, char const *fmt, ...) {
     int ret;
     char *out;
@@ -81,7 +89,7 @@ int contextprintf(BLContextPtr context, int loglevel, char const *fmt, ...) {
     if(context->version == 0 && context->logstring) {
 
         va_start(ap, fmt);
-#if OSX_TARGET < 1020
+#if NO_VASPRINTF
 	out = malloc(1024);
 	ret = vsnprintf(out, 1024, fmt, ap);  
 #else

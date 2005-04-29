@@ -1,8 +1,8 @@
 ========================================================================
 kpasswd Bug List
 ========================================================================
-Current version:	1.0a1
-Date:				June 10, 2002
+Current version:	1.1fc2
+Date:				December 17, 2004
 Authors:			lxs@mit.edu
 ========================================================================
 
@@ -10,6 +10,7 @@ Authors:			lxs@mit.edu
 Bug #		Bug description										Fixed in
 ========================================================================
 
+[RT 2819] fix kpasswd error handling                                1.1fc2
 [BZ 730]	Use KLL to change the password							1.0a1
 [BZ 756]	Bad error message when edu.mit.Kerberos is missing		1.0a1
 [BZ 758]	Duplicate of 756										1.0a1

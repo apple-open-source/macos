@@ -94,8 +94,7 @@ int openpty(amaster, aslave, name, termp, winp)
 					return (-1);	/* out of ptys */
 			} else {
 				line[5] = 't';
-				(void) chown(line, getuid(), ttygid);
-				(void) chmod(line, S_IRUSR|S_IWUSR|S_IWGRP);
+				(void) grantpt(master);
 				(void) revoke(line);
 				if ((slave = open(line, O_RDWR, 0)) != -1) {
 					*amaster = master;

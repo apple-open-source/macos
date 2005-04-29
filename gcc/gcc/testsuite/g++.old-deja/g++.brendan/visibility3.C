@@ -1,10 +1,17 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed visibility
 // Used to say:
 // manip.cc:17: member `_f' is a private member of class `B<int>'
 // manip.cc:17: member `_a' is a private member of class `B<int>'
 
 class A {};
+
+template <class TP>
+class B;
+
+template <class TP>
+inline A &
+operator<< (A &o, const B<TP> &m);
 
 template <class TP>
 class B

@@ -39,125 +39,132 @@ int         quiet = 0;
 int         all = 0;
 const char *cacheName = NULL;
 const char *principalName = NULL;
-KLPrincipal principal = NULL;
 
+int destroy_tickets (void);
 static int options (int argc, char * const *argv);
 static int usage (void);
+static void printiferr (errcode_t err, const char *format, ...);
 static void printerr (const char *format, ...);
 static void vprinterr (const char *format, va_list args);
 
 int main (int argc, char * const *argv)
 {
-    int      err = 0;
-    KLStatus klErr = klNoErr;
-    cc_int32 ccErr = ccNoError;
+    int err = 0;
     
-    cc_context_t context = NULL;
-    cc_ccache_t  cache = NULL;
-    cc_string_t  principalString = NULL;
-
     /* Remember our program name */
     program = strrchr (argv[0], '/') ? strrchr (argv[0], '/') + 1 : argv[0];
 
     /* Read in our command line options */
     err = options (argc, argv);
-    if (err) 
-        goto done;
- 
-    /* Destroy the tickets */
-    if (cacheName != NULL) {
-        /* Use CCAPI version 4 to get the principal for the cache */
-        ccErr = cc_initialize (&context, ccapi_version_4, nil, nil);
-        if (ccErr != ccNoError) {
-            printerr ("Unable to initialize credentials cache (error = %d)\n", ccErr);
-            goto done;
-        }
-        
-        ccErr = cc_context_open_ccache (context, cacheName, &cache);
-        if (ccErr == ccErrCCacheNotFound) {
-            printerr("No such credentials cache '%s'\n", cacheName);
-            goto done;                   
-        }
-        if (ccErr != ccNoError) {
-            printerr("Unable to open credentials cache '%s' (error = %d)\n", cacheName, ccErr);
-            goto done;
-        }
-        
-        ccErr = cc_ccache_get_principal (cache, cc_credentials_v5, &principalString);
-        if (ccErr == ccNoError) {
-            principalName = principalString->data;
-            
-            err = KLCreatePrincipalFromString (principalName, kerberosVersion_V5, &principal);
-            if (err != klNoErr) {
-                printerr ("Invalid principal name '%s' in credentials cache '%s': %s\n", 
-                            principalName, cacheName, error_message (klErr));
-                goto done;
-            }
-        } else {
-            ccErr = cc_ccache_get_principal (cache, cc_credentials_v4, &principalString);
-            if (ccErr != ccNoError) {
-                printerr ("Unable to get principal for ticket cache '%s' (error = %d)\n", 
-                        cacheName, ccErr);
-                goto done;
-            }
-            principalName = principalString->data;
-            
-            err = KLCreatePrincipalFromString (principalName, kerberosVersion_V4, &principal);
-            if (err != klNoErr) {
-                printerr ("Invalid principal name '%s' in credentials cache '%s': %s\n", 
-                            principalName, cacheName, error_message (klErr));
-                goto done;
-            }
-        }
+    
+    if (!err) {
+        err = destroy_tickets ();
     }
-    
-    /* Destroy the cache for the given principal (NULL is the default cache) */
-    klErr = KLDestroyTickets (principal);
-    if (klErr == klPrincipalDoesNotExistErr) {
-        if (principal != NULL && principalName != NULL) {
-            printerr ("No credentials cache for principal '%s'\n", principalName);
-        } else {
-            printerr ("No default credentials cache\n");
-        }
-        goto done;
-    }
-    if (klErr != klNoErr) {
-        printerr ("Unable to destroy tickets: %s\n", error_message (klErr));
-        goto done;
-    }
-    
-    if (all) {
-        /* Destroy any additional ticket caches */
-        while (klErr == klNoErr) {
-            klErr = KLDestroyTickets (NULL);
-        }
-        klErr = klNoErr;
-    }
-    
-done:
-    /* Free any allocated resources */
-    if (principal != NULL)
-        KLDisposePrincipal (principal);
-    
-    if (principalString != NULL)
-        cc_string_release (principalString);
-    
-    if (cache != NULL)
-        cc_ccache_release (cache);
-        
-    if (context != NULL)
-        cc_context_release (context);
-    
-    if (klErr != klNoErr || ccErr != ccNoError)
-        err = 1;
-    
+
     return err;
+}
+   
+int destroy_tickets (void)
+{
+    krb5_error_code err = 0;
+    
+    if (cacheName != NULL) {
+        krb5_context kcontext = NULL;
+        krb5_ccache  ccache = NULL;
+        const char  *name = NULL;        
+        const char  *type = NULL;
+
+        /* Initialize the Kerberos 5 context */
+        err = krb5_init_context (&kcontext);
+        printiferr (err, "while initializing Kerberos 5");
+        
+        if (!err) {
+            err = krb5_cc_resolve (kcontext, cacheName, &ccache);
+            printiferr (err, "while locating credentials cache '%s'", cacheName);
+        }
+
+        if (!err) {
+            name = krb5_cc_get_name (kcontext, ccache);
+            if (name == NULL) { err = EINVAL; }
+            printiferr (err, "while getting the credentials cache name");
+        }
+        
+        if (!err) {
+            type = krb5_cc_get_type (kcontext, ccache);
+            if (type == NULL) { err = EINVAL; }
+            printiferr (err, "while getting the credentials cache type");
+        }    
+        
+        if (!err) {
+            if (strcmp (type, "API") == 0) {
+                cc_context_t cc_context = NULL;
+                cc_ccache_t  cc_ccache = NULL;
+                
+                err = cc_initialize (&cc_context, ccapi_version_4, NULL, NULL);
+                printiferr (err, "while initializing credentials cache");
+                
+                if (!err) {
+                    err = cc_context_open_ccache (cc_context, name, &cc_ccache);
+                    printiferr (err, "while opening credentials cache '%s'", cacheName);
+                }
+                
+                if (!err) {
+                    err = cc_ccache_destroy (cc_ccache);
+                    if (!err) { cc_ccache = NULL; }
+                    printiferr (err, "while destroying credentials cache '%s'", cacheName);
+                }
+                
+                if (cc_ccache  != NULL) { cc_ccache_release (cc_ccache); }
+                if (cc_context != NULL) { cc_context_release (cc_context); }
+                
+            } else {
+                err = krb5_cc_destroy (kcontext, ccache);
+                printiferr (err, "while destroying credentials cache '%s'", cacheName);
+            }
+        }
+        
+        if (kcontext != NULL) { krb5_free_context (kcontext); }
+        
+    } else if (all) {
+        /* Destroy all ticket caches */
+        while (!err) {
+            err = KLDestroyTickets (NULL);
+        }
+        err = 0;
+        
+    } else {
+        /* Destroy the tickets by the principal or the default tickets */
+        KLPrincipal principal = NULL;
+        
+        if (principalName != NULL) {
+            err = KLCreatePrincipalFromString (principalName, kerberosVersion_V5, &principal);
+            printiferr (err, "while creating principal for '%s'", principalName);
+        }
+        
+        if (!err) {
+            err = KLDestroyTickets (principal);
+            if ((err == klPrincipalDoesNotExistErr) || 
+                (err == klCacheDoesNotExistErr) ||
+                (err == klSystemDefaultDoesNotExistErr)) {
+                if (principal != NULL && principalName != NULL) {
+                    printerr ("No credentials cache for principal '%s'\n", principalName);
+                } else {
+                    printerr ("No default credentials cache\n");
+                }
+            } else {
+                printiferr (err, "while destroying tickets");
+            }
+        }
+        
+        if (principal != NULL) { KLDisposePrincipal (principal); }
+    }
+    
+    return err ? 1 : 0;
 }
 
 static int options (int argc, char * const *argv)
 {
-    int         option;
-    KLStatus	err = klNoErr;
+    int option;
     
     /* Get the arguments */
     while ((option = getopt (argc, argv, "qaAc:p:")) != -1) {
@@ -173,36 +180,20 @@ static int options (int argc, char * const *argv)
             
             case 'c':
                 if (cacheName != NULL) {
-                    fprintf (stderr, "Only one -c option allowed\n");
+                    printerr ("Only one -c option allowed\n");
                     return usage ();
                 }
                 
                 cacheName = optarg; /* a pointer into argv */
-                
-                /* remove the API: if necessary */
-                if (strncmp (cacheName, "API:", 4) == 0) {
-                    if (strlen (cacheName) > 4) {
-                        cacheName += 4;
-                    } else {
-                        fprintf (stderr, "Invalid cache name '%s'\n", cacheName);
-                        return usage ();
-                    }
-                }
                 break;
                 
             case 'p':
-                if (principal != NULL) {
-                    fprintf (stderr, "Only one -p option allowed\n");
+                if (principalName != NULL) {
+                    printerr ("Only one -p option allowed\n");
                     return usage ();
                 }
                 
                 principalName = optarg;
-                err = KLCreatePrincipalFromString (principalName, kerberosVersion_V5, &principal);
-                if (err != klNoErr) {
-                    fprintf (stderr, "Unable to create principal for '%s': %s\n", 
-                            principalName, error_message (err));
-                    return 1;
-                }
                 break;
                 
             default:
@@ -210,13 +201,13 @@ static int options (int argc, char * const *argv)
         }
     }
         
-    if (cacheName != NULL && principal != NULL) {
-        fprintf (stderr, "Only one of -c or -p allowed\n");
+    if (cacheName != NULL && principalName != NULL) {
+        printerr ("Only one of -c or -p allowed\n");
         return usage ();
     }
     
-    if (all && (cacheName != NULL || principal != NULL)) {
-        fprintf (stderr, "-a cannot be combined with -c or -p\n");
+    if (all && (cacheName != NULL || principalName != NULL)) {
+        printerr ("-a cannot be combined with -c or -p\n");
         return usage ();
     }
     
@@ -232,6 +223,17 @@ static int usage (void)
     fprintf (stderr, "\t-c specify name of credentials cache\n");
     fprintf (stderr, "\t-p specify name of principal (Kerberos 5 format)\n");
     return 2;
+}
+
+static void printiferr (errcode_t err, const char *format, ...)
+{
+    if (err && (err != ccIteratorEnd) && (err != KRB5_CC_END)) {
+        va_list pvar;
+        
+        va_start (pvar, format);
+        com_err_va (program, err, format, pvar);
+        va_end (pvar);
+    }
 }
 
 static void printerr (const char *format, ...)

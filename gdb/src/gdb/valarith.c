@@ -31,6 +31,7 @@
 #include "gdb_string.h"
 #include "doublest.h"
 #include <math.h>
+#include "infcall.h"
 
 /* Define whether or not the C operator '/' truncates towards zero for
    differently signed operands (truncation direction is undefined in C). */
@@ -276,8 +277,8 @@ value_subscripted_rvalue (struct value *array, struct value *idx, int lowerbound
   else
     VALUE_LVAL (v) = VALUE_LVAL (array);
   VALUE_ADDRESS (v) = VALUE_ADDRESS (array);
-  VALUE_OFFSET (v) = VALUE_OFFSET (array) + elt_offs;
   VALUE_REGNO (v) = VALUE_REGNO (array);
+  VALUE_OFFSET (v) = VALUE_OFFSET (array) + elt_offs;
   return v;
 }
 
@@ -1157,8 +1158,8 @@ value_binop (struct value *arg1, struct value *arg2, enum exp_opcode op)
 int
 value_logical_not (struct value *arg1)
 {
-  register int len;
-  register char *p;
+  int len;
+  char *p;
   struct type *type1;
 
   COERCE_NUMBER (arg1);
@@ -1215,8 +1216,8 @@ value_strcmp (struct value *arg1, struct value *arg2)
 int
 value_equal (struct value *arg1, struct value *arg2)
 {
-  register int len;
-  register char *p1, *p2;
+  int len;
+  char *p1, *p2;
   struct type *type1, *type2;
   enum type_code code1;
   enum type_code code2;
@@ -1274,8 +1275,8 @@ value_equal (struct value *arg1, struct value *arg2)
 int
 value_less (struct value *arg1, struct value *arg2)
 {
-  register enum type_code code1;
-  register enum type_code code2;
+  enum type_code code1;
+  enum type_code code2;
   struct type *type1, *type2;
 
   COERCE_NUMBER (arg1);
@@ -1316,8 +1317,8 @@ value_less (struct value *arg1, struct value *arg2)
 struct value *
 value_neg (struct value *arg1)
 {
-  register struct type *type;
-  register struct type *result_type = VALUE_TYPE (arg1);
+  struct type *type;
+  struct type *result_type = VALUE_TYPE (arg1);
 
   COERCE_REF (arg1);
   COERCE_ENUM (arg1);
@@ -1345,8 +1346,8 @@ value_neg (struct value *arg1)
 struct value *
 value_complement (struct value *arg1)
 {
-  register struct type *type;
-  register struct type *result_type = VALUE_TYPE (arg1);
+  struct type *type;
+  struct type *result_type = VALUE_TYPE (arg1);
   int typecode;
 
   COERCE_REF (arg1);

@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XGetDvMo.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XGetDvMo.man,v 1.3 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,22 +17,11 @@
 .SH NAME
 XGetDeviceMotionEvents, XDeviceTimeCoord \- get device motion history 
 .SH SYNTAX
-XDeviceTimeCoord *XGetDeviceMotionEvents\^(\fIdisplay\fP\^, \fIdevice\fP\^,
-\fIstart\fP\^, \fIstop\fP\^,
-.br
-\fInevents_return\fP\^, \fImode_return\fP\^, \fIaxis_count_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^;
-.br
-      Time \fIstart\fP\^, \fIstop\fP\^;	
-.br
-      int *\fInevents_return\fP\^;
-.br
-      int *\fImode_return\fP\^;
-.br
-      int *\fIaxis_count_return\fP\^;
+.HP
+XDeviceTimeCoord *XGetDeviceMotionEvents\^(Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, Time \fIstart\fP\^, Time \fIstop\fP\^, int
+*\fInevents_return\fP\^, int *\fImode_return\fP\^, int
+*\fIaxis_count_return\fP\^); 
 .SH ARGUMENTS
 .TP 12
 .I display

@@ -1,26 +1,4 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -59,36 +37,7 @@
 #ifndef _LOCALE_H_
 #define _LOCALE_H_
 
-struct lconv {
-	char	*decimal_point;
-	char	*thousands_sep;
-	char	*grouping;
-	char	*int_curr_symbol;
-	char	*currency_symbol;
-	char	*mon_decimal_point;
-	char	*mon_thousands_sep;
-	char	*mon_grouping;
-	char	*positive_sign;
-	char	*negative_sign;
-	char	int_frac_digits;
-	char	frac_digits;
-	char	p_cs_precedes;
-	char	p_sep_by_space;
-	char	n_cs_precedes;
-	char	n_sep_by_space;
-	char	p_sign_posn;
-	char	n_sign_posn;
-	char	int_p_cs_precedes;
-	char	int_n_cs_precedes;
-	char	int_p_sep_by_space;
-	char	int_n_sep_by_space;
-	char	int_p_sign_posn;
-	char	int_n_sign_posn;
-};
-
-#ifndef NULL
-#define	NULL	0
-#endif
+#include <_locale.h>
 
 #define	LC_ALL		0
 #define	LC_COLLATE	1
@@ -100,10 +49,7 @@ struct lconv {
 
 #define	_LC_LAST	7		/* marks end */
 
-#include <sys/cdefs.h>
-
 __BEGIN_DECLS
-struct lconv	*localeconv(void);
 char		*setlocale(int, const char *);
 __END_DECLS
 

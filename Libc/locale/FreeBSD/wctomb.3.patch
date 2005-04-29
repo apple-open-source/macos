@@ -1,0 +1,47 @@
+--- wctomb.3.orig	Fri Mar 11 19:44:47 2005
++++ wctomb.3	Fri Mar 11 19:47:38 2005
+@@ -41,7 +41,8 @@
+ .Dt WCTOMB 3
+ .Os
+ .Sh NAME
+-.Nm wctomb
++.Nm wctomb ,
++.Nm wctomb_l
+ .Nd convert a wide-character code to a character
+ .Sh LIBRARY
+ .Lb libc
+@@ -49,6 +50,9 @@
+ .In stdlib.h
+ .Ft int
+ .Fn wctomb "char *mbchar" "wchar_t wchar"
++.In xlocale.h
++.Ft int
++.Fn wctomb_l "char *mbchar" "wchar_t wchar" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn wctomb
+@@ -69,6 +73,14 @@
+ pointer returns nonzero if the current locale requires shift states,
+ zero otherwise;
+ if shift states are required, the shift state is reset to the initial state.
++.Pp
++While the
++.Fn wctomb
++function uses the current locale, the
++.Fn wctomb_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ If
+ .Fa mbchar
+@@ -104,7 +116,8 @@
+ .Xr mbtowc 3 ,
+ .Xr wcrtomb 3 ,
+ .Xr wcstombs 3 ,
+-.Xr wctob 3
++.Xr wctob 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn wctomb

@@ -1,4 +1,4 @@
-# Copyright (C) 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+# Copyright (C) 1992 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,9 +15,7 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-dejagnu@prep.ai.mit.edu
-
-# This file was written by Rob Savoye. (rob@cygnus.com)
+# bug-dejagnu@gnu.org
 
 #
 # Setup an environment so we can execute library procs without DejaGnu
@@ -54,8 +52,10 @@ proc make_defaults_file { defs } {
     puts ${fd} "set errcnt 0"
     puts ${fd} "set passcnt 0"
     puts ${fd} "set xpasscnt 0"
+    puts ${fd} "set kpasscnt 0"
     puts ${fd} "set failcnt 0"
     puts ${fd} "set xfailcnt 0"
+    puts ${fd} "set kfailcnt 0"
     puts ${fd} "set prms_id 0"
     puts ${fd} "set bug_id 0"
     puts ${fd} "set exit_status 0"
@@ -64,6 +64,8 @@ proc make_defaults_file { defs } {
     puts ${fd} "set unsupportedcnt 0"
     puts ${fd} "set xfail_flag 0"
     puts ${fd} "set xfail_prms 0"
+    puts ${fd} "set kfail_flag 0"
+    puts ${fd} "set kfail_prms 0"
     puts ${fd} "set mail_logs 0"
     puts ${fd} "set multipass_name 0"
     catch "close $fd"

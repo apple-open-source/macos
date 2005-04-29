@@ -1,9 +1,7 @@
 /*
 **********************************************************************
-* Copyright (c) 2002, International Business Machines
+* Copyright (c) 2002-2003, International Business Machines
 * Corporation and others.  All Rights Reserved.
-**********************************************************************
-* $Source: /cvs/root/ICU/icuSources/common/usetiter.cpp,v $ 
 **********************************************************************
 */
 #include "unicode/usetiter.h"
@@ -13,7 +11,7 @@
 
 U_NAMESPACE_BEGIN
 
-const char UnicodeSetIterator::fgClassID=0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(UnicodeSetIterator)
 
 /**
  * Create an iterator

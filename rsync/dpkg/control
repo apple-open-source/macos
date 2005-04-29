@@ -1,7 +1,0 @@
-Package: rsync
-Maintainer: Wilfredo Sanchez <wsanchez@opensource.apple.com>
-Vendor: Andrew Tridgell and Paul Mackerras
-Version: 2.5.1
-URL: http://rsync.samba.org/
-Description: Remote file syncronizer
-Build-Depends: build-base

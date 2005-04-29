@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Entries Limiter plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The entries limiter plugin limits the number of entries that get displayed and
+                is set by the
+                <em>blog-entries-display</em> parameter in your individual
+                <code>blog.properties</code> file. A value
+                of -1 for this parameter indicates that all entries should be shown in which case this
+                plugin acts like a pass through filter.
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                limiter=org.blojsom.plugin.limiter.EntriesLimiterPlugin
+            </source>
+
+            <p>
+                You may then add "limiter" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=limiter
+            </source>
+
+
+        </section>
+        <section>
+            <title>usage and URL parameters</title>
+
+        </section>
+        <section>
+            <title>URL parameters</title>
+            <p>The following table describes the URL parameters that affect the output of the entries limiter plugin.
+            </p>
+            <table>
+                <tr>
+                    <th>URL parameter</th>
+                    <th>Accepted values</th>
+                    <th>Usage</th>
+                </tr>
+                <tr>
+                    <td>entries</td>
+                    <td>The "entries" parameter can be used to override the
+                        number of entries displayed per category that is set by the
+                        <em>blog-entries-display</em>
+                        parameter in
+                        <em>blojsom.properties</em>.
+                        <br/>
+                        Valid integer that is -1 OR > 0 to specify the
+                        limit on the number of blog entries displayed. A value of -1 will cause the
+                        plugin to return all entries it receives.
+                    </td>
+                    <td>/blog/?entries=7</td>
+                </tr>
+            </table>
+
+
+        </section>
+    </body>
+</document>
+

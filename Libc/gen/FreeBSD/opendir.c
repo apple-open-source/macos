@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)opendir.c	8.8 (Berkeley) 5/1/95";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/opendir.c,v 1.19 2003/01/04 00:18:50 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/opendir.c,v 1.22 2004/08/14 17:46:10 stefanf Exp $");
 
 #include "namespace.h"
 #include <sys/param.h>
@@ -97,7 +97,7 @@ __opendir2(name, flags)
 	    (dirp = malloc(sizeof(DIR) + sizeof(struct _telldir))) == NULL)
 		goto fail;
 
-	dirp->dd_td = (void *)dirp + sizeof(DIR);
+	dirp->dd_td = (struct _telldir *)((char *)dirp + sizeof(DIR));
 	LIST_INIT(&dirp->dd_td->td_locq);
 	dirp->dd_td->td_loccnt = 0;
 
@@ -118,7 +118,7 @@ __opendir2(name, flags)
 
 		if (_fstatfs(fd, &sfb) < 0)
 			goto fail;
-		unionstack = !strcmp(sfb.f_fstypename, "union")
+		unionstack = !strcmp(sfb.f_fstypename, "unionfs")
 		    || (sfb.f_flags & MNT_UNION);
 	} else {
 		unionstack = 0;
@@ -258,6 +258,7 @@ __opendir2(name, flags)
 		dirp->dd_size = ddptr - dirp->dd_buf;
 	} else {
 		dirp->dd_len = incr;
+		dirp->dd_size = 0;
 		dirp->dd_buf = malloc(dirp->dd_len);
 		if (dirp->dd_buf == NULL)
 			goto fail;

@@ -1,6 +1,6 @@
 // Low-level functions for atomic operations: Generic version  -*- C++ -*-
 
-// Copyright (C) 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,26 +27,30 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _BITS_ATOMICITY_H
-#define _BITS_ATOMICITY_H	1
+#include <bits/atomicity.h>
+#include <bits/concurrence.h>
 
-typedef int _Atomic_word;
-
-static inline _Atomic_word
-__attribute__ ((__unused__))
-__exchange_and_add (_Atomic_word* __mem, int __val)
+namespace __gnu_internal
 {
-  _Atomic_word __result = *__mem;
-  *__mem += __val;
-  return __result;
-}
+  __glibcxx_mutex_define_initialized(atomic_mutex);
+} // namespace __gnu_internal
 
-static inline void
-__attribute__ ((__unused__))
-__atomic_add (_Atomic_word* __mem, int __val)
+namespace __gnu_cxx
 {
-  *__mem += __val;
-}
+  _Atomic_word
+  __attribute__ ((__unused__))
+  __exchange_and_add(volatile _Atomic_word* __mem, int __val)
+  {
+    __glibcxx_mutex_lock(__gnu_internal::atomic_mutex);
+    _Atomic_word __result;
+    __result = *__mem;
+    *__mem += __val;
+    __glibcxx_mutex_unlock(__gnu_internal::atomic_mutex);
+    return __result;
+  }
 
-#endif /* atomicity.h */
-// APPLE MERGE fixme!
+  void
+  __attribute__ ((__unused__))
+  __atomic_add(volatile _Atomic_word* __mem, int __val)
+  { __exchange_and_add(__mem, __val); }
+} // namespace __gnu_cxx

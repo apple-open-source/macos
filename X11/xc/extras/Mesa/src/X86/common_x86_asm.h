@@ -1,4 +1,4 @@
-
+/* $XFree86: xc/extras/Mesa/src/X86/common_x86_asm.h,v 1.7 2003/10/22 15:44:42 tsi Exp $ */
 /*
  * Mesa 3-D graphics library
  * Version:  3.5
@@ -31,7 +31,7 @@
  * Changed by Andre Werthmann <wertmann@cs.uni-potsdam.de> for using the
  * new SSE functions
  *
- * Reimplemented by Gareth Hughes <gareth@valinux.com> in a more
+ * Reimplemented by Gareth Hughes in a more
  * future-proof manner, based on code in the Linux kernel.
  */
 
@@ -59,6 +59,5 @@
 extern int _mesa_x86_cpu_features;
 
 extern void _mesa_init_all_x86_transform_asm( void );
-extern void _mesa_init_all_x86_vertex_asm( void );
 
 #endif

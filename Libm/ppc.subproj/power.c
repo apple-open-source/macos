@@ -36,9 +36,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include      "math.h"
 #include      "fenv.h"
 #include      "fp_private.h"
@@ -57,8 +54,8 @@ static const double kRint      =  6.7553994410557440000e+15; // 0x43380000, 0x00
 static const double maxExp     =  7.0978271289338397000e+02; // 0x40862e42, 0xfefa39ef
 static const double min2Exp    = -7.4513321910194122000e+02; // 0xc0874910, 0xd52d3052
 static const double denormal   =  2.9387358770557188000e-39; // 0x37f00000, 0x00000000
-static const double twoTo128   =  3.402823669209384635e+38;  // 0x1.0p+128
-static const double twoTo52    =  4503599627370496.0;        // 0x1p52
+static const double twoTo128   =  0x1.0p+128;                 // 3.402823669209384635e+38;
+static const double twoTo52    =  0x1.0p+52;                  // 4503599627370496.0;
 static const double oneOverLn2 =  1.4426950408889633000e+00; // 0x3ff71547, 0x652b82fe
 static const hexdouble huge     = HEXDOUBLE(0x7ff00000, 0x00000000);
 
@@ -90,8 +87,8 @@ static const double cc0 = 0.001388889583333492938381;
 *      Log and exp table entries definition.                                   *
 *******************************************************************************/
 
-extern unsigned long logTable[];
-extern unsigned long expTable[];
+extern uint32_t logTable[];
+extern uint32_t expTable[];
 
 struct logTableEntry 
       {
@@ -106,356 +103,60 @@ struct expTableEntry
       double f;
       };
 
-#ifdef notdef
-
-static double PowerInner ( double, double );
-static double _NearbyInt ( double x ); 
-
-double pow ( double base, double exponent ) 
-      {
-      register long int isExpOddInt;
-      double absBase, result;
-      hexdouble u, v, OldEnvironment;
-      register unsigned long int expExp;
-      
-      
-      v.d = exponent;
-      u.d = base;
-      if ( ( ( v.i.hi & 0x000fffff ) | v.i.lo ) == 0 ) 
-            {												 // exponent is power of 2 (or +-Inf)
-            expExp = v.i.hi & 0xfff00000ul;
-            if ( expExp == 0x40000000 ) 
-                  return base*base;                          // if exponent == 2.0
-            else if ( exponent == 0.0 ) 
-                  return 1.0;                                // if exponent == 0.0
-            else if ( expExp == 0x3ff00000 ) 
-                  return base;                               // if exponent == 1.0
-            else if ( expExp == 0xbff00000 ) 
-                  return 1.0/base;                           // if exponent == -1.0
-            }
-            
-      if ( ( v.i.hi & 0x7ff00000ul ) < 0x7ff00000ul ) 
-            {                                                // exponent is finite
-            if ( ( u.i.hi & 0x7ff00000ul ) < 0x7ff00000ul ) 
-                  {                                          // base is finite
-                  if ( base > 0.0 ) 
-                        return PowerInner( base, exponent ); // base is positive
-                  else if ( base < 0.0 ) 
-                        {
-                        if ( _NearbyInt ( exponent ) != exponent )          // exponent is non-integer
-							{
-                            FEGETENVD( OldEnvironment.d );
-							OldEnvironment.i.lo |= SET_INVALID;
-							result = nan ( POWER_NAN );
-                            FESETENVD( OldEnvironment.d );
-							return result;
-							}
-							
-                        result = PowerInner( -base, exponent );
-                        if ( _NearbyInt ( 0.5 * exponent ) != 0.5 * exponent ) // exponent is odd
-                              result = - result;
-                        return ( result );
-                        }
-                  else 
-                        {                                    // base is 0.0:
-                        isExpOddInt = ( ( _NearbyInt( exponent ) == exponent ) ? 
-                                            ( _NearbyInt( 0.5 * exponent ) != 0.5 * exponent ) : 0 );
-                        if ( exponent > 0.0 ) 
-                              return ( ( isExpOddInt ) ? base : 0.0 );
-                        else                                 // exponent < 0.0
-                              return ( ( isExpOddInt ) ? 1.0/base : 1.0/__FABS( base ) );
-                        }
-                  }
-            else if (base != base)
-                    return base;
-            else
-                {                                                // base == +-Inf
-                if ( base > 0 ) 
-                    return ( exponent > 0 ) ? huge.d : +0.0;
-                else 
-                    {
-                    isExpOddInt = ( ( _NearbyInt ( exponent ) == exponent ) ? 
-                                        ( _NearbyInt ( 0.5 * exponent ) != 0.5 * exponent ) : 0 );
-                    return ( exponent > 0 ) ? 
-                                ( isExpOddInt ? -huge.d : +huge.d ) : ( isExpOddInt ? -0.0 : +0.0 );
-                    }
-                }
-            }
-      else if ( exponent != exponent ) 
-            return base + exponent;
-      else
-            {												// exponent is +-Inf
-            if ( base != base )
-                  return base;
-            absBase = __FABS( base );
-            if ( ( exponent > 0 && absBase > 1 ) || ( exponent < 0 && absBase < 1 ) )
-                  return huge.d;
-            else if ( ( exponent > 0 && absBase < 1 ) || ( exponent < 0 && absBase > 1 ) )
-                  return +0.0;
-            else                                             // now: Abs( base ) == 1.0
-                  return 1.0;
-            }
-      }
+static double PowerInner ( double, double, hexdouble );
 
 /*******************************************************************************
 *      Private function _NearbyInt.                                            *
 *******************************************************************************/
 
-static double _NearbyInt ( double x ) 
-      {
-      hexdouble xInHex;
-      double OldEnvironment;
+// If x is integral, returns x.
+// If x is not an integer, returns either floor(x) or ceil(x) (i.e. some vaule
+// different than x). On this basis, _NearbyInt can be used to detect integral x.
+// Arithmetic could raise INEXACT, so protect callers flags.
+
+static inline double _NearbyInt ( double x ) __attribute__((always_inline));
+static inline double _NearbyInt ( double x )
+{
+      register double result, FPR_env, FPR_absx, FPR_Two52, FPR_z;
       
-      xInHex.d = x;
-      if ( ( xInHex.i.hi & 0x7ffffffful ) < 0x43300000ul ) 
-            {                                                // |x| < 2.0^52
-            FEGETENVD( OldEnvironment );               // save environment, set default
-            FESETENVD( 0.0 );
-            if ( xInHex.i.hi & 0x80000000ul )             // x non-positive
-                  x = ( ( x - twoTo52 ) + twoTo52 );
+      FPR_absx = __FABS( x );
+      FPR_z = 0.0;											FPR_Two52 = twoTo52;
+      
+      FEGETENVD( FPR_env );
+      __ENSURE( FPR_z, FPR_Two52, FPR_z );
+      
+      if (likely( FPR_absx < FPR_Two52 ))                   // |x| < 2.0^52
+      {
+            FESETENVD( FPR_z );
+            if ( x < FPR_z )
+                  result = ( ( x - FPR_Two52 ) + FPR_Two52 );
             else
-                  x = ( ( x + twoTo52 ) - twoTo52 ); 
-            FESETENVD( OldEnvironment );
-            return x;
-            }
+                  result = ( ( x + FPR_Two52 ) - FPR_Two52 ); 
+            FESETENVD( FPR_env );
+            return result;
+      }
       else                                                   // |x| >= 2.0^52
             return ( x );
-      }
-
-/*******************************************************************************
-*                                                                              *
-*     Function PowerInner computes the base to the exponent power. This        *
-*     routine is called internally by the power function. It assumes that      *
-*     base is strictly positive, exponent is normal or denormal and the        *
-*     rounding direction is round-to-nearest.                                  *
-*                                                                              *
-*******************************************************************************/
-static double PowerInner ( double base, double exponent ) 
-      {
-      hexdouble u, v, OldEnvironment, scale, exp;
-      register long int i, n;
-      register unsigned long int head;
-      register double z, zLow, high, low, zSquared, temp1, temp2, temp3, result, tail,
-                      d, x, xLow, y, yLow, power;
-      struct logTableEntry *logTablePointer = ( struct logTableEntry * ) logTable;
-      struct expTableEntry *expTablePointer = ( struct expTableEntry * ) expTable + 177;
-      
-      u.d = base;
-      head = u.i.hi;
-      
-      if ( head >= 0x000ffffful )                            // normal case
-            d = ( u.i.hi >> 20 ) - 1023.0;
-      else 
-            {                                                // denormal case 
-            u.d = base * twoTo128;                         // scale to normal range
-            d = ( u.i.hi >> 20 ) - 1151.0;
-            }
-
-      i = u.i.hi & 0x000fffff;
-      u.i.hi = i | 0x3ff00000;
-
-      // Handle exact integral powers and roots of two specially
-      if ( ( ( u.i.hi & 0x000fffff ) | u.i.lo )  == 0 )			// base is power of 2
-            {
-                z = d * exponent;
-                if ( z == _NearbyInt( z ) )
-                    {
-                    // Clip z so conversion to int is safe
-                    if (z > 2097)
-                        n = 2098;
-                    else if (z < -2098)
-                        n = -2099;
-                    else
-                        n = z;
-
-                    return scalbn( 1.0, n );
-                    }
-            }
-            
-      if ( u.i.hi & 0x00080000 ) 
-            {                                                // 1.5 <= x < 2.0
-            n = 1;
-            u.d *= 0.5;
-            i = ( i >> 13 ) & 0x3f;                          // table lookup index
-            }
-      else 
-            {                                                // 1.0 <= x < 1.5
-            n = 0;
-            i = ( i >> 12 ) + 64;                            // table lookup index
-            }
-            
-      FEGETENVD( OldEnvironment.d );               // save environment, set default
-      FESETENVD( 0.0 );
-      
-      z = ( u.d - logTablePointer[i].X ) * logTablePointer[i].G;
-      zLow = ( ( u.d - logTablePointer[i].X ) - z * logTablePointer[i].X ) * logTablePointer[i].G;
-      zSquared = z * z;
-      
-      if ( n == 0 ) 
-            {                                                // n = 0
-            v.d = base;
-            if ( ( v.i.hi == 0x3ff00000 ) && ( v.i.lo == 0x0 ) ) 
-                  {                                          //base = 1.0
-                  FESETENVD( OldEnvironment.d );
-                  return 1.0;
-                  }
-            temp1  = d8 * zSquared + d6;
-            temp2  = d7 * zSquared + d5;
-            temp1  = temp1 * zSquared + d4;
-            temp2  = temp2 * zSquared + d3;
-            temp1  = temp1 * z + temp2;
-            temp2  = temp1 * z + d2;
-            temp3  = z + logTablePointer[i].F.d;
-            low    = logTablePointer[i].F.d - temp3 + z + ( zLow - z * zLow );
-            result = ( temp2 * zSquared + low ) + temp3;
-            tail   = temp3 - result + ( temp2 * zSquared + low );
-            }
-      else if ( logTablePointer[i].F.i.hi != 0 ) 
-            {                                                // n = 1
-            low    = ln2Tail + zLow;
-            high   = z + logTablePointer[i].F.d;
-            zLow   = logTablePointer[i].F.d - high + z;
-            temp1  = ln2 + low;
-            low    = ( ln2 - temp1 ) + low;
-            temp3  = c6 * zSquared + c4;
-            temp2  = c5 * zSquared + c3;
-            temp3  = temp3 * zSquared;
-            temp2  = ( temp2 * z + temp3 ) + c2;
-            temp3  = high + temp1;
-            temp1  = ( temp1 - temp3 ) + high;
-            result = ( ( ( temp2 * zSquared + low ) + temp1 ) + zLow ) + temp3;
-            tail   = temp3 - result + zLow + temp1 + ( temp2 * zSquared + low );
-            }
-      else 
-            {                                                // n = 1.
-            low    = ln2Tail + zLow;
-            temp3  = ln2 + low;
-            low    = ( ln2 - temp3 ) + low;
-            temp1  = d8 * zSquared + d6;
-            temp2  = d7 * zSquared + d5;
-            temp1  = temp1 * zSquared + d4;
-            temp2  = temp2 * zSquared + d3;
-            temp1  = temp1 * z + temp2;
-            temp2  = temp1 * z + d2;
-            result = ( ( temp2 * zSquared + low ) + z ) + temp3;
-            tail   = temp3 - result + z + ( temp2 * zSquared + low );
-            }
-      
-      temp1 = d * ln2;
-      temp2 = __FMSUB(d, ln2, temp1); // d * ln2 - temp1;
-      z     = temp1 + result;
-      zLow  = temp1 - z + result + __FMADD(d, ln2Tail, tail + temp2); // ( d * ln2Tail + tail + temp2 );
-      temp3 = exponent * zLow; 
-      x     = __FMADD(exponent, z, temp3); // exponent * z + temp3;
-      xLow  = __FMSUB(exponent, z, x) + temp3; // ( exponent * z - x ) + temp3;
- 
-      if ( base == _NearbyInt(base) && exponent > 0 && exponent == _NearbyInt(exponent))
-      {
-        /* NOTHING: +ve integral base and +ve integral exponent should deliver exact result */
-      } 
-      else
-        OldEnvironment.i.lo |= FE_INEXACT;                  // set inexact flag
-      
-      u.d = x;
-      if ( ( u.i.hi & 0x7ff00000ul ) < 0x40800000ul ) 
-            {                                                            // abs( x ) < 512
-            scale.d = 0.0;
-            exp.d = x * oneOverLn2 + kRint;
-            scale.i.hi = ( exp.i.lo + 1023 ) << 20;
-            exp.d -= kRint;
-            y = x - ln2 * exp.d;
-            yLow = ln2Tail * exp.d;
-            u.d = 512.0 * y + kRint;
-            i = u.i.lo;
-            d = y - expTablePointer[i].x;
-            z = d - yLow;
-            zLow = d - z - yLow + xLow;
-            zSquared = z * z;
-            temp1  = cc0 * zSquared + cc2;
-            temp2  = cc1 * zSquared + cc3;
-            temp1  = temp1 * zSquared + cc4;
-            temp2  = temp1 + temp2 * z;
-            temp1  = temp2 * zSquared + z;
-            result = scale.d * expTablePointer[i].f;
-#if 1
-            temp2  = __FMUL( result , ( temp1 + ( zLow + zLow * temp1 ) )); // thwart gcc MAF
-#else
-            temp2  = result * ( temp1 + ( zLow + zLow * temp1 ) );
-#endif
-            result += temp2;
-            FESETENVD( OldEnvironment.d );
-            return result;
-            }
-      
-      if ( ( x <= maxExp ) && ( x > min2Exp ) ) 
-            {
-            scale.d = 0.0;
-            exp.d = x * oneOverLn2 + kRint;
-            if ( x >= 512.0 ) 
-                  {
-                  power = 2.0;
-                  scale.i.hi = ( exp.i.lo + 1023 - 1 ) << 20;
-                  }
-            else 
-                  {
-                  power = denormal;
-                  scale.i.hi = ( exp.i.lo + 1023 + 128 ) << 20;
-                  }
-            exp.d -= kRint;
-            y = x - ln2 * exp.d;
-            yLow = ln2Tail * exp.d;
-            u.d = 512.0 * y + kRint; 
-            i = u.i.lo;
-            d = y - expTablePointer[i].x;
-            z = d - yLow;
-            zLow = d - z - yLow + xLow;
-            zSquared = z * z;
-            temp1  = cc0 * zSquared + cc2;
-            temp2  = cc1 * zSquared + cc3;
-            temp1  = temp1 * zSquared + cc4;
-            temp2  = temp1 + temp2 * z;
-            temp1  = temp2 * zSquared + z;
-            result = scale.d * expTablePointer[i].f;
-            temp2  = __FMUL( result , ( temp1 + ( zLow + zLow * temp1 ) ) ); // __FMUL thwarts gcc MAF
-            u.d  = ( result + temp2 ) * power;
-            }
-      else if ( x > maxExp ) 
-            u.d = huge.d;
-      else 
-            u.d = +0.0;
-      
-      i = u.i.hi & 0x7ff00000;
-      if ( i == 0x7ff00000 ) 
-            OldEnvironment.i.lo |= (FE_OVERFLOW | FE_INEXACT);  // Inf: set overflow/inexact flag
-      else if ( i == 0x0 )
-            OldEnvironment.i.lo |= (FE_UNDERFLOW | FE_INEXACT); // zero: set underflow/inexact flag
-      
-      FESETENVD( OldEnvironment.d );
-      return u.d;
-      }
-#else
-
-static double PowerInner ( double, double, hexdouble );
-static double _NearbyInt ( double x ); 
+}
 
 double pow ( double base, double exponent ) 
 {
-      register long int isExpOddInt;
+      register int isExpOddInt;
       double absBase, result;
       hexdouble u, v, OldEnvironment;
-      register unsigned long int expExp;
+      register uint32_t expExp;
       
-      register unsigned long GPR_mant, GPR_exp;
+      register uint32_t GPR_mant, GPR_exp;
       register double FPR_z, FPR_half, FPR_one, FPR_t;
       
       v.d = exponent;										u.d = base;
-      GPR_mant = 0x000ffffful;								GPR_exp = 0x7ff00000ul;
+      GPR_mant = 0x000fffffu;								GPR_exp = 0x7ff00000u;
       FPR_z = 0.0;											FPR_one = 1.0;
       __ENSURE( FPR_z, FPR_z, FPR_one );
       
       if ( ( ( v.i.hi & GPR_mant ) | v.i.lo ) == 0 ) 
       {														 // exponent is power of 2 (or +-Inf)
-            expExp = v.i.hi & 0xfff00000ul;
+            expExp = v.i.hi & 0xfff00000u;
             if ( expExp == 0x40000000 ) 
                   return base * base;               // if exponent == 2.0
             else if ( exponent == FPR_z ) 
@@ -476,10 +177,10 @@ double pow ( double base, double exponent )
                   {
                         if ( _NearbyInt ( exponent ) != exponent )          // exponent is non-integer
                         {
-                            FEGETENVD( OldEnvironment.d );
+                            FEGETENVD_GRP( OldEnvironment.d );
 							OldEnvironment.i.lo |= SET_INVALID;
 							result = nan ( POWER_NAN );
-                            FESETENVD( OldEnvironment.d );
+                            FESETENVD_GRP( OldEnvironment.d );
 							return result;
                         }
                         
@@ -530,7 +231,7 @@ double pow ( double base, double exponent )
             }
       }
       else if ( exponent != exponent ) 
-            return base + exponent;
+            return (base == 1.0 ? base : base + exponent);
       else
       {														// exponent is +-Inf
             if ( base != base )
@@ -545,41 +246,9 @@ double pow ( double base, double exponent )
       }
 }
 
-/*******************************************************************************
-*      Private function _NearbyInt.                                            *
-*******************************************************************************/
-
-// If x is integral, returns x.
-// If x is not an integer, returns either floor(x) or ceil(x) (i.e. some vaule
-// different than x). On this basis, _NearbyInt can be used to detect integral x.
-// Arithmetic could raise INEXACT, so protect callers flags.
-
-static double _NearbyInt ( double x ) 
-{
-      register double result, FPR_env, FPR_absx, FPR_Two52, FPR_z;
-      
-      FPR_absx = __FABS( x );
-      FPR_z = 0.0;											FPR_Two52 = twoTo52;
-      
-      FEGETENVD( FPR_env );
-      __ENSURE( FPR_z, FPR_Two52, FPR_z );
-      
-      if ( FPR_absx < FPR_Two52 )							// |x| < 2.0^52
-      {
-            FESETENVD( FPR_z );
-            if ( x < FPR_z )
-                  result = ( ( x - FPR_Two52 ) + FPR_Two52 );
-            else
-                  result = ( ( x + FPR_Two52 ) - FPR_Two52 ); 
-            FESETENVD( FPR_env );
-            return result;
-      }
-      else                                                   // |x| >= 2.0^52
-            return ( x );
-}
-
 // Called when our environment is installed (and callers is stashed safely aside).
-static inline double _NearbyIntDfltEnv ( double x ) 
+static inline double _NearbyIntDfltEnv ( double x ) __attribute__((always_inline));
+static inline double _NearbyIntDfltEnv ( double x )
 {
       register double result, FPR_absx, FPR_Two52, FPR_z;
       
@@ -588,7 +257,7 @@ static inline double _NearbyIntDfltEnv ( double x )
       
       __ENSURE( FPR_z, FPR_Two52, FPR_z );
       
-      if ( FPR_absx < FPR_Two52 )							// |x| < 2.0^52
+      if (likely( FPR_absx < FPR_Two52 ))                   // |x| < 2.0^52
       {
             if ( x < FPR_z )
                   result = ( ( x - FPR_Two52 ) + FPR_Two52 );
@@ -600,14 +269,15 @@ static inline double _NearbyIntDfltEnv ( double x )
             return ( x );
 }
 
-static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
+static const double kMinNormal = 0x1.0p-1022;                 // 2.2250738585072014e-308;
 static const double kMaxNormal = 1.7976931348623157e308;
 static const hexdouble kConvULDouble     = HEXDOUBLE(0x43300000, 0x00000000); // for *unsigned* to double
 
 static double PowerInner ( double base, double exponent, hexdouble u ) 
 {
       hexdouble dInHex, scale, exp;
-      register long int i, n;
+      register int32_t i;
+      register int n;
       register double z, zLow, high, low, zSquared, temp1, temp2, temp3, result, tail,
                       d, x, xLow, y, yLow, power;
       struct logTableEntry *logTablePointer = ( struct logTableEntry * ) logTable;
@@ -622,10 +292,10 @@ static double PowerInner ( double base, double exponent, hexdouble u )
       FPR_half = 0.5;										FPR_512 = 512.0;
       FPR_kConvDouble = kConvULDouble.d;					dInHex.i.hi = 0x43300000; 	// store upper half
          
-      if ( base == FPR_one ) 
+      if (unlikely( base == FPR_one )) 
             return FPR_one;
     
-      if ( u.i.hi >= 0x000ffffful )                  		// normal case
+      if (likely( u.i.hi >= 0x000fffffu ))                 // normal case
       {
             FPR_q = 1023.0;
       }
@@ -633,6 +303,8 @@ static double PowerInner ( double base, double exponent, hexdouble u )
       {                                                		// denormal case             
             u.d = __FMUL( base, twoTo128 );                 // scale to normal range
             FPR_q = 1151.0;
+		    __NOOP;
+		    __NOOP;
       }
 
       dInHex.i.lo = u.i.hi >> 20; 							// store lower half
@@ -660,7 +332,9 @@ static double PowerInner ( double base, double exponent, hexdouble u )
                 else if (z < -2098.0)
                     n = -2099;
                 else
+                {
                     n = z;									// The common case. Emits fctiwz, stfd
+                }
 
                 FESETENVD( FPR_env );
                 return scalbn( FPR_one, n );				// lwz "n" -- make sure this is on cycle following stfd!
@@ -764,7 +438,7 @@ static double PowerInner ( double base, double exponent, hexdouble u )
             FPR_ln2Tail = ln2Tail;
             
             FPR_ln2 = ln2;
-            low    = FPR_ln2Tail + zLow;					__ORI_NOOP;
+            low    = FPR_ln2Tail + zLow;					__NOOP;
             
             FPR_d4 = d4;									FPR_d3 = d3;
             
@@ -832,7 +506,7 @@ static double PowerInner ( double base, double exponent, hexdouble u )
      
             i = u.i.lo;
             
-            pE = &(expTablePointer[i]);
+            pE = &(expTablePointer[(int32_t)i]);
             
             d = y - pE->x;
             z = d - yLow;
@@ -903,7 +577,7 @@ static double PowerInner ( double base, double exponent, hexdouble u )
             
             i = u.i.lo;
             
-            pE = &(expTablePointer[i]);
+            pE = &(expTablePointer[(int32_t)i]);
             
             d = y - pE->x;
             z = d - yLow;
@@ -941,9 +615,3 @@ static double PowerInner ( double base, double exponent, hexdouble u )
       
       return result;
 }
-#endif
-
-#else       /* __APPLE_CC__ version */
-#error Version gcc-932 or higher required.  Compilation terminated.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

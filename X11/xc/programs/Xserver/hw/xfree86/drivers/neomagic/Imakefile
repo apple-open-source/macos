@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/neomagic/Imakefile,v 1.13 2003/02/17 17:06:43 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/neomagic/Imakefile,v 1.14 2003/04/21 12:32:10 sven Exp $
 #define IHaveModules
 #include <Server.tmpl>
 
@@ -56,5 +56,7 @@ InstallDriverSDKNonExecFile(neo_i2c.c,$(DRIVERSDKDIR)/drivers/neomagic)
 InstallDriverSDKNonExecFile(neo_shadow.c,$(DRIVERSDKDIR)/drivers/neomagic)
 InstallDriverSDKNonExecFile(neo_macros.h,$(DRIVERSDKDIR)/drivers/neomagic)
 InstallDriverSDKNonExecFile(neo_reg.h,$(DRIVERSDKDIR)/drivers/neomagic)
+InstallDriverSDKNonExecFile(neo_video.c,$(DRIVERSDKDIR)/drivers/neomagic)
+InstallDriverSDKNonExecFile(neo_video.h,$(DRIVERSDKDIR)/drivers/neomagic)
 
 InstallDriverSDKObjectModule(neomagic,$(DRIVERSDKMODULEDIR),drivers)

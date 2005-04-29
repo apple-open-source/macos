@@ -2279,6 +2279,10 @@ single_cw_asm_stmt:
 		{ cw_asm_in_operands = 1; }
 	  cw_asm_operands
 		{ $$ = cw_asm_stmt ($1, $3); }
+	| identifier STATIC cw_asm_operand
+		{ $$ = cw_asm_entry ($1, $2, $3); }
+	| identifier SCSPEC cw_asm_operand
+		{ $$ = cw_asm_entry ($1, $2, $3); }
 	| cw_asm_label
 		{}	
 	| cw_asm_label single_cw_asm_stmt
@@ -2361,6 +2365,8 @@ cw_nonnull_asm_operands:
    possibility of CW asm coming through.  For example, "offset(reg)"
    would be handled by function call code (bleah).  */
 cw_asm_operand:	cw_asm_expr_no_commas
+	| cw_asm_expr_no_commas '(' cw_asm_expr_no_commas ')'
+		{ $$ = cw_asm_build_register_offset ($1, $3); }
 	;
 /* APPLE LOCAL end CW asm blocks */
 
@@ -2834,14 +2840,12 @@ cw_asm_primary:
 		  $$ = $2; }
 	| '(' error ')'
 		{ $$ = error_mark_node; }
-	| cw_asm_primary '(' cw_asm_expr_no_commas ')'   %prec '.'
-		{ $$ = cw_asm_build_register_offset ($1, $3); }
 	| cw_asm_primary '[' cw_asm_expr_no_commas ']'   %prec '.'
 		{ $$ = build_array_ref ($1, $3); }
 	| TYPENAME '.' identifier
-		{ $$ = get_structure_offset ($1, $3); }
+		{ $$ = cw_asm_c_build_component_ref ($1, $3); }
 	| cw_asm_primary '.' identifier
-		{ $$ = build_component_ref ($1, $3); }
+		{ $$ = cw_asm_c_build_component_ref ($1, $3); }
 	| cw_asm_primary POINTSAT identifier
 		{ tree expr = build_indirect_ref ($1, "->");
 		  $$ = build_component_ref (expr, $3); }
@@ -3230,21 +3234,24 @@ ivar_declarator:
 	  declarator
 		{
 		  $$ = add_instance_variable (objc_ivar_context,
-					      objc_public_flag,
+					      /* APPLE LOCAL XJR */
+					      objc_public_flag, prefix_attributes,
 					      $1, current_declspecs,
 					      NULL_TREE);
                 }
 	| declarator ':' expr_no_commas
 		{
 		  $$ = add_instance_variable (objc_ivar_context,
-					      objc_public_flag,
+					      /* APPLE LOCAL XJR */
+					      objc_public_flag, prefix_attributes,
 					      $1, current_declspecs, $3);
                 }
 	| ':' expr_no_commas
 		{
 		  $$ = add_instance_variable (objc_ivar_context,
 					      objc_public_flag,
-					      NULL_TREE,
+					      /* APPLE LOCAL XJR */
+					      NULL_TREE, prefix_attributes,
 					      current_declspecs, $2);
                 }
 	;
@@ -4321,5 +4328,8 @@ c_parse_file ()
 /* END APPLE LOCAL IMI */
     }
 }
+
+/* APPLE LOCAL jet */
+void initialize_jet (void) { }
 
 #include "gt-c-parse.h"

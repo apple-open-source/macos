@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_clreol.c,v 1.1.1.2 2002/01/03 23:53:38 jevans Exp $")
+MODULE_ID("$Id: lib_clreol.c,v 1.21 2001/12/19 01:06:04 tom Exp $")
 
 NCURSES_EXPORT(int)
 wclrtoeol(WINDOW *win)

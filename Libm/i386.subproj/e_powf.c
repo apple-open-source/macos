@@ -30,7 +30,7 @@ dp_l[] = { 0.0, 1.56322085e-06,}, /* 0x35d1cfdc */
 zero    =  0.0,
 one	=  1.0,
 two	=  2.0,
-two24	=  16777216.0,	/* 0x4b800000 */
+two24	=  0x1.0p+24, /* 16777216.0, 0x4b800000 */
 	/* poly coefs for (3/2)*(log(x)-2s-2/3*s**3 */
 L1  =  6.0000002384e-01, /* 0x3f19999a */
 L2  =  4.2857143283e-01, /* 0x3edb6db7 */
@@ -211,7 +211,7 @@ float powf(float x, float y)
 	}
 	else if ((j&0x7fffffff)>0x43160000)		/* z <= -150 */
 	    return s*tiny*tiny;				/* underflow */
-	else if ((unsigned long)j==0xc3160000ul){	/* z == -150 */
+	else if ((uint32_t)j==0xc3160000u){	/* z == -150 */
 	    if(p_l<=z-p_h) return s*tiny*tiny;		/* underflow */
 	}
     /*

@@ -1,6 +1,8 @@
 /* Prove that HANDLE_SYSTEMV_PRAGMA alignment handling works somewhat. */
 
-/* { dg-do compile { target i?86-*-linux* i?86-*-*bsd* i?86-*-sco3.2v5* } } */
+/* { dg-do run { target i?86-*-linux* i?86-*-*bsd* i?86-*-sco3.2v5* *-*-solaris2.* } } */
+
+extern void abort (void);
 
 struct {
         char one;
@@ -39,4 +41,3 @@ main()
         if(sizeof(resetalign) != sizeof(defaultalign)) abort();
 	return 0;
 }
-

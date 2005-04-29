@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i830_dri.h,v 1.5 2002/12/10 01:27:05 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i830_dri.h,v 1.7 2003/10/21 02:17:52 dawes Exp $ */
 
 #ifndef _I830_DRI_H
 #define _I830_DRI_H
@@ -72,12 +72,6 @@ typedef struct {
 /* Warning: If you change the SAREA structure you must change the kernel
  * structure as well */
 
-typedef struct _I830TexRegion {
-   unsigned char next, prev;		/* indices to form a circular LRU  */
-   unsigned char in_use;		/* owned by a client, or free? */
-   int age;				/* tracked by clients to update local LRU's */
-} I830TexRegion;
-
 typedef struct _I830SAREA {
    unsigned int ContextState[I830_CTX_SETUP_SIZE];
    unsigned int BufferState[I830_DEST_SETUP_SIZE];
@@ -106,7 +100,7 @@ typedef struct _I830SAREA {
     * them all in LRU order.  
     */
 
-   I830TexRegion texList[I830_NR_TEX_REGIONS + 1];
+   drmTextureRegion texList[I830_NR_TEX_REGIONS + 1];
    /* Last elt is sentinal */
    int texAge;				/* last time texture was uploaded */
    int last_enqueue;			/* last time a buffer was enqueued */
@@ -131,7 +125,7 @@ typedef struct _I830SAREA {
    unsigned int TexState3[I830_TEX_SETUP_SIZE];
    unsigned int TexBlendState3[I830_TEXBLEND_SIZE];
    unsigned int TexBlendStateWordsUsed3;
-   
+
    unsigned int StippleState[I830_STP_SETUP_SIZE];
 } I830SAREARec, *I830SAREAPtr;
 

@@ -892,7 +892,7 @@ bool com_apple_driver_dts_USBCDCEthernet::configureDevice(UInt8 numConfigs)
     IOUSBFindInterfaceRequest		req;			// device request
     const IOUSBInterfaceDescriptor	*altInterfaceDesc;
     IOReturn				ior = kIOReturnSuccess;
-    UInt16				numends;
+    UInt16				numends = 0;
     UInt16				alt;
     bool				goodCall;
        
@@ -1128,7 +1128,7 @@ bool com_apple_driver_dts_USBCDCEthernet::getFunctionalDescriptors()
     bool				enet = false;
     IOReturn				ior;
     const HeaderFunctionalDescriptor 	*funcDesc = NULL;
-    EnetFunctionalDescriptor		*ENETFDesc;
+    EnetFunctionalDescriptor		*ENETFDesc = NULL;
        
     ELG(0, 0, 'gFDs', "com_apple_driver_dts_USBCDCEthernet::getFunctionalDescriptors");
         

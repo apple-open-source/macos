@@ -1,0 +1,256 @@
+#!/bin/sh
+# \
+exec tclsh "$0" "$@"
+
+# tclxsltproc --
+#
+#	This script is an enhancement to xsltproc.
+#	With no additions, it performs exactly the
+#	same functions as xsltproc.
+#
+#	However, Tcl-enhanced features may be
+#	specified.  These include the ability to
+#	define extensions as Tcl scripts.
+#
+# Copyright (c) 2002 Zveno Pty Ltd
+# http://www.zveno.com/
+#
+# Zveno Pty Ltd makes this software and associated documentation
+# available free of charge for any purpose.  You may make copies
+# of the software but you must include all of this notice on any copy.
+#
+# Zveno Pty Ltd does not warrant that this software is error free
+# or fit for any purpose.  Zveno Pty Ltd disclaims any liability for
+# all claims, expenses, losses, damages and costs any user may incur
+# as a result of using, copying or modifying the software.
+#
+# $Id: tclxsltproc,v 1.4 2002/12/10 05:28:57 balls Exp $
+
+package require cmdline
+
+# exprEsc --
+#
+#	Escape an XPath expression
+#
+# Arguments:
+#	text	XPath expression
+#
+# Results:
+#	Quoted expression
+
+proc exprEsc text {
+    array set Map { < lt   > gt   & amp   \" quot  ' apos}
+    regsub -all {[\\$]} $text {\\&} text
+    regsub -all {[><&"']} $text {\&$Map(&);} text
+    return \"[subst -nocommands $text]\"
+}
+
+# msg --
+#
+#	Handler for -messagecommand option
+#
+# Arguments:
+#	args	messages
+#
+# Results:
+#	Store message in global variable
+
+proc msg args {
+    global msgs
+    eval append msgs $args
+}
+
+set optList [list \
+	[list config.arg	{}	{Configuration Tcl script}] \
+	[list version		{}	{show the version of libxml and libxslt used}] \
+	[list V			{}	{show the version of libxml and libxslt used}] \
+	[list output.arg	{}	{save to a given file}] \
+	[list o.arg		{}	{save to a given file}] \
+	[list timing		{}	{display the time used}] \
+	[list repeat		20	{run the transformation 20 times}] \
+	[list debug		{}	{dump the tree of the result instead}] \
+	[list novalid		{}	{skip the Dtd loading phase}] \
+	[list noout		{}	{do not dump the result}] \
+	[list maxdepth.arg	{}	{increase the maximum depth}] \
+	[list html		{}	{the input is(are) an HTML file(s)}] \
+	[list docbook		{}	{the input document is SGML docbook}] \
+	[list param.arg		{}	{pass a {parameter,value} pair
+	value is an XPath expression.
+	string values must be quoted like "'string'"
+or	use stringparam to avoid it}] \
+	[list stringparam.arg	{}	{pass a {parameter,string value} pair}] \
+	[list nonet		{}	{refuse to fetch DTDs or entities over network}] \
+	[list catalogs		{}	{use SGML catalogs from $SGML_CATALOG_FILES
+	otherwise XML Catalogs starting from
+	file:///etc/xml/catalog are activated by default}] \
+	[list xinclude		{}	{do XInclude processing on document input}] \
+	]
+
+# Can't use tcllib cmdline package since xsltproc uses non-standard options
+
+set stylesheet {}
+set sourceFiles {}
+array set Config {
+    config {}
+    showversion 0
+    output {}
+    timing 0
+    repeat 0
+    debug 0
+    novalid 0
+    noout 0
+    maxdepth 0
+    html 0
+    docbook 0
+    param {}
+    nonet 0
+    catalogs 0
+    xinclude 0
+}
+for {set idx 0} {$idx < [llength $argv]} {incr idx} {
+    switch -glob -- [lindex $argv $idx] {
+	-config -
+	--config {
+	    set Config(config) [lindex $argv [expr $idx + 1]]
+	    incr idx
+	}
+	--version -
+	-V {
+	    set Config(showversion) 1
+	}
+	--output -
+	-o {
+	    set Config(output) [lindex $argv [expr $idx + 1]]
+	    incr idx
+	}
+	--timing {
+	    set Config(timing) 1
+	}
+	--repeat {
+	    set Config(repeat) 1
+	}
+	--debug {
+	    set Config(debug) 1
+	}
+	--novalid {
+	    set Config(novalid) 1
+	}
+	--noout {
+	    set Config(noout) 1
+	}
+	--maxdepth {
+	    set Config(maxdepth) [lindex $argv [expr $idx + 1]]
+	    incr idx
+	}
+	--html {
+	    set Config(html) 1
+	}
+	--docbook {
+	    set Config(docbook) 1
+	}
+	--param {
+	    lappend Config(param) [lindex $argv [expr $idx + 1]] [lindex $argv [expr $idx + 2]]
+	    incr idx 2
+	}
+	--stringparam {
+	    lappend Config(param) [lindex $argv [expr $idx + 1]] [exprEsc [lindex $argv [expr $idx + 2]]]
+	    incr idx 2
+	}
+	--nonet {
+	    set Config(nonet) 1
+	}
+	--catalogs {
+	    set Config(catalogs) 1
+	}
+	--xinclude {
+	    set Config(xinclude) 0
+	}
+
+	default {
+	    break
+	}
+    }
+}
+set argv [lrange $argv $idx end]
+
+if {[llength $argv] == 0} {
+    puts stderr [cmdline::usage $optList "?options? ssheet file ?files...?\nOptions:"]
+    exit 4
+}
+if {[llength $argv] < 2} {
+    puts stderr [cmdline::usage $optList "?options? ssheet file ?files...?\nOptions:"]
+    exit 5
+}
+
+if {[catch {package require dom 2.5}]} {
+    puts stderr "TclDOM version 2.5 is not installed"
+    exit 2
+}
+if {[catch {package require xslt 2.5}]} {
+    puts stderr "TclXSLT v2.5 is not installed"
+    exit 2
+}
+
+if {[string length $Config(config)]} {
+    if {[catch {source $Config(config)} msg]} {
+	puts stderr "error reading configuration script \"$Config(config)\":"
+	puts stderr $msg
+	exit 3
+    }
+}
+
+if {[catch {open [lindex $argv 0]} ch]} {
+    puts stderr "Unable to read stylesheet due to \"$ch\""
+    exit 6
+}
+set xsl [read $ch]
+close $ch
+if {[catch {dom::libxml2::parse $xsl -baseuri file://[file join [pwd] [lindex $argv 0]]} xsldoc]} {
+    puts stderr "failed to read stylesheet document \"[lindex $argv 0]\" as XML"
+    exit 9
+}
+if {[catch {xslt::compile $xsldoc} ssheet]} {
+    puts stderr "failed to compile stylesheet \"[lindex $argv 0]\" due to \"$ssheet\""
+    exit 10
+}
+unset xsl
+
+$ssheet configure -messagecommand msg
+
+foreach sourcefile [lrange $argv 1 end] {
+    if {[catch {open $sourcefile} ch]} {
+	puts stderr "Unable to read source document \"sourcefile\" due to \"$ch\""
+	exit 7
+    }
+    set xml [read $ch]
+    close $ch
+    if {[catch {dom::libxml2::parse $xml -baseuri file://[file join [pwd] $sourcefile]} sourcedoc]} {
+	puts stderr "failed to read source XML document \"$sourcefile\""
+	exit 9
+    }
+    if {$Config(xinclude)} {
+	dom::libxml2::xinclude $sourcedoc
+    }
+    catch {unset msgs}
+    set msgs {}
+    if {[catch {eval [list $ssheet] transform [list $sourcedoc] $Config(param)} resultdoc]} {
+	puts stderr "failed to transform document \"$sourcefile\" due to \"$resultdoc\""
+	exit 11
+    }
+    puts stderr $msgs
+    if {[string length $Config(output)]} {
+	if {[catch {open $Config(output) w} ch]} {
+	    puts stderr "Unable to write result to \"$Config(output)\" due to \"$ch\""
+	    exit 8
+	}
+	puts $ch [dom::libxml2::serialize $resultdoc -method [$ssheet cget -method]]
+	close $ch
+    } else {
+	puts [dom::libxml2::serialize $resultdoc -method [$ssheet cget -method]]
+    }
+
+    dom::destroy $sourcedoc
+    dom::destroy $resultdoc
+}
+
+exit 0

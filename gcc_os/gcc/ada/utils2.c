@@ -6,9 +6,8 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.1.1.3 $
  *                                                                          *
- *          Copyright (C) 1992-2001, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -22,7 +21,7 @@
  * MA 02111-1307, USA.                                                      *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -67,7 +66,7 @@ static tree build_simple_component_ref	PARAMS ((tree, tree, tree));
    the only possible operands will be things of Boolean type.  */
 
 tree
-truthvalue_conversion (expr)
+gnat_truthvalue_conversion (expr)
      tree expr;
 {
   tree type = TREE_TYPE (expr);
@@ -86,13 +85,14 @@ truthvalue_conversion (expr)
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
-      return fold (build (COND_EXPR, type, TREE_OPERAND (expr, 0),
-			  truthvalue_conversion (TREE_OPERAND (expr, 1)),
-			  truthvalue_conversion (TREE_OPERAND (expr, 2))));
+      return fold
+	(build (COND_EXPR, type, TREE_OPERAND (expr, 0),
+		gnat_truthvalue_conversion (TREE_OPERAND (expr, 1)),
+		gnat_truthvalue_conversion (TREE_OPERAND (expr, 2))));
 
     case WITH_RECORD_EXPR:
       return build (WITH_RECORD_EXPR, type,
-		    truthvalue_conversion (TREE_OPERAND (expr, 0)),
+		    gnat_truthvalue_conversion (TREE_OPERAND (expr, 0)),
 		    TREE_OPERAND (expr, 1));
 
     default:
@@ -233,7 +233,7 @@ contains_save_expr_p (exp)
 
     case ADDR_EXPR:  case INDIRECT_REF:
     case COMPONENT_REF:
-    case NOP_EXPR:  case CONVERT_EXPR: case UNCHECKED_CONVERT_EXPR:
+    case NOP_EXPR:  case CONVERT_EXPR: case VIEW_CONVERT_EXPR:
       return contains_save_expr_p (TREE_OPERAND (exp, 0));
 
     case CONSTRUCTOR:
@@ -446,7 +446,7 @@ compare_arrays (result_type, a1, a2)
 
 
       result = build_binary_op (TRUTH_ANDIF_EXPR, result_type, result,
-				build (EQ_EXPR, result_type, a1, a2));
+				fold (build (EQ_EXPR, result_type, a1, a2)));
 
     }
 
@@ -512,9 +512,9 @@ nonbinary_modular_operation (op_code, type, lhs, rhs)
       || TREE_UNSIGNED (op_type) != unsignedp)
     {
       /* Copy the node so we ensure it can be modified to make it modular.  */
-      op_type = copy_node (type_for_size (precision, unsignedp));
+      op_type = copy_node (gnat_type_for_size (precision, unsignedp));
       modulus = convert (op_type, modulus);
-      TYPE_MODULUS (op_type) = modulus;
+      SET_TYPE_MODULUS (op_type, modulus);
       TYPE_MODULAR_P (op_type) = 1;
       lhs = convert (op_type, lhs);
       rhs = convert (op_type, rhs);
@@ -528,9 +528,9 @@ nonbinary_modular_operation (op_code, type, lhs, rhs)
      possible size.  */
   if (op_code == MULT_EXPR)
     {
-      tree div_type = copy_node (type_for_size (needed_precision, 1));
+      tree div_type = copy_node (gnat_type_for_size (needed_precision, 1));
       modulus = convert (div_type, modulus);
-      TYPE_MODULUS (div_type) = modulus;
+      SET_TYPE_MODULUS (div_type, modulus);
       TYPE_MODULAR_P (div_type) = 1;
       result = convert (op_type,
 			fold (build (TRUNC_MOD_EXPR, div_type,
@@ -647,7 +647,7 @@ build_binary_op (op_code, result_type, left_operand, right_operand)
 	 unless we are not changing the mode.  */
       while ((TREE_CODE (left_operand) == CONVERT_EXPR
 	      || TREE_CODE (left_operand) == NOP_EXPR
-	      || TREE_CODE (left_operand) == UNCHECKED_CONVERT_EXPR)
+	      || TREE_CODE (left_operand) == VIEW_CONVERT_EXPR)
 	     && (((INTEGRAL_TYPE_P (left_type)
 		   || POINTER_TYPE_P (left_type))
 		  && (INTEGRAL_TYPE_P (TREE_TYPE
@@ -680,20 +680,20 @@ build_binary_op (op_code, result_type, left_operand, right_operand)
 
       /* If the RHS has a conversion between record and array types and
 	 an inner type is no worse, use it.  Note we cannot do this for
-	 modular types or types with TYPE_ALIGN_OK_P, since the latter
+	 modular types or types with TYPE_ALIGN_OK, since the latter
 	 might indicate a conversion between a root type and a class-wide
 	 type, which we must not remove.  */
-      while (TREE_CODE (right_operand) == UNCHECKED_CONVERT_EXPR
+      while (TREE_CODE (right_operand) == VIEW_CONVERT_EXPR
 	     && ((TREE_CODE (right_type) == RECORD_TYPE
 		  && ! TYPE_LEFT_JUSTIFIED_MODULAR_P (right_type)
-		  && ! TYPE_ALIGN_OK_P (right_type)
+		  && ! TYPE_ALIGN_OK (right_type)
 		  && ! TYPE_IS_FAT_POINTER_P (right_type))
 		 || TREE_CODE (right_type) == ARRAY_TYPE)
 	     && (((TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
 		   == RECORD_TYPE)
 		  && ! (TYPE_LEFT_JUSTIFIED_MODULAR_P
 			(TREE_TYPE (TREE_OPERAND (right_operand, 0))))
-		  && ! (TYPE_ALIGN_OK_P
+		  && ! (TYPE_ALIGN_OK
 			(TREE_TYPE (TREE_OPERAND (right_operand, 0))))
 		  && ! (TYPE_IS_FAT_POINTER_P
 			(TREE_TYPE (TREE_OPERAND (right_operand, 0)))))
@@ -719,32 +719,45 @@ build_binary_op (op_code, result_type, left_operand, right_operand)
 	operation_type = best_type;
 
       /* If a class-wide type may be involved, force use of the RHS type.  */
-      if (TREE_CODE (right_type) == RECORD_TYPE
-	  && TYPE_ALIGN_OK_P (right_type))
+      if (TREE_CODE (right_type) == RECORD_TYPE && TYPE_ALIGN_OK (right_type))
 	operation_type = right_type;
 
-      /* After we strip off any COMPONENT_REF, ARRAY_REF, or ARRAY_RANGE_REF
-	 from the lhs, we must have either an INDIRECT_REF or a decl. Allow
-	 UNCHECKED_CONVERT_EXPRs, but set TREE_ADDRESSABLE to show they are
-	 in an LHS.  Finally, allow NOP_EXPR if both types are the same tree
-	 code and mode because we know these will be nops.  */
-      for (result = left_operand;
-	   TREE_CODE (result) == COMPONENT_REF
-	   || TREE_CODE (result) == ARRAY_REF
-	   || TREE_CODE (result) == ARRAY_RANGE_REF
-	   || TREE_CODE (result) == REALPART_EXPR
-	   || TREE_CODE (result) == IMAGPART_EXPR
-	   || TREE_CODE (result) == WITH_RECORD_EXPR
-	   || TREE_CODE (result) == UNCHECKED_CONVERT_EXPR
-	   || ((TREE_CODE (result) == NOP_EXPR
-		|| TREE_CODE (result) == CONVERT_EXPR)
-	       && (TREE_CODE (TREE_TYPE (result))
-		   == TREE_CODE (TREE_TYPE (TREE_OPERAND (result, 0))))
-	       && (TYPE_MODE (TREE_TYPE (TREE_OPERAND (result, 0)))
-		   == TYPE_MODE (TREE_TYPE (result))));
-	   result = TREE_OPERAND (result, 0))
-	if (TREE_CODE (result) == UNCHECKED_CONVERT_EXPR)
-	  TREE_ADDRESSABLE (result) = 1;
+      /* Ensure everything on the LHS is valid.  If we have a field reference,
+	 strip anything that get_inner_reference can handle.  Then remove any
+	 conversions with type types having the same code and mode.  Mark
+	 VIEW_CONVERT_EXPRs with TREE_ADDRESSABLE.  When done, we must have
+	 either an INDIRECT_REF or a decl.  */
+      result = left_operand;
+      while (1)
+	{
+	  tree restype = TREE_TYPE (result);
+
+	  if (TREE_CODE (result) == COMPONENT_REF
+	      || TREE_CODE (result) == ARRAY_REF
+	      || TREE_CODE (result) == ARRAY_RANGE_REF)
+	    while (handled_component_p (result))
+	      result = TREE_OPERAND (result, 0);
+	  else if (TREE_CODE (result) == REALPART_EXPR
+		   || TREE_CODE (result) == IMAGPART_EXPR
+		   || TREE_CODE (result) == WITH_RECORD_EXPR
+		   || ((TREE_CODE (result) == NOP_EXPR
+			|| TREE_CODE (result) == CONVERT_EXPR)
+		       && (((TREE_CODE (restype)
+			     == TREE_CODE (TREE_TYPE
+					   (TREE_OPERAND (result, 0))))
+			     && (TYPE_MODE (TREE_TYPE
+					    (TREE_OPERAND (result, 0)))
+				 == TYPE_MODE (restype)))
+			   || TYPE_ALIGN_OK (restype))))
+	    result = TREE_OPERAND (result, 0);
+	  else if (TREE_CODE (result) == VIEW_CONVERT_EXPR)
+	    {
+	      TREE_ADDRESSABLE (result) = 1;
+	      result = TREE_OPERAND (result, 0);
+	    }
+	  else
+	    break;
+	}
 
       if (TREE_CODE (result) != INDIRECT_REF && TREE_CODE (result) != NULL_EXPR
 	  && ! DECL_P (result))
@@ -805,18 +818,7 @@ build_binary_op (op_code, result_type, left_operand, right_operand)
       if (! TREE_CONSTANT (right_operand)
 	  || ! TREE_CONSTANT (TYPE_MIN_VALUE (right_type))
 	  || op_code == ARRAY_RANGE_REF)
-	mark_addressable (left_operand);
-
-      /* If the array is an UNCHECKED_CONVERT_EXPR from and to BLKmode
-	 types, convert it to a normal conversion since GCC can deal
-	 with any mis-alignment as part of the handling of compponent
-	 references.  */
-
-      if (TREE_CODE (left_operand) == UNCHECKED_CONVERT_EXPR
-	  && TYPE_MODE (TREE_TYPE (left_operand)) == BLKmode
-	  && TYPE_MODE (TREE_TYPE (TREE_OPERAND (left_operand, 0))) == BLKmode)
-	left_operand = build1 (CONVERT_EXPR, TREE_TYPE (left_operand),
-			       TREE_OPERAND (left_operand, 0));
+	gnat_mark_addressable (left_operand);
 
       modulus = 0;
       break;
@@ -864,20 +866,6 @@ build_binary_op (op_code, result_type, left_operand, right_operand)
 	  right_type = TREE_TYPE (right_operand);
 	  right_base_type = get_base_type (right_type);
 	}
-
-      /* If either object if an UNCHECKED_CONVERT_EXPR between two BLKmode
-	 objects, change it to a CONVERT_EXPR.  */
-      if (TREE_CODE (left_operand) == UNCHECKED_CONVERT_EXPR
-	  && TYPE_MODE (left_type) == BLKmode
-	  && TYPE_MODE (TREE_TYPE (TREE_OPERAND (left_operand, 0))) == BLKmode)
-	left_operand = build1 (CONVERT_EXPR, left_type,
-			       TREE_OPERAND (left_operand, 0));
-      if (TREE_CODE (right_operand) == UNCHECKED_CONVERT_EXPR
-	  && TYPE_MODE (right_type) == BLKmode
-	  && (TYPE_MODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
-	      == BLKmode))
-	right_operand = build1 (CONVERT_EXPR, right_type,
-				TREE_OPERAND (right_operand, 0));
 
       /* If both objects are arrays, compare them specially.  */
       if ((TREE_CODE (left_type) == ARRAY_TYPE
@@ -996,8 +984,8 @@ build_binary_op (op_code, result_type, left_operand, right_operand)
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
-      left_operand = truthvalue_conversion (left_operand);
-      right_operand = truthvalue_conversion (right_operand);
+      left_operand = gnat_truthvalue_conversion (left_operand);
+      right_operand = gnat_truthvalue_conversion (right_operand);
       goto common;
 
     case BIT_AND_EXPR:
@@ -1058,8 +1046,8 @@ build_binary_op (op_code, result_type, left_operand, right_operand)
 
   TREE_SIDE_EFFECTS (result) |= has_side_effects;
   TREE_CONSTANT (result)
-    = (TREE_CONSTANT (left_operand) & TREE_CONSTANT (right_operand)
-       && op_code != ARRAY_REF && op_code != ARRAY_RANGE_REF);
+    |= (TREE_CONSTANT (left_operand) & TREE_CONSTANT (right_operand)
+	&& op_code != ARRAY_REF && op_code != ARRAY_RANGE_REF);
 
   if ((op_code == ARRAY_REF || op_code == ARRAY_RANGE_REF)
       && TYPE_VOLATILE (operation_type))
@@ -1128,7 +1116,7 @@ build_unary_op (op_code, result_type, operand)
       if (result_type != base_type)
 	gigi_abort (508);
 
-      result = invert_truthvalue (truthvalue_conversion (operand));
+      result = invert_truthvalue (gnat_truthvalue_conversion (operand));
       break;
 
     case ATTR_ADDR_EXPR:
@@ -1182,6 +1170,11 @@ build_unary_op (op_code, result_type, operand)
 	      /* Compute the offset as a byte offset from INNER.  */
 	      if (offset == 0)
 		offset = size_zero_node;
+
+	      if (bitpos % BITS_PER_UNIT != 0)
+		post_error
+		  ("taking address of object not aligned on storage unit?",
+		   error_gnat_node);
 
 	      offset = size_binop (PLUS_EXPR, offset,
 				   size_int (bitpos / BITS_PER_UNIT));
@@ -1246,7 +1239,7 @@ build_unary_op (op_code, result_type, operand)
 	  if (type != error_mark_node)
 	    operation_type = build_pointer_type (type);
 
-	  mark_addressable (operand);
+	  gnat_mark_addressable (operand);
 	  result = fold (build1 (ADDR_EXPR, operation_type, operand));
 	}
 
@@ -1415,7 +1408,25 @@ build_cond_expr (result_type, condition_operand, true_operand, false_operand)
 
   result = fold (build (COND_EXPR, result_type, condition_operand,
 			true_operand, false_operand));
-  if (addr_p)
+
+  /* If either operand is a SAVE_EXPR (possibly surrounded by
+     arithmetic, make sure it gets done.  */
+  while (TREE_CODE_CLASS (TREE_CODE (true_operand)) == '1'
+	 || (TREE_CODE_CLASS (TREE_CODE (true_operand)) == '2'
+	    && TREE_CONSTANT (TREE_OPERAND (true_operand, 1))))
+    true_operand = TREE_OPERAND (true_operand, 0);
+
+  while (TREE_CODE_CLASS (TREE_CODE (false_operand)) == '1'
+	 || (TREE_CODE_CLASS (TREE_CODE (false_operand)) == '2'
+	    && TREE_CONSTANT (TREE_OPERAND (false_operand, 1))))
+    false_operand = TREE_OPERAND (false_operand, 0);
+
+  if (TREE_CODE (true_operand) == SAVE_EXPR)
+    result = build (COMPOUND_EXPR, result_type, true_operand, result);
+  if (TREE_CODE (false_operand) == SAVE_EXPR)
+    result = build (COMPOUND_EXPR, result_type, false_operand, result);
+
+ if (addr_p)
     result = build_unary_op (INDIRECT_REF, NULL_TREE, result);
 
   return result;
@@ -1475,13 +1486,14 @@ build_call_0_expr (fundecl)
   return call;
 }
 
-/* Call a function FCN that raises an exception and pass the line
-   number and file name, if requested.  */
+/* Call a function that raises an exception and pass the line number and file
+   name, if requested.  MSG says which exception function to call.  */
 
 tree
-build_call_raise (fndecl)
-     tree fndecl;
+build_call_raise (msg)
+     int msg;
 {
+  tree fndecl = gnat_raise_decls[msg];
   const char *str = discard_file_names ? "" : ref_filename;
   int len = strlen (str) + 1;
   tree filename = build_string (len, str);
@@ -1641,15 +1653,6 @@ build_simple_component_ref (record_variable, component, field)
   if (field == 0)
     return 0;
 
-  /* If the record variable is an UNCHECKED_CONVERT_EXPR from and to BLKmode
-     types, convert it to a normal conversion since GCC can deal with any
-     mis-alignment as part of the handling of compponent references.  */
-  if (TREE_CODE (record_variable) == UNCHECKED_CONVERT_EXPR
-      && TYPE_MODE (TREE_TYPE (record_variable)) == BLKmode
-      && TYPE_MODE (TREE_TYPE (TREE_OPERAND (record_variable, 0))) == BLKmode)
-    record_variable = build1 (CONVERT_EXPR, TREE_TYPE (record_variable),
-			      TREE_OPERAND (record_variable, 0));
-
   /* It would be nice to call "fold" here, but that can lose a type
      we need to tag a PLACEHOLDER_EXPR with, so we can't do it.  */
   ref = build (COMPONENT_REF, TREE_TYPE (field), record_variable, field);
@@ -1683,7 +1686,7 @@ build_component_ref (record_variable, component, field)
 
   else if (field != 0)
     return build1 (NULL_EXPR, TREE_TYPE (field),
-		   build_call_raise (raise_constraint_error_decl));
+		   build_call_raise (CE_Discriminant_Check_Failed));
   else
     gigi_abort (512);
 }
@@ -1861,7 +1864,7 @@ build_allocator (type, init, result_type, gnat_proc, gnat_pool)
       storage = build_call_alloc_dealloc (NULL_TREE, size,
 					  TYPE_ALIGN (storage_type),
 					  gnat_proc, gnat_pool);
-      storage = convert (storage_ptr_type, make_save_expr (storage));
+      storage = convert (storage_ptr_type, protect_multiple_eval (storage));
 
       if (TREE_CODE (type) == RECORD_TYPE && TYPE_IS_PADDING_P (type))
 	{
@@ -1989,7 +1992,7 @@ fill_vms_descriptor (expr, gnat_formal)
   tree const_list = 0;
 
   expr = maybe_unconstrained_array (expr);
-  mark_addressable (expr);
+  gnat_mark_addressable (expr);
 
   for (field = TYPE_FIELDS (record_type); field; field = TREE_CHAIN (field))
     {
@@ -2007,10 +2010,10 @@ fill_vms_descriptor (expr, gnat_formal)
 }
 
 /* Indicate that we need to make the address of EXPR_NODE and it therefore
-   should not be allocated in a register. Return 1 if successful.  */
+   should not be allocated in a register.  Returns true if successful.  */
 
-int
-mark_addressable (expr_node)
+bool
+gnat_mark_addressable (expr_node)
      tree expr_node;
 {
   while (1)
@@ -2028,24 +2031,24 @@ mark_addressable (expr_node)
 
       case CONSTRUCTOR:
 	TREE_ADDRESSABLE (expr_node) = 1;
-	return 1;
+	return true;
 
       case VAR_DECL:
       case PARM_DECL:
       case RESULT_DECL:
 	put_var_into_stack (expr_node);
 	TREE_ADDRESSABLE (expr_node) = 1;
-	return 1;
+	return true;
 
       case FUNCTION_DECL:
 	TREE_ADDRESSABLE (expr_node) = 1;
-	return 1;
+	return true;
 
       case CONST_DECL:
 	return (DECL_CONST_CORRESPONDING_VAR (expr_node) != 0
-		&& (mark_addressable
+		&& (gnat_mark_addressable
 		    (DECL_CONST_CORRESPONDING_VAR (expr_node))));
       default:
-	return 1;
+	return true;
     }
 }

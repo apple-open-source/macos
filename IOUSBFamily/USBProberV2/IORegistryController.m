@@ -220,7 +220,7 @@
 - (void)ioregItemSingleClicked:(id)sender {
         if ([IORegDetailedOutputDrawer state] == NSDrawerOpenState) {
             IORegOutlineViewNode *item = [sender itemAtRow:[sender selectedRow]];
-            if ([item representedDevice] != NULL) {
+            if ([item representedDevice] != nil) {
                 NSMutableDictionary *propertiesDict;
 
                 if (IORegistryEntryCreateCFProperties( [item representedDevice], (CFMutableDictionaryRef *)&propertiesDict, kCFAllocatorDefault, 0 ) == 0) {

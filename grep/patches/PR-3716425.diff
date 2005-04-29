@@ -1,0 +1,42 @@
+diff -ur ../../old/grep/src/dfa.c ./src/dfa.c
+--- ../../old/grep/src/dfa.c	2004-12-20 17:33:01.000000000 -0800
++++ ./src/dfa.c	2004-12-20 19:20:16.000000000 -0800
+@@ -1053,11 +1053,18 @@
+ 		  if (!match) {
+ 		    dfaerror(_("invalid collating element or class"));
+ 		  } else {
+-		      char *cp = match;
+-		      for(; *cp; ++cp) {
+-			setbit(*cp, ccl);
++		      if (*match && !match[1]) {
++			c1 = *match;
++			lexptr += used;
++			lexleft -= used;
++			goto skip;
++		      } else {
++			char *cp = match;
++			for(; *cp; ++cp) {
++			  setbit(*cp, ccl);
++			}
++			free(match);
+ 		      }
+-		      free(match);
+ 		  }
+ 		  lexptr += used;
+ 		  lexleft -= used;
+@@ -1097,6 +1104,15 @@
+ 		      if (c2 == '\\'
+ 			  && (syntax_bits & RE_BACKSLASH_ESCAPE_IN_LISTS))
+ 			FETCH(c2, _("Unbalanced ["));
++		      if (c2 == '[' && lexleft >= 1 && (*lexptr == '.' || *lexptr == '=')) {
++			int used = 0;
++			char *match = try_collating_thing(lexptr, lexleft, &used);
++			if (match && *match && !match[1]) {
++			    c2 = *match;
++			    lexptr += used;
++			    lexleft -= used;
++			}
++		      }
+ 		      FETCH(c1, _("Unbalanced ["));
+ 		      if (!hard_LC_COLLATE) {
+ 		        for (; c <= c2; c++)

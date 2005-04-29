@@ -6,8 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                                                                          --
---         Copyright (C) 1998-2001, Free Software Foundation, Inc.          --
+--         Copyright (C) 1998-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,8 +26,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies, Inc. (http://www.gnat.com).     --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -45,6 +44,7 @@
 
 with Ada.Exceptions;
 --  used for Exception_Occurrence_Access
+--           Raise_Exception
 
 with System.Task_Primitives.Operations;
 --  used for Initialize_Lock
@@ -73,6 +73,10 @@ package body System.Tasking.Protected_Objects.Entries is
    use Task_Primitives.Operations;
    use Ada.Exceptions;
 
+   ----------------
+   -- Local Data --
+   ----------------
+
    Locking_Policy : Character;
    pragma Import (C, Locking_Policy, "__gl_locking_policy");
 
@@ -82,9 +86,9 @@ package body System.Tasking.Protected_Objects.Entries is
 
    procedure Finalize (Object : in out Protection_Entries) is
       Entry_Call        : Entry_Call_Link;
-      Caller            : Task_ID;
+      Caller            : Task_Id;
       Ceiling_Violation : Boolean;
-      Self_ID           : constant Task_ID := STPO.Self;
+      Self_ID           : constant Task_Id := STPO.Self;
       Old_Base_Priority : System.Any_Priority;
 
    begin
@@ -180,7 +184,7 @@ package body System.Tasking.Protected_Objects.Entries is
       Find_Body_Index   : Find_Body_Index_Access)
    is
       Init_Priority : Integer := Ceiling_Priority;
-      Self_ID       : constant Task_ID := STPO.Self;
+      Self_ID       : constant Task_Id := STPO.Self;
 
    begin
       if Init_Priority = Unspecified_Priority then
@@ -217,11 +221,34 @@ package body System.Tasking.Protected_Objects.Entries is
    ------------------
 
    procedure Lock_Entries
-     (Object : Protection_Entries_Access; Ceiling_Violation : out Boolean) is
+     (Object : Protection_Entries_Access; Ceiling_Violation : out Boolean)
+   is
    begin
       if Object.Finalized then
          Raise_Exception
            (Program_Error'Identity, "Protected Object is finalized");
+      end if;
+
+      --  If pragma Detect_Blocking is active then Program_Error must
+      --  be raised if this potentially blocking operation is called from
+      --  a protected action, and the protected object nesting level
+      --  must be increased.
+
+      if Detect_Blocking then
+         declare
+            Self_Id : constant Task_Id := STPO.Self;
+         begin
+            if Self_Id.Common.Protected_Action_Nesting > 0  then
+               Ada.Exceptions.Raise_Exception
+                 (Program_Error'Identity, "potentially blocking operation");
+            else
+               --  We are entering in a protected action, so that we
+               --  increase the protected object nesting level.
+
+               Self_Id.Common.Protected_Action_Nesting :=
+                 Self_Id.Common.Protected_Action_Nesting + 1;
+            end if;
+         end;
       end if;
 
       --  The lock is made without defering abortion.
@@ -240,14 +267,9 @@ package body System.Tasking.Protected_Objects.Entries is
 
    procedure Lock_Entries (Object : Protection_Entries_Access) is
       Ceiling_Violation : Boolean;
-   begin
-      if Object.Finalized then
-         Raise_Exception
-           (Program_Error'Identity, "Protected Object is finalized");
-      end if;
 
-      pragma Assert (STPO.Self.Deferral_Level > 0);
-      Write_Lock (Object.L'Access, Ceiling_Violation);
+   begin
+      Lock_Entries (Object, Ceiling_Violation);
 
       if Ceiling_Violation then
          Raise_Exception (Program_Error'Identity, "Ceiling Violation");
@@ -260,10 +282,33 @@ package body System.Tasking.Protected_Objects.Entries is
 
    procedure Lock_Read_Only_Entries (Object : Protection_Entries_Access) is
       Ceiling_Violation : Boolean;
+
    begin
       if Object.Finalized then
          Raise_Exception
            (Program_Error'Identity, "Protected Object is finalized");
+      end if;
+
+      --  If pragma Detect_Blocking is active then Program_Error must be
+      --  raised if this potentially blocking operation is called from a
+      --  protected action, and the protected object nesting level must
+      --  be increased.
+
+      if Detect_Blocking then
+         declare
+            Self_Id : constant Task_Id := STPO.Self;
+         begin
+            if Self_Id.Common.Protected_Action_Nesting > 0  then
+               Ada.Exceptions.Raise_Exception
+                 (Program_Error'Identity, "potentially blocking operation");
+            else
+               --  We are entering in a protected action, so that we
+               --  increase the protected object nesting level.
+
+               Self_Id.Common.Protected_Action_Nesting :=
+                 Self_Id.Common.Protected_Action_Nesting + 1;
+            end if;
+         end;
       end if;
 
       Read_Lock (Object.L'Access, Ceiling_Violation);
@@ -279,6 +324,24 @@ package body System.Tasking.Protected_Objects.Entries is
 
    procedure Unlock_Entries (Object : Protection_Entries_Access) is
    begin
+      --  We are exiting from a protected action, so that we decrease the
+      --  protected object nesting level (if pragma Detect_Blocking is
+      --  active).
+
+      if Detect_Blocking then
+         declare
+            Self_Id : constant Task_Id := Self;
+         begin
+            --  Cannot call this procedure without being within a protected
+            --  action.
+
+            pragma Assert (Self_Id.Common.Protected_Action_Nesting > 0);
+
+            Self_Id.Common.Protected_Action_Nesting :=
+              Self_Id.Common.Protected_Action_Nesting - 1;
+         end;
+      end if;
+
       Unlock (Object.L'Access);
    end Unlock_Entries;
 

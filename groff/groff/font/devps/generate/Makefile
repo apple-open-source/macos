@@ -1,4 +1,4 @@
-# Copyright (C) 1989-2000, 2002 Free Software Foundation, Inc.
+# Copyright (C) 1989-2000, 2002, 2003 Free Software Foundation, Inc.
 #      Written by James Clark (jjc@jclark.com)
 #
 # This file is part of groff.
@@ -37,12 +37,12 @@ GREEKFONTS=SS
 TEXTFONTS=AB ABI AI AR BMB BMBI BMI BMR CB CBI CI CR HB HBI HI HR HNB HNBI \
   HNI HNR NB NBI NI NR PB PBI PI PR TB TBI TI TR ZCMI
 
-FONTS=$(TEXTFONTS) $(SPECIALFONTS) $(GREEKFONTS) $(DINGBATSFONTS)
+FONTS=$(TEXTFONTS) $(SPECIALFONTS) $(GREEKFONTS) $(DINGBATSFONTS) EURO
 
 DESC=$(srcdir)/../DESC
 AFMTODIT=afmtodit -d$(DESC)
 IFLAG=-i 50
-RFLAG=-i 0
+RFLAG=-i 0 -m
 NOLIGFLAG=-n
 TEXTENC=$(srcdir)/../text.enc
 EFLAG=-e $(TEXTENC)
@@ -188,13 +188,21 @@ ZD:
 	`$(AFMNAME) $(afmdir)/ZapfDingbats.afm` $(srcdir)/dingbats.map $@
 
 SS: $(srcdir)/symbolsl.afm
-	$(AFMTODIT) -s $(IFLAG) $(srcdir)/symbolsl.afm $(srcdir)/lgreekmap $@
+	$(AFMTODIT) -s -x $(IFLAG) \
+	$(srcdir)/symbolsl.afm $(srcdir)/lgreekmap $@
 
 S: symbol.afm
 	$(AFMTODIT) -s $(RFLAG) symbol.afm symbolmap $@
 
 ZDR: zapfdr.afm
 	$(AFMTODIT) -s $(RFLAG) zapfdr.afm $(srcdir)/dingbats.rmap $@
+
+# the map is just a dummy
+EURO: freeeuro.afm
+	$(AFMTODIT) $(RFLAG) freeeuro.afm symbolmap $@
+
+freeeuro.afm freeeuro.pfa: generate/freeeuro.sfd
+	pfaedit -script generate/sfdtopfa.pe generate/freeeuro.sfd
 
 symbol.afm: $(srcdir)/symbol.sed
 	-rm -f $@

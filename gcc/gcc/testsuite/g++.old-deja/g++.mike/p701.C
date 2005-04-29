@@ -1,14 +1,14 @@
-// Build don't link:
+// { dg-do assemble  }
 // prms-id: 701
 
 extern "C" 
 {
   int printf(const char *, ...);
-};
+}
 
 
-void Munge(int& x) 
-{				// ERROR - referenced below
+void Munge(int& x) 	// { dg-error "passing argument 1" }
+{
    x = 2;
 }
 
@@ -24,7 +24,7 @@ class A
 void
 A::Safe() const 
 {
-   Munge(i);	// ERROR - should not be able to modify a const object
+   Munge(i);	        // { dg-error "invalid initialization" }
 }
 
 int main()

@@ -1,5 +1,5 @@
 /*
- * $Id: chkdef.cmd,v 1.1.1.1 2001/11/29 20:40:55 jevans Exp $
+ * $Id: chkdef.cmd,v 1.2 1998/08/29 21:45:58 tom Exp $
  *
  * Author:  Juan Jose Garcia Ripoll <worm@arrakis.es>.
  * Webpage: http://www.arrakis.es/~worm/

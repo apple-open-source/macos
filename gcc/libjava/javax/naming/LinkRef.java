@@ -1,5 +1,5 @@
 /* LinkRef.java --
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,7 +38,6 @@ exception statement from your version. */
 
 package javax.naming;
 
-import java.io.Serializable;
 
 /**
  * @author Tom Tromey <tromey@redhat.com>
@@ -46,6 +45,8 @@ import java.io.Serializable;
  */
 public class LinkRef extends Reference
 {
+  private static final long serialVersionUID = -5386290613498931298L;
+
   public LinkRef (Name name)
   {
     this (name.toString ());
@@ -58,6 +59,7 @@ public class LinkRef extends Reference
   }
 
   public String getLinkName ()
+    throws NamingException
   {
     StringRefAddr sra = (StringRefAddr) get (0);
     return (String) sra.getContent ();

@@ -80,7 +80,7 @@
                 </tr>
                 <tr>
                     <td bgcolor="#FFDC75" bordercolor="#000000" nowrap>
-                        <a href="tomcat-docs">Tomcat Documentation</a><br>
+                        <a href="http://jakarta.apache.org/tomcat/tomcat-4.1-doc/index.html">Tomcat Documentation</a><br>
                         &nbsp;
                     </td>
                 </tr>

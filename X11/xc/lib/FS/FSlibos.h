@@ -50,7 +50,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/FS/FSlibos.h,v 3.9 2002/05/31 18:45:39 dawes Exp $ */
+/* $XFree86: xc/lib/FS/FSlibos.h,v 3.11 2003/12/19 02:05:37 dawes Exp $ */
 
 /*
  * FSlib networking & os include file
@@ -60,6 +60,10 @@ in this Software without prior written authorization from The Open Group.
 #include <X11/Xosdefs.h>
 
 #ifndef WIN32
+
+#if defined(SCO) || defined(__USLC__)
+#include <stdint.h>	/* For SIZE_MAX */
+#endif
 
 /*
  * makedepend screws up on #undef OPEN_MAX, so we define a new symbol
@@ -75,6 +79,13 @@ in this Software without prior written authorization from The Open Group.
 #include <limits.h>
 #undef _POSIX_SOURCE
 #endif
+#endif
+#ifndef SIZE_MAX
+# ifdef ULONG_MAX
+#  define SIZE_MAX ULONG_MAX
+# else 
+#  define SIZE_MAX UINT_MAX
+# endif
 #endif
 #ifndef OPEN_MAX
 #ifdef SVR4

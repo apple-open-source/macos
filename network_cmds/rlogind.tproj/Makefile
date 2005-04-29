@@ -16,7 +16,7 @@ HFILES = pathnames.h
 
 CFILES = rlogind.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble rlogind.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble rlogind.8 login.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

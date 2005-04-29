@@ -26,6 +26,8 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
+HEADER_PATHS =\
+               -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
 
 FRAMEWORKS = -framework AppleTalk
 

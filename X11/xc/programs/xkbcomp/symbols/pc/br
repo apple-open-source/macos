@@ -5,7 +5,7 @@
 // Adds suport for dead-keys in I18N applications
 // by Conectiva  (http://www.conectiva.com.br)"
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/br,v 1.2 2002/11/22 04:03:28 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/br,v 1.4 2003/12/09 13:51:34 pascal Exp $
 
 xkb_symbols "abnt2" {
 
@@ -27,30 +27,29 @@ xkb_symbols "abnt2" {
 
     key <AC10>	{ [  ccedilla,   Ccedilla,  dead_acute, dead_doubleacute] };
     key <AC11>	{ [dead_tilde, dead_circumflex, asciitilde, asciicircum ] };
+    key <AC12>  { [bracketright, braceright,  masculine,    masculine   ] };
+
     key <TLDE>	{ [apostrophe,   quotedbl,      notsign,      notsign ]	};
 
     key <BKSL>	{ [ backslash,        bar,    masculine,   dead_breve ]	};
     key <AB03>	{ [         c,          C,    copyright,    copyright ]	};
+    key <AB07>  { [         m,          M,           mu,           mu ] };
     key <AB10>	{ [ semicolon,    colon, dead_belowdot, dead_abovedot ]	};
 
 // ABNT-2 keyboard has this special key
 
-    key <AB11>	{ type[Group1] = "FOUR_LEVEL",
-                  [     slash,   question,       degree, questiondown ]	};
+    key <AB11>	{ [     slash,   question,       degree, questiondown ]	};
 
     key <KPPT>	{ [KP_Decimal ]	};
     key <KPDL>	{ [ KP_Delete,      comma ]	};
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    include "level3(ralt_switch_multikey)"
 };
 
 partial alphanumeric_keys
 xkb_symbols "nodeadkeys" {
 
     include "pc/br(abnt2)" // for consistent naming
-
 
     key <AE06>	{ [         6,  diaeresis,      notsign,      notsign ]	};
     key <AD11>	{ [apostrophe,      grave ]	};

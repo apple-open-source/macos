@@ -1,3 +1,146 @@
+2005-01-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* error_message.c (com_err_terminate): Lock the list mutex before
+	walking through it; unlock and destroy it afterwards.
+
+2004-11-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* et_h.awk: Declare initialize_*_error_table as taking no
+	arguments.
+	* et_h.pl: Regenerated.
+
+2004-10-07  Tom Yu  <tlyu@mit.edu>
+
+	* et_c.awk, et_h.awk: Fix off-by-one error.
+	* et_c.pl, et_h.pl: Regenerated.
+
+2004-10-06  Ken Raeburn  <raeburn@mit.edu>
+
+	* et_c.awk, et_h.awk: Complain if the error table is too large.
+	* et_c.pl, et_h.pl: Regenerated.
+
+2004-07-03  Ken Raeburn  <raeburn@mit.edu>
+
+	* error_message.c (remove_error_table) [!ENABLE_THREADS &&
+	DEBUG_THREADS]: Update test for 'initialized' field in mutex.
+
+2004-06-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* vfprintf.c: Don't test macintosh.
+
+2004-06-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in ($(OUTPRE)test_et.exe): New target.
+	(check-windows): Build and run test_et.exe.
+	(SHLIB_EXPLIBS): Add $(LIBS).
+
+	* error_message.c: Include autoconf.h.
+	(HAVE_STRERROR) [_WIN32]: Don't define.
+	(error_message) [_WIN32]: Check for range WSABASEERR+[0,1100)
+	instead of all values under 12000.  Use k5_getspecific and
+	k5_setspecific for local buffer.
+
+	* test_et.c (EXPORT_LIST): Define on Windows.
+	(main): Use add/remove_error_table, not the initialize_ routines.
+	(main) [EXPORT_LIST]: Don't test error_table_name, it's not in the
+	export list.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBBASE): Renamed from LIB.
+
+2004-06-03  Ken Raeburn  <raeburn@mit.edu>
+
+	* com_err.c (com_err_va): In success case, don't then fall
+	through into error case.
+
+2004-06-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* com_err.c: Include stdlib.h.
+	(com_err_hook_lock): New mutex.
+	(com_err_lock_hook_handle): New function.
+	(com_err_va, set_com_err_hook, reset_com_err_hook): Call
+	com_err_finish_init, and grab the lock.
+	* error_message.c: Don't include k5-thread.h.
+	(com_err_finish_init): New function.
+	(com_err_initialize): Initialize the new mutex.
+	* error_table.h: Include k5-thread.h.
+	(com_err_hook_lock, com_err_finish_init): Declare.
+
+2004-05-31  Ken Raeburn  <raeburn@mit.edu>
+
+	* error_message.c (terminated): New variable.
+	(com_err_terminate): Set it.
+	(remove_error_table): Check it, warn and abort if set.
+
+2004-05-05  Ken Raeburn  <raeburn@mit.edu>
+
+	* error_message.c (buffer): Static variable deleted.
+	(com_err_initialize): Register cleanup support for com_err
+	thread-specific data key.
+	(error_message): Use a per-thread dynamically-allocated buffer
+	instead of static storage, for the case where an unknown error
+	code is given.  If any errors occur allocating or tracking the
+	buffer, return a fixed message.
+
+	* t_com_err.c: Include stdlib.h.  If TEST_THREADS is defined,
+	include pthread.h.
+	(run): Renamed from main, changed signature.
+	(main): New function.  Just call run, or if TEST_THREADS is
+	defined, create a thread to call it.
+
+2004-05-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Invoke KRB5_BUILD_PROGRAM and KRB5_RUN_FLAGS.
+	* Makefile.in (PROG_RPATH, PROG_LIBPATH, RUN_SETUP): New
+	variables.
+	(test_et, t_com_err): Use the built library, even if shared.
+	(check-unix): Set up the environment properly to load shared
+	libraries when running the test programs.
+
+	* configure.in: Enable dependency support for shared lib.
+	* Makefile.in (test_et, t_com_err): Depend on, and link against,
+	the new support library.
+	(SHLIB_EXPDEPS, SHLIB_EXPLIBS, SHLIB_RDIRS, SHLIB_DIRS): New
+	variables.
+
+2004-04-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBINITFUNC, LIBFINIFUNC): New variables.
+
+	* error_message.c (com_err_terminate): Free heap storage in
+	et_list_dynamic.
+
+2004-04-24  Ken Raeburn  <raeburn@mit.edu>
+
+	Delete support for old globally-visible linked list, necessary
+	for thread support.
+	* Makefile.in (STLIBOBJS, LINTFILES, LIBOBJS, SRCS): Drop
+	init_et.c.
+	* error_message.c: Include k5-platform.h.
+	(et_list_lock): Use new partial initializer.
+	(com_err_initialize, com_err_terminate): New init/fini functions.
+	(error_message, add_error_table, remove_error_table): Ensure the
+	initializer ran successfully.
+	* error_table.h (_et_list) [!_WIN32]: Delete declaration.
+
+2004-04-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* libcom_err.exports: New file.
+
+2004-03-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* error_message.c: Include k5-thread.h.
+	(_et_list): Now always static.
+	(et_list_lock): New mutex.
+	(error_message): Lock it while manipulating the table lists.
+	(add_error_table, remove_error_table): Likewise.
+
+2003-07-04  Kenneth Raeburn  <raeburn@mit.edu>
+
+	* test_et.c: Conditionalize sys_nerr declaration on
+	NEED_SYS_ERRLIST, not HAVE_SYS_ERRLIST.
+
 2003-06-12  Alexandra Ellwood  <lxs@mit.edu>
     * error_table.h, et_c.awk, et_c.pl, et_h.awk, et_c.awk: Removed Mac 
     OS support because it prevents darwin builds from getting com error 

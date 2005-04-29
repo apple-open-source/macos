@@ -1,3 +1,245 @@
+
+== 10.4 ChangeLog items ==
+
+2005-03-09  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/darwin.c
+	(DarwinUpdateModifiers): handle AlphaShift (caps lock) as a
+	normal modifier, now that we disabled XKB (when merging with
+	XFree86 4.4) that's the correct thing to do (4015381)
+
+2005-03-01  John Harper  <jsh@apple.com>
+
+	* xc/extras/Xpm/lib/scan.c, xc/extras/Xpm/lib/create.c: more
+	Xpm fixes, from
+	https://bugs.freedesktop.org/show_bug.cgi?id=1920, attachment
+	1909. (4031381)
+
+	* xc/lib/Xpm/Imakefile: doh, forgot Imakefile portion of
+	original patch
+
+	* xc/extras/Xpm/lib/scan.c, xc/extras/Xpm/lib/s_popen.c,
+	xc/extras/Xpm/lib/parse.c, xc/extras/Xpm/lib/misc.c,
+	xc/extras/Xpm/lib/hashtab.c, xc/extras/Xpm/lib/data.c,
+	xc/extras/Xpm/lib/create.c, xc/extras/Xpm/lib/XpmI.h,
+	xc/extras/Xpm/lib/WrFFrI.c, xc/extras/Xpm/lib/WrFFrBuf.c,
+	xc/extras/Xpm/lib/RdFToI.c, xc/extras/Xpm/lib/RdFToBuf.c,
+	xc/extras/Xpm/lib/Imakefile, xc/extras/Xpm/lib/CrDatFrI.c,
+	xc/extras/Xpm/lib/CrBufFrI.c, xc/extras/Xpm/lib/Attrib.c:
+	merged changes from XFree86 HEAD branch (4022757)
+
+2005-02-15  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz-server.c: request that
+	deferred updates are disabled. Otherwise we lose 25%
+	performance on the "cat file in xterm" test (3985081)
+
+	Fix 3494176 (deadlock while closing OpenGL window):
+
+	* xc/lib/GL/glx/glxext.c: make __glXLock a recursive mutex
+
+	* xc/lib/GL/apple/dri_driver.h, xc/lib/GL/apple/dri_driver.c:
+	make the screen mutex a pthread_mutex and make it recursive
+
+2005-01-04  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m: fixed several
+	bugs in the customization dialog for the applications menu
+	(3668769)
+
+2004-11-16  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c: added a signal
+	handler to catch SIGTERM etc and exit cleanly, killing the X
+	server and xinit (3879878)
+
+2004-10-25  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/InfoPlist.strings:
+	removed CFBundleShortVersionString and CFBundleGetInfoString
+	(3851089)
+
+2004-10-19  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/Localizable.strings:
+	added "Terminal" to the strings file	
+
+	* xc/programs/Xserver/hw/apple/X11Application.m (prefs_get):
+	added code to call NSLocalizedString on each name in the
+	default applications menu
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(RootlessKnowsWindowNumber): added check for zero window id
+
+2004-10-15  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/Localizable.strings:
+	Expanded backslash escape sequences since .strings files don't
+	seem to handle them correctly. (3833239)
+
+2004-10-15  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/vfb/InitOutput.c: workaround 3834723
+	by rearranging include order
+
+2004-10-10  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz.h,
+	xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m: QuartzRunClient
+	function now has a second arg - whether or not to quote the
+	command (3816789, 3572554)
+
+2004-10-08  John Harper  <jsh@apple.com>
+
+	* xc/extras/Xpm/lib/scan.c, xc/extras/Xpm/lib/parse.c,
+	xc/extras/Xpm/lib/hashtab.c, xc/extras/Xpm/lib/data.c,
+	xc/extras/Xpm/lib/create.c, xc/extras/Xpm/lib/XpmI.h,
+	xc/extras/Xpm/lib/WrFFrI.c, xc/extras/Xpm/lib/CrDatFrI.c,
+	xc/extras/Xpm/lib/Attrib.c: merged Xpm changes from XFree86
+	HEAD branch (3744542, 3778302)
+
+2004-09-29  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: fixed
+	typo (3820725)
+
+2004-09-16  John Harper  <jsh@apple.com>
+
+	* xc/programs/xterm/main.c: call openpty() to scan for a pseudo
+	terminal (3768572)
+
+	* xc/programs/xterm/xterm.man: fix documentation of -ls option
+	(3803120)
+
+2004-09-08  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: nib
+	changes for 3313133 and 3316468
+
+2004-09-03  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: gave
+	applications dialog window a minimum size
+
+	* xc/programs/Xserver/hw/apple/English.lproj/Localizable.strings:
+	new file - ran genstrings on the .m files
+
+	* xc/programs/Xserver/hw/apple/X11.pbproj/project.pbxproj:
+	added Localizable.strings
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Application.m: added comments
+	for translators
+
+	* xc/programs/Xserver/hw/apple/Imakefile: set OBJROOT and
+	SYMROOT when calling xcodebuild
+
+2004-08-25  John Harper  <jsh@apple.com>
+
+	* quartz-wm/x-window.m: don't grab Mod1-grave for window
+	cycling, only Mod2 (3774967)
+
+2004-08-23  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c: fix typo in
+	$XINITRC code (3621248)
+
+2004-07-16  John Harper  <jsh@apple.com>
+
+	* merged changes from XFree86 4.4.0 and fixed resulting
+	brokenness (3570235, 3612446, 3548675, 3404805)
+
+2004-06-10  John Harper  <jsh@apple.com>
+
+	* xinitrc: quote shell expanded filenames to support home
+	directories with spaces (3674992)
+
+2004-03-29  John Harper  <jsh@apple.com>
+
+	* FS/FSFontInfo.c, FS/FSFtNames.c, FS/FSGetCats.c,
+	FS/FSListCats.c, FS/FSListExt.c, FS/FSOpenServ.c,
+	FS/FSQGlyphs.c, FS/FSQXExt.c, FS/FSQXInfo.c, FS/FSlibint.h,
+	FS/FSlibos.h, font/fc/fsconvert.c, font/fc/fserve.c,
+	font/fc/fslibos.h, font/fontfile/dirfile.c,
+	font/fontfile/encparse.c, font/fontfile/fontdir.c,
+	font/fontfile/fontfile.c: merged font security fixes from
+	XFree86 4.3 branch
+
+2004-03-11  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzRunClient):
+	added command quoting hack to fix 3572554
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c (define_named):
+	fix for 3571829 (writing bad address size into xauth item)
+
+2004-02-09  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c (start_client):
+	respect value of $XINITRC. Also default to xinitrc in
+	/etc/X11/xinit not the one under /usr/X11R6
+
+2004-01-09  John Harper  <jsh@apple.com>
+
+	* xc/programs/xterm/charproc.c: revert the part of the fix for
+	3449284 to make `-ls' be the default behavior (3524388)
+
+2004-01-08  John Harper  <jsh@apple.com>
+
+	* xc/programs/xkbcomp/symbols/by,
+	xc/programs/xkbcomp/symbols/pc/by: grabbed these files from
+	XFree86 4.3.0 (3405807)
+
+	* xc/lib/GL/GL/Imakefile: don't link `-sub_umbrella OpenGL',
+	this brings in an extra copy of libGLU and all the CGL symbols.
+	Instead link against the native GL's libGL.dylib and specify
+	`-sub_library libGL' as well as `-framework OpenGL' (3465397)
+
+2003-12-20  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_driver.h, xc/lib/GL/apple/dri_driver.c:
+	include OpenGL.framework headers before any X11 stuff - ensures
+	we get the correct gl.h and glext.h
+
+2003-12-12  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/bundle-main.c: replicated code to
+	add /usr/X11R6/bin to PATH and edited it to set MANPATH as well
+	(3500270)
+
+2003-11-04  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_driver.h, xc/lib/GL/apple/dri_driver.c:
+	threading fixes (3470313)
+
+2003-11-03  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: changes
+	for HIG compliance: use Command-? for help (3405320); use
+	Command-Option-H for hide others (3405321); added separator
+	before Preferences menu item (3405322); reorganized Window menu
+	(3405323)
+
+	* xc/config/cf/Imake.rules: added "-e '/^#pragma GCC .*$$/d'"
+	to CppSedMagic to delete crud left by cpp (3445652)
+
+2003-10-09  John Harper  <jsh@apple.com>
+
+	* xc/programs/xterm/xterm.man, xc/programs/xterm/main.c,
+	xc/programs/xterm/charproc.c: applied patch to fix 3449284
+	(xterm's -ls option does not work)
+
+2003-08-31  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c
+	(generate_mit_magic_cookie): don't forget to close the
+	/dev/random fd
+
+
+== 10.3 ChangeLog items ==
+
 2003-09-12  John Harper  <jsh@apple.com>
 
 	* xc/programs/Xserver/hw/apple/X11Application.m: revert fix for

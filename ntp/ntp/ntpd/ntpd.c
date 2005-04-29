@@ -587,7 +587,7 @@ service_main(
 #endif	/* !SYS_WINNT && !VMS */
 
 	NLOG(NLOG_SYSINFO) /* conditional if clause for conditional syslog */
-		msyslog(LOG_NOTICE, "%s", Version);
+		msyslog(LOG_INFO, "%s", Version);
 
 #ifdef SYS_WINNT
 	/* GMS 1/18/1997
@@ -627,8 +627,10 @@ service_main(
 	/*
 	 * lock the process into memory
 	 */
+# ifndef __APPLE__ /* Not implemented (3967177/3991653). */
 	if (mlockall(MCL_CURRENT|MCL_FUTURE) < 0)
 		msyslog(LOG_ERR, "mlockall(): %m");
+# endif /* __APPLE__ */
 #else /* not (HAVE_MLOCKALL && MCL_CURRENT && MCL_FUTURE) */
 # ifdef HAVE_PLOCK
 #  ifdef PROCLOCK
@@ -965,7 +967,7 @@ finish(
 	)
 {
 
-	msyslog(LOG_NOTICE, "ntpd exiting on signal %d", sig);
+	msyslog(LOG_INFO, "ntpd exiting on signal %d", sig);
 
 	switch (sig)
 	{

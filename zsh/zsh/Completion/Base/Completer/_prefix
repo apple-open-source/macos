@@ -5,7 +5,7 @@
 [[ _matcher_num -gt 1 || -z "$SUFFIX" ]] && return 1
 
 local comp curcontext="$curcontext" tmp suf="$SUFFIX" \
-      _completer _completer_num \
+      _completer \
       _matcher _c_matcher _matchers _matcher_num
 
 zstyle -a ":completion:${curcontext}:" completer comp ||
@@ -18,7 +18,7 @@ else
 fi
 SUFFIX=''
 
-_completer_num=1
+local _completer_num=1
 
 for tmp in "$comp[@]"; do
   if [[ "$tmp" = *:-* ]]; then
@@ -48,7 +48,11 @@ for tmp in "$comp[@]"; do
       [[ compstate[nmatches] -gt 1 ]] && return 0
       compadd -U -i "$IPREFIX" -I "$ISUFFIX" - "${compstate[unambiguous]%$suf}x"
       compstate[list]=
-      compstate[insert]=unambiguous
+      if [[ -n $compstate[unambiguous] ]]; then
+        compstate[insert]=unambiguous
+      else
+        compstate[insert]=0
+      fi
       return 0
     fi
     (( _matcher_num++ ))

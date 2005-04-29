@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 #ifndef _ARRAYCACHE_H
@@ -40,15 +40,6 @@ _ac_DestroyContext( GLcontext *ctx );
 
 extern void
 _ac_InvalidateState( GLcontext *ctx, GLuint new_state );
-
-extern struct gl_client_array *
-_ac_import_texcoord( GLcontext *ctx,
-		     GLuint unit,
-		     GLenum type,
-		     GLuint reqstride,
-		     GLuint reqsize,
-		     GLboolean reqwritable,
-		     GLboolean *writable );
 
 extern struct gl_client_array *
 _ac_import_vertex( GLcontext *ctx,
@@ -101,6 +92,24 @@ _ac_import_edgeflag( GLcontext *ctx,
 		     GLuint reqstride,
 		     GLboolean reqwritable,
 		     GLboolean *writable );
+
+extern struct gl_client_array *
+_ac_import_texcoord( GLcontext *ctx,
+		     GLuint unit,
+		     GLenum type,
+		     GLuint reqstride,
+		     GLuint reqsize,
+		     GLboolean reqwritable,
+		     GLboolean *writable );
+
+extern struct gl_client_array *
+_ac_import_attrib( GLcontext *ctx,
+                   GLuint index,
+                   GLenum type,
+                   GLuint reqstride,
+                   GLuint reqsize,
+                   GLboolean reqwritable,
+                   GLboolean *writable );
 
 
 /* Clients must call this function to validate state and set bounds

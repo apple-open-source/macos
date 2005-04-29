@@ -1,5 +1,5 @@
 ## Makefile.in for ICU - test/intltest
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 ## Source directory information
@@ -19,28 +19,30 @@ CLEANFILES = *~ $(DEPS)
 ## Target information
 TARGET = intltest$(EXEEXT)
 
-BUILDDIR := $(shell pwd)/../../
+BUILDDIR := $(CURR_SRCCODE_FULL_DIR)/../../
 BUILDDIR := $(BUILDDIR:test/intltest/../../=)
+BUILDDIR := $(BUILDDIR:test\\\\intltest/../../=)
 
-CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(top_srcdir)/tools/toolutil
+CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(top_srcdir)/tools/toolutil -I$(top_srcdir)/tools/ctestfw
 DEFS += -D'U_TOPSRCDIR="$(top_srcdir)/"' -D'U_TOPBUILDDIR="$(BUILDDIR)"'
-LIBS = $(LIBICUI18N) $(LIBICUUC) $(LIBICUTOOLUTIL) $(DEFAULT_LIBS) $(LIB_M)
+LIBS = $(LIBCTESTFW) $(LIBICUI18N) $(LIBICUUC) $(LIBICUTOOLUTIL) $(DEFAULT_LIBS) $(LIB_M)
 
-OBJECTS = allcoll.o apicoll.o callimts.o calregts.o caltest.o		\
-caltztst.o canittst.o citrtest.o cntabcol.o cputilst.o currcoll.o dacoll.o	\
+OBJECTS = allcoll.o apicoll.o astrotst.o callimts.o calregts.o caltest.o \
+caltztst.o canittst.o citrtest.o cntabcol.o convtest.o currcoll.o dacoll.o	\
 dadrcoll.o dcfmapts.o decoll.o dtfmapts.o dtfmrgts.o dtfmtrtts.o dtfmttst.o	\
 encoll.o escoll.o ficoll.o frcoll.o g7coll.o intltest.o	\
 itercoll.o itformat.o itmajor.o itutil.o jacoll.o lcukocol.o	\
 loctest.o miscdtfm.o mnkytst.o msfmrgts.o nmfmapts.o nmfmtrt.o		\
 numfmtst.o numrgts.o pptest.o regcoll.o restest.o restsnew.o sdtfmtts.o svccoll.o tchcfmt.o	\
 tfsmalls.o tmsgfmt.o trcoll.o tscoll.o tsdate.o tsdcfmsy.o tsdtfmsy.o	\
-tsmthred.o tsmutex.o tsnmfmt.o tsputil.o tstnrapi.o tstnorm.o tzbdtest.o		\
+tsmthred.o tsnmfmt.o tsputil.o tstnrapi.o tstnorm.o tzbdtest.o		\
 tzregts.o tztest.o ucdtest.o usettest.o ustrtest.o strcase.o transtst.o strtest.o thcoll.o \
-itrbbi.o rbbiapts.o rbbitst.o ittrans.o transapi.o cpdtrtst.o unhxtrts.o hxuntrts.o \
-ufltlgts.o testutil.o transrt.o trnserr.o normconf.o sfwdchit.o \
+itrbbi.o rbbiapts.o rbbitst.o ittrans.o transapi.o cpdtrtst.o \
+testutil.o transrt.o trnserr.o normconf.o sfwdchit.o \
 jamotest.o srchtest.o reptest.o regextst.o \
-itrbnf.o itrbnfrt.o tstdtmod.o testdata.o datamap.o ucaconf.o icusvtst.o \
-uobjtest.o idnaref.o nptrans.o punyref.o testidn.o testidna.o incaltst.o
+itrbnf.o itrbnfrt.o itrbnfp.o ucaconf.o icusvtst.o \
+uobjtest.o idnaref.o nptrans.o punyref.o testidn.o testidna.o incaltst.o \
+calcasts.o v32test.o textfile.o tokiter.o
 
 
 DEPS = $(OBJECTS:.o=.d)
@@ -76,7 +78,7 @@ distclean-local: clean-local
 -include Makefile.local
 
 check-local: all-local
-	 TZ=PST8PDT $(INVOKE) ./$(TARGET)  $(INTLTEST_OPTS) || true
+	$(INVOKE) ./$(TARGET) $(INTLTEST_OPTS) || true
 
 Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
 	cd $(top_builddir) \
@@ -84,9 +86,6 @@ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
 
 $(TARGET) : $(OBJECTS)
 	$(LINK.cc) $(OUTOPT)$@ $^ $(LIBS)
-
-invoke:
-	ICU_DATA=$${ICU_DATA:-$(top_builddir)/data/} TZ=PST8PDT $(INVOKE) $(INVOCATION)
 
 ifeq (,$(MAKECMDGOALS))
 -include $(DEPS)

@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.conch.ui.ansi.AnsiParser</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.conch.html">Package&nbsp;conch</a> ::
+        <a href="twisted.conch.ui.html">Package&nbsp;ui</a> ::
+        <a href="twisted.conch.ui.ansi.html">Module&nbsp;ansi</a> ::
+        Class&nbsp;AnsiParser
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.conch.ui.ansi.AnsiParser.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class AnsiParser</h2>
+
+<hr/>
+
+Parser class for ANSI codes.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__init__"></a><span class="summary-sig"><span class="summary-sig-name">__init__</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>defaultFG</span>,
+          <span class=summary-sig-arg>defaultBG</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="formatText"></a><span class="summary-sig"><span class="summary-sig-name">formatText</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>text</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ui.ansi.AnsiParser.html#parseColor" class="summary-sig-name"><code>parseColor</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>str</span>)</span></code>
+<br />
+Handle a single ANSI color sequence</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="parseCursor"></a><span class="summary-sig"><span class="summary-sig-name">parseCursor</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>cursor</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="parseErase"></a><span class="summary-sig"><span class="summary-sig-name">parseErase</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>erase</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ui.ansi.AnsiParser.html#parseString" class="summary-sig-name"><code>parseString</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>str</span>)</span></code>
+<br />
+Turn a string input into a list of ColorText elements.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="pickColor"></a><span class="summary-sig"><span class="summary-sig-name">pickColor</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>value</span>,
+          <span class=summary-sig-arg>mode</span>,
+          <span class=summary-sig-arg>BOLD</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ui.ansi.AnsiParser.html#stripEscapes" class="summary-sig-name"><code>stripEscapes</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>string</span>)</span></code>
+<br />
+Remove all ANSI color escapes from the given string.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="writeString"></a><span class="summary-sig"><span class="summary-sig-name">writeString</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>colorstr</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.conch.ui.ansi.AnsiParser.html#ASSIGN_SET"><code>ASSIGN_SET</code></a></b> = <span title="('p',)"><code>('p',)                                      </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.conch.ui.ansi.AnsiParser.html#COLOR_SET"><code>COLOR_SET</code></a></b> = <span title="('m',)"><code>('m',)                                       </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.conch.ui.ansi.AnsiParser.html#CURSOR_SET"><code>CURSOR_SET</code></a></b> = <span title="('H', 'f', 'A', 'B', 'C', 'D', 'R', 's', 'u', 'd', 'G')"><code>('H',&nbsp;'f',&nbsp;'A',&nbsp;'B',&nbsp;'C',&nbsp;'D',&nbsp;'R',&nbsp;'s',&nbsp;'u<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.conch.ui.ansi.AnsiParser.html#ERASE_SET"><code>ERASE_SET</code></a></b> = <span title="('J', 'K', 'P')"><code>('J',&nbsp;'K',&nbsp;'P')                              </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.conch.ui.ansi.AnsiParser.html#MODE_SET"><code>MODE_SET</code></a></b> = <span title="('h', 'l')"><code>('h',&nbsp;'l')                                    </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.conch.ui.ansi.AnsiParser.html#SETS"><code>SETS</code></a></b> = <span title="(('H', 'f', 'A', 'B', 'C', 'D', 'R', 's', 'u', 'd', 'G'), ('J', 'K', 'P'), ('h', 'l'), ('p',), ('m',))"><code>(('H',&nbsp;'f',&nbsp;'A',&nbsp;'B',&nbsp;'C',&nbsp;'D',&nbsp;'R',&nbsp;'s',&nbsp;'u',&nbsp;'d<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="parseColor"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">parseColor</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>str</span>)</span>
+  </h3>
+  Handle a single ANSI color sequence
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="parseString"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">parseString</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>str</span>)</span>
+  </h3>
+  Turn a string input into a list of ColorText elements.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="stripEscapes"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">stripEscapes</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>string</span>)</span>
+  </h3>
+  Remove all ANSI color escapes from the given string.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="ASSIGN_SET"></a>
+<h3>ASSIGN_SET</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="('p',)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+('p',)                                                                 </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="COLOR_SET"></a>
+<h3>COLOR_SET</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="('m',)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+('m',)                                                                 </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="CURSOR_SET"></a>
+<h3>CURSOR_SET</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="('H', 'f', 'A', 'B', 'C', 'D', 'R', 's', 'u', 'd', 'G')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+('H', 'f', 'A', 'B', 'C', 'D', 'R', 's', 'u', 'd', 'G')                </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="ERASE_SET"></a>
+<h3>ERASE_SET</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="('J', 'K', 'P')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+('J', 'K', 'P')                                                        </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="MODE_SET"></a>
+<h3>MODE_SET</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="('h', 'l')">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+('h', 'l')                                                             </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="SETS"></a>
+<h3>SETS</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(('H', 'f', 'A', 'B', 'C', 'D', 'R', 's', 'u', 'd', 'G'), ('J', 'K', 'P'), ('h', 'l'), ('p',), ('m',))">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(('H', 'f', 'A', 'B', 'C', 'D', 'R', 's', 'u', 'd', 'G'),
+ ('J', 'K', 'P'),
+ ('h', 'l'),
+ ('p',),
+ ('m',))                                                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:35 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

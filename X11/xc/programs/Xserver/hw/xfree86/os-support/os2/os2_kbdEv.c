@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/os2_kbdEv.c,v 3.16 2002/05/31 18:46:01 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/os2_kbdEv.c,v 3.17 2004/02/14 00:07:01 dawes Exp $ */
 /*
  * (c) Copyright 1994,1996,1999 by Holger Veit
  *			<Holger.Veit@gmd.de>
@@ -344,11 +344,6 @@ void os2PostKbdEvent(unsigned scanCode, Bool down)
 	}
 #endif /* not PC98 */	
 
-	/* check for an autorepeat-event */
-	if ((down && KeyPressed(keycode)) &&
-	    (xf86Info.autoRepeat != AutoRepeatModeOn || keyc->modifierMap[keycode]))
-		return;
-
 	/* normal, non-keypad keys */
 	if (scanCode < KEY_KP_7 || scanCode > KEY_KP_Decimal) {
 		/* magic ALT_L key on AT84 keyboards for multilingual support */
@@ -363,6 +358,12 @@ void os2PostKbdEvent(unsigned scanCode, Bool down)
 #ifdef XKB /* Warning: got position wrong first time */
 	}
 #endif
+
+	/* check for an autorepeat-event */
+	if ((down && KeyPressed(keycode)) &&
+	    (xf86Info.autoRepeat != AutoRepeatModeOn || keyc->modifierMap[keycode]))
+		return;
+
 	xf86Info.lastEventTime = 
 		kevent.u.keyButtonPointer.time = 
 		GetTimeInMillis();

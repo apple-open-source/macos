@@ -1,0 +1,376 @@
+.de uline
+\Z'\\$1'\v'.25m'\D'l \w'\\$1'u 0'\v'-.25m'
+..
+.TH TclResource n "" "2004-01-09" "Extension for Tcl"
+.\" :Title:			TclResource Help
+.\" :Project:		Extension for Tcl
+.\" :Version:		$Revision 1.1 $
+.\" :Author:		Bernard Desgraupes <bdesgraupes@easyconnect.fr>
+.\" :Homepage:		<http://webperso.easyconnect.fr/bdesgraupes/>
+.\" :Created: 		2003-09-30 03:53:27
+.\" :Modified:	 	2003-09-30 16:45:20
+.\" :Keywords:		resource, forks 
+.bp
+.SH NAME
+.PP
+resource - Manipulate Macintosh resources 
+.SH SYNOPSIS
+.PP
+.RS
+.nf
+.sp
+ package require resource 1.1
+ resource option ?arg arg ...?
+.fi
+.RE
+.sp
+.SH INTRODUCTION
+.PP
+The resource command provides some  generic  operations  for  dealing  with
+Macintosh resources. This  command  is  only  supported  on  the  Macintosh
+platform. Prior to system OSX, each Macintosh file consisted of two forks: a
+data fork and a resource fork. Since the advent of system OSX, resources can
+also be stored in the  data  fork  (this  is  the  recommended  format  for
+portability reasons: resource forks tend to be otherwise deleted when copied
+on another platform). You use the normal open, puts, close, etc. commands to
+manipulate the data fork but you must use this command, however, to interact
+with the resource map, even if it is stored in the data fork. In a resource
+map, resources are categorized by type and, in each type, are designated by
+an ID and possibly a name. See RESOURCE TYPES and RESOURCE  IDS  below  for
+details. 
+On OSX, the resource command is not a built-in command of Tcl anymore. It is
+made available by this extension which much be explicitely  loaded  with  a
+package require instruction like this:
+.RS
+.nf
+.sp
+ package require resource 1.1
+.fi
+.RE
+.sp
+Subcommand indicates what resource operation to perform. Any unique  abbreviation
+for option is acceptable. The valid  options  are  explained  in  the  next
+sections. 
+.SH\s-1 resource attributes resourceRef ?option resourceType? ?value?\s+1
+.PP
+   This command is used to get or set the attributes of the resource map or
+   the attributes of a particular resource in the resource map. It has four
+   different syntaxes:
+.SS resource attributes resourceRef
+.PP
+   To get the attributes of the resource map specified by  the  resourceRef
+   argument. 
+.SS resource attributes resourceRef value
+.PP
+   To give the value value to the attributes of the resource map  specified
+   by the resourceRef argument.
+.SS resource attributes resourceRef option resourceType
+.PP
+   To get the attributes of the resource specified by the  argument  option
+   in the resource map designated by the resourceRef argument.  The  option
+   can be one of:
+.TP 10
+\fB-id resourceId\fR
+   If the -id option is given, the id resourceId (see RESOURCE  IDS  below)
+   is used to specify the resource whose attributes must be returned or set.
+   The id must be a number: to specify a name use the -name option.
+.TP 10
+\fB-name resourceName\fR
+   If the -name option is specified, the  resource  named  resourceName  is
+   used.
+.SS resource attributes resourceRef option resourceType value
+.PP
+   To give the value value to the attributes of the resource  specified  by
+   the argument option in the resource map designated  by  the  resourceRef
+   argument. The resource can be specified using either the -id or the
+   -name as indicated above.
+   Note that the [resource attributes]  command  is  available  only  since
+   version 1.1 of the Tclresource extension. See RESOURCE ATTRIBUTES  below
+   for details about the possible values for attributes.
+.SH\s-1 resource close resourceRef\s+1
+.PP
+   Closes the given  resource  reference  (obtained  from  resource  open).
+   Resources from that resource file will no longer be available.
+.SH\s-1 resource delete ?options? resourceType\s+1
+.PP
+   This command will delete the resource  specified  by  options  and  type
+   resourceType (see RESOURCE TYPES below). The options  give  you  several
+   ways to specify the resource to be deleted.
+.TP 10
+\fB-id resourceId\fR
+   If the -id option is given the id resourceId (see RESOURCE IDS below) is
+   used to specify the resource to be deleted. The id must be a number:  to
+   specify a name use the -name option.
+.TP 10
+\fB-name resourceName\fR
+   If -name is specified, the resource named resourceName will be  deleted.
+   If the -id is also provided, then there must be a resource with BOTH this
+   name and this id. If no name is provided,  then  the  id  will  be  used
+   regardless of the name of the actual resource.
+.TP 10
+\fB-file resourceRef\fR
+   If the -file option is specified then the resource will be deleted  from
+   the file pointed to by resourceRef. Otherwise the first resource with the
+   given resourceName and or resourceId which is found on the resource file
+   path will be deleted. To inspect the file path, use the  resource  files
+   command.
+.SH\s-1 resource fork resourceRef\s+1
+.PP
+   Returns which fork (either data fork or resource  fork)  contains
+   the resource map specified by the argument resourceRef. The return value
+   will be datafork, resourcefork or unknown. The unknown value is returned
+   for the resource maps listed by the command resource list which were not
+   opened explicitely by a resource open command but were already in memory.
+   Note that the [resource fork] command is available only since version 1.1
+   of the Tclresource extension.
+.SH\s-1 resource files ?resourceRef?\s+1
+.PP
+   If resourceRef is not provided, this command returns a Tcl  list  of  the
+   resource references for all the currently open resource files. The  list
+   is in the normal Macintosh search order for resources. If resourceRef is
+   specified, the command will return the path to the file  whose  resource
+   fork is represented by that token.
+.SH\s-1 resource id resourceType resourceName resourceRef\s+1
+.PP
+   Returns the id of the resource of   type    resourceType    with    name
+   resourceName in the resource map designated by the argument resourceRef.
+   This is the reverse of command [resource name].
+.SH\s-1 resource list ?-ids? resourceType ?resourceRef?\s+1
+.PP
+   List all of the resources ids of type resourceType (see  RESOURCE  TYPES
+   below). If resourceRef is specified then  the  command  will  limit  the
+   search to that particular resource file. Otherwise, all  resource  files
+   currently opened by the application will be  searched.  A  Tcl  list  of
+   either the resource name's or resource id's of the found resources  will
+   be returned: each time the name of the resource is not empty, it is used
+   preferably to the id, unless the -ids  option  has  been  specified,  in
+   which case only id's are returned. See the RESOURCE IDS section below for
+   more details about what a resource id is.
+   Note that the -ids option is only available since  version  1.1  of  the
+   Tclresource extension.
+.SH\s-1 resource name resourceType resourceId resourceRef\s+1
+.PP
+   Returns the (possibly empty) name of the resource of  type  resourceType
+   with ID resourceId in  the  resource  map  designated  by  the  argument
+   resourceRef. This is the reverse of command [resource id].
+.SH\s-1 resource open ?(-datafork|-resourcefork)? fileName ?access?\s+1
+.PP
+   Open the resource map for the file fileName. On OSX,  resources  can  be
+   stored either in the resource fork of the file or in the data fork of the
+   file. By default, resource open will try to find resources in  the  data
+   fork of the file, then, if none is found, in  its  resource  fork.  This
+   behavior can be modified with one  of  the  -datafork  or  -resourcefork
+   switches which force the command to search only in the data fork or  the
+   resource fork respectively. Standard file access permissions may also be
+   specified with the access optional argument (see the  manual  entry  for
+   open for details). A resource reference (resourceRef) is  returned  that
+   can be used by the other resource  commands  to  refer  to  this  opened
+   resource map.
+   An error can occur if the file doesn't exist or the file does  not  have
+   resources in the data or the resource fork. However, if you open the file
+   with write permissions the file and/or resource  fork  will  be  created
+   instead of generating an error: the -datafork or -resourcefork  switches
+   let you specify which kind of resource file should be created (data fork
+   resource file or resource fork resource file). If neither -datafork  nor 
+   -resourcefork are specified, a data fork resource  file  is  created  by 
+   default.
+   Note that the -datafork and -resourcefork switches  are  only  available
+   since version 1.1 of the Tclresource extension.
+.SH\s-1 resource read resourceType resourceId ?resourceRef?\s+1
+.PP
+   Read the entire resource of type resourceType (see RESOURCE TYPES below)
+   and the name or id of resourceId (see RESOURCE IDS below) into memory and
+   return the result. If resourceRef is specified we limit  our  search  to
+   that resource file, otherwise we search all open resource forks  in  the
+   application. It is important to note that most Macintosh resource use  a
+   binary format and the data returned from this command may have  embedded
+   NULLs or other non-ASCII data.
+.SH\s-1 resource types ?resourceRef?\s+1
+.PP
+   This command returns a Tcl list of  all  resource  types  (see  RESOURCE
+   TYPES below) found in the resource file pointed to  by  resourceRef.  If
+   resourceRef is not specified it will return all the resource types found
+   in every resource file currently opened by the application.
+.SH\s-1 resource update resourceRef\s+1
+.PP
+   This command updates the resource  map  designated  by  the  resourceRef
+   argument. It performs three tasks:
+.RS
+.IP * 4
+changing, adding, or removing resource data in the fork on disk to
+      match the resource map in memory; 
+.IP * 4
+compacting the resource fork, closing up any empty space created when
+      a resource was removed, made smaller, or made larger; 
+.IP * 4
+writing the resource map in memory to the resource fork. 
+.RE
+   Because the [resource close] command calls [resource update]  before  it
+   closes the resource fork, you need to call it directly only if you  want
+   to update the file without closing it.
+   Note that the [resource update] command is available only since  version
+   1.1 of the Tclresource extension.
+.SH\s-1 resource write ?options? resourceType data\s+1
+.PP
+   This command will write the passed in data as a  new  resource  of  type
+   resourceType (see RESOURCE TYPES below). Several options  are  available
+   that describe where and how the resource is stored.
+.TP 10
+\fB-id resourceId\fR
+   If the -id option is given the id resourceId (see RESOURCE IDS below) is
+   used for the new resource, otherwise a unique id will be generated  that
+   will not conflict with any existing resource. However, the id must be  a
+   number: to specify a name use the -name option.
+.TP 10
+\fB-name resourceName\fR
+   If -name is specified the resource will be named resourceName, otherwise
+   it will have the empty string as the name.
+.TP 10
+\fB-file resourceRef\fR
+   If the -file option is specified then the resource will  be  written  in
+   the file pointed to by resourceRef, otherwise  the  most  recently  open
+   resource will be used.
+.TP 10
+\fB-force\fR
+   If the target resource already exists, then  by  default  Tcl  will  not
+   overwrite it, but raise an error instead. Use the -force flag  to  force
+   overwriting the existant resource.
+.SH RESOURCE TYPES
+.PP
+Resource types are defined as a four character string that is then mapped to
+an underlying id. For example, TEXT refers to the Macintosh  resource  type
+for text. The type STR#  is  a  list  of  counted  strings.  All  Macintosh
+resources must be of some type. See  Macintosh  documentation  for  a  more
+complete list of resource types that are commonly used.
+.SH RESOURCE IDS
+.PP
+For this command the notion of a resource id actually refers to two ideas in
+Macintosh resources. Every place you can use a  resource  Id  you  can  use
+either the resource name or a resource number. Names are always searched or
+returned in preference to numbers. For example, the resource  list  command
+will return names if they exist or numbers if the name is NULL.
+.SH RESOURCE ATTRIBUTES
+.PP
+Resource maps and individual resources have attributes. The attributes  for
+resource maps are:
+.TS
+center, box;
+ l | l | l.
+ mapChanged	32	Write map out at update 
+ mapCompact	64	Compact resource file when writing to disk 
+ mapReadOnly	128	Resource file is read-only 
+.TE
+The attributes are additional values.  To  set  both  the  mapReadOnly  and
+mapChanged attributes for the resource map with reference resourceRef,  one
+would write:
+.RS
+.nf
+.sp
+ resource attributes resourceRef 160
+.fi
+.RE
+.sp
+The allowable attributes for individual resources are: 
+.TS
+center, box;
+ l | l | l.
+ resChanged	2	Resource changed 
+ resPreload	4	Load in on OpenResFile 
+ resProtected	8	Protected 
+ resLocked	16	Load it in locked 
+ resPurgeable	32	Purgeable resource 
+ resSysHeap	64	System or application heap 
+.TE
+.SH PORTABILITY ISSUES
+.PP
+The resource command is only available on Macintosh. On systems older  than
+OSX, the resource command was built in Tcl but  it  was  removed  from  the
+versions of Tcl compiled for OSX. It is now made available as an  extension
+which should be loaded in the scripts with the following instruction:
+.RS
+.nf
+.sp
+ package require resource 1.1
+.fi
+.RE
+.sp
+Version 1.0 of the extension is simply a port to OSX of the old resource
+command: it does not handle data fork resource files. Support for data fork
+resource files is introduced in version 1.1. 
+.SH VERSION HISTORY
+.PP
+.RS
+.IP * 4
+1.0 - 03/09/25 -  First release of the extension for OSX.
+.IP * 4
+1.1 - 03/10/05 -  Support for data fork resources, attributes, update, name. 
+.RE
+.SH KNOW ISSUES
+.PP
+The resource command has been ported to OSX as a Tcl extension by Bernard
+Desgraupes. Please e-mail any bug or problem you encounter: 
+<bdesgraupes@easyconnect.fr>
+((p Version 1.0 corresponds strictly to the code provided in the Tcl source code
+(tclMacResource.c). Version 1.1 added several improvements: 
+.RS
+.IP * 4
+possibility of opening and writing to datafork resource files as well 
+  as resource fork resource files. 
+.IP * 4
+new subcommand [resource attributes] to get/set the attributes of a resource 
+  map or an individual resource. 
+.IP * 4
+new subcommand [resource update] to update a resource map without closing it. 
+.IP * 4
+new subcommand [resource fork] to indicate which fork a resource map was opened from. 
+.IP * 4
+new subcommands [resource name] and [resource id] returning the name of a resource 
+given its ID, and vice versa. 
+.IP * 4
+new -ids option for the [resource list] command 
+.RE
+The Tclresource folder (Tclresource1.0, Tclresource1.1  etc)  contains
+the extension compiled as a dynamic library. For the Tcl interpreter to
+find it  automatically,  it  should  be  located  on  your  system  in
+/Library/Tcl/ (administrator password required) or  in  your  personal
+folder ~/Library/Tcl/.
+.SH LICENSE AND DISCLAIMER
+.PP
+This software is free software and distributed under the same licensing terms 
+as the Tcl language itself. See license.terms in the Tcl distribution.
+The original code of the resource command has the following copyright.
+.RS
+.nf
+.sp
+ Copyright © 1997 Sun Microsystems, Inc.
+ Copyright © 1995-1997 Roger E. Critchlow Jr.
+.fi
+.RE
+.sp
+For the Tclresource extension:
+.RS
+.nf
+.sp
+ Copyright ©  2003 Bernard Desgraupes
+.fi
+.RE
+.sp
+.SH SOURCE CODE
+.PP
+Tclresource is an Open Source Project. Its source code is public and can 
+be found on the SourceForge site at the following address:
+<http://sourceforge.net/projects/tclresource>
+((p Tclresource binary releases are available at
+<http://sourceforge.net/project/showfiles.php?group_id=93101> or on my web 
+page at <http://webperso.easyconnect.fr/bdesgraupes/tcl.html>
+((p The code is under CVS control. You can retrieve the latest stage of 
+development using any CVS client. See instructions at:
+<http://sourceforge.net/cvs/?group_id=93101>
+((p You can browse the cvs repository online at
+<http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclresource> 
+.SH SEE ALSO
+.PP
+open 
+.SH KEYWORDS
+.PP
+open(n), resource(n)

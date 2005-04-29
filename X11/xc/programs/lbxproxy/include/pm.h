@@ -25,6 +25,7 @@ not be used in advertising or otherwise to promote the sale, use or
 other dealings in this Software without prior written authorization
 from The Open Group.
 */
+/* $XFree86: xc/programs/lbxproxy/include/pm.h,v 1.5 2003/11/17 22:20:48 dawes Exp $ */
 
 #include <X11/ICE/ICElib.h>
 
@@ -33,28 +34,20 @@ extern int proxy_manager_fd;
 extern Bool proxyMngr;
 
 extern Bool CheckForProxyManager (
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void ConnectToProxyManager (
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void SendGetProxyAddrReply (
-#if NeedFunctionPrototypes
     IceConn /*requestor_iceConn*/,
     int /*status*/,
     char * /*addr*/,
     char * /*error*/
-#endif
 );
 
 extern void HandleProxyManagerConnection (
-#if NeedFunctionPrototypes
     void
-#endif
 );

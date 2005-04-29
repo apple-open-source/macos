@@ -1,3 +1,4 @@
+.PATH: ${.CURDIR}/i386/pthreads
 MDSRCS += \
        init_cpu_capabilities.c \
        get_cpu_capabilities.s \

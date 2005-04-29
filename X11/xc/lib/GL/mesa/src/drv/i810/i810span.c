@@ -1,6 +1,7 @@
 #include "glheader.h"
 #include "macros.h"
 #include "mtypes.h"
+#include "colormac.h"
 
 #include "i810screen.h"
 #include "i810_dri.h"
@@ -116,20 +117,35 @@ do {									\
 #include "depthtmp.h"
 
 
-static void i810SetReadBuffer(GLcontext *ctx, GLframebuffer *colorBuffer,
-				GLenum mode )
+/*
+ * This function is called to specify which buffer to read and write
+ * for software rasterization (swrast) fallbacks.  This doesn't necessarily
+ * correspond to glDrawBuffer() or glReadBuffer() calls.
+ */
+static void i810SetBuffer(GLcontext *ctx, GLframebuffer *buffer,
+                          GLuint bufferBit )
 {
    i810ContextPtr imesa = I810_CONTEXT(ctx);
+   (void) buffer;
 
-   if (mode == GL_FRONT_LEFT) {
-      imesa->readMap = (char *)imesa->driScreen->pFB;
+   switch(bufferBit) {
+    case FRONT_LEFT_BIT:
+      if ( imesa->sarea->pf_current_page == 1)
+        imesa->readMap = imesa->i810Screen->back.map;
+      else
+        imesa->readMap = (char*)imesa->driScreen->pFB;
+      break;
+    case BACK_LEFT_BIT:
+      if ( imesa->sarea->pf_current_page == 1)
+        imesa->readMap =  (char*)imesa->driScreen->pFB;
+      else
+        imesa->readMap = imesa->i810Screen->back.map;
+      break;
+    default:
+      	ASSERT(0);
+	break;
    }
-   else if (mode == GL_BACK_LEFT) {
-      imesa->readMap = imesa->i810Screen->back.map;
-   }
-   else {
-      ASSERT(0);
-   }
+   imesa->drawMap = imesa->readMap;
 }
 
 
@@ -137,7 +153,7 @@ void i810InitSpanFuncs( GLcontext *ctx )
 {
    struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
 
-   swdd->SetReadBuffer = i810SetReadBuffer;
+   swdd->SetBuffer = i810SetBuffer;
 
    swdd->WriteRGBASpan = i810WriteRGBASpan_565;
    swdd->WriteRGBSpan = i810WriteRGBSpan_565;

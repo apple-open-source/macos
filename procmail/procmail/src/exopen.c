@@ -8,7 +8,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: exopen.c,v 1.1.1.2 2001/07/20 19:38:15 bbraun Exp $";
+ "$Id: exopen.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
 #endif
 #include "procmail.h"
 #include "acommon.h"
@@ -18,20 +18,55 @@ static /*const*/char rcsid[]=
 #include "lastdirsep.h"
 #include "sublib.h"
 
+static const char*safehost P((void)) /* return a hostname safe for filenames */
+{ static const char*sname=0;
+  if(!sname)
+   { char*to;const char*from=hostname();
+     int badchars=0;
+     for(to=(char*)from;*to;to++)     /* check for characters that shouldn't */
+	if(*to=='/'||*to==':'||*to=='\\')		  /* be in hostnames */
+	   badchars++;
+     if(!badchars)			      /* it's clean, pass it through */
+	sname=from;
+     else if(!(sname=to=malloc(3*badchars+strlen(from)+1)))
+	sname="";					       /* no memory! */
+     else
+      { int c;
+	while(badchars)
+	   switch(c=(unsigned char)*from++)
+	    { default:*to++=c;
+		 break;
+	      case '\0':from--;to--;		     /* "this cannot happen" */
+		 break;
+	      case '/':case ':':case '\\':	 /* we'll remap them to \ooo */
+		 *to++='\\';
+		 *to++='0'+(c>>6);
+		 *to++='0'+((c>>3)&7);
+		 *to++='0'+(c&7);
+		 badchars--;
+	    }
+	strcpy(to,from);		    /* copy the remaining characters */
+      }
+   }
+  return sname;
+}
+
 int unique(full,p,len,mode,verbos,flags)char*const full;char*p;
  const size_t len;const mode_t mode;const int verbos,flags;
 { static const char s2c[]=".,+%";static int serial=STRLEN(s2c);
-  static time_t t;char*dot,*end,*op,*ldp;struct stat filebuf;
+  static time_t t;char*dot,*end,*host;struct stat filebuf;
   int nicediff,i,didnice,retry=RETRYunique;
   if(flags&doCHOWN)		  /* semi-critical, try raising the priority */
    { nicediff=nice(0);SETerrno(0);nicediff-=nice(-NICE_RANGE);
-     didnice=!errno;
+     didnice=!errno;					  /* did we succeed? */
    }
-  *(end=len?full+len-1:(op=p)+UNIQnamelen-1)='\0';
+  end=full+len;
+  if(end-p<=UNIQnamelen-1)		      /* were we given enough space? */
+     goto ret0;						    /* nope, give up */
   if(flags&doMAILDIR)				/* 'official' maildir format */
      dot=p;
   else						     /* 'traditional' format */
-     *p=UNIQ_PREFIX,dot=ultoan((long)thepid,p+1);
+     *p=UNIQ_PREFIX,dot=ultoan((unsigned long)thepid,p+1);
   if(serial<STRLEN(s2c))
      goto in;
   do
@@ -42,31 +77,29 @@ int unique(full,p,len,mode,verbos,flags)char*const full;char*p;
 	   serial=0;t=t2;
 	 }
 in:	if(flags&doMAILDIR)
-	 { ultstr(0,(long)t,p);
-	   *(dot=strchr(p,'\0'))='.';
-	   ultstr(0,(long)thepid,dot+1);
-	   *(dot=strchr(p,'\0'))='_';
-	   *(++dot+1)='.';
-	   strlcat(dot+2,hostname(),end-dot);
+	 { dot=ultstr(0,(unsigned long)t,p);	      /* time.pid_s.hostname */
+	   *dot='.';
+	   dot=ultstr(0,(unsigned long)thepid,dot+1);
+	   *dot++='_';
+	   host=dot+2;
 	 }
 	else
-	 { p=ultoan((long)t,dot+1);
-	   *p++='.';
-	   strncpy(p,hostname(),end-p);
-	 }
+	   host=1+ultoan((unsigned long)t,dot+1);	/* _pid%time.hostname */
+	host[-1]='.';				  /* add the ".hostname" part */
+	strlcpy(host,safehost(),end-host);
       }
      *dot=(flags&doMAILDIR)?'0'+serial:s2c[serial];
      serial++;
      i=lstat(full,&filebuf);
 #ifdef ENAMETOOLONG
      if(i&&errno==ENAMETOOLONG)
-      { if(*op)			      /* first time: where's the lastdirsep? */
-	 { if(op!=full&&!strchr(dirsep,op[-1]))
-	      op=lastdirsep(full);
-	   ldp=op;		   /* keep track to avoid shortening past it */
-	   if((op+=MINnamelen+1)>end)		 /* a guess at a safe length */
-	      op=end;
-	 }
+      { char*op,*ldp;
+	op=lastdirsep(full);
+	ldp=op+1;		   /* keep track to avoid shortening past it */
+	if(end-op>MINnamelen+1)			   /* guess at a safe length */
+	   op+=MINnamelen+1;			  /* start at MINnamelen out */
+	else
+	   op=end-1;			    /* this shouldn't happen, but... */
 	do
 	   *--op='\0';					     /* try chopping */
 	while((i=lstat(full,&filebuf))&&errno==ENAMETOOLONG&&op>ldp);

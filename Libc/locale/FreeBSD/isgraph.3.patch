@@ -1,0 +1,12 @@
+--- isgraph.3.orig	Fri Mar 11 19:25:22 2005
++++ isgraph.3	Fri Mar 11 19:27:03 2005
+@@ -107,7 +107,8 @@
+ .Xr ctype 3 ,
+ .Xr iswgraph 3 ,
+ .Xr multibyte 3 ,
+-.Xr ascii 7
++.Xr ascii 7 ,
++.Xr isalnum_l
+ .Sh STANDARDS
+ The
+ .Fn isgraph

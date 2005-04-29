@@ -1,9 +1,18 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/at.c,v 1.38.2.9 2003/02/09 16:31:35 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
 /* at.c - routines for dealing with attribute types */
+/* $OpenLDAP: pkg/ldap/servers/slapd/at.c,v 1.57.2.2 2004/01/01 18:16:32 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
 
 #include "portable.h"
 
@@ -51,6 +60,8 @@ struct aindexrec {
 static Avlnode	*attr_index = NULL;
 static LDAP_SLIST_HEAD(ATList, slap_attribute_type) attr_list
 	= LDAP_SLIST_HEAD_INITIALIZER(&attr_list);
+	
+ldap_pvt_thread_mutex_t at_mutex;
 
 static int
 attr_index_cmp(
@@ -101,7 +112,9 @@ at_bvfind(
 {
 	struct aindexrec *air;
 
+	ldap_pvt_thread_mutex_lock( &at_mutex );
 	air = avl_find( attr_index, name, attr_index_name_cmp );
+	ldap_pvt_thread_mutex_unlock( &at_mutex );
 
 	return air != NULL ? air->air_at : NULL;
 }
@@ -199,6 +212,7 @@ void
 at_destroy( void )
 {
 	AttributeType *a;
+	ldap_pvt_thread_mutex_lock( &at_mutex );
 	avl_free(attr_index, ldap_memfree);
 
 	while( !LDAP_SLIST_EMPTY(&attr_list) ) {
@@ -214,6 +228,7 @@ at_destroy( void )
 	if ( slap_schema.si_at_undefined ) {
 		ad_destroy(slap_schema.si_at_undefined->sat_ad);
 	}
+	ldap_pvt_thread_mutex_unlock( &at_mutex );
 }
 
 int
@@ -221,7 +236,9 @@ at_start( AttributeType **at )
 {
 	assert( at );
 
+	ldap_pvt_thread_mutex_lock( &at_mutex );
 	*at = LDAP_SLIST_FIRST(&attr_list);
+	ldap_pvt_thread_mutex_unlock( &at_mutex );
 
 	return (*at != NULL);
 }
@@ -231,6 +248,7 @@ at_next( AttributeType **at )
 {
 	assert( at );
 
+	ldap_pvt_thread_mutex_lock( &at_mutex );
 #if 1	/* pedantic check */
 	{
 		AttributeType *tmp = NULL;
@@ -246,6 +264,7 @@ at_next( AttributeType **at )
 #endif
 
 	*at = LDAP_SLIST_NEXT(*at,sat_next);
+	ldap_pvt_thread_mutex_unlock( &at_mutex );
 
 	return (*at != NULL);
 }
@@ -261,6 +280,8 @@ at_insert(
 	struct aindexrec	*air;
 	char			**names;
 
+	ldap_pvt_thread_mutex_lock( &at_mutex );
+	LDAP_SLIST_NEXT( sat, sat_next ) = NULL;
 	LDAP_SLIST_INSERT_HEAD( &attr_list, sat, sat_next );
 
 	if ( sat->sat_oid ) {
@@ -273,8 +294,10 @@ at_insert(
 		                 attr_index_cmp, avl_dup_error ) ) {
 			*err = sat->sat_oid;
 			ldap_memfree(air);
+			ldap_pvt_thread_mutex_unlock( &at_mutex );
 			return SLAP_SCHERR_ATTR_DUP;
 		}
+		ldap_pvt_thread_mutex_unlock( &at_mutex );
 		/* FIX: temporal consistency check */
 		at_bvfind(&air->air_name);
 	}
@@ -286,12 +309,15 @@ at_insert(
 			air->air_name.bv_val = *names;
 			air->air_name.bv_len = strlen(*names);
 			air->air_at = sat;
+			ldap_pvt_thread_mutex_lock( &at_mutex );
 			if ( avl_insert( &attr_index, (caddr_t) air,
 			                 attr_index_cmp, avl_dup_error ) ) {
 				*err = *names;
 				ldap_memfree(air);
+				ldap_pvt_thread_mutex_unlock( &at_mutex );
 				return SLAP_SCHERR_ATTR_DUP;
 			}
+			ldap_pvt_thread_mutex_unlock( &at_mutex );
 			/* FIX: temporal consistency check */
 			at_bvfind(&air->air_name);
 			names++;
@@ -484,6 +510,11 @@ at_add(
 	}
 
 	if ( sat->sat_ordering_oid ) {
+		if( !sat->sat_equality ) {
+			*err = sat->sat_ordering_oid;
+			return SLAP_SCHERR_ATTR_BAD_MR;
+		}
+
 		mr = mr_find(sat->sat_ordering_oid);
 
 		if( mr == NULL ) {
@@ -519,6 +550,11 @@ at_add(
 	}
 
 	if ( sat->sat_substr_oid ) {
+		if( !sat->sat_equality ) {
+			*err = sat->sat_substr_oid;
+			return SLAP_SCHERR_ATTR_BAD_MR;
+		}
+
 		mr = mr_find(sat->sat_substr_oid);
 
 		if( mr == NULL ) {
@@ -531,14 +567,12 @@ at_add(
 			return SLAP_SCHERR_ATTR_BAD_MR;
 		}
 
-		/* due to funky LDAP builtin substring rules, we
+		/* due to funky LDAP builtin substring rules,
 		 * we check against the equality rule assertion
 		 * syntax and compat syntaxes instead of those
 		 * associated with the substrings rule.
 		 */
-		if( sat->sat_equality &&
-			sat->sat_syntax != sat->sat_equality->smr_syntax )
-		{
+		if( sat->sat_syntax != sat->sat_equality->smr_syntax ) {
 			if( sat->sat_equality->smr_compat_syntaxes == NULL ) {
 				*err = sat->sat_substr_oid;
 				return SLAP_SCHERR_ATTR_BAD_MR;
@@ -588,23 +622,30 @@ at_index_print( void )
 int
 at_schema_info( Entry *e )
 {
-	struct berval	vals[2];
-	AttributeType	*at;
-
 	AttributeDescription *ad_attributeTypes = slap_schema.si_ad_attributeTypes;
+	AttributeType	*at;
+	struct berval	val;
+	struct berval	nval;
 
-	vals[1].bv_val = NULL;
-
+	ldap_pvt_thread_mutex_lock( &at_mutex );
 	LDAP_SLIST_FOREACH(at,&attr_list,sat_next) {
 		if( at->sat_flags & SLAP_AT_HIDE ) continue;
 
-		if ( ldap_attributetype2bv( &at->sat_atype, vals ) == NULL ) {
+		if ( ldap_attributetype2bv( &at->sat_atype, &val ) == NULL ) {
+			ldap_pvt_thread_mutex_unlock( &at_mutex );
 			return -1;
 		}
 
-		if( attr_merge( e, ad_attributeTypes, vals ) )
+		nval.bv_val = at->sat_oid;
+		nval.bv_len = strlen(at->sat_oid);
+
+		if( attr_merge_one( e, ad_attributeTypes, &val, &nval ) )
+		{
+			ldap_pvt_thread_mutex_unlock( &at_mutex );
 			return -1;
-		ldap_memfree( vals[0].bv_val );
+		}
+		ldap_memfree( val.bv_val );
 	}
+	ldap_pvt_thread_mutex_unlock( &at_mutex );
 	return 0;
 }

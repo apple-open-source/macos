@@ -1,0 +1,217 @@
+# Commands covered: sound creation
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test sound-1.1 {sound command, create with automatic name} {
+  set s [snack::sound]
+  $s destroy
+  set s
+} sound1
+
+test sound-1.2 {sound command, create with specified name} {
+  set s [snack::sound snd]
+  $s destroy
+  set s
+} snd
+
+test sound-1.3 {sound command, bad args} {
+  catch {snack::sound snd -junk} msg
+  set msg	
+} {bad option "-junk": must be -load, -file, -rate, -frequency, -channels, -encoding, -format, -channel, -byteorder, -buffersize, -skiphead, -guessproperties, -fileformat, -precision, -changecommand, or -debug}
+
+test sound-1.4 {sound command, missing argument for -rate option} {
+  catch {snack::sound snd -rate} msg
+  set msg	
+} {No argument given for -rate option}
+
+test sound-2.1 {sound command, with specified properties} {
+  set s [snack::sound snd -rate 8000 -channels 2 -encoding mulaw]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 8000 0 0 Mulaw 2 RAW 0}
+
+test sound-2.2 {sound command, with specified -encoding Lin8offset} {
+  set s [snack::sound snd -encoding Lin8offset]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 128 128 Lin8offset 1 RAW 0}
+
+test sound-2.3 {sound command, with specified -encoding Lin8} {
+  set s [snack::sound snd -encoding Lin8]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 0 0 Lin8 1 RAW 0}
+
+test sound-2.4 {sound command, with specified -encoding Lin16} {
+  set s [snack::sound snd -encoding Lin16]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 0 0 Lin16 1 RAW 0}
+
+test sound-2.5 {sound command, with specified -encoding Alaw} {
+  set s [snack::sound snd -encoding Alaw]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 0 0 Alaw 1 RAW 0}
+
+test sound-2.6 {sound command, with specified -encoding Mulaw} {
+  set s [snack::sound snd -encoding Mulaw]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 0 0 Mulaw 1 RAW 0}
+
+test sound-2.7 {sound command, with specified -encoding Lin24} {
+  set s [snack::sound snd -encoding Lin24]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 0 0 Lin24 1 RAW 0}
+
+test sound-2.8 {sound command, with specified -encoding Lin32} {
+  set s [snack::sound snd -encoding Lin32]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 0 0 Lin32 1 RAW 0}
+
+test sound-2.9 {sound command, with specified -encoding Float} {
+  set s [snack::sound snd -encoding Float]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 0.0 0.0 Float 1 RAW 0}
+
+test sound-2.10 {sound command, with faulty encoding property} {
+  catch {snack::sound snd -encoding junk} msg
+  set msg
+} {Unknown encoding}
+
+test sound-2.8 {sound command, with faulty channels property} {
+  catch {snack::sound snd -channels 0} msg
+  set msg
+} {Number of channels must be >= 1}
+
+test sound-3.1 {sound command, with initial file read} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s info]
+  $s destroy
+  set res
+} {15820 16000 14264 -8288 Lin16 1 WAV 44}
+
+test sound-3.2 {sound command, with initial file link} {
+  set s [snack::sound snd -file ex1.wav]
+  set res [$s info]
+  $s destroy
+  set res
+} {15820 16000 0 0 Lin16 1 WAV 44}
+
+test sound-4.1 {sound command, create new replacing old} {
+  set s [snack::sound snd -load ex1.wav]
+  set s [snack::sound snd]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 0 0 Lin16 1 RAW 0}
+
+test sound-4.2 {sound command, two sounds in different interpreters with same name} {
+  set s1 [snack::sound snd -load ex1.wav]
+
+  set i [interp create]
+  $i eval package require -exact snack 2.2
+  $i eval snack::sound snd
+  $i eval snd destroy
+  interp delete $i
+
+  set res [$s info]
+  $s destroy
+  set res
+} {15820 16000 14264 -8288 Lin16 1 WAV 44}
+
+test sound-5.1 {sound command, with specified precision} {
+  set s [snack::sound snd -precision double]
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 0 0 Lin16 1 RAW 0}
+
+test sound-6.1 {sound command, missing filename for -load option} {
+  catch {snack::sound snd -load} msg
+  set msg
+} {No argument given for -load option}
+
+test sound-6.2 {sound command, missing filename for -file option} {
+  catch {snack::sound snd -file} msg
+  set msg
+} {No argument given for -file option}
+
+test sound-6.3 {sound command, missing channel for -channel option} {
+  catch {snack::sound snd -channel} msg
+  set msg
+} {No argument given for -channel option}
+
+test sound-7.1 {sound command, -changecommand option, changed New} {
+  set s [snack::sound snd -changecommand changeproc]
+  proc changeproc args {set ::flag $args}
+  $s changed New
+  set tmp $::flag
+  $s destroy
+  set tmp
+} New
+
+test sound-7.2 {sound command, -changecommand option, changed More} {
+  set s [snack::sound snd -changecommand changeproc]
+  proc changeproc args {set ::flag $args}
+  $s changed More
+  set tmp $::flag
+  $s destroy
+  set tmp
+} More
+
+test sound-7.3 {sound command, -changecommand option, sound Destroyed} {
+  set s [snack::sound snd -changecommand changeproc]
+  proc changeproc args {set ::flag $args}
+  $s destroy
+  set ::flag
+} Destroyed
+
+test sound-7.4 {sound command, -changecommand option, changed unknown option} {
+  set s [snack::sound snd -changecommand changeproc]
+  catch {$s changed junk} msg
+  $s destroy
+  set msg
+} {unknow option, must be new or more}
+
+test sound-7.5 {sound command, -changecommand option, empty string} {
+  set s [snack::sound snd -changecommand ""]
+  $s destroy
+} {}
+
+test sound-8.1 {sound command, reallocating storage from exact to full block} {
+  set s [snack::sound snd -load ex1.wav]
+  $s concatenate $s
+  $s concatenate $s
+  $s write snackTest.wav
+  $s destroy
+  set s [snack::sound snd -load ex1.wav]
+  $s read snackTest.wav
+  set res [$s info]
+  $s destroy
+  set res
+} {63280 16000 14264 -8288 Lin16 1 WAV 44}
+
+# cleanup
+catch {::tcltest::removeFile snackTest.wav}
+::tcltest::cleanupTests
+return

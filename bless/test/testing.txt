@@ -1,0 +1,66 @@
+% diskutil partitionDisk disk1 3 HFS+ blesshfs 10G UFS blessufs 1G "Case-sensitive HFS+" blesshfsx 10G
+[ssen@futurama]$ diskutil list disk1
+/dev/disk1
+   #:                   type name               size      identifier
+   0: Apple_partition_scheme                    *233.8 GB disk1
+   1:    Apple_partition_map                    31.5 KB   disk1s1
+   2:              Apple_HFS blesshfs           9.9 GB    disk1s3
+   3:             Apple_Boot                    8.5 MB    disk1s4
+   4:              Apple_UFS blessufs           984.1 MB  disk1s5
+   5:             Apple_Boot                    128.0 MB  disk1s6
+   6:             Apple_HFSX blesshfsx          222.6 GB  disk1s7
+
+1) info mode
+diskutil  info /
+bless --verbose --info /
+bless --verbose --info 
+bless --getBoot
+bless --version
+bless --info --plist
+bless --getBoot --plist
+
+2) HFS+, folder mode
+bless --verbose --folder /Volumes/blesshfs
+bless --verbose --info /Volumes/blesshfs
+bless --verbose --folder /Volumes/blesshfs --bootinfo
+bless --verbose --folder /Volumes/blesshfs --bootinfo /usr/standalone/ppc/bootx.bootinfo
+ls -al /Volumes/blesshfs/BootX
+bless --verbose --folder /Volumes/blesshfs --bootinfo /usr/standalone/ppc/bootx.bootinfo --openfolder /Volumes/blesshfs
+bless --verbose --folder /Volumes/blesshfs --bootinfo /usr/standalone/ppc/bootx.bootinfo --label foo
+bless --verbose --folder /Volumes/blesshfs --bootinfo /usr/standalone/ppc/bootx.bootinfo --label foo --setBoot
+bless --verbose --info
+
+3) HFS+, device mode
+bless --verbose --device /dev/disk1s3 --setBoot
+unmount
+bless --verbose --device /dev/disk1s3 --label foo
+bless --verbose --device /dev/disk1s3 --startupfile /usr/standalone/ppc/bootx.xcoff
+hdiutil hfsanalyze /dev/rdisk1s3
+
+4) UFS, folder mode
+bless --verbose --folder /Volumes/blessufs --bootinfo /usr/standalone/ppc/bootx.bootinfo
+bless --verbose --folder /Volumes/blessufs --bootinfo /usr/standalone/ppc/bootx.bootinfo --label foo
+bless --verbose --folder /Volumes/blessufs --bootinfo /usr/standalone/ppc/bootx.bootinfo --setBoot
+bless --verbose --folder /Volumes/blessufs --bootinfo /usr/standalone/ppc/bootx.bootinfo --label foo --setBoot
+
+5) UFS, device mode
+bless --verbose --device /dev/disk1s5 --setBoot
+bless --verbose --device /dev/disk1s5 --bootinfo /usr/standalone/ppc/bootx.bootinfo -setBoot
+
+6) UFS, info mode
+bless --verbose --info
+bless --verbose --getBoot
+
+7) HFSX folder mode
+bless --verbose --folder /Volumes/blesshfsx --bootinfo /usr/standalone/ppc/bootx.bootinfo
+bless --verbose --folder /Volumes/blesshfsx --bootinfo /usr/standalone/ppc/bootx.bootinfo  --setBoot
+bless --verbose --folder /Volumes/blesshfsx --bootinfo /usr/standalone/ppc/bootx.bootinfo  --setBoot --label foo
+
+8) HFSX info mode
+bless --verbose  --info
+bless --verbose --getBoot
+
+9) HFS+ RAID
+bless --verbose --folder /Volumes/RAID
+bless --verbose --folder /Volumes/RAID --bootinfo /usr/standalone/ppc/bootx.bootinfo --label foo
+bless --verbose --folder /Volumes/RAID --bootinfo /usr/standalone/ppc/bootx.bootinfo --label foo --setBoot

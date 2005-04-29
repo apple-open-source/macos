@@ -62,6 +62,7 @@ struct arc4_stream {
 static int rs_initialized;
 static struct arc4_stream *rs = NULL;
 
+static inline void arc4_init(struct arc4_stream *) __attribute__((always_inline));
 static inline void
 arc4_init(as)
 	struct arc4_stream *as;
@@ -74,6 +75,7 @@ arc4_init(as)
 	as->j = 0;
 }
 
+static inline void arc4_addrandom(struct arc4_stream *, u_char *, int) __attribute__((always_inline));
 static inline void
 arc4_addrandom(as, dat, datlen)
 	struct arc4_stream *as;
@@ -117,6 +119,7 @@ arc4_stir(as)
 	arc4_addrandom(as, (void *) &rdat, sizeof(rdat));
 }
 
+static inline u_int8_t arc4_getbyte(struct arc4_stream *) __attribute__((always_inline));
 static inline u_int8_t
 arc4_getbyte(as)
 	struct arc4_stream *as;
@@ -132,6 +135,7 @@ arc4_getbyte(as)
 	return (as->s[(si + sj) & 0xff]);
 }
 
+static inline u_int32_t arc4_getword(struct arc4_stream *) __attribute__((always_inline));
 static inline u_int32_t
 arc4_getword(as)
 	struct arc4_stream *as;

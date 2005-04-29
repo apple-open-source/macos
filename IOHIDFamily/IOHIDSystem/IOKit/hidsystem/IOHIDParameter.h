@@ -62,11 +62,13 @@
 #define kIOHIDKeyMappingKey				"HIDKeyMapping"
 #define kIOHIDResetKeyboardKey			"HIDResetKeyboard"
 
-#define kIOHIDKeyboardSwapCommandAltKey		"HIDKeyboardSwapCommandAlt"
-#define kIOHIDKeyboardSwapControlCapsLockKey	"HIDKeyboardSwapControlCapsLock"
-#define kIOHIDKeyboardCapsLockDoesLockKey	"HIDKeyboardCapsLockDoesLock"
-#define kIOHIDKeyboardSupportsF12EjectKey	"HIDKeyboardSupportsF12Eject"
-#define kIOHIDKeyboardSupportedModifiersKey   "HIDKeyboardSupportedModifiers"
+#define kIOHIDKeyboardModifierMappingPairsKey   "HIDKeyboardModifierMappingPairs"
+#define kIOHIDKeyboardModifierMappingSrcKey     "HIDKeyboardModifierMappingSrc"
+#define kIOHIDKeyboardModifierMappingDstKey     "HIDKeyboardModifierMappingDst"
+
+#define kIOHIDKeyboardCapsLockDoesLockKey       "HIDKeyboardCapsLockDoesLock"
+#define kIOHIDKeyboardSupportsF12EjectKey       "HIDKeyboardSupportsF12Eject"
+#define kIOHIDKeyboardSupportedModifiersKey     "HIDKeyboardSupportedModifiers"
 
 #define kIOHIDPointerResolutionKey		"HIDPointerResolution"
 #define kIOHIDResetPointerKey			"HIDResetPointer"
@@ -86,6 +88,8 @@
 #define kIOHIDScrollAccelerationKey		"HIDScrollAcceleration"
 #define kIOHIDScrollAccelerationTypeKey     "HIDScrollAccelerationType"
 #define kIOHIDScrollAccelerationTableKey	"HIDScrollAccelerationTable"
+
+#define kIOHIDScrollMouseButtonKey      "HIDScrollMouseButton"
 
 #define kIOHIDTrackpadScrollAccelerationKey "HIDTrackpadScrollAcceleration"
 #define kIOHIDMouseScrollAccelerationKey   "HIDMouseScrollAcceleration"

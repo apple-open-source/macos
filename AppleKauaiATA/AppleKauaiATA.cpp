@@ -77,6 +77,8 @@
 #define k80ConductorString "80-conductor"
 
 
+
+
 			/*  Bit-significant representation of supported modes.*/ 
 #define kATASupportedPIOModes		 0x001F	// modes 4, 3, 2, 1, and 0
 #define kATASupportedMultiDMAModes	 0x0007	// modes 2, 1, and 0
@@ -135,7 +137,13 @@ AppleKauaiATA::init(OSDictionary* properties)
 	bufferRX = false;
 	rxFeatureOn = false;
 	ultra133 = false;
-	
+	myProvider = 0;
+
+#ifdef __KAUAI_POLLED__
+	polledAdapter = 0;
+	polledMode = false;
+#endif	
+
 	DLOG("AppleKauaiATA init done\n");
 
     return true;
@@ -199,7 +207,24 @@ AppleKauaiATA::probe(IOService* provider,	SInt32*	score)
 		DLOG("AppleKauaiATA rx buffer feature enabled\n");
 	}
 	
+#ifdef __KAUAI_POLLED__	
+/// TBD  set polled mode per flag from property
+ 
+	OSData *polledProperty =  OSDynamicCast( OSData, provider->getProperty( kPolledPropertyKey ) );
+	if( polledProperty )
+	{
+		DLOG("AppleKauaiATA polledMode feature enabled\n");
+		polledMode = true;
+	} else {
 	
+		;
+		
+		DLOG("AppleKauaiATA polledMode property not found. \n");
+	
+	}
+	
+	
+#endif	
 	
 	// do a little initialization here once the probe is succesful so we can start clean.
 
@@ -269,6 +294,8 @@ AppleKauaiATA::start(IOService *provider)
 		return false;	
 	}
 
+	myProvider = provider;
+
 	if( rxFeatureOn )
 	{
 	
@@ -301,6 +328,26 @@ AppleKauaiATA::start(IOService *provider)
         provider->close(this);
         return false;
 	}
+
+#ifdef __KAUAI_POLLED__
+	if( polledMode )
+	{
+		polledAdapter = new KauaiPolledAdapter;
+		
+		if( 0== polledAdapter)
+		{
+			DLOG("  AppleKauaiATA *** failed creating polled adapter\n");
+			
+		} else {
+		
+			polledAdapter->setOwner( this );
+			DLOG("  AppleKauaiATA polled adapter attached.\n");
+			setProperty ( kIOPolledInterfaceSupportKey, polledAdapter );
+			polledAdapter->release();
+		}
+	
+	}
+#endif
 
     DLOG("AppleKauaiATA::start() done\n");
 
@@ -1137,6 +1184,7 @@ void
 AppleKauaiATA::processDMAInterrupt(void)
 {
 	_needsResync = _resyncInterrupts;
+	OSWriteLittleInt32( (void*) _interruptPendingReg, 0x00, 0x80000000); // clear the pending bit on the DMA interrupt
 	super::processDMAInterrupt();
 	_needsResync = false;
 }
@@ -1338,7 +1386,6 @@ AppleKauaiATA::handleTimeout( void )
 	super::handleTimeout();
 }
 
-
 /*----------------------------------------------------------------------------------------
 //	Function:		activateDMAEngine
 //	Description:	Activate the DBDMA on the ATA bus associated with current device.
@@ -1486,7 +1533,7 @@ AppleKauaiATA::createChannelCommands(void)
 			IOMakeDBDMADescriptor(currDesc,
 								command,
 								kdbdmaKeyStream0,
-								kdbdmaIntAlways,
+								kdbdmaIntNever,
 								kdbdmaBranchNever,
 								kdbdmaWaitIfTrue,
 								count,
@@ -1520,7 +1567,7 @@ AppleKauaiATA::createChannelCommands(void)
 	IOMakeDBDMADescriptor(&(_descriptors[segmentCount]),
 						kdbdmaNop,
 						kdbdmaKeyStream0,
-						kdbdmaIntNever,
+						kdbdmaIntAlways,
 						kdbdmaBranchNever,
 						kdbdmaWaitNever,
 						0,
@@ -1545,3 +1592,245 @@ AppleKauaiATA::createChannelCommands(void)
 	return kATANoErr;
 
 }
+
+
+#pragma mark -- Polled Interface --
+
+ /*---------------------------------------------------------------------------*/
+#ifdef __KAUAI_POLLED__
+/*--------------------------------
+*	Polled mode implementation
+*  All stand-alone methods for polled mode are here. Note that some polled 
+*  mode initialization is implemented in the probe and start methods.
+*
+----------------------------------*/
+
+
+IOReturn 
+AppleKauaiATA::startTimer( UInt32 inMS)
+{
+
+	if( polledAdapter )
+	{
+	
+		if(polledAdapter->isPolling())
+			return 0;
+	
+	}
+	
+	return super::startTimer( inMS);
+
+}
+
+/*---------------------------------------------------------------------------
+ *
+ *	Kill a running timer.
+ *
+ *
+ ---------------------------------------------------------------------------*/
+void
+AppleKauaiATA::stopTimer(void)
+{
+	if( polledAdapter )
+	{
+	
+		if(polledAdapter->isPolling())
+			return ;
+	
+	}
+	
+	return super::stopTimer( );
+
+}
+
+// polled mode is called at a time when hardware interrupts are disabled.
+// this is a poll-time procedure, when given a slice of time, the poll proc
+// checks the state of the hardware to see if it has a pending interrupt status
+// and calls the interrupt handlers in place of the interrupt event source.
+void 
+AppleKauaiATA::pollEntry( void )
+{
+
+	// make sure there is a current command before processing further.
+	if( 0 == _currentCommand )
+		return;
+		
+	// check the int status in hardware
+	UInt32 intStatus = OSReadLittleInt32( (void*) _interruptPendingReg, 0x00);
+	
+	// if the command is expecting a DMA interrupt as well as device interrupt
+	// wait until both interrupts are asserted before processing. 
+	if( _dmaIntExpected)
+	{
+		if( (intStatus & 0xC0000000) == 0xC0000000 )
+		{
+			processDMAInterrupt();
+			handleDeviceInterrupt();
+		}
+		return;
+	}
+	
+		
+	// if the DMA interrupt is not expected but a command is in process, 
+	// then complete the pending IRQ status. 
+	if( intStatus & 0x40000000 )
+	{
+		handleDeviceInterrupt();
+		return;
+	}
+
+	return;
+}
+
+void 
+AppleKauaiATA::transitionFixup( void )
+{
+
+		// ivars working up the chain of inheritance:
+		_needsResync = false;
+		bufferRX = false;
+		clientBuffer = 0;
+		
+		// from MacIOATA
+		_dmaIntExpected = 0;
+		_dmaState = MacIOATA::kATADMAInactive;
+		_resyncInterrupts = false;
+		isBusOnline = true;
+		
+		// from IOATAController		
+		_queueState = IOATAController::kQueueOpen;
+		_busState = IOATAController::kBusFree;
+		_currentCommand = 0L;
+		_selectedUnit = kATAInvalidDeviceID;
+		_queueState = IOATAController::kQueueOpen;
+		_immediateGate = IOATAController::kImmediateOK;
+
+		// make sure the hardware is running
+		((IOPCIDevice *)myProvider)->restoreDeviceState();
+		
+}
+
+#endif
+
+//---------------------------------------------------------------------------
+// end of AppleKauaiATA
+// --------------------------------------------------------------------------
+
+
+#ifdef __KAUAI_POLLED__
+#undef super
+//---------------------------------------------------------------------------
+// begin of KauaiPolledAdapter
+// --------------------------------------------------------------------------
+
+#define super IOPolledInterface
+
+OSDefineMetaClassAndStructors(  KauaiPolledAdapter, IOPolledInterface )
+
+
+
+IOReturn 
+KauaiPolledAdapter::probe(IOService * target)
+{
+	pollingActive = false;
+	return kIOReturnSuccess;
+}
+
+IOReturn 
+KauaiPolledAdapter::open( IOOptionBits state, IOMemoryDescriptor * buffer)
+{
+
+	switch( state )
+	{
+		case kIOPolledPreflightState:
+			// nothing to do here for this controller
+		break;
+		
+		case kIOPolledBeforeSleepState:
+			pollingActive = true;
+		break;
+		
+		case kIOPolledAfterSleepState:
+			// ivars may be corrupt at this time. Kernel space is restored by bootx, then executed. 
+			// ivars may be stale depending on the when the image snapshot took place during image write
+			// call the controller to return the ivars to a queiscent state and restore the pci device state.
+			owner->transitionFixup();
+			pollingActive = true;
+
+		break;	
+		
+		
+		case kIOPolledPostflightState:
+			// illegal value should not happen. 
+		default:	
+		break;
+	}
+
+
+	return kIOReturnSuccess;
+}
+
+
+IOReturn 
+KauaiPolledAdapter::close(IOOptionBits state)
+{
+
+
+	switch( state )
+	{
+		case kIOPolledPreflightState:
+		case kIOPolledBeforeSleepState:
+		case kIOPolledAfterSleepState:
+		case kIOPolledPostflightState:
+		default:
+			pollingActive = false;	
+		break;
+	}
+
+
+	return kIOReturnSuccess;
+}
+
+IOReturn 
+KauaiPolledAdapter::startIO(uint32_t 	        operation,
+                             uint32_t           bufferOffset,
+                             uint64_t	        deviceOffset,
+                             uint64_t	        length,
+                             IOPolledCompletion completion)
+{
+
+
+
+
+	return kIOReturnUnsupported;
+}
+
+IOReturn 
+KauaiPolledAdapter::checkForWork(void)
+{
+
+	if( owner )
+	{
+		owner->pollEntry();
+	}
+
+	return kIOReturnSuccess;
+}
+
+
+bool 
+KauaiPolledAdapter::isPolling( void )
+{
+
+	return pollingActive;
+}
+
+void
+KauaiPolledAdapter::setOwner( AppleKauaiATA* myOwner )
+{
+
+	owner = myOwner;
+	pollingActive = false;
+}
+
+#endif

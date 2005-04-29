@@ -12,48 +12,33 @@
 
 FBSDSECTIONS= 1 2 3 4 5 6 7 8 9
 
-.if !target(_FBSDPATCH)
-_FBSDPATCH: .USE
-	@if [ -f ${.ALLSRC}.patch ]; then \
-	    echo cp ${.ALLSRC} ${.TARGET}; \
-	    cp ${.ALLSRC} ${.TARGET}; \
-	    echo patch ${.TARGET} ${.ALLSRC}.patch; \
-	    patch ${.TARGET} ${.ALLSRC}.patch; \
-	else \
-	    echo ln -s ${.ALLSRC} ${.TARGET}; \
-	    ln -s ${.ALLSRC} ${.TARGET}; \
-	fi
-.endif
-.if !target(_FBSDPATCH)
-_FBSDPATCH: .USE
-	cp ${.ALLSRC} ${.TARGET}; \
-	patch ${.TARGET} ${.ALLSRC}.patch
-.endif
-
 .for _src in ${FBSDSRCS}
-${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _FBSDPATCH
+${SYMROOT}/${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHSYM
 SRCS+= ${_src}
+AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-fbsd.${_src:E}
 .endfor
 
 .for _src in ${FBSDMDSRCS}
-${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _FBSDPATCH
+${SYMROOT}/${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHSYM
 MDSRCS+= ${_src}
+AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-fbsd.${_src:E}
 .endfor
 
 .for _src in ${FBSDMISRCS}
-${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _FBSDPATCH
+${SYMROOT}/${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHSYM
 MISRCS+= ${_src}
+AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-fbsd.${_src:E}
 .endfor
 
-.for _src in ${FBSDORIGHDRS}
-${_src}: FreeBSD/${_src} _FBSDPATCH
-FBSDHDRS+= ${_src}
+.for _src in ${FBSDHDRS}
+${SYMROOT}/${_src}: FreeBSD/${_src} _AUTOPATCHSYM
+AUTOPATCHHDRS+= ${SYMROOT}/${_src}
 .endfor
 
 .for _sect in ${FBSDSECTIONS}
 .for _src in ${FBSDMAN${_sect}}
-${_src}: FreeBSD/${_src} _FBSDPATCH
+${_src}: FreeBSD/${_src} _AUTOPATCH
 MAN${_sect}+= ${_src}
-FBSDPATCHMAN+= ${_src}
+AUTOPATCHMAN+= ${_src}
 .endfor
 .endfor

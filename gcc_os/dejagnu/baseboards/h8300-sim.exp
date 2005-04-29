@@ -22,8 +22,7 @@ set_board_info compiler  "[find_gcc]"
 # We only support newlib on this target.
 set_board_info cflags  "[newlib_include_flags]"
 set_board_info ldflags  "[newlib_link_flags]"
-# The simulator doesn't return exit statuses and we need to indicate this.
-set_board_info needs_status_wrapper  1
+set_board_info uses_underscores 1
 
 # There's no support for argument-passing.
 set_board_info noargs 1
@@ -36,6 +35,7 @@ set_board_info gdb,noresults 1
 
 # Limit the stack size to something real tiny.
 set_board_info gcc,stack_size 4096
+set_board_info gcc,text_size 60000
 
 # There's no long long support on this target
 set_board_info no_long_long  1

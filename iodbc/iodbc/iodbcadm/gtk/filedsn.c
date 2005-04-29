@@ -1,7 +1,7 @@
 /*
  *  filedsn.c
  *
- *  $Id: filedsn.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: filedsn.c,v 1.3 2004/11/11 01:52:39 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -126,7 +126,7 @@ create_filedsn (HWND hwnd)
   TFILEDSN filedsn_t;
 
   if (hwnd == NULL || !GTK_IS_WIDGET (hwnd))
-    return;
+    return NULL;
 
   accel_group = gtk_accel_group_new ();
 

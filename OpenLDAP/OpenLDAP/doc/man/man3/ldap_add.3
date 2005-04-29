@@ -1,6 +1,6 @@
 .TH LDAP_ADD 3 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_add.3,v 1.7.2.4 2003/03/03 17:10:02 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_add.3,v 1.12.2.3 2004/01/01 18:16:27 kurt Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_add, ldap_add_s, ldap_add_ext, ldap_add_ext_s \- Perform an LDAP add operation
@@ -10,16 +10,16 @@ OpenLDAP LDAP (libldap, -lldap)
 .nf
 .B #include <ldap.h>
 .sp
-.BI "int ldap_add(LDAP *" ld ", const char *" dn ", LDAPMOD *" attrs "[]);"
+.BI "int ldap_add(LDAP *" ld ", const char *" dn ", LDAPMod *" attrs "[]);"
 .sp
 .BI "int ldap_add_s(LDAP *" ld ", const char *" dn ", LDAPMod *" attrs "[]);"
 .sp
-.BI "int ldap_add_ext(LDAP *" ld ", const char *" dn ", LDAPMOD *" attrs "[],"
+.BI "int ldap_add_ext(LDAP *" ld ", const char *" dn ", LDAPMod *" attrs "[],"
 .RS
 .BI "LDAPControl *" sctrls "[], LDAPControl *" cctrls "[], int *" msgidp ");"
 .RE
 .sp
-.BI "int ldap_add_ext_s(LDAP *" ld ", const char *" dn ", LDAPMOD *" attrs "[],"
+.BI "int ldap_add_ext_s(LDAP *" ld ", const char *" dn ", LDAPMod *" attrs "[],"
 .RS
 .BI "LDAPControl *" sctrls "[], LDAPControl *" cctrls "[]);"
 .RE
@@ -84,7 +84,7 @@ also directly return LDAP error codes.
 .BR ldap (3),
 .BR ldap_modify (3)
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

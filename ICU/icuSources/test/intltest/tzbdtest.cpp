@@ -1,8 +1,8 @@
-/********************************************************************
+/***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
+ * Copyright (c) 1997-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
+ ***********************************************************************/
 
 #include "unicode/utypes.h"
 
@@ -12,6 +12,7 @@
 #include "unicode/timezone.h"
 #include "unicode/simpletz.h"
 #include "unicode/gregocal.h"
+#include "putilimp.h"
 
 void TimeZoneBoundaryTest::runIndexedTest( int32_t index, UBool exec, const char* &name, char* /*par*/ )
 {
@@ -175,7 +176,11 @@ TimeZoneBoundaryTest::showDate(UDate d)
 UnicodeString
 TimeZoneBoundaryTest::showNN(int32_t n)
 {
-    return ((n < 10) ? UnicodeString("0"): UnicodeString("")) + n;
+    UnicodeString nStr;
+    if (n < 10) {
+        nStr += UnicodeString("0", "");
+    }
+    return nStr + n;
 }
  
 // -------------------------------------
@@ -401,7 +406,7 @@ TimeZoneBoundaryTest::findBoundariesStepwise(int32_t year, UDate interval, TimeZ
 void
 TimeZoneBoundaryTest::TestStepwise()
 {
-    TimeZone *zone =  TimeZone::createTimeZone("EST");
+    TimeZone *zone =  TimeZone::createTimeZone("America/New_York");
     findBoundariesStepwise(1997, ONE_DAY, zone, 2);
     delete zone;
     zone = TimeZone::createTimeZone("UTC"); // updated 12/3/99 aliu

@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XChKMap.man,v 1.2 2001/01/27 18:20:20 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XChKMap.man,v 1.3 2003/04/28 22:18:14 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -18,23 +18,13 @@
 XGetDeviceKeyMapping, XChangeDeviceKeyMapping \- query or change device key mappings
 .SH SYNTAX
 \fB
-XChangeDeviceKeyMapping(\^\fIdisplay\fP, \fIdevice\fP, \fIfirst_keycode\fP, 
-\fIkeysyms_per_keycode\fP, \fIkeysyms\fP, \fIkeycode_count\fP\^)
-.nf
-      Display *\fIdisplay\fP\^;
-      XDevice *\fIdevice\fP\^;
-      int \fIfirst_keycode\fP\^;
-      int \fIkeysyms_per_keycode\fP\^;
-      KeySym *\fIkeysyms\fP\^;
-      int \fIkeycode_count\fP\^;
-
-KeySym *XGetDeviceKeyMapping(\^\fIdisplay\fP, \fIdevice\fP, \fIfirst_keycode\fP, \fIkeycode_count\fP,
-\fIkeysyms_per_keycode_return\fP\^)
-      Display *\fIdisplay\fP\^;
-      XDevice *\fIdevice\fP\^;
-      KeyCode \fIfirst_keycode\fP\^;
-      int \fIkeycode_count\fP\^;
-      int *\fIkeysyms_per_keycode_return\fP\^;
+int XChangeDeviceKeyMapping(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, int \fIfirst_keycode\fP\^, int \fIkeysyms_per_keycode\fP\^,
+KeySym *\fIkeysyms\fP\^, int \fIkeycode_count\fP\^); 
+.HP
+KeySym *XGetDeviceKeyMapping(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, KeyCode \fIfirst_keycode\fP\^, int \fIkeycode_count\fP\^, int
+*\fIkeysyms_per_keycode_return\fP\^); 
 .fi
 \fP
 .SH ARGUMENTS

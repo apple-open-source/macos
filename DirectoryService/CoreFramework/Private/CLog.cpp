@@ -32,10 +32,8 @@
 # include <sys/types.h>				// for mode_t
 # include <sys/stat.h>				// for mkdir() and stat()
 
-#include "DirServicesTypes.h"		// for eDSNoErr
 #include "DSCThread.h"				// for CThread identification
 #include "CLog.h"
-#include "CString.h"
 #include "COSUtils.h"
 #include "DSMutexSemaphore.h"
 
@@ -582,7 +580,9 @@ CLog::CLog ( const char *inFile,
 	// CFile throws.  We need to catch so we don't throw out of our constructor
 	try {
 		fFile = new CFile( inFile, true, (inFlags & CLog::kRollLog) );
-
+		if ( !fFile->is_open() )
+			throw(-1);
+		
 		if (fFile != nil)
 		{
 			// Get the length of the file and set the write pointer to EOF.

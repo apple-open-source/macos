@@ -1,0 +1,10 @@
+[vset    digest crc-zlib]
+[include digest/header.inc]
+
+[section NOTES]
+
+This command uses the same CRC polynomial as the CRC algorithm used by
+the zlib compression library ([uri http://www.gzip.org/zlib/]).
+
+[keywords zlib zip crc]
+[include digest/footer.inc]

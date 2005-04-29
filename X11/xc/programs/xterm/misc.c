@@ -2,7 +2,7 @@
  *	$Xorg: misc.c,v 1.3 2000/08/17 19:55:09 cpqbld Exp $
  */
 
-/* $XFree86: xc/programs/xterm/misc.c,v 3.75 2003/02/06 23:09:43 dickey Exp $ */
+/* $XFree86: xc/programs/xterm/misc.c,v 3.82 2003/12/31 17:12:28 dickey Exp $ */
 
 /*
  *
@@ -505,14 +505,15 @@ Bell(int which GCC_UNUSED, int percent)
 	lastBellTime = now_msecs;
     }
 
-    if (screen->visualbell)
+    if (screen->visualbell) {
 	VisualBell();
-    else
-#ifdef XKB
-	XkbStdBell(screen->display, TWindow(screen), percent, which);
+    } else {
+#if defined(HAVE_XKBBELL)
+	XkbBell(screen->display, VShellWindow, percent, which);
 #else
 	XBell(screen->display, percent);
 #endif
+    }
 
     if (screen->poponbell)
 	XRaiseWindow(screen->display, VShellWindow);
@@ -529,52 +530,43 @@ Bell(int which GCC_UNUSED, int percent)
     }
 }
 
+#define VB_DELAY screen->visualBellDelay
+
+static void
+flashWindow(TScreen * screen, Window window, GC visualGC, unsigned width, unsigned height)
+{
+    XFillRectangle(screen->display, window, visualGC, 0, 0, width, height);
+    XFlush(screen->display);
+    Sleep(VB_DELAY);
+    XFillRectangle(screen->display, window, visualGC, 0, 0, width, height);
+}
+
 void
 VisualBell(void)
 {
-    register TScreen *screen = &term->screen;
-    register Pixel xorPixel = screen->foreground ^ term->core.background_pixel;
-    XGCValues gcval;
-    GC visualGC;
+    TScreen *screen = &term->screen;
 
-    gcval.function = GXxor;
-    gcval.foreground = xorPixel;
-    visualGC = XtGetGC((Widget) term, GCFunction + GCForeground, &gcval);
+    if (VB_DELAY > 0) {
+	Pixel xorPixel = screen->foreground ^ term->core.background_pixel;
+	XGCValues gcval;
+	GC visualGC;
+
+	gcval.function = GXxor;
+	gcval.foreground = xorPixel;
+	visualGC = XtGetGC((Widget) term, GCFunction + GCForeground, &gcval);
 #if OPT_TEK4014
-    if (screen->TekEmu) {
-	XFillRectangle(
-			  screen->display,
-			  TWindow(screen),
-			  visualGC,
-			  0, 0,
-			  (unsigned) TFullWidth(screen),
-			  (unsigned) TFullHeight(screen));
-	XFlush(screen->display);
-	XFillRectangle(
-			  screen->display,
-			  TWindow(screen),
-			  visualGC,
-			  0, 0,
-			  (unsigned) TFullWidth(screen),
-			  (unsigned) TFullHeight(screen));
-    } else
+	if (screen->TekEmu) {
+	    flashWindow(screen, TWindow(screen), visualGC,
+			TFullWidth(screen),
+			TFullHeight(screen));
+	} else
 #endif
-    {
-	XFillRectangle(
-			  screen->display,
-			  VWindow(screen),
-			  visualGC,
-			  0, 0,
-			  (unsigned) FullWidth(screen),
-			  (unsigned) FullHeight(screen));
-	XFlush(screen->display);
-	XFillRectangle(
-			  screen->display,
-			  VWindow(screen),
-			  visualGC,
-			  0, 0,
-			  (unsigned) FullWidth(screen),
-			  (unsigned) FullHeight(screen));
+	{
+	    flashWindow(screen, VWindow(screen), visualGC,
+			FullWidth(screen),
+			FullHeight(screen));
+	}
+	XtReleaseGC((Widget) term, visualGC);
     }
 }
 
@@ -1025,16 +1017,18 @@ StartLog(register TScreen * screen)
 		(strftime(yyyy_mm_dd_hh_mm_ss,
 			  sizeof(yyyy_mm_dd_hh_mm_ss),
 			  "%Y.%m.%d.%H.%M.%S", ltm) > 0)) {
-		(void) sprintf(log_def_name, "Xterm.log.%.255s.%.20s.XXXXXX",
-			       hostname, yyyy_mm_dd_hh_mm_ss);
+		(void) sprintf(log_def_name, "Xterm.log.%.255s.%.20s.%d",
+			       hostname, yyyy_mm_dd_hh_mm_ss, getpid());
 	    }
+	    if ((log_default = x_strdup(log_def_name)) == NULL)
+		return;
 #else
 	    const char *log_def_name = "XtermLog.XXXXXX";
-#endif
 	    if ((log_default = x_strdup(log_def_name)) == NULL)
 		return;
 
 	    mktemp(log_default);
+#endif
 	}
 	if ((screen->logfile = x_strdup(log_default)) == 0)
 	    return;
@@ -1199,14 +1193,14 @@ find_closest_color(Display * display, Colormap cmap, XColor * def)
     double tmp, distance, closestDistance;
     int i, closest, numFound, cmap_size;
     XColor *colortable;
-    XVisualInfo template, *visInfoPtr;
+    XVisualInfo myTemplate, *visInfoPtr;
     char *found;
     int attempts;
 
-    template.visualid = XVisualIDFromVisual(DefaultVisual(display,
-							  XDefaultScreen(display)));
+    myTemplate.visualid = XVisualIDFromVisual(DefaultVisual(display,
+							    XDefaultScreen(display)));
     visInfoPtr = XGetVisualInfo(display, (long) VisualIDMask,
-				&template, &numFound);
+				&myTemplate, &numFound);
     if (numFound < 1) {
 	/* FindClosestColor couldn't lookup visual */
 	return FALSE;
@@ -1289,7 +1283,9 @@ AllocateAnsiColor(XtermWidget pTerm,
 	SET_COLOR_RES(res, def.pixel);
 	TRACE(("AllocateAnsiColor[%d] %s (pixel %#lx)\n",
 	       (res - screen->Acolors), spec, def.pixel));
+#if OPT_COLOR_RES
 	res->mode = True;
+#endif
 	return (TRUE);
     }
     TRACE(("AllocateAnsiColor %s (failed)\n", spec));
@@ -1481,13 +1477,17 @@ do_osc(Char * oscbuf, int len GCC_UNUSED, int final)
 		unparseputs(buf, screen->respond);
 	    }
 	    unparseputc1(final, screen->respond);
-	} else {
+	} else if (buf != 0) {
+	    VTFontNames fonts;
+
+	    memset(&fonts, 0, sizeof(fonts));
+
 	    /*
 	     * If the font specification is a "#", followed by an
 	     * optional sign and optional number, lookup the
 	     * corresponding menu font entry.
 	     */
-	    if (buf != 0 && *buf == '#') {
+	    if (*buf == '#') {
 		int num = screen->menu_font_number;
 		int rel = 0;
 
@@ -1502,16 +1502,18 @@ do_osc(Char * oscbuf, int len GCC_UNUSED, int final)
 		if (isdigit(CharOf(*buf))) {
 		    int val = atoi(buf);
 		    if (rel > 0)
-			num += val;
+			rel = val;
 		    else if (rel < 0)
-			num -= val;
+			rel = -val;
 		    else
 			num = val;
-		} else if (rel) {
-		    num += rel;
-		} else {
+		} else if (rel == 0) {
 		    num = 0;
 		}
+
+		if (rel != 0)
+		    num = lookupRelativeFontSize(screen,
+						 screen->menu_font_number, rel);
 
 		if (num < 0
 		    || num > fontMenu_lastBuiltin
@@ -1520,7 +1522,8 @@ do_osc(Char * oscbuf, int len GCC_UNUSED, int final)
 		    break;
 		}
 	    }
-	    SetVTFont(fontMenu_fontescape, True, VT_FONTSET(buf, NULL, NULL, NULL));
+	    fonts.f_n = buf;
+	    SetVTFont(fontMenu_fontescape, True, &fonts);
 	}
 	break;
     case 51:
@@ -1590,7 +1593,6 @@ do_dcs(Char * dcsbuf, size_t dcslen)
     char *cp = (char *) dcsbuf;
     Bool okay;
     Bool clear_all;
-    Bool lock_keys;
 
     TRACE(("do_dcs(%s:%d)\n", (char *) dcsbuf, dcslen));
 
@@ -1611,9 +1613,9 @@ do_dcs(Char * dcsbuf, size_t dcslen)
 			cp);
 	    } else if (!strcmp(cp, "\"p")) {	/* DECSCL */
 		sprintf(reply, "%d%s%s",
-			(screen->ansi_level ?
-			 screen->ansi_level : 1) + 60,
-			(screen->ansi_level >= 2)
+			(screen->vtXX_level ?
+			 screen->vtXX_level : 1) + 60,
+			(screen->vtXX_level >= 2)
 			? (screen->control_eight_bits
 			   ? ";0" : ";1")
 			: "",
@@ -1739,7 +1741,6 @@ do_dcs(Char * dcsbuf, size_t dcslen)
     default:
 	if (isdigit(CharOf(*cp))) {	/* digits are DECUDK, otherwise ignore */
 	    clear_all = True;
-	    lock_keys = True;
 
 	    if (*cp == '0') {
 		cp++;
@@ -1757,7 +1758,6 @@ do_dcs(Char * dcsbuf, size_t dcslen)
 		cp++;
 	    } else if (*cp == '1') {
 		cp++;
-		lock_keys = False;
 	    }
 
 	    if (*cp++ != '|')
@@ -1814,7 +1814,7 @@ static void
 ChangeGroup(String attribute, char *value)
 {
     Arg args[1];
-    char *name = (value != 0) ? (char *) value : "";
+    const char *name = (value != 0) ? (char *) value : "";
 
     TRACE(("ChangeGroup(attribute=%s, value=%s)\n", attribute, name));
 #if OPT_SAME_NAME
@@ -2098,8 +2098,9 @@ Panic(char *s GCC_UNUSED, int a GCC_UNUSED)
 char *
 SysErrorMsg(int n)
 {
-    register char *s = strerror(n);
-    return s ? s : "unknown error";
+    static char unknown[] = "unknown error";
+    char *s = strerror(n);
+    return s ? s : unknown;
 }
 
 void
@@ -2510,13 +2511,13 @@ sortedOpts(OptionHelp * options, XrmOptionDescRec * descs, Cardinal numDescs)
     static OptionHelp *opt_array = 0;
 
     if (opt_array == 0) {
-	Cardinal opt_count, j, k;
+	Cardinal opt_count, j;
 #if OPT_TRACE
+	Cardinal k;
 	XrmOptionDescRec *res_array = sortedOptDescs(descs, numDescs);
 	int code;
 	char *mesg;
 #else
-	(void) k;
 	(void) descs;
 	(void) numDescs;
 #endif

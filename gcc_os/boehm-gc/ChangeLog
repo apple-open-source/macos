@@ -1,20 +1,170 @@
+2003-03-04  Hans Boehm <Hans.Boehm@hp.com>
+	* include/private/gcconfig.h (GC_data_start): declare when needed.
+	* include/private/gc_priv.h: Include gcconfig.h after ptr_t
+	declaration.
+
+2003-03-03  Hans Boehm  <Hans.Boehm@hp.com>
+	* mark_rts.c (GC_cond_register_dynamic_libraries): add.
+	(GC_push_roots): explicitly mark free list headers, register
+	dynamic libraries only if !REGISTER_LIBRARIES_EARLY.
+	* alloc.c (GC_stopped_mark): Conditionally call
+	GC_cond_register_dynamic_libraries().
+	(GC_collect_a_little_inner, GC_try_to_collect_inner): Check GC_dont_gc.
+	* dyn_load.c (GC_register_main_static_data): define.
+	(GC_register_dyn_libraries (Linux /proc, Linux ELF versions)):
+	no longer skip main data. Register main data for static executable.
+	* misc.c (GC_REGISTER_MAIN_STATIC_DATA): define.
+	(GC_init_inner): Make main data registration conditional.
+	* include/private/gc_priv.h (GC_register_main_static_data): declare.
+	* include/private/gcconfig.h (REGISTER_LIBRARIES_EARLY): define
+	for LINUX.
+
+2003-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Propagate ORIGINAL_LD_FOR_MULTILIBS to
+	config.status.
+	* configure: Rebuilt.
+
+2003-02-11  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* include/private/gcconfig.h: undefine MPROTECT_VDB for MACOSX
+
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (toolexecdir, toolexeclibdir): Set and AC_SUBST.
+	Remove USE_LIBDIR conditional.
+	* Makefile.am (toolexecdir, toolexeclibdir): Don't override.
+	* Makefile.in, configure: Rebuilt.
+
+2002-12-31  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/8933:
+	* include/Makefile.in: Rebuilt.
+	* include/Makefile.am (noinst_HEADERS): Renamed from
+	include_HEADERS.
+
+2002-11-19  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* ltconfig (osf[345]): Append $major to soname_spec.
+	Reflect this in library_names_spec.
+	* ltmain.sh (osf): Prefix $major with . for use as extension.
+
+2002-10-02  Andreas Jaeger  <aj@suse.de>
+
+	* include/private/gcconfig.h (HBLKSIZE): Define for x86-64.
+
+2002-09-28  Richard Earnshaw  <rearnsha@arm.com>
+
+	* include/private/gcconfig.h: Don't check for __XSCALE__.  Instead
+	check for __arm__ or __thumb__.
+
+2002-09-27  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* include/private/gcconfig: Add machine type S390.  Add s390x support.
+	* include/private/gc_locks.h (GC_test_and_set): Implement for s390.
+	(GC_compare_and_exchange): Likewise.
+
+2002-09-24  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* include/private/gcconfig.h: Fix NetBSD/mips parameters.
+
+2002-08-23  Adam Megacz <adam@xwt.org>
+
+        * win32_threads.cc: Removed extraneous ABORT()
+
+2002-09-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.am (all-multi): Fix multilib parallel build.
+
+2002-07-18  Bo Thorsen  <bo@suse.de>
+
+	* include/private/gcconfig.h: Add x86-64 definitions.
+	* os_dep.c: Add x86-64 support.
+	* configure.in: Likewise.
+	* configure: Regenerate.
+
+2002-07-18  H.J. Lu <hjl@gnu.org>
+
+	* mach_dep.c (GC_push_regs): Remove the unused Linux/mips code.
+
+2002-07-18  H.J. Lu  (hjl@gnu.org)
+
+	* configure.in (machdep): Don't add mips_sgi_mach_dep.lo for
+	Linux/mips.
+
+2002-06-28  Hans Boehm <Hans_Boehm@hp.com>
+            Jonathan Clark
+
+        * win32_threads.c (GC_push_all_stacks): Tolerate bad sp.
+
+2002-06-09  H.J. Lu  (hjl@gnu.org)
+
+	* include/private/gc_locks.h (GC_test_and_set): Support
+	Linux/mips.
+	(GC_TEST_AND_SET_DEFINED): Likewise.
+
+	* include/private/gcconfig.h (DYNAMIC_LOADING): Defined for
+	Linux/mips.
+	(DATAEND): Likewise.
+	(LINUX_STACKBOTTOM): Likewise.
+	(STACKBOTTOM): Removed for Linux/mips.
+
+Sun May 19 11:32:03 2002  Mark P Mitchell  <mark@codesourcery.com>
+
+	* irix_threads.cc (GC_pthread_detach): Do not use REAL_FUNC.
+	(GC_pthread_create): Fix typo.
+	(GC_TRY_LOCK): Likewise.
+	* include/private/gc_locks.h (GC_test_and_set): Only take one
+	one argument.
+	(LOCK): Adjust appropriately.
+	* include/private/gc_priv.h (SIG_SUSPEND): Use SIGRTMIN if
+	_SIGRTMIN is unavailable.
+
+2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* acinclude.m4: Allow for PWDCMD to override hardcoded pwd.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2002-05-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (ORIGINAL_LD_FOR_MULTILIBS): Preserve LD at
+	script entry, and set LD to it when configuring multilibs.
+	* configure: Rebuilt.
+
+2002-04-22  Jeff Sturm  <jsturm@one-point.com>
+
+	* Makefile.am (toolexeclib_LTLIBRARIES): Remove.
+	(noinst_LTLIBRARIES): Add libgcjgc.la.
+
+	* Makefile.in: Rebuild.
+
+2002-04-22  David S. Miller  <davem@redhat.com>
+
+	* include/private/gcconfig.h: Hard-code STACKBOTTOM on
+	64-bit SPARC Linux, the __libc_stack_end technique does
+	not work in this case.
+
+2002-04-22  Jeff Sturm  <jsturm@one-point.com>
+
+	* gcconfig.h: Enable DYNAMIC_LOADING for all sparc-solaris ABIs.
+
 2002-04-17  Hans Boehm  <Hans_Boehm@hp.com>
 
 	* include/private/gcconfig.h: Use LINUX_STACKBOTTOM for
 	SPARC Linux.
 
 2002-04-09  Loren J. Rittle  <ljrittle@acm.org>
-	    Richard Henderson  <rth@redhat.com>
 
 	* include/private/gcconfig.h (DATAEND): Update comment example
-	to match reality.  Clarify comment.
-	Change all likely references to linker script synthesized
-	symbols to use this idiom: extern int etext[]; etext
-	* os_dep.c (GC_init_linux_data_start): Fix references to
-	__data_start and _end.
+	to match reality.
+
+2002-04-08  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h (DATAEND): Clarify comment.
 
 2002-04-08  Hans Boehm  <Hans_Boehm@hp.com>
-	
+
 	* include/private/gc_priv.h (WARN macro): Add "GC warning:" prefix.
 	(GC_large_alloc_warn_interval, GC_large_alloc_warn_suppressed):
 	declare.
@@ -22,7 +172,7 @@
 	frequency for blacklist warning message.
 	* misc.c (GC_large_alloc_warn_interval,
 	GC_large_alloc_warn_suppressed): define.
-	(GC_init_inner): Check GC_NO_BLACKLIST_WARNING and 
+	(GC_init_inner): Check GC_NO_BLACKLIST_WARNING and
 	GC_LARGE_ALLOC_WARN_INTERVAL environment variables.
 	* doc/README.environment (GC_NO_BLACKLIST_WARNING): Deprecate.
 	(GC_LARGE_ALLOC_WARN_INTERVAL): Add documentation.
@@ -34,13 +184,6 @@
 	* include/private/gcconfig.h: Add support for an unmapped
 	memory hole between the end of the initialized data segment
 	and the start of the BSS on FreeBSD/i386.
-
-2002-04-01  Loren J. Rittle  <ljrittle@acm.org>
-
-	* include/private/gcconfig.h: Add unified test for FreeBSD.
-	Support FreeBSD/alpha.
-	* os_dep.c: Do not include <machine/trap.h> unless available.
-	(GC_freebsd_stack_base): Fix types.
 
 2002-03-30  Krister Walfridsson  <cato@df.lth.se>
 
@@ -59,9 +202,32 @@
 	Safer definition for INVALID_QTID, quick_thread_id.  Fix/add comments.
 	Rearrange tse fields.
 
-2002-03-24  Jeff Sturm  <jsturm@one-point.com>
+2002-03-27  Richard Henderson  <rth@redhat.com>
+
+	* os_dep.c (GC_init_linux_data_start): Fix references to
+	__data_start and _end.
+
+2002-03-25  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h: Change all likely references
+	to linker script synthesized symbols to use this idiom:
+	extern int etext[]; etext
+
+2002-03-25  Jeff Sturm  <jsturm@one-point.com>
 
 	* linux_threads.c (GC_get_nprocs): Close file descriptor.
+
+2002-03-21  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h: Add unified test for FreeBSD.
+	Support FreeBSD/alpha.
+	* os_dep.c: Do not include <machine/trap.h> unless available.
+	(GC_freebsd_stack_base): Fix types.
+
+2002-03-17  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am: Make a convenience library.
+	* Makefile.in: Rebuilt.
 
 2002-03-15  Anthony Green  <green@redhat.com>
 
@@ -80,16 +246,11 @@
         compiling with GCC.
         * mark.c (GC_mark_some): We no longer use SEH if
         compiling with GCC.
-	
+
 2002-03-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
-	* include/gc_priv.h: Define ALIGN_DOUBLE on 32 bit targets if GCJ 
+	* include/gc_priv.h: Define ALIGN_DOUBLE on 32 bit targets if GCJ
 	support is enabled, for hash synchronization.
-
-2002-03-17  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
-
-	* Makefile.am: Make a convenience library.
-	* Makefile.in: Rebuilt.
 
 2002-02-24  Adam Megacz  <adam@xwt.org>
 
@@ -104,8 +265,8 @@
 2002-02-13  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* dbg_mlc.c (GC_debug_generic_malloc): Removed.
-	
-	* sparc_mach_dep.S: Rename from sparc_mach_dep.s as it is a 
+
+	* sparc_mach_dep.S: Rename from sparc_mach_dep.s as it is a
 	preprocessor file.
 	* mips_sgi_mach_dep.S: Likewise.
 	* Makefile.am: Update for above changes.
@@ -152,7 +313,7 @@
 
 	* boehm-gc on win32 now automatically detects if it is being built
 	as a DLL; see http://gcc.gnu.org/ml/java/2001-12/msg00240.html
-	
+
 2002-01-25  David Edelsohn  <edelsohn@gnu.org>
 
 	* include/gc.h (GC_INIT): Add DATASTART and DATAEND roots on AIX.
@@ -173,7 +334,7 @@
 2001-12-16  Craig Rodrigues  <rodrigc@gcc.gnu.org>
 
 	PR other/3725
-	* configure.in: Add AC_SUBST(target_alias). 
+	* configure.in: Add AC_SUBST(target_alias).
 	* configure: Regenerated.
 
 2001-11-26  Loren J. Rittle  <ljrittle@acm.org>
@@ -221,7 +382,7 @@
 
 	* solaris_threads.c (MAX_ORIG_STACK_SIZE) [I386]: Provide special
 	Solaris 2/Intel definition.
-	
+
 	* configure.in (i?86-*-solaris2.[89]*): Define
 	SOLARIS25_PROC_VDB_BUG_FIXED.
 	* include/private/gcconfig.h [I386 && SUNOS5]: Use it.
@@ -406,8 +567,8 @@
 	functions.
 	* Makefile.in: Rebuilt.
 	* configure: Rebuilt.
-	
-	* linux_thread.c (GC_thr_init, GC_suspend_handler): Add SIGABRT to the 
+
+	* linux_thread.c (GC_thr_init, GC_suspend_handler): Add SIGABRT to the
 	list of signals which are not blocked during suspend in the NO_SIGNALS
 	case.
 
@@ -434,7 +595,7 @@
 
 2000-09-30  Bryce McKinlay  <bryce@albatross.co.nz>
 
-	* configure.in: Define GC_GCJ_SUPPORT. Define NO_DEBUGGING in 
+	* configure.in: Define GC_GCJ_SUPPORT. Define NO_DEBUGGING in
 	cross-compile configuration only.
 	* Makefile.am: Build gcj_mlc.c.
 	* configure, Makefile.in: Rebuilt.
@@ -517,7 +678,7 @@
 	Imported version version 5.0alpha6.
 	* acinclude.m4: Bump version to 5.0a6.
 	* configure.in: Don't use alpha_mach_dep.s.
-	* include/private/config.h, irix_threads.c gc_watcom.asm: Delete 
+	* include/private/config.h, irix_threads.c gc_watcom.asm: Delete
 	obsolete files.
 	* Makefile.am, Makefile.in: irix_threads.c is now
 	hpux_irix_threads.c.
@@ -549,7 +710,7 @@ Fri Jan 28 17:13:20 2000  Anthony Green  <green@cygnus.com>
 
 1999-12-19  Anthony Green  <green@cygnus.com>
 
-	* gcconfig.h: Use libgcj hack for Alpha Linux.  
+	* gcconfig.h: Use libgcj hack for Alpha Linux.
 	Undefine MPROTEXT_VDB (from Jeff Sturm).
 	* os_dep.c: Remove Alpha Linux hacks.
 	* misc.c: Ditto.
@@ -746,7 +907,7 @@ Mon Aug  2 23:09:41 1999  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 	(LTCOMPILE): Renamed; added libtool invocation.
 	(LINK): Added libtool invocation.
 	(.s.o): use LTCOMPILE.
-	* configure.in: Call AM_PROG_LIBTOOL.  
+	* configure.in: Call AM_PROG_LIBTOOL.
 	(target_all): Set to libgcjgc.la.
 	Mention `.lo' forms of object files.
 
@@ -830,7 +991,7 @@ Mon Aug  2 23:09:41 1999  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 	* configure.in: likewise
 	* misc.c (GC_write): add eCos support.
 	* os_dep.c (tiny_sbrk): add eCos support.
-	
+
 Thu Dec 10 18:24:34 1998  Warren Levy  <warrenl@cygnus.com>
 
 	* misc.c (GC_init_inner): Moved STACKBASE code to os_dep.c.
@@ -842,9 +1003,9 @@ Thu Dec 10 18:24:34 1998  Warren Levy  <warrenl@cygnus.com>
 
 1998-11-20  Andrew Haley  <aph@viagra.cygnus.co.uk>
 
-	* Makefile.am, Makefile.in, configure.host: tx39 build option 
+	* Makefile.am, Makefile.in, configure.host: tx39 build option
 	"-G 0" added.
-	
+
 1998-11-17  Tom Tromey  <tromey@cygnus.com>
 
 	* configure: Rebuilt.
@@ -1031,4 +1192,3 @@ Wed Apr 15 11:40:56 1998  Tom Tromey  <tromey@sanguine.cygnus.com>
 	* Makefile.am, Makefile.in, configure.in, configure, aclocal.m4:
 	New files.
 	* Makefile.orig: Renamed from Makefile.
-

@@ -63,24 +63,24 @@
  * places (<machine/varargs.h> and <machine/stdarg.h>), so if we include one
  * of them here we may collide with the utility's includes.  It's unreasonable
  * for utilities to have to include one of them to include err.h, so we get
- * _BSD_VA_LIST_ from <machine/ansi.h> and use it.
+ * __darwin_va_list from <machine/_type.h> and use it.
  */
-#include <machine/ansi.h>
 #include <sys/cdefs.h>
+#include <_types.h>
 
 __BEGIN_DECLS
-void	err(int, const char *, ...) __dead2;
-void	verr(int, const char *, _BSD_VA_LIST_) __dead2;
-void	errc(int, int, const char *, ...) __dead2;
-void	verrc(int, int, const char *, _BSD_VA_LIST_) __dead2;
-void	errx(int, const char *, ...) __dead2;
-void	verrx(int, const char *, _BSD_VA_LIST_) __dead2;
-void	warn(const char *, ...);
-void	vwarn(const char *, _BSD_VA_LIST_);
-void	warnc(int, const char *, ...);
-void	vwarnc(int, const char *, _BSD_VA_LIST_);
-void	warnx(const char *, ...);
-void	vwarnx(const char *, _BSD_VA_LIST_);
+void	err(int, const char *, ...) __DARWIN_LDBL_COMPAT(err) __dead2;
+void	verr(int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(verr) __dead2;
+void	errc(int, int, const char *, ...) __DARWIN_LDBL_COMPAT(errc) __dead2;
+void	verrc(int, int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(verrc) __dead2;
+void	errx(int, const char *, ...) __DARWIN_LDBL_COMPAT(errx) __dead2;
+void	verrx(int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(verrx) __dead2;
+void	warn(const char *, ...) __DARWIN_LDBL_COMPAT(warn);
+void	vwarn(const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwarn);
+void	warnc(int, const char *, ...) __DARWIN_LDBL_COMPAT(warnc);
+void	vwarnc(int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwarnc);
+void	warnx(const char *, ...) __DARWIN_LDBL_COMPAT(warnx);
+void	vwarnx(const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwarnx);
 void	err_set_file(void *);
 void	err_set_exit(void (*)(int));
 

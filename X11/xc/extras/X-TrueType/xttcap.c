@@ -2,6 +2,7 @@
 /* ===FileName: ===
    Copyright (c) 1998 Takuya SHIOZAKI, All Rights reserved.
    Copyright (c) 1998 X-TrueType Server Project, All rights reserved. 
+   Copyright (c) 2003 After X-TT Project, All rights reserved.
 
 ===Notice
    Redistribution and use in source and binary forms, with or without
@@ -25,15 +26,18 @@
    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
    SUCH DAMAGE.
 
-   Major Release ID: X-TrueType Server Version 1.3 [Aoi MATSUBARA Release 3]
+   Major Release ID: X-TrueType Server Version 1.4 [Charles's Wain Release 0]
 
 Notice===
  */
+/* $XFree86: xc/extras/X-TrueType/xttcap.c,v 1.3 2003/10/22 16:25:22 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "fontmisc.h"
@@ -74,17 +78,19 @@ static SPropertyRecord const validRecords[] =
     { "FontFile",               eRecTypeString  },
     { "FaceNumber",             eRecTypeInteger },
     { "AutoItalic",             eRecTypeDouble  },
-    { "DoubleStrike",           eRecTypeBool    },
+    { "DoubleStrike",           eRecTypeString  },
     { "ForceProportional",      eRecTypeBool    },
     { "ForceSpacing",           eRecTypeString  },
-    { "ScaleBBoxWidth",         eRecTypeDouble  },
+    { "ScaleBBoxWidth",         eRecTypeString  },
     { "ScaleWidth",             eRecTypeDouble  },
     { "EncodingOptions",        eRecTypeString  },
     { "Hinting",                eRecTypeBool    },
     { "VeryLazyMetrics",        eRecTypeBool    },
     { "CodeRange",              eRecTypeString  },
-    { "EmbeddedBitmap",         eRecTypeBool    },
+    { "EmbeddedBitmap",         eRecTypeString  },
     { "VeryLazyBitmapWidthScale", eRecTypeDouble  },
+    { "ForceConstantSpacingCodeRange", eRecTypeString },
+    { "ForceConstantSpacingMetrics", eRecTypeString },
     { "Dummy",                  eRecTypeVoid    }
 };
 static int const
@@ -112,7 +118,9 @@ static struct {
     { "bs", "VeryLazyBitmapWidthScale" },
     { "cr", "CodeRange" },
     { "eb", "EmbeddedBitmap" },
-    { "hi", "Hinting" }
+    { "hi", "Hinting" },
+    { "fc", "ForceConstantSpacingCodeRange" },
+    { "fm", "ForceConstantSpacingMetrics" }
 };
 static int const
 numOfCorrespondRelations

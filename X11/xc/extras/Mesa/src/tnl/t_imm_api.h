@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
  * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
@@ -33,6 +33,8 @@
 
 extern void _tnl_save_Begin( GLenum mode );
 extern void _tnl_Begin( GLenum mode );
+extern void _tnl_End(void);
+
 
 /* TNL-private internal functions for building higher-level operations:
  */

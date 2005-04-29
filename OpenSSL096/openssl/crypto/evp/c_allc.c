@@ -95,6 +95,14 @@ void OpenSSL_add_all_ciphers(void)
 	EVP_add_cipher(EVP_rc4_40());
 #endif
 
+#ifndef NO_IDEA
+	EVP_add_cipher(EVP_idea_ecb());
+	EVP_add_cipher(EVP_idea_cfb());
+	EVP_add_cipher(EVP_idea_ofb());
+	EVP_add_cipher(EVP_idea_cbc());
+	EVP_add_cipher_alias(SN_idea_cbc,"IDEA");
+	EVP_add_cipher_alias(SN_idea_cbc,"idea");
+#endif
 
 #ifndef NO_RC2
 	EVP_add_cipher(EVP_rc2_ecb());

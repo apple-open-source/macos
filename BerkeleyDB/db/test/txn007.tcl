@@ -1,9 +1,9 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2002
+# Copyright (c) 1996-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: txn007.tcl,v 1.1.1.1 2003/02/15 04:56:17 zarzycki Exp $
+# $Id: txn007.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
 #
 #TEST	txn007
 #TEST	Test of DB_TXN_WRITE_NOSYNC

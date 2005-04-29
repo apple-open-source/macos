@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/config/cf/darwinLib.tmpl,v 1.10 2003/02/04 23:04:59 torrey Exp $
+XCOMM $XFree86: xc/config/cf/darwinLib.tmpl,v 1.20 2003/11/18 19:04:54 torrey Exp $
 /*
  * Darwin/Mac OS X shared library template
  */
@@ -18,36 +18,40 @@ GLXLIB := $(GLXLIB) $(XPLUGIN_LIB)
 #if !defined(SharedX11Reqs)
 #define SharedX11Reqs
 #endif
+#define SharedXlibi18nReqs $(LDPRELIB) $(XLIBONLY)
 
-#ifndef FontLibSharedFreeType
-#define FontLibSharedFreeType YES
-#endif
-#if FontLibSharedFreeType
 #define SharedXfontReqs     $(LDPRELIB) $(FONTSTUBLIB) GzipLibrary $(FREETYPE2LIB) -flat_namespace
-#else
-#define SharedXfontReqs     $(LDPRELIB) $(FONTSTUBLIB) GzipLibrary -flat_namespace
-#endif
 
+#define SharedAppleWMReqs   $(LDPRELIB) $(XLIB)
+#define SharedFontencReqs   $(LDPRELIB) GzipLibrary
 #define SharedGLReqs        $(LDPRELIB) $(XLIB)
 #define SharedGLUReqs       $(LDPRELIB) $(XLIB) $(GLXLIB)
+#define SharedOSMesaReqs    $(LDPRELIB) $(XLIB) $(GLXLIB)
 #define SharedSMReqs        $(LDPRELIB) $(ICELIB)
 #define SharedXawReqs       $(LDPRELIB) $(XMULIB) $(XTOOLLIB) $(XPMLIB) $(XLIB)
 #define SharedXaw6Reqs      $(LDPRELIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 #define SharedXcursorReqs   $(LDPRELIB) $(XRENDERLIB) $(XLIB)
-#define SharedXextReqs      $(LDPRELIB) $(XLIBONLY)
+#define SharedXextReqs      $(LDPRELIB) $(XONLYLIB)
 #define SharedXiReqs        $(LDPRELIB) $(XLIB)
 #define SharedXmuReqs       $(LDPRELIB) $(XTOOLLIB) $(XLIB)
-#define SharedXmuuReqs      $(LDPRELIB) $(XTOOLLIB) $(XLIB)
-#define SharedXpReqs        $(LDPRELIB) $(XAUTHLIB) $(EXTENSIONLIB) $(XLIBONLY)
+#define SharedXmuuReqs      $(LDPRELIB) $(XONLYLIB)
+#define SharedXpReqs        $(LDPRELIB) $(XLIB)
 #define SharedXpmReqs       $(LDPRELIB) $(XLIB)
 #define SharedXrandrReqs    $(LDPRELIB) $(XRENDERLIB) $(XLIB)
-#define SharedXrenderReqs   $(LDPRELIB) $(EXTENSIONLIB) $(XLIB)
-#define SharedXssReqs       $(LDPRELIB) $(XLIB) $(EXTENSIONLIB) $(XTOOLLIB)
-#define SharedXtReqs        $(LDPRELIB) $(XLIBONLY) $(SMLIB) $(ICELIB) -flat_namespace
+#define SharedXrenderReqs   $(LDPRELIB) $(XLIB)
+#define SharedXtReqs        $(LDPRELIB) $(XONLYLIB) $(SMLIB) $(ICELIB) -flat_namespace
 #define SharedXtstReqs      $(LDPRELIB) $(XLIB)
 #define SharedXvReqs        $(LDPRELIB) $(XLIB)
 #define SharedDPSReqs       $(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(XLIB)
 #define SharedDPSTKReqs     $(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(DPSLIB) $(XLIB)
-#define SharedOldXReqs      $(LDPRELIB) $(XLIBONLY)
+#define SharedOldXReqs      $(LDPRELIB) $(XONLYLIB)
 #define SharedpsresReqs     $(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(XLIB)
-
+#define SharedXResReqs	    $(LDPRELIB) $(XLIB)
+#define SharedXfontcacheReqs $(LDPRELIB) $(XLIB)
+#define SharedXineramaReqs  $(LDPRELIB) $(XLIB)
+#define SharedXssReqs	    $(LDPRELIB) $(XLIB)
+#define SharedXvMCReqs	    $(LDPRELIB) $(XLIB)
+#define SharedXxf86miscReqs $(LDPRELIB) $(XLIB)
+#define SharedXxf86vmReqs   $(LDPRELIB) $(XLIB)
+#define SharedxkbfileReqs   $(LDPRELIB) $(XONLYLIB)
+#define SharedxkbuiReqs	    $(LDPRELIB) $(XKBFILELIB) $(XONLYLIB)

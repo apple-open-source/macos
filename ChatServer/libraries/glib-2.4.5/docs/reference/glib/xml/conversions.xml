@@ -1,0 +1,798 @@
+<refentry id="glib-Character-Set-Conversion">
+<refmeta>
+<refentrytitle>Character Set Conversion</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Character Set Conversion</refname><refpurpose>convert strings between different character sets using <function><link linkend="iconv"><function>iconv()</function></link></function>.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+<link linkend="gchar">gchar</link>*      <link linkend="g-convert">g_convert</link>                       (const <link linkend="gchar">gchar</link> *str,
+                                             <link linkend="gssize">gssize</link> len,
+                                             const <link linkend="gchar">gchar</link> *to_codeset,
+                                             const <link linkend="gchar">gchar</link> *from_codeset,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);
+<link linkend="gchar">gchar</link>*      <link linkend="g-convert-with-fallback">g_convert_with_fallback</link>         (const <link linkend="gchar">gchar</link> *str,
+                                             <link linkend="gssize">gssize</link> len,
+                                             const <link linkend="gchar">gchar</link> *to_codeset,
+                                             const <link linkend="gchar">gchar</link> *from_codeset,
+                                             <link linkend="gchar">gchar</link> *fallback,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);
+struct      <link linkend="GIConv">GIConv</link>;
+<link linkend="gchar">gchar</link>*      <link linkend="g-convert-with-iconv">g_convert_with_iconv</link>            (const <link linkend="gchar">gchar</link> *str,
+                                             <link linkend="gssize">gssize</link> len,
+                                             <link linkend="GIConv">GIConv</link> converter,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);
+#define     <link linkend="G-CONVERT-ERROR-CAPS">G_CONVERT_ERROR</link>
+<link linkend="GIConv">GIConv</link>      <link linkend="g-iconv-open">g_iconv_open</link>                    (const <link linkend="gchar">gchar</link> *to_codeset,
+                                             const <link linkend="gchar">gchar</link> *from_codeset);
+<link linkend="size-t">size_t</link>      <link linkend="g-iconv">g_iconv</link>                         (<link linkend="GIConv">GIConv</link> converter,
+                                             <link linkend="gchar">gchar</link> **inbuf,
+                                             <link linkend="gsize">gsize</link> *inbytes_left,
+                                             <link linkend="gchar">gchar</link> **outbuf,
+                                             <link linkend="gsize">gsize</link> *outbytes_left);
+<link linkend="gint">gint</link>        <link linkend="g-iconv-close">g_iconv_close</link>                   (<link linkend="GIConv">GIConv</link> converter);
+<link linkend="gchar">gchar</link>*      <link linkend="g-locale-to-utf8">g_locale_to_utf8</link>                (const <link linkend="gchar">gchar</link> *opsysstring,
+                                             <link linkend="gssize">gssize</link> len,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);
+<link linkend="gchar">gchar</link>*      <link linkend="g-filename-to-utf8">g_filename_to_utf8</link>              (const <link linkend="gchar">gchar</link> *opsysstring,
+                                             <link linkend="gssize">gssize</link> len,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);
+<link linkend="gchar">gchar</link>*      <link linkend="g-filename-from-utf8">g_filename_from_utf8</link>            (const <link linkend="gchar">gchar</link> *utf8string,
+                                             <link linkend="gssize">gssize</link> len,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);
+<link linkend="gchar">gchar</link>*      <link linkend="g-filename-from-uri">g_filename_from_uri</link>             (const <link linkend="gchar">gchar</link> *uri,
+                                             <link linkend="gchar">gchar</link> **hostname,
+                                             <link linkend="GError">GError</link> **error);
+<link linkend="gchar">gchar</link>*      <link linkend="g-filename-to-uri">g_filename_to_uri</link>               (const <link linkend="gchar">gchar</link> *filename,
+                                             const <link linkend="gchar">gchar</link> *hostname,
+                                             <link linkend="GError">GError</link> **error);
+<link linkend="gchar">gchar</link>*      <link linkend="g-locale-from-utf8">g_locale_from_utf8</link>              (const <link linkend="gchar">gchar</link> *utf8string,
+                                             <link linkend="gssize">gssize</link> len,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);
+enum        <link linkend="GConvertError">GConvertError</link>;
+
+<link linkend="gboolean">gboolean</link>    <link linkend="g-get-charset">g_get_charset</link>                   (G_CONST_RETURN <link linkend="char">char</link> **charset);
+
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+
+</para>
+
+    <refsect2 id="file-name-encodings">
+      <title>File Name Encodings</title>
+
+      <para>
+	Historically, Unix has not had a defined encoding for file
+	names:  a file name is valid as long as it does not have path
+	separators in it ("/").  However, displaying file names may
+	require conversion:  from the character set in which they were
+	created, to the character set in which the application
+	operates.  Consider the Spanish file name
+	"<filename>Presentaci&oacute;n.sxi</filename>".  If the
+	application which created it uses ISO-8859-1 for its encoding,
+	then the actual file name on disk would look like this:
+      </para>
+
+      <programlisting id="filename-iso8859-1">
+Character:  P  r  e  s  e  n  t  a  c  i  &oacute;  n  .  s  x  i
+Hex code:   50 72 65 73 65 6e 74 61 63 69 f3 6e 2e 73 78 69
+      </programlisting>
+
+      <para>
+	However, if the application use UTF-8, the actual file name on
+	disk would look like this:
+      </para>
+
+      <programlisting id="filename-utf-8">
+Character:  P  r  e  s  e  n  t  a  c  i  &oacute;     n  .  s  x  i
+Hex code:   50 72 65 73 65 6e 74 61 63 69 c3 b3 6e 2e 73 78 69
+      </programlisting>
+
+      <para>
+	Glib uses UTF-8 for its strings, and GUI toolkits like GTK+
+	that use Glib do the same thing.  If you get a file name from
+	the file system, for example, from
+	<function>readdir(3)</function> or from <link
+	linkend="g_dir_read_name"><function><link linkend="g-dir-read-name"><function>g_dir_read_name()</function></link></function></link>,
+	and you wish to display the file name to the user, you
+	<emphasis>will</emphasis> need to convert it into UTF-8.  The
+	opposite case is when the user types the name of a file he
+	wishes to save:  the toolkit will give you that string in
+	UTF-8 encoding, and you will need to convert it to the
+	character set used for file names before you can create the
+	file with <function>open(2)</function> or
+	<function>fopen(3)</function>.
+      </para>
+
+      <para>
+	By default, Glib assumes that file names on disk are in UTF-8
+	encoding.  This is a valid assumption for file systems which
+	were created relatively recently:  most applications use UTF-8
+	encoding for their strings, and that is also what they use for
+	the file names they create.  However, older file systems may
+	still contain file names created in "older" encodings, such as
+	ISO-8859-1.  In this case, for compatibility reasons, you may
+	want to instruct Glib to use that particular encoding for file
+	names rather than UTF-8.  You can do this by specifying the
+	encoding for file names in the <link
+	linkend="G_FILENAME_ENCODING"><envar>G_FILENAME_ENCODING</envar></link>
+	environment variable.  For example, if your installation uses
+	ISO-8859-1 for file names, you can put this in your
+	<filename>~/.profile</filename>:
+      </para>
+
+      <programlisting>
+export G_FILENAME_ENCODING=ISO-8859-1
+      </programlisting>
+
+      <para>
+	Glib provides the functions <link
+	linkend="g_filename_to_utf8"><function><link linkend="g-filename-to-utf8"><function>g_filename_to_utf8()</function></link></function></link>
+	and <link
+	linkend="g_filename_from_utf8"><function><link linkend="g-filename-from-utf8"><function>g_filename_from_utf8()</function></link></function></link>
+	to perform the necessary conversions.  These functions convert
+	file names from the encoding specified in
+	<envar>G_FILENAME_ENCODING</envar> to UTF-8 and vice-versa.
+	<xref linkend="file-name-encodings-diagram"/> illustrates how
+	these functions are used to convert between UTF-8 and the
+	encoding for file names in the file system.
+      </para>
+
+      <figure id="file-name-encodings-diagram">
+	<title>Conversion between File Name Encodings</title>
+	<graphic fileref="file-name-encodings.png" format="PNG"/>
+      </figure>
+
+      <refsect3 id="file-name-encodings-checklist">
+	<title>Checklist for Application Writers</title>
+
+	<para>
+	  This section is a practical summary of the detailed
+	  description above.  You can use this as a checklist of
+	  things to do to make sure your applications process file
+	  name encodings correctly.
+	</para>
+
+	<orderedlist>
+	  <listitem>
+	    <para>
+	      If you get a file name from the file system from a
+	      function such as <function>readdir(3)</function> or
+	      <function><link linkend="gtk-file-chooser-get-filename"><function>gtk_file_chooser_get_filename()</function></link></function>,
+	      you do not need to do any conversion to pass that
+	      file name to functions like <function>open(2)</function>,
+	      <function>rename(2)</function>, or
+	      <function>fopen(3)</function> &mdash; those are "raw"
+	      file names which the file system understands.
+	    </para>
+	  </listitem>
+
+	  <listitem>
+	    <para>
+	      If you need to display a file name, convert it to UTF-8
+	      first by using <link
+	      linkend="g_filename_to_utf8"><function><link linkend="g-filename-to-utf8"><function>g_filename_to_utf8()</function></link></function></link>.
+	      If conversion fails, display a string like
+	      "<literal>Unknown file name</literal>".  <emphasis>Do
+	      not</emphasis> convert this string back into the
+	      encoding used for file names if you wish to pass it to
+	      the file system; use the original file name instead.
+	      For example, the document window of a word processor
+	      could display "Unknown file name" in its title bar but
+	      still let the user save the file, as it would keep the
+	      raw file name internally.  This can happen if the user
+	      has not set the <envar>G_FILENAME_ENCODING</envar>
+	      environment variable even though he has files whose
+	      names are not encoded in UTF-8.
+	    </para>
+	  </listitem>
+
+	  <listitem>
+	    <para>
+	      If your user interface lets the user type a file name
+	      for saving or renaming, convert it to the encoding used
+	      for file names in the file system by using <link
+	      linkend="g_filename_from_utf8"><function><link linkend="g-filename-from-utf8"><function>g_filename_from_utf8()</function></link></function></link>.
+	      Pass the converted file name to functions like
+	      <function>fopen(3)</function>.  If conversion fails, ask
+	      the user to enter a different file name.  This can
+	      happen if the user types Japanese characters when
+	      <envar>G_FILENAME_ENCODING</envar> is set to
+	      <literal>ISO-8859-1</literal>, for example.
+	    </para>
+	  </listitem>
+	</orderedlist>
+      </refsect3>
+    </refsect2>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="g-convert"/>g_convert ()</title>
+<indexterm><primary>g_convert</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_convert                       (const <link linkend="gchar">gchar</link> *str,
+                                             <link linkend="gssize">gssize</link> len,
+                                             const <link linkend="gchar">gchar</link> *to_codeset,
+                                             const <link linkend="gchar">gchar</link> *from_codeset,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Converts a string from one character set to another.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>str</parameter>&nbsp;:</term>
+<listitem><simpara>           the string to convert
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara>           the length of the string
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>to_codeset</parameter>&nbsp;:</term>
+<listitem><simpara>    name of character set into which to convert <parameter>str</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>from_codeset</parameter>&nbsp;:</term>
+<listitem><simpara>  character set of <parameter>str</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_read</parameter>&nbsp;:</term>
+<listitem><simpara>    location to store the number of bytes in the
+                input string that were successfully converted, or <literal>NULL</literal>.
+                Even if the conversion was successful, this may be 
+                less than <parameter>len</parameter> if there were partial characters
+                at the end of the input. If the error
+                <link linkend="G-CONVERT-ERROR-ILLEGAL-SEQUENCE-CAPS"><type>G_CONVERT_ERROR_ILLEGAL_SEQUENCE</type></link> occurs, the value
+                stored will the byte offset after the last valid
+                input sequence.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_written</parameter>&nbsp;:</term>
+<listitem><simpara> the number of bytes stored in the output buffer (not 
+                including the terminating nul).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara>         location to store the error occuring, or <literal>NULL</literal> to ignore
+                errors. Any of the errors in <link linkend="GConvertError"><type>GConvertError</type></link> may occur.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> If the conversion was successful, a newly allocated
+              nul-terminated string, which must be freed with
+              <link linkend="g-free"><function>g_free()</function></link>. Otherwise <literal>NULL</literal> and <parameter>error</parameter> will be set.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-convert-with-fallback"/>g_convert_with_fallback ()</title>
+<indexterm><primary>g_convert_with_fallback</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_convert_with_fallback         (const <link linkend="gchar">gchar</link> *str,
+                                             <link linkend="gssize">gssize</link> len,
+                                             const <link linkend="gchar">gchar</link> *to_codeset,
+                                             const <link linkend="gchar">gchar</link> *from_codeset,
+                                             <link linkend="gchar">gchar</link> *fallback,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Converts a string from one character set to another, possibly
+including fallback sequences for characters not representable
+in the output. Note that it is not guaranteed that the specification
+for the fallback sequences in <parameter>fallback</parameter> will be honored. Some
+systems may do a approximate conversion from <parameter>from_codeset</parameter>
+to <parameter>to_codeset</parameter> in their <link linkend="iconv"><function>iconv()</function></link> functions, 
+in which case GLib will simply return that approximate conversion.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>str</parameter>&nbsp;:</term>
+<listitem><simpara>          the string to convert
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara>          the length of the string
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>to_codeset</parameter>&nbsp;:</term>
+<listitem><simpara>   name of character set into which to convert <parameter>str</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>from_codeset</parameter>&nbsp;:</term>
+<listitem><simpara> character set of <parameter>str</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>fallback</parameter>&nbsp;:</term>
+<listitem><simpara>     UTF-8 string to use in place of character not
+               present in the target encoding. (This must be
+               in the target encoding), if <literal>NULL</literal>, characters
+               not in the target encoding will be represented
+               as Unicode escapes \uxxxx or \Uxxxxyyyy.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_read</parameter>&nbsp;:</term>
+<listitem><simpara>   location to store the number of bytes in the
+               input string that were successfully converted, or <literal>NULL</literal>.
+               Even if the conversion was successful, this may be 
+               less than <parameter>len</parameter> if there were partial characters
+               at the end of the input.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_written</parameter>&nbsp;:</term>
+<listitem><simpara> the number of bytes stored in the output buffer (not 
+               including the terminating nul).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara>        location to store the error occuring, or <literal>NULL</literal> to ignore
+               errors. Any of the errors in <link linkend="GConvertError"><type>GConvertError</type></link> may occur.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> If the conversion was successful, a newly allocated
+              nul-terminated string, which must be freed with
+              <link linkend="g-free"><function>g_free()</function></link>. Otherwise <literal>NULL</literal> and <parameter>error</parameter> will be set.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GIConv"/>struct GIConv</title>
+<indexterm><primary>GIConv</primary></indexterm><programlisting>struct GIConv;</programlisting>
+<para>
+The <structname>GIConv</structname> struct wraps an
+<function><link linkend="iconv"><function>iconv()</function></link></function> conversion descriptor. It contains private data
+and should only be accessed using the following functions.
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-convert-with-iconv"/>g_convert_with_iconv ()</title>
+<indexterm><primary>g_convert_with_iconv</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_convert_with_iconv            (const <link linkend="gchar">gchar</link> *str,
+                                             <link linkend="gssize">gssize</link> len,
+                                             <link linkend="GIConv">GIConv</link> converter,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Converts a string from one character set to another.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>str</parameter>&nbsp;:</term>
+<listitem><simpara>           the string to convert
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara>           the length of the string
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>converter</parameter>&nbsp;:</term>
+<listitem><simpara>     conversion descriptor from <link linkend="g-iconv-open"><function>g_iconv_open()</function></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_read</parameter>&nbsp;:</term>
+<listitem><simpara>    location to store the number of bytes in the
+                input string that were successfully converted, or <literal>NULL</literal>.
+                Even if the conversion was successful, this may be 
+                less than <parameter>len</parameter> if there were partial characters
+                at the end of the input. If the error
+                <link linkend="G-CONVERT-ERROR-ILLEGAL-SEQUENCE-CAPS"><type>G_CONVERT_ERROR_ILLEGAL_SEQUENCE</type></link> occurs, the value
+                stored will the byte offset after the last valid
+                input sequence.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_written</parameter>&nbsp;:</term>
+<listitem><simpara> the number of bytes stored in the output buffer (not 
+                including the terminating nul).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara>         location to store the error occuring, or <literal>NULL</literal> to ignore
+                errors. Any of the errors in <link linkend="GConvertError"><type>GConvertError</type></link> may occur.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> If the conversion was successful, a newly allocated
+              nul-terminated string, which must be freed with
+              <link linkend="g-free"><function>g_free()</function></link>. Otherwise <literal>NULL</literal> and <parameter>error</parameter> will be set.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-CONVERT-ERROR-CAPS"/>G_CONVERT_ERROR</title>
+<indexterm><primary>G_CONVERT_ERROR</primary></indexterm><programlisting>#define G_CONVERT_ERROR g_convert_error_quark()
+</programlisting>
+<para>
+Error domain for character set conversions. Errors in this domain will
+be from the <link linkend="GConvertError"><type>GConvertError</type></link> enumeration. See <link linkend="GError"><type>GError</type></link> for information on 
+error domains.
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-iconv-open"/>g_iconv_open ()</title>
+<indexterm><primary>g_iconv_open</primary></indexterm><programlisting><link linkend="GIConv">GIConv</link>      g_iconv_open                    (const <link linkend="gchar">gchar</link> *to_codeset,
+                                             const <link linkend="gchar">gchar</link> *from_codeset);</programlisting>
+<para>
+Same as the standard UNIX routine <link linkend="iconv-open"><function>iconv_open()</function></link>, but
+may be implemented via libiconv on UNIX flavors that lack
+a native implementation.
+</para>
+<para>
+GLib provides <link linkend="g-convert"><function>g_convert()</function></link> and <link linkend="g-locale-to-utf8"><function>g_locale_to_utf8()</function></link> which are likely
+more convenient than the raw iconv wrappers.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>to_codeset</parameter>&nbsp;:</term>
+<listitem><simpara> destination codeset
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>from_codeset</parameter>&nbsp;:</term>
+<listitem><simpara> source codeset
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> a "conversion descriptor", or (GIConv)-1 if
+ opening the converter failed.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-iconv"/>g_iconv ()</title>
+<indexterm><primary>g_iconv</primary></indexterm><programlisting><link linkend="size-t">size_t</link>      g_iconv                         (<link linkend="GIConv">GIConv</link> converter,
+                                             <link linkend="gchar">gchar</link> **inbuf,
+                                             <link linkend="gsize">gsize</link> *inbytes_left,
+                                             <link linkend="gchar">gchar</link> **outbuf,
+                                             <link linkend="gsize">gsize</link> *outbytes_left);</programlisting>
+<para>
+Same as the standard UNIX routine <link linkend="iconv"><function>iconv()</function></link>, but
+may be implemented via libiconv on UNIX flavors that lack
+a native implementation.
+</para>
+<para>
+GLib provides <link linkend="g-convert"><function>g_convert()</function></link> and <link linkend="g-locale-to-utf8"><function>g_locale_to_utf8()</function></link> which are likely
+more convenient than the raw iconv wrappers.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>converter</parameter>&nbsp;:</term>
+<listitem><simpara> conversion descriptor from <link linkend="g-iconv-open"><function>g_iconv_open()</function></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>inbuf</parameter>&nbsp;:</term>
+<listitem><simpara> bytes to convert
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>inbytes_left</parameter>&nbsp;:</term>
+<listitem><simpara> inout parameter, bytes remaining to convert in <parameter>inbuf</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>outbuf</parameter>&nbsp;:</term>
+<listitem><simpara> converted output bytes
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>outbytes_left</parameter>&nbsp;:</term>
+<listitem><simpara> inout parameter, bytes available to fill in <parameter>outbuf</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> count of non-reversible conversions, or -1 on error
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-iconv-close"/>g_iconv_close ()</title>
+<indexterm><primary>g_iconv_close</primary></indexterm><programlisting><link linkend="gint">gint</link>        g_iconv_close                   (<link linkend="GIConv">GIConv</link> converter);</programlisting>
+<para>
+Same as the standard UNIX routine <link linkend="iconv-close"><function>iconv_close()</function></link>, but
+may be implemented via libiconv on UNIX flavors that lack
+a native implementation. Should be called to clean up
+the conversion descriptor from <link linkend="g-iconv-open"><function>g_iconv_open()</function></link> when
+you are done converting things.
+</para>
+<para>
+GLib provides <link linkend="g-convert"><function>g_convert()</function></link> and <link linkend="g-locale-to-utf8"><function>g_locale_to_utf8()</function></link> which are likely
+more convenient than the raw iconv wrappers.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>converter</parameter>&nbsp;:</term>
+<listitem><simpara> a conversion descriptor from <link linkend="g-iconv-open"><function>g_iconv_open()</function></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> -1 on error, 0 on success
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-locale-to-utf8"/>g_locale_to_utf8 ()</title>
+<indexterm><primary>g_locale_to_utf8</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_locale_to_utf8                (const <link linkend="gchar">gchar</link> *opsysstring,
+                                             <link linkend="gssize">gssize</link> len,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Converts a string which is in the encoding used for strings by
+the C runtime (usually the same as that used by the operating
+system) in the current locale into a UTF-8 string.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>opsysstring</parameter>&nbsp;:</term>
+<listitem><simpara>   a string in the encoding of the current locale
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara>           the length of the string, or -1 if the string is
+                nul-terminated.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_read</parameter>&nbsp;:</term>
+<listitem><simpara>    location to store the number of bytes in the
+                input string that were successfully converted, or <literal>NULL</literal>.
+                Even if the conversion was successful, this may be 
+                less than <parameter>len</parameter> if there were partial characters
+                at the end of the input. If the error
+                <link linkend="G-CONVERT-ERROR-ILLEGAL-SEQUENCE-CAPS"><type>G_CONVERT_ERROR_ILLEGAL_SEQUENCE</type></link> occurs, the value
+                stored will the byte offset after the last valid
+                input sequence.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_written</parameter>&nbsp;:</term>
+<listitem><simpara> the number of bytes stored in the output buffer (not 
+                including the terminating nul).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara>         location to store the error occuring, or <literal>NULL</literal> to ignore
+                errors. Any of the errors in <link linkend="GConvertError"><type>GConvertError</type></link> may occur.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> The converted string, or <literal>NULL</literal> on an error.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-filename-to-utf8"/>g_filename_to_utf8 ()</title>
+<indexterm><primary>g_filename_to_utf8</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_filename_to_utf8              (const <link linkend="gchar">gchar</link> *opsysstring,
+                                             <link linkend="gssize">gssize</link> len,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Converts a string which is in the encoding used for filenames
+into a UTF-8 string.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>opsysstring</parameter>&nbsp;:</term>
+<listitem><simpara>   a string in the encoding for filenames
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara>           the length of the string, or -1 if the string is
+                nul-terminated.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_read</parameter>&nbsp;:</term>
+<listitem><simpara>    location to store the number of bytes in the
+                input string that were successfully converted, or <literal>NULL</literal>.
+                Even if the conversion was successful, this may be 
+                less than <parameter>len</parameter> if there were partial characters
+                at the end of the input. If the error
+                <link linkend="G-CONVERT-ERROR-ILLEGAL-SEQUENCE-CAPS"><type>G_CONVERT_ERROR_ILLEGAL_SEQUENCE</type></link> occurs, the value
+                stored will the byte offset after the last valid
+                input sequence.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_written</parameter>&nbsp;:</term>
+<listitem><simpara> the number of bytes stored in the output buffer (not 
+                including the terminating nul).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara>         location to store the error occuring, or <literal>NULL</literal> to ignore
+                errors. Any of the errors in <link linkend="GConvertError"><type>GConvertError</type></link> may occur.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> The converted string, or <literal>NULL</literal> on an error.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-filename-from-utf8"/>g_filename_from_utf8 ()</title>
+<indexterm><primary>g_filename_from_utf8</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_filename_from_utf8            (const <link linkend="gchar">gchar</link> *utf8string,
+                                             <link linkend="gssize">gssize</link> len,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Converts a string from UTF-8 to the encoding used for filenames.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>utf8string</parameter>&nbsp;:</term>
+<listitem><simpara>    a UTF-8 encoded string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara>           the length of the string, or -1 if the string is
+                nul-terminated.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_read</parameter>&nbsp;:</term>
+<listitem><simpara>    location to store the number of bytes in the
+                input string that were successfully converted, or <literal>NULL</literal>.
+                Even if the conversion was successful, this may be 
+                less than <parameter>len</parameter> if there were partial characters
+                at the end of the input. If the error
+                <link linkend="G-CONVERT-ERROR-ILLEGAL-SEQUENCE-CAPS"><type>G_CONVERT_ERROR_ILLEGAL_SEQUENCE</type></link> occurs, the value
+                stored will the byte offset after the last valid
+                input sequence.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_written</parameter>&nbsp;:</term>
+<listitem><simpara> the number of bytes stored in the output buffer (not 
+                including the terminating nul).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara>         location to store the error occuring, or <literal>NULL</literal> to ignore
+                errors. Any of the errors in <link linkend="GConvertError"><type>GConvertError</type></link> may occur.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> The converted string, or <literal>NULL</literal> on an error.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-filename-from-uri"/>g_filename_from_uri ()</title>
+<indexterm><primary>g_filename_from_uri</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_filename_from_uri             (const <link linkend="gchar">gchar</link> *uri,
+                                             <link linkend="gchar">gchar</link> **hostname,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Converts an escaped ASCII-encoded URI to a local filename in the
+encoding used for filenames.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>uri</parameter>&nbsp;:</term>
+<listitem><simpara> a uri describing a filename (escaped, encoded in ASCII).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>hostname</parameter>&nbsp;:</term>
+<listitem><simpara> Location to store hostname for the URI, or <literal>NULL</literal>.
+           If there is no hostname in the URI, <literal>NULL</literal> will be
+           stored in this location.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara> location to store the error occuring, or <literal>NULL</literal> to ignore
+        errors. Any of the errors in <link linkend="GConvertError"><type>GConvertError</type></link> may occur.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> a newly-allocated string holding the resulting
+              filename, or <literal>NULL</literal> on an error.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-filename-to-uri"/>g_filename_to_uri ()</title>
+<indexterm><primary>g_filename_to_uri</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_filename_to_uri               (const <link linkend="gchar">gchar</link> *filename,
+                                             const <link linkend="gchar">gchar</link> *hostname,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Converts an absolute filename to an escaped ASCII-encoded URI.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>filename</parameter>&nbsp;:</term>
+<listitem><simpara> an absolute filename specified in the encoding
+           used for filenames by the operating system.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>hostname</parameter>&nbsp;:</term>
+<listitem><simpara> A UTF-8 encoded hostname, or <literal>NULL</literal> for none.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara> location to store the error occuring, or <literal>NULL</literal> to ignore
+        errors. Any of the errors in <link linkend="GConvertError"><type>GConvertError</type></link> may occur.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> a newly-allocated string holding the resulting
+              URI, or <literal>NULL</literal> on an error.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-locale-from-utf8"/>g_locale_from_utf8 ()</title>
+<indexterm><primary>g_locale_from_utf8</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_locale_from_utf8              (const <link linkend="gchar">gchar</link> *utf8string,
+                                             <link linkend="gssize">gssize</link> len,
+                                             <link linkend="gsize">gsize</link> *bytes_read,
+                                             <link linkend="gsize">gsize</link> *bytes_written,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Converts a string from UTF-8 to the encoding used for strings by
+the C runtime (usually the same as that used by the operating
+system) in the current locale.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>utf8string</parameter>&nbsp;:</term>
+<listitem><simpara>    a UTF-8 encoded string 
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara>           the length of the string, or -1 if the string is
+                nul-terminated.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_read</parameter>&nbsp;:</term>
+<listitem><simpara>    location to store the number of bytes in the
+                input string that were successfully converted, or <literal>NULL</literal>.
+                Even if the conversion was successful, this may be 
+                less than <parameter>len</parameter> if there were partial characters
+                at the end of the input. If the error
+                <link linkend="G-CONVERT-ERROR-ILLEGAL-SEQUENCE-CAPS"><type>G_CONVERT_ERROR_ILLEGAL_SEQUENCE</type></link> occurs, the value
+                stored will the byte offset after the last valid
+                input sequence.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>bytes_written</parameter>&nbsp;:</term>
+<listitem><simpara> the number of bytes stored in the output buffer (not 
+                including the terminating nul).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara>         location to store the error occuring, or <literal>NULL</literal> to ignore
+                errors. Any of the errors in <link linkend="GConvertError"><type>GConvertError</type></link> may occur.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> The converted string, or <literal>NULL</literal> on an error.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GConvertError"/>enum GConvertError</title>
+<indexterm><primary>GConvertError</primary></indexterm><programlisting>typedef enum 
+{
+  G_CONVERT_ERROR_NO_CONVERSION,
+  G_CONVERT_ERROR_ILLEGAL_SEQUENCE,
+  G_CONVERT_ERROR_FAILED,
+  G_CONVERT_ERROR_PARTIAL_INPUT,
+  G_CONVERT_ERROR_BAD_URI,
+  G_CONVERT_ERROR_NOT_ABSOLUTE_PATH
+} GConvertError;
+</programlisting>
+<para>
+Error codes returned by character set conversion routines.
+</para><variablelist role="enum">
+<varlistentry>
+<term><literal>G_CONVERT_ERROR_NO_CONVERSION</literal></term>
+<listitem><simpara>Conversion between the requested character sets
+is not supported.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_CONVERT_ERROR_ILLEGAL_SEQUENCE</literal></term>
+<listitem><simpara>Invalid byte sequence in conversion input.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_CONVERT_ERROR_FAILED</literal></term>
+<listitem><simpara>Conversion failed for some reason.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_CONVERT_ERROR_PARTIAL_INPUT</literal></term>
+<listitem><simpara>Partial character sequence at end of input.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_CONVERT_ERROR_BAD_URI</literal></term>
+<listitem><simpara>URI is invalid.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_CONVERT_ERROR_NOT_ABSOLUTE_PATH</literal></term>
+<listitem><simpara>Pathname is not an absolute path.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-get-charset"/>g_get_charset ()</title>
+<indexterm><primary>g_get_charset</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_get_charset                   (G_CONST_RETURN <link linkend="char">char</link> **charset);</programlisting>
+<para>
+Obtains the character set for the current locale; you might use
+this character set as an argument to <link linkend="g-convert"><function>g_convert()</function></link>, to convert from
+the current locale's encoding to some other encoding. (Frequently
+<link linkend="g-locale-to-utf8"><function>g_locale_to_utf8()</function></link> and <link linkend="g-locale-from-utf8"><function>g_locale_from_utf8()</function></link> are nice shortcuts,
+though.)
+</para>
+<para>
+The return value is <literal>TRUE</literal> if the locale's encoding is UTF-8, in that
+case you can perhaps avoid calling <link linkend="g-convert"><function>g_convert()</function></link>.
+</para>
+<para>
+The string returned in <parameter>charset</parameter> is not allocated, and should not be
+freed.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>charset</parameter>&nbsp;:</term>
+<listitem><simpara> return location for character set name
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> <literal>TRUE</literal> if the returned charset is UTF-8
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

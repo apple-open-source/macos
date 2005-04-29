@@ -19,15 +19,18 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
   THE SOFTWARE.
 */
-/* $XFree86: xc/programs/mkfontscale/data.h,v 1.2 2003/01/29 22:09:40 dawes Exp $ */
+/* $XFree86: xc/programs/mkfontscale/data.h,v 1.4 2003/07/08 15:39:49 tsi Exp $ */
+
+#ifndef _MKS_DATA_H_
+#define _MKS_DATA_H_ 1
 
 /* Order is significant.  For example, some B&H fonts are hinted by
    URW++, and both strings appear in the notice. */
 
-char *notice_foundries[][2] = 
+char *notice_foundries[][2] =
     {{"Bigelow", "b&h"},
      {"Adobe", "adobe"},
-     {"Bitstream", "bitsteam"},
+     {"Bitstream", "bitstream"},
      {"Monotype", "monotype"},
      {"Linotype", "linotype"},
      {"LINOTYPE-HELL", "linotype"},
@@ -76,16 +79,5 @@ char *vendor_foundries[][2] =
      {"RICO", "ricoh"},
      {"URW", "urw"},
      {"Y&Y", "y&y"}};
-     
-     
-     
 
-     
-
-     
-
-     
-     
-     
-
-
+#endif /* _MKS_DATA_H_ */

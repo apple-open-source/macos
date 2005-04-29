@@ -1057,7 +1057,7 @@ xsltVariableComp(xsltStylesheetPtr style, xmlNodePtr inst) {
 	    comp->name = prop;
 	    comp->has_name = 1;
 	    if (URI != NULL) {
-		comp->ns = xmlStrdup(URI);
+		comp->ns = xmlDictLookup(style->dict, URI, -1);
 		comp->has_ns = 1;
 	    } else {
 		comp->has_ns = 0;

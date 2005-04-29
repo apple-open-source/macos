@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+#adminPageHeader("#adminResource('administer.plugins.page.header' 'Configurable Available Plugins')")
+
+    <div id="header">
+        <ul id="primary">
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('entries.page.header' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('weblog.settings.text' '')</a></li>
+            <li><span>#adminResource('plugin.settings.text' '')</span></li>
+            <ul id="secondary">
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('mappings.text' '')</a></li>
+                <li><span>#adminResource('configure.available.plugins.text' '')</span></li>
+            </ul>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&action=logout">#adminResource('logout.text' '')</a></li>
+        </ul>
+    </div>
+
+    <div id="contents">
+        <ul>
+            #if ($BLOJSOM_PLUGIN_WEB_ADMIN_PLUGINS_LIST)
+            #foreach ($plugin in $BLOJSOM_PLUGIN_WEB_ADMIN_PLUGINS_LIST.keySet())
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=$plugin">$BLOJSOM_PLUGIN_WEB_ADMIN_PLUGINS_LIST.get($plugin)</a></li>
+            #end
+            #end
+        </ul>
+    </div>
+
+#adminPageFooter()

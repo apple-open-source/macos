@@ -1,5 +1,6 @@
 /* Native-dependent code for OpenBSD/i386.
-   Copyright 2002 Free Software Foundation, Inc.
+
+   Copyright 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,6 +24,8 @@
 #include <sys/param.h>
 #include <sys/sysctl.h>
 
+#include "i386-tdep.h"
+
 /* Prevent warning from -Wmissing-prototypes.  */
 void _initialize_i386obsd_nat (void);
 
@@ -44,16 +47,13 @@ _initialize_i386obsd_nat (void)
     int mib[2];
     size_t len;
 
-    extern CORE_ADDR i386obsd_sigtramp_start;
-    extern CORE_ADDR i386obsd_sigtramp_end;
-
     mib[0] = CTL_VM;
     mib[1] = VM_PSSTRINGS;
     len = sizeof (_ps);
     if (sysctl (mib, 2, &_ps, &len, NULL, 0) == 0)
       {
-	i386obsd_sigtramp_start = (CORE_ADDR)_ps.val - 128;
-	i386obsd_sigtramp_end = (CORE_ADDR)_ps.val;
+	i386obsd_sigtramp_start_addr = (CORE_ADDR)_ps.val - 128;
+	i386obsd_sigtramp_end_addr = (CORE_ADDR)_ps.val;
       }
   }
 #endif

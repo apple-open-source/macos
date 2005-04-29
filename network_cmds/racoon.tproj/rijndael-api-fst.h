@@ -8,8 +8,8 @@
  * #define INTERMEDIATE_VALUE_KAT to generate the Intermediate Value Known Answer Test.
  */
 
-#ifndef __RIJNDAEL_API_FST_H
-#define __RIJNDAEL_API_FST_H
+#ifndef __RIJNDAEL_API_FST_H__
+#define __RIJNDAEL_API_FST_H__
 
 #include <rijndael-alg-fst.h>
 
@@ -100,4 +100,5 @@ int rijndael_cipherUpdateRounds(cipherInstance *cipher, keyInstance *key,
         u_int8_t *input, int inputLen, u_int8_t *outBuffer, int Rounds);
 #endif /* INTERMEDIATE_VALUE_KAT */
 
-#endif /*  __RIJNDAEL_API_FST_H */
+#endif /*  __RIJNDAEL_API_FST_H__ */
+

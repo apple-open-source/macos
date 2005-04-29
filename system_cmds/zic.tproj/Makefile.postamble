@@ -150,8 +150,9 @@ POSIXRULES=	US/Pacific
 YEARISTYPE=	datfiles/yearistype.sh
 YEARISTYPECOPY=	${SYM_DIR}/yearistypecopy
 
+# pacificnew is obsolete and was removed from YDATA
 YDATA=		africa antarctica asia australasia \
-		europe northamerica southamerica pacificnew etcetera factory \
+		europe northamerica southamerica etcetera factory \
 		backward
 NDATA=		systemv
 SDATA=		solar87 solar88 solar89
@@ -159,7 +160,7 @@ TDATA=		$(YDATA) $(NDATA) $(SDATA)
 DATA=		$(YDATA) $(NDATA) $(SDATA) leapseconds # yearistype.sh
 USNO=		usno1988 usno1989
 
-ZIC=zic
+ZIC=${DSTROOT}/usr/sbin/zic
 
 ${YEARISTYPECOPY}:
 	cp ${YEARISTYPE} ${YEARISTYPECOPY}
@@ -192,16 +193,25 @@ right_posix: right_only other_two
 
 #since we are not doing native builds ... hack hack hack
 
-ZONE_FILES = africa antarctica asia australasia europe northamerica southamerica pacificnew etcetera factory backward systemv solar87 solar88 solar89
+# pacificnew is obsolete and was removed from ZONE_FILES
+ZONE_FILES = africa antarctica asia australasia europe northamerica southamerica etcetera factory backward systemv solar87 solar88 solar89
+ZONEINFO = ${DSTROOT}/usr/share/zoneinfo
 
 after_install::
 	-mkdir -p ${DSTROOT}/usr/share
-	-rm -rf ${DSTROOT}/usr/share/zoneinfo
-	mkdir -p ${DSTROOT}/usr/share/zoneinfo
-	for tz in $(ZONE_FILES); do \
-		zic -L /dev/null -d ${DSTROOT}/usr/share/zoneinfo -y datfiles/yearistype.sh datfiles/$${tz}; \
+	-rm -rf ${ZONEINFO}
+	mkdir -p ${ZONEINFO}
+	for tz in ${ZONE_FILES}; do \
+	        if [[ $${tz} = "northamerica" ]]; then \
+			${ZIC} -p America/New_York -L /dev/null -d ${ZONEINFO} -y datfiles/yearistype.sh datfiles/$${tz}; \
+		else \
+		        ${ZIC} -L /dev/null -d ${ZONEINFO} -y datfiles/yearistype.sh datfiles/$${tz}; \
+		fi \
 	done
-	chmod -R og-w ${DSTROOT}/usr/share/zoneinfo
+	chmod -R og-w ${ZONEINFO}
+	install -c -m 444 datfiles/zone.tab ${ZONEINFO}
 	-mkdir -p ${DSTROOT}/private/etc
 	-rm -f ${DSTROOT}/private/etc/localtime
 	ln -fs /usr/share/zoneinfo/${LOCALTIME} ${DSTROOT}/private/etc/localtime
+	mkdir -p ${DSTROOT}/usr/share/man/man8
+	install -c -m 444 zic.8 ${DSTROOT}/usr/share/man/man8

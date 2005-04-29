@@ -40,7 +40,13 @@ Boston, MA 02111-1307, USA.  */
    predefined macros that identify this machine and system.  These macros will
    be predefined unless the `-ansi' option is specified. */
 
-#define CPP_PREDEFINES "-Dfr30 -D__fr30__ -Amachine=fr30"
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("fr30");		\
+      builtin_assert ("machine=fr30");		\
+    }						\
+   while (0)
 
 /* Use LDI:20 instead of LDI:32 to load addresses.  */
 #define TARGET_SMALL_MODEL_MASK	(1 << 0)
@@ -83,13 +89,7 @@ extern int target_flags;
 
 #define WORDS_BIG_ENDIAN 1
 
-#define BITS_PER_UNIT 	8
-
-#define BITS_PER_WORD 	32
-
 #define UNITS_PER_WORD 	4
-
-#define POINTER_SIZE 	32
 
 #define PROMOTE_MODE(MODE,UNSIGNEDP,TYPE)	\
   do						\
@@ -122,12 +122,9 @@ extern int target_flags;
 /* Defined in svr4.h.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
 /*}}}*/ 
 /*{{{  Layout of Source Language Data Types.  */ 
 
-#define CHAR_TYPE_SIZE 		 8
 #define SHORT_TYPE_SIZE 	16
 #define INT_TYPE_SIZE 		32
 #define LONG_TYPE_SIZE 		32
@@ -587,7 +584,7 @@ enum reg_class
   {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}	\
 }
 
-/* A C expression that returns non-zero if the compiler is allowed to try to
+/* A C expression that returns nonzero if the compiler is allowed to try to
    replace register number FROM with register number TO.  This macro
    need only be defined if `ELIMINABLE_REGS' is defined, and will usually be
    the constant 1, since most of the cases preventing register elimination are
@@ -696,7 +693,7 @@ enum reg_class
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the definition of
    this macro to determine if this argument is of a type that must be passed in
    the stack.  If `REG_PARM_STACK_SPACE' is not defined and `FUNCTION_ARG'
-   returns non-zero for such an argument, the compiler will abort.  If
+   returns nonzero for such an argument, the compiler will abort.  If
    `REG_PARM_STACK_SPACE' is defined, the argument will be computed in the
    stack and then loaded into a register.  */
      
@@ -719,7 +716,7 @@ enum reg_class
 /* On the FR30 this value is an accumulating count of the number of argument
    registers that have been filled with argument values, as opposed to say,
    the number of bytes of argument accumulated so far.  */
-typedef int CUMULATIVE_ARGS;
+#define CUMULATIVE_ARGS int
 
 /* A C expression for the number of words, at the beginning of an argument,
    must be put in registers.  The value must be zero for arguments that are
@@ -928,7 +925,7 @@ typedef int CUMULATIVE_ARGS;
    ldi:32 FUNCTION, r0
    jmp    @r0
 
-   The no-ops are to guarantee that the the static chain and final
+   The no-ops are to guarantee that the static chain and final
    target are 32 bit ailgned within the trampoline.  That allows us to
    initialize those locations with simple SImode stores.   The alternative
    would be to use HImode stores.  */
@@ -984,61 +981,7 @@ do										\
 
 /* A C compound statement with a conditional `goto LABEL;' executed if X (an
    RTX) is a legitimate memory address on the target machine for a memory
-   operand of mode MODE.
-
-   It usually pays to define several simpler macros to serve as subroutines for
-   this one.  Otherwise it may be too complicated to understand.
-
-   This macro must exist in two variants: a strict variant and a non-strict
-   one.  The strict variant is used in the reload pass.  It must be defined so
-   that any pseudo-register that has not been allocated a hard register is
-   considered a memory reference.  In contexts where some kind of register is
-   required, a pseudo-register with no hard register must be rejected.
-
-   The non-strict variant is used in other passes.  It must be defined to
-   accept all pseudo-registers in every context where some kind of register is
-   required.
-
-   Compiler source files that want to use the strict variant of this macro
-   define the macro `REG_OK_STRICT'.  You should use an `#ifdef REG_OK_STRICT'
-   conditional to define the strict variant in that case and the non-strict
-   variant otherwise.
-
-   Subroutines to check for acceptable registers for various purposes (one for
-   base registers, one for index registers, and so on) are typically among the
-   subroutines used to define `GO_IF_LEGITIMATE_ADDRESS'.  Then only these
-   subroutine macros need have two variants; the higher levels of macros may be
-   the same whether strict or not.
-
-   Normally, constant addresses which are the sum of a `symbol_ref' and an
-   integer are stored inside a `const' RTX to mark them as constant.
-   Therefore, there is no need to recognize such sums specifically as
-   legitimate addresses.  Normally you would simply recognize any `const' as
-   legitimate.
-
-   Usually `PRINT_OPERAND_ADDRESS' is not prepared to handle constant sums that
-   are not marked with `const'.  It assumes that a naked `plus' indicates
-   indexing.  If so, then you *must* reject such naked constant sums as
-   illegitimate addresses, so that none of them will be given to
-   `PRINT_OPERAND_ADDRESS'.
-
-   On some machines, whether a symbolic address is legitimate depends on the
-   section that the address refers to.  On these machines, define the macro
-   `ENCODE_SECTION_INFO' to store the information into the `symbol_ref', and
-   then check for it here.  When you see a `const', you will have to look
-   inside it to find the `symbol_ref' in order to determine the section.
-
-   The best way to modify the name string is by adding text to the beginning,
-   with suitable punctuation to prevent any ambiguity.  Allocate the new name
-   in `saveable_obstack'.  You will have to modify `ASM_OUTPUT_LABELREF' to
-   remove and decode the added text and output the name accordingly, and define
-   `STRIP_NAME_ENCODING' to access the original name string.
-
-   You can check the information stored here into the `symbol_ref' in the
-   definitions of the macros `GO_IF_LEGITIMATE_ADDRESS' and
-   `PRINT_OPERAND_ADDRESS'.
-
-   Used in explow.c, recog.c, reload.c.  */
+   operand of mode MODE.  */
 
 /* On the FR30 we only have one real addressing mode - an address in a
    register.  There are three special cases however:
@@ -1047,7 +990,7 @@ do										\
    
    * indexed addressing using small signed offsets from the frame pointer
 
-   * register plus register addresing using R13 as the base register.
+   * register plus register addressing using R13 as the base register.
 
    At the moment we only support the first two of these special cases.  */
    
@@ -1085,8 +1028,9 @@ do										\
 	goto LABEL;							\
       if (GET_CODE (X) == PLUS						\
 	  && ((MODE) == SImode || (MODE) == SFmode)			\
-	  && (XEXP (X, 0) == frame_pointer_rtx				\
-	      || XEXP(X,0) == arg_pointer_rtx)				\
+	  && GET_CODE (XEXP (X, 0)) == REG \
+          && (REGNO (XEXP (X, 0)) == FRAME_POINTER_REGNUM \
+           || REGNO (XEXP (X, 0)) == ARG_POINTER_REGNUM) \
 	  && GET_CODE (XEXP (X, 1)) == CONST_INT			\
 	  && IN_RANGE (INTVAL (XEXP (X, 1)), -(1 << 9), (1 <<  9) - 4))	\
         goto LABEL;							\
@@ -1194,7 +1138,7 @@ do										\
    uninitialized global data will be output in the data section if
    `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
    used.  */
-#define BSS_SECTION_ASM_OP "\t.bss"
+#define BSS_SECTION_ASM_OP "\t.section .bss"
 
 /*}}}*/ 
 /*{{{  The Overall Framework of an Assembler File.  */
@@ -1219,32 +1163,8 @@ do										\
 /*}}}*/ 
 /*{{{  Output and Generation of Labels.  */ 
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM the
-   assembler definition of a label named NAME.  Use the expression
-   `assemble_name (STREAM, NAME)' to output the name itself; before and after
-   that, output the additional assembler syntax for defining the name, and a
-   newline.  */
-#define ASM_OUTPUT_LABEL(STREAM, NAME)	\
-  do					\
-    {					\
-      assemble_name (STREAM, NAME);	\
-      fputs (":\n", STREAM);		\
-    }					\
-  while (0)
-
-/* A C statement (sans semicolon) to output to the stdio stream STREAM some
-   commands that will make the label NAME global; that is, available for
-   reference from other files.  Use the expression `assemble_name (STREAM,
-   NAME)' to output the name itself; before and after that, output the
-   additional assembler syntax for making that name global, and a newline.  */
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)	\
-  do						\
-    {						\
-      fputs ("\t.globl ", STREAM);		\
-      assemble_name (STREAM, NAME);		\
-      fputs ("\n", STREAM);			\
-    }						\
-  while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* A C expression to assign to OUTVAR (which is a variable of type `char *') a
    newly allocated string made from the string NAME and the number NUMBER, with
@@ -1299,12 +1219,8 @@ do										\
 
 /* A C compound statement to output to stdio stream STREAM the assembler syntax
    for an instruction operand that is a memory reference whose address is X.  X
-   is an RTL expression.
+   is an RTL expression.  */
 
-   On some machines, the syntax for a symbolic address depends on the section
-   that the address refers to.  On these machines, define the macro
-   `ENCODE_SECTION_INFO' to store the information into the `symbol_ref', and
-   then check for it here.  *Note Assembler Format::.  */
 #define PRINT_OPERAND_ADDRESS(STREAM, X) fr30_print_operand_address (STREAM, X)
 
 /* If defined, C string expressions to be used for the `%R', `%L', `%U', and

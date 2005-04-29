@@ -76,7 +76,7 @@ main(int argc, char **argv)
 			usage();
 		}
 	for (argv += optind; *argv && (p = strchr(*argv, '=')); ++argv)
-		(void)setenv(*argv, ++p, 1);
+		(void)putenv(*argv);
 	if (*argv) {
 		execvp(*argv, argv);
 		err(errno == ENOENT ? 127 : 126, "%s", *argv);

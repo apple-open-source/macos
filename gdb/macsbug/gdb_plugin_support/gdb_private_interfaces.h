@@ -15,6 +15,8 @@
 #include "gdb.h"
 #include "defs.h"
 
+#include "dis-asm.h"
+
 /*--------------------------------------------------------------------------------------*/
 
 /* The development of this API spans versions of GDB 4.x and beyond.  There are, of  	*/

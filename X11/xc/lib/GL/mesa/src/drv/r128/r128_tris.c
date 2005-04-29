@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_tris.c,v 1.8 2002/10/30 12:51:43 alanh Exp $ */ /* -*- c-basic-offset: 3 -*- */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_tris.c,v 1.9 2003/09/28 20:15:21 alanh Exp $ */ /* -*- c-basic-offset: 3 -*- */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -32,9 +32,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Keith Whitwell <keith@tungstengraphics.com>
  *
  */
-
-#include <stdio.h>
-#include <math.h>
 
 #include "glheader.h"
 #include "mtypes.h"
@@ -586,7 +583,7 @@ static void r128RunPipeline( GLcontext *ctx )
 {
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
 
-   if (rmesa->new_state)
+   if (rmesa->new_state || rmesa->NewGLState & _NEW_TEXTURE)
       r128DDUpdateHWState( ctx );
 
    if (!rmesa->Fallback && rmesa->NewGLState) {
@@ -702,6 +699,7 @@ void r128Fallback( GLcontext *ctx, GLuint bit, GLboolean mode )
 
 void r128InitTriFuncs( GLcontext *ctx )
 {
+   r128ContextPtr rmesa = R128_CONTEXT(ctx);
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    static int firsttime = 1;
 
@@ -716,6 +714,8 @@ void r128InitTriFuncs( GLcontext *ctx )
    tnl->Driver.Render.PrimitiveNotify = r128RenderPrimitive;
    tnl->Driver.Render.ResetLineStipple = _swrast_ResetLineStipple;
    tnl->Driver.Render.BuildVertices = r128BuildVertices;
+   rmesa->NewGLState |= (_R128_NEW_RENDER_STATE|
+			 _R128_NEW_VERTEX_STATE);
 
 /*     r128Fallback( ctx, 0x100000, 1 ); */
 }

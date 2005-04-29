@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.1 (the "License").  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -69,7 +68,6 @@ static char sccsid[] = "@(#)kvm_file.c	8.2 (Berkeley) 8/20/94";
 #include <sys/param.h>
 #include <sys/user.h>
 #include <sys/proc.h>
-#include <sys/exec.h>
 #define KERNEL
 #include <sys/file.h>
 #undef KERNEL
@@ -91,7 +89,7 @@ static char sccsid[] = "@(#)kvm_file.c	8.2 (Berkeley) 8/20/94";
 #include <sys/sysctl.h>
 
 #include <limits.h>
-#include <ndbm.h>
+#include <db.h>
 #include <paths.h>
 
 #include "kvm_private.h"
@@ -108,44 +106,7 @@ kvm_deadfiles(kd, op, arg, filehead_o, nfiles)
 	int op, arg, nfiles;
 	long filehead_o;
 {
-	int buflen = kd->arglen, needed = buflen, error, n = 0;
-	struct file *fp, file;
-	struct filelist filehead;
-	register char *where = kd->argspc;
-	char *start = where;
-
-	/*
-	 * first copyout filehead
-	 */
-	if (buflen > sizeof (filehead)) {
-		if (KREAD(kd, filehead_o, &filehead)) {
-			_kvm_err(kd, kd->program, "can't read filehead");
-			return (0);
-		}
-		buflen -= sizeof (filehead);
-		where += sizeof (filehead);
-		*(struct filelist *)kd->argspc = filehead;
-	}
-	/*
-	 * followed by an array of file structures
-	 */
-	for (fp = filehead.lh_first; fp != 0; fp = fp->f_list.le_next) {
-		if (buflen > sizeof (struct file)) {
-			if (KREAD(kd, (long)fp, ((struct file *)where))) {
-				_kvm_err(kd, kd->program, "can't read kfp");
-				return (0);
-			}
-			buflen -= sizeof (struct file);
-			fp = (struct file *)where;
-			where += sizeof (struct file);
-			n++;
-		}
-	}
-	if (n != nfiles) {
-		_kvm_err(kd, kd->program, "inconsistant nfiles");
-		return (0);
-	}
-	return (nfiles);
+	return(0);
 }
 
 char *
@@ -154,66 +115,5 @@ kvm_getfiles(kd, op, arg, cnt)
 	int op, arg;
 	int *cnt;
 {
-	int mib[2], size, st, nfiles;
-	struct file *fp, *fplim;
-	struct filelist filehead;
-
-	if (ISALIVE(kd)) {
-		size = 0;
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_FILE;
-		st = sysctl(mib, 2, NULL, &size, NULL, 0);
-		if (st == -1) {
-			_kvm_syserr(kd, kd->program, "kvm_getprocs");
-			return (0);
-		}
-		if (kd->argspc == 0)
-			kd->argspc = (char *)_kvm_malloc(kd, size);
-		else if (kd->arglen < size)
-			kd->argspc = (char *)_kvm_realloc(kd, kd->argspc, size);
-		if (kd->argspc == 0)
-			return (0);
-		kd->arglen = size;
-		st = sysctl(mib, 2, kd->argspc, &size, NULL, 0);
-		if (st == -1 || size < sizeof(filehead)) {
-			_kvm_syserr(kd, kd->program, "kvm_getfiles");
-			return (0);
-		}
-		filehead = *(struct filelist *)kd->argspc;
-		fp = (struct file *)(kd->argspc + sizeof (filehead));
-		fplim = (struct file *)(kd->argspc + size);
-		for (nfiles = 0; filehead.lh_first && (fp < fplim); nfiles++, fp++)
-			filehead.lh_first = fp->f_list.le_next;
-	} else {
-		struct nlist nl[3], *p;
-
-		nl[0].n_name = "_filehead";
-		nl[1].n_name = "_nfiles";
-		nl[2].n_name = 0;
-
-		if (kvm_nlist(kd, nl) != 0) {
-			for (p = nl; p->n_type != 0; ++p)
-				;
-			_kvm_err(kd, kd->program,
-				 "%s: no such symbol", p->n_name);
-			return (0);
-		}
-		if (KREAD(kd, nl[0].n_value, &nfiles)) {
-			_kvm_err(kd, kd->program, "can't read nfiles");
-			return (0);
-		}
-		size = sizeof(filehead) + (nfiles + 10) * sizeof(struct file);
-		if (kd->argspc == 0)
-			kd->argspc = (char *)_kvm_malloc(kd, size);
-		else if (kd->arglen < size)
-			kd->argspc = (char *)_kvm_realloc(kd, kd->argspc, size);
-		if (kd->argspc == 0)
-			return (0);
-		kd->arglen = size;
-		nfiles = kvm_deadfiles(kd, op, arg, nl[1].n_value, nfiles);
-		if (nfiles == 0)
-			return (0);
-	}
-	*cnt = nfiles;
-	return (kd->argspc);
+	return (0);
 }

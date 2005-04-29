@@ -25,7 +25,6 @@
 #include <sys/types.h>
 #include <string.h>
 #include <ctype.h>
-#include <c.h>
 #include <fcntl.h>
 #include <sys/sysctl.h>
 

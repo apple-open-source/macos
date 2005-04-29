@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)radixsort.c	8.2 (Berkeley) 4/28/95";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdlib/radixsort.c,v 1.6 2002/03/22 09:18:34 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdlib/radixsort.c,v 1.7 2003/11/11 04:59:23 kientzle Exp $");
 
 /*
  * Radixsort routines.
@@ -174,6 +174,17 @@ r_sort_a(a, n, i, tr, endch)
 				r_sort_a(a, n, i, tr, endch);
 				continue;
 			}
+		}
+
+		/*
+		 * Special case: if all strings have the same
+		 * character at position i, move on to the next
+		 * character.
+		 */
+		if (nc == 1 && count[bmin] == n) {
+			push(a, n, i+1);
+			nc = count[bmin] = 0;
+			continue;
 		}
 
 		/*

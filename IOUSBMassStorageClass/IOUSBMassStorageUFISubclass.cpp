@@ -674,7 +674,7 @@ IOUSBMassStorageUFIDevice::CreateStorageServiceNub( void )
 		return;
 	}
 	
-	nub->registerService();
+	nub->registerService(kIOServiceAsynchronous);
 	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::CreateStorageServiceNub exiting."));
 
 	nub->release();

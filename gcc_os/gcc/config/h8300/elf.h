@@ -1,5 +1,10 @@
-#undef SUBTARGET_CPP_SPEC
-#define SUBTARGET_CPP_SPEC "-D__ELF__"
+/* Target OS preprocessor built-ins.  */
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define ("__ELF__");		\
+    }						\
+  while (0)
 
 /* Undefine some macros defined in h8300 that conflict with elfos.h .  */
 #undef SDB_DEBUGGING_INFO
@@ -9,7 +14,7 @@
 #undef CTORS_SECTION_ASM_OP
 #undef DTORS_SECTION_ASM_OP
 #undef INIT_SECTION_ASM_OP
-#undef READONLY_DATA_SECTION
+#undef READONLY_DATA_SECTION_ASM_OP
 #undef TARGET_ASM_NAMED_SECTION
 #undef TARGET_MEM_FUNCTIONS
 #undef PREFERRED_DEBUGGING_TYPE

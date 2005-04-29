@@ -1,5 +1,5 @@
 /* $RoughId: sha2init.c,v 1.3 2001/07/13 20:00:43 knu Exp $ */
-/* $Id: sha2init.c,v 1.1.1.1 2002/05/27 17:59:46 jkh Exp $ */
+/* $Id: sha2init.c,v 1.2 2002/02/17 12:43:44 nobu Exp $ */
 
 #include "digest.h"
 #include "sha2.h"
@@ -40,8 +40,8 @@ Init_sha2()
 #define DEFINE_ALGO_CLASS(bitlen) \
     cDigest_SHA##bitlen = rb_define_class_under(mDigest, "SHA" #bitlen, cDigest_Base); \
 \
-    rb_cvar_declare(cDigest_SHA##bitlen, id_metadata, \
-		    Data_Wrap_Struct(rb_cObject, 0, 0, &sha##bitlen));
+    rb_cvar_set(cDigest_SHA##bitlen, id_metadata, \
+		Data_Wrap_Struct(rb_cObject, 0, 0, &sha##bitlen), Qtrue);
 
     FOREACH_BITLEN(DEFINE_ALGO_CLASS)
 }

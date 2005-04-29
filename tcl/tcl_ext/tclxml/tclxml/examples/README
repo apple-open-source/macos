@@ -1,0 +1,40 @@
+examples/README --
+
+This directory contains some small example scripts to demonstrate
+the use of TclXML.
+
+---------------------------------------------------------------------------
+Copyright (c) 2000 Zveno Pty Ltd
+http://www.zveno.com/
+
+Zveno makes this software and all associated data and documentation
+('Software') available free of charge for any purpose.
+Copies may be made of this Software but all of this notice must be included
+on any copy.
+
+The Software was developed for research purposes and Zveno does not warrant
+that it is error free or fit for any purpose.  Zveno disclaims any
+liability for all claims, expenses, losses, damages and costs any user may
+incur as a result of using, copying or modifying the Software.
+---------------------------------------------------------------------------
+
+flatten.tcl
+	Parses an XML document or DTD and produces the document's DTD
+	with all external entities expanded, parameter entities
+	resolved and conditional sections resolved.
+
+xmlwc
+	Counts the number of lines, words, characters and bytes
+	in the character data of an XML document.
+	Inspired by the Unix wc program.
+
+REC-xml-20001006.xml 
+        The W3C XML spec in XML format. A handy file to run xmlwc over
+        to test your build. You should get this output with the command
+             tclsh8.3 xmlwc REC-xml-20001006.xml 
+        :
+ 
+           2929   14978  116827 REC-xml-20001006.xml 
+
+
+

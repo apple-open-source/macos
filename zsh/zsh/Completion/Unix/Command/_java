@@ -1,6 +1,6 @@
-#compdef javac java javadoc appletviewer jar jdb javah javap extcheck rmic rmiregistry rmid serialvar native2ascii keytool jarsigner policytool
+#compdef javac java javadoc appletviewer jar jdb javah javap extcheck rmic rmiregistry rmid serialver native2ascii keytool jarsigner policytool
 
-local expl tmp jdb_args jar_cmd match basedir
+local expl tmp jdb_args jar_cmd match basedir ret=1
 local curcontext="$curcontext" state line jf
 typeset -A opt_args tmpassoc
 
@@ -10,18 +10,19 @@ case "$service" in
 javac)
   _arguments -C \
     '-g-[generate debugging information]:debug:->debug' \
-    '-O[optimize]' \
-    '-nowarn[suppress warnings]' \
-    '-verbose[print verbose messages]' \
-    '-deprecation[print uses of deprecated APIs]' \
-    '-classpath[specify path for user class files]:class path:->classpath' \
-    '-sourcepath[specify path for source files]:source path:->sourcepath' \
-    '-bootclasspath[specify path for bootstrap class files]:bootstrap class path:->bootstrapclasspath' \
-    '-extdirs[specify directories for extensions]:extensions directories:->extdirs' \
-    '-d[specify destination directory]:directory:_files -/' \
-    '-encoding[specify character encoding for source files]:encoding:->encoding' \
-    '-target[specify VM version]:release:(1.{1..4})' \
-    '*:java source file:_files -g \*.java' && return 0
+    '-nowarn[generate no warnings]' \
+    '-verbose[output messages about what the compiler is doing]' \
+    '-deprecation[output source locations where deprecated APIs are used]' \
+    '-classpath[specify where to find user class files]:class path:->classpath' \
+    '-sourcepath[specify where to find input source files]:source path:->sourcepath' \
+    '-bootclasspath[override location of bootstrap class files]:bootstrap class path:->bootstrapclasspath' \
+    '-extdirs[override location of installed extensions]:extensions directories:->extdirs' \
+    '-d[specify where to place generated class files]:directory:_files -/' \
+    '-encoding[specify character encoding used by source files]:encoding:->encoding' \
+    '-source[provide source compatibility with specified release]:release:(1.{2..5})' \
+    '-target[specify VM version]:release:(1.{1..5})' \
+    '-help[print a synopsis of standard options]' \
+    '*:java source file:_files -g \*.java\(-.\)' && return 0
   ;;
 
 jdb)
@@ -42,7 +43,7 @@ java)
     '-verbose\:jni[print JNI information]' \
     '-version[print version]' \
     '-help[print help message]' \
-    '(- 1)-jar[specify a program capsulated as jar]:jar:_files -g \*.jar' \
+    '(- 1)-jar[specify a program capsulated as jar]:jar:_files -g \*.jar\(-.\)' \
     '(-):class:_java_class -m main ${(kv)opt_args[(i)(-classpath|-cp)]}' \
     '*::args: _normal' \
      && return 0
@@ -89,7 +90,7 @@ javadoc)
     '-helpfile[specify alternative help link]:helpfile path/filename:' \
     '-stylesheet[specify alternative HTML style sheet]:stylesheet path/filename:' \
     '-docencoding[specify character encoding for output HTML files]:encoding:->encoding' \
-    '*:package name, source file or @list:->docsrc' && return 0
+    '*:package name, source file or @list:->docsrc' && ret=0
   ;;
 
 appletviewer)
@@ -97,7 +98,7 @@ appletviewer)
     '-debug[run applet on jdb]' \
     '-encoding[specify character encoding for source files]:encoding:->encoding' \
     '-J-[specify java option]:java option:' \
-    '*:url:_urls' && return 0
+    '*:URL:_urls' && return 0
   ;;
 
 jar)
@@ -112,12 +113,12 @@ jar)
       'v[verbose mode]' \
       'm[specify manifest file]' \
       '0[store only without using ZIP compression]' \
-      'M[do not create manifest file]'
+      'M[do not create manifest file]' && return
   else
     jar_cmd="${words[2]#-}"
     tmpassoc=(
       m ':manifest file:_files'
-      f ':archive file:_files -g \*.\([ejw]ar\|zip\)'
+      f ':archive file:_files -g "*.([ejw]ar|zip)(-.)"'
     )
     _arguments -C \
       "${jar_cmd/[^-]*/:dummy:}" \
@@ -164,7 +165,7 @@ javap)
 extcheck)
   _arguments \
     '-verbose[print verbose messages]' \
-    ':target jar file:_files -g \*.jar' && return 0
+    ':target jar file:_files -g \*.jar\(-.\)' && return 0
   ;;
 
 rmic)
@@ -186,7 +187,7 @@ rmic)
 
 rmiregistry)
   if (( CURRENT == 2 )); then
-    _wanted ports expl 'port to listen' _ports
+    _wanted ports expl 'port to listen' _ports && return
   else
     _message 'no more arguments'
   fi
@@ -200,9 +201,11 @@ rmid)
     '-stop[stop rmid]:' && return 0
   ;;
        
-serialvar)
+serialver)
   _arguments \
-    '-show[display user interface]' && return 0
+    '-classpath[specify where to find user class files]:class path:->classpath' \
+    '(*)-show[display user interface]' \
+    '(-show)*:class:_java_class ${(kv)opt_args[(i)-classpath]}' && return 0
   ;;
 
 native2ascii)
@@ -328,19 +331,19 @@ keytool)
 
 jarsigner)
   _arguments \
-    '-keystore[specify url for keystore location]:url for keystore location:' \
+    '-keystore[specify URL for keystore location]:URL for keystore location:' \
     '-storetype[specify keystore type]:store type:' \
     '-storepass[specify password for keystore]:password:' \
     '-keypass[specify password for private key]:password:' \
     '-sigfile[specify base file name of .SF and .DSA files to be generated]:sigfile:_files' \
-    '-signedjar[specify signed JAR file]:_files -g \*.\(jar\|zip\)' \
+    '-signedjar[specify signed JAR file]:_files -g "*.(jar|zip)(-.)"' \
     '(2)-verify[verify mode]' \
     '-certs[output certificate information in verify mode]' \
     '-verbose[print verbose messages]' \
     '-internalsf[old behaviour]' \
     '-sectionsonly[omit header of hash of the whole manifest file]' \
     '-J-[specify java option]:java option:' \
-    ':jar file:_files -g \*.\(jar\|zip\)' \
+    ':jar file:_files -g "*.(jar|zip)(-.)"' \
     ':alias:' && return 0
   ;;
 
@@ -359,11 +362,11 @@ case "$state" in
 debug)
   if [[ -prefix :*, ]]; then
     compset -P :
-    _values -s , "debug info" lines vars source
+    _values -s , "debug info" lines vars source && return
   else
     _description debuginfo expl "debug info"
-    compadd -P: "$expl[@]" none
-    compadd -P: -qS, "$expl[@]" lines vars source
+    compadd -P: "$expl[@]" none && ret=0
+    compadd -P: -qS, "$expl[@]" lines vars source && ret=0
   fi
   ;;
 
@@ -371,13 +374,13 @@ classpath|sourcepath|bootstrapclasspath|docletpath)
   compset -P '*:'
   compset -S ':*'
   _alternative \
-    "classpath:$state:_path_files -qS: -g '*.(jar|zip)'" \
-    "classpath:$state:_path_files -r': ' -/"
+    "classpath:$state:_path_files -qS: -g '*.(jar|zip)(-.)'" \
+    "classpath:$state:_path_files -r': ' -/" && return
   ;;
 
 extdirs)
   compset -P '*:'
-  _path_files -/
+  _path_files -/ && return
   ;;
 
 encoding)
@@ -540,7 +543,7 @@ encoding)
 
 property)
   if compset -P '*='; then
-    _default
+    _default && return
   else
     _message -e property-names 'property name'
   fi
@@ -548,30 +551,30 @@ property)
 
 docsrc)
   if compset -P @; then
-    _wanted files expl 'package/source list file' _files
+    _wanted files expl 'package/source list file' _files && return
   else
-    _wanted files expl 'package or source' _files -g '*.java'
+    _wanted files expl 'package or source' _files -g '*.java(-.)' && return
   fi
   ;;
 
 jararg)
   if [[ -prefix - ]]; then
     tmp=('-C:chdir')
-    _describe -o 'option' tmp --
+    _describe -o 'option' tmp -- && return
   elif [[ "$words[CURRENT - 2]" == -C ]]; then
-    _wanted file expl 'input file' _files -W "($words[CURRENT - 1])"
+    _wanted file expl 'input file' _files -W "($words[CURRENT - 1])" && return
   elif [[ "$words[CURRENT - 1]" == -C ]]; then
-    _wanted directories expl 'chdir to' _files -/
+    _wanted directories expl 'chdir to' _files -/ && return
   elif [[ $words[2] = *x* ]]; then
-        jf="$words[3]"
-        if [[ $jf != $_jar_cache_name && -f $jf ]]; then
-            _jar_cache_list=("${(@f)$($words[1] tf $jf)}")
-            _jar_cache_name=$jf
-        fi
+    jf="$words[3]"
+    if [[ $jf != $_jar_cache_name && -f $jf ]]; then
+      _jar_cache_list=("${(@f)$($words[1] tf $jf)}")
+      _jar_cache_name=$jf
+    fi
 
-        _wanted files expl 'file from archive' _multi_parts / _jar_cache_list
+    _wanted files expl 'file from archive' _multi_parts / _jar_cache_list && return
   else
-    _wanted files expl 'input file' _files
+    _wanted files expl 'input file' _files && return
   fi
   ;;
 
@@ -579,3 +582,5 @@ jararg)
   _message "unknown state: $state"
   ;;
 esac
+
+return ret

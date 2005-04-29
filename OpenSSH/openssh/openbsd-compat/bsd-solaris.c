@@ -28,13 +28,13 @@
 
 #include "includes.h"
 #if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-#ifndef __APPLE__
+#if !defined(__APPLE__)
 #include <sys/systeminfo.h>
 #endif
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#ifndef __APPLE__
+#if !defined(__APPLE__)
 #include <sys/systeminfo.h>
 #endif
 #include <sys/stat.h>
@@ -44,10 +44,10 @@
 #include <signal.h>
 
 #include <pwd.h>
-#ifndef __APPLE__
+#if !defined(__APPLE__)
 #include <shadow.h>
-#include <utmpx.h>
 #endif
+#include <utmpx.h>
 #include <unistd.h>
 #include <string.h>
 
@@ -61,10 +61,7 @@
 
 #include "ssh.h"
 #include "log.h"
-
-#ifdef __APPLE__
-#define gettext(x) (x)
-#endif
+#include "xmalloc.h"
 
 #if defined(HAVE_GETAUDIT_ADDR)
 #define	AuditInfoStruct		auditinfo_addr
@@ -92,8 +89,10 @@ static int selected(char *nam, uid_t uid, au_event_t event, int sf);
 
 static void get_terminal_id(AuditInfoTermID *tid);
 
-#ifndef __APPLE__
+#if !defined(__APPLE__)
 extern int	cannot_audit(int);
+#else
+#define gettext(x) (x)
 #endif
 extern void	aug_init(void);
 extern dev_t	aug_get_port(void);
@@ -148,7 +147,7 @@ void
 solaris_audit_save_host(const char *host)
 {
 	int		i;
-#if !defined(HAVE_GETAUDIT_ADDR)
+#if defined(__APPLE__) || !defined(HAVE_GETAUDIT_ADDR)
 	in_addr_t	ia;
 #endif
 
@@ -158,7 +157,7 @@ solaris_audit_save_host(const char *host)
 	(void) strlcpy(sav_host, host, sizeof (sav_host));
 	debug3("BSM audit: sav_host=%s", sav_host);
 	memset(sav_machine, 0, sizeof(sav_machine));
-#if defined(HAVE_GETAUDIT_ADDR)
+#if !defined(__APPLE__) && defined(HAVE_GETAUDIT_ADDR)
 	(void) aug_get_machine(sav_host, &sav_machine[0], &sav_iptype);
 	debug3("BSM audit: sav_iptype=%ld", (long)sav_iptype);
 #else
@@ -182,7 +181,7 @@ solaris_audit_save_command(const char *command)
 		free(sav_cmd);
 		sav_cmd = NULL;
 	}
-	sav_cmd = strdup(command);
+	sav_cmd = xstrdup(command);
 	debug3("BSM audit: sav_cmd=%s", sav_cmd);
 }
 
@@ -309,6 +308,40 @@ solaris_audit_record(int typ, char *string, au_event_t event_no)
 	if (typ == 0) {
 		rc = 0;
 	} else {
+		/*
+		 * The typ value is passed to the au_return function as
+		 * the error number.  We used to use small integer values
+		 * (e.g. 4) to distinguish between the various errors,
+		 * but praudit treats the field as an errno value and
+		 * passes it through strerror(), so they would show
+		 * up as (e.g.) "interrupted system call" (4 is EINTR)
+		 * which was confusing:
+		 *
+		 *  return,failure: Interrupted system call,-1
+		 *
+		 * I tried setting rc to the negative of the typ and typ
+		 * to zero, but that shows up as a success rather than a
+		 * failure:
+		 *
+		 *  return,success,-4
+		 *
+		 * Sigh.
+		 *
+		 * Experimentally, using numbers outside the range of
+		 * valid errno values show up as integers, e.g.:
+		 *
+		 *  return,failure: 244,-1
+		 *
+		 * which seems much more reasonable.
+		 *
+		 * According to the audit.log documentation, the field
+		 * is only a char type (actually, probably unsigned char)
+		 * so we have to keep it under 255.
+		 */
+		typ += 240;
+		if (typ > 255) {
+			typ = EINVAL;		/* caller goofed */
+		}
 		rc = -1;
 	}
 
@@ -374,7 +407,7 @@ get_terminal_id(AuditInfoTermID *tid)
 {
 #if defined(__APPLE__)
 	if(kAUBadParamErr == audit_set_terminal_id(tid))
-	    debug("BSM get_terminal_id: error");
+		debug("BSM get_terminal_id: error");
 #elif defined(HAVE_GETAUDIT_ADDR)
 	tid->at_port = sav_port;
 	tid->at_type = sav_iptype;
@@ -392,6 +425,10 @@ void
 solaris_audit_logout(void)
 {
 	char    textbuf[BSM_TEXTBUFSZ];
+
+	if (cannot_audit(0)) {
+		return;
+	}
 
 	(void) snprintf(textbuf, sizeof (textbuf),
 		gettext("sshd logout %s"), sav_name);

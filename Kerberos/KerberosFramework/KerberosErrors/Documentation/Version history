@@ -1,9 +1,48 @@
 ========================================================================
 KerberosErrors Version History
 ========================================================================
-Current version: 1.5fc3
-Date:            August 22, 2003
+Current version: 1.6fc1
+Date:            December 6, 2004
 Author:          lxs@mit.edu, meeroh@mit.edu
+========================================================================
+
+KerberosErrors 1.6
+Released with KfM 5.5
+
+========================================================================
+
+	KerberosErrors 1.6fc1
+	December 6, 2004
+
+	Moved to final candidate.
+
+	========================================================================
+
+	KerberosErrors 1.6b3
+	October 17, 2004
+
+	[RT 2717] CFBundleGetValueForInfoDictionaryKey() accesses homedir!!
+	[RT 2732] com_err should be thread-safe
+
+	========================================================================
+
+	KerberosErrors 1.6b2
+	September 8, 2004
+
+	[RT 2701] compile_et needs a man page 
+
+	========================================================================
+
+	KerberosErrors 1.6b1
+	August 20, 2004
+
+	[RT 1716] install compile_et in /usr/bin
+
+	========================================================================
+
+KerberosErrors 1.5
+September 18, 2003
+
 ========================================================================
 
 	KerberosErrors 1.5fc3

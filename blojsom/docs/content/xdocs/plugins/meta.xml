@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Meta plugin</title>
+   </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The meta plugin works by looking for a specific prefix "meta-" at the beginning
+                of lines in your blog entry. If it finds an "=" sign on that line, it will use
+                the text between the "meta-" prefix and the "=" sign as the meta-data key and
+                the text between the "=" sign and the end of the line as the meta-data value.
+            </p>
+
+            <section>
+                <title>installation and setup</title>
+                <p>
+                    In your global
+                    <code>plugin.properties</code> file, add the following line:
+                </p>
+                <source>
+                    meta=org.blojsom.plugin.meta.MetaPlugin
+                </source>
+                <p>You may then add "meta" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+                </p>
+                <source>
+                    html.blojsom-plugin-chain=meta
+                </source>
+            </section>
+            <section>
+                <title>usage and URL parameters</title>
+
+                <section>
+                    <title>usage</title>
+                    <p>
+                        The following is a sample blog entry:
+                        <pre>
+                            This is my entry title
+                            meta-key=value
+                            meta-key2=value2
+                            This is the body of my blog entry
+                        </pre>
+                        This will populate the meta-data for this blog entry with key/value pairs
+                        of "key/value" and "key2/value2", respectively.
+                    </p>
+                </section>
+                <section>
+                    <title>URL parameters</title>
+                    <p>There are no URL parameters to control the operation of the meta plugin.
+                    </p>
+                </section>
+            </section>
+        </section>
+
+    </body>
+</document>
+

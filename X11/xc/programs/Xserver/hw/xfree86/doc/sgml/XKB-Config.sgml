@@ -6,7 +6,7 @@
 <date>25 November 2002
 
 <ident>
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/XKB-Config.sgml,v 1.2 2003/02/25 19:31:02 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/XKB-Config.sgml,v 1.4 2003/09/21 01:55:03 dawes Exp $
 </ident>
 
 <abstract>
@@ -27,7 +27,7 @@ need to touch any of xkb configuration files.
 <sect>Selecting XKB Configuration
 <p>
 The easiest and the most natural way how to specify a keyboard mapping is
-tu use <tt>rules</tt> component. As its name suggests it describes a number of general
+to use <tt>rules</tt> component. As its name suggests it describes a number of general
 rules how to combine all bits and pieces into a valid and useful keyboard 
 mapping. All you need to do is to select a suitable rules file and then to
 feed it with a few parameters that will adjust the keyboard behaviour to
@@ -105,7 +105,7 @@ EndSection
 Of course, this can be also done at runtime using utility setxkbmap.
 Shell command loading the same keyboard mapping would look like:
 <tscreen><verb>
-setxkmap -rules xfree86 -model logicordless -layout "us,cz,de" \
+setxkbmap -rules xfree86 -model logicordless -layout "us,cz,de" \
          -option "grp:alt_shift_toggle"
 </verb></tscreen>
 

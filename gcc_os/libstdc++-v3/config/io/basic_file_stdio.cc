@@ -32,6 +32,7 @@
 //
 
 #include <bits/basic_file.h>
+#include <fcntl.h>
 
 namespace std 
 {
@@ -43,8 +44,8 @@ namespace std
   { this->close(); }
       
   void 
-  __basic_file<char>::_M_open_mode(ios_base::openmode __mode, int&, int&, 
-				   char* __c_mode)
+  __basic_file<char>::_M_open_mode(ios_base::openmode __mode, int& __p_mode, 
+				   int&, char* __c_mode)
   {  
     bool __testb = __mode & ios_base::binary;
     bool __testi = __mode & ios_base::in;
@@ -52,18 +53,43 @@ namespace std
     bool __testt = __mode & ios_base::trunc;
     bool __testa = __mode & ios_base::app;
       
+    // Set __c_mode for use in fopen.
+    // Set __p_mode for use in open.
     if (!__testi && __testo && !__testt && !__testa)
-      strcpy(__c_mode, "w");
+      {
+	strcpy(__c_mode, "w");
+	__p_mode = (O_WRONLY | O_CREAT);
+      }
     if (!__testi && __testo && !__testt && __testa)
-      strcpy(__c_mode, "a");
+      {
+	strcpy(__c_mode, "a");
+	__p_mode |=  O_WRONLY | O_CREAT | O_APPEND;
+      }
     if (!__testi && __testo && __testt && !__testa)
-      strcpy(__c_mode, "w");
+      {
+	strcpy(__c_mode, "w");
+	__p_mode |=  O_WRONLY | O_CREAT | O_TRUNC;
+      }
+
     if (__testi && !__testo && !__testt && !__testa)
-      strcpy(__c_mode, "r");
+      {
+	strcpy(__c_mode, "r");
+#if defined (O_NONBLOCK)
+	__p_mode |=  O_RDONLY | O_NONBLOCK;
+#else
+	__p_mode |=  O_RDONLY;
+#endif
+      }
     if (__testi && __testo && !__testt && !__testa)
-      strcpy(__c_mode, "r+");
+      {
+	strcpy(__c_mode, "r+");
+	__p_mode |=  O_RDWR | O_CREAT;
+      }
     if (__testi && __testo && __testt && !__testa)
-      strcpy(__c_mode, "w+");
+      {
+	strcpy(__c_mode, "w+");
+	__p_mode |=  O_RDWR | O_CREAT | O_TRUNC;
+      }
     if (__testb)
       strcat(__c_mode, "b");
   }
@@ -74,18 +100,43 @@ namespace std
     __basic_file* __ret = NULL;
     if (!this->is_open() && __file)
       {
-	_M_cfile = __file;
-	_M_cfile_created = false;
+ 	_M_cfile = __file;
+ 	_M_cfile_created = false;
+  	__ret = this;
+      }
+    return __ret;
+  }
+  
+  __basic_file<char>*
+  __basic_file<char>::sys_open(int __fd, ios_base::openmode __mode, 
+			       bool __del) 
+  {
+    __basic_file* __ret = NULL;
+    int __p_mode = 0;
+    int __rw_mode = 0;
+    char __c_mode[4];
+    
+    _M_open_mode(__mode, __p_mode, __rw_mode, __c_mode);
+    if (!this->is_open() && (_M_cfile = fdopen(__fd, __c_mode)))
+      {
+	// Iff __del is true, then close will fclose the fd.
+	_M_cfile_created = __del;
+
+	if (__fd == 0)
+	  setvbuf(_M_cfile, reinterpret_cast<char*>(NULL), _IONBF, 0);
+
 	__ret = this;
       }
     return __ret;
   }
 
-  char
-  __basic_file<char>::sys_getc() { return getc (_M_cfile); }
-  
-  char
-  __basic_file<char>::sys_ungetc(char __s) { return ungetc (__s, _M_cfile); }
+  int
+  __basic_file<char>::sys_getc() 
+  { return getc(_M_cfile); }
+
+  int
+  __basic_file<char>::sys_ungetc(int __c) 
+  { return ungetc(__c, _M_cfile); }
   
   __basic_file<char>* 
   __basic_file<char>::open(const char* __name, ios_base::openmode __mode, 
@@ -103,6 +154,13 @@ namespace std
 	if ((_M_cfile = fopen(__name, __c_mode)))
 	  {
 	    _M_cfile_created = true;
+
+#if defined (F_SETFL) && defined (O_NONBLOCK)
+	    // Set input to nonblocking for fifos.
+	    if (__mode & ios_base::in)
+	      fcntl(this->fd(), F_SETFL, O_NONBLOCK);
+#endif
+
 	    __ret = this;
 	  }
       }
@@ -110,10 +168,12 @@ namespace std
   }
   
   bool 
-  __basic_file<char>::is_open() const { return _M_cfile != 0; }
+  __basic_file<char>::is_open() const 
+  { return _M_cfile != 0; }
   
   int 
-  __basic_file<char>::fd() { return fileno(_M_cfile) ; }
+  __basic_file<char>::fd() 
+  { return fileno(_M_cfile) ; }
   
   __basic_file<char>* 
   __basic_file<char>::close()
@@ -143,17 +203,24 @@ namespace std
   __basic_file<char>::seekoff(streamoff __off, ios_base::seekdir __way, 
 			      ios_base::openmode /*__mode*/)
   { 
-    fseek(_M_cfile, __off, __way); 
-    return ftell(_M_cfile); 
+    if (!fseek(_M_cfile, __off, __way))
+      return ftell(_M_cfile); 
+    else
+      // Fseek failed.
+      return -1L;
   }
 
   streamoff
   __basic_file<char>::seekpos(streamoff __pos, ios_base::openmode /*__mode*/)
   { 
-    fseek(_M_cfile, __pos, ios_base::beg); 
-    return ftell(_M_cfile); 
+    if (!fseek(_M_cfile, __pos, ios_base::beg))
+      return ftell(_M_cfile);
+    else
+      // Fseek failed.
+      return -1L;
   }
   
   int 
-  __basic_file<char>::sync() { return fflush(_M_cfile); }
+  __basic_file<char>::sync() 
+  { return fflush(_M_cfile); }
 }  // namespace std

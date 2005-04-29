@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Img Documentation</title>
+  <meta http-equiv="Content-Type" content="text/html" />
+</head>
+
+<body>
+<h1>Img Manual</h1>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td><a href="index.htm">Introduction</a></td>
+      <td><a href="install.htm">Installation</a></td>
+      <td><a href="formats.htm">Format handlers</a></td>
+      <td><a href="library.htm">External libraries</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Introduction</h3>
+
+<p>Img is a Tk extension, adding support for many other Image formats: BMP,
+XBM, XPM, GIF (with transparency, but without LZW), PNG, JPEG, TIFF and
+postscript. This version only works with Tcl/Tk 8.0 or higher (any patchlevel,
+tested up to 8.4a1). If you are using Tk4.2 or lower, please stick with
+Img1.1.4 (which is still available).</p>
+
+<p>Currently there are two identical source distributions:</p>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td width="10%">&nbsp;</td>
+      <td><a
+        href="ftp://ftp.neosoft.com/pub/tcl/sorted/packages-8.0/graphics/img/1.2/img124.zip">img124.zip</a></td>
+      <td>(for Windows)</td>
+      <td>(about 1.8 Mb)</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td><a
+        href="ftp://ftp.neosoft.com/pub/tcl/sorted/packages-8.0/graphics/img/1.2/img1.2.4.tar.gz">img1.2.4.tar.gz</a></td>
+      <td>(for Unix)</td>
+      <td>(about 1.6 Mb)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>And a binary distribution</p>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td width="10%">&nbsp;</td>
+      <td><a
+        href="ftp://ftp.neosoft.com/pub/tcl/sorted/packages-8.0/graphics/img/1.2/img124.exe">img124.exe</a></td>
+      <td>(for Windows)</td>
+      <td>(about 800 kb)</td>
+    </tr>
+    <tr>
+    </tr>
+  </tbody>
+</table>
+
+<p>If you want to write images to disk which contain transparency information
+(e.g. GIF89 or PNG with alpha channel), you need at least Tk8.3.</p>
+
+<p>In stead of LZW the run-length encoding of Hutchison Avenue Software
+Corporation is used, also known as miGIF compression. The miGIF compression
+routines do not, strictly speaking, generate files conforming to the GIF spec,
+since the image data is not LZW-compressed (this is the point: in order to
+avoid transgression of the Unisys patent on the LZW algorithm.)  However,
+miGIF generates data streams that any reasonably sane LZW decompresser will
+decompress to what we want.</p>
+</body>
+</html>

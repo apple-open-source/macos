@@ -1,0 +1,49 @@
+//
+// CATFSH16.RC2 - resources App Studio does not edit directly
+//
+
+#ifdef APSTUDIO_INVOKED
+    #error this file is not editable by App Studio
+#endif //APSTUDIO_INVOKED
+
+/////////////////////////////////////////////////////////////////////////////
+// Version stamp for this .EXE
+
+#include "ver.h"
+
+VS_VERSION_INFO     VERSIONINFO
+  FILEVERSION       1,9,0,0
+  PRODUCTVERSION    1,9,0,0
+  FILEFLAGSMASK     VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+  FILEFLAGS         VS_FF_DEBUG|VS_FF_PRIVATEBUILD|VS_FF_PRERELEASE
+#else
+  FILEFLAGS         0 // final version
+#endif
+  FILEOS            VOS_DOS_WINDOWS16
+  FILETYPE          VFT_APP
+  FILESUBTYPE       0   // not used
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904E4" // Lang=US English, CharSet=Windows Multilingual
+        BEGIN 
+            VALUE "CompanyName", "Equi4 Software\0"
+            VALUE "FileDescription", "CatFish - A fast disk catalog browser\0"
+            VALUE "FileVersion", "1.9\0"
+            VALUE "InternalName", "CATFISH\0"
+            VALUE "LegalCopyright", "Copyright \251 1996-2000 by Equi4 Software\0"
+            VALUE "OriginalFilename", "catfish.exe\0"
+        END
+    END
+    BLOCK "VarFileInfo" 
+    BEGIN 
+        VALUE "Translation", 0x409, 1252
+            // English language (0x409) and the Windows ANSI codepage (1252)
+    END
+END
+
+/////////////////////////////////////////////////////////////////////////////
+// Add additional manually edited resources here...
+
+/////////////////////////////////////////////////////////////////////////////

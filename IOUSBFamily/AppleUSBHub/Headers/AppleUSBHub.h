@@ -53,6 +53,7 @@ class AppleUSBHub : public IOService
     OSDeclareDefaultStructors(AppleUSBHub)
 
     friend class AppleUSBHubPort;
+    friend class AppleUSBHSHubUserClient;
 
     IOUSBController *		_bus;
     IOUSBDevice *		_device;
@@ -83,14 +84,15 @@ class AppleUSBHub : public IOService
     thread_call_t		_resetPortZeroThread;
     thread_call_t		_hubDeadCheckThread;
     thread_call_t		_clearFeatureEndpointHaltThread;
-    thread_call_t		_clearDevZeroLockThread;
 
     // Port stuff
     UInt8			_readBytes;
     UInt8			_numCaptive;
     AppleUSBHubPort **	   	_ports;		// Allocated at runtime
     bool			_multiTTs;	// Hub is multiTT capable, and configured.
-    bool			_hsHub;		// Hub is connected to a HS bus
+    bool			_hsHub;		// our provider is a HS bus
+    bool			_isRootHub;	// we are driving a root hub (needed for test mode)
+    bool			_inTestMode;	// T while we are in test mode
     IOTimerEventSource *      	_timerSource;
     UInt32			_timeoutFlag;
     UInt32			_portTimeStamp[32];
@@ -117,8 +119,6 @@ class AppleUSBHub : public IOService
     void		ClearFeatureEndpointHalt(void);
 
     static void 	TimeoutOccurred(OSObject *owner, IOTimerEventSource *sender);
-
-    static void		ClearDevZeroLockForPort( OSObject *target, thread_call_param_t thePort);
 
     IOReturn 		DoDeviceRequest(IOUSBDevRequest *request);
     UInt32		GetHubErrataBits(void);
@@ -160,6 +160,12 @@ class AppleUSBHub : public IOService
     IOUSBHubDescriptor 	GetCachedHubDescriptor() { return _hubDescriptor; }
     bool		MergeDictionaryIntoProvider(IOService *  provider, OSDictionary *  mergeDict);
     bool		MergeDictionaryIntoDictionary(OSDictionary *  sourceDictionary,  OSDictionary *  targetDictionary);
+    
+    // test mode functions, called by the AppleUSBHSHubUserClient
+    IOReturn		EnterTestMode();
+    IOReturn		LeaveTestMode();
+    bool		IsHSRootHub();
+    IOReturn 		PutPortIntoTestMode(UInt32 port, UInt32 mode);
     
 public:
 

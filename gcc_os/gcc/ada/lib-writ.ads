@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.3 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -203,8 +202,8 @@ package Lib.Writ is
 
    --      This line records information regarding restrictions. The
    --      parameter is a string of characters, one for each entry in
-   --      Restrict.Partition_Restrictions, in order. There are three
-   --      settings possible settings for each restriction:
+   --      Restrict.Compilation_Unit_Restrictions, in order. There are
+   --      three settings possible settings for each restriction:
 
    --        r   Restricted. Unit was compiled under control of a pragma
    --            Restrictions for the corresponding restriction. In
@@ -216,7 +215,7 @@ package Lib.Writ is
    --            pragma Restrictions for the corresponding restriction,
    --            and does not make any use of the referenced feature.
 
-   --        v   Violated. The unit was not compiled uner control of a
+   --        v   Violated. The unit was not compiled under control of a
    --            pragma Restrictions for the corresponding restriction,
    --            and it does indeed use the referenced feature.
 
@@ -344,23 +343,15 @@ package Lib.Writ is
    --      of a generic unit compiled with earlier versions of GNAT which
    --      did not generate object or ali files for generics.
 
-   ---------------------
-   -- Reference Lines --
-   ---------------------
-
-   --  The reference lines contain information about references from
-   --  any of the units in the compilation (including, body version
-   --  and version attributes, linker options pragmas and source
-   --  dependencies.
-
    --  -----------------------
    --  -- L  Linker_Options --
    --  -----------------------
 
-   --  Following the unit information is an optional series of lines that
-   --  indicates the usage of pragma Linker_Options. For each appearence
-   --  of pragma Linker_Actions in any of the units for which unit lines
-   --  are present, a line of the form:
+   --  Following the W lines (if any, or the U line if not), are an
+   --  optional series of lines that indicates the usage of the pragma
+   --  Linker_Options in the associated unit. For each appearence of a
+   --  pragma Linker_Options (or Link_With) in the unit, a line is
+   --  present with the form:
 
    --    L "string"
 
@@ -377,6 +368,20 @@ package Lib.Writ is
    --      For further details, see Stringt.Write_String_Table_Entry. Note
    --      that wide characters in the form {hhhh} cannot be produced, since
    --      pragma Linker_Option accepts only String, not Wide_String.
+
+   --      The L lines are required to appear in the same order as the
+   --      corresponding Linker_Options (or Link_With) pragmas appear in
+   --      the source file, so that this order is preserved by the binder
+   --      in constructing the set of linker arguments.
+
+   ---------------------
+   -- Reference Lines --
+   ---------------------
+
+   --  The reference lines contain information about references from
+   --  any of the units in the compilation (including, body version
+   --  and version attributes, linker options pragmas and source
+   --  dependencies.
 
    --  ------------------------------------
    --  -- E  External Version References --

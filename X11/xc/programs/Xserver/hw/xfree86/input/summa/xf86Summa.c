@@ -24,9 +24,11 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/summa/xf86Summa.c,v 1.13 2003/01/12 03:55:50 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/summa/xf86Summa.c,v 1.17 2003/11/17 22:20:39 dawes Exp $ */
 
+#if 0
 static const char identification[] = "$Identification: 18 $";
+#endif
 
 #include "xf86Version.h"
 
@@ -297,18 +299,14 @@ static const char * ss_initstr = SS_TABID0 SS_UPPER_ORIGIN SS_BINARY_FMT SS_STRE
 #define ENQUEUE	xf86eqEnqueue
 
 extern void xf86eqEnqueue(
-#if NeedFunctionPrototypes
     xEventPtr /*e*/
-#endif
 );
 #endif
 
 extern void miPointerDeltaCursor(
-#if NeedFunctionPrototypes
     int /*dx*/,
     int /*dy*/,
     unsigned long /*time*/
-#endif
 );
 
 #endif
@@ -690,8 +688,8 @@ xf86SumReadInput(LocalDevicePtr local)
 	    }
 	}
     }
-    DBG(7, ErrorF("xf86SumReadInput END   device=0x%x priv=0x%x\n",
-	   local->dev, priv));
+    DBG(7, ErrorF("xf86SumReadInput END   device=%p priv=%p\n",
+	   (void *)local->dev, (void *)priv));
 }
 
 /*
@@ -1135,11 +1133,11 @@ xf86SumProc(DeviceIntPtr pSum, int what)
     LocalDevicePtr	local = (LocalDevicePtr)pSum->public.devicePrivate;
     SummaDevicePtr	priv = (SummaDevicePtr)PRIVATE(pSum);
 
-    DBG(2, ErrorF("BEGIN xf86SumProc dev=0x%x priv=0x%x what=%d\n", pSum, priv, what));
+    DBG(2, ErrorF("BEGIN xf86SumProc dev=%p priv=%p what=%d\n", (void *)pSum, (void *)priv, what));
 
     switch (what) {
 	case DEVICE_INIT:
-	    DBG(2, ErrorF("xf86SumProc pSum=0x%x fd = %d, what=INIT\n", pSum,
+	    DBG(2, ErrorF("xf86SumProc pSum=%p fd = %d, what=INIT\n", (void *)pSum,
 		local->fd));
 	    if (priv->flags & INITIALIZED) break;	/* already done */
 
@@ -1191,7 +1189,7 @@ xf86SumProc(DeviceIntPtr pSum, int what)
 	    break;
 
 	case DEVICE_ON:
-	    DBG(2, ErrorF("xf86SumProc pSum=0x%x fd = %d, what=ON\n", pSum,
+	    DBG(2, ErrorF("xf86SumProc pSum=%p fd = %d, what=ON\n", (void *)pSum,
 		local->fd));
 	    if (pSum->public.on) break;		/* already on */
 
@@ -1220,7 +1218,7 @@ xf86SumProc(DeviceIntPtr pSum, int what)
 	    break;
 
 	case DEVICE_OFF:
-	    DBG(2, ErrorF("xf86SumProc  pSum=0x%x fd = %d, what=OFF\n", pSum,
+	    DBG(2, ErrorF("xf86SumProc  pSum=%p fd = %d, what=OFF\n", (void *)pSum,
 		   local->fd));
 	    if (! pSum->public.on) break;		/* already off */
 	    if (local->fd >= 0)
@@ -1237,7 +1235,7 @@ xf86SumProc(DeviceIntPtr pSum, int what)
 	    break;
 
 	case DEVICE_CLOSE:
-	    DBG(2, ErrorF("xf86SumProc  pSum=0x%x fd = %d, what=CLOSE\n", pSum,
+	    DBG(2, ErrorF("xf86SumProc  pSum=%p fd = %d, what=CLOSE\n", (void *)pSum,
 		   local->fd));
 	    if (local->fd != -1) {
 	      SYSCALL(close(local->fd));
@@ -1250,8 +1248,8 @@ xf86SumProc(DeviceIntPtr pSum, int what)
 	    return !Success;
 	    break;
     }
-    DBG(2, ErrorF("END   xf86SumProc Success what=%d dev=0x%x priv=0x%x\n",
-	   what, pSum, priv));
+    DBG(2, ErrorF("END   xf86SumProc Success what=%d dev=%p priv=%p\n",
+	   what, (void *)pSum, (void *)priv));
     return Success;
 }
 
@@ -1262,7 +1260,7 @@ xf86SumProc(DeviceIntPtr pSum, int what)
 static void
 xf86SumClose(LocalDevicePtr local)
 {
-    DBG(2, ErrorF("xf86SumClose local = %lx, ->fd = %d\n", local, local->fd));
+    DBG(2, ErrorF("xf86SumClose local = %p, ->fd = %d\n", (void *)local, local->fd));
     if (local->fd >= 0) {
 #ifdef XFREE86_V4
 	xf86CloseSerial(local->fd);
@@ -1304,7 +1302,7 @@ xf86SumSwitchMode(ClientPtr client, DeviceIntPtr dev, int mode)
     SummaDevicePtr	priv = (SummaDevicePtr)(local->private);
     char		newmode;
 
-    DBG(3, ErrorF("xf86SumSwitchMode dev=0x%x mode=%d\n", dev, mode));
+    DBG(3, ErrorF("xf86SumSwitchMode dev=%p mode=%d\n", (void *)dev, mode));
 
     switch(mode) {
 	case Absolute:
@@ -1318,8 +1316,8 @@ xf86SumSwitchMode(ClientPtr client, DeviceIntPtr dev, int mode)
 	    break;
 
 	default:
-	    DBG(2, ErrorF("xf86SumSwitchMode dev=0x%x invalid mode=%d\n",
-		   dev, mode));
+	    DBG(2, ErrorF("xf86SumSwitchMode dev=%p invalid mode=%d\n",
+		   (void *)dev, mode));
 	    return BadMatch;
     }
     SYSCALL(write(local->fd, &newmode, 1));

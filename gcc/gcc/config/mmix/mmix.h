@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for MMIX.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 This file is part of GCC.
@@ -129,9 +129,9 @@ extern const char *mmix_cc1_ignored_option;
 
 #define TARGET_OPTIONS					\
    {{"set-program-start=", &mmix_cc1_ignored_option,	\
-  N_("Set start-address of the program") },		\
+  N_("Set start-address of the program"), 0},		\
     {"set-data-start=", &mmix_cc1_ignored_option,	\
-  N_("Set start-address of data")}}
+  N_("Set start-address of data"), 0} }
 
 /* FIXME: There's no provision for profiling here.  */
 #define STARTFILE_SPEC  \
@@ -169,12 +169,12 @@ extern int target_flags;
    address goes in a global register.  When addressing, it's more like
    "base address plus offset", with the offset being 0..255 from the base,
    which itself can be a symbol plus an offset.  The effect is like having
-   a constant pool in global registers, code offseting from those
+   a constant pool in global registers, code offsetting from those
    registers (automatically causing a request for a suitable constant base
    address register) without having to know the specific register or the
    specific offset.  The setback is that there's a limited number of
    registers, and you'll not find out until link time whether you
-   should've compiled with -mno-base-addresses.  */
+   should have compiled with -mno-base-addresses.  */
 #define TARGET_MASK_BASE_ADDRESSES 128
 
 /* FIXME: Get rid of this one.  */
@@ -280,8 +280,10 @@ extern int target_flags;
 
 /* FIXME: Promotion of modes currently generates slow code, extending
    before every operation.  */
+/* I'm a little bit undecided about this one.  It might be beneficial to
+   promote all operations.  */
 
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)	\
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)	\
  do {						\
   if (GET_MODE_CLASS (MODE) == MODE_INT		\
       && GET_MODE_SIZE (MODE) < 8)		\
@@ -292,18 +294,6 @@ extern int target_flags;
      if (0) (UNSIGNEDP) = 0;			\
    }						\
  } while (0)
-
-#define PROMOTE_FUNCTION_ARGS
-
-#if 0
-/* Apparently not doing TRT if int < register-size.  FIXME: Perhaps
-   FUNCTION_VALUE and LIBCALL_VALUE needs tweaking as some ports say.  */
-#define PROMOTE_FUNCTION_RETURN
-#endif
-
-/* I'm a little bit undecided about this one.  It might be beneficial to
-   promote all operations.  */
-#define PROMOTE_FOR_CALL_ONLY
 
 /* We need to align everything to 64 bits that can affect the alignment
    of other types.  Since address N is interpreted in MMIX as (N modulo
@@ -697,7 +687,7 @@ enum reg_class
 /* Node: Elimination */
 /* FIXME: Is this requirement built-in?  Anyway, we should try to get rid
    of it; we can deduce the value.  */
-#define FRAME_POINTER_REQUIRED (nonlocal_goto_stack_level != NULL_RTX)
+#define FRAME_POINTER_REQUIRED  current_function_has_nonlocal_label
 
 /* The frame-pointer is stored in a location that either counts to the
    offset of incoming parameters, or that counts to the offset of the
@@ -730,27 +720,14 @@ enum reg_class
 #define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED)	\
  mmix_function_arg (&(CUM), MODE, TYPE, NAMED, 1)
 
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)	\
- mmix_function_arg_pass_by_reference (&(CUM), MODE, TYPE, NAMED)
-
-/* This *sounds* good, but does not seem to be implemented correctly to
-   be a win; at least it wasn't in 2.7.2.  FIXME: Check and perhaps
-   replace with a big comment.
-   The definition needs to match or be a subset of
-   FUNCTION_ARG_PASS_BY_REFERENCE, since not all callers check that before
-   usage.  Watch lots of C++ test-cases fail if set to 1, for example
-   g++.dg/init/byval1.C.  */
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
- mmix_function_arg_pass_by_reference (&(CUM), MODE, TYPE, NAMED)
-
 typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).regs = 0, (CUM).lib = ((LIBNAME) != 0))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)		\
  ((CUM).regs							\
-  = ((MUST_PASS_IN_STACK (MODE, TYPE))				\
+  = ((targetm.calls.must_pass_in_stack (MODE, TYPE))		\
      || (MMIX_FUNCTION_ARG_SIZE (MODE, TYPE) > 8		\
 	 && !TARGET_LIBFUNC && !(CUM).lib))			\
   ? (MMIX_MAX_ARGS_IN_REGS) + 1					\
@@ -779,11 +756,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
  mmix_function_value_regno_p (REGNO)
 
 
-/* Node: Aggregate Return */
-
-#define STRUCT_VALUE_REGNUM MMIX_STRUCT_VALUE_REGNUM
-
-
 /* Node: Caller Saves */
 /* (empty) */
 
@@ -804,19 +776,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define FUNCTION_PROFILER(FILE, LABELNO)	\
  mmix_function_profiler (FILE, LABELNO)
 
-/* Node: Varargs */
-
-/* For the moment, let's stick to pushing argument registers on the stack.
-   Later, we can parse all arguments in registers, to improve
-   performance.  */
-#define SETUP_INCOMING_VARARGS(A, M, T, P, S)	\
- mmix_setup_incoming_varargs(&(A), M, T, &(P), S)
-
-/* FIXME: This and other EXPAND_BUILTIN_VA_... target macros are not
-   documented, although used by several targets.  */
-#define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) \
- mmix_expand_builtin_va_arg (VALIST, TYPE)
-
 /* Node: Trampolines */
 
 #define TRAMPOLINE_TEMPLATE(FILE) \
@@ -825,11 +784,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define TRAMPOLINE_SIZE mmix_trampoline_size
 #define INITIALIZE_TRAMPOLINE(ADDR, FNADDR, STATIC_CHAIN) \
  mmix_initialize_trampoline (ADDR, FNADDR, STATIC_CHAIN)
-
-
-/* Node: Library Calls */
-
-#define TARGET_MEM_FUNCTIONS
 
 
 /* Node: Addressing Modes */
@@ -854,8 +808,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 #define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_BASE_P (X)
 
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
-
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
 
 #define LEGITIMATE_CONSTANT_P(X) \
@@ -871,7 +823,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
    comparisons with -1 to LT and GE respectively, and LT, LTU, GE or GEU
    comparisons with 256 to 255 and LE, LEU, GT and GTU has been
    ineffective; the code path for performing the changes did not trig for
-   neither the GCC test-suite nor ghostscript-6.52 nor Knuth's mmix.tar.gz
+   neither the GCC testsuite nor ghostscript-6.52 nor Knuth's mmix.tar.gz
    itself (core GCC functionality supposedly handling it) with sources
    from 2002-06-06.  */
 
@@ -880,17 +832,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 
 /* Node: Costs */
-
-/* This one takes on both the RTX_COSTS and CONST_COSTS tasks.  */
-#define DEFAULT_RTX_COSTS(X, CODE, OUTER_CODE)			\
- {								\
-   int mmix_rtx_cost;						\
-   if (mmix_rtx_cost_recalculated (X, CODE, OUTER_CODE, 	\
-				   &mmix_rtx_cost))		\
-     return mmix_rtx_cost;					\
- }
-
-#define ADDRESS_COST(ADDRESS) mmix_address_cost (ADDRESS)
 
 /* The special registers can only move to and from general regs, and we
    need to check that their constraints match, so say 3 for them.  */
@@ -930,12 +871,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 /* Node: File Framework */
 
-#define ASM_FILE_START(STREAM) \
- mmix_asm_file_start (STREAM)
-
-#define ASM_FILE_END(STREAM) \
- mmix_asm_file_end (STREAM)
-
 /* While any other punctuation character but ";" would do, we prefer "%"
    or "!"; "!" is an unary operator and so will not be mistakenly included
    in correctly formed expressions.  The hash character adds mass; catches
@@ -953,11 +888,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define OUTPUT_QUOTED_STRING(STREAM, STRING) \
  mmix_output_quoted_string (STREAM, STRING, strlen (STRING))
 
-#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE) \
- mmix_asm_output_source_line  (STREAM, LINE)
-
 #define TARGET_ASM_NAMED_SECTION default_elf_asm_named_section
-
 
 /* Node: Data Output */
 
@@ -992,9 +923,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define ASM_OUTPUT_LABELREF(STREAM, NAME) \
  mmix_asm_output_labelref (STREAM, NAME)
 
-#define ASM_OUTPUT_INTERNAL_LABEL(STREAM, PREFIX, NUM) \
- mmix_asm_output_internal_label (STREAM, PREFIX, NUM)
-
 /* We insert a ":" to disambiguate against user symbols like L5.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM) \
  sprintf (LABEL, "*%s:%ld", PREFIX, (long)(NUM))
@@ -1003,9 +931,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
    ":" is seen in the object file; we don't really want that mmixal
    feature visible there.  We don't want the default, which uses a dot;
    that'd be incompatible with mmixal.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)		\
- ((OUTPUT) = (char *) alloca (strlen ((NAME)) + 2 + 10),	\
-  sprintf ((OUTPUT), "%s::%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s::%lu"
 
 #define ASM_OUTPUT_DEF(STREAM, NAME, VALUE) \
  mmix_asm_output_def (STREAM, NAME, VALUE)
@@ -1163,11 +1089,8 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* We have a choice here too.  */
-#if 0
-/* FIXME:  Revisit, we don't have scc expanders yet.  */
-#define STORE_FLAG_VALUE 1
-#endif
+/* ??? MMIX allows a choice of STORE_FLAG_VALUE.  Revisit later,
+   we don't have scc expanders yet.  */
 
 #define Pmode DImode
 
@@ -1181,10 +1104,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define DOLLARS_IN_IDENTIFIERS 0
 #define NO_DOLLAR_IN_LABEL
 #define NO_DOT_IN_LABEL
-
-/* Calculate the highest used supposed saved stack register.  */
-#define MACHINE_DEPENDENT_REORG(INSN) \
- mmix_machine_dependent_reorg (INSN)
 
 #endif /* GCC_MMIX_H */
 /*

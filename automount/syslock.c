@@ -114,12 +114,16 @@ syslock_free(syslock *s)
 	if (s == NULL) return;
 #ifdef _THREAD_TYPE_PTHREAD_
 	pthread_mutex_destroy(s->mutex);
+	free(s->mutex);
 	pthread_mutex_destroy(s->internal);
+	free(s->internal);
 	pthread_cond_destroy(s->condition);
+	free(s->condition);
 #else
 	mutex_free(s->mutex);
 	condition_free(s->condition);
 #endif
+	free(s);
 }
 
 void

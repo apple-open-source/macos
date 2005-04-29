@@ -2,7 +2,10 @@
    Distilled from zlib sources.  */
 /* { dg-do run } */
 /* { dg-options "-O2" } */
-/* { dg-options "-O2 -frename-registers -fomit-frame-pointer -fPIC -mcpu=i686" { target i?86-*-* } } */
+/* { dg-options "-O2 -frename-registers -fomit-frame-pointer -fPIC -mtune=i686" { target i?86-*-* } } */
+/* { dg-bogus "\[Uu\]nresolved symbol .(_GLOBAL_OFFSET_TABLE_|\[_.A-Za-z\]\[_.0-9A-Za-z\]*@(PLT|GOT|GOTOFF))" "PIC unsupported" { xfail *-*-netware* } 0 } */
+
+extern void exit (int);
 
 typedef struct
 {
@@ -160,14 +163,14 @@ foo (unsigned int *b, unsigned int n, unsigned int s, const unsigned int *d,
   return y != 0 && g != 1 ? (-5) : 0;
 }
 
-int a[19] = { 3, 4, 0, 2, 2, [17] = 3, 3 };
-int d[19];
+unsigned int a[19] = { 3, 4, 0, 2, 2, [17] = 3, 3 };
+unsigned int d[19];
 A h[1440];
 
 int
 main (void)
 {
-  int b = 0, c = 0;
+  unsigned int b = 0, c = 0;
   A *e = 0;
   foo (a, 19, 19, 0, 0, &e, &b, h, &c, d);
   exit (0);

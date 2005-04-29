@@ -24,16 +24,16 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/FreeCmap.c,v 1.4 2001/12/14 19:54:00 dawes Exp $ */
+/* $XFree86: xc/lib/X11/FreeCmap.c,v 1.5 2003/04/13 19:22:16 dawes Exp $ */
 
+#include "Xlib.h"
 #include "Xlibint.h"
-
-extern void _XcmsDeleteCmapRec();
+#include "Cmap.h"
 
 int
-XFreeColormap(dpy, cmap)
-register Display *dpy;
-Colormap cmap;
+XFreeColormap(
+    register Display *dpy,
+    Colormap cmap)
 {
     register xResourceReq *req;
 

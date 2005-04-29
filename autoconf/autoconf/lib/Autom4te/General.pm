@@ -1,5 +1,5 @@
 # autoconf -- create `configure' using m4 macros
-# Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+# Copyright (C) 2001, 2002, 2003  Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,10 +18,26 @@
 
 package Autom4te::General;
 
+=head1 NAME
+
+Autom4te::General - general support functions for Autoconf and Automake
+
+=head1 SYNOPSIS
+
+  use Autom4te::General
+
+=head1 DESCRIPTION
+
+This perl module provides various general purpose support functions
+used in several executables of the Autoconf and Automake packages.
+
+=cut
+
 use 5.005_03;
 use Exporter;
+use Autom4te::ChannelDefs;
+use Autom4te::Channels;
 use File::Basename;
-use File::Spec;
 use File::stat;
 use IO::File;
 use Carp;
@@ -37,10 +53,9 @@ my @export_vars =
 
 # Functions we define and export.
 my @export_subs =
-  qw (&backname &catfile &canonpath &debug &error
-      &file_name_is_absolute &find_configure_ac &find_file
-      &getopt &mktmpdir &mtime
-      &uniq &update_file &up_to_date_p &verbose &xsystem &xqx);
+  qw (&debug
+      &getopt &mktmpdir
+      &uniq);
 
 # Functions we forward (coming from modules we use).
 my @export_forward_subs =
@@ -48,75 +63,158 @@ my @export_forward_subs =
 
 @EXPORT = (@export_vars, @export_subs, @export_forward_subs);
 
+
 # Variable we share with the main package.  Be sure to have a single
 # copy of them: using `my' together with multiple inclusion of this
 # package would introduce several copies.
+
+=head2 Global Variables
+
+=over 4
+
+=item C<$debug>
+
+Set this variable to 1 if debug messages should be enabled.  Debug
+messages are meant for developpers only, or when tracking down an
+incorrect execution.
+
+=cut
+
 use vars qw ($debug);
 $debug = 0;
 
-# Recreate all the files, or consider all the output files are obsolete.
+=item C<$force>
+
+Set this variable to 1 to recreate all the files, or to consider all
+the output files are obsolete.
+
+=cut
+
 use vars qw ($force);
 $force = undef;
+
+=item C<$help>
+
+Set to the help message associated to the option C<--help>.
+
+=cut
 
 use vars qw ($help);
 $help = undef;
 
+=item C<$me>
+
+The name of this application, as should be used in diagostic messages.
+
+=cut
+
 use vars qw ($me);
 $me = basename ($0);
+
+=item C<$tmp>
+
+The name of the temporary directory created by C<mktmpdir>.  Left
+C<undef> otherwise.
+
+=cut
 
 # Our tmp dir.
 use vars qw ($tmp);
 $tmp = undef;
 
+=item C<$verbose>
+
+Enable verbosity messages.  These messages are meant for ordinary
+users, and typically make explicit the steps being performed.
+
+=cut
+
 use vars qw ($verbose);
 $verbose = 0;
+
+=item C<$version>
+
+Set to the version message associated to the option C<--version>.
+
+=cut
 
 use vars qw ($version);
 $version = undef;
 
+=back
 
-## ------------ ##
-## Prototypes.  ##
-## ------------ ##
+=cut
 
-sub verbose (@);
 
 
 ## ----- ##
 ## END.  ##
 ## ----- ##
 
+=head2 Functions
+
+=over 4
+
+=item C<END>
+
+Filter Perl's exit codes, delete any temporary directory (unless
+C<$debug>), and exit nonzero whenever closing C<STDOUT> fails.
+
+=cut
 
 # END
 # ---
-# Exit nonzero whenever closing STDOUT fails.
-# Ideally we should `exit ($? >> 8)', unfortunately, for some reason
-# I don't understand, whenever we `exit (1)' somewhere in the code,
-# we arrive here with `$? = 29'.  I suspect some low level END routine
-# might be responsible.  In this case, be sure to exit 1, not 29.
 sub END
 {
-  my $exit_status = $? ? 1 : 0;
-
-  use POSIX qw (_exit);
+  # $? contains the exit status we will return.
+  # It was set using one of the following ways:
+  #
+  #  1) normal termination
+  #     this sets $? = 0
+  #  2) calling `exit (n)'
+  #     this sets $? = n
+  #  3) calling die or friends (croak, confess...):
+  #     a) when $! is non-0
+  #        this set $? = $!
+  #     b) when $! is 0 but $? is not
+  #        this sets $? = ($? >> 8)   (i.e., the exit code of the
+  #        last program executed)
+  #     c) when both $! and $? are 0
+  #        this sets $? = 255
+  #
+  # Cases 1), 2), and 3b) are fine, but we prefer $? = 1 for 3a) and 3c).
+  $? = 1 if ($! && $! == $?) || $? == 255;
+  # (Note that we cannot safely distinguish calls to `exit (n)'
+  # from calls to die when `$! = n'.  It's not big deal because
+  # we only call `exit (0)' or `exit (1)'.)
 
   if (!$debug && defined $tmp && -d $tmp)
     {
       if (<$tmp/*>)
 	{
-	  unlink <$tmp/*>
-	    or carp ("$me: cannot empty $tmp: $!\n"), _exit (1);
+	  if (! unlink <$tmp/*>)
+	    {
+	      print STDERR "$me: cannot empty $tmp: $!\n";
+	      $? = 1;
+	      return;
+	    }
 	}
-      rmdir $tmp
-	or carp ("$me: cannot remove $tmp: $!\n"), _exit (1);
+      if (! rmdir $tmp)
+	{
+	  print STDERR "$me: cannot remove $tmp: $!\n";
+	  $? = 1;
+	  return;
+	}
     }
 
   # This is required if the code might send any output to stdout
   # E.g., even --version or --help.  So it's best to do it unconditionally.
-  close STDOUT
-    or (carp "$me: closing standard output: $!\n"), _exit (1);
-
-  _exit ($exit_status);
+  if (! close STDOUT)
+    {
+      print STDERR "$me: closing standard output: $!\n";
+      $? = 1;
+      return;
+    }
 }
 
 
@@ -125,55 +223,12 @@ sub END
 ## ----------- ##
 
 
-# $BACKPATH
-# &backname ($REL-DIR)
-# --------------------
-# If I `cd $REL-DIR', then to come back, I should `cd $BACKPATH'.
-# For instance `src/foo' => `../..'.
-# Works with non strictly increasing paths, i.e., `src/../lib' => `..'.
-sub backname ($)
-{
-  my ($file) = @_;
-  my $underscore = $_;
-  my @res;
+=item C<debug (@message)>
 
-  foreach (split (/\//, $file))
-    {
-      next if $_ eq '.' || $_ eq '';
-      if ($_ eq '..')
-	{
-	  pop @res;
-	}
-      else
-	{
-	  push (@res, '..');
-	}
-    }
+If the debug mode is enabled (C<$debug> and C<$verbose>), report the
+C<@message> on C<STDERR>, signed with the name of the program.
 
-  $_ = $underscore;
-  return canonpath (catfile (@res))
-}
-
-
-# $FILE
-# &catfile (@COMPONENT)
-# ---------------------
-sub catfile (@)
-{
-  my (@component) = @_;
-  return File::Spec->catfile (@component);
-}
-
-
-# $FILE
-# &canonpath ($FILE)
-# ------------------
-sub canonpath ($)
-{
-  my ($file) = @_;
-  return File::Spec->canonpath ($file);
-}
-
+=cut
 
 # &debug(@MESSAGE)
 # ----------------
@@ -185,98 +240,16 @@ sub debug (@)
 }
 
 
-# &error (@MESSAGE)
-# -----------------
-# Same as die or confess, depending on $debug.
-sub error (@)
-{
-  if ($debug)
-    {
-      confess "$me: ", @_, "\n";
-    }
-  else
-    {
-      die "$me: ", @_, "\n";
-    }
-}
+=item C<getopt (%option)>
 
+Wrapper around C<Getopt::Long>.  In addition to the user C<option>s,
+support C<-h>/C<--help>, C<-V>/C<--version>, C<-v>/C<--verbose>,
+C<-d>/C<--debug>, C<-f>/C<--force>.  Conform to the GNU Coding
+Standards for error messages.  Try to work around a weird behavior
+from C<Getopt::Long> to preserve C<-> as an C<@ARGV> instead of
+rejecting it as a broken option.
 
-# $BOOLEAN
-# &file_name_is_absolute ($FILE)
-# ------------------------------
-sub file_name_is_absolute ($)
-{
-  my ($file) = @_;
-  return File::Spec->file_name_is_absolute ($file);
-}
-
-
-# $CONFIGURE_AC
-# &find_configure_ac ([$DIRECTORY = `.'])
-# ---------------------------------------
-sub find_configure_ac (;$)
-{
-  my ($directory) = @_;
-  $directory ||= '.';
-  my $configure_ac = canonpath (catfile ($directory, 'configure.ac'));
-  my $configure_in = canonpath (catfile ($directory, 'configure.in'));
-
-  if (-f $configure_ac)
-    {
-      if (-f $configure_in)
-	{
-	  carp "$me: warning: `$configure_ac' and `$configure_in' both present.\n";
-	  carp "$me: warning: proceeding with `$configure_ac'.\n";
-	}
-      return $configure_ac;
-    }
-  elsif (-f $configure_in)
-    {
-      return $configure_in;
-    }
-  return;
-}
-
-
-# $FILENAME
-# find_file ($FILENAME, @INCLUDE)
-# -------------------------------
-# We match exactly the behavior of GNU M4: first look in the current
-# directory (which includes the case of absolute file names), and, if
-# the file is not absolute, just fail.  Otherwise, look in @INCLUDE.
-#
-# If the file is flagged as optional (ends with `?'), then return undef
-# if absent.
-sub find_file ($@)
-{
-  my ($filename, @include) = @_;
-  my $optional = 0;
-
-  $optional = 1
-    if $filename =~ s/\?$//;
-
-  return canonpath ($filename)
-    if -e $filename;
-
-  if (file_name_is_absolute ($filename))
-    {
-      error "no such file or directory: $filename"
-	unless $optional;
-      return undef;
-    }
-
-  foreach my $path (@include)
-    {
-      return canonpath (catfile ($path, $filename))
-	if -e catfile ($path, $filename);
-    }
-
-  error "no such file or directory: $filename"
-    unless $optional;
-
-  return undef;
-}
-
+=cut
 
 # getopt (%OPTION)
 # ----------------
@@ -292,10 +265,10 @@ sub getopt (%)
   my $stdin = grep /^-$/, @ARGV;
   @ARGV = grep !/^-$/, @ARGV;
   %option = ("h|help"     => sub { print $help; exit 0 },
-             "V|version"  => sub { print $version; exit 0 },
+	     "V|version"  => sub { print $version; exit 0 },
 
-             "v|verbose"    => \$verbose,
-             "d|debug"      => \$debug,
+	     "v|verbose"    => \$verbose,
+	     "d|debug"      => \$debug,
 	     'f|force'      => \$force,
 
 	     # User options last, so that they have precedence.
@@ -313,12 +286,22 @@ sub getopt (%)
 
   push @ARGV, '-'
     if $stdin;
+
+  setup_channel 'note', silent => !$verbose;
+  setup_channel 'verb', silent => !$verbose;
 }
 
 
+=item C<mktmpdir ($signature)>
+
+Create a temporary directory which name is based on C<$signature>.
+Store its name in C<$tmp>.  C<END> is in charge of removing it, unless
+C<$debug>.
+
+=cut
+
 # mktmpdir ($SIGNATURE)
 # ---------------------
-# Create a temporary directory which name is based on $SIGNATURE.
 sub mktmpdir ($)
 {
   my ($signature) = @_;
@@ -326,7 +309,7 @@ sub mktmpdir ($)
 
   # If mktemp supports dirs, use it.
   $tmp = `(umask 077 &&
-           mktemp -d -q "$TMPDIR/${signature}XXXXXX") 2>/dev/null`;
+	   mktemp -d -q "$TMPDIR/${signature}XXXXXX") 2>/dev/null`;
   chomp $tmp;
 
   if (!$tmp || ! -d $tmp)
@@ -341,29 +324,16 @@ sub mktmpdir ($)
 }
 
 
-# $MTIME
-# MTIME ($FILE)
-# -------------
-# Return the mtime of $FILE.  Missing files, or `-' standing for STDIN
-# or STDOUT are ``obsolete'', i.e., as old as possible.
-sub mtime ($)
-{
-  my ($file) = @_;
+=item C<uniq (@list)>
 
-  return 0
-    if $file eq '-' || ! -f $file;
+Return C<@list> with no duplicates, keeping only the first
+occurrences.
 
-  my $stat = stat ($file)
-    or croak "$me: cannot stat $file: $!\n";
-
-  return $stat->mtime;
-}
-
+=cut
 
 # @RES
 # uniq (@LIST)
 # ------------
-# Return LIST with no duplicates.
 sub uniq (@)
 {
   my @res = ();
@@ -380,126 +350,64 @@ sub uniq (@)
 }
 
 
-# $BOOLEAN
-# &up_to_date_p ($FILE, @DEPS)
-# ----------------------------
-# Is $FILE more recent than @DEPS?
-sub up_to_date_p ($@)
+=item C<handle_exec_errors ($command)>
+
+Display an error message for C<$command>, based on the content of
+C<$?> and C<$!>.
+
+=cut
+
+
+# handle_exec_errors ($COMMAND)
+# -----------------------------
+sub handle_exec_errors ($)
 {
-  my ($file, @dep) = @_;
-  my $mtime = mtime ($file);
+  my ($command) = @_;
 
-  foreach my $dep (@dep)
+  $command = (split (' ', $command))[0];
+  if ($!)
     {
-      if ($mtime < mtime ($dep))
-	{
-	  debug "up_to_date ($file): outdated: $dep";
-	  return 0;
-	}
-    }
-
-  debug "up_to_date ($file): up to date";
-  return 1;
-}
-
-
-# &update_file ($FROM, $TO)
-# -------------------------
-# Rename $FROM as $TO, preserving $TO timestamp if it has not changed.
-# Recognize `$TO = -' standing for stdin.  $FROM is always removed/renamed.
-sub update_file ($$)
-{
-  my ($from, $to) = @_;
-  my $SIMPLE_BACKUP_SUFFIX = $ENV{'SIMPLE_BACKUP_SUFFIX'} || '~';
-  use File::Compare;
-  use File::Copy;
-
-  if ($to eq '-')
-    {
-      my $in = new IO::File ("$from");
-      my $out = new IO::File (">-");
-      while ($_ = $in->getline)
-	{
-	  print $out $_;
-	}
-      $in->close;
-      unlink ($from)
-	or error "cannot not remove $from: $!";
-      return;
-    }
-
-  if (-f "$to" && compare ("$from", "$to") == 0)
-    {
-      # File didn't change, so don't update its mod time.
-      verbose "`$to' is unchanged";
-      unlink ($from)
-	or error "cannot not remove $from: $!";
-      return
-    }
-
-  if (-f "$to")
-    {
-      # Back up and install the new one.
-      move ("$to",  "$to$SIMPLE_BACKUP_SUFFIX")
-	or error "cannot not backup $to: $!";
-      move ("$from", "$to")
-	or error "cannot not rename $from as $to: $!";
-      verbose "`$to' is updated";
+      error "failed to run $command: $!";
     }
   else
     {
-      move ("$from", "$to")
-	or error "cannot not rename $from as $to: $!";
-      verbose "`$to' is created";
+      use POSIX qw (WIFEXITED WEXITSTATUS WIFSIGNALED WTERMSIG);
+
+      if (WIFEXITED ($?))
+	{
+	  my $status = WEXITSTATUS ($?);
+	  # WIFEXITED and WEXITSTATUS can alter $!, reset it so that
+	  # error() actually propagates the command's exit status, not $!.
+	  $! = 0;
+	  error "$command failed with exit status: $status";
+	}
+      elsif (WIFSIGNALED ($?))
+	{
+	  my $signal = WTERMSIG ($?);
+	  # In this case we prefer to exit with status 1.
+	  $! = 1;
+	  error "$command terminated by signal: $signal";
+	}
+      else
+	{
+	  error "$command exited abnormally";
+	}
     }
 }
 
+=back
 
-# verbose(@MESSAGE)
-# -----------------
-sub verbose (@)
-{
-  print STDERR "$me: ", @_, "\n"
-    if $verbose;
-}
+=head1 SEE ALSO
 
+L<Autom4te::XFile>
 
-# xqx ($COMMAND)
-# --------------
-# Same as `qx' (but in scalar context), but fails on errors.
-sub xqx ($)
-{
-  use POSIX qw (WIFEXITED WEXITSTATUS);
+=head1 HISTORY
 
-  my ($command) = @_;
+Written by Alexandre Duret-Lutz E<lt>F<adl@gnu.org>E<gt> and Akim
+Demaille E<lt>F<akim@freefriends.org>E<gt>.
 
-  verbose "running: $command";
-  my $res = `$command`;
+=cut
 
-  error ((split (' ', $command))[0]
-	 . " failed with exit status: "
-	 . WEXITSTATUS ($?))
-    if WIFEXITED ($?) && WEXITSTATUS ($?) != 0;
-
-  return $res;
-}
-
-
-# xsystem ($COMMAND)
-# ------------------
-sub xsystem ($)
-{
-  use POSIX qw (WEXITSTATUS);
-
-  my ($command) = @_;
-
-  verbose "running: $command";
-
-  (system $command) == 0
-    or error ((split (' ', $command))[0]
-	      . " failed with exit status: "
-	      . WEXITSTATUS ($?));
-}
 
 
 1; # for require

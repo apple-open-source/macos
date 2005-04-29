@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2002-08-22</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>Chess.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>rdar://problem/3381109</string>
+			<string>rdar://problem/3344423</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>sjeng</string>
+		<key>OpenSourceSHA1</key>
+		<string>99f82103ece238d78b8c0c96a943cffc0811d654</string>
+		<key>OpenSourceURL</key>
+		<string>http://sjeng.org/ftp/Sjeng-Free-11.2.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>11.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://sjeng.org/</string>
+	</dict>
+</array>
+</plist>

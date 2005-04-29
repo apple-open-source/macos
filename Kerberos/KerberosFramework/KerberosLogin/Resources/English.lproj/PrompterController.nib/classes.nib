@@ -1,0 +1,22 @@
+{
+    IBClasses = (
+        {CLASS = BadgedImageView; LANGUAGE = ObjC; SUPERCLASS = NSView; }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {CLASS = Prompt; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {cancel = id; ok = id; }; 
+            CLASS = PrompterController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                bannerTextField = NSTextField; 
+                cancelButton = NSButton; 
+                kerberosIconImageView = BadgedImageView; 
+                okButton = NSButton; 
+                promptsMatrix = NSMatrix; 
+                responsesBox = NSBox; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }
+    ); 
+    IBVersion = 1; 
+}

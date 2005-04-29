@@ -1,8 +1,8 @@
-                 Installation Details for XFree86[tm] 4.3.0
+                 Installation Details for XFree86[tm] 4.4.0
 
                           The XFree86 Project, Inc
 
-                              24 February 2003
+                              23 February 2004
 
                                   Abstract
 
@@ -10,8 +10,8 @@
 
 1.  Introduction
 
-This document contains information about installing the XFree86 binaries as
-provided by The XFree86 Project.
+This document contains information about installing the XFree86 binaries pro-
+vided by The XFree86 Project.
 
 The XFree86 binaries that we provide for UNIX-like OS's (Linux, the BSDs,
 Solaris, etc) are packaged in a platform-independent gzipped tar format (aka
@@ -20,13 +20,13 @@ vide a customized version of the GNU tar utility called "extract" and an
 installation script.  We recommend that these be used to install the bina-
 ries.  (The source for this customized version of GNU tar can be found in the
 XFree86 CVS repository's "utils" module, and from our ftp site
-<URL:ftp://ftp.xfree86.org/pub/XFree86/misc/utils-1.1.0.tgz>.)
+<URL:ftp://ftp.xfree86.org/pub/XFree86/misc/utils-1.1.2.tgz>.)
 
-2.  Downloading the XFree86 4.3.0 binaries
+2.  Downloading the XFree86 4.4.0 binaries
 
-We provide XFree86 4.3.0 binaries for a range of operating systems at our ftp
-site <URL:ftp://ftp.xfree86.org/pub/XFree86/4.3.0/binaries/> and our web site
-<URL:http://ftp.xfree86.org/pub/XFree86/4.3.0/binaries/>.  Often during
+We provide XFree86 4.4.0 binaries for a range of operating systems at our ftp
+site <URL:ftp://ftp.xfree86.org/pub/XFree86/4.4.0/binaries/> and our web site
+<URL:http://ftp.xfree86.org/pub/XFree86/4.4.0/binaries/>.  Often during
 releases our site is heavily loaded.  Instead of downloading directly from us
 we recommend that instead you use one of our mirror sites.
 
@@ -47,41 +47,41 @@ lot time and trouble from NOT downloading an incompatible distribution.
 NOTES:
 
    o The Xinstall.sh script must be downloaded in binary mode, otherwise it
-     won't run correctly.  If you get lots of "command not found" messages
-     when you try to run it, then it is most likely because the script wasn't
-     downloaded in binary mode.  Some web browsers won't do this for files of
-     that name, so we also have a copy of it called "Xinstall.bin", and most
-     browsers should download that correctly.  When downloading it under this
-     name, select "save as" on your browser, and save the file under the name
-     "Xinstall.sh".
+     will not  run correctly.  If you get lots of "command not found" mes-
+     sages when you try to run it, then it is most likely because the script
+     was not  downloaded in binary mode.  Some web browsers will not  do this
+     for files of that name, so we also have a copy of it called "Xin-
+     stall.bin", and most browsers should download that correctly.  When
+     downloading it under this name, select "save as" on your browser, and
+     save the file under the name "Xinstall.sh".
 
    o The Xinstall.sh script requires some system commands and utilities to
      function correctly.  While most systems will have these, some Linux
-     installations may not.  If you find that the script is failing because
-     of some missing system command, you will need to install it before you
-     can continue.  If you don't know how to do this, then we recommend that
-     you obtain this version of XFree86 from your Operating System distribu-
-     tor.
+     installations may not.  If the script fails because of some missing sys-
+     tem command, you need to install it before you can continue.  If you do
+     not know how to do this, then we recommend that you obtain this version
+     of XFree86 from your Operating System distributor.
 
-   o Always use the version of the Xinstall.sh script that's provided with
-     the release you're installing.  Older versions of the script may not
-     install newer releases correctly.
+   o Always use the version of the Xinstall.sh script that is provided with
+     the release.   Older versions of the script may not install newer
+     releases correctly.
 
-   o If the binary distribution reported by the Xinstall.sh script isn't pre-
-     sent on our site, then there are two possibilities.  The first is that
-     it hasn't been prepared and uploaded yet.  This is likely if you are
-     looking soon after the release date.  The second possibility is that we
-     won't have it available at all for this release.  This is likely if it's
-     still not there about two weeks after the release date.  Check here
-     <URL:http://www.xfree86.org/4.3.0/UPDATES.html> for information about
-     updates to our binary distributions, and here
-     <URL:http://www.xfree86.org/4.3.0/ERRATA.html> for errata related to
+   o If the binary distribution reported by the Xinstall.sh script is not
+     present on the XFree86 site, then there are two possibilities: first is
+     that it has not uploaded yet.  This is likeliest possibility if you are
+     looking shortly after the release date.  The second possibility is that
+     your target will not be be available at for this release.  This is like-
+     liest possibility if you are looking about two weeks after the release
+     date.  Check here <URL:http://www.xfree86.org/4.4.0/UPDATES.html> for
+     information about updates to our binary distributions, and here
+     <URL:http://www.xfree86.org/4.4.0/ERRATA.html> for errata related to
      this release.
 
-Once you're run the Xinstall.sh script and found which binary distribution is
-suitable for your system, download the necessary files.  The twelve (12)
-mandatory files for all installations are listed below.  If you have not
-downloaded all of the files, the installer script will complain.
+Assuming that you have run the Xinstall.sh script and found the binary dis-
+tribution suitable for your system, download the necessary files.  The twelve
+(12) mandatory files for all installations are listed below.  The installer
+script will complain if you do not have all four (4) files in the same direc-
+tory.
 
           1.   Xinstall.sh    The installer script
           2.   extract        The utility for extracting tarballs
@@ -100,14 +100,13 @@ NOTES:
 
    o Some web browsers have a problem downloading the extract utility cor-
      rectly.  If you encounter this problem, download the version called
-     extract.exe instead.  This should fix the problem.  (This is not a
-     DOS/Windows executable.)
+     extract.exe.  (NOTE: This is not a MS-DOS/Windows       executable.)
 
-   o A few distributions don't have or require the Xvar.tgz tarball.  If it
-     is present in the binaries sub-directory for your platform, then it is
+   o Some distributions do not require the Xvar.tgz tarball.  If it is
+     present in the binaries sub-directory for your platform, then it is
      required.
 
-   o The Darwin/Mac OS X distribution doesn't have or require the Xmod.tgz
+   o The Darwin/Mac OS X distribution do not have or require the Xmod.tgz
      tarball.
 
    o Some distributions may have additional mandatory tarballs.  While rare,
@@ -116,17 +115,19 @@ NOTES:
 The following eleven (11) tarballs are optional.  You should download the
 ones you want to install.
 
-          1.   Xfsrv.tgz      Font server
-          2.   Xnest.tgz      Nested X server
-          3.   Xprog.tgz      X header files, config files and compile-time libs
-          4.   Xprt.tgz       X Print server
-          5.   Xvfb.tgz       Virtual framebuffer X server
-          6.   Xf100.tgz      100dpi fonts
-          7.   Xfcyr.tgz      Cyrillic fonts
-          8.   Xfscl.tgz      Scalable fonts (Speedo, Type1 and TrueType)
-          9.   Xhtml.tgz      HTML version of the documentation
-          10.  Xps.tgz        PostScript version of the documentation
-          11.  Xjdoc.tgz      Documentation in Japanese
+          1.   Xdrm.tgz       Source for DRM kernel modules
+          2.   Xfsrv.tgz      Font server
+          3.   Xnest.tgz      Nested X server
+          4.   Xprog.tgz      X header files, config files and compile-time libs
+          5.   Xprt.tgz       X Print server
+          6.   Xvfb.tgz       Virtual framebuffer X server
+          7.   Xf100.tgz      100dpi fonts
+          8.   Xfcyr.tgz      Cyrillic fonts
+          9.   Xfscl.tgz      Scalable fonts (Speedo, Type1 and TrueType)
+          10.  Xhtml.tgz      HTML version of the documentation
+          11.  Xps.tgz        PostScript version of the documentation
+          12.  Xpdf.tgz       PDF version of the documentation
+          13.  Xjdoc.tgz      Documentation in Japanese
 
 NOTES:
 
@@ -135,18 +136,17 @@ NOTES:
 If you miss some and want to install them later, go to the Manual Installa-
 tion (section 4., page 1) section.
 
-3.  Installing XFree86 4.3.0 using the Xinstall.sh script
+3.  Installing XFree86 4.4.0 using the Xinstall.sh script
 
-We strongly recommend that our XFree86 4.3.0 binaries be installed using the
-Xinstall.sh script that we provide.  There are a lot of steps in the manual
+We strongly recommend that our XFree86 4.4.0 binaries be installed using the
+Xinstall.sh script we provide.  There are a lot of steps in the manual
 installation process, and those steps can vary according to the platform and
 hardware setup.  There is a description of the manual installation process
 for the most common cases below (section 4., page 1).
 
-You must login as the super user (root) to run the installer script.  Place
-all of the downloaded files into a single directory (choose a temporary loca-
-tion with enough space).  Use the cd command to change to that directory and
-then run the installer script as follows:
+You must login as the super user (root) to run the installer script and place
+all of the downloaded files into a single directory.  Use the cd command to
+change to the chosen directory and run the installer script as follows:
 
      sh Xinstall.sh
 
@@ -164,8 +164,8 @@ first question, the default answers should be OK.
 
 If you run the installer from within an X session (the installer checks if
 $DISPLAY is set), you will be warned that doing so is not a good idea.
-Unless you have a good reason for knowing that this won't be a problem, you
-should exit your X session, including stopping xdm or equivalent if it is
+Unless you have a good reason for knowing that this will not be a problem,
+you should exit your X session, including stopping xdm or equivalent if it is
 running, before continuing.  If you ignore this warning and run into prob-
 lems, well, you were warned!
 
@@ -176,7 +176,7 @@ may have installed will not be removed.  Some configuration files may be
 overwritten though, but the installer should prompt you before doing so.  As
 the opening greeting says, it is strongly recommended that you backup any
 existing installation before proceeding.  If you want your old applications
-to still be there after you've installed, don't do the "backup" by simply
+to still be there after you've installed, do not do the "backup" by simply
 renaming your old /usr/X11R6 directory.  It is better to make a copy of it,
 and then install over the top of the original one.  If you run into problems
 and want to revert to the old installation, you can then delete the overwrit-
@@ -191,17 +191,17 @@ The next step when installing over an existing version is to check for exist-
 ing configuration files.  As of XFree86 version 3.9.18, the run-time configu-
 ration files are installed by default under /etc/X11 instead of under
 /usr/X11R6/lib/X11.  The installer will move the existing ones for you and
-create the necessary symbolic links.  If you don't want to have these config-
-uration files under /etc/X11, then you should answer "no" when asked about
+create the necessary symbolic links.  If you do not want to have these con-
+figuration files under /etc/X11, then you should answer "no" when asked about
 it.  Answering "no" here also means that the new configuration files will be
 installed in the old /usr/X11R6/lib/X11 location.
 
-Note: for the rare systems that don't have symbolic links, this question will
-not be asked.  The default answer is "yes" because that is best for most sit-
-uations.  It is our new default.  It makes it easier to share the /usr/X11R6
-directory between multiple hosts, and allows it to be mounted read-only.  If
-you don't need these features, then you can safely answer "no" if you don't
-want them moved.
+Note: for the rare systems that do not have symbolic links, this question
+will not be asked.  The default answer is "yes" because that is best for most
+situations.  It is our new default.  It makes it easier to share the
+/usr/X11R6 directory between multiple hosts, and allows it to be mounted
+read-only.  If you do not need these features, then you can safely answer
+"no" if you do not want them moved.
 
 When installing over an existing version, you will be prompted before each
 set of configuration files is installed.  If you haven't made any Customisa-
@@ -219,7 +219,7 @@ without any user intervention.
 
 If you downloaded any of the optional components, the installer will ask you
 about each one before it is installed.  The default answer is "yes".  If
-there are any that you've since decided that you don't want to install,
+there are any that you've since decided that you do not want to install,
 answer "no" when prompted.
 
 After that is done, the main part of the installation is complete.  The next
@@ -254,7 +254,7 @@ later that you need it, you can create it easily by running:
 
 The next step is to configure the X server.  That is covered in detail in an
 as-yet unwritten document :-(.  In the meantime, there are three ways to cre-
-ate a basic X server configuration file for XFree86 4.3.0.  One is to run the
+ate a basic X server configuration file for XFree86 4.4.0.  One is to run the
 xf86config utility.  Another is to run the xf86cfg utility.  The third option
 is to use the new -configure X server option:
 
@@ -273,9 +273,9 @@ old XF86_* and/or XF98_* X server binaries from /usr/X11R6/bin.
 After the X server configuration is done, it may be advisable to reboot,
 especially if you run xdm (or equivalent) or the font server (xfs).
 
-4.  Installing XFree86 4.3.0 manually
+4.  Installing XFree86 4.4.0 manually
 
-This section contains information about manually installing the XFree86 4.3.0
+This section contains information about manually installing the XFree86 4.4.0
 binary distributions.  You should only use this method if you know what
 you're doing.  The information here covers some common cases, but not every
 possible case.  It also may not be complete or up to date.  Use at your own
@@ -380,7 +380,7 @@ Once that's done, the main part of the installation can be done:
      /sbin/ldconfig -m /usr/X11R6/lib    # For FreeBSD, NetBSD, OpenBSD
      /usr/X11R6/bin/mkfontdir /usr/X11R6/lib/X11/fonts/misc
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Install.sgml,v 1.17 2003/02/24 17:09:16 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Install.sgml,v 1.18 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/Install,v 1.21 2003/02/25 05:29:10 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/Install,v 1.30 2004/02/24 03:49:41 dawes Exp $

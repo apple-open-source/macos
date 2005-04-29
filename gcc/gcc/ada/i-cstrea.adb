@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1996-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -40,6 +39,33 @@ with Unchecked_Conversion;
 
 package body Interfaces.C_Streams is
 
+   use type System.CRTL.size_t;
+
+   ----------------------------
+   -- Interfaced C functions --
+   ----------------------------
+
+   function C_fread
+     (buffer : voids;
+      size   : size_t;
+      count  : size_t;
+      stream : FILEs) return size_t;
+   pragma Import (C, C_fread, "fread");
+
+   function C_fwrite
+     (buffer : voids;
+      size   : size_t;
+      count  : size_t;
+      stream : FILEs) return size_t;
+   pragma Import (C, C_fwrite, "fwrite");
+
+   function C_setvbuf
+     (stream : FILEs;
+      buffer : chars;
+      mode   : int;
+      size   : size_t) return int;
+   pragma Import (C, C_setvbuf, "setvbuf");
+
    ------------
    -- fread --
    ------------
@@ -48,17 +74,8 @@ package body Interfaces.C_Streams is
      (buffer : voids;
       size   : size_t;
       count  : size_t;
-      stream : FILEs)
-      return   size_t
+      stream : FILEs) return size_t
    is
-      function C_fread
-        (buffer : voids;
-         size   : size_t;
-         count  : size_t;
-         stream : FILEs)
-         return   size_t;
-      pragma Import (C, C_fread, "fread");
-
    begin
       return C_fread (buffer, size, count, stream);
    end fread;
@@ -67,31 +84,25 @@ package body Interfaces.C_Streams is
    -- fread --
    ------------
 
+   --  The following declarations should really be nested within fread, but
+   --  limitations in front end inlining make this undesirable right now ???
+
+   type Byte_Buffer is array (0 .. size_t'Last / 2 - 1) of Unsigned_8;
+   --  This should really be 0 .. size_t'last, but there is a problem
+   --  in gigi in handling such types (introduced in GCC 3 Sep 2001)
+   --  since the size in bytes of this array overflows ???
+
+   type Acc_Bytes is access all Byte_Buffer;
+
+   function To_Acc_Bytes is new Unchecked_Conversion (voids, Acc_Bytes);
+
    function fread
      (buffer : voids;
       index  : size_t;
       size   : size_t;
       count  : size_t;
-      stream : FILEs)
-      return   size_t
+      stream : FILEs) return size_t
    is
-      function C_fread
-        (buffer : voids;
-         size   : size_t;
-         count  : size_t;
-         stream : FILEs)
-         return   size_t;
-      pragma Import (C, C_fread, "fread");
-
-      type Byte_Buffer is array (0 .. size_t'Last / 2 - 1) of Unsigned_8;
-      --  This should really be 0 .. size_t'last, but there is a problem
-      --  in gigi in handling such types (introduced in GCC 3 Sep 2001)
-      --  since the size in bytes of this array overflows ???
-
-      type Acc_Bytes is access all Byte_Buffer;
-
-      function To_Acc_Bytes is new Unchecked_Conversion (voids, Acc_Bytes);
-
    begin
       return C_fread
         (To_Acc_Bytes (buffer) (index * size)'Address, size, count, stream);
@@ -105,17 +116,8 @@ package body Interfaces.C_Streams is
      (buffer : voids;
       size   : size_t;
       count  : size_t;
-      stream : FILEs)
-      return   size_t
+      stream : FILEs) return size_t
    is
-      function C_fwrite
-        (buffer : voids;
-         size   : size_t;
-         count  : size_t;
-         stream : FILEs)
-         return   size_t;
-      pragma Import (C, C_fwrite, "fwrite");
-
    begin
       return C_fwrite (buffer, size, count, stream);
    end fwrite;
@@ -128,17 +130,8 @@ package body Interfaces.C_Streams is
      (stream : FILEs;
       buffer : chars;
       mode   : int;
-      size   : size_t)
-      return   int
+      size   : size_t) return int
    is
-      function C_setvbuf
-        (stream : FILEs;
-         buffer : chars;
-         mode   : int;
-         size   : size_t)
-         return   int;
-      pragma Import (C, C_setvbuf, "setvbuf");
-
    begin
       return C_setvbuf (stream, buffer, mode, size);
    end setvbuf;

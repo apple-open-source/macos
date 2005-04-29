@@ -2,7 +2,7 @@
 # Server-side
 <reply>
 <data>
-No headers at all, just data
+No headers at all, just data swsclose
 
 Let's get
 
@@ -27,13 +27,19 @@ verify
 #
 # Client-side
 <client>
+<features>
+SSL
+</features>
+<server>
+https
+</server>
  <name>
 HTTPS GET, receive no headers only data!
  </name>
  <command>
 -k https://%HOSTIP:%HTTPSPORT/306
 </command>
-</test>
+</client>
 
 #
 # Verify data after the test has been "shot"
@@ -43,9 +49,9 @@ HTTPS GET, receive no headers only data!
 </strip>
 <protocol>
 GET /306 HTTP/1.1
-Host: 127.0.0.1:8433
+Host: 127.0.0.1:%HTTPSPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
 
 </protocol>
 </verify>

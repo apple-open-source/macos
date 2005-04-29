@@ -1,0 +1,53 @@
+.Dd July 20, 2004
+.Dt CHKPASSWD 8
+.Os Darwin
+.Sh NAME
+.Nm chkpasswd
+.Nd verifies user password against various systems
+.Sh SYNOPSIS
+.Nm
+.Op Fl i Ar infosystem
+.Op Fl l Ar location
+.Op Fl c
+.Op Ar name
+.Sh DESCRIPTION
+.Nm
+verifies a supplied username and password against NetInfo, file, NIS, or OpenDirectory backends.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.Fl i Ar infosystem
+Specify the system against which to check the password (default is OpenDirectory). Valid systems:
+.Pp
+.Bl -tag -width "opendirectory" -compact
+.It Cm netinfo
+NetInfo database
+.It Cm file
+File-based passwords
+.It Cm nis
+NIS/YP authentication
+.It Cm opendirectory
+OpenDirectory (Directory Services) authentication
+.El
+.Fl l Ar location
+Specify a location; varies based on info system type:
+.Pp
+.Bl -tag -width "opendirectory" -compact
+.It Cm netinfo
+Domain name or server/tag.
+.It Cm file
+Filename (default: /etc/passwd).
+.It Cm nis
+NIS domainname.
+.It Cm opendirectory
+Directory node name.
+.El
+.Fl c
+The supplied password is compared verbatim without first being crypted.
+.Ar name
+Username
+.El
+.Sh SEE ALSO
+.Xr nicl 1 ,
+.Xr passwd 5 ,
+.Xr dscl 1

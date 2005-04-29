@@ -26,7 +26,4 @@
 
 #import "SYS.h"
 
-PSEUDO(geteuid,getuid,0)
-	mr	a0,a1
-	blr
-
+SYSCALL(geteuid,0)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,6 +58,7 @@ extern CFArrayRef      DACallbackGetWatch( DACallbackRef callback );
 extern void            DACallbackSetArgument0( DACallbackRef callback, CFTypeRef argument0 );
 extern void            DACallbackSetArgument1( DACallbackRef callback, CFTypeRef argument1 );
 extern void            DACallbackSetDisk( DACallbackRef callback, DADiskRef disk );
+extern void            DACallbackSetMatch( DACallbackRef callback, CFDictionaryRef match );
 extern void            DACallbackSetSession( DACallbackRef callback, DASessionRef session );
 extern void            DACallbackSetTime( DACallbackRef callback, CFAbsoluteTime time );
 

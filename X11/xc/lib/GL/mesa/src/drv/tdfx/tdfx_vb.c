@@ -22,14 +22,13 @@
  *
  *
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_vb.c,v 1.3 2002/10/30 12:52:01 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_vb.c,v 1.4 2003/09/28 20:15:38 alanh Exp $ */
  
 #include "glheader.h"
 #include "mtypes.h"
-#include "mem.h"
+#include "imports.h"
 #include "macros.h"
 #include "colormac.h"
-#include "mmath.h"
 
 #include "math/m_translate.h"
 #include "swrast_setup/swrast_setup.h"
@@ -262,7 +261,7 @@ void tdfxBuildVertices( GLcontext *ctx, GLuint start, GLuint count,
 			GLuint newinputs )
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT( ctx );
-   char *v = (fxMesa->verts + (start<<fxMesa->vertex_stride_shift));
+   GLubyte *v = (fxMesa->verts + (start<<fxMesa->vertex_stride_shift));
    GLuint stride = 1<<fxMesa->vertex_stride_shift;
 
    newinputs |= fxMesa->SetupNewInputs;
@@ -271,18 +270,18 @@ void tdfxBuildVertices( GLcontext *ctx, GLuint start, GLuint count,
    if (!newinputs)
       return;
 
-   if (newinputs & VERT_CLIP) {
+   if (newinputs & VERT_BIT_CLIP) {
       setup_tab[fxMesa->SetupIndex].emit( ctx, start, count, v, stride );   
    } else {
       GLuint ind = 0;
 
-      if (newinputs & VERT_RGBA)
+      if (newinputs & VERT_BIT_COLOR0)
 	 ind |= TDFX_RGBA_BIT;
       
-      if (newinputs & VERT_TEX0) 
+      if (newinputs & VERT_BIT_TEX0)
 	 ind |= TDFX_TEX0_BIT;
 
-      if (newinputs & VERT_TEX1)
+      if (newinputs & VERT_BIT_TEX1)
 	 ind |= TDFX_TEX0_BIT|TDFX_TEX1_BIT;
 
       if (fxMesa->SetupIndex & TDFX_PTEX_BIT)
@@ -303,9 +302,11 @@ void tdfxChooseVertexState( GLcontext *ctx )
    tdfxContextPtr fxMesa = TDFX_CONTEXT( ctx );
    GLuint ind = TDFX_XYZ_BIT|TDFX_RGBA_BIT;
 
-   if (ctx->Texture._ReallyEnabled & TEXTURE1_ANY) 
+   if (ctx->Texture._EnabledUnits & 0x2)
+      /* unit 1 enabled */
       ind |= TDFX_W_BIT|TDFX_TEX1_BIT|TDFX_TEX0_BIT;
-   else if (ctx->Texture._ReallyEnabled & TEXTURE0_ANY) 
+   else if (ctx->Texture._EnabledUnits & 0x1) 
+      /* unit 0 enabled */
       ind |= TDFX_W_BIT|TDFX_TEX0_BIT;
    else if (ctx->Fog.Enabled)
       ind |= TDFX_W_BIT;
@@ -340,7 +341,7 @@ void tdfxInitVB( GLcontext *ctx )
       firsttime = 0;
    }
 
-   fxMesa->verts = (char *)ALIGN_MALLOC(size * sizeof(tdfxVertex), 32);
+   fxMesa->verts = (GLubyte *)ALIGN_MALLOC(size * sizeof(tdfxVertex), 32);
    fxMesa->vertexFormat = setup_tab[TDFX_XYZ_BIT|TDFX_RGBA_BIT].vertex_format;
    fxMesa->vertex_stride_shift = setup_tab[(TDFX_XYZ_BIT|
 					    TDFX_RGBA_BIT)].vertex_stride_shift;

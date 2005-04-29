@@ -36,25 +36,33 @@ void test01()
   const char* 	        from_next;
   int 			size = 25;
   char* 		c_arr = new char[size];
+  char*                 c_ref = new char[size];
   char*			to_next;
 
   locale 		loc;
   c_codecvt::state_type state;
   const c_codecvt* 	cvt = &use_facet<c_codecvt>(loc); 
 
+  // According to the resolution of DR19 (see also libstd++/9168), in
+  // case of degenerate conversion ('noconv'), "there are no changes to
+  // the values in [to, to_limit)."
+  memset(c_ref, 'X', size);
+
   // in
+  memset(c_arr, 'X', size);
   result r1 = cvt->in(state, c_lit, c_lit + size, from_next, 
 		      c_arr, c_arr + size, to_next);
   VERIFY( r1 == codecvt_base::noconv );
-  VERIFY( !strcmp(c_arr, c_lit) ); 
+  VERIFY( !memcmp(c_arr, c_ref, size) ); 
   VERIFY( from_next == c_lit );
   VERIFY( to_next == c_arr );
 
   // out
+  memset(c_arr, 'X', size);
   result r2 = cvt->out(state, c_lit, c_lit + size, from_next, 
 		       c_arr, c_arr + size, to_next);
   VERIFY( r2 == codecvt_base::noconv );
-  VERIFY( !strcmp(c_arr, c_lit) ); 
+  VERIFY( !memcmp(c_arr, c_ref, size) ); 
   VERIFY( from_next == c_lit );
   VERIFY( to_next == c_arr );
 
@@ -77,6 +85,7 @@ void test01()
   VERIFY( k == 1 );
 
   delete [] c_arr;
+  delete [] c_ref;
 }
 
 // libstdc++/5280
@@ -97,9 +106,25 @@ void test02()
 #endif
 }
 
+// http://gcc.gnu.org/ml/libstdc++/2002-05/msg00038.html
+void test03()
+{
+  bool test = true;
+
+  const char* tentLANG = std::setlocale(LC_ALL, "ja_JP.eucjp");
+  if (tentLANG != NULL)
+    {
+      std::string preLANG = tentLANG;
+      test01();
+      std::string postLANG = std::setlocale(LC_ALL, NULL);
+      VERIFY( preLANG == postLANG );
+    }
+}
+
 int main ()
 {
   test01();
   test02();
+  test03();
   return 0;
 }

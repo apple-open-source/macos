@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -32,12 +32,12 @@
 
 #include "s_context.h"
 #include "s_fog.h"
-#include "s_pb.h"
+#include "s_span.h"
 
 
 
 
-/*
+/**
  * Used to convert current raster distance to a fog factor in [0,1].
  */
 GLfloat
@@ -62,67 +62,14 @@ _mesa_z_to_fogfactor(GLcontext *ctx, GLfloat z)
       f = (GLfloat) exp(-(d * d * z * z));
       return f;
    default:
-      _mesa_problem(ctx, "Bad fog mode in make_fog_coord");
+      _mesa_problem(ctx, "Bad fog mode in _mesa_z_to_fogfactor");
       return 0.0; 
    }
 }
 
 
 
-/*
- * Apply fog to an array of RGBA pixels.
- * Input:  n - number of pixels
- *         fog - array of fog factors in [0,1]
- *         red, green, blue, alpha - pixel colors
- * Output:  red, green, blue, alpha - fogged pixel colors
- */
-void
-_mesa_fog_rgba_pixels( const GLcontext *ctx,
-                       GLuint n,
-		       const GLfloat fog[],
-		       GLchan rgba[][4] )
-{
-   GLuint i;
-   GLchan rFog, gFog, bFog;
-
-   UNCLAMPED_FLOAT_TO_CHAN(rFog, ctx->Fog.Color[RCOMP]);
-   UNCLAMPED_FLOAT_TO_CHAN(gFog, ctx->Fog.Color[GCOMP]);
-   UNCLAMPED_FLOAT_TO_CHAN(bFog, ctx->Fog.Color[BCOMP]);
-
-   for (i = 0; i < n; i++) {
-      const GLfloat f = fog[i];
-      const GLfloat g = 1.0F - f;
-      rgba[i][RCOMP] = (GLchan) (f * rgba[i][RCOMP] + g * rFog);
-      rgba[i][GCOMP] = (GLchan) (f * rgba[i][GCOMP] + g * gFog);
-      rgba[i][BCOMP] = (GLchan) (f * rgba[i][BCOMP] + g * bFog);
-   }
-}
-
-
-
-/*
- * Apply fog to an array of color index pixels.
- * Input:  n - number of pixels
- *         fog - array of fog factors in [0,1]
- *         index - pixel color indexes
- * Output:  index - fogged pixel color indexes
- */
-void
-_mesa_fog_ci_pixels( const GLcontext *ctx,
-                     GLuint n, const GLfloat fog[], GLuint index[] )
-{
-   GLuint idx = (GLuint) ctx->Fog.Index;
-   GLuint i;
-
-   for (i = 0; i < n; i++) {
-      const GLfloat f = CLAMP(fog[i], 0.0F, 1.0F);
-      index[i] = (GLuint) ((GLfloat) index[i] + (1.0F - f) * idx);
-   }
-}
-
-
-
-/*
+/**
  * Calculate fog factors (in [0,1]) from window z values
  * Input:  n - number of pixels
  *         z - array of integer depth values
@@ -137,9 +84,10 @@ compute_fog_factors_from_z( const GLcontext *ctx,
                             const GLdepth z[],
                             GLfloat fogFact[] )
 {
-   const GLboolean ortho = (ctx->ProjectionMatrix.m[15] != 0.0F);
-   const GLfloat p10 = ctx->ProjectionMatrix.m[10];
-   const GLfloat p14 = ctx->ProjectionMatrix.m[14];
+   const GLfloat *proj = ctx->ProjectionMatrixStack.Top->m;
+   const GLboolean ortho = (proj[15] != 0.0F);
+   const GLfloat p10 = proj[10];
+   const GLfloat p14 = proj[14];
    const GLfloat tz = ctx->Viewport._WindowMap.m[MAT_TZ];
    GLfloat szInv;
    GLuint i;
@@ -266,37 +214,101 @@ compute_fog_factors_from_z( const GLcontext *ctx,
 }
 
 
-/*
- * Apply fog to an array of RGBA pixels.
- * Input:  n - number of pixels
- *         z - array of integer depth values
- *         red, green, blue, alpha - pixel colors
- * Output:  red, green, blue, alpha - fogged pixel colors
+
+/**
+ * Apply fog to a span of RGBA pixels.
+ * The fog factors are either in the span->array->fog or stored as base/step.
+ * These are fog _factors_, not fog coords.  Fog coords were converted to
+ * fog factors per vertex.
  */
 void
-_mesa_depth_fog_rgba_pixels( const GLcontext *ctx,
-			     GLuint n, const GLdepth z[], GLchan rgba[][4] )
+_mesa_fog_rgba_span( const GLcontext *ctx, struct sw_span *span )
 {
-   GLfloat fogFact[PB_SIZE];
-   ASSERT(n <= PB_SIZE);
-   compute_fog_factors_from_z( ctx, n, z, fogFact );
-   _mesa_fog_rgba_pixels( ctx, n, fogFact, rgba );
+   const SWcontext *swrast = SWRAST_CONTEXT(ctx);
+   const GLuint n = span->end;
+   GLchan (*rgba)[4] = (GLchan (*)[4]) span->array->rgba;
+   GLchan rFog, gFog, bFog;
+
+   ASSERT(ctx->Fog.Enabled);
+   ASSERT((span->interpMask | span->arrayMask) & SPAN_FOG);
+   ASSERT(span->arrayMask & SPAN_RGBA);
+
+   UNCLAMPED_FLOAT_TO_CHAN(rFog, ctx->Fog.Color[RCOMP]);
+   UNCLAMPED_FLOAT_TO_CHAN(gFog, ctx->Fog.Color[GCOMP]);
+   UNCLAMPED_FLOAT_TO_CHAN(bFog, ctx->Fog.Color[BCOMP]);
+
+   if (swrast->_PreferPixelFog) {
+      /* compute fog factor from each fragment's Z value */
+      if ((span->interpMask & SPAN_Z) && (span->arrayMask & SPAN_Z) == 0)
+         _mesa_span_interpolate_z(ctx, span);
+      compute_fog_factors_from_z(ctx, n, span->array->z, span->array->fog);
+      span->arrayMask |= SPAN_FOG;
+   }
+
+   if (span->arrayMask & SPAN_FOG) {
+      /* use fog array in span */
+      GLuint i;
+      for (i = 0; i < n; i++) {
+         const GLfloat fog = span->array->fog[i];
+         const GLfloat oneMinusFog = 1.0F - fog;
+         rgba[i][RCOMP] = (GLchan) (fog * rgba[i][RCOMP] + oneMinusFog * rFog);
+         rgba[i][GCOMP] = (GLchan) (fog * rgba[i][GCOMP] + oneMinusFog * gFog);
+         rgba[i][BCOMP] = (GLchan) (fog * rgba[i][BCOMP] + oneMinusFog * bFog);
+      }
+   }
+   else {
+      /* interpolate fog factors */
+      GLfloat fog = span->fog, dFog = span->fogStep;
+      GLuint i;
+      for (i = 0; i < n; i++) {
+         const GLfloat oneMinusFog = 1.0F - fog;
+         rgba[i][RCOMP] = (GLchan) (fog * rgba[i][RCOMP] + oneMinusFog * rFog);
+         rgba[i][GCOMP] = (GLchan) (fog * rgba[i][GCOMP] + oneMinusFog * gFog);
+         rgba[i][BCOMP] = (GLchan) (fog * rgba[i][BCOMP] + oneMinusFog * bFog);
+         fog += dFog;
+      }
+   }
 }
 
 
-/*
- * Apply fog to an array of color index pixels.
- * Input:  n - number of pixels
- *         z - array of integer depth values
- *         index - pixel color indexes
- * Output:  index - fogged pixel color indexes
+/**
+ * As above, but color index mode.
  */
 void
-_mesa_depth_fog_ci_pixels( const GLcontext *ctx,
-                     GLuint n, const GLdepth z[], GLuint index[] )
+_mesa_fog_ci_span( const GLcontext *ctx, struct sw_span *span )
 {
-   GLfloat fogFact[PB_SIZE];
-   ASSERT(n <= PB_SIZE);
-   compute_fog_factors_from_z( ctx, n, z, fogFact );
-   _mesa_fog_ci_pixels( ctx, n, fogFact, index );
+   const SWcontext *swrast = SWRAST_CONTEXT(ctx);
+   const GLuint n = span->end;
+   GLuint *index = span->array->index;
+
+   ASSERT(ctx->Fog.Enabled);
+   ASSERT(span->arrayMask & SPAN_INDEX);
+   ASSERT((span->interpMask | span->arrayMask) & SPAN_FOG);
+
+   if (swrast->_PreferPixelFog) {
+      /* compute fog factor from each fragment's Z value */
+      if ((span->interpMask & SPAN_Z) && (span->arrayMask & SPAN_Z) == 0)
+         _mesa_span_interpolate_z(ctx, span);
+      compute_fog_factors_from_z(ctx, n, span->array->z, span->array->fog);
+      span->arrayMask |= SPAN_FOG;
+   }
+
+   if (span->arrayMask & SPAN_FOG) {
+      const GLuint idx = (GLuint) ctx->Fog.Index;
+      GLuint i;
+      for (i = 0; i < n; i++) {
+         const GLfloat f = CLAMP(span->array->fog[i], 0.0F, 1.0F);
+         index[i] = (GLuint) ((GLfloat) index[i] + (1.0F - f) * idx);
+      }
+   }
+   else {
+      GLfloat fog = span->fog, dFog = span->fogStep;
+      const GLuint idx = (GLuint) ctx->Fog.Index;
+      GLuint i;
+      for (i = 0; i < n; i++) {
+         const GLfloat f = CLAMP(fog, 0.0F, 1.0F);
+         index[i] = (GLuint) ((GLfloat) index[i] + (1.0F - f) * idx);
+         fog += dFog;
+      }
+   }
 }

@@ -416,8 +416,17 @@ OSStatus HIDGetSpecificButtonCapabilities(HIDReportType reportType,
                                             // RY: For array items, we need to know the logical
                                             // min/max.  Since we don't have any space, we need
                                             // to use 2 reserved fields of the non usage union
-                                            ptCapability->u.notRange.reserved2 = ptReportItem->globals.logicalMinimum;
-                                            ptCapability->u.notRange.reserved3 = ptReportItem->globals.logicalMaximum;
+                                            
+                                            if (ptReportItem->flags & kHIDReportItemFlag_Reversed)
+                                            {
+                                                ptCapability->u.notRange.reserved2 = ptReportItem->globals.logicalMaximum;
+                                                ptCapability->u.notRange.reserved3 = ptReportItem->globals.logicalMinimum;
+                                            }
+                                            else 
+                                            {
+                                                ptCapability->u.notRange.reserved2 = ptReportItem->globals.logicalMinimum;
+                                                ptCapability->u.notRange.reserved3 = ptReportItem->globals.logicalMaximum;
+                                            }
 
                                           }
                                           else

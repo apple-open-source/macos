@@ -39,25 +39,22 @@ static Attribute *make_dsrecord_operational_attr LDAP_P((AttributeDescription *d
 
 int
 netinfo_back_operational(
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
-	Entry *e,
-	AttributeName *attrs,
-	int opattrs,
-	Attribute **a)
+	struct slap_op *op, 
+	struct slap_rep *rs, 
+	int opattrs, 
+	Attribute **ap)
 {
 	dsrecord *r;
-	Attribute **aa = a;
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	Attribute **aa = ap;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 
 	assert(di != NULL);
 
 	/* NB: engine already locked. */
-	r = (dsrecord *)e->e_private;
+	r = (dsrecord *)rs->sr_entry->e_private;
 	assert(r != NULL);
 
-	if (opattrs || ad_inlist(slap_schema.si_ad_hasSubordinates, attrs))
+	if (opattrs || ad_inlist(slap_schema.si_ad_hasSubordinates, rs->sr_attrs))
 	{
 		int hasChildren;
 
@@ -79,21 +76,21 @@ netinfo_back_operational(
 	 * The following operational attributes return information
 	 * about the dsrecord generally used for replication purposes.
 	 */
-	if (opattrs || ad_inlist(netinfo_back_ad_dSID, attrs))
+	if (opattrs || ad_inlist(netinfo_back_ad_dSID, rs->sr_attrs))
 	{
 		*aa = make_dsrecord_operational_attr(netinfo_back_ad_dSID, r->dsid);
 		if (*aa != NULL)
 			aa = &(*aa)->a_next;
 	}
 
-	if (opattrs || ad_inlist(netinfo_back_ad_nIVersionNumber, attrs))
+	if (opattrs || ad_inlist(netinfo_back_ad_nIVersionNumber, rs->sr_attrs))
 	{
 		*aa = make_dsrecord_operational_attr(netinfo_back_ad_nIVersionNumber, r->vers);
 		if (*aa != NULL)
 			aa = &(*aa)->a_next;
 	}
 
-	if (opattrs || ad_inlist(netinfo_back_ad_nISerialNumber, attrs))
+	if (opattrs || ad_inlist(netinfo_back_ad_nISerialNumber, rs->sr_attrs))
 	{
 		*aa = make_dsrecord_operational_attr(netinfo_back_ad_nISerialNumber, r->serial);
 		if (*aa != NULL)

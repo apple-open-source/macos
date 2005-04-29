@@ -1,6 +1,6 @@
 
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/pc,v 1.6 2003/02/11 02:51:11 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/pc,v 1.10 2003/08/22 13:31:11 pascal Exp $
 
 partial hidden alphanumeric_keys modifier_keys 
 xkb_symbols "basic" {
@@ -114,10 +114,10 @@ xkb_symbols "basic" {
 	type= "PC_BREAK",
 	symbols[Group1]= [ Pause, Break ]
     };
-    key  <INS> {  [  Insert		]	};
+    key  <INS> {	[  Insert		]	};
     key <HOME> {	[  Home			]	};
     key <PGUP> {	[  Prior		]	};
-    key <DELE> { [ Delete		]			};
+    key <DELE> {	[  Delete		]	};
     key  <END> {	[  End			]	};
     key <PGDN> {	[  Next			]	};
 
@@ -165,18 +165,34 @@ xkb_symbols "basic" {
     key  <KP2> {	[  KP_Down,	KP_2	]	};
     key  <KP3> {	[  KP_Next,	KP_3	]	};
     key <KPEN> {	[  	KP_Enter	]	};
+    key <KPEQ> {	[  	KP_Equal	]	};
 
     key  <KP0> {	[  KP_Insert,	KP_0	]	};
     key <KPDL> {  	[  KP_Delete,	KP_Decimal ]	};
     // End "Keypad" section
 
-
     // begin modifier mappings
     modifier_map Shift  { Shift_L, Shift_R };
     modifier_map Lock   { Caps_Lock, ISO_Lock };
     modifier_map Control{ Control_L, Control_R };
-    modifier_map Mod1   { Alt_L, Alt_R };
     modifier_map Mod2   { Num_Lock };
+
+    //  Fake keys for virtual<->real modifiers mapping 
+    key <LVL3> {	[ ISO_Level3_Shift	]	};
+    key <MDSW> {	[ Mode_switch 		]	};
+    modifier_map Mod5   { <LVL3>, <MDSW> };
+
+    key <ALT>  {	[ NoSymbol, Alt_L	]	};
+    modifier_map Mod1   { <ALT>, <LALT> };
+
+    key <META> {	[ NoSymbol, Meta_L	]	};
+    modifier_map Mod1   { <META> };
+
+    key <SUPR> {	[ NoSymbol, Super_L	]	};
+    modifier_map Mod4   { <SUPR> };
+
+    key <HYPR> {	[ NoSymbol, Hyper_L	]	};
+    modifier_map Mod4   { <HYPR> };
 };
 
 // definition for the PC-AT type 101 key keyboard
@@ -185,15 +201,12 @@ xkb_symbols "pc101" {
     key <LALT> {	[ 	Alt_L,	Meta_L 		]	};
     key <RALT> {	[	Alt_R,	Meta_R		]	};
 
-    // begin modifier mappings
-    modifier_map Mod1   { Alt_L, Alt_R, Meta_L, Meta_R };
 };
 
 // definition for the extra key on 102-key keyboards
 xkb_symbols "pc102" {
     include "pc/pc(pc101)"
-    key <LSGT> { type[Group1] = "FOUR_LEVEL",
-                 [      less,    greater,          bar,    brokenbar ]	};
+    key <LSGT> { [      less,    greater,          bar,    brokenbar ]	};
 };
 
 // definition for the extra keys on 104-key "Windows95" keyboards
@@ -206,15 +219,44 @@ xkb_symbols "pc104" {
     key <RWIN> {	[	Super_R			]	};
     key <MENU> {	[	Menu			]	};
 
-    // modifier mappings
-    modifier_map Mod1   { Alt_L, Alt_R, Meta_L, Meta_R };
-    modifier_map Mod4   { Super_L, Super_R };
 };
 
 // defintion which includes both the Windows95 keyboards _and_
 // the extra key on most European keyboards.
 xkb_symbols "pc105" {
     include "pc/pc(pc104)"
-    key <LSGT> { type[Group1] = "FOUR_LEVEL",
-                 [      less,    greater,          bar,    brokenbar ]	};
+    key <LSGT> { [      less,    greater,          bar,    brokenbar ]	};
+};
+
+// common keys which can be overwritten in some layouts
+xkb_symbols "common" {
+
+    // Alphanumeric section
+    key <TLDE> {	[     grave,	asciitilde	]	};
+    key <AE01> {	[	  1,	exclam 		]	};
+    key <AE02> {	[	  2,	at		]	};
+    key <AE03> {	[	  3,	numbersign	]	};
+    key <AE04> {	[	  4,	dollar		]	};
+    key <AE05> {	[	  5,	percent		]	};
+    key <AE06> {	[	  6,	asciicircum	]	};
+    key <AE07> {	[	  7,	ampersand	]	};
+    key <AE08> {	[	  8,	asterisk	]	};
+    key <AE09> {	[	  9,	parenleft	]	};
+    key <AE10> {	[	  0,	parenright	]	};
+    key <AE11> {	[     minus,	underscore	]	};
+    key <AE12> {	[     equal,	plus		]	};
+
+    key <BKSL> {	[ backslash,	bar		]	};
+    key <SPCE> {	[ 	 space			]	};
+
+    // "Keypad" section
+    key <KPDL> {  	[  KP_Delete,	KP_Decimal	]	};
+
+    // extra keys on 104-key "Windows95" keyboards
+    key <LWIN> {	[	Super_L			]	};
+    key <RWIN> {	[	Super_R			]	};
+    key <MENU> {	[	Menu			]	};
+
+    // the extra key on most European keyboards
+    key <LSGT> { [      less,    greater,          bar,    brokenbar ]	};
 };

@@ -1,14 +1,17 @@
 /* Generic Regex */
-/* $OpenLDAP: pkg/ldap/include/ac/regex.h,v 1.11.2.1 2003/03/03 17:10:03 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* $OpenLDAP: pkg/ldap/include/ac/regex.h,v 1.12.2.2 2004/01/01 18:16:28 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #ifndef _AC_REGEX_H_
@@ -20,11 +23,9 @@
 
 #ifndef HAVE_REGEX_H
 /*	NO POSIX REGEX!!
-	you'll need to install a POSIX compatible REGEX library.
-	Either Henry Spencer's or GNU regex will do.
-
-	For NT: http://people.delphi.com/gjc/hs_regex.html
-*/
+ *  You'll need to install a POSIX compatible REGEX library.
+ *  Either Henry Spencer's or GNU regex will do.
+ */
 #error "No POSIX REGEX available."
 
 #elif HAVE_GNUREGEX_H

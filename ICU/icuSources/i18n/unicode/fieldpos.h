@@ -1,19 +1,20 @@
 /*
-********************************************************************************
-*   Copyright (C) 1997-2003, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-********************************************************************************
-*
-* File FIELDPOS.H
-*
-* Modification History:
-*
-*   Date        Name        Description
-*   02/25/97    aliu        Converted from java.
-*   03/17/97    clhuang     Updated per Format implementation.
-*    07/17/98    stephen        Added default/copy ctors, and operators =, ==, !=
-********************************************************************************
-*/
+ ********************************************************************************
+ *   Copyright (C) 1997-2004, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ ********************************************************************************
+ *
+ * File FIELDPOS.H
+ *
+ * Modification History:
+ *
+ *   Date        Name        Description
+ *   02/25/97    aliu        Converted from java.
+ *   03/17/97    clhuang     Updated per Format implementation.
+ *    07/17/98    stephen        Added default/copy ctors, and operators =, ==, !=
+ ********************************************************************************
+ */
+
 // *****************************************************************************
 // This file was generated from the java source file FieldPosition.java
 // *****************************************************************************
@@ -49,6 +50,8 @@ U_NAMESPACE_BEGIN
  * object as an argument. You use this <code>format</code> method
  * to perform partial formatting or to get information about the
  * formatted output (such as the position of a field).
+ *
+ * The FieldPosition class is not suitable for subclassing.
  *
  * <p>
  * Below is an example of using <code>FieldPosition</code> to aid
@@ -94,7 +97,7 @@ U_NAMESPACE_BEGIN
  *                     1.234
  *  \endcode
  * </pre>
-*/
+ */
 class U_I18N_API FieldPosition : public UObject {
 public:
     /**
@@ -136,7 +139,7 @@ public:
      * Destructor
      * @stable ICU 2.0
      */
-    ~FieldPosition() {}
+    virtual ~FieldPosition();
 
     /**
      * Assignment operator
@@ -160,6 +163,19 @@ public:
      * @stable ICU 2.0
      */
     UBool              operator!=(const FieldPosition& that) const;
+
+    /**
+     * Clone this object.
+     * Clones can be used concurrently in multiple threads.
+     * If an error occurs, then NULL is returned.
+     * The caller must delete the clone.
+     *
+     * @return a clone of this object
+     *
+     * @see getDynamicClassID
+     * @draft ICU 2.8
+     */
+    FieldPosition *clone() const;
 
     /**
      * Retrieve the field identifier.
@@ -208,16 +224,16 @@ public:
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.2
      */
-    virtual inline UClassID getDynamicClassID() const;
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.2
      */
-    static inline UClassID getStaticClassID();
+    static UClassID U_EXPORT2 getStaticClassID();
 
 private:
     /**
@@ -237,19 +253,7 @@ private:
      * If the field does not occur in the text, 0 is returned.
      */
     int32_t fEndIndex;
-
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
 };
-
-inline UClassID FieldPosition::getStaticClassID()
-{ return (UClassID)&fgClassID; }
-    
-inline UClassID FieldPosition::getDynamicClassID() const
-{ return FieldPosition::getStaticClassID(); }
 
 inline FieldPosition&
 FieldPosition::operator=(const FieldPosition& copy)

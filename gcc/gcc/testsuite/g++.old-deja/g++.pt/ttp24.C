@@ -1,3 +1,4 @@
+// { dg-do run  }
 template<class T> class D
 {
 	public:
@@ -13,7 +14,7 @@ template<template<class> class D,class E> int f()
 {
 	D<E> d;
 	return d.f();
-};
+}
 
 int main()
 {

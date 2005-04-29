@@ -536,20 +536,33 @@ int find_breakpoint(unsigned long address)
 }
 
 
-/*-----------------------------------------------------------------------------------*
- | fix_pc_area_if_necessary - update MacsBug screen pc area if brekpoint can be seen |
- *-----------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------*
+ | fix_pc_area_if_necessary - update MacsBug screen pc area if breakpoint can be seen |
+ *------------------------------------------------------------------------------------*
+ 
+ This checks the address to see if it's in the range of the addresses currently in the
+ pc area (if it currently being display) and forces the pc area to be redisplayed if
+ it is.  This will show the changing status of a breakpoint at the address.
+ 
+ Note that we don't use the current pc_area_lines setting since it could be one line
+ smaller than what's actually displayed there.  This can happen if there is no symbol
+ to display.  We use that line normally reserved for the symbol for an extra disassembly
+ line instead (why waste it with a blank line?).  The global current_pc_lines reflects
+ the actual number of lines displayed (it's pc_area_lines or pc_area_lines+1).
+*/
 
 static void fix_pc_area_if_necessary(unsigned long address)
 {
     unsigned long pc;
+    int           sz;
     
     if (macsbug_screen && gdb_target_running()) {
       /* This is a hack.  Sometimes gdb leaves the deprecated_selected_frame 
          null, but still uses it.  get_selected_frame will force it to get set. */
       get_selected_frame ();
-    	pc = gdb_get_int("$pc");
-	if (address >= pc && address < address + (4*pc_area_lines))
+    	/* note, get_selected_frame() done as part of gdb_get_register() */
+    	gdb_get_register("$pc", &pc);
+	if (address >= pc && address < pc + (4*current_pc_lines))
 	    force_pc_area_update();
     }
 }

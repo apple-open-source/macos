@@ -45,7 +45,7 @@
  *
  */
 
-/* $Id: readconfig.c,v 1.8 2003/10/22 18:50:15 rjs3 Exp $ */
+/* $Id: readconfig.c,v 1.5 2005/03/05 00:37:29 dasenbro Exp $ */
 
 /*   Copyright 1991 Rich Salz.
  *   All rights reserved.

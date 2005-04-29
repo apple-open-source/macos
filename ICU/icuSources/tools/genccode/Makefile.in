@@ -1,5 +1,5 @@
 ## Makefile.in for ICU - tools/genccode
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 ## Steven R. Loomis
 
@@ -16,20 +16,22 @@ subdir = tools/genccode
 
 ##
 
+TARGET_STUB_NAME = genccode
+
 SECTION = 8
 
-MANX_FILES = $(TARGET:$(EXEEXT)=).$(SECTION)
+MANX_FILES = $(TARGET_STUB_NAME).$(SECTION)
 
 ALL_MAN_FILES = $(MANX_FILES)
 
 ## Extra files to remove for 'make clean'
-CLEANFILES = *~ $(DEPS) $(RES_FILES) $(TEST_FILES) $(ALL_MAN_FILES)
+CLEANFILES = *~ $(DEPS) $(ALL_MAN_FILES)
 
 ## Target information
-TARGET = genccode$(EXEEXT)
+TARGET = $(BINDIR)/$(TARGET_STUB_NAME)$(EXEEXT)
 
 CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(srcdir)/../toolutil $(BIR_CPPFLAGS)
-LIBS = $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M) $(LIBICUTOOLUTIL)
+LIBS = $(LIBICUTOOLUTIL) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
 
 OBJECTS = genccode.o
 
@@ -51,11 +53,11 @@ distclean : distclean-local
 dist: dist-local
 check: all check-local
 
-all-local: $(TARGET) $(RES_FILES) $(TRANSLIT_RES) $(TEST_FILES) $(ALL_MAN_FILES)
+all-local: $(TARGET) $(ALL_MAN_FILES)
 
 install-local: all-local install-man
 	$(MKINSTALLDIRS) $(DESTDIR)$(sbindir)
-	$(INSTALL) $(TARGET) $(DESTDIR)$(sbindir)/$(TARGET)
+	$(INSTALL) $(TARGET) $(DESTDIR)$(sbindir)
 
 # man page
 install-man: install-manx

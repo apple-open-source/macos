@@ -157,12 +157,15 @@ CFURLRef PATH_CopyCanonicalizedURLAndSetDirectory(
     char *      absolute_path = NULL;   // must free
 
 
+	if (anURL == NULL) {
+		goto finish;
+	}
     absolute_path = PATH_CanonicalizedCStringForURL(anURL);
     if (!absolute_path) {
         goto finish;
     }
-    absolutePath = CFStringCreateWithCString(kCFAllocatorDefault,
-        absolute_path, kCFStringEncodingMacRoman);
+    absolutePath = CFStringCreateWithFileSystemRepresentation(kCFAllocatorDefault,
+        absolute_path);
     if (!absolutePath) {
         goto finish;
     }
@@ -198,9 +201,7 @@ char *   PATH_CanonicalizedCStringForURL(CFURLRef anURL)
     if (!absolutePath) {
         goto finish;
     }
-    if (!CFStringGetCString(absolutePath,
-        path, sizeof(path) - 1, kCFStringEncodingMacRoman)) {
-
+    if (!CFStringGetFileSystemRepresentation(absolutePath, path, CFStringGetMaximumSizeOfFileSystemRepresentation(absolutePath))) {
         goto finish;
     }
 

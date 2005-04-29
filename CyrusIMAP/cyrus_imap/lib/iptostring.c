@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: iptostring.c,v 1.7 2004/03/09 18:08:43 rjs3 Exp $ */
+/* $Id: iptostring.c,v 1.5 2005/03/05 00:37:15 dasenbro Exp $ */
 
 #include <config.h>
 #include <stdlib.h>

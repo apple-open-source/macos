@@ -1,5 +1,5 @@
 /* X509CRL.java --- X.509 Certificate Revocation List
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,15 +37,18 @@ exception statement from your version. */
 
 
 package java.security.cert;
+
 import java.math.BigInteger;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.Principal;
 import java.security.PublicKey;
-import java.security.NoSuchAlgorithmException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchProviderException;
 import java.security.SignatureException;
 import java.util.Date;
 import java.util.Set;
+
+import javax.security.auth.x500.X500Principal;
 
 /**
    The X509CRL class is the abstract class used to manage
@@ -124,8 +127,8 @@ public abstract class X509CRL extends CRL implements X509Extension
 	if( getEncoded().length != x.getEncoded().length )
 	  return false;
 
-	byte b1[] = getEncoded();
-	byte b2[] = x.getEncoded();
+	byte[] b1 = getEncoded();
+	byte[] b2 = x.getEncoded();
 
 	for( int i = 0; i < b1.length; i++ )
 	  if( b1[i] != b2[i] )
@@ -378,4 +381,17 @@ public abstract class X509CRL extends CRL implements X509Extension
   */
   public abstract byte[] getSigAlgParams();
 
+  // 1.4 instance methods.
+  // ------------------------------------------------------------------------
+
+  /**
+   * Returns the X.500 distinguished name of this CRL's issuer.
+   *
+   * @return The issuer's X.500 distinguished name.
+   * @since JDK 1.4
+   */
+  public X500Principal getIssuerX500Principal()
+  {
+    throw new UnsupportedOperationException();
+  }
 }

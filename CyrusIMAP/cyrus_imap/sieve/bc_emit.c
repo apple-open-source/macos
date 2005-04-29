@@ -1,7 +1,7 @@
 /* bc_emit.c -- sieve bytecode - pass 2 of the compiler
  * Rob Siemborski
  * Jen Smith
- * $Id: bc_emit.c,v 1.2 2003/10/22 18:03:24 rjs3 Exp $
+ * $Id: bc_emit.c,v 1.3 2005/03/05 00:37:37 dasenbro Exp $
  */
 /***********************************************************
         Copyright 2001 by Carnegie Mellon University

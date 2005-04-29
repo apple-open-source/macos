@@ -1,4 +1,4 @@
-@c Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+@c Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -79,7 +79,7 @@ as @dfn{AMD1}; the amended standard is sometimes known as @dfn{C94} or
 A new edition of the ISO C standard was published in 1999 as ISO/IEC
 9899:1999, and is commonly known as @dfn{C99}.  GCC has incomplete
 support for this standard version; see
-@uref{http://gcc.gnu.org/gcc-3.3/c99status.html} for details.  To select this
+@uref{http://gcc.gnu.org/c99status.html} for details.  To select this
 standard, use @option{-std=c99} or @option{-std=iso9899:1999}.  (While in
 development, drafts of this standard version were referred to as
 @dfn{C9X}.)
@@ -145,10 +145,8 @@ GNU C library).  @xref{Standard Libraries,,Standard Libraries}.
 Most of the compiler support routines used by GCC are present in
 @file{libgcc}, but there are a few exceptions.  GCC requires the
 freestanding environment provide @code{memcpy}, @code{memmove},
-@code{memset} and @code{memcmp}.  Some older ports of GCC are 
-configured to use the BSD @code{bcopy}, @code{bzero} and @code{bcmp}
-functions instead, but this is deprecated for new ports.
-Finally, if @code{__builtin_trap} is used, and the target does 
+@code{memset} and @code{memcmp}.
+Finally, if @code{__builtin_trap} is used, and the target does
 not implement the @code{trap} pattern, then GCC will emit a call
 to @code{abort}.
 
@@ -158,20 +156,25 @@ information concerning the history of C that is available online, see
 
 @c FIXME: details of C++ standard.
 
-There is no formal written standard for Objective-C@.  The most
+@cindex Objective-C
+@cindex Objective-C++
+
+There is no formal written standard for Objective-C or Objective-C++@.  The most
 authoritative manual is ``Object-Oriented Programming and the
-Objective-C Language'', available at a number of web sites
+Objective-C Language'', available at a number of web sites:
 
 @itemize
 @item
-@uref{http://developer.apple.com/techpubs/macosx/Cocoa/ObjectiveC/}
-is a recent version
+@uref{http://developer.apple.com/documentation/Cocoa/Conceptual/ObjectiveC/}
+is a recent (and periodically updated) version;
 @item
 @uref{http://www.toodarkpark.org/computers/objc/}
-is an older example
+is an older example;
 @item
 @uref{http://www.gnustep.org}
-has additional useful information
+and
+@uref{http://gcc.gnu.org/readings.html}
+have additional useful information.
 @end itemize
 
 @cindex treelang
@@ -185,8 +188,8 @@ HTML format.
 GNAT Reference Manual}, for information on standard
 conformance and compatibility of the Ada compiler.
 
-@xref{Language,,The GNU Fortran Language, g77, Using and Porting GNU
-Fortran}, for details of the Fortran language supported by GCC@.
+@xref{Standards,,Standards, gfortran, The GNU Fortran 95 Compiler}, for details
+of standards supported by @command{gfortran}.
 
 @xref{Compatibility,,Compatibility with the Java Platform, gcj, GNU gcj},
 for details of compatibility between @command{gcj} and the Java Platform.

@@ -1,10 +1,17 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/references.c,v 1.16.2.3 2003/03/03 17:10:05 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/*
- *  references.c
+/* references.c */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/references.c,v 1.19.2.3 2004/01/01 18:16:30 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -106,7 +113,7 @@ ldap_parse_reference(
 		goto free_and_return;
 	}
 
-	rc = ldap_int_get_controls( &be, serverctrls );
+	rc = ldap_pvt_get_controls( &be, serverctrls );
 
 free_and_return:
 

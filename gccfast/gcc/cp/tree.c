@@ -63,6 +63,9 @@ extern int cp_statement_code_p PARAMS ((enum tree_code));
 static tree handle_java_interface_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree handle_com_interface_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree handle_init_priority_attribute PARAMS ((tree *, tree, tree, int, bool *));
+/* APPLE LOCAL begin libstdc++ debug mode */
+static tree handle_link_name_attribute PARAMS ((tree *, tree, tree, int, bool *));
+/* APPLE LOCAL end libstdc++ debug mode */
 
 /* If REF is an lvalue, returns the kind of lvalue that REF is.
    Otherwise, returns clk_none.  If TREAT_CLASS_RVALUES_AS_LVALUES is
@@ -225,6 +228,18 @@ real_lvalue_p (ref)
      tree ref;
 {
   return lvalue_p_1 (ref, /*treat_class_rvalues_as_lvalues=*/ 0, /*cast*/ 1);
+}
+
+/* Returns the kind of lvalue that REF is, in the sense of
+   [basic.lval].  This function should really be named lvalue_p; it
+   computes the C++ definition of lvalue.  */
+
+cp_lvalue_kind
+real_non_cast_lvalue_p (tree ref)
+{
+  return lvalue_p_1 (ref, 
+		     /*treat_class_rvalues_as_lvalues=*/0, 
+		     /*allow_cast_as_lvalue=*/0);
 }
 
 /* This differs from real_lvalue_p in that class rvalues are
@@ -2007,6 +2022,9 @@ const struct attribute_spec cxx_attribute_table[] =
   { "java_interface", 0, 0, false, false, false, handle_java_interface_attribute },
   { "com_interface",  0, 0, false, false, false, handle_com_interface_attribute },
   { "init_priority",  1, 1, true,  false, false, handle_init_priority_attribute },
+  /* APPLE LOCAL begin libstdc++ debug mode */
+  { "link_name",      1, 1, false, true,  false, handle_link_name_attribute },
+  /* APPLE LOCAL end libstdc++ debug mode */
   { NULL,             0, 0, false, false, false, NULL }
 };
 
@@ -2140,6 +2158,28 @@ handle_init_priority_attribute (node, name, args, flags, no_add_attrs)
       return NULL_TREE;
     }
 }
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+static tree
+handle_link_name_attribute (node, name, args, flags, no_add_attrs)
+     tree *node ATTRIBUTE_UNUSED;
+     tree name;
+     tree args;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  tree name_expr = TREE_VALUE (args);
+  if (!name_expr || TREE_CODE(name_expr) != STRING_CST)
+    {
+      error ("`%s' attribute requires a string literal",
+	     IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  return NULL_TREE;
+}
+/* APPLE LOCAL end libstdc++ debug mode */
 
 /* Return a new PTRMEM_CST of the indicated TYPE.  The MEMBER is the
    thing pointed to by the constant.  */

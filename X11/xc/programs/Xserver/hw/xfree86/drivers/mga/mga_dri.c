@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_dri.c,v 1.28 2003/02/08 21:26:58 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga_dri.c,v 1.32 2003/11/06 18:38:04 tsi Exp $ */
 
 /*
  * Copyright 2000 VA Linux Systems Inc., Fremont, California.
@@ -192,11 +192,11 @@ static Bool MGAInitVisualConfigs( ScreenPtr pScreen )
                pConfigs[i].auxBuffers		= 0;
                pConfigs[i].level		= 0;
                if ( accum || stencil ) {
-                  pConfigs[i].visualRating	= GLX_SLOW_VISUAL_EXT;
+                  pConfigs[i].visualRating	= GLX_SLOW_CONFIG;
                } else {
-                  pConfigs[i].visualRating	= GLX_NONE_EXT;
+                  pConfigs[i].visualRating	= GLX_NONE;
 	       }
-               pConfigs[i].transparentPixel	= 0;
+               pConfigs[i].transparentPixel	= GLX_NONE;
                pConfigs[i].transparentRed	= 0;
                pConfigs[i].transparentGreen	= 0;
                pConfigs[i].transparentBlue	= 0;
@@ -285,11 +285,11 @@ static Bool MGAInitVisualConfigs( ScreenPtr pScreen )
                pConfigs[i].auxBuffers		= 0;
                pConfigs[i].level		= 0;
                if ( accum ) {
-                  pConfigs[i].visualRating	= GLX_SLOW_VISUAL_EXT;
+                  pConfigs[i].visualRating	= GLX_SLOW_CONFIG;
                } else {
-                  pConfigs[i].visualRating	= GLX_NONE_EXT;
+                  pConfigs[i].visualRating	= GLX_NONE;
 	       }
-               pConfigs[i].transparentPixel	= 0;
+               pConfigs[i].transparentPixel	= GLX_NONE;
                pConfigs[i].transparentRed	= 0;
                pConfigs[i].transparentGreen	= 0;
                pConfigs[i].transparentBlue	= 0;
@@ -672,7 +672,7 @@ static Bool MGADRIAgpInit(ScreenPtr pScreen)
       return FALSE;
    }
    xf86DrvMsg( pScreen->myNum, X_INFO,
-	       "[agp] %d kB allocated with handle 0x%08x\n",
+	       "[agp] %d kB allocated with handle 0x%08lx\n",
 	       pMGADRIServer->agp.size/1024, pMGADRIServer->agp.handle );
 
    if ( drmAgpBind( pMga->drmFD, pMGADRIServer->agp.handle, 0 ) < 0 ) {
@@ -1078,8 +1078,8 @@ Bool MGADRIScreenInit( ScreenPtr pScreen )
 
    xf86DrvMsg( pScrn->scrnIndex, X_INFO,
 	       "[drm] Sarea %d+%d: %d\n",
-	       sizeof(XF86DRISAREARec), sizeof(MGASAREAPrivRec),
-	       sizeof(XF86DRISAREARec) + sizeof(MGASAREAPrivRec) );
+	       (int)sizeof(XF86DRISAREARec), (int)sizeof(MGASAREAPrivRec),
+	       (int)sizeof(XF86DRISAREARec) + (int)sizeof(MGASAREAPrivRec) );
 
    pDRIInfo->SAREASize = SAREA_MAX;
 
@@ -1359,6 +1359,7 @@ void MGADRICloseScreen( ScreenPtr pScreen )
    if (pMga->irq) {
       drmCtlUninstHandler(pMga->drmFD);
       pMga->irq = 0;
+      pMga->reg_ien = 0;
    }
 
    /* Cleanup DMA */
@@ -1388,10 +1389,10 @@ void MGADRICloseScreen( ScreenPtr pScreen )
       pMGADRIServer->agpTextures.map = NULL;
    }
 
-   if ( pMGADRIServer->agp.handle ) {
+   if ( pMGADRIServer->agp.handle != DRM_AGP_NO_HANDLE ) {
       drmAgpUnbind( pMga->drmFD, pMGADRIServer->agp.handle );
       drmAgpFree( pMga->drmFD, pMGADRIServer->agp.handle );
-      pMGADRIServer->agp.handle = 0;
+      pMGADRIServer->agp.handle = DRM_AGP_NO_HANDLE;
       drmAgpRelease( pMga->drmFD );
    }
 

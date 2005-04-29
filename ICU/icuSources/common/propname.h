@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002, International Business Machines
+* Copyright (c) 2002-2004, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -13,27 +13,63 @@
 
 #include "unicode/utypes.h"
 #include "unicode/uchar.h"
+#include "udataswp.h"
 #include "uprops.h"
 
-class Builder;
+/*
+ * This header defines the in-memory layout of the property names data
+ * structure representing the UCD data files PropertyAliases.txt and
+ * PropertyValueAliases.txt.  It is used by:
+ *   propname.cpp - reads data
+ *   genpname     - creates data
+ */
 
-U_NAMESPACE_BEGIN
+/* low-level char * property name comparison -------------------------------- */
 
-// This header defines the in-memory layout of the property names data
-// structure representing the UCD data files PropertyAliases.txt and
-// PropertyValueAliases.txt.  It is used by:
-//   propname.cpp - reads data
-//   genpname     - creates data
+U_CDECL_BEGIN
 
-//----------------------------------------------------------------------
-// UDataMemory structure and signatures
+/**
+ * \var uprv_comparePropertyNames
+ * Unicode property names and property value names are compared "loosely".
+ *
+ * UCD.html 4.0.1 says:
+ *   For all property names, property value names, and for property values for
+ *   Enumerated, Binary, or Catalog properties, use the following
+ *   loose matching rule:
+ *
+ *   LM3. Ignore case, whitespace, underscore ('_'), and hyphens.
+ *
+ * This function does just that, for (char *) name strings.
+ * It is almost identical to ucnv_compareNames() but also ignores
+ * C0 White_Space characters (U+0009..U+000d, and U+0085 on EBCDIC).
+ *
+ * @internal
+ */
+
+U_CAPI int32_t U_EXPORT2
+uprv_compareASCIIPropertyNames(const char *name1, const char *name2);
+
+U_CAPI int32_t U_EXPORT2
+uprv_compareEBCDICPropertyNames(const char *name1, const char *name2);
+
+#if U_CHARSET_FAMILY==U_ASCII_FAMILY
+#   define uprv_comparePropertyNames uprv_compareASCIIPropertyNames
+#elif U_CHARSET_FAMILY==U_EBCDIC_FAMILY
+#   define uprv_comparePropertyNames uprv_compareEBCDICPropertyNames
+#else
+#   error U_CHARSET_FAMILY is not valid
+#endif
+
+U_CDECL_END
+
+/* UDataMemory structure and signatures ------------------------------------- */
 
 #define PNAME_DATA_NAME "pnames"
 #define PNAME_DATA_TYPE "icu"
 
-// Fields in UDataInfo:
+/* Fields in UDataInfo: */
 
-// PNAME_SIG[] is encoded as numeric literals for compatibility with the HP compiler
+/* PNAME_SIG[] is encoded as numeric literals for compatibility with the HP compiler */
 #define PNAME_SIG_0 ((uint8_t)0x70) /* p */
 #define PNAME_SIG_1 ((uint8_t)0x6E) /* n */
 #define PNAME_SIG_2 ((uint8_t)0x61) /* a */
@@ -42,13 +78,29 @@ U_NAMESPACE_BEGIN
 #define PNAME_FORMAT_VERSION ((int8_t)1) /* formatVersion[0] */
 
 /**
+ * Swap pnames.icu. See udataswp.h.
+ * @internal
+ */
+U_CAPI int32_t U_EXPORT2
+upname_swap(const UDataSwapper *ds,
+            const void *inData, int32_t length, void *outData,
+            UErrorCode *pErrorCode);
+
+
+#ifdef XP_CPLUSPLUS
+
+class Builder;
+
+U_NAMESPACE_BEGIN
+
+/**
  * An offset from the start of the pnames data to a contained entity.
  * This must be a signed value, since negative offsets are used as an
  * end-of-list marker.  Offsets to actual objects are non-zero.  A
  * zero offset indicates an absent entry; this corresponds to aliases
  * marked "n/a" in the original Unicode data files.
  */
-typedef int16_t Offset; // must be signed
+typedef int16_t Offset; /*  must be signed */
 
 #define MAX_OFFSET 0x7FFF
 
@@ -63,8 +115,8 @@ typedef int16_t Offset; // must be signed
  */
 typedef int32_t EnumValue;
 
-//----------------------------------------------------------------------
-// ValueMap
+/* ---------------------------------------------------------------------- */
+/*  ValueMap */
 
 /**
  * For any top-level property that has named values (binary and
@@ -82,18 +134,18 @@ typedef int32_t EnumValue;
  */
 struct ValueMap {
 
-    // -- begin pnames data --
-    // Enum=>name EnumToOffset / NonContiguousEnumToOffset objects.
-    // Exactly one of these will be nonzero.
+    /*  -- begin pnames data -- */
+    /*  Enum=>name EnumToOffset / NonContiguousEnumToOffset objects. */
+    /*  Exactly one of these will be nonzero. */
     Offset enumToName_offset;
     Offset ncEnumToName_offset;
 
-    Offset nameToEnum_offset; // Name=>enum data
-    // -- end pnames data --
+    Offset nameToEnum_offset; /*  Name=>enum data */
+    /*  -- end pnames data -- */
 };
 
-//----------------------------------------------------------------------
-// PropertyAliases class
+/* ---------------------------------------------------------------------- */
+/*  PropertyAliases class */
 
 /**
  * A class encapsulating access to the memory-mapped data representing
@@ -106,29 +158,29 @@ struct ValueMap {
  */
 class PropertyAliases {
 
-    // -- begin pnames data --
-    // Enum=>name EnumToOffset object for binary and enumerated
-    // properties
+    /*  -- begin pnames data -- */
+    /*  Enum=>name EnumToOffset object for binary and enumerated */
+    /*  properties */
     Offset enumToName_offset;
 
-    // Name=>enum data for binary & enumerated properties
+    /*  Name=>enum data for binary & enumerated properties */
     Offset nameToEnum_offset;
 
-    // Enum=>offset EnumToOffset object mapping enumerated properties
-    // to ValueMap objects
+    /*  Enum=>offset EnumToOffset object mapping enumerated properties */
+    /*  to ValueMap objects */
     Offset enumToValue_offset;
 
-    // The following are needed by external readers of this data.
-    // We don't use them ourselves.
-    int16_t total_size; // size in bytes excluding the udata header
-    Offset valueMap_offset; // offset to start of array
-    int16_t valueMap_count; // number of entries
-    Offset nameGroupPool_offset; // offset to start of array
-    int16_t nameGroupPool_count; // number of entries (not groups)
-    Offset stringPool_offset; // offset to start of pool
-    int16_t stringPool_count; // number of strings (not size in bytes)
+    /*  The following are needed by external readers of this data. */
+    /*  We don't use them ourselves. */
+    int16_t total_size; /*  size in bytes excluding the udata header */
+    Offset valueMap_offset; /*  offset to start of array */
+    int16_t valueMap_count; /*  number of entries */
+    Offset nameGroupPool_offset; /*  offset to start of array */
+    int16_t nameGroupPool_count; /*  number of entries (not groups) */
+    Offset stringPool_offset; /*  offset to start of pool */
+    int16_t stringPool_count; /*  number of strings (not size in bytes) */
 
-    // -- end pnames data --
+    /*  -- end pnames data -- */
 
     friend class ::Builder;
 
@@ -157,10 +209,15 @@ class PropertyAliases {
     
     inline EnumValue getPropertyValueEnum(EnumValue prop,
                                           const char* alias) const;
+
+    static int32_t
+    swap(const UDataSwapper *ds,
+         const uint8_t *inBytes, int32_t length, uint8_t *outBytes,
+         UErrorCode *pErrorCode);
 };
 
-//----------------------------------------------------------------------
-// EnumToOffset
+/* ---------------------------------------------------------------------- */
+/*  EnumToOffset */
 
 /**
  * A generic map from enum values to Offsets.  The enum values must be
@@ -169,11 +226,11 @@ class PropertyAliases {
  */
 class EnumToOffset {
 
-    // -- begin pnames data --
+    /*  -- begin pnames data -- */
     EnumValue enumStart;
     EnumValue enumLimit;
-    Offset _offsetArray; // [array of enumLimit-enumStart]
-    // -- end pnames data --
+    Offset _offsetArray; /*  [array of enumLimit-enumStart] */
+    /*  -- end pnames data -- */
 
     friend class ::Builder;
 
@@ -189,20 +246,30 @@ class EnumToOffset {
         return sizeof(EnumToOffset) + sizeof(Offset) * (n - 1);
     }
 
+    int32_t getSize() {
+        return getSize(enumLimit - enumStart);
+    }
+
  public:
 
     Offset getOffset(EnumValue enumProbe) const {
         if (enumProbe < enumStart ||
             enumProbe >= enumLimit) {
-            return 0; // not found
+            return 0; /*  not found */
         }
         const Offset* p = getOffsetArray();
         return p[enumProbe - enumStart];
     }
+
+    static int32_t
+    swap(const UDataSwapper *ds,
+         const uint8_t *inBytes, int32_t length, uint8_t *outBytes,
+         uint8_t *temp, int32_t pos,
+         UErrorCode *pErrorCode);
 };
 
-//----------------------------------------------------------------------
-// NonContiguousEnumToOffset
+/* ---------------------------------------------------------------------- */
+/*  NonContiguousEnumToOffset */
 
 /**
  * A generic map from enum values to Offsets.  The enum values may be
@@ -211,11 +278,11 @@ class EnumToOffset {
  */
 class NonContiguousEnumToOffset {
 
-    // -- begin pnames data --
+    /*  -- begin pnames data -- */
     int32_t count;
-    EnumValue _enumArray; // [array of count]
-    // Offset _offsetArray; // [array of count] after enumValue[count-1]
-    // -- end pnames data --
+    EnumValue _enumArray; /*  [array of count] */
+    /*  Offset _offsetArray; // [array of count] after enumValue[count-1] */
+    /*  -- end pnames data -- */
 
     friend class ::Builder;
 
@@ -239,35 +306,45 @@ class NonContiguousEnumToOffset {
         return sizeof(int32_t) + (sizeof(EnumValue) + sizeof(Offset)) * n;
     }
 
+    int32_t getSize() {
+        return getSize(count);
+    }
+
  public:
 
     Offset getOffset(EnumValue enumProbe) const {
         const EnumValue* e = getEnumArray();
         const Offset* p = getOffsetArray();
-        // linear search; binary later if warranted
-        // (binary is not faster for short lists)
+        /*  linear search; binary later if warranted */
+        /*  (binary is not faster for short lists) */
         for (int32_t i=0; i<count; ++i) {
             if (e[i] < enumProbe) continue;
             if (e[i] > enumProbe) break;
             return p[i];
         }
-        return 0; // not found
+        return 0; /*  not found */
     }
+
+    static int32_t
+    swap(const UDataSwapper *ds,
+         const uint8_t *inBytes, int32_t length, uint8_t *outBytes,
+         uint8_t *temp, int32_t pos,
+         UErrorCode *pErrorCode);
 };
 
-//----------------------------------------------------------------------
-// NameToEnum
+/* ---------------------------------------------------------------------- */
+/*  NameToEnum */
 
 /**
  * A map from names to enum values.
  */
 class NameToEnum {
 
-    // -- begin pnames data --
-    int32_t count;       // number of entries
-    EnumValue _enumArray; // [array of count] EnumValues
-    // Offset _nameArray; // [array of count] offsets to names
-    // -- end pnames data --
+    /*  -- begin pnames data -- */
+    int32_t count;       /*  number of entries */
+    EnumValue _enumArray; /*  [array of count] EnumValues */
+    /*  Offset _nameArray; // [array of count] offsets to names */
+    /*  -- end pnames data -- */
 
     friend class ::Builder;
 
@@ -291,6 +368,10 @@ class NameToEnum {
         return sizeof(int32_t) + (sizeof(Offset) + sizeof(EnumValue)) * n;
     }
 
+    int32_t getSize() {
+        return getSize(count);
+    }
+
  public:
   
     EnumValue getEnum(const char* alias, const PropertyAliases& data) const {
@@ -298,8 +379,8 @@ class NameToEnum {
         const Offset* n = getNameArray();
         const EnumValue* e = getEnumArray();
 
-        // linear search; binary later if warranted
-        // (binary is not faster for short lists)
+        /*  linear search; binary later if warranted */
+        /*  (binary is not faster for short lists) */
         for (int32_t i=0; i<count; ++i) {
             const char* name = (const char*) data.getPointer(n[i]);
             int32_t c = uprv_comparePropertyNames(alias, name);
@@ -310,6 +391,12 @@ class NameToEnum {
         
         return UCHAR_INVALID_CODE;
     }
+
+    static int32_t
+    swap(const UDataSwapper *ds,
+         const uint8_t *inBytes, int32_t length, uint8_t *outBytes,
+         uint8_t *temp, int32_t pos,
+         UErrorCode *pErrorCode);
 };
 
 /*----------------------------------------------------------------------
@@ -348,7 +435,20 @@ class NameToEnum {
  *  nameToEnum_offset (>2)
  *  enumToValue_offset (>3)
  *  (alignment padding build in to header)
- * 
+ *
+ * The header also contains the following, used by "external readers"
+ * like ICU4J and icuswap.
+ *
+ *  // The following are needed by external readers of this data.
+ *  // We don't use them ourselves.
+ *  int16_t total_size; // size in bytes excluding the udata header
+ *  Offset valueMap_offset; // offset to start of array
+ *  int16_t valueMap_count; // number of entries
+ *  Offset nameGroupPool_offset; // offset to start of array
+ *  int16_t nameGroupPool_count; // number of entries (not groups)
+ *  Offset stringPool_offset; // offset to start of pool
+ *  int16_t stringPool_count; // number of strings (not size in bytes)
+ *
  * 0: # NonContiguousEnumToOffset obj for props => name groups
  *  count
  *  enumArray [x count]
@@ -410,6 +510,6 @@ class NameToEnum {
  */
 U_NAMESPACE_END
 
-#endif
+#endif /* C++ */
 
-//eof
+#endif

@@ -833,6 +833,10 @@ extern int flag_fix_and_continue;
 extern int flag_indirect_data;
 /* APPLE LOCAL END fix-and-continue mrs  */
 
+/* APPLE LOCAL begin read-from-stdin */
+extern int predictive_compilation;
+/* APPLE LOCAL end read-from-stdin */
+
 /* APPLE LOCAL gdb only used symbols */
 #ifdef DBX_ONLY_USED_SYMBOLS
 /* Nonzero if generating debugger info for used symbols only.  */

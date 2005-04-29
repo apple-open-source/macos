@@ -43,6 +43,7 @@
 
 
 class IOUSBController;
+class IOUSBControllerV2;
 class IOUSBInterface;
 /*!
     @class IOUSBDevice
@@ -54,6 +55,7 @@ class IOUSBInterface;
 class IOUSBDevice : public IOUSBNub
 {
     friend class IOUSBController;
+    friend class IOUSBControllerV2;
     friend class IOUSBInterface;
     friend class IOUSBPipe;
    
@@ -411,6 +413,10 @@ private:
 
     static void 	DisplayUserNotificationForDeviceEntry (OSObject *owner, IOTimerEventSource *sender);
     void		DisplayUserNotificationForDevice( );
+    
+    UInt32              SimpleUnicodeToUTF8(UInt16 uChar, UInt8 utf8Bytes[4]);
+    void                SwapUniWords (UInt16  **unicodeString, UInt32 uniSize);
+
 };
 
 #endif /* _IOKIT_IOUSBDEVICE_H */

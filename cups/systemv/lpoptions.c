@@ -1,9 +1,9 @@
 /*
- * "$Id: lpoptions.c,v 1.1.1.11 2003/04/11 21:07:53 jlovell Exp $"
+ * "$Id: lpoptions.c,v 1.1.1.15 2005/01/04 19:16:40 jlovell Exp $"
  *
  *   Printer option program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -438,5 +438,5 @@ usage(void)
 
 
 /*
- * End of "$Id: lpoptions.c,v 1.1.1.11 2003/04/11 21:07:53 jlovell Exp $".
+ * End of "$Id: lpoptions.c,v 1.1.1.15 2005/01/04 19:16:40 jlovell Exp $".
  */

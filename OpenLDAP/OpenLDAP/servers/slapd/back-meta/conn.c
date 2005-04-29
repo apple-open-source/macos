@@ -1,67 +1,23 @@
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/conn.c,v 1.24.2.5 2004/04/06 18:16:02 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * Portions Copyright 1999-2003 Howard Chu.
+ * All rights reserved.
  *
- * This work has been developed to fulfill the requirements
- * of SysNet s.n.c. <http:www.sys-net.it> and it has been donated
- * to the OpenLDAP Foundation in the hope that it may be useful
- * to the Open Source community, but WITHOUT ANY WARRANTY.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
  *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- *
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from 
- *    flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- *
- * 4. This notice may not be removed or altered.
- *
- *
- * This software is based on the backend back-ldap, implemented
- * by Howard Chu <hyc@highlandsun.com>, and modified by Mark Valence
- * <kurash@sassafras.com>, Pierangelo Masarati <ando@sys-net.it> and other
- * contributors. The contribution of the original software to the present
- * implementation is acknowledged in this copyright statement.
- *
- * A special acknowledgement goes to Howard for the overall architecture
- * (and for borrowing large pieces of code), and to Mark, who implemented
- * from scratch the attribute/objectclass mapping.
- *
- * The original copyright statement follows.
- *
- * Copyright 1999, Howard Chu, All rights reserved. <hyc@highlandsun.com>
- *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- *
- * 1. The author is not responsible for the consequences of use of this
- *    software, no matter how awful, even if they arise from flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the
- *    documentation.
- *
- * 4. This notice may not be removed or altered.
- *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by the Howard Chu for inclusion
+ * in OpenLDAP Software and subsequently enhanced by Pierangelo
+ * Masarati.
  */
 
 #include "portable.h"
@@ -187,6 +143,15 @@ metaconn_alloc( int ntargets )
 	}
 	lc->conns[ ntargets ].candidate = META_LAST_CONN;
 
+	for ( ; ntargets-- > 0; ) {
+		lc->conns[ ntargets ].ld = NULL;
+		lc->conns[ ntargets ].bound_dn.bv_val = NULL;
+		lc->conns[ ntargets ].bound_dn.bv_len = 0;
+		lc->conns[ ntargets ].cred.bv_val = NULL;
+		lc->conns[ ntargets ].cred.bv_len = 0;
+		lc->conns[ ntargets ].bound = META_UNBOUND;
+	}
+
 	lc->bound_target = META_BOUND_NONE;
 
 	return lc;
@@ -220,13 +185,15 @@ metaconn_free(
  */
 static int
 init_one_conn(
-		Connection *conn, 
-		Operation *op, 
-		struct metatarget *lt, 
-		struct metasingleconn *lsc
+		Operation		*op,
+		SlapReply		*rs,
+		struct metatarget	*lt, 
+		struct metasingleconn	*lsc
 		)
 {
-	int err, vers;
+	struct metainfo	*li = ( struct metainfo * )op->o_bd->be_private;
+	int		vers;
+	dncookie	dc;
 
 	/*
 	 * Already init'ed
@@ -238,63 +205,58 @@ init_one_conn(
 	/*
 	 * Attempts to initialize the connection to the target ds
 	 */
-	err = ldap_initialize( &lsc->ld, lt->uri );
-	if ( err != LDAP_SUCCESS ) {
-		return ldap_back_map_result( err );
+	rs->sr_err = ldap_initialize( &lsc->ld, lt->uri );
+	if ( rs->sr_err != LDAP_SUCCESS ) {
+		return slap_map_api2result( rs );
 	}
 
 	/*
 	 * Set LDAP version. This will always succeed: If the client
 	 * bound with a particular version, then so can we.
 	 */
-	vers = conn->c_protocol;
+	vers = op->o_conn->c_protocol;
 	ldap_set_option( lsc->ld, LDAP_OPT_PROTOCOL_VERSION, &vers );
+	/* FIXME: configurable? */
+	ldap_set_option(lsc->ld, LDAP_OPT_REFERRALS, LDAP_OPT_ON);
+
+	/*
+	 * Set the network timeout if set
+	 */
+	if (li->network_timeout != 0){
+		struct timeval network_timeout;
+
+		network_timeout.tv_usec = 0;
+		network_timeout.tv_sec = li->network_timeout;
+
+		ldap_set_option( lsc->ld, LDAP_OPT_NETWORK_TIMEOUT, (void *) &network_timeout);
+	}
 
 	/*
 	 * Sets a cookie for the rewrite session
 	 */
-	( void )rewrite_session_init( lt->rwinfo, conn );
+	( void )rewrite_session_init( lt->rwmap.rwm_rw, op->o_conn );
 
 	/*
 	 * If the connection dn is not null, an attempt to rewrite it is made
 	 */
-	if ( conn->c_dn.bv_len != 0 ) {
+	if ( op->o_conn->c_dn.bv_len != 0 ) {
+		dc.rwmap = &lt->rwmap;
+		dc.conn = op->o_conn;
+		dc.rs = rs;
+		dc.ctx = "bindDN";
 		
 		/*
 		 * Rewrite the bind dn if needed
 		 */
-		lsc->bound_dn.bv_val = NULL;
-		switch ( rewrite_session( lt->rwinfo, "bindDn",
-					conn->c_dn.bv_val, conn, 
-					&lsc->bound_dn.bv_val ) ) {
-		case REWRITE_REGEXEC_OK:
-			if ( lsc->bound_dn.bv_val == NULL ) {
-				ber_dupbv( &lsc->bound_dn, &conn->c_dn );
-			}
-#ifdef NEW_LOGGING
-			LDAP_LOG( BACK_META, DETAIL1,
-				"[rw] bindDn: \"%s\" -> \"%s\"\n",
-				conn->c_dn.bv_val, lsc->bound_dn.bv_val, 0 );
-#else /* !NEW_LOGGING */
-			Debug( LDAP_DEBUG_ARGS,
-				       	"rw> bindDn: \"%s\" -> \"%s\"\n",
-					conn->c_dn.bv_val, lsc->bound_dn.bv_val, 0 );
-#endif /* !NEW_LOGGING */
-			break;
-			
-		case REWRITE_REGEXEC_UNWILLING:
-			send_ldap_result( conn, op,
-					LDAP_UNWILLING_TO_PERFORM,
-					NULL, "Operation not allowed",
-					NULL, NULL );
-			return LDAP_UNWILLING_TO_PERFORM;
-			
-		case REWRITE_REGEXEC_ERR:
-			send_ldap_result( conn, op,
-					LDAP_OTHER,
-					NULL, "Rewrite error",
-					NULL, NULL );
-			return LDAP_OTHER;
+		if ( ldap_back_dn_massage( &dc, &op->o_conn->c_dn,
+					&lsc->bound_dn) ) {
+			send_ldap_result( op, rs );
+			return rs->sr_err;
+		}
+
+		/* copy the DN idf needed */
+		if ( lsc->bound_dn.bv_val == op->o_conn->c_dn.bv_val ) {
+			ber_dupbv( &lsc->bound_dn, &op->o_conn->c_dn );
 		}
 
 		assert( lsc->bound_dn.bv_val );
@@ -326,19 +288,19 @@ init_one_conn(
  */
 struct metaconn *
 meta_back_getconn(
-		struct metainfo *li,
-	       	Connection 	*conn,
 	       	Operation 	*op,
+		SlapReply	*rs,
 		int 		op_type,
 		struct berval	*ndn,
 		int 		*candidate )
 {
+	struct metainfo	*li = ( struct metainfo * )op->o_bd->be_private;
 	struct metaconn *lc, lc_curr;
 	int cached = -1, i = -1, err = LDAP_SUCCESS;
 	int new_conn = 0;
 
 	/* Searches for a metaconn in the avl tree */
-	lc_curr.conn = conn;
+	lc_curr.conn = op->o_conn;
 	ldap_pvt_thread_mutex_lock( &li->conn_mutex );
 	lc = (struct metaconn *)avl_find( li->conntree, 
 		(caddr_t)&lc_curr, meta_back_conn_cmp );
@@ -347,7 +309,7 @@ meta_back_getconn(
 	/* Looks like we didn't get a bind. Open a new session... */
 	if ( !lc ) {
 		lc = metaconn_alloc( li->ntargets );
-		lc->conn = conn;
+		lc->conn = op->o_conn;
 		new_conn = 1;
 	}
 
@@ -376,9 +338,7 @@ meta_back_getconn(
 				metaconn_free( lc );
 			}
 
-			send_ldap_result( conn, op, LDAP_NO_SUCH_OBJECT,
-				NULL, "", NULL, NULL );
-
+			rs->sr_err = LDAP_NO_SUCH_OBJECT;
 			return NULL;
 		}
 				
@@ -402,7 +362,7 @@ meta_back_getconn(
 		 * also init'd. In case of error, init_one_conn
 		 * sends the appropriate result.
 		 */
-		err = init_one_conn( conn, op, li->targets[ i ],
+		err = init_one_conn( op, rs, li->targets[ i ],
 				&lc->conns[ i ] );
 		if ( err != LDAP_SUCCESS ) {
 		
@@ -432,7 +392,7 @@ meta_back_getconn(
 			 * The target is activated; if needed, it is
 			 * also init'd
 			 */
-			int lerr = init_one_conn( conn, op, li->targets[ i ],
+			int lerr = init_one_conn( op, rs, li->targets[ i ],
 					&lc->conns[ i ] );
 			if ( lerr != LDAP_SUCCESS ) {
 				
@@ -459,7 +419,7 @@ meta_back_getconn(
 				 * The target is activated; if needed, it is
 				 * also init'd
 				 */
-				int lerr = init_one_conn( conn, op,
+				int lerr = init_one_conn( op, rs,
 						li->targets[ i ],
 						&lc->conns[ i ] );
 				if ( lerr != LDAP_SUCCESS ) {
@@ -476,6 +436,10 @@ meta_back_getconn(
 			}
 		}
 	}
+
+	/* clear out init_one_conn non-fatal errors */
+	rs->sr_err = LDAP_SUCCESS;
+	rs->sr_text = NULL;
 
 	if ( new_conn ) {
 		
@@ -505,8 +469,8 @@ meta_back_getconn(
 		 * Err could be -1 in case a duplicate metaconn is inserted
 		 */
 		if ( err != 0 ) {
-			send_ldap_result( conn, op, LDAP_OTHER,
-			NULL, "Internal server error", NULL, NULL );
+			rs->sr_err = LDAP_OTHER;
+			rs->sr_text = "Internal server error";
 			metaconn_free( lc );
 			return NULL;
 		}

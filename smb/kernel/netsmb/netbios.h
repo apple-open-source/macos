@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: netbios.h,v 1.4 2002/03/12 22:06:09 lindak Exp $
+ * $Id: netbios.h,v 1.5 2004/03/19 01:49:45 lindak Exp $
  */
 #ifndef _NETSMB_NETBIOS_H_
 #define	_NETSMB_NETBIOS_H_
@@ -47,10 +47,6 @@
 #endif
 #endif
 
-#ifndef APPLE
-#define AF_NETBIOS	AF_NS		/* XXX: should go to socket.h */
-/* CSM: it is in our socket.h, in FreeBSD's, and is unused anyway */
-#endif
 #define PF_NETBIOS	AF_NETBIOS
 
 #define	NBPROTO_TCPSSN	1		/* NETBIOS session over TCP */

@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -108,8 +107,6 @@ extern int in_list(char *, at_ifnames_t *);
 /* prototypes */
 
 void showCfg();
-
-static FILE *STDOUT = stdout;
 
 /* These functions set/get the defaults in/from persistent storage */
 
@@ -401,7 +398,7 @@ int getIFInfo(elapcfgp, filecfgp, cfgFileName, checkCfg, displayCfg, mh)
 					bad = TRUE;
 				}
 				if (!bad)
-					strncpy(elapcfgp[ifno].ifr_name, buf1, 4);
+					strncpy(elapcfgp[ifno].ifr_name, buf1, IFNAMSIZ);
 				break;
 			case 1:		/* net range or home desig */
 			case 2:
@@ -758,33 +755,33 @@ void showCfg(cfgp, if_zones)
 	for (i=0; i<IF_TOTAL_MAX; i++) {
 		if (cfgp[i].ifr_name[0]) {
 			if (!cnt++) {
-				fprintf(STDOUT, 
+				fprintf(stdout, 
 					MSGSTR(M_RTR_CFG,"Router mode configuration:\n\n"));
-				fprintf(STDOUT,
+				fprintf(stdout,
 					MSGSTR(M_RTR_CFG_HDR,"H I/F  Network Range\n"));
-				fprintf(STDOUT,"- ---  -------------\n");
+				fprintf(stdout,"- ---  -------------\n");
 			}
 			range[0] = '\0';
 			if (cfgp[i].netStart || cfgp[i].netEnd) {
 				sprintf(range,"%5d - %d", cfgp[i].netStart, cfgp[i].netEnd); 
 				seed=TRUE;
 			}
-			fprintf(STDOUT,"%c %-3s  %s\n", cfgp[i].flags & ELAP_CFG_HOME ? '*' : ' ',
+			fprintf(stdout,"%c %-3s  %s\n", cfgp[i].flags & ELAP_CFG_HOME ? '*' : ' ',
 				cfgp[i].ifr_name,
 				range[0] ? range : MSGSTR(M_NONSEED,"(non-seed)"));
 		}
 	}
 	if (!cnt) {
-		fprintf(STDOUT, 
+		fprintf(stdout, 
 			MSGSTR(M_NO_IF_CFG, 
 			"There are no interfaces configured\n"));
 		return;
 	}
 	if (seed) {
-		fprintf(STDOUT, "\n\n  %-32s  %s\n", 
+		fprintf(stdout, "\n\n  %-32s  %s\n", 
 			MSGSTR(M_ZONE_DEF,"Defined zones"),
 			MSGSTR(M_IF_DEF_ZONE,"Interfaces Defining Zone"));
-			fprintf(STDOUT,"  %-32s  %s\n",
+			fprintf(stdout,"  %-32s  %s\n",
     					 	   "-------------",
 					   "------------------------");
 	}
@@ -793,19 +790,19 @@ void showCfg(cfgp, if_zones)
 		int ifcnt=0;
 		if (!if_zones[i].zone_name.str[0])
 			break;
-		fprintf(STDOUT, "%c %-32s  ", if_zones[i].zone_home ? '*' : ' ',
+		fprintf(stdout, "%c %-32s  ", if_zones[i].zone_home ? '*' : ' ',
 			if_zones[i].zone_name.str);
 		for (k=0; k<IF_TOTAL_MAX; k++)
 			if (if_zones[i].zone_iflist.at_if[k][0]) {
 				if (ifcnt && !((ifcnt)%ZONE_IFS_PER_LINE))
-					fprintf(STDOUT,"\n%36s","");
+					fprintf(stdout,"\n%36s","");
 				ifcnt++;
-				fprintf(STDOUT, "%s ",
+				fprintf(stdout, "%s ",
 					if_zones[i].zone_iflist.at_if[k]);
 			}
-		fprintf(STDOUT, "\n");
+		fprintf(stdout, "\n");
 	}
-	fprintf(STDOUT, 
+	fprintf(stdout, 
 		MSGSTR(M_HOME_Z_IND,
 		"\n* indicates home port and home zone\n"\
   	      "  (if home port is a seed port)\n"));
@@ -878,15 +875,15 @@ showZones()
 			break;
 		
 		if (!did_header++) {
-			fprintf(STDOUT, MSGSTR(M_ZONES,"..... Zones ......\n"));
-			fprintf(STDOUT, MSGSTR(M_ZONE_HDR,"zno zcnt zone\n"));
+			fprintf(stdout, MSGSTR(M_ZONES,"..... Zones ......\n"));
+			fprintf(stdout, MSGSTR(M_ZONE_HDR,"zno zcnt zone\n"));
 		}
 		zte.zt.Zone.str[zte.zt.Zone.len] = '\0';
-		fprintf(STDOUT, "%3d  %3d %s\n", zte.entryno+1,zte.zt.ZoneCount, zte.zt.Zone.str);
+		fprintf(stdout, "%3d  %3d %s\n", zte.entryno+1,zte.zt.ZoneCount, zte.zt.Zone.str);
 		*(int *)&zte = 0;
 	}
 	if (*(int *)&zte == 1)
-		fprintf(STDOUT, MSGSTR(M_NO_ZONES,"no zones found\n"));
+		fprintf(stdout, MSGSTR(M_NO_ZONES,"no zones found\n"));
 	(void) close(if_id);
 	return(0);
 error:
@@ -923,18 +920,18 @@ showRoutes()
 				case 0:
 					break;
 				default:
-					fprintf(STDOUT, MSGSTR(M_RET_ROUTES,
+					fprintf(stdout, MSGSTR(M_RET_ROUTES,
 						"showRoutes: error retrieving route table\n"));
 					goto error;
 			}
 		if (done)
 			break;
 		if (!did_header++)	{
-			fprintf(STDOUT, MSGSTR(M_ROUTES,
+			fprintf(stdout, MSGSTR(M_ROUTES,
 				"............ Routes ................\n"));
-			fprintf(STDOUT, MSGSTR(M_NXT_STATE,
+			fprintf(stdout, MSGSTR(M_NXT_STATE,
 				"                next             state\n"));
-			fprintf(STDOUT, MSGSTR(M_RTR_HDR,
+			fprintf(stdout, MSGSTR(M_RTR_HDR,
 				"start-stop    net:node   d  p  PBTZ GSBU zones\n"));
 		}
 		gap = 0;
@@ -945,7 +942,7 @@ showRoutes()
 			}
 			state[i+gap] =  (rt.EntryState & 1<<(7-i)) ? '1' : '0';
 		}
-		fprintf(STDOUT, "%5d-%-5d %5d:%-05d %2d %2d  %s ", 
+		fprintf(stdout, "%5d-%-5d %5d:%-05d %2d %2d  %s ", 
 			rt.NetStart, rt.NetStop, rt.NextIRNet, rt.NextIRNode, 
 			rt.NetDist, rt.NetPort, state);
 		zcnt = 0;
@@ -953,19 +950,19 @@ showRoutes()
 			for (j=0; j<8; j++)
 				if ((rt.ZoneBitMap[i] <<j) & 0x80) {
 					if (zcnt >= Z_MAX_PRINT) { 
-						fprintf(STDOUT, MSGSTR(M_MORE,",more..."));
+						fprintf(stdout, MSGSTR(M_MORE,",more..."));
 						i = ZT_BYTES;
 						break;
 					}
-					fprintf(STDOUT, zcnt ? ",%d" : " %d",i*8+j+1);	/* 1st zone is 1 not 0 */
+					fprintf(stdout, zcnt ? ",%d" : " %d",i*8+j+1);	/* 1st zone is 1 not 0 */
 					zcnt++;
 				}
 		}
-		fprintf(STDOUT, "\n");
+		fprintf(stdout, "\n");
 		*(int *)&rt = 0;
 	}
 	if (*(int *)&rt == 1)
-		fprintf(STDOUT, MSGSTR(M_NO_ROUTES,"no routes found\n"));
+		fprintf(stdout, MSGSTR(M_NO_ROUTES,"no routes found\n"));
 	(void) close(if_id);
 	return(0);
 error:

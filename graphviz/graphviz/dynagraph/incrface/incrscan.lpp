@@ -1,0 +1,100 @@
+/* requires flex (i.e. not lex)  */
+%{
+#pragma prototyped
+#include <stdio.h>
+extern "C" {
+#include "agraph.h"
+}
+#include "incrface/incrgram.h"
+#include "common/StringDict.h"
+#include "incrface/incrxep.h"
+
+#define isatty(x)	1
+
+#define GRAPH_EOF_TOKEN		'@'		/* lex class must be defined below */
+	/* this is a workaround for linux flex */
+#ifndef yywrap
+#define yywrap() 1
+#endif
+static int line_num = 1;
+
+/* buffer for arbitrary length strings (longer than BUFSIZ) */
+static char	*Sbuf,*Sptr,*Send;
+static void beginstr(void) {
+	if (Sbuf == NIL(char*)) {
+		Sbuf = (char*)malloc(BUFSIZ);
+		Send = Sbuf + BUFSIZ;
+	}
+	Sptr = Sbuf;
+	*Sptr = 0; // for ""
+}
+static void addstr(char *src) {
+	char	c;
+	if (Sptr > Sbuf) Sptr--;
+	do {
+		do {c = *Sptr++ = *src++;} while (c && (Sptr < Send));
+		if (c) {
+			long	sz = long(Send - Sbuf);
+			long	off = long(Sptr - Sbuf);
+			sz *= 2;
+			Sbuf = (char*)realloc(Sbuf,sz);
+			Send = Sbuf + sz;
+			Sptr = Sbuf + off;
+		}
+	} while (c);
+}
+static void endstr(void) {
+	yylval.str = (char*)agstrdup(NIL(Agraph_t*),Sbuf);
+}
+%}
+GRAPH_EOF_TOKEN				[@]	
+LETTER [A-Za-z_\200-\377]
+DIGIT	[0-9]
+NAME	{LETTER}({LETTER}|{DIGIT})*
+NUMBER	[-]?(({DIGIT}+(\.{DIGIT}*)?)|(\.{DIGIT}+))
+ID		({NAME}|{NUMBER})
+%x comment
+%x qstring
+%%
+{GRAPH_EOF_TOKEN}		return(EOF);
+<INITIAL>\n				{line_num++; return(yytext[0]);}
+<comment,qstring>\n		line_num++;
+"/*"					BEGIN(comment);
+<comment>[^*\n]*		/* eat anything not a '*' */
+<comment>"*"+[^*/\n]*	/* eat up '*'s not followed by '/'s */
+<comment>"*"+"/"		BEGIN(INITIAL);
+"//".*					/* ignore C++-style comments */
+"#".*					/* ignore shell-like comments */
+[ \t\r]					/* ignore whitespace */
+"node"					return(T_node);
+"edge"					return(T_edge);
+"graph"					return(T_graph);
+"subgraph"				return(T_subgraph);
+
+"delete"				return(T_delete);
+"insert"				return(T_insert);
+"modify"				return(T_modify);
+"open"					return(T_open);
+"close"					return(T_close);
+"view"					return(T_view);
+"lock"					return(T_lock);
+"unlock"				return(T_unlock);
+"segue"					return(T_segue);
+"message"                               return(T_message);
+
+"->"|"--"				return(T_edgeop);
+{ID}					{ yylval.str = agstrdup(NIL(Agraph_t*),yytext); return(T_id); }
+["]						BEGIN(qstring); beginstr();
+<qstring>["]			BEGIN(INITIAL); endstr(); return (T_id);
+<qstring>[\\][\n]		line_num++; /* ignore escaped newlines */
+<qstring>([^"\\]*|[\\].)	addstr(yytext);
+.						return (yytext[0]);
+%%
+void yyerror(const char *str)
+{
+	char buf[300];
+	sprintf(buf,"incr: %s in line %d near '%s'\n",str,line_num,yytext);
+	throw IncrError(buf);
+}
+/* must be here to see flex's macro defns */
+void lexeof() { unput(GRAPH_EOF_TOKEN); }

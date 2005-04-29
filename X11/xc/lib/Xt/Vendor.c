@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/Vendor.c,v 1.7 2002/05/31 18:45:46 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Vendor.c,v 1.8 2003/12/22 21:10:25 dickey Exp $ */
 
 /* Make sure all wm properties can make it out of the resource manager */
 
@@ -64,9 +64,11 @@ SOFTWARE.
  *
  ***************************************************************************/
 
-#ifdef __UNIXOS2__
+#if defined(__UNIXOS2__) || defined(__CYGWIN__)
 /* to fix the EditRes problem because of wrong linker semantics */
 extern WidgetClass vendorShellWidgetClass;
+
+#if defined(__UNIXOS2__)
 unsigned long _DLL_InitTerm(unsigned long mod,unsigned long flag)
 {
         switch (flag) {
@@ -80,6 +82,23 @@ unsigned long _DLL_InitTerm(unsigned long mod,unsigned long flag)
                 return 0;
         }
 }
+#endif
+
+#if defined(__CYGWIN__)
+int __stdcall
+DllMain(unsigned long mod_handle, unsigned long flag, void *routine)
+{
+  switch (flag)
+    {
+    case 1: /* DLL_PROCESS_ATTACH - process attach */
+      vendorShellWidgetClass = (WidgetClass)(&vendorShellClassRec);
+      break;
+    case 0: /* DLL_PROCESS_DETACH - process detach */
+      break;
+    }
+  return 1;
+}
+#endif
 #endif
 
 externaldef(vendorshellclassrec) VendorShellClassRec vendorShellClassRec = {

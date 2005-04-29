@@ -1,0 +1,23 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>texi2html</string>
+	<key>OpenSourceVersion</key>
+	<string>1.70</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://texi2html.cvshome.org/</string>
+	<key>OpenSourceURL</key>
+	<string>https://texi2html.cvshome.org/files/documents/70/173/texi2html-1.70.tar.bz2</string>
+	<key>OpenSourceMD5</key>
+	<string>54f128b42dd93d119adbeb64a80998ee</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-08-11</string>
+	<key>OpenSourceModifications</key>
+	<array>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>texi2html.txt</string>
+</dict>
+</plist>

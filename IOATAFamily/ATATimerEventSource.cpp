@@ -141,7 +141,7 @@ void ATATimerEventSource::disable()
     super::disable();
 }
 
-IOReturn ATATimerEventSource::wakeAtTime(AbsoluteTime inAbstime)
+IOReturn ATATimerEventSource::wakeAtTime(UnsignedWide inAbstime)
 {
 	hasExpired = kTimedOutFalse;
 

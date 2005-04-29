@@ -1,4 +1,7 @@
 // $Xorg: kinesis,v 1.3 2000/08/17 19:54:35 cpqbld Exp $
+//
+// $XFree86: xc/programs/xkbcomp/geometry/kinesis,v 3.4 2003/10/24 20:38:19 tsi Exp $
+//
 default xkb_geometry "model100" {
 
     // This is an approximate layout for a Kinesis Ergonomic keyboard
@@ -69,7 +72,7 @@ default xkb_geometry "model100" {
     indicator.top= 30;
     indicator.onColor= "green";
     indicator.offColor= "green30";
-    indicator "CapsLock" { left= 23; };
+    indicator "Caps Lock" { left= 23; };
 
     section "LeftAlpha" {
 	top=  34;

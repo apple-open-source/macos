@@ -1,0 +1,44 @@
+# For the OpenBSD auto patching mechanism and compatibility environment
+# setup, original OpenBSD sources a put into a OpenBSD subdirectory.
+# If a file with the same name, but suffix ".patch" is in that directory,
+# that patch will be applied before use.
+#
+# The OBSDMDSRCS, OBSDMISRCS, OBSDORIGHDRS and OBSDSRCS variables must be set,
+# and bracketed by .include of Makefile.obsd_begin and Makefile.obsd_end
+#
+# Set up dependencies between the OpenBSD source (in a OpenBSD subdirectory)
+# and a file with a -obsd.x suffix (where x is 'c' or 's').  The suffix
+# rules will then compile the file with the simulate OpenBSD environment.
+
+OBSDSECTIONS= 1 2 3 4 5 6 7 8 9
+
+.for _src in ${OBSDSRCS}
+${SYMROOT}/${_src:R}-obsd.${_src:E}: OpenBSD/${_src} _AUTOPATCHSYM
+SRCS+= ${_src}
+AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-obsd.${_src:E}
+.endfor
+
+.for _src in ${OBSDMDSRCS}
+${SYMROOT}/${_src:R}-obsd.${_src:E}: OpenBSD/${_src} _AUTOPATCHSYM
+MDSRCS+= ${_src}
+AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-obsd.${_src:E}
+.endfor
+
+.for _src in ${OBSDMISRCS}
+${SYMROOT}/${_src:R}-obsd.${_src:E}: OpenBSD/${_src} _AUTOPATCHSYM
+MISRCS+= ${_src}
+AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-obsd.${_src:E}
+.endfor
+
+.for _src in ${OBSDHDRS}
+${SYMROOT}/${_src}: OpenBSD/${_src} _AUTOPATCHSYM
+AUTOPATCHHDRS+= ${SYMROOT}/${_src}
+.endfor
+
+.for _sect in ${OBSDSECTIONS}
+.for _src in ${OBSDMAN${_sect}}
+${_src}: OpenBSD/${_src} _AUTOPATCH
+MAN${_sect}+= ${_src}
+AUTOPATCHMAN+= ${_src}
+.endfor
+.endfor

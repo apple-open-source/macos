@@ -6,9 +6,8 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---                             $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1997-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2002, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,9 +27,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies Inc. in cooperation with Florida --
--- State University (http://www.gnat.com).                                  --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -120,6 +118,8 @@ package System.OS_Interface is
    SIGFREEZE  : constant := 34; --  used by CPR (Solaris)
    SIGTHAW    : constant := 35; --  used by CPR (Solaris)
    SIGCANCEL  : constant := 36; --  used for thread cancel (Solaris)
+   SIGRTMIN   : constant := 38; --  first (highest-priority) realtime signal
+   SIGRTMAX   : constant := 45; --  last (lowest-priority) realtime signal
 
    type Signal_Set is array (Natural range <>) of Signal;
 
@@ -127,7 +127,7 @@ package System.OS_Interface is
      (SIGTRAP, SIGLWP, SIGTTIN, SIGTTOU, SIGTSTP, SIGPROF);
 
    Reserved    : constant Signal_Set :=
-     (SIGKILL, SIGSTOP, SIGALRM, SIGVTALRM, SIGWAITING);
+     (SIGKILL, SIGSTOP, SIGALRM, SIGVTALRM, SIGWAITING, SIGRTMAX);
 
    type sigset_t is private;
 

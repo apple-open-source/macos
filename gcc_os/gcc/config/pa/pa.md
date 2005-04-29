@@ -1,6 +1,6 @@
 ;;- Machine description for HP PA-RISC architecture for GNU C compiler
 ;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-;;   2002 Free Software Foundation, Inc.
+;;   2002, 2003 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
@@ -44,7 +44,7 @@
 ;;
 ;; FIXME: Add 800 scheduling for completeness?
 
-(define_attr "cpu" "700,7100,7100LC,7200,8000" (const (symbol_ref "pa_cpu_attr")))
+(define_attr "cpu" "700,7100,7100LC,7200,7300,8000" (const (symbol_ref "pa_cpu_attr")))
 
 ;; Length (in # of bytes).
 (define_attr "length" ""
@@ -105,12 +105,9 @@
 (define_delay (eq_attr "type" "call")
   [(eq_attr "in_call_delay" "true") (nil) (nil)])
 
-;; millicode call delay slot description.  Note it disallows delay slot
-;; when TARGET_PORTABLE_RUNTIME is true.
+;; Millicode call delay slot description.
 (define_delay (eq_attr "type" "milli")
-  [(and (eq_attr "in_call_delay" "true")
-	(eq (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0)))
-   (nil) (nil)])
+  [(eq_attr "in_call_delay" "true") (nil) (nil)])
 
 ;; Return and other similar instructions.
 (define_delay (eq_attr "type" "branch,parallel_branch")
@@ -139,34 +136,9 @@
 		       (const_int 0)))
   [(eq_attr "in_branch_delay" "true") (nil) (nil)])
 
-;; Function units of the HPPA. The following data is for the 700 CPUs
-;; (Mustang CPU + Timex FPU aka PA-89) because that's what I have the docs for.
-;; Scheduling instructions for PA-83 machines according to the Snake
-;; constraints shouldn't hurt.
-
-;; (define_function_unit {name} {num-units} {n-users} {test}
-;;                       {ready-delay} {issue-delay} [{conflict-list}])
-
-;; The integer ALU.
-;; (Noted only for documentation; units that take one cycle do not need to
-;; be specified.)
-
-;; (define_function_unit "alu" 1 0
-;;  (and (eq_attr "type" "unary,shift,nullshift,binary,move,address")
-;;	 (eq_attr "cpu" "700"))
-;;  1 0)
-
-
 ;; Memory. Disregarding Cache misses, the Mustang memory times are:
 ;; load: 2, fpload: 3
 ;; store, fpstore: 3, no D-cache operations should be scheduled.
-
-(define_function_unit "pa700memory" 1 0
-  (and (eq_attr "type" "load,fpload")
-       (eq_attr "cpu" "700")) 2 0)
-(define_function_unit "pa700memory" 1 0 
-  (and (eq_attr "type" "store,fpstore")
-       (eq_attr "cpu" "700")) 3 3)
 
 ;; The Timex (aka 700) has two floating-point units: ALU, and MUL/DIV/SQRT.
 ;; Timings:
@@ -186,46 +158,100 @@
 ;; fdiv,dbl	12	MPY	12
 ;; fsqrt,sgl	14	MPY	14
 ;; fsqrt,dbl	18	MPY	18
+;;
+;; We don't model fmpyadd/fmpysub properly as those instructions
+;; keep both the FP ALU and MPY units busy.  Given that these
+;; processors are obsolete, I'm not going to spend the time to
+;; model those instructions correctly.
 
-(define_function_unit "pa700fp_alu" 1 0
+(define_automaton "pa700")
+(define_cpu_unit "dummy_700,mem_700,fpalu_700,fpmpy_700" "pa700")
+
+(define_insn_reservation "W0" 4
   (and (eq_attr "type" "fpcc")
-       (eq_attr "cpu" "700")) 4 2)
-(define_function_unit "pa700fp_alu" 1 0
+       (eq_attr "cpu" "700"))
+  "fpalu_700*2")
+
+(define_insn_reservation "W1" 3
   (and (eq_attr "type" "fpalu")
-       (eq_attr "cpu" "700")) 3 2)
-(define_function_unit "pa700fp_mpy" 1 0
+       (eq_attr "cpu" "700"))
+  "fpalu_700*2")
+
+(define_insn_reservation "W2" 3
   (and (eq_attr "type" "fpmulsgl,fpmuldbl")
-       (eq_attr "cpu" "700")) 3 2)
-(define_function_unit "pa700fp_mpy" 1 0
+       (eq_attr "cpu" "700"))
+  "fpmpy_700*2")
+
+(define_insn_reservation "W3" 10
   (and (eq_attr "type" "fpdivsgl")
-       (eq_attr "cpu" "700")) 10 10)
-(define_function_unit "pa700fp_mpy" 1 0
+       (eq_attr "cpu" "700"))
+  "fpmpy_700*10")
+
+(define_insn_reservation "W4" 12
   (and (eq_attr "type" "fpdivdbl")
-       (eq_attr "cpu" "700")) 12 12)
-(define_function_unit "pa700fp_mpy" 1 0
+       (eq_attr "cpu" "700"))
+  "fpmpy_700*12")
+
+(define_insn_reservation "W5" 14
   (and (eq_attr "type" "fpsqrtsgl")
-       (eq_attr "cpu" "700")) 14 14)
-(define_function_unit "pa700fp_mpy" 1 0
+       (eq_attr "cpu" "700"))
+  "fpmpy_700*14")
+
+(define_insn_reservation "W6" 18
   (and (eq_attr "type" "fpsqrtdbl")
-       (eq_attr "cpu" "700")) 18 18)
+       (eq_attr "cpu" "700"))
+  "fpmpy_700*18")
+
+(define_insn_reservation "W7" 2
+  (and (eq_attr "type" "load")
+       (eq_attr "cpu" "700"))
+  "mem_700")
+
+(define_insn_reservation "W8" 2
+  (and (eq_attr "type" "fpload")
+       (eq_attr "cpu" "700"))
+  "mem_700")
+
+(define_insn_reservation "W9" 3
+  (and (eq_attr "type" "store")
+       (eq_attr "cpu" "700"))
+  "mem_700*3")
+
+(define_insn_reservation "W10" 3
+  (and (eq_attr "type" "fpstore")
+       (eq_attr "cpu" "700"))
+  "mem_700*3")
+
+(define_insn_reservation "W11" 1
+  (and (eq_attr "type" "!fpcc,fpalu,fpmulsgl,fpmuldbl,fpdivsgl,fpdivdbl,fpsqrtsgl,fpsqrtdbl,load,fpload,store,fpstore")
+       (eq_attr "cpu" "700"))
+  "dummy_700")
+
+;; We have a bypass for all computations in the FP unit which feed an
+;; FP store as long as the sizes are the same.
+(define_bypass 2 "W1,W2" "W10" "hppa_fpstore_bypass_p")
+(define_bypass 9 "W3" "W10" "hppa_fpstore_bypass_p")
+(define_bypass 11 "W4" "W10" "hppa_fpstore_bypass_p")
+(define_bypass 13 "W5" "W10" "hppa_fpstore_bypass_p")
+(define_bypass 17 "W6" "W10" "hppa_fpstore_bypass_p")
+
+;; We have an "anti-bypass" for FP loads which feed an FP store.
+(define_bypass 4 "W8" "W10" "hppa_fpstore_bypass_p")
 
 ;; Function units for the 7100 and 7150.  The 7100/7150 can dual-issue
 ;; floating point computations with non-floating point computations (fp loads
 ;; and stores are not fp computations).
 ;;
-
 ;; Memory. Disregarding Cache misses, memory loads take two cycles; stores also
 ;; take two cycles, during which no Dcache operations should be scheduled.
 ;; Any special cases are handled in pa_adjust_cost.  The 7100, 7150 and 7100LC
 ;; all have the same memory characteristics if one disregards cache misses.
-(define_function_unit "pa7100memory" 1 0
-  (and (eq_attr "type" "load,fpload")
-       (eq_attr "cpu" "7100,7100LC")) 2 0)
-(define_function_unit "pa7100memory" 1 0 
-  (and (eq_attr "type" "store,fpstore")
-       (eq_attr "cpu" "7100,7100LC")) 2 2)
-
+;;
 ;; The 7100/7150 has three floating-point units: ALU, MUL, and DIV.
+;; There's no value in modeling the ALU and MUL separately though
+;; since there can never be a functional unit conflict given the
+;; latency and issue rates for those units.
+;;
 ;; Timings:
 ;; Instruction	Time	Unit	Minimum Distance (unit contention)
 ;; fcpy		2	ALU	1
@@ -244,40 +270,64 @@
 ;; fsqrt,sgl	8	DIV	8
 ;; fsqrt,dbl	15	DIV	15
 
-(define_function_unit "pa7100fp_alu" 1 0
-  (and (eq_attr "type" "fpcc,fpalu")
-       (eq_attr "cpu" "7100")) 2 1)
-(define_function_unit "pa7100fp_mpy" 1 0
-  (and (eq_attr "type" "fpmulsgl,fpmuldbl")
-       (eq_attr "cpu" "7100")) 2 1)
-(define_function_unit "pa7100fp_div" 1 0
+(define_automaton "pa7100")
+(define_cpu_unit "i_7100, f_7100,fpmac_7100,fpdivsqrt_7100,mem_7100" "pa7100")
+
+(define_insn_reservation "X0" 2
+  (and (eq_attr "type" "fpcc,fpalu,fpmulsgl,fpmuldbl")
+       (eq_attr "cpu" "7100"))
+  "f_7100,fpmac_7100")
+
+(define_insn_reservation "X1" 8
   (and (eq_attr "type" "fpdivsgl,fpsqrtsgl")
-       (eq_attr "cpu" "7100")) 8 8)
-(define_function_unit "pa7100fp_div" 1 0
+       (eq_attr "cpu" "7100"))
+  "f_7100+fpdivsqrt_7100,fpdivsqrt_7100*7")
+
+(define_insn_reservation "X2" 15
   (and (eq_attr "type" "fpdivdbl,fpsqrtdbl")
-       (eq_attr "cpu" "7100")) 15 15)
+       (eq_attr "cpu" "7100"))
+  "f_7100+fpdivsqrt_7100,fpdivsqrt_7100*14")
 
-;; To encourage dual issue we define function units corresponding to
-;; the instructions which can be dual issued.    This is a rather crude
-;; approximation, the "pa7100nonflop" test in particular could be refined.
-(define_function_unit "pa7100flop" 1 1
-  (and
-    (eq_attr "type" "fpcc,fpalu,fpmulsgl,fpmuldbl,fpdivsgl,fpsqrtsgl,fpdivdbl,fpsqrtdbl")
-    (eq_attr "cpu" "7100")) 1 1)
+(define_insn_reservation "X3" 2
+  (and (eq_attr "type" "load")
+       (eq_attr "cpu" "7100"))
+  "i_7100+mem_7100")
 
-(define_function_unit "pa7100nonflop" 1 1
-  (and
-    (eq_attr "type" "!fpcc,fpalu,fpmulsgl,fpmuldbl,fpdivsgl,fpsqrtsgl,fpdivdbl,fpsqrtdbl")
-    (eq_attr "cpu" "7100")) 1 1)
+(define_insn_reservation "X4" 2
+  (and (eq_attr "type" "fpload")
+       (eq_attr "cpu" "7100"))
+  "i_7100+mem_7100")
 
+(define_insn_reservation "X5" 2
+  (and (eq_attr "type" "store")
+       (eq_attr "cpu" "7100"))
+  "i_7100+mem_7100,mem_7100")
 
-;; Memory subsystem works just like 7100/7150 (except for cache miss times which
-;; we don't model here).  
+(define_insn_reservation "X6" 2
+  (and (eq_attr "type" "fpstore")
+       (eq_attr "cpu" "7100"))
+  "i_7100+mem_7100,mem_7100")
+
+(define_insn_reservation "X7" 1
+  (and (eq_attr "type" "!fpcc,fpalu,fpmulsgl,fpmuldbl,fpdivsgl,fpsqrtsgl,fpdivdbl,fpsqrtdbl,load,fpload,store,fpstore")
+       (eq_attr "cpu" "7100"))
+  "i_7100")
+
+;; We have a bypass for all computations in the FP unit which feed an
+;; FP store as long as the sizes are the same.
+(define_bypass 1 "X0" "X6" "hppa_fpstore_bypass_p")
+(define_bypass 7 "X1" "X6" "hppa_fpstore_bypass_p")
+(define_bypass 14 "X2" "X6" "hppa_fpstore_bypass_p")
+
+;; We have an "anti-bypass" for FP loads which feed an FP store.
+(define_bypass 3 "X4" "X6" "hppa_fpstore_bypass_p")
 
 ;; The 7100LC has three floating-point units: ALU, MUL, and DIV.
-;; Note divides and sqrt flops lock the cpu until the flop is
-;; finished.  fmpy and xmpyu (fmpyi) lock the cpu for one cycle.
-;; There's no way to avoid the penalty.
+;; There's no value in modeling the ALU and MUL separately though
+;; since there can never be a functional unit conflict that
+;; can be avoided given the latency, issue rates and mandatory
+;; one cycle cpu-wide lock for a double precision fp multiply.
+;;
 ;; Timings:
 ;; Instruction	Time	Unit	Minimum Distance (unit contention)
 ;; fcpy		2	ALU	1
@@ -299,106 +349,199 @@
 ;; fdiv,dbl	15	DIV	15
 ;; fsqrt,sgl	8	DIV	8
 ;; fsqrt,dbl	15	DIV	15
+;;
+;; The PA7200 is just like the PA7100LC except that there is
+;; no store-store penalty.
+;;
+;; The PA7300 is just like the PA7200 except that there is
+;; no store-load penalty.
+;;
+;; Note there are some aspects of the 7100LC we are not modeling
+;; at the moment.  I'll be reviewing the 7100LC scheduling info
+;; shortly and updating this description.
+;;
+;;   load-load pairs
+;;   store-store pairs
+;;   other issue modeling
 
-(define_function_unit "pa7100LCfp_alu" 1 0
-  (and (eq_attr "type" "fpcc,fpalu")
-       (eq_attr "cpu" "7100LC,7200")) 2 1)
-(define_function_unit "pa7100LCfp_mpy" 1 0
-  (and (eq_attr "type" "fpmulsgl")
-       (eq_attr "cpu" "7100LC,7200")) 2 1)
-(define_function_unit "pa7100LCfp_mpy" 1 0
-  (and (eq_attr "type" "fpmuldbl")
-       (eq_attr "cpu" "7100LC,7200")) 3 2)
-(define_function_unit "pa7100LCfp_div" 1 0
-  (and (eq_attr "type" "fpdivsgl,fpsqrtsgl")
-       (eq_attr "cpu" "7100LC,7200")) 8 8)
-(define_function_unit "pa7100LCfp_div" 1 0
-  (and (eq_attr "type" "fpdivdbl,fpsqrtdbl")
-       (eq_attr "cpu" "7100LC,7200")) 15 15)
+(define_automaton "pa7100lc")
+(define_cpu_unit "i0_7100lc, i1_7100lc, f_7100lc" "pa7100lc")
+(define_cpu_unit "fpmac_7100lc" "pa7100lc")
+(define_cpu_unit "mem_7100lc" "pa7100lc")
 
-;; Define the various functional units for dual-issue.
+;; Double precision multiplies lock the entire CPU for one
+;; cycle.  There is no way to avoid this lock and trying to
+;; schedule around the lock is pointless and thus there is no
+;; value in trying to model this lock.
+;;
+;; Not modeling the lock allows us to treat fp multiplies just
+;; like any other FP alu instruction.  It allows for a smaller
+;; DFA and may reduce register pressure.
+(define_insn_reservation "Y0" 2
+  (and (eq_attr "type" "fpcc,fpalu,fpmulsgl,fpmuldbl")
+       (eq_attr "cpu" "7100LC,7200,7300"))
+  "f_7100lc,fpmac_7100lc")
 
-;; There's only one floating point unit.
-(define_function_unit "pa7100LCflop" 1 1
-  (and
-    (eq_attr "type" "fpcc,fpalu,fpmulsgl,fpmuldbl,fpdivsgl,fpsqrtsgl,fpdivdbl,fpsqrtdbl")
-    (eq_attr "cpu" "7100LC,7200")) 1 1)
+;; fp division and sqrt instructions lock the entire CPU for
+;; 7 cycles (single precision) or 14 cycles (double precision).
+;; There is no way to avoid this lock and trying to schedule
+;; around the lock is pointless and thus there is no value in
+;; trying to model this lock.  Not modeling the lock allows
+;; for a smaller DFA and may reduce register pressure.
+(define_insn_reservation "Y1" 1
+  (and (eq_attr "type" "fpdivsgl,fpsqrtsgl,fpdivdbl,fpsqrtdbl")
+       (eq_attr "cpu" "7100LC,7200,7300"))
+  "f_7100lc")
 
-;; Shifts and memory ops execute in only one of the integer ALUs
-(define_function_unit "pa7100LCshiftmem" 1 1
-  (and
-    (eq_attr "type" "shift,nullshift,load,fpload,store,fpstore")
-    (eq_attr "cpu" "7100LC,7200")) 1 1)
+(define_insn_reservation "Y2" 2
+  (and (eq_attr "type" "load")
+       (eq_attr "cpu" "7100LC,7200,7300"))
+  "i1_7100lc+mem_7100lc")
 
-;; We have two basic ALUs.
-(define_function_unit "pa7100LCalu" 2 1
-  (and
-    (eq_attr "type" "!fpcc,fpalu,fpmulsgl,fpmuldbl,fpdivsgl,fpsqrtsgl,fpdivdbl,fpsqrtdbl")
-   (eq_attr "cpu" "7100LC,7200")) 1 1)
+(define_insn_reservation "Y3" 2
+  (and (eq_attr "type" "fpload")
+       (eq_attr "cpu" "7100LC,7200,7300"))
+  "i1_7100lc+mem_7100lc")
 
-;; I don't have complete information on the PA7200; however, most of
-;; what I've heard makes it look like a 7100LC without the store-store
-;; penalty.  So that's how we'll model it.
+(define_insn_reservation "Y4" 2
+  (and (eq_attr "type" "store")
+       (eq_attr "cpu" "7100LC"))
+  "i1_7100lc+mem_7100lc,mem_7100lc")
 
-;; Memory. Disregarding Cache misses, memory loads and stores take
-;; two cycles.  Any special cases are handled in pa_adjust_cost.
-(define_function_unit "pa7200memory" 1 0
-  (and (eq_attr "type" "load,fpload,store,fpstore")
-       (eq_attr "cpu" "7200")) 2 0)
+(define_insn_reservation "Y5" 2
+  (and (eq_attr "type" "fpstore")
+       (eq_attr "cpu" "7100LC"))
+  "i1_7100lc+mem_7100lc,mem_7100lc")
 
-;; I don't have detailed information on the PA7200 FP pipeline, so I
-;; treat it just like the 7100LC pipeline.
-;; Similarly for the multi-issue fake units.
+(define_insn_reservation "Y6" 1
+  (and (eq_attr "type" "shift,nullshift")
+       (eq_attr "cpu" "7100LC,7200,7300"))
+  "i1_7100lc")
 
-;; 
+(define_insn_reservation "Y7" 1
+  (and (eq_attr "type" "!fpcc,fpalu,fpmulsgl,fpmuldbl,fpdivsgl,fpsqrtsgl,fpdivdbl,fpsqrtdbl,load,fpload,store,fpstore,shift,nullshift")
+       (eq_attr "cpu" "7100LC,7200,7300"))
+  "(i0_7100lc|i1_7100lc)")
+
+;; The 7200 has a store-load penalty
+(define_insn_reservation "Y8" 2
+  (and (eq_attr "type" "store")
+       (eq_attr "cpu" "7200"))
+  "i1_7100lc,mem_7100lc")
+
+(define_insn_reservation "Y9" 2
+  (and (eq_attr "type" "fpstore")
+       (eq_attr "cpu" "7200"))
+  "i1_7100lc,mem_7100lc")
+
+;; The 7300 has no penalty for store-store or store-load
+(define_insn_reservation "Y10" 2
+  (and (eq_attr "type" "store")
+       (eq_attr "cpu" "7300"))
+  "i1_7100lc")
+
+(define_insn_reservation "Y11" 2
+  (and (eq_attr "type" "fpstore")
+       (eq_attr "cpu" "7300"))
+  "i1_7100lc")
+
+;; We have an "anti-bypass" for FP loads which feed an FP store.
+(define_bypass 3 "Y3" "Y5,Y9,Y11" "hppa_fpstore_bypass_p")
+
 ;; Scheduling for the PA8000 is somewhat different than scheduling for a
 ;; traditional architecture.
 ;;
 ;; The PA8000 has a large (56) entry reorder buffer that is split between
 ;; memory and non-memory operations.
 ;;
-;; The PA800 can issue two memory and two non-memory operations per cycle to
-;; the function units.  Similarly, the PA8000 can retire two memory and two
-;; non-memory operations per cycle.
+;; The PA8000 can issue two memory and two non-memory operations per cycle to
+;; the function units, with the exception of branches and multi-output
+;; instructions.  The PA8000 can retire two non-memory operations per cycle
+;; and two memory operations per cycle, only one of which may be a store.
 ;;
 ;; Given the large reorder buffer, the processor can hide most latencies.
 ;; According to HP, they've got the best results by scheduling for retirement
 ;; bandwidth with limited latency scheduling for floating point operations.
 ;; Latency for integer operations and memory references is ignored.
 ;;
+;;
 ;; We claim floating point operations have a 2 cycle latency and are
-;; fully pipelined, except for div and sqrt which are not pipelined.
+;; fully pipelined, except for div and sqrt which are not pipelined and
+;; take from 17 to 31 cycles to complete.
 ;;
-;; It is not necessary to define the shifter and integer alu units.
-;;
-;; These first two define_unit_unit descriptions model retirement from
-;; the reorder buffer.
-(define_function_unit "pa8000lsu" 2 1
-  (and
-    (eq_attr "type" "load,fpload,store,fpstore")
-    (eq_attr "cpu" "8000")) 1 1)
+;; It's worth noting that there is no way to saturate all the functional
+;; units on the PA8000 as there is not enough issue bandwidth.
 
-(define_function_unit "pa8000alu" 2 1
-  (and
-    (eq_attr "type" "!load,fpload,store,fpstore")
-    (eq_attr "cpu" "8000")) 1 1)
+(define_automaton "pa8000")
+(define_cpu_unit "inm0_8000, inm1_8000, im0_8000, im1_8000" "pa8000")
+(define_cpu_unit "rnm0_8000, rnm1_8000, rm0_8000, rm1_8000" "pa8000")
+(define_cpu_unit "store_8000" "pa8000")
+(define_cpu_unit "f0_8000, f1_8000" "pa8000")
+(define_cpu_unit "fdivsqrt0_8000, fdivsqrt1_8000" "pa8000")
+(define_reservation "inm_8000" "inm0_8000 | inm1_8000")
+(define_reservation "im_8000" "im0_8000 | im1_8000")
+(define_reservation "rnm_8000" "rnm0_8000 | rnm1_8000")
+(define_reservation "rm_8000" "rm0_8000 | rm1_8000")
+(define_reservation "f_8000" "f0_8000 | f1_8000")
+(define_reservation "fdivsqrt_8000" "fdivsqrt0_8000 | fdivsqrt1_8000")
 
-;; Claim floating point ops have a 2 cycle latency, excluding div and
-;; sqrt, which are not pipelined and issue to different units.
-(define_function_unit "pa8000fmac" 2 0
+;; We can issue any two memops per cycle, but we can only retire
+;; one memory store per cycle.  We assume that the reorder buffer
+;; will hide any memory latencies per HP's recommendation.
+(define_insn_reservation "Z0" 0
   (and
-    (eq_attr "type" "fpcc,fpalu,fpmulsgl,fpmuldbl")
-    (eq_attr "cpu" "8000")) 2 1)
+    (eq_attr "type" "load,fpload")
+    (eq_attr "cpu" "8000"))
+  "im_8000,rm_8000")
 
-(define_function_unit "pa8000fdiv" 2 1
+(define_insn_reservation "Z1" 0
   (and
-    (eq_attr "type" "fpdivsgl,fpsqrtsgl")
-    (eq_attr "cpu" "8000")) 17 17)
+    (eq_attr "type" "store,fpstore")
+    (eq_attr "cpu" "8000"))
+  "im_8000,rm_8000+store_8000")
 
-(define_function_unit "pa8000fdiv" 2 1
+;; We can issue and retire two non-memory operations per cycle with
+;; a few exceptions (branches).  This group catches those we want
+;; to assume have zero latency.
+(define_insn_reservation "Z2" 0
   (and
-    (eq_attr "type" "fpdivdbl,fpsqrtdbl")
-    (eq_attr "cpu" "8000")) 31 31)
+    (eq_attr "type" "!load,fpload,store,fpstore,uncond_branch,branch,cbranch,fbranch,call,dyncall,multi,milli,parallel_branch,fpcc,fpalu,fpmulsgl,fpmuldbl,fpsqrtsgl,fpsqrtdbl,fpdivsgl,fpdivdbl")
+    (eq_attr "cpu" "8000"))
+  "inm_8000,rnm_8000")
+
+;; Branches use both slots in the non-memory issue and
+;; retirement unit.
+(define_insn_reservation "Z3" 0
+  (and
+    (eq_attr "type" "uncond_branch,branch,cbranch,fbranch,call,dyncall,multi,milli,parallel_branch")
+    (eq_attr "cpu" "8000"))
+  "inm0_8000+inm1_8000,rnm0_8000+rnm1_8000")
+
+;; We partial latency schedule the floating point units.
+;; They can issue/retire two at a time in the non-memory
+;; units.  We fix their latency at 2 cycles and they
+;; are fully pipelined.
+(define_insn_reservation "Z4" 1
+ (and
+   (eq_attr "type" "fpcc,fpalu,fpmulsgl,fpmuldbl")
+   (eq_attr "cpu" "8000"))
+ "inm_8000,f_8000,rnm_8000")
+
+;; The fdivsqrt units are not pipelined and have a very long latency.  
+;; To keep the DFA from exploding, we do not show all the
+;; reservations for the divsqrt unit.
+(define_insn_reservation "Z5" 17
+ (and
+   (eq_attr "type" "fpdivsgl,fpsqrtsgl")
+   (eq_attr "cpu" "8000"))
+ "inm_8000,fdivsqrt_8000*6,rnm_8000")
+
+(define_insn_reservation "Z6" 31
+ (and
+   (eq_attr "type" "fpdivdbl,fpsqrtdbl")
+   (eq_attr "cpu" "8000"))
+ "inm_8000,fdivsqrt_8000*6,rnm_8000")
+
 
 
 ;; Compare instructions.
@@ -479,6 +622,26 @@
 			      (match_operand:DF 1 "reg_or_0_operand" "fG")]))]
   "! TARGET_SOFT_FLOAT"
   "fcmp,dbl,%Y2 %f0,%f1"
+  [(set_attr "length" "4")
+   (set_attr "type" "fpcc")])
+
+;; The following two patterns are optimization placeholders.  In almost
+;; all cases, the user of the condition code will be simplified and the
+;; original condition code setting insn should be eliminated.
+
+(define_insn "*setccfp0"
+  [(set (reg:CCFP 0)
+	(const_int 0))]
+  "! TARGET_SOFT_FLOAT"
+  "fcmp,dbl,!= %%fr0,%%fr0"
+  [(set_attr "length" "4")
+   (set_attr "type" "fpcc")])
+
+(define_insn "*setccfp1"
+  [(set (reg:CCFP 0)
+	(const_int 1))]
+  "! TARGET_SOFT_FLOAT"
+  "fcmp,dbl,= %%fr0,%%fr0"
   [(set_attr "length" "4")
    (set_attr "type" "fpcc")])
 
@@ -2281,17 +2444,19 @@
   ""
   "*
 {
-  rtx label_rtx = gen_label_rtx ();
   rtx xoperands[3];
   extern FILE *asm_out_file;
 
   xoperands[0] = operands[0];
   xoperands[1] = operands[1];
-  xoperands[2] = label_rtx;
+  if (TARGET_SOM || ! TARGET_GAS)
+    xoperands[2] = gen_label_rtx ();
+
   output_asm_insn (\"{bl|b,l} .+8,%0\", xoperands);
   output_asm_insn (\"{depi|depwi} 0,31,2,%0\", xoperands);
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
-			     CODE_LABEL_NUMBER (label_rtx));
+  if (TARGET_SOM || ! TARGET_GAS)
+    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+			       CODE_LABEL_NUMBER (xoperands[2]));
 
   /* If we're trying to load the address of a label that happens to be
      close, then we can use a shorter sequence.  */
@@ -2302,12 +2467,24 @@
     {
       /* Prefixing with R% here is wrong, it extracts just 11 bits and is
 	 always non-negative.  */
-      output_asm_insn (\"ldo %1-%2(%0),%0\", xoperands);
+      if (TARGET_SOM || ! TARGET_GAS)
+	output_asm_insn (\"ldo %1-%2(%0),%0\", xoperands);
+      else
+	output_asm_insn (\"ldo %1-$PIC_pcrel$0+8(%0),%0\", xoperands);
     }
   else
     {
-      output_asm_insn (\"addil L%%%1-%2,%0\", xoperands);
-      output_asm_insn (\"ldo R%%%1-%2(%0),%0\", xoperands);
+      if (TARGET_SOM || ! TARGET_GAS)
+	{
+	  output_asm_insn (\"addil L%%%1-%2,%0\", xoperands);
+	  output_asm_insn (\"ldo R%%%1-%2(%0),%0\", xoperands);
+	}
+      else
+	{
+	  output_asm_insn (\"addil L%%%1-$PIC_pcrel$0+8,%0\", xoperands);
+	  output_asm_insn (\"ldo R%%%1-$PIC_pcrel$0+12(%0),%0\",
+	  		   xoperands);
+	}
     }
   return \"\";
 }"
@@ -3653,22 +3830,14 @@
 (define_expand "adddi3"
   [(set (match_operand:DI 0 "register_operand" "")
 	(plus:DI (match_operand:DI 1 "register_operand" "")
-		 (match_operand:DI 2 "arith_operand" "")))]
+		 (match_operand:DI 2 "adddi3_operand" "")))]
   ""
   "")
-
-;; We allow arith_operand for operands2, even though strictly speaking it
-;; we would prefer to us arith11_operand since that's what the hardware
-;; can actually support.
-;;
-;; But the price of the extra reload in that case is worth the simplicity
-;; we get by allowing a trivial adddi3 expander to be used for both
-;; PA64 and PA32.
 
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(plus:DI (match_operand:DI 1 "register_operand" "%r")
-		 (match_operand:DI 2 "arith_operand" "rI")))]
+		 (match_operand:DI 2 "arith11_operand" "rI")))]
   "!TARGET_64BIT"
   "*
 {
@@ -3917,27 +4086,7 @@
   "!TARGET_64BIT"
   "* return output_mul_insn (0, insn);"
   [(set_attr "type" "milli")
-   (set (attr "length")
-     (cond [
-;; Target (or stub) within reach
-            (and (lt (plus (symbol_ref "total_code_bytes") (pc))
-                     (const_int 240000))
-                 (eq (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                     (const_int 0)))
-            (const_int 4)
-
-;; Out of reach PIC
-            (ne (symbol_ref "flag_pic")
-                (const_int 0))
-            (const_int 24)
-
-;; Out of reach PORTABLE_RUNTIME
-            (ne (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                (const_int 0))
-            (const_int 20)]
-
-;; Out of reach, can use ble
-          (const_int 12)))])
+   (set (attr "length") (symbol_ref "attr_length_millicode_call (insn)"))])
 
 (define_insn ""
   [(set (reg:SI 29) (mult:SI (reg:SI 26) (reg:SI 25)))
@@ -3948,7 +4097,7 @@
   "TARGET_64BIT"
   "* return output_mul_insn (0, insn);"
   [(set_attr "type" "milli")
-   (set (attr "length") (const_int 4))])
+   (set (attr "length") (symbol_ref "attr_length_millicode_call (insn)"))])
 
 (define_expand "muldi3"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -3986,7 +4135,7 @@
   emit_insn (gen_umulsidi3 (cross_product2, op2l, op1r));
 
   /* Emit a multiply for the low sub-word.  */
-  emit_insn (gen_umulsidi3 (low_product, op2r, op1r));
+  emit_insn (gen_umulsidi3 (low_product, copy_rtx (op2r), copy_rtx (op1r)));
 
   /* Sum the cross products and shift them into proper position.  */
   emit_insn (gen_adddi3 (cross_scratch, cross_product1, cross_product2));
@@ -4039,27 +4188,7 @@
   "*
    return output_div_insn (operands, 0, insn);"
   [(set_attr "type" "milli")
-   (set (attr "length")
-     (cond [
-;; Target (or stub) within reach
-            (and (lt (plus (symbol_ref "total_code_bytes") (pc))
-                     (const_int 240000))
-                 (eq (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                     (const_int 0)))
-            (const_int 4)
-
-;; Out of reach PIC
-            (ne (symbol_ref "flag_pic")
-                (const_int 0))
-            (const_int 24)
-
-;; Out of reach PORTABLE_RUNTIME
-            (ne (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                (const_int 0))
-            (const_int 20)]
-
-;; Out of reach, can use ble
-          (const_int 12)))])
+   (set (attr "length") (symbol_ref "attr_length_millicode_call (insn)"))])
 
 (define_insn ""
   [(set (reg:SI 29)
@@ -4073,7 +4202,7 @@
   "*
    return output_div_insn (operands, 0, insn);"
   [(set_attr "type" "milli")
-   (set (attr "length") (const_int 4))])
+   (set (attr "length") (symbol_ref "attr_length_millicode_call (insn)"))])
 
 (define_expand "udivsi3"
   [(set (reg:SI 26) (match_operand:SI 1 "move_operand" ""))
@@ -4089,6 +4218,7 @@
   "
 {
   operands[3] = gen_reg_rtx (SImode);
+
   if (TARGET_64BIT)
     {
       operands[5] = gen_rtx_REG (SImode, 2);
@@ -4115,27 +4245,7 @@
   "*
    return output_div_insn (operands, 1, insn);"
   [(set_attr "type" "milli")
-   (set (attr "length")
-     (cond [
-;; Target (or stub) within reach
-            (and (lt (plus (symbol_ref "total_code_bytes") (pc))
-                     (const_int 240000))
-                 (eq (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                     (const_int 0)))
-            (const_int 4)
-
-;; Out of reach PIC
-            (ne (symbol_ref "flag_pic")
-                (const_int 0))
-            (const_int 24)
-
-;; Out of reach PORTABLE_RUNTIME
-            (ne (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                (const_int 0))
-            (const_int 20)]
-
-;; Out of reach, can use ble
-          (const_int 12)))])
+   (set (attr "length") (symbol_ref "attr_length_millicode_call (insn)"))])
 
 (define_insn ""
   [(set (reg:SI 29)
@@ -4149,7 +4259,7 @@
   "*
    return output_div_insn (operands, 1, insn);"
   [(set_attr "type" "milli")
-   (set (attr "length") (const_int 4))])
+   (set (attr "length") (symbol_ref "attr_length_millicode_call (insn)"))])
 
 (define_expand "modsi3"
   [(set (reg:SI 26) (match_operand:SI 1 "move_operand" ""))
@@ -4188,27 +4298,7 @@
   "*
   return output_mod_insn (0, insn);"
   [(set_attr "type" "milli")
-   (set (attr "length")
-     (cond [
-;; Target (or stub) within reach
-            (and (lt (plus (symbol_ref "total_code_bytes") (pc))
-                     (const_int 240000))
-                 (eq (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                     (const_int 0)))
-            (const_int 4)
-
-;; Out of reach PIC
-            (ne (symbol_ref "flag_pic")
-                (const_int 0))
-            (const_int 24)
-
-;; Out of reach PORTABLE_RUNTIME
-            (ne (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                (const_int 0))
-            (const_int 20)]
-
-;; Out of reach, can use ble
-          (const_int 12)))])
+   (set (attr "length") (symbol_ref "attr_length_millicode_call (insn)"))])
 
 (define_insn ""
   [(set (reg:SI 29) (mod:SI (reg:SI 26) (reg:SI 25)))
@@ -4221,7 +4311,7 @@
   "*
   return output_mod_insn (0, insn);"
   [(set_attr "type" "milli")
-   (set (attr "length") (const_int 4))])
+   (set (attr "length") (symbol_ref "attr_length_millicode_call (insn)"))])
 
 (define_expand "umodsi3"
   [(set (reg:SI 26) (match_operand:SI 1 "move_operand" ""))
@@ -4260,27 +4350,7 @@
   "*
   return output_mod_insn (1, insn);"
   [(set_attr "type" "milli")
-   (set (attr "length")
-     (cond [
-;; Target (or stub) within reach
-            (and (lt (plus (symbol_ref "total_code_bytes") (pc))
-                     (const_int 240000))
-                 (eq (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                     (const_int 0)))
-            (const_int 4)
-
-;; Out of reach PIC
-            (ne (symbol_ref "flag_pic")
-                (const_int 0))
-            (const_int 24)
-
-;; Out of reach PORTABLE_RUNTIME
-            (ne (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                (const_int 0))
-            (const_int 20)]
-
-;; Out of reach, can use ble
-          (const_int 12)))])
+   (set (attr "length") (symbol_ref "attr_length_millicode_call (insn)"))])
 
 (define_insn ""
   [(set (reg:SI 29) (umod:SI (reg:SI 26) (reg:SI 25)))
@@ -4293,7 +4363,7 @@
   "*
   return output_mod_insn (1, insn);"
   [(set_attr "type" "milli")
-   (set (attr "length") (const_int 4))])
+   (set (attr "length") (symbol_ref "attr_length_millicode_call (insn)"))])
 
 ;;- and instructions
 ;; We define DImode `and` so with DImode `not` we can get
@@ -4636,7 +4706,8 @@
     emit_insn (gen_negdf2_fast (operands[0], operands[1]));
   else
     {
-      operands[2] = force_reg (DFmode, immed_real_const_1 (dconstm1, DFmode));
+      operands[2] = force_reg (DFmode,
+	CONST_DOUBLE_FROM_REAL_VALUE (dconstm1, DFmode));
       emit_insn (gen_muldf3 (operands[0], operands[1], operands[2]));
     }
   DONE;
@@ -4666,7 +4737,8 @@
     emit_insn (gen_negsf2_fast (operands[0], operands[1]));
   else
     {
-      operands[2] = force_reg (SFmode, immed_real_const_1 (dconstm1, SFmode));
+      operands[2] = force_reg (SFmode,
+	CONST_DOUBLE_FROM_REAL_VALUE (dconstm1, SFmode));
       emit_insn (gen_mulsf3 (operands[0], operands[1], operands[2]));
     }
   DONE;
@@ -5542,7 +5614,7 @@
   [(return)
    (use (reg:SI 2))
    (const_int 1)]
-  "! flag_pic"
+  ""
   "*
 {
   if (TARGET_PA_20)
@@ -5552,21 +5624,15 @@
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
 
-;; Use the PIC register to ensure it's restored after a
-;; call in PIC mode.
-(define_insn "return_internal_pic"
+;; This is used for eh returns which bypass the return stub.
+(define_insn "return_external_pic"
   [(return)
-   (use (match_operand 0 "register_operand" "r"))
+   (clobber (reg:SI 1))
    (use (reg:SI 2))]
-  "flag_pic && true_regnum (operands[0]) == PIC_OFFSET_TABLE_REGNUM"
-  "*
-{
-  if (TARGET_PA_20)
-    return \"bve%* (%%r2)\";
-  return \"bv%* %%r0(%%r2)\";
-}"
+  "!TARGET_NO_SPACE_REGS && flag_pic && current_function_calls_eh_return"
+  "ldsid (%%sr0,%%r2),%%r1\;mtsp %%r1,%%sr0\;be%* 0(%%sr0,%%r2)"
   [(set_attr "type" "branch")
-   (set_attr "length" "4")])
+   (set_attr "length" "12")])
 
 (define_expand "prologue"
   [(const_int 0)]
@@ -5590,17 +5656,23 @@
   /* Try to use the trivial return first.  Else use the full
      epilogue.  */
   if (hppa_can_use_return_insn_p ())
-   emit_jump_insn (gen_return ());
+    emit_jump_insn (gen_return ());
   else
     {
       rtx x;
 
       hppa_expand_epilogue ();
-      if (flag_pic)
-	x = gen_return_internal_pic (gen_rtx_REG (word_mode,
-						  PIC_OFFSET_TABLE_REGNUM));
+
+      /* EH returns bypass the normal return stub.  Thus, we must do an
+	 interspace branch to return from functions that call eh_return.
+	 This is only a problem for returns from shared code on ports
+	 using space registers.  */
+      if (!TARGET_NO_SPACE_REGS
+	  && flag_pic && current_function_calls_eh_return)
+	x = gen_return_external_pic ();
       else
 	x = gen_return_internal ();
+
       emit_jump_insn (x);
     }
   DONE;
@@ -5687,14 +5759,23 @@
     {
       rtx xoperands[2];
       xoperands[0] = operands[0];
-      xoperands[1] = gen_label_rtx ();
+      if (TARGET_SOM || ! TARGET_GAS)
+	{
+	  xoperands[1] = gen_label_rtx ();
 
-      output_asm_insn (\"{bl|b,l} .+8,%%r1\\n\\taddil L'%l0-%l1,%%r1\",
-		       xoperands);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
-                                 CODE_LABEL_NUMBER (xoperands[1]));
-      output_asm_insn (\"ldo R'%l0-%l1(%%r1),%%r1\\n\\tbv %%r0(%%r1)\",
-		       xoperands);
+	  output_asm_insn (\"{bl|b,l} .+8,%%r1\\n\\taddil L'%l0-%l1,%%r1\",
+			   xoperands);
+	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+				     CODE_LABEL_NUMBER (xoperands[1]));
+	  output_asm_insn (\"ldo R'%l0-%l1(%%r1),%%r1\", xoperands);
+	}
+      else
+	{
+	  output_asm_insn (\"{bl|b,l} .+8,%%r1\", xoperands);
+	  output_asm_insn (\"addil L'%l0-$PIC_pcrel$0+4,%%r1\", xoperands);
+	  output_asm_insn (\"ldo R'%l0-$PIC_pcrel$0+8(%%r1),%%r1\", xoperands);
+	}
+      output_asm_insn (\"bv %%r0(%%r1)\", xoperands);
     }
   else
     output_asm_insn (\"ldil L'%l0,%%r1\\n\\tbe R'%l0(%%sr4,%%r1)\", operands);;
@@ -5796,8 +5877,8 @@
   ""
   "
 {
-  rtx op;
-  rtx call_insn;
+  rtx op, call_insn;
+  rtx nb = operands[1];
 
   if (TARGET_PORTABLE_RUNTIME)
     op = force_reg (SImode, XEXP (operands[0], 0));
@@ -5813,41 +5894,119 @@
      and calls through function pointers.  This is necessary as these two
      types of calls use different calling conventions, and CSE might try
      to change the named call into an indirect call in some cases (using
-     two patterns keeps CSE from performing this optimization).  */
-  if (GET_CODE (op) == SYMBOL_REF)
-    call_insn = emit_call_insn (gen_call_internal_symref (op, operands[1]));
-  else if (TARGET_64BIT)
+     two patterns keeps CSE from performing this optimization).
+
+     We now use even more call patterns as there was a subtle bug in
+     attempting to restore the pic register after a call using a simple
+     move insn.  During reload, a instruction involving a pseudo register
+     with no explicit dependence on the PIC register can be converted
+     to an equivalent load from memory using the PIC register.  If we
+     emit a simple move to restore the PIC register in the initial rtl
+     generation, then it can potentially be repositioned during scheduling.
+     and an instruction that eventually uses the PIC register may end up
+     between the call and the PIC register restore.
+
+     This only worked because there is a post call group of instructions
+     that are scheduled with the call.  These instructions are included
+     in the same basic block as the call.  However, calls can throw in
+     C++ code and a basic block has to terminate at the call if the call
+     can throw.  This results in the PIC register restore being scheduled
+     independently from the call.  So, we now hide the save and restore
+     of the PIC register in the call pattern until after reload.  Then,
+     we split the moves out.  A small side benefit is that we now don't
+     need to have a use of the PIC register in the return pattern and
+     the final save/restore operation is not needed.
+
+     I elected to just clobber %r4 in the PIC patterns and use it instead
+     of trying to force hppa_pic_save_rtx () to a callee saved register.
+     This might have required a new register class and constraint.  It
+     was also simpler to just handle the restore from a register than a
+     generic pseudo.  */
+  if (TARGET_64BIT)
     {
-      rtx tmpreg = force_reg (word_mode, op);
-      call_insn = emit_call_insn (gen_call_internal_reg_64bit (tmpreg,
-							       operands[1]));
+      if (GET_CODE (op) == SYMBOL_REF)
+	call_insn = emit_call_insn (gen_call_symref_64bit (op, nb));
+      else
+	{
+	  op = force_reg (word_mode, op);
+	  call_insn = emit_call_insn (gen_call_reg_64bit (op, nb));
+	}
     }
   else
     {
-      rtx tmpreg = gen_rtx_REG (word_mode, 22);
-      emit_move_insn (tmpreg, force_reg (word_mode, op));
-      call_insn = emit_call_insn (gen_call_internal_reg (operands[1]));
+      if (GET_CODE (op) == SYMBOL_REF)
+	{
+	  if (flag_pic)
+	    call_insn = emit_call_insn (gen_call_symref_pic (op, nb));
+	  else
+	    call_insn = emit_call_insn (gen_call_symref (op, nb));
+	}
+      else
+	{
+	  rtx tmpreg = gen_rtx_REG (word_mode, 22);
+
+	  emit_move_insn (tmpreg, force_reg (word_mode, op));
+	  if (flag_pic)
+	    call_insn = emit_call_insn (gen_call_reg_pic (nb));
+	  else
+	    call_insn = emit_call_insn (gen_call_reg (nb));
+	}
     }
 
-  if (flag_pic)
-    {
-      use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), pic_offset_table_rtx);
-      if (TARGET_64BIT)
-	use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), arg_pointer_rtx);
-
-      /* After each call we must restore the PIC register, even if it
-	 doesn't appear to be used.  */
-      emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
-    }
   DONE;
 }")
 
-(define_insn "call_internal_symref"
+;; We use function calls to set the attribute length of calls and millicode
+;; calls.  This is necessary because of the large variety of call sequences.
+;; Implementing the calculation in rtl is difficult as well as ugly.  As
+;; we need the same calculation in several places, maintenance becomes a
+;; nightmare.
+;;
+;; However, this has a subtle impact on branch shortening.  When the
+;; expression used to set the length attribute of an instruction depends
+;; on a relative address (e.g., pc or a branch address), genattrtab
+;; notes that the insn's length is variable, and attempts to determine a
+;; worst-case default length and code to compute an insn's current length.
+
+;; The use of a function call hides the variable dependence of our calls
+;; and millicode calls.  The result is genattrtab doesn't treat the operation
+;; as variable and it only generates code for the default case using our
+;; function call.  Because of this, calls and millicode calls have a fixed
+;; length in the branch shortening pass, and some branches will use a longer
+;; code sequence than necessary.  However, the length of any given call
+;; will still reflect its final code location and it may be shorter than
+;; the initial length estimate.
+
+;; It's possible to trick genattrtab by adding an expression involving `pc'
+;; in the set.  However, when genattrtab hits a function call in its attempt
+;; to compute the default length, it marks the result as unknown and sets
+;; the default result to MAX_INT ;-(  One possible fix that would allow
+;; calls to participate in branch shortening would be to make the call to       ;; insn_default_length a target option.  Then, we could massage unknown         ;; results.  Another fix might be to change genattrtab so that it just does     ;; the call in the variable case as it already does for the fixed case.
+
+(define_insn "call_symref"
   [(call (mem:SI (match_operand 0 "call_operand_address" ""))
 	 (match_operand 1 "" "i"))
+   (clobber (reg:SI 1))
    (clobber (reg:SI 2))
    (use (const_int 0))]
-  "! TARGET_PORTABLE_RUNTIME"
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
+  "*
+{
+  output_arg_descriptor (insn);
+  return output_call (insn, operands[0], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length") (symbol_ref "attr_length_call (insn, 0)"))])
+
+(define_insn "call_symref_pic"
+  [(call (mem:SI (match_operand 0 "call_operand_address" ""))
+	 (match_operand 1 "" "i"))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (clobber (reg:SI 4))
+   (use (reg:SI 19))
+   (use (const_int 0))]
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
   "*
 {
   output_arg_descriptor (insn);
@@ -5855,105 +6014,340 @@
 }"
   [(set_attr "type" "call")
    (set (attr "length")
-;;       If we're sure that we can either reach the target or that the
-;;	 linker can use a long-branch stub, then the length is 4 bytes.
-;;
-;;	 For long-calls the length will be either 52 bytes (non-pic)
-;;	 or 68 bytes (pic).  */
-;;	 Else we have to use a long-call;
-      (if_then_else (lt (plus (symbol_ref "total_code_bytes") (pc))
-			(const_int 240000))
-		    (const_int 4)
-		    (if_then_else (eq (symbol_ref "flag_pic")
-				      (const_int 0))
-				  (const_int 52)
-				  (const_int 68))))])
+	(plus (symbol_ref "attr_length_call (insn, 0)")
+	      (symbol_ref "attr_length_save_restore_dltp (insn)")))])
 
-(define_insn "call_internal_reg_64bit"
+
+;; Split out the PIC register save and restore after reload.  This is
+;; done only if the function returns.  As the split is done after reload,
+;; there are some situations in which we unnecessarily save and restore
+;; %r4.  This happens when there is a single call and the PIC register
+;; is "dead" after the call.  This isn't easy to fix as the usage of
+;; the PIC register isn't completely determined until the reload pass.
+(define_split
+  [(parallel [(call (mem:SI (match_operand 0 "call_operand_address" ""))
+		    (match_operand 1 "" ""))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:SI 4))
+	      (use (reg:SI 19))
+	      (use (const_int 0))])]
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT
+   && reload_completed
+   && !find_reg_note (insn, REG_NORETURN, NULL_RTX)"
+  [(set (reg:SI 4) (reg:SI 19))
+   (parallel [(call (mem:SI (match_dup 0))
+		    (match_dup 1))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (use (reg:SI 19))
+	      (use (const_int 0))])
+   (set (reg:SI 19) (reg:SI 4))]
+  "")
+
+;; Remove the clobber of register 4 when optimizing.  This has to be
+;; done with a peephole optimization rather than a split because the
+;; split sequence for a call must be longer than one instruction.
+(define_peephole2
+  [(parallel [(call (mem:SI (match_operand 0 "call_operand_address" ""))
+		    (match_operand 1 "" ""))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:SI 4))
+	      (use (reg:SI 19))
+	      (use (const_int 0))])]
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT && reload_completed"
+  [(parallel [(call (mem:SI (match_dup 0))
+		    (match_dup 1))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (use (reg:SI 19))
+	      (use (const_int 0))])]
+  "")
+
+(define_insn "*call_symref_pic_post_reload"
+  [(call (mem:SI (match_operand 0 "call_operand_address" ""))
+	 (match_operand 1 "" "i"))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (use (reg:SI 19))
+   (use (const_int 0))]
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
+  "*
+{
+  output_arg_descriptor (insn);
+  return output_call (insn, operands[0], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length") (symbol_ref "attr_length_call (insn, 0)"))])
+
+;; This pattern is split if it is necessary to save and restore the
+;; PIC register.
+(define_insn "call_symref_64bit"
+  [(call (mem:SI (match_operand 0 "call_operand_address" ""))
+	 (match_operand 1 "" "i"))
+   (clobber (reg:DI 1))
+   (clobber (reg:DI 2))
+   (clobber (reg:DI 4))
+   (use (reg:DI 27))
+   (use (reg:DI 29))
+   (use (const_int 0))]
+  "TARGET_64BIT"
+  "*
+{
+  output_arg_descriptor (insn);
+  return output_call (insn, operands[0], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length")
+	(plus (symbol_ref "attr_length_call (insn, 0)")
+	      (symbol_ref "attr_length_save_restore_dltp (insn)")))])
+
+;; Split out the PIC register save and restore after reload.  This is
+;; done only if the function returns.  As the split is done after reload,
+;; there are some situations in which we unnecessarily save and restore
+;; %r4.  This happens when there is a single call and the PIC register
+;; is "dead" after the call.  This isn't easy to fix as the usage of
+;; the PIC register isn't completely determined until the reload pass.
+(define_split
+  [(parallel [(call (mem:SI (match_operand 0 "call_operand_address" ""))
+		    (match_operand 1 "" ""))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DI 4))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 0))])]
+  "TARGET_64BIT
+   && reload_completed
+   && !find_reg_note (insn, REG_NORETURN, NULL_RTX)"
+  [(set (reg:DI 4) (reg:DI 27))
+   (parallel [(call (mem:SI (match_dup 0))
+		    (match_dup 1))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 0))])
+   (set (reg:DI 27) (reg:DI 4))]
+  "")
+
+;; Remove the clobber of register 4 when optimizing.  This has to be
+;; done with a peephole optimization rather than a split because the
+;; split sequence for a call must be longer than one instruction.
+(define_peephole2
+  [(parallel [(call (mem:SI (match_operand 0 "call_operand_address" ""))
+		    (match_operand 1 "" ""))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DI 4))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 0))])]
+  "TARGET_64BIT && reload_completed"
+  [(parallel [(call (mem:SI (match_dup 0))
+		    (match_dup 1))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 0))])]
+  "")
+
+(define_insn "*call_symref_64bit_post_reload"
+  [(call (mem:SI (match_operand 0 "call_operand_address" ""))
+	 (match_operand 1 "" "i"))
+   (clobber (reg:DI 1))
+   (clobber (reg:DI 2))
+   (use (reg:DI 27))
+   (use (reg:DI 29))
+   (use (const_int 0))]
+  "TARGET_64BIT"
+  "*
+{
+  output_arg_descriptor (insn);
+  return output_call (insn, operands[0], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length") (symbol_ref "attr_length_call (insn, 0)"))])
+
+(define_insn "call_reg"
+  [(call (mem:SI (reg:SI 22))
+	 (match_operand 0 "" "i"))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (use (const_int 1))]
+  "!TARGET_64BIT"
+  "*
+{
+  return output_indirect_call (insn, gen_rtx_REG (word_mode, 22));
+}"
+  [(set_attr "type" "dyncall")
+   (set (attr "length") (symbol_ref "attr_length_indirect_call (insn)"))])
+
+;; This pattern is split if it is necessary to save and restore the
+;; PIC register.
+(define_insn "call_reg_pic"
+  [(call (mem:SI (reg:SI 22))
+	 (match_operand 0 "" "i"))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (clobber (reg:SI 4))
+   (use (reg:SI 19))
+   (use (const_int 1))]
+  "!TARGET_64BIT"
+  "*
+{
+  return output_indirect_call (insn, gen_rtx_REG (word_mode, 22));
+}"
+  [(set_attr "type" "dyncall")
+   (set (attr "length")
+	(plus (symbol_ref "attr_length_indirect_call (insn)")
+	      (symbol_ref "attr_length_save_restore_dltp (insn)")))])
+
+;; Split out the PIC register save and restore after reload.  This is
+;; done only if the function returns.  As the split is done after reload,
+;; there are some situations in which we unnecessarily save and restore
+;; %r4.  This happens when there is a single call and the PIC register
+;; is "dead" after the call.  This isn't easy to fix as the usage of
+;; the PIC register isn't completely determined until the reload pass.
+(define_split
+  [(parallel [(call (mem:SI (reg:SI 22))
+		    (match_operand 0 "" ""))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:SI 4))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])]
+  "!TARGET_64BIT
+   && reload_completed
+   && !find_reg_note (insn, REG_NORETURN, NULL_RTX)"
+  [(set (reg:SI 4) (reg:SI 19))
+   (parallel [(call (mem:SI (reg:SI 22))
+		    (match_dup 0))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])
+   (set (reg:SI 19) (reg:SI 4))]
+  "")
+
+;; Remove the clobber of register 4 when optimizing.  This has to be
+;; done with a peephole optimization rather than a split because the
+;; split sequence for a call must be longer than one instruction.
+(define_peephole2
+  [(parallel [(call (mem:SI (reg:SI 22))
+		    (match_operand 0 "" ""))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:SI 4))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])]
+  "!TARGET_64BIT && reload_completed"
+  [(parallel [(call (mem:SI (reg:SI 22))
+		    (match_dup 0))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])]
+  "")
+
+(define_insn "*call_reg_pic_post_reload"
+  [(call (mem:SI (reg:SI 22))
+	 (match_operand 0 "" "i"))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (use (reg:SI 19))
+   (use (const_int 1))]
+  "!TARGET_64BIT"
+  "*
+{
+  return output_indirect_call (insn, gen_rtx_REG (word_mode, 22));
+}"
+  [(set_attr "type" "dyncall")
+   (set (attr "length") (symbol_ref "attr_length_indirect_call (insn)"))])
+
+;; This pattern is split if it is necessary to save and restore the
+;; PIC register.
+(define_insn "call_reg_64bit"
   [(call (mem:SI (match_operand:DI 0 "register_operand" "r"))
 	 (match_operand 1 "" "i"))
-   (clobber (reg:SI 2))
+   (clobber (reg:DI 2))
+   (clobber (reg:DI 4))
+   (use (reg:DI 27))
+   (use (reg:DI 29))
    (use (const_int 1))]
   "TARGET_64BIT"
   "*
 {
-  /* ??? Needs more work.  Length computation, split into multiple insns,
-     do not use %r22 directly, expose delay slot.  */
-  return \"ldd 16(%0),%%r2\;ldd 24(%0),%%r27\;bve,l (%%r2),%%r2\;nop\";
-}"
-  [(set_attr "type" "dyncall")
-   (set (attr "length") (const_int 16))])
-
-(define_insn "call_internal_reg"
-  [(call (mem:SI (reg:SI 22))
-	 (match_operand 0 "" "i"))
-   (clobber (reg:SI 2))
-   (use (const_int 1))]
-  ""
-  "*
-{
-  rtx xoperands[2];
-
-  /* First the special case for kernels, level 0 systems, etc.  */
-  if (TARGET_FAST_INDIRECT_CALLS)
-    return \"ble 0(%%sr4,%%r22)\;copy %%r31,%%r2\";
-
-  /* Now the normal case -- we can reach $$dyncall directly or
-     we're sure that we can get there via a long-branch stub. 
-
-     No need to check target flags as the length uniquely identifies
-     the remaining cases.  */
-  if (get_attr_length (insn) == 8)
-    return \".CALL\\tARGW0=GR\;{bl|b,l} $$dyncall,%%r31\;copy %%r31,%%r2\";
-
-  /* Long millicode call, but we are not generating PIC or portable runtime
-     code.  */
-  if (get_attr_length (insn) == 12)
-    return \".CALL\\tARGW0=GR\;ldil L%%$$dyncall,%%r2\;ble R%%$$dyncall(%%sr4,%%r2)\;copy %%r31,%%r2\";
-
-  /* Long millicode call for portable runtime.  */
-  if (get_attr_length (insn) == 20)
-    return \"ldil L%%$$dyncall,%%r31\;ldo R%%$$dyncall(%%r31),%%r31\;blr %%r0,%%r2\;bv,n %%r0(%%r31)\;nop\";
-
-  /* If we're generating PIC code.  */
-  xoperands[0] = operands[0];
-  xoperands[1] = gen_label_rtx ();
-  output_asm_insn (\"{bl|b,l} .+8,%%r1\", xoperands);
-  output_asm_insn (\"addil L%%$$dyncall-%1,%%r1\", xoperands);
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
-			     CODE_LABEL_NUMBER (xoperands[1]));
-  output_asm_insn (\"ldo R%%$$dyncall-%1(%%r1),%%r1\", xoperands);
-  output_asm_insn (\"blr %%r0,%%r2\", xoperands);
-  output_asm_insn (\"bv,n %%r0(%%r1)\\n\\tnop\", xoperands);
-  return \"\";
+  return output_indirect_call (insn, operands[0]);
 }"
   [(set_attr "type" "dyncall")
    (set (attr "length")
-     (cond [
-;; First FAST_INDIRECT_CALLS
-	    (ne (symbol_ref "TARGET_FAST_INDIRECT_CALLS")
-		(const_int 0))
-	    (const_int 8)
+	(plus (symbol_ref "attr_length_indirect_call (insn)")
+	      (symbol_ref "attr_length_save_restore_dltp (insn)")))])
 
-;; Target (or stub) within reach
-	    (and (lt (plus (symbol_ref "total_code_bytes") (pc))
-		     (const_int 240000))
-		 (eq (symbol_ref "TARGET_PORTABLE_RUNTIME")
-		     (const_int 0)))
-	    (const_int 8)
+;; Split out the PIC register save and restore after reload.  This is
+;; done only if the function returns.  As the split is done after reload,
+;; there are some situations in which we unnecessarily save and restore
+;; %r4.  This happens when there is a single call and the PIC register
+;; is "dead" after the call.  This isn't easy to fix as the usage of
+;; the PIC register isn't completely determined until the reload pass.
+(define_split
+  [(parallel [(call (mem:SI (match_operand 0 "register_operand" ""))
+		    (match_operand 1 "" ""))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DI 4))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])]
+  "TARGET_64BIT
+   && reload_completed
+   && !find_reg_note (insn, REG_NORETURN, NULL_RTX)"
+  [(set (reg:DI 4) (reg:DI 27))
+   (parallel [(call (mem:SI (match_dup 0))
+		    (match_dup 1))
+	      (clobber (reg:DI 2))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])
+   (set (reg:DI 27) (reg:DI 4))]
+  "")
 
-;; Out of reach PIC
-	    (ne (symbol_ref "flag_pic")
-		(const_int 0))
-	    (const_int 24)
+;; Remove the clobber of register 4 when optimizing.  This has to be
+;; done with a peephole optimization rather than a split because the
+;; split sequence for a call must be longer than one instruction.
+(define_peephole2
+  [(parallel [(call (mem:SI (match_operand 0 "register_operand" ""))
+		    (match_operand 1 "" ""))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DI 4))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])]
+  "TARGET_64BIT && reload_completed"
+  [(parallel [(call (mem:SI (match_dup 0))
+		    (match_dup 1))
+	      (clobber (reg:DI 2))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])]
+  "")
 
-;; Out of reach PORTABLE_RUNTIME
-	    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME")
-		(const_int 0))
-	    (const_int 20)]
-
-;; Out of reach, can use ble
-	  (const_int 12)))])
+(define_insn "*call_reg_64bit_post_reload"
+  [(call (mem:SI (match_operand:DI 0 "register_operand" "r"))
+	 (match_operand 1 "" "i"))
+   (clobber (reg:DI 2))
+   (use (reg:DI 27))
+   (use (reg:DI 29))
+   (use (const_int 1))]
+  "TARGET_64BIT"
+  "*
+{
+  return output_indirect_call (insn, operands[0]);
+}"
+  [(set_attr "type" "dyncall")
+   (set (attr "length") (symbol_ref "attr_length_indirect_call (insn)"))])
 
 (define_expand "call_value"
   [(parallel [(set (match_operand 0 "" "")
@@ -5963,11 +6357,12 @@
   ""
   "
 {
-  rtx op;
-  rtx call_insn;
+  rtx op, call_insn;
+  rtx dst = operands[0];
+  rtx nb = operands[2];
 
   if (TARGET_PORTABLE_RUNTIME)
-    op = force_reg (word_mode, XEXP (operands[1], 0));
+    op = force_reg (SImode, XEXP (operands[1], 0));
   else
     op = XEXP (operands[1], 0);
 
@@ -5980,47 +6375,94 @@
      and calls through function pointers.  This is necessary as these two
      types of calls use different calling conventions, and CSE might try
      to change the named call into an indirect call in some cases (using
-     two patterns keeps CSE from performing this optimization).  */
-  if (GET_CODE (op) == SYMBOL_REF)
-    call_insn = emit_call_insn (gen_call_value_internal_symref (operands[0],
-								op,
-								operands[2]));
-  else if (TARGET_64BIT)
+     two patterns keeps CSE from performing this optimization).
+
+     We now use even more call patterns as there was a subtle bug in
+     attempting to restore the pic register after a call using a simple
+     move insn.  During reload, a instruction involving a pseudo register
+     with no explicit dependence on the PIC register can be converted
+     to an equivalent load from memory using the PIC register.  If we
+     emit a simple move to restore the PIC register in the initial rtl
+     generation, then it can potentially be repositioned during scheduling.
+     and an instruction that eventually uses the PIC register may end up
+     between the call and the PIC register restore.
+
+     This only worked because there is a post call group of instructions
+     that are scheduled with the call.  These instructions are included
+     in the same basic block as the call.  However, calls can throw in
+     C++ code and a basic block has to terminate at the call if the call
+     can throw.  This results in the PIC register restore being scheduled
+     independently from the call.  So, we now hide the save and restore
+     of the PIC register in the call pattern until after reload.  Then,
+     we split the moves out.  A small side benefit is that we now don't
+     need to have a use of the PIC register in the return pattern and
+     the final save/restore operation is not needed.
+
+     I elected to just clobber %r4 in the PIC patterns and use it instead
+     of trying to force hppa_pic_save_rtx () to a callee saved register.
+     This might have required a new register class and constraint.  It
+     was also simpler to just handle the restore from a register than a
+     generic pseudo.  */
+  if (TARGET_64BIT)
     {
-      rtx tmpreg = force_reg (word_mode, op);
-      call_insn
-	= emit_call_insn (gen_call_value_internal_reg_64bit (operands[0],
-							     tmpreg,
-							     operands[2]));
+      if (GET_CODE (op) == SYMBOL_REF)
+	call_insn = emit_call_insn (gen_call_val_symref_64bit (dst, op, nb));
+      else
+	{
+	  op = force_reg (word_mode, op);
+	  call_insn = emit_call_insn (gen_call_val_reg_64bit (dst, op, nb));
+	}
     }
   else
     {
-      rtx tmpreg = gen_rtx_REG (word_mode, 22);
-      emit_move_insn (tmpreg, force_reg (word_mode, op));
-      call_insn = emit_call_insn (gen_call_value_internal_reg (operands[0],
-							       operands[2]));
-    }
-  if (flag_pic)
-    {
-      use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), pic_offset_table_rtx);
-      if (TARGET_64BIT)
-	use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), arg_pointer_rtx);
+      if (GET_CODE (op) == SYMBOL_REF)
+	{
+	  if (flag_pic)
+	    call_insn = emit_call_insn (gen_call_val_symref_pic (dst, op, nb));
+	  else
+	    call_insn = emit_call_insn (gen_call_val_symref (dst, op, nb));
+	}
+      else
+	{
+	  rtx tmpreg = gen_rtx_REG (word_mode, 22);
 
-      /* After each call we must restore the PIC register, even if it
-	 doesn't appear to be used.  */
-      emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
+	  emit_move_insn (tmpreg, force_reg (word_mode, op));
+	  if (flag_pic)
+	    call_insn = emit_call_insn (gen_call_val_reg_pic (dst, nb));
+	  else
+	    call_insn = emit_call_insn (gen_call_val_reg (dst, nb));
+	}
     }
+
   DONE;
 }")
 
-(define_insn "call_value_internal_symref"
-  [(set (match_operand 0 "" "=rf")
+(define_insn "call_val_symref"
+  [(set (match_operand 0 "" "")
 	(call (mem:SI (match_operand 1 "call_operand_address" ""))
 	      (match_operand 2 "" "i")))
+   (clobber (reg:SI 1))
    (clobber (reg:SI 2))
    (use (const_int 0))]
-  ;;- Don't use operand 1 for most machines.
-  "! TARGET_PORTABLE_RUNTIME"
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
+  "*
+{
+  output_arg_descriptor (insn);
+  return output_call (insn, operands[1], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length") (symbol_ref "attr_length_call (insn, 0)"))])
+
+(define_insn "call_val_symref_pic"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (clobber (reg:SI 4))
+   (use (reg:SI 19))
+   (use (const_int 0))]
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
   "*
 {
   output_arg_descriptor (insn);
@@ -6028,107 +6470,363 @@
 }"
   [(set_attr "type" "call")
    (set (attr "length")
-;;       If we're sure that we can either reach the target or that the
-;;	 linker can use a long-branch stub, then the length is 4 bytes.
-;;
-;;	 For long-calls the length will be either 52 bytes (non-pic)
-;;	 or 68 bytes (pic).  */
-;;	 Else we have to use a long-call;
-      (if_then_else (lt (plus (symbol_ref "total_code_bytes") (pc))
-			(const_int 240000))
-		    (const_int 4)
-		    (if_then_else (eq (symbol_ref "flag_pic")
-				      (const_int 0))
-				  (const_int 52)
-				  (const_int 68))))])
+	(plus (symbol_ref "attr_length_call (insn, 0)")
+	      (symbol_ref "attr_length_save_restore_dltp (insn)")))])
 
-(define_insn "call_value_internal_reg_64bit"
-  [(set (match_operand 0 "" "=rf")
-         (call (mem:SI (match_operand:DI 1 "register_operand" "r"))
-	       (match_operand 2 "" "i")))
+;; Split out the PIC register save and restore after reload.  This is
+;; done only if the function returns.  As the split is done after reload,
+;; there are some situations in which we unnecessarily save and restore
+;; %r4.  This happens when there is a single call and the PIC register
+;; is "dead" after the call.  This isn't easy to fix as the usage of
+;; the PIC register isn't completely determined until the reload pass.
+(define_split
+  [(parallel [(set (match_operand 0 "" "")
+	      (call (mem:SI (match_operand 1 "call_operand_address" ""))
+		    (match_operand 2 "" "")))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:SI 4))
+	      (use (reg:SI 19))
+	      (use (const_int 0))])]
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT
+   && reload_completed
+   && !find_reg_note (insn, REG_NORETURN, NULL_RTX)"
+  [(set (reg:SI 4) (reg:SI 19))
+   (parallel [(set (match_dup 0)
+	      (call (mem:SI (match_dup 1))
+		    (match_dup 2)))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (use (reg:SI 19))
+	      (use (const_int 0))])
+   (set (reg:SI 19) (reg:SI 4))]
+  "")
+
+;; Remove the clobber of register 4 when optimizing.  This has to be
+;; done with a peephole optimization rather than a split because the
+;; split sequence for a call must be longer than one instruction.
+(define_peephole2
+  [(parallel [(set (match_operand 0 "" "")
+	      (call (mem:SI (match_operand 1 "call_operand_address" ""))
+		    (match_operand 2 "" "")))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:SI 4))
+	      (use (reg:SI 19))
+	      (use (const_int 0))])]
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT && reload_completed"
+  [(parallel [(set (match_dup 0)
+	      (call (mem:SI (match_dup 1))
+		    (match_dup 2)))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (use (reg:SI 19))
+	      (use (const_int 0))])]
+  "")
+
+(define_insn "*call_val_symref_pic_post_reload"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:SI 1))
    (clobber (reg:SI 2))
+   (use (reg:SI 19))
+   (use (const_int 0))]
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
+  "*
+{
+  output_arg_descriptor (insn);
+  return output_call (insn, operands[1], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length") (symbol_ref "attr_length_call (insn, 0)"))])
+
+;; This pattern is split if it is necessary to save and restore the
+;; PIC register.
+(define_insn "call_val_symref_64bit"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:DI 1))
+   (clobber (reg:DI 2))
+   (clobber (reg:DI 4))
+   (use (reg:DI 27))
+   (use (reg:DI 29))
+   (use (const_int 0))]
+  "TARGET_64BIT"
+  "*
+{
+  output_arg_descriptor (insn);
+  return output_call (insn, operands[1], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length")
+	(plus (symbol_ref "attr_length_call (insn, 0)")
+	      (symbol_ref "attr_length_save_restore_dltp (insn)")))])
+
+;; Split out the PIC register save and restore after reload.  This is
+;; done only if the function returns.  As the split is done after reload,
+;; there are some situations in which we unnecessarily save and restore
+;; %r4.  This happens when there is a single call and the PIC register
+;; is "dead" after the call.  This isn't easy to fix as the usage of
+;; the PIC register isn't completely determined until the reload pass.
+(define_split
+  [(parallel [(set (match_operand 0 "" "")
+	      (call (mem:SI (match_operand 1 "call_operand_address" ""))
+		    (match_operand 2 "" "")))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DI 4))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 0))])]
+  "TARGET_64BIT
+   && reload_completed
+   && !find_reg_note (insn, REG_NORETURN, NULL_RTX)"
+  [(set (reg:DI 4) (reg:DI 27))
+   (parallel [(set (match_dup 0)
+	      (call (mem:SI (match_dup 1))
+		    (match_dup 2)))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 0))])
+   (set (reg:DI 27) (reg:DI 4))]
+  "")
+
+;; Remove the clobber of register 4 when optimizing.  This has to be
+;; done with a peephole optimization rather than a split because the
+;; split sequence for a call must be longer than one instruction.
+(define_peephole2
+  [(parallel [(set (match_operand 0 "" "")
+	      (call (mem:SI (match_operand 1 "call_operand_address" ""))
+		    (match_operand 2 "" "")))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DI 4))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 0))])]
+  "TARGET_64BIT && reload_completed"
+  [(parallel [(set (match_dup 0)
+	      (call (mem:SI (match_dup 1))
+		    (match_dup 2)))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 0))])]
+  "")
+
+(define_insn "*call_val_symref_64bit_post_reload"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:DI 1))
+   (clobber (reg:DI 2))
+   (use (reg:DI 27))
+   (use (reg:DI 29))
+   (use (const_int 0))]
+  "TARGET_64BIT"
+  "*
+{
+  output_arg_descriptor (insn);
+  return output_call (insn, operands[1], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length") (symbol_ref "attr_length_call (insn, 0)"))])
+
+(define_insn "call_val_reg"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (reg:SI 22))
+	      (match_operand 1 "" "i")))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (use (const_int 1))]
+  "!TARGET_64BIT"
+  "*
+{
+  return output_indirect_call (insn, gen_rtx_REG (word_mode, 22));
+}"
+  [(set_attr "type" "dyncall")
+   (set (attr "length") (symbol_ref "attr_length_indirect_call (insn)"))])
+
+;; This pattern is split if it is necessary to save and restore the
+;; PIC register.
+(define_insn "call_val_reg_pic"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (reg:SI 22))
+	      (match_operand 1 "" "i")))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (clobber (reg:SI 4))
+   (use (reg:SI 19))
+   (use (const_int 1))]
+  "!TARGET_64BIT"
+  "*
+{
+  return output_indirect_call (insn, gen_rtx_REG (word_mode, 22));
+}"
+  [(set_attr "type" "dyncall")
+   (set (attr "length")
+	(plus (symbol_ref "attr_length_indirect_call (insn)")
+	      (symbol_ref "attr_length_save_restore_dltp (insn)")))])
+
+;; Split out the PIC register save and restore after reload.  This is
+;; done only if the function returns.  As the split is done after reload,
+;; there are some situations in which we unnecessarily save and restore
+;; %r4.  This happens when there is a single call and the PIC register
+;; is "dead" after the call.  This isn't easy to fix as the usage of
+;; the PIC register isn't completely determined until the reload pass.
+(define_split
+  [(parallel [(set (match_operand 0 "" "")
+		   (call (mem:SI (reg:SI 22))
+			 (match_operand 1 "" "")))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:SI 4))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])]
+  "!TARGET_64BIT
+   && reload_completed
+   && !find_reg_note (insn, REG_NORETURN, NULL_RTX)"
+  [(set (reg:SI 4) (reg:SI 19))
+   (parallel [(set (match_dup 0)
+		   (call (mem:SI (reg:SI 22))
+			 (match_dup 1)))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])
+   (set (reg:SI 19) (reg:SI 4))]
+  "")
+
+;; Remove the clobber of register 4 when optimizing.  This has to be
+;; done with a peephole optimization rather than a split because the
+;; split sequence for a call must be longer than one instruction.
+(define_peephole2
+  [(parallel [(set (match_operand 0 "" "")
+		   (call (mem:SI (reg:SI 22))
+			 (match_operand 1 "" "")))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:SI 4))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])]
+  "!TARGET_64BIT && reload_completed"
+  [(parallel [(set (match_dup 0)
+		   (call (mem:SI (reg:SI 22))
+			 (match_dup 1)))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])]
+  "")
+
+(define_insn "*call_val_reg_pic_post_reload"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (reg:SI 22))
+	      (match_operand 1 "" "i")))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (use (reg:SI 19))
+   (use (const_int 1))]
+  "!TARGET_64BIT"
+  "*
+{
+  return output_indirect_call (insn, gen_rtx_REG (word_mode, 22));
+}"
+  [(set_attr "type" "dyncall")
+   (set (attr "length") (symbol_ref "attr_length_indirect_call (insn)"))])
+
+;; This pattern is split if it is necessary to save and restore the
+;; PIC register.
+(define_insn "call_val_reg_64bit"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand:DI 1 "register_operand" "r"))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:DI 2))
+   (clobber (reg:DI 4))
+   (use (reg:DI 27))
+   (use (reg:DI 29))
    (use (const_int 1))]
   "TARGET_64BIT"
   "*
 {
-  /* ??? Needs more work.  Length computation, split into multiple insns,
-     do not use %r22 directly, expose delay slot.  */
-  return \"ldd 16(%1),%%r2\;ldd 24(%1),%%r27\;bve,l (%%r2),%%r2\;nop\";
-}"
-  [(set_attr "type" "dyncall")
-   (set (attr "length") (const_int 16))])
-
-(define_insn "call_value_internal_reg"
-  [(set (match_operand 0 "" "=rf")
-	(call (mem:SI (reg:SI 22))
-	      (match_operand 1 "" "i")))
-   (clobber (reg:SI 2))
-   (use (const_int 1))]
-  ""
-  "*
-{
-  rtx xoperands[2];
-
-  /* First the special case for kernels, level 0 systems, etc.  */
-  if (TARGET_FAST_INDIRECT_CALLS)
-    return \"ble 0(%%sr4,%%r22)\;copy %%r31,%%r2\";
-
-  /* Now the normal case -- we can reach $$dyncall directly or
-     we're sure that we can get there via a long-branch stub. 
-
-     No need to check target flags as the length uniquely identifies
-     the remaining cases.  */
-  if (get_attr_length (insn) == 8)
-    return \".CALL\\tARGW0=GR\;{bl|b,l} $$dyncall,%%r31\;copy %%r31,%%r2\";
-
-  /* Long millicode call, but we are not generating PIC or portable runtime
-     code.  */
-  if (get_attr_length (insn) == 12)
-    return \".CALL\\tARGW0=GR\;ldil L%%$$dyncall,%%r2\;ble R%%$$dyncall(%%sr4,%%r2)\;copy %%r31,%%r2\";
-
-  /* Long millicode call for portable runtime.  */
-  if (get_attr_length (insn) == 20)
-    return \"ldil L%%$$dyncall,%%r31\;ldo R%%$$dyncall(%%r31),%%r31\;blr %%r0,%%r2\;bv,n %%r0(%%r31)\;nop\";
-
-  /* If we're generating PIC code.  */
-  xoperands[0] = operands[1];
-  xoperands[1] = gen_label_rtx ();
-  output_asm_insn (\"{bl|b,l} .+8,%%r1\", xoperands);
-  output_asm_insn (\"addil L%%$$dyncall-%1,%%r1\", xoperands);
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
-			     CODE_LABEL_NUMBER (xoperands[1]));
-  output_asm_insn (\"ldo R%%$$dyncall-%1(%%r1),%%r1\", xoperands);
-  output_asm_insn (\"blr %%r0,%%r2\", xoperands);
-  output_asm_insn (\"bv,n %%r0(%%r1)\\n\\tnop\", xoperands);
-  return \"\";
+  return output_indirect_call (insn, operands[1]);
 }"
   [(set_attr "type" "dyncall")
    (set (attr "length")
-     (cond [
-;; First FAST_INDIRECT_CALLS
-	    (ne (symbol_ref "TARGET_FAST_INDIRECT_CALLS")
-		(const_int 0))
-	    (const_int 8)
+	(plus (symbol_ref "attr_length_indirect_call (insn)")
+	      (symbol_ref "attr_length_save_restore_dltp (insn)")))])
 
-;; Target (or stub) within reach
-	    (and (lt (plus (symbol_ref "total_code_bytes") (pc))
-		     (const_int 240000))
-		 (eq (symbol_ref "TARGET_PORTABLE_RUNTIME")
-		     (const_int 0)))
-	    (const_int 8)
+;; Split out the PIC register save and restore after reload.  This is
+;; done only if the function returns.  As the split is done after reload,
+;; there are some situations in which we unnecessarily save and restore
+;; %r4.  This happens when there is a single call and the PIC register
+;; is "dead" after the call.  This isn't easy to fix as the usage of
+;; the PIC register isn't completely determined until the reload pass.
+(define_split
+  [(parallel [(set (match_operand 0 "" "")
+		   (call (mem:SI (match_operand:DI 1 "register_operand" ""))
+			 (match_operand 2 "" "")))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DI 4))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])]
+  "TARGET_64BIT
+   && reload_completed
+   && !find_reg_note (insn, REG_NORETURN, NULL_RTX)"
+  [(set (reg:DI 4) (reg:DI 27))
+   (parallel [(set (match_dup 0)
+		   (call (mem:SI (match_dup 1))
+			 (match_dup 2)))
+	      (clobber (reg:DI 2))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])
+   (set (reg:DI 27) (reg:DI 4))]
+  "")
 
-;; Out of reach PIC
-	    (ne (symbol_ref "flag_pic")
-		(const_int 0))
-	    (const_int 24)
+;; Remove the clobber of register 4 when optimizing.  This has to be
+;; done with a peephole optimization rather than a split because the
+;; split sequence for a call must be longer than one instruction.
+(define_peephole2
+  [(parallel [(set (match_operand 0 "" "")
+		   (call (mem:SI (match_operand:DI 1 "register_operand" ""))
+			 (match_operand 2 "" "")))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DI 4))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])]
+  "TARGET_64BIT && reload_completed"
+  [(parallel [(set (match_dup 0)
+		   (call (mem:SI (match_dup 1))
+			 (match_dup 2)))
+	      (clobber (reg:DI 2))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])]
+  "")
 
-;; Out of reach PORTABLE_RUNTIME
-	    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME")
-		(const_int 0))
-	    (const_int 20)]
-
-;; Out of reach, can use ble
-	  (const_int 12)))])
+(define_insn "*call_val_reg_64bit_post_reload"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand:DI 1 "register_operand" "r"))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:DI 2))
+   (use (reg:DI 27))
+   (use (reg:DI 29))
+   (use (const_int 1))]
+  "TARGET_64BIT"
+  "*
+{
+  return output_indirect_call (insn, operands[1]);
+}"
+  [(set_attr "type" "dyncall")
+   (set (attr "length") (symbol_ref "attr_length_indirect_call (insn)"))])
 
 ;; Call subroutine returning any type.
 
@@ -6160,10 +6858,9 @@
 }")
 
 (define_expand "sibcall"
-  [(parallel [(call (match_operand:SI 0 "" "")
-		    (match_operand 1 "" ""))
-	      (clobber (reg:SI 0))])]
-  "! TARGET_PORTABLE_RUNTIME"
+  [(call (match_operand:SI 0 "" "")
+	 (match_operand 1 "" ""))]
+  "!TARGET_PORTABLE_RUNTIME"
   "
 {
   rtx op;
@@ -6171,54 +6868,64 @@
 
   op = XEXP (operands[0], 0);
 
-  /* We do not allow indirect sibling calls.  */
-  call_insn = emit_call_insn (gen_sibcall_internal_symref (op, operands[1]));
+  if (TARGET_64BIT)
+    emit_move_insn (arg_pointer_rtx,
+		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
+				  GEN_INT (64)));
 
+  /* Indirect sibling calls are not allowed.  */
+  if (TARGET_64BIT)
+    call_insn = gen_sibcall_internal_symref_64bit (op, operands[1]);
+  else
+    call_insn = gen_sibcall_internal_symref (op, operands[1]);
+
+  call_insn = emit_call_insn (call_insn);
+
+  if (TARGET_64BIT)
+    use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), arg_pointer_rtx);
+
+  /* We don't have to restore the PIC register.  */
   if (flag_pic)
-    {
-      use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), pic_offset_table_rtx);
+    use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), pic_offset_table_rtx);
 
-      /* After each call we must restore the PIC register, even if it
-	 doesn't appear to be used.  */
-      emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
-    }
   DONE;
 }")
 
 (define_insn "sibcall_internal_symref"
   [(call (mem:SI (match_operand 0 "call_operand_address" ""))
 	 (match_operand 1 "" "i"))
-   (clobber (reg:SI 0))
+   (clobber (reg:SI 1))
    (use (reg:SI 2))
    (use (const_int 0))]
-  "! TARGET_PORTABLE_RUNTIME"
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
   "*
 {
   output_arg_descriptor (insn);
   return output_call (insn, operands[0], 1);
 }"
   [(set_attr "type" "call")
-   (set (attr "length")
-;;       If we're sure that we can either reach the target or that the
-;;	 linker can use a long-branch stub, then the length is 4 bytes.
-;;
-;;	 For long-calls the length will be either 52 bytes (non-pic)
-;;	 or 68 bytes (pic).  */
-;;	 Else we have to use a long-call;
-      (if_then_else (lt (plus (symbol_ref "total_code_bytes") (pc))
-			(const_int 240000))
-		    (const_int 4)
-		    (if_then_else (eq (symbol_ref "flag_pic")
-				      (const_int 0))
-				  (const_int 52)
-				  (const_int 68))))])
+   (set (attr "length") (symbol_ref "attr_length_call (insn, 1)"))])
+
+(define_insn "sibcall_internal_symref_64bit"
+  [(call (mem:SI (match_operand 0 "call_operand_address" ""))
+	 (match_operand 1 "" "i"))
+   (clobber (reg:DI 1))
+   (use (reg:DI 2))
+   (use (const_int 0))]
+  "TARGET_64BIT"
+  "*
+{
+  output_arg_descriptor (insn);
+  return output_call (insn, operands[0], 1);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length") (symbol_ref "attr_length_call (insn, 1)"))])
 
 (define_expand "sibcall_value"
-  [(parallel [(set (match_operand 0 "" "")
+  [(set (match_operand 0 "" "")
 		   (call (match_operand:SI 1 "" "")
-			 (match_operand 2 "" "")))
-	      (clobber (reg:SI 0))])]
-  "! TARGET_PORTABLE_RUNTIME"
+			 (match_operand 2 "" "")))]
+  "!TARGET_PORTABLE_RUNTIME"
   "
 {
   rtx op;
@@ -6226,50 +6933,62 @@
 
   op = XEXP (operands[1], 0);
 
-  /* We do not allow indirect sibling calls.  */
-  call_insn = emit_call_insn (gen_sibcall_value_internal_symref (operands[0],
-								 op,
-								 operands[2]));
-  if (flag_pic)
-    {
-      use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), pic_offset_table_rtx);
+  if (TARGET_64BIT)
+    emit_move_insn (arg_pointer_rtx,
+		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
+				  GEN_INT (64)));
 
-      /* After each call we must restore the PIC register, even if it
-	 doesn't appear to be used.  */
-      emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
-    }
+  /* Indirect sibling calls are not allowed.  */
+  if (TARGET_64BIT)
+    call_insn
+      = gen_sibcall_value_internal_symref_64bit (operands[0], op, operands[2]);
+  else
+    call_insn
+      = gen_sibcall_value_internal_symref (operands[0], op, operands[2]);
+
+  call_insn = emit_call_insn (call_insn);
+
+  if (TARGET_64BIT)
+    use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), arg_pointer_rtx);
+
+  /* We don't have to restore the PIC register.  */
+  if (flag_pic)
+    use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), pic_offset_table_rtx);
+
   DONE;
 }")
 
 (define_insn "sibcall_value_internal_symref"
-  [(set (match_operand 0 "" "=rf")
+  [(set (match_operand 0 "" "")
 	(call (mem:SI (match_operand 1 "call_operand_address" ""))
 	      (match_operand 2 "" "i")))
-   (clobber (reg:SI 0))
+   (clobber (reg:SI 1))
    (use (reg:SI 2))
    (use (const_int 0))]
-  ;;- Don't use operand 1 for most machines.
-  "! TARGET_PORTABLE_RUNTIME"
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
   "*
 {
   output_arg_descriptor (insn);
   return output_call (insn, operands[1], 1);
 }"
   [(set_attr "type" "call")
-   (set (attr "length")
-;;       If we're sure that we can either reach the target or that the
-;;	 linker can use a long-branch stub, then the length is 4 bytes.
-;;
-;;	 For long-calls the length will be either 52 bytes (non-pic)
-;;	 or 68 bytes (pic).  */
-;;	 Else we have to use a long-call;
-      (if_then_else (lt (plus (symbol_ref "total_code_bytes") (pc))
-			(const_int 240000))
-		    (const_int 4)
-		    (if_then_else (eq (symbol_ref "flag_pic")
-				      (const_int 0))
-				  (const_int 52)
-				  (const_int 68))))])
+   (set (attr "length") (symbol_ref "attr_length_call (insn, 1)"))])
+
+(define_insn "sibcall_value_internal_symref_64bit"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:DI 1))
+   (use (reg:DI 2))
+   (use (const_int 0))]
+  "TARGET_64BIT"
+  "*
+{
+  output_arg_descriptor (insn);
+  return output_call (insn, operands[1], 1);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length") (symbol_ref "attr_length_call (insn, 1)"))])
 
 (define_insn "nop"
   [(const_int 0)]
@@ -6310,7 +7029,8 @@
 
 ;;; EH does longjmp's from and within the data section.  Thus,
 ;;; an interspace branch is required for the longjmp implementation.
-;;; Registers r1 and r2 are used as scratch registers for the jump.
+;;; Registers r1 and r2 are used as scratch registers for the jump
+;;; when necessary.
 (define_expand "interspace_jump"
   [(parallel
      [(set (pc) (match_operand 0 "pmode_register_operand" "a"))
@@ -6324,6 +7044,22 @@
 (define_insn ""
   [(set (pc) (match_operand 0 "pmode_register_operand" "a"))
   (clobber (reg:SI 2))]
+  "TARGET_PA_20 && !TARGET_64BIT"
+  "bve%* (%0)"
+   [(set_attr "type" "branch")
+    (set_attr "length" "4")])
+
+(define_insn ""
+  [(set (pc) (match_operand 0 "pmode_register_operand" "a"))
+  (clobber (reg:SI 2))]
+  "TARGET_NO_SPACE_REGS && !TARGET_64BIT"
+  "be%* 0(%%sr4,%0)"
+   [(set_attr "type" "branch")
+    (set_attr "length" "4")])
+
+(define_insn ""
+  [(set (pc) (match_operand 0 "pmode_register_operand" "a"))
+  (clobber (reg:SI 2))]
   "!TARGET_64BIT"
   "ldsid (%%sr0,%0),%%r2\; mtsp %%r2,%%sr0\; be%* 0(%%sr0,%0)"
    [(set_attr "type" "branch")
@@ -6333,9 +7069,9 @@
   [(set (pc) (match_operand 0 "pmode_register_operand" "a"))
   (clobber (reg:DI 2))]
   "TARGET_64BIT"
-  "ldsid (%%sr0,%0),%%r2\; mtsp %%r2,%%sr0\; be%* 0(%%sr0,%0)"
+  "bve%* (%0)"
    [(set_attr "type" "branch")
-    (set_attr "length" "12")])
+    (set_attr "length" "4")])
 
 (define_expand "builtin_longjmp"
   [(unspec_volatile [(match_operand 0 "register_operand" "r")] 3)]
@@ -6390,8 +7126,13 @@
     emit_insn (gen_extzv_64 (operands[0], operands[1],
 			     operands[2], operands[3]));
   else
-    emit_insn (gen_extzv_32 (operands[0], operands[1],
-			     operands[2], operands[3]));
+    {
+      if (! uint5_operand (operands[2], SImode)
+	  || ! uint5_operand (operands[3], SImode))
+	FAIL;
+      emit_insn (gen_extzv_32 (operands[0], operands[1],
+			       operands[2], operands[3]));
+    }
   DONE;
 }")
 
@@ -6447,8 +7188,13 @@
     emit_insn (gen_extv_64 (operands[0], operands[1],
 			    operands[2], operands[3]));
   else
-    emit_insn (gen_extv_32 (operands[0], operands[1],
-			    operands[2], operands[3]));
+    {
+      if (! uint5_operand (operands[2], SImode)
+	  || ! uint5_operand (operands[3], SImode))
+	FAIL;
+      emit_insn (gen_extv_32 (operands[0], operands[1],
+			      operands[2], operands[3]));
+    }
   DONE;
 }")
 
@@ -6505,8 +7251,13 @@
     emit_insn (gen_insv_64 (operands[0], operands[1],
 			    operands[2], operands[3]));
   else
-    emit_insn (gen_insv_32 (operands[0], operands[1],
-			    operands[2], operands[3]));
+    {
+      if (! uint5_operand (operands[2], SImode)
+	  || ! uint5_operand (operands[3], SImode))
+	FAIL;
+      emit_insn (gen_insv_32 (operands[0], operands[1],
+			      operands[2], operands[3]));
+    }
   DONE;
 }")
 
@@ -7125,9 +7876,20 @@
 	      (clobber (reg:SI 31))])
    (set (match_operand:SI 0 "register_operand" "")
 	(reg:SI 29))]
-  "! TARGET_PORTABLE_RUNTIME && !TARGET_64BIT && !TARGET_ELF32"
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
   "
 {
+  if (TARGET_ELF32)
+    {
+      rtx canonicalize_funcptr_for_compare_libfunc
+        = init_one_libfunc (CANONICALIZE_FUNCPTR_FOR_COMPARE_LIBCALL);
+
+      emit_library_call_value (canonicalize_funcptr_for_compare_libfunc,
+      			       operands[0], LCT_NORMAL, Pmode,
+			       1, operands[1], Pmode);
+      DONE;
+    }
+
   operands[2] = gen_reg_rtx (SImode);
   if (GET_CODE (operands[1]) != REG)
     {
@@ -7146,6 +7908,12 @@
   "!TARGET_64BIT"
   "*
 {
+  int length = get_attr_length (insn);
+  rtx xoperands[2];
+
+  xoperands[0] = GEN_INT (length - 8);
+  xoperands[1] = GEN_INT (length - 16);
+
   /* Must import the magic millicode routine.  */
   output_asm_insn (\".IMPORT $$sh_func_adrs,MILLICODE\", NULL);
 
@@ -7154,60 +7922,26 @@
      First, copy our input parameter into %r29 just in case we don't
      need to call $$sh_func_adrs.  */
   output_asm_insn (\"copy %%r26,%%r29\", NULL);
+  output_asm_insn (\"{extru|extrw,u} %%r26,31,2,%%r31\", NULL);
 
   /* Next, examine the low two bits in %r26, if they aren't 0x2, then
      we use %r26 unchanged.  */
-  if (get_attr_length (insn) == 32)
-    output_asm_insn (\"{extru|extrw,u} %%r26,31,2,%%r31\;{comib|cmpib},<>,n 2,%%r31,.+24\", NULL);
-  else if (get_attr_length (insn) == 40)
-    output_asm_insn (\"{extru|extrw,u} %%r26,31,2,%%r31\;{comib|cmpib},<>,n 2,%%r31,.+32\", NULL);
-  else if (get_attr_length (insn) == 44)
-    output_asm_insn (\"{extru|extrw,u} %%r26,31,2,%%r31\;{comib|cmpib},<>,n 2,%%r31,.+36\", NULL);
-  else
-    output_asm_insn (\"{extru|extrw,u} %%r26,31,2,%%r31\;{comib|cmpib},<>,n 2,%%r31,.+20\", NULL);
+  output_asm_insn (\"{comib|cmpib},<>,n 2,%%r31,.+%0\", xoperands);
+  output_asm_insn (\"ldi 4096,%%r31\", NULL);
 
   /* Next, compare %r26 with 4096, if %r26 is less than or equal to
-     4096, then we use %r26 unchanged.  */
-  if (get_attr_length (insn) == 32)
-    output_asm_insn (\"ldi 4096,%%r31\;{comb|cmpb},<<,n %%r26,%%r31,.+16\",
-		     NULL);
-  else if (get_attr_length (insn) == 40)
-    output_asm_insn (\"ldi 4096,%%r31\;{comb|cmpb},<<,n %%r26,%%r31,.+24\",
-		     NULL);
-  else if (get_attr_length (insn) == 44)
-    output_asm_insn (\"ldi 4096,%%r31\;{comb|cmpb},<<,n %%r26,%%r31,.+28\",
-		     NULL);
-  else
-    output_asm_insn (\"ldi 4096,%%r31\;{comb|cmpb},<<,n %%r26,%%r31,.+12\",
-		     NULL);
+     4096, then again we use %r26 unchanged.  */
+  output_asm_insn (\"{comb|cmpb},<<,n %%r26,%%r31,.+%1\", xoperands);
 
-  /* Else call $$sh_func_adrs to extract the function's real add24.  */
+  /* Finally, call $$sh_func_adrs to extract the function's real add24.  */
   return output_millicode_call (insn,
 				gen_rtx_SYMBOL_REF (SImode,
-					 \"$$sh_func_adrs\"));
+						    \"$$sh_func_adrs\"));
 }"
   [(set_attr "type" "multi")
    (set (attr "length")
-     (cond [
-;; Target (or stub) within reach
-            (and (lt (plus (symbol_ref "total_code_bytes") (pc))
-                     (const_int 240000))
-                 (eq (symbol_ref "TARGET_PORTABLE_RUNTIME")
-                     (const_int 0)))
-            (const_int 28)
-
-;; Out of reach PIC
-	    (ne (symbol_ref "flag_pic")
-		(const_int 0))
-	    (const_int 44)
-
-;; Out of reach PORTABLE_RUNTIME
-	    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME")
-		(const_int 0))
-	    (const_int 40)]
-
-;; Out of reach, can use ble
-          (const_int 32)))])
+	(plus (symbol_ref "attr_length_millicode_call (insn)")
+	      (const_int 20)))])
 
 ;; On the PA, the PIC register is call clobbered, so it must
 ;; be saved & restored around calls by the caller.  If the call
@@ -7216,15 +7950,18 @@
 ;; restore the PIC register.
 (define_expand "exception_receiver"
   [(const_int 4)]
-  "!TARGET_PORTABLE_RUNTIME && flag_pic"
+  "flag_pic"
   "
 {
-  /* Load the PIC register from the stack slot (in our caller's
-     frame).  */
-  emit_move_insn (pic_offset_table_rtx,
-		  gen_rtx_MEM (SImode,
-			       plus_constant (stack_pointer_rtx, -32)));
-  emit_insn (gen_rtx (USE, VOIDmode, pic_offset_table_rtx));
+  /* On the 64-bit port, we need a blockage because there is
+     confusion regarding the dependence of the restore on the
+     frame pointer.  As a result, the frame pointer and pic
+     register restores sometimes are interchanged erroneously.  */
+  if (TARGET_64BIT)
+    emit_insn (gen_blockage ());
+  /* Restore the PIC register using hppa_pic_save_rtx ().  The
+     PIC register is not saved in the frame in 64-bit ABI.  */
+  emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
   emit_insn (gen_blockage ());
   DONE;
 }")
@@ -7234,9 +7971,12 @@
   "flag_pic"
   "
 {
+  if (TARGET_64BIT)
+    emit_insn (gen_blockage ());
   /* Restore the PIC register.  Hopefully, this will always be from
      a stack slot.  The only registers that are valid after a
      builtin_longjmp are the stack and frame pointers.  */
   emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
+  emit_insn (gen_blockage ());
   DONE;
 }")

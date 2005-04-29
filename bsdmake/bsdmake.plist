@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceProject</key>
+	<string>bsdmake</string>
+	<key>OpenSourceVersion</key>
+	<string>5.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.freebsd.org/</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/make/</string>
+	<key>OpenSourceCVS</key>
+	<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co make</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-08-18</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>bsdmake.plist</string>
+</dict>
+<dict>
+	<key>OpenSourceProject</key>
+	<string>bsdmake-mk</string>
+	<key>OpenSourceVersion</key>
+	<string>2004-10-24</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.freebsd.org/</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/share/mk/</string>
+	<key>OpenSourceCVS</key>
+	<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co mk</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-10-24</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>bsdmake.plist</string>
+</dict>
+</array>
+</plist>

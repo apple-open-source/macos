@@ -1,0 +1,52 @@
+Umstellung SSL, roadmap fuer Arbeiten an Trf
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*1	Einbinden der zusaetzlichen (und einfachen) Funktionen,
+	also
+		RC2, MD2, SHA-1
+	/OK/
+
+*2	Auslagerung aller Funktionen in der Schnittmenge von
+	Trf / SSLeay in eine eigene Bibliothek (trfcrypt)
+	also:
+		IDEA, MD5, RC4, SHA
+
+	Erweitere das Ladesystem, versuche verschiedene Bibliotheken,
+	um soviele Anforderungen wie moeglich zu befriedigen.
+	(US / non-US Distributionen, trf, trfcrypt Bibliotheken)
+
+	/OK/
+
+*2a	Uebrig bleiben	BLOWFISH, HAVAL.
+		Koennen eigentlich auch in die separate Bibliothek.
+
+	/OK/
+
+*3	Weitere Funktionen von SSL verstehen und einbinden
+	(RSA, Diffie/Hellman, DSA)
+
+*4	Hoeherwertige Funktionen bilden (SSL Operationen?)
+
+<3/4>	Sehr wahrscheinlich nicht als attached streams moeglich,
+	nur direkte Operationen.
+
+*5	Tage Kasell, PGPlib einbinden fuer PGP Funktionen
+
+
+
+
+---------------------------------
+Levels von Trf
+~~~~~~~~~~~~~~
+*a	Allgemeine Funktionen fuer die Realisierung von Stream-
+	Transformationen. Dazu zaehlen auch die Spezialisierungen fuer die
+	Anbindung von kryptographischen Algorithmen.
+
+*b	Realisierungen von Stream-Transformationen, bzw. glue-Code fuer die
+	Anbindung existierender Algorithmen.
+
+*c	Sammlung von Implementierungen verschiedener kryptographischer
+	Algorithmen.
+
+
+Level (*c) sollte eine eigene Bibliothek sein (siehe *2, *2a oben).

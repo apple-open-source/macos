@@ -1,0 +1,259 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.TH man 1 "2 September 1995"
+.LO 1
+.SH NAAM
+man \- formatteer en vertoon documentatie bladzijden
+.br
+manpath \- geef het zoekpad voor documentatie bladzijden van de gebruiker weer
+.SH SYNTAX
+man [\-acdfhktwW] [\-m systeem] [\-p preprocessoren] [\-C configuratiebestand] [\-M pad]
+[\-P pagineerprogramma] [\-S lijst_van_hoofdstukken] [hoofdstuk] naam ...
+.SH BESCHRIJVING
+.B man
+formatteert en vertoont bladzijden van de programma documentatie.
+Deze versie kent de
+.B MANPATH
+en
+.B (MAN)PAGER
+omgevings\%variabelen, zodat
+je je eigen collectie documentatiebladzijden en je eigen
+pagineerprogramma kunt gebruiken.
+Als het
+.I hoofdstuk
+is opgegeven, dan kijkt
+.B man
+alleen in dat hoofdstuk.
+Je kunt ook met omgevings\%variabelen of met programmaopties
+opgeven in welke volgorde de hoofdstukken moeten worden
+afgezocht, en welke preprocessoren de tekst moeten voorbewerken.
+Als
+.I naam
+een / bevat, dan wordt hij eerst geprobeerd als bestandsnaam,
+zodat opdrachten als
+.B "man ./foo.5"
+of
+.B "man /cd/foo/bar.1.gz"
+mogelijk zijn.
+.SH OPTIES
+.TP
+.B \-\^C " configuratiebestand"
+Geef aan welk configuratiebestand gebruikt moet worden.
+Als deze optie niet is opgegeven, dan wordt
+@man_config_file@ gebruikt. (Voor een beschrijving van dit
+bestand, zie man.conf(5).)
+.TP
+.B \-\^M " pad"
+Geef de lijst van directories waarin gezocht moet worden.
+Als deze optie niet is opgegeven, dan wordt de omgevings\%variabele
+.B MANPATH
+gebruikt. En als er niet zo'n omgevings\%variabele is, dan wordt de
+standaardlijst gevonden door @man_config_file@ te raadplegen.
+Een lege deelstring in MANPATH wordt vervangen door de standaardlijst.
+.TP
+.B \-\^P " pagineerprogramma"
+Geef aan welk pagineerprogramma gebruikt moet worden.
+Als deze optie niet is opgegeven, dan wordt het programma vermeld in
+de omgevings\%variabele
+.B MANPAGER
+of, als deze niet bestaat,
+.B PAGER
+gebruikt. Is er ook niet zo'n omgevings\%variabele, dan wordt
+.B @pager@
+gebruikt.
+.TP
+.B \-\^S " lijst_van_hoofdstukken"
+Deze lijst is een lijst van hoofdstukken, door dubbele punten van elkaar
+gescheiden, waarin gezocht wordt.
+Als deze optie niet is opgegeven, dan wordt de omgevings\%variabele
+.B MANSECT
+gebruikt.
+.TP
+.B \-\^a
+Normaal zal
+.B man
+termineren na het vertonen van de eerste documentatie bladzijde
+die hij vindt. Deze optie zegt dat alle bladzijden over
+.B naam
+vertoond moeten worden.
+.TP
+.B \-\^c
+Formatteer de bron bladzijde, zelfs als er een recente voorgeformatteerde
+bladzijde bestaat. Dit kan nuttig zijn als die bladzijde
+geformatteerd was voor een scherm met een andere breedte,
+of als de voorgeformatteerde bladzijde niet deugt.
+.TP
+.B \-\^d
+Vertoon de bladzijden niet echt, maar vertel gedetailleerd wat
+gedaan wordt - deze optie is alleen nuttig om fouten op te sporen.
+.TP
+.B \-\^D
+Als by -d, maar vertoon de bladzijden ook.
+.TP
+.B \-\^f
+Voer het programma
+.B whatis
+uit.
+.TP
+.B \-\^h
+Druk een hulptekst af.
+.TP
+.B \-\^k
+Voer het programma
+.B apropos
+uit.
+.TP
+.B \-\^K
+Zoek de opgegeven tekst in *alle* handboekbladzijden. Pas op: dit
+kan lang duren! (Op mijn machine kost dit bijvoorbeeld een minuut
+voor elke 500 pagina's.) Het helpt om een sectie op te geven.
+.TP
+.B \-\^m " systeem"
+Gebruik een andere collectie documentatie\%bladzijden, afhankelijk
+van de opgegeven systeem\%naam.
+.TP
+.B \-\^p " preprocessoren"
+Geef aan welke preprocessoren de tekst moeten voorbewerken voordat
+deze aan nroff of troff gevoerd wordt. Enige preprocessoren, en de
+letters waarmee ze aangeduid worden, zijn:
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
+Niet elke installatie zal al deze programma's hebben.
+Als deze optie niet is opgegeven, dan wordt de omgevings\%variabele
+.B MANROFFSEQ
+gebruikt.
+.TP
+.B \-\^t
+Gebruik
+.B @troff@
+om de bladzijde te formatteren, en stuur het resultaat naar
+.B stdout.
+De uitvoer van
+.B @troff@
+moet mogelijk nog door een of ander filter gestuurd worden
+voordat hij afgedrukt kan worden.
+.TP
+.B \-\^w \fRor\fP \-\-path
+Vertoon geen documentatie, maar druk de padnamen af van de bestanden
+waarin documentatie gevonden werd. Als geen
+.I naam
+opgegeven is, dan: druk het zoekpad af. Als
+.B manpath
+een link is naar man, dan is "manpath" equivalent met "man --path".
+.TP
+.B \-\^W
+Als \-\^w, maar druk alleen de padnamen af, zonder additionele informatie.
+Dit komt van pas in opdrachten zoals
+.ft CW
+man -aW man | xargs ls -l
+.ft
+
+.SH "VOORGEFORMATTEERDE BLADZIJDEN"
+Man probeert om geformatteerde bladzijden te bewaren, om de volgende
+keer dat ze nodig zijn tijd te sparen. Gewoonlijk worden de geformatteerde
+versies van de bladzijden uit DIR/manX bewaard in DIR/catX, maar andere
+afbeeldingen van man directories naar cat directories kunnen in
+@man_config_file@ worden aangegeven. Geformatteerde bladzijden worden
+niet bewaard als het bijbehorende cat directory niet bestaat.
+.LP
+Het is mogelijk om man suid te maken, met eigenaar man. Als dan een
+cat directory eigenaar man heeft, en mode 0755 (alleen door man beschrijfbaar),
+en de geformatteerde bladzijden hebben eigenaar man en mode 0644 of 0444
+(alleen beschrijfbaar door man, of helemaal niet beschrijfbaar),
+dan kan geen gewone gebruiker de geformatteerde bladzijden wijzigen
+of andere bestanden opslaan in dat directory. Als man niet suid is,
+dan moet een cat directory waar voor alle gebruikers geformatteerde
+bladzijden geschreven moeten kunnen worden mode 0777 hebben.
+.LP
+De optie -c laat man een pagina opnieuw formatteren, zelfs als een
+recente geformatteerde pagina bestaat.
+
+.SH OMGEVINGSVARIABELEN
+.TP
+.B MANPATH
+Als
+.B MANPATH
+een waarde heeft, dan wordt deze waarde als zoekpad gebruikt.
+.TP
+.B MANROFFSEQ
+Als
+.B MANROFFSEQ
+een waarde heeft, dan wordt deze waarde gebruikt om te bepalen door
+welke preprocessoren de tekst bewerkt moet worden. Standaard wordt
+tbl gebruikt.
+.TP
+.B MANSECT
+Als
+.B MANSECT
+een waarde heeft, dan wordt deze waarde gebruikt om te bepalen in welke
+hoofdstukken gezocht wordt.
+.TP
+.B MANWIDTH
+Als
+.B MANWIDTH
+een waarde heeft, dan geeft deze waarde aan hoeveel kolommen de uitvoer
+breed moet zijn. Vooral bij heel brede schermen geven veel mensen er de
+voorkeur aan het aantal kolommen tot 80 of 100 te beperken.
+.TP
+.B MANPAGER
+Als
+.B MANPAGER
+een waarde heeft, dan wordt deze waarde gebruikt als naam van het te gebruiken
+pagineerprogramma. Zo niet, dan wordt de waarde van
+.B PAGER
+gebruikt. Bestaat deze ook niet, dan wordt
+.B @pager@
+gebruikt.
+.TP
+.B LANG
+Als
+.B LANG
+een waarde heeft, dan bepaalt deze de naam van een onderdirectory
+waar man eerst in zoekt. Bijvoorbeeld, na `LANG=nl man 1 iets'
+zal man eerst in .../nl/man1/iets.1 zoeken, en als dat niet bestaat,
+dan in .../man1/iets.1. Hierbij is ... een directory uit het zoekpad.
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+De omgevingsvariabelen
+.B NLSPATH
+en
+.B LC_MESSAGES
+(of, als deze niet bestaat,
+.B LANG\c
+) spelen een rol bij het vinden van de versie in de opgegeven taal
+van de mededelingen (voornamelijk foutmeldingen) die man produceert.
+(Maar de Engelse teksten zijn meegecompileerd, en hoeven niet uit een
+bestand gehaald te worden.)
+Programma's als col(1) die door man aangeroepen worden,
+gebruiken ook LC_CTYPE.
+.TP
+.B PATH
+.B PATH
+wordt gebruikt bij het construeren van het standaard zoekpad van man.
+.TP
+.B SYSTEM
+.B SYSTEM
+wordt gebruikt als standaard naam bij de optie
+.B \-m.
+.SH "ZIE OOK"
+apropos(1), whatis(1), less(1), groff(1).
+.SH FOUTEN
+De
+.B \-t
+optie werkt alleen als een troff-achtig programma geinstalleerd is.
+.br
+Als je \e255 of <AD> ziet knipperen waar afbreekstreepjes hadden
+moeten staan, zet dan `LESSCHARSET=latin1' in je omgeving.

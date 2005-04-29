@@ -23,7 +23,7 @@
  */
 
 #include <stdlib.h>
-
+#include <asl.h>
 #include "watcher.h"
 #include "daemon.h"
 
@@ -148,7 +148,7 @@ watcher_internal_trigger(watcher_t *w, uint32_t t, uint32_t flags, uint32_t leve
 	if (w->wid != t) return;
 
 #ifdef DEBUG
-	log_message(LOG_DEBUG, "watcher_trigger %u level %u", t, level);
+	log_message(ASL_LEVEL_DEBUG, "watcher_trigger %u level %u", t, level);
 #endif
 
 	postit = 0;

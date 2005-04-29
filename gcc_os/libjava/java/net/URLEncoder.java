@@ -1,5 +1,5 @@
 /* URLEncoder.java -- Class to convert strings to a properly encoded URL
-   Copyright (C) 1998, 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,7 +39,7 @@ package java.net;
 
 import java.io.UnsupportedEncodingException;
 
-/**
+/*
  * Written using on-line Java Platform 1.2/1.4 API Specification, as well
  * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998).
  * Status:  Believed complete and correct.
@@ -94,16 +94,19 @@ public class URLEncoder
    *
    * @return The converted String
    *
+   * @exception UnsupportedEncodingException If the named encoding is not
+   * supported
+   *
    * @since 1.4
    */
   public static String encode(String s, String encoding)
     throws UnsupportedEncodingException
   {
-    StringBuffer result = new StringBuffer();
     int length = s.length();
     int start = 0;
     int i = 0;
 
+    StringBuffer result = new StringBuffer(length);
     while (true)
     {
       while ( i < length && isSafe(s.charAt(i)) )

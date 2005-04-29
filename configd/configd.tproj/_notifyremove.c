@@ -44,12 +44,6 @@ __SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boole
 	CFNumberRef			sessionNum;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 
-	if (_configd_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCDynamicStoreRemoveWatchedKey:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  key     = %@"), key);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  isRegex = %s"), isRegex ? "TRUE" : "FALSE");
-	}
-
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
@@ -107,38 +101,33 @@ _notifyremove(mach_port_t		server,
 	      int			*sc_status
 )
 {
-	serverSessionRef	mySession = getSession(server);
-	CFStringRef		key;		/* key  (un-serialized) */
-
-	if (_configd_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("Remove notification key for this session."));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
-	}
+	CFStringRef		key		= NULL;		/* key  (un-serialized) */
+	serverSessionRef	mySession	= getSession(server);
 
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
-		return KERN_SUCCESS;
+		goto done;
 	}
 
 	if (!isA_CFString(key)) {
 		*sc_status = kSCStatusInvalidArgument;
-		CFRelease(key);
-		return KERN_SUCCESS;
+		goto done;
 	}
 
 	if (!mySession) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
-		CFRelease(key);
-		return KERN_SUCCESS;
+		goto done;
 	}
 
 	*sc_status = __SCDynamicStoreRemoveWatchedKey(mySession->store,
 						      key,
 						      isRegex != 0,
 						      FALSE);
-	CFRelease(key);
 
+    done :
+
+	if (key)	CFRelease(key);
 	return KERN_SUCCESS;
 }
 

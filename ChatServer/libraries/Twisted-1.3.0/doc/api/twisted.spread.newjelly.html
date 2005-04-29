@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.spread.newjelly</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.spread.html">Package&nbsp;spread</a> ::
+        Module&nbsp;newjelly
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.spread.newjelly.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.spread.newjelly</h2>
+
+<p>S-expression-based persistence of python objects.</p>
+<p>Stability: semi-stable</p>
+<p>Future Plans: Optimization. Lots of optimization. No semantic 
+breakages should be necessary, but if small tweaks are required to gain 
+acceptable large-scale performance then they will be made. Although Glyph 
+is the maintainer, Bruce Mitchener will be supervising most of the 
+optimization work here.</p>
+<p>I do something very much like <code>Pickle</code>; however, pickle's 
+main goal seems to be efficiency (both in space and time); jelly's main 
+goals are security, human readability, and portability to other 
+environments.</p>
+<p>This is how Jelly converts various objects to s-expressions:</p>
+<p>Boolean: True --&gt; ['boolean', 'true']</p>
+<p>Integer: 1 --&gt; 1</p>
+<p>List: [1, 2] --&gt; ['list', 1, 2]</p>
+<p>String: &quot;hello&quot; --&gt; &quot;hello&quot;</p>
+<p>Float: 2.3 --&gt; 2.3</p>
+<p>Dictionary: {'a' : 1, 'b' : 'c'} --&gt; ['dictionary', ['b', 'c'], 
+['a', 1]]</p>
+<p>Module: UserString --&gt; ['module', 'UserString']</p>
+<p>Class: UserString.UserString --&gt; ['class', ['module', 
+'UserString'], 'UserString']</p>
+<p>Function: string.join --&gt; ['function', 'join', ['module', 
+'string']]</p>
+<p>Instance: s is an instance of UserString.UserString, with a __dict__ 
+{'data': 'hello'}: [&quot;UserString.UserString&quot;, ['dictionary', 
+['data', 'hello']]]</p>
+<p># ['instance', ['class', ['module', 'UserString'], 'UserString'], 
+['dictionary', ['data', 'hello']]]</p>
+<p>Class Method: UserString.UserString.center: ['method', 'center', 
+['None'], ['class', ['module', 'UserString'], 'UserString']]</p>
+Instance Method: s.center, where s is an instance of 
+UserString.UserString: ['method', 'center', ['instance', ['reference', 1, 
+['class', ['module', 'UserString'], 'UserString']], ['dictionary', 
+['data', 'd']]], ['dereference', 1]]
+<hr/>
+<p><b>Author:</b> <a href="mailto:glyph&#64;twistedmatrix.com">Glyph Lefkowitz</a>
+</p>
+
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.spread.newjelly._Dummy.html"><code>_Dummy</code></a></b></td>
+  <td>(Internal) Dummy class, used for unserializing instances.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.spread.newjelly._Jellier.html"><code>_Jellier</code></a></b></td>
+  <td>(Internal) This class manages state for a call to jelly()</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.spread.newjelly._Unjellier.html"><code>_Unjellier</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.spread.newjelly.DummySecurityOptions.html"><code>DummySecurityOptions</code></a></b></td>
+  <td>DummySecurityOptions() -&gt; insecure security options Dummy security 
+options -- this class will allow anything.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.spread.newjelly.Jellyable.html"><code>Jellyable</code></a></b></td>
+  <td>Inherit from me to Jelly yourself directly.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.spread.newjelly.SecurityOptions.html"><code>SecurityOptions</code></a></b></td>
+  <td>This will by default disallow everything, except for 'none'.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.spread.newjelly.Unjellyable.html"><code>Unjellyable</code></a></b></td>
+  <td>Inherit from me to Unjelly yourself directly.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.spread.newjelly.Unpersistable.html"><code>Unpersistable</code></a></b></td>
+  <td>This is an instance of a class that comes back when something couldn't 
+be persisted.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF EXCEPTIONS =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Exceptions</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.spread.newjelly.InsecureJelly.html"><code>InsecureJelly</code></a></b></td>
+  <td>This exception will be raised when a jelly is deemed `insecure'; 
+e.g.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.spread.newjelly.NullReference.html"><code>NullReference</code></a></b></td>
+  <td>This object is a marker for when a reference is made to an object
+that can't be referenced, i.e.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_maybeClass"></a><span class="summary-sig"><span class="summary-sig-name">_maybeClass</span>(<span class=summary-sig-arg>classnamep</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.newjelly.html#getInstanceState" class="summary-sig-name"><code>getInstanceState</code></a>(<span class=summary-sig-arg>inst</span>,
+          <span class=summary-sig-arg>jellier</span>)</span></code>
+<br />
+Utility method to default to 'normal' state rules in 
+serialization.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.newjelly.html#jelly" class="summary-sig-name"><code>jelly</code></a>(<span class=summary-sig-arg>object</span>,
+          <span class=summary-sig-arg>taster</span>,
+          <span class=summary-sig-arg>persistentStore</span>,
+          <span class=summary-sig-arg>invoker</span>)</span></code>
+<br />
+Serialize to s-expression.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.newjelly.html#setInstanceState" class="summary-sig-name"><code>setInstanceState</code></a>(<span class=summary-sig-arg>inst</span>,
+          <span class=summary-sig-arg>unjellier</span>,
+          <span class=summary-sig-arg>jellyList</span>)</span></code>
+<br />
+Utility method to default to 'normal' state rules in 
+unserialization.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.newjelly.html#setUnjellyableFactoryForClass" class="summary-sig-name"><code>setUnjellyableFactoryForClass</code></a>(<span class=summary-sig-arg>classname</span>,
+          <span class=summary-sig-arg>copyFactory</span>)</span></code>
+<br />
+Set the factory to construct a remote instance of a type:</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.newjelly.html#setUnjellyableForClass" class="summary-sig-name"><code>setUnjellyableForClass</code></a>(<span class=summary-sig-arg>classname</span>,
+          <span class=summary-sig-arg>unjellyable</span>)</span></code>
+<br />
+Set which local class will represent a remote type.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.newjelly.html#setUnjellyableForClassTree" class="summary-sig-name"><code>setUnjellyableForClassTree</code></a>(<span class=summary-sig-arg>module</span>,
+          <span class=summary-sig-arg>baseClass</span>,
+          <span class=summary-sig-arg>prefix</span>)</span></code>
+<br />
+Set all classes in a module derived from <code>baseClass</code> as 
+copiers for a corresponding remote class.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.newjelly.html#unjelly" class="summary-sig-name"><code>unjelly</code></a>(<span class=summary-sig-arg>sexp</span>,
+          <span class=summary-sig-arg>taster</span>,
+          <span class=summary-sig-arg>persistentLoad</span>,
+          <span class=summary-sig-arg>invoker</span>)</span></code>
+<br />
+Unserialize from s-expression.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.spread.newjelly.html#__version__"><code>__version__</code></a></b> = <span title="'1.9'"><code><span class="variable-quote">'</span>1.9<span class="variable-quote">'</span>                                      </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><a href="twisted.spread.newjelly.NullReference.html" 
+          class="link"><code>NullReference</code></a></font></td>
+<td><b><a href="twisted.spread.newjelly.html#_theNullRef"><code>_theNullRef</code></a></b> = <span title="&lt;twisted.spread.newjelly.NullReference instance at 0x87d5a84&gt;"><code>&lt;twisted.spread.newjelly.NullReference&nbsp;ins<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>list</code></font></td>
+<td><b><a href="twisted.spread.newjelly.html#debugCrap"><code>debugCrap</code></a></b> = <span title="[]"><code>[]                                           </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><a href="twisted.spread.newjelly.SecurityOptions.html" 
+          class="link"><code>SecurityOptions</code></a></font></td>
+<td><b><a href="twisted.spread.newjelly.html#globalSecurity"><code>globalSecurity</code></a></b> = <span title="&lt;twisted.spread.newjelly.SecurityOptions instance at 0x8ac7cb4&gt;"><code>&lt;twisted.spread.newjelly.SecurityOption<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.spread.newjelly.html#unjellyableFactoryRegistry"><code>unjellyableFactoryRegistry</code></a></b> = <span title="{}"><code>{}                          </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.spread.newjelly.html#unjellyableRegistry"><code>unjellyableRegistry</code></a></b> = <span title="{}"><code>{}                                 </code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="getInstanceState"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getInstanceState</span>(<span class=sig-arg>inst</span>,
+          <span class=sig-arg>jellier</span>)</span>
+  </h3>
+  Utility method to default to 'normal' state rules in 
+  serialization.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="jelly"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">jelly</span>(<span class=sig-arg>object</span>,
+          <span class=sig-arg>taster</span>=<span class=sig-default>&lt;twisted.spread.newjelly.DummySecurityOptions&nbsp;instance&nbsp;at...</span>,
+          <span class=sig-arg>persistentStore</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>invoker</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Serialize to s-expression.</p>
+  Returns a list which is the serialized representation of an object. 
+  An optional 'taster' argument takes a SecurityOptions and will mark any 
+  insecure objects as unpersistable rather than serializing them.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="setInstanceState"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">setInstanceState</span>(<span class=sig-arg>inst</span>,
+          <span class=sig-arg>unjellier</span>,
+          <span class=sig-arg>jellyList</span>)</span>
+  </h3>
+  Utility method to default to 'normal' state rules in 
+  unserialization.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="setUnjellyableFactoryForClass"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">setUnjellyableFactoryForClass</span>(<span class=sig-arg>classname</span>,
+          <span class=sig-arg>copyFactory</span>)</span>
+  </h3>
+  Set the factory to construct a remote instance of a type:
+<pre class="literalblock">
+   jellier.setFactoryForClass('module.package.Class', MyFactory)
+</pre>
+  <p>Call this at the module level immediately after its class 
+  definition. <code>copyFactory</code> should return an instance or 
+  subclass of <a href="twisted.spread.flavors.RemoteCopy.html" 
+  class="link"><code>RemoteCopy</code></a>.</p>
+  Similar to <a 
+  href="twisted.spread.newjelly.html#setUnjellyableForClass" 
+  class="link"><code>setUnjellyableForClass</code></a> except it uses a 
+  factory instead of creating an instance.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="setUnjellyableForClass"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">setUnjellyableForClass</span>(<span class=sig-arg>classname</span>,
+          <span class=sig-arg>unjellyable</span>)</span>
+  </h3>
+  <p>Set which local class will represent a remote type.</p>
+  If you have written a Copyable class that you expect your client to 
+  be receiving, write a local &quot;copy&quot; class to represent it, 
+  then call:
+<pre class="literalblock">
+   jellier.setUnjellyableForClass('module.package.Class', MyJellier).
+</pre>
+  <p>Call this at the module level immediately after its class 
+  definition. MyCopier should be a subclass of RemoteCopy.</p>
+  <p>The classname may be a special tag returned by 
+  'Copyable.getTypeToCopyFor' rather than an actual classname.</p>
+  This call is also for cached classes, since there will be no 
+  overlap. The rules are the same.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="setUnjellyableForClassTree"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">setUnjellyableForClassTree</span>(<span class=sig-arg>module</span>,
+          <span class=sig-arg>baseClass</span>,
+          <span class=sig-arg>prefix</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Set all classes in a module derived from <code>baseClass</code> as 
+  copiers for a corresponding remote class.</p>
+  <p>When you have a heirarchy of Copyable (or Cacheable) classes on one 
+  side, and a mirror structure of Copied (or RemoteCache) classes on the 
+  other, use this to setCopierForClass all your Copieds for the 
+  Copyables.</p>
+  Each copyTag (the &quot;classname&quot; argument to 
+  getTypeToCopyFor, and what the Copyable's getTypeToCopyFor returns) is 
+  formed from adding a prefix to the Copied's class name. The prefix 
+  defaults to module.__name__. If you wish the copy tag to consist of 
+  solely the classname, pass the empty string ''.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>module</b></code> -
+         a module object from which to pull the Copied classes. 
+        (passing sys.modules[__name__] might be useful)
+      <dd><code><b>baseClass</b></code> -
+         the base class from which all your Copied classes derive.
+      <dd><code><b>prefix</b></code> -
+         the string prefixed to classnames to form the 
+        unjellyableRegistry.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="unjelly"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">unjelly</span>(<span class=sig-arg>sexp</span>,
+          <span class=sig-arg>taster</span>=<span class=sig-default>&lt;twisted.spread.newjelly.DummySecurityOptions&nbsp;instance&nbsp;at...</span>,
+          <span class=sig-arg>persistentLoad</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>invoker</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Unserialize from s-expression.</p>
+  Takes an list that was the result from a call to jelly() and 
+  unserializes an arbitrary object from it. The optional 'taster' 
+  argument, an instance of SecurityOptions, will cause an InsecureJelly 
+  exception to be raised if a disallowed type, module, or class attempted 
+  to unserialize.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="__version__"></a>
+<h3>__version__</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'1.9'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>1.9<span class="variable-quote">'</span>                                                                  </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="_theNullRef"></a>
+<h3>_theNullRef</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <a href="twisted.spread.newjelly.NullReference.html" 
+          class="link"><code>NullReference</code></a>
+
+      </dd>
+<span title="&lt;twisted.spread.newjelly.NullReference instance at 0x87d5a84&gt;">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+&lt;twisted.spread.newjelly.NullReference instance at 0x87d5a84&gt;          </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="debugCrap"></a>
+<h3>debugCrap</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>list</code>
+
+      </dd>
+<span title="[]">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+[]                                                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="globalSecurity"></a>
+<h3>globalSecurity</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <a href="twisted.spread.newjelly.SecurityOptions.html" 
+          class="link"><code>SecurityOptions</code></a>
+
+      </dd>
+<span title="&lt;twisted.spread.newjelly.SecurityOptions instance at 0x8ac7cb4&gt;">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+&lt;twisted.spread.newjelly.SecurityOptions instance at 0x8ac7cb4&gt;        </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="unjellyableFactoryRegistry"></a>
+<h3>unjellyableFactoryRegistry</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{}                                                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="unjellyableRegistry"></a>
+<h3>unjellyableRegistry</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{}                                                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:44 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

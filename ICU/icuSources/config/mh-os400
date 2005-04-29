@@ -1,16 +1,17 @@
 ## -*-makefile-*-
 ## OS400-specific setup (for cross build)
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
-##
-## $Id: mh-os400,v 1.1.1.2 2003/07/03 18:13:33 avery Exp $
 
 GEN_DEPS.c=	$(CC1) -E -M $(DEFS) $(CPPFLAGS)
 GEN_DEPS.cc=	$(CXX1) -E -M $(DEFS) $(CPPFLAGS)
 
-DEFS+=-DOS400 -D_MULTI_THREADED
+DEFS+=-DOS400
+THREADSCPPFLAGS = -D_MULTI_THREADED
 
 ## Commands to compile
+# -qTERASPACE: large pointers
+# -qPFROPT=*STRDONLY: Strings are read-only
 COMPILE.c=	$(CC) $(DEFS) $(CPPFLAGS) $(CFLAGS) -c -qTERASPACE=*YES -qSTGMDL=*INHERIT -qPFROPT=*STRDONLY
 COMPILE.cc=	$(CXX) $(DEFS) $(CPPFLAGS) $(CXXFLAGS) -c -qTERASPACE=*YES -qSTGMDL=*INHERIT -qPFROPT=*STRDONLY
 
@@ -21,8 +22,12 @@ LINK.c=		$(CXX) $(CXXFLAGS) $(LDFLAGS) -qOPTION='*DUPPROC *DUPVAR'
 LINK.cc=	$(CXX) $(CXXFLAGS) $(LDFLAGS) -qOPTION='*DUPPROC *DUPVAR'
 
 ## Commands to make a shared library
-SHLIB.c=   ld -v -qOPTION='*DUPPROC *DUPVAR'
-SHLIB.cc=	 ld -v -qOPTION='*DUPPROC *DUPVAR'
+# -qALWLIBUPD: It allows the compiled service program to have dependencies on
+#	service programs in a different library than that specified originally
+#	by CRTSRVPGM after having used the UPDSRVPGM command.
+#	Similar to -fPIC and -install_name on other compilers, but different.
+SHLIB.c=   ld -v -qOPTION='*DUPPROC *DUPVAR' -qALWLIBUPD=*YES
+SHLIB.cc=	 ld -v -qOPTION='*DUPPROC *DUPVAR' -qALWLIBUPD=*YES
 AR = qar
 ARFLAGS = -cuv
 
@@ -30,9 +35,24 @@ ARFLAGS = -cuv
 LD_RPATH=	-I
 LD_RPATH_PRE=	-I
 
+## Make target to rebind the common library
+## to the actual data versus the stub data
+POST_DATA_BUILD = os400-data-rebind
+
+# The stubdata directory is the same directory as the normal data library.
+STUBDATA_LIBDIR = $(LIBDIR)/
+
 ## Versioned target for a shared library.
 FINAL_SO_TARGET = $(SO_TARGET)
 MIDDLE_SO_TARGET = 
+
+# this one is for icudefs.mk's use
+ifeq ($(ENABLE_SHARED),YES)
+SO_TARGET_VERSION_SUFFIX = $(SO_TARGET_VERSION_MAJOR)
+endif
+
+# this one is for the individual make files and linking
+ICULIBSUFFIX = $(SO_TARGET_VERSION_SUFFIX)
 
 ##  object suffix
 TO=		o
@@ -48,15 +68,20 @@ RMV = del
 INSTALL-S =  cp -fph
 INSTALL-L = $(INSTALL-S)
 
+# Stub name overrides for iSeries
+DATA_STUBNAME = dt
+I18N_STUBNAME = in
+CTESTFW_STUBNAME = tf
+
 ## Link commands to link to ICU service programs
-LIBICUDT = $(top_builddir)/stubdata/$(LIBICU)data$(ICULIBSUFFIX).$(SO)
-LIBICUUC = $(top_builddir)/common/$(LIBICU)uc$(ICULIBSUFFIX).$(SO)
-LIBICUI18N = $(top_builddir)/i18n/$(LIBICU)i18n$(ICULIBSUFFIX).$(SO)
-LIBICULE = $(top_builddir)/layout/$(LIBICU)le$(ICULIBSUFFIX).$(SO)
-LIBICULX = $(top_builddir)/layoutex/$(LIBICU)lx$(ICULIBSUFFIX).$(SO)
-LIBCTESTFW = $(top_builddir)/tools/ctestfw/$(LIBICU)ctestfw$(ICULIBSUFFIX).$(SO)
-LIBICUTOOLUTIL = $(top_builddir)/tools/toolutil/$(LIBICU)toolutil$(ICULIBSUFFIX).$(SO)
-LIBUSTDIO=      $(top_builddir)/extra/ustdio/$(LIBICU)io$(ICULIBSUFFIX).$(SO)
+LIBICUDT = $(LIBDIR)/$(LIBICU)$(DATA_STUBNAME)$(ICULIBSUFFIX).$(SO)
+LIBICUUC = $(LIBDIR)/$(LIBICU)$(COMMON_STUBNAME)$(ICULIBSUFFIX).$(SO)
+LIBICUI18N = $(LIBDIR)/$(LIBICU)$(I18N_STUBNAME)$(ICULIBSUFFIX).$(SO)
+LIBICULE = $(LIBDIR)/$(LIBICU)$(LAYOUT_STUBNAME)$(ICULIBSUFFIX).$(SO)
+LIBICULX = $(LIBDIR)/$(LIBICU)$(LAYOUTEX_STUBNAME)$(ICULIBSUFFIX).$(SO)
+LIBCTESTFW = $(top_builddir)/tools/ctestfw/$(LIBICU)$(CTESTFW_STUBNAME)$(ICULIBSUFFIX).$(SO)
+LIBICUTOOLUTIL = $(LIBDIR)/$(LIBICU)$(TOOLUTIL_STUBNAME)$(ICULIBSUFFIX).$(SO)
+LIBICUIO= $(LIBDIR)/$(LIBICU)$(IO_STUBNAME)$(ICULIBSUFFIX).$(SO)
 
 ## Special OS400 rules
 

@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_sarea.h,v 1.5 2002/10/30 12:52:14 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_sarea.h,v 1.6 2003/09/28 20:15:57 alanh Exp $ */
 /*
  * Copyright 2000 ATI Technologies Inc., Markham, Ontario,
  *                VA Linux Systems Inc., Fremont, California.
@@ -92,11 +92,11 @@
 /* Keep these small for testing */
 #define RADEON_NR_SAREA_CLIPRECTS	12
 
-/* There are 2 heaps (local/AGP).  Each region within a heap is a
+/* There are 2 heaps (local/GART).  Each region within a heap is a
  * minimum of 64k, and there are at most 64 of them per heap.
  */
 #define RADEON_CARD_HEAP		0
-#define RADEON_AGP_HEAP			1
+#define RADEON_GART_HEAP		1
 #define RADEON_NR_TEX_HEAPS		2
 #define RADEON_NR_TEX_REGIONS		64
 #define RADEON_LOG_TEX_GRANULARITY	16
@@ -185,12 +185,6 @@ typedef struct {
 } radeon_texture_regs_t;
 
 typedef struct {
-    unsigned char next, prev;	/* indices to form a circular LRU  */
-    unsigned char in_use;	/* owned by a client, or free? */
-    int age;			/* tracked by clients to update local LRU's */
-} radeon_tex_region_t;
-
-typedef struct {
     /* The channel for communication of state information to the kernel
      * on firing a vertex buffer.
      */
@@ -224,9 +218,9 @@ typedef struct {
      * else's - simply eject them all in LRU order.
      */
 				/* Last elt is sentinal */
-    radeon_tex_region_t texList[RADEON_NR_TEX_HEAPS][RADEON_NR_TEX_REGIONS+1];
+    drmTextureRegion texList[RADEON_NR_TEX_HEAPS][RADEON_NR_TEX_REGIONS+1];
 				/* last time texture was uploaded */
-    int texAge[RADEON_NR_TEX_HEAPS];
+    unsigned int texAge[RADEON_NR_TEX_HEAPS];
 
     int ctxOwner;		/* last context to upload state */
     int pfAllowPageFlip;	/* set by the 2d driver, read by the client */

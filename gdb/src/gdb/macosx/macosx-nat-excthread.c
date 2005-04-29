@@ -45,78 +45,87 @@ static FILE *excthread_stderr = NULL;
 static FILE *excthread_stderr_re = NULL;
 static int excthread_debugflag = 0;
 
-extern boolean_t exc_server (mach_msg_header_t *in, mach_msg_header_t *out);
+extern boolean_t exc_server (mach_msg_header_t * in, mach_msg_header_t * out);
 
 #if 0
-static int excthread_debug (const char *fmt, ...)
+static int
+excthread_debug (const char *fmt, ...)
 {
   va_list ap;
-  if (excthread_debugflag) {
-    va_start (ap, fmt);
-    fprintf (excthread_stderr, "[%d excthread]: ", getpid ());
-    vfprintf (excthread_stderr, fmt, ap);
-    va_end (ap);
-    return 0;
-  } else {
-    return 0;
-  }
+  if (excthread_debugflag)
+    {
+      va_start (ap, fmt);
+      fprintf (excthread_stderr, "[%d excthread]: ", getpid ());
+      vfprintf (excthread_stderr, fmt, ap);
+      va_end (ap);
+      return 0;
+    }
+  else
+    {
+      return 0;
+    }
 }
 #endif
 
 /* A re-entrant version for use by the signal handling thread */
 
-void excthread_debug_re (const char *fmt, ...)
+void
+excthread_debug_re (const char *fmt, ...)
 {
   va_list ap;
-  if (excthread_debugflag) {
-    va_start (ap, fmt);
-    fprintf (excthread_stderr_re, "[%d excthread]: ", getpid ());
-    vfprintf (excthread_stderr_re, fmt, ap);
-    va_end (ap);
-    fflush (excthread_stderr_re);
-  }
+  if (excthread_debugflag)
+    {
+      va_start (ap, fmt);
+      fprintf (excthread_stderr_re, "[%d excthread]: ", getpid ());
+      vfprintf (excthread_stderr_re, fmt, ap);
+      va_end (ap);
+      fflush (excthread_stderr_re);
+    }
 }
 
 static void macosx_exception_thread (void *arg);
 
 static macosx_exception_thread_message *static_message = NULL;
 
-kern_return_t catch_exception_raise_state
-(mach_port_t port,
- exception_type_t exception_type, exception_data_t exception_data, mach_msg_type_number_t data_count,
- thread_state_flavor_t *state_flavor,
- thread_state_t in_state, mach_msg_type_number_t in_state_count,
- thread_state_t out_state, mach_msg_type_number_t out_state_count)
+kern_return_t
+  catch_exception_raise_state
+  (mach_port_t port,
+   exception_type_t exception_type, exception_data_t exception_data,
+   mach_msg_type_number_t data_count, thread_state_flavor_t * state_flavor,
+   thread_state_t in_state, mach_msg_type_number_t in_state_count,
+   thread_state_t out_state, mach_msg_type_number_t out_state_count)
 {
   return KERN_FAILURE;
 }
 
-kern_return_t catch_exception_raise_state_identity
-(mach_port_t port, mach_port_t thread_port, mach_port_t task_port,
- exception_type_t exception_type, exception_data_t exception_data, mach_msg_type_number_t data_count,
- thread_state_flavor_t *state_flavor,
- thread_state_t in_state, mach_msg_type_number_t in_state_count,
- thread_state_t out_state, mach_msg_type_number_t out_state_count)
+kern_return_t
+  catch_exception_raise_state_identity
+  (mach_port_t port, mach_port_t thread_port, mach_port_t task_port,
+   exception_type_t exception_type, exception_data_t exception_data,
+   mach_msg_type_number_t data_count, thread_state_flavor_t * state_flavor,
+   thread_state_t in_state, mach_msg_type_number_t in_state_count,
+   thread_state_t out_state, mach_msg_type_number_t out_state_count)
 {
   kern_return_t kret;
 
-  kret = mach_port_deallocate (mach_task_self(), task_port);
+  kret = mach_port_deallocate (mach_task_self (), task_port);
   MACH_CHECK_ERROR (kret);
-  kret = mach_port_deallocate (mach_task_self(), thread_port);
+  kret = mach_port_deallocate (mach_task_self (), thread_port);
   MACH_CHECK_ERROR (kret);
 
   return KERN_FAILURE;
 }
 
-kern_return_t catch_exception_raise
-(mach_port_t port, mach_port_t thread_port, mach_port_t task_port, 
- exception_type_t exception_type, exception_data_t exception_data,
- mach_msg_type_number_t data_count)
+kern_return_t
+  catch_exception_raise
+  (mach_port_t port, mach_port_t thread_port, mach_port_t task_port,
+   exception_type_t exception_type, exception_data_t exception_data,
+   mach_msg_type_number_t data_count)
 {
 #if 0
-  kret = mach_port_deallocate (mach_task_self(), task_port);
+  kret = mach_port_deallocate (mach_task_self (), task_port);
   MACH_CHECK_ERROR (kret);
-  kret = mach_port_deallocate (mach_task_self(), thread_port);
+  kret = mach_port_deallocate (mach_task_self (), thread_port);
   MACH_CHECK_ERROR (kret);
 #endif
 
@@ -129,7 +138,8 @@ kern_return_t catch_exception_raise
   return KERN_SUCCESS;
 }
 
-void macosx_exception_thread_init (macosx_exception_thread_status *s)
+void
+macosx_exception_thread_init (macosx_exception_thread_status *s)
 {
   s->transmit_from_fd = -1;
   s->receive_from_fd = -1;
@@ -145,12 +155,14 @@ void macosx_exception_thread_init (macosx_exception_thread_status *s)
   s->exception_thread = THREAD_NULL;
 }
 
-void macosx_exception_thread_create (macosx_exception_thread_status *s, task_t task)
+void
+macosx_exception_thread_create (macosx_exception_thread_status *s,
+                                task_t task)
 {
   int fd[2];
   int ret;
   kern_return_t kret;
- 
+
   ret = pipe (fd);
   CHECK_FATAL (ret == 0);
   s->transmit_from_fd = fd[1];
@@ -161,109 +173,144 @@ void macosx_exception_thread_create (macosx_exception_thread_status *s, task_t t
   s->transmit_to_fd = fd[1];
   s->receive_to_fd = fd[0];
 
-  kret = mach_port_allocate (mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &s->inferior_exception_port);
+  kret =
+    mach_port_allocate (mach_task_self (), MACH_PORT_RIGHT_RECEIVE,
+                        &s->inferior_exception_port);
   MACH_CHECK_ERROR (kret);
-  kret = mach_port_insert_right (mach_task_self(), s->inferior_exception_port,
-				 s->inferior_exception_port, MACH_MSG_TYPE_MAKE_SEND);
+  kret =
+    mach_port_insert_right (mach_task_self (), s->inferior_exception_port,
+                            s->inferior_exception_port,
+                            MACH_MSG_TYPE_MAKE_SEND);
   MACH_CHECK_ERROR (kret);
 
-  if (inferior_bind_exception_port_flag) {
+  if (inferior_bind_exception_port_flag)
+    {
 
-    macosx_save_exception_ports (task, &s->saved_exceptions);
+      macosx_save_exception_ports (task, &s->saved_exceptions);
 
-    kret = task_set_exception_ports
-      (task,
-       EXC_MASK_ALL,
-       s->inferior_exception_port, EXCEPTION_DEFAULT, THREAD_STATE_NONE);
-    MACH_CHECK_ERROR (kret);
-  }
+      kret = task_set_exception_ports
+        (task,
+         EXC_MASK_ALL,
+         s->inferior_exception_port, EXCEPTION_DEFAULT, THREAD_STATE_NONE);
+      MACH_CHECK_ERROR (kret);
+    }
 
-  s->exception_thread = gdb_thread_fork ((gdb_thread_fn_t) &macosx_exception_thread, s);
+  s->exception_thread =
+    gdb_thread_fork ((gdb_thread_fn_t) &macosx_exception_thread, s);
 }
 
-void macosx_exception_thread_destroy (macosx_exception_thread_status *s)
+void
+macosx_exception_thread_destroy (macosx_exception_thread_status *s)
 {
-  if (s->exception_thread != THREAD_NULL) {
-    gdb_thread_kill (s->exception_thread);
-  }
+  if (s->exception_thread != THREAD_NULL)
+    {
+      gdb_thread_kill (s->exception_thread);
+    }
 
   if (s->receive_from_fd > 0)
     {
       delete_file_handler (s->receive_from_fd);
       close (s->receive_from_fd);
     }
-  if (s->transmit_from_fd > 0) 
+  if (s->transmit_from_fd > 0)
     close (s->transmit_from_fd);
-  if (s->receive_to_fd > 0) 
+  if (s->receive_to_fd > 0)
     close (s->receive_to_fd);
-  if (s->transmit_to_fd > 0) 
+  if (s->transmit_to_fd > 0)
     close (s->transmit_to_fd);
 
   macosx_exception_thread_init (s);
 }
 
-static void macosx_exception_thread (void *arg)
+static void
+macosx_exception_thread (void *arg)
 {
   macosx_exception_thread_status *s = (macosx_exception_thread_status *) arg;
   CHECK_FATAL (s != NULL);
 
-  for (;;) {
+  for (;;)
+    {
 
-    unsigned char buf[1];
+      unsigned char buf[1];
 
-    unsigned char msgin_data[1024];
-    mach_msg_header_t *msgin_hdr = (mach_msg_header_t *) msgin_data;
+      unsigned char msgin_data[1024];
+      mach_msg_header_t *msgin_hdr = (mach_msg_header_t *) msgin_data;
 
-    unsigned char msgout_data[1024];
-    mach_msg_header_t *msgout_hdr = (mach_msg_header_t *) msgout_data;
+      unsigned char msgout_data[1024];
+      mach_msg_header_t *msgout_hdr = (mach_msg_header_t *) msgout_data;
 
-    macosx_exception_thread_message msgsend;
+      macosx_exception_thread_message msgsend;
 
-    kern_return_t kret;
-    unsigned int i;
+      kern_return_t kret;
+      unsigned int i;
 
-    pthread_testcancel ();
+      pthread_testcancel ();
 
-    excthread_debug_re ("macosx_exception_thread: waiting for exceptions\n"); 
-    kret = mach_msg (msgin_hdr, (MACH_RCV_MSG | MACH_RCV_INTERRUPT),
-		     0, sizeof (msgin_data), s->inferior_exception_port, 0, MACH_PORT_NULL);
-    if (kret == MACH_RCV_INTERRUPTED) { continue; }
-    if (kret != KERN_SUCCESS) {
-      fprintf (excthread_stderr_re, "macosx_exception_thread: error receiving exception message: %s (0x%lx)\n", 
-	       MACH_ERROR_STRING (kret), (unsigned long) kret);
-      abort ();
-    }
+      excthread_debug_re
+        ("macosx_exception_thread: waiting for exceptions\n");
+      kret =
+        mach_msg (msgin_hdr, (MACH_RCV_MSG | MACH_RCV_INTERRUPT), 0,
+                  sizeof (msgin_data), s->inferior_exception_port, 0,
+                  MACH_PORT_NULL);
+      if (kret == MACH_RCV_INTERRUPTED)
+        {
+          excthread_debug_re
+            ("macosx_exception_thread: receive interrupted\n");
+          continue;
+        }
+      if (kret != KERN_SUCCESS)
+        {
+          fprintf (excthread_stderr_re,
+                   "macosx_exception_thread: error receiving exception message: %s (0x%lx)\n",
+                   MACH_ERROR_STRING (kret), (unsigned long) kret);
+          abort ();
+        }
 
-    static_message = &msgsend;
-    excthread_debug_re ("macosx_exception_thread: parsing exception\n");
-    kret = exc_server (msgin_hdr, msgout_hdr);
-    excthread_debug_re ("macosx_exception_thread: recieved exception for thread 0x%x\n", msgsend.thread_port);
-    static_message = NULL;
-    
-    write (s->transmit_from_fd, &msgsend, sizeof (msgsend));
-    read (s->receive_to_fd, &buf, 1);
-  
-    if (excthread_debugflag) {
-      fprintf (excthread_stderr_re, "[%d excthread]: ", getpid ());
-      fprintf (excthread_stderr_re, "macosx_exception_thread: sending exception reply with type %s:",
-	       unparse_exception_type (msgsend.exception_type));
-      for (i = 0; i < msgsend.data_count; i++) {
-	fprintf (excthread_stderr_re, " 0x%lx", msgsend.exception_data[i]);
-      }
-      fprintf (excthread_stderr_re, "\n");
+      static_message = &msgsend;
+      excthread_debug_re ("macosx_exception_thread: parsing exception\n");
+      kret = exc_server (msgin_hdr, msgout_hdr);
+      excthread_debug_re
+        ("macosx_exception_thread: recieved exception for thread 0x%x: out port 0x%x\n",
+         msgsend.thread_port, msgin_hdr->msgh_remote_port);
       fflush (excthread_stderr_re);
-    }
+      static_message = NULL;
 
-    kret = mach_msg (msgout_hdr, (MACH_SEND_MSG | MACH_SEND_INTERRUPT),
-		     msgout_hdr->msgh_size, 0,
-		     MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
-    if (kret == MACH_SEND_INTERRUPTED) { continue; }
-    if (kret != KERN_SUCCESS) {
-      fprintf (excthread_stderr_re, "macosx_exception_thread: error sending exception reply: %s (0x%lx)\n", 
-	       MACH_ERROR_STRING (kret), (unsigned long) kret);
-      abort ();
+      write (s->transmit_from_fd, &msgsend, sizeof (msgsend));
+      read (s->receive_to_fd, &buf, 1);
+
+      if (excthread_debugflag)
+        {
+          fprintf (excthread_stderr_re, "[%d excthread]: ", getpid ());
+          fprintf (excthread_stderr_re,
+                   "macosx_exception_thread: sending exception reply to port 0x%x with type %s:",
+                   msgout_hdr->msgh_remote_port,
+                   unparse_exception_type (msgsend.exception_type));
+          for (i = 0; i < msgsend.data_count; i++)
+            {
+              fprintf (excthread_stderr_re, " 0x%x",
+                       msgsend.exception_data[i]);
+            }
+          fprintf (excthread_stderr_re, "\n");
+          fflush (excthread_stderr_re);
+        }
+
+      kret = mach_msg (msgout_hdr, (MACH_SEND_MSG | MACH_SEND_INTERRUPT),
+                       msgout_hdr->msgh_size, 0,
+                       MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+      if (kret == MACH_SEND_INTERRUPTED)
+        {
+          excthread_debug_re
+            ("macosx_exceptions_thread: reply interrupted\n");
+          continue;
+        }
+      if (kret != KERN_SUCCESS)
+        {
+          fprintf (excthread_stderr_re,
+                   "macosx_exception_thread: error sending exception reply: %s (0x%lx)\n",
+                   MACH_ERROR_STRING (kret), (unsigned long) kret);
+          abort ();
+        }
     }
-  }
 }
 
 void
@@ -274,9 +321,9 @@ _initialize_macosx_nat_excthread ()
   excthread_stderr = fdopen (fileno (stderr), "w+");
   excthread_stderr_re = fdopen (fileno (stderr), "w+");
 
-  cmd = add_set_cmd ("exceptions", class_obscure, var_boolean, 
-		     (char *) &excthread_debugflag,
-		     "Set if printing exception thread debugging statements.",
-		     &setdebuglist);
-  add_show_from_set (cmd, &showdebuglist);		
+  cmd = add_set_cmd ("exceptions", class_obscure, var_boolean,
+                     (char *) &excthread_debugflag,
+                     "Set if printing exception thread debugging statements.",
+                     &setdebuglist);
+  add_show_from_set (cmd, &showdebuglist);
 }

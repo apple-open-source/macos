@@ -1,0 +1,62 @@
+--- _ldtoa.c.orig	2004-12-08 22:50:28.000000000 -0800
++++ _ldtoa.c	2004-12-08 22:52:58.000000000 -0800
+@@ -61,14 +61,34 @@
+ 	char *ret;
+ 	union IEEEl2bits u;
+ 	uint32_t bits[(LDBL_MANT_DIG + 31) / 32];
++#if defined(__ppc__) || defined(__ppc64__)
++	int type;
++#endif /* defined(__ppc__) || defined(__ppc64__) */
+ 
+ 	u.e = *ld;
++#if defined(__ppc__) || defined(__ppc64__)
++	/*
++	 * Subnormal head-tail doubles don't seem to be converted correctly
++	 * by gdtoa.  So we multiply by 10^32 to make them normal then
++	 * subtract 32 from the exponent later.
++	 */
++	if ((type = __fpclassify(u.e)) == FP_NORMAL && __fpclassifyd(u.d[1]) == FP_SUBNORMAL)
++		type = FP_SUBNORMAL;
++	if (type == FP_SUBNORMAL)
++		u.e *= 1.0e32L;
++#endif /* defined(__ppc__) || defined(__ppc64__) */
+ 	*sign = u.bits.sign;
+ 	be = u.bits.exp - (LDBL_MAX_EXP - 1) - (LDBL_MANT_DIG - 1);
+ 	LDBL_TO_ARRAY32(u, bits);
+ 
++#if defined(__ppc__) || defined(__ppc64__)
++	switch (type) {
++	case FP_SUBNORMAL:
++#else /* !defined(__ppc__) && !defined(__ppc64__) */
+ 	switch (fpclassify(u.e)) {
++#endif /* defined(__ppc__) || defined(__ppc64__) */
+ 	case FP_NORMAL:
++	case FP_SUPERNORMAL:
+ 		kind = STRTOG_Normal;
+ #ifdef	LDBL_IMPLICIT_NBIT
+ 		bits[LDBL_MANT_DIG / 32] |= 1 << ((LDBL_MANT_DIG - 1) % 32);
+@@ -77,12 +97,14 @@
+ 	case FP_ZERO:
+ 		kind = STRTOG_Zero;
+ 		break;
++#if !defined(__ppc__) && !defined(__ppc64__)
+ 	case FP_SUBNORMAL:
+ 		kind = STRTOG_Denormal;
+ #ifdef	LDBL_IMPLICIT_NBIT
+ 		be++;
+ #endif
+ 		break;
++#endif /* !defined(__ppc__) && !defined(__ppc64__) */
+ 	case FP_INFINITE:
+ 		kind = STRTOG_Infinite;
+ 		break;
+@@ -96,5 +118,9 @@
+ 	ret = gdtoa(&fpi, be, (ULong *)bits, &kind, mode, ndigits, decpt, rve);
+ 	if (*decpt == -32768)
+ 		*decpt = INT_MAX;
++#if defined(__ppc__) || defined(__ppc64__)
++	else if (type == FP_SUBNORMAL)
++		*decpt -= 32;
++#endif /* defined(__ppc__) || defined(__ppc64__) */
+ 	return ret;
+ }

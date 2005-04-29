@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/ResourceI.h,v 1.5 2001/12/14 19:56:28 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/ResourceI.h,v 1.6 2003/04/21 16:34:28 herrb Exp $ */
 
 /****************************************************************
  *
@@ -62,33 +62,25 @@ SOFTWARE.
 #define StringToClass(string) XrmStringToClass(string)
 
 extern void _XtResourceDependencies(
-#if NeedFunctionPrototypes
     WidgetClass  /* wc */
-#endif
 );
 
 extern void _XtConstraintResDependencies(
-#if NeedFunctionPrototypes
     ConstraintWidgetClass  /* wc */
-#endif
 );
 
 extern XtCacheRef* _XtGetResources(
-#if NeedFunctionPrototypes
     Widget	    /* w */,
     ArgList	    /* args */,
     Cardinal	    /* num_args */,
     XtTypedArgList  /* typed_args */,
     Cardinal*	    /* num_typed_args */
-#endif
 );
 
 extern void _XtCopyFromParent(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     int			/* offset */,
     XrmValue*		/* value */
-#endif
 );
 
 extern void _XtCopyToArg(char *src, XtArgVal *dst, unsigned int size);

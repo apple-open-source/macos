@@ -1,8 +1,17 @@
 /* referral.c - BDB backend referral handler */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/referral.c,v 1.15.2.7 2003/03/03 17:10:07 kurt Exp $ */
-/*
- * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/referral.c,v 1.28.2.4 2004/11/24 04:07:17 hyc Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2000-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -13,18 +22,12 @@
 #include "external.h"
 
 int
-bdb_referrals(
-	BackendDB	*be,
-	Connection	*conn,
-	Operation	*op,
-	struct berval *dn,
-	struct berval *ndn,
-	const char **text )
+bdb_referrals( Operation *op, SlapReply *rs )
 {
-	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
-	int rc = LDAP_SUCCESS;
+	struct bdb_info *bdb = (struct bdb_info *) op->o_bd->be_private;
 	Entry *e = NULL;
-	Entry *matched = NULL;
+	EntryInfo *ei;
+	int rc = LDAP_SUCCESS;
 
 	u_int32_t	locker;
 	DB_LOCK		lock;
@@ -49,22 +52,15 @@ bdb_referrals(
 
 dn2entry_retry:
 	/* get entry */
-	rc = bdb_dn2entry_r( be, NULL, ndn, &e, &matched, 0, locker, &lock );
+	rc = bdb_dn2entry( op, NULL, &op->o_req_ndn, &ei, 1, locker, &lock );
 
+	e = ei->bei_e;
 	switch(rc) {
 	case DB_NOTFOUND:
-		rc = 0;
 	case 0:
 		break;
 	case LDAP_BUSY:
-		if (e != NULL) {
-			bdb_cache_return_entry_r(bdb->bi_dbenv, &bdb->bi_cache, e, &lock);
-		}
-		if (matched != NULL) {
-			bdb_cache_return_entry_r(bdb->bi_dbenv, &bdb->bi_cache, matched, &lock);
-		}
-		send_ldap_result( conn, op, LDAP_BUSY,
-			NULL, "ldap server busy", NULL, NULL );
+		send_ldap_error( op, rs, LDAP_BUSY, "ldap server busy" );
 		LOCK_ID_FREE ( bdb->bi_dbenv, locker );
 		return LDAP_BUSY;
 	case DB_LOCK_DEADLOCK:
@@ -77,92 +73,96 @@ dn2entry_retry:
 			db_strerror(rc), rc, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE,
-			"bdb_referrals: dn2entry failed: %s (%d)\n",
+			LDAP_XSTRING(bdb_referrals)
+			": dn2entry failed: %s (%d)\n",
 			db_strerror(rc), rc, 0 ); 
 #endif
-		if (e != NULL) {
-                        bdb_cache_return_entry_r(bdb->bi_dbenv, &bdb->bi_cache, e, &lock);
-		}
-                if (matched != NULL) {
-                        bdb_cache_return_entry_r(bdb->bi_dbenv, &bdb->bi_cache, matched, &lock);
-		}
-		send_ldap_result( conn, op, rc=LDAP_OTHER,
-			NULL, "internal error", NULL, NULL );
+		send_ldap_error( op, rs, LDAP_OTHER, "internal error" );
 		LOCK_ID_FREE ( bdb->bi_dbenv, locker );
-		return rc;
+		return rs->sr_err;
 	}
 
-	if ( e == NULL ) {
-		char *matched_dn = NULL;
-		BerVarray refs = NULL;
-
-		if ( matched != NULL ) {
-			matched_dn = ch_strdup( matched->e_dn );
-
+	if ( rc == DB_NOTFOUND ) {
+		rc = 0;
+		rs->sr_matched = NULL;
+		if ( e != NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG ( OPERATION, DETAIL1, 
+			LDAP_LOG ( OPERATION, DETAIL1, 
 			"bdb_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
-			(long) op->o_tag, dn->bv_val, matched_dn );
+			(long) op->o_tag, op->o_req_dn.bv_val, e->e_name.bv_val );
 #else
 			Debug( LDAP_DEBUG_TRACE,
-				"bdb_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
-				(long) op->o_tag, dn->bv_val, matched_dn );
+				LDAP_XSTRING(bdb_referrals)
+				": op=%ld target=\"%s\" matched=\"%s\"\n",
+				(long) op->o_tag, op->o_req_dn.bv_val, e->e_name.bv_val );
 #endif
 
-			if( is_entry_referral( matched ) ) {
+			if( is_entry_referral( e ) ) {
 				rc = LDAP_OTHER;
-				refs = get_entry_referrals( be, conn, op, matched );
+				rs->sr_ref = get_entry_referrals( op, e );
+				if ( rs->sr_ref ) {
+					rs->sr_matched = ber_strdup_x(
+					e->e_name.bv_val, op->o_tmpmemctx );
+				}
 			}
 
-			bdb_cache_return_entry_r (bdb->bi_dbenv, &bdb->bi_cache, matched, &lock);
-			matched = NULL;
+			bdb_cache_return_entry_r (bdb->bi_dbenv, &bdb->bi_cache, e, &lock);
+			e = NULL;
 		} else if ( default_referral != NULL ) {
 			rc = LDAP_OTHER;
-			refs = referral_rewrite( default_referral,
-				NULL, dn, LDAP_SCOPE_DEFAULT );
+			rs->sr_ref = referral_rewrite( default_referral,
+				NULL, &op->o_req_dn, LDAP_SCOPE_DEFAULT );
 		}
 
-		if( refs != NULL ) {
+		if( rs->sr_ref != NULL ) {
 			/* send referrals */
-			send_ldap_result( conn, op, rc = LDAP_REFERRAL,
-				matched_dn, NULL, refs, NULL );
-			ber_bvarray_free( refs );
+			rs->sr_err = LDAP_REFERRAL;
+			send_ldap_result( op, rs );
+			ber_bvarray_free( rs->sr_ref );
+			rs->sr_ref = NULL;
 		} else if ( rc != LDAP_SUCCESS ) {
-			send_ldap_result( conn, op, rc, matched_dn,
-				matched_dn ? "bad referral object" : NULL,
-				NULL, NULL );
+			rs->sr_err = rc;
+			rs->sr_text = rs->sr_matched ? "bad referral object" : NULL;
+			send_ldap_result( op, rs );
 		}
 
 		LOCK_ID_FREE ( bdb->bi_dbenv, locker );
-		free( matched_dn );
+		if (rs->sr_matched) {
+			op->o_tmpfree( (char *)rs->sr_matched, op->o_tmpmemctx );
+			rs->sr_matched = NULL;
+		}
 		return rc;
 	}
 
 	if ( is_entry_referral( e ) ) {
 		/* entry is a referral */
-		BerVarray refs = get_entry_referrals( be, conn, op, e );
-		BerVarray rrefs = referral_rewrite(
-			refs, &e->e_name, dn, LDAP_SCOPE_DEFAULT );
+		BerVarray refs = get_entry_referrals( op, e );
+		rs->sr_ref = referral_rewrite(
+			refs, &e->e_name, &op->o_req_dn, LDAP_SCOPE_DEFAULT );
 
 #ifdef NEW_LOGGING
 		LDAP_LOG ( OPERATION, DETAIL1, 
 			"bdb_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
-			(long) op->o_tag, dn->bv_val, e->e_dn );
+			(long) op->o_tag, op->o_req_dn.bv_val, e->e_name.bv_val );
 #else
 		Debug( LDAP_DEBUG_TRACE,
-			"bdb_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
-			(long) op->o_tag, dn->bv_val, e->e_dn );
+			LDAP_XSTRING(bdb_referrals)
+			": op=%ld target=\"%s\" matched=\"%s\"\n",
+			(long) op->o_tag, op->o_req_dn.bv_val, e->e_name.bv_val );
 #endif
 
-		if( rrefs != NULL ) {
-			send_ldap_result( conn, op, rc = LDAP_REFERRAL,
-				e->e_dn, NULL, rrefs, NULL );
-			ber_bvarray_free( rrefs );
+		rs->sr_matched = e->e_name.bv_val;
+		if( rs->sr_ref != NULL ) {
+			rc = rs->sr_err = LDAP_REFERRAL;
+			send_ldap_result( op, rs );
+			ber_bvarray_free( rs->sr_ref );
+			rs->sr_ref = NULL;
 		} else {
-			send_ldap_result( conn, op, rc = LDAP_OTHER, e->e_dn,
-				"bad referral object", NULL, NULL );
+			send_ldap_error( op, rs, LDAP_OTHER, "bad referral object" );
+			rc = rs->sr_err;
 		}
 
+		rs->sr_matched = NULL;
 		ber_bvarray_free( refs );
 	}
 

@@ -1,0 +1,7 @@
+Changes
+MANIFEST
+README
+Makefile.PL
+TNEF.pm
+t/test.t
+t/tnef.doc

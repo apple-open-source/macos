@@ -2085,6 +2085,7 @@
           <ref name='xsltGetNamespace'/>
           <ref name='xsltGetPlainNamespace'/>
           <ref name='xsltGetSpecialNamespace'/>
+          <ref name='xsltNextImport'/>
         </word>
         <word name='Finds'>
           <ref name='xsltFindTemplate'/>
@@ -2711,6 +2712,10 @@
           <ref name='xsltAttrTemplateValueProcessNode'/>
           <ref name='xsltEvalXPathStringNs'/>
         </word>
+        <word name='already'>
+          <ref name='_xsltDocument'/>
+          <ref name='_xsltStylesheet'/>
+        </word>
         <word name='also'>
           <ref name='xsltGetQNameURI'/>
           <ref name='xsltRunStylesheet'/>
@@ -2999,6 +3004,9 @@
           <ref name='xsltSort'/>
           <ref name='xsltXPathFunctionLookup'/>
           <ref name='xsltXPathVariableLookup'/>
+        </word>
+        <word name='bypass'>
+          <ref name='_xsltStylesheet'/>
         </word>
         <word name='byte'>
           <ref name='xsltSaveResultTo'/>
@@ -3303,6 +3311,7 @@
           <ref name='xsltGetTemplate'/>
           <ref name='xsltInitCtxtKeys'/>
           <ref name='xsltMessage'/>
+          <ref name='xsltNextImport'/>
           <ref name='xsltPrintErrorContext'/>
           <ref name='xsltTransformError'/>
         </word>
@@ -3521,7 +3530,9 @@
           <ref name='xsltTestCompMatchList'/>
         </word>
         <word name='done'>
+          <ref name='_xsltDocument'/>
           <ref name='_xsltStackElem'/>
+          <ref name='_xsltStylesheet'/>
           <ref name='xsltCompilePattern'/>
           <ref name='xsltEvalGlobalVariables'/>
           <ref name='xsltEvalUserParams'/>
@@ -4040,6 +4051,7 @@
           <ref name='XSLT_GET_IMPORT_PTR'/>
           <ref name='xsltFindElemSpaceHandling'/>
           <ref name='xsltFindTemplate'/>
+          <ref name='xsltNextImport'/>
           <ref name='xsltParseStylesheetImport'/>
         </word>
         <word name='imported'>
@@ -4048,6 +4060,7 @@
           <ref name='xsltParseStylesheetImportedDoc'/>
         </word>
         <word name='imports'>
+          <ref name='_xsltStylesheet'/>
           <ref name='xsltCleanupTemplates'/>
         </word>
         <word name='in-scope'>
@@ -4268,6 +4281,7 @@
         <word name='last'>
           <ref name='_xsltStylesheet'/>
           <ref name='_xsltTransformContext'/>
+          <ref name='xsltNextImport'/>
         </word>
         <word name='later'>
           <ref name='xsltDocLoaderFunc'/>
@@ -4589,6 +4603,7 @@
         </word>
         <word name='next'>
           <ref name='xsltGetTemplate'/>
+          <ref name='xsltNextImport'/>
         </word>
         <word name='node-set'>
           <ref name='xsltDocumentFunction'/>
@@ -4681,6 +4696,7 @@
           <ref name='xsltCheckExtPrefix'/>
           <ref name='xsltGetTemplate'/>
           <ref name='xsltGetUTF8Char'/>
+          <ref name='xsltNextImport'/>
           <ref name='xsltNumberFormat'/>
           <ref name='xsltRunStylesheet'/>
           <ref name='xsltRunStylesheetUser'/>
@@ -4957,9 +4973,14 @@
           <ref name='xsltExtModuleElementPreComputeLookup'/>
           <ref name='xsltRegisterExtModuleElement'/>
         </word>
+        <word name='pre-processing'>
+          <ref name='_xsltDocument'/>
+          <ref name='_xsltStylesheet'/>
+        </word>
         <word name='precedence'>
           <ref name='xsltFindElemSpaceHandling'/>
           <ref name='xsltFindTemplate'/>
+          <ref name='xsltNextImport'/>
         </word>
         <word name='precision'>
           <ref name='XSLT_TIMESTAMP_TICS_PER_SEC'/>
@@ -6096,6 +6117,7 @@
           <ref name='_xsltStackElem'/>
           <ref name='_xsltTemplate'/>
           <ref name='xsltEvalXPathPredicate'/>
+          <ref name='xsltNextImport'/>
         </word>
         <word name='well'>
           <ref name='xsltNamespaceAlias'/>

@@ -1,8 +1,8 @@
 #
 #   irb/lc/ja/help-message.rb - 
-#   	$Release Version: 0.7.3$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:49 $
+#   	$Release Version: 0.9$
+#   	$Revision: 1.3.2.1 $
+#   	$Date: 2004/03/10 08:21:07 $
 #   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #
 # --
@@ -14,6 +14,7 @@ Usage:  irb.rb [options] [programfile] [arguments]
   -m		    bcモード(分数, 行列の計算ができる)
   -d                $DEBUG をtrueにする(ruby -d と同じ)
   -r load-module    ruby -r と同じ.
+  -I path           $LOAD_PATH に path を追加する.
   --inspect	    結果出力にinspectを用いる(bcモード以外はデフォルト). 
   --noinspect	    結果出力にinspectを用いない.
   --readline	    readlineライブラリを利用する.

@@ -69,18 +69,6 @@ static void getbusid(int fd)
     drmFreeBusid(busid);
 }
 
-#if 0
-typedef struct {
-    unsigned long	offset;	 /* Requested physical address (0 for SAREA)*/
-    unsigned long	size;	 /* Requested physical size (bytes)	    */
-    drm_map_type_t	type;	 /* Type of memory to map		    */
-    drm_map_flags_t flags;	 /* Flags				    */
-    void		*handle; /* User-space: "Handle" to pass to mmap    */
-    /* Kernel-space: kernel-virtual address    */
-    int		mtrr;	 /* MTRR slot used			    */
-				 /* Private data			    */
-} drmVmRec, *drmVmPtr;
-#endif
 
 static void getvm(int fd)
 {
@@ -94,7 +82,8 @@ static void getvm(int fd)
     drmHandle       handle;
     int             mtrr;
 
-    printf("  VM map information (Restricted locked kernel WC Lock):\n");
+    printf("  VM map information:\n");
+    printf("  flags: (R)estricted (r)ead/(w)rite (l)ocked (k)ernel (W)rite-combine (L)ock:\n");
     printf("    slot     offset       size type flags    address mtrr\n");
 
     for (i = 0;
@@ -102,11 +91,12 @@ static void getvm(int fd)
 	 i++) {
 	
 	switch (type) {
-	case DRM_FRAME_BUFFER: typename = "FB";  break;
-	case DRM_REGISTERS:    typename = "REG"; break;
-	case DRM_SHM:          typename = "SHM"; break;
-	case DRM_AGP:          typename = "AGP"; break;
-	default:               typename = "???"; break;
+	case DRM_FRAME_BUFFER:   typename = "FB";  break;
+	case DRM_REGISTERS:      typename = "REG"; break;
+	case DRM_SHM:            typename = "SHM"; break;
+	case DRM_AGP:            typename = "AGP"; break;
+	case DRM_SCATTER_GATHER: typename = "SG";  break;
+	default:                 typename = "???"; break;
 	}
 
 	flagname[0] = (flags & DRM_RESTRICTED)      ? 'R' : ' ';

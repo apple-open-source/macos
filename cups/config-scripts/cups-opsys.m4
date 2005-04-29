@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-opsys.m4,v 1.7 2003/04/02 22:40:08 jlovell Exp $"
+dnl "$Id: cups-opsys.m4,v 1.1.1.13 2005/01/04 19:15:06 jlovell Exp $"
 dnl
 dnl   Operating system stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@ dnl
 dnl       Attn: CUPS Licensing Information
 dnl       Easy Software Products
 dnl       44141 Airport View Drive, Suite 204
-dnl       Hollywood, Maryland 20636-3111 USA
+dnl       Hollywood, Maryland 20636 USA
 dnl
-dnl       Voice: (301) 373-9603
+dnl       Voice: (301) 373-9600
 dnl       EMail: cups-info@cups.org
 dnl         WWW: http://www.cups.org
 dnl
@@ -25,9 +25,17 @@ dnl
 dnl Get the operating system and version number...
 uname=`uname`
 uversion=`uname -r | sed -e '1,$s/[[^0-9]]//g'`
-if test x$uname = xIRIX64; then
-	uname="IRIX"
-fi
+case "$uname" in
+	GNU* | GNU/*)
+		uname="GNU"
+		;;
+	IRIX*)
+		uname="IRIX"
+		;;
+	Linux*)
+		uname="Linux"
+		;;
+esac
 
 dnl Determine the correct username and group for this OS...
 AC_ARG_WITH(cups-user, [  --with-cups-user        set default user for CUPS],
@@ -61,6 +69,7 @@ AC_ARG_WITH(cups-group, [  --with-cups-group       set default group for CUPS],
 		else
 			GROUP_LIST="sys system root"
 		fi
+
 		CUPS_GROUP=""
 		for group in $GROUP_LIST; do
 			if test "`grep \^${group}: /etc/group`" != ""; then
@@ -86,5 +95,5 @@ AC_DEFINE_UNQUOTED(CUPS_DEFAULT_USER, "$CUPS_USER")
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_GROUP, "$CUPS_GROUP")
 
 dnl
-dnl "$Id: cups-opsys.m4,v 1.7 2003/04/02 22:40:08 jlovell Exp $"
+dnl "$Id: cups-opsys.m4,v 1.1.1.13 2005/01/04 19:15:06 jlovell Exp $"
 dnl

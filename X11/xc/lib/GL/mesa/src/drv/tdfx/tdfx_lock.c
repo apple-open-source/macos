@@ -23,7 +23,7 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_lock.c,v 1.5 2002/12/16 16:19:00 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_lock.c,v 1.6 2003/09/28 20:15:36 alanh Exp $ */
 
 /*
  * Original rewrite:
@@ -54,7 +54,7 @@ void tdfxGetLock( tdfxContextPtr fxMesa )
     drmGetLock( fxMesa->driFd, fxMesa->hHWContext, 0 );
 
     /* This macro will update dPriv's cliprects if needed */
-    DRI_VALIDATE_DRAWABLE_INFO( cPriv->display, sPriv, dPriv );
+    DRI_VALIDATE_DRAWABLE_INFO( sPriv, dPriv );
 
     if ( saPriv->fifoOwner != fxMesa->hHWContext ) {
         fxMesa->Glide.grDRIImportFifo( saPriv->fifoPtr, saPriv->fifoRead );

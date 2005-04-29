@@ -1,5 +1,5 @@
 /*
- * "$Id: print-image-gimp.c,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $"
+ * "$Id: print-image-gimp.c,v 1.1.1.2 2004/07/23 06:26:31 jlovell Exp $"
  *
  *   Print plug-in for the GIMP.
  *
@@ -25,7 +25,7 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-#include "../../lib/libprintut.h"
+#include <string.h>
 
 #include "print_gimp.h"
 
@@ -82,60 +82,101 @@ typedef struct
   /* 5: Flip horizontally about the vertical centre-line of the image */
   int mirror;		/* Set if mirroring rows end-for-end. */
 
+  gint32 image_ID;
+  gint32 ncolors;
+  gint32 real_bpp;
+  GimpImageBaseType base_type;
+  guchar *cmap;
+  guchar *alpha_table;
+  guchar *tmp;
+  gint last_printed_percent;
+  gint initialized;
 } Gimp_Image_t;
 
 static const char *Image_get_appname(stp_image_t *image);
-static void Image_progress_conclude(stp_image_t *image);
-static void Image_note_progress(stp_image_t *image,
-				double current, double total);
-static void Image_progress_init(stp_image_t *image);
+static void Image_conclude(stp_image_t *image);
 static stp_image_status_t Image_get_row(stp_image_t *image,
-					unsigned char *data, int row);
+					unsigned char *data,
+					size_t byte_limit, int row);
 static int Image_height(stp_image_t *image);
 static int Image_width(stp_image_t *image);
-static int Image_bpp(stp_image_t *image);
-static void Image_rotate_180(stp_image_t *image);
-static void Image_rotate_cw(stp_image_t *image);
-static void Image_rotate_ccw(stp_image_t *image);
-static void Image_crop(stp_image_t *image,
-		       int left, int top, int right, int bottom);
-static void Image_vflip(stp_image_t *image);
-static void Image_hflip(stp_image_t *image);
-static void Image_transpose(stp_image_t *image);
 static void Image_reset(stp_image_t *image);
 static void Image_init(stp_image_t *image);
 
-static stp_image_t theImage =
+static void Image_transpose(stpui_image_t *image);
+static void Image_hflip(stpui_image_t *image);
+static void Image_vflip(stpui_image_t *image);
+static void Image_rotate_ccw(stpui_image_t *image);
+static void Image_rotate_cw(stpui_image_t *image);
+static void Image_rotate_180(stpui_image_t *image);
+static void Image_crop(stpui_image_t *image, int, int, int, int);
+
+static stpui_image_t theImage =
 {
-  Image_init,
-  Image_reset,
+  {
+    Image_init,
+    Image_reset,
+    Image_width,
+    Image_height,
+    Image_get_row,
+    Image_get_appname,
+    Image_conclude,
+    NULL,
+  },
   Image_transpose,
   Image_hflip,
   Image_vflip,
-  Image_crop,
   Image_rotate_ccw,
   Image_rotate_cw,
   Image_rotate_180,
-  Image_bpp,
-  Image_width,
-  Image_height,
-  Image_get_row,
-  Image_get_appname,
-  Image_progress_init,
-  Image_note_progress,
-  Image_progress_conclude,
-  NULL
+  Image_crop
 };
 
-stp_image_t *
-Image_GimpDrawable_new(GimpDrawable *drawable)
+static void
+compute_alpha_table(Gimp_Image_t *image)
 {
-  Gimp_Image_t *i = xmalloc(sizeof(Gimp_Image_t));
-  i->drawable = drawable;
-  gimp_pixel_rgn_init(&(i->rgn), drawable, 0, 0,
+  unsigned val, alpha;
+  image->alpha_table = stp_malloc(65536 * sizeof(unsigned char));
+  for (val = 0; val < 256; val++)
+    for (alpha = 0; alpha < 256; alpha++)
+      image->alpha_table[(val * 256) + alpha] =
+	val * alpha / 255 + 255 - alpha;
+}
+
+static inline unsigned char
+alpha_lookup(Gimp_Image_t *image, int val, int alpha)
+{
+  return image->alpha_table[(val * 256) + alpha];
+}
+
+stpui_image_t *
+Image_GimpDrawable_new(GimpDrawable *drawable, gint32 image_ID)
+{
+  Gimp_Image_t *im = stp_malloc(sizeof(Gimp_Image_t));
+  memset(im, 0, sizeof(Gimp_Image_t));
+  im->drawable = drawable;
+  gimp_pixel_rgn_init(&(im->rgn), drawable, 0, 0,
                       drawable->width, drawable->height, FALSE, FALSE);
-  theImage.rep = i;
-  theImage.reset(&theImage);
+  im->image_ID = image_ID;
+  im->base_type = gimp_image_base_type(image_ID);
+  im->initialized = 0;
+  theImage.im.rep = im;
+  theImage.im.reset(&(theImage.im));
+  switch (im->base_type)
+    {
+    case GIMP_INDEXED:
+      im->cmap = gimp_image_get_cmap(image_ID, &(im->ncolors));
+      im->real_bpp = 3;
+      break;
+    case GIMP_GRAY:
+      im->real_bpp = 1;
+      break;
+    case GIMP_RGB:
+      im->real_bpp = 3;
+      break;
+    }
+  if (im->drawable->bpp == 2 || im->drawable->bpp == 4)
+    compute_alpha_table(im);
   return &theImage;
 }
 
@@ -148,156 +189,116 @@ Image_init(stp_image_t *image)
 static void
 Image_reset(stp_image_t *image)
 {
-  Gimp_Image_t *i = (Gimp_Image_t *) (image->rep);
-  i->columns = FALSE;
-  i->ox = 0;
-  i->oy = 0;
-  i->increment = 1;
-  i->w = i->drawable->width;
-  i->h = i->drawable->height;
-  i->mirror = FALSE;
-}
-
-static void
-Image_transpose(stp_image_t *image)
-{
-  Gimp_Image_t *i = (Gimp_Image_t *) (image->rep);
-  int tmp;
-
-  if (i->mirror) i->ox += i->w - 1;
-
-  i->columns = !i->columns;
-
-  tmp = i->ox;
-  i->ox = i->oy;
-  i->oy = tmp;
-
-  tmp = i->mirror;
-  i->mirror = i->increment < 0;
-  i->increment = tmp ? -1 : 1;
-
-  tmp = i->w;
-  i->w = i->h;
-  i->h = tmp;
-
-  if (i->mirror) i->ox -= i->w - 1;
-}
-
-static void
-Image_hflip(stp_image_t *image)
-{
-  Gimp_Image_t *i = (Gimp_Image_t *) (image->rep);
-  i->mirror = !i->mirror;
-}
-
-static void
-Image_vflip(stp_image_t *image)
-{
-  Gimp_Image_t *i = (Gimp_Image_t *) (image->rep);
-  i->oy += (i->h-1) * i->increment;
-  i->increment = -i->increment;
-}
-
-/*
- * Image_crop:
- *
- * Crop the given number of pixels off the LEFT, TOP, RIGHT and BOTTOM
- * of the image.
- */
-
-static void
-Image_crop(stp_image_t *image, int left, int top, int right, int bottom)
-{
-  Gimp_Image_t *i = (Gimp_Image_t *) (image->rep);
-  int xmax = (i->columns ? i->drawable->height : i->drawable->width) - 1;
-  int ymax = (i->columns ? i->drawable->width : i->drawable->height) - 1;
-
-  int nx = i->ox + i->mirror ? right : left;
-  int ny = i->oy + top * (i->increment);
-
-  int nw = i->w - left - right;
-  int nh = i->h - top - bottom;
-
-  int wmax, hmax;
-
-  if (nx < 0)         nx = 0;
-  else if (nx > xmax) nx = xmax;
-
-  if (ny < 0)         ny = 0;
-  else if (ny > ymax) ny = ymax;
-
-  wmax = xmax - nx + 1;
-  hmax = i->increment ? ny + 1 : ymax - ny + 1;
-
-  if (nw < 1)         nw = 1;
-  else if (nw > wmax) nw = wmax;
-
-  if (nh < 1)         nh = 1;
-  else if (nh > hmax) nh = hmax;
-
-  i->ox = nx;
-  i->oy = ny;
-  i->w = nw;
-  i->h = nh;
-}
-
-static void
-Image_rotate_ccw(stp_image_t *image)
-{
-  Image_transpose(image);
-  Image_vflip(image);
-}
-
-static void
-Image_rotate_cw(stp_image_t *image)
-{
-  Image_transpose(image);
-  Image_hflip(image);
-}
-
-static void
-Image_rotate_180(stp_image_t *image)
-{
-  Image_vflip(image);
-  Image_hflip(image);
-}
-
-static int
-Image_bpp(stp_image_t *image)
-{
-  Gimp_Image_t *i = (Gimp_Image_t *) (image->rep);
-  return i->drawable->bpp;
+  Gimp_Image_t *im = (Gimp_Image_t *) (image->rep);
+  im->columns = FALSE;
+  im->ox = 0;
+  im->oy = 0;
+  im->increment = 1;
+  im->w = im->drawable->width;
+  im->h = im->drawable->height;
+  im->mirror = FALSE;
 }
 
 static int
 Image_width(stp_image_t *image)
 {
-  Gimp_Image_t *i = (Gimp_Image_t *) (image->rep);
-  return i->w;
+  Gimp_Image_t *im = (Gimp_Image_t *) (image->rep);
+  return im->w;
 }
 
 static int
 Image_height(stp_image_t *image)
 {
-  Gimp_Image_t *i = (Gimp_Image_t *) (image->rep);
-  return i->h;
+  Gimp_Image_t *im = (Gimp_Image_t *) (image->rep);
+  return im->h;
 }
 
 static stp_image_status_t
-Image_get_row(stp_image_t *image, unsigned char *data, int row)
+Image_get_row(stp_image_t *image, unsigned char *data, size_t byte_limit,
+	      int row)
 {
-  Gimp_Image_t *i = (Gimp_Image_t *) (image->rep);
-  if (i->columns)
-    gimp_pixel_rgn_get_col(&(i->rgn), data,
-                           i->oy + row * i->increment, i->ox, i->w);
+  Gimp_Image_t *im = (Gimp_Image_t *) (image->rep);
+  int last_printed_percent;
+  guchar *inter;
+  if (!im->initialized)
+    {
+      gimp_progress_init(_("Printing..."));
+      switch (im->base_type)
+	{
+	case GIMP_INDEXED:
+	  im->tmp = stp_malloc(im->drawable->bpp * im->w);
+	  break;
+	case GIMP_GRAY:
+	  if (im->drawable->bpp == 2)
+	    im->tmp = stp_malloc(im->drawable->bpp * im->w);
+	  break;
+	case GIMP_RGB:
+	  if (im->drawable->bpp == 4)
+	    im->tmp = stp_malloc(im->drawable->bpp * im->w);
+	  break;
+	}
+      im->initialized = 1;
+    }    
+  if (im->tmp)
+    inter = im->tmp;
   else
-    gimp_pixel_rgn_get_row(&(i->rgn), data,
-                           i->ox, i->oy + row * i->increment, i->w);
-  if (i->mirror)
+    inter = data;
+  if (im->columns)
+    gimp_pixel_rgn_get_col(&(im->rgn), inter,
+                           im->oy + row * im->increment, im->ox, im->w);
+  else
+    gimp_pixel_rgn_get_row(&(im->rgn), inter,
+                           im->ox, im->oy + row * im->increment, im->w);
+  if (im->cmap)
+    {
+      int i;
+      if (im->alpha_table)
+	{
+	  for (i = 0; i < im->w; i++)
+	    {
+	      int j;
+	      for (j = 0; j < 3; j++)
+		{
+		  gint32 tval = im->cmap[(3 * inter[2 * i]) + j];
+		  data[(3 * i) + j] = alpha_lookup(im, tval,
+						   inter[(2 * i) + 1]);
+		}
+
+	    }
+	}
+      else
+	{
+	  for (i = 0; i < im->w; i++)
+	    {
+	      data[(3 * i) + 0] = im->cmap[(3 * inter[i]) + 0];
+	      data[(3 * i) + 1] = im->cmap[(3 * inter[i]) + 1];
+	      data[(3 * i) + 2] = im->cmap[(3 * inter[i]) + 2];
+	    }
+	}
+    }
+  else if (im->alpha_table)
+    {
+      int i;
+      for (i = 0; i < im->w; i++)
+	{
+	  int j;
+	  for (j = 0; j < im->real_bpp; j++)
+	    {
+	      gint32 tval = inter[(i * im->drawable->bpp) + j];
+	      data[(i * im->real_bpp) + j] =
+		alpha_lookup(im, tval,
+			     inter[((i + 1) * im->drawable->bpp) - 1]);
+	    }
+
+	}
+    }
+  if (im->mirror)
     {
       /* Flip row -- probably inefficiently */
-      int f, l, b = i->drawable->bpp;
-      for (f = 0, l = i->w - 1; f < l; f++, l--)
+      int f;
+      int l;
+      int b = im->real_bpp;
+      for (f = 0, l = im->w - 1; f < l; f++, l--)
 	{
 	  int c;
 	  unsigned char tmp;
@@ -309,35 +310,138 @@ Image_get_row(stp_image_t *image, unsigned char *data, int row)
 	    }
 	}
     }
-  return STP_IMAGE_OK;
+  last_printed_percent = row * 100 / im->h;
+  if (last_printed_percent > im->last_printed_percent)
+    {
+      gimp_progress_update((double) row / (double) im->h);
+      im->last_printed_percent = last_printed_percent;
+    }
+  return STP_IMAGE_STATUS_OK;
 }
 
 static void
-Image_progress_init(stp_image_t *image)
+Image_transpose(stpui_image_t *image)
 {
-  gimp_progress_init(_("Printing..."));
+  Gimp_Image_t *im = (Gimp_Image_t *) (image->im.rep);
+  int tmp;
+
+  if (im->mirror) im->ox += im->w - 1;
+
+  im->columns = !im->columns;
+
+  tmp = im->ox;
+  im->ox = im->oy;
+  im->oy = tmp;
+
+  tmp = im->mirror;
+  im->mirror = im->increment < 0;
+  im->increment = tmp ? -1 : 1;
+
+  tmp = im->w;
+  im->w = im->h;
+  im->h = tmp;
+
+  if (im->mirror) im->ox -= im->w - 1;
 }
 
 static void
-Image_note_progress(stp_image_t *image, double current, double total)
+Image_hflip(stpui_image_t *image)
 {
-  gimp_progress_update(current / total);
+  Gimp_Image_t *im = (Gimp_Image_t *) (image->im.rep);
+  im->mirror = !im->mirror;
 }
 
 static void
-Image_progress_conclude(stp_image_t *image)
+Image_vflip(stpui_image_t *image)
 {
+  Gimp_Image_t *im = (Gimp_Image_t *) (image->im.rep);
+  im->oy += (im->h-1) * im->increment;
+  im->increment = -im->increment;
+}
+
+/*
+ * Image_crop:
+ *
+ * Crop the given number of pixels off the LEFT, TOP, RIGHT and BOTTOM
+ * of the image.
+ */
+
+static void
+Image_crop(stpui_image_t *image, int left, int top, int right, int bottom)
+{
+  Gimp_Image_t *im = (Gimp_Image_t *) (image->im.rep);
+  int xmax = (im->columns ? im->drawable->height : im->drawable->width) - 1;
+  int ymax = (im->columns ? im->drawable->width : im->drawable->height) - 1;
+
+  int nx = im->ox + im->mirror ? right : left;
+  int ny = im->oy + top * (im->increment);
+
+  int nw = im->w - left - right;
+  int nh = im->h - top - bottom;
+
+  int wmax, hmax;
+
+  if (nx < 0)         nx = 0;
+  else if (nx > xmax) nx = xmax;
+
+  if (ny < 0)         ny = 0;
+  else if (ny > ymax) ny = ymax;
+
+  wmax = xmax - nx + 1;
+  hmax = im->increment ? ny + 1 : ymax - ny + 1;
+
+  if (nw < 1)         nw = 1;
+  else if (nw > wmax) nw = wmax;
+
+  if (nh < 1)         nh = 1;
+  else if (nh > hmax) nh = hmax;
+
+  im->ox = nx;
+  im->oy = ny;
+  im->w = nw;
+  im->h = nh;
+}
+
+static void
+Image_rotate_ccw(stpui_image_t *image)
+{
+  Image_transpose(image);
+  Image_vflip(image);
+}
+
+static void
+Image_rotate_cw(stpui_image_t *image)
+{
+  Image_transpose(image);
+  Image_hflip(image);
+}
+
+static void
+Image_rotate_180(stpui_image_t *image)
+{
+  Image_vflip(image);
+  Image_hflip(image);
+}
+
+static void
+Image_conclude(stp_image_t *image)
+{
+  Gimp_Image_t *im = (Gimp_Image_t *) (image->rep);
   gimp_progress_update(1);
+  if (im->alpha_table)
+    stp_free(im->alpha_table);
+  if (im->tmp)
+    stp_free(im->tmp);
 }
 
 static const char *
 Image_get_appname(stp_image_t *image)
 {
-  static char pluginname[] = PLUG_IN_NAME " plug-in V" PLUG_IN_VERSION
+  static char pluginname[] = "Print plug-in V" VERSION " - " RELEASE_DATE
     " for GIMP";
   return pluginname;
 }
 
 /*
- * End of "$Id: print-image-gimp.c,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $".
+ * End of "$Id: print-image-gimp.c,v 1.1.1.2 2004/07/23 06:26:31 jlovell Exp $".
  */

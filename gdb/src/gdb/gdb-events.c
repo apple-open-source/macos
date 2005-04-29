@@ -80,6 +80,16 @@ breakpoint_modify_event (int b)
 }
 
 void
+breakpoint_resolve_event (int b, int new_b)
+{
+  if (gdb_events_debug)
+    fprintf_unfiltered (gdb_stdlog, "breakpoint_resolve_event\n");
+  if (!current_event_hooks->breakpoint_resolve)
+    return;
+  current_event_hooks->breakpoint_resolve (b, new_b);
+}
+
+void
 tracepoint_create_event (int number)
 {
   if (gdb_events_debug)
@@ -177,6 +187,7 @@ enum gdb_event
   breakpoint_create,
   breakpoint_delete,
   breakpoint_modify,
+  breakpoint_resolve,
   tracepoint_create,
   tracepoint_delete,
   tracepoint_modify,
@@ -200,6 +211,11 @@ struct breakpoint_delete
 struct breakpoint_modify
   {
     int b;
+  };
+
+struct breakpoint_resolve
+  {
+    int b; int new_b;
   };
 
 struct tracepoint_create
@@ -236,6 +252,7 @@ struct event
 	struct breakpoint_create breakpoint_create;
 	struct breakpoint_delete breakpoint_delete;
 	struct breakpoint_modify breakpoint_modify;
+	struct breakpoint_resolve breakpoint_resolve;
 	struct tracepoint_create tracepoint_create;
 	struct tracepoint_delete tracepoint_delete;
 	struct tracepoint_modify tracepoint_modify;
@@ -281,6 +298,16 @@ queue_breakpoint_modify (int b)
   struct event *event = XMALLOC (struct event);
   event->type = breakpoint_modify;
   event->data.breakpoint_modify.b = b;
+  append (event);
+}
+
+static void
+queue_breakpoint_resolve (int b, int new_b)
+{
+  struct event *event = XMALLOC (struct event);
+  event->type = breakpoint_resolve;
+  event->data.breakpoint_resolve.b = b;
+  event->data.breakpoint_resolve.new_b = new_b;
   append (event);
 }
 
@@ -378,6 +405,11 @@ gdb_events_deliver (struct gdb_events *vector)
 	  vector->breakpoint_modify
 	    (event->data.breakpoint_modify.b);
 	  break;
+	case breakpoint_resolve:
+	  vector->breakpoint_resolve
+	    (event->data.breakpoint_resolve.b,
+	       event->data.breakpoint_resolve.new_b);
+	  break;
 	case tracepoint_create:
 	  vector->tracepoint_create
 	    (event->data.tracepoint_create.number);
@@ -419,6 +451,7 @@ _initialize_gdb_events (void)
   queue_event_hooks.breakpoint_create = queue_breakpoint_create;
   queue_event_hooks.breakpoint_delete = queue_breakpoint_delete;
   queue_event_hooks.breakpoint_modify = queue_breakpoint_modify;
+  queue_event_hooks.breakpoint_resolve = queue_breakpoint_resolve;
   queue_event_hooks.tracepoint_create = queue_tracepoint_create;
   queue_event_hooks.tracepoint_delete = queue_tracepoint_delete;
   queue_event_hooks.tracepoint_modify = queue_tracepoint_modify;

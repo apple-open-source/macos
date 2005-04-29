@@ -50,6 +50,7 @@
 #define PPTP_OPT_PEER_PPD	7	/* peer packet processing delay */
 #define PPTP_OPT_MAXTIMEOUT	8	/* maximum adptative timeout */
 #define PPTP_OPT_OURADDRESS	9	/* our IP address */
+#define PPTP_OPT_BAUDRATE	10	/* tunnel baudrate */
 
 /* flags definition */
 #define PPTP_FLAG_DEBUG		0x00000002	/* debug mode, send verbose logs to syslog */

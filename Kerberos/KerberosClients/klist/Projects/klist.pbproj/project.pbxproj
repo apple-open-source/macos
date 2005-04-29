@@ -3,8 +3,110 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
+		A181F27805E553A9006CE0A8 = {
+			buildPhases = (
+				A181F27A05E553A9006CE0A8,
+				A181F27B05E553A9006CE0A8,
+				A181F27D05E553A9006CE0A8,
+				A181F27F05E553A9006CE0A8,
+				A1C7E152069DEBCE00DF6AFE,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = klist;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = klist;
+			productInstallPath = /usr/bin;
+			productName = klist;
+			productReference = A181F28105E553A9006CE0A8;
+			productType = "com.apple.product-type.tool";
+		};
+		A181F27A05E553A9006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F27B05E553A9006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+				A181F27C05E553A9006CE0A8,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F27C05E553A9006CE0A8 = {
+			fileRef = F5E27E53023715AE01650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A181F27D05E553A9006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+				A181F27E05E553A9006CE0A8,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F27E05E553A9006CE0A8 = {
+			fileRef = F5E27E5F023718D701650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A181F27F05E553A9006CE0A8 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A181F28105E553A9006CE0A8 = {
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			lastKnownFileType = "compiled.mach-o.executable";
+			path = klist;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1C7E152069DEBCE00DF6AFE = {
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Documentation/klist.M",
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+				"$(DSTROOT)/usr/share/man/man1/klist.1",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/share/man/man1\"\ninstall -c -m 644 \"${SRCROOT}/../Documentation/klist.M\" \"${DSTROOT}/usr/share/man/man1/klist.1\"\n";
+		};
+//A10
+//A11
+//A12
+//A13
+//A14
+//F50
+//F51
+//F52
+//F53
+//F54
 		F5033FCD025DFA1D01F62B58 = {
 			children = (
 				F5033FCE025DFA1D01F62B58,
@@ -13,49 +115,19 @@
 			name = Documentation;
 			path = ../Documentation;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5033FCE025DFA1D01F62B58 = {
+			explicitFileType = text.man;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = klist.M;
 			refType = 4;
-		};
-		F504031A025CF78701E005A8 = {
-			fileRef = F5E27E53023715AE01650119;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5B897D20241589301650119 = {
-			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/klist.M.jam\" $(ACTION)";
-			buildPhases = (
-			);
-			buildSettings = {
-				PRODUCT_NAME = "Man Pages";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			buildToolPath = /Developer/Private/jam;
-			dependencies = (
-			);
-			isa = PBXLegacyTarget;
-			name = "Man Pages";
-			passBuildSettingsInEnvironment = 1;
-			productName = "Man Pages";
-			settingsToExpand = 6;
-			settingsToPassInEnvironment = 287;
-			settingsToPassOnCommandLine = 280;
-		};
-		F5B897D30241589601650119 = {
-			isa = PBXTargetDependency;
-			target = F5B897D20241589301650119;
-		};
-		F5B897D4024158B001650119 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = klist.M.jam;
-			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E27E070237083401650119 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				F5E27E090237083401650119,
 				F5E27E0A0237083401650119,
@@ -66,35 +138,37 @@
 			productRefGroup = F5E27E56023716E301650119;
 			projectDirPath = "";
 			targets = (
-				F5B897D20241589301650119,
-				F5E27E58023716E301650119,
+				A181F27805E553A9006CE0A8,
 			);
 		};
 		F5E27E080237083401650119 = {
 			children = (
 				F5E27E52023715AE01650119,
 				F5033FCD025DFA1D01F62B58,
-				F5E27E54023715AE01650119,
 				F5E27E5F023718D701650119,
 				F5E27E56023716E301650119,
 			);
 			isa = PBXGroup;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E27E090237083401650119 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		F5E27E0A0237083401650119 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -107,98 +181,31 @@
 			name = Sources;
 			path = ../Sources;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		F5E27E53023715AE01650119 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = klist.c;
 			refType = 4;
-		};
-		F5E27E54023715AE01650119 = {
-			children = (
-				F5B897D4024158B001650119,
-			);
-			isa = PBXGroup;
-			name = Scripts;
-			path = ../Scripts;
-			refType = 2;
+			sourceTree = "<group>";
 		};
 		F5E27E56023716E301650119 = {
 			children = (
-				F5E27E57023716E301650119,
+				A181F28105E553A9006CE0A8,
 			);
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
-		};
-		F5E27E57023716E301650119 = {
-			isa = PBXExecutableFileReference;
-			path = klist;
-			refType = 3;
-		};
-		F5E27E58023716E301650119 = {
-			buildPhases = (
-				F5E27E59023716E301650119,
-				F5E27E5A023716E301650119,
-				F5E27E5B023716E301650119,
-				F5E27E5C023716E301650119,
-			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(DSTROOT)/System/Library/Frameworks\"";
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = klist;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-				F5B897D30241589601650119,
-			);
-			isa = PBXToolTarget;
-			name = klist;
-			productInstallPath = /usr/bin;
-			productName = klist;
-			productReference = F5E27E57023716E301650119;
-		};
-		F5E27E59023716E301650119 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E27E5A023716E301650119 = {
-			buildActionMask = 2147483647;
-			files = (
-				F504031A025CF78701E005A8,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E27E5B023716E301650119 = {
-			buildActionMask = 2147483647;
-			files = (
-				F5E27E60023718D701650119,
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E27E5C023716E301650119 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
+			sourceTree = "<group>";
 		};
 		F5E27E5F023718D701650119 = {
-			isa = PBXFrameworkReference;
+			explicitFileType = wrapper.framework;
+			isa = PBXFileReference;
 			path = Kerberos.framework;
 			refType = 3;
-		};
-		F5E27E60023718D701650119 = {
-			fileRef = F5E27E5F023718D701650119;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 	};
 	rootObject = F5E27E070237083401650119;

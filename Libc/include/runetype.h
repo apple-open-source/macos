@@ -1,25 +1,3 @@
-/*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -62,38 +40,38 @@
 #define	_RUNETYPE_H_
 
 #include <sys/cdefs.h>
-#include <machine/ansi.h>
+#include <_types.h>
 
-#ifndef	_BSD_SIZE_T_DEFINED_
-#define _BSD_SIZE_T_DEFINED_
-typedef	_BSD_SIZE_T_	size_t;
+#ifndef _POSIX_C_SOURCE
+
+#ifndef	_SIZE_T
+#define _SIZE_T
+typedef	__darwin_size_t		size_t;
 #endif
 
-#ifndef	_BSD_CT_RUNE_T_DEFINED_
-#define _BSD_CT_RUNE_T_DEFINED_
-typedef	_BSD_CT_RUNE_T_	ct_rune_t;
+#ifndef	_CT_RUNE_T
+#define _CT_RUNE_T
+typedef	__darwin_ct_rune_t	ct_rune_t;
 #endif
 
-#ifndef	_BSD_RUNE_T_DEFINED_
-#define _BSD_RUNE_T_DEFINED_
-typedef	_BSD_RUNE_T_	rune_t;
+#ifndef	_RUNE_T
+#define _RUNE_T
+typedef	__darwin_rune_t		rune_t;
 #endif
 
 #ifndef	__cplusplus
-#ifndef	_BSD_WCHAR_T_DEFINED_
-#define	_BSD_WCHAR_T_DEFINED_
-#ifdef	__WCHAR_TYPE__
-typedef	__WCHAR_TYPE__	wchar_t;
-#else	/* ! __WCHAR_TYPE__ */
-typedef	_BSD_WCHAR_T_	wchar_t;
-#endif	/* __WCHAR_TYPE__ */
-#endif	/* _BSD_WCHAR_T_DEFINED_ */
+#ifndef	_WCHAR_T
+#define	_WCHAR_T
+typedef	__darwin_wchar_t	wchar_t;
+#endif	/* _WCHAR_T */
 #endif	/* __cplusplus */
 
-#ifndef	_BSD_WINT_T_DEFINED_
-#define _BSD_WINT_T_DEFINED_
-typedef	_BSD_WINT_T_	wint_t;
+#ifndef	_WINT_T
+#define _WINT_T
+typedef	__darwin_wint_t		wint_t;
 #endif
+
+#endif /* !_POSIX_C_SOURCE */
 
 #define	_CACHED_RUNES	(1 <<8 )	/* Must be a power of 2 */
 #define	_CRMASK		(~(_CACHED_RUNES - 1))
@@ -102,42 +80,40 @@ typedef	_BSD_WINT_T_	wint_t;
  * The lower 8 bits of runetype[] contain the digit value of the rune.
  */
 typedef struct {
-	rune_t		min;		/* First rune of the range */
-	rune_t		max;		/* Last rune (inclusive) of the range */
-	rune_t		map;		/* What first maps to in maps */
-	unsigned long	*types;		/* Array of types in range */
+	__darwin_rune_t	__min;		/* First rune of the range */
+	__darwin_rune_t	__max;		/* Last rune (inclusive) of the range */
+	__darwin_rune_t	__map;		/* What first maps to in maps */
+	__uint32_t	*__types;	/* Array of types in range */
 } _RuneEntry;
 
 typedef struct {
-	int		nranges;	/* Number of ranges stored */
-	_RuneEntry	*ranges;	/* Pointer to the ranges */
+	int		__nranges;	/* Number of ranges stored */
+	_RuneEntry	*__ranges;	/* Pointer to the ranges */
 } _RuneRange;
 
 typedef struct {
-	char		magic[8];	/* Magic saying what version we are */
-	char		encoding[32];	/* ASCII name of this encoding */
+	char		__magic[8];	/* Magic saying what version we are */
+	char		__encoding[32];	/* ASCII name of this encoding */
 
-	rune_t		(*sgetrune)
-	   (const char *, size_t, char const **);
-	int		(*sputrune)
-	   (rune_t, char *, size_t, char **);
-	rune_t		invalid_rune;
+	__darwin_rune_t	(*__sgetrune)(const char *, __darwin_size_t, char const **);
+	int		(*__sputrune)(__darwin_rune_t, char *, __darwin_size_t, char **);
+	__darwin_rune_t	__invalid_rune;
 
-	unsigned long	runetype[_CACHED_RUNES];
-	rune_t		maplower[_CACHED_RUNES];
-	rune_t		mapupper[_CACHED_RUNES];
+	__uint32_t	__runetype[_CACHED_RUNES];
+	__darwin_rune_t	__maplower[_CACHED_RUNES];
+	__darwin_rune_t	__mapupper[_CACHED_RUNES];
 
 	/*
 	 * The following are to deal with Runes larger than _CACHED_RUNES - 1.
 	 * Their data is actually contiguous with this structure so as to make
 	 * it easier to read/write from/to disk.
 	 */
-	_RuneRange	runetype_ext;
-	_RuneRange	maplower_ext;
-	_RuneRange	mapupper_ext;
+	_RuneRange	__runetype_ext;
+	_RuneRange	__maplower_ext;
+	_RuneRange	__mapupper_ext;
 
-	void		*variable;	/* Data which depends on the encoding */
-	int		variable_len;	/* how long that data is */
+	void		*__variable;	/* Data which depends on the encoding */
+	int		__variable_len;	/* how long that data is */
 } _RuneLocale;
 
 #define	_RUNE_MAGIC_1	"RuneMagi"	/* Indicates version 0 of RuneLocale */

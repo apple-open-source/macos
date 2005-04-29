@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.24 2003/08/03 16:31:14 jlovell Exp $"
+# "$Id: Makefile,v 1.30 2005/01/31 23:19:51 jlovell Exp $"
 #
 #   Filter makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2003 by Easy Software Products.
+#   Copyright 1997-2005 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
 #       Attn: CUPS Licensing Information
 #       Easy Software Products
 #       44141 Airport View Drive, Suite 204
-#       Hollywood, Maryland 20636-3111 USA
+#       Hollywood, Maryland 20636 USA
 #
-#       Voice: (301) 373-9603
+#       Voice: (301) 373-9600
 #       EMail: cups-info@cups.org
 #         WWW: http://www.cups.org
 #
@@ -40,13 +40,13 @@ FORMOBJS =	form-attr.o form-main.o form-ps.o form-text.o form-tree.o
 OBJS	=	$(HPGLOBJS) $(IMAGEOBJS) $(FORMOBJS) \
 		gziptoany.o imagetops.o imagetoraster.o common.o pstops.o \
 		rastertodymo.o rastertoepson.o rastertohp.o \
-		texttops.o textcommon.o 
+		texttops.o textcommon.o
 
 #
 # Make all targets...
 #
 
-all:	$(TARGETS) libcupsimage.a
+all:	$(TARGETS) $(LIBCUPSIMAGE) libcupsimage.a
 
 
 #
@@ -112,9 +112,9 @@ formtops:	$(FORMOBJS) common.o ../Makedefs ../cups/$(LIBCUPS)
 # gziptoany
 #
 
-gziptoany:	gziptoany.o ../Makedefs
+gziptoany:	gziptoany.o ../Makedefs ../cups/$(LIBCUPS)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ gziptoany.o $(LIBZ)
+	$(CC) $(LDFLAGS) -o $@ gziptoany.o $(LIBZ) $(LIBS)
 
 
 #
@@ -141,13 +141,19 @@ libcupsimage.so.2 libcupsimage.sl.2:	$(IMAGEOBJS) ../Makedefs
 # libcupsimage.2.dylib
 #
 
+SECTORDER_FILE=/usr/local/lib/OrderFiles/libcupsimage.2.order
+ifeq "$(shell test -f $(SECTORDER_FILE) && echo YES)" "YES"
+	SECTORDER_FLAGS=-sectorder __TEXT __text $(SECTORDER_FILE)
+endif
+
 libcupsimage.2.dylib:	$(IMAGEOBJS) ../Makedefs
 	echo Linking $@...
 	$(DSO) $(DSOFLAGS) -o $@  \
 		-install_name $(libdir)/$@ \
 		-current_version 2.1.0 \
 		-compatibility_version 2.0.0 \
-		$(IMAGEOBJS) $(DSOLIBS) -L../cups $(LINKCUPS) -lm -lcc_dynamic
+		$(SECTORDER_FLAGS) \
+		$(IMAGEOBJS) $(DSOLIBS) -L../cups $(LINKCUPS) -lm
 	$(RM) libcupsimage.dylib
 	$(LN) $@ libcupsimage.dylib
 
@@ -271,5 +277,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.24 2003/08/03 16:31:14 jlovell Exp $".
+# End of "$Id: Makefile,v 1.30 2005/01/31 23:19:51 jlovell Exp $".
 #

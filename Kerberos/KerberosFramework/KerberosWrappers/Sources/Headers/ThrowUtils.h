@@ -10,6 +10,8 @@
 #include <exception>
 #include <new>
 
+#include <errno.h>
+
 inline void ThrowIfKerberos4Error (int inErr, const std::exception& inException) {
 	if (inErr != KSUCCESS)
 		DebugThrow_ (inException);

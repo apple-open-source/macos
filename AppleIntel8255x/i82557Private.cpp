@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,12 +27,6 @@
  */
 
 #include "i82557.h"
-
-extern "C" {
-#include <sys/param.h>
-#include <sys/mbuf.h>
-#include <string.h>
-}
 
 //---------------------------------------------------------------------------
 // Function: _intrACK
@@ -156,7 +147,7 @@ bool Intel82557::_polledCommand(cbHeader_t * hdr_p, IOPhysicalAddress paddr)
 
 	WriteLE32(&CSR_p->pointer, paddr);
 	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_START));
-
+	ReadLE16(&CSR_p->status);
 	prevCUCommand = SCB_CUC_START;
 
     for (int i = 0; (i < SPIN_TIMEOUT) && isCSRValid(); i++) {
@@ -189,6 +180,7 @@ bool Intel82557::_abortReceive()
     }
 
 	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_RUC, SCB_RUC_ABORT));
+	ReadLE16(&CSR_p->status);
 
     for (int i = 0; (i < SPIN_TIMEOUT) && isCSRValid(); i++) {
 		if (CSR_VALUE(SCB_STATUS_RUS, ReadLE16(&CSR_p->status)) == SCB_RUS_IDLE)
@@ -218,6 +210,7 @@ bool Intel82557::_startReceive()
 
 	WriteLE32(&CSR_p->pointer, headRfd->_paddr);
 	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_RUC, SCB_RUC_START));
+	ReadLE16(&CSR_p->status);
 
     for (int i = 0; (i < SPIN_TIMEOUT) && isCSRValid(); i++) {
 		if (CSR_VALUE(SCB_STATUS_RUS, ReadLE16(&CSR_p->status)) == 
@@ -248,26 +241,8 @@ void Intel82557::_resetChip()
     } while (isCSRValid() && ReadLE32(&CSR_p->port) && (++i < 100));
 
 	sendPortCommand(portReset_e, 0);
-    IOSleep(1);
+    IOSleep(1);  // 10us min
     return;
-}
-
-//---------------------------------------------------------------------------
-// Function: issueReset
-//
-// Purpose:
-//   Shut down the chip, and issue a reset.
-
-void Intel82557::issueReset()
-{
-    VPRINT("%s: resetting adapter\n", getName());
-
-	etherStats->dot3RxExtraEntry.resets++;
-
-	setActivationLevel(kActivationLevel0);
-	if (!setActivationLevel(currentLevel)) {
-		VPRINT("%s: Reset attempt unsuccessful\n", getName());
-	}
 }
 
 //---------------------------------------------------------------------------
@@ -277,7 +252,7 @@ void Intel82557::issueReset()
 //   Updated a RFD/RBD in order to attach it to a cluster mbuf.
 //   XXX - assume cluster will never cross page boundary.
 
-bool Intel82557::updateRFDFromMbuf(rfd_t * rfd_p, struct mbuf * m)
+bool Intel82557::updateRFDFromMbuf(rfd_t * rfd_p, mbuf_t m)
 {
 	struct IOPhysicalSegment vector;
 	UInt count;
@@ -420,10 +395,10 @@ bool Intel82557::_initRfdList( bool enable )
     for (i = 0; i < NUM_RECEIVE_FRAMES; i++) {
 		// Pre-load the receive ring with max size mbuf packets.
 		//		
-		struct mbuf * m = allocatePacket(MAX_BUF_SIZE);
+		mbuf_t m = allocatePacket(MAX_BUF_SIZE);
 		if (!m)
 			return false;
-		
+
 		if (updateRFDFromMbuf(&rfdList_p[i], m) == false) {
 			IOLog("%s: updateRFDFromMbuf() error\n", getName());
 			freePacket(m);
@@ -450,7 +425,7 @@ bool Intel82557::_resetRfdList()
 
 	struct _cache {
 		IOPhysicalAddress rbd_buffer;
-		struct mbuf *     rbd_mbuf;
+		mbuf_t            rbd_mbuf;
 		IOPhysicalAddress rfd_paddr;
 		IOPhysicalAddress rbd_paddr;
 	} * cache_p = (struct _cache *) KDB_buf_p;
@@ -784,13 +759,18 @@ bool Intel82557::_selfTest()
     WriteLE32(&test_p->signature, 0);
     WriteLE32(&test_p->results, ~0);
 	sendPortCommand(portSelfTest_e, overlay_paddr);
-    IOSleep(20);
-    if (ReadLE32(&test_p->signature) == 0) {
-		IOLog("%s: Self test timed out\n", getName());
-		return false;
+ 
+    // Hardware needs to fetch the entire serial ROM contents which can
+    // take some time.
+
+    for (int i = 15; i != 0; i--)
+    {
+        IOSleep(10);
+        results = ReadLE32(&test_p->results) & PORT_SELFTEST_MASK;
+        if (0 == results) 
+            break;
     }
 
-	results = ReadLE32(&test_p->results);
     if (results) {		/* report errors from self test */
     	if (results & PORT_SELFTEST_ROM)
 	    	IOLog("%s: Self test reports invalid ROM contents\n",
@@ -803,8 +783,13 @@ bool Intel82557::_selfTest()
 			getName());
 		if (results & PORT_SELFTEST_GENERAL)
 			IOLog("%s: Self test failed\n", getName());
-			return false;
+        return false;
 	}
+    
+    // Device will perform a full internal reset after self-test is
+    // complete, wait a bit before accessing hardware.
+
+    IOSleep(10);    
     return true;
 }
 
@@ -833,19 +818,22 @@ void Intel82557::enableAdapterInterrupts()
 	 * For 82558, mask (disable) the ER and FCP interrupts.
 	 */
 	UInt8	interruptByte;
-	interruptByte = SCB_INTERRUPT_ER | SCB_INTERRUPT_FCP;
-    WriteLE8(&CSR_p->interrupt, interruptByte);
 	interruptEnabled = true;
-    return;
+	interruptByte = SCB_INTERRUPT_ER | SCB_INTERRUPT_FCP;
+	WriteLE8(&CSR_p->interrupt, interruptByte);
 }
 
 void Intel82557::disableAdapterInterrupts()
 {
-	UInt8	interruptByte;
-	interruptByte = SCB_INTERRUPT_M;
-	WriteLE8(&CSR_p->interrupt, interruptByte);
+	/*
+	 * Write to memory followed by a read to defeat any PCI write-
+	 * posting to mask all chip interrupt sources before clearing
+	 * the interruptEnabled software flag.
+	 */
+	do {
+		WriteLE8(&CSR_p->interrupt, SCB_INTERRUPT_M);
+	} while ((ReadLE8(&CSR_p->interrupt) & SCB_INTERRUPT_M) == 0);
 	interruptEnabled = false;
-    return;
 }
 
 //---------------------------------------------------------------------------
@@ -927,7 +915,7 @@ bool Intel82557::_dumpStatistics()
     }
 
 	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_DUMP_RESET_STAT));
-
+	ReadLE16(&CSR_p->status);
 	prevCUCommand = SCB_CUC_DUMP_RESET_STAT;
 
 	releaseDebuggerLock();
@@ -1160,6 +1148,7 @@ bool Intel82557::hwInit( bool resetOnly )
     }
     WriteLE32(&CSR_p->pointer, 0);	
 	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_LOAD_BASE));
+	ReadLE16(&CSR_p->status);
 	prevCUCommand = SCB_CUC_LOAD_BASE;
 
     /* load receive unit base address */
@@ -1169,6 +1158,7 @@ bool Intel82557::hwInit( bool resetOnly )
     }
     WriteLE32(&CSR_p->pointer, 0);	
 	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_RUC, SCB_RUC_LOAD_BASE));
+	ReadLE16(&CSR_p->status);
 
     if (!_waitSCBCommandClear(CSR_p)) {
 		VPRINT("%s: hwInit: LOAD_DUMP_ADDR _waitSCBCommandClear failed\n",
@@ -1178,6 +1168,7 @@ bool Intel82557::hwInit( bool resetOnly )
     WriteLE32(&errorCounters_p->_status, DUMP_STATUS);
 	WriteLE32(&CSR_p->pointer, errorCounters_paddr);	
 	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_LOAD_DUMP_ADDR));
+	ReadLE16(&CSR_p->status);
 	prevCUCommand = SCB_CUC_LOAD_DUMP_ADDR;
 
     if (!_waitSCBCommandClear(CSR_p)) {
@@ -1219,7 +1210,7 @@ bool Intel82557::coldInit()
 {
 	IOPhysicalAddress paddr;
 
-	disableAdapterInterrupts();
+    hwInit(true);
 
     /* allocate and initialize shared memory pointers */
 	if (!allocatePageBlock(&shared)) {
@@ -1326,7 +1317,7 @@ bool Intel82557::receiveInterruptOccurred()
 			IOLog("%s: RFD status: %04x\n", getName(), 
 				ReadLE16(&headRfd->status));
 			
-			issueReset();
+			resetAdapter();
 			return;
 		}
 #endif
@@ -1337,8 +1328,8 @@ bool Intel82557::receiveInterruptOccurred()
 			; /* bad or unwanted packet */
 		}
 		else {
-	    	struct mbuf * m = headRfd->_rbd._mbuf;
-			struct mbuf * m_in = 0;	// packet to pass up to inputPacket()
+	    	mbuf_t m = headRfd->_rbd._mbuf;
+			mbuf_t m_in = 0;	// packet to pass up to inputPacket()
 			bool replaced;
 
 			packetsReceived = true;
@@ -1408,11 +1399,11 @@ void Intel82557::transmitInterruptOccurred()
 	    	freePacket(head->_mbuf);
 	    	head->_mbuf = 0;
 		}
+		if (head->_interruptFlag && txPendingInterruptCount)
+			txPendingInterruptCount--;
 		head = tcbQ_p->activeHead_p = head->_next;
 		tcbQ_p->numFree++;
     }
-
-    return;
 }
 
 //---------------------------------------------------------------------------
@@ -1421,7 +1412,7 @@ void Intel82557::transmitInterruptOccurred()
 // Purpose:
 //   Field an interrupt.
 
-void Intel82557::interruptOccurred(IOInterruptEventSource * src, int /*count*/)
+void Intel82557::interruptOccurred(IOInterruptEventSource * src)
 {
 	scb_status_t  status;
 	bool          flushInputQ = false;
@@ -1429,10 +1420,10 @@ void Intel82557::interruptOccurred(IOInterruptEventSource * src, int /*count*/)
 
 	if (interruptEnabled == false)
     {
-        // This can occur when interrupts are shared. Each interrupt event
-        // connected to the same interrupt line will get called when there
-        // is an interrupt. Use a filter interrupt event source to avoid
-        // work loop scheduling cost.
+		// Even with an interrupt filter frontend, it is still necessary
+		// to check interruptEnabled flag since this driver never disables
+		// its interrupt event source (may be shared). And the interface
+		// may be disabled between the interrupt filter and this handler.
 		return;
 	}
 
@@ -1462,7 +1453,7 @@ void Intel82557::interruptOccurred(IOInterruptEventSource * src, int /*count*/)
 
 				if (!_startReceive()) {
 					VPRINT("%s: Unable to restart receiver\n", getName());
-					// issueReset();	/* shouldn't need to do this. */
+					// resetAdapter();	/* shouldn't need to do this. */
 				}
 			}
 		}
@@ -1493,14 +1484,33 @@ void Intel82557::interruptOccurred(IOInterruptEventSource * src, int /*count*/)
 	}
 }
 
+void Intel82557::interruptHandler( OSObject *               target,
+                                   IOInterruptEventSource * src,
+                                   int                      count )
+{
+	// C++ glue to eliminate compiler warnings
+	((Intel82557 *) target)->interruptOccurred( src );
+}
+
+bool Intel82557::interruptFilter( OSObject * target,
+                                  IOFilterInterruptEventSource * src )
+{
+	Intel82557 * me = (Intel82557 *) target;
+
+	if (me->interruptEnabled &&
+		(me->CSR_p->status & OSSwapHostToLittleInt16(SCB_STATUS_INT_MASK)))
+		return true;
+	else
+		return false;
+}
+
 //---------------------------------------------------------------------------
 // Function: updateTCBForMbuf
 //
 // Update the TxCB pointed by tcb_p to point to the mbuf chain 'm'.
 // Returns the mbuf encoded onto the TxCB.
 
-struct mbuf *
-Intel82557::updateTCBForMbuf(tcb_t * tcb_p, struct mbuf * m)
+mbuf_t Intel82557::updateTCBForMbuf(tcb_t * tcb_p, mbuf_t m)
 {
 	// Set the invariant TCB fields.
 	//
@@ -1510,10 +1520,13 @@ Intel82557::updateTCBForMbuf(tcb_t * tcb_p, struct mbuf * m)
 		WriteNoSyncLE16(&tcb_p->command, CSR_FIELD(TCB_COMMAND, CB_CMD_TRANSMIT) |
                         TCB_COMMAND_S  | TCB_COMMAND_SF | TCB_COMMAND_I);
 		txCount = 0;
-    }
-	else
+		tcb_p->_interruptFlag = 1;
+	}
+	else {
 		WriteNoSyncLE16(&tcb_p->command, CSR_FIELD(TCB_COMMAND, CB_CMD_TRANSMIT) |
                         TCB_COMMAND_S | TCB_COMMAND_SF);
+		tcb_p->_interruptFlag = 0;
+	}
 
 	WriteNoSyncLE8(&tcb_p->threshold, txThreshold8);
 	WriteNoSyncLE16(&tcb_p->count, 0);	// all data are in the TBD's, none in TxCB
@@ -1528,7 +1541,7 @@ Intel82557::updateTCBForMbuf(tcb_t * tcb_p, struct mbuf * m)
 
 	if (!segments) {
 		VPRINT("%s: getPhysicalSegments error, pkt len = %d\n", 
-               getName(), m->m_pkthdr.len);
+               getName(), mbuf_pkthdr_len(m));
 		return 0;
 	}
 
@@ -1548,7 +1561,7 @@ Intel82557::updateTCBForMbuf(tcb_t * tcb_p, struct mbuf * m)
 //   state when done.  We use the CU_RESUME optimization that allows us to
 //   issue CU_RESUMES without waiting for SCB command to clear.
 //
-UInt32 Intel82557::outputPacket(struct mbuf * m, void * param)
+UInt32 Intel82557::outputPacket(mbuf_t m, void * param)
 {
 	tcb_t * tcb_p;
 	
@@ -1614,6 +1627,10 @@ UInt32 Intel82557::outputPacket(struct mbuf * m, void * param)
 		WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_RESUME));
 		prevCUCommand = SCB_CUC_RESUME;
     }
+
+	if (tcb_p->_interruptFlag)
+		txPendingInterruptCount++;
+
 	releaseDebuggerLock();
     return kIOReturnOutputSuccess;
 
@@ -1655,8 +1672,8 @@ bool Intel82557::_receivePacket(void * pkt, UInt * len, UInt timeout)
 			// Pass up good frames.
 			//
 			*len = CSR_VALUE(RBD_COUNT, ReadLE32(&headRfd->_rbd.count));
-			*len = MIN(*len, kIOEthernetMaxPacketSize - kIOEthernetCRCSize);
-			bcopy(mtod(headRfd->_rbd._mbuf, void *), pkt, *len);
+			*len = min(*len, kIOEthernetMaxPacketSize - kIOEthernetCRCSize);
+			bcopy(mbuf_data(headRfd->_rbd._mbuf), pkt, *len);
 			ret = true;
 		}
 
@@ -1734,8 +1751,8 @@ bool Intel82557::_sendPacket(void * pkt, UInt len)
 
 	// Copy the debugger packet to the pre-allocated buffer area.
 	//
-    len = MIN(len, kIOEthernetMaxPacketSize - kIOEthernetCRCSize);
-    len = MAX(len, kIOEthernetMinPacketSize);
+    len = min(len, kIOEthernetMaxPacketSize - kIOEthernetCRCSize);
+    len = max(len, kIOEthernetMinPacketSize);
     bcopy(pkt, KDB_buf_p, len);
 
 	// Update the TBD.

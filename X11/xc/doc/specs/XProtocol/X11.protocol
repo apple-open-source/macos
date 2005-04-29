@@ -1,9 +1,9 @@
-.\" $Xorg: X11.protocol,v 1.3 2000/08/17 19:42:23 cpqbld Exp $
+.\" $Xorg: X11.protocol,v 1.4 $
 .\"
 .\"
 .\"
 .\"
-.\" $XFree86: xc/doc/specs/XProtocol/X11.protocol,v 1.3 2001/01/17 16:57:42 dawes Exp $
+.\" $XFree86: xc/doc/specs/XProtocol/X11.protocol,v 1.5 2003/12/11 21:24:37 herrb Exp $
 .EH ''''
 .OH ''''
 .EF ''''
@@ -17,7 +17,7 @@
 
 \s+1\fBX Consortium Standard\fP\s-1
 
-\s+1\fBX Version 11, Release 6.4\fP\s-1
+\s+1\fBX Version 11, Release 6.7 DRAFT\fP\s-1
 .sp 6
 .ce 5
 \s-1Robert W. Scheifler
@@ -29,10 +29,9 @@ X Consortium, Inc.
 .nr PS 9
 .sp 8
 .LP
-X Window System is a trademark of X Consortium, Inc.
+X Window System is a trademark of The Open Group.
 .LP
-Copyright \(co 1986, 1987, 1988, 1994 
-X Consortium
+Copyright \(co 1986, 1987, 1988, 1994, 2002 The Open Group
 .LP
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the ``Software''), to deal
@@ -47,13 +46,13 @@ all copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
 AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 .LP
-Except as contained in this notice, the name of the X Consortium shall not be
+Except as contained in this notice, the name of the Open Group shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from the X Consortium.
+in this Software without prior written authorization from the Open Group.
 .ps 11
 .nr PS 11
 .bp
@@ -125,8 +124,8 @@ Robert W. Scheifler
 X Consortium, Inc.
 .De
 .bp 1
-.EH '\fBX Protocol\fP''\fBX11, Release 6.4\fP'
-.OH '\fBX Protocol\fP''\fBX11, Release 6.4\fP'
+.EH '\fBX Protocol\fP''\fBX11, Release 6.7 DRAFT\fP'
+.OH '\fBX Protocol\fP''\fBX11, Release 6.7 DRAFT\fP'
 .EF ''\fB % \fP''
 .OF ''\fB % \fP''
 .NH 1
@@ -533,6 +532,7 @@ T}
 HOST	T{
 [family: 
 .Pn { Internet , 
+.PN InternetV6 , 
 .PN DECnet , 
 .PN Chaos }
 T}
@@ -941,7 +941,7 @@ requests in most applications.
 Note that they are predefined only in the sense of having numeric values, 
 not in the sense of having required semantics.
 The core protocol imposes no semantics on these names,
-but semantics are specified in other X Consortium standards,
+but semantics are specified in other X.Org standards,
 such as the \fIInter-Client Communication Conventions Manual\fP
 and the \fIX Logical Font Description Conventions\fP.
 .LP
@@ -4422,7 +4422,7 @@ the ``?'' character (octal value 77) will match any single character,
 and the ``*'' character (octal value 52) will match any number 
 of characters.
 A structured format for font names is specified in the
-X Consortium standard \fIX Logical Font Description Conventions\fP.
+X.Org standard \fIX Logical Font Description Conventions\fP.
 .LP
 Fonts are not associated with a particular screen 
 and can be stored as a component of any graphics context.
@@ -4587,7 +4587,7 @@ between the Y-coordinate values (y \- font-ascent) and (y + font-descent \- 1).
 A font is not guaranteed to have any properties.
 The interpretation of the property value (for example, INT32, CARD32) 
 must be derived from \fIa priori\fP knowledge of the property.
-A basic set of font properties is specified in the X Consortium
+A basic set of font properties is specified in the X.Org
 standard \fIX Logical Font Description Conventions\fP.
 .LP
 For a character origin at [x,y], 
@@ -8708,19 +8708,26 @@ or an improper address length within a supported family results in a
 .PN Value 
 error.
 .LP
+Note that use of a host address in the ChangeHosts request is deprecated.
+It is only useful when a host has a unique, constant address, a requirement
+that is increasingly unmet as sites adopt dynamically assigned
+addresses, network address translation gateways, IPv6 link local
+addresses, and various other technologies.  It also assumes all users of
+a host share equivalent access rights, and as such has never been
+suitable for many multi-user machine environments.  Instead, more
+secure forms of authentication, such as those based on shared secrets
+or public key encryption, are recommended.
+.LP
 For the Internet family, 
 the address must be four bytes long.
 The address bytes are in standard IP order;
 the server performs no automatic swapping on the address bytes.
-For a Class A address, 
-the network number is the first byte in the address, 
-and the host number is the remaining three bytes, most significant byte first.
-For a Class B address, 
-the network number is the first two bytes and the host number
-is the last two bytes, each most significant byte first.
-For a Class C address, 
-the network number is the first three bytes, most significant byte first, 
-and the last byte is the host number.
+The Internet family supports IP version 4 addresses only.
+.LP
+For the InternetV6 family, the address must be sixteen bytes
+long.  The address bytes are in standard IP order; the
+server performs no automatic swapping on the address bytes.
+The InternetV6 family supports IP version 6 addresses only.
 .LP
 For the DECnet family, 
 the server performs no automatic swapping on the address bytes.
@@ -10370,7 +10377,7 @@ The owner should convert the selection based on the specified target type
 and send a
 .PN SelectionNotify 
 back to the requestor.
-A complete specification for using selections is given in the X Consortium
+A complete specification for using selections is given in the X.Org
 standard \fIInter-Client Communication Conventions Manual\fP.
 .sp
 .LP

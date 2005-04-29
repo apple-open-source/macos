@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xdm/greeter/greet.c,v 3.16 2002/10/06 20:42:16 herrb Exp $ */
+/* $XFree86: xc/programs/xdm/greeter/greet.c,v 3.17 2003/07/09 15:27:40 tsi Exp $ */
 
 /*
  * xdm - display manager daemon
@@ -145,8 +145,10 @@ GreetDone (
 	    data->name, strlen (data->passwd));
     switch (status) {
     case NOTIFY_OK:
-	strcpy (name, data->name);
-	strcpy (password, data->passwd);
+	strncpy (name, data->name, sizeof(name));
+	name[sizeof(name)-1] = '\0';
+	strncpy (password, data->passwd, sizeof(password));
+	password[sizeof(password)-1] = '\0';
 	bzero (data->passwd, PASSWORD_LEN);
 	code = 0;
 	done = 1;
@@ -280,6 +282,9 @@ CloseGreet (struct display *d)
     Debug ("Greet connection closed\n");
 }
 
+#define WHITESPACE 0
+#define ARGUMENT 1
+
 static int
 Greet (struct display *d, struct greet_info *greet)
 {
@@ -306,7 +311,23 @@ Greet (struct display *d, struct greet_info *greet)
     Debug ("Done dispatch %s\n", d->name);
     if (code == 0)
     {
-	greet->name = name;
+	char *ptr;
+	unsigned int c,state = WHITESPACE;
+ 
+	/*
+	 * Process the name string to get rid of white spaces.
+	 */
+	for (ptr = name; state == WHITESPACE; ptr++)
+	{
+	    c = (unsigned int)(*ptr);
+	    if (c == ' ')
+		continue;
+
+	    state = ARGUMENT;
+	    break;
+	}
+
+	greet->name = ptr;
 	greet->password = password;
 	XtSetArg (arglist[0], XtNsessionArgument, (char *) &(greet->string));
 	XtSetArg (arglist[1], XtNallowNullPasswd, (char *) &(greet->allow_null_passwd));

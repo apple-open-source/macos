@@ -33,7 +33,7 @@
 #include "context.h"
 #include "swrast/swrast.h"
 
-#define GAMMA_DATE	"20010624"
+#define GAMMA_DATE	"20021125"
 
 
 /* Return the width and height of the current color buffer.

@@ -1,7 +1,7 @@
 /*
  * KLPrincipal.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLPrincipal.c,v 1.13 2003/09/02 15:03:37 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLPrincipal.c,v 1.15 2004/05/14 02:47:02 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -35,6 +35,7 @@ static KLStatus __KLTranslateKLPrincipal (KLPrincipal inPrincipal);
 
 /* KLPrincipal functions */
 
+
 // ---------------------------------------------------------------------------
 
 KLStatus KLCreatePrincipalFromTriplet (const char  *inName,
@@ -57,8 +58,8 @@ KLStatus __KLCreatePrincipalFromTriplet (const char  *inName,
                                          KLKerberosVersion  inKerberosVersion,
                                          KLPrincipal *outPrincipal)
 {
-    KLStatus          err = klNoErr;
-    KLPrincipal       principal = NULL;
+    KLStatus    err = klNoErr;
+    KLPrincipal principal = NULL;
 
     if (inName       == NULL) { err = KLError_ (klParameterErr); }
     if (inInstance   == NULL) { err = KLError_ (klParameterErr); }
@@ -123,15 +124,15 @@ KLStatus KLCreatePrincipalFromString (const char        *inFullPrincipal,
                                       KLKerberosVersion  inKerberosVersion,
                                       KLPrincipal       *outPrincipal)
 {
-    KLStatus       err = klNoErr;
-    Principal     *principal = NULL;
+    KLStatus    err = klNoErr;
+    KLPrincipal principal = NULL;
 
     if (inFullPrincipal == NULL) { err = KLError_ (klParameterErr); }
     if (outPrincipal    == NULL) { err = KLError_ (klParameterErr); }
 
     // Create the principal structure
     if (err == klNoErr) {
-        principal = (Principal *) malloc (sizeof (Principal));
+        principal = (KLPrincipal) malloc (sizeof (Principal));
         if (principal == NULL) { err = KLError_ (klMemFullErr); }
     }
 
@@ -202,7 +203,74 @@ KLStatus KLCreatePrincipalFromString (const char        *inFullPrincipal,
     
     return KLError_ (err);
 }
-     
+
+// ---------------------------------------------------------------------------
+
+KLStatus KLCreatePrincipalFromKerberos5Principal (krb5_principal  inKerberos5Principal,
+                                                  KLPrincipal    *outPrincipal)
+{
+    KLStatus    err = klNoErr;
+    KLPrincipal principal = NULL;
+    
+    if (inKerberos5Principal == NULL) { err = KLError_ (klParameterErr); }
+    if (outPrincipal         == NULL) { err = KLError_ (klParameterErr); }
+    
+    // Create the principal structure
+    if (err == klNoErr) {
+        principal = (KLPrincipal) malloc (sizeof (Principal));
+        if (principal == NULL) { err = KLError_ (klMemFullErr); }
+    }
+    
+    if (err == klNoErr) {
+        principal->context = NULL;
+        principal->principal = NULL;
+    }
+    
+    if (err == klNoErr) {
+        err = krb5_init_context (&principal->context);
+    }
+    
+    if (err == klNoErr) {
+        err = krb5_copy_principal (principal->context, 
+                                   inKerberos5Principal, &principal->principal);
+    }
+    
+    if (err == klNoErr) {
+        *outPrincipal = principal;
+        principal = NULL;
+    }
+    
+    if (principal != NULL) {
+        if (principal->context != NULL) {
+            if (principal->principal != NULL) {
+                krb5_free_principal (principal->context, principal->principal);
+            }
+            krb5_free_context (principal->context);
+        }
+        free (principal);
+    }
+    
+    return KLError_ (err);    
+}
+
+// ---------------------------------------------------------------------------
+    
+KLStatus KLCreatePrincipalFromPrincipal (KLPrincipal inPrincipal,
+                                         KLPrincipal *outPrincipal)
+{
+    KLStatus     err = klNoErr;
+    
+    if (inPrincipal  == NULL) { err = KLError_ (klParameterErr); }
+    if (outPrincipal == NULL) { err = KLError_ (klParameterErr); }
+    
+    if (err == klNoErr) {
+        err = KLCreatePrincipalFromKerberos5Principal (inPrincipal->principal, outPrincipal);
+    }
+        
+    return KLError_ (err);    
+}
+
+
 // ---------------------------------------------------------------------------
 
 KLStatus KLGetTripletFromPrincipal (KLPrincipal   inPrincipal,
@@ -468,7 +536,7 @@ KLStatus KLComparePrincipal (KLPrincipal  inFirstPrincipal,
     
     return KLError_ (err);
 }
-     
+
 // ---------------------------------------------------------------------------
 
 KLStatus KLDisposePrincipal (KLPrincipal inPrincipal)

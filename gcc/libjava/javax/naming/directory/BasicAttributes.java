@@ -1,5 +1,5 @@
 /* BasicAttributes.java --
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,15 +38,20 @@ exception statement from your version. */
 
 package javax.naming.directory;
 
-import javax.naming.*;
-import java.util.*;
+import java.util.NoSuchElementException;
+import java.util.Vector;
+
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
 
 /**
- * @author Tom Tromey <tromey@redhat.com>
+ * @author Tom Tromey (tromey@redhat.com)
  * @date June 22, 2001
  */
 public class BasicAttributes implements Attributes
 {
+  private static final long serialVersionUID = 4980164073184639448L;
+  
   public BasicAttributes ()
   {
     this (false);

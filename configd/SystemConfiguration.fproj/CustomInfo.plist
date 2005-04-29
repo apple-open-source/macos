@@ -1,5 +1,0 @@
-{
-	CFBundleName = "SystemConfiguration";
-	CFBundleIdentifier = "com.apple.SystemConfiguration";
-	CFBundleShortVersionString = "1.7.1";
-}

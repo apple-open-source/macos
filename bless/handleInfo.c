@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,9 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Dec 6 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: handleInfo.c,v 1.20 2003/07/22 15:58:25 ssen Exp $
+ *  $Id: handleInfo.c,v 1.29 2005/02/03 00:42:22 ssen Exp $
  *
  *
  */
@@ -38,6 +36,10 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+
+#include <sys/stat.h>
+#include <sys/mount.h>
+#include <sys/param.h>
 
 #include "enums.h"
 #include "structs.h"
@@ -68,6 +70,7 @@ extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fm
  * 6 & 7 are 64 bit volume identifier (high 32 bits in 6; low in 7)
  */
 
+#define MISSINGMSG "<missing>"
 static const char *messages[7][2] = {
 
        { "No Blessed System Folder", "Blessed System Folder is " },    /* 0 */
@@ -80,15 +83,9 @@ static const char *messages[7][2] = {
        
 };
 
-int modeInfo(BLContextPtr context, struct clopt commandlineopts[klast], struct clarg actargs[klast]) {
+int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
     int err;
     CFDictionaryRef dict;
-    extern double blessVersionNumber;
-
-    if(actargs[kversion].present) {
-      printf("%.1f\n", blessVersionNumber);
-      return 0;
-    }
 
     if(!actargs[kinfo].hasArg ||  actargs[kgetboot].present) {
             char currentString[1024];
@@ -96,35 +93,94 @@ int modeInfo(BLContextPtr context, struct clopt commandlineopts[klast], struct c
             struct statfs *mnts;
             int vols;
 
-            FILE *pop;
-            // we didn't get any volumes, so add them all
+            if(BLIsOpenFirmwarePresent(context)) {
 
-            pop = popen("/usr/sbin/nvram boot-device", "r");
-            if(pop == NULL) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Could not determine current boot device\n" );
+                FILE *pop;
+    
+                pop = popen("/usr/sbin/nvram boot-device", "r");
+                if(pop == NULL) {
+                        blesscontextprintf(context, kBLLogLevelError,  "Could not determine current boot device\n" );
+                        return 1;
+                }
+    
+                if(1 != fscanf(pop, "%*s\t%s\n", &(currentString[0]))) {
+                        blesscontextprintf(context, kBLLogLevelError,  "Could not parse output from /usr/sbin/nvram\n" );
+                        return 1;
+                }
+    
+                pclose(pop);
+    
+                blesscontextprintf(context, kBLLogLevelVerbose,  "Current OF: %s\n", currentString );
+
+                err = BLGetDeviceForOpenFirmwarePath(context, currentString,
+                                                    currentDev);
+                if(err) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Can't get device for %s: %d\n", currentString, err );
                     return 1;
-            }
+    
+                }
+            } else {
+                // machine does not use OF. assume BIOS
+                struct statfs sb;
+                unsigned char parent[MNAMELEN];
+                unsigned long pnum = 0;
+                BLPartitionType ptype = 0;
+                
+                if(0 != statfs("/", &sb)) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Can't statfs /\n");
+                    return 1;                
+                }
 
-            if(1 != fscanf(pop, "%*s\t%s\n", &(currentString[0]))) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Could not parse output from /usr/sbin/nvram\n" );
-                    return 1;
-            }
+                err = BLGetParentDeviceAndPartitionType(context,
+		     sb.f_mntfromname, parent, &pnum, &ptype);
 
-            pclose(pop);
+                if(err) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Can't determine parent partition for %s\n", sb.f_mntfromname);
+                    return 2;                                
+                }
 
-            blesscontextprintf(context, kBLLogLevelVerbose,  "Current OF: %s\n", currentString );
+                if(ptype != kBLPartitionType_MBR) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Incorrect partition map type\n");
+                    return 3;                                                    
+                }
 
-            err = BLGetDeviceForOpenFirmwarePath(context, currentString,
-                                                currentDev);
-            if(err) {
-                blesscontextprintf(context, kBLLogLevelError,  "Can't get device for %s: %d\n", currentString, err );
-                return 1;
+                blesscontextprintf(context, kBLLogLevelVerbose,  "Whole device is %s\n", parent);
+
+		err = BLGetActiveBIOSPartitionForDevice(context, parent, currentDev);
+                if(err) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Can't determine active partition for %s\n", parent);
+                    return 2;                                
+		}
+
+		blesscontextprintf(context, kBLLogLevelVerbose,  "Active partition is %s\n", currentDev);
 
             }
 
 	    if( actargs[kgetboot].present) {
-		printf("%s\n", currentDev);
-		return 0;
+                if(actargs[kplist].present) {
+                    CFStringRef vol = CFStringCreateWithCString(kCFAllocatorDefault,
+                                                                currentDev,
+                                                                kCFStringEncodingUTF8);
+                    CFMutableDictionaryRef dict = NULL;
+                    CFDataRef		tempData = NULL;
+                    
+                    dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                     &kCFTypeDictionaryKeyCallBacks,
+                                                     &kCFTypeDictionaryValueCallBacks);
+                    CFDictionaryAddValue(dict, CFSTR("Boot Volume"), vol);
+                    CFRelease(vol);
+                    
+                    tempData = CFPropertyListCreateXMLData(kCFAllocatorDefault, dict);
+                    
+                    write(fileno(stdout), CFDataGetBytePtr(tempData), CFDataGetLength(tempData));
+                    
+                    CFRelease(tempData);
+                    CFRelease(dict);
+                    
+                } else {
+                    blesscontextprintf(context, kBLLogLevelNormal, "%s\n", currentDev);
+                }
+                return 0;
 	    }
 	    
             vols = getmntinfo(&mnts, MNT_NOWAIT);
@@ -137,12 +193,13 @@ int modeInfo(BLContextPtr context, struct clopt commandlineopts[klast], struct c
                 if(strncmp(mnts[vols].f_mntfromname, currentDev, strlen(currentDev)+1) == 0) {
                     blesscontextprintf(context, kBLLogLevelVerbose,  "mount: %s\n", mnts[vols].f_mntonname );
                     strcpy(actargs[kinfo].argument, mnts[vols].f_mntonname);
+                    actargs[kinfo].hasArg = 1;
                     break;
                 }
 
             }
 
-	    if(strlen(actargs[kinfo].argument) == 0) {
+	    if(!actargs[kinfo].hasArg) {
 	      blesscontextprintf(context, kBLLogLevelError,
 			    "Volume for OpenFirmware path %s is not available\n",
 			    currentString);
@@ -175,7 +232,6 @@ int modeInfo(BLContextPtr context, struct clopt commandlineopts[klast], struct c
 
     } else {
         CFArrayRef finfo = CFDictionaryGetValue(dict, CFSTR("Finder Info"));
-	CFDictionaryRef bootblocks = CFDictionaryGetValue(dict, CFSTR("BootBlocks"));
         int j;
         CFNumberRef vsdbref;
         uint64_t vsdb;
@@ -191,8 +247,12 @@ int modeInfo(BLContextPtr context, struct clopt commandlineopts[klast], struct c
                 continue;
             }
 
-            if(!CFStringGetCString(path, cpath, MAXPATHLEN, kCFStringEncodingUTF8)) {
-                continue;
+            if(dirint > 0 && CFStringGetLength(path) == 0) {
+                    strcpy(cpath, MISSINGMSG);
+            } else {
+                    if(!CFStringGetCString(path, cpath, MAXPATHLEN, kCFStringEncodingUTF8)) {
+                            continue;
+                    }
             }
 
             blesscontextprintf(context, kBLLogLevelNormal,
@@ -208,46 +268,6 @@ int modeInfo(BLContextPtr context, struct clopt commandlineopts[klast], struct c
         
     	blesscontextprintf(context, kBLLogLevelNormal, "%s 0x%016qX\n", messages[6][1],
 		      vsdb);
-
-	if(actargs[kbootblocks].present && bootblocks) {
-	    // print out strings for the bootblocks dictionary
-	    // in order to be deterministic, sort the keys first
-	    CFIndex i, keycount = CFDictionaryGetCount(bootblocks);
-	    const void *keys[keycount];
-	    CFArrayRef keyarray;
-	    CFMutableArrayRef keymutarray;
-	    
-	    CFDictionaryGetKeysAndValues(bootblocks, keys, NULL);
-
-	    keyarray = CFArrayCreate(kCFAllocatorDefault, keys, keycount, &kCFTypeArrayCallBacks);
-	    keymutarray = CFArrayCreateMutableCopy(kCFAllocatorDefault, keycount,
-					    keyarray);
-	    CFRelease(keyarray);
-	    
-	    CFArraySortValues(keymutarray, CFRangeMake(0,keycount-1), (CFComparatorFunction)CFStringCompare, 0);
-
-	    // iterate over keys, printing string values
-	    for(i=0; i < keycount; i++) {
-		CFStringRef dkey = CFArrayGetValueAtIndex(keymutarray, i);
-		CFStringRef str = CFDictionaryGetValue(bootblocks, dkey);
-
-		if(CFGetTypeID(str) == CFStringGetTypeID()) {
-		    CFStringRef line = CFStringCreateWithFormat(kCFAllocatorDefault,
-						  NULL, CFSTR("%@: %@"), dkey, str);
-		    char linecstr[100];
-
-		    CFStringGetCString(line, linecstr, sizeof(linecstr),
-			 kCFStringEncodingUTF8);
-		    
-		    blesscontextprintf(context, kBLLogLevelNormal,
-			 "%s\n", linecstr);
-		    
-		    CFRelease(line);
-		}
-	    }
-
-	    CFRelease(keymutarray);
-	}
 
     }
     

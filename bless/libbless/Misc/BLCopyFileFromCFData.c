@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,23 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Fri Oct 19 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLCopyFileFromCFData.c,v 1.9 2003/07/22 15:58:34 ssen Exp $
+ *  $Id: BLCopyFileFromCFData.c,v 1.13 2005/02/03 00:42:27 ssen Exp $
  *
  *  $Log: BLCopyFileFromCFData.c,v $
+ *  Revision 1.13  2005/02/03 00:42:27  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.12  2004/04/20 21:40:44  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.11  2004/03/17 01:38:19  ssen
+ *  Don't cast fcntl(2) argument to int, since it's a pointer
+ *
+ *  Revision 1.10  2003/10/17 00:10:39  ssen
+ *  add more const
+ *
  *  Revision 1.9  2003/07/22 15:58:34  ssen
  *  APSL 2.0
  *
@@ -77,8 +87,8 @@
 #include "bless_private.h"
 
 
-int BLCopyFileFromCFData(BLContextPtr context, CFDataRef data,
-	     unsigned char dest[], int shouldPreallocate) {
+int BLCopyFileFromCFData(BLContextPtr context, const CFDataRef data,
+	     const unsigned char dest[], int shouldPreallocate) {
 
     int fdw;
     CFDataRef theData = data;
@@ -103,7 +113,7 @@ int BLCopyFileFromCFData(BLContextPtr context, CFDataRef data,
 	preall.fst_flags = F_ALLOCATECONTIG;
 	preall.fst_posmode = F_PEOFPOSMODE;
     
-	err = fcntl(fdw, F_PREALLOCATE, (int) &preall);
+	err = fcntl(fdw, F_PREALLOCATE, &preall);
 	if(err != 0) {
 	contextprintf(context, kBLLogLevelError,  "preallocation of %s failed\n", dest );
 	close(fdw);

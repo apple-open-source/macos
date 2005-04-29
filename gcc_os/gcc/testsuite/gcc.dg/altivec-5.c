@@ -1,21 +1,12 @@
-/* APPLE LOCAL file AltiVec */
-/* { dg-do run { target powerpc-apple-darwin* } } */
-/* { dg-options "-faltivec -Wall" } */
+/* { dg-do compile { target powerpc-*-* } } */
+/* { dg-options "-maltivec -O2" } */
 
-/* This test checks if AltiVec builtins accept const-qualified
-   arguments.  */
+#define vector __attribute__((vector_size(16)))
 
-int main (int argc, const char * argv[])
+void foo (const unsigned long x,
+	  vector signed int a, vector signed int b)
 {
-  int i;
-  const float cf = 1.0;
-  vector float v;
-  const vector float cv = (vector float)(1.0, 2.0, 3.0, 4.0);
-  
-  vec_dst(&cv, i, 0);
-  v = vec_ld(0, &cv);	
-  v = vec_lde(0, &cf);
-  vec_lvsl(0, &cf);
-  
-  return 0;
+  unsigned char d[64];
+
+  __builtin_altivec_stvewx (b, 0, d);
 }

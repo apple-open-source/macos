@@ -43,7 +43,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_touch.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: lib_touch.c,v 1.9 2000/12/10 02:43:27 tom Exp $")
 
 NCURSES_EXPORT(bool)
 is_linetouched(WINDOW *win, int line)

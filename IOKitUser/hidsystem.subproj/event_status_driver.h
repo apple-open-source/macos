@@ -34,14 +34,12 @@
 #ifndef _DRIVERS_EVENT_STATUS_DRIVER_
 #define _DRIVERS_EVENT_STATUS_DRIVER_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 #include <mach/port.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
 #include <IOKit/hidsystem/IOHIDTypes.h>
-
+#include <AvailabilityMacros.h> 
 
 /*
  * Event System Handle:
@@ -66,9 +64,6 @@ extern void NXSetKeyRepeatInterval(NXEventHandle handle, double seconds);
 extern double NXKeyRepeatInterval(NXEventHandle handle);
 extern void NXSetKeyRepeatThreshold(NXEventHandle handle, double threshold);
 extern double NXKeyRepeatThreshold(NXEventHandle handle);
-extern NXKeyMapping *NXSetKeyMapping(NXEventHandle h, NXKeyMapping *keymap);
-extern int NXKeyMappingLength(NXEventHandle handle);
-extern NXKeyMapping *NXGetKeyMapping(NXEventHandle h, NXKeyMapping *keymap);
 extern void NXResetKeyboard(NXEventHandle handle);
 
 /* Mouse */
@@ -76,76 +71,63 @@ extern void NXSetClickTime(NXEventHandle handle, double seconds);
 extern double NXClickTime(NXEventHandle handle);
 extern void NXSetClickSpace(NXEventHandle handle, _NXSize_ *area);
 extern void NXGetClickSpace(NXEventHandle handle, _NXSize_ *area);
-extern void NXSetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling);
-extern void NXGetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling);
-#ifdef _undef
-extern void NXEnableMouseButton(NXEventHandle handle, NXMouseButton button);
-extern NXMouseButton NXMouseButtonEnabled(NXEventHandle handle);
-#endif
 extern void NXResetMouse(NXEventHandle handle);
 
-/* Screen Brightness and Auto-dimming */
+/* DEPRECATED API */
 
-extern void NXSetAutoDimThreshold(NXEventHandle handle, double seconds);
-extern double NXAutoDimThreshold(NXEventHandle handle);
-extern double NXAutoDimTime(NXEventHandle handle);
-extern double NXIdleTime(NXEventHandle handle);
-extern void NXSetAutoDimState(NXEventHandle handle, boolean_t dimmed);
-extern boolean_t NXAutoDimState(NXEventHandle handle);
-extern void NXSetAutoDimBrightness(NXEventHandle handle, double level);
-extern double NXAutoDimBrightness(NXEventHandle handle);
-extern void NXSetScreenBrightness(NXEventHandle handle, double level);
-extern double NXScreenBrightness(NXEventHandle handle);
+/* NXIdleTime has been deprecated as this API does not take into account
+   events posted through the CG API set.  Instead, we strongly encourage 
+   developers to make use of the CGSSecondsSinceLastInputEvent API. */
+extern double NXIdleTime(NXEventHandle handle)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
-/* Speaker Volume */
-#ifdef _undef
-extern void NXSetCurrentVolume(NXEventHandle handle, double volume);
-extern double NXCurrentVolume(NXEventHandle handle);
-#endif
+/* These methods are NOT supported.   */
+extern NXKeyMapping *NXSetKeyMapping(NXEventHandle h, NXKeyMapping *keymap)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
-/* Wait Cursor */
-#ifdef _undef
-extern void NXSetWaitCursorThreshold(NXEventHandle handle, double seconds);
-extern double NXWaitCursorThreshold(NXEventHandle handle);
-extern void NXSetWaitCursorSustain(NXEventHandle handle, double seconds);
-extern double NXWaitCursorSustain(NXEventHandle handle);
-extern void NXSetWaitCursorFrameInterval(NXEventHandle handle, double seconds);
-extern double NXWaitCursorFrameInterval(NXEventHandle handle);
-#endif
+extern int NXKeyMappingLength(NXEventHandle handle)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
-/*
- * Generic calls.  Argument values are device and architecture dependent.
- * This API is provided for the convenience of special device users.  Code
- * which is intended to be portable across multiple platforms and architectures
- * should not use the following functions.
- */
-#ifdef _undef
-extern int NXEvSetParameterInt(NXEventHandle handle,
-			char *parameterName,
-			unsigned int *parameterArray,
-			unsigned int count);
+extern NXKeyMapping *NXGetKeyMapping(NXEventHandle h, NXKeyMapping *keymap)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
-extern int NXEvSetParameterChar(NXEventHandle handle,
-			char *parameterName,
-			unsigned char *parameterArray,
-			unsigned int count);
+/* These methods are NOT supported and will return NULL values.   */
+extern void NXSetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
-extern int NXEvGetParameterInt(NXEventHandle handle,
-			char *parameterName,
-			unsigned int maxCount,
-			unsigned int *parameterArray,
-			unsigned int *returnedCount);
+extern void NXGetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
-extern int NXEvGetParameterChar(NXEventHandle handle,
-			char *parameterName,
-			unsigned int maxCount,
-			unsigned char *parameterArray,
-			unsigned int *returnedCount);
-#endif
+extern void NXSetAutoDimThreshold(NXEventHandle handle, double seconds)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
+extern double NXAutoDimThreshold(NXEventHandle handle)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+
+extern double NXAutoDimTime(NXEventHandle handle)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+
+extern void NXSetAutoDimState(NXEventHandle handle, boolean_t dimmed)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+
+extern boolean_t NXAutoDimState(NXEventHandle handle)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+
+extern void NXSetAutoDimBrightness(NXEventHandle handle, double level)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+
+extern double NXAutoDimBrightness(NXEventHandle handle)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+
+extern void NXSetScreenBrightness(NXEventHandle handle, double level)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+
+extern double NXScreenBrightness(NXEventHandle handle)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+
+/* END DEPRECATED API */
+
+__END_DECLS
 
 #endif /*_DRIVERS_EVENT_STATUS_DRIVER_ */
 

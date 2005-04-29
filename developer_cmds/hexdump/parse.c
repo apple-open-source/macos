@@ -1,5 +1,3 @@
-/*	$NetBSD: parse.c,v 1.7 1997/10/19 02:34:10 lukem Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,44 +31,39 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)parse.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: parse.c,v 1.7 1997/10/19 02:34:10 lukem Exp $");
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/hexdump/parse.c,v 1.12 2002/09/04 23:29:01 dwmalone Exp $");
 
 #include <sys/types.h>
-#include <sys/file.h>
 
-#include <ctype.h>
 #include <err.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
-
 #include "hexdump.h"
 
 FU *endfu;					/* format at end-of-data */
 
 void
-addfile(name)
-	char *name;
+addfile(char *name)
 {
-	char *p;
+	unsigned char *p;
 	FILE *fp;
 	int ch;
 	char buf[2048 + 1];
 
 	if ((fp = fopen(name, "r")) == NULL)
-		err(1, "fopen %s", name);
+		err(1, "%s", name);
 	while (fgets(buf, sizeof(buf), fp)) {
-		if (!(p = strchr(buf, '\n'))) {
-			warnx("line too long.");
+		if (!(p = index(buf, '\n'))) {
+			warnx("line too long");
 			while ((ch = getchar()) != '\n' && ch != EOF);
 			continue;
 		}
@@ -84,17 +77,16 @@ addfile(name)
 }
 
 void
-add(fmt)
-	char *fmt;
+add(const char *fmt)
 {
-	char *p;
+	unsigned const char *p, *savep;
 	static FS **nextfs;
 	FS *tfs;
 	FU *tfu, **nextfu;
-	char *savep;
 
 	/* start new linked list of format units */
-	tfs = emalloc(sizeof(FS));
+	if ((tfs = calloc(1, sizeof(FS))) == NULL)
+		err(1, NULL);
 	if (!fshead)
 		fshead = tfs;
 	else
@@ -110,7 +102,8 @@ add(fmt)
 			break;
 
 		/* allocate a new format unit and link it in */
-		tfu = emalloc(sizeof(FU));
+		if ((tfu = calloc(1, sizeof(FU))) == NULL)
+			err(1, NULL);
 		*nextfu = tfu;
 		nextfu = &tfu->nextfu;
 		tfu->reps = 1;
@@ -148,7 +141,7 @@ add(fmt)
 			if (*p++ == 0)
 				badfmt(fmt);
 		if (!(tfu->fmt = malloc(p - savep + 1)))
-			nomem();
+			err(1, NULL);
 		(void) strncpy(tfu->fmt, savep, p - savep);
 		tfu->fmt[p - savep] = '\0';
 		escape(tfu->fmt);
@@ -159,12 +152,11 @@ add(fmt)
 static const char *spec = ".#-+ 0123456789";
 
 int
-size(fs)
-	FS *fs;
+size(FS *fs)
 {
 	FU *fu;
 	int bcnt, cursize;
-	char *fmt;
+	unsigned char *fmt;
 	int prec;
 
 	/* figure out the data block size needed for each format unit */
@@ -180,7 +172,7 @@ size(fs)
 			 * skip any special chars -- save precision in
 			 * case it's a %s format.
 			 */
-			while (strchr(spec + 1, *++fmt));
+			while (index(spec + 1, *++fmt));
 			if (*fmt == '.' && isdigit(*++fmt)) {
 				prec = atoi(fmt);
 				while (isdigit(*++fmt));
@@ -213,25 +205,23 @@ size(fs)
 }
 
 void
-rewrite(fs)
-	FS *fs;
+rewrite(FS *fs)
 {
 	enum { NOTOKAY, USEBCNT, USEPREC } sokay;
 	PR *pr, **nextpr;
 	FU *fu;
-	char *p1, *p2;
-	char savech, *fmtp, cs[3];
+	unsigned char *p1, *p2, *fmtp;
+	char savech, cs[3];
 	int nconv, prec;
 
-	nextpr = NULL;
-	prec = 0;
 	for (fu = fs->nextfu; fu; fu = fu->nextfu) {
 		/*
 		 * Break each format unit into print units; each conversion
 		 * character gets its own.
 		 */
 		for (nconv = 0, fmtp = fu->fmt; *fmtp; nextpr = &pr->nextpr) {
-			pr = emalloc(sizeof(PR));
+			if ((pr = calloc(1, sizeof(PR))) == NULL)
+				err(1, NULL);
 			if (!fu->nextpr)
 				fu->nextpr = pr;
 			else
@@ -254,10 +244,10 @@ rewrite(fs)
 			if (fu->bcnt) {
 				sokay = USEBCNT;
 				/* Skip to conversion character. */
-				for (++p1; strchr(spec, *p1); ++p1);
+				for (++p1; index(spec, *p1); ++p1);
 			} else {
 				/* Skip any special chars, field width. */
-				while (strchr(spec + 1, *++p1));
+				while (index(spec + 1, *++p1));
 				if (*p1 == '.' && isdigit(*++p1)) {
 					sokay = USEPREC;
 					prec = atoi(p1);
@@ -320,8 +310,15 @@ isint:				cs[2] = '\0';
 					pr->bcnt = 4;
 					break;
 				default:
-					p1[1] = '\0';
-					badcnt(p1);
+					if (fu->bcnt == sizeof(long double)) {
+						cs[2] = '\0';
+						cs[1] = cs[0];
+						cs[0] = 'L';
+						pr->bcnt = sizeof(long double);
+					} else {
+						p1[1] = '\0';
+						badcnt(p1);
+					}
 				}
 				break;
 			case 's':
@@ -378,6 +375,13 @@ isint2:					switch(fu->bcnt) {
 						badcnt(p1);
 					}
 					break;
+				case 'n': /* Force -A n to dump extra blank line like default od behavior */
+					endfu = fu;
+					fu->flags = F_IGNORE;
+					pr->flags = F_TEXT;
+					fmtp = "\n";
+					cs[0] = '\0';
+					break;
 				default:
 					p1[2] = '\0';
 					badconv(p1);
@@ -394,7 +398,8 @@ isint2:					switch(fu->bcnt) {
 			 */
 			savech = *p2;
 			p1[0] = '\0';
-			pr->fmt = emalloc(strlen(fmtp) + 2);
+			if ((pr->fmt = calloc(1, strlen(fmtp) + 2)) == NULL)
+				err(1, NULL);
 			(void)strcpy(pr->fmt, fmtp);
 			(void)strcat(pr->fmt, cs);
 			*p2 = savech;
@@ -403,8 +408,7 @@ isint2:					switch(fu->bcnt) {
 
 			/* Only one conversion character if byte count. */
 			if (!(pr->flags&F_ADDRESS) && fu->bcnt && nconv++)
-				errx(1,
-			    "byte count with multiple conversion characters");
+				errx(1, "byte count with multiple conversion characters");
 		}
 		/*
 		 * If format unit byte count not specified, figure it out
@@ -423,7 +427,7 @@ isint2:					switch(fu->bcnt) {
 	 * If, rep count is greater than 1, no trailing whitespace
 	 * gets output from the last iteration of the format unit.
 	 */
-	for (fu = fs->nextfu;; fu = fu->nextfu) {
+	for (fu = fs->nextfu; fu; fu = fu->nextfu) {
 		if (!fu->nextfu && fs->bcnt < blocksize &&
 		    !(fu->flags&F_SETREP) && fu->bcnt)
 			fu->reps += (blocksize - fs->bcnt) / fu->bcnt;
@@ -436,8 +440,6 @@ isint2:					switch(fu->bcnt) {
 			if (p2)
 				pr->nospace = p2;
 		}
-		if (!fu->nextfu)
-			break;
 	}
 #ifdef DEBUG
 	for (fu = fs->nextfu; fu; fu = fu->nextfu) {
@@ -450,8 +452,7 @@ isint2:					switch(fu->bcnt) {
 }
 
 void
-escape(p1)
-	char *p1;
+escape(char *p1)
 {
 	char *p2;
 
@@ -493,28 +494,25 @@ escape(p1)
 }
 
 void
-badcnt(s)
-	char *s;
+badcnt(char *s)
 {
 	errx(1, "%s: bad byte count", s);
 }
 
 void
-badsfmt()
+badsfmt(void)
 {
-	errx(1, "%%s: requires a precision or a byte count\n");
+	errx(1, "%%s: requires a precision or a byte count");
 }
 
 void
-badfmt(fmt)
-	char *fmt;
+badfmt(const char *fmt)
 {
-	errx(1, "\"%s\": bad format\n", fmt);
+	errx(1, "\"%s\": bad format", fmt);
 }
 
 void
-badconv(ch)
-	char *ch;
+badconv(char *ch)
 {
-	errx(1, "%%%s: bad conversion character\n", ch);
+	errx(1, "%%%s: bad conversion character", ch);
 }

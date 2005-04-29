@@ -42,17 +42,6 @@ details.  */
 #include <java/lang/UnsupportedOperationException.h>
 #endif
 
-// FIXME: remove these.
-#define BooleanClass java::lang::Boolean::class$
-#define VoidClass java::lang::Void::class$
-#define ByteClass java::lang::Byte::class$
-#define ShortClass java::lang::Short::class$
-#define CharacterClass java::lang::Character::class$
-#define IntegerClass java::lang::Integer::class$
-#define LongClass java::lang::Long::class$
-#define FloatClass java::lang::Float::class$
-#define DoubleClass java::lang::Double::class$
-
 struct cpair
 {
   jclass prim;
@@ -64,16 +53,16 @@ struct cpair
 static cpair primitives[] =
 {
 #define BOOLEAN 0
-  { JvPrimClass (boolean), &BooleanClass },
-  { JvPrimClass (byte), &ByteClass },
+  { JvPrimClass (boolean), &java::lang::Boolean::class$ },
+  { JvPrimClass (byte), &java::lang::Byte::class$ },
 #define SHORT 2
-  { JvPrimClass (short), &ShortClass },
+  { JvPrimClass (short), &java::lang::Short::class$ },
 #define CHAR 3
-  { JvPrimClass (char), &CharacterClass },
-  { JvPrimClass (int), &IntegerClass },
-  { JvPrimClass (long), &LongClass },
-  { JvPrimClass (float), &FloatClass },
-  { JvPrimClass (double), &DoubleClass },
+  { JvPrimClass (char), &java::lang::Character::class$ },
+  { JvPrimClass (int), &java::lang::Integer::class$ },
+  { JvPrimClass (long), &java::lang::Long::class$ },
+  { JvPrimClass (float), &java::lang::Float::class$ },
+  { JvPrimClass (double), &java::lang::Double::class$ },
   { NULL, NULL }
 };
 
@@ -167,6 +156,13 @@ java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
       // of the object.
       meth = _Jv_LookupDeclaredMethod (k, meth->name, meth->signature);
     }
+  else
+    {
+      // We have to initialize a static class.  It is safe to do this
+      // here and not in _Jv_CallAnyMethodA because JNI initializes a
+      // class whenever a method lookup is done.
+      _Jv_InitClass (declaringClass);
+    }
 
   return _Jv_CallAnyMethodA (obj, return_type, meth, false,
 			     parameter_types, args);
@@ -206,13 +202,12 @@ java::lang::reflect::Method::getType ()
     }
 
   exception_types
-    = (JArray<jclass> *) JvNewObjectArray (count,
-					   &java::lang::Class::class$,
+    = (JArray<jclass> *) JvNewObjectArray (count, &java::lang::Class::class$,
 					   NULL);
   jclass *elts = elements (exception_types);
   for (int i = 0; i < count; ++i)
-    elts[i] = _Jv_FindClassFromSignature (method->throws[i]->data,
-					  declaringClass->getClassLoader ());
+    elts[i] = _Jv_FindClass (method->throws[i],
+			     declaringClass->getClassLoader ());
 }
 
 void
@@ -363,46 +358,30 @@ _Jv_CallAnyMethodA (jobject obj,
       obj = JvAllocObject (return_type);
     }
 
+  const int size_per_arg = sizeof(jvalue);
+  ffi_cif cif;
+
+  char *p = (char *) __builtin_alloca (param_count * size_per_arg);
+		// Overallocate to get correct alignment.
+  void **values = (void **)
+			__builtin_alloca (param_count * sizeof (void *));
+
   int i = 0;
-  int size = 0;
   if (needs_this)
     {
       // The `NULL' type is `Object'.
-      argtypes[i++] = get_ffi_type (NULL);
-      size += sizeof (jobject);
-    }
-
-  for (int arg = 0; i < param_count; ++i, ++arg)
-    {
-      argtypes[i] = get_ffi_type (paramelts[arg]);
-      if (paramelts[arg]->isPrimitive())
-	size += paramelts[arg]->size();
-      else
-	size += sizeof (jobject);
-    }
-
-  ffi_cif cif;
-  if (ffi_prep_cif (&cif, FFI_DEFAULT_ABI, param_count,
-		    rtype, argtypes) != FFI_OK)
-    {
-      // FIXME: throw some kind of VirtualMachineError here.
-    }
-
-  char *p = (char *) __builtin_alloca (size);
-  void **values = (void **) __builtin_alloca (param_count * sizeof (void *));
-
-  i = 0;
-  if (needs_this)
-    {
+      argtypes[i] = get_ffi_type (NULL);
       values[i] = p;
       memcpy (p, &obj, sizeof (jobject));
-      p += sizeof (jobject);
+      p += size_per_arg;
       ++i;
     }
 
   for (int arg = 0; i < param_count; ++i, ++arg)
     {
       int tsize;
+
+      argtypes[i] = get_ffi_type (paramelts[arg]);
       if (paramelts[arg]->isPrimitive())
 	tsize = paramelts[arg]->size();
       else
@@ -411,12 +390,17 @@ _Jv_CallAnyMethodA (jobject obj,
       // Copy appropriate bits from the jvalue into the ffi array.
       // FIXME: we could do this copying all in one loop, above, by
       // over-allocating a bit.
+      // How do we do this without breaking big-endian platforms?
       values[i] = p;
       memcpy (p, &args[arg], tsize);
-      p += tsize;
+      p += size_per_arg;
     }
 
-  // FIXME: initialize class here.
+  if (ffi_prep_cif (&cif, FFI_DEFAULT_ABI, param_count,
+		    rtype, argtypes) != FFI_OK)
+    {
+      // FIXME: throw some kind of VirtualMachineError here.
+    }
 
   using namespace java::lang;
   using namespace java::lang::reflect;

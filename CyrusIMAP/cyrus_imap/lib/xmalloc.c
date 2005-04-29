@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 /*
- * $Id: xmalloc.c,v 1.29 2003/02/13 20:15:42 rjs3 Exp $
+ * $Id: xmalloc.c,v 1.5 2005/03/05 00:37:24 dasenbro Exp $
  */
 #include <config.h>
 #include <stdio.h>

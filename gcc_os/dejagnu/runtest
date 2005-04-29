@@ -3,7 +3,7 @@
 # runtest -- basically all this script does is find the proper expect
 #	     shell and then run DejaGnu.
 #
-# Written by Rob Savoye <rob@cygnus.com>
+# Written by Rob Savoye <rob@welcomehome.org>
 #
 
 #
@@ -65,7 +65,7 @@ fi
 if [ -x "$expectbin-bld.sh" ]; then
   expectbin="${CONFIG_SHELL-/bin/sh} $expectbin-bld.sh"
 fi
-
+ 
 #
 # Extract a few options from the option list.
 #
@@ -104,6 +104,7 @@ for i in `echo ${execpath} | sed  -e 's@/[^/]*$@/share/dejagnu@'` `echo ${execpa
 	runpath=$i
 	if expr $verbose \> 0 > /dev/null ; then
 	    echo Using $i/runtest.exp as main test driver
+	    break;
 	fi
     fi
 done

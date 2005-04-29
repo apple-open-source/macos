@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -495,7 +494,7 @@ package Atree is
    --  function is used only by Sinfo.CN to change nodes into their
    --  corresponding entities.
 
-   type Traverse_Result is (OK, Skip, Abandon);
+   type Traverse_Result is (OK, OK_Orig, Skip, Abandon);
    --  This is the type of the result returned by the Process function passed
    --  to Traverse_Func and Traverse_Proc and also the type of the result of
    --  Traverse_Func itself. See descriptions below for details.
@@ -508,8 +507,11 @@ package Atree is
    --  Process on each one. The traversal is controlled as follows by the
    --  result returned by Process:
 
-   --    OK       The traversal continues normally with the children of
-   --             the node just processed.
+   --    OK       The traversal continues normally with the syntactic
+   --             children of the node just processed.
+
+   --    OK_Orig  The traversal continues normally with the syntactic
+   --             children of the original node of the node just processed.
 
    --    Skip     The children of the node just processed are skipped and
    --             excluded from the traversal, but otherwise processing

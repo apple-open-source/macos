@@ -244,6 +244,9 @@
 
 #endif /* BZ_LCCWIN32 */
 
+#ifdef __APPLE__
+#include <copyfile.h>
+#endif
 
 /*---------------------------------------------*/
 /*--
@@ -1141,6 +1144,9 @@ void applySavedMetaInfoToOutputFile ( Char *dstName )
    ERROR_IF_NOT_ZERO ( retVal );
 
    retVal = chown ( dstName, fileMetaInfo.st_uid, fileMetaInfo.st_gid );
+#if __APPLE__
+    copyfile(inName, outName, 0, COPYFILE_ACL | COPYFILE_XATTR);
+#endif
    /* chown() will in many cases return with EPERM, which can
       be safely ignored.
    */

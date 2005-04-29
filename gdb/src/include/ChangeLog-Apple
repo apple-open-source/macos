@@ -1,3 +1,9 @@
+2004-08-09  Jason Molenda  (jmolenda@apple.com)
+
+        * aout/stab_gnu.h: Update N_SO table with FORTRAN90 addition from
+        Sun's Stabs Interface Manual (Version 4.0).  Add Objective-C and
+        Objective-C++ non-Sun language codes.
+
 2002-12-15  Klee Dienes  <kdienes@apple.com>
 
 	* libiberty.h (xmalloc_set_malloc_hooks): Add prototype.

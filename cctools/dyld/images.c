@@ -1791,8 +1791,8 @@ enum bool reference_from_dylib)
 	   dl->dylib.compatibility_version >
 	   dlid->dylib.compatibility_version){
 	    error("version mismatch for library: %s (compatibility "
-		"version of user: %lu.%lu.%lu greater than library's version: "
-		"%lu.%lu.%lu)", dylib_name,
+		"version of user: %u.%u.%u greater than library's version: "
+		"%u.%u.%u)", dylib_name,
 		dl->dylib.compatibility_version >> 16,
 		(dl->dylib.compatibility_version >> 8) & 0xff,
 		dl->dylib.compatibility_version & 0xff,
@@ -5260,8 +5260,8 @@ enum bool reference_from_dylib)
 	   dl->dylib.compatibility_version >
 	   li->dlid->dylib.compatibility_version){
 	    error("version mismatch for library: %s (compatibility "
-		"version of user: %lu.%lu.%lu greater than "
-		"library's version: %lu.%lu.%lu)", dylib_name,
+		"version of user: %u.%u.%u greater than "
+		"library's version: %u.%u.%u)", dylib_name,
 		dl->dylib.compatibility_version >> 16,
 		(dl->dylib.compatibility_version >> 8) & 0xff,
 		dl->dylib.compatibility_version & 0xff,

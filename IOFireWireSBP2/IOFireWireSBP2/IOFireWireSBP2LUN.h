@@ -266,6 +266,10 @@ public:
     	
 	virtual OSObject * getDiagnostics( void );
 
+protected:
+
+	void terminateNotify( void );
+	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireSBP2LUN, 1);
     OSMetaClassDeclareReservedUnused(IOFireWireSBP2LUN, 2);

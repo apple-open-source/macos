@@ -1,0 +1,288 @@
+Return-Path: localhost!smtp_client
+Return-Path: <smtp_client@localhost>
+X-POP3-Rcpt: a.kupries@genesis
+Received: from mailhost.kisters.de (root@[193.23.163.143]) by genesis.westend.com (8.7.5/8.7.3) with SMTP id NAA01145 for <a.kupries@westend.com>; Tue, 17 Dec 1996 13:13:22 +0100 (MET)
+Received: from ramazotti by mailhost.kisters.de with smtp
+	(Smail3.1.29.1 #3) id m0vZzEZ-000BsfC; Tue, 17 Dec 96 14:06 MET
+Date: Tue, 17 Dec 1996 13:06:48 +0100 (MET)
+From: Andreas Kupries <aku@kisters.de>
+X-Sender: aku@ramazotti
+To: Andreas Kupries <a.kupries@westend.com>
+Subject: Re: Trf, loading on demand (fwd)
+Message-ID: <Pine.ULT.3.91.961217130645.1348J-100000@ramazotti>
+MIME-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+
+
+
+-------
+Gruesse
+			Andreas Kupries
+			(aku@kisters.de)
+
+---------- Forwarded message ----------
+Date: Tue, 17 Dec 1996 09:23:50 +0100
+From: nijtmans@ergolab4.psych.kun.nl
+To: aku@kisters.DE
+Cc: nijtmans@ergolab4.psych.kun.nl
+Subject: Re: Trf, loading on demand
+
+----------
+X-Sun-Data-Type: text
+X-Sun-Data-Description: text
+X-Sun-Data-Name: text
+X-Sun-Charset: us-ascii
+X-Sun-Content-Lines: 28
+
+
+Two other small problem with tclLoadAout.c:
+
+The z library should be compiled with the option "-G 0" and
+it needs a special header for the symbols to be resolved.
+The tclLdAout script cannot be used for that because it
+doesn't know which symbols should be exported.
+
+Below is a Makefile for zlib-1.0.4 and a new file zsymbols.c
+which should be added. Two files libz.a and libz..o will
+be produced, which both can be dynamically loaded (I am
+planning to suggest to John Ousterhout to change the
+suffix for loadable libraries to ".a" in stead of "..o"
+for Ultrix).
+
+Another problem is that the full pathname should be specified
+for zlib when compiling Trf (in zip.c):
+
+	Z_LIB_NAME="/usr/local/lib/libz.a"	(or libz..o)
+
+You see, still very tricky on Ultrix, but I managed to get
+it working :-)
+
+Regards,
+	Jan Nijtmans
+	NICI (Nijmegen Institute of Cognition and Information)
+	email: nijtmans@nici.kun.nl
+	url:   http://www.cogsci.kun.nl/~nijtmans
+----------
+X-Sun-Data-Type: Makefile
+X-Sun-Data-Description: Makefile
+X-Sun-Data-Name: Makefile
+X-Sun-Charset: us-ascii
+X-Sun-Content-Lines: 132
+
+# Makefile for zlib
+# Copyright (C) 1995-1996 Jean-loup Gailly.
+# For conditions of distribution and use, see copyright notice in zlib.h 
+
+# To compile and test, type:
+#   ./configure; make test
+# The call of configure is optional if you don't have special requirements
+
+# To install /usr/local/lib/libz.* and /usr/local/include/zlib.h, type:
+#    make install
+# To install in $HOME instead of /usr/local, use:
+#    make install prefix=$HOME
+
+CC=gcc
+
+CFLAGS=-O3 -G 0
+#CFLAGS=-O -DMAX_WBITS=14 -DMAX_MEM_LEVEL=7
+#CFLAGS=-g -DDEBUG
+#CFLAGS=-O3 -Wall -Wwrite-strings -Wpointer-arith -Wconversion \
+#           -Wstrict-prototypes -Wmissing-prototypes
+
+LDFLAGS=-L. -lz
+LDSHARED=ld -r -G 0 -o
+
+VER=1.0.4
+SHAREDLIB=libz..o
+LIBS=libz.a libz..o.$(VER)
+
+AR=ar rc
+RANLIB=ranlib
+TAR=tar
+
+prefix=/usr/local
+exec_prefix =/usr/local
+
+OBJS = zsymbols.o adler32.o compress.o crc32.o gzio.o uncompr.o deflate.o trees.o \
+       zutil.o inflate.o infblock.o inftrees.o infcodes.o infutil.o inffast.o
+
+TEST_OBJS = example.o minigzip.o
+
+DISTFILES = README INDEX ChangeLog configure Make*[a-z0-9] descrip.mms \
+	    zlib.def zlib.rc algorithm.doc  *.[ch]
+
+all: example minigzip
+
+test: all
+	./example
+	echo hello world | ./minigzip | ./minigzip -d 
+
+libz.a: $(OBJS)
+	$(AR) $@ $(OBJS)
+	-@ ($(RANLIB) $@ || true) 2>/dev/null
+
+$(SHAREDLIB).$(VER): $(OBJS)
+	$(LDSHARED) $(SHAREDLIB) $(OBJS)
+	mv $(SHAREDLIB) $@
+	rm -f $(SHAREDLIB); ln -s $@ $(SHAREDLIB)
+
+example: example.o $(LIBS)
+	$(CC) $(CFLAGS) -o $@ example.o $(LDFLAGS)
+
+minigzip: minigzip.o $(LIBS)
+	$(CC) $(CFLAGS) -o $@ minigzip.o $(LDFLAGS)
+
+install: $(LIBS)
+	-@if [ ! $(prefix)/include  ]; then mkdir $(prefix)/include; fi
+	-@if [ ! $(exec_prefix)/lib ]; then mkdir $(exec_prefix)/lib; fi
+	cp zlib.h zconf.h $(prefix)/include
+	chmod 644 $(prefix)/include/zlib.h $(prefix)/include/zconf.h
+	cp $(LIBS) $(exec_prefix)/lib
+	cd $(exec_prefix)/lib; chmod 644 $(LIBS)
+	-@(cd $(exec_prefix)/lib; $(RANLIB) libz.a || true) >/dev/null 2>&1
+	cd $(exec_prefix)/lib; if test -f $(SHAREDLIB).$(VER); then \
+	  ln -s $(SHAREDLIB).$(VER) libz.so; \
+	fi
+# The ranlib in install is needed on NeXTSTEP which checks file times
+
+uninstall:
+	cd $(exec_prefix)/lib; rm -f $(LIBS); \
+	if test -f libz.so; then \
+	 v=`sed -n '/VERSION "/s/.*"\(.*\)".*/\1/p'<$(prefix)/include/zlib.h`;\
+	 rm -f $(SHAREDLIB).$$v $(SHAREDLIB); \
+	fi
+	cd $(prefix)/include; rm -f zlib.h zconf.h
+
+clean:
+	rm -f *.o *~ example minigzip libz.* foo.gz
+
+zip:
+	mv Makefile Makefile~; cp -p Makefile.in Makefile
+	v=`sed -n -e 's/\.//g' -e '/VERSION "/s/.*"\(.*\)".*/\1/p' < zlib.h`;\
+	zip -ul9 zlib$$v $(DISTFILES)
+	mv Makefile~ Makefile
+
+dist:
+	mv Makefile Makefile~; cp -p Makefile.in Makefile
+	d=zlib-`sed -n '/VERSION "/s/.*"\(.*\)".*/\1/p' < zlib.h`;\
+	rm -f $$d.tar.gz; \
+	if test ! -d ../$$d; then rm -f ../$$d; ln -s `pwd` ../$$d; fi; \
+	files=""; \
+	for f in $(DISTFILES); do files="$$files $$d/$$f"; done; \
+	cd ..; \
+	GZIP=-9 $(TAR) chofz $$d/$$d.tar.gz $$files; \
+	if test ! -d $$d; then rm -f $$d; fi
+	mv Makefile~ Makefile
+
+tags:	
+	etags *.[ch]
+
+depend:
+	makedepend -- $(CFLAGS) -- *.[ch]
+
+# DO NOT DELETE THIS LINE -- make depend depends on it.
+
+adler32.o: zlib.h zconf.h
+compress.o: zlib.h zconf.h
+crc32.o: zlib.h zconf.h
+deflate.o: deflate.h zutil.h zlib.h zconf.h
+example.o: zlib.h zconf.h
+gzio.o: zutil.h zlib.h zconf.h
+infblock.o: infblock.h inftrees.h infcodes.h infutil.h zutil.h zlib.h zconf.h
+infcodes.o: zutil.h zlib.h zconf.h
+infcodes.o: inftrees.h infblock.h infcodes.h infutil.h inffast.h
+inffast.o: zutil.h zlib.h zconf.h inftrees.h
+inffast.o: infblock.h infcodes.h infutil.h inffast.h
+inflate.o: zutil.h zlib.h zconf.h infblock.h
+inftrees.o: zutil.h zlib.h zconf.h inftrees.h
+infutil.o: zutil.h zlib.h zconf.h infblock.h inftrees.h infcodes.h infutil.h
+minigzip.o:  zlib.h zconf.h 
+trees.o: deflate.h zutil.h zlib.h zconf.h 
+uncompr.o: zlib.h zconf.h
+zutil.o: zutil.h zlib.h zconf.h  
+----------
+X-Sun-Data-Type: c-file
+X-Sun-Data-Description: c-file
+X-Sun-Data-Name: zsymbols.c
+X-Sun-Charset: us-ascii
+X-Sun-Content-Lines: 77
+
+#include "zlib.h"
+
+/*
+ * This file is only needed to be included in a.out "shared" libraries,
+ * because these libraries don't have the possibility to find
+ * symbols in an object when dynamically loaded. But they have the
+ * possibility to define one "initialization" function, which can
+ * be used for this purpose. This function must be the first symbol
+ * in the symbol table, which can be reached by placing this
+ * object first.
+ */
+
+char * TclLoadDictionary_Z (char *symbol);
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TclLoadDictionary_Z --
+ *
+ * Search for functions in Z library.
+ *
+ * Results:
+ *	addres of symbol, or NULL if it cannot be found.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+char TclLoadLibraries_Z[] = "@LIBS: ";
+
+static struct {
+  char * name;
+  int (*value)();
+} dictionary[] = {
+  { "adler32", (int (*)()) adler32 },
+  { "compress", (int (*)()) compress },
+  { "crc32", (int (*)()) crc32 },
+  { "deflate", (int (*)()) deflate },
+  { "deflateCopy", (int (*)()) deflateCopy },
+  { "deflateEnd", (int (*)()) deflateEnd },
+  { "deflateInit_", (int (*)()) deflateInit_ },
+  { "deflateInit2_", (int (*)()) deflateInit2_ },
+  { "deflateParams", (int (*)()) deflateParams },
+  { "deflateReset", (int (*)()) deflateReset },
+  { "deflateSetDictionary", (int (*)()) deflateSetDictionary },
+  { "gzopen", (int (*)()) gzopen },
+  { "gzdopen", (int (*)()) gzdopen },
+  { "gzread", (int (*)()) gzread },
+  { "gzwrite", (int (*)()) gzwrite },
+  { "gzflush", (int (*)()) gzflush },
+  { "gzclose", (int (*)()) gzclose },
+  { "gzerror", (int (*)()) gzerror },
+  { "inflate", (int (*)()) inflate },
+  { "inflateEnd", (int (*)()) inflateEnd },
+  { "inflateInit_", (int (*)()) inflateInit_ },
+  { "inflateInit2_", (int (*)()) inflateInit2_ },
+  { "inflateReset", (int (*)()) inflateReset },
+  { "inflateSetDictionary", (int (*)()) inflateSetDictionary },
+  { "inflateSync", (int (*)()) inflateSync },
+  { "uncompress", (int (*)()) uncompress },
+  { "zlibVersion", (int (*)()) zlibVersion },
+  { (char *) 0, 0 }
+};
+
+char *
+TclLoadDictionary_Z (symbol)
+    char *symbol;
+{
+    int i;
+    for (i = 0; dictionary [i] . name != 0; ++i) {
+      if (!strcmp (symbol, dictionary [i] . name)) {
+	return (char *) dictionary[i].value;
+      }
+    }
+    return (char *) 0;
+}
+

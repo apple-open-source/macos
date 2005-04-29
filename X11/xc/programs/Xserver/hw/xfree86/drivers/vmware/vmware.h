@@ -3,7 +3,7 @@
  * All Rights Reserved
  * Id: vmware.h,v 1.6 2001/01/30 18:13:47 bennett Exp $
  * **********************************************************/
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vmware/vmware.h,v 1.10 2003/02/04 01:39:53 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vmware/vmware.h,v 1.12 2003/11/17 22:20:38 dawes Exp $ */
 
 #ifndef VMWARE_H
 #define VMWARE_H
@@ -87,6 +87,7 @@ typedef struct {
 
 #ifdef RENDER
     CompositeProcPtr Composite;
+    void (*EnableDisableFBAccess)(int, Bool);
 #endif /* RENDER */
 
     unsigned long mmioPhysBase;
@@ -179,87 +180,61 @@ extern const char *vmwareXaaSymbols[];
 #define ACCELERATE_OPS
 
 void vmwareWriteReg(
-#if NeedFunctionPrototypes
    VMWAREPtr pVMWARE, int index, CARD32 value
-#endif
    );
 
 CARD32 vmwareReadReg(
-#if NeedFunctionPrototypes
     VMWAREPtr pVMWARE, int index
-#endif
     );
 
 void vmwareWriteWordToFIFO(
-#if NeedFunctionPrototypes
    VMWAREPtr pVMWARE, CARD32 value
-#endif
    );
 
 void vmwareWaitForFB(
-#ifdef NeedFunctionPrototypes
    VMWAREPtr pVMWARE
-#endif
    );
 
 void vmwareSendSVGACmdUpdate(
-#if NeedFunctionPrototypes
    VMWAREPtr pVMWARE, BoxPtr pBB
-#endif
    );
 
 /* vmwarecurs.c */
 Bool vmwareCursorInit(
-#if NeedFunctionPrototypes
    ScreenPtr pScr
-#endif
    );
 
 void vmwareCursorModeInit(
-#if NeedFunctionPrototypes
     ScrnInfoPtr pScrn,
     DisplayModePtr mode
-#endif
    );
 
 void vmwareCursorCloseScreen(
-#if NeedFunctionPrototypes
     ScreenPtr pScr
-#endif
     );
 
 void vmwareWriteCursorRegs(
-#if NeedFunctionPrototypes
    VMWAREPtr pVMWARE,
    Bool visible,
    Bool force
-#endif
    );
 
 void vmwareCursorHookWrappers(
-#if NeedFunctionPrototypes
    ScreenPtr pScreen
-#endif
    );
 
 
 /* vmwarexaa.c */
 Bool vmwareXAAScreenInit(
-#if NeedFunctionPrototypes
    ScreenPtr pScreen
-#endif
    );
 
 Bool vmwareXAAModeInit(
-#if NeedFunctionPrototypes
     ScrnInfoPtr pScrn, DisplayModePtr mode
-#endif
     );
 
 void vmwareXAACloseScreen(
-#if NeedFunctionPrototypes
    ScreenPtr pScreen
-#endif
    );
 
 #endif

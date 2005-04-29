@@ -1,0 +1,243 @@
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m11dnJt-00027XC; Wed, 20 Oct 1999 06:25:49 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Wed Oct 20 06:19:44 1999
+X-From_: lvirden@cas.org  Wed Oct 20 02:02:15 1999
+Received: from srv01.cas.org (srv01s4.cas.org [134.243.50.9])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id CAA10539
+	for <a.kupries@westend.com>; Wed, 20 Oct 1999 02:02:13 +0200 (MET DST)
+Received: (from lwv26@localhost)
+	by cas.org (8.8.8+Sun/8.8.8/CAS-1.04) id UAA24161;
+	Tue, 19 Oct 1999 20:01:38 -0400 (EDT)
+Date: Tue, 19 Oct 1999 20:01:38 -0400 (EDT)
+From: "Larry W. Virden" <lvirden@cas.org>
+Message-Id: <9910192001.AA23957@cas.org>
+Subject: trf 2.0 note
+To: a.kupries@westend.com
+
+I wonder if it would be better in the configure for 2.0 to ask for the top
+level directory for bz2, even though you only intend on using the lib dir.
+That would keep a symetry with the other flags that would be useful to help
+users .
+
+I also wonder if it would be worthwhile to add configure processing (if
+it's possible) that adds each of the directories specified to the full
+list that are checked for any of the other flags.  That way a user need
+only specify the directory once and all the other options _might_ be found.
+
+Just a thought.
+
+Anyways, notice the compiler warnings here - just thought I would mention them.
+Also look at the failed test and let me know if it is something about which
+I should be concerned.
+
+cc -c -O -KPIC   -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1 -DSIZEOF_INT=4 -DSIZEOF_LONG_INT=4 -DWORDS_BIGENDIAN=1   -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H -I. -I/vol/tclsrcsol/tcl82/trf2.0/unix -I/vol/tclsrcsol/tcl82/trf2.0/unix/../generic -I/vol/tclsrcsol/tcl82/trf2.0/unix/.. -I../../tcl8.2.1/generic -I/projects/intranet/ssl/include -I/projects/gnu/sparc-sun-solaris2.6/include -DZ_LIB_NAME=\"libz.so\" -DLIBDES_LIB_NAME=\"libdes.so\" -DTRF_VERSION=\"2.0\" -DRAND -DTERMIO  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM
+=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H /vol/tclsrcsol/tcl82/trf2.0/unix/../generic/registry.c -o registry.o
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/registry.c", line 1120: warning: statement not reached
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/registry.c", line 2449: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+
+cc -c -O -KPIC   -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1 -DSIZEOF_INT=4 -DSIZEOF_LONG_INT=4 -DWORDS_BIGENDIAN=1   -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H -I. -I/vol/tclsrcsol/tcl82/trf2.0/unix -I/vol/tclsrcsol/tcl82/trf2.0/unix/../generic -I/vol/tclsrcsol/tcl82/trf2.0/unix/.. -I../../tcl8.2.1/generic -I/projects/intranet/ssl/include -I/projects/gnu/sparc-sun-solaris2.6/include -DZ_LIB_NAME=\"libz.so\" -DLIBDES_LIB_NAME=\"libdes.so\" -DTRF_VERSION=\"2.0\" -DRAND -DTERMIO  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM
+=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H /vol/tclsrcsol/tcl82/trf2.0/unix/../generic/trfStubInit.c -o trfStubInit.o
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/trfStubInit.c", line 19: warning: initializer does not fit or is out of range: 0xfca3bacf
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/trfStubInit.c", line 28: warning: initializer does not fit or is out of range: 0xfca3bacf
+
+cc -c -O -KPIC   -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1 -DSIZEOF_INT=4 -DSIZEOF_LONG_INT=4 -DWORDS_BIGENDIAN=1   -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H -I. -I/vol/tclsrcsol/tcl82/trf2.0/unix -I/vol/tclsrcsol/tcl82/trf2.0/unix/../generic -I/vol/tclsrcsol/tcl82/trf2.0/unix/.. -I../../tcl8.2.1/generic -I/projects/intranet/ssl/include -I/projects/gnu/sparc-sun-solaris2.6/include -DZ_LIB_NAME=\"libz.so\" -DLIBDES_LIB_NAME=\"libdes.so\" -DTRF_VERSION=\"2.0\" -DRAND -DTERMIO  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM
+=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H /vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bincode.c -o bincode.o
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bincode.c", line 357: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+cc -c -O -KPIC   -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1 -DSIZEOF_INT=4 -DSIZEOF_LONG_INT=4 -DWORDS_BIGENDIAN=1   -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H -I. -I/vol/tclsrcsol/tcl82/trf2.0/unix -I/vol/tclsrcsol/tcl82/trf2.0/unix/../generic -I/vol/tclsrcsol/tcl82/trf2.0/unix/.. -I../../tcl8.2.1/generic -I/projects/intranet/ssl/include -I/projects/gnu/sparc-sun-solaris2.6/include -DZ_LIB_NAME=\"libz.so\" -DLIBDES_LIB_NAME=\"libdes.so\" -DTRF_VERSION=\"2.0\" -DRAND -DTERMIO  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM
+=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H /vol/tclsrcsol/tcl82/trf2.0/unix/../generic/hexcode.c -o hexcode.o
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/hexcode.c", line 328: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+cc -c -O -KPIC   -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1 -DSIZEOF_INT=4 -DSIZEOF_LONG_INT=4 -DWORDS_BIGENDIAN=1   -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H -I. -I/vol/tclsrcsol/tcl82/trf2.0/unix -I/vol/tclsrcsol/tcl82/trf2.0/unix/../generic -I/vol/tclsrcsol/tcl82/trf2.0/unix/.. -I../../tcl8.2.1/generic -I/projects/intranet/ssl/include -I/projects/gnu/sparc-sun-solaris2.6/include -DZ_LIB_NAME=\"libz.so\" -DLIBDES_LIB_NAME=\"libdes.so\" -DTRF_VERSION=\"2.0\" -DRAND -DTERMIO  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM
+=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H /vol/tclsrcsol/tcl82/trf2.0/unix/../generic/octcode.c -o octcode.o
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/octcode.c", line 346: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+
+cc -c -O -KPIC   -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1 -DSIZEOF_INT=4 -DSIZEOF_LONG_INT=4 -DWORDS_BIGENDIAN=1   -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H -I. -I/vol/tclsrcsol/tcl82/trf2.0/unix -I/vol/tclsrcsol/tcl82/trf2.0/unix/../generic -I/vol/tclsrcsol/tcl82/trf2.0/unix/.. -I../../tcl8.2.1/generic -I/projects/intranet/ssl/include -I/projects/gnu/sparc-sun-solaris2.6/include -DZ_LIB_NAME=\"libz.so\" -DLIBDES_LIB_NAME=\"libdes.so\" -DTRF_VERSION=\"2.0\" -DRAND -DTERMIO  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM
+=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H /vol/tclsrcsol/tcl82/trf2.0/unix/../generic/b64code.c -o b64code.o
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/b64code.c", line 374: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/b64code.c", line 425: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+
+cc -c -O -KPIC   -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1 -DSIZEOF_INT=4 -DSIZEOF_LONG_INT=4 -DWORDS_BIGENDIAN=1   -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H -I. -I/vol/tclsrcsol/tcl82/trf2.0/unix -I/vol/tclsrcsol/tcl82/trf2.0/unix/../generic -I/vol/tclsrcsol/tcl82/trf2.0/unix/.. -I../../tcl8.2.1/generic -I/projects/intranet/ssl/include -I/projects/gnu/sparc-sun-solaris2.6/include -DZ_LIB_NAME=\"libz.so\" -DLIBDES_LIB_NAME=\"libdes.so\" -DTRF_VERSION=\"2.0\" -DRAND -DTERMIO  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM
+=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H /vol/tclsrcsol/tcl82/trf2.0/unix/../generic/otpcode.c -o otpcode.o
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/otpcode.c", line 2353: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/otpcode.c", line 2472: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/otpcode.c", line 2474: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/otpcode.c", line 2811: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+cc -c -O -KPIC   -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1 -DSIZEOF_INT=4 -DSIZEOF_LONG_INT=4 -DWORDS_BIGENDIAN=1   -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H -I. -I/vol/tclsrcsol/tcl82/trf2.0/unix -I/vol/tclsrcsol/tcl82/trf2.0/unix/../generic -I/vol/tclsrcsol/tcl82/trf2.0/unix/.. -I../../tcl8.2.1/generic -I/projects/intranet/ssl/include -I/projects/gnu/sparc-sun-solaris2.6/include -DZ_LIB_NAME=\"libz.so\" -DLIBDES_LIB_NAME=\"libdes.so\" -DTRF_VERSION=\"2.0\" -DRAND -DTERMIO  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM
+=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H /vol/tclsrcsol/tcl82/trf2.0/unix/../generic/qpcode.c -o qpcode.o
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/qpcode.c", line 318: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to char : "/usr/include/stdio.h", line 258
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/qpcode.c", line 324: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to const char : "/usr/include/string.h", line 45
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/qpcode.c", line 325: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to char : "/usr/include/stdio.h", line 258
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/qpcode.c", line 350: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to char : "/usr/include/stdio.h", line 258
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/qpcode.c", line 442: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to char : "/usr/include/string.h", line 38
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/qpcode.c", line 450: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to char : "/usr/include/string.h", line 38
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/qpcode.c", line 607: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+cc -c -O -KPIC   -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1 -DSIZEOF_INT=4 -DSIZEOF_LONG_INT=4 -DWORDS_BIGENDIAN=1   -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H -I. -I/vol/tclsrcsol/tcl82/trf2.0/unix -I/vol/tclsrcsol/tcl82/trf2.0/unix/../generic -I/vol/tclsrcsol/tcl82/trf2.0/unix/.. -I../../tcl8.2.1/generic -I/projects/intranet/ssl/include -I/projects/gnu/sparc-sun-solaris2.6/include -DZ_LIB_NAME=\"libz.so\" -DLIBDES_LIB_NAME=\"libdes.so\" -DTRF_VERSION=\"2.0\" -DRAND -DTERMIO  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM
+=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H /vol/tclsrcsol/tcl82/trf2.0/unix/../generic/reflect.c -o reflect.o
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/reflect.c", line 591: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+
+
+cc -c -O -KPIC   -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1 -DSIZEOF_INT=4 -DSIZEOF_LONG_INT=4 -DWORDS_BIGENDIAN=1   -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H -I. -I/vol/tclsrcsol/tcl82/trf2.0/unix -I/vol/tclsrcsol/tcl82/trf2.0/unix/../generic -I/vol/tclsrcsol/tcl82/trf2.0/unix/.. -I../../tcl8.2.1/generic -I/projects/intranet/ssl/include -I/projects/gnu/sparc-sun-solaris2.6/include -DZ_LIB_NAME=\"libz.so\" -DLIBDES_LIB_NAME=\"libdes.so\" -DTRF_VERSION=\"2.0\" -DRAND -DTERMIO  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM
+=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1  -DUSE_TCL_STUBS  -DHAVE_ZLIB_H -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H /vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c -o bz2.o
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 305: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 309: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 373: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 377: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 439: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 443: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 633: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 637: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 702: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 706: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 774: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/unix/../generic/bz2.c", line 778: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+rm -f		libtrf.so
+
+TCL_LIBRARY=/vol/tclsrcsol/tcl82/tcl8.2.1/library; export TCL_LIBRARY; \
+LD_LIBRARY_PATH="/vol/tclsrcsol/tcl82/trf2.0/unix:./unix:../../tcl8.2.1/unix:/projects/gnu/sparc-sun-solaris2.6/lib:/projects/intranet/ssl/lib"; \
+export LD_LIBRARY_PATH; SHLIB_PATH="D_LIBRARY_PATH"; export SHLIB_PATH ; \
+echo package require Memchan \; load ./libtrf.so \; cd /vol/tclsrcsol/tcl82/trf2.0/unix/../tests \; source defs \; defConstraints \"hasZlib hasSSL hasBz\" \; source all | /usr/tcl82/sun4/bin/tclsh8.2
+
+common_seek.test
+
+
+==== seek-2.0 seeking behind start of stream
+==== Contents of test case:
+
+
+    set f [open seektests r]
+    hex -attach $f -mode decode
+
+    catch {seek $f -1} res
+    close $f
+    set res
+
+==== Result was:
+error during seek on "file5": invalid argument
+---- Result should have been:
+error during seek on "file6": invalid argument
+---- seek-2.0 FAILED
+
+
+==== seek-2.1 seeking relative to the end
+==== Contents of test case:
+
+
+    set f [open seektests r]
+    hex -attach $f -mode decode
+
+    catch {seek $f 0 end} res
+    close $f
+    set res
+
+==== Result was:
+error during seek on "file5": invalid argument
+---- Result should have been:
+error during seek on "file6": invalid argument
+---- seek-2.1 FAILED
+
+
+==== seek-2.2 seeking modulo numBytesTransform
+==== Contents of test case:
+
+
+    set f [open seektests r]
+    hex -attach $f -mode decode
+
+    catch {seek $f 1 cur} res
+    close $f
+    set res
+
+==== Result was:
+error during seek on "file5": invalid argument
+---- Result should have been:
+error during seek on "file6": invalid argument
+---- seek-2.2 FAILED
+
+
+==== seek-2.3 seeking modulo numBytesTransform
+==== Contents of test case:
+
+
+    set f [open seektests r]
+    hex -attach $f -mode decode
+    read $f 1
+    set fail [catch {seek $f 2 cur} res]
+    close $f
+    set res
+
+==== Result was:
+error during seek on "file5": invalid argument
+---- Result should have been:
+error during seek on "file6": invalid argument
+---- seek-2.3 FAILED
+
+
+==== seek-2.4 seeking the unseekable
+==== Contents of test case:
+
+
+    set f [socket localhost $eport]
+    hex -attach $f -mode decode
+
+    catch {seek $f 1} res
+    close $f
+    set res
+
+==== Result was:
+error during seek on "sock5": invalid argument
+---- Result should have been:
+error during seek on "sock6": invalid argument
+---- seek-2.4 FAILED
+-- 
+Larry W. Virden                 <URL: mailto:lvirden@cas.org>
+<URL: http://www.purl.org/NET/lvirden/> <*> O- Save us from the snobs.
+Unless explicitly stated to the contrary, nothing in this posting should 
+be construed as representing my employer's opinions.
+-><-

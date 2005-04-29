@@ -50,8 +50,20 @@ INCLUDES = \
 	@GLIBCPP_INCLUDES@ @LIBSUPCXX_INCLUDES@ @TOPLEVEL_INCLUDES@ 
 
 ## Build support library.
-noinst_LIBRARIES = libv3test.a
+noinst_LIBRARIES = libv3test.a libv3test-debug.a
 libv3test_a_SOURCES = testsuite_hooks.cc testsuite_allocator.cc
+libv3test_debug_a_SOURCES = testsuite_hooks_dbg.cc testsuite_allocator_dbg.cc
+
+glibcpp_srcdir=@glibcpp_srcdir@
+
+testsuite_hooks_dbg.cc: ${glibcpp_srcdir}/testsuite/testsuite_hooks.cc
+	@LN_S@ ${glibcpp_srcdir}/testsuite/testsuite_hooks.cc testsuite_hooks_dbg.cc
+testsuite_allocator_dbg.cc: ${glibcpp_srcdir}/testsuite/testsuite_allocator.cc
+	@LN_S@ ${glibcpp_srcdir}/testsuite/testsuite_allocator.cc testsuite_allocator_dbg.cc
+testsuite_hooks_dbg.o: testsuite_hooks_dbg.cc
+	$(CXXCOMPILE) -D_GLIBCPP_DEBUG -I. -c $<
+testsuite_allocator_dbg.o: testsuite_allocator_dbg.cc
+	$(CXXCOMPILE) -D_GLIBCPP_DEBUG -I. -c $<
 
 ## Build support utilities.
 ## Only build this as native, as need to find startup files and libc to link.

@@ -27,16 +27,19 @@
 	Purpose: This handles smartcard reader communications. 
 	This file forwards requests over message queues.
 
-$Id: winscard_clnt.c,v 1.2 2003/02/13 20:06:31 ghoo Exp $
+$Id: winscard_clnt.c,v 1.3 2004/10/21 01:17:53 mb Exp $
 
 ********************************************************************/
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/ioctl.h>
 #include <errno.h>
 
 #include "config.h"
@@ -55,6 +58,9 @@ $Id: winscard_clnt.c,v 1.2 2003/02/13 20:06:31 ghoo Exp $
 
 #include "winscard_msg.h"
 
+
+static int appSocket = 0;
+
 static struct _psChannelMap
 {
 	SCARDHANDLE hCard;
@@ -70,7 +76,6 @@ static struct _psContextMap
 psContextMap[PCSCLITE_MAX_CONTEXTS];
 
 static short isExecuted = 0;
-static int parentPID = 0;
 static int mapAddr = 0;
 
 #ifdef USE_THREAD_SAFETY
@@ -80,6 +85,15 @@ static PCSCLITE_MUTEX clientMutex = PTHREAD_MUTEX_INITIALIZER;
 static PREADER_STATES readerStates[PCSCLITE_MAX_CONTEXTS];
 
 SCARD_IO_REQUEST g_rgSCardT0Pci, g_rgSCardT1Pci, g_rgSCardRawPci;
+
+/* Client only functions. */
+static int MSGClientSetupSession();
+static int MSGClientCloseSession();
+static int MSGClientSendRequest(unsigned int command,
+	int blockAmount, void *request, unsigned int requestSize,
+	const void *additionalData, unsigned int additionalDataSize);
+static int MSGClientReceiveReply(void *reply, unsigned int replySize,
+	void *additionalData, unsigned int maxAdditionalDataSize);
 
 static LONG SCardAddContext(SCARDCONTEXT);
 static LONG SCardGetContextIndice(SCARDCONTEXT);
@@ -123,6 +137,99 @@ static LONG SCardCancelTH(SCARDCONTEXT);
  * -------by najam-------------------------------------- 
  */
 
+/* Open a session to the server. */
+static int MSGClientSetupSession()
+{
+
+	struct sockaddr_un svc_addr;
+	int one;
+
+	if ((appSocket = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+	{
+		DebugLogB
+			("SHMInitializeSharedSegment: Error: create on client socket: %s",
+			strerror(errno));
+		return -1;
+	}
+
+	svc_addr.sun_family = AF_UNIX;
+	strncpy(svc_addr.sun_path, PCSCLITE_CSOCK_NAME,
+		sizeof(svc_addr.sun_path));
+
+	if (connect(appSocket, (struct sockaddr *) &svc_addr,
+			sizeof(svc_addr.sun_family) + strlen(svc_addr.sun_path) + 1) <
+		0)
+	{
+		DebugLogB
+			("SHMInitializeSharedSegment: Error: connect to client socket: %s",
+			strerror(errno));
+
+		SYS_CloseFile(appSocket);
+		return -1;
+	}
+
+	one = 1;
+	if (ioctl(appSocket, FIONBIO, &one) < 0)
+	{
+		DebugLogB("SHMInitializeSharedSegment: Error: cannot set socket "
+			"nonblocking: %s", strerror(errno));
+		SYS_CloseFile(appSocket);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int MSGClientCloseSession()
+{
+	SYS_CloseFile(appSocket);
+	return 0;
+}
+
+/* Send a request from a client. */
+static int MSGClientSendRequest(unsigned int command,
+	int blockAmount, void *request, unsigned int requestSize,
+	const void *additionalData, unsigned int additionalDataSize)
+{
+	request_header *header = (request_header *)request;
+	int retval;
+
+	/* Setup the request header */
+	header->size = requestSize;
+	header->additional_data_size = additionalDataSize;
+	header->command = command;
+
+	retval = MSGSendData(appSocket, blockAmount, request, requestSize);
+	if (!retval && additionalDataSize)
+		retval = MSGSendData(appSocket, blockAmount, additionalData,
+			additionalDataSize);
+
+	return retval;
+}
+
+/* Recieve a reply on a client. */
+static int MSGClientReceiveReply(void *reply, unsigned int replySize,
+		void *additionalData, unsigned int maxAdditionalDataSize)
+{
+	reply_header *header = (reply_header *)reply;
+	int retval;
+
+	retval = MSGRecieveData(appSocket, PCSCLITE_CLIENT_ATTEMPTS, reply,
+		replySize);
+	if (!retval && header->additional_data_size > 0)
+	{
+		/* Server will never send us back more data than
+		   the maximum amount we requested. */
+		assert(header->additional_data_size <= maxAdditionalDataSize);
+
+		retval = MSGRecieveData(appSocket, PCSCLITE_CLIENT_ATTEMPTS,
+			additionalData, header->additional_data_size);
+	}
+
+	return retval;
+}
+
+
 /*
  * By najam 
  */
@@ -150,8 +257,8 @@ static LONG SCardEstablishContextTH(DWORD dwScope, LPCVOID pvReserved1,
 
 	LONG liIndex, rv;
 	int i, pageSize;
-	establish_struct scEstablishStruct;
-	sharedSegmentMsg msgStruct;
+	establish_request request;
+	establish_reply reply;
 
 	/*
 	 * Zero out everything 
@@ -182,11 +289,6 @@ static LONG SCardEstablishContextTH(DWORD dwScope, LPCVOID pvReserved1,
 		 * Do any system initilization here 
 		 */
 		SYS_Initialize();
-
-		/*
-		 * Set up the parent's process ID 
-		 */
-		parentPID = SYS_GetPID();
 
 		/*
 		 * Set up the memory mapped reader stats structures 
@@ -224,7 +326,7 @@ static LONG SCardEstablishContextTH(DWORD dwScope, LPCVOID pvReserved1,
 			}
 		}
 
-		if (SHMClientSetupSession(parentPID) != 0)
+		if (MSGClientSetupSession() != 0)
 		{
 			SYS_CloseFile(mapAddr);
 			return SCARD_E_NO_SERVICE;
@@ -240,12 +342,10 @@ static LONG SCardEstablishContextTH(DWORD dwScope, LPCVOID pvReserved1,
 		return SCARD_E_INVALID_VALUE;
 	}
 
-	scEstablishStruct.dwScope = dwScope;
-	scEstablishStruct.phContext = 0;
+	request.dwScope = dwScope;
 
-	rv = WrapSHMWrite(SCARD_ESTABLISH_CONTEXT, parentPID,
-		sizeof(scEstablishStruct), PCSCLITE_MCLIENT_ATTEMPTS,
-		(void *) &scEstablishStruct);
+	rv = MSGClientSendRequest(SCARD_ESTABLISH_CONTEXT,
+		PCSCLITE_MCLIENT_ATTEMPTS, &request, sizeof(request), NULL, 0);
 
 	if (rv == -1)
 	{
@@ -255,21 +355,19 @@ static LONG SCardEstablishContextTH(DWORD dwScope, LPCVOID pvReserved1,
 	/*
 	 * Read a message from the server 
 	 */
-	rv = SHMClientRead(&msgStruct, PCSCLITE_CLIENT_ATTEMPTS);
+	rv = MSGClientReceiveReply(&reply, sizeof(reply), NULL, 0);
 
 	if (rv == -1)
 	{
 		return SCARD_F_COMM_ERROR;
 	}
 
-	memcpy(&scEstablishStruct, &msgStruct.data, sizeof(scEstablishStruct));
-
-	if (scEstablishStruct.rv != SCARD_S_SUCCESS)
+	if (reply.header.rv != SCARD_S_SUCCESS)
 	{
-		return scEstablishStruct.rv;
+		return reply.header.rv;
 	}
 
-	*phContext = scEstablishStruct.phContext;
+	*phContext = reply.phContext;
 
 	/*
 	 * Allocate the new hContext - if allocator full return an error 
@@ -302,8 +400,8 @@ static LONG SCardReleaseContextTH(SCARDCONTEXT hContext)
 {
 
 	LONG rv;
-	release_struct scReleaseStruct;
-	sharedSegmentMsg msgStruct;
+	release_request request;
+	release_reply reply;
 
 	/*
 	 * Zero out everything 
@@ -318,26 +416,23 @@ static LONG SCardReleaseContextTH(SCARDCONTEXT hContext)
 		return SCARD_E_INVALID_HANDLE;
 	}
 
-	scReleaseStruct.hContext = hContext;
+	request.hContext = hContext;
 
 	if (SCardCheckDaemonAvailability() != SCARD_S_SUCCESS)
 		return SCARD_E_NO_SERVICE;
 
-	rv = WrapSHMWrite(SCARD_RELEASE_CONTEXT, parentPID,
-		sizeof(scReleaseStruct),
-		PCSCLITE_MCLIENT_ATTEMPTS, (void *) &scReleaseStruct);
+	rv = MSGClientSendRequest(SCARD_RELEASE_CONTEXT,
+		PCSCLITE_MCLIENT_ATTEMPTS, &request, sizeof(request), NULL, 0);
 
 	if (rv == -1)
 	{
-
 		return SCARD_E_NO_SERVICE;
 	}
 
 	/*
 	 * Read a message from the server 
 	 */
-	rv = SHMClientRead(&msgStruct, PCSCLITE_CLIENT_ATTEMPTS);
-	memcpy(&scReleaseStruct, &msgStruct.data, sizeof(scReleaseStruct));
+	rv = MSGClientReceiveReply(&reply, sizeof(reply), NULL, 0);
 
 	if (rv == -1)
 		return SCARD_F_COMM_ERROR;
@@ -347,7 +442,7 @@ static LONG SCardReleaseContextTH(SCARDCONTEXT hContext)
 	 */
 	SCardRemoveContext(hContext);
 
-	return scReleaseStruct.rv;
+	return reply.header.rv;
 }
 
 LONG SCardSetTimeout(SCARDCONTEXT hContext, DWORD dwTimeout)
@@ -380,8 +475,8 @@ static LONG SCardConnectTH(SCARDCONTEXT hContext, LPCSTR szReader,
 {
 
 	LONG rv;
-	connect_struct scConnectStruct;
-	sharedSegmentMsg msgStruct;
+	connect_request request;
+	connect_reply reply;
 
 	/*
 	 * Zero out everything 
@@ -429,20 +524,20 @@ static LONG SCardConnectTH(SCARDCONTEXT hContext, LPCSTR szReader,
 		return SCARD_E_INVALID_VALUE;
 	}
 
-	strncpy(scConnectStruct.szReader, szReader, MAX_READERNAME);
+	/* @@@ Consider sending this as additionalData instead. */
+	strncpy(request.szReader, szReader, MAX_READERNAME);
 
-	scConnectStruct.hContext = hContext;
-	scConnectStruct.dwShareMode = dwShareMode;
-	scConnectStruct.dwPreferredProtocols = dwPreferredProtocols;
-	scConnectStruct.phCard = *phCard;
-	scConnectStruct.pdwActiveProtocol = *pdwActiveProtocol;
+	request.hContext = hContext;
+	request.dwShareMode = dwShareMode;
+	request.dwPreferredProtocols = dwPreferredProtocols;
+	//request.phCard = *phCard;
+	//request.pdwActiveProtocol = *pdwActiveProtocol;
 
 	if (SCardCheckDaemonAvailability() != SCARD_S_SUCCESS)
 		return SCARD_E_NO_SERVICE;
 
-	rv = WrapSHMWrite(SCARD_CONNECT, parentPID,
-		sizeof(scConnectStruct),
-		PCSCLITE_CLIENT_ATTEMPTS, (void *) &scConnectStruct);
+	rv = MSGClientSendRequest(SCARD_CONNECT,
+		PCSCLITE_CLIENT_ATTEMPTS, &request, sizeof(request), NULL, 0);
 
 	if (rv == -1)
 	{
@@ -452,17 +547,15 @@ static LONG SCardConnectTH(SCARDCONTEXT hContext, LPCSTR szReader,
 	/*
 	 * Read a message from the server 
 	 */
-	rv = SHMClientRead(&msgStruct, PCSCLITE_CLIENT_ATTEMPTS);
-
-	memcpy(&scConnectStruct, &msgStruct.data, sizeof(scConnectStruct));
+	rv = MSGClientReceiveReply(&reply, sizeof(reply), NULL, 0);
 
 	if (rv == -1)
 		return SCARD_F_COMM_ERROR;
 
-	*phCard = scConnectStruct.phCard;
-	*pdwActiveProtocol = scConnectStruct.pdwActiveProtocol;
+	*phCard = reply.phCard;
+	*pdwActiveProtocol = reply.pdwActiveProtocol;
 
-	if (scConnectStruct.rv == SCARD_S_SUCCESS)
+	if (reply.header.rv == SCARD_S_SUCCESS)
 	{
 		/*
 		 * Keep track of the handle locally 
@@ -471,7 +564,7 @@ static LONG SCardConnectTH(SCARDCONTEXT hContext, LPCSTR szReader,
 		return rv;
 	}
 
-	return scConnectStruct.rv;
+	return reply.header.rv;
 }
 
 LONG SCardReconnect(SCARDHANDLE hCard, DWORD dwShareMode,
@@ -494,8 +587,8 @@ LONG SCardReconnectTH(SCARDHANDLE hCard, DWORD dwShareMode,
 {
 
 	LONG liIndex, rv;
-	reconnect_struct scReconnectStruct;
-	sharedSegmentMsg msgStruct;
+	reconnect_request request;
+	reconnect_reply reply;
 	int i;
 
 	/*
@@ -549,18 +642,17 @@ LONG SCardReconnectTH(SCARDHANDLE hCard, DWORD dwShareMode,
 		return SCARD_E_READER_UNAVAILABLE;
 	}
 
-	scReconnectStruct.hCard = hCard;
-	scReconnectStruct.dwShareMode = dwShareMode;
-	scReconnectStruct.dwPreferredProtocols = dwPreferredProtocols;
-	scReconnectStruct.dwInitialization = dwInitialization;
-	scReconnectStruct.pdwActiveProtocol = *pdwActiveProtocol;
+	request.hCard = hCard;
+	request.dwShareMode = dwShareMode;
+	request.dwPreferredProtocols = dwPreferredProtocols;
+	request.dwInitialization = dwInitialization;
+	//request.pdwActiveProtocol = *pdwActiveProtocol;
 
 	if (SCardCheckDaemonAvailability() != SCARD_S_SUCCESS)
 		return SCARD_E_NO_SERVICE;
 
-	rv = WrapSHMWrite(SCARD_RECONNECT, parentPID,
-		sizeof(scReconnectStruct),
-		PCSCLITE_CLIENT_ATTEMPTS, (void *) &scReconnectStruct);
+	rv = MSGClientSendRequest(SCARD_RECONNECT,
+		PCSCLITE_CLIENT_ATTEMPTS, &request, sizeof(request), NULL, 0);
 
 	if (rv == -1)
 	{
@@ -571,17 +663,15 @@ LONG SCardReconnectTH(SCARDHANDLE hCard, DWORD dwShareMode,
 	/*
 	 * Read a message from the server 
 	 */
-	rv = SHMClientRead(&msgStruct, PCSCLITE_CLIENT_ATTEMPTS);
-
-	memcpy(&scReconnectStruct, &msgStruct.data, sizeof(scReconnectStruct));
+	rv = MSGClientReceiveReply(&reply, sizeof(reply), NULL, 0);
 
 	if (rv == -1)
 		return SCARD_F_COMM_ERROR;
 
-	*pdwActiveProtocol = scReconnectStruct.pdwActiveProtocol;
+	*pdwActiveProtocol = reply.pdwActiveProtocol;
 
 	return SCardCheckReaderAvailability(psChannelMap[liIndex].readerName,
-		scReconnectStruct.rv);
+		reply.header.rv);
 }
 
 /*
@@ -607,8 +697,8 @@ static LONG SCardDisconnectTH(SCARDHANDLE hCard, DWORD dwDisposition)
 {
 
 	LONG liIndex, rv;
-	disconnect_struct scDisconnectStruct;
-	sharedSegmentMsg msgStruct;
+	disconnect_request request;
+	disconnect_reply reply;
 
 	/*
 	 * Zero out everything 
@@ -632,15 +722,14 @@ static LONG SCardDisconnectTH(SCARDHANDLE hCard, DWORD dwDisposition)
 		return SCARD_E_INVALID_HANDLE;
 	}
 
-	scDisconnectStruct.hCard = hCard;
-	scDisconnectStruct.dwDisposition = dwDisposition;
-
 	if (SCardCheckDaemonAvailability() != SCARD_S_SUCCESS)
 		return SCARD_E_NO_SERVICE;
 
-	rv = WrapSHMWrite(SCARD_DISCONNECT, parentPID,
-		sizeof(scDisconnectStruct),
-		PCSCLITE_CLIENT_ATTEMPTS, (void *) &scDisconnectStruct);
+	request.hCard = hCard;
+	request.dwDisposition = dwDisposition;
+
+	rv = MSGClientSendRequest(SCARD_DISCONNECT,
+		PCSCLITE_CLIENT_ATTEMPTS, &request, sizeof(request), NULL, 0);
 
 	if (rv == -1)
 	{
@@ -651,26 +740,23 @@ static LONG SCardDisconnectTH(SCARDHANDLE hCard, DWORD dwDisposition)
 	/*
 	 * Read a message from the server 
 	 */
-	rv = SHMClientRead(&msgStruct, PCSCLITE_CLIENT_ATTEMPTS);
-
-	memcpy(&scDisconnectStruct, &msgStruct.data,
-		sizeof(scDisconnectStruct));
+	rv = MSGClientReceiveReply(&reply, sizeof(reply), NULL, 0);
 
 	if (rv == -1)
 		return SCARD_F_COMM_ERROR;
 
 	SCardRemoveHandle(hCard);
 
-	return scDisconnectStruct.rv;
+	return reply.header.rv;
 }
 
 LONG SCardBeginTransaction(SCARDHANDLE hCard)
 {
 
 	LONG liIndex, rv;
-	begin_struct scBeginStruct;
+	begin_request request;
+	begin_reply reply;
 	int timeval, randnum, i, j;
-	sharedSegmentMsg msgStruct;
 
 	/*
 	 * Zero out everything 
@@ -710,7 +796,7 @@ LONG SCardBeginTransaction(SCARDHANDLE hCard)
 		return SCARD_E_READER_UNAVAILABLE;
 	}
 
-	scBeginStruct.hCard = hCard;
+	request.hCard = hCard;
 
 	/*
 	 * Query the server every so often until the sharing violation ends
@@ -748,9 +834,8 @@ LONG SCardBeginTransaction(SCARDHANDLE hCard)
 		 * Begin lock 
 		 */
 		SCardLockThread();
-		rv = WrapSHMWrite(SCARD_BEGIN_TRANSACTION, parentPID,
-			sizeof(scBeginStruct),
-			PCSCLITE_CLIENT_ATTEMPTS, (void *) &scBeginStruct);
+		rv = MSGClientSendRequest(SCARD_BEGIN_TRANSACTION,
+			PCSCLITE_CLIENT_ATTEMPTS, &request, sizeof(request), NULL, 0);
 
 		if (rv == -1)
 		{
@@ -764,22 +849,20 @@ LONG SCardBeginTransaction(SCARDHANDLE hCard)
 		/*
 		 * Read a message from the server 
 		 */
-		rv = SHMClientRead(&msgStruct, PCSCLITE_CLIENT_ATTEMPTS);
+		rv = MSGClientReceiveReply(&reply, sizeof(reply), NULL, 0);
 
 		SCardUnlockThread();
 		/*
 		 * End of lock 
 		 */
 
-		memcpy(&scBeginStruct, &msgStruct.data, sizeof(scBeginStruct));
-
 		if (rv == -1)
 			return SCARD_F_COMM_ERROR;
 
 	}
-	while (scBeginStruct.rv == SCARD_E_SHARING_VIOLATION);
+	while (reply.header.rv == SCARD_E_SHARING_VIOLATION);
 
-	return scBeginStruct.rv;
+	return reply.header.rv;
 }
 
 LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
@@ -797,8 +880,8 @@ LONG SCardEndTransactionTH(SCARDHANDLE hCard, DWORD dwDisposition)
 {
 
 	LONG liIndex, rv;
-	end_struct scEndStruct;
-	sharedSegmentMsg msgStruct;
+	end_request request;
+	end_reply reply;
 	int randnum, i;
 
 	/*
@@ -839,28 +922,24 @@ LONG SCardEndTransactionTH(SCARDHANDLE hCard, DWORD dwDisposition)
 		return SCARD_E_READER_UNAVAILABLE;
 	}
 
-	scEndStruct.hCard = hCard;
-	scEndStruct.dwDisposition = dwDisposition;
+	request.hCard = hCard;
+	request.dwDisposition = dwDisposition;
 
 	if (SCardCheckDaemonAvailability() != SCARD_S_SUCCESS)
 		return SCARD_E_NO_SERVICE;
 
-	rv = WrapSHMWrite(SCARD_END_TRANSACTION, parentPID,
-		sizeof(scEndStruct),
-		PCSCLITE_CLIENT_ATTEMPTS, (void *) &scEndStruct);
+	rv = MSGClientSendRequest(SCARD_END_TRANSACTION,
+		PCSCLITE_CLIENT_ATTEMPTS, &request, sizeof(request), NULL, 0);
 
 	if (rv == -1)
 	{
-
 		return SCARD_E_NO_SERVICE;
 	}
 
 	/*
 	 * Read a message from the server 
 	 */
-	rv = SHMClientRead(&msgStruct, PCSCLITE_CLIENT_ATTEMPTS);
-
-	memcpy(&scEndStruct, &msgStruct.data, sizeof(scEndStruct));
+	rv = MSGClientReceiveReply(&reply, sizeof(reply), NULL, 0);
 
 	if (rv == -1)
 		return SCARD_F_COMM_ERROR;
@@ -871,7 +950,7 @@ LONG SCardEndTransactionTH(SCARDHANDLE hCard, DWORD dwDisposition)
 	randnum = SYS_Random(randnum, 1000.0, 10000.0);
 	SYS_USleep(randnum);
 
-	return scEndStruct.rv;
+	return reply.header.rv;
 }
 
 LONG SCardCancelTransaction(SCARDHANDLE hCard)
@@ -889,8 +968,8 @@ LONG SCardCancelTransactionTH(SCARDHANDLE hCard)
 {
 
 	LONG liIndex, rv;
-	cancel_struct scCancelStruct;
-	sharedSegmentMsg msgStruct;
+	cancel_request request;
+	cancel_reply reply;
 	int i;
 
 	/*
@@ -917,14 +996,13 @@ LONG SCardCancelTransactionTH(SCARDHANDLE hCard)
 	if (i == PCSCLITE_MAX_CONTEXTS)
 		return SCARD_E_READER_UNAVAILABLE;
 
-	scCancelStruct.hCard = hCard;
+	request.hCard = hCard;
 
 	if (SCardCheckDaemonAvailability() != SCARD_S_SUCCESS)
 		return SCARD_E_NO_SERVICE;
 
-	rv = WrapSHMWrite(SCARD_CANCEL_TRANSACTION, parentPID,
-		sizeof(scCancelStruct),
-		PCSCLITE_CLIENT_ATTEMPTS, (void *) &scCancelStruct);
+	rv = MSGClientSendRequest(SCARD_CANCEL_TRANSACTION,
+		PCSCLITE_CLIENT_ATTEMPTS, &request, sizeof(request), NULL, 0);
 
 	if (rv == -1)
 	{
@@ -934,14 +1012,12 @@ LONG SCardCancelTransactionTH(SCARDHANDLE hCard)
 	/*
 	 * Read a message from the server 
 	 */
-	rv = SHMClientRead(&msgStruct, PCSCLITE_CLIENT_ATTEMPTS);
-
-	memcpy(&scCancelStruct, &msgStruct.data, sizeof(scCancelStruct));
+	rv = MSGClientReceiveReply(&reply, sizeof(reply), NULL, 0);
 
 	if (rv == -1)
 		return SCARD_F_COMM_ERROR;
 
-	return scCancelStruct.rv;
+	return reply.header.rv;
 }
 
 LONG SCardStatus(SCARDHANDLE hCard, LPSTR mszReaderNames,
@@ -965,8 +1041,8 @@ LONG SCardStatusTH(SCARDHANDLE hCard, LPSTR mszReaderNames,
 	DWORD dwReaderLen;
 	LONG liIndex, rv;
 	int i;
-	status_struct scStatusStruct;
-	sharedSegmentMsg msgStruct;
+	status_request request;
+	status_reply reply;
 
 	/*
 	 * Zero out everything 
@@ -1021,14 +1097,13 @@ LONG SCardStatusTH(SCARDHANDLE hCard, LPSTR mszReaderNames,
 	 * I will not fill in the other information. 
 	 */
 
-	scStatusStruct.hCard = hCard;
+	request.hCard = hCard;
 
 	if (SCardCheckDaemonAvailability() != SCARD_S_SUCCESS)
 		return SCARD_E_NO_SERVICE;
 
-	rv = WrapSHMWrite(SCARD_STATUS, parentPID,
-		sizeof(scStatusStruct),
-		PCSCLITE_CLIENT_ATTEMPTS, (void *) &scStatusStruct);
+	rv = MSGClientSendRequest(SCARD_STATUS,
+		PCSCLITE_CLIENT_ATTEMPTS, &request, sizeof(request), NULL, 0);
 
 	if (rv == -1)
 	{
@@ -1042,9 +1117,7 @@ LONG SCardStatusTH(SCARDHANDLE hCard, LPSTR mszReaderNames,
 	/*
 	 * Read a message from the server 
 	 */
-	rv = SHMClientRead(&msgStruct, PCSCLITE_CLIENT_ATTEMPTS);
-
-	memcpy(&scStatusStruct, &msgStruct.data, sizeof(scStatusStruct));
+	rv = MSGClientReceiveReply(&reply, sizeof(reply), NULL, 0);
 
 	if (rv == -1)
 	{
@@ -1055,7 +1128,7 @@ LONG SCardStatusTH(SCARDHANDLE hCard, LPSTR mszReaderNames,
 		return SCARD_F_COMM_ERROR;
 	}
 
-	if (scStatusStruct.rv != SCARD_S_SUCCESS)
+	if (reply.header.rv != SCARD_S_SUCCESS)
 	{
 		/*
 		 * An event must have occurred 
@@ -1064,7 +1137,7 @@ LONG SCardStatusTH(SCARDHANDLE hCard, LPSTR mszReaderNames,
 		*pcbAtrLen = 0;
 		*pdwState = 0;
 		*pdwProtocol = 0;
-		return scStatusStruct.rv;
+		return reply.header.rv;
 	}
 
 	/*
@@ -1623,8 +1696,8 @@ LONG SCardTransmitTH(SCARDHANDLE hCard, LPCSCARD_IO_REQUEST pioSendPci,
 {
 
 	LONG liIndex, rv;
-	transmit_struct scTransmitStruct;
-	sharedSegmentMsg msgStruct;
+	transmit_request request;
+	transmit_reply reply;
 	int i;
 
 	/*
@@ -1660,31 +1733,17 @@ LONG SCardTransmitTH(SCARDHANDLE hCard, LPCSCARD_IO_REQUEST pioSendPci,
 	if (i == PCSCLITE_MAX_CONTEXTS)
 		return SCARD_E_READER_UNAVAILABLE;
 
-	if (cbSendLength > MAX_BUFFER_SIZE)
-		return SCARD_E_INSUFFICIENT_BUFFER;
-
-	scTransmitStruct.hCard = hCard;
-	scTransmitStruct.cbSendLength = cbSendLength;
-	scTransmitStruct.pcbRecvLength = *pcbRecvLength;
-	memcpy(&scTransmitStruct.pioSendPci, pioSendPci,
-		sizeof(SCARD_IO_REQUEST));
-	memcpy(scTransmitStruct.pbSendBuffer, pbSendBuffer, cbSendLength);
-
-	if (pioRecvPci)
-	{
-		memcpy(&scTransmitStruct.pioRecvPci, pioRecvPci,
-			sizeof(SCARD_IO_REQUEST));
-	} else
-	{
-		scTransmitStruct.pioRecvPci.dwProtocol = SCARD_PROTOCOL_ANY;
-	}
+	request.hCard = hCard;
+	request.header.additional_data_size = cbSendLength;
+	request.cbMaxRecvLength = *pcbRecvLength;
+	memcpy(&request.pioSendPci, pioSendPci, sizeof(SCARD_IO_REQUEST));
 
 	if (SCardCheckDaemonAvailability() != SCARD_S_SUCCESS)
 		return SCARD_E_NO_SERVICE;
 
-	rv = WrapSHMWrite(SCARD_TRANSMIT, parentPID,
-		sizeof(scTransmitStruct),
-		PCSCLITE_CLIENT_ATTEMPTS, (void *) &scTransmitStruct);
+	rv = MSGClientSendRequest(SCARD_TRANSMIT,
+		PCSCLITE_CLIENT_ATTEMPTS, &request, sizeof(request), pbSendBuffer,
+		cbSendLength);
 
 	if (rv == -1)
 	{
@@ -1694,43 +1753,25 @@ LONG SCardTransmitTH(SCARDHANDLE hCard, LPCSCARD_IO_REQUEST pioSendPci,
 	/*
 	 * Read a message from the server 
 	 */
-	rv = SHMClientRead(&msgStruct, PCSCLITE_CLIENT_ATTEMPTS);
-
-	memcpy(&scTransmitStruct, &msgStruct.data, sizeof(scTransmitStruct));
+	rv = MSGClientReceiveReply(&reply, sizeof(reply), pbRecvBuffer,
+		request.cbMaxRecvLength);
 
 	if (rv == -1)
 		return SCARD_F_COMM_ERROR;
 
-	/*
-	 * Zero it and free it so any secret information cannot be leaked 
-	 */
-	memset(scTransmitStruct.pbSendBuffer, 0x00, cbSendLength);
-
-	if (scTransmitStruct.rv == SCARD_S_SUCCESS)
+	*pcbRecvLength = reply.cbRecvLength;
+	if (reply.header.rv != SCARD_S_SUCCESS)
 	{
-		*pcbRecvLength = scTransmitStruct.pcbRecvLength;
-
-		/*
-		 * Copy and zero it so any secret information is not leaked 
-		 */
-		memcpy(pbRecvBuffer, scTransmitStruct.pbRecvBuffer,
-			scTransmitStruct.pcbRecvLength);
-		memset(scTransmitStruct.pbRecvBuffer, 0x00,
-			scTransmitStruct.pcbRecvLength);
-
-		if (pioRecvPci)
-		{
-			memcpy(pioRecvPci, &scTransmitStruct.pioRecvPci,
-				sizeof(SCARD_IO_REQUEST));
-		}
-
-		return SCardCheckReaderAvailability(psChannelMap[liIndex].
-			readerName, scTransmitStruct.rv);
-	} else
-	{
-		*pcbRecvLength = scTransmitStruct.pcbRecvLength;
-		return scTransmitStruct.rv;
+		return reply.header.rv;
 	}
+
+	if (pioRecvPci)
+	{
+		memcpy(pioRecvPci, &reply.pioRecvPci, sizeof(SCARD_IO_REQUEST));
+	}
+
+	return SCardCheckReaderAvailability(psChannelMap[liIndex].
+		readerName, reply.header.rv);
 }
 
 LONG SCardListReaders(SCARDCONTEXT hContext, LPCSTR mszGroups,

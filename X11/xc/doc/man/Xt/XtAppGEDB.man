@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtAppGEDB.man,v 1.2 2001/01/27 18:20:24 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtAppGEDB.man,v 1.3 2003/04/28 22:18:18 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,23 +131,12 @@
 .SH NAME
 XtAppGetErrorDatabase, XtAppGetErrorDatabaseText \- obtain error database
 .SH SYNTAX
-XrmDatabase *XtAppGetErrorDatabase(\^\fIapp_context\fP\^)
-.br
-     XtAppContext \fIapp_context\fP;
-.LP
-void XtAppGetErrorDatabaseText(\fIapp_context\fP, \fIname\fP, \fItype\fP, \fIclass\fP, \fIdefault\fP, \fIbuffer_return\fP, \fInbytes\fP, \fIdatabase\fP)
-.br
-       XtAppContext \fIapp_context\fP;
-.br
-       char *\fIname\fP, *\fItype\fP, *\fIclass\fP;
-.br
-       char *\fIdefault\fP;
-.br
-       char *\fIbuffer_return\fP;
-.br
-       int \fInbytes\fP;
-.br
-       XrmDatabase \fIdatabase\fP;
+.HP
+XrmDatabase *XtAppGetErrorDatabase(\^XtAppContext \fIapp_context\fP); 
+.HP
+void XtAppGetErrorDatabaseText(XtAppContext \fIapp_context\fP, char
+*\fIname\fP, char *\fItype\fP, char *\fIclass\fP, char *\fIdefault\fP, char
+*\fIbuffer_return\fP, int \fInbytes\fP, XrmDatabase \fIdatabase\fP); 
 .SH ARGUMENTS
 .IP \fIapp_context\fP 1i
 Specifies the application context.

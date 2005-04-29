@@ -71,7 +71,7 @@ static int incstackp = 0;
 static int yy_first_time = 1;
 %}
 
-/* common seciton */
+/* common section */
 nl		\n
 ws		[ \t]+
 digit		[0-9]
@@ -211,9 +211,12 @@ hexstring	0x{hexdigit}+
 <S_RMTS>my_identifier	{ YYD; return(MY_IDENTIFIER); }
 <S_RMTS>peers_identifier	{ YYD; return(PEERS_IDENTIFIER); }
 <S_RMTS>verify_identifier	{ YYD; return(VERIFY_IDENTIFIER); }
+<S_RMTS>open_dir_auth_group	{ YYD; return(OPEN_DIR_AUTH_GROUP); }
 <S_RMTS>certificate_type	{ YYD; return(CERTIFICATE_TYPE); }
 <S_RMTS>shared_secret	{ YYD; return(SHARED_SECRET); }
 <S_RMTS>x509		{ YYD; yylval.num = ISAKMP_CERT_X509SIGN; return(CERT_X509); }
+<S_RMTS>in_keychain		{ YYD; return(IN_KEYCHAIN); }
+<S_RMTS>certificate_verification	{ YYD; return(CERTIFICATE_VERIFICATION); }
 <S_RMTS>peers_certfile	{ YYD; return(PEERS_CERTFILE); }
 <S_RMTS>dnssec		{ YYD; return(DNSSEC); }
 <S_RMTS>verify_cert	{ YYD; return(VERIFY_CERT); }
@@ -341,6 +344,12 @@ certname	{ YYD; yywarn("certname will be obsoleted in near future."); yylval.num
 use		{ YYD; yylval.num = SECRETTYPE_USE; return(SECRETTYPE); }
 key		{ YYD; yylval.num = SECRETTYPE_KEY; return(SECRETTYPE); }
 keychain	{ YYD; yylval.num = SECRETTYPE_KEYCHAIN; return(SECRETTYPE); }
+
+	/* certificate verification */
+openssl			{ YYD; yylval.num = VERIFICATION_MODULE_OPENSSL; return(VERIFICATION_MODULE); }
+sec_framework	{ YYD; yylval.num = VERIFICATION_MODULE_SEC_FRAMEWORK; return(VERIFICATION_MODULE); }
+use_open_dir	{ YYD; yylval.num = VERIFICATION_OPTION_OPEN_DIR; return(VERIFICATION_OPTION); }
+use_peers_identifier	{ YYD; yylval.num = VERIFICATION_OPTION_PEERS_IDENTIFIER; return(VERIFICATION_OPTION); }
 
 	/* units */
 B|byte|bytes		{ YYD; return(UNITTYPE_BYTE); }

@@ -1,4 +1,4 @@
-/* $Id: bjc-unprint.c,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $ */
+/* $Id: bjc-unprint.c,v 1.1.1.2 2004/07/23 06:26:32 jlovell Exp $ */
 /*
  * Convert BJC-printjobs to xbm files, one for each color channel
  *
@@ -23,15 +23,11 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-
-#include "../lib/libprintut.h"
+#include <gimp-print/util.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <malloc.h>
 
-
-char *outfilename= 0;
 char *efnlc= 0,*efnlm= 0,*efnc= 0,*efnm= 0,*efny= 0,*efnk= 0;
 
 int lc_cnt= 0,lm_cnt= 0,ly_cnt= 0,c_cnt= 0,m_cnt= 0,y_cnt= 0,k_cnt= 0;
@@ -86,7 +82,7 @@ int process(FILE *infile, scanline_t *sf[7], int *xmin_, int *xmax_,
 
 bitimage_t *bitimage_new(void)
 {
-  bitimage_t *tmp= (bitimage_t*) xmalloc (sizeof(bitimage_t));
+  bitimage_t *tmp= (bitimage_t*) stp_malloc (sizeof(bitimage_t));
   tmp->buf= 0;
   tmp->y0= 0;
   tmp->width= 0;
@@ -190,7 +186,7 @@ int rle_decode(unsigned char *inbuf, int n, unsigned char *outbuf,int max)
 
 scanline_t* scanline_new(void)
 {
-  scanline_t* tmp= (scanline_t*) xmalloc (sizeof(scanline_t));
+  scanline_t* tmp= (scanline_t*) stp_malloc (sizeof(scanline_t));
   tmp->size= 0;
   tmp->osize= 0;
   tmp->buf= 0;
@@ -206,7 +202,7 @@ scanline_t *scanline_store(scanline_t *line, int y, unsigned char *buf, int size
   if (!line && !(line= scanline_new()))
     return 0;
   line->size= size;
-  line->buf= (unsigned char *) xmalloc (size);
+  line->buf= (unsigned char *) stp_malloc (size);
   memcpy(line->buf,buf,size);
   rle_info(buf,size,&line->xmin,&line->xmax,&line->width,&line->osize);
   /* fprintf(stderr,"%d %d %d %d  ",size,line->xmin,line->xmax,line->width); */
@@ -238,7 +234,7 @@ bitimage_t *scanlines2bitimage(scanline_t *slimg)
 
   img= bitimage_new();
 
-  img->buf= (unsigned char*) xmalloc(h*w);
+  img->buf= (unsigned char*) stp_malloc(h*w);
   memset(img->buf,0,h*w);
   img->width= w;
   img->height= h;
@@ -271,7 +267,7 @@ char conv(char i) {
 void save2xbm(const char *filename,char col, bitimage_t *img,
 	      int xmin, int ymin, int xmax, int ymax)
 {
-  char *outfilename= (char*) xmalloc(strlen(filename)+16);
+  char *outfilename= (char*) stp_malloc(strlen(filename)+16);
   FILE *o;
   int i,j,k,i0,i1,j0,j1,w,h;
 
@@ -283,7 +279,7 @@ void save2xbm(const char *filename,char col, bitimage_t *img,
     sprintf(outfilename,"%s.xbm",filename);
 
   if (!(o= fopen(outfilename,"w"))) {
-    free(outfilename);
+    stp_free(outfilename);
     return;
   }
 
@@ -407,7 +403,7 @@ int process(FILE *infile,scanline_t *sf[7],int *xmin_,int *xmax_,int *ymin_,int 
 	    sl[col]->next= nsl;
 	  sl[col]= nsl;
 	} else {
-	  free (nsl);
+	  stp_free (nsl);
 	  nsl= 0;
 	}
 

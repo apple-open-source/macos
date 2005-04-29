@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/clientattrib.c,v 1.5 2001/03/21 16:04:39 dawes Exp $ */
+/* $XFree86: xc/lib/GL/glx/clientattrib.c,v 1.6 2004/01/28 18:11:38 alanh Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -43,25 +43,32 @@
 void glEnableClientState(GLenum array)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
 
     switch (array) {
 	case GL_COLOR_ARRAY:
-	    gc->state.vertArray.color.enable = GL_TRUE;
+	    state->vertArray.color.enable = GL_TRUE;
 	    break;
 	case GL_EDGE_FLAG_ARRAY:
-	    gc->state.vertArray.edgeFlag.enable = GL_TRUE;
+	    state->vertArray.edgeFlag.enable = GL_TRUE;
 	    break;
 	case GL_INDEX_ARRAY:
-	    gc->state.vertArray.index.enable = GL_TRUE;
+	    state->vertArray.index.enable = GL_TRUE;
 	    break;
 	case GL_NORMAL_ARRAY:
-	    gc->state.vertArray.normal.enable = GL_TRUE;
+	    state->vertArray.normal.enable = GL_TRUE;
 	    break;
 	case GL_TEXTURE_COORD_ARRAY:
-	    gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].enable = GL_TRUE;
+	    state->vertArray.texCoord[state->vertArray.activeTexture].enable = GL_TRUE;
 	    break;
 	case GL_VERTEX_ARRAY:
-	    gc->state.vertArray.vertex.enable = GL_TRUE;
+	    state->vertArray.vertex.enable = GL_TRUE;
+	    break;
+	case GL_SECONDARY_COLOR_ARRAY:
+	    state->vertArray.secondaryColor.enable = GL_TRUE;
+	    break;
+	case GL_FOG_COORDINATE_ARRAY:
+	    state->vertArray.fogCoord.enable = GL_TRUE;
 	    break;
 	default:
 	    __glXSetError(gc, GL_INVALID_ENUM);
@@ -71,25 +78,32 @@ void glEnableClientState(GLenum array)
 void glDisableClientState(GLenum array)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
 
     switch (array) {
 	case GL_COLOR_ARRAY:
-	    gc->state.vertArray.color.enable = GL_FALSE;
+	    state->vertArray.color.enable = GL_FALSE;
 	    break;
 	case GL_EDGE_FLAG_ARRAY:
-	    gc->state.vertArray.edgeFlag.enable = GL_FALSE;
+	    state->vertArray.edgeFlag.enable = GL_FALSE;
 	    break;
 	case GL_INDEX_ARRAY:
-	    gc->state.vertArray.index.enable = GL_FALSE;
+	    state->vertArray.index.enable = GL_FALSE;
 	    break;
 	case GL_NORMAL_ARRAY:
-	    gc->state.vertArray.normal.enable = GL_FALSE;
+	    state->vertArray.normal.enable = GL_FALSE;
 	    break;
 	case GL_TEXTURE_COORD_ARRAY:
-	    gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture].enable = GL_FALSE;
+	    state->vertArray.texCoord[state->vertArray.activeTexture].enable = GL_FALSE;
 	    break;
 	case GL_VERTEX_ARRAY:
-	    gc->state.vertArray.vertex.enable = GL_FALSE;
+	    state->vertArray.vertex.enable = GL_FALSE;
+	    break;
+	case GL_SECONDARY_COLOR_ARRAY:
+	    state->vertArray.secondaryColor.enable = GL_FALSE;
+	    break;
+	case GL_FOG_COORDINATE_ARRAY:
+	    state->vertArray.fogCoord.enable = GL_FALSE;
 	    break;
 	default:
 	    __glXSetError(gc, GL_INVALID_ENUM);
@@ -101,6 +115,7 @@ void glDisableClientState(GLenum array)
 void glPushClientAttrib(GLuint mask)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
     __GLXattribute **spp = gc->attributes.stackPointer, *sp;
 
     if (spp < &gc->attributes.stack[__GL_CLIENT_ATTRIB_STACK_DEPTH]) {
@@ -111,11 +126,11 @@ void glPushClientAttrib(GLuint mask)
 	sp->mask = mask;
 	gc->attributes.stackPointer = spp + 1;
 	if (mask & GL_CLIENT_PIXEL_STORE_BIT) {
-	    sp->storePack = gc->state.storePack;
-	    sp->storeUnpack = gc->state.storeUnpack;
+	    sp->storePack = state->storePack;
+	    sp->storeUnpack = state->storeUnpack;
 	}
 	if (mask & GL_CLIENT_VERTEX_ARRAY_BIT) {
-	    sp->vertArray = gc->state.vertArray;
+	    sp->vertArray = state->vertArray;
 	}
     } else {
 	__glXSetError(gc, GL_STACK_OVERFLOW);
@@ -126,6 +141,7 @@ void glPushClientAttrib(GLuint mask)
 void glPopClientAttrib(void)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
     __GLXattribute **spp = gc->attributes.stackPointer, *sp;
     GLuint mask;
 
@@ -137,11 +153,11 @@ void glPopClientAttrib(void)
 	gc->attributes.stackPointer = spp;
 
 	if (mask & GL_CLIENT_PIXEL_STORE_BIT) {
-	    gc->state.storePack = sp->storePack;
-	    gc->state.storeUnpack = sp->storeUnpack;
+	    state->storePack = sp->storePack;
+	    state->storeUnpack = sp->storeUnpack;
 	}
 	if (mask & GL_CLIENT_VERTEX_ARRAY_BIT) {
-	    gc->state.vertArray = sp->vertArray;
+	    state->vertArray = sp->vertArray;
 	}
 
 	sp->mask = 0;

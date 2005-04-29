@@ -64,6 +64,14 @@
 #endif
 #endif
 
+/* A hack to deal with gcc 3.1.  If you are using gcc3.1 and later,	*/
+/* you should probably really use gc_allocator.h instead.		*/
+#if defined (__GNUC__) && \
+    (__GNUC > 3 || (__GNUC__ == 3 && (__GNUC_MINOR__ >= 1)))
+# define simple_alloc __simple_alloc
+#endif
+
+
 
 #define GC_ALLOC_H
 
@@ -385,12 +393,12 @@ __STL_END_NAMESPACE
 
 __STL_BEGIN_NAMESPACE
 
-template <class _T>
-struct _Alloc_traits<_T, gc_alloc >
+template <class _Tp>
+struct _Alloc_traits<_Tp, gc_alloc >
 {
   static const bool _S_instanceless = true;
-  typedef simple_alloc<_T, gc_alloc > _Alloc_type;
-  typedef __allocator<_T, gc_alloc > allocator_type;
+  typedef simple_alloc<_Tp, gc_alloc > _Alloc_type;
+  typedef __allocator<_Tp, gc_alloc > allocator_type;
 };
 
 inline bool operator==(const gc_alloc&,
@@ -405,12 +413,12 @@ inline bool operator!=(const gc_alloc&,
   return false;
 }
 
-template <class _T>
-struct _Alloc_traits<_T, single_client_gc_alloc >
+template <class _Tp>
+struct _Alloc_traits<_Tp, single_client_gc_alloc >
 {
   static const bool _S_instanceless = true;
-  typedef simple_alloc<_T, single_client_gc_alloc > _Alloc_type;
-  typedef __allocator<_T, single_client_gc_alloc > allocator_type;
+  typedef simple_alloc<_Tp, single_client_gc_alloc > _Alloc_type;
+  typedef __allocator<_Tp, single_client_gc_alloc > allocator_type;
 };
 
 inline bool operator==(const single_client_gc_alloc&,
@@ -425,12 +433,12 @@ inline bool operator!=(const single_client_gc_alloc&,
   return false;
 }
 
-template <class _T>
-struct _Alloc_traits<_T, traceable_alloc >
+template <class _Tp>
+struct _Alloc_traits<_Tp, traceable_alloc >
 {
   static const bool _S_instanceless = true;
-  typedef simple_alloc<_T, traceable_alloc > _Alloc_type;
-  typedef __allocator<_T, traceable_alloc > allocator_type;
+  typedef simple_alloc<_Tp, traceable_alloc > _Alloc_type;
+  typedef __allocator<_Tp, traceable_alloc > allocator_type;
 };
 
 inline bool operator==(const traceable_alloc&,
@@ -445,12 +453,12 @@ inline bool operator!=(const traceable_alloc&,
   return false;
 }
 
-template <class _T>
-struct _Alloc_traits<_T, single_client_traceable_alloc >
+template <class _Tp>
+struct _Alloc_traits<_Tp, single_client_traceable_alloc >
 {
   static const bool _S_instanceless = true;
-  typedef simple_alloc<_T, single_client_traceable_alloc > _Alloc_type;
-  typedef __allocator<_T, single_client_traceable_alloc > allocator_type;
+  typedef simple_alloc<_Tp, single_client_traceable_alloc > _Alloc_type;
+  typedef __allocator<_Tp, single_client_traceable_alloc > allocator_type;
 };
 
 inline bool operator==(const single_client_traceable_alloc&,

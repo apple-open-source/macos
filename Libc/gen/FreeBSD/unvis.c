@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)unvis.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/unvis.c,v 1.8 2003/02/16 17:29:09 nectar Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/unvis.c,v 1.9 2004/08/02 08:46:23 stefanf Exp $");
 
 #include <sys/types.h>
 #include <ctype.h>
@@ -62,9 +62,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/unvis.c,v 1.8 2003/02/16 17:29:09 nectar Ex
  * unvis - decode characters previously encoded by vis
  */
 int
-unvis(cp, c, astate, flag)
-	char *cp;
-	int c, *astate, flag;
+unvis(char *cp, int c, int *astate, int flag)
 {
 
 	if (flag & UNVIS_END) {
@@ -241,9 +239,7 @@ unvis(cp, c, astate, flag)
  */
 
 int
-strunvis(dst, src)
-	char *dst;
-	const char *src;
+strunvis(char *dst, const char *src)
 {
 	char c;
 	char *start = dst;
@@ -272,9 +268,7 @@ strunvis(dst, src)
 }
 
 int
-strunvisx(dst, src, flag)
-	char *dst;
-	const char *src;
+strunvisx(char *dst, const char *src, int flag)
 {
 	char c;
 	char *start = dst;

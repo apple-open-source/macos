@@ -2172,7 +2172,7 @@ MSC_RV PL_MSCListObjects( MSCLPTokenConnection pConnection,
       
       if ( transmitBuffer.apduResponseSize == 2 ) {
 	/* PG: TODO: define a constant here */
-	if ( convertSW(apduResponse) == 0x6A82 ) {
+	if ( convertSW(apduResponse) == MSC_OBJECT_NOT_FOUND ) {  /* Vinnie 1740 */
 	  /* Must have finished */
 	  return MSC_SEQUENCE_END;
 	} else {
@@ -2745,6 +2745,7 @@ MSCUShort16 convertSW(MSCPUChar8 pBuffer) {
     newValue = MSC_SUCCESS;
     break;
   case CFMSC_NO_MEMORY_LEFT:
+  case CFMSC_NO_MEMORY_LEFT_1:
     newValue = MSC_NO_MEMORY_LEFT;
     break;
   case CFMSC_AUTH_FAILED:

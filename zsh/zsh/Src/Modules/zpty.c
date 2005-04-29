@@ -154,13 +154,29 @@ getptycmd(char *name)
     return NULL;
 }
 
-/**** maybe we should use configure here */
-/**** and we certainly need more/better #if tests */
+#ifdef USE_DEV_PTMX
 
-#if defined(__SVR4) || defined(sinix) || defined(__CYGWIN__)
-
-#if !defined(__CYGWIN__)
+#ifdef HAVE_SYS_STROPTS_H
 #include <sys/stropts.h>
+#endif
+
+#if defined(I_FIND) && defined(I_PUSH)
+/*
+ * These tests are ad hoc.  Unfortunately if you get the wrong ioctl,
+ * STREAMS simply hangs up, so there's no obvious way of doing this
+ * more systematically.
+ *
+ * Apparently Solaris needs all three ioctls, but HP-UX doesn't need
+ * ttcompat.  The Solaris definition has been extended to all __SVR4
+ * as a guess; I have no idea if this is right.
+ */
+#ifdef __SVR4
+#define USE_STREAMS_IOCTLS
+#define USE_STREAMS_TTCOMPAT
+#endif
+#ifdef __hpux
+#define USE_STREAMS_IOCTLS
+#endif
 #endif
 
 static int
@@ -168,8 +184,9 @@ get_pty(int master, int *retfd)
 {
     static char *name;
     static int mfd, sfd;
-
+#ifdef USE_STREAMS_IOCTLS
     int ret;
+#endif
 
     if (master) {
 	if ((mfd = open("/dev/ptmx", O_RDWR|O_NOCTTY)) < 0)
@@ -192,7 +209,7 @@ get_pty(int master, int *retfd)
 	close(mfd);
 	return 1;
     }
-#if !defined(__CYGWIN__)
+#ifdef USE_STREAMS_IOCTLS
     if ((ret = ioctl(sfd, I_FIND, "ptem")) != 1)
        if (ret == -1 || ioctl(sfd, I_PUSH, "ptem") == -1) {
 	   close(mfd);
@@ -205,20 +222,22 @@ get_pty(int master, int *retfd)
 	   close(sfd);
 	   return 1;
        }
+#ifdef USE_STREAMS_TTCOMPAT
     if ((ret = ioctl(sfd, I_FIND, "ttcompat")) != 1)
        if (ret == -1 || ioctl(sfd, I_PUSH, "ttcompat") == -1) {
 	   close(mfd);
 	   close(sfd);
 	   return 1;
        }
-#endif /* !defined(__CYGWIN__) */
+#endif
+#endif
 
     *retfd = sfd;
 
     return 0;
 }
 
-#else /* ! (defined(__SVR4) || defined(sinix) || defined(__CYGWIN__)) */
+#else /* No /dev/ptmx or no pt functions */
 
 static int
 get_pty(int master, int *retfd)
@@ -267,7 +286,7 @@ get_pty(int master, int *retfd)
     return 1;
 }
 
-#endif /* __SVR4 */
+#endif /* /dev/ptmx or alternatives */
 
 static int
 newptycmd(char *nam, char *pname, char **args, int echo, int nblock)
@@ -603,7 +622,7 @@ ptywrite(Ptycmd cmd, char **args, int nonl)
 
 /**/
 static int
-bin_zpty(char *nam, char **args, Options ops, int func)
+bin_zpty(char *nam, char **args, Options ops, UNUSED(int func))
 {
     if ((OPT_ISSET(ops,'r') && OPT_ISSET(ops,'w')) ||
 	((OPT_ISSET(ops,'r') || OPT_ISSET(ops,'w')) && 
@@ -702,7 +721,7 @@ bin_zpty(char *nam, char **args, Options ops, int func)
 }
 
 static int
-ptyhook(Hookdef d, void *dummy)
+ptyhook(UNUSED(Hookdef d), UNUSED(void *dummy))
 {
     deleteallptycmds();
     return 0;
@@ -714,7 +733,7 @@ static struct builtin bintab[] = {
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
@@ -741,7 +760,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

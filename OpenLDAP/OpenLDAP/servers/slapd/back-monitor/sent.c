@@ -1,39 +1,28 @@
 /* sent.c - deal with data sent subsystem */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/sent.c,v 1.18.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This work has beed deveolped for the OpenLDAP Foundation 
- * in the hope that it may be useful to the Open Source community, 
- * but WITHOUT ANY WARRANTY.
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from
- *    flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- * 
- * 4. This notice may not be removed or altered.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Pierangelo Masarati for inclusion
+ * in OpenLDAP Software.
  */
 
 #include "portable.h"
 
 #include <stdio.h>
+#include <ac/string.h>
 
 #include "slap.h"
 #include "back-monitor.h"
@@ -47,8 +36,8 @@ monitor_subsys_sent_init(
 	
 	Entry			*e, *e_tmp, *e_sent;
 	struct monitorentrypriv	*mp;
-	char			buf[1024];
-	struct berval		bv[2];
+	char			buf[ BACKMONITOR_BUFSIZE ];
+	struct berval		bv;
 
 	assert( be != NULL );
 
@@ -78,9 +67,16 @@ monitor_subsys_sent_init(
 	 */
 	snprintf( buf, sizeof( buf ),
 			"dn: cn=Entries,%s\n"
-			SLAPD_MONITOR_OBJECTCLASSES
-			"cn: Entries\n",
-			monitor_subsys[SLAPD_MONITOR_SENT].mss_dn.bv_val );
+			"objectClass: %s\n"
+			"structuralObjectClass: %s\n"
+			"cn: Entries\n"
+			"createTimestamp: %s\n"
+			"modifyTimestamp: %s\n",
+			monitor_subsys[SLAPD_MONITOR_SENT].mss_dn.bv_val,
+			mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+			mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+			mi->mi_startTime.bv_val,
+			mi->mi_startTime.bv_val );
 
 	e = str2entry( buf );
 	if ( e == NULL ) {
@@ -99,10 +95,9 @@ monitor_subsys_sent_init(
 		return( -1 );
 	}
 	
-	bv[1].bv_val = NULL;
-	bv[0].bv_val = "0";
-	bv[0].bv_len = 1;
-	attr_merge( e, monitor_ad_desc, bv );
+	bv.bv_val = "0";
+	bv.bv_len = 1;
+	attr_merge_one( e, mi->mi_ad_monitorCounter, &bv, NULL );
 	
 	mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
 	e->e_private = ( void * )mp;
@@ -135,9 +130,16 @@ monitor_subsys_sent_init(
 	 */
 	snprintf( buf, sizeof( buf ),
 			"dn: cn=Referrals,%s\n"
-			SLAPD_MONITOR_OBJECTCLASSES
-			"cn: Referrals\n",
-			monitor_subsys[SLAPD_MONITOR_SENT].mss_dn.bv_val );
+			"objectClass: %s\n"
+			"structuralObjectClass: %s\n"
+			"cn: Referrals\n"
+			"createTimestamp: %s\n"
+			"modifyTimestamp: %s\n",
+			monitor_subsys[SLAPD_MONITOR_SENT].mss_dn.bv_val,
+			mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+			mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+			mi->mi_startTime.bv_val,
+			mi->mi_startTime.bv_val );
 
 	e = str2entry( buf );
 	if ( e == NULL ) {
@@ -156,9 +158,9 @@ monitor_subsys_sent_init(
 		return( -1 );
 	}
 
-	bv[0].bv_val = "0";
-	bv[0].bv_len = 1;
-	attr_merge( e, monitor_ad_desc, bv );
+	bv.bv_val = "0";
+	bv.bv_len = 1;
+	attr_merge_one( e, mi->mi_ad_monitorCounter, &bv, NULL );
 	
 	mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
 	e->e_private = ( void * )mp;
@@ -191,9 +193,16 @@ monitor_subsys_sent_init(
 	 */
 	snprintf( buf, sizeof( buf ),
 			"dn: cn=PDU,%s\n"
-			SLAPD_MONITOR_OBJECTCLASSES
-			"cn: PDU\n",
-			monitor_subsys[SLAPD_MONITOR_SENT].mss_dn.bv_val );
+			"objectClass: %s\n"
+			"structuralObjectClass: %s\n"
+			"cn: PDU\n"
+			"createTimestamp: %s\n"
+			"modifyTimestamp: %s\n",
+			monitor_subsys[SLAPD_MONITOR_SENT].mss_dn.bv_val,
+			mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+			mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+			mi->mi_startTime.bv_val,
+			mi->mi_startTime.bv_val );
 
 	e = str2entry( buf );
 	if ( e == NULL ) {
@@ -212,9 +221,9 @@ monitor_subsys_sent_init(
 		return( -1 );
 	}
 
-	bv[0].bv_val = "0";
-	bv[0].bv_len = 1;
-	attr_merge( e, monitor_ad_desc, bv );
+	bv.bv_val = "0";
+	bv.bv_len = 1;
+	attr_merge_one( e, mi->mi_ad_monitorCounter, &bv, NULL );
 	
 	mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
 	e->e_private = ( void * )mp;
@@ -247,9 +256,16 @@ monitor_subsys_sent_init(
 	 */
 	snprintf( buf, sizeof( buf ),
 			"dn: cn=Bytes,%s\n"
-			SLAPD_MONITOR_OBJECTCLASSES
-			"cn: Bytes\n",
-			monitor_subsys[SLAPD_MONITOR_SENT].mss_dn.bv_val );
+			"objectClass: %s\n"
+			"structuralObjectClass: %s\n"
+			"cn: Bytes\n"
+			"createTimestamp: %s\n"
+			"modifyTimestamp: %s\n",
+			monitor_subsys[SLAPD_MONITOR_SENT].mss_dn.bv_val,
+			mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+			mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+			mi->mi_startTime.bv_val,
+			mi->mi_startTime.bv_val );
 
 	e = str2entry( buf );
 	if ( e == NULL ) {
@@ -268,9 +284,9 @@ monitor_subsys_sent_init(
 		return( -1 );
 	}
 
-	bv[0].bv_val = "0";
-	bv[0].bv_len = 1;
-	attr_merge( e, monitor_ad_desc, bv );
+	bv.bv_val = "0";
+	bv.bv_len = 1;
+	attr_merge_one( e, mi->mi_ad_monitorCounter, &bv, NULL );
 	
 	mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
 	e->e_private = ( void * )mp;
@@ -308,10 +324,11 @@ monitor_subsys_sent_init(
 
 int
 monitor_subsys_sent_update(
-	struct monitorinfo      *mi,
+	Operation		*op,
 	Entry                   *e
 )
 {
+	struct monitorinfo *mi = (struct monitorinfo *)op->o_bd->be_private;
 	long 		n = -1;
 
 	assert( mi );
@@ -344,16 +361,16 @@ monitor_subsys_sent_update(
 
 	if ( n != -1 ) {
 		Attribute	*a;
-		char		buf[16];
+		char		buf[] = "+9223372036854775807L";
 
-		a = attr_find( e->e_attrs, monitor_ad_desc );
+		a = attr_find( e->e_attrs, mi->mi_ad_monitorCounter);
 		if ( a == NULL ) {
 			return( -1 );
 		}
 
 		snprintf( buf, sizeof( buf ), "%ld", n );
 		free( a->a_vals[ 0 ].bv_val );
-		ber_str2bv( buf, 0, 1, a->a_vals );
+		ber_str2bv( buf, 0, 1, &a->a_vals[ 0 ] );
 	}
 
 	return( 0 );

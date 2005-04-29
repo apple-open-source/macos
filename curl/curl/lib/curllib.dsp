@@ -31,19 +31,19 @@ RSC=rc.exe
 
 !IF  "$(CFG)" == "curllib - Win32 Release"
 
-# PROP BASE Use_MFC 6
+# PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 0
 # PROP BASE Output_Dir "Release"
 # PROP BASE Intermediate_Dir "Release"
 # PROP BASE Target_Dir ""
-# PROP Use_MFC 6
+# PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
 # PROP Output_Dir "Release"
 # PROP Intermediate_Dir "Release"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "CURLLIB_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /Zi /O2 /I "..\include" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "CURLLIB_EXPORTS" /FR /FD /c
+# ADD CPP /nologo /MT /W3 /GX /Zi /O2 /I "." /I "..\include" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "CURLLIB_EXPORTS" /D "_WINDLL" /FR /FD /c
 # SUBTRACT CPP /YX
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
@@ -70,7 +70,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "CURLLIB_EXPORTS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /Zi /Od /I "..\include" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "CURLLIB_EXPORTS" /FR /FD /GZ /c
+# ADD CPP /nologo /MTd /W3 /Gm /GX /Zi /Od /I "." /I "..\include" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "CURLLIB_EXPORTS" /FR /FD /GZ /c
 # SUBTRACT CPP /WX /YX
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
@@ -91,143 +91,9 @@ LINK32=link.exe
 # Name "curllib - Win32 Release"
 # Name "curllib - Win32 Debug"
 # Begin Group "Source Files"
-
-# PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
-# Begin Source File
-
-SOURCE=.\base64.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\connect.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\cookie.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\dict.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\easy.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\escape.c
-# End Source File
 # Begin Source File
 
 SOURCE=.\file.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\formdata.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\ftp.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\getdate.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\getenv.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\getinfo.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\getpass.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\hash.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\hostip.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\http.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\http_chunks.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\if2ip.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\krb4.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\ldap.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\libcurl.def
-# End Source File
-# Begin Source File
-
-SOURCE=.\llist.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\memdebug.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\mprintf.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\multi.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\netrc.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\progress.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\security.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\sendf.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\speedcheck.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\ssluse.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\strequal.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\strtok.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\telnet.c
 # End Source File
 # Begin Source File
 
@@ -235,7 +101,35 @@ SOURCE=.\timeval.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\transfer.c
+SOURCE=.\base64.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\hostip.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\progress.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\formdata.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\cookie.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\http.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\sendf.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\ftp.c
 # End Source File
 # Begin Source File
 
@@ -243,91 +137,177 @@ SOURCE=.\url.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\dict.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\if2ip.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\speedcheck.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\ldap.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\ssluse.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\version.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\getenv.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\escape.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\mprintf.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\telnet.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\netrc.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\getinfo.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\transfer.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\strequal.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\easy.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\security.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\krb4.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\memdebug.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\http_chunks.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\strtok.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\connect.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\llist.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\hash.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\multi.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\content_encoding.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\share.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\http_digest.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\md5.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\http_negotiate.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\http_ntlm.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\inet_pton.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\strtoofft.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\strerror.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\hostares.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\hostasyn.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\hostip4.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\hostip6.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\hostsyn.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\hostthre.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\inet_ntop.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\parsedate.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\select.c
 # End Source File
 # End Group
 # Begin Group "Header Files"
-
-# PROP Default_Filter "h;hpp;hxx;hm;inl"
 # Begin Source File
 
 SOURCE=.\arpa_telnet.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\base64.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\connect.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\cookie.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\dict.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\escape.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\file.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\formdata.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\ftp.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\getdate.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\getenv.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\getpass.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\hostip.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\http.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\http_chunks.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\if2ip.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\inet_ntoa_r.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\krb4.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\ldap.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\memdebug.h
 # End Source File
 # Begin Source File
 
@@ -335,39 +315,7 @@ SOURCE=.\netrc.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\progress.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\security.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\sendf.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\setup.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\speedcheck.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\ssluse.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\strequal.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\strtok.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\telnet.h
+SOURCE=.\file.h
 # End Source File
 # Begin Source File
 
@@ -375,7 +323,35 @@ SOURCE=.\timeval.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\transfer.h
+SOURCE=.\base64.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\hostip.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\progress.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\formdata.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\cookie.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\http.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\sendf.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ftp.h
 # End Source File
 # Begin Source File
 
@@ -383,9 +359,162 @@ SOURCE=.\url.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\dict.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\if2ip.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\speedcheck.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\urldata.h
 # End Source File
+# Begin Source File
+
+SOURCE=.\ldap.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ssluse.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\escape.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\telnet.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\getinfo.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\strequal.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\security.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\krb4.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\memdebug.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\inet_ntoa_r.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\http_chunks.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\strtok.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\connect.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\llist.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\hash.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\content_encoding.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\share.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\md5.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\http_digest.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\http_negotiate.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\http_ntlm.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ca-bundle.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\inet_pton.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\strtoofft.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\strerror.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\inet_ntop.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\curlx.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\memory.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\setup.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\transfer.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\select.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\easyif.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\multiif.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\parsedate.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\config-win32.h
+# End Source File
 # End Group
+
 # Begin Group "Resource Files"
 
 # PROP Default_Filter "ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"

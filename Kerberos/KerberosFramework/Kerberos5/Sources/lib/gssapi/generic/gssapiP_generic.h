@@ -24,7 +24,7 @@
 #define _GSSAPIP_GENERIC_H_
 
 /*
- * $Id: gssapiP_generic.h,v 1.34 2003/03/06 20:26:39 lxs Exp $
+ * $Id: gssapiP_generic.h,v 1.40 2004/06/08 21:50:16 hartmans Exp $
  */
 
 #if defined(_WIN32)
@@ -35,10 +35,15 @@
 #endif
 #endif
 
+#include "k5-thread.h"
+
 #include "gssapi_generic.h"
 
 #include "gssapi_err_generic.h"
 #include <errno.h>
+
+#include "k5-platform.h"
+typedef UINT64_TYPE gssint_uint64;
 
 /** helper macros **/
 
@@ -106,12 +111,15 @@
 #define	g_save_name		gssint_g_save_name
 #define	g_save_cred_id		gssint_g_save_cred_id
 #define	g_save_ctx_id		gssint_g_save_ctx_id
+#define	g_save_lucidctx_id	gssint_g_save_lucidctx_id
 #define	g_validate_name		gssint_g_validate_name
 #define	g_validate_cred_id	gssint_g_validate_cred_id
 #define	g_validate_ctx_id	gssint_g_validate_ctx_id
+#define	g_validate_lucidctx_id	gssint_g_validate_lucidctx_id
 #define	g_delete_name		gssint_g_delete_name
 #define	g_delete_cred_id	gssint_g_delete_cred_id
 #define	g_delete_ctx_id		gssint_g_delete_ctx_id
+#define	g_delete_lucidctx_id	gssint_g_delete_lucidctx_id
 #define	g_make_string_buffer	gssint_g_make_string_buffer
 #define	g_copy_OID_set		gssint_g_copy_OID_set
 #define	g_token_size		gssint_g_token_size
@@ -129,25 +137,33 @@
 #define	g_local_host_name	gssint_g_local_host_name
 #define	g_strdup		gssint_g_strdup
 
-typedef struct _g_set *g_set;
+typedef struct _g_set_elt *g_set_elt;
+typedef struct {
+    k5_mutex_t mutex;
+    void *data;
+} g_set;
+#define G_SET_INIT { K5_MUTEX_PARTIAL_INITIALIZER, 0 }
 
-int g_set_init (g_set *s);
-int g_set_destroy (g_set *s);
-int g_set_entry_add (g_set *s, void *key, void *value);
-int g_set_entry_delete (g_set *s, void *key);
-int g_set_entry_get (g_set *s, void *key, void **value);
+int g_set_init (g_set_elt *s);
+int g_set_destroy (g_set_elt *s);
+int g_set_entry_add (g_set_elt *s, void *key, void *value);
+int g_set_entry_delete (g_set_elt *s, void *key);
+int g_set_entry_get (g_set_elt *s, void *key, void **value);
 
-int g_save_name (void **vdb, gss_name_t *name);
-int g_save_cred_id (void **vdb, gss_cred_id_t *cred);
-int g_save_ctx_id (void **vdb, gss_ctx_id_t *ctx);
+int g_save_name (g_set *vdb, gss_name_t *name);
+int g_save_cred_id (g_set *vdb, gss_cred_id_t *cred);
+int g_save_ctx_id (g_set *vdb, gss_ctx_id_t *ctx);
+int g_save_lucidctx_id (g_set *vdb, void *lctx);
 
-int g_validate_name (void **vdb, gss_name_t *name);
-int g_validate_cred_id (void **vdb, gss_cred_id_t *cred);
-int g_validate_ctx_id (void **vdb, gss_ctx_id_t *ctx);
+int g_validate_name (g_set *vdb, gss_name_t *name);
+int g_validate_cred_id (g_set *vdb, gss_cred_id_t *cred);
+int g_validate_ctx_id (g_set *vdb, gss_ctx_id_t *ctx);
+int g_validate_lucidctx_id (g_set *vdb, void *lctx);
 
-int g_delete_name (void **vdb, gss_name_t *name);
-int g_delete_cred_id (void **vdb, gss_cred_id_t *cred);
-int g_delete_ctx_id (void **vdb, gss_ctx_id_t *ctx);
+int g_delete_name (g_set *vdb, gss_name_t *name);
+int g_delete_cred_id (g_set *vdb, gss_cred_id_t *cred);
+int g_delete_ctx_id (g_set *vdb, gss_ctx_id_t *ctx);
+int g_delete_lucidctx_id (g_set *vdb, void *lctx);
 
 int g_make_string_buffer (const char *str, gss_buffer_t buffer);
 
@@ -159,8 +175,9 @@ void g_make_token_header (gss_OID mech, unsigned int body_size,
 			  unsigned char **buf, int tok_type);
 
 gss_int32 g_verify_token_header (gss_OID mech, unsigned int *body_size,
-			  unsigned char **buf, int tok_type, 
-				 unsigned int toksize_in);
+				 unsigned char **buf, int tok_type, 
+				 unsigned int toksize_in,
+				 int wrapper_required);
 
 OM_uint32 g_display_major_status (OM_uint32 *minor_status,
 				 OM_uint32 status_value,
@@ -171,10 +188,10 @@ OM_uint32 g_display_com_err_status (OM_uint32 *minor_status,
 				   OM_uint32 status_value,
 				   gss_buffer_t status_string);
 
-gss_int32 g_order_init (void **queue, OM_uint32 seqnum,
-				  int do_replay, int do_sequence);
+gss_int32 g_order_init (void **queue, gssint_uint64 seqnum,
+				  int do_replay, int do_sequence, int wide);
 
-gss_int32 g_order_check (void **queue, OM_uint32 seqnum);
+gss_int32 g_order_check (void **queue, gssint_uint64 seqnum);
 
 void g_order_free (void **queue);
 

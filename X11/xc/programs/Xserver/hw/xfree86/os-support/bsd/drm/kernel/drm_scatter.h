@@ -25,6 +25,8 @@
  *
  * Authors:
  *   Gareth Hughes <gareth@valinux.com>
+ *   Eric Anholt <anholt@FreeBSD.org>
+ *
  */
 
 #include "drmP.h"
@@ -39,9 +41,6 @@ void DRM(sg_cleanup)( drm_sg_mem_t *entry )
 
 	DRM(free)( entry->busaddr,
 		   entry->pages * sizeof(*entry->busaddr),
-		   DRM_MEM_PAGES );
-	DRM(free)( entry->pagelist,
-		   entry->pages * sizeof(*entry->pagelist),
 		   DRM_MEM_PAGES );
 	DRM(free)( entry,
 		   sizeof(*entry),
@@ -73,21 +72,10 @@ int DRM(sg_alloc)( DRM_IOCTL_ARGS )
 	DRM_DEBUG( "sg size=%ld pages=%ld\n", request.size, pages );
 
 	entry->pages = pages;
-	entry->pagelist = DRM(alloc)( pages * sizeof(*entry->pagelist),
-				     DRM_MEM_PAGES );
-	if ( !entry->pagelist ) {
-		DRM(free)( entry, sizeof(*entry), DRM_MEM_SGLISTS );
-		return ENOMEM;
-	}
-
-	bzero(entry->pagelist, pages * sizeof(*entry->pagelist));
 
 	entry->busaddr = DRM(alloc)( pages * sizeof(*entry->busaddr),
 				     DRM_MEM_PAGES );
 	if ( !entry->busaddr ) {
-		DRM(free)( entry->pagelist,
-			   entry->pages * sizeof(*entry->pagelist),
-			   DRM_MEM_PAGES );
 		DRM(free)( entry,
 			   sizeof(*entry),
 			   DRM_MEM_SGLISTS );
@@ -99,9 +87,6 @@ int DRM(sg_alloc)( DRM_IOCTL_ARGS )
 	if ( !entry->virtual ) {
 		DRM(free)( entry->busaddr,
 			   entry->pages * sizeof(*entry->busaddr),
-			   DRM_MEM_PAGES );
-		DRM(free)( entry->pagelist,
-			   entry->pages * sizeof(*entry->pagelist),
 			   DRM_MEM_PAGES );
 		DRM(free)( entry,
 			   sizeof(*entry),
@@ -123,46 +108,6 @@ int DRM(sg_alloc)( DRM_IOCTL_ARGS )
 			   sizeof(request) );
 
 	dev->sg = entry;
-
-#if DEBUG_SCATTER
-	/* Verify that each page points to its virtual address, and vice
-	 * versa.
-	 */
-	{
-	int error = 0;
-
-	for ( i = 0 ; i < pages ; i++ ) {
-		unsigned long *tmp;
-
-		tmp = page_address( entry->pagelist[i] );
-		for ( j = 0 ;
-		      j < PAGE_SIZE / sizeof(unsigned long) ;
-		      j++, tmp++ ) {
-			*tmp = 0xcafebabe;
-		}
-		tmp = (unsigned long *)((u8 *)entry->virtual +
-					(PAGE_SIZE * i));
-		for( j = 0 ;
-		     j < PAGE_SIZE / sizeof(unsigned long) ;
-		     j++, tmp++ ) {
-			if ( *tmp != 0xcafebabe && error == 0 ) {
-				error = 1;
-				DRM_ERROR( "Scatter allocation error, "
-					   "pagelist does not match "
-					   "virtual mapping\n" );
-			}
-		}
-		tmp = page_address( entry->pagelist[i] );
-		for(j = 0 ;
-		    j < PAGE_SIZE / sizeof(unsigned long) ;
-		    j++, tmp++) {
-			*tmp = 0;
-		}
-	}
-	if (error == 0)
-		DRM_ERROR( "Scatter allocation matches pagelist\n" );
-	}
-#endif
 
 	return 0;
 

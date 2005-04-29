@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* RMISocketFactory.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,50 +35,74 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.rmi.server;
 
-import java.net.Socket;
-import java.net.ServerSocket;
-import java.io.IOException;
 import gnu.java.rmi.server.RMIDefaultSocketFactory;
 
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
+
 public abstract class RMISocketFactory
-	implements RMIClientSocketFactory, RMIServerSocketFactory {
+  implements RMIClientSocketFactory, RMIServerSocketFactory
+{
+  private static RMISocketFactory defaultFactory;
+  private static RMISocketFactory currentFactory;
+  private static RMIFailureHandler currentHandler;
 
-static private RMISocketFactory defaultFactory;
-static private RMISocketFactory currentFactory;
-static private RMIFailureHandler currentHandler;
+  static
+    {
+      defaultFactory = new RMIDefaultSocketFactory();
+      currentFactory = defaultFactory;
+    }
 
-static {
-	defaultFactory = new RMIDefaultSocketFactory();
-	currentFactory = defaultFactory;
-}
+  public RMISocketFactory ()
+  {
+  }
 
-public RMISocketFactory() {
-}
+  /**
+   * @exception IOException If an error occurs
+   */
+  public abstract Socket createSocket (String host, int port)
+    throws IOException;
 
-public abstract Socket createSocket(String host, int port) throws IOException;
+  /**
+   * @exception IOException If an error occurs
+   */
+  public abstract ServerSocket createServerSocket (int port)
+    throws IOException;
 
-public abstract ServerSocket createServerSocket(int port) throws IOException;
+  /**
+   * @exception IOException If an error occurs
+   * @exception SecurityException FIXME
+   */
+  public static void setSocketFactory (RMISocketFactory fac)
+    throws IOException
+  {
+    currentFactory = fac;
+  }
 
-public static void setSocketFactory(RMISocketFactory fac) throws IOException {
-	currentFactory = fac;
-}
+  public static RMISocketFactory getSocketFactory ()
+  {
+    return currentFactory;
+  }
 
-public static RMISocketFactory getSocketFactory() {
-	return (currentFactory);
-}
+  public static RMISocketFactory getDefaultSocketFactory ()
+  {
+    return defaultFactory;
+  }
 
-public static RMISocketFactory getDefaultSocketFactory() {
-	return (defaultFactory);
-}
+  /**
+   * @exception SecurityException FIXME
+   */
+  public static void setFailureHandler (RMIFailureHandler fh)
+  {
+    currentHandler = fh;
+  }
 
-public static void setFailureHandler(RMIFailureHandler fh) {
-	currentHandler = fh;
-}
-
-public static RMIFailureHandler getFailureHandler() {
-	return (currentHandler);
-}
-
+  public static RMIFailureHandler getFailureHandler ()
+  {
+    return currentHandler;
+  }
 }

@@ -1,13 +1,12 @@
-// Build don't link: 
+// { dg-do compile }
 // GROUPS passed old-abort
-// crash test - XFAIL *-*-*
 class Graph {
 public:
       unsigned         char N;
-      Graph(void) {}; // ERROR - previously defined here
+      Graph(void) {}; // { dg-error "previously defined here" }
 }
 
-Graph::Graph(void)
-{    N = 10;// ERROR -  return type.*
+Graph::Graph(void)    // { dg-error "return type|redefinition" }
+{    N = 10;
 }
 

@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-/* $XFree86: xc/programs/Xserver/hw/kdrive/vesa/vesa.c,v 1.21 2002/10/14 18:01:42 keithp Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/kdrive/vesa/vesa.c,v 1.22 2003/11/01 04:49:15 dawes Exp $ */
 
 #include "vesa.h"
 #ifdef RANDR
@@ -34,6 +34,7 @@ Bool vesa_linear_fb = TRUE;
 Bool vesa_restore = FALSE;
 Bool vesa_verbose = FALSE;
 Bool vesa_force_text = FALSE;
+Bool vesa_map_holes = FALSE;
 
 #define VesaPriv(scr)	((VesaScreenPrivPtr) (scr)->driver)
 
@@ -198,7 +199,7 @@ vesaInitialize (KdCardInfo *card, VesaCardPrivPtr priv)
 {
     int code;
 
-    priv->vi = Vm86Setup();
+    priv->vi = Vm86Setup(vesa_map_holes);
     if(!priv->vi)
 	goto fail;
 
@@ -227,7 +228,7 @@ vesaListModes (void)
     int		nmode;
     int		n;
 
-    vi = Vm86Setup ();
+    vi = Vm86Setup (vesa_map_holes);
     if (!vi)
     {
 	ErrorF ("Can't setup vm86\n");
@@ -1785,6 +1786,9 @@ vesaProcessArgument (int argc, char **argv, int i)
 	return 1;
     } else if(!strcmp(argv[i], "-force-text")) {
 	vesa_force_text = TRUE;
+	return 1;
+    } else if(!strcmp(argv[i], "-map-holes")) {
+	vesa_map_holes = TRUE;
 	return 1;
     }
     

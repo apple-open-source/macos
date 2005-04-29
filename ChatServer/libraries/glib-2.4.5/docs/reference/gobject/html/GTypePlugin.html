@@ -1,0 +1,191 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>GTypePlugin</title><meta name="generator" content="DocBook XSL Stylesheets V1.65.1"><link rel="home" href="index.html" title="GObject Reference Manual"><link rel="up" href="rn01.html" title="API Reference"><link rel="previous" href="gobject-Type-Information.html" title="GType"><link rel="next" href="GTypeModule.html" title="GTypeModule"><link rel="preface" href="pr01.html" title="Introduction"><link rel="reference" href="rn01.html" title="API Reference"><link rel="refentry" href="gobject-Type-Information.html" title="GType"><link rel="refentry" href="GTypePlugin.html" title="GTypePlugin"><link rel="refentry" href="GTypeModule.html" title="GTypeModule"><link rel="refentry" href="gobject-The-Base-Object-Type.html" title="GObject"><link rel="refentry" href="gobject-Enumeration-and-Flag-Types.html" title="Enums and Flags"><link rel="refentry" href="gobject-Boxed-Types.html" title="GBoxed"><link rel="refentry" href="gobject-Generic-values.html" title="Generic Values"><link rel="refentry" href="gobject-Standard-Parameter-and-Value-Types.html" title="Parameters and Values"><link rel="refentry" href="gobject-Varargs-Value-Collection.html" title="Varargs Value Collection"><link rel="refentry" href="gobject-GParamSpec.html" title="GParamSpec"><link rel="refentry" href="gobject-Signals.html" title="Signals"><link rel="refentry" href="gobject-Closures.html" title="Closures"><link rel="refentry" href="gobject-Value-arrays.html" title="Value arrays"><link rel="reference" href="rn02.html" title="Tools Reference"><link rel="refentry" href="glib-mkenums.html" title="glib-mkenums"><link rel="refentry" href="glib-genmarshal.html" title="glib-genmarshal"><link rel="refentry" href="gobject-query.html" title="gobject-query"><link rel="index" href="ix01.html" title="Index"><link rel="section" href="GTypePlugin.html#id2779152" title="Object Hierarchy"><link rel="section" href="GTypePlugin.html#id2779172" title="Known Implementations"><link rel="section" href="GTypePlugin.html#id2779191" title="Description"><link rel="section" href="GTypePlugin.html#id2779474" title="Details"><link rel="section" href="GTypePlugin.html#id2780723" title="See Also"><meta name="generator" content="GTK-Doc V1.2 (XML mode)"><link rel="stylesheet" href="style.css" type="text/css"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><table class="navigation" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2"><tr valign="middle"><td><a accesskey="p" href="gobject-Type-Information.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td><td><a accesskey="u" href="rn01.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td><td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td><th width="100%" align="center">GObject Reference Manual</th><td><a accesskey="n" href="GTypeModule.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td></tr></table><div class="refentry" lang="en"><a name="GTypePlugin"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2><span class="refentrytitle">GTypePlugin</span></h2><p>GTypePlugin &#8212; An interface for dynamically loadable types</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><pre class="synopsis">
+
+#include &lt;glib-object.h&gt;
+
+
+struct      <a href="GTypePlugin.html#GTypePlugin-struct">GTypePlugin</a>;
+struct      <a href="GTypePlugin.html#GTypePluginClass">GTypePluginClass</a>;
+void        (<a href="GTypePlugin.html#GTypePluginUse">*GTypePluginUse</a>)               (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin);
+void        (<a href="GTypePlugin.html#GTypePluginUnuse">*GTypePluginUnuse</a>)             (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin);
+void        (<a href="GTypePlugin.html#GTypePluginCompleteTypeInfo">*GTypePluginCompleteTypeInfo</a>)  (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> g_type,
+                                             <a href="gobject-Type-Information.html#GTypeInfo">GTypeInfo</a> *info,
+                                             <a href="gobject-Type-Information.html#GTypeValueTable">GTypeValueTable</a> *value_table);
+void        (<a href="GTypePlugin.html#GTypePluginCompleteInterfaceInfo">*GTypePluginCompleteInterfaceInfo</a>)
+                                            (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> instance_type,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> interface_type,
+                                             <a href="gobject-Type-Information.html#GInterfaceInfo">GInterfaceInfo</a> *info);
+void        <a href="GTypePlugin.html#g-type-plugin-use">g_type_plugin_use</a>               (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin);
+void        <a href="GTypePlugin.html#g-type-plugin-unuse">g_type_plugin_unuse</a>             (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin);
+void        <a href="GTypePlugin.html#g-type-plugin-complete-type-info">g_type_plugin_complete_type_info</a>
+                                            (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> g_type,
+                                             <a href="gobject-Type-Information.html#GTypeInfo">GTypeInfo</a> *info,
+                                             <a href="gobject-Type-Information.html#GTypeValueTable">GTypeValueTable</a> *value_table);
+void        <a href="GTypePlugin.html#g-type-plugin-complete-interface-info">g_type_plugin_complete_interface_info</a>
+                                            (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> instance_type,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> interface_type,
+                                             <a href="gobject-Type-Information.html#GInterfaceInfo">GInterfaceInfo</a> *info);
+
+</pre></div><div class="refsect1" lang="en"><a name="id2779152"></a><h2>Object Hierarchy</h2><pre class="synopsis">
+
+  GInterface
+   +----GTypePlugin
+</pre></div><div class="refsect1" lang="en"><a name="id2779172"></a><h2>Known Implementations</h2><p>
+GTypePlugin is implemented by
+ <a href="GTypeModule.html" title="GTypeModule">GTypeModule</a>.</p></div><div class="refsect1" lang="en"><a name="id2779191"></a><h2>Description</h2><p>
+The GObject type system supports dynamic loading of types. The <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a> 
+interface is used to handle the lifecycle of dynamically loaded types. 
+It goes as follows:
+</p><p>
+</p><div class="orderedlist"><ol type="1"><li><p>
+  The type is initially introduced (usually upon loading the module
+  the first time, or by your main application that knows what modules
+  introduces what types), like this:
+<tt class="literal">new_type_id = g_type_register_dynamic (parent_type_id,
+                                                "TypeName",
+                                                new_type_plugin,
+                                                type_flags);
+</tt>
+  where <tt class="literal">new_type_plugin</tt> is an implementation of the
+  <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a> interface.
+</p></li><li><p>  
+   The type's implementation is referenced, e.g. through
+   <a href="gobject-Type-Information.html#g-type-class-ref"><tt class="function">g_type_class_ref()</tt></a> or through <a href="gobject-Type-Information.html#g-type-create-instance"><tt class="function">g_type_create_instance()</tt></a> (this is 
+   being called by <a href="gobject-The-Base-Object-Type.html#g-object-new"><tt class="function">g_object_new()</tt></a>) or through one of the above done on 
+   a type derived from <tt class="literal">new_type_id</tt>.
+</p></li><li><p>  
+   This causes the type system to load the type's implementation by calling
+   <a href="GTypePlugin.html#g-type-plugin-use"><tt class="function">g_type_plugin_use()</tt></a> and <a href="GTypePlugin.html#g-type-plugin-complete-type-info"><tt class="function">g_type_plugin_complete_type_info()</tt></a> on 
+   <tt class="literal">new_type_plugin</tt>.
+</p></li><li><p>  
+   At some point the type's implementation isn't required anymore, e.g. after
+   <a href="gobject-Type-Information.html#g-type-class-unref"><tt class="function">g_type_class_unref()</tt></a> or <a href="gobject-Type-Information.html#g-type-free-instance"><tt class="function">g_type_free_instance()</tt></a> (called when the reference
+   count of an instance drops to zero).
+</p></li><li><p>  
+   This causes the type system to throw away the information retrieved from
+   <a href="GTypePlugin.html#g-type-plugin-complete-type-info"><tt class="function">g_type_plugin_complete_type_info()</tt></a> and then it calls
+   <a href="GTypePlugin.html#g-type-plugin-unuse"><tt class="function">g_type_plugin_unuse()</tt></a> on <tt class="literal">new_type_plugin</tt>.
+</p></li><li><p>  
+   Things may repeat from the second step.
+</p></li></ol></div><p>
+</p><p>
+So basically, you need to implement a <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a> type that carries a
+use_count, once use_count goes from zero to one, you need to load the 
+implementation to successfully handle the upcoming 
+<a href="GTypePlugin.html#g-type-plugin-complete-type-info"><tt class="function">g_type_plugin_complete_type_info()</tt></a> call. Later, maybe after succeeding 
+use/unuse calls, once use_count drops to zero, you can unload the 
+implementation again. The type system makes sure to call <a href="GTypePlugin.html#g-type-plugin-use"><tt class="function">g_type_plugin_use()</tt></a> 
+and <a href="GTypePlugin.html#g-type-plugin-complete-type-info"><tt class="function">g_type_plugin_complete_type_info()</tt></a> again when the type is needed again.
+</p><p>
+<a href="GTypeModule.html" title="GTypeModule"><span class="type">GTypeModule</span></a> is an implementation of <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a> that already implements 
+most of this except for the actual module loading and unloading. It even 
+handles multiple registered types per module.
+</p></div><div class="refsect1" lang="en"><a name="id2779474"></a><h2>Details</h2><div class="refsect2" lang="en"><a name="id2779480"></a><h3><a name="GTypePlugin-struct"></a>struct GTypePlugin</h3><a class="indexterm" name="id2779490"></a><pre class="programlisting">struct GTypePlugin;</pre><p>
+The <span class="structname">GTypePlugin</span> typedef is used as a placeholder 
+for objects that implement the <span class="structname">GTypePlugin</span> 
+interface.
+</p></div><hr><div class="refsect2" lang="en"><a name="id2779514"></a><h3><a name="GTypePluginClass"></a>struct GTypePluginClass</h3><a class="indexterm" name="id2779525"></a><pre class="programlisting">struct GTypePluginClass {
+
+  GTypePluginUse		   use_plugin;
+  GTypePluginUnuse		   unuse_plugin;
+  GTypePluginCompleteTypeInfo	   complete_type_info;
+  GTypePluginCompleteInterfaceInfo complete_interface_info;
+};
+</pre><p>
+The <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a> interface is used by the type system in order to handle
+the lifecycle of dynamically loaded types.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><a href="GTypePlugin.html#GTypePluginUse">GTypePluginUse</a> <i class="structfield"><tt>use_plugin</tt></i></span></td><td>Increases the use count of the plugin.
+</td></tr><tr><td><span class="term"><a href="GTypePlugin.html#GTypePluginUnuse">GTypePluginUnuse</a> <i class="structfield"><tt>unuse_plugin</tt></i></span></td><td>Decreases the use count of the plugin.
+</td></tr><tr><td><span class="term"><a href="GTypePlugin.html#GTypePluginCompleteTypeInfo">GTypePluginCompleteTypeInfo</a> <i class="structfield"><tt>complete_type_info</tt></i></span></td><td>Fills in the <a href="gobject-Type-Information.html#GTypeInfo"><span class="type">GTypeInfo</span></a> and 
+  <a href="gobject-Type-Information.html#GTypeValueTable"><span class="type">GTypeValueTable</span></a> structs for the type. The structs are initialized
+  with <tt class="literal">memset(s, 0, sizeof (s))</tt> before calling 
+  this function.
+</td></tr><tr><td><span class="term"><a href="GTypePlugin.html#GTypePluginCompleteInterfaceInfo">GTypePluginCompleteInterfaceInfo</a> <i class="structfield"><tt>complete_interface_info</tt></i></span></td><td>Fills in missing parts of the <a href="gobject-Type-Information.html#GInterfaceInfo"><span class="type">GInterfaceInfo</span></a> 
+  for the interface. The structs is initialized with 
+  <tt class="literal">memset(s, 0, sizeof (s))</tt> before calling
+  this function.
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id2779678"></a><h3><a name="GTypePluginUse"></a>GTypePluginUse ()</h3><a class="indexterm" name="id2779689"></a><pre class="programlisting">void        (*GTypePluginUse)               (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin);</pre><p>
+The type of the <i class="parameter"><tt>use_plugin</tt></i> function of <a href="GTypePlugin.html#GTypePluginClass"><span class="type">GTypePluginClass</span></a>, which gets called
+to increase the use count of <i class="parameter"><tt>plugin</tt></i>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>plugin</tt></i> :</span></td><td>the <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a> whose use count should be increased
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id2779765"></a><h3><a name="GTypePluginUnuse"></a>GTypePluginUnuse ()</h3><a class="indexterm" name="id2779775"></a><pre class="programlisting">void        (*GTypePluginUnuse)             (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin);</pre><p>
+The type of the <i class="parameter"><tt>unuse_plugin</tt></i> function of <a href="GTypePlugin.html#GTypePluginClass"><span class="type">GTypePluginClass</span></a>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>plugin</tt></i> :</span></td><td>the <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a> whose use count should be decreased
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id2779845"></a><h3><a name="GTypePluginCompleteTypeInfo"></a>GTypePluginCompleteTypeInfo ()</h3><a class="indexterm" name="id2779857"></a><pre class="programlisting">void        (*GTypePluginCompleteTypeInfo)  (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> g_type,
+                                             <a href="gobject-Type-Information.html#GTypeInfo">GTypeInfo</a> *info,
+                                             <a href="gobject-Type-Information.html#GTypeValueTable">GTypeValueTable</a> *value_table);</pre><p>
+The type of the <i class="parameter"><tt>complete_type_info</tt></i> function of <a href="GTypePlugin.html#GTypePluginClass"><span class="type">GTypePluginClass</span></a>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>plugin</tt></i> :</span></td><td>the <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a>
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>g_type</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GType"><span class="type">GType</span></a> whose info is completed
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>info</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GTypeInfo"><span class="type">GTypeInfo</span></a> struct to fill in
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>value_table</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GTypeValueTable"><span class="type">GTypeValueTable</span></a> to fill in
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id2780015"></a><h3><a name="GTypePluginCompleteInterfaceInfo"></a>GTypePluginCompleteInterfaceInfo ()</h3><a class="indexterm" name="id2780027"></a><pre class="programlisting">void        (*GTypePluginCompleteInterfaceInfo)
+                                            (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> instance_type,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> interface_type,
+                                             <a href="gobject-Type-Information.html#GInterfaceInfo">GInterfaceInfo</a> *info);</pre><p>
+The type of the <i class="parameter"><tt>complete_interface_info</tt></i> function of <a href="GTypePlugin.html#GTypePluginClass"><span class="type">GTypePluginClass</span></a>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>plugin</tt></i> :</span></td><td>the <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a>
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>instance_type</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GType"><span class="type">GType</span></a> of an instantiable type to which the interface
+  is added
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>interface_type</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GType"><span class="type">GType</span></a> of the interface whose info is completed
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>info</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GInterfaceInfo"><span class="type">GInterfaceInfo</span></a> to fill in
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id2780188"></a><h3><a name="g-type-plugin-use"></a>g_type_plugin_use ()</h3><a class="indexterm" name="id2780200"></a><pre class="programlisting">void        g_type_plugin_use               (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin);</pre><p>
+Calls the <i class="parameter"><tt>use_plugin</tt></i> function from the <a href="GTypePlugin.html#GTypePluginClass"><span class="type">GTypePluginClass</span></a> of <i class="parameter"><tt>plugin</tt></i>.
+There should be no need to use this function outside of the GObject 
+type system itself.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>plugin</tt></i> :</span></td><td>a <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a>
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id2780275"></a><h3><a name="g-type-plugin-unuse"></a>g_type_plugin_unuse ()</h3><a class="indexterm" name="id2780287"></a><pre class="programlisting">void        g_type_plugin_unuse             (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin);</pre><p>
+Calls the <i class="parameter"><tt>unuse_plugin</tt></i> function from the <a href="GTypePlugin.html#GTypePluginClass"><span class="type">GTypePluginClass</span></a> of <i class="parameter"><tt>plugin</tt></i>.
+There should be no need to use this function outside of the GObject 
+type system itself.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>plugin</tt></i> :</span></td><td>a <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a>
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id2780362"></a><h3><a name="g-type-plugin-complete-type-info"></a>g_type_plugin_complete_type_info ()</h3><a class="indexterm" name="id2780374"></a><pre class="programlisting">void        g_type_plugin_complete_type_info
+                                            (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> g_type,
+                                             <a href="gobject-Type-Information.html#GTypeInfo">GTypeInfo</a> *info,
+                                             <a href="gobject-Type-Information.html#GTypeValueTable">GTypeValueTable</a> *value_table);</pre><p>
+Calls the <i class="parameter"><tt>complete_type_info</tt></i> function from the <a href="GTypePlugin.html#GTypePluginClass"><span class="type">GTypePluginClass</span></a> of <i class="parameter"><tt>plugin</tt></i>.
+There should be no need to use this function outside of the GObject 
+type system itself.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>plugin</tt></i> :</span></td><td>a <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a>
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>g_type</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GType"><span class="type">GType</span></a> whose info is completed
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>info</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GTypeInfo"><span class="type">GTypeInfo</span></a> struct to fill in
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>value_table</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GTypeValueTable"><span class="type">GTypeValueTable</span></a> to fill in
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id2780541"></a><h3><a name="g-type-plugin-complete-interface-info"></a>g_type_plugin_complete_interface_info ()</h3><a class="indexterm" name="id2780553"></a><pre class="programlisting">void        g_type_plugin_complete_interface_info
+                                            (<a href="GTypePlugin.html" title="GTypePlugin">GTypePlugin</a> *plugin,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> instance_type,
+                                             <a href="gobject-Type-Information.html#GType">GType</a> interface_type,
+                                             <a href="gobject-Type-Information.html#GInterfaceInfo">GInterfaceInfo</a> *info);</pre><p>
+Calls the <i class="parameter"><tt>complete_interface_info</tt></i> function from the <a href="GTypePlugin.html#GTypePluginClass"><span class="type">GTypePluginClass</span></a> 
+of <i class="parameter"><tt>plugin</tt></i>. There should be no need to use this function outside of the 
+GObject type system itself.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>plugin</tt></i> :</span></td><td>the <a href="GTypePlugin.html" title="GTypePlugin"><span class="type">GTypePlugin</span></a>
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>instance_type</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GType"><span class="type">GType</span></a> of an instantiable type to which the interface
+  is added
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>interface_type</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GType"><span class="type">GType</span></a> of the interface whose info is completed
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>info</tt></i> :</span></td><td>the <a href="gobject-Type-Information.html#GInterfaceInfo"><span class="type">GInterfaceInfo</span></a> to fill in
+
+
+</td></tr></tbody></table></div></div></div><div class="refsect1" lang="en"><a name="id2780723"></a><h2>See Also</h2><p>
+<a href="GTypeModule.html" title="GTypeModule"><span class="type">GTypeModule</span></a> and <a href="gobject-Type-Information.html#g-type-register-dynamic"><tt class="function">g_type_register_dynamic()</tt></a>.
+</p></div></div><table class="navigation" width="100%" summary="Navigation footer" cellpadding="2" cellspacing="0"><tr valign="middle"><td align="left"><a accesskey="p" href="gobject-Type-Information.html"><b>&lt;&lt; GType</b></a></td><td align="right"><a accesskey="n" href="GTypeModule.html"><b>GTypeModule &gt;&gt;</b></a></td></tr></table></body></html>

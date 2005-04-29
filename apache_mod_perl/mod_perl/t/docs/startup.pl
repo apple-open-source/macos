@@ -5,9 +5,6 @@ unless (defined $ENV{MOD_PERL}) {
 }
 
 BEGIN {
-    #./blib/lib:./blib/arch
-    use ExtUtils::testlib;
-
     use lib map { "$Apache::Server::CWD/$_" } qw(t/docs blib/lib blib/arch);
     require "blib.pl" if -e "./t/docs/blib.pl";
     #Perl ignores w/ -T
@@ -28,6 +25,7 @@ if ($] >= 5.005 and -e "t/docs/local.pl") {
     }; $@='' if $@;
 }
 
+use Socket (); #test DynaLoader vs. XSLoader workaroud
 use Apache ();
 use Apache::Registry ();
 unless ($INC{'Apache.pm'} =~ /blib/) {

@@ -1,0 +1,136 @@
+<refentry id="glib-Trash-Stacks">
+<refmeta>
+<refentrytitle>Trash Stacks</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Trash Stacks</refname><refpurpose>maintain a stack of unused allocated memory chunks.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+struct      <link linkend="GTrashStack">GTrashStack</link>;
+<link linkend="void">void</link>        <link linkend="g-trash-stack-push">g_trash_stack_push</link>              (<link linkend="GTrashStack">GTrashStack</link> **stack_p,
+                                             <link linkend="gpointer">gpointer</link> data_p);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-trash-stack-pop">g_trash_stack_pop</link>               (<link linkend="GTrashStack">GTrashStack</link> **stack_p);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-trash-stack-peek">g_trash_stack_peek</link>              (<link linkend="GTrashStack">GTrashStack</link> **stack_p);
+<link linkend="guint">guint</link>       <link linkend="g-trash-stack-height">g_trash_stack_height</link>            (<link linkend="GTrashStack">GTrashStack</link> **stack_p);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+A <link linkend="GTrashStack"><type>GTrashStack</type></link> is an efficient way to keep a stack of unused allocated
+memory chunks. Each memory chunk is required to be large enough to hold
+a <link linkend="gpointer"><type>gpointer</type></link>. This allows the stack to be maintained without any space
+overhead, since the stack pointers can be stored inside the memory chunks.
+</para>
+<para>
+There is no function to create a <link linkend="GTrashStack"><type>GTrashStack</type></link>. A <literal>NULL</literal> <link linkend="GTrashStack"><type>GTrashStack</type></link>* 
+is a perfectly valid empty stack.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GTrashStack"/>struct GTrashStack</title>
+<indexterm><primary>GTrashStack</primary></indexterm><programlisting>struct GTrashStack {
+
+  GTrashStack *next;
+};
+</programlisting>
+<para>
+Each piece of memory that is pushed onto the stack
+is cast to a <structname>GTrashStack*</structname>.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="GTrashStack">GTrashStack</link> *<structfield>next</structfield></term>
+<listitem><simpara>pointer to the previous element of the stack,
+gets stored in the first <literal>sizeof (gpointer)</literal>
+bytes of the element.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-trash-stack-push"/>g_trash_stack_push ()</title>
+<indexterm><primary>g_trash_stack_push</primary></indexterm><programlisting><link linkend="void">void</link>        g_trash_stack_push              (<link linkend="GTrashStack">GTrashStack</link> **stack_p,
+                                             <link linkend="gpointer">gpointer</link> data_p);</programlisting>
+<para>
+Pushes a piece of memory onto a <link linkend="GTrashStack"><type>GTrashStack</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>stack_p</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to a <link linkend="GTrashStack"><type>GTrashStack</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data_p</parameter>&nbsp;:</term>
+<listitem><simpara>the piece of memory to push on the stack.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-trash-stack-pop"/>g_trash_stack_pop ()</title>
+<indexterm><primary>g_trash_stack_pop</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_trash_stack_pop               (<link linkend="GTrashStack">GTrashStack</link> **stack_p);</programlisting>
+<para>
+Pops a piece of memory off a <link linkend="GTrashStack"><type>GTrashStack</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>stack_p</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to a <link linkend="GTrashStack"><type>GTrashStack</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the element at the top of the stack.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-trash-stack-peek"/>g_trash_stack_peek ()</title>
+<indexterm><primary>g_trash_stack_peek</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_trash_stack_peek              (<link linkend="GTrashStack">GTrashStack</link> **stack_p);</programlisting>
+<para>
+Returns the element at the top of a <link linkend="GTrashStack"><type>GTrashStack</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>stack_p</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to a <link linkend="GTrashStack"><type>GTrashStack</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the element at the top of the stack.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-trash-stack-height"/>g_trash_stack_height ()</title>
+<indexterm><primary>g_trash_stack_height</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_trash_stack_height            (<link linkend="GTrashStack">GTrashStack</link> **stack_p);</programlisting>
+<para>
+Returns the height of a <link linkend="GTrashStack"><type>GTrashStack</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>stack_p</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to a <link linkend="GTrashStack"><type>GTrashStack</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the height of the stack.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

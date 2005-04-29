@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		01DAA1890011347911DB9E42 = {
 			fileRef = 0546EEDCFFF1B73511CA2C33;
@@ -22,6 +22,8 @@
 //053
 //054
 		0546EECBFFF1B73511CA2C33 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				212BCDE0FFF2C8AB11CA2C33,
 				212BCDE1FFF2C8AB11CA2C33,
@@ -44,11 +46,14 @@
 			isa = PBXGroup;
 			name = SharedIP;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0546EECEFFF1B73511CA2C33 = {
 			isa = PBXFileReference;
+			lastKnownFileType = text.rtf;
 			path = SharedIPNotes.rtf;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0546EED5FFF1B73511CA2C33 = {
 			children = (
@@ -62,36 +67,47 @@
 			name = "SIP-NKE";
 			path = "SIP-NKE.kmodproj";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0546EED7FFF1B73511CA2C33 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = SharedIP.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0546EED8FFF1B73511CA2C33 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = sip.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0546EEDAFFF1B73511CA2C33 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = sip.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0546EEDBFFF1B73511CA2C33 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = sip_atalk.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0546EEDCFFF1B73511CA2C33 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = sip_inet.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0546EEE3FFF1B73511CA2C33 = {
 			children = (
@@ -100,11 +116,14 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0546EEE4FFF1B73511CA2C33 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = SharedIP.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0546EEE5FFF1B73511CA2C33 = {
 			buildPhases = (
@@ -123,7 +142,7 @@
 				MODULE_NAME = com.apple.nke.SharedIP;
 				MODULE_START = SIP_start;
 				MODULE_STOP = SIP_stop;
-				MODULE_VERSION = 1.3.2;
+				MODULE_VERSION = 1.4.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -160,17 +179,21 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.2</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>0xfeedface</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.2</string>
+	<string>1.4.0</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel.bsd</key>
-		<string>6.0</string>
-		<key>com.apple.kernel.mach</key>
-		<string>6.0</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b2</string>
 	</dict>
 </dict>
 </plist>
@@ -180,11 +203,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -261,11 +280,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -285,6 +300,11 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -294,6 +314,8 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;

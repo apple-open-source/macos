@@ -1,0 +1,170 @@
+BAD_CONFIG_FILE
+	"en ymmärrä tiedoston %s formaattia\n"
+CONFIG_OPEN_ERROR
+	"Varoitus: en voi avata konfigurointitiedostoa %s\n"
+PARSE_ERROR_IN_CONFIG
+	"Virhe tulkittaessa konfigurointitiedostoa\n"
+INCOMPAT
+	"epäyhteensopivat optiot %s ja %s\n"
+NO_ALTERNATE
+	"Valitan - vaihtoehtoisille järjestelmille ei ole käännetty tukea\n"
+NO_COMPRESS
+	"Man on käännetty automaattisella cat-sivujen pakkauksella,\n\
+mutta konfigurointitiedostossa ei ole COMPRESS-määrittelyä.\n"
+NO_NAME_FROM_SECTION
+	"Minkä man-sivun haluat sektiosta %s?\n"
+NO_NAME_NO_SECTION
+	"Minkä man-sivun haluat?\n"
+NO_SUCH_ENTRY_IN_SECTION
+	"Ei sivua %s sektiossa %s\n"
+NO_SUCH_ENTRY
+	"Man-sivua %s ei löydy\n"
+PAGER_IS
+	"\nkäytän ohjelmaa %s selaajana\n"
+SYSTEM_FAILED
+	"Virhe muotoilu- tai näyttökomentoa suorittaessa.\n\
+Järjestelmän komento %s antoi paluuarvon %d.\n"
+VERSION
+	"%s, versio %s\n\n"
+OUT_OF_MEMORY
+	"Muisti loppu - malloc %d tavua epäonnistui\n"
+ROFF_CMD_FROM_FILE_ERROR
+	"Virhe tulkitessa *roff-komentoa tiedostossa %s\n"
+MANROFFSEQ_ERROR
+	"Virhe tulkittaessa MANROFFSEQ:a.  Käytän järjestelmän oletuksia.\n"
+ROFF_CMD_FROM_COMMANDLINE_ERROR
+	"Virhe tulkitessa *roff-komentoa komentoriviltä.\n"
+UNRECOGNIZED_LINE
+	"Tunetematon rivi konfigurointitiedostossa (ohitan)\n%s\n"
+GETVAL_ERROR
+	"man-config.c: sisäinen virhe: merkkijonoa %s ei löydy\n"
+FOUND_MANDIR
+	"löysin man-hakemiston %s\n"
+FOUND_MAP
+	"löysin manpath linkin %s --> %s\n"
+FOUND_CATDIR
+	"vastaava catdir on %s\n"
+LINE_TOO_LONG
+	"Rivi liian pitkä konfigurointitiedostossa\n"
+SECTION
+	"\nsektio: %s\n"
+UNLINKED
+	"linkittämätön %s\n"
+GLOBBING
+	"globbing %s\n"
+EXPANSION_FAILED
+	"Yritys [%s] purkaa man-sivua epäonnistui\n"
+OPEN_ERROR
+	"En voi avata man-sivua %s\n"
+READ_ERROR
+	"Virhe luettaessa man-sivua %s\n"
+FOUND_EQN
+	"löysin eqn(1) direktiivin\n"
+FOUND_GRAP
+	"löysin grap(1) direktiivin\n"
+FOUND_PIC
+	"löysin pic(1) direktiivin\n"
+FOUND_TBL
+	"löysin tbl(1) direktiivin\n"
+FOUND_VGRIND
+	"löysin vgrind(1) direktiivin\n"
+FOUND_REFER
+	"löysin refer(1) direktiivin\n"
+ROFF_FROM_COMMAND_LINE
+	"tulkitessa direktiiviä komentoriviltä\n"
+ROFF_FROM_FILE
+	"tulkitessa direktiiviä tiedostosta %s\n"
+ROFF_FROM_ENV
+	"tulkitessa direktiiviä ympäristömuuttujasta\n"
+USING_DEFAULT
+	"käytän oletusesikäsittelijän vaihetta\n"
+PLEASE_WAIT
+	"Muotoilen sivua, odota...\n"
+CHANGED_MODE
+	"muutin %s:n moodia %o:ksi\n"
+CAT_OPEN_ERROR
+	"En voinut avata %s:a kirjoitusta varten.\n"
+PROPOSED_CATFILE
+	"yritän kirjoittaa %s tarvittaessa\n"
+IS_NEWER_RESULT
+	"tila funktiosta is_newer() = %d\n"
+TRYING_SECTION
+	"yritän sektiota %s\n"
+SEARCHING
+	"\nhaen %s:sta\n"
+ALREADY_IN_MANPATH
+	"mutta %s on jo manpath:ssa\n"
+CANNOT_STAT
+	"Varoitus: cannot stat file %s!\n"
+IS_NO_DIR
+	"Varoitus: %s ei ole hakemisto!\n"
+ADDING_TO_MANPATH
+	"lisään %s:n manpath:iin\n"
+PATH_DIR
+	"\npolku hakemisto %s "
+IS_IN_CONFIG
+	"on konfigurointitiedostossa\n"
+IS_NOT_IN_CONFIG
+	"ei ole konfigurointitiedostossa\n"
+MAN_NEARBY
+	"mutta man-hakemisto on lähellä\n"
+NO_MAN_NEARBY
+	"ja  man-hakemistoa ei löytynut läheltä\n"
+ADDING_MANDIRS
+	"\nlisään pakolliset man-hakemistot\n\n"
+CATNAME_IS
+	"cat_name funktiossa convert_to_cat () on: %s\n"
+NO_EXEC
+	"\nen suorita komentoa:\n  %s\n"
+USAGE1
+	"käyttö: %s [-adfhktwW] [sektio] [-M polku] [-P selaaja] [-S lista]\n\t"
+USAGE2
+	"[-m järjestelmä] "
+USAGE3
+	"[-p merkkijono] nimi ...\n\n"
+USAGE4
+	"  a : etsi kaikki soveltuvat kohdat\n\
+  c : älä käytä cat-tiedostoa\n\
+  d : tulosta paljon virheenetsintätietoja\n\
+  D : sama kuin -d, mutta näytä myös sivut\n\
+  f : sama kuin whatis(1)\n\
+  h : tulosta tämä ohjeteksti\n\
+  k : sama kuin apropos(1)\n\
+  K : etsi merkkijonoa kaikilta sivuilta\n"
+USAGE5
+	"  t : käytä troff-ohjelmaa paperitulostuksen muotoiluun\n"
+USAGE6
+	"\
+  w : tulosta man-sivujen sijainto, jotka näytettäisiin\n\
+      (jos ei anneta nimeä: tulosta hakemistot, joista etsittäisiin)\n\
+  W : sama kuin -w, mutta tulosta vain tiedostonimet\n\n\
+  C tiedosto   : käytä `tiedosto' konfigurointitiedostona\n\
+  M polku   : käytä man-sivujen hakupolkuna `polku'\n\
+  P selaaja  : käytä ohjelmaa `selaaja' sivujen näyttöön\n\
+  S lista   : puolipistein erotettu sektioiden lista\n"
+USAGE7
+	"  m järjestelmä : etsi vaihtoehtoisen järjestelmän man-sivuja\n"
+USAGE8
+	"  p merkkijono : merkkijono kertoo, mitä esikäsittelijää käytetään\n\
+               e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
+               g - grap(1)     r - refer(1)  v - vgrind(1)\n"
+USER_CANNOT_OPEN_CAT
+	"ja oikea käyttäjäkään ei voi avata cat-tiedostoa\n"
+USER_CAN_OPEN_CAT
+	"mutta oikea käyttäjä voi avata cat-tiedoston\n"
+CANNOT_FORK
+	"komennon _%s_ käynnistys fork-kutsulla epäonnistui\n"
+WAIT_FAILED
+	"virhe odottaessa lapsiprosessia  _%s_\n"
+GOT_WRONG_PID
+	"hyvin outoa ..., sain väärän pid:n odottaessa lapsiprosessia\n"
+CHILD_TERMINATED_ABNORMALLY
+	"vakava virhe: komento _%s_ päättyi virheeseen\n"
+IDENTICAL
+	"man-sivu %s on sama kuin %s\n"
+MAN_FOUND
+	"Löysin man-sivuja:\n"
+NO_TROFF
+	"virhe: TROFF-komentoa ei määritelty %s:ssa\n"
+NO_CAT_FOR_NONSTD_LL
+	"cat-sivua ei talletettu epätavallisen rivipituuden takia\n"

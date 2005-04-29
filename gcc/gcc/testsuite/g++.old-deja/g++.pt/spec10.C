@@ -1,3 +1,4 @@
+// { dg-do run  }
 extern "C" void abort();
 
 template <class T>
@@ -19,9 +20,9 @@ int main()
 {
   S<double> s;
 
-  if (s.template f<7>(3) != 10)
+  if (s.f<7>(3) != 10)
     abort();
 
-  if (s.template f<8>(3) != 11)
+  if (s.f<8>(3) != 11)
     abort();
 }

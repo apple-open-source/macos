@@ -59,7 +59,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/TMaction.c,v 3.7 2001/12/14 19:56:30 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/TMaction.c,v 3.8 2003/04/21 16:34:28 herrb Exp $ */
 
 /* TMaction.c -- maintains the state table of actions for the translation 
  *              manager.
@@ -400,18 +400,10 @@ static XtActionProc  *TryBindCache(widget, stateTree)
  * The class record actions field will point to the bind cache header
  * after this call is made out of coreClassPartInit.
  */
-#if NeedFunctionPrototypes
 XtPointer _XtInitializeActionData(
     register struct _XtActionsRec	*actions,
     register Cardinal			count,
-    _XtBoolean				inPlace
-    )
-#else
-XtPointer _XtInitializeActionData(actions, count, inPlace)
-    register struct _XtActionsRec	*actions;
-    register Cardinal			count;
-    Boolean				inPlace;
-#endif
+    _XtBoolean				inPlace)
 {
     TMClassCache	classCache;
 
@@ -953,22 +945,12 @@ void _XtPopupInitialize(app)
 }
 
 
-#if NeedFunctionPrototypes
 void XtCallActionProc(
     Widget widget,
     _Xconst char* action,
     XEvent *event,
     String *params,
-    Cardinal num_params
-    )
-#else
-void XtCallActionProc(widget, action, event, params, num_params)
-    Widget widget;
-    String action;
-    XEvent *event;
-    String *params;
-    Cardinal num_params;
-#endif
+    Cardinal num_params)
 {
     CompiledAction* actionP;
     XrmQuark q = XrmStringToQuark(action);

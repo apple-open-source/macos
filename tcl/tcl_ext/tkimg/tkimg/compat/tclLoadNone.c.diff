@@ -1,0 +1,22 @@
+*** compat/tclLoadNone.c.orig	Sun Apr  2 11:31:59 2000
+--- compat/tclLoadNone.c	Sun Apr  2 11:35:05 2000
+***************
+*** 33,38 ****
+--- 33,39 ----
+  extern int png_create_info_struct();
+  extern int png_destroy_info_struct();
+  extern int png_get_io_ptr();
++ extern int png_get_channels();
+  extern int png_info_destroy();
+  extern int png_info_init();
+  extern int png_init_io();
+***************
+*** 407,412 ****
+--- 408,414 ----
+    {"png_create_info_struct", png_create_info_struct},
+    {"png_destroy_info_struct", png_destroy_info_struct},
+    {"png_get_io_ptr", png_get_io_ptr},
++   {"png_get_channels", png_get_channels},
+    {"png_info_destroy", png_info_destroy},
+    {"png_info_init", png_info_init},
+    {"png_init_io", png_init_io},

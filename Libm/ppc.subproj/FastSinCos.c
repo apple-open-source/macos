@@ -63,9 +63,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include    "fenv_private.h"
 #include    "fp_private.h"
 
@@ -82,7 +79,7 @@ static const double piOver2 = 1.570796326794896619231322;  // 0x1.921fb54442d18p
 static const double piOver2Tail = 6.1232339957367660e-17;  // 0x1.1a62633145c07p-54
 static const double twoOverPi = 0.636619772367581382;      // 0x1.45f306dc9c883p-1
 //static const double k2ToM26 = 1.490116119384765625e-8;     // 0x1.0p-26;
-static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
+static const double kMinNormal = 0x1.0p-1022;			   // 2.2250738585072014e-308;
 static const double kRintBig = 2.7021597764222976e16;      // 0x1.8p54
 static const double kRint = 6.755399441055744e15;          // 0x1.8p52
 static const hexdouble infinity = HEXDOUBLE(0x7ff00000, 0x00000000);
@@ -105,163 +102,15 @@ static const double c6 = -1.388888888888735934799e-3;      // -1.0/6!
 static const double c4 =  4.166666666666666534980e-2;      // 1.0/4!
 static const double c2 = -.5;                              // -1.0/2!
 
-#ifdef notdef
-double sin ( double x ) 
-      {
-      register double absOfX, intquo, arg, argtail, xSquared, xThird, xFourth, temp1, temp2, result;
-      register unsigned long int ltable;
-      hexdouble      z, OldEnvironment;
-      
-      absOfX = __FABS ( x );
-      
-      FEGETENVD( OldEnvironment.d );                     // save env, set default
-      FESETENVD( 0.0 );
-      
-      if ( absOfX < piOver4 )       
-            {                                                    // |x| < ¹/4
-            
-            if ( absOfX == 0.0 )
-                    {
-                    FESETENVD( OldEnvironment.d );       	// restore caller's mode
-                    return x; 					// +0 -0 preserved
-                    }
-                    
-/*******************************************************************************
-*      at this point, x is normal with magnitude between 0 and ¹/4.            *
-*******************************************************************************/
-
-            xSquared = x * x;                     // sin polynomial approximation
-            xFourth = xSquared * xSquared;
-            OldEnvironment.i.lo |= FE_INEXACT;
-            temp1 = s9 + s13*xFourth;
-            temp2 = s7 + s11*xFourth;
-            temp1 = s5 + temp1*xFourth;
-            temp2 = s3 + temp2*xFourth;
-            xThird = xSquared * x;
-            temp1 = temp2 + xSquared * temp1;
-            result = x + xThird * temp1;
-            
-            if ( fabs ( result ) < kMinNormal )
-                    OldEnvironment.i.lo |= FE_UNDERFLOW;
-
-            FESETENVD( OldEnvironment.d );        // restore caller's mode
-            return ( result ) ;
-            }
-      
-      if ( x != x )                               // x is a NaN
-            {
-            FESETENVD( OldEnvironment.d );        // restore caller's mode
-            return ( x );
-            }
-
-/*******************************************************************************
-*      x has magnitude > ¹/4.                                                  *
-*******************************************************************************/
-
-      if ( absOfX > kPiScale42 )  
-
-/*******************************************************************************
-*      |x| is huge or infinite.                                                *
-*******************************************************************************/
-            {
-            if ( absOfX == infinity.d )  
-                  {                               // infinite case is invalid
-                  OldEnvironment.i.lo |= SET_INVALID;
-                  FESETENVD( OldEnvironment.d );  // restore caller's mode
-                  return ( nan ( TRIG_NAN ) );    // return NaN
-                  }
-            
-            while ( absOfX > kPiScale53 )  
-                  {                               // loop to reduce x below
-                  intquo = x * twoOverPi;         // ¹*2^53 in magnitude
-                  x = ( x - intquo * piOver2 )  - intquo * piOver2Tail;
-                  absOfX = __FABS ( x ) ;
-                  }
-
-/*******************************************************************************
-*     final reduction of x to magnitude between 0 and 2*¹.                     *
-*******************************************************************************/
-            intquo = ( x * twoOverPi + kRintBig)  - kRintBig;
-            x = ( x - intquo * piOver2)  - intquo * piOver2Tail;
-            absOfX = __FABS( x );
-            }
-      
-/*******************************************************************************
-*     |x| < pi*2^42: further reduction is probably necessary.  A double-double *
-*     reduced argument is determined ( arg:argtail ) .  It is possible that x  *
-*     has been reduced below pi/4 in magnitude, but x is definitely nonzero    *
-*     and safely in the normal range.                                          *
-*******************************************************************************/
-      
-      z.d = x * twoOverPi + kRint;              // find integer quotient of x/(¹/2) 
-      intquo = z.d - kRint;
-      arg = ( x - intquo * piOver2 )  - intquo * piOver2Tail;
-      OldEnvironment.i.lo |= FE_INEXACT;        // force the setting the inexact
-      xSquared = arg * arg;
-      argtail = ( ( x - intquo * piOver2 )  - arg )  - intquo * piOver2Tail;
-      xFourth = xSquared * xSquared;
-      
-/*******************************************************************************
-*     multiple of ¹/2 ( mod 4)  determines approx used and sign of result.     *
-*******************************************************************************/
-      
-      ltable = z.i.lo & FE_ALL_RND;
-      
-      if ( ltable & 0x1ul )  
-            {                                    // argument closest to ±¹/2
-/*******************************************************************************
-*     use cosine approximation.                                                *
-*******************************************************************************/
-            temp1 = c10 + c14 * xFourth;
-            temp2 = c8 + c12 * xFourth;
-            temp1 = c6 + temp1 * xFourth;
-            temp2 = c4 + temp2 * xFourth;
-            temp1 = c2 + temp1 * xFourth;
-            temp1 = temp1 + xSquared * temp2;
-            temp1 = arg*temp1 - argtail;         // second-order correction
-            if ( ltable < 2 )                    // adjust sign of result
-                  result = 1.0 + arg * temp1;    // positive
-            else 
-                  {
-                  arg = - arg;
-                  result = arg * temp1 - 1.0;    // negative
-                  }
-            }
-      
-      else 
-            {
-/*******************************************************************************
-*     use sine approximation.                                                  *
-*******************************************************************************/
-            temp1 = s9 + s13 * xFourth;
-            temp2 = s7 + s11 * xFourth;
-            temp1 = s5 + temp1 * xFourth;
-            temp2 = s3 + temp2 * xFourth;
-            xThird = xSquared * arg;
-            temp1 = temp2 + xSquared * temp1;
-            temp1 = temp1 * xThird + argtail;    // second-order correction
-            if ( ltable < 2 )                    // adjust sign of final result
-                  result = arg + temp1 ;         // positive
-            else 
-                  {
-                  arg = - arg;
-                  result = arg - temp1;          // negative
-                  }
-            }
-      
-      FESETENVD( OldEnvironment.d );             // restore caller's mode
-      return ( result ) ;
-      }
-#else
 double sin ( double x ) 
 {
       register double absOfX, intquo, arg, argtail, xSquared, xThird, xFourth, temp1, temp2, result;
-      register unsigned long int ltable;
+      register uint32_t ltable;
       hexdouble      z, OldEnvironment;
       
       register double FPR_env, FPR_z, FPR_Min, FPR_pi4, FPR_piScale;
       register double FPR_t, FPR_inf, FPR_pi53, FPR_2divPi, FPR_PiDiv2, FPR_PiDiv2Tail, FPR_kRintBig, FPR_kRint;
-      register unsigned long GPR_f;
+      register uint32_t GPR_f;
 
       FEGETENVD( FPR_env );                     	// save env, set default
       FPR_z = 0.0;				
@@ -273,7 +122,7 @@ double sin ( double x )
            
       if ( absOfX < FPR_pi4 ) 				// |x| < ¹/4
       {
-            if ( absOfX != FPR_z ) 
+            if (likely( absOfX != FPR_z ))
             {
                 register double FPR_s3, FPR_s5, FPR_s7, FPR_s9, FPR_s11, FPR_s13;
                     
@@ -302,7 +151,7 @@ double sin ( double x )
                 
                 FESETENVD( FPR_env );        		// restore caller's mode
 
-                if ( __FABS( result ) < FPR_Min )
+                if (unlikely( __FABS( result ) < FPR_Min ))
                     __PROG_UF_INEXACT( FPR_Min );
                 else
                     __PROG_INEXACT( FPR_pi4 );
@@ -317,7 +166,7 @@ double sin ( double x )
         }
 
       
-      if ( x != x )                               	// x is a NaN
+      if (unlikely( x != x ))                           // x is a NaN
       {
             FESETENVD( FPR_env );  // restore caller's mode
             return ( x );
@@ -333,7 +182,7 @@ double sin ( double x )
       FPR_PiDiv2Tail = piOver2Tail;	 		FPR_kRintBig = kRintBig;
       FPR_kRint = kRint;
       
-      if ( absOfX > FPR_piScale ) 
+      if (unlikely( absOfX > FPR_piScale )) 
       {            
 /*******************************************************************************
 *      |x| is huge or infinite.                                                *
@@ -341,8 +190,11 @@ double sin ( double x )
             if ( absOfX == FPR_inf )  
             {                               	  	// infinite case is invalid
                   OldEnvironment.d = FPR_env;
+				  __NOOP;
+				  __NOOP;
+				  __NOOP;
                   OldEnvironment.i.lo |= SET_INVALID;
-                  FESETENVD( OldEnvironment.d );  	// restore caller's mode
+                  FESETENVD_GRP( OldEnvironment.d );  	// restore caller's mode
                   return ( nan ( TRIG_NAN ) );    	// return NaN
             }
             
@@ -386,7 +238,7 @@ double sin ( double x )
       
       ltable = GPR_f & FE_ALL_RND;
       
-      if ( ltable & 0x1ul )  
+      if ( ltable & 0x1u )  
       {                                    		// argument closest to ±¹/2
 /*******************************************************************************
 *     use cosine approximation.                                                *
@@ -438,172 +290,34 @@ double sin ( double x )
             
             temp1 = __FMADD( temp1, xThird, argtail ); 	// second-order correction
 
-            if ( ltable < 2 )                    	// adjust sign of final result
-                  result = arg + temp1 ;         	// positive
+            if ( ltable < 2 )                    // adjust sign of final result
+                  result = arg + temp1 ;         // positive
             else 
-            {
+			{
                   arg = - arg;
-                  result = arg - temp1;          	// negative
-            }
+                  result = arg - temp1;          // negative
+			}
+			
             FESETENVD( FPR_env );        		// restore caller's mode
             __PROG_INEXACT( FPR_PiDiv2 );
       }
       
       return ( result ) ;
 }
-#endif
 
 /*******************************************************************************
 *     Cosine section.                                                          *
 *******************************************************************************/
-#ifdef notdef
-double cos ( double x ) 
-      {
-      register double absOfX, intquo, arg, argtail, xSquared, xThird, xFourth,
-                      temp1, temp2, result;
-      register unsigned long int iquad;
-      hexdouble z, OldEnvironment;
-      
-      absOfX = __FABS( x );
-      
-      FEGETENVD( OldEnvironment.d );                // save env, set default
-      FESETENVD( 0.0 );
-      
-      if ( absOfX < piOver4 )       
-            {                                       // |x| < pi/4
-            if ( absOfX == 0.0 )
-                    {
-                    FESETENVD( OldEnvironment.d );       	// restore caller's mode
-                    return 1.0; 				
-                    }
-                    
-            xSquared = x * x;                     // cos polynomial approximation
-            xFourth = xSquared * xSquared;
-            temp1 = c10 + c14 * xFourth;
-            temp2 = c8 + c12 * xFourth;
-            temp1 = c6 + temp1 * xFourth;
-            temp2 = c4 + temp2 * xFourth;
-            temp1 = c2 + temp1 * xFourth;
-            OldEnvironment.i.lo |= FE_INEXACT;
-            temp2 = temp1 + xSquared * temp2;
-            result = 1.0 + xSquared * temp2;
-            FESETENVD( OldEnvironment.d );        // restore caller's mode
-            return ( result );
-            }
-      
-      if ( x != x )                               // x is a NaN
-            {
-            FESETENVD( OldEnvironment.d );        // restore caller's mode
-            return ( x );
-            }
-
-/*******************************************************************************
-*      x has magnitude > ¹/4.                                                  *
-*******************************************************************************/
-      if ( absOfX > kPiScale42 )  
-
-/*******************************************************************************
-*      |x| is huge or infinite.                                                *
-*******************************************************************************/
-            {
-            if ( absOfX == infinity.d )  
-                  {                               // infinite case is invalid
-                  OldEnvironment.i.lo |= SET_INVALID;
-                  FESETENVD( OldEnvironment.d );  // restore caller's mode
-                  return ( nan ( TRIG_NAN ) );    // return NaN
-                  }
-            
-            while ( absOfX > kPiScale53 )  
-                  {                               // loop to reduce x below
-                  intquo = x * twoOverPi;         // ¹*2^53 in magnitude
-                  x = ( x - intquo * piOver2)  - intquo * piOver2Tail;
-                  absOfX = __FABS( x );
-                  }
-            
-/*******************************************************************************
-*     final reduction of x to magnitude between 0 and 2*¹.                     *
-*******************************************************************************/
-            intquo = ( x * twoOverPi + kRintBig)  - kRintBig;
-            x = ( x - intquo * piOver2)  - intquo * piOver2Tail;
-            absOfX = __FABS ( x );
-            }           
-      
-/*******************************************************************************
-*     |x| < pi*2^42: further reduction is probably necessary.  A double-double *
-*     reduced argument is determined ( arg:argtail ) .  It is possible that x  *
-*     has been reduced below pi/4 in magnitude, but x is definitely nonzero    *
-*     and safely in the normal range.                                          *
-*******************************************************************************/
-
-      z.d = x*twoOverPi + kRint;                   // find integer quotient of x/(¹/2) 
-      OldEnvironment.i.lo |= FE_INEXACT;           // inexact is justified
-      iquad = ( z.i.lo + 1 ) & FE_ALL_RND;         // iquad = int multiple mod 4
-      intquo = z.d - kRint;
-      arg = ( x - intquo * piOver2 )  - intquo * piOver2Tail;
-      xSquared = arg*arg;
-      argtail = ( ( x - intquo * piOver2)  - arg)  - intquo * piOver2Tail;
-      xFourth = xSquared * xSquared;
-      
-/*******************************************************************************
-*     multiple of ¹/2 ( mod 4)  determines approx used and sign of result.     *
-*******************************************************************************/
-
-      if ( iquad & 0x1UL)  
-            {                                      // arg closest to 0 or ¹
-/*******************************************************************************
-*     use cosine approximation.                                                *
-*******************************************************************************/
-            temp1 = c10 + c14 * xFourth;
-            temp2 = c8 + c12 * xFourth;
-            temp1 = c6 + temp1 * xFourth;
-            temp2 = c4 + temp2 * xFourth;
-            temp1 = c2 + temp1 * xFourth;
-            temp1 = temp1 + xSquared * temp2;
-            temp1 = arg * temp1 - argtail;         // second-order correction
-            if ( iquad < 2 )                       // adjust sign of result
-                  result = 1.0 + arg * temp1;
-            else 
-                  {
-                  arg = - arg;
-                  result = arg * temp1 - 1.0;
-                  }
-            }
-      
-      else 
-            {
-/*******************************************************************************
-*     use sine approximation.                                                  *
-*******************************************************************************/
-            temp1 = s9 + s13   * xFourth;
-            temp2 = s7 + s11   * xFourth;
-            temp1 = s5 + temp1 * xFourth;
-            temp2 = s3 + temp2 * xFourth;
-            xThird = xSquared * arg;
-            temp1 = temp2 + xSquared * temp1;
-            temp1 = temp1 * xThird + argtail;     // second-order correction
-            if ( iquad < 2 )                      // adjust sign of result
-                  result = temp1 + arg;
-            else 
-                  {
-                  arg = - arg;
-                  result = arg - temp1;
-                  }
-            }
-
-      FESETENVD( OldEnvironment.d );              // restore caller's mode
-      return ( result ) ;
-      }
-#else
 double cos ( double x ) 
 {
       register double absOfX, intquo, arg, argtail, xSquared, xThird, xFourth,
                       temp1, temp2, result;
-      register unsigned long int iquad;
+      register uint32_t iquad;
       hexdouble z, OldEnvironment;
       
       register double FPR_env, FPR_z, FPR_pi4, FPR_piScale;
       register double FPR_t, FPR_inf, FPR_pi53, FPR_2divPi, FPR_PiDiv2, FPR_PiDiv2Tail, FPR_kRintBig, FPR_kRint;
-      register unsigned long GPR_f;
+      register uint32_t GPR_f;
 
       FEGETENVD( FPR_env );                     	// save env, set default
       FPR_z = 0.0;				
@@ -615,7 +329,7 @@ double cos ( double x )
            
       if ( absOfX < FPR_pi4 )				// |x| < ¹/4
       {
-            if ( absOfX != FPR_z ) 
+            if (likely( absOfX != FPR_z )) 
             {
                 // cos polynomial approximation
                 register double FPR_c2, FPR_c4, FPR_c6, FPR_c8, FPR_c10, FPR_c12, FPR_c14, FPR_One;
@@ -631,7 +345,7 @@ double cos ( double x )
                 FPR_c6 = c6; 			 	FPR_c4 = c4;
 
                 xFourth = __FMUL( xSquared, xSquared );
-                __ORI_NOOP;
+                __NOOP;
                 FPR_c2 = c2;
 
                 temp1 = __FMADD( FPR_c14, xFourth, FPR_c10 ); 	temp2 = __FMADD( FPR_c12, xFourth, FPR_c8);
@@ -652,7 +366,7 @@ double cos ( double x )
             }
       }
 
-      if ( x != x )                               	// x is a NaN
+      if (unlikely( x != x ))                           // x is a NaN
       {
             FESETENVD( FPR_env );        		// restore caller's mode
             return ( x );
@@ -668,7 +382,7 @@ double cos ( double x )
        FPR_PiDiv2Tail = piOver2Tail;	 		FPR_kRintBig = kRintBig;
        FPR_kRint = kRint;
 
-      if ( absOfX > FPR_piScale )  
+      if (unlikely( absOfX > FPR_piScale ))  
 
 /*******************************************************************************
 *      |x| is huge or infinite.                                                *
@@ -677,8 +391,11 @@ double cos ( double x )
             if ( absOfX == infinity.d )  
             {                               		// infinite case is invalid
                   OldEnvironment.d = FPR_env;
+				  __NOOP;
+				  __NOOP;
+				  __NOOP;
                   OldEnvironment.i.lo |= SET_INVALID;
-                  FESETENVD( OldEnvironment.d );  	// restore caller's mode
+                  FESETENVD_GRP( OldEnvironment.d );  	// restore caller's mode
                   return ( nan ( TRIG_NAN ) );    	// return NaN
             }
             
@@ -698,7 +415,7 @@ double cos ( double x )
             FPR_t = __FNMSUB( intquo, FPR_PiDiv2, x );
             x = __FNMSUB( intquo, FPR_PiDiv2Tail, FPR_t );
             absOfX = __FABS( x );
-      }           
+	}           
       
 /*******************************************************************************
 *     |x| < pi*2^42: further reduction is probably necessary.  A double-double *
@@ -728,7 +445,7 @@ double cos ( double x )
 *     multiple of ¹/2 ( mod 4)  determines approx used and sign of result.     *
 *******************************************************************************/
 
-      if ( iquad & 0x1UL)  
+      if ( iquad & 0x1u)  
       {                                      		// arg closest to 0 or ¹
 /*******************************************************************************
 *     use cosine approximation.                                                *
@@ -776,13 +493,13 @@ double cos ( double x )
             
             temp1 = __FMADD( temp1, xThird, argtail ); 	// second-order correction
 
-            if ( iquad < 2 )                      	// adjust sign of result
+            if ( iquad < 2 )                      // adjust sign of result
                   result = temp1 + arg;
             else 
-            {
+			{
                   arg = - arg;
                   result = arg - temp1;
-            }
+			}
       }
 
       FESETENVD( FPR_env );        				// restore caller's mode
@@ -790,10 +507,4 @@ double cos ( double x )
           
       return ( result ) ;
 }
-#endif
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */
 

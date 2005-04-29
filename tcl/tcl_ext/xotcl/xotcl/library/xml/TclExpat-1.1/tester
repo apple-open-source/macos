@@ -1,0 +1,34 @@
+#!/bin/sh
+#\
+exec tclsh8.1 "$0" "$@"
+
+#load ./tclexpat.sl Tclexpat
+#load ./tclexpat.so Tclexpat
+lappend auto_path [file dirname [info script]]
+package require expat
+
+proc element {tag name {attrs {}}} {
+    puts [list Element $tag $name $attrs]
+}
+proc pcdata pcdata {
+    puts [list Character data: $pcdata]
+}
+
+set ch [open [lindex $argv 0]]
+set data [read $ch]
+close $ch
+
+puts stderr [list creating parser]
+
+set parser [expat xmlparser \
+	-elementstartcommand {element start}	\
+	-elementendcommand {element end}	\
+	-characterdatacommand pcdata		\
+	-final yes				\
+]
+
+puts stderr [list parsing document]
+
+$parser parse $data
+
+exit 0

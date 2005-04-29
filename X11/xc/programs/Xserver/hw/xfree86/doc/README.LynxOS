@@ -1,4 +1,4 @@
-                     README for XFree86 4.3.0 on LynxOS
+                     README for XFree86 4.4.0 on LynxOS
 
                                Thomas Mueller
 
@@ -13,19 +13,19 @@ ments as well as many bug fixes.
 
 See the Copyright Notice.
 
-The sources for XFree86 4.3.0 are available by anonymous ftp from:
+The sources for XFree86 4.4.0 are available by anonymous ftp from:
 
-ftp://ftp.XFree86.org/pub/XFree86/4.3.0
+ftp://ftp.XFree86.org/pub/XFree86/4.4.0
 
 Binaries of XFree86 for LynxOS x86 are available from:
 
-ftp://ftp.XFree86.org/pub/XFree86/4.3.0/binaries/LynxOS
+ftp://ftp.XFree86.org/pub/XFree86/4.4.0/binaries/LynxOS
 
 A list of mirror sites is provided by ftp://ftp.XFree86.org/pub/XFree86/MIR-
 RORS
 
 The binaries on the FTP site were built on the latest released LynxOS version
-at the time XFree86 4.3.0 was released. In this case it is `LynxOS x86
+at the time XFree86 4.4.0 was released. In this case it is `LynxOS x86
 3.0.1'. Because of changes made to the object format they don't run on LynxOS
 versions earlier than 3.0.0.
 
@@ -37,7 +37,7 @@ this OS release was not available long enough for serious testing `LynxOS
 3.1.0' support has to be considered to be in `alpha state'.  Initial tests
 were performed on LynxOS x86 only!
 
-XFree86 4.3.0 supports LynxOS on the x86 and on the PowerPC platform. X
+XFree86 4.4.0 supports LynxOS on the x86 and on the PowerPC platform. X
 servers are currently available only on the x86 platform. The X server may
 work with some PowerPC platforms supported by LynxOS though this has not
 (yet) been thoroughly tested.
@@ -163,7 +163,7 @@ to
 3.5  X Server debug diagnostics output and other VT peculiarities
 
 Output made by the XFree86 X on its stdout or stderr will be lost after the
-server switches to graphics mode. The XFree86 4.3.0 server stores its output
+server switches to graphics mode. The XFree86 4.4.0 server stores its output
 in /usr/adm/XFree86.n.log (where n is the screen number).
 
 When the X server is running output made to other consoles will be lost.
@@ -263,7 +263,7 @@ duplicate entries:
           sort /usr/X11R6/man/whatis | uniq > /tmp/tmpfile
           mv /tmp/tmpfile /usr/X11R6/man/whatis
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/LynxOS.sgml,v 3.20 2000/06/17 00:27:32 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/LynxOS.sgml,v 3.20 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.LynxOS,v 3.35 2003/02/24 04:03:21 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.LynxOS,v 3.42 2004/02/24 03:49:41 dawes Exp $

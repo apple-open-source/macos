@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XQPointer.man,v 1.2 2001/01/27 18:20:02 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XQPointer.man,v 1.3 2003/04/28 22:17:56 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,21 +144,11 @@
 .SH NAME
 XQueryPointer \- get pointer coordinates
 .SH SYNTAX
-Bool XQueryPointer\^(\^\fIdisplay\fP, \fIw\fP\^, \fIroot_return\fP\^, \fIchild_return\fP\^, \fIroot_x_return\fP\^, \fIroot_y_return\fP\^, 
-.br
-                     \fIwin_x_return\fP\^, \fIwin_y_return\fP\^, \fImask_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      Window *\fIroot_return\fP\^, *\fIchild_return\fP\^;
-.br
-      int *\fIroot_x_return\fP\^, *\fIroot_y_return\fP\^;
-.br
-      int *\fIwin_x_return\fP\^, *\fIwin_y_return\fP\^;
-.br
-      unsigned int *\fImask_return\fP\^;
+.HP
+Bool XQueryPointer\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, Window
+*\fIroot_return\fP\^, Window *\fIchild_return\fP\^, int
+*\fIroot_x_return\fP\^, int *\fIroot_y_return\fP\^, int *\fIwin_x_return\fP\^,
+int *\fIwin_y_return\fP\^, unsigned int *\fImask_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIchild_return\fP 1i
 Returns the child window that the pointer is located in, if any.

@@ -1,14 +1,17 @@
 /* Generic socket.h */
-/* $OpenLDAP: pkg/ldap/include/ac/socket.h,v 1.54.2.3 2003/03/05 23:48:31 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* $OpenLDAP: pkg/ldap/include/ac/socket.h,v 1.59.2.2 2004/01/01 18:16:28 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #ifndef _AC_SOCKET_H_
@@ -192,7 +195,7 @@ LDAP_F (int) ldap_pvt_inet_aton LDAP_P(( const char *, struct in_addr * ));
 #	define INET6_ADDRSTRLEN 46
 #endif
 
-#ifdef HAVE_GETADDRINFO
+#if defined( HAVE_GETADDRINFO ) || defined( HAVE_GETNAMEINFO )
 #	ifdef HAVE_GAI_STRERROR
 #		define AC_GAI_STRERROR(x)	(gai_strerror((x)))
 #	else

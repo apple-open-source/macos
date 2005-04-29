@@ -28,7 +28,7 @@
  * this work is sponsored by S.u.S.E. GmbH, Fuerth, Elsa GmbH, Aachen and
  * Siemens Nixdorf Informationssysteme
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/pm2_dac.c,v 1.26 2001/12/06 15:16:40 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/pm2_dac.c,v 1.27 2003/11/03 05:11:13 tsi Exp $ */
 
 #include "Xarch.h"
 #include "xf86.h"
@@ -153,9 +153,8 @@ Permedia2Init(ScrnInfoPtr pScrn, DisplayModePtr mode)
     {
 	/* Get the programmable clock values */
     	unsigned char m,n,p;
-    	unsigned long clockused;
 	
-    	clockused = PM2DAC_CalculateMNPCForClock(mode->Clock,pGlint->RefClock,
+	(void) PM2DAC_CalculateMNPCForClock(mode->Clock,pGlint->RefClock,
 								&m,&n,&p);
 	pReg->DacRegs[PM2DACIndexClockAM] = m;
 	pReg->DacRegs[PM2DACIndexClockAN] = n;

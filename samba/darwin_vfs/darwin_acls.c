@@ -207,56 +207,70 @@ int map_darwinaclperms_to_ntaclperms (acl_permset_t	perms)
 {
 	uint32 ntperms = 0;
 
-	if (acl_get_perm_np(perms, ACL_READ_DATA) == 1)
+	if (acl_get_perm_np(perms, ACL_READ_DATA) == 1) { /* ACL_LIST_DIRECTORY */
 			ntperms |=  FILE_READ_DATA;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_READ_DATA/ACL_LIST_DIRECTORY ] FILE_READ_DATA/FILE_LIST_DIRECTORY \n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_LIST_DIRECTORY) == 1)
-			ntperms |=  FILE_LIST_DIRECTORY;
-
-	if (acl_get_perm_np(perms, ACL_WRITE_DATA) == 1)
+	if (acl_get_perm_np(perms, ACL_WRITE_DATA) == 1) { /* ACL_ADD_FILE */
 			ntperms |=  FILE_WRITE_DATA;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_WRITE_DATA/ACL_ADD_FILE] FILE_WRITE_DATA/FILE_ADD_FILE\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_ADD_FILE) == 1)
-			ntperms |=  FILE_ADD_FILE;
-
-	if (acl_get_perm_np(perms, ACL_EXECUTE) == 1)
+	if (acl_get_perm_np(perms, ACL_EXECUTE) == 1) { /* ACL_SEARCH */
 			ntperms |=  FILE_EXECUTE;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_EXECUTE/ACL_SEARCH] FILE_EXECUTE/FILE_TRAVERSE\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_SEARCH) == 1)
-			ntperms |=  FILE_TRAVERSE;
-
-	if (acl_get_perm_np(perms, ACL_DELETE) == 1)
+	if (acl_get_perm_np(perms, ACL_DELETE) == 1) {
 			ntperms |=  STD_RIGHT_DELETE_ACCESS;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_DELETE] STD_RIGHT_DELETE_ACCESS\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_APPEND_DATA) == 1)
+	if (acl_get_perm_np(perms, ACL_APPEND_DATA) == 1) { /* ACL_ADD_SUBDIRECTORY */
 			ntperms |=  FILE_APPEND_DATA;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_APPEND_DATA/ACL_ADD_SUBDIRECTORY] FILE_APPEND_DATA/SEC_RIGHTS_CREATE_CHILD\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_ADD_SUBDIRECTORY) == 1)
-			ntperms |=  SEC_RIGHTS_CREATE_CHILD;
-
-	if (acl_get_perm_np(perms, ACL_DELETE_CHILD) == 1)
+	if (acl_get_perm_np(perms, ACL_DELETE_CHILD) == 1) {
 			ntperms |=  FILE_DELETE_CHILD;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_DELETE_CHILD] FILE_DELETE_CHILD\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_READ_ATTRIBUTES) == 1)
+	if (acl_get_perm_np(perms, ACL_READ_ATTRIBUTES) == 1) {
 			ntperms |=  FILE_READ_ATTRIBUTES;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_READ_ATTRIBUTES] FILE_READ_ATTRIBUTES\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_READ_EXTATTRIBUTES) == 1)
+	if (acl_get_perm_np(perms, ACL_READ_EXTATTRIBUTES) == 1) {
 			ntperms |=  FILE_READ_EA;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_READ_EXTATTRIBUTES] FILE_READ_EA\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_WRITE_ATTRIBUTES) == 1)
+	if (acl_get_perm_np(perms, ACL_WRITE_ATTRIBUTES) == 1) {
 			ntperms |=  FILE_WRITE_ATTRIBUTES;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_WRITE_ATTRIBUTES] FILE_WRITE_ATTRIBUTES\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_WRITE_EXTATTRIBUTES) == 1)
+	if (acl_get_perm_np(perms, ACL_WRITE_EXTATTRIBUTES) == 1) {
 			ntperms |=  FILE_WRITE_EA;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_WRITE_EXTATTRIBUTES] FILE_WRITE_EA\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_READ_SECURITY) == 1)
+	if (acl_get_perm_np(perms, ACL_READ_SECURITY) == 1) {
 			ntperms |=  READ_CONTROL_ACCESS;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_READ_SECURITY] READ_CONTROL_ACCESS\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_WRITE_SECURITY) == 1)
+	if (acl_get_perm_np(perms, ACL_WRITE_SECURITY) == 1) {
 			ntperms |=  WRITE_DAC_ACCESS;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_WRITE_SECURITY] WRITE_DAC_ACCESS\n"));
+	}
 
-	if (acl_get_perm_np(perms, ACL_CHANGE_OWNER) == 1)
+	if (acl_get_perm_np(perms, ACL_CHANGE_OWNER) == 1) {
 			ntperms |=  WRITE_OWNER_ACCESS;
+			DEBUG(4,("map_darwinaclperms_to_ntaclperms:  [acl_get_perm_np ACL_CHANGE_OWNER] WRITE_OWNER_ACCESS\n"));
+	}
 
 //	if (acl_get_perm_np(perms, KAUTH_VNODE_SYNCHRONIZE) == 1)
 			ntperms |=  SYNCHRONIZE_ACCESS;
@@ -783,7 +797,7 @@ exit_on_error:
  Map NT perms to a UNIX mode_t.
 ****************************************************************************/
 
-#define FILE_SPECIFIC_READ_BITS (FILE_READ_DATA|FILE_READ_EA|FILE_READ_ATTRIBUTES)
+#define FILE_SPECIFIC_READ_BITS (FILE_READ_DATA|FILE_READ_EA|FILE_READ_ATTRIBUTES|READ_CONTROL_ACCESS)
 #define FILE_SPECIFIC_WRITE_BITS (FILE_WRITE_DATA|FILE_APPEND_DATA|FILE_WRITE_EA|FILE_WRITE_ATTRIBUTES)
 #define FILE_SPECIFIC_EXECUTE_BITS (FILE_EXECUTE)
 
@@ -854,27 +868,13 @@ static BOOL map_ntacl_to_posixperms(SEC_ACL *dacl, DOM_SID *owner_sid, DOM_SID *
 	return result;
 }
 
-
-static mode_t map_ntacl_to_mode(files_struct *fsp,SMB_STRUCT_STAT *sbuf, SEC_ACL *dacl,mode_t mode) {
+static mode_t map_ntacl_to_mode(files_struct *fsp, SEC_ACL *dacl, DOM_SID *owner_sid, DOM_SID *group_sid, mode_t mode) {
 	
 	extern DOM_SID global_sid_World; /* Everyone */
 	int i=0;
-	SEC_ACE *pas = NULL;
+	SEC_ACE *psa = NULL;
 	mode_t r_mode = 0;
 
-	uid_t a_uid = 0;
-	gid_t a_gid = 0;
-
-	uid_t uid = 0;
-	gid_t gid = 0;
-
-	BOOL its_uid = False;
-	BOOL its_gid = False;
-
-	BOOL its_dir = False;
-	uint32 writeperm;
-	uint32 readperm;
-	uint32 execperm;
 	uint32 u_tempread = 0,g_tempread = 0,o_tempread = 0;
 	uint32 u_tempwrite = 0,g_tempwrite = 0,o_tempwrite = 0;
 	uint32 u_tempexec = 0,g_tempexec = 0,o_tempexec = 0;
@@ -888,149 +888,118 @@ static mode_t map_ntacl_to_mode(files_struct *fsp,SMB_STRUCT_STAT *sbuf, SEC_ACL
 		return mode; // just return the passed mode
 	}
 
-	if (fsp->is_directory || fsp->fd == -1) {
-		its_dir = True;
-		writeperm = (DELETE_ACCESS | WRITE_DAC_ACCESS | WRITE_OWNER_ACCESS);
-		writeperm |= (FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY | FILE_DELETE_CHILD | FILE_WRITE_EA );
-		readperm = (READ_CONTROL_ACCESS);
-		readperm |= (FILE_LIST_DIRECTORY | FILE_TRAVERSE | FILE_READ_EA); 
-		execperm = (READ_CONTROL_ACCESS);
-		execperm |= FILE_TRAVERSE;
-		
-	} else {
-		its_dir = False;
-		writeperm = ( WRITE_DAC_ACCESS | WRITE_OWNER_ACCESS);
-		writeperm |= (FILE_WRITE_DATA | FILE_APPEND_DATA | FILE_WRITE_EA | FILE_WRITE_ATTRIBUTES);
-		readperm = (READ_CONTROL_ACCESS);
-		readperm |= (FILE_READ_DATA | FILE_READ_EA | FILE_READ_ATTRIBUTES); 
-		execperm = (READ_CONTROL_ACCESS);
-		execperm |= FILE_TRAVERSE;
-	}
-
-	uid = sbuf->st_uid;
-	gid = sbuf->st_gid;
-	
 	for (i=0;i < dacl->num_aces;i++) {
-		pas = &dacl->ace[i];
-		if ((pas->type == SEC_ACE_TYPE_ACCESS_ALLOWED) )  {
-			if (NT_STATUS_IS_OK(sid_to_uid(&pas->trustee,&a_uid))) {
-				DEBUG(4,("map_ntacl_to_mode: OWNER sid_to_id uid %d",a_uid));
-				its_uid = True;
-			} else if (NT_STATUS_IS_OK(sid_to_gid(&pas->trustee,&a_gid))) {
-				DEBUG(4,("map_ntacl_to_mode: GROUP sid_to_id gid %d",a_gid));
-				its_gid = True;
-			} else {
-				DEBUG(4,("map_ntacl_to_mode : OTHER In allow no match for for sid to uid and gid\n"));
-				continue;
-			}
-				
-			if ( ((its_uid) && (a_uid  == uid)) ) { // set owner permission
-				if ((re_read = (pas->info.mask  & readperm))) {
+		psa = &dacl->ace[i];
+		if ((psa->type == SEC_ACE_TYPE_ACCESS_ALLOWED) )  {
+			if (sid_equal(&psa->trustee, owner_sid)) { // set owner permission
+				if ((re_read = (psa->info.mask  & FILE_SPECIFIC_READ_BITS))) {
 					u_tempread |= re_read;
 				}
-				if ((re_write = (pas->info.mask &  writeperm))  )  {
+				if ((re_write = (psa->info.mask &  FILE_SPECIFIC_WRITE_BITS))  )  {
 					u_tempwrite |= re_write;
 				}
-				if ((re_exec = (pas->info.mask & execperm)) ) {
+				if ((re_exec = (psa->info.mask & FILE_SPECIFIC_EXECUTE_BITS)) ) {
 					u_tempexec |= re_exec;
 				}
-			} else if ( ((its_gid) && (a_gid  == gid)) ) { //set group permission 
-				if ((re_read = (pas->info.mask & readperm))) {
+			} else if (sid_equal(&psa->trustee, group_sid)) { //set group permission 
+				if ((re_read = (psa->info.mask & FILE_SPECIFIC_READ_BITS))) {
 					g_tempread |= re_read;
 				}
-				if ((re_write = (pas->info.mask &  writeperm)) )  {
+				if ((re_write = (psa->info.mask &  FILE_SPECIFIC_WRITE_BITS)) )  {
 					g_tempwrite |= re_write;
 				}
-				if ((re_exec = (pas->info.mask & execperm)) ) {
+				if ((re_exec = (psa->info.mask & FILE_SPECIFIC_EXECUTE_BITS)) ) {
 					g_tempexec |= re_exec;
 				}
-			} else if ((sid_compare(&pas->trustee,&global_sid_World) ) == 0) {
-				if ((re_read = (pas->info.mask & readperm))) {
+			} else if (sid_equal(&psa->trustee,&global_sid_World)) {
+				if ((re_read = (psa->info.mask & FILE_SPECIFIC_READ_BITS))) {
 					o_tempread |= re_read;
 				}
-				if ((re_write = (pas->info.mask &  writeperm)))  {
+				if ((re_write = (psa->info.mask &  FILE_SPECIFIC_WRITE_BITS)))  {
 					o_tempwrite |= re_write;
 				}
-				if ((re_exec = (pas->info.mask & execperm)) ) {
+				if ((re_exec = (psa->info.mask & FILE_SPECIFIC_EXECUTE_BITS)) ) {
 					o_tempexec |= re_exec;
 				}
 			}
 		}
 	}
-	if (u_tempread == readperm) {
+
+	if (u_tempread == FILE_SPECIFIC_READ_BITS) {
+		DEBUG(4,("map_ntacl_to_mode : [USER] FILE_SPECIFIC_READ_BITS \n"));
 		r_mode |= (S_IRUSR );
 	}
-	if (u_tempexec == execperm) {
+	if (u_tempexec == FILE_SPECIFIC_EXECUTE_BITS) {
+		DEBUG(4,("map_ntacl_to_mode : [USER] FILE_SPECIFIC_EXECUTE_BITS \n"));
 		r_mode |= (S_IXUSR);
 	}
 
-	if (u_tempwrite == writeperm) {
+	if (u_tempwrite == FILE_SPECIFIC_WRITE_BITS) {
+		DEBUG(4,("map_ntacl_to_mode : [USER] FILE_SPECIFIC_WRITE_BITS \n"));
 		r_mode |= (S_IWUSR);
 	}
 
-	if (g_tempread == readperm) {
+	if (g_tempread == FILE_SPECIFIC_READ_BITS) {
+		DEBUG(4,("map_ntacl_to_mode : [GROUP] FILE_SPECIFIC_READ_BITS \n"));
 		r_mode |= (S_IRGRP );
 	}
-	if (g_tempexec == execperm) {
+	if (g_tempexec == FILE_SPECIFIC_EXECUTE_BITS) {
+		DEBUG(4,("map_ntacl_to_mode : [GROUP] FILE_SPECIFIC_EXECUTE_BITS \n"));
 		r_mode |= (S_IXGRP);
 	}
 
-	if (g_tempwrite == writeperm) {
+	if (g_tempwrite == FILE_SPECIFIC_WRITE_BITS) {
+		DEBUG(4,("map_ntacl_to_mode : [GROUP] FILE_SPECIFIC_WRITE_BITS \n"));
 		r_mode |= (S_IWGRP);
 	}
 
-	if (o_tempread == readperm) {
+	if (o_tempread == FILE_SPECIFIC_READ_BITS) {
+		DEBUG(4,("map_ntacl_to_mode : [OTHER] FILE_SPECIFIC_READ_BITS \n"));
 		r_mode |= (S_IROTH);
 	}
-	if (o_tempexec == execperm) {
+	if (o_tempexec == FILE_SPECIFIC_EXECUTE_BITS) {
+		DEBUG(4,("map_ntacl_to_mode : [OTHER] FILE_SPECIFIC_EXECUTE_BITS \n"));
 		r_mode |= (S_IXOTH);
 	}
 
-	if (o_tempwrite == writeperm) {
+	if (o_tempwrite == FILE_SPECIFIC_WRITE_BITS) {
+		DEBUG(4,("map_ntacl_to_mode : [OTHER] FILE_SPECIFIC_WRITE_BITS \n"));
 		r_mode |= (S_IWOTH);
 	}
+		
 
 // now loop through DENIED access to make sure none of the bits set are in the Deny group
 	for (i=0;i < dacl->num_aces;i++) {
-		pas = &dacl->ace[i];
-		if ((pas->type == SEC_ACE_TYPE_ACCESS_DENIED) )  {
-			if (NT_STATUS_IS_OK(sid_to_uid(&pas->trustee,&a_uid))) {
-				its_uid = True;
-			} else if (NT_STATUS_IS_OK(sid_to_gid(&pas->trustee,&a_gid))) {
-				its_gid = True;
-			} else {
-				DEBUG(4,("map_ntacl_to_mode : in Deny no match for for sid to uid and gid \n"));
-				continue;
-			}
-				
-			if (((its_uid) && (a_uid  == uid)) ) { // set owner permission
-				if (pas->info.mask  & readperm) {
+		psa = &dacl->ace[i];
+		if ((psa->type == SEC_ACE_TYPE_ACCESS_DENIED) )  {				
+			if (sid_equal(&psa->trustee, owner_sid)) { // owner permissions
+				if (psa->info.mask  & FILE_SPECIFIC_READ_BITS) {
 					r_mode &= ~(S_IRUSR );
 				}
-				if (pas->info.mask  & execperm) {
+				if (psa->info.mask  & FILE_SPECIFIC_EXECUTE_BITS) {
 					r_mode &= ~( S_IXUSR);
 				}
-				if ((pas->info.mask &  writeperm) )  {
+				if ((psa->info.mask &  FILE_SPECIFIC_WRITE_BITS) )  {
 					r_mode &= ~(S_IWUSR);
 				}
-			} else if (((its_gid) && (a_gid  == gid))) { //set group permission 
-				if (pas->info.mask & readperm) {
+			} else if (sid_equal(&psa->trustee, group_sid)) { // group permissions
+				if (psa->info.mask & FILE_SPECIFIC_READ_BITS) {
 					r_mode &= ~(S_IRGRP);
 				}
-				if (pas->info.mask  & execperm) {
+				if (psa->info.mask  & FILE_SPECIFIC_EXECUTE_BITS) {
 					r_mode &= ~( S_IXGRP);
 				}
-				if ((pas->info.mask &  writeperm) )  {
+				if ((psa->info.mask &  FILE_SPECIFIC_WRITE_BITS) )  {
 					r_mode &= ~(S_IWGRP);
 				}
-			} else if ((sid_compare(&pas->trustee,&global_sid_World) ) == 0) {
-				if (pas->info.mask & readperm) {
+			} else if (sid_equal(&psa->trustee,&global_sid_World)) { // everyone permissions
+				if (psa->info.mask & FILE_SPECIFIC_READ_BITS) {
 					r_mode &= ~(S_IROTH);
 				}
-				if (pas->info.mask  & execperm) {
+				if (psa->info.mask  & FILE_SPECIFIC_EXECUTE_BITS) {
 					r_mode &= ~( S_IXOTH);
 				}
-				if ((pas->info.mask &  writeperm) )  {
+				if ((psa->info.mask &  FILE_SPECIFIC_WRITE_BITS) )  {
 					r_mode &= ~(S_IWOTH);
 				}
 			}
@@ -1333,7 +1302,7 @@ static BOOL darwin_set_nt_acl_internals(vfs_handle_struct *handle, files_struct 
 				return False;
 			}  else {
 				if ((psd->type & SE_DESC_DACL_PROTECTED)) {
-					new_mode = map_ntacl_to_mode(fsp,&sbuf, psd->dacl, orig_mode);
+					new_mode = map_ntacl_to_mode(fsp, psd->dacl, &file_owner_sid, &file_grp_sid, orig_mode);
 					if (orig_mode != new_mode) {
 						if(SMB_VFS_CHMOD(conn,fsp->fsp_name, new_mode) == -1) {
 							DEBUG(3,("darwin_set_nt_acl_internals: [acl_support] chmod %s, 0%o failed. Error = %s.\n",

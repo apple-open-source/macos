@@ -1,20 +1,21 @@
 ;; Machine description of the Argonaut ARC cpu for GNU C compiler
-;; Copyright (C) 1994, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1997, 1998, 1999, 2000, 2004
+;; Free Software Foundation, Inc.
 
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
@@ -68,7 +69,7 @@
 ;; conditionalizing instructions.  It saves having to scan the rtl to see if
 ;; it uses or alters the condition codes.
 
-;; USE: This insn uses the condition codes (eg: a conditional branch).
+;; USE: This insn uses the condition codes (e.g.: a conditional branch).
 ;; CANUSE: This insn can use the condition codes (for conditional execution).
 ;; SET: All condition codes are set by this insn.
 ;; SET_ZN: the Z and N flags are set by this insn.
@@ -114,23 +115,30 @@
    (eq_attr "in_delay_slot" "true")
    (eq_attr "in_delay_slot" "true")])
    
-;; Function units of the ARC
+;; Scheduling description for the ARC
 
-;; (define_function_unit {name} {num-units} {n-users} {test}
-;;                       {ready-delay} {issue-delay} [{conflict-list}])
+(define_cpu_unit "branch")
+
+(define_insn_reservation "any_insn" 1 (eq_attr "type" "!load,compare,branch")
+			 "nothing")
 
 ;; 1) A conditional jump cannot immediately follow the insn setting the flags.
 ;; This isn't a complete solution as it doesn't come with guarantees.  That
 ;; is done in the branch patterns and in arc_print_operand.  This exists to
 ;; avoid inserting a nop when we can.
-(define_function_unit "compare" 1 0 (eq_attr "type" "compare") 2 2 [(eq_attr "type" "branch")])
+
+(define_insn_reservation "compare" 1 (eq_attr "type" "compare")
+		         "nothing,branch")
+
+(define_insn_reservation "branch" 1 (eq_attr "type" "branch")
+		         "branch")
 
 ;; 2) References to loaded registers should wait a cycle.
 
 ;; Memory with load-delay of 1 (i.e., 2 cycle load).
-(define_function_unit "memory" 1 1 (eq_attr "type" "load") 2 0)
 
-;; Units that take one cycle do not need to be specified.
+(define_insn_reservation "memory" 2 (eq_attr "type" "load")
+			 "nothing")
 
 ;; Move instructions.
 
@@ -582,7 +590,7 @@
     = gen_rtx_REG (SELECT_CC_MODE (code, arc_compare_op0, arc_compare_op1),
 		   61);
 
-  operands[1] = gen_rtx (code, VOIDmode, ccreg, const0_rtx);
+  operands[1] = gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx);
 }")
 
 ;(define_expand "movdicc"
@@ -598,7 +606,7 @@
 ;   = gen_rtx_REG (SELECT_CC_MODE (code, arc_compare_op0, arc_compare_op1),
 ;		   61);
 ;
-;  operands[1] = gen_rtx (code, VOIDmode, ccreg, const0_rtx);
+;  operands[1] = gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx);
 ;}")
 
 (define_expand "movsfcc"
@@ -614,7 +622,7 @@
     = gen_rtx_REG (SELECT_CC_MODE (code, arc_compare_op0, arc_compare_op1),
 		   61);
 
-  operands[1] = gen_rtx (code, VOIDmode, ccreg, const0_rtx);
+  operands[1] = gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx);
 }")
 
 ;(define_expand "movdfcc"
@@ -630,7 +638,7 @@
 ;   = gen_rtx_REG (SELECT_CC_MODE (code, arc_compare_op0, arc_compare_op1),
 ;		   61);
 ;
-;  operands[1] = gen_rtx (code, VOIDmode, ccreg, const0_rtx);
+;  operands[1] = gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx);
 ;}")
 
 (define_insn "*movsicc_insn"

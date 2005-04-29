@@ -38,7 +38,7 @@ char *
 strstr(const char *s, const char *t)
 {
     char *p1, *p2;
- 
+
     for (; *s; s++) {
         for (p1 = s, p2 = t; *p2; p1++, p2++)
             if (*p1 != *p2)
@@ -376,7 +376,7 @@ zgetcwd(void)
     return zgetdir(NULL);
 }
 
-/* chdir with arbitrary long pathname.  Returns 0 on success, 0 on normal *
+/* chdir with arbitrary long pathname.  Returns 0 on success, -1 on normal *
  * failure and -2 when chdir failed and the current directory is lost.  */
 
 /**/
@@ -387,14 +387,18 @@ zchdir(char *dir)
     int currdir = -2;
 
     for (;;) {
-	if (!*dir)
+	if (!*dir || chdir(dir) == 0) {
+#ifdef HAVE_FCHDIR
+           if (currdir >= 0)
+               close(currdir);
+#endif
 	    return 0;
-	if (!chdir(dir))
-	    return 0;
+	}
 	if ((errno != ENAMETOOLONG && errno != ENOMEM) ||
 	    strlen(dir) < PATH_MAX)
 	    break;
-	for (s = dir + PATH_MAX - 1; s > dir && *s != '/'; s--);
+	for (s = dir + PATH_MAX - 1; s > dir && *s != '/'; s--)
+	    ;
 	if (s == dir)
 	    break;
 #ifdef HAVE_FCHDIR
@@ -402,7 +406,7 @@ zchdir(char *dir)
 	    currdir = open(".", O_RDONLY|O_NOCTTY);
 #endif
 	*s = '\0';
-	if (chdir(dir)) {
+	if (chdir(dir) < 0) {
 	    *s = '/';
 	    break;
 	}
@@ -410,21 +414,21 @@ zchdir(char *dir)
 	currdir = -1;
 #endif
 	*s = '/';
-	while (*++s == '/');
+	while (*++s == '/')
+	    ;
 	dir = s;
     }
 #ifdef HAVE_FCHDIR
-    if (currdir == -1 || (currdir >= 0 && fchdir(currdir))) {
-	if (currdir >= 0)
+    if (currdir >= 0) {
+	if (fchdir(currdir) < 0) {
 	    close(currdir);
-	return -2;
-    }
-    if (currdir >= 0)
+	    return -2;
+	}
 	close(currdir);
-    return -1;
-#else
-    return currdir == -2 ? -1 : -2;
+	return -1;
+    }
 #endif
+    return currdir == -2 ? -1 : -2;
 }
 
 /*

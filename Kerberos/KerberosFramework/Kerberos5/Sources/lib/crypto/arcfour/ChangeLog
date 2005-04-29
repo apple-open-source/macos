@@ -1,3 +1,26 @@
+2004-09-21  Sam Hartman  <hartmans@mit.edu>
+
+	* string_to_key.c (krb5int_arcfour_string_to_key): Free the copy
+	of the password, thanks to Derrick Schommer 
+
+2004-02-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* arcfour.c: Use ANSI C style function definitions.
+
+2003-12-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* arcfour.c (l40): Now const.
+
+2003-07-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* arcfour.c (krb5_arcfour_encrypt_length, krb5_arcfour_encrypt,
+	krb5_arcfour_decrypt): Use new numeric fields for block/hash/key
+	sizes instead of calling functions.
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
+
 2003-03-04  Ken Raeburn  <raeburn@mit.edu>
 
 	* arcfour.c (krb5int_arcfour_string_to_key): Renamed from

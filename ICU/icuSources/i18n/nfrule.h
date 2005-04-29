@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2001, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) 1997-2004, International Business Machines Corporation and others. All Rights Reserved.
 *******************************************************************************
 */
 
@@ -14,6 +14,7 @@
 #include "unicode/utypes.h"
 #include "unicode/uobject.h"
 #include "unicode/unistr.h"
+#include "putilimp.h"
 
 U_NAMESPACE_BEGIN
 
@@ -55,7 +56,7 @@ public:
     void setType(ERuleType ruleType) { baseValue = (int32_t)ruleType; }
 
     int64_t getBaseValue() const { return baseValue; }
-    void setBaseValue(int64_t value);
+    void setBaseValue(int64_t value, UErrorCode& status);
 
     double getDivisor() const { return uprv_pow(radix, exponent); }
 
@@ -91,7 +92,7 @@ private:
 
 private:
     int64_t baseValue;
-    int16_t radix;
+    int32_t radix;
     int16_t exponent;
     UnicodeString ruleText;
     NFSubstitution* sub1;

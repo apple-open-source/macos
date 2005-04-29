@@ -5,10 +5,10 @@
 .\"
 .\"
 .\"
-.\" $XFree86: xc/doc/specs/xterm/ctlseqs.ms,v 3.48 2002/12/27 19:30:24 dickey Exp $
+.\" $XFree86: xc/doc/specs/xterm/ctlseqs.ms,v 3.51 2003/12/15 00:53:20 dickey Exp $
 .\"
 .\"
-.\" Copyright 1996-2001,2002 by Thomas E. Dickey
+.\" Copyright 1996-2002,2003 by Thomas E. Dickey
 .\"
 .\"                         All Rights Reserved
 .\"
@@ -68,7 +68,7 @@
 .\" Originally written by Edward Moy, University of California,
 .\" Berkeley, edmoy@violet.berkeley.edu, for the X.V10R4 xterm.
 .\" The X Consortium staff has since updated it for X11.
-.\" Updated by Thomas E. Dickey for XFree86 3.2 - XFree86 4.0
+.\" Updated by Thomas E. Dickey for XFree86 3.2 - XFree86 4.3
 .\"
 .\" Run this file through troff and use the -ms macro package.
 .\"
@@ -292,7 +292,7 @@ X Consortium (1994)
 .AU
 Thomas Dickey
 .AI
-XFree86 Project (1996-2002)
+XFree86 Project (1996-2003)
 .AU
 .
 .am BT                  \" add page numbers after first page
@@ -432,13 +432,13 @@ Controls beginning with ESC (other than those where ESC is part of a 7-bit equiv
 8-bit controls (S8C1T).
 .
 .IP \\*(Es\\*(Sp\\*L
-Set ANSI conformance level 1 (VT100, 7-bit controls).
+Set ANSI conformance level 1 (dpANS X3.134.1).
 .
 .IP \\*(Es\\*(Sp\\*M
-Set ANSI conformance level 2 (VT200).
+Set ANSI conformance level 2 (dpANS X3.134.1).
 .
 .IP \\*(Es\\*(Sp\\*N
-Set ANSI conformance level 3 (VT300).
+Set ANSI conformance level 3 (dpANS X3.134.1).
 .
 .IP \\*(Es\\*#\\*3
 DEC double-height line, top half (DECDHL)
@@ -747,6 +747,7 @@ and set VT100 mode.
   \*(Ps = \*8 \(-> Auto-repeat Keys (DECARM)
   \*(Ps = \*9 \(-> Send Mouse X & Y on button press.
 See the section \fBMouse Tracking\fP.
+  \*(Ps = \*1\*2 \(-> Start Blinking Cursor (att610)
   \*(Ps = \*1\*8 \(-> Print form feed (DECPFF)
   \*(Ps = \*1\*9 \(-> Set print extent to full screen (DECPEX)
   \*(Ps = \*2\*5 \(-> Show Cursor (DECTCEM)
@@ -819,6 +820,7 @@ DEC Private Mode Reset (DECRST)
   \*(Ps = \*7 \(-> No Wraparound Mode (DECAWM)
   \*(Ps = \*8 \(-> No Auto-repeat Keys (DECARM)
   \*(Ps = \*9 \(-> Don't Send Mouse X & Y on button press
+  \*(Ps = \*1\*2 \(-> Stop Blinking Cursor (att610)
   \*(Ps = \*1\*8 \(-> Don't print form feed (DECPFF)
   \*(Ps = \*1\*9 \(-> Limit print to scrolling region (DECPEX)
   \*(Ps = \*2\*5 \(-> Hide Cursor (DECTCEM)
@@ -1164,8 +1166,8 @@ to set the corresponding dynamic color.
 Because more than one pair of color number and specification can
 be given in one control sequence, \fBxterm\fR can make more than one reply.
 .sp
-  \*(Ps = \*1\*0 \(-> Change vt100 text foreground color to \*(Pt
-  \*(Ps = \*1\*1 \(-> Change vt100 text background color to \*(Pt
+  \*(Ps = \*1\*0 \(-> Change VT100 text foreground color to \*(Pt
+  \*(Ps = \*1\*1 \(-> Change VT100 text background color to \*(Pt
   \*(Ps = \*1\*2 \(-> Change text cursor color to \*(Pt
   \*(Ps = \*1\*3 \(-> Change mouse foreground color to \*(Pt
   \*(Ps = \*1\*4 \(-> Change mouse background color to \*(Pt
@@ -1219,6 +1221,21 @@ Cursor Up	\*(Cs\*A	\*(S3\*A
 Cursor Down	\*(Cs\*(cB	\*(S3\*(cB
 Cursor Right	\*(Cs\*C	\*(S3\*C
 Cursor Left	\*(Cs\*D	\*(S3\*D
+_
+.TE
+The home- and end-keys
+(unlike PageUp and other keys also on the 6-key editing keypad)
+are considered "cursor keys" by \fIxterm\fP.
+Their mode is also controlled by the \fBDECCKM\fP escape sequence:
+.TS
+center;
+cf3	cf3	cf3
+lf3w(2c)	lf3w(2c)	lf3w(2c) .
+Key	Normal	Application
+_
+Home	\*(Cs\*H	\*(S3\*H
+End	\*(Cs\*F	\*(S3\*F
+_
 .TE
 .LP
 The application keypad transmits the following escape sequences depending on the
@@ -1244,19 +1261,20 @@ PF4	\*(S3\*S	\*(S3\*S	kf4	k4
 + \f1(add)\fP	\*+	\*(S3\*k	-	-
 , \f1(comma)\fP	\*,	\*(S3\*l	-	-
 - \f1(minus)\fP	\*-	\*(S3\*m	-	-
-\&. \f1(Delete)\fP	\*.	\*(S3\*3\*(c~	-	-
+\&. \f1(Delete)\fP	\*.	\*(Cs\*3\*(c~	-	-
 / \f1(divide)\fP	\*/	\*(S3\*o	-	-
 0 \f1(Insert)\fP	\*0	\*(Cs\*2\*(c~	-	-
-1 \f1(End)\fP	\*1	\*(Cs\*4\*(c~	kc1	K4
+1 \f1(End)\fP	\*1	\*(S3\*F	kc1	K4
 2 \f1(DownArrow)\fP	\*2	\*(Cs\*(cB	-	-
-3 \f1(PageDown)\fP	\*3	\*(Cs\*5\*(c~	kc3	K5
+3 \f1(PageDown)\fP	\*3	\*(Cs\*6\*(c~	kc3	K5
 4 \f1(LeftArrow)\fP	\*4	\*(Cs\*D	-	-
 5 \f1(Begin)\fP	\*5	\*(Cs\*E	kb2	K2
 6 \f1(RightArrow)\fP	\*6	\*(Cs\*C	-	-
-7 \f1(Home)\fP	\*7	\*(Cs\*1\*(c~	ka1	K1
+7 \f1(Home)\fP	\*7	\*(S3\*H	ka1	K1
 8 \f1(UpArrow)\fP	\*8	\*(Cs\*A	-	-
 9 \f1(PageUp)\fP	\*9	\*(Cs\*5\*(c~	ka3	K3
 = (equal)	\*=	\*(S3\*(XX	-	-
+_
 .TE
 They also provide 12 function keys, as well as a few other special-purpose keys.
 .TS
@@ -1277,6 +1295,7 @@ F9	\*(Cs\*2\*0\*(c~
 F10	\*(Cs\*2\*1\*(c~
 F11	\*(Cs\*2\*3\*(c~
 F12	\*(Cs\*2\*4\*(c~
+_
 .TE
 .LP
 Older versions of \fIxterm\fP implement different escape sequences for F1 through F4.
@@ -1293,6 +1312,7 @@ F1	\*(Cs\*1\*1\*(c~
 F2	\*(Cs\*1\*2\*(c~
 F3	\*(Cs\*1\*3\*(c~
 F4	\*(Cs\*1\*4\*(c~
+_
 .TE
 In normal mode, i.e., a Sun/PC keyboard
 when the \fBsunKeyboard\fP resource is false,
@@ -1312,6 +1332,7 @@ _
 6	Shift + Control
 7	Alt + Control
 8	Shift + Alt + Control
+_
 .TE
 For example, shift-F5 would be sent as
 \*(Cs\*1\*5\*;\*2\*(c~
@@ -1357,6 +1378,24 @@ PF4	\*(S3\*S	\*(S3\*S
 8	\*8	\*(S3\*x
 9	\*9	\*(S3\*y
 = (equal)	\*=	\*(S3\*(XX
+_
+.TE
+The VT220 provides a 6-key editing keypad,
+which is analogous to that on the PC keyboard.
+It is not affected by \fBDECCKM\fP or \fBDECPNM\fP/\fBDECPAM\fP:
+.TS
+center;
+cf3	cf3	cf3
+lf3w(2c)	lf3w(2c)	lf3w(2c) .
+Key	Normal	Application
+_
+\f1Insert\fP	\*(Cs\*2\*(c~	\*(Cs\*2\*(c~
+\f1Delete\fP	\*(Cs\*3\*(c~	\*(Cs\*3\*(c~
+\f1Home\fP	\*(Cs\*1\*(c~	\*(Cs\*1\*(c~
+\f1End\fP	\*(Cs\*4\*(c~	\*(Cs\*4\*(c~
+\f1PageUp\fP	\*(Cs\*5\*(c~	\*(Cs\*5\*(c~
+\f1PageDown\fP	\*(Cs\*6\*(c~	\*(Cs\*6\*(c~
+_
 .TE
 .LP
 The VT220 provides 8 additional function keys.
@@ -1375,6 +1414,7 @@ F17	\*(Cs\*3\*1\*(c~
 F18	\*(Cs\*3\*2\*(c~
 F19	\*(Cs\*3\*3\*(c~
 F20	\*(Cs\*3\*4\*(c~
+_
 .TE
 .SH
 VT52-Style Function Keys
@@ -1392,6 +1432,7 @@ Cursor Up	\*(Es\*A
 Cursor Down	\*(Es\*(cB
 Cursor Right	\*(Es\*C
 Cursor Left	\*(Es\*D
+_
 .TE
 The keypad is similar:
 .TS
@@ -1424,13 +1465,14 @@ PF4	\*(Es\*S	\*(Es\*S
 8	\*8	\*(Es\*?\*x
 9	\*9	\*(Es\*?\*y
 = (equal)	\*=	\*(Es\*?\*(XX
+_
 .TE
 .SH
 Sun-Style Function Keys
 .LP
 The \fIxterm\fP program provides support for Sun keyboards more directly, by
 a menu toggle that causes it to send Sun-style function key codes rather than VT220.
-Note, however, that the \fIsun\fP and \fIVt100\fP emulations are not really
+Note, however, that the \fIsun\fP and \fIVT100\fP emulations are not really
 compatible.  For example, their wrap-margin behavior differs.
 .LP
 Only function keys are altered; keypad and cursor keys are the same.
@@ -1563,7 +1605,7 @@ Similarly, motion with button 3
 down is reported as \*(Cs\*M\*(cB\*(Cx\*(Cy.
 ( \*(cB = 32 + 2 (button 3) + 32 (motion indicator) ).
 
-Any-event mode is the same as button-event mode, except that all motion  
+Any-event mode is the same as button-event mode, except that all motion
 events are reported, even if no mouse button is down.
 It is enabled by specifying 1003 to DECSET.
 .

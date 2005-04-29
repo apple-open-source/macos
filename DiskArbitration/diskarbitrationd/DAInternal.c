@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,7 +24,9 @@
 #include "DAInternal.h"
 
 #include <grp.h>
+#include <paths.h>
 #include <pwd.h>
+#include <unistd.h>
 #include <mach/mach.h>
 #include <DiskArbitration/DiskArbitration.h>
 
@@ -158,6 +160,9 @@ __private_extern__ int ___statfs( const char * path, struct statfs * buf, int fl
     struct statfs * mountList;
     int             mountListCount;
     int             mountListIndex;
+    int             status;
+
+    status = -1;
 
     mountListCount = getmntinfo( &mountList, flags );
 
@@ -165,13 +170,18 @@ __private_extern__ int ___statfs( const char * path, struct statfs * buf, int fl
     {
         if ( strcmp( mountList[mountListIndex].f_mntonname, path ) == 0 )
         {
+            status = 0;
+
             *buf = mountList[mountListIndex];
 
-            return 0;
+            if ( mountList[mountListIndex].f_owner == geteuid( ) )
+            {
+                break;
+            }
         }
     }
 
-    return -1;
+    return status;
 }
 
 __private_extern__ Boolean ___CFArrayContainsValue( CFArrayRef array, const void * value )
@@ -193,7 +203,7 @@ __private_extern__ void ___CFArrayRemoveValue( CFMutableArrayRef array, const vo
 
 __private_extern__ vm_address_t ___CFDataCopyBytes( CFDataRef data, vm_size_t * length )
 {
-    vm_address_t bytes = NULL;
+    vm_address_t bytes = 0;
 
     *length = CFDataGetLength( data );
 
@@ -314,6 +324,16 @@ __private_extern__ char * ___CFURLCopyFileSystemRepresentation( CFURLRef url )
     return path;
 }
 
+__private_extern__ const char * _DACallbackKindGetName( _DACallbackKind kind )
+{
+    return __kDAKindNameList[kind];
+}
+
+__private_extern__ const char * _DARequestKindGetName( _DARequestKind kind )
+{
+    return __kDAKindNameList[kind];
+}
+
 __private_extern__ CFDataRef _DASerialize( CFAllocatorRef allocator, CFTypeRef object )
 {
     CFDataRef data;
@@ -331,16 +351,6 @@ __private_extern__ CFDataRef _DASerialize( CFAllocatorRef allocator, CFTypeRef o
     }
 
     return data;
-}
-
-__private_extern__ const char * _DACallbackKindGetName( _DACallbackKind kind )
-{
-    return __kDAKindNameList[kind];
-}
-
-__private_extern__ const char * _DARequestKindGetName( _DARequestKind kind )
-{
-    return __kDAKindNameList[kind];
 }
 
 __private_extern__ CFDataRef _DASerializeDiskDescription( CFAllocatorRef allocator, CFDictionaryRef description )
@@ -452,6 +462,27 @@ __private_extern__ CFMutableDictionaryRef _DAUnserializeDiskDescription( CFAlloc
     return description;
 }
 
+__private_extern__ CFMutableDictionaryRef _DAUnserializeDiskDescriptionWithBytes( CFAllocatorRef allocator, vm_address_t bytes, vm_size_t length )
+{
+    CFMutableDictionaryRef description = NULL;
+
+    if ( bytes )
+    {
+        CFDataRef data;
+
+        data = CFDataCreateWithBytesNoCopy( allocator, ( void * ) bytes, length, kCFAllocatorNull );
+
+        if ( data )
+        {
+            description = _DAUnserializeDiskDescription( allocator, data );
+
+            CFRelease( data );
+        }
+    }
+
+    return description;
+}
+
 __private_extern__ CFTypeRef _DAUnserializeWithBytes( CFAllocatorRef allocator, vm_address_t bytes, vm_size_t length )
 {
     CFTypeRef object = NULL;
@@ -473,23 +504,34 @@ __private_extern__ CFTypeRef _DAUnserializeWithBytes( CFAllocatorRef allocator, 
     return object;
 }
 
-__private_extern__ CFMutableDictionaryRef _DAUnserializeDiskDescriptionWithBytes( CFAllocatorRef allocator, vm_address_t bytes, vm_size_t length )
+__private_extern__ char * _DAVolumeCopyID( const struct statfs * fs )
 {
-    CFMutableDictionaryRef description = NULL;
+    char * id;
 
-    if ( bytes )
+    if ( strncmp( fs->f_mntfromname, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) )
     {
-        CFDataRef data;
-
-        data = CFDataCreateWithBytesNoCopy( allocator, ( void * ) bytes, length, kCFAllocatorNull );
-
-        if ( data )
-        {
-            description = _DAUnserializeDiskDescription( allocator, data );
-
-            CFRelease( data );
-        }
+        asprintf( &id, "%s?owner=%u", fs->f_mntonname, fs->f_owner );
+    }
+    else
+    {
+        asprintf( &id, "%s", fs->f_mntfromname );
     }
 
-    return description;
+    return id;
+}
+
+__private_extern__ char * _DAVolumeGetID( const struct statfs * fs )
+{
+    static char id[ sizeof( fs->f_mntonname ) + strlen( "?owner=" ) + strlen( "4294967295" ) ];
+
+    if ( strncmp( fs->f_mntfromname, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) )
+    {
+        sprintf( id, "%s?owner=%u", fs->f_mntonname, fs->f_owner );
+    }
+    else
+    {
+        sprintf( id, "%s", fs->f_mntfromname );
+    }
+
+    return id;
 }

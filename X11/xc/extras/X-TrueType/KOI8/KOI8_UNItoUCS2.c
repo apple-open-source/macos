@@ -33,11 +33,14 @@ Notice===
    (ftp://ftp.unicode.org/Public/MAPPINGS/ISO8859/8859-2.TXT)
 
  */
+/* $XFree86: xc/extras/X-TrueType/KOI8/KOI8_UNItoUCS2.c,v 1.2 2003/10/22 16:25:45 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"

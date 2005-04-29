@@ -32,7 +32,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/Display.c,v 3.15 2002/09/18 01:25:01 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Display.c,v 3.16 2003/04/21 16:34:26 herrb Exp $ */
 
 /*
 
@@ -230,7 +230,6 @@ static XtPerDisplay InitPerDisplay(dpy, app, name, classname)
     return pd;
 }
 
-#if NeedFunctionPrototypes
 Display *XtOpenDisplay(
 	XtAppContext app,
 	_Xconst char* displayName,
@@ -241,16 +240,6 @@ Display *XtOpenDisplay(
 	int *argc,
 	String *argv
 	)
-#else
-Display *XtOpenDisplay(app, displayName, applName, className,
-		urlist, num_urs, argc, argv)
-	XtAppContext app;
-	String displayName, applName, className;
-	XrmOptionDescRec *urlist;
-	Cardinal num_urs;
-	int *argc;
-	String *argv;
-#endif
 {
 	Display *d;
 	XrmDatabase db = 0;
@@ -353,7 +342,6 @@ String **argv_in_out, * fallback_resources;
     return dpy;
 }
 
-#if NeedFunctionPrototypes
 void
 XtDisplayInitialize(
 	XtAppContext app,
@@ -365,17 +353,6 @@ XtDisplayInitialize(
 	int *argc,
 	String *argv
 	)
-#else
-void
-XtDisplayInitialize(app, dpy, name, classname, urlist, num_urs, argc, argv)
-	XtAppContext app;
-	Display *dpy;
-	String name, classname;
-	XrmOptionDescRec *urlist;
-	Cardinal num_urs;
-	int *argc;
-	String *argv;
-#endif
 {
     XtPerDisplay pd;
     XrmDatabase db = 0;
@@ -457,26 +434,16 @@ XtAppContext XtCreateApplicationContext()
 	return app;
 }
 
-#if NeedFunctionPrototypes
 void XtAppSetExitFlag (
     XtAppContext app)
-#else
-void XtAppSetExitFlag (app)
-    XtAppContext app;
-#endif
 {
     LOCK_APP(app);
     app->exit_flag = TRUE;
     UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 Boolean XtAppGetExitFlag (
     XtAppContext app)
-#else
-Boolean XtAppGetExitFlag (app)
-    XtAppContext app;
-#endif
 {
     Boolean retval;
     LOCK_APP(app);
@@ -726,13 +693,8 @@ void XtCloseDisplay(dpy)
 	UNLOCK_APP(app);
 }
 
-#if NeedFunctionPrototypes
 void _XtCloseDisplays(
     XtAppContext app)
-#else
-void _XtCloseDisplays(app)
-    XtAppContext app;
-#endif
 {
 	int i;
 
@@ -768,13 +730,8 @@ void XtGetApplicationNameAndClass(dpy, name_return, class_return)
     *class_return = XrmQuarkToString(pd->class);
 }
 
-#if NeedFunctionPrototypes
 XtPerDisplay _XtGetPerDisplay (
     Display* display)
-#else
-XtPerDisplay _XtGetPerDisplay (display)
-    Display* display;
-#endif
 {
     XtPerDisplay retval;
 
@@ -787,13 +744,8 @@ XtPerDisplay _XtGetPerDisplay (display)
     return retval;
 }
 
-#if NeedFunctionPrototypes
 XtPerDisplayInputRec* _XtGetPerDisplayInput(
     Display* display)
-#else
-XtPerDisplayInputRec* _XtGetPerDisplayInput(display)
-    Display* display;
-#endif
 {
     XtPerDisplayInputRec* retval;
     LOCK_PROCESS;
@@ -805,17 +757,10 @@ XtPerDisplayInputRec* _XtGetPerDisplayInput(display)
     return retval;
 }
 
-#if NeedFunctionPrototypes
 void XtGetDisplays(
     XtAppContext app_context,
     Display*** dpy_return,
     Cardinal* num_dpy_return)
-#else
-void XtGetDisplays(app_context, dpy_return, num_dpy_return)
-    XtAppContext app_context;
-    Display*** dpy_return;
-    Cardinal* num_dpy_return;
-#endif
 {
     int ii;
     LOCK_APP(app_context);

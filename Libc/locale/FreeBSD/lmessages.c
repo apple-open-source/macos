@@ -25,12 +25,12 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/lmessages.c,v 1.12 2002/08/08 05:51:54 ache Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/lmessages.c,v 1.14 2003/06/26 10:46:16 phantom Exp $");
 
 #include <stddef.h>
 
-#include "lmessages.h"
 #include "ldpart.h"
+#include "lmessages.h"
 
 #define LCMESSAGES_SIZE_FULL (sizeof(struct lc_messages_T) / sizeof(char *))
 #define LCMESSAGES_SIZE_MIN \
@@ -55,7 +55,7 @@ __messages_load_locale(const char *name)
 	int ret;
 
 	ret = __part_load_locale(name, &_messages_using_locale,
-		  _messages_locale_buf, "LC_MESSAGES",
+		  &_messages_locale_buf, "LC_MESSAGES",
 		  LCMESSAGES_SIZE_FULL, LCMESSAGES_SIZE_MIN,
 		  (const char **)&_messages_locale);
 	if (ret == _LDP_LOADED) {

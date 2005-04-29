@@ -1,5 +1,3 @@
-/*	$NetBSD: pr.h,v 1.2 1997/01/09 15:01:37 tls Exp $	*/
-
 /*-
  * Copyright (c) 1991 Keith Muller.
  * Copyright (c) 1993
@@ -36,8 +34,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *      from: @(#)pr.h	8.1 (Berkeley) 6/6/93
- *	$NetBSD: pr.h,v 1.2 1997/01/09 15:01:37 tls Exp $
+ *      @(#)pr.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.bin/pr/pr.h,v 1.4 2001/03/21 14:32:02 ache Exp $
  */
 
 /*
@@ -61,7 +59,8 @@
 #define	HDFMT		"%s %s Page %d\n\n\n"
 #define	HEADLEN		5
 #define	TAILLEN		5
-#define	TIMEFMT		"%b %e %H:%M %Y"
+#define	TIMEFMTD	"%e %b %H:%M %Y"
+#define	TIMEFMTM	"%b %e %H:%M %Y"
 #define	FNAME		""
 #define	LBUF		8192
 #define	HDBUF		512

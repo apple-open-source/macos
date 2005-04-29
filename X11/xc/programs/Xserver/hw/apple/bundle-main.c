@@ -1,5 +1,5 @@
 /* bundle-main.c -- X server launcher
-   $Id: bundle-main.c,v 1.17 2003/09/11 00:17:10 jharper Exp $
+   $Id: bundle-main.c,v 1.23 2004/11/22 21:36:18 jharper Exp $
 
    Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
 
@@ -78,7 +78,7 @@
 #define X_SERVER "/usr/X11R6/bin/Xquartz"
 #define XTERM_PATH "/usr/X11R6/bin/xterm"
 #define WM_PATH "/usr/X11R6/bin/quartz-wm"
-#define DEFAULT_XINITRC "/usr/X11R6/lib/X11/xinit/xinitrc"
+#define DEFAULT_XINITRC "/etc/X11/xinit/xinitrc"
 
 /* what xinit does */
 #ifndef SHELL
@@ -260,7 +260,7 @@ define_named (Xauth *auth, const char *name)
 	    continue;
 
 	auth->family = FamilyInternet;
-	auth->address_length = sizeof (struct sockaddr_in);
+	auth->address_length = sizeof (struct in_addr);
 	auth->address = (char *) &(((struct sockaddr_in *) ptr->ifa_addr)->sin_addr);
 
 #ifdef DEBUG
@@ -322,10 +322,10 @@ generate_mit_magic_cookie (char data[16])
     if (fd > 0)
     {
 	ret = read (fd, data, 16);
+	close (fd);
+
 	if (ret == 16)
 	    return TRUE;
-
-	close (fd);
     }
 
     /* fall back to the usual crappy rng */
@@ -521,14 +521,28 @@ start_client (void)
 	/* Setup environment */
 
 	setenv ("DISPLAY", server_name, TRUE);
+
 	tem = getenv ("PATH");
-	if (tem != NULL && tem[0] != NULL)
+	if (tem != NULL && tem[0] != 0)
 	    snprintf (buf, sizeof (buf), "%s:/usr/X11R6/bin", tem);
 	else
 	    snprintf (buf, sizeof (buf), "/bin:/usr/bin:/usr/X11R6/bin");
 	setenv ("PATH", buf, TRUE);
 
-	/* First look for .xinitrc in user's home directory. */
+	tem = getenv ("MANPATH");
+	if (tem != NULL && tem[0] != 0)
+	    snprintf (buf, sizeof (buf), "%s:/usr/X11R6/man", tem);
+	else
+	    snprintf (buf, sizeof (buf), "/usr/man:/usr/X11R6/man");
+	setenv ("MANPATH", buf, TRUE);
+
+	/* First try value of $XINITRC if set. */
+
+	tem = getenv ("XINITRC");
+	if (tem != NULL && access (tem, R_OK) == 0)
+	    execlp (SHELL, SHELL, tem, NULL);
+
+	/* Then look for .xinitrc in user's home directory. */
 
 	tem = getenv ("HOME");
 	if (tem != NULL)
@@ -716,7 +730,7 @@ install_ipaddr_source (void)
 	}
 
 	CFRelease (ref); 
-   }
+    }
 
     if (source != NULL)
     {
@@ -730,6 +744,17 @@ install_ipaddr_source (void)
 
 
 /* Entrypoint. */
+
+void
+termination_signal_handler (int unused_sig)
+{
+    signal (SIGTERM, SIG_DFL);
+    signal (SIGHUP, SIG_DFL);
+    signal (SIGINT, SIG_DFL);
+    signal (SIGQUIT, SIG_DFL);
+
+    longjmp (exit_continuation, 1);
+}
 
 int
 main (int argc, char **argv)
@@ -855,6 +880,11 @@ main (int argc, char **argv)
 
     signal (SIGCHLD, sigchld_handler);
 
+    signal (SIGTERM, termination_signal_handler);
+    signal (SIGHUP, termination_signal_handler);
+    signal (SIGINT, termination_signal_handler);
+    signal (SIGQUIT, termination_signal_handler);
+
     if (setjmp (exit_continuation) == 0)
     {
 	if (install_ipaddr_source ())
@@ -864,6 +894,11 @@ main (int argc, char **argv)
     }
 
     signal (SIGCHLD, SIG_IGN);
+
+    if (client_pid >= 0)
+	kill (client_pid, SIGTERM);
+    if (server_pid >= 0)
+	kill (server_pid, SIGTERM);
 
     if (auth_file != NULL)
     {

@@ -53,6 +53,7 @@ details.  */
 #include <java/lang/NullPointerException.h>
 #include <java/lang/OutOfMemoryError.h>
 #include <java/lang/System.h>
+#include <java/lang/VMThrowable.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/io/PrintStream.h>
 #include <java/lang/UnsatisfiedLinkError.h>
@@ -396,7 +397,7 @@ _Jv_AllocObject (jclass klass, jint size)
   // if there really is an interesting finalizer.
   // Unfortunately, we still have to the dynamic test, since there may
   // be cni calls to this routine.
-  // Nore that on IA64 get_finalizer() returns the starting address of the
+  // Note that on IA64 get_finalizer() returns the starting address of the
   // function, not a function pointer.  Thus this still works.
   if (klass->vtable->get_finalizer ()
       != java::lang::Object::class$.vtable->get_finalizer ())
@@ -457,8 +458,8 @@ _Jv_NewObjectArray (jsize count, jclass elementClass, jobject init)
   size_t size = (size_t) elements (obj);
   size += count * sizeof (jobject);
 
-  // FIXME: second argument should be "current loader"
-  jclass klass = _Jv_GetArrayClass (elementClass, 0);
+  jclass klass = _Jv_GetArrayClass (elementClass,
+				    elementClass->getClassLoaderInternal());
 
   obj = (jobjectArray) _Jv_AllocArray (size, klass);
   // Cast away const.
@@ -656,7 +657,6 @@ _Jv_FindClassFromSignature (char *sig, java::lang::ClassLoader *loader)
 	  ;
 	_Jv_Utf8Const *name = _Jv_makeUtf8Const (&sig[1], i - 1);
 	return _Jv_FindClass (name, loader);
-
       }
     case '[':
       {
@@ -910,8 +910,8 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   _Jv_InitPrimClass (&_Jv_voidClass,    "void",    'V', 0, &_Jv_voidVTable);
 
   // Turn stack trace generation off while creating exception objects.
-  _Jv_InitClass (&java::lang::Throwable::class$);
-  java::lang::Throwable::trace_enabled = 0;
+  _Jv_InitClass (&java::lang::VMThrowable::class$);
+  java::lang::VMThrowable::trace_enabled = 0;
   
   INIT_SEGV;
 #ifdef HANDLE_FPE
@@ -920,11 +920,11 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   arithexception = new java::lang::ArithmeticException
     (JvNewStringLatin1 ("/ by zero"));
 #endif
-
+  
   no_memory = new java::lang::OutOfMemoryError;
-
-  java::lang::Throwable::trace_enabled = 1;
-
+  
+  java::lang::VMThrowable::trace_enabled = 1;
+  
 #ifdef USE_LTDL
   LTDL_SET_PRELOADED_SYMBOLS ();
 #endif

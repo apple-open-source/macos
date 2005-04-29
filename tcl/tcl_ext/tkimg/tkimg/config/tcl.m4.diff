@@ -1,0 +1,149 @@
+*** tcl.m4.orig	Sun May  7 11:52:54 2000
+--- tcl.m4	Sun May  7 11:52:54 2000
+***************
+*** 663,668 ****
+--- 663,699 ----
+  	    LD_SEARCH_FLAGS=""
+  	    ;;
+  	*win32*|*WIN32*|CYGWIN_NT*|cygwin_nt*|*CYGWIN_98*|*CYGWIN_95*)
++ 	  if test "$CC" = "gcc" -o `$CC -v 2>&1 | grep -c gcc` != "0" ; then
++ 	    if "$CC" -v 2>&1 | egrep '\/gcc-lib\/i[[3-6]]86[[^\/]]*-cygwin' >/dev/null; then
++ 		mno_cygwin="yes"
++ 		extra_cflags="-mno-cygwin"
++ 		extra_ldflags="-mno-cygwin"
++ 	    else
++ 		mno_cygwin="no"
++ 		extra_cflags=""
++ 		extra_ldflags=""
++ 	    fi
++ 
++ 	    if test "$cross_compiling" = "yes" -o "$mno_cygwin" = "yes"; then
++ 		PATHTYPE=''
++ 		CYGPATH='echo '
++ 		VPSEP=':'
++ 	    else
++ 		PATHTYPE='-w'
++ 		CYGPATH='cygpath'
++ 	 	VPSEP=';'
++ 	    fi
++ 	    CFLAGS_DEBUG="-g ${runtime}d"
++ 	    CFLAGS_OPTIMIZE="-O2 ${runtime}"
++ 	    LDFLAGS_CONSOLE="-mconsole ${extra_ldflags}"
++ 	    LDFLAGS_WINDOW="-mwindows ${extra_ldflags}"
++ 	    LDFLAGS_DEBUG="-g"
++ 	    LDFLAGS_OPTIMIZE=""
++ 	    EXTRA_CFLAGS="${extra_cflags}"
++ 	    SHLIB_LD="dllwrap"
++ 	    SHLIB_LD_LIBS="-luser32 -ladvapi32"
++ 	    RC="windres"
++ 	  else
+  	    CFLAGS_DEBUG="-nologo -Z7 -Od -WX ${runtime}d"
+  	    CFLAGS_OPTIMIZE="-nologo -Oti -Gs -GD ${runtime}"
+  	    LDFLAGS_CONSOLE="-subsystem:console"
+***************
+*** 675,680 ****
+--- 706,712 ----
+  	    SHLIB_LD="link -dll -nologo"
+  	    SHLIB_LD_LIBS="user32.lib advapi32.lib"
+  	    RC="rc"
++ 	  fi
+  	    ;;
+  	dgux*)
+  	    SHLIB_CFLAGS="-K PIC"
+***************
+*** 796,802 ****
+  	NetBSD-*|FreeBSD-[[12]].*|OpenBSD-*)
+  	    # Not available on all versions:  check for include file.
+  	    AC_CHECK_HEADER(dlfcn.h, [
+! 		SHLIB_CFLAGS="-fpic"
+  		SHLIB_LD="ld -Bshareable -x"
+  		SHLIB_LD_LIBS=""
+  		SHLIB_SUFFIX=".so"
+--- 828,834 ----
+  	NetBSD-*|FreeBSD-[[12]].*|OpenBSD-*)
+  	    # Not available on all versions:  check for include file.
+  	    AC_CHECK_HEADER(dlfcn.h, [
+! 		SHLIB_CFLAGS="-fPIC"
+  		SHLIB_LD="ld -Bshareable -x"
+  		SHLIB_LD_LIBS=""
+  		SHLIB_SUFFIX=".so"
+***************
+*** 824,830 ****
+  	    ;;
+  	FreeBSD-*)
+  	    # FreeBSD 3.* and greater have ELF.
+! 	    SHLIB_CFLAGS="-fpic"
+  	    SHLIB_LD="ld -Bshareable -x"
+  	    SHLIB_LD_LIBS=""
+  	    SHLIB_SUFFIX=".so"
+--- 856,862 ----
+  	    ;;
+  	FreeBSD-*)
+  	    # FreeBSD 3.* and greater have ELF.
+! 	    SHLIB_CFLAGS="-fPIC"
+  	    SHLIB_LD="ld -Bshareable -x"
+  	    SHLIB_LD_LIBS=""
+  	    SHLIB_SUFFIX=".so"
+***************
+*** 861,867 ****
+  	    ;;
+  	OSF1-1.*)
+  	    # OSF/1 1.3 from OSF using ELF, and derivatives, including AD2
+! 	    SHLIB_CFLAGS="-fpic"
+  	    SHLIB_LD="ld -shared"
+  	    SHLIB_LD_LIBS=""
+  	    SHLIB_SUFFIX=".so"
+--- 893,899 ----
+  	    ;;
+  	OSF1-1.*)
+  	    # OSF/1 1.3 from OSF using ELF, and derivatives, including AD2
+! 	    SHLIB_CFLAGS="-fPIC"
+  	    SHLIB_LD="ld -shared"
+  	    SHLIB_LD_LIBS=""
+  	    SHLIB_SUFFIX=".so"
+***************
+*** 895,901 ****
+  	    # Note, dlopen is available only on SCO 3.2.5 and greater.  However,
+  	    # this test works, since "uname -s" was non-standard in 3.2.4 and
+  	    # below.
+! 	    SHLIB_CFLAGS="-Kpic -belf"
+  	    SHLIB_LD="ld -G"
+  	    SHLIB_LD_LIBS=""
+  	    SHLIB_SUFFIX=".so"
+--- 927,933 ----
+  	    # Note, dlopen is available only on SCO 3.2.5 and greater.  However,
+  	    # this test works, since "uname -s" was non-standard in 3.2.4 and
+  	    # below.
+! 	    SHLIB_CFLAGS="-KPIC -belf"
+  	    SHLIB_LD="ld -G"
+  	    SHLIB_LD_LIBS=""
+  	    SHLIB_SUFFIX=".so"
+***************
+*** 1796,1801 ****
+--- 1828,1836 ----
+  	    if test "${CC-cc}" = "cl"; then
+  		MAKE_STATIC_LIB="\${STLIB_LD} -out:\[$]@ \$(\[$]@_OBJECTS) "
+  		MAKE_SHARED_LIB="\${SHLIB_LD} \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS} \$(LDFLAGS) -out:\[$]@ \$(\[$]@_OBJECTS) "
++ 	    else
++ 		MAKE_STATIC_LIB="\${STLIB_LD} \[$]@ \$(\[$]@_OBJECTS)"
++ 		MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ --output-lib \[$](patsubst %.dll,lib%.a,\[$]@) \$(\[$]@_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS}"
+  	    fi
+  	    ;;
+  	*)
+***************
+*** 2052,2058 ****
+  
+      case "`uname -s`" in
+  	*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
+! 	    TCL_TOP_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/..`\"
+  	    TK_UNIX_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/../unix`\"
+  	    TK_WIN_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/../win`\"
+  	    TK_GENERIC_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/../generic`\"
+--- 2087,2093 ----
+  
+      case "`uname -s`" in
+  	*win32* | *WIN32* | *CYGWIN_NT* |*CYGWIN_98*|*CYGWIN_95*)
+! 	    TK_TOP_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/..`\"
+  	    TK_UNIX_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/../unix`\"
+  	    TK_WIN_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/../win`\"
+  	    TK_GENERIC_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/../generic`\"

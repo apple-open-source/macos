@@ -1,5 +1,5 @@
 /* auth_pts.c -- PTLOADER authorization
- * $Id: auth_pts.c,v 1.7 2004/02/24 23:11:37 rjs3 Exp $
+ * $Id: auth_pts.c,v 1.4 2005/03/05 00:37:11 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

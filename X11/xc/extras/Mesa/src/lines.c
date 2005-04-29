@@ -24,9 +24,6 @@
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
 #include "context.h"
 #include "depth.h"
@@ -35,8 +32,6 @@
 #include "mmath.h"
 #include "texstate.h"
 #include "mtypes.h"
-#endif
-
 
 
 void

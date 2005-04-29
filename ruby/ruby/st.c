@@ -1,12 +1,15 @@
 /* This is a public domain general purpose hash table package written by Peter Moore @ UCB. */
 
-static	char	sccsid[] = "@(#) st.c 5.1 89/12/14 Crucible";
+/* static	char	sccsid[] = "@(#) st.c 5.1 89/12/14 Crucible"; */
 
 #include "config.h"
+#include "defines.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "st.h"
 
-#ifdef NT
+#ifdef _WIN32
 #include <malloc.h>
 #endif
 
@@ -14,8 +17,8 @@ typedef struct st_table_entry st_table_entry;
 
 struct st_table_entry {
     unsigned int hash;
-    char *key;
-    char *record;
+    st_data_t key;
+    st_data_t record;
     st_table_entry *next;
 };
 
@@ -31,15 +34,15 @@ struct st_table_entry {
      * allocated initially
      *
      */
-static int numcmp();
-static int numhash();
+static int numcmp(long, long);
+static int numhash(long);
 static struct st_hash_type type_numhash = {
     numcmp,
     numhash,
 };
 
-extern int strcmp();
-static int strhash();
+/* extern int strcmp(const char *, const char *); */
+static int strhash(const char *);
 static struct st_hash_type type_strhash = {
     strcmp,
     strhash,
@@ -51,13 +54,13 @@ static struct st_hash_type type_strhash = {
 #define xrealloc ruby_xrealloc
 #define xfree ruby_xfree
 
-void *xmalloc();
-void *xcalloc();
-void *xrealloc();
-void xfree();
+void *xmalloc(long);
+void *xcalloc(long, long);
+void *xrealloc(void *, long);
+void xfree(void *);
 #endif
 
-static void rehash();
+static void rehash(st_table *);
 
 #define alloc(type) (type*)xmalloc((unsigned)sizeof(type))
 #define Calloc(n,s) (char*)xcalloc((n),(s))
@@ -112,7 +115,7 @@ static int
 new_size(size)
     int size;
 {
-    int i, newsize;
+    int i;
 
 #if 0
     for (i=3; i<31; i++) {
@@ -120,6 +123,8 @@ new_size(size)
     }
     return -1;
 #else
+    int newsize;
+
     for (i = 0, newsize = MINSIZE;
 	 i < sizeof(primes)/sizeof(primes[0]);
 	 i++, newsize <<= 1)
@@ -177,7 +182,7 @@ st_init_table(type)
 }
 
 st_table*
-st_init_numtable()
+st_init_numtable(void)
 {
     return st_init_table(&type_numhash);
 }
@@ -190,7 +195,7 @@ st_init_numtable_with_size(size)
 }
 
 st_table*
-st_init_strtable()
+st_init_strtable(void)
 {
     return st_init_table(&type_strhash);
 }
@@ -230,22 +235,23 @@ st_free_table(table)
 #define COLLISION
 #endif
 
-#define FIND_ENTRY(table, ptr, hash_val, bin_pos) \
-bin_pos = hash_val%(table)->num_bins;\
-ptr = (table)->bins[bin_pos];\
-if (PTR_NOT_EQUAL(table, ptr, hash_val, key)) {\
-    COLLISION;\
-    while (PTR_NOT_EQUAL(table, ptr->next, hash_val, key)) {\
+#define FIND_ENTRY(table, ptr, hash_val, bin_pos) do {\
+    bin_pos = hash_val%(table)->num_bins;\
+    ptr = (table)->bins[bin_pos];\
+    if (PTR_NOT_EQUAL(table, ptr, hash_val, key)) {\
+	COLLISION;\
+	while (PTR_NOT_EQUAL(table, ptr->next, hash_val, key)) {\
+	    ptr = ptr->next;\
+	}\
 	ptr = ptr->next;\
     }\
-    ptr = ptr->next;\
-}
+} while (0)
 
 int
 st_lookup(table, key, value)
     st_table *table;
-    register char *key;
-    char **value;
+    register st_data_t key;
+    st_data_t *value;
 {
     unsigned int hash_val, bin_pos;
     register st_table_entry *ptr;
@@ -255,14 +261,15 @@ st_lookup(table, key, value)
 
     if (ptr == 0) {
 	return 0;
-    } else {
+    }
+    else {
 	if (value != 0)  *value = ptr->record;
 	return 1;
     }
 }
 
 #define ADD_DIRECT(table, key, value, hash_val, bin_pos)\
-{\
+do {\
     st_table_entry *entry;\
     if (table->num_entries/(table->num_bins) > ST_DEFAULT_MAX_DENSITY) {\
 	rehash(table);\
@@ -277,13 +284,13 @@ st_lookup(table, key, value)
     entry->next = table->bins[bin_pos];\
     table->bins[bin_pos] = entry;\
     table->num_entries++;\
-}
+} while (0)
 
 int
 st_insert(table, key, value)
     register st_table *table;
-    register char *key;
-    char *value;
+    register st_data_t key;
+    st_data_t value;
 {
     unsigned int hash_val, bin_pos;
     register st_table_entry *ptr;
@@ -294,7 +301,8 @@ st_insert(table, key, value)
     if (ptr == 0) {
 	ADD_DIRECT(table, key, value, hash_val, bin_pos);
 	return 0;
-    } else {
+    }
+    else {
 	ptr->record = value;
 	return 1;
     }
@@ -303,8 +311,8 @@ st_insert(table, key, value)
 void
 st_add_direct(table, key, value)
     st_table *table;
-    char *key;
-    char *value;
+    st_data_t key;
+    st_data_t value;
 {
     unsigned int hash_val, bin_pos;
 
@@ -383,8 +391,8 @@ st_copy(old_table)
 int
 st_delete(table, key, value)
     register st_table *table;
-    register char **key;
-    char **value;
+    register st_data_t *key;
+    st_data_t *value;
 {
     unsigned int hash_val;
     st_table_entry *tmp;
@@ -425,9 +433,9 @@ st_delete(table, key, value)
 int
 st_delete_safe(table, key, value, never)
     register st_table *table;
-    register char **key;
-    char **value;
-    char *never;
+    register st_data_t *key;
+    st_data_t *value;
+    st_data_t never;
 {
     unsigned int hash_val;
     register st_table_entry *ptr;
@@ -455,7 +463,7 @@ st_delete_safe(table, key, value, never)
 
 static int
 delete_never(key, value, never)
-    char *key, *value, *never;
+    st_data_t key, value, never;
 {
     if (value == never) return ST_DELETE;
     return ST_CONTINUE;
@@ -464,7 +472,7 @@ delete_never(key, value, never)
 void
 st_cleanup_safe(table, never)
     st_table *table;
-    char *never;
+    st_data_t never;
 {
     int num_entries = table->num_entries;
 
@@ -475,8 +483,8 @@ st_cleanup_safe(table, never)
 void
 st_foreach(table, func, arg)
     st_table *table;
-    enum st_retval (*func)();
-    char *arg;
+    int (*func)();
+    st_data_t arg;
 {
     st_table_entry *ptr, *last, *tmp;
     enum st_retval retval;
@@ -485,8 +493,21 @@ st_foreach(table, func, arg)
     for(i = 0; i < table->num_bins; i++) {
 	last = 0;
 	for(ptr = table->bins[i]; ptr != 0;) {
-	    retval = (*func)(ptr->key, ptr->record, arg);
+	    retval = (*func)(ptr->key, ptr->record, arg, 0);
 	    switch (retval) {
+	    case ST_CHECK:	/* check if hash is modified during iteration */
+	        tmp = 0;
+		if (i < table->num_bins) {
+		    for (tmp = table->bins[i]; tmp; tmp=tmp->next) {
+			if (tmp == ptr) break;
+		    }
+		}
+		if (!tmp) {
+		    /* call func with error notice */
+		    retval = (*func)(0, 0, arg, 1);
+		    return;
+		}
+		/* fall through */
 	    case ST_CONTINUE:
 		last = ptr;
 		ptr = ptr->next;
@@ -497,7 +518,8 @@ st_foreach(table, func, arg)
 		tmp = ptr;
 		if (last == 0) {
 		    table->bins[i] = ptr->next;
-		} else {
+		}
+		else {
 		    last->next = ptr->next;
 		}
 		ptr = ptr->next;
@@ -510,7 +532,7 @@ st_foreach(table, func, arg)
 
 static int
 strhash(string)
-    register char *string;
+    register const char *string;
 {
     register int c;
 
@@ -528,10 +550,14 @@ strhash(string)
     register int val = 0;
 
     while ((c = *string++) != '\0') {
-	val = val*33 + c;
+	val += c;
+	val += (val << 10);
+	val ^= (val >> 6);
     }
+    val += (val << 3);
+    val ^= (val >> 11);
 
-    return val + (val>>5);
+    return val + (val << 15);
 #else
     register int val = 0;
 

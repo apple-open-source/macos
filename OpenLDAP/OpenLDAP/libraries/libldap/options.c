@@ -1,7 +1,16 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/options.c,v 1.60.2.3 2003/03/03 17:10:05 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/libraries/libldap/options.c,v 1.63.2.3 2004/07/16 19:51:42 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -520,7 +529,6 @@ ldap_set_option(
 
 			if(urls != NULL) {
 				rc = ldap_url_parselist(&ludlist, urls);
-
 			} else if(ld == NULL) {
 				/*
 				 * must want global default returned
@@ -537,6 +545,28 @@ ldap_set_option(
 					ldap_int_global_options.ldo_defludp);
 				if (ludlist == NULL)
 					rc = LDAP_NO_MEMORY;
+			}
+
+			switch (rc) {
+			case LDAP_URL_SUCCESS:		/* Success */
+				rc = LDAP_SUCCESS;
+				break;
+
+			case LDAP_URL_ERR_MEM:		/* can't allocate memory space */
+				rc = LDAP_NO_MEMORY;
+				break;
+
+			case LDAP_URL_ERR_PARAM:	/* parameter is bad */
+			case LDAP_URL_ERR_BADSCHEME:	/* URL doesn't begin with "ldap[si]://" */
+			case LDAP_URL_ERR_BADENCLOSURE:	/* URL is missing trailing ">" */
+			case LDAP_URL_ERR_BADURL:	/* URL is bad */
+			case LDAP_URL_ERR_BADHOST:	/* host port is bad */
+			case LDAP_URL_ERR_BADATTRS:	/* bad (or missing) attributes */
+			case LDAP_URL_ERR_BADSCOPE:	/* scope string is invalid (or missing) */
+			case LDAP_URL_ERR_BADFILTER:	/* bad or missing filter */
+			case LDAP_URL_ERR_BADEXTS:	/* bad or missing extensions */
+				rc = LDAP_PARAM_ERROR;
+				break;
 			}
 
 			if (rc == LDAP_OPT_SUCCESS) {

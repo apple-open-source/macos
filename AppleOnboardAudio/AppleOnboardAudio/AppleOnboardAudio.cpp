@@ -95,8 +95,10 @@ bool AppleOnboardAudio::start (IOService * provider) {
 	mProvider = provider;
 	provider->open (this);
 
+#ifdef THREAD_POWER_MANAGEMENT
 	mPowerThread = thread_call_allocate ((thread_call_func_t)AppleOnboardAudio::performPowerStateChangeThread, (thread_call_param_t)this);
 	FailIf (0 == mPowerThread, Exit);
+#endif
 
 	mInitHardwareThread = thread_call_allocate ((thread_call_func_t)AppleOnboardAudio::initHardwareThread, (thread_call_param_t)this);
 	FailIf (0 == mInitHardwareThread, Exit);
@@ -164,6 +166,12 @@ bool AppleOnboardAudio::start (IOService * provider) {
 	debugIOLog ( 5, "  about to setFamilyManagePower ( FALSE ) due to mJoinAOAPMTree %d", mInstanceIndex, mJoinAOAPMTree );
 	setFamilyManagePower ( FALSE );
 
+	result = super::start (provider);				// Causes our initHardware routine to be called.
+	FailIf ( !result, Exit );
+	
+	debugIOLog ( 5, "  mNumberOfAOAPowerParents %ld", mNumberOfAOAPowerParents );
+
+
 	if ( !mJoinAOAPMTree )	//	[3938771]
 	{
 		static IOPMPowerState aoaPowerParentPowerStates[2] = {{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},{1, IOPMDeviceUsable, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0}};
@@ -187,10 +195,6 @@ bool AppleOnboardAudio::start (IOService * provider) {
 		//	to indicate that this instance can be a power management parent.
 		
 	}
-	result = super::start (provider);				// Causes our initHardware routine to be called.
-	FailIf ( !result, Exit );
-	
-	debugIOLog ( 5, "  mNumberOfAOAPowerParents %ld", mNumberOfAOAPowerParents );
 	
 	//	[3938771]  This now needs to occur after super start so that the notifications of AppleOnboardAudio service
 	//	will occur after AppleOnboardAudio is prepared to join an AppleOnboardAudio power parent as appropriate.  This
@@ -319,9 +323,11 @@ void AppleOnboardAudio::stop (IOService * provider) {
 	// [3253678]
 	callPluginsInOrder ( kSetMuteState, TRUE );						//	[3435307]	rbm
 	
+#ifdef THREAD_POWER_MANAGEMENT
 	if (mPowerThread) {
 		thread_call_cancel (mPowerThread);
 	}
+#endif
 
 	debugIOLog ( 3, "AppleOnboardAudio[%ld]::stop(), audioEngines = %p, isInactive() = %d", mInstanceIndex, audioEngines, isInactive());
 Exit:
@@ -607,7 +613,7 @@ IOReturn AppleOnboardAudio::formatChangeRequest (const IOAudioStreamFormat * inF
 	OSNumber *							connectionCodeNumber;
 	bool								needsUpdate = FALSE;	//  [3628559]   (22 April 2004) rbm
 	
-	result = kIOReturnError;
+	result = kIOReturnSuccess;																//	[4030727]
 
 	debugIOLog ( 3, "+ AppleOnboardAudio[%ld]::formatChangeRequest (%p, %p)", mInstanceIndex, inFormat, inRate);
 	FailIf ( 0 == mPlatformInterface, Exit );
@@ -630,6 +636,7 @@ IOReturn AppleOnboardAudio::formatChangeRequest (const IOAudioStreamFormat * inF
 	//  }   end		[3628559]   (22 April 2004) rbm
 	
 	if ( needsUpdate ) {																		//  [3628559]   (22 April 2004) rbm
+		result = kIOReturnError;																//	[4030727]
 		if (mMuteAmpWhenClockInterrupted) {														// aml, this was checking the UI mutes amps flag which is wrong
 			muteAllAmps ();
 		}
@@ -672,7 +679,9 @@ IOReturn AppleOnboardAudio::formatChangeRequest (const IOAudioStreamFormat * inF
 			
 			debugIOLog ( 3, "  AppleOnboardAudio[%ld]::formatChangeRequest with rate %ld", mInstanceIndex, inRate->whole);
 			result = mTransportInterface->transportSetSampleRate (inRate->whole);
-			callPluginsInOrder (kSetSampleRate, inRate->whole);
+			FailIf ( kIOReturnSuccess != result, Exit );					//	[3886091]
+			result = callPluginsInOrder (kSetSampleRate, inRate->whole);
+			FailIf ( kIOReturnSuccess != result, Exit );					//	[3886091]
 			
 			//	Maintain a member copy of the sample rate so that changes in sample rate
 			//	when running on an externally clocked sample rate can be detected so that
@@ -1688,9 +1697,12 @@ void AppleOnboardAudio::free()
         mDriverDMAEngine->release();
 		mDriverDMAEngine = 0;
 	}
+
+#ifdef THREAD_POWER_MANAGEMENT
 	if (0 != mPowerThread) {
 		thread_call_free (mPowerThread);
 	}
+#endif
 
 	CLEAN_RELEASE(mOutMuteControl);
 	CLEAN_RELEASE(mHeadphoneConnected);
@@ -1979,7 +1991,7 @@ void AppleOnboardAudio::protectedInterruptEventHandler (UInt32 statusSelector, U
 					goto Exit;
 				}	
 			}
-				
+					
 			//	[3588678]	Prevent redundant redirection
 			if ( mCurrentOutputSelection != selectorCode ) {
 				connectionCodeNumber = OSNumber::withNumber (selectorCode, 32);
@@ -1998,7 +2010,6 @@ void AppleOnboardAudio::protectedInterruptEventHandler (UInt32 statusSelector, U
 				
 				// [3250195], current plugin doesn't matter here, always need these updated
 				setClipRoutineForOutput (pluginString);
-
 
 				selectCodecOutputWithMuteState( mIsMute );
 				selectOutputAmplifiers (selectorCode, mIsMute);
@@ -2251,8 +2262,13 @@ bool AppleOnboardAudio::executeProtectedInterruptEventHandlerWhenInactive ( UInt
 {
 	bool			result = FALSE;
 	
-	if ( kIOAudioDeviceSleep == getPowerState () )
+	debugIOLog ( 6, "+ AppleOnboardAudio::executeProtectedInterruptEventHandlerWhenInactive (%lx)", selector );
+
+	debugIOLog ( 6, "   getPowerState () = %ld, pendingPowerState = %ld", getPowerState (), pendingPowerState );
+	
+	if ( kIOAudioDeviceSleep == getPowerState () && kIOAudioDeviceSleep == pendingPowerState )
 	{
+		debugIOLog ( 6, "   power state = SLEEP" );
 		switch ( selector )
 		{
 			case kRemoteActive:					//	fall through
@@ -2269,6 +2285,9 @@ bool AppleOnboardAudio::executeProtectedInterruptEventHandlerWhenInactive ( UInt
 	{
 		result = TRUE;
 	}
+
+	debugIOLog ( 6, "- AppleOnboardAudio::executeProtectedInterruptEventHandlerWhenInactive () returns %d", result );
+
 	return result;
 }
 
@@ -2319,10 +2338,12 @@ void AppleOnboardAudio::endDetectInterruptService ( void )
 		}
 		setIdleAudioSleepTime ( kBatteryPowerDownDelayTime );
 		debugIOLog ( 6, "  asyncPowerStateChangeInProgress %d", asyncPowerStateChangeInProgress );
+#ifdef THREAD_POWER_MANAGEMENT
 		if ( asyncPowerStateChangeInProgress )
 		{
 			waitForPendingPowerStateChange ();
 		}
+#endif
 		debugIOLog ( 6, "  setting pendingPowerState to kIOAudioDeviceIdle" );
 		pendingPowerState = kIOAudioDeviceIdle;
 	}
@@ -2577,8 +2598,12 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	debugIOLog ( 6, "  layoutEntry = %p", layoutEntry);
 	FailIf (0 == layoutEntry, Exit);
 
+	mAmpRecoveryMuteDuration = 1;
 	ampRecoveryNumber = OSDynamicCast ( OSNumber, layoutEntry->getObject (kAmpRecoveryTime) );
-	FailIf (0 == ampRecoveryNumber, Exit);
+	if (0 == ampRecoveryNumber)
+	{
+		debugIOLog( 6, " AppleOnboardAudio[%ld]::protectedInitHardware no AmpRecoveryTime property, defaulting to 1mS", mInstanceIndex );
+	}
 	mAmpRecoveryMuteDuration = ampRecoveryNumber->unsigned32BitValue();
 	debugIOLog ( 6, "  AppleOnboardAudio[%ld]::protectedInitHardware - mAmpRecoveryMuteDuration = %ld", mInstanceIndex, mAmpRecoveryMuteDuration);
 
@@ -2713,6 +2738,7 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 
 	for (index = 0; index < numPlugins; index++) {
 		setProperty (((OSString *)hardwareObjectsList->getObject(index))->getCStringNoCopy(), "YES");
+		debugIOLog ( 5,  "  set property %s", ((OSString *)hardwareObjectsList->getObject(index))->getCStringNoCopy());
 	}
 	
 	registerService ();														// Gets the plugins to load.
@@ -3758,6 +3784,8 @@ AudioHardwareObjectInterface * AppleOnboardAudio::getPluginObjectWithName (OSStr
 	Boolean								found;
 
 	thePluginObject = 0;
+
+	FailIf (NULL == mPluginObjects, Exit); // [4011988]
 
 	count = mPluginObjects->getCount ();
 	found = FALSE;
@@ -5906,10 +5934,12 @@ IOReturn AppleOnboardAudio::setAggressiveness ( unsigned long type, unsigned lon
 				debugIOLog ( 3, "  setting power aggressivness state to kIOPMExternalPower" );
 				setIdleAudioSleepTime ( kNoIdleAudioPowerDown );										// don't tell us about going to the idle state
 				debugIOLog ( 6, "  asyncPowerStateChangeInProgress %d", asyncPowerStateChangeInProgress );
+#ifdef THREAD_POWER_MANAGEMENT
 				if ( asyncPowerStateChangeInProgress )
 				{
 					waitForPendingPowerStateChange ();
 				}
+#endif
 				debugIOLog ( 6, "  setting pendingPowerState to kIOAudioDeviceActive" );
 				pendingPowerState = kIOAudioDeviceActive;
 				FailMessage ( kIOReturnSuccess != performPowerStateChange ( getPowerState (), kIOAudioDeviceActive, &time ) );
@@ -5980,6 +6010,7 @@ IOReturn AppleOnboardAudio::performPowerStateChange ( IOAudioDevicePowerState ol
 	result = super::performPowerStateChange ( oldPowerState, newPowerState, microsecondsUntilComplete );
 	FailMessage ( kIOReturnSuccess != result );
     
+#ifdef THREAD_POWER_MANAGEMENT
 	if ( ( kIOAudioDeviceIdle == getPowerState () ) && ( kIOAudioDeviceActive == newPowerState ) )
 	{
 		//	This transition is always only in our own AOA / IOAudioFamily context (i.e. we're managing it)
@@ -5994,12 +6025,15 @@ IOReturn AppleOnboardAudio::performPowerStateChange ( IOAudioDevicePowerState ol
 			thread_call_enter1 ( mPowerThread, (thread_call_param_t)newPowerState );
 		}
 	}
+#else
+	performPowerStateChangeThread ( this, (void*)newPowerState );
+#endif
+	
 Exit:
 	debugIOLog ( 3, "  currentPowerState = %d", getPowerState ());
 	debugIOLog ( 3, "- AppleOnboardAudio[%ld]::performPowerStateChange ( oldPowerState %d, newPowerState %d, microsecondsUntilComplete %p ) returns 0x%lX", mInstanceIndex, oldPowerState, newPowerState, microsecondsUntilComplete, result );
 	return result; 
 }
-
 
 //  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void AppleOnboardAudio::performPowerStateChangeThread (AppleOnboardAudio * aoa, void * newPowerState) {
@@ -6023,7 +6057,6 @@ void AppleOnboardAudio::performPowerStateChangeThread (AppleOnboardAudio * aoa, 
 Exit:
 	return;
 }
-
 
 //  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //  [3515371]   Changed 'performPowerStateChangeThreadAction' to only invoke power management on an
@@ -6072,6 +6105,13 @@ IOReturn AppleOnboardAudio::performPowerStateAction ( OSObject * owner, void * n
 	FailIf ( 0 == mTransportInterface, Exit );
 	FailIf ( 0 == mPlatformInterface, Exit );														//	[3581695]	12 Mar 2004, rbm
 
+	//	[4048245]	When there are multiple AppleOnboardAudio instances where any instance has
+	//	a running engine then no instance should wake to idle.
+	if ( ( 0 != sTotalNumAOAEnginesRunning ) && ( kIOAudioDeviceIdle == (UInt32)newPowerState ) )
+	{
+		newPowerState = (void*)kIOAudioDeviceActive;
+	}
+
 	//  [3515371]   If this AOA instance power managment requests are received from another
 	//				AOA instance then indicate success to IOAudioFamily and let the actual
 	//				hardware manipulations associated with power management occur under the
@@ -6103,6 +6143,7 @@ Exit:
 	debugIOLog ( 6, "  AOA[%ld] getPowerState () = %d, pendingPowerState = %d, about to protectedCompletePowerStateChange ()", mInstanceIndex, getPowerState (), pendingPowerState );
 	
 	protectedCompletePowerStateChange ();
+	acknowledgeSetPowerState ();				//	[3931723]
 	
 	debugIOLog ( 6, "  AOA[%ld] getPowerState () = %d, pendingPowerState = %d", mInstanceIndex, getPowerState (), pendingPowerState );
 	debugIOLog ( 6, "- AppleOnboardAudio[%ld]::performPowerStateAction ( %p, %p, %d, %d, %d ) returns 0x%X", mInstanceIndex, owner, newPowerState, arg2, arg3, arg4, result );
@@ -6133,7 +6174,7 @@ IOReturn AppleOnboardAudio::performPowerStateChangeAction ( void * newPowerState
 			//	within the transition to kIOAudioDeviceActive.
 			//   moved above all change handlers for [3942561]
 			protectedCompletePowerStateChange ();
-			setProperty ( "IOAudioPowerState", getPowerState (), 32 );
+			setProperty ( "IOAudioPowerState", kIOAudioDeviceActive, 32 );
 			mUCState.ucPowerState = getPowerState ();
 			
 			if ( 0 != mExternalClockSelector )
@@ -6177,7 +6218,7 @@ IOReturn AppleOnboardAudio::performPowerStateChangeAction ( void * newPowerState
 				IOLog ( "AppleOnboardAudio[%ld] power state is IDLE\n", mInstanceIndex );
 			}
 			protectedCompletePowerStateChange ();
-			setProperty ( "IOAudioPowerState", getPowerState (), 32 );
+			setProperty ( "IOAudioPowerState", kIOAudioDeviceIdle, 32 );
 			mUCState.ucPowerState = getPowerState ();
 
 			break;
@@ -6192,7 +6233,7 @@ IOReturn AppleOnboardAudio::performPowerStateChangeAction ( void * newPowerState
 				IOLog ( "AppleOnboardAudio[%ld] power state is SLEEP\n", mInstanceIndex );
 			}
 			protectedCompletePowerStateChange ();
-			setProperty ( "IOAudioPowerState", getPowerState (), 32 );
+			setProperty ( "IOAudioPowerState", kIOAudioDeviceSleep, 32 );
 			mUCState.ucPowerState = getPowerState ();
 
 			break;
@@ -6485,21 +6526,34 @@ IOReturn AppleOnboardAudio::doLocalChangeToActiveState ( bool allowDetectIRQDisp
 {
 	IOReturn			result;
 	
-	pendingPowerState = kIOAudioDeviceActive;
-	result = performPowerStateChangeAction_requestActive ( allowDetectIRQDispatch );	//	[3922678]
-	FailIf ( kIOReturnSuccess != result, Exit );
+	debugIOLog ( 3, "+ AppleOnboardAudio[%ld]::doLocalChangeToActiveState ( %d, %p )", mInstanceIndex, wasPoweredDown );
 
-	setProperty ( "IOAudioPowerState", getPowerState (), 32 );
-	mUCState.ucPowerState = getPowerState ();
-	protectedCompletePowerStateChange ();
+	if (kIOAudioDeviceActive != pendingPowerState) {	// [4046140]
 
-	FailMessage ( kIOReturnSuccess != selectCodecOutputWithMuteState ( mIsMute ) );
-	if ( wasPoweredDown )
-	{
-		*wasPoweredDown = TRUE;
+		debugIOLog ( 3, "   about to call performPowerStateChangeAction_requestActive" );
+
+		pendingPowerState = kIOAudioDeviceActive;
+		result = performPowerStateChangeAction_requestActive ( allowDetectIRQDispatch );	//	[3922678]
+		FailIf ( kIOReturnSuccess != result, Exit );
+
+		protectedCompletePowerStateChange ();
+		setProperty ( "IOAudioPowerState", getPowerState (), 32 );
+		mUCState.ucPowerState = getPowerState ();
+
+		FailMessage ( kIOReturnSuccess != selectCodecOutputWithMuteState ( mIsMute ) );
+		if ( wasPoweredDown )
+		{
+			*wasPoweredDown = TRUE;
+		}
+		setPollTimer();												//  [3690065]
+	} else {
+		debugIOLog ( 3, "   pendingPowerState already = active" );
+		result = kIOReturnSuccess;
 	}
-	setPollTimer();												//  [3690065]
 Exit:
+
+	debugIOLog ( 3, "- AppleOnboardAudio[%ld]::doLocalChangeToActiveState ( ) return 0x%X", mInstanceIndex, result );
+
 	return result;
 }
 
@@ -6524,10 +6578,12 @@ IOReturn AppleOnboardAudio::doLocalChangeScheduleIdle ( Boolean wasPoweredDown )
 
 			setIdleAudioSleepTime ( kBatteryPowerDownDelayTime );											// tell us about going to the idle state
 			debugIOLog ( 6, "  asyncPowerStateChangeInProgress %d", asyncPowerStateChangeInProgress );
+#ifdef THREAD_POWER_MANAGEMENT
 			if ( asyncPowerStateChangeInProgress )		//	[3699908]
 			{
 				waitForPendingPowerStateChange ();
 			}
+#endif
 			debugIOLog ( 6, "  setting pendingPowerState to kIOAudioDeviceIdle" );
 			pendingPowerState = kIOAudioDeviceIdle;
 		}
@@ -6551,10 +6607,12 @@ void AppleOnboardAudio::audioEngineStopped ()
 		}
 		setIdleAudioSleepTime ( kBatteryPowerDownDelayTime );
 		debugIOLog ( 6, "  asyncPowerStateChangeInProgress %d", asyncPowerStateChangeInProgress );
+#ifdef THREAD_POWER_MANAGEMENT
 		if ( asyncPowerStateChangeInProgress )
 		{
 			waitForPendingPowerStateChange ();
 		}
+#endif
 		debugIOLog ( 6, "  setting pendingPowerState to kIOAudioDeviceIdle" );
 		pendingPowerState = kIOAudioDeviceIdle;
 	}

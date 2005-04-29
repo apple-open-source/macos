@@ -1,8 +1,17 @@
 /* tools.c - tools for slap tools */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/tools.c,v 1.34.2.3 2003/03/03 17:10:10 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/tools.c,v 1.39.2.2 2004/01/01 18:16:37 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -173,6 +182,7 @@ ID ldbm_tool_entry_put(
 	Datum key, data;
 	int rc, len;
 	ID id;
+	Operation op = {0};
 
 	assert( slapMode & SLAP_TOOL_MODE );
 	assert( id2entry != NULL );
@@ -216,7 +226,11 @@ ID ldbm_tool_entry_put(
 		return NOID;
 	}
 
-	rc = index_entry_add( be, e, e->e_attrs );
+	op.o_bd = be;
+	op.o_tmpmemctx = NULL;
+	op.o_tmpmfuncs = &ch_mfuncs;
+
+	rc = index_entry_add( &op, e );
 	if( rc != 0 ) {
 		strncpy( text->bv_val, "index add failed", text->bv_len );
 		return NOID;
@@ -260,6 +274,7 @@ int ldbm_tool_entry_reindex(
 {
 	int rc;
 	Entry *e;
+	Operation op = {0};
 
 #ifdef NEW_LOGGING
 	LDAP_LOG( BACK_LDBM, ENTRY, "ldbm_tool_entry_reindex: ID=%ld\n", 
@@ -302,7 +317,11 @@ int ldbm_tool_entry_reindex(
 #endif
 
 	dn2id_add( be, &e->e_nname, e->e_id );
-	rc = index_entry_add( be, e, e->e_attrs );
+
+	op.o_bd = be;
+	op.o_tmpmemctx = NULL;
+	op.o_tmpmfuncs = &ch_mfuncs;
+	rc = index_entry_add( &op, e );
 
 	entry_free( e );
 

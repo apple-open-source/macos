@@ -1,3 +1,19 @@
+2004-06-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* adm_proto.h, kdb.h, kdb_dbc.h, kdb_kt.h: Don't test macintosh.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (all-mac, clean-mac): Targets deleted.
+
+2004-03-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (MY_SUBDIRS): Deleted.
+
+2003-08-26  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-config.h: Unused file deleted.
+
 2003-05-25  Ezra Peisach  <epeisach@mit.edu>
 
 	* kdb.h: Add prototype for krb5_db_iterate_ext.

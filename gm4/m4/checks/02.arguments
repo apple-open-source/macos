@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:963: Origin of test
+dnl ../doc/m4.texinfo:964: Origin of test
 define(`exch', `$2, $1')
 dnl @result{}
 exch(arg1, arg2)

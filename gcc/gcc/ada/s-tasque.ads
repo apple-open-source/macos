@@ -6,8 +6,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---                                                                          --
---         Copyright (C) 1992-2001, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,8 +26,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies, Inc. (http://www.gnat.com).     --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -39,7 +38,7 @@ package System.Tasking.Queuing is
    package POE renames System.Tasking.Protected_Objects.Entries;
 
    procedure Broadcast_Program_Error
-     (Self_ID      : Task_ID;
+     (Self_ID      : Task_Id;
       Object       : POE.Protection_Entries_Access;
       Pending_Call : Entry_Call_Link;
       RTS_Locked   : Boolean := False);
@@ -72,7 +71,7 @@ package System.Tasking.Queuing is
    --  Return number of calls on the waiting queue of E
 
    procedure Select_Task_Entry_Call
-     (Acceptor         : Task_ID;
+     (Acceptor         : Task_Id;
       Open_Accepts     : Accept_List_Access;
       Call             : out Entry_Call_Link;
       Selection        : out Select_Index;
@@ -83,7 +82,7 @@ package System.Tasking.Queuing is
    --    Open_Alternative will be True if there were any open alternatives
 
    procedure Select_Protected_Entry_Call
-     (Self_ID   : Task_ID;
+     (Self_ID   : Task_Id;
       Object    : POE.Protection_Entries_Access;
       Call      : out Entry_Call_Link);
    --  Select an entry of a protected object

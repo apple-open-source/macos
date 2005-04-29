@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  5.0.1
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 
@@ -124,7 +124,7 @@ static void TAG(emit)( GLcontext *ctx,
 {
    LOCALVARS
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-   GLfloat (*tc0)[4], (*tc1)[4], *fog;
+   GLfloat (*tc0)[4], (*tc1)[4], (*fog)[4];
    GLfloat (*tc2)[4], (*tc3)[4];
    GLubyte (*col)[4], (*spec)[4];
    GLuint tc0_stride, tc1_stride, col_stride, spec_stride, fog_stride;
@@ -147,8 +147,8 @@ static void TAG(emit)( GLcontext *ctx,
       coord_stride = VB->ClipPtr->stride;
    }
    else {
-      coord = VB->ProjectedClipPtr->data;
-      coord_stride = VB->ProjectedClipPtr->stride;
+      coord = VB->NdcPtr->data;
+      coord_stride = VB->NdcPtr->stride;
    }
 
    if (DO_TEX3) {
@@ -209,7 +209,7 @@ static void TAG(emit)( GLcontext *ctx,
 	 fog_stride = VB->FogCoordPtr->stride;
       }
       else {
-	 GLfloat tmp = 0;
+	 static GLfloat tmp[4] = {0, 0, 0, 0};
 	 fog = &tmp;
 	 fog_stride = 0;
       }
@@ -233,7 +233,8 @@ static void TAG(emit)( GLcontext *ctx,
 	 if (DO_SPEC)
 	    STRIDE_4UB(spec, start * spec_stride);
 	 if (DO_FOG)
-	    STRIDE_F(fog, start * fog_stride);
+	    /*STRIDE_F(fog, start * fog_stride);*/
+	    fog =  (GLfloat (*)[4])((GLubyte *)fog + start * fog_stride);
       }
 
       for (i=start; i < end; i++, v = (VERTEX *)((GLubyte *)v + stride)) {
@@ -267,8 +268,9 @@ static void TAG(emit)( GLcontext *ctx,
 	    STRIDE_4UB(spec, spec_stride);
 	 }
 	 if (DO_FOG) {
-	    v->v.specular.alpha = fog[0] * 255.0;
-	    STRIDE_F(fog, fog_stride);
+	    v->v.specular.alpha = fog[0][0] * 255.0;
+	    /*STRIDE_F(fog, fog_stride);*/
+	    fog =  (GLfloat (*)[4])((GLubyte *)fog + fog_stride);
 	 }
 	 if (DO_TEX0) {
 	    v->v.u0 = tc0[0][0];
@@ -366,7 +368,7 @@ static void TAG(emit)( GLcontext *ctx,
 	    v->v.specular.blue  = spec[i][2];
 	 }
 	 if (DO_FOG) {
-	    v->v.specular.alpha = fog[i] * 255.0;
+	    v->v.specular.alpha = fog[i][0] * 255.0;
 	 }
 	 if (DO_TEX0) {
 	    v->v.u0 = tc0[i][0];
@@ -402,6 +404,34 @@ static void TAG(emit)( GLcontext *ctx,
 	       v->v.v1 = tc1[i][1];
 	    }
 	 }
+	 if (DO_TEX2) {
+	    if (DO_PTEX) {
+	       v->pv.u2 = tc2[i][0];
+	       v->pv.v2 = tc2[i][1];
+	       if (tc2_size == 4) 
+		  v->pv.q2 = tc2[i][3];
+	       else
+		  v->pv.q2 = 1.0;
+	    } 
+	    else {
+	       v->v.u2 = tc2[i][0];
+	       v->v.v2 = tc2[i][1];
+	    }
+	 } 
+	 if (DO_TEX3) {
+	    if (DO_PTEX) {
+	       v->pv.u3 = tc3[i][0];
+	       v->pv.v3 = tc3[i][1];
+	       if (tc3_size == 4) 
+		  v->pv.q3 = tc3[i][3];
+	       else
+		  v->pv.q3 = 1.0;
+	    } 
+	    else {
+	       v->v.u3 = tc3[i][0];
+	       v->v.v3 = tc3[i][1];
+	    }
+	 } 
       }
    }
 }
@@ -419,8 +449,8 @@ static void TAG(emit)( GLcontext *ctx, GLuint start, GLuint end,
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
    GLubyte (*col)[4];
    GLuint col_stride;
-   GLfloat (*coord)[4] = VB->ProjectedClipPtr->data;
-   GLuint coord_stride = VB->ProjectedClipPtr->stride;
+   GLfloat (*coord)[4] = VB->NdcPtr->data;
+   GLuint coord_stride = VB->NdcPtr->stride;
    GLfloat *v = (GLfloat *)dest;
    const GLubyte *mask = VB->ClipMask;
    const GLfloat *s = GET_VIEWPORT_MAT();
@@ -673,8 +703,8 @@ static void TAG(interp)( GLcontext *ctx,
 	       INTERP_F( t, dst->pv.v0, out->pv.v0, in->pv.v0 );
 	       INTERP_F( t, dst->pv.q0, out->pv.q0, in->pv.q0 );
 	    } else {
-	       GLfloat wout = VB->ProjectedClipPtr->data[eout][3];
-	       GLfloat win = VB->ProjectedClipPtr->data[ein][3];
+	       GLfloat wout = VB->NdcPtr->data[eout][3];
+	       GLfloat win = VB->NdcPtr->data[ein][3];
 	       GLfloat qout = out->pv.w / wout;
 	       GLfloat qin = in->pv.w / win;
 	       GLfloat qdst, rqdst;

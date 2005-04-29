@@ -29,6 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __OAKLEY_H__
+#define __OAKLEY_H__
+
+
 /* refer to RFC 2409 */
 
 /* Attribute Classes */
@@ -189,3 +193,6 @@ extern vchar_t *oakley_do_decrypt __P((struct ph1handle *,
 	vchar_t *, vchar_t *, vchar_t *));
 extern vchar_t *oakley_do_encrypt __P((struct ph1handle *,
 	vchar_t *, vchar_t *, vchar_t *));
+
+#endif /* __OAKLEY_H__ */
+

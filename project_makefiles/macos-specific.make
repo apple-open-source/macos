@@ -77,7 +77,8 @@ ifneq "" "$(wildcard /usr/bin/rpcgen)"
 else
   RPCGEN = /usr/sbin/rpcgen
 endif
-FIXPRECOMPS = /usr/bin/fixPrecomps
+DISABLE_PRECOMPS   = YES
+## FIXPRECOMPS = /usr/bin/fixPrecomps
 LIPO = /usr/bin/lipo
 LN = $(SYMLINK)
 MERGEINFO = /usr/lib/mergeInfo

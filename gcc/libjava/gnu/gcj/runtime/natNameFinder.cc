@@ -1,6 +1,6 @@
 // natNameFinder.cc - native helper methods for NameFinder.java
 
-/* Copyright (C) 2002  Free Software Foundation, Inc
+/* Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc
 
    This file is part of libgcj.
 
@@ -15,6 +15,8 @@ details.  */
 
 #include <config.h>
 
+#include <string.h>
+
 #include <gcj/cni.h>
 #include <jvm.h>
 #include <java/lang/String.h>
@@ -27,6 +29,48 @@ details.  */
 #ifdef HAVE_DLFCN_H
 #include <dlfcn.h>
 #endif
+
+// On some systems, a prefix is attached to a method name before
+// it is exported as a label. The GCC preprocessor predefines 
+// this prefix as the macro __USER_LABEL_PREFIX__ which expands to
+// a string (not string constant) representing the prefix, if any.
+#undef LABEL_PREFIX
+#ifdef __USER_LABEL_PREFIX__
+
+#define USER_LABEL_PREFIX_STRING_0(s) #s
+#define USER_LABEL_PREFIX_STRING(s) USER_LABEL_PREFIX_STRING_0(s)
+
+#define LABEL_PREFIX USER_LABEL_PREFIX_STRING(__USER_LABEL_PREFIX__)
+
+#else /* __USER_LABEL_PREFIX__ */
+
+#define LABEL_PREFIX ""
+
+#endif /* ! __USER_LABEL_PREFIX__ */
+
+java::lang::StackTraceElement*
+gnu::gcj::runtime::NameFinder::newElement (java::lang::String* fileName,
+                                           jint lineNumber,
+                                           java::lang::String* className,
+                                           java::lang::String* methName,
+                                           jboolean isNative)
+{
+  return new java::lang::StackTraceElement( fileName, lineNumber,
+                                            className, methName, isNative);
+}
+                                          
+java::lang::String*
+gnu::gcj::runtime::NameFinder::getExternalLabel (java::lang::String* name)
+{
+  jsize nameLen = JvGetStringUTFLength (name);
+  jsize pfxLen = strlen (LABEL_PREFIX);
+  char *newName = (char *) JvMalloc (pfxLen + nameLen + 1);
+  *(newName + 0) = '\0';
+  strcpy (newName, LABEL_PREFIX);
+  JvGetStringUTFRegion (name, 0, name->length(), newName + pfxLen);
+  *(newName + pfxLen + nameLen) = '\0';
+  return JvNewStringLatin1 (newName);
+}
 
 java::lang::String*
 gnu::gcj::runtime::NameFinder::getExecutable (void)

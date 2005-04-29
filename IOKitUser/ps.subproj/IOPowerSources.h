@@ -27,6 +27,9 @@
 #ifndef _IOKIT_IOPOWERSOURCES_H
 #define _IOKIT_IOPOWERSOURCES_H
 
+#include <sys/cdefs.h>
+__BEGIN_DECLS
+
 /*! 
     @header IOPowerSources.h
     IOPowerSources provides uniform access to the state of power sources attached to the system.
@@ -82,5 +85,7 @@ CFDictionaryRef IOPSGetPowerSourceDescription(CFTypeRef blob, CFTypeRef ps);
         release the CFRunLoopSource.
 */
 CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType, void *);
+
+__END_DECLS
 
 #endif /* _IOKIT_IOPOWERSOURCES_H */

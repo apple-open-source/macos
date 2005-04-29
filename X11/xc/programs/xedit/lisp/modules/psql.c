@@ -27,15 +27,15 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/modules/psql.c,v 1.12 2002/11/23 08:26:52 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/modules/psql.c,v 1.13 2003/04/27 18:17:37 tsi Exp $ */
 
 #include <stdlib.h>
 #include <libpq-fe.h>
 #undef USE_SSL		/* cannot get it to compile... */
 #include <postgres.h>
 #include <utils/geo_decls.h>
-#include "internal.h"
-#include "private.h"
+#include "lisp/internal.h"
+#include "lisp/private.h"
 
 /*
  * Prototypes

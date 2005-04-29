@@ -51,7 +51,7 @@
  *
  *	from: @(#)pmap_clnt.h 1.11 88/02/08 SMI 
  *	from: @(#)pmap_clnt.h	2.1 88/07/29 4.0 RPCSRC
- *	$Id: pmap_clnt.h,v 1.2 1999/10/14 21:56:53 wsanchez Exp $
+ *	$Id: pmap_clnt.h,v 1.3 2004/10/28 21:58:22 emoy Exp $
  */
 
 /*
@@ -88,20 +88,20 @@
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-extern bool_t		pmap_set	__P((u_long, u_long, int, int));
-extern bool_t		pmap_unset	__P((u_long, u_long));
+extern bool_t		pmap_set	__P((unsigned long, unsigned long, int, int));
+extern bool_t		pmap_unset	__P((unsigned long, unsigned long));
 extern struct pmaplist	*pmap_getmaps	__P((struct sockaddr_in *));
 extern enum clnt_stat	pmap_rmtcall	__P((struct sockaddr_in *,
-					     u_long, u_long, u_long,
+					     unsigned long, unsigned long, unsigned long,
 					     xdrproc_t, caddr_t,
 					     xdrproc_t, caddr_t,
-					     struct timeval, u_long *));
-extern enum clnt_stat	clnt_broadcast	__P((u_long, u_long, u_long,
+					     struct timeval, unsigned long *));
+extern enum clnt_stat	clnt_broadcast	__P((unsigned long, unsigned long, unsigned long,
 					     xdrproc_t, char *,
 					     xdrproc_t, char *,
 					     bool_t (*)()));
-extern u_short		pmap_getport	__P((struct sockaddr_in *,
-					     u_long, u_long, u_int));
+extern unsigned short		pmap_getport	__P((struct sockaddr_in *,
+					     unsigned long, unsigned long, unsigned int));
 __END_DECLS
 
 #endif /* !_RPC_PMAPCLNT_H */

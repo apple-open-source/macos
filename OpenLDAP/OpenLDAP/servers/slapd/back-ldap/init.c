@@ -1,52 +1,39 @@
 /* init.c - initialize ldap backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/init.c,v 1.29.2.3 2003/02/09 16:31:38 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/init.c,v 1.43.2.13 2004/11/17 21:53:54 ando Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2003-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999-2003 Howard Chu.
+ * Portions Copyright 2000-2003 Pierangelo Masarati.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/* This is an altered version */
-/*
- * Copyright 1999, Howard Chu, All rights reserved. <hyc@highlandsun.com>
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author is not responsible for the consequences of use of this
- *    software, no matter how awful, even if they arise from flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- * 
- * 4. This notice may not be removed or altered.
- *
- *
- *
- * Copyright 2000, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This software is being modified by Pierangelo Masarati.
- * The previously reported conditions apply to the modified code as well.
- * Changes in the original code are highlighted where required.
- * Credits for the original code go to the author, Howard Chu.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by the Howard Chu for inclusion
+ * in OpenLDAP Software and subsequently enhanced by Pierangelo
+ * Masarati.
  */
 
 #include "portable.h"
 
 #include <stdio.h>
 
+#include <ac/string.h>
 #include <ac/socket.h>
 
 #include "slap.h"
 #include "back-ldap.h"
 
-#ifdef SLAPD_LDAP_DYNAMIC
+#if SLAPD_LDAP == SLAPD_MOD_DYNAMIC
 
-int back_ldap_LTX_init_module(int argc, char *argv[]) {
+int init_module(int argc, char *argv[]) {
     BackendInfo bi;
 
     memset( &bi, '\0', sizeof(bi) );
@@ -57,16 +44,23 @@ int back_ldap_LTX_init_module(int argc, char *argv[]) {
     return 0;
 }
 
-#endif /* SLAPD_LDAP_DYNAMIC */
+#endif /* SLAPD_LDAP */
+
+int
+ldap_back_open(
+	BackendInfo *bi
+)
+{
+	bi->bi_controls = slap_known_controls;
+	return 0;
+}
 
 int
 ldap_back_initialize(
     BackendInfo	*bi
 )
 {
-	bi->bi_controls = slap_known_controls;
-
-	bi->bi_open = 0;
+	bi->bi_open = ldap_back_open;
 	bi->bi_config = 0;
 	bi->bi_close = 0;
 	bi->bi_destroy = 0;
@@ -87,14 +81,15 @@ ldap_back_initialize(
 	bi->bi_op_delete = ldap_back_delete;
 	bi->bi_op_abandon = 0;
 
-	bi->bi_extended = 0;
+	bi->bi_extended = ldap_back_extended;
 
-	bi->bi_acl_group = ldap_back_group;
-	bi->bi_acl_attribute = ldap_back_attribute;
 	bi->bi_chk_referrals = 0;
+	bi->bi_entry_get_rw = ldap_back_entry_get;
 
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = ldap_back_conn_destroy;
+
+	ldap_chain_setup();
 
 	return 0;
 }
@@ -112,25 +107,60 @@ ldap_back_db_init(
  		return -1;
  	}
 
+	li->binddn.bv_val = NULL;
+	li->binddn.bv_len = 0;
+	li->bindpw.bv_val = NULL;
+	li->bindpw.bv_len = 0;
+
+#ifdef LDAP_BACK_PROXY_AUTHZ
+	li->proxyauthzdn.bv_val = NULL;
+	li->proxyauthzdn.bv_len = 0;
+	li->proxyauthzpw.bv_val = NULL;
+	li->proxyauthzpw.bv_len = 0;
+#endif /* LDAP_BACK_PROXY_AUTHZ */
+
 #ifdef ENABLE_REWRITE
- 	li->rwinfo = rewrite_info_init( REWRITE_MODE_USE_DEFAULT );
-	if ( li->rwinfo == NULL ) {
+ 	li->rwmap.rwm_rw = rewrite_info_init( REWRITE_MODE_USE_DEFAULT );
+	if ( li->rwmap.rwm_rw == NULL ) {
  		ch_free( li );
  		return -1;
  	}
+
+	{
+		char	*rargv[3];
+
+		/*
+		 * the filter rewrite as a string must be disabled
+		 * by default; it can be re-enabled by adding rules;
+		 * this creates an empty rewriteContext
+		 */
+		rargv[ 0 ] = "rewriteContext";
+		rargv[ 1 ] = "searchFilter";
+		rargv[ 2 ] = NULL;
+		rewrite_parse( li->rwmap.rwm_rw, "<suffix massage>", 
+				1, 2, rargv );
+
+		rargv[ 0 ] = "rewriteContext";
+		rargv[ 1 ] = "default";
+		rargv[ 2 ] = NULL;
+		rewrite_parse( li->rwmap.rwm_rw, "<suffix massage>", 
+				1, 2, rargv );
+	}
 #endif /* ENABLE_REWRITE */
 
 	ldap_pvt_thread_mutex_init( &li->conn_mutex );
 
-	ldap_back_map_init( &li->at_map, &mapping );
+	ldap_back_map_init( &li->rwmap.rwm_oc, &mapping );
+	ldap_back_map_init( &li->rwmap.rwm_at, &mapping );
 
 	be->be_private = li;
+	SLAP_DBFLAGS(be) |= SLAP_DBFLAG_NOLASTMOD;
 
 	return 0;
 }
 
-static void
-conn_free( 
+void
+ldap_back_conn_free( 
 	void *v_lc
 )
 {
@@ -140,8 +170,13 @@ conn_free(
 		ch_free( lc->bound_dn.bv_val );
 	}
 	if ( lc->cred.bv_val ) {
+		memset( lc->cred.bv_val, 0, lc->cred.bv_len );
 		ch_free( lc->cred.bv_val );
 	}
+	if ( lc->local_dn.bv_val ) {
+		ch_free( lc->local_dn.bv_val );
+	}
+	ldap_pvt_thread_mutex_destroy( &lc->lc_mutex );
 	ch_free( lc );
 }
 
@@ -170,31 +205,45 @@ ldap_back_db_destroy(
 			ch_free(li->url);
 			li->url = NULL;
 		}
-		if (li->binddn) {
-			ch_free(li->binddn);
-			li->binddn = NULL;
+		if ( li->lud ) {
+			ldap_free_urldesc( li->lud );
+			li->lud = NULL;
 		}
-		if (li->bindpw) {
-			ch_free(li->bindpw);
-			li->bindpw = NULL;
+		if (li->binddn.bv_val) {
+			ch_free(li->binddn.bv_val);
+			li->binddn.bv_val = NULL;
 		}
+		if (li->bindpw.bv_val) {
+			ch_free(li->bindpw.bv_val);
+			li->bindpw.bv_val = NULL;
+		}
+#ifdef LDAP_BACK_PROXY_AUTHZ
+		if (li->proxyauthzdn.bv_val) {
+			ch_free(li->proxyauthzdn.bv_val);
+			li->proxyauthzdn.bv_val = NULL;
+		}
+		if (li->proxyauthzpw.bv_val) {
+			ch_free(li->proxyauthzpw.bv_val);
+			li->proxyauthzpw.bv_val = NULL;
+		}
+#endif /* LDAP_BACK_PROXY_AUTHZ */
                 if (li->conntree) {
-			avl_free( li->conntree, conn_free );
+			avl_free( li->conntree, ldap_back_conn_free );
 		}
 #ifdef ENABLE_REWRITE
-		if (li->rwinfo) {
-			rewrite_info_delete( li->rwinfo );
+		if (li->rwmap.rwm_rw) {
+			rewrite_info_delete( &li->rwmap.rwm_rw );
 		}
 #else /* !ENABLE_REWRITE */
-		if (li->suffix_massage) {
-  			ber_bvarray_free( li->suffix_massage );
+		if (li->rwmap.rwm_suffix_massage) {
+  			ber_bvarray_free( li->rwmap.rwm_suffix_massage );
  		}
 #endif /* !ENABLE_REWRITE */
 
-		avl_free( li->oc_map.remap, NULL );
-		avl_free( li->oc_map.map, mapping_free );
-		avl_free( li->at_map.remap, NULL );
-		avl_free( li->at_map.map, mapping_free );
+		avl_free( li->rwmap.rwm_oc.remap, NULL );
+		avl_free( li->rwmap.rwm_oc.map, mapping_free );
+		avl_free( li->rwmap.rwm_at.remap, NULL );
+		avl_free( li->rwmap.rwm_at.map, mapping_free );
 		
 		ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
 		ldap_pvt_thread_mutex_destroy( &li->conn_mutex );

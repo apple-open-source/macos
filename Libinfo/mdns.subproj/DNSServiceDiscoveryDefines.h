@@ -31,6 +31,7 @@ typedef char    DNSCString[1024];
 typedef char    sockaddr_t[128];
 
 typedef const char * record_data_t;
+typedef struct { char bytes[4]; } IPPort;
 
 #endif	/* __DNS_SERVICE_DISCOVERY_DEFINES_H */
 

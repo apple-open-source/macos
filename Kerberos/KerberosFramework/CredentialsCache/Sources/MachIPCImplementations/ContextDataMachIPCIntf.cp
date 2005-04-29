@@ -6,9 +6,11 @@ extern "C" {
 }
 
 #include "MachIPCInterface.h"
-#include "HandleBuffer.h"
-#include "ClassicProtocol.h"
-#include "ClassicSupport.h"
+#ifdef Classic_Ticket_Sharing
+#  include "HandleBuffer.h"
+#  include "ClassicProtocol.h"
+#  include "ClassicSupport.h"
+#endif
 
 #include <Kerberos/mach_server_utilities.h>
 
@@ -96,6 +98,7 @@ kern_return_t ContextIPC_CreateCCache (
 	CCIResult *outResult) {
 	
     try {
+#ifdef Classic_Ticket_Sharing
 		CCIHandleBuffer		buffer;
 		
 		if (CCIClassicSupport::KeepDiffs ()) {
@@ -112,15 +115,17 @@ kern_return_t ContextIPC_CreateCCache (
 			CCIClassicSupport::SaveOneDiff (buffer.GetHandle ());
 			buffer.ReleaseHandle ();
 		}
-
+#endif
+                
         CCIContextDataInterface	context (inContext);
         *outCCacheID = context -> CreateCCache (std::string (inCCacheName, inCCacheNameCnt), inCCacheVersion, std::string (inCCachePrincipal, inCCachePrincipalCnt)).object;
         *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
 	
 	if (*outResult != ccNoError) {
+#ifdef Classic_Ticket_Sharing
 		CCIClassicSupport::RemoveLastDiff ();
-        
+#endif        
         // Check to see if the ccache is empty (we launched to add this and failed).  
         // If it is, we should quit.
         if (CCIUniqueGlobally <CCICCacheData>::CountGloballyUniqueIDs () == 0) {
@@ -141,6 +146,7 @@ kern_return_t ContextIPC_CreateDefaultCCache (
 	CCIResult *outResult) {
 
     try {
+#ifdef Classic_Ticket_Sharing
 		CCIHandleBuffer		buffer;
 		
 		if (CCIClassicSupport::KeepDiffs ()) {
@@ -155,15 +161,16 @@ kern_return_t ContextIPC_CreateDefaultCCache (
 			CCIClassicSupport::SaveOneDiff (buffer.GetHandle ());
 			buffer.ReleaseHandle ();
 		}
-
+#endif
         CCIContextDataInterface	context (inContext);
         *outCCacheID = context -> CreateDefaultCCache (inCCacheVersion, std::string (inCCachePrincipal, inCCachePrincipalCnt)).object;
         *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
     
 	if (*outResult != ccNoError) {
+#ifdef Classic_Ticket_Sharing
 		CCIClassicSupport::RemoveLastDiff ();
-        
+#endif        
         // Check to see if the ccache is empty (we launched to add this and failed).  
         // If it is, we should quit.
         if (CCIUniqueGlobally <CCICCacheData>::CountGloballyUniqueIDs () == 0) {
@@ -184,6 +191,7 @@ kern_return_t ContextIPC_CreateNewCCache (
 	CCIResult *outResult) {
 
     try {
+#ifdef Classic_Ticket_Sharing
 		CCIHandleBuffer		buffer;
 		
 		if (CCIClassicSupport::KeepDiffs ()) {
@@ -198,7 +206,8 @@ kern_return_t ContextIPC_CreateNewCCache (
 			CCIClassicSupport::SaveOneDiff (buffer.GetHandle ());
 			buffer.ReleaseHandle ();
 		}
-
+#endif
+                
         CCIContextDataInterface	context (inContext);
 
         *outCCacheID = context -> CreateNewCCache (inCCacheVersion, std::string (inCCachePrincipal, inCCachePrincipalCnt)).object;
@@ -206,8 +215,10 @@ kern_return_t ContextIPC_CreateNewCCache (
     } CatchForIPCReturn_ (outResult)
     
 	if (*outResult != ccNoError) {
+#ifdef Classic_Ticket_Sharing
 		CCIClassicSupport::RemoveLastDiff ();
-        
+#endif
+            
         // Check to see if the ccache is empty (we launched to add this and failed).  
         // If it is, we should quit.
         if (CCIUniqueGlobally <CCICCacheData>::CountGloballyUniqueIDs () == 0) {

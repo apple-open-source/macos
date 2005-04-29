@@ -2,23 +2,33 @@
 
   parse.y -
 
-  $Author: melville $
-  $Date: 2003/05/14 13:58:44 $
+  $Author: matz $
+  $Date: 2004/11/29 06:13:51 $
   created at: Fri May 28 18:02:42 JST 1993
 
-  Copyright (C) 1993-2001 Yukihiro Matsumoto
+  Copyright (C) 1993-2003 Yukihiro Matsumoto
 
 **********************************************************************/
 
 %{
 
 #define YYDEBUG 1
+
 #include "ruby.h"
 #include "env.h"
+#include "intern.h"
 #include "node.h"
 #include "st.h"
 #include <stdio.h>
 #include <errno.h>
+#include <ctype.h>
+
+#define yyparse ruby_yyparse
+#define yylex ruby_yylex
+#define yyerror ruby_yyerror
+#define yylval ruby_yylval
+#define yychar ruby_yychar
+#define yydebug ruby_yydebug
 
 #define ID_SCOPE_SHIFT 3
 #define ID_SCOPE_MASK 0x07
@@ -28,14 +38,22 @@
 #define ID_ATTRSET  0x04
 #define ID_CONST    0x05
 #define ID_CLASS    0x06
+#define ID_JUNK     0x07
+#define ID_INTERNAL ID_JUNK
 
-#define is_notop_id(id) ((id)>LAST_TOKEN)
+#define is_notop_id(id) ((id)>tLAST_TOKEN)
 #define is_local_id(id) (is_notop_id(id)&&((id)&ID_SCOPE_MASK)==ID_LOCAL)
 #define is_global_id(id) (is_notop_id(id)&&((id)&ID_SCOPE_MASK)==ID_GLOBAL)
 #define is_instance_id(id) (is_notop_id(id)&&((id)&ID_SCOPE_MASK)==ID_INSTANCE)
 #define is_attrset_id(id) (is_notop_id(id)&&((id)&ID_SCOPE_MASK)==ID_ATTRSET)
 #define is_const_id(id) (is_notop_id(id)&&((id)&ID_SCOPE_MASK)==ID_CONST)
 #define is_class_id(id) (is_notop_id(id)&&((id)&ID_SCOPE_MASK)==ID_CLASS)
+#define is_junk_id(id) (is_notop_id(id)&&((id)&ID_SCOPE_MASK)==ID_JUNK)
+
+#define is_asgn_or_id(id) ((is_notop_id(id)) && \
+	(((id)&ID_SCOPE_MASK) == ID_GLOBAL || \
+	 ((id)&ID_SCOPE_MASK) == ID_INSTANCE || \
+	 ((id)&ID_SCOPE_MASK) == ID_CLASS))
 
 NODE *ruby_eval_tree_begin = 0;
 NODE *ruby_eval_tree = 0;
@@ -50,40 +68,37 @@ static enum lex_state {
     EXPR_BEG,			/* ignore newline, +/- is a sign. */
     EXPR_END,			/* newline significant, +/- is a operator. */
     EXPR_ARG,			/* newline significant, +/- is a operator. */
+    EXPR_CMDARG,		/* newline significant, +/- is a operator. */
+    EXPR_ENDARG,		/* newline significant, +/- is a operator. */
     EXPR_MID,			/* newline significant, +/- is a operator. */
     EXPR_FNAME,			/* ignore newline, no reserved words. */
     EXPR_DOT,			/* right after `.' or `::', no reserved words. */
     EXPR_CLASS,			/* immediate after `class', no here document. */
 } lex_state;
+static NODE *lex_strterm;
 
-#if SIZEOF_LONG_LONG > 0
-typedef unsigned long long stack_type;
-#elif SIZEOF___INT64 > 0
-typedef unsigned __int64 stack_type;
+#ifdef HAVE_LONG_LONG
+typedef unsigned LONG_LONG stack_type;
 #else
 typedef unsigned long stack_type;
 #endif
 
-static int cond_nest = 0;
+#define BITSTACK_PUSH(stack, n)	(stack = (stack<<1)|((n)&1))
+#define BITSTACK_POP(stack)	(stack >>= 1)
+#define BITSTACK_LEXPOP(stack)	(stack = (stack >> 1) | (stack & 1))
+#define BITSTACK_SET_P(stack)	(stack&1)
+
 static stack_type cond_stack = 0;
-#define COND_PUSH do {\
-    cond_nest++;\
-    cond_stack = (cond_stack<<1)|1;\
-} while(0)
-#define COND_POP do {\
-    cond_nest--;\
-    cond_stack >>= 1;\
-} while (0)
-#define COND_P() (cond_nest > 0 && (cond_stack&1))
+#define COND_PUSH(n)	BITSTACK_PUSH(cond_stack, n)
+#define COND_POP()	BITSTACK_POP(cond_stack)
+#define COND_LEXPOP()	BITSTACK_LEXPOP(cond_stack)
+#define COND_P()	BITSTACK_SET_P(cond_stack)
 
 static stack_type cmdarg_stack = 0;
-#define CMDARG_PUSH do {\
-    cmdarg_stack = (cmdarg_stack<<1)|1;\
-} while(0)
-#define CMDARG_POP do {\
-    cmdarg_stack >>= 1;\
-} while (0)
-#define CMDARG_P() (cmdarg_stack && (cmdarg_stack&1))
+#define CMDARG_PUSH(n)	BITSTACK_PUSH(cmdarg_stack, n)
+#define CMDARG_POP()	BITSTACK_POP(cmdarg_stack)
+#define CMDARG_LEXPOP()	BITSTACK_LEXPOP(cmdarg_stack)
+#define CMDARG_P()	BITSTACK_SET_P(cmdarg_stack)
 
 static int class_nest = 0;
 static int in_single = 0;
@@ -93,6 +108,7 @@ static ID cur_mid = 0;
 
 static NODE *cond();
 static NODE *logop();
+static int cond_negative();
 
 static NODE *newline_node();
 static void fixpos();
@@ -108,13 +124,20 @@ static NODE *block_append();
 static NODE *list_append();
 static NODE *list_concat();
 static NODE *arg_concat();
+static NODE *arg_prepend();
+static NODE *literal_concat();
+static NODE *new_evstr();
+static NODE *evstr2dstr();
 static NODE *call_op();
 static int in_defined = 0;
 
+static NODE *negate_lit();
+static NODE *ret_args();
 static NODE *arg_blk_pass();
 static NODE *new_call();
 static NODE *new_fcall();
 static NODE *new_super();
+static NODE *new_yield();
 
 static NODE *gettable();
 static NODE *assignable();
@@ -130,18 +153,43 @@ static int  local_append();
 static int  local_cnt();
 static int  local_id();
 static ID  *local_tbl();
+static ID   internal_id();
 
 static struct RVarmap *dyna_push();
 static void dyna_pop();
 static int dyna_in_block();
+static NODE *dyna_init();
 
 static void top_local_init();
 static void top_local_setup();
+
+#define RE_OPTION_ONCE 0x80
+
+#define NODE_STRTERM NODE_ZARRAY	/* nothing to gc */
+#define NODE_HEREDOC NODE_ARRAY 	/* 1, 3 to gc */
+#define SIGN_EXTEND(x,n) (((1<<(n)-1)^((x)&~(~0<<(n))))-(1<<(n)-1))
+#define nd_func u1.id
+#if SIZEOF_SHORT == 2
+#define nd_term(node) ((signed short)(node)->u2.id)
+#else
+#define nd_term(node) SIGN_EXTEND((node)->u2.id, CHAR_BIT*2)
+#endif
+#define nd_paren(node) (char)((node)->u2.id >> CHAR_BIT*2)
+#define nd_nest u3.id
+
+/* Older versions of Yacc set YYMAXDEPTH to a very low value by default (150,
+   for instance).  This is too low for Ruby to parse some files, such as
+   date/format.rb, therefore bump the value up to at least Bison's default. */
+#ifdef OLD_YACC
+#ifndef YYMAXDEPTH
+#define YYMAXDEPTH 10000
+#endif
+#endif
+
 %}
 
 %union {
     NODE *node;
-    VALUE val;
     ID id;
     int num;
     struct RVarmap *vars;
@@ -196,19 +244,23 @@ static void top_local_setup();
 	k__FILE__
 
 %token <id>   tIDENTIFIER tFID tGVAR tIVAR tCONSTANT tCVAR
-%token <val>  tINTEGER tFLOAT tSTRING tXSTRING tREGEXP
-%token <node> tDSTRING tDXSTRING tDREGEXP tNTH_REF tBACK_REF tQWORDS
+%token <node> tINTEGER tFLOAT tSTRING_CONTENT
+%token <node> tNTH_REF tBACK_REF
+%token <num>  tREGEXP_END
 
-%type <node> singleton string
-%type <val>  literal numeric
-%type <node> compstmt stmts stmt expr arg primary command command_call method_call
-%type <node> if_tail opt_else case_body cases rescue exc_list exc_var ensure
-%type <node> args ret_args when_args call_args paren_args opt_paren_args
-%type <node> command_args aref_args opt_block_arg block_arg var_ref
-%type <node> mrhs mrhs_basic superclass block_call block_command
+%type <node> singleton strings string string1 xstring regexp
+%type <node> string_contents xstring_contents string_content
+%type <node> words qwords word_list qword_list word
+%type <node> literal numeric dsym cpath
+%type <node> bodystmt compstmt stmts stmt expr arg primary command command_call method_call
+%type <node> expr_value arg_value primary_value
+%type <node> if_tail opt_else case_body cases opt_rescue exc_list exc_var opt_ensure
+%type <node> args when_args call_args call_args2 open_args paren_args opt_paren_args
+%type <node> command_args aref_args opt_block_arg block_arg var_ref var_lhs
+%type <node> mrhs superclass block_call block_command
 %type <node> f_arglist f_args f_optarg f_opt f_block_arg opt_f_block_arg
-%type <node> assoc_list assocs assoc undef_list backref
-%type <node> block_var opt_block_var brace_block do_block lhs none
+%type <node> assoc_list assocs assoc undef_list backref string_dvar
+%type <node> block_var opt_block_var brace_block cmd_brace_block do_block lhs none
 %type <node> mlhs mlhs_head mlhs_basic mlhs_entry mlhs_item mlhs_node
 %type <id>   fitem variable sym symbol operation operation2 operation3
 %type <id>   cname fname op f_rest_arg
@@ -232,21 +284,29 @@ static void top_local_setup();
 %token <id> tOP_ASGN	/* +=, -=  etc. */
 %token tASSOC		/* => */
 %token tLPAREN		/* ( */
+%token tLPAREN_ARG	/* ( */
+%token tRPAREN		/* ) */
 %token tLBRACK		/* [ */
 %token tLBRACE		/* { */
+%token tLBRACE_ARG	/* { */
 %token tSTAR		/* * */
 %token tAMPER		/* & */
-%token tSYMBEG
+%token tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG tWORDS_BEG tQWORDS_BEG
+%token tSTRING_DBEG tSTRING_DVAR tSTRING_END
 
 /*
  *	precedence table
  */
 
-%left  kIF_MOD kUNLESS_MOD kWHILE_MOD kUNTIL_MOD kRESCUE_MOD
+%nonassoc tLOWEST
+%nonassoc tLBRACE_ARG
+
+%nonassoc  kIF_MOD kUNLESS_MOD kWHILE_MOD kUNTIL_MOD
 %left  kOR kAND
 %right kNOT
 %nonassoc kDEFINED
 %right '=' tOP_ASGN
+%left kRESCUE_MOD
 %right '?' ':'
 %nonassoc tDOT2 tDOT3
 %left  tOROP
@@ -258,17 +318,17 @@ static void top_local_setup();
 %left  tLSHFT tRSHFT
 %left  '+' '-'
 %left  '*' '/' '%'
-%right '!' '~' tUPLUS tUMINUS
+%right tUMINUS_NUM tUMINUS
 %right tPOW
+%right '!' '~' tUPLUS
 
-%token LAST_TOKEN
+%token tLAST_TOKEN
 
 %%
 program		:  {
-		        $<vars>$ = ruby_dyna_vars;
 			lex_state = EXPR_BEG;
                         top_local_init();
-			if ((VALUE)ruby_class == rb_cObject) class_nest = 0;
+			if (ruby_class == rb_cObject) class_nest = 0;
 			else class_nest = 1;
 		    }
 		  compstmt
@@ -287,14 +347,33 @@ program		:  {
 			ruby_eval_tree = block_append(ruby_eval_tree, $2);
                         top_local_setup();
 			class_nest = 0;
-		        ruby_dyna_vars = $<vars>1;
+		    }
+		;
+
+bodystmt	: compstmt
+		  opt_rescue
+		  opt_else
+		  opt_ensure
+		    {
+		        $$ = $1;
+			if ($2) {
+			    $$ = NEW_RESCUE($1, $2, $3);
+			}
+			else if ($3) {
+			    rb_warn("else without rescue is useless");
+			    $$ = block_append($$, $3);
+			}
+			if ($4) {
+			    $$ = NEW_ENSURE($$, $4);
+			}
+			fixpos($$, $1);
 		    }
 		;
 
 compstmt	: stmts opt_terms
 		    {
 			void_stmts($1);
-			$$ = $1;
+		        $$ = $1;
 		    }
 		;
 
@@ -315,23 +394,17 @@ stmts		: none
 
 stmt		: kALIAS fitem {lex_state = EXPR_FNAME;} fitem
 		    {
-			if (in_def || in_single)
-			    yyerror("alias within method");
 		        $$ = NEW_ALIAS($2, $4);
 		    }
 		| kALIAS tGVAR tGVAR
 		    {
-			if (in_def || in_single)
-			    yyerror("alias within method");
 		        $$ = NEW_VALIAS($2, $3);
 		    }
 		| kALIAS tGVAR tBACK_REF
 		    {
 			char buf[3];
 
-			if (in_def || in_single)
-			    yyerror("alias within method");
-			sprintf(buf, "$%c", (int)$3->nd_nth);
+			sprintf(buf, "$%c", (char)$3->nd_nth);
 		        $$ = NEW_VALIAS($2, rb_intern(buf));
 		    }
 		| kALIAS tGVAR tNTH_REF
@@ -341,40 +414,48 @@ stmt		: kALIAS fitem {lex_state = EXPR_FNAME;} fitem
 		    }
 		| kUNDEF undef_list
 		    {
-			if (in_def || in_single)
-			    yyerror("undef within method");
 			$$ = $2;
 		    }
-		| stmt kIF_MOD expr
+		| stmt kIF_MOD expr_value
 		    {
-			value_expr($3);
 			$$ = NEW_IF(cond($3), $1, 0);
 		        fixpos($$, $3);
+			if (cond_negative(&$$->nd_cond)) {
+		            $$->nd_else = $$->nd_body;
+		            $$->nd_body = 0;
+			}
 		    }
-		| stmt kUNLESS_MOD expr
+		| stmt kUNLESS_MOD expr_value
 		    {
-			value_expr($3);
 			$$ = NEW_UNLESS(cond($3), $1, 0);
 		        fixpos($$, $3);
+			if (cond_negative(&$$->nd_cond)) {
+		            $$->nd_body = $$->nd_else;
+		            $$->nd_else = 0;
+			}
 		    }
-		| stmt kWHILE_MOD expr
+		| stmt kWHILE_MOD expr_value
 		    {
-			value_expr($3);
 			if ($1 && nd_type($1) == NODE_BEGIN) {
 			    $$ = NEW_WHILE(cond($3), $1->nd_body, 0);
 			}
 			else {
 			    $$ = NEW_WHILE(cond($3), $1, 1);
 			}
+			if (cond_negative(&$$->nd_cond)) {
+			    nd_set_type($$, NODE_UNTIL);
+			}
 		    }
-		| stmt kUNTIL_MOD expr
+		| stmt kUNTIL_MOD expr_value
 		    {
-			value_expr($3);
 			if ($1 && nd_type($1) == NODE_BEGIN) {
 			    $$ = NEW_UNTIL(cond($3), $1->nd_body, 0);
 			}
 			else {
 			    $$ = NEW_UNTIL(cond($3), $1, 1);
+			}
+			if (cond_negative(&$$->nd_cond)) {
+			    nd_set_type($$, NODE_WHILE);
 			}
 		    }
 		| stmt kRESCUE_MOD stmt
@@ -397,8 +478,8 @@ stmt		: kALIAS fitem {lex_state = EXPR_FNAME;} fitem
 		    }
 		| klEND '{' compstmt '}'
 		    {
-			if (compile_for_eval && (in_def || in_single)) {
-			    yyerror("END in method; use at_exit");
+			if (in_def || in_single) {
+			    rb_warn("END in method; use at_exit");
 			}
 
 			$$ = NEW_ITER(0, NEW_POSTEXE(), $3);
@@ -410,29 +491,112 @@ stmt		: kALIAS fitem {lex_state = EXPR_FNAME;} fitem
 		| mlhs '=' command_call
 		    {
 			value_expr($3);
-			$1->nd_value = $3;
+			$1->nd_value = ($1->nd_head) ? NEW_TO_ARY($3) : NEW_ARRAY($3);
 			$$ = $1;
 		    }
-		| lhs '=' mrhs_basic
+		| var_lhs tOP_ASGN command_call
 		    {
-			$$ = node_assign($1, $3);
+			value_expr($3);
+			if ($1) {
+			    ID vid = $1->nd_vid;
+			    if ($2 == tOROP) {
+				$1->nd_value = $3;
+				$$ = NEW_OP_ASGN_OR(gettable(vid), $1);
+				if (is_asgn_or_id(vid)) {
+				    $$->nd_aid = vid;
+				}
+			    }
+			    else if ($2 == tANDOP) {
+				$1->nd_value = $3;
+				$$ = NEW_OP_ASGN_AND(gettable(vid), $1);
+			    }
+			    else {
+				$$ = $1;
+				$$->nd_value = call_op(gettable(vid),$2,1,$3);
+			    }
+			}
+			else {
+			    $$ = 0;
+			}
+		    }
+		| primary_value '[' aref_args ']' tOP_ASGN command_call
+		    {
+                        NODE *args;
+
+			value_expr($6);
+		        args = NEW_LIST($6);
+			if ($3 && nd_type($3) != NODE_ARRAY)
+			    $3 = NEW_LIST($3);
+			$3 = list_append($3, NEW_NIL());
+			list_concat(args, $3);
+			if ($5 == tOROP) {
+			    $5 = 0;
+			}
+			else if ($5 == tANDOP) {
+			    $5 = 1;
+			}
+			$$ = NEW_OP_ASGN1($1, $5, args);
+		        fixpos($$, $1);
+		    }
+		| primary_value '.' tIDENTIFIER tOP_ASGN command_call
+		    {
+			value_expr($5);
+			if ($4 == tOROP) {
+			    $4 = 0;
+			}
+			else if ($4 == tANDOP) {
+			    $4 = 1;
+			}
+			$$ = NEW_OP_ASGN2($1, $3, $4, $5);
+		        fixpos($$, $1);
+		    }
+		| primary_value '.' tCONSTANT tOP_ASGN command_call
+		    {
+			value_expr($5);
+			if ($4 == tOROP) {
+			    $4 = 0;
+			}
+			else if ($4 == tANDOP) {
+			    $4 = 1;
+			}
+			$$ = NEW_OP_ASGN2($1, $3, $4, $5);
+		        fixpos($$, $1);
+		    }
+		| primary_value tCOLON2 tIDENTIFIER tOP_ASGN command_call
+		    {
+			value_expr($5);
+			if ($4 == tOROP) {
+			    $4 = 0;
+			}
+			else if ($4 == tANDOP) {
+			    $4 = 1;
+			}
+			$$ = NEW_OP_ASGN2($1, $3, $4, $5);
+		        fixpos($$, $1);
+		    }
+		| backref tOP_ASGN command_call
+		    {
+		        rb_backref_error($1);
+			$$ = 0;
+		    }
+		| lhs '=' mrhs
+		    {
+			$$ = node_assign($1, NEW_SVALUE($3));
+		    }
+		| mlhs '=' arg_value
+		    {
+			$1->nd_value = ($1->nd_head) ? NEW_TO_ARY($3) : NEW_ARRAY($3);
+			$$ = $1;
+		    }
+		| mlhs '=' mrhs
+		    {
+			$1->nd_value = $3;
+			$$ = $1;
 		    }
 		| expr
 		;
 
-expr		: mlhs '=' mrhs
-		    {
-			value_expr($3);
-			$1->nd_value = $3;
-			$$ = $1;
-		    }
-		| kRETURN ret_args
-		    {
-			if (!compile_for_eval && !in_def && !in_single)
-			    yyerror("return appeared outside of method");
-			$$ = NEW_RETURN($2);
-		    }
-		| command_call
+expr		: command_call
 		| expr kAND expr
 		    {
 			$$ = logop(NODE_AND, $1, $3);
@@ -443,61 +607,123 @@ expr		: mlhs '=' mrhs
 		    }
 		| kNOT expr
 		    {
-			value_expr($2);
 			$$ = NEW_NOT(cond($2));
 		    }
 		| '!' command_call
 		    {
-			value_expr($2);
 			$$ = NEW_NOT(cond($2));
 		    }
 		| arg
 		;
 
+expr_value	: expr
+		    {
+			value_expr($$);
+			$$ = $1;
+		    }
+		;
+
 command_call	: command
 		| block_command
+		| kRETURN call_args
+		    {
+			$$ = NEW_RETURN(ret_args($2));
+		    }
+		| kBREAK call_args
+		    {
+			$$ = NEW_BREAK(ret_args($2));
+		    }
+		| kNEXT call_args
+		    {
+			$$ = NEW_NEXT(ret_args($2));
+		    }
 		;
 
 block_command	: block_call
 		| block_call '.' operation2 command_args
 		    {
-			value_expr($1);
 			$$ = new_call($1, $3, $4);
 		    }
 		| block_call tCOLON2 operation2 command_args
 		    {
-			value_expr($1);
 			$$ = new_call($1, $3, $4);
 		    }
 		;
 
-command		:  operation command_args
+cmd_brace_block	: tLBRACE_ARG
+		    {
+			$<vars>$ = dyna_push();
+			$<num>1 = ruby_sourceline;
+		    }
+		  opt_block_var {$<vars>$ = ruby_dyna_vars;}
+		  compstmt
+		  '}'
+		    {
+			$$ = NEW_ITER($3, 0, dyna_init($5, $<vars>4));
+			nd_set_line($$, $<num>1);
+			dyna_pop($<vars>2);
+		    }
+		;
+
+command		: operation command_args       %prec tLOWEST
 		    {
 			$$ = new_fcall($1, $2);
 		        fixpos($$, $2);
 		   }
-		| primary '.' operation2 command_args
+		| operation command_args cmd_brace_block
 		    {
-			value_expr($1);
+			$$ = new_fcall($1, $2);
+			if ($3) {
+			    if (nd_type($$) == NODE_BLOCK_PASS) {
+				rb_compile_error("both block arg and actual block given");
+			    }
+			    $3->nd_iter = $$;
+			    $$ = $3;
+			}
+		        fixpos($$, $2);
+		   }
+		| primary_value '.' operation2 command_args	%prec tLOWEST
+		    {
 			$$ = new_call($1, $3, $4);
 		        fixpos($$, $1);
 		    }
-		| primary tCOLON2 operation2 command_args
+		| primary_value '.' operation2 command_args cmd_brace_block
 		    {
-			value_expr($1);
+			$$ = new_call($1, $3, $4);
+			if ($5) {
+			    if (nd_type($$) == NODE_BLOCK_PASS) {
+				rb_compile_error("both block arg and actual block given");
+			    }
+			    $5->nd_iter = $$;
+			    $$ = $5;
+			}
+		        fixpos($$, $1);
+		   }
+		| primary_value tCOLON2 operation2 command_args	%prec tLOWEST
+		    {
 			$$ = new_call($1, $3, $4);
 		        fixpos($$, $1);
 		    }
+		| primary_value tCOLON2 operation2 command_args cmd_brace_block
+		    {
+			$$ = new_call($1, $3, $4);
+			if ($5) {
+			    if (nd_type($$) == NODE_BLOCK_PASS) {
+				rb_compile_error("both block arg and actual block given");
+			    }
+			    $5->nd_iter = $$;
+			    $$ = $5;
+			}
+		        fixpos($$, $1);
+		   }
 		| kSUPER command_args
 		    {
-			if (!compile_for_eval && !in_def && !in_single)
-			    yyerror("super called outside of method");
 			$$ = new_super($2);
 		        fixpos($$, $2);
 		    }
-		| kYIELD ret_args
+		| kYIELD command_args
 		    {
-			$$ = NEW_YIELD($2);
+			$$ = new_yield($2);
 		        fixpos($$, $2);
 		    }
 		;
@@ -563,21 +789,33 @@ mlhs_node	: variable
 		    {
 			$$ = assignable($1, 0);
 		    }
-		| primary '[' aref_args ']'
+		| primary_value '[' aref_args ']'
 		    {
 			$$ = aryset($1, $3);
 		    }
-		| primary '.' tIDENTIFIER
+		| primary_value '.' tIDENTIFIER
 		    {
 			$$ = attrset($1, $3);
 		    }
-		| primary tCOLON2 tIDENTIFIER
+		| primary_value tCOLON2 tIDENTIFIER
 		    {
 			$$ = attrset($1, $3);
 		    }
-		| primary '.' tCONSTANT
+		| primary_value '.' tCONSTANT
 		    {
 			$$ = attrset($1, $3);
+		    }
+		| primary_value tCOLON2 tCONSTANT
+		    {
+			if (in_def || in_single)
+			    yyerror("dynamic constant assignment");
+			$$ = NEW_CDECL(0, 0, NEW_COLON2($1, $3));
+		    }
+		| tCOLON3 tCONSTANT
+		    {
+			if (in_def || in_single)
+			    yyerror("dynamic constant assignment");
+			$$ = NEW_CDECL(0, 0, NEW_COLON3($2));
 		    }
 		| backref
 		    {
@@ -590,21 +828,33 @@ lhs		: variable
 		    {
 			$$ = assignable($1, 0);
 		    }
-		| primary '[' aref_args ']'
+		| primary_value '[' aref_args ']'
 		    {
 			$$ = aryset($1, $3);
 		    }
-		| primary '.' tIDENTIFIER
+		| primary_value '.' tIDENTIFIER
 		    {
 			$$ = attrset($1, $3);
 		    }
-		| primary tCOLON2 tIDENTIFIER
+		| primary_value tCOLON2 tIDENTIFIER
 		    {
 			$$ = attrset($1, $3);
 		    }
-		| primary '.' tCONSTANT
+		| primary_value '.' tCONSTANT
 		    {
 			$$ = attrset($1, $3);
+		    }
+		| primary_value tCOLON2 tCONSTANT
+		    {
+			if (in_def || in_single)
+			    yyerror("dynamic constant assignment");
+			$$ = NEW_CDECL(0, 0, NEW_COLON2($1, $3));
+		    }
+		| tCOLON3 tCONSTANT
+		    {
+			if (in_def || in_single)
+			    yyerror("dynamic constant assignment");
+			$$ = NEW_CDECL(0, 0, NEW_COLON3($2));
 		    }
 		| backref
 		    {
@@ -618,6 +868,20 @@ cname		: tIDENTIFIER
 			yyerror("class/module name must be CONSTANT");
 		    }
 		| tCONSTANT
+		;
+
+cpath		: tCOLON3 cname
+		    {
+			$$ = NEW_COLON3($2);
+		    }
+		| cname
+		    {
+			$$ = NEW_COLON2(0, $$);
+		    }
+		| primary_value tCOLON2 cname
+		    {
+			$$ = NEW_COLON2($1, $3);
+		    }
 		;
 
 fname		: tIDENTIFIER
@@ -680,46 +944,53 @@ op		: '|'		{ $$ = '|'; }
 reswords	: k__LINE__ | k__FILE__  | klBEGIN | klEND
 		| kALIAS | kAND | kBEGIN | kBREAK | kCASE | kCLASS | kDEF
 		| kDEFINED | kDO | kELSE | kELSIF | kEND | kENSURE | kFALSE
-		| kFOR | kIF_MOD | kIN | kMODULE | kNEXT | kNIL | kNOT
+		| kFOR | kIN | kMODULE | kNEXT | kNIL | kNOT
 		| kOR | kREDO | kRESCUE | kRETRY | kRETURN | kSELF | kSUPER
-		| kTHEN | kTRUE | kUNDEF | kUNLESS_MOD | kUNTIL_MOD | kWHEN
-		| kWHILE_MOD | kYIELD | kRESCUE_MOD
+		| kTHEN | kTRUE | kUNDEF | kWHEN | kYIELD
+		| kIF_MOD | kUNLESS_MOD | kWHILE_MOD | kUNTIL_MOD | kRESCUE_MOD
 		;
 
 arg		: lhs '=' arg
 		    {
 			$$ = node_assign($1, $3);
 		    }
-		| variable tOP_ASGN {$$ = assignable($1, 0);} arg
+		| lhs '=' arg kRESCUE_MOD arg
 		    {
-			value_expr($4);
-			if ($<node>3) {
+			$$ = node_assign($1, NEW_RESCUE($3, NEW_RESBODY(0,$5,0), 0));
+		    }
+		| var_lhs tOP_ASGN arg
+		    {
+			value_expr($3);
+			if ($1) {
+			    ID vid = $1->nd_vid;
 			    if ($2 == tOROP) {
-				$<node>3->nd_value = $4;
-				$$ = NEW_OP_ASGN_OR(gettable($1), $<node>3);
-				if (is_instance_id($1)) {
-				    $$->nd_aid = $1;
+				$1->nd_value = $3;
+				$$ = NEW_OP_ASGN_OR(gettable(vid), $1);
+				if (is_asgn_or_id(vid)) {
+				    $$->nd_aid = vid;
 				}
 			    }
 			    else if ($2 == tANDOP) {
-				$<node>3->nd_value = $4;
-				$$ = NEW_OP_ASGN_AND(gettable($1), $<node>3);
+				$1->nd_value = $3;
+				$$ = NEW_OP_ASGN_AND(gettable(vid), $1);
 			    }
 			    else {
-				$$ = $<node>3;
-				$$->nd_value = call_op(gettable($1),$2,1,$4);
+				$$ = $1;
+				$$->nd_value = call_op(gettable(vid),$2,1,$3);
 			    }
-			    fixpos($$, $4);
 			}
 			else {
 			    $$ = 0;
 			}
 		    }
-		| primary '[' aref_args ']' tOP_ASGN arg
+		| primary_value '[' aref_args ']' tOP_ASGN arg
 		    {
-                        NODE *args = NEW_LIST($6);
+                        NODE *args;
 
 			value_expr($6);
+			args = NEW_LIST($6);
+			if ($3 && nd_type($3) != NODE_ARRAY)
+			    $3 = NEW_LIST($3);
 			$3 = list_append($3, NEW_NIL());
 			list_concat(args, $3);
 			if ($5 == tOROP) {
@@ -731,7 +1002,7 @@ arg		: lhs '=' arg
 			$$ = NEW_OP_ASGN1($1, $5, args);
 		        fixpos($$, $1);
 		    }
-		| primary '.' tIDENTIFIER tOP_ASGN arg
+		| primary_value '.' tIDENTIFIER tOP_ASGN arg
 		    {
 			value_expr($5);
 			if ($4 == tOROP) {
@@ -743,7 +1014,7 @@ arg		: lhs '=' arg
 			$$ = NEW_OP_ASGN2($1, $3, $4, $5);
 		        fixpos($$, $1);
 		    }
-		| primary '.' tCONSTANT tOP_ASGN arg
+		| primary_value '.' tCONSTANT tOP_ASGN arg
 		    {
 			value_expr($5);
 			if ($4 == tOROP) {
@@ -755,7 +1026,7 @@ arg		: lhs '=' arg
 			$$ = NEW_OP_ASGN2($1, $3, $4, $5);
 		        fixpos($$, $1);
 		    }
-		| primary tCOLON2 tIDENTIFIER tOP_ASGN arg
+		| primary_value tCOLON2 tIDENTIFIER tOP_ASGN arg
 		    {
 			value_expr($5);
 			if ($4 == tOROP) {
@@ -766,6 +1037,16 @@ arg		: lhs '=' arg
 			}
 			$$ = NEW_OP_ASGN2($1, $3, $4, $5);
 		        fixpos($$, $1);
+		    }
+		| primary_value tCOLON2 tCONSTANT tOP_ASGN arg
+		    {
+			yyerror("constant re-assignment");
+			$$ = 0;
+		    }
+		| tCOLON3 tCONSTANT tOP_ASGN arg
+		    {
+			yyerror("constant re-assignment");
+			$$ = 0;
 		    }
 		| backref tOP_ASGN arg
 		    {
@@ -806,26 +1087,15 @@ arg		: lhs '=' arg
 		    }
 		| arg tPOW arg
 		    {
-			int need_negate = Qfalse;
-
-			if ($1 && nd_type($1) == NODE_LIT) {
-
-			    switch (TYPE($1->nd_lit)) {
-			      case T_FIXNUM:
-			      case T_FLOAT:
-			      case T_BIGNUM:
-				if (RTEST(rb_funcall($1->nd_lit,'<',1,INT2FIX(0)))) {
-				    $1->nd_lit = rb_funcall($1->nd_lit,rb_intern("-@"),0,0);
-				    need_negate = Qtrue;
-				}
-			      default:
-				break;
-			    }
-			}
 			$$ = call_op($1, tPOW, 1, $3);
-			if (need_negate) {
-			    $$ = call_op($$, tUMINUS, 0, 0);
-			}
+		    }
+		| tUMINUS_NUM tINTEGER tPOW arg
+		    {
+			$$ = call_op(call_op($2, tPOW, 1, $4), tUMINUS, 0, 0);
+		    }
+		| tUMINUS_NUM tFLOAT tPOW arg
+		    {
+			$$ = call_op(call_op($2, tPOW, 1, $4), tUMINUS, 0, 0);
 		    }
 		| tUPLUS arg
 		    {
@@ -838,15 +1108,7 @@ arg		: lhs '=' arg
 		    }
 		| tUMINUS arg
 		    {
-			if ($2 && nd_type($2) == NODE_LIT && FIXNUM_P($2->nd_lit)) {
-			    long i = FIX2LONG($2->nd_lit);
-
-			    $2->nd_lit = INT2NUM(-i);
-			    $$ = $2;
-			}
-			else {
-			    $$ = call_op($2, tUMINUS, 0, 0);
-			}
+			$$ = call_op($2, tUMINUS, 0, 0);
 		    }
 		| arg '|' arg
 		    {
@@ -902,7 +1164,6 @@ arg		: lhs '=' arg
 		    }
 		| '!' arg
 		    {
-			value_expr($2);
 			$$ = NEW_NOT(cond($2));
 		    }
 		| '~' arg
@@ -932,7 +1193,6 @@ arg		: lhs '=' arg
 		    }
 		| arg '?' arg ':' arg
 		    {
-			value_expr($1);
 			$$ = NEW_IF(cond($1), $3, $5);
 		        fixpos($$, $1);
 		    }
@@ -942,14 +1202,18 @@ arg		: lhs '=' arg
 		    }
 		;
 
-aref_args	: none
-		| command_call opt_nl
+arg_value	: arg
 		    {
-			$$ = NEW_LIST($1);
+			value_expr($1);
+			$$ = $1;
 		    }
-		| args ',' command_call opt_nl
+		;
+
+aref_args	: none
+		| command opt_nl
 		    {
-			$$ = list_append($1, $3);
+		        rb_warn("parenthesize argument(s) for future version");
+			$$ = NEW_LIST($1);
 		    }
 		| args trailer
 		    {
@@ -967,7 +1231,7 @@ aref_args	: none
 		| tSTAR arg opt_nl
 		    {
 			value_expr($2);
-			$$ = NEW_RESTARGS($2);
+			$$ = NEW_NEWLINE(NEW_SPLAT($2));
 		    }
 		;
 
@@ -981,10 +1245,12 @@ paren_args	: '(' none ')'
 		    }
 		| '(' block_call opt_nl ')'
 		    {
+		        rb_warn("parenthesize argument for future version");
 			$$ = NEW_LIST($2);
 		    }
 		| '(' args ',' block_call opt_nl ')'
 		    {
+		        rb_warn("parenthesize argument for future version");
 			$$ = list_append($2, $4);
 		    }
 		;
@@ -995,19 +1261,15 @@ opt_paren_args	: none
 
 call_args	: command
 		    {
+		        rb_warn("parenthesize argument(s) for future version");
 			$$ = NEW_LIST($1);
-		    }
-		| args ',' command
-		    {
-			$$ = list_append($1, $3);
 		    }
 		| args opt_block_arg
 		    {
 			$$ = arg_blk_pass($1, $2);
 		    }
-		| args ',' tSTAR arg opt_block_arg
+		| args ',' tSTAR arg_value opt_block_arg
 		    {
-			value_expr($4);
 			$$ = arg_concat($1, $4);
 			$$ = arg_blk_pass($$, $5);
 		    }
@@ -1016,9 +1278,8 @@ call_args	: command
 			$$ = NEW_LIST(NEW_HASH($1));
 			$$ = arg_blk_pass($$, $2);
 		    }
-		| assocs ',' tSTAR arg opt_block_arg
+		| assocs ',' tSTAR arg_value opt_block_arg
 		    {
-			value_expr($4);
 			$$ = arg_concat(NEW_LIST(NEW_HASH($1)), $4);
 			$$ = arg_blk_pass($$, $5);
 		    }
@@ -1033,24 +1294,95 @@ call_args	: command
 			$$ = arg_concat(list_append($1, NEW_HASH($3)), $6);
 			$$ = arg_blk_pass($$, $7);
 		    }
-		| tSTAR arg opt_block_arg
+		| tSTAR arg_value opt_block_arg
 		    {
-			value_expr($2);
-			$$ = arg_blk_pass(NEW_RESTARGS($2), $3);
+			$$ = arg_blk_pass(NEW_SPLAT($2), $3);
 		    }
 		| block_arg
 		;
 
-command_args	: {CMDARG_PUSH;} call_args
+call_args2	: arg_value ',' args opt_block_arg
 		    {
-		        CMDARG_POP;
+			$$ = arg_blk_pass(list_concat(NEW_LIST($1),$3), $4);
+		    }
+		| arg_value ',' block_arg
+		    {
+                        $$ = arg_blk_pass($1, $3);
+                    }
+		| arg_value ',' tSTAR arg_value opt_block_arg
+		    {
+			$$ = arg_concat(NEW_LIST($1), $4);
+			$$ = arg_blk_pass($$, $5);
+		    }
+		| arg_value ',' args ',' tSTAR arg_value opt_block_arg
+		    {
+                       $$ = arg_concat(list_concat(NEW_LIST($1),$3), $6);
+			$$ = arg_blk_pass($$, $7);
+		    }
+		| assocs opt_block_arg
+		    {
+			$$ = NEW_LIST(NEW_HASH($1));
+			$$ = arg_blk_pass($$, $2);
+		    }
+		| assocs ',' tSTAR arg_value opt_block_arg
+		    {
+			$$ = arg_concat(NEW_LIST(NEW_HASH($1)), $4);
+			$$ = arg_blk_pass($$, $5);
+		    }
+		| arg_value ',' assocs opt_block_arg
+		    {
+			$$ = list_append(NEW_LIST($1), NEW_HASH($3));
+			$$ = arg_blk_pass($$, $4);
+		    }
+		| arg_value ',' args ',' assocs opt_block_arg
+		    {
+			$$ = list_append(list_concat(NEW_LIST($1),$3), NEW_HASH($5));
+			$$ = arg_blk_pass($$, $6);
+		    }
+		| arg_value ',' assocs ',' tSTAR arg_value opt_block_arg
+		    {
+			$$ = arg_concat(list_append(NEW_LIST($1), NEW_HASH($3)), $6);
+			$$ = arg_blk_pass($$, $7);
+		    }
+		| arg_value ',' args ',' assocs ',' tSTAR arg_value opt_block_arg
+		    {
+			$$ = arg_concat(list_append(list_concat(NEW_LIST($1), $3), NEW_HASH($5)), $8);
+			$$ = arg_blk_pass($$, $9);
+		    }
+		| tSTAR arg_value opt_block_arg
+		    {
+			$$ = arg_blk_pass(NEW_SPLAT($2), $3);
+		    }
+		| block_arg
+		;
+
+command_args	:  {
+			$<num>$ = cmdarg_stack;
+			CMDARG_PUSH(1);
+		    }
+		  open_args
+		    {
+			/* CMDARG_POP() */
+		        cmdarg_stack = $<num>1;
 			$$ = $2;
 		    }
 		;
 
-block_arg	: tAMPER arg
+open_args	: call_args
+		| tLPAREN_ARG  {lex_state = EXPR_ENDARG;} ')'
 		    {
-			value_expr($2);
+		        rb_warn("don't put space before argument parentheses");
+			$$ = 0;
+		    }
+		| tLPAREN_ARG call_args2 {lex_state = EXPR_ENDARG;} ')'
+		    {
+		        rb_warn("don't put space before argument parentheses");
+			$$ = $2;
+		    }
+		;
+
+block_arg	: tAMPER arg_value
+		    {
 			$$ = NEW_BLOCK_PASS($2);
 		    }
 		;
@@ -1062,118 +1394,85 @@ opt_block_arg	: ',' block_arg
 		| none
 		;
 
-args 		: arg
+args 		: arg_value
 		    {
-			value_expr($1);
 			$$ = NEW_LIST($1);
 		    }
-		| args ',' arg
+		| args ',' arg_value
 		    {
-			value_expr($3);
 			$$ = list_append($1, $3);
 		    }
 		;
 
-mrhs		: arg
+mrhs		: args ',' arg_value
 		    {
-			value_expr($1);
-			$$ = $1;
-		    }
-		| mrhs_basic
-		;
-
-mrhs_basic	: args ',' arg
-		    {
-			value_expr($3);
 			$$ = list_append($1, $3);
 		    }
-		| args ',' tSTAR arg
+		| args ',' tSTAR arg_value
 		    {
-			value_expr($4);
 			$$ = arg_concat($1, $4);
 		    }
-		| tSTAR arg
+		| tSTAR arg_value
 		    {
-			value_expr($2);
-			$$ = $2;
-		    }
-		;
-
-ret_args	: call_args
-		    {
-			$$ = $1;
-			if ($1) {
-			    if (nd_type($1) == NODE_ARRAY &&
-				$1->nd_next == 0) {
-				$$ = $1->nd_head;
-			    }
-			    else if (nd_type($1) == NODE_BLOCK_PASS) {
-				rb_compile_error("block argument should not be given");
-			    }
-			}
+			$$ = NEW_SPLAT($2);
 		    }
 		;
 
 primary		: literal
-		    {
-			$$ = NEW_LIT($1);
-		    }
-		| string
-		| tXSTRING
-		    {
-			$$ = NEW_XSTR($1);
-		    }
-		| tQWORDS
-		| tDXSTRING
-		| tDREGEXP
+		| strings
+		| xstring
+		| regexp
+		| words
+		| qwords
 		| var_ref
 		| backref
 		| tFID
 		    {
-			$$ = NEW_VCALL($1);
+			$$ = NEW_FCALL($1, 0);
 		    }
 		| kBEGIN
-		  compstmt
-		  rescue
-		  opt_else
-		  ensure
+		    {
+			$<num>1 = ruby_sourceline;
+		    }
+		  bodystmt
 		  kEND
 		    {
-			if (!$3 && !$4 && !$5)
-			    $$ = NEW_BEGIN($2);
-			else {
-			    if ($3) $2 = NEW_RESCUE($2, $3, $4);
-			    else if ($4) {
-				rb_warn("else without rescue is useless");
-				$2 = block_append($2, $4);
-			    }
-			    if ($5) $2 = NEW_ENSURE($2, $5);
-			    $$ = $2;
-			}
-		        fixpos($$, $2);
+			if ($3 == NULL)
+			    $$ = NEW_NIL();
+			else
+			    $$ = NEW_BEGIN($3);
+			nd_set_line($$, $<num>1);
+		    }
+		| tLPAREN_ARG expr {lex_state = EXPR_ENDARG;} opt_nl ')'
+		    {
+		        rb_warning("(...) interpreted as grouped expression");
+			$$ = $2;
 		    }
 		| tLPAREN compstmt ')'
 		    {
 			$$ = $2;
 		    }
-		| primary tCOLON2 tCONSTANT
+		| primary_value tCOLON2 tCONSTANT
 		    {
-			value_expr($1);
 			$$ = NEW_COLON2($1, $3);
 		    }
-		| tCOLON3 cname
+		| tCOLON3 tCONSTANT
 		    {
 			$$ = NEW_COLON3($2);
 		    }
-		| primary '[' aref_args ']'
+		| primary_value '[' aref_args ']'
 		    {
-			value_expr($1);
-			$$ = NEW_CALL($1, tAREF, $3);
+			if ($1 && nd_type($1) == NODE_SELF)
+			    $$ = NEW_FCALL(tAREF, $3);
+			else
+			    $$ = NEW_CALL($1, tAREF, $3);
+			fixpos($$, $1);
 		    }
 		| tLBRACK aref_args ']'
 		    {
-			if ($2 == 0)
+		        if ($2 == 0) {
 			    $$ = NEW_ZARRAY(); /* zero length array*/
+			}
 			else {
 			    $$ = $2;
 			}
@@ -1182,37 +1481,21 @@ primary		: literal
 		    {
 			$$ = NEW_HASH($2);
 		    }
-		| kRETURN '(' ret_args ')'
-		    {
-			if (!compile_for_eval && !in_def && !in_single)
-			    yyerror("return appeared outside of method");
-			value_expr($3);
-			$$ = NEW_RETURN($3);
-		    }
-		| kRETURN '(' ')'
-		    {
-			if (!compile_for_eval && !in_def && !in_single)
-			    yyerror("return appeared outside of method");
-			$$ = NEW_RETURN(0);
-		    }
 		| kRETURN
 		    {
-			if (!compile_for_eval && !in_def && !in_single)
-			    yyerror("return appeared outside of method");
 			$$ = NEW_RETURN(0);
 		    }
-		| kYIELD '(' ret_args ')'
+		| kYIELD '(' call_args ')'
 		    {
-			value_expr($3);
-			$$ = NEW_YIELD($3);
+			$$ = new_yield($3);
 		    }
 		| kYIELD '(' ')'
 		    {
-			$$ = NEW_YIELD(0);
+			$$ = NEW_YIELD(0, Qfalse);
 		    }
 		| kYIELD
 		    {
-			$$ = NEW_YIELD(0);
+			$$ = NEW_YIELD(0, Qfalse);
 		    }
 		| kDEFINED opt_nl '(' {in_defined = 1;} expr ')'
 		    {
@@ -1223,6 +1506,7 @@ primary		: literal
 		    {
 			$2->nd_iter = NEW_FCALL($1, 0);
 			$$ = $2;
+			fixpos($2->nd_iter, $2);
 		    }
 		| method_call
 		| method_call brace_block
@@ -1234,45 +1518,56 @@ primary		: literal
 			$$ = $2;
 		        fixpos($$, $1);
 		    }
-		| kIF expr then
+		| kIF expr_value then
 		  compstmt
 		  if_tail
 		  kEND
 		    {
-			value_expr($2);
 			$$ = NEW_IF(cond($2), $4, $5);
 		        fixpos($$, $2);
+			if (cond_negative(&$$->nd_cond)) {
+		            NODE *tmp = $$->nd_body;
+		            $$->nd_body = $$->nd_else;
+		            $$->nd_else = tmp;
+			}
 		    }
-		| kUNLESS expr then
+		| kUNLESS expr_value then
 		  compstmt
 		  opt_else
 		  kEND
 		    {
-			value_expr($2);
 			$$ = NEW_UNLESS(cond($2), $4, $5);
 		        fixpos($$, $2);
+			if (cond_negative(&$$->nd_cond)) {
+		            NODE *tmp = $$->nd_body;
+		            $$->nd_body = $$->nd_else;
+		            $$->nd_else = tmp;
+			}
 		    }
-		| kWHILE {COND_PUSH;} expr do {COND_POP;}
+		| kWHILE {COND_PUSH(1);} expr_value do {COND_POP();}
 		  compstmt
 		  kEND
 		    {
-			value_expr($3);
 			$$ = NEW_WHILE(cond($3), $6, 1);
 		        fixpos($$, $3);
+			if (cond_negative(&$$->nd_cond)) {
+			    nd_set_type($$, NODE_UNTIL);
+			}
 		    }
-		| kUNTIL {COND_PUSH;} expr do {COND_POP;} 
+		| kUNTIL {COND_PUSH(1);} expr_value do {COND_POP();} 
 		  compstmt
 		  kEND
 		    {
-			value_expr($3);
 			$$ = NEW_UNTIL(cond($3), $6, 1);
 		        fixpos($$, $3);
+			if (cond_negative(&$$->nd_cond)) {
+			    nd_set_type($$, NODE_WHILE);
+			}
 		    }
-		| kCASE expr opt_terms
+		| kCASE expr_value opt_terms
 		  case_body
 		  kEND
 		    {
-			value_expr($2);
 			$$ = NEW_CASE($2, $4);
 		        fixpos($$, $2);
 		    }
@@ -1280,15 +1575,18 @@ primary		: literal
 		    {
 			$$ = $3;
 		    }
-		| kFOR block_var kIN {COND_PUSH;} expr do {COND_POP;}
+		| kCASE opt_terms kELSE compstmt kEND
+		    {
+			$$ = $4;
+		    }
+		| kFOR block_var kIN {COND_PUSH(1);} expr_value do {COND_POP();}
 		  compstmt
 		  kEND
 		    {
-			value_expr($5);
 			$$ = NEW_FOR($2, $5, $8);
 		        fixpos($$, $2);
 		    }
-		| kCLASS cname superclass
+		| kCLASS cpath superclass
 		    {
 			if (in_def || in_single)
 			    yyerror("class definition in method body");
@@ -1296,7 +1594,7 @@ primary		: literal
 			local_push(0);
 		        $<num>$ = ruby_sourceline;
 		    }
-		  compstmt
+		  bodystmt
 		  kEND
 		    {
 		        $$ = NEW_CLASS($2, $5, $3);
@@ -1316,7 +1614,7 @@ primary		: literal
 			class_nest++;
 			local_push(0);
 		    }
-		  compstmt
+		  bodystmt
 		  kEND
 		    {
 		        $$ = NEW_SCLASS($3, $7);
@@ -1326,7 +1624,7 @@ primary		: literal
 		        in_def = $<num>4;
 		        in_single = $<num>6;
 		    }
-		| kMODULE cname
+		| kMODULE cpath
 		    {
 			if (in_def || in_single)
 			    yyerror("module definition in method body");
@@ -1334,7 +1632,7 @@ primary		: literal
 			local_push(0);
 		        $<num>$ = ruby_sourceline;
 		    }
-		  compstmt
+		  bodystmt
 		  kEND
 		    {
 		        $$ = NEW_MODULE($2, $4);
@@ -1344,29 +1642,17 @@ primary		: literal
 		    }
 		| kDEF fname
 		    {
-			if (in_def || in_single)
-			    yyerror("nested method definition");
 			$<id>$ = cur_mid;
 			cur_mid = $2;
 			in_def++;
 			local_push(0);
 		    }
 		  f_arglist
-		  compstmt
-		  rescue
-		  opt_else
-		  ensure
+		  bodystmt
 		  kEND
 		    {
-		        if ($6) $5 = NEW_RESCUE($5, $6, $7);
-			else if ($7) {
-			    rb_warn("else without rescue is useless");
-			    $5 = block_append($5, $7);
-			}
-			if ($8) $5 = NEW_ENSURE($5, $8);
-
+			if (!$5) $5 = NEW_NIL();
 			$$ = NEW_DEFN($2, $4, $5, NOEX_PRIVATE);
-			if (is_attrset_id($2)) $$->nd_noex = NOEX_PUBLIC;
 		        fixpos($$, $4);
 		        local_pop();
 			in_def--;
@@ -1374,25 +1660,14 @@ primary		: literal
 		    }
 		| kDEF singleton dot_or_colon {lex_state = EXPR_FNAME;} fname
 		    {
-			value_expr($2);
 			in_single++;
 			local_push(0);
 		        lex_state = EXPR_END; /* force for args */
 		    }
 		  f_arglist
-		  compstmt
-		  rescue
-		  opt_else
-		  ensure
+		  bodystmt
 		  kEND
 		    {
-		        if ($9) $8 = NEW_RESCUE($8, $9, $10);
-			else if ($10) {
-			    rb_warn("else without rescue is useless");
-			    $8 = block_append($8, $10);
-			}
-			if ($11) $8 = NEW_ENSURE($8, $11);
-
 			$$ = NEW_DEFS($2, $5, $7, $8);
 		        fixpos($$, $2);
 		        local_pop();
@@ -1400,11 +1675,11 @@ primary		: literal
 		    }
 		| kBREAK
 		    {
-			$$ = NEW_BREAK();
+			$$ = NEW_BREAK(0);
 		    }
 		| kNEXT
 		    {
-			$$ = NEW_NEXT();
+			$$ = NEW_NEXT(0);
 		    }
 		| kREDO
 		    {
@@ -1416,21 +1691,29 @@ primary		: literal
 		    }
 		;
 
+primary_value 	: primary
+		    {
+			value_expr($1);
+			$$ = $1;
+		    }
+		;
+
 then		: term
+		| ':'
 		| kTHEN
 		| term kTHEN
 		;
 
 do		: term
+		| ':'
 		| kDO_COND
 		;
 
 if_tail		: opt_else
-		| kELSIF expr then
+		| kELSIF expr_value then
 		  compstmt
 		  if_tail
 		    {
-			value_expr($2);
 			$$ = NEW_IF(cond($2), $4, $5);
 		        fixpos($$, $2);
 		    }
@@ -1462,17 +1745,17 @@ opt_block_var	: none
 		    }
 		;
 
-
 do_block	: kDO_BLOCK
 		    {
 		        $<vars>$ = dyna_push();
+			$<num>1 = ruby_sourceline;
 		    }
-		  opt_block_var
+		  opt_block_var {$<vars>$ = ruby_dyna_vars;}
 		  compstmt
 		  kEND
 		    {
-			$$ = NEW_ITER($3, 0, $4);
-		        fixpos($$, $3?$3:$4);
+			$$ = NEW_ITER($3, 0, dyna_init($5, $<vars>4));
+			nd_set_line($$, $<num>1);
 			dyna_pop($<vars>2);
 		    }
 		;
@@ -1484,16 +1767,14 @@ block_call	: command do_block
 			}
 			$2->nd_iter = $1;
 			$$ = $2;
-		        fixpos($$, $2);
+		        fixpos($$, $1);
 		    }
 		| block_call '.' operation2 opt_paren_args
 		    {
-			value_expr($1);
 			$$ = new_call($1, $3, $4);
 		    }
 		| block_call tCOLON2 operation2 opt_paren_args
 		    {
-			value_expr($1);
 			$$ = new_call($1, $3, $4);
 		    }
 		;
@@ -1503,35 +1784,26 @@ method_call	: operation paren_args
 			$$ = new_fcall($1, $2);
 		        fixpos($$, $2);
 		    }
-		| primary '.' operation2 opt_paren_args
+		| primary_value '.' operation2 opt_paren_args
 		    {
-			value_expr($1);
 			$$ = new_call($1, $3, $4);
 		        fixpos($$, $1);
 		    }
-		| primary tCOLON2 operation2 paren_args
+		| primary_value tCOLON2 operation2 paren_args
 		    {
-			value_expr($1);
 			$$ = new_call($1, $3, $4);
 		        fixpos($$, $1);
 		    }
-		| primary tCOLON2 operation3
+		| primary_value tCOLON2 operation3
 		    {
-			value_expr($1);
 			$$ = new_call($1, $3, 0);
 		    }
 		| kSUPER paren_args
 		    {
-			if (!compile_for_eval && !in_def &&
-		            !in_single && !in_defined)
-			    yyerror("super called outside of method");
 			$$ = new_super($2);
 		    }
 		| kSUPER
 		    {
-			if (!compile_for_eval && !in_def &&
-		            !in_single && !in_defined)
-			    yyerror("super called outside of method");
 			$$ = NEW_ZSUPER();
 		    }
 		;
@@ -1539,23 +1811,25 @@ method_call	: operation paren_args
 brace_block	: '{'
 		    {
 		        $<vars>$ = dyna_push();
+			$<num>1 = ruby_sourceline;
 		    }
-		  opt_block_var
+		  opt_block_var {$<vars>$ = ruby_dyna_vars;}
 		  compstmt '}'
 		    {
-			$$ = NEW_ITER($3, 0, $4);
-		        fixpos($$, $4);
+			$$ = NEW_ITER($3, 0, dyna_init($5, $<vars>4));
+			nd_set_line($$, $<num>1);
 			dyna_pop($<vars>2);
 		    }
 		| kDO
 		    {
 		        $<vars>$ = dyna_push();
+			$<num>1 = ruby_sourceline;
 		    }
-		  opt_block_var
+		  opt_block_var {$<vars>$ = ruby_dyna_vars;}
 		  compstmt kEND
 		    {
-			$$ = NEW_ITER($3, 0, $4);
-		        fixpos($$, $4);
+			$$ = NEW_ITER($3, 0, dyna_init($5, $<vars>4));
+			nd_set_line($$, $<num>1);
 			dyna_pop($<vars>2);
 		    }
 		;
@@ -1567,16 +1841,13 @@ case_body	: kWHEN when_args then
 			$$ = NEW_WHEN($2, $4, $5);
 		    }
 		;
-
 when_args	: args
-		| args ',' tSTAR arg
+		| args ',' tSTAR arg_value
 		    {
-			value_expr($4);
 			$$ = list_append($1, NEW_WHEN($4, 0, 0));
 		    }
-		| tSTAR arg
+		| tSTAR arg_value
 		    {
-			value_expr($2);
 			$$ = NEW_LIST(NEW_WHEN($2, 0, 0));
 		    }
 		;
@@ -1585,20 +1856,9 @@ cases		: opt_else
 		| case_body
 		;
 
-exc_list	: none
-		| args
-		;
-
-exc_var		: tASSOC lhs
-		    {
-			$$ = $2;
-		    }
-		| none
-		;
-
-rescue		: kRESCUE exc_list exc_var then
+opt_rescue	: kRESCUE exc_list exc_var then
 		  compstmt
-		  rescue
+		  opt_rescue
 		    {
 		        if ($3) {
 		            $3 = node_assign($3, NEW_GVAR(rb_intern("$!")));
@@ -1610,8 +1870,22 @@ rescue		: kRESCUE exc_list exc_var then
 		| none
 		;
 
-ensure		: none
-		| kENSURE compstmt
+exc_list	: arg_value
+		    {
+			$$ = NEW_LIST($1);
+		    }
+		| mrhs
+		| none
+		;
+
+exc_var		: tASSOC lhs
+		    {
+			$$ = $2;
+		    }
+		| none
+		;
+
+opt_ensure	: kENSURE compstmt
 		    {
 			if ($2)
 			    $$ = $2;
@@ -1619,43 +1893,203 @@ ensure		: none
 			    /* place holder */
 			    $$ = NEW_NIL();
 		    }
+		| none
 		;
 
 literal		: numeric
 		| symbol
 		    {
-			$$ = ID2SYM($1);
+			$$ = NEW_LIT(ID2SYM($1));
 		    }
-		| tREGEXP
+		| dsym
 		;
 
-string		: tSTRING
+strings		: string
 		    {
-			$$ = NEW_STR($1);
-		    }
-		| tDSTRING
-		| string tSTRING
-		    {
-		        if (nd_type($1) == NODE_DSTR) {
-			    list_append($1, NEW_STR($2));
+			NODE *node = $1;
+			if (!node) {
+			    node = NEW_STR(rb_str_new(0, 0));
 			}
 			else {
-			    rb_str_concat($1->nd_lit, $2);
+			    node = evstr2dstr(node);
 			}
-			$$ = $1;
+			$$ = node;
 		    }
-		| string tDSTRING
+		;
+
+string		: string1
+		| string string1
 		    {
-		        if (nd_type($1) == NODE_STR) {
-			    $$ = NEW_DSTR($1->nd_lit);
+			$$ = literal_concat($1, $2);
+		    }
+		;
+
+string1		: tSTRING_BEG string_contents tSTRING_END
+		    {
+			$$ = $2;
+		    }
+		;
+
+xstring		: tXSTRING_BEG xstring_contents tSTRING_END
+		    {
+			NODE *node = $2;
+			if (!node) {
+			    node = NEW_XSTR(rb_str_new(0, 0));
 			}
 			else {
-			    $$ = $1;
+			    switch (nd_type(node)) {
+			      case NODE_STR:
+				nd_set_type(node, NODE_XSTR);
+				break;
+			      case NODE_DSTR:
+				nd_set_type(node, NODE_DXSTR);
+				break;
+			      default:
+				node = NEW_NODE(NODE_DXSTR, rb_str_new(0, 0), 1, NEW_LIST(node));
+				break;
+			    }
 			}
-			$2->nd_head = NEW_STR($2->nd_lit);
-			nd_set_type($2, NODE_ARRAY);
-			list_concat($$, $2);
+			$$ = node;
 		    }
+		;
+
+regexp		: tREGEXP_BEG xstring_contents tREGEXP_END
+		    {
+			int options = $3;
+			NODE *node = $2;
+			if (!node) {
+			    node = NEW_LIT(rb_reg_new("", 0, options & ~RE_OPTION_ONCE));
+			}
+			else switch (nd_type(node)) {
+			  case NODE_STR:
+			    {
+				VALUE src = node->nd_lit;
+				nd_set_type(node, NODE_LIT);
+				node->nd_lit = rb_reg_new(RSTRING(src)->ptr,
+							  RSTRING(src)->len,
+							  options & ~RE_OPTION_ONCE);
+			    }
+			    break;
+			  default:
+			    node = NEW_NODE(NODE_DSTR, rb_str_new(0, 0), 1, NEW_LIST(node));
+			  case NODE_DSTR:
+			    if (options & RE_OPTION_ONCE) {
+				nd_set_type(node, NODE_DREGX_ONCE);
+			    }
+			    else {
+				nd_set_type(node, NODE_DREGX);
+			    }
+			    node->nd_cflag = options & ~RE_OPTION_ONCE;
+			    break;
+			}
+			$$ = node;
+		    }
+		;
+
+words		: tWORDS_BEG ' ' tSTRING_END
+		    {
+			$$ = NEW_ZARRAY();
+		    }
+		| tWORDS_BEG word_list tSTRING_END
+		    {
+			$$ = $2;
+		    }
+		;
+
+word_list	: /* none */
+		    {
+			$$ = 0;
+		    }
+		| word_list word ' '
+		    {
+			$$ = list_append($1, evstr2dstr($2));
+		    }
+		;
+
+word		: string_content
+		| word string_content
+		    {
+			$$ = literal_concat($1, $2);
+		    }
+		;
+
+qwords		: tQWORDS_BEG ' ' tSTRING_END
+		    {
+			$$ = NEW_ZARRAY();
+		    }
+		| tQWORDS_BEG qword_list tSTRING_END
+		    {
+			$$ = $2;
+		    }
+		;
+
+qword_list	: /* none */
+		    {
+			$$ = 0;
+		    }
+		| qword_list tSTRING_CONTENT ' '
+		    {
+			$$ = list_append($1, $2);
+		    }
+		;
+
+string_contents : /* none */
+		    {
+			$$ = 0;
+		    }
+		| string_contents string_content
+		    {
+			$$ = literal_concat($1, $2);
+		    }
+		;
+
+xstring_contents: /* none */
+		    {
+			$$ = 0;
+		    }
+		| xstring_contents string_content
+		    {
+			$$ = literal_concat($1, $2);
+		    }
+		;
+
+string_content	: tSTRING_CONTENT
+		| tSTRING_DVAR
+		    {
+			$<node>$ = lex_strterm;
+			lex_strterm = 0;
+			lex_state = EXPR_BEG;
+		    }
+		  string_dvar
+		    {
+			lex_strterm = $<node>2;
+		        $$ = NEW_EVSTR($3);
+		    }
+		| tSTRING_DBEG
+		    {
+			$<node>$ = lex_strterm;
+			lex_strterm = 0;
+			lex_state = EXPR_BEG;
+			COND_PUSH(0);
+			CMDARG_PUSH(0);
+		    }
+		  compstmt '}'
+		    {
+			lex_strterm = $<node>2;
+			COND_LEXPOP();
+			CMDARG_LEXPOP();
+			if (($$ = $3) && nd_type($$) == NODE_NEWLINE) {
+			    $$ = $$->nd_next;
+			    rb_gc_force_recycle((VALUE)$3);
+			}
+			$$ = new_evstr($$);
+		    }
+		;
+
+string_dvar	: tGVAR {$$ = NEW_GVAR($1);}
+		| tIVAR {$$ = NEW_IVAR($1);}
+		| tCVAR {$$ = NEW_CVAR($1);}
+		| backref
 		;
 
 symbol		: tSYMBEG sym
@@ -1671,8 +2105,42 @@ sym		: fname
 		| tCVAR
 		;
 
+dsym		: tSYMBEG xstring_contents tSTRING_END
+		    {
+		        lex_state = EXPR_END;
+			if (!($$ = $2)) {
+			    yyerror("empty symbol literal");
+			}
+			else {
+			    switch (nd_type($$)) {
+			      case NODE_DSTR:
+				nd_set_type($$, NODE_DSYM);
+				break;
+			      case NODE_STR:
+				if (strlen(RSTRING($$->nd_lit)->ptr) == RSTRING($$->nd_lit)->len) {
+				    $$->nd_lit = ID2SYM(rb_intern(RSTRING($$->nd_lit)->ptr));
+				    nd_set_type($$, NODE_LIT);
+				    break;
+				}
+				/* fall through */
+			      default:
+				$$ = NEW_NODE(NODE_DSYM, rb_str_new(0, 0), 1, NEW_LIST($$));
+				break;
+			    }
+			}
+		    }
+		;
+
 numeric		: tINTEGER
 		| tFLOAT
+		| tUMINUS_NUM tINTEGER	       %prec tLOWEST
+		    {
+			$$ = negate_lit($2);
+		    }
+		| tUMINUS_NUM tFLOAT	       %prec tLOWEST
+		    {
+			$$ = negate_lit($2);
+		    }
 		;
 
 variable	: tIDENTIFIER
@@ -1694,6 +2162,12 @@ var_ref		: variable
 		    }
 		;
 
+var_lhs		: variable
+		    {
+			$$ = assignable($1, 0);
+		    }
+		;
+
 backref		: tNTH_REF
 		| tBACK_REF
 		;
@@ -1706,7 +2180,7 @@ superclass	: term
 		    {
 			lex_state = EXPR_BEG;
 		    }
-		  expr term
+		  expr_value term
 		    {
 			$$ = $3;
 		    }
@@ -1796,7 +2270,7 @@ f_arg		: f_norm_arg
 		    }
 		;
 
-f_opt		: tIDENTIFIER '=' arg
+f_opt		: tIDENTIFIER '=' arg_value
 		    {
 			if (!is_local_id($1))
 			    yyerror("formal argument must be local variable");
@@ -1817,7 +2291,11 @@ f_optarg	: f_opt
 		    }
 		;
 
-f_rest_arg	: tSTAR tIDENTIFIER
+restarg_mark	: '*'
+		| tSTAR
+		;
+
+f_rest_arg	: restarg_mark tIDENTIFIER
 		    {
 			if (!is_local_id($2))
 			    yyerror("rest argument must be local variable");
@@ -1825,13 +2303,17 @@ f_rest_arg	: tSTAR tIDENTIFIER
 			    yyerror("duplicate rest argument name");
 			$$ = local_cnt($2);
 		    }
-		| tSTAR
+		| restarg_mark
 		    {
 			$$ = -2;
 		    }
 		;
 
-f_block_arg	: tAMPER tIDENTIFIER
+blkarg_mark	: '&'
+		| tAMPER
+		;
+
+f_block_arg	: blkarg_mark tIDENTIFIER
 		    {
 			if (!is_local_id($2))
 			    yyerror("block argument must be local variable");
@@ -1855,12 +2337,13 @@ singleton	: var_ref
 			}
 			else {
 			    $$ = $1;
+		            value_expr($$);
 			}
 		    }
 		| '(' {lex_state = EXPR_BEG;} expr opt_nl ')'
 		    {
-					if ($3 == 0) {
-			    yyerror("can't define single method for ().");
+			if ($3 == 0) {
+			    yyerror("can't define singleton method for ().");
 			}
 			else {
 			    switch (nd_type($3)) {
@@ -1872,7 +2355,7 @@ singleton	: var_ref
 			      case NODE_LIT:
 			      case NODE_ARRAY:
 			      case NODE_ZARRAY:
-				yyerror("can't define single method for literals");
+				yyerror("can't define singleton method for literals");
 			      default:
 				value_expr($3);
 				break;
@@ -1903,7 +2386,7 @@ assocs		: assoc
 		    }
 		;
 
-assoc		: arg tASSOC arg
+assoc		: arg_value tASSOC arg_value
 		    {
 			$$ = list_append(NEW_LIST($1), $3);
 		    }
@@ -1950,14 +2433,9 @@ terms		: term
 		| terms ';' {yyerrok;}
 		;
 
-none		: /* none */
-		    {
-			$$ = 0;
-		    }
+none		: /* none */ {$$ = 0;}
 		;
 %%
-#include <ctype.h>
-#include <sys/types.h>
 #include "regex.h"
 #include "util.h"
 
@@ -1977,8 +2455,6 @@ none		: /* none */
 static char *tokenbuf = NULL;
 static int   tokidx, toksiz = 0;
 
-static NODE *str_extend _((NODE*,int,int));
-
 #define LEAVE_BS 1
 
 static VALUE (*lex_gets)();	/* gets function */
@@ -1990,7 +2466,7 @@ static char *lex_pend;
 
 static int
 yyerror(msg)
-    char *msg;
+    const char *msg;
 {
     char *p, *pe, *buf;
     int len, i;
@@ -2032,6 +2508,7 @@ yyerror(msg)
 }
 
 static int heredoc_end;
+static int command_start = Qtrue;
 
 int ruby_in_compile = 0;
 int ruby__end__seen;
@@ -2045,7 +2522,9 @@ yycompile(f, line)
 {
     int n;
     NODE *node = 0;
+    struct RVarmap *vp, *vars = ruby_dyna_vars;
 
+    ruby_in_compile = 1;
     if (!compile_for_eval && rb_safe_level() == 0 &&
 	rb_const_defined(rb_cObject, rb_intern("SCRIPT_LINES__"))) {
 	VALUE hash, fname;
@@ -2071,21 +2550,31 @@ yycompile(f, line)
     ruby__end__seen = 0;
     ruby_eval_tree = 0;
     heredoc_end = 0;
+    lex_strterm = 0;
+    ruby_current_node = 0;
     ruby_sourcefile = rb_source_filename(f);
-    ruby_in_compile = 1;
     n = yyparse();
     ruby_debug_lines = 0;
     compile_for_eval = 0;
     ruby_in_compile = 0;
-    cond_nest = 0;
     cond_stack = 0;
     cmdarg_stack = 0;
+    command_start = 1;		  
     class_nest = 0;
     in_single = 0;
     in_def = 0;
     cur_mid = 0;
 
+    vp = ruby_dyna_vars;
+    ruby_dyna_vars = vars;
+    lex_strterm = 0;
+    while (vp && vp != vars) {
+	struct RVarmap *tmp = vp;
+	vp = vp->next;
+	rb_gc_force_recycle((VALUE)tmp);
+    }
     if (n == 0) node = ruby_eval_tree;
+    else ruby_eval_tree_begin = 0;
     return node;
 }
 
@@ -2176,12 +2665,6 @@ nextc()
 	    ruby_sourceline++;
 	    lex_pbeg = lex_p = RSTRING(v)->ptr;
 	    lex_pend = lex_p + RSTRING(v)->len;
-	    if (strncmp(lex_pbeg, "__END__", 7) == 0 &&
-		(RSTRING(v)->len == 7 || lex_pbeg[7] == '\n' || lex_pbeg[7] == '\r')) {
-		ruby__end__seen = 1;
-		lex_lastline = 0;
-		return -1;
-	    }
 	    lex_lastline = v;
 	}
 	else {
@@ -2206,6 +2689,7 @@ pushback(c)
     lex_p--;
 }
 
+#define was_bol() (lex_p == lex_pbeg + 1)
 #define peek(c) (lex_p != lex_pend && (c) == *lex_p)
 
 #define tokfix() (tokenbuf[tokidx]='\0')
@@ -2272,20 +2756,11 @@ read_escape()
       case '0': case '1': case '2': case '3': /* octal constant */
       case '4': case '5': case '6': case '7':
 	{
-	    char buf[3];
-	    int i;
+	    int numlen;
 
 	    pushback(c);
-	    for (i=0; i<3; i++) {
-		c = nextc();
-		if (c == -1) goto eof;
-		if (c < '0' || '7' < c) {
-		    pushback(c);
-		    break;
-		}
-		buf[i] = c;
-	    }
-	    c = scan_oct(buf, i, &i);
+	    c = scan_oct(lex_p, 3, &numlen);
+	    lex_p += numlen;
 	}
 	return c;
 
@@ -2426,7 +2901,7 @@ tokadd_escape(term)
 	return -1;
 
       default:
-	if (c != term)
+	if (c != '\\' || c != term)
 	    tokadd('\\');
 	tokadd(c);
     }
@@ -2434,490 +2909,385 @@ tokadd_escape(term)
 }
 
 static int
-parse_regx(term, paren)
-    int term, paren;
+regx_options()
 {
-    register int c;
     char kcode = 0;
-    int once = 0;
-    int nest = 0;
     int options = 0;
-    int re_start = ruby_sourceline;
-    NODE *list = 0;
+    int c;
 
     newtok();
-    while ((c = nextc()) != -1) {
-	if (c == term && nest == 0) {
-	    goto regx_end;
-	}
-
+    while (c = nextc(), ISALPHA(c)) {
 	switch (c) {
-	  case '#':
-	    list = str_extend(list, term, paren);
-	    if (list == (NODE*)-1) goto unterminated;
-	    continue;
-
-	  case '\\':
-	    if (tokadd_escape(term) < 0)
-		return 0;
-	    continue;
-
-	  case -1:
-	    goto unterminated;
-
-	  default:
-	    if (paren)  {
-	      if (c == paren) nest++;
-	      if (c == term) nest--;
-	    }
-	    if (ismbchar(c)) {
-		int i, len = mbclen(c)-1;
-
-		for (i = 0; i < len; i++) {
-		    tokadd(c);
-		    c = nextc();
-		}
-	    }
+	  case 'i':
+	    options |= RE_OPTION_IGNORECASE;
 	    break;
-
-	  regx_end:
-	    for (;;) {
-		switch (c = nextc()) {
-		  case 'i':
-		    options |= RE_OPTION_IGNORECASE;
-		    break;
-		  case 'x':
-		    options |= RE_OPTION_EXTENDED;
-		    break;
-		  case 'p':	/* /p is obsolete */
-		    rb_warn("/p option is obsolete; use /m\n\tnote: /m does not change ^, $ behavior");
-		    options |= RE_OPTION_POSIXLINE;
-		    break;
-		  case 'm':
-		    options |= RE_OPTION_MULTILINE;
-		    break;
-		  case 'o':
-		    once = 1;
-		    break;
-		  case 'n':
-		    kcode = 16;
-		    break;
-		  case 'e':
-		    kcode = 32;
-		    break;
-		  case 's':
-		    kcode = 48;
-		    break;
-		  case 'u':
-		    kcode = 64;
-		    break;
-		  default:
-		    pushback(c);
-		    goto end_options;
-		}
-	    }
-
-	  end_options:
-	    tokfix();
-	    lex_state = EXPR_END;
-	    if (list) {
-		nd_set_line(list, re_start);
-		if (toklen() > 0) {
-		    VALUE ss = rb_str_new(tok(), toklen());
-		    list_append(list, NEW_STR(ss));
-		}
-		nd_set_type(list, once?NODE_DREGX_ONCE:NODE_DREGX);
-		list->nd_cflag = options | kcode;
-		yylval.node = list;
-		return tDREGEXP;
-	    }
-	    else {
-		yylval.val = rb_reg_new(tok(), toklen(), options | kcode);
-		return tREGEXP;
-	    }
-	}
-	tokadd(c);
-    }
-  unterminated:
-    ruby_sourceline = re_start;
-    rb_compile_error("unterminated regexp meets end of file");
-    return 0;
-}
-
-static int parse_qstring _((int,int));
-
-static int
-parse_string(func, term, paren)
-    int func, term, paren;
-{
-    int c;
-    NODE *list = 0;
-    int strstart;
-    int nest = 0;
-
-    if (func == '\'') {
-	return parse_qstring(term, paren);
-    }
-    if (func == 0) {		/* read 1 line for heredoc */
-				/* -1 for chomp */
-	yylval.val = rb_str_new(lex_pbeg, lex_pend - lex_pbeg - 1);
-	lex_p = lex_pend;
-	return tSTRING;
-    }
-    strstart = ruby_sourceline;
-    newtok();
-    while ((c = nextc()) != term || nest > 0) {
-	if (c == -1) {
-	  unterm_str:
-	    ruby_sourceline = strstart;
-	    rb_compile_error("unterminated string meets end of file");
-	    return 0;
-	}
-	if (paren) {
-	    if (c == paren) nest++;
-	    if (c == term && nest-- == 0) break;
-	}
-	if (ismbchar(c)) {
-	    int i, len = mbclen(c)-1;
-
-	    for (i = 0; i < len; i++) {
-		tokadd(c);
-		c = nextc();
-	    }
-	}
-	else if (c == '#') {
-	    list = str_extend(list, term, paren);
-	    if (list == (NODE*)-1) goto unterm_str;
-	    continue;
-	}
-	else if (c == '\\') {
-	    c = nextc();
-	    if (c == '\n')
-		continue;
-	    if (c == term) {
-		tokadd(c);
-	    }
-	    else {
-                pushback(c);
-                if (func != '"') tokadd('\\');
-                tokadd(read_escape());
-  	    }
-	    continue;
-	}
-	tokadd(c);
-    }
-
-    tokfix();
-    lex_state = EXPR_END;
-
-    if (list) {
-	nd_set_line(list, strstart);
-	if (toklen() > 0) {
-	    VALUE ss = rb_str_new(tok(), toklen());
-	    list_append(list, NEW_STR(ss));
-	}
-	yylval.node = list;
-	if (func == '`') {
-	    nd_set_type(list, NODE_DXSTR);
-	    return tDXSTRING;
-	}
-	else {
-	    return tDSTRING;
-	}
-    }
-    else {
-	yylval.val = rb_str_new(tok(), toklen());
-	return (func == '`') ? tXSTRING : tSTRING;
-    }
-}
-
-static int
-parse_qstring(term, paren)
-    int term, paren;
-{
-    int strstart;
-    int c;
-    int nest = 0;
-
-    strstart = ruby_sourceline;
-    newtok();
-    while ((c = nextc()) != term || nest > 0) {
-	if (c == -1) {
-	    ruby_sourceline = strstart;
-	    rb_compile_error("unterminated string meets end of file");
-	    return 0;
-	}
-	if (paren) {
-	    if (c == paren) nest++;
-	    if (c == term && nest-- == 0) break;
-	}
-	if (ismbchar(c)) {
-	    int i, len = mbclen(c)-1;
-
-	    for (i = 0; i < len; i++) {
-		tokadd(c);
-		c = nextc();
-	    }
-	}
-	else if (c == '\\') {
-	    c = nextc();
-	    switch (c) {
-	      case '\n':
-		continue;
-
-	      case '\\':
-		c = '\\';
-		break;
-
-	      default:
-		/* fall through */
-		if (c == term || (paren && c == paren)) {
-		    tokadd(c);
-		    continue;
-		}
-		tokadd('\\');
-	    }
-	}
-	tokadd(c);
-    }
-
-    tokfix();
-    yylval.val = rb_str_new(tok(), toklen());
-    lex_state = EXPR_END;
-    return tSTRING;
-}
-
-static int
-parse_quotedwords(term, paren)
-    int term, paren;
-{
-    NODE *qwords = 0;
-    int strstart;
-    int c;
-    int nest = 0;
-
-    strstart = ruby_sourceline;
-    newtok();
-
-    while (c = nextc(),ISSPACE(c))
-	;		/* skip preceding spaces */
-    pushback(c);
-    while ((c = nextc()) != term || nest > 0) {
-	if (c == -1) {
-	    ruby_sourceline = strstart;
-	    rb_compile_error("unterminated string meets end of file");
-	    return 0;
-	}
-	if (paren) {
-	    if (c == paren) nest++;
-	    if (c == term && nest-- == 0) break;
-	}
-	if (ismbchar(c)) {
-	    int i, len = mbclen(c)-1;
-
-	    for (i = 0; i < len; i++) {
-		tokadd(c);
-		c = nextc();
-	    }
-	}
-	else if (c == '\\') {
-	    c = nextc();
-	    switch (c) {
-	      case '\n':
-		continue;
-	      case '\\':
-		c = '\\';
-		break;
-	      default:
-		if (c == term || (paren && c == paren)) {
-		    tokadd(c);
-		    continue;
-		}
-		if (!ISSPACE(c))
-		    tokadd('\\');
-		break;
-	    }
-	}
-	else if (ISSPACE(c)) {
-	    NODE *str;
-
-	    tokfix();
-	    str = NEW_STR(rb_str_new(tok(), toklen()));
-	    newtok();
-	    if (!qwords) qwords = NEW_LIST(str);
-	    else list_append(qwords, str);
-	    while (c = nextc(),ISSPACE(c))
-		;		/* skip continuous spaces */
-	    pushback(c);
-	    continue;
-	}
-	tokadd(c);
-    }
-
-    tokfix();
-    if (toklen() > 0) {
-	NODE *str;
-
-	str = NEW_STR(rb_str_new(tok(), toklen()));
-	if (!qwords) qwords = NEW_LIST(str);
-	else list_append(qwords, str);
-    }
-    if (!qwords) qwords = NEW_ZARRAY();
-    yylval.node = qwords;
-    lex_state = EXPR_END;
-    return tQWORDS;
-}
-
-static int
-here_document(term, indent)
-    char term;
-    int indent;
-{
-    int c;
-    char *eos, *p;
-    int len;
-    VALUE str;
-    volatile VALUE line = 0;
-    VALUE lastline_save;
-    int offset_save;
-    NODE *list = 0;
-    int linesave = ruby_sourceline;
-    int firstline;
-
-    if (heredoc_end > 0) ruby_sourceline = heredoc_end;
-    firstline = ruby_sourceline;
-
-    newtok();
-    switch (term) {
-      case '\'':
-      case '"':
-      case '`':
-	while ((c = nextc()) != term) {
-	    switch (c) {
-	      case -1:
-		rb_compile_error("unterminated here document identifier meets end of file");
-		return 0;
-	      case '\n':
-		rb_compile_error("unterminated here document identifier meets end of line");
-		return 0;
-	    }
+	  case 'x':
+	    options |= RE_OPTION_EXTENDED;
+	    break;
+	  case 'm':
+	    options |= RE_OPTION_MULTILINE;
+	    break;
+	  case 'o':
+	    options |= RE_OPTION_ONCE;
+	    break;
+	  case 'n':
+	    kcode = 16;
+	    break;
+	  case 'e':
+	    kcode = 32;
+	    break;
+	  case 's':
+	    kcode = 48;
+	    break;
+	  case 'u':
+	    kcode = 64;
+	    break;
+	  default:
 	    tokadd(c);
+	    break;
 	}
-	if (term == '\'') term = 0;
+    }
+    pushback(c);
+    if (toklen()) {
+	tokfix();
+	rb_compile_error("unknown regexp option%s - %s",
+			 toklen() > 1 ? "s" : "", tok());
+    }
+    return options | kcode;
+}
+
+#define STR_FUNC_ESCAPE 0x01
+#define STR_FUNC_EXPAND 0x02
+#define STR_FUNC_REGEXP 0x04
+#define STR_FUNC_QWORDS 0x08
+#define STR_FUNC_SYMBOL 0x10
+#define STR_FUNC_INDENT 0x20
+
+enum string_type {
+    str_squote = (0),
+    str_dquote = (STR_FUNC_EXPAND),
+    str_xquote = (STR_FUNC_EXPAND),
+    str_regexp = (STR_FUNC_REGEXP|STR_FUNC_ESCAPE|STR_FUNC_EXPAND),
+    str_sword  = (STR_FUNC_QWORDS),
+    str_dword  = (STR_FUNC_QWORDS|STR_FUNC_EXPAND),
+    str_ssym   = (STR_FUNC_SYMBOL),
+    str_dsym   = (STR_FUNC_SYMBOL|STR_FUNC_EXPAND),
+};
+
+static void
+dispose_string(str)
+    VALUE str;
+{
+    free(RSTRING(str)->ptr);
+    rb_gc_force_recycle(str);
+}
+
+static int
+tokadd_string(func, term, paren, nest)
+    int func, term, paren, *nest;
+{
+    int c;
+
+    while ((c = nextc()) != -1) {
+	if (paren && c == paren) {
+	    ++*nest;
+	}
+	else if (c == term) {
+	    if (!nest || !*nest) {
+		pushback(c);
+		break;
+	    }
+	    --*nest;
+	}
+	else if ((func & STR_FUNC_EXPAND) && c == '#' && lex_p < lex_pend) {
+	    int c2 = *lex_p;
+	    if (c2 == '$' || c2 == '@' || c2 == '{') {
+		pushback(c);
+		break;
+	    }
+	}
+	else if (c == '\\') {
+	    c = nextc();
+	    switch (c) {
+	      case '\n':
+		if (func & STR_FUNC_QWORDS) break;
+		if (func & STR_FUNC_EXPAND) continue;
+		tokadd('\\');
+		break;
+
+	      case '\\':
+		if (func & STR_FUNC_ESCAPE) tokadd(c);
+		break;
+
+	      default:
+		if (func & STR_FUNC_REGEXP) {
+		    pushback(c);
+		    if (tokadd_escape(term) < 0)
+			return -1;
+		    continue;
+		}
+		else if (func & STR_FUNC_EXPAND) {
+		    pushback(c);
+		    if (func & STR_FUNC_ESCAPE) tokadd('\\');
+		    c = read_escape();
+		}
+		else if ((func & STR_FUNC_QWORDS) && ISSPACE(c)) {
+		    /* ignore backslashed spaces in %w */
+		}
+		else if (c != term && !(paren && c == paren)) {
+		    tokadd('\\');
+		}
+	    }
+	}
+	else if (ismbchar(c)) {
+	    int i, len = mbclen(c)-1;
+
+	    for (i = 0; i < len; i++) {
+		tokadd(c);
+		c = nextc();
+	    }
+	}
+	else if ((func & STR_FUNC_QWORDS) && ISSPACE(c)) {
+	    pushback(c);
+	    break;
+	}
+	if (!c && (func & STR_FUNC_SYMBOL)) {
+	    func &= ~STR_FUNC_SYMBOL;
+	    rb_compile_error("symbol cannot contain '\\0'");
+	    continue;
+	}
+	tokadd(c);
+    }
+    return c;
+}
+
+#define NEW_STRTERM(func, term, paren) \
+	rb_node_newnode(NODE_STRTERM, (func), (term) | ((paren) << (CHAR_BIT * 2)), 0)
+
+static int
+parse_string(quote)
+    NODE *quote;
+{
+    int func = quote->nd_func;
+    int term = nd_term(quote);
+    int paren = nd_paren(quote);
+    int c, space = 0;
+
+    if (func == -1) return tSTRING_END;
+    c = nextc();
+    if ((func & STR_FUNC_QWORDS) && ISSPACE(c)) {
+	do {c = nextc();} while (ISSPACE(c));
+	space = 1;
+    }
+    if (c == term && !quote->nd_nest) {
+	if (func & STR_FUNC_QWORDS) {
+	    quote->nd_func = -1;
+	    return ' ';
+	}
+	if (!(func & STR_FUNC_REGEXP)) return tSTRING_END;
+	yylval.num = regx_options();
+	return tREGEXP_END;
+    }
+    if (space) {
+	pushback(c);
+	return ' ';
+    }
+    newtok();
+    if ((func & STR_FUNC_EXPAND) && c == '#') {
+	switch (c = nextc()) {
+	  case '$':
+	  case '@':
+	    pushback(c);
+	    return tSTRING_DVAR;
+	  case '{':
+	    return tSTRING_DBEG;
+	}
+	tokadd('#');
+    }
+    pushback(c);
+    if (tokadd_string(func, term, paren, &quote->nd_nest) == -1) {
+	ruby_sourceline = nd_line(quote);
+	rb_compile_error("unterminated string meets end of file");
+	return tSTRING_END;
+    }
+
+    tokfix();
+    yylval.node = NEW_STR(rb_str_new(tok(), toklen()));
+    return tSTRING_CONTENT;
+}
+
+static int
+heredoc_identifier()
+{
+    int c = nextc(), term, func = 0, len;
+
+    if (c == '-') {
+	c = nextc();
+	func = STR_FUNC_INDENT;
+    }
+    switch (c) {
+      case '\'':
+	func |= str_squote; goto quoted;
+      case '"':
+	func |= str_dquote; goto quoted;
+      case '`':
+	func |= str_xquote;
+      quoted:
+	newtok();
+	tokadd(func);
+	term = c;
+	while ((c = nextc()) != -1 && c != term) {
+	    len = mbclen(c);
+	    do {tokadd(c);} while (--len > 0 && (c = nextc()) != -1);
+	}
+	if (c == -1) {
+	    rb_compile_error("unterminated here document identifier");
+	    return 0;
+	}
 	break;
 
       default:
-	c = term;
-	term = '"';
 	if (!is_identchar(c)) {
-	    rb_warn("use of bare << to mean <<\"\" is deprecated");
-	    break;
+	    pushback(c);
+	    if (func & STR_FUNC_INDENT) {
+		pushback('-');
+	    }
+	    return 0;
 	}
-	while (is_identchar(c)) {
-	    tokadd(c);
-	    c = nextc();
-	}
+	newtok();
+	term = '"';
+	tokadd(func |= str_dquote);
+	do {
+	    len = mbclen(c);
+	    do {tokadd(c);} while (--len > 0 && (c = nextc()) != -1);
+	} while ((c = nextc()) != -1 && is_identchar(c));
 	pushback(c);
 	break;
     }
+
     tokfix();
-    lastline_save = lex_lastline;
-    offset_save = lex_p - lex_pbeg;
-    eos = strdup(tok());
-    len = strlen(eos);
+    len = lex_p - lex_pbeg;
+    lex_p = lex_pend;
+    lex_strterm = rb_node_newnode(NODE_HEREDOC,
+				  rb_str_new(tok(), toklen()),	/* nd_lit */
+				  len,				/* nd_nth */
+				  lex_lastline);		/* nd_orig */
+    return term == '`' ? tXSTRING_BEG : tSTRING_BEG;
+}
 
-    str = rb_str_new(0,0);
-    for (;;) {
-	lex_lastline = line = lex_getline();
-	if (NIL_P(line)) {
-	  error:
-	    ruby_sourceline = linesave;
-	    rb_compile_error("can't find string \"%s\" anywhere before EOF", eos);
-	    free(eos);
-	    return 0;
-	}
-	ruby_sourceline++;
-	p = RSTRING(line)->ptr;
-	if (indent) {
-	    while (*p && (*p == ' ' || *p == '\t')) {
-		p++;
-	    }
-	}
-	if (strncmp(eos, p, len) == 0) {
-	    if (p[len] == '\n' || p[len] == '\r')
-		break;
-	    if (len == RSTRING(line)->len)
-		break;
-	}
-
-	lex_pbeg = lex_p = RSTRING(line)->ptr;
-	lex_pend = lex_p + RSTRING(line)->len;
-#if 0
-	if (indent) {
-	    while (*lex_p && *lex_p == '\t') {
-		lex_p++;
-	    }
-	}
-#endif
-      retry:
-	switch (parse_string(term, '\n', 0)) {
-	  case tSTRING:
-	  case tXSTRING:
-	    rb_str_cat2(yylval.val, "\n");
-	    if (!list) {
-	        rb_str_append(str, yylval.val);
-	    }
-	    else {
-		list_append(list, NEW_STR(yylval.val));
-	    }
-	    break;
-	  case tDSTRING:
-	    if (!list) list = NEW_DSTR(str);
-	    /* fall through */
-	  case tDXSTRING:
-	    if (!list) list = NEW_DXSTR(str);
-
-	    list_append(yylval.node, NEW_STR(rb_str_new2("\n")));
-	    nd_set_type(yylval.node, NODE_STR);
-	    yylval.node = NEW_LIST(yylval.node);
-	    yylval.node->nd_next = yylval.node->nd_head->nd_next;
-	    list_concat(list, yylval.node);
-	    break;
-
-	  case 0:
-	    goto error;
-	}
-	if (lex_p != lex_pend) {
-	    goto retry;
-	}
-    }
-    free(eos);
-    lex_lastline = lastline_save;
-    lex_pbeg = RSTRING(lex_lastline)->ptr;
-    lex_pend = lex_pbeg + RSTRING(lex_lastline)->len;
-    lex_p = lex_pbeg + offset_save;
-
-    lex_state = EXPR_END;
+static void
+heredoc_restore(here)
+    NODE *here;
+{
+    VALUE line = here->nd_orig;
+    lex_lastline = line;
+    lex_pbeg = RSTRING(line)->ptr;
+    lex_pend = lex_pbeg + RSTRING(line)->len;
+    lex_p = lex_pbeg + here->nd_nth;
     heredoc_end = ruby_sourceline;
-    ruby_sourceline = linesave;
+    ruby_sourceline = nd_line(here);
+    dispose_string(here->nd_lit);
+    rb_gc_force_recycle((VALUE)here);
+}
 
-    if (list) {
-	nd_set_line(list, firstline+1);
-	yylval.node = list;
+static int
+whole_match_p(eos, len, indent)
+    char *eos;
+    int len, indent;
+{
+    char *p = lex_pbeg;
+    int n;
+
+    if (indent) {
+	while (*p && ISSPACE(*p)) p++;
     }
-    switch (term) {
-      case '\0':
-      case '\'':
-      case '"':
-	if (list) return tDSTRING;
-	yylval.val = str;
-	return tSTRING;
-      case '`':
-	if (list) return tDXSTRING;
-	yylval.val = str;
-	return tXSTRING;
+    n= lex_pend - (p + len);
+    if (n < 0 || (n > 0 && p[len] != '\n' && p[len] != '\r')) return Qfalse;
+    if (strncmp(eos, p, len) == 0) return Qtrue;
+    return Qfalse;
+}
+
+static int
+here_document(here)
+    NODE *here;
+{
+    int c, func, indent = 0;
+    char *eos, *p, *pend;
+    long len;
+    VALUE str = 0;
+
+    eos = RSTRING(here->nd_lit)->ptr;
+    len = RSTRING(here->nd_lit)->len - 1;
+    indent = (func = *eos++) & STR_FUNC_INDENT;
+
+    if ((c = nextc()) == -1) {
+      error:
+	rb_compile_error("can't find string \"%s\" anywhere before EOF", eos);
+	heredoc_restore(lex_strterm);
+	lex_strterm = 0;
+	return 0;
     }
-    return 0;
+    if (was_bol() && whole_match_p(eos, len, indent)) {
+	heredoc_restore(lex_strterm);
+	return tSTRING_END;
+    }
+
+    if (!(func & STR_FUNC_EXPAND)) {
+	do {
+	    p = RSTRING(lex_lastline)->ptr;
+	    pend = lex_pend;
+	    if (pend > p) {
+		switch (pend[-1]) {
+		  case '\n':
+		    if (--pend == p || pend[-1] != '\r') {
+			pend++;
+			break;
+		    }
+		  case '\r':
+		    --pend;
+		}
+	    }
+	    if (str)
+		rb_str_cat(str, p, pend - p);
+	    else
+		str = rb_str_new(p, pend - p);
+	    if (pend < lex_pend) rb_str_cat(str, "\n", 1);
+	    lex_p = lex_pend;
+	    if (nextc() == -1) {
+		if (str) dispose_string(str);
+		goto error;
+	    }
+	} while (!whole_match_p(eos, len, indent));
+    }
+    else {
+	newtok();
+	if (c == '#') {
+	    switch (c = nextc()) {
+	      case '$':
+	      case '@':
+		pushback(c);
+		return tSTRING_DVAR;
+	      case '{':
+		return tSTRING_DBEG;
+	    }
+	    tokadd('#');
+	}
+	do {
+	    pushback(c);
+	    if ((c = tokadd_string(func, '\n', 0, NULL)) == -1) goto error;
+	    if (c != '\n') {
+		yylval.node = NEW_STR(rb_str_new(tok(), toklen()));
+		return tSTRING_CONTENT;
+	    }
+	    tokadd(nextc());
+	    if ((c = nextc()) == -1) goto error;
+	} while (!whole_match_p(eos, len, indent));
+	str = rb_str_new(tok(), toklen());
+    }
+    heredoc_restore(lex_strterm);
+    lex_strterm = NEW_STRTERM(-1, 0, 0);
+    yylval.node = NEW_STR(str);
+    return tSTRING_CONTENT;
 }
 
 #include "lex.c"
@@ -2925,16 +3295,39 @@ here_document(term, indent)
 static void
 arg_ambiguous()
 {
-    rb_warning("ambiguous first argument; make sure");
+    rb_warning("ambiguous first argument; put parentheses or even spaces");
 }
+
+#define IS_ARG() (lex_state == EXPR_ARG || lex_state == EXPR_CMDARG)
 
 static int
 yylex()
 {
     register int c;
     int space_seen = 0;
-    struct kwtable *kw;
+    int cmd_state;
 
+    if (lex_strterm) {
+	int token;
+	if (nd_type(lex_strterm) == NODE_HEREDOC) {
+	    token = here_document(lex_strterm);
+	    if (token == tSTRING_END) {
+		lex_strterm = 0;
+		lex_state = EXPR_END;
+	    }
+	}
+	else {
+	    token = parse_string(lex_strterm);
+	    if (token == tSTRING_END || token == tREGEXP_END) {
+		rb_gc_force_recycle((VALUE)lex_strterm);
+		lex_strterm = 0;
+		lex_state = EXPR_END;
+	    }
+	}
+	return token;
+    }
+    cmd_state = command_start;
+    command_start = Qfalse;
   retry:
     switch (c = nextc()) {
       case '\0':		/* NUL */
@@ -2965,6 +3358,7 @@ yylex()
 	  default:
 	    break;
 	}
+	command_start = Qtrue;
 	lex_state = EXPR_BEG;
 	return '\n';
 
@@ -2985,7 +3379,7 @@ yylex()
 		return tOP_ASGN;
 	    }
 	    pushback(c);
-	    if (lex_state == EXPR_ARG && space_seen && !ISSPACE(c)){
+	    if (IS_ARG() && space_seen && !ISSPACE(c)){
 		rb_warning("`*' interpreted as argument prefix");
 		c = tSTAR;
 	    }
@@ -3016,7 +3410,7 @@ yylex()
 	return '!';
 
       case '=':
-	if (lex_p == lex_pbeg + 1) {
+	if (was_bol()) {
 	    /* skip embedded rd document */
 	    if (strncmp(lex_p, "begin", 5) == 0 && ISSPACE(lex_p[5])) {
 		for (;;) {
@@ -3062,21 +3456,13 @@ yylex()
       case '<':
 	c = nextc();
 	if (c == '<' &&
-	    lex_state != EXPR_END && lex_state != EXPR_CLASS && lex_state != EXPR_DOT &&
-	    (lex_state != EXPR_ARG || space_seen)) {
- 	    int c2 = nextc();
-	    int indent = 0;
-	    if (c2 == '-') {
-		indent = 1;
-		c2 = nextc();
-	    }
-	    if (!ISSPACE(c2) && (strchr("\"'`", c2) || is_identchar(c2))) {
-		return here_document(c2, indent);
-	    }
-	    pushback(c2);
-	    if (indent) {
-		pushback('-');
-	    }
+	    lex_state != EXPR_END &&
+	    lex_state != EXPR_DOT &&
+	    lex_state != EXPR_ENDARG && 
+	    lex_state != EXPR_CLASS &&
+	    (!IS_ARG() || space_seen)) {
+	    int token = heredoc_identifier();
+	    if (token) return token;
 	}
 	switch (lex_state) {
 	  case EXPR_FNAME: case EXPR_DOT:
@@ -3126,32 +3512,40 @@ yylex()
 	return '>';
 
       case '"':
-	return parse_string(c,c,0);
+	lex_strterm = NEW_STRTERM(str_dquote, '"', 0);
+	return tSTRING_BEG;
+
       case '`':
 	if (lex_state == EXPR_FNAME) {
 	    lex_state = EXPR_END;
 	    return c;
 	}
 	if (lex_state == EXPR_DOT) {
-	    lex_state = EXPR_ARG;
+	    if (cmd_state)
+		lex_state = EXPR_CMDARG;
+	    else
+		lex_state = EXPR_ARG;
 	    return c;
 	}
-	return parse_string(c,c,0);
+	lex_strterm = NEW_STRTERM(str_xquote, '`', 0);
+	return tXSTRING_BEG;
 
       case '\'':
-	return parse_qstring(c,0);
+	lex_strterm = NEW_STRTERM(str_squote, '\'', 0);
+	return tSTRING_BEG;
 
       case '?':
-	if (lex_state == EXPR_END) {
+	if (lex_state == EXPR_END || lex_state == EXPR_ENDARG) {
 	    lex_state = EXPR_BEG;
 	    return '?';
 	}
 	c = nextc();
 	if (c == -1) {
-	    return '?';
+	    rb_compile_error("incomplete character syntax");
+	    return 0;
 	}
 	if (ISSPACE(c)){
-	    if (lex_state != EXPR_ARG){
+	    if (!IS_ARG()){
 		int c2 = 0;
 		switch (c) {
 		  case ' ':
@@ -3166,23 +3560,35 @@ yylex()
 		  case '\v':
 		    c2 = 'v';
 		    break;
+		  case '\r':
+		    c2 = 'r';
+		    break;
+		  case '\f':
+		    c2 = 'f';
+		    break;
 		}
 		if (c2) {
-		    rb_warn("invalid character syntax; use ?\\%c", c);
+		    rb_warn("invalid character syntax; use ?\\%c", c2);
 		}
 	    }
-	    else {
-		pushback(c);
-		lex_state = EXPR_BEG;
-		return '?';
-	    }
+	  ternary:
+	    pushback(c);
+	    lex_state = EXPR_BEG;
+	    return '?';
 	}
-	if (c == '\\') {
+	else if (ismbchar(c)) {
+	    rb_warn("multibyte character literal not supported yet; use ?\\%.3o", c);
+	    goto ternary;
+	}
+	else if ((ISALNUM(c) || c == '_') && lex_p < lex_pend && is_identchar(*lex_p)) {
+	    goto ternary;
+	}
+	else if (c == '\\') {
 	    c = read_escape();
 	}
 	c &= 0xff;
-	yylval.val = INT2FIX(c);
 	lex_state = EXPR_END;
+	yylval.node = NEW_LIT(INT2FIX(c));
 	return tINTEGER;
 
       case '&':
@@ -3202,7 +3608,7 @@ yylex()
 	    return tOP_ASGN;
 	}
 	pushback(c);
-	if (lex_state == EXPR_ARG && space_seen && !ISSPACE(c)){
+	if (IS_ARG() && space_seen && !ISSPACE(c)){
 	    rb_warning("`&' interpreted as argument prefix");
 	    c = tAMPER;
 	}
@@ -3261,8 +3667,8 @@ yylex()
 	    return tOP_ASGN;
 	}
 	if (lex_state == EXPR_BEG || lex_state == EXPR_MID ||
-	    (lex_state == EXPR_ARG && space_seen && !ISSPACE(c))) {
-	    if (lex_state == EXPR_ARG) arg_ambiguous();
+	    (IS_ARG() && space_seen && !ISSPACE(c))) {
+	    if (IS_ARG()) arg_ambiguous();
 	    lex_state = EXPR_BEG;
 	    pushback(c);
 	    if (ISDIGIT(c)) {
@@ -3291,13 +3697,12 @@ yylex()
 	    return tOP_ASGN;
 	}
 	if (lex_state == EXPR_BEG || lex_state == EXPR_MID ||
-	    (lex_state == EXPR_ARG && space_seen && !ISSPACE(c))) {
-	    if (lex_state == EXPR_ARG) arg_ambiguous();
+	    (IS_ARG() && space_seen && !ISSPACE(c))) {
+	    if (IS_ARG()) arg_ambiguous();
 	    lex_state = EXPR_BEG;
 	    pushback(c);
 	    if (ISDIGIT(c)) {
-		c = '-';
-		goto start_num;
+		return tUMINUS_NUM;
 	    }
 	    return tUMINUS;
 	}
@@ -3315,12 +3720,11 @@ yylex()
 	    return tDOT2;
 	}
 	pushback(c);
-	if (!ISDIGIT(c)) {
-	    lex_state = EXPR_DOT;
-	    return '.';
+	if (ISDIGIT(c)) {
+	    yyerror("no .<digit> floating literal anymore; put 0 before dot");
 	}
-	c = '.';
-	/* fall through */
+	lex_state = EXPR_DOT;
+	return '.';
 
       start_num:
       case '0': case '1': case '2': case '3': case '4':
@@ -3351,15 +3755,15 @@ yylex()
 			    if (!ISXDIGIT(c)) break;
 			    nondigit = 0;
 			    tokadd(c);
-			} while (c = nextc());
+			} while ((c = nextc()) != -1);
 		    }
 		    pushback(c);
 		    tokfix();
 		    if (toklen() == start) {
-			yyerror("hexadecimal number without hex-digits");
+			yyerror("numeric literal without digits");
 		    }
 		    else if (nondigit) goto trailing_uc;
-		    yylval.val = rb_cstr2inum(tok(), 16);
+		    yylval.node = NEW_LIT(rb_cstr_to_inum(tok(), 16, Qfalse));
 		    return tINTEGER;
 		}
 		if (c == 'b' || c == 'B') {
@@ -3375,7 +3779,7 @@ yylex()
 			    if (c != '0' && c != '1') break;
 			    nondigit = 0;
 			    tokadd(c);
-			} while (c = nextc());
+			} while ((c = nextc()) != -1);
 		    }
 		    pushback(c);
 		    tokfix();
@@ -3383,11 +3787,47 @@ yylex()
 			yyerror("numeric literal without digits");
 		    }
 		    else if (nondigit) goto trailing_uc;
-		    yylval.val = rb_cstr2inum(tok(), 2);
+		    yylval.node = NEW_LIT(rb_cstr_to_inum(tok(), 2, Qfalse));
 		    return tINTEGER;
 		}
-		if (c >= '0' && c <= '7' || c == '_') {
+		if (c == 'd' || c == 'D') {
+		    /* decimal */
+		    c = nextc();
+		    if (ISDIGIT(c)) {
+			do {
+			    if (c == '_') {
+				if (nondigit) break;
+				nondigit = c;
+				continue;
+			    }
+			    if (!ISDIGIT(c)) break;
+			    nondigit = 0;
+			    tokadd(c);
+			} while ((c = nextc()) != -1);
+		    }
+		    pushback(c);
+		    tokfix();
+		    if (toklen() == start) {
+			yyerror("numeric literal without digits");
+		    }
+		    else if (nondigit) goto trailing_uc;
+		    yylval.node = NEW_LIT(rb_cstr_to_inum(tok(), 10, Qfalse));
+		    return tINTEGER;
+		}
+		if (c == '_') {
+		    /* 0_0 */
+		    goto octal_number;
+		}
+		if (c == 'o' || c == 'O') {
+		    /* prefixed octal */
+		    c = nextc();
+		    if (c == '_') {
+			yyerror("numeric literal without digits");
+		    }
+		}
+		if (c >= '0' && c <= '7') {
 		    /* octal */
+		  octal_number:
 	            do {
 			if (c == '_') {
 			    if (nondigit) break;
@@ -3397,12 +3837,12 @@ yylex()
 			if (c < '0' || c > '7') break;
 			nondigit = 0;
 			tokadd(c);
-		    } while (c = nextc());
+		    } while ((c = nextc()) != -1);
 		    if (toklen() > start) {
 			pushback(c);
 			tokfix();
 			if (nondigit) goto trailing_uc;
-			yylval.val = rb_cstr2inum(tok(), 8);
+			yylval.node = NEW_LIT(rb_cstr_to_inum(tok(), 8, Qfalse));
 			return tINTEGER;
 		    }
 		    if (nondigit) {
@@ -3418,7 +3858,7 @@ yylex()
 		}
 		else {
 		    pushback(c);
-		    yylval.val = INT2FIX(0);
+		    yylval.node = NEW_LIT(INT2FIX(0));
 		    return tINTEGER;
 		}
 	    }
@@ -3497,22 +3937,18 @@ yylex()
 		    rb_warn("Float %s out of range", tok());
 		    errno = 0;
 		}
-		yylval.val = rb_float_new(d);
+		yylval.node = NEW_LIT(rb_float_new(d));
 		return tFLOAT;
 	    }
-	    yylval.val = rb_cstr2inum(tok(), 10);
+	    yylval.node = NEW_LIT(rb_cstr_to_inum(tok(), 10, Qfalse));
 	    return tINTEGER;
 	}
 
       case ']':
       case '}':
-	lex_state = EXPR_END;
-	return c;
-
       case ')':
-	if (cond_nest > 0) {
-	    cond_stack >>= 1;
-	}
+	COND_LEXPOP();
+	CMDARG_LEXPOP();
 	lex_state = EXPR_END;
 	return c;
 
@@ -3520,24 +3956,36 @@ yylex()
 	c = nextc();
 	if (c == ':') {
 	    if (lex_state == EXPR_BEG ||  lex_state == EXPR_MID ||
-		(lex_state == EXPR_ARG && space_seen)) {
+		lex_state == EXPR_CLASS || (IS_ARG() && space_seen)) {
 		lex_state = EXPR_BEG;
 		return tCOLON3;
 	    }
 	    lex_state = EXPR_DOT;
 	    return tCOLON2;
 	}
-	pushback(c);
-	if (lex_state == EXPR_END || ISSPACE(c)) {
+	if (lex_state == EXPR_END || lex_state == EXPR_ENDARG || ISSPACE(c)) {
+	    pushback(c);
 	    lex_state = EXPR_BEG;
 	    return ':';
+	}
+	switch (c) {
+	  case '\'':
+	    lex_strterm = NEW_STRTERM(str_ssym, c, 0);
+	    break;
+	  case '"':
+	    lex_strterm = NEW_STRTERM(str_dsym, c, 0);
+	    break;
+	  default:
+	    pushback(c);
+	    break;
 	}
 	lex_state = EXPR_FNAME;
 	return tSYMBEG;
 
       case '/':
 	if (lex_state == EXPR_BEG || lex_state == EXPR_MID) {
-	    return parse_regx('/', '/');
+	    lex_strterm = NEW_STRTERM(str_regexp, '/', 0);
+	    return tREGEXP_BEG;
 	}
 	if ((c = nextc()) == '=') {
 	    yylval.id = '/';
@@ -3545,10 +3993,11 @@ yylex()
 	    return tOP_ASGN;
 	}
 	pushback(c);
-	if (lex_state == EXPR_ARG && space_seen) {
+	if (IS_ARG() && space_seen) {
 	    if (!ISSPACE(c)) {
 		arg_ambiguous();
-		return parse_regx('/', '/');
+		lex_strterm = NEW_STRTERM(str_regexp, '/', 0);
+		return tREGEXP_BEG;
 	    }
 	}
 	switch (lex_state) {
@@ -3574,8 +4023,9 @@ yylex()
 	pushback(c);
 	return '^';
 
-      case ',':
       case ';':
+	command_start = Qtrue;
+      case ',':
 	lex_state = EXPR_BEG;
 	return c;
 
@@ -3594,15 +4044,21 @@ yylex()
 	return '~';
 
       case '(':
-	if (cond_nest > 0) {
-	    cond_stack = (cond_stack<<1)|0;
-	}
+	command_start = Qtrue;
 	if (lex_state == EXPR_BEG || lex_state == EXPR_MID) {
 	    c = tLPAREN;
 	}
-	else if (lex_state == EXPR_ARG && space_seen) {
-	    rb_warning("%s (...) interpreted as method call", tok());
+	else if (space_seen) {
+	    if (lex_state == EXPR_CMDARG) {
+		c = tLPAREN_ARG;
+	    }
+	    else if (lex_state == EXPR_ARG) {
+		rb_warn("don't put space before argument parentheses");
+		c = '(';
+	    }
 	}
+	COND_PUSH(0);
+	CMDARG_PUSH(0);
 	lex_state = EXPR_BEG;
 	return c;
 
@@ -3622,15 +4078,23 @@ yylex()
 	else if (lex_state == EXPR_BEG || lex_state == EXPR_MID) {
 	    c = tLBRACK;
 	}
-	else if (lex_state == EXPR_ARG && space_seen) {
+	else if (IS_ARG() && space_seen) {
 	    c = tLBRACK;
 	}
 	lex_state = EXPR_BEG;
+	COND_PUSH(0);
+	CMDARG_PUSH(0);
 	return c;
 
       case '{':
-	if (lex_state != EXPR_END && lex_state != EXPR_ARG)
-	    c = tLBRACE;
+	if (IS_ARG() || lex_state == EXPR_END)
+	    c = '{';          /* block (primary) */
+	else if (lex_state == EXPR_ENDARG)
+	    c = tLBRACE_ARG;  /* block (expr) */
+	else
+	    c = tLBRACE;      /* hash */
+	COND_PUSH(0);
+	CMDARG_PUSH(0);
 	lex_state = EXPR_BEG;
 	return c;
 
@@ -3674,19 +4138,37 @@ yylex()
 
 	    switch (c) {
 	      case 'Q':
-		return parse_string('"', term, paren);
+		lex_strterm = NEW_STRTERM(str_dquote, term, paren);
+		return tSTRING_BEG;
 
 	      case 'q':
-		return parse_qstring(term, paren);
+		lex_strterm = NEW_STRTERM(str_squote, term, paren);
+		return tSTRING_BEG;
+
+	      case 'W':
+		lex_strterm = NEW_STRTERM(str_dquote | STR_FUNC_QWORDS, term, paren);
+		do {c = nextc();} while (ISSPACE(c));
+		pushback(c);
+		return tWORDS_BEG;
 
 	      case 'w':
-		return parse_quotedwords(term, paren);
+		lex_strterm = NEW_STRTERM(str_squote | STR_FUNC_QWORDS, term, paren);
+		do {c = nextc();} while (ISSPACE(c));
+		pushback(c);
+		return tQWORDS_BEG;
 
 	      case 'x':
-		return parse_string('`', term, paren);
+		lex_strterm = NEW_STRTERM(str_xquote, term, paren);
+		return tXSTRING_BEG;
 
 	      case 'r':
-		return parse_regx(term, paren);
+		lex_strterm = NEW_STRTERM(str_regexp, term, paren);
+		return tREGEXP_BEG;
+
+	      case 's':
+		lex_strterm = NEW_STRTERM(str_ssym, term, paren);
+		lex_state = EXPR_FNAME;
+		return tSYMBEG;
 
 	      default:
 		yyerror("unknown type of %string");
@@ -3698,7 +4180,7 @@ yylex()
 	    lex_state = EXPR_BEG;
 	    return tOP_ASGN;
 	}
-	if (lex_state == EXPR_ARG && space_seen && !ISSPACE(c)) {
+	if (IS_ARG() && space_seen && !ISSPACE(c)) {
 	    goto quotation;
 	}
 	switch (lex_state) {
@@ -3770,12 +4252,10 @@ yylex()
 	  case '4': case '5': case '6':
 	  case '7': case '8': case '9':
 	    tokadd('$');
-	    while (ISDIGIT(c)) {
+	    do {
 		tokadd(c);
 		c = nextc();
-	    }
-	    if (is_identchar(c))
-		break;
+	    } while (ISDIGIT(c));
 	    pushback(c);
 	    tokfix();
 	    yylval.node = NEW_NTH_REF(atoi(tok()+1));
@@ -3801,10 +4281,10 @@ yylex()
 	}
 	if (ISDIGIT(c)) {
 	    if (tokidx == 1) {
-		rb_compile_error("`@%c' is not a valid instance variable name", c);
+		rb_compile_error("`@%c' is not allowed as an instance variable name", c);
 	    }
 	    else {
-		rb_compile_error("`@@%c' is not a valid class variable name", c);
+		rb_compile_error("`@@%c' is not allowed as a class variable name", c);
 	    }
 	}
 	if (!is_identchar(c)) {
@@ -3813,8 +4293,17 @@ yylex()
 	}
 	break;
 
+      case '_':
+	if (was_bol() && whole_match_p("__END__", 7, 0)) {
+	    ruby__end__seen = 1;
+	    lex_lastline = 0;
+	    return -1;
+	}
+	newtok();
+	break;
+
       default:
-	if (!is_identchar(c) || ISDIGIT(c)) {
+	if (!is_identchar(c)) {
 	    rb_compile_error("Invalid char `\\%03o' in expression", c);
 	    goto retry;
 	}
@@ -3823,7 +4312,7 @@ yylex()
 	break;
     }
 
-    while (is_identchar(c)) {
+    do {
 	tokadd(c);
 	if (ismbchar(c)) {
 	    int i, len = mbclen(c)-1;
@@ -3834,7 +4323,7 @@ yylex()
 	    }
 	}
 	c = nextc();
-    }
+    } while (is_identchar(c));
     if ((c == '!' || c == '?') && is_identchar(tok()[0]) && !peek('=')) {
 	tokadd(c);
     }
@@ -3858,44 +4347,18 @@ yylex()
 	    else
 		result = tIVAR;
 	    break;
-	  default:
-	    if (lex_state != EXPR_DOT) {
-		/* See if it is a reserved word.  */
-		kw = rb_reserved_word(tok(), toklen());
-		if (kw) {
-		    enum lex_state state = lex_state;
-		    lex_state = kw->state;
-		    if (state == EXPR_FNAME) {
-			yylval.id = rb_intern(kw->name);
-		    }
-		    if (kw->id[0] == kDO) {
-			if (COND_P()) return kDO_COND;
-			if (CMDARG_P()) return kDO_BLOCK;
-			return kDO;
-		    }
-		    if (state == EXPR_BEG)
-			return kw->id[0];
-		    else {
-			if (kw->id[0] != kw->id[1])
-			    lex_state = EXPR_BEG;
-			return kw->id[1];
-		    }
-		}
-	    }
 
+	  default:
 	    if (toklast() == '!' || toklast() == '?') {
 		result = tFID;
 	    }
 	    else {
 		if (lex_state == EXPR_FNAME) {
-#if 0
-		    if ((c = nextc()) == '=' && !peek('=') && !peek('~') && !peek('>')) {
-#else
 		    if ((c = nextc()) == '=' && !peek('~') && !peek('>') &&
-			(!peek('=') || lex_p + 1 < lex_pend && lex_p[1] == '>')) {
-#endif
+			(!peek('=') || (lex_p + 1 < lex_pend && lex_p[1] == '>'))) {
 			result = tIDENTIFIER;
 			tokadd(c);
+			tokfix();
 		    }
 		    else {
 			pushback(c);
@@ -3908,241 +4371,65 @@ yylex()
 		    result = tIDENTIFIER;
 		}
 	    }
+
+	    if (lex_state != EXPR_DOT) {
+		struct kwtable *kw;
+
+		/* See if it is a reserved word.  */
+		kw = rb_reserved_word(tok(), toklen());
+		if (kw) {
+		    enum lex_state state = lex_state;
+		    lex_state = kw->state;
+		    if (state == EXPR_FNAME) {
+			yylval.id = rb_intern(kw->name);
+		    }
+		    if (kw->id[0] == kDO) {
+			if (COND_P()) return kDO_COND;
+			if (CMDARG_P() && state != EXPR_CMDARG)
+			    return kDO_BLOCK;
+			if (state == EXPR_ENDARG)
+			    return kDO_BLOCK;
+			return kDO;
+		    }
+		    if (state == EXPR_BEG)
+			return kw->id[0];
+		    else {
+			if (kw->id[0] != kw->id[1])
+			    lex_state = EXPR_BEG;
+			return kw->id[1];
+		    }
+		}
+	    }
+
 	    if (lex_state == EXPR_BEG ||
+		lex_state == EXPR_MID ||
 		lex_state == EXPR_DOT ||
-		lex_state == EXPR_ARG) {
-		lex_state = EXPR_ARG;
+		lex_state == EXPR_ARG ||
+		lex_state == EXPR_CMDARG) {
+		if (cmd_state) {
+		    lex_state = EXPR_CMDARG;
+		}
+		else {
+		    lex_state = EXPR_ARG;
+		}
 	    }
 	    else {
 		lex_state = EXPR_END;
 	    }
 	}
-	tokfix();
 	yylval.id = rb_intern(tok());
+	if (is_local_id(yylval.id) &&
+	    ((dyna_in_block() && rb_dvar_defined(yylval.id)) || local_id(yylval.id))) {
+	    lex_state = EXPR_END;
+	}
 	return result;
     }
-}
-
-static NODE*
-str_extend(list, term, paren)
-    NODE *list;
-    int term, paren;
-{
-    int c;
-    int brace = -1;
-    VALUE ss;
-    NODE *node;
-    int brace_nest = 0;
-    int paren_nest = 0;
-    int start;
-
-    c = nextc();
-    switch (c) {
-      case '$':
-      case '@':
-      case '{':
-	break;
-      default:
-	tokadd('#');
-	pushback(c);
-	return list;
-    }
-
-    start = ruby_sourceline;
-    ss = rb_str_new(tok(), toklen());
-    if (list == 0) {
-	list = NEW_DSTR(ss);
-    }
-    else if (toklen() > 0) {
-	list_append(list, NEW_STR(ss));
-    }
-    newtok();
-
-    switch (c) {
-      case '$':
-	tokadd('$');
-	c = nextc();
-	if (c == -1) return (NODE*)-1;
-	switch (c) {
-	  case '1': case '2': case '3':
-	  case '4': case '5': case '6':
-	  case '7': case '8': case '9':
-	    while (ISDIGIT(c)) {
-		tokadd(c);
-		c = nextc();
-	    }
-	    pushback(c);
-	    goto fetch_id;
-
-	  case '&': case '+':
-	  case '_': case '~':
-	  case '*': case '$': case '?':
-	  case '!': case '@': case ',':
-	  case '.': case '=': case ':':
-	  case '<': case '>': case '\\':
-	  case ';':
-	  refetch:
-	    tokadd(c);
-	    goto fetch_id;
-
-	  case '-':
-	    tokadd(c);
-	    c = nextc();
-	    if (!is_identchar(c)) {
-		pushback(c);
-		goto invalid_interporate;
-	    }
-	    tokadd(c);
-	    goto fetch_id;
-
-          default:
-	    if (c == term) {
-		list_append(list, NEW_STR(rb_str_new2("#$")));
-		pushback(c);
-		newtok();
-		return list;
-	    }
-	    switch (c) {
-	      case '\"':
-	      case '/':
-	      case '\'':
-	      case '`':
-		goto refetch;
-	    }
-	    if (!is_identchar(c)) {
-	      pushback(c);
-	      invalid_interporate:
-		{
-		    VALUE s = rb_str_new2("#");
-		    rb_str_cat(s, tok(), toklen());
-		    list_append(list, NEW_STR(s));
-		    newtok();
-		    return list;
-		}
-	    }
-	}
-
-	while (is_identchar(c)) {
-	    tokadd(c);
-	    if (ismbchar(c)) {
-		int i, len = mbclen(c)-1;
-
-		for (i = 0; i < len; i++) {
-		    c = nextc();
-		    tokadd(c);
-		}
-	    }
-	    c = nextc();
-	}
-	pushback(c);
-	break;
-
-      case '@':
-	tokadd(c);
-	c = nextc();
-        if (c == '@') {
-	    tokadd(c);
-	    c = nextc();
-        }
-	while (is_identchar(c)) {
-	    tokadd(c);
-	    if (ismbchar(c)) {
-		int i, len = mbclen(c)-1;
-
-		for (i = 0; i < len; i++) {
-		    c = nextc();
-		    tokadd(c);
-		}
-	    }
-	    c = nextc();
-	}
-	pushback(c);
-	if (toklen() == 1) {
-	    goto invalid_interporate;
-	}
-	break;
-
-      case '{':
-	if (c == '{') brace = '}';
-	brace_nest = 1;
-	do {
-	  loop_again:
-	    c = nextc();
-	    switch (c) {
-	      case -1:
-		if (brace_nest > 1) {
-		    yyerror("bad substitution in string");
-		    newtok();
-		    return list;
-		}
-		return (NODE*)-1;
-	      case '}':
-		if (c == brace) {
-		    brace_nest--;
-		    if (brace_nest == 0) break;
-		}
-		tokadd(c);
-		goto loop_again;
-	      case '\\':
-		c = nextc();
-		if (c == -1) return (NODE*)-1;
-		if (c == term) {
-		    tokadd(c);
-		}
-		else {
-		    tokadd('\\');
-		    tokadd(c);
-		}
-		goto loop_again;
-	      case '{':
-		if (brace != -1) brace_nest++;
-	      default:
-		/* within brace */
-		if (brace_nest > 0) {
-		    if (ismbchar(c)) {
-			int i, len = mbclen(c)-1;
-
-			for (i = 0; i < len; i++) {
-			    tokadd(c);
-			    c = nextc();
-			}
-		    }
-		    tokadd(c);
-		    break;
-		}
-		/* out of brace */
-		if (c == paren) paren_nest++;
-		else if (c == term && (!paren || paren_nest-- == 0)) {
-		    pushback(c);
-		    list_append(list, NEW_STR(rb_str_new2("#{")));
-		    rb_warning("bad substitution in string");
-		    tokfix();
-		    list_append(list, NEW_STR(rb_str_new(tok(), toklen())));
-		    newtok();
-		    return list;
-		}
-		break;
-	      case '\n':
-		tokadd(c);
-		break;
-	    }
-	} while (c != brace);
-    }
-
-  fetch_id:
-    tokfix();
-    node = NEW_EVSTR(tok(),toklen());
-    nd_set_line(node, start);
-    list_append(list, node);
-    newtok();
-
-    return list;
 }
 
 NODE*
 rb_node_newnode(type, a0, a1, a2)
     enum node_type type;
-    NODE *a0, *a1, *a2;
+    VALUE a0, a1, a2;
 {
     NODE *n = (NODE*)rb_newobj();
 
@@ -4151,9 +4438,9 @@ rb_node_newnode(type, a0, a1, a2)
     nd_set_line(n, ruby_sourceline);
     n->nd_file = ruby_sourcefile;
 
-    n->u1.node = a0;
-    n->u2.node = a1;
-    n->u3.node = a2;
+    n->u1.value = a0;
+    n->u2.value = a1;
+    n->u3.value = a2;
 
     return n;
 }
@@ -4178,6 +4465,7 @@ newline_node(node)
 {
     NODE *nl = 0;
     if (node) {
+	if (nd_type(node) == NODE_NEWLINE) return node;
         nl = NEW_NEWLINE(node);
         fixpos(nl, node);
         nl->nd_nth = nd_line(node);
@@ -4196,23 +4484,55 @@ fixpos(node, orig)
     nd_set_line(node, nd_line(orig));
 }
 
+static void
+parser_warning(node, mesg)
+    NODE *node;
+    const char *mesg;
+{
+    int line = ruby_sourceline;
+    ruby_sourceline = nd_line(node);
+    rb_warning(mesg);
+    ruby_sourceline = line;
+}
+
+static void
+parser_warn(node, mesg)
+    NODE *node;
+    const char *mesg;
+{
+    int line = ruby_sourceline;
+    ruby_sourceline = nd_line(node);
+    rb_warn(mesg);
+    ruby_sourceline = line;
+}
+
 static NODE*
 block_append(head, tail)
     NODE *head, *tail;
 {
-    NODE *end;
+    NODE *end, *h = head;
 
     if (tail == 0) return head;
-    if (head == 0) return tail;
 
-    if (nd_type(head) != NODE_BLOCK) {
-	end = NEW_BLOCK(head);
+  again:
+    if (h == 0) return tail;
+    switch (nd_type(h)) {
+      case NODE_NEWLINE:
+	h = h->nd_next;
+	goto again;
+      case NODE_LIT:
+      case NODE_STR:
+	parser_warning(h, "unused literal ignored");
+	return tail;
+      default:
+	h = end = NEW_BLOCK(head);
 	end->nd_end = end;
 	fixpos(end, head);
 	head = end;
-    }
-    else {
-	end = head->nd_end;
+	break;
+      case NODE_BLOCK:
+	end = h->nd_end;
+	break;
     }
 
     if (RTEST(ruby_verbose)) {
@@ -4224,7 +4544,7 @@ block_append(head, tail)
 	  case NODE_NEXT:
 	  case NODE_REDO:
 	  case NODE_RETRY:
-	    rb_warning("statement not reached");
+	    parser_warning(nd, "statement not reached");
 	    break;
 
 	case NODE_NEWLINE:
@@ -4241,43 +4561,135 @@ block_append(head, tail)
 	tail->nd_end = tail;
     }
     end->nd_next = tail;
-    head->nd_end = tail->nd_end;
+    h->nd_end = tail->nd_end;
     return head;
 }
 
+/* append item to the list */
 static NODE*
-list_append(head, tail)
-    NODE *head, *tail;
+list_append(list, item)
+    NODE *list, *item;
 {
     NODE *last;
 
-    if (head == 0) return NEW_LIST(tail);
-
-    last = head;
-    while (last->nd_next) {
-	last = last->nd_next;
+    if (list == 0) return NEW_LIST(item);
+    if (list->nd_next) {
+	last = list->nd_next->nd_end;
+    }
+    else {
+	last = list;
     }
 
-    last->nd_next = NEW_LIST(tail);
-    head->nd_alen += 1;
-    return head;
+    list->nd_alen += 1;
+    last->nd_next = NEW_LIST(item);
+    list->nd_next->nd_end = last->nd_next;
+    return list;
 }
 
+/* concat two lists */
 static NODE*
 list_concat(head, tail)
     NODE *head, *tail;
 {
     NODE *last;
 
-    last = head;
-    while (last->nd_next) {
-	last = last->nd_next;
+    if (head->nd_next) {
+	last = head->nd_next->nd_end;
+    }
+    else {
+	last = head;
     }
 
-    last->nd_next = tail;
     head->nd_alen += tail->nd_alen;
+    last->nd_next = tail;
+    if (tail->nd_next) {
+	head->nd_next->nd_end = tail->nd_next->nd_end;
+    }
+    else {
+	head->nd_next->nd_end = tail;
+    }
 
     return head;
+}
+
+/* concat two string literals */
+static NODE *
+literal_concat(head, tail)
+    NODE *head, *tail;
+{
+    enum node_type htype;
+
+    if (!head) return tail;
+    if (!tail) return head;
+
+    htype = nd_type(head);
+    if (htype == NODE_EVSTR) {
+	NODE *node = NEW_DSTR(rb_str_new(0, 0));
+	head = list_append(node, head);
+    }
+    switch (nd_type(tail)) {
+      case NODE_STR:
+	if (htype == NODE_STR) {
+	    rb_str_concat(head->nd_lit, tail->nd_lit);
+	    rb_gc_force_recycle((VALUE)tail);
+	}
+	else {
+	    list_append(head, tail);
+	}
+	break;
+
+      case NODE_DSTR:
+	if (htype == NODE_STR) {
+	    rb_str_concat(head->nd_lit, tail->nd_lit);
+	    tail->nd_lit = head->nd_lit;
+	    rb_gc_force_recycle((VALUE)head);
+	    head = tail;
+	}
+	else {
+	    nd_set_type(tail, NODE_ARRAY);
+	    tail->nd_head = NEW_STR(tail->nd_lit);
+	    list_concat(head, tail);
+	}
+	break;
+
+      case NODE_EVSTR:
+	if (htype == NODE_STR) {
+	    nd_set_type(head, NODE_DSTR);
+	    head->nd_alen = 1;
+	}
+	list_append(head, tail);
+	break;
+    }
+    return head;
+}
+
+static NODE *
+evstr2dstr(node)
+    NODE *node;
+{
+    if (nd_type(node) == NODE_EVSTR) {
+	node = list_append(NEW_DSTR(rb_str_new(0, 0)), node);
+    }
+    return node;
+}
+
+static NODE *
+new_evstr(node)
+    NODE *node;
+{
+    NODE *head = node;
+
+  again:
+    if (node) {
+	switch (nd_type(node)) {
+	  case NODE_STR: case NODE_DSTR: case NODE_EVSTR:
+	    return node;
+	  case NODE_NEWLINE:
+	    node = node->nd_next;
+	    goto again;
+	}
+    }
+    return NEW_EVSTR(head);
 }
 
 static NODE *
@@ -4290,9 +4702,12 @@ call_op(recv, id, narg, arg1)
     value_expr(recv);
     if (narg == 1) {
 	value_expr(arg1);
+	arg1 = NEW_LIST(arg1);
     }
-
-    return NEW_CALL(recv, id, narg==1?NEW_LIST(arg1):0);
+    else {
+	arg1 = 0;
+    }
+    return NEW_CALL(recv, id, arg1);
 }
 
 static NODE*
@@ -4359,6 +4774,11 @@ gettable(id)
 	if (dyna_in_block() && rb_dvar_defined(id)) return NEW_DVAR(id);
 	if (local_id(id)) return NEW_LVAR(id);
 	/* method call without arguments */
+#if 0
+	/* Rite will warn this */
+	rb_warn("ambiguous identifier; %s() or self.%s is better for method call",
+		rb_id2name(id), rb_id2name(id));
+#endif
 	return NEW_VCALL(id);
     }
     else if (is_global_id(id)) {
@@ -4373,7 +4793,7 @@ gettable(id)
     else if (is_class_id(id)) {
 	return NEW_CVAR(id);
     }
-    rb_bug("invalid id for gettable");
+    rb_compile_error("identifier %s is not valid", rb_id2name(id));
     return 0;
 }
 
@@ -4425,14 +4845,14 @@ assignable(id, val)
     else if (is_const_id(id)) {
 	if (in_def || in_single)
 	    yyerror("dynamic constant assignment");
-	return NEW_CDECL(id, val);
+	return NEW_CDECL(id, val, 0);
     }
     else if (is_class_id(id)) {
 	if (in_def || in_single) return NEW_CVASGN(id, val);
 	return NEW_CVDECL(id, val);
     }
     else {
-	rb_bug("bad id for variable");
+	rb_compile_error("identifier %s is not valid", rb_id2name(id));
     }
     return 0;
 }
@@ -4441,8 +4861,11 @@ static NODE *
 aryset(recv, idx)
     NODE *recv, *idx;
 {
-    value_expr(recv);
-    return NEW_CALL(recv, tASET, idx);
+    if (recv && nd_type(recv) == NODE_SELF)
+	recv = (NODE *)1;
+    else
+	value_expr(recv);
+    return NEW_ATTRASGN(recv, tASET, idx);
 }
 
 ID
@@ -4459,8 +4882,11 @@ attrset(recv, id)
     NODE *recv;
     ID id;
 {
-    value_expr(recv);
-    return NEW_CALL(recv, rb_id_attrset(id), 0);
+    if (recv && nd_type(recv) == NODE_SELF)
+	recv = (NODE *)1;
+    else
+	value_expr(recv);
+    return NEW_ATTRASGN(recv, rb_id_attrset(id), 0);
 }
 
 static void
@@ -4469,7 +4895,7 @@ rb_backref_error(node)
 {
     switch (nd_type(node)) {
       case NODE_NTH_REF:
-	rb_compile_error("Can't set variable $%d", (int)node->nd_nth);
+	rb_compile_error("Can't set variable $%d", node->nd_nth);
 	break;
       case NODE_BACK_REF:
 	rb_compile_error("Can't set variable $%c", (int)node->nd_nth);
@@ -4520,6 +4946,7 @@ node_assign(lhs, rhs)
 	lhs->nd_value = rhs;
 	break;
 
+      case NODE_ATTRASGN:
       case NODE_CALL:
 	lhs->nd_args = arg_add(lhs->nd_args, rhs);
 	break;
@@ -4529,7 +4956,6 @@ node_assign(lhs, rhs)
 	break;
     }
 
-    if (rhs) fixpos(lhs, rhs);
     return lhs;
 }
 
@@ -4541,18 +4967,18 @@ value_expr0(node)
 
     while (node) {
 	switch (nd_type(node)) {
+	  case NODE_DEFN:
+	  case NODE_DEFS:
+	    parser_warning(node, "void value expression");
+	    return Qfalse;
+
 	  case NODE_RETURN:
 	  case NODE_BREAK:
 	  case NODE_NEXT:
 	  case NODE_REDO:
 	  case NODE_RETRY:
-	  case NODE_WHILE:
-	  case NODE_UNTIL:
-	  case NODE_CLASS:
-	  case NODE_MODULE:
-	  case NODE_DEFN:
-	  case NODE_DEFS:
 	    if (!cond) yyerror("void value expression");
+	    /* or "control never reach"? */
 	    return Qfalse;
 
 	  case NODE_BLOCK:
@@ -4585,6 +5011,7 @@ value_expr0(node)
 	    return Qtrue;
 	}
     }
+
     return Qtrue;
 }
 
@@ -4595,9 +5022,9 @@ void_expr0(node)
     char *useless = 0;
 
     if (!RTEST(ruby_verbose)) return;
-    if (!node) return;
 
   again:
+    if (!node) return;
     switch (nd_type(node)) {
       case NODE_NEWLINE:
 	node = node->nd_next;
@@ -4684,9 +5111,6 @@ void_expr0(node)
     }
 }
 
-
-static NODE *cond2 _((NODE*));
-
 static void
 void_stmts(node)
     NODE *node;
@@ -4748,7 +5172,7 @@ assign_in_cond(node)
       case NODE_TRUE:
       case NODE_FALSE:
 	/* reports always */
-	rb_warn("found = in conditional, should be ==");
+	parser_warn(node->nd_value, "found = in conditional, should be ==");
 	return 1;
 
       case NODE_DSTR:
@@ -4761,49 +5185,144 @@ assign_in_cond(node)
     }
 #if 0
     if (assign_in_cond(node->nd_value) == 0) {
-	rb_warning("assignment in condition");
+	parser_warning(node->nd_value, "assignment in condition");
     }
 #endif
     return 1;
+}
+
+static int
+e_option_supplied()
+{
+    if (strcmp(ruby_sourcefile, "-e") == 0)
+	return Qtrue;
+    return Qfalse;
+}
+
+static void
+warn_unless_e_option(node, str)
+    NODE *node;
+    const char *str;
+{
+    if (!e_option_supplied()) parser_warn(node, str);
+}
+
+static void
+warning_unless_e_option(node, str)
+    NODE *node;
+    const char *str;
+{
+    if (!e_option_supplied()) parser_warning(node, str);
+}
+
+static NODE *cond0();
+
+static NODE*
+range_op(node)
+    NODE *node;
+{
+    enum node_type type;
+
+    if (!e_option_supplied()) return node;
+    if (node == 0) return 0;
+
+    value_expr(node);
+    node = cond0(node);
+    type = nd_type(node);
+    if (type == NODE_NEWLINE) {
+	node = node->nd_next;
+	type = nd_type(node);
+    }
+    if (type == NODE_LIT && FIXNUM_P(node->nd_lit)) {
+	warn_unless_e_option(node, "integer literal in conditional range");
+	return call_op(node,tEQ,1,NEW_GVAR(rb_intern("$.")));
+    }
+    return node;
+}
+
+static int
+literal_node(node)
+    NODE *node;
+{
+    if (!node) return 1;	/* same as NODE_NIL */
+    switch (nd_type(node)) {
+      case NODE_LIT:
+      case NODE_STR:
+      case NODE_DSTR:
+      case NODE_EVSTR:
+      case NODE_DREGX:
+      case NODE_DREGX_ONCE:
+      case NODE_DSYM:
+	return 2;
+      case NODE_TRUE:
+      case NODE_FALSE:
+      case NODE_NIL:
+	return 1;
+    }
+    return 0;
 }
 
 static NODE*
 cond0(node)
     NODE *node;
 {
-    enum node_type type = nd_type(node);
-
+    if (node == 0) return 0;
     assign_in_cond(node);
-    switch (type) {
+
+    switch (nd_type(node)) {
+      case NODE_DSTR:
+      case NODE_EVSTR:
+      case NODE_STR:
+	rb_warn("string literal in condition");
+	break;
+
       case NODE_DREGX:
       case NODE_DREGX_ONCE:
+	warning_unless_e_option(node, "regex literal in condition");
 	local_cnt('_');
 	local_cnt('~');
 	return NEW_MATCH2(node, NEW_GVAR(rb_intern("$_")));
 
+      case NODE_AND:
+      case NODE_OR:
+	node->nd_1st = cond0(node->nd_1st);
+	node->nd_2nd = cond0(node->nd_2nd);
+	break;
+
       case NODE_DOT2:
       case NODE_DOT3:
-	node->nd_beg = cond2(node->nd_beg);
-	node->nd_end = cond2(node->nd_end);
-	if (type == NODE_DOT2) nd_set_type(node,NODE_FLIP2);
-	else if (type == NODE_DOT3) nd_set_type(node, NODE_FLIP3);
-	node->nd_cnt = local_append(0);
-	return node;
+	node->nd_beg = range_op(node->nd_beg);
+	node->nd_end = range_op(node->nd_end);
+	if (nd_type(node) == NODE_DOT2) nd_set_type(node,NODE_FLIP2);
+	else if (nd_type(node) == NODE_DOT3) nd_set_type(node, NODE_FLIP3);
+	node->nd_cnt = local_append(internal_id());
+	if (!e_option_supplied()) {
+	    int b = literal_node(node->nd_beg);
+	    int e = literal_node(node->nd_end);
+	    if ((b == 1 && e == 1) || (b + e >= 2 && RTEST(ruby_verbose))) {
+		parser_warn(node, "range literal in condition");
+	    }
+	}
+	break;
+
+      case NODE_DSYM:
+	parser_warning(node, "literal in condition");
+	break;
 
       case NODE_LIT:
 	if (TYPE(node->nd_lit) == T_REGEXP) {
+	    warn_unless_e_option(node, "regex literal in condition");
+	    nd_set_type(node, NODE_MATCH);
 	    local_cnt('_');
 	    local_cnt('~');
-	    return NEW_MATCH(node);
 	}
-	if (TYPE(node->nd_lit) == T_STRING) {
-	    local_cnt('_');
-	    local_cnt('~');
-	    return NEW_MATCH(rb_reg_new(RSTRING(node)->ptr,RSTRING(node)->len,0));
+	else {
+	    parser_warning(node, "literal in condition");
 	}
       default:
-	return node;
+	break;
     }
+    return node;
 }
 
 static NODE*
@@ -4811,6 +5330,7 @@ cond(node)
     NODE *node;
 {
     if (node == 0) return 0;
+    value_expr(node);
     if (nd_type(node) == NODE_NEWLINE){
 	node->nd_next = cond0(node->nd_next);
 	return node;
@@ -4819,28 +5339,107 @@ cond(node)
 }
 
 static NODE*
-cond2(node)
-    NODE *node;
-{
-    enum node_type type;
-
-    if (!node) return node;
-    node = cond(node);
-    type = nd_type(node);
-    if (type == NODE_NEWLINE) node = node->nd_next;
-    if (type == NODE_LIT && FIXNUM_P(node->nd_lit)) {
-	return call_op(node,tEQ,1,NEW_GVAR(rb_intern("$.")));
-    }
-    return node;
-}
-
-static NODE*
 logop(type, left, right)
     enum node_type type;
     NODE *left, *right;
 {
     value_expr(left);
-    return rb_node_newnode(type, cond(left), cond(right), 0);
+    if (left && nd_type(left) == type) {
+	NODE *node = left, *second;
+	while ((second = node->nd_2nd) != 0 && nd_type(second) == type) {
+	    node = second;
+	}
+	node->nd_2nd = NEW_NODE(type, second, right, 0);
+	return left;
+    }
+    return NEW_NODE(type, left, right, 0);
+}
+
+static int
+cond_negative(nodep)
+    NODE **nodep;
+{
+    NODE *c = *nodep;
+
+    if (!c) return 0;
+    switch (nd_type(c)) {
+      case NODE_NOT:
+	*nodep = c->nd_body;
+	return 1;
+      case NODE_NEWLINE:
+	if (c->nd_next && nd_type(c->nd_next) == NODE_NOT) {
+	    c->nd_next = c->nd_next->nd_body;
+	    return 1;
+	}
+    }
+    return 0;
+}
+
+static void
+no_blockarg(node)
+    NODE *node;
+{
+    if (node && nd_type(node) == NODE_BLOCK_PASS) {
+	rb_compile_error("block argument should not be given");
+    }
+}
+
+static NODE *
+ret_args(node)
+    NODE *node;
+{
+    if (node) {
+	no_blockarg(node);
+	if (nd_type(node) == NODE_ARRAY && node->nd_next == 0) {
+	    node = node->nd_head;
+	}
+	if (node && nd_type(node) == NODE_SPLAT) {
+	    node = NEW_SVALUE(node);
+	}
+    }
+    return node;
+}
+
+static NODE *
+new_yield(node)
+    NODE *node;
+{
+    long state = Qtrue;
+
+    if (node) {
+        no_blockarg(node);
+        if (nd_type(node) == NODE_ARRAY && node->nd_next == 0) {
+            node = node->nd_head;
+            state = Qfalse;
+        }
+        if (node && nd_type(node) == NODE_SPLAT) {
+            state = Qtrue;
+        }
+    }
+    else {
+        state = Qfalse;
+    }
+    return NEW_YIELD(node, state);
+}
+
+static NODE*
+negate_lit(node)
+    NODE *node;
+{
+    switch (TYPE(node->nd_lit)) {
+      case T_FIXNUM:
+	node->nd_lit = LONG2FIX(-FIX2LONG(node->nd_lit));
+	break;
+      case T_BIGNUM:
+	node->nd_lit = rb_funcall(node->nd_lit,tUMINUS,0,0);
+	break;
+      case T_FLOAT:
+	RFLOAT(node->nd_lit)->value = -RFLOAT(node->nd_lit)->value;
+	break;
+      default:
+	break;
+    }
+    return node;
 }
 
 static NODE *
@@ -4853,6 +5452,27 @@ arg_blk_pass(node1, node2)
 	return node2;
     }
     return node1;
+}
+
+static NODE*
+arg_prepend(node1, node2)
+    NODE *node1, *node2;
+{
+    switch (nd_type(node2)) {
+      case NODE_ARRAY:
+	return list_concat(NEW_LIST(node1), node2);
+
+      case NODE_SPLAT:
+	return arg_concat(node1, node2->nd_head);
+
+      case NODE_BLOCK_PASS:
+	node2->nd_body = arg_prepend(node1, node2->nd_body);
+	return node2;
+
+      default:
+	rb_bug("unknown nodetype(%d) for arg_prepend", nd_type(node2));
+    }
+    return 0;			/* not reached */
 }
 
 static NODE*
@@ -5018,7 +5638,7 @@ top_local_setup()
 	i = ruby_scope->local_tbl?ruby_scope->local_tbl[0]:0;
 
 	if (i < len) {
-	    if (i == 0 || (ruby_scope->flag & SCOPE_MALLOC) == 0) {
+	    if (i == 0 || (ruby_scope->flags & SCOPE_MALLOC) == 0) {
 		VALUE *vars = ALLOC_N(VALUE, len+1);
 		if (ruby_scope->local_vars) {
 		    *vars++ = ruby_scope->local_vars[-1];
@@ -5030,7 +5650,7 @@ top_local_setup()
 		    rb_mem_clear(vars, len);
 		}
 		ruby_scope->local_vars = vars;
-		ruby_scope->flag |= SCOPE_MALLOC;
+		ruby_scope->flags |= SCOPE_MALLOC;
 	    }
 	    else {
 		VALUE *vars = ruby_scope->local_vars-1;
@@ -5072,6 +5692,21 @@ dyna_in_block()
     return (lvtbl->dlev > 0);
 }
 
+static NODE *
+dyna_init(node, pre)
+    NODE *node;
+    struct RVarmap *pre;
+{
+    struct RVarmap *post = ruby_dyna_vars;
+    NODE *var;
+
+    if (!node || !post || pre == post) return node;
+    for (var = 0; post != pre && post->id; post = post->next) {
+	var = NEW_DASGN_CURR(post->id, var);
+    }
+    return block_append(var, node);
+}
+
 int
 ruby_parser_stack_on_heap()
 {
@@ -5087,10 +5722,11 @@ rb_gc_mark_parser()
 {
     if (!ruby_in_compile) return;
 
-    rb_gc_mark_maybe(yylval.val);
+    rb_gc_mark_maybe((VALUE)yylval.node);
     rb_gc_mark(ruby_debug_lines);
     rb_gc_mark(lex_lastline);
     rb_gc_mark(lex_input);
+    rb_gc_mark((VALUE)lex_strterm);
 }
 
 void
@@ -5125,47 +5761,46 @@ static struct {
     ID token;
     char *name;
 } op_tbl[] = {
-    tDOT2,	"..",
-    tDOT3,	"...",
-    '+',	"+",
-    '-',	"-",
-    '+',	"+(binary)",
-    '-',	"-(binary)",
-    '*',	"*",
-    '/',	"/",
-    '%',	"%",
-    tPOW,	"**",
-    tUPLUS,	"+@",
-    tUMINUS,	"-@",
-    tUPLUS,	"+(unary)",
-    tUMINUS,	"-(unary)",
-    '|',	"|",
-    '^',	"^",
-    '&',	"&",
-    tCMP,	"<=>",
-    '>',	">",
-    tGEQ,	">=",
-    '<',	"<",
-    tLEQ,	"<=",
-    tEQ,	"==",
-    tEQQ,	"===",
-    tNEQ,	"!=",
-    tMATCH,	"=~",
-    tNMATCH,	"!~",
-    '!',	"!",
-    '~',	"~",
-    '!',	"!(unary)",
-    '~',	"~(unary)",
-    '!',	"!@",
-    '~',	"~@",
-    tAREF,	"[]",
-    tASET,	"[]=",
-    tLSHFT,	"<<",
-    tRSHFT,	">>",
-    tCOLON2,	"::",
-    tCOLON3,	"::",
-    '`',	"`",
-    0,		0,
+    {tDOT2,	".."},
+    {tDOT3,	"..."},
+    {'+',	"+"},
+    {'-',	"-"},
+    {'+',	"+(binary)"},
+    {'-',	"-(binary)"},
+    {'*',	"*"},
+    {'/',	"/"},
+    {'%',	"%"},
+    {tPOW,	"**"},
+    {tUPLUS,	"+@"},
+    {tUMINUS,	"-@"},
+    {tUPLUS,	"+(unary)"},
+    {tUMINUS,	"-(unary)"},
+    {'|',	"|"},
+    {'^',	"^"},
+    {'&',	"&"},
+    {tCMP,	"<=>"},
+    {'>',	">"},
+    {tGEQ,	">="},
+    {'<',	"<"},
+    {tLEQ,	"<="},
+    {tEQ,	"=="},
+    {tEQQ,	"==="},
+    {tNEQ,	"!="},
+    {tMATCH,	"=~"},
+    {tNMATCH,	"!~"},
+    {'!',	"!"},
+    {'~',	"~"},
+    {'!',	"!(unary)"},
+    {'~',	"~(unary)"},
+    {'!',	"!@"},
+    {'~',	"~@"},
+    {tAREF,	"[]"},
+    {tASET,	"[]="},
+    {tLSHFT,	"<<"},
+    {tRSHFT,	">>"},
+    {tCOLON2,	"::"},
+    {'`',	"`"},
+    {0,	0}
 };
 
 static st_table *sym_tbl;
@@ -5178,31 +5813,46 @@ Init_sym()
     sym_rev_tbl = st_init_numtable_with_size(200);
 }
 
+static ID last_id = tLAST_TOKEN;
+
+static ID
+internal_id()
+{
+    return ID_INTERNAL | (++last_id << ID_SCOPE_SHIFT);
+}
+
 ID
 rb_intern(name)
     const char *name;
 {
-    static ID last_id = LAST_TOKEN;
+    const char *m = name;
     ID id;
     int last;
 
-    if (st_lookup(sym_tbl, name, &id))
+    if (st_lookup(sym_tbl, (st_data_t)name, (st_data_t *)&id))
 	return id;
 
+    last = strlen(name)-1;
     id = 0;
-    switch (name[0]) {
+    switch (*name) {
       case '$':
 	id |= ID_GLOBAL;
+	m++;
+	if (!is_identchar(*m)) m++;
 	break;
       case '@':
-	if (name[1] == '@')
+	if (name[1] == '@') {
+	    m++;
 	    id |= ID_CLASS;
-	else
+	}
+	else {
 	    id |= ID_INSTANCE;
+	}
+	m++;
 	break;
       default:
 	if (name[0] != '_' && !ISALPHA(name[0]) && !ismbchar(name[0])) {
-	    /* operator */
+	    /* operators */
 	    int i;
 
 	    for (i=0; op_tbl[i].token; i++) {
@@ -5214,7 +5864,6 @@ rb_intern(name)
 	    }
 	}
 
-	last = strlen(name)-1;
 	if (name[last] == '=') {
 	    /* attribute assignment */
 	    char *buf = ALLOCA_N(char,last+1);
@@ -5222,7 +5871,7 @@ rb_intern(name)
 	    strncpy(buf, name, last);
 	    buf[last] = '\0';
 	    id = rb_intern(buf);
-	    if (id > LAST_TOKEN && !is_attrset_id(id)) {
+	    if (id > tLAST_TOKEN && !is_attrset_id(id)) {
 		id = rb_id_attrset(id);
 		goto id_regist;
 	    }
@@ -5236,11 +5885,15 @@ rb_intern(name)
 	}
 	break;
     }
+    while (m <= name + last && is_identchar(*m)) {
+	m += mbclen(*m);
+    }
+    if (*m) id = ID_JUNK;
     id |= ++last_id << ID_SCOPE_SHIFT;
   id_regist:
     name = strdup(name);
-    st_add_direct(sym_tbl, name, id);
-    st_add_direct(sym_rev_tbl, id, name);
+    st_add_direct(sym_tbl, (st_data_t)name, id);
+    st_add_direct(sym_rev_tbl, id, (st_data_t)name);
     return id;
 }
 
@@ -5250,7 +5903,7 @@ rb_id2name(id)
 {
     char *name;
 
-    if (id < LAST_TOKEN) {
+    if (id < tLAST_TOKEN) {
 	int i = 0;
 
 	for (i=0; op_tbl[i].token; i++) {
@@ -5259,7 +5912,7 @@ rb_id2name(id)
 	}
     }
 
-    if (st_lookup(sym_rev_tbl, id, &name))
+    if (st_lookup(sym_rev_tbl, id, (st_data_t *)&name))
 	return name;
 
     if (is_attrset_id(id)) {
@@ -5281,6 +5934,41 @@ rb_id2name(id)
 	}
     }
     return 0;
+}
+
+static int
+symbols_i(key, value, ary)
+    char *key;
+    ID value;
+    VALUE ary;
+{
+    rb_ary_push(ary, ID2SYM(value));
+    return ST_CONTINUE;
+}
+
+/*
+ *  call-seq:
+ *     Symbol.all_symbols    => array
+ *  
+ *  Returns an array of all the symbols currently in Ruby's symbol
+ *  table.
+ *     
+ *     Symbol.all_symbols.size    #=> 903
+ *     Symbol.all_symbols[1,20]   #=> [:floor, :ARGV, :Binding, :symlink,
+ *                                     :chown, :EOFError, :$;, :String, 
+ *                                     :LOCK_SH, :"setuid?", :$<, 
+ *                                     :default_proc, :compact, :extend, 
+ *                                     :Tms, :getwd, :$=, :ThreadGroup,
+ *                                     :wait2, :$>]
+ */
+
+VALUE
+rb_sym_all_symbols()
+{
+    VALUE ary = rb_ary_new2(sym_tbl->num_entries);
+
+    st_foreach(sym_tbl, symbols_i, ary);
+    return ary;
 }
 
 int
@@ -5307,6 +5995,22 @@ rb_is_instance_id(id)
     return Qfalse;
 }
 
+int
+rb_is_local_id(id)
+    ID id;
+{
+    if (is_local_id(id)) return Qtrue;
+    return Qfalse;
+}
+
+int
+rb_is_junk_id(id)
+    ID id;
+{
+    if (is_junk_id(id)) return Qtrue;
+    return Qfalse;
+}
+
 static void
 special_local_set(c, val)
     char c;
@@ -5323,8 +6027,9 @@ special_local_set(c, val)
 VALUE
 rb_backref_get()
 {
-    if (ruby_scope->local_vars) {
-	return ruby_scope->local_vars[1];
+    VALUE *var = rb_svar(1);
+    if (var) {
+	return *var;
     }
     return Qnil;
 }
@@ -5333,8 +6038,9 @@ void
 rb_backref_set(val)
     VALUE val;
 {
-    if (ruby_scope->local_vars) {
-	ruby_scope->local_vars[1] = val;
+    VALUE *var = rb_svar(1);
+    if (var) {
+	*var = val;
     }
     else {
 	special_local_set('~', val);
@@ -5344,8 +6050,9 @@ rb_backref_set(val)
 VALUE
 rb_lastline_get()
 {
-    if (ruby_scope->local_vars) {
-	return ruby_scope->local_vars[0];
+    VALUE *var = rb_svar(0);
+    if (var) {
+	return *var;
     }
     return Qnil;
 }
@@ -5354,8 +6061,9 @@ void
 rb_lastline_set(val)
     VALUE val;
 {
-    if (ruby_scope->local_vars) {
-	ruby_scope->local_vars[0] = val;
+    VALUE *var = rb_svar(0);
+    if (var) {
+	*var = val;
     }
     else {
 	special_local_set('_', val);

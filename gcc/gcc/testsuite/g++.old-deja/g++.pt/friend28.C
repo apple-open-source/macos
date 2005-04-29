@@ -1,6 +1,10 @@
-// Build don't link:
+// { dg-do assemble  }
 
 class mystream;
+
+template <class T> class a;
+
+template <class T> mystream& operator>>( mystream& s, a<T>& thea );
 
 template <class T> class a {
 public:
@@ -8,8 +12,6 @@ public:
 private:
 	T amember;
 };
-
-template <class T> mystream& operator>>( mystream& s, a<T>& thea );
 
 template<> mystream& operator>> <int>( mystream& s, a<int>& thea );
 

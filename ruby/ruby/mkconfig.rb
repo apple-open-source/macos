@@ -1,14 +1,21 @@
 #!./miniruby -s
 
+# avoid warnings with -d.
+$srcdir ||= nil
+$install_name ||= nil
+$so_name ||= nil
+
 require File.dirname($0)+"/lib/ftools"
 mkconfig = File.basename($0)
 
 rbconfig_rb = ARGV[0] || 'rbconfig.rb'
-srcdir = $srcdir if $srcdir
+srcdir = $srcdir || '.'
 File.makedirs(File.dirname(rbconfig_rb), true)
 
 version = RUBY_VERSION
-config = open(rbconfig_rb, "w")
+rbconfig_rb_tmp = rbconfig_rb + '.tmp'
+config = open(rbconfig_rb_tmp, "w")
+$orgout = $stdout.dup
 $stdout.reopen(config)
 
 fast = {'prefix'=>TRUE, 'ruby_install_name'=>TRUE, 'INSTALL'=>TRUE, 'EXEEXT'=>TRUE}
@@ -22,45 +29,57 @@ module Config
 
 ]
 
-print "  DESTDIR = '' if not defined? DESTDIR\n  CONFIG = {}\n"
 v_fast = []
 v_others = []
-has_srcdir = false
 has_version = false
-File.foreach "config.status" do |$_|
-  next if /^#/
-  if /^s[%,]@program_transform_name@[%,]s,(.*)/
+File.foreach "config.status" do |line|
+  next if /^#/ =~ line
+  if /^s[%,]@program_transform_name@[%,]s,(.*)/ =~ line
     next if $install_name
     ptn = $1.sub(/\$\$/, '$').split(/,/)	#'
-    v_fast << "  CONFIG[\"ruby_install_name\"] = \"" + "ruby".sub(ptn[0],ptn[1]) + "\"\n"
-  elsif /^s[%,]@(\w+)@[%,](.*)[%,]/
+    v_fast << "  CONFIG[\"ruby_install_name\"] = \"" + "ruby".sub(/#{ptn[0]}/,ptn[1]) + "\"\n"
+  elsif /^s[%,]@(\w+)@[%,](.*)[%,]/ =~ line
     name = $1
     val = $2 || ""
-    next if name =~ /^(INSTALL|DEFS|configure_input|srcdir|top_srcdir)$/
-    next if $install_name and name =~ /^RUBY_INSTALL_NAME$/
-    next if $so_name and name =~ /^RUBY_SO_NAME$/
+    next if /^(INSTALL|DEFS|configure_input|srcdir|top_srcdir)$/ =~ name
+    next if $install_name and /^RUBY_INSTALL_NAME$/ =~ name
+    next if $so_name and /^RUBY_SO_NAME$/ =~  name
     v = "  CONFIG[\"" + name + "\"] = " +
-      val.strip.gsub(/\$\{?(\w+)\}?/) {"$(#{$1})"}.dump + "\n"
+      val.gsub(/\$(?:\$|\{?(\w+)\}?)/) {$1 ? "$(#{$1})" : $&}.dump + "\n"
     if fast[name]
       v_fast << v
     else
       v_others << v
     end
     has_version = true if name == "MAJOR"
-  elsif /^(?:ac_given_)?srcdir=(.*)/
-    v_fast << "  CONFIG[\"srcdir\"] = \"" + File.expand_path($1) + "\"\n"
-    has_srcdir = true
-  elsif /^ac_given_INSTALL=(.*)/
+  elsif /^(?:ac_given_)?srcdir=(.*)/ =~ line
+    srcdir = $1.strip
+  elsif /^ac_given_INSTALL=(.*)/ =~ line
     v_fast << "  CONFIG[\"INSTALL\"] = " + $1 + "\n"
   end
 #  break if /^CEOF/
 end
 
-if not has_srcdir
-  v_fast << "  CONFIG[\"srcdir\"] = \"" + File.expand_path(srcdir || '.') + "\"\n"
+srcdir = File.expand_path(srcdir)
+v_fast.unshift("  CONFIG[\"srcdir\"] = \"" + srcdir + "\"\n")
+
+v_fast.collect! do |x|
+  if /"prefix"/ === x
+    x.sub(/= (.*)/, '= (TOPDIR || DESTDIR + \1)')
+  else
+    x
+  end
 end
 
-if not has_version
+drive = File::PATH_SEPARATOR == ';'
+
+prefix = Regexp.quote('/lib/ruby/' + RUBY_VERSION.sub(/\.\d+$/, '') + '/' + RUBY_PLATFORM)
+print "  TOPDIR = File.dirname(__FILE__).sub!(%r'#{prefix}\\Z', '')\n"
+print "  DESTDIR = ", (drive ? "TOPDIR && TOPDIR[/\\A[a-z]:/i] || " : ""), "'' unless defined? DESTDIR\n"
+print "  CONFIG = {}\n"
+print "  CONFIG[\"DESTDIR\"] = DESTDIR\n"
+
+unless has_version
   RUBY_VERSION.scan(/(\d+)\.(\d+)\.(\d+)/) {
     print "  CONFIG[\"MAJOR\"] = \"" + $1 + "\"\n"
     print "  CONFIG[\"MINOR\"] = \"" + $2 + "\"\n"
@@ -68,11 +87,10 @@ if not has_version
   }
 end
 
-v_fast.collect! do |x|
-  if /"prefix"/ === x
-    prefix = Regexp.quote('/lib/ruby/' + RUBY_VERSION.sub(/\.\d+$/, '') + '/' + RUBY_PLATFORM)
-    puts "  TOPDIR = File.dirname(__FILE__).sub!(%r'#{prefix}\\Z', '')"
-    x.sub(/= (.*)/, '= (TOPDIR || DESTDIR + \1)')
+dest = drive ? /= \"(?!\$[\(\{])(?:[a-z]:)?/i : /= \"(?!\$[\(\{])/
+v_others.collect! do |x|
+  if /^\s*CONFIG\["(?!abs_|old)[a-z]+(?:_prefix|dir)"\]/ === x
+    x.sub(dest, '= "$(DESTDIR)')
   else
     x
   end
@@ -92,15 +110,18 @@ print <<EOS
   CONFIG["rubylibdir"] = "$(libdir)/ruby/$(ruby_version)"
   CONFIG["archdir"] = "$(rubylibdir)/$(arch)"
   CONFIG["sitelibdir"] = "$(sitedir)/$(ruby_version)"
-  CONFIG["sitearchdir"] = "$(sitelibdir)/$(arch)"
+  CONFIG["sitearchdir"] = "$(sitelibdir)/$(sitearch)"
   CONFIG["compile_dir"] = "#{Dir.pwd}"
   MAKEFILE_CONFIG = {}
   CONFIG.each{|k,v| MAKEFILE_CONFIG[k] = v.dup}
-  def Config::expand(val)
-    val.gsub!(/\\$\\(([^()]+)\\)/) do |var|
-      key = $1
-      if CONFIG.key? key
-        Config::expand(CONFIG[key])
+  def Config::expand(val, config = CONFIG)
+    val.gsub!(/\\$\\$|\\$\\(([^()]+)\\)|\\$\\{([^{}]+)\\}/) do |var|
+      if !(v = $1 || $2)
+	'$'
+      elsif key = config[v]
+	config[v] = false
+        Config::expand(key, config)
+	config[v] = key
       else
 	var
       end
@@ -111,7 +132,11 @@ print <<EOS
     Config::expand(val)
   end
 end
+CROSS_COMPILING = nil unless defined? CROSS_COMPILING
 EOS
+$stdout.flush
+$stdout.reopen($orgout)
 config.close
+File.rename(rbconfig_rb_tmp, rbconfig_rb)
 
 # vi:set sw=2:

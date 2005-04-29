@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_swtcl.c,v 1.3 2002/12/23 15:29:26 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_swtcl.c,v 1.6 2003/09/28 20:15:25 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,7 +25,8 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
@@ -36,16 +37,17 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "mtypes.h"
 #include "colormac.h"
 #include "enums.h"
-#include "mem.h"
-#include "mmath.h"
-#include "macros.h"
 #include "image.h"
+#include "imports.h"
+#include "macros.h"
 
-#include "swrast_setup/swrast_setup.h"
+#include "swrast/s_context.h"
 #include "swrast/s_fog.h"
+#include "swrast_setup/swrast_setup.h"
 #include "math/m_translate.h"
 #include "tnl/tnl.h"
 #include "tnl/t_context.h"
+#include "tnl/t_imm_exec.h"
 #include "tnl/t_pipeline.h"
 
 #include "r200_context.h"
@@ -275,7 +277,7 @@ static void r200SetVertexFormat( GLcontext *ctx, GLuint ind )
    TNLcontext *tnl = TNL_CONTEXT(ctx);
 
    rmesa->swtcl.SetupIndex = ind;
-      
+
    if (ctx->_TriangleCaps & (DD_TRI_LIGHT_TWOSIDE|DD_TRI_UNFILLED)) {
       tnl->Driver.Render.Interp = r200_interp_extras;
       tnl->Driver.Render.CopyPV = r200_copy_pv_extras;
@@ -374,9 +376,9 @@ void r200ChooseVertexState( GLcontext *ctx )
    if (ctx->Fog.Enabled || (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR))
       ind |= R200_SPEC_BIT;
 
-   if (ctx->Texture._ReallyEnabled & TEXTURE1_ANY)
+   if (ctx->Texture._EnabledUnits & 0x2)  /* unit 1 enabled */
       ind |= R200_TEX0_BIT|R200_TEX1_BIT;
-   else if (ctx->Texture._ReallyEnabled & TEXTURE0_ANY)
+   else if (ctx->Texture._EnabledUnits & 0x1)  /* unit 1 enabled */
       ind |= R200_TEX0_BIT;
 
    r200SetVertexFormat( ctx, ind );
@@ -390,9 +392,11 @@ static void flush_last_swtcl_prim( r200ContextPtr rmesa  )
    if (R200_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "%s\n", __FUNCTION__);
 
+   rmesa->dma.flush = 0;
+
    if (rmesa->dma.current.buf) {
       struct r200_dma_region *current = &rmesa->dma.current;
-      GLuint current_offset = (rmesa->r200Screen->agp_buffer_offset +
+      GLuint current_offset = (rmesa->r200Screen->gart_buffer_offset +
 			       current->buf->buf->idx * RADEON_BUFFER_SIZE + 
 			       current->start);
 
@@ -414,8 +418,6 @@ static void flush_last_swtcl_prim( r200ContextPtr rmesa  )
 
       rmesa->swtcl.numverts = 0;
       current->start = current->ptr;
-
-      rmesa->dma.flush = 0;
    }
 }
 
@@ -431,6 +433,7 @@ static __inline void *r200AllocDmaLowVerts( r200ContextPtr rmesa,
       r200RefillCurrentDmaRegion( rmesa );
 
    if (!rmesa->dma.flush) {
+      rmesa->glCtx->Driver.NeedFlush |= FLUSH_STORED_VERTICES;
       rmesa->dma.flush = flush_last_swtcl_prim;
    }
 
@@ -442,7 +445,7 @@ static __inline void *r200AllocDmaLowVerts( r200ContextPtr rmesa,
 
 
    {
-      GLubyte *head = rmesa->dma.current.address + rmesa->dma.current.ptr;
+      GLubyte *head = (GLubyte *) (rmesa->dma.current.address + rmesa->dma.current.ptr);
       rmesa->dma.current.ptr += bytes;
       rmesa->swtcl.numverts += nverts;
       return head;
@@ -534,7 +537,7 @@ static void VERT_FALLBACK( GLcontext *ctx,
    tnl->Driver.Render.PrimitiveNotify( ctx, flags & PRIM_MODE_MASK );
    tnl->Driver.Render.BuildVertices( ctx, start, count, ~0 );
    tnl->Driver.Render.PrimTabVerts[flags&PRIM_MODE_MASK]( ctx, start, count, flags );
-   R200_CONTEXT(ctx)->swtcl.SetupNewInputs = VERT_CLIP;
+   R200_CONTEXT(ctx)->swtcl.SetupNewInputs = VERT_BIT_CLIP;
 }
 
 static void ELT_FALLBACK( GLcontext *ctx,
@@ -546,7 +549,7 @@ static void ELT_FALLBACK( GLcontext *ctx,
    tnl->Driver.Render.PrimitiveNotify( ctx, flags & PRIM_MODE_MASK );
    tnl->Driver.Render.BuildVertices( ctx, start, count, ~0 );
    tnl->Driver.Render.PrimTabElts[flags&PRIM_MODE_MASK]( ctx, start, count, flags );
-   R200_CONTEXT(ctx)->swtcl.SetupNewInputs = VERT_CLIP;
+   R200_CONTEXT(ctx)->swtcl.SetupNewInputs = VERT_BIT_CLIP;
 }
 
 
@@ -586,7 +589,7 @@ do {									\
 									\
       r200EmitVertexAOS( rmesa,					\
 			   rmesa->swtcl.vertex_size,			\
-			   (rmesa->r200Screen->agp_buffer_offset +	\
+			   (rmesa->r200Screen->gart_buffer_offset +	\
 			    rmesa->swtcl.indexed_verts.buf->buf->idx * 	\
 			    RADEON_BUFFER_SIZE +			\
 			    rmesa->swtcl.indexed_verts.start));		\
@@ -680,20 +683,20 @@ static GLboolean r200_run_render( GLcontext *ctx,
 static void r200_check_render( GLcontext *ctx,
 				 struct gl_pipeline_stage *stage )
 {
-   GLuint inputs = VERT_OBJ|VERT_CLIP|VERT_RGBA;
+   GLuint inputs = VERT_BIT_POS | VERT_BIT_CLIP | VERT_BIT_COLOR0;
 
    if (ctx->RenderMode == GL_RENDER) {
       if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR)
-	 inputs |= VERT_SPEC_RGB;
+	 inputs |= VERT_BIT_COLOR1;
 
       if (ctx->Texture.Unit[0]._ReallyEnabled)
-	 inputs |= VERT_TEX(0);
+	 inputs |= VERT_BIT_TEX0;
 
       if (ctx->Texture.Unit[1]._ReallyEnabled)
-	 inputs |= VERT_TEX(1);
+	 inputs |= VERT_BIT_TEX1;
 
       if (ctx->Fog.Enabled)
-	 inputs |= VERT_FOG_COORD;
+	 inputs |= VERT_BIT_FOG;
    }
 
    stage->inputs = inputs;
@@ -858,6 +861,7 @@ static struct {
 
 #define RASTERIZE(x) r200RasterPrimitive( ctx, reduced_hw_prim[x] )
 #define RENDER_PRIMITIVE rmesa->swtcl.render_primitive
+#undef TAG
 #define TAG(x) x
 #include "tnl_dd/t_dd_unfilled.h"
 #undef IND
@@ -1009,18 +1013,19 @@ static void r200ResetLineStipple( GLcontext *ctx )
 /*           Transition to/from hardware rasterization.               */
 /**********************************************************************/
 
-static char *fallbackStrings[] = {
+static const char * const fallbackStrings[] = {
    "Texture mode",
    "glDrawBuffer(GL_FRONT_AND_BACK)",
    "glEnable(GL_STENCIL) without hw stencil buffer",
    "glRenderMode(selection or feedback)",
    "glBlendEquation",
-   "glBlendFunc(mode != ADD)"
-   "R200_NO_RAST"
+   "glBlendFunc(mode != ADD)",
+   "R200_NO_RAST",
+   "Mixing GL_CLAMP_TO_BORDER and GL_CLAMP (or GL_MIRROR_CLAMP_ATI)"
 };
 
 
-static char *getFallbackString(GLuint bit)
+static const char *getFallbackString(GLuint bit)
 {
    int i = 0;
    while (bit > 1) {
@@ -1133,7 +1138,7 @@ r200PointsBitmap( GLcontext *ctx, GLint px, GLint py,
       GLfloat f;
 
       if (ctx->Fog.FogCoordinateSource == GL_FOG_COORDINATE_EXT)
-         f = _mesa_z_to_fogfactor(ctx, ctx->Current.FogCoord);
+         f = _mesa_z_to_fogfactor(ctx, ctx->Current.Attrib[VERT_ATTRIB_FOG][0]);
       else
          f = _mesa_z_to_fogfactor(ctx, ctx->Current.RasterDistance);
 
@@ -1223,6 +1228,14 @@ r200PointsBitmap( GLcontext *ctx, GLint px, GLint py,
 }
 
 
+void r200FlushVertices( GLcontext *ctx, GLuint flags )
+{
+   _tnl_flush_vertices( ctx, flags );
+
+   if (flags & FLUSH_STORED_VERTICES)
+      R200_NEWPRIM( R200_CONTEXT( ctx ) );
+}
+
 /**********************************************************************/
 /*                            Initialization.                         */
 /**********************************************************************/
@@ -1246,7 +1259,7 @@ void r200InitSwtcl( GLcontext *ctx )
    tnl->Driver.Render.ResetLineStipple = r200ResetLineStipple;
    tnl->Driver.Render.BuildVertices = r200BuildVertices;
 
-   rmesa->swtcl.verts = (char *)ALIGN_MALLOC( size * 16 * 4, 32 );
+   rmesa->swtcl.verts = (GLubyte *)ALIGN_MALLOC( size * 16 * 4, 32 );
    rmesa->swtcl.RenderIndex = ~0;
    rmesa->swtcl.render_primitive = GL_TRIANGLES;
    rmesa->swtcl.hw_primitive = 0;

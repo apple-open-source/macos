@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtAppGSTO.man,v 1.2 2001/01/27 18:20:24 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtAppGSTO.man,v 1.3 2003/04/28 22:18:18 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,15 +131,11 @@
 .SH NAME
 XtAppGetSelectionTimeout, XtAppSetSelectionTimeout \- set and obtain selection timeout values
 .SH SYNTAX
-unsigned long XtAppGetSelectionTimeout(\fIapp_context\fP)
-.br
-     XtAppContext \fIapp_context\fP;
-.LP
-void XtAppSetSelectionTimeout(\fIapp_context\fP, \fItimeout\fP)
-.br
-    XtAppContext \fIapp_context\fP;
-.br
-    unsigned long \fItimeout\fP;
+.HP
+unsigned long XtAppGetSelectionTimeout(XtAppContext \fIapp_context\fP); 
+.HP
+void XtAppSetSelectionTimeout(XtAppContext \fIapp_context\fP, unsigned long
+\fItimeout\fP); 
 .SH ARGUMENTS
 .IP \fIapp_context\fP 1i
 Specifies the application context.

@@ -86,3 +86,21 @@ get_class_reference (ident)
   return 0;
 }
 /* APPLE LOCAL end Objective-C++ */
+
+/* APPLE LOCAL begin XJR */
+int
+objc_is_object_ptr_type (type, or_strong_p)
+     tree type ATTRIBUTE_UNUSED;
+     int or_strong_p ATTRIBUTE_UNUSED;
+{
+  return 0;
+}  
+
+tree
+objc_generate_write_barrier (lhs, modifycode, rhs)
+     tree lhs ATTRIBUTE_UNUSED, rhs ATTRIBUTE_UNUSED;
+     enum tree_code modifycode ATTRIBUTE_UNUSED;
+{
+  return 0;
+}  
+/* APPLE LOCAl end XJR */

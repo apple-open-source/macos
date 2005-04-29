@@ -1,3 +1,5 @@
+#include "prof_int.h"
+
 #include <stdio.h>
 #include <string.h>
 #ifdef HAVE_STDLIB_H
@@ -5,8 +7,6 @@
 #endif
 #include <errno.h>
 #include <ctype.h>
-
-#include "prof_int.h"
 
 #define SECTION_SEP_CHAR '/'
 
@@ -21,16 +21,14 @@ struct parse_state {
 	struct profile_node *current_section;
 };
 
-static char *skip_over_blanks(cp)
-	char	*cp;
+static char *skip_over_blanks(char *cp)
 {
 	while (*cp && isspace((int) (*cp)))
 		cp++;
 	return cp;
 }
 
-static void strip_line(line)
-	char	*line;
+static void strip_line(char *line)
 {
 	char *p = line + strlen(line);
 	while (p > line && (p[-1] == '\n' || p[-1] == '\r'))
@@ -67,8 +65,7 @@ static void parse_quoted_string(char *str)
 }
 
 
-static errcode_t parse_init_state(state)
-	struct parse_state *state;
+static errcode_t parse_init_state(struct parse_state *state)
 {
 	state->state = STATE_INIT_COMMENT;
 	state->group_level = 0;
@@ -76,9 +73,7 @@ static errcode_t parse_init_state(state)
 	return profile_create_node("(root)", 0, &state->root_section);
 }
 
-static errcode_t parse_std_line(line, state)
-	char	*line;
-	struct parse_state *state;
+static errcode_t parse_std_line(char *line, struct parse_state *state)
 {
 	char	*cp, ch, *tag, *value;
 	char	*p;
@@ -151,13 +146,22 @@ static errcode_t parse_std_line(line, state)
 	cp = strchr(cp, '=');
 	if (!cp)
 		return PROF_RELATION_SYNTAX;
+	if (cp == tag)
+	    return PROF_RELATION_SYNTAX;
 	*cp = '\0';
-	p = strchr(tag, ' ');
-	if (p) {
-		*p = '\0';
-		p = skip_over_blanks(p+1);
-		if (p != cp)
-			return PROF_RELATION_SYNTAX;
+	p = tag;
+	/* Look for whitespace on left-hand side.  */
+	while (p < cp && !isspace((int)*p))
+	    p++;
+	if (p < cp) {
+	    /* Found some sort of whitespace.  */
+	    *p++ = 0;
+	    /* If we have more non-whitespace, it's an error.  */
+	    while (p < cp) {
+		if (!isspace((int)*p))
+		    return PROF_RELATION_SYNTAX;
+		p++;
+	    }
 	}
 	cp = skip_over_blanks(cp+1);
 	value = cp;
@@ -196,9 +200,7 @@ static errcode_t parse_std_line(line, state)
 	return 0;
 }
 
-static errcode_t parse_line(line, state)
-	char	*line;
-	struct parse_state *state;
+static errcode_t parse_line(char *line, struct parse_state *state)
 {
 	char	*cp;
 	
@@ -218,9 +220,7 @@ static errcode_t parse_line(line, state)
 	return 0;
 }
 
-errcode_t profile_parse_file(f, root)
-	FILE	*f;
-	struct profile_node **root;
+errcode_t profile_parse_file(FILE *f, struct profile_node **root)
 {
 #define BUF_SIZE	2048
 	char *bptr;
@@ -304,8 +304,7 @@ errcode_t profile_parse_file(f, root)
 /*
  * Return TRUE if the string begins or ends with whitespace
  */
-static int need_double_quotes(str)
-	char *str;
+static int need_double_quotes(char *str)
 {
 	if (!str || !*str)
 		return 0;
@@ -320,37 +319,42 @@ static int need_double_quotes(str)
  * Output a string with double quotes, doing appropriate backquoting
  * of characters as necessary.
  */
-static void output_quoted_string(str, f)
-	char	*str;
-	FILE	*f;
+static void output_quoted_string(char *str, void (*cb)(const char *,void *),
+				 void *data)
 {
 	char	ch;
-	
-	fputc('"', f);
+	char buf[2];
+
+	cb("\"", data);
 	if (!str) {
-		fputc('"', f);
+		cb("\"", data);
 		return;
 	}
+	buf[1] = 0;
 	while ((ch = *str++)) {
 		switch (ch) {
 		case '\\':
-			fputs("\\\\", f);
+			cb("\\\\", data);
 			break;
 		case '\n':
-			fputs("\\n", f);
+			cb("\\n", data);
 			break;
 		case '\t':
-			fputs("\\t", f);
+			cb("\\t", data);
 			break;
 		case '\b':
-			fputs("\\b", f);
+			cb("\\b", data);
 			break;
 		default:
-			fputc(ch, f);
+			/* This would be a lot faster if we scanned
+			   forward for the next "interesting"
+			   character.  */
+			buf[0] = ch;
+			cb(buf, data);
 			break;
 		}
 	}
-	fputc('"', f);
+	cb("\"", data);
 }
 
 
@@ -359,18 +363,13 @@ static void output_quoted_string(str, f)
 #define EOL "\r\n"
 #endif
 
-#ifdef macintosh
-#define EOL "\r"
-#endif
-
 #ifndef EOL
 #define EOL "\n"
 #endif
 
-static void dump_profile_to_file(root, level, dstfile)
-	struct profile_node *root;
-	int level;
-	FILE *dstfile;
+/* Errors should be returned, not ignored!  */
+static void dump_profile(struct profile_node *root, int level,
+			 void (*cb)(const char *, void *), void *data)
 {
 	int i;
 	struct profile_node *p;
@@ -385,14 +384,18 @@ static void dump_profile_to_file(root, level, dstfile)
 		if (retval)
 			break;
 		for (i=0; i < level; i++)
-			fprintf(dstfile, "\t");
+			cb("\t", data);
 		if (need_double_quotes(value)) {
-			fputs(name, dstfile);
-			fputs(" = ", dstfile);
-			output_quoted_string(value, dstfile);
-			fputs(EOL, dstfile);
-		} else
-			fprintf(dstfile, "%s = %s%s", name, value, EOL);
+			cb(name, data);
+			cb(" = ", data);
+			output_quoted_string(value, cb, data);
+			cb(EOL, data);
+		} else {
+			cb(name, data);
+			cb(" = ", data);
+			cb(value, data);
+			cb(EOL, data);
+		}
 	} while (iter != 0);
 
 	iter = 0;
@@ -402,29 +405,88 @@ static void dump_profile_to_file(root, level, dstfile)
 		if (retval)
 			break;
 		if (level == 0)	{ /* [xxx] */
-			for (i=0; i < level; i++)
-				fprintf(dstfile, "\t");
-			fprintf(dstfile, "[%s]%s%s", name,
-				profile_is_node_final(p) ? "*" : "", EOL);
-			dump_profile_to_file(p, level+1, dstfile);
-			fprintf(dstfile, EOL);
+			cb("[", data);
+			cb(name, data);
+			cb("]", data);
+			cb(profile_is_node_final(p) ? "*" : "", data);
+			cb(EOL, data);
+			dump_profile(p, level+1, cb, data);
+			cb(EOL, data);
 		} else { 	/* xxx = { ... } */
 			for (i=0; i < level; i++)
-				fprintf(dstfile, "\t");
-			fprintf(dstfile, "%s = {%s", name, EOL);
-			dump_profile_to_file(p, level+1, dstfile);
+				cb("\t", data);
+			cb(name, data);
+			cb(" = {", data);
+			cb(EOL, data);
+			dump_profile(p, level+1, cb, data);
 			for (i=0; i < level; i++)
-				fprintf(dstfile, "\t");
-			fprintf(dstfile, "}%s%s",
-				profile_is_node_final(p) ? "*" : "", EOL);
+				cb("\t", data);
+			cb("}", data);
+			cb(profile_is_node_final(p) ? "*" : "", data);
+			cb(EOL, data);
 		}
 	} while (iter != 0);
 }
 
-errcode_t profile_write_tree_file(root, dstfile)
-	struct profile_node *root;
-	FILE		*dstfile;
+static void dump_profile_to_file_cb(const char *str, void *data)
 {
-	dump_profile_to_file(root, 0, dstfile);
+	fputs(str, data);
+}
+
+errcode_t profile_write_tree_file(struct profile_node *root, FILE *dstfile)
+{
+	dump_profile(root, 0, dump_profile_to_file_cb, dstfile);
+	return 0;
+}
+
+struct prof_buf {
+	char *base;
+	size_t cur, max;
+	int err;
+};
+
+static void add_data_to_buffer(struct prof_buf *b, const void *d, size_t len)
+{
+	if (b->err)
+		return;
+	if (b->max - b->cur < len) {
+		size_t newsize;
+		char *newptr;
+
+		newsize = b->max + (b->max >> 1) + len + 1024;
+		newptr = realloc(b->base, newsize);
+		if (newptr == NULL) {
+			b->err = 1;
+			return;
+		}
+		b->base = newptr;
+		b->max = newsize;
+	}
+	memcpy(b->base + b->cur, d, len);
+	b->cur += len; 		/* ignore overflow */
+}
+
+static void dump_profile_to_buffer_cb(const char *str, void *data)
+{
+	add_data_to_buffer((struct prof_buf *)data, str, strlen(str));
+}
+
+errcode_t profile_write_tree_to_buffer(struct profile_node *root,
+				       char **buf)
+{
+	struct prof_buf prof_buf = { 0, 0, 0, 0 };
+
+	dump_profile(root, 0, dump_profile_to_buffer_cb, &prof_buf);
+	if (prof_buf.err) {
+		*buf = NULL;
+		return ENOMEM;
+	}
+	add_data_to_buffer(&prof_buf, "", 1); /* append nul */
+	if (prof_buf.max - prof_buf.cur > (prof_buf.max >> 3)) {
+		char *newptr = realloc(prof_buf.base, prof_buf.cur);
+		if (newptr)
+			prof_buf.base = newptr;
+	}
+	*buf = prof_buf.base;
 	return 0;
 }

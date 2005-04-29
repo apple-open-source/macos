@@ -1,6 +1,6 @@
 /*
   jargrep.c - main functions for jargrep utility
-  Copyright (C) 2002 Free Software Foundation
+  Copyright (C) 2002, 2003 Free Software Foundation
   Copyright (C) 1999, 2000 Bryan Burns
   Copyright (C) 2000 Cory Hollingsworth 
  
@@ -105,7 +105,6 @@ will test some other platforms later.
 #include "config.h"
 #include <stdio.h>
 #include <unistd.h>
-#include <regex.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
@@ -115,6 +114,9 @@ will test some other platforms later.
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
+
+#include "xregex.h"
+
 #include "jargrep.h"
 #include "jartool.h"
 #include "pushback.h"
@@ -126,7 +128,7 @@ will test some other platforms later.
 void version(void);
 void help(const char *name);
 
-#define Usage "Usage: %s [-bcinsw] <-e PATTERN | PATTERN> FILE ...\n"
+#define Usage "Usage: %s [-bcinsVw] [--version|--help] <-e PATTERN | PATTERN> FILE ...\n"
 
 /*
 Function name: opt_valid
@@ -769,7 +771,9 @@ Search files in a jar file for a pattern.\n\
    -n                print line number of each match\n\
    -s                suppress error messages\n\
    -w                force PATTERN to match only whole words\n\
-   -e PATTERN        use PATTERN as regular exprssion\n\
+   -e PATTERN        use PATTERN as regular expression\n\
+   -V|--version      print version number and exit\n\
+   --help            print help\n\
 ");
 
   exit (0);

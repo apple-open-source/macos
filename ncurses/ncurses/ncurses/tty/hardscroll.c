@@ -145,7 +145,7 @@ AUTHOR
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: hardscroll.c,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $")
+MODULE_ID("$Id: hardscroll.c,v 1.36 2001/01/14 00:17:28 tom Exp $")
 
 #if defined(SCROLLDEBUG) || defined(HASHDEBUG)
 

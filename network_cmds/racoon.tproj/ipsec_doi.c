@@ -2970,6 +2970,8 @@ ipsecdoi_checkid1(iph1)
 	struct ph1handle *iph1;
 {
 	struct ipsecdoi_id_b *id_b;
+	struct sockaddr *sa;
+	caddr_t sa1, sa2;
 
 	if (iph1->id_p == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -3074,19 +3076,43 @@ ipsecdoi_checkid1(iph1)
 		case IDTYPE_ASN1DN:
 			ident.v = (caddr_t)(id_b + 1);
 			ident.l = ident0->l;
-			if (eay_cmp_asn1dn(ident0, &ident)) {
-				plog(LLV_WARNING, LOCATION, NULL,
-					"ID value mismatched.\n");
-				if (iph1->rmconf->verify_identifier)
-					return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+			if (eay_cmp_asn1dn(ident0, &ident))
+				goto err;
+			break;
+		case IDTYPE_ADDRESS:
+			sa = (struct sockaddr *)ident0->v;
+	        sa2 = (caddr_t)(id_b + 1);
+			switch (sa->sa_family) {
+		        case AF_INET:
+					if (iph1->id_p->l - sizeof(*id_b) != sizeof(struct in_addr))
+						goto err;
+
+		            sa1 = (caddr_t)&((struct sockaddr_in *)sa)->sin_addr;
+		            if (memcmp(sa1, sa2, sizeof(struct in_addr)) != 0)
+						goto err;
+            	   	break;  
+#ifdef INET6
+		        case AF_INET6:
+					if (iph1->id_p->l - sizeof(*id_b) != sizeof(struct in6_addr))
+						goto err;
+		        	sa1 = (caddr_t)&((struct sockaddr_in6 *)sa)->sin6_addr;
+		        	if (memcmp(sa1, sa2, sizeof(struct in6_addr)) != 0)
+						goto err;
+               		break;  
+#endif
+			default:
+				goto err;
 			}
 			break;
 		default:
 			if (memcmp(ident0->v, id_b + 1, ident0->l)) {
+err:
 				plog(LLV_WARNING, LOCATION, NULL,
 					"ID value mismatched.\n");
-				if (iph1->rmconf->verify_identifier)
+				if (iph1->rmconf->verify_identifier) {
+					vfree(ident0);
 					return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+				}
 			}
 			break;
 		}

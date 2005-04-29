@@ -1,7 +1,7 @@
 /*
  *  dlproc.h
  *
- *  $Id: dlproc.h,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: dlproc.h,v 1.3 2004/11/11 01:52:37 luesang Exp $
  *
  *  Load driver and resolve driver's function entry point
  *
@@ -75,10 +75,10 @@
 
 #include <dlf.h>
 
-#if defined(_MAC)
-typedef SQLRETURN (FAR * HPROC) (...);
+#if defined(_MAC) || defined (__cplusplus)
+typedef SQLRETURN (* HPROC) (...);
 #else
-typedef SQLRETURN (FAR * HPROC) ();
+typedef SQLRETURN (* HPROC) ();
 #endif
 
 #ifdef	DLDAPI_SVR4_DLFCN
@@ -95,16 +95,27 @@ typedef shl_t HDLL;
     defined(_MACX)		|| \
     defined(DLDAPI_AIX_LOAD)	|| \
     defined(DLDAPI_DYLD)	|| \
+    defined(DLDAPI_MACX)	|| \
     defined(DLDAPI_SVR4_DLFCN)	|| \
     defined(VMS)
 typedef void *HDLL;
 #endif
 
+typedef struct _dl_s
+{
+  char		* path;
+  HDLL		  dll;
+  unsigned int    refcount;
+  int 		  safe_unload;
+  struct _dl_s	* next;
+} dlproc_t;
+
 extern HPROC _iodbcdm_getproc (HDBC hdbc, int idx);
-extern HDLL _iodbcdm_dllopen (char FAR * dll);
-extern HPROC _iodbcdm_dllproc (HDLL hdll, char FAR * sym);
-extern char FAR *_iodbcdm_dllerror ();
+extern HDLL _iodbcdm_dllopen (char * path);
+extern HPROC _iodbcdm_dllproc (HDLL hdll, char *sym);
+extern char FAR *_iodbcdm_dllerror (void);
 extern int _iodbcdm_dllclose (HDLL hdll);
+extern void _iodbcdm_safe_unload (HDLL hdll);
 
 #define	SQL_NULL_HDLL	((HDLL)NULL)
 #define	SQL_NULL_HPROC	((HPROC)NULL)

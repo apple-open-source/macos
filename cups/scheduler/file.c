@@ -1,5 +1,5 @@
 /*
- * "$Id: file.c,v 1.1.1.2 2003/07/16 17:22:02 jlovell Exp $"
+ * "$Id: file.c,v 1.8 2005/01/04 22:10:45 jlovell Exp $"
  *
  *   File functions for the Common UNIX Printing System (CUPS).
  *
@@ -8,7 +8,7 @@
  *   our own file functions allows us to provide transparent support of
  *   gzip'd print files, PPD files, etc.
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -20,9 +20,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -311,6 +311,12 @@ cupsFileOpen(const char *filename,	/* I - Name of file */
     return (NULL);
   }
 
+ /*
+  * Don't pass this file to child processes...
+  */
+
+  fcntl(fp->fd, F_SETFD, fcntl(fp->fd, F_GETFD) | FD_CLOEXEC);
+
   if (*mode == 'a')
     fp->pos = lseek(fp->fd, 0, SEEK_END);
   else
@@ -452,8 +458,11 @@ cupsFileRead(cups_file_t *fp,		/* I - CUPS file */
   * Range check input...
   */
 
-  if (!fp || !buf || bytes <= 0 || fp->mode != 'r')
+  if (!fp || !buf || bytes < 0 || fp->mode != 'r')
     return (-1);
+
+  if (bytes == 0)
+    return (0);
 
  /*
   * Loop until all bytes are read...
@@ -499,9 +508,9 @@ cupsFileRead(cups_file_t *fp,		/* I - CUPS file */
  * 'cupsFileSeek()' - Seek in a file.
  */
 
-int					/* O - New file position or -1 */
+off_t					/* O - New file position or -1 */
 cupsFileSeek(cups_file_t *fp,		/* I - CUPS file */
-             int         pos)		/* I - Position in file */
+             off_t       pos)		/* I - Position in file */
 {
   int	bytes;				/* Number bytes in buffer */
 
@@ -535,6 +544,7 @@ cupsFileSeek(cups_file_t *fp,		/* I - CUPS file */
       fp->pos = 0;
       fp->ptr = NULL;
       fp->end = NULL;
+      fp->eof = 0;
 
       while ((bytes = cups_fill(fp)) > 0)
         if (pos >= fp->pos && pos < (fp->pos + bytes))
@@ -550,6 +560,9 @@ cupsFileSeek(cups_file_t *fp,		/* I - CUPS file */
       fp->pos = pos;
       fp->ptr = NULL;
       fp->end = NULL;
+#ifdef HAVE_LIBZ
+      fp->eof = 0;
+#endif /* HAVE_LIBZ */
     }
   }
   else if (pos >= (fp->pos + bytes))
@@ -575,6 +588,9 @@ cupsFileSeek(cups_file_t *fp,		/* I - CUPS file */
       fp->pos = pos;
       fp->ptr = NULL;
       fp->end = NULL;
+#ifdef HAVE_LIBZ
+      fp->eof = 0;
+#endif /* HAVE_LIBZ */
     }
   }
   else
@@ -585,6 +601,9 @@ cupsFileSeek(cups_file_t *fp,		/* I - CUPS file */
     */
 
     fp->ptr = fp->buf + pos - fp->pos;
+#ifdef HAVE_LIBZ
+    fp->eof = 0;
+#endif /* HAVE_LIBZ */
   }
 
   return (pos);
@@ -604,8 +623,11 @@ cupsFileWrite(cups_file_t *fp,		/* I - CUPS file */
   * Range check input...
   */
 
-  if (!fp || !buf || bytes <= 0 || fp->mode != 'w')
+  if (!fp || !buf || bytes < 0 || fp->mode != 'w')
     return (-1);
+
+  if (bytes == 0)
+    return (0);
 
  /*
   * Write the buffer...
@@ -636,8 +658,10 @@ static int				/* O - Number of bytes or -1 */
 cups_fill(cups_file_t *fp)		/* I - CUPS file */
 {
   int			bytes;		/* Number of bytes read */
+#ifdef HAVE_LIBZ
   const unsigned char	*ptr,		/* Pointer into buffer */
 			*end;		/* End of buffer */
+#endif /* HAVE_LIBZ */
 
 
  /*
@@ -667,7 +691,7 @@ cups_fill(cups_file_t *fp)		/* I - CUPS file */
     * file...
     */
 
-    if ((bytes = cups_read(fp->fd, (char *)fp->cbuf, sizeof(fp->cbuf))) < 0)
+    if ((bytes = cups_read(fp->fd, (char *)fp->buf, sizeof(fp->buf))) < 0)
     {
      /*
       * Can't read from file!
@@ -676,20 +700,28 @@ cups_fill(cups_file_t *fp)		/* I - CUPS file */
       return (-1);
     }
 
-    if (bytes < 10 || fp->cbuf[0] != 0x1f || fp->cbuf[1] != 0x8b ||
-        fp->cbuf[2] != 8 || (fp->cbuf[3] & 0xe0) != 0)
+    if (bytes < 10 || fp->buf[0] != 0x1f || fp->buf[1] != 0x8b ||
+        fp->buf[2] != 8 || (fp->buf[3] & 0xe0) != 0)
     {
      /*
       * Not a gzip'd file!
       */
-
-      memcpy(fp->buf, fp->cbuf, bytes);
 
       fp->ptr = fp->buf;
       fp->end = fp->buf + bytes;
 
       return (bytes);
     }
+
+   /*
+    * Data is compressed; copy as much as will fit to the compression buffer
+    */
+
+    if (bytes > sizeof(fp->cbuf))
+      bytes = sizeof(fp->cbuf);
+
+    memcpy(fp->cbuf, fp->buf, bytes);
+    lseek(fp->fd, bytes, SEEK_SET);
 
    /*
     * Parse header junk: extra data, original name, and comment...
@@ -969,5 +1001,5 @@ cups_write(int        fd,		/* I - File descriptor */
 
 
 /*
- * End of "$Id: file.c,v 1.1.1.2 2003/07/16 17:22:02 jlovell Exp $".
+ * End of "$Id: file.c,v 1.8 2005/01/04 22:10:45 jlovell Exp $".
  */

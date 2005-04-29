@@ -1,7 +1,7 @@
 /*
  * mach_client_utilities.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/mach_client_utilities.h,v 1.5 2003/04/23 21:41:49 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/mach_client_utilities.h,v 1.10 2005/01/23 17:55:40 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -45,18 +45,20 @@ extern "C" {
 #endif
 
 kern_return_t
-mach_client_lookup_server (const char *inServiceNamePrefix,
+mach_client_lookup_server (const char *inServiceName,
                            mach_port_t *outServicePort);
                         
 kern_return_t
-mach_client_lookup_and_launch_server (const char *inServiceNamePrefix,
-                                      const char *inBundleIdentifier,
-                                      const char *inPath,
-                                      const char *inServerBundleName,
+mach_client_lookup_and_launch_server (const char *inServiceName,
+                                      const char *inServerPath,
                                       mach_port_t *outServicePort);
                                             
 boolean_t
 mach_client_allow_server (security_token_t inToken);
+
+// Debugging API used by library
+kern_return_t __KerberosIPCError (kern_return_t inError, const char *function, const char *file, int line);
+#define KerberosIPCError_(err) __KerberosIPCError(err, __FUNCTION__, __FILE__, __LINE__)
 
 #if __cplusplus
 }
@@ -64,58 +66,41 @@ mach_client_allow_server (security_token_t inToken);
 
 #if __cplusplus
 class MachServerPort {
-    public:
+public:
     
-        MachServerPort (const char *inServiceNamePrefix,
-                        const char *inBundleIdentifier, 
-                        const char *inPath, 
-                        const char *inServerBundleName) : mPort (MACH_PORT_NULL)  
-            { 
-                kern_return_t err;
-                
-                err = mach_client_lookup_and_launch_server (inServiceNamePrefix, 
-                                                            inBundleIdentifier, 
-                                                            inPath, 
-                                                            inServerBundleName,
-                                                            &mPort);
-                
-                // Clean up after errors
-                if (err != BOOTSTRAP_SUCCESS) {
-                    if (mPort != MACH_PORT_NULL) {
-                        mach_port_deallocate (mach_task_self(), mPort);
-                    }
-                    mPort = MACH_PORT_NULL;
-                }
+    MachServerPort (const char *inServiceName, const char *inServerPath,
+                    bool inLaunchIfNecessary) : mPort (MACH_PORT_NULL)  
+    { 
+        kern_return_t err;
+        
+        if (inLaunchIfNecessary) {
+            err = mach_client_lookup_and_launch_server (inServiceName, inServerPath, &mPort);
+        } else {
+            err = mach_client_lookup_server (inServiceName, &mPort);
+        }
+        
+        // Clean up after errors
+        if (err != BOOTSTRAP_SUCCESS) {
+            if (mPort != MACH_PORT_NULL) {
+                mach_port_deallocate (mach_task_self(), mPort);
             }
-            
-        MachServerPort (const char *inServiceNamePrefix) : mPort (MACH_PORT_NULL)  
-            { 
-                kern_return_t err;
-                
-                err = mach_client_lookup_server (inServiceNamePrefix, &mPort);
-                
-                // Clean up after errors
-                if (err != BOOTSTRAP_SUCCESS) {
-                    if (mPort != MACH_PORT_NULL) {
-                        mach_port_deallocate (mach_task_self(), mPort);
-                    }
-                    mPort = MACH_PORT_NULL;
-                }
-            }
+            mPort = MACH_PORT_NULL;
+        }
+    }
 
-        ~MachServerPort () 
-            { 
-                if (mPort != MACH_PORT_NULL) 
-                    mach_port_deallocate (mach_task_self(), mPort); 
-            }
-        
-        mach_port_t Get () const 
-            { 
-                return mPort; 
-            } 
-        
-    private:
-        mach_port_t	mPort;        
+    ~MachServerPort () 
+    { 
+        if (mPort != MACH_PORT_NULL) 
+            mach_port_deallocate (mach_task_self(), mPort); 
+    }
+    
+    mach_port_t Get () const 
+    { 
+        return mPort; 
+    } 
+    
+private:
+    mach_port_t	mPort;        
 };
 #endif /* __cplusplus */
 

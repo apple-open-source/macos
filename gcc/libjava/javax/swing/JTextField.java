@@ -1,5 +1,5 @@
-/* JTextField.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* JTextField.java --
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,70 +37,239 @@ exception statement from your version. */
 
 package javax.swing;
 
-import java.awt.event.*;
-import java.util.*;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import javax.accessibility.AccessibleStateSet;
+import javax.swing.text.Document;
+import javax.swing.text.JTextComponent;
+import javax.swing.text.PlainDocument;
 
-import javax.accessibility.*;
 
-public class JTextField extends JEditorPane
+public class JTextField extends JTextComponent
+  implements SwingConstants
 {
-
-	/**
-	 * AccessibleJTextField
-	 */
-	protected class AccessibleJTextField extends AccessibleJTextComponent {
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor AccessibleJTextField
-		 * @param component TODO
-		 */
-		protected AccessibleJTextField(JTextField component) {
-			super(component);
-			// TODO
-		} // AccessibleJTextField()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * getAccessibleStateSet
-		 * @returns AccessibleStateSet
-		 */
-		public AccessibleStateSet getAccessibleStateSet() {
-			return null; // TODO
-		} // getAccessibleStateSet()
-
-
-	} // AccessibleJTextField
-
-
-    Vector actions = new Vector();
-
-  public JTextField()
+  /**
+   * AccessibleJTextField
+   */
+  protected class AccessibleJTextField extends AccessibleJTextComponent
   {
+    private static final long serialVersionUID = 8255147276740453036L;
+
+    /**
+     * Constructor AccessibleJTextField
+     */
+    protected AccessibleJTextField()
+    {
+    }
+
+    /**
+     * getAccessibleStateSet
+     * @return AccessibleStateSet
+     */
+    public AccessibleStateSet getAccessibleStateSet()
+    {
+      return null;
+    }
   }
 
-    public JTextField(int a)
-    {
-    }
+  private static final long serialVersionUID = 353853209832607592L;
 
-    public void addActionListener(ActionListener l)
-    {
-	actions.addElement(l);
-    }
+  public static final String notifyAction = "notify-field-accept";
+  
+  private int columns;
 
-    public void removeActionListener(ActionListener l)
-    {
-	actions.removeElement(l);
-    }
+  private int align;
 
-    public void selectAll()
-    {
-    }
+  /**
+   * Creates a new instance of <code>JTextField</code>.
+   */
+  public JTextField()
+  {
+    this(null, null, 0);
+  }
+
+  /**
+   * Creates a new instance of <code>JTextField</code>.
+   *
+   * @param text the initial text
+   */
+  public JTextField(String text)
+  {
+    this(null, text, 0);
+  }
+  
+  /**
+   * Creates a new instance of <code>JTextField</code>.
+   *
+   * @param columns the number of columns
+   *
+   * @exception IllegalArgumentException if columns %lt; 0
+   */
+  public JTextField(int columns)
+  {
+    this(null, null, columns);
+  }
+
+  /**
+   * Creates a new instance of <code>JTextField</code>.
+   *
+   * @param text the initial text
+   * @param columns the number of columns
+   *
+   * @exception IllegalArgumentException if columns %lt; 0
+   */
+  public JTextField(String text, int columns)
+  {
+    this(null, text, columns);
+  }
+
+  /**
+   * Creates a new instance of <code>JTextField</code>.
+   *
+   * @param doc the document to use
+   * @param text the initial text
+   * @param columns the number of columns
+   *
+   * @exception IllegalArgumentException if columns %lt; 0
+   */
+  public JTextField(Document doc, String text, int columns)
+  {
+    if (columns < 0)
+      throw new IllegalArgumentException();
+    
+    this.columns = columns;
+    
+    setDocument(doc == null ? createDefaultModel() : doc);
+
+    if (text != null)
+      setText(text);
+  }
+
+  /**
+   * Creates the default model for this text field.
+   * This implementation returns an instance of <code>PlainDocument</code>.
+   *
+   * @return a new instance of the default model
+   */
+  protected Document createDefaultModel()
+  {
+    return new PlainDocument();
+  }
+
+  /**
+   * Returns the class ID for the UI.
+   *
+   * @return "TextFieldUI";
+   */
+  public String getUIClassID()
+  {
+    return "TextFieldUI";
+  }
+
+  /**
+   * Adds a new listener object to this text field.
+   *
+   * @param listener the listener to add
+   */
+  public void addActionListener(ActionListener listener)
+  {
+    listenerList.add(ActionListener.class, listener);
+  }
+
+  /**
+   * Removes a listener object from this text field.
+   *
+   * @param listener the listener to remove
+   */
+  public void removeActionListener(ActionListener listener)
+  {
+    listenerList.remove(ActionListener.class, listener);
+  }
+
+  /**
+   * Returns all registered <code>ActionListener</code> objects.
+   *
+   * @return an array of listeners
+   *
+   * @since 1.4
+   */
+  public ActionListener[] getActionListeners()
+  {
+    return (ActionListener[]) getListeners(ActionListener.class);
+  }
+
+  /**
+   * Sends an action event to all registered
+   * <code>ActionListener</code> objects.
+   */
+  protected void fireActionPerformed()
+  {
+    ActionEvent event = new ActionEvent(this, 0, notifyAction);
+    ActionListener[] listeners = getActionListeners();
+
+    for (int index = 0; index < listeners.length; ++index)
+      listeners[index].actionPerformed(event);
+  }
+
+  /**
+   * Returns the number of columns of this text field.
+   *
+   * @return the number of columns
+   */
+  public int getColumns()
+  {
+    return columns;
+  }
+
+  public void setColumns(int columns)
+  {
+    if (columns < 0)
+      throw new IllegalArgumentException();
+
+    this.columns = columns;
+    invalidate();
+    repaint();
+  }
+
+  public int getHorizontalAlignment()
+  {
+    return align;
+  }
+
+  public void setHorizontalAlignment(int newAlign)
+  {
+    int oldAlign = align;
+    align = newAlign;
+    invalidate();
+    repaint();
+    firePropertyChange("horizontalAlignment", oldAlign, newAlign);
+  }
+
+  public void setFont(Font newFont)
+  {
+    super.setFont(newFont);
+    revalidate();
+  }
+
+  public Dimension getPreferredSize()
+  {
+    Dimension size;
+    FontMetrics fm = getFontMetrics(getFont());
+    int fontHeight = fm.getMaxAscent() + fm.getMaxDescent();
+    int columnWidth = fm.charWidth('m');
+    
+    if (columns != 0)
+      {
+	size = new Dimension(columns * columnWidth + 4, fontHeight + 4);
+      }
+    else
+      {
+	size = new Dimension(10, 10);
+      }
+
+    return size;
+  }
 }

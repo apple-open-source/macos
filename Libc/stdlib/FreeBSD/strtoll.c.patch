@@ -1,0 +1,48 @@
+--- strtoll.c.orig	2003-05-20 15:23:25.000000000 -0700
++++ strtoll.c	2005-02-17 00:46:45.000000000 -0800
+@@ -37,6 +37,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoll.c,v 1.19 2002/09/06 11:23:59 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <limits.h>
+ #include <errno.h>
+ #include <ctype.h>
+@@ -49,7 +51,8 @@
+  * alphabets and digits are each contiguous.
+  */
+ long long
+-strtoll(const char * __restrict nptr, char ** __restrict endptr, int base)
++strtoll_l(const char * __restrict nptr, char ** __restrict endptr, int base,
++    locale_t loc)
+ {
+ 	const char *s;
+ 	unsigned long long acc;
+@@ -57,6 +60,7 @@
+ 	unsigned long long cutoff;
+ 	int neg, any, cutlim;
+ 
++	NORMALIZE_LOCALE(loc);
+ 	/*
+ 	 * Skip white space and pick up leading +/- sign if any.
+ 	 * If base is 0, allow 0x for hex and 0 for octal, else
+@@ -65,7 +69,7 @@
+ 	s = nptr;
+ 	do {
+ 		c = *s++;
+-	} while (isspace((unsigned char)c));
++	} while (isspace_l((unsigned char)c, loc));
+ 	if (c == '-') {
+ 		neg = 1;
+ 		c = *s++;
+@@ -139,3 +143,9 @@
+ 		*endptr = (char *)(any ? s - 1 : nptr);
+ 	return (acc);
+ }
++
++long long
++strtoll(const char * __restrict nptr, char ** __restrict endptr, int base)
++{
++	return strtoll_l(nptr, endptr, base, __current_locale());
++}

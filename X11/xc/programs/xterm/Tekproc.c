@@ -3,7 +3,7 @@
  *
  * Warning, there be crufty dragons here.
  */
-/* $XFree86: xc/programs/xterm/Tekproc.c,v 3.40 2003/02/25 23:36:55 dickey Exp $ */
+/* $XFree86: xc/programs/xterm/Tekproc.c,v 3.46 2003/10/24 20:38:23 tsi Exp $ */
 
 /*
 
@@ -81,6 +81,8 @@ in this Software without prior written authorization from The Open Group.
 
 /* Tekproc.c */
 
+#define RES_OFFSET(field)	XtOffsetOf(TekWidgetRec, field)
+
 #include <xterm.h>
 
 #include <X11/Xatom.h>
@@ -96,6 +98,8 @@ in this Software without prior written authorization from The Open Group.
 #include <X11/Xaw3d/Form.h>
 #elif defined(HAVE_LIB_NEXTAW)
 #include <X11/neXtaw/Form.h>
+#elif defined(HAVE_LIB_XAWPLUS)
+#include <X11/XawPlus/Form.h>
 #endif
 
 #endif /* OPT_TOOLBAR */
@@ -249,9 +253,7 @@ static Dimension defOne = 1;
 static XtResource resources[] =
 {
 #ifdef VMS
-    {XtNbackground, XtCBackground, XtRPixel, sizeof(Pixel),
-     XtOffset(TekWidget, core.background_pixel),
-     XtRString, "White"},
+    Cres(XtNbackground, XtCBackground, core.background_pixel, "White"),
     {XtNforeground, XtCForeground, XtRPixel, sizeof(Pixel),
      XtOffset(TekWidget, Tforeground),
      XtRString, "Black"},
@@ -260,35 +262,21 @@ static XtResource resources[] =
      XtOffsetOf(CoreRec, core.width), XtRDimension, (caddr_t) & defOne},
     {XtNheight, XtCHeight, XtRDimension, sizeof(Dimension),
      XtOffsetOf(CoreRec, core.height), XtRDimension, (caddr_t) & defOne},
-    {"fontLarge", XtCFont, XtRFontStruct, sizeof(XFontStruct *),
-     XtOffsetOf(TekWidgetRec, tek.Tfont[TEK_FONT_LARGE]),
-     XtRString, "9x15"},
-    {"font2", XtCFont, XtRFontStruct, sizeof(XFontStruct *),
-     XtOffsetOf(TekWidgetRec, tek.Tfont[TEK_FONT_2]),
-     XtRString, "6x13"},
-    {"font3", XtCFont, XtRFontStruct, sizeof(XFontStruct *),
-     XtOffsetOf(TekWidgetRec, tek.Tfont[TEK_FONT_3]),
-     XtRString, "8x13"},
-    {"fontSmall", XtCFont, XtRFontStruct, sizeof(XFontStruct *),
-     XtOffsetOf(TekWidgetRec, tek.Tfont[TEK_FONT_SMALL]),
-     XtRString, DFT_FONT_SMALL},
-    {"initialFont", "InitialFont", XtRString, sizeof(char *),
-     XtOffsetOf(TekWidgetRec, tek.initial_font),
-     XtRString, "large"},
-    {"ginTerminator", "GinTerminator", XtRString, sizeof(char *),
-     XtOffsetOf(TekWidgetRec, tek.gin_terminator_str),
-     XtRString, GIN_TERM_NONE_STR},
+    Fres("fontLarge", XtCFont, tek.Tfont[TEK_FONT_LARGE], "9x15"),
+    Fres("font2", XtCFont, tek.Tfont[TEK_FONT_2], "6x13"),
+    Fres("font3", XtCFont, tek.Tfont[TEK_FONT_3], "8x13"),
+    Fres("fontSmall", XtCFont, tek.Tfont[TEK_FONT_SMALL], DFT_FONT_SMALL),
+    Sres("initialFont", "InitialFont", tek.initial_font, "large"),
+    Sres("ginTerminator", "GinTerminator", tek.gin_terminator_str, GIN_TERM_NONE_STR),
 #if OPT_TOOLBAR
     {XtNmenuBar, XtCMenuBar, XtRWidget, sizeof(Widget),
      XtOffsetOf(TekWidgetRec, tek.menu_bar),
      XtRWidget, (XtPointer) 0},
-    {XtNmenuHeight, XtCMenuHeight, XtRInt, sizeof(int),
-     XtOffsetOf(TekWidgetRec, tek.menu_height),
-     XtRString, "25"},
+    Ires(XtNmenuHeight, XtCMenuHeight, tek.menu_height, 25),
 #endif
 };
 
-static int Tinput(void);
+static IChar Tinput(void);
 static int getpoint(void);
 static void TCursorBack(void);
 static void TCursorDown(void);
@@ -408,8 +396,9 @@ static void
 Tekparse(void)
 {
     register TScreen *screen = &term->screen;
-    register int c = 0, x, y;
-    Char ch;
+    int x, y;
+    IChar c = 0;
+    IChar ch;
     int nextstate;
 
     for (;;) {
@@ -427,7 +416,7 @@ Tekparse(void)
 	} else
 #endif
 	    nextstate = Tparsestate[c];
-	TRACE(("Tekparse %d -> %d\n", c, nextstate));
+	TRACE(("Tekparse %04X -> %d\n", c, nextstate));
 
 	switch (nextstate) {
 	case CASE_REPORT:
@@ -643,10 +632,11 @@ Tekparse(void)
 	    TRACE(("case: Plt: vector\n"));
 	    unput(c);
 	    if (getpoint()) {
-		if (screen->pen == PENDOWN)
+		if (screen->pen == PENDOWN) {
 		    TekDraw(screen->cur.x, screen->cur.y);
-		else
+		} else {
 		    TekMove(screen->cur.x, screen->cur.y);
+		}
 		screen->pen = PENDOWN;
 	    }
 	    break;
@@ -739,8 +729,9 @@ Tekparse(void)
 	    TRACE(("case: do osc escape\n"));
 	    {
 		Char buf2[512];
-		int c2, len = 0;
-		while ((c2 = Tinput()) != BEL) {
+		IChar c2;
+		int len = 0;
+		while ((c2 = input()) != BEL) {
 		    if (!isprint(c2 & 0x7f)
 			|| len + 2 >= (int) sizeof(buf2))
 			break;
@@ -763,11 +754,10 @@ static int Tselect_mask;
 static fd_set Tselect_mask;
 #endif /* VMS */
 
-static int
+static IChar
 Tinput(void)
 {
     register TScreen *screen = &term->screen;
-    register int i;
     register TekLink *tek;
 
     if (Tpushback > Tpushb)
@@ -842,9 +832,7 @@ Tinput(void)
 
 #else /* VMS */
 		XFD_COPYSET(&Select_mask, &Tselect_mask);
-		if ((i = Select(max_plus1,
-				&Tselect_mask, NULL, NULL,
-				NULL)) < 0) {
+		if (Select(max_plus1, &Tselect_mask, NULL, NULL, NULL) < 0) {
 		    if (errno != EINTR)
 			SysError(ERROR_TSELECT);
 		    continue;
@@ -950,11 +938,11 @@ dorefresh(void)
     if (wait_cursor == None)
 	wait_cursor = make_colored_cursor(XC_watch, screen->mousecolor,
 					  screen->mousecolorback);
-    XDefineCursor(screen->display, TShellWindow, wait_cursor);
+    XDefineCursor(screen->display, TWindow(screen), wait_cursor);
     XFlush(screen->display);
     if (!setjmp(Tekjump))
 	Tekparse();
-    XDefineCursor(screen->display, TShellWindow,
+    XDefineCursor(screen->display, TWindow(screen),
 		  (screen->TekGIN && GINcursor) ? GINcursor : screen->arrow);
 }
 
@@ -1131,6 +1119,7 @@ AddToDraw(int x1, int y1, int x2, int y2)
     register TScreen *screen = &term->screen;
     register XSegment *lp;
 
+    TRACE(("AddToDraw (%d,%d) (%d,%d)\n", x1, y1, x2, y2));
     if (nplot >= MAX_PTS) {
 	TekFlush();
     }
@@ -1142,6 +1131,7 @@ AddToDraw(int x1, int y1, int x2, int y2)
     lp->y2 = y2 = (int) ((TEKHEIGHT + TEKTOPPAD - y2) * TekScale(screen) +
 			 screen->border);
     nplot++;
+    TRACE(("...AddToDraw %d points\n", nplot));
 }
 
 static void
@@ -1168,6 +1158,7 @@ TekFlush(void)
 {
     register TScreen *screen = &term->screen;
 
+    TRACE(("TekFlush\n"));
     XDrawSegments(screen->display, TWindow(screen),
 		  ((screen->cur.linetype == SOLIDLINE) ? screen->TnormalGC :
 		   screen->linepat[screen->cur.linetype - 1]),
@@ -1181,7 +1172,8 @@ TekGINoff(void)
 {
     register TScreen *screen = &term->screen;
 
-    XDefineCursor(screen->display, TShellWindow, screen->arrow);
+    TRACE(("TekGINoff\n"));
+    XDefineCursor(screen->display, TWindow(screen), screen->arrow);
     if (GINcursor)
 	XFreeCursor(screen->display, GINcursor);
     if (screen->TekGIN) {
@@ -1198,6 +1190,7 @@ TekEnqMouse(int c)		/* character pressed */
     unsigned int mask;		/* XQueryPointer */
     Window root, subw;
 
+    TRACE(("TekEnqMouse\n"));
     XQueryPointer(
 		     screen->display, TWindow(screen),
 		     &root, &subw,
@@ -1226,6 +1219,7 @@ TekEnq(int status,
     int len = 5;
     int adj = (status != 0) ? 0 : 1;
 
+    TRACE(("TekEnq\n"));
     cplot[0] = status;
     /* Translate x and y to Tektronix code */
     cplot[1] = 040 | ((x >> SHIFTHI) & FIVEBITS);
@@ -1322,6 +1316,8 @@ TekInitialize(Widget request GCC_UNUSED,
 {
     Widget tekparent = SHELL_OF(wnew);
 
+    TRACE(("TekInitialize\n"));
+
     /* look for focus related events on the shell, because we need
      * to care about the shell's border being part of our focus.
      */
@@ -1352,6 +1348,8 @@ TekRealize(Widget gw,
     XSizeHints sizehints;
     char Tdefault[32];
 
+    TRACE(("TekRealize\n"));
+
 #ifndef NO_ACTIVE_ICON
     term->screen.whichTwin = &term->screen.fullTwin;
 #endif /* NO_ACTIVE_ICON */
@@ -1359,8 +1357,9 @@ TekRealize(Widget gw,
     tw->core.border_pixel = term->core.border_pixel;
 
     for (i = 0; i < TEKNUMFONTS; i++) {
-	if (!tw->tek.Tfont[i])
+	if (!tw->tek.Tfont[i]) {
 	    tw->tek.Tfont[i] = XQueryFont(screen->display, DefaultGCID);
+	}
 	tw->tek.tobaseline[i] = tw->tek.Tfont[i]->ascent;
     }
 
@@ -1539,7 +1538,7 @@ TekRealize(Widget gw,
     screen->margin = MARGIN1;	/* Margin 1             */
     screen->TekGIN = FALSE;	/* GIN off              */
 
-    XDefineCursor(screen->display, TShellWindow, screen->pointer_cursor);
+    XDefineCursor(screen->display, TWindow(screen), screen->pointer_cursor);
 
     {				/* there's gotta be a better way... */
 	static Arg args[] =

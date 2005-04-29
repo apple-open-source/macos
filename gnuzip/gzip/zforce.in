@@ -6,6 +6,26 @@
 # This can be useful for files with names truncated after a file transfer.
 # 12345678901234 is renamed to 12345678901.gz
 
+
+# Copyright (C) 2002 Free Software Foundation
+# Copyright (C) 1993 Jean-loup Gailly
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+
 PATH="BINDIR:$PATH"; export PATH
 x=`basename $0`
 if test $# = 0; then
@@ -21,22 +41,19 @@ for i do
     res=1
     continue
   fi
-  test `expr "$i" : '.*[.-]z$'` -eq 0 || continue
-  test `expr "$i" : '.*[.-]gz$'` -eq 0 || continue
-  test `expr "$i" : '.*[.]t[ag]z$'` -eq 0 || continue
 
-  if gzip -l < "$i" 2>/dev/null | grep '^defl' > /dev/null; then
+  case "$i" in
+  *[-.]z | *[-.]gz | *.t[ag]z) continue;;
+  esac
 
-    if test `expr "$i" : '^............'` -eq 12; then
-      new=`expr "$i" : '\(.*\)...$`.gz
-    else
-      new="$i.gz"
-    fi
-    if mv "$i" "$new" 2>/dev/null; then
+  if gzip -lv < "$i" 2>/dev/null | grep '^defl' > /dev/null; then
+
+    new="$i.gz"
+    if mv "$i" "$new"; then
       echo $i -- replaced with $new
-      continue
+    else
+      res=$?
     fi
-    res=1; echo ${x}: cannot rename $i to $new
   fi
 done
 exit $res

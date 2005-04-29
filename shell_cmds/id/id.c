@@ -219,7 +219,7 @@ current(void)
 {
 	struct group *gr;
 	struct passwd *pw;
-	int cnt, id, eid, lastid, ngroups;
+	int cnt, id, eid, gid, egid, lastid, ngroups;
 	gid_t groups[NGROUPS];
 	const char *fmt;
 
@@ -227,18 +227,18 @@ current(void)
 	(void)printf("uid=%u", id);
 	if ((pw = getpwuid(id)))
 		(void)printf("(%s)", pw->pw_name);
+	gid = getgid();
+	(void)printf(" gid=%u", gid);
+	if ((gr = getgrgid(gid)))
+		(void)printf("(%s)", gr->gr_name);
 	if ((eid = geteuid()) != id) {
 		(void)printf(" euid=%u", eid);
 		if ((pw = getpwuid(eid)))
 			(void)printf("(%s)", pw->pw_name);
 	}
-	id = getgid();
-	(void)printf(" gid=%u", id);
-	if ((gr = getgrgid(id)))
-		(void)printf("(%s)", gr->gr_name);
-	if ((eid = getegid()) != id) {
-		(void)printf(" egid=%u", eid);
-		if ((gr = getgrgid(eid)))
+	if ((egid = getegid()) != gid) {
+		(void)printf(" egid=%u", egid);
+		if ((gr = getgrgid(egid)))
 			(void)printf("(%s)", gr->gr_name);
 	}
 	if ((ngroups = getgroups(NGROUPS, groups))) {

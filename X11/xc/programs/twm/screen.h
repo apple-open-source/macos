@@ -32,7 +32,7 @@ in this Software without prior written authorization from The Open Group.
  * 11-3-88 Dave Payne, Apple Computer			File created
  *
  ***********************************************************************/
-/* $XFree86: xc/programs/twm/screen.h,v 1.5 2001/12/14 20:01:10 dawes Exp $ */
+/* $XFree86: xc/programs/twm/screen.h,v 1.6 2003/08/04 10:32:30 eich Exp $ */
 
 #ifndef _SCREEN_
 #define _SCREEN_
@@ -137,6 +137,7 @@ typedef struct ScreenInfo
     ColorPair DefaultC;		/* default colors */
     Pixel BorderColor;		/* color of window borders */
     Pixel MenuShadowColor;	/* menu shadow color */
+    Pixel MenuBorderColor;	/* menu border color */
     Pixel IconBorderColor;	/* icon border color */
     Pixel IconManagerHighlight;	/* icon manager highlight */
 
@@ -150,7 +151,7 @@ typedef struct ScreenInfo
     Cursor WaitCursor;		/* wait a while cursor */
     Cursor MenuCursor;		/* menu cursor */
     Cursor SelectCursor;	/* dot cursor for f.move, etc. from menus */
-    Cursor DestroyCursor;		/* skull and cross bones, f.destroy */
+    Cursor DestroyCursor;	/* skull and cross bones, f.destroy */
 
     name_list *BorderColorL;
     name_list *IconBorderColorL;
@@ -202,6 +203,7 @@ typedef struct ScreenInfo
     int SizeStringWidth;	/* minimum width of size window */
     int BorderWidth;		/* border width of twm windows */
     int IconBorderWidth;	/* border width of icon windows */
+    int MenuBorderWidth;	/* border width of twm menus */
     int UnknownWidth;		/* width of the unknown icon */
     int UnknownHeight;		/* height of the unknown icon */
     int TitleHeight;		/* height of the title bar window */

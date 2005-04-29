@@ -1,4 +1,178 @@
-2003-07-13  Kenneth Raeburn  <raeburn@mit.edu>
+2005-01-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* prng.c (krb5int_prng_init): Incorporate do_yarrow_init body.
+	Don't check inited variable.
+	(inited): Variable deleted.
+	(krb5_c_random_make_octets, krb5int_prng_cleanup): Don't check
+	it.
+	(do_yarrow_init): Deleted.
+
+2005-01-12  Tom Yu  <tlyu@mit.edu>
+
+	* prng.c (read_entropy_from_device): Use ssize_t, not size_t, so
+	read() returning -1 doesn't cause trouble.
+
+2004-11-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* prng.c (do_yarrow_init): Move mutex initialization here.
+	(krb5int_prng_init): Don't do it here.
+
+2004-11-15  Sam Hartman  <hartmans@mit.edu>
+
+	* t_prng.expected t_prng.reseedtest-expected :  Update expected
+	PRNG test output and confirm that reseeds and gates happen correctly.
+
+2004-10-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* prng.c (yarrow_lock): Rename to krb5int_yarrow_lock via macro,
+	and change to be non-static.
+	(krb5int_prng_init): Call do_yarrow_init here.
+	(krb5_c_random_add_entropy): Don't call it here.  Don't lock the
+	mutex, either.
+	(krb5_c_random_make_octets): Don't lock the mutex.
+
+2004-06-16  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (MAC_SUBDIRS): Don't set.
+
+2004-06-15  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (SHLIB_DIRS, SHLIB_EXPLIBS, SHLIB_EXPDEPLIBS): Set
+	to depend on the new support library.
+	(SHLIB_LIBS): Don't define.
+	(SHLIB_RDIRS): Set.
+
+	* configure.in: Use BUILD_LIBRARY_WITH_DEPS instead of the no-deps
+	version.
+
+2004-06-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBBASE): Renamed from LIB.
+
+2004-06-02  Ken Raeburn  <raeburn@mit.edu>
+
+	* prng.c (init_once): Variable deleted.
+	(krb5_c_random_add_entropy): Do the initialization once, using
+	the yarrow_lock mutex instead of k5_once to protect it.
+
+2004-05-24  Ezra Peisach  <epeisach@mit.edu>
+
+	* t_nfold.c (fold_kerberos): Change nbytes argument to unsigned.
+
+	* t_encrypt.c (compare_results): Declare static.
+	(main): Free allocated memory before exit.
+
+2004-05-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (t_encrypt, t_prng, t_hmac, t_pkcs5, vectors,
+	t_cts): Link test programs against thread support library.
+
+2004-05-12  Ken Raeburn  <raeburn@mit.edu>
+
+	* libk5crypto.exports: Add the DES tables back in; libdes425 uses
+	them directly.
+
+2004-05-07  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Check for endian.h and machine/endian.h.
+
+2004-04-30  Ken Raeburn  <raeburn@mit.edu>
+
+	* crypto_libinit.c (initialized): Variable deleted.
+	(cryptoint_initialize_library, cryptoint_cleanup_library): Use new
+	macros for automatic shared library init/fini functions.
+	(prng_cleanup): Declaration deleted.
+	(krb5int_prng_init, krb5int_prng_cleanup): Declare.
+	(cryptoint_initialize_library): Call krb5int_prng_init.
+	(krb5int_crypto_init): New function, checks that
+	cryptoint_initialize_library was called successfully.
+	(cryptoint_cleanup_library): Call krb5int_prng_cleanup only if the
+	initializer ran.
+	* crypto_libinit.h: Deleted.
+	* prng.c: Include k5-thread.h.
+	(init_once, init_error, yarrow_lock): New variables.
+	(krb5int_prng_init): New function; finish initializing the mutex
+	lock.
+	(do_yarrow_init): New function.
+	(krb5_c_random_add_entropy): Call it once only.  Lock the mutex
+	before processing the input.
+	(krb5_c_random_make_octets): Lock the mutex before extracting
+	random bytes.
+	(krb5int_prng_cleanup): Destroy the mutex.
+
+	* Makefile.in (LIBINITFUNC, LIBFINIFUNC): New variables.
+
+	* libk5crypto.exports: Drop the library init/fini functions and
+	the DES tables from the export list.
+
+2004-04-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* libk5crypto.exports: New file.
+
+2004-03-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* pbkdf2.c (hmac1): Make a local copy of the supplied keyblock
+	structure, in case we want to modify it.
+
+2004-03-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* prng.c (krb5int_prng_cleanup): Renamed from prng_cleanup.
+	* crypto_libinit.c: Include k5-int.h.
+	(cryptoint_cleanup_library): Updated call.
+
+2004-03-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Don't check for --enable-athena and don't define
+	ATHENA_DES3_KLUDGE.
+
+2004-02-24  Sam Hartman  <hartmans@avalanche-breakdown.mit.edu>
+
+	* etypes.c: Remove ENCTYPE_LOCAL_DES3_HMAC_SHA1
+
+2004-02-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* block_size.c, checksum_length.c, cksumtype_to_string.c,
+	coll_proof_cksum.c, decrypt.c, encrypt.c, encrypt_length.c,
+	enctype_compare.c, enctype_to_string.c, hmac.c,
+	keyed_checksum_types.c, keyed_cksum.c, make_checksum.c,
+	make_random_key.c, nfold.c, old_api_glue.c, prng.c,
+	string_to_cksumtype.c, string_to_enctype.c, string_to_key.c,
+	valid_cksumtype.c, valid_enctype.c, verify_checksum.c: Use ANSI C
+	style function definitions.
+
+2004-02-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* t_encrypt.c (compare_results): New function.
+	(main): Use it to check decryption results against the original
+	plaintext.  When testing with cipher state, encrypt and then
+	decrypt (and verify) two messages.
+	* Makefile.in (t_encrypt$(EXEEXT)): Depend on CRYPTO_DEPLIB.
+
+2004-02-09  Ken Raeburn  <raeburn@mit.edu>
+
+	* t_cts.c (test_cts): Process encryption and decryption IVs
+	separately, make sure they match, and display the value.
+
+2003-12-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* etypes.c (krb5_enctypes_list): Fill in required_ctype field.
+	* mandatory_sumtype.c: New file.
+	* Makefile.in (SRCS, OBJS, STLIBOBJS): Build it.
+
+2003-07-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* block_size.c (krb5_c_block_size): Read new numeric fields for
+	key/block/hash sizes instead of calling functions.
+	* checksum_length.c (krb5_c_checksum_length): Likewise.
+	* combine_keys.c (krb5int_c_combine_keys, dr): Likewise.
+	* hmac.c (krb5_hmac): Likewise.
+	* make_checksum.c (krb5_c_make_checksum): Likewise.
+	* make_random_key.c (krb5_c_make_random_key): Likewise.
+	* pbkdf2.c (hmac1): Likewise.
+	* string_to_key.c (krb5_c_string_to_key_with_params): Likewise.
+	* t_hmac.c (hmac1): Likewise.
+
+2003-07-13  Ken Raeburn  <raeburn@mit.edu>
 
 	* pbkdf2.c (foo): Never call com_err.
 
@@ -28,6 +202,10 @@
 
 	* etypes.c (krb5_enctypes_list): Add names aes128-cts and
 	aes256-cts as aliases.
+
+2003-05-13  Sam Hartman  <hartmans@mit.edu>
+
+	* t_encrypt.c: Add aes enctypes
 
 2003-05-08  Sam Hartman  <hartmans@mit.edu>
 

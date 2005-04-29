@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/nv_dga.c,v 1.11 2002/01/25 21:56:06 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/nv_dga.c,v 1.12 2003/07/31 20:24:29 mvojkovi Exp $ */
 
 #include "nv_local.h"
 #include "nv_include.h"
@@ -62,7 +62,7 @@ SECOND_PASS:
 	size = pitch * Bpp * pMode->VDisplay;
 
 	if((!secondPitch || (pitch != secondPitch)) &&
-		(size <= pNv->FbUsableSize)) {
+		(size <= pNv->ScratchBufferStart)) {
 
 	    if(secondPitch)
 		pitch = secondPitch; 
@@ -100,7 +100,8 @@ SECOND_PASS:
 	    mode->address = pNv->FbStart;
 	    mode->bytesPerScanline = pitch * Bpp;
 	    mode->imageWidth = pitch;
-	    mode->imageHeight =  pNv->FbUsableSize / mode->bytesPerScanline; 
+	    mode->imageHeight =  pNv->ScratchBufferStart / 
+                                 mode->bytesPerScanline; 
 	    mode->pixmapWidth = mode->imageWidth;
 	    mode->pixmapHeight = mode->imageHeight;
 	    mode->maxViewportX = mode->imageWidth - mode->viewportWidth;
@@ -143,8 +144,7 @@ NVDGAInit(ScreenPtr pScreen)
 		0x7c00, 0x03e0, 0x001f, TrueColor);
 
    /* 16 */
-   if(pNv->riva.Architecture != 3)
-       modes = NVSetupDGAMode (pScrn, modes, &num, 16, 16, 
+   modes = NVSetupDGAMode (pScrn, modes, &num, 16, 16, 
 		(pScrn->bitsPerPixel == 16),
 		(pScrn->depth != 16) ? 0 : pScrn->displayWidth,
 		0xf800, 0x07e0, 0x001f, TrueColor);
@@ -234,8 +234,8 @@ NV_SetViewport(
 
    NVAdjustFrame(pScrn->pScreen->myNum, x, y, flags);
 
-   while(VGA_RD08(pNv->riva.PCIO, 0x3da) & 0x08);
-   while(!(VGA_RD08(pNv->riva.PCIO, 0x3da) & 0x08));
+   while(VGA_RD08(pNv->PCIO, 0x3da) & 0x08);
+   while(!(VGA_RD08(pNv->PCIO, 0x3da) & 0x08));
 
    pNv->DGAViewportStatus = 0;  
 }
@@ -287,7 +287,7 @@ NV_BlitTransRect(
    int dstx, int dsty,
    unsigned long color
 ){
-   /* not implemented... yet */
+   /* not implemented */
 }
 
 

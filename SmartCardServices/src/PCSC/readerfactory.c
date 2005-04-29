@@ -27,7 +27,7 @@
 	Purpose: This keeps track of a list of currently 
 	available reader structures.
 
-$Id: readerfactory.c,v 1.2 2003/02/13 20:06:29 ghoo Exp $
+$Id: readerfactory.c,v 1.3 2004/10/14 20:33:35 mb Exp $
 
 ********************************************************************/
 
@@ -80,7 +80,7 @@ LONG RFAllocateReaderSpace(DWORD dwAllocNum)
 	 */
 	for (i = 0; i < dwAllocNum; i++)
 	{
-		sContexts[i] = (PREADER_CONTEXT) malloc(sizeof(READER_CONTEXT));
+		sContexts[i] = (PREADER_CONTEXT) calloc(1, sizeof(READER_CONTEXT));
 	}
 
 	/*

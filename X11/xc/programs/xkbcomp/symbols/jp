@@ -3,14 +3,21 @@
 
 // symbols for a Japanese 106 keyboard(by tsuka@kawalab.dnj.ynu.ac.jp)
 
-// $XFree86: xc/programs/xkbcomp/symbols/jp,v 3.9 2003/02/05 01:48:25 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/jp,v 3.11 2003/11/14 02:45:24 dawes Exp $
 
 default xkb_symbols "jp106" {
     include "srvr_ctrl(xfree86)"
+
+    name[Group1]= "US/ASCII";
+    name[Group2]= "Japanese";
+
     key <ESC>  { [ Escape		]	};
 
     // Alphanumeric section
-    key <HZTG> { [ Zenkaku_Hankaku,Kanji]				};
+    key <HZTG> {
+	type="PC_SYSRQ",
+	symbols[Group1]= [ Zenkaku_Hankaku, Kanji ]
+    };
     key <AE01> { [ 1, exclam 		], [ kana_NU		]	};
     key <AE02> { [ 2, quotedbl		], [ kana_FU		]	};
     key <AE03> { [ 3, numbersign	], [ kana_A, kana_a	]	};
@@ -44,7 +51,7 @@ default xkb_symbols "jp106" {
     key <AD12> { [ bracketleft,	braceleft ], [ semivoicedsound, kana_openingbracket ] };
     key <RTRN> { [ Return		]	};
 
-    key <CAPS> { [ Caps_Lock,Eisu_toggle]	};
+    key <CAPS> { [ Eisu_toggle, Caps_Lock ]	};
     key <AC01> { [ a, A 		], [ kana_CHI		]	};
     key <AC02> { [ s, S			], [ kana_TO		]	};
     key <AC03> { [ d, D			], [ kana_SHI		]	};
@@ -76,8 +83,14 @@ default xkb_symbols "jp106" {
     key <LALT> { [ Alt_L,Meta_L		]	};
     key <NFER> { [ Muhenkan		]	};
     key <SPCE> { [ space		]	};
-    key <XFER> { [ Henkan, Mode_switch	]	};
-    key <HKTG> { [ Hiragana_Katakana,Romaji	]	};
+    key <XFER> {
+	type="PC_SYSRQ",
+	symbols[Group1]= [ Henkan, Mode_switch ]
+    };
+    key <HKTG> {
+	type="PC_SYSRQ",
+	symbols[Group1]= [ Hiragana_Katakana, Romaji ]
+    };
     key <RALT> { [ Alt_R,Meta_R		]	};
     key <RCTL> { [ Control_R		]	};
 

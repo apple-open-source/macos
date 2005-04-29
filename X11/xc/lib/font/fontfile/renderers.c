@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/fontfile/renderers.c,v 1.7 2002/12/09 17:30:00 dawes Exp $ */
+/* $XFree86: xc/lib/font/fontfile/renderers.c,v 1.8 2004/01/06 16:28:21 martin Exp $ */
 
 /*
  * Author:  Keith Packard, MIT X Consortium
@@ -58,7 +58,7 @@ FontFilePriorityRegisterRenderer (FontRendererPtr renderer, int priority)
     if (rendererGeneration != serverGeneration) {
 	rendererGeneration = serverGeneration;
 	renderers.number = 0;
-	if (!renderers.renderers)
+	if (renderers.renderers)
 	   xfree(renderers.renderers);
 	renderers.renderers = NULL;
     }

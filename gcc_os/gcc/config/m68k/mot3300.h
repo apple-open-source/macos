@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    SysV68 Motorola 3300 Delta Series.
-   Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002
    Free Software Foundation, Inc.
    Contributed by Abramo and Roberto Bagnara (bagnara@dipisa.di.unipi.it)
    based on Alex Crain's 3B1 definitions.
@@ -118,13 +118,9 @@ Boston, MA 02111-1307, USA.  */
 #undef PARM_BOUNDARY
 #define PARM_BOUNDARY 16
 
-/* cpp has to support a #sccs directive for the /usr/include files */
-
-#define SCCS_DIRECTIVE
-
 /* Make output for SDB.  */
 
-#define SDB_DEBUGGING_INFO
+#define SDB_DEBUGGING_INFO 1
 
 #undef REGISTER_PREFIX
 #define REGISTER_PREFIX "%"
@@ -441,12 +437,17 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_CASE_FETCH(file, labelno, regname)\
 	asm_fprintf (file, "12(%Rpc,%s.", regname)
 
-#define ASM_RETURN_CASE_JUMP \
-  do {						\
-    if (TARGET_5200)				\
-      return "ext%.l %0\n\tjmp 8(%%pc,%0.l)";	\
-    else					\
-      return "jmp 8(%%pc,%0.w)";		\
+#define ASM_RETURN_CASE_JUMP				\
+  do {							\
+    if (TARGET_5200)					\
+      {							\
+	if (ADDRESS_REG_P (operands[0]))		\
+	  return "jmp 8(%%pc,%0.l)";			\
+	else						\
+	  return "ext%.l %0\n\tjmp 8(%%pc,%0.l)";	\
+      }							\
+    else						\
+      return "jmp 8(%%pc,%0.w)";			\
   } while (0)
 	     
 #else /* USE_GAS */

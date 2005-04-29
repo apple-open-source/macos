@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,17 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Apr 19 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLIsNewWorld.c,v 1.6 2003/07/22 15:58:34 ssen Exp $
+ *  $Id: BLIsNewWorld.c,v 1.8 2005/02/03 00:42:27 ssen Exp $
  *
  *  $Log: BLIsNewWorld.c,v $
+ *  Revision 1.8  2005/02/03 00:42:27  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.7  2004/04/20 21:40:44  ssen
+ *  Update copyrights to 2004
+ *
  *  Revision 1.6  2003/07/22 15:58:34  ssen
  *  APSL 2.0
  *

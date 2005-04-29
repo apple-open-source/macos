@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2001, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -119,12 +119,13 @@
 */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include "unicode/utypes.h"
 #include "unicode/putil.h"
+#include "unicode/uclean.h"
+#include "unicode/udata.h"
 #include "cmemory.h"
 #include "cstring.h"
-#include "unicode/udata.h"
+#include "uarrsort.h"
 #include "unewdata.h"
 #include "uoptions.h"
 #include "uparse.h"
@@ -223,8 +224,8 @@ compressLines(void);
 static int16_t
 compressLine(uint8_t *s, int16_t length, int16_t *pGroupTop);
 
-static int
-compareWords(const void *word1, const void *word2);
+static int32_t
+compareWords(const void *context, const void *word1, const void *word2);
 
 static void
 generateData(const char *dataDir);
@@ -282,8 +283,21 @@ extern int
 main(int argc, char* argv[]) {
     UVersionInfo version;
     UBool store10Names=FALSE;
+    UErrorCode errorCode = U_ZERO_ERROR;
 
     U_MAIN_INIT_ARGS(argc, argv);
+
+    /* Initialize ICU */
+    u_init(&errorCode);
+    if (U_FAILURE(errorCode) && errorCode != U_FILE_ACCESS_ERROR) {
+        /* Note: u_init() will try to open ICU property data.
+         *       failures here are expected when building ICU from scratch.
+         *       ignore them.
+         */
+        fprintf(stderr, "%s: can not initialize ICU.  errorCode = %s\n",
+            argv[0], u_errorName(errorCode));
+        exit(1);
+    }
 
     /* preset then read command line options */
     options[5].value=u_getDataDirectory();
@@ -307,7 +321,7 @@ main(int argc, char* argv[]) {
             "Usage: %s [-1[+|-]] [-v[+|-]] [-c[+|-]] filename\n"
             "\n"
             "Read the UnicodeData.txt file and \n"
-            "create a binary file " U_ICUDATA_NAME "_" DATA_NAME "." DATA_TYPE " with the character names\n"
+            "create a binary file " DATA_NAME "." DATA_TYPE " with the character names\n"
             "\n"
             "\tfilename  absolute path/filename for the Unicode database text file\n"
             "\t\t(default: standard input)\n"
@@ -340,6 +354,7 @@ main(int argc, char* argv[]) {
     compress();
     generateData(options[5].value);
 
+    u_cleanup();
     return 0;
 }
 
@@ -353,6 +368,22 @@ init() {
 }
 
 /* parsing ------------------------------------------------------------------ */
+
+/* get a name, strip leading and trailing whitespace */
+static int16_t
+getName(char **pStart, char *limit) {
+    /* strip leading whitespace */
+    char *start=(char *)u_skipWhitespace(*pStart);
+
+    /* strip trailing whitespace */
+    while(start<limit && (*(limit-1)==' ' || *(limit-1)=='\t')) {
+        --limit;
+    }
+
+    /* return results */
+    *pStart=start;
+    return (int16_t)(limit-start);
+}
 
 static void U_CALLCONV
 lineFn(void *context,
@@ -371,9 +402,8 @@ lineFn(void *context,
 
     /* get the character name */
     names[0]=fields[1][0];
-    if(fields[1][0][0]!='<') {
-        lengths[0]=(int16_t)(fields[1][1]-names[0]);
-    } else {
+    lengths[0]=getName(names+0, fields[1][1]);
+    if(names[0][0]=='<') {
         /* do not store pseudo-names in <> brackets */
         lengths[0]=0;
     }
@@ -382,15 +412,16 @@ lineFn(void *context,
     /* get the second character name, the one from Unicode 1.0 */
     /* do not store pseudo-names in <> brackets */
     names[1]=fields[10][0];
-    if(*(UBool *)context && fields[10][0][0]!='<') {
-        lengths[1]=(int16_t)(fields[10][1]-names[1]);
+    lengths[1]=getName(names+1, fields[10][1]);
+    if(*(UBool *)context && names[1][0]!='<') {
+        /* keep the name */
     } else {
         lengths[1]=0;
     }
 
     /* get the ISO 10646 comment */
     names[2]=fields[11][0];
-    lengths[2]=(int16_t)(fields[11][1]-names[2]);
+    lengths[2]=getName(names+2, fields[11][1]);
 
     if(lengths[0]+lengths[1]+lengths[2]==0) {
         return;
@@ -540,9 +571,12 @@ static void
 compress() {
     uint32_t i, letterCount;
     int16_t wordNumber;
+    UErrorCode errorCode;
 
     /* sort the words in reverse order by weight */
-    qsort(words, wordCount, sizeof(Word), compareWords);
+    errorCode=U_ZERO_ERROR;
+    uprv_sortArray(words, wordCount, sizeof(Word),
+                    compareWords, NULL, FALSE, &errorCode);
 
     /* remove the words that do not save anything */
     while(wordCount>0 && words[wordCount-1].weight<1) {
@@ -557,7 +591,7 @@ compress() {
         }
     }
     if(!beQuiet) {
-        printf("number of letters used in the names: %d\n", letterCount);
+        printf("number of letters used in the names: %d\n", (int)letterCount);
     }
 
     /* do we need double-byte tokens? */
@@ -569,7 +603,7 @@ compress() {
                 tokens[i]=wordNumber;
                 if(beVerbose) {
                     printf("tokens[0x%03x]: word%8ld \"%.*s\"\n",
-                            i, (long)words[wordNumber].weight,
+                            (int)i, (long)words[wordNumber].weight,
                             words[wordNumber].length, words[wordNumber].s);
                 }
                 ++wordNumber;
@@ -588,7 +622,9 @@ compress() {
         }
 
         /* sort these words in reverse order by weight */
-        qsort(words+tokenCount, wordCount-tokenCount, sizeof(Word), compareWords);
+        errorCode=U_ZERO_ERROR;
+        uprv_sortArray(words+tokenCount, wordCount-tokenCount, sizeof(Word),
+                        compareWords, NULL, FALSE, &errorCode);
 
         /* remove the words that do not save anything */
         while(wordCount>0 && words[wordCount-1].weight<1) {
@@ -638,7 +674,7 @@ compress() {
                 tokens[i]=wordNumber;
                 if(beVerbose) {
                     printf("tokens[0x%03x]: word%8ld \"%.*s\"\n",
-                            i, (long)words[wordNumber].weight,
+                            (int)i, (long)words[wordNumber].weight,
                             words[wordNumber].length, words[wordNumber].s);
                 }
                 ++wordNumber;
@@ -653,7 +689,7 @@ compress() {
                 tokens[i]=wordNumber;
                 if(beVerbose) {
                     printf("tokens[0x%03x]: word%8ld \"%.*s\"\n",
-                            i, (long)words[wordNumber].weight,
+                            (int)i, (long)words[wordNumber].weight,
                             words[wordNumber].length, words[wordNumber].s);
                 }
                 ++wordNumber;
@@ -792,8 +828,8 @@ compressLine(uint8_t *s, int16_t length, int16_t *pGroupTop) {
     return length;
 }
 
-static int
-compareWords(const void *word1, const void *word2) {
+static int32_t
+compareWords(const void *context, const void *word1, const void *word2) {
     /* reverse sort by word weight */
     return ((Word *)word2)->weight-((Word *)word1)->weight;
 }
@@ -810,7 +846,7 @@ generateData(const char *dataDir) {
     long dataLength;
     int16_t token;
 
-    pData=udata_create(dataDir, DATA_TYPE,U_ICUDATA_NAME "_" DATA_NAME, &dataInfo,
+    pData=udata_create(dataDir, DATA_TYPE,DATA_NAME, &dataInfo,
                        haveCopyright ? U_COPYRIGHT_STRING : NULL, &errorCode);
     if(U_FAILURE(errorCode)) {
         fprintf(stderr, "gennames: unable to create data memory, error %d\n", errorCode);

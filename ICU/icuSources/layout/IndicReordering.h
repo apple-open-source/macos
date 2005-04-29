@@ -1,9 +1,6 @@
 /*
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
  *
- * $Source: /cvs/root/ICU/icuSources/layout/IndicReordering.h,v $
- * $Date: 2003/07/03 18:13:45 $
- * $Revision: 1.1.1.2 $
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -29,23 +26,28 @@ enum
 
 typedef LEUnicode SplitMatra[3];
 
-class  MPreFixups;
+class MPreFixups;
+class LEGlyphStorage;
 
 struct IndicClassTable
 {
     enum CharClassValues
     {
-        CC_RESERVED             = 0,
-        CC_MODIFYING_MARK_ABOVE = 1,
-        CC_MODIFYING_MARK_POST  = 2,
-        CC_INDEPENDENT_VOWEL    = 3,
-        CC_CONSONANT            = 4,
-        CC_CONSONANT_WITH_NUKTA = 5,
-        CC_NUKTA                = 6,
-        CC_DEPENDENT_VOWEL      = 7,
-        CC_VIRAMA               = 8,
-        CC_ZERO_WIDTH_MARK      = 9,
-        CC_COUNT                = 10
+        CC_RESERVED             =  0,
+        CC_VOWEL_MODIFIER       =  1,
+        CC_STRESS_MARK          =  2,
+        CC_INDEPENDENT_VOWEL    =  3,
+        CC_INDEPENDENT_VOWEL_2  =  4,
+        CC_CONSONANT            =  5,
+        CC_CONSONANT_WITH_NUKTA =  6,
+        CC_NUKTA                =  7,
+        CC_DEPENDENT_VOWEL      =  8,
+        CC_SPLIT_VOWEL_PIECE_1  =  9,
+        CC_SPLIT_VOWEL_PIECE_2  = 10,
+        CC_SPLIT_VOWEL_PIECE_3  = 11,
+        CC_VIRAMA               = 12,
+        CC_ZERO_WIDTH_MARK      = 13,
+        CC_COUNT                = 14
     };
 
     enum CharClassFlags
@@ -58,17 +60,19 @@ struct IndicClassTable
         CF_VATTU        = 0x20000000,
         CF_BELOW_BASE   = 0x10000000,
         CF_POST_BASE    = 0x08000000,
+        CF_LENGTH_MARK  = 0x04000000,
 
-        CF_MATRA_PRE    = 0x04000000,
-        CF_MATRA_BELOW  = 0x02000000,
-        CF_MATRA_ABOVE  = 0x01000000,
-        CF_MATRA_POST   = 0x00800000,
-        CF_LENGTH_MARK  = 0x00400000,
+        CF_POS_BEFORE   = 0x00300000,
+        CF_POS_BELOW    = 0x00200000,
+        CF_POS_ABOVE    = 0x00100000,
+        CF_POS_AFTER    = 0x00000000,
+        CF_POS_MASK     = 0x00300000,
+        
         CF_INDEX_MASK   = 0x000F0000,
         CF_INDEX_SHIFT  = 16
     };
 
-    typedef le_int32 CharClass;
+    typedef le_uint32 CharClass;
 
     enum ScriptFlagBits
     {
@@ -95,8 +99,8 @@ struct IndicClassTable
     CharClass getCharClass(LEUnicode ch) const;
     const SplitMatra *getSplitMatra(CharClass charClass) const;
 
-    le_bool isVMabove(LEUnicode ch) const;
-    le_bool isVMpost(LEUnicode ch) const;
+    le_bool isVowelModifier(LEUnicode ch) const;
+    le_bool isStressMark(LEUnicode ch) const;
     le_bool isConsonant(LEUnicode ch) const;
     le_bool isReph(LEUnicode ch) const;
     le_bool isVirama(LEUnicode ch) const;
@@ -104,17 +108,13 @@ struct IndicClassTable
     le_bool isVattu(LEUnicode ch) const;
     le_bool isMatra(LEUnicode ch) const;
     le_bool isSplitMatra(LEUnicode ch) const;
-    le_bool isMpre(LEUnicode ch) const;
-    le_bool isMbelow(LEUnicode ch) const;
-    le_bool isMabove(LEUnicode ch) const;
-    le_bool isMpost(LEUnicode ch) const;
     le_bool isLengthMark(LEUnicode ch) const;
     le_bool hasPostOrBelowBaseForm(LEUnicode ch) const;
     le_bool hasPostBaseForm(LEUnicode ch) const;
     le_bool hasBelowBaseForm(LEUnicode ch) const;
 
-    static le_bool isVMabove(CharClass charClass);
-    static le_bool isVMpost(CharClass charClass);
+    static le_bool isVowelModifier(CharClass charClass);
+    static le_bool isStressMark(CharClass charClass);
     static le_bool isConsonant(CharClass charClass);
     static le_bool isReph(CharClass charClass);
     static le_bool isVirama(CharClass charClass);
@@ -122,10 +122,6 @@ struct IndicClassTable
     static le_bool isVattu(CharClass charClass);
     static le_bool isMatra(CharClass charClass);
     static le_bool isSplitMatra(CharClass charClass);
-    static le_bool isMpre(CharClass charClass);
-    static le_bool isMbelow(CharClass charClass);
-    static le_bool isMabove(CharClass charClass);
-    static le_bool isMpost(CharClass charClass);
     static le_bool isLengthMark(CharClass charClass);
     static le_bool hasPostOrBelowBaseForm(CharClass charClass);
     static le_bool hasPostBaseForm(CharClass charClass);
@@ -139,10 +135,10 @@ public:
     static le_int32 getWorstCaseExpansion(le_int32 scriptCode);
 
     static le_int32 reorder(const LEUnicode *theChars, le_int32 charCount, le_int32 scriptCode,
-        LEUnicode *outChars, le_int32 *charIndices, const LETag **charTags,
+        LEUnicode *outChars, LEGlyphStorage &glyphStorage,
         MPreFixups **outMPreFixups);
 
-    static void adjustMPres(MPreFixups *mpreFixups, LEGlyphID *glyphs, le_int32 *charIndices);
+    static void adjustMPres(MPreFixups *mpreFixups, LEGlyphStorage &glyphStorage);
 
     static const LETag *getFeatureOrder();
 
@@ -166,14 +162,14 @@ inline const SplitMatra *IndicClassTable::getSplitMatra(CharClass charClass) con
     return &splitMatraTable[index - 1];
 }
 
-inline le_bool IndicClassTable::isVMabove(CharClass charClass)
+inline le_bool IndicClassTable::isVowelModifier(CharClass charClass)
 {
-    return (charClass & CF_CLASS_MASK) == CC_MODIFYING_MARK_ABOVE;
+    return (charClass & CF_CLASS_MASK) == CC_VOWEL_MODIFIER;
 }
 
-inline le_bool IndicClassTable::isVMpost(CharClass charClass)
+inline le_bool IndicClassTable::isStressMark(CharClass charClass)
 {
-    return (charClass & CF_CLASS_MASK) == CC_MODIFYING_MARK_POST;
+    return (charClass & CF_CLASS_MASK) == CC_STRESS_MARK;
 }
 
 inline le_bool IndicClassTable::isConsonant(CharClass charClass)
@@ -203,32 +199,14 @@ inline le_bool IndicClassTable::isVattu(CharClass charClass)
 
 inline le_bool IndicClassTable::isMatra(CharClass charClass)
 {
-    return (charClass & CF_CLASS_MASK) == CC_DEPENDENT_VOWEL;
+    charClass &= CF_CLASS_MASK;
+
+    return charClass >= CC_DEPENDENT_VOWEL && charClass <= CC_SPLIT_VOWEL_PIECE_3;
 }
 
 inline le_bool IndicClassTable::isSplitMatra(CharClass charClass)
 {
     return (charClass & CF_INDEX_MASK) != 0;
-}
-
-inline le_bool IndicClassTable::isMpre(CharClass charClass)
-{
-    return (charClass & CF_MATRA_PRE) != 0;
-}
-
-inline le_bool IndicClassTable::isMbelow(CharClass charClass)
-{
-    return (charClass & CF_MATRA_BELOW) != 0;
-}
-
-inline le_bool IndicClassTable::isMabove(CharClass charClass)
-{
-    return (charClass & CF_MATRA_ABOVE) != 0;
-}
-
-inline le_bool IndicClassTable::isMpost(CharClass charClass)
-{
-    return (charClass & CF_MATRA_POST) != 0;
 }
 
 inline le_bool IndicClassTable::isLengthMark(CharClass charClass)
@@ -251,14 +229,14 @@ inline le_bool IndicClassTable::hasBelowBaseForm(CharClass charClass)
     return (charClass & CF_BELOW_BASE) != 0;
 }
 
-inline le_bool IndicClassTable::isVMabove(LEUnicode ch) const
+inline le_bool IndicClassTable::isVowelModifier(LEUnicode ch) const
 {
-    return isVMabove(getCharClass(ch));
+    return isVowelModifier(getCharClass(ch));
 }
 
-inline le_bool IndicClassTable::isVMpost(LEUnicode ch) const
+inline le_bool IndicClassTable::isStressMark(LEUnicode ch) const
 {
-    return isVMpost(getCharClass(ch));
+    return isStressMark(getCharClass(ch));
 }
 
 inline le_bool IndicClassTable::isConsonant(LEUnicode ch) const
@@ -294,26 +272,6 @@ inline le_bool IndicClassTable::isMatra(LEUnicode ch) const
 inline le_bool IndicClassTable::isSplitMatra(LEUnicode ch) const
 {
     return isSplitMatra(getCharClass(ch));
-}
-
-inline le_bool IndicClassTable::isMpre(LEUnicode ch) const
-{
-    return isMpre(getCharClass(ch));
-}
-
-inline le_bool IndicClassTable::isMbelow(LEUnicode ch) const
-{
-    return isMbelow(getCharClass(ch));
-}
-
-inline le_bool IndicClassTable::isMabove(LEUnicode ch) const
-{
-    return isMabove(getCharClass(ch));
-}
-
-inline le_bool IndicClassTable::isMpost(LEUnicode ch) const
-{
-    return isMpost(getCharClass(ch));
 }
 
 inline le_bool IndicClassTable::isLengthMark(LEUnicode ch) const

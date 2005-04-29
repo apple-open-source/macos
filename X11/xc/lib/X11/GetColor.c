@@ -24,40 +24,20 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/GetColor.c,v 1.5 2002/12/04 23:18:32 paulo Exp $ */
+/* $XFree86: xc/lib/X11/GetColor.c,v 1.7 2003/11/17 22:20:06 dawes Exp $ */
 
 #define NEED_REPLIES
 #include <stdio.h>
 #include "Xlibint.h"
 #include "Xcmsint.h"
 
-extern void _XcmsRGB_to_XColor();
-
-/* cmsColNm.c */
-extern Status _XcmsResolveColorString(
-#if NeedFunctionPrototypes
-				      XcmsCCC ccc,
-				      _Xconst char **color_string,
-				      XcmsColor *pColor_exact_return,
-				      XcmsColorFormat result_format
-#endif
-);
-
-#if NeedFunctionPrototypes
-Status XAllocNamedColor(
+Status
+XAllocNamedColor(
 register Display *dpy,
 Colormap cmap,
 _Xconst char *colorname, /* STRING8 */
 XColor *hard_def, /* RETURN */
 XColor *exact_def) /* RETURN */
-#else
-Status XAllocNamedColor(dpy, cmap, colorname, hard_def, exact_def)
-register Display *dpy;
-Colormap cmap;
-char *colorname; /* STRING8 */
-XColor *hard_def; /* RETURN */
-XColor *exact_def; /* RETURN */
-#endif
 {
 
     long nbytes;

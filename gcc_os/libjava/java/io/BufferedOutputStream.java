@@ -1,5 +1,5 @@
 /* BufferedOutputStream.java -- Buffer output into large blocks before writing
-   Copyright (C) 1998, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2000, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -140,6 +140,7 @@ flush() throws IOException
 
   out.write(buf, 0, count);
   count = 0;
+  out.flush();
 }
 
 /*************************************************************************/
@@ -188,11 +189,11 @@ finalize() throws IOException
 public synchronized void
 write(int b) throws IOException
 {
-  buf[count] = (byte)(b & 0xFF);
-
-  ++count;
   if (count == buf.length)
     flush();
+
+  buf[count] = (byte)(b & 0xFF);
+  ++count;
 }
 
 /*************************************************************************/

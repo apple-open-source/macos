@@ -26,7 +26,7 @@
  * this work is sponsored by Appian Graphics.
  * 
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/pm3_dac.c,v 1.33 2002/07/19 15:33:45 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/pm3_dac.c,v 1.34 2003/11/03 05:11:14 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -365,7 +365,6 @@ Permedia3PreInit(ScrnInfoPtr pScrn)
 
     if (IS_J2000) {
     	unsigned char m,n,p;
-    	unsigned long clockused;
 
 	if (pGlint->Chipset == PCI_VENDOR_3DLABS_CHIP_GAMMA)
 	    GLINT_SLOW_WRITE_REG(GCSRSecondaryGLINTMapEn, GCSRAperture);
@@ -386,7 +385,7 @@ Permedia3PreInit(ScrnInfoPtr pScrn)
 	 * Note 1 : pGlint->RefClock is not set yet, so use 14318 instead.
 	 * Note 2 : KClk gets internally halved, so we need to double it.
 	 */
-	clockused = PM3DAC_CalculateClock(2*105000, 14318, &m,&n,&p);
+	(void) PM3DAC_CalculateClock(2*105000, 14318, &m,&n,&p);
         Permedia2vOutIndReg(pScrn, PM3RD_KClkPreScale, 0x00, m);
         Permedia2vOutIndReg(pScrn, PM3RD_KClkFeedbackScale, 0x00, n);
         Permedia2vOutIndReg(pScrn, PM3RD_KClkPostScale, 0x00, p);
@@ -536,27 +535,24 @@ Permedia3Init(ScrnInfoPtr pScrn, DisplayModePtr mode, GLINTRegPtr pReg)
     {
 	/* Get the programmable clock values */
     	unsigned char m,n,p;
-    	unsigned long clockused;
 	
 	/* Let's program the dot clock */
 	switch (pGlint->Chipset) {
 	case PCI_VENDOR_3DLABS_CHIP_PERMEDIA4:
 	case PCI_VENDOR_3DLABS_CHIP_R4:
-	  clockused = PM4DAC_CalculateClock(mode->Clock,
-					    pGlint->RefClock, &m,&n,&p);
+	  (void) PM4DAC_CalculateClock(mode->Clock, pGlint->RefClock, &m,&n,&p);
 	  break;
 	case PCI_VENDOR_3DLABS_CHIP_PERMEDIA3:
-	  clockused = PM3DAC_CalculateClock(mode->Clock,
-					    pGlint->RefClock, &m,&n,&p);
+	  (void) PM3DAC_CalculateClock(mode->Clock, pGlint->RefClock, &m,&n,&p);
 	  break;
 	case PCI_VENDOR_3DLABS_CHIP_GAMMA:
 	  switch (pGlint->MultiChip) {
 	    case PCI_CHIP_PERMEDIA3:
-	  	clockused = PM3DAC_CalculateClock(mode->Clock,
+		(void) PM3DAC_CalculateClock(mode->Clock,
 					    pGlint->RefClock, &m,&n,&p);
 		break;
 	    case PCI_CHIP_R4:
-	  	clockused = PM4DAC_CalculateClock(mode->Clock,
+		(void) PM4DAC_CalculateClock(mode->Clock,
 					    pGlint->RefClock, &m,&n,&p);
 		break;
 	  }

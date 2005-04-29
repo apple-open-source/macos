@@ -1,0 +1,23 @@
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be a
+### analyzed non-fail. You should then comment out the test in this 
+### file and make sure the Radar bug is closed.
+### 
+###------------------------------------------------------------------
+3370400: 17_intro/headers_c++.cc (test for excess errors)
+3370400: 17_intro/headers_c.cc (test for excess errors)
+3378287: 26_numerics/c99_classification_macros_c.cc (test for excess errors)
+3375265: 27_io/filebuf_members.cc execution test
+3357567: ext/concept_checks.cc (test for excess errors)
+3656565: 20_util/auto_ptr_neg.cc (test for excess errors)
+3370400: 17_intro/headers_c++.cc (test for excess errors) #1
+3370400: 17_intro/headers_c.cc (test for excess errors) #1
+3378287: 26_numerics/c99_classification_macros_c.cc (test for excess errors) #1
+3375265: 27_io/filebuf_members.cc execution test #1
+3357567: ext/concept_checks.cc (test for excess errors) #1
+3656565: 20_util/auto_ptr_neg.cc (test for excess errors) #1

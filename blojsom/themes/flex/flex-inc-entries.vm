@@ -1,0 +1,14 @@
+#foreach ($entry in $BLOJSOM_ENTRIES)
+    <div id="blogEntry">
+      <h3><span><a href="$entry.getLink()" title="Permalink to $entry.getTitle()">$entry.getTitle() <img src="$BLOJSOM_SITE_URL/images/permalink.png" alt=""/></a></span></h3>
+      <h4><span>$entry.getDate()</span></h4>
+      <p class="p1"><span>$entry.getDescription()</span></p>
+    </div>
+  #if ($postEntryTemplate)
+    #parse($postEntryTemplate)
+  #end
+  #if ($BLOJSOM_PERMALINK)
+    #parse("default/flex-inc-trackback-auto-discovery.vm")
+  #end
+#end
+

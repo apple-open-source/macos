@@ -2,6 +2,87 @@
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>cvt-established-ids</key>
+	<array>
+		<data>
+		AAACgAAAAeAAAAA8AAAAAg==
+		</data>
+		<data>
+		AAADIAAAAlgAAAA8AAAAAg==
+		</data>
+		<data>
+		AAAEAAAAAwAAAAA8AAAAAg==
+		</data>
+		<data>
+		AAAFAAAAAwAAAAA8AAAAAA==
+		</data>
+		<data>
+		AAAFAAAAAwAAAAA8AAAAAg==
+		</data>
+		<data>
+		AAAFAAAABAAAAAA8AAAAAg==
+		</data>
+		<data>
+		AAAFeAAABBoAAAA8AAAAAA==
+		</data>
+		<data>
+		AAAFeAAABBoAAABLAAAAAA==
+		</data>
+		<data>
+		AAAFeAAABBoAAABVAAAAAA==
+		</data>
+		<data>
+		AAAFeAAABBoAAAA8AAAAAg==
+		</data>
+		<data>
+		AAAGQAAABLAAAAA8AAAAAA==
+		</data>
+		<data>
+		AAAGQAAABLAAAABLAAAAAA==
+		</data>
+		<data>
+		AAAGQAAABLAAAABVAAAAAA==
+		</data>
+		<data>
+		AAAGQAAABLAAAAA8AAAAAg==
+		</data>
+		<data>
+		AAAIAAAABgAAAAA8AAAAAA==
+		</data>
+		<data>
+		AAAIAAAABgAAAABLAAAAAA==
+		</data>
+		<data>
+		AAAIAAAABgAAAABVAAAAAA==
+		</data>
+		<data>
+		AAAIAAAABgAAAAA8AAAAAg==
+		</data>
+		<data>
+		AAADUAAAAeAAAAA8AAAAAAAAAjo=
+		</data>
+		<data>
+		AAADUAAAAeAAAAA8AAAAAg==
+		</data>
+		<data>
+		AAAFUAAAAwAAAAA8AAAAAAAAAk4=
+		</data>
+		<data>
+		AAAFUAAAAwAAAAA8AAAAAg==
+		</data>
+		<data>
+		AAAHgAAABDgAAAA8AAAAAA==
+		</data>
+		<data>
+		AAAHgAAABDgAAAA8AAAAAg==
+		</data>
+		<data>
+		AAAHgAAABLAAAAA8AAAAAA==
+		</data>
+		<data>
+		AAAHgAAABLAAAAA8AAAAAg==
+		</data>
+	</array>
 	<key>established-ids</key>
 	<data>
 	AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANwAAAEGAAAAzAAAAMgAAAC+AAAA
@@ -23,8 +104,10 @@
 		<integer>800</integer>
 		<integer>1024</integer>
 		<integer>1280</integer>
+		<integer>50332928</integer>
 		<integer>67110144</integer>
 		<integer>1344</integer>
+		<integer>1400</integer>
 		<integer>1600</integer>
 		<integer>1920</integer>
 		<integer>2304</integer>
@@ -33,7 +116,7 @@
 	<array>
 		<integer>640</integer>
 		<integer>800</integer>
-		<integer>31458136</integer>
+		<integer>31458128</integer>
 		<integer>1024</integer>
 		<integer>1280</integer>
 		<integer>67110144</integer>
@@ -50,8 +133,6 @@
 		<integer>1280</integer>
 		<integer>1344</integer>
 		<integer>1600</integer>
-		<integer>1792</integer>
-		<integer>1856</integer>
 		<integer>1920</integer>
 		<integer>2048</integer>
 	</array>

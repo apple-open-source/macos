@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/18 04:05:44 coskrey Exp $
 
 
 
-XCOMM $XFree86: xc/include/extensions/Imakefile,v 3.53 2002/12/16 16:18:49 dawes Exp $
+XCOMM $XFree86: xc/include/extensions/Imakefile,v 3.56 2003/04/21 18:56:47 sven Exp $
 
 #if BuildScreenSaverExt || BuildScreenSaverLibrary
 SCREENSAVERHEADERS = saver.h saverproto.h scrnsaver.h
@@ -67,7 +67,6 @@ HEADERS = Xext.h \
 	extutil.h \
 	XI.h XInput.h XIproto.h \
 	XTest.h xtestext1.h xteststr.h \
-	XIE.h XIEproto.h XIEprotost.h \
 	XKB.h XKBgeom.h XKBproto.h XKBstr.h XKBsrv.h \
 	Xdbe.h Xdbeproto.h \
 	Xag.h Xagstr.h Xagsrv.h \
@@ -100,7 +99,9 @@ InstallDriverSDKNonExecFile(xf86dga1str.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(xf86dgastr.h,$(DRIVERSDKINCLUDEDIR)/extensions)
 InstallDriverSDKNonExecFile(xf86rush.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(xf86rushstr.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(renderproto.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(Xv.h,$(DRIVERSDKINCLUDEDIR)/extensions)
+InstallDriverSDKNonExecFile(XvMC.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(Xvlib.h,$(DRIVERSDKINCLUDEDIR)/extensions)
 InstallDriverSDKNonExecFile(Xv.h,$(DRIVERSDKINCLUDEDIR)/X11/extensions)
 InstallDriverSDKNonExecFile(Xvlib.h,$(DRIVERSDKINCLUDEDIR)/X11/extensions)

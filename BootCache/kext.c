@@ -229,6 +229,7 @@ struct BC_read_history_entry {
 struct BC_cache_control {
 	/* the device we are covering */
 	dev_t		c_dev;
+        struct vnode    *c_devvp;
 	struct bdevsw	*c_devsw;
 
 	/* saved strategy routine */
@@ -266,6 +267,7 @@ struct BC_cache_control {
 	int		c_buffer_blocks;/* total size of buffer in blocks */
 	u_int32_t	*c_blockmap;	/* blocks present in buffer */
 	u_int32_t	*c_pagemap;	/* pages present in buffer */
+	u_int32_t	*c_iopagemap;	/* pages with outstanding I/O */
 
 	/* history list, in reverse order */
 	struct BC_history_cluster *c_history;
@@ -341,6 +343,11 @@ struct BC_cache_control {
 #define CB_MARK_PAGE_PRESENT(c, page)	((c)->c_pagemap[CB_MAPIDX(page)] |=  CB_MAPBIT(page))
 #define CB_MARK_PAGE_VACANT(c, page)	((c)->c_pagemap[CB_MAPIDX(page)] &= ~CB_MAPBIT(page))
 
+#define CB_IOPAGE_BUSY(c, page)		((c)->c_iopagemap[CB_MAPIDX(page)] &   CB_MAPBIT(page))
+#define CB_MARK_IOPAGE_BUSY(c, page)	((c)->c_iopagemap[CB_MAPIDX(page)] |=  CB_MAPBIT(page))
+#define CB_MARK_IOPAGE_UNBUSY(c, page)	((c)->c_iopagemap[CB_MAPIDX(page)] &= ~CB_MAPBIT(page))
+
+
 /*
  * Convert a pointer to a page offset in the buffer and vice versa.
  */
@@ -371,7 +378,7 @@ struct BC_cache_control {
 /*
  * Only one instance of the cache is supported.
  */
-static struct buf BC_private_bp;
+static struct buf *BC_private_bp = NULL;
 static struct BC_cache_control BC_cache_softc;
 static struct BC_cache_control *BC_cache = &BC_cache_softc;
 
@@ -635,9 +642,10 @@ BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length
 			 * page.  Only *really* free the page if we can be
 			 * certain we'll never try to touch it again.
 			 */
-			if (CB_PAGE_VACANT(BC_cache, page)) {
-				BC_free_page(page);
+			if ((CB_PAGE_PRESENT(BC_cache, i)) && CB_PAGE_VACANT(BC_cache, page)) {
 				CB_MARK_PAGE_VACANT(BC_cache, page);
+
+				BC_free_page(page);
 			}
 		}
 	}
@@ -680,6 +688,10 @@ BC_reader_thread(thread_call_param_t param0, thread_call_param_t param1)
 	struct buf *bp;
 	u_int64_t bytesdone;
 	int count;
+	int	i, x;
+	int	bcount;
+	uintptr_t bptr;
+			  
 
 	assert(BC_cache->c_flags & BC_FLAG_IOBUSY);
 	assert(BC_cache->c_flags & BC_FLAG_PREFETCH);
@@ -687,8 +699,9 @@ BC_reader_thread(thread_call_param_t param0, thread_call_param_t param1)
 	/* we run under the kernel funnel */
 	funnel_state = thread_funnel_set(kernel_flock, TRUE);
 	BC_cache->c_flags |= BC_FLAG_IOBUSY;	/* should already be set */
-	bp = &BC_private_bp;
-	bp->b_dev = BC_cache->c_dev;
+
+	BC_private_bp = buf_alloc(BC_cache->c_devvp);
+	bp = BC_private_bp;
 	
 	debug("reader thread started");
 
@@ -709,7 +722,8 @@ restart:
 				continue;
 
 		/* loop reading to fill this extent */
-		bp->b_bcount = 0;
+		buf_setcount(bp, 0);
+
 		BC_cache->c_extent_tail = ce;
 
 		for (;;) {
@@ -725,28 +739,54 @@ restart:
 			 * still contain state from the previous read, which we
 			 * use to detect this condition.
 			 */
-			if (bp->b_bcount != 0) {
+			if (buf_count(bp) != 0) {
 				/* continuing a partial read */
-				bp->b_blkno += CB_BYTE_TO_BLOCK(BC_cache, bp->b_bcount);
-				bytesdone = CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno) - ce->ce_offset;
-				bp->b_bcount = MIN(ce->ce_length - bytesdone, BC_MAX_READ);
-				bp->b_data = ce->ce_data + bytesdone;
+			        daddr64_t blkno;
+				
+				blkno = buf_blkno(bp) + CB_BYTE_TO_BLOCK(BC_cache, buf_count(bp));
+				buf_setblkno(bp, blkno);
+				bytesdone = CB_BLOCK_TO_BYTE(BC_cache, blkno) - ce->ce_offset;
+				buf_setcount(bp, MIN(ce->ce_length - bytesdone, BC_MAX_READ));
+				buf_setdataptr(bp, (uintptr_t)(ce->ce_data + bytesdone));
 			} else {
 				/* starting a new extent */
-				bp->b_blkno = CB_BYTE_TO_BLOCK(BC_cache, ce->ce_offset);
-				bp->b_bcount = MIN(ce->ce_length, BC_MAX_READ);
-				bp->b_data = ce->ce_data;
+			        buf_setblkno(bp, (daddr64_t)CB_BYTE_TO_BLOCK(BC_cache, ce->ce_offset));
+				buf_setcount(bp, MIN(ce->ce_length, BC_MAX_READ));
+				buf_setdataptr(bp, (uintptr_t)(ce->ce_data));
 			}
-			bp->b_proc = NULL;
-			bp->b_flags = B_READ;		/* clear other bits */
-			bp->b_resid = bp->b_bcount;	/* ask for residual indication */
+
+			bcount = buf_count(bp);
+			bptr   = buf_dataptr(bp);
+
+			for (i = 0; i < bcount; ) {
+			        CB_MARK_IOPAGE_BUSY(BC_cache, CB_PTR_TO_PAGE(BC_cache, (caddr_t)bptr));
+
+				x = 4096 - ((int)bptr & 4095);
+				bptr += x;
+				bcount -= x;
+			}
+
+			buf_setresid(bp, buf_count(bp));	/* ask for residual indication */
+			buf_reset(bp, B_READ);
 
 			/* give the buf to the underlying strategy routine */
 			BC_cache->c_stats.ss_initiated_reads++;
 			BC_cache->c_strategy(bp);
 
 			/* wait for the bio to complete */
-			biowait(bp);
+			buf_biowait(bp);
+
+			bcount = buf_count(bp);
+			bptr   = buf_dataptr(bp);
+
+			for (i = 0; i < bcount; ) {
+			        CB_MARK_IOPAGE_UNBUSY(BC_cache, CB_PTR_TO_PAGE(BC_cache, (caddr_t)bptr));
+
+				x = 4096 - ((int)bptr & 4095);
+				bptr += x;
+				bcount -= x;
+			}
+			wakeup(&BC_cache->c_iopagemap);
 
 			/*
 			 * If the read returned an error, invalidate the blocks
@@ -754,16 +794,16 @@ restart:
 			 * blocks that are claimed to be read as a minor optimisation, but we do
 			 * not expect errors as a matter of course).
 			 */
-			if (ISSET(bp->b_flags, B_ERROR) || (bp->b_resid != 0)) {
+			if (buf_error(bp) || (buf_resid(bp) != 0)) {
 				debug("read error: extent %d %lu/%lu "
 				    "(error buf %ld/%ld flags %08lx resid %ld)",
 				    ce - BC_cache->c_extents,
 				    (unsigned long)ce->ce_offset, (unsigned long)ce->ce_length,
-				    (long)bp->b_blkno, (long)bp->b_bcount,
-				    bp->b_flags, bp->b_resid);
+				    (long)buf_blkno(bp), (long)buf_count(bp),
+				    buf_flags(bp), buf_resid(bp));
 
-				count = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno),
-				    bp->b_bcount);
+				count = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, buf_blkno(bp)),
+				    buf_count(bp));
 				debug("read error: discarded %d blocks", count);
 				BC_cache->c_stats.ss_read_errors++;
 				BC_cache->c_stats.ss_error_discards += count;
@@ -771,9 +811,9 @@ restart:
 #ifdef READ_HISTORY_BUFFER
 			if (BC_cache->c_rhistory_idx < READ_HISTORY_BUFFER) {
 				BC_cache->c_rhistory[BC_cache->c_rhistory_idx].rh_extent = ce;
-				BC_cache->c_rhistory[BC_cache->c_rhistory_idx].rh_blkno = bp->b_blkno;
-				BC_cache->c_rhistory[BC_cache->c_rhistory_idx].rh_bcount = bp->b_bcount;
-				if (ISSET(bp->b_flags, B_ERROR) || (bp->b_resid != 0)) {
+				BC_cache->c_rhistory[BC_cache->c_rhistory_idx].rh_blkno = buf_blkno(bp);
+				BC_cache->c_rhistory[BC_cache->c_rhistory_idx].rh_bcount = buf_count(bp);
+				if (buf_error(bp) || (buf_resid(bp) != 0)) {
 					BC_cache->c_rhistory[BC_cache->c_rhistory_idx].rh_result = BC_RHISTORY_FAIL;
 					BC_cache->c_rhistory_idx++;
 				} else {
@@ -787,7 +827,7 @@ restart:
 			/*
 			 * Test whether we have completed reading this extent's data.
 			 */
-			if (((CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno) - ce->ce_offset) + bp->b_bcount) >= ce->ce_length)
+			if (((CB_BLOCK_TO_BYTE(BC_cache, buf_blkno(bp)) - ce->ce_offset) + buf_count(bp)) >= ce->ce_length)
 				break;
 
 		}
@@ -849,6 +889,9 @@ restart:
 	wakeup(&BC_cache->c_flags);
 	debug("reader thread done in %d sec",
 	    BC_cache->c_stats.ss_read_stop.tv_sec - BC_cache->c_stats.ss_cache_start.tv_sec);
+
+	BC_private_bp = NULL;
+	buf_free(bp);
 	
 	(void) thread_funnel_set(kernel_flock, funnel_state);
 }
@@ -872,8 +915,8 @@ BC_strategy_bypass(struct buf *bp)
 	BC_cache->c_bypasscalls++;
 
 	/* if here, and it's a read, we missed the cache */
-	if (ISSET(bp->b_flags, B_READ)) {
-		BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount, BC_HE_MISS);
+	if ((buf_flags(bp) & B_READ)) {
+		BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, buf_blkno(bp)), buf_count(bp), BC_HE_MISS);
 		isread = 1;
 	} else {
 		isread = 0;
@@ -935,20 +978,30 @@ static void
 BC_strategy(struct buf *bp)
 {
 	struct BC_cache_extent *ce;
-	kern_return_t kret;
+	boolean_t funnel_state;
 	int base, nblk;
-	caddr_t m, p, s;
+	caddr_t p, s;
 	int retry;
 	struct timeval blocktime, now, elapsed;
+	daddr64_t blkno;
+	int     bcount;
+	caddr_t	vaddr;
 
 	assert(bp != NULL);
+
+	/* we run under the kernel funnel */
+	funnel_state = thread_funnel_set(kernel_flock, TRUE);
+
+	blkno = buf_blkno(bp);
+	bcount = buf_count(bp);
 
 	/*
 	 * If the device doesn't match ours for some reason, pretend
 	 * we never saw the request at all.
 	 */
-	if (bp->b_dev != BC_cache->c_dev)  {
+	if (buf_device(bp) != BC_cache->c_dev)  {
 		BC_cache->c_strategy(bp);
+		(void) thread_funnel_set(kernel_flock, funnel_state);
 		return;
 	}
 
@@ -958,6 +1011,7 @@ BC_strategy(struct buf *bp)
 	 */
 	if (!(BC_cache->c_flags & BC_FLAG_CACHEACTIVE)) {
 		BC_strategy_bypass(bp);
+		(void) thread_funnel_set(kernel_flock, funnel_state);
 		return;
 	}
 	
@@ -973,19 +1027,19 @@ BC_strategy(struct buf *bp)
 	BC_cache->c_stats.ss_strategy_calls++;
 
 	/* if it's not a read, pass it off */
-	if (!ISSET(bp->b_flags, B_READ)) {
+	if ( !(buf_flags(bp) & B_READ)) {
 		BC_handle_write(bp);
-		BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount, BC_HE_WRITE);
+		BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, BC_HE_WRITE);
 		BC_cache->c_stats.ss_strategy_nonread++;
 		goto bypass;
 	}
-	BC_cache->c_stats.ss_requested_blocks += CB_BYTE_TO_BLOCK(BC_cache, bp->b_bcount);
+	BC_cache->c_stats.ss_requested_blocks += CB_BYTE_TO_BLOCK(BC_cache, bcount);
 	
 	/*
 	 * Look for a cache extent containing this request.
 	 */
 	BC_cache->c_stats.ss_extent_lookups++;
-	if ((ce = BC_find_extent(CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount, 1)) == NULL)
+	if ((ce = BC_find_extent(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, 1)) == NULL)
 		goto bypass;
 	BC_cache->c_stats.ss_extent_hits++;
 
@@ -1058,52 +1112,43 @@ BC_strategy(struct buf *bp)
 	 */
 	/* XXX assumes cache block size == disk block size */
 	base = CB_PTR_TO_BLOCK(BC_cache, ce->ce_data) +
-	    (bp->b_blkno - CB_BYTE_TO_BLOCK(BC_cache, ce->ce_offset));
-	nblk = CB_BYTE_TO_BLOCK(BC_cache, bp->b_bcount);
+	    (blkno - CB_BYTE_TO_BLOCK(BC_cache, ce->ce_offset));
+	nblk = CB_BYTE_TO_BLOCK(BC_cache, bcount);
 	assert(base >= 0);
 	if (!BC_blocks_present(base, nblk))
 		goto bypass;
 
 #ifdef EMULATE_ONLY
 	/* we would have hit this request */
-	BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount, BC_HE_HIT);
+	BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, BC_HE_HIT);
 
 	/* discard blocks we have touched */
 	BC_cache->c_stats.ss_hit_blocks +=
-	    BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount);
+	    BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
 
 	/* bypass directly without updating statistics */
 	BC_cache->c_strategy(bp);
 #else
 	/*
-	 * If the buf's data is not mapped, try to map the UPL.  If this
-	 * fails, we can still fall through.
+	 * buf_map will do it's best to provide access to this
+	 * buffer via a kernel accessible address
+	 * if it fails, we can still fall through.
 	 */
-	if (bp->b_data == NULL) {
-		kret = ubc_upl_map((upl_t)bp->b_pagelist, (vm_offset_t *)&m);
-
+	if (buf_map(bp, &vaddr)) {
 		/* can't map, let someone else worry about it */
-		if (kret != KERN_SUCCESS)
-			goto bypass;
-
-		/* actual read may be offset inside the UPL */
-		p = m + bp->b_uploffset;
-	} else {
-		/* already mapped */
-		p = bp->b_data;
+	        goto bypass;
 	}
+	p = vaddr;
 
 	/*
-	 * It is possible that ubc_upl_map will block, and during that
+	 * It is possible that buf_map will block, and during that
 	 * time we may have our cache blocks invalidated.  This shouldn't
 	 * happen, as the system will normally not allow overlapping I/O,
 	 * but it has been observed in practice.
 	 */
 	if (!BC_blocks_present(base, nblk)) {
-		/* if we mapped, unmap */
-		if (bp->b_data == NULL) {
-			ubc_upl_unmap((upl_t)bp->b_pagelist);	/* ignore result */
-		}
+	        /* buf_unmap will take care of all cases */
+	        buf_unmap(bp);
 		BC_cache->c_stats.ss_strategy_stolen++;
 		goto bypass;
 	}
@@ -1112,27 +1157,28 @@ BC_strategy(struct buf *bp)
 	s = CB_BLOCK_TO_PTR(BC_cache, base);
 
 	/* copy from cache to buf */
-	bcopy(s, p, bp->b_bcount);
-	bp->b_resid = 0;
+	bcopy(s, p, bcount);
+	buf_setresid(bp, 0);
 
-	/* if we mapped, unmap */
-	if (bp->b_data == NULL) {
-		ubc_upl_unmap((upl_t)bp->b_pagelist);	/* ignore result */
-	}
+	/* buf_unmap will take care of all cases */
+	buf_unmap(bp);
 
 	/* complete the request */
-	biodone(bp);
+	buf_biodone(bp);
+	
+	/* can't dereference bp after a buf_biodone has been issued */
 
 	/* discard blocks we have touched */
 	BC_cache->c_stats.ss_hit_blocks +=
-	    BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount);
+	BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
 
 	/* record successful fulfilment (may block) */
-	BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount, BC_HE_HIT);
+	BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, BC_HE_HIT);
 #endif
 
 	/* we are not busy anymore */
 	BC_cache->c_strategycalls--;
+	(void) thread_funnel_set(kernel_flock, funnel_state);
 	return;
 
 bypass:
@@ -1143,6 +1189,7 @@ bypass:
 	 */
 	BC_cache->c_strategycalls--;
 	BC_strategy_bypass(bp);
+	(void) thread_funnel_set(kernel_flock, funnel_state);
 	return;
 }
 
@@ -1155,19 +1202,24 @@ BC_handle_write(struct buf *bp)
 {
 	struct BC_cache_extent *ce, *p;
 	int count;
+	daddr64_t blkno;
+	int     bcount;
 
 	assert(bp != NULL);
+
+	blkno = buf_blkno(bp);
+	bcount = buf_count(bp);
 
 	/*
 	 * Look for an extent that we overlap.
 	 */
-	if ((ce = BC_find_extent(CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount, 0)) == NULL)
+	if ((ce = BC_find_extent(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, 0)) == NULL)
 		return;		/* doesn't affect us */
 
 	/*
 	 * Discard blocks in the matched extent.
 	 */
-	count = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount);
+	count = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
 	BC_cache->c_stats.ss_write_discards += count;
 	assert(count != 0);
 
@@ -1176,7 +1228,7 @@ BC_handle_write(struct buf *bp)
 	 */
 	p = ce - 1;
 	while (p >= BC_cache->c_extents) {
-		count = BC_discard_blocks(p, CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount);
+		count = BC_discard_blocks(p, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
 		if (count == 0)
 			break;
 		BC_cache->c_stats.ss_write_discards += count;
@@ -1184,7 +1236,7 @@ BC_handle_write(struct buf *bp)
 	}
 	p = ce + 1;
 	while (p < (BC_cache->c_extents + BC_cache->c_extent_count)) {
-		count = BC_discard_blocks(p, CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount);
+		count = BC_discard_blocks(p, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
 		if (count == 0)
 			break;
 		BC_cache->c_stats.ss_write_discards += count;
@@ -1235,12 +1287,16 @@ BC_terminate_readahead(void)
 				    (unsigned long)BC_cache->c_extent_tail->ce_length,
 				    BC_cache->c_extent_tail->ce_data);
 				debug("current buf:");
-				debug(" b_blkno %d  b_bcount %ld  b_resid %ld  b_flags 0x%lx  b_data %p",
-				    BC_private_bp.b_blkno,
-				    BC_private_bp.b_bcount,
-				    BC_private_bp.b_resid,
-				    BC_private_bp.b_flags,
-				    BC_private_bp.b_data);
+				if (BC_private_bp) {
+				  debug(" blkno %qd  bcount %ld  resid %ld  flags 0x%lx  dataptr %p",
+				    buf_blkno(BC_private_bp),
+				    buf_count(BC_private_bp),
+				    buf_resid(BC_private_bp),
+				    buf_flags(BC_private_bp),
+				    buf_dataptr(BC_private_bp));
+				} else
+				  debug("NULL pointer");
+
 			}
 #ifdef DEBUG
  			Debugger("I/O Kit wedged on us");
@@ -1322,6 +1378,7 @@ BC_terminate_cache(void)
 	for (i = 0; i < BC_cache->c_buffer_pages; i++)
 		if (CB_PAGE_PRESENT(BC_cache, i)) {
 			BC_cache->c_stats.ss_spurious_pages++;
+
 			BC_free_page(i);
 		}
 	BC_free_pagebuffer();
@@ -1329,6 +1386,7 @@ BC_terminate_cache(void)
 	/* free memory held by extents, the pagemap and the blockmap */
 	_FREE_ZERO(BC_cache->c_extents, M_TEMP);
 	_FREE_ZERO(BC_cache->c_pagemap, M_TEMP);
+	_FREE_ZERO(BC_cache->c_iopagemap, M_TEMP);
 	_FREE_ZERO(BC_cache->c_blockmap, M_TEMP);
 
 	return(0);
@@ -1443,7 +1501,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 		while (entries > 0) {
 
 			actual = min(entries, BC_PLC_CHUNK);
-			if ((error = copyin(uptr, pce,
+			if ((error = copyin(CAST_USER_ADDR_T(uptr), pce,
 					    actual * sizeof(struct BC_playlist_entry))) != 0) {
 				message("copyin from %p to %p failed", uptr, pce);
 				_FREE(pce, M_TEMP);
@@ -1522,6 +1580,16 @@ BC_copyin_playlist(size_t length, void *uptr)
 		goto out;
 	}
 
+	if ((BC_cache->c_iopagemap =
+		_MALLOC(BC_cache->c_buffer_pages / (CB_MAPFIELDBITS / CB_MAPFIELDBYTES),
+		    M_TEMP, M_WAITOK)) == NULL) {
+		message("can't allocate %d bytes for iopagemap",
+		    BC_cache->c_buffer_pages / CB_MAPFIELDBYTES);
+		error = ENOMEM;
+		goto out;
+	}
+	bzero(BC_cache->c_iopagemap, BC_cache->c_buffer_pages / (CB_MAPFIELDBITS / CB_MAPFIELDBYTES));
+
 	/*
 	 * Allocate the pagebuffer.
 	 */
@@ -1562,6 +1630,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 			BC_free_pagebuffer();
 		_FREE_ZERO(BC_cache->c_blockmap, M_TEMP);
 		_FREE_ZERO(BC_cache->c_pagemap, M_TEMP);
+		_FREE_ZERO(BC_cache->c_iopagemap, M_TEMP);
 		_FREE_ZERO(BC_cache->c_extents, M_TEMP);
 		BC_cache->c_extent_count = 0;
 	}
@@ -1579,6 +1648,7 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	u_int64_t blkcount;
 	int error;
 	unsigned int boot_arg;
+	boolean_t funnel_state;
 
 	error = 0;
 
@@ -1621,6 +1691,7 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	     (boot_arg != 1)))                          /* not interesting */
 		return(ENXIO);
 	BC_cache->c_dev = rootdev;
+	BC_cache->c_devvp = rootvp;
 	BC_cache->c_devsw = &bdevsw[major(rootdev)];
 	assert(BC_cache->c_devsw != NULL);
 	BC_cache->c_strategy = BC_cache->c_devsw->d_strategy;
@@ -1691,6 +1762,10 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	bzero(BC_cache->c_rhistory, READ_HISTORY_BUFFER * sizeof(struct BC_read_history_entry));
 #endif
 
+
+	/* we run under the kernel funnel */
+	funnel_state = thread_funnel_set(kernel_flock, TRUE);
+
 #ifdef EMULATE_ONLY
 	/* we are emulating the cache but not doing reads */
 	BC_cache->c_extent_tail = BC_cache->c_extents + BC_cache->c_extent_count;
@@ -1717,6 +1792,8 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 
 	/* cache is now active */
 	BC_cache->c_flags |= BC_FLAG_CACHEACTIVE;
+
+	(void) thread_funnel_set(kernel_flock, funnel_state);
 
 	return(0);
 }
@@ -1868,7 +1945,7 @@ BC_copyout_history(void *uptr)
 		ohc = hc;
 
 		/* copy the cluster out */
-		if ((error = copyout(hc->hc_data, uptr,
+		if ((error = copyout(hc->hc_data, CAST_USER_ADDR_T(uptr),
 			 hc->hc_entries * sizeof(struct BC_history_entry))) != 0)
 			return(error);
 		uptr = (caddr_t)uptr + hc->hc_entries * sizeof(struct BC_history_entry);
@@ -1926,15 +2003,21 @@ static int
 BC_sysctl SYSCTL_HANDLER_ARGS
 {
 	struct BC_command bc;
+	boolean_t funnel_state;
 	int error;
+
+	/* we run under the kernel funnel */
+	funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
 	/* get the commande structure and validate */
 	if ((error = SYSCTL_IN(req, &bc, sizeof(bc))) != 0) {
 		debug("couldn't get command");
+		(void) thread_funnel_set(kernel_flock, funnel_state);
 		return(error);
 	}
 	if (bc.bc_magic != BC_MAGIC) {
 		debug("bad command magic");
+		(void) thread_funnel_set(kernel_flock, funnel_state);
 		return(EINVAL);
 	}
 
@@ -2014,7 +2097,7 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 			error = ENOMEM;
 		} else {
 			BC_cache->c_stats.ss_cache_flags = BC_cache->c_flags;
-			if ((error = copyout(&BC_cache->c_stats, bc.bc_data, bc.bc_length)) != 0)
+			if ((error = copyout(&BC_cache->c_stats, CAST_USER_ADDR_T(bc.bc_data), bc.bc_length)) != 0)
 				debug("could not copy out statistics");
 		}
 		break;
@@ -2027,6 +2110,7 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 	default:
 		error = EINVAL;
 	}
+	(void) thread_funnel_set(kernel_flock, funnel_state);
 	return(error);
 }
 
@@ -2190,6 +2274,10 @@ BC_free_pagebuffer(void)
 static void
 BC_free_page(int page)
 {
+
+	while (CB_IOPAGE_BUSY(BC_cache, page))
+   		tsleep(&BC_cache->c_iopagemap, PRIBIO, "BC_free_page", hz / 10);
+
 #ifdef WIRE_BUFFER
 	/*
 	 * Unwire the page.
@@ -2200,7 +2288,6 @@ BC_free_page(int page)
 	    PAGE_SIZE,					/* size of region to map */
 	    VM_PROT_NONE);				/* requests unwiring */
 #endif
-
 	/*
 	 * Deallocate the page from our submap.
 	 */

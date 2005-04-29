@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,8 +26,9 @@
 
 --  Package containing utility procedures used throughout the expander
 
-with Snames;  use Snames;
+with Exp_Tss; use Exp_Tss;
 with Rtsfind; use Rtsfind;
+with Sinfo;   use Sinfo;
 with Types;   use Types;
 
 package Exp_Util is
@@ -127,7 +127,7 @@ package Exp_Util is
    --
    --  Implementation limitation: Assoc_Node must be a statement. We can
    --  generalize to expressions if there is a need but this is tricky to
-   --  implement because of short-ciruits (among other things).???
+   --  implement because of short-circuits (among other things).???
 
    procedure Insert_Library_Level_Action (N : Node_Id);
    --  This procedure inserts and analyzes the node N as an action at the
@@ -207,6 +207,36 @@ package Exp_Util is
    --  result includes two declarations: one for a generated function that
    --  computes the image without using concatenation, and one for the
    --  variable that holds the result.
+
+   function Component_May_Be_Bit_Aligned (Comp : Entity_Id) return Boolean;
+   --  This function is in charge of detecting record components that may
+   --  cause trouble in the back end if an attempt is made to assign the
+   --  component. The back end can handle such assignments with no problem
+   --  if the components involved are small (64-bits or less) records or
+   --  scalar items (including bit-packed arrays represented with modular
+   --  types) or are both aligned on a byte boundary (starting on a byte
+   --  boundary, and occupying an integral number of bytes).
+   --
+   --  However, problems arise for records larger than 64 bits, or for
+   --  arrays (other than bit-packed arrays represented with a modular
+   --  type) if the component starts on a non-byte boundary, or does
+   --  not occupy an integral number of bytes (i.e. there are some bits
+   --  possibly shared with fields at the start or beginning of the
+   --  component). The back end cannot handle loading and storing such
+   --  components in a single operation.
+   --
+   --  This function is used to detect the troublesome situation. it is
+   --  conservative in the sense that it produces True unless it knows
+   --  for sure that the component is safe (as outlined in the first
+   --  paragraph above). The code generation for record and array
+   --  assignment checks for trouble using this function, and if so
+   --  the assignment is generated component-wise, which the back end
+   --  is required to handle correctly.
+   --
+   --  Note that in GNAT 3, the back end will reject such components
+   --  anyway, so the hard work in checking for this case is wasted
+   --  in GNAT 3, but it's harmless, so it is easier to do it in
+   --  all cases, rather than conditionalize it in GNAT 5 or beyond.
 
    procedure Convert_To_Actual_Subtype (Exp : Node_Id);
    --  The Etype of an expression is the nominal type of the expression,
@@ -290,7 +320,7 @@ package Exp_Util is
    --  Empty, then simply returns Cond1 (this allows the use of Empty to
    --  initialize a series of checks evolved by this routine, with a final
    --  result of Empty indicating that no checks were required). The Sloc
-   --  field of the constructed N_And_Then node is copied from Cond1.
+   --  field of the constructed N_Or_Else node is copied from Cond1.
 
    procedure Expand_Subtype_From_Expr
      (N             : Node_Id;
@@ -303,8 +333,18 @@ package Exp_Util is
 
    function Find_Prim_Op (T : Entity_Id; Name : Name_Id) return Entity_Id;
    --  Find the first primitive operation of type T whose name is 'Name'.
-   --  this function allows the use of a primitive operation which is not
-   --  directly visible
+   --  This function allows the use of a primitive operation which is not
+   --  directly visible. If T is a class wide type, then the reference is
+   --  to an operation of the corresponding root type.
+
+   function Find_Prim_Op
+     (T    : Entity_Id;
+      Name : TSS_Name_Type) return Entity_Id;
+   --  Find the first primitive operation of type T whose name has the form
+   --  indicated by the name parameter (i.e. is a type support subprogram
+   --  with the indicated suffix). This function allows use of a primitive
+   --  operation which is not directly visible. If T is a class wide type,
+   --  then the reference is to an operation of the corresponding root type.
 
    procedure Force_Evaluation
      (Exp      : Node_Id;
@@ -321,6 +361,43 @@ package Exp_Util is
    --  If polling is active, then a call to the Poll routine is built,
    --  and then inserted before the given node N and analyzed.
 
+   procedure Get_Current_Value_Condition
+     (Var : Node_Id;
+      Op  : out Node_Kind;
+      Val : out Node_Id);
+   --  This routine processes the Current_Value field of the variable Var.
+   --  If the Current_Value field is null or if it represents a known value,
+   --  then on return Cond is set to N_Empty, and Val is set to Empty.
+   --
+   --  The other case is when Current_Value points to an N_If_Statement
+   --  or an N_Elsif_Part (while statement). Such a setting only occurs
+   --  if the condition of an IF or ELSIF is of the form X op Y, where X
+   --  is the variable in question, Y is a compile-time known value, and
+   --  op is one of the six possible relational operators.
+   --
+   --  In this case, Get_Current_Condition digs out the condition, and
+   --  then checks if the condition is known false, known true, or not
+   --  known at all. In the first two cases, Get_Current_Condition will
+   --  return with Op set to the appropriate conditional operator (inverted
+   --  if the condition is known false), and Val set to the constant value.
+   --  If the condition is not known, then Cond and Val are set for the
+   --  empty case (N_Empty and Empty).
+   --
+   --  The check for whether the condition is true/false unknown depends
+   --  on the case:
+   --
+   --     For an IF, the condition is known true in the THEN part, known
+   --     false in any ELSIF or ELSE part, and not known outside the IF
+   --     statement in question.
+   --
+   --     For an ELSIF, the condition is known true in the ELSIF part,
+   --     known FALSE in any subsequent ELSIF, or ELSE part, and not
+   --     known before the ELSIF, or after the end of the IF statement.
+   --
+   --  The caller can use this result to determine the value (for the
+   --  case of N_Op_Eq), or to determine the result of some other test
+   --  in other cases (e.g. no access check required if N_Op_Ne Null).
+
    function Homonym_Number (Subp : Entity_Id) return Nat;
    --  Here subp is the entity for a subprogram. This routine returns the
    --  homonym number used to disambiguate overloaded subprograms in the
@@ -330,13 +407,18 @@ package Exp_Util is
    --  an entity is not overloaded, the returned number will be one.
 
    function Inside_Init_Proc return Boolean;
-   --  Returns True if current scope is within an Init_Proc
+   --  Returns True if current scope is within an init proc
 
    function In_Unconditional_Context (Node : Node_Id) return Boolean;
    --  Node is the node for a statement or a component of a statement.
    --  This function deteermines if the statement appears in a context
    --  that is unconditionally executed, i.e. it is not within a loop
    --  or a conditional or a case statement etc.
+
+   function Is_All_Null_Statements (L : List_Id) return Boolean;
+   --  Return True if all the items of the list are N_Null_Statement
+   --  nodes. False otherwise. True for an empty list. It is an error
+   --  to call this routine with No_List as the argument.
 
    function Is_Ref_To_Bit_Packed_Array (P : Node_Id) return Boolean;
    --  Determine whether the node P is a reference to a bit packed
@@ -350,6 +432,18 @@ package Exp_Util is
    --  Determine whether the node P is a reference to a bit packed
    --  slice, i.e. whether the designated object is bit packed slice
    --  or a component of a bit packed slice. Return True if so.
+
+   function Is_Possibly_Unaligned_Slice (P : Node_Id) return Boolean;
+   --  Determine whether the node P is a slice of an array where the slice
+   --  result may cause alignment problems because it has an alignment that
+   --  is not compatible with the type. Return True if so.
+
+   function Is_Possibly_Unaligned_Object (P : Node_Id) return Boolean;
+   --  Node P is an object reference. This function returns True if it
+   --  is possible that the object may not be aligned according to the
+   --  normal default alignment requirement for its type (e.g. if it
+   --  appears in a packed record, or as part of a component that has
+   --  a component clause.
 
    function Is_Renamed_Object (N : Node_Id) return Boolean;
    --  Returns True if the node N is a renamed object. An expression
@@ -380,6 +474,12 @@ package Exp_Util is
    --  that cannot possibly be negative, and if so returns True. A value of
    --  False means that it is not known if the value is positive or negative.
 
+   function Known_Non_Null (N : Node_Id) return Boolean;
+   --  Given a node N for a subexpression of an access type, determines if
+   --  this subexpression yields a value that is known at compile time to
+   --  be non-null and returns True if so. Returns False otherwise. It is
+   --  an error to call this function if N is not of an access type.
+
    function Make_Subtype_From_Expr
      (E       : Node_Id;
       Unc_Typ : Entity_Id)
@@ -390,12 +490,13 @@ package Exp_Util is
 
    function May_Generate_Large_Temp (Typ : Entity_Id) return Boolean;
    --  Determines if the given type, Typ, may require a large temporary
-   --  of the type that causes trouble if stack checking is enabled. The
-   --  result is True only if stack checking is enabled and the size of
-   --  the type is known at compile time and large, where large is defined
-   --  hueristically by the body of this routine. The purpose of this
-   --  routine is to help avoid generating troublesome temporaries that
-   --  intefere with the stack checking mechanism.
+   --  of the kind that causes back-end trouble if stack checking is enabled.
+   --  The result is True only the size of the type is known at compile time
+   --  and large, where large is defined heuristically by the body of this
+   --  routine. The purpose of this routine is to help avoid generating
+   --  troublesome temporaries that interfere with stack checking mechanism.
+   --  Note that the caller has to check whether stack checking is actually
+   --  enabled in order to guide the expansion (typically of a function call).
 
    procedure Remove_Side_Effects
      (Exp          : Node_Id;
@@ -405,14 +506,14 @@ package Exp_Util is
    --  if necessary by an equivalent subexpression that is guaranteed to be
    --  side effect free. This is done by extracting any actions that could
    --  cause side effects, and inserting them using Insert_Actions into the
-   --  tree to which Exp is attached. Exp must be analayzed and resolved
+   --  tree to which Exp is attached. Exp must be analyzed and resolved
    --  before the call and is analyzed and resolved on return. The Name_Req
    --  may only be set to True if Exp has the form of a name, and the
    --  effect is to guarantee that any replacement maintains the form of a
    --  name. If Variable_Ref is set to TRUE, a variable is considered as a
    --  side effect (used in implementing Force_Evaluation). Note: after a
-   --  call to Remove_Side_Effects, it is safe to use a call to
-   --  New_Copy_Tree to obtain a copy of the resulting expression.
+   --  call to Remove_Side_Effects, it is safe to call New_Copy_Tree to
+   --  obtain a copy of the resulting expression.
 
    function Safe_Unchecked_Type_Conversion (Exp : Node_Id) return Boolean;
    --  Given the node for an N_Unchecked_Type_Conversion, return True
@@ -441,6 +542,14 @@ package Exp_Util is
    --  for fixed-by-fixed multiplications and divisions for the given
    --  operand and result types. This is called in package Exp_Fixd to
    --  determine whether to expand such operations.
+
+   function Type_May_Have_Bit_Aligned_Components
+     (Typ : Entity_Id) return Boolean;
+   --  Determines if Typ is a composite type that has within it (looking
+   --  down recursively at any subcomponents), a record type which has a
+   --  component that may be bit aligned (see Possible_Bit_Aligned_Component).
+   --  The result is conservative, in that a result of False is decisive.
+   --  A result of True means that such a component may or may not be present.
 
    procedure Wrap_Cleanup_Procedure (N : Node_Id);
    --  Given an N_Subprogram_Body node, this procedure adds an Abort_Defer

@@ -7,7 +7,7 @@
  * be passed to the template file.                                         *
  *                                                                         *
  ***************************************************************************/
-/* $XFree86: xc/config/imake/imake.c,v 3.63 2002/12/16 22:48:27 herrb Exp $ */
+/* $XFree86: xc/config/imake/imake.c,v 3.64 2003/03/26 20:43:47 tsi Exp $ */
 
 /*
  *
@@ -1825,7 +1825,7 @@ isempty(char *line)
 		    (pend[5] == ' ' || pend[5] == '\t' || pend[5] == '\r' || pend[5] == '\0'))
 		{
 		    *pend = '#';
-		    strcpy(pend+1, pend+5);
+		    memmove(pend+1, pend+5, strlen(pend+5)+1);
 		}
 #ifdef CROSSCOMPILE
 		if (magic_make_vars)

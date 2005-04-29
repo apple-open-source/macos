@@ -1,10 +1,11 @@
 /*
-* Copyright (C) 2001, International Business Machines Corporation and others. All Rights Reserved.
-**********************************************************************
-*   Date        Name        Description
-*   07/23/01    aliu        Creation.
-**********************************************************************
-*/
+ * Copyright (C) 2001-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
+ **********************************************************************
+ *   Date        Name        Description
+ *   07/23/01    aliu        Creation.
+ **********************************************************************
+ */
 #ifndef STRMATCH_H
 #define STRMATCH_H
 
@@ -198,14 +199,14 @@ class StringMatcher : public UnicodeFunctor, public UnicodeMatcher, public Unico
      *
      * @draft ICU 2.2
      */
-    virtual inline UClassID getDynamicClassID() const { return getStaticClassID(); }
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
      * @draft ICU 2.2
      */
-    static inline UClassID getStaticClassID() { return (UClassID)&fgClassID; }
+    static UClassID U_EXPORT2 getStaticClassID();
 
     /**
      * Union the set of all characters that may output by this object
@@ -244,11 +245,6 @@ class StringMatcher : public UnicodeFunctor, public UnicodeMatcher, public Unico
      */
     int32_t matchLimit;
 
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
 };
 
 U_NAMESPACE_END

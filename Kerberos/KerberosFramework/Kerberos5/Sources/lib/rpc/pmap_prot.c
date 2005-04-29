@@ -44,14 +44,12 @@ static char sccsid[] = "@(#)pmap_prot.c 1.17 87/08/11 Copyr 1984 Sun Micro";
 
 
 bool_t
-xdr_pmap(xdrs, regs)
-	XDR *xdrs;
-	struct pmap *regs;
+xdr_pmap(XDR *xdrs, struct pmap *regs)
 {
 
-	if (xdr_u_int32(xdrs, &regs->pm_prog) && 
-		xdr_u_int32(xdrs, &regs->pm_vers) && 
-		xdr_u_int32(xdrs, &regs->pm_prot))
-		return (xdr_u_int32(xdrs, &regs->pm_port));
+	if (xdr_rpcprog(xdrs, &regs->pm_prog) && 
+		xdr_rpcvers(xdrs, &regs->pm_vers) && 
+		xdr_rpcprot(xdrs, &regs->pm_prot))
+		return (xdr_rpcport(xdrs, &regs->pm_port));
 	return (FALSE);
 }

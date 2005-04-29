@@ -55,6 +55,7 @@
 
 #define	ADM_CCACHE  "/tmp/ovsec_adm.XXXXXX"
 
+static int old_auth_gssapi = 0;
 
 enum init_type { INIT_PASS, INIT_SKEY, INIT_CREDS };
 
@@ -129,14 +130,6 @@ static int preauth_search_list[] = {
      -1
 };
 
-static krb5_enctype enctypes[] = {
-    ENCTYPE_DES3_CBC_SHA1,
-    ENCTYPE_ARCFOUR_HMAC,
-    ENCTYPE_DES_CBC_MD5,
-    ENCTYPE_DES_CBC_CRC,
-    0,
-};
-
 static kadm5_ret_t _kadm5_init_any(char *client_name,
 				   enum init_type init_type,
 				   char *pass,
@@ -162,9 +155,7 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
      OM_uint32 gssstat, minor_stat;
      gss_buffer_desc input_name;
      gss_name_t gss_client;
-#ifndef INIT_TEST
      gss_name_t gss_target;
-#endif
      gss_cred_id_t gss_client_creds = GSS_C_NO_CREDENTIAL;
 
      kadm5_server_handle_t handle;
@@ -172,6 +163,7 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 
      int code = 0;
      generic_ret *r;
+     char svcname[MAXHOSTNAMELEN + 8];
 
      initialize_ovk_error_table();
      initialize_adb_error_table();
@@ -202,7 +194,7 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 
      krb5_init_context(&handle->context);
 
-     if(service_name == NULL || client_name == NULL) {
+     if(client_name == NULL) {
 	free(handle);
 	return EINVAL;
      }
@@ -229,6 +221,9 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 	  realm = params_local.realm = (char *) params_in;
 	  if (params_in)
 	       params_local.mask = KADM5_CONFIG_REALM;
+
+	  /* Use old AUTH_GSSAPI for version 1 protocol. */
+	  params_local.mask |= KADM5_CONFIG_OLD_AUTH_GSSAPI;
 	  params_in = &params_local;
      } else {
 	  if (params_in && (params_in->mask & KADM5_CONFIG_REALM))
@@ -272,7 +267,19 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 	  free(handle);
 	  return KADM5_MISSING_KRB5_CONF_PARAMS;
      }
-     
+
+     /* NULL service_name means use host-based. */
+     if (service_name == NULL) {
+	  code = kadm5_get_admin_service_name(handle->context,
+					      handle->params.realm,
+					      svcname, sizeof(svcname));
+	  if (code) {
+	       krb5_free_context(handle->context);
+	       free(handle);
+	       return KADM5_MISSING_KRB5_CONF_PARAMS;
+	  }
+	  service_name = svcname;
+     }
      /*
       * Acquire a service ticket for service_name@realm in the name of
       * client_name, using password pass (which could be NULL), and
@@ -367,7 +374,7 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 	       code = krb5_get_in_tkt_with_password(handle->context,
 						    0, /* no options */
 						    0, /* default addresses */
-						    enctypes,
+						    0,	  /* enctypes */
 						    NULL, /* XXX preauth */
 						    pass,
 						    ccache,
@@ -388,7 +395,7 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 		    code = krb5_get_in_tkt_with_keytab(handle->context,
 						       0, /* no options */
 						       0, /* default addrs */
-						       enctypes,
+						       0,    /* enctypes */
 						       NULL, /* XXX preauth */
 						       kt,
 						       ccache,
@@ -437,6 +444,9 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
      handle->clnt = clnttcp_create(&addr, KADM, KADMVERS, &fd, 0, 0);
      if (handle->clnt == NULL) {
 	  code = KADM5_RPC_ERROR;
+#ifdef DEBUG
+	  clnt_pcreateerror("clnttcp_create");
+#endif
 	  goto error;
      }
      handle->lhandle->clnt = handle->clnt;
@@ -462,8 +472,6 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
      else
        ccname_orig = 0;
 
-
-#ifndef INIT_TEST
      input_name.value = full_service_name;
      input_name.length = strlen((char *)input_name.value) + 1;
      gssstat = gss_import_name(&minor_stat, &input_name,
@@ -472,7 +480,6 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 	  code = KADM5_GSS_ERROR;
 	  goto error;
      }
-#endif /* ! INIT_TEST */
 
      input_name.value = client_name;
      input_name.length = strlen((char *)input_name.value) + 1;
@@ -492,22 +499,33 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 	  goto error;
      }
      
-#ifndef INIT_TEST
-     handle->clnt->cl_auth = auth_gssapi_create(handle->clnt,
-						&gssstat,
-						&minor_stat,
-						gss_client_creds,
-						gss_target,
-						(gss_OID) gss_mech_krb5,
-						GSS_C_MUTUAL_FLAG
-						| GSS_C_REPLAY_FLAG,
-						0,
-						NULL,
-						NULL,
-						NULL);
+     if (params_in != NULL &&
+	 (params_in->mask & KADM5_CONFIG_OLD_AUTH_GSSAPI)) {
+	  handle->clnt->cl_auth = auth_gssapi_create(handle->clnt,
+						     &gssstat,
+						     &minor_stat,
+						     gss_client_creds,
+						     gss_target,
+						     (gss_OID) gss_mech_krb5,
+						     GSS_C_MUTUAL_FLAG
+						     | GSS_C_REPLAY_FLAG,
+						     0,
+						     NULL,
+						     NULL,
+						     NULL);
+     } else if (params_in == NULL ||
+		!(params_in->mask & KADM5_CONFIG_NO_AUTH)) {
+	  struct rpc_gss_sec sec;
+	  sec.mech = gss_mech_krb5;
+	  sec.qop = GSS_C_QOP_DEFAULT;
+	  sec.svc = RPCSEC_GSS_SVC_PRIVACY;
+	  sec.cred = gss_client_creds;
+	  sec.req_flags = GSS_C_MUTUAL_FLAG | GSS_C_REPLAY_FLAG;
 
+	  handle->clnt->cl_auth = authgss_create(handle->clnt,
+						 gss_target, &sec);
+     }
      (void) gss_release_name(&minor_stat, &gss_target);
-#endif /* ! INIT_TEST */
 
      if (ccname_orig) {
 	 gssstat = gss_krb5_ccache_name(&minor_stat, ccname_orig, NULL);
@@ -532,6 +550,9 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
      r = init_1(&handle->api_version, handle->clnt);
      if (r == NULL) {
 	  code = KADM5_RPC_ERROR;
+#ifdef DEBUG
+	  clnt_perror(handle->clnt, "init_1 null resp");
+#endif
 	  goto error;
      }
      if (r->code) {

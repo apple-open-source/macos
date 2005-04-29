@@ -1,0 +1,200 @@
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m11QcWi-00027eC; Mon, 13 Sep 1999 22:16:36 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Mon Sep 13 22:11:30 1999
+X-From_: Jan.Nijtmans@wxs.nl  Mon Sep 13 21:10:33 1999
+Received: from mail.telekabel.nl (arnhem.telekabel.nl [194.134.132.130])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id VAA15921
+	for <a.kupries@westend.com>; Mon, 13 Sep 1999 21:10:32 +0200 (MET DST)
+Received: from wxs.nl (n20109.telekabel.chello.nl [212.142.20.109])
+	by mail.telekabel.nl (8.8.8/8.8/EuroNet) with ESMTP id VAA04888;
+	Mon, 13 Sep 1999 21:10:24 +0200 (MET DST)
+Message-ID: <37DD4C3A.9974E947@wxs.nl>
+Date: Mon, 13 Sep 1999 21:10:50 +0200
+From: Jan Nijtmans <Jan.Nijtmans@wxs.nl>
+Organization: C.M.G. Arnhem B.V.
+X-Mailer: Mozilla 4.61 [en] (Win95; I)
+X-Accept-Language: en
+MIME-Version: 1.0
+To: Andreas Kupries <a.kupries@westend.com>
+CC: lvirden@cas.org
+Subject: Re: Memchan, TEA
+References: <m11QPlK-00027cC@bluepeak>
+Content-Type: multipart/mixed;
+ boundary="------------1DB303DCFA7BBF2B109F209D"
+
+This is a multi-part message in MIME format.
+--------------1DB303DCFA7BBF2B109F209D
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+Andreas Kupries wrote:
+> I played with Memchan to make it TEA compliant, as far as TEA
+> currently goes (Makefile and configure).
+
+I built it successfully with VC++ 6.0 and with gcc-2.95. ,but I
+made a few small modifications. This zip-file contains:
+
+tea/Makefile.in.diff        Add the flag "-DBUILD_memchan".  Necessary to get
+                            the __declspec() option correct for VC++ and
+gcc-2.95.
+generic/memchanInt.h.diff   Necessary for gcc-2.95, in order to be able to build
+                            the dll without supplying a .def-file. This is a new
+                            feature of gcc-2.95; with earlier versions of gcc or
+                            egcs it has no effect.
+generic/*.c.diff            Minor speed-up, using the function ltoa() in stead
+                            of sprintf().
+memchan21.dll               Result of the build (gcc-2.95, using crtdll.dll,
+                            thread-enabled, works on Windows 95/98/NT/2000,
+                            should work with Tcl 8.1 and higher).
+
+
+Further remarks:
+- TEA officially doesn't have support for gcc-2.95, therefore I had to tweak
+  tclConfig.sh manually. However, with the first two changes above, Memchan
+  is ready for it.
+- Also, TEA doesn't have support for built-in icons. I manually modified the
+  Makefile in order to correct that.
+- The icon still is the same one as Trf.....   ;-)
+- "make install" doesn't work on Windows, but it is easy enough to create
+  a pkgIndex.tcl using the standard pkg_mkIndex function.
+- The "win/Makefile.gnu" file works out-of-the-box with any version of
+  mingw32/cygwin but the TEA build requires at least gcc-2.95.
+- With gcc-2.95, dllEntry.c is no longer needed. But egcs-1.1 and lower
+  still require it.
+- As comparision: VC++ 6.0 produces a 20 kByte dll. The dll produced
+  by gcc-2.95 is only 9 kByte!!!!!
+
+The included dll passes all tests.
+
+-- 
+Jan Nijtmans, CMG Arnhem B.V.
+email: Jan.Nijtmans@wxs.nl (private)
+       Jan.Nijtmans@cmg.nl (work)
+url:   http://home.wxs.nl/~nijtmans/
+--------------1DB303DCFA7BBF2B109F209D
+Content-Type: application/x-unknown-content-type-WinZip;
+ name="memchan.zip"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="memchan.zip"
+
+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
+BgAAAAAGAAYAnwEAAKAWAAAAAA==
+--------------1DB303DCFA7BBF2B109F209D--

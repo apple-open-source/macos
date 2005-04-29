@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*   file name:  strtest.cpp
@@ -18,6 +18,13 @@
 #include "strtest.h"
 #include "unicode/ustring.h"
 
+#if defined(WIN32) && defined(_MSC_VER)
+#include <vector>
+using namespace std;
+#endif
+
+StringTest::~StringTest() {}
+
 void StringTest::TestEndian(void) {
     union {
         uint8_t byte;
@@ -29,25 +36,46 @@ void StringTest::TestEndian(void) {
     }
 }
 
-void StringTest::TestSizeofWCharT(void) {
+void StringTest::TestSizeofTypes(void) {
     if(U_SIZEOF_WCHAR_T!=sizeof(wchar_t)) {
         errln("TestSizeofWCharT: U_SIZEOF_WCHAR_T!=sizeof(wchar_t) - U_SIZEOF_WCHAR_T needs to be fixed in platform.h");
     }
-}
-
-void StringTest::TestSizeofInt64(void) {
 #ifdef U_INT64_T_UNAVAILABLE
     errln("int64_t and uint64_t are undefined.");
 #else
     if(8!=sizeof(int64_t)) {
-        errln("TestSizeofInt64: 8!=sizeof(int64_t) - int64_t needs to be fixed in platform.h");
+        errln("TestSizeofTypes: 8!=sizeof(int64_t) - int64_t needs to be fixed in platform.h");
     }
     if(8!=sizeof(uint64_t)) {
-        errln("TestSizeofInt64: 8!=sizeof(uint64_t) - uint64_t needs to be fixed in platform.h");
+        errln("TestSizeofTypes: 8!=sizeof(uint64_t) - uint64_t needs to be fixed in platform.h");
     }
 #endif
     if(8!=sizeof(double)) {
         errln("8!=sizeof(double) - putil.c code may not work");
+    }
+    if(4!=sizeof(int32_t)) {
+        errln("4!=sizeof(int32_t)");
+    }
+    if(4!=sizeof(uint32_t)) {
+        errln("4!=sizeof(uint32_t)");
+    }
+    if(2!=sizeof(int16_t)) {
+        errln("2!=sizeof(int16_t)");
+    }
+    if(2!=sizeof(uint16_t)) {
+        errln("2!=sizeof(uint16_t)");
+    }
+    if(2!=sizeof(UChar)) {
+        errln("2!=sizeof(UChar)");
+    }
+    if(1!=sizeof(int8_t)) {
+        errln("1!=sizeof(int8_t)");
+    }
+    if(1!=sizeof(uint8_t)) {
+        errln("1!=sizeof(uint8_t)");
+    }
+    if(1!=sizeof(UBool)) {
+        errln("1!=sizeof(UBool)");
     }
 }
 
@@ -74,24 +102,18 @@ void StringTest::runIndexedTest(int32_t index, UBool exec, const char *&name, ch
         }
         break;
     case 1:
-        name="TestSizeofWCharT";
+        name="TestSizeofTypes";
         if(exec) {
-            TestSizeofWCharT();
+            TestSizeofTypes();
         }
         break;
     case 2:
-        name="TestSizeofInt64";
-        if(exec) {
-            TestSizeofInt64();
-        }
-        break;
-    case 3:
         name="TestCharsetFamily";
         if(exec) {
             TestCharsetFamily();
         }
         break;
-    case 4:
+    case 3:
         name="Test_U_STRING";
         if(exec) {
             U_STRING_INIT(ustringVar, "aZ0 -", 5);
@@ -108,7 +130,7 @@ void StringTest::runIndexedTest(int32_t index, UBool exec, const char *&name, ch
             }
         }
         break;
-    case 5:
+    case 4:
         name="Test_UNICODE_STRING";
         if(exec) {
             UnicodeString ustringVar=UNICODE_STRING("aZ0 -", 5);
@@ -124,7 +146,7 @@ void StringTest::runIndexedTest(int32_t index, UBool exec, const char *&name, ch
             }
         }
         break;
-    case 6:
+    case 5:
         name="Test_UNICODE_STRING_SIMPLE";
         if(exec) {
             UnicodeString ustringVar=UNICODE_STRING_SIMPLE("aZ0 -");
@@ -140,7 +162,7 @@ void StringTest::runIndexedTest(int32_t index, UBool exec, const char *&name, ch
             }
         }
         break;
-    case 7:
+    case 6:
         name="Test_UTF8_COUNT_TRAIL_BYTES";
         if(exec) {
             if(UTF8_COUNT_TRAIL_BYTES(0x7F) != 0
@@ -151,6 +173,16 @@ void StringTest::runIndexedTest(int32_t index, UBool exec, const char *&name, ch
                 errln("Test_UTF8_COUNT_TRAIL_BYTES: UTF8_COUNT_TRAIL_BYTES does not work right! "
                       "See utf8.h.");
             }
+        }
+        break;
+    case 7:
+        name="TestSTLCompatibility";
+        if(exec) {
+#if defined(WIN32) && defined(_MSC_VER)
+            /* Just make sure that it compiles with STL's placement new usage. */
+            vector<UnicodeString> myvect;
+            myvect.push_back(UnicodeString("blah"));
+#endif
         }
         break;
     default:

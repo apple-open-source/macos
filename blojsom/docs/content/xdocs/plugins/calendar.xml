@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Calendar plugins</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                There are actually two calendar plugins. The Calendar Filter plugin handles the filtering
+                of blog entries based on the URL parameters, "year", "month", and "day". The Velocity Calendar
+                plugin handles the ability to render a visual calendar component for use in the Velocity
+                templates.
+            </p>
+
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following two lines:
+            </p>
+            <source>
+                calendar-filter=org.blojsom.plugin.calendar.CalendarFilterPlugin
+                calendar-gui=org.blojsom.plugin.calendar.VelocityCalendarPlugin
+            </source>
+
+            <p>
+                You may then add "calendar-filter"  to the
+                <strong>beginning</strong> of a flavor-based plugin
+                chain, and "calendar-gui" to the
+                <strong>end</strong> of the chain. These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=calendar-fitler,...,calendar-gui
+            </source>
+
+
+        </section>
+        <section>
+            <title>usage and URL parameters</title>
+
+            <section>
+                <title>URL parameters</title>
+                <p>The following table describes the URL parameters that the Calendar Filter plugin accepts
+                    and how they affect the entries that get displayed by your blog.
+                </p>
+                <table>
+                    <tr>
+                        <th>URL parameter</th>
+                        <th>Default value</th>
+                        <th>Accepted values</th>
+                        <th>Usage</th>
+                    </tr>
+                    <tr>
+                        <td>year</td>
+                        <td></td>
+                        <td>Users can request to see blog entries that fall under a certain date range. The "year" parameter must be a valid 4-digit year.</td>
+                        <td>/blog/?year=2003</td>
+                    </tr>
+                    <tr>
+                        <td>month</td>
+                        <td></td>
+                        <td>The "month" parameter must be used in conjunction with the "year"
+                            parameter. Users cannot request blog entries for a month by itself.</td>
+                        <td>/blog/?year=2003&amp;month=2</td>
+                    </tr>
+                    <tr>
+                        <td>day</td>
+                        <td></td>
+                        <td>The "day" parameter must be used in conjunction with the
+                            "year" and "month" parameters. Users cannot request blog entries for a day by itself.</td>
+                        <td>/blog/?year=2003&amp;month=2&amp;day=14</td>
+                    </tr>
+                </table>
+
+            </section>
+            <section>
+                <title>context attributes and types</title>
+                <p>
+                    The following table describes the context attributes that are available and their associated type.
+                </p>
+                <table>
+                    <tr>
+                        <th>Context key</th>
+                        <th>Input or Output</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>BLOJSOM_CALENDAR</td>
+                        <td>Output</td>
+                        <td>
+                            <code>org.blojsom.plugin.calendar.BlogCalendar</code>
+                        </td>
+                        <td>Calendar object to indicate on which days there are blog entries. This object is
+                            added by the
+                            <code>org.blojsom.plugin.calendar.CalendarFilterPlugin</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>BLOJSOM_CALENDAR_VTLHELPER</td>
+                        <td>Output</td>
+                        <td>
+                            <code>org.blojsom.plugin.calendar.VelocityHelper</code>
+                        </td>
+                        <td>Helper class for creating the visual calendar output for Velocity, but this could
+                            also be used for JSPs as well. This object is added by the
+                            <code>org.blojsom.plugin.calendar.VelocityCalendarPlugin</code>
+                        </td>
+                    </tr>
+                </table>
+
+            </section>
+        </section>
+    </body>
+</document>
+

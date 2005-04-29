@@ -22,7 +22,7 @@
  */
 
 #include <syslog.h>
-#include <PasswordServer/CPolicyGlobalXML.h>
+#include "CPolicyGlobalXML.h"
 
 // ----------------------------------------------------------------------------------------
 #pragma mark -
@@ -116,8 +116,10 @@ CPolicyGlobalXML::CPolicyGlobalXML( const char *xmlDataStr ) : CPolicyBase()
 		if ( xmlData != NULL )
 		{
 			policyDict = (CFMutableDictionaryRef) CFPropertyListCreateFromXMLData( kCFAllocatorDefault, xmlData, kCFPropertyListMutableContainersAndLeaves, &errorString );
-			this->ConvertPropertyListPolicyToStruct( policyDict );
-			
+			if ( policyDict != NULL ) {
+				this->ConvertPropertyListPolicyToStruct( policyDict );
+				CFRelease( policyDict );
+			}
 			CFRelease( xmlData );
 		}
 	}
@@ -242,18 +244,18 @@ CPolicyGlobalXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPo
 		CFRelease( mPolicyDict );
 	mPolicyDict = inPolicyDict;	
 
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_usingExpirationDate), &aBoolValue );
-	mGlobalPolicy.usingExpirationDate = aBoolValue;
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_usingExpirationDate), &aBoolValue ) )
+		mGlobalPolicy.usingExpirationDate = aBoolValue;
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_usingHardExpirationDate), &aBoolValue );
-	mGlobalPolicy.usingHardExpirationDate = aBoolValue;
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_usingHardExpirationDate), &aBoolValue ) )
+		mGlobalPolicy.usingHardExpirationDate = aBoolValue;
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresAlpha), &aBoolValue );
-	mGlobalPolicy.requiresAlpha = aBoolValue;
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresAlpha), &aBoolValue ) )
+		mGlobalPolicy.requiresAlpha = aBoolValue;
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresNumeric), &aBoolValue );
-	mGlobalPolicy.requiresNumeric = aBoolValue;
-		
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresNumeric), &aBoolValue ) )
+		mGlobalPolicy.requiresNumeric = aBoolValue;
+	
     // expirationDateGMT
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_expirationDateGMT), (const void **)&valueRef ) &&
 		CFGetTypeID(valueRef) == CFDateGetTypeID() )
@@ -335,8 +337,11 @@ CPolicyGlobalXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPo
 		}
 	}
 	
-	this->GetBooleanForKey( CFSTR(kPWPolicyStr_passwordCannotBeName), &aBoolValue );
-	mGlobalPolicy.passwordCannotBeName = aBoolValue;
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_passwordCannotBeName), &aBoolValue ) )
+		mGlobalPolicy.passwordCannotBeName = aBoolValue;
+	
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_canModifyPasswordforSelf), &aBoolValue ) )
+		mGlobalPolicy.noModifyPasswordforSelf = (aBoolValue==0);
 	
 	return result;
 }
@@ -390,14 +395,20 @@ CPolicyGlobalXML::ConvertStructToPropertyListPolicy( void )
 	CFNumberRef minCharsRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberShortType, &mGlobalPolicy.minChars );
 	CFNumberRef maxCharsRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberShortType, &mGlobalPolicy.maxChars );
 	
+	CFBooleanRef canModifyPasswordforSelfRef = mGlobalPolicy.noModifyPasswordforSelf ? kCFBooleanFalse : kCFBooleanTrue;
+	
 	this->ConvertBSDTimeToCFDate( (struct tm *)&(mGlobalPolicy.expirationDateGMT), &expirationDateGMTRef );
 	this->ConvertBSDTimeToCFDate( (struct tm *)&(mGlobalPolicy.hardExpireDateGMT), &hardExpireDateGMTRef );
 	
+	// build dictionary
 	if ( usingHistoryRef != NULL )
 	{
 		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_usingHistory), usingHistoryRef );
 		CFRelease( usingHistoryRef );
 	}
+	
+	if ( canModifyPasswordforSelfRef != NULL )
+		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_canModifyPasswordforSelf), canModifyPasswordforSelfRef );
 	
 	if ( usingExpirationDateRef != NULL )
 	{

@@ -1,0 +1,85 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<!-- $appleBlojsomRevision -->
+	<title>$BLOJSOM_BLOG.getBlogName()</title>
+	<link rel="stylesheet" href="${BLOJSOM_SITE_URL}blojsom_resources/includes/base_layout.css" />
+	<link rel="stylesheet" href="${BLOJSOM_SITE_URL}blojsom_resources/includes/apple_stylesheet_overrides.css" />
+	<link rel="SHORTCUT ICON" href="${BLOJSOM_SITE_URL}favicon.ico" />
+	<style type="text/css">
+	
+		body
+		{
+			background-color: white;
+		}
+		
+		#user_id_form
+		{
+			margin-left: 30px;
+		}
+		
+		.blog_listing_title
+		{
+			margin-top: 10px;
+		}
+		
+		.blog_listing_description
+		{
+			margin-bottom: 10px;
+		}
+		
+		.include_listing_ref
+		{
+			padding-top: 0px;
+			padding-bottom: 0px;
+		}
+		
+	</style>
+	<script type="text/javascript" src="${BLOJSOM_SITE_URL}blojsom_resources/includes/base_scripts.js"></script>
+	<script type="text/javascript" src="${BLOJSOM_SITE_URL}blojsom_resources/includes/win32ImageWorkaround.js"></script>
+	<script type="text/javascript"><!--
+		
+		function createBlog(theForm)
+		{
+			regexp = new RegExp("blog/*$", "i");
+			
+			if ( location.href.match(regexp) ) {
+				theForm.action = theForm.elements[0].value+'/';
+			}
+			else {
+				theForm.action='../'+theForm.elements[0].value+'/';
+			}
+		}
+		
+		function addLinkToParent()
+		{
+			if ( parent && parent.addService )
+			{
+				parent.addService('Weblog', '/weblog/');
+			}
+		}
+
+	//--> </script>
+</head>
+<body onload="addLinkToParent()">
+
+<div id="include_listing_title">Weblogs on this server:</div>
+
+	<div class="include_listing_ref">
+#foreach ($blogUser in $ALL_BLOG_USERS)
+	#set( $totalEntries = $totalEntries + 1 )
+	#set($currentBlog = $blogUser.getBlog())
+		<div class="blog_listing_title"><a href="$currentBlog.getBlogURL()" target="_top">$currentBlog.getEscapedBlogName()</a></div>
+		<div class="blog_listing_description">$currentBlog.getEscapedBlogDescription()</div>
+#end
+	</div>
+
+$locStrings.getProperty("defaultpage.createblog")<br/>
+$locStrings.getProperty("defaultpage.createplog")<br/>&nbsp;<br/>
+<form id="user_id_form" method="get" action="./" onsubmit="createBlog(this);return true" target="_top">
+	<input size="20" type="text" name="createUserID" id="createUserID" />
+</form>
+	
+</body>
+</html>

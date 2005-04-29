@@ -19,6 +19,8 @@
  /*
   * External interface.
   */
+#define DICT_TYPE_SDBM "sdbm"
+
 extern DICT *dict_sdbm_open(const char *, int, int);
 
 /* LICENSE

@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+#
+# Copyright (c) 2003 Apple Computer, Inc.  All Rights Reserved
+#
+# Toggle the OnDemand key in the postfix launchd plist to false
+#
+
+require 'Foundation.pm';
+
+$configFilePath = "/System/Library/LaunchDaemons/org.postfix.master.plist";
+$configFilePathNS = NSString->stringWithCString_($configFilePath);
+
+if (! -e "$configFilePath") {
+	log_message("Error: Config file: '$configFilePath' does not exist");
+	exit;
+}
+
+$configDictNS = NSMutableDictionary->dictionaryWithContentsOfFile_($configFilePathNS);
+
+if (!$configDictNS or !$$configDictNS) {
+	log_message("Error: Can't get NSDictionary for '$configFilePath'");
+	exit;
+}
+
+system( "/bin/launchctl unload -w /System/Library/LaunchDaemons/org.postfix.master.plist");
+
+$OnDemandKey = "OnDemand";
+$OnDemandKeyNS = NSString->stringWithCString_($OnDemandKey);
+
+$DisabledKey = "Disabled";
+$DisabledKeyNS = NSString->stringWithCString_($DisabledKey);
+
+$ProgramArgumentsKey = "ProgramArguments";
+$ProgramArgumentsKeyNS = NSString->stringWithCString_($ProgramArgumentsKey);
+
+$MasterValue = "master";
+$MasterValueNS = NSString->stringWithCString_($MasterValue);
+
+$ProgramArgumentsValue = NSArray->arrayWithObjects_( $MasterValueNS );
+
+$configDictNS->setObject_forKey_( NSNumber->numberWithBool_(0), $OnDemandKeyNS );
+
+$configDictNS->setObject_forKey_( NSNumber->numberWithBool_(0), $DisabledKeyNS );
+
+$configDictNS->setObject_forKey_( $ProgramArgumentsValue, $ProgramArgumentsKeyNS );
+
+$configDictNS->writeToFile_atomically_( $configFilePathNS, 0 );
+
+system( "/bin/launchctl load -w /System/Library/LaunchDaemons/org.postfix.master.plist");
+
+sub log_message
+{
+	`logger -t toggle_on_demand -p "mail.notice" "@_".`;
+}
+

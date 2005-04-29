@@ -160,6 +160,7 @@ search_and_replace(pat, gflag, kth)
 			} while (txt != eot);
 			SPL0();
 			nsubs++;
+			replace_marks(lp, get_addressed_line_node(current_addr));
 			xa = current_addr;
 		}
 	}

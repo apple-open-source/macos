@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* LogStream.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,68 +35,112 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.rmi.server;
 
-import java.io.PrintStream;
 import java.io.OutputStream;
-import java.io.IOException;
+import java.io.PrintStream;
 
-public class LogStream
-	extends PrintStream {
+/**
+ * @deprecated
+ */
+public class LogStream extends PrintStream
+{
+  public static final int SILENT = 0;
+  public static final int BRIEF = 10;
+  public static final int VERBOSE = 20;
 
-public static final int SILENT = 0;
-public static final int BRIEF = 10;
-public static final int VERBOSE = 20;
+  private static PrintStream defStream;
 
-private static PrintStream defStream;
+  private LogStream (OutputStream s)
+  {
+    super (s);
+  }
 
-private LogStream(OutputStream s) {
-	super(s);
-}
+  /**
+   * @deprecated
+   */
+  public static LogStream log (String name)
+  {
+    throw new Error ("Not implemented");
+  }
 
-public static LogStream log(String name) {
-	throw new Error("Not implemented");
-}
+  /**
+   * @deprecated
+   */
+  public static PrintStream getDefaultStream ()
+  {
+    return defStream;
+  }
+  
+  /**
+   * @deprecated
+   */
+  public static void setDefaultStream (PrintStream s)
+  {
+    defStream = s;
+  }
 
-public static PrintStream getDefaultStream() {
-	return (defStream);
-}
+  /**
+   * @deprecated
+   */
+  public OutputStream getOutputStream ()
+  {
+    return out;
+  }
 
-public static void setDefaultStream(PrintStream s) {
-	defStream = s;
-}
+  /**
+   * @deprecated
+   */
+  public void setOutputStream (OutputStream s)
+  {
+    out = s;
+  }
 
-public OutputStream getOutputStream() {
-	return (out);
-}
+  /**
+   * @deprecated
+   */
+  public void write (int buffer)
+  {
+    super.write (buffer);
+  }
 
-public void setOutputStream(OutputStream s) {
-	out = s;
-}
+  /**
+   * @deprecated
+   */
+  public void write (byte[] buffer, int offset, int len)
+  {
+    super.write (buffer, offset, len);
+  }
 
-public void write(int b) {
-	super.write(b);
-}
+  /**
+   * @deprecated
+   */
+  public String toString ()
+  {
+    throw new Error ("Not implemented");
+  }
 
-public void write(byte[] b, int off, int len) {
-	super.write(b, off, len);
-}
-
-public String toString() {
-	throw new Error("Not implemented");
-}
-
-public static int parseLevel(String s) {
-	if (s.equalsIgnoreCase("silent")) {
-		return (SILENT);
-	}
-	if (s.equalsIgnoreCase("brief")) {
-		return (BRIEF);
-	}
-	if (s.equalsIgnoreCase("verbose")) {
-		return (VERBOSE);
-	}
-	return (SILENT);
-}
-
+  /**
+   * @deprecated
+   */
+  public static int parseLevel (String s)
+  {
+    if (s.equalsIgnoreCase ("silent"))
+      {
+        return SILENT;
+      }
+    
+    if (s.equalsIgnoreCase ("brief"))
+      {
+        return BRIEF;
+      }
+    
+    if (s.equalsIgnoreCase ("verbose"))
+      {
+        return VERBOSE;
+      }
+    
+    return SILENT;
+  }
 }

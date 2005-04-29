@@ -1,0 +1,14 @@
+# Tcl package index file, version 1.0
+
+if {[package vcompare [info tclversion] 8.0] < 0} return
+
+proc imgifneeded dir {
+    rename imgifneeded {}
+    if {[package vcompare [info tclversion] 8.1] < 0} {
+	regsub {\.} [info tclversion] {} version
+    } else {
+	set version {}
+    }
+    package ifneeded Img 1.2.4 "package require Tk\nload [list [file join $dir img12$version.dll]] Img"
+}
+imgifneeded $dir

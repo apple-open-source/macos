@@ -8,6 +8,9 @@
 #include <netinfo/ni.h>
 #include <NetInfo/dsstore.h>
 
+#define NETINFO_DB_DIR "/var/db/netinfo"
+#define LOCAL_PORT 1033
+
 typedef struct ni_private
 {
 		int naddrs;
@@ -32,7 +35,8 @@ static unsigned long ni_connect_abort = 1;
 
 static unsigned long _shared_handle_count_ = 0;
 static ni_shared_handle_t **_shared_handle_ = NULL;
-static ni_shared_handle_t *_shared_local_ = NULL;
+static ni_shared_handle_t *_raw_local_ = NULL;
+static ni_shared_handle_t *_shared_rpc_local_ = NULL;
 
 unsigned long
 get_ni_connect_timeout(void)
@@ -44,50 +48,6 @@ void
 set_ni_connect_timeout(unsigned long t)
 {
 	ni_connect_timeout = t;
-}
-
-unsigned long
-get_ni_connect_abort(void)
-{
-	return ni_connect_abort;
-}
-
-void
-ni_shared_set_flags(unsigned long mask)
-{
-	int i;
-
-	if (_shared_local_ != NULL)
-	{
-		_shared_local_->flags |= mask;
-	}
-
-	for (i = 0; i < _shared_handle_count_; i++)
-	{
-		_shared_handle_[i]->flags |= mask;
-	}
-}
-
-void
-ni_shared_clear_flags(unsigned long mask)
-{
-	int i;
-
-	if (_shared_local_ != NULL)
-	{
-		_shared_local_->flags &= ~mask;
-	}
-
-	for (i = 0; i < _shared_handle_count_; i++)
-	{
-		_shared_handle_[i]->flags &= ~mask;
-	}
-}
-
-void
-set_ni_connect_abort(unsigned long a)
-{
-	ni_connect_abort = a;
 }
 
 static ni_shared_handle_t *
@@ -134,7 +94,6 @@ ni_shared_handle(struct in_addr *addr, char *tag)
 	h = (ni_shared_handle_t *)calloc(1, sizeof(ni_shared_handle_t));
 	if (h == NULL) return NULL;
 
-	h->refcount = 1;
 	h->flags = 0;
 	h->ni = domain;
 	h->parent = NULL;
@@ -142,52 +101,49 @@ ni_shared_handle(struct in_addr *addr, char *tag)
 	return h;
 }
 
-#define NETINFO_DB_DIR "/var/db/netinfo"
 ni_shared_handle_t *
-ni_shared_local(void)
+ni_raw_local(void)
 {
 	char *path;
-	uint32_t flags;
 	dsstatus status;
 	dsstore *s;
 
-	if (_shared_local_ != NULL)
-	{
-		_shared_local_->refcount++;
-		return _shared_local_;
-	}
+	if (_raw_local_ != NULL) return _raw_local_;
+
 	asprintf(&path, "%s/local.nidb", NETINFO_DB_DIR);
-
-	flags = 0;
-	flags |= DSSTORE_FLAGS_SERVER_MASTER;
-	flags |= DSSTORE_FLAGS_ACCESS_READWRITE;
-	flags |= DSSTORE_FLAGS_NOTIFY_CHANGES;
-
-	status = dsstore_open(&s, path, flags);
+	status = dsstore_open(&s, path, DSSTORE_FLAGS_ACCESS_READONLY);
 	free(path);
-
 	if (status != DSStatusOK) return NULL;
 
-	_shared_local_ = (ni_shared_handle_t *)calloc(1, sizeof(ni_shared_handle_t));
-	if (_shared_local_ == NULL) return NULL;
+	_raw_local_ = (ni_shared_handle_t *)calloc(1, sizeof(ni_shared_handle_t));
+	if (_raw_local_ == NULL) return NULL;
 
-	_shared_local_->refcount = 1;
-	_shared_local_->flags = NI_SHARED_LOCALRAW;
-	_shared_local_->ni = s;
-	_shared_local_->parent = NULL;
+	_raw_local_->flags = NI_RAW_LOCAL;
+	_raw_local_->ni = s;
+	_raw_local_->parent = NULL;
 
-	return _shared_local_;
+	return _raw_local_;
 }
 
-#define LOCAL_PORT 1033
+void
+ni_release_raw_local(void)
+{
+	if (_raw_local_ == NULL) return;
+	
+	if (_raw_local_->ni != NULL) dsstore_close((dsstore *)(_raw_local_->ni));
+	free(_raw_local_);
+	_raw_local_ = NULL;
+}
+	
 ni_shared_handle_t *
-ni_local_parent(void)
+ni_shared_local(void)
 {
 	struct sockaddr_in sin;
 	int sock, status;
 	void *domain;
 	ni_id root;
-	ni_shared_handle_t *h, *p;
+
+	if (_shared_rpc_local_ != NULL) return _shared_rpc_local_;
 
 	memset(&sin, 0, sizeof(struct sockaddr_in));
 
@@ -213,13 +169,9 @@ ni_local_parent(void)
 	ni_free(domain);
 	if (status != NI_OK) return NULL;
 
-	h = ni_shared_handle(&(sin.sin_addr), "local");
-	if (h == NULL) return NULL;
+	_shared_rpc_local_ = ni_shared_handle(&(sin.sin_addr), "local");
 
-	p = ni_shared_parent(h);
-	ni_shared_release(h);
-
-	return p;
+	return _shared_rpc_local_;
 }
 
 static int
@@ -260,13 +212,9 @@ ni_shared_connection(struct in_addr *addr, char *tag)
 
 	for (i = 0; i < _shared_handle_count_; i++)
 	{
-		if (ni_shared_match(_shared_handle_[i], addr, tag))
-		{
-			_shared_handle_[i]->refcount++;
-			return _shared_handle_[i];
-		}
+		if (ni_shared_match(_shared_handle_[i], addr, tag)) return _shared_handle_[i];
 	}
-	
+
 	h = ni_shared_handle(addr, tag);
 	if (h == NULL) return NULL;
 
@@ -286,64 +234,38 @@ ni_shared_connection(struct in_addr *addr, char *tag)
 }
 
 void
-ni_shared_release(ni_shared_handle_t *h)
+ni_shared_clear(int keep_local)
 {
-	unsigned long i, j;
-
-	if (h == NULL) return;
-
-	if (h->refcount > 0) h->refcount--;
-	if (h->refcount > 0) return;
-	
-	if (h->flags & NI_SHARED_LOCALRAW)
-	{
-		dsstore_close(h->ni);
-	}
-	else
-	{
-		ni_free(h->ni);
-	}
-
-	h->parent = NULL;
-
-	if (h == _shared_local_)
-	{
-		free(_shared_local_);
-		_shared_local_ = NULL;
-		return;
-	}
+	int i;
 
 	for (i = 0; i < _shared_handle_count_; i++)
 	{
-		if (_shared_handle_[i] == h)
-		{
-			free(_shared_handle_[i]);
-			for (j = i + 1; j < _shared_handle_count_; j++, i++)
-			{
-				_shared_handle_[i] = _shared_handle_[j];
-			}
-			_shared_handle_count_--;
-			if (_shared_handle_count_ == 0)
-			{
-				free(_shared_handle_);
-				_shared_handle_ = NULL;
-				return;
-			}
-			_shared_handle_ = (ni_shared_handle_t **)realloc(_shared_handle_, _shared_handle_count_ * sizeof(ni_shared_handle_t *));
-			return;
-		}
+		if (_shared_handle_[i]->ni != NULL) ni_free(_shared_handle_[i]->ni);
+		free(_shared_handle_[i]);
 	}
 
-	free(h);
-}
+	if (_shared_handle_ != NULL) free(_shared_handle_);
+	_shared_handle_ = NULL;
+	_shared_handle_count_ = 0;
 
-ni_shared_handle_t *
-ni_shared_retain(ni_shared_handle_t *h)
-{
-	if (h == NULL) return NULL;
+	if (keep_local == 0) 
+	{
+		if (_shared_rpc_local_ != NULL)
+		{
+			if (_shared_rpc_local_->ni != NULL) ni_free(_shared_rpc_local_->ni);
+			free(_shared_rpc_local_);
+			_shared_rpc_local_ = NULL;
+		}
 
-	h->refcount++;
-	return h;
+		return;
+	}
+
+	if (_shared_rpc_local_ != NULL)
+	{
+		_shared_rpc_local_->flags = 0;
+		_shared_rpc_local_->isroot_time = 0;
+		_shared_rpc_local_->parent = NULL;
+	}
 }
 
 ni_shared_handle_t *
@@ -353,29 +275,27 @@ ni_shared_parent(ni_shared_handle_t *h)
 	ni_private *ni;
 	struct in_addr addr;
 	ni_shared_handle_t *p;
-	struct timeval now, tnew, tcurr;
+	struct timeval tnew, tcurr;
+	time_t now;
 	enum clnt_stat rpc_status;
 	ni_status status;
 
 	if (h == NULL) return NULL;
 	if (h->ni == NULL) return NULL;
-	if (h->parent != NULL)
+	if (h->parent != NULL) return (ni_shared_handle_t *)h->parent;
+
+	if (h->flags & NI_RAW_LOCAL)
 	{
-		ni_shared_retain((ni_shared_handle_t *)h->parent);
-		return (ni_shared_handle_t *)h->parent;
+		if (_shared_rpc_local_ == NULL) _shared_rpc_local_ = ni_shared_local();
+		return ni_shared_parent(_shared_rpc_local_);
 	}
 
-	if (h->flags & NI_SHARED_LOCALRAW)
-	{
-		return ni_local_parent();
-	}
-
-	now.tv_sec = 0;
+	now = 0;
 
 	if (h->flags & NI_SHARED_ISROOT)
 	{
-		gettimeofday(&now, NULL);
-		if (now.tv_sec <= (h->isroot_time + NI_SHARED_ISROOT_TIMEOUT)) return NULL;
+		now = time(NULL);
+		if (now <= (h->isroot_time + NI_SHARED_ISROOT_TIMEOUT)) return NULL;
 		h->flags &= ~NI_SHARED_ISROOT;
 	}
 
@@ -392,7 +312,7 @@ ni_shared_parent(ni_shared_handle_t *h)
 		clnt_control(ni->tc, CLGET_TIMEOUT, (void *)&tcurr);
 		clnt_control(ni->tc, CLSET_TIMEOUT, (void *)&tnew);
 
-		rpc_status = clnt_call(ni->tc, _NI_RPARENT, xdr_void, NULL, xdr_ni_rparent_res, &rpres, tnew);
+		rpc_status = clnt_call(ni->tc, _NI_RPARENT, (void *)xdr_void, NULL, (void *)xdr_ni_rparent_res, &rpres, tnew);
 
 		clnt_control(ni->tc, CLSET_TIMEOUT, (void *)&tcurr);
 
@@ -401,8 +321,8 @@ ni_shared_parent(ni_shared_handle_t *h)
 
 	if (status == NI_NETROOT)
 	{
-		if (now.tv_sec == 0) gettimeofday(&now, NULL);
-		h->isroot_time = now.tv_sec;
+		if (now == 0) now = time(NULL);
+		h->isroot_time = now;
 		h->flags |= NI_SHARED_ISROOT;
 		return NULL;
 	}
@@ -470,7 +390,6 @@ dstonistatus(dsstatus s)
 	return NI_FAILED;
 }
 
-
 static char *
 dsdatatostring(dsdata *d)
 {
@@ -482,7 +401,6 @@ dsdatatostring(dsdata *d)
 	s[d->length] = '\0';
 	return s;
 }
-
 
 static char *
 dsmetadatatostring(dsdata *d)
@@ -496,7 +414,6 @@ dsmetadatatostring(dsdata *d)
 	s[d->length + 1] = '\0';
 	return s;
 }
-
 
 static void
 dstoni_proplist(dsrecord *r, ni_proplist *o)
@@ -534,7 +451,7 @@ dstoni_proplist(dsrecord *r, ni_proplist *o)
 			p->nip_val.ni_namelist_val[j] = dsdatatostring(r->attribute[a]->value[j]);
 		}
 	}
-	
+
 	for (a = 0; a < r->meta_count; a++, i++)
 	{
 		ix = i;
@@ -565,7 +482,7 @@ sa_self(ni_shared_handle_t *d, ni_id *n)
 	if (d == NULL) return NI_INVALIDDOMAIN;
 	if (n == NULL) return NI_BADID;
 
-	if ((d->flags & NI_SHARED_LOCALRAW) == 0) return ni_self(d->ni, n);
+	if ((d->flags & NI_RAW_LOCAL) == 0) return ni_self(d->ni, n);
 
 	s = (dsstore *)d->ni;
 	r = dsstore_fetch(s, n->nii_object);
@@ -574,18 +491,7 @@ sa_self(ni_shared_handle_t *d, ni_id *n)
 	n->nii_instance = r->serial;
 
 	dsrecord_release(r);
-	return NI_OK;	
-}
-
-ni_status
-sa_root(ni_shared_handle_t *d, ni_id *n)
-{
-	if (d == NULL) return NI_INVALIDDOMAIN;
-	if (n == NULL) return NI_BADID;
-
-	n->nii_object = 0;
-
-	return sa_self(d, n);	
+	return NI_OK;
 }
 
 ni_status
@@ -595,14 +501,14 @@ sa_lookup(ni_shared_handle_t *d, ni_id *n, ni_name_const pname, ni_name_const pv
 	dsdata *k, *v;
 	dsrecord *pat, *r, *c;
 	dsattribute *a;
-	u_int32_t i, match;
+	uint32_t i, match;
 
 	if (d == NULL) return NI_INVALIDDOMAIN;
 	if (n == NULL) return NI_BADID;
 	if (pname == NULL) return NI_NONAME;
 	if (hits == NULL) return NI_NOSPACE;
 
-	if ((d->flags & NI_SHARED_LOCALRAW) == 0) return ni_lookup(d->ni, n, pname, pval, hits);
+	if ((d->flags & NI_RAW_LOCAL) == 0) return ni_lookup(d->ni, n, pname, pval, hits);
 
 	s = (dsstore *)d->ni;
 	r = dsstore_fetch(s, n->nii_object);
@@ -636,7 +542,7 @@ sa_lookup(ni_shared_handle_t *d, ni_id *n, ni_name_const pname, ni_name_const pv
 	{
 		c = dsstore_fetch(s, r->sub[i]);
 		if (c == NULL) continue;
-		
+
 		if (dsrecord_match(c, pat) == 1)
 		{
 			match = 1;
@@ -660,7 +566,7 @@ sa_lookup(ni_shared_handle_t *d, ni_id *n, ni_name_const pname, ni_name_const pv
 	dsrecord_release(pat);
 
 	if (match == -1) return NI_NODIR;
-	return NI_OK;	
+	return NI_OK;
 }
 
 static char *
@@ -775,6 +681,17 @@ sa_relsearch(ni_shared_handle_t *d, char *path, ni_id *n)
 	return sa_relsearch(d, path, n);
 }
 
+ni_status
+sa_root(ni_shared_handle_t *d, ni_id *n)
+{
+	if (d == NULL) return NI_INVALIDDOMAIN;
+	if (n == NULL) return NI_BADID;
+	
+	n->nii_object = 0;
+	
+	return sa_self(d, n);	
+}
+
 ni_status 
 sa_pathsearch(ni_shared_handle_t *d, ni_id *n, char *p)
 {
@@ -810,7 +727,7 @@ sa_read(ni_shared_handle_t *d, ni_id *n, ni_proplist *pl)
 	if (n == NULL) return NI_BADID;
 	if (pl == NULL) return NI_NOSPACE;
 
-	if ((d->flags & NI_SHARED_LOCALRAW) == 0) return ni_read(d->ni, n, pl);
+	if ((d->flags & NI_RAW_LOCAL) == 0) return ni_read(d->ni, n, pl);
 
 	s = (dsstore *)d->ni;
 	r = dsstore_fetch(s, n->nii_object);
@@ -820,7 +737,7 @@ sa_read(ni_shared_handle_t *d, ni_id *n, ni_proplist *pl)
 
 	dstoni_proplist(r, pl);
 	dsrecord_release(r);
-	return NI_OK;	
+	return NI_OK;
 }
 
 void
@@ -828,7 +745,7 @@ sa_setpassword(ni_shared_handle_t *d, char *pw)
 {
 	if (d == NULL) return;
 
-	if ((d->flags & NI_SHARED_LOCALRAW) == 0) ni_setpassword(d->ni, pw);
+	if ((d->flags & NI_RAW_LOCAL) == 0) ni_setpassword(d->ni, pw);
 }
 
 ni_status
@@ -840,7 +757,7 @@ sa_statistics(ni_shared_handle_t *d, ni_proplist *pl)
 	if (d == NULL) return NI_INVALIDDOMAIN;
 	if (pl == NULL) return NI_NOSPACE;
 
-	if ((d->flags & NI_SHARED_LOCALRAW) == 0) return ni_statistics(d->ni, pl);
+	if ((d->flags & NI_RAW_LOCAL) == 0) return ni_statistics(d->ni, pl);
 	s = (dsstore *)d->ni;
 	pl->ni_proplist_len = 1;
 	pl->ni_proplist_val = (ni_property *)malloc(sizeof(ni_property));
@@ -859,13 +776,13 @@ sa_children(ni_shared_handle_t *d, ni_id *n, ni_idlist *children)
 {
 	dsrecord *r;
 	dsstore *s;
-	u_int32_t i;
+	uint32_t i;
 
 	if (d == NULL) return NI_INVALIDDOMAIN;
 	if (n == NULL) return NI_BADID;
 	if (children == NULL) return NI_NOSPACE;
 
-	if ((d->flags & NI_SHARED_LOCALRAW) == 0) return ni_children(d->ni, n, children);
+	if ((d->flags & NI_RAW_LOCAL) == 0) return ni_children(d->ni, n, children);
 
 	s = (dsstore *)d->ni;
 	r = dsstore_fetch(s, n->nii_object);
@@ -882,14 +799,14 @@ sa_children(ni_shared_handle_t *d, ni_id *n, ni_idlist *children)
 	for (i = 0; i < r->sub_count; i++) children->ni_idlist_val[i] = r->sub[i];
 	dsrecord_release(r);
 
-	return NI_OK;	
+	return NI_OK;
 }
 
 ni_status
 sa_list(ni_shared_handle_t *d, ni_id *n, ni_name_const pname, ni_entrylist *entries)
 {
 	dsstore *s;
-	u_int32_t i, j, dsid;
+	uint32_t i, j, dsid;
 	dsrecord *l;
 	dsstatus status;
 	dsdata *k;
@@ -898,7 +815,7 @@ sa_list(ni_shared_handle_t *d, ni_id *n, ni_name_const pname, ni_entrylist *entr
 	if (n == NULL) return NI_BADID;
 	if (entries == NULL) return NI_NOSPACE;
 
-	if ((d->flags & NI_SHARED_LOCALRAW) == 0) return ni_list(d->ni, n, pname, entries);
+	if ((d->flags & NI_RAW_LOCAL) == 0) return ni_list(d->ni, n, pname, entries);
 
 	s = (dsstore *)d->ni;
 
@@ -926,14 +843,14 @@ sa_list(ni_shared_handle_t *d, ni_id *n, ni_name_const pname, ni_entrylist *entr
 		entries->ni_entrylist_val[i].names->ni_namelist_val = NULL;
 		if (l->attribute[i]->count > 0)
 			entries->ni_entrylist_val[i].names->ni_namelist_val = (ni_name *)malloc(l->attribute[i]->count * sizeof(ni_name));
-		
+
 		for (j = 0; j < l->attribute[i]->count; j++)
 			entries->ni_entrylist_val[i].names->ni_namelist_val[j] = dsdatatostring(l->attribute[i]->value[j]);
 	}
 
 	dsrecord_release(l);
 
-	return NI_OK;	
+	return NI_OK;
 }
 
 ni_status
@@ -943,7 +860,7 @@ sa_addrtag(ni_shared_handle_t *d, struct sockaddr_in *addr, ni_name *tag)
 	if (addr == NULL) return NI_NOSPACE;
 	if (tag == NULL) return NI_NOSPACE;
 
-	if ((d->flags & NI_SHARED_LOCALRAW) == 0) return ni_addrtag(d->ni, addr, tag);
+	if ((d->flags & NI_RAW_LOCAL) == 0) return ni_addrtag(d->ni, addr, tag);
 
 	addr->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	*tag = strdup("local");
@@ -955,7 +872,7 @@ void
 sa_setabort(ni_shared_handle_t *d, unsigned int a)
 {
 	if (d == NULL) return;
-	if (d->flags & NI_SHARED_LOCALRAW) return;
+	if (d->flags & NI_RAW_LOCAL) return;
 
 	ni_setabort(d->ni, a);
 }
@@ -964,48 +881,7 @@ void
 sa_setreadtimeout(ni_shared_handle_t *d, unsigned int t)
 {
 	if (d == NULL) return;
-	if (d->flags & NI_SHARED_LOCALRAW) return;
+	if (d->flags & NI_RAW_LOCAL) return;
 
 	ni_setreadtimeout(d->ni, t);
-}
-
-/*
- * Search from local domain to root domain to locate a path.
- */
-ni_status
-sa_find(ni_shared_handle_t **dom, ni_id *nid, ni_name dirname, unsigned int timeout)
-{
-	ni_shared_handle_t *d, *p;
-	ni_id n;
-	ni_status status;
-
-	*dom = NULL;
-	nid->nii_object = NI_INDEX_NULL;
-	nid->nii_instance = NI_INDEX_NULL;
-	
-	d = ni_shared_local();
-	if (d == NULL) return NI_FAILED;
-
-	while (d != NULL)
-	{
-		if (timeout > 0)
-		{
-			sa_setreadtimeout(d, timeout);
-			sa_setabort(d, 1);
-		}
-
-		status = sa_pathsearch(d, &n, dirname);
-		if (status == NI_OK)
-		{
-			*dom = d;
-			*nid = n;
-			return NI_OK;
-		}
-	
-		p = ni_shared_parent(d);
-		ni_shared_release(d);
-		d = p;
-	}
-	
-	return NI_NODIR;
 }

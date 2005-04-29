@@ -1,13 +1,22 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/compare.c,v 1.16.2.4 2003/02/09 17:02:18 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/*  Portions
- *  Copyright (c) 1990 Regents of the University of Michigan.
- *  All rights reserved.
+/* $OpenLDAP: pkg/ldap/libraries/libldap/compare.c,v 1.22.2.3 2004/01/01 18:16:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *  compare.c
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1990 Regents of the University of Michigan.
+ * All rights reserved.
+ */
+/* Portions Copyright (C) The Internet Society (1997)
+ * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
  */
 
 /* The compare request looks like this:
@@ -54,6 +63,7 @@ ldap_compare_ext(
 {
 	int rc;
 	BerElement	*ber;
+	ber_int_t	id;
 
 #ifdef NEW_LOGGING
 	LDAP_LOG ( OPERATION, ENTRY, "ldap_compare\n", 0, 0, 0 );
@@ -76,9 +86,11 @@ ldap_compare_ext(
 		return( LDAP_NO_MEMORY );
 	}
 
-	if ( ber_printf( ber, "{it{s{sON}N}", /* '}' */
-		++ld->ld_msgid,
-		LDAP_REQ_COMPARE, dn, attr, bvalue ) == -1 )
+	LDAP_NEXT_MSGID(ld, id);
+	rc = ber_printf( ber, "{it{s{sON}N}", /* '}' */
+		id,
+		LDAP_REQ_COMPARE, dn, attr, bvalue );
+	if ( rc == -1 )
 	{
 		ld->ld_errno = LDAP_ENCODING_ERROR;
 		ber_free( ber, 1 );
@@ -99,7 +111,7 @@ ldap_compare_ext(
 
 
 	/* send the message */
-	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_COMPARE, dn, ber );
+	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_COMPARE, dn, ber, id );
 	return ( *msgidp < 0 ? ld->ld_errno : LDAP_SUCCESS );
 }
 

@@ -1,0 +1,17 @@
+HMAC is used for message integrity checks between two parties that
+share a secret key, and works in combination with some other Digest
+algorithm, usually MD5 or SHA-1.  The HMAC mechanism is described in
+RFC 2104.
+
+The Digest::HMAC module follow the common Digest:: interface, but the
+constructor takes the secret key and the name of some other simple
+Digest:: module as argument.
+
+You will need perl version 5.004 or better to install these modules.
+The Digest::MD5 module and Digest::SHA1 module must be installed.
+
+Copyright 1998-2001 Gisle Aas.
+Copyright 1998 Graham Barr.
+
+This library is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.

@@ -1,10 +1,10 @@
 /*
- * $XFree86: xc/programs/xterm/trace.h,v 3.12 2001/10/24 01:21:25 dickey Exp $
+ * $XFree86: xc/programs/xterm/trace.h,v 3.14 2003/10/27 01:07:57 dickey Exp $
  */
 
 /************************************************************
 
-Copyright 1997-2001 by Thomas E. Dickey
+Copyright 1997-2001,2003 by Thomas E. Dickey
 
                         All Rights Reserved
 
@@ -33,7 +33,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #ifndef	included_trace_h
 #define	included_trace_h
 
-#include <ptyx.h>
+#include <xterm.h>
 
 #if OPT_TRACE
 
@@ -49,6 +49,9 @@ extern	char *	visibleIChar (IChar *, unsigned);
 
 extern	char	*trace_who;
 #define TRACE_CHILD int tracing_child = (trace_who = "child") != 0;
+
+extern	void	TraceSizeHints(XSizeHints *);
+#define	TRACE_HINTS(hints) TraceSizeHints(hints)
 
 extern	void	TraceTranslations(const char *, Widget);
 #define	TRACE_TRANS(name,w) TraceTranslations(name,w)

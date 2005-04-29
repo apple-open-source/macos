@@ -1,0 +1,498 @@
+.\" Copyright (c) 2005 Apple Computer
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 4. Neither the name of Apple Computer nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"
+.Dd January 5, 2005
+.Dt asl 3
+.Os "Mac OS X"
+.Sh NAME
+.Nm asl_open ,
+.Nm asl_close ,
+.Nm asl_new ,
+.Nm asl_free ,
+.Nm asl_set ,
+.Nm asl_set_query ,
+.Nm asl_get ,
+.Nm asl_unset ,
+.Nm asl_log ,
+.Nm asl_vlog ,
+.Nm asl_send ,
+.Nm asl_key ,
+.Nm asl_add_log_file ,
+.Nm asl_remove_log_file ,
+.Nm asl_set_cutoff_level ,
+.Nm asl_search ,
+.Nm aslresponse_next ,
+.Nm aslresponse_free
+.Nd system log message sending and searching functions
+.Sh SYNOPSIS
+.Fd #include <asl.h>
+.Ft aslclient
+.Fn asl_open "const char *ident, const char *facility, uint32_t opts"
+.Ft void
+.Fn asl_close "aslclient asl"
+.Ft aslmsg
+.Fn asl_new "uint32_t type"
+.Ft void
+.Fn asl_free "aslmsg msg"
+.Ft int
+.Fn asl_set "aslmsg msg, const char *key, const char *value"
+.Ft int
+.Fn asl_set_query "aslmsg msg, const char *key, const char *value, uint32_t op"
+.Ft const char *
+.Fn asl_key "aslmsg msg, uint32_t n"
+.Ft const char *
+.Fn asl_get "aslmsg msg, const char *key"
+.Ft int
+.Fn asl_unset "aslmsg msg, const char *key"
+.Ft int
+.Fn asl_log "aslclient asl, aslmsg msg, int level, const char *format, ..."
+.Ft int
+.Fn asl_vlog "aslclient asl, aslmsg msg, int level, const char *format, va_list ap"
+.Ft int
+.Fn asl_send "aslclient asl, aslmsg msg"
+.Ft int
+.Fn asl_add_log_file "aslclient asl, int fd"
+.Ft int
+.Fn asl_remove_log_file "aslclient asl, int fd"
+.Ft int
+.Fn asl_set_filter "aslclient asl, int f"
+.Ft aslresponse
+.Fn asl_search "aslclient asl, aslmsg msg"
+.Ft aslmsg
+.Fn aslresponse_next "aslresponse r"
+.Ft void
+.Fn aslresponse_free "aslresponse a"
+.Sh DESCRIPTION
+These routines provide an interface to the Apple system log facility.
+They are intended to be a replacement for the 
+.Xr syslog 3
+API, which will continue to be supported for backwards compatibility.
+The new API allows client applications to create flexible, structured messages and send them to the 
+.Nm syslogd
+server, where they may undergo additional processing.
+Messages received by the server are saved in a data store (subject to input filtering constraints).
+This API permits clients to create queries and search the message data store for matching messages.
+.Ss MESSAGES
+At the core of this API is the aslmsg structure.
+Although the structure is opaque and may not be directly manipulated, it contains a list of key/value pairs.
+All keys and values are NULL-terminated C language character strings.
+UTF-8 encoding may be used for non-ASCII characters.
+.Pp
+Message structures are generally used to send log messages, and are created thusly:
+.Pp
+    aslmsg m = asl_new(ASL_TYPE_MSG);
+.Pp
+Another message type, ASL_TYPE_QUERY, is used to create queries when searching the data store.
+Query type messages and searching are described in detail in the
+.Sx SEARCHING
+section below.
+For the remainder of this section, the messages described will be of the ASL_TYPE_MSG variety.
+.Pp
+Each aslmsg contains a default set of keys and values associated with them.
+These keys are listed in the asl.h header file.
+They are:
+.Pp
+    #define ASL_KEY_TIME    "Time"
+    #define ASL_KEY_HOST    "Host"
+    #define ASL_KEY_SENDER  "Sender"
+    #define ASL_KEY_PID     "PID"
+    #define ASL_KEY_UID     "UID"
+    #define ASL_KEY_GID     "GID"
+    #define ASL_KEY_LEVEL   "Level"
+    #define ASL_KEY_MSG     "Message"
+.Pp
+Many of these correspond to equivalent parts of messages described in the 
+.Xr syslog 3
+API.
+Values associated with these message keys are assigned appropriate defaults.  
+The value for ASL_KEY_HOST is the local host name,
+the value associated with ASL_KEY_SENDER is the process name,
+the ASL_KEY_PID is the client's process ID number, and so on.
+.Pp
+Note the addition of the UID and GID keys.
+The values for UID and GID are set in library code by the message sender.
+The server will attempt to confirm the values, but no claim is made that these
+values cannot be maliciously overridden in an attempt to deceive a log message
+reader as to the identity of the sender of a message.
+The contents of log messages must be regarded as insecure.
+.Pp
+Also note the absence of a Facility key.
+The 
+.Xr asl 3
+API does not require a process to choose a facility name.
+The 
+.Nm syslogd
+server will use a default value of 
+.Dq user
+if a facility is not set.
+However, a client may set a facility name using:
+.Pp
+    asl_set(m, "Facility", "UsefulService");
+.Pp
+An application may choose any facility name at will.
+.Pp
+Default values are set in the message for each of the keys listed above except for
+ASL_KEY_MSG, which may be explicitly set at any time using the
+.Nm asl_set
+routine, or implicitly set at the time the message is sent using the
+.Nm asl_log
+or
+.Nm asl_vlog
+routines.
+These two routines also have an integer level parameter for specifying the log priority.
+The ASL_KEY_LEVEL value is set accordingly.
+Finally, the value associated with ASL_KEY_TIME is set in the sending routine.
+.Pp
+Although it may appear that there is significant overhead required to send a log message using this API,
+the opposite is actually true.  
+A simple 
+.Dq Hello World
+program requires only:
+.Pp
+    #include <asl.h>
+    ...
+    asl_log(NULL, NULL, ASL_LEVEL_INFO, "Hello World!");
+.Pp
+Both
+.Nm asl_log
+and
+.Nm asl_vlog
+will provide the appropriate default values when passed a NULL aslmsg argument.
+.Pp
+.Pp
+In this example, the aslclient argument is NULL.
+This is sufficient for a single-threaded application,
+or for an application which only sends log messages from a single thread.
+When logging from multiple threads, each thread must open a separate client handle using
+.Nm asl_open .
+The client handle may then be closed when it is no longer required using
+.Nm asl_close .
+.Pp
+When an application requires additional keys and values to be associated with each log message,
+a single message structure may be allocated and set up as 
+.Dq template
+message of sorts:
+.Pp
+    aslmsg m = asl_new(ASL_TYPE_MSG);
+    asl_set(m, "Facility", "Spy vs. Spy");
+    asl_set(m, "Clearance", "Top Secret");
+    ...
+    asl_log(NULL, m, ASL_LEVEL_NOTICE, "Message One");
+    ...
+    asl_log(NULL, m, ASL_LEVEL_ERR, "Message Two");
+.Pp
+The message structure will carry the values set for the 
+.Dq Facility
+and
+.Dq Clearance
+keys so that they are used in each call to
+.Nm asl_log ,
+while the log level and the message text are taken from the calling parameters.
+.Pp
+Key/value pairs may be removed from a message structure with
+.Nm asl_unset .
+A message may be freed using
+.Nm asl_free .
+.Pp
+The 
+.Nm asl_send
+routine is used by 
+.Nm asl_log
+and
+.Nm asl_vlog
+to transmit a message to the server.
+This routine sets the value associated with ASL_KEY_TIME and send the message.
+It may be called directly if all of a message's key/value pairs have been created using
+.Nm asl_set .
+.Ss CLIENT HANDLES
+When logging is done from a single thread,
+a NULL value may be used in any of the routines that require an aslclient argument.
+In this case the library will open an internal client handle on behalf of the application.
+.Pp
+If multiple threads must do logging,
+or if client options are desired,
+then the application should call
+.Nm asl_open
+to create a client handle for each thread.
+As a convenience,
+the
+.Nm asl_open
+routine may be given an ident argument,
+which becomes the default value for the ASL_KEY_SENDER key,
+and a facility argument,
+which becomes the default facility name for the application.
+.Pp
+Several options are available when creating a client handle.
+They are:
+.Pp
+.Bl -tag -width "ASL_OPT_NO_REMOTE" -compact
+.It ASL_OPT_STDERR
+adds stderr as an output file descriptor
+.It ASL_OPT_NO_DELAY
+connects to the server immediately
+.It ASL_OPT_NO_REMOTE
+disables remote-control filter adjustment
+.El
+.Pp
+See the FILTERING section below, and the
+.Xr syslog 1
+for additional details on filter controls.
+.Pp
+A client handle is closed and it's resources released using 
+.Nm asl_close .
+Note that if additional file descriptors were added to the handle either using the
+ASL_OPT_STDERR option or afterwards with the
+.Nm asl_add_log_file
+routine, those file descriptors are not closed by 
+.Nm asl_close .
+.Ss LOGGING TO ADDITIONAL FILES
+If a client handle is opened with the ASL_OPT_STDERR option to
+.Nm asl_open ,
+a copy of each log message will be sent to stderr. 
+Additional output streams may be include using
+.Nm asl_add_log_file .
+File descriptors may be removed from the list of outputs associated with a client handle with
+.Nm asl_remove_log_file .
+This routine simply removes the file descriptor from the output list.
+The file is not closed as a result.
+.Pp
+The ASL_OPT_STDERR option may not be unset after a client handle has been opened.
+.Pp
+In the present release of Mac OS X, a
+.Dq raw
+format is used to format messages sent to file descriptors added to a client handle.
+Each message is preceded by a 10-character field containing a message length.
+The message length is padded with leading white space.
+The length gives the string length of the remainder of the output string.
+Following the length is a space character, and then the message.
+The message is encoded as a set of key/value pairs enclosed in square brackets,
+which are themselves separated by a space character.
+The key is separated from the value by space character.
+Embedded closing square brackets are escaped by a backslash.
+Embedded space characters in keys are escaped by a backslash;
+Embedded newlines are summarily turned into semicolons.
+The output is terminated by a trailing newline and a NUL character.
+.Ss SEARCHING
+The 
+.Nm syslogd
+server archives received messages in a data store that may be searched using the
+.Nm asl_search ,
+.Nm aslresponse_next ,
+and
+.Nm aslresponse_free
+routines.
+A query message is created using:
+.Pp
+    aslmsg q = asl_new(ASL_TYPE_QUERY);
+.Pp
+Search settings are made in the query using 
+.Nm asl_set_query .
+A search is performed on the data store with
+.Nm asl_search .
+It returns an
+.Ft aslresponse 
+structure.
+The caller may then call 
+.Nm aslresponse_next
+to iterate through matching messages.
+The
+.Ft aslresponse 
+structure may be freed with
+.Nm aslresponse_free .
+.Pp
+Like other messages, ASL_TYPE_QUERY messages contain keys and values.
+They also associate an operation with each key and value.
+The operation is used to decide if a message matches the query.
+The simplest operation is ASL_QUERY_OP_EQUAL, which tests for equality.
+For example, the following code snippet searches for messages with a Sender value equal to
+.Dq MyApp .
+.Pp
+    aslmsg m;
+    aslresponse r;
+    q = asl_new(ASL_TYPE_QUERY);
+    asl_set_query(q, ASL_KEY_SENDER, "MyApp", ASL_QUERY_OP_EQUAL);
+    r = asl_search(NULL, q);
+.Pp
+More complex searches may be performed using other query operations.
+.Pp
+.Bl -tag -width "ASL_QUERY_OP_GREATER_EQUAL" -compact
+.It ASL_QUERY_OP_EQUAL
+value equality
+.It ASL_QUERY_OP_GREATER
+value greater than
+.It ASL_QUERY_OP_GREATER_EQUAL
+value greater than or equal to
+.It ASL_QUERY_OP_LESS
+value less than
+.It ASL_QUERY_OP_LESS_EQUAL
+value less than or equal to
+.It ASL_QUERY_OP_NOT_EQUAL
+value not equal
+.It ASL_QUERY_OP_REGEX
+regular expression search
+.It ASL_QUERY_OP_TRUE
+always true - use to test for the existence of a key
+.El
+.Pp
+Regular expression search uses 
+.Xr regex 3
+library.
+Patterns are compiled using the REG_EXTENDED and REG_NOSUB options.
+.Pp
+Modifiers that change the behavior of these operations may also be specified
+by ORing the modifier value with the operation.
+The modifiers are:
+.Pp
+.Bl -tag -width "ASL_QUERY_OP_SUBSTRING" -compact
+.It ASL_QUERY_OP_CASEFOLD
+string comparisons are case-folded
+.It ASL_QUERY_OP_PREFIX
+match a leading substring
+.It ASL_QUERY_OP_SUFFIX
+match a trailing substring
+.It ASL_QUERY_OP_SUBSTRING
+match any substring
+.It ASL_QUERY_OP_NUMERIC
+values are converted to integer using 
+.Nm atoi
+.El
+.Pp
+The only modifier that is checked for ASL_QUERY_OP_REGEX search is ASL_QUERY_OP_CASEFOLD.
+This causes the regular expression to be compiled with the REG_ICASE option.
+.Pp
+If a query message contains more than one set of key/value/operation triples,
+the result will be a logical AND.  For example, to find messages from
+.Dq MyApp 
+with a priority level less than or equal to 
+.Dq 3 :
+.Pp
+    aslmsg q;
+    aslresponse r;
+    q = asl_new(ASL_TYPE_QUERY);
+    asl_set_query(q, ASL_KEY_SENDER, "MyApp", ASL_QUERY_OP_EQUAL);
+    asl_set_query(q, ASL_KEY_LEVEL, "3",
+            ASL_QUERY_OP_LESS_EQUAL | ASL_QUERY_OP_NUMERIC);
+    r = asl_search(NULL, q);
+.Pp
+After calling 
+.Nm asl_search
+to get an
+.Ft aslresponse
+structure, use
+.Nm aslresponse_next
+to iterate through all matching messages.
+To iterate through the keys and values in a message, use
+.Nm asl_key
+to iterate through the keys, then call
+.Nm asl_get
+to get the value associated with each key.
+.Pp
+    aslmsg q, m;
+    int i;
+    const char *key, *val;
+.Pp
+    ...
+    r = asl_search(NULL, q);
+    while (NULL != (m = aslresponse_next(r)))
+    {
+        for (i = 0; (NULL != (key = asl_key(m, i))); i++)
+        {
+            val = asl_get(m, key);
+            ...
+        }
+    }
+    aslresponse_free(r);
+.Pp
+.Ss FILTERING AND REMOTE CONTROL
+Clients may set a filter mask value with
+.Nm asl_set_filter .
+The mask specifies which messages should be sent to the
+.Nm syslogd
+daemon by specifying a yes/no setting for each priority level.
+Clients typically set a filter mask to avoid sending relatively unimportant messages.
+For example, Debug or Info priority level messages are generally only useful for debugging operations.
+By setting a filter mask, a process can improve performance by avoiding 
+sending messages that are in most cases unnecessary.
+.Pp
+As a convenience, the macros ASL_FILTER_MASK(level) and ASL_FILTER_MASK_UPTO(level)
+may be used to construct a bit mask corresponding to a given priority level,
+or corresponding to a bit mask for all priority levels from ASL_LEVEL_EMERG to a
+given input level.
+.Pp
+The default filter mask is ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE).
+This means that by default, and in the absence of remote-control changes (described below),
+ASL_LEVEL_DEBUG and ASL_LEVEL_INFO priority level messages are not sent to the
+.Mn syslogd
+server.
+.Pp
+Three different filters exist for each application.
+The first is the filter mask set using
+.Nm asl_set_filter
+as described above.
+The Apple System Log facility also manages a 
+.Dq master
+filter mask.
+The master filter mask usually has a value that indicates to the library that it is
+.Dq off , 
+and thus it has no effect.
+However, the mask filter mask may be enabled by giving it a value using the
+.Nm syslog
+command, using the 
+.Fl c
+0 option.
+When the master filter mask has been set, 
+it takes precedence over the client's filter mask.  
+The client's mask is unmodified, and will become active again if remote-control filtering is disabled.
+.Pp
+In addition to the master filter mask,
+The Apple System Log facility also manages a per-client remote-control filter mask.
+Like the master filter mask, the per-client mask is usually 
+.Dq off ,
+having no effect on a client.
+If a per-client filter mask is set using the
+.Nm syslog
+command, using the 
+.Fl c Ar process
+option, then it takes precedence over both the client's filter mask and the master filter mask.
+As is the case with the master filter mask, a per-client mask ceases having any effect when if is disabled.
+.Pp
+The ASL_OPT_NO_REMOTE option to
+.Nm asl_open
+causes both the master and per-client remote-control masks to be ignored in the library.
+In that case, only the client's own filter mask is used to determine which messages are
+sent to the server.
+This may be useful for Applications that produce log messages that should never be filtered
+due to security considerations.
+Note that root (administrator) access is required to set or change the master filter mask,
+and that only root may change a per-client remote-control filter mask for a root (UID 0) process.
+.Sh HISTORY
+These functions first appeared in
+Mac OS X 10.4.
+.Sh SEE ALSO
+.Xr syslogd 8 ,
+.Xr syslog 1

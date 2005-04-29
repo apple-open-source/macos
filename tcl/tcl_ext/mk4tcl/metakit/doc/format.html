@@ -1,0 +1,457 @@
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="Author" content="Jean-Claude Wippler">
+   <title>An overview of the Metakit data format</title>
+</head>
+<body>
+
+<A HREF="http://www.equi4.com/"><IMG SRC="e4s.gif" vspace=3 WIDTH="97" HEIGHT="35" BORDER=0 align=right></A>
+<br clear=both><center>
+<h2>
+An overview of the Metakit data format</h2></center>
+
+<center><i>Jean-Claude Wippler</i>
+<br><i>Equi4 Software</i>
+<br><i>December 1999</i>
+<br>&nbsp;
+<br>&nbsp;</center>
+
+<b>INTRODUCTION</b>
+<p>Metakit is an efficient, small-footprint, robust, and platform-independent
+database library.&nbsp; The name "Metakit" is used as name for the file
+format, as well as for the implementation (coded in C++, with interfaces
+to Python and Tcl).&nbsp; Metakit 2.0 is freely available as open source, 
+with optional commercial support through my company, Equi4 Software.
+<p>This document describes some of the main elements of the design of the
+file format used in release 2.0 of Metakit - which
+reads all prior formats back to the 1.0 release of March 1996.
+<p>For general information about Metakit, you are kindly referred to information
+on the world wide web - the Metakit home page is at <a href="http://www.equi4.com/metakit/">http://www.equi4.com/metakit/</a>.
+For the purpose of this document, here is a summary with the capabilities
+of Metakit which most affect the design of the file format.
+<ul>
+<li>
+Data is stored in native format, reversed endian-ness is detected and dealt
+with on other platforms</li>
+
+<li>
+Transaction/commit uses "Stable Storage" techniques, with automatic rollback
+after catastrophic failure</li>
+
+<li>
+Data can be loaded on demand, or serialized for transport over any communication
+channel</li>
+
+<li>
+Integers use "adaptive sizing" to store each value in 1..32 bits, automatically
+adjusted to match the range</li>
+
+<li>
+Other formats include: 0-byte terminated strings, binary data (2 formats),
+and 4/8-byte IEEE floating point</li>
+
+<li>
+Multiple relational ("flat") and hierarchically structured datasets can
+be stored in a single file</li>
+
+<li>
+Datafiles are self-descriptive, generic utilities can be used to inspect
+and manipulate any Metakit datafile</li>
+
+<li>
+Metakit supports instant on-the-fly datafile restructuring, with full commit/rollback
+capability</li>
+</ul>
+Metakit is being used by hundreds of developers, in products ranging from
+custom-made client-server applications, software utilities, website databases,
+numerical/statistical data-storage, groupware, development tools, to financial
+applications such as POS and home banking.  It can be embedded into the
+application, requiring no installation - or used as a shared library (DLL).
+<br>&nbsp;
+<p><b>BASIC DATA STRUCTURE</b>
+<p>To describe the format used for the datafiles, it is necessary to introduce
+some terminology and to describe how data is organized.&nbsp; What Metakit
+does, is present a more or less relational perspective on data storage.
+<ul>
+<li>
+Data is stored in tabular format, called a <i><b>view</b>.</i></li>
+
+<li>
+Views consist of zero or more <b><i>rows</i></b> of information.</li>
+
+<li>
+Each row consists of one or more <b><i>properties</i></b> containing one
+data item.</li>
+
+<li>
+Properties can be strings, integers, floating point, binary data, but also
+<b><i>subviews</i></b>.</li>
+</ul>
+The first three of these are equivalent to the relational <i>table, record,
+</i>and
+<i>attribute</i>.&nbsp;
+The fourth makes it possible to store hierarchically structured data (subviews
+are an advanced feature and will not be further described here).
+<p>But the fundamental concept of Metakit, is that all data is stored <i>column-wise</i>.&nbsp;
+A <i>view</i> (table) with 10,000 <i>rows</i> (records), consisting of
+25 <i>properties</i> (attributes), is stored on file as a data structure
+pointing to 25 <i>columns</i> of bytes.&nbsp; Each of these columns may
+well have a different format - depending on their datatype, and each will
+contain 10,000 entries. Each column is stored as a single <i>contiguous</i>
+area on file, which can be reallocated (i.e. moved) to accommodate size
+changes later on.
+<p>This column-based data organization has far-reaching consequences for
+the implementation.&nbsp; For one, the implementation fully hides
+the column-wise structure and present a normal <i>container-like</i> row-wise
+API, which matches the conceptual / relational model.&nbsp; Furthermore,
+a range of techniques has been implemented to offer high performance.
+<br>&nbsp;
+<p><b>FILE FORMAT OVERVIEW</b>
+<p>Once you switch your mind to this column-wise approach, the format of
+Metakit datafiles becomes quite simple to describe:
+<ul>
+<li>
+An 8-byte header</li>
+
+<li>
+A structural definition of all views stored in this file (this is not necessarily
+right after the header)</li>
+
+<li>
+For each view: a row count and a number of &lt;offset,size> pairs, each
+defining a column in the file</li>
+
+<li>
+And - scattered all across the file - the actual columns of data</li>
+</ul>
+For a view of N rows by M columns, the row count of N plus the M column
+definitions fully describe its contents - just like a row count of N with
+N row definitions would in a traditional row-by-row database.
+<p>Note that the amount of information needed to define all views and columns
+can remain <i>very</i> small.&nbsp; The number of rows in each view affects
+only the size of each column, not the number of them.&nbsp; This effect
+is used while opening a datafile: Metakit quickly reads the header, description,
+and all column position/size information.&nbsp; From then on, access to
+data is basically instant - with seeks doing the rest (actually, most of
+it is memory-mapped file access).&nbsp; To use the previous example: a
+view with 10,000 rows of 25 properties ends up being managed as 25 columns
+on file - which is a very simple task.
+<p>The row counts and the &lt;offset,size> tuples defining all columns
+are stored in an tagged-byte format, with as many bytes as need to represent
+each integer value.&nbsp; This format is space efficient for small
+files, and is able to adapt to file sizes (and offsets) which are more
+than 32 bits.&nbsp; All values are stored consecutively and are loaded
+very quickly (this includes the more complex case when subviews are part
+of the data structure).
+<br>&nbsp;
+<p><b>STRUCTURE DEFINITION</b>
+<p>The description stored in each datafile is a string which precisely
+describes the name of all views and subviews, and the name and type of
+all properties in these subviews.&nbsp; An example of such a <i>definition
+string</i> (as stored on file) will make it clear how the information is
+represented:
+<p><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; companies[name:S,offices[department:S,address:S,employees[name:S,salary:I,photo:M],phone:S],revenue:D]</font>
+<p>Datatypes are currently defined as one of the following:
+<blockquote><b><tt>S</tt></b> - string (null-byte terminated)
+<br><b><tt>I</tt></b> - integer (1..32 bits, adapting at run time)
+<br><b><tt>F</tt></b> - 32-bit floating point
+<br><b><tt>D</tt></b> - 64-bit floating point
+<br><b><tt>B</tt></b> - untyped binary data
+<br><b><tt>M</tt></b> - "memo" binary data (see below)</blockquote>
+The above example describes a datafiles with information about companies,
+each having a variable number of offices, which in turn have a varying
+number of employees.&nbsp; Other information can be added in the same file,
+it is not limited to a single <i>view</i> (companies in this case).
+<p>This string, as well as all strings stored as properties of rows, is
+stored in UTF-8 format, which allow storing Unicode strings while maintaining
+compatibility of datafiles across all platforms.
+<br>&nbsp;
+<p><b>STORING BINARY DATA</b>
+<p>The file format described so far is useful for small to medium-sized
+datasets (see the section on "performance" below), but as column sizes
+grow, performance tends to suffer in a number of ways.&nbsp; To meet requests
+to store larger amounts of data efficiently, "memo" properties were added
+in March 1998.&nbsp; These add a single level of indirection, and allow
+storing binary data as individually allocated objects in the datafile.&nbsp;
+This mechanism works well when rows hold data items which are each of up
+to 1 Mb or so.&nbsp; The current limitation is that each such <i>memo-item</i>
+is loaded and saved in one step.&nbsp; A future release will allow partial
+reading and writing of such items, and will in fact allow very efficient insertion
+and deletion at any position within such items.&nbsp; This will allow
+access, and storage of concurrent independently emitted data streams (it's
+mostly a matter of designing a proper API to get at the functionality -
+which is already present).
+<br>&nbsp;
+<p><b>FILE FORMAT DETAILS</b>
+<p>With all this conceptual information out of the way, it is now possible
+to describe the file format is somewhat more detail.
+<dl>
+<dt>
+<b>Header</b></dt>
+
+<dd>
+The 8-byte header contains: a 2-byte magic number, which is also used to
+detect endian-ness, 2 bytes reserved for future use, and a 4-byte file
+offset pointing to the structural information.</dd>
+
+<p><dt><b>Structural information</b>
+<dd>
+The offset in the header points to a block of data consisting of:</dd>
+
+<ul>
+<li>
+a <i>format code</i>, which is adjusted when file format revisions are
+made</li>
+
+<li>
+the <i>structure definition string</i>, as described above</li>
+
+<li>
+all <i>row counts</i>, and <i>&lt;offset,size></i> pairs, concatenated</li>
+</ul>
+
+<dd>
+The counts, offsets, and sizes are all stored using a varying number of
+bytes, most significant bits first: each byte contains a "final" bit (bit
+7), which is set only on the last byte, and 7 "payload" bits from the value
+itself (bits 0..6).  This format is compact and platform-neutral.</dd>
+
+<p><dt><b>Columns</b>
+<dd>
+Data columns contain all items of the corresponding property, concatenated
+into a single byte vector.&nbsp; The format and size of these columns is
+determined by their datatype:</dd>
+
+<ul>
+<li>
+Strings are concatenated, with the terminating zero bytes separating each
+item.</li>
+
+<li>
+Adaptive integers - using 1..32 bits per value, depending on the largest
+absolute value.</li>
+
+<li>
+Floats use 4 bytes per entry, doubles use 8 bytes per entry.</li>
+
+<li>
+Binary properties are stored using two columns (the data, plus adaptive ints for
+item sizes).</li>
+
+<li>
+Memo properties also use two columns (file offsets and
+item sizes - both are adaptive ints).</li>
+</ul>
+
+<dd>
+Each column contains items of a single type, and can be considered as highly
+optimized linear arrays of data.</dd>
+</dl>
+<i>Note: the 4-byte file offset in the header will be turned into a more
+general "extended header" in the next file format version to drop the current
+32-bit file size restriction.&nbsp; A number of changes are planned for the
+way structural information is stored, to make it possible to open
+datafiles more lazily and perform efficient partial commits.</i>
+<br>&nbsp;
+<p><b>FREE SPACE MANAGEMENT AND RECOVERY</b>
+<p>The datafile format of Metakit contains no other information than what
+has been described so far.&nbsp; Specifically, there is no "free space"
+pool.&nbsp; This is possible, because free space can be deduced from what
+is present in the file - it consists of those areas of the file which are
+not occupied by the information described so far (header, structure def,
+column defs, columns).
+<p>This lack of redundancy improves robustness (the potential for inconsistencies
+is reduced), is more efficient (less information to carry around), and
+reduces file size.
+<p>Recovery is based on "stable storage" - a very effective technique which
+makes the datafile resilient against catastrophic failure.&nbsp; It all
+works by never writing changes to a datafile <i>over</i> current data.&nbsp;
+All changes are allocated and written to currently unused areas of the
+file (extending it if necessary).&nbsp; Only changed data is rewritten.&nbsp;
+On commit, all changes are flushed,
+and when this has been completed, a single offset in the file header is
+overwritten (this is atomic) - pointing to the new state.&nbsp;
+Once the commit is complete, free space in the file is redefined to include
+old and now obsolete areas of the file, and to exclude the newly allocated
+data.
+<p>To date, with thousands of users known to be using software based on
+Metakit in production-grade commercial products, no case has ever been
+reported of a corrupted data file.&nbsp; Metakit does not contain any recovery/repair
+code - there is no need.
+<p>The trade-off is that datafiles which get modified can grow to roughly
+twice their optimum size.&nbsp; Despite this, Metakit datafile sizes are
+often <i>smaller</i> than with other approaches.&nbsp; The
+reasons for this are that Metakit supports variable-sized data with no
+overhead, that integers tend to be packed very densely, that there is <i>no</i>
+overhead per row, and that techniques such as B-trees with partially-filled
+nodes are not used.
+<p>It goes without saying that all unused data areas get re-used when possible
+- file size usually increases during the first few commits, and remains more or less
+stable after that.&nbsp; For those cases where slack is unacceptable, a
+simple full re-save can be used to produce a fresh, optimally-packed datafile.
+<br>&nbsp;
+<p><b>ON-THE-FLY RESTRUCTURING</b>
+<p>The column-wise datafile format makes it possible to restructure datafiles
+- i.e. add or delete properties - very efficiently.&nbsp; All it takes,
+is reading the structural data (which happens during open anyway), creating
+or deleting one or more columns, and storing the adjusted structural data.&nbsp;
+Since no rows are accessed at all, this is virtually instant.
+<p>This capability has recently been used to implement a <i>generic database
+server - </i>it starts out empty, with no idea what data it will store,
+and it adapts whenever clients connect.&nbsp; Although this is in itself
+an interesting technical feature, the value lies in <i>long-lived data</i>,
+since it is now possible to store information in whatever format seems
+appropriate right now, and to write software which evolves to work with
+more complex structures overtime.&nbsp; Whenever a datafile is opened,
+its format can be inspected, applying the transformations which are required
+to bring it up to date - instantly, during open.&nbsp; Even if the data
+is read-only, such on-the-fly adaptations can be used for the duration
+of the run (simply by never committing).
+<p>The restructuring capabiltity, and the fact that it can be done almost
+instantly, is very useful for <i>long-lived data</i>. It
+simplifies the task of writing software which can handle all file formats used
+in previous releases (backward compatibility).
+Adding or dropping information as new releases of
+a product are issued no longer leads to compatibility problems or lengthy
+conversions.  Furthermore, techniques are being developed to let <i>older</i>
+software deal with files created by <i>newer</i> releases (forward compatibility).
+This solves 
+a common problem in today's software, which forces users to continuously
+upgrade their software to be able to easily exchange files with others.
+<br>&nbsp;
+<p><b>PERFORMANCE</b>
+<p>The performance of this data format is <i>extremely </i>difficult to
+assess.&nbsp; During the evolution from version 1.0 to the current 2.0
+release, improvements have been made of some two orders of magnitude.&nbsp;
+This is probably not very informative, since it might simply reflect how
+bad the original design was.
+<p>But there are several factors which can help illustrate why this is
+probably not the case:
+<ul>
+<li>
+Performance matters only in those parts of the code which are frequently
+executed: <i>i.e. inside loops</i>.</li>
+
+<li>
+Locality of reference can have a dramatic impact on performance with today's
+CPU caches.</li>
+
+<li>
+Minimizing I/O requests has become meaningless, when memory-mapped files
+and paging is used.</li>
+
+<li>
+Many repetitive loops over data tend to process a large number or rows,
+but to access only a few columns.</li>
+</ul>
+It turns out that Metakit performance varies widely, depending on the design
+and use of the data structures.&nbsp; Note that there are virtually no
+<i>database
+indexes. </i>This is not a lack of functionality, but a deliberate design
+choice.&nbsp; Experience shows that Metakit frequently outperforms other
+approaches by mere brute-force.&nbsp; A recent test on a modern Pentium
+II / 400 MHz CPU, shows that search speeds exceed 500,000 string scans
+per second and 1,000,000 integer scans per second.&nbsp; There is a definite
+trade-off between indexing (with techniques such as B-trees and extensible
+hashing) and the overhead it imposes for updates - and mere scanning.
+<p>Evidently, at some point, it will be better to index by key values than
+to scan millions of strings for a match.&nbsp; This is where subviews in
+Metakit come in handy.&nbsp; By structuring data in a "slightly hierarchical"
+manner, searches again often end up being over just thousands or tens of
+thousands of entries.&nbsp; Also, keeping data sorted (in some sense) and then
+doing binary search can often be an effective option (this is part of the Metakit
+API).
+<p>Sequential searching is well suited for keyword searches and for <i>regex</i>
+pattern-matching, and by its very nature well suited for <i>ad-hoc</i>
+queries: all properties are searchable without the need to decide what
+key indexes to define up front.
+<p>Some further explanations why performance is high in Metakit:
+<ul>
+<li>
+No indexes means smaller datafiles, this increases memory residence and
+reduces random seeks</li>
+
+<li>
+Inner loops over a single column are very effective: data is contiguous
+on file and caching works optimally</li>
+
+<li>
+The code is simple, and therefore small - it is more likely to fit in the
+CPU cache in its entirety</li>
+
+<li>
+Row <i>width</i> does not affect search/access performance, nor does the
+number or size of extra properties.</li>
+</ul>
+In conclusion: compact data representations work increasingly well with
+today's fast CPU's and large RAM sizes. By turning a dataset which is 100
+Mb with traditional means, into a few columns requiring 20 Mb, databases
+not only end up being completely memory-resident, the column-wise structure
+for each property also makes CPU caches perform at their very best.
+<br>&nbsp;
+<p><b>LIMITATIONS</b>
+<p>There are some limitations in the current Metakit implementation,
+these are currently being addressed:
+<ul>
+<li>
+When column sizes grow, update performance suffers (the simplest solution
+is to introduce some subviews)</li>
+
+<li>
+Concurrent file updates are currently impossible due to cache coherence
+issues (solution: client/server or diff's)</li>
+
+<li>
+Data items straddling a 4 Kb page boundary get read in, instead of taking
+advantage of memory-mapped files</li>
+</ul>
+There are also some issues which affect the file format design (to be addressed
+in the next file format revision):
+<ul>
+<li>
+Open/commit performance is proportional to structural complexity (need
+a way to do partial opens/commits)</li>
+
+<li>
+There should be a way to adjust alignment of data stored on file, so memory-mapped
+files work better</li>
+<li>
+Additional safeguards are sometimes needed to detect currupted datafiles
+(such as file-transfer errors).
+</ul>
+Work is currently under way to address each of these issues.&nbsp; This
+will allow the efficient use of Metakit datafiles when they are in the Gb
+range.&nbsp; The changes will be made in such a way that backward compatibility
+can be maintained (i.e. new releases will retain the ability to read 2.0
+format datafiles, and will transparently perform adjustments when writing
+to them).
+<br>&nbsp;
+<p><b>CONCLUSION</b>
+<p>In the end, <i>the proof is in the pudding</i>.&nbsp; As it turns out,
+three years of Metakit use and evolution have shown that a lot of performance
+can be achieved as a result of reducing file format and implementation
+complexity.&nbsp; Robustness is achieved through minimizing redundancy,
+while fail-safety is achieved through a form of controlled duplication.
+<p>Both of these have led to a format which is very simple, flexible enough
+to evolve (half of the datatypes were added after the fact), and which
+has the capability of being instantly restructured to adapt to new data
+structures.&nbsp; This latter property of the Metakit datafile format is
+what makes it <i>future-proof</i> for application developers - in a very
+practical sense.
+<p>There are some drawbacks to using column-wise storage, but the current
+implementation shows that despite this, a number of technical "tricks"
+can lead to an implementation (consisting of 16,000 lines of C++) which
+shows excellent performance in databases scaling to 10,000
+views/subviews <i>or</i> 100,000 rows.&nbsp; Future versions will aim to make
+10,000 views/subviews <i>times</i> 100,000 rows efficient.
+<br>&nbsp;
+<br>&nbsp;
+<div align=right>
+<!--
+This document is [<a href="http://www.equi4.com/jcw/mkformat.html">http://www.equi4.com/jcw/mkformat.html</a>]
+<br> -->
+&copy; 1999 Jean-Claude Wippler &lt;<a href="mailto:jcw@equi4.com">jcw@equi4.com</a>></div>
+
+</body>
+</html>

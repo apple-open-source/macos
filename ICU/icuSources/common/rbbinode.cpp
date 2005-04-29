@@ -54,7 +54,7 @@ RBBINode::RBBINode(NodeType t) : UMemory() {
     fNullable     = FALSE;
     fLookAheadEnd = FALSE;
     fVal          = 0;
-	fPrecedence   = precZero;
+    fPrecedence   = precZero;
 
     UErrorCode     status = U_ZERO_ERROR;
     fFirstPosSet  = new UVector(status);  // TODO - get a real status from somewhere
@@ -263,8 +263,8 @@ void   RBBINode::findNodes(UVector *dest, RBBINode::NodeType kind, UErrorCode &s
 //    print.         Print out a single node, for debugging.
 //
 //-------------------------------------------------------------------------
-void RBBINode::print() {
 #ifdef RBBI_DEBUG
+void RBBINode::printNode() {
     static const char * const nodeTypeNames[] = {
                 "setRef",
                 "uset",
@@ -284,21 +284,23 @@ void RBBINode::print() {
                 "opLParen"
     };
 
-    RBBIDebugPrintf("%10p  %12s  %10p  %10p  %10p      %4d     %6d   %d ",
-        (void *)this, nodeTypeNames[fType], (void *)fParent, (void *)fLeftChild, (void *)fRightChild,
-        fSerialNum, fFirstPos, fVal);
-    if (fType == varRef) {
-        printUnicodeString(fText);
+    if (this==NULL) {
+        RBBIDebugPrintf("%10p", (void *)this);
+    } else {
+        RBBIDebugPrintf("%10p  %12s  %10p  %10p  %10p      %4d     %6d   %d ",
+            (void *)this, nodeTypeNames[fType], (void *)fParent, (void *)fLeftChild, (void *)fRightChild,
+            fSerialNum, fFirstPos, fVal);
+        if (fType == varRef) {
+            RBBI_DEBUG_printUnicodeString(fText);
+        }
     }
     RBBIDebugPrintf("\n");
-#endif
 }
+#endif
 
 
 #ifdef RBBI_DEBUG
-void RBBINode::printUnicodeString(const UnicodeString &, int) {}
-#else
-void RBBINode::printUnicodeString(const UnicodeString &s, int minWidth)
+U_CFUNC void RBBI_DEBUG_printUnicodeString(const UnicodeString &s, int minWidth)
 {
     int i;
     for (i=0; i<s.length(); i++) {
@@ -318,24 +320,24 @@ void RBBINode::printUnicodeString(const UnicodeString &s, int minWidth)
 //
 //-------------------------------------------------------------------------
 #ifdef RBBI_DEBUG
-void RBBINode::printTree(UBool, UBool) {}
-#else
-void RBBINode::printTree(UBool printHeading, UBool doVars) {
+void RBBINode::printTree(UBool printHeading) {
     if (printHeading) {
         RBBIDebugPrintf( "-------------------------------------------------------------------\n"
                          "    Address       type         Parent   LeftChild  RightChild    serial  position value\n"
               );
     }
-    this->print();
-    // Only dump the definition under a variable reference if asked to.
-    // Unconditinally dump children of all other node types.
-    if (fType != varRef || doVars) {
-        if (fLeftChild != NULL) {
-            fLeftChild->printTree(FALSE);
-        }
-
-        if (fRightChild != NULL) {
-            fRightChild->printTree(FALSE);
+    this->printNode();
+    if (this != NULL) {
+        // Only dump the definition under a variable reference if asked to.
+        // Unconditinally dump children of all other node types.
+        if (fType != varRef) {
+            if (fLeftChild != NULL) {
+                fLeftChild->printTree(FALSE);
+            }
+            
+            if (fRightChild != NULL) {
+                fRightChild->printTree(FALSE);
+            }
         }
     }
 }

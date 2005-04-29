@@ -408,164 +408,164 @@
 #3256129: objc/execute/class-7.m execution,  -O3 -g
 #3256129: objc/execute/class-7.m execution,  -Os
 #3256129: objc/execute/class-7.m execution,  -gfull
+#3221858: objc.dg/class-1.m  (test for errors, line 15)
+#3221858: objc.dg/class-1.m  (test for errors, line 18)
+#3221858: objc.dg/naming-2.m  (test for errors, line 11)
+#3221858: objc.dg/naming-2.m  (test for errors, line 9)
+#3221858: objc.dg/objc.c (test for excess errors)
 ###------------------------------------------------------------------
-3256251: objc/execute/bf-1.m compilation,  -O0
-3256251: objc/execute/bf-1.m compilation,  -O1
-3256251: objc/execute/bf-1.m compilation,  -O2
-3256251: objc/execute/bf-1.m compilation,  -O3 -fomit-frame-pointer
-3256251: objc/execute/bf-1.m compilation,  -O3 -g
-3256251: objc/execute/bf-1.m compilation,  -Os
-3256251: objc/execute/bf-10.m compilation,  -O0
-3256251: objc/execute/bf-10.m compilation,  -O1
-3256251: objc/execute/bf-10.m compilation,  -O2
-3256251: objc/execute/bf-10.m compilation,  -O3 -fomit-frame-pointer
-3256251: objc/execute/bf-10.m compilation,  -O3 -g
-3256251: objc/execute/bf-10.m compilation,  -Os
-3256251: objc/execute/bf-11.m compilation,  -O0
-3256251: objc/execute/bf-11.m compilation,  -O1
-3256251: objc/execute/bf-11.m compilation,  -O2
-3256251: objc/execute/bf-11.m compilation,  -O3 -fomit-frame-pointer
-3256251: objc/execute/bf-11.m compilation,  -O3 -g
-3256251: objc/execute/bf-11.m compilation,  -Os
-3256251: objc/execute/bf-12.m compilation,  -O0 
-3256251: objc/execute/bf-12.m compilation,  -O1 
-3256251: objc/execute/bf-12.m compilation,  -O2 
-3256251: objc/execute/bf-12.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-12.m compilation,  -O3 -g 
-3256251: objc/execute/bf-12.m compilation,  -Os 
-3256251: objc/execute/bf-13.m compilation,  -O0 
-3256251: objc/execute/bf-13.m compilation,  -O1 
-3256251: objc/execute/bf-13.m compilation,  -O2 
-3256251: objc/execute/bf-13.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-13.m compilation,  -O3 -g 
-3256251: objc/execute/bf-13.m compilation,  -Os 
-3256251: objc/execute/bf-14.m compilation,  -O0 
-3256251: objc/execute/bf-14.m compilation,  -O1 
-3256251: objc/execute/bf-14.m compilation,  -O2 
-3256251: objc/execute/bf-14.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-14.m compilation,  -O3 -g 
-3256251: objc/execute/bf-14.m compilation,  -Os 
-3256251: objc/execute/bf-15.m compilation,  -O0 
-3256251: objc/execute/bf-15.m compilation,  -O1 
-3256251: objc/execute/bf-15.m compilation,  -O2 
-3256251: objc/execute/bf-15.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-15.m compilation,  -O3 -g 
-3256251: objc/execute/bf-15.m compilation,  -Os 
-3256251: objc/execute/bf-16.m compilation,  -O0 
-3256251: objc/execute/bf-16.m compilation,  -O1 
-3256251: objc/execute/bf-16.m compilation,  -O2 
-3256251: objc/execute/bf-16.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-16.m compilation,  -O3 -g 
-3256251: objc/execute/bf-16.m compilation,  -Os 
-3256251: objc/execute/bf-17.m compilation,  -O0 
-3256251: objc/execute/bf-17.m compilation,  -O1 
-3256251: objc/execute/bf-17.m compilation,  -O2 
-3256251: objc/execute/bf-17.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-17.m compilation,  -O3 -g 
-3256251: objc/execute/bf-17.m compilation,  -Os 
-3256251: objc/execute/bf-18.m compilation,  -O0 
-3256251: objc/execute/bf-18.m compilation,  -O1 
-3256251: objc/execute/bf-18.m compilation,  -O2 
-3256251: objc/execute/bf-18.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-18.m compilation,  -O3 -g 
-3256251: objc/execute/bf-18.m compilation,  -Os 
-3256251: objc/execute/bf-19.m compilation,  -O0 
-3256251: objc/execute/bf-19.m compilation,  -O1 
-3256251: objc/execute/bf-19.m compilation,  -O2 
-3256251: objc/execute/bf-19.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-19.m compilation,  -O3 -g 
-3256251: objc/execute/bf-19.m compilation,  -Os 
-3256251: objc/execute/bf-2.m compilation,  -O0 
-3256251: objc/execute/bf-2.m compilation,  -O1 
-3256251: objc/execute/bf-2.m compilation,  -O2 
-3256251: objc/execute/bf-2.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-2.m compilation,  -O3 -g 
-3256251: objc/execute/bf-2.m compilation,  -Os 
-3256251: objc/execute/bf-20.m compilation,  -O0 
-3256251: objc/execute/bf-20.m compilation,  -O1 
-3256251: objc/execute/bf-20.m compilation,  -O2 
-3256251: objc/execute/bf-20.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-20.m compilation,  -O3 -g 
-3256251: objc/execute/bf-20.m compilation,  -Os 
-3256251: objc/execute/bf-21.m compilation,  -O0 
-3256251: objc/execute/bf-21.m compilation,  -O1 
-3256251: objc/execute/bf-21.m compilation,  -O2 
-3256251: objc/execute/bf-21.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-21.m compilation,  -O3 -g 
-3256251: objc/execute/bf-21.m compilation,  -Os 
-3256251: objc/execute/bf-3.m compilation,  -O0 
-3256251: objc/execute/bf-3.m compilation,  -O1 
-3256251: objc/execute/bf-3.m compilation,  -O2 
-3256251: objc/execute/bf-3.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-3.m compilation,  -O3 -g 
-3256251: objc/execute/bf-3.m compilation,  -Os 
-3256251: objc/execute/bf-4.m compilation,  -O0 
-3256251: objc/execute/bf-4.m compilation,  -O1 
-3256251: objc/execute/bf-4.m compilation,  -O2 
-3256251: objc/execute/bf-4.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-4.m compilation,  -O3 -g 
-3256251: objc/execute/bf-4.m compilation,  -Os 
-3256251: objc/execute/bf-5.m compilation,  -O0 
-3256251: objc/execute/bf-5.m compilation,  -O1 
-3256251: objc/execute/bf-5.m compilation,  -O2 
-3256251: objc/execute/bf-5.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-5.m compilation,  -O3 -g 
-3256251: objc/execute/bf-5.m compilation,  -Os 
-3256251: objc/execute/bf-6.m compilation,  -O0 
-3256251: objc/execute/bf-6.m compilation,  -O1 
-3256251: objc/execute/bf-6.m compilation,  -O2 
-3256251: objc/execute/bf-6.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-6.m compilation,  -O3 -g 
-3256251: objc/execute/bf-6.m compilation,  -Os 
-3256251: objc/execute/bf-7.m compilation,  -O0 
-3256251: objc/execute/bf-7.m compilation,  -O1 
-3256251: objc/execute/bf-7.m compilation,  -O2 
-3256251: objc/execute/bf-7.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-7.m compilation,  -O3 -g 
-3256251: objc/execute/bf-7.m compilation,  -Os 
-3256251: objc/execute/bf-8.m compilation,  -O0 
-3256251: objc/execute/bf-8.m compilation,  -O1 
-3256251: objc/execute/bf-8.m compilation,  -O2 
-3256251: objc/execute/bf-8.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-8.m compilation,  -O3 -g 
-3256251: objc/execute/bf-8.m compilation,  -Os 
-3256251: objc/execute/bf-9.m compilation,  -O0 
-3256251: objc/execute/bf-9.m compilation,  -O1 
-3256251: objc/execute/bf-9.m compilation,  -O2 
-3256251: objc/execute/bf-9.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bf-9.m compilation,  -O3 -g 
-3256251: objc/execute/bf-9.m compilation,  -Os 
-3256251: objc/execute/bycopy-3.m compilation,  -O0 
-3256251: objc/execute/bycopy-3.m compilation,  -O1 
-3256251: objc/execute/bycopy-3.m compilation,  -O2 
-3256251: objc/execute/bycopy-3.m compilation,  -O3 -fomit-frame-pointer 
-3256251: objc/execute/bycopy-3.m compilation,  -O3 -g 
-3256251: objc/execute/bycopy-3.m compilation,  -Os 
-3221858: objc.dg/class-1.m  (test for errors, line 15)
-3221858: objc.dg/class-1.m  (test for errors, line 18)
-3221858: objc.dg/naming-2.m  (test for errors, line 11)
-3221858: objc.dg/naming-2.m  (test for errors, line 9)
-3221858: objc.dg/objc.c (test for excess errors)
-3256251: objc/execute/bf-1.m compilation,  -gfull
-3256251: objc/execute/bf-10.m compilation,  -gfull
-3256251: objc/execute/bf-11.m compilation,  -gfull
-3256251: objc/execute/bf-12.m compilation,  -gfull
-3256251: objc/execute/bf-13.m compilation,  -gfull
-3256251: objc/execute/bf-14.m compilation,  -gfull
-3256251: objc/execute/bf-15.m compilation,  -gfull
-3256251: objc/execute/bf-16.m compilation,  -gfull
-3256251: objc/execute/bf-17.m compilation,  -gfull
-3256251: objc/execute/bf-18.m compilation,  -gfull
-3256251: objc/execute/bf-19.m compilation,  -gfull
-3256251: objc/execute/bf-2.m compilation,  -gfull
-3256251: objc/execute/bf-20.m compilation,  -gfull
-3256251: objc/execute/bf-21.m compilation,  -gfull
-3256251: objc/execute/bf-3.m compilation,  -gfull
-3256251: objc/execute/bf-4.m compilation,  -gfull
-3256251: objc/execute/bf-5.m compilation,  -gfull
-3256251: objc/execute/bf-6.m compilation,  -gfull
-3256251: objc/execute/bf-7.m compilation,  -gfull
-3256251: objc/execute/bf-8.m compilation,  -gfull
-3256251: objc/execute/bf-9.m compilation,  -gfull
-3256251: objc/execute/bycopy-3.m compilation,  -gfull
-3252510: objc.dg/try-catch-2.m (test for excess errors)
+#3256251: objc/execute/bf-1.m compilation,  -O0
+#3256251: objc/execute/bf-1.m compilation,  -O1
+#3256251: objc/execute/bf-1.m compilation,  -O2
+#3256251: objc/execute/bf-1.m compilation,  -O3 -fomit-frame-pointer
+#3256251: objc/execute/bf-1.m compilation,  -O3 -g
+#3256251: objc/execute/bf-1.m compilation,  -Os
+#3256251: objc/execute/bf-10.m compilation,  -O0
+#3256251: objc/execute/bf-10.m compilation,  -O1
+#3256251: objc/execute/bf-10.m compilation,  -O2
+#3256251: objc/execute/bf-10.m compilation,  -O3 -fomit-frame-pointer
+#3256251: objc/execute/bf-10.m compilation,  -O3 -g
+#3256251: objc/execute/bf-10.m compilation,  -Os
+#3256251: objc/execute/bf-11.m compilation,  -O0
+#3256251: objc/execute/bf-11.m compilation,  -O1
+#3256251: objc/execute/bf-11.m compilation,  -O2
+#3256251: objc/execute/bf-11.m compilation,  -O3 -fomit-frame-pointer
+#3256251: objc/execute/bf-11.m compilation,  -O3 -g
+#3256251: objc/execute/bf-11.m compilation,  -Os
+#3256251: objc/execute/bf-12.m compilation,  -O0 
+#3256251: objc/execute/bf-12.m compilation,  -O1 
+#3256251: objc/execute/bf-12.m compilation,  -O2 
+#3256251: objc/execute/bf-12.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-12.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-12.m compilation,  -Os 
+#3256251: objc/execute/bf-13.m compilation,  -O0 
+#3256251: objc/execute/bf-13.m compilation,  -O1 
+#3256251: objc/execute/bf-13.m compilation,  -O2 
+#3256251: objc/execute/bf-13.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-13.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-13.m compilation,  -Os 
+#3256251: objc/execute/bf-14.m compilation,  -O0 
+#3256251: objc/execute/bf-14.m compilation,  -O1 
+#3256251: objc/execute/bf-14.m compilation,  -O2 
+#3256251: objc/execute/bf-14.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-14.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-14.m compilation,  -Os 
+#3256251: objc/execute/bf-15.m compilation,  -O0 
+#3256251: objc/execute/bf-15.m compilation,  -O1 
+#3256251: objc/execute/bf-15.m compilation,  -O2 
+#3256251: objc/execute/bf-15.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-15.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-15.m compilation,  -Os 
+#3256251: objc/execute/bf-16.m compilation,  -O0 
+#3256251: objc/execute/bf-16.m compilation,  -O1 
+#3256251: objc/execute/bf-16.m compilation,  -O2 
+#3256251: objc/execute/bf-16.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-16.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-16.m compilation,  -Os 
+#3256251: objc/execute/bf-17.m compilation,  -O0 
+#3256251: objc/execute/bf-17.m compilation,  -O1 
+#3256251: objc/execute/bf-17.m compilation,  -O2 
+#3256251: objc/execute/bf-17.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-17.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-17.m compilation,  -Os 
+#3256251: objc/execute/bf-18.m compilation,  -O0 
+#3256251: objc/execute/bf-18.m compilation,  -O1 
+#3256251: objc/execute/bf-18.m compilation,  -O2 
+#3256251: objc/execute/bf-18.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-18.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-18.m compilation,  -Os 
+#3256251: objc/execute/bf-19.m compilation,  -O0 
+#3256251: objc/execute/bf-19.m compilation,  -O1 
+#3256251: objc/execute/bf-19.m compilation,  -O2 
+#3256251: objc/execute/bf-19.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-19.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-19.m compilation,  -Os 
+#3256251: objc/execute/bf-2.m compilation,  -O0 
+#3256251: objc/execute/bf-2.m compilation,  -O1 
+#3256251: objc/execute/bf-2.m compilation,  -O2 
+#3256251: objc/execute/bf-2.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-2.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-2.m compilation,  -Os 
+#3256251: objc/execute/bf-20.m compilation,  -O0 
+#3256251: objc/execute/bf-20.m compilation,  -O1 
+#3256251: objc/execute/bf-20.m compilation,  -O2 
+#3256251: objc/execute/bf-20.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-20.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-20.m compilation,  -Os 
+#3256251: objc/execute/bf-21.m compilation,  -O0 
+#3256251: objc/execute/bf-21.m compilation,  -O1 
+#3256251: objc/execute/bf-21.m compilation,  -O2 
+#3256251: objc/execute/bf-21.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-21.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-21.m compilation,  -Os 
+#3256251: objc/execute/bf-3.m compilation,  -O0 
+#3256251: objc/execute/bf-3.m compilation,  -O1 
+#3256251: objc/execute/bf-3.m compilation,  -O2 
+#3256251: objc/execute/bf-3.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-3.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-3.m compilation,  -Os 
+#3256251: objc/execute/bf-4.m compilation,  -O0 
+#3256251: objc/execute/bf-4.m compilation,  -O1 
+#3256251: objc/execute/bf-4.m compilation,  -O2 
+#3256251: objc/execute/bf-4.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-4.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-4.m compilation,  -Os 
+#3256251: objc/execute/bf-5.m compilation,  -O0 
+#3256251: objc/execute/bf-5.m compilation,  -O1 
+#3256251: objc/execute/bf-5.m compilation,  -O2 
+#3256251: objc/execute/bf-5.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-5.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-5.m compilation,  -Os 
+#3256251: objc/execute/bf-6.m compilation,  -O0 
+#3256251: objc/execute/bf-6.m compilation,  -O1 
+#3256251: objc/execute/bf-6.m compilation,  -O2 
+#3256251: objc/execute/bf-6.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-6.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-6.m compilation,  -Os 
+#3256251: objc/execute/bf-7.m compilation,  -O0 
+#3256251: objc/execute/bf-7.m compilation,  -O1 
+#3256251: objc/execute/bf-7.m compilation,  -O2 
+#3256251: objc/execute/bf-7.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-7.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-7.m compilation,  -Os 
+#3256251: objc/execute/bf-8.m compilation,  -O0 
+#3256251: objc/execute/bf-8.m compilation,  -O1 
+#3256251: objc/execute/bf-8.m compilation,  -O2 
+#3256251: objc/execute/bf-8.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-8.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-8.m compilation,  -Os 
+#3256251: objc/execute/bf-9.m compilation,  -O0 
+#3256251: objc/execute/bf-9.m compilation,  -O1 
+#3256251: objc/execute/bf-9.m compilation,  -O2 
+#3256251: objc/execute/bf-9.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-9.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-9.m compilation,  -Os 
+#3256251: objc/execute/bycopy-3.m compilation,  -O0 
+#3256251: objc/execute/bycopy-3.m compilation,  -O1 
+#3256251: objc/execute/bycopy-3.m compilation,  -O2 
+#3256251: objc/execute/bycopy-3.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bycopy-3.m compilation,  -O3 -g 
+#3256251: objc/execute/bycopy-3.m compilation,  -Os 
+#3256251: objc/execute/bf-1.m compilation,  -gfull
+#3256251: objc/execute/bf-10.m compilation,  -gfull
+#3256251: objc/execute/bf-11.m compilation,  -gfull
+#3256251: objc/execute/bf-12.m compilation,  -gfull
+#3256251: objc/execute/bf-13.m compilation,  -gfull
+#3256251: objc/execute/bf-14.m compilation,  -gfull
+#3256251: objc/execute/bf-15.m compilation,  -gfull
+#3256251: objc/execute/bf-16.m compilation,  -gfull
+#3256251: objc/execute/bf-17.m compilation,  -gfull
+#3256251: objc/execute/bf-18.m compilation,  -gfull
+#3256251: objc/execute/bf-19.m compilation,  -gfull
+#3256251: objc/execute/bf-2.m compilation,  -gfull
+#3256251: objc/execute/bf-20.m compilation,  -gfull
+#3256251: objc/execute/bf-21.m compilation,  -gfull
+#3256251: objc/execute/bf-3.m compilation,  -gfull
+#3256251: objc/execute/bf-4.m compilation,  -gfull
+#3256251: objc/execute/bf-5.m compilation,  -gfull
+#3256251: objc/execute/bf-6.m compilation,  -gfull
+#3256251: objc/execute/bf-7.m compilation,  -gfull
+#3256251: objc/execute/bf-8.m compilation,  -gfull
+#3256251: objc/execute/bf-9.m compilation,  -gfull
+#3256251: objc/execute/bycopy-3.m compilation,  -gfull
+#3252510: objc.dg/try-catch-2.m (test for excess errors)

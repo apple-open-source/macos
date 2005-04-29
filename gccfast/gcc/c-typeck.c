@@ -4200,6 +4200,15 @@ build_modify_expr (lhs, modifycode, rhs)
     {
     case NOP_EXPR:
     case CONVERT_EXPR:
+      /* APPLE LOCAL begin XJR */
+      if (flag_objc && flag_objc_gc)
+	{
+	  result = objc_generate_write_barrier (lhs, modifycode, newrhs);
+	  if (result)
+	    return result;
+	  /* Otherwise, fall through.  */
+	}
+      /* APPLE LOCAL end XJR */  
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case FIX_FLOOR_EXPR:
@@ -4265,6 +4274,15 @@ build_modify_expr (lhs, modifycode, rhs)
     return error_mark_node;
 
   /* Scan operands */
+
+  /* APPLE LOCAL begin XJR */
+  if (flag_objc && flag_objc_gc)
+    {
+      result = objc_generate_write_barrier (lhs, modifycode, newrhs);
+      if (result)
+	return result;
+    }
+  /* APPLE LOCAL end XJR */  
 
   result = build (MODIFY_EXPR, lhstype, lhs, newrhs);
   TREE_SIDE_EFFECTS (result) = 1;
@@ -7330,15 +7348,45 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
    through the usual process.  */
 
 tree
-get_structure_offset (typename, component)
+cw_asm_c_build_component_ref (typename, component)
      tree typename, component;
 {
-  tree type = TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (typename));
+  tree val, type, fake_datum;
   enum tree_code code;
   tree field = NULL;
   tree ref;
 
-  tree fake_datum = make_node (VAR_DECL);
+  /* Intercept variables here and make a component ref instead.  */
+  if (TREE_CODE (typename) == VAR_DECL)
+    {
+      return build_component_ref (typename, component);
+    }
+
+  val = IDENTIFIER_GLOBAL_VALUE (typename);
+  if (val)
+    {
+      type = TREE_TYPE (val);
+    }
+  else
+    {
+      extern tree lookup_struct_or_union_tag (tree);
+
+      /* A structure tag will have been assumed to be a label; pick
+	 out the original name.  */
+      if (strncmp ("LASM", IDENTIFIER_POINTER (typename), 4) == 0)
+	{
+	  char *pos = strchr (IDENTIFIER_POINTER (typename), '$');
+	  typename = get_identifier (pos + 1);
+	}
+      type = lookup_struct_or_union_tag (typename);
+      if (!type)
+	{
+	  error ("no structure or union tag named `%s'", IDENTIFIER_POINTER (typename));
+	  return error_mark_node;
+	}
+    }
+
+  fake_datum = make_node (VAR_DECL);
   TREE_TYPE (fake_datum) = type;
 
   code = TREE_CODE (type);

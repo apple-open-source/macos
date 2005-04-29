@@ -20,18 +20,18 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* Specify predefined symbols in preprocessor.  */
-
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-Dmips -DMIPSEB -DR4000 -D_mips -D_MIPSEB -D_R4000 \
-   -D__rtems__ -Asystem=rtems"
+#define TARGET_OS_CPP_BUILTINS()	\
+do {					\
+  builtin_define ("__rtems__");		\
+  builtin_assert ("system=rtems");	\
+} while (0)
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_rdata
+#define EXTRA_SECTIONS in_sdata
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS                                         \
-  SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(rdata_section, in_rdata, RDATA_SECTION_ASM_OP)
+  SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP)
 
 #undef STARTFILE_SPEC
 #undef ENDFILE_SPEC

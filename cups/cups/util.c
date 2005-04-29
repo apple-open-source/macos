@@ -1,9 +1,9 @@
 /*
- * "$Id: util.c,v 1.10 2003/09/13 06:10:24 jlovell Exp $"
+ * "$Id: util.c,v 1.23 2005/01/19 23:38:17 jlovell Exp $"
  *
  *   Printing utilities for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -30,15 +30,19 @@
  *   cupsFreeJobs()      - Free memory used by job data.
  *   cupsGetClasses()    - Get a list of printer classes.
  *   cupsGetDefault()    - Get the default printer or class.
+ *   cupsGetDefault2()   - Get the default printer or class.
  *   cupsGetJobs()       - Get the jobs from the server.
+ *   cupsGetJobs2()      - Get the jobs from the server.
  *   cupsGetPPD()        - Get the PPD file for a printer.
+ *   cupsGetPPD2()       - Get the PPD file for a printer.
  *   cupsGetPrinters()   - Get a list of printers.
  *   cupsLastError()     - Return the last IPP error that occurred.
  *   cupsPrintFile()     - Print a file to a printer or class.
+ *   cupsPrintFile2()    - Print a file to a printer or class.
  *   cupsPrintFiles()    - Print one or more files to a printer or class.
+ *   cupsPrintFiles2()   - Print one or more files to a printer or class.
  *   cups_connect()      - Connect to the specified host...
- *   cups_local_auth()   - Get the local authorization certificate if
- *                         available/applicable...
+ *   cups_getleadprinter()- Get the lead printer in a class...
  */
 
 /*
@@ -46,15 +50,18 @@
  */
 
 #include "cups.h"
-#include "ipp.h"
 #include "language.h"
 #include "string.h"
+#include "globals.h"
 #include "debug.h"
 #include <stdlib.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#ifdef HAVE_INTTYPES_H
+#  include <inttypes.h>
+#endif /* HAVE_INTTYPES_H */
 #if defined(WIN32) || defined(__EMX__)
 #  include <io.h>
 #else
@@ -63,31 +70,20 @@
 
 
 /*
- * Local globals...
- */
-
-static http_t		*cups_server = NULL;	/* Current server connection */
-static ipp_status_t	last_error = IPP_OK;	/* Last IPP error */
-static char		authstring[HTTP_MAX_VALUE] = "";
-						/* Authorization string */
-static char		pwdstring[33] = "";	/* Last password string */
-
-
-/*
  * Local functions...
  */
 
 static char	*cups_connect(const char *name, char *printer, char *hostname);
-static int	cups_local_auth(http_t *http);
-
+static int	cups_getleadprinter(http_t *http, const char *hostname, 
+			const char *className, char *printer, size_t bufferSize);
 
 /*
  * 'cupsCancelJob()' - Cancel a print job.
  */
 
-int				/* O - 1 on success, 0 on failure */
-cupsCancelJob(const char *name,	/* I - Name of printer or class */
-              int        job)	/* I - Job ID */
+int					/* O - 1 on success, 0 on failure */
+cupsCancelJob(const char *name,		/* I - Name of printer or class */
+              int        job)		/* I - Job ID */
 {
   char		printer[HTTP_MAX_URI],	/* Printer name */
 		hostname[HTTP_MAX_URI],	/* Hostname */
@@ -95,6 +91,7 @@ cupsCancelJob(const char *name,	/* I - Name of printer or class */
   ipp_t		*request,		/* IPP request */
 		*response;		/* IPP response */
   cups_lang_t	*language;		/* Language info */
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
 
 
  /*
@@ -104,7 +101,7 @@ cupsCancelJob(const char *name,	/* I - Name of printer or class */
   if (!cups_connect(name, printer, hostname))
   {
     DEBUG_puts("Unable to connect to server!");
-    last_error = IPP_SERVICE_UNAVAILABLE;
+    cg->last_error = IPP_SERVICE_UNAVAILABLE;
     return (0);
   }
 
@@ -133,6 +130,8 @@ cupsCancelJob(const char *name,	/* I - Name of printer or class */
                "attributes-natural-language", NULL,
                language != NULL ? language->language : "C");
 
+  cupsLangFree(language);
+
   snprintf(uri, sizeof(uri), "ipp://%s:%d/printers/%s", hostname, ippPort(), printer);
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
                NULL, uri);
@@ -146,18 +145,10 @@ cupsCancelJob(const char *name,	/* I - Name of printer or class */
   * Do the request...
   */
 
-  if ((response = cupsDoRequest(cups_server, request, "/jobs/")) == NULL)
-  {
-    last_error = IPP_BAD_REQUEST;
-    return (0);
-  }
-  else
-  {
-    last_error = response->request.status.status_code;
+  if ((response = cupsDoRequest(cg->http, request, "/jobs/")) != NULL)
     ippDelete(response);
 
-    return (1);
-  }
+  return (cg->last_error < IPP_REDIRECTION_OTHER_SITE);
 }
 
 
@@ -178,13 +169,7 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
   struct stat	fileinfo;		/* File information */
   int		bytes;			/* Number of bytes read/written */
   char		buffer[32768];		/* Output buffer */
-  const char	*password;		/* Password string */
-  char		realm[HTTP_MAX_VALUE],	/* realm="xyz" string */
-		nonce[HTTP_MAX_VALUE],	/* nonce="xyz" string */
-		plain[255],		/* Plaintext username:password */
-		encode[512];		/* Encoded username:password */
-  char		prompt[1024];		/* Prompt string */
-  int		digest_tries;		/* Number of tries with Digest */
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
 
 
   DEBUG_printf(("cupsDoFileRequest(%p, %p, \'%s\', \'%s\')\n",
@@ -196,7 +181,7 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
     if (request != NULL)
       ippDelete(request);
 
-    last_error = IPP_INTERNAL_ERROR;
+    cg->last_error = IPP_INTERNAL_ERROR;
     return (NULL);
   }
 
@@ -213,7 +198,7 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
       */
 
       ippDelete(request);
-      last_error = IPP_NOT_FOUND;
+      cg->last_error = IPP_NOT_FOUND;
       return (NULL);
     }
 
@@ -228,7 +213,7 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
       */
 
       ippDelete(request);
-      last_error = IPP_NOT_POSSIBLE;
+      cg->last_error = IPP_NOT_POSSIBLE;
       return (NULL);
     }
 
@@ -239,7 +224,7 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
       */
 
       ippDelete(request);
-      last_error = IPP_NOT_FOUND;
+      cg->last_error = IPP_NOT_FOUND;
       return (NULL);
     }
   }
@@ -250,9 +235,8 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
   * Loop until we can send the request without authorization problems.
   */
 
-  response     = NULL;
-  status       = HTTP_ERROR;
-  digest_tries = 0;
+  response = NULL;
+  status   = HTTP_ERROR;
 
   while (response == NULL)
   {
@@ -263,17 +247,17 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
     */
 
     if (filename != NULL)
-      sprintf(length, "%lu", (unsigned long)(ippLength(request) +
-                                             (size_t)fileinfo.st_size));
+      sprintf(length, "%" PRIdMAX "", (intmax_t)(ippLength(request) +
+                                             fileinfo.st_size));
     else
-      sprintf(length, "%lu", (unsigned long)ippLength(request));
+      sprintf(length, "%" PRIdMAX "", (intmax_t)ippLength(request));
 
     httpClearFields(http);
     httpSetField(http, HTTP_FIELD_CONTENT_LENGTH, length);
     httpSetField(http, HTTP_FIELD_CONTENT_TYPE, "application/ipp");
-    httpSetField(http, HTTP_FIELD_AUTHORIZATION, authstring);
+    httpSetField(http, HTTP_FIELD_AUTHORIZATION, http->authstring);
 
-    DEBUG_printf(("cupsDoFileRequest: authstring=\"%s\"\n", authstring));
+    DEBUG_printf(("cupsDoFileRequest: authstring=\"%s\"\n", http->authstring));
 
    /*
     * Try the request...
@@ -299,6 +283,8 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
     DEBUG_puts("cupsDoFileRequest: ipp write...");
 
     request->state = IPP_IDLE;
+    status         = HTTP_CONTINUE;
+
     if (ippWrite(http, request) != IPP_ERROR)
       if (filename != NULL)
       {
@@ -311,8 +297,16 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
         rewind(file);
 
         while ((bytes = fread(buffer, 1, sizeof(buffer), file)) > 0)
+	{
+	  if (httpCheck(http))
+	  {
+	    if ((status = httpUpdate(http)) != HTTP_CONTINUE)
+	      break;
+          }
+
   	  if (httpWrite(http, buffer, bytes) < bytes)
             break;
+        }
       }
 
    /*
@@ -321,7 +315,8 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
 
     DEBUG_puts("cupsDoFileRequest: update...");
 
-    while ((status = httpUpdate(http)) == HTTP_CONTINUE);
+    while (status == HTTP_CONTINUE)
+      status = httpUpdate(http);
 
     DEBUG_printf(("cupsDoFileRequest: status = %d\n", status));
 
@@ -334,69 +329,18 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
       */
 
       httpFlush(http);
-      httpReconnect(http);
 
      /*
-      * See if we can do local authentication...
+      * See if we can do authentication...
       */
 
-      if (cups_local_auth(http))
-        continue;
+      if (cupsDoAuthentication(http, "POST", resource))
+        break;
 
-     /*
-      * See if we should retry the current digest password...
-      */
-
-      if (strncmp(http->fields[HTTP_FIELD_WWW_AUTHENTICATE], "Basic", 5) == 0 ||
-          digest_tries > 1 || !pwdstring[0])
+      if (httpReconnect(http))
       {
-       /*
-	* Nope - get a password from the user...
-	*/
-
-	snprintf(prompt, sizeof(prompt), "Password for %s on %s? ", cupsUser(),
-        	 http->hostname);
-
-        if ((password = cupsGetPassword(prompt)) == NULL)
-	  break;
-	if (!password[0])
-	  break;
-
-        strlcpy(pwdstring, password, sizeof(pwdstring));
-
-        digest_tries = 0;
-      }
-      else
-        digest_tries ++;
-
-     /*
-      * Got a password; encode it for the server...
-      */
-
-      if (strncmp(http->fields[HTTP_FIELD_WWW_AUTHENTICATE], "Basic", 5) == 0)
-      {
-       /*
-	* Basic authentication...
-	*/
-
-	snprintf(plain, sizeof(plain), "%s:%s", cupsUser(), pwdstring);
-	httpEncode64(encode, plain);
-	snprintf(authstring, sizeof(authstring), "Basic %s", encode);
-      }
-      else
-      {
-       /*
-	* Digest authentication...
-	*/
-
-        httpGetSubField(http, HTTP_FIELD_WWW_AUTHENTICATE, "realm", realm);
-        httpGetSubField(http, HTTP_FIELD_WWW_AUTHENTICATE, "nonce", nonce);
-
-	httpMD5(cupsUser(), realm, pwdstring, encode);
-	httpMD5Final(nonce, "POST", resource, encode);
-	snprintf(authstring, sizeof(authstring),
-	         "Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", "
-	         "response=\"%s\"", cupsUser(), realm, nonce, encode);
+        status = HTTP_ERROR;
+        break;
       }
 
       continue;
@@ -415,22 +359,20 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
 #ifdef HAVE_SSL
     else if (status == HTTP_UPGRADE_REQUIRED)
     {
-     /*
-      * Flush any error message...
-      */
-
+      /* Flush any error message... */
       httpFlush(http);
 
-     /*
-      * Upgrade with encryption...
-      */
+      /* Reconnect... */
+      if (httpReconnect(http))
+      {
+        status = HTTP_ERROR;
+        break;
+      }
 
+      /* Upgrade with encryption... */
       httpEncryption(http, HTTP_ENCRYPT_REQUIRED);
 
-     /*
-      * Try again, this time with encryption enabled...
-      */
-
+      /* Try again, this time with encryption enabled... */
       continue;
     }
 #endif /* HAVE_SSL */
@@ -465,7 +407,7 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
 	ippDelete(response);
 	response = NULL;
 
-        last_error = IPP_SERVICE_UNAVAILABLE;
+        cg->last_error = IPP_SERVICE_UNAVAILABLE;
 	break;
       }
     }
@@ -491,16 +433,45 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
   ippDelete(request);
 
   if (response)
-    last_error = response->request.status.status_code;
-  else if (status == HTTP_NOT_FOUND)
-    last_error = IPP_NOT_FOUND;
-  else if (status == HTTP_UNAUTHORIZED)
-    last_error = IPP_NOT_AUTHORIZED;
+    cg->last_error = response->request.status.status_code;
   else if (status != HTTP_OK)
   {
-    DEBUG_printf(("HTTP error %d mapped to IPP_SERVICE_UNAVAILABLE!\n",
-                  status));
-    last_error = IPP_SERVICE_UNAVAILABLE;
+    switch (status)
+    {
+      case HTTP_NOT_FOUND :
+          cg->last_error = IPP_NOT_FOUND;
+	  break;
+
+      case HTTP_UNAUTHORIZED :
+          cg->last_error = IPP_NOT_AUTHORIZED;
+	  break;
+
+      case HTTP_FORBIDDEN :
+          cg->last_error = IPP_FORBIDDEN;
+	  break;
+
+      case HTTP_BAD_REQUEST :
+          cg->last_error = IPP_BAD_REQUEST;
+	  break;
+
+      case HTTP_REQUEST_TOO_LARGE :
+          cg->last_error = IPP_REQUEST_VALUE;
+	  break;
+
+      case HTTP_NOT_IMPLEMENTED :
+          cg->last_error = IPP_OPERATION_NOT_SUPPORTED;
+	  break;
+
+      case HTTP_NOT_SUPPORTED :
+          cg->last_error = IPP_VERSION_NOT_SUPPORTED;
+	  break;
+
+      default :
+	  DEBUG_printf(("HTTP error %d mapped to IPP_SERVICE_UNAVAILABLE!\n",
+                	status));
+	  cg->last_error = IPP_SERVICE_UNAVAILABLE;
+	  break;
+    }
   }
 
   return (response);
@@ -512,10 +483,10 @@ cupsDoFileRequest(http_t     *http,	/* I - HTTP connection to server */
  */
 
 void
-cupsFreeJobs(int        num_jobs,/* I - Number of jobs */
-             cups_job_t *jobs)	/* I - Jobs */
+cupsFreeJobs(int        num_jobs,	/* I - Number of jobs */
+             cups_job_t *jobs)		/* I - Jobs */
 {
-  int	i;			/* Looping var */
+  int	i;				/* Looping var */
 
 
   if (num_jobs <= 0 || jobs == NULL)
@@ -537,20 +508,21 @@ cupsFreeJobs(int        num_jobs,/* I - Number of jobs */
  * 'cupsGetClasses()' - Get a list of printer classes.
  */
 
-int				/* O - Number of classes */
-cupsGetClasses(char ***classes)	/* O - Classes */
+int					/* O - Number of classes */
+cupsGetClasses(char ***classes)		/* O - Classes */
 {
-  int		n;		/* Number of classes */
-  ipp_t		*request,	/* IPP Request */
-		*response;	/* IPP Response */
-  ipp_attribute_t *attr;	/* Current attribute */
-  cups_lang_t	*language;	/* Default language */
-  char		**temp;		/* Temporary pointer */
+  int		n;			/* Number of classes */
+  ipp_t		*request,		/* IPP Request */
+		*response;		/* IPP Response */
+  ipp_attribute_t *attr;		/* Current attribute */
+  cups_lang_t	*language;		/* Default language */
+  char		**temp;			/* Temporary pointer */
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
 
 
   if (classes == NULL)
   {
-    last_error = IPP_INTERNAL_ERROR;
+    cg->last_error = IPP_INTERNAL_ERROR;
     return (0);
   }
 
@@ -561,7 +533,7 @@ cupsGetClasses(char ***classes)	/* O - Classes */
   if (!cups_connect("default", NULL, NULL))
   {
     DEBUG_puts("Unable to connect to server!");
-    last_error = IPP_SERVICE_UNAVAILABLE;
+    cg->last_error = IPP_SERVICE_UNAVAILABLE;
     return (0);
   }
 
@@ -587,6 +559,8 @@ cupsGetClasses(char ***classes)	/* O - Classes */
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
                "attributes-natural-language", NULL, language->language);
 
+  cupsLangFree(language);
+
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
                "requested-attributes", NULL, "printer-name");
 
@@ -597,9 +571,9 @@ cupsGetClasses(char ***classes)	/* O - Classes */
   n        = 0;
   *classes = NULL;
 
-  if ((response = cupsDoRequest(cups_server, request, "/")) != NULL)
+  if ((response = cupsDoRequest(cg->http, request, "/")) != NULL)
   {
-    last_error = response->request.status.status_code;
+    cg->last_error = response->request.status.status_code;
 
     for (attr = response->attrs; attr != NULL; attr = attr->next)
       if (attr->name != NULL &&
@@ -636,7 +610,7 @@ cupsGetClasses(char ***classes)	/* O - Classes */
     ippDelete(response);
   }
   else
-    last_error = IPP_BAD_REQUEST;
+    cg->last_error = IPP_BAD_REQUEST;
 
   return (n);
 }
@@ -646,15 +620,11 @@ cupsGetClasses(char ***classes)	/* O - Classes */
  * 'cupsGetDefault()' - Get the default printer or class.
  */
 
-const char *			/* O - Default printer or NULL */
+const char *				/* O - Default printer or NULL */
 cupsGetDefault(void)
 {
-  ipp_t		*request,	/* IPP Request */
-		*response;	/* IPP Response */
-  ipp_attribute_t *attr;	/* Current attribute */
-  cups_lang_t	*language;	/* Default language */
-  const char	*var;		/* Environment variable */
-  static char	def_printer[256];/* Default printer */
+  const char	*var;			/* Environment variable */
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
 
 
  /*
@@ -676,9 +646,51 @@ cupsGetDefault(void)
   if (!cups_connect("default", NULL, NULL))
   {
     DEBUG_puts("Unable to connect to server!");
-    last_error = IPP_SERVICE_UNAVAILABLE;
+    cg->last_error = IPP_SERVICE_UNAVAILABLE;
     return (NULL);
   }
+
+ /*
+  * Return the default printer...
+  */
+
+  return (cupsGetDefault2(cg->http));
+}
+
+
+/*
+ * 'cupsGetDefault2()' - Get the default printer or class.
+ */
+
+const char *				/* O - Default printer or NULL */
+cupsGetDefault2(http_t *http)		/* I - HTTP connection */
+{
+  ipp_t		*request,		/* IPP Request */
+		*response;		/* IPP Response */
+  ipp_attribute_t *attr;		/* Current attribute */
+  cups_lang_t	*language;		/* Default language */
+  const char	*var;			/* Environment variable */
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
+
+
+ /*
+  * First see if the LPDEST or PRINTER environment variables are
+  * set...  However, if PRINTER is set to "lp", ignore it to work
+  * around a "feature" in most Linux distributions - the default
+  * user login scripts set PRINTER to "lp"...
+  */
+
+  if ((var = getenv("LPDEST")) != NULL)
+    return (var);
+  else if ((var = getenv("PRINTER")) != NULL && strcmp(var, "lp") != 0)
+    return (var);
+
+ /*
+  * Range check input...
+  */
+
+  if (!http)
+    return (NULL);
 
  /*
   * Build a CUPS_GET_DEFAULT request, which requires the following
@@ -701,25 +713,27 @@ cupsGetDefault(void)
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
                "attributes-natural-language", NULL, language->language);
 
+  cupsLangFree(language);
+
  /*
   * Do the request and get back a response...
   */
 
-  if ((response = cupsDoRequest(cups_server, request, "/")) != NULL)
+  if ((response = cupsDoRequest(http, request, "/")) != NULL)
   {
-    last_error = response->request.status.status_code;
+    cg->last_error = response->request.status.status_code;
 
     if ((attr = ippFindAttribute(response, "printer-name", IPP_TAG_NAME)) != NULL)
     {
-      strlcpy(def_printer, attr->values[0].string.text, sizeof(def_printer));
+      strlcpy(cg->def_printer, attr->values[0].string.text, sizeof(cg->def_printer));
       ippDelete(response);
-      return (def_printer);
+      return (cg->def_printer);
     }
 
     ippDelete(response);
   }
   else
-    last_error = IPP_BAD_REQUEST;
+    cg->last_error = IPP_BAD_REQUEST;
 
   return (NULL);
 }
@@ -734,6 +748,39 @@ cupsGetJobs(cups_job_t **jobs,		/* O - Job data */
             const char *mydest,		/* I - Only show jobs for dest? */
             int        myjobs,		/* I - Only show my jobs? */
 	    int        completed)	/* I - Only show completed jobs? */
+{
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
+
+ /*
+  * Try to connect to the server...
+  */
+
+  if (!cups_connect("default", NULL, NULL))
+  {
+    DEBUG_puts("Unable to connect to server!");
+    cg->last_error = IPP_SERVICE_UNAVAILABLE;
+    return (-1);
+  }
+
+ /*
+  * Return the jobs...
+  */
+
+  return (cupsGetJobs2(cg->http, jobs, mydest, myjobs, completed));
+}
+
+
+
+/*
+ * 'cupsGetJobs2()' - Get the jobs from the server.
+ */
+
+int					/* O - Number of jobs */
+cupsGetJobs2(http_t     *http,		/* I - HTTP connection */
+             cups_job_t **jobs,		/* O - Job data */
+             const char *mydest,	/* I - Only show jobs for dest? */
+             int        myjobs,		/* I - Only show my jobs? */
+	     int        completed)	/* I - Only show completed jobs? */
 {
   int		n;			/* Number of jobs */
   ipp_t		*request,		/* IPP Request */
@@ -753,6 +800,7 @@ cupsGetJobs(cups_job_t **jobs,		/* O - Job data */
 		*title,			/* job-name */
 		*user;			/* job-originating-user-name */
   char		uri[HTTP_MAX_URI];	/* URI for jobs */
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
   static const char * const attrs[] =	/* Requested attributes */
 		{
 		  "job-id",
@@ -769,21 +817,10 @@ cupsGetJobs(cups_job_t **jobs,		/* O - Job data */
 		};
 
 
-  if (jobs == NULL)
+  if (!http || !jobs)
   {
-    last_error = IPP_INTERNAL_ERROR;
-    return (0);
-  }
-
- /*
-  * Try to connect to the server...
-  */
-
-  if (!cups_connect("default", NULL, NULL))
-  {
-    DEBUG_puts("Unable to connect to server!");
-    last_error = IPP_SERVICE_UNAVAILABLE;
-    return (0);
+    cg->last_error = IPP_INTERNAL_ERROR;
+    return (-1);
   }
 
  /*
@@ -811,6 +848,8 @@ cupsGetJobs(cups_job_t **jobs,		/* O - Job data */
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
                "attributes-natural-language", NULL, language->language);
+
+  cupsLangFree(language);
 
   if (mydest)
     snprintf(uri, sizeof(uri), "ipp://localhost/printers/%s", mydest);
@@ -841,9 +880,9 @@ cupsGetJobs(cups_job_t **jobs,		/* O - Job data */
   n     = 0;
   *jobs = NULL;
 
-  if ((response = cupsDoRequest(cups_server, request, "/")) != NULL)
+  if ((response = cupsDoRequest(http, request, "/")) != NULL)
   {
-    last_error = response->request.status.status_code;
+    cg->last_error = response->request.status.status_code;
 
     for (attr = response->attrs; attr != NULL; attr = attr->next)
     {
@@ -977,9 +1016,12 @@ cupsGetJobs(cups_job_t **jobs,		/* O - Job data */
     ippDelete(response);
   }
   else
-    last_error = IPP_BAD_REQUEST;
+    cg->last_error = IPP_BAD_REQUEST;
 
-  return (n);
+  if (n == 0 && cg->last_error >= IPP_BAD_REQUEST)
+    return (-1);
+  else
+    return (n);
 }
 
 
@@ -990,30 +1032,54 @@ cupsGetJobs(cups_job_t **jobs,		/* O - Job data */
 const char *				/* O - Filename for PPD file */
 cupsGetPPD(const char *name)		/* I - Printer name */
 {
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
+
+ /*
+  * See if we can connect to the server...
+  */
+
+  if (!cups_connect(name, NULL, NULL))
+  {
+    DEBUG_puts("Unable to connect to server!");
+    cg->last_error = IPP_SERVICE_UNAVAILABLE;
+    return (NULL);
+  }
+
+ /*
+  * Return the PPD file...
+  */
+
+  return (cupsGetPPD2(cg->http, name));
+}
+
+
+/*
+ * 'cupsGetPPD2()' - Get the PPD file for a printer.
+ */
+
+const char *				/* O - Filename for PPD file */
+cupsGetPPD2(http_t     *http,		/* I - HTTP connection */
+            const char *name)		/* I - Printer name */
+{
   int		i;			/* Looping var */
+  http_t	*http2;			/* Alternate HTTP connection */
   ipp_t		*request,		/* IPP request */
 		*response;		/* IPP response */
   ipp_attribute_t *attr;		/* Current attribute */
   cups_lang_t	*language;		/* Local language */
   int		fd;			/* PPD file */
-  int		bytes;			/* Number of bytes read */
-  char		buffer[8192];		/* Buffer for file */
-  char		printer[HTTP_MAX_URI],	/* Printer name */
+  char		uri[HTTP_MAX_URI],	/* Printer URI */
+		printer[HTTP_MAX_URI],	/* Printer name */
 		method[HTTP_MAX_URI],	/* Method/scheme name */
 		username[HTTP_MAX_URI],	/* Username:password */
 		hostname[HTTP_MAX_URI],	/* Hostname */
-		resource[HTTP_MAX_URI];	/* Resource name */
+		resource[HTTP_MAX_URI],	/* Resource name */
+		leadPrinter[HTTP_MAX_URI];
+					/* URI of first printer in pool */
+  int		isRemotePool = 0;	/* Is it a remote pool? */
   int		port;			/* Port number */
-  const char	*password;		/* Password string */
-  char		realm[HTTP_MAX_VALUE],	/* realm="xyz" string */
-		nonce[HTTP_MAX_VALUE],	/* nonce="xyz" string */
-		plain[255],		/* Plaintext username:password */
-		encode[512];		/* Encoded username:password */
   http_status_t	status;			/* HTTP status from server */
-  char		prompt[1024];		/* Prompt string */
-  int		digest_tries;		/* Number of tries with Digest */
-  static char	filename[HTTP_MAX_URI];	/* Local filename */
-  int		isRemote = 0;
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
   static const char * const requested_attrs[] =
 		{			/* Requested attributes */
 		  "printer-uri-supported",
@@ -1022,20 +1088,16 @@ cupsGetPPD(const char *name)		/* I - Printer name */
 		};
 
 
-  if (name == NULL)
-  {
-    last_error = IPP_INTERNAL_ERROR;
-    return (NULL);
-  }
-
  /*
-  * See if we can connect to the server...
+  * Range check input...
   */
 
-  if (!cups_connect(name, printer, hostname))
+  DEBUG_printf(("cupsGetPPD2(http=%p, name=\"%s\")\n", http,
+                name ? name : "(null)"));
+
+  if (!http || !name)
   {
-    DEBUG_puts("Unable to connect to server!");
-    last_error = IPP_SERVICE_UNAVAILABLE;
+    cg->last_error = IPP_INTERNAL_ERROR;
     return (NULL);
   }
 
@@ -1062,9 +1124,13 @@ cupsGetPPD(const char *name)		/* I - Printer name */
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
                "attributes-natural-language", NULL, language->language);
 
-  snprintf(buffer, sizeof(buffer), "ipp://localhost/printers/%s", printer);
+  cupsLangFree(language);
+
+  snprintf(uri, sizeof(uri), "ipp://localhost/printers/%s", name);
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI,
-               "printer-uri", NULL, buffer);
+               "printer-uri", NULL, uri);
+
+  DEBUG_printf(("cupsGetPPD2: printer-uri=\"%s\"\n", uri));
 
   ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
                 "requested-attributes",
@@ -1075,9 +1141,9 @@ cupsGetPPD(const char *name)		/* I - Printer name */
   * Do the request and get back a response...
   */
 
-  if ((response = cupsDoRequest(cups_server, request, "/")) != NULL)
+  if ((response = cupsDoRequest(http, request, "/")) != NULL)
   {
-    last_error  = response->request.status.status_code;
+    cg->last_error  = response->request.status.status_code;
     printer[0]  = '\0';
     hostname[0] = '\0';
 
@@ -1098,25 +1164,13 @@ cupsGetPPD(const char *name)		/* I - Printer name */
 	  */
 
 	  strlcpy(printer, resource + 10, sizeof(printer));
-          
-          /*
-           * Remap local hostname to localhost...
-           */
-           
-           gethostname(buffer, sizeof(buffer));
-           if (strcasecmp(buffer, hostname) == 0)
-             strcpy(hostname, "localhost");
-   
-           isRemote = strcmp(hostname, "localhost");
-           
-	   break;
+	  break;
 	}
       }
     }
     else if ((attr = ippFindAttribute(response, "printer-uri-supported",
                                       IPP_TAG_URI)) != NULL)
     {
-    
      /*
       * Get the actual server and printer names...
       */
@@ -1124,23 +1178,29 @@ cupsGetPPD(const char *name)		/* I - Printer name */
       httpSeparate(attr->values[0].string.text, method, username, hostname,
 	           &port, resource);
       strlcpy(printer, strrchr(resource, '/') + 1, sizeof(printer));
-
-      if ((attr = ippFindAttribute(response, "printer-type", IPP_TAG_ENUM)) != NULL)
-      {
-        isRemote = attr->values[0].integer & CUPS_PRINTER_REMOTE;
-      }
-      
     }
 
+    if ((attr = ippFindAttribute(response, "printer-type", IPP_TAG_ENUM)) != NULL)
+    {
+      isRemotePool = (attr->values[0].integer & (CUPS_PRINTER_REMOTE | CUPS_PRINTER_CLASS)) 
+		      == (CUPS_PRINTER_REMOTE | CUPS_PRINTER_CLASS);
+    }
+  
     ippDelete(response);
 
-  }
+   /*
+    * Remap local hostname to localhost...
+    */
 
-  cupsLangFree(language);
+    gethostname(uri, sizeof(uri));
+
+    if (strcasecmp(uri, hostname) == 0)
+      strcpy(hostname, "localhost");
+  }
 
   if (!printer[0])
   {
-    last_error = IPP_NOT_FOUND;
+    cg->last_error = IPP_NOT_FOUND;
     return (NULL);
   }
 
@@ -1148,33 +1208,48 @@ cupsGetPPD(const char *name)		/* I - Printer name */
   * Reconnect to the correct server as needed...
   */
 
-  if (isRemote)
+  if (!strcasecmp(http->hostname, hostname) || 
+      (!strcasecmp(http->hostname, "localhost") && !strcasecmp(hostname, "127.0.0.1")) ||
+      (!strcasecmp(http->hostname, "127.0.0.1") && !strcasecmp(hostname, "localhost")))
+    http2 = http;
+  else if ((http2 = httpConnectEncrypt(hostname, ippPort(),
+                                       cupsEncryption())) == NULL)
   {
-    httpClose(cups_server);
-
-    if ((cups_server = httpConnectEncrypt(hostname, ippPort(),
-                                          cupsEncryption())) == NULL)
-    {
-      DEBUG_puts("Unable to connect to server!");
-      last_error = IPP_SERVICE_UNAVAILABLE;
-      return (NULL);
-    }
+    DEBUG_puts("Unable to connect to server!");
+    cg->last_error = IPP_SERVICE_UNAVAILABLE;
+    return (NULL);
   }
 
+  /* If this is a remote printer class then ask the remote for
+   * the first printer in the class's member list.
+   */
+  if (isRemotePool)
+  {
+    if (cups_getleadprinter(http2, hostname, printer, leadPrinter, sizeof(leadPrinter)))
+    {
+      DEBUG_puts("Unable to get lead printer!");
+      cg->last_error = IPP_SERVICE_UNAVAILABLE;
+      return (NULL);
+    }
+
+    strlcpy(printer, leadPrinter, sizeof(printer));
+  }
+  
  /*
   * Get a temp file...
   */
 
-  if ((fd = cupsTempFd(filename, sizeof(filename))) < 0)
+  if ((fd = cupsTempFd(cg->ppd_filename, sizeof(cg->ppd_filename))) < 0)
   {
    /*
     * Can't open file; close the server connection and return NULL...
     */
 
-    last_error = IPP_INTERNAL_ERROR;
-    httpFlush(cups_server);
-    httpClose(cups_server);
-    cups_server = NULL;
+    cg->last_error = IPP_INTERNAL_ERROR;
+
+    if (http2 != http)
+      httpClose(http2);
+
     return (NULL);
   }
 
@@ -1184,129 +1259,12 @@ cupsGetPPD(const char *name)		/* I - Printer name */
 
   snprintf(resource, sizeof(resource), "/printers/%s.ppd", printer);
 
-  digest_tries = 0;
+  status = cupsGetFd(http2, resource, fd);
 
-  do
-  {
-    httpClearFields(cups_server);
-    httpSetField(cups_server, HTTP_FIELD_HOST, hostname);
-    httpSetField(cups_server, HTTP_FIELD_AUTHORIZATION, authstring);
+  close(fd);
 
-    if (httpGet(cups_server, resource))
-    {
-      if (httpReconnect(cups_server))
-      {
-        status = HTTP_ERROR;
-	break;
-      }
-      else
-      {
-        status = HTTP_UNAUTHORIZED;
-        continue;
-      }
-    }
-
-    while ((status = httpUpdate(cups_server)) == HTTP_CONTINUE);
-
-    if (status == HTTP_UNAUTHORIZED)
-    {
-      DEBUG_puts("cupsGetPPD: unauthorized...");
-
-     /*
-      * Flush any error message...
-      */
-
-      httpFlush(cups_server);
-
-     /*
-      * See if we can do local authentication...
-      */
-
-      if (cups_local_auth(cups_server))
-        continue;
-
-     /*
-      * See if we should retry the current digest password...
-      */
-
-      if (strncmp(cups_server->fields[HTTP_FIELD_WWW_AUTHENTICATE], "Basic", 5) == 0 ||
-          digest_tries > 1 || !pwdstring[0])
-      {
-       /*
-	* Nope - get a password from the user...
-	*/
-
-	snprintf(prompt, sizeof(prompt), "Password for %s on %s? ", cupsUser(),
-        	 cups_server->hostname);
-
-        if ((password = cupsGetPassword(prompt)) == NULL)
-	  break;
-	if (!password[0])
-	  break;
-
-        strlcpy(pwdstring, password, sizeof(pwdstring));
-
-        digest_tries = 0;
-      }
-      else
-        digest_tries ++;
-
-     /*
-      * Got a password; encode it for the server...
-      */
-
-      if (strncmp(cups_server->fields[HTTP_FIELD_WWW_AUTHENTICATE], "Basic", 5) == 0)
-      {
-       /*
-	* Basic authentication...
-	*/
-
-	snprintf(plain, sizeof(plain), "%s:%s", cupsUser(), pwdstring);
-	httpEncode64(encode, plain);
-	snprintf(authstring, sizeof(authstring), "Basic %s", encode);
-      }
-      else
-      {
-       /*
-	* Digest authentication...
-	*/
-
-        httpGetSubField(cups_server, HTTP_FIELD_WWW_AUTHENTICATE, "realm", realm);
-        httpGetSubField(cups_server, HTTP_FIELD_WWW_AUTHENTICATE, "nonce", nonce);
-
-	httpMD5(cupsUser(), realm, pwdstring, encode);
-	httpMD5Final(nonce, "GET", resource, encode);
-	snprintf(authstring, sizeof(authstring),
-	         "Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", "
-	         "response=\"%s\"", cupsUser(), realm, nonce, encode);
-      }
-
-      continue;
-    }
-#ifdef HAVE_SSL
-    else if (status == HTTP_UPGRADE_REQUIRED)
-    {
-     /*
-      * Flush any error message...
-      */
-
-      httpFlush(cups_server);
-
-     /*
-      * Upgrade with encryption...
-      */
-
-      httpEncryption(cups_server, HTTP_ENCRYPT_REQUIRED);
-
-     /*
-      * Try again, this time with encryption enabled...
-      */
-
-      continue;
-    }
-#endif /* HAVE_SSL */
-  }
-  while (status == HTTP_UNAUTHORIZED || status == HTTP_UPGRADE_REQUIRED);
+  if (http2 != http)
+    httpClose(http2);
 
  /*
   * See if we actually got the file or an error...
@@ -1317,37 +1275,30 @@ cupsGetPPD(const char *name)		/* I - Printer name */
     switch (status)
     {
       case HTTP_NOT_FOUND :
-          last_error = IPP_NOT_FOUND;
+          cg->last_error = IPP_NOT_FOUND;
 	  break;
       case HTTP_ERROR :
-          DEBUG_puts("Mapping HTTP error to IPP_SERVICE_UNAVAILABLE");
-          last_error = IPP_SERVICE_UNAVAILABLE;
+          DEBUG_puts("Mapping HTTP error to IPP_ERROR");
+          cg->last_error = IPP_ERROR;
 	  break;
       case HTTP_UNAUTHORIZED :
-          last_error = IPP_NOT_AUTHORIZED;
+          cg->last_error = IPP_NOT_AUTHORIZED;
 	  break;
       default :
-          last_error = IPP_INTERNAL_ERROR;
+          cg->last_error = IPP_INTERNAL_ERROR;
 	  break;
     }
 
-    unlink(filename);
-    httpFlush(cups_server);
-    httpClose(cups_server);
-    cups_server = NULL;
+    unlink(cg->ppd_filename);
+
     return (NULL);
   }
 
  /*
-  * OK, we need to copy the file...
+  * Return the PPD file...
   */
 
-  while ((bytes = httpRead(cups_server, buffer, sizeof(buffer))) > 0)
-    write(fd, buffer, bytes);
-
-  close(fd);
-
-  return (filename);
+  return (cg->ppd_filename);
 }
 
 
@@ -1358,17 +1309,18 @@ cupsGetPPD(const char *name)		/* I - Printer name */
 int					/* O - Number of printers */
 cupsGetPrinters(char ***printers)	/* O - Printers */
 {
-  int		n;		/* Number of printers */
-  ipp_t		*request,	/* IPP Request */
-		*response;	/* IPP Response */
-  ipp_attribute_t *attr;	/* Current attribute */
-  cups_lang_t	*language;	/* Default language */
-  char		**temp;		/* Temporary pointer */
+  int		n;			/* Number of printers */
+  ipp_t		*request,		/* IPP Request */
+		*response;		/* IPP Response */
+  ipp_attribute_t *attr;		/* Current attribute */
+  cups_lang_t	*language;		/* Default language */
+  char		**temp;			/* Temporary pointer */
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
 
 
   if (printers == NULL)
   {
-    last_error = IPP_INTERNAL_ERROR;
+    cg->last_error = IPP_INTERNAL_ERROR;
     return (0);
   }
 
@@ -1379,7 +1331,7 @@ cupsGetPrinters(char ***printers)	/* O - Printers */
   if (!cups_connect("default", NULL, NULL))
   {
     DEBUG_puts("Unable to connect to server!");
-    last_error = IPP_SERVICE_UNAVAILABLE;
+    cg->last_error = IPP_SERVICE_UNAVAILABLE;
     return (0);
   }
 
@@ -1405,6 +1357,8 @@ cupsGetPrinters(char ***printers)	/* O - Printers */
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
                "attributes-natural-language", NULL, language->language);
 
+  cupsLangFree(language);
+
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
                "requested-attributes", NULL, "printer-name");
 
@@ -1415,9 +1369,9 @@ cupsGetPrinters(char ***printers)	/* O - Printers */
   n         = 0;
   *printers = NULL;
 
-  if ((response = cupsDoRequest(cups_server, request, "/")) != NULL)
+  if ((response = cupsDoRequest(cg->http, request, "/")) != NULL)
   {
-    last_error = response->request.status.status_code;
+    cg->last_error = response->request.status.status_code;
 
     for (attr = response->attrs; attr != NULL; attr = attr->next)
       if (attr->name != NULL &&
@@ -1454,7 +1408,7 @@ cupsGetPrinters(char ***printers)	/* O - Printers */
     ippDelete(response);
   }
   else
-    last_error = IPP_BAD_REQUEST;
+    cg->last_error = IPP_BAD_REQUEST;
 
   return (n);
 }
@@ -1464,10 +1418,10 @@ cupsGetPrinters(char ***printers)	/* O - Printers */
  * 'cupsLastError()' - Return the last IPP error that occurred.
  */
 
-ipp_status_t		/* O - IPP error code */
+ipp_status_t				/* O - IPP error code */
 cupsLastError(void)
 {
-  return (last_error);
+  return (_cups_globals()->last_error);
 }
 
 
@@ -1482,10 +1436,32 @@ cupsPrintFile(const char    *name,	/* I - Printer or class name */
               int           num_options,/* I - Number of options */
 	      cups_option_t *options)	/* I - Options */
 {
-  DEBUG_printf(("cupsPrintFile(\'%s\', \'%s\', %d, %p)\n",
-                name, filename, num_options, options));
+  DEBUG_printf(("cupsPrintFile(name=\"%s\", filename=\"%s\", "
+                "title=\"%s\", num_options=%d, options=%p)\n",
+                name, filename, title, num_options, options));
 
   return (cupsPrintFiles(name, 1, &filename, title, num_options, options));
+}
+
+
+/*
+ * 'cupsPrintFile2()' - Print a file to a printer or class.
+ */
+
+int					/* O - Job ID */
+cupsPrintFile2(http_t        *http,	/* I - HTTP connection */
+               const char    *name,	/* I - Printer or class name */
+               const char    *filename,	/* I - File to print */
+	       const char    *title,	/* I - Title of job */
+               int           num_options,
+					/* I - Number of options */
+	       cups_option_t *options)	/* I - Options */
+{
+  DEBUG_printf(("cupsPrintFile2(http=%p, name=\"%s\", filename=\"%s\", "
+                "title=\"%s\", num_options=%d, options=%p)\n",
+                http, name, filename, title, num_options, options));
+
+  return (cupsPrintFiles2(http, name, 1, &filename, title, num_options, options));
 }
 
 
@@ -1498,39 +1474,79 @@ cupsPrintFiles(const char    *name,	/* I - Printer or class name */
                int           num_files,	/* I - Number of files */
                const char    **files,	/* I - File(s) to print */
 	       const char    *title,	/* I - Title of job */
-               int           num_options,/* I - Number of options */
+               int           num_options,
+					/* I - Number of options */
 	       cups_option_t *options)	/* I - Options */
+{
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
+
+  DEBUG_printf(("cupsPrintFiles(name=\"%s\", num_files=%d, "
+                "files=%p, title=\"%s\", num_options=%d, options=%p)\n",
+                name, num_files, files, title, num_options, options));
+
+
+ /*
+  * Setup a connection and request data...
+  */
+
+  if (!cups_connect(name, NULL, NULL))
+  {
+    DEBUG_printf(("cupsPrintFiles: Unable to open connection - %s.\n",
+                  strerror(errno)));
+    DEBUG_puts("Unable to connect to server!");
+    cg->last_error = IPP_SERVICE_UNAVAILABLE;
+    return (0);
+  }
+
+ /*
+  * Print the file(s)...
+  */
+
+  return (cupsPrintFiles2(cg->http, name, num_files, files, title,
+                          num_options, options));
+}
+
+
+
+/*
+ * 'cupsPrintFiles2()' - Print one or more files to a printer or class.
+ */
+
+int					/* O - Job ID */
+cupsPrintFiles2(http_t        *http,	/* I - HTTP connection */
+                const char    *name,	/* I - Printer or class name */
+                int           num_files,/* I - Number of files */
+                const char    **files,	/* I - File(s) to print */
+	        const char    *title,	/* I - Title of job */
+                int           num_options,
+					/* I - Number of options */
+	        cups_option_t *options)	/* I - Options */
 {
   int		i;			/* Looping var */
   const char	*val;			/* Pointer to option value */
   ipp_t		*request;		/* IPP request */
   ipp_t		*response;		/* IPP response */
   ipp_attribute_t *attr;		/* IPP job-id attribute */
-  char		hostname[HTTP_MAX_URI],	/* Hostname */
-		printer[HTTP_MAX_URI],	/* Printer or class name */
-		uri[HTTP_MAX_URI];	/* Printer URI */
+  char		uri[HTTP_MAX_URI];	/* Printer URI */
   cups_lang_t	*language;		/* Language to use */
   int		jobid;			/* New job ID */
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
 
 
-  DEBUG_printf(("cupsPrintFiles(\'%s\', %d, %p, %d, %p)\n",
-                name, num_files, files, num_options, options));
+  DEBUG_printf(("cupsPrintFiles(http=%p, name=\"%s\", num_files=%d, "
+                "files=%p, title=\"%s\", num_options=%d, options=%p)\n",
+                http, name, num_files, files, title, num_options, options));
 
-  if (name == NULL || num_files < 1 || files == NULL)
+ /*
+  * Range check input...
+  */
+
+  if (!http || !name || num_files < 1 || files == NULL)
     return (0);
 
  /*
-  * Setup a connection and request data...
+  * Setup the request data...
   */
-
-  if (!cups_connect(name, printer, hostname))
-  {
-    DEBUG_printf(("cupsPrintFile: Unable to open connection - %s.\n",
-                  strerror(errno)));
-    DEBUG_puts("Unable to connect to server!");
-    last_error = IPP_SERVICE_UNAVAILABLE;
-    return (0);
-  }
 
   language = cupsLangDefault();
 
@@ -1546,7 +1562,8 @@ cupsPrintFiles(const char    *name,	/* I - Printer or class name */
                                                       IPP_CREATE_JOB;
   request->request.op.request_id   = 1;
 
-  snprintf(uri, sizeof(uri), "ipp://%s:%d/printers/%s", hostname, ippPort(), printer);
+  snprintf(uri, sizeof(uri), "ipp://%s:%d/printers/%s", http->hostname,
+           ippPort(), name);
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
                "attributes-charset", NULL, cupsLangEncoding(language));
@@ -1562,7 +1579,8 @@ cupsPrintFiles(const char    *name,	/* I - Printer or class name */
                NULL, cupsUser());
 
   if (title)
-    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "job-name", NULL, title);
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "job-name", NULL,
+                 title);
 
  /*
   * Then add all options...
@@ -1574,12 +1592,12 @@ cupsPrintFiles(const char    *name,	/* I - Printer or class name */
   * Do the request...
   */
 
-  snprintf(uri, sizeof(uri), "/printers/%s", printer);
+  snprintf(uri, sizeof(uri), "/printers/%s", name);
 
   if (num_files == 1)
-    response = cupsDoFileRequest(cups_server, request, uri, *files);
+    response = cupsDoFileRequest(http, request, uri, *files);
   else
-    response = cupsDoRequest(cups_server, request, uri);
+    response = cupsDoRequest(http, request, uri);
 
   if (response == NULL)
     jobid = 0;
@@ -1592,6 +1610,9 @@ cupsPrintFiles(const char    *name,	/* I - Printer or class name */
   else if ((attr = ippFindAttribute(response, "job-id", IPP_TAG_INTEGER)) == NULL)
   {
     DEBUG_puts("No job ID!");
+
+    cg->last_error = IPP_SERVICE_UNAVAILABLE;
+
     jobid = 0;
   }
   else
@@ -1618,8 +1639,8 @@ cupsPrintFiles(const char    *name,	/* I - Printer or class name */
       request->request.op.operation_id = IPP_SEND_DOCUMENT;
       request->request.op.request_id   = 1;
 
-      snprintf(uri, sizeof(uri), "ipp://%s:%d/jobs/%d", hostname, ippPort(),
-               jobid);
+      snprintf(uri, sizeof(uri), "ipp://%s:%d/jobs/%d", http->hostname,
+               ippPort(), jobid);
 
       ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
         	   "attributes-charset", NULL, cupsLangEncoding(language));
@@ -1659,12 +1680,14 @@ cupsPrintFiles(const char    *name,	/* I - Printer or class name */
       * Send the file...
       */
 
-      snprintf(uri, sizeof(uri), "/printers/%s", printer);
+      snprintf(uri, sizeof(uri), "/printers/%s", name);
 
-      if ((response = cupsDoFileRequest(cups_server, request, uri,
+      if ((response = cupsDoFileRequest(http, request, uri,
                                         files[i])) != NULL)
 	ippDelete(response);
     }
+
+  cupsLangFree(language);
 
   return (jobid);
 }
@@ -1680,13 +1703,14 @@ cups_connect(const char *name,		/* I - Destination (printer[@host]) */
              char       *hostname)	/* O - Hostname [HTTP_MAX_URI] */
 {
   char	hostbuf[HTTP_MAX_URI];		/* Name of host */
+  cups_globals_t  *cg = _cups_globals();	/* Pointer to library globals */
 
 
   DEBUG_printf(("cups_connect(\"%s\", %p, %p)\n", name, printer, hostname));
 
   if (name == NULL)
   {
-    last_error = IPP_BAD_REQUEST;
+    cg->last_error = IPP_BAD_REQUEST;
     return (NULL);
   }
 
@@ -1708,21 +1732,21 @@ cups_connect(const char *name,		/* I - Destination (printer[@host]) */
   else
     printer = (char *)name;
 
-  if (cups_server != NULL)
+  if (cg->http != NULL)
   {
-    if (strcasecmp(cups_server->hostname, hostname) == 0)
+    if (strcasecmp(cg->http->hostname, hostname) == 0)
       return (printer);
 
-    httpClose(cups_server);
+    httpClose(cg->http);
   }
 
   DEBUG_printf(("connecting to %s on port %d...\n", hostname, ippPort()));
 
-  if ((cups_server = httpConnectEncrypt(hostname, ippPort(),
+  if ((cg->http = httpConnectEncrypt(hostname, ippPort(),
                                         cupsEncryption())) == NULL)
   {
     DEBUG_puts("Unable to connect to server!");
-    last_error = IPP_SERVICE_UNAVAILABLE;
+    cg->last_error = IPP_SERVICE_UNAVAILABLE;
     return (NULL);
   }
   else
@@ -1731,88 +1755,117 @@ cups_connect(const char *name,		/* I - Destination (printer[@host]) */
 
 
 /*
- * 'cups_local_auth()' - Get the local authorization certificate if
- *                       available/applicable...
+ * 'cups_getleadprinter()' - Get the lead printer in a class...
  */
 
-static int			/* O - 1 if available, 0 if not */
-cups_local_auth(http_t *http)	/* I - Connection */
+static int
+cups_getleadprinter(http_t *http,	/* I - HTTP connection to server */
+  const char *hostname,		  	/* I - name of the host hosting the class */
+  const char *className,		/* I - the id of the class */
+  char *printer,			/* O - The id of the first printer in the class */
+  size_t bufferSize)			/* I - The size of the buffer pointed to by 'printer'. */
 {
-#if defined(WIN32) || defined(__EMX__)
+  ipp_t		*request;		/* IPP request */
+  ipp_t		*response;		/* IPP response */
+  cups_lang_t	*language;		/* Language info */
+  char		uri[HTTP_MAX_URI],	/* Printer URI */
+		method[HTTP_MAX_URI],	/* Method/scheme name */
+		user[HTTP_MAX_URI],	/* Username:password */
+		host[HTTP_MAX_URI],	/* Hostname */
+		resource[HTTP_MAX_URI];	/* Resource name */
+  int		i,			/* Looping var */
+		port;			/* Port number */
+  ipp_attribute_t *attr;		/* Current attribute */
+  int result = 0;
+  static const char * const requested_attrs[] =
+		{
+		  "member-uris"
+		};
+		  
  /*
-  * Currently WIN32 and OS-2 do not support the CUPS server...
+  * Range check input...
   */
-
-  return (0);
-#else
-  int		pid;		/* Current process ID */
-  FILE		*fp;		/* Certificate file */
-  char		filename[1024],	/* Certificate filename */
-		certificate[33];/* Certificate string */
-  const char	*root;		/* Server root directory */
-
-
-  DEBUG_printf(("cups_local_auth(http=%p) hostaddr=%08x, hostname=\"%s\"\n",
-                http, ntohl(http->hostaddr.sin_addr.s_addr), http->hostname));
-
- /*
-  * See if we are accessing localhost...
-  */
-
-  if (ntohl(http->hostaddr.sin_addr.s_addr) != 0x7f000001 &&
-      strcasecmp(http->hostname, "localhost") != 0)
+  if (!http || !hostname || !className || !printer)
   {
-    DEBUG_puts("cups_local_auth: Not a local connection!");
-    return (0);
+    return IPP_INTERNAL_ERROR;
   }
 
+  printer[0] = '\0';
+  
  /*
-  * Try opening a certificate file for this PID.  If that fails,
-  * try the root certificate...
+  * Build an IPP_GET_PRINTER_ATTRIBUTES request, which requires the following
+  * attributes:
+  *
+  *    attributes-charset
+  *    attributes-natural-language
+  *    printer-uri
+  *    requested-attributes
   */
 
-  if ((root = getenv("CUPS_SERVERROOT")) == NULL)
-    root = CUPS_SERVERROOT;
+  request = ippNew();
 
-  pid = getpid();
-  snprintf(filename, sizeof(filename), "%s/certs/%d", root, pid);
-  if ((fp = fopen(filename, "r")) == NULL && pid > 0)
+  request->request.op.operation_id = IPP_GET_PRINTER_ATTRIBUTES;
+  request->request.op.request_id   = 1;
+
+  language = cupsLangDefault();
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
+               "attributes-charset", NULL, cupsLangEncoding(language));
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
+               "attributes-natural-language", NULL, language->language);
+
+  cupsLangFree(language);
+
+  snprintf(uri, sizeof(uri), "ipp://%s/classes/%s", hostname, className);
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI,
+               "printer-uri", NULL, uri);
+
+  ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
+                "requested-attributes",
+		sizeof(requested_attrs) / sizeof(requested_attrs[0]),
+		NULL, requested_attrs);
+
+ /*
+  * Do the request and get back a response...
+  */
+
+  if ((response = cupsDoRequest(http, request, "/")) != NULL)
   {
-    DEBUG_printf(("cups_local_auth: Unable to open file %s: %s\n",
-                  filename, strerror(errno)));
+    result = response->request.status.status_code;
+	  
+    if ((attr = ippFindAttribute(response, "member-uris", IPP_TAG_URI)) != NULL)
+    {
+     /*
+      * Get the first actual server and printer name in the class...
+      */
 
-    snprintf(filename, sizeof(filename), "%s/certs/0", root);
-    fp = fopen(filename, "r");
+      for (i = 0; i < attr->num_values; i ++)
+      {
+	httpSeparate(attr->values[0].string.text, method, user, host,
+	             &port, resource);
+	
+	if (strncmp(resource, "/printers/", 10) == 0)
+	{
+	 /*
+	  * Found a printer!
+	  */
+	  strlcpy(printer, resource + 10, bufferSize);
+	  break;
+	}
+      }
+    }
+    ippDelete(response);
   }
-
-  if (fp == NULL)
+  else
   {
-    DEBUG_printf(("cups_local_auth: Unable to open file %s: %s\n",
-                  filename, strerror(errno)));
-    return (0);
+    ippDelete(request);
+    result = IPP_BAD_REQUEST;
   }
-
- /*
-  * Read the certificate from the file...
-  */
-
-  fgets(certificate, sizeof(certificate), fp);
-  fclose(fp);
-
- /*
-  * Set the authorization string and return...
-  */
-
-  snprintf(authstring, sizeof(authstring), "Local %s", certificate);
-
-  DEBUG_printf(("cups_local_auth: Returning authstring = \"%s\"\n",
-                authstring));
-
-  return (1);
-#endif /* WIN32 || __EMX__ */
+  
+  return result;
 }
 
-
 /*
- * End of "$Id: util.c,v 1.10 2003/09/13 06:10:24 jlovell Exp $".
+ * End of "$Id: util.c,v 1.23 2005/01/19 23:38:17 jlovell Exp $".
  */

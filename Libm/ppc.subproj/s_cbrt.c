@@ -16,6 +16,7 @@ static char rcsid[] = "$NetBSD: s_cbrt.c,v 1.8 1995/05/10 20:46:49 jtc Exp $";
 
 #include "math.h"
 #include "math_private.h"
+#include "fp_private.h"
 
 /* cbrt(x)
  * Return cube root of x
@@ -54,14 +55,14 @@ G =  3.57142857142857150787e-01; /* 5/14      = 0x3FD6DB6D, 0xB6DB6DB7 */
 	GET_HIGH_WORD(hx,x);
 	sign=hx&0x80000000; 		/* sign= sign(x) */
 	hx  ^=sign;
-	if(hx>=0x7ff00000) return(x+x); /* cbrt(NaN,INF) is itself */
+	if(unlikely(hx>=0x7ff00000)) return(x+x); /* cbrt(NaN,INF) is itself */
 	GET_LOW_WORD(low,x);
-	if((hx|low)==0) 
+	if(unlikely((hx|low)==0)) 
 	    return(x);		/* cbrt(0) is itself */
 
 	SET_HIGH_WORD(x,hx);	/* x <- |x| */
     /* rough cbrt to 5 bits */
-	if(hx<0x00100000) 		/* subnormal number */
+	if(unlikely(hx<0x00100000)) 		/* subnormal number */
 	  {SET_HIGH_WORD(t,0x43500000);	/* set t= 2**54 */
 	   t*=x; GET_HIGH_WORD(high,t); SET_HIGH_WORD(t,high/3+B2);
 	  }

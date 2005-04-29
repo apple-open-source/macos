@@ -45,7 +45,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/programs/lbxproxy/os/io.c,v 1.10 2001/12/14 20:00:58 dawes Exp $ */
+/* $XFree86: xc/programs/lbxproxy/os/io.c,v 1.11 2003/11/17 22:20:49 dawes Exp $ */
 /*****************************************************************
  * i/o functions
  *
@@ -90,19 +90,13 @@ static ConnectionOutputPtr FreeOutputs = (ConnectionOutputPtr)NULL;
 static OsCommPtr AvailableInput = (OsCommPtr)NULL;
 
 static ConnectionInputPtr AllocateInputBuffer(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 static ConnectionOutputPtr AllocateOutputBuffer(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 static ConnectionOutputPtr AllocateUncompBuffer(
-#if NeedFunctionPrototypes
     int count
-#endif
 );
 
 #define get_req_len(req,cli) (((cli)->swapped ? \

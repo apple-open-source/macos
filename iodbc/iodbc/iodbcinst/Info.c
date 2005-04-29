@@ -1,7 +1,7 @@
 /*
  *  info.c
  *
- *  $Id: Info.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: Info.c,v 1.2 2004/08/10 22:20:28 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -69,7 +69,5 @@
  */
 
 #include <iodbc.h>
-#include <iodbcinst.h>
 
-char *version = VERSION;
-char *libname = "iODBC Installer";
+char *iodbcinst_version = VERSION;

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>validator1.manyTypesTest</methodName>
+  <params>
+    <param>
+      <value><i4>6447</i4></value>
+      </param>
+    <param>
+      <value><boolean>0</boolean></value>
+      </param>
+    <param>
+      <value>South Carolina</value>
+      </param>
+    <param>
+      <value><double>1016.66666667</double></value>
+      </param>
+    <param>
+      <value><dateTime.iso8601>19040101T05:45:39</dateTime.iso8601></value>
+      </param>
+    <param>
+      <value><base64>R0lGODlhFgASAJEAAP/////OnM7O/wAAACH5BAEAAAAALAAAAAAWABIAAAJAhI+py40zDIzujEDBzW0n74AaFGChqZUYylyYq7ILXJJ1BU95l6r23RrRYhyL5jiJAT/Ink8WTPoqHx31im0UAAA7</base64></value>
+      </param>
+    </params>
+</methodCall>

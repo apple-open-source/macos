@@ -305,27 +305,22 @@ extern Bool
 _real_glXSet3DfxModeMESA( int mode );
 #endif
 
+#ifdef GLX_NV_vertex_array_range
+extern void *
+_real_glXAllocateMemoryNV(GLsizei size, GLfloat readfreq, GLfloat writefreq, GLfloat priority);
+extern void
+_real_glXFreeMemoryNV(GLvoid *pointer);
+#endif
+
+#ifdef GLX_MESA_agp_offset
+extern GLuint
+_real_glXGetAGPOffsetMESA(const GLvoid *pointer);
+#endif
+
 #ifdef GLX_MESA_copy_sub_buffer
 extern void
 _real_glXCopySubBufferMESA( Display *dpy, GLXDrawable drawable,
                             int x, int y, int width, int height );
 #endif
-
-
-#ifdef GLX_NV_vertex_array_range
-extern void *
-_real_glXAllocateMemoryNV( GLsizei size, GLfloat readFrequency,
-                           GLfloat writeFrequency, GLfloat priority );
-
-
-extern void
-_real_glXFreeMemoryNV( GLvoid *pointer );
-#endif
-
-#ifdef GLX_MESA_agp_offset
-extern GLuint
-_real_glXGetAGPOffsetMESA( const GLvoid *pointer );
-#endif
-
 
 #endif /* REALGLX_H */

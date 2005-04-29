@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1998-2003, International Business Machines Corporation and
+ * Copyright (c) 1998-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -20,10 +20,10 @@
 #include "itutil.h"
 #include "tscoll.h"
 #include "itformat.h"
-//%#include "itconv.h"
 #include "ittrans.h"
 #include "itrbbi.h"
 #include "itrbnf.h"
+#include "itrbnfp.h"
 #include "itrbnfrt.h"
 #include "normconf.h"
 #include "regextst.h"
@@ -31,6 +31,8 @@
 #include "canittst.h"
 #include "icusvtst.h"
 #include "testidna.h"
+#include "convtest.h"
+
 #define CASE_SUITE(id, suite) case id:                  \
                           name = #suite;                \
                           if(exec) {                    \
@@ -147,8 +149,30 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
             }
 #endif
             break;
+        case 11: name = "convert";
+#if !UCONFIG_NO_LEGACY_CONVERSION
+                if (exec) {
+                    logln("TestSuite Conversion---"); logln();
+                    ConversionTest test;
+                    callTest( test, par );
+                }
+#endif
+                break;
+
+            case 12: name = "rbnfp";
+#if !UCONFIG_NO_FORMATTING
+                if (exec) {
+                    logln("TestSuite RuleBasedNumberParse ----"); logln();
+                    IntlTestRBNFParse test;
+                    callTest(test, par);
+                }
+#endif
+                break;
+
         default: name = ""; break;
     }
+
+
 }
 
 void IntlTestNormalize::runIndexedTest( int32_t index, UBool exec, const char* &name, char* par )

@@ -28,6 +28,12 @@ sub new {
     return bless {r=>$r}, $class;
 }
 
+sub xlog_error {
+    my($r, $msg) = @_;
+    $r->log_error($msg);
+    $r->notes('error-notes', $msg);
+}
+
 sub can_compile {
     my($pr) = @_;
     my $r = $pr->{r};
@@ -52,7 +58,7 @@ sub can_compile {
 	$pr->{'mtime'} = -M _;
 	return wantarray ? (OK, $pr->{'mtime'}) : OK;
     }
-    $r->log_error("$filename not found or unable to stat");
+    xlog_error($r, "$filename not found or unable to stat");
     return NOT_FOUND;
 }
 
@@ -106,15 +112,17 @@ sub set_mtime {
 sub compile {
     my($pr, $eval) = @_;
     $eval ||= $pr->{'sub'};
-    my $r = $pr->{r};
-    $r->clear_rgy_endav;
-    $r->log_error("Apache::PerlRun->compile") if $Debug && $Debug & 4;
+    # don't use $r, but something else, so the script won't use
+    # inherited $r by mistake
+    my $_r = $pr->{r}; 
+    $_r->clear_rgy_endav;
+    $_r->log_error("Apache::PerlRun->compile") if $Debug && $Debug & 4;
     Apache->untaint($$eval);
     {
 	no strict; #so eval'd code doesn't inherit our bits
 	eval $$eval;
     }
-    $r->stash_rgy_endav;
+    $_r->stash_rgy_endav;
     return $pr->error_check;
 }
 
@@ -139,7 +147,7 @@ sub run {
     }
 
     if($errsv) {
-	$r->log_error($errsv);
+	xlog_error($r, $errsv);
 	return SERVER_ERROR;
     }
 
@@ -211,6 +219,7 @@ sub error_check {
     my $pr = shift;
     if ($@ and substr($@,0,4) ne " at ") {
 	$pr->{r}->log_error("PerlRun: `$@'");
+	$pr->{r}->notes('error-notes', $@);
 	$@{$pr->{r}->uri} = $@;
 	$@ = ''; #XXX fix me, if we don't do this Apache::exit() breaks	
 	return SERVER_ERROR;
@@ -280,6 +289,11 @@ sub handler ($$) {
     $pr->set_script_name;
     $pr->chdir_file;
     my $line = $pr->mark_line;
+
+    #make sure this hooks are restored to their original state
+    local $SIG{__DIE__}  = $SIG{__DIE__};
+    local $SIG{__WARN__} = $SIG{__WARN__};
+
     my %orig_inc = %INC;
     my $eval = join '',
 		    'package ',
@@ -342,7 +356,7 @@ sub flush_namespace {
         if (defined &$fullname) {
             no warnings;
             local $^W = 0;
-            if (my $p = prototype $fullname) {
+            if (defined(my $p = prototype $fullname)) {
                 *{$fullname} = eval "sub ($p) {}";
             }
             else {

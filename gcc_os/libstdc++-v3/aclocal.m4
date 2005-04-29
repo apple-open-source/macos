@@ -11,11 +11,12 @@ dnl even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 dnl PARTICULAR PURPOSE.
 
 dnl
-dnl Initialize configure bits.
+dnl Initialize basic configure bits, set toplevel_srcdir for Makefiles.
 dnl
-dnl GLIBCPP_CONFIGURE
-AC_DEFUN(GLIBCPP_CONFIGURE, [
-  dnl Default to --enable-multilib
+dnl GLIBCPP_TOPREL_CONFIGURE
+AC_DEFUN(GLIBCPP_TOPREL_CONFIGURE, [
+  dnl Default to --enable-multilib (this is also passed by default
+  dnl from the ubercommon-top-level configure)
   AC_ARG_ENABLE(multilib,
   [  --enable-multilib       build hella library versions (default)],
   [case "${enableval}" in
@@ -45,12 +46,18 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
   AC_CONFIG_AUX_DIR(${srcdir}/$toprel)
   toplevel_srcdir=\${top_srcdir}/$toprel
   AC_SUBST(toplevel_srcdir)
+])
 
+dnl
+dnl Initialize the rest of the library configury.
+dnl
+dnl GLIBCPP_CONFIGURE
+AC_DEFUN(GLIBCPP_CONFIGURE, [
   # Export build and source directories.
   # These need to be absolute paths, yet at the same time need to
   # canonicalize only relative paths, because then amd will not unmount
   # drives. Thus the use of PWDCMD: set it to 'pawd' or 'amq -w' if using amd.
-  glibcpp_builddir=`pwd`
+  glibcpp_builddir=`${PWDCMD-pwd}`
   case $srcdir in
   [\\/$]* | ?:[\\/]*) glibcpp_srcdir=${srcdir} ;;
   *) glibcpp_srcdir=`cd "$srcdir" && ${PWDCMD-pwd} || echo "$srcdir"` ;;
@@ -63,7 +70,8 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
 
   AC_PROG_AWK
   # Will set LN_S to either 'ln -s' or 'ln'.  With autoconf 2.5x, can also
-  # be 'cp -p' if linking isn't available.
+  # be 'cp -p' if linking isn't available.  Uncomment the next line to
+  # force a particular method.
   #ac_cv_prog_LN_S='cp -p'
   AC_PROG_LN_S
 
@@ -168,6 +176,11 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
 
   LIB_AC_PROG_CXX
 
+  # For directory versioning (e.g., headers) and other variables.
+  AC_MSG_CHECKING([for GCC version number])
+  gcc_version=`$glibcpp_CXX -dumpversion`
+  AC_MSG_RESULT($gcc_version)
+
   # For some reason, gettext needs this.
   AC_ISC_POSIX
 
@@ -193,17 +206,14 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
     AC_EXEEXT
   fi
 
-  . [$]{glibcpp_basedir}/configure.host
-
   case [$]{glibcpp_basedir} in
     /* | [A-Za-z]:[\\/]*) libgcj_flagbasedir=[$]{glibcpp_basedir} ;;
     *) glibcpp_flagbasedir='[$](top_builddir)/'[$]{glibcpp_basedir} ;;
   esac
 
-  # This does for the target what configure.host does for the host.  In
+  # Find platform-specific directories containing configuration info.  In
   # addition to possibly modifying the same flags, it also sets up symlinks.
   GLIBCPP_CHECK_TARGET
-
 ])
 
 
@@ -269,8 +279,7 @@ AC_DEFUN(GLIBCPP_CHECK_COMPILER_FEATURES, [
     # this is the suspicious part
     CXXFLAGS=''
   fi
-  if test x"$ac_fdsections" = x"yes" &&
-     test x"$enable_debug" = x"no"; then
+  if test x"$ac_fdsections" = x"yes"; then
     SECTION_FLAGS='-ffunction-sections -fdata-sections'
   fi
   AC_MSG_RESULT($ac_fdsections)
@@ -363,7 +372,7 @@ AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
   fi
 
   # Set linker optimization flags.
-  if test x"$with_gnu_ld" = x"yes" && test x"$enable_debug" = x"no"; then
+  if test x"$with_gnu_ld" = x"yes"; then
     OPT_LDFLAGS="-Wl,-O1 $OPT_LDFLAGS"
   fi
 
@@ -593,6 +602,33 @@ AC_DEFUN(GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_3, [
   fi
 ])
 
+dnl
+dnl Check to see if the (unistd function) argument passed is
+dnl 1) declared when using the c++ compiler
+dnl 2) has "C" linkage
+dnl
+dnl argument 1 is name of function to check
+dnl
+dnl ASSUMES argument is a function with ONE parameter
+dnl
+dnl GLIBCPP_CHECK_UNISTD_DECL_AND_LINKAGE_1
+AC_DEFUN(GLIBCPP_CHECK_UNISTD_DECL_AND_LINKAGE_1, [
+  AC_MSG_CHECKING([for $1 declaration])
+  if test x${glibcpp_cv_func_$1_use+set} != xset; then
+    AC_CACHE_VAL(glibcpp_cv_func_$1_use, [
+      AC_LANG_SAVE
+      AC_LANG_CPLUSPLUS
+      AC_TRY_COMPILE([#include <unistd.h>], 
+                     [ $1(0);], 
+                     [glibcpp_cv_func_$1_use=yes], [glibcpp_cv_func_$1_use=no])
+      AC_LANG_RESTORE
+    ])
+  fi
+  AC_MSG_RESULT($glibcpp_cv_func_$1_use)
+  if test x$glibcpp_cv_func_$1_use = x"yes"; then
+    AC_CHECK_FUNCS($1)    
+  fi
+])
 
 dnl
 dnl Because the builtins are picky picky picky about the arguments they take, 
@@ -704,9 +740,8 @@ AC_DEFUN(GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT, [
   fi
 ])
 
-
 dnl
-dnl Check to see what the underlying c library 
+dnl Check to see what the underlying c library is like
 dnl These checks need to do two things: 
 dnl 1) make sure the name is declared when using the c++ compiler
 dnl 2) make sure the name has "C" linkage
@@ -729,6 +764,25 @@ AC_DEFUN(GLIBCPP_CHECK_STDLIB_SUPPORT, [
   CXXFLAGS="$ac_save_CXXFLAGS"
 ])
 
+dnl
+dnl Check to see what the underlying c library is like
+dnl These checks need to do two things: 
+dnl 1) make sure the name is declared when using the c++ compiler
+dnl 2) make sure the name has "C" linkage
+dnl This might seem like overkill but experience has shown that it's not...
+dnl
+dnl Define HAVE_ISATTY if "isatty" is declared and links
+dnl
+dnl GLIBCPP_CHECK_UNISTD_SUPPORT
+AC_DEFUN(GLIBCPP_CHECK_UNISTD_SUPPORT, [
+  ac_test_CXXFLAGS="${CXXFLAGS+set}"
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS='-fno-builtins -D_GNU_SOURCE'
+
+  GLIBCPP_CHECK_UNISTD_DECL_AND_LINKAGE_1(isatty)
+  
+  CXXFLAGS="$ac_save_CXXFLAGS"
+])
 
 dnl
 dnl Check to see what the underlying c library or math library is like.
@@ -868,7 +922,11 @@ AC_DEFUN(GLIBCPP_CHECK_COMPLEX_MATH_SUPPORT, [
     AC_CHECK_FUNCS([__signbitl], , [LIBMATHOBJS="$LIBMATHOBJS signbitl.lo"])
   fi
 
+  if test -n "$LIBMATHOBJS"; then
+    need_libmath=yes
+  fi
   AC_SUBST(LIBMATHOBJS)
+  AM_CONDITIONAL(GLIBCPP_BUILD_LIBMATH,  test "$need_libmath" = yes)
 ])
 
 
@@ -878,9 +936,9 @@ dnl compilation, pick them up here.
 dnl 
 dnl GLIBCPP_CHECK_TARGET
 AC_DEFUN(GLIBCPP_CHECK_TARGET, [
-    . [$]{glibcpp_basedir}/configure.target
-    AC_MSG_RESULT(CPU config directory is $cpu_include_dir)
-    AC_MSG_RESULT(OS config directory is $os_include_dir)
+  . [$]{glibcpp_basedir}/configure.target
+  AC_MSG_RESULT(CPU config directory is $cpu_include_dir)
+  AC_MSG_RESULT(OS config directory is $os_include_dir)
 ])
 
 
@@ -894,6 +952,8 @@ dnl Define HAVE_MBSTATE_T if mbstate_t is not in wchar.h
 dnl
 dnl GLIBCPP_CHECK_WCHAR_T_SUPPORT
 AC_DEFUN(GLIBCPP_CHECK_WCHAR_T_SUPPORT, [
+  dnl Wide characters disabled by default.
+  enable_wchar_t=no
 
   dnl Test wchar.h for mbstate_t, which is needed for char_traits and
   dnl others even if wchar_t support is not on.
@@ -939,7 +999,7 @@ AC_DEFUN(GLIBCPP_CHECK_WCHAR_T_SUPPORT, [
     ac_wfuncs=no)
   
     dnl Checks for names injected into std:: by the c_std headers.
-    AC_CHECK_FUNCS(btowc wctob fgetwc fgetwc fgetws fputwc fputws fwide \
+    AC_CHECK_FUNCS(btowc wctob fgetwc fgetws fputwc fputws fwide \
     fwprintf fwscanf swprintf swscanf vfwprintf vfwscanf vswprintf vswscanf \
     vwprintf vwscanf wprintf wscanf getwc getwchar mbsinit mbrlen mbrtowc \
     mbsrtowcs wcsrtombs putwc putwchar ungetwc wcrtomb wcstod wcstof wcstol \
@@ -984,30 +1044,33 @@ AC_DEFUN(GLIBCPP_CHECK_WCHAR_T_SUPPORT, [
   
     dnl At the moment, only enable wchar_t specializations if all the
     dnl above support is present.
-    AC_MSG_CHECKING([for enabled wchar_t specializations])
     if test x"$ac_isoC99_wchar_t" = xyes &&
        test x"$ac_XPG2_wchar_t" = xyes; then
-      AC_DEFINE(_GLIBCPP_USE_WCHAR_T)
-      AC_MSG_RESULT("yes")
-    else
-      AC_MSG_RESULT("no")
+       AC_DEFINE(_GLIBCPP_USE_WCHAR_T)
+       enable_wchar_t=yes 
     fi
-  else
-    dnl Wide characters disabled by the user. 
-    AC_MSG_WARN([wchar_t support disabled.])
   fi
+  AC_MSG_CHECKING([for enabled wchar_t specializations])
+  AC_MSG_RESULT($enable_wchar_t)	
+  AM_CONDITIONAL(GLIBCPP_TEST_WCHAR_T, test "$enable_wchar_t" = yes)	
 ])
 
 
 dnl
-dnl Check for special debugging mode; not for production use.
+dnl Check to see if debugging libraries are to be built.
 dnl
 dnl GLIBCPP_ENABLE_DEBUG
-dnl --enable-debug sets '-ggdb3 -O0'.
-dnl --disable-debug sets '-g' and whatever optimization options the
-dnl     compiler can handle.
-dnl  +  --enable-maintainer-mode automatically defaults this to on.
-dnl  +  Perhaps -D/-U of NDEBUG, DEBUG, DEBUG_ASSERT, ...?
+dnl
+dnl --enable-debug
+dnl builds a separate set of debugging libraries in addition to the
+dnl normal (shared, static) libstdc++ binaries.
+dnl
+dnl --disable-debug
+dnl builds only one (non-debug) version of libstdc++.
+dnl
+dnl --enable-debug-flags=FLAGS
+dnl iff --enable-debug == yes, then use FLAGS to build the debug library.
+dnl
 dnl  +  Usage:  GLIBCPP_ENABLE_DEBUG[(DEFAULT)]
 dnl       Where DEFAULT is either `yes' or `no'.  If ommitted, it
 dnl       defaults to `no'.
@@ -1015,7 +1078,7 @@ AC_DEFUN(GLIBCPP_ENABLE_DEBUG, [dnl
 define([GLIBCPP_ENABLE_DEBUG_DEFAULT], ifelse($1, yes, yes, no))dnl
 AC_ARG_ENABLE(debug,
 changequote(<<, >>)dnl
-<<  --enable-debug          extra debugging, turn off optimization [default=>>GLIBCPP_ENABLE_DEBUG_DEFAULT],
+<<  --enable-debug          build extra debug library [default=>>GLIBCPP_ENABLE_DEBUG_DEFAULT],
 changequote([, ])dnl
 [case "${enableval}" in
  yes) enable_debug=yes ;;
@@ -1023,17 +1086,56 @@ changequote([, ])dnl
  *)   AC_MSG_ERROR([Unknown argument to enable/disable extra debugging]) ;;
  esac],
 enable_debug=GLIBCPP_ENABLE_DEBUG_DEFAULT)dnl
+AC_MSG_CHECKING([for additional debug build])
+AC_MSG_RESULT($enable_debug)
+AM_CONDITIONAL(GLIBCPP_BUILD_DEBUG, test "$enable_debug" = yes)
+])
+
+
+dnl Check for explicit debug flags.
+dnl
+dnl GLIBCPP_ENABLE_DEBUG_FLAGS
+dnl
+dnl --enable-debug-flags='-O1'
+dnl is a general method for passing flags to be used when
+dnl building debug libraries with --enable-debug.
+dnl
+dnl --disable-debug-flags does nothing.
+dnl  +  Usage:  GLIBCPP_ENABLE_DEBUG_FLAGS(default flags)
+dnl       If "default flags" is an empty string (or "none"), the effect is
+dnl       the same as --disable or --enable=no.
+AC_DEFUN(GLIBCPP_ENABLE_DEBUG_FLAGS, [dnl
+define([GLIBCPP_ENABLE_DEBUG_FLAGS_DEFAULT], ifelse($1,,, $1))dnl
+AC_ARG_ENABLE(debug_flags,
+changequote(<<, >>)dnl
+<<  --enable-debug-flags=FLAGS    pass compiler FLAGS when building debug
+	                library;[default=>>GLIBCPP_ENABLE_DEBUG_FLAGS_DEFAULT],
+changequote([, ])dnl
+[case "${enableval}" in
+ none)  ;;
+ -*) enable_debug_flags="${enableval}" ;;
+ *)   AC_MSG_ERROR([Unknown argument to extra debugging flags]) ;;
+ esac],
+enable_debug_flags=GLIBCPP_ENABLE_DEBUG_FLAGS_DEFAULT)dnl
 
 dnl Option parsed, now set things appropriately
-case "${enable_debug}" in
-    yes) 
-        DEBUG_FLAGS='-O0 -ggdb3'                        
-        ;; 
-    no)   
-        DEBUG_FLAGS='-g'
+case x"$enable_debug" in
+    xyes)
+        case "$enable_debug_flags" in
+	  none)
+            DEBUG_FLAGS="-g3 -O0";;
+	  -*) #valid input
+	    DEBUG_FLAGS="${enableval}"
+        esac
+        ;;
+    xno)
+        DEBUG_FLAGS=""
         ;;
 esac
 AC_SUBST(DEBUG_FLAGS)
+
+AC_MSG_CHECKING([for debug build flags])
+AC_MSG_RESULT($DEBUG_FLAGS)
 ])
 
 
@@ -1054,39 +1156,36 @@ dnl       If "default flags" is an empty string (or "none"), the effect is
 dnl       the same as --disable or --enable=no.
 AC_DEFUN(GLIBCPP_ENABLE_CXX_FLAGS, [dnl
 define([GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT], ifelse($1,,, $1))dnl
-AC_ARG_ENABLE(cxx-flags,
+AC_MSG_CHECKING([for extra compiler flags for building])
+AC_ARG_ENABLE(cxx_flags,
 changequote(<<, >>)dnl
 <<  --enable-cxx-flags=FLAGS      pass compiler FLAGS when building library;
-                                [default=>>GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT],
+                                  [default=>>GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT],
 changequote([, ])dnl
-[case "x$enableval" in
- xyes)   
-        AC_MSG_ERROR([--enable-cxx-flags needs compiler flags as arguments]) ;;
- xno|x)  
-        enable_cxx_flags='' ;;
- *)      
-        enable_cxx_flags="$enableval" ;;
- esac],
-enable_cxx_flags='GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT')
-
-dnl Thinko on my part during design.  This kludge is the workaround.
-if test "$enable_cxx_flags" = "none"; then 
-  enable_cxx_flags=''; 
-fi
+[case "x$enable_cxx_flags" in
+  xyes)
+    AC_MSG_ERROR([--enable-cxx-flags needs compiler flags as arguments]) ;;
+  xno | xnone | x)
+    enable_cxx_flags='' ;;
+  *)
+    enable_cxx_flags="$enableval" ;;
+esac],
+enable_cxx_flags=GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT)
 
 dnl Run through flags (either default or command-line) and set anything
 dnl extra (e.g., #defines) that must accompany particular g++ options.
 if test -n "$enable_cxx_flags"; then
-    for f in $enable_cxx_flags; do
-        case "$f" in
-            -fhonor-std)  ;;
-            -*)  ;;
-            *)   # and we're trying to pass /what/ exactly?
-                 AC_MSG_ERROR([compiler flags start with a -]) ;;
-        esac
-    done
+  for f in $enable_cxx_flags; do
+    case "$f" in
+      -fhonor-std)  ;;
+      -*)  ;;
+      *)   # and we're trying to pass /what/ exactly?
+           AC_MSG_ERROR([compiler flags start with a -]) ;;
+    esac
+  done
 fi
 EXTRA_CXX_FLAGS="$enable_cxx_flags"
+AC_MSG_RESULT($EXTRA_CXX_FLAGS)
 AC_SUBST(EXTRA_CXX_FLAGS)
 ])
 
@@ -1130,6 +1229,12 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
     	  AC_TRY_RUN([
 	  #define _GNU_SOURCE 1
 	  #include <locale.h>
+	  #include <string.h>
+	  #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+	  extern __typeof(newlocale) __newlocale;
+	  extern __typeof(duplocale) __duplocale;
+	  extern __typeof(strcoll_l) __strcoll_l;
+	  #endif
 	  int main()
 	  {
   	    const char __one[] = "Äuglein Augmen";
@@ -1171,28 +1276,30 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CLOCALE_H=config/locale/generic/c_locale.h
       CLOCALE_CC=config/locale/generic/c_locale.cc
       CCODECVT_H=config/locale/generic/codecvt_specializations.h
+      CCODECVT_CC=config/locale/generic/codecvt_members.cc
       CCOLLATE_CC=config/locale/generic/collate_members.cc
       CCTYPE_CC=config/locale/generic/ctype_members.cc
       CMESSAGES_H=config/locale/generic/messages_members.h
       CMESSAGES_CC=config/locale/generic/messages_members.cc
       CMONEY_CC=config/locale/generic/monetary_members.cc
       CNUMERIC_CC=config/locale/generic/numeric_members.cc
+      CTIME_H=config/locale/generic/time_members.h
       CTIME_CC=config/locale/generic/time_members.cc
+      CLOCALE_INTERNAL_H=config/locale/generic/c++locale_internal.h
       ;;
     xgnu)
       AC_MSG_RESULT(gnu)
 
       # Declare intention to use gettext, and add support for specific
       # languages.
-      # For some reason, ALL_LINGUAS has to be before AM_GNU_GETTEXT
+      # For some reason, ALL_LINGUAS has to be before AM-GNU-GETTEXT
       ALL_LINGUAS="de fr"
 
-      # Don't call AM_GNU_GETTEXT here. Instead, assume glibc.
+      # Don't call AM-GNU-GETTEXT here. Instead, assume glibc.
       AC_CHECK_PROG(check_msgfmt, msgfmt, yes, no)
       if test x"$check_msgfmt" = x"yes" && test x"$enable_nls" = x"yes"; then
 	USE_NLS=yes
       fi
-
       # Export the build objects.
       for ling in $ALL_LINGUAS; do \
         glibcpp_MOFILES="$glibcpp_MOFILES $ling.mo"; \
@@ -1204,13 +1311,16 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CLOCALE_H=config/locale/gnu/c_locale.h
       CLOCALE_CC=config/locale/gnu/c_locale.cc
       CCODECVT_H=config/locale/ieee_1003.1-2001/codecvt_specializations.h
+      CCODECVT_CC=config/locale/gnu/codecvt_members.cc
       CCOLLATE_CC=config/locale/gnu/collate_members.cc
       CCTYPE_CC=config/locale/gnu/ctype_members.cc
       CMESSAGES_H=config/locale/gnu/messages_members.h
       CMESSAGES_CC=config/locale/gnu/messages_members.cc
       CMONEY_CC=config/locale/gnu/monetary_members.cc
       CNUMERIC_CC=config/locale/gnu/numeric_members.cc
+      CTIME_H=config/locale/gnu/time_members.h
       CTIME_CC=config/locale/gnu/time_members.cc
+      CLOCALE_INTERNAL_H=config/locale/gnu/c++locale_internal.h
       ;;
     xieee_1003.1-2001)
       AC_MSG_RESULT(generic)
@@ -1218,13 +1328,16 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CLOCALE_H=config/locale/ieee_1003.1-2001/c_locale.h
       CLOCALE_CC=config/locale/ieee_1003.1-2001/c_locale.cc
       CCODECVT_H=config/locale/ieee_1003.1-2001/codecvt_specializations.h
+      CCODECVT_CC=config/locale/generic/codecvt_members.cc
       CCOLLATE_CC=config/locale/generic/collate_members.cc
       CCTYPE_CC=config/locale/generic/ctype_members.cc
       CMESSAGES_H=config/locale/ieee_1003.1-2001/messages_members.h
       CMESSAGES_CC=config/locale/ieee_1003.1-2001/messages_members.cc
       CMONEY_CC=config/locale/generic/monetary_members.cc
       CNUMERIC_CC=config/locale/generic/numeric_members.cc
+      CTIME_H=config/locale/generic/time_members.h
       CTIME_CC=config/locale/generic/time_members.cc
+      CLOCALE_INTERNAL_H=config/locale/generic/c++locale_internal.h
       ;;
     *)
       echo "$enable_clocale is an unknown locale package" 1>&2
@@ -1241,13 +1354,16 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
   AC_SUBST(CLOCALE_H)
   AC_SUBST(CCODECVT_H)
   AC_SUBST(CMESSAGES_H)
-  AC_LINK_FILES($CLOCALE_CC, src/c++locale.cc)
-  AC_LINK_FILES($CCOLLATE_CC, src/collate.cc)
-  AC_LINK_FILES($CCTYPE_CC, src/ctype.cc)
-  AC_LINK_FILES($CMESSAGES_CC, src/messages.cc)
-  AC_LINK_FILES($CMONEY_CC, src/monetary.cc)
-  AC_LINK_FILES($CNUMERIC_CC, src/numeric.cc)
-  AC_LINK_FILES($CTIME_CC, src/time.cc)
+  AC_SUBST(CCODECVT_CC)
+  AC_SUBST(CCOLLATE_CC)
+  AC_SUBST(CCTYPE_CC)
+  AC_SUBST(CMESSAGES_CC)
+  AC_SUBST(CMONEY_CC)
+  AC_SUBST(CNUMERIC_CC)
+  AC_SUBST(CTIME_H)
+  AC_SUBST(CTIME_CC)
+  AC_SUBST(CLOCALE_CC)
+  AC_SUBST(CLOCALE_INTERNAL_H)
 ])
 
 
@@ -1348,7 +1464,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CSTDIO, [
   esac
   AC_SUBST(CSTDIO_H)
   AC_SUBST(BASIC_FILE_H)
-  AC_LINK_FILES($BASIC_FILE_CC, src/basic_file.cc)
+  AC_SUBST(BASIC_FILE_CC)
 
   # 2000-08-04 bkoz hack
   CCODECVT_C=config/io/c_io_libio_codecvt.c
@@ -1431,7 +1547,7 @@ void foo()
 }
 EOF
    old_CXXFLAGS="$CXXFLAGS"  
-   CXXFLAGS="-S -fexceptions"
+   CXXFLAGS=-S
    if AC_TRY_EVAL(ac_compile); then
      if grep _Unwind_SjLj_Resume conftest.s >/dev/null 2>&1 ; then
        enable_sjlj_exceptions=yes
@@ -1669,21 +1785,20 @@ dnl APPLE LOCAL. Use strtoq isntead of strtoll
 
 
 dnl
-dnl Check for what kind of C headers to use.
+dnl Check for what type of C headers to use.
 dnl
 dnl GLIBCPP_ENABLE_CHEADERS
 dnl --enable-cheaders= [does stuff].
 dnl --disable-cheaders [does not do anything, really].
-dnl  +  This will eventually need to be 'c_shadow' by default.
 dnl  +  Usage:  GLIBCPP_ENABLE_CHEADERS[(DEFAULT)]
-dnl       Where DEFAULT is either `c' or `c_std' or 'c_shadow'.  
+dnl       Where DEFAULT is either `c' or `c_std'.
 dnl       If ommitted, it defaults to `c_std'.
 AC_DEFUN(GLIBCPP_ENABLE_CHEADERS, [dnl
 define([GLIBCPP_ENABLE_CHEADERS_DEFAULT], ifelse($1, c_std, c_std, c_std))dnl
 AC_MSG_CHECKING([for c header strategy to use])
 AC_ARG_ENABLE(cheaders,
 changequote(<<, >>)dnl
-<<  --enable-cheaders       construct "C" header files for g++ [default=>>GLIBCPP_ENABLE_CHEADERS_DEFAULT],
+<<  --enable-cheaders=MODEL       construct "C" header files for g++ [default=>>GLIBCPP_ENABLE_CHEADERS_DEFAULT],
 changequote([, ])
   [case "$enableval" in
    c) 
@@ -1691,9 +1806,6 @@ changequote([, ])
         ;;
    c_std)  
         enable_cheaders=c_std 
-        ;;
-   c_shadow)  
-        enable_cheaders=c_shadow 
         ;;
    *)   AC_MSG_ERROR([Unknown argument to enable/disable "C" headers]) 
         ;;
@@ -1703,24 +1815,18 @@ changequote([, ])
 
   dnl Option parsed, now set things appropriately
   case "$enable_cheaders" in
-    c_shadow) 
-        CSHADOW_FLAGS="-fno-builtin"
-        C_INCLUDE_DIR='${glibcpp_srcdir}/include/c_shadow'
-        ;;
     c_std)   
-        CSHADOW_FLAGS=""
         C_INCLUDE_DIR='${glibcpp_srcdir}/include/c_std'
         ;;
     c)   
-        CSHADOW_FLAGS=""
         C_INCLUDE_DIR='${glibcpp_srcdir}/include/c'
         ;;
   esac
 
-  AC_SUBST(CSHADOW_FLAGS)
   AC_SUBST(C_INCLUDE_DIR)
   AM_CONDITIONAL(GLIBCPP_C_HEADERS_C, test "$enable_cheaders" = c)
   AM_CONDITIONAL(GLIBCPP_C_HEADERS_C_STD, test "$enable_cheaders" = c_std)
+  AM_CONDITIONAL(GLIBCPP_C_HEADERS_COMPATIBILITY, test "$c_compatibility" = yes)
 ])
 
 
@@ -1757,7 +1863,6 @@ dnl TOPLEVEL_INCLUDES
 dnl LIBMATH_INCLUDES
 dnl LIBSUPCXX_INCLUDES
 dnl LIBIO_INCLUDES
-dnl CSHADOW_INCLUDES
 dnl
 dnl GLIBCPP_EXPORT_INCLUDES
 AC_DEFUN(GLIBCPP_EXPORT_INCLUDES, [
@@ -1818,10 +1923,6 @@ glibcpp_toolexecdir=no
 glibcpp_toolexeclibdir=no
 glibcpp_prefixdir=${prefix}
 
-AC_MSG_CHECKING([for interface version number])
-libstdcxx_interface=$INTERFACE
-AC_MSG_RESULT($libstdcxx_interface)
-
 # Process the option --with-gxx-include-dir=<path to include-files directory>
 AC_MSG_CHECKING([for --with-gxx-include-dir])
 AC_ARG_WITH(gxx-include-dir,
@@ -1853,26 +1954,21 @@ version_specific_libs=no)dnl
 # Option set, now we can test it.
 AC_MSG_RESULT($version_specific_libs)
 
+# Default case for install directory for include files.
+if test $version_specific_libs = no && test $gxx_include_dir = no; then
+  gxx_include_dir='$(prefix)'/include/c++/${gcc_version}
+fi
+
+# Version-specific runtime libs processing.
 if test $version_specific_libs = yes; then
   # Need the gcc compiler version to know where to install libraries
   # and header files if --enable-version-specific-runtime-libs option
   # is selected.
-  changequote(,)dnl
-  gcc_version_trigger=${srcdir}/../gcc/version.c
-  gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([^\"]*\)\".*/\1/'`
-  gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
   if test x"$gxx_include_dir" = x"no"; then
-    gxx_include_dir='$(libdir)/gcc-lib/$(target_alias)/'${gcc_version}/include/g++
+    gxx_include_dir='$(libdir)/gcc-lib/$(target_alias)/'${gcc_version}/include/c++
   fi
   glibcpp_toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
   glibcpp_toolexeclibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
-  changequote([,])dnl
-fi
-
-# Default case for install directory for include files.
-if test $version_specific_libs = no &&
-   test $gxx_include_dir = no; then
-  gxx_include_dir='$(prefix)'/include/g++-${libstdcxx_interface}
 fi
 
 # Calculate glibcpp_toolexecdir, glibcpp_toolexeclibdir
@@ -1881,11 +1977,12 @@ if test x"$glibcpp_toolexecdir" = x"no"; then
   if test -n "$with_cross_host" &&
      test x"$with_cross_host" != x"no"; then
     glibcpp_toolexecdir='$(exec_prefix)/$(target_alias)'
-    glibcpp_toolexeclibdir='$(toolexecdir)/lib$(MULTISUBDIR)'
+    glibcpp_toolexeclibdir='$(toolexecdir)/lib'
   else
     glibcpp_toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
-    glibcpp_toolexeclibdir='$(libdir)$(MULTISUBDIR)'
+    glibcpp_toolexeclibdir='$(libdir)'
   fi
+  glibcpp_toolexeclibdir=$glibcpp_toolexeclibdir/`$CC -print-multi-os-directory`
 fi
 
 AC_MSG_CHECKING([for install location])
@@ -1986,8 +2083,9 @@ dnl string, '#' otherwise
 dnl Check for headers for, and arguments to, the setrlimit() function.
 dnl Used only in testsuite_hooks.h.
 AC_DEFUN(GLIBCPP_CHECK_SETRLIMIT_ancilliary, [
-  AC_TRY_COMPILE([#include <sys/resource.h>
-                  #include <unistd.h>
+  AC_TRY_COMPILE([#include <unistd.h>
+                  #include <sys/time.h>
+                  #include <sys/resource.h>
                  ], [ int f = RLIMIT_$1 ; ],
                  [glibcpp_mresult=1], [glibcpp_mresult=0])
   AC_DEFINE_UNQUOTED(HAVE_MEMLIMIT_$1, $glibcpp_mresult,
@@ -1995,7 +2093,7 @@ AC_DEFUN(GLIBCPP_CHECK_SETRLIMIT_ancilliary, [
 ])
 AC_DEFUN(GLIBCPP_CHECK_SETRLIMIT, [
   setrlimit_have_headers=yes
-  AC_CHECK_HEADERS(sys/resource.h unistd.h,
+  AC_CHECK_HEADERS(unistd.h sys/time.h sys/resource.h,
                    [],
                    setrlimit_have_headers=no)
   # If don't have the headers, then we can't run the tests now, and we
@@ -2009,8 +2107,9 @@ AC_DEFUN(GLIBCPP_CHECK_SETRLIMIT, [
 
     # Check for rlimit, setrlimit.
     AC_CACHE_VAL(ac_setrlimit, [
-      AC_TRY_COMPILE([#include <sys/resource.h>
-		      #include <unistd.h>
+      AC_TRY_COMPILE([#include <unistd.h>
+                  #include <sys/time.h>
+                  #include <sys/resource.h>
 		     ], 
                      [ struct rlimit r; setrlimit(0, &r);], 
                      [ac_setrlimit=yes], [ac_setrlimit=no])
@@ -2038,6 +2137,14 @@ AC_DEFUN(GLIBCPP_CONFIGURE_TESTSUITE, [
 
   # Look for setenv, so that extended locale tests can be performed.
   GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_3(setenv)
+
+  # Export file names for ABI checking.
+  baseline_file="${glibcpp_srcdir}/config/abi/${abi_baseline_triplet}/baseline_symbols.txt"
+  AC_SUBST(baseline_file)
+
+  # Don't do ABI checking unless native.
+  AM_CONDITIONAL(GLIBCPP_BUILD_ABI_CHECK,
+                 test x"$build" = x"$host" && test -z "$with_cross_host")
 ])
 
 
@@ -2134,18 +2241,20 @@ enable_symvers=GLIBCPP_ENABLE_SYMVERS_DEFAULT)dnl
 # If we never went through the GLIBCPP_CHECK_LINKER_FEATURES macro, then we
 # don't know enough about $LD to do tricks... 
 if test x$enable_shared = xno || 
-	test x$LD = x || 
+	test "x$LD" = x || 
 	test x$glibcpp_gnu_ld_version = x; then
   enable_symvers=no
 fi
 
 # Check to see if libgcc_s exists, indicating that shared libgcc is possible.
-AC_MSG_CHECKING([for shared libgcc])
-ac_save_CFLAGS="$CFLAGS"
-CFLAGS=' -lgcc_s'
-AC_TRY_LINK( , [return 0], glibcpp_shared_libgcc=yes, glibcpp_shared_libgcc=no)
-CFLAGS="$ac_save_CFLAGS"
-AC_MSG_RESULT($glibcpp_shared_libgcc)
+if test $enable_symvers != no; then
+  AC_MSG_CHECKING([for shared libgcc])
+  ac_save_CFLAGS="$CFLAGS"
+  CFLAGS=' -lgcc_s'
+  AC_TRY_LINK(, [return 0], glibcpp_shared_libgcc=yes, glibcpp_shared_libgcc=no)
+  CFLAGS="$ac_save_CFLAGS"
+  AC_MSG_RESULT($glibcpp_shared_libgcc)
+fi
 
 # For GNU ld, we need at least this version.  It's 2.12 in the same format
 # as the tested-for version.  See GLIBCPP_CHECK_LINKER_FEATURES for more.
@@ -2185,21 +2294,29 @@ fi
 dnl Everything parsed; figure out what file to use.
 case $enable_symvers in
   no)
-      LINKER_MAP=config/linker-map.dummy
+      SYMVER_MAP=config/linker-map.dummy
       ;;
   gnu)
-      LINKER_MAP=config/linker-map.gnu
+      SYMVER_MAP=config/linker-map.gnu
+      AC_DEFINE(_GLIBCPP_SYMVER)	
       ;;
 esac
 
-AC_LINK_FILES($LINKER_MAP, src/linker.map)
+AC_SUBST(SYMVER_MAP)
 AM_CONDITIONAL(GLIBCPP_BUILD_VERSIONED_SHLIB, test $enable_symvers != no)
 AC_MSG_CHECKING([versioning on shared library symbols])
 AC_MSG_RESULT($enable_symvers)
 ])
 
 
-#serial 1
+# isc-posix.m4 serial 1 (gettext-0.10.40)
+dnl Copyright (C) 1995-2002 Free Software Foundation, Inc.
+dnl This file is free software, distributed under the terms of the GNU
+dnl General Public License.  As a special exception to the GNU General
+dnl Public License, this file may be distributed as part of a program
+dnl that contains a configuration script generated by Autoconf, under
+dnl the same distribution terms as the rest of that program.
+
 # This test replaces the one in autoconf.
 # Currently this macro should have the same name as the autoconf macro
 # because gettext's gettext.m4 (distributed in the automake package)
@@ -2249,539 +2366,6 @@ else
   $1_TRUE='#'
   $1_FALSE=
 fi])
-
-# Macro to add for using GNU gettext.
-# Ulrich Drepper <drepper@cygnus.com>, 1995.
-#
-# This file can be copied and used freely without restrictions.  It can
-# be used in projects which are not available under the GNU Public License
-# but which still want to provide support for the GNU gettext functionality.
-# Please note that the actual code is *not* freely available.
-
-# serial 9
-
-dnl Usage: AM_WITH_NLS([TOOLSYMBOL], [NEEDSYMBOL], [LIBDIR]).
-dnl If TOOLSYMBOL is specified and is 'use-libtool', then a libtool library
-dnl    $(top_builddir)/intl/libintl.la will be created (shared and/or static,
-dnl    depending on --{enable,disable}-{shared,static} and on the presence of
-dnl    AM-DISABLE-SHARED). Otherwise, a static library
-dnl    $(top_builddir)/intl/libintl.a will be created.
-dnl If NEEDSYMBOL is specified and is 'need-ngettext', then GNU gettext
-dnl    implementations (in libc or libintl) without the ngettext() function
-dnl    will be ignored.
-dnl LIBDIR is used to find the intl libraries.  If empty,
-dnl    the value `$(top_builddir)/intl/' is used.
-dnl
-dnl The result of the configuration is one of three cases:
-dnl 1) GNU gettext, as included in the intl subdirectory, will be compiled
-dnl    and used.
-dnl    Catalog format: GNU --> install in $(datadir)
-dnl    Catalog extension: .mo after installation, .gmo in source tree
-dnl 2) GNU gettext has been found in the system's C library.
-dnl    Catalog format: GNU --> install in $(datadir)
-dnl    Catalog extension: .mo after installation, .gmo in source tree
-dnl 3) No internationalization, always use English msgid.
-dnl    Catalog format: none
-dnl    Catalog extension: none
-dnl The use of .gmo is historical (it was needed to avoid overwriting the
-dnl GNU format catalogs when building on a platform with an X/Open gettext),
-dnl but we keep it in order not to force irrelevant filename changes on the
-dnl maintainers.
-dnl
-AC_DEFUN([AM_WITH_NLS],
-  [AC_MSG_CHECKING([whether NLS is requested])
-    dnl Default is enabled NLS
-    AC_ARG_ENABLE(nls,
-      [  --disable-nls           do not use Native Language Support],
-      USE_NLS=$enableval, USE_NLS=yes)
-    AC_MSG_RESULT($USE_NLS)
-    AC_SUBST(USE_NLS)
-
-    BUILD_INCLUDED_LIBINTL=no
-    USE_INCLUDED_LIBINTL=no
-    INTLLIBS=
-
-    dnl If we use NLS figure out what method
-    if test "$USE_NLS" = "yes"; then
-      AC_DEFINE(ENABLE_NLS, 1,
-        [Define to 1 if translation of program messages to the user's native language
-   is requested.])
-      AC_MSG_CHECKING([whether included gettext is requested])
-      AC_ARG_WITH(included-gettext,
-        [  --with-included-gettext use the GNU gettext library included here],
-        nls_cv_force_use_gnu_gettext=$withval,
-        nls_cv_force_use_gnu_gettext=no)
-      AC_MSG_RESULT($nls_cv_force_use_gnu_gettext)
-
-      nls_cv_use_gnu_gettext="$nls_cv_force_use_gnu_gettext"
-      if test "$nls_cv_force_use_gnu_gettext" != "yes"; then
-        dnl User does not insist on using GNU NLS library.  Figure out what
-        dnl to use.  If GNU gettext is available we use this.  Else we have
-        dnl to fall back to GNU NLS library.
-	CATOBJEXT=NONE
-
-        dnl Add a version number to the cache macros.
-        define(gt_cv_func_gnugettext_libc, [gt_cv_func_gnugettext]ifelse([$2], need-ngettext, 2, 1)[_libc])
-        define(gt_cv_func_gnugettext_libintl, [gt_cv_func_gnugettext]ifelse([$2], need-ngettext, 2, 1)[_libintl])
-
-	AC_CHECK_HEADER(libintl.h,
-	  [AC_CACHE_CHECK([for GNU gettext in libc], gt_cv_func_gnugettext_libc,
-	    [AC_TRY_LINK([#include <libintl.h>
-extern int _nl_msg_cat_cntr;],
-	       [bindtextdomain ("", "");
-return (int) gettext ("")]ifelse([$2], need-ngettext, [ + (int) ngettext ("", "", 0)], [])[ + _nl_msg_cat_cntr],
-	       gt_cv_func_gnugettext_libc=yes,
-	       gt_cv_func_gnugettext_libc=no)])
-
-	   if test "$gt_cv_func_gnugettext_libc" != "yes"; then
-	     AC_CACHE_CHECK([for GNU gettext in libintl],
-	       gt_cv_func_gnugettext_libintl,
-	       [gt_save_LIBS="$LIBS"
-		LIBS="$LIBS -lintl $LIBICONV"
-		AC_TRY_LINK([#include <libintl.h>
-extern int _nl_msg_cat_cntr;],
-		  [bindtextdomain ("", "");
-return (int) gettext ("")]ifelse([$2], need-ngettext, [ + (int) ngettext ("", "", 0)], [])[ + _nl_msg_cat_cntr],
-		  gt_cv_func_gnugettext_libintl=yes,
-		  gt_cv_func_gnugettext_libintl=no)
-		LIBS="$gt_save_LIBS"])
-	   fi
-
-	   dnl If an already present or preinstalled GNU gettext() is found,
-	   dnl use it.  But if this macro is used in GNU gettext, and GNU
-	   dnl gettext is already preinstalled in libintl, we update this
-	   dnl libintl.  (Cf. the install rule in intl/Makefile.in.)
-	   if test "$gt_cv_func_gnugettext_libc" = "yes" \
-	      || { test "$gt_cv_func_gnugettext_libintl" = "yes" \
-		   && test "$PACKAGE" != gettext; }; then
-	     AC_DEFINE(HAVE_GETTEXT, 1,
-               [Define if the GNU gettext() function is already present or preinstalled.])
-
-	     if test "$gt_cv_func_gnugettext_libintl" = "yes"; then
-	       dnl If iconv() is in a separate libiconv library, then anyone
-	       dnl linking with libintl{.a,.so} also needs to link with
-	       dnl libiconv.
-	       INTLLIBS="-lintl $LIBICONV"
-	     fi
-
-	     gt_save_LIBS="$LIBS"
-	     LIBS="$LIBS $INTLLIBS"
-	     AC_CHECK_FUNCS(dcgettext)
-	     LIBS="$gt_save_LIBS"
-
-	     AM_PATH_PROG_WITH_TEST(MSGFMT, msgfmt,
-	       [test -z "`$ac_dir/$ac_word -h 2>&1 | grep 'dv '`"], no)dnl
-	     if test "$MSGFMT" != "no"; then
-	       AC_PATH_PROG(GMSGFMT, gmsgfmt, $MSGFMT)
-	     fi
-
-	     AM_PATH_PROG_WITH_TEST(XGETTEXT, xgettext,
-	       [test -z "`$ac_dir/$ac_word -h 2>&1 | grep '(HELP)'`"], :)
-
-	     CATOBJEXT=.gmo
-	   fi
-	])
-
-        if test "$CATOBJEXT" = "NONE"; then
-	  dnl GNU gettext is not found in the C library.
-	  dnl Fall back on GNU gettext library.
-	  nls_cv_use_gnu_gettext=yes
-        fi
-      fi
-
-      if test "$nls_cv_use_gnu_gettext" = "yes"; then
-        dnl Mark actions used to generate GNU NLS library.
-        INTLOBJS="\$(GETTOBJS)"
-        AM_PATH_PROG_WITH_TEST(MSGFMT, msgfmt,
-	  [test -z "`$ac_dir/$ac_word -h 2>&1 | grep 'dv '`"], msgfmt)
-        AC_PATH_PROG(GMSGFMT, gmsgfmt, $MSGFMT)
-        AM_PATH_PROG_WITH_TEST(XGETTEXT, xgettext,
-	  [test -z "`$ac_dir/$ac_word -h 2>&1 | grep '(HELP)'`"], :)
-        AC_SUBST(MSGFMT)
-	BUILD_INCLUDED_LIBINTL=yes
-	USE_INCLUDED_LIBINTL=yes
-        CATOBJEXT=.gmo
-	INTLLIBS="ifelse([$3],[],\$(top_builddir)/intl,[$3])/libintl.ifelse([$1], use-libtool, [l], [])a $LIBICONV"
-	LIBS=`echo " $LIBS " | sed -e 's/ -lintl / /' -e 's/^ //' -e 's/ $//'`
-      fi
-
-      dnl Test whether we really found GNU xgettext.
-      if test "$XGETTEXT" != ":"; then
-	dnl If it is no GNU xgettext we define it as : so that the
-	dnl Makefiles still can work.
-	if $XGETTEXT --omit-header /dev/null 2> /dev/null; then
-	  : ;
-	else
-	  AC_MSG_RESULT(
-	    [found xgettext program is not GNU xgettext; ignore it])
-	  XGETTEXT=":"
-	fi
-      fi
-
-      dnl We need to process the po/ directory.
-      POSUB=po
-    fi
-    AC_OUTPUT_COMMANDS(
-     [for ac_file in $CONFIG_FILES; do
-        # Support "outfile[:infile[:infile...]]"
-        case "$ac_file" in
-          *:*) ac_file=`echo "$ac_file"|sed 's%:.*%%'` ;;
-        esac
-        # PO directories have a Makefile.in generated from Makefile.in.in.
-        case "$ac_file" in */Makefile.in)
-          # Adjust a relative srcdir.
-          ac_dir=`echo "$ac_file"|sed 's%/[^/][^/]*$%%'`
-          ac_dir_suffix="/`echo "$ac_dir"|sed 's%^\./%%'`"
-          ac_dots=`echo "$ac_dir_suffix"|sed 's%/[^/]*%../%g'`
-          case "$ac_given_srcdir" in
-            .)  top_srcdir=`echo $ac_dots|sed 's%/$%%'` ;;
-            /*) top_srcdir="$ac_given_srcdir" ;;
-            *)  top_srcdir="$ac_dots$ac_given_srcdir" ;;
-          esac
-          if test -f "$ac_given_srcdir/$ac_dir/POTFILES.in"; then
-            rm -f "$ac_dir/POTFILES"
-            echo creating "$ac_dir/POTFILES"
-            sed -e "/^#/d" -e "/^[ 	]*\$/d" -e "s,.*,     $top_srcdir/& \\\\," -e "\$s/\(.*\) \\\\/\1/" < "$ac_given_srcdir/$ac_dir/POTFILES.in" > "$ac_dir/POTFILES"
-            echo creating "$ac_dir/Makefile"
-            sed -e "/POTFILES =/r $ac_dir/POTFILES" "$ac_dir/Makefile.in" > "$ac_dir/Makefile"
-          fi
-          ;;
-        esac
-      done])
-
-
-    dnl If this is used in GNU gettext we have to set BUILD_INCLUDED_LIBINTL
-    dnl to 'yes' because some of the testsuite requires it.
-    if test "$PACKAGE" = gettext; then
-      BUILD_INCLUDED_LIBINTL=yes
-    fi
-
-    dnl intl/plural.c is generated from intl/plural.y. It requires bison,
-    dnl because plural.y uses bison specific features. It requires at least
-    dnl bison-1.26 because earlier versions generate a plural.c that doesn't
-    dnl compile.
-    dnl bison is only needed for the maintainer (who touches plural.y). But in
-    dnl order to avoid separate Makefiles or --enable-maintainer-mode, we put
-    dnl the rule in general Makefile. Now, some people carelessly touch the
-    dnl files or have a broken "make" program, hence the plural.c rule will
-    dnl sometimes fire. To avoid an error, defines BISON to ":" if it is not
-    dnl present or too old.
-    AC_CHECK_PROGS([INTLBISON], [bison])
-    if test -z "$INTLBISON"; then
-      ac_verc_fail=yes
-    else
-      dnl Found it, now check the version.
-      AC_MSG_CHECKING([version of bison])
-changequote(<<,>>)dnl
-      ac_prog_version=`$INTLBISON --version 2>&1 | sed -n 's/^.*GNU Bison .* \([0-9]*\.[0-9.]*\).*$/\1/p'`
-      case $ac_prog_version in
-        '') ac_prog_version="v. ?.??, bad"; ac_verc_fail=yes;;
-        1.2[6-9]* | 1.[3-9][0-9]* | [2-9].*)
-changequote([,])dnl
-           ac_prog_version="$ac_prog_version, ok"; ac_verc_fail=no;;
-        *) ac_prog_version="$ac_prog_version, bad"; ac_verc_fail=yes;;
-      esac
-      AC_MSG_RESULT([$ac_prog_version])
-    fi
-    if test $ac_verc_fail = yes; then
-      INTLBISON=:
-    fi
-
-    dnl These rules are solely for the distribution goal.  While doing this
-    dnl we only have to keep exactly one list of the available catalogs
-    dnl in configure.in.
-    for lang in $ALL_LINGUAS; do
-      GMOFILES="$GMOFILES $lang.gmo"
-      POFILES="$POFILES $lang.po"
-    done
-
-    dnl Make all variables we use known to autoconf.
-    AC_SUBST(BUILD_INCLUDED_LIBINTL)
-    AC_SUBST(USE_INCLUDED_LIBINTL)
-    AC_SUBST(CATALOGS)
-    AC_SUBST(CATOBJEXT)
-    AC_SUBST(GMOFILES)
-    AC_SUBST(INTLLIBS)
-    AC_SUBST(INTLOBJS)
-    AC_SUBST(POFILES)
-    AC_SUBST(POSUB)
-
-    dnl For backward compatibility. Some configure.ins may be using this.
-    nls_cv_header_intl=
-    nls_cv_header_libgt=
-
-    dnl For backward compatibility. Some Makefiles may be using this.
-    DATADIRNAME=share
-    AC_SUBST(DATADIRNAME)
-
-    dnl For backward compatibility. Some Makefiles may be using this.
-    INSTOBJEXT=.mo
-    AC_SUBST(INSTOBJEXT)
-
-    dnl For backward compatibility. Some Makefiles may be using this.
-    GENCAT=gencat
-    AC_SUBST(GENCAT)
-  ])
-
-dnl Usage: Just like AM_WITH_NLS, which see.
-AC_DEFUN([AM_GNU_GETTEXT],
-  [AC_REQUIRE([AC_PROG_MAKE_SET])dnl
-   AC_REQUIRE([AC_PROG_CC])dnl
-   AC_REQUIRE([AC_CANONICAL_HOST])dnl
-   AC_REQUIRE([AC_PROG_RANLIB])dnl
-   AC_REQUIRE([AC_ISC_POSIX])dnl
-   AC_REQUIRE([AC_HEADER_STDC])dnl
-   AC_REQUIRE([AC_C_CONST])dnl
-   AC_REQUIRE([AC_C_INLINE])dnl
-   AC_REQUIRE([AC_TYPE_OFF_T])dnl
-   AC_REQUIRE([AC_TYPE_SIZE_T])dnl
-   AC_REQUIRE([AC_FUNC_ALLOCA])dnl
-   AC_REQUIRE([AC_FUNC_MMAP])dnl
-   AC_REQUIRE([jm_GLIBC21])dnl
-
-   AC_CHECK_HEADERS([argz.h limits.h locale.h nl_types.h malloc.h stddef.h \
-stdlib.h string.h unistd.h sys/param.h])
-   AC_CHECK_FUNCS([feof_unlocked fgets_unlocked getcwd getegid geteuid \
-getgid getuid mempcpy munmap putenv setenv setlocale stpcpy strchr strcasecmp \
-strdup strtoul tsearch __argz_count __argz_stringify __argz_next])
-
-   AM_ICONV
-   AM_LANGINFO_CODESET
-   AM_LC_MESSAGES
-   AM_WITH_NLS([$1],[$2],[$3])
-
-   if test "x$CATOBJEXT" != "x"; then
-     if test "x$ALL_LINGUAS" = "x"; then
-       LINGUAS=
-     else
-       AC_MSG_CHECKING(for catalogs to be installed)
-       NEW_LINGUAS=
-       for presentlang in $ALL_LINGUAS; do
-         useit=no
-         for desiredlang in ${LINGUAS-$ALL_LINGUAS}; do
-           # Use the presentlang catalog if desiredlang is
-           #   a. equal to presentlang, or
-           #   b. a variant of presentlang (because in this case,
-           #      presentlang can be used as a fallback for messages
-           #      which are not translated in the desiredlang catalog).
-           case "$desiredlang" in
-             "$presentlang"*) useit=yes;;
-           esac
-         done
-         if test $useit = yes; then
-           NEW_LINGUAS="$NEW_LINGUAS $presentlang"
-         fi
-       done
-       LINGUAS=$NEW_LINGUAS
-       AC_MSG_RESULT($LINGUAS)
-     fi
-
-     dnl Construct list of names of catalog files to be constructed.
-     if test -n "$LINGUAS"; then
-       for lang in $LINGUAS; do CATALOGS="$CATALOGS $lang$CATOBJEXT"; done
-     fi
-   fi
-
-   dnl If the AC_CONFIG_AUX_DIR macro for autoconf is used we possibly
-   dnl find the mkinstalldirs script in another subdir but $(top_srcdir).
-   dnl Try to locate is.
-   MKINSTALLDIRS=
-   if test -n "$ac_aux_dir"; then
-     MKINSTALLDIRS="$ac_aux_dir/mkinstalldirs"
-   fi
-   if test -z "$MKINSTALLDIRS"; then
-     MKINSTALLDIRS="\$(top_srcdir)/mkinstalldirs"
-   fi
-   AC_SUBST(MKINSTALLDIRS)
-
-   dnl Enable libtool support if the surrounding package wishes it.
-   INTL_LIBTOOL_SUFFIX_PREFIX=ifelse([$1], use-libtool, [l], [])
-   AC_SUBST(INTL_LIBTOOL_SUFFIX_PREFIX)
-  ])
-
-# Search path for a program which passes the given test.
-# Ulrich Drepper <drepper@cygnus.com>, 1996.
-#
-# This file can be copied and used freely without restrictions.  It can
-# be used in projects which are not available under the GNU Public License
-# but which still want to provide support for the GNU gettext functionality.
-# Please note that the actual code is *not* freely available.
-
-# serial 1
-
-dnl AM_PATH_PROG_WITH_TEST(VARIABLE, PROG-TO-CHECK-FOR,
-dnl   TEST-PERFORMED-ON-FOUND_PROGRAM [, VALUE-IF-NOT-FOUND [, PATH]])
-AC_DEFUN([AM_PATH_PROG_WITH_TEST],
-[# Extract the first word of "$2", so it can be a program name with args.
-set dummy $2; ac_word=[$]2
-AC_MSG_CHECKING([for $ac_word])
-AC_CACHE_VAL(ac_cv_path_$1,
-[case "[$]$1" in
-  /*)
-  ac_cv_path_$1="[$]$1" # Let the user override the test with a path.
-  ;;
-  *)
-  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS="${IFS}:"
-  for ac_dir in ifelse([$5], , $PATH, [$5]); do
-    test -z "$ac_dir" && ac_dir=.
-    if test -f $ac_dir/$ac_word; then
-      if [$3]; then
-	ac_cv_path_$1="$ac_dir/$ac_word"
-	break
-      fi
-    fi
-  done
-  IFS="$ac_save_ifs"
-dnl If no 4th arg is given, leave the cache variable unset,
-dnl so AC_PATH_PROGS will keep looking.
-ifelse([$4], , , [  test -z "[$]ac_cv_path_$1" && ac_cv_path_$1="$4"
-])dnl
-  ;;
-esac])dnl
-$1="$ac_cv_path_$1"
-if test -n "[$]$1"; then
-  AC_MSG_RESULT([$]$1)
-else
-  AC_MSG_RESULT(no)
-fi
-AC_SUBST($1)dnl
-])
-
-#serial 2
-
-# Test for the GNU C Library, version 2.1 or newer.
-# From Bruno Haible.
-
-AC_DEFUN([jm_GLIBC21],
-  [
-    AC_CACHE_CHECK(whether we are using the GNU C Library 2.1 or newer,
-      ac_cv_gnu_library_2_1,
-      [AC_EGREP_CPP([Lucky GNU user],
-	[
-#include <features.h>
-#ifdef __GNU_LIBRARY__
- #if (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1) || (__GLIBC__ > 2)
-  Lucky GNU user
- #endif
-#endif
-	],
-	ac_cv_gnu_library_2_1=yes,
-	ac_cv_gnu_library_2_1=no)
-      ]
-    )
-    AC_SUBST(GLIBC21)
-    GLIBC21="$ac_cv_gnu_library_2_1"
-  ]
-)
-
-#serial AM2
-
-dnl From Bruno Haible.
-
-AC_DEFUN([AM_ICONV],
-[
-  dnl Some systems have iconv in libc, some have it in libiconv (OSF/1 and
-  dnl those with the standalone portable GNU libiconv installed).
-
-  AC_ARG_WITH([libiconv-prefix],
-[  --with-libiconv-prefix=DIR  search for libiconv in DIR/include and DIR/lib], [
-    for dir in `echo "$withval" | tr : ' '`; do
-      if test -d $dir/include; then CPPFLAGS="$CPPFLAGS -I$dir/include"; fi
-      if test -d $dir/lib; then LDFLAGS="$LDFLAGS -L$dir/lib"; fi
-    done
-   ])
-
-  AC_CACHE_CHECK(for iconv, am_cv_func_iconv, [
-    am_cv_func_iconv="no, consider installing GNU libiconv"
-    am_cv_lib_iconv=no
-    AC_TRY_LINK([#include <stdlib.h>
-#include <iconv.h>],
-      [iconv_t cd = iconv_open("","");
-       iconv(cd,NULL,NULL,NULL,NULL);
-       iconv_close(cd);],
-      am_cv_func_iconv=yes)
-    if test "$am_cv_func_iconv" != yes; then
-      am_save_LIBS="$LIBS"
-      LIBS="$LIBS -liconv"
-      AC_TRY_LINK([#include <stdlib.h>
-#include <iconv.h>],
-        [iconv_t cd = iconv_open("","");
-         iconv(cd,NULL,NULL,NULL,NULL);
-         iconv_close(cd);],
-        am_cv_lib_iconv=yes
-        am_cv_func_iconv=yes)
-      LIBS="$am_save_LIBS"
-    fi
-  ])
-  if test "$am_cv_func_iconv" = yes; then
-    AC_DEFINE(HAVE_ICONV, 1, [Define if you have the iconv() function.])
-    AC_MSG_CHECKING([for iconv declaration])
-    AC_CACHE_VAL(am_cv_proto_iconv, [
-      AC_TRY_COMPILE([
-#include <stdlib.h>
-#include <iconv.h>
-extern
-#ifdef __cplusplus
-"C"
-#endif
-#if defined(__STDC__) || defined(__cplusplus)
-size_t iconv (iconv_t cd, char * *inbuf, size_t *inbytesleft, char * *outbuf, size_t *outbytesleft);
-#else
-size_t iconv();
-#endif
-], [], am_cv_proto_iconv_arg1="", am_cv_proto_iconv_arg1="const")
-      am_cv_proto_iconv="extern size_t iconv (iconv_t cd, $am_cv_proto_iconv_arg1 char * *inbuf, size_t *inbytesleft, char * *outbuf, size_t *outbytesleft);"])
-    am_cv_proto_iconv=`echo "[$]am_cv_proto_iconv" | tr -s ' ' | sed -e 's/( /(/'`
-    AC_MSG_RESULT([$]{ac_t:-
-         }[$]am_cv_proto_iconv)
-    AC_DEFINE_UNQUOTED(ICONV_CONST, $am_cv_proto_iconv_arg1,
-      [Define as const if the declaration of iconv() needs const.])
-  fi
-  LIBICONV=
-  if test "$am_cv_lib_iconv" = yes; then
-    LIBICONV="-liconv"
-  fi
-  AC_SUBST(LIBICONV)
-])
-
-#serial AM1
-
-dnl From Bruno Haible.
-
-AC_DEFUN([AM_LANGINFO_CODESET],
-[
-  AC_CACHE_CHECK([for nl_langinfo and CODESET], am_cv_langinfo_codeset,
-    [AC_TRY_LINK([#include <langinfo.h>],
-      [char* cs = nl_langinfo(CODESET);],
-      am_cv_langinfo_codeset=yes,
-      am_cv_langinfo_codeset=no)
-    ])
-  if test $am_cv_langinfo_codeset = yes; then
-    AC_DEFINE(HAVE_LANGINFO_CODESET, 1,
-      [Define if you have <langinfo.h> and nl_langinfo(CODESET).])
-  fi
-])
-
-# Check whether LC_MESSAGES is available in <locale.h>.
-# Ulrich Drepper <drepper@cygnus.com>, 1995.
-#
-# This file can be copied and used freely without restrictions.  It can
-# be used in projects which are not available under the GNU Public License
-# but which still want to provide support for the GNU gettext functionality.
-# Please note that the actual code is *not* freely available.
-
-# serial 2
-
-AC_DEFUN([AM_LC_MESSAGES],
-  [if test $ac_cv_header_locale_h = yes; then
-    AC_CACHE_CHECK([for LC_MESSAGES], am_cv_val_LC_MESSAGES,
-      [AC_TRY_LINK([#include <locale.h>], [return LC_MESSAGES],
-       am_cv_val_LC_MESSAGES=yes, am_cv_val_LC_MESSAGES=no)])
-    if test $am_cv_val_LC_MESSAGES = yes; then
-      AC_DEFINE(HAVE_LC_MESSAGES, 1,
-        [Define if your <locale.h> file defines LC_MESSAGES.])
-    fi
-  fi])
 
 # Do all the work for Automake.  This macro actually does too much --
 # some checks are only needed if your package does certain things.

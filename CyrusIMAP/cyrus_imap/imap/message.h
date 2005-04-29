@@ -1,5 +1,5 @@
 /* message.h -- Message parsing
- $Id: message.h,v 1.6 2003/02/13 20:15:28 rjs3 Exp $
+ $Id: message.h,v 1.5 2005/03/05 00:37:00 dasenbro Exp $
 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

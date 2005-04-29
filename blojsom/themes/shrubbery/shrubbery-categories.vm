@@ -1,0 +1,6 @@
+<p>
+	Available categories:
+	#foreach ($blogCategory in $BLOJSOM_CATEGORIES)
+		[<em><a href="$blogCategory.getCategoryURL()"#if ($blogCategory.getDescription()) title="$blogCategory.getDescription()"#end>#if ($blogCategory.getName())$blogCategory.getName()#else$blogCategory.getCategory()#end</a></em>]
+	#end
+</p>

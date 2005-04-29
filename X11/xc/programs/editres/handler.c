@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
  */
 
-/* $XFree86: xc/programs/editres/handler.c,v 1.7 2001/12/14 20:00:43 dawes Exp $ */
+/* $XFree86: xc/programs/editres/handler.c,v 1.8 2003/10/24 20:38:10 tsi Exp $ */
 
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -152,7 +152,7 @@ TreeSelect(w, client_data, call_data)
 Widget w;
 XtPointer call_data, client_data;
 {
-    SelectTypes type = (SelectTypes) client_data;
+    SelectTypes type = (SelectTypes) (unsigned long) client_data;
 
     _TreeSelect(global_tree_info, type);
 }
@@ -171,7 +171,7 @@ TreeRelabel(w, client_data, call_data)
 Widget w;
 XtPointer call_data, client_data;
 {
-    LabelTypes type = (LabelTypes) client_data;
+    LabelTypes type = (LabelTypes) (unsigned long) client_data;
 
     _TreeRelabel(global_tree_info, type);
 }

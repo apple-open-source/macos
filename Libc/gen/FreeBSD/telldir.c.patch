@@ -1,0 +1,66 @@
+--- telldir.c.orig	2003-05-20 15:21:03.000000000 -0700
++++ telldir.c	2004-11-19 17:18:44.000000000 -0800
+@@ -54,7 +54,9 @@
+  * cookie may be used only once before it is freed. This option
+  * is used to avoid having memory usage grow without bound.
+  */
++#if !__DARWIN_UNIX03
+ #define SINGLEUSE
++#endif /* !__DARWIN_UNIX03 */
+ 
+ /*
+  * return a pointer into a directory
+@@ -65,14 +67,32 @@
+ {
+ 	struct ddloc *lp;
+ 
++#if __DARWIN_UNIX03
++	if (__isthreaded)
++		_pthread_mutex_lock((pthread_mutex_t *)&dirp->dd_lock);
++	LIST_FOREACH(lp, &dirp->dd_td->td_locq, loc_lqe) {
++		if ((lp->loc_seek == dirp->dd_seek) &&
++		    (lp->loc_loc == dirp->dd_loc))
++			goto found;
++	}
++	if ((lp = (struct ddloc *)malloc(sizeof(struct ddloc))) == NULL) {
++		if (__isthreaded)
++			_pthread_mutex_unlock((pthread_mutex_t *)&dirp->dd_lock);
++		return (-1);
++	}
++#else /* !__DARWIN_UNIX03 */
+ 	if ((lp = (struct ddloc *)malloc(sizeof(struct ddloc))) == NULL)
+ 		return (-1);
+ 	if (__isthreaded)
+ 		_pthread_mutex_lock((pthread_mutex_t *)&dirp->dd_lock);
++#endif /* __DARWIN_UNIX03 */
+ 	lp->loc_index = dirp->dd_td->td_loccnt++;
+ 	lp->loc_seek = dirp->dd_seek;
+ 	lp->loc_loc = dirp->dd_loc;
+ 	LIST_INSERT_HEAD(&dirp->dd_td->td_locq, lp, loc_lqe);
++#if __DARWIN_UNIX03
++found:
++#endif /* __DARWIN_UNIX03 */
+ 	if (__isthreaded)
+ 		_pthread_mutex_unlock((pthread_mutex_t *)&dirp->dd_lock);
+ 	return (lp->loc_index);
+@@ -106,13 +126,14 @@
+ 		if (dp == NULL)
+ 			break;
+ 	}
+-found:
++found:;
+ #ifdef SINGLEUSE
+ 	LIST_REMOVE(lp, loc_lqe);
+ 	free((caddr_t)lp);
+ #endif
+ }
+ 
++#ifndef BUILDING_VARIANT
+ /*
+  * Reclaim memory for telldir cookies which weren't used.
+  */
+@@ -131,3 +152,4 @@
+ 	}
+ 	LIST_INIT(&dirp->dd_td->td_locq);
+ }
++#endif /* !BUILDING_VARIANT */

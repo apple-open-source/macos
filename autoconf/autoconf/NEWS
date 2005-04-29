@@ -1,6 +1,88 @@
-* Major changes in Autoconf 2.57                       -*- outline -*-
+* Major changes in Autoconf 2.59                       -*- outline -*-
 
-  Released 2002-12-03.
+  Released 2003-11-04, by Akim Demaille
+
+** ac_abs_builddir etc.
+  Absolute paths were actually relative in 2.58.
+
+* Major changes in Autoconf 2.58
+
+  Released 2003-11-04, by Akim Demaille
+
+** core.*
+  core.* files are no longer removed, as they may be valid user files.
+
+** autoreconf and auxiliary directory
+  Autoreconf creates the auxiliary directory if needed.  This is
+  especially useful for initial "bootstrapping" of fresh CVS checkouts.
+
+** AC_CONFIG_MACRO_DIR
+  Use this macro to declare the directory for local m4 macros for aclocal.
+
+** AC_LIBOBJS
+  No longer includes twice the same file in LIBOBJS if invoked
+  multiple times.
+
+** AC_CONFIG_COMMANDS
+  The directory for its first argument is automatically created.  For
+  instance, with
+
+      AC_CONFIG_COMMANDS([src/modules.hh], [...])
+
+  $top_builddir/src/ is created if needed.
+
+** Autotest and local.at
+  The optional file local.at is always included in Autotest test suites.
+
+** Warnings
+  The warnings are always issued, including with cached runs.
+  This became a significant problem since aclocal and automake can
+  run autoconf behind the scene.
+
+** autoheader warnings
+  The warnings of autoheader can be turned off, using --warning.
+  For instance, -Wno-obsolete disables the complaints about acconfig.h
+  and other deprecated constructs.
+
+** New macros
+  AC_C_RESTRICT, AC_INCLUDES_DEFAULT, AC_LANG_ASSERT, AC_LANG_WERROR,
+  AS_SET_CATFILE.
+
+** AC_DECL_SYS_SIGLIST
+  Works again.
+
+** AC_FUNC_MKTIME
+  Now checks that mktime is the inverse of localtime.
+
+** Improve DJGPP portability
+  The Autoconf tools and configure behave better under DJGPP.
+
+** Present But Cannot Be Compiled
+  New FAQ section dedicated to the mystic
+
+    configure: WARNING: pi.h: present but cannot be compiled
+    configure: WARNING: pi.h: check for missing prerequisite headers?
+    configure: WARNING: pi.h: proceeding with the preprocessor's result
+      messages.
+
+** Concurrent executions of autom4te
+  autom4te now locks its internal files, which enables concurrent
+  executions of autom4te, likely to happen if automake, autoconf,
+  autoheader etc. are run simultaneously.
+
+** Libtool
+  Use of Libtool 1.5 and higher is encouraged.  Compatibility with
+  Libtool pre-1.4 is not checked.
+
+** Autotest
+  Testsuites no longer rerun failed tests in verbose mode; instead,
+  failures are logged while the test is run.
+
+  In addition, expected failures can be marked as such.
+
+* Major changes in Autoconf 2.57
+
+  Released 2002-12-03 by Paul Eggert.
 
 Bug fixes for problems with AIX linker, with freestanding C compilers,
 with GNU m4 limitations, and with obsolete copies of GNU documents.
@@ -9,13 +91,13 @@ The Free Documentation License has been upgraded from 1.1 to 1.2.
 
 * Major changes in Autoconf 2.56
 
-  Released November 15th, 2002.
+  Released 2002-11-15 by Akim Demaille.
 
 One packaging problem fixed (config/install-sh was not executable).
 
 * Major changes in Autoconf 2.55
 
-  Released November 14th, 2002.
+  Released 2002-11-14 by Akim Demaille.
 
 Release tips:
 
@@ -148,7 +230,7 @@ Release tips:
 
 * Major changes in Autoconf 2.54
 
-  Released September 13th, 2002.
+  Released 2002-09-13 by Akim Demaille.
 
 ** Executables
 
@@ -244,7 +326,7 @@ Release tips:
 
 * Major changes in Autoconf 2.53
 
-  Released March 8th, 2002.
+  Released 2002-03-08 by Akim Demaille.
 
 ** Requirements
 
@@ -367,7 +449,7 @@ Release tips:
 
 * Major changes in Autoconf 2.52
 
-  Released July 18th, 2001.
+  Released 2001-07-18 by Akim Demaille.
 
 ** Documentation
 - AC_ARG_VAR
@@ -426,9 +508,15 @@ Release tips:
   Fortran.  Users of e.g. AC_F77_WRAPPERS should be aware of these.
 - AC_FUNC_GETPGRG behaves better when cross-compiling.
 
+* Major changes in Autoconf 2.51
+There was no release of Autoconf 2.51 since some packagers had used
+this version number without permission to ship intermediary versions
+of 2.50.  The version was skipped to avoid confusion.
+
+
 * Major changes in Autoconf 2.50
 
-  Released May 21st, 2001.
+  Released 2001-05-21 by Akim Demaille.
 
 ** Lots of bug fixes
 There have been far too many to enumerate them here.  Check out
@@ -664,7 +752,7 @@ Major changes in Autoconf 2.14:
 
 Major changes in Autoconf 2.13:
 
-  Released May 1st, 1999, by Ben Elliston
+  Released 1999-05-01 by Ben Elliston.
 
 * Support for building on Win32 systems where the only available C or
   C++ compiler is the Microsoft Visual C++ command line compiler
@@ -697,7 +785,7 @@ Major changes in Autoconf 2.13:
 
 Major changes in Autoconf 2.12:
 
-  Released November 26th, 1996, by David J. MacKenzie
+  Released 1996-11-26 by David J. MacKenzie
 
 * AC_OUTPUT and AC_CONFIG_HEADER can create output files by
   concatenating multiple input files separated by colons, like so:
@@ -1073,7 +1161,7 @@ Various bug fixes.
 
 -----
 
-Copyright (C) 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002
+Copyright (C) 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002, 2003
 Free Software Foundation, Inc.
 
 This file is part of GNU Autoconf.
@@ -1089,6 +1177,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with autoconf; see the file COPYING.  If not, write to
+along with GNU Autoconf; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.

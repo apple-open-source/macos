@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# $XFree86: xc/config/util/mkhtmlindex.sh,v 1.4 2001/10/28 03:32:04 tsi Exp $
+# $XFree86: xc/config/util/mkhtmlindex.sh,v 1.5 2003/08/11 17:41:28 eich Exp $
 #
 # Copyright © 2000 by Precision Insight, Inc.
 #
@@ -43,7 +43,7 @@ for s in $VOLLIST; do
 <UL>
 EOF
 		for i in $list; do
-			title="`egrep '^[0-9A-Za-z]' $i | egrep -v '^Name' | head -1`"
+			title="`sed -e '/^[^0-9A-Za-z]/d' -e '/^$/' -e '/^Name/d' -e q $i`"
 			name="`echo \"$title\" | sed -e 's/ - .*//'`"
 			desc="`echo \"$title\" | sed -e 's/[^-]* - //' -e 's/<P>//'`"
 			echo "<LI><A href=\"$i\">$name</A> - $desc</LI>" >> $file

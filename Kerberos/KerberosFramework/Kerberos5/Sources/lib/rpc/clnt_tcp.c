@@ -56,11 +56,14 @@ static char sccsid[] = "@(#)clnt_tcp.c 1.37 87/10/05 Copyr 1984 Sun Micro";
 #include <sys/socket.h>
 #include <netdb.h>
 #include <errno.h>
+#include <string.h>
 #include <gssrpc/pmap_clnt.h>
+/* FD_ZERO may need memset declaration (e.g., Solaris 9) */
+#include <string.h>
 
 #define MCALL_MSG_SIZE 24
 
-static enum clnt_stat	clnttcp_call(CLIENT *, rpc_u_int32, xdrproc_t, void *,
+static enum clnt_stat	clnttcp_call(CLIENT *, rpcproc_t, xdrproc_t, void *,
 				     xdrproc_t, void *, struct timeval);
 static void		clnttcp_abort(CLIENT *);
 static void		clnttcp_geterr(CLIENT *, struct rpc_err *);
@@ -86,9 +89,9 @@ struct ct_data {
 	struct rpc_err	ct_error;
 	union {
 	  char		ct_mcall[MCALL_MSG_SIZE];	/* marshalled callmsg */
-	  rpc_u_int32   ct_mcalli;
+	  uint32_t   ct_mcalli;
 	} ct_u;
-	unsigned int		ct_mpos;			/* pos after marshal */
+	u_int		ct_mpos;			/* pos after marshal */
 	XDR		ct_xdrs;
 };
 
@@ -111,13 +114,13 @@ static int	writetcp(char *, caddr_t, int);
  * something more useful.
  */
 CLIENT *
-clnttcp_create(raddr, prog, vers, sockp, sendsz, recvsz)
-	struct sockaddr_in *raddr;
-	rpc_u_int32 prog;
-	rpc_u_int32 vers;
-	register int *sockp;
-	unsigned int sendsz;
-	unsigned int recvsz;
+clnttcp_create(
+	struct sockaddr_in *raddr,
+	rpcprog_t prog,
+	rpcvers_t vers,
+	register int *sockp,
+	u_int sendsz,
+	u_int recvsz)
 {
 	CLIENT *h;
 	register struct ct_data *ct = 0;
@@ -143,7 +146,7 @@ clnttcp_create(raddr, prog, vers, sockp, sendsz, recvsz)
 	 * If no port number given ask the pmap for one
 	 */
 	if (raddr->sin_port == 0) {
-		unsigned short port;
+		u_short port;
 		if ((port = pmap_getport(raddr, prog, vers, IPPROTO_TCP)) == 0) {
 			mem_free((caddr_t)ct, sizeof(struct ct_data));
 			mem_free((caddr_t)h, sizeof(CLIENT));
@@ -157,7 +160,7 @@ clnttcp_create(raddr, prog, vers, sockp, sendsz, recvsz)
 	 */
 	if (*sockp < 0) {
 		*sockp = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		(void)gssrpc_bindresvport(*sockp, (struct sockaddr_in *)0);
+		(void)bindresvport(*sockp, (struct sockaddr_in *)0);
 		if ((*sockp < 0)
 		    || (connect(*sockp, (struct sockaddr *)raddr,
 		    sizeof(*raddr)) < 0)) {
@@ -224,20 +227,20 @@ fooy:
 }
 
 static enum clnt_stat
-clnttcp_call(h, proc, xdr_args, args_ptr, xdr_results, results_ptr, timeout)
-	register CLIENT *h;
-	rpc_u_int32 proc;
-	xdrproc_t xdr_args;
-	void * args_ptr;
-	xdrproc_t xdr_results;
-	void * results_ptr;
-	struct timeval timeout;
+clnttcp_call(
+	register CLIENT *h,
+	rpcproc_t proc,
+	xdrproc_t xdr_args,
+	void * args_ptr,
+	xdrproc_t xdr_results,
+	void * results_ptr,
+	struct timeval timeout)
 {
 	register struct ct_data *ct = (struct ct_data *) h->cl_private;
 	register XDR *xdrs = &(ct->ct_xdrs);
 	struct rpc_msg reply_msg;
-	rpc_u_int32 x_id;
-	rpc_u_int32 *msg_x_id = &ct->ct_u.ct_mcalli;	/* yuk */
+	uint32_t x_id;
+	uint32_t *msg_x_id = &ct->ct_u.ct_mcalli;	/* yuk */
 	register bool_t shipnow;
 	int refreshes = 2;
 	long procl = proc;
@@ -280,7 +283,7 @@ call_again:
 	 */
 	xdrs->x_op = XDR_DECODE;
 	while (TRUE) {
-		reply_msg.acpted_rply.ar_verf = _null_auth;
+		reply_msg.acpted_rply.ar_verf = gssrpc__null_auth;
 		reply_msg.acpted_rply.ar_results.where = NULL;
 		reply_msg.acpted_rply.ar_results.proc = xdr_void;
 		if (! xdrrec_skiprecord(xdrs))
@@ -307,7 +310,7 @@ call_again:
 	/*
 	 * process header
 	 */
-	sunrpc_seterr_reply(&reply_msg, &(ct->ct_error));
+	gssrpc__seterr_reply(&reply_msg, &(ct->ct_error));
 	if (ct->ct_error.re_status == RPC_SUCCESS) {
 		if (! AUTH_VALIDATE(h->cl_auth, &reply_msg.acpted_rply.ar_verf)) {
 			ct->ct_error.re_status = RPC_AUTHERROR;
@@ -327,15 +330,15 @@ call_again:
 	if ((reply_msg.rm_reply.rp_stat == MSG_ACCEPTED) &&
 	    (reply_msg.acpted_rply.ar_verf.oa_base != NULL)) {
 	    xdrs->x_op = XDR_FREE;
-	    (void)gssrpc_xdr_opaque_auth(xdrs, &(reply_msg.acpted_rply.ar_verf));
+	    (void)xdr_opaque_auth(xdrs, &(reply_msg.acpted_rply.ar_verf));
 	}
 	return (ct->ct_error.re_status);
 }
 
 static void
-clnttcp_geterr(h, errp)
-	CLIENT *h;
-	struct rpc_err *errp;
+clnttcp_geterr(
+	CLIENT *h,
+	struct rpc_err *errp)
 {
 	register struct ct_data *ct =
 	    (struct ct_data *) h->cl_private;
@@ -344,10 +347,10 @@ clnttcp_geterr(h, errp)
 }
 
 static bool_t
-clnttcp_freeres(cl, xdr_res, res_ptr)
-	CLIENT *cl;
-	xdrproc_t xdr_res;
-	void * res_ptr;
+clnttcp_freeres(
+	CLIENT *cl,
+	xdrproc_t xdr_res,
+	void * res_ptr)
 {
 	register struct ct_data *ct = (struct ct_data *)cl->cl_private;
 	register XDR *xdrs = &(ct->ct_xdrs);
@@ -358,16 +361,15 @@ clnttcp_freeres(cl, xdr_res, res_ptr)
 
 /*ARGSUSED*/
 static void
-clnttcp_abort(cl)
-	CLIENT *cl;
+clnttcp_abort(CLIENT *cl)
 {
 }
 
 static bool_t
-clnttcp_control(cl, request, info)
-	CLIENT *cl;
-	int request;
-	void *info;
+clnttcp_control(
+	CLIENT *cl,
+	int request,
+	void *info)
 {
 	register struct ct_data *ct = (struct ct_data *)cl->cl_private;
 	int len;
@@ -397,8 +399,7 @@ clnttcp_control(cl, request, info)
 
 
 static void
-clnttcp_destroy(h)
-	CLIENT *h;
+clnttcp_destroy(CLIENT *h)
 {
 	register struct ct_data *ct =
 	    (struct ct_data *) h->cl_private;
@@ -417,10 +418,10 @@ clnttcp_destroy(h)
  * around for the rpc level.
  */
 static int
-readtcp(ctptr, buf, len)
-        char *ctptr;
-	caddr_t buf;
-	register int len;
+readtcp(
+        char *ctptr,
+	caddr_t buf,
+	register int len)
 {
   register struct ct_data *ct = (struct ct_data *)(void *)ctptr;
   struct timeval tout;
@@ -443,7 +444,7 @@ readtcp(ctptr, buf, len)
 	while (TRUE) {
 		readfds = mask;
 		tout = ct->ct_wait;
-		switch (select(_gssrpc_rpc_dtablesize(), &readfds, (fd_set*)NULL, (fd_set*)NULL,
+		switch (select(gssrpc__rpc_dtablesize(), &readfds, (fd_set*)NULL, (fd_set*)NULL,
 			       &tout)) {
 		case 0:
 			ct->ct_error.re_status = RPC_TIMEDOUT;
@@ -476,10 +477,10 @@ readtcp(ctptr, buf, len)
 }
 
 static int
-writetcp(ctptr, buf, len)
-        char *ctptr;
-	caddr_t buf;
-	int len;
+writetcp(
+        char *ctptr,
+	caddr_t buf,
+	int len)
 {
 	struct ct_data *ct = (struct ct_data *)(void *)ctptr;
 	register int i, cnt;

@@ -24,7 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
- /* $XFree86: xc/lib/xkbfile/cout.c,v 3.8 2003/02/03 20:12:00 paulo Exp $ */
+ /* $XFree86: xc/lib/xkbfile/cout.c,v 3.9 2003/11/17 22:20:23 dawes Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -40,14 +40,7 @@
 #define	lowbit(x)	((x) & (-(x)))
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrVMods(FILE *file,Display *dpy,XkbDescPtr xkb)
-#else
-WriteCHdrVMods(file,dpy,xkb)
-    FILE *	file;
-    Display *	dpy;
-    XkbDescPtr	xkb;
-#endif
 {
 register int i,nOut;
 
@@ -76,13 +69,7 @@ register int i,nOut;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrKeycodes(FILE *file,XkbDescPtr xkb)
-#else
-WriteCHdrKeycodes(file,xkb)
-    FILE *	file;
-    XkbDescPtr	xkb;
-#endif
 {
 Atom			kcName;
 register unsigned 	i;
@@ -114,20 +101,11 @@ char 			buf[8];
 }
 
 static void
-#if NeedFunctionPrototypes
 WriteTypePreserve(	FILE *		file,
 			Display *	dpy,
 			char *		prefix,
 			XkbDescPtr	xkb,
 			XkbKeyTypePtr	type)
-#else
-WriteTypePreserve(file,dpy,prefix,xkb,type)
-    FILE *		file;
-    Display *		dpy;
-    char *		prefix;
-    XkbDescPtr		xkb;
-    XkbKeyTypePtr	type;
-#endif
 {
 register unsigned	i;
 XkbModsPtr		pre;
@@ -146,23 +124,16 @@ XkbModsPtr		pre;
 }
 
 static void
-#if NeedFunctionPrototypes
 WriteTypeInitFunc(FILE *file,Display *dpy,XkbDescPtr xkb)
-#else
-WriteTypeInitFunc(file,dpy,xkb)
-    FILE *	file;
-    Display *	dpy;
-    XkbDescPtr	xkb;
-#endif
 {
 register unsigned 	i,n;
 XkbKeyTypePtr		type;
 Atom *			names;
 char			prefix[32];
 
-    fprintf(file,"\n\nstatic void\n#if NeedFunctionPrototypes\n");
-    fprintf(file,"initTypeNames(DPYTYPE dpy)\n#else\n");
-    fprintf(file,"initTypeNames(dpy)\nDPYTYPE dpy;\n#endif\n{\n");
+    fprintf(file,"\n\nstatic void\n");
+    fprintf(file,"initTypeNames(DPYTYPE dpy)\n");
+    fprintf(file,"{\n");
     for (i=0,type=xkb->map->types;i<xkb->map->num_types;i++,type++) {
 	strcpy(prefix,XkbAtomText(dpy,type->name,XkbCFile));
 	if (type->name!=None)
@@ -187,14 +158,7 @@ char			prefix[32];
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrKeyTypes(FILE *file,Display *dpy,XkbDescPtr xkb)
-#else
-WriteCHdrKeyTypes(file,dpy,xkb)
-    FILE *	file;
-    Display *	dpy;
-    XkbDescPtr	xkb;
-#endif
 {
 register unsigned	i,n;
 XkbClientMapPtr		map;
@@ -270,14 +234,7 @@ char 			prefix[32];
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrCompatMap(FILE *file,Display *dpy,XkbDescPtr xkb)
-#else
-WriteCHdrCompatMap(file,dpy,xkb)
-    FILE *	file;
-    Display *	dpy;
-    XkbDescPtr	xkb;
-#endif
 {
 register unsigned	i;
 XkbCompatMapPtr		compat;
@@ -328,13 +285,7 @@ XkbSymInterpretPtr	interp;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrSymbols(FILE *file,XkbDescPtr xkb)
-#else
-WriteCHdrSymbols(file,xkb)
-    FILE *	file;
-    XkbDescPtr	xkb;
-#endif
 {
 register unsigned i;
 
@@ -372,14 +323,7 @@ register unsigned i;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrClientMap(FILE *file,Display *dpy,XkbDescPtr xkb)
-#else
-WriteCHdrClientMap(file,dpy,xkb)
-    FILE *	file;
-    Display *	dpy;
-    XkbDescPtr	xkb;
-#endif
 {
     if ((!xkb)||(!xkb->map)||(!xkb->map->syms)||(!xkb->map->key_sym_map)) {
 	_XkbLibError(_XkbErrMissingSymbols,"WriteCHdrClientMap",0);
@@ -397,14 +341,7 @@ WriteCHdrClientMap(file,dpy,xkb)
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrServerMap(FILE *file,Display *dpy,XkbDescPtr xkb)
-#else
-WriteCHdrServerMap(file,dpy,xkb)
-    FILE *	file;
-    Display *	dpy;
-    XkbDescPtr	xkb;
-#endif
 {
 register unsigned i;
 
@@ -481,14 +418,7 @@ register unsigned i;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrIndicators(FILE *file,Display *dpy,XkbDescPtr xkb)
-#else
-WriteCHdrIndicators(file,dpy,xkb)
-    FILE *	file;
-    Display *	dpy;
-    XkbDescPtr	xkb;
-#endif
 {
 register int 		i,nNames;
 XkbIndicatorMapPtr	imap;
@@ -515,11 +445,9 @@ XkbIndicatorMapPtr	imap;
     }
     fprintf(file,"\n    }\n};\n");
     if (nNames>0) {
-	fprintf(file,"static void\n#if NeedFunctionPrototypes\n");
+	fprintf(file,"static void\n");
 	fprintf(file,"initIndicatorNames(DPYTYPE dpy,XkbDescPtr xkb)\n");
-	fprintf(file,"#else\ninitIndicatorNames(dpy,xkb)\n");
-	fprintf(file,"    DPYTYPE dpy;\n");
-	fprintf(file,"    XkbDescPtr xkb;\n#endif\n{\n");
+	fprintf(file,"{\n");
 	for (i=0;i<XkbNumIndicators;i++) {
 	    Atom name;
 	    if (xkb->names->indicators[i]==None)
@@ -535,14 +463,7 @@ XkbIndicatorMapPtr	imap;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeomProps(FILE *file,XkbDescPtr xkb,XkbGeometryPtr geom)
-#else
-WriteCHdrGeomProps(file,xkb,geom)
-    FILE *		file;
-    XkbDescPtr		xkb;
-    XkbGeometryPtr	geom;
-#endif
 {
     if (geom->num_properties>0) {
 	register int i;
@@ -559,14 +480,7 @@ WriteCHdrGeomProps(file,xkb,geom)
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeomColors(FILE *file,XkbDescPtr xkb,XkbGeometryPtr geom)
-#else
-WriteCHdrGeomColors(file,xkb,geom)
-    FILE *		file;
-    XkbDescPtr		xkb;
-    XkbGeometryPtr	geom;
-#endif
 {
     if (geom->num_colors>0) {
 	register int i;
@@ -582,15 +496,7 @@ WriteCHdrGeomColors(file,xkb,geom)
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeomOutlines(FILE *file,int nOL,XkbOutlinePtr ol,int shapeNdx)
-#else
-WriteCHdrGeomOutlines(file,nOL,ol,shapeNdx)
-    FILE *		file;
-    int 		nOL;
-    XkbOutlinePtr 	ol;
-    int			shapeNdx;
-#endif
 {
 register int o,p;
 
@@ -618,14 +524,7 @@ register int o,p;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeomShapes(FILE *file,XkbDescPtr xkb,XkbGeometryPtr geom)
-#else
-WriteCHdrGeomShapes(file,xkb,geom)
-    FILE *		file;
-    XkbDescPtr		xkb;
-    XkbGeometryPtr	geom;
-#endif
 {
 register int 		s;
 register XkbShapePtr	shape;
@@ -657,20 +556,11 @@ register XkbShapePtr	shape;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeomDoodads(	FILE *		file,
 			XkbDescPtr	xkb,
 			XkbGeometryPtr	geom,
 			XkbSectionPtr	section,
 			int		section_num)
-#else
-WriteCHdrGeomDoodads(file,xkb,geom,section,section_num)
-    FILE *		file;
-    XkbDescPtr		xkb;
-    XkbGeometryPtr	geom;
-    XkbSectionPtr	section;
-    int			section_num;
-#endif
 {
 int		nd,d;
 XkbDoodadPtr	doodad;
@@ -683,13 +573,7 @@ Display *	dpy;
 							geom->num_doodads);
 	}
 	fprintf(file,"static void\n");
-	fprintf(file,"#if NeedFunctionPrototypes\n");
 	fprintf(file,"_InitGeomDoodads(DPYTYPE dpy,XkbGeometryPtr geom)\n");
-	fprintf(file,"#else\n");
-	fprintf(file,"_InitGeomDoodads(dpy,geom)\n");
-	fprintf(file,"    DPYTYPE		dpy;\n");
-	fprintf(file,"    XkbGeometryPtr	geom;\n");
-	fprintf(file,"#endif\n");
 	fprintf(file,"{\n");
 	fprintf(file,"register XkbDoodadPtr doodads;\n\n");
 	fprintf(file,"    doodads= geom->doodads;\n");
@@ -702,17 +586,10 @@ Display *	dpy;
 					section_num,section->num_doodads);
 	}
 	fprintf(file,"static void\n");
-	fprintf(file,"#if NeedFunctionPrototypes\n");
 	fprintf(file,"_InitS%02dDoodads(",section_num);
 	fprintf(file,"    DPYTYPE		dpy,\n");
 	fprintf(file,"    XkbGeometryPtr 	geom,\n");
 	fprintf(file,"    XkbSectionPtr 	section)\n");
-	fprintf(file,"#else\n");
-	fprintf(file,"_InitS%02dDoodads(dpy,geom,section)\n",section_num);
-	fprintf(file,"    DPYTYPE		dpy;\n");
-	fprintf(file,"    XkbGeometryPtr	geom;\n");
-	fprintf(file,"    XkbSectionPtr		section;\n");
-	fprintf(file,"#endif\n");
 	fprintf(file,"{\n");
 	fprintf(file,"register XkbDoodadPtr doodads;\n\n");
 	fprintf(file,"    doodads= section->doodads;\n");
@@ -773,18 +650,10 @@ Display *	dpy;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeomOverlays(	FILE *		file,
 			XkbDescPtr	xkb,
 			XkbSectionPtr	section,
 			int		section_num)
-#else
-WriteCHdrGeomOverlays(file,xkb,section,section_num)
-    FILE *		file;
-    XkbDescPtr		xkb;
-    XkbSectionPtr	section;
-    int			section_num;
-#endif
 {
 register int		o,r,k;
 XkbOverlayPtr		ol;
@@ -829,17 +698,10 @@ XkbOverlayKeyPtr	key;
     }
     fprintf(file,"\n};\n");
     fprintf(file,"static void\n");
-    fprintf(file,"#if NeedFunctionPrototypes\n");
     fprintf(file,"_InitS%02dOverlay(",section_num);
     fprintf(file,"    DPYTYPE		dpy,\n");
     fprintf(file,"    XkbGeometryPtr 	geom,\n");
     fprintf(file,"    XkbSectionPtr 	section)\n");
-    fprintf(file,"#else\n");
-    fprintf(file,"_InitS%02dOverlay(dpy,geom,section)\n",section_num);
-    fprintf(file,"    DPYTYPE		dpy;\n");
-    fprintf(file,"    XkbGeometryPtr	geom;\n");
-    fprintf(file,"    XkbSectionPtr		section;\n");
-    fprintf(file,"#endif\n");
     fprintf(file,"{\n");
     fprintf(file,"XkbOverlayPtr	ol;\n\n");
     fprintf(file,"    ol= section->overlays;\n");
@@ -853,18 +715,10 @@ XkbOverlayKeyPtr	key;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeomRows(	FILE *		file,
 			XkbDescPtr	xkb,
 			XkbSectionPtr	section,
 			int		section_num)
-#else
-WriteCHdrGeomRows(file,xkb,section,section_num)
-    FILE *		file;
-    XkbDescPtr		xkb;
-    XkbSectionPtr	section;
-    int			section_num;
-#endif
 {
 register int 		k,r;
 register XkbRowPtr	row;
@@ -896,14 +750,7 @@ register XkbKeyPtr	key;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeomSections(FILE *file,XkbDescPtr xkb,XkbGeometryPtr geom)
-#else
-WriteCHdrGeomSections(file,xkb,geom)
-    FILE *		file;
-    XkbDescPtr		xkb;
-    XkbGeometryPtr	geom;
-#endif
 {
 register int		s;
 register XkbSectionPtr	section;
@@ -950,12 +797,7 @@ register XkbSectionPtr	section;
     }
     fprintf(file,"\n};\n");
     fprintf(file,"\nstatic Bool\n");
-    fprintf(file,"#if NeedFunctionPrototypes\n");
     fprintf(file,"_InitSections(DPYTYPE dpy,XkbGeometryPtr geom)\n");
-    fprintf(file,"#else\n");
-    fprintf(file,"_InitSections(dpy,geom)\n");
-    fprintf(file,"    DPYTYPE		dpy;\n	XkbGeometryPtr	geom;\n");
-    fprintf(file,"#endif\n");
     fprintf(file,"{\nXkbSectionPtr	sections;\n\n");
     fprintf(file,"    sections= geom->sections;\n");
     for (s=0,section=geom->sections;s<geom->num_sections;s++,section++) {
@@ -973,14 +815,7 @@ register XkbSectionPtr	section;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeomAliases(FILE *file,XkbDescPtr xkb,XkbGeometryPtr geom)
-#else
-WriteCHdrGeomAliases(file,xkb,geom)
-    FILE *		file;
-    XkbDescPtr		xkb;
-    XkbGeometryPtr	geom;
-#endif
 {
     if (geom->num_key_aliases>0) {
 	register int i;
@@ -997,13 +832,7 @@ WriteCHdrGeomAliases(file,xkb,geom)
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeometry(FILE *file,XkbDescPtr xkb)
-#else
-WriteCHdrGeometry(file,xkb)
-    FILE *		file;
-    XkbDescPtr		xkb;
-#endif
 {
 XkbGeometryPtr	geom;
 register int	i;
@@ -1060,12 +889,7 @@ register int	i;
 				(geom->num_key_aliases>0?"g_aliases":"NULL"));
     fprintf(file,"};\n\n");
     fprintf(file,"static Bool\n");
-    fprintf(file,"#if NeedFunctionPrototypes\n");
     fprintf(file,"_InitHdrGeom(DPYTYPE dpy,XkbGeometryPtr geom)\n");
-    fprintf(file,"#else\n");
-    fprintf(file,"_InitHdrGeom(dpy,geom)\n");
-    fprintf(file,"    DPYTYPE		dpy;\n	XkbGeometryPtr	geom;\n");
-    fprintf(file,"#endif\n");
     fprintf(file,"{\n");
     if (geom->name!=None) {
 	fprintf(file,"    geom->name= GET_ATOM(dpy,\"%s\");\n",
@@ -1083,13 +907,7 @@ register int	i;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrGeomFile(FILE *file,XkbFileInfo *result)
-#else
-WriteCHdrGeomFile(file,result)
-    FILE *		file;
-    XkbFileInfo *	result;
-#endif
 {
 Bool		ok;
 
@@ -1098,13 +916,7 @@ Bool		ok;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrLayout(FILE *file,XkbFileInfo *result)
-#else
-WriteCHdrLayout(file,result)
-    FILE *		file;
-    XkbFileInfo *	result;
-#endif
 {
 Bool		ok;
 XkbDescPtr	xkb;
@@ -1118,13 +930,7 @@ XkbDescPtr	xkb;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrSemantics(FILE *file,XkbFileInfo *result)
-#else
-WriteCHdrSemantics(file,result)
-    FILE *		file;
-    XkbFileInfo *	result;
-#endif
 {
 Bool		ok;
 XkbDescPtr	xkb;
@@ -1138,13 +944,7 @@ XkbDescPtr	xkb;
 }
 
 static Bool
-#if NeedFunctionPrototypes
 WriteCHdrKeymap(FILE *file,XkbFileInfo *result)
-#else
-WriteCHdrKeymap(file,result)
-    FILE *		file;
-    XkbFileInfo *	result;
-#endif
 {
 Bool		ok;
 XkbDescPtr	xkb;
@@ -1161,22 +961,13 @@ XkbDescPtr	xkb;
 }
 
 Bool
-#if NeedFunctionPrototypes
 XkbWriteCFile(FILE *out,char *name,XkbFileInfo *result)
-#else
-XkbWriteCFile(out,name,result)
-    FILE *		out;
-    char *		name;
-    XkbFileInfo *	result;
-#endif
 {
 Bool	 		ok;
 XkbDescPtr		xkb;
 Bool			(*func)(
-#if NeedFunctionPrototypes
 	FILE *		/* file*/,
 	XkbFileInfo *	/* result */
-#endif
 );
 
     switch (result->type) {

@@ -111,3 +111,6 @@ STRIPFLAGS =
 
 VPATH += :../wall.tproj
 
+after_install:
+	mkdir -p "$(DSTROOT)/System/Library/LaunchDaemons"
+	cp ntalk.plist "$(DSTROOT)/System/Library/LaunchDaemons/"

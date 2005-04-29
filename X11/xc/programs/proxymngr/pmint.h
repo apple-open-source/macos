@@ -25,7 +25,7 @@ not be used in advertising or otherwise to promote the sale, use or
 other dealings in this Software without prior written authorization
 from The Open Group.
 */
-/* $XFree86: xc/programs/proxymngr/pmint.h,v 1.5 2001/12/14 20:01:02 dawes Exp $ */
+/* $XFree86: xc/programs/proxymngr/pmint.h,v 1.6 2003/09/13 21:33:11 dawes Exp $ */
 
 #include <stdio.h>
 #include <X11/Xos.h>
@@ -53,10 +53,6 @@ typedef struct {
     char *release;
 } PMconn;
 
-
-/* config.c: $TOG: config.c /main/12 1998/02/09 13:45:22 kaleb $ */
-
-extern int GetConfig ( char *configFile, char *serviceName, int *managed, char **startCommand, char **proxyAddress );
 
 /* main.c: $TOG: main.c /main/36 1998/03/04 11:30:05 barstow $ */
 

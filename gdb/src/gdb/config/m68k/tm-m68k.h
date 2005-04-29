@@ -1,6 +1,6 @@
 /* Parameters for execution on a 68000 series machine.
    Copyright 1986, 1987, 1989, 1990, 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -19,6 +19,4 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "regcache.h"
-
-#define GDB_MULTI_ARCH GDB_MULTI_ARCH_PARTIAL
+extern int m68k_get_longjmp_target (CORE_ADDR *);

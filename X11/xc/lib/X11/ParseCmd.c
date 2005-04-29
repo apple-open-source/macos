@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/ParseCmd.c,v 1.5 2001/12/14 19:54:03 dawes Exp $ */
+/* $XFree86: xc/lib/X11/ParseCmd.c,v 1.6 2003/11/17 22:20:08 dawes Exp $ */
 
 /* XrmParseCommand()
 
@@ -69,23 +69,14 @@ static void _XReportParseError(XrmOptionDescRec *arg, char *msg)
     exit(1);
 }
 
-#if NeedFunctionPrototypes
-void XrmParseCommand(
+void
+XrmParseCommand(
     XrmDatabase		*pdb,		/* data base */
     register XrmOptionDescList options, /* pointer to table of valid options */
     int			num_options,	/* number of options		     */
     _Xconst char	*prefix,	/* name to prefix resources with     */
     int			*argc,		/* address of argument count 	     */
     char		**argv)		/* argument list (command line)	     */
-#else
-void XrmParseCommand(pdb, options, num_options, prefix, argc, argv)
-    XrmDatabase		*pdb;		/* data base */
-    register XrmOptionDescList options; /* pointer to table of valid options */
-    int			num_options;	/* number of options		     */
-    char		*prefix;	/* name to prefix resources with     */
-    int			*argc;		/* address of argument count 	     */
-    char		**argv;		/* argument list (command line)	     */
-#endif
 {
     int 		foundOption;
     char		**argsave;

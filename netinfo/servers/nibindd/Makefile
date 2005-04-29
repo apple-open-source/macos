@@ -16,7 +16,7 @@ HFILES = nibind_globals.h
 
 CFILES = nibind_globals.c nibind_main.c nibind_prot_proc.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble nibind_prot.x nibindd.8 rpcgen_HACK.sed
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble com.apple.nibindd.plist nibind_prot.x nibindd.8 rpcgen_HACK.sed
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

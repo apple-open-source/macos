@@ -1,0 +1,33 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME ppm]
+[vset FORMATFULLNAME {Portable Pixmap format}]
+
+[include format-header.inc]
+
+This handler does not provide additional configuration options.
+
+[include format-middle.inc]
+
+[list_end]
+
+[section {SUPPORTED PPM TYPES}]
+
+There are two types of PPM files: RAW (binary) and ASCII.
+Currently only the RAW format is implemented.
+
+[example_begin]
+  8-bit pixels: Grayscale, also known as PGM.
+ 24-bit pixels: True-color (RGB, each channel 8 bit).
+
+ List of currently supported features:
+
+ Type   |     Read      |     Write     |
+        | -file | -data | -file | -data |
+ ----------------------------------------
+  8-bit | Yes   | Yes   | Yes   | Yes   |
+ 24-bit | Yes   | Yes   | Yes   | Yes   |
+
+[example_end]
+
+[list_begin definitions]
+[include format-footer.inc]

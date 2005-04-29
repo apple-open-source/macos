@@ -94,6 +94,7 @@ struct mntopt {
 #define MOPT_GROUPQUOTA		{ "groupquota",	0, 0, 0 }
 #define MOPT_BROWSE		{ "browse",	1, MNT_DONTBROWSE, 0 }
 #define MOPT_AUTOMOUNTED	{ "automounted",0, MNT_AUTOMOUNTED, 0 }
+#define MOPT_DEFWRITE   	{ "defwrite", 	0, MNT_DEFWRITE, 0}
 
 /* Control flags. */
 #define MOPT_FORCE		{ "force",	0, MNT_FORCE, 0 }
@@ -120,8 +121,9 @@ struct mntopt {
 	MOPT_RDONLY,							\
 	MOPT_UNION,							\
         MOPT_BROWSE,							\
-        MOPT_AUTOMOUNTED
-
+        MOPT_AUTOMOUNTED,						\
+	MOPT_DEFWRITE
+	
 void getmntopts __P((const char *, const struct mntopt *, int *, int *));
 void checkpath __P((const char *, char resolved_path[]));
 void rmslashes __P((char *, char *));

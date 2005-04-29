@@ -25,7 +25,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_span.c,v 1.4 2002/12/10 01:26:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_span.c,v 1.5 2003/09/28 20:15:14 alanh Exp $ */
 
 /*
  * Author:
@@ -38,6 +38,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "glheader.h"
 #include "macros.h"
 #include "mtypes.h"
+#include "colormac.h"
 
 #include "i830_screen.h"
 #include "i830_dri.h"
@@ -204,11 +205,6 @@ do {								\
 #define WRITE_PIXEL(_x, _y, p)			\
     *(GLuint *)(buf + _x*4 + _y*pitch) = p
 
-/* Note to Self:
- * Don't read alpha from framebuffer, because its not correct.  From a
- * reading of the spec, this should not be the case, need to ask an
- * engineer at Intel.
- */
 
 #define READ_RGBA(rgba, _x, _y)					\
     do {							\
@@ -216,7 +212,7 @@ do {								\
 	rgba[0] = (p >> 16) & 0xff;				\
 	rgba[1] = (p >> 8)  & 0xff;				\
 	rgba[2] = (p >> 0)  & 0xff;				\
-	rgba[3] = 255;						\
+	rgba[3] = (p >> 24) & 0xff;				\
     } while (0)
 
 #define TAG(x) i830##x##_8888
@@ -262,26 +258,23 @@ do {								\
 #define TAG(x) i830##x##_24_8
 #include "stenciltmp.h"
 
-static void i830SetReadBuffer(GLcontext *ctx, GLframebuffer *colorBuffer,
-			      GLenum mode)
+/*
+ * This function is called to specify which buffer to read and write
+ * for software rasterization (swrast) fallbacks.  This doesn't necessarily
+ * correspond to glDrawBuffer() or glReadBuffer() calls.
+ */
+static void i830SetBuffer(GLcontext *ctx, GLframebuffer *colorBuffer,
+                          GLuint bufferBit)
 {
    i830ContextPtr imesa = I830_CONTEXT(ctx);
-   switch( mode ) {
-   case GL_FRONT_LEFT:
-      if ( imesa->sarea->pf_current_page == 1 ) 
-	 imesa->readMap = imesa->i830Screen->back.map;
-      else 
-	 imesa->readMap = (char*)imesa->driScreen->pFB;
-      break;
-   case GL_BACK_LEFT:
-      if ( imesa->sarea->pf_current_page == 1 ) 
-	 imesa->readMap = (char*)imesa->driScreen->pFB;
-      else
-	 imesa->readMap = imesa->i830Screen->back.map;
-      break;
-   default:
+   if (bufferBit == FRONT_LEFT_BIT) {
+      imesa->drawMap = (char *)imesa->driScreen->pFB;
+      imesa->readMap = (char *)imesa->driScreen->pFB;
+   } else if (bufferBit == BACK_LEFT_BIT) {
+      imesa->drawMap = imesa->i830Screen->back.map;
+      imesa->readMap = imesa->i830Screen->back.map;
+   } else {
       ASSERT(0);
-      break;
    }
 }
 
@@ -311,7 +304,7 @@ void i830DDInitSpanFuncs( GLcontext *ctx )
 
    struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
 
-   swdd->SetReadBuffer = i830SetReadBuffer;
+   swdd->SetBuffer = i830SetBuffer;
 
    switch (i830Screen->fbFormat) {
    case DV_PF_555:

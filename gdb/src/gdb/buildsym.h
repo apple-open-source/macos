@@ -22,6 +22,9 @@
 #if !defined (BUILDSYM_H)
 #define BUILDSYM_H 1
 
+struct objfile;
+struct symbol;
+
 /* This module provides definitions used for creating and adding to
    the symbol table.  These routines are called from various symbol-
    file-reading routines.
@@ -33,6 +36,8 @@
    name EXTERN to null.  It is used to declare variables that are
    normally extern, but which get defined in a single module using
    this technique.  */
+
+struct block;
 
 #ifndef EXTERN
 #define	EXTERN extern

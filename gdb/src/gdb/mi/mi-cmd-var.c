@@ -1,6 +1,6 @@
 /* MI Command Set - varobj commands.
 
-   Copyright 2000, 2002 Free Software Foundation, Inc.
+   Copyright 2000, 2002, 2004 Free Software Foundation, Inc.
 
    Contributed by Cygnus Solutions (a Red Hat company).
 
@@ -391,17 +391,17 @@ mi_cmd_var_set_format (char *command, char **argv, int argc)
 
   len = strlen (formspec);
 
-  if (STREQN (formspec, "natural", len))
+  if (strncmp (formspec, "natural", len) == 0)
     format = FORMAT_NATURAL;
-  else if (STREQN (formspec, "binary", len))
+  else if (strncmp (formspec, "binary", len) == 0)
     format = FORMAT_BINARY;
-  else if (STREQN (formspec, "decimal", len))
+  else if (strncmp (formspec, "decimal", len) == 0)
     format = FORMAT_DECIMAL;
-  else if (STREQN (formspec, "hexadecimal", len))
+  else if (strncmp (formspec, "hexadecimal", len) == 0)
     format = FORMAT_HEXADECIMAL;
-  else if (STREQN (formspec, "octal", len))
+  else if (strncmp (formspec, "octal", len) == 0)
     format = FORMAT_OCTAL;
-  else if (STREQN (formspec, "unsigned", len))
+  else if (strncmp (formspec, "unsigned", len) == 0)
         format = FORMAT_UNSIGNED;
   else
     error ("mi_cmd_var_set_format: Unknown display format: must be: \"natural\", \"binary\", \"decimal\", \"hexadecimal\",  \"unsigned\", or \"octal\"");
@@ -455,25 +455,73 @@ mi_cmd_var_info_num_children (char *command, char **argv, int argc)
 enum mi_cmd_result
 mi_cmd_var_list_children (char *command, char **argv, int argc)
 {
-  struct varobj *var;
+  struct varobj *var = NULL; /* APPLE LOCAL: init to NULL for err detection */ 
   struct varobj **childlist;
   struct varobj **cc;
   int numchild;
-  int print_value = 0;
+  enum print_values print_values = PRINT_NO_VALUES;
   struct cleanup *cleanup_children = NULL;
+  int argv0_is_flag = 0;
+  int argv1_is_flag = 0;
+  const char *usage = "mi_cmd_var_list_children: Usage: [--no-values|--all-values] NAME [PRINT_VALUE]";
 
-  if (argc == 0 || argc > 2)
-    error ("mi_cmd_var_list_children: Usage: NAME [SHOW_VALUE].");
+  /* APPLE LOCAL: In our impl, arguments are reversed.  We use
+     'varobj-handle show-value', at the FSF they use 
+     'show-value varobj-handle'.  */
 
-  if (argc == 2)
-      print_value = atoi(argv[1]);
-  else
-    print_value = 0;
+  if (argc == 0)
+    error ("%s", usage);
 
-  /* Get varobj handle, if a valid var obj name was specified */
-  var = varobj_get_handle (argv[0]);
+  if (strcmp (argv[0], "0") == 0 || strcmp (argv[0], "--no-values") == 0)
+    {
+      print_values = PRINT_NO_VALUES;
+      argv0_is_flag = 1;
+    }
+  else if (strcmp (argv[0], "1") == 0 || strcmp (argv[0], "--all-values") == 0)
+    {
+      print_values = PRINT_ALL_VALUES;
+      argv0_is_flag = 1;
+    }
+
+  if (argc >= 2)
+    {
+      if (strcmp (argv[1], "0") == 0)
+        {
+          print_values = PRINT_NO_VALUES;
+          argv1_is_flag = 1;
+        }
+      else if (strcmp (argv[1], "2") == 0)
+        {
+          print_values = PRINT_ALL_VALUES;
+          argv1_is_flag = 1;
+        }
+     }
+
+  /* APPLE LOCAL: This is dumb, but we can signal the type of
+     printing by anyone of one of these methods:
+       A command line option-type thing, 
+       a numerial at the start, or
+       a numerial at the end.  
+     e.g. these are all valid:
+      var-list-children --print-values var1
+      var-list-children 1 var1
+      var-list-children var1 2
+     Notably I am not supporting
+      var-list-children --print-values var1 2
+     Because now we're just being silly.  */
+
+  if (argc == 1 && argv0_is_flag)
+    error ("%s", usage);
+
+  if (argc == 1 && !argv0_is_flag)
+    var = varobj_get_handle (argv[0]);
+  else if (argc == 2 && argv0_is_flag)
+    var = varobj_get_handle (argv[1]);
+  else if (argc == 2 && argv1_is_flag)
+    var = varobj_get_handle (argv[0]);
+
   if (var == NULL)
-    error ("mi_cmd_var_list_children: Variable object not found");
+    error ("Variable object not found");
 
   numchild = varobj_list_children (var, &childlist);
   ui_out_field_int (uiout, "numchild", numchild);
@@ -483,6 +531,14 @@ mi_cmd_var_list_children (char *command, char **argv, int argc)
 
   /* APPLE LOCAL: CHILDREN is a list, not a tuple. */
   cleanup_children = make_cleanup_ui_out_list_begin_end (uiout, "children");
+
+#if 0
+  if (mi_version (uiout) == 1)
+    cleanup_children = make_cleanup_ui_out_tuple_begin_end (uiout, "children");
+  else
+    cleanup_children = make_cleanup_ui_out_list_begin_end (uiout, "children");
+#endif
+
   cc = childlist;
   while (*cc != NULL)
     {
@@ -491,7 +547,7 @@ mi_cmd_var_list_children (char *command, char **argv, int argc)
 
       mi_report_var_creation (uiout, *cc, 0);
 
-      if (print_value)
+      if (print_values)
 	ui_out_field_string (uiout, "value", varobj_get_value (*cc));
       do_cleanups (cleanup_child);
       cc++;

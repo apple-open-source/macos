@@ -24,7 +24,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from The Open Group.
 .\" 
-.\" $XFree86: xc/programs/xmodmap/xmodmap.man,v 1.11 2002/10/12 16:06:48 herrb Exp $
+.\" $XFree86: xc/programs/xmodmap/xmodmap.man,v 1.13 2003/06/26 10:19:49 eich Exp $
 .\" 
 .de EX		\"Begin example
 .ne 5
@@ -124,11 +124,11 @@ The list of keysyms is assigned to the indicated keycode
 (which may be specified in decimal, hex or octal and can be determined by 
 running the
 .I xev
-program.  Up to eight keysyms may be attached to a key, however the last four
+program).  Up to eight keysyms may be attached to a key, however the last four
 are not used in any major X server implementation.  The first keysym is used
 when no modifier key is pressed in conjunction with this key, the second with
-Shift, the third when the Mode_Switch key is used with this key and the fourth
-when both the Mode_Switch and Shift keys are used.
+Shift, the third when the Mode_switch key is used with this key and the fourth
+when both the Mode_switch and Shift keys are used.
 .TP 8
 .B keycode any = \fIKEYSYMNAME ...\fP
 If no existing key has the specified list of keysyms assigned to it,
@@ -178,7 +178,7 @@ This sets the pointer map back to its default settings (button 1 generates a
 code of 1, button 2 generates a 2, etc.).
 .TP 8
 .B pointer = \fINUMBER ...\fP
-This sets to pointer map to contain the indicated button codes.  The list
+This sets the pointer map to contain the indicated button codes.  The list
 always starts with the first physical button.
 .PP
 Lines that begin with an exclamation point (!) are taken as comments.

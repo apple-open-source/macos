@@ -1,7 +1,7 @@
 /*
  *  SQLInstallDriverManager.c
  *
- *  $Id: SQLInstallDriverManager.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: SQLInstallDriverManager.c,v 1.3 2004/11/11 01:52:40 luesang Exp $
  *
  *  These functions intentionally left blank
  *
@@ -76,10 +76,11 @@
 #include "iodbc_error.h"
 
 extern BOOL InstallDriverPath ( LPSTR lpszPath, WORD cbPathMax,
-    WORD FAR * pcbPathOut,LPSTR envname);
+    WORD * pcbPathOut,LPSTR envname);
+
 
 BOOL INSTAPI
-SQLInstallDriverManager (LPSTR lpszPath, WORD cbPathMax, WORD FAR *pcbPathOut)
+SQLInstallDriverManager (LPSTR lpszPath, WORD cbPathMax, WORD *pcbPathOut)
 {
   BOOL retcode = FALSE;
 
@@ -91,7 +92,8 @@ SQLInstallDriverManager (LPSTR lpszPath, WORD cbPathMax, WORD FAR *pcbPathOut)
       goto quit;
     }
 
-  retcode = InstallDriverPath (lpszPath, cbPathMax, pcbPathOut, "ODBCMANAGER");
+  retcode =
+      InstallDriverPath (lpszPath, cbPathMax, pcbPathOut, "ODBCMANAGER");
 
 quit:
   return retcode;

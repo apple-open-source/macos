@@ -1,5 +1,5 @@
 /* AttributeSet.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,18 +37,36 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-import java.util.*;
-
+import java.util.Enumeration;
 
 public interface AttributeSet
 { 
-    boolean containsAttribute(Object name, Object value);
-    boolean containsAttributes(AttributeSet attributes);
-    AttributeSet copyAttributes();
-    Object getAttribute(Object key);
-    int getAttributeCount();
-    Enumeration getAttributeNames();
-    AttributeSet getResolveParent();
-    boolean isDefined(Object attrName);
-    boolean isEqual(AttributeSet attr);     
+  static interface CharacterAttribute
+  {
+  }
+
+  static interface ColorAttribute
+  {
+  }
+
+  static interface FontAttribute
+  {
+  }
+
+  static interface ParagraphAttribute
+  {
+  }
+
+  static Object NameAttribute = StyleConstants.NameAttribute;
+  static Object ResolveAttribute = StyleConstants.ResolveAttribute;
+
+  boolean containsAttribute(Object name, Object value);
+  boolean containsAttributes(AttributeSet attributes);
+  AttributeSet copyAttributes();
+  Object getAttribute(Object key);
+  int getAttributeCount();
+  Enumeration getAttributeNames();
+  AttributeSet getResolveParent();
+  boolean isDefined(Object attrName);
+  boolean isEqual(AttributeSet attr);     
 }

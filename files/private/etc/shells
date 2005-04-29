@@ -4,6 +4,7 @@
 
 /bin/bash
 /bin/csh
+/bin/ksh
 /bin/sh
 /bin/tcsh
 /bin/zsh

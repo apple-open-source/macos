@@ -5,14 +5,9 @@
 #include <sys/queue.h>
 #include <sys/malloc.h>
 #include <sys/sysctl.h>
-#ifdef APPLE
 #include <sys/smb_apple.h>
-#endif
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 
-#ifndef APPLE
-#include <sys/sysctlconf.h>
-#endif
 
 #include "iconv_ces_if.h"
 
@@ -117,7 +112,7 @@ iconv_ces_open(const char *cesname, struct iconv_ces **cespp)
 			return error;
 		ICDEBUG("got table ces '%s'\n", cesname);
 	}
-	ces = (struct iconv_ces *)kobj_create((struct kobj_class*)cesd, M_ICONV, M_WAITOK);
+	ces = (struct iconv_ces *)kobj_create((struct kobj_class*)cesd, M_ICONV);
 	error = ICONV_CES_OPEN(ces, cesname);
 	if (error) {
 		kobj_delete((struct kobj*)ces, M_ICONV);

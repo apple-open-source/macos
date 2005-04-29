@@ -30,7 +30,9 @@
 #else
 #import <mach/cthreads.h>
 #endif
+#import <mach/boolean.h>
 #import <objc/objc.h>
+#import <objc/error.h>
 
 #if defined(NeXT_PDO)
     #import <pdo.h>
@@ -40,7 +42,6 @@
     #import <string.h>
 #endif
 
-#import <objc/error.h>
 typedef void AltProc(void *context, int code, const void *data1, const void *data2);
 OBJC_EXPORT NXHandler *_NXAddAltHandler (AltProc *proc, void *context);
 OBJC_EXPORT void _NXRemoveAltHandler (NXHandler *handler);

@@ -1,26 +1,25 @@
-/* Target definitions for GNU compiler for Intel 80386 running Solaris 2
-   Copyright (C) 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+/* Target definitions for GCC for Intel 80386 running Solaris 2
+   Copyright (C) 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
+   2004
    Free Software Foundation, Inc.
    Contributed by Fred Fish (fnf@cygnus.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-#define CMOV_SUN_AS_SYNTAX 1
 
 /* The Solaris 2.0 x86 linker botches alignment of code sections.
    It tries to align to a 16 byte boundary by padding with 0x00000090
@@ -66,3 +65,27 @@ Boston, MA 02111-1307, USA.  */
 
 /* The Solaris assembler does not support .quad.  Do not use it.  */
 #undef ASM_QUAD
+
+/* The Solaris assembler wants a .local for non-exported aliases.  */
+#define ASM_OUTPUT_DEF_FROM_DECLS(FILE, DECL, TARGET)	\
+  do {							\
+    const char *declname =				\
+      IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));	\
+    ASM_OUTPUT_DEF ((FILE), declname,			\
+		    IDENTIFIER_POINTER (TARGET));	\
+    if (! TREE_PUBLIC (DECL))				\
+      {							\
+	fprintf ((FILE), "%s", LOCAL_ASM_OP);		\
+	assemble_name ((FILE), declname);		\
+	fprintf ((FILE), "\n");				\
+      }							\
+  } while (0)
+
+/* Solaris-specific #pragmas are implemented on top of attributes.  Hook in
+   the bits from config/sol2.c.  */
+#define SUBTARGET_INSERT_ATTRIBUTES solaris_insert_attributes
+#define SUBTARGET_ATTRIBUTE_TABLE SOLARIS_ATTRIBUTE_TABLE
+
+/* Output a simple call for .init/.fini.  */
+#define ASM_OUTPUT_CALL(FILE, NAME)			\
+  fprintf (FILE, "\tcall\t%s\n", NAME)

@@ -1,5 +1,5 @@
 use strict;
-use Apache::test;
+use Apache::testold;
 use Apache::src ();
  
 my $Is_dougm = (defined($ENV{USER}) && ($ENV{USER} eq "dougm"));

@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtGetGC.man,v 1.2 2001/01/27 18:20:26 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtGetGC.man,v 1.3 2003/04/28 22:18:19 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,19 +131,11 @@
 .SH NAME
 XtGetGC, XtReleaseGC \- obtain and destroy a sharable GC
 .SH SYNTAX
-GC XtGetGC(\fIw\fP, \fIvalue_mask\fP, \fIvalues\fP)
-.br
-      Widget \fIw\fP;
-.br
-      XtGCMask \fIvalue_mask\fP;
-.br
-      XGCValues *\fIvalues\fP;
-.LP
-void XtReleaseGC(\fIw\fP, \fIgc\fP)
-.br
-      Widget \fIw\fP;
-.br
-      GC \fIgc\fP;
+.HP
+GC XtGetGC(Widget \fIw\fP, XtGCMask \fIvalue_mask\fP, XGCValues
+*\fIvalues\fP); 
+.HP
+void XtReleaseGC(Widget \fIw\fP, GC \fIgc\fP); 
 .SH ARGUMENTS
 .IP \fIgc\fP 1i
 Specifies the GC to be deallocated.

@@ -12,7 +12,7 @@ CFLAGS = @CFLAGS@
 A_CFLAGS = @A_CFLAGS@
 S_CFLAGS = @S_CFLAGS@
 LDFLAGS = @LDFLAGS@
-S_LDFLAGS += @S_LDFLAGS@
+S_LDFLAGS = @S_LDFLAGS@
 LIBS = @LIBS@
 
 INSTALL = @INSTALL@
@@ -167,7 +167,7 @@ clean :
 	rm -f $(TCSRCS:.c=.o) $(TEST)
 
 distclean : clean
-	rm -f config.cache config.log config.status config.h Makefile
+	rm -f config.log config.status config.cache config.h Makefile
 
 #
 # Internal targets and rules.
@@ -178,7 +178,7 @@ $(LIB_A) : $(BGCSRCS:.c=.o_a) $(CCSRCS:.c=.o_a)
 	$(RANLIB) $@
 
 $(LIB_S) : $(BGCSRCS:.c=.o_s) $(CCSRCS:.c=.o_s)
-	$(CC) $(S_LDFLAGS) -o $@ $(BGCSRCS:.c=.o_s) $(CCSRCS:.c=.o_s)
+	$(CC) $(RC_CFLAGS) $(S_LDFLAGS) -o $@ $(BGCSRCS:.c=.o_s) $(CCSRCS:.c=.o_s)
 
 $(TEST) : $(TCSRCS:.c=.o) $(LIB_A)
 	$(CC) -o $@ $(TCSRCS:.c=.o) $(LIB_A) $(LIBS)

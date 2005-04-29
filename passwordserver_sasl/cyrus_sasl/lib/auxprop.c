@@ -1,6 +1,6 @@
 /* auxprop.c - auxilliary property support
  * Rob Siemborski
- * $Id: auxprop.c,v 1.5 2005/01/10 19:13:35 snsimon Exp $
+ * $Id: auxprop.c,v 1.6 2005/03/03 02:29:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -803,17 +803,26 @@ struct propctx *sasl_auxprop_getctx(sasl_conn_t *conn)
 int sasl_auxprop_add_plugin(const char *plugname,
 			    sasl_auxprop_init_t *auxpropfunc)
 {
+	int result = sasl_auxprop_add_plugin_nolog(plugname, auxpropfunc);
+	if(result != SASL_OK) {
+		_sasl_log(NULL, SASL_LOG_ERR, "auxpropfunc error %s\n",
+			sasl_errstring(result, NULL, NULL));
+    }
+	
+	return result;
+}
+
+int sasl_auxprop_add_plugin_nolog(const char *plugname,
+			    sasl_auxprop_init_t *auxpropfunc)
+{
     int result, out_version;
     auxprop_plug_list_t *new_item;
     sasl_auxprop_plug_t *plug;
     
     result = auxpropfunc(sasl_global_utils, SASL_AUXPROP_PLUG_VERSION,
-			 &out_version, &plug, plugname);
-
-    if(result != SASL_OK) {
-	_sasl_log(NULL, SASL_LOG_ERR, "auxpropfunc error %s\n",
-		  sasl_errstring(result, NULL, NULL));
-	return result;
+			 &out_version, &plug, plugname);	
+	if(result != SASL_OK) {
+		return result;
     }
 
     /* We require that this function is implemented */

@@ -1,3 +1,31 @@
+2004-05-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (t_cksum4, t_cksum5): Link test programs against
+	thread support library.
+
+2003-12-19  Ken Raeburn  <raeburn@mit.edu>
+
+	* descbc.c (mit_des_zeroblock): Don't define here.
+	* k5_md4des.c (mit_des_zeroblock): Don't define here.
+	* k5_md5des.c (mit_des_zeroblock): Don't define here.
+
+2003-07-22  Ken Raeburn  <raeburn@mit.edu>
+
+	* descbc.c (k5_descbc_hash_size): Deleted.
+	(krb5int_keyhash_descbc): Updated.
+	* hmac_md5.c (k5_hmac_md5_hash_size): Deleted.
+	(krb5int_keyhash_hmac_md5): Updated.
+	* k5_md4des.c (k5_md4des_hash_size): Deleted.
+	(krb5int_keyhash_md4des): Updated.
+	* k5_md5des.c (k5_md5des_hash_size): Deleted.
+	(krb5int_keyhash_md5des): Updated.
+	* t_cksum.c (main): Use the hashsize field instead of calling a
+	function.
+
+2003-07-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in (LIBNAME) [##WIN16##]: Don't define.
+
 2003-01-10  Ken Raeburn  <raeburn@mit.edu>
 
 	* Makefile.in: Add AC_SUBST_FILE marker for libobj_frag.

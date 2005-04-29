@@ -43,7 +43,6 @@
 extern "C" {
 #include <sys/param.h>
 #include <sys/systm.h>
-#include <sys/mbuf.h>
 #include <sys/socket.h>
 #include <net/bpf.h>
 #include <net/if.h>
@@ -76,7 +75,6 @@ OSMetaClassDefineReservedUnused( IONetworkStack,  3);
 #endif
 
 #define NETIF_FLAGS(n)           ((n)->_clientVar[0])
-#define NETIF_IOCTLS(n)          ((n)->_clientVar[1])
 #define SET_NETIF_FLAGS(n, x)    (NETIF_FLAGS(n) |= (x))
 #define CLR_NETIF_FLAGS(n, x)    (NETIF_FLAGS(n) &= ~(x))
 
@@ -115,6 +113,7 @@ public:
 bool IONetworkStack::init( OSDictionary * properties )
 {
     // Init our superclass first.
+//	PE_enter_debugger("KPI Stack");
 
     if ( super::init(properties) == false )
         return false;
@@ -572,14 +571,15 @@ IOReturn IONetworkStack::message( UInt32      type,
             // to the next stage in the termination process.
             //
             // This message is called from IOService::actionDidTerminate()
-            // which will close the gate on the provider's work loop. Must
-            // not take the network funnel to avoid a potential deadlock.
-            // But since the thread holding the funnel will release it when
-            // it blocks, this may not be an issue.
-
-            thread_call_func( (thread_call_func_t) unregisterBSDInterface,
-                              netif,
-                              TRUE );  /* unique call desired */
+            // which will close the gate on the provider's work loop. 
+			thread_call_t unregisterThread = thread_call_allocate( (thread_call_func_t) unregisterBSDInterface, netif);
+			if(!unregisterThread) //bad news- do it syncronously but system's probably going down in flames anyway.
+			{
+				IOLog("IONetworkStack: can't allocate a thread call\n");
+				unregisterBSDInterface(netif, NULL);
+			}
+			else
+				thread_call_enter1(unregisterThread, unregisterThread );
         }
         while ( false );
 
@@ -590,106 +590,21 @@ IOReturn IONetworkStack::message( UInt32      type,
 }
 
 //---------------------------------------------------------------------------
-// dummy ifnet functions.
-
-static int nop_if_ioctl( struct ifnet *, u_long, void * )
-{
-    return ENODEV;
-}
-
-static int nop_if_bpf( struct ifnet *, int, BPF_FUNC )
-{
-    return ENODEV;
-}
-
-static int nop_if_free( struct ifnet * )
-{
-    return 0;
-}
-
-static int nop_if_output( struct ifnet * ifp, struct mbuf * m )
-{
-    if ( m ) m_freem_list( m );
-    return 0;
-}
-
-//---------------------------------------------------------------------------
 // Detach an inactive interface that is currently registered with BSD.
 
-void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif ) 
+void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif, thread_call_t threadedcall ) 
 {
-    struct ifnet * ifp;
-    int    detach_ret = 0;
 
     assert( netif );
-
-    ifp = netif->getIfnet();
 
     // Interface is about to detach from DLIL.
 
     netif->setInterfaceState( 0, kIONetworkInterfaceRegisteredState );
 
     DLOG("%p\n", netif);
-
-    boolean_t funnel_state = thread_funnel_set( network_flock, TRUE );
-
-    // Ethernet interfaces rely on DLIL ifnet recycling, thus it is
-    // not necessary to wait until all protocols have detached from
-    // the ifnet before commencing the driver stack teardown. Other
-    // interface types may return DLIL_WAIT_FOR_FREE to wait for an
-    // orderly protocol teardown.
-
-    netif->detachFromDataLinkLayer( 0, &detach_ret );
-
-    // DLIL may still call the following ifnet functions if
-    // DLIL_WAIT_FOR_FREE is returned from the detach call.
-    // Install dummy handlers to trap those calls before the
-    // ifnet is recycled.
-
-    ifp->if_output      = nop_if_output;
-    ifp->if_ioctl       = nop_if_ioctl;
-    ifp->if_set_bpf_tap = nop_if_bpf;
-
-	if ( detach_ret != DLIL_WAIT_FOR_FREE )
-        ifp->if_free = nop_if_free;
-    else
-        ifp->if_free = bsdInterfaceWasUnregistered;
-
-    // Wait until all pending ioctl are complete on the netif.
-
-    while ( NETIF_IOCTLS( netif ) )
-    {
-        assert_wait( (event_t) netif, THREAD_UNINT );
-        thread_block( THREAD_CONTINUE_NULL );
-    }
-
-    thread_funnel_set( network_flock, funnel_state );
-
-    // If dlil_if_detach() returns DLIL_WAIT_FOR_FREE, then we
-    // must not close the interface until we receive a callback
-    // from DLIL. Otherwise, proceed with the close.
-
-	if ( detach_ret != DLIL_WAIT_FOR_FREE )
-    {
-        bsdInterfaceWasUnregistered( netif->getIfnet() );
-    }
-}
-
-//---------------------------------------------------------------------------
-// Handle a callback from DLIL to signal that an interface can now be safely
-// destroyed. DLIL will issue this call only if the dlil_if_detach() function
-// returned DLIL_WAIT_FOR_FREE.
-
-int IONetworkStack::bsdInterfaceWasUnregistered( struct ifnet * ifp )
-{
-    IONetworkInterface * netif;
-
-    assert( gIONetworkStack );
-
-    if ( ifp == 0 || ifp->if_private == 0 ) return 0;
-
-    netif = (IONetworkInterface *) ifp->if_private;
-    DLOG("%p\n", netif);
+	// with kpi, detachFromDataLinkLayer will ensure complete ifnet teardown,
+	// sleeping until dlil invokes the detach handler if necessary.
+    netif->detachFromDataLinkLayer( 0, 0 );
 
     // An interface was detached from DLIL. It is now safe to close the 
     // interface object.
@@ -724,8 +639,9 @@ int IONetworkStack::bsdInterfaceWasUnregistered( struct ifnet * ifp )
     // Close interface and allow it to proceed with termination.
 
     netif->close( gIONetworkStack );
+	if(threadedcall)
+		thread_call_free(threadedcall);
 
-    return 0;
 }
 
 //---------------------------------------------------------------------------
@@ -822,18 +738,25 @@ IONetworkStack::completeRegistration( OSArray * array, bool isSync )
 {
     if ( isSync )
     {
-        completeRegistrationUsingArray( array );
+        completeRegistrationUsingArray( array, NULL );
     }
     else
     {
-        thread_call_func( (thread_call_func_t) completeRegistrationUsingArray,
-                          array,
-                          TRUE );  /* unique call desired */
+		thread_call_t regCompleteThread;
+		
+		regCompleteThread = thread_call_allocate((thread_call_func_t) completeRegistrationUsingArray, array);
+		if(regCompleteThread == 0) //what the!? system must be hurting.
+		{
+			IOLog("IONetworkStack: couldn't allocate a thread call\n");
+			completeRegistrationUsingArray(array, NULL); //do it synchronously
+		}
+		else
+			thread_call_enter1( regCompleteThread, regCompleteThread);
     }
 }
 
 void
-IONetworkStack::completeRegistrationUsingArray( OSArray * array )
+IONetworkStack::completeRegistrationUsingArray( OSArray * array, thread_call_t threadedcall )
 {
     IONetworkInterface * netif;
 
@@ -848,6 +771,8 @@ IONetworkStack::completeRegistrationUsingArray( OSArray * array )
     }
 
     array->release();   // consumes a ref count
+	if(threadedcall)
+		thread_call_free(threadedcall);
 }
 
 //---------------------------------------------------------------------------
@@ -855,33 +780,19 @@ IONetworkStack::completeRegistrationUsingArray( OSArray * array )
 
 void IONetworkStack::registerBSDInterface( IONetworkInterface * netif )
 {
-    char      ifname[20];
     bool      doTermination = false;
-    boolean_t funnel_state;
+    char      ifname[20];
 
     assert( netif );
-
-    funnel_state = thread_funnel_set( network_flock, TRUE );
-
-    // Filter interface ioctls.
-
-    netif->getIfnet()->if_ioctl = filter_if_ioctl;
-    netif->getIfnet()->if_free  = nop_if_free;
-
-    // Attach the (Ethernet) interface to DLIL.
-
     if ( netif->attachToDataLinkLayer( 0, 0 ) != kIOReturnSuccess )
     {
-        thread_funnel_set( network_flock, funnel_state );
         return;  // interface attach failed
     }
 
     // Hack to sync up the interface flags. The UP flag may already
     // be set, and this will issue an SIOCSIFFLAGS to the interface.
 
-    (*netif->getIfnet()->if_ioctl)( netif->getIfnet(), SIOCSIFFLAGS, 0 );
-
-    thread_funnel_set( network_flock, funnel_state );
+    ifnet_ioctl(netif->getIfnet(), 0, SIOCSIFFLAGS, 0 );
 
     // Interface is now registered with DLIL.
 
@@ -890,7 +801,6 @@ void IONetworkStack::registerBSDInterface( IONetworkInterface * netif )
     // Add a kIOBSDNameKey property to the interface AFTER the interface
     // has registered with DLIL. The order is very important to avoid
     // rooting from an interface which is not yet known by BSD.
-
     sprintf(ifname, "%s%d", netif->getNamePrefix(), netif->getUnitNumber());
     netif->setProperty(kIOBSDNameKey, ifname);
 
@@ -1198,34 +1108,6 @@ IOReturn IONetworkStack::setProperties( OSObject * properties )
         }
     }
     while ( false );
-
-    return ret;
-}
-
-//---------------------------------------------------------------------------
-// filter_if_ioctl
-
-int
-IONetworkStack::filter_if_ioctl(struct ifnet * ifp, u_long cmd, void * data)
-{
-    int ret = ENODEV;
-
-    if ( ifp && ifp->if_private )
-    {
-        IONetworkInterface * netif = (IONetworkInterface *) ifp->if_private;
-
-        ++NETIF_IOCTLS( netif );
-
-        ret = netif->ioctl_shim( ifp, cmd, data );
-
-        --NETIF_IOCTLS( netif );
-
-        if ( ( ifp->if_ioctl != filter_if_ioctl ) &&
-             ( NETIF_IOCTLS( netif ) == 0 ) )
-        {
-            thread_wakeup( (void *) netif );
-        }
-    }
 
     return ret;
 }

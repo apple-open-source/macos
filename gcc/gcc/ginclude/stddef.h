@@ -1,19 +1,20 @@
-/* Copyright (C) 1989, 1997, 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1997, 1998, 1999, 2000, 2002, 2004
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -295,7 +296,7 @@ typedef _BSD_RUNE_T_ rune_t;
 #define _BSD_WCHAR_T_DEFINED_
 #define _BSD_RUNE_T_DEFINED_	/* Darwin */
 #if defined (__FreeBSD__) && (__FreeBSD__ < 5)
-/* Why is this file so hard to maintain properly?  In constrast to
+/* Why is this file so hard to maintain properly?  In contrast to
    the comment above regarding BSD/386 1.1, on FreeBSD for as long
    as the symbol has existed, _BSD_RUNE_T_ must not stay defined or
    redundant typedefs will occur when stdlib.h is included after this file. */
@@ -409,9 +410,8 @@ typedef __WINT_TYPE__ wint_t;
 
 #ifdef _STDDEF_H
 
-/* Offset of member MEMBER in a struct of type TYPE.  */
-
-#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+/* Offset of member MEMBER in a struct of type TYPE. */
+#define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
 
 #endif /* _STDDEF_H was defined this time */
 

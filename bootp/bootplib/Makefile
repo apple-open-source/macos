@@ -16,10 +16,9 @@ CLASSES = clientTypes.m subnetDescr.m
 
 HFILES = afp.h arp.h bpflib.h clientTypes.h dhcp.h dhcplib.h\
          dprintf.h gen_dhcp_parse_table.h gen_dhcp_tags.h\
-         gen_dhcp_types.h hostlist.h host_identifier.h\
-         inetroute.h interfaces.h in_cksum.h netinfo.h NIDomain.h\
-         rfc_options.h subnetDescr.h util.h ipcfg.h lockc.h ts_log.h\
-         ipconfig_ext.h ipconfig_types.h machcompat.h threadcompat.h\
+         gen_dhcp_types.h hostlist.h host_identifier.h inetroute.h\
+         interfaces.h in_cksum.h netinfo.h NIDomain.h rfc_options.h\
+         subnetDescr.h util.h ipcfg.h ipconfig_ext.h ipconfig_types.h\
          dhcp_options.h dynarray.h macnc_options.h ptrlist.h tftplib.h\
          bsdp.h NICache.h bootp_transmit.h NICachePrivate.h nbsp.h\
          NetBootServer.h ioregpath.h cfutil.h nbimages.h\
@@ -28,8 +27,8 @@ HFILES = afp.h arp.h bpflib.h clientTypes.h dhcp.h dhcplib.h\
 CFILES = arp.c bootp_transmit.c bpflib.c dhcplib.c dhcp_options.c\
          dynarray.c hostlist.c host_identifier.c inetroute.c\
          interfaces.c in_cksum.c ipcfg.c macnc_options.c nbsp.c\
-         netinfo.c NICache.c NIDomain.c ptrlist.c tftplib.c ts_log.c\
-         util.c ioregpath.c cfutil.c nbimages.c bsdplib.c
+         netinfo.c NICache.c NIDomain.c ptrlist.c tftplib.c util.c\
+         ioregpath.c cfutil.c nbimages.c bsdplib.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
             genoptionfiles.c ipconfig.defs
@@ -50,6 +49,7 @@ PROF_LIBS = $(LIBS)
 
 HEADER_PATHS =\
                -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
+NEXTSTEP_PB_CFLAGS = -fconstant-cfstrings
 
 
 WINDOWS_PUBLIC_HEADERS_DIR = $(HOMEDRIVE)$(LOCAL_DEVELOPER_DIR)/Headers/$(NAME)

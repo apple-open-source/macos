@@ -26,7 +26,5 @@
 
 #import "SYS.h"
 
-PSEUDO(getppid,getpid,0)
-	mr	a0,a1
-	blr
+SYSCALL(getppid,0)
 

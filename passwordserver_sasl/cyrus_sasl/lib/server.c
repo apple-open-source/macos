@@ -1,7 +1,7 @@
 /* SASL server API implementation
  * Rob Siemborski
  * Tim Martin
- * $Id: server.c,v 1.5 2005/01/10 19:13:36 snsimon Exp $
+ * $Id: server.c,v 1.6 2005/03/03 02:29:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -740,6 +740,138 @@ int sasl_server_init(const sasl_callback_t *callbacks,
 
     return ret;
 }
+
+/* initialize server drivers, done once per process
+ *  callbacks      -- callbacks for all server connections; must include
+ *                    getopt callback
+ *  appname        -- name of calling application (for lower level logging)
+ * results:
+ *  state          -- server state
+ * returns:
+ *  SASL_OK        -- success
+ *  SASL_BADPARAM  -- error in config file
+ *  SASL_NOMEM     -- memory failure
+ *  SASL_BADVERS   -- Mechanism version mismatch
+ *  SASL_NOMECH    -- No auxprop plug-ins available; advisory only, not fatal.
+ */
+
+int sasl_server_init_alt(const sasl_callback_t *callbacks,
+		     const char *appname)
+{
+    int ret, ret2;
+    const sasl_callback_t *vf;
+    const char *pluginfile = NULL;
+#ifdef PIC
+    sasl_getopt_t *getopt;
+    void *context;
+#endif
+
+    const add_plugin_list_t ep_list[] = {
+		{ "sasl_server_plug_init", (add_plugin_t *)sasl_server_add_plugin },
+		{ "sasl_auxprop_plug_init", (add_plugin_t *)sasl_auxprop_add_plugin_nolog },
+		{ "sasl_canonuser_init", (add_plugin_t *)sasl_canonuser_add_plugin },
+		{ NULL, NULL }
+    };
+
+    /* we require the appname to be non-null and short enough to be a path */
+    if (!appname || strlen(appname) >= PATH_MAX)
+		return SASL_BADPARAM;
+
+    if (_sasl_server_active) {
+		/* We're already active, just increase our refcount */
+		/* xxx do something with the callback structure? */
+		_sasl_server_active++;
+		return SASL_OK;
+    }
+    
+    ret = _sasl_common_init(&global_callbacks);
+    if (ret != SASL_OK)
+		return ret;
+ 
+    /* verify that the callbacks look ok */
+    ret = verify_server_callbacks(callbacks);
+    if (ret != SASL_OK)
+		return ret;
+
+    global_callbacks.callbacks = callbacks;
+    global_callbacks.appname = appname;
+
+    /* If we fail now, we have to call server_done */
+    _sasl_server_active = 1;
+
+    /* allocate mechlist and set it to empty */
+    mechlist = sasl_ALLOC(sizeof(mech_list_t));
+    if (mechlist == NULL) {
+		server_done();
+		return SASL_NOMEM;
+    }
+
+    ret = init_mechlist();
+    if (ret != SASL_OK) {
+		server_done();
+		return ret;
+    }
+
+    vf = _sasl_find_verifyfile_callback(callbacks);
+
+    /* load config file if applicable */
+    ret = load_config(vf);
+    if ((ret != SASL_OK) && (ret != SASL_CONTINUE)) {
+		server_done();
+		return ret;
+    }
+
+    /* load internal plugins */
+    sasl_server_add_plugin("EXTERNAL", &external_server_plug_init);
+
+#ifdef PIC
+    /* delayed loading of plugins? (DSO only, as it doesn't
+     * make much [any] sense to delay in the static library case) */
+    if (_sasl_getcallback(NULL, SASL_CB_GETOPT, &getopt, &context) 
+	   == SASL_OK) {
+		/* No sasl_conn_t was given to getcallback, so we provide the
+		 * global callbacks structure */
+		ret = getopt(&global_callbacks, NULL, "plugin_list", &pluginfile, NULL);
+    }
+#endif
+    
+    if (pluginfile != NULL) {
+		/* this file should contain a list of plugins available.
+		   we'll load on demand. */
+
+		/* Ask the application if it's safe to use this file */
+		ret = ((sasl_verifyfile_t *)(vf->proc))(vf->context,
+							pluginfile,
+							SASL_VRFY_CONF);
+		if (ret != SASL_OK) {
+			_sasl_log(NULL, SASL_LOG_ERR,
+				  "unable to load plugin list %s: %z", pluginfile, ret);
+	}
+	
+	if (ret == SASL_OK) {
+	    ret = parse_mechlist_file(pluginfile);
+	}
+    } else {
+		/* load all plugins now */
+		ret = _sasl_load_plugins_alt(ep_list,
+					 _sasl_find_getpath_callback(callbacks),
+					 _sasl_find_verifyfile_callback(callbacks));
+    }
+
+    if (ret == SASL_OK || ret == SASL_NOMECH) {
+		_sasl_server_cleanup_hook = &server_done;
+		_sasl_server_idle_hook = &server_idle;
+
+		ret2 = _sasl_build_mechlist();
+		if (ret2 != SASL_OK)
+			ret = ret2;
+    } else {
+		server_done();
+    }
+	
+    return ret;
+}
+
 
 /*
  * Once we have the users plaintext password we 

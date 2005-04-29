@@ -134,10 +134,6 @@ struct _Hashtable_iterator {
   pointer operator->() const { return &(operator*()); }
   iterator& operator++();
   iterator operator++(int);
-  bool operator==(const iterator& __it) const
-    { return _M_cur == __it._M_cur; }
-  bool operator!=(const iterator& __it) const
-    { return _M_cur != __it._M_cur; }
 };
 
 
@@ -173,11 +169,81 @@ struct _Hashtable_const_iterator {
   pointer operator->() const { return &(operator*()); }
   const_iterator& operator++();
   const_iterator operator++(int);
-  bool operator==(const const_iterator& __it) const 
-    { return _M_cur == __it._M_cur; }
-  bool operator!=(const const_iterator& __it) const 
-    { return _M_cur != __it._M_cur; }
 };
+
+/* APPLE LOCAL begin libstdc++ debug mode fix */
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator==(const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur == __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator==(const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur == __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator==(const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur == __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator==(const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur == __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator!=(const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur != __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator!=(const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur != __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator!=(const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                       _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur != __rhs._M_cur; }
+
+template <class _Val, class _Key, class _HashFcn,
+          class _ExtractKey, class _EqualKey, class _Alloc>
+  bool
+  operator!=(const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __lhs,
+             const _Hashtable_const_iterator<_Val, _Key, _HashFcn, _ExtractKey,
+                                             _EqualKey, _Alloc>& __rhs)
+  { return __lhs._M_cur != __rhs._M_cur; }
+/* APPLE LOCAL end libstdc++ debug mode fix */
 
 // Note: assumes long is at least 32 bits.
 enum { __stl_num_primes = 28 };

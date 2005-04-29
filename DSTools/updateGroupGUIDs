@@ -1,0 +1,40 @@
+#!/bin/sh
+/usr/sbin/dseditgroup -o create -q -r "Everyone" -c "Group membership calculated by system" -i 12 -g abcdefab-cdef-abcd-efab-cdef0000000C -S S-1-1-0 everyone
+/usr/sbin/dseditgroup -o create -q -r "Authenticated Users" -c "Group membership calculated by system" -i 50 -g abcdefab-cdef-abcd-efab-cdef00000032 -S S-1-5-11 authedusers
+/usr/sbin/dseditgroup -o create -q -r "Interactive" -c "Group membership calculated by system" -i 51 -g abcdefab-cdef-abcd-efab-cdef00000033 -S S-1-5-4 interactusers
+/usr/sbin/dseditgroup -o create -q -r "Network" -c "Group membership calculated by system" -i 52 -g abcdefab-cdef-abcd-efab-cdef00000034 -S S-1-5-2 netusers
+/usr/sbin/dseditgroup -o create -q -r "Terminal Server User" -c "Group membership calculated by system" -i 53 -g abcdefab-cdef-abcd-efab-cdef00000035 -S S-1-5-13 consoleusers
+/usr/sbin/dseditgroup -o create -q -r "Creator Owner" -i 10 -g abcdefab-cdef-abcd-efab-cdef0000000A -S S-1-3-0 owner
+/usr/sbin/dseditgroup -o create -q -r "Creator Group" -i 16 -g abcdefab-cdef-abcd-efab-cdef00000010 -S S-1-3-1 group
+/usr/sbin/dseditgroup -o create -q -r "Nobody" -i -2 -g abcdefab-cdef-abcd-efab-cdeffffffffe -S S-1-0-0 nobody
+/usr/sbin/dseditgroup -o create -q -r "No Group" -i -1 -g abcdefab-cdef-abcd-efab-cdefffffffff -S S-1-5-21-600 nogroup
+/usr/sbin/dseditgroup -o create -q -r "System Group" -i 0 -g abcdefab-cdef-abcd-efab-cdef00000000 -S S-1-5-21-100 wheel
+/usr/sbin/dseditgroup -o create -q -r "Local System" -i 1 -g abcdefab-cdef-abcd-efab-cdef00000001 -S S-1-5-18 daemon
+/usr/sbin/dseditgroup -o create -q -r "Kernel Memory" -i 2 -g abcdefab-cdef-abcd-efab-cdef00000002 -S S-1-5-21-102 kmem
+/usr/sbin/dseditgroup -o create -q -r "System" -i 3 -g abcdefab-cdef-abcd-efab-cdef00000003 -S S-1-5-21-103 sys
+/usr/sbin/dseditgroup -o create -q -r "Terminal" -i 4 -g abcdefab-cdef-abcd-efab-cdef00000004 -S S-1-5-21-104 tty
+/usr/sbin/dseditgroup -o create -q -r "System Operators" -i 5 -g abcdefab-cdef-abcd-efab-cdef00000005 -S S-1-5-21-105 operator
+/usr/sbin/dseditgroup -o create -q -r "SMTP Mail" -i 6 -g abcdefab-cdef-abcd-efab-cdef00000006 -S S-1-5-21-106 mail
+/usr/sbin/dseditgroup -o create -q -r "Binary" -i 7 -g abcdefab-cdef-abcd-efab-cdef00000007 -S S-1-5-21-107 bin
+/usr/sbin/dseditgroup -o create -q -r "Users" -i 20 -g abcdefab-cdef-abcd-efab-cdef00000014 -S S-1-5-32-545 staff
+/usr/sbin/dseditgroup -o create -q -i 25 -g abcdefab-cdef-abcd-efab-cdef00000019 -S S-1-5-21-125 smmsp
+/usr/sbin/dseditgroup -o create -q -r "Print Operators" -i 26 -g abcdefab-cdef-abcd-efab-cdef0000001A -S S-1-5-32-550 lp
+/usr/sbin/dseditgroup -o create -q -r "SMTP Mail Access" -i 27 -g abcdefab-cdef-abcd-efab-cdef0000001B -S S-1-5-21-127 postfix
+/usr/sbin/dseditgroup -o create -q -r "SMTP Mail Posting" -i 28 -g abcdefab-cdef-abcd-efab-cdef0000001C -S S-1-5-21-128 postdrop
+/usr/sbin/dseditgroup -o create -q -i 45 -g abcdefab-cdef-abcd-efab-cdef0000002D -S S-1-5-21-145 utmp
+/usr/sbin/dseditgroup -o create -q -i 66 -g abcdefab-cdef-abcd-efab-cdef00000042 -S S-1-5-21-166 uucp
+/usr/sbin/dseditgroup -o create -q -r "Dialup" -i 68 -g abcdefab-cdef-abcd-efab-cdef00000044 -S S-1-5-1 dialer
+/usr/sbin/dseditgroup -o create -q -r "Network Config Users" -i 69 -g abcdefab-cdef-abcd-efab-cdef00000045 -S S-1-5-21-169 network
+/usr/sbin/dseditgroup -o create -q -r "HTTP Users" -i 70 -g abcdefab-cdef-abcd-efab-cdef00000046 -S S-1-5-21-170 www
+/usr/sbin/dseditgroup -o create -q -r "MySQL Users" -i 74 -g abcdefab-cdef-abcd-efab-cdef0000004A -S S-1-5-21-174 mysql
+/usr/sbin/dseditgroup -o create -q -r "SSH Users" -i 75 -g abcdefab-cdef-abcd-efab-cdef0000004B -S S-1-5-21-175 sshd
+/usr/sbin/dseditgroup -o create -q -r "QuickTime Streaming" -i 76 -g abcdefab-cdef-abcd-efab-cdef0000004C -S S-1-5-21-176 qtss
+/usr/sbin/dseditgroup -o create -q -r "Mailing List" -i 78 -g abcdefab-cdef-abcd-efab-cdef0000004E -S S-1-5-21-178 mailman
+/usr/sbin/dseditgroup -o create -q -r "Application Server" -i 79 -g abcdefab-cdef-abcd-efab-cdef0000004F -S S-1-5-21-179 appserverusr
+/usr/sbin/dseditgroup -o create -q -r "Administrators" -i 80 -g abcdefab-cdef-abcd-efab-cdef00000050 -S S-1-5-32-544 admin
+/usr/sbin/dseditgroup -o create -q -r "App Server Admins" -i 81 -g abcdefab-cdef-abcd-efab-cdef00000051 -S S-1-5-21-181 appserveradm
+/usr/sbin/dseditgroup -o create -q -r "SPAM Assassin Group 1" -i 82 -g abcdefab-cdef-abcd-efab-cdef00000052 -S S-1-5-21-183 clamav
+/usr/sbin/dseditgroup -o create -q -r "SPAM Assassin Group 2" -i 83 -g abcdefab-cdef-abcd-efab-cdef00000053 -S S-1-5-21-183 amavisd
+/usr/sbin/dseditgroup -o create -q -r "Chat Server Group" -i 84 -g abcdefab-cdef-abcd-efab-cdef00000054 -S S-1-5-21-184 jabber
+/usr/sbin/dseditgroup -o create -q -r "Accessibility Group" -i 90 -g abcdefab-cdef-abcd-efab-cdef0000005A -S S-1-5-21-190 accessibility
+/usr/sbin/dseditgroup -o create -q -r "Guests" -i 99 -g abcdefab-cdef-abcd-efab-cdef00000063 -S S-1-5-32-546 unknown

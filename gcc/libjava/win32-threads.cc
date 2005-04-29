@@ -81,6 +81,16 @@ ensure_condvar_initialized(_Jv_ConditionVariable_t *cv)
     }
 }
 
+inline void
+ensure_interrupt_event_initialized(HANDLE& rhEvent)
+{
+  if (!rhEvent)
+    {
+      rhEvent = CreateEvent (NULL, 0, 0, NULL);
+      if (!rhEvent) JvFail("CreateEvent() failed");
+    }
+}
+
 // Reimplementation of the general algorithm described at
 // http://www.cs.wustl.edu/~schmidt/win32-cv-1.html (isomorphic to
 // 3.2, not a cut-and-paste).
@@ -90,6 +100,21 @@ _Jv_CondWait(_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu, jlong millis, jint na
 {
   if (mu->owner != GetCurrentThreadId ( ))
     return _JV_NOT_OWNER;
+
+  _Jv_Thread_t *current = _Jv_ThreadCurrentData ();
+  java::lang::Thread *current_obj = _Jv_ThreadCurrent ();
+
+  // Now that we hold the interrupt mutex, check if this thread has been 
+  // interrupted already.
+  EnterCriticalSection (&current->interrupt_mutex);
+  ensure_interrupt_event_initialized (current->interrupt_event);
+  jboolean interrupted = current_obj->interrupt_flag;
+  LeaveCriticalSection (&current->interrupt_mutex);
+
+  if (interrupted)
+    {
+      return _JV_INTERRUPTED;
+    }
 
   EnterCriticalSection (&cv->count_mutex);
   ensure_condvar_initialized (cv);
@@ -101,9 +126,44 @@ _Jv_CondWait(_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu, jlong millis, jint na
   else if (millis == 0) time = INFINITE;
   else time = millis;
 
-  _Jv_MutexUnlock (mu);
+  // Record the current lock depth, so it can be restored
+  // when we reacquire it.
+  int count = mu->refcount;
+  int curcount = count;
 
-  DWORD rval = WaitForMultipleObjects (2, &(cv->ev[0]), 0, time);
+  // Call _Jv_MutexUnlock repeatedly until this thread
+  // has completely released the monitor.
+  while (curcount > 0)
+    {  
+      _Jv_MutexUnlock (mu);
+      --curcount;
+    }
+
+  // Set up our array of three events:
+  // - the auto-reset event (for notify())
+  // - the manual-reset event (for notifyAll())
+  // - the interrupt event (for interrupt())
+  // We wait for any one of these to be signaled.
+  HANDLE arh[3];
+  arh[0] = cv->ev[0];
+  arh[1] = cv->ev[1];
+  arh[2] = current->interrupt_event;
+  DWORD rval = WaitForMultipleObjects (3, arh, 0, time);
+
+  EnterCriticalSection (&current->interrupt_mutex);
+
+  // If we were unblocked by the third event (our thread's interrupt
+  // event), set the thread's interrupt flag. I think this sanity
+  // check guards against someone resetting our interrupt flag
+  // in the time between when interrupt_mutex is released in
+  // _Jv_ThreadInterrupt and the interval of time between the
+  // WaitForMultipleObjects call we just made and our acquisition
+  // of interrupt_mutex.
+  if (rval == (WAIT_OBJECT_0 + 2))
+    current_obj->interrupt_flag = true;
+    
+  interrupted = current_obj->interrupt_flag;
+  LeaveCriticalSection (&current->interrupt_mutex);
 
   EnterCriticalSection(&cv->count_mutex);
   cv->blocked_count--;
@@ -115,9 +175,15 @@ _Jv_CondWait(_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu, jlong millis, jint na
   if (last_waiter)
     ResetEvent (cv->ev[1]);
 
-  _Jv_MutexLock (mu);
-
-  return 0;
+  // Call _Jv_MutexLock repeatedly until the mutex's refcount is the
+  // same as before we originally released it.
+  while (curcount < count)
+    {  
+      _Jv_MutexLock (mu);
+      ++curcount;
+    }
+  
+  return interrupted ? _JV_INTERRUPTED : 0;
 }
 
 void
@@ -196,7 +262,10 @@ _Jv_ThreadInitData (java::lang::Thread* obj)
 {
   _Jv_Thread_t *data = (_Jv_Thread_t*)_Jv_Malloc(sizeof(_Jv_Thread_t));
   data->flags = 0;
+  data->handle = 0;
   data->thread_obj = obj;
+  data->interrupt_event = 0;
+  InitializeCriticalSection (&data->interrupt_mutex);
 
   return data;
 }
@@ -204,6 +273,10 @@ _Jv_ThreadInitData (java::lang::Thread* obj)
 void
 _Jv_ThreadDestroyData (_Jv_Thread_t *data)
 {
+  DeleteCriticalSection (&data->interrupt_mutex);
+  if (data->interrupt_event)
+    CloseHandle(data->interrupt_event);
+  CloseHandle(data->handle);
   _Jv_Free(data);
 }
 
@@ -294,7 +367,6 @@ _Jv_ThreadStart (java::lang::Thread *thread, _Jv_Thread_t *data, _Jv_ThreadStart
     return;
   data->flags |= FLAG_START;
 
-  // FIXME: handle marking the info object for GC.
   info = (struct starter *) _Jv_AllocBytes (sizeof (struct starter));
   info->method = meth;
   info->data = data;
@@ -308,11 +380,8 @@ _Jv_ThreadStart (java::lang::Thread *thread, _Jv_Thread_t *data, _Jv_ThreadStart
   else
     data->flags |= FLAG_DAEMON;
 
-  HANDLE h = GC_CreateThread(NULL, 0, really_start, info, 0, &id);
+  data->handle = GC_CreateThread(NULL, 0, really_start, info, 0, &id);
   _Jv_ThreadSetPriority(data, thread->getPriority());
-
-  //if (!h)
-    //JvThrow ();
 }
 
 void
@@ -326,9 +395,27 @@ _Jv_ThreadWait (void)
     }
 }
 
+//
+// Interrupt support
+//
+
+HANDLE
+_Jv_Win32GetInterruptEvent (void)
+{
+  _Jv_Thread_t *current = _Jv_ThreadCurrentData ();
+  EnterCriticalSection (&current->interrupt_mutex);
+  ensure_interrupt_event_initialized (current->interrupt_event);
+  HANDLE hEvent = current->interrupt_event;
+  LeaveCriticalSection (&current->interrupt_mutex);
+  return hEvent;
+}
+
 void
 _Jv_ThreadInterrupt (_Jv_Thread_t *data)
 {
-  MessageBox(NULL, "Unimplemented", "win32-threads.cc:_Jv_ThreadInterrupt", MB_OK);
-  // FIXME:
+  EnterCriticalSection (&data->interrupt_mutex);
+  ensure_interrupt_event_initialized (data->interrupt_event);
+  data->thread_obj->interrupt_flag = true;
+  SetEvent (data->interrupt_event);
+  LeaveCriticalSection (&data->interrupt_mutex);
 }

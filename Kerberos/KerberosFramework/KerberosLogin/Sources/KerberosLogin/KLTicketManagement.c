@@ -1,7 +1,7 @@
 /*
  * KLTicketManagement.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLTicketManagement.c,v 1.19 2003/09/18 17:38:59 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLTicketManagement.c,v 1.27 2004/11/30 23:06:33 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -29,84 +29,126 @@
 
 #pragma mark -
 
-KLStatus __KLAcquireInitialTicketsForCache (const KLPrincipal    inPrincipal,
-                                            KLLoginOptions       inLoginOptions,
-                                            const char          *inCacheName,
+// ---------------------------------------------------------------------------
+
+static KLStatus __KLAcquireKerberos4CredentialsFromKerberos5Credentials (krb5_context inContext, 
+                                                                         krb5_creds  *inV5Credentials, 
+                                                                         CREDENTIALS *outV4Credentials)
+{
+    KLStatus    err = klNoErr;
+    krb5_ccache memoryCache = NULL;
+    krb5_creds  *v524Credentials = NULL;
+
+    if (inContext        == NULL) { err = KLError_ (klParameterErr); }
+    if (inV5Credentials  == NULL) { err = KLError_ (klParameterErr); }
+    if (outV4Credentials == NULL) { err = KLError_ (klParameterErr); }
+    
+    if (err == klNoErr) {
+        err = krb5_cc_resolve (inContext, "MEMORY:__KLAcquireKerberos5CredentialsForKerberos524", &memoryCache);
+    }
+    
+    if (err == klNoErr) {
+        err = krb5_cc_initialize (inContext, memoryCache, inV5Credentials->client);
+    }
+    
+    if (err == klNoErr) {
+        err = krb5_cc_store_cred (inContext, memoryCache, inV5Credentials);
+    }
+    
+    if (err == klNoErr) {
+        krb5_creds in;
+        
+        memset((char *) &in, 0, sizeof(in));
+        in.client = inV5Credentials->client;
+        in.server = inV5Credentials->server;
+        in.times.endtime = 0;
+        in.keyblock.enctype = ENCTYPE_DES_CBC_CRC;
+
+        err = krb5_get_credentials (inContext, 0, memoryCache, &in, &v524Credentials);
+        dprintf ("krb5_get_credentials returned %d (%s)\n", err, error_message (err));
+    }
+    
+    if (err == klNoErr) {
+        err = krb5_524_convert_creds (inContext, v524Credentials, outV4Credentials);
+        dprintf ("krb5_524_convert_creds returned %d (%s)\n", err, error_message (err));
+    }
+    
+    if (err == klNoErr) {
+        err = __KLVerifyKDCOffsetsForKerberos4 (inContext);
+    }
+
+    if (v524Credentials != NULL) { krb5_free_creds (inContext, v524Credentials); }
+    if (memoryCache     != NULL) { krb5_cc_destroy (inContext, memoryCache); }
+    
+    return KLError_ (err);
+}
+
+// ---------------------------------------------------------------------------
+
+KLStatus __KLAcquireInitialTicketsForCache (const char          *inCacheName,
                                             KLKerberosVersion    inKerberosVersion,
+                                            KLLoginOptions       inLoginOptions,
                                             KLPrincipal         *outPrincipal,
                                             char               **outCacheName)
 {
-    KLStatus  lockErr = __KLLockCCache (kReadLock);
+    KLStatus  lockErr = __KLLockCCache (kWriteLock);
     KLStatus  err = lockErr;
 
-    KLBoolean hasAPIPrefix = false;
-    cc_ccache_t ccache = NULL;
-    KLPrincipal ccachePrincipal = NULL;
+    KLCCache    ccache = NULL;
+    KLPrincipal ccachePrincipal = NULL; 
 
     KLPrincipal gotPrincipal = NULL;
     char       *gotCCacheName = NULL;
 
-    if (err == klNoErr) {
-        if (inCacheName  == NULL) { err = KLError_ (klParameterErr); }
-    }
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
+    if (inCacheName  == NULL) { err = KLError_ (klParameterErr); }
 
     if (err == klNoErr) {
-        // Make sure we have a Kerberos 5 configuration
-        if ((inPrincipal != NULL) && (inKerberosVersion & kerberosVersion_V5) && (__KLPrincipalHasKerberos5 (inPrincipal) == false)) {
-            err = KLError_ (klBadPrincipalErr);
-        }
-        // Make sure we have a Kerberos 4 configuration
-        if ((inPrincipal != NULL) && (inKerberosVersion & kerberosVersion_V4) && (__KLPrincipalHasKerberos4 (inPrincipal) == false)) {
-            err = KLError_ (klBadPrincipalErr);
-        }
-    }
-
-    if (err == klNoErr) {
-        hasAPIPrefix = (strncmp (inCacheName, "API:", 4) == 0);
-    }
-
-    if (err == klNoErr) {
-        err = __KLGetCCacheByName ((hasAPIPrefix ? &inCacheName [4] : inCacheName), &ccache);
+        err = __KLGetCCacheByName (inCacheName, &ccache);
 
         if (err == klNoErr) {            
             err = __KLGetPrincipalForCCache (ccache, &ccachePrincipal);
         }
 
         if (err == klNoErr) {
-            if (inPrincipal != NULL) {
-                // the caller passed in a non-nul principal -- make sure it is the one in the ccache
-                KLBoolean samePrincipal = false;
-                
-                if ((KLComparePrincipal (inPrincipal, ccachePrincipal, &samePrincipal) == klNoErr) && !samePrincipal) {
-                    // try to find a ccache that matches the principal
-                    if (ccache != NULL) { cc_ccache_release (ccache); ccache = NULL; } // Don't leak the old one
-                    err = __KLGetFirstCCacheForPrincipal (inPrincipal, &ccache);
-                }
-            }
-        }
-
-        if (err == klNoErr) {
             err = __KLCacheHasValidTickets (ccache, inKerberosVersion);
+            
             if (err == klNoErr) { // Tickets exist!
-                err = __KLGetPrincipalAndNameForCCache (ccache, &gotPrincipal, &gotCCacheName);
+                err = __KLGetPrincipalForCCache (ccache, &gotPrincipal);
+                
+                if (!err) {
+                    err = __KLGetNameForCCacheVersion (ccache, inKerberosVersion, &gotCCacheName);
+                }
             } else {
                 if (err == klCredentialsExpiredErr) {
-                    // try renewing the credentials
-                    err = KLRenewInitialTickets (inPrincipal, inLoginOptions, &gotPrincipal, &gotCCacheName);
+                    err = KLRenewInitialTickets (ccachePrincipal, inLoginOptions, &gotPrincipal, &gotCCacheName);
                 } else if (err == klCredentialsBadAddressErr) {
-                    err = __KLAcquireNewKerberos4TicketsFromKerberos5Tickets (inPrincipal, &gotPrincipal, &gotCCacheName);
+                    err = __KLAcquireNewKerberos4TicketsFromKerberos5Tickets (ccachePrincipal, &gotPrincipal, &gotCCacheName);
+                } else if (err == klCredentialsNeedValidationErr) {
+                    err = __KLValidateInitialTickets (ccachePrincipal, inLoginOptions, &gotPrincipal, &gotCCacheName);
                 }
             }
         }
 
         if ((err != klNoErr) && __KLAllowAutomaticPrompting ()) {
             // If searching the credentials cache failed, try popping the dialog if we are allowed to
-            err = KLAcquireNewInitialTickets (inPrincipal, inLoginOptions, &gotPrincipal, &gotCCacheName);
+            // If the cache had a principal but just didn't have valid tickets, use that principal
+            err = KLAcquireNewInitialTickets (ccachePrincipal, inLoginOptions, &gotPrincipal, NULL);
+            
+            // This code here because we need to request a ccache name for a specific version
+            if (!err) {
+                KLCCache ccache = NULL;
+                
+                err = __KLGetFirstCCacheForPrincipal (gotPrincipal, &ccache);
+                
+                if (!err) {
+                    err = __KLGetNameForCCacheVersion (ccache, inKerberosVersion, &gotCCacheName);                    
+                }
+                
+                if (ccache != NULL) { __KLCloseCCache (ccache); }
+            }
         } 
-    }
-
-    if ((err == klNoErr) && hasAPIPrefix) {
-        err = __KLAddPrefixToString ("API:", &gotCCacheName); // restore API: prefix
     }
 
     if (err == klNoErr) {
@@ -122,7 +164,7 @@ KLStatus __KLAcquireInitialTicketsForCache (const KLPrincipal    inPrincipal,
     
     if (gotPrincipal    != NULL) { KLDisposePrincipal (gotPrincipal); }
     if (gotCCacheName   != NULL) { KLDisposeString (gotCCacheName); }
-    if (ccache          != NULL) { cc_ccache_release (ccache); }
+    if (ccache          != NULL) { __KLCloseCCache (ccache); }
     if (ccachePrincipal != NULL) { KLDisposePrincipal (ccachePrincipal); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
@@ -138,17 +180,17 @@ KLStatus __KLAcquireNewKerberos4TicketsFromKerberos5Tickets (KLPrincipal    inPr
 {
     KLStatus         lockErr = __KLLockCCache (kWriteLock);
     KLStatus         err = lockErr;
-    cc_ccache_t      ccache = NULL;
-    cc_ccache_t      newCCache = NULL;
+    KLCCache         ccache = NULL;
+    KLCCache         newCCache = NULL;
     char            *newCCacheName = NULL;
-    cc_credentials_t creds = NULL;
     KLPrincipal      ccachePrincipal = NULL;
     char            *ccacheName = NULL;
     krb5_context     context = NULL;
-    krb5_creds       v5Creds;
-    KLBoolean        freeV5Creds = false;
+    krb5_creds       *v5Creds = NULL;
     CREDENTIALS      v4Creds;
 
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if (inPrincipal == NULL) {
             err = __KLGetSystemDefaultCCache (&ccache);
@@ -170,21 +212,15 @@ KLStatus __KLAcquireNewKerberos4TicketsFromKerberos5Tickets (KLPrincipal    inPr
     }
 
     if (err == klNoErr) {
-        err = __KLGetKerberos5TgtForCCache (ccache, context, &v5Creds);
-        if (err == klNoErr) { freeV5Creds = true; }  // remember so we can free them later
+        err = __KLGetValidV5TgtForCCache (ccache, &v5Creds);
     }
     
     if (err == klNoErr) {
-        err = krb5_524_convert_creds (context, &v5Creds, &v4Creds);
-        dprintf ("krb5_524_convert_creds returned %d (%s)\n", err, error_message (err));
-    }
-    
-    if (err == klNoErr) {
-        err = __KLVerifyKDCOffsetsForKerberos4 (context);
+        err = __KLAcquireKerberos4CredentialsFromKerberos5Credentials (context, v5Creds, &v4Creds);
     }
 
     if (err == klNoErr) {
-        err = __KLCreateNewCCacheWithCredentials (ccachePrincipal, context, &v5Creds, &v4Creds, &newCCache);
+        err = __KLCreateNewCCacheWithCredentials (ccachePrincipal, v5Creds, &v4Creds, &newCCache);
     }
 
     if (err == klNoErr) {
@@ -196,7 +232,7 @@ KLStatus __KLAcquireNewKerberos4TicketsFromKerberos5Tickets (KLPrincipal    inPr
     }
 
     if (err == klNoErr) {
-        err = cc_ccache_move (newCCache, ccache);
+        err = __KLMoveCCache (newCCache, ccache);
         if (err == klNoErr) { newCCache = NULL; }  // cc_ccache_move invalidates source ccache
     }
 
@@ -214,10 +250,9 @@ KLStatus __KLAcquireNewKerberos4TicketsFromKerberos5Tickets (KLPrincipal    inPr
     if (ccachePrincipal != NULL) { KLDisposePrincipal (ccachePrincipal); }
     if (ccacheName      != NULL) { KLDisposeString (ccacheName); }
     if (newCCacheName   != NULL) { KLDisposeString (newCCacheName); }
-    if (newCCache       != NULL) { cc_ccache_destroy (newCCache); }
-    if (ccache          != NULL) { cc_ccache_release (ccache); }
-    if (creds           != NULL) { cc_credentials_release (creds); }
-    if (freeV5Creds            ) { krb5_free_cred_contents (context, &v5Creds); }
+    if (newCCache       != NULL) { __KLDestroyCCache (newCCache); }
+    if (ccache          != NULL) { __KLCloseCCache (ccache); }
+    if (v5Creds         != NULL) { krb5_free_creds (context, v5Creds); }
     if (context         != NULL) { krb5_free_context (context); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
@@ -233,6 +268,8 @@ KLStatus KLAcquireTickets (KLPrincipal   inPrincipal,
                            KLPrincipal  *outPrincipal,
                            char        **outCredCacheName)
 {
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     return KLAcquireInitialTickets (inPrincipal, NULL, outPrincipal, outCredCacheName);
 }
 
@@ -242,6 +279,8 @@ KLStatus KLAcquireNewTickets (KLPrincipal   inPrincipal,
                               KLPrincipal  *outPrincipal,
                               char        **outCredCacheName)
 {
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     return KLAcquireNewInitialTickets (inPrincipal, NULL, outPrincipal, outCredCacheName);
 }
 
@@ -252,6 +291,8 @@ KLStatus KLAcquireTicketsWithPassword (KLPrincipal      inPrincipal,
                                        const char      *inPassword,
                                        char           **outCredCacheName)
 {
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     return KLAcquireInitialTicketsWithPassword (inPrincipal, inLoginOptions, inPassword, outCredCacheName);
 }
 
@@ -262,11 +303,12 @@ KLStatus KLAcquireNewTicketsWithPassword (KLPrincipal     inPrincipal,
                                           const char     *inPassword,
                                           char          **outCredCacheName)
 {
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     return KLAcquireNewInitialTicketsWithPassword (inPrincipal, inLoginOptions, inPassword, outCredCacheName);
 }
 
 #pragma mark -
-
 
 // ---------------------------------------------------------------------------
 
@@ -277,8 +319,10 @@ KLStatus KLAcquireInitialTickets (KLPrincipal      inPrincipal,
 {
     KLStatus  lockErr = __KLLockCCache (kWriteLock);
     KLStatus  err = lockErr;
-    cc_ccache_t ccache = NULL;
+    KLCCache  ccache = NULL;
 
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if (inPrincipal == NULL) {
             err = __KLGetSystemDefaultCCache (&ccache);
@@ -309,7 +353,7 @@ KLStatus KLAcquireInitialTickets (KLPrincipal      inPrincipal,
         err = KLAcquireNewInitialTickets (inPrincipal, inLoginOptions, outPrincipal, outCredCacheName);
     }
     
-    if (ccache != NULL) { cc_ccache_release (ccache); }
+    if (ccache != NULL) { __KLCloseCCache (ccache); }
     
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
     
@@ -325,8 +369,10 @@ KLStatus KLAcquireInitialTicketsWithPassword (KLPrincipal     inPrincipal,
 {
     KLStatus lockErr = __KLLockCCache (kWriteLock);
     KLStatus err = lockErr;
-    cc_ccache_t ccache = NULL;
+    KLCCache ccache = NULL;
 	
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+
     if (err == klNoErr) {
         if (inPrincipal == NULL) { err = KLError_ (klBadPrincipalErr); }
         if (inPassword  == NULL) { err = KLError_ (klBadPasswordErr); }
@@ -356,7 +402,7 @@ KLStatus KLAcquireInitialTicketsWithPassword (KLPrincipal     inPrincipal,
         err = KLAcquireNewInitialTicketsWithPassword (inPrincipal, inLoginOptions, inPassword, outCredCacheName); 
     }
 
-    if (ccache != NULL) { cc_ccache_release (ccache); }
+    if (ccache != NULL) { __KLCloseCCache (ccache); }
     
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
     
@@ -377,6 +423,8 @@ KLStatus KLAcquireNewInitialTicketsWithPassword (KLPrincipal     inPrincipal,
     krb5_creds          v5Creds;
     KLBoolean           gotKrb4 = false;
     CREDENTIALS         v4Creds;
+    
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
     
     if (err == klNoErr) {
         if (inPrincipal == NULL) { err = KLError_ (klBadPrincipalErr); }
@@ -399,8 +447,8 @@ KLStatus KLAcquireNewInitialTicketsWithPassword (KLPrincipal     inPrincipal,
                                                   outCredCacheName);
     }
 
-    if (gotKrb5                ) { krb5_free_cred_contents (context, &v5Creds); }
-    if (context         != NULL) { krb5_free_context (context); }
+    if (gotKrb5        ) { krb5_free_cred_contents (context, &v5Creds); }
+    if (context != NULL) { krb5_free_context (context); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
     
@@ -432,6 +480,8 @@ KLStatus KLAcquireNewInitialTicketCredentialsWithPassword (KLPrincipal         i
     CREDENTIALS		v4Credentials;
     krb5_creds		v5Credentials;
     KLBoolean		freeV5Creds = false;
+
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
     
     // Parameter check
     if (inPrincipal  == NULL) { err = KLError_ (klBadPrincipalErr); }
@@ -474,19 +524,11 @@ KLStatus KLAcquireNewInitialTicketCredentialsWithPassword (KLPrincipal         i
     }
 
     if (gotKrb5 && getKrb4 && useKrb524) {
+        err = __KLAcquireKerberos4CredentialsFromKerberos5Credentials (context, &v5Credentials, &v4Credentials);
         if (err == klNoErr) {
-            err = krb5_524_convert_creds (context, &v5Credentials, &v4Credentials);
-            dprintf ("krb5_524_convert_creds returned %d (%s)\n", err, error_message (err));
-
-            if (err == klNoErr) {
-                err = __KLVerifyKDCOffsetsForKerberos4 (context);
-            }
-
-            if (err == klNoErr) {
-                gotKrb4 = true;
-            } else {
-                err = klNoErr;  // Don't abort here... the site might not have a krb524d
-            }
+            gotKrb4 = true;
+        } else {
+            err = klNoErr;  // Don't abort here... the site might not have a krb524d
         }
     }
     
@@ -555,12 +597,14 @@ KLStatus KLStoreNewInitialTicketCredentials (KLPrincipal     inPrincipal,
                                              krb5_creds     *inV5Credentials,
                                              char          **outCredCacheName)
 {
-    KLStatus            lockErr = __KLLockCCache (kWriteLock);
-    KLStatus            err = lockErr;
-    cc_ccache_t         principalCCache = NULL;
-    cc_ccache_t         newCCache = NULL;
-    char               *newCCacheName = NULL;
+    KLStatus  lockErr = __KLLockCCache (kWriteLock);
+    KLStatus  err = lockErr;
+    KLCCache  principalCCache = NULL;
+    KLCCache  newCCache = NULL;
+    char     *newCCacheName = NULL;
 
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if ((inV5Context     == NULL) && (inV5Credentials != NULL)) { err = KLError_ (klBadV5ContextErr); }
         if ((inV4Credentials == NULL) && (inV5Credentials == NULL)) { err = KLError_ (klParameterErr); }
@@ -572,10 +616,7 @@ KLStatus KLStoreNewInitialTicketCredentials (KLPrincipal     inPrincipal,
     }
 
     if (err == klNoErr) {
-        err = __KLCreateNewCCacheWithCredentials (inPrincipal, inV5Context,
-                                                  inV5Credentials,
-                                                  inV4Credentials,
-                                                  &newCCache);
+        err = __KLCreateNewCCacheWithCredentials (inPrincipal, inV5Credentials, inV4Credentials, &newCCache);
     }
 
     if (err == klNoErr) {
@@ -588,7 +629,7 @@ KLStatus KLStoreNewInitialTicketCredentials (KLPrincipal     inPrincipal,
 
     if (err == klNoErr) {
         if (principalCCache != NULL) {
-            err = cc_ccache_move (newCCache, principalCCache);  // Already a cache for that principal
+            err = __KLMoveCCache (newCCache, principalCCache);  // Already a cache for that principal
 
             if (err == klNoErr) {
                 newCCache = NULL;  // cc_ccache_move invalidates source ccache -- don't double release
@@ -607,13 +648,13 @@ KLStatus KLStoreNewInitialTicketCredentials (KLPrincipal     inPrincipal,
             *outCredCacheName = newCCacheName;
             newCCacheName = NULL;  // Don't free it if we are returning it.
         }
-        if (newCCache != NULL) { cc_ccache_release (newCCache); }
+        if (newCCache != NULL) { __KLCloseCCache (newCCache); }
     } else {
-        if (newCCache != NULL) { cc_ccache_destroy (newCCache); }
+        if (newCCache != NULL) { __KLDestroyCCache (newCCache); }
     }
 
     if (newCCacheName   != NULL) { KLDisposeString (newCCacheName); }
-    if (principalCCache != NULL) { cc_ccache_release (principalCCache); }
+    if (principalCCache != NULL) { __KLCloseCCache (principalCCache); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
 
@@ -629,6 +670,8 @@ KLStatus KLVerifyInitialTickets (KLPrincipal   inPrincipal,
                                  KLBoolean     inFailIfNoHostKey,
                                  char        **outCredCacheName)
 {
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     return __KLVerifyInitialTickets (inPrincipal, inFailIfNoHostKey, NULL, outCredCacheName);
 }
 
@@ -641,13 +684,14 @@ KLStatus __KLVerifyInitialTickets (KLPrincipal   inPrincipal,
     KLStatus            err = lockErr;
     CREDENTIALS        	v4Credentials;
     CREDENTIALS        *v4CredentialsPtr = NULL;
-    krb5_creds 	       	v5Credentials;
     krb5_creds 	       *v5CredentialsPtr = NULL;
-    cc_ccache_t         ccache = NULL;
+    KLCCache            ccache = NULL;
     krb5_context        context = NULL;
     KLPrincipal         ccachePrincipal = NULL;
     char               *ccacheName = NULL;
 
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if (inPrincipal == NULL) {
             err = __KLGetSystemDefaultCCache (&ccache);
@@ -666,14 +710,13 @@ KLStatus __KLVerifyInitialTickets (KLPrincipal   inPrincipal,
 
     // Check for v5 credentials
     if (err == klNoErr) {
-        if (__KLGetKerberos5TgtForCCache (ccache, context, &v5Credentials) == klNoErr) {
-            v5CredentialsPtr = &v5Credentials;
-        } 
+        err = __KLGetValidV5TgtForCCache (ccache, &v5CredentialsPtr);
+        if (err) { err = klNoErr; }  // OK if no v5 creds
     }
     
     // Check for v4 credentials
     if (err == klNoErr) {
-        if (__KLGetKerberos4TgtForCCache (ccache, &v4Credentials) == klNoErr) {
+        if (__KLGetValidV4TgtForCCache (ccache, &v4Credentials) == klNoErr) {
             v4CredentialsPtr = &v4Credentials;
         } 
     }
@@ -695,9 +738,9 @@ KLStatus __KLVerifyInitialTickets (KLPrincipal   inPrincipal,
 
     if (ccachePrincipal  != NULL) { KLDisposePrincipal (ccachePrincipal); }
     if (ccacheName       != NULL) { KLDisposeString (ccacheName); }
-    if (v5CredentialsPtr != NULL) { krb5_free_cred_contents (context, v5CredentialsPtr); }
+    if (v5CredentialsPtr != NULL) { krb5_free_creds (context, v5CredentialsPtr); }
     if (context          != NULL) { krb5_free_context (context); }
-    if (ccache           != NULL) { cc_ccache_release (ccache); }
+    if (ccache           != NULL) { __KLCloseCCache (ccache); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
     
@@ -715,6 +758,8 @@ KLStatus KLVerifyInitialTicketCredentials (
     KLStatus err = lockErr;
     krb5_context context = NULL;
   
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if (inV4Credentials == NULL && inV5Credentials == NULL) { err = KLError_ (klParameterErr); }
     }
@@ -786,7 +831,7 @@ KLStatus KLVerifyInitialTicketCredentials (
         char            phost [MAXHOSTNAMELEN];
         char            lrealm [REALM_SZ];
         struct in_addr  addr;
-        cc_ccache_t     tempCCache = NULL;
+        KLCCache     tempCCache = NULL;
         char           *tempCCacheName = NULL;
         KLPrincipal     v4Principal = NULL;
         char           *saveTktString = NULL;
@@ -847,7 +892,7 @@ KLStatus KLVerifyInitialTicketCredentials (
         }
 
         if (err == klNoErr) {
-            err = __KLCreateNewCCacheWithCredentials (v4Principal, context, NULL, inV4Credentials, &tempCCache);
+            err = __KLCreateNewCCacheWithCredentials (v4Principal, NULL, inV4Credentials, &tempCCache);
         }
     
         if (err == klNoErr) {
@@ -896,7 +941,7 @@ KLStatus KLVerifyInitialTicketCredentials (
         if (v4Principal    != NULL) { KLDisposePrincipal (v4Principal); }
         if (saveTktString  != NULL) { krb_set_tkt_string (saveTktString); 
                                       KLDisposeString (saveTktString); }
-        if (tempCCache     != NULL) { cc_ccache_destroy (tempCCache); }
+        if (tempCCache     != NULL) { __KLDestroyCCache (tempCCache); }
         if (tempCCacheName != NULL) { KLDisposeString (tempCCacheName); }
     }
 
@@ -917,6 +962,8 @@ KLStatus KLAcquireNewInitialTicketsWithKeytab (KLPrincipal             inPrincip
                                                const char             *inKeytabName,
                                                char                  **outCredCacheName)
 {
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     return __KLAcquireNewInitialTicketsWithKeytab (inPrincipal, inLoginOptions, inKeytabName, NULL, outCredCacheName);
 }
 
@@ -941,6 +988,8 @@ KLStatus __KLAcquireNewInitialTicketsWithKeytab (KLPrincipal             inPrinc
     KLBoolean         freeV5Creds = false;
     CREDENTIALS       v4Creds;
 
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if (inLoginOptions == NULL) {
             err = KLCreateLoginOptions (&options);
@@ -1005,13 +1054,7 @@ KLStatus __KLAcquireNewInitialTicketsWithKeytab (KLPrincipal             inPrinc
 
     if (useKrb524) {
         if (err == klNoErr) {
-            err = krb5_524_convert_creds (context, &v5Creds, &v4Creds);
-            dprintf ("krb5_524_convert_creds returned %d (%s)\n", err, error_message (err));
-
-            if (err == klNoErr) {
-                err = __KLVerifyKDCOffsetsForKerberos4 (context);
-            }
-
+            err = __KLAcquireKerberos4CredentialsFromKerberos5Credentials (context, &v5Creds, &v4Creds);
             if (err == klNoErr) {
                 gotKrb4 = true;
             } else {
@@ -1057,18 +1100,20 @@ KLStatus KLRenewInitialTickets (KLPrincipal     inPrincipal,
     KLStatus       lockErr = __KLLockCCache (kWriteLock);
     KLStatus       err = lockErr;
     KLLoginOptions options = NULL;
-    cc_ccache_t    ccache = NULL;
-    cc_ccache_t    newCCache = NULL;
+    KLCCache       ccache = NULL;
     KLPrincipal    ccachePrincipal = NULL;
     char          *ccacheName = NULL;
+    KLCCache       newCCache = NULL;
     char          *newCCacheName = NULL;
-    krb5_context   context = NULL;
-    krb5_ccache    v5CCache;
+    krb5_context   v5Context = NULL;
+    krb5_ccache    v5CCache = NULL;
     KLBoolean      useKrb524 = false;
-    KLBoolean         gotKrb4 = false;
+    KLBoolean      gotKrb4 = false;
     krb5_creds     v5Creds;
     KLBoolean      freeV5Creds = false;
     CREDENTIALS    v4Creds;
+    
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
     
     if (err == klNoErr) {
         if (inPrincipal == NULL) {
@@ -1091,15 +1136,11 @@ KLStatus KLRenewInitialTickets (KLPrincipal     inPrincipal,
     }
     
     if (err == klNoErr) {
-        err = krb5_init_context (&context);
-    }
-
-    if (err == klNoErr) {
-        err = krb5_cc_resolve (context, ccacheName, &v5CCache);
+        err = __KLGetKrb5CCacheAndContextForCCache (ccache, &v5CCache, &v5Context);
     }
     
     if (err == klNoErr) {
-        err = krb5_get_renewed_creds (context, &v5Creds,
+        err = krb5_get_renewed_creds (v5Context, &v5Creds,
                                       __KLGetKerberos5PrincipalFromPrincipal (ccachePrincipal), 
                                       v5CCache, __KLLoginOptionsGetServiceName (options));
         dprintf ("krb5_get_renewed_creds returned %d (%s)\n", err, error_message (err));
@@ -1112,13 +1153,7 @@ KLStatus KLRenewInitialTickets (KLPrincipal     inPrincipal,
 
     if (useKrb524) {
         if (err == klNoErr) {
-            err = krb5_524_convert_creds (context, &v5Creds, &v4Creds);
-            dprintf ("krb5_524_convert_creds returned %d (%s)\n", err, error_message (err));
-
-            if (err == klNoErr) {
-                err = __KLVerifyKDCOffsetsForKerberos4 (context);
-            }
-
+            err = __KLAcquireKerberos4CredentialsFromKerberos5Credentials (v5Context, &v5Creds, &v4Creds);
             if (err == klNoErr) {
                 gotKrb4 = true;
             } else {
@@ -1128,7 +1163,7 @@ KLStatus KLRenewInitialTickets (KLPrincipal     inPrincipal,
     }
     
     if (err == klNoErr) {
-        err = __KLCreateNewCCacheWithCredentials (ccachePrincipal, context, &v5Creds, gotKrb4 ? &v4Creds : NULL, &newCCache);
+        err = __KLCreateNewCCacheWithCredentials (ccachePrincipal, &v5Creds, gotKrb4 ? &v4Creds : NULL, &newCCache);
     }
 
     if (err == klNoErr) {
@@ -1140,7 +1175,7 @@ KLStatus KLRenewInitialTickets (KLPrincipal     inPrincipal,
     }
 
     if (err == klNoErr) {
-        err = cc_ccache_move (newCCache, ccache);
+        err = __KLMoveCCache (newCCache, ccache);
         if (err == klNoErr) { newCCache = NULL; }  // cc_ccache_move invalidates source ccache
     }
 
@@ -1155,13 +1190,12 @@ KLStatus KLRenewInitialTickets (KLPrincipal     inPrincipal,
         }
     }
     
-    if (freeV5Creds            ) { krb5_free_cred_contents (context, &v5Creds); }
-    if (context         != NULL) { krb5_free_context (context); }
+    if (freeV5Creds            ) { krb5_free_cred_contents (v5Context, &v5Creds); }
     if (ccachePrincipal != NULL) { KLDisposePrincipal (ccachePrincipal); }
     if (ccacheName      != NULL) { KLDisposeString (ccacheName); }
     if (newCCacheName   != NULL) { KLDisposeString (newCCacheName); }
-    if (newCCache       != NULL) { cc_ccache_destroy (newCCache); }  // since we always replace, this only happens on error
-    if (ccache          != NULL) { cc_ccache_release (ccache); }
+    if (newCCache       != NULL) { __KLDestroyCCache (newCCache); }  // since we always replace, this only happens on error
+    if (ccache          != NULL) { __KLCloseCCache (ccache); }
     if ((inLoginOptions == NULL) && (options != NULL)) { KLDisposeLoginOptions (options); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
@@ -1175,6 +1209,8 @@ KLStatus KLValidateInitialTickets (KLPrincipal      inPrincipal,
                                    KLLoginOptions   inLoginOptions,
                                    char           **outCredCacheName)
 {
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     return __KLValidateInitialTickets (inPrincipal, inLoginOptions, NULL, outCredCacheName);
 }
 
@@ -1186,18 +1222,20 @@ KLStatus __KLValidateInitialTickets (KLPrincipal      inPrincipal,
     KLStatus       lockErr = __KLLockCCache (kWriteLock);
     KLStatus       err = lockErr;
     KLLoginOptions options = NULL;
-    cc_ccache_t    ccache = NULL;
+    KLCCache       ccache = NULL;
     KLPrincipal    ccachePrincipal = NULL;
     char          *ccacheName = NULL;
-    cc_ccache_t    newCCache = NULL;
+    KLCCache       newCCache = NULL;
     char          *newCCacheName = NULL;
-    krb5_context   context = NULL;
-    krb5_ccache    v5CCache;
+    krb5_context   v5Context = NULL;
+    krb5_ccache    v5CCache = NULL;
     KLBoolean      useKrb524 = false;
     KLBoolean      gotKrb4 = false;
     krb5_creds     v5Creds;
     KLBoolean      freeV5Creds = false;
     CREDENTIALS    v4Creds;
+    
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
     
     if (err == klNoErr) {
         if (inPrincipal == NULL) {
@@ -1220,15 +1258,11 @@ KLStatus __KLValidateInitialTickets (KLPrincipal      inPrincipal,
     }
     
     if (err == klNoErr) {
-        err = krb5_init_context (&context);
+        err = __KLGetKrb5CCacheAndContextForCCache (ccache, &v5CCache, &v5Context);
     }
 
     if (err == klNoErr) {
-        err = krb5_cc_resolve (context, ccacheName, &v5CCache);
-    }
-    
-    if (err == klNoErr) {
-        err = krb5_get_validated_creds (context, &v5Creds, __KLGetKerberos5PrincipalFromPrincipal (ccachePrincipal), 
+        err = krb5_get_validated_creds (v5Context, &v5Creds, __KLGetKerberos5PrincipalFromPrincipal (ccachePrincipal), 
                                         v5CCache, __KLLoginOptionsGetServiceName (options));
         dprintf ("krb5_get_validated_creds returned %d (%s)\n", err, error_message (err));
         freeV5Creds = (err == klNoErr); // remember we need to free the contents of the creds
@@ -1240,13 +1274,7 @@ KLStatus __KLValidateInitialTickets (KLPrincipal      inPrincipal,
 
     if (useKrb524) {
         if (err == klNoErr) {
-            err = krb5_524_convert_creds (context, &v5Creds, &v4Creds);
-            dprintf ("krb5_524_convert_creds returned %d (%s)\n", err, error_message (err));
-
-            if (err == klNoErr) {
-                err = __KLVerifyKDCOffsetsForKerberos4 (context);
-            }
-
+            err = __KLAcquireKerberos4CredentialsFromKerberos5Credentials (v5Context, &v5Creds, &v4Creds);
             if (err == klNoErr) {
                 gotKrb4 = true;
             } else {
@@ -1256,7 +1284,7 @@ KLStatus __KLValidateInitialTickets (KLPrincipal      inPrincipal,
     }
     
     if (err == klNoErr) {
-        err = __KLCreateNewCCacheWithCredentials (ccachePrincipal, context, &v5Creds, gotKrb4 ? &v4Creds : NULL, &newCCache);
+        err = __KLCreateNewCCacheWithCredentials (ccachePrincipal, &v5Creds, gotKrb4 ? &v4Creds : NULL, &newCCache);
     }
 
     if (err == klNoErr) {
@@ -1268,7 +1296,7 @@ KLStatus __KLValidateInitialTickets (KLPrincipal      inPrincipal,
     }
 
     if (err == klNoErr) {
-        err = cc_ccache_move (newCCache, ccache);
+        err = __KLMoveCCache (newCCache, ccache);
         if (err == klNoErr) { newCCache = NULL; }  // cc_ccache_move invalidates source ccache
     }
 
@@ -1283,13 +1311,12 @@ KLStatus __KLValidateInitialTickets (KLPrincipal      inPrincipal,
         }
     }
     
-    if (freeV5Creds            ) { krb5_free_cred_contents (context, &v5Creds); }
-    if (context         != NULL) { krb5_free_context (context); }
-    if (ccache          != NULL) { cc_ccache_release (ccache); }
+    if (freeV5Creds            ) { krb5_free_cred_contents (v5Context, &v5Creds); }
+    if (ccache          != NULL) { __KLCloseCCache (ccache); }
     if (ccachePrincipal != NULL) { KLDisposePrincipal (ccachePrincipal); }
     if (ccacheName      != NULL) { KLDisposeString (ccacheName); }
     if (newCCacheName   != NULL) { KLDisposeString (newCCacheName); }
-    if (newCCache       != NULL) { cc_ccache_destroy (newCCache); }  // Since we always replace, this only happens on error
+    if (newCCache       != NULL) { __KLDestroyCCache (newCCache); }  // Since we always replace, this only happens on error
     if ((inLoginOptions == NULL) && (options != NULL)) { KLDisposeLoginOptions (options); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
@@ -1305,9 +1332,11 @@ KLStatus KLDestroyTickets (KLPrincipal inPrincipal)
 {
     KLStatus  lockErr = __KLLockCCache (kWriteLock);
     KLStatus  err = lockErr;
-    cc_ccache_t ccache = NULL;
+    KLCCache ccache = NULL;
     char *ccacheName = NULL;
 
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if (inPrincipal == NULL) {
             err = __KLGetSystemDefaultCCache (&ccache);
@@ -1325,12 +1354,12 @@ KLStatus KLDestroyTickets (KLPrincipal inPrincipal)
     }
 
     if (err == klNoErr) {
-        err = cc_ccache_destroy (ccache);
+        err = __KLDestroyCCache (ccache);
         if (err == klNoErr) { ccache = NULL; }  // destroy invalidates pointer
     }
     
     if (ccacheName != NULL) { KLDisposeString (ccacheName); }
-    if (ccache     != NULL) { cc_ccache_release (ccache); }
+    if (ccache     != NULL) { __KLCloseCCache (ccache); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
     
@@ -1339,40 +1368,50 @@ KLStatus KLDestroyTickets (KLPrincipal inPrincipal)
 
 #pragma mark -
 
+static pthread_mutex_t gLastChangeTimeMutex = PTHREAD_MUTEX_INITIALIZER;
+static KLTime          gKLLastChangeTime = 0;
+
 // ---------------------------------------------------------------------------
+// Do not lock the CCAPI around this function.  Anyone calling 
+// this function is going to call it repeatedly so they will 
+// just get the in-progress changes next time they call it.
+//
+// Locking here would just cause slowdowns when an app is
+// calling this repeatedly
 
 KLStatus KLLastChangedTime (KLTime *outLastChangedTime)
 {
-    static KLTime       sKLLastChangeTime = 0;
-    static cc_context_t sChangeTimeContext = NULL;
-
-    // Do not lock around this function.  Anyone calling this
-    // function is going to call it repeatedly so they will just
-    // get the in-progress changes next time they call it.
-    //
-    // Locking here would just cause slowdowns when an app is
-    // calling this repeatedly
-
-    KLStatus  err = klNoErr;
-    KLTime    addressChangeTime = __KLCheckAddresses ();
-    cc_time_t ccChangeTime = 0;
+    KLStatus     err = klNoErr;
+    KLTime       addressChangeTime = 0; 
+    cc_context_t context = NULL;
+    cc_time_t    ccChangeTime = 0;
     
-    if (err == klNoErr) {
-        if (sChangeTimeContext == NULL) {
-            err = cc_initialize (&sChangeTimeContext, ccapi_version_4, NULL, NULL);
-        }
+    if (outLastChangedTime == NULL) { err = KLError_ (klParameterErr); }
+    
+    if (!err) {
+        err = cc_initialize (&context, ccapi_version_4, NULL, NULL);
     }
 
-    if (err == klNoErr) {
-        err = cc_context_get_change_time (sChangeTimeContext, &ccChangeTime);
+    if (!err) {
+        err = cc_context_get_change_time (context, &ccChangeTime);
     }
     
-    if (err == klNoErr) {
-        if (addressChangeTime > sKLLastChangeTime) { sKLLastChangeTime = addressChangeTime; }
-        if (ccChangeTime      > sKLLastChangeTime) { sKLLastChangeTime = ccChangeTime; }
+    if (!err) {
+        KLStatus lockErr = err = pthread_mutex_lock (&gLastChangeTimeMutex);
+
+        if (!err) {
+            addressChangeTime = __KLCheckAddresses ();
         
-        *outLastChangedTime = sKLLastChangeTime;
+            if (addressChangeTime > gKLLastChangeTime) { gKLLastChangeTime = addressChangeTime; }
+            if (ccChangeTime      > gKLLastChangeTime) { gKLLastChangeTime = ccChangeTime; }
+            
+            *outLastChangedTime = gKLLastChangeTime;
+        }
+        
+        if (!lockErr) { pthread_mutex_unlock (&gLastChangeTimeMutex); }
     }
+    
+    if (context != NULL) { cc_context_release (context); }
 
     return KLError_ (err);
 }
@@ -1388,8 +1427,10 @@ KLStatus KLCacheHasValidTickets (KLPrincipal        inPrincipal,
 {
     KLStatus  lockErr = __KLLockCCache (kReadLock);
     KLStatus  err = lockErr;
-    cc_ccache_t ccache = NULL;
+    KLCCache ccache = NULL;
 
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if (outFoundValidTickets == NULL) { err = KLError_ (klParameterErr); }
     }
@@ -1415,7 +1456,7 @@ KLStatus KLCacheHasValidTickets (KLPrincipal        inPrincipal,
         *outFoundValidTickets = (err == klNoErr);
     }
 
-    if (ccache != NULL) { cc_ccache_release (ccache); }
+    if (ccache != NULL) { __KLCloseCCache (ccache); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
     
@@ -1431,8 +1472,10 @@ KLStatus KLTicketStartTime (KLPrincipal        inPrincipal,
 {
     KLStatus  lockErr = __KLLockCCache (kReadLock);
     KLStatus  err = lockErr;
-    cc_ccache_t ccache = NULL;
+    KLCCache ccache = NULL;
 
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if (outStartTime == NULL) { err = KLError_ (klParameterErr); }
     }
@@ -1449,7 +1492,7 @@ KLStatus KLTicketStartTime (KLPrincipal        inPrincipal,
         err = __KLGetCCacheStartTime (ccache, inKerberosVersion, outStartTime);
     }
     
-    if (ccache != NULL) { cc_ccache_release (ccache); }
+    if (ccache != NULL) { __KLCloseCCache (ccache); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
     
@@ -1465,8 +1508,10 @@ KLStatus KLTicketExpirationTime (KLPrincipal        inPrincipal,
 {
     KLStatus  lockErr = __KLLockCCache (kReadLock);
     KLStatus  err = lockErr;
-    cc_ccache_t ccache = NULL;
+    KLCCache ccache = NULL;
 
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if (outExpirationTime == NULL) { err = KLError_ (klParameterErr); }
     }
@@ -1483,7 +1528,7 @@ KLStatus KLTicketExpirationTime (KLPrincipal        inPrincipal,
         err = __KLGetCCacheExpirationTime (ccache, inKerberosVersion, outExpirationTime);
     }
     
-    if (ccache != NULL) { cc_ccache_release (ccache); }
+    if (ccache != NULL) { __KLCloseCCache (ccache); }
 
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
     
@@ -1498,8 +1543,10 @@ KLStatus KLSetSystemDefaultCache (KLPrincipal inPrincipal)
 {
     KLStatus  lockErr = __KLLockCCache (kWriteLock);
     KLStatus  err = lockErr;
-    cc_ccache_t ccache = NULL;
+    KLCCache ccache = NULL;
 
+    dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
+    
     if (err == klNoErr) {
         if (inPrincipal == NULL) { err = KLError_ (klParameterErr); }
     }
@@ -1509,10 +1556,10 @@ KLStatus KLSetSystemDefaultCache (KLPrincipal inPrincipal)
     }
     
     if (err == klNoErr) {
-        err = cc_ccache_set_default (ccache);
+        err = __KLSetDefaultCCache (&ccache);
     }
 
-    if (ccache != NULL) { cc_ccache_release (ccache); }
+    if (ccache != NULL) { __KLCloseCCache (ccache); }
     
     if (lockErr == klNoErr) { __KLUnlockCCache (); }
     

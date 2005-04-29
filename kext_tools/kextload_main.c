@@ -1070,7 +1070,7 @@ retry:
                     exit_code = 1;
                     goto finish;
                 }
-                error_log("extension %s is not authentic", kext_path);
+                error_log("extension %s is not authentic (check ownership and permissions)", kext_path);
                 rpc_data = kext_path;
                 data_length = 1 + strlen(kext_path);
                 _KextManagerRecordNonsecureKextload(rpc_data, data_length);

@@ -1,6 +1,6 @@
  /**
  *******************************************************************************
- * Copyright (C) 2001-2003, International Business Machines Corporation.       *
+ * Copyright (C) 2001-2004, International Business Machines Corporation.       *
  * All Rights Reserved.                                                        *
  *******************************************************************************
  */
@@ -17,235 +17,6 @@
 // in case we use the refcount stuff
 
 U_NAMESPACE_BEGIN
-
-// A reference counted wrapper for an object.  Creation and access is
-// through RefHandle.
-
-#ifdef SERVICE_REFCOUNT
-
-#include "unicode/strenum.h"
-
-/*
- ******************************************************************
- */
-
-class RefCounted {
-private:
-  int32_t _count;
-  UObject* _obj;
-
-  friend class RefHandle;
-
-  RefCounted(UObject* objectToAdopt) : _count(1), _obj(objectToAdopt) {}
-  ~RefCounted() { delete _obj; }
-  void ref() { umtx_atomic_inc(&_count); }
-  void unref() { if (umtx_atomic_dec(&_count) == 0) { delete this; }}
-};
-
-/*
- ******************************************************************
- */
-
-// Reference counted handle for an object
-class RefHandle {
-  RefCounted* _ref;
-  
-public:
-  RefHandle() : _ref(NULL) {}
-  RefHandle(UObject* obj) : _ref(new RefCounted(obj)) {}
-  RefHandle(const RefHandle& rhs) : _ref(NULL) { operator=(rhs); }
-  ~RefHandle() { if (_ref) _ref->unref(); }
-  RefHandle& operator=(const RefHandle& rhs) {
-    if (rhs._ref) rhs._ref->ref();
-    if (_ref) _ref->unref();
-    _ref = rhs._ref;
-  }
-  const UObject* get() const { return _ref ? _ref->_obj : NULL; }
-};
-
-/*
- ******************************************************************
- */
-
-// Generic enumeration class with fail-fast behavior.
-
-class MapEnumeration : public UObject, public StringEnumeration
-{
-    private:
-    UChar* _buffer;
-    int _buflen;
-
-    protected:
-    const ICUService* _service;
-    uint32_t _timestamp;
-    RefHandle _table;
-    ICUServiceKey* _filter;
-    int32_t _position;
-    int32_t _count;
-
-    protected:
-    MapEnumeration(ICUService* service, int32_t timestamp, RefHandle& table, ICUServiceKey* filter = NULL)
-        : _buffer(NULL)
-        , _buflen(0)
-        , _service(service)
-        , _timestamp(timestamp)
-        , _table(table)
-        , _filter(filter)
-        , _position(0)
-        , _count(((const Hashtable*)table.get())->count())
-    {
-    }
-   
-    virtual ~MapEnumeration()
-    {
-        delete _filter;
-    }
-
-    int32_t count(UErrorCode& status) const
-    {
-        return U_SUCCESS(status) ? _count : 0;
-    }
-
-  const char* next(UErrorCode& status) {
-    const UnicodeString* us = snext(status);
-    if (us) {
-      int newlen;
-      for (newlen = us->extract((char*)_buffer, _buflen / sizeof(char), NULL, status);
-           status == U_STRING_NOT_TERMINATED_WARNING || status == U_BUFFER_OVERFLOW_ERROR;)
-        {
-          resizeBuffer((newlen + 1) * sizeof(char));
-          status = U_ZERO_ERROR;
-        }
-      
-      if (U_SUCCESS(status)) {
-        ((char*)_buffer)[newlen] = 0;
-        return (const char*)_buffer;
-      }
-    }
-    return NULL;
-  }
-
-  const UChar* unext(UErrorCode& status) {
-    const UnicodeString* us = snext(status);
-    if (us) {
-      int newlen;
-      for (newlen = us->extract((UChar*)_buffer, _buflen / sizeof(UChar), NULL, status);
-           status == U_STRING_NOT_TERMINATED_WARNING || status == U_BUFFER_OVERFLOW_ERROR;)
-        {
-          resizeBuffer((newlen + 1) * sizeof(UChar));
-          status = U_ZERO_ERROR;
-        }
-      
-      if (U_SUCCESS(status)) {
-        ((UChar*)_buffer)[newlen] = 0;
-        return (const UChar*)_buffer;
-      }
-    }
-    return NULL;
-  }
-
-    const UnicodeString* snext(UErrorCode& status) 
-    {
-        if (U_SUCCESS(status)) {
-            if (_timestamp != _service->_timestamp) {
-                status = U_ENUM_OUT_OF_SYNCH_ERROR;
-            } else {
-                return internalNext((Hashtable*)_table.get());
-            }
-        }
-        return NULL;
-    }
-
-    void reset(UErrorCode& status)
-    {
-        if (U_SUCCESS(status)) {
-            service->reset(this);
-        }
-    }
-
-    protected:
-    virtual const UnicodeString* internalNext(Hashtable* table) = 0;
-
-    private:
-    void reset(RefHandle& table, int32_t timestamp)
-    {
-        _table = table;
-        _timestamp = timestamp;
-        _position = 0;
-        _count = ((const Hashtable*)table.get())->count();
-    }
-
-    friend class ICUService;
-};
-
-/*
- ******************************************************************
- */
-
-// An enumeration over the visible ids in a service.  The ids
-// are in the hashtable, which is refcounted, so it will not
-// disappear as long as the enumeration exists even if the
-// service itself unrefs it.  For "fail-fast" behavior the
-// enumeration checks the timestamp of the service, but this
-// is not a guarantee that the result the client receives will
-// still be valid once the function returns.
-
-class IDEnumeration : public MapEnumeration {
-public:
-  IDEnumeration(ICUService* service, int32_t timestamp, RefHandle& table, ICUServiceKey* filter = NULL)
-    : MapEnumeration(service, timestamp, table, filter)
-  {
-  }
-
-protected:
-  const UnicodeString* internalNext(Hashtable* table) {
-    while (TRUE) {
-      const UnicodeString* elem = (const UnicodeString*)(table->nextElement(_position).key.pointer);
-      if (elem == NULL ||
-          _filter == NULL ||
-          _filter->isFallbackOf(*elem)) {
-        return elem;
-      }
-    }
-    return NULL;
-  }
-};
-
-/*
- ******************************************************************
- */
-
-class DisplayEnumeration : public MapEnumeration {
-private:
-  Locale _locale;
-  UnicodeString _cache;
-
-public:
-  DisplayEnumeration(ICUService* service, int32_t timestamp, RefHandle& table, Locale& locale, ICUServiceKey* filter = NULL)
-    : MapEnumeration(service, timestamp, table, filter), _locale(locale)
-  {
-  }
-
-protected:
-  const UnicodeString* internalNext(Hashtable* table) {
-    while (TRUE) {
-      UHashElement* elem = table->nextElement(_position);
-      if (elem == NULL) {
-        return NULL;
-      }
-      const UnicodeString* id = (const UnicodeString*)elem->key.pointer;
-      const ICUServiceFactory* factory = (const ICUServiceFactory*)elem->value.pointer;
-      if (_filter == NULL || _filter->isFallbackOf(*id)) {
-        factory->getDisplayName(*id, cache, locale);
-        return &cache;
-      }
-    }
-    return NULL;
-  }
-};
-
-/* SERVICE_REFCOUNT */
-#endif
 
 /*
  ******************************************************************
@@ -343,7 +114,7 @@ ICUServiceKey::debugClass(UnicodeString& result) const
 }
 #endif
 
-const char ICUServiceKey::fgClassID = '\0';
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ICUServiceKey)
 
 /*
  ******************************************************************
@@ -382,7 +153,7 @@ SimpleFactory::updateVisibleIDs(Hashtable& result, UErrorCode& status) const
 }
 
 UnicodeString& 
-SimpleFactory::getDisplayName(const UnicodeString& id, const Locale& locale, UnicodeString& result) const 
+SimpleFactory::getDisplayName(const UnicodeString& id, const Locale& /* locale */, UnicodeString& result) const 
 {
   if (_visible && _id == id) {
     result = _id;
@@ -411,13 +182,13 @@ SimpleFactory::debugClass(UnicodeString& toAppendTo) const
 }
 #endif
 
-const char SimpleFactory::fgClassID = '\0';
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(SimpleFactory)
 
 /*
  ******************************************************************
  */
 
-const char ServiceListener::fgClassID = '\0';
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ServiceListener)
 
 /*
  ******************************************************************
@@ -480,8 +251,8 @@ public:
 };
 
 // UObjectDeleter for serviceCache
-
-U_CAPI void U_EXPORT2
+U_CDECL_BEGIN
+static void U_CALLCONV
 cacheDeleter(void* obj) {
   U_NAMESPACE_USE
     ((CacheEntry*)obj)->unref();
@@ -490,11 +261,12 @@ cacheDeleter(void* obj) {
 /**
  * Deleter for UObjects
  */
-U_CAPI void U_EXPORT2
+static void U_CALLCONV
 deleteUObject(void *obj) {
   U_NAMESPACE_USE
     delete (UObject*) obj;
 }
+U_CDECL_END
 
 /*
  ******************************************************************
@@ -506,7 +278,7 @@ public:
   const Locale locale;
 
   DNCache(const Locale& _locale) 
-    : cache(FALSE), locale(_locale) 
+    : cache(), locale(_locale) 
   {
     // cache.setKeyDeleter(uhash_deleteUnicodeString);
   }
@@ -547,7 +319,7 @@ StringPair::StringPair(const UnicodeString& _displayName,
 }
 
 U_CAPI void U_EXPORT2
-deleteStringPair(void *obj) {
+userv_deleteStringPair(void *obj) {
   U_NAMESPACE_USE
     delete (StringPair*) obj;
 }
@@ -670,14 +442,14 @@ ICUService::getKey(ICUServiceKey& key, UnicodeString* actualReturn, const ICUSer
     // The cache has to stay in synch with the factory list.
     // ICU doesn't have monitors so we can't use rw locks, so 
     // we single-thread everything using this service, for now.
-	
+    
     // if factory is not null, we're calling from within the mutex,
     // and since some unix machines don't have reentrant mutexes we
     // need to make sure not to try to lock it again.
     XMutex(&ncthis->lock, factory != NULL);
 
     if (serviceCache == NULL) {
-      ncthis->serviceCache = new Hashtable(FALSE, status);
+      ncthis->serviceCache = new Hashtable(status);
       if (U_FAILURE(status)) {
         delete serviceCache;
         return NULL;
@@ -721,7 +493,6 @@ ICUService::getKey(ICUServiceKey& key, UnicodeString* actualReturn, const ICUSer
       // going to update the cache at all.
       putInCache = TRUE;
 
-      int32_t n = 0;
       int32_t index = startIndex;
       while (index < limit) {
         ICUServiceFactory* f = (ICUServiceFactory*)factories->elementAt(index++);
@@ -791,7 +562,7 @@ ICUService::getKey(ICUServiceKey& key, UnicodeString* actualReturn, const ICUSer
 
       if (actualReturn != NULL) {
         // strip null prefix
-        if (result->actualDescriptor.indexOf("/") == 0) {
+        if (result->actualDescriptor.indexOf((UChar)0x2f) == 0) { // U+002f=slash (/)
           actualReturn->remove();
           actualReturn->append(result->actualDescriptor, 
                                1, 
@@ -802,14 +573,14 @@ ICUService::getKey(ICUServiceKey& key, UnicodeString* actualReturn, const ICUSer
 
         if (actualReturn->isBogus()) {
           status = U_MEMORY_ALLOCATION_ERROR;
-	  delete result;
+      delete result;
           return NULL;
         }
       }
 
       UObject* service = cloneInstance(result->service);
       if (putInCache && !cacheResult) {
-	delete result;
+    delete result;
       }
       return service;
     }
@@ -819,7 +590,7 @@ ICUService::getKey(ICUServiceKey& key, UnicodeString* actualReturn, const ICUSer
 }
 
 UObject* 
-ICUService::handleDefault(const ICUServiceKey& key, UnicodeString* actualIDReturn, UErrorCode& status) const 
+ICUService::handleDefault(const ICUServiceKey& /* key */, UnicodeString* /* actualIDReturn */, UErrorCode& /* status */) const 
 {
   return NULL;
 }
@@ -845,7 +616,7 @@ ICUService::getVisibleIDs(UVector& result, const UnicodeString* matchID, UErrorC
     if (map != NULL) {
       ICUServiceKey* fallbackKey = createKey(matchID, status);
 
-      for (int32_t pos = 0;;) {
+      for (int32_t pos = -1;;) {
         const UHashElement* e = map->nextElement(pos);
         if (e == NULL) {
           break;
@@ -887,7 +658,7 @@ ICUService::getVisibleIDMap(UErrorCode& status) const {
 
   ICUService* ncthis = (ICUService*)this; // cast away semantic const
   if (idCache == NULL) {
-    ncthis->idCache = new Hashtable();
+    ncthis->idCache = new Hashtable(status);
     if (idCache == NULL) {
       status = U_MEMORY_ALLOCATION_ERROR;
     } else if (factories != NULL) {
@@ -924,8 +695,23 @@ ICUService::getDisplayName(const UnicodeString& id, UnicodeString& result, const
       ICUServiceFactory* f = (ICUServiceFactory*)map->get(id);
       if (f != NULL) {
         f->getDisplayName(id, locale, result);
-		return result;
+        return result;
       }
+
+      // fallback
+      UErrorCode status = U_ZERO_ERROR;
+      ICUServiceKey* fallbackKey = createKey(&id, status);
+      while (fallbackKey->fallback()) {
+          UnicodeString us;
+          fallbackKey->currentID(us);
+          f = (ICUServiceFactory*)map->get(us);
+          if (f != NULL) {
+              f->getDisplayName(id, locale, result);
+              delete fallbackKey;
+              return result;
+          }
+      }
+      delete fallbackKey;
     }
   }
   result.setToBogus();
@@ -972,7 +758,7 @@ ICUService::getDisplayNames(UVector& result,
 
         int32_t pos = 0;
         const UHashElement* entry = NULL;
-        while (entry = m->nextElement(pos)) {
+        while ((entry = m->nextElement(pos)) != NULL) {
           const UnicodeString* id = (const UnicodeString*)entry->key.pointer;
           ICUServiceFactory* f = (ICUServiceFactory*)entry->value.pointer;
           UnicodeString dname;
@@ -996,7 +782,7 @@ ICUService::getDisplayNames(UVector& result,
   ICUServiceKey* matchKey = createKey(matchID, status);
   int32_t pos = 0;
   const UHashElement *entry = NULL;
-  while (entry = dnCache->cache.nextElement(pos)) {
+  while ((entry = dnCache->cache.nextElement(pos)) != NULL) {
     const UnicodeString* id = (const UnicodeString*)entry->value.pointer;
     if (matchKey != NULL && !matchKey->isFallbackOf(*id)) {
       continue;

@@ -1,8 +1,9 @@
-;; libgcc routines for the Hitachi H8/300 CPU.
+;; libgcc routines for the Renesas H8/300 CPU.
 ;; Contributed by Steve Chamberlain <sac@cygnus.com>
-;; Optimizations by Toshiyasu Morita <toshiyasu.morita@hsa.hitachi.com>
+;; Optimizations by Toshiyasu Morita <toshiyasu.morita@renesas.com>
 
-/* Copyright (C) 1994, 2000, 2001, 2002 Free Software Foundation, Inc.
+/* Copyright (C) 1994, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -59,9 +60,6 @@ Boston, MA 02111-1307, USA.  */
 #define S2H r6h
 
 #ifdef __H8300__
-#define MOVP	mov.w	/* pointers are 16 bits */
-#define ADDP	add.w
-#define CMPP	cmp.w
 #define PUSHP	push
 #define POPP	pop
 
@@ -74,10 +72,7 @@ Boston, MA 02111-1307, USA.  */
 #define S2P	r6
 #endif
 
-#if defined (__H8300H__) || defined (__H8300S__)
-#define MOVP	mov.l	/* pointers are 32 bits */
-#define ADDP	add.l
-#define CMPP	cmp.l
+#if defined (__H8300H__) || defined (__H8300S__) || defined (__H8300SX__)
 #define PUSHP	push.l
 #define POPP	pop.l
 
@@ -96,11 +91,26 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #ifdef __H8300H__
+#ifdef __NORMAL_MODE__
+	.h8300hn
+#else
 	.h8300h
+#endif
 #endif
 
 #ifdef __H8300S__
+#ifdef __NORMAL_MODE__
+	.h8300sn
+#else
 	.h8300s
+#endif
+#endif
+#ifdef __H8300SX__
+#ifdef __NORMAL_MODE__
+	.h8300sxn
+#else
+	.h8300sx
+#endif
 #endif
 
 #ifdef L_cmpsi2
@@ -172,30 +182,28 @@ ___ucmpsi2:
 	.section .text
 	.align 2
 divnorm:
-	mov.b	#0x0,A2L
 	or	A0H,A0H		; is divisor > 0
+	stc	ccr,A2L
 	bge	_lab1
 	not	A0H		; no - then make it +ve
 	not	A0L
 	adds	#1,A0
-	xor	#0x1,A2L	; and remember that in A2L
 _lab1:	or	A1H,A1H	; look at dividend
 	bge	_lab2
 	not	A1H		; it is -ve, make it positive
 	not	A1L
 	adds	#1,A1
-	xor	#0x1,A2L; and toggle sign of result
+	xor	#0x8,A2L; and toggle sign of result
 _lab2:	rts
 ;; Basically the same, except that the sign of the divisor determines
 ;; the sign.
 modnorm:
-	mov.b	#0x0,A2L
 	or	A0H,A0H		; is divisor > 0
+	stc	ccr,A2L
 	bge	_lab7
 	not	A0H		; no - then make it +ve
 	not	A0L
 	adds	#1,A0
-	xor	#0x1,A2L	; and remember that in A2L
 _lab7:	or	A1H,A1H	; look at dividend
 	bge	_lab8
 	not	A1H		; it is -ve, make it positive
@@ -209,7 +217,7 @@ _lab8:	rts
 ___divhi3:
 	bsr	divnorm
 	bsr	___udivhi3
-negans:	or	A2L,A2L	; should answer be negative ?
+negans:	btst	#3,A2L	; should answer be negative ?
 	beq	_lab4
 	not	A0H	; yes, so make it so
 	not	A0L
@@ -315,8 +323,8 @@ setbit:	inc	A0L		; do insert bit
 #ifdef __H8300__
 
 divnorm:
-	mov.b	#0,S2L		; keep the sign in S2
 	mov.b	A0H,A0H		; is the numerator -ve
+	stc	ccr,S2L		; keep the sign in bit 3 of S2L
 	bge	postive
 
 	; negate arg
@@ -329,8 +337,6 @@ divnorm:
 	addx	#0,A1H
 	addx	#0,A0L
 	addx	#0,A0H
-
-	mov.b	#1,S2L		; the sign will be -ve
 postive:
 	mov.b	A2H,A2H		; is the denominator -ve
 	bge	postive2
@@ -342,15 +348,15 @@ postive:
 	addx	#0,A3H
 	addx	#0,A2L
 	addx	#0,A2H
-	xor	#1,S2L		; toggle result sign
+	xor.b	#0x08,S2L	; toggle the result sign
 postive2:
 	rts
 
 ;; Basically the same, except that the sign of the divisor determines
 ;; the sign.
 modnorm:
-	mov.b	#0,S2L		; keep the sign in S2
 	mov.b	A0H,A0H		; is the numerator -ve
+	stc	ccr,S2L		; keep the sign in bit 3 of S2L
 	bge	mpostive
 
 	; negate arg
@@ -363,8 +369,6 @@ modnorm:
 	addx	#0,A1H
 	addx	#0,A0L
 	addx	#0,A0H
-
-	mov.b	#1,S2L		; the sign will be -ve
 mpostive:
 	mov.b	A2H,A2H		; is the denominator -ve
 	bge	mpostive2
@@ -382,19 +386,18 @@ mpostive2:
 #else /* __H8300H__ */
 
 divnorm:
-	mov.b	#0,S2L		; keep the sign in S2
 	mov.l	A0P,A0P		; is the numerator -ve
+	stc	ccr,S2L		; keep the sign in bit 3 of S2L
 	bge	postive
 
 	neg.l	A0P		; negate arg
-	mov.b	#1,S2L		; the sign will be -ve
 
 postive:
 	mov.l	A1P,A1P		; is the denominator -ve
 	bge	postive2
 
 	neg.l	A1P		; negate arg
-	xor.b	#1,S2L		; toggle result sign
+	xor.b	#0x08,S2L	; toggle the result sign
 
 postive2:
 	rts
@@ -402,12 +405,11 @@ postive2:
 ;; Basically the same, except that the sign of the divisor determines
 ;; the sign.
 modnorm:
-	mov.b	#0,S2L		; keep the sign in S2
 	mov.l	A0P,A0P		; is the numerator -ve
+	stc	ccr,S2L		; keep the sign in bit 3 of S2L
 	bge	mpostive
 
 	neg.l	A0P		; negate arg
-	mov.b	#1,S2L		; the sign will be -ve
 
 mpostive:
 	mov.l	A1P,A1P		; is the denominator -ve
@@ -424,58 +426,68 @@ mpostive2:
 ; denominator in A2/A3
 	.global	___modsi3
 ___modsi3:
+#ifdef __H8300__
 	PUSHP	S2P
 	PUSHP	S0P
 	PUSHP	S1P
-
 	bsr	modnorm
 	bsr	divmodsi4
-#ifdef __H8300__
 	mov	S0,A0
 	mov	S1,A1
-#else
-	mov.l	S0P,A0P
-#endif
 	bra	exitdiv
+#else
+	PUSHP	S2P
+	bsr	modnorm
+	bsr	___udivsi3
+	mov.l	er3,er0
+	bra	exitdiv
+#endif
 
+	;; H8/300H and H8S version of ___udivsi3 is defined later in
+	;; the file.
+#ifdef __H8300__
 	.global	___udivsi3
 ___udivsi3:
 	PUSHP	S2P
 	PUSHP	S0P
 	PUSHP	S1P
-	mov.b	#0,S2L	; keep sign low
 	bsr	divmodsi4
-	bra	exitdiv
+	bra	reti
+#endif
 
 	.global	___umodsi3
 ___umodsi3:
+#ifdef __H8300__
 	PUSHP	S2P
 	PUSHP	S0P
 	PUSHP	S1P
-	mov.b	#0,S2L	; keep sign low
 	bsr	divmodsi4
-#ifdef __H8300__
 	mov	S0,A0
 	mov	S1,A1
+	bra	reti
 #else
-	mov.l	S0P,A0P
+	bsr	___udivsi3
+	mov.l	er3,er0
+	rts
 #endif
-	bra	exitdiv
 
 	.global	___divsi3
 ___divsi3:
+#ifdef __H8300__
 	PUSHP	S2P
 	PUSHP	S0P
 	PUSHP	S1P
 	jsr	divnorm
 	jsr	divmodsi4
+#else
+	PUSHP	S2P
+	jsr	divnorm
+	bsr	___udivsi3
+#endif
 
 	; examine what the sign should be
 exitdiv:
-	POPP	S1P
-	POPP	S0P
-
-	or	S2L,S2L
+	btst	#3,S2L
 	beq	reti
 
 	; should be -ve
@@ -494,6 +506,10 @@ exitdiv:
 #endif
 
 reti:
+#ifdef __H8300__
+	POPP	S1P
+	POPP	S0P
+#endif
 	POPP	S2P
 	rts
 
@@ -501,7 +517,7 @@ reti:
 	; A2/A3 denominator (A1P for H8/300H)
 	; returns A0/A1 quotient (A0P for H8/300H)
 	; S0/S1 remainder (S0P for H8/300H)
-	; trashes S2
+	; trashes S2H
 
 #ifdef __H8300__
 
@@ -511,7 +527,7 @@ divmodsi4:
         mov.b	A2H,S2H
         or	A2L,S2H
         or	A3H,S2H
-        bne	DenHighZero
+        bne	DenHighNonZero
         mov.b	A0H,A0H
         bne	NumByte0Zero
         mov.b	A0L,A0L
@@ -541,7 +557,7 @@ NumByte3Zero:
         rts
 
 ; have to do the divide by shift and test
-DenHighZero:
+DenHighNonZero:
 	mov.b	A0H,S1L
         mov.b	A0L,A0H
         mov.b	A1H,A0L
@@ -580,10 +596,11 @@ setone:
 
 #else /* __H8300H__ */
 
-divmodsi4:
-	sub.l	S0P,S0P		; zero play area
+	;; This function also computes the remainder and stores it in er3.
+	.global	___udivsi3
+___udivsi3:
 	mov.w	A1E,A1E		; denominator top word 0?
-	bne	DenHighZero
+	bne	DenHighNonZero
 
 	; do it the easy way, see page 107 in manual
 	mov.w	A0E,A2
@@ -591,36 +608,65 @@ divmodsi4:
 	divxu.w	A1,A2P
 	mov.w	A2E,A0E
 	divxu.w	A1,A0P
-	mov.w	A0E,S0
+	mov.w	A0E,A3
 	mov.w	A2,A0E
-	extu.l	S0P
+	extu.l	A3P
 	rts
 
-DenHighZero:
-	mov.w	A0E,A2
-	mov.b	A2H,S0L
-	mov.b	A2L,A2H
-	mov.b	A0H,A2L
-	mov.w	A2,A0E
-	mov.b	A0L,A0H
-	mov.b	#0,A0L
-	mov.b	#24,S2H		; only do 24 iterations
-
-nextbit:
-	shll.l	A0P		; double the answer guess
-	rotxl.l	S0P		; double remainder
-	sub.l	A1P,S0P		; does it all fit?
-	bhs	setone
-
-	add.l	A1P,S0P		; no, restore mistake
-	dec	S2H
-	bne	nextbit
-	rts
-
-setone:
-	inc	A0L
-	dec	S2H
-	bne	nextbit
+ 	; er0 = er0 / er1
+ 	; er3 = er0 % er1
+ 	; trashes er1 er2
+ 	; expects er1 >= 2^16
+DenHighNonZero:
+	mov.l	er0,er3
+	mov.l	er1,er2
+#ifdef __H8300H__
+divmod_L21:
+	shlr.l	er0
+	shlr.l	er2		; make divisor < 2^16
+	mov.w	e2,e2
+	bne	divmod_L21
+#else
+	shlr.l	#2,er2		; make divisor < 2^16
+	mov.w	e2,e2
+	beq	divmod_L22A
+divmod_L21:
+	shlr.l	#2,er0
+divmod_L22:
+	shlr.l	#2,er2		; make divisor < 2^16
+	mov.w	e2,e2
+	bne	divmod_L21
+divmod_L22A:
+	rotxl.w	r2
+	bcs	divmod_L23
+	shlr.l	er0
+	bra	divmod_L24
+divmod_L23:
+	rotxr.w	r2
+	shlr.l	#2,er0
+divmod_L24:
+#endif
+	;; At this point,
+	;;  er0 contains shifted dividend
+	;;  er1 contains divisor
+	;;  er2 contains shifted divisor
+	;;  er3 contains dividend, later remainder
+	divxu.w	r2,er0		; r0 now contains the approximate quotient (AQ)
+	extu.l	er0
+	beq	divmod_L25
+	subs	#1,er0		; er0 = AQ - 1
+	mov.w	e1,r2
+	mulxu.w	r0,er2		; er2 = upper (AQ - 1) * divisor
+	sub.w	r2,e3		; dividend - 65536 * er2
+	mov.w	r1,r2
+	mulxu.w	r0,er2		; compute er3 = remainder (tentative)
+	sub.l	er2,er3		; er3 = dividend - (AQ - 1) * divisor
+divmod_L25:
+ 	cmp.l	er1,er3		; is divisor < remainder?
+	blo	divmod_L26
+ 	adds	#1,er0
+	sub.l	er1,er3		; correct the remainder
+divmod_L26:
 	rts
 
 #endif
@@ -690,7 +736,6 @@ ___mulhi3:
 ___mulsi3:
 	PUSHP	S0P
 	PUSHP	S1P
-	PUSHP	S2P
 
 	sub.w	S0,S0
 	sub.w	S1,S1
@@ -723,7 +768,6 @@ _nobit:
 _done:
 	mov.w	S0,A0
 	mov.w	S1,A1
-	POPP	S2P
 	POPP	S1P
 	POPP	S0P
 	rts
@@ -731,7 +775,7 @@ _done:
 #else /* __H8300H__ */
 
 ;
-; mulsi3 for H8/300H - based on Hitachi SH implementation
+; mulsi3 for H8/300H - based on Renesas SH implementation
 ;
 ; by Toshiyasu Morita
 ;
@@ -778,7 +822,7 @@ L_skip2:
    behavior is undefined anyways.  */
 	.global	___fixunssfsi
 ___fixunssfsi:
-	cmp.b #0x47,r0h
+	cmp.b #0x4f,r0h
 	bge Large_num
 	jmp     @___fixsfsi
 Large_num:

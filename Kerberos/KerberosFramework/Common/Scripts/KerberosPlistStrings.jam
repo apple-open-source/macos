@@ -1,11 +1,10 @@
 include "$(SRCROOT)/../Scripts/InfoPlistStrings.jam" ;
 
-Intermediates = "$(BUILT_PRODUCTS_DIR)/Kerberos.intermediates" ;
+Intermediates = "$(BUILT_PRODUCTS_DIR)/KerberosFramework.intermediates" ;
 EnglishLProj = "$(Intermediates)/English.lproj" ;
-ConvertInfoPlistStrings = "$(Intermediates)/ConvertedInfoPlist.strings" ;
 InfoPlistStrings = "$(EnglishLProj)/InfoPlist.strings" ;
 
-CatInfoPlist "$(ConvertInfoPlistStrings)" :
+CatInfoPlist "$(InfoPlistStrings)" :
     "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Apple Event Manager.strings" 
     "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Code Fragment Manager.strings" 
     "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/File Manager.strings" 
@@ -34,10 +33,9 @@ CatInfoPlist "$(ConvertInfoPlistStrings)" :
 
     "$(BUILT_PRODUCTS_DIR)/KClient.intermediates/KClientErrors.strings"
     "$(BUILT_PRODUCTS_DIR)/KClient.intermediates/KClientCompatErrors.strings"
+    
+    "$(SRCROOT)/../../KerberosLogin/Resources/KerberosLogin.strings" 
     ;
-
-CatAlreadyConverted "$(InfoPlistStrings)" : "$(ConvertInfoPlistStrings)"
-    "$(SRCROOT)/../../KerberosLogin/Resources/English.lproj/Localizable.strings" ;
 
 DEPENDS all : "$(InfoPlistStrings)" ;
 DEPENDS install : all ;

@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssh.h,v 1.71 2002/06/22 02:00:29 stevesk Exp $	*/
+/*	$OpenBSD: ssh.h,v 1.75 2003/12/02 17:01:15 markus Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -20,7 +20,6 @@
 #include <stdarg.h> /* For va_list */
 #include <syslog.h> /* For LOG_AUTH and friends */
 #include <sys/socket.h> /* For struct sockaddr_storage */
-#include "openbsd-compat/fake-socket.h" /* For struct sockaddr_storage */
 #ifdef HAVE_SYS_SELECT_H
 # include <sys/select.h>
 #endif
@@ -89,9 +88,6 @@
  */
 #define SSH_SESSION_KEY_LENGTH		32
 
-/* Name of Kerberos service for SSH to use. */
-#define KRB4_SERVICE_NAME		"rcmd"
-
 /* Used to identify ``EscapeChar none'' */
 #define SSH_ESCAPECHAR_NONE		-2
 
@@ -106,5 +102,8 @@
 
 /* Minimum modulus size (n) for RSA keys. */
 #define SSH_RSA_MINIMUM_MODULUS_SIZE	768
+
+/* Listen backlog for sshd, ssh-agent and forwarding sockets */
+#define SSH_LISTEN_BACKLOG		128
 
 #endif				/* SSH_H */

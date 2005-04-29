@@ -2,24 +2,6 @@
 #include "enc_provider.h"
 #include "aes.h"
 
-static void
-aes_block_size(size_t *blocksize)
-{
-    *blocksize = 16;
-}
-
-static void
-aes128_keysize(size_t *keybytes, size_t *keylength)
-{
-    *keybytes = *keylength = 16;
-}
-
-static void
-aes256_keysize(size_t *keybytes, size_t *keylength)
-{
-    *keybytes = *keylength = 32;
-}
-
 #if 0
 aes_rval aes_blk_len(unsigned int blen, aes_ctx cx[1]);
 aes_rval aes_enc_key(const unsigned char in_key[], unsigned int klen, aes_ctx cx[1]);
@@ -30,6 +12,7 @@ aes_rval aes_dec_blk(const unsigned char in_blk[], unsigned char out_blk[], cons
 
 #define CHECK_SIZES 0
 
+#if 0
 static void printd (const char *descr, krb5_data *d) {
     int i, j;
     const int r = 16;
@@ -52,6 +35,8 @@ static void printd (const char *descr, krb5_data *d) {
     }
     printf("\n");
 }
+#endif
+
 #define enc(OUT, IN, CTX) (aes_enc_blk((IN),(OUT),(CTX)) == aes_good ? (void) 0 : abort())
 #define dec(OUT, IN, CTX) (aes_dec_blk((IN),(OUT),(CTX)) == aes_good ? (void) 0 : abort())
 
@@ -86,7 +71,7 @@ krb5int_aes_encrypt(const krb5_keyblock *key, const krb5_data *ivec,
 	/* XXX Used for DK function.  */
 	enc(output->data, input->data, &ctx);
     } else {
-	int nleft;
+	unsigned int nleft;
 
 	for (blockno = 0; blockno < nblocks - 2; blockno++) {
 	    xorblock(tmp, input->data + blockno * BLOCK_SIZE);
@@ -109,6 +94,8 @@ krb5int_aes_encrypt(const krb5_keyblock *key, const krb5_data *ivec,
 	xorblock(tmp, tmp3);
 	enc(tmp2, tmp, &ctx);
 	memcpy(output->data + (nblocks - 2) * BLOCK_SIZE, tmp2, BLOCK_SIZE);
+	if (ivec)
+	    memcpy(ivec->data, tmp2, BLOCK_SIZE);
     }
 
     return 0;
@@ -139,7 +126,6 @@ krb5int_aes_decrypt(const krb5_keyblock *key, const krb5_data *ivec,
 	    abort();
 	dec(output->data, input->data, &ctx);
     } else {
-	int nleft;
 
 	for (blockno = 0; blockno < nblocks - 2; blockno++) {
 	    dec(tmp2, input->data + blockno * BLOCK_SIZE, &ctx);
@@ -167,6 +153,9 @@ krb5int_aes_decrypt(const krb5_keyblock *key, const krb5_data *ivec,
 	dec(tmp3, tmp2, &ctx);
 	xorblock(tmp3, tmp);
 	memcpy(output->data + (nblocks - 2) * BLOCK_SIZE, tmp3, BLOCK_SIZE);
+	if (ivec)
+	    memcpy(ivec->data, input->data + (nblocks - 2) * BLOCK_SIZE,
+		   BLOCK_SIZE);
     }
 
     return 0;
@@ -199,8 +188,8 @@ krb5int_aes_init_state (const krb5_keyblock *key, krb5_keyusage usage,
 }
 
 const struct krb5_enc_provider krb5int_enc_aes128 = {
-    aes_block_size,
-    aes128_keysize,
+    16,
+    16, 16,
     krb5int_aes_encrypt,
     krb5int_aes_decrypt,
     k5_aes_make_key,
@@ -209,8 +198,8 @@ const struct krb5_enc_provider krb5int_enc_aes128 = {
 };
 
 const struct krb5_enc_provider krb5int_enc_aes256 = {
-    aes_block_size,
-    aes256_keysize,
+    16,
+    32, 32,
     krb5int_aes_encrypt,
     krb5int_aes_decrypt,
     k5_aes_make_key,

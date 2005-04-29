@@ -1,9 +1,8 @@
-
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.5
+ * Version:  5.0.2
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,19 +20,22 @@
  * BRIAN PAUL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- *
- * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ */
+
+/**
+ * \file vpexec.c
+ * \brief Vertex array API functions (glDrawArrays, etc)
+ * \author Keith Whitwell
  */
 
 #include "glheader.h"
 #include "api_validate.h"
 #include "context.h"
+#include "imports.h"
 #include "macros.h"
 #include "mmath.h"
-#include "mem.h"
-#include "state.h"
 #include "mtypes.h"
+#include "state.h"
 
 #include "array_cache/acache.h"
 
@@ -70,13 +72,14 @@ static void fallback_drawelements( GLcontext *ctx, GLenum mode, GLsizei count,
 
 static void _tnl_draw_range_elements( GLcontext *ctx, GLenum mode,
 				      GLuint start, GLuint end,
-				      GLsizei count, const GLuint *indices )
+				      GLsizei count, GLuint *indices )
 
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
+   int i;
    FLUSH_CURRENT( ctx, 0 );
    
-   /*  fprintf(stderr, "%s\n", __FUNCTION__); */
+   /*  _mesa_debug(ctx, "%s\n", __FUNCTION__); */
    if (tnl->pipeline.build_state_changes)
       _tnl_validate_pipeline( ctx );
 
@@ -87,6 +90,9 @@ static void _tnl_draw_range_elements( GLcontext *ctx, GLenum mode,
    tnl->vb.PrimitiveLength[0] = count;
    tnl->vb.Elts = (GLuint *)indices;
 
+   for (i = 0 ; i < count ; i++)
+      indices[i] -= start;
+
    if (ctx->Array.LockCount)
       tnl->Driver.RunPipeline( ctx );
    else {
@@ -96,11 +102,16 @@ static void _tnl_draw_range_elements( GLcontext *ctx, GLenum mode,
       tnl->Driver.RunPipeline( ctx );
       tnl->pipeline.run_input_changes |= ctx->Array._Enabled;
    }
+
+   for (i = 0 ; i < count ; i++)
+      indices[i] += start;
 }
 
 
 
-
+/**
+ * Called via the GL API dispatcher.
+ */
 void
 _tnl_DrawArrays(GLenum mode, GLint start, GLsizei count)
 {
@@ -110,7 +121,7 @@ _tnl_DrawArrays(GLenum mode, GLint start, GLsizei count)
    GLuint thresh = (ctx->Driver.NeedFlush & FLUSH_STORED_VERTICES) ? 30 : 10;
    
    if (MESA_VERBOSE & VERBOSE_API)
-      fprintf(stderr, "_tnl_DrawArrays %d %d\n", start, count); 
+      _mesa_debug(NULL, "_tnl_DrawArrays %d %d\n", start, count); 
    
    /* Check arguments, etc.
     */
@@ -129,43 +140,28 @@ _tnl_DrawArrays(GLenum mode, GLint start, GLsizei count)
       */
       fallback_drawarrays( ctx, mode, start, start + count );
    } 
-   else if (count < (GLint) ctx->Const.MaxArrayLockSize) {
-      /* Moderate primitives which can fit in a single vertex buffer:
+   else if (ctx->Array.LockCount && 
+	    count < (GLint) ctx->Const.MaxArrayLockSize) {
+      
+      /* Locked primitives which can fit in a single vertex buffer:
        */
       FLUSH_CURRENT( ctx, 0 );
 
-      if (ctx->Array.LockCount)
-      {
-	 if (start < (GLint) ctx->Array.LockFirst)
-            start = ctx->Array.LockFirst;
-	 if (start + count > (GLint) ctx->Array.LockCount)
-            count = ctx->Array.LockCount - start;
-
-	 /* Locked drawarrays.  Reuse any previously transformed data.
-	  */
-	 _tnl_vb_bind_arrays( ctx, ctx->Array.LockFirst, ctx->Array.LockCount );
-	 VB->FirstPrimitive = start;
-	 VB->Primitive[start] = mode | PRIM_BEGIN | PRIM_END | PRIM_LAST;
-	 VB->PrimitiveLength[start] = count;
-	 tnl->Driver.RunPipeline( ctx );
-      } else {
-	 /* The arrays are small enough to fit in a single VB; just bind
-	  * them and go.  Any untransformed data will be copied on
-	  * clipping.
-	  *
-	  * Invalidate any cached data dependent on these arrays.
-	  */
-	 _tnl_vb_bind_arrays( ctx, start, start + count );
-	 VB->FirstPrimitive = 0;
-	 VB->Primitive[0] = mode | PRIM_BEGIN | PRIM_END | PRIM_LAST;
-	 VB->PrimitiveLength[0] = count;
-	 tnl->pipeline.run_input_changes |= ctx->Array._Enabled;
-	 tnl->Driver.RunPipeline( ctx );
-	 tnl->pipeline.run_input_changes |= ctx->Array._Enabled;
-      }
-   }
+      if (start < (GLint) ctx->Array.LockFirst)
+	 start = ctx->Array.LockFirst;
+      if (start + count > (GLint) ctx->Array.LockCount)
+	 count = ctx->Array.LockCount - start;
+      
+      /* Locked drawarrays.  Reuse any previously transformed data.
+       */
+      _tnl_vb_bind_arrays( ctx, ctx->Array.LockFirst, ctx->Array.LockCount );
+      VB->FirstPrimitive = start;
+      VB->Primitive[start] = mode | PRIM_BEGIN | PRIM_END | PRIM_LAST;
+      VB->PrimitiveLength[start] = count;
+      tnl->Driver.RunPipeline( ctx );
+   } 
    else {
-      int bufsz = 256;		/* use a small buffer for cache goodness */
+      int bufsz = 256;		/* Use a small buffer for cache goodness */
       int j, nr;
       int minimum, modulo, skip;
 
@@ -213,10 +209,19 @@ _tnl_DrawArrays(GLenum mode, GLint start, GLsizei count)
       case GL_POLYGON:
       default:
 	 /* Primitives requiring a copied vertex (fan-like primitives)
-	  * must use the slow path:
+	  * must use the slow path if they cannot fit in a single
+	  * vertex buffer.  
 	  */
-	 fallback_drawarrays( ctx, mode, start, start + count );
-	 return;
+	 if (count < (GLint) ctx->Const.MaxArrayLockSize) {
+	    bufsz = ctx->Const.MaxArrayLockSize;
+	    minimum = 0;
+	    modulo = 1;
+	    skip = 0;
+	 }
+	 else {
+	    fallback_drawarrays( ctx, mode, start, start + count );
+	    return;
+	 }
       }
 
       FLUSH_CURRENT( ctx, 0 );
@@ -242,6 +247,9 @@ _tnl_DrawArrays(GLenum mode, GLint start, GLsizei count)
 }
 
 
+/**
+ * Called via the GL API dispatcher.
+ */
 void
 _tnl_DrawRangeElements(GLenum mode,
 		       GLuint start, GLuint end,
@@ -251,7 +259,7 @@ _tnl_DrawRangeElements(GLenum mode,
    GLuint *ui_indices;
 
    if (MESA_VERBOSE & VERBOSE_API)
-      fprintf(stderr, "_tnl_DrawRangeElements %d %d %d\n", start, end, count); 
+      _mesa_debug(NULL, "_tnl_DrawRangeElements %d %d %d\n", start, end, count); 
 
    /* Check arguments, etc.
     */
@@ -307,6 +315,9 @@ _tnl_DrawRangeElements(GLenum mode,
 
 
 
+/**
+ * Called via the GL API dispatcher.
+ */
 void
 _tnl_DrawElements(GLenum mode, GLsizei count, GLenum type,
 		  const GLvoid *indices)
@@ -315,7 +326,7 @@ _tnl_DrawElements(GLenum mode, GLsizei count, GLenum type,
    GLuint *ui_indices;
 
    if (MESA_VERBOSE & VERBOSE_API)
-      fprintf(stderr, "_tnl_DrawElements %d\n", count); 
+      _mesa_debug(NULL, "_tnl_DrawElements %d\n", count); 
 
    /* Check arguments, etc.
     */
@@ -355,6 +366,10 @@ _tnl_DrawElements(GLenum mode, GLsizei count, GLenum type,
 }
 
 
+/**
+ * Initialize context's vertex array fields.  Called during T 'n L context
+ * creation.
+ */
 void _tnl_array_init( GLcontext *ctx )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
@@ -369,8 +384,8 @@ void _tnl_array_init( GLcontext *ctx )
    /* Setup vector pointers that will be used to bind arrays to VB's.
     */
    _mesa_vector4f_init( &tmp->Obj, 0, 0 );
-   _mesa_vector3f_init( &tmp->Normal, 0, 0 );   
-   _mesa_vector1f_init( &tmp->FogCoord, 0, 0 );
+   _mesa_vector4f_init( &tmp->Normal, 0, 0 );   
+   _mesa_vector4f_init( &tmp->FogCoord, 0, 0 );
    _mesa_vector1ui_init( &tmp->Index, 0, 0 );
    _mesa_vector1ub_init( &tmp->EdgeFlag, 0, 0 );
 
@@ -382,6 +397,10 @@ void _tnl_array_init( GLcontext *ctx )
 }
 
 
+/**
+ * Destroy the context's vertex array stuff.
+ * Called during T 'n L context destruction.
+ */
 void _tnl_array_destroy( GLcontext *ctx )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);

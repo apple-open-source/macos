@@ -876,6 +876,22 @@ LIBSASL_API int sasl_client_step(sasl_conn_t *conn,
 LIBSASL_API int sasl_server_init(const sasl_callback_t *callbacks,
 				 const char *appname);
 
+/* initialize server drivers, done once per process
+ *  callbacks      -- callbacks for all server connections; must include
+ *                    getopt callback
+ *  appname        -- name of calling application (for lower level logging)
+ * results:
+ *  state          -- server state
+ * returns:
+ *  SASL_OK        -- success
+ *  SASL_BADPARAM  -- error in config file
+ *  SASL_NOMEM     -- memory failure
+ *  SASL_BADVERS   -- Mechanism version mismatch
+ *  SASL_NOMECH    -- No auxprop plug-ins available; advisory only, not fatal.
+ */
+LIBSASL_API int sasl_server_init_alt(const sasl_callback_t *callbacks,
+				 const char *appname);
+
 /* IP/port syntax:
  *  a.b.c.d;p              where a-d are 0-255 and p is 0-65535 port number.
  *  e:f:g:h:i:j:k:l;p      where e-l are 0000-ffff lower-case hexidecimal

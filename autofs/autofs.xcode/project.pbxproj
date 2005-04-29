@@ -1,0 +1,585 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		C10DA65705E2C60D000E258E = {
+			children = (
+				C10DA69605E2C6FD000E258E,
+				C10DA6B905E2C766000E258E,
+				C10DA6C205E2C7AD000E258E,
+				C1CC68AB05E2CEA800D0D4A3,
+				C1CC68AD05E2CEA800D0D4A3,
+				C1CC68AE05E2CEA800D0D4A3,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		C10DA65905E2C60D000E258E = {
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		C10DA65A05E2C60D000E258E = {
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		C10DA65B05E2C60D000E258E = {
+			buildSettings = {
+			};
+			buildStyles = (
+				C10DA65905E2C60D000E258E,
+				C10DA65A05E2C60D000E258E,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = C10DA65705E2C60D000E258E;
+			productRefGroup = C10DA65705E2C60D000E258E;
+			projectDirPath = "";
+			targets = (
+				C1A6A8EF05E2D2230068CA07,
+				C10DA70005E2C9FB000E258E,
+				C10DA70E05E2C9FB000E258E,
+				C10DA71705E2C9FB000E258E,
+			);
+		};
+		C10DA69605E2C6FD000E258E = {
+			children = (
+				C10DA69905E2C6FD000E258E,
+				C10DA69E05E2C6FD000E258E,
+				C10DA69B05E2C6FD000E258E,
+				C10DA69C05E2C6FD000E258E,
+				C10DA69D05E2C6FD000E258E,
+				C10DA69F05E2C6FD000E258E,
+			);
+			isa = PBXGroup;
+			path = kext;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA69905E2C6FD000E258E = {
+			children = (
+				C10DA69A05E2C6FD000E258E,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = kext;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA69A05E2C6FD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = English;
+			path = kext/English.lproj/InfoPlist.strings;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA69B05E2C6FD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = autofs.c;
+			path = kext/autofs.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA69C05E2C6FD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = autofs_vnops.c;
+			path = kext/autofs_vnops.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA69D05E2C6FD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = autofs_vfsops.c;
+			path = kext/autofs_vfsops.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA69E05E2C6FD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = autofs.h;
+			path = kext/autofs.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA69F05E2C6FD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = autofs_util.c;
+			path = kext/autofs_util.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA6B905E2C766000E258E = {
+			children = (
+				C10DA6BA05E2C766000E258E,
+			);
+			isa = PBXGroup;
+			path = mount_autofs;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA6BA05E2C766000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = mount_autofs.c;
+			path = mount_autofs/mount_autofs.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA6C205E2C7AD000E258E = {
+			children = (
+				C10DA6C305E2C7AD000E258E,
+				C10DA6C405E2C7AD000E258E,
+				C10DA6C505E2C7AD000E258E,
+				C10DA6C605E2C7AD000E258E,
+				C10DA6C705E2C7AD000E258E,
+			);
+			isa = PBXGroup;
+			path = driver;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA6C305E2C7AD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = autodriver.c;
+			path = driver/autodriver.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA6C405E2C7AD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			name = autotab;
+			path = driver/autotab;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA6C505E2C7AD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.make;
+			name = Makefile;
+			path = driver/Makefile;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA6C605E2C7AD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = sysctl.c;
+			path = driver/sysctl.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA6C705E2C7AD000E258E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = sysctl.h;
+			path = driver/sysctl.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		C10DA70005E2C9FB000E258E = {
+			buildPhases = (
+				C10DA70105E2C9FB000E258E,
+				C10DA70205E2C9FB000E258E,
+				C10DA70405E2C9FB000E258E,
+				C10DA70905E2C9FB000E258E,
+				C10DA70B05E2C9FB000E258E,
+				C10DA70C05E2C9FB000E258E,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "autofs-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.kernel.autofs.kext;
+				MODULE_START = autofs_start;
+				MODULE_STOP = autofs_stop;
+				MODULE_VERSION = 1.0.0d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = autofs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas -Werror -Wunused";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = kext;
+			productName = kext;
+			productReference = C1CC68AD05E2CEA800D0D4A3;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>kext</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.MySoftwareCompany.kext.kext</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d1</string>
+</dict>
+</plist>
+";
+			productType = "com.apple.product-type.kernel-extension";
+		};
+		C10DA70105E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		C10DA70205E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+				C10DA70305E2C9FB000E258E,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA70305E2C9FB000E258E = {
+			fileRef = C10DA69E05E2C6FD000E258E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C10DA70405E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+				C10DA70505E2C9FB000E258E,
+				C10DA70605E2C9FB000E258E,
+				C10DA70705E2C9FB000E258E,
+				C10DA70805E2C9FB000E258E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA70505E2C9FB000E258E = {
+			fileRef = C10DA69B05E2C6FD000E258E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C10DA70605E2C9FB000E258E = {
+			fileRef = C10DA69C05E2C6FD000E258E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C10DA70705E2C9FB000E258E = {
+			fileRef = C10DA69D05E2C6FD000E258E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C10DA70805E2C9FB000E258E = {
+			fileRef = C10DA69F05E2C6FD000E258E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C10DA70905E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+				C10DA70A05E2C9FB000E258E,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA70A05E2C9FB000E258E = {
+			fileRef = C10DA69905E2C6FD000E258E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C10DA70B05E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA70C05E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		C10DA70E05E2C9FB000E258E = {
+			buildPhases = (
+				C10DA70F05E2C9FB000E258E,
+				C10DA71005E2C9FB000E258E,
+				C10DA71205E2C9FB000E258E,
+				C10DA71305E2C9FB000E258E,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = mount_autofs;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = mount_autofs;
+			productInstallPath = /usr/local/bin;
+			productName = mount_autofs;
+			productReference = C1CC68AE05E2CEA800D0D4A3;
+			productType = "com.apple.product-type.tool";
+		};
+		C10DA70F05E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA71005E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+				C10DA71105E2C9FB000E258E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA71105E2C9FB000E258E = {
+			fileRef = C10DA6BA05E2C766000E258E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C10DA71205E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA71305E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA71705E2C9FB000E258E = {
+			buildPhases = (
+				C10DA71805E2C9FB000E258E,
+				C10DA71A05E2C9FB000E258E,
+				C10DA71D05E2C9FB000E258E,
+				C10DA71E05E2C9FB000E258E,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = driver;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = driver;
+			productInstallPath = /usr/local/bin;
+			productName = driver;
+			productReference = C1CC68AB05E2CEA800D0D4A3;
+			productType = "com.apple.product-type.tool";
+		};
+		C10DA71805E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+				C10DA71905E2C9FB000E258E,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA71905E2C9FB000E258E = {
+			fileRef = C10DA6C705E2C7AD000E258E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C10DA71A05E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+				C10DA71B05E2C9FB000E258E,
+				C10DA71C05E2C9FB000E258E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA71B05E2C9FB000E258E = {
+			fileRef = C10DA6C305E2C7AD000E258E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C10DA71C05E2C9FB000E258E = {
+			fileRef = C10DA6C605E2C7AD000E258E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		C10DA71D05E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA71E05E2C9FB000E258E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C1A6A8EF05E2D2230068CA07 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "autofs-package";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				C1A6A8F105E2D22D0068CA07,
+				C1A6A8F305E2D2420068CA07,
+				C1A6A8F505E2D2460068CA07,
+			);
+			isa = PBXAggregateTarget;
+			name = autofs;
+			productName = "autofs-package";
+		};
+		C1A6A8F005E2D22D0068CA07 = {
+			containerPortal = C10DA65B05E2C60D000E258E;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = C10DA70005E2C9FB000E258E;
+			remoteInfo = autofs;
+		};
+		C1A6A8F105E2D22D0068CA07 = {
+			isa = PBXTargetDependency;
+			target = C10DA70005E2C9FB000E258E;
+			targetProxy = C1A6A8F005E2D22D0068CA07;
+		};
+		C1A6A8F205E2D2420068CA07 = {
+			containerPortal = C10DA65B05E2C60D000E258E;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = C10DA70E05E2C9FB000E258E;
+			remoteInfo = mount_autofs;
+		};
+		C1A6A8F305E2D2420068CA07 = {
+			isa = PBXTargetDependency;
+			target = C10DA70E05E2C9FB000E258E;
+			targetProxy = C1A6A8F205E2D2420068CA07;
+		};
+		C1A6A8F405E2D2460068CA07 = {
+			containerPortal = C10DA65B05E2C60D000E258E;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = C10DA71705E2C9FB000E258E;
+			remoteInfo = driver;
+		};
+		C1A6A8F505E2D2460068CA07 = {
+			isa = PBXTargetDependency;
+			target = C10DA71705E2C9FB000E258E;
+			targetProxy = C1A6A8F405E2D2460068CA07;
+		};
+		C1CC68AB05E2CEA800D0D4A3 = {
+			explicitFileType = "compiled.mach-o.executable";
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = driver;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C1CC68AD05E2CEA800D0D4A3 = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = autofs.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C1CC68AE05E2CEA800D0D4A3 = {
+			explicitFileType = "compiled.mach-o.executable";
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = mount_autofs;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+	};
+	rootObject = C10DA65B05E2C60D000E258E;
+}

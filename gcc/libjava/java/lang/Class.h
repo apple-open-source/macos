@@ -14,6 +14,7 @@ details.  */
 
 #pragma interface
 
+#include <stddef.h>
 #include <java/lang/Object.h>
 #include <java/lang/String.h>
 #include <java/net/URL.h>
@@ -24,7 +25,9 @@ details.  */
 
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
-extern "C" void _Jv_RegisterClasses (jclass *classes);
+extern "C" void _Jv_RegisterClasses (const jclass *classes);
+extern "C" void _Jv_RegisterClasses_Counted (const jclass *classes,
+					     size_t count);
 
 // This must be predefined with "C" linkage.
 extern "C" void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
@@ -39,10 +42,9 @@ enum
 
   JV_STATE_PRELOADING = 1,	// Can do _Jv_FindClass.
   JV_STATE_LOADING = 3,		// Has super installed.
-  JV_STATE_LOADED = 5,		// Is complete.
-    
-  JV_STATE_COMPILED = 6,	// This was a compiled class.
+  JV_STATE_COMPILED = 5,	// This was a compiled class.
 
+  JV_STATE_LOADED = 6,		// Is complete.
   JV_STATE_PREPARED = 7,	// Layout & static init done.
   JV_STATE_LINKED = 9,		// Strings interned.
 
@@ -125,6 +127,18 @@ struct _Jv_OffsetTable
   jint offsets[];
 };
 
+struct _Jv_AddressTable
+{
+  jint state;
+  void *addresses[];
+};
+
+struct _Jv_CatchClass
+{
+  java::lang::Class **address;
+  _Jv_Utf8Const *classname;
+};
+
 #define JV_PRIMITIVE_VTABLE ((_Jv_VTable *) -1)
 
 #define JV_CLASS(Obj) ((jclass) (*(_Jv_VTable **) Obj)->clas)
@@ -151,7 +165,8 @@ public:
   java::lang::reflect::Constructor *getDeclaredConstructor (JArray<jclass> *);
   JArray<java::lang::reflect::Constructor *> *getDeclaredConstructors (void);
   java::lang::reflect::Field *getDeclaredField (jstring);
-  JArray<java::lang::reflect::Field *> *getDeclaredFields (void);
+  JArray<java::lang::reflect::Field *> *getDeclaredFields ();
+  JArray<java::lang::reflect::Field *> *getDeclaredFields (jboolean);
   java::lang::reflect::Method *getDeclaredMethod (jstring, JArray<jclass> *);
   JArray<java::lang::reflect::Method *> *getDeclaredMethods (void);
 
@@ -160,7 +175,7 @@ public:
 
   java::lang::reflect::Field *getField (jstring);
 private:
-  jint _getFields (JArray<java::lang::reflect::Field *> *result, jint offset);
+  JArray<java::lang::reflect::Field *> internalGetFields ();
   JArray<java::lang::reflect::Constructor *> *_getConstructors (jboolean);
   java::lang::reflect::Field *getField (jstring, jint);
   jint _getMethods (JArray<java::lang::reflect::Method *> *result,
@@ -191,6 +206,7 @@ public:
   java::net::URL        *getResource (jstring resourceName);
   java::io::InputStream *getResourceAsStream (jstring resourceName);
   JArray<jobject> *getSigners (void);
+  void setSigners(JArray<jobject> *);
 
   inline jclass getSuperclass (void)
     {
@@ -199,7 +215,7 @@ public:
 
   inline jboolean isArray (void)
     {
-      return name->data[0] == '[';
+      return name->first() == '[';
     }
 
   inline jclass getComponentType (void)
@@ -243,7 +259,7 @@ public:
 
 private:   
 
-  void checkMemberAccess (jint flags);
+  void memberAccessCheck (jint flags);
 
   void initializeClass (void);
 
@@ -272,7 +288,7 @@ private:
   friend jfieldID JvGetFirstStaticField (jclass);
   friend jint JvNumStaticFields (jclass);
 
-  friend jobject _Jv_AllocObject (jclass, jint);
+  friend jobject _Jv_AllocObject (jclass);
   friend void *_Jv_AllocObj (jint, jclass);
   friend void *_Jv_AllocPtrFreeObj (jint, jclass);
   friend void *_Jv_AllocArray (jint, jclass);
@@ -290,13 +306,16 @@ private:
 
   // Friends classes and functions to implement the ClassLoader
   friend class java::lang::ClassLoader;
+  friend class java::lang::VMClassLoader;
 
   friend class java::io::ObjectOutputStream;
   friend class java::io::ObjectInputStream;
   friend class java::io::ObjectStreamClass;
 
   friend void _Jv_WaitForState (jclass, int);
-  friend void _Jv_RegisterClasses (jclass *classes);
+  friend void _Jv_RegisterClasses (const jclass *classes);
+  friend void _Jv_RegisterClasses_Counted (const jclass *classes, 
+					   size_t count);
   friend void _Jv_RegisterClassHookDefault (jclass klass);
   friend void _Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
   friend void _Jv_UnregisterClass (jclass);
@@ -314,7 +333,7 @@ private:
   friend void _Jv_InitNewClassFields (jclass klass);
 
   // in prims.cc
-  friend void _Jv_InitPrimClass (jclass, char *, char, int, _Jv_ArrayVTable *);
+  friend void _Jv_InitPrimClass (jclass, char *, char, int);
 
   friend void _Jv_PrepareCompiledClass (jclass);
   friend void _Jv_PrepareConstantTimeTables (jclass);
@@ -323,16 +342,24 @@ private:
   friend jstring _Jv_GetMethodString(jclass, _Jv_Utf8Const *);
   friend jshort _Jv_AppendPartialITable (jclass, jclass, void **, jshort);
   friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
-  friend void _Jv_LinkOffsetTable (jclass);
+  friend void _Jv_LinkSymbolTable (jclass);
+  friend void _Jv_LayoutInterfaceMethods (jclass);
   friend void _Jv_LayoutVTableMethods (jclass klass);
   friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
   friend void _Jv_MakeVTable (jclass);
+  friend void _Jv_linkExceptionClassTable (jclass);
+
+  friend jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
+				   jint flags);
 
   // Return array class corresponding to element type KLASS, creating it if
   // necessary.
   inline friend jclass
   _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader)
   {
+    extern void _Jv_NewArrayClass (jclass element,
+				   java::lang::ClassLoader *loader,
+				   _Jv_VTable *array_vtable = 0);
     if (__builtin_expect (!klass->arrayclass, false))
       _Jv_NewArrayClass (klass, loader);
     return klass->arrayclass;
@@ -350,6 +377,8 @@ private:
   friend void _Jv_PrepareClass (jclass);
   friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
 
+  friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
+  
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;
   friend class _Jv_InterpMethod;
@@ -360,8 +389,11 @@ private:
 #endif
 
   friend class _Jv_BytecodeVerifier;
+  friend class _Jv_StackTrace;
   friend class gnu::gcj::runtime::StackTrace;
   friend class java::io::VMObjectStreamClass;
+
+  friend void _Jv_sharedlib_register_hook (jclass klass);
 
   // Chain for class pool.
   jclass next;
@@ -395,6 +427,9 @@ private:
   _Jv_OffsetTable *otable;
   // Offset table symbols.
   _Jv_MethodSymbol *otable_syms;
+  _Jv_AddressTable *atable;
+  _Jv_MethodSymbol *atable_syms;
+  _Jv_CatchClass *catch_classes;
   // Interfaces implemented by this class.
   jclass *interfaces;
   // The class loader for this class.
@@ -416,8 +451,13 @@ private:
   jclass arrayclass;
   // Security Domain to which this class belongs (or null).
   java::security::ProtectionDomain *protectionDomain;
+  // Signers of this class (or null).
+  JArray<jobject> *hack_signers;
   // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.
   jclass chain;
+  // Additional data, specific to the generator (JIT, native, interpreter) of this 
+  // class.
+  void *aux_info;
 };
 
 #endif /* __JAVA_LANG_CLASS_H__ */

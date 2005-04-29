@@ -3,24 +3,22 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
-		773C789F01D146CD05DD284B = {
-			isa = PBXFrameworkReference;
-			name = DirectoryService.framework;
-			path = /System/Library/Frameworks/DirectoryService.framework;
-			refType = 0;
-		};
 		7743A29D01D155D805DD284B = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		7743A29F01D1562505DD284B = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = BSD.dsplug;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		7743A2A001D1562505DD284B = {
 			buildPhases = (
@@ -31,13 +29,13 @@
 				7743A2A501D1562505DD284B,
 			);
 			buildSettings = {
+				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers\" \"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl\"";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
 				LIBRARY_SEARCH_PATHS = "/usr/local/lib \"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
-				OPTIMIZATION_CFLAGS = "-O";
-				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder";
-				OTHER_LDFLAGS = "-lcrypto -bundle -undefined error";
+				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -gfull  -fconstant-cfstrings";
+				OTHER_LDFLAGS = "-lcrypto -bundle -undefined error -dead_strip -bundle_loader /usr/sbin/DirectoryService";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BSD;
 				SECTORDER_FLAGS = "";
@@ -78,11 +76,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -132,6 +130,7 @@
 				FE6FE2C9041033B300DD2834,
 				FE6FE2CB041033B300DD2834,
 				FE6FE2CD041033B300DD2834,
+				AAF7694707C6BD6200C7E4FB,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -149,10 +148,11 @@
 				A45343CA01D3AB0C03DD2834,
 				A4B489A80385C37803DD2834,
 				A4B489D10385D47103DD2834,
-				A459055103CCA21D03DD2834,
 				FE6FE2C7041033B300DD2834,
 				FE6FE2CA041033B300DD2834,
 				FE6FE2CC041033B300DD2834,
+				FE79F81A074FBC9800588B8B,
+				AAF7694607C6BD6200C7E4FB,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -161,12 +161,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				A4A09E83021C680303DD2834,
-				A4C5893002217F5D03DD2834,
 				A4533E2F02A4583D03DD2834,
 				A421727902A9724403DD2834,
-				A4B68BEF038C29C503DD2834,
 				8432289F04ABCB34007D0E6B,
 				FE4AD2FE04F40D4300365AE8,
+				FE79F936074FBE8700588B8B,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -179,6 +178,8 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		774A93FD01D12BAB05DD284B = {
+			buildSettings = {
+			};
 			buildStyles = (
 				774A93FF01D12BAB05DD284B,
 				774A940001D12BAB05DD284B,
@@ -194,6 +195,7 @@
 		};
 		774A93FE01D12BAB05DD284B = {
 			children = (
+				FE79F819074FBC9800588B8B,
 				A453436B01D3AB0C03DD2834,
 				A4B489A00385C36003DD2834,
 				A453433A01D3AB0C03DD2834,
@@ -203,23 +205,27 @@
 			);
 			isa = PBXGroup;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		774A93FF01D12BAB05DD284B = {
-			buildRules = (
-			);
 			buildSettings = {
 				BUILD_SETTING = "";
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O -gfull";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		774A940001D12BAB05DD284B = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -231,13 +237,13 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		774A949401D131F105DD284B = {
 			children = (
-				773C789F01D146CD05DD284B,
+				FE79F935074FBE8700588B8B,
 				7743A29D01D155D805DD284B,
 				A4A09E7E021C680303DD2834,
-				A4C5892B02217F5D03DD2834,
 				A4533E2E02A4583D03DD2834,
 				8432289E04ABCB34007D0E6B,
 				FE4AD2FD04F40D4300365AE8,
@@ -245,6 +251,7 @@
 			isa = PBXGroup;
 			name = Frameworks;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //770
 //771
@@ -257,10 +264,12 @@
 //843
 //844
 		8432289E04ABCB34007D0E6B = {
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
+			lastKnownFileType = "compiled.mach-o.dylib";
 			name = libsasl2.2.0.1.dylib;
 			path = /usr/lib/libsasl2.2.0.1.dylib;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		8432289F04ABCB34007D0E6B = {
 			fileRef = 8432289E04ABCB34007D0E6B;
@@ -280,8 +289,10 @@
 //A44
 		A41313330393E67D03B74821 = {
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			path = Todo.rtf;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A421727902A9724403DD2834 = {
 			fileRef = 7743A29D01D155D805DD284B;
@@ -290,10 +301,12 @@
 			};
 		};
 		A4533E2E02A4583D03DD2834 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		A4533E2F02A4583D03DD2834 = {
 			fileRef = A4533E2E02A4583D03DD2834;
@@ -303,26 +316,30 @@
 		};
 		A453433A01D3AB0C03DD2834 = {
 			children = (
-				A459055003CCA21D03DD2834,
 				A459055903CCA2A303DD2834,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453433B01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CommandLineUtilities.cpp;
 			path = HelperCode/CommandLineUtilities.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453433C01D3AB0C03DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CommandLineUtilities.h;
 			path = HelperCode/CommandLineUtilities.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A453436B01D3AB0C03DD2834 = {
 			children = (
@@ -334,10 +351,13 @@
 				FE6FE2C3041033B300DD2834,
 				FE6FE2C4041033B300DD2834,
 				FE6FE2C5041033B300DD2834,
+				AAF7694407C6BD6200C7E4FB,
+				AAF7694507C6BD6200C7E4FB,
 			);
 			isa = PBXGroup;
 			name = Sources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A45343BF01D3AB0C03DD2834 = {
 			fileRef = A453433C01D3AB0C03DD2834;
@@ -351,31 +371,22 @@
 			settings = {
 			};
 		};
-		A459055003CCA21D03DD2834 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			name = ServerModule.exp;
-			path = NIS/ServerModule.exp;
-			refType = 4;
-		};
-		A459055103CCA21D03DD2834 = {
-			fileRef = A459055003CCA21D03DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		A459055903CCA2A303DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = file;
 			name = Configuration.strings;
 			path = NIS/Configuration.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4A09E7E021C680303DD2834 = {
 			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
 			name = libDSPlugInCommon.a;
 			path = /AppleInternal/Developer/libs/libDSPlugInCommon.a;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		A4A09E83021C680303DD2834 = {
 			fileRef = A4A09E7E021C680303DD2834;
@@ -390,6 +401,7 @@
 			isa = PBXGroup;
 			name = Other;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4B489A00385C36003DD2834 = {
 			children = (
@@ -404,20 +416,25 @@
 			name = "Helper Code";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4B489A30385C37803DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = ffparser.cpp;
 			path = HelperCode/ffparser.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4B489A40385C37803DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = ffparser.h;
 			path = HelperCode/ffparser.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4B489A80385C37803DD2834 = {
 			fileRef = A4B489A30385C37803DD2834;
@@ -434,16 +451,20 @@
 		A4B489CF0385D47103DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = dsutil.cpp;
 			path = HelperCode/dsutil.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4B489D00385D47103DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = dsutil.h;
 			path = HelperCode/dsutil.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A4B489D10385D47103DD2834 = {
 			fileRef = A4B489CF0385D47103DD2834;
@@ -457,39 +478,63 @@
 			settings = {
 			};
 		};
-		A4B68BEF038C29C503DD2834 = {
-			fileRef = 773C789F01D146CD05DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		A4C5892B02217F5D03DD2834 = {
-			isa = PBXFrameworkReference;
-			name = DirectoryServiceCore.framework;
-			path = /System/Library/PrivateFrameworks/DirectoryServiceCore.framework;
-			refType = 0;
-		};
-		A4C5893002217F5D03DD2834 = {
-			fileRef = A4C5892B02217F5D03DD2834;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 //A40
 //A41
 //A42
 //A43
 //A44
+//AA0
+//AA1
+//AA2
+//AA3
+//AA4
+		AAF7694407C6BD6200C7E4FB = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = "crypt-md5.cpp";
+			path = "NIS/crypt-md5.cpp";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		AAF7694507C6BD6200C7E4FB = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = "crypt-md5.h";
+			path = "NIS/crypt-md5.h";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		AAF7694607C6BD6200C7E4FB = {
+			fileRef = AAF7694407C6BD6200C7E4FB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AAF7694707C6BD6200C7E4FB = {
+			fileRef = AAF7694507C6BD6200C7E4FB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//AA0
+//AA1
+//AA2
+//AA3
+//AA4
 //FE0
 //FE1
 //FE2
 //FE3
 //FE4
 		FE4AD2FD04F40D4300365AE8 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		FE4AD2FE04F40D4300365AE8 = {
 			fileRef = FE4AD2FD04F40D4300365AE8;
@@ -500,58 +545,74 @@
 		FE6FE2BE041033B300DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BSDDebugLog.h;
 			path = NIS/BSDDebugLog.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE6FE2BF041033B300DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = BSDDirNodeRep.cpp;
 			path = NIS/BSDDirNodeRep.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE6FE2C0041033B300DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BSDDirNodeRep.h;
 			path = NIS/BSDDirNodeRep.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE6FE2C1041033B300DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BSDHeaders.h;
 			path = NIS/BSDHeaders.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE6FE2C2041033B300DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = BSDPlugin.cpp;
 			path = NIS/BSDPlugin.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE6FE2C3041033B300DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BSDPlugin.h;
 			path = NIS/BSDPlugin.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE6FE2C4041033B300DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = BSDResult.cpp;
 			path = NIS/BSDResult.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE6FE2C5041033B300DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = BSDResult.h;
 			path = NIS/BSDResult.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		FE6FE2C6041033B300DD2834 = {
 			fileRef = FE6FE2BE041033B300DD2834;
@@ -597,6 +658,34 @@
 		};
 		FE6FE2CD041033B300DD2834 = {
 			fileRef = FE6FE2C5041033B300DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE79F819074FBC9800588B8B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.exports;
+			path = ServerModule.exp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		FE79F81A074FBC9800588B8B = {
+			fileRef = FE79F819074FBC9800588B8B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE79F935074FBE8700588B8B = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = DirectoryServiceCore.framework;
+			path = /System/Library/PrivateFrameworks/DirectoryServiceCore.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		FE79F936074FBE8700588B8B = {
+			fileRef = FE79F935074FBE8700588B8B;
 			isa = PBXBuildFile;
 			settings = {
 			};

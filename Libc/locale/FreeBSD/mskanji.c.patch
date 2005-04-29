@@ -1,42 +1,81 @@
---- mskanji.c.orig	Tue May 20 15:21:44 2003
-+++ mskanji.c	Wed Jun 18 12:02:06 2003
-@@ -43,6 +43,7 @@
- #include <stddef.h>
- #include <stdio.h>
+--- mskanji.c.orig	Thu Nov 25 11:38:18 2004
++++ mskanji.c	Fri Feb 18 15:49:37 2005
+@@ -36,9 +36,12 @@
+ #if defined(LIBC_SCCS) && !defined(lint)
+ static char sccsid[] = "@(#)mskanji.c	1.0 (Phase One) 5/5/95";
+ #endif /* LIBC_SCCS and not lint */
+-#include <sys/param.h>
++#include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/mskanji.c,v 1.16 2004/05/14 15:40:47 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
++#include <sys/param.h>
+ #include <errno.h>
+ #include <runetype.h>
  #include <stdlib.h>
-+#include <ctype.h>
+@@ -46,38 +49,37 @@
+ #include <wchar.h>
+ #include "mblocal.h"
  
- rune_t	_MSKanji_sgetrune(const char *, size_t, char const **);
- int	_MSKanji_sputrune(rune_t, char *, size_t, char **);
-@@ -67,20 +68,23 @@
+-int	_MSKanji_init(_RuneLocale *);
+-size_t	_MSKanji_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
+-	    mbstate_t * __restrict);
+-int	_MSKanji_mbsinit(const mbstate_t *);
+-size_t	_MSKanji_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
++__private_extern__ int	_MSKanji_init(struct __xlocale_st_runelocale *);
++static size_t	_MSKanji_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
++	    mbstate_t * __restrict, locale_t);
++static int	_MSKanji_mbsinit(const mbstate_t *, locale_t);
++static size_t	_MSKanji_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t);
+ 
+ typedef struct {
+ 	wchar_t	ch;
+ } _MSKanjiState;
+ 
+-int
+-_MSKanji_init(_RuneLocale *rl)
++__private_extern__ int
++_MSKanji_init(struct __xlocale_st_runelocale *xrl)
  {
- 	rune_t rune = 0;
  
--	if (n < 1) {
--		if (result != NULL)
--			*result = string;
-+	if (result != NULL)
-+		*result = string;
-+	if (n < 1)
- 		return (_INVALID_RUNE);
--	}
+-	__mbrtowc = _MSKanji_mbrtowc;
+-	__wcrtomb = _MSKanji_wcrtomb;
+-	__mbsinit = _MSKanji_mbsinit;
+-	_CurrentRuneLocale = rl;
+-	__mb_cur_max = 2;
++	xrl->__mbrtowc = _MSKanji_mbrtowc;
++	xrl->__wcrtomb = _MSKanji_wcrtomb;
++	xrl->__mbsinit = _MSKanji_mbsinit;
++	xrl->__mb_cur_max = 2;
+ 	return (0);
+ }
  
- 	rune = *string++ & 0xff;
- 	if ((rune > 0x80 && rune < 0xa0) ||
- 	    (rune >= 0xe0 && rune < 0xfd)) {
--		if (n < 2) {
--			rune = _INVALID_RUNE;
--			--string;
--		} else
-+		if (n < 2)
-+			return (_INVALID_RUNE);
-+		else
- 			rune = (rune << 8) | (*string++ & 0xff);
-+	}
-+	if (!isrune(rune)) {
-+		if (result != NULL)
-+			(*result)++;
-+		return (_INVALID_RUNE);
+-int
+-_MSKanji_mbsinit(const mbstate_t *ps)
++static int
++_MSKanji_mbsinit(const mbstate_t *ps, locale_t loc)
+ {
+ 
+ 	return (ps == NULL || ((const _MSKanjiState *)ps)->ch == 0);
+ }
+ 
+-size_t
++static size_t
+ _MSKanji_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
+-    mbstate_t * __restrict ps)
++    mbstate_t * __restrict ps, locale_t loc)
+ {
+ 	_MSKanjiState *ms;
+ 	wchar_t wc;
+@@ -133,8 +135,8 @@
  	}
- 	if (result != NULL)
- 		*result = string;
+ }
+ 
+-size_t
+-_MSKanji_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
++static size_t
++_MSKanji_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc)
+ {
+ 	_MSKanjiState *ms;
+ 	int len, i;

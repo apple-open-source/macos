@@ -1,0 +1,118 @@
+## -*-Tcl-*-
+ # ###################################################################
+ #  TclAE - AppleEvent extension for Tcl
+ # 
+ #  FILE: "tclAETarget.test"
+ #                                    created: 8/30/2000 {7:46:01 AM} 
+ #                                last update: 10/2/2000 {12:22:40 AM} 
+ #  Author: Jonathan Guyer
+ #  E-mail: jguyer@his.com
+ #    mail: POMODORO no seisan
+ #     www: http://www.his.com/jguyer/
+ #  
+ # ========================================================================
+ #               Copyright (c) 2000 Jonathan Guyer
+ # ========================================================================
+ # Permission to use, copy, modify, and distribute this software and its
+ # documentation for any purpose and without fee is hereby granted,
+ # provided that the above copyright notice appear in all copies and that
+ # both that the copyright notice and warranty disclaimer appear in
+ # supporting documentation.
+ # 
+ # Jonathan Guyer disclaims all warranties with regard to this software,
+ # including all implied warranties of merchantability and fitness.  In
+ # no event shall Jonathan Guyer be liable for any special, indirect or
+ # consequential damages or any damages whatsoever resulting from loss of
+ # use, data or profits, whether in an action of contract, negligence or
+ # other tortuous action, arising out of or in connection with the use or
+ # performance of this software.
+ # ========================================================================
+ #  Description: 
+ # 
+ #   This file contains a collection of tests for one or more of
+ #   the TclAE commands.  Sourcing this file into Tcl runs the
+ #   tests and generates output for errors.  No output means no
+ #   errors were found.
+ #   
+ #  History
+ # 
+ #  modified   by  rev reason
+ #  ---------- --- --- -----------
+ #  2000-08-30 JEG 1.0 original
+ # ###################################################################
+ ##
+
+if {[info tclversion] < 8.0} {
+    alpha::package require alphatest
+    
+    if {[catch {alpha::package require tclAE}]} {
+	catch {puts "Cannot load TclAE"}
+    }
+
+    # Only run the test if we can load the TclAE package
+    set alphatest::testConfig(tclAE) [expr {[info commands tclAE::send] != ""}]
+    set alphatest::testConfig(tclAEalphaTcl) [set alphatest::testConfig(tclAE)]
+    set alphatest::testConfig(tclAEshlb) 0
+} else {
+    if {[lsearch [namespace children] ::tcltest] == -1} {
+	package require tcltest
+	namespace import ::tcltest::*
+    }
+
+    if {[catch {package require tclAE}]} {
+	catch {puts "Cannot load TclAE"}
+    }
+    
+    # Only run the test if we can load the TclAE package
+    set ::tcltest::testConstraints(tclAE) [expr {[info commands tclAE::send] != ""}]
+    set ::tcltest::testConstraints(tclAEshlb) [set ::tcltest::testConstraints(tclAE)]
+    set ::tcltest::testConstraints(tclAEalphaTcl) 0
+    
+    set target [file tail [info nameofexecutable]]
+
+    if {$tcl_platform(platform) == "unix" && $tcl_platform(os) == "Darwin"} {
+        set ::tcltest::testConstraints(macOnly) 1
+    }
+}
+
+
+
+
+test tclAETarget-2.1 {tclAE::PPCBrowser} {macOnly tclAEshlb userInteraction} {
+    set target [tclAE::PPCBrowser]
+    list [expr {[string length $target] > 0}]
+} {1}
+
+test tclAETarget-2.2 {tclAE::PPCBrowser} {macOnly tclAEshlb userInteraction} {
+    set target [tclAE::PPCBrowser -fc {MACS}]
+    list [expr {[string length $target] > 0}]
+} {1}
+
+catch {tclAE::IPCListPorts ppcNoLocation}
+test tclAETarget-3.1 {tclAE::target names} {macOnly tclAEshlb} {
+    catch {tclAE::target names} names
+    list [expr {[lsearch $names $target] >= 0}]
+} {1}
+test tclAETarget-3.2 {tclAE::target info} {macOnly tclAEshlb} {
+    catch {tclAE::target info $target info} msg
+    list [array names info]
+} {{locationKindSelector portTypeStr portKindSelector name nameScript}}
+
+catch {unset target}
+
+
+
+::tcltest::cleanupTests
+return
+
+
+
+
+
+
+
+
+
+
+
+

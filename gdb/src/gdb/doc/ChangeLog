@@ -1,3 +1,697 @@
+2004-02-28  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (Contributors): Mention GDB 6.1 release engineer.
+
+2004-02-26  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* gdb.texinfo (breakpoints): Add information about the
+	new "set breakpoint pending" and "show breakpoint pending"
+	commands.
+
+2004-02-26  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Coding): Document use of gdbarch_obstack_zalloc
+	in Per-architecture module data section.
+
+2004-02-25  Roland McGrath  <roland@redhat.com>
+
+	* gdb.texinfo (General Query Packets): Document qPart:... packets.
+
+2004-02-24  Andrew Cagney  <cagney@redhat.com>
+
+	* annotate.texinfo: Wrap fdl.texi include in raise/lower sections.
+	* gdb.texinfo, gdbint.texinfo, stabs.texinfo: Ditto.
+	* fdl.texi: Import Version 1.2, November 2002.
+
+2004-02-17  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (Mode Options): Note that "mi1" is deprecated.
+
+2004-02-16  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Deprecate
+	FRAMELESS_FUNCTION_INVOCATION.
+
+2004-02-16  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Coding): Mention -Wunused-function.
+
+2004-02-14  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	description of DEPRECATED_CALL_DUMMY_STACK_ADJUST.
+
+2004-02-12  Elena Zannoni  <ezannoni@redhat.com>
+
+	* gdb.texinfo: Properly quote the name "C++".
+	* gdbint.texinfo: Ditto.
+	* stabs.texinfo: Ditto.
+
+2004-02-11  Elena Zannoni  <ezannoni@redhat.com>
+
+	* gdbint.texinfo (Support Libraries): Add doco about obstacks and
+	minimal information about libiberty.
+
+2004-02-06  Michael Chastain  <mec.gnu@mindspring.com>
+
+	* gdb.texinfo (Auxiliary Vector): Fix thinko with @value{GDBN}.
+
+2004-02-04  Roland McGrath  <roland@redhat.com>
+
+	* gdb.texinfo (Auxiliary Vector): New node (section).
+	(Data): Add it to the menu.
+
+2004-02-02  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* gdb.texinfo (Breakpoints): Add information about pending
+	breakpoint support.
+
+2004-01-26  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (Overview): Delete references to the cisco protocol
+	including the "N" response.
+
+2004-01-26  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Rename
+	EXTRACT_STRUCT_VALUE_ADDRESS to
+	DEPRECATED_EXTRACT_STRUCT_VALUE_ADDRESS.
+
+2004-01-24  Eli Zaretskii  <eliz@gnu.org>
+
+	* gdb.texinfo (KOD): Document "show os".  Add index entries for
+	"set/show os" and "info cisco" commands.
+
+2004-01-21  Eli Zaretskii  <eliz@gnu.org>
+
+	* Makefile.in (install-info): Prepend $(DESTDIR) to $(infodir).
+
+2004-01-19  Michael Chastain  <mec.gnu@mindspring.com>
+
+	* gdbint.texinfo: Delete USE_MMALLOC, NO_MMCHECK, MMCHECK_FORCE,
+	MMAP_BASE_ADDRESS, MMAP_INCREMENT.
+
+2004-01-19  Nick Roberts  <nick@nick.uklinux.net>
+
+	* gdb.texinfo (GDB/MI Stack Manipulation): Describe extension to
+	-stack-list-locals.
+	(GDB/MI Variable Objects): Describe extension to
+	-var-list-children.
+
+2004-01-17  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdbint.texinfo (DECR_PC_AFTER_HW_BREAK): Don't document.
+
+2004-01-17  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	documentation on DEPRECATED_NPC_REGNUM.
+
+2004-01-13  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.texinfo: Update copyright year.  Mention that set
+	follow-fork-mode is supported on GNU/Linux.  Remove documentation of
+	"set follow-fork-mode ask".
+
+2004-01-13  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo: Update copyright year.
+	(Coding): Add -Wunused-label to list of -Werror warnings.
+
+2004-01-08  Jason Molenda  <jmolenda@apple.com>
+            Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo: Update copyright.
+	(Objective-C): "methodName" typeo fixed.  Add @code/@var markup
+	around names, as appropriate.  Minor syntax cleanup of
+	_NSPrintForDebugger explanation.  Two spaces after periods.
+	GDBN used instead of lit. "gdb".  Index entries added for
+	print-object and _NSPrintForDebugger.  @noindent added in one spot.
+
+2003-11-11  Elena Zannoni  <ezannoni@redhat.com>
+
+	* stabs.texinfo: Add dircategory and direntry commands.
+	* annotate.texinfo: Ditto.
+
+2003-11-10  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Replace the
+	return_value method's "inval" and "outval" parameters with
+	"readbuf" and "writebuf".
+
+2003-10-28  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.texinfo (The F request packet, The F reply packet): Renamed
+	from "The `F' request packet" and "The `F' reply packet", to make
+	texi2dvi happy.
+	(File-I/O remote protocol extension): Update menu entries, too.
+
+2003-10-26  Michael Chastain  <mec@shout.net>
+
+	* gdb.texinfo (Thread Stops): Document the issue with
+	premature return from system calls in multi-threaded programs.
+
+2003-10-24  Andrew Cagney  <cagney@redhat.com>
+
+	* annotate.texinfo: Fix "fortunatly"[sic].
+
+2003-10-23  Kei Sakamoto  <sakamoto.kei@renesas.com>
+
+	* gdb.texinfo (Contributors to GDB): Replace "Renesas"
+	with "Hitachi" and "Mitsubishi".
+
+2003-10-20  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Document
+	gdbarch_return_value.  Add cross references from
+	USE_STRUCT_CONVENTION, EXTRACT_RETURN_VALUE, and
+	STORE_RETURN_VALUE, and from/to EXTRACT_STRUCT_VALUE_ADDRESS.
+
+2003-10-18  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdbint.texinfo (Target Architecture Definition): Document
+	regset_from_core_section.
+
+2003-10-16  Kei Sakamot Sakamoto  <sakamoto.kei@renesas.com>
+
+	* gdb.texinfo (M32R/D): Mention m32rsdi target.
+
+2003-10-15  Kevin Buettner  <kevinb@redhat.com>
+
+	From Anthony Green  <green@redhat.com>:
+        * gdb.texinfo (Breakpoints related warnings): Insert into menu.
+
+2003-10-14  Kevin Buettner  <kevinb@redhat.com>
+
+ 	* gdb.texinfo (Breakpoint related warnings): New node.
+ 	* gdbint.texinfo (ADJUST_BREAKPOINT_ADDRESS): Document.
+
+2003-10-13  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.texinfo (Remote Protocol): Document v and vCont.
+
+2003-10-10  Kei Sakamoto  <sakamoto.kei@renesas.com>
+
+	* gdb.texinfo: Replace "Hitachi" and "Mitsubishi" with "Renesas".
+	* gdbint.texinfo: Ditto.
+
+2003-10-09  Andrew Cagney  <cagney@redhat.com>
+
+	From 2003-09-18 David Anderson <davea@sgi.com>:
+	* gdb.texinfo (GDB/MI Symbol Query): Replace "comamnd" with
+	"command".
+
+2003-10-03  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Deprecate
+	IBM6000_TARGET.  Mention that it implies an RS/6000 system and not
+	just target.
+
+2003-10-02  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Rename
+	REGISTER_RAW_SIZE to DEPRECATED_REGISTER_RAW_SIZE.
+	* gdb.texinfo (Packets, Stop Reply Packets): Ditto.
+	* gdbint.texinfo (Target Architecture Definition): Rename
+
+2003-09-30  Andrew Cagney  <cagney@redhat.com>
+
+	REGISTER_VIRTUAL_SIZE to DEPRECATED_REGISTER_VIRTUAL_SIZE.
+	(Target Architecture Definition):
+
+	* gdbint.texinfo (Target Architecture Definition): Rename
+	REGISTER_VIRTUAL_TYPE to DEPRECATED_REGISTER_VIRTUAL_TYPE.
+
+2003-09-29  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	documentation for NEED_TEXT_START_END.
+
+	* gdbint.texinfo (Target Architecture Definition): Rename
+	NPC_REGNUM to DEPRECATED_NPC_REGNUM.  Add cross reference to
+	TARGET_WRITE_PC.
+
+2003-09-22  Michael Chastain  <mec@shout.net>
+
+	* gdbint.texinfo (Testsuite Organization): Change gdb.c++ to gdb.cp.
+
+2003-09-21  Anthony Green  <green@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Fix typos.
+
+2003-09-21  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdbint.texinfo (Target Architecture Definition): Document
+	stabs_argument_has_addr.
+
+2003-09-18  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	documentation on REGISTER_NAMES.
+
+2003-09-13  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdbint.texinfo (Target Architecture Definition): Replace
+	REG_STRUCT_HAS_ADDR with DEPRECATED_REG_STRUCT_HAS_ADDR.
+
+2003-09-11  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Replace
+	STACK_ALIGN with DEPRECATED_STACK_ALIGN.
+
+2003-08-18  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Document
+	"frame_red_zone_size".
+
+2003-08-09  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (Backtrace): Replace "set/show backtrace-below-main"
+	with "set/show backtrace past-main" and "set/show backtrace
+	limit".
+
+2003-08-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Makefile.in (install-info): Support DESTDIR.
+	(install-html): Likewise.
+
+2003-08-07  Andrew Cagney  <cagney@redhat.com>
+
+	Patch from Nick Roberts.
+	* gdb.texinfo (Using GDB under GNU Emacs): Fix/update key
+	bindings.  Remove description of send-gdb-command.
+
+2003-08-07  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (Mode Options): Mention that "mi2" was included in
+	GDB 6.0.
+
+2003-08-06  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (Mode Options): Mention that level three is the
+	highest available and that level 2 is deprecated.
+	(Annotations Overview): Mention annotation levels. Cross reference
+	to "Limitations of the Annotation Interface" in annotate.texi.
+	(TODO, Value Annotations, Frame Annotations): Delete section.
+	(Displays, Breakpoint Info): Delete.
+
+2003-08-04  Andrew Cagney  <cagney@redhat.com>
+
+	* agentexpr.texi: Delete @bye.
+	* Makefile.in (STABS_DOC_SOURCE_INCLUDES): Add "fdl.texi"
+	(stabs.info): Add $(srcdir) to include search path.
+	(html): Depend on "annotate_toc.html", and not "annotate.html".
+	* stabs.texinfo: Ditto.  Include "fdl.texi".
+	* gdbint.texinfo: Update copyright statement's list of invariant
+	sections.
+
+2003-07-28  Andrew Cagney  <cagney@redhat.com>
+
+	* Makefile.in (INFO_DEPS): Add annotate.info.
+	(dvi, ps, html, pdf): Add annotate.
+	(ANNOTATE_DOC_SOURCE_INCLUDES): New macro.
+	(ANNOTATE_DOC_BUILD_INCLUDES): New macro.
+	(ANNOTATE_DOC_FILES): New macro.
+	(ANNOTATE_TEX_TMPS): New macro.
+	(annotate.info, annotate_toc.html): Specify dependencies.
+	(annotate.ps, annotate.pdf, annotate.dvi): Ditto.
+	* annotate.texinfo: Rename annotate.texi.  Get building.  Add
+	"Migrating to GDB/MI" and "Limitations of the Annotation
+	Interface" chapters.  Mention why it is not part of the user
+	guide.  Update copyright notice.  Include "fdl.texi".
+
+2003-07-26  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* gdb.texinfo (TUI Keys): Document C-x o key to switch active window.
+
+2003-07-24  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdbint.texinfo (libgdb components): Correct a GDB to GDBN.
+
+2003-07-24  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.texinfo (Server): Mention pidof.
+
+2003-07-22  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Coding): Add -Wformat-nonliteral to -Werror
+	list.
+
+2003-06-28  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.texinfo (Logging output): New chapter.
+
+2003-06-24  Joel Brobecker  <brobecker@gnat.com>
+
+	* gdb.texinfo (Unsupported languages): New section.
+	(Languages): Add link to new section.
+
+2003-06-22  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (Contributors): Mention 6.0 release engineer.
+
+2003-06-22  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdbint.texinfo (Coding): Clarify use of gdb_XXX.h headers.
+
+2003-06-22  Daniel Jacobowitz  <drow@mvista.com>
+
+	* Makefile.in (SFILES_INCLUDED): Add agentexpr.texi.
+	* agentexpr.texi: Retitle section, and change it to an appendix.
+	Comment out texinfo initialization.  Factor a @var{} into two
+	pieces to prevent makeinfo warnings.
+	* gdb.texinfo: Add Agent Expressions appendix.
+
+2003-06-19  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdbint.texinfo (Native Conditionals): Remove PREPARE_TO_PROCEED.
+
+2003-06-18  Daniel Jacobowitz  <drow@mvista.com>
+
+        * gdb.texinfo (Remote Debugging): New section "Connecting to a
+	remote target".  Document the "detach" and "disconnect" commands.
+	(Server, Netware, Debug Session): Reference "Connecting to a
+	remote target".
+	(GDB/MI Target Manipulation): Document "-target-disconnect".
+
+2003-06-13  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Deprecate
+	REMOTE_BREAKPOINT, LITTLE_REMOTE_BREAKPOINT, and
+	BIG_REMOTE_BREAKPOINT.  Cross reference BREAKPOINT_FROM_PC.
+
+2003-06-09  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.texinfo (Separate Debug Files): Remove extra semicolon.
+
+2003-06-08  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	documentation on FRAME_ARGS_ADDRESS_CORRECT.
+
+2003-06-08  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Document
+	"unwind_sp".  Cross reference "unwind_sp" and TARGET_READ_SP.
+
+2003-06-07  Adam Fedor  <fedor@gnu.org>
+
+	* gdb.texinfo: Add Objective-C documentation.
+
+2003-06-01  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Add "func_addr"
+	parameter to "push_dummy_call".  Rename "dummy_addr" to "bp_addr".
+
+2003-05-21  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	references to "extract_address" and "store_address".
+
+2003-05-16  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Replace
+	REGISTER_BYTES with DEPRECATED_REGISTER_BYTES.  Fix typo,
+	DEPRECATED_REGISTER_SIZE instead of REGISTER_BYTE.
+
+2003-05-14  Theodore A. Roth  <troth@openavr.org>
+
+	* gdbint.texinfo (Breakpoint Handling): Correct a double negative.
+
+2003-05-10  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Makefile.in (gdb-cfg.texi): Replace $$LN_S with $(LN_S).
+	(gdb.dvi): Likewise.
+	(gdb.pdf): Likewise.
+	(links2roff): Likewise.
+
+2003-05-08  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.texinfo (Dump/Restore Files): Update documentation for
+	'dump', 'append', and 'restore': note that format argument is
+	optional; simplify presentation of the command variants; and be
+	more precise about the formats.
+
+2003-05-07  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.texinfo (Symbols): Update documentation: 'maint list
+	symtabs' and 'maint list psymtabs' have been renamed 'maint info
+	symtabs' and 'maint info psymtabs'.
+
+2003-05-05  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Make
+	CALL_DUMMY_WORDS, SIZEOF_CALL_DUMMY_WORDS, CALL_DUMMY_LENGTH,
+	FIX_CALL_DUMMY, CALL_DUMMY_BREAKPOINT_OFFSET and
+	CALL_DUMMY_BREAKPOINT_OFFSET deprecated.
+
+2003-05-04  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (Maintenance Commands): Document "maint print
+	dummy-frames".
+
+2003-05-04  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (GDB/MI Symbol Query): Use @{ and @}.
+
+2003-05-03  J. Brobecker  <brobecker@gnat.com>
+
+	Thierry Schneider  <tpschneider1@yahoo.com>
+	* gdb.texinfo (section GDB/MI Symbol Query): Add documentation
+	for new MI command.
+
+2003-05-03  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Document
+	push_dummy_code.  Add cross references.
+
+2003-05-02  Elena Zannoni  <ezannoni@redhat.com>
+
+	* gdb.texinfo (Character Sets): Update to reflect new behavior of
+	set/show charsets commands.
+
+2003-04-28  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Replace
+	read_fp, TARGET_READ_FP and FP_REGNUM, with deprecated_read_fp,
+	DEPRECATED_TARGET_READ_FP and DEPRECATED_REGNUM.
+
+2003-04-28  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Rename
+	"tm_print_insn" to "deprecated_tm_print_insn".
+
+2003-04-09  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.texinfo (Symbols): Document 'maint list symtabs' and 'maint
+	list psymtabs'.
+
+2003-04-08  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	references to EXTRA_FRAME_INFO.
+
+2003-04-08  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	PRINT_TYPELESS_INTEGER.
+
+2003-04-02  J. Brobecker  <brobecker@gnat.com>
+
+	* observer.texi (GDB Observers): Adjust the documentation for the
+	normal_stop notification to better describe reality. Fix a couple
+	of minor typos.
+
+2003-04-02  Bob Rossi  <bob_rossi@cox.net>
+
+	* gdb.texinfo (GDB/MI Program Control): Add
+	'-file-list-exec-source-file'
+
+2003-03-31  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	references to CALL_DUMMY_P.
+
+2003-03-30  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Remove
+	reference to TARGET_WRITE_SP.
+
+2003-03-27  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Remove
+	references to write_sp.
+
+2003-03-27  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (GDB/MI Variable Objects): Replace @include with
+	chapter body.  Use @smallexample instead of @example.
+	(Annotations): Ditto.
+	* Makefile.in (GDB_DOC_SOURCE_INCLUDES): Remove gdbmi.texinfo and
+	annotate.texi.
+
+2003-03-26  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Replace
+	PUSH_ARGUMENTS with push_dummy_call, add gdbarch, regcache and
+	dummy_addr parameters.
+
+2003-03-25  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	reference to CALL_DUMMY_STACK_ADJUST_P.  Rename
+	CALL_DUMMY_STACK_ADJUST to DEPRECATED_CALL_DUMMY_STACK_ADJUST.
+	Add reference to PUSH_ARGUMENTS.
+
+2003-03-23  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Algorithms, Target Architecture Definition):
+	Deprecate FRAME_CHAIN and FRAME_CHAIN_VALID.
+
+2003-03-18  J. Brobecker  <brobecker@gnat.com>
+
+	* gdbint.texinfo (Algorithms): Add new section describing the
+	Observer paradigm.
+	(Top): Add menu entry to new observer appendix.
+	* observer.texi: New file.
+	* Makefile.in (GDBINT_DOC_SOURCE_INCLUDES): Add dependency on
+	new observer.texi file.
+
+2003-03-17  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (DATE): Delete.  Remove date from titles.  Mention
+	that GNU Press update the manual version number.
+
+2003-03-12  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	references to get_saved_register.  Rename GET_SAVED_REGISTER to
+	DEPRECATED_GET_SAVED_REGISTER.
+
+2003-03-13  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Replace
+	POP_FRAME with DEPRECATED_POP_FRAME.  Update description.
+
+2003-03-12  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Rename
+	FRAME_SAVED_PC to DEPRECATED_FRAME_SAVED_PC.
+
+2003-03-10  Corinna Vinschen  <vinschen@redhat.com>
+
+	* gdb.texinfo: Add File-I/O documentation.
+
+2003-03-10  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Cross reference
+	FRAME_SAVED_PC to unwind_pc.  Document unwind_pc.
+
+2003-03-07  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo (Debugging Output): Mention the "set/show debug
+	frame" command.
+
+2003-03-05  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Document
+	unwind_dummy_id.  Cross reference unwind_dummy_id and
+	SAVE_DUMMY_FRAME_TOS.
+
+2003-03-05  James Ingham <jingham@apple.com>
+	    Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.texinfo (Configuring the current ABI): Document "set cp-abi"
+	and "show cp-abi".
+
+2003-03-03  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Document
+	register_type.
+
+2003-03-03  Andrew Cagney  <cagney@redhat.com>
+
+	* stabs.texinfo (Structures): Use @samp and separate @var's
+	instead of a single @var containing a comma separated list.
+	(Unions): Ditto.
+
+2003-03-02  Daniel Jacobowitz  <drow@mvista.com>
+
+	* Makefile.in (distclean): Remove config.log.
+
+2003-03-01  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Rename
+	FRAME_INIT_SAVED_REGS to DEPRECATED_FRAME_INIT_SAVED_REGS.
+
+2003-03-01  Andrew Cagney  <cagney@redhat.com>
+
+	* gdbint.texinfo: Rename INIT_EXTRA_FRAME_INFO to
+	DEPRECATED_INIT_EXTRA_FRAME_INFO.
+
+2003-02-23  Raoul Gough  <RaoulGough@yahoo.co.uk>
+
+	* gdb.texinfo (Cygwin Native): Links to Non-debug DLL symbols.
+	(Non-debug DLL symbols): New node, describing the minimal symbols
+	loaded from DLLs without real debugging symbols.
+
+2003-02-20  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (Set Breaks): Add cross reference to "set remote
+	hardware-breakpoint-limit".
+	(Set Watchpoints): Add cross reference to "set remote
+	hardware-watchpoint-limit".
+	(Remote configuration options): New section.
+
+2003-02-04  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	descrption of IS_TRAPPED_INTERNALVAR.
+
+	From Keith Seitz <keiths@redhat.com>:
+	* gdb.texinfo (Interpreters): New chapter.  Refer the command-line
+	option "-i"/"--interpreter" to this chapter.  Include index
+	entries.
+
+2003-02-04  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.texinfo (C@t{++}): Recommend DWARF 2, then stabs+.
+	(Variables): Recommend stabs+ and DWARF 2.
+	(C plus plus expressions): Correct info about
+	compiler versions, debug formats.
+	(Contributors): Change 'DWARF2' to 'DWARF 2'.
+	PR symtab/874.
+
+2003-02-01  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	description of ADDITIONAL_OPTIONS, ADDITIONAL_OPTION_CASES,
+	ADDITIONAL_OPTION_HANDLER, and ADDITIONAL_OPTION_HELP, and
+	BEFORE_MAIN_LOOP_HOOK, and DBX_PARM_SYMBOL_CLASS along with
+	references to nindy and i960.
+	* gdb.texinfo (i960): Delete all references to i960 and nindy.
+
+2003-02-01  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	FLOAT_INFO.
+
+2003-01-30  Andrew Cagney  <ac131313@redhat.com>
+
+	* stabs.texinfo (Member Type Descriptor): Clarify description of
+	`@'.  Suggested by Ben Hutchings.
+
+2003-01-29  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (M68K): Delete reference to es1800.
+
+2003-01-29  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (Maintenance Commands): Document `maint print
+	reggroups' and `maint print register-groups'.
+	* gdbint.texinfo (Target Architecture Definition): Document
+	register_reggroup_p.
+
 2003-01-23  Jim Blandy  <jimb@redhat.com>
 
 	* gdb.texinfo (Separate Debug Files): New section.
@@ -305,7 +999,7 @@
 
 2002-08-08  Grace Sainsbury  <graces@redhat.com>
 
-	From Mark Salter:            
+	From Mark Salter:
 	* gdb.texinfo (Protocol): Document T packet extension to
 	allow watchpoint address reporting.
 
@@ -463,7 +1157,7 @@
 
 	From Eli Zaretskii <eliz@is.elta.co.il>
 	* gdb.texinfo (show max-user-call-depth): Correct formatting.
-	Provide a better explaination of this feature. 
+	Provide a better explaination of this feature.
 
 2002-04-14  Andrew Cagney  <ac131313@redhat.com>
 
@@ -504,7 +1198,7 @@
 
 	* gdb.texinfo: Change all examples to @smallexample.
 	* gdbint.texinfo: Ditto.
-	
+
 2002-03-18  Andrew Cagney  <ac131313@redhat.com>
 
 	* gdbint.texinfo (Releasing GDB): Add section ``Versions and
@@ -746,7 +1440,7 @@ Tue Jan 22 11:57:38 2002  Andrew Cagney  <cagney@redhat.com>
 
 	* gdb.texinfo (maint info sections): Document.
 
-	* gdb.texinfo (info proc): Comment out documentation for 
+	* gdb.texinfo (info proc): Comment out documentation for
 	'info proc' sub-options that are currently not implemented.
 
 2001-12-20  Jim Blandy  <jimb@redhat.com>
@@ -808,7 +1502,7 @@ Tue Jan 22 11:57:38 2002  Andrew Cagney  <cagney@redhat.com>
 
 2001-11-05  Michael Snyder  <msnyder@redhat.com>
 
-	* gdb.texinfo (info functions): Document use of backslash to 
+	* gdb.texinfo (info functions): Document use of backslash to
 	quote regexp chars in function names such as "operator*()".
 
 2001-11-01  Fred Fish  <fnf@redhat.com>
@@ -874,7 +1568,7 @@ Wed Aug 15 10:47:28 2001  Christopher Faylor <cgf@cygnus.com>
 	* gdbint.texinfo: Add a cautionary note about macro use.
 
 2001-08-02  Corinna Vinschen  <vinschen@redhat.com>
- 
+
 	* gdb.texinfo: Explain omitting the hostname in the
 	`target remote' command.
 
@@ -1263,10 +1957,10 @@ Tue Mar 28 18:28:45 2000  Andrew Cagney  <cagney@b1.cygnus.com>
 	* gdb.texinfo (Protocol): Replace ``qfThreadExtraInfo'' with
  	qThreadExtraInfo.
 
-2000-03-28  J.T. Conklin  <jtc@redback.com> 
+2000-03-28  J.T. Conklin  <jtc@redback.com>
 
-	* gdb.texinfo: Clarify which remote debug protocol commands are 
-	required and which are optional. 
+	* gdb.texinfo: Clarify which remote debug protocol commands are
+	required and which are optional.
 
 Tue Mar 28 16:06:22 2000  Andrew Cagney  <cagney@b1.cygnus.com>
 
@@ -1300,9 +1994,9 @@ Fri Mar 24 18:06:34 2000  Andrew Cagney  <cagney@b1.cygnus.com>
 	* gdb.texinfo: Check for @ifinfo instead of @ifnottex.
 	(rluser.texinfo, inc-hist.texinfo, annotate.texi): Add local
  	@chapter and @node entries.
-	
+
 	* gdb.texinfo: Link all top-level nodes.
-	
+
 Fri Mar 24 17:56:48 2000  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* Makefile.in (install-info): Create $(infodir) before installing
@@ -1323,7 +2017,7 @@ Fri Mar 24 17:56:48 2000  Andrew Cagney  <cagney@b1.cygnus.com>
 
 2000-03-20  Michael Snyder  <msnyder@cleaver.cygnus.com>
 
-	* gdb.texinfo: Add white space to prevent overprinting in 
+	* gdb.texinfo: Add white space to prevent overprinting in
 	two places.
 
 2000-03-17  Stan Shebs  <shebs@apple.com>
@@ -1493,8 +2187,8 @@ Wed Aug 11 13:18:14 1999  Andrew Cagney  <cagney@amy.cygnus.com>
 
 1999-08-10  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
 
-	* Makefile.in: Rename inc-hist.texi to inc-hist.texinfo. 
-	* gdb.texinfo: Ditto. 
+	* Makefile.in: Rename inc-hist.texi to inc-hist.texinfo.
+	* gdb.texinfo: Ditto.
 
 1999-08-06  Tom Tromey  <tromey@cygnus.com>
 
@@ -1599,7 +2293,7 @@ Tue Apr 20 11:59:38 1999  Andrew Cagney  <cagney@b1.cygnus.com>
  	LITTLE_BREAKPOINT, LITTLE_REMOTE_BREAKPOINT,
  	BIG_REMOTE_BREAKPOINT): Deprecate in favor of REGISTER_NAME and
  	BREAKPOINT_FROM_PC.
-	
+
 Mon Apr 12 16:00:44 1999  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* gdbint.texinfo (CALL_DUMMY_STACK_ADJUST_P,
@@ -1655,14 +2349,14 @@ Thu Jan 14 17:10:12 1999  Stan Shebs  <shebs@andros.cygnus.com>
 
 Wed Jan 13 10:38:40 1999  Edith Epstein  <eepstein@sophia.cygnus.com>
 
-	* gdb.texinfo: Changes made as part of a project to merge in 
-	  changes made by HP. Documentation makes extensive use of 
+	* gdb.texinfo: Changes made as part of a project to merge in
+	  changes made by HP. Documentation makes extensive use of
 	  @ifclear HPPA and @ifset HPPA. The HP manual omits doumentation
 	  on remote debugging. There are differences in documentation
  	  (HP vs.  non-HP) on C++ support (aCC vs. gnu gcc++). Also,
 	  the HP manual discusses catchpoints, hardware watchpoints, and
 	  some HPUX specific limitations for shared library support.
-	  
+
 	  There are also a number of @node changes.
 
 1999-01-12  Jason Molenda  (jsm@bugshack.cygnus.com)
@@ -1675,7 +2369,7 @@ Wed Jan  6 11:55:34 1999  David Taylor  <taylor@texas.cygnus.com>
 	The following changes were made by Edith Epstein
  	<eepstein@cygnus.com> as part of a project to merge in changes
  	made by HP.
-	
+
 	* HPPA-cfg.texi: new file.
 
 	* all-cfg.texi: set HPPA for HP PA-RISC targets.
@@ -1724,7 +2418,7 @@ Tue Dec  1 17:45:43 1998  Stan Shebs  <shebs@andros.cygnus.com>
 
 Mon Nov 30 11:32:21 1998  Andrew Cagney  <cagney@chook>
 
-	* gdbint.texinfo (FRAME_CHAIN_VALID_ALTERNATE): 
+	* gdbint.texinfo (FRAME_CHAIN_VALID_ALTERNATE):
 
 Sat Nov 28 13:45:53 1998  Andrew Cagney  <cagney@b1.cygnus.com>
 
@@ -1771,7 +2465,7 @@ Thu Apr  2 16:10:36 1998  Stan Shebs  <shebs@andros.cygnus.com>
 	* gdb.texinfo: Add some credits, mention bug monitor.
 	* remote.texi: Mention mips monitor targets.
 	* gdbint.texinfo: Describe SP_REGNUM, STEP_SKIPS_DELAY.
-	
+
 Mon Feb  2 17:13:03 1998  Stan Shebs  <shebs@andros.cygnus.com>
 
 	* gdbint.texinfo: Remove obsolete mentions of pinsn.c and opcode.h
@@ -1847,14 +2541,14 @@ Fri Jul  5 15:38:54 1996  Fred Fish  <fnf@cygnus.com>
   	Also document that some systems can use mmalloc but must define
  	this if their C runtime allocates memory that is later freed.
 	(MMCHECK_FORCE): Document new macro.
-	
+
 Fri Jun 28 22:17:10 1996  Dawn Perchik  <dawn@cygnus.com>
 
 	* remote.texi: Add documentation for target Sparclet.
 
 Mon Jun 24 18:12:22 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
 
-	* Makefile.in (srcdir, VPATH, prefix, infodir, INSTALL, 
+	* Makefile.in (srcdir, VPATH, prefix, infodir, INSTALL,
 	INSTALL_PROGRAM, INSTALL_DATA): Use autoconf set values.
 	* configure.in: Rewritten for autoconf.
 	* configure: New.
@@ -1872,7 +2566,7 @@ Mon Jun 17 10:43:41 1996  Fred Fish  <fnf@cygnus.com>
 	(maintainer-clean): Remove clean-info and clean-dvi
 	dependencies and put their actions in the rules.
 	(gdb.ps): New target
-	(gdb.dvi, gdbgui.dvi, gdbint.dvi, stabs.dvi): Remove 
+	(gdb.dvi, gdbgui.dvi, gdbint.dvi, stabs.dvi): Remove
 	intermediate TeX files, whether they have 2 or 3 character
 	extensions.
 	(gdbint.ps): Add target and rules.
@@ -2243,7 +2937,7 @@ Sun Nov 28 18:06:25 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
 	entries; (Server): explain use of gdbserver w/real-time systems,
 	add example of conflicting TCP port; (MIPS Remote) break up
 	running text into table, highlighting commands, and add example.
-	
+
 Wed Nov 24 14:15:56 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
 
 	* refcard.tex: avoid bad linebreaks even when REFEDITS=psrc.sed
@@ -2559,7 +3253,7 @@ Fri Jul  9 09:47:02 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
 Tue Jul  6 12:41:28 1993  John Gilmore  (gnu@cygnus.com)
 
 	* gdbint.texinfo (Target Conditionals): Remove NO_TYPEDEFS,
-	removed from the code by Kingdon. 
+	removed from the code by Kingdon.
 
 Tue Jul  6 12:24:34 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
@@ -2988,7 +3682,7 @@ Mon Aug 24 01:17:55 1992  John Gilmore  (gnu@cygnus.com)
 Tue Aug 18 15:59:13 1992  Roland H. Pesch  (pesch@fowanton.cygnus.com)
 
 	* gdbinv-s.m4.in: refrain from using @cartouche for just a few
-	examples (not consistent w others).  
+	examples (not consistent w others).
 	gdb.texinfo: issue disclaimer paragraph on cmdline options only
 	for generic vn of doc
 
@@ -3055,7 +3749,7 @@ Fri Apr 10 17:50:43 1992  John Gilmore  (gnu at rtl.cygnus.com)
 	* gdb.texinfo:  Update for GDB-4.5.  Move `Formatting
 	Documentation' ahead of `Installing GDB' to match README.
 	Update shared library doc, -readnow and -mapped, and directory
-	structure (add glob and mmalloc).  Update configure doc.	
+	structure (add glob and mmalloc).  Update configure doc.
 
 Tue Mar 24 23:28:38 1992  K. Richard Pixley  (rich@cygnus.com)
 
@@ -3084,7 +3778,7 @@ Fri Dec  6 23:57:34 1991  K. Richard Pixley  (rich at rtl.cygnus.com)
 
 	* Makefile.in: remove spaces following hyphens, bsd make can't
 	  cope.  install using INSTALL_DATA.  added clean-info.  added
-	  standards.text support. 
+	  standards.text support.
 
 Thu Dec  5 22:46:12 1991  K. Richard Pixley  (rich at rtl.cygnus.com)
 

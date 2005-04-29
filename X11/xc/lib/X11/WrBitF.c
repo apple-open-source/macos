@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/WrBitF.c,v 3.5 2002/05/31 18:45:41 dawes Exp $ */
+/* $XFree86: xc/lib/X11/WrBitF.c,v 3.7 2003/11/17 22:20:08 dawes Exp $ */
 
 #include "Xlibint.h"
 #include <X11/Xos.h>
@@ -35,9 +35,9 @@ from The Open Group.
 
 #define ERR_RETURN 0
 
-static char *Format_Image(image, resultsize)
-XImage *image;
-int *resultsize;
+static char *Format_Image(
+    XImage *image,
+    int *resultsize)
 {
   register int x, c, b;
   register char *ptr;
@@ -82,8 +82,8 @@ int *resultsize;
    
 #define BYTES_PER_OUTPUT_LINE 12
 
-#if NeedFunctionPrototypes
-int XWriteBitmapFile(
+int
+XWriteBitmapFile(
      Display *display,
      _Xconst char *filename,
      Pixmap bitmap,
@@ -91,14 +91,6 @@ int XWriteBitmapFile(
      unsigned int height,
      int x_hot,
      int y_hot)
-#else
-int XWriteBitmapFile(display, filename, bitmap, width, height, x_hot, y_hot)
-     Display *display;
-     char *filename;
-     Pixmap bitmap;
-     unsigned int width, height;
-     int x_hot, y_hot;
-#endif
 {
   char *data, *ptr;
   int size, byte;

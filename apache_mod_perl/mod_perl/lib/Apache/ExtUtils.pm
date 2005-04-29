@@ -4,6 +4,7 @@ use strict;
 use Exporter ();
 use IO::File ();
 use File::Copy ();
+use File::Basename qw(basename);
 
 $Apache::ExtUtils::VERSION = '1.04';
 
@@ -16,9 +17,9 @@ my $errsv = "";
 sub import {
     my $class = shift;
     my $config_export = join '|', @config_export;
-    for (@_) {
+    for my $symbol (@_) {
 	#perl -Mlib=lib -MApache::ExtUtils=%Config -e 'print $Config{cc}'
-	if (/$config_export/o) {
+	if ($symbol =~ /$config_export/o) {
 	    require Config;
 	    *Apache::ExtUtils::Config = \%Config::Config;
 	    Config_pm_fixup();
@@ -35,8 +36,10 @@ sub import {
 sub Config_pm_fixup {
     eval { require Apache::MyConfig; };
     my %config_fixups = (
+       ld => sub { s/(.*)/basename $1/e },
        ccdlflags => sub { s/-R\s+/-R/; },
        ccflags => sub {
+           s/-D_GNU_SOURCE//;
            unless ($Apache::MyConfig::Setup{PERL_USELARGEFILES}) {
                s/-D_LARGEFILE_SOURCE\s+-D_FILE_OFFSET_BITS=\d+//;
            }
@@ -148,7 +151,7 @@ sub xs_cmd_table {
 	}
 	$name ||= $sub;
 	my $realname = $name;
-	if($name =~ s/[\<\>]//g) {
+       if ($name =~ s/[\<\>]//g && !$cmd->{func}) {
 	    if($name =~ s:^/::) {
 		$name .= "_END";
 	    }

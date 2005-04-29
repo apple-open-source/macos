@@ -1,0 +1,26 @@
+--- strtoq.c.orig	2003-05-20 15:23:25.000000000 -0700
++++ strtoq.c	2005-02-23 18:26:32.000000000 -0800
+@@ -37,6 +37,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoq.c,v 1.11 2002/08/15 09:25:04 robert Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <sys/types.h>
+ 
+ #include <stdlib.h>
+@@ -48,5 +50,13 @@
+ strtoq(const char *nptr, char **endptr, int base)
+ {
+ 
+-	return strtoll(nptr, endptr, base);
++	return strtoll_l(nptr, endptr, base, __current_locale());
++}
++
++quad_t
++strtoq_l(const char *nptr, char **endptr, int base, locale_t loc)
++{
++
++	/* no need to call NORMALIZE_LOCALE(loc) because strtoll_l will */
++	return strtoll_l(nptr, endptr, base, loc);
+ }

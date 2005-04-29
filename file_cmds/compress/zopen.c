@@ -1,5 +1,3 @@
-/*	$NetBSD: zopen.c,v 1.6 1997/09/15 10:58:39 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1985, 1986, 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -38,12 +36,11 @@
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-#if 0
 static char sccsid[] = "@(#)zopen.c	8.1 (Berkeley) 6/27/93";
-#else
-static char rcsid[] = "$NetBSD: zopen.c,v 1.6 1997/09/15 10:58:39 lukem Exp $";
-#endif
 #endif /* LIBC_SCCS and not lint */
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/compress/zopen.c,v 1.10 2002/07/28 15:32:17 dwmalone Exp $");
 
 /*-
  * fcompress.c - File compression ala IEEE Computer, June 1984.
@@ -77,6 +74,7 @@ static char rcsid[] = "$NetBSD: zopen.c,v 1.6 1997/09/15 10:58:39 lukem Exp $";
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "zopen.h"
 
 #define	BITS		16		/* Default bits. */
 #define	HSIZE		69001		/* 95% occupancy */
@@ -106,8 +104,8 @@ struct s_zstate {
 	enum {
 		S_START, S_MIDDLE, S_EOF
 	} zs_state;			/* State of computation */
-	int zs_n_bits;			/* Number of bits/code. */
-	int zs_maxbits;			/* User settable max # bits/code. */
+	u_int zs_n_bits;		/* Number of bits/code. */
+	u_int zs_maxbits;		/* User settable max # bits/code. */
 	code_int zs_maxcode;		/* Maximum code, given n_bits. */
 	code_int zs_maxmaxcode;		/* Should NEVER generate this code. */
 	count_int zs_htab [HSIZE];
@@ -122,7 +120,7 @@ struct s_zstate {
 	int zs_clear_flg;
 	long zs_ratio;
 	count_int zs_checkpoint;
-	int zs_offset;
+	u_int zs_offset;
 	long zs_in_count;		/* Length of input. */
 	long zs_bytes_out;		/* Length of compressed output. */
 	long zs_out_count;		/* # of codes output (for debugging). */
@@ -203,14 +201,13 @@ struct s_zstate {
 #define	FIRST	257		/* First free entry. */
 #define	CLEAR	256		/* Table clear output code. */
 
-static int	cl_block __P((struct s_zstate *));
-static void	cl_hash __P((struct s_zstate *, count_int));
-static code_int	getcode __P((struct s_zstate *));
-static int	output __P((struct s_zstate *, code_int));
-static int	zclose __P((void *));
-FILE	       *zopen __P((const char *, const char *, int));
-static int	zread __P((void *, char *, int));
-static int	zwrite __P((void *, const char *, int));
+static int	cl_block(struct s_zstate *);
+static void	cl_hash(struct s_zstate *, count_int);
+static code_int	getcode(struct s_zstate *);
+static int	output(struct s_zstate *, code_int);
+static int	zclose(void *);
+static int	zread(void *, char *, int);
+static int	zwrite(void *, const char *, int);
 
 /*-
  * Algorithm from "A Technique for High Performance Data Compression",
@@ -239,10 +236,7 @@ static int	zwrite __P((void *, const char *, int));
  * questions about this implementation to ames!jaw.
  */
 static int
-zwrite(cookie, wbp, num)
-	void *cookie;
-	const char *wbp;
-	int num;
+zwrite(void *cookie, const char *wbp, int num)
 {
 	code_int i;
 	int c, disp;
@@ -256,7 +250,7 @@ zwrite(cookie, wbp, num)
 
 	zs = cookie;
 	count = num;
-	bp = (u_char *)wbp;
+	bp = wbp;
 	if (state == S_MIDDLE)
 		goto middle;
 	state = S_MIDDLE;
@@ -265,7 +259,7 @@ zwrite(cookie, wbp, num)
 	if (fwrite(magic_header,
 	    sizeof(char), sizeof(magic_header), fp) != sizeof(magic_header))
 		return (-1);
-	tmp = (u_char)(maxbits | block_compress);
+	tmp = (u_char)((maxbits) | block_compress);
 	if (fwrite(&tmp, sizeof(char), sizeof(tmp), fp) != sizeof(tmp))
 		return (-1);
 
@@ -330,8 +324,7 @@ nomatch:	if (output(zs, (code_int) ent) == -1)
 }
 
 static int
-zclose(cookie)
-	void *cookie;
+zclose(void *cookie)
 {
 	struct s_zstate *zs;
 	int rval;
@@ -376,11 +369,10 @@ static char_type rmask[9] =
 	{0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff};
 
 static int
-output(zs, ocode)
-	struct s_zstate *zs;
-	code_int ocode;
+output(struct s_zstate *zs, code_int ocode)
 {
-	int bits, r_off;
+	int r_off;
+	u_int bits;
 	char_type *bp;
 
 	r_off = offset;
@@ -465,10 +457,7 @@ output(zs, ocode)
  * compress() routine.  See the definitions above.
  */
 static int
-zread(cookie, rbp, num)
-	void *cookie;
-	char *rbp;
-	int num;
+zread(void *cookie, char *rbp, int num)
 {
 	u_int count;
 	struct s_zstate *zs;
@@ -576,8 +565,7 @@ eof:	return (num - count);
  * 	code or -1 is returned.
  */
 static code_int
-getcode(zs)
-	struct s_zstate *zs;
+getcode(struct s_zstate *zs)
 {
 	code_int gcode;
 	int r_off, bits;
@@ -635,8 +623,7 @@ getcode(zs)
 }
 
 static int
-cl_block(zs)			/* Table clear for block compress. */
-	struct s_zstate *zs;
+cl_block(struct s_zstate *zs)		/* Table clear for block compress. */
 {
 	long rat;
 
@@ -664,9 +651,7 @@ cl_block(zs)			/* Table clear for block compress. */
 }
 
 static void
-cl_hash(zs, cl_hsize)			/* Reset code table. */
-	struct s_zstate *zs;
-	count_int cl_hsize;
+cl_hash(struct s_zstate *zs, count_int cl_hsize)	/* Reset code table. */
 {
 	count_int *htab_p;
 	long i, m1;
@@ -698,9 +683,7 @@ cl_hash(zs, cl_hsize)			/* Reset code table. */
 }
 
 FILE *
-zopen(fname, mode, bits)
-	const char *fname, *mode;
-	int bits;
+zopen(const char *fname, const char *mode, int bits)
 {
 	struct s_zstate *zs;
 
@@ -714,7 +697,7 @@ zopen(fname, mode, bits)
 		return (NULL);
 
 	maxbits = bits ? bits : BITS;	/* User settable max # bits/code. */
-	maxmaxcode = 1 << maxbits;	/* Should NEVER generate this code. */
+	maxmaxcode = 1L << maxbits;	/* Should NEVER generate this code. */
 	hsize = HSIZE;			/* For dynamic table sizing. */
 	free_ent = 0;			/* First unused entry. */
 	block_compress = BLOCK_MASK;

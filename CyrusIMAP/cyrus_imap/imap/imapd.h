@@ -1,5 +1,5 @@
 /* imapd.h -- Common state for IMAP daemon
- * $Id: imapd.h,v 1.61 2004/06/22 21:36:18 rjs3 Exp $
+ * $Id: imapd.h,v 1.5 2005/03/05 00:36:55 dasenbro Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

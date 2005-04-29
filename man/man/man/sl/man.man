@@ -1,0 +1,263 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\" Slovenski prevod Primo¾ Peterlin <primoz.peterlin@biofiz.mf.uni-lj.si>,
+.\" julij 1996.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.TH man 1 "2. september 1995"
+.LO 1
+.SH IME
+man \- oblikovanje in prikaz strani on-line priroènika
+.br
+manpath \- prikaz poti do imenikov, kjer man i¹èe priroènike
+.SH SINTAKSA
+.\" man [\-acdfhkKtwW] [\-m system] [\-p string] [\-C config_file] [\-M path]
+.\" [\-P pager] [\-S section_list] [section] name ...
+man [\-adfhkKtwW] [\-m sistem] [\-p niz] [\-C nastavitvena_datoteka] 
+[\-M pot] [\-P paginator] [\-S seznam_poglavij] [poglavje] ime ...
+.SH OPIS
+.B man
+oblikuje in prika¾e strani on-line priroènika.  Ta izvedba pozna
+spremenljivki
+.B MANPATH
+in
+.BR (MAN)PAGER ,
+tako da si lahko pripravite
+lasten nabor osebnih strani priroènika in izberete va¹ najljub¹i
+program za prikaz oblikovanih strani.
+Èe je doloèeno 
+.I poglavje,
+.B man
+i¹èe samo v tem poglavju priroènika.
+Iz ukazne vrstice ali prek spremenljivk okolja lahko doloèite 
+tudi vrsti red poglavij, ki jih 
+.B man
+prei¹èe, ter katere predprocesorje se pred prikazom uporabijo na 
+izvornem besedilu.
+Èe
+.I ime
+vsebuje znak /, se najprej preveri, èe obstaja datoteka s tem
+imenom.  Ukaz
+.B "man ./foo.5"
+ali celo
+.B "man /cd/foo/bar.1.gz\fR.\fP"
+sta zato povsem veljavna.
+.SH IZBIRE
+.TP
+.B \-\^C " nastavitvena_datoteka"
+Doloèimo nastavitveno datoteko man.conf, ki jo ¾elimo
+uporabljati; privzeta izbira je
+@man_config_file@. (glejte man.conf(5).)
+.TP
+.B \-\^M " pot"
+Doloèimo seznam imenikov, v katerih se i¹èe za stranmi
+priroènika.  Èe izbira ni podana, se uporabi spremenljivka okolja
+.B MANPATH
+Èe tudi spremenljivke s tem imenom ni, se uporabi privzeta izbira
+iz nastavitvene datoteke @man_config_file@. 
+Prazen niz v MANPATH implicira privzet seznam imenikov.
+.TP
+.B \-\^P " paginator"
+Doloèimo paginator.  Ta izbira ima prednost pred spremenljivko
+okolja
+.B MANPAGER,
+ki ima nadalje prednost pred spremenljivko okolja 
+.B PAGER.
+Privzeta izbira za paginator je 
+.BR @pager@ .
+.TP
+.B \-\^S " seznam_poglavij"
+Seznam_poglavij je z dvopièji loèen seznam poglavij priroènika, 
+v katerem se i¹èe geslo.  Ta izbira ima prednost pred
+spremenljivko okolja
+.B MANSECT.
+.TP
+.B \-\^a
+Sam po sebi man prika¾e prvo stran, ki ustreza imenu 
+.B name.
+S to izbiro zahtevamo, da prika¾e vse strani, ki ustrezajo
+pogoju, ne le prve.
+.TP
+.B \-\^c
+Izrecno zahtevamo ponovno oblikovanje strani, èetudi ¾e
+oblikovana stran obstaja.  Izbira je lahko smiselna, èe je bila
+stran oblikovana za drugaèno ¹irino zaslona.
+.TP
+.B \-\^d
+Ne prika¾i oblikovane strani, ampak le "debugging" informacije.
+.TP
+.B \-\^D
+Prika¾i tako oblikovano stran kot tudi "debugging" informacije.
+.TP
+.B \-\^f
+Isto kot
+.B whatis.
+.TP
+.B \-\^h
+Izpi¹i eno vrstico navodila in konèaj.
+.TP
+.B \-\^k
+Isto kot
+.B apropos.
+.TP
+.B \-\^K
+Prei¹èi *vse* strani priroènika za dani niz.  Pozor: to zelo
+verjetno vzame kar nekaj èasa!  Hitreje gre, èe iskanje omejimo
+na poglavje.
+(Kot grob primer: na avtorjevem raèunalniku traja iskanje prek
+500 strani priroènika pribli¾no minuto.)
+.TP
+.B \-\^m " sistem"
+Doloèimo alternativni nabor strani priroènika na podanem
+sistemu.
+.TP
+.B \-\^p " niz"
+Doloèimo zaporedje predprocesorjev, ki se po¾enejo pred nroff ali
+troff.  
+Nekateri od predprocesorjev, in njihove enoèrkovne okraj¹ave:
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
+Ni nujno, da so na va¹em sistemu vsi na¹teti
+predprocesorji na voljo.
+Ta izbira ima prednost pred spremenljivko okolja
+.B MANROFFSEQ.
+.TP
+.B \-\^t
+Uporabi
+.B @troff@
+za oblikovanje strani priroènika in usmeri izhod na standardni
+izhod
+.B stdout.
+Lahko, da je izhod iz
+.B @troff@
+pred tiskom potrebno obdelati s ¹e kak¹nim filtrom.
+.TP
+.B \-\^w \fRali\fP \-\-path
+Ne prika¾i oblikovanih strani priroènika, ampak pot do datotek,
+ki bi bile oblikovane in prikazane.  Èe je izbira brez argumenta,
+prika¾i pot do imenikov, v katerih 
+.B man
+i¹èe strani priroènika.  Èe je
+.B manpath
+povezava na man, tedaj je "manpath" enakovredno "man --path".
+.TP
+.B \-\^W
+Kot \-\^w, le da prika¾e po eno ime datoteke v vrstici in brez
+dodatnih informacij.
+To je lahko uporabno v ukazih ukazne lupine, kot npr.
+.ft CW
+man -aW man | xargs ls -l
+.ft
+
+.SH "OBLIKOVANE STRANI"
+Man poskusi shraniti oblikovane strani in tako prihraniti èas, 
+potreben za oblikovanje, ko se stran naslednjiè rabi.
+Tradicionalno se oblikovane strani iz imenikov DIR/manX
+shranjujejo v imenike DIR/catX, drugaèen dogovor glede preslikave
+med izvornimi in oblikovanimi razlièicami pa je mo¾no doloèiti v
+@man_config_file@.
+Oblikovane strani se ne shranijo, èe ustrezni imenik ne obstaja.
+.TP
+Program man je mo¾no pripisati (SUID) uporabniku z imenom man.  V
+tem primeru, kadar je imenik z oblikovanimi stranmi v lasti man,
+naèin za¹èite pa 0755 (dovoljeno pisanje samo lastniku -- man),
+oblikovane datoteke pa so za¹èitene z 0644 ali 0444 (dovoljeno
+pisanje samo lastniku, ali pa sploh prepovedano pisanje), nihèe
+od uporabnikov ne more ne more spreminjati oblikovanih strani ali
+pu¹èati svojih datotek v imeniku z oblikovanimi stranmi.  Èe man
+ni v lasti (SUID) uporabnika man, mora biti imenik z oblikovanimi
+stranmi dovoljen za pisanje (0777), èe naj bo tam vsem uporabnikom
+dovoljeno pu¹èati oblikovane strani.
+.TP
+Izbira \-\^c zahteva ponovno oblikovanje strani, èetudi recentna
+oblikovana stran ¾e obstaja.
+
+
+.SH SPREMENLJIVKE OKOLJA
+.TP
+.B MANPATH
+Èe nastavimo spremenljivko
+.B MANPATH,
+se njena vrednost uporabi za pot do strani priroènika.
+.TP
+.B MANROFFSEQ
+Èe nastavimo spremenljivko
+.B MANROFFSEQ,
+z njeno vrednostjo doloèimo zaporedje predprocesorjev, ki
+obdelajo stran pred nroff ali troff.  Privzeta izbira je
+tabelarni predprocesor tbl.
+.TP
+.B MANSECT
+Èe nastavimo spremenljivko
+.B MANSECT,
+njena vrednost doloèa poglavja v priroèniku, v katerih man i¹èe
+zahtevano stran.
+.TP
+.B MANWIDTH
+Èe nastavimo spremenljivko
+.B MANWIDTH,
+njena vrednost doloèa ¹irino zaslona, za katero se oblikujejo
+strani priroènika.  Privzeta izbira je cela ¹irina zaslona.
+.TP
+.B MANPAGER
+Èe nastavimo spremenljivko
+.B MANPAGER,
+njena vrednost doloèa paginator -- program, ki prika¾e oblikovano
+stran.  Èe spremenljivka ni nastavljena, se uporabi vrednost
+spremenljivke 
+.B PAGER.
+Èe tudi ta ni nastavljena, se uporabi privzeta izbira
+.B @pager@.
+.TP
+.B LANG
+Èe nastavimo spremenljivko
+.B LANG,
+njena vrednost doloèa podimenik, v katerem man najprej poskusi
+poiskati stran priroènika.  Na primer, pri ukazu ,,LANG=dk man 1 foo''
+man najprej poskusi poiskati ustrezno stran priroènika v
+datoteki .../dk/man1/foo.1, èe ta ne obstaja, pa v .../man1/foo.1.
+Pri tem je ... eden od imenikov, v katerih man i¹èe strani.
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+Spremenljivki
+.B NLSPATH
+in
+.B LC_MESSAGES
+(ali
+.B LANG
+èe LC_MESSAGES ne obstaja)
+doloèajo katalog s sporoèili programa.
+(Angle¹ka sporoèila so izjema, ker so ¾e vkljuèena v program,
+tako da zanje ne potrebujemo posebnega kataloga.)
+Programi kot npr. col(1), ki ga klièe man, prav tako uporabljajo
+lokalizacijske spremenljivke (npr. LC_CTYPE).
+.TP
+.B PATH
+.B PATH
+se uporablja za sestavljanje privzete poti, v katerih man i¹èe
+strani priroènika.
+.TP
+.B SYSTEM
+.B SYSTEM
+se uporablja za doloèitev imena alternativnega sistema (z izbiro
+.B \-m).
+.SH "GLEJTE TUDI"
+apropos(1), whatis(1), less(1), groff(1).
+.SH NAPAKE
+The
+.B \-t
+deluje samo, kadar je na voljo troff ali drug enakovreden program.
+.br
+Èe namesto pomi¹ljajev vidite utripajoèe \e255 or <AD>, dodajte
+med spremenljivke okolja `LESSCHARSET=latin1'.

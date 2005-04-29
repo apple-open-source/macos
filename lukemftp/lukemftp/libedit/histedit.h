@@ -1,4 +1,4 @@
-/*	$NetBSD: histedit.h,v 1.16 2000/09/04 22:06:30 lukem Exp $	*/
+/*	$NetBSD: histedit.h,v 1.19 2002/03/18 16:00:54 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -44,6 +44,12 @@
 #ifndef _HISTEDIT_H_
 #define	_HISTEDIT_H_
 
+#define	LIBEDIT_MAJOR 2
+#define	LIBEDIT_MINOR 6
+
+#include <sys/types.h>
+#include <stdio.h>
+
 /*
  * ==== Editing ====
  */
@@ -87,7 +93,7 @@ void		 el_end(EditLine *);
  */
 const char	*el_gets(EditLine *, int *);
 int		 el_getc(EditLine *, char *);
-void		 el_push(EditLine *, const char *);
+void		 el_push(EditLine *, char *);
 
 /*
  * Beep!
@@ -98,7 +104,7 @@ void		 el_beep(EditLine *);
  * High level function internals control
  * Parses argc, argv array and executes builtin editline commands
  */
-int		 el_parse(EditLine *, int, char **);
+int		 el_parse(EditLine *, int, const char **);
 
 /*
  * Low level editline access functions
@@ -123,6 +129,10 @@ int		 el_get(EditLine *, int, void *);
 #define	EL_HIST		10	/* , hist_fun_t, const char *);	*/
 #define	EL_EDITMODE	11	/* , int);			*/
 #define	EL_RPROMPT	12	/* , el_pfunc_t);		*/
+#define	EL_GETCFN	13	/* , el_rfunc_t);		*/
+#define	EL_CLIENTDATA	14	/* , void *);			*/
+
+#define EL_BUILTIN_GETCFN	(NULL)
 
 /*
  * Source named file or $PWD/.editrc or $HOME/.editrc

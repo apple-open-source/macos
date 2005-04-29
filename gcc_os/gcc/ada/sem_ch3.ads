@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.2 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -186,7 +185,6 @@ package Sem_Ch3  is
    procedure Process_Range_Expr_In_Decl
      (R           : Node_Id;
       T           : Entity_Id;
-      Related_Nod : Node_Id;
       Check_List  : List_Id := Empty_List;
       R_Check_Off : Boolean := False);
    --  Process a range expression that appears in a declaration context. The
@@ -215,6 +213,12 @@ package Sem_Ch3  is
    procedure Process_Discriminants (N : Node_Id);
    --  Process the discriminants contained in an N_Full_Type_Declaration or
    --  N_Incomplete_Type_Decl node N.
+
+   procedure Set_Completion_Referenced (E : Entity_Id);
+   --  If E is the completion of a private or incomplete  type declaration,
+   --  or the completion of a deferred constant declaration, mark the entity
+   --  as referenced. Warnings on unused entities, if needed, go on the
+   --  partial view.
 
    procedure Set_Girder_Constraint_From_Discriminant_Constraint
      (E : Entity_Id);

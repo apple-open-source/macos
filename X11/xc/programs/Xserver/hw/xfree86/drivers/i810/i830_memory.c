@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i830_memory.c,v 1.6 2003/02/08 02:26:56 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i830_memory.c,v 1.10 2003/10/21 02:17:52 dawes Exp $ */
 /**************************************************************************
 
 Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.
@@ -44,7 +44,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
- *   David Dawes <dawes@tungstengraphics.com>
+ *   David Dawes <dawes@xfree86.org>
  *
  */
 
@@ -279,7 +279,7 @@ AllocateRingBuffer(ScrnInfoPtr pScrn, int flags)
       return FALSE;
    }
    xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-		  "%sAllocated %d kB for the ring buffer at 0x%x\n", s,
+		  "%sAllocated %ld kB for the ring buffer at 0x%lx\n", s,
 		  alloced / 1024, pI830->LpRing.mem.Start);
    pI830->LpRing.tail_mask = pI830->LpRing.mem.Size - 1;
    return TRUE;
@@ -335,8 +335,8 @@ AllocateOverlay(ScrnInfoPtr pScrn, int flags)
 	 /* This failure isn't fatal. */
    } else {
       xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-		     "%sAllocated %d kB for Overlay registers at 0x%x "
-		     "(0x%08x).\n", s,
+		     "%sAllocated %ld kB for Overlay registers at 0x%lx "
+		     "(0x%08lx).\n", s,
 		     alloced / 1024, pI830->OverlayMem.Start,
 		     pI830->OverlayMem.Physical);
    }
@@ -503,7 +503,7 @@ I830Allocate2DMemory(ScrnInfoPtr pScrn, const int flags)
       size = lineSize * (pScrn->virtualY + cacheLines);
       size = ROUND_TO_PAGE(size);
       xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-		     "%sInitial framebuffer allocation size: %d kByte\n", s,
+		     "%sInitial framebuffer allocation size: %ld kByte\n", s,
 		     size / 1024);
       alloced = I830AllocVidMem(pScrn, &(pI830->FrontBuffer),
 				&(pI830->StolenPool), size, align,
@@ -547,7 +547,7 @@ I830Allocate2DMemory(ScrnInfoPtr pScrn, const int flags)
 	    xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 		       "Internal error in I830Allocate2DMemory():\n\t"
 		       "Framebuffer isn't the last allocation at the bottom"
-		       " of StolenPool\n\t(%x != %x).\n",
+		       " of StolenPool\n\t(%lx != %lx).\n",
 		       pI830->FrontBuffer.End,
 		       pI830->StolenPool.Free.Start);
 	    return FALSE;
@@ -564,10 +564,10 @@ I830Allocate2DMemory(ScrnInfoPtr pScrn, const int flags)
 	 pI830->StolenPool.Free.Size += pI830->FrontBuffer.Size;
 	 pI830->StolenPool.Free.Start -= pI830->FrontBuffer.Size;
 	 xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-			"%sUpdated framebuffer allocation size from %d "
-			"to %d kByte\n", s, oldsize / 1024, maxFb / 1024);
+			"%sUpdated framebuffer allocation size from %ld "
+			"to %ld kByte\n", s, oldsize / 1024, maxFb / 1024);
 	 xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-			"%sUpdated pixmap cache from %d scanlines to %d "
+			"%sUpdated pixmap cache from %ld scanlines to %ld "
 			"scanlines\n", s,
 			oldsize / lineSize - pScrn->virtualY,
 			maxFb / lineSize - pScrn->virtualY);
@@ -636,10 +636,10 @@ I830Allocate2DMemory(ScrnInfoPtr pScrn, const int flags)
 	 }
       } else {
 	 xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-			"%sAllocated %d kB for HW cursor at 0x%x", s,
+			"%sAllocated %ld kB for HW cursor at 0x%lx", s,
 			alloced / 1024, pI830->CursorMem.Start);
 	 if (pI830->CursorNeedsPhysical)
-	    xf86ErrorFVerb(verbosity, " (0x%08x)", pI830->CursorMem.Physical);
+	    xf86ErrorFVerb(verbosity, " (0x%08lx)", pI830->CursorMem.Physical);
 	 xf86ErrorFVerb(verbosity, "\n");
       }
    }
@@ -675,7 +675,7 @@ I830Allocate2DMemory(ScrnInfoPtr pScrn, const int flags)
 	 return FALSE;
       }
       xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-		    "%sAllocated %d kB for the scratch buffer at 0x%x\n", s,
+		    "%sAllocated %ld kB for the scratch buffer at 0x%lx\n", s,
 		    alloced / 1024, pI830->Scratch.Start);
    }
    return TRUE;
@@ -806,7 +806,7 @@ I830Allocate3DMemory(ScrnInfoPtr pScrn, const int flags)
       return FALSE;
    }
    xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-		  "%sAllocated %d kB for the back buffer at 0x%x.\n", s,
+		  "%sAllocated %ld kB for the back buffer at 0x%lx.\n", s,
 		  alloced / 1024, pI830->BackBuffer.Start);
 
    /* Depth Buffer -- same size as the back buffer */
@@ -844,7 +844,7 @@ I830Allocate3DMemory(ScrnInfoPtr pScrn, const int flags)
       return FALSE;
    }
    xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-		  "%sAllocated %d kB for the depth buffer at 0x%x.\n", s,
+		  "%sAllocated %ld kB for the depth buffer at 0x%lx.\n", s,
 		  alloced / 1024, pI830->DepthBuffer.Start);
 
    /* Space for logical context.  32k is fine for right now. */
@@ -862,7 +862,7 @@ I830Allocate3DMemory(ScrnInfoPtr pScrn, const int flags)
       return FALSE;
    }
    xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-		  "%sAllocated %d kB for the logical context at 0x%x.\n", s,
+		  "%sAllocated %ld kB for the logical context at 0x%lx.\n", s,
 		  alloced / 1024, pI830->ContextMem.Start);
 
    /*
@@ -886,7 +886,7 @@ I830Allocate3DMemory(ScrnInfoPtr pScrn, const int flags)
 	 return FALSE;
       }
       xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-		     "%sAllocated %d kB for the DMA buffers at 0x%x.\n", s,
+		     "%sAllocated %ld kB for the DMA buffers at 0x%lx.\n", s,
 		     alloced / 1024, pI830->BufferMem.Start);
    } else {
       if (!dryrun) {
@@ -912,7 +912,7 @@ I830Allocate3DMemory(ScrnInfoPtr pScrn, const int flags)
    if (size < KB(512)) {
       if (!dryrun) {
 	 xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-		    "Less than %d kBytes for texture space.\n", size / 1024);
+		    "Less than %ld kBytes for texture space.\n", size / 1024);
       }
       return FALSE;
    }
@@ -927,7 +927,7 @@ I830Allocate3DMemory(ScrnInfoPtr pScrn, const int flags)
       return FALSE;
    }
    xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, verbosity,
-		  "%sAllocated %d kB for textures at 0x%x\n", s,
+		  "%sAllocated %ld kB for textures at 0x%lx\n", s,
 		  alloced / 1024, pI830->TexMem.Start);
 
    return TRUE;
@@ -1052,7 +1052,7 @@ FixOffset(ScrnInfoPtr pScrn, I830MemRange *mem)
    }
 #endif
    xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-	      "%p: Memory at offset 0x%08x, size %d kBytes\n", mem,
+	      "%p: Memory at offset 0x%08lx, size %ld kBytes\n", (void *)mem,
 	      mem->Start, mem->Size / 1024);
    return TRUE;
 }
@@ -1108,7 +1108,7 @@ SetFence(ScrnInfoPtr pScrn, int nr, unsigned int start, unsigned int pitch,
 
    if (nr < 0 || nr > 7) {
       xf86DrvMsg(X_WARNING, pScrn->scrnIndex,
-		 "SetFence: fence %d out of range\n");
+		 "SetFence: fence %d out of range\n", nr);
       return;
    }
 
@@ -1298,7 +1298,7 @@ I830SetupMemoryTiling(ScrnInfoPtr pScrn)
 		    "MakeTiles failed for the back buffer.\n");
       }
    }
-	
+
 }
 #endif /* XF86DRI */
 

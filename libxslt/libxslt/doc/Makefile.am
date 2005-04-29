@@ -184,10 +184,12 @@ install-data-local:
 	-@INSTALL@ -m 0644 $(srcdir)/EXSLT/*.html $(DESTDIR)$(TARGET_DIR)/EXSLT
 	$(mkinstalldirs) $(DESTDIR)$(TARGET_DIR)/tutorial
 	-@INSTALL@ -m 0644 $(srcdir)/tutorial/* $(DESTDIR)$(TARGET_DIR)/tutorial
+	$(mkinstalldirs) $(DESTDIR)$(TARGET_DIR)/tutorial2
+	-@INSTALL@ -m 0644 $(srcdir)/tutorial2/* $(DESTDIR)$(TARGET_DIR)/tutorial2
 
 dist-hook:
 	(cd $(srcdir) ; tar cvf - *.1 *.html site.xsl news.xsl xsa.xsl \
-	  *.gif html/*.html html/*.png tutorial/libxslt*) | \
+	  *.gif html/*.html html/*.png tutorial*/libxslt*) | \
 	  (cd $(distdir); tar xf -)
 
 .PHONY : html EXSLT EXSLT/html

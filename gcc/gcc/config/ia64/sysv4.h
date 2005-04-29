@@ -1,5 +1,8 @@
 /* Override definitions in elfos.h/svr4.h to be correct for IA64.  */
 
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS ia64_sysv4_init_libfuncs
+
 /* We want DWARF2 as specified by the IA64 ABI.  */
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
@@ -61,8 +64,6 @@ do {									\
 #define ASM_OUTPUT_LABELREF(STREAM, NAME)	\
 do {						\
   const char *name_ = NAME;			\
-  if (*name_ == ENCODE_SECTION_INFO_CHAR)	\
-    name_ += 2;					\
   if (*name_ == '*')				\
     name_++;					\
   else						\
@@ -119,26 +120,6 @@ do {									\
   fputc ('\n', FILE);							\
 } while (0)
 
-/* A C expression which outputs to the stdio stream STREAM some appropriate
-   text to go at the start of an assembler file.  */
-
-/* ??? Looks like almost every port, except for a few original ones, get this
-   wrong.  Must emit #NO_APP as first line of file to turn of special assembler
-   preprocessing of files.  */
-
-/* ??? Even worse, it doesn't work, because gas does not accept the tab chars
-   that dwarf2out.c emits when #NO_APP.  */
-
-/* ??? Unrelated, but dwarf2out.c emits unnecessary newlines after strings,
-   may as well fix at the same time.  */
-
-#undef ASM_FILE_START
-#define ASM_FILE_START(STREAM) \
-do {									\
-  output_file_directive (STREAM, main_input_filename);			\
-  emit_safe_across_calls (STREAM);					\
-} while (0)
-
 /* Override default elf definition.  */
 #undef	TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION  ia64_select_rtx_section
@@ -155,7 +136,7 @@ do {									\
 
 #define SDATA_SECTION_FUNCTION						\
 void									\
-sdata_section ()							\
+sdata_section (void)							\
 {									\
   if (in_section != in_sdata)						\
     {									\
@@ -168,7 +149,7 @@ sdata_section ()							\
 
 #define SBSS_SECTION_FUNCTION						\
 void									\
-sbss_section ()								\
+sbss_section (void)							\
 {									\
   if (in_section != in_sbss)						\
     {									\

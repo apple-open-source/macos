@@ -187,8 +187,6 @@ init_tunnel(void)
                         "RFC 2667 TUNNEL-MIB implementation for "
                         "Linux 2.2.x kernels.");
 
-    netsnmp_ds_set_string(NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_APPTYPE, "snmpd");
-
     /*
      * register ourselves with the agent to handle our mib tree 
      */
@@ -343,6 +341,12 @@ updateTunnel(struct tunnel *tunnel)
         DEBUGMSGTL(("snmpd", "socket open failure in updateTunnels()\n"));
         return NULL;
     } else {
+        /*
+         * NOTE: this ioctl does not guarantee 6 bytes of a physaddr.
+         * In particular, a 'sit0' interface only appears to get back
+         * 4 bytes of sa_data. We don't use sa_data here, or we'd
+         * need to memset it to 0 before the ioct.
+         */
         strcpy(ifrq.ifr_name, tunnel->ifname);
         if (ioctl(fd, SIOCGIFHWADDR, &ifrq) == 0)
             switch (ifrq.ifr_hwaddr.sa_family) {

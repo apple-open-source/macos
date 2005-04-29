@@ -164,8 +164,11 @@
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
-   On the HP-PA, the cpu registers can hold any mode.  We
-   force this to be an even register is it cannot hold the full mode.  */
+   On the HP-PA, the cpu registers can hold any mode.  For DImode, we
+   choose a set of general register that includes the incoming arguments
+   and the return value.  We specify a set with no overlaps so that we don't
+   have to specify that the destination register in patterns using this mode
+   is an early clobber.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
   ((REGNO) == 0 ? (MODE) == CCmode || (MODE) == CCFPmode		\
    /* On 1.0 machines, don't allow wide non-fp modes in fp regs.  */	\
@@ -173,9 +176,11 @@
      ? GET_MODE_SIZE (MODE) <= 4 || GET_MODE_CLASS (MODE) == MODE_FLOAT	\
    : FP_REGNO_P (REGNO)							\
      ? GET_MODE_SIZE (MODE) <= 4 || ((REGNO) & 1) == 0			\
-   /* Make wide modes be in aligned registers.  */			\
    : (GET_MODE_SIZE (MODE) <= UNITS_PER_WORD				\
-      || (GET_MODE_SIZE (MODE) <= 4 * UNITS_PER_WORD && ((REGNO) & 1) == 0)))
+      || (GET_MODE_SIZE (MODE) == 2 * UNITS_PER_WORD			\
+	  && ((((REGNO) & 1) == 1 && (REGNO) <= 25) || (REGNO) == 28))	\
+      || (GET_MODE_SIZE (MODE) == 4 * UNITS_PER_WORD			\
+	  && (((REGNO) & 3) == 3 && (REGNO) <= 23))))
 
 /* How to renumber registers for dbx and gdb.
 
@@ -244,16 +249,7 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
   {0x00000000, 0x00000000, 0x01000000},	/* SHIFT_REGS */		\
   {0xfffffffe, 0xffffffff, 0x01ffffff}}	/* ALL_REGS */
 
-/* This may not actually be necessary anymore.  But until I can prove
-   otherwise it will stay.  */
-#define CLASS_CANNOT_CHANGE_MODE	NO_REGS
-
-/* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
-#define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
-
-/* The same information, inverted:
-   Return the class number of the smallest class containing
+/* Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
@@ -263,14 +259,12 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
    : (REGNO) < 32 ? GENERAL_REGS					\
    : (REGNO) < 56 ? FP_REGS						\
    : (REGNO) < 88 ? FPUPPER_REGS					\
-   : (REGNO) < 88 ? FPUPPER_REGS					\
    : SHIFT_REGS)
 
 /* Get reg_class from a letter such as appears in the machine description.  */
 /* Keep 'x' for backward compatibility with user asm.   */
 #define REG_CLASS_FROM_LETTER(C) \
   ((C) == 'f' ? FP_REGS :					\
-   (C) == 'y' ? FPUPPER_REGS :					\
    (C) == 'y' ? FPUPPER_REGS :					\
    (C) == 'x' ? FP_REGS :					\
    (C) == 'q' ? SHIFT_REGS :					\

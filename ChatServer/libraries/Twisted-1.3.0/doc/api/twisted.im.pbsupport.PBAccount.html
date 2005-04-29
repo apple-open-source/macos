@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.im.pbsupport.PBAccount</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.im.html">Package&nbsp;im</a> ::
+        <a href="twisted.im.pbsupport.html">Module&nbsp;pbsupport</a> ::
+        Class&nbsp;PBAccount
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.im.pbsupport.PBAccount.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class PBAccount</h2>
+
+<pre class="base-tree">
+  <a href="twisted.persisted.styles.Versioned.html"><code>Versioned</code></a> --+    
+              |    
+<a href="twisted.im.basesupport.AbstractAccount.html"><code>AbstractAccount</code></a> --+
+                  |
+                 <b>PBAccount</b>
+</pre><br />
+
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.pbsupport.PBAccount.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>accountName</span>,
+          <span class=summary-sig-arg>autoLogin</span>,
+          <span class=summary-sig-arg>username</span>,
+          <span class=summary-sig-arg>password</span>,
+          <span class=summary-sig-arg>host</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>services</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbConnected"></a><span class="summary-sig"><span class="summary-sig-name">_cbConnected</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>root</span>,
+          <span class=summary-sig-arg>chatui</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbIdent"></a><span class="summary-sig"><span class="summary-sig-name">_cbIdent</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>ident</span>,
+          <span class=summary-sig-arg>chatui</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_ebConnected"></a><span class="summary-sig"><span class="summary-sig-name">_ebConnected</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        Deferred <a href="twisted.im.interfaces.IClient.html" 
+        class="link"><code>interfaces.IClient</code></a>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.pbsupport.PBAccount.html#_startLogOn" class="summary-sig-name"><code>_startLogOn</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>chatui</span>)</span></code>
+<br />
+Start the sign on process.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        DeferredList of <a href="twisted.im.interfaces.IClient.html" 
+        class="link"><code>interfaces.IClient</code></a>s
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.pbsupport.PBAccount.html#logOn" class="summary-sig-name"><code>logOn</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>chatui</span>)</span></code>
+<br />
+Return this breaks with <a href="twisted.im.interfaces.IAccount.html" 
+class="link"><code>interfaces.IAccount</code></a></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from AbstractAccount</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.basesupport.AbstractAccount.html#__getstate__" class="summary-sig-name"><code>__getstate__</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.basesupport.AbstractAccount.html#__repr__" class="summary-sig-name"><code>__repr__</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.basesupport.AbstractAccount.html#_cb_logOn" class="summary-sig-name"><code>_cb_logOn</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>client</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.basesupport.AbstractAccount.html#_clientLost" class="summary-sig-name"><code>_clientLost</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>client</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        Failure
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.basesupport.AbstractAccount.html#_loginFailed" class="summary-sig-name"><code>_loginFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+<br />
+Errorback for <a 
+href="twisted.im.basesupport.AbstractAccount.html#logOn" 
+class="link"><code>logOn</code></a>.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.basesupport.AbstractAccount.html#getGroup" class="summary-sig-name"><code>getGroup</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Group factory.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.basesupport.AbstractAccount.html#getPerson" class="summary-sig-name"><code>getPerson</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Person factory.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.basesupport.AbstractAccount.html#isOnline" class="summary-sig-name"><code>isOnline</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.im.basesupport.AbstractAccount.html#upgrateToVersion2" class="summary-sig-name"><code>upgrateToVersion2</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Versioned</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#__setstate__" class="summary-sig-name"><code>__setstate__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>state</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#versionUpgrade" class="summary-sig-name"><code>versionUpgrade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(internal) Do a version upgrade.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF INSTANCE VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Instance Variable Summary</th></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from AbstractAccount</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">boolean</font></td>
+<td><b><a href="twisted.im.basesupport.AbstractAccount.html#_isConnecting"><code>_isConnecting</code></a></b>: Whether I am in the process of establishing a connection to the 
+server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">boolean</font></td>
+<td><b><a href="twisted.im.basesupport.AbstractAccount.html#_isOnline"><code>_isOnline</code></a></b>: Whether I am currently on-line with the server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+<td><b><a href="twisted.im.basesupport.AbstractAccount.html#accountName"><code>accountName</code></a></b>: &nbsp;</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+<td><b><a href="twisted.im.basesupport.AbstractAccount.html#autoLogin"><code>autoLogin</code></a></b>: &nbsp;</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+<td><b><a href="twisted.im.basesupport.AbstractAccount.html#host"><code>host</code></a></b>: &nbsp;</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+<td><b><a href="twisted.im.basesupport.AbstractAccount.html#password"><code>password</code></a></b>: &nbsp;</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+<td><b><a href="twisted.im.basesupport.AbstractAccount.html#port"><code>port</code></a></b>: &nbsp;</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+<td><b><a href="twisted.im.basesupport.AbstractAccount.html#username"><code>username</code></a></b>: &nbsp;</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.im.pbsupport.PBAccount.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class twisted.im.interfaces.IAccount at 0x89a6014&gt;,)"><code>(&lt;class&nbsp;twisted.im.interfaces.IAccount&nbsp;<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>class</code></font></td>
+  <td><a name="_groupFactory"></a><b><code>_groupFactory</code></b> = <a href="twisted.im.pbsupport.TwistedWordsGroup.html"><code>twisted.im.pbsupport.TwistedWordsGroup</code></a></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>class</code></font></td>
+  <td><a name="_personFactory"></a><b><code>_personFactory</code></b> = <a href="twisted.im.pbsupport.TwistedWordsPerson.html"><code>twisted.im.pbsupport.TwistedWordsPerson</code></a></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.im.pbsupport.PBAccount.html#gatewayType"><code>gatewayType</code></a></b> = <span title="'PB'"><code><span class="variable-quote">'</span>PB<span class="variable-quote">'</span>                                       </code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from AbstractAccount</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.im.basesupport.AbstractAccount.html#client"><code>client</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.im.basesupport.AbstractAccount.html#persistanceVersion"><code>persistanceVersion</code></a></b> = <span title="2">2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Versioned</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.persisted.styles.Versioned.html#persistenceForgets"><code>persistenceForgets</code></a></b> = <span title="()"><code>()                                  </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.persisted.styles.Versioned.html#persistenceVersion"><code>persistenceVersion</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="__init__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__init__</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>accountName</span>,
+          <span class=sig-arg>autoLogin</span>,
+          <span class=sig-arg>username</span>,
+          <span class=sig-arg>password</span>,
+          <span class=sig-arg>host</span>,
+          <span class=sig-arg>port</span>,
+          <span class=sig-arg>services</span>=<span class=sig-default>None</span>)</span>
+    <br /><i>(Constructor)</i>
+  </h3>
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>username</b></code> -
+         The name of your PB Identity.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=string)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.im.basesupport.AbstractAccount.html#__init__"><code>twisted.im.basesupport.AbstractAccount.__init__</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_startLogOn"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_startLogOn</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>chatui</span>)</span>
+  </h3>
+  <p>Start the sign on process.</p>
+  Factored out of <a 
+  href="twisted.im.basesupport.AbstractAccount.html#logOn" 
+  class="link"><code>logOn</code></a>.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        Deferred <a href="twisted.im.interfaces.IClient.html" 
+        class="link"><code>interfaces.IClient</code></a>
+      </dd>
+    </dl>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.im.basesupport.AbstractAccount.html#_startLogOn"><code>twisted.im.basesupport.AbstractAccount._startLogOn</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="logOn"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">logOn</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>chatui</span>)</span>
+  </h3>
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        this breaks with <a href="twisted.im.interfaces.IAccount.html" 
+        class="link"><code>interfaces.IAccount</code></a>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=DeferredList of <a href="twisted.im.interfaces.IClient.html" 
+        class="link"><code>interfaces.IClient</code></a>s)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.im.basesupport.AbstractAccount.html#logOn"><code>twisted.im.basesupport.AbstractAccount.logOn</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="__implements__"></a>
+<h3>__implements__</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(&lt;class twisted.im.interfaces.IAccount at 0x89a6014&gt;,)">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(&lt;class twisted.im.interfaces.IAccount at 0x89a6014&gt;,)                 </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="gatewayType"></a>
+<h3>gatewayType</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'PB'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>PB<span class="variable-quote">'</span>                                                                   </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:22 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

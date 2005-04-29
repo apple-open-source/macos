@@ -1,4 +1,50 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86cmap.c,v 1.23 2001/11/16 16:47:55 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86cmap.c,v 1.26 2004/02/13 23:58:39 dawes Exp $ */
+/*
+ * Copyright (c) 1998-2001 by The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #if defined(_XOPEN_SOURCE) || defined(__QNXNTO__)
 #include <math.h>
@@ -52,8 +98,6 @@ typedef struct {
   DestroyColormapProcPtr	DestroyColormap;
   InstallColormapProcPtr	InstallColormap;
   StoreColorsProcPtr		StoreColors;
-  LoadPaletteFuncPtr		LoadPalette;
-  SetOverscanFuncPtr		SetOverscan;
   Bool				(*EnterVT)(int, int);
   Bool				(*SwitchMode)(int, DisplayModePtr, int);
   int				(*SetDGAMode)(int, int, DGADevicePtr);
@@ -103,8 +147,8 @@ Bool xf86HandleColormaps(
     ScreenPtr pScreen,
     int maxColors,
     int sigRGBbits,
-    LoadPaletteFuncPtr loadPalette,
-    SetOverscanFuncPtr setOverscan,
+    xf86LoadPaletteProc *loadPalette,
+    xf86SetOverscanProc *setOverscan,
     unsigned int flags
 ){
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
@@ -155,8 +199,8 @@ Bool xf86HandleColormaps(
     pScreen->StoreColors = CMapStoreColors;
 
     pScreenPriv->pScrn = pScrn;
-    pScreenPriv->LoadPalette = loadPalette;
-    pScreenPriv->SetOverscan = setOverscan;
+    pScrn->LoadPalette = loadPalette;
+    pScrn->SetOverscan = setOverscan;
     pScreenPriv->maxColors = maxColors;
     pScreenPriv->sigRGBbits = sigRGBbits;
     pScreenPriv->gammaElements = elements;
@@ -483,6 +527,7 @@ CMapReinstallMap(ColormapPtr pmap)
         (CMapScreenPtr) pmap->pScreen->devPrivates[CMapScreenIndex].ptr;
     CMapColormapPtr cmapPriv = 
 	(CMapColormapPtr) pmap->devPrivates[CMapColormapIndex].ptr;
+    ScrnInfoPtr pScrn = xf86Screens[pmap->pScreen->myNum];
     int i = cmapPriv->numColors;
     int *indices = pScreenPriv->PreAllocIndices;
 
@@ -492,13 +537,13 @@ CMapReinstallMap(ColormapPtr pmap)
     if(cmapPriv->recalculate)
 	CMapRefreshColors(pmap, cmapPriv->numColors, indices);
     else {
-	(*pScreenPriv->LoadPalette)(pScreenPriv->pScrn, cmapPriv->numColors,
+	(*pScrn->LoadPalette)(pScrn, cmapPriv->numColors,
  			indices, cmapPriv->colors, pmap->pVisual);
-	if (pScreenPriv->SetOverscan) {
+	if (pScrn->SetOverscan) {
 #ifdef DEBUGOVERSCAN
 	    ErrorF("SetOverscan() called from CMapReinstallMap\n");
 #endif
-	    pScreenPriv->SetOverscan(pScreenPriv->pScrn, cmapPriv->overscan);
+	    pScrn->SetOverscan(pScrn, cmapPriv->overscan);
 	}
     }
 
@@ -514,6 +559,7 @@ CMapRefreshColors(ColormapPtr pmap, int defs, int* indices)
     CMapColormapPtr pColPriv = 
 	(CMapColormapPtr) pmap->devPrivates[CMapColormapIndex].ptr;
     VisualPtr pVisual = pmap->pVisual;
+    ScrnInfoPtr pScrn = xf86Screens[pmap->pScreen->myNum];
     int numColors, i;
     LOCO *gamma, *colors;
     EntryPtr entry;
@@ -616,10 +662,10 @@ CMapRefreshColors(ColormapPtr pmap, int defs, int* indices)
 
 
     if(LOAD_PALETTE(pmap, pmap->pScreen->myNum))
-	(*pScreenPriv->LoadPalette)(pScreenPriv->pScrn, defs, indices,
+	(*pScrn->LoadPalette)(pScreenPriv->pScrn, defs, indices,
  					colors, pmap->pVisual);
 
-    if (pScreenPriv->SetOverscan)
+    if (pScrn->SetOverscan)
 	CMapSetOverscan(pmap, defs, indices);
 
 }
@@ -646,6 +692,7 @@ CMapSetOverscan(ColormapPtr pmap, int defs, int *indices)
         (CMapScreenPtr) pmap->pScreen->devPrivates[CMapScreenIndex].ptr;
     CMapColormapPtr pColPriv = 
 	(CMapColormapPtr) pmap->devPrivates[CMapColormapIndex].ptr;
+    ScrnInfoPtr pScrn = xf86Screens[pmap->pScreen->myNum];
     VisualPtr pVisual = pmap->pVisual;
     int i;
     LOCO *colors;
@@ -771,7 +818,7 @@ CMapSetOverscan(ColormapPtr pmap, int defs, int *indices)
 #ifdef DEBUGOVERSCAN
 	    ErrorF("SetOverscan() called from CmapSetOverscan\n");
 #endif
-	    pScreenPriv->SetOverscan(pScreenPriv->pScrn, overscan);
+	    pScrn->SetOverscan(pScreenPriv->pScrn, overscan);
 	}
     }
 }

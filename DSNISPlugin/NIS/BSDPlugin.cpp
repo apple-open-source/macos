@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -42,13 +40,9 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <rpc/types.h>
-#include <openssl/md5.h>
 #include <sys/stat.h>		// for file and dir stat calls
 
-extern "C" {
-#include <saslutil.h>
-};
-
+#include "crypt-md5.h"
 #include "ffparser.h"
 
 #ifndef kServerRunLoop
@@ -102,6 +96,12 @@ void FindAllAttributeMatches(const void *key, const void *value, void *context);
 
 pthread_mutex_t	gOutstandingSearchesLock = PTHREAD_MUTEX_INITIALIZER;
 
+#define			kSkipYPCatOnRecordNamesFilePath			"/Library/Preferences/DirectoryService/.DisableNISCatSearchOnRecordNames"
+Boolean			gSkipYPCatOnRecordNames  = false;		// if the computer has a file at /Library/Preferences/DirectoryService/.DisableNISCatSearchOnRecordNames we won't do ypcat queries
+
+#define			kSkipYPCatOnDisplayNamesFilePath		"/Library/Preferences/DirectoryService/.DisableNISCatSearchOnDisplayNames"
+Boolean			gDisableDisplayNameLookups  = false;		// if the computer has a file at /Library/Preferences/DirectoryService/.DisableNISCatSearchOnDisplayNames we won't do ypcat queries
+
 #define kNumLookupTypes			6
 #define kMaxNumAgents			6
 static const char* kLookupdRecordNames[kNumLookupTypes] =	{	"lookupd",
@@ -137,7 +137,9 @@ const char* kFFRecordTypeBootParams		= "bootparams";
 #endif
 
 const char* kNISRecordTypeUsers			= "passwd.byname";
+const char* kNISRecordTypeUsersByUID	= "passwd.byuid";
 const char* kNISRecordTypeGroups		= "group.byname";
+const char* kNISRecordTypeGroupsByGID	= "group.bygid";
 const char* kNISRecordTypeBootParams	= "bootparams.byname";
 const char* kNISRecordTypeAlias			= "mail.aliases";
 const char* kNISRecordTypeBootp			= "bootptab.byaddr";
@@ -337,6 +339,14 @@ sInt32 BSDPlugin::Initialize( void )
 	}
 #endif
 
+	struct stat				statResult;
+
+	if ( stat( kSkipYPCatOnRecordNamesFilePath, &statResult ) == 0 )
+		gSkipYPCatOnRecordNames = true;
+
+	if ( stat( kSkipYPCatOnDisplayNamesFilePath, &statResult ) == 0 )
+		gDisableDisplayNameLookups = true;
+
     if ( !siResult )
     {
         // set the init flags
@@ -386,7 +396,7 @@ sInt32 BSDPlugin::GetNISConfiguration( void )
 	
 	if ( resultPtr )
 	{
-		if ( strcmp( resultPtr, "\n" ) == NULL )
+		if ( strcmp( resultPtr, "\n" ) == 0 )
 		{
 			DBGLOG( "BSDPlugin::GetNISConfiguration no domain name set, we will check our own configuration\n" );
 			// we no longer set the nis domain in /etc/hostconfig since a bad configuration will hose the system
@@ -2096,63 +2106,48 @@ sInt32 BSDPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 
 				if ( inData->fInAttrInfoOnly == false )
 				{
-					char	nameBuf[1024] = {0,};
-					
 					// Attribute value count always two
 					aTmpData->AppendShort( 2 );
 					
 					// Append attribute value
-					{
-						aTmpData->AppendLong( ::strlen( "BSD" ) );
-						aTmpData->AppendString( (char *)"BSD" );
-					}
+					aTmpData->AppendLong( ::strlen( "BSD" ) );
+					aTmpData->AppendString( (char *)"BSD" );
 					
-					char *tmpStr = nil;
-					//don't need to retrieve for the case of "generic unknown" so don't check index 0
-					// simply always use the pContext->fName since case of registered it is identical to
-					// pConfig->fServerName and in the case of generic it will be correct for what was actually opened
-					/*
-					if (( pContext->fConfigTableIndex < gConfigTableLen) && ( pContext->fConfigTableIndex >= 1 ))
-					{
-
-				        pConfig = (sLDAPConfigData *)gConfigTable->GetItemData( pContext->fConfigTableIndex );
-				        if (pConfig != nil)
-				        {
-				        	if (pConfig->fServerName != nil)
-				        	{
-				        		tmpStr = new char[1+::strlen(pConfig->fServerName)];
-				        		::strcpy( tmpStr, pConfig->fServerName );
-			        		}
-		        		}
-	        		}
-					*/
+					char *tmpStr = NULL;
 					
+					// now append the node name
+					CFStringRef	cfNodeName = nodeRep->GetNodeName();
 					
-					if (nodeRep->GetNodeName() != nil)
+					// if we aren't in the top of the node
+					if (cfNodeName != NULL && CFStringCompare(cfNodeName, CFSTR("BSD"), 0) != kCFCompareEqualTo)
 					{
 						CFIndex		len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(nodeRep->GetNodeName()), kCFStringEncodingUTF8) + 1;
 						
-						if ( len >= (CFIndex)sizeof(nameBuf) )
-							tmpStr = new char[1+len];
-						else
-							tmpStr = nameBuf;
+						tmpStr = new char[1+len];
 							
 						CFStringGetCString( nodeRep->GetNodeName(), tmpStr, len, kCFStringEncodingUTF8 );
+						
+						// skip past the "BSD/"
+						char *nodePath = ::strdup( tmpStr + 4 );
+						delete tmpStr;
+						tmpStr = nodePath;
 					}
 					else
 					{
-						tmpStr = new char[1+::strlen("Unknown Node Location")];
-						::strcpy( tmpStr, "Unknown Node Location" );
+						tmpStr = ::strdup( "Unknown Node Location" );
 					}
 					
 					// Append attribute value
 					aTmpData->AppendLong( ::strlen( tmpStr ) );
 					aTmpData->AppendString( tmpStr );
-
-					if ( tmpStr != nameBuf )
-						delete( tmpStr );
+					
+					delete( tmpStr );
 
 				} // fInAttrInfoOnly is false
+				else
+				{
+					aTmpData->AppendShort( 0 );
+				}
 				
 				// Add the attribute length
 				aAttrData->AppendLong( aTmpData->GetLength() );
@@ -2184,6 +2179,11 @@ sInt32 BSDPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 					aTmpData->AppendString( "ReadOnly" );
 
 				}
+				else
+				{
+					aTmpData->AppendShort( 0 );
+				}
+				
 				// Add the attribute length and data
 				aAttrData->AppendLong( aTmpData->GetLength() );
 				aAttrData->AppendBlock( aTmpData->GetData(), aTmpData->GetLength() );
@@ -2191,7 +2191,77 @@ sInt32 BSDPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 				// Clear the temp block
 				aTmpData->Clear();
 			}
-				 
+
+			if ( (::strcmp( pAttrName, kDSAttributesAll ) == 0) || 
+				 (::strcmp( pAttrName, kDSNAttrRecordType ) == 0) )
+			{
+				aTmpData->Clear();
+				
+				uiAttrCnt++;
+				
+				// Append the attribute name
+				aTmpData->AppendShort( ::strlen( kDSNAttrRecordType ) );
+				aTmpData->AppendString( kDSNAttrRecordType );
+				
+				CFStringRef	cfNodeName = nodeRep->GetNodeName();
+				
+				// if we are somewhere below the top node, we will return record types if requested
+				if ( inData->fInAttrInfoOnly == false &&
+					 cfNodeName != NULL && CFStringCompare(cfNodeName, CFSTR("BSD"), 0) != kCFCompareEqualTo )
+				{
+					// Attribute value count
+					aTmpData->AppendShort( 12 );
+					
+					// We will hardcode these as we don't know what we can respond with
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeUsers ) );
+					aTmpData->AppendString( kDSStdRecordTypeUsers );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeGroups ) );
+					aTmpData->AppendString( kDSStdRecordTypeGroups );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeBootp ) );
+					aTmpData->AppendString( kDSStdRecordTypeBootp );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeEthernets ) );
+					aTmpData->AppendString( kDSStdRecordTypeEthernets );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeHosts ) );
+					aTmpData->AppendString( kDSStdRecordTypeHosts );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeMounts ) );
+					aTmpData->AppendString( kDSStdRecordTypeMounts );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeNetGroups ) );
+					aTmpData->AppendString( kDSStdRecordTypeNetGroups );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeNetworks ) );
+					aTmpData->AppendString( kDSStdRecordTypeNetworks );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypePrintService ) );
+					aTmpData->AppendString( kDSStdRecordTypePrintService );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeProtocols ) );
+					aTmpData->AppendString( kDSStdRecordTypeProtocols );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeRPC ) );
+					aTmpData->AppendString( kDSStdRecordTypeRPC );
+					
+					aTmpData->AppendLong( ::strlen( kDSStdRecordTypeServices ) );
+					aTmpData->AppendString( kDSStdRecordTypeServices );
+				}
+				else
+				{
+					aTmpData->AppendShort( 0 );
+				}
+
+				// Add the attribute length and data
+				aAttrData->AppendLong( aTmpData->GetLength() );
+				aAttrData->AppendBlock( aTmpData->GetData(), aTmpData->GetLength() );
+				
+				// Clear the temp block
+				aTmpData->Clear();
+			}
+			
 			if ((::strcmp( pAttrName, kDSAttributesAll ) == 0) ||
 				(::strcmp( pAttrName, kDSNAttrAuthMethod ) == 0) )
 			{
@@ -2205,31 +2275,26 @@ sInt32 BSDPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 
 				if ( inData->fInAttrInfoOnly == false )
 				{
-					char *tmpStr = nil;
-					
 					// Attribute value count
-					aTmpData->AppendShort( 2 );
+					aTmpData->AppendShort( 4 );
 					
-					tmpStr = new char[1+::strlen( kDSStdAuthCrypt )];
-					::strcpy( tmpStr, kDSStdAuthCrypt );
+					aTmpData->AppendLong( ::strlen( kDSStdAuthCrypt ) );
+					aTmpData->AppendString( kDSStdAuthCrypt );
+
+					aTmpData->AppendLong( ::strlen( kDSStdAuthClearText ) );
+					aTmpData->AppendString( kDSStdAuthClearText );
 					
-					// Append first attribute value
-					aTmpData->AppendLong( ::strlen( tmpStr ) );
-					aTmpData->AppendString( tmpStr );
-
-					delete( tmpStr );
-					tmpStr = nil;
-
-					tmpStr = new char[1+::strlen( kDSStdAuthClearText )];
-					::strcpy( tmpStr, kDSStdAuthClearText );
+					aTmpData->AppendLong( ::strlen( kDSStdAuthNodeNativeNoClearText ) );
+					aTmpData->AppendString( kDSStdAuthNodeNativeNoClearText );
 					
-					// Append second attribute value
-					aTmpData->AppendLong( ::strlen( tmpStr ) );
-					aTmpData->AppendString( tmpStr );
-
-					delete( tmpStr );
-					tmpStr = nil;
+					aTmpData->AppendLong( ::strlen( kDSStdAuthNodeNativeClearTextOK ) );
+					aTmpData->AppendString( kDSStdAuthNodeNativeClearTextOK );
+					
 				} // fInAttrInfoOnly is false
+				else
+				{
+					aTmpData->AppendShort( 0 );
+				}
 
 				// Add the attribute length
 				aAttrData->AppendLong( aTmpData->GetLength() );
@@ -2237,46 +2302,6 @@ sInt32 BSDPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
                 aTmpData->Clear();
 			
 			} // kDSAttributesAll or kDSNAttrAuthMethod
-
-			if ((::strcmp( pAttrName, kDSAttributesAll ) == 0) ||
-				(::strcmp( pAttrName, "dsAttrTypeStandard:AccountName" ) == 0) )
-			{
-				aTmpData->Clear();
-				
-				uiAttrCnt++;
-			
-				// Append the attribute name
-				aTmpData->AppendShort( ::strlen( "dsAttrTypeStandard:AccountName" ) );
-				aTmpData->AppendString( (char *)"dsAttrTypeStandard:AccountName" );
-
-				if ( inData->fInAttrInfoOnly == false )
-				{
-					char *tmpStr = nil;
-
-					if (tmpStr == nil)
-					{
-						tmpStr = new char[1+::strlen("No Account Name")];
-						::strcpy( tmpStr, "No Account Name" );
-					}
-					
-					// Attribute value count
-					aTmpData->AppendShort( 1 );
-					
-					// Append attribute value
-					aTmpData->AppendLong( ::strlen( tmpStr ) );
-					aTmpData->AppendString( tmpStr );
-
-					delete( tmpStr );
-
-				} // fInAttrInfoOnly is false
-				
-				// Add the attribute length
-				aAttrData->AppendLong( aTmpData->GetLength() );
-				aAttrData->AppendBlock( aTmpData->GetData(), aTmpData->GetLength() );
-                aTmpData->Clear();
-			
-			} // kDSAttributesAll or dsAttrTypeStandard:AccountName
-
 		} // while
 
 		aRecData->AppendShort( uiAttrCnt );
@@ -3904,8 +3929,6 @@ const char* BSDPlugin::GetFFTypeFromRecType ( char *inRecType )
 		return kFFRecordTypeUsers;
 	else if ( strcmp( inRecType, kDSStdRecordTypeGroups ) == 0 )
 		return kFFRecordTypeGroups;
-	else if ( strcmp( inRecType, kDSNAttrRecordAlias ) == 0 )
-		return kFFRecordTypeAlias;
 	else if ( strcmp( inRecType, kDSStdRecordTypeBootp ) == 0 )
 		return kFFRecordTypeBootp;
 	else if ( strcmp( inRecType, kDSStdRecordTypeEthernets ) == 0 )
@@ -3946,8 +3969,6 @@ const char* BSDPlugin::GetNISTypeFromRecType ( char *inRecType )
 		return kNISRecordTypeUsers;
 	else if ( strcmp( inRecType, kDSStdRecordTypeGroups ) == 0 )
 		return kNISRecordTypeGroups;
-	else if ( strcmp( inRecType, kDSNAttrRecordAlias ) == 0 )
-		return kNISRecordTypeAlias;
 	else if ( strcmp( inRecType, kDSStdRecordTypeBootp ) == 0 )
 		return kNISRecordTypeBootp;
 	else if ( strcmp( inRecType, kDSStdRecordTypeEthernets ) == 0 )
@@ -4349,6 +4370,12 @@ char* BSDPlugin::CopyResultOfNISLookup( NISLookupType type, const char* recordTy
 	{
 		case kNISypcat:
 		{
+			if ( gSkipYPCatOnRecordNames && strcmp( recordTypeName, kNISRecordTypeUsers ) == 0 )
+			{
+				DBGLOG( "BSDPlugin::CopyResultOfNISLookup calling kNISypcat, returning NULL since %s exists\n", kSkipYPCatOnRecordNamesFilePath );
+				return NULL;
+			}
+			
 			argv[0] = kNISypcatPath;
 			argv[1] = "-k";
 			argv[2] = "-d";
@@ -4445,8 +4472,22 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 		return;
 	}
 
+	if ( isFFRecord )
+		DBGLOG( "BSDPlugin::DoRecordsLookup param %s lookup\n", (isFFRecord)?"/BSD/local":"NIS" );
+		
+	if ( recordTypeName )
+		DBGLOG( "BSDPlugin::DoRecordsLookup param recordTypeName: %s\n", recordTypeName );
+		
 	if ( recordName )
-		DBGLOG( "BSDPlugin::DoRecordsLookup looking for recordName: %s in map: %s\n", recordName, recordTypeName );
+		DBGLOG( "BSDPlugin::DoRecordsLookup param recordName: %s\n", recordName );
+		
+	DBGLOG( "BSDPlugin::DoRecordsLookup param inAttributePatternMatch: 0x%x\n", inAttributePatternMatch );
+		
+	if ( inAttributePatt2Match && inAttributePatt2Match->fBufferData )
+		DBGLOG( "BSDPlugin::DoRecordsLookup param inAttributePatt2Match: %s\n", inAttributePatt2Match->fBufferData );
+		
+	if ( attributeKeyToMatch )
+		DBGLOG( "BSDPlugin::DoRecordsLookup param attributeKeyToMatch: %s\n", attributeKeyToMatch );
 		
 	if (	inAttributePatternMatch != eDSExact
 		&&	inAttributePatternMatch != eDSiExact
@@ -4477,6 +4518,113 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 		}
 		else
 			DBGLOG( "BSDPlugin::DoRecordsLookup couldn't find a matching result\n" );
+	}
+	// if we are not FlatFiles and we are looking for User UniqueID or Group PrimaryGroupID we can match instead of ypcat
+	else if( isFFRecord == false && (inAttributePatternMatch == eDSiExact || inAttributePatternMatch == eDSExact) &&
+			 ((strcmp(recordTypeName, kNISRecordTypeUsers) == 0 && strcmp(attributeKeyToMatch, kDS1AttrUniqueID) == 0) || 
+			  (strcmp(recordTypeName, kNISRecordTypeGroups) == 0 && strcmp(attributeKeyToMatch, kDS1AttrPrimaryGroupID) == 0)) ) 
+	{
+		char*			resultPtr = NULL;
+
+		DBGLOG( "BSDPlugin::DoRecordsLookup we are not FlatFiles and we are looking for User UniqueID or Group PrimaryGroupID we can match instead of ypcat\n" );
+		// re-assign the type name to the byuid / bygid maps instead
+		if (strcmp(recordTypeName, kNISRecordTypeUsers) == 0)
+			recordTypeName = kNISRecordTypeUsersByUID;
+		else
+			recordTypeName = kNISRecordTypeGroupsByGID;
+		
+		resultPtr = CopyResultOfNISLookup( kNISypmatch, recordTypeName, inAttributePatt2Match->fBufferData );
+		if ( resultPtr )
+		{
+			if ( strstr( resultPtr, kBindErrorString ) && !mWeLaunchedYPBind )
+			{
+				// it looks like ypbind may not be running, lets take a look and run it ourselves if need be.
+				DBGLOG( "BSDPlugin::CopyRecordResult got an error, implying that ypbind may not be running\n%s", resultPtr );
+				
+				free( resultPtr );
+				resultPtr = NULL;
+				
+				DBGLOG( "BSDPlugin::CopyRecordResult attempting to launch ypbind\n" );
+#ifdef ONLY_TRY_LAUNCHING_YPBIND_ONCE
+				mWeLaunchedYPBind = true;
+#endif
+				resultPtr = CopyResultOfNISLookup( kNISbind );			
+				
+				if ( resultPtr )
+				{
+					free( resultPtr );
+					resultPtr = NULL;
+				}
+				
+				// now try again.
+				resultPtr = CopyResultOfNISLookup( kNISypmatch, recordTypeName, inAttributePatt2Match->fBufferData );
+			}
+		}
+		
+		if ( resultPtr && strncmp( resultPtr, "No such map", strlen("No such map") ) != 0 && strncmp( resultPtr, "Can't match key", strlen("Can't match key") ) != 0 )
+		{
+			char*				curPtr = resultPtr;
+			char*				eoln = NULL;
+			char*				key = NULL;
+			char*				value = NULL;
+			
+			while ( curPtr && curPtr[0] != '\0' )
+			{
+				key = curPtr;
+				
+				eoln = strstr( curPtr, "\n" );
+				
+				if ( !eoln )
+					eoln = curPtr + strlen(curPtr);
+				
+				curPtr = strstr( curPtr, " " );	// advance to the space
+				
+				if ( curPtr && curPtr < eoln )
+				{
+					*curPtr = '\0';
+					
+					curPtr++;
+					value = curPtr;
+					
+					curPtr = strstr( curPtr, "\n" ); // advance to eoln
+				}
+				else
+					curPtr = eoln;
+				
+				if ( curPtr )
+				{
+					curPtr[0] = '\0';			
+					curPtr++;
+				}
+				
+				if ( key && value )
+				{
+					DBGLOG( "BSDPlugin::CopyMapResults key is: %s, value is: %s\n", key, value );
+					CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, recordTypeName );
+					
+					if ( resultRef )
+					{
+						CFArrayAppendValue( resultArrayRef, resultRef );
+						CFRelease( resultRef );
+					}
+					else
+						DBGLOG( "BSDPlugin::CopyMapResults no result\n" );
+				}
+			}
+		}
+		else
+		{
+			DBGLOG("BSDPlugin::CopyMapResults got an error: %s\n", resultPtr );
+		}
+			
+		free( resultPtr );
+		resultPtr = NULL;
+	}
+	else
+	if (	gDisableDisplayNameLookups && attributeKeyToMatch && ( (strcmp(attributeKeyToMatch, kDS1AttrDistinguishedName) == 0)
+		||	(strcmp(recordTypeName, kNISRecordTypeGroups) == 0 && strcmp(attributeKeyToMatch, kDSNAttrNestedGroups) == 0 ) )	)
+	{
+		DBGLOG("BSDPlugin::CopyMapResults skipping a lookup we know is not supported\n" );
 	}
 	else
 	{
@@ -4521,6 +4669,8 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 {
 	if ( !recordTypeName )
 		return NULL;
+
+	DBGLOG("BSDPlugin::CopyMapResults on %s for %s\n", (isFFRecord)?"/BSD/local":"NIS", recordTypeName);
 		
 	CFDictionaryRef			results = NULL;
 	CFMutableDictionaryRef	newResult = NULL;
@@ -4584,7 +4734,9 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 				resultPtr = NULL;
 				
 				DBGLOG( "BSDPlugin::CopyMapResults attempting to launch ypbind\n" );
+#ifdef ONLY_TRY_LAUNCHING_YPBIND_ONCE
 				mWeLaunchedYPBind = true;
+#endif
 				resultPtr = CopyResultOfNISLookup( kNISbind );			
 			
 				if ( resultPtr )
@@ -4597,7 +4749,7 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 				resultPtr = CopyResultOfNISLookup( kNISypcat, recordTypeName );
 			}
 
-			if ( (strncmp( resultPtr, "No such map", strlen("No such map") ) == 0 || strncmp( resultPtr, "Can't match key", strlen("Can't match key") ) == 0) )
+			if ( resultPtr != NULL && (strncmp( resultPtr, "No such map", strlen("No such map") ) == 0 || strncmp( resultPtr, "Can't match key", strlen("Can't match key") ) == 0) )
 			{
 				DBGLOG("BSDPlugin::CopyMapResults got an error: %s\n", resultPtr );
 				free( resultPtr );
@@ -4653,9 +4805,9 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 					curPtr++;
 				}
 				
-				DBGLOG( "BSDPlugin::CopyMapResults key is: %s, value is: %s\n", key, value );
 				if ( key && value )
 				{
+					DBGLOG( "BSDPlugin::CopyMapResults key is: %s, value is: %s\n", key, value );
 					CFMutableStringRef		dupValueCheckRef = CFStringCreateMutable( NULL, 0 );
 					
 					if ( dupValueCheckRef )
@@ -4847,7 +4999,7 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 			if ( returnRecordRef )
 			{
 				CFRetain( returnRecordRef );
-				DBGLOG( "BSDPlugin::CopyRecordResult returning cached result\n" );
+				DBGLOG( "BSDPlugin::CopyRecordResult returning cached BSD/local result\n" );
 			}
 		
 			CFRelease( cachedFFRef );
@@ -4878,7 +5030,7 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 			if ( returnRecordRef )
 			{
 				CFRetain( returnRecordRef );
-				DBGLOG( "BSDPlugin::CopyRecordResult returning cached result\n" );
+				DBGLOG( "BSDPlugin::CopyRecordResult returning cached NIS result\n" );
 			}
 		}
 		
@@ -4903,7 +5055,9 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 				resultPtr = NULL;
 				
 				DBGLOG( "BSDPlugin::CopyRecordResult attempting to launch ypbind\n" );
+#ifdef ONLY_TRY_LAUNCHING_YPBIND_ONCE
 				mWeLaunchedYPBind = true;
+#endif
 				resultPtr = CopyResultOfNISLookup( kNISbind );			
 			
 				if ( resultPtr )
@@ -5105,9 +5259,9 @@ CFMutableDictionaryRef BSDPlugin::CreateNISParseResult(char *data, const char* r
 
 	CFMutableDictionaryRef	returnResult = NULL;
 	
-	if ( strcmp( recordTypeName, kNISRecordTypeUsers ) == 0 )
+	if ( strcmp( recordTypeName, kNISRecordTypeUsers ) == 0 || strcmp( recordTypeName, kNISRecordTypeUsersByUID ) == 0 )
 		returnResult = ff_parse_user(data);
-	else if ( strcmp( recordTypeName, kNISRecordTypeGroups ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeGroups ) == 0 || strcmp( recordTypeName, kNISRecordTypeGroupsByGID ) == 0 )
 		returnResult = ff_parse_group(data);
 	else if ( strcmp( recordTypeName, kNISRecordTypeHosts ) == 0 )
 		returnResult = ff_parse_host(data);
@@ -5350,7 +5504,7 @@ sInt32 BSDPlugin::DoUnixCryptAuth ( BSDDirNodeRep *nodeDirRep, tDataBuffer *inAu
 	uInt32			buffSize		= 0;
 	uInt32			buffLen			= 0;
 	char			salt[ 9 ];
-	char			hashPwd[ 32 ];
+	char			hashPwd[ 64 ];
 	CFMutableDictionaryRef	recordResult = NULL;
 	const char*		mapName			= NULL;
 	
@@ -5441,32 +5595,16 @@ sInt32 BSDPlugin::DoUnixCryptAuth ( BSDDirNodeRep *nodeDirRep, tDataBuffer *inAu
 		::memcpy( pwd, pData, pwdLen );
 
 		//account for the case where nisPwd == "" such that we will auth if pwdLen is 0
-		if (::strcmp(nisPwd,"") != 0)
+		if ( nisPwd[0] != '\0' )
 		{
 			siResult = eDSAuthFailed;
 			
+			::bzero( hashPwd, sizeof(hashPwd) );
+			
 			// is it MD5?
-			// Note: "$ ypcat passwd" can be used to dump the hashes for viewing
-			// format: $1$<8 chars of whatever>$<22 chars base64 md5 hash>
-			// example: $1$vHKd8.CI$GdL2nEXv61Pp14BJ9JJ0A0
-			// example taken from CCSF Springfield NIS Cluster
-			if ( strlen(nisPwd) == 34 && strncmp(nisPwd, "$1$", 3) == 0 )
+			if ( strncmp(nisPwd, "$1$", 3) == 0 )
 			{
-				MD5_CTX ctx;
-				unsigned char md5Hash[MD5_DIGEST_LENGTH];
-				char md5HashBase64[MD5_DIGEST_LENGTH * 4 / 3 + 5];
-				unsigned encodedLen;
-				
-				MD5_Init( &ctx );
-				MD5_Update( &ctx, pwd, pwdLen );
-				MD5_Final( md5Hash, &ctx );
-				if ( sasl_encode64( (char *)md5Hash, MD5_DIGEST_LENGTH, md5HashBase64, sizeof(md5HashBase64), &encodedLen ) == SASL_OK )
-				{
-					if ( strncmp( md5HashBase64, nisPwd + 13, sizeof(md5HashBase64) ) == 0 )
-					{
-						siResult = eDSNoErr;
-					}
-				}
+				::strlcpy( hashPwd, ::crypt_md5(pwd, nisPwd), sizeof(hashPwd) );
 			}
 			else
 			{
@@ -5474,25 +5612,23 @@ sInt32 BSDPlugin::DoUnixCryptAuth ( BSDDirNodeRep *nodeDirRep, tDataBuffer *inAu
 				salt[ 0 ] = nisPwd[0];
 				salt[ 1 ] = nisPwd[1];
 				salt[ 2 ] = '\0';
-	
-				::memset( hashPwd, 0, 32 );
-				::strcpy( hashPwd, ::crypt( pwd, salt ) );
-	
-				if ( ::strcmp( hashPwd, nisPwd ) == 0 )
-				{
-					siResult = eDSNoErr;
-				}
+				
+				::strlcpy( hashPwd, ::crypt(pwd, salt), sizeof(hashPwd) );
+			}
+			if ( ::strcmp( hashPwd, nisPwd ) == 0 )
+			{
+				siResult = eDSNoErr;
 			}
 		}
 		else // nisPwd is == ""
 		{
-			if ( ::strcmp(pwd,"") == 0 )
+			if ( pwd[0] == '\0' )
 			{
 				siResult = eDSNoErr;
 			}
 		}
 	}
-
+	
 	catch( sInt32 err )
 	{
 		DBGLOG( "BSDPlugin::DoUnixCryptAuth Crypt authentication error %ld\n", err );
@@ -6118,7 +6254,7 @@ int LogHexDump(char *pktPtr, long pktLen)
 	if (!buf) 
     {	
         DBGLOG( "LogHexDump return memFullErr\n" );
-        return(memFullErr);
+        return(eMemoryAllocError);
 	}
     
 	for (i=0; i<bufLen; i++) 				// initialize to all spaces
@@ -6171,4 +6307,46 @@ int LogHexDump(char *pktPtr, long pktLen)
 	free(buf);
 	return noErr;
 	
+}
+
+#if BUILDING_NSLDEBUG
+pthread_mutex_t	bsdSysLogLock = PTHREAD_MUTEX_INITIALIZER;
+
+void ourLog(const char* format, ...)
+{
+    va_list ap;
+    
+	pthread_mutex_lock( &bsdSysLogLock );
+
+    va_start( ap, format );
+    newlog( format, ap );
+    va_end( ap );
+
+	pthread_mutex_unlock( &bsdSysLogLock );
+}
+
+void newlog(const char* format, va_list ap )
+{
+    char	pcMsg[MAXLINE +1];
+    
+    vsnprintf( pcMsg, MAXLINE, format, ap );
+
+#if LOG_ALWAYS
+    syslog( LOG_ALERT, "T:[0x%x] %s", pthread_self(), pcMsg );
+#else
+    syslog( LOG_ERR, "T:[0x%x] %s", pthread_self(), pcMsg );
+#endif
+}
+
+#endif
+
+#if LOG_ALWAYS
+	int			gDebuggingNSL = 1;
+#else
+	int			gDebuggingNSL = (getenv("NSLDEBUG") != NULL);
+#endif
+
+int IsNSLDebuggingEnabled( void )
+{
+	return gDebuggingNSL;
 }

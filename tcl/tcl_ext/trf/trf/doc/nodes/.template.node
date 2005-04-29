@@ -1,0 +1,23 @@
+# -*- tcl -*-
+# 
+
+node trf_ {
+    title       "Trf: Main documentation"
+    shortTitle  "Home"
+    description "The Trf documentation"
+    setFile     index.html
+
+    if {0} {
+	menu {
+	    trf_intro trf_where trf_ack trf_danger trf_cmds
+	    trf_copyrights trf_future trf_capi trf-install
+	}
+    }
+
+    menu {
+	trf_where
+    }
+
+    contents {
+    }
+}

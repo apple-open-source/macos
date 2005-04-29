@@ -1,6 +1,6 @@
 /* Target-dependent code for GNU/Linux on MIPS processors.
 
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -27,6 +27,7 @@
 #include "mips-tdep.h"
 #include "gdb_string.h"
 #include "gdb_assert.h"
+#include "frame.h"
 
 /* Copied from <asm/elf.h>.  */
 #define ELF_NGREG       45
@@ -80,19 +81,19 @@ mips_linux_get_longjmp_target (CORE_ADDR *pc)
 			  buf, TARGET_PTR_BIT / TARGET_CHAR_BIT))
     return 0;
 
-  *pc = extract_address (buf, TARGET_PTR_BIT / TARGET_CHAR_BIT);
+  *pc = extract_unsigned_integer (buf, TARGET_PTR_BIT / TARGET_CHAR_BIT);
 
   return 1;
 }
 
-/* Transform the bits comprising a 32-bit register to the right
-   size for supply_register().  This is needed when MIPS_REGSIZE is 8.  */
+/* Transform the bits comprising a 32-bit register to the right size
+   for supply_register().  This is needed when mips_regsize() is 8.  */
 
 static void
 supply_32bit_reg (int regnum, const void *addr)
 {
-  char *buf = alloca (MAX_REGISTER_RAW_SIZE);
-  store_signed_integer (buf, REGISTER_RAW_SIZE (regnum),
+  char buf[MAX_REGISTER_SIZE];
+  store_signed_integer (buf, DEPRECATED_REGISTER_RAW_SIZE (regnum),
                         extract_signed_integer (addr, 4));
   supply_register (regnum, buf);
 }
@@ -104,20 +105,25 @@ supply_gregset (elf_gregset_t *gregsetp)
 {
   int regi;
   elf_greg_t *regp = *gregsetp;
-  char *zerobuf = alloca (MAX_REGISTER_RAW_SIZE);
+  char zerobuf[MAX_REGISTER_SIZE];
 
-  memset (zerobuf, 0, MAX_REGISTER_RAW_SIZE);
+  memset (zerobuf, 0, MAX_REGISTER_SIZE);
 
   for (regi = EF_REG0; regi <= EF_REG31; regi++)
     supply_32bit_reg ((regi - EF_REG0), (char *)(regp + regi));
 
-  supply_32bit_reg (LO_REGNUM, (char *)(regp + EF_LO));
-  supply_32bit_reg (HI_REGNUM, (char *)(regp + EF_HI));
+  supply_32bit_reg (mips_regnum (current_gdbarch)->lo,
+		    (char *)(regp + EF_LO));
+  supply_32bit_reg (mips_regnum (current_gdbarch)->hi,
+		    (char *)(regp + EF_HI));
 
-  supply_32bit_reg (PC_REGNUM, (char *)(regp + EF_CP0_EPC));
-  supply_32bit_reg (BADVADDR_REGNUM, (char *)(regp + EF_CP0_BADVADDR));
+  supply_32bit_reg (mips_regnum (current_gdbarch)->pc,
+		    (char *)(regp + EF_CP0_EPC));
+  supply_32bit_reg (mips_regnum (current_gdbarch)->badvaddr,
+		    (char *)(regp + EF_CP0_BADVADDR));
   supply_32bit_reg (PS_REGNUM, (char *)(regp + EF_CP0_STATUS));
-  supply_32bit_reg (CAUSE_REGNUM, (char *)(regp + EF_CP0_CAUSE));
+  supply_32bit_reg (mips_regnum (current_gdbarch)->cause,
+		    (char *)(regp + EF_CP0_CAUSE));
 
   /* Fill inaccessible registers with zero.  */
   supply_register (UNUSED_REGNUM, zerobuf);
@@ -139,12 +145,12 @@ fill_gregset (elf_gregset_t *gregsetp, int regno)
       memset (regp, 0, sizeof (elf_gregset_t));
       for (regi = 0; regi < 32; regi++)
         fill_gregset (gregsetp, regi);
-      fill_gregset (gregsetp, LO_REGNUM);
-      fill_gregset (gregsetp, HI_REGNUM);
-      fill_gregset (gregsetp, PC_REGNUM);
-      fill_gregset (gregsetp, BADVADDR_REGNUM);
+      fill_gregset (gregsetp, mips_regnum (current_gdbarch)->lo);
+      fill_gregset (gregsetp, mips_regnum (current_gdbarch)->hi);
+      fill_gregset (gregsetp, mips_regnum (current_gdbarch)->pc);
+      fill_gregset (gregsetp, mips_regnum (current_gdbarch)->badvaddr);
       fill_gregset (gregsetp, PS_REGNUM);
-      fill_gregset (gregsetp, CAUSE_REGNUM);
+      fill_gregset (gregsetp, mips_regnum (current_gdbarch)->cause);
 
       return;
    }
@@ -156,28 +162,20 @@ fill_gregset (elf_gregset_t *gregsetp, int regno)
       return;
     }
 
-  regaddr = -1;
-  switch (regno)
-    {
-      case LO_REGNUM:
-	regaddr = EF_LO;
-	break;
-      case HI_REGNUM:
-	regaddr = EF_HI;
-	break;
-      case PC_REGNUM:
-	regaddr = EF_CP0_EPC;
-	break;
-      case BADVADDR_REGNUM:
-	regaddr = EF_CP0_BADVADDR;
-	break;
-      case PS_REGNUM:
-	regaddr = EF_CP0_STATUS;
-	break;
-      case CAUSE_REGNUM:
-	regaddr = EF_CP0_CAUSE;
-	break;
-    }
+  if (regno == mips_regnum (current_gdbarch)->lo)
+    regaddr = EF_LO;
+  else if (regno == mips_regnum (current_gdbarch)->hi)
+    regaddr = EF_HI;
+  else if (regno == mips_regnum (current_gdbarch)->pc)
+    regaddr = EF_CP0_EPC;
+  else if (regno == mips_regnum (current_gdbarch)->badvaddr)
+    regaddr = EF_CP0_BADVADDR;
+  else if (regno == PS_REGNUM)
+    regaddr = EF_CP0_STATUS;
+  else if (regno == mips_regnum (current_gdbarch)->cause)
+    regaddr = EF_CP0_CAUSE;
+  else
+    regaddr = -1;
 
   if (regaddr != -1)
     {
@@ -191,19 +189,21 @@ fill_gregset (elf_gregset_t *gregsetp, int regno)
 void
 supply_fpregset (elf_fpregset_t *fpregsetp)
 {
-  register int regi;
-  char *zerobuf = alloca (MAX_REGISTER_RAW_SIZE);
+  int regi;
+  char zerobuf[MAX_REGISTER_SIZE];
 
-  memset (zerobuf, 0, MAX_REGISTER_RAW_SIZE);
+  memset (zerobuf, 0, MAX_REGISTER_SIZE);
 
   for (regi = 0; regi < 32; regi++)
     supply_register (FP0_REGNUM + regi,
 		     (char *)(*fpregsetp + regi));
 
-  supply_register (FCRCS_REGNUM, (char *)(*fpregsetp + 32));
+  supply_register (mips_regnum (current_gdbarch)->fp_control_status,
+		   (char *)(*fpregsetp + 32));
 
-  /* FIXME: how can we supply FCRIR_REGNUM?  The ABI doesn't tell us. */
-  supply_register (FCRIR_REGNUM, zerobuf);
+  /* FIXME: how can we supply FCRIR?  The ABI doesn't tell us. */
+  supply_register (mips_regnum (current_gdbarch)->fp_implementation_revision,
+		   zerobuf);
 }
 
 /* Likewise, pack one or all floating point registers into an
@@ -216,15 +216,15 @@ fill_fpregset (elf_fpregset_t *fpregsetp, int regno)
 
   if ((regno >= FP0_REGNUM) && (regno < FP0_REGNUM + 32))
     {
-      from = (char *) &deprecated_registers[REGISTER_BYTE (regno)];
+      from = (char *) &deprecated_registers[DEPRECATED_REGISTER_BYTE (regno)];
       to = (char *) (*fpregsetp + regno - FP0_REGNUM);
-      memcpy (to, from, REGISTER_RAW_SIZE (regno - FP0_REGNUM));
+      memcpy (to, from, DEPRECATED_REGISTER_RAW_SIZE (regno - FP0_REGNUM));
     }
-  else if (regno == FCRCS_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->fp_control_status)
     {
-      from = (char *) &deprecated_registers[REGISTER_BYTE (regno)];
+      from = (char *) &deprecated_registers[DEPRECATED_REGISTER_BYTE (regno)];
       to = (char *) (*fpregsetp + 32);
-      memcpy (to, from, REGISTER_RAW_SIZE (regno));
+      memcpy (to, from, DEPRECATED_REGISTER_RAW_SIZE (regno));
     }
   else if (regno == -1)
     {
@@ -232,7 +232,7 @@ fill_fpregset (elf_fpregset_t *fpregsetp, int regno)
 
       for (regi = 0; regi < 32; regi++)
 	fill_fpregset (fpregsetp, FP0_REGNUM + regi);
-      fill_fpregset(fpregsetp, FCRCS_REGNUM);
+      fill_fpregset(fpregsetp, mips_regnum (current_gdbarch)->fp_control_status);
     }
 }
 
@@ -249,21 +249,22 @@ mips_linux_register_addr (int regno, CORE_ADDR blockend)
 
   if (regno < 32)
     regaddr = regno;
-  else if ((regno >= FP0_REGNUM) && (regno < FP0_REGNUM + 32))
-    regaddr = FPR_BASE + (regno - FP0_REGNUM);
-  else if (regno == PC_REGNUM)
+  else if ((regno >= mips_regnum (current_gdbarch)->fp0)
+	   && (regno < mips_regnum (current_gdbarch)->fp0 + 32))
+    regaddr = FPR_BASE + (regno - mips_regnum (current_gdbarch)->fp0);
+  else if (regno == mips_regnum (current_gdbarch)->pc)
     regaddr = PC;
-  else if (regno == CAUSE_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->cause)
     regaddr = CAUSE;
-  else if (regno == BADVADDR_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->badvaddr)
     regaddr = BADVADDR;
-  else if (regno == LO_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->lo)
     regaddr = MMLO;
-  else if (regno == HI_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->hi)
     regaddr = MMHI;
-  else if (regno == FCRCS_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->fp_control_status)
     regaddr = FPC_CSR;
-  else if (regno == FCRIR_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->fp_implementation_revision)
     regaddr = FPC_EIR;
   else
     error ("Unknowable register number %d.", regno);
@@ -367,7 +368,7 @@ mips64_linux_get_longjmp_target (CORE_ADDR *pc)
 			  buf, TARGET_PTR_BIT / TARGET_CHAR_BIT))
     return 0;
 
-  *pc = extract_address (buf, TARGET_PTR_BIT / TARGET_CHAR_BIT);
+  *pc = extract_unsigned_integer (buf, TARGET_PTR_BIT / TARGET_CHAR_BIT);
 
   return 1;
 }
@@ -379,20 +380,25 @@ mips64_supply_gregset (mips64_elf_gregset_t *gregsetp)
 {
   int regi;
   mips64_elf_greg_t *regp = *gregsetp;
-  char *zerobuf = alloca (MAX_REGISTER_RAW_SIZE);
+  char zerobuf[MAX_REGISTER_SIZE];
 
-  memset (zerobuf, 0, MAX_REGISTER_RAW_SIZE);
+  memset (zerobuf, 0, MAX_REGISTER_SIZE);
 
   for (regi = MIPS64_EF_REG0; regi <= MIPS64_EF_REG31; regi++)
     supply_register ((regi - MIPS64_EF_REG0), (char *)(regp + regi));
 
-  supply_register (LO_REGNUM, (char *)(regp + MIPS64_EF_LO));
-  supply_register (HI_REGNUM, (char *)(regp + MIPS64_EF_HI));
+  supply_register (mips_regnum (current_gdbarch)->lo,
+		   (char *)(regp + MIPS64_EF_LO));
+  supply_register (mips_regnum (current_gdbarch)->hi,
+		   (char *)(regp + MIPS64_EF_HI));
 
-  supply_register (PC_REGNUM, (char *)(regp + MIPS64_EF_CP0_EPC));
-  supply_register (BADVADDR_REGNUM, (char *)(regp + MIPS64_EF_CP0_BADVADDR));
+  supply_register (mips_regnum (current_gdbarch)->pc,
+		   (char *)(regp + MIPS64_EF_CP0_EPC));
+  supply_register (mips_regnum (current_gdbarch)->badvaddr,
+		   (char *)(regp + MIPS64_EF_CP0_BADVADDR));
   supply_register (PS_REGNUM, (char *)(regp + MIPS64_EF_CP0_STATUS));
-  supply_register (CAUSE_REGNUM, (char *)(regp + MIPS64_EF_CP0_CAUSE));
+  supply_register (mips_regnum (current_gdbarch)->cause,
+		   (char *)(regp + MIPS64_EF_CP0_CAUSE));
 
   /* Fill inaccessible registers with zero.  */
   supply_register (UNUSED_REGNUM, zerobuf);
@@ -414,12 +420,12 @@ mips64_fill_gregset (mips64_elf_gregset_t *gregsetp, int regno)
       memset (regp, 0, sizeof (mips64_elf_gregset_t));
       for (regi = 0; regi < 32; regi++)
         mips64_fill_gregset (gregsetp, regi);
-      mips64_fill_gregset (gregsetp, LO_REGNUM);
-      mips64_fill_gregset (gregsetp, HI_REGNUM);
-      mips64_fill_gregset (gregsetp, PC_REGNUM);
-      mips64_fill_gregset (gregsetp, BADVADDR_REGNUM);
+      mips64_fill_gregset (gregsetp, mips_regnum (current_gdbarch)->lo);
+      mips64_fill_gregset (gregsetp, mips_regnum (current_gdbarch)->hi);
+      mips64_fill_gregset (gregsetp, mips_regnum (current_gdbarch)->pc);
+      mips64_fill_gregset (gregsetp, mips_regnum (current_gdbarch)->badvaddr);
       mips64_fill_gregset (gregsetp, PS_REGNUM);
-      mips64_fill_gregset (gregsetp, CAUSE_REGNUM);
+      mips64_fill_gregset (gregsetp, mips_regnum (current_gdbarch)->cause);
 
       return;
    }
@@ -431,28 +437,20 @@ mips64_fill_gregset (mips64_elf_gregset_t *gregsetp, int regno)
       return;
     }
 
-  regaddr = -1;
-  switch (regno)
-    {
-      case LO_REGNUM:
-	regaddr = MIPS64_EF_LO;
-	break;
-      case HI_REGNUM:
-	regaddr = MIPS64_EF_HI;
-	break;
-      case PC_REGNUM:
-	regaddr = MIPS64_EF_CP0_EPC;
-	break;
-      case BADVADDR_REGNUM:
-	regaddr = MIPS64_EF_CP0_BADVADDR;
-	break;
-      case PS_REGNUM:
-	regaddr = MIPS64_EF_CP0_STATUS;
-	break;
-      case CAUSE_REGNUM:
-	regaddr = MIPS64_EF_CP0_CAUSE;
-	break;
-    }
+  if (regno == mips_regnum (current_gdbarch)->lo)
+    regaddr = MIPS64_EF_LO;
+  else if (regno == mips_regnum (current_gdbarch)->hi)
+    regaddr = MIPS64_EF_HI;
+  else if (regno == mips_regnum (current_gdbarch)->pc)
+    regaddr = MIPS64_EF_CP0_EPC;
+  else if (regno == mips_regnum (current_gdbarch)->badvaddr)
+    regaddr = MIPS64_EF_CP0_BADVADDR;
+  else if (regno == PS_REGNUM)
+    regaddr = MIPS64_EF_CP0_STATUS;
+  else if (regno == mips_regnum (current_gdbarch)->cause)
+    regaddr = MIPS64_EF_CP0_CAUSE;
+  else
+    regaddr = -1;
 
   if (regaddr != -1)
     {
@@ -466,19 +464,21 @@ mips64_fill_gregset (mips64_elf_gregset_t *gregsetp, int regno)
 static void
 mips64_supply_fpregset (mips64_elf_fpregset_t *fpregsetp)
 {
-  register int regi;
-  char *zerobuf = alloca (MAX_REGISTER_RAW_SIZE);
+  int regi;
+  char zerobuf[MAX_REGISTER_SIZE];
 
-  memset (zerobuf, 0, MAX_REGISTER_RAW_SIZE);
+  memset (zerobuf, 0, MAX_REGISTER_SIZE);
 
   for (regi = 0; regi < 32; regi++)
     supply_register (FP0_REGNUM + regi,
 		     (char *)(*fpregsetp + regi));
 
-  supply_register (FCRCS_REGNUM, (char *)(*fpregsetp + 32));
+  supply_register (mips_regnum (current_gdbarch)->fp_control_status,
+		   (char *)(*fpregsetp + 32));
 
-  /* FIXME: how can we supply FCRIR_REGNUM?  The ABI doesn't tell us. */
-  supply_register (FCRIR_REGNUM, zerobuf);
+  /* FIXME: how can we supply FCRIR?  The ABI doesn't tell us. */
+  supply_register (mips_regnum (current_gdbarch)->fp_implementation_revision,
+		   zerobuf);
 }
 
 /* Likewise, pack one or all floating point registers into an
@@ -491,15 +491,15 @@ mips64_fill_fpregset (mips64_elf_fpregset_t *fpregsetp, int regno)
 
   if ((regno >= FP0_REGNUM) && (regno < FP0_REGNUM + 32))
     {
-      from = (char *) &deprecated_registers[REGISTER_BYTE (regno)];
+      from = (char *) &deprecated_registers[DEPRECATED_REGISTER_BYTE (regno)];
       to = (char *) (*fpregsetp + regno - FP0_REGNUM);
-      memcpy (to, from, REGISTER_RAW_SIZE (regno - FP0_REGNUM));
+      memcpy (to, from, DEPRECATED_REGISTER_RAW_SIZE (regno - FP0_REGNUM));
     }
-  else if (regno == FCRCS_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->fp_control_status)
     {
-      from = (char *) &deprecated_registers[REGISTER_BYTE (regno)];
+      from = (char *) &deprecated_registers[DEPRECATED_REGISTER_BYTE (regno)];
       to = (char *) (*fpregsetp + 32);
-      memcpy (to, from, REGISTER_RAW_SIZE (regno));
+      memcpy (to, from, DEPRECATED_REGISTER_RAW_SIZE (regno));
     }
   else if (regno == -1)
     {
@@ -507,7 +507,8 @@ mips64_fill_fpregset (mips64_elf_fpregset_t *fpregsetp, int regno)
 
       for (regi = 0; regi < 32; regi++)
 	mips64_fill_fpregset (fpregsetp, FP0_REGNUM + regi);
-      mips64_fill_fpregset(fpregsetp, FCRCS_REGNUM);
+      mips64_fill_fpregset(fpregsetp,
+			   mips_regnum (current_gdbarch)->fp_control_status);
     }
 }
 
@@ -525,21 +526,22 @@ mips64_linux_register_addr (int regno, CORE_ADDR blockend)
 
   if (regno < 32)
     regaddr = regno;
-  else if ((regno >= FP0_REGNUM) && (regno < FP0_REGNUM + 32))
+  else if ((regno >= mips_regnum (current_gdbarch)->fp0)
+	   && (regno < mips_regnum (current_gdbarch)->fp0 + 32))
     regaddr = MIPS64_FPR_BASE + (regno - FP0_REGNUM);
-  else if (regno == PC_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->pc)
     regaddr = MIPS64_PC;
-  else if (regno == CAUSE_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->cause)
     regaddr = MIPS64_CAUSE;
-  else if (regno == BADVADDR_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->badvaddr)
     regaddr = MIPS64_BADVADDR;
-  else if (regno == LO_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->lo)
     regaddr = MIPS64_MMLO;
-  else if (regno == HI_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->hi)
     regaddr = MIPS64_MMHI;
-  else if (regno == FCRCS_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->fp_control_status)
     regaddr = MIPS64_FPC_CSR;
-  else if (regno == FCRIR_REGNUM)
+  else if (regno == mips_regnum (current_gdbarch)->fp_implementation_revision)
     regaddr = MIPS64_FPC_EIR;
   else
     error ("Unknowable register number %d.", regno);
@@ -675,6 +677,126 @@ init_register_addr_data (struct gdbarch *gdbarch)
   return 0;
 }
 
+/* Check the code at PC for a dynamic linker lazy resolution stub.  Because
+   they aren't in the .plt section, we pattern-match on the code generated
+   by GNU ld.  They look like this:
+
+   lw t9,0x8010(gp)
+   addu t7,ra
+   jalr t9,ra
+   addiu t8,zero,INDEX
+
+   (with the appropriate doubleword instructions for N64).  Also return the
+   dynamic symbol index used in the last instruction.  */
+
+static int
+mips_linux_in_dynsym_stub (CORE_ADDR pc, char *name)
+{
+  unsigned char buf[28], *p;
+  ULONGEST insn, insn1;
+  int n64 = (mips_abi (current_gdbarch) == MIPS_ABI_N64);
+
+  read_memory (pc - 12, buf, 28);
+
+  if (n64)
+    {
+      /* ld t9,0x8010(gp) */
+      insn1 = 0xdf998010;
+    }
+  else
+    {
+      /* lw t9,0x8010(gp) */
+      insn1 = 0x8f998010;
+    }
+
+  p = buf + 12;
+  while (p >= buf)
+    {
+      insn = extract_unsigned_integer (p, 4);
+      if (insn == insn1)
+	break;
+      p -= 4;
+    }
+  if (p < buf)
+    return 0;
+
+  insn = extract_unsigned_integer (p + 4, 4);
+  if (n64)
+    {
+      /* daddu t7,ra */
+      if (insn != 0x03e0782d)
+	return 0;
+    }
+  else
+    {
+      /* addu t7,ra */
+      if (insn != 0x03e07821)
+	return 0;
+    }
+  
+  insn = extract_unsigned_integer (p + 8, 4);
+  /* jalr t9,ra */
+  if (insn != 0x0320f809)
+    return 0;
+
+  insn = extract_unsigned_integer (p + 12, 4);
+  if (n64)
+    {
+      /* daddiu t8,zero,0 */
+      if ((insn & 0xffff0000) != 0x64180000)
+	return 0;
+    }
+  else
+    {
+      /* addiu t8,zero,0 */
+      if ((insn & 0xffff0000) != 0x24180000)
+	return 0;
+    }
+
+  return (insn & 0xffff);
+}
+
+/* Return non-zero iff PC belongs to the dynamic linker resolution code
+   or to a stub.  */
+
+int
+mips_linux_in_dynsym_resolve_code (CORE_ADDR pc)
+{
+  /* Check whether PC is in the dynamic linker.  This also checks whether
+     it is in the .plt section, which MIPS does not use.  */
+  if (in_solib_dynsym_resolve_code (pc))
+    return 1;
+
+  /* Pattern match for the stub.  It would be nice if there were a more
+     efficient way to avoid this check.  */
+  if (mips_linux_in_dynsym_stub (pc, NULL))
+    return 1;
+
+  return 0;
+}
+
+/* See the comments for SKIP_SOLIB_RESOLVER at the top of infrun.c,
+   and glibc_skip_solib_resolver in glibc-tdep.c.  The normal glibc
+   implementation of this triggers at "fixup" from the same objfile as
+   "_dl_runtime_resolve"; MIPS GNU/Linux can trigger at
+   "__dl_runtime_resolve" directly.  An unresolved PLT entry will
+   point to _dl_runtime_resolve, which will first call
+   __dl_runtime_resolve, and then pass control to the resolved
+   function.  */
+
+static CORE_ADDR
+mips_linux_skip_resolver (struct gdbarch *gdbarch, CORE_ADDR pc)
+{
+  struct minimal_symbol *resolver;
+
+  resolver = lookup_minimal_symbol ("__dl_runtime_resolve", NULL, NULL);
+
+  if (resolver && SYMBOL_VALUE_ADDRESS (resolver) == pc)
+    return frame_pc_unwind (get_current_frame ()); 
+
+  return 0;
+}      
+
 static void
 mips_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
@@ -708,6 +830,12 @@ mips_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 	internal_error (__FILE__, __LINE__, "can't handle ABI");
 	break;
     }
+
+  set_gdbarch_skip_solib_resolver (gdbarch, mips_linux_skip_resolver);
+
+  /* This overrides the MIPS16 stub support from mips-tdep.  But no
+     one uses MIPS16 on GNU/Linux yet, so this isn't much of a loss.  */
+  set_gdbarch_in_solib_call_trampoline (gdbarch, mips_linux_in_dynsym_stub);
 }
 
 void
@@ -716,7 +844,7 @@ _initialize_mips_linux_tdep (void)
   const struct bfd_arch_info *arch_info;
 
   register_addr_data =
-    register_gdbarch_data (init_register_addr_data, 0);
+    register_gdbarch_data (init_register_addr_data);
 
   for (arch_info = bfd_lookup_arch (bfd_arch_mips, 0);
        arch_info != NULL;

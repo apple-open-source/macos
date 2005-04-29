@@ -1,5 +1,5 @@
-/* DWARF2 exception handling and frame unwind runtime interface routines.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+/* SJLJ exception handling and frame unwind runtime interface routines.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -8,6 +8,15 @@
    under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
+
+   In addition to the permissions in the GNU General Public License, the
+   Free Software Foundation gives you unlimited permission to link the
+   compiled version of this file into combinations with other programs,
+   and to distribute those combinations without any restriction coming
+   from the use of this file.  (The General Public License restrictions
+   do apply in other respects; for example, they cover modification of
+   the file, and distribution when not linked into a combined
+   executable.)
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
@@ -21,6 +30,8 @@
 
 #include "tconfig.h"
 #include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "unwind.h"
 #include "gthr.h"
 
@@ -92,15 +103,9 @@ static __gthread_key_t fc_key;
 static int use_fc_key = -1;
 
 static void
-fc_key_dtor (void *ptr)
-{
-  __gthread_key_dtor (fc_key, ptr);
-}
-
-static void
 fc_key_init (void)
 {
-  use_fc_key = __gthread_key_create (&fc_key, fc_key_dtor) == 0;
+  use_fc_key = __gthread_key_create (&fc_key, 0) == 0;
 }
 
 static void
@@ -174,6 +179,15 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
   return context->fc->data[index];
 }
 
+/* Get the value of the CFA as saved in CONTEXT.  */
+
+_Unwind_Word
+_Unwind_GetCFA (struct _Unwind_Context *context __attribute__((unused)))
+{
+  /* ??? Ideally __builtin_setjmp places the CFA in the jmpbuf.  */
+  return (_Unwind_Word) 0;
+}
+
 void
 _Unwind_SetGR (struct _Unwind_Context *context, int index, _Unwind_Word val)
 {
@@ -209,7 +223,7 @@ _Unwind_GetRegionStart (struct _Unwind_Context *context __attribute__((unused)) 
 }
 
 void *
-_Unwind_FindEnclosingFunction (void *pc)
+_Unwind_FindEnclosingFunction (void *pc __attribute__((unused)))
 {
   return NULL;
 }
@@ -256,16 +270,13 @@ uw_init_context (struct _Unwind_Context *context)
   context->fc = _Unwind_SjLj_GetContext ();
 }
 
-/* ??? There appear to be bugs in integrate.c wrt __builtin_longjmp and
-   virtual-stack-vars.  An inline version of this segfaults on SPARC.  */
-#define uw_install_context(CURRENT, TARGET)		\
-  do							\
-    {							\
-      _Unwind_SjLj_SetContext ((TARGET)->fc);		\
-      longjmp ((TARGET)->fc->jbuf, 1);			\
-    }							\
-  while (0)
-
+static void __attribute__((noreturn))
+uw_install_context (struct _Unwind_Context *current __attribute__((unused)),
+                    struct _Unwind_Context *target)
+{
+  _Unwind_SjLj_SetContext (target->fc);
+  longjmp (target->fc->jbuf, 1);
+}
 
 static inline _Unwind_Ptr
 uw_identify_context (struct _Unwind_Context *context)
@@ -280,6 +291,7 @@ uw_identify_context (struct _Unwind_Context *context)
 #define _Unwind_RaiseException		_Unwind_SjLj_RaiseException
 #define _Unwind_ForcedUnwind		_Unwind_SjLj_ForcedUnwind
 #define _Unwind_Resume			_Unwind_SjLj_Resume
+#define _Unwind_Resume_or_Rethrow	_Unwind_SjLj_Resume_or_Rethrow
 
 #include "unwind.inc"
 

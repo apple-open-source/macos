@@ -85,10 +85,10 @@ free_entry(e)
  * otherwise return a pointer to a new entry.
  */
 entry *
-load_entry(file, error_func, pw, envp)
+load_entry(file, error_func, uname, envp)
 	FILE		*file;
 	void		(*error_func)();
-	struct passwd	*pw;
+	char		*uname;
 	char		**envp;
 {
 	/* this function reads one crontab entry -- the next -- from a file.
@@ -262,10 +262,9 @@ load_entry(file, error_func, pw, envp)
 	/* ch is the first character of a command, or a username */
 	unget_char(ch, file);
 
-	if (!pw) {
+	if (!uname) {
 		char		*username = cmd;	/* temp buffer */
 		char            *s;
-		struct group    *grp;
 #ifdef LOGIN_CAP
 		login_cap_t *lc;
 #endif
@@ -300,35 +299,20 @@ load_entry(file, error_func, pw, envp)
 		}
 		login_close(lc);
 #endif
-		grp = NULL;
 		if ((s = strrchr(username, ':')) != NULL) {
 			*s = '\0';
-			if ((grp = getgrnam(s + 1)) == NULL) {
-				ecode = e_group;
-				goto eof;
-			}
+			strcpy(e->gname, s + 1);
 		}
+		strcpy(e->uname, username);
+	} else {
+		strcpy(e->uname, uname);
+		strcpy(e->gname, "");
+	}
+	Debug(DPARS, ("load_entry()...user: %s group:\n",e->uname,e->gname))
 
-		pw = getpwnam(username);
-		if (pw == NULL) {
-			ecode = e_username;
-			goto eof;
-		}
-		if (grp != NULL)
-			pw->pw_gid = grp->gr_gid;
-		Debug(DPARS, ("load_entry()...uid %d, gid %d\n",pw->pw_uid,pw->pw_gid))
 #ifdef LOGIN_CAP
-		Debug(DPARS, ("load_entry()...class %s\n",e->class))
+	Debug(DPARS, ("load_entry()...class %s\n",e->class))
 #endif
-	}
-
-	if (pw->pw_expire && time(NULL) >= pw->pw_expire) {
-		ecode = e_username;
-		goto eof;
-	}
-
-	e->uid = pw->pw_uid;
-	e->gid = pw->pw_gid;
 
 	/* copy and fix up environment.  some variables are just defaults and
 	 * others are overrides.
@@ -351,14 +335,6 @@ load_entry(file, error_func, pw, envp)
 		}
 	}
 	prev_env = e->envp;
-	sprintf(envstr, "HOME=%s", pw->pw_dir);
-	e->envp = env_set(e->envp, envstr);
-	if (e->envp == NULL) {
-		warn("env_set(%s)", envstr);
-		env_free(prev_env);
-		ecode = e_mem;
-		goto eof;
-	}
 	if (!env_get("PATH", e->envp)) {
 		prev_env = e->envp;
 		sprintf(envstr, "PATH=%s", _PATH_DEFPATH);
@@ -371,7 +347,7 @@ load_entry(file, error_func, pw, envp)
 		}
 	}
 	prev_env = e->envp;
-	sprintf(envstr, "%s=%s", "LOGNAME", pw->pw_name);
+	sprintf(envstr, "%s=%s", "LOGNAME", uname);
 	e->envp = env_set(e->envp, envstr);
 	if (e->envp == NULL) {
 		warn("env_set(%s)", envstr);
@@ -381,7 +357,7 @@ load_entry(file, error_func, pw, envp)
 	}
 #if defined(BSD)
 	prev_env = e->envp;
-	sprintf(envstr, "%s=%s", "USER", pw->pw_name);
+	sprintf(envstr, "%s=%s", "USER", uname);
 	e->envp = env_set(e->envp, envstr);
 	if (e->envp == NULL) {
 		warn("env_set(%s)", envstr);

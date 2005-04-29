@@ -1,5 +1,5 @@
 --- src/ylwrap	Tue Jun 26 15:23:52 2001
-+++ src/ylwrap.DOS	Thu Jun 28 17:39:31 2001
++++ src.DOS/ylwrap	Thu Jun 28 17:39:31 2001
 @@ -80,7 +80,7 @@
      ;;
   *)

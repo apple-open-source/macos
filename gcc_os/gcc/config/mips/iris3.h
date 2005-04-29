@@ -21,16 +21,16 @@ Boston, MA 02111-1307, USA.  */
 #define SGI_TARGET 1		/* inform other mips files this is SGI */
 
 /* Names to predefine in the preprocessor for this target machine.  */
-
+/* Temporarily #if 0'd until Irix header consolidation.  */
+#if 0
 #define CPP_PREDEFINES	"\
 -Dunix -Dmips -Dsgi -DSVR3 -Dhost_mips -DMIPSEB -DSYSTYPE_SYSV \
 -Asystem=unix -Asystem=svr3 -Acpu=mips -Amachine=mips"
-
-#define STARTFILE_SPEC	"%{pg:gcrt1.o%s}%{!pg:%{p:mcrt1.o%s}%{!p:crt1.o%s}}"
-
 #define SUBTARGET_CPP_SPEC "\
 %{!ansi:-D__EXTENSIONS__} -D_MIPSEB -D_SYSTYPE_SYSV"
+#endif
 
+#define STARTFILE_SPEC	"%{pg:gcrt1.o%s}%{!pg:%{p:mcrt1.o%s}%{!p:crt1.o%s}}"
 #define LIB_SPEC	\
 	"%{!p:%{!pg:%{!static:%{!g*:-lc_s}} -lc}}%{p:-lc_p}%{pg:-lc_p} crtn.o%s"
 
@@ -64,9 +64,6 @@ Boston, MA 02111-1307, USA.  */
 /* Specify wchar_t type.  */
 #define WCHAR_TYPE	"unsigned char"
 #define WCHAR_TYPE_SIZE BITS_PER_UNIT
-
-/* Generate calls to memcpy, etc., not bcopy, etc.  */
-#define TARGET_MEM_FUNCTIONS
 
 /* Plain char is unsigned in the SGI compiler.  */
 #define DEFAULT_SIGNED_CHAR 0

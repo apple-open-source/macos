@@ -20,9 +20,9 @@ The tlsmgr is responsible for the PRNG handling. The used internal
 OpenSSL PRNG has a pool size of 8192 bits (= 1024 bytes). The pool
 is initially seeded at startup from an external source (EGD or
 /dev/urandom) and additional seed is obtained later during program
-run at a configurable period. The exact time of seed query is
-using random information and is equally distributed in the range of
-[0-\fBtls_random_reseed_period\fR] with a \fBtls_random_reseed_period\fR
+run at a configurable interval. The exact time of each successive seed
+query is randomly distributed in the range of
+[0-\fBtls_random_reseed_period\fR] with \fBtls_random_reseed_period\fR
 having a default of 1 hour.
 
 Tlsmgr can be run chrooted and with dropped privileges, as it will
@@ -47,7 +47,7 @@ periodically with the time changing randomly from
 .ad
 .fi
 Tlsmgr is not security-sensitive. It only deals with external data
-to be fed into the PRNG, the contents is never trusted. The session
+to be fed into the PRNG, its content is never trusted. The session
 cache housekeeping will only remove entries if expired and will never
 touch the contents of the cached data.
 .SH DIAGNOSTICS

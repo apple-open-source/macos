@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/int10/generic.c,v 1.25 2002/04/04 14:05:51 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/int10/generic.c,v 1.29 2003/09/24 02:43:33 dawes Exp $ */
 /*
  *                   XFree86 int10 module
  *   execute BIOS int 10h calls in x86 real mode environment
@@ -108,7 +108,7 @@ xf86ExtendedInitInt10(int entityIndex, int Flags)
     MapVRam(pInt);
 #ifdef _PC
     if (!sysMem)
-	sysMem = xf86MapVidMem(screen, VIDMEM_FRAMEBUFFER, V_BIOS,
+	sysMem = xf86MapVidMem(screen, VIDMEM_MMIO, V_BIOS,
 			       BIOS_SIZE + SYS_BIOS - V_BIOS);
     INTPriv(pInt)->sysMem = sysMem;
 
@@ -139,20 +139,22 @@ xf86ExtendedInitInt10(int entityIndex, int Flags)
 	
 	if (bios.bus == BUS_ISA && bios.location.legacy) {
 	    xf86DrvMsg(screen, X_CONFIG,
-			   "Overriding BIOS location: 0x%lx\n",
+			   "Overriding BIOS location: 0x%x\n",
 		       bios.location.legacy);
 	    cs = bios.location.legacy >> 4;
 #define CHECK_V_SEGMENT_RANGE(x)   \
-               if ((x << 4) < V_BIOS) {\
+               if (((x) << 4) < V_BIOS) {\
 		   xf86DrvMsg(screen, X_ERROR, \
-		              "V_BIOS address 0x%x out of range\n",x << 4); \
+		              "V_BIOS address 0x%lx out of range\n", \
+			      (unsigned long)(x) << 4); \
 		    goto error1; \
 	       }
 	    CHECK_V_SEGMENT_RANGE(cs);
 	    vbiosMem = (unsigned char *)sysMem - V_BIOS + (cs << 4);
 	    if (!int10_check_bios(screen, cs, vbiosMem)) {
 		xf86DrvMsg(screen, X_ERROR,
-			   "No V_BIOS at specified address 0x%x\n",cs << 4);
+			   "No V_BIOS at specified address 0x%lx\n",
+			   (unsigned long)cs << 4);
 		goto error1;
 	    }
 	} else {
@@ -182,7 +184,8 @@ xf86ExtendedInitInt10(int entityIndex, int Flags)
 	    }
 	}
 	
-	xf86DrvMsg(screen, X_INFO, "Primary V_BIOS segment is: 0x%x\n", cs);
+	xf86DrvMsg(screen, X_INFO, "Primary V_BIOS segment is: 0x%lx\n",
+		   (unsigned long)cs);
 
 	set_return_trap(pInt);
 	pInt->BIOSseg = cs;
@@ -446,12 +449,14 @@ xf86Int10FreePages(xf86Int10InfoPtr pInt, void *pbase, int num)
 #define OFF(addr) ((addr) & 0xffff)
 #if defined _PC
 # define HIGH_OFFSET (INTPriv(pInt)->highMemory)
+# define HIGH_BASE   V_BIOS
 #else
 # define HIGH_OFFSET SYS_BIOS
+# define HIGH_BASE   SYS_BIOS
 #endif
 # define SYS(addr) ((addr) >= HIGH_OFFSET)
 #define V_ADDR(addr) \
-	  (SYS(addr) ? ((char*)INTPriv(pInt)->sysMem) + (addr - HIGH_OFFSET) \
+	  (SYS(addr) ? ((char*)INTPriv(pInt)->sysMem) + (addr - HIGH_BASE) \
 	   : (((char*)(INTPriv(pInt)->base) + addr)))
 #define VRAM_ADDR(addr) (addr - V_RAM)
 #define VRAM_BASE (INTPriv(pInt)->vRam)

@@ -1,6 +1,6 @@
 /* mupdate-client.h -- cyrus murder database clients
  *
- * $Id: mupdate-client.h,v 1.14 2004/03/08 17:31:05 rjs3 Exp $
+ * $Id: mupdate-client.h,v 1.5 2005/03/05 00:37:00 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

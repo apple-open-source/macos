@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.spread.flavors.RemoteCacheObserver</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.spread.html">Package&nbsp;spread</a> ::
+        <a href="twisted.spread.flavors.html">Module&nbsp;flavors</a> ::
+        Class&nbsp;RemoteCacheObserver
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.spread.flavors.RemoteCacheObserver.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class RemoteCacheObserver</h2>
+
+<hr/>
+
+<p>I am a reverse-reference to the peer's <a 
+href="twisted.spread.flavors.RemoteCache.html" 
+class="link"><code>RemoteCache</code></a>.</p>
+I am generated automatically when a cache is serialized. I represent a 
+reference to the client's <a 
+href="twisted.spread.flavors.RemoteCache.html" 
+class="link"><code>RemoteCache</code></a> object that will represent a 
+particular <a href="twisted.spread.flavors.Cacheable.html" 
+class="link"><code>Cacheable</code></a>; I am the additional object 
+passed to getStateToCacheAndObserveFor.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.RemoteCacheObserver.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>broker</span>,
+          <span class=summary-sig-arg>cached</span>,
+          <span class=summary-sig-arg>perspective</span>)</span></code>
+<br />
+(internal) Initialize me.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.RemoteCacheObserver.html#__cmp__" class="summary-sig-name"><code>__cmp__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>other</span>)</span></code>
+<br />
+Compare me to another <a 
+href="twisted.spread.flavors.RemoteCacheObserver.html" 
+class="link"><code>RemoteCacheObserver</code></a>.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.RemoteCacheObserver.html#__hash__" class="summary-sig-name"><code>__hash__</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Generate a hash unique to all <a 
+href="twisted.spread.flavors.RemoteCacheObserver.html" 
+class="link"><code>RemoteCacheObserver</code></a>s for this 
+broker/perspective/cached triplet</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__repr__"></a><span class="summary-sig"><span class="summary-sig-name">__repr__</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.RemoteCacheObserver.html#callRemote" class="summary-sig-name"><code>callRemote</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>_name</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+<br />
+(internal) action method.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.RemoteCacheObserver.html#remoteMethod" class="summary-sig-name"><code>remoteMethod</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>key</span>)</span></code>
+<br />
+Get a <a href="twisted.spread.pb.RemoteMethod.html" 
+class="link"><code>pb.RemoteMethod</code></a> for this key.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="__init__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__init__</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>broker</span>,
+          <span class=sig-arg>cached</span>,
+          <span class=sig-arg>perspective</span>)</span>
+    <br /><i>(Constructor)</i>
+  </h3>
+  (internal) Initialize me.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>broker</b></code> -
+         a <a href="twisted.spread.pb.Broker.html" 
+        class="link"><code>pb.Broker</code></a> instance.
+      <dd><code><b>cached</b></code> -
+         a <a href="twisted.spread.flavors.Cacheable.html" 
+        class="link"><code>Cacheable</code></a> instance that this <a 
+        href="twisted.spread.flavors.RemoteCacheObserver.html" 
+        class="link"><code>RemoteCacheObserver</code></a> corresponds 
+        to.
+      <dd><code><b>perspective</b></code> -
+         a reference to the perspective who is observing this.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="__cmp__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__cmp__</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>other</span>)</span>
+    <br /><i>(Comparison operator)</i>
+  </h3>
+  Compare me to another <a 
+  href="twisted.spread.flavors.RemoteCacheObserver.html" 
+  class="link"><code>RemoteCacheObserver</code></a>.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="__hash__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__hash__</span>(<span class=sig-arg>self</span>)</span>
+    <br /><i>(Hashing function)</i>
+  </h3>
+  Generate a hash unique to all <a 
+  href="twisted.spread.flavors.RemoteCacheObserver.html" 
+  class="link"><code>RemoteCacheObserver</code></a>s for this 
+  broker/perspective/cached triplet
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="callRemote"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">callRemote</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>_name</span>,
+          <span class="sig-vararg">*args</span>,
+          <span class="sig-kwarg">**kw</span>)</span>
+  </h3>
+  (internal) action method.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="remoteMethod"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">remoteMethod</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>key</span>)</span>
+  </h3>
+  Get a <a href="twisted.spread.pb.RemoteMethod.html" 
+  class="link"><code>pb.RemoteMethod</code></a> for this key.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:29 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

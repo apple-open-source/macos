@@ -15,6 +15,9 @@ srcdir     = @srcdir@
 # top_srcdir is usually ".."
 top_srcdir = @top_srcdir@
 
+VPATH      = @srcdir@
+subdir     = emx
+
 lib_dir     = ${top_srcdir}/lib
 cvs_srcdir = ${top_srcdir}/src
 diff_srcdir = ${top_srcdir}/diff
@@ -40,9 +43,8 @@ CFLAGS = -pedantic -Wall -fno-builtin ${CINC} \
 # We list OS2_HEADERS so we know what to include when we make dist-dir
 # here.
 OS2_HEADERS = \
-       ${srcdir}/config.h \
-       ${srcdir}/options.h \
-       ${srcdir}/rcmd.h
+       config.h \
+       rcmd.h
 
 # headers we use from the common src dir, ../src
 COMMON_HEADERS = \
@@ -64,11 +66,11 @@ DIFF_HEADERS = \
 
 # sources specific to OS/2
 OS2_SOURCES = \
-       ${srcdir}/filesubr.c \
-       ${srcdir}/startserver.c \
-       ${srcdir}/stripslash.c \
-       ${srcdir}/savecwd.c \
-       ${srcdir}/system.c
+       filesubr.c \
+       startserver.c \
+       stripslash.c \
+       savecwd.c \
+       system.c
 
 # sources we use from the common src dir, ../src
 # FIXME: Is this used anywhere?  I don't think it is.
@@ -112,7 +114,6 @@ COMMON_SOURCES = \
        ${cvs_srcdir}/remove.c \
        ${cvs_srcdir}/repos.c \
        ${cvs_srcdir}/root.c \
-       ${cvs_srcdir}/rtag.c \
        ${cvs_srcdir}/scramble.c \
        ${cvs_srcdir}/server.c \
        ${cvs_srcdir}/status.c \
@@ -146,7 +147,6 @@ DIFF_SOURCES = \
 # sources from ../lib
 # FIXME: Is this used anywhere?  I don't think it is.
 LIB_SOURCES = \
-       ${lib_dir}/vasprintf.c \
        ${lib_dir}/argmatch.c \
        ${lib_dir}/getline.c \
        ${lib_dir}/getopt.c \
@@ -208,7 +208,6 @@ COMMON_OBJECTS = \
        ${cvs_srcdir}/remove.o \
        ${cvs_srcdir}/repos.o \
        ${cvs_srcdir}/root.o \
-       ${cvs_srcdir}/rtag.o \
        ${cvs_srcdir}/scramble.o \
        ${cvs_srcdir}/server.o \
        ${cvs_srcdir}/status.o \
@@ -242,7 +241,6 @@ DIFF_OBJECTS = \
 
 # objects from ../lib
 LIB_OBJECTS = \
-       ${lib_dir}/vasprintf.o \
        ${lib_dir}/argmatch.o \
        ${lib_dir}/getline.o \
        ${lib_dir}/getopt.o \
@@ -275,14 +273,18 @@ OBJECTS = ${COMMON_OBJECTS} ${LIB_OBJECTS} ${OS2_OBJECTS} ${DIFF_OBJECTS} \
   ${ZLIB_OBJECTS}
 
 DISTFILES = ${OS2_HEADERS} ${OS2_SOURCES} \
-  ${srcdir}/README ${srcdir}/ChangeLog \
-  ${srcdir}/Makefile.in ${srcdir}/.cvsignore \
+  README ChangeLog \
+  Makefile.in .cvsignore \
   Makefile
 
 all:
 
-.PHONY: all install uninstall
-all install uninstall:
+# Automake
+.PHONY: all install installcheck uninstall check info dvi
+all install installcheck uninstall check:
+
+.PHONY: dvi info pdf ps
+dvi info pdf ps:
 
 installdirs:
 .PHONY: installdirs
@@ -290,26 +292,57 @@ installdirs:
 .PHONY: tags TAGS
 tags TAGS:
 
-.PHONY: ls
-ls:
-	@echo ${DISTFILES}
-
 .PHONY: clean distclean realclean mostlyclean
-clean distclean realclean mostlyclean:
+clean distclean realclean maintainer-clean mostlyclean:
 
 .PHONY: lint
 lint:
 
-.PHONY: dist-dir
-dist-dir:
-	mkdir ${DISTDIR}
-	for i in ${DISTFILES}; do \
-	  ln $${i} ${DISTDIR}; \
+# distdir added for compatibility with CVS automake.
+top_distdir = ..
+PACKAGE = @PACKAGE@
+VERSION = @VERSION@
+distdir = $(top_distdir)/$(PACKAGE)-$(VERSION)
+distdir: $(DISTFILES)
+	@list='$(DISTFILES)'; for file in $$list; do \
+	  if test -f $$file || test -d $$file; then d=.; else d=$(srcdir); fi; \
+	  dir=`echo "$$file" | sed -e 's,/[^/]*$$,,'`; \
+	  if test "$$dir" != "$$file" && test "$$dir" != "."; then \
+	    dir="/$$dir"; \
+	    $(mkinstalldirs) "$(distdir)$$dir"; \
+	  else \
+	    dir=''; \
+	  fi; \
+	  if test -d $$d/$$file; then \
+	    if test -d $(srcdir)/$$file && test $$d != $(srcdir); then \
+	      cp -pR $(srcdir)/$$file $(distdir)$$dir || exit 1; \
+	    fi; \
+	    cp -pR $$d/$$file $(distdir)$$dir || exit 1; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || cp -p $$d/$$file $(distdir)/$$file \
+	    || exit 1; \
+	  fi; \
 	done
+	list='$(SUBDIRS)'; for subdir in $$list; do \
+	  if test "$$subdir" = .; then :; else \
+	    test -d $(distdir)/$$subdir \
+	    || mkdir $(distdir)/$$subdir \
+	    || exit 1; \
+	    (cd $$subdir && \
+	      $(MAKE) $(AM_MAKEFLAGS) \
+	        top_distdir="$(top_distdir)" \
+	        distdir=../$(distdir)/$$subdir \
+	        distdir) \
+	      || exit 1; \
+	  fi; \
+	done
+.PHONY: distdir
 
 # We don't have a real distclean or anything like that, but at least
-# we can get rid of the obj files and cvs.exe.
-clean:
+# we can get rid of the obj files and cvs.exe. 
+.PHONY: clean distclean realclean mostlyclean maintainer-clean
+clean distclean realclean maintainer-clean mostlyclean:
 	rm -f cvs.exe cvs.out
 	rm -f ${srcdir}/*.o
 	rm -f ${diff_srcdir}/*.o
@@ -330,6 +363,9 @@ install-cvs: cvs.exe
 
 %.o: %.c
 	gcc ${OBJ_CFLAGS} ${CFLAGS} -o $@ -c $*.c
+
+${cvs_srcdir}/rcscmds.o: ${cvs_srcdir}/rcscmds.c ${top_srcdir}/diff/diffrun.h
+	gcc ${OBJ_CFLAGS} ${CFLAGS} -I${top_srcdir}/diff -o $@ -c $*.c
 
 ${lib_dir}/libcvs.a: $(LIB_OBJECTS)
 	$(AR) cr $@ $(LIB_OBJECTS)
@@ -366,7 +402,6 @@ cvs-static.exe: ${OBJECTS} ${lib_dir}/libcvs.lib ${zlib_dir}/libz.lib
 
 # cvs.o: ${OBJECTS} ${SOURCES} ${HEADERS}
 
-subdir = emx
 # Hmm.  This rule wants to exist on unix, so that "make dist" works.
 # And it doesn't want to exist on OS/2, because configure doesn't
 # run on OS/2 and so ../config.status won't exist.  For now we just

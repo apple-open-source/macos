@@ -1,0 +1,36 @@
+<?xml version="1.0"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><title>Twisted Documentation: TRIAL.1</title><link href="../howto/stylesheet.css" type="text/css" rel="stylesheet" /></head><body bgcolor="white"><h1 class="title">TRIAL.1</h1><div class="toc"><ol><li><a href="#auto0">NAME</a></li><li><a href="#auto1">SYNOPSIS</a></li><li><a href="#auto2">DESCRIPTION</a></li><li><a href="#auto3">AUTHOR</a></li><li><a href="#auto4">REPORTING BUGS</a></li><li><a href="#auto5">COPYRIGHT</a></li></ol></div><div class="content"><span></span><h2>NAME<a name="auto0"></a></h2><p>trial - run unit tests
+</p><h2>SYNOPSIS<a name="auto1"></a></h2><p><strong>trial</strong> [-b] [-v|-o|-j] [--coverage <em>coverdir</em>] [-r <em>reactor</em>] [-l <em>logfile</em>] [-m <em>module</em> [-m <em>module</em> ... ]] [-p <em>package</em> [-p <em>package</em> ... ]] <em>file</em>|<em>module</em>|<em>package</em>|<em>TestCase</em>|<em>testMethod ...
+</em></p><p><strong>trial</strong>  --help</p><h2>DESCRIPTION<a name="auto2"></a></h2><p>trial loads and executes a suite of unit tests, obtained from modules and
+packages listed on the command line.
+The <strong>--help</strong> option prints out a usage message to standard output.
+</p><dl><dt><strong>-s</strong>, <strong>--summary</strong></dt><dd>Print out just a machine-parseable summary of the results.
+</dd><dt><strong>-v</strong>, <strong>--verbose</strong></dt><dd>Be more verbose. Without this option, trial prints out a single character
+for each test. (e.g. An 'F' for a failure, a '.' for a success, a 'S' for
+skipped test, a 'T' for a todo and '!' for unexpected success). With this
+option, trial prints a single line for each test. This is especially useful
+for gauging how long each test takes.
+</dd><dt><strong>-o</strong>, <strong>--bwverbose</strong></dt><dd>Be verbose, but do not attempt to use colors (more log-file friendly)
+</dd><dt><strong>-j</strong>, <strong>--jelly</strong></dt><dd>Report results in a machine-readable jelly stream.
+</dd><dt><strong>--timing</strong></dt><dd>Report results with timing information for each test.
+</dd><dt><strong>--tbformat</strong>&lt;format&gt;</dt><dd>Format to display tracebacks with. Valid values are 'plain' and 'emacs',
+default being 'plain'.
+</dd><dt><strong>-m</strong>, <strong>--module</strong>&lt;module&gt;</dt><dd>Module containing test cases.
+</dd><dt><strong>--testmodule</strong>&lt;module&gt;</dt><dd>Find the test case for a named file
+</dd><dt><strong>-p</strong>, <strong>--package</strong>&lt;package&gt;</dt><dd>Package containing modules that contain test cases.
+trial loads modules named 'test_' within the given package.
+</dd><dt><strong>-l</strong>, <strong>--logfile</strong>&lt;logfile&gt;</dt><dd>Log exceptions (and other things) to the given logfile.
+</dd><dt><strong>-r</strong>, <strong>--reactor</strong>&lt;reactor&gt;</dt><dd>Use this reactor for running the tests. The reactor names are the same as
+those accepted by twistd: c, qt, gtk2, and so on.
+</dd><dt><strong>--coverage</strong>&lt;coverdir&gt;</dt><dd>Generate coverage information in the given directory (relative to 
+_trial_temp). Requires Python 2.3.3.
+</dd><dt><strong>-b</strong>, <strong>--debug</strong></dt><dd>Run the tests in the Python debugger. Also does post-mortem
+debugging on exceptions.
+</dd><dt><strong>-R</strong>, <strong>--recurse</strong></dt><dd>Recursively search the specified packages for test modules.
+
+</dd></dl><h2>AUTHOR<a name="auto3"></a></h2><p>Written by Jonathan M. Lange
+</p><h2>REPORTING BUGS<a name="auto4"></a></h2><p>Report bugs to &lt;twisted-python@twistedmatrix.com&gt;.
+</p><h2>COPYRIGHT<a name="auto5"></a></h2><p>Copyright &copy; 2003 Matthew W. Lefkowitz
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+</p></div><p><a href="../howto/index.html">Index</a></p><span class="version">Version: 1.3.0</span></body></html>

@@ -30,7 +30,7 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  * Copyright 2002 Shigehiro Nomura
  */
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/neomagic/neo_driver.c,v 1.66 2002/12/09 11:32:48 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/neomagic/neo_driver.c,v 1.75 2004/02/18 04:20:30 dawes Exp $ */
 
 /*
  * The original Precision Insight driver for
@@ -94,10 +94,8 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include "picturestr.h"
 
-#ifdef XvExtension
 #include "xf86xv.h"
 #include "Xv.h"
-#endif
 
 /*
  * Driver data structures.
@@ -125,8 +123,8 @@ static Bool     NEOEnterVT(int scrnIndex, int flags);
 static void     NEOLeaveVT(int scrnIndex, int flags);
 static Bool     NEOCloseScreen(int scrnIndex, ScreenPtr pScreen);
 static void     NEOFreeScreen(int scrnIndex, int flags);
-static int      NEOValidMode(int scrnIndex, DisplayModePtr mode,
-                                 Bool verbose, int flags);
+static ModeStatus NEOValidMode(int scrnIndex, DisplayModePtr mode,
+                               Bool verbose, int flags);
 
 /* Internally used functions */
 static int      neoFindIsaDevice(GDevPtr dev);
@@ -964,7 +962,7 @@ NEOPreInit(ScrnInfoPtr pScrn, int flags)
 	      neoDoDDC1(pScrn);
     }
 
-    if (!xf86SetDepthBpp(pScrn, 8, 8, 8, bppSupport ))
+    if (!xf86SetDepthBpp(pScrn, 16, 0, 0, bppSupport ))
 	return FALSE;
     else {
 	/* Check that the returned depth is one we support */
@@ -1081,7 +1079,7 @@ NEOPreInit(ScrnInfoPtr pScrn, int flags)
 		       "Valid options are \"CW\" or \"CCW\"\n");
       }
     }
-#ifdef XvExtension
+
     if(xf86GetOptValInteger(nPtr->Options,
 			    OPTION_VIDEO_KEY, &(nPtr->videoKey))) {
         xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "video key set to 0x%x\n",
@@ -1112,8 +1110,6 @@ NEOPreInit(ScrnInfoPtr pScrn, int flags)
 	    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Valid options are  0..2\n");
         }
     }
-#endif /* XvExtension */
-
 
     if (height_480
 	&& (nPtr->NeoPanelWidth == 800 || nPtr->NeoPanelWidth == 1024)) {
@@ -1199,7 +1195,7 @@ NEOPreInit(ScrnInfoPtr pScrn, int flags)
 	/* XXX Check this matches a PCI base address */
 	nPtr->NeoLinearAddr = nPtr->pEnt->device->MemBase;
 	xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
-		   "FB base address is set at 0x%X.\n",
+		   "FB base address is set at 0x%lX.\n",
 		   nPtr->NeoLinearAddr);
     } else {
 	nPtr->NeoLinearAddr = 0;
@@ -1211,7 +1207,7 @@ NEOPreInit(ScrnInfoPtr pScrn, int flags)
 	/* XXX Check this matches a PCI base address */
 	nPtr->NeoMMIOAddr = nPtr->pEnt->device->IOBase;
 	xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
-		   "MMIO base address is set at 0x%X.\n",
+		   "MMIO base address is set at 0x%lX.\n",
 		   nPtr->NeoMMIOAddr);
     } else {
 	nPtr->NeoMMIOAddr = 0;
@@ -1221,7 +1217,7 @@ NEOPreInit(ScrnInfoPtr pScrn, int flags)
 	if (!nPtr->NeoLinearAddr) {
 	    nPtr->NeoLinearAddr = nPtr->PciInfo->memBase[0];
 	    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-		       "FB base address is set at 0x%X.\n",
+		       "FB base address is set at 0x%lX.\n",
 		       nPtr->NeoLinearAddr);
 	}
 	if (!nPtr->NeoMMIOAddr && !nPtr->noMMIO) {
@@ -1244,11 +1240,11 @@ NEOPreInit(ScrnInfoPtr pScrn, int flags)
 		break;
 	    }
 	    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-		       "MMIO base address is set at 0x%X.\n",
+		       "MMIO base address is set at 0x%lX.\n",
 		       nPtr->NeoMMIOAddr);
 	    if (nPtr->NeoMMIOAddr2 != 0){
 	        xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-		           "MMIO base address2 is set at 0x%X.\n",
+		           "MMIO base address2 is set at 0x%lX.\n",
 		           nPtr->NeoMMIOAddr2);
 	    }
 	}
@@ -1266,13 +1262,13 @@ NEOPreInit(ScrnInfoPtr pScrn, int flags)
 	    VGAwGR(0x09,0x00);
 	    nPtr->NeoLinearAddr = addr << 20;
 	    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-		       "FB base address is set at 0x%X.\n",
+		       "FB base address is set at 0x%lX.\n",
 		       nPtr->NeoLinearAddr);
 	}
 	if (!nPtr->NeoMMIOAddr && !nPtr->noMMIO) {
 	    nPtr->NeoMMIOAddr = nPtr->NeoLinearAddr + 0x100000;
 	    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-		       "MMIO base address is set at 0x%X.\n",
+		       "MMIO base address is set at 0x%lX.\n",
 		       nPtr->NeoMMIOAddr);
 	}
 	linearRes[0].rBegin = nPtr->NeoLinearAddr;
@@ -1326,14 +1322,41 @@ NEOPreInit(ScrnInfoPtr pScrn, int flags)
 	nPtr->NeoCursorMem = 0;
     apertureSize = (pScrn->videoRam * 1024) - nPtr->NeoCursorMem;
 
-   if ((nPtr->NeoPanelWidth == 800) && (nPtr->NeoPanelHeight == 480)) {
-       neo800x480Mode.next = pScrn->monitor->Modes;
-       pScrn->monitor->Modes = &neo800x480Mode;
-   }
-   if ((nPtr->NeoPanelWidth == 1024) && (nPtr->NeoPanelHeight == 480)) {
-       neo1024x480Mode.next = pScrn->monitor->Modes;
-       pScrn->monitor->Modes = &neo1024x480Mode;
-   }
+    if ((nPtr->NeoPanelWidth == 800) && (nPtr->NeoPanelHeight == 480)) {
+	neo800x480Mode.next = pScrn->monitor->Modes;
+	pScrn->monitor->Modes = &neo800x480Mode;
+    }
+    if ((nPtr->NeoPanelWidth == 1024) && (nPtr->NeoPanelHeight == 480)) {
+	neo1024x480Mode.next = pScrn->monitor->Modes;
+	pScrn->monitor->Modes = &neo1024x480Mode;
+    }
+
+    if (!pScrn->monitor->DDC) {
+	/*
+	 * If the monitor parameters are not specified explicitly, set them
+	 * so that 60Hz modes up to the panel size are allowed.
+	 */
+	if (pScrn->monitor->nHsync == 0) {
+	    pScrn->monitor->nHsync = 1;
+	    pScrn->monitor->hsync[0].lo = 28;
+	    pScrn->monitor->hsync[0].hi =
+				60.0 * 1.07 * nPtr->NeoPanelHeight / 1000.0;
+	    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
+		       "Using hsync range matching panel size: %.2f-%.2f kHz\n",
+		       pScrn->monitor->hsync[0].lo,
+		       pScrn->monitor->hsync[0].hi);
+	}
+	if (pScrn->monitor->nVrefresh == 0) {
+	    pScrn->monitor->nVrefresh = 1;
+	    pScrn->monitor->vrefresh[0].lo = 55.0;
+	    pScrn->monitor->vrefresh[0].hi = 65.0;
+	    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
+		       "Using vsync range for panel: %.2f-%.2f kHz\n",
+		       pScrn->monitor->vrefresh[0].lo,
+		       pScrn->monitor->vrefresh[0].hi);
+	}
+    }
+
     /*
      * For external displays, limit the width to 1024 pixels or less.
      */
@@ -1414,10 +1437,10 @@ NEOEnterVT(int scrnIndex, int flags)
     /* Should we re-save the text mode on each VT enter? */
     if(!neoModeInit(pScrn, pScrn->currentMode))
       return FALSE;
-#ifdef XvExtension
+
     if (nPtr->video)
 	NEOResetVideo(pScrn);
-#endif
+
     if (nPtr->NeoHWCursorShown) 
 	NeoShowCursor(pScrn);
     NEOAdjustFrame(pScrn->scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);    
@@ -1661,7 +1684,6 @@ NEOScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	  xf86DrvMsg(pScrn->scrnIndex,X_INFO,
 		     "Acceleration disabled when not using MMIO\n");
 
-#ifdef XvExtension
 	if (nPtr->overlay > 0){
 	    if (nPtr->overlay > freespace){
 		xf86DrvMsg(pScrn->scrnIndex,X_INFO,
@@ -1676,7 +1698,7 @@ NEOScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	    xf86DrvMsg(pScrn->scrnIndex,X_INFO,"Overlay at 0x%x\n",
 		       nPtr->overlay_offset);
 	}
-#endif /* XvExtension */
+
 	nAcl->cacheStart = currentaddr - freespace;
 	nAcl->cacheEnd = currentaddr;
 	freespace = 0;
@@ -1919,7 +1941,7 @@ NEOFreeScreen(int scrnIndex, int flags)
 }
 
 /* Optional */
-static int
+static ModeStatus
 NEOValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
@@ -2153,7 +2175,7 @@ neoSave(ScrnInfoPtr pScrn)
         save->reg = (regSavePtr)xnfcalloc(sizeof(regSaveRec), 1);
     else
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-		   "Non-NULL reg in NeoSave: reg=0x%08X\n", save->reg);
+		   "Non-NULL reg in NeoSave: reg=%p\n", (void *)save->reg);
 
     save->reg->CR[0x23] = VGArCR(0x23);
     save->reg->CR[0x25] = VGArCR(0x25);
@@ -2605,7 +2627,9 @@ neoRestore(ScrnInfoPtr pScrn, vgaRegPtr VgaReg, NeoRegPtr restore,
 	    VGAwGR(i, restore->reg->GR[i]);
 	}
     }
-
+    
+    VGAwGR (0x93, 0xc0); /* Gives faster framebuffer writes */
+    
     /* Program vertical extension register */
     if (nPtr->NeoChipset == NM2200 || nPtr->NeoChipset == NM2230
 	|| nPtr->NeoChipset == NM2360 || nPtr->NeoChipset == NM2380) {
@@ -2893,7 +2917,6 @@ neoModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	}
     }
     
-#ifdef XvExtension
     if (!noLcdStretch &&
 	(NeoNew->PanelDispCntlReg1 & 0x02))  {
 	if (mode->HDisplay != nPtr->NeoPanelWidth)
@@ -2904,7 +2927,6 @@ neoModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	nPtr->videoHZoom = 1.0;
 	nPtr->videoVZoom = 1.0;
     }
-#endif
 
     if (mode->VDisplay < 480) {
 	NeoStd->Sequencer[1] |= 0x8;
@@ -2919,7 +2941,7 @@ neoModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
      */
     if (NeoNew->reg) {
 	xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-		   "Non-NULL reg in NeoInit: reg=0x%08X\n", NeoNew->reg);
+		   "Non-NULL reg in NeoInit: reg=%p\n", (void *)NeoNew->reg);
 	xfree(NeoNew->reg);
 	NeoNew->reg = NULL;
     }
@@ -3081,7 +3103,7 @@ neo_ddc1(int scrnIndex)
     /* initialize chipset */
     reg1 = VGArCR(0x21);
     reg2 = VGArCR(0x1D); 
-    reg3 = VGArCR(0x1A);
+    reg3 = VGArCR(0xA1);
     VGAwCR(0x21,0x00);
     VGAwCR(0x1D,0x01);  /* some Voodoo */ 
     VGAwGR(0xA1,0x2F);
@@ -3089,6 +3111,7 @@ neo_ddc1(int scrnIndex)
     /* undo initialization */
     VGAwCR(0x21,reg1);
     VGAwCR(0x1D,reg2);
+    VGAwGR(0xA1,reg3);
     return ret;
 }
 

@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)findfp.c	8.2 (Berkeley) 1/4/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/findfp.c,v 1.28 2002/11/14 14:06:14 imp Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/findfp.c,v 1.29 2004/05/22 15:19:41 tjr Exp $");
 
 #include <sys/param.h>
 #include <machine/atomic.h>
@@ -180,11 +180,7 @@ found:
 	fp->_lb._size = 0;
 /*	fp->_lock = NULL; */	/* once set always set (reused) */
 	fp->_extra->orientation = 0;
-#ifdef notdef
-	/* Stateful encoding/decoding is not yet supported. */
-	memset(&fp->_extra->wstate, 0, sizeof(mbstate_t));
-	memset(&fp->_extra->rstate, 0, sizeof(mbstate_t));
-#endif
+	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
 	return (fp);
 }
 

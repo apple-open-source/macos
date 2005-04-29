@@ -39,7 +39,8 @@
 
 #include <mach/machine/thread_status.h>
 
-void gdb_pthread_kill (pthread_t pthread)
+void
+gdb_pthread_kill (pthread_t pthread)
 {
   mach_port_t mthread;
   kern_return_t kret;
@@ -51,10 +52,11 @@ void gdb_pthread_kill (pthread_t pthread)
   MACH_CHECK_ERROR (kret);
 
   ret = pthread_cancel (pthread);
-  if (ret != 0) {
-    warning ("Unable to cancel thread: %s (%d)", strerror (errno), errno);
-    thread_terminate (mthread);
-  }
+  if (ret != 0)
+    {
+      warning ("Unable to cancel thread: %s (%d)", strerror (errno), errno);
+      thread_terminate (mthread);
+    }
 
   kret = thread_abort (mthread);
   MACH_CHECK_ERROR (kret);
@@ -63,36 +65,46 @@ void gdb_pthread_kill (pthread_t pthread)
   MACH_CHECK_ERROR (kret);
 
   ret = pthread_join (pthread, NULL);
-  if (ret != 0) {
-    warning ("Unable to join to canceled thread: %s (%d)", strerror (errno), errno);
-  }
+  if (ret != 0)
+    {
+      warning ("Unable to join to canceled thread: %s (%d)", strerror (errno),
+               errno);
+    }
 }
 
-pthread_t gdb_pthread_fork (pthread_fn_t function, void *arg)
+pthread_t
+gdb_pthread_fork (pthread_fn_t function, void *arg)
 {
   int result;
   pthread_t pthread = NULL;
   pthread_attr_t attr;
 
   result = pthread_attr_init (&attr);
-  if (result != 0) {
-    error ("Unable to initialize thread attributes: %s (%d)", strerror (errno), errno);
-  }
-    
+  if (result != 0)
+    {
+      error ("Unable to initialize thread attributes: %s (%d)",
+             strerror (errno), errno);
+    }
+
   result = pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_JOINABLE);
-  if (result != 0) {
-    error ("Unable to initialize thread attributes: %s (%d)", strerror (errno), errno);
-  }
+  if (result != 0)
+    {
+      error ("Unable to initialize thread attributes: %s (%d)",
+             strerror (errno), errno);
+    }
 
   result = pthread_create (&pthread, &attr, function, arg);
-  if (result != 0)  {
-    error ("Unable to create thread: %s (%d)", strerror (errno), errno);
-  }
-  
+  if (result != 0)
+    {
+      error ("Unable to create thread: %s (%d)", strerror (errno), errno);
+    }
+
   result = pthread_attr_destroy (&attr);
-  if (result != 0) {
-    warning ("Unable to deallocate thread attributes: %s (%d)", strerror (errno), errno);
-  }
+  if (result != 0)
+    {
+      warning ("Unable to deallocate thread attributes: %s (%d)",
+               strerror (errno), errno);
+    }
 
   return pthread;
 }

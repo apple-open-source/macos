@@ -1,7 +1,7 @@
 /*
  *  catalog.c
  *
- *  $Id: catalog.c,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: catalog.c,v 1.3 2004/11/11 01:52:36 luesang Exp $
  *
  *  Catalog functions
  *
@@ -75,6 +75,9 @@
 
 #include <sql.h>
 #include <sqlext.h>
+#include <sqlucode.h>
+
+#include <unicode.h>
 
 #include <herr.h>
 #include <henv.h>
@@ -84,15 +87,15 @@
 #include <dlproc.h>
 #include <itrace.h>
 
-/* 
- *  Check state for executing catalog functions 
+/*
+ *  Check state for executing catalog functions
  */
 static SQLRETURN
 _iodbcdm_cata_state_ok (
-    STMT_t FAR * pstmt,
+    STMT_t * pstmt,
     int fidx)
 {
-  int sqlstat = en_00000;
+  sqlstcode_t sqlstat = en_00000;
 
   if (pstmt->asyn_on == en_NullProc)
     {
@@ -129,16 +132,15 @@ _iodbcdm_cata_state_ok (
 }
 
 
-/* 
- *  State transition for catalog function 
+/*
+ *  State transition for catalog function
  */
 static SQLRETURN
 _iodbcdm_cata_state_tr (
-    STMT_t FAR * pstmt,
+    STMT_t * pstmt,
     int fidx,
     SQLRETURN result)
 {
-  CONN (pdbc, pstmt->hdbc);
 
   if (pstmt->asyn_on == fidx)
     {
@@ -184,16 +186,19 @@ _iodbcdm_cata_state_tr (
 
 
 SQLRETURN SQL_API
-SQLGetTypeInfo (
+SQLGetTypeInfo_Internal (
     SQLHSTMT hstmt,
-    SQLSMALLINT fSqlType)
+    SQLSMALLINT fSqlType,
+    SQLCHAR waMode)
 {
   STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
   HPROC hproc = SQL_NULL_HPROC;
-  int sqlstat = en_00000;
-  SQLRETURN retcode;
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
 
-  ENTER_STMT (pstmt);
+  waMode = waMode;	/*NOTUSED*/
 
   for (;;)
     {
@@ -216,10 +221,13 @@ SQLGetTypeInfo (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_GetTypeInfo);
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_GetTypeInfo, (
+           pstmt->dhstmt,
+           fSqlType));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -236,36 +244,79 @@ SQLGetTypeInfo (
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_GetTypeInfo,
-      (pstmt->dhstmt, fSqlType));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_GetTypeInfo, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLSpecialColumns (
+SQLGetTypeInfo (SQLHSTMT hstmt,
+    SQLSMALLINT fSqlType)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLGetTypeInfo (TRACE_ENTER, hstmt, fSqlType));
+
+  retcode = SQLGetTypeInfo_Internal (hstmt, fSqlType, 'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLGetTypeInfo (TRACE_LEAVE, hstmt, fSqlType));
+}
+
+
+SQLRETURN SQL_API
+SQLGetTypeInfoA (SQLHSTMT hstmt,
+    SQLSMALLINT fSqlType)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLGetTypeInfo (TRACE_ENTER, hstmt, fSqlType));
+
+  retcode = SQLGetTypeInfo_Internal (hstmt, fSqlType, 'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLGetTypeInfo (TRACE_LEAVE, hstmt, fSqlType));
+}
+
+
+SQLRETURN SQL_API
+SQLGetTypeInfoW (SQLHSTMT hstmt,
+    SQLSMALLINT fSqlType)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLGetTypeInfoW (TRACE_ENTER, hstmt, fSqlType));
+
+  retcode = SQLGetTypeInfo_Internal (hstmt, fSqlType, 'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLGetTypeInfoW (TRACE_LEAVE, hstmt, fSqlType));
+}
+
+
+SQLRETURN SQL_API
+SQLSpecialColumns_Internal (
     SQLHSTMT hstmt,
     SQLUSMALLINT fColType,
-    SQLCHAR FAR * szTableQualifier,
+    SQLPOINTER szTableQualifier,
     SQLSMALLINT cbTableQualifier,
-    SQLCHAR FAR * szTableOwner,
+    SQLPOINTER szTableOwner,
     SQLSMALLINT cbTableOwner,
-    SQLCHAR FAR * szTableName,
+    SQLPOINTER szTableName,
     SQLSMALLINT cbTableName,
     SQLUSMALLINT fScope,
-    SQLUSMALLINT fNullable)
+    SQLUSMALLINT fNullable,
+    SQLCHAR waMode)
 {
   STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
   HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
-  int sqlstat = en_00000;
-
-  ENTER_STMT (pstmt);
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
+  void * _TableQualifier = NULL;
+  void * _TableOwner = NULL;
+  void * _TableName = NULL;
 
   for (;;)
     {
@@ -301,10 +352,46 @@ SQLSpecialColumns (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_SpecialColumns);
+      if ((penv->unicode_driver && waMode != 'W')
+          || (!penv->unicode_driver && waMode == 'W'))
+        {
+          if (waMode != 'W')
+            {
+            /* ansi=>unicode*/
+              _TableQualifier = _iodbcdm_conv_param_A2W(pstmt, 0, (SQLCHAR *) szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_A2W(pstmt, 1, (SQLCHAR *) szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_A2W(pstmt, 2, (SQLCHAR *) szTableName, cbTableName);
+            }
+          else
+            {
+            /* unicode=>ansi*/
+              _TableQualifier = _iodbcdm_conv_param_W2A(pstmt, 0, (SQLWCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_W2A(pstmt, 1, (SQLWCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_W2A(pstmt, 2, (SQLWCHAR *)szTableName, cbTableName);
+            }
+          szTableQualifier = _TableQualifier;
+          szTableOwner = _TableOwner;
+          szTableName = _TableName;
+          cbTableQualifier = SQL_NTS;
+          cbTableOwner = SQL_NTS;
+          cbTableName = SQL_NTS;
+        }
+
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_SpecialColumns, (
+           pstmt->dhstmt,
+           fColType,
+           szTableQualifier,
+           cbTableQualifier,
+           szTableOwner,
+           cbTableOwner,
+           szTableName,
+           cbTableName,
+           fScope,
+           fNullable));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -317,48 +404,175 @@ SQLSpecialColumns (
 	break;
     }
 
+  if (retcode != SQL_STILL_EXECUTING)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   if (sqlstat != en_00000)
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_SpecialColumns, (
-	  pstmt->dhstmt,
-	  fColType,
-	  szTableQualifier,
-	  cbTableQualifier,
-	  szTableOwner,
-	  cbTableOwner,
-	  szTableName,
-	  cbTableName,
-	  fScope,
-	  fNullable));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_SpecialColumns, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLStatistics (
-    SQLHSTMT hstmt,
-    SQLCHAR FAR * szTableQualifier,
+SQLSpecialColumns (SQLHSTMT hstmt,
+    SQLUSMALLINT fColType,
+    SQLCHAR * szTableQualifier,
     SQLSMALLINT cbTableQualifier,
-    SQLCHAR FAR * szTableOwner,
+    SQLCHAR * szTableOwner,
     SQLSMALLINT cbTableOwner,
-    SQLCHAR FAR * szTableName,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLUSMALLINT fScope,
+    SQLUSMALLINT fNullable)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLSpecialColumns (TRACE_ENTER,
+	hstmt,
+	fColType,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fScope,
+	fNullable));
+
+  retcode =  SQLSpecialColumns_Internal(
+  	hstmt,
+	fColType,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fScope,
+	fNullable,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLSpecialColumns (TRACE_LEAVE,
+	hstmt,
+	fColType,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fScope,
+	fNullable));
+}
+
+
+SQLRETURN SQL_API
+SQLSpecialColumnsA (SQLHSTMT hstmt,
+    SQLUSMALLINT fColType,
+    SQLCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLUSMALLINT fScope,
+    SQLUSMALLINT fNullable)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLSpecialColumns (TRACE_ENTER,
+	hstmt,
+	fColType,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fScope,
+	fNullable));
+
+  retcode =  SQLSpecialColumns_Internal(
+  	hstmt,
+	fColType,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fScope,
+	fNullable,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLSpecialColumns (TRACE_LEAVE,
+	hstmt,
+	fColType,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fScope,
+	fNullable));
+}
+
+
+SQLRETURN SQL_API
+SQLSpecialColumnsW (SQLHSTMT hstmt,
+    SQLUSMALLINT fColType,
+    SQLWCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLWCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLWCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLUSMALLINT fScope,
+    SQLUSMALLINT fNullable)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLSpecialColumnsW (TRACE_ENTER,
+	hstmt,
+	fColType,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fScope,
+	fNullable));
+
+  retcode =  SQLSpecialColumns_Internal(
+  	hstmt,
+	fColType,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fScope,
+	fNullable,
+	'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLSpecialColumnsW (TRACE_LEAVE,
+	hstmt,
+	fColType,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fScope,
+	fNullable));
+}
+
+
+SQLRETURN SQL_API
+SQLStatistics_Internal (
+    SQLHSTMT hstmt,
+    SQLPOINTER szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLPOINTER szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLPOINTER szTableName,
     SQLSMALLINT cbTableName,
     SQLUSMALLINT fUnique,
-    SQLUSMALLINT fAccuracy)
+    SQLUSMALLINT fAccuracy,
+    SQLCHAR waMode)
 {
   STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
   HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
-  int sqlstat = en_00000;
-
-  ENTER_STMT (pstmt);
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
+  void * _TableQualifier = NULL;
+  void * _TableOwner = NULL;
+  void * _TableName = NULL;
 
   for (;;)
     {
@@ -386,10 +600,46 @@ SQLStatistics (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_Statistics);
+
+      if ((penv->unicode_driver && waMode != 'W')
+          || (!penv->unicode_driver && waMode == 'W'))
+        {
+          if (waMode != 'W')
+            {
+            /* ansi=>unicode*/
+              _TableQualifier = _iodbcdm_conv_param_A2W(pstmt, 0, (SQLCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_A2W(pstmt, 1, (SQLCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_A2W(pstmt, 2, (SQLCHAR *)szTableName, cbTableName);
+            }
+          else
+            {
+            /* unicode=>ansi*/
+              _TableQualifier = _iodbcdm_conv_param_W2A(pstmt, 0, (SQLWCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_W2A(pstmt, 1, (SQLWCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_W2A(pstmt, 2, (SQLWCHAR *)szTableName, cbTableName);
+            }
+          szTableQualifier = _TableQualifier;
+          szTableOwner = _TableOwner;
+          szTableName = _TableName;
+          cbTableQualifier = SQL_NTS;
+          cbTableOwner = SQL_NTS;
+          cbTableName = SQL_NTS;
+        }
+
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_Statistics, (
+           pstmt->dhstmt,
+           szTableQualifier,
+           cbTableQualifier,
+           szTableOwner,
+           cbTableOwner,
+           szTableName,
+           cbTableName,
+           fUnique,
+           fAccuracy));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -403,47 +653,164 @@ SQLStatistics (
 	break;
     }
 
+  if (retcode != SQL_STILL_EXECUTING)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   if (sqlstat != en_00000)
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_Statistics, (
-	  pstmt->dhstmt,
-	  szTableQualifier,
-	  cbTableQualifier,
-	  szTableOwner,
-	  cbTableOwner,
-	  szTableName,
-	  cbTableName,
-	  fUnique,
-	  fAccuracy));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_Statistics, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLTables (
-    SQLHSTMT hstmt,
-    SQLCHAR FAR * szTableQualifier,
+SQLStatistics (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
     SQLSMALLINT cbTableQualifier,
-    SQLCHAR FAR * szTableOwner,
+    SQLCHAR * szTableOwner,
     SQLSMALLINT cbTableOwner,
-    SQLCHAR FAR * szTableName,
+    SQLCHAR * szTableName,
     SQLSMALLINT cbTableName,
-    SQLCHAR FAR * szTableType,
-    SQLSMALLINT cbTableType)
+    SQLUSMALLINT fUnique,
+    SQLUSMALLINT fAccuracy)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLStatistics (TRACE_ENTER,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fUnique,
+	fAccuracy));
+
+  retcode = SQLStatistics_Internal (
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fUnique,
+	fAccuracy,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLStatistics (TRACE_LEAVE,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fUnique,
+	fAccuracy));
+}
+
+
+SQLRETURN SQL_API
+SQLStatisticsA (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLUSMALLINT fUnique,
+    SQLUSMALLINT fAccuracy)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLStatistics (TRACE_ENTER,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fUnique,
+	fAccuracy));
+
+  retcode = SQLStatistics_Internal (
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fUnique,
+	fAccuracy,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLStatistics (TRACE_LEAVE,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fUnique,
+	fAccuracy));
+}
+
+
+SQLRETURN SQL_API
+SQLStatisticsW (SQLHSTMT hstmt,
+    SQLWCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLWCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLWCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLUSMALLINT fUnique,
+    SQLUSMALLINT fAccuracy)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLStatisticsW (TRACE_ENTER,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fUnique,
+	fAccuracy));
+
+  retcode = SQLStatistics_Internal (
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fUnique,
+	fAccuracy,
+	'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLStatisticsW (TRACE_LEAVE,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	fUnique,
+	fAccuracy));
+}
+
+
+SQLRETURN SQL_API
+SQLTables_Internal (
+    SQLHSTMT hstmt,
+    SQLPOINTER szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLPOINTER szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLPOINTER szTableName,
+    SQLSMALLINT cbTableName,
+    SQLPOINTER szTableType,
+    SQLSMALLINT cbTableType,
+    SQLCHAR waMode)
 {
   STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
   HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
-  int sqlstat = en_00000;
-
-  ENTER_STMT (pstmt);
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
+  void * _TableQualifier = NULL;
+  void * _TableOwner = NULL;
+  void * _TableName = NULL;
+  void * _TableType = NULL;
 
   for (;;)
     {
@@ -460,10 +827,49 @@ SQLTables (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_Tables);
+      if ((penv->unicode_driver && waMode != 'W')
+          || (!penv->unicode_driver && waMode == 'W'))
+        {
+          if (waMode != 'W')
+            {
+            /* ansi=>unicode*/
+              _TableQualifier = _iodbcdm_conv_param_A2W(pstmt, 0, (SQLCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_A2W(pstmt, 1, (SQLCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_A2W(pstmt, 2, (SQLCHAR *)szTableName, cbTableName);
+              _TableType = _iodbcdm_conv_param_A2W(pstmt, 3, (SQLCHAR *)szTableType, cbTableType);
+            }
+          else
+            {
+            /* unicode=>ansi*/
+              _TableQualifier = _iodbcdm_conv_param_W2A(pstmt, 0, (SQLWCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_W2A(pstmt, 1, (SQLWCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_W2A(pstmt, 2, (SQLWCHAR *)szTableName, cbTableName);
+              _TableType = _iodbcdm_conv_param_W2A(pstmt, 3, (SQLWCHAR *)szTableType, cbTableType);
+            }
+          szTableQualifier = _TableQualifier;
+          szTableOwner = _TableOwner;
+          szTableName = _TableName;
+          szTableType = _TableType;
+          cbTableQualifier = SQL_NTS;
+          cbTableOwner = SQL_NTS;
+          cbTableName = SQL_NTS;
+          cbTableType = SQL_NTS;
+        }
+
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_Tables, (
+           pstmt->dhstmt,
+           szTableQualifier,
+           cbTableQualifier,
+           szTableOwner,
+           cbTableOwner,
+           szTableName,
+           cbTableName,
+           szTableType,
+           cbTableType));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -477,47 +883,155 @@ SQLTables (
 	break;
     }
 
+  if (retcode != SQL_STILL_EXECUTING)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   if (sqlstat != en_00000)
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_Tables, (
-	  pstmt->dhstmt,
-	  szTableQualifier,
-	  cbTableQualifier,
-	  szTableOwner,
-	  cbTableOwner,
-	  szTableName,
-	  cbTableName,
-	  szTableType,
-	  cbTableType));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_Tables, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLColumnPrivileges (
-    SQLHSTMT hstmt,
-    SQLCHAR FAR * szTableQualifier,
+SQLTables (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
     SQLSMALLINT cbTableQualifier,
-    SQLCHAR FAR * szTableOwner,
+    SQLCHAR * szTableOwner,
     SQLSMALLINT cbTableOwner,
-    SQLCHAR FAR * szTableName,
+    SQLCHAR * szTableName,
     SQLSMALLINT cbTableName,
-    SQLCHAR FAR * szColumnName,
-    SQLSMALLINT cbColumnName)
+    SQLCHAR * szTableType,
+    SQLSMALLINT cbTableType)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLTables (TRACE_ENTER,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szTableType, cbTableType));
+
+  retcode =  SQLTables_Internal(
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szTableType, cbTableType,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLTables (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szTableType, cbTableType));
+}
+
+
+SQLRETURN SQL_API
+SQLTablesA (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLCHAR * szTableType,
+    SQLSMALLINT cbTableType)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLTables (TRACE_ENTER,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szTableType, cbTableType));
+
+  retcode = SQLTables_Internal (
+  	hstmt,
+  	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szTableType, cbTableType,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLTables (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szTableType, cbTableType));
+}
+
+
+SQLRETURN SQL_API
+SQLTablesW (SQLHSTMT hstmt,
+    SQLWCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLWCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLWCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLWCHAR * szTableType,
+    SQLSMALLINT cbTableType)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLTablesW (TRACE_ENTER,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szTableType, cbTableType));
+
+  retcode = SQLTables_Internal (
+  	hstmt,
+  	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szTableType, cbTableType,
+	'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLTablesW (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szTableType, cbTableType));
+}
+
+
+SQLRETURN SQL_API
+SQLColumnPrivileges_Internal (
+    SQLHSTMT hstmt,
+    SQLPOINTER szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLPOINTER szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLPOINTER szTableName,
+    SQLSMALLINT cbTableName,
+    SQLPOINTER szColumnName,
+    SQLSMALLINT cbColumnName,
+    SQLCHAR waMode)
 {
   STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
   HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
-  int sqlstat = en_00000;
-
-  ENTER_STMT (pstmt);
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
+  void * _TableQualifier = NULL;
+  void * _TableOwner = NULL;
+  void * _TableName = NULL;
+  void * _ColumnName = NULL;
 
   for (;;)
     {
@@ -534,10 +1048,50 @@ SQLColumnPrivileges (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_ColumnPrivileges);
+
+      if ((penv->unicode_driver && waMode != 'W')
+          || (!penv->unicode_driver && waMode == 'W'))
+        {
+          if (waMode != 'W')
+            {
+            /* ansi=>unicode*/
+              _TableQualifier = _iodbcdm_conv_param_A2W(pstmt, 0, (SQLCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_A2W(pstmt, 1, (SQLCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_A2W(pstmt, 2, (SQLCHAR *)szTableName, cbTableName);
+              _ColumnName = _iodbcdm_conv_param_A2W(pstmt, 3, (SQLCHAR *)szColumnName, cbColumnName);
+            }
+          else
+            {
+            /* unicode=>ansi*/
+              _TableQualifier = _iodbcdm_conv_param_W2A(pstmt, 0, (SQLWCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_W2A(pstmt, 1, (SQLWCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_W2A(pstmt, 2, (SQLWCHAR *)szTableName, cbTableName);
+              _ColumnName = _iodbcdm_conv_param_W2A(pstmt, 3, (SQLWCHAR *)szColumnName, cbColumnName);
+            }
+          szTableQualifier = _TableQualifier;
+          szTableOwner = _TableOwner;
+          szTableName = _TableName;
+          szColumnName = _ColumnName;
+          cbTableQualifier = SQL_NTS;
+          cbTableOwner = SQL_NTS;
+          cbTableName = SQL_NTS;
+          cbColumnName = SQL_NTS;
+        }
+
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_ColumnPrivileges, (
+           pstmt->dhstmt,
+           szTableQualifier,
+           cbTableQualifier,
+           szTableOwner,
+           cbTableOwner,
+           szTableName,
+           cbTableName,
+           szColumnName,
+           cbColumnName));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -551,47 +1105,152 @@ SQLColumnPrivileges (
 	break;
     }
 
+  if (retcode != SQL_STILL_EXECUTING)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   if (sqlstat != en_00000)
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_ColumnPrivileges, (
-	  pstmt->dhstmt,
-	  szTableQualifier,
-	  cbTableQualifier,
-	  szTableOwner,
-	  cbTableOwner,
-	  szTableName,
-	  cbTableName,
-	  szColumnName,
-	  cbColumnName));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_ColumnPrivileges, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLColumns (
-    SQLHSTMT hstmt,
-    SQLCHAR FAR * szTableQualifier,
+SQLColumnPrivileges (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
     SQLSMALLINT cbTableQualifier,
-    SQLCHAR FAR * szTableOwner,
+    SQLCHAR * szTableOwner,
     SQLSMALLINT cbTableOwner,
-    SQLCHAR FAR * szTableName,
+    SQLCHAR * szTableName,
     SQLSMALLINT cbTableName,
-    SQLCHAR FAR * szColumnName,
+    SQLCHAR * szColumnName,
     SQLSMALLINT cbColumnName)
 {
-  STMT (pstmt, hstmt);
-  HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
-  int sqlstat = en_00000;
+  ENTER_STMT (hstmt,
+    trace_SQLColumnPrivileges (TRACE_ENTER,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
 
-  ENTER_STMT (pstmt);
+  retcode = SQLColumnPrivileges_Internal(hstmt,
+      szTableQualifier, cbTableQualifier,
+      szTableOwner, cbTableOwner,
+      szTableName, cbTableName,
+      szColumnName, cbColumnName,
+      'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLColumnPrivileges (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+}
+
+
+SQLRETURN SQL_API
+SQLColumnPrivilegesA (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLCHAR * szColumnName,
+    SQLSMALLINT cbColumnName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLColumnPrivileges (TRACE_ENTER,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+
+  retcode = SQLColumnPrivileges_Internal(hstmt,
+      szTableQualifier, cbTableQualifier,
+      szTableOwner, cbTableOwner,
+      szTableName, cbTableName,
+      szColumnName, cbColumnName,
+      'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLColumnPrivileges (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+}
+
+
+SQLRETURN SQL_API
+SQLColumnPrivilegesW (SQLHSTMT hstmt,
+    SQLWCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLWCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLWCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLWCHAR * szColumnName,
+    SQLSMALLINT cbColumnName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLColumnPrivilegesW (TRACE_ENTER,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+
+  retcode = SQLColumnPrivileges_Internal (hstmt,
+      szTableQualifier, cbTableQualifier,
+      szTableOwner, cbTableOwner,
+      szTableName, cbTableName,
+      szColumnName, cbColumnName,
+      'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLColumnPrivilegesW (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+}
+
+
+SQLRETURN SQL_API
+SQLColumns_Internal (
+    SQLHSTMT hstmt,
+    SQLPOINTER szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLPOINTER szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLPOINTER szTableName,
+    SQLSMALLINT cbTableName,
+    SQLPOINTER szColumnName,
+    SQLSMALLINT cbColumnName,
+    SQLCHAR waMode)
+{
+  STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
+  HPROC hproc = SQL_NULL_HPROC;
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
+  void * _TableQualifier = NULL;
+  void * _TableOwner = NULL;
+  void * _TableName = NULL;
+  void * _ColumnName = NULL;
 
   for (;;)
     {
@@ -608,10 +1267,49 @@ SQLColumns (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_Columns);
+      if ((penv->unicode_driver && waMode != 'W')
+          || (!penv->unicode_driver && waMode == 'W'))
+        {
+          if (waMode != 'W')
+            {
+            /* ansi=>unicode*/
+              _TableQualifier = _iodbcdm_conv_param_A2W(pstmt, 0, (SQLCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_A2W(pstmt, 1, (SQLCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_A2W(pstmt, 2, (SQLCHAR *)szTableName, cbTableName);
+              _ColumnName = _iodbcdm_conv_param_A2W(pstmt, 3, (SQLCHAR *)szColumnName, cbColumnName);
+            }
+          else
+            {
+            /* unicode=>ansi*/
+              _TableQualifier = _iodbcdm_conv_param_W2A(pstmt, 0, (SQLWCHAR *) szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_W2A(pstmt, 1, (SQLWCHAR *) szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_W2A(pstmt, 2, (SQLWCHAR *) szTableName, cbTableName);
+              _ColumnName = _iodbcdm_conv_param_W2A(pstmt, 3, (SQLWCHAR *) szColumnName, cbColumnName);
+            }
+          szTableQualifier = _TableQualifier;
+          szTableOwner = _TableOwner;
+          szTableName = _TableName;
+          szColumnName = _ColumnName;
+          cbTableQualifier = SQL_NTS;
+          cbTableOwner = SQL_NTS;
+          cbTableName = SQL_NTS;
+          cbColumnName = SQL_NTS;
+        }
+
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_Columns, (
+           pstmt->dhstmt,
+           szTableQualifier,
+           cbTableQualifier,
+           szTableOwner,
+           cbTableOwner,
+           szTableName,
+           cbTableName,
+           szColumnName,
+           cbColumnName));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -625,51 +1323,161 @@ SQLColumns (
 	break;
     }
 
+  if (retcode != SQL_STILL_EXECUTING)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   if (sqlstat != en_00000)
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_Columns, (
-	  pstmt->dhstmt,
-	  szTableQualifier,
-	  cbTableQualifier,
-	  szTableOwner,
-	  cbTableOwner,
-	  szTableName,
-	  cbTableName,
-	  szColumnName,
-	  cbColumnName));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_Columns, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLForeignKeys (
+SQLColumns (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLCHAR * szColumnName,
+    SQLSMALLINT cbColumnName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLColumns (TRACE_ENTER,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+
+  retcode = SQLColumns_Internal (
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLColumns (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+}
+
+
+SQLRETURN SQL_API
+SQLColumnsA (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLCHAR * szColumnName,
+    SQLSMALLINT cbColumnName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLColumns (TRACE_ENTER,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+
+  retcode = SQLColumns_Internal (
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLColumns (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+}
+
+
+SQLRETURN SQL_API
+SQLColumnsW (SQLHSTMT hstmt,
+    SQLWCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLWCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLWCHAR * szTableName,
+    SQLSMALLINT cbTableName,
+    SQLWCHAR * szColumnName,
+    SQLSMALLINT cbColumnName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLColumnsW (TRACE_ENTER,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+
+  retcode = SQLColumns_Internal (
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName,
+	'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLColumnsW (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	szColumnName, cbColumnName));
+}
+
+
+SQLRETURN SQL_API
+SQLForeignKeys_Internal (
     SQLHSTMT hstmt,
-    SQLCHAR FAR * szPkTableQualifier,
+    SQLPOINTER szPkTableQualifier,
     SQLSMALLINT cbPkTableQualifier,
-    SQLCHAR FAR * szPkTableOwner,
+    SQLPOINTER szPkTableOwner,
     SQLSMALLINT cbPkTableOwner,
-    SQLCHAR FAR * szPkTableName,
+    SQLPOINTER szPkTableName,
     SQLSMALLINT cbPkTableName,
-    SQLCHAR FAR * szFkTableQualifier,
+    SQLPOINTER szFkTableQualifier,
     SQLSMALLINT cbFkTableQualifier,
-    SQLCHAR FAR * szFkTableOwner,
+    SQLPOINTER szFkTableOwner,
     SQLSMALLINT cbFkTableOwner,
-    SQLCHAR FAR * szFkTableName,
-    SQLSMALLINT cbFkTableName)
+    SQLPOINTER szFkTableName,
+    SQLSMALLINT cbFkTableName,
+    SQLCHAR waMode)
 {
   STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
   HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
-  int sqlstat = en_00000;
-
-  ENTER_STMT (pstmt);
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
+  void * _PkTableQualifier = NULL;
+  void * _PkTableOwner = NULL;
+  void * _PkTableName = NULL;
+  void * _FkTableQualifier = NULL;
+  void * _FkTableOwner = NULL;
+  void * _FkTableName = NULL;
 
   for (;;)
     {
@@ -688,10 +1496,61 @@ SQLForeignKeys (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_ForeignKeys);
+      if ((penv->unicode_driver && waMode != 'W')
+          || (!penv->unicode_driver && waMode == 'W'))
+        {
+          if (waMode != 'W')
+            {
+            /* ansi=>unicode*/
+              _PkTableQualifier = _iodbcdm_conv_param_A2W(pstmt, 0, (SQLCHAR *)szPkTableQualifier, cbPkTableQualifier);
+              _PkTableOwner = _iodbcdm_conv_param_A2W(pstmt, 1, (SQLCHAR *)szPkTableOwner, cbPkTableOwner);
+              _PkTableName = _iodbcdm_conv_param_A2W(pstmt, 2, (SQLCHAR *)szPkTableName, cbPkTableName);
+              _FkTableQualifier = _iodbcdm_conv_param_A2W(pstmt, 3, (SQLCHAR *)szFkTableQualifier, cbFkTableQualifier);
+              _FkTableOwner = _iodbcdm_conv_param_A2W(pstmt, 4, (SQLCHAR *)szFkTableOwner, cbFkTableOwner);
+              _FkTableName = _iodbcdm_conv_param_A2W(pstmt, 5, (SQLCHAR *)szFkTableName, cbFkTableName);
+            }
+          else
+            {
+            /* unicode=>ansi*/
+              _PkTableQualifier = _iodbcdm_conv_param_W2A(pstmt, 0, (SQLWCHAR *)szPkTableQualifier, cbPkTableQualifier);
+              _PkTableOwner = _iodbcdm_conv_param_W2A(pstmt, 1, (SQLWCHAR *)szPkTableOwner, cbPkTableOwner);
+              _PkTableName = _iodbcdm_conv_param_W2A(pstmt, 2, (SQLWCHAR *)szPkTableName, cbPkTableName);
+              _FkTableQualifier = _iodbcdm_conv_param_W2A(pstmt, 3, (SQLWCHAR *)szFkTableQualifier, cbFkTableQualifier);
+              _FkTableOwner = _iodbcdm_conv_param_W2A(pstmt, 4, (SQLWCHAR *)szFkTableOwner, cbFkTableOwner);
+              _FkTableName = _iodbcdm_conv_param_W2A(pstmt, 5, (SQLWCHAR *)szFkTableName, cbFkTableName);
+            }
+          szPkTableQualifier = _PkTableQualifier;
+          szPkTableOwner = _PkTableOwner;
+          szPkTableName = _PkTableName;
+          szFkTableQualifier = _FkTableQualifier;
+          szFkTableOwner = _FkTableOwner;
+          szFkTableName = _FkTableName;
+          cbPkTableQualifier = SQL_NTS;
+          cbPkTableOwner = SQL_NTS;
+          cbPkTableName = SQL_NTS;
+          cbFkTableQualifier = SQL_NTS;
+          cbFkTableOwner = SQL_NTS;
+          cbFkTableName = SQL_NTS;
+        }
+
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_ForeignKeys, (
+           pstmt->dhstmt,
+           szPkTableQualifier,
+           cbPkTableQualifier,
+           szPkTableOwner,
+           cbPkTableOwner,
+           szPkTableName,
+           cbPkTableName,
+           szFkTableQualifier,
+           cbFkTableQualifier,
+           szFkTableOwner,
+           cbFkTableOwner,
+           szFkTableName,
+           cbFkTableName));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -705,49 +1564,182 @@ SQLForeignKeys (
 	break;
     }
 
+  if (retcode != SQL_STILL_EXECUTING)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   if (sqlstat != en_00000)
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_ForeignKeys, (
-	  pstmt->dhstmt,
-	  szPkTableQualifier,
-	  cbPkTableQualifier,
-	  szPkTableOwner,
-	  cbPkTableOwner,
-	  szPkTableName,
-	  cbPkTableName,
-	  szFkTableQualifier,
-	  cbFkTableQualifier,
-	  szFkTableOwner,
-	  cbFkTableOwner,
-	  szFkTableName,
-	  cbFkTableName));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_ForeignKeys, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLPrimaryKeys (
+SQLForeignKeys (SQLHSTMT hstmt,
+    SQLCHAR * szPkTableQualifier,
+    SQLSMALLINT cbPkTableQualifier,
+    SQLCHAR * szPkTableOwner,
+    SQLSMALLINT cbPkTableOwner,
+    SQLCHAR * szPkTableName,
+    SQLSMALLINT cbPkTableName,
+    SQLCHAR * szFkTableQualifier,
+    SQLSMALLINT cbFkTableQualifier,
+    SQLCHAR * szFkTableOwner,
+    SQLSMALLINT cbFkTableOwner,
+    SQLCHAR * szFkTableName,
+    SQLSMALLINT cbFkTableName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLForeignKeys (TRACE_ENTER,
+  	hstmt,
+  	szPkTableQualifier, cbPkTableQualifier,
+	szPkTableOwner, cbPkTableOwner,
+	szPkTableName, cbPkTableName,
+	szFkTableQualifier, cbFkTableQualifier,
+	szFkTableOwner, cbFkTableOwner,
+	szFkTableName, cbFkTableName));
+
+  retcode = SQLForeignKeys_Internal(
+  	hstmt,
+  	szPkTableQualifier, cbPkTableQualifier,
+	szPkTableOwner, cbPkTableOwner,
+	szPkTableName, cbPkTableName,
+	szFkTableQualifier, cbFkTableQualifier,
+	szFkTableOwner, cbFkTableOwner,
+	szFkTableName, cbFkTableName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLForeignKeys (TRACE_LEAVE,
+  	hstmt,
+  	szPkTableQualifier, cbPkTableQualifier,
+	szPkTableOwner, cbPkTableOwner,
+	szPkTableName, cbPkTableName,
+	szFkTableQualifier, cbFkTableQualifier,
+	szFkTableOwner, cbFkTableOwner,
+	szFkTableName, cbFkTableName));
+}
+
+
+SQLRETURN SQL_API
+SQLForeignKeysA (SQLHSTMT hstmt,
+    SQLCHAR * szPkTableQualifier,
+    SQLSMALLINT cbPkTableQualifier,
+    SQLCHAR * szPkTableOwner,
+    SQLSMALLINT cbPkTableOwner,
+    SQLCHAR * szPkTableName,
+    SQLSMALLINT cbPkTableName,
+    SQLCHAR * szFkTableQualifier,
+    SQLSMALLINT cbFkTableQualifier,
+    SQLCHAR * szFkTableOwner,
+    SQLSMALLINT cbFkTableOwner,
+    SQLCHAR * szFkTableName,
+    SQLSMALLINT cbFkTableName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLForeignKeys (TRACE_ENTER,
+  	hstmt,
+  	szPkTableQualifier, cbPkTableQualifier,
+	szPkTableOwner, cbPkTableOwner,
+	szPkTableName, cbPkTableName,
+	szFkTableQualifier, cbFkTableQualifier,
+	szFkTableOwner, cbFkTableOwner,
+	szFkTableName, cbFkTableName));
+
+  retcode = SQLForeignKeys_Internal(
+  	hstmt,
+  	szPkTableQualifier, cbPkTableQualifier,
+	szPkTableOwner, cbPkTableOwner,
+	szPkTableName, cbPkTableName,
+	szFkTableQualifier, cbFkTableQualifier,
+	szFkTableOwner, cbFkTableOwner,
+	szFkTableName, cbFkTableName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLForeignKeys (TRACE_LEAVE,
+  	hstmt,
+  	szPkTableQualifier, cbPkTableQualifier,
+	szPkTableOwner, cbPkTableOwner,
+	szPkTableName, cbPkTableName,
+	szFkTableQualifier, cbFkTableQualifier,
+	szFkTableOwner, cbFkTableOwner,
+	szFkTableName, cbFkTableName));
+}
+
+
+SQLRETURN SQL_API
+SQLForeignKeysW (SQLHSTMT hstmt,
+    SQLWCHAR * szPkTableQualifier,
+    SQLSMALLINT cbPkTableQualifier,
+    SQLWCHAR * szPkTableOwner,
+    SQLSMALLINT cbPkTableOwner,
+    SQLWCHAR * szPkTableName,
+    SQLSMALLINT cbPkTableName,
+    SQLWCHAR * szFkTableQualifier,
+    SQLSMALLINT cbFkTableQualifier,
+    SQLWCHAR * szFkTableOwner,
+    SQLSMALLINT cbFkTableOwner,
+    SQLWCHAR * szFkTableName,
+    SQLSMALLINT cbFkTableName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLForeignKeysW (TRACE_ENTER,
+  	hstmt,
+  	szPkTableQualifier, cbPkTableQualifier,
+	szPkTableOwner, cbPkTableOwner,
+	szPkTableName, cbPkTableName,
+	szFkTableQualifier, cbFkTableQualifier,
+	szFkTableOwner, cbFkTableOwner,
+	szFkTableName, cbFkTableName));
+
+  retcode = SQLForeignKeys_Internal(
+  	hstmt,
+  	szPkTableQualifier, cbPkTableQualifier,
+	szPkTableOwner, cbPkTableOwner,
+	szPkTableName, cbPkTableName,
+	szFkTableQualifier, cbFkTableQualifier,
+	szFkTableOwner, cbFkTableOwner,
+	szFkTableName, cbFkTableName,
+	'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLForeignKeysW (TRACE_LEAVE,
+  	hstmt,
+  	szPkTableQualifier, cbPkTableQualifier,
+	szPkTableOwner, cbPkTableOwner,
+	szPkTableName, cbPkTableName,
+	szFkTableQualifier, cbFkTableQualifier,
+	szFkTableOwner, cbFkTableOwner,
+	szFkTableName, cbFkTableName));
+}
+
+
+SQLRETURN SQL_API
+SQLPrimaryKeys_Internal (
     SQLHSTMT hstmt,
-    SQLCHAR FAR * szTableQualifier,
+    SQLPOINTER szTableQualifier,
     SQLSMALLINT cbTableQualifier,
-    SQLCHAR FAR * szTableOwner,
+    SQLPOINTER szTableOwner,
     SQLSMALLINT cbTableOwner,
-    SQLCHAR FAR * szTableName,
-    SQLSMALLINT cbTableName)
+    SQLPOINTER szTableName,
+    SQLSMALLINT cbTableName,
+    SQLCHAR waMode)
 {
   STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
   HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
-  int sqlstat = en_00000;
-
-  ENTER_STMT (pstmt);
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
+  void * _TableQualifier = NULL;
+  void * _TableOwner = NULL;
+  void * _TableName = NULL;
 
   for (;;)
     {
@@ -763,10 +1755,43 @@ SQLPrimaryKeys (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_PrimaryKeys);
+      if ((penv->unicode_driver && waMode != 'W')
+          || (!penv->unicode_driver && waMode == 'W'))
+        {
+          if (waMode != 'W')
+            {
+            /* ansi=>unicode*/
+              _TableQualifier = _iodbcdm_conv_param_A2W(pstmt, 0, (SQLCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_A2W(pstmt, 1, (SQLCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_A2W(pstmt, 2, (SQLCHAR *)szTableName, cbTableName);
+            }
+          else
+            {
+            /* unicode=>ansi*/
+              _TableQualifier = _iodbcdm_conv_param_W2A(pstmt, 0, (SQLWCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_W2A(pstmt, 1, (SQLWCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_W2A(pstmt, 2, (SQLWCHAR *)szTableName, cbTableName);
+            }
+          szTableQualifier = _TableQualifier;
+          szTableOwner = _TableOwner;
+          szTableName = _TableName;
+          cbTableQualifier = SQL_NTS;
+          cbTableOwner = SQL_NTS;
+          cbTableName = SQL_NTS;
+        }
+
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_PrimaryKeys, (
+           pstmt->dhstmt,
+           szTableQualifier,
+           cbTableQualifier,
+           szTableOwner,
+           cbTableOwner,
+           szTableName,
+           cbTableName));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -780,45 +1805,140 @@ SQLPrimaryKeys (
 	break;
     }
 
+  if (retcode != SQL_STILL_EXECUTING)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   if (sqlstat != en_00000)
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_PrimaryKeys, (
-	  pstmt->dhstmt,
-	  szTableQualifier,
-	  cbTableQualifier,
-	  szTableOwner,
-	  cbTableOwner,
-	  szTableName,
-	  cbTableName));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_PrimaryKeys, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLProcedureColumns (
+SQLPrimaryKeys (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLPrimaryKeys (TRACE_ENTER,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName));
+
+  retcode = SQLPrimaryKeys_Internal (
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLPrimaryKeys (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName));
+}
+
+
+SQLRETURN SQL_API
+SQLPrimaryKeysA (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLPrimaryKeys (TRACE_ENTER,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName));
+
+  retcode = SQLPrimaryKeys_Internal (
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLPrimaryKeys (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName));
+}
+
+
+SQLRETURN SQL_API
+SQLPrimaryKeysW (SQLHSTMT hstmt,
+    SQLWCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLWCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLWCHAR * szTableName,
+    SQLSMALLINT cbTableName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLPrimaryKeysW (TRACE_ENTER,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName));
+
+  retcode = SQLPrimaryKeys_Internal (
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName,
+	'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLPrimaryKeysW (TRACE_LEAVE,
+	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName, cbTableName));
+}
+
+
+SQLRETURN SQL_API
+SQLProcedureColumns_Internal (
     SQLHSTMT hstmt,
-    SQLCHAR FAR * szProcQualifier,
+    SQLPOINTER szProcQualifier,
     SQLSMALLINT cbProcQualifier,
-    SQLCHAR FAR * szProcOwner,
+    SQLPOINTER szProcOwner,
     SQLSMALLINT cbProcOwner,
-    SQLCHAR FAR * szProcName,
+    SQLPOINTER szProcName,
     SQLSMALLINT cbProcName,
-    SQLCHAR FAR * szColumnName,
-    SQLSMALLINT cbColumnName)
+    SQLPOINTER szColumnName,
+    SQLSMALLINT cbColumnName,
+    SQLCHAR waMode)
 {
   STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
   HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
-  int sqlstat = en_00000;
-
-  ENTER_STMT (pstmt);
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
+  void * _ProcQualifier = NULL;
+  void * _ProcOwner = NULL;
+  void * _ProcName = NULL;
+  void * _ColumnName = NULL;
 
   for (;;)
     {
@@ -835,10 +1955,49 @@ SQLProcedureColumns (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_ProcedureColumns);
+      if ((penv->unicode_driver && waMode != 'W')
+          || (!penv->unicode_driver && waMode == 'W'))
+        {
+          if (waMode != 'W')
+            {
+            /* ansi=>unicode*/
+              _ProcQualifier = _iodbcdm_conv_param_A2W(pstmt, 0, (SQLCHAR *)szProcQualifier, cbProcQualifier);
+              _ProcOwner = _iodbcdm_conv_param_A2W(pstmt, 1, (SQLCHAR *)szProcOwner, cbProcOwner);
+              _ProcName = _iodbcdm_conv_param_A2W(pstmt, 2, (SQLCHAR *)szProcName, cbProcName);
+              _ColumnName = _iodbcdm_conv_param_A2W(pstmt, 3, (SQLCHAR *)szColumnName, cbColumnName);
+            }
+          else
+            {
+            /* unicode=>ansi*/
+              _ProcQualifier = _iodbcdm_conv_param_W2A(pstmt, 0, (SQLWCHAR *)szProcQualifier, cbProcQualifier);
+              _ProcOwner = _iodbcdm_conv_param_W2A(pstmt, 1, (SQLWCHAR *)szProcOwner, cbProcOwner);
+              _ProcName = _iodbcdm_conv_param_W2A(pstmt, 2, (SQLWCHAR *)szProcName, cbProcName);
+              _ColumnName = _iodbcdm_conv_param_W2A(pstmt, 3, (SQLWCHAR *)szColumnName, cbColumnName);
+            }
+          szProcQualifier = _ProcQualifier;
+          szProcOwner = _ProcOwner;
+          szProcName = _ProcName;
+          szColumnName = _ColumnName;
+          cbProcQualifier = SQL_NTS;
+          cbProcOwner = SQL_NTS;
+          cbProcName = SQL_NTS;
+          cbColumnName = SQL_NTS;
+        }
+
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_ProcedureColumns, (
+           pstmt->dhstmt,
+           szProcQualifier,
+           cbProcQualifier,
+           szProcOwner,
+           cbProcOwner,
+           szProcName,
+           cbProcName,
+           szColumnName,
+           cbColumnName));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -852,45 +2011,152 @@ SQLProcedureColumns (
 	break;
     }
 
+  if (retcode != SQL_STILL_EXECUTING)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   if (sqlstat != en_00000)
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_ProcedureColumns, (
-	  pstmt->dhstmt,
-	  szProcQualifier,
-	  cbProcQualifier,
-	  szProcOwner,
-	  cbProcOwner,
-	  szProcName,
-	  cbProcName,
-	  szColumnName,
-	  cbColumnName));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_ProcedureColumns, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLProcedures (
-    SQLHSTMT hstmt,
-    SQLCHAR FAR * szProcQualifier,
+SQLProcedureColumns (SQLHSTMT hstmt,
+    SQLCHAR * szProcQualifier,
     SQLSMALLINT cbProcQualifier,
-    SQLCHAR FAR * szProcOwner,
+    SQLCHAR * szProcOwner,
     SQLSMALLINT cbProcOwner,
-    SQLCHAR FAR * szProcName,
-    SQLSMALLINT cbProcName)
+    SQLCHAR * szProcName,
+    SQLSMALLINT cbProcName,
+    SQLCHAR * szColumnName,
+    SQLSMALLINT cbColumnName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLProcedureColumns (TRACE_ENTER,
+    	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	szColumnName, cbColumnName));
+
+  retcode = SQLProcedureColumns_Internal (
+  	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	szColumnName, cbColumnName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLProcedureColumns (TRACE_LEAVE,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	szColumnName, cbColumnName));
+}
+
+
+SQLRETURN SQL_API
+SQLProcedureColumnsA (SQLHSTMT hstmt,
+    SQLCHAR * szProcQualifier,
+    SQLSMALLINT cbProcQualifier,
+    SQLCHAR * szProcOwner,
+    SQLSMALLINT cbProcOwner,
+    SQLCHAR * szProcName,
+    SQLSMALLINT cbProcName,
+    SQLCHAR * szColumnName,
+    SQLSMALLINT cbColumnName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLProcedureColumns (TRACE_ENTER,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	szColumnName, cbColumnName));
+
+  retcode = SQLProcedureColumns_Internal (
+  	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	szColumnName, cbColumnName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLProcedureColumns (TRACE_LEAVE,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	szColumnName, cbColumnName));
+}
+
+
+SQLRETURN SQL_API
+SQLProcedureColumnsW (SQLHSTMT hstmt,
+    SQLWCHAR * szProcQualifier,
+    SQLSMALLINT cbProcQualifier,
+    SQLWCHAR * szProcOwner,
+    SQLSMALLINT cbProcOwner,
+    SQLWCHAR * szProcName,
+    SQLSMALLINT cbProcName,
+    SQLWCHAR * szColumnName,
+    SQLSMALLINT cbColumnName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLProcedureColumnsW (TRACE_ENTER,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	szColumnName, cbColumnName));
+
+  retcode = SQLProcedureColumns_Internal (
+  	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	szColumnName, cbColumnName,
+	'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLProcedureColumnsW (TRACE_LEAVE,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	szColumnName, cbColumnName));
+}
+
+
+SQLRETURN SQL_API
+SQLProcedures_Internal (
+    SQLHSTMT hstmt,
+    SQLPOINTER szProcQualifier,
+    SQLSMALLINT cbProcQualifier,
+    SQLPOINTER szProcOwner,
+    SQLSMALLINT cbProcOwner,
+    SQLPOINTER szProcName,
+    SQLSMALLINT cbProcName,
+    SQLCHAR waMode)
 {
   STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
   HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
-  int sqlstat = en_00000;
-
-  ENTER_STMT (pstmt);
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
+  void * _ProcQualifier = NULL;
+  void * _ProcOwner = NULL;
+  void * _ProcName = NULL;
 
   for (;;)
     {
@@ -906,10 +2172,43 @@ SQLProcedures (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_Procedures);
+      if ((penv->unicode_driver && waMode != 'W')
+          || (!penv->unicode_driver && waMode == 'W'))
+        {
+          if (waMode != 'W')
+            {
+            /* ansi=>unicode*/
+              _ProcQualifier = _iodbcdm_conv_param_A2W(pstmt, 0, (SQLCHAR *)szProcQualifier, cbProcQualifier);
+              _ProcOwner = _iodbcdm_conv_param_A2W(pstmt, 1, (SQLCHAR *)szProcOwner, cbProcOwner);
+              _ProcName = _iodbcdm_conv_param_A2W(pstmt, 2, (SQLCHAR *)szProcName, cbProcName);
+            }
+          else
+            {
+            /* unicode=>ansi*/
+              _ProcQualifier = _iodbcdm_conv_param_W2A(pstmt, 0, (SQLWCHAR *)szProcQualifier, cbProcQualifier);
+              _ProcOwner = _iodbcdm_conv_param_W2A(pstmt, 1, (SQLWCHAR *)szProcOwner, cbProcOwner);
+              _ProcName = _iodbcdm_conv_param_W2A(pstmt, 2, (SQLWCHAR *)szProcName, cbProcName);
+            }
+          szProcQualifier = _ProcQualifier;
+          szProcOwner = _ProcOwner;
+          szProcName = _ProcName;
+          cbProcQualifier = SQL_NTS;
+          cbProcOwner = SQL_NTS;
+          cbProcName = SQL_NTS;
+        }
+
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_Procedures, (
+           pstmt->dhstmt,
+           szProcQualifier,
+           cbProcQualifier,
+           szProcOwner,
+           cbProcOwner,
+           szProcName,
+           cbProcName));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -923,43 +2222,137 @@ SQLProcedures (
 	break;
     }
 
+  if (retcode != SQL_STILL_EXECUTING)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   if (sqlstat != en_00000)
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_Procedures, (
-	  pstmt->dhstmt,
-	  szProcQualifier,
-	  cbProcQualifier,
-	  szProcOwner,
-	  cbProcOwner,
-	  szProcName,
-	  cbProcName));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_Procedures, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLTablePrivileges (
+SQLProcedures (SQLHSTMT hstmt,
+    SQLCHAR * szProcQualifier,
+    SQLSMALLINT cbProcQualifier,
+    SQLCHAR * szProcOwner,
+    SQLSMALLINT cbProcOwner,
+    SQLCHAR * szProcName,
+    SQLSMALLINT cbProcName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLProcedures (TRACE_ENTER,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName));
+
+  retcode = SQLProcedures_Internal (
+  	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLProcedures (TRACE_LEAVE,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName));
+}
+
+
+SQLRETURN SQL_API
+SQLProceduresA (SQLHSTMT hstmt,
+    SQLCHAR * szProcQualifier,
+    SQLSMALLINT cbProcQualifier,
+    SQLCHAR * szProcOwner,
+    SQLSMALLINT cbProcOwner,
+    SQLCHAR * szProcName,
+    SQLSMALLINT cbProcName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLProcedures (TRACE_ENTER,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName));
+
+  retcode = SQLProcedures_Internal (
+  	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLProcedures (TRACE_LEAVE,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName));
+}
+
+
+SQLRETURN SQL_API
+SQLProceduresW (SQLHSTMT hstmt,
+    SQLWCHAR * szProcQualifier,
+    SQLSMALLINT cbProcQualifier,
+    SQLWCHAR * szProcOwner,
+    SQLSMALLINT cbProcOwner,
+    SQLWCHAR * szProcName,
+    SQLSMALLINT cbProcName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLProceduresW (TRACE_ENTER,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName));
+
+  retcode = SQLProcedures_Internal (
+  	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName,
+	'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLProceduresW (TRACE_LEAVE,
+	hstmt,
+	szProcQualifier, cbProcQualifier,
+	szProcOwner, cbProcOwner,
+	szProcName, cbProcName));
+}
+
+
+SQLRETURN SQL_API
+SQLTablePrivileges_Internal (
     SQLHSTMT hstmt,
-    SQLCHAR FAR * szTableQualifier,
+    SQLPOINTER szTableQualifier,
     SQLSMALLINT cbTableQualifier,
-    SQLCHAR FAR * szTableOwner,
+    SQLPOINTER szTableOwner,
     SQLSMALLINT cbTableOwner,
-    SQLCHAR FAR * szTableName,
-    SQLSMALLINT cbTableName)
+    SQLPOINTER szTableName,
+    SQLSMALLINT cbTableName,
+    SQLCHAR waMode)
 {
   STMT (pstmt, hstmt);
+  CONN (pdbc, pstmt->hdbc);
+  ENVR (penv, pdbc->henv);
   HPROC hproc = SQL_NULL_HPROC;
-  SQLRETURN retcode;
-  int sqlstat = en_00000;
-
-  ENTER_STMT (pstmt);
+  SQLRETURN retcode = SQL_SUCCESS;
+  sqlstcode_t sqlstat = en_00000;
+  void * _TableQualifier = NULL;
+  void * _TableOwner = NULL;
+  void * _TableName = NULL;
 
   for (;;)
     {
@@ -975,10 +2368,43 @@ SQLTablePrivileges (
 
       if (retcode != SQL_SUCCESS)
 	{
-	  LEAVE_STMT (pstmt, SQL_ERROR);
+	  return SQL_ERROR;
 	}
 
-      hproc = _iodbcdm_getproc (pstmt->hdbc, en_TablePrivileges);
+      if ((penv->unicode_driver && waMode != 'W')
+          || (!penv->unicode_driver && waMode == 'W'))
+        {
+          if (waMode != 'W')
+            {
+            /* ansi=>unicode*/
+              _TableQualifier = _iodbcdm_conv_param_A2W(pstmt, 0, (SQLCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_A2W(pstmt, 1, (SQLCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_A2W(pstmt, 2, (SQLCHAR *)szTableName, cbTableName);
+            }
+          else
+            {
+            /* unicode=>ansi*/
+              _TableQualifier = _iodbcdm_conv_param_W2A(pstmt, 0, (SQLWCHAR *)szTableQualifier, cbTableQualifier);
+              _TableOwner = _iodbcdm_conv_param_W2A(pstmt, 1, (SQLWCHAR *)szTableOwner, cbTableOwner);
+              _TableName = _iodbcdm_conv_param_W2A(pstmt, 2, (SQLWCHAR *)szTableName, cbTableName);
+            }
+          szTableQualifier = _TableQualifier;
+          szTableOwner = _TableOwner;
+          szTableName = _TableName;
+          cbTableQualifier = SQL_NTS;
+          cbTableOwner = SQL_NTS;
+          cbTableName = SQL_NTS;
+        }
+
+      CALL_UDRIVER(pstmt->hdbc, pstmt, retcode, hproc, penv->unicode_driver,
+        en_TablePrivileges, (
+           pstmt->dhstmt,
+           szTableQualifier,
+           cbTableQualifier,
+           szTableOwner,
+           cbTableOwner,
+           szTableName,
+           cbTableName));
 
       if (hproc == SQL_NULL_HPROC)
 	{
@@ -992,17 +2418,112 @@ SQLTablePrivileges (
 	break;
     }
 
+  if (retcode != SQL_STILL_EXECUTING)
+    _iodbcdm_FreeStmtParams(pstmt);
+
   if (sqlstat != en_00000)
     {
       PUSHSQLERR (pstmt->herr, sqlstat);
 
-      LEAVE_STMT (pstmt, SQL_ERROR);
+      return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_TablePrivileges,
-      (pstmt->dhstmt, szTableQualifier, cbTableQualifier, szTableOwner,
-	  cbTableOwner, szTableName, cbTableName));
-
   retcode = _iodbcdm_cata_state_tr (pstmt, en_TablePrivileges, retcode);
-  LEAVE_STMT (pstmt, retcode);
+  return retcode;
+}
+
+
+SQLRETURN SQL_API
+SQLTablePrivileges (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLTablePrivileges (TRACE_ENTER,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName,cbTableName));
+
+  retcode = SQLTablePrivileges_Internal(
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName,cbTableName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLTablePrivileges (TRACE_LEAVE,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName,cbTableName));
+}
+
+
+SQLRETURN SQL_API
+SQLTablePrivilegesA (SQLHSTMT hstmt,
+    SQLCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLCHAR * szTableName,
+    SQLSMALLINT cbTableName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLTablePrivileges (TRACE_ENTER,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName,cbTableName));
+
+  retcode = SQLTablePrivileges_Internal(
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName,cbTableName,
+	'A');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLTablePrivileges (TRACE_LEAVE,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName,cbTableName));
+}
+
+
+SQLRETURN SQL_API
+SQLTablePrivilegesW (SQLHSTMT hstmt,
+    SQLWCHAR * szTableQualifier,
+    SQLSMALLINT cbTableQualifier,
+    SQLWCHAR * szTableOwner,
+    SQLSMALLINT cbTableOwner,
+    SQLWCHAR * szTableName,
+    SQLSMALLINT cbTableName)
+{
+  ENTER_STMT (hstmt,
+    trace_SQLTablePrivilegesW (TRACE_ENTER,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName,cbTableName));
+
+  retcode = SQLTablePrivileges_Internal(
+  	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName,cbTableName,
+	'W');
+
+  LEAVE_STMT (hstmt,
+    trace_SQLTablePrivilegesW (TRACE_LEAVE,
+    	hstmt,
+	szTableQualifier, cbTableQualifier,
+	szTableOwner, cbTableOwner,
+	szTableName,cbTableName));
 }

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2004-09-12</string>
+	<key>OpenSourceLicense</key>
+	<string>other</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>net-snmp.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>&lt;rdar://problem/3732918&gt; BUILD FAILURE: net_snmp-11 is failing to build in Tiger</string>
+		<string>&lt;rdar://problem/3778178&gt; net_snmp should not use SIOCADDRT</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>net-snmp</string>
+	<key>OpenSourceSHA1</key>
+	<string>3e1d3a662af0c9948bf5245c3d4501ebce8e0373</string>
+	<key>OpenSourceURL</key>
+	<string>http://unc.dl.sourceforge.net/sourceforge/net-snmp/net-snmp-5.2.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>5.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://net-snmp.sourceforge.net/</string>
+</dict>
+</plist>
